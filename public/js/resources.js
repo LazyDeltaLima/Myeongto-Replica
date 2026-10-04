@@ -50,6 +50,14 @@ export function sourcesOf(f) {
   return [mirror, f.u].filter(Boolean);
 }
 
+/** Paths the list may name: under /assets/ or /img/emotes/, no query / fragment / escapes / backslashes / dot segments. */
+const PATH_RE = /^\/(assets|img\/emotes)\/[^?#%\\]+$/;
+export const validPath = (p) => typeof p === 'string' && PATH_RE.test(p) && !p.split('/').some((seg) => seg === '.' || seg === '..');
+
+/** List entries the page will act on: a valid path, a size and a sha256 (anything else is ignored). */
+export const validEntry = (f) => !!f && validPath(f.p) && Number.isInteger(f.s) && f.s >= 0 && typeof f.h === 'string' && /^[0-9a-f]{64}$/.test(f.h)
+  && (f.u === undefined || (typeof f.u === 'string' && sourcesOf(f).length > 0));
+
 /** Download order: what the screens show first (UI, portraits, icons, board) before models, then audio. */
 export function priorityOf(p) {
   if (p.startsWith('/img/')) return 0;
@@ -95,7 +103,8 @@ async function reconcile() {
   for (const req of await cache.keys()) {
     if (req.url === stateKey) continue;
     const p = new URL(req.url).pathname;
-    const key = decodeURIComponent(p);
+    let key;
+    try { key = decodeURIComponent(p); } catch { key = p; }
     const h = state[key];
     if (!h || want.get(key) !== h) { await cache.delete(req); changed = true; }
   }
@@ -179,15 +188,23 @@ export function postponeResources() {
   resStore.set({ phase: 'idle' });
 }
 
+/** The server has no list (feature turned off): drop the cache and the worker, so nothing old is ever served. */
+async function switchOff() {
+  try { await caches.delete(CACHE); } catch { /* ignore */ }
+  try { for (const r of await navigator.serviceWorker.getRegistrations()) if (r.active?.scriptURL?.endsWith('/resource-worker.js')) await r.unregister(); } catch { /* ignore */ }
+}
+
 /** Register the worker, sync the cache with the list and start (or ask). Never throws. */
 export async function installResources() {
   if (!supported()) return;
   try {
-    await navigator.serviceWorker.register('/resource-worker.js', { scope: '/' });
     const res = await fetch(INDEX, { cache: 'no-cache' });
-    if (!res.ok) return; // no list on this server: everything loads from the server as before
+    if (res.status === 404) { await switchOff(); return; } // no list on this server: everything loads from the server as before
+    await navigator.serviceWorker.register('/resource-worker.js', { scope: '/' });
+    if (!res.ok) return; // a passing failure: keep serving what is cached, try again on the next visit
     index = await res.json();
     if (!index || !Array.isArray(index.files)) return;
+    index.files = index.files.filter(validEntry);
     pending = await reconcile();
     setPending();
     if (!pending.length) { resStore.set({ phase: 'done', total: 0 }); return; }

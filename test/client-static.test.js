@@ -1093,6 +1093,17 @@ describe('screen helpers', () => {
       .sort((a, b) => priorityOf(a) - priorityOf(b));
     assert.deepEqual(order.map(priorityOf), [0, 0, 1, 2, 3, 5]);
     assert.equal(order.at(-1), '/assets/audio/bgm/a.mp3');
+    // the list is validated before the page acts on it (security review 2026-10-04)
+    const { validPath, validEntry } = await mod('resources.js');
+    for (const p of ['/assets/ui/a.png', '/assets/local/map/x y.png', '/img/emotes/a0.webp']) assert.equal(validPath(p), true, p);
+    for (const p of ['//evil.host/x.png', '/assets/../server/index.js', '/assets/./a.png', '/assets/a.png?x', '/assets/a%2e.png', '/assets/a\\b.png',
+      '/js/main.js', '/img/other.png', 'assets/a.png', null]) assert.equal(validPath(p), false, String(p));
+    const h = 'a'.repeat(64);
+    assert.equal(validEntry({ p: '/assets/a.png', s: 1, h }), true);
+    assert.equal(validEntry({ p: '/assets/a.png', s: 1, h, u: raw }), true);
+    assert.equal(validEntry({ p: '/assets/a.png', s: 1, h, u: 'https://evil.host/a.png' }), false, 'unknown upstream host');
+    assert.equal(validEntry({ p: '/assets/a.png', s: 1, h: 'xyz' }), false, 'bad hash');
+    assert.equal(validEntry({ p: '/assets/a.png', h }), false, 'no size');
   });
 
   test('components: roman / doctorNo / secondsLeft', async () => {
