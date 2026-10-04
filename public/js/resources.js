@@ -120,6 +120,8 @@ async function reconcile() {
 }
 
 async function fetchOne(f) {
+  // the worker may have stored it on demand since the list was made (the game needed it first): adopt, no download
+  if ((await cache.match(f.p))?.headers.get('X-SP-Hash') === f.h) { state[f.p] = f.h; return true; }
   let last = 'no source';
   for (const url of sourcesOf(f)) {
     try {
