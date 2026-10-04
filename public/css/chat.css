@@ -120,3 +120,61 @@
 
 /* briefing / draft / result screens: the 聊天 button floats bottom-left */
 .gchat-float { position: fixed; left: calc(.24rem + var(--sa-l, 0px)); bottom: calc(.24rem + var(--sa-b, 0px)); z-index: 40; }
+
+/* ---- chat faction (local NAS patch): tag after the name, chip left of the input, picker above it ---------------- */
+.chat__faction { margin-left: .04rem; font-weight: 700; }
+.chat__line--sys .chat__name::after { content: ''; }
+.chat__line--sys .chat__text { color: var(--text-lo); }
+.chat__fac { position: relative; flex: none; display: flex; }
+.chat__facbtn {
+  min-width: .56rem; height: .44rem; padding: 0 .08rem; border: 1px solid var(--line-2); border-radius: .03rem;
+  background: rgba(0, 0, 0, .45); color: var(--text-lo); font-size: max(.14rem, 12px); font-weight: 700; white-space: nowrap;
+}
+.chat__facbtn.is-set { display: grid; place-items: center; min-width: .44rem; color: var(--fac); border-color: var(--fac); }
+.chat__facico {
+  flex: none; display: inline-block; width: max(.24rem, 18px); height: max(.24rem, 18px);
+  background: var(--fac); -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat;
+}
+.chat__facbtn:disabled { opacity: .5; }
+.chat__facs {
+  position: absolute; left: 0; bottom: calc(100% + .06rem); z-index: 8; width: max(2.6rem, 200px);
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: .04rem; padding: .06rem;
+  background: rgba(8, 11, 10, .96); border: 1px solid var(--line-2); border-radius: .04rem; box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .5);
+}
+.chat__facs button {
+  display: flex; align-items: center; gap: .06rem;
+  height: max(.36rem, 28px); padding: 0 .08rem; border: 1px solid transparent; border-radius: .03rem;
+  background: rgba(255, 255, 255, .04); color: var(--fac); font-size: max(.15rem, 12px); font-weight: 700; text-align: left;
+}
+.chat__facs button:hover, .chat__facs button.is-on { background: rgba(255, 255, 255, .1); border-color: var(--fac); }
+
+/* faction avatar (ui/faction.js FactionGlyph): the tinted nation icon, the name's first letter small under it; sized
+   from its avatar box (--av: room seat card AvatarFrame, --pa: PlayerAvatar in the team panel / draft / result) */
+.avatar .fglyph { --fg: var(--av); }
+.pavatar .fglyph { --fg: var(--pa); }
+.fglyph {
+  --fg: 1rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--fg) * .02);
+}
+.fglyph__ico {
+  flex: none; width: calc(var(--fg) * .6); height: calc(var(--fg) * .6); background: var(--fac);
+  -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat;
+  filter: drop-shadow(0 0 calc(var(--fg) * .04) rgba(0, 0, 0, .55));
+}
+.fglyph__ch { font-size: calc(var(--fg) * .2); font-weight: 900; line-height: 1; color: var(--text-hi, #f2f2f2); opacity: .9; }
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  /* as tall as the 34 px touch input (the faction rules above come after the touch block) */
+  .chat__facbtn, .chat__facbtn.is-set { height: 34px; min-width: 34px; }
+}
+
+/* faction badge on a strategy icon (PlayerAvatar): bottom-right corner, over the icon */
+.pavatar__fac {
+  position: absolute; right: calc(var(--pa) * -.08); bottom: calc(var(--pa) * -.08); z-index: 1;
+  width: calc(var(--pa) * .4); height: calc(var(--pa) * .4); min-width: 12px; min-height: 12px;
+  display: grid; place-items: center; background: rgba(8, 11, 10, .92); border: 1px solid var(--line-2); border-radius: 22%;
+}
+.pavatar__facico {
+  width: 78%; height: 78%; background: var(--fac);
+  -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat;
+}

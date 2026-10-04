@@ -19,7 +19,7 @@ import { sanitizeName, TokenBucket, SessionRegistry, clientAddress, normalizeIp,
 import { StubMatch as Match } from '../server/match/StubMatch.js';
 import { Match as RealMatch } from '../server/match/Match.js';
 import { TestClient } from './helpers/wsClient.js';
-import { ERR, MAX_SEATS, PHASE, CHAT_MAX_LEN } from '../shared/constants.js';
+import { ERR, MAX_SEATS, PHASE, CHAT_MAX_LEN, CHAT_COOLDOWN_MS } from '../shared/constants.js';
 
 const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{4}$`);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -543,7 +543,7 @@ describe('websocket lobby', () => {
     assert.equal(st.difficulty, 'HARD');
     assert.equal(st.inMatch, false);
     assert.equal(st.seats.length, MAX_SEATS);
-    assert.deepEqual(st.seats[0], { seat: 0, playerId: host.id, name: 'Host', isBot: false, ready: false, connected: true });
+    assert.deepEqual(st.seats[0], { seat: 0, playerId: host.id, name: 'Host', isBot: false, ready: false, connected: true, chatFaction: null });
     assert.deepEqual(st.seats.slice(1), [null, null, null]);
 
     const guest = await pool.player('Guest');
@@ -634,6 +634,35 @@ describe('websocket lobby', () => {
     await expectError(lone, { t: 'room.chat', text: 'hello?' }, ERR.NOT_IN_ROOM);
     await createRoom(lone, 'solo', 'FUNNY');
     await expectError(lone, { t: 'room.chat', text: 'hello?' }, ERR.BAD_MSG);
+  });
+
+  test('chat faction: announced line, tag on later lines and in room.state, cleared when the match ends (local NAS patch)', async () => {
+    const host = await pool.player('Flag');
+    const st = await createRoom(host);
+    const guest = await pool.player('Seen');
+    await joinRoom(guest, st.code);
+
+    await expectOk(host, { t: 'room.chatFaction', faction: 'siracusa' });
+    const line = await guest.waitFor('room.chat');
+    assert.deepEqual([line.kind, line.faction, line.playerId, line.text], ['faction', 'siracusa', host.id, '']);
+    assert.equal(seatOf(await guest.waitFor('room.state', (s) => seatOf(s, host.id)?.chatFaction), host.id).chatFaction, 'siracusa');
+    await expectError(host, { t: 'room.chatFaction', faction: 'yan' }, ERR.RATE); // shares the chat cooldown
+    await expectError(host, { t: 'room.chatFaction', faction: 'rhodes' }, ERR.BAD_MSG);
+
+    await expectOk(guest, { t: 'room.ready', ready: true });
+    await new Promise((r) => setTimeout(r, CHAT_COOLDOWN_MS + 20));
+    await expectOk(host, { t: 'room.start' });
+    await host.waitFor('room.state', (s) => s.inMatch);
+    await expectOk(host, { t: 'room.chat', text: 'go' });
+    assert.equal((await guest.waitFor('room.chat', (m) => m.text === 'go')).faction, 'siracusa');
+
+    host.clearInbox();
+    await expectOk(host, { t: 'g.infoReady' });
+    await expectOk(guest, { t: 'g.infoReady' });
+    const back = await host.waitFor('room.state', (s) => !s.inMatch);
+    assert.equal(seatOf(back, host.id).chatFaction, null);
+    await expectOk(guest, { t: 'room.chat', text: 'gg' });
+    assert.equal((await host.waitFor('room.chat', (m) => m.text === 'gg')).faction, null);
   });
 
   test('room.state carries SP_MAX_BOTS as maxBots (null when unset)', async () => {
@@ -824,7 +853,7 @@ describe('websocket lobby', () => {
     assert.equal(w.token, guest.token);
     const restored = await back.waitFor('room.state');
     assert.equal(restored.code, st.code);
-    assert.deepEqual(seatOf(restored, guest.id), { seat: 1, playerId: guest.id, name: 'Guest2', isBot: false, ready: true, connected: true });
+    assert.deepEqual(seatOf(restored, guest.id), { seat: 1, playerId: guest.id, name: 'Guest2', isBot: false, ready: true, connected: true, chatFaction: null });
     await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.connected === true);
 
     // an unknown token just creates a new identity

@@ -1235,7 +1235,7 @@ function MatchScreen() {
       <${Ticker} />
 
       <div class="gm__corner">
-        <${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id) => actions.emote(id)} disabled=${conn.status !== 'online'} />
+        <${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id, set) => actions.emote(id, set)} disabled=${conn.status !== 'online'} />
         ${solo ? null : html`<${GameChat} open=${chatOpen} onToggle=${(v) => { setChatOpen(v); if (v) setEmoteOpen(false); }} disabled=${conn.status !== 'online'} />`}
         <button type="button" class="gm__gear" aria-label="设置" title="设置" onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
         <button type="button" class="gm__gear gm__guide" aria-label="玩法说明" title="玩法说明" onClick=${() => openGuide(0)}><${Icon} name="book" /></button>

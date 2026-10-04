@@ -675,10 +675,11 @@ export function Spinner({ size = 'md', label, tone = 'mint', class: cls }) {
 const SEAT_HUES = [162, 196, 38, 280];
 /**
  * Square avatar frame with bracket corners. Falls back to a glyph (first letter / robot).
+ * `mark` (local NAS patch): content shown instead of the first letter (ui/faction.js FactionGlyph), when not null.
  * @param {{ name?: string, src?: string, size?: 'sm'|'md'|'lg'|'xl', seat?: number, host?: boolean, bot?: boolean,
- *   self?: boolean, ready?: boolean, offline?: boolean, dead?: boolean, empty?: boolean, class?: string }} props
+ *   self?: boolean, ready?: boolean, offline?: boolean, dead?: boolean, empty?: boolean, mark?: any, class?: string }} props
  */
-export function AvatarFrame({ name = '', src, size = 'md', seat = 0, host, bot, self, ready, offline, dead, empty, class: cls }) {
+export function AvatarFrame({ name = '', src, size = 'md', seat = 0, host, bot, self, ready, offline, dead, empty, mark = null, class: cls }) {
   const [badSrc, setBadSrc] = useState(null);
   const imgOk = !!src && badSrc !== src;
   const hue = SEAT_HUES[((seat | 0) % 4 + 4) % 4];
@@ -689,7 +690,7 @@ export function AvatarFrame({ name = '', src, size = 'md', seat = 0, host, bot, 
       ${empty ? html`<${Icon} name="plus" class="avatar__empty" />`
         : imgOk ? html`<img src=${src} alt="" draggable=${false} onError=${() => setBadSrc(src)} />`
         : bot ? html`<${Icon} name="robot" class="avatar__bot" />`
-        : html`<span class="avatar__glyph">${glyph}</span>`}
+        : mark || html`<span class="avatar__glyph">${glyph}</span>`}
     </div>
     ${host ? html`<span class="avatar__badge avatar__badge--host" title="创建者"><${Icon} name="crown" /></span>` : null}
     ${self ? html`<span class="avatar__badge avatar__badge--self" title="你"><${Icon} name="user" /></span>` : null}

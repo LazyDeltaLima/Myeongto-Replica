@@ -1,0 +1,25 @@
+/* Background resource download (local NAS patch, public/js/resources.js): the one-time consent card and the progress
+   pill, bottom-right on the title / lobby / room screens (never shown over the match HUD). On short screens (landscape
+   phones) the card covers the lobby's main button there, so it becomes a centered dialog over a dimmed screen. */
+
+.res-ask, .res-pill {
+  position: fixed; right: .24rem; bottom: .24rem; z-index: 60;
+  background: rgba(8, 11, 10, .94); border: 1px solid var(--line-2); border-radius: .04rem;
+  box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .45); color: var(--text-md);
+}
+.res-ask { width: max(3.6rem, 260px); padding: .16rem .18rem; font-size: max(.16rem, 13px); line-height: 1.5; }
+.res-ask strong { display: block; color: var(--mint-500); font-size: max(.17rem, 14px); letter-spacing: .04em; }
+.res-ask p { margin: .06rem 0 0; }
+.res-ask__size { color: var(--text-hi, #fff); font-weight: 700; }
+.res-ask__btns { display: flex; gap: .08rem; margin-top: .12rem; }
+.res-ask__btns button { flex: 1; height: max(.4rem, 32px); border: 1px solid var(--line-2); border-radius: .03rem; color: var(--text-md); }
+.res-ask__btns .res-ask__yes { background: var(--mint-600); border-color: var(--mint-500); color: #061310; font-weight: 700; }
+.res-ask__btns button:hover { filter: brightness(1.12); }
+.res-pill { padding: .06rem .14rem; font-size: max(.14rem, 12px); opacity: .85; pointer-events: none; }
+.res-pill b { color: var(--mint-400); }
+.res-pill.is-err { color: var(--orange); }
+
+@media (max-height: 540px) {
+  .res-ask-wrap { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(0, 0, 0, .55); }
+  .res-ask { position: static; width: min(340px, 80vw); }
+}

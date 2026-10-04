@@ -49,6 +49,8 @@ import { LoadoutHost } from './screens/loadout.js';
 import { installLoadoutSync } from './ui/loadoutSync.js';
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
+import { installResources, ResourceHost } from './resources.js';
+import { emoteSet } from '../../shared/emote-art.js';
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;
@@ -230,7 +232,7 @@ function wireNet() {
     store.set((s) => ({ ticker: [...s.ticker.slice(-(TICKER_KEEP - 1)), { id: ++seq, text: msg.text, at: Date.now(), type, playerId, round: s.match?.public?.round ?? null, priority }] }));
   });
   net.on('m.emote', (msg) => {
-    store.set((s) => ({ emotes: [...s.emotes.slice(-(EMOTE_KEEP - 1)), { seq: ++seq, playerId: msg.playerId, id: msg.id, at: Date.now() }] }));
+    store.set((s) => ({ emotes: [...s.emotes.slice(-(EMOTE_KEEP - 1)), { seq: ++seq, playerId: msg.playerId, id: msg.id, set: emoteSet(msg.set), at: Date.now() }] }));
   });
 
   // Entering (title → lobby) while already online also needs the deep-link join.
@@ -277,6 +279,7 @@ function App() {
     <${ConnectionBanner} />
     <${ToastHost} />
     <${UiHosts} />
+    <${ResourceHost} />
     <${GuideHost} />
     <${LoadoutHost} />
   </div>`;
@@ -333,6 +336,7 @@ async function boot() {
   wireNet();
   installLoadoutSync({ net });
   installChat();
+  installResources();
   net.attachBrowserHooks();
   // Audio: unlock on first gesture, BGM follows the route / match phase (js/audio.js).
   installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });

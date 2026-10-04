@@ -8,7 +8,8 @@
 // Solo rooms show a single seat.
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, chatFaction } from '../../../shared/constants.js';
+import { FactionGlyph } from '../ui/faction.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo,
 } from '../ui/components.js';
@@ -115,7 +116,9 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot 
     </header>
     <div class="seat__art">
       <div class="seat__stripes" aria-hidden="true"></div>
-      <${AvatarFrame} size="xl" name=${seat.name} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline} />
+      <${AvatarFrame} size="xl" name=${seat.name} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline}
+        mark=${!seat.isBot && chatFaction(seat.chatFaction) ? html`<${FactionGlyph} f=${chatFaction(seat.chatFaction)} name=${seat.name}
+          fallback=${html`<span class="avatar__glyph">${[...(seat.name || '').trim()][0] || '?'}</span>`} />` : null} />
       ${seat.isBot ? html`<span class="seat__bot-label"><${Icon} name="robot" />AI 队友</span>` : null}
     </div>
     <div class="seat__who">

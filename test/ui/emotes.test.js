@@ -267,6 +267,35 @@ describe('public/js/ui/emotes.js helpers', () => {
     }
   });
 
+  test('emote sets (local NAS patch): user pictures for all 36 ids on disk; official tab only the themes with art', async () => {
+    const { USER_EMOTE_PAGES, userEmoteArt, emoteSet } = await import('../../shared/emote-art.js');
+    const { EMOTES } = await import('../../shared/constants.js');
+    const { existsSync } = await import('node:fs');
+    const paths = EMOTES.map(userEmoteArt);
+    assert.equal(new Set(paths).size, 36);
+    for (const p of paths) assert.ok(existsSync(new URL(`../../public${p}`, import.meta.url)), p);
+    assert.deepEqual(USER_EMOTE_PAGES.map((pg) => pg.emotes.length), [6, 6, 6, 6, 6, 6]);
+    assert.deepEqual(USER_EMOTE_PAGES.flatMap((pg) => pg.emotes.map((e) => e.id)).sort(), [...EMOTES].sort());
+    for (const id of ['__proto__', 'happy', null]) assert.equal(userEmoteArt(id), null);
+    assert.deepEqual(['user', 'official', undefined, 'x'].map(emoteSet), ['user', 'official', 'official', 'official']);
+
+    globalThis.fetch = async (url) => (String(url).endsWith('/local-assets.json')
+      ? { ok: true, status: 200, json: async () => manifest } : { ok: false, status: 404, json: async () => ({}) });
+    try {
+      const { data } = await import('../../public/js/data.js');
+      await data.invalidate('local');
+      await data.load('local');
+      await data.load('assets').catch(() => {});
+      const { emotePages, emoteSetArtUrls } = await import('../../public/js/ui/emotes.js');
+      assert.deepEqual(emotePages('official').map((p) => p.themeId), ['emoticon_foolsday_doctor']);
+      assert.equal(emotePages('user'), USER_EMOTE_PAGES);
+      assert.deepEqual(emoteSetArtUrls('autochess_battle_fooldoctor_06', 'user'), [userEmoteArt('autochess_battle_fooldoctor_06')]);
+      assert.deepEqual(emoteSetArtUrls('autochess_battle_fooldoctor_06', 'official'), ['/assets/local/emoticon/fooldoctor/pic_fooldoctor_08_battle.png']);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
   test('pager helpers: clamp, swipe threshold, remembered theme', async () => {
     const { clampPage, swipeStep, themeIndex, lastThemeIndex, rememberTheme } = await import('../../public/js/ui/emotes.js');
     assert.deepEqual([clampPage(-3), clampPage(2), clampPage(99), clampPage('x'), clampPage(2.7)], [0, 2, 5, 0, 2]);

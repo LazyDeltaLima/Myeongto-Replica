@@ -120,6 +120,7 @@
 
 import { C2S, unitStatsEntry } from '../../shared/protocol.js';
 import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, GEO, modeIdFor, layerGainRoom } from '../../shared/constants.js';
+import { emoteSet } from '../../shared/emote-art.js';
 import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
@@ -951,7 +952,7 @@ export class Match {
       case 'g.reward': return ps.pickReward(msg.idx);
       case 'g.choice': return this.pickCard(ps, msg.idx);
       case 'g.ready': return ps.setReady(!!msg.ready);
-      case 'g.emote': return this.emote(ps, msg.id);
+      case 'g.emote': return this.emote(ps, msg.id, msg.set);
       case 'g.watch': return this.watch(ps, msg.fieldId);
       case 'g.autoplay': return this.setAutoplay(ps, !!msg.on);
       case 'g.pause': return this.setPause(ps, !!msg.on);
@@ -964,12 +965,13 @@ export class Match {
     }
   }
 
-  emote(ps, id) {
+  emote(ps, id, set) {
     if (!EMOTES.includes(id)) return fail(ERR.BAD_MSG, 'unknown emote');
     const now = this.sched.now();
     if (now - ps.lastEmoteAt < EMOTE_COOLDOWN_MS) return fail(ERR.RATE);
     ps.lastEmoteAt = now;
-    this.broadcast({ t: 'm.emote', playerId: ps.playerId, id });
+    // set: the picture set the sender picked (local NAS patch, shared/emote-art.js)
+    this.broadcast({ t: 'm.emote', playerId: ps.playerId, id, set: emoteSet(set) });
     return OK;
   }
 

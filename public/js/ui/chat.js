@@ -4,8 +4,13 @@
 // Wire (server/lobby.js chat): room.chat { text } → the room gets room.chat { seq, playerId, name, text, at }; a player
 // who joins or resyncs gets room.chatlog { lines } (the last CHAT_HISTORY lines). Nothing outlives the room.
 //
-//   installChat()  net → store.chat { code, lines }: lines of the current room only (cleared when the room changes),
-//                  each stamped with its local receipt time `rx` (0 for history lines, which never pop up as new)
+//   installChat()  net → store.chat { code, lines, seen }: lines of the current room only (cleared when the room
+//                  changes), each stamped with its local receipt time `rx` (0 for history lines, which never pop up as
+//                  new). `seen` is the last seq the player has read: kept in the store, not in a panel, so the unread
+//                  badge and the floating feed survive the screen / match-phase switches that remount the panels;
+//                  history lines a player gets on joining or resyncing count as read.
+//   FactionPicker  the chat faction (server/lobby.js chatFaction): a colored tag on the player's lines until the match
+//                  ends; picking one announces it as a `kind: 'faction'` line
 //   RoomChat       the room screen's panel: log + input, folds to a button (unread count while folded)
 //   GameChat       the match: a 聊天 button beside 交流 (unread badge) + panel above it; while it is closed, new lines
 //                  of the others float above the corner for a few seconds. Enter opens it, Esc closes it.
@@ -13,10 +18,12 @@
 // Styles: public/css/chat.css.
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS } from '../../../shared/constants.js';
+import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction } from '../../../shared/constants.js';
 import { html } from './components.js';
 import { net } from '../net.js';
 import { store, useStore, loadPref, savePref } from '../store.js';
+import { tr } from '../i18n/i18n.js';
+import { FactionIcon, factionIconUrl } from './faction.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const KEEP = 60;            // lines kept on the client
@@ -53,6 +60,20 @@ export function feedLines(lines, { myId, seenSeq, now }) {
   return lines.filter((l) => l.seq > seenSeq && l.playerId !== myId && l.rx > 0 && now - l.rx < FEED_MS).slice(-FEED_MAX);
 }
 
+/**
+ * Read mark after a history batch (join / resync): the lines the player had not received yet count as read, so a
+ * folded chat never shows old conversation as unread.
+ * @param {any[]} known lines already kept
+ * @param {any[]} history
+ * @param {number} seen
+ */
+export function historySeen(known, history, seen) {
+  const have = new Set(known.map((l) => l.seq));
+  let out = seen;
+  for (const l of history) if (l && Number.isInteger(l.seq) && !have.has(l.seq)) out = Math.max(out, l.seq);
+  return out;
+}
+
 /** Others' lines newer than `seenSeq`. */
 export const unreadCount = (lines, myId, seenSeq) => lines.filter((l) => l.seq > seenSeq && l.playerId !== myId).length;
 
@@ -63,15 +84,42 @@ export function installChat() {
     const code = roomCode();
     if (!code) return;
     const cur = store.get().chat;
-    const base = cur && cur.code === code ? cur.lines : [];
-    store.set({ chat: { code, lines: mergeLines(base, incoming.map((l) => ({ ...l, rx: rx ? Date.now() : 0 }))) } });
+    const same = cur && cur.code === code;
+    const base = same ? cur.lines : [];
+    const seen = rx ? (same ? cur.seen || 0 : 0) : historySeen(base, incoming, same ? cur.seen || 0 : 0);
+    store.set({ chat: { code, lines: mergeLines(base, incoming.map((l) => ({ ...l, rx: rx ? Date.now() : 0 }))), seen } });
   };
   net.on('room.chat', (m) => put([m], true));
   net.on('room.chatlog', (m) => put(Array.isArray(m.lines) ? m.lines : [], false));
   store.subscribe((s) => {
     const code = s.room?.code ?? null;
-    if ((s.chat?.code ?? null) !== code) store.set({ chat: { code, lines: [] } });
+    if ((s.chat?.code ?? null) !== code) store.set({ chat: { code, lines: [], seen: 0 } });
   });
+}
+
+/** Mark the room's lines up to `seq` as read. */
+function markRead(seq) {
+  const cur = store.get().chat;
+  if (cur && seq > (cur.seen || 0)) store.set({ chat: { ...cur, seen: seq } });
+}
+
+/** A line's faction tag `(炎国)` in its color, or nothing. */
+function FactionTag({ id }) {
+  const f = chatFaction(id);
+  return f ? html`<span class="chat__faction" style=${`color:${f.color}`}>(${tr(f.name)})</span>` : null;
+}
+
+/** One chat line: `name(faction): text`, or the announcement of a faction pick. */
+function Line({ l, myId, cls = '', style = '' }) {
+  if (l.kind === 'faction') {
+    const f = chatFaction(l.faction);
+    return html`<li class=${cx('chat__line chat__line--sys', cls)} style=${style} data-i18n-skip="">
+      <b class="chat__name">${l.name}</b><span class="chat__text">${tr('选择了阵营')} <b style=${f ? `color:${f.color}` : ''}>${f ? tr(f.name) : '?'}</b></span>
+    </li>`;
+  }
+  return html`<li class=${cx('chat__line', l.playerId === myId && 'is-me', cls)} style=${style} data-i18n-skip="">
+    <b class="chat__name">${l.name}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>
+  </li>`;
 }
 
 /** Send one line; resolves to an error text for the input (null when sent). */
@@ -97,10 +145,32 @@ function ChatLog({ lines, myId }) {
     if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
   };
   return html`<ol class="chat__log" ref=${ref} onScroll=${onScroll} aria-live="polite">
-    ${lines.length ? lines.map((l) => html`<li key=${l.seq} class=${cx('chat__line', l.playerId === myId && 'is-me')} data-i18n-skip="">
-      <b class="chat__name">${l.name}</b><span class="chat__text">${l.text}</span>
-    </li>`) : html`<li class="chat__empty">暂无消息</li>`}
+    ${lines.length ? lines.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} />`) : html`<li class="chat__empty">暂无消息</li>`}
   </ol>`;
+}
+
+/** The player's chat faction (room.state seat) and the picker: a chip left of the input (the faction's icon once
+ *  picked, so the input keeps its width), the 8 factions with icon and name above it. */
+function FactionPicker({ disabled }) {
+  const mine = useStore((s) => (s.room?.seats || []).find((x) => x && x.playerId === s.me.playerId)?.chatFaction ?? null);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const f = chatFaction(mine);
+  const pick = async (id) => {
+    setOpen(false);
+    if (id === mine || busy) return;
+    setBusy(true);
+    try { await net.request('room.chatFaction', { faction: id }); } catch { /* cooldown / offline: the chip stays */ }
+    setBusy(false);
+  };
+  return html`<div class="chat__fac">
+    <button type="button" class=${cx('chat__facbtn', f && 'is-set')} style=${f ? `--fac:${f.color}` : ''} disabled=${disabled || busy}
+      aria-expanded=${open ? 'true' : 'false'} title="选择阵营" onClick=${() => setOpen(!open)}>${f ? (factionIconUrl(f) ? html`<${FactionIcon} f=${f} />` : f.name) : '阵营'}</button>
+    ${open ? html`<div class="chat__facs" role="group" aria-label="选择阵营">
+      ${CHAT_FACTIONS.map((x) => html`<button key=${x.id} type="button" class=${cx(x.id === mine && 'is-on')} style=${`--fac:${x.color}`}
+        aria-pressed=${x.id === mine ? 'true' : 'false'} onClick=${() => pick(x.id)}><${FactionIcon} f=${x} /><span>${x.name}</span></button>`)}
+    </div>` : null}
+  </div>`;
 }
 
 /** Input + send. `autoFocus` focuses it on mount; Esc calls onEscape. */
@@ -134,6 +204,7 @@ function ChatInput({ disabled, inputRef, autoFocus = false, onEscape }) {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ref.current?.blur(); onEscape?.(); }
   };
   return html`<form class="chat__form" onSubmit=${submit}>
+    <${FactionPicker} disabled=${disabled} />
     <input ref=${ref} class="chat__input" type="text" value=${text} maxlength=${CHAT_MAX_LEN} enterkeyhint="send" autocomplete="off"
       placeholder=${disabled ? '连接中断' : touchUi() ? '输入消息' : '输入消息，Enter 发送'} aria-label="聊天消息" disabled=${disabled}
       onInput=${(e) => setText(e.currentTarget.value)} onKeyDown=${onKey} data-i18n-skip="" />
@@ -158,17 +229,16 @@ const useChat = () => {
   const chat = useStore((s) => s.chat);
   const myId = useStore((s) => s.me.playerId);
   const online = useStore((s) => s.connection.status === 'online');
-  return { lines: chat?.lines || [], myId, online };
+  return { lines: chat?.lines || [], seen: chat?.seen || 0, myId, online };
 };
 
 /** Room screen chat panel (co-op rooms). */
 export function RoomChat() {
-  const { lines, myId, online } = useChat();
+  const { lines, seen, myId, online } = useChat();
   const [open, setOpen] = useState(() => loadPref(PREF_ROOM_OPEN, true) !== false);
-  const [seen, setSeen] = useState(0);
   const inputRef = useRef(null);
   const last = lines.length ? lines[lines.length - 1].seq : 0;
-  useEffect(() => { if (open) setSeen(last); }, [open, last]);
+  useEffect(() => { if (open) markRead(last); }, [open, last]);
   const toggle = (v) => { setOpen(v); savePref(PREF_ROOM_OPEN, v); };
   useEffect(() => {
     const onKey = (e) => {
@@ -197,13 +267,12 @@ export function RoomChat() {
 
 /** Match chat: button (beside 交流) + panel + floating feed. */
 export function GameChat({ open, onToggle, disabled = false }) {
-  const { lines, myId, online } = useChat();
-  const [seen, setSeen] = useState(() => (lines.length ? lines[lines.length - 1].seq : 0));
+  const { lines, seen, myId, online } = useChat();
   const [now, setNow] = useState(Date.now);
   const live = useRef({});
   live.current = { open, onToggle };
   const last = lines.length ? lines[lines.length - 1].seq : 0;
-  useEffect(() => { if (open) setSeen(last); }, [open, last]);
+  useEffect(() => { if (open) markRead(last); }, [open, last]);
 
   // Enter opens (and focuses) the panel
   useEffect(() => {
@@ -244,9 +313,7 @@ export function GameChat({ open, onToggle, disabled = false }) {
       <${ChatInput} disabled=${disabled || !online} autoFocus=${true} onEscape=${() => onToggle(false)} />
     </section>` : null}
     ${feed.length ? html`<ol class="gchat__feed" aria-hidden="true">
-      ${feed.map((l) => html`<li key=${l.seq} class="gchat__pop" style=${`--pop-age:${Math.max(0, now - l.rx)}ms`} data-i18n-skip="">
-        <b class="chat__name">${l.name}</b><span class="chat__text">${l.text}</span>
-      </li>`)}
+      ${feed.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} cls="gchat__pop" style=${`--pop-age:${Math.max(0, now - l.rx)}ms`} />`)}
     </ol>` : null}
   </div>`;
 }

@@ -5,6 +5,7 @@ import { useState, useMemo } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Tooltip } from './components.js';
 import { data, useData, localAsset } from '../data.js';
 import { parseRichText, rtClassName } from './richText.js';
+import { FactionGlyph, FactionIcon, useSeatFaction } from './faction.js';
 import {
   uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl, bondIconUrl, bandIconUrl,
 } from './assetUrls.js';
@@ -243,14 +244,19 @@ export function RichTip({ text, children, placement = 'top' }) {
 export function PlayerAvatar({ player, size = 'md', self = false, class: cls }) {
   const src = player?.bandId ? bandIconUrl(data.get('assets'), player.bandId) : null;
   const glyph = [...(player?.name || '').trim()][0] || '?';
+  // chat faction (local NAS patch): replaces the letter; with a strategy icon, a small badge in its bottom-right corner
+  const faction = useSeatFaction(player?.isBot ? null : player?.playerId);
   const dead = player?.alive === false || player?.status === 'dead';
   const left = player?.status === 'left';
   const hue = [162, 196, 38, 280][((player?.seat | 0) % 4 + 4) % 4];
   return html`<span class=${cx('pavatar', `pavatar--${size}`, self && 'is-self', dead && 'is-dead', left && 'is-left', player?.isBot && 'is-bot',
       player?.connected === false && !player?.isBot && 'is-offline', cls)} style=${`--seat-hue:${hue}`}>
     <span class="pavatar__img">
-      <${Img} src=${src} fallback=${player?.isBot ? html`<${Icon} name="robot" class="pavatar__bot" />` : html`<span class="pavatar__glyph">${glyph}</span>`} />
+      <${Img} src=${src} fallback=${player?.isBot ? html`<${Icon} name="robot" class="pavatar__bot" />`
+        : faction ? html`<${FactionGlyph} f=${faction} name=${player?.name} fallback=${html`<span class="pavatar__glyph">${glyph}</span>`} />`
+        : html`<span class="pavatar__glyph">${glyph}</span>`} />
     </span>
+    ${src && faction ? html`<span class="pavatar__fac" title=${faction.name}><${FactionIcon} f=${faction} class="pavatar__facico" /></span>` : null}
     ${dead ? html`<span class="pavatar__x" aria-label="已淘汰"><${Icon} name="close" /></span>` : null}
     ${left ? html`<span class="pavatar__door" aria-label="已离开"><${Icon} name="exit" /></span>` : null}
   </span>`;

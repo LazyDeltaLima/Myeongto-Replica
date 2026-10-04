@@ -1,7 +1,8 @@
 // Normative message catalogue (DESIGN §8). Used by server (validation) and client (building requests).
 // Every client→server message is `{ t, rid?, ...fields }`. Unknown `t` or invalid fields ⇒ ERR.BAD_MSG.
 
-import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, MAX_SEATS, EMOTES, GEO, CHAT_MAX_LEN } from './constants.js';
+import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, MAX_SEATS, EMOTES, GEO, CHAT_MAX_LEN, chatFaction } from './constants.js';
+import { EMOTE_SETS } from './emote-art.js';
 
 // ---- tiny validators -------------------------------------------------------
 const isInt = (v, lo = -Infinity, hi = Infinity) => Number.isInteger(v) && v >= lo && v <= hi;
@@ -251,6 +252,8 @@ export const C2S = {
   // room chat (local NAS patch): lobby and match alike; the server trims it to CHAT_MAX_LEN code points (UTF-16 ×2
   // here, plus room for whitespace it collapses)
   'room.chat': { text: (v) => isStr(v, CHAT_MAX_LEN * 4) },
+  // chat faction (local NAS patch): the sender's tag on their chat lines until the match ends
+  'room.chatFaction': { faction: (v) => !!chatFaction(v) },
 
   // match
   'g.infoReady': {},
@@ -274,7 +277,8 @@ export const C2S = {
   'g.reward': { idx: (v) => isInt(v, 0, 5) },
   'g.choice': { idx: (v) => isInt(v, 0, 5) },
   'g.ready': { ready: isBool },
-  'g.emote': { id: (v) => EMOTES.includes(v) },
+  // set (local NAS patch, shared/emote-art.js): which pictures the sender picked from; missing = official
+  'g.emote': { id: (v) => EMOTES.includes(v), set: optional((v) => EMOTE_SETS.includes(v)) },
   'g.watch': { fieldId: (v) => isStr(v, 32) },
   'g.autoplay': { on: isBool },
   // solo pause (official PauseUp / ResumeUp, DESIGN §14): freezes the running battle (field clock, deadlines, the
@@ -302,7 +306,7 @@ export const C2S = {
 export const S2C = [
   'welcome', 'ok', 'error', 'pong',
   'room.state', 'room.closed',
-  // room chat (local NAS patch): room.chat { seq, playerId, name, text, at } · room.chatlog { lines } (the recent
+  // room chat (local NAS patch): room.chat { seq, playerId, name, text, at, faction, kind? } · room.chatlog { lines } (the recent
   // lines, sent to a player who joins or resyncs)
   'room.chat', 'room.chatlog',
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',

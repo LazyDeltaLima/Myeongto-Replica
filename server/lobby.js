@@ -58,7 +58,7 @@
 //     and refuses it afterwards (WRONG_PHASE: the match's loadout is locked, the stored one applies to the next match).
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { ERR, MAX_SEATS, ROOM_CODE_LEN, modeIdFor, CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY } from '../shared/constants.js';
+import { ERR, MAX_SEATS, ROOM_CODE_LEN, modeIdFor, CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, chatFaction } from '../shared/constants.js';
 import { checkLoadout } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession, sanitizeText } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -162,7 +162,7 @@ export class Room {
       inMatch: !!this.match,
       maxBots: maxBotsSetting(),
       seats: this.seats.map((s) => (s
-        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
+        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left, chatFaction: s.chatFaction ?? null }
         : null)),
     };
   }
@@ -270,6 +270,7 @@ export class Lobby {
       case 'room.start': return this.start(session);
       case 'room.loadout': return this.loadout(session, msg);
       case 'room.chat': return this.chat(session, msg);
+      case 'room.chatFaction': return this.chatFaction(session, msg);
       default:
         if (typeof msg.t === 'string' && msg.t.startsWith('g.')) return this.routeGame(session, msg);
         return fail(ERR.BAD_MSG, `unhandled type ${String(msg.t).slice(0, 32)}`);
@@ -441,11 +442,37 @@ export class Lobby {
     const now = this.now();
     if (now - (session.lastChatAt ?? -Infinity) < CHAT_COOLDOWN_MS) return fail(ERR.RATE);
     session.lastChatAt = now;
-    const msg = { seq: ++room.chatSeq, playerId: seat.playerId, name: seat.name, text: line, at: now };
+    this.pushChat(room, seat, { text: line, at: now });
+    return OK;
+  }
+
+  /**
+   * Chat faction (local NAS patch): the colored tag on a player's chat lines, announced in the chat as a `kind: 'faction'`
+   * line. Shares the chat cooldown; picking the current one again is a no-op. Cleared for everyone when the match ends.
+   */
+  chatFaction(session, { faction }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.mode === 'solo') return fail(ERR.BAD_MSG, 'co-op rooms only');
+    const seat = room.seatOf(session.playerId);
+    if (!seat || seat.isBot) return fail(ERR.NOT_IN_ROOM);
+    if (!chatFaction(faction)) return fail(ERR.BAD_MSG, 'unknown chat faction');
+    if (seat.chatFaction === faction) return OK;
+    const now = this.now();
+    if (now - (session.lastChatAt ?? -Infinity) < CHAT_COOLDOWN_MS) return fail(ERR.RATE);
+    session.lastChatAt = now;
+    seat.chatFaction = faction;
+    this.pushChat(room, seat, { kind: 'faction', text: '', at: now });
+    this.broadcastState(room);
+    return OK;
+  }
+
+  /** Append one line (stamped with the seat's current faction) to the room's history and broadcast it. */
+  pushChat(room, seat, line) {
+    const msg = { seq: ++room.chatSeq, playerId: seat.playerId, name: seat.name, faction: seat.chatFaction ?? null, ...line };
     room.chatLog.push(msg);
     if (room.chatLog.length > CHAT_HISTORY) room.chatLog.splice(0, room.chatLog.length - CHAT_HISTORY);
     this.broadcastRoom(room, { t: 'room.chat', ...msg });
-    return OK;
   }
 
   /** The room's recent chat lines to one member (join / resync); nothing while the room has none. */
@@ -585,6 +612,7 @@ export class Lobby {
       if (!s || s.isBot) continue;
       if (s.left) { room.seats[i] = null; continue; }
       s.ready = false;
+      s.chatFaction = null; // chat faction lasts one match (local NAS patch)
       if (!s.connected) this.startGrace(room, s);
     }
     const host = room.hostId ? room.seatOf(room.hostId) : null;

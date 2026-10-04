@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE, ERR } from '../../shared/constants.js';
+import { validateC2S } from '../../shared/protocol.js';
 import { Match } from '../../server/match/Match.js';
 import { StubMatch } from '../../server/match/StubMatch.js';
 import { DATA, makeMatch, checkInvariants, give, chessOfTier } from './harness.js';
@@ -248,13 +249,20 @@ test('emotes: relayed as m.emote with a 1 s cooldown; g.watch during prep scouts
   const h = makeMatch({ mode: 'coop', humans: 2, seed: 67, fake: true }).start();
   const m = h.m;
   assert.deepEqual(m.handle('p_0', { t: 'g.emote', id: 'autochess_battle_happy' }), { ok: true });
-  assert.deepEqual(h.lastBc('m.emote'), { t: 'm.emote', playerId: 'p_0', id: 'autochess_battle_happy' });
+  assert.deepEqual(h.lastBc('m.emote'), { t: 'm.emote', playerId: 'p_0', id: 'autochess_battle_happy', set: 'official' });
   assert.equal(m.handle('p_0', { t: 'g.emote', id: 'slug_autochess_battle_thanks' }).error, ERR.RATE);
   h.sched.advance(1000);
   // only the official emote ids are relayed (defence in depth: handle() may be called without validateC2S)
   assert.equal(m.handle('p_0', { t: 'g.emote', id: 'autochess_room_hello' }).error, ERR.BAD_MSG); // room-scene emote
   assert.equal(m.handle('p_0', { t: 'g.emote', id: 'happy' }).error, ERR.BAD_MSG); // v1 short id
   assert.deepEqual(m.handle('p_0', { t: 'g.emote', id: 'slug_autochess_battle_thanks' }), { ok: true });
+  h.sched.advance(1000);
+  // user picture set (local NAS patch): relayed with the emote; anything else is the official set
+  assert.deepEqual(m.handle('p_1', { t: 'g.emote', id: 'autochess_battle_sad', set: 'user' }), { ok: true });
+  assert.equal(h.lastBc('m.emote').set, 'user');
+  assert.equal(validateC2S({ t: 'g.emote', id: 'autochess_battle_sad', set: 'user' }), null);
+  assert.equal(validateC2S({ t: 'g.emote', id: 'autochess_battle_sad' }), null);
+  assert.equal(validateC2S({ t: 'g.emote', id: 'autochess_battle_sad', set: 'mine' }), 'bad field set');
   h.toPrep(1);
   assert.deepEqual(m.handle('p_0', { t: 'g.watch', fieldId: 'n:p_1' }), { ok: true });
   const f = h.lastTo('p_0', 'm.field');

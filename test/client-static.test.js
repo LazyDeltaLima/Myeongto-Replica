@@ -1065,6 +1065,10 @@ describe('screen helpers', () => {
     assert.deepEqual(feedLines(lines, { myId: 'h', seenSeq: 0, now }).map((x) => x.seq), [4, 5], 'others, fresh, not history');
     assert.deepEqual(feedLines(lines, { myId: 'h', seenSeq: 4, now }).map((x) => x.seq), [5]);
     assert.equal(unreadCount(lines, 'h', 1), 3);
+    const { historySeen } = await mod('ui/chat.js');
+    assert.equal(historySeen([], [l(1), l(2), l(3)], 0), 3, 'history on joining is read');
+    assert.equal(historySeen([l(1), l(4)], [l(1), l(2), l(3)], 1), 3, 'missed lines from a resync are read');
+    assert.equal(historySeen([l(1), l(2), l(3)], [l(1), l(2), l(3)], 1), 1, 'lines already received keep their unread state');
     const doc = { querySelector: () => null };
     const key = (o) => ({ key: 'Enter', target: { tagName: 'DIV' }, ...o });
     assert.equal(isChatHotkey(key(), doc), true);
@@ -1074,6 +1078,21 @@ describe('screen helpers', () => {
     assert.equal(isChatHotkey(key({ shiftKey: true }), doc), false);
     assert.equal(isChatHotkey(key(), { querySelector: () => ({}) }), false, 'a dialog is open');
     assert.equal(isChatHotkey({ key: 'a', target: {} }, doc), false);
+  });
+
+  test('resources (local NAS patch): download sources and order', async () => {
+    const { sourcesOf, priorityOf } = await mod('resources.js');
+    const raw = 'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/main/avatar/char_002_amiya.png';
+    assert.deepEqual(sourcesOf({ p: '/assets/char/avatar/x.png', u: raw }),
+      ['https://cdn.jsdelivr.net/gh/yuanyan3060/ArknightsGameResource@main/avatar/char_002_amiya.png', raw], 'jsDelivr, then GitHub raw, never this server');
+    const voice = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/voice/assets/dyn/audio/x.mp3';
+    assert.deepEqual(sourcesOf({ p: '/assets/audio/x.mp3', u: voice }), [voice], 'no jsDelivr mirror of the voice branch');
+    assert.deepEqual(sourcesOf({ p: '/assets/local/map/autochess/a.png' }), ['/assets/local/map/autochess/a.png'], 'local files from this server');
+    assert.deepEqual(sourcesOf({ p: '/assets/x.png', u: 'https://example.com/x.png' }), [], 'unknown hosts are never fetched');
+    const order = ['/assets/audio/bgm/a.mp3', '/assets/spine/x.skel', '/assets/local/map/a.png', '/assets/char/avatar/a.png', '/assets/ui/a.png', '/img/emotes/a0.webp']
+      .sort((a, b) => priorityOf(a) - priorityOf(b));
+    assert.deepEqual(order.map(priorityOf), [0, 0, 1, 2, 3, 5]);
+    assert.equal(order.at(-1), '/assets/audio/bgm/a.mp3');
   });
 
   test('components: roman / doctorNo / secondsLeft', async () => {

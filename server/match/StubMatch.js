@@ -62,6 +62,7 @@
 
 import { C2S } from '../../shared/protocol.js';
 import { PHASE, ERR, EMOTE_COOLDOWN_MS, GEO, modeIdFor } from '../../shared/constants.js';
+import { emoteSet } from '../../shared/emote-art.js';
 import { getConfig, getMode } from '../data.js';
 
 const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) && t.startsWith('g.')));
@@ -139,7 +140,7 @@ export class StubMatch {
       const now = this.now();
       if (now - p.lastEmoteAt >= EMOTE_COOLDOWN_MS) {
         p.lastEmoteAt = now;
-        this.broadcastFn({ t: 'm.emote', playerId, id: msg.id });
+        this.broadcastFn({ t: 'm.emote', playerId, id: msg.id, set: emoteSet(msg.set) });
       }
     }
     return { ok: true };

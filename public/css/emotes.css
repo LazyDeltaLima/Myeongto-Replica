@@ -148,3 +148,14 @@
   .ewheel__panel, .ewheel__page, .ewheel__page.is-from-right, .ewheel__page.is-from-left { animation: none; }
   .ebubble { animation: emo-bubble-out 1ms linear calc(var(--ebubble-ttl) - 1ms - var(--ebubble-age)) forwards; }
 }
+
+/* ---- set tabs (local NAS patch): 官方表情 / 用户表情 above the plate; user pictures sit on white ------------------- */
+/* as wide as the plate (x 15–297 of emoji_bkg), sitting on its top edge */
+.ewheel__tabs { position: absolute; left: .15rem; width: 2.82rem; bottom: calc(100% - .13rem); display: flex; gap: .03rem; }
+.ewheel__tab {
+  flex: 1; height: .24rem; padding: 0; border: 0; border-radius: .05rem .05rem 0 0;
+  background: rgba(19, 19, 19, .82); color: rgba(255, 255, 255, .55); font-size: .13rem; font-weight: 700; letter-spacing: .04em; line-height: 1;
+}
+.ewheel__tab:hover { color: rgba(255, 255, 255, .85); }
+.ewheel__tab.is-on { background: rgba(19, 19, 19, .96); color: #fff; box-shadow: inset 0 2px 0 var(--mint-500); }
+img.eart--user { background: #fff; border-radius: 4px; }
