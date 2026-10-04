@@ -1,5 +1,7 @@
 // Background resource download (local NAS patch): pre-downloads the game art into Cache Storage, which
 // public/resource-worker.js then serves, so a picture never pops in late (no download, no revalidation round trip).
+// Without the consent the worker still fetches each listed file on demand (upstream art from jsDelivr / GitHub raw,
+// hash-checked) and keeps it; reconcile() adopts those entries by their X-SP-Hash header.
 //
 // The list is /assets/browser-resources.json (tools/build-browser-resources.mjs, built on the server from the files on
 // disk): { version, bytes, files: [{ p: path, s: bytes, h: sha256, u?: upstream URL }] }.
@@ -105,7 +107,11 @@ async function reconcile() {
     const p = new URL(req.url).pathname;
     let key;
     try { key = decodeURIComponent(p); } catch { key = p; }
-    const h = state[key];
+    let h = state[key];
+    if (!h) { // stored by the worker on demand (resource-worker.js): adopt it when its hash is the listed one
+      const stored = (await cache.match(req))?.headers.get('X-SP-Hash');
+      if (stored && want.get(key) === stored) { state[key] = h = stored; changed = true; }
+    }
     if (!h || want.get(key) !== h) { await cache.delete(req); changed = true; }
   }
   for (const p of Object.keys(state)) if (want.get(p) !== state[p]) { delete state[p]; changed = true; }
@@ -122,7 +128,7 @@ async function fetchOne(f) {
       if (!res.ok) { last = `HTTP ${res.status}`; continue; }
       const buf = await res.arrayBuffer();
       if (buf.byteLength !== f.s || (await sha256(buf)) !== f.h) { last = 'hash mismatch'; continue; }
-      await cache.put(f.p, new Response(buf, { headers: { 'Content-Type': typeOf(f.p), 'Content-Length': String(buf.byteLength) } }));
+      await cache.put(f.p, new Response(buf, { headers: { 'Content-Type': typeOf(f.p), 'Content-Length': String(buf.byteLength), 'X-SP-Hash': f.h } }));
       state[f.p] = f.h;
       return true;
     } catch (err) {
@@ -234,7 +240,7 @@ export function ResourceHost() {
         <button type="button" class="res-ask__yes" onClick=${acceptResources}>下载</button>
         <button type="button" class="res-ask__no" onClick=${postponeResources}>以后再说</button>
       </div>
-      <p class="res-ask__note">不预先下载时，游戏会在需要时逐个从服务器下载。</p>
+      <p class="res-ask__note">不预先下载时，游戏会在需要时逐个下载并保存在此浏览器中。</p>
     </aside></div>`;
   }
   if (r.phase === 'running') {
