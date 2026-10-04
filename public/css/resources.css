@@ -2,6 +2,18 @@
    pill, bottom-right on the title / lobby / room screens (never shown over the match HUD). On short screens (landscape
    phones) the card covers the lobby's main button there, so it becomes a centered dialog over a dimmed screen. */
 
+/* settings row (ResourceSetting, ui/settings.js), laid out like the other .set-row controls */
+.res-set__body { grid-column: 2 / 4; justify-self: start; display: flex; flex-wrap: wrap; align-items: center; gap: .1rem; }
+.res-set__btn {
+  height: .38rem; padding: 0 .16rem; background: var(--mint-a20); border: 1px solid var(--mint-700); color: var(--mint-400);
+  font-size: .16rem; font-weight: 700;
+}
+.res-set__btn:hover { filter: brightness(1.15); }
+.res-set__state { font-size: .16rem; color: var(--text-lo); }
+.res-set__state b, .res-set__state.is-done { color: var(--mint-400); }
+.res-set__err { font-size: .14rem; color: var(--orange); }
+@media (pointer: coarse), (any-pointer: coarse) { .res-set__btn { height: max(.38rem, 30px); } }
+
 .res-ask, .res-pill {
   position: fixed; right: .24rem; bottom: .24rem; z-index: 60;
   background: rgba(8, 11, 10, .94); border: 1px solid var(--line-2); border-radius: .04rem;
@@ -15,6 +27,7 @@
 .res-ask__btns button { flex: 1; height: max(.4rem, 32px); border: 1px solid var(--line-2); border-radius: .03rem; color: var(--text-md); }
 .res-ask__btns .res-ask__yes { background: var(--mint-600); border-color: var(--mint-500); color: #061310; font-weight: 700; }
 .res-ask__btns button:hover { filter: brightness(1.12); }
+.res-ask .res-ask__note { margin: .1rem 0 0; font-size: max(.13rem, 11px); line-height: 1.45; color: var(--text-lo); }
 .res-pill { padding: .06rem .14rem; font-size: max(.14rem, 12px); opacity: .85; pointer-events: none; }
 .res-pill b { color: var(--mint-400); }
 .res-pill.is-err { color: var(--orange); }

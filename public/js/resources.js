@@ -16,8 +16,9 @@
 //
 //   installResources()   main.js, once
 //   <ResourceHost />     consent card + progress pill (title / lobby / room screens only, never over the match HUD)
+//   <ResourceSetting />  the settings row: start (or retry) the download any time, e.g. after 以后再说
 
-import { html } from './ui/components.js';
+import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, store, loadPref, savePref, selectRoute } from './store.js';
 
 const CACHE = 'sp-res';
@@ -31,7 +32,8 @@ const RAW_RE = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+
 const JSDELIVR_RE = /^https:\/\/cdn\.jsdelivr\.net\/gh\//;
 
 /** phase: off | idle | ask | running | done | error */
-export const resStore = createStore({ phase: 'off', done: 0, total: 0, bytesDone: 0, bytesTotal: 0, failed: 0, error: null });
+export const resStore = createStore({ phase: 'off', done: 0, total: 0, bytesDone: 0, bytesTotal: 0, failed: 0, error: null, pendingBytes: 0 });
+const setPending = () => resStore.set({ pendingBytes: pending.reduce((n, f) => n + f.s, 0) });
 
 /**
  * Download URLs of one list entry: jsDelivr then GitHub raw for upstream art (jsDelivr has no ArknightsAssets2 voice
@@ -148,6 +150,7 @@ async function download() {
     await Promise.all([0, 1, 2, 3].map(worker));
     await saveState();
     pending = pending.filter((f) => state[f.p] !== f.h);
+    setPending();
     resStore.set({ phase: 'done' });
   } catch (err) {
     console.error('[resources] stopped', err);
@@ -186,6 +189,7 @@ export async function installResources() {
     index = await res.json();
     if (!index || !Array.isArray(index.files)) return;
     pending = await reconcile();
+    setPending();
     if (!pending.length) { resStore.set({ phase: 'done', total: 0 }); return; }
     const pref = loadPref(PREF, null);
     if (pref?.consent === 'yes') download();
@@ -213,6 +217,7 @@ export function ResourceHost() {
         <button type="button" class="res-ask__yes" onClick=${acceptResources}>下载</button>
         <button type="button" class="res-ask__no" onClick=${postponeResources}>以后再说</button>
       </div>
+      <p class="res-ask__note">不预先下载时，游戏会在需要时逐个从服务器下载。</p>
     </aside></div>`;
   }
   if (r.phase === 'running') {
@@ -223,4 +228,25 @@ export function ResourceHost() {
     return html`<div class="res-pill is-err" role="status">${r.error === 'quota' ? '浏览器存储空间不足，无法预先下载资源' : '资源下载中断，下次进入时继续'}</div>`;
   }
   return null;
+}
+
+/** Settings row (ui/settings.js): status, and a button that starts or retries the download. Hidden where the feature is
+ *  off (plain http, no list on the server). */
+export function ResourceSetting() {
+  const r = useStore((s) => s, Object.is, resStore);
+  if (r.phase === 'off') return null;
+  const pct = r.bytesTotal ? Math.floor((r.bytesDone / r.bytesTotal) * 100) : 0;
+  const left = r.pendingBytes > 0;
+  return html`<div class="set-row res-set">
+    <span class="set-row__label">预先下载资源<${MicroLabel}>RESOURCES<//></span>
+    <div class="res-set__body">
+      ${r.phase === 'running'
+        ? html`<span class="res-set__state"><span>资源下载中</span> <b class="num" data-i18n-skip="">${pct}%</b></span>`
+        : left
+          ? html`<button type="button" class="res-set__btn" onClick=${acceptResources}>
+              <span>${r.phase === 'error' || r.failed ? '重新下载' : '下载'}</span> <span class="num" data-i18n-skip="">${mb(r.pendingBytes)} MB</span></button>`
+          : html`<span class="res-set__state is-done">已全部下载</span>`}
+      ${r.phase === 'error' ? html`<span class="res-set__err">${r.error === 'quota' ? '浏览器存储空间不足，无法预先下载资源' : '资源下载中断，下次进入时继续'}</span>` : null}
+    </div>
+  </div>`;
 }

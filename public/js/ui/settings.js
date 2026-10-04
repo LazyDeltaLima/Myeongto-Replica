@@ -10,6 +10,7 @@ import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
 import { lang, setLang } from '../i18n/i18n.js';
+import { ResourceSetting } from '../resources.js'; // local NAS patch
 
 /** Settings store: { bgm, sfx, muted, damageNumbers, quality }. */
 export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));
@@ -79,6 +80,7 @@ export function SettingsModal({ open, onClose }) {
             class=${lang === id ? 'is-on' : ''} onClick=${() => { if (lang !== id) setLang(id); }}>${label}</button>`)}
         </div>
       </div>
+      <${ResourceSetting} />
       ${touchUi
         ? html`<p class="set-hint">触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向</p>`
         : html`<p class="set-hint">快捷键：<kbd>R</kbd> 刷新 · <kbd>F</kbd> 冻结 · <kbd>D</kbd> 升级 · <kbd>Space</kbd> 准备就绪 · <kbd>Esc</kbd> 关闭弹窗 · 右键查看详情</p>`}
