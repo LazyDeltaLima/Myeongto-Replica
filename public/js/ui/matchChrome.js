@@ -22,6 +22,9 @@ export const EXIT_TEXT = Object.freeze({
   soloQuit: '放弃模拟将立即结束本局并返回大厅，本局进度不会保留，也不会进行结算。',
 });
 
+/** Local NAS patch: no 暂离（AI 托管） in the exit dialog — a player who leaves gives up the seat (放弃模拟 only). */
+const AWAY_OPTION = false;
+
 /** Local "暂离 / AI 托管" flag (the server keeps no per-client autoplay view). */
 export const awayStore = createStore({ away: false });
 
@@ -74,12 +77,12 @@ export function ExitModal({ open, onClose, solo, onAway }) {
   return html`<${Modal} open=${open} onClose=${onClose} tone="red" title="离开模拟" micro="LEAVE SIMULATION" width="6.8rem"
     actions=${html`
       <${Button} variant="secondary" onClick=${onClose}>取消<//>
-      ${!solo ? html`<${Button} variant="ice" icon="robot" loading=${busy === 'away'} onClick=${away}>暂离（AI 托管）<//>` : null}
+      ${!solo && AWAY_OPTION ? html`<${Button} variant="ice" icon="robot" loading=${busy === 'away'} onClick=${away}>暂离（AI 托管）<//>` : null}
       <${Button} variant="danger" icon="exit" loading=${busy === 'quit'} onClick=${quit}>放弃模拟<//>`}>
     <div class="exitm">
       ${solo
         ? html`<p>${EXIT_TEXT.soloRest}</p><p class="t-lo">${EXIT_TEXT.soloQuit}</p>`
-        : html`<p><b class="t-ice">暂离</b>：由 AI 托管你的席位（自动部署、准备与选择），随时可以返回。</p>
+        : html`${AWAY_OPTION ? html`<p><b class="t-ice">暂离</b>：由 AI 托管你的席位（自动部署、准备与选择），随时可以返回。</p>` : null}
                <p><b class="t-red">放弃模拟</b>：离开后无法返回本局，你的干员将回到共享卡池。</p>`}
     </div>
   <//>`;
