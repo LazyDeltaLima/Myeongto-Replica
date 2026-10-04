@@ -606,6 +606,25 @@ describe('websocket lobby', () => {
     await expectError(solo, { t: 'room.addBot' }, ERR.ROOM_FULL);
   });
 
+  test('SP_MAX_BOTS caps the AI teammates of a room (0 = none)', async () => {
+    const prev = process.env.SP_MAX_BOTS;
+    try {
+      process.env.SP_MAX_BOTS = '1';
+      const host = await pool.player('Cap');
+      await createRoom(host);
+      await expectOk(host, { t: 'room.addBot' });
+      await expectError(host, { t: 'room.addBot' }, ERR.ROOM_FULL);
+
+      process.env.SP_MAX_BOTS = '0';
+      const none = await pool.player('NoBots');
+      await createRoom(none);
+      await expectError(none, { t: 'room.addBot' }, ERR.ROOM_FULL);
+    } finally {
+      if (prev === undefined) delete process.env.SP_MAX_BOTS;
+      else process.env.SP_MAX_BOTS = prev;
+    }
+  });
+
   test('host-only commands, difficulty change un-readies guests, host migration on leave', async () => {
     const host = await pool.player('Host');
     const st = await createRoom(host, 'coop', 'NORMAL');

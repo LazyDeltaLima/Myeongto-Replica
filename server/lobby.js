@@ -397,6 +397,11 @@ export class Lobby {
     if (room.match) return fail(ERR.ROOM_STARTED);
     this.dropReplay(room, session.playerId);
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo rooms cannot have AI teammates');
+    // SP_MAX_BOTS: AI teammates per room on this server (unset = no limit beyond the seats, 0 = none)
+    const maxBots = Number.parseInt(process.env.SP_MAX_BOTS ?? '', 10);
+    if (maxBots >= 0 && room.seats.filter((s) => s && s.isBot).length >= maxBots) {
+      return fail(ERR.ROOM_FULL, maxBots === 0 ? 'AI teammates are disabled on this server' : `at most ${maxBots} AI teammate(s) per room`);
+    }
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
     const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
