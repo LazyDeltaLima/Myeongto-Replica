@@ -1045,6 +1045,35 @@ describe('screen helpers', () => {
     assert.equal(roomFacts(room, 'g').canStart, false, 'guests cannot start');
     assert.equal(roomFacts(null, 'x').mine, null);
     assert.match(inviteLink('ABCD'), /\?room=ABCD$/);
+    // SP_MAX_BOTS (local NAS patch): room.state maxBots
+    assert.equal(roomFacts(room, 'h').maxBots, null);
+    assert.equal(roomFacts(room, 'h').canAddBot, true, 'no limit: the seats alone limit the AI');
+    assert.equal(roomFacts({ ...room, maxBots: 1 }, 'h').canAddBot, false, '1 AI already seated');
+    assert.equal(roomFacts({ ...room, maxBots: 2 }, 'h').canAddBot, true);
+    assert.equal(roomFacts({ ...room, maxBots: 2 }, 'g').canAddBot, false, 'guests never add AI');
+    assert.equal(roomFacts({ ...room, maxBots: 0 }, 'h').botCount, 1);
+  });
+
+  test('chat (local NAS patch): mergeLines / feedLines / unreadCount / isChatHotkey', async () => {
+    const { mergeLines, feedLines, unreadCount, isChatHotkey, FEED_MS } = await mod('ui/chat.js');
+    const l = (seq, playerId = 'g', rx = 0) => ({ seq, playerId, name: playerId, text: `t${seq}`, at: seq, rx });
+    assert.deepEqual(mergeLines([l(2), l(1)], [l(3), l(2)]).map((x) => x.seq), [1, 2, 3], 'sorted, deduplicated');
+    assert.deepEqual(mergeLines([], [l(1), l(2), l(3)], 2).map((x) => x.seq), [2, 3], 'keeps the newest');
+    assert.deepEqual(mergeLines([], [null, { seq: 'x' }, { seq: 4 }]), [], 'malformed lines dropped');
+    const now = 100000;
+    const lines = [l(1, 'g', 0), l(2, 'h', now - 10), l(3, 'g', now - FEED_MS - 1), l(4, 'g', now - 10), l(5, 'g', now - 5)];
+    assert.deepEqual(feedLines(lines, { myId: 'h', seenSeq: 0, now }).map((x) => x.seq), [4, 5], 'others, fresh, not history');
+    assert.deepEqual(feedLines(lines, { myId: 'h', seenSeq: 4, now }).map((x) => x.seq), [5]);
+    assert.equal(unreadCount(lines, 'h', 1), 3);
+    const doc = { querySelector: () => null };
+    const key = (o) => ({ key: 'Enter', target: { tagName: 'DIV' }, ...o });
+    assert.equal(isChatHotkey(key(), doc), true);
+    assert.equal(isChatHotkey(key({ target: { tagName: 'INPUT' } }), doc), false, 'typing elsewhere');
+    assert.equal(isChatHotkey(key({ target: { tagName: 'BUTTON' } }), doc), false, 'Enter on a focused button clicks it');
+    assert.equal(isChatHotkey(key({ isComposing: true }), doc), false, 'IME composition');
+    assert.equal(isChatHotkey(key({ shiftKey: true }), doc), false);
+    assert.equal(isChatHotkey(key(), { querySelector: () => ({}) }), false, 'a dialog is open');
+    assert.equal(isChatHotkey({ key: 'a', target: {} }, doc), false);
   });
 
   test('components: roman / doctorNo / secondsLeft', async () => {

@@ -8,6 +8,11 @@ export const APP_VERSION = '0.1.1';
 export const MAX_SEATS = 4;
 export const ROOM_CODE_LEN = 4;
 export const NAME_MAX_LEN = 12;
+// room chat (local NAS patch): a line's length in code points, the per-player gap between lines, the lines a
+// (re)joining player gets back
+export const CHAT_MAX_LEN = 120;
+export const CHAT_COOLDOWN_MS = 700;
+export const CHAT_HISTORY = 40;
 
 export const DIFFICULTIES = ['FUNNY', 'NORMAL', 'HARD', 'ABYSS'];
 export const DIFFICULTY_NAMES = { FUNNY: '标准模拟', NORMAL: '险境模拟', HARD: '绝境模拟', ABYSS: '终极模拟' };

@@ -19,7 +19,7 @@ import { sanitizeName, TokenBucket, SessionRegistry, clientAddress, normalizeIp,
 import { StubMatch as Match } from '../server/match/StubMatch.js';
 import { Match as RealMatch } from '../server/match/Match.js';
 import { TestClient } from './helpers/wsClient.js';
-import { ERR, MAX_SEATS, PHASE } from '../shared/constants.js';
+import { ERR, MAX_SEATS, PHASE, CHAT_MAX_LEN } from '../shared/constants.js';
 
 const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{4}$`);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -604,6 +604,49 @@ describe('websocket lobby', () => {
     assert.equal(soloState.mode, 'solo');
     await expectError(late, { t: 'room.join', code: soloState.code }, ERR.ROOM_FULL);
     await expectError(solo, { t: 'room.addBot' }, ERR.ROOM_FULL);
+  });
+
+  test('room chat: sanitized lines to the whole room, cooldown, history for a late joiner (local NAS patch)', async () => {
+    const host = await pool.player('Talk');
+    const st = await createRoom(host);
+    const guest = await pool.player('Hear');
+    await joinRoom(guest, st.code);
+
+    await expectOk(host, { t: 'room.chat', text: '  hi\u200b   there\n ' });
+    for (const c of [host, guest]) {
+      const m = await c.waitFor('room.chat');
+      assert.equal(m.text, 'hi there');
+      assert.equal(m.name, 'Talk');
+      assert.equal(m.playerId, host.id);
+      assert.equal(m.seq, 1);
+    }
+    await expectError(host, { t: 'room.chat', text: 'again' }, ERR.RATE);
+    await expectError(guest, { t: 'room.chat', text: ' \u200b ' }, ERR.BAD_MSG);
+    await expectOk(guest, { t: 'room.chat', text: 'x'.repeat(CHAT_MAX_LEN + 30) });
+    assert.equal((await host.waitFor('room.chat', (m) => m.seq === 2)).text.length, CHAT_MAX_LEN);
+
+    const late = await pool.player('Late');
+    await joinRoom(late, st.code);
+    const log = await late.waitFor('room.chatlog');
+    assert.deepEqual(log.lines.map((l) => l.seq), [1, 2]);
+
+    const lone = await pool.player('Lone');
+    await expectError(lone, { t: 'room.chat', text: 'hello?' }, ERR.NOT_IN_ROOM);
+    await createRoom(lone, 'solo', 'FUNNY');
+    await expectError(lone, { t: 'room.chat', text: 'hello?' }, ERR.BAD_MSG);
+  });
+
+  test('room.state carries SP_MAX_BOTS as maxBots (null when unset)', async () => {
+    const prev = process.env.SP_MAX_BOTS;
+    try {
+      delete process.env.SP_MAX_BOTS;
+      assert.equal((await createRoom(await pool.player('Free'))).maxBots, null);
+      process.env.SP_MAX_BOTS = '2';
+      assert.equal((await createRoom(await pool.player('Two'))).maxBots, 2);
+    } finally {
+      if (prev === undefined) delete process.env.SP_MAX_BOTS;
+      else process.env.SP_MAX_BOTS = prev;
+    }
   });
 
   test('SP_MAX_BOTS caps the AI teammates of a room (0 = none)', async () => {

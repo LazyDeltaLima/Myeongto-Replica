@@ -1,0 +1,116 @@
+/* Room chat (local NAS patch, public/js/ui/chat.js): the room screen's panel and the match's 聊天 button / panel /
+   floating feed. Sizes follow the theme's rem (1rem = 1/19.2 of the 1920-wide design). */
+
+.chat {
+  display: flex; flex-direction: column; min-height: 0;
+  background: rgba(8, 11, 10, .9); border: 1px solid var(--line-2); border-radius: .04rem;
+  box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .45);
+  font-size: .17rem; color: var(--text-md);
+}
+.chat__head {
+  display: flex; align-items: center; gap: .08rem; flex: none;
+  height: .42rem; padding: 0 .06rem 0 .14rem; border-bottom: 1px solid var(--line-2);
+  color: var(--mint-500); font-weight: 700; letter-spacing: .08em; font-size: .16rem;
+}
+.chat__head span { flex: 1; }
+.chat__x {
+  width: .34rem; height: .34rem; display: grid; place-items: center; color: var(--text-lo); font-size: .22rem; line-height: 1;
+}
+.chat__x:hover { color: var(--mint-400); }
+.chat__log {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: .08rem .12rem; list-style: none;
+  display: flex; flex-direction: column; gap: .04rem;
+  scrollbar-width: thin; scrollbar-color: var(--line-2) transparent;
+}
+.chat__line { line-height: 1.35; word-break: break-word; overflow-wrap: anywhere; }
+.chat__name { color: var(--text-lo); font-weight: 700; margin-right: .08rem; }
+.chat__name::after { content: ':'; }
+.chat__line.is-me .chat__name { color: var(--mint-500); }
+.chat__text { color: var(--text-hi, #e8eeeb); user-select: text; -webkit-user-select: text; }
+.chat__empty { color: var(--text-dim, var(--text-lo)); opacity: .7; margin: auto; font-size: .15rem; }
+.chat__form { position: relative; display: flex; gap: .06rem; flex: none; padding: .08rem; border-top: 1px solid var(--line-2); }
+.chat__input {
+  flex: 1; min-width: 0; height: .44rem; padding: 0 .12rem;
+  background: rgba(0, 0, 0, .45); border: 1px solid var(--line-2); border-radius: .03rem;
+  color: var(--text-hi, #e8eeeb); font: inherit; font-size: max(.17rem, 16px); /* ≥ 16 px: iOS does not zoom on focus */
+}
+.chat__input:focus { outline: none; border-color: var(--mint-700); }
+.chat__input:disabled { opacity: .5; }
+.chat__send {
+  flex: none; width: .5rem; height: .44rem; display: grid; place-items: center;
+  background: var(--mint-a20); border: 1px solid var(--mint-700); border-radius: .03rem; color: var(--mint-400);
+}
+.chat__send .icon { width: .24rem; height: .24rem; }
+.chat__send:disabled { opacity: .4; cursor: default; }
+.chat__err {
+  position: absolute; left: .08rem; bottom: calc(100% + .04rem); padding: .03rem .08rem;
+  background: rgba(40, 14, 6, .92); border: 1px solid var(--orange); border-radius: .03rem; color: var(--orange-hi); font-size: .14rem;
+}
+.chat__badge {
+  position: absolute; top: -.08rem; right: -.08rem; min-width: .24rem; height: .24rem; padding: 0 .05rem;
+  display: grid; place-items: center; border-radius: .12rem; background: var(--orange); color: #fff;
+  font-size: .13rem; font-weight: 700; line-height: 1; pointer-events: none;
+}
+
+/* ---- room screen: a column left of the seats (the seat cards give up the width, never overlapped) ---------------- */
+.room-screen.has-chat .seats { padding-left: 4.2rem; }
+.chat--room { position: absolute; left: .3rem; top: 1.66rem; bottom: 1.74rem; z-index: 6; width: 3.7rem; }
+.chat-fold {
+  position: absolute; left: .3rem; bottom: 1.74rem; z-index: 6;
+  display: flex; align-items: center; gap: .08rem; height: .48rem; padding: 0 .18rem;
+  background: rgba(8, 11, 10, .9); border: 1px solid var(--line-2); border-radius: .04rem;
+  color: var(--text-md); font-size: .17rem; font-weight: 700; letter-spacing: .08em;
+}
+.chat-fold:hover { color: var(--mint-400); border-color: var(--mint-700); }
+.chat-fold .icon { width: .26rem; height: .26rem; color: var(--mint-500); }
+
+/* ---- match: 聊天 button in the bottom-left corner, panel / feed above it ---------------------------------------- */
+.gchat { position: relative; }
+.gchat__btn {
+  position: relative; width: .56rem; height: .56rem; display: grid; place-items: center;
+  background: rgba(8, 11, 10, .85); border: 1px solid var(--line-2); color: var(--text-lo);
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.gchat__btn .icon { width: .28rem; height: .28rem; }
+.gchat__btn:hover, .gchat__btn.is-on { color: var(--mint-400); border-color: var(--mint-700); }
+.chat--game {
+  position: absolute; left: 0; bottom: calc(100% + .1rem); z-index: 7;
+  width: 3.8rem; height: 2.7rem; animation: chat-in 140ms var(--ease-out, ease-out);
+}
+.gchat__feed {
+  position: absolute; left: 0; bottom: calc(100% + .1rem); z-index: 6; width: 3.8rem; margin: 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: .05rem; pointer-events: none;
+}
+.gchat__pop {
+  align-self: flex-start; max-width: 100%; padding: .05rem .12rem; line-height: 1.35;
+  background: rgba(8, 11, 10, .82); border-left: 2px solid var(--mint-600); border-radius: .03rem;
+  font-size: .17rem; word-break: break-word; overflow-wrap: anywhere;
+  animation: chat-pop 6000ms linear both; animation-delay: calc(-1 * var(--pop-age, 0ms));
+}
+@keyframes chat-in { from { opacity: 0; transform: translateY(.08rem); } }
+@keyframes chat-pop {
+  0% { opacity: 0; transform: translateY(.06rem); }
+  4%, 80% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+/* touch: the 聊天 button grows like ⚙ / 📖 (devices.css) */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .gchat__btn { width: max(.56rem, 34px); height: max(.56rem, 34px); }
+  .gchat__btn .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
+  .chat__send { width: max(.5rem, 40px); height: max(.44rem, 34px); }
+  .chat__input { height: max(.44rem, 34px); }
+}
+/* short landscape phones: smaller panels */
+@media (max-height: 460px) {
+  .chat--game, .gchat__feed { width: 3.4rem; }
+  .chat--game { height: 2.3rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat--game { animation: none; }
+  .gchat__pop { animation-name: chat-pop-still; }
+  @keyframes chat-pop-still { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+}
+
+/* briefing / draft / result screens: the 聊天 button floats bottom-left */
+.gchat-float { position: fixed; left: calc(.24rem + var(--sa-l, 0px)); bottom: calc(.24rem + var(--sa-b, 0px)); z-index: 40; }

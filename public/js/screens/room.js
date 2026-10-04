@@ -18,6 +18,7 @@ import { LoadoutButton } from './loadout.js';
 import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch } from '../store.js';
 import { difficultyInfo } from './lobby.js';
+import { RoomChat } from '../ui/chat.js';
 
 /**
  * Seats padded to the room's capacity (co-op 4, solo 1), each null or a seat record.
@@ -52,8 +53,12 @@ export function roomFacts(room, myId) {
   const isReady = (s) => !!s.ready || s.playerId === room?.hostId;
   const readyHumans = humans.filter(isReady).length;
   const othersReady = others.every((s) => s.ready && s.connected !== false);
+  // SP_MAX_BOTS (local NAS patch): room.state maxBots, null = only the seats limit the AI teammates
+  const maxBots = Number.isInteger(room?.maxBots) && room.maxBots >= 0 ? room.maxBots : null;
+  const botCount = occupied.filter((s) => s.isBot).length;
   return {
-    seats, occupied, humans, mine, isHost, readyHumans, isReady,
+    seats, occupied, humans, mine, isHost, readyHumans, isReady, maxBots, botCount,
+    canAddBot: room?.mode !== 'solo' && isHost && (maxBots == null || botCount < maxBots),
     emptySeats: seats.filter((s) => !s).length,
     canStart: isHost && othersReady && !!mine,
     othersReady,
@@ -101,7 +106,9 @@ export async function copyText(text) {
 function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot }) {
   const coop = room.mode !== 'solo';
   if (!seat) {
-    const canAdd = coop && facts.isHost;
+    const canAdd = coop && facts.isHost && facts.canAddBot !== false;
+    // the host sees why the add button is gone (SP_MAX_BOTS, local NAS patch)
+    const capped = coop && facts.isHost && !canAdd;
     return html`<article class="seat seat--empty" style=${`--seat-i:${index}`}>
       <header class="seat__head"><span class="seat__no num">P${index + 1}</span><${MicroLabel}>SEAT ${String(index + 1).padStart(2, '0')}<//></header>
       <div class="seat__art seat__art--empty">
@@ -112,7 +119,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot 
       <footer class="seat__foot">
         ${canAdd
           ? html`<${Button} variant="secondary" size="sm" icon="robot" block=${true} loading=${busy === `add`} onClick=${onAddBot}>添加 AI 队友<//>`
-          : html`<span class="seat__state t-dim">空位</span>`}
+          : html`<span class="seat__state t-dim">${capped ? (facts.maxBots === 0 ? '本服务器未开放 AI 队友' : `AI 队友已达上限（${facts.maxBots}）`) : '空位'}</span>`}
       </footer>
     </article>`;
   }
@@ -250,7 +257,7 @@ export function RoomScreen() {
         ? html`<span class="t-mint">已就绪 · 等待创建者开始模拟</span>`
         : html`<span class="t-lo">准备就绪后，创建者即可开始模拟</span>`;
 
-  return html`<div class="screen room-screen">
+  return html`<div class=${`screen room-screen${coop ? ' has-chat' : ''}`}>
     <header class="topbar">
       <div class="topbar__left">
         <${Tooltip} text="离开同盟" placement="bottom">
@@ -285,6 +292,8 @@ export function RoomScreen() {
         </ul>
       </aside>`}
     </main>
+
+    ${coop ? html`<${RoomChat} />` : null}
 
     <footer class="room-bar">
       <div class="room-bar__left">
