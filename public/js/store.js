@@ -83,7 +83,7 @@ export const initialState = Object.freeze({
   emotes: [],
   chat: { code: null, lines: [] }, // room chat (local NAS patch, ui/chat.js)
   clock: { offset: 0, rtt: null, synced: false },
-  ui: { pendingJoin: null, restoring: false },
+  ui: { pendingJoin: null, restoring: false, buildStale: false },
 });
 
 /** The app-wide store singleton. */
