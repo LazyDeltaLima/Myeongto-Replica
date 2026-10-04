@@ -135,12 +135,15 @@ function ChatInput({ disabled, inputRef, autoFocus = false, onEscape }) {
   };
   return html`<form class="chat__form" onSubmit=${submit}>
     <input ref=${ref} class="chat__input" type="text" value=${text} maxlength=${CHAT_MAX_LEN} enterkeyhint="send" autocomplete="off"
-      placeholder=${disabled ? '连接中断' : '输入消息，Enter 发送'} aria-label="聊天消息" disabled=${disabled}
+      placeholder=${disabled ? '连接中断' : touchUi() ? '输入消息' : '输入消息，Enter 发送'} aria-label="聊天消息" disabled=${disabled}
       onInput=${(e) => setText(e.currentTarget.value)} onKeyDown=${onKey} data-i18n-skip="" />
     <button type="submit" class="chat__send" disabled=${disabled || busy || !text.trim()} aria-label="发送" title="发送"><${Glyph} d=${SEND_D} /></button>
     ${err ? html`<span class="chat__err" role="status">${err}</span>` : null}
   </form>`;
 }
+
+/** Touch-first device (ui/device.js puts sp-coarse on <html>): no Enter hint in the placeholder. */
+const touchUi = () => !!globalThis.document?.documentElement?.classList.contains('sp-coarse');
 
 /** Whether a key press should open / focus the chat: a plain Enter outside fields and dialogs. */
 export function isChatHotkey(e, doc = globalThis.document) {

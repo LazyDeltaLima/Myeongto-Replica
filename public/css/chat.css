@@ -94,17 +94,23 @@
   100% { opacity: 0; }
 }
 
-/* touch: the 聊天 button grows like ⚙ / 📖 (devices.css) */
+/* touch: the 聊天 button grows like ⚙ / 📖 (devices.css); the input keeps a 16 px font and a 34 px tap height, so the
+   panels get px floors too — otherwise a phone's small rem leaves a big input under a two-line log */
 @media (pointer: coarse), (any-pointer: coarse) {
   .gchat__btn { width: max(.56rem, 34px); height: max(.56rem, 34px); }
   .gchat__btn .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
-  .chat__send { width: max(.5rem, 40px); height: max(.44rem, 34px); }
-  .chat__input { height: max(.44rem, 34px); }
-}
-/* short landscape phones: smaller panels */
-@media (max-height: 460px) {
-  .chat--game, .gchat__feed { width: 3.4rem; }
-  .chat--game { height: 2.3rem; }
+  .chat { font-size: max(.17rem, 13px); }
+  .chat__head { height: max(.42rem, 28px); font-size: max(.16rem, 12px); }
+  .chat__x { width: max(.34rem, 28px); height: max(.34rem, 28px); }
+  .chat__form { padding: 5px; gap: 5px; }
+  .chat__input { height: 34px; padding: 0 8px; }
+  .chat__send { width: 38px; height: 34px; }
+  .chat__send .icon { width: 17px; height: 17px; }
+  .chat--game, .gchat__feed { width: max(3.8rem, 300px); }
+  .chat--game { height: max(2.7rem, 200px); }
+  .gchat__pop { font-size: max(.17rem, 13px); }
+  .chat--room { width: max(3.7rem, 230px); }
+  .room-screen.has-chat .seats { padding-left: calc(max(3.7rem, 230px) + .5rem); }
 }
 @media (prefers-reduced-motion: reduce) {
   .chat--game { animation: none; }
