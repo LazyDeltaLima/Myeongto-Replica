@@ -435,6 +435,21 @@ test('skill sounds: ON_SKILL_START first, then the ability / custom-trigger bank
   assert.equal(skillStartSounds(audio, 'sk_none'), null);
 });
 
+test('/healthz through the proxy: build only, no counters (server/local-patch.js proxiedRequest)', async () => {
+  const { proxiedRequest } = await import('../server/local-patch.js');
+  assert.equal(proxiedRequest({ headers: { 'x-forwarded-for': '1.2.3.4' } }), true);
+  assert.equal(proxiedRequest({ headers: {} }), false, 'in-container checks keep the counters');
+  const srv = await startServer({ port: 0, host: '127.0.0.1', MatchClass: StubMatch, log: { info() {}, warn() {}, debug() {}, error() {} } });
+  try {
+    const url = `http://127.0.0.1:${srv.port}/healthz`;
+    const direct = await (await fetch(url)).json();
+    assert.ok('sockets' in direct && 'rooms' in direct && direct.build);
+    const viaProxy = await (await fetch(url, { headers: { 'X-Forwarded-For': '1.2.3.4' } })).json();
+    assert.deepEqual(Object.keys(viaProxy).sort(), ['app', 'build', 'ok', 'version']);
+    assert.equal(viaProxy.build, direct.build);
+  } finally { await srv.close(); }
+});
+
 test('debug page: served only with SP_DEBUG_PAGE=1 (server/local-patch.js debugPageHidden)', async () => {
   const { debugPageHidden } = await import('../server/local-patch.js');
   for (const p of ['/debug.html', '/DEBUG.html', '/js/debug.js', '/fxlab.html']) {

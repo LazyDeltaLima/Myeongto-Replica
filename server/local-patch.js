@@ -220,3 +220,12 @@ const DEBUG_PATHS = new Set(['/debug.html', '/fxlab.html', '/js/debug.js']);
 export function debugPageHidden(decodedPath, env = process.env) {
   return DEBUG_PATHS.has(String(decodedPath).toLowerCase()) && env.SP_DEBUG_PAGE !== '1';
 }
+
+// ---- /healthz through the reverse proxy ------------------------------------------------------------------------
+
+/**
+ * Whether a request came through the reverse proxy (Caddy on OCI, cloudflared on the NAS: both add X-Forwarded-For).
+ * Such a /healthz answer keeps only what the page needs (`build` for public/js/ui/buildGuard.js) and leaves the player /
+ * room counters to the in-container checks (Dockerfile HEALTHCHECK, oci/deploy.sh `docker exec … wget`).
+ */
+export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-forwarded-for']);
