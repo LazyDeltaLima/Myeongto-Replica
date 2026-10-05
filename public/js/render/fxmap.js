@@ -16,11 +16,14 @@ export const isVariant = (name) => /#\d+|_sale|_iteration|_avemujica|_cn_topolec
  * Prefabs of a bundle grouped by use: attack, skill1..3, birth, other (variants dropped).
  * @param {string[]} prefabs
  */
+/** A copy of an effect for an up / down / left / back facing (the remake draws units facing left or right). */
+export const isDirectional = (name) => /_(up|down|left|back)(_|$)/i.test(name);
+
 export function effectGroups(prefabs) {
   const g = { attack: [], skill1: [], skill2: [], skill3: [], birth: [], other: [] };
   for (const p of prefabs || []) {
-    if (isVariant(p)) continue;
-    const m = /_skill_0?(\d)/i.exec(p);
+    if (isVariant(p) || isDirectional(p)) continue;
+    const m = /_skill_?0?(\d)/i.exec(p); // _skill_03_ / _skill_3_ (angel2) / skill3_ (yu)
     if (m && g[`skill${m[1]}`]) g[`skill${m[1]}`].push(p);
     else if (/_attack/i.test(p)) g.attack.push(p);
     else if (/_birth|_born/i.test(p)) g.birth.push(p);

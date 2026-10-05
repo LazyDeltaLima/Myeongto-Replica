@@ -18,7 +18,7 @@ install without the files draws its procedural effects (render/fx.js).
 Usage:
     python fx_extract.py --game <Arknights_Data> --build-cab-index .cache/fx-cab-index.json
     python fx_extract.py --game <Arknights_Data> --cab-index .cache/fx-cab-index.json --bundle chen3 [--prefab NAME ...]
-                         [--all-skins] [--prune]
+                         [--match REGEX] [--list] [--all-skins] [--prune]
 Default skin only unless --all-skins; --prune deletes textures / meshes no effect uses any more.
 Needs UnityPy + lz4 (requirements.txt); LZ4AK bundles are decoded by aklz4.py.
 """
@@ -566,7 +566,7 @@ class Extractor:
                 return f'mat:{n}' + {4: '.r', 5: '.g', 6: '.b', 7: '.a'}.get(comp, '')
         return None
 
-    def run(self, bundle, prefabs=None, all_skins=False):
+    def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False):
         rel = f'battle/prefabs/effects/{bundle}.ab'
         env = self.load(rel)
         out = OUT
@@ -586,18 +586,27 @@ class Extractor:
                 if go is not None:
                     roots.append(go)
         written = []
-        (out / bundle).mkdir(parents=True, exist_ok=True)
+        if not list_only:
+            (out / bundle).mkdir(parents=True, exist_ok=True)
         for go in roots:
             name = go.read_typetree()['m_Name']
             if prefabs and name not in prefabs:
                 continue
             if not all_skins and VARIANT_RE.search(name):
                 continue
+            if match and not match.search(name):
+                continue
+            if list_only:
+                written.append(name)
+                continue
             data = self.prefab(go, out)
             (out / bundle / f'{name}.json').write_text(json.dumps(data, separators=(',', ':'), ensure_ascii=False))
             written.append(name)
         index_p = out / 'index.json'
         index = json.loads(index_p.read_text()) if index_p.exists() else {'bundles': {}}
+        if list_only:
+            print(f'[fx] {bundle}: ' + ' '.join(sorted(written)))
+            return
         keep = set(index['bundles'].get(bundle, [])) | set(written)
         if not all_skins:
             keep = {n for n in keep if not VARIANT_RE.search(n)}
@@ -617,6 +626,8 @@ def main():
     ap.add_argument('--bundle', action='append', default=[], help='effect bundle name, e.g. chen3 (repeatable)')
     ap.add_argument('--prefab', action='append', default=[], help='only these prefabs')
     ap.add_argument('--all-skins', action='store_true', help='also skin / collab variants (default: the default skin only)')
+    ap.add_argument('--match', metavar='REGEX', help='only prefabs whose name matches (e.g. "_skill_03_")')
+    ap.add_argument('--list', action='store_true', help='print the prefab names of the bundles, extract nothing')
     ap.add_argument('--png', action='store_true', help='write PNG textures instead of WebP')
     ap.add_argument('--prune', action='store_true', help='delete textures / meshes no extracted effect references')
     a = ap.parse_args()
@@ -625,7 +636,7 @@ def main():
         return
     ex = Extractor(a.game, a.cab_index, png=a.png)
     for b in a.bundle:
-        ex.run(b, set(a.prefab) or None, all_skins=a.all_skins)
+        ex.run(b, set(a.prefab) or None, all_skins=a.all_skins, match=re.compile(a.match) if a.match else None, list_only=a.list)
     if a.prune:
         prune(OUT)
 
