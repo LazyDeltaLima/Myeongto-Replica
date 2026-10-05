@@ -1,6 +1,7 @@
-// test/local-patch.test.js — the local NAS patch (server/local-patch.js, shared/local.js, the chat / faction / emote-set /
-// resource-download client modules), kept out of the upstream test files so that merging upstream releases stays
-// conflict-free. Boots real servers in-process on random ports like test/lobby.test.js.
+// test/local-patch.test.js — the local NAS patch (server/local-patch.js, server/sim/content/local-patch.js,
+// shared/local.js, the chat / faction / emote-set / resource-download client modules), kept out of the upstream test
+// files so that merging upstream releases stays conflict-free. Boots real servers in-process on random ports like
+// test/lobby.test.js.
 
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,6 +17,11 @@ import { ERR, EMOTES } from '../shared/constants.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction } from '../shared/local.js';
 import { validateC2S, C2S, S2C } from '../shared/protocol.js';
 import { USER_EMOTE_PAGES, userEmoteArt, emoteSet } from '../shared/emote-art.js';
+import { coopPoolPlayers } from '../server/local-patch.js';
+import { bossPoolHp } from '../server/match/finalAssault.js';
+import { makeBattle, chessRec } from './helpers/battleHarness.js';
+import * as enemiesMod from '../server/sim/content/enemies.js';
+import * as simPatch from '../server/sim/content/local-patch.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mod = (rel) => import(pathToFileURL(path.join(ROOT, 'public', 'js', rel)).href);
@@ -284,5 +290,102 @@ describe('emote wheel sets (public/js/ui/emotes.js)', () => {
     } finally {
       globalThis.fetch = realFetch;
     }
+  });
+});
+
+// ---- co-op leader HP (server/local-patch.js) -----------------------------------------------------------------------
+
+describe('co-op leader pool = bloodPoint × alive players (server/local-patch.js)', () => {
+  test('co-op share × the alive count (1…4, omitted = 4); solo keeps upstream\'s 0.25', () => {
+    const gd = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 4, seed: 3 }).m.gd;
+    assert.deepEqual([0, 1, 2, 3, 4, 5, undefined].map(coopPoolPlayers), [4, 1, 2, 3, 4, 4, 4]);
+    assert.deepEqual([1, 2, 3, 4].map((n) => gd.bossPoolShare(n)), [1, 2, 3, 4]);
+    assert.equal(gd.bossPoolShare(), 4);
+    const bp = gd.boss('boss_1').bloodPoint.HARD;
+    assert.equal(bossPoolHp(gd, 'boss_1', 2), bp * 2);
+    const solo = makeMatch({ mode: 'solo', difficulty: 'HARD', humans: 1, seed: 3 }).m.gd;
+    assert.equal(solo.bossPoolShare(1), 0.25);
+  });
+
+  test('a player who left is not counted at the Final Assault', () => {
+    const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 4, seed: 3 });
+    const m = h.m;
+    m.start();
+    m.onLeave('p_3');
+    assert.equal(m.alivePlayers().length, 3);
+    m.startFinalAssault(false);
+    assert.equal(m.bossPool.maxHp, m.gd.boss(m.bossId).bloodPoint.HARD * 3);
+    assert.deepEqual(h.logs.error, []);
+  });
+});
+
+// ---- “帝国的甲胄” (server/sim/content/local-patch.js) ----------------------------------------------------------------
+
+describe('“帝国的甲胄” barrage and charged triple (server/sim/content/local-patch.js)', () => {
+  const VTSK = simPatch.VTSK;
+  const WALL = (id, hp) => chessRec({ id, profession: 'TANK', stats: { atk: 0, maxHp: hp, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
+  const NOATK = () => ({ trait: { noAttack: true } });
+  const arena = (units, extra) => makeBattle({
+    content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 600, captureNoisy: true, hooks: ['damaged'],
+    defs: { chess: { t_wall: WALL('t_wall', 2e7), t_wall2: WALL('t_wall2', 1e7) } }, kits: { t_wall: NOATK, t_wall2: NOATK }, units,
+  });
+  const put = (h, pos) => h.spawn(VTSK, { pos, routeIndex: 0, mods: { speedMul: 0 } });
+  const skillHits = (h, e) => h.hooksOf('damaged').filter((c) => c.source === e && !c.dmg.isAttack);
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 0.05, `${a} ≈ ${b}`);
+
+  test('upstream still lands all 8 barrage hits at once and casts the triple unblocked (drop the patch when this fails)', () => {
+    const h = arena([{ chessId: 't_wall', row: 10, col: 7 }], [enemiesMod]);
+    h.step();
+    const e = put(h, [10, 8]);
+    h.run(0.6);
+    assert.equal(skillHits(h, e).length, 8);
+    h.run(40);
+    assert.ok(skillHits(h, e).length > 8, 'upstream: extra hits on unblocked ranged attacks');
+  });
+
+  test('barrage: first hit 1.33 s after it appears, then every 0.53 s, at most 8 hits, the highest-HP ally in the 3×3', () => {
+    const h = arena([{ chessId: 't_wall', row: 10, col: 3 }, { chessId: 't_wall2', row: 11, col: 4 }], [enemiesMod, simPatch]);
+    h.step();
+    const e = put(h, [10, 8]);
+    const t0 = h.b.time;
+    h.run(1.2);
+    assert.equal(skillHits(h, e).length, 0, 'nothing before 1.33 s');
+    h.run(5);
+    const hits = skillHits(h, e);
+    assert.equal(hits.length, 8);
+    hits.forEach((c, k) => near(c.t - t0, simPatch.BARRAGE_DELAY + k * simPatch.BARRAGE_STEP));
+    assert.ok(hits.every((c) => c.target === h.unit('t_wall')), 'the highest-HP ally inside the zone');
+    hits.forEach((c) => near(c.amount, e.s.atk));
+  });
+
+  test('barrage: an ally that leaves the 3×3 is not hit; the zone stays where it was locked', () => {
+    const h = arena([{ chessId: 't_wall', row: 10, col: 3 }, { chessId: 't_wall2', row: 12, col: 12 }], [enemiesMod, simPatch]);
+    h.step();
+    const e = put(h, [10, 8]);
+    h.b.kill(h.unit('t_wall'), null);
+    h.run(7);
+    assert.equal(skillHits(h, e).length, 0);
+  });
+
+  test('charged triple: never while unblocked; blocked, one attack lands as three 100 % hits', () => {
+    const h = arena([{ chessId: 't_wall', row: 10, col: 7 }], [enemiesMod, simPatch]);
+    h.step();
+    const e = put(h, [10, 8]);
+    h.run(40);
+    assert.equal(e.blockedBy, null);
+    assert.equal(skillHits(h, e).length, 8, 'only the barrage');
+    assert.ok(h.hooksOf('damaged').some((c) => c.source === e && c.dmg.isAttack), 'it did attack (ranged)');
+
+    const hb = arena([{ chessId: 't_wall', row: 10, col: 7 }], [enemiesMod, simPatch]);
+    hb.step();
+    const eb = put(hb, [10, 7]);
+    hb.run(0.2);
+    assert.equal(eb.blockedBy, hb.unit('t_wall'));
+    hb.run(simPatch.BARRAGE_LIFE + 1);
+    const before = skillHits(hb, eb).length;
+    hb.run(20);
+    const extra = skillHits(hb, eb).slice(before);
+    assert.ok(extra.length >= 2 && extra.length % 2 === 0, `extra hits come in pairs: ${extra.length}`);
+    extra.forEach((c) => near(c.amount, eb.s.atk));
   });
 });
