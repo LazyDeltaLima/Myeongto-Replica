@@ -7,7 +7,7 @@ ParticleSystems (+ renderers), MeshRenderers and an Animator whose Mecanim clip 
 properties. This script writes, per effect bundle:
 
     public/assets/local/fx/<bundle>/<prefab>.json   the tree, normalized particle modules, materials, clip curves
-    public/assets/local/fx/tex/<texture>.png        textures (shared by every effect)
+    public/assets/local/fx/tex/<texture>.webp       textures (shared by every effect; static WebP, --png for PNG)
     public/assets/local/fx/mesh/<mesh>.json         meshes (positions, uv, colors, indices)
     public/assets/local/fx/index.json               { bundles: { <bundle>: [prefab, ...] } }
 
@@ -38,6 +38,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'public' / 'assets' / 'local' / 'fx'
 BUNDLE_DIRS = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')  # PersistentData (hot updates) first
 # skin / collab variants of a prefab (the remake draws the default skin only; keep in sync with render/fxmap.js isVariant)
+WEBP_QUALITY = 85
 VARIANT_RE = re.compile(r'#\d+|_sale|_iteration|_avemujica|_cn_topolect', re.I)
 
 
@@ -278,7 +279,8 @@ def crc32(s):
 # ---------------------------------------------------------------- extraction
 
 class Extractor:
-    def __init__(self, game, cab_index):
+    def __init__(self, game, cab_index, png=False):
+        self.png = png
         import UnityPy
         import aklz4  # noqa: F401
         self.UnityPy = UnityPy
@@ -335,12 +337,16 @@ class Extractor:
         key = f'{obj.read().m_Name}_{obj.path_id & 0xffffffff:08x}'
         if key in self.textures:
             return self.textures[key]
-        name = key + '.png'
+        name = key + ('.png' if self.png else '.webp')
         p = out / 'tex' / name
         if not p.exists():
             p.parent.mkdir(parents=True, exist_ok=True)
             try:
-                obj.read().image.save(p)
+                img = obj.read().image
+                if self.png:
+                    img.save(p)
+                else:  # static WebP, alpha kept at full quality (iOS Safari 14+; older browsers skip the official effects)
+                    img.save(p, 'WEBP', quality=WEBP_QUALITY, method=6, alpha_quality=100)
             except Exception as ex:
                 print(f'[fx] texture {key}: {ex}')
                 return None
@@ -611,12 +617,13 @@ def main():
     ap.add_argument('--bundle', action='append', default=[], help='effect bundle name, e.g. chen3 (repeatable)')
     ap.add_argument('--prefab', action='append', default=[], help='only these prefabs')
     ap.add_argument('--all-skins', action='store_true', help='also skin / collab variants (default: the default skin only)')
+    ap.add_argument('--png', action='store_true', help='write PNG textures instead of WebP')
     ap.add_argument('--prune', action='store_true', help='delete textures / meshes no extracted effect references')
     a = ap.parse_args()
     if a.build_cab_index:
         build_cab_index(a.game, a.build_cab_index)
         return
-    ex = Extractor(a.game, a.cab_index)
+    ex = Extractor(a.game, a.cab_index, png=a.png)
     for b in a.bundle:
         ex.run(b, set(a.prefab) or None, all_skins=a.all_skins)
     if a.prune:
@@ -636,7 +643,7 @@ def prune(out):
                 if k:
                     mesh.add(k + '.json')
     gone = 0
-    for f in (out / 'tex').glob('*.png'):
+    for f in [*(out / 'tex').glob('*.png'), *(out / 'tex').glob('*.webp')]:
         if f.name not in tex:
             f.unlink(); gone += 1
     for f in (out / 'mesh').glob('*.json'):

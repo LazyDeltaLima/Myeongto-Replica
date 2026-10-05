@@ -22,6 +22,15 @@ const INDEX_URL = '/assets/local/fx/index.json';
 const HIT_GAP_S = 0.12;        // one hit effect per attacker → target pair within this time (multi-hit skills)
 const ATTACK_GAP_S = 0.2;
 const MAX_LIVE = 32;
+let webpPromise = null;
+/** Whether the browser decodes (lossy + alpha) WebP — a 1×1 probe image. */
+const webpOk = () => (webpPromise ||= new Promise((resolve) => {
+  if (typeof Image === 'undefined') { resolve(false); return; }
+  const img = new Image();
+  img.onload = () => resolve(img.width === 1);
+  img.onerror = () => resolve(false);
+  img.src = 'data:image/webp;base64,UklGRkoAAABXRUJQVlA4WAoAAAAQAAAAAAAAAAAAQUxQSAwAAAARBxAR/Q9ERP8DAABWUDggGAAAABQBAJ0BKgEAAQAAAP4AAA3AAP7mtQAAAA==';
+}));
 let indexPromise = null;
 const loadIndex = () => (indexPromise ||= fetch(INDEX_URL).then((r) => (r.ok ? r.json() : null)).catch(() => null));
 
@@ -50,6 +59,9 @@ export function createFxLayer({ host, above, quality }) {
   async function ensure() {
     if (mod) return true;
     if (failed || q() === 'low') return false;
+    // the extracted textures are WebP (tools/local-extract/fx_extract.py): a browser without it (iOS Safari < 14) keeps
+    // the procedural FX
+    if (!(await webpOk())) { failed = true; return false; }
     loading ||= Promise.all([import('../../vendor/three.module.js'), import('./fxplayer.js')]).then(([THREE, fxp]) => {
       canvas = document.createElement('canvas');
       canvas.setAttribute('aria-hidden', 'true');
