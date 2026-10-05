@@ -22,6 +22,8 @@ import { bossPoolHp } from '../server/match/finalAssault.js';
 import { makeBattle, chessRec } from './helpers/battleHarness.js';
 import * as enemiesMod from '../server/sim/content/enemies.js';
 import * as simPatch from '../server/sim/content/local-patch.js';
+import * as bossesMod from '../server/sim/content/bosses.js';
+import { BOSS_HIT_LIMIT } from '../shared/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mod = (rel) => import(pathToFileURL(path.join(ROOT, 'public', 'js', rel)).href);
@@ -387,5 +389,46 @@ describe('“帝国的甲胄” barrage and charged triple (server/sim/content/l
     const extra = skillHits(hb, eb).slice(before);
     assert.ok(extra.length >= 2 && extra.length % 2 === 0, `extra hits come in pairs: ${extra.length}`);
     extra.forEach((c) => near(c.amount, eb.s.atk));
+  });
+});
+
+// ---- 胄 drone link vs 限伤 (server/sim/content/local-patch.js) -------------------------------------------------------
+
+describe('假想敌：胄 drone link is exempt from 限伤 (server/sim/content/local-patch.js)', () => {
+  const POOL = 7200000 * 4; // 隐秘核心 终极, four players: a drone = 2 % = 576 000 ≥ BOSS_HIT_LIMIT
+  const GUN = chessRec({ id: 't_gun', profession: 'SNIPER', projectile: 'none', stats: { atk: 0, maxHp: 1e7, bat: 1, blockCnt: 0 }, rangeGrid: [[0, 0]], skill: null });
+  const pool = (hp) => ({ hp, maxHp: hp, damage(pid, a) { this.hp = Math.max(0, this.hp - a); } });
+  const field = (extra) => {
+    const h = makeBattle({
+      kind: 'hidden', sharedBoss: pool(POOL), content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 600,
+      defs: { chess: { t_gun: GUN } }, kits: { t_gun: () => ({ trait: { noAttack: true } }) }, units: [{ chessId: 't_gun', row: 12, col: 3 }],
+      setup: (b) => { b.opts.templateId = 'act1autochess_h08_01'; },
+    });
+    h.step();
+    const boss = h.spawn('enemy_9013_acstmk_2', { pos: [3, 10], routeIndex: 0, mods: { speedMul: 0 }, tag: 'boss' });
+    boss.profile.noAttack = true;
+    h.run(10.2); // 死亡集群 initCooldown 10
+    const drone = h.enemies().find((e) => e.defId === 'enemy_1005_yokai');
+    assert.ok(drone, 'a drone was summoned');
+    return { h, boss, drone };
+  };
+
+  test('upstream: the 576 000 link is one hit over the limit and is cancelled (why the patch exists)', () => {
+    const { h, drone } = field([enemiesMod, bossesMod]);
+    const before = h.b.sharedBoss.hp;
+    h.b.kill(drone, h.unit('t_gun'));
+    assert.equal(h.b.sharedBoss.hp, before);
+  });
+
+  test('patched: the drone kill takes the full 2 % of the pool; other hits over the limit stay cancelled', () => {
+    const { h, boss, drone } = field([enemiesMod, bossesMod, simPatch]);
+    const before = h.b.sharedBoss.hp;
+    h.b.kill(drone, h.unit('t_gun'));
+    assert.ok(Math.abs(before - h.b.sharedBoss.hp - POOL * 0.02) < 1e-3, `${before - h.b.sharedBoss.hp}`);
+    assert.ok(h.result().perPlayer.p1.bossDamage >= POOL * 0.02 - 1e-3, 'credited to the killer');
+    const mid = h.b.sharedBoss.hp;
+    h.b.loseHp(boss, BOSS_HIT_LIMIT + 1);
+    h.b.dealDamage(null, boss, { amount: BOSS_HIT_LIMIT * 2, type: 'true' });
+    assert.equal(h.b.sharedBoss.hp, mid, '限伤 still cancels everything else');
   });
 });
