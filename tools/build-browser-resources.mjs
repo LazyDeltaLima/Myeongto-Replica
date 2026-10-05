@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Browser resource index (local NAS patch): public/assets/browser-resources.json, the list the client pre-downloads into
+// Browser resource index (local patch): public/assets/browser-resources.json, the list the client pre-downloads into
 // its Cache Storage in the background (public/js/resources.js, public/resource-worker.js) so pictures never pop in late.
 //
 // Built from the files actually on disk (run it after tools/fetch-assets.mjs / tools/local-extract), one entry per file:

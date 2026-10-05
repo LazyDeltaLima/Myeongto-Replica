@@ -1,4 +1,4 @@
-// render/fxplayer.js — official battle effects (local NAS patch, docs/LOCAL-PATCH.md): plays the effect prefabs that
+// render/fxplayer.js — official battle effects (local patch, docs/LOCAL-PATCH.md): plays the effect prefabs that
 // tools/local-extract/fx_extract.py exported from a local client (public/assets/local/fx/**) in a three.js scene that
 // uses the battlefield camera (render/projection.js — Arknights' own 30° / 40° camera, so the effects keep their framing).
 //

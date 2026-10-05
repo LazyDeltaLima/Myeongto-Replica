@@ -44,7 +44,7 @@ import { Lobby } from './lobby.js';
 import { getData, loadData } from './data.js';
 import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
 import { MEDIA_PREFIX, AUDIO_EXTS } from '../shared/media.js';
-import { debugPageHidden, proxiedRequest } from './local-patch.js'; // local NAS patch: SP_DEBUG_PAGE, /healthz
+import { debugPageHidden, proxiedRequest } from './local-patch.js'; // local patch: SP_DEBUG_PAGE, /healthz
 
 /** Repository root. */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -381,7 +381,7 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
       res.end(req.method === 'HEAD' ? undefined : shimBody);
       return;
     }
-    if (debugPageHidden(decoded)) { sendError(req, res, 404, '页面不存在 · Not found'); return; } // local NAS patch: SP_DEBUG_PAGE
+    if (debugPageHidden(decoded)) { sendError(req, res, 404, '页面不存在 · Not found'); return; } // local patch: SP_DEBUG_PAGE
     // Extension-less audio (download-manager avoidance): /media/bgm/act1 → /assets/audio/bgm/act1.mp3
     if (decoded.startsWith(MEDIA_PREFIX)) {
       await serveMedia(req, res, decoded.slice(MEDIA_PREFIX.length), query, publicDir, gzipCache, log);
@@ -646,7 +646,7 @@ export async function startServer(opts = {}) {
   const server = http.createServer((req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
-    // local NAS patch: never framed by another site (clickjacking)
+    // local patch: never framed by another site (clickjacking)
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
     handleRequest(req, res).catch((e) => {
@@ -665,7 +665,7 @@ export async function startServer(opts = {}) {
       sendError(req, res, 405, '不支持的请求方法 · Method not allowed');
       return;
     }
-    if (parts.rawPath === '/healthz' && proxiedRequest(req)) { sendJson(req, res, 200, { ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, build: buildTag() }); return; } // local NAS patch: no counters through the proxy
+    if (parts.rawPath === '/healthz' && proxiedRequest(req)) { sendJson(req, res, 200, { ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, build: buildTag() }); return; } // local patch: no counters through the proxy
     if (parts.rawPath === '/healthz') {
       sendJson(req, res, 200, {
         ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, uptimeSec: Math.round((Date.now() - startedAt) / 1000),

@@ -1,4 +1,4 @@
-// 선발 오퍼레이터 (甄选 / DIY picks, local NAS patch, docs/LOCAL-PATCH.md) — shared by the server and the browser.
+// 선발 오퍼레이터 (甄选 / DIY picks, local patch, docs/LOCAL-PATCH.md) — shared by the server and the browser.
 //
 // data/diy.json (tools/build-diy.mjs) holds the chess records of the candidates (chess_diy_<key>_<tier>_a/_b, flagged
 // isDiy + diyPick + visible: false) and their tokens. It is merged into the chess / tokens tables at load time

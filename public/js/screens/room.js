@@ -12,7 +12,7 @@
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS } from '../../../shared/constants.js';
-import { SeatMark } from '../ui/faction.js'; // local NAS patch
+import { SeatMark } from '../ui/faction.js'; // local patch
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo,
 } from '../ui/components.js';
@@ -58,7 +58,7 @@ export function roomFacts(room, myId) {
   const isReady = (s) => !!s.ready || s.playerId === room?.hostId;
   const readyHumans = humans.filter(isReady).length;
   const othersReady = others.every((s) => s.ready && s.connected !== false);
-  // SP_MAX_BOTS (local NAS patch): room.state maxBots, null = only the seats limit the AI teammates
+  // SP_MAX_BOTS (local patch): room.state maxBots, null = only the seats limit the AI teammates
   const maxBots = Number.isInteger(room?.maxBots) && room.maxBots >= 0 ? room.maxBots : null;
   const botCount = occupied.filter((s) => s.isBot).length;
   return {
@@ -92,7 +92,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   const coop = room.mode !== 'solo';
   if (!seat) {
     const canAdd = coop && facts.isHost && facts.canAddBot !== false;
-    // the host sees why the add button is gone (SP_MAX_BOTS, local NAS patch)
+    // the host sees why the add button is gone (SP_MAX_BOTS, local patch)
     const capped = coop && facts.isHost && !canAdd;
     return html`<article class="seat seat--empty" style=${`--seat-i:${index}`}>
       <header class="seat__head"><span class="seat__no num">P${index + 1}</span><${MicroLabel}>SEAT ${String(index + 1).padStart(2, '0')}<//></header>

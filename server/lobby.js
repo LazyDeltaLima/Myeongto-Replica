@@ -83,7 +83,7 @@ import { checkLoadout } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
-import * as localPatch from './local-patch.js'; // local NAS patch: room chat, chat factions, SP_MAX_BOTS
+import * as localPatch from './local-patch.js'; // local patch: room chat, chat factions, SP_MAX_BOTS
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -177,7 +177,7 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       inMatch: !!this.match,
-      maxBots: localPatch.maxBotsSetting(), // local NAS patch
+      maxBots: localPatch.maxBotsSetting(), // local patch
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
         : null)),
@@ -280,7 +280,7 @@ export class Lobby {
    * @returns {{ ok: true } | { error: string, detail?: string }}
    */
   onMessage(session, msg) {
-    const local = localPatch.onMessage(this, session, msg); if (local) return local; // local NAS patch
+    const local = localPatch.onMessage(this, session, msg); if (local) return local; // local patch
     switch (msg.t) {
       case 'room.create': return this.create(session, msg);
       case 'room.join': return this.join(session, msg);
@@ -390,7 +390,7 @@ export class Lobby {
     session.pendingResult = null;
     if (!room.hostId) room.hostId = session.playerId;
     this.broadcastState(room);
-    localPatch.onJoin(this, room, session); // local NAS patch
+    localPatch.onJoin(this, room, session); // local patch
     return OK;
   }
 
@@ -424,7 +424,7 @@ export class Lobby {
     session.notice = null;
     session.pendingResult = null;
     this.broadcastState(room);
-    localPatch.onJoin(this, room, session); // local NAS patch
+    localPatch.onJoin(this, room, session); // local patch
     if (room.match) this.callMatch(room, 'addSpectator', session.playerId);
     return OK;
   }
@@ -482,7 +482,7 @@ export class Lobby {
     if (room.match) return fail(ERR.ROOM_STARTED);
     this.dropReplay(room, session.playerId);
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo rooms cannot have AI teammates');
-    const capped = localPatch.botCap(room); if (capped) return capped; // local NAS patch: SP_MAX_BOTS
+    const capped = localPatch.botCap(room); if (capped) return capped; // local patch: SP_MAX_BOTS
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
     const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
@@ -647,7 +647,7 @@ export class Lobby {
     room.replay = this.buildReplay(room, ctx);
     setImmediate(() => this.disposeMatchCtx(ctx));
     this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended`);
-    localPatch.onMatchEnd(this, room); // local NAS patch: chat factions last one match
+    localPatch.onMatchEnd(this, room); // local patch: chat factions last one match
     for (let i = 0; i < room.seats.length; i++) {
       const s = room.seats[i];
       if (!s || s.isBot) continue;
@@ -739,7 +739,7 @@ export class Lobby {
     const room = this.roomOf(session);
     if (!room) return;
     session.resyncAt = this.now();
-    localPatch.onJoin(this, room, session); // local NAS patch
+    localPatch.onJoin(this, room, session); // local patch
     if (room.match) {
       this.callMatch(room, room.spectatorOf(session.playerId) ? 'addSpectator' : 'onReconnect', session.playerId);
       return;

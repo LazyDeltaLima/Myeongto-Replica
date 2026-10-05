@@ -1,4 +1,4 @@
-// Operator voice lines (local NAS patch, docs/LOCAL-PATCH.md): the official battle lines (작전 개시 / 선택 / 배치 / 작전 중) of every
+// Operator voice lines (local patch, docs/LOCAL-PATCH.md): the official battle lines (작전 개시 / 선택 / 배치 / 작전 중) of every
 // pool operator in Korean and Japanese, downloaded with the rest of the audio (tools/fetch-assets.mjs) from the
 // ArknightsAssets2 `voice` branch (no jsDelivr mirror):
 //   sound_beta_2/voice_kr/{charId}/cn_NNN.mp3   Korean

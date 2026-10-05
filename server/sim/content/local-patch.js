@@ -1,4 +1,4 @@
-// Local NAS patch, battle side: enemy fixes kept out of the upstream content files so that merging upstream releases
+// Local patch, battle side: enemy fixes kept out of the upstream content files so that merging upstream releases
 // stays conflict-free. content/index.js loads this file as one more domain module (one line: DOMAIN_NAMES.push), so it
 // runs wherever the sim runs — the server and the browser (client-run boss / hidden fields).
 //

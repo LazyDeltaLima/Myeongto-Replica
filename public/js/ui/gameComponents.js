@@ -244,7 +244,7 @@ export function RichTip({ text, children, placement = 'top' }) {
 export function PlayerAvatar({ player, size = 'md', self = false, class: cls }) {
   const src = player?.bandId ? bandIconUrl(data.get('assets'), player.bandId) : null;
   const glyph = [...(player?.name || '').trim()][0] || '?';
-  // chat faction (local NAS patch): replaces the letter; with a strategy icon, a small badge in its bottom-right corner
+  // chat faction (local patch): replaces the letter; with a strategy icon, a small badge in its bottom-right corner
   const faction = useSeatFaction(player?.isBot ? null : player?.playerId);
   const dead = player?.alive === false || player?.status === 'dead';
   const left = player?.status === 'left';

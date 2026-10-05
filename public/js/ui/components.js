@@ -677,7 +677,7 @@ export function Spinner({ size = 'md', label, tone = 'mint', class: cls }) {
 const SEAT_HUES = [162, 196, 38, 280];
 /**
  * Square avatar frame with bracket corners. Falls back to a glyph (first letter / robot).
- * `mark` (local NAS patch): content shown instead of the first letter (ui/faction.js FactionGlyph), when not null.
+ * `mark` (local patch): content shown instead of the first letter (ui/faction.js FactionGlyph), when not null.
  * @param {{ name?: string, src?: string, size?: 'sm'|'md'|'lg'|'xl', seat?: number, host?: boolean, bot?: boolean,
  *   self?: boolean, ready?: boolean, offline?: boolean, dead?: boolean, empty?: boolean, mark?: any, class?: string }} props
  */

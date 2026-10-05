@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 선발 오퍼레이터 (甄选 / DIY picks, local NAS patch, docs/LOCAL-PATCH.md): data/diy.json — the chess records of the
+// 선발 오퍼레이터 (甄选 / DIY picks, local patch, docs/LOCAL-PATCH.md): data/diy.json — the chess records of the
 // operators a player may put into the official 甄选 slots (act2autochess diyChessDict: two tier V and two tier VI slots,
 // a 6★ operator not in the pool).
 //
@@ -105,7 +105,7 @@ async function main() {
   const ctx = await loadContext();
   const { meta, chess, tokens } = await buildDiy(ctx);
   const doc = {
-    about: 'Chess records of the 甄选 (DIY) picks — tools/build-diy.mjs (local NAS patch). Merged into chess / tokens by server/data.js and public/js/data.js.',
+    about: 'Chess records of the 甄选 (DIY) picks — tools/build-diy.mjs (local patch). Merged into chess / tokens by server/data.js and public/js/data.js.',
     candidates: meta, chess, tokens,
   };
   await writeFile(OUT, JSON.stringify(doc) + '\n');

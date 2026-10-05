@@ -1,4 +1,4 @@
-// Per-round 作战 BGM (local NAS patch, docs/LOCAL-PATCH.md): plan.mjs gives prep and combat the same
+// Per-round 作战 BGM (local patch, docs/LOCAL-PATCH.md): plan.mjs gives prep and combat the same
 // act1autochess_shop track, while the official normal round levels declare their own bgmEvent
 // (research 05-maps roundLevels[id].bgm: act1autochess_01–07 bat_kazimierz2_2, h01–h06 bat_kazimierz2_1,
 // training bat_act35side_01). This builds `audio.waveBgm[templateId]` for those levels; boss levels stay in

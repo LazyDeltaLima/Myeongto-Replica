@@ -1,4 +1,4 @@
-// Room chat (local NAS patch): one text channel per co-op room (solo rooms have none), open in the room screen and
+// Room chat (local patch): one text channel per co-op room (solo rooms have none), open in the room screen and
 // during the match.
 //
 // Wire (server/local-patch.js chat): room.chat { text } → the room gets room.chat { seq, playerId, name, text, at }; a player

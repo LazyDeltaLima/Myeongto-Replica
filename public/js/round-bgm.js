@@ -1,4 +1,4 @@
-// Per-round 作战 BGM (local NAS patch, docs/LOCAL-PATCH.md). Upstream plays `bgm.combat` — the same
+// Per-round 作战 BGM (local patch, docs/LOCAL-PATCH.md). Upstream plays `bgm.combat` — the same
 // act1autochess_shop track as 休整期 — in every normal round, so the music never changes between prep and battle.
 // The official round levels (wave templates, config.json modes[modeId].rounds[r].template) each declare their own
 // bgmEvent: act1autochess_01–07 → bat_kazimierz2_2, h01–h06 → bat_kazimierz2_1, training tr01/tr02 →

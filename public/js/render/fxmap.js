@@ -1,4 +1,4 @@
-// render/fxmap.js — which extracted effect plays for which battle event (local NAS patch, docs/LOCAL-PATCH.md).
+// render/fxmap.js — which extracted effect plays for which battle event (local patch, docs/LOCAL-PATCH.md).
 //
 // Effect bundles are named after the operator (battle/prefabs/effects/<name>.ab, the charId without its char_NNN_
 // prefix: char_1050_chen3 → chen3) and the prefabs follow the client's naming: <name>_attack_start_01 / _attack_hit_01,

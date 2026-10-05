@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Battle effect extraction (local NAS patch, docs/LOCAL-PATCH.md): official operator skill / attack effects from a
+"""Battle effect extraction (local patch, docs/LOCAL-PATCH.md): official operator skill / attack effects from a
 locally installed client, for the web effect player (public/js/render/fxplayer.js, preview page /fxlab.html).
 
 An effect is a Unity prefab in battle/prefabs/effects/<name>.ab (e.g. chen3_skill_01_start_01): a GameObject tree of

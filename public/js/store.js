@@ -81,7 +81,7 @@ export const initialState = Object.freeze({
   match: emptyMatch(),
   ticker: [],
   emotes: [],
-  chat: { code: null, lines: [], seen: 0 }, // room chat (local NAS patch, ui/chat.js)
+  chat: { code: null, lines: [], seen: 0 }, // room chat (local patch, ui/chat.js)
   clock: { offset: 0, rtt: null, synced: false },
   ui: { pendingJoin: null, restoring: false, buildStale: false },
 });

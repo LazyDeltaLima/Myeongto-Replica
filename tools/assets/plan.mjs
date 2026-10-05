@@ -23,10 +23,10 @@ import { kindOf } from './formats.mjs';
 import { pickUnitSfx, UI_SFX, BATTLE_SFX, resolveSpec } from './audio.mjs';
 import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
-import { voiceTemplate } from './voice.mjs'; // local NAS patch
-import { skillStartSounds } from './skill-sfx.mjs'; // local NAS patch
-import { waveBgmTemplate } from './round-bgm.mjs'; // local NAS patch
-import { leakSfx } from './leak-sfx.mjs'; // local NAS patch
+import { voiceTemplate } from './voice.mjs'; // local patch
+import { skillStartSounds } from './skill-sfx.mjs'; // local patch
+import { waveBgmTemplate } from './round-bgm.mjs'; // local patch
+import { leakSfx } from './leak-sfx.mjs'; // local patch
 
 /**
  * Enemies whose Spine no community dump carries: the web model is another enemy's (research 07 §5.6). Their official
@@ -315,7 +315,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       const iconId = s.iconId || s.skillId;
       if (s.icon?.url && !skills[iconId]) skills[iconId] = leaf(alt(`skill/${safeName(iconId)}.png`, s.icon.url, s.icon.bytes));
       if (s.skillId) skillsById[s.skillId] = iconId;
-      const ss = skillStartSounds(audio, s.skillId); // local NAS patch: + ON_ABILITY_* / ON_CUSTOM_TRIGGER fallbacks (skill-sfx.mjs)
+      const ss = skillStartSounds(audio, s.skillId); // local patch: + ON_ABILITY_* / ON_CUSTOM_TRIGGER fallbacks (skill-sfx.mjs)
       if (ss?.length) skillSfx[String(i)] = soundLeaf(ss);
     }
     const primarySkill = skillSfx[String(idx[0])];
@@ -525,8 +525,8 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     chars, enemies, tokens, bonds, items, bands, skills, skillsById, ui, prof,
     audio: { bgm, bossBgm: Object.fromEntries(Object.entries(bossBgm).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))), sfx: { ui: sfxUi, battle: sfxBattle, units: unitsSfx } },
   };
-  template.audio.voice = voiceTemplate(charIds); // local NAS patch: operator voice lines (tools/assets/voice.mjs)
-  template.audio.waveBgm = waveBgmTemplate(maps05?.roundLevels, (b) => flatBgm(bgmLeaf(b))); // local NAS patch: per-round 作战 BGM (tools/assets/round-bgm.mjs)
-  template.audio.sfx.battle.leak = leakSfx(audio, soundLeaf); // local NAS patch: enemy reached the goal (tools/assets/leak-sfx.mjs)
+  template.audio.voice = voiceTemplate(charIds); // local patch: operator voice lines (tools/assets/voice.mjs)
+  template.audio.waveBgm = waveBgmTemplate(maps05?.roundLevels, (b) => flatBgm(bgmLeaf(b))); // local patch: per-round 作战 BGM (tools/assets/round-bgm.mjs)
+  template.audio.sfx.battle.leak = leakSfx(audio, soundLeaf); // local patch: enemy reached the goal (tools/assets/leak-sfx.mjs)
   return { template, models, notes };
 }

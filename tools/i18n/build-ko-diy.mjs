@@ -1,4 +1,4 @@
-// tools/i18n/build-ko-diy.mjs — 선발 오퍼레이터(data/diy.json) 한국어 사전 (local NAS patch, docs/LOCAL-PATCH.md)
+// tools/i18n/build-ko-diy.mjs — 선발 오퍼레이터(data/diy.json) 한국어 사전 (local patch, docs/LOCAL-PATCH.md)
 // build-ko-data-dict.mjs와 같은 생각: data/diy.json(중국어)은 그대로 두고, 같은 빌더(tools/build-diy.mjs buildDiy)를 한국어
 // 문자열을 넣은 테이블로 한 번 더 돌려 같은 경로의 문자열끼리 짝지어 public/i18n/ko/diy.json ({ "중국어": "한국어" })을 만든다.
 // 숫자·태그는 빌더가 채우므로 원문과 정확히 같다.

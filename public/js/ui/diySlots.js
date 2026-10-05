@@ -1,4 +1,4 @@
-// 선발 오퍼레이터 (甄选 / DIY picks, local NAS patch, docs/LOCAL-PATCH.md): the slot row of the 干员调配 screen
+// 선발 오퍼레이터 (甄选 / DIY picks, local patch, docs/LOCAL-PATCH.md): the slot row of the 干员调配 screen
 // (screens/loadout.js mounts <DiySlots/> above the roster). Two tier V and two tier VI slots (act2autochess
 // diyChessDict); each takes one candidate of data/diy.json (shared/diy.js), an operator at most once. A pick is a
 // loadout entry `{ diy: slot }` on the candidate's normal chess of that tier — its skill / module are chosen in the

@@ -1,4 +1,4 @@
-// Debug page (local NAS patch, docs/LOCAL-PATCH.md): /debug.html — per operator, the extracted official battle effects
+// Debug page (local patch, docs/LOCAL-PATCH.md): /debug.html — per operator, the extracted official battle effects
 // (render/fxplayer.js on a patch of board tiles under the game's battle camera), the unit / skill sounds of
 // data/assets.json and the voice lines. ?op=<charId>&fx=<bundle>/<prefab> opens one directly; &auto=<s> steps an
 // effect to that time and holds it (screenshots in tests).

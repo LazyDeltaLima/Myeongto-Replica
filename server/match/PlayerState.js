@@ -217,7 +217,7 @@ export class PlayerState {
         const x = {};
         if (Number.isInteger(e.skill)) x.skill = e.skill;
         if (typeof e.module === 'string') x.module = e.module;
-        if (Number.isInteger(e.diy)) x.diy = e.diy; // local NAS patch: 甄选 slot (shared/diy.js)
+        if (Number.isInteger(e.diy)) x.diy = e.diy; // local patch: 甄选 slot (shared/diy.js)
         if (Object.keys(x).length) entries[id] = x;
       }
     }
@@ -227,7 +227,7 @@ export class PlayerState {
       return false;
     }
     const out = {};
-    for (const [id, e] of Object.entries(res.loadout)) out[id] = Object.freeze({ skill: e.skill, module: e.module ?? null, ...(e.diy ? { diy: e.diy } : {}) }); // local NAS patch: keep the 甄选 slot
+    for (const [id, e] of Object.entries(res.loadout)) out[id] = Object.freeze({ skill: e.skill, module: e.module ?? null, ...(e.diy ? { diy: e.diy } : {}) }); // local patch: keep the 甄选 slot
     this.loadout = Object.freeze(out);
     return true;
   }

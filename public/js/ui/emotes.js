@@ -16,7 +16,7 @@
 //               wheel turns one page per gesture, a plain vertical mouse wheel included, like Unity's ScrollRect). The
 //               panel reopens on the theme of the last emote sent (localStorage). Sending closes the panel and greys
 //               the button for the 1 s cooldown (chatCD), counted from the send so a remount keeps it.
-//   Sets (local NAS patch, shared/emote-art.js): two tabs above the panel pick the set to send from — 官方表情 (the
+//   Sets (local patch, shared/emote-art.js): two tabs above the panel pick the set to send from — 官方表情 (the
 //               official themes that have a picture here; all six while nothing is known yet) or 用户表情 (36 fan-made
 //               pictures on the same ids, six pages). The set travels with the emote (g.emote / m.emote `set`), so
 //               every player sees the picture that was sent. The tab and each tab's page are remembered.

@@ -1,4 +1,4 @@
-// test/local-patch.test.js — the local NAS patch (server/local-patch.js, server/sim/content/local-patch.js,
+// test/local-patch.test.js — the local patch (server/local-patch.js, server/sim/content/local-patch.js,
 // shared/local.js, the chat / faction / emote-set / resource-download client modules), kept out of the upstream test
 // files so that merging upstream releases stays conflict-free. Boots real servers in-process on random ports like
 // test/lobby.test.js.

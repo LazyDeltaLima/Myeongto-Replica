@@ -22,7 +22,7 @@ export const EXIT_TEXT = Object.freeze({
   soloQuit: '放弃模拟将立即结束本局并返回大厅，本局进度不会保留，也不会进行结算。',
 });
 
-/** Local NAS patch: no 暂离（AI 托管） in the exit dialog — a player who leaves gives up the seat (放弃模拟 only). */
+/** Local patch: no 暂离（AI 托管） in the exit dialog — a player who leaves gives up the seat (放弃模拟 only). */
 const AWAY_OPTION = false;
 
 /** Local "暂离 / AI 托管" flag (the server keeps no per-client autoplay view). */

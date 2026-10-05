@@ -1,4 +1,4 @@
-/* 선발 오퍼레이터 (甄选 slots, local NAS patch): the slot row of the 干员调配 screen (ui/diySlots.js). */
+/* 선발 오퍼레이터 (甄选 slots, local patch): the slot row of the 干员调配 screen (ui/diySlots.js). */
 .diy { display: flex; flex-direction: column; gap: .06rem; padding: .08rem .1rem; border: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(34, 41, 38, .9), rgba(14, 17, 16, .95)); }
 .diy__head { display: flex; gap: .1rem; align-items: baseline; font-size: max(.14rem, 11px); }

@@ -149,7 +149,7 @@
   .ebubble { animation: emo-bubble-out 1ms linear calc(var(--ebubble-ttl) - 1ms - var(--ebubble-age)) forwards; }
 }
 
-/* ---- set tabs (local NAS patch): 官方表情 / 用户表情 above the plate; user pictures sit on white ------------------- */
+/* ---- set tabs (local patch): 官方表情 / 用户表情 above the plate; user pictures sit on white ------------------- */
 /* as wide as the plate (x 15–297 of emoji_bkg), sitting on its top edge */
 .ewheel__tabs { position: absolute; left: .15rem; width: 2.82rem; bottom: calc(100% - .13rem); display: flex; gap: .03rem; }
 .ewheel__tab {

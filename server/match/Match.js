@@ -1109,7 +1109,7 @@ export class Match {
     const now = this.sched.now();
     if (now - ps.lastEmoteAt < EMOTE_COOLDOWN_MS) return fail(ERR.RATE);
     ps.lastEmoteAt = now;
-    this.broadcast({ t: 'm.emote', playerId: ps.playerId, id, ...(emoteSet(set) === 'user' ? { set: 'user' } : {}) }); // local NAS patch: user pictures
+    this.broadcast({ t: 'm.emote', playerId: ps.playerId, id, ...(emoteSet(set) === 'user' ? { set: 'user' } : {}) }); // local patch: user pictures
     return OK;
   }
 

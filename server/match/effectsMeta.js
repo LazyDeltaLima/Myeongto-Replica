@@ -607,7 +607,7 @@ export function makeCtx(m, ps, source, hook, ev = null) {
       const kind = slot.kind === 'item' ? 'item' : 'chess';
       if (kind === 'chess' ? !gd.chess(slot.id) : !gd.item(slot.id)) return false;
       const basePrice = Number.isFinite(slot.price) ? Math.max(0, Math.trunc(slot.price)) : kind === 'chess' ? gd.chessPrice(slot.id) : gd.itemPrice(slot.id);
-      const prev = ps.shop.slots[i]; // local NAS patch: a replaced slot keeps its freeze (frozen shop + 佩佩 / 杜遥夜 special refresh)
+      const prev = ps.shop.slots[i]; // local patch: a replaced slot keeps its freeze (frozen shop + 佩佩 / 杜遥夜 special refresh)
       ps.shop.slots[i] = { kind, id: slot.id, basePrice, frozen: slot.frozen !== undefined ? !!slot.frozen : !!(prev && !prev.sold ? prev.frozen : ps.shop.frozen), sold: false };
       ps.dirty();
       return true;

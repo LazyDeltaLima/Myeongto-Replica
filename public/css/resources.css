@@ -1,4 +1,4 @@
-/* Background resource download (local NAS patch, public/js/resources.js): the one-time consent card and the progress
+/* Background resource download (local patch, public/js/resources.js): the one-time consent card and the progress
    pill, bottom-right on the title / lobby / room screens (never shown over the match HUD). On short screens (landscape
    phones) the card covers the lobby's main button there, so it becomes a centered dialog over a dimmed screen. */
 

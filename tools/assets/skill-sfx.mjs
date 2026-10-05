@@ -1,4 +1,4 @@
-// Skill activation sounds (local NAS patch, docs/LOCAL-PATCH.md): the official audio_data files a skill's sound under
+// Skill activation sounds (local patch, docs/LOCAL-PATCH.md): the official audio_data files a skill's sound under
 // battle.ON_SKILL_START.<skillId> for many skills, but for others only under the ability the skill fires —
 // ON_ABILITY_START.<skillId> (often numbered .1 / .2: 缄默德克萨斯 S3, 维什戴尔 S1, 仇白 S2), ON_CUSTOM_TRIGGER.<skillId>[start]
 // (丰川祥子 S3), ON_ABILITY_ON / ON_ABILITY_HIT (流星 S2, 古米 S1). plan.mjs took ON_SKILL_START only, so 34 operators had

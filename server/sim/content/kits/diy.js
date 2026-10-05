@@ -1,4 +1,4 @@
-// server/sim/content/kits/diy.js — hand-authored kits of the 선발 오퍼레이터 (甄选 / DIY picks, local NAS patch,
+// server/sim/content/kits/diy.js — hand-authored kits of the 선발 오퍼레이터 (甄选 / DIY picks, local patch,
 // docs/LOCAL-PATCH.md): 望, 赤刃明霄陈, 维什戴尔, 丰川祥子, 阿斯卡纶. Numbers come from each record's blackboards
 // (data/diy.json, the official tables at the 甄选 slot status); behaviour from the skill / talent texts and the PRTS
 // operator pages (备注), [ASSUMED] where neither says. Registered by content/index.js (operator kits by the

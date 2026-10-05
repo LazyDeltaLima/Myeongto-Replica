@@ -34,14 +34,14 @@ async function safeImport(path) {
 }
 
 const TIERS = await Promise.all([1, 2, 3, 4, 5, 6].map((t) => safeImport(`./kits/tier${t}.js`)));
-const DIY = await safeImport('./kits/diy.js'); // local NAS patch: 선발 오퍼레이터 kits + their token kits
+const DIY = await safeImport('./kits/diy.js'); // local patch: 선발 오퍼레이터 kits + their token kits
 const DOMAIN_NAMES = ['tokens', 'devices', 'enemies', 'bosses', 'bonds', 'garrisons', 'items', 'bands', 'choices'];
-DOMAIN_NAMES.push('local-patch'); // local NAS patch: enemy fixes (content/local-patch.js)
+DOMAIN_NAMES.push('local-patch'); // local patch: enemy fixes (content/local-patch.js)
 const DOMAINS = await Promise.all(DOMAIN_NAMES.map((n) => safeImport(`./${n}.js`)));
 const tokens = DOMAINS[0];
 
 /** Merged kit registry: baseChessId → (bb, chess, def) => Kit */
-export const KITS = Object.freeze(Object.assign({}, ...TIERS.map((m) => (m && m.default && typeof m.default === 'object' ? m.default : {})), DIY.default || {})); // local NAS patch: + DIY
+export const KITS = Object.freeze(Object.assign({}, ...TIERS.map((m) => (m && m.default && typeof m.default === 'object' ? m.default : {})), DIY.default || {})); // local patch: + DIY
 
 /** Domain modules in install order: tokens, devices, enemies, bosses, bonds, garrisons, items, bands, choices. */
 export const MODULES = Object.freeze(DOMAIN_NAMES.map((n, i) => [n, DOMAINS[i]]));
@@ -54,7 +54,7 @@ export function setupUnitKit(battle, unit, mode = 'full') {
   const raw = def.raw ?? def;
   const bb = def.skill?.bb ?? {};
   if (unit.kind === 'token') {
-    const tk = mode === 'full' ? (tokens.kits?.[def.id] ?? tokens.default?.[def.id] ?? DIY.tokenKits?.[def.id]) : null; // local NAS patch: DIY tokens
+    const tk = mode === 'full' ? (tokens.kits?.[def.id] ?? tokens.default?.[def.id] ?? DIY.tokenKits?.[def.id]) : null; // local patch: DIY tokens
     if (typeof tk === 'function') {
       try { const k = tk(bb, raw, def); if (k) return k; } catch (e) { battle._handlerError(`tokenKit:${def.id}`, unit, e); }
     }

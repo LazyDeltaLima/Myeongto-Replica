@@ -1,4 +1,4 @@
-// 선발 오퍼레이터 (甄选 / DIY picks, local NAS patch, docs/LOCAL-PATCH.md): asset-plan entries of the candidates of
+// 선발 오퍼레이터 (甄选 / DIY picks, local patch, docs/LOCAL-PATCH.md): asset-plan entries of the candidates of
 // data/diy.json (tools/build-diy.mjs), in the shape of docs/research/07-assets.json `operators[charId]` — avatars and
 // portraits (E0/E1 + E2), the skill icons of every skill, the Front / Back battle Spine and the sub-profession icon —
 // from the same sources (yuanyan3060, fexli, ArknightsAssets2). tools/fetch-assets.mjs adds them before buildPlan, so

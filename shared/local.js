@@ -1,4 +1,4 @@
-// Local NAS patch: what this server adds to the shared constants and the wire protocol, kept out of the upstream files
+// Local patch: what this server adds to the shared constants and the wire protocol, kept out of the upstream files
 // (shared/constants.js, shared/protocol.js) so that merging upstream releases stays conflict-free. protocol.js only
 // imports extendProtocol and calls it once at its end.
 //

@@ -109,7 +109,7 @@ import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, cameraLayers, layerCamera, sidesOf, resumedWatch } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
 import { data, localAsset, getMode } from '../data.js';
-import { voiceForPiece, voiceForBuy, voiceBattleStart } from '../voice.js'; // local NAS patch
+import { voiceForPiece, voiceForBuy, voiceBattleStart } from '../voice.js'; // local patch
 import { audio } from '../audio.js';
 import { useDocClass, FullscreenButton } from '../ui/device.js';
 
@@ -132,7 +132,7 @@ export function GameScreen() {
   const away = useStore((s) => s.away, Object.is, awayStore);
   const autoplay = useStore((s) => !!(Array.isArray(s.match.public?.players) && s.match.public.players.find((p) => p && p.playerId === s.me.playerId)?.autoplay));
   const gd = useGameData();
-  // room chat (local NAS patch) on the briefing / draft / result screens; the match screen has its own in the corner
+  // room chat (local patch) on the briefing / draft / result screens; the match screen has its own in the corner
   const coopRoom = useStore((s) => s.room?.mode === 'coop');
   const [chatOpen, setChatOpen] = useState(false);
   if (!pub || !gd.ready) {
@@ -210,7 +210,7 @@ function MatchScreen() {
   const [collapsed, setCollapsed] = useState(false);
   const [rewardMin, setRewardMin] = useState(false);
   const [emoteOpen, setEmoteOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false); // room chat (local NAS patch)
+  const [chatOpen, setChatOpen] = useState(false); // room chat (local patch)
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const [drag, setDrag] = useState(null);                // { uid, kind, id } while dragging a piece
@@ -579,7 +579,7 @@ function MatchScreen() {
     else if (phase === PHASE.FINAL_ASSAULT) audio.sfx(solo ? 'bossRoundSingle' : 'bossRoundTeam');
     else if (phase === PHASE.HIDDEN_CORE) audio.sfx('bossRoundSecret');
     else if (phase === PHASE.SP_DRAFT) audio.sfx('draft');
-    if ([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE].includes(phase)) voiceBattleStart(live.current.priv); // local NAS patch
+    if ([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE].includes(phase)) voiceBattleStart(live.current.priv); // local patch
     setWatching(null); // the server resets every watcher to its own field on phase changes
     setWatchWho(null);
     // the pen is a 休整期 view: leaving prep returns the camera (the next setCam would, too)
@@ -649,9 +649,9 @@ function MatchScreen() {
 
   // ---- actions ----------------------------------------------------------------------------------------------
   const buy = useCallback(async (i) => {
-    const slot = live.current.priv?.shop?.slots?.[i]; // local NAS patch: the bought operator's deploy line (voice.js)
+    const slot = live.current.priv?.shop?.slots?.[i]; // local patch: the bought operator's deploy line (voice.js)
     const ok = await actions.buy(i);
-    if (ok) voiceForBuy(slot); // local NAS patch
+    if (ok) voiceForBuy(slot); // local patch
     return ok;
   }, []);
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
@@ -810,7 +810,7 @@ function MatchScreen() {
         const entry = L.placeCtx?.pieces.get(e?.uid);
         if (!entry || !L.editable) return;
         audio.sfx('pick', { volume: 0.6 });
-        voiceForPiece(entry.piece); // local NAS patch
+        voiceForPiece(entry.piece); // local patch
         setSel(null);
         // a new placement: a piece's detail card (right-click / long-press) would sit beside the wheel showing another unit
         setDetail((d) => (d?.kind === 'piece' ? null : d));
@@ -874,7 +874,7 @@ function MatchScreen() {
         const wasSel = pressSel.current === e.uid;
         pressSel.current = null;
         setSel(wasSel ? null : { uid: e.uid });
-        if (!wasSel) voiceForPiece(L.placeCtx?.pieces.get(e.uid)?.piece); // local NAS patch
+        if (!wasSel) voiceForPiece(L.placeCtx?.pieces.get(e.uid)?.piece); // local patch
         if (wasSel) setDetail((d) => (d?.kind === 'piece' && d.uid === e.uid ? null : d));
       }),
     ];

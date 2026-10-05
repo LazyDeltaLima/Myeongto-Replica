@@ -1,4 +1,4 @@
-// Chat faction marks (local NAS patch, shared/local.js CHAT_FACTIONS / server/local-patch.js): a faction is
+// Chat faction marks (local patch, shared/local.js CHAT_FACTIONS / server/local-patch.js): a faction is
 // shown with its nation bond icon (data/assets.json bonds, a white glyph) tinted with the faction color.
 //
 //   FactionIcon     the tinted icon alone (chat picker, chip)

@@ -1,4 +1,4 @@
-// Resource service worker (local NAS patch): answers game art requests from the Cache Storage 'sp-res', and fetches
+// Resource service worker (local patch): answers game art requests from the Cache Storage 'sp-res', and fetches
 // what is not there yet on demand — upstream art from jsDelivr / GitHub raw rather than from this server — so the NAS
 // upload carries little of the art, and a picture seen once never pops in late again (no round trip, no revalidation).
 //

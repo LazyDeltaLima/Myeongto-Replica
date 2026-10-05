@@ -1,4 +1,4 @@
-/* Room chat (local NAS patch, public/js/ui/chat.js): the room screen's panel and the match's 聊天 button / panel /
+/* Room chat (local patch, public/js/ui/chat.js): the room screen's panel and the match's 聊天 button / panel /
    floating feed. Sizes follow the theme's rem (1rem = 1/19.2 of the 1920-wide design). */
 
 .chat {
@@ -121,7 +121,7 @@
 /* briefing / draft / result screens: the 聊天 button floats bottom-left */
 .gchat-float { position: fixed; left: calc(.24rem + var(--sa-l, 0px)); bottom: calc(.24rem + var(--sa-b, 0px)); z-index: 40; }
 
-/* ---- chat faction (local NAS patch): tag after the name, chip left of the input, picker above it ---------------- */
+/* ---- chat faction (local patch): tag after the name, chip left of the input, picker above it ---------------- */
 .chat__faction { margin-left: .04rem; font-weight: 700; }
 .chat__line--sys .chat__name::after { content: ''; }
 .chat__line--sys .chat__text { color: var(--text-lo); }

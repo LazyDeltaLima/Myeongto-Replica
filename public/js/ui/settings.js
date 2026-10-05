@@ -10,8 +10,8 @@ import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
 import { lang, setLang } from '../i18n/i18n.js';
-import { ResourceSetting } from '../resources.js'; // local NAS patch
-import { VoiceSetting } from '../voice.js'; // local NAS patch
+import { ResourceSetting } from '../resources.js'; // local patch
+import { VoiceSetting } from '../voice.js'; // local patch
 
 /** Settings store: { bgm, sfx, muted, damageNumbers, quality }. */
 export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));

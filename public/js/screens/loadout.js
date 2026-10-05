@@ -30,8 +30,8 @@ import {
 import { loadoutStore, openLoadout, closeLoadout, setEntries, applyLoadoutEntries } from '../ui/loadoutSync.js';
 import { copyText } from '../ui/clipboard.js';
 import { toast } from '../ui/toasts.js';
-import { DiySlots } from '../ui/diySlots.js'; // local NAS patch: 甄选 slots
-import { isDiyPick, hasDiyPicks } from '../../../shared/diy.js'; // local NAS patch
+import { DiySlots } from '../ui/diySlots.js'; // local patch: 甄选 slots
+import { isDiyPick, hasDiyPicks } from '../../../shared/diy.js'; // local patch
 
 export { openLoadout, closeLoadout };
 
@@ -394,7 +394,7 @@ function LoadoutScreen({ st }) {
       .sort((a, b) => (b.isCore ? 1 : 0) - (a.isCore ? 1 : 0) || (a.bondOrder ?? 0) - (b.bondOrder ?? 0) || String(a.name).localeCompare(String(b.name), 'zh'));
   }, [ready, roster]);
   const list = filterRoster(roster, st.filters, st.entries, getChess, getBond);
-  const selId = st.sel && (roster.some((c) => c.chessId === st.sel) || isDiyPick(getChess(st.sel))) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null; // local NAS patch: a 甄选 pick may be selected
+  const selId = st.sel && (roster.some((c) => c.chessId === st.sel) || isDiyPick(getChess(st.sel))) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null; // local patch: a 甄选 pick may be selected
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
   const nChanged = changedCount(st.entries, getChess);
   const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) || st.sync === 'locked';

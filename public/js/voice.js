@@ -1,4 +1,4 @@
-// Operator voice lines (local NAS patch, docs/LOCAL-PATCH.md), in Korean or Japanese, or off:
+// Operator voice lines (local patch, docs/LOCAL-PATCH.md), in Korean or Japanese, or off:
 //   * 오퍼레이터 선택 (select) when the player picks up or selects an own operator;
 //   * 배치 (deploy) when the player buys an operator in the shop;
 //   * 작전 개시 (start) when a battle starts: one operator of the own board, at random [ASSUMED: who speaks];

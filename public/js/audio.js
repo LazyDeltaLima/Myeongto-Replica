@@ -36,7 +36,7 @@
 
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
-import { roundBgmKey } from './round-bgm.js'; // local NAS patch
+import { roundBgmKey } from './round-bgm.js'; // local patch
 
 const MAX_VOICES = 8;
 const UNIT_COOLDOWN_MS = 160;
@@ -98,7 +98,7 @@ export function resolveBgm(manifest, key) {
   let t = null;
   if (key.startsWith('boss:')) t = a.bossBgm?.[key.slice(5)] || a.bgm?.boss;
   else if (key === 'unite') t = a.bgm?.unite || a.bgm?.combat;
-  else if (key.startsWith('wave:')) t = a.waveBgm?.[key.slice(5)] || a.bgm?.combat; // local NAS patch: per-round 作战 BGM (round-bgm.js)
+  else if (key.startsWith('wave:')) t = a.waveBgm?.[key.slice(5)] || a.bgm?.combat; // local patch: per-round 作战 BGM (round-bgm.js)
   else t = a.bgm?.[key];
   if (!t || typeof t.loop !== 'string') return null;
   return { intro: typeof t.intro === 'string' ? t.intro : null, loop: t.loop };
@@ -663,12 +663,12 @@ export class AudioManager {
           if (now - by.at <= IMPACT_WINDOW_MS) this.unit(by.def, 'hit', `h${e[1]}`);
         } else if (kind === 'heal') {
           this.battle('heal', { unitKey: `heal:${e[1]}`, volume: 0.35 });
-        } else if (kind === 'leak') { // local NAS patch: an enemy reached the goal (official battle.ON_ENEMY_REACHED_EXIT, tools/assets/leak-sfx.mjs)
+        } else if (kind === 'leak') { // local patch: an enemy reached the goal (official battle.ON_ENEMY_REACHED_EXIT, tools/assets/leak-sfx.mjs)
           this.battle('leak', { unitKey: 'leak', volume: 0.8 });
         } else if (kind === 'skill' && e[2]) {
           const u = this.units.get(e[1]);
           if (u) this.unit(u.def, 'skill', e[1], u.skillIndex ?? undefined);
-          if (u) this.onUnitSkill?.(u); // local NAS patch: operator voice line (voice.js)
+          if (u) this.onUnitSkill?.(u); // local patch: operator voice line (voice.js)
         } else if (kind === 'die') {
           const u = this.units.get(e[1]);
           if (!u) continue;
@@ -723,7 +723,7 @@ export function installAudio(deps) {
     if (deps?.settings) audio.setVolumes(deps.settings);
     if (typeof deps?.subscribe === 'function' && typeof deps?.getState === 'function') {
       const sync = (s) => {
-        try { audio.playBgm(roundBgmKey(bgmKeyFor(deps.selectRoute(s), s.match?.public), s.match?.public)); } catch { /* ignore */ } // local NAS patch: per-round 作战 BGM
+        try { audio.playBgm(roundBgmKey(bgmKeyFor(deps.selectRoute(s), s.match?.public), s.match?.public)); } catch { /* ignore */ } // local patch: per-round 作战 BGM
       };
       sync(deps.getState());
       return deps.subscribe((s, prev) => {

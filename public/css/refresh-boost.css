@@ -1,4 +1,4 @@
-/* 갱신 버튼 강조 (local NAS patch, docs/LOCAL-PATCH.md): the strategy acts on the next manual refresh
+/* 갱신 버튼 강조 (local patch, docs/LOCAL-PATCH.md): the strategy acts on the next manual refresh
    (m.private shop.refreshBoost, server/local-patch.js refreshBoost) → the refresh button's border glows. */
 .toolbtn--amber.is-boost {
   position: relative;

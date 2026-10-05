@@ -1,4 +1,4 @@
-// render/fxgame.js — the official battle effects in the game's battle view (local NAS patch, docs/LOCAL-PATCH.md).
+// render/fxgame.js — the official battle effects in the game's battle view (local patch, docs/LOCAL-PATCH.md).
 //
 // render/app.js calls three hooks: onEvent(e, views) for every battle event it handles, update(dt, cam, vp) each frame,
 // clear() when a battle ends. Effects play only for operators whose effect bundle was extracted from a local client

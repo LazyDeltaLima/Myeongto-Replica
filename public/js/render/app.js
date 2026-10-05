@@ -124,7 +124,7 @@ import { layoutPen, penSignature } from './pen.js';
 import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.js';
 import { pickOnTile, pickBattle, hitRectAt, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
-import { createFxLayer } from './fxgame.js'; // local NAS patch: official battle effects
+import { createFxLayer } from './fxgame.js'; // local patch: official battle effects
 
 const VENDOR = { pixi: '/vendor/pixi.min.js', spine: '/vendor/pixi-spine.js' };
 const PIECE_DIRS = new Set(['UP', 'RIGHT', 'DOWN', 'LEFT']);
@@ -434,7 +434,7 @@ export async function createFieldView(host, options = {}) {
     resolution: dpr(), autoDensity: true, powerPreference: 'high-performance',
   });
   const canvas = app.view;
-  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel }); // local NAS patch
+  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel }); // local patch
   canvas.style.display = 'block';
   canvas.style.width = '100%';
   canvas.style.height = '100%';
@@ -1034,7 +1034,7 @@ export async function createFieldView(host, options = {}) {
     gone.clear();
     battleMeta = null;
     interp.reset();
-    fx.clear(); fxGame.clear(); // local NAS patch
+    fx.clear(); fxGame.clear(); // local patch
     meleePending.clear();
     consumedIds.clear();
     tiles.setBattleRect(null);
@@ -1422,7 +1422,7 @@ export async function createFieldView(host, options = {}) {
     infos.clear();
     gone.clear();
     interp.reset();
-    fx.clear(); fxGame.clear(); // local NAS patch
+    fx.clear(); fxGame.clear(); // local patch
     meleePending.clear();
     consumedIds.clear();
     clearHl();
@@ -1527,7 +1527,7 @@ export async function createFieldView(host, options = {}) {
     LATE.clear();
     interp.takeEvents(renderT, EVS, renderT - 1.5, LATE);
     for (const e of EVS) {
-      try { fxGame.onEvent(e, views); } catch { /* local NAS patch: official effects never break the view */ }
+      try { fxGame.onEvent(e, views); } catch { /* local patch: official effects never break the view */ }
       try { handleEvent(e, renderT); } catch (err) { if (!handleEvent.warned) { handleEvent.warned = true; console.warn('[render] event failed', e, err); } }
     }
   }
@@ -1804,7 +1804,7 @@ export async function createFieldView(host, options = {}) {
       if (leader && !leaderHidden) leader.view.update(dt, cam, clock);
       tiles.update(dt);
       fx.update(dt);
-      fxGame.update(dt, cam, vp); // local NAS patch
+      fxGame.update(dt, cam, vp); // local patch
       impostors.flush();
     } catch (err) {
       if (!frame.warned) { frame.warned = true; console.error('[render] frame failed', err); }
@@ -2000,7 +2000,7 @@ export async function createFieldView(host, options = {}) {
       clearPen();
       holdScene(false); // no scene any more: the quiet budget may free the skeletons (lobby / room / result)
       try { fx.destroy(); } catch { /* ignore */ }
-      try { fxGame.destroy(); } catch { /* ignore */ } // local NAS patch
+      try { fxGame.destroy(); } catch { /* ignore */ } // local patch
       try { tiles.destroy(); } catch { /* ignore */ }
       try { impostors.destroy(); } catch { /* ignore */ }
       listeners.clear();
@@ -2017,7 +2017,7 @@ export async function createFieldView(host, options = {}) {
         pen: penViews.size, prepField: prepXf.kind === 'bossPrep' ? prepXf.side : null, lod: loadLevel, culled: culledCount,
         ...fx.counts, spine: assets.spine?.stats ? assets.spine.stats() : null, renderT: interp.renderT, rate: interp.rate,
         buffered: interp.size, camera: cam.params(),
-        fxGame: fxGame.stats(), // local NAS patch
+        fxGame: fxGame.stats(), // local patch
       };
     },
     get mode() { return mode; },

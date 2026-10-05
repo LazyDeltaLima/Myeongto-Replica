@@ -1,4 +1,4 @@
-// User emote set (local NAS patch): 36 fan-made pictures (public/img/emotes/, taken from the Korean fork
+// User emote set (local patch): 36 fan-made pictures (public/img/emotes/, taken from the Korean fork
 // moring-m/Stronghold-Protocol_Ko_Arca) mapped onto the 36 official emote ids, so the wire protocol keeps its id
 // whitelist. A sender picks the set in the emote wheel's tabs and `g.emote { id, set }` carries it, so every player sees
 // the picture that was sent (server/match/Match.js emote, public/js/ui/emotes.js).

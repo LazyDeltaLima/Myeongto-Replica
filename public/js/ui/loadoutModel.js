@@ -10,7 +10,7 @@
 // (shared/protocol.js loadoutOptions / checkLoadout), so a sanitised loadout is always accepted.
 
 import { loadoutOptions, checkLoadout, resolveLoadout, MODULE_NONE, LOADOUT_LIMITS } from '../../../shared/protocol.js';
-import { diyPickProblem, diySlotOf } from '../../../shared/diy.js'; // local NAS patch
+import { diyPickProblem, diySlotOf } from '../../../shared/diy.js'; // local patch
 
 export { MODULE_NONE };
 
@@ -51,7 +51,7 @@ export function parseStored(raw) {
     const x = {};
     if (isInt(e.skill) && e.skill >= 0 && e.skill <= LOADOUT_LIMITS.skillIndex) x.skill = e.skill;
     if (typeof e.module === 'string' && /^[A-Za-z0-9_\-.:]{1,64}$/.test(e.module)) x.module = e.module;
-    if (diySlotOf(e)) x.diy = e.diy; // local NAS patch: a pick's slot survives a reload / an import
+    if (diySlotOf(e)) x.diy = e.diy; // local patch: a pick's slot survives a reload / an import
     if (Object.keys(x).length) out[id] = x;
   }
   return out;
@@ -205,7 +205,7 @@ export function setChoice(entries, base, golden, patch) {
   const e = {};
   if (skill !== opt.defaultSkill && skill != null) e.skill = skill;
   if (golden && module !== opt.defaultModule && module != null) e.module = module;
-  const diy = entries?.[base.chessId]?.diy; // local NAS patch: a 甄选 pick keeps its slot
+  const diy = entries?.[base.chessId]?.diy; // local patch: a 甄选 pick keeps its slot
   if (isInt(diy)) e.diy = diy;
   if (Object.keys(e).length) out[base.chessId] = e;
   return out;
@@ -233,7 +233,7 @@ export function sanitizeEntries(entries, getChess) {
     const one = {};
     if (isInt(e?.skill)) one.skill = e.skill;
     if (typeof e?.module === 'string') one.module = e.module;
-    if (isInt(e?.diy)) one.diy = e.diy; // local NAS patch: 甄选 slot
+    if (isInt(e?.diy)) one.diy = e.diy; // local patch: 甄选 slot
     if (!Object.keys(one).length) continue;
     const res = checkLoadout({ [id]: one }, getChess);
     if (!res.ok) {
@@ -247,7 +247,7 @@ export function sanitizeEntries(entries, getChess) {
     }
     if (res.loadout[id]) out[id] = one;
   }
-  // local NAS patch: 甄选 picks that collide (a slot twice, an operator twice) — the later ones are dropped
+  // local patch: 甄选 picks that collide (a slot twice, an operator twice) — the later ones are dropped
   for (const id of Object.keys(out)) {
     if (out[id].diy === undefined) continue;
     if (diyPickProblem(Object.fromEntries(Object.entries(out).filter(([k, v]) => v.diy !== undefined && (k === id || Object.keys(out).indexOf(k) < Object.keys(out).indexOf(id)))), getChess)) delete out[id];

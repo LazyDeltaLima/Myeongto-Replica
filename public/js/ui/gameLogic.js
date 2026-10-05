@@ -357,7 +357,7 @@ export function fieldLabel(field, pub, myId) {
 }
 
 /**
- * Active emote bubbles: playerId → { id, seq, at, set } for emotes younger than ttl (set: local NAS patch).
+ * Active emote bubbles: playerId → { id, seq, at, set } for emotes younger than ttl (set: local patch).
  * @param {Array<{seq:number, playerId:string, id:string, at:number}>} emotes
  * @param {number} now
  * @param {number} [ttl]

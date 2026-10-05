@@ -1,4 +1,4 @@
-// Background resource download (local NAS patch): pre-downloads the game art into Cache Storage, which
+// Background resource download (local patch): pre-downloads the game art into Cache Storage, which
 // public/resource-worker.js then serves, so a picture never pops in late (no download, no revalidation round trip).
 // Without the consent the worker still fetches each listed file on demand (upstream art from jsDelivr / GitHub raw,
 // hash-checked) and keeps it; reconcile() adopts those entries by their X-SP-Hash header.

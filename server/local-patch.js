@@ -1,4 +1,4 @@
-// Local NAS patch, server side: the room chat, chat factions, the SP_MAX_BOTS cap and the co-op leader HP, kept out of
+// Local patch, server side: the room chat, chat factions, the SP_MAX_BOTS cap and the co-op leader HP, kept out of
 // the upstream files so that merging upstream releases stays conflict-free. lobby.js only calls the hooks below, one
 // line each (the leader HP needs none — see below):
 //
