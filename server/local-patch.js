@@ -8,6 +8,11 @@
 //   botCap(room)                     Lobby.addBot: the refusal when SP_MAX_BOTS is reached, else null
 //   maxBotsSetting()                 room.state `maxBots` (null when unset)
 //
+// 선발 오퍼레이터 (甄选 / DIY picks, shared/diy.js): no hook line — SharedPool / PlayerState are wrapped at import below.
+// A player's picks (loadout entries with `diy`) are pool entries of their own: cap = the tier's copies × the players who
+// picked that operator (each sees only their own picks, so two pickers each keep a full private share in effect); a
+// shop roll offers a pick only to the players who picked it; effect rolls (机变, 信标 …) and bots never see one.
+//
 // Room chat (co-op rooms only): one line from a human of the room — a player, or a spectator (`spectator: true`) — in the
 // lobby or during the match, broadcast to every connected member (Lobby.broadcastRoom) and kept in the room's short
 // history (CHAT_HISTORY lines, sent to whoever joins or resyncs). Nothing outlives the room.
@@ -24,6 +29,9 @@ import { ERR, MAX_SEATS } from '../shared/constants.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, chatFaction } from '../shared/local.js';
 import { sendSession } from './net.js';
 import { GameData } from './match/gamedata.js';
+import { SharedPool } from './match/pool.js';
+import { PlayerState } from './match/PlayerState.js';
+import { diyPicks } from '../shared/diy.js';
 
 const OK = Object.freeze({ ok: true });
 
@@ -142,3 +150,60 @@ export function onMatchEnd(lobby, room) {
   c.factions.clear();
   lobby.broadcastRoom(room, factionsMsg(c));
 }
+
+// ---- 선발 오퍼레이터 (甄选 / DIY picks) ----------------------------------------------------------------------
+
+/** The picks' pool entries of a match, sized by who picked them (created lazily: the players exist before the pool). */
+export function refreshDiyPool(m) {
+  const pool = m && m.pool;
+  if (!pool || !m.players) return;
+  if (!pool.diyEntries) pool.diyEntries = new Set();
+  const pickers = new Map();
+  for (const ps of m.players.values()) for (const id of ps.diyOwned || []) pickers.set(id, (pickers.get(id) || 0) + 1);
+  for (const id of new Set([...pickers.keys(), ...pool.diyEntries])) {
+    const cap = (m.gd.poolCopies(id) || 0) * (pickers.get(id) || 0);
+    const e = pool.entries.get(id);
+    if (!e) {
+      if (cap > 0) { pool.entries.set(id, { cap, left: cap, tier: m.gd.tierOf(id) }); pool.diyEntries.add(id); }
+      continue;
+    }
+    const held = e.cap - e.left;          // never below the copies players already hold (left + held = cap)
+    e.cap = Math.max(cap, held);
+    e.left = e.cap - held;
+  }
+}
+
+const upstreamSetLoadout = PlayerState.prototype.setLoadout;
+PlayerState.prototype.setLoadout = function setLoadout(loadout) {
+  const r = upstreamSetLoadout.call(this, loadout);
+  const picks = diyPicks(this.loadout, (id) => this.gd.chess(id));
+  this.diyOwned = new Set([...picks[5], ...picks[6]].filter(Boolean));
+  refreshDiyPool(this.m);
+  return r;
+};
+
+const upstreamRollChessSlot = PlayerState.prototype._rollChessSlot;
+PlayerState.prototype._rollChessSlot = function _rollChessSlot() {
+  const pool = this.m.pool;
+  if (!pool) return upstreamRollChessSlot.call(this);
+  if (!pool.diyEntries) refreshDiyPool(this.m);
+  const prev = pool.diyFor;
+  pool.diyFor = this;                     // this roll may offer this player's own picks
+  try { return upstreamRollChessSlot.call(this); } finally { pool.diyFor = prev; }
+};
+
+const upstreamEligible = SharedPool.prototype._eligible;
+SharedPool.prototype._eligible = function _eligible(opts) {
+  const el = upstreamEligible.call(this, opts);
+  if (!this.diyEntries || !this.diyEntries.size) return el;
+  const mine = this.diyFor && this.diyFor.diyOwned;
+  return el.filter(([id]) => !this.diyEntries.has(id) || (mine && mine.has(id)));
+};
+
+const upstreamTierShares = SharedPool.prototype.tierShares;
+SharedPool.prototype.tierShares = function tierShares(maxTier) {
+  if (!this.diyEntries || !this.diyEntries.size) return upstreamTierShares.call(this, maxTier);
+  const saved = [...this.diyEntries].map((id) => [id, this.entries.get(id)]);  // the shared odds leave the picks out
+  for (const [id] of saved) this.entries.delete(id);
+  try { return upstreamTierShares.call(this, maxTier); } finally { for (const [id, e] of saved) if (e) this.entries.set(id, e); }
+};

@@ -19,6 +19,7 @@
 // `loadData(...)` to await, or the `useData(...)` hook to re-render when files arrive.
 
 import { useEffect, useReducer } from '../vendor/hooks.module.js';
+import { mergeDiyFile } from '../../shared/diy.js'; // local NAS patch
 
 /** Known data files (name → URL basename). Unknown names are allowed too (`/data/<name>.json`). */
 export const DATA_FILES = Object.freeze({
@@ -130,6 +131,9 @@ export function createDataStore(opts = {}) {
   };
 
   const urlFor = (name) => base + (DATA_FILES[name] || `${name}.json`);
+  // local NAS patch: data/diy.json (甄选 picks), fetched once for the chess and tokens files; absent → nothing merged
+  let diyPromise = null;
+  const loadDiyOnce = () => (diyPromise ||= doFetch(urlFor('diy'), { cache: 'no-cache' }).then((r) => (r && r.ok ? r.json() : null)).catch(() => null));
 
   /**
    * One attempt at a file. Art manifests reject with a transient `{ timeout: true }` when the clock fires; a response
@@ -140,7 +144,7 @@ export function createDataStore(opts = {}) {
       const res = await doFetch(urlFor(name), { cache: 'no-cache' });
       if (!res || !res.ok) throw Object.assign(new Error(`HTTP ${res ? res.status : '???'}`), { status: res ? res.status : null });
       try {
-        return await res.json();
+        return await mergeDiyFile(name, await res.json(), () => loadDiyOnce()); // local NAS patch: 甄选 picks
       } catch (err) {
         throw Object.assign(err instanceof Error ? err : new Error(String(err)), { badJson: true });
       }

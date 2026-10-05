@@ -264,6 +264,213 @@ describe('client helpers', () => {
 
 // ---- emote wheel tabs (public/js/ui/emotes.js) ------------------------------------------------------------------------
 
+describe('operator voice lines (tools/assets/voice.mjs, public/js/voice.js)', () => {
+  test('pipeline: Korean / Japanese start, select, deploy and skill lines per operator; empty roles and voice misses are tidied', async () => {
+    const { voiceTemplate, tidyVoice } = await import('../tools/assets/voice.mjs');
+    const t = voiceTemplate(['char_002_amiya', 'not-an-id']);
+    assert.deepEqual(Object.keys(t), ['kr', 'jp']);
+    assert.deepEqual(Object.keys(t.kr), ['char_002_amiya'], 'only operator ids');
+    const a = t.kr.char_002_amiya;
+    assert.deepEqual(Object.fromEntries(Object.entries(a).map(([k, v]) => [k, v.length])), { start: 1, select: 2, deploy: 2, skill: 4 }, 'nine lines');
+    assert.equal(a.start[0].alts[0].rel, 'audio/voice/kr/char_002_amiya/cn_020.mp3', '작전 개시');
+    assert.equal(a.deploy[1].alts[0].rel, 'audio/voice/kr/char_002_amiya/cn_024.mp3', '배치 2');
+    assert.equal(a.select[0].alts[0].rel, 'audio/voice/kr/char_002_amiya/cn_021.mp3');
+    assert.match(a.select[0].alts[0].urls[0], /\/voice\/assets\/dyn\/audio\/sound_beta_2\/voice_kr\/char_002_amiya\/cn_021\.mp3$/);
+    assert.match(t.jp.char_002_amiya.skill[3].alts[0].urls[0], /sound_beta_2\/voice\/char_002_amiya\/cn_028\.mp3$/, 'Japanese = the default voice folder');
+    const body = { audio: { voice: { kr: { a: { select: ['/x'], skill: [] }, b: { select: [], skill: [] } } } } };
+    const resolved = { misses: ['audio.voice.kr.b.select[0]', 'chars.x.avatar'] };
+    assert.deepEqual(tidyVoice(body, resolved), { lines: 1, missing: 1 });
+    assert.deepEqual(body.audio.voice.kr, { a: { select: ['/x'] } });
+    assert.deepEqual(resolved.misses, ['chars.x.avatar']);
+  });
+
+  test('client: official battleVoice overlap rules (priority, same-priority override, cooldown)', async () => {
+    const { voiceAllowed, skillVoiceType } = await mod('voice.js');
+    assert.equal(skillVoiceType({ skillType: 'MANUAL', spCost: 3 }), 'SKILL_ACTIVE');
+    assert.equal(skillVoiceType({ skillType: 'AUTO', spCost: 10 }), 'SKILL_PASSIVE_IMP');
+    assert.equal(skillVoiceType({ skillType: 'AUTO', spCost: 9 }), 'SKILL_PASSIVE_NOR');
+    assert.equal(skillVoiceType({ skillType: 'PASSIVE' }), null);
+    const on = (type) => ({ type });
+    assert.equal(voiceAllowed('FOCUS_CHAR', null, undefined, 0), true, 'silence: anything plays');
+    assert.equal(voiceAllowed('FOCUS_CHAR', on('SKILL_ACTIVE'), undefined, 0), false, 'a select never cuts a skill line');
+    assert.equal(voiceAllowed('FOCUS_CHAR', on('FOCUS_CHAR'), undefined, 0), true, 'a newer select takes over');
+    assert.equal(voiceAllowed('SKILL_ACTIVE', on('SKILL_ACTIVE'), undefined, 0), true, 'a newer manual skill takes over');
+    assert.equal(voiceAllowed('SKILL_ACTIVE', on('SKILL_PASSIVE_IMP'), undefined, 0), true);
+    assert.equal(voiceAllowed('SKILL_PASSIVE_IMP', on('SKILL_ACTIVE'), undefined, 0), false);
+    assert.equal(voiceAllowed('SKILL_PASSIVE_NOR', on('SKILL_PASSIVE_NOR'), undefined, 0), false, 'auto skills never cut each other');
+    assert.equal(voiceAllowed('SKILL_PASSIVE_IMP', on('SKILL_PASSIVE_NOR'), undefined, 0), true);
+    assert.equal(voiceAllowed('SKILL_PASSIVE_IMP', null, 5, 14.9), false, '10 s cooldown');
+    assert.equal(voiceAllowed('SKILL_PASSIVE_IMP', null, 5, 15), true);
+    assert.equal(voiceAllowed('SKILL_ACTIVE', null, 5, 5.1), true, 'no cooldown for manual skills');
+    assert.equal(voiceAllowed('BATTLE_START', on('SKILL_ACTIVE'), undefined, 0), true, '작전 개시 cuts everything');
+    assert.equal(voiceAllowed('SKILL_PASSIVE_NOR', on('BATTLE_START'), undefined, 0), false);
+    assert.equal(voiceAllowed('PLACE_CHAR', on('FOCUS_CHAR'), undefined, 0), true, 'a bought operator cuts a select line');
+    assert.equal(voiceAllowed('PLACE_CHAR', on('PLACE_CHAR'), undefined, 0), true, 'two purchases: the newer line takes over');
+    assert.equal(voiceAllowed('FOCUS_CHAR', on('PLACE_CHAR'), undefined, 0), false);
+  });
+
+  test('client: preference, URLs of the chosen language, download filter', async () => {
+    const { sanitizeVoice, voiceUrls, voiceWanted, voiceStore } = await mod('voice.js');
+    assert.deepEqual(sanitizeVoice(null), { lang: 'kr', vol: 0.8 });
+    assert.deepEqual(sanitizeVoice({ lang: 'jp', vol: 2 }), { lang: 'jp', vol: 1 });
+    assert.equal(sanitizeVoice({ lang: 'cn' }).lang, 'kr');
+    const m = { audio: { voice: { kr: { c: { select: ['/k1', '/k2'] } }, jp: { c: { select: ['/j1'] } } } } };
+    assert.deepEqual(voiceUrls(m, 'c', 'select', 'kr'), ['/k1', '/k2']);
+    assert.deepEqual(voiceUrls(m, 'c', 'select', 'jp'), ['/j1']);
+    assert.deepEqual(voiceUrls(m, 'c', 'select', 'off'), []);
+    assert.deepEqual(voiceUrls(m, 'c', 'skill', 'kr'), []);
+    const prev = voiceStore.get();
+    try {
+      voiceStore.set({ lang: 'jp', vol: 0.8 });
+      assert.equal(voiceWanted({ p: '/assets/audio/voice/jp/c/cn_021.mp3' }), true);
+      assert.equal(voiceWanted({ p: '/assets/audio/voice/kr/c/cn_021.mp3' }), false);
+      assert.equal(voiceWanted({ p: '/assets/audio/sfx/x.mp3' }), true, 'other files untouched');
+      voiceStore.set({ lang: 'off', vol: 0.8 });
+      assert.equal(voiceWanted({ p: '/assets/audio/voice/jp/c/cn_021.mp3' }), false);
+    } finally { voiceStore.set(prev); }
+  });
+});
+
+describe('선발 오퍼레이터 — 甄选 picks (shared/diy.js, server/local-patch.js, ui/diySlots.js)', () => {
+  test('data: diy.json merges into chess / tokens; records are invisible DIY picks with the slot status', async () => {
+    const { loadData } = await import('../server/data.js');
+    const d = loadData(path.join(ROOT, 'data'), { log: { warn() {}, error() {} } });
+    const a = d.chess.chess_diy_wisdel_6_a, b = d.chess.chess_diy_wisdel_6_b;
+    assert.ok(a && b, 'merged');
+    assert.equal(a.diyPick, true); assert.equal(a.visible, false); assert.equal(a.isDiy, true);
+    assert.deepEqual(a.status, { phase: 2, level: 1, skillLevel: 4, equipLevel: 0 });
+    assert.deepEqual(b.status, { phase: 2, level: 60, skillLevel: 7, equipLevel: 3 });
+    assert.equal(d.chess.chess_diy_wisdel_5_b.status.equipLevel, 1, 'tier V elite: module level 1');
+    assert.equal(a.price, 4); assert.equal(a.sellPrice, 1); assert.equal(a.upgradeChessId, 'chess_diy_wisdel_6_b');
+    assert.deepEqual(d.chess.chess_diy_wang_6_a.bonds, ['yanShip'], '望: 炎');
+    assert.deepEqual(a.bonds, ['emptyShip'], 'others: 协防干员');
+    assert.ok(d.tokens.token_10064_wang_stone1, '望\'s 棋子');
+  });
+
+  test('protocol: picks need a slot, one operator once, one chess per slot', async () => {
+    const { checkLoadout } = await import('../shared/protocol.js');
+    const { loadData } = await import('../server/data.js');
+    const d = loadData(path.join(ROOT, 'data'), { log: { warn() {}, error() {} } });
+    const g = (id) => d.chess[id];
+    const ok = checkLoadout({ chess_diy_wang_6_a: { diy: 1 }, chess_diy_wisdel_5_a: { diy: 2, skill: 2 } }, g);
+    assert.deepEqual(ok, { ok: true, loadout: { chess_diy_wang_6_a: { skill: 0, module: 'none', diy: 1 }, chess_diy_wisdel_5_a: { skill: 2, module: 'none', diy: 2 } } });
+    assert.match(checkLoadout({ chess_diy_wang_6_a: { diy: 1 }, chess_diy_wang_5_a: { diy: 1 } }, g).detail, /picked twice/);
+    assert.match(checkLoadout({ chess_diy_wang_6_a: { diy: 1 }, chess_diy_chen3_6_a: { diy: 1 } }, g).detail, /taken twice/);
+    assert.equal(checkLoadout({ chess_diy_wang_6_a: { skill: 1 } }, g).error, 'BAD_TARGET', 'a pick without slot is no loadout entry');
+    assert.equal(checkLoadout({ chess_diy_wang_6_b: { diy: 1 } }, g).error, 'BAD_TARGET', 'elite ids are not picks');
+  });
+
+  test('match: a pick is a private pool entry (tier copies × pickers) offered only to its picker', async () => {
+    await import('../server/local-patch.js');
+    const { makeMatch } = await import('./match/harness.js');
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, loadout: { chess_diy_wisdel_5_a: { skill: 2, module: 'none', diy: 1 }, chess_diy_chen3_6_a: { skill: 0, module: 'none', diy: 1 } } },
+      { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true }];
+    const h = makeMatch({ mode: 'coop', seats, seed: 11 });
+    h.start(); h.runToPhase('PREP');
+    const p0 = h.ps('p_0'), p1 = h.ps('p_1');
+    assert.deepEqual([...p0.diyOwned].sort(), ['chess_diy_chen3_6_a', 'chess_diy_wisdel_5_a']);
+    assert.deepEqual(h.m.pool.entries.get('chess_diy_wisdel_5_a'), { cap: 8, left: 8, tier: 5 });
+    assert.deepEqual(h.m.pool.entries.get('chess_diy_chen3_6_a'), { cap: 5, left: 5, tier: 6 });
+    p0.shop.level = 6; p1.shop.level = 6;
+    let c0 = 0, c1 = 0;
+    for (let i = 0; i < 400; i++) { if (/diy/.test(p0._rollChessSlot()?.id || '')) c0++; if (/diy/.test(p1._rollChessSlot()?.id || '')) c1++; }
+    assert.ok(c0 > 0, 'the picker sees the picks'); assert.equal(c1, 0, 'nobody else does');
+    assert.ok(!Object.keys(h.m.pool.tierShares(6)).length || h.m.pool.entries.has('chess_diy_wisdel_5_a'), 'shares computed, picks kept');
+  });
+
+  test('ui: placing / clearing picks (one per slot, an operator once)', async () => {
+    const { placeDiy, clearDiy } = await mod('ui/diySlots.js');
+    const { loadData } = await import('../server/data.js');
+    const d = loadData(path.join(ROOT, 'data'), { log: { warn() {}, error() {} } });
+    const g = (id) => d.chess[id];
+    let e = placeDiy({ chess_char_1_01_a: { skill: 0 } }, 'chess_diy_wang_6_a', 1, g);
+    assert.deepEqual(e.chess_diy_wang_6_a, { diy: 1 });
+    e = placeDiy(e, 'chess_diy_chen3_6_a', 1, g);
+    assert.equal(e.chess_diy_wang_6_a, undefined, 'the slot\'s previous pick leaves');
+    e = placeDiy(e, 'chess_diy_chen3_5_a', 2, g);
+    assert.equal(e.chess_diy_chen3_6_a, undefined, 'the same operator moves to the new slot');
+    assert.deepEqual(clearDiy(e, 5, 2, g), { chess_char_1_01_a: { skill: 0 } });
+  });
+
+  test('effects: prefab groups and the event mapping by the client names', async () => {
+    const { fxBundleOf, effectGroups, effectsFor } = await mod('render/fxmap.js');
+    assert.equal(fxBundleOf('char_1050_chen3'), 'chen3');
+    const list = ['chen3_attack_start_01', 'chen3_attack_hit_01', 'chen3_skill_01_start_01', 'chen3_skill_01_start_02', 'chen3_skill_01_buff_01',
+      'chen3_skill_02_B_buff_02', 'chen3_skill_02_buff_01', 'chen3_skill_02_hit_01', 'chen3_skill_01_start_01_sale#10', 'chen3_buff_start_01'];
+    const g = effectGroups(list);
+    assert.ok(!g.skill1.some((p) => p.includes('#')), 'skin variants dropped');
+    assert.deepEqual(effectsFor(list, 'skillStart', 0), ['chen3_skill_01_start_01', 'chen3_skill_01_start_02']);
+    assert.deepEqual(effectsFor(list, 'skillBuff', 1), ['chen3_skill_02_buff_01']);
+    assert.deepEqual(effectsFor(list, 'attackHit'), ['chen3_attack_hit_01']);
+  });
+});
+
+describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
+  const ENEMY = 'enemy_1422_lrsldr';
+  const battle = async (chessId, skillIndex, r, c, extra = [], secs = 25) => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true,
+      units: [{ chessId, row: r, col: c, uid: 1, skillIndex, carryState: { sp: 999 } }, ...extra],
+      enemies: [{ key: ENEMY, time: 0, route: 0, count: 8, interval: 1.2 }, { key: ENEMY, time: 1, route: 1, count: 6, interval: 1.6 }] });
+    h.run(secs);
+    return h;
+  };
+  const tagged = (h, tag) => h.hooksOf('damaged').filter((d) => d.dmg?.tags?.includes(tag)).length;
+  const stone = (row, col, uid) => ({ kind: 'token', tokenId: 'token_10064_wang_stone1', ownerUid: 1, row, col, uid });
+  const POS = { wang: [11, 3], chen3: [10, 4], wisdel: [11, 4], oblvns: [10, 4], ascln: [10, 4] };
+
+  test('every candidate × skill: its own kit spec, casts, deals damage, no content errors', async () => {
+    for (const [key, [r, c]] of Object.entries(POS)) {
+      for (const sk of [0, 1, 2]) {
+        const id = `chess_diy_${key}_6_b`;
+        const h = await battle(id, sk, r, c, key === 'wang' ? [stone(10, 6, 50), stone(10, 7, 51)] : []);
+        const u = h.unit(id);
+        assert.equal(h.b.errors.length, 0, `${key} S${sk + 1}: ${h.b.errors[0]?.error?.message || ''}`);
+        assert.equal(u.kit?.skillSource, 'skills', `${key} S${sk + 1} uses its hand spec`);
+        assert.ok(h.hooksOf('skillStart').some((x) => x.unit === u), `${key} S${sk + 1} casts`);
+        const dealt = h.hooksOf('damaged').filter((d) => d.source === u || d.source?.ownerUnit === u).reduce((a, d) => a + (d.amount || 0), 0);
+        assert.ok(dealt > 0, `${key} S${sk + 1} deals damage`);
+      }
+    }
+  });
+
+  test('赤刃明霄陈: S3 剑气 travels and hits; S2 slashes ≥ 10 then 【移动】; S1 silences', async () => {
+    assert.ok(tagged(await battle('chess_diy_chen3_6_b', 2, 10, 4), 'chen3Qi') > 0, 'the 剑气 hits');
+    const h2 = await battle('chess_diy_chen3_6_b', 1, 10, 4);
+    assert.ok(tagged(h2, 'chen3S2') >= 10, '10 slashes (+1 per kill)');
+    assert.equal(h2.hooksOf('deploy').filter((d) => d.unit === h2.unit('chess_diy_chen3_6_b') && d.move).length, 1, 'moves to the target tile');
+    assert.ok((await battle('chess_diy_chen3_6_b', 0, 10, 4)).hooksOf('statusApplied').some((s) => (s.key ?? s.status) === 'silence'));
+  });
+
+  test('维什戴尔: 残影 explodes on aftershocks; the 魂灵之影 hits; S3 summons more shades (≤ 3)', async () => {
+    const h = await battle('chess_diy_wisdel_6_b', 2, 11, 4);
+    assert.ok(tagged(h, 'wisdelBomb') > 0 && tagged(h, 'summon') > 0);
+    const shades = h.b.allies(h.unit('chess_diy_wisdel_6_b').ownerId).filter((a) => a.kind === 'token' && a.defId === 'token_10035_wisdel_wward');
+    assert.ok(shades.length > 1 && shades.length <= 3, `shades ${shades.length}`);
+  });
+
+  test('阿斯卡纶: 死亡拘审 stacks tick arts damage', async () => {
+    assert.ok(tagged(await battle('chess_diy_ascln_6_b', 1, 10, 4), 'dot') > 0);
+  });
+
+  test('丰川祥子: S2 switches the timbre on each cast', async () => {
+    const h = await battle('chess_diy_oblvns_6_b', 1, 10, 4, [], 30);
+    const casts = h.hooksOf('skillStart').filter((x) => x.unit === h.unit('chess_diy_oblvns_6_b')).length;
+    assert.ok(casts >= 1);
+    assert.equal(h.unit('chess_diy_oblvns_6_b').mem.timbre, casts % 2 ? 'organ' : 'piano');
+  });
+
+  test('望: only connected 棋子 trigger; 跟子 at the battle start; S3 drops stones on enemies; stones go on high ground too', async () => {
+    assert.equal(tagged(await battle('chess_diy_wang_6_b', 0, 11, 3, [stone(10, 6, 50)], 4), 'trap'), 0, 'a lone stone is not activated');
+    const h = await battle('chess_diy_wang_6_b', 0, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)]);
+    assert.ok(tagged(h, 'trap') > 0, 'connected stones trigger');
+    const stones = h.b.allies(h.unit('chess_diy_wang_6_b').ownerId).filter((a) => a.kind === 'token');
+    assert.ok(stones.length >= 4, `跟子 added (${stones.length})`);
+    const { loadData } = await import('../server/data.js');
+    assert.equal(loadData(path.join(ROOT, 'data'), { log: { warn() {}, error() {} } }).tokens.token_10064_wang_stone1.position, 'ALL');
+  });
+});
+
 describe('emote wheel sets (public/js/ui/emotes.js)', () => {
   const store = new Map();
   globalThis.localStorage = {

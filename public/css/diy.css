@@ -1,0 +1,30 @@
+/* 선발 오퍼레이터 (甄选 slots, local NAS patch): the slot row of the 干员调配 screen (ui/diySlots.js). */
+.diy { display: flex; flex-direction: column; gap: .06rem; padding: .08rem .1rem; border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(34, 41, 38, .9), rgba(14, 17, 16, .95)); }
+.diy__head { display: flex; gap: .1rem; align-items: baseline; font-size: max(.14rem, 11px); }
+.diy__head b { color: var(--mint-400); letter-spacing: .04em; }
+.diy__row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .06rem; }
+.diy__slot { position: relative; min-width: 0; }
+.diy__slot--t5 { --tc: var(--tier-5); } .diy__slot--t6 { --tc: var(--tier-6); }
+.diy__btn { display: flex; align-items: center; gap: .06rem; width: 100%; min-height: .5rem; padding: .04rem .06rem; font: inherit;
+  color: var(--text-hi); text-align: left; cursor: pointer; background: rgba(10, 13, 12, .8); border: 1px dashed var(--line-3);
+  box-shadow: inset 0 -2px 0 var(--tc); }
+.diy__slot.is-filled .diy__btn { border-style: solid; }
+.diy__slot.is-sel .diy__btn { border-color: var(--mint-400); box-shadow: inset 0 -2px 0 var(--tc), 0 0 0 1px var(--mint-500); }
+.diy__btn:disabled { cursor: default; opacity: .5; }
+.diy__tier { font: 700 max(.13rem, 10px) var(--font-num, inherit); color: var(--tc); min-width: .18rem; }
+.diy__ava { width: .38rem; height: .38rem; object-fit: cover; flex: none; }
+.diy__plus { display: grid; place-items: center; width: .38rem; height: .38rem; color: var(--text-dim); border: 1px solid var(--line); }
+.diy__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: max(.14rem, 11px); }
+.diy__x, .diy__swap { position: absolute; top: 1px; width: .2rem; height: .2rem; padding: 0; display: grid; place-items: center;
+  background: rgba(0, 0, 0, .55); border: 0; color: var(--text-hi); cursor: pointer; }
+.diy__x { right: 1px; } .diy__swap { right: .23rem; }
+.diy__x svg, .diy__swap svg { width: 70%; height: 70%; }
+.diy__pick { position: absolute; z-index: 5; top: calc(100% + 2px); left: 0; min-width: 100%; display: flex; flex-direction: column;
+  background: #101513; border: 1px solid var(--mint-500); box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .6); }
+.diy__opt { display: flex; align-items: center; gap: .06rem; padding: .04rem .06rem; font: inherit; color: var(--text-hi); text-align: left;
+  background: none; border: 0; border-bottom: 1px solid var(--line); cursor: pointer; white-space: nowrap; }
+.diy__opt:hover:not(:disabled) { background: rgba(23, 249, 183, .08); }
+.diy__opt.is-taken { opacity: .45; cursor: default; }
+.diy__opt em { margin-left: auto; font-style: normal; font-size: max(.12rem, 10px); color: var(--text-dim); }
+@media (max-width: 700px) { .diy__row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

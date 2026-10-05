@@ -32,8 +32,10 @@
 
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { realpathSync } from 'node:fs'; // local NAS patch (script guard)
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pathToFileURL } from 'node:url'; // local NAS patch (script guard)
 import { Grid, DEPLOY_REFUSED_TILES } from '../server/sim/grid.js';
 import { bandBondIds } from '../shared/bandBonds.js';
 
@@ -3302,7 +3304,9 @@ async function main() {
   }
 }
 
-main().catch((e) => {
+// local NAS patch: run only as a script; tools/build-diy.mjs imports the builders below (data/diy.json)
+export { loadContext, buildChess, buildTokens, warnings as buildWarnings };
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) main().catch((e) => {
   console.error('build-data failed:', e && e.stack ? e.stack : e);
   process.exitCode = 1;
 });

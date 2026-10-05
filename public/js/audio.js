@@ -657,6 +657,7 @@ export class AudioManager {
         } else if (kind === 'skill' && e[2]) {
           const u = this.units.get(e[1]);
           if (u) this.unit(u.def, 'skill', e[1], u.skillIndex ?? undefined);
+          if (u) this.onUnitSkill?.(u); // local NAS patch: operator voice line (voice.js)
         } else if (kind === 'die') {
           const u = this.units.get(e[1]);
           if (!u) continue;

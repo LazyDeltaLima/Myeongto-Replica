@@ -1,0 +1,56 @@
+<!doctype html>
+<!-- Debug page (local NAS patch, docs/LOCAL-PATCH.md): official battle effects (tools/local-extract/fx_extract.py,
+     render/fxplayer.js), unit / skill sounds and voice lines per operator. Not linked from the game. -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>이펙트·사운드 디버그</title>
+<style>
+  :root { color-scheme: dark; --line: #22302c; --mint: #2fd6a3; --dim: #8fb3a6; }
+  html, body { margin: 0; height: 100%; background: #0e1312; color: #d8e3de; font: 13px/1.45 system-ui, sans-serif; }
+  #app { display: grid; grid-template-columns: 220px 300px 1fr; height: 100%; }
+  aside, section.side { overflow: auto; border-right: 1px solid var(--line); padding: 8px; }
+  h2 { font-size: 11px; margin: 12px 0 4px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+  h2:first-child { margin-top: 0; }
+  input.search { width: 100%; box-sizing: border-box; background: #141c19; color: inherit; border: 1px solid #2c3d38; border-radius: 4px; padding: 5px 7px; font: inherit; }
+  button.op, button.it { display: flex; gap: 6px; align-items: center; width: 100%; text-align: left; background: none; border: 0; color: inherit;
+    padding: 3px 6px; border-radius: 4px; cursor: pointer; font: inherit; }
+  button.op img { width: 26px; height: 26px; object-fit: cover; border-radius: 3px; background: #1a2421; }
+  button.op:hover, button.it:hover { background: #1a2421; }
+  button.op.on, button.it.on { background: #24433a; }
+  button.it .k { color: var(--dim); font-size: 11px; margin-left: auto; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
+  .chip { background: #1a2421; border: 1px solid #2c3d38; color: inherit; border-radius: 4px; padding: 3px 8px; cursor: pointer; font: inherit; }
+  .chip:hover { border-color: var(--mint); }
+  .chip.skill { border-color: #3b6b5c; }
+  .muted { color: var(--dim); font-size: 12px; }
+  main { position: relative; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #bar { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; align-items: center; background: #0e1312cc; padding: 6px 8px; border-radius: 6px; }
+  #bar button, #bar select { background: #1a2421; color: inherit; border: 1px solid #2c3d38; border-radius: 4px; padding: 3px 8px; font: inherit; }
+  #stats { position: absolute; right: 8px; top: 8px; font: 12px ui-monospace, monospace; background: #0e1312cc; padding: 6px 8px; border-radius: 6px; }
+  #now { position: absolute; left: 8px; bottom: 8px; font: 12px ui-monospace, monospace; background: #0e1312cc; padding: 4px 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside><input class="search" id="q" placeholder="오퍼레이터 검색"><div id="ops"></div></aside>
+  <section class="side" id="detail"><p class="muted">왼쪽에서 오퍼레이터를 고르세요.</p></section>
+  <main>
+    <canvas id="c"></canvas>
+    <div id="bar">
+      <button id="replay">▶ 다시</button>
+      <label><input type="checkbox" id="loop"> 반복</label>
+      <select id="quality"><option value="high">high</option><option value="medium">medium</option><option value="low">low</option></select>
+      <select id="speed"><option value="1">1×</option><option value="0.5">0.5×</option><option value="0.25">0.25×</option></select>
+      <label><input type="checkbox" id="flip"> 왼쪽 보기</label>
+      <select id="voice"><option value="kr">음성 한국어</option><option value="jp">음성 일본어</option></select>
+    </div>
+    <div id="stats"></div>
+    <div id="now"></div>
+  </main>
+</div>
+<script type="module" src="/js/debug.js"></script>
+</body>
+</html>

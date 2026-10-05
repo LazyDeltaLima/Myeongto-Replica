@@ -30,6 +30,8 @@ import {
 import { loadoutStore, openLoadout, closeLoadout, setEntries, applyLoadoutEntries } from '../ui/loadoutSync.js';
 import { copyText } from '../ui/clipboard.js';
 import { toast } from '../ui/toasts.js';
+import { DiySlots } from '../ui/diySlots.js'; // local NAS patch: 甄选 slots
+import { isDiyPick } from '../../../shared/diy.js'; // local NAS patch
 
 export { openLoadout, closeLoadout };
 
@@ -392,7 +394,7 @@ function LoadoutScreen({ st }) {
       .sort((a, b) => (b.isCore ? 1 : 0) - (a.isCore ? 1 : 0) || (a.bondOrder ?? 0) - (b.bondOrder ?? 0) || String(a.name).localeCompare(String(b.name), 'zh'));
   }, [ready, roster]);
   const list = filterRoster(roster, st.filters, st.entries, getChess, getBond);
-  const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
+  const selId = st.sel && (roster.some((c) => c.chessId === st.sel) || isDiyPick(getChess(st.sel))) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null; // local NAS patch: a 甄选 pick may be selected
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
   const nChanged = changedCount(st.entries, getChess);
   const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) || st.sync === 'locked';
@@ -498,6 +500,7 @@ function LoadoutScreen({ st }) {
     ${!ready ? html`<div class="lo-loading"><${Spinner} size="sm" />正在载入干员数据（打开页面后仅载入一次）…</div>` : html`<main class=${cx('lo-body', narrowDetail && 'is-detail')}>
       <section class="lo-roster">
         <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(filters) => loadoutStore.set({ filters })} />
+        <${DiySlots} m=${m} entries=${st.entries} selId=${selId} locked=${locked} onSelect=${pick} />
         <div class="lo-grid" role="listbox" aria-label="干员列表" ref=${gridRef}>
           ${list.length ? list.map((c) => html`<${RosterCard} key=${c.chessId} m=${m} chess=${c} golden=${c.goldenId ? getChess(c.goldenId) : null}
             entries=${st.entries} selected=${c.chessId === selId} onPick=${pick} />`) : html`<p class="lo-empty t-dim">没有符合条件的干员</p>`}

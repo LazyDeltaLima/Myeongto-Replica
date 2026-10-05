@@ -109,6 +109,7 @@ import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, cameraLayers, layerCamera, sidesOf, resumedWatch } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
 import { data, localAsset, getMode } from '../data.js';
+import { voiceForPiece, voiceForBuy, voiceBattleStart } from '../voice.js'; // local NAS patch
 import { audio } from '../audio.js';
 import { useDocClass, FullscreenButton } from '../ui/device.js';
 
@@ -572,6 +573,7 @@ function MatchScreen() {
     else if (phase === PHASE.FINAL_ASSAULT) audio.sfx(solo ? 'bossRoundSingle' : 'bossRoundTeam');
     else if (phase === PHASE.HIDDEN_CORE) audio.sfx('bossRoundSecret');
     else if (phase === PHASE.SP_DRAFT) audio.sfx('draft');
+    if ([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE].includes(phase)) voiceBattleStart(live.current.priv); // local NAS patch
     setWatching(null); // the server resets every watcher to its own field on phase changes
     setWatchWho(null);
     // the pen is a 休整期 view: leaving prep returns the camera (the next setCam would, too)
@@ -640,7 +642,12 @@ function MatchScreen() {
   }, [emotes]);
 
   // ---- actions ----------------------------------------------------------------------------------------------
-  const buy = useCallback((i) => actions.buy(i), []);
+  const buy = useCallback(async (i) => {
+    const slot = live.current.priv?.shop?.slots?.[i]; // local NAS patch: the bought operator's deploy line (voice.js)
+    const ok = await actions.buy(i);
+    if (ok) voiceForBuy(slot); // local NAS patch
+    return ok;
+  }, []);
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
   // under AI 托管 — gameLogic.readyFundsPrompt). The button and Space both come here.
   const askingReady = useRef(false);
@@ -797,6 +804,7 @@ function MatchScreen() {
         const entry = L.placeCtx?.pieces.get(e?.uid);
         if (!entry || !L.editable) return;
         audio.sfx('pick', { volume: 0.6 });
+        voiceForPiece(entry.piece); // local NAS patch
         setSel(null);
         // a new placement: a piece's detail card (right-click / long-press) would sit beside the wheel showing another unit
         setDetail((d) => (d?.kind === 'piece' ? null : d));
@@ -860,6 +868,7 @@ function MatchScreen() {
         const wasSel = pressSel.current === e.uid;
         pressSel.current = null;
         setSel(wasSel ? null : { uid: e.uid });
+        if (!wasSel) voiceForPiece(L.placeCtx?.pieces.get(e.uid)?.piece); // local NAS patch
         if (wasSel) setDetail((d) => (d?.kind === 'piece' && d.uid === e.uid ? null : d));
       }),
     ];

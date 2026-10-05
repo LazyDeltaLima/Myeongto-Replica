@@ -11,6 +11,7 @@ import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
 import { lang, setLang } from '../i18n/i18n.js';
 import { ResourceSetting } from '../resources.js'; // local NAS patch
+import { VoiceSetting } from '../voice.js'; // local NAS patch
 
 /** Settings store: { bgm, sfx, muted, damageNumbers, quality }. */
 export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));
@@ -64,6 +65,7 @@ export function SettingsModal({ open, onClose }) {
       <${Slider} label="背景音乐" micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
       <${Slider} label="音效" micro="SFX" icon="signal" value=${s.sfx}
         onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
+      <${VoiceSetting} />
       <${Toggle} label="静音" micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
       <${Toggle} label="显示伤害数字" micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
       <div class="set-row">

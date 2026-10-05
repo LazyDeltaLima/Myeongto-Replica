@@ -23,6 +23,7 @@ import { kindOf } from './formats.mjs';
 import { pickUnitSfx, UI_SFX, BATTLE_SFX, resolveSpec } from './audio.mjs';
 import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
+import { voiceTemplate } from './voice.mjs'; // local NAS patch
 
 /**
  * Enemies whose Spine no community dump carries: the web model is another enemy's (research 07 §5.6). Their official
@@ -515,5 +516,6 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     chars, enemies, tokens, bonds, items, bands, skills, skillsById, ui, prof,
     audio: { bgm, bossBgm: Object.fromEntries(Object.entries(bossBgm).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))), sfx: { ui: sfxUi, battle: sfxBattle, units: unitsSfx } },
   };
+  template.audio.voice = voiceTemplate(charIds); // local NAS patch: operator voice lines (tools/assets/voice.mjs)
   return { template, models, notes };
 }

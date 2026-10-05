@@ -22,6 +22,7 @@
 
 import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, store, loadPref, savePref, selectRoute } from './store.js';
+import { voiceWanted, onVoiceLangChange } from './voice.js';
 
 const CACHE = 'sp-res';
 const STATE = '/__sp_res_state__';
@@ -87,6 +88,7 @@ async function sha256(buf) {
 const supported = () => typeof window !== 'undefined' && window.isSecureContext && 'serviceWorker' in navigator && 'caches' in window && !!crypto?.subtle;
 
 let index = null;
+let listed = [];        // every valid entry of the list; index.files = the ones this browser wants (voice language)
 let cache = null;
 let state = {};        // path → hash of what is in the cache
 let pending = [];
@@ -212,7 +214,8 @@ export async function installResources() {
     if (!res.ok) return; // a passing failure: keep serving what is cached, try again on the next visit
     index = await res.json();
     if (!index || !Array.isArray(index.files)) return;
-    index.files = index.files.filter(validEntry);
+    listed = index.files.filter(validEntry);
+    index.files = listed.filter(voiceWanted);
     pending = await reconcile();
     setPending();
     if (!pending.length) { resStore.set({ phase: 'done', total: 0 }); return; }
@@ -224,6 +227,20 @@ export async function installResources() {
     console.warn('[resources] unavailable', err);
   }
 }
+
+/** The voice language changed (voice.js): only that language's files are wanted — the other's leave the cache, the
+ *  new ones are downloaded when the player agreed before. */
+async function resync() {
+  if (!index || running) return; // a running download finishes first; the next visit picks the change up
+  try {
+    index.files = listed.filter(voiceWanted);
+    pending = await reconcile();
+    setPending();
+    if (!pending.length) resStore.set({ phase: 'done', total: 0 });
+    else if (loadPref(PREF, null)?.consent === 'yes') download();
+  } catch (err) { console.warn('[resources] resync', err); }
+}
+onVoiceLangChange(resync);
 
 const mb = (n) => Math.max(1, Math.round(n / 1048576));
 

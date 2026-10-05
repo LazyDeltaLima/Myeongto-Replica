@@ -3,6 +3,7 @@
 
 import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, MAX_SEATS, EMOTES, GEO } from './constants.js';
 import { extendProtocol } from './local.js'; // local NAS patch: room chat, chat factions, emote sets
+import { DIY_SLOTS, isDiyPick, diyPickProblem } from './diy.js'; // local NAS patch
 
 // ---- tiny validators -------------------------------------------------------
 const isInt = (v, lo = -Infinity, hi = Infinity) => Number.isInteger(v) && v >= lo && v <= hi;
@@ -71,8 +72,8 @@ export function isBattleResult(v) {
 export const LOADOUT_LIMITS = Object.freeze({ entries: 160, skillIndex: 9 });
 /** The "no module" choice of an elite (模组: 不装备). */
 export const MODULE_NONE = 'none';
-const isLoadoutEntry = (e) => isPlain(e) && Object.keys(e).length > 0 && Object.keys(e).every((k) => k === 'skill' || k === 'module')
-  && optional((v) => isInt(v, 0, LOADOUT_LIMITS.skillIndex))(e.skill) && optional(isId)(e.module);
+const isLoadoutEntry = (e) => isPlain(e) && Object.keys(e).length > 0 && Object.keys(e).every((k) => k === 'skill' || k === 'module' || k === 'diy') // local NAS patch: 'diy' (甄选 slot)
+  && optional((v) => isInt(v, 0, LOADOUT_LIMITS.skillIndex))(e.skill) && optional(isId)(e.module) && optional((v) => isInt(v, 1, DIY_SLOTS))(e.diy);
 /** Structural check of `room.loadout.entries`. */
 export const isLoadoutEntries = (v) => isMap(v, LOADOUT_LIMITS.entries, isId, isLoadoutEntry);
 
@@ -134,7 +135,8 @@ export function checkLoadout(entries, getChess) {
   for (const id of Object.keys(entries)) {
     const e = entries[id];
     const base = typeof getChess === 'function' ? getChess(id) : null;
-    if (!base || base.isGolden || base.visible === false || base.isHidden || base.isDiy || (base.baseId && base.baseId !== id)) {
+    const pick = isDiyPick(base) && e.diy !== undefined; // local NAS patch: a 甄选 pick is an invisible DIY chess
+    if (!base || base.isGolden || (!pick && (base.visible === false || base.isHidden || base.isDiy)) || (base.baseId && base.baseId !== id)) {
       return { error: 'BAD_TARGET', detail: `unknown chess ${id}` };
     }
     const golden = base.goldenId ? getChess(base.goldenId) || null : null;
@@ -144,9 +146,12 @@ export function checkLoadout(entries, getChess) {
     if (e.module !== undefined && !golden) return { error: 'BAD_TARGET', detail: `${id} has no elite module` };
     const module = golden ? (e.module ?? opt.defaultModule) : null;
     if (golden && !opt.modules.includes(module)) return { error: 'BAD_TARGET', detail: `module ${e.module} not available for ${id}` };
+    if (pick) { out[id] = { skill, module, diy: e.diy }; continue; } // local NAS patch: kept even at the defaults
     if (skill === opt.defaultSkill && module === opt.defaultModule) continue;
     out[id] = { skill, module };
   }
+  const diyProblem = diyPickProblem(entries, getChess); // local NAS patch: one chess per 甄选 slot, an operator once
+  if (diyProblem) return { error: 'BAD_TARGET', detail: diyProblem };
   return { ok: true, loadout: out };
 }
 
