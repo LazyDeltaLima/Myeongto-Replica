@@ -31,7 +31,7 @@ import { loadoutStore, openLoadout, closeLoadout, setEntries, applyLoadoutEntrie
 import { copyText } from '../ui/clipboard.js';
 import { toast } from '../ui/toasts.js';
 import { DiySlots } from '../ui/diySlots.js'; // local NAS patch: 甄选 slots
-import { isDiyPick } from '../../../shared/diy.js'; // local NAS patch
+import { isDiyPick, hasDiyPicks } from '../../../shared/diy.js'; // local NAS patch
 
 export { openLoadout, closeLoadout };
 
@@ -491,7 +491,7 @@ function LoadoutScreen({ st }) {
         ${inMatch && hasDeadline(infoDeadline) ? html`<${Countdown} deadline=${infoDeadline} size="sm" gauge=${false} label="调配截止" class="lo-deadline" />` : null}
         ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status">${syncText}</span>` : null}
         <span class="lo-count">已调整 <b class="num">${nChanged}</b><span class="num t-dim">/${roster.length}</span></span>
-        <${Button} variant="ghost" size="sm" data-testid="loadout-export" disabled=${!nChanged} onClick=${openExport} title="导出当前调配（可复制或下载）">导出<//>
+        <${Button} variant="ghost" size="sm" data-testid="loadout-export" disabled=${!nChanged && !hasDiyPicks(st.entries, getChess)} onClick=${openExport} title="导出当前调配（可复制或下载）">导出<//>
         <${Button} variant="ghost" size="sm" data-testid="loadout-import" disabled=${!ready} onClick=${openImport} title="导入调配（粘贴或选择文件）">导入<//>
         <${Button} variant="secondary" size="sm" icon="refresh" disabled=${!nChanged} onClick=${resetAll}>全部恢复默认<//>
       </div>

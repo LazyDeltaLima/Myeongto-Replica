@@ -10,7 +10,7 @@
 // (shared/protocol.js loadoutOptions / checkLoadout), so a sanitised loadout is always accepted.
 
 import { loadoutOptions, checkLoadout, resolveLoadout, MODULE_NONE, LOADOUT_LIMITS } from '../../../shared/protocol.js';
-import { diyPickProblem } from '../../../shared/diy.js'; // local NAS patch
+import { diyPickProblem, diySlotOf } from '../../../shared/diy.js'; // local NAS patch
 
 export { MODULE_NONE };
 
@@ -51,6 +51,7 @@ export function parseStored(raw) {
     const x = {};
     if (isInt(e.skill) && e.skill >= 0 && e.skill <= LOADOUT_LIMITS.skillIndex) x.skill = e.skill;
     if (typeof e.module === 'string' && /^[A-Za-z0-9_\-.:]{1,64}$/.test(e.module)) x.module = e.module;
+    if (diySlotOf(e)) x.diy = e.diy; // local NAS patch: a pick's slot survives a reload / an import
     if (Object.keys(x).length) out[id] = x;
   }
   return out;

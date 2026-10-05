@@ -41,6 +41,9 @@ export async function mergeDiyFile(name, json, loadDiy) {
   return add && typeof add === 'object' ? { ...json, ...add } : json;
 }
 
+/** The pick slot (1..DIY_SLOTS) of a stored / imported entry, else undefined (structural only, like parseStored). */
+export const diySlotOf = (e) => (e && Number.isInteger(e.diy) && e.diy >= 1 && e.diy <= DIY_SLOTS ? e.diy : undefined);
+
 /**
  * The 甄选 picks of a checked loadout: { 5: [chessId|null, chessId|null], 6: [...] } by slot.
  * @param {Record<string, { diy?: number }>|null|undefined} loadout
@@ -55,6 +58,9 @@ export function diyPicks(loadout, getChess) {
   }
   return out;
 }
+
+/** Whether a loadout holds a pick (the loadout screen's export button is enabled by a change or a pick). */
+export const hasDiyPicks = (loadout, getChess) => Object.values(diyPicks(loadout, getChess)).some((t) => t.some(Boolean));
 
 /**
  * Loadout rule for the picks (checkLoadout): a slot holds one chess, an operator (charId) is picked once, only a

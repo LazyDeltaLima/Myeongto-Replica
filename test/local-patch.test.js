@@ -392,6 +392,20 @@ describe('선발 오퍼레이터 — 甄选 picks (shared/diy.js, server/local-p
     assert.deepEqual(clearDiy(e, 5, 2, g), { chess_char_1_01_a: { skill: 0 } });
   });
 
+  test('ui: export / import / reload keep the picks (loadoutModel parseStored, hasDiyPicks)', async () => {
+    const { serializeExport, parseImport, parseStored, toStored } = await mod('ui/loadoutModel.js');
+    const { hasDiyPicks } = await import('../shared/diy.js');
+    const { loadData } = await import('../server/data.js');
+    const d = loadData(path.join(ROOT, 'data'), { log: { warn() {}, error() {} } });
+    const g = (id) => d.chess[id];
+    const entries = { chess_diy_wang_6_a: { diy: 1 }, chess_diy_wisdel_5_a: { diy: 2, skill: 2 } };
+    assert.deepEqual(parseImport(serializeExport(entries)), { ok: true, entries }, 'export → import round trip');
+    assert.deepEqual(parseStored(toStored(entries)), entries, 'localStorage reload');
+    assert.deepEqual(parseStored({ v: 1, entries: { a: { diy: 3 }, b: { diy: '1' }, c: { diy: 0, skill: 1 } } }), { c: { skill: 1 } }, 'bad slots dropped');
+    assert.equal(hasDiyPicks(entries, g), true, 'picks alone enable the export button');
+    assert.equal(hasDiyPicks({ chess_char_1_01_a: { skill: 0 } }, g), false);
+  });
+
   test('effects: prefab groups and the event mapping by the client names', async () => {
     const { fxBundleOf, effectGroups, effectsFor } = await mod('render/fxmap.js');
     assert.equal(fxBundleOf('char_1050_chen3'), 'chen3');
