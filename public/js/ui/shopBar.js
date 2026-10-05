@@ -315,7 +315,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
         <${Img} src=${uiUrl(data.get('assets'), frozen ? 'shopPanel/frozen_icon2' : 'shopPanel/frozen_icon')} class="toolbtn__img" fallback=${html`<${Icon} name="snow" />`} />
         <span>${frozen ? '解冻' : '冻结'}</span><kbd>F</kbd>
       </button>
-      <button type="button" class="toolbtn toolbtn--amber" disabled=${!!refReason} onClick=${onRefresh} title=${refReason || '刷新商店 · R'}>
+      <button type="button" class=${cx('toolbtn', 'toolbtn--amber', shop.refreshBoost && !refReason && 'is-boost')} disabled=${!!refReason} onClick=${onRefresh} title=${refReason || '刷新商店 · R'}>
         <${Img} src=${uiUrl(data.get('assets'), 'shopPanel/refresh_icon')} class="toolbtn__img" fallback=${html`<${Icon} name="refresh" />`} />
         <span>刷新</span>
         ${free > 0 ? html`<span class="toolbtn__free">免费 ×${free}</span>` : html`<${HexBadge} value=${shop.refreshPrice ?? 1} tone=${refReason ? 'dark' : 'gold'} size="sm" />`}

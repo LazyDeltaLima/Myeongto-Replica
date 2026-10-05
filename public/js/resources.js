@@ -22,7 +22,7 @@
 
 import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, store, loadPref, savePref, selectRoute } from './store.js';
-import { voiceWanted, onVoiceLangChange } from './voice.js';
+import { voiceWanted, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS } from './voice.js';
 
 const CACHE = 'sp-res';
 const STATE = '/__sp_res_state__';
@@ -238,6 +238,7 @@ async function resync() {
     setPending();
     if (!pending.length) resStore.set({ phase: 'done', total: 0 });
     else if (loadPref(PREF, null)?.consent === 'yes') download();
+    else if (resStore.get().phase === 'ask') resStore.set({ bytesTotal: pending.reduce((n, f) => n + f.s, 0) }); // card shows the new size
   } catch (err) { console.warn('[resources] resync', err); }
 }
 onVoiceLangChange(resync);
@@ -248,12 +249,17 @@ const mb = (n) => Math.max(1, Math.round(n / 1048576));
  *  progress pill; hidden during a match (the HUD corners are taken). */
 export function ResourceHost() {
   const r = useStore((s) => s, Object.is, resStore);
+  const lang = useStore((s) => s.lang, Object.is, voiceStore);
   const route = useStore(selectRoute);
   if (route === 'game') return null;
   if (r.phase === 'ask') {
     return html`<div class="res-ask-wrap"><aside class="res-ask" role="dialog" aria-label="预先下载游戏资源">
       <strong>预先下载游戏资源</strong>
       <p>下载后图片会立即显示，不会延迟出现。建议使用 Wi-Fi。</p>
+      <div class="res-ask__lang"><span>干员语音</span><div class="set-seg" role="radiogroup">
+        ${VOICE_LANGS.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${lang === id ? 'true' : 'false'}
+          class=${lang === id ? 'is-on' : ''} onClick=${() => setVoiceLang(id)}>${label}</button>`)}
+      </div></div>
       <p class="res-ask__size num" data-i18n-skip="">${mb(r.bytesTotal)} MB</p>
       <div class="res-ask__btns">
         <button type="button" class="res-ask__yes" onClick=${acceptResources}>下载</button>

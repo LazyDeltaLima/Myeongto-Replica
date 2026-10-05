@@ -22,6 +22,8 @@
 .res-ask { width: max(3.6rem, 260px); padding: .16rem .18rem; font-size: max(.16rem, 13px); line-height: 1.5; }
 .res-ask strong { display: block; color: var(--mint-500); font-size: max(.17rem, 14px); letter-spacing: .04em; }
 .res-ask p { margin: .06rem 0 0; }
+.res-ask__lang { display: flex; align-items: center; justify-content: space-between; gap: .08rem; margin-top: .08rem; color: var(--text-md); }
+.res-ask__lang .set-seg button { min-width: 0; padding: 0 .1rem; }
 .res-ask__size { color: var(--text-hi, #fff); font-weight: 700; }
 .res-ask__btns { display: flex; gap: .08rem; margin-top: .12rem; }
 .res-ask__btns button { flex: 1; height: max(.4rem, 32px); border: 1px solid var(--line-2); border-radius: .03rem; color: var(--text-md); }

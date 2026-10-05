@@ -63,7 +63,7 @@ export function DiySlots({ m, entries, selId, locked, onSelect }) {
     onSelect(id);
   };
   return html`<div class="diy" aria-label="선발 오퍼레이터">
-    <div class="diy__head"><b>甄选干员</b><span class="t-dim">每阶最多 ${DIY_SLOTS} 名，只出现在自己的商店里</span></div>
+    <div class="diy__head"><b>甄选干员</b><span class="t-dim">${`每阶最多 ${DIY_SLOTS} 名，只出现在自己的商店里`}</span></div>
     <div class="diy__row">
       ${DIY_TIERS.map((tier) => Array.from({ length: DIY_SLOTS }, (_, i) => {
         const slot = i + 1, key = `${tier}:${slot}`, id = picks[tier][i], c = id ? getChess(id) : null;

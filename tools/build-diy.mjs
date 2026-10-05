@@ -41,6 +41,15 @@ export function diyBond(char, fallback = 'emptyShip') {
   return NATION_BONDS[p.nationId || char?.nationId] || GROUP_BONDS[p.groupId] || GROUP_BONDS[p.teamId] || fallback;
 }
 
+/**
+ * Default module of a candidate: its first real module (uniequip_002, the X type), like every pool elite's
+ * defaultUniEquipId. The official 甄选 slot has none (the player equips one in game), which made the pick start
+ * without a module (owner's call 2026-10-05: equipped by default; 'none' stays selectable in the loadout).
+ */
+export function diyDefaultModule(uniequip, charId) {
+  return (uniequip?.charEquip?.[charId] || []).find((id) => uniequip.equipDict?.[id] && uniequip.equipDict[id].type !== 'INITIAL') || null;
+}
+
 export const diyChessId = (key, tier, golden = false) => `chess_diy_${key}_${tier}_${golden ? 'b' : 'a'}`;
 
 /**
@@ -49,7 +58,7 @@ export const diyChessId = (key, tier, golden = false) => `chess_diy_${key}_${tie
  * @returns {Promise<{ meta: object[], chess: Record<string, any>, tokens: Record<string, any> }>}
  */
 export async function buildDiy(ctx) {
-  const { act, charTable } = ctx;
+  const { act, charTable, uniequip } = ctx;
   const fallback = act.constData?.fallbackBondId || 'emptyShip';
   const chessData = {}, shopData = {}, normalOf = { ...act.chessNormalIdLookupDict };
   const meta = [];
@@ -68,7 +77,7 @@ export async function buildDiy(ctx) {
       chessData[b] = { ...slotB, chessId: b, upgradeChessId: null, bondIds: bonds, garrisonIds: null };
       normalOf[b] = a;
       shopData[a] = { ...slotShop, chessId: a, goldenChessId: b, chessType: 'DIY_PICK', charId: c.charId, tmplId: null,
-        shopLevelSortId: sort++, defaultSkillIndex: slotShop.defaultSkillIndex ?? 0, defaultUniEquipId: null, isHidden: false };
+        shopLevelSortId: sort++, defaultSkillIndex: slotShop.defaultSkillIndex ?? 0, defaultUniEquipId: diyDefaultModule(uniequip, c.charId), isHidden: false };
       ids[tier] = a;
     }
     meta.push({ charId: c.charId, key: c.key, name: char.name, appellation: char.appellation, ids });

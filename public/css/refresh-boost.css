@@ -1,0 +1,24 @@
+/* 갱신 버튼 강조 (local NAS patch, docs/LOCAL-PATCH.md): the strategy acts on the next manual refresh
+   (m.private shop.refreshBoost, server/local-patch.js refreshBoost) → the refresh button's border glows. */
+.toolbtn--amber.is-boost {
+  position: relative;
+  animation: refresh-boost-glow 1.4s ease-in-out infinite;
+}
+.toolbtn--amber.is-boost::after {
+  content: ''; position: absolute; inset: -2px; pointer-events: none;
+  border: 2px solid var(--gold);
+  animation: refresh-boost-ring 1.4s ease-in-out infinite;
+}
+@keyframes refresh-boost-glow {
+  0%, 100% { box-shadow: 0 .04rem .14rem rgba(0, 0, 0, .45), 0 0 .04rem rgba(255, 198, 0, .25); }
+  50% { box-shadow: 0 .04rem .14rem rgba(0, 0, 0, .45), 0 0 .2rem rgba(255, 198, 0, .85), inset 0 0 .1rem rgba(255, 198, 0, .35); }
+}
+@keyframes refresh-boost-ring {
+  0%, 100% { opacity: .25; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toolbtn--amber.is-boost, .toolbtn--amber.is-boost::after { animation: none; }
+  .toolbtn--amber.is-boost { box-shadow: 0 0 .16rem rgba(255, 198, 0, .7); }
+  .toolbtn--amber.is-boost::after { opacity: 1; }
+}

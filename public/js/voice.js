@@ -235,7 +235,7 @@ export function VoiceSetting() {
       <span class="set-row__label">干员语音<${MicroLabel}>VOICE<//></span>
       <div class="set-seg" role="radiogroup">
         ${VOICE_LANGS.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.lang === id ? 'true' : 'false'}
-          class=${s.lang === id ? 'is-on' : ''} onClick=${() => { if (s.lang !== id) { set({ lang: id }); onLangChange(); } }}>${label}</button>`)}
+          class=${s.lang === id ? 'is-on' : ''} onClick=${() => setVoiceLang(id)}>${label}</button>`)}
       </div>
     </div>
     ${s.lang === 'off' ? null : html`<label class="set-row">
@@ -244,6 +244,14 @@ export function VoiceSetting() {
         onInput=${(e) => set({ vol: Number(e.currentTarget.value) / 100 })} />
       <span class="set-row__val num">${pct}</span>
     </label>`}`;
+}
+
+/** Choose the voice language (settings row, resources.js consent card): saved, the playing line stops, the download
+ *  list is re-filtered. */
+export function setVoiceLang(id) {
+  if (voiceStore.get().lang === id || !VOICE_LANGS.some(([x]) => x === id)) return;
+  voiceStore.set(sanitizeVoice({ ...voiceStore.get(), lang: id }));
+  onLangChange();
 }
 
 let langListeners = [];

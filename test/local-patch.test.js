@@ -353,7 +353,7 @@ describe('선발 오퍼레이터 — 甄选 picks (shared/diy.js, server/local-p
     const d = loadData(path.join(ROOT, 'data'), { log: { warn() {}, error() {} } });
     const g = (id) => d.chess[id];
     const ok = checkLoadout({ chess_diy_wang_6_a: { diy: 1 }, chess_diy_wisdel_5_a: { diy: 2, skill: 2 } }, g);
-    assert.deepEqual(ok, { ok: true, loadout: { chess_diy_wang_6_a: { skill: 0, module: 'none', diy: 1 }, chess_diy_wisdel_5_a: { skill: 2, module: 'none', diy: 2 } } });
+    assert.deepEqual(ok, { ok: true, loadout: { chess_diy_wang_6_a: { skill: 0, module: 'uniequip_002_wang', diy: 1 }, chess_diy_wisdel_5_a: { skill: 2, module: 'uniequip_002_wisdel', diy: 2 } } }, 'the first module is equipped by default');
     assert.match(checkLoadout({ chess_diy_wang_6_a: { diy: 1 }, chess_diy_wang_5_a: { diy: 1 } }, g).detail, /picked twice/);
     assert.match(checkLoadout({ chess_diy_wang_6_a: { diy: 1 }, chess_diy_chen3_6_a: { diy: 1 } }, g).detail, /taken twice/);
     assert.equal(checkLoadout({ chess_diy_wang_6_a: { skill: 1 } }, g).error, 'BAD_TARGET', 'a pick without slot is no loadout entry');
@@ -723,4 +723,23 @@ describe('假想敌：胄 drone link is exempt from 限伤 (server/sim/content/l
     h.b.dealDamage(null, boss, { amount: BOSS_HIT_LIMIT * 2, type: 'true' });
     assert.equal(h.b.sharedBoss.hp, mid, '限伤 still cancels everything else');
   });
+});
+
+test('frozen shop: a slot a special refresh replaces stays frozen (佩佩 / 杜遥夜, server/match/effectsMeta.js setShopSlot)', async () => {
+  const { makeMatch } = await import('./match/harness.js');
+  const h = makeMatch({ mode: 'solo', humans: 1, seed: 1 }).start();
+  h.toPrep(1);
+  const m = h.m, ps = h.ps('p_0');
+  ps.bandId = 'band_pepe'; ps.funds = 99; ps.shop.upgradePrice = 0;
+  assert.equal(m.handle('p_0', { t: 'g.freeze' }).ok, true);
+  assert.equal(m.handle('p_0', { t: 'g.levelUp' }).ok, true); // Lv2 → 1 special refresh (free)
+  assert.equal(m.handle('p_0', { t: 'g.refresh' }).ok, true);
+  const chess = ps.shop.slots.filter((s) => s && s.kind === 'chess');
+  assert.ok(chess.some((s) => m.gd.chess(s.id).bonds.includes('sargonShip')), 'the special refresh happened');
+  assert.ok(chess.every((s) => s.frozen), 'every slot follows the frozen shop');
+  ps.shop.frozen = false;
+  for (const s of ps.shop.slots) if (s) s.frozen = false;
+  ps.bandId = 'band_duyaoy';
+  m.handle('p_0', { t: 'g.refresh' });
+  assert.ok(ps.shop.slots.every((s) => !s || !s.frozen), 'an unfrozen shop stays unfrozen');
 });
