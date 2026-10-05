@@ -411,6 +411,16 @@ describe('선발 오퍼레이터 — 甄选 picks (shared/diy.js, server/local-p
   });
 });
 
+test('debug page: served only with SP_DEBUG_PAGE=1 (server/local-patch.js debugPageHidden)', async () => {
+  const { debugPageHidden } = await import('../server/local-patch.js');
+  for (const p of ['/debug.html', '/DEBUG.html', '/js/debug.js', '/fxlab.html']) {
+    assert.equal(debugPageHidden(p, {}), true, `${p} hidden by default`);
+    assert.equal(debugPageHidden(p, { SP_DEBUG_PAGE: '1' }), false, `${p} served with the flag`);
+  }
+  assert.equal(debugPageHidden('/js/render/fxplayer.js', {}), false, 'the game files stay');
+  assert.equal(debugPageHidden('/', {}), false);
+});
+
 describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
   const ENEMY = 'enemy_1422_lrsldr';
   const battle = async (chessId, skillIndex, r, c, extra = [], secs = 25) => {

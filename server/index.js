@@ -44,6 +44,7 @@ import { Lobby } from './lobby.js';
 import { getData, loadData } from './data.js';
 import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
 import { MEDIA_PREFIX, AUDIO_EXTS } from '../shared/media.js';
+import { debugPageHidden } from './local-patch.js'; // local NAS patch: SP_DEBUG_PAGE
 
 /** Repository root. */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -380,6 +381,7 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
       res.end(req.method === 'HEAD' ? undefined : shimBody);
       return;
     }
+    if (debugPageHidden(decoded)) { sendError(req, res, 404, '页面不存在 · Not found'); return; } // local NAS patch: SP_DEBUG_PAGE
     // Extension-less audio (download-manager avoidance): /media/bgm/act1 → /assets/audio/bgm/act1.mp3
     if (decoded.startsWith(MEDIA_PREFIX)) {
       await serveMedia(req, res, decoded.slice(MEDIA_PREFIX.length), query, publicDir, gzipCache, log);

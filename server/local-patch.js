@@ -7,6 +7,7 @@
 //   onMatchEnd(lobby, room)          the match ended: factions are cleared (they last one match)
 //   botCap(room)                     Lobby.addBot: the refusal when SP_MAX_BOTS is reached, else null
 //   maxBotsSetting()                 room.state `maxBots` (null when unset)
+//   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
 //
 // 선발 오퍼레이터 (甄选 / DIY picks, shared/diy.js): no hook line — SharedPool / PlayerState are wrapped at import below.
 // A player's picks (loadout entries with `diy`) are pool entries of their own: cap = the tier's copies × the players who
@@ -207,3 +208,15 @@ SharedPool.prototype.tierShares = function tierShares(maxTier) {
   for (const [id] of saved) this.entries.delete(id);
   try { return upstreamTierShares.call(this, maxTier); } finally { for (const [id, e] of saved) if (e) this.entries.set(id, e); }
 };
+
+// ---- debug page (/debug.html) ----------------------------------------------------------------------------------
+
+/** The effect / sound debug page and its scripts (public/debug.html, js/debug.js; /fxlab.html redirects to it). */
+const DEBUG_PATHS = new Set(['/debug.html', '/fxlab.html', '/js/debug.js']);
+/**
+ * Whether a static request is the debug page on a server that does not serve it: only `SP_DEBUG_PAGE=1` (local.sh)
+ * serves it; deployed servers (OCI / NAS) answer 404.
+ */
+export function debugPageHidden(decodedPath, env = process.env) {
+  return DEBUG_PATHS.has(String(decodedPath).toLowerCase()) && env.SP_DEBUG_PAGE !== '1';
+}
