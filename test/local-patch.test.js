@@ -411,6 +411,16 @@ describe('선발 오퍼레이터 — 甄选 picks (shared/diy.js, server/local-p
   });
 });
 
+test('skill sounds: ON_SKILL_START first, then the ability / custom-trigger banks (tools/assets/skill-sfx.mjs)', async () => {
+  const { skillStartSounds } = await import('../tools/assets/skill-sfx.mjs');
+  const banks = { 'battle.ON_ABILITY_START.sk_a.2': ['a.mp3'], 'battle.ON_CUSTOM_TRIGGER.sk_b[start]': ['b.mp3'], 'battle.ON_ABILITY_START.sk_c': ['c2.mp3'] };
+  const audio = { skillBanks: new Map([['sk_c', new Map([['ON_SKILL_START', ['c.mp3']]])]]), bank: (n) => banks[n] || [] };
+  assert.deepEqual(skillStartSounds(audio, 'sk_c'), ['c.mp3'], 'the skill start bank wins');
+  assert.deepEqual(skillStartSounds(audio, 'sk_a'), ['a.mp3'], 'numbered ability bank');
+  assert.deepEqual(skillStartSounds(audio, 'sk_b'), ['b.mp3'], 'custom trigger [start]');
+  assert.equal(skillStartSounds(audio, 'sk_none'), null);
+});
+
 test('debug page: served only with SP_DEBUG_PAGE=1 (server/local-patch.js debugPageHidden)', async () => {
   const { debugPageHidden } = await import('../server/local-patch.js');
   for (const p of ['/debug.html', '/DEBUG.html', '/js/debug.js', '/fxlab.html']) {

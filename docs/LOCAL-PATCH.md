@@ -25,6 +25,7 @@
 | 오퍼레이터 음성 (작전 개시·선택·배치·스킬 대사 9종, 한국어/일본어/끄기) | `tools/assets/voice.mjs`, `public/js/voice.js` | `tools/assets/plan.mjs` 2줄, `tools/fetch-assets.mjs` 3줄, `audio.js` 1줄(`onUnitSkill`), `settings.js` 2줄, `screens/game.js`(import, 선택 2줄, `buy` 감싸기, 전투 시작 1줄), `resources.js`(언어 필터), `public/i18n/ko/ui.json` |
 | 선발 오퍼레이터 (甄选 칸: 왕·첸 더 던스트릭·위셔델·사키코·아스카론) | `tools/build-diy.mjs` → `data/diy.json`, `shared/diy.js`, `public/js/ui/diySlots.js`, `public/css/diy.css`, `tools/assets/diy.mjs` | `tools/build-data.mjs`(스크립트 가드 + export), `server/data.js`·`public/js/data.js`·`public/js/battle/runner.js`(diy.json 병합 각 1줄), `shared/protocol.js`(loadout `diy` 키·검사), `server/match/PlayerState.js` 2줄(`diy` 유지), `server/local-patch.js`(전용 풀), `public/js/ui/loadoutModel.js`(`diy` 유지), `screens/loadout.js` 3줄, `index.html` 1줄, `tools/fetch-assets.mjs` 2줄 |
 | 공식 전투 이펙트 (로컬 클라이언트 추출) | `tools/local-extract/fx_extract.py` → `public/assets/local/fx/**`, `public/js/render/fxplayer.js`·`fxgame.js`·`fxmap.js` | `render/app.js` 6줄(이벤트·프레임·정리 훅, 부하 단계 전달, `stats()`의 `fxGame`) |
+| 스킬 효과음 보강 (ON_SKILL_START가 없는 스킬은 ON_ABILITY_START/ON_CUSTOM_TRIGGER [start]/ON_ABILITY_ON/HIT 뱅크) | `tools/assets/skill-sfx.mjs` | `tools/assets/plan.mjs` 2줄 |
 | 이펙트·사운드 디버그 페이지 (`SP_DEBUG_PAGE=1`일 때만, 배포 서버는 404) | `public/debug.html`, `public/js/debug.js` (`/fxlab.html`은 이리로 넘김), `server/local-patch.js debugPageHidden` | `server/index.js` 2줄 |
 | iframe 차단 헤더 | — | `server/index.js` 3줄 |
 | 나가기 창에서 「暂离（AI 托管）」 숨김 | — | `ui/matchChrome.js` (`AWAY_OPTION = false`) — 나가면 자리를 포기한다 |
