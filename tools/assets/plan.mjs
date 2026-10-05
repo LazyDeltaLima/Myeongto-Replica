@@ -25,6 +25,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTemplate } from './voice.mjs'; // local NAS patch
 import { skillStartSounds } from './skill-sfx.mjs'; // local NAS patch
+import { waveBgmTemplate } from './round-bgm.mjs'; // local NAS patch
 
 /**
  * Enemies whose Spine no community dump carries: the web model is another enemy's (research 07 §5.6). Their official
@@ -524,5 +525,6 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     audio: { bgm, bossBgm: Object.fromEntries(Object.entries(bossBgm).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))), sfx: { ui: sfxUi, battle: sfxBattle, units: unitsSfx } },
   };
   template.audio.voice = voiceTemplate(charIds); // local NAS patch: operator voice lines (tools/assets/voice.mjs)
+  template.audio.waveBgm = waveBgmTemplate(maps05?.roundLevels, (b) => flatBgm(bgmLeaf(b))); // local NAS patch: per-round 作战 BGM (tools/assets/round-bgm.mjs)
   return { template, models, notes };
 }

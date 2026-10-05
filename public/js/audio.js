@@ -36,6 +36,7 @@
 
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
+import { roundBgmKey } from './round-bgm.js'; // local NAS patch
 
 const MAX_VOICES = 8;
 const UNIT_COOLDOWN_MS = 160;
@@ -97,6 +98,7 @@ export function resolveBgm(manifest, key) {
   let t = null;
   if (key.startsWith('boss:')) t = a.bossBgm?.[key.slice(5)] || a.bgm?.boss;
   else if (key === 'unite') t = a.bgm?.unite || a.bgm?.combat;
+  else if (key.startsWith('wave:')) t = a.waveBgm?.[key.slice(5)] || a.bgm?.combat; // local NAS patch: per-round 作战 BGM (round-bgm.js)
   else t = a.bgm?.[key];
   if (!t || typeof t.loop !== 'string') return null;
   return { intro: typeof t.intro === 'string' ? t.intro : null, loop: t.loop };
@@ -719,7 +721,7 @@ export function installAudio(deps) {
     if (deps?.settings) audio.setVolumes(deps.settings);
     if (typeof deps?.subscribe === 'function' && typeof deps?.getState === 'function') {
       const sync = (s) => {
-        try { audio.playBgm(bgmKeyFor(deps.selectRoute(s), s.match?.public)); } catch { /* ignore */ }
+        try { audio.playBgm(roundBgmKey(bgmKeyFor(deps.selectRoute(s), s.match?.public), s.match?.public)); } catch { /* ignore */ } // local NAS patch: per-round 作战 BGM
       };
       sync(deps.getState());
       return deps.subscribe((s, prev) => {

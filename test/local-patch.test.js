@@ -435,6 +435,36 @@ test('skill sounds: ON_SKILL_START first, then the ability / custom-trigger bank
   assert.equal(skillStartSounds(audio, 'sk_none'), null);
 });
 
+test('per-round 作战 BGM: wave templates keep their own bgmEvent (tools/assets/round-bgm.mjs, public/js/round-bgm.js)', async () => {
+  const { waveBgmTemplate } = await import('../tools/assets/round-bgm.mjs');
+  const levels = {
+    act1autochess_01: { bgm: 'bat_kazimierz2_2', usedBy: ['mode_single_normal#1'] },
+    act1autochess_h01: { bgm: 'bat_kazimierz2_1', usedBy: ['mode_multi_hard#8'] },
+    act1autochess_b: { bgm: 'bat_boss_ancestor', usedBy: ['mode_single_normal#14 (boss:boss_1)'] },
+    act1autochess_escaped_single: { bgm: 'corrosion', usedBy: ['constData.escapedBattleTemplateMap*'] },
+  };
+  const wave = waveBgmTemplate(levels, (bank) => ({ loop: bank }));
+  assert.deepEqual(wave, {
+    act1autochess_01: { loop: 'battle.ON_GAME_READY.bat_kazimierz2_2' },
+    act1autochess_h01: { loop: 'battle.ON_GAME_READY.bat_kazimierz2_1' },
+  }, 'normal rounds only; boss and 联防 levels have their own tracks');
+
+  const { data } = await mod('data.js');
+  const { roundBgmKey } = await mod('round-bgm.js');
+  const { bgmKeyFor, resolveBgm } = await mod('audio.js');
+  const config = { modes: { mode_single_normal: { rounds: { 1: { template: 'act1autochess_01' }, 14: { template: null } } } } };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => config });
+  try { await data.load('config'); } finally { globalThis.fetch = realFetch; }
+  const pub = (phase, round) => ({ phase, round, modeId: 'mode_single_normal' });
+  assert.equal(roundBgmKey(bgmKeyFor('game', pub('COMBAT', 1)), pub('COMBAT', 1)), 'wave:act1autochess_01');
+  assert.equal(roundBgmKey(bgmKeyFor('game', pub('PREP', 1)), pub('PREP', 1)), 'prep', 'prep keeps its track');
+  assert.equal(roundBgmKey(bgmKeyFor('game', pub('COMBAT', 14)), pub('COMBAT', 14)), 'combat', 'no template: bgm.combat');
+  const manifest = { audio: { bgm: { prep: { loop: 'shop' }, combat: { loop: 'shop' } }, waveBgm: { act1autochess_01: { loop: 'k22' } } } };
+  assert.equal(resolveBgm(manifest, 'wave:act1autochess_01').loop, 'k22');
+  assert.equal(resolveBgm(manifest, 'wave:act1autochess_99').loop, 'shop', 'unknown template falls back to bgm.combat');
+});
+
 test('/healthz through the proxy: build only, no counters (server/local-patch.js proxiedRequest)', async () => {
   const { proxiedRequest } = await import('../server/local-patch.js');
   assert.equal(proxiedRequest({ headers: { 'x-forwarded-for': '1.2.3.4' } }), true);

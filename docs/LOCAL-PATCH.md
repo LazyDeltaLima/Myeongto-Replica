@@ -26,6 +26,7 @@
 | 선발 오퍼레이터 (甄选 칸: 왕·첸 더 던스트릭·위셔델·사키코·아스카론) | `tools/build-diy.mjs` → `data/diy.json`, `shared/diy.js`, `public/js/ui/diySlots.js`, `public/css/diy.css`, `tools/assets/diy.mjs` | `tools/build-data.mjs`(스크립트 가드 + export), `server/data.js`·`public/js/data.js`·`public/js/battle/runner.js`(diy.json 병합 각 1줄), `shared/protocol.js`(loadout `diy` 키·검사), `server/match/PlayerState.js` 2줄(`diy` 유지), `server/local-patch.js`(전용 풀), `public/js/ui/loadoutModel.js`(`diy` 유지: `parseStored`·`setChoice`·`sanitizeEntries`), `screens/loadout.js` 3줄 + 내보내기 버튼 조건, `index.html` 1줄, `tools/fetch-assets.mjs` 2줄 |
 | 공식 전투 이펙트 (로컬 클라이언트 추출) | `tools/local-extract/fx_extract.py` → `public/assets/local/fx/**`, `public/js/render/fxplayer.js`·`fxgame.js`·`fxmap.js` | `render/app.js` 6줄(이벤트·프레임·정리 훅, 부하 단계 전달, `stats()`의 `fxGame`) |
 | 스킬 효과음 보강 (ON_SKILL_START가 없는 스킬은 ON_ABILITY_START/ON_CUSTOM_TRIGGER [start]/ON_ABILITY_ON/HIT 뱅크) | `tools/assets/skill-sfx.mjs` | `tools/assets/plan.mjs` 2줄 |
+| 라운드별 작전 BGM (휴식기는 원본 그대로 `act1autochess_shop`, 작전은 공식 라운드 레벨의 bgmEvent: 1~7라운드 `bat_kazimierz2_2`, 8~13라운드 `bat_kazimierz2_1`, 훈련 `bat_act35side_01`) | `tools/assets/round-bgm.mjs` → `data/assets.json audio.waveBgm[템플릿 id]`, `public/js/round-bgm.js` | `tools/assets/plan.mjs` 2줄, `audio.js` 3줄(import, `resolveBgm`의 `wave:` 키, `installAudio` sync) |
 | 이펙트·사운드 디버그 페이지 (`SP_DEBUG_PAGE=1`일 때만, 배포 서버는 404) | `public/debug.html`, `public/js/debug.js` (`/fxlab.html`은 이리로 넘김), `server/local-patch.js debugPageHidden` | `server/index.js` 2줄 |
 | `/healthz` 축소 (프록시를 거친 요청은 `ok`·`version`·`app`·`build`만, 접속자·방 수는 컨테이너 안 확인용) | `server/local-patch.js proxiedRequest` | `server/index.js` 2줄(import, `/healthz` 앞 1줄) |
 | iframe 차단 헤더 | — | `server/index.js` 3줄 |
@@ -135,7 +136,7 @@
 - 채팅·관전석 등은 원본에 같은 기능이 생기면 비교해서 정리
 
 ## 테스트
-- `node --test test/local-patch.test.js` — 로컬 테스트 39개.
+- `node --test test/local-patch.test.js` — 로컬 테스트 40개.
 - 전체 `node --test`에서 원래부터 실패하는 것 (이 개발 사본에 게임 소재가 없음): 소재 manifest·로컬 추출·모듈 아이콘·이모티콘 그림 관련,
   `make-windows-bundle` 대소문자 검사. 2026-10-05 기준 12개. (`lobby-integration` 재접속 테스트가 가끔 시간 문제로 실패하는데, 단독으로 돌리면 통과한다)
 - 로컬 패치 때문에 실패하는 원본 테스트 (의도한 동작 변경이라 고치지 않음):
