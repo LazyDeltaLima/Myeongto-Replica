@@ -663,6 +663,8 @@ export class AudioManager {
           if (now - by.at <= IMPACT_WINDOW_MS) this.unit(by.def, 'hit', `h${e[1]}`);
         } else if (kind === 'heal') {
           this.battle('heal', { unitKey: `heal:${e[1]}`, volume: 0.35 });
+        } else if (kind === 'leak') { // local NAS patch: an enemy reached the goal (official battle.ON_ENEMY_REACHED_EXIT, tools/assets/leak-sfx.mjs)
+          this.battle('leak', { unitKey: 'leak', volume: 0.8 });
         } else if (kind === 'skill' && e[2]) {
           const u = this.units.get(e[1]);
           if (u) this.unit(u.def, 'skill', e[1], u.skillIndex ?? undefined);

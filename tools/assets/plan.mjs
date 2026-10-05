@@ -26,6 +26,7 @@ import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTemplate } from './voice.mjs'; // local NAS patch
 import { skillStartSounds } from './skill-sfx.mjs'; // local NAS patch
 import { waveBgmTemplate } from './round-bgm.mjs'; // local NAS patch
+import { leakSfx } from './leak-sfx.mjs'; // local NAS patch
 
 /**
  * Enemies whose Spine no community dump carries: the web model is another enemy's (research 07 §5.6). Their official
@@ -526,5 +527,6 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   };
   template.audio.voice = voiceTemplate(charIds); // local NAS patch: operator voice lines (tools/assets/voice.mjs)
   template.audio.waveBgm = waveBgmTemplate(maps05?.roundLevels, (b) => flatBgm(bgmLeaf(b))); // local NAS patch: per-round 作战 BGM (tools/assets/round-bgm.mjs)
+  template.audio.sfx.battle.leak = leakSfx(audio, soundLeaf); // local NAS patch: enemy reached the goal (tools/assets/leak-sfx.mjs)
   return { template, models, notes };
 }
