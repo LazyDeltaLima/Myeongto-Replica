@@ -118,7 +118,7 @@ function Line({ l, myId, cls = '', style = '' }) {
     </li>`;
   }
   return html`<li class=${cx('chat__line', l.playerId === myId && 'is-me', cls)} style=${style} data-i18n-skip="">
-    <b class="chat__name">${l.name}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>
+    <b class="chat__name">${l.name}${l.spectator ? html`<span class="chat__spec">(${tr('观战')})</span>` : null}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>
   </li>`;
 }
 
@@ -152,6 +152,7 @@ function ChatLog({ lines, myId }) {
 /** The player's chat faction (room.state seat) and the picker: a chip left of the input (the faction's icon once
  *  picked, so the input keeps its width), the 8 factions with icon and name above it. */
 function FactionPicker({ disabled }) {
+  const seated = useStore((s) => (s.room?.seats || []).some((x) => x && x.playerId === s.me.playerId));
   const mine = useStore((s) => (s.room?.seats || []).find((x) => x && x.playerId === s.me.playerId)?.chatFaction ?? null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -163,6 +164,7 @@ function FactionPicker({ disabled }) {
     try { await net.request('room.chatFaction', { faction: id }); } catch { /* cooldown / offline: the chip stays */ }
     setBusy(false);
   };
+  if (!seated) return null; // spectators have no faction
   return html`<div class="chat__fac">
     <button type="button" class=${cx('chat__facbtn', f && 'is-set')} style=${f ? `--fac:${f.color}` : ''} disabled=${disabled || busy}
       aria-expanded=${open ? 'true' : 'false'} title="选择阵营" onClick=${() => setOpen(!open)}>${f ? (factionIconUrl(f) ? html`<${FactionIcon} f=${f} />` : f.name) : '阵营'}</button>
