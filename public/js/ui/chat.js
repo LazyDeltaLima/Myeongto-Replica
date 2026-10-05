@@ -1,7 +1,7 @@
 // Room chat (local NAS patch): one text channel per co-op room (solo rooms have none), open in the room screen and
 // during the match.
 //
-// Wire (server/lobby.js chat): room.chat { text } → the room gets room.chat { seq, playerId, name, text, at }; a player
+// Wire (server/local-patch.js chat): room.chat { text } → the room gets room.chat { seq, playerId, name, text, at }; a player
 // who joins or resyncs gets room.chatlog { lines } (the last CHAT_HISTORY lines). Nothing outlives the room.
 //
 //   installChat()  net → store.chat { code, lines, seen }: lines of the current room only (cleared when the room
@@ -9,8 +9,8 @@
 //                  new). `seen` is the last seq the player has read: kept in the store, not in a panel, so the unread
 //                  badge and the floating feed survive the screen / match-phase switches that remount the panels;
 //                  history lines a player gets on joining or resyncing count as read.
-//   FactionPicker  the chat faction (server/lobby.js chatFaction): a colored tag on the player's lines until the match
-//                  ends; picking one announces it as a `kind: 'faction'` line
+//   FactionPicker  the chat faction (server/local-patch.js, room.factions → store.chatFactions): a colored tag on the
+//                  player's lines and avatar until the match ends; picking one announces it as a `kind: 'faction'` line
 //   RoomChat       the room screen's panel: log + input, folds to a button (unread count while folded)
 //   GameChat       the match: a 聊天 button beside 交流 (unread badge) + panel above it; while it is closed, new lines
 //                  of the others float above the corner for a few seconds. Enter opens it, Esc closes it.
@@ -18,7 +18,7 @@
 // Styles: public/css/chat.css.
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction } from '../../../shared/constants.js';
+import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
 import { html } from './components.js';
 import { net } from '../net.js';
 import { store, useStore, loadPref, savePref } from '../store.js';
@@ -91,9 +91,11 @@ export function installChat() {
   };
   net.on('room.chat', (m) => put([m], true));
   net.on('room.chatlog', (m) => put(Array.isArray(m.lines) ? m.lines : [], false));
+  // room.factions { factions: { [playerId]: factionId } } (server/local-patch.js) → store.chatFactions
+  net.on('room.factions', (m) => { if (roomCode()) store.set({ chatFactions: m.factions && typeof m.factions === 'object' ? { ...m.factions } : {} }); });
   store.subscribe((s) => {
     const code = s.room?.code ?? null;
-    if ((s.chat?.code ?? null) !== code) store.set({ chat: { code, lines: [], seen: 0 } });
+    if ((s.chat?.code ?? null) !== code) store.set({ chat: { code, lines: [], seen: 0 }, chatFactions: {} });
   });
 }
 
@@ -153,7 +155,7 @@ function ChatLog({ lines, myId }) {
  *  picked, so the input keeps its width), the 8 factions with icon and name above it. */
 function FactionPicker({ disabled }) {
   const seated = useStore((s) => (s.room?.seats || []).some((x) => x && x.playerId === s.me.playerId));
-  const mine = useStore((s) => (s.room?.seats || []).find((x) => x && x.playerId === s.me.playerId)?.chatFaction ?? null);
+  const mine = useStore((s) => s.chatFactions?.[s.me.playerId] ?? null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const f = chatFaction(mine);

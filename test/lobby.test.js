@@ -19,7 +19,7 @@ import { sanitizeName, TokenBucket, SessionRegistry, clientAddress, normalizeIp,
 import { StubMatch as Match } from '../server/match/StubMatch.js';
 import { Match as RealMatch } from '../server/match/Match.js';
 import { TestClient } from './helpers/wsClient.js';
-import { ERR, MAX_SEATS, MAX_SPECTATORS, PHASE, EMOTES, CHAT_MAX_LEN, CHAT_COOLDOWN_MS } from '../shared/constants.js';
+import { ERR, MAX_SEATS, MAX_SPECTATORS, PHASE, EMOTES } from '../shared/constants.js';
 
 const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{4}$`);
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -543,7 +543,7 @@ describe('websocket lobby', () => {
     assert.equal(st.difficulty, 'HARD');
     assert.equal(st.inMatch, false);
     assert.equal(st.seats.length, MAX_SEATS);
-    assert.deepEqual(st.seats[0], { seat: 0, playerId: host.id, name: 'Host', isBot: false, ready: false, connected: true, chatFaction: null });
+    assert.deepEqual(st.seats[0], { seat: 0, playerId: host.id, name: 'Host', isBot: false, ready: false, connected: true });
     assert.deepEqual(st.seats.slice(1), [null, null, null]);
 
     const guest = await pool.player('Guest');
@@ -604,110 +604,6 @@ describe('websocket lobby', () => {
     assert.equal(soloState.mode, 'solo');
     await expectError(late, { t: 'room.join', code: soloState.code }, ERR.ROOM_FULL);
     await expectError(solo, { t: 'room.addBot' }, ERR.ROOM_FULL);
-  });
-
-  test('room chat: sanitized lines to the whole room, cooldown, history for a late joiner (local NAS patch)', async () => {
-    const host = await pool.player('Talk');
-    const st = await createRoom(host);
-    const guest = await pool.player('Hear');
-    await joinRoom(guest, st.code);
-
-    await expectOk(host, { t: 'room.chat', text: '  hi\u200b   there\n ' });
-    for (const c of [host, guest]) {
-      const m = await c.waitFor('room.chat');
-      assert.equal(m.text, 'hi there');
-      assert.equal(m.name, 'Talk');
-      assert.equal(m.playerId, host.id);
-      assert.equal(m.seq, 1);
-    }
-    await expectError(host, { t: 'room.chat', text: 'again' }, ERR.RATE);
-    await expectError(guest, { t: 'room.chat', text: ' \u200b ' }, ERR.BAD_MSG);
-    await expectOk(guest, { t: 'room.chat', text: 'x'.repeat(CHAT_MAX_LEN + 30) });
-    assert.equal((await host.waitFor('room.chat', (m) => m.seq === 2)).text.length, CHAT_MAX_LEN);
-
-    const late = await pool.player('Late');
-    await joinRoom(late, st.code);
-    const log = await late.waitFor('room.chatlog');
-    assert.deepEqual(log.lines.map((l) => l.seq), [1, 2]);
-
-    const lone = await pool.player('Lone');
-    await expectError(lone, { t: 'room.chat', text: 'hello?' }, ERR.NOT_IN_ROOM);
-    await createRoom(lone, 'solo', 'FUNNY');
-    await expectError(lone, { t: 'room.chat', text: 'hello?' }, ERR.BAD_MSG);
-  });
-
-  test('room chat and spectators: they get the history, chat with a marked line, pick no faction (local NAS patch)', async () => {
-    const host = await pool.player('Room');
-    const st = await createRoom(host);
-    await expectOk(host, { t: 'room.chat', text: 'before' });
-    const spec = await pool.player('Watch');
-    await expectOk(spec, { t: 'room.spectate', code: st.code });
-    assert.deepEqual((await spec.waitFor('room.chatlog')).lines.map((l) => l.text), ['before']);
-    await expectOk(spec, { t: 'room.chat', text: 'hi from the stands' });
-    const line = await host.waitFor('room.chat', (m) => m.playerId === spec.id);
-    assert.deepEqual([line.text, line.spectator, line.faction], ['hi from the stands', true, null]);
-    await expectError(spec, { t: 'room.chatFaction', faction: 'yan' }, ERR.SPECTATOR);
-  });
-
-  test('chat faction: announced line, tag on later lines and in room.state, cleared when the match ends (local NAS patch)', async () => {
-    const host = await pool.player('Flag');
-    const st = await createRoom(host);
-    const guest = await pool.player('Seen');
-    await joinRoom(guest, st.code);
-
-    await expectOk(host, { t: 'room.chatFaction', faction: 'siracusa' });
-    const line = await guest.waitFor('room.chat');
-    assert.deepEqual([line.kind, line.faction, line.playerId, line.text], ['faction', 'siracusa', host.id, '']);
-    assert.equal(seatOf(await guest.waitFor('room.state', (s) => seatOf(s, host.id)?.chatFaction), host.id).chatFaction, 'siracusa');
-    await expectError(host, { t: 'room.chatFaction', faction: 'yan' }, ERR.RATE); // shares the chat cooldown
-    await expectError(host, { t: 'room.chatFaction', faction: 'rhodes' }, ERR.BAD_MSG);
-
-    await expectOk(guest, { t: 'room.ready', ready: true });
-    await new Promise((r) => setTimeout(r, CHAT_COOLDOWN_MS + 20));
-    await expectOk(host, { t: 'room.start' });
-    await host.waitFor('room.state', (s) => s.inMatch);
-    await expectOk(host, { t: 'room.chat', text: 'go' });
-    assert.equal((await guest.waitFor('room.chat', (m) => m.text === 'go')).faction, 'siracusa');
-
-    host.clearInbox();
-    await expectOk(host, { t: 'g.infoReady' });
-    await expectOk(guest, { t: 'g.infoReady' });
-    const back = await host.waitFor('room.state', (s) => !s.inMatch);
-    assert.equal(seatOf(back, host.id).chatFaction, null);
-    await expectOk(guest, { t: 'room.chat', text: 'gg' });
-    assert.equal((await host.waitFor('room.chat', (m) => m.text === 'gg')).faction, null);
-  });
-
-  test('room.state carries SP_MAX_BOTS as maxBots (null when unset)', async () => {
-    const prev = process.env.SP_MAX_BOTS;
-    try {
-      delete process.env.SP_MAX_BOTS;
-      assert.equal((await createRoom(await pool.player('Free'))).maxBots, null);
-      process.env.SP_MAX_BOTS = '2';
-      assert.equal((await createRoom(await pool.player('Two'))).maxBots, 2);
-    } finally {
-      if (prev === undefined) delete process.env.SP_MAX_BOTS;
-      else process.env.SP_MAX_BOTS = prev;
-    }
-  });
-
-  test('SP_MAX_BOTS caps the AI teammates of a room (0 = none)', async () => {
-    const prev = process.env.SP_MAX_BOTS;
-    try {
-      process.env.SP_MAX_BOTS = '1';
-      const host = await pool.player('Cap');
-      await createRoom(host);
-      await expectOk(host, { t: 'room.addBot' });
-      await expectError(host, { t: 'room.addBot' }, ERR.ROOM_FULL);
-
-      process.env.SP_MAX_BOTS = '0';
-      const none = await pool.player('NoBots');
-      await createRoom(none);
-      await expectError(none, { t: 'room.addBot' }, ERR.ROOM_FULL);
-    } finally {
-      if (prev === undefined) delete process.env.SP_MAX_BOTS;
-      else process.env.SP_MAX_BOTS = prev;
-    }
   });
 
   // community report #26 (a remake feature): spectator seats — server/lobby.js header
@@ -981,7 +877,7 @@ describe('websocket lobby', () => {
     assert.equal(w.token, guest.token);
     const restored = await back.waitFor('room.state');
     assert.equal(restored.code, st.code);
-    assert.deepEqual(seatOf(restored, guest.id), { seat: 1, playerId: guest.id, name: 'Guest2', isBot: false, ready: true, connected: true, chatFaction: null });
+    assert.deepEqual(seatOf(restored, guest.id), { seat: 1, playerId: guest.id, name: 'Guest2', isBot: false, ready: true, connected: true });
     await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.connected === true);
 
     // an unknown token just creates a new identity

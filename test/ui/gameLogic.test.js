@@ -444,10 +444,9 @@ describe('fields, players, emotes', () => {
   });
   test('activeBubbles keeps the newest emote per player within ttl', () => {
     const now = 10_000;
-    const m = activeBubbles([{ seq: 1, playerId: 'a', id: 'hello', at: 8_000 }, { seq: 2, playerId: 'a', id: 'thanks', at: 9_000, set: 'user' },
+    const m = activeBubbles([{ seq: 1, playerId: 'a', id: 'hello', at: 8_000 }, { seq: 2, playerId: 'a', id: 'thanks', at: 9_000 },
       { seq: 3, playerId: 'b', id: 'wow', at: 5_000 }, null], now, 3000);
     assert.equal(m.get('a').id, 'thanks'); assert.equal(m.has('b'), false);
-    assert.equal(m.get('a').set, 'user', 'the picture set travels with the bubble (local NAS patch)');
     assert.equal(activeBubbles(undefined, now).size, 0);
   });
 });

@@ -140,7 +140,7 @@ export class StubMatch {
       const now = this.now();
       if (now - p.lastEmoteAt >= EMOTE_COOLDOWN_MS) {
         p.lastEmoteAt = now;
-        this.broadcastFn({ t: 'm.emote', playerId, id: msg.id, set: emoteSet(msg.set) });
+        this.broadcastFn({ t: 'm.emote', playerId, id: msg.id, ...(emoteSet(msg.set) === 'user' ? { set: 'user' } : {}) }); // local NAS patch
       }
     }
     return { ok: true };

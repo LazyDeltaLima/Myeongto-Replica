@@ -78,17 +78,12 @@
 //     a player seat (the seat is kept and given back on resume).
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, chatFaction } from '../shared/constants.js';
+import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
 import { checkLoadout } from '../shared/protocol.js';
-import { encode, isDroppable, isErrCode, sendRaw, sendSession, sanitizeText } from './net.js';
+import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
-
-/** SP_MAX_BOTS (local NAS patch): AI teammates a room may hold, or null when only the seats limit them (unset). */
-export function maxBotsSetting(env = process.env) {
-  const n = Number.parseInt(env.SP_MAX_BOTS ?? '', 10);
-  return n >= 0 ? n : null;
-}
+import * as localPatch from './local-patch.js'; // local NAS patch: room chat, chat factions, SP_MAX_BOTS
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -143,9 +138,6 @@ export class Room {
     /** @type {{ live: boolean, ended: boolean, disposed: boolean, match: any } | null} */
     this.matchCtx = null;
     this.matchCount = 0;
-    /** room chat (local NAS patch): the last CHAT_HISTORY lines and the sequence of the latest one */
-    this.chatLog = [];
-    this.chatSeq = 0;
     /** @type {any} summary passed to onEnd by the last match */
     this.lastSummary = null;
     /**
@@ -185,9 +177,9 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       inMatch: !!this.match,
-      maxBots: maxBotsSetting(),
+      maxBots: localPatch.maxBotsSetting(), // local NAS patch
       seats: this.seats.map((s) => (s
-        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left, chatFaction: s.chatFaction ?? null }
+        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
         : null)),
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected })),
     };
@@ -288,6 +280,7 @@ export class Lobby {
    * @returns {{ ok: true } | { error: string, detail?: string }}
    */
   onMessage(session, msg) {
+    const local = localPatch.onMessage(this, session, msg); if (local) return local; // local NAS patch
     switch (msg.t) {
       case 'room.create': return this.create(session, msg);
       case 'room.join': return this.join(session, msg);
@@ -301,8 +294,6 @@ export class Lobby {
       case 'room.loadout': return this.loadout(session, msg);
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
-      case 'room.chat': return this.chat(session, msg);
-      case 'room.chatFaction': return this.chatFaction(session, msg);
       default:
         if (typeof msg.t === 'string' && msg.t.startsWith('g.')) return this.routeGame(session, msg);
         return fail(ERR.BAD_MSG, `unhandled type ${String(msg.t).slice(0, 32)}`);
@@ -399,7 +390,7 @@ export class Lobby {
     session.pendingResult = null;
     if (!room.hostId) room.hostId = session.playerId;
     this.broadcastState(room);
-    this.sendChatLog(room, session);
+    localPatch.onJoin(this, room, session); // local NAS patch
     return OK;
   }
 
@@ -433,7 +424,7 @@ export class Lobby {
     session.notice = null;
     session.pendingResult = null;
     this.broadcastState(room);
-    this.sendChatLog(room, session); // room chat (local NAS patch): the recent lines, like a joining player
+    localPatch.onJoin(this, room, session); // local NAS patch
     if (room.match) this.callMatch(room, 'addSpectator', session.playerId);
     return OK;
   }
@@ -491,11 +482,7 @@ export class Lobby {
     if (room.match) return fail(ERR.ROOM_STARTED);
     this.dropReplay(room, session.playerId);
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo rooms cannot have AI teammates');
-    // SP_MAX_BOTS: AI teammates per room on this server (unset = no limit beyond the seats, 0 = none)
-    const maxBots = maxBotsSetting();
-    if (maxBots != null && room.seats.filter((s) => s && s.isBot).length >= maxBots) {
-      return fail(ERR.ROOM_FULL, maxBots === 0 ? 'AI teammates are disabled on this server' : `at most ${maxBots} AI teammate(s) per room`);
-    }
+    const capped = localPatch.botCap(room); if (capped) return capped; // local NAS patch: SP_MAX_BOTS
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
     const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
@@ -505,63 +492,6 @@ export class Lobby {
     room.seats[idx] = { seat: idx, playerId, name, isBot: true, ready: true, connected: true, left: false };
     this.broadcastState(room);
     return OK;
-  }
-
-  /**
-   * Room chat (local NAS patch, co-op rooms only): one line from a human of the room (a player, or a spectator: `spectator: true`), in the lobby or during the match, broadcast to
-   * every connected member and kept in the room's short history (sent to whoever joins or resyncs). Nothing is stored
-   * beyond the room's lifetime.
-   */
-  chat(session, { text }) {
-    const room = this.roomOf(session);
-    if (!room) return fail(ERR.NOT_IN_ROOM);
-    if (room.mode === 'solo') return fail(ERR.BAD_MSG, 'co-op rooms only');
-    // a spectator chats too (its lines are marked); it has no faction
-    const spectator = room.spectatorOf(session.playerId);
-    const seat = room.seatOf(session.playerId) || spectator;
-    if (!seat || seat.isBot) return fail(ERR.NOT_IN_ROOM);
-    const line = sanitizeText(text, CHAT_MAX_LEN);
-    if (!line) return fail(ERR.BAD_MSG, 'empty message');
-    const now = this.now();
-    if (now - (session.lastChatAt ?? -Infinity) < CHAT_COOLDOWN_MS) return fail(ERR.RATE);
-    session.lastChatAt = now;
-    this.pushChat(room, seat, spectator ? { text: line, at: now, spectator: true } : { text: line, at: now });
-    return OK;
-  }
-
-  /**
-   * Chat faction (local NAS patch): the colored tag on a player's chat lines, announced in the chat as a `kind: 'faction'`
-   * line. Shares the chat cooldown; picking the current one again is a no-op. Cleared for everyone when the match ends.
-   */
-  chatFaction(session, { faction }) {
-    const room = this.roomOf(session);
-    if (!room) return fail(ERR.NOT_IN_ROOM);
-    if (room.spectatorOf(session.playerId)) return fail(ERR.SPECTATOR);
-    if (room.mode === 'solo') return fail(ERR.BAD_MSG, 'co-op rooms only');
-    const seat = room.seatOf(session.playerId);
-    if (!seat || seat.isBot) return fail(ERR.NOT_IN_ROOM);
-    if (!chatFaction(faction)) return fail(ERR.BAD_MSG, 'unknown chat faction');
-    if (seat.chatFaction === faction) return OK;
-    const now = this.now();
-    if (now - (session.lastChatAt ?? -Infinity) < CHAT_COOLDOWN_MS) return fail(ERR.RATE);
-    session.lastChatAt = now;
-    seat.chatFaction = faction;
-    this.pushChat(room, seat, { kind: 'faction', text: '', at: now });
-    this.broadcastState(room);
-    return OK;
-  }
-
-  /** Append one line (stamped with the seat's current faction) to the room's history and broadcast it. */
-  pushChat(room, seat, line) {
-    const msg = { seq: ++room.chatSeq, playerId: seat.playerId, name: seat.name, faction: seat.chatFaction ?? null, ...line };
-    room.chatLog.push(msg);
-    if (room.chatLog.length > CHAT_HISTORY) room.chatLog.splice(0, room.chatLog.length - CHAT_HISTORY);
-    this.broadcastRoom(room, { t: 'room.chat', ...msg });
-  }
-
-  /** The room's recent chat lines to one member (join / resync); nothing while the room has none. */
-  sendChatLog(room, session) {
-    if (room.chatLog.length) sendSession(session, { t: 'room.chatlog', lines: room.chatLog });
   }
 
   removeBot(session, { seat }) {
@@ -717,12 +647,12 @@ export class Lobby {
     room.replay = this.buildReplay(room, ctx);
     setImmediate(() => this.disposeMatchCtx(ctx));
     this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended`);
+    localPatch.onMatchEnd(this, room); // local NAS patch: chat factions last one match
     for (let i = 0; i < room.seats.length; i++) {
       const s = room.seats[i];
       if (!s || s.isBot) continue;
       if (s.left) { room.seats[i] = null; continue; }
       s.ready = false;
-      s.chatFaction = null; // chat faction lasts one match (local NAS patch)
       if (!s.connected) this.startGrace(room, s);
     }
     for (const s of room.spectators) if (!s.connected) this.startGrace(room, s);
@@ -809,7 +739,7 @@ export class Lobby {
     const room = this.roomOf(session);
     if (!room) return;
     session.resyncAt = this.now();
-    this.sendChatLog(room, session);
+    localPatch.onJoin(this, room, session); // local NAS patch
     if (room.match) {
       this.callMatch(room, room.spectatorOf(session.playerId) ? 'addSpectator' : 'onReconnect', session.playerId);
       return;

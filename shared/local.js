@@ -1,0 +1,51 @@
+// Local NAS patch: what this server adds to the shared constants and the wire protocol, kept out of the upstream files
+// (shared/constants.js, shared/protocol.js) so that merging upstream releases stays conflict-free. protocol.js only
+// imports extendProtocol and calls it once at its end.
+//
+//   room chat      room.chat { text } → room.chat { seq, playerId, name, text, at, faction, kind?, spectator? };
+//                  room.chatlog { lines } (the recent lines, to a member who joins or resyncs)
+//   chat faction   room.chatFaction { faction } → room.factions { factions: { [playerId]: factionId } } (all members,
+//                  whenever it changes, and to whoever joins); cleared when the match ends
+//   emote sets     g.emote { id, set? } — 'user' pictures (shared/emote-art.js), missing = official
+
+import { EMOTE_SETS } from './emote-art.js';
+
+// room chat: a line's length in code points, the per-player gap between lines, the lines a (re)joining member gets back
+export const CHAT_MAX_LEN = 120;
+export const CHAT_COOLDOWN_MS = 700;
+export const CHAT_HISTORY = 40;
+
+// chat faction: a colored tag a player may pick for their chat lines and avatar, cleared when the match ends;
+// `bond` is the nation bond whose icon (data/assets.json bonds) shows it
+export const CHAT_FACTIONS = Object.freeze([
+  { id: 'yan', name: '炎国', color: '#ff3b42', bond: 'yanShip' },
+  { id: 'sargon', name: '萨尔贡', color: '#b87850', bond: 'sargonShip' },
+  { id: 'victoria', name: '维多利亚', color: '#ff782f', bond: 'victoriaShip' },
+  { id: 'kjerag', name: '谢拉格', color: '#43acec', bond: 'kjeragShip' },
+  { id: 'laterano', name: '拉特兰', color: '#ff4d91', bond: 'lateranoShip' },
+  { id: 'aegir', name: '阿戈尔', color: '#009fb2', bond: 'egirShip' },
+  { id: 'siracusa', name: '叙拉古', color: '#4776df', bond: 'siracusaShip' },
+  { id: 'kazimierz', name: '卡西米尔', color: '#d8b400', bond: 'kazimierzShip' },
+].map(Object.freeze));
+/** Chat faction record of an id, or null (safe for any input). */
+export const chatFaction = (id) => (typeof id === 'string' && CHAT_FACTIONS.find((f) => f.id === id)) || null;
+
+const isStr = (v, max) => typeof v === 'string' && v.length <= max;
+const optional = (check) => (v) => v === undefined || check(v);
+
+/** Server → client message types this patch adds (protocol.js S2C). */
+export const LOCAL_S2C = Object.freeze(['room.chat', 'room.chatlog', 'room.factions']);
+
+/**
+ * Add this patch's messages to the protocol tables (called once by shared/protocol.js, after both are defined). An
+ * upstream g.emote spec keeps its own fields; only the optional `set` is added.
+ * @param {Record<string, any>} C2S
+ * @param {string[]} S2C
+ */
+export function extendProtocol(C2S, S2C) {
+  // the server trims a line to CHAT_MAX_LEN code points (UTF-16 ×2 here, plus room for whitespace it collapses)
+  C2S['room.chat'] = { text: (v) => isStr(v, CHAT_MAX_LEN * 4) };
+  C2S['room.chatFaction'] = { faction: (v) => !!chatFaction(v) };
+  if (C2S['g.emote']) C2S['g.emote'] = { ...C2S['g.emote'], set: optional((v) => EMOTE_SETS.includes(v)) };
+  for (const t of LOCAL_S2C) if (!S2C.includes(t)) S2C.push(t);
+}

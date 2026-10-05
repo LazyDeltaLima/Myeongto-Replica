@@ -1065,8 +1065,7 @@ export class Match {
     const now = this.sched.now();
     if (now - ps.lastEmoteAt < EMOTE_COOLDOWN_MS) return fail(ERR.RATE);
     ps.lastEmoteAt = now;
-    // set: the picture set the sender picked (local NAS patch, shared/emote-art.js)
-    this.broadcast({ t: 'm.emote', playerId: ps.playerId, id, set: emoteSet(set) });
+    this.broadcast({ t: 'm.emote', playerId: ps.playerId, id, ...(emoteSet(set) === 'user' ? { set: 'user' } : {}) }); // local NAS patch: user pictures
     return OK;
   }
 

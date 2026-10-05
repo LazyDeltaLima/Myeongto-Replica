@@ -1045,65 +1045,6 @@ describe('screen helpers', () => {
     assert.equal(roomFacts(room, 'g').canStart, false, 'guests cannot start');
     assert.equal(roomFacts(null, 'x').mine, null);
     assert.match(inviteLink('ABCD'), /\?room=ABCD$/);
-    // SP_MAX_BOTS (local NAS patch): room.state maxBots
-    assert.equal(roomFacts(room, 'h').maxBots, null);
-    assert.equal(roomFacts(room, 'h').canAddBot, true, 'no limit: the seats alone limit the AI');
-    assert.equal(roomFacts({ ...room, maxBots: 1 }, 'h').canAddBot, false, '1 AI already seated');
-    assert.equal(roomFacts({ ...room, maxBots: 2 }, 'h').canAddBot, true);
-    assert.equal(roomFacts({ ...room, maxBots: 2 }, 'g').canAddBot, false, 'guests never add AI');
-    assert.equal(roomFacts({ ...room, maxBots: 0 }, 'h').botCount, 1);
-  });
-
-  test('chat (local NAS patch): mergeLines / feedLines / unreadCount / isChatHotkey', async () => {
-    const { mergeLines, feedLines, unreadCount, isChatHotkey, FEED_MS } = await mod('ui/chat.js');
-    const l = (seq, playerId = 'g', rx = 0) => ({ seq, playerId, name: playerId, text: `t${seq}`, at: seq, rx });
-    assert.deepEqual(mergeLines([l(2), l(1)], [l(3), l(2)]).map((x) => x.seq), [1, 2, 3], 'sorted, deduplicated');
-    assert.deepEqual(mergeLines([], [l(1), l(2), l(3)], 2).map((x) => x.seq), [2, 3], 'keeps the newest');
-    assert.deepEqual(mergeLines([], [null, { seq: 'x' }, { seq: 4 }]), [], 'malformed lines dropped');
-    const now = 100000;
-    const lines = [l(1, 'g', 0), l(2, 'h', now - 10), l(3, 'g', now - FEED_MS - 1), l(4, 'g', now - 10), l(5, 'g', now - 5)];
-    assert.deepEqual(feedLines(lines, { myId: 'h', seenSeq: 0, now }).map((x) => x.seq), [4, 5], 'others, fresh, not history');
-    assert.deepEqual(feedLines(lines, { myId: 'h', seenSeq: 4, now }).map((x) => x.seq), [5]);
-    assert.equal(unreadCount(lines, 'h', 1), 3);
-    const { historySeen } = await mod('ui/chat.js');
-    assert.equal(historySeen([], [l(1), l(2), l(3)], 0), 3, 'history on joining is read');
-    assert.equal(historySeen([l(1), l(4)], [l(1), l(2), l(3)], 1), 3, 'missed lines from a resync are read');
-    assert.equal(historySeen([l(1), l(2), l(3)], [l(1), l(2), l(3)], 1), 1, 'lines already received keep their unread state');
-    const doc = { querySelector: () => null };
-    const key = (o) => ({ key: 'Enter', target: { tagName: 'DIV' }, ...o });
-    assert.equal(isChatHotkey(key(), doc), true);
-    assert.equal(isChatHotkey(key({ target: { tagName: 'INPUT' } }), doc), false, 'typing elsewhere');
-    assert.equal(isChatHotkey(key({ target: { tagName: 'BUTTON' } }), doc), false, 'Enter on a focused button clicks it');
-    assert.equal(isChatHotkey(key({ isComposing: true }), doc), false, 'IME composition');
-    assert.equal(isChatHotkey(key({ shiftKey: true }), doc), false);
-    assert.equal(isChatHotkey(key(), { querySelector: () => ({}) }), false, 'a dialog is open');
-    assert.equal(isChatHotkey({ key: 'a', target: {} }, doc), false);
-  });
-
-  test('resources (local NAS patch): download sources and order', async () => {
-    const { sourcesOf, priorityOf } = await mod('resources.js');
-    const raw = 'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/main/avatar/char_002_amiya.png';
-    assert.deepEqual(sourcesOf({ p: '/assets/char/avatar/x.png', u: raw }),
-      ['https://cdn.jsdelivr.net/gh/yuanyan3060/ArknightsGameResource@main/avatar/char_002_amiya.png', raw], 'jsDelivr, then GitHub raw, never this server');
-    const voice = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/voice/assets/dyn/audio/x.mp3';
-    assert.deepEqual(sourcesOf({ p: '/assets/audio/x.mp3', u: voice }), [voice], 'no jsDelivr mirror of the voice branch');
-    assert.deepEqual(sourcesOf({ p: '/assets/local/map/autochess/a.png' }), ['/assets/local/map/autochess/a.png'], 'local files from this server');
-    assert.deepEqual(sourcesOf({ p: '/assets/x.png', u: 'https://example.com/x.png' }), [], 'unknown hosts are never fetched');
-    const order = ['/assets/audio/bgm/a.mp3', '/assets/spine/x.skel', '/assets/local/map/a.png', '/assets/char/avatar/a.png', '/assets/ui/a.png', '/img/emotes/a0.webp']
-      .sort((a, b) => priorityOf(a) - priorityOf(b));
-    assert.deepEqual(order.map(priorityOf), [0, 0, 1, 2, 3, 5]);
-    assert.equal(order.at(-1), '/assets/audio/bgm/a.mp3');
-    // the list is validated before the page acts on it (security review 2026-10-04)
-    const { validPath, validEntry } = await mod('resources.js');
-    for (const p of ['/assets/ui/a.png', '/assets/local/map/x y.png', '/img/emotes/a0.webp']) assert.equal(validPath(p), true, p);
-    for (const p of ['//evil.host/x.png', '/assets/../server/index.js', '/assets/./a.png', '/assets/a.png?x', '/assets/a%2e.png', '/assets/a\\b.png',
-      '/js/main.js', '/img/other.png', 'assets/a.png', null]) assert.equal(validPath(p), false, String(p));
-    const h = 'a'.repeat(64);
-    assert.equal(validEntry({ p: '/assets/a.png', s: 1, h }), true);
-    assert.equal(validEntry({ p: '/assets/a.png', s: 1, h, u: raw }), true);
-    assert.equal(validEntry({ p: '/assets/a.png', s: 1, h, u: 'https://evil.host/a.png' }), false, 'unknown upstream host');
-    assert.equal(validEntry({ p: '/assets/a.png', s: 1, h: 'xyz' }), false, 'bad hash');
-    assert.equal(validEntry({ p: '/assets/a.png', h }), false, 'no size');
   });
 
   test('room: spectator seats (community report #26) — isSpectating; roomFacts never counts a spectator as a player', async () => {

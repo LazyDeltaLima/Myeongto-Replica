@@ -11,8 +11,8 @@
 // button for 观战中 and offers 入座 (room.join of the room) while a player seat is free.
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS, chatFaction } from '../../../shared/constants.js';
-import { FactionGlyph } from '../ui/faction.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS } from '../../../shared/constants.js';
+import { SeatMark } from '../ui/faction.js'; // local NAS patch
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo,
 } from '../ui/components.js';
@@ -123,8 +123,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
     <div class="seat__art">
       <div class="seat__stripes" aria-hidden="true"></div>
       <${AvatarFrame} size="xl" name=${seat.name} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline}
-        mark=${!seat.isBot && chatFaction(seat.chatFaction) ? html`<${FactionGlyph} f=${chatFaction(seat.chatFaction)} name=${seat.name}
-          fallback=${html`<span class="avatar__glyph">${[...(seat.name || '').trim()][0] || '?'}</span>`} />` : null} />
+        mark=${seat.isBot ? null : html`<${SeatMark} playerId=${seat.playerId} name=${seat.name} />`} />
       ${seat.isBot ? html`<span class="seat__bot-label"><${Icon} name="robot" />AI 队友</span>` : null}
     </div>
     <div class="seat__who">

@@ -343,19 +343,9 @@ const LONE_SURROGATE_RE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff
  * @returns {string | null}
  */
 export function sanitizeName(raw) {
-  return sanitizeText(raw, NAME_MAX_LEN);
-}
-
-/**
- * sanitizeName with another cap (room chat lines): one line of printable text, at most `max` code points.
- * @param {unknown} raw
- * @param {number} max
- * @returns {string | null}
- */
-export function sanitizeText(raw, max) {
   if (typeof raw !== 'string') return null;
   let s = raw.normalize('NFC').replace(LONE_SURROGATE_RE, '').replace(/\s+/g, ' ').replace(STRIP_RE, '').replace(/ {2,}/g, ' ').trim();
-  s = [...s].slice(0, max).join('').trim();
+  s = [...s].slice(0, NAME_MAX_LEN).join('').trim();
   return s.length > 0 ? s : null;
 }
 

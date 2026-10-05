@@ -15,25 +15,6 @@ export const MAX_SEATS = 4;
 export const MAX_SPECTATORS = 2;
 export const ROOM_CODE_LEN = 4;
 export const NAME_MAX_LEN = 12;
-// room chat (local NAS patch): a line's length in code points, the per-player gap between lines, the lines a
-// (re)joining player gets back
-export const CHAT_MAX_LEN = 120;
-export const CHAT_COOLDOWN_MS = 700;
-export const CHAT_HISTORY = 40;
-// chat faction (local NAS patch): a colored tag a player may pick for their chat lines, cleared when the match ends;
-// `bond` is the nation bond whose icon (data/assets.json bonds) the picker shows
-export const CHAT_FACTIONS = Object.freeze([
-  { id: 'yan', name: '炎国', color: '#ff3b42', bond: 'yanShip' },
-  { id: 'sargon', name: '萨尔贡', color: '#b87850', bond: 'sargonShip' },
-  { id: 'victoria', name: '维多利亚', color: '#ff782f', bond: 'victoriaShip' },
-  { id: 'kjerag', name: '谢拉格', color: '#43acec', bond: 'kjeragShip' },
-  { id: 'laterano', name: '拉特兰', color: '#ff4d91', bond: 'lateranoShip' },
-  { id: 'aegir', name: '阿戈尔', color: '#009fb2', bond: 'egirShip' },
-  { id: 'siracusa', name: '叙拉古', color: '#4776df', bond: 'siracusaShip' },
-  { id: 'kazimierz', name: '卡西米尔', color: '#d8b400', bond: 'kazimierzShip' },
-].map(Object.freeze));
-/** Chat faction record of an id, or null (safe for any input). */
-export const chatFaction = (id) => (typeof id === 'string' && CHAT_FACTIONS.find((f) => f.id === id)) || null;
 
 export const DIFFICULTIES = ['FUNNY', 'NORMAL', 'HARD', 'ABYSS'];
 export const DIFFICULTY_NAMES = { FUNNY: '标准模拟', NORMAL: '险境模拟', HARD: '绝境模拟', ABYSS: '终极模拟' };
