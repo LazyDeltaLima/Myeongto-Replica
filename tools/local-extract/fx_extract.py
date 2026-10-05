@@ -18,12 +18,15 @@ install without the files draws its procedural effects (render/fx.js).
 Usage:
     python fx_extract.py --game <Arknights_Data> --build-cab-index .cache/fx-cab-index.json
     python fx_extract.py --game <Arknights_Data> --cab-index .cache/fx-cab-index.json --bundle chen3 [--prefab NAME ...]
+                         [--all-skins] [--prune]
+Default skin only unless --all-skins; --prune deletes textures / meshes no effect uses any more.
 Needs UnityPy + lz4 (requirements.txt); LZ4AK bundles are decoded by aklz4.py.
 """
 import argparse
 import json
 import math
 import os
+import re
 import struct
 import sys
 import zlib
@@ -34,6 +37,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'public' / 'assets' / 'local' / 'fx'
 BUNDLE_DIRS = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')  # PersistentData (hot updates) first
+# skin / collab variants of a prefab (the remake draws the default skin only; keep in sync with render/fxmap.js isVariant)
+VARIANT_RE = re.compile(r'#\d+|_sale|_iteration|_avemujica|_cn_topolect', re.I)
 
 
 def r4(v):
@@ -555,7 +560,7 @@ class Extractor:
                 return f'mat:{n}' + {4: '.r', 5: '.g', 6: '.b', 7: '.a'}.get(comp, '')
         return None
 
-    def run(self, bundle, prefabs=None):
+    def run(self, bundle, prefabs=None, all_skins=False):
         rel = f'battle/prefabs/effects/{bundle}.ab'
         env = self.load(rel)
         out = OUT
@@ -580,12 +585,20 @@ class Extractor:
             name = go.read_typetree()['m_Name']
             if prefabs and name not in prefabs:
                 continue
+            if not all_skins and VARIANT_RE.search(name):
+                continue
             data = self.prefab(go, out)
             (out / bundle / f'{name}.json').write_text(json.dumps(data, separators=(',', ':'), ensure_ascii=False))
             written.append(name)
         index_p = out / 'index.json'
         index = json.loads(index_p.read_text()) if index_p.exists() else {'bundles': {}}
-        index['bundles'][bundle] = sorted(set(index['bundles'].get(bundle, [])) | set(written))
+        keep = set(index['bundles'].get(bundle, [])) | set(written)
+        if not all_skins:
+            keep = {n for n in keep if not VARIANT_RE.search(n)}
+            for f in (out / bundle).glob('*.json'):
+                if VARIANT_RE.search(f.stem):
+                    f.unlink()
+        index['bundles'][bundle] = sorted(keep)
         index_p.write_text(json.dumps(index, ensure_ascii=False, indent=1))
         print(f'[fx] {bundle}: {len(written)} prefab(s), {len(self.textures)} texture(s), {len(self.meshes)} mesh(es) -> {out}')
 
@@ -597,13 +610,39 @@ def main():
     ap.add_argument('--cab-index', metavar='JSON')
     ap.add_argument('--bundle', action='append', default=[], help='effect bundle name, e.g. chen3 (repeatable)')
     ap.add_argument('--prefab', action='append', default=[], help='only these prefabs')
+    ap.add_argument('--all-skins', action='store_true', help='also skin / collab variants (default: the default skin only)')
+    ap.add_argument('--prune', action='store_true', help='delete textures / meshes no extracted effect references')
     a = ap.parse_args()
     if a.build_cab_index:
         build_cab_index(a.game, a.build_cab_index)
         return
     ex = Extractor(a.game, a.cab_index)
     for b in a.bundle:
-        ex.run(b, set(a.prefab) or None)
+        ex.run(b, set(a.prefab) or None, all_skins=a.all_skins)
+    if a.prune:
+        prune(OUT)
+
+
+def prune(out):
+    """Delete tex/*.png and mesh/*.json that no effect JSON under `out` references."""
+    tex, mesh = set(), set()
+    for f in out.glob('*/*.json'):
+        d = json.loads(f.read_text())
+        for m in d.get('materials', {}).values():
+            for t in m.get('tex', {}).values():
+                tex.add(t['img'])
+        for n in d.get('nodes', []):
+            for k in ((n.get('ps') or {}).get('render') or {}).get('mesh'), (n.get('mesh') or {}).get('mesh'):
+                if k:
+                    mesh.add(k + '.json')
+    gone = 0
+    for f in (out / 'tex').glob('*.png'):
+        if f.name not in tex:
+            f.unlink(); gone += 1
+    for f in (out / 'mesh').glob('*.json'):
+        if f.name not in mesh:
+            f.unlink(); gone += 1
+    print(f'[fx] pruned {gone} unreferenced file(s)')
 
 
 if __name__ == '__main__':
