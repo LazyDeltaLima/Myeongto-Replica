@@ -13,9 +13,13 @@
 // collisions. Shaders: one uber shader standing in for the Torappu particle shaders (main texture with UV scroll,
 // distortion, dissolve with edge, colour ramp, the material's blend factors).
 //
-// Cost control (DESIGN §17.3 rules): one draw call per particle system (instanced), particle arrays preallocated and
-// reused, a global particle budget per quality ('high' 6000 / 'medium' 2500 / 'low' 0 = the procedural FX only),
-// emission scaled by quality, at most MAX_INSTANCES effects alive (the oldest is ended), textures and meshes shared.
+// Cost control (DESIGN §17.3 rules): one draw call per particle system (instanced, skipped while it has no particle),
+// particle arrays preallocated and reused, no per-frame allocation, curves flattened to typed arrays at load, a
+// system's instance data in one interleaved buffer (one upload, by the used range), trail strips uploaded by the used
+// range, a global particle budget per quality ('high' 6000 / 'medium' 2500 / 'low' 0 = the procedural FX only),
+// emission scaled by quality, at most MAX_INSTANCES effects alive (the oldest is ended; an ended instance reports
+// done), textures and meshes shared. A speed-up must not change the picture: bench/fx/compare.mjs
+// renders every effect with the git version and the working file and compares the pixels.
 //
 //   const lib = new FxLibrary('/assets/local/fx/');  const def = await lib.load('chen3', 'chen3_skill_01_start_01');
 //   const fx = new FxInstance(def, { quality });  scene.add(fx.object);  fx.object.position.set(col, row, 0);
@@ -30,10 +34,11 @@ export const QUALITY = Object.freeze({
 });
 export const MAX_INSTANCES = 24;
 const GRAVITY = new THREE.Vector3(0, 0, 9.81); // Unity battle frame: +z is down (z = −height)
-/** Particle systems alive (registered by their constructor, removed by dispose): the budget is summed from them, so an
- *  instance that is dropped without dispose() can never leave the count stuck. */
+/** Particle systems alive (registered by their constructor, removed by dispose). */
 const systems = new Set();
-const liveParticleCount = () => { let n = 0; for (const s of systems) n += s.n; return n; };
+/** Particles of the registered systems, kept by emit / kill / dispose (summing every system on each emit call was 12% of
+ *  the player's CPU in a crowded scene). */
+let liveParticles = 0;
 
 // ---------------------------------------------------------------- curves
 
@@ -55,18 +60,104 @@ export function evalCurve(keys, t) {
   return (2 * s3 - 3 * s2 + 1) * a[1] + (s3 - 2 * s2 + s) * dt * out + (-2 * s3 + 3 * s2) * b[1] + (s3 - s2) * dt * inn;
 }
 
+// Curves and gradients are flattened into Float64Arrays when an effect is loaded (prepareCurves): the per-particle
+// evaluations read one typed array instead of nested key arrays. The arithmetic and its order are the ones of evalCurve /
+// evalGradient, so the results are the same numbers.
+
+/** Keys [[t, v, in, out]…] → [n, t0, v0, in0, out0, t1, …]; a missing or non-finite tangent becomes NaN (a stepped key). */
+function flatKeys(keys) {
+  const f = new Float64Array(1 + keys.length * 4);
+  f[0] = keys.length;
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i], o = 1 + i * 4;
+    f[o] = k[0]; f[o + 1] = k[1];
+    f[o + 2] = Number.isFinite(k[2]) ? k[2] : NaN; f[o + 3] = Number.isFinite(k[3]) ? k[3] : NaN;
+  }
+  return f;
+}
+
+/** evalCurve over flatKeys data. */
+function evalFlat(f, t) {
+  const n = f[0];
+  if (!n) return 0;
+  if (t <= f[1]) return f[2];
+  const z = 1 + (n - 1) * 4;
+  if (t >= f[z]) return f[z + 1];
+  let i = 1;
+  while (i < n && f[1 + i * 4] < t) i++;
+  const a = 1 + (i - 1) * 4, b = a + 4;
+  const dt = f[b] - f[a];
+  if (dt <= 0) return f[b + 1];
+  const s = (t - f[a]) / dt;
+  const out = f[a + 3], inn = f[b + 2];
+  if (!Number.isFinite(out) || !Number.isFinite(inn)) return f[a + 1]; // stepped key
+  const s2 = s * s, s3 = s2 * s;
+  return (2 * s3 - 3 * s2 + 1) * f[a + 1] + (s3 - 2 * s2 + s) * dt * out + (-2 * s3 + 3 * s2) * f[b + 1] + (s3 - s2) * dt * inn;
+}
+
+/** Gradient keys [[t, …w values]…] → [n, t0, …, t1, …]. */
+function flatGradKeys(keys, w) {
+  const f = new Float64Array(1 + keys.length * w);
+  f[0] = keys.length;
+  for (let i = 0; i < keys.length; i++) for (let k = 0; k < w; k++) f[1 + i * w + k] = keys[i][k];
+  return f;
+}
+
+const isKeyList = (a) => Array.isArray(a) && Array.isArray(a[0]);
+
+/** Attach the flat forms to every MinMaxCurve ({m, s, c?, d?}: cf / df) and Gradient ({c, a, mode}: cf / af) below o. */
+function prepareCurves(o) {
+  if (!o || typeof o !== 'object') return;
+  if (Array.isArray(o)) { for (const x of o) prepareCurves(x); return; }
+  if (typeof o.m === 'number' && 's' in o) {
+    if (Array.isArray(o.c)) o.cf = flatKeys(o.c);
+    if (Array.isArray(o.d)) o.df = flatKeys(o.d);
+  } else if (isKeyList(o.c) && isKeyList(o.a) && 'mode' in o) {
+    o.cf = flatGradKeys(o.c, 4); o.af = flatGradKeys(o.a, 2);
+  }
+  for (const k in o) if (k !== 'cf' && k !== 'df' && k !== 'af') prepareCurves(o[k]);
+}
+
 /** MinMaxCurve {m, s, n?, c?, d?} at normalized time t with the particle's random r. */
 export function evalMM(mm, t, r) {
   if (!mm) return 0;
   switch (mm.m) {
-    case 1: return mm.s * evalCurve(mm.c, t);
-    case 2: { const a = evalCurve(mm.d, t), b = evalCurve(mm.c, t); return mm.s * (a + (b - a) * r); }
+    case 1: return mm.s * (mm.cf ? evalFlat(mm.cf, t) : evalCurve(mm.c, t));
+    case 2: {
+      const a = mm.df ? evalFlat(mm.df, t) : evalCurve(mm.d, t), b = mm.cf ? evalFlat(mm.cf, t) : evalCurve(mm.c, t);
+      return mm.s * (a + (b - a) * r);
+    }
     case 3: return mm.n + (mm.s - mm.n) * r;
     default: return mm.s;
   }
 }
 
+/** evalGradient over the flat colour / alpha keys. */
+function evalGradientFlat(g, t, out) {
+  const c = g.cf, a = g.af, nc = c[0], na = a[0];
+  if (t <= c[1]) { out[0] = c[2]; out[1] = c[3]; out[2] = c[4]; } else {
+    const z = 1 + (nc - 1) * 4;
+    if (t >= c[z]) { out[0] = c[z + 1]; out[1] = c[z + 2]; out[2] = c[z + 3]; } else {
+      let i = 1;
+      while (i < nc && c[1 + i * 4] < t) i++;
+      const p = 1 + (i - 1) * 4, q = p + 4, s = g.mode === 1 ? 1 : (t - c[p]) / Math.max(1e-6, c[q] - c[p]);
+      out[0] = c[p + 1] + (c[q + 1] - c[p + 1]) * s; out[1] = c[p + 2] + (c[q + 2] - c[p + 2]) * s; out[2] = c[p + 3] + (c[q + 3] - c[p + 3]) * s;
+    }
+  }
+  if (t <= a[1]) out[3] = a[2]; else {
+    const z = 1 + (na - 1) * 2;
+    if (t >= a[z]) out[3] = a[z + 1]; else {
+      let i = 1;
+      while (i < na && a[1 + i * 2] < t) i++;
+      const p = 1 + (i - 1) * 2, q = p + 2, s = g.mode === 1 ? 1 : (t - a[p]) / Math.max(1e-6, a[q] - a[p]);
+      out[3] = a[p + 1] + (a[q + 1] - a[p + 1]) * s;
+    }
+  }
+  return out;
+}
+
 function evalGradient(g, t, out) {
+  if (g.cf) return evalGradientFlat(g, t, out);
   const c = g.c, a = g.a;
   let i = 1;
   if (t <= c[0][0]) { out[0] = c[0][1]; out[1] = c[0][2]; out[2] = c[0][3]; } else if (t >= c[c.length - 1][0]) {
@@ -85,6 +176,8 @@ function evalGradient(g, t, out) {
   return out;
 }
 
+const gradA = [0, 0, 0, 0], gradB = [0, 0, 0, 0];   // evalMG mode 3 (random between two gradients)
+
 /** MinMaxGradient at t with random r → out [r, g, b, a]. */
 export function evalMG(mg, t, r, out) {
   if (!mg) { out[0] = out[1] = out[2] = out[3] = 1; return out; }
@@ -92,7 +185,7 @@ export function evalMG(mg, t, r, out) {
     case 1: return evalGradient(mg.g, t, out);
     case 2: for (let k = 0; k < 4; k++) out[k] = mg.b[k] + (mg.a[k] - mg.b[k]) * r; return out;
     case 3: {
-      const a = evalGradient(mg.h, t, [0, 0, 0, 0]), b = evalGradient(mg.g, t, [0, 0, 0, 0]);
+      const a = evalGradient(mg.h, t, gradA), b = evalGradient(mg.g, t, gradB);
       for (let k = 0; k < 4; k++) out[k] = a[k] + (b[k] - a[k]) * r;
       return out;
     }
@@ -254,6 +347,9 @@ function makeMaterial(m, lib) {
 
 // ---------------------------------------------------------------- library (shared textures, meshes, defs)
 
+/** A file name in a URL: names can hold '#' (skin texture names, e.g. `…_sale#10_…`) that would end the path. */
+const seg = (name) => encodeURIComponent(name);
+
 export class FxLibrary {
   constructor(base = '/assets/local/fx/') {
     this.base = base;
@@ -265,7 +361,7 @@ export class FxLibrary {
 
   texture(name) {
     if (!this.textures.has(name)) {
-      const tx = this.loader.load(this.base + 'tex/' + name);
+      const tx = this.loader.load(this.base + 'tex/' + seg(name));
       tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
       tx.colorSpace = THREE.NoColorSpace;
       tx.flipY = true;    // PNGs are top-down; Unity's uv v = 0 is the bottom row
@@ -276,7 +372,7 @@ export class FxLibrary {
 
   async mesh(key) {
     if (!this.meshes.has(key)) {
-      this.meshes.set(key, fetch(this.base + 'mesh/' + key + '.json').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      this.meshes.set(key, fetch(this.base + 'mesh/' + seg(key) + '.json').then((r) => (r.ok ? r.json() : null)).then((d) => {
         if (!d) return null;
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.Float32BufferAttribute(d.pos, 3));
@@ -293,9 +389,13 @@ export class FxLibrary {
     const key = `${bundle}/${prefab}`;
     if (!this.defs.has(key)) {
       this.defs.set(key, (async () => {
-        const r = await fetch(`${this.base}${bundle}/${prefab}.json`);
+        const r = await fetch(`${this.base}${seg(bundle)}/${seg(prefab)}.json`);
         if (!r.ok) return null;
         const def = await r.json();
+        for (const n of def.nodes) {
+          if (n.ps) prepareCurves(n.ps);
+          if (n.trailR) { prepareCurves(n.trailR); if (n.trailR.widthCurve?.length) n.trailR.wf = flatKeys(n.trailR.widthCurve); }
+        }
         def.geoms = {};
         const keys = new Set();
         for (const n of def.nodes) {
@@ -321,14 +421,22 @@ const QUAD = (() => {
 
 // ---------------------------------------------------------------- trails
 
-/** A batch of camera-facing strips drawn with one material in one draw call (rebuilt every frame; small counts). */
+// one strip vertex = 18 floats in one buffer: position 3, uv 2, iColor 4, iSize 3 (x = width), iRot 3 (x = side),
+// iVel 3 (the tangent)
+const SV = 18, SV_UV = 3, SV_COL = 5, SV_SIZE = 9, SV_ROT = 12, SV_TAN = 15;
+const STRIP_ATTRS = [['position', 3, 0], ['uv', 2, SV_UV], ['iColor', 4, SV_COL], ['iSize', 3, SV_SIZE], ['iRot', 3, SV_ROT], ['iVel', 3, SV_TAN]];
+
+/** A batch of camera-facing strips drawn with one material in one draw call (rebuilt every frame; small counts). Only
+ *  what a frame writes goes to the GPU: a ribbon batch holds max + 1 points but draws at most TRAIL_PTS, and the whole
+ *  buffers were sent every frame before (2.8–3.5 MB per frame in a crowded scene). */
 class StripBatch {
   constructor(material, cap = 256) {
     this.cap = cap;
     const g = new THREE.BufferGeometry();
-    const at = (name, n) => { const a = new THREE.BufferAttribute(new Float32Array(cap * 2 * n), n); a.setUsage(THREE.DynamicDrawUsage); g.setAttribute(name, a); return a; };
-    this.p = at('position', 3); this.uv = at('uv', 2); this.col = at('iColor', 4); this.size = at('iSize', 3);
-    this.rot = at('iRot', 3); this.tan = at('iVel', 3);
+    const vb = new THREE.InterleavedBuffer(new Float32Array(cap * 2 * SV), SV);
+    vb.setUsage(THREE.DynamicDrawUsage);
+    for (const [name, size, offset] of STRIP_ATTRS) g.setAttribute(name, new THREE.InterleavedBufferAttribute(vb, size, offset));
+    this.vb = vb;
     for (const [name, n, v] of [['iUV', 4, [0, 0, 1, 1]], ['iC1', 4, [0, 0, 0, 0]], ['iC2', 4, [0, 0, 0, 0]], ['iPos', 3, [0, 0, 0]]]) {
       const arr = new Float32Array(cap * 2 * n);
       for (let i = 0; i < cap * 2; i++) arr.set(v, i * n);
@@ -351,21 +459,21 @@ class StripBatch {
   /** One strip: pts = flat [x, y, z, …], per point width w[], colour c[] (4 each), u[] along the trail. */
   strip(pts, count, w, c, u) {
     if (count < 2 || this.n + count > this.cap) return;
-    const P = this.p.array, UV = this.uv.array, C = this.col.array, S = this.size.array, R = this.rot.array, T = this.tan.array, I = this.index.array;
+    const D = this.vb.array, I = this.index.array;
     for (let k = 0; k < count; k++) {
       const a = Math.max(0, k - 1), b = Math.min(count - 1, k + 1);
       const tx = pts[b * 3] - pts[a * 3], ty = pts[b * 3 + 1] - pts[a * 3 + 1], tz = pts[b * 3 + 2] - pts[a * 3 + 2];
       for (let side = 0; side < 2; side++) {
-        const v = (this.n + k) * 2 + side;
-        P[v * 3] = pts[k * 3]; P[v * 3 + 1] = pts[k * 3 + 1]; P[v * 3 + 2] = pts[k * 3 + 2];
-        T[v * 3] = tx; T[v * 3 + 1] = ty; T[v * 3 + 2] = tz;
-        R[v * 3] = side ? 1 : -1; S[v * 3] = w[k];
-        UV[v * 2] = u[k]; UV[v * 2 + 1] = side;
-        C[v * 4] = c[k * 4]; C[v * 4 + 1] = c[k * 4 + 1]; C[v * 4 + 2] = c[k * 4 + 2]; C[v * 4 + 3] = c[k * 4 + 3];
+        const o = ((this.n + k) * 2 + side) * SV;
+        D[o] = pts[k * 3]; D[o + 1] = pts[k * 3 + 1]; D[o + 2] = pts[k * 3 + 2];
+        D[o + SV_TAN] = tx; D[o + SV_TAN + 1] = ty; D[o + SV_TAN + 2] = tz;
+        D[o + SV_ROT] = side ? 1 : -1; D[o + SV_SIZE] = w[k];
+        D[o + SV_UV] = u[k]; D[o + SV_UV + 1] = side;
+        D[o + SV_COL] = c[k * 4]; D[o + SV_COL + 1] = c[k * 4 + 1]; D[o + SV_COL + 2] = c[k * 4 + 2]; D[o + SV_COL + 3] = c[k * 4 + 3];
       }
       if (k > 0) {
-        const v0 = (this.n + k - 1) * 2, v1 = v0 + 2;
-        I.set([v0, v0 + 1, v1, v0 + 1, v1 + 1, v1], this.ni);
+        const v0 = (this.n + k - 1) * 2, v1 = v0 + 2, j = this.ni;
+        I[j] = v0; I[j + 1] = v0 + 1; I[j + 2] = v1; I[j + 3] = v0 + 1; I[j + 4] = v1 + 1; I[j + 5] = v1;
         this.ni += 6;
       }
     }
@@ -373,7 +481,11 @@ class StripBatch {
   }
 
   end() {
-    for (const a of [this.p, this.uv, this.col, this.size, this.rot, this.tan, this.index]) a.needsUpdate = true;
+    if (this.ni) {   // an empty batch draws nothing and sends nothing
+      this.vb.clearUpdateRanges(); this.vb.addUpdateRange(0, this.n * 2 * SV); this.vb.needsUpdate = true;
+      this.index.clearUpdateRanges(); this.index.addUpdateRange(0, this.ni); this.index.needsUpdate = true;
+    }
+    // stays visible while empty (draw range 0): hiding it changed other draws' pixels in the look check (GL state)
     this.geometry.setDrawRange(0, this.ni);
   }
 
@@ -381,6 +493,7 @@ class StripBatch {
 }
 
 const TRAIL_PTS = 48;
+const TRAIL_KEEP = TRAIL_PTS - 1;   // points a TrailRenderer records (its live head is the last one drawn)
 const trailPts = new Float32Array(TRAIL_PTS * 3), trailW = new Float32Array(TRAIL_PTS), trailC = new Float32Array(TRAIL_PTS * 4), trailU = new Float32Array(TRAIL_PTS);
 
 /** A TrailRenderer: a ribbon behind its node's motion (sampled in the effect root's space). */
@@ -390,33 +503,38 @@ class TrailRenderer {
     this.batch = new StripBatch(makeMaterial(def.materials[tr.mat], def.lib), TRAIL_PTS);
     this.batch.mesh.renderOrder = tr.order || 0;
     root.add(this.batch.mesh);
-    this.pts = [];   // { x, y, z, t }
+    this.ring = new Float64Array(TRAIL_KEEP * 4);   // recorded points x, y, z, t; the oldest at `head`
+    this.head = 0; this.count = 0;
     this.time = 0;
   }
 
   update(dt, sinceStart) {
     this.time += dt;
     this.batch.material.uniforms.uTime.value = sinceStart;
-    const tr = this.tr;
+    const tr = this.tr, R = this.ring;
     this.node.updateWorldMatrix(true, false);
     this.root.updateWorldMatrix(true, false);
     tmpM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
     const p = tmpV.set(0, 0, 0).applyMatrix4(tmpM);
-    const last = this.pts[this.pts.length - 1];
-    if (this.node.visible && (!last || Math.hypot(p.x - last.x, p.y - last.y, p.z - last.z) >= tr.minDist)) {
-      this.pts.push({ x: p.x, y: p.y, z: p.z, t: this.time });
-      if (this.pts.length > TRAIL_PTS - 1) this.pts.shift();
+    const last = ((this.head + this.count - 1) % TRAIL_KEEP) * 4;
+    if (this.node.visible && (!this.count || Math.hypot(p.x - R[last], p.y - R[last + 1], p.z - R[last + 2]) >= tr.minDist)) {
+      if (this.count === TRAIL_KEEP) { this.head = (this.head + 1) % TRAIL_KEEP; this.count--; }
+      const w = ((this.head + this.count) % TRAIL_KEEP) * 4;
+      R[w] = p.x; R[w + 1] = p.y; R[w + 2] = p.z; R[w + 3] = this.time;
+      this.count++;
     }
-    while (this.pts.length && this.time - this.pts[0].t > tr.time) this.pts.shift();
+    while (this.count && this.time - R[this.head * 4 + 3] > tr.time) { this.head = (this.head + 1) % TRAIL_KEEP; this.count--; }
     // newest first: the live head, then the recorded points
-    const list = [{ x: p.x, y: p.y, z: p.z, t: this.time }, ...this.pts.slice().reverse()];
-    const n = Math.min(list.length, TRAIL_PTS);
+    const n = this.count + 1;
     this.batch.begin();
     if (n >= 2) {
       for (let k = 0; k < n; k++) {
         const u = k / (n - 1);
-        trailPts[k * 3] = list[k].x; trailPts[k * 3 + 1] = list[k].y; trailPts[k * 3 + 2] = list[k].z;
-        trailW[k] = tr.width * (tr.widthCurve?.length ? evalCurve(tr.widthCurve, u) : 1);
+        if (k === 0) { trailPts[0] = p.x; trailPts[1] = p.y; trailPts[2] = p.z; } else {
+          const h = ((this.head + this.count - k) % TRAIL_KEEP) * 4;
+          trailPts[k * 3] = R[h]; trailPts[k * 3 + 1] = R[h + 1]; trailPts[k * 3 + 2] = R[h + 2];
+        }
+        trailW[k] = tr.width * (tr.wf ? evalFlat(tr.wf, u) : tr.widthCurve?.length ? evalCurve(tr.widthCurve, u) : 1);
         evalGradient(tr.grad, u, tmpC);
         trailC.set(tmpC, k * 4);
         trailU[k] = tr.texMode === 1 ? k * tr.minDist : u;
@@ -426,7 +544,7 @@ class TrailRenderer {
     this.batch.end();
   }
 
-  get alive() { return this.pts.length > 0; }
+  get alive() { return this.count > 0; }
 
   dispose() { this.batch.dispose(); }
 }
@@ -434,6 +552,12 @@ class TrailRenderer {
 // ---------------------------------------------------------------- particle system
 
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpM = new THREE.Matrix4();
+const emitM = new THREE.Matrix4();   // ParticleSystem.emit: node → root for a world-space system
+// one particle's instance data = 28 floats in one buffer (one upload per system and frame, was eight):
+// iPos 3, iSize 3, iRot 3, iColor 4, iC1 4, iC2 4, iUV 4, iVel 3
+const IV = 28, IV_POS = 0, IV_SIZE = 3, IV_ROT = 6, IV_COL = 9, IV_C1 = 13, IV_C2 = 17, IV_UV = 21, IV_VEL = 25;
+const INSTANCE_ATTRS = [['iPos', 3, IV_POS], ['iSize', 3, IV_SIZE], ['iRot', 3, IV_ROT], ['iColor', 4, IV_COL], ['iC1', 4, IV_C1],
+  ['iC2', 4, IV_C2], ['iUV', 4, IV_UV], ['iVel', 3, IV_VEL]];
 const tmpC = [0, 0, 0, 0], tmpC2 = [0, 0, 0, 0];
 const D2R = Math.PI / 180;
 
@@ -461,9 +585,10 @@ class ParticleSystem {
     g.index = geomSrc.index;
     g.setAttribute('position', geomSrc.getAttribute('position'));
     if (geomSrc.getAttribute('uv')) g.setAttribute('uv', geomSrc.getAttribute('uv'));
-    const ia = (name, n) => { const a = new THREE.InstancedBufferAttribute(new Float32Array(max * n), n); a.setUsage(THREE.DynamicDrawUsage); g.setAttribute(name, a); return a; };
-    this.aPos = ia('iPos', 3); this.aSize = ia('iSize', 3); this.aRot = ia('iRot', 3); this.aColor = ia('iColor', 4);
-    this.aC1 = ia('iC1', 4); this.aC2 = ia('iC2', 4); this.aUV = ia('iUV', 4); this.aVel = ia('iVel', 3);
+    const ib = new THREE.InstancedInterleavedBuffer(new Float32Array(max * IV), IV, 1);
+    ib.setUsage(THREE.DynamicDrawUsage);
+    for (const [name, size, offset] of INSTANCE_ATTRS) g.setAttribute(name, new THREE.InterleavedBufferAttribute(ib, size, offset));
+    this.ib = ib;
     g.instanceCount = 0;
     this.geometry = g;
     // a trail-only system (renderer mode None / no particle material) draws only its trails
@@ -477,7 +602,8 @@ class ParticleSystem {
     this.mesh = new THREE.Mesh(g, mat);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = (ps.render.order || 0) + (mat.userData.order - 3000) / 100;
-    this.mesh.visible = !!drawParticles;
+    this.draws = !!drawParticles;
+    this.mesh.visible = false;   // drawn while it has particles (update)
     (this.world ? root : node).add(this.mesh);
     // particle trails (TrailModule): a short position history per particle (mode 0) or one ribbon through them (mode 1)
     const tm = ps.mods.trail;
@@ -490,7 +616,10 @@ class ParticleSystem {
       this.trailBatch = new StripBatch(makeMaterial(def.materials[ps.render.trailMat], def.lib), cap);
       this.trailBatch.mesh.renderOrder = this.mesh.renderOrder;
       (this.world || tm.world ? root : node).add(this.trailBatch.mesh);
+      this.order = [];                                          // ribbon order, reused
+      this.olderFirst = (x, y) => this.age[y] - this.age[x];
     }
+    this.listed = true;                                         // counted in liveParticles until dispose
     systems.add(this);
   }
 
@@ -498,7 +627,15 @@ class ParticleSystem {
 
   emit(count) {
     const ps = this.ps;
-    const room = Math.min(count, this.max - this.n, this.q.budget - liveParticleCount());
+    const room = Math.min(count, this.max - this.n, this.q.budget - liveParticles);
+    if (room <= 0) return;
+    if (this.listed) liveParticles += room;
+    // world space: the node → root transform, the same for every particle of this call
+    if (this.world) {
+      this.node.updateWorldMatrix(true, false);
+      this.root.updateWorldMatrix(true, false);
+      emitM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
+    }
     for (let k = 0; k < room; k++) {
       const i = this.n++;
       const r = this.rnd;
@@ -520,13 +657,7 @@ class ParticleSystem {
       // position + direction from the shape (local space of the node)
       const p = tmpV.set(0, 0, 0), d = tmpV2.set(0, 0, 1);
       shapeSample(ps.shape, p, d);
-      if (this.world) {
-        this.node.updateWorldMatrix(true, false);
-        this.root.updateWorldMatrix(true, false);
-        tmpM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
-        p.applyMatrix4(tmpM);
-        d.transformDirection(tmpM);
-      }
+      if (this.world) { p.applyMatrix4(emitM); d.transformDirection(emitM); }
       this.pos[i * 3] = p.x; this.pos[i * 3 + 1] = p.y; this.pos[i * 3 + 2] = p.z;
       if (this.histN) this.histN[i] = 0;
       this.vel[i * 3] = d.x * sp; this.vel[i * 3 + 1] = d.y * sp; this.vel[i * 3 + 2] = d.z * sp;
@@ -535,9 +666,11 @@ class ParticleSystem {
 
   kill(i) {
     const last = --this.n;
+    if (this.listed) liveParticles--;
     if (i === last) return;
-    const mv = (arr, w) => { for (let j = 0; j < w; j++) arr[i * w + j] = arr[last * w + j]; };
-    mv(this.pos, 3); mv(this.vel, 3); mv(this.size0, 3); mv(this.rot, 3); mv(this.col0, 4); mv(this.rnd, 4);
+    this.pos.copyWithin(i * 3, last * 3, last * 3 + 3); this.vel.copyWithin(i * 3, last * 3, last * 3 + 3);
+    this.size0.copyWithin(i * 3, last * 3, last * 3 + 3); this.rot.copyWithin(i * 3, last * 3, last * 3 + 3);
+    this.col0.copyWithin(i * 4, last * 4, last * 4 + 4); this.rnd.copyWithin(i * 4, last * 4, last * 4 + 4);
     this.age[i] = this.age[last]; this.life[i] = this.life[last]; this.rotVel[i] = this.rotVel[last];
     if (this.hist) {
       const K = this.histK * 4;
@@ -557,7 +690,7 @@ class ParticleSystem {
       let t = this.time;
       if (ps.loop && ps.dur > 0 && t >= ps.dur) {
         t %= ps.dur;
-        if (t < prev % ps.dur) this.burstDone = this.burstDone.map(() => 0);
+        if (t < prev % ps.dur) this.burstDone.fill(0);
       }
       if (t <= ps.dur || ps.loop) {
         const t01 = ps.dur > 0 ? Math.min(1, t / ps.dur) : 0;
@@ -565,13 +698,16 @@ class ParticleSystem {
         this.emitAcc += rate * dt;
         const whole = Math.floor(this.emitAcc);
         if (whole > 0) { this.emitAcc -= whole; this.emit(whole); }
-        (ps.bursts || []).forEach((b, k) => {
-          const cycles = b.cycles || 1;
-          while (this.burstDone[k] < cycles && t >= b.t + this.burstDone[k] * (b.interval || 0)) {
-            this.burstDone[k]++;
-            if (Math.random() <= (b.p ?? 1)) this.emit(Math.max(0, Math.round(evalMM(b.n, 0, Math.random()) * Math.max(this.q.emission, b.t === 0 ? 1 : 0))));
+        const bursts = ps.bursts;
+        if (bursts) {
+          for (let k = 0; k < bursts.length; k++) {
+            const b = bursts[k], cycles = b.cycles || 1;
+            while (this.burstDone[k] < cycles && t >= b.t + this.burstDone[k] * (b.interval || 0)) {
+              this.burstDone[k]++;
+              if (Math.random() <= (b.p ?? 1)) this.emit(Math.max(0, Math.round(evalMM(b.n, 0, Math.random()) * Math.max(this.q.emission, b.t === 0 ? 1 : 0))));
+            }
           }
-        });
+        }
       }
     }
     // simulate
@@ -599,63 +735,68 @@ class ParticleSystem {
       this.pos[i * 3] += (vx + ox) * dt; this.pos[i * 3 + 1] += (vy + oy) * dt; this.pos[i * 3 + 2] += (vz + oz) * dt;
       if (m.rotOL) this.rot[i * 3 + 2] += evalMM(m.rotOL.z, a, r) * dt;
     }
-    // upload
-    const n = this.n;
-    const P = this.aPos.array, S = this.aSize.array, R = this.aRot.array, C = this.aColor.array, C1 = this.aC1.array, C2 = this.aC2.array,
-      UV = this.aUV.array, V = this.aVel.array;
+    // instance data, uploaded by the used range in one call
+    const n = this.n, D = this.ib.array;
     for (let i = 0; i < n; i++) {
-      const a = this.age[i] / this.life[i], r = this.rnd[i * 4 + 2];
-      P[i * 3] = this.pos[i * 3]; P[i * 3 + 1] = this.pos[i * 3 + 1]; P[i * 3 + 2] = this.pos[i * 3 + 2];
-      V[i * 3] = this.vel[i * 3]; V[i * 3 + 1] = this.vel[i * 3 + 1]; V[i * 3 + 2] = this.vel[i * 3 + 2];
+      const a = this.age[i] / this.life[i], r = this.rnd[i * 4 + 2], o = i * IV;
+      D[o + IV_POS] = this.pos[i * 3]; D[o + IV_POS + 1] = this.pos[i * 3 + 1]; D[o + IV_POS + 2] = this.pos[i * 3 + 2];
+      D[o + IV_VEL] = this.vel[i * 3]; D[o + IV_VEL + 1] = this.vel[i * 3 + 1]; D[o + IV_VEL + 2] = this.vel[i * 3 + 2];
       let sx = 1, sy = 1, sz = 1;
       if (m.sizeOL) { sx = evalMM(m.sizeOL.x, a, r); sy = m.sizeOL.y ? evalMM(m.sizeOL.y, a, r) : sx; sz = m.sizeOL.z ? evalMM(m.sizeOL.z, a, r) : sx; }
-      S[i * 3] = this.size0[i * 3] * sx; S[i * 3 + 1] = this.size0[i * 3 + 1] * sy; S[i * 3 + 2] = this.size0[i * 3 + 2] * sz;
-      R[i * 3] = this.rot[i * 3]; R[i * 3 + 1] = this.rot[i * 3 + 1]; R[i * 3 + 2] = this.rot[i * 3 + 2];
-      for (let k = 0; k < 4; k++) C[i * 4 + k] = this.col0[i * 4 + k];
-      if (m.colorOL) { evalMG(m.colorOL, a, this.rnd[i * 4 + 3], tmpC2); for (let k = 0; k < 4; k++) C[i * 4 + k] *= tmpC2[k]; }
+      D[o + IV_SIZE] = this.size0[i * 3] * sx; D[o + IV_SIZE + 1] = this.size0[i * 3 + 1] * sy; D[o + IV_SIZE + 2] = this.size0[i * 3 + 2] * sz;
+      D[o + IV_ROT] = this.rot[i * 3]; D[o + IV_ROT + 1] = this.rot[i * 3 + 1]; D[o + IV_ROT + 2] = this.rot[i * 3 + 2];
+      for (let k = 0; k < 4; k++) D[o + IV_COL + k] = this.col0[i * 4 + k];
+      if (m.colorOL) { evalMG(m.colorOL, a, this.rnd[i * 4 + 3], tmpC2); for (let k = 0; k < 4; k++) D[o + IV_COL + k] *= tmpC2[k]; }
       const cd = m.custom;
       for (let s2 = 0; s2 < 2; s2++) {
-        const arr = s2 ? C2 : C1, e = cd?.[s2];
-        for (let k = 0; k < 4; k++) arr[i * 4 + k] = e?.v?.[k] ? evalMM(e.v[k], a, r) : 0;
-        if (e?.col) { evalMG(e.col, a, r, tmpC2); for (let k = 0; k < 4; k++) arr[i * 4 + k] = tmpC2[k]; }
+        const c = o + (s2 ? IV_C2 : IV_C1), e = cd?.[s2];
+        for (let k = 0; k < 4; k++) D[c + k] = e?.v?.[k] ? evalMM(e.v[k], a, r) : 0;
+        if (e?.col) { evalMG(e.col, a, r, tmpC2); for (let k = 0; k < 4; k++) D[c + k] = tmpC2[k]; }
       }
       if (m.uv) {
         const tx = m.uv.tx || 1, ty = m.uv.ty || 1, frames = m.uv.anim === 1 ? tx : tx * ty;
         const f = Math.floor((evalMM(m.uv.frame, (a * (m.uv.cycles || 1)) % 1, r) + evalMM(m.uv.start, 0, r) / frames) * frames) % frames;
         const col = f % tx, row = m.uv.anim === 1 ? (m.uv.row || 0) : Math.floor(f / tx);
-        UV[i * 4] = col / tx; UV[i * 4 + 1] = 1 - (row + 1) / ty; UV[i * 4 + 2] = 1 / tx; UV[i * 4 + 3] = 1 / ty;
-      } else { UV[i * 4] = 0; UV[i * 4 + 1] = 0; UV[i * 4 + 2] = 1; UV[i * 4 + 3] = 1; }
+        D[o + IV_UV] = col / tx; D[o + IV_UV + 1] = 1 - (row + 1) / ty; D[o + IV_UV + 2] = 1 / tx; D[o + IV_UV + 3] = 1 / ty;
+      } else { D[o + IV_UV] = 0; D[o + IV_UV + 1] = 0; D[o + IV_UV + 2] = 1; D[o + IV_UV + 3] = 1; }
     }
-    for (const at of [this.aPos, this.aSize, this.aRot, this.aColor, this.aC1, this.aC2, this.aUV, this.aVel]) {
-      at.needsUpdate = true;
-      at.clearUpdateRanges?.();
-      at.addUpdateRange?.(0, n * at.itemSize);
-    }
+    if (n) { this.ib.clearUpdateRanges(); this.ib.addUpdateRange(0, n * IV); this.ib.needsUpdate = true; }
     this.geometry.instanceCount = n;
+    this.mesh.visible = this.draws && n > 0;
     if (this.trailBatch) this.updateTrails(sinceStart);
+  }
+
+  /** Trail width at u (0 = the particle, 1 = the tail) for particle i. */
+  trailWidth(i, u) {
+    const tm = this.tm;
+    return (tm.width ? evalMM(tm.width, u, this.rnd[i * 4]) : 1) * (tm.sizeWidth ? this.ib.array[i * IV + IV_SIZE] : 1);
+  }
+
+  /** Trail colour at u for particle i → out. */
+  trailColour(i, u, out) {
+    const tm = this.tm;
+    evalMG(tm.colorOT, u, this.rnd[i * 4 + 1], out);
+    if (tm.colorOL) { evalMG(tm.colorOL, this.age[i] / this.life[i], this.rnd[i * 4 + 2], tmpC2); for (let k = 0; k < 4; k++) out[k] *= tmpC2[k]; }
+    if (tm.inherit) { const D = this.ib.array, o = i * IV + IV_COL; for (let k = 0; k < 4; k++) out[k] *= D[o + k]; }
+    return out;
   }
 
   updateTrails(sinceStart) {
     const tm = this.tm, K = this.histK, H = this.hist, n = this.n, b = this.trailBatch;
     b.material.uniforms.uTime.value = sinceStart;
-    const C = this.aColor.array, S = this.aSize.array;
-    const width = (i, u) => (tm.width ? evalMM(tm.width, u, this.rnd[i * 4]) : 1) * (tm.sizeWidth ? S[i * 3] : 1);
-    const colour = (i, u, out) => {
-      evalMG(tm.colorOT, u, this.rnd[i * 4 + 1], out);
-      if (tm.colorOL) { evalMG(tm.colorOL, this.age[i] / this.life[i], this.rnd[i * 4 + 2], tmpC2); for (let k = 0; k < 4; k++) out[k] *= tmpC2[k]; }
-      if (tm.inherit) for (let k = 0; k < 4; k++) out[k] *= C[i * 4 + k];
-      return out;
-    };
     b.begin();
     if (tm.mode === 1) {
-      // ribbon: the particles from the oldest to the newest
-      const order = Array.from({ length: n }, (_, i) => i).sort((x, y) => this.age[y] - this.age[x]);
-      const m = Math.min(order.length, TRAIL_PTS);
+      // ribbon: the particles from the oldest to the newest (a stable sort, ties keep their index order)
+      const order = this.order;
+      order.length = n;
+      for (let i = 0; i < n; i++) order[i] = i;
+      order.sort(this.olderFirst);
+      const m = Math.min(n, TRAIL_PTS);
       for (let k = 0; k < m; k++) {
         const i = order[k], u = m > 1 ? k / (m - 1) : 0;
         trailPts[k * 3] = this.pos[i * 3]; trailPts[k * 3 + 1] = this.pos[i * 3 + 1]; trailPts[k * 3 + 2] = this.pos[i * 3 + 2];
-        trailW[k] = width(i, u);
-        trailC.set(colour(i, u, tmpC), k * 4);
+        trailW[k] = this.trailWidth(i, u);
+        trailC.set(this.trailColour(i, u, tmpC), k * 4);
         trailU[k] = u;
       }
       b.strip(trailPts, m, trailW, trailC, trailU);
@@ -686,8 +827,8 @@ class ParticleSystem {
         }
         for (let k = 0; k < m; k++) {
           const u = m > 1 ? k / (m - 1) : 0;
-          trailW[k] = width(i, u);
-          trailC.set(colour(i, u, tmpC), k * 4);
+          trailW[k] = this.trailWidth(i, u);
+          trailC.set(this.trailColour(i, u, tmpC), k * 4);
           trailU[k] = u;
         }
         b.strip(trailPts, m, trailW, trailC, trailU);
@@ -699,6 +840,7 @@ class ParticleSystem {
   stop() { this.stopped = true; }
 
   dispose() {
+    if (this.listed) { liveParticles -= this.n; this.listed = false; }
     systems.delete(this);
     this.n = 0;
     this.mesh.removeFromParent();
@@ -708,7 +850,7 @@ class ParticleSystem {
   }
 }
 
-const SCALE = new THREE.Vector3();
+const SCALE = new THREE.Vector3(), shapeE = new THREE.Euler(), shapeV = new THREE.Vector3();
 function shapeSample(sh, p, d) {
   if (!sh) return;
   const rand = Math.random;
@@ -756,16 +898,20 @@ function shapeSample(sh, p, d) {
   }
   if (sh.type !== 5 && sh.type !== 18 && sh.scale) p.multiply(SCALE.set(sh.scale[0], sh.scale[1], sh.scale[2]));
   if (sh.rotE && (sh.rotE[0] || sh.rotE[1] || sh.rotE[2])) {
-    tmpQ.setFromEuler(new THREE.Euler(sh.rotE[0] * D2R, sh.rotE[1] * D2R, sh.rotE[2] * D2R, 'YXZ'));
+    tmpQ.setFromEuler(shapeE.set(sh.rotE[0] * D2R, sh.rotE[1] * D2R, sh.rotE[2] * D2R, 'YXZ'));
     p.applyQuaternion(tmpQ); d.applyQuaternion(tmpQ);
   }
-  if (sh.pos) p.add(new THREE.Vector3(...sh.pos));
-  if (sh.randDir) d.lerp(new THREE.Vector3(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize(), sh.randDir).normalize();
+  if (sh.pos) { p.x += sh.pos[0] ?? 0; p.y += sh.pos[1] ?? 0; p.z += sh.pos[2] ?? 0; }
+  if (sh.randDir) d.lerp(shapeV.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize(), sh.randDir).normalize();
 }
 
 // ---------------------------------------------------------------- effect instance
 
 const live = [];
+/** Clip tracks on material properties: the uniform each drives, and a colour component → vector axis. */
+const CLIP_UNIFORM = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: 'uBorder', _TintColor: 'uTint', _MainColor: 'uTint', _Color: 'uTint' };
+const CLIP_AXIS = { r: 'x', g: 'y', b: 'z', a: 'w', x: 'x', y: 'y', z: 'z', w: 'w' };
+const clipE = new THREE.Euler();
 
 export class FxInstance {
   /**
@@ -822,8 +968,28 @@ export class FxInstance {
       }
     });
     this.clip = def.clips?.[0] || null;
+    this.meshMatList = this.meshMats.filter(Boolean);
+    this.clipTracks = this.clip ? this.clip.tracks.map((tr) => this.bindTrack(tr)).filter(Boolean) : [];
+    this.clipV = [];
     live.push(this);
     while (live.length > MAX_INSTANCES) live[0].dispose(); // the oldest goes (dispose removes it from `live`)
+  }
+
+  /** What a clip track drives, resolved once (applyClip runs every frame). */
+  bindTrack(tr) {
+    const o = this.nodes[tr.node];
+    if (!o) return null;
+    if (tr.prop === 'pos' || tr.prop === 'scale' || tr.prop === 'quat' || tr.prop === 'euler') return { tr, o, kind: tr.prop };
+    if (!tr.prop.startsWith('mat:')) return null;
+    const mat = this.meshMats[tr.node] || this.systems.find((s) => s.node === o)?.material
+      || this.trails.find((t) => t.node === o)?.batch.material;
+    if (!mat) return null;
+    const [name, comp] = tr.prop.slice(4).split('.');
+    const uname = CLIP_UNIFORM[name];
+    const u = mat.uniforms[uname];
+    if (!u) return null;
+    const k = uname === 'uTint' ? 2 : 1;   // the material tint carries the shaders' ×2 (makeMaterial)
+    return comp ? { tr, o, kind: 'matComp', u, axis: CLIP_AXIS[comp], k } : { tr, o, kind: 'mat', u };
   }
 
   /** End emission (looping buffs); `now` also removes the live particles. */
@@ -834,45 +1000,42 @@ export class FxInstance {
   }
 
   get done() {
-    if (this.empty) return true;
+    if (this.empty || this.disposed) return true;
     const clipDone = !this.clip || this.time >= this.clip.len || this.stopping;
     return clipDone && this.systems.every((s) => !s.alive) && this.trails.every((t) => !t.alive || this.time > (this.clip?.len || 0) + t.tr.time);
   }
 
   update(dt) {
-    if (this.empty) return;
+    // disposed: ended here (MAX_INSTANCES) while its owner still holds it — it must not keep simulating unseen
+    if (this.empty || this.disposed) return;
     this.time += dt;
     if (this.clip) this.applyClip(Math.min(this.time, this.clip.len));
     for (const s of this.systems) s.update(dt, this.time);
     for (const t of this.trails) t.update(dt, this.time);
-    for (const m of this.meshMats) if (m) m.uniforms.uTime.value = this.time;
+    for (const m of this.meshMatList) m.uniforms.uTime.value = this.time;
   }
 
   applyClip(t) {
-    for (const tr of this.clip.tracks) {
-      const o = this.nodes[tr.node];
-      if (!o) continue;
-      const v = tr.curves.map((k) => evalClipCurve(k, t));
-      if (tr.prop === 'pos') o.position.set(v[0], v[1], v[2]);
-      else if (tr.prop === 'scale') o.scale.set(v[0], v[1], v[2]);
-      else if (tr.prop === 'quat') o.quaternion.set(v[0], v[1], v[2], v[3]).normalize();
-      else if (tr.prop === 'euler') o.quaternion.setFromEuler(new THREE.Euler(v[0] * D2R, v[1] * D2R, v[2] * D2R, 'YXZ'));
-      else if (tr.prop.startsWith('mat:')) {
-        const mat = this.meshMats[tr.node] || this.systems.find((s) => s.node === o)?.material
-          || this.trails.find((t) => t.node === o)?.batch.material;
-        if (!mat) continue;
-        const [name, comp] = tr.prop.slice(4).split('.');
-        const map = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: 'uBorder', _TintColor: 'uTint', _MainColor: 'uTint', _Color: 'uTint' };
-        const u = mat.uniforms[map[name]];
-        if (!u) continue;
-        const k = map[name] === 'uTint' ? 2 : 1;   // the material tint carries the shaders' ×2 (makeMaterial)
-        if (comp && u.value?.isVector4) u.value[{ r: 'x', g: 'y', b: 'z', a: 'w', x: 'x', y: 'y', z: 'z', w: 'w' }[comp]] = v[0] * k;
-        else if (!comp) u.value = v[0];
+    const v = this.clipV;
+    for (const b of this.clipTracks) {
+      const curves = b.tr.curves;
+      v.length = curves.length;
+      for (let i = 0; i < curves.length; i++) v[i] = evalClipCurve(curves[i], t);
+      const o = b.o;
+      switch (b.kind) {
+        case 'pos': o.position.set(v[0], v[1], v[2]); break;
+        case 'scale': o.scale.set(v[0], v[1], v[2]); break;
+        case 'quat': o.quaternion.set(v[0], v[1], v[2], v[3]).normalize(); break;
+        case 'euler': o.quaternion.setFromEuler(clipE.set(v[0] * D2R, v[1] * D2R, v[2] * D2R, 'YXZ')); break;
+        case 'matComp': if (b.u.value?.isVector4) b.u.value[b.axis] = v[0] * b.k; break;
+        default: b.u.value = v[0];
       }
     }
   }
 
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
     for (const s of this.systems) s.dispose();
     for (const t of this.trails) t.dispose();
     for (const m of this.meshMats) m?.dispose();
@@ -883,4 +1046,4 @@ export class FxInstance {
 }
 
 /** Live particle count (diagnostics / tests). */
-export const fxStats = () => ({ particles: liveParticleCount(), instances: live.length });
+export const fxStats = () => ({ particles: liveParticles, instances: live.length });

@@ -13,7 +13,10 @@
 //
 // Cost: nothing is loaded (three.js, the player, the files) until an operator with an extracted bundle acts; the layer
 // is its own transparent canvas above the units (pointer-events none), drawn only while an effect is alive, at most
-// at device pixel ratio 1.5 (1 at 'medium'); quality 'low' turns the layer off. render/fxplayer.js caps particles.
+// at device pixel ratio 1.5 (1 at 'medium'); quality 'low' turns the layer off. render/fxplayer.js caps particles and
+// effects (MAX_INSTANCES, the oldest ends). The view's adaptive load level (render/app.js adaptLoad, as render/fx.js
+// drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
+// stats() → { live, loaded, updateMs, renderMs, calls, particles } (view.stats().fxGame).
 
 import { syncThreeCamera } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
@@ -21,7 +24,6 @@ import { fxBundleOf, effectsFor } from './fxmap.js';
 const INDEX_URL = '/assets/local/fx/index.json';
 const HIT_GAP_S = 0.12;        // one hit effect per attacker → target pair within this time (multi-hit skills)
 const ATTACK_GAP_S = 0.2;
-const MAX_LIVE = 32;
 let webpPromise = null;
 /** Whether the browser decodes (lossy + alpha) WebP — a 1×1 probe image. */
 const webpOk = () => (webpPromise ||= new Promise((resolve) => {
@@ -35,21 +37,28 @@ let indexPromise = null;
 const loadIndex = () => (indexPromise ||= fetch(INDEX_URL).then((r) => (r.ok ? r.json() : null)).catch(() => null));
 
 /**
- * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: () => string }} o
+ * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: () => string, load?: () => number }} o
+ *   load: the view's adaptive load level 0–3 (render/app.js)
  */
-export function createFxLayer({ host, above, quality }) {
+export function createFxLayer({ host, above, quality, load = () => 0 }) {
   let index = null;
   if (typeof fetch === 'function') loadIndex().then((i) => { index = i; });
   let mod = null, loading = null, failed = false;
-  let renderer = null, scene = null, camera = null, canvas = null, lib = null;
+  let renderer = null, scene = null, camera = null, canvas = null, lib = null, size = null;
   const live = [];                   // { inst, view: followed view | null, owner: unit id, buff: boolean }
   const lastAtk = new Map();         // target id → { src view, t }
   const lastHit = new Map();         // `${src}:${tgt}` → t
   const lastAttackFx = new Map();    // src id → t
   const movers = new Map();          // caster id → { inst, at, t } — effects carried along a kit's moving fx
   let clockS = 0;
+  const perf = { updateMs: 0, renderMs: 0, calls: 0 };
 
-  const q = () => { const v = quality(); return v === 'low' ? 'low' : v === 'medium' ? 'medium' : 'high'; };
+  const level = () => { try { return load() || 0; } catch { return 0; } };
+  const q = () => {
+    const v = quality();
+    if (v === 'low') return 'low';
+    return v === 'medium' || level() >= 2 ? 'medium' : 'high';
+  };
   const bundleOf = (v) => {
     const id = v && v.info && (v.info.spine || v.info.defId);
     const b = id ? fxBundleOf(id) : null;
@@ -71,6 +80,7 @@ export function createFxLayer({ host, above, quality }) {
       renderer.setClearColor(0x000000, 0);
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera();
+      size = new THREE.Vector2();
       lib = new fxp.FxLibrary('/assets/local/fx/');
       mod = { THREE, fxp };
     }).catch((err) => { failed = true; console.warn('[fx] official effects unavailable', err); });
@@ -91,7 +101,8 @@ export function createFxLayer({ host, above, quality }) {
       inst.object.position.set(anchor.x, anchor.y, anchor.z || 0);
       scene.add(inst.object);
       live.push({ inst, view: anchor, owner: view.id ?? view.info?.id, buff });
-      while (live.length > MAX_LIVE) { const old = live.shift(); old.inst.dispose(); }
+      // the player's own cap: it has already ended the oldest (done, dispose is a no-op) — the same one here
+      while (live.length > mod.fxp.MAX_INSTANCES) { const old = live.shift(); old.inst.dispose(); }
     }
   }
 
@@ -120,6 +131,7 @@ export function createFxLayer({ host, above, quality }) {
           const tgt = views.get(e[2]);
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS });
           const sid = src.id ?? src.info.id;
+          if (level() >= 3) return;   // the busiest effects go first under load
           if (!src._fxSkillOn && clockS - (lastAttackFx.get(sid) ?? -9) >= ATTACK_GAP_S) { lastAttackFx.set(sid, clockS); play(src, 'attackStart'); }
           return;
         }
@@ -129,6 +141,7 @@ export function createFxLayer({ host, above, quality }) {
           if (!a || clockS - a.t > 2.5) return;
           const tgt = views.get(tid);
           if (!tgt) return;
+          if (!a.src._fxSkillOn && level() >= 3) return;
           const key = `${a.src.id ?? a.src.info?.id}:${tid}`;
           if (clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return;
           lastHit.set(key, clockS);
@@ -171,12 +184,14 @@ export function createFxLayer({ host, above, quality }) {
       const w = Math.max(1, vp.width | 0), h = Math.max(1, vp.height | 0);
       const pr = Math.min(globalThis.devicePixelRatio || 1, q() === 'medium' ? 1 : 1.5);
       if (renderer.getPixelRatio() !== pr) renderer.setPixelRatio(pr);
-      const s = renderer.getSize(new mod.THREE.Vector2());
+      const s = renderer.getSize(size);
       if (s.x !== w || s.y !== h) renderer.setSize(w, h, false);
       syncThreeCamera(cam, camera, w, h, { near: Math.max(0.3, cam.dist * 0.08), far: cam.dist + 70 });
+      const t0 = performance.now();
       for (const [id, m] of movers) {
         if (!m.inst) continue;
-        if (clockS - m.t > 0.4) { m.inst.stop(); movers.delete(id); } else if (m.inst.time > 1.5) m.inst.time = 0.4; // keep the trail running
+        // a mover the player ended (its cap) is replaced by the next 'fx' event instead of holding the slot 0.4 s
+        if (m.inst.done || clockS - m.t > 0.4) { m.inst.stop(); movers.delete(id); } else if (m.inst.time > 1.5) m.inst.time = 0.4; // keep the trail running
       }
       for (let i = live.length - 1; i >= 0; i--) {
         const l = live[i];
@@ -184,7 +199,11 @@ export function createFxLayer({ host, above, quality }) {
         l.inst.update(dt);
         if (l.inst.done) { l.inst.dispose(); live.splice(i, 1); }
       }
+      const t1 = performance.now();
       renderer.render(scene, camera);
+      perf.updateMs = perf.updateMs * 0.9 + (t1 - t0) * 0.1;
+      perf.renderMs = perf.renderMs * 0.9 + (performance.now() - t1) * 0.1;
+      perf.calls = renderer.info.render.calls;
     },
 
     clear() {
@@ -201,6 +220,12 @@ export function createFxLayer({ host, above, quality }) {
       mod = null;
     },
 
-    stats() { return { live: live.length, loaded: !!mod }; },
+    /** Per-frame averages (update = the players, render = the layer's draw), the last frame's draw calls, live particles. */
+    stats() {
+      return {
+        live: live.length, loaded: !!mod, updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
+        calls: perf.calls, particles: mod ? mod.fxp.fxStats().particles : 0,
+      };
+    },
   };
 }

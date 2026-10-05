@@ -24,7 +24,7 @@
 | 리소스 미리 받기 | `public/js/resources.js`, `public/resource-worker.js`, `tools/build-browser-resources.mjs`, `public/css/resources.css` | `main.js`, `settings.js`, `index.html` |
 | 오퍼레이터 음성 (작전 개시·선택·배치·스킬 대사 9종, 한국어/일본어/끄기) | `tools/assets/voice.mjs`, `public/js/voice.js` | `tools/assets/plan.mjs` 2줄, `tools/fetch-assets.mjs` 3줄, `audio.js` 1줄(`onUnitSkill`), `settings.js` 2줄, `screens/game.js`(import, 선택 2줄, `buy` 감싸기, 전투 시작 1줄), `resources.js`(언어 필터), `public/i18n/ko/ui.json` |
 | 선발 오퍼레이터 (甄选 칸: 왕·첸 더 던스트릭·위셔델·사키코·아스카론) | `tools/build-diy.mjs` → `data/diy.json`, `shared/diy.js`, `public/js/ui/diySlots.js`, `public/css/diy.css`, `tools/assets/diy.mjs` | `tools/build-data.mjs`(스크립트 가드 + export), `server/data.js`·`public/js/data.js`·`public/js/battle/runner.js`(diy.json 병합 각 1줄), `shared/protocol.js`(loadout `diy` 키·검사), `server/match/PlayerState.js` 2줄(`diy` 유지), `server/local-patch.js`(전용 풀), `public/js/ui/loadoutModel.js`(`diy` 유지), `screens/loadout.js` 3줄, `index.html` 1줄, `tools/fetch-assets.mjs` 2줄 |
-| 공식 전투 이펙트 (로컬 클라이언트 추출) | `tools/local-extract/fx_extract.py` → `public/assets/local/fx/**`, `public/js/render/fxplayer.js`·`fxgame.js`·`fxmap.js` | `render/app.js` 5줄(이벤트·프레임·정리 훅) |
+| 공식 전투 이펙트 (로컬 클라이언트 추출) | `tools/local-extract/fx_extract.py` → `public/assets/local/fx/**`, `public/js/render/fxplayer.js`·`fxgame.js`·`fxmap.js` | `render/app.js` 6줄(이벤트·프레임·정리 훅, 부하 단계 전달, `stats()`의 `fxGame`) |
 | 이펙트·사운드 디버그 페이지 | `public/debug.html`, `public/js/debug.js` (`/fxlab.html`은 이리로 넘김) | — |
 | iframe 차단 헤더 | — | `server/index.js` 3줄 |
 | 나가기 창에서 「暂离（AI 托管）」 숨김 | — | `ui/matchChrome.js` (`AWAY_OPTION = false`) — 나가면 자리를 포기한다 |
@@ -108,12 +108,20 @@
   일반 공격 이펙트: 위 20명(프라마닉스 더 프레리타는 공격 이펙트가 번들에 없음) + 선발 5명. 합계 361개, 약 19MB.
   공격 이름 규칙: `_attack_start_01` / `_attack_01_start` / `yu_attack_01`(시작), `_attack_hit_01` / `_attack_01_hit` / `yu_hit_01`(타격);
   대체 버전(`_a/_b/_c`, `_A/_B`)은 첫 번째만, 모드 변형(`_combat_`)은 기본 공격이 없을 때만, 오퍼레이터 키 안의 글자는 판정에서 뺀다.
-  텍스처 29개는 이름에 `#`가 있어 URL 인코딩이 필요(`FxLibrary`).
+  텍스처 29개는 이름에 `#`가 있어 `FxLibrary`가 URL 조각을 `encodeURIComponent`로 인코딩한다(서버 `serveStatic`이 되돌린다).
   클라이언트에만 있는 파일이라 공개 미러가 없다 → NAS/OCI `assets/local/fx`로 복사해 서버가 직접 보낸다.
 - `render/fxplayer.js`: Unity 파티클 부분집합 + TrailRenderer/파티클 트레일 + 클립(위치·회전·재질 값) 재생, Torappu 셰이더를 흉내 낸 셰이더 1개.
   셰이더 속성·블렌드는 클라이언트 선언에서 확인, custom data·램프·디졸브 해석은 [추정](화면 보고 맞춤).
+  성능(2026-10-05, `STRONGHOLD.md` 10장 "WebAssembly 포팅 검토"): 입자 수는 카운터로, 프레임마다 만들던 배열·객체
+  제거, 곡선·그라디언트는 로드할 때 Float64Array로 평탄화(계산식과 순서는 그대로), 인스턴스 속성 8개는 interleaved 버퍼 하나(시스템당
+  업로드 1번), 꼬리 버퍼는 쓴 구간만 업로드, MAX_INSTANCES로 끝난 인스턴스는 `done`. 렌더 결과는 바꾸지 않는다:
+  `bench/fx/compare.mjs`(git 판과 픽셀 비교, 361개 × 4프레임 동일). 빈 꼬리 메시를 숨기면 다른 그리기의 픽셀이 조금
+  달라져(GL 상태) 숨기지 않는다.
 - `render/fxgame.js`: 전투 화면 위 투명 캔버스. 스킬 시작/유지(buff)/스킬 중 타격, 일반 공격 시작/타격을 프리팹 이름으로 매핑
   (`fxmap.js`, [추정]). 해당 오퍼레이터가 행동하기 전에는 아무것도 받지 않는다. 품질 '낮음'이면 끈다.
+  화면의 부하 단계(`app.js adaptLoad`)가 2 이상이면 '높음'을 '중간'으로, 3이면 일반 공격 이펙트를 생략한다(원본 `fx.js`가 2 이상에서
+  장식을 끄는 것과 같은 규칙). 동시 인스턴스 상한은 `fxplayer.js MAX_INSTANCES`(24). `view.stats().fxGame` = 살아 있는 수, update·render ms,
+  드로우콜, 입자 수.
 - 디버그: `/debug.html` — 오퍼레이터별 이펙트(대상 위치 포함)·효과음·음성, 스킬 버튼(이펙트+소리+대사 동시).
 
 ## 원본이 고치면 뺄 것

@@ -430,7 +430,7 @@ export async function createFieldView(host, options = {}) {
     resolution: dpr(), autoDensity: true, powerPreference: 'high-performance',
   });
   const canvas = app.view;
-  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality }); // local NAS patch
+  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel }); // local NAS patch
   canvas.style.display = 'block';
   canvas.style.width = '100%';
   canvas.style.height = '100%';
@@ -1996,6 +1996,7 @@ export async function createFieldView(host, options = {}) {
         pen: penViews.size, prepField: prepXf.kind === 'bossPrep' ? prepXf.side : null, lod: loadLevel, culled: culledCount,
         ...fx.counts, spine: assets.spine?.stats ? assets.spine.stats() : null, renderT: interp.renderT, rate: interp.rate,
         buffered: interp.size, camera: cam.params(),
+        fxGame: fxGame.stats(), // local NAS patch
       };
     },
     get mode() { return mode; },
