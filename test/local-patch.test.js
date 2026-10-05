@@ -402,6 +402,12 @@ describe('선발 오퍼레이터 — 甄选 picks (shared/diy.js, server/local-p
     assert.deepEqual(effectsFor(list, 'skillStart', 0), ['chen3_skill_01_start_01', 'chen3_skill_01_start_02']);
     assert.deepEqual(effectsFor(list, 'skillBuff', 1), ['chen3_skill_02_buff_01']);
     assert.deepEqual(effectsFor(list, 'attackHit'), ['chen3_attack_hit_01']);
+    // attack names vary: _attack_01_start / _hit, yu_attack_01 + yu_hit_01, alternatives _a/_b/_c, a key holding "hit"
+    assert.deepEqual(effectsFor(['wang_attack_01_start', 'wang_attack_01_hit', 'wang_attack_01_trail'], 'attackStart'), ['wang_attack_01_start']);
+    assert.deepEqual(effectsFor(['yu_attack_01', 'yu_hit_01', 'yu_skill3_hit_01'], 'attackHit'), ['yu_hit_01']);
+    assert.deepEqual(effectsFor(['wisdel_attack_a_start', 'wisdel_attack_b_start', 'wisdel_attack_down_a_start'], 'attackStart'), ['wisdel_attack_a_start']);
+    assert.deepEqual(effectsFor(['whitw2_attack_01_start', 'whitw2_hit_01'], 'attackStart'), ['whitw2_attack_01_start']);
+    assert.deepEqual(effectsFor(['qiubai_attack_combat_A_start_01', 'qiubai_attack_start_01'], 'attackStart'), ['qiubai_attack_start_01']);
   });
 });
 

@@ -16,6 +16,13 @@ export const isVariant = (name) => /#\d+|_sale|_iteration|_avemujica|_cn_topolec
  * Prefabs of a bundle grouped by use: attack, skill1..3, birth, other (variants dropped).
  * @param {string[]} prefabs
  */
+/** The name after the operator key (whitw2_… : the key itself must not match "hit"). */
+const tail = (p) => p.slice(p.indexOf('_'));
+/** A mode variant (_combat_: 仇白's other attack) only when the plain attack effect is missing. */
+const plainFirst = (list) => { const plain = list.filter((p) => !/_combat_/i.test(p)); return plain.length ? plain : list; };
+/** A second / third alternative version of an attack effect (_b, _c, _B; the first one is kept). */
+const ALT_RE = /_[bcBC](_|$)/;
+
 /** A copy of an effect for an up / down / left / back facing (the remake draws units facing left or right). */
 export const isDirectional = (name) => /_(up|down|left|back)(_|$)/i.test(name);
 
@@ -25,7 +32,7 @@ export function effectGroups(prefabs) {
     if (isVariant(p) || isDirectional(p)) continue;
     const m = /_skill_?0?(\d)/i.exec(p); // _skill_03_ / _skill_3_ (angel2) / skill3_ (yu)
     if (m && g[`skill${m[1]}`]) g[`skill${m[1]}`].push(p);
-    else if (/_attack/i.test(p)) g.attack.push(p);
+    else if (/_attack/i.test(p) || /^[a-z0-9]+_hit_\d/i.test(p)) g.attack.push(p); // yu_hit_01 / whitw2_hit_01: the attack's hit
     else if (/_birth|_born/i.test(p)) g.birth.push(p);
     else g.other.push(p);
   }
@@ -43,8 +50,11 @@ export function effectsFor(prefabs, kind, skillIndex = 0) {
   const g = effectGroups(prefabs);
   const s = g[`skill${skillIndex + 1}`] || [];
   switch (kind) {
-    case 'attackStart': return g.attack.filter((p) => /attack_start/i.test(p));
-    case 'attackHit': return g.attack.filter((p) => /attack_hit/i.test(p)).slice(0, 1);
+    // normal attacks: _attack_start_01, _attack_01_start, _attack_a_start, yu_attack_01 … (hits: _attack_hit_01,
+    // _attack_01_hit, yu_hit_01); an operator with alternative versions (_a/_b/_c, _A/_B: one per attack or per mode)
+    // keeps the first one; trails / ranges / lines are a projectile's or a mode's, not the attack's
+    case 'attackStart': return plainFirst(g.attack.filter((p) => !/hit|trail|range|line/i.test(tail(p)) && !ALT_RE.test(p)));
+    case 'attackHit': return plainFirst(g.attack.filter((p) => /hit/i.test(tail(p)) && !ALT_RE.test(p))).slice(0, 1);
     case 'skillStart': return s.filter((p) => /_start/i.test(p));
     case 'skillBuff': return s.filter((p) => /_buff/i.test(p) && !/_[BF]_/.test(p)).slice(0, 2);
     case 'skillHit': return s.filter((p) => /_hit/i.test(p)).slice(0, 1);
