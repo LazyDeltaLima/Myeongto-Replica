@@ -1,7 +1,7 @@
 # nas-local 로컬 패치 목록
 
 `nas-local` 브랜치가 원본(`upstream` = sganggs/Stronghold-Protocol)과 다른 부분을 모두 정리한 문서다. 이 파일은 로컬에서만 만든 파일이라
-원본을 병합해도 충돌하지 않는다. 패치를 넣거나 뺄 때 같이 고친다. 운영 절차는 `~/stronghold/STRONGHOLD.md`에 있다.
+원본을 병합해도 충돌하지 않는다. 패치를 넣거나 뺄 때 같이 고친다. 운영 절차는 `STRONGHOLD.md`에 있다.
 
 최종 갱신: 2026-10-05 (커밋 `d85f961` 기준)
 
