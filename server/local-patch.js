@@ -32,7 +32,8 @@ import { sendSession } from './net.js';
 import { GameData } from './match/gamedata.js';
 import { SharedPool } from './match/pool.js';
 import { PlayerState } from './match/PlayerState.js';
-import { diyPicks } from '../shared/diy.js';
+import { Match } from './match/Match.js';
+import { diyPicks, diyEquipRefused } from '../shared/diy.js';
 
 const OK = Object.freeze({ ok: true });
 
@@ -154,6 +155,24 @@ export function onMatchEnd(lobby, room) {
 
 // ---- 선발 오퍼레이터 (甄选 / DIY picks) ----------------------------------------------------------------------
 
+/** Whether a pick's bonds are all off this match (Match.disabledBonds + staticInactiveBonds, the pool's ban rule). */
+export function diyBanned(m, id) {
+  const off = new Set([...(m.disabledBonds || []), ...(m.staticInactiveBonds || [])]);
+  const bonds = m.gd.chess(id)?.bonds;
+  return Array.isArray(bonds) && bonds.length > 0 && bonds.every((b) => off.has(b));
+}
+
+// 信标 (eff_acarm109 / eff_acgarm109) "无法装备给自编干员" — official KR: 선발 오퍼레이터는 장착 불가. Upstream never had 甄选 picks,
+// so its equip never checked it: a pick carrying a beacon was destroyed and sent to a teammate (shared/diy.js diyEquipRefused).
+const upstreamEquip = PlayerState.prototype.equip;
+PlayerState.prototype.equip = function equip(itemUid, targetUid, replaceUid = null) {
+  const i = this.find(itemUid), t = this.find(targetUid);
+  if (i && t && i.piece.kind === 'item' && t.piece.kind === 'chess' && diyEquipRefused(this.gd.item(i.piece.id), this.gd.chess(t.piece.id))) {
+    return { error: ERR.BAD_TARGET, detail: '无法装备给自编干员' };
+  }
+  return upstreamEquip.call(this, itemUid, targetUid, replaceUid);
+};
+
 /** The picks' pool entries of a match, sized by who picked them (created lazily: the players exist before the pool). */
 export function refreshDiyPool(m) {
   const pool = m && m.pool;
@@ -162,7 +181,9 @@ export function refreshDiyPool(m) {
   const pickers = new Map();
   for (const ps of m.players.values()) for (const id of ps.diyOwned || []) pickers.set(id, (pickers.get(id) || 0) + 1);
   for (const id of new Set([...pickers.keys(), ...pool.diyEntries])) {
-    const cap = (m.gd.poolCopies(id) || 0) * (pickers.get(id) || 0);
+    // banned like any operator (pool.js drawDisabledBonds skips invisible chess): every bond of the pick switched off
+    // this match (drawn or mode-off) ⇒ no copies — a 炎 pick (望 / 赤刃明霄陈) never shows while 炎 is banned
+    const cap = diyBanned(m, id) ? 0 : (m.gd.poolCopies(id) || 0) * (pickers.get(id) || 0);
     const e = pool.entries.get(id);
     if (!e) {
       if (cap > 0) { pool.entries.set(id, { cap, left: cap, tier: m.gd.tierOf(id) }); pool.diyEntries.add(id); }
@@ -210,6 +231,24 @@ PlayerState.prototype.privateView = function privateView() {
   return v;
 };
 
+// 디버그용 재화 고정 (local.sh only): SP_DEBUG_FUNDS=<0..999> pins every human player's funds to that value — buying,
+// refreshing and levelling never lower it (bots keep real funds). Deployed servers leave it unset.
+export function debugFunds(env = process.env) {
+  const raw = env.SP_DEBUG_FUNDS;
+  if (raw == null || raw === '') return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 && n <= 999 ? n : null;
+}
+const FIXED_FUNDS = debugFunds();
+if (FIXED_FUNDS != null) {
+  console.warn(`[local-patch] SP_DEBUG_FUNDS: human players' funds fixed at ${FIXED_FUNDS} (debug only)`);
+  Object.defineProperty(PlayerState.prototype, 'funds', {
+    configurable: true,
+    get() { return this.isBot ? (this._funds ?? 0) : FIXED_FUNDS; },
+    set(v) { this._funds = v; },
+  });
+}
+
 const upstreamSetLoadout = PlayerState.prototype.setLoadout;
 PlayerState.prototype.setLoadout = function setLoadout(loadout) {
   const r = upstreamSetLoadout.call(this, loadout);
@@ -228,6 +267,26 @@ PlayerState.prototype._rollChessSlot = function _rollChessSlot() {
   pool.diyFor = this;                     // this roll may offer this player's own picks
   try { return upstreamRollChessSlot.call(this); } finally { pool.diyFor = prev; }
 };
+
+// Everything rolled FOR a player opens that player's picks (owner's call 2026-10-05: "선발 오퍼레이터는 위, 전략, 아이템
+// 효과로도 나와야 해, 밴 되지 않는 이상"): the promotion reward and pool-rolled pick-one offers, and every effect run for the
+// player — 特质 (余 SERVER_MOST_BOND …), strategies, items, 机变 cards (ctx.rollChess / ctx.rollPool → SharedPool.roll).
+// Other players' rolls never see them; a banned pick has no copies (refreshDiyPool).
+function asPicker(ps, fn) {
+  const pool = ps && ps.m && ps.m.pool;
+  if (!pool) return fn();
+  if (!pool.diyEntries) refreshDiyPool(ps.m);
+  const prev = pool.diyFor;
+  pool.diyFor = ps;
+  try { return fn(); } finally { pool.diyFor = prev; }
+}
+const upstreamPushRewardOffer = PlayerState.prototype.pushRewardOffer;
+PlayerState.prototype.pushRewardOffer = function pushRewardOffer(...args) { return asPicker(this, () => upstreamPushRewardOffer.apply(this, args)); };
+for (const name of ['dispatch', 'dispatchItem', '_applyCard']) {
+  const upstream = Match.prototype[name];
+  if (typeof upstream !== 'function') continue;
+  Match.prototype[name] = function picksOpen(ps, ...rest) { return asPicker(ps, () => upstream.call(this, ps, ...rest)); };
+}
 
 const upstreamEligible = SharedPool.prototype._eligible;
 SharedPool.prototype._eligible = function _eligible(opts) {

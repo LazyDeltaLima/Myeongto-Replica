@@ -22,8 +22,8 @@
 | `SP_MAX_BOTS` (방마다 AI 팀원 한도) | `server/local-patch.js` | `server/lobby.js` 훅, `screens/room.js` 한도 표시 |
 | 이모티콘 공식/유저 탭 | `shared/emote-art.js`, `public/img/emotes/*` | `ui/emotes.js`(약 100줄, 가장 큰 수정), `emotes.css`, `gameActions.js`, `gameLogic.js`, `teamPanel.js`, `Match.js`·`StubMatch.js` 의 `set` |
 | 리소스 미리 받기 | `public/js/resources.js`, `public/resource-worker.js`, `tools/build-browser-resources.mjs`, `public/css/resources.css` | `main.js`, `settings.js`, `index.html` |
-| 오퍼레이터 음성 (작전 개시·선택·배치·스킬 대사 9종, 한국어/일본어/끄기) | `tools/assets/voice.mjs`, `public/js/voice.js` | `tools/assets/plan.mjs` 2줄, `tools/fetch-assets.mjs` 3줄, `audio.js` 1줄(`onUnitSkill`), `settings.js` 2줄, `screens/game.js`(import, 선택 2줄, `buy` 감싸기, 전투 시작 1줄), `resources.js`(언어 필터), `public/i18n/ko/ui.json` |
-| 선발 오퍼레이터 (甄选 칸: 왕·첸 더 던스트릭·위셔델·사키코·아스카론) | `tools/build-diy.mjs` → `data/diy.json`, `shared/diy.js`, `public/js/ui/diySlots.js`, `public/css/diy.css`, `tools/assets/diy.mjs` | `tools/build-data.mjs`(스크립트 가드 + export), `server/data.js`·`public/js/data.js`·`public/js/battle/runner.js`(diy.json 병합 각 1줄), `shared/protocol.js`(loadout `diy` 키·검사), `server/match/PlayerState.js` 2줄(`diy` 유지), `server/local-patch.js`(전용 풀), `public/js/ui/loadoutModel.js`(`diy` 유지: `parseStored`·`setChoice`·`sanitizeEntries`), `screens/loadout.js` 3줄 + 내보내기 버튼 조건, `index.html` 1줄, `tools/fetch-assets.mjs` 2줄 |
+| 오퍼레이터 음성 (작전 개시·선택·배치·스킬 대사 9종, 한국어/일본어/끄기) | `tools/assets/voice.mjs`, `public/js/voice.js` | `tools/assets/plan.mjs` 2줄, `tools/fetch-assets.mjs` 3줄, `audio.js` 1줄(`onUnitSkill`), `settings.js` 2줄, `screens/game.js`(import, 선택 2줄, `buy`·보상 선택 감싸기, 전투 시작 1줄), `resources.js`(언어 필터), `public/i18n/ko/ui.json` |
+| 선발 오퍼레이터 (甄选 칸: 왕·첸 더 던스트릭·위셔델·사키코·아스카론) | `tools/build-diy.mjs` → `data/diy.json`, `shared/diy.js`, `public/js/ui/diySlots.js`, `public/css/diy.css`, `tools/assets/diy.mjs` | `tools/build-data.mjs`(스크립트 가드 + export), `server/data.js`·`public/js/data.js`·`public/js/battle/runner.js`(diy.json 병합 각 1줄), `shared/protocol.js`(loadout `diy` 키·검사), `server/match/PlayerState.js` 2줄(`diy` 유지), `server/lobby.js freezeLoadout` 1줄(`diy` 유지 — 없으면 매치가 구성 전체를 버린다), `server/local-patch.js`(전용 풀), `public/js/ui/loadoutModel.js`(`diy` 유지: `parseStored`·`setChoice`·`sanitizeEntries`), `screens/loadout.js` 3줄 + 내보내기 버튼 조건, `index.html` 1줄, `tools/fetch-assets.mjs` 2줄 |
 | 공식 전투 이펙트 (로컬 클라이언트 추출) | `tools/local-extract/fx_extract.py` → `public/assets/local/fx/**`, `public/js/render/fxplayer.js`·`fxgame.js`·`fxmap.js` | `render/app.js` 6줄(이벤트·프레임·정리 훅, 부하 단계 전달, `stats()`의 `fxGame`) |
 | 스킬 효과음 보강 (ON_SKILL_START가 없는 스킬은 ON_ABILITY_START/ON_CUSTOM_TRIGGER [start]/ON_ABILITY_ON/HIT 뱅크) | `tools/assets/skill-sfx.mjs` | `tools/assets/plan.mjs` 2줄 |
 | 라운드별 작전 BGM (휴식기는 원본 그대로 `act1autochess_shop`, 작전은 공식 라운드 레벨의 bgmEvent: 1~7라운드 `bat_kazimierz2_2`, 8~13라운드 `bat_kazimierz2_1`, 훈련 `bat_act35side_01`) | `tools/assets/round-bgm.mjs` → `data/assets.json audio.waveBgm[템플릿 id]`, `public/js/round-bgm.js` | `tools/assets/plan.mjs` 2줄, `audio.js` 3줄(import, `resolveBgm`의 `wave:` 키, `installAudio` sync) |
@@ -31,6 +31,7 @@
 | 리소스 미리 받기 카드에서 음성 언어 선택 (처음 접속할 때 한국어/일본어/끄기, 고르면 용량 다시 계산) | `public/js/resources.js` `ResourceHost`, `voice.js setVoiceLang`, `public/css/resources.css` | — |
 | 얼린 상점에서 특수 갱신이 바꾼 칸도 얼림 유지 (원본은 `setShopSlot`이 항상 `frozen: false` → 佩佩·杜遥夜가 넣은 칸이 전투 시작 때 사라짐) | — | `server/match/effectsMeta.js` `setShopSlot` 2줄 (바뀌기 전 칸의 얼림 상태, 없으면 상점 얼림 상태) |
 | 적이 방어 지점에 들어갈 때 경보음 (공식 `battle.ON_ENEMY_REACHED_EXIT` = `b_ui_alarmenter`) | `tools/assets/leak-sfx.mjs` → `data/assets.json audio.sfx.battle.leak` | `tools/assets/plan.mjs` 2줄, `audio.js` `handleBattleEvents` 2줄(`leak` 이벤트) |
+| 디버그용 재화 고정 (`SP_DEBUG_FUNDS=<0..999>`일 때 사람 플레이어 재화가 그 값으로 고정, 봇은 그대로. `local.sh`가 기본 99, 배포 서버는 미설정) | `server/local-patch.js debugFunds` (`PlayerState.prototype.funds` 접근자) | 없음 |
 | 이펙트·사운드 디버그 페이지 (`SP_DEBUG_PAGE=1`일 때만, 배포 서버는 404) | `public/debug.html`, `public/js/debug.js` (`/fxlab.html`은 이리로 넘김), `server/local-patch.js debugPageHidden` | `server/index.js` 2줄 |
 | `/healthz` 축소 (프록시를 거친 요청은 `ok`·`version`·`app`·`build`만, 접속자·방 수는 컨테이너 안 확인용) | `server/local-patch.js proxiedRequest` | `server/index.js` 2줄(import, `/healthz` 앞 1줄) |
 | iframe 차단 헤더 | — | `server/index.js` 3줄 |
@@ -70,7 +71,7 @@
     `CN_025`~`028` 작전 중(스킬).
   - 풀 오퍼레이터 120명 전원 9줄 모두 있음(언어당 약 23MB). 예비 오퍼레이터(`char_600`~`615`), `char_616_pithst`, `char_617_sharp2`는 음성이 없다
     (404는 오류가 아니라 누락으로 처리하고, 보고서의 일반 누락 목록에서는 뺀다).
-- 재생: 말을 집거나 선택하면 선택 대사, 상점에서 사면 배치 대사, 전투 단계(전투·연합 방어·최종 공세·히든 코어)가 시작되면
+- 재생: 말을 집거나 선택하면 선택 대사, 상점에서 사거나 정예화 보상·특수 제안에서 오퍼레이터를 고르면 배치 대사, 전투 단계(전투·연합 방어·최종 공세·히든 코어)가 시작되면
   내 보드의 오퍼레이터 중 무작위 한 명의 작전 개시 대사, 전투에서 스킬이 켜지면 스킬 대사. 설정의 「오퍼레이터 음성」에서 한국어/일본어/끄기와 음량을
   고른다(브라우저별 `sp.pref.voice`, 기본 한국어). 음소거는 따르고 효과음 음량과는 별개.
 - 겹침 규칙은 공식 `audio_data.json battleVoice`를 따른다: 한 번에 하나, 0.1초 크로스페이드. 우선순위가 더 높으면 끊고 들어가고,
@@ -102,6 +103,13 @@
   - 위셔델: 여진·잔영 폭발(재능1), 혼령의 그림자 소환과 근처 위장(재능2), S2 과부하([추정] 지속시간 후반부), S3 그림자 2개 추가(최대 3).
   - 사키코: 음표 수만큼 방어·저항 무시, Fever(450, 20초, 스킬 재시전·S2 2연타·S3 퇴각 안 함), S2는 시전마다 피아노↔오르간 전환([추정]).
   - 아스카론: 사망 구금 중첩(이동 −18%/중첩, 현재 공격력 10%/초), S2 둔화·처치 시 확산, S3 범위 내 적 명중률 −30%(회피 시 회복).
+- 밴: 공식 밴 규칙(`pool.js drawDisabledBonds`: 맹약이 전부 비활성인 오퍼레이터는 풀에서 빠짐)은 공개 오퍼레이터만 보므로, 선발 픽에는
+  `server/local-patch.js diyBanned`가 같은 규칙을 적용한다. 예: 염국이 밴된 판에서는 望·赤刃明霄陈 픽이 상점에 나오지 않는다(2026-10-05).
+- 나오는 곳: 고른 사람을 위한 굴림에서만 전용 풀이 열린다(사용자 결정 2026-10-05, 밴되지 않는 한): 상점(`_rollChessSlot`), 정예화 보상·풀에서 뽑는
+  보상 제안(`pushRewardOffer`), 그 사람에게 실행되는 모든 효과(`Match.dispatch`·`dispatchItem`·`_applyCard` 감싸기 → 특질(余 SERVER_MOST_BOND 등)·전략·
+  아이템·기변 카드의 `ctx.rollChess`/`rollPool`). 다른 사람의 굴림에는 나오지 않는다. 공식 문구는 「只出现在自己的商店里」뿐이다.
+- 信标(비콘): 공식 「无法装备给自编干员」(KR 「선발 오퍼레이터는 장착 불가」). `shared/diy.js diyEquipRefused`를 서버(`PlayerState.equip` 감싸기)와
+  클라이언트(`gameLogic.js equipCheck` 1줄)가 함께 쓴다.
 - 모듈: 공식 甄选 칸에는 기본 모듈이 없어(게임에서 직접 장착) 처음엔 미장착이었다. 2026-10-05부터 후보의 첫 모듈(`uniequip_002`, X 타입)을
   기본으로 장착한다(`build-diy.mjs diyDefaultModule` → 상점 `defaultUniEquipId`). 오퍼레이터 구성 화면에서 「없음」을 고를 수 있다.
 - 소재: `tools/assets/diy.mjs`가 07-assets 형식 항목을 만들어 fetch-assets가 초상·Spine·스킬 아이콘·효과음·음성을 같이 받는다.
@@ -143,7 +151,7 @@
 - 채팅·관전석 등은 원본에 같은 기능이 생기면 비교해서 정리
 
 ## 테스트
-- `node --test test/local-patch.test.js` — 로컬 테스트 42개.
+- `node --test test/local-patch.test.js` — 로컬 테스트 45개.
 - 전체 `node --test`에서 원래부터 실패하는 것 (이 개발 사본에 게임 소재가 없음): 소재 manifest·로컬 추출·모듈 아이콘·이모티콘 그림 관련,
   `make-windows-bundle` 대소문자 검사. 2026-10-05 기준 12개. (`lobby-integration` 재접속 테스트가 가끔 시간 문제로 실패하는데, 단독으로 돌리면 통과한다)
 - 로컬 패치 때문에 실패하는 원본 테스트 (의도한 동작 변경이라 고치지 않음):

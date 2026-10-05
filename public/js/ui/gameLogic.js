@@ -29,6 +29,7 @@ import { rangeTiles, pieceDir } from './facing.js';
 import { layoutPen } from '../render/pen.js';
 import { BOSS_ROW_SHIFT, MAX_COL } from '../render/prepfield.js';
 import { bossLevelSeconds } from './matchStatus.js';
+import { diyEquipRefused } from '../../../shared/diy.js'; // local patch
 
 // ---- small helpers -------------------------------------------------------------------------------
 
@@ -1194,6 +1195,7 @@ function equipCheck(ctx, itemPiece, targetPiece) {
   const item = ctx.getItem(itemPiece.id);
   if (item?.itemType === 'MAGIC') return { ok: false, code: 'BAD_TARGET', reason: '该道具需要放置在战场上使用' };
   if (!isObj(targetPiece) || targetPiece.kind !== 'chess') return { ok: false, code: 'BAD_TARGET', reason: '装备只能配发给干员' };
+  if (diyEquipRefused(item, ctx.getChess(targetPiece.id))) return { ok: false, code: 'BAD_TARGET', reason: '无法装备给自编干员' }; // local patch: 信标 × 甄选
   return { ok: true, action: 'equip' };
 }
 

@@ -82,3 +82,10 @@ export function diyPickProblem(entries, getChess) {
   }
   return null;
 }
+
+/** 信标 "无法装备给自编干员" (official KR: 선발 오퍼레이터는 장착 불가): equipment whose effect sends its carrier away. */
+const NO_DIY_EQUIP = new Set(['use_equip_recruit_new_char_and_give_char_to_player_most_bond']);
+/** Whether equipment record `item` may not go on chess record `chess` (a 甄选 pick). Server (local-patch.js) and client (gameLogic equipCheck). */
+export function diyEquipRefused(item, chess) {
+  return !!(item && chess && chess.isDiy && (item.buffs || []).some((b) => NO_DIY_EQUIP.has(b && b.key)));
+}

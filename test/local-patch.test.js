@@ -365,7 +365,7 @@ describe('선발 오퍼레이터 — 甄选 picks (shared/diy.js, server/local-p
     const { makeMatch } = await import('./match/harness.js');
     const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, loadout: { chess_diy_wisdel_5_a: { skill: 2, module: 'none', diy: 1 }, chess_diy_chen3_6_a: { skill: 0, module: 'none', diy: 1 } } },
       { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true }];
-    const h = makeMatch({ mode: 'coop', seats, seed: 11 });
+    const h = makeMatch({ mode: 'coop', seats, seed: 2 }); // 炎 active (a 炎 pick is banned with 炎)
     h.start(); h.runToPhase('PREP');
     const p0 = h.ps('p_0'), p1 = h.ps('p_1');
     assert.deepEqual([...p0.diyOwned].sort(), ['chess_diy_chen3_6_a', 'chess_diy_wisdel_5_a']);
@@ -756,4 +756,79 @@ test('leak alarm: the official ON_ENEMY_REACHED_EXIT sound plays on a battle lea
   a.battle = (name) => played.push(name);
   a.handleBattleEvents([['leak', 7]]);
   assert.deepEqual(played, ['leak']);
+});
+
+test('SP_DEBUG_FUNDS: parsed only as an integer 0..999, unset on deployed servers (server/local-patch.js debugFunds)', async () => {
+  const { debugFunds } = await import('../server/local-patch.js');
+  assert.equal(debugFunds({}), null);
+  assert.equal(debugFunds({ SP_DEBUG_FUNDS: '' }), null);
+  assert.equal(debugFunds({ SP_DEBUG_FUNDS: '99' }), 99);
+  assert.equal(debugFunds({ SP_DEBUG_FUNDS: '0' }), 0);
+  assert.equal(debugFunds({ SP_DEBUG_FUNDS: 'lots' }), null);
+  assert.equal(debugFunds({ SP_DEBUG_FUNDS: '5000' }), null);
+});
+
+test('甄选 picks: banned with their bonds, rolled for their picker only (shop, promotion reward, effects such as 余), and a 信标 refuses them (server/local-patch.js, shared/diy.js)', async () => {
+  await import('../server/local-patch.js');
+  const { makeMatch, give, giveItem } = await import('./match/harness.js');
+  const { diyEquipRefused } = await import('../shared/diy.js');
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, loadout: { chess_diy_wang_6_a: { diy: 1 }, chess_diy_wisdel_6_a: { diy: 2 } } },
+    { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true }];
+  const run = (seed) => { const h = makeMatch({ mode: 'coop', seats, seed }); h.start(); h.toPrep(1); return h; };
+  let off = null, on = null;
+  for (let seed = 1; seed < 80 && !(off && on); seed++) { const h = run(seed); if (h.m.disabledBonds.includes('yanShip')) off ||= h; else on ||= h; }
+  assert.equal(off.m.pool.entries.get('chess_diy_wang_6_a')?.left ?? 0, 0, '炎 banned → no 望');
+  assert.ok(off.m.pool.entries.get('chess_diy_wisdel_6_a')?.left > 0, 'a pick of another bond stays');
+  assert.ok(on.m.pool.entries.get('chess_diy_wang_6_a')?.left > 0, '炎 active → 望 in the private pool');
+  const m = on.m, ps = on.ps('p_0');
+  const yan = (id) => (m.gd.chess(id)?.bonds || []).includes('yanShip');
+  for (let i = 0; i < 500; i++) assert.ok(!m.gd.chess(m.pool.roll(m.rngMeta, { maxTier: 6, filter: yan }))?.isDiy, 'a roll for nobody');
+  const p1 = on.ps('p_1');
+  let mine = 0, theirs = 0;
+  for (const who of [ps, p1]) who.shop.level = 5;
+  for (let i = 0; i < 300; i++) {
+    if (ps.pushRewardOffer('merge')?.slots.some((x) => m.gd.chess(x.id)?.isDiy)) mine++;
+    if (p1.pushRewardOffer('merge')?.slots.some((x) => m.gd.chess(x.id)?.isDiy)) theirs++;
+    ps.offers.length = 0; p1.offers.length = 0;
+  }
+  assert.ok(mine > 0, 'the picker\'s promotion reward offers the picks');
+  assert.equal(theirs, 0, 'nobody else\'s does');
+  for (let i = 0; i < 200; i++) assert.ok(!m.gd.chess(m.pool.roll(m.rngMeta, { maxTier: 6, filter: yan }))?.isDiy, 'a roll for nobody after offers');
+  // 余 (SERVER_MOST_BOND at round start): a 炎 row of three → a random 炎 operator, the picker's own picks included
+  const yanPool = Object.values(m.gd.raw.chess).filter((c) => c.visible && !c.isGolden && c.bonds.includes('yanShip') && m.pool.has(c.chessId) && c.chessId !== 'chess_char_6_03_a');
+  give(m, ps, 'chess_char_6_03_a', 'board', [10, 2]); give(m, ps, yanPool[0].chessId, 'board', [10, 3]); give(m, ps, yanPool[1].chessId, 'board', [10, 4]);
+  let yuPicks = 0, yuMine = 0;
+  for (let k = 0; k < 120; k++) {
+    const before = new Set([...ps.hand, ...ps.temp].filter(Boolean).map((x) => x.uid));
+    m.dispatch(ps, 'onRoundStart', { round: 2 });
+    for (const area of [ps.hand, ps.temp]) for (let i = 0; i < area.length; i++) {
+      const x = area[i];
+      if (!x || before.has(x.uid)) continue;
+      if (m.gd.chess(x.id)?.isDiy) { yuPicks++; if (ps.diyOwned.has(m.gd.baseIdOf(x.id))) yuMine++; }
+      ps.returnCopies(x); area[i] = null;
+    }
+  }
+  assert.ok(yuPicks > 0 && yuPicks === yuMine, `余 can grant the picker's own picks (${yuPicks})`);
+  const pick = give(m, ps, 'chess_diy_wang_6_a'), beacon = giveItem(m, ps, 'chess_item_5_04_e_a');
+  assert.equal(m.handle('p_0', { t: 'g.equip', itemUid: beacon.uid, targetUid: pick.uid }).error, 'BAD_TARGET');
+  assert.ok(ps.find(pick.uid), 'the pick is kept');
+  assert.equal(diyEquipRefused(m.gd.item('chess_item_5_04_e_b'), m.gd.chess('chess_diy_wang_6_b')), true, 'golden 信标 / elite pick');
+  assert.equal(diyEquipRefused(m.gd.item('chess_item_5_04_e_a'), m.gd.chess('chess_char_6_03_a')), false, 'pool operators take it');
+});
+
+test('甄选 picks travel through the lobby: room.loadout → seat → match keeps the slot (server/lobby.js freezeLoadout)', async () => {
+  class Rec extends StubMatch { constructor(opts) { super(opts); Rec.last = opts; } }
+  const srv = await startServer({ port: 0, host: '127.0.0.1', MatchClass: Rec, log: { info() {}, warn() {}, debug() {}, error() {} } });
+  const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
+  try {
+    c.id = (await c.hello('Pick')).playerId;
+    assert.equal((await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL' })).t, 'ok');
+    await c.waitFor('room.state', (s) => s.hostId === c.id);
+    const r = await c.request({ t: 'room.loadout', entries: { chess_diy_wang_5_a: { diy: 1 }, chess_diy_wisdel_6_a: { diy: 2, skill: 2 } } });
+    assert.equal(r.t, 'ok', JSON.stringify(r));
+    assert.equal((await c.request({ t: 'room.start' })).t, 'ok');
+    const seat = Rec.last.seats.find((s) => s.playerId === c.id);
+    assert.equal(seat.loadout.chess_diy_wang_5_a.diy, 1, 'the slot reaches the match (it was dropped: the match then refused the whole loadout)');
+    assert.equal(seat.loadout.chess_diy_wisdel_6_a.diy, 2);
+  } finally { await c.terminate().catch(() => {}); await srv.close(); }
 });

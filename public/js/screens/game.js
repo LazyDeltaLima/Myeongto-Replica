@@ -654,6 +654,12 @@ function MatchScreen() {
     if (ok) voiceForBuy(slot); // local patch
     return ok;
   }, []);
+  const pickReward = useCallback(async (i) => { // local patch: a 晋升奖励 / special offer pick speaks like a purchase (voice.js)
+    const slot = live.current.priv?.shop?.rewardOffer?.slots?.[i];
+    const ok = await actions.reward(i);
+    if (ok) voiceForBuy(slot);
+    return ok;
+  }, []);
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
   // under AI 托管 — gameLogic.readyFundsPrompt). The button and Space both come here.
   const askingReady = useRef(false);
@@ -1281,7 +1287,7 @@ function MatchScreen() {
         onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}
         onRefuse=${(reason) => { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); }}
         reward=${phase === PHASE.PREP && !rewardMin ? priv?.shop?.rewardOffer || null : null}
-        onReward=${(i) => actions.reward(i)} onRewardLater=${() => setRewardMin(true)} onArm=${setArmedCard} />` : null}
+        onReward=${pickReward} onRewardLater=${() => setRewardMin(true)} onArm=${setArmedCard} />` : null}
 
       ${phase === PHASE.PREP && priv?.shop?.rewardOffer ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || collapsed}
         onMinimize=${(m) => { setRewardMin(m); if (!m) setCollapsed(false); }} />` : null}
