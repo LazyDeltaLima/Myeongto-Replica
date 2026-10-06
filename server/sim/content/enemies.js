@@ -461,12 +461,12 @@ export function alliesInTiles(b, r, c, shape = 'plus', n = 1) {
 
 /** Allies within radius that enemy `e` could target (ranged rules: stealth / untargetable skipped). */
 export function targetsNear(b, e, r, { ranged = true, x = e.x, y = e.y } = {}) {
-  return b.alliesInRadius(x, y, r).filter((a) => canTargetAlly(e, a, ranged));
+  return b.alliesInRadius(x, y, r).filter((a) => canTargetAlly(e, a, ranged) && !(e.lpGroundPicks && a.isFlying)); // local patch: client skill selector 1 (local-patch.js NO_AIR_PICKS)
 }
 
 /** Every targetable ally on the field. */
 export function allTargets(b, e) {
-  return b.allies().filter((a) => canTargetAlly(e, a, true));
+  return b.allies().filter((a) => canTargetAlly(e, a, true) && !(e.lpGroundPicks && a.isFlying)); // local patch: client skill selector 1 (local-patch.js NO_AIR_PICKS)
 }
 
 /**
@@ -2352,6 +2352,7 @@ function kitUglyThing(ab) {
           if (!e.alive || e.removed) return;
           b.fx('explode', { x, y, r: MCM_BOMB_RADIUS, kind: 'mechBomb', id: e.id });
           for (const u of areaAllies(b, e, x, y, MCM_BOMB_RADIUS)) {
+            if (u.isFlying) continue;                 // local patch: client bomb[reborning]/Trigger _targetMotion 1 (ground only)
             hurt(b, e, u, e.s.atk * (bomb.atk_scale ?? 0), 'phys');
             if (u.alive && bomb.stun > 0) b.applyStatus(u, 'stun', { duration: bomb.stun, source: e });
           }
@@ -2431,7 +2432,7 @@ function kitXi(ab) {
       onExpire: ({ battle }) => {
         if (!e.alive) return;
         battle.fx('explode', { x: e.x, y: e.y, r, kind: 'breakFree', id: e.id });
-        for (const u of areaAllies(battle, e, e.x, e.y, r)) hurt(battle, e, u, e.s.atk * (s.bb.atk_scale ?? 0), 'arts');
+        for (const u of areaAllies(battle, e, e.x, e.y, r)) if (!u.isFlying) hurt(battle, e, u, e.s.atk * (s.bb.atk_scale ?? 0), 'arts'); // local patch: PRTS 「所有非飞行我方单位」, client Selector 1
       } });
   };
   const re = reborn({

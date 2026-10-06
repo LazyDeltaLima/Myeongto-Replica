@@ -1655,6 +1655,145 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
   });
 });
 
+// ---- enemy skills whose client selector is ground only (sim/content/local-patch.js NO_AIR_PICKS + enemies.js) -----------
+// EN client: the skill's Trigger / Selector _targetMotion 1 picks a ground target; a projectile whose own collision is 3
+// (鼠王 唱沙 / 沙狱, “自在” 纬地经天 — PRTS 「弹道可击中飞行单位」) still hits a flyer around that target. 杰斯顿 铁砂暴's
+// stuns (PRTS 「禁锢装置/飞行单位以外的我方单位」), “自在” 破桎而出 (「所有非飞行我方单位」) and “巨大的丑东西”'s 重生 bomb
+// (bomb[reborning]/Trigger 1) are ground only. docs/LOCAL-PATCH.md 「적 비행 유닛 공격 전수 조사」.
+
+describe('enemy skills with a ground-only client selector skip a flying ally', () => {
+  const ALLY = (id, maxHp) => chessRec({ id, profession: 'TANK', stats: { atk: 0, maxHp, def: 0, res: 0, blockCnt: 0 }, rangeGrid: [[0, 0]], skill: null });
+  // allies: [chessId, row, col, maxHp, flying]
+  const field = (extra, allies, key, pos, mods = {}) => {
+    const chess = {}, kits = {};
+    for (const [id, , , hp] of allies) { chess[id] = ALLY(id, hp); kits[id] = () => ({ trait: { noAttack: true } }); }
+    const h = makeBattle({
+      content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 600, hooks: ['damaged', 'statusApplied'], captureNoisy: true,
+      defs: { chess }, kits, units: allies.map(([chessId, row, col]) => ({ chessId, row, col })),
+    });
+    h.step();
+    const u = {};
+    for (const [id, , , , fly] of allies) { u[id] = h.unit(id); if (fly) u[id].motion = 'FLY'; assert.equal(u[id].isFlying, !!fly, id); }
+    const e = h.spawn(key, { pos, routeIndex: 0, mods: { speedMul: 0, hpMul: 1e3, ...mods } });
+    return { h, u, e };
+  };
+  const fireSkills = (e) => { for (const a of e.mem.ab.list) if (a && a.fire && a.cd != null) a.left = 0.1; };
+  const skillHits = (h, e, t) => h.hooksOf('damaged').filter((c) => c.target === t && c.source === e && c.dmg && !c.dmg.isAttack).length;
+  const stuns = (h, t) => h.hooksOf('statusApplied').filter((c) => c.status === 'stun' && c.target === t).length;
+  const UP = [enemiesMod, bossesMod], PATCHED = [enemiesMod, bossesMod, simPatch];
+
+  // 鼠王: 唱沙 on the highest max HP, 沙狱 on the lowest — both flyers here; t_near flies next to the ground target
+  const MOUSE = [['t_g', 10, 6, 2e7], ['t_near', 10, 7, 1e7, true], ['t_hi', 12, 2, 3e7, true], ['t_lo', 9, 10, 1e5, true]];
+  const mouse = (extra) => {
+    const r = field(extra, MOUSE, 'enemy_1509_mousek', [12, 9], { atkMul: 0.01 });
+    r.h.run(0.5);
+    fireSkills(r.e);
+    r.h.run(2);
+    return r;
+  };
+  test('鼠王 upstream: 唱沙 / 沙狱 centre on a flyer (drop NO_AIR_PICKS when this fails)', () => {
+    const { h, u, e } = mouse(UP);
+    assert.ok(skillHits(h, e, u.t_hi) > 0 || !!u.t_lo.findBuff('ab:sandStorm'), 'a flyer is the centre');
+  });
+  test('鼠王 patched: 唱沙 / 沙狱 centre on the ground unit; their projectiles (collision 3) still take the flyer next to it', () => {
+    const { h, u, e } = mouse(PATCHED);
+    assert.equal(skillHits(h, e, u.t_hi), 0, '唱沙 not on the highest-HP flyer');
+    assert.ok(!u.t_lo.findBuff('ab:sandStorm'), '沙狱 not on the lowest-HP flyer');
+    assert.ok(skillHits(h, e, u.t_g) > 0 && u.t_g.findBuff('ab:sandStorm'), 'both centre on the ground unit');
+    assert.ok(skillHits(h, e, u.t_near) > 0 && u.t_near.findBuff('ab:sandStorm'), 'the flyer in the cross / circle is still hit (弹道可对空)');
+  });
+
+  // 杰斯顿 狱警: 铁砂暴 stuns up to max_target 2 in range — the ground target and (upstream) the flyer next to it
+  const jakill = (extra) => {
+    const r = field(extra, [['t_g', 10, 6, 2e7], ['t_fly', 10, 7, 2e7, true]], 'enemy_1516_jakill', [10, 8], { atkMul: 0.01 });
+    r.h.run(40);
+    return r;
+  };
+  test('杰斯顿 upstream: 铁砂暴 stuns the flyer too (drop NO_AIR_PICKS when this fails)', () => {
+    const { h, u } = jakill(UP);
+    assert.ok(stuns(h, u.t_fly) > 0);
+  });
+  test('杰斯顿 patched: 铁砂暴 stuns the ground unit only', () => {
+    const { h, u } = jakill(PATCHED);
+    assert.ok(stuns(h, u.t_g) > 0, 'the ground target is stunned');
+    assert.equal(stuns(h, u.t_fly), 0, 'the flyer is not');
+  });
+
+  // “自在”: 纬地经天 on the nearest (a flyer here), 破桎而出 within 3 (the flyer inside, the ground unit outside); t_row flies on
+  // the ground unit's row, out of the burst
+  const XI = [['t_g', 10, 4, 2e7], ['t_row', 10, 5, 2e7, true], ['t_fly', 11, 8, 2e7, true]];
+  const xi = (extra) => {
+    const r = field(extra, XI, 'enemy_1517_xi', [10, 9], { atkMul: 1 });
+    r.h.run(0.5);
+    fireSkills(r.e);
+    r.h.run(18);                                                          // the 15 s barrier holds (no ally attacks) ⇒ burst
+    return r;
+  };
+  test('“自在” upstream: 纬地经天 centres on the nearest flyer (drop NO_AIR_PICKS when this fails)', () => {
+    const { h, u, e } = xi(UP);
+    assert.ok(skillHits(h, e, u.t_fly) > 0);
+  });
+  test('“自在” patched: no skill on the flyer; the cross on the ground unit still hits the flyer in its line (弹道可击中飞行单位)', () => {
+    const { h, u, e } = xi(PATCHED);
+    assert.ok(h.hooksOf('damaged').some((c) => c.source === e && c.dmg && (c.dmg.tags || []).includes('enemyAbility')), 'it cast');
+    assert.equal(u.t_fly.stats.taken ?? 0, 0, 'neither the cross nor the burst on the flyer');
+    assert.ok(skillHits(h, e, u.t_g) > 0, 'the cross centres on the ground unit');
+    assert.ok(skillHits(h, e, u.t_row) > 0, 'its line still takes the flyer next to it');
+  });
+
+  // “巨大的丑东西”: knocked out, its 重生 bomb (radius 3, 16 s stun) 2.17 s later
+  const ugly = (extra) => {
+    const r = field(extra, [['t_g', 10, 6, 2e7], ['t_fly', 10, 7, 2e7, true]], 'enemy_1512_mcmstr', [10, 8], { atkMul: 0 });
+    r.h.run(0.5);
+    r.h.b.dealDamage(null, r.e, { amount: 1e12, type: 'true', canDodge: false });
+    r.h.run(4);
+    return r;
+  };
+  // (the bomb's filter is an edit inside enemies.js — no upstream variant to run here; before it, the flyer was stunned)
+  test('“巨大的丑东西” patched: the 重生 bomb stuns the ground unit only (bomb[reborning]/Trigger 1)', () => {
+    const { h, u } = ugly(PATCHED);
+    assert.ok(stuns(h, u.t_g) > 0, 'the ground unit is stunned');
+    assert.equal(stuns(h, u.t_fly), 0, 'the flyer is not');
+  });
+
+  test('real match path (bounty “鼠王” → buildBattleSpec → createBattleFromSpec): 唱沙 / 沙狱 never centre on the 炎佑 dragon', async () => {
+    const { makeMatch, give, legalTileFor, DATA } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const { bountyOf } = await import('../server/sim/content/choices.js');
+    const KEY = 'enemy_1509_mousek';
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 11 }).start();
+    h.toPrep(1);
+    const m = h.m, ps = h.ps('p_0');
+    for (const id of ['chess_char_1_03_a', 'chess_char_2_04_a', 'chess_char_3_03_a', 'chess_char_3_04_a', 'chess_char_4_17_a', 'chess_char_5_03_a']) { const at = legalTileFor(m, ps, id); if (at) give(m, ps, id, 'board', at); }
+    m.addBounty(ps, bountyOf(DATA.effects.enemyeffect_b_11));
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp_mk', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    const centres = [];
+    const fx = b.fx.bind(b);
+    b.fx = (kind, p) => {
+      if (p && ((kind === 'telegraph' && p.kind === 'driftSand') || (kind === 'zone' && p.kind === 'sandStorm'))) {
+        const at = b.allies().filter((u) => (kind === 'zone' ? u.x === p.x && u.y === p.y : u.tileC === p.x && u.tileR === p.y));
+        centres.push({ kind: p.kind, fly: at.length > 0 && at.every((u) => u.isFlying) });
+      }
+      return fx(kind, p);
+    };
+    b.start();
+    let withDragon = 0, last = -Infinity;
+    while (!b.finished && b.time < 90) {
+      b.step(); b.drainEvents();
+      const e = b.enemies.find((x) => x.defId === KEY && x.alive);
+      const y = b.allies().find((u) => u.isFlying && u.alive);
+      if (!e || !y) continue;
+      e.hp = e.s.maxHp;                                                   // keep it casting
+      // 炎佑 is the field's highest max HP (唱沙) — or make it the lowest (沙狱) every other cast
+      if (b.time - last >= 3) { last = b.time; withDragon++; if (withDragon % 2 === 0) y.s.maxHp = 1; for (const a of e.mem.ab.list) if (a && a.fire && a.cd != null) a.left = 0.05; }
+    }
+    assert.ok(withDragon >= 4, `the bounty 鼠王 and the 炎佑 dragon met (${withDragon})`);
+    assert.ok(centres.length >= 4, `it cast (${centres.length})`);
+    assert.ok(centres.every((c) => !c.fly), JSON.stringify(centres));
+  });
+});
+
 test('frozen shop: a slot a special refresh replaces stays frozen (佩佩 / 杜遥夜, server/match/effectsMeta.js setShopSlot)', async () => {
   const { makeMatch } = await import('./match/harness.js');
   const h = makeMatch({ mode: 'solo', humans: 1, seed: 1 }).start();

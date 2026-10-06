@@ -58,6 +58,9 @@ export function install(battle) {
     if (!enemy0(e) || !(NO_AIR_KEYS.includes(e.defId) || NO_AIR_FORMS[e.defId]) || typeof e.profile.canTarget !== 'function') return;
     c.targets = (c.targets || []).filter((t) => t && e.profile.canTarget(t));
   }, { priority: 49 });
+  // skills whose client Trigger / Selector is _targetMotion 1: their target picks (enemies.js allTargets / targetsNear) skip a
+  // flyer; an area their projectile then covers keeps its own client filter (鼠王 唱沙 / 沙狱, “自在” 纬地经天: collision 3)
+  battle.on('enemySpawn', ({ enemy }) => { if (enemy && NO_AIR_PICKS.includes(enemy.defId)) enemy.lpGroundPicks = true; }, { priority: 99 });
   exemptDroneLink(battle);
 }
 
@@ -75,6 +78,10 @@ export const NO_AIR_KEYS = Object.freeze(['enemy_1168_dumage', 'enemy_1168_dumag
   'enemy_2010_csdcr', 'enemy_1252_lysytb_2', 'enemy_1427_lrnazg', 'enemy_1509_mousek', 'enemy_1504_cqbw', 'enemy_1516_jakill',
   'enemy_10098_crhro', 'enemy_10099_crvln', 'enemy_9014_acstma', 'enemy_9015_acstmb']);
 export const NO_AIR_FORMS = Object.freeze({ enemy_1535_wlfmster: 'form2' });
+// skill target picks, client _targetMotion 1: 鼠王 DriftSand / SandStorm / Mark Trigger, 杰斯顿 IronSandStorm Trigger (its
+// stuns — PRTS 「禁锢装置/飞行单位以外」), “自在” CrossAttack / Mark Selector. Their area parts: enemies.js (“自在” 破桎而出 and
+// “巨大的丑东西”'s 重生 bomb skip flyers there; 唱沙 / 沙狱 / 纬地经天 projectiles keep collision 3 — PRTS 「弹道可对空」)
+export const NO_AIR_PICKS = Object.freeze(['enemy_1509_mousek', 'enemy_1516_jakill', 'enemy_1517_xi']);
 const enemy0 = (e) => !!e && e.side === 'enemy' && !!e.profile;
 
 /** After content/enemies.js (priority 100): replace its 6 s timer with the ammo skill. */
