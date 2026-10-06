@@ -666,10 +666,10 @@ export async function startServer(opts = {}) {
       sendError(req, res, 405, '不支持的请求方法 · Method not allowed');
       return;
     }
-    if (parts.rawPath === '/healthz' && proxiedRequest(req)) { sendJson(req, res, 200, { ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion(APP_VERSION), build: buildTag() }); return; } // local patch: no counters through the proxy; `local` = shared/local.js localVersion
+    if (parts.rawPath === '/healthz' && proxiedRequest(req)) { sendJson(req, res, 200, { ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion(), build: buildTag() }); return; } // local patch: no counters through the proxy; `local` = shared/local.js localVersion
     if (parts.rawPath === '/healthz') {
       sendJson(req, res, 200, {
-        ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion(APP_VERSION) /* local patch */, uptimeSec: Math.round((Date.now() - startedAt) / 1000),
+        ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion() /* local patch */, uptimeSec: Math.round((Date.now() - startedAt) / 1000),
         // the runtime the server is serving right now (public/js/ui/buildGuard.js): a page whose own build is
         // older than this reloads itself, so a deploy reaches clients that never reload
         build: buildTag(),
@@ -771,7 +771,7 @@ async function main() {
     else console.error('[boot] failed to start', e);
     process.exit(1);
   }
-  console.log(`\n  卫戍协议：盟约 · Stronghold Protocol: Alliance v${localVersion(APP_VERSION)}` /* local patch */);
+  console.log(`\n  卫戍协议：盟约 · Stronghold Protocol: Alliance v${localVersion()} (base ${APP_VERSION})` /* local patch */);
   console.log(`  Local:   ${srv.url}`);
   if (srv.host === '0.0.0.0' || srv.host === '::') {
     for (const u of lanUrls(srv.port)) console.log(`  LAN:     ${u}`);

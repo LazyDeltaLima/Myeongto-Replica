@@ -11,11 +11,12 @@
 
 import { EMOTE_SETS } from './emote-art.js';
 
-// local version: upstream APP_VERSION (shared/constants.js) + `+mangho.N` (semver build metadata). N counts the deploys of
-// this server on one upstream release and starts again at 1 when an upstream release is merged (docs/LOCAL-PATCH.md "버전").
-export const LOCAL_BUILD = 'mangho.1';
-/** @param {string} app upstream APP_VERSION @returns {string} e.g. '0.1.4+mangho.1' */
-export const localVersion = (app) => `${app}+${LOCAL_BUILD}`;
+// local version (docs/LOCAL-PATCH.md "버전 표기"): this server's own semver, independent of upstream's APP_VERSION
+// (shared/constants.js), which is shown beside it as the base. major = a big direction change, minor = a deploy with
+// new features / screens, patch = a fix-only deploy; merging an upstream release changes only the base.
+export const LOCAL_VERSION = '1.0.0';
+/** @returns {string} the local version (the `app` argument is kept for the callers; the base is shown separately) */
+export const localVersion = () => LOCAL_VERSION;
 
 // room chat: a line's length in code points, the per-player gap between lines, the lines a (re)joining member gets back
 export const CHAT_MAX_LEN = 120;
