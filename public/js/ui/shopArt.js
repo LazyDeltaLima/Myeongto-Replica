@@ -7,7 +7,8 @@
 //
 //   shopArt()            { cls, style } for the <section class="shopbar"> (ui/shopBar.js)
 //   garrisonMarkUrl(c)   the card watermark: the type icon of the chess' 特质 (garrison eventTypeIcon — the prefab's
-//                        `garrison_icon`, 65×65 at 35 % alpha; matched against in-game screenshots 2026-10-06)
+//                        `garrison_icon`, 65×65 at 35 % alpha, its sprite set at run time through the card's
+//                        `_garrisonIcon`; matched against in-game screenshots 2026-10-06 — 刺玫 differs there, see the doc)
 
 import { data, localAsset } from '../data.js';
 import { uiUrl } from './assetUrls.js';

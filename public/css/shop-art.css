@@ -35,9 +35,14 @@
   transform: translate(-50%, calc(-50% + var(--u) * 9)); background: var(--tb-art) center / 100% 100% no-repeat;
 }
 .shopbar.has-shop-art .toolbtn--ice { --tb-art: var(--sa-frozen); }
-.shopbar.has-shop-art .toolbtn--ice.is-on { --tb-art: var(--sa-frozen-on); background: transparent; color: rgba(0, 0, 0, .9); } /* [추정] frozen = frozen_bg_unselect */
+/* btn_frozen's three states: group_lock (frozen_bg_normal + frozen_icon, the "freeze" action) while the shop is not
+   frozen, group_unlock (frozen_bg_unselect + frozen_icon2 — the crossed-out snowflake, "unfreeze") while it is,
+   group_disable (bg_lock + frozen_icon_lock) */
+.shopbar.has-shop-art .toolbtn--ice.is-on { --tb-art: var(--sa-frozen-on); background: transparent; color: rgba(0, 0, 0, .9); }
 .shopbar.has-shop-art .toolbtn--amber { --tb-art: var(--sa-refresh); }
 .shopbar.has-shop-art .toolbtn:disabled { --tb-art: var(--sa-lock); color: rgba(0, 0, 0, .9); }
+/* the disabled groups' grey icons (frozen_icon_lock / refresh_icon_lock: the same glyph in grey, about 3/4 as bright) */
+.shopbar.has-shop-art .toolbtn:disabled .toolbtn__img { filter: grayscale(1) brightness(.75); }
 .shopbar.has-shop-art .toolbtn:hover:not(:disabled) { background: transparent; filter: brightness(1.08); box-shadow: none; }
 .shopbar.has-shop-art .toolbtn__img { width: calc(var(--u) * 31); height: calc(var(--u) * 31); margin-right: calc(var(--u) * 13); }
 .shopbar.has-shop-art .toolbtn > span:not([class]) { min-width: calc(var(--u) * 55); text-align: center; font-weight: 700; }
