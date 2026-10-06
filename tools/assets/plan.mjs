@@ -25,7 +25,6 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds } from './skill-sfx.mjs'; // local patch
-import { leakSfx } from './leak-sfx.mjs'; // local patch
 import { kitHitSfx } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -600,7 +599,6 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     },
   };
   for (const [key, lang] of Object.entries(VOICE_TWINS)) template.audio[key] = voiceTwin(voice, voiceLang, lang); // local patch: the other dub (tools/assets/voice.mjs)
-  template.audio.sfx.battle.leak = leakSfx(audio, soundLeaf); // local patch: enemy reached the goal (tools/assets/leak-sfx.mjs)
   template.audio.sfx.kit = kitHitSfx(audio, soundLeaf, notes); // local patch: the kits' skill hit sounds (tools/assets/kit-sfx.mjs)
   return { template, models, notes };
 }

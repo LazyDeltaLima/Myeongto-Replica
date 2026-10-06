@@ -1673,20 +1673,6 @@ test('frozen shop: a slot a special refresh replaces stays frozen (佩佩 / 杜�
   assert.ok(ps.shop.slots.every((s) => !s || !s.frozen), 'an unfrozen shop stays unfrozen');
 });
 
-test('leak alarm: the official ON_ENEMY_REACHED_EXIT sound plays on a battle leak (tools/assets/leak-sfx.mjs, public/js/audio.js)', async () => {
-  const { leakSfx } = await import('../tools/assets/leak-sfx.mjs');
-  const leaf = (paths) => paths[0];
-  assert.equal(leakSfx({ bank: (n) => (n === 'battle.ON_ENEMY_REACHED_EXIT' ? ['battle/b_ui/x.mp3'] : []) }, leaf), 'battle/b_ui/x.mp3');
-  assert.equal(leakSfx({ bank: () => [] }, leaf), 'battle/b_ui/b_ui_alarmenter.mp3', 'fallback file');
-  const { audio } = await mod('audio.js');
-  const a = Object.create(audio);
-  const played = [];
-  a.ctx = {};
-  a.battle = (name) => played.push(name);
-  a.handleBattleEvents([['leak', 7]]);
-  assert.deepEqual(played, ['leak']);
-});
-
 test('SP_DEBUG_FUNDS: parsed only as an integer 0..999, unset on deployed servers (server/local-patch.js debugFunds)', async () => {
   const { debugFunds } = await import('../server/local-patch.js');
   assert.equal(debugFunds({}), null);
