@@ -1543,7 +1543,7 @@ describe('圣堂剑士 spends ammo for 赐我力量！ (server/sim/content/local
 describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/content/local-patch.js)', () => {
   const WALL = (id) => chessRec({ id, profession: 'TANK', stats: { atk: 0, maxHp: 2e7, def: 0, res: 0, blockCnt: 0 }, rangeGrid: [[0, 0]], skill: null });
   // a flying ally (the 炎佑 dragon is one) deployed after the ground wall: the engine's order (latest deployed) picks it first
-  const field = (extra, key) => {
+  const field = (extra, key, secs = 10) => {
     const h = makeBattle({
       content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 600,
       defs: { chess: { t_wall: WALL('t_wall'), t_wall2: WALL('t_wall2') } }, kits: { t_wall: () => ({ trait: { noAttack: true } }), t_wall2: () => ({ trait: { noAttack: true } }) },
@@ -1554,7 +1554,7 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
     fly.motion = 'FLY';
     assert.ok(fly.isFlying && fly.deploySeq > w.deploySeq);
     const e = h.spawn(key, { pos: [10, 7], routeIndex: 0, mods: { speedMul: 0 } });
-    h.run(10);
+    h.run(secs);
     assert.ok(e.stats.attacks >= 3, 'it attacked');
     return { w, fly };
   };
@@ -1588,6 +1588,35 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
       assert.ok(simPatch.NO_AIR_KEYS.includes(key), `${key} in NO_AIR_KEYS`);
       assert.deepEqual(ruleOf([enemiesMod, bossesMod, simPatch], key), { air: false, ground: true }, key);
     }
+  });
+
+  // user decision 「공식 클라이언트를 따라 막아」: client normal attack 1 though PRTS is silent / forms or selectors mixed
+  const CLIENT_ONLY = ['enemy_2010_csdcr', 'enemy_1252_lysytb_2', 'enemy_1427_lrnazg', 'enemy_1509_mousek', 'enemy_1504_cqbw', 'enemy_1516_jakill',
+    'enemy_10098_crhro', 'enemy_10099_crvln', 'enemy_9014_acstma', 'enemy_9015_acstmb'];
+
+  test('client-only: upstream lets them shoot a flyer; patched, ground only (扎罗 only in its second form)', () => {
+    for (const key of CLIENT_ONLY) {
+      assert.deepEqual(ruleOf([enemiesMod, bossesMod], key), { air: true, ground: true }, `upstream ${key}`);
+      assert.deepEqual(ruleOf([enemiesMod, bossesMod, simPatch], key), { air: false, ground: true }, key);
+    }
+    const wolf = (extra) => {
+      const h = makeBattle({ content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 60, units: [] });
+      h.step();
+      const e = h.spawn('enemy_1535_wlfmster', { pos: [6, 8], routeIndex: 0, mods: { speedMul: 0 } });
+      h.run(0.2);
+      const air = () => typeof e.profile.canTarget !== 'function' || !!e.profile.canTarget(FLYER);
+      const form1 = air();
+      e.form = 'form2';
+      return [form1, air()];
+    };
+    assert.deepEqual(wolf([enemiesMod, bossesMod]), [true, true], 'upstream 扎罗');
+    assert.deepEqual(wolf([enemiesMod, bossesMod, simPatch]), [true, false], '扎罗: M1 has no attack filter, M2 Attack/Trigger 1');
+  });
+
+  test('a kit that picks its own attack targets (“灵幛”: everyone in reach) still skips the flyer', () => {
+    const { w, fly } = field([enemiesMod, bossesMod, simPatch], 'enemy_1427_lrnazg', 16);
+    assert.equal(fly.stats.taken ?? 0, 0, 'the flyer is never hit');
+    assert.ok(w.stats.taken > 0, 'the ground wall is');
   });
 
   for (const key of ['enemy_1168_dumage', 'enemy_1168_dumage_2']) {

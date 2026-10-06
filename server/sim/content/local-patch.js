@@ -49,6 +49,15 @@ export function install(battle) {
   // 控潮术师 / 萨卡兹王庭军精锐术师 have 3): the engine's candidate filter, as content/enemies.js noAirTargets (upstream
   // gives these two only kitRefraction). A 起飞 ally is already out of a ground enemy's reach (targeting.js evadesGround).
   battle.on('enemySpawn', ({ enemy }) => { if (enemy && NO_AIR_KEYS.includes(enemy.defId)) enemy.profile.canTarget = (u) => !u.isFlying; }, { priority: 99 });
+  // per form (扎罗: M1 has no attack filter, M2 Attack/Trigger 1): ground only once the kit's setForm names that form
+  battle.on('enemySpawn', ({ enemy: e }) => { const f = enemy0(e) && NO_AIR_FORMS[e.defId]; if (f) e.profile.canTarget = (u) => !(u.isFlying && e.form === f); }, { priority: 99 });
+  // a kit that picks its own attack targets in 'before' (“灵幛” everyone in reach, the 胄 blades, …) bypasses the engine's
+  // candidate filter: after content (priority 50) the swept enemies' targets are filtered again (an empty list = no attack)
+  battle.on('beforeAttack', (c) => {
+    const e = c.attacker;
+    if (!enemy0(e) || !(NO_AIR_KEYS.includes(e.defId) || NO_AIR_FORMS[e.defId]) || typeof e.profile.canTarget !== 'function') return;
+    c.targets = (c.targets || []).filter((t) => t && e.profile.canTarget(t));
+  }, { priority: 49 });
   exemptDroneLink(battle);
 }
 
@@ -59,7 +68,14 @@ export const HLCHGR = 'enemy_10087_hlchgr';
 export const NO_AIR_KEYS = Object.freeze(['enemy_1168_dumage', 'enemy_1168_dumage_2',
   'enemy_1019_jshoot', 'enemy_1019_jshoot_2', 'enemy_1023_jmage', 'enemy_1050_lslime', 'enemy_1158_divman', 'enemy_1162_magmot',
   'enemy_1183_mlasrt', 'enemy_1203_sfhu', 'enemy_1203_sfhu_2', 'enemy_1283_sgkill', 'enemy_1283_sgkill_2', 'enemy_1501_demonk', 'enemy_1517_xi',
-  'enemy_2005_axetro', 'enemy_9008_acbunn', 'enemy_10027_vtsk']);
+  'enemy_2005_axetro', 'enemy_9008_acbunn', 'enemy_10027_vtsk',
+  // user decision 「공식 클라이언트를 따라 막아」: client normal attack 1, PRTS silent (绯红歌伶, Dor-β号复制体, “灵幛”, 鼠王, W) or
+  // mixed — 杰斯顿 (狱警 form Attack/Trigger 1; its 杀手 form is melee, so only a blocker), 主角/反派阵营角色 (Default 1; the
+  // Shooting mode is not modelled), 斩胄之剑 / 破胄之锤 (outer Attack/Selector 1 over a nested 3)
+  'enemy_2010_csdcr', 'enemy_1252_lysytb_2', 'enemy_1427_lrnazg', 'enemy_1509_mousek', 'enemy_1504_cqbw', 'enemy_1516_jakill',
+  'enemy_10098_crhro', 'enemy_10099_crvln', 'enemy_9014_acstma', 'enemy_9015_acstmb']);
+export const NO_AIR_FORMS = Object.freeze({ enemy_1535_wlfmster: 'form2' });
+const enemy0 = (e) => !!e && e.side === 'enemy' && !!e.profile;
 
 /** After content/enemies.js (priority 100): replace its 6 s timer with the ammo skill. */
 function patchHlchgr(b, e) {
