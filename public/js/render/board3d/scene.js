@@ -30,6 +30,7 @@ import {
 } from './materials.js';
 import { syncThreeCamera } from '../projection.js';
 import { buildOfficialScene } from './official.js';
+import { TileOverlay } from './tileOverlay.js'; // local patch: official deploy tint / range stripes (LOCAL-PATCH.md 「배치 UI」)
 
 /** Lighting rig (tuned against the official screenshots: bright even tops, darker sides, soft shadows). */
 export const LIGHTING = Object.freeze({
@@ -214,6 +215,7 @@ export class BoardScene {
     this.officialData = new Map();   // stageId → loaded official scene (null: none / failed)
     this.officialPending = new Set();
     this.officialBuilt = null;
+    this.overlay = new TileOverlay(T, this.scene); // local patch
   }
 
   // ---- geometry ----------------------------------------------------------------------------------------------
@@ -609,6 +611,7 @@ export class BoardScene {
     for (const m of [this.mat.gateEndAdd, this.mat.gateEndAb]) if (m) m.uniforms.uFlash.value.setRGB(flash, flash * 0.12, flash * 0.1);
     for (const k of ['water', 'mire', 'infection', 'smog']) this.mat[k].uniforms.uTime.value = t;
     this.officialBuilt?.update(t);
+    this.overlay?.update(t); // local patch
     this.renderer.render(this.scene, this.camera);
     this.frames++;
     if (t0) this.lastMs = this.lastMs * 0.9 + ((typeof performance !== 'undefined' ? performance.now() : t0) - t0) * 0.1;
@@ -626,6 +629,7 @@ export class BoardScene {
     for (const d of [...this.devices]) d.destroy();
     this._clear();
     this._dropOfficial();
+    this.overlay?.dispose(); // local patch
     this.mat.edge?.map?.dispose?.(); // canvas dash texture (not in this.tex)
     for (const m of Object.values(this.mat)) m?.dispose?.();
     for (const t of Object.values(this.tex)) t?.dispose?.();

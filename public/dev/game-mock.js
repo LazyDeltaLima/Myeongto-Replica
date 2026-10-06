@@ -23,6 +23,7 @@ import { PHASE, GEO } from '/shared/constants.js';
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot') === '1';
 const VARIANTS = new Set((params.get('variant') || '').split(',').filter(Boolean));
+const STAGE_ID = params.get('stage') || 'act2autochess_m01'; // local patch: ?stage= (e.g. a desert stage)
 
 // ---- deterministic rng ----------------------------------------------------------------------------------
 let seed = 20260927;
@@ -119,7 +120,7 @@ function pushPublic() {
 function buildState() {
   uidSeq = 100;
   seed = 20260927;
-  const stage = data.lookup('stages', 'act2autochess_m01');
+  const stage = data.lookup('stages', STAGE_ID);
   const melee = stage.deployTiles.normal.melee.slice();
   const ranged = stage.deployTiles.normal.rangedOnly.slice();
   const bonds = data.list('bonds');
@@ -206,7 +207,7 @@ function buildState() {
 
   const pub = {
     phase: PHASE.PREP, round: 6, lastRound: 14, bossRound: 14, hiddenRound: 15, deadline: Date.now() + 74000, serverNow: Date.now(), modeId: 'mode_multi_hard', difficulty: 'HARD',
-    stageId: 'act2autochess_m01', factions: ['FLY', 'TIMES', 'SPECIAL'], disabledBonds: [...disabled], bannedChess: banned, bossId: 'boss_5',
+    stageId: STAGE_ID, factions: ['FLY', 'TIMES', 'SPECIAL'], disabledBonds: [...disabled], bannedChess: banned, bossId: 'boss_5',
     hiddenBossId: 'boss_8', teamLp: null, bossHp: null, draft: null, sp: null, players, fields: [],
   };
   if (VARIANTS.has('boss') || VARIANTS.has('bossR')) pub.round = pub.bossRound;
@@ -312,6 +313,10 @@ function setPhase(phase, variant) {
       break;
     case PHASE.BATTLE_CHECK:
       pub.round = 0; pub.deadline = Date.now() + 3000;
+      break;
+    case PHASE.ROUND_START: // local patch: the round-start banner (ui/phaseArt.js) — round 3, the round's income credited
+      pub.round = 3; pub.deadline = Date.now() + 2000;
+      if (S.priv) S.priv.funds = (S.priv.funds || 0) + 6;
       break;
     case PHASE.SP_DRAFT: {
       pub.round = 9; pub.deadline = Date.now() + 14000;
@@ -731,7 +736,7 @@ function applyUiVariants() {
 // ---- switcher --------------------------------------------------------------------------------------------------------------
 const SWITCH = [
   ['INFO_CHECK', PHASE.INFO_CHECK, ''], ['BAND_DRAFT', PHASE.BAND_DRAFT, ''], ['BAND_DRAFT solo', PHASE.BAND_DRAFT, 'solo'],
-  ['BATTLE_CHECK', PHASE.BATTLE_CHECK, ''], ['PREP', PHASE.PREP, ''], ['PREP + reward', PHASE.PREP, 'reward'],
+  ['BATTLE_CHECK', PHASE.BATTLE_CHECK, ''], ['ROUND_START', PHASE.ROUND_START, ''], ['PREP', PHASE.PREP, ''], ['PREP + reward', PHASE.PREP, 'reward'],
   ['PREP + temp', PHASE.PREP, 'temp'], ['PREP frozen', PHASE.PREP, 'frozen'], ['PREP dead', PHASE.PREP, 'dead'],
   ['PREP boss (L)', PHASE.PREP, 'boss'], ['PREP boss (R)', PHASE.PREP, 'bossR'], ['PREP 标准 同构体 + 调和', PHASE.PREP, 'funny,morph,harmony'],
   ['SP bounty', PHASE.SP_DRAFT, 'bounty'], ['SP supply', PHASE.SP_DRAFT, 'supply'], ['SP shop', PHASE.SP_DRAFT, 'shop'], ['SP tactic', PHASE.SP_DRAFT, 'tactic'], ['SP solo', PHASE.SP_DRAFT, 'solo'],

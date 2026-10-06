@@ -111,7 +111,8 @@ import { isClientCombat, observeTarget, teammateProgress, cameraLayers, layerCam
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
 import { data, localAsset, getMode } from '../data.js';
 import { voiceForPiece, voiceForBuy } from '../voice.js'; // local patch: 休整期 lines (选中 / 部署)
-import { hudArt } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
+import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
+import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { useDocClass, FullscreenButton } from '../ui/device.js';
@@ -236,6 +237,7 @@ function MatchScreen() {
   const battleState = useStore((s) => s.match.battle, shallowEqual); // local battle runner (client-side combat)
 
   const phase = pub?.phase;
+  const roundGold = useRoundGold(phase, priv?.funds); // local patch: the round-start banner's 获得 (ui/phaseArt.js)
   const mode = phaseMode(phase);
   const combat = isCombatPhase(phase);
   const solo = roomSolo || String(pub?.modeId || '').includes('single');
@@ -514,6 +516,11 @@ function MatchScreen() {
         const diff = st.match?.public?.difficulty;
         // the speaker comes from THIS battle's own field (`mine.unitsEnd`), not from the field on screen: watching a
         // teammate used to make THEIR operator say the viewer's line (review on #73)
+        // local patch: the official battle-end banner (ui/phaseArt.js BattleEndBanner) for the own normal battle
+        if (mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT && phaseArt('result').cls) {
+          const lost = (Array.isArray(mine.leaked) ? mine.leaked : []).filter((l) => l && l.counted !== false).length;
+          setBanner({ key: `result:${msg.battleId || st.match?.public?.round}`, result: { perfect: !!mine.perfect && lost === 0, lost } });
+        }
         const charId = resultSpeaker(mine);
         if (!charId) return;
         audio.voice(charId, resultVoiceSlot({
@@ -1357,6 +1364,7 @@ function MatchScreen() {
         off=${offBonds.has(bondPop.bondId)}
         place=${bpPlace} over=${!!resolved && bpPlace === dSide}
         onClose=${() => setBondOpen(null)} onMember=${(id, items) => setDetail({ kind: 'chess', id, owner: bondPop.ownerId, items: items || null })} />` : null}
+      ${bondPop && hudLook.cls && bondPop.ownerId === strip.ownerId ? html`<${BondNav} bonds=${stripBonds} id=${bondPop.bondId} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />` : null /* local patch: the popup's < > (ui/hudArt.js) */}
 
       ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp} onClose=${() => { setDetail(null); setSel(null); }}
         bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} side=${dSide} shopOpen=${shopOpen} live=${liveStats} voice=${combat}
@@ -1373,7 +1381,10 @@ function MatchScreen() {
     ${sp ? html`<${ChoiceOverlay} pub=${pub} sp=${sp} myId=${myId} solo=${solo} busyIdx=${spBusy} total=${total}
       onPick=${async (i) => { setSpBusy(i); await actions.choice(i); setSpBusy(null); }} />` : null}
 
-    ${banner ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}
+    ${banner?.result ? html`<${BattleEndBanner} key=${banner.key} perfect=${banner.result.perfect} lost=${banner.result.lost} onDone=${() => setBanner(null)} />`
+      : banner && String(banner.key).startsWith(`${PHASE.ROUND_START}:`) && phaseArt('round').cls
+        ? html`<${RoundStartBanner} key=${banner.key} round=${pub?.round} gold=${roundGold} onDone=${() => setBanner(null)} />` /* local patch: ui/phaseArt.js */
+        : banner && !(String(banner.key).startsWith(`${PHASE.SP_DRAFT}:`) && phaseArt('choose').cls) ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}
       tone=${banner.tone} duration=${banner.duration || 1500} onDone=${() => setBanner(null)} />` : null}
 
     ${facing && view ? html`<${FacingWheel} key=${`${facing.uid}:${facing.row},${facing.col}`} view=${view} row=${facing.row} col=${facing.col}

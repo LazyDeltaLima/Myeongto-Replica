@@ -1,0 +1,54 @@
+// Local patch (src/docs/LOCAL-PATCH.md 「배치 UI」): the official placement UI — the 3D board's deploy tint / range stripe
+// geometry (render/board3d/tileOverlay.js) and the direction selector's ground-plane basis (ui/placeArt.js).
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+import { columnData, TINT, STRIPES } from '../../public/js/render/board3d/tileOverlay.js';
+
+describe('local patch: placement UI', () => {
+  test('tile columns: a top quad per tile, 4 sides more on a raised tile; uv continuous across tiles', () => {
+    const h = (r, c) => (r === 10 && c === 5 ? 0.4 : 0);
+    const d = columnData([[9, 4], [10, 5], [9, 4], { row: 9, col: 5 }, [1.5, 2]], h);
+    assert.ok(d);
+    // (9,4) once, (10,5) raised = 5 quads, (9,5) → 7 quads
+    assert.equal(d.position.length, 7 * 4 * 3);
+    assert.equal(d.index.length, 7 * 6);
+    assert.ok(d.index instanceof Uint16Array);
+    // the first quad: (9,4) top at z 0, corners ±0.5
+    assert.deepEqual(Array.from(d.position.slice(0, 12)), [3.5, 8.5, 0, 4.5, 8.5, 0, 4.5, 9.5, 0, 3.5, 9.5, 0]);
+    assert.deepEqual(Array.from(d.uv.slice(0, 8)), [4, 9, 5, 9, 5, 10, 4, 10]);
+    // the raised tile's top sits on its height, its front side runs from the ground up
+    const z = (q, k) => d.position[q * 12 + k * 3 + 2];
+    assert.ok(Math.abs(z(1, 0) - 0.4) < 1e-6);
+    assert.equal(z(2, 0), 0);
+    assert.ok(Math.abs(z(2, 3) - 0.4) < 1e-6);
+    assert.equal(columnData([], h), null);
+    assert.equal(columnData(null, h), null);
+  });
+
+  test('constants: 2× modulate tint fitted to the capture; stripes = range_material', () => {
+    // a grey top 128,125,113 → ≈ 66,130,66 (KR capture): 2 · src · dst
+    const out = [128, 125, 113].map((v, i) => Math.round(Math.min(255, 2 * TINT[i] * v)));
+    for (const [i, want] of [66, 130, 66].entries()) assert.ok(Math.abs(out[i] - want) <= 10, `${out} ≈ 66,130,66`);
+    assert.equal(STRIPES.alpha, 0.749);
+    assert.equal(STRIPES.speed, 0.5);
+  });
+
+  test('direction selector basis: local units ↔ client px on the ground plane', async () => {
+    const { dirBasis, insideDiamond, R0, DIR_HALF_TILES } = await import('../../public/js/ui/placeArt.js');
+    // a tile 100 px wide, 80 px deep (foreshortened), centred on (500, 400)
+    const g = { x: 500, y: 400, s: 100, poly: [[450, 360], [550, 360], [550, 440], [450, 440]] };
+    const b = dirBasis(g);
+    assert.ok(b);
+    const [a, bb, c, d, e, f] = b.m;
+    const pt = (x, y) => [a * x + c * y + e, bb * x + d * y + f];
+    // RIGHT vertex DIR_HALF_TILES tiles to the right, UP vertex that many tile depths up
+    assert.deepEqual(pt(R0, 0).map((n) => Math.round(n)), [500 + 100 * DIR_HALF_TILES, 400]);
+    assert.deepEqual(pt(0, -R0).map((n) => Math.round(n)), [500, 400 - 80 * DIR_HALF_TILES]);
+    const [u, v] = b.toLocal(...pt(37, -91));
+    assert.ok(Math.abs(u - 37) < 1e-6 && Math.abs(v + 91) < 1e-6);
+    assert.equal(insideDiamond(b, 500, 400), true);
+    assert.equal(insideDiamond(b, 500 + 100 * DIR_HALF_TILES * 0.9, 400), true);
+    assert.equal(insideDiamond(b, 500 + 100 * DIR_HALF_TILES * 0.7, 400 - 80 * DIR_HALF_TILES * 0.7), false);
+    assert.equal(dirBasis({ x: 0, y: 0, s: 1 }), null);
+  });
+});

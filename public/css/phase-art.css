@@ -1,0 +1,203 @@
+/* Official look of the round-start banner and the 机变 / 悬赏 choice screen (local patch, docs/LOCAL-PATCH.md
+   "휴식 진입·현상 수배 화면"; js/ui/phaseArt.js). Sprites are the web manifest's (`roundStartDialog/*`, `effectChoose/*`)
+   handed in as --pa-* / --pc-* variables; sizes and places are the client prefabs' (round_start_dialog,
+   autochess_battle_effect_choose_panel, card_small_item, card_avatar_item) in the 1280×720 canvas unit --pu
+   (1 unit = 1.5 px at 1920 wide, as css/hud-art.css). Without `has-phase-art` nothing here applies but the hidden
+   notice / flash defaults: upstream's PhaseBanner and cards stay as they are. */
+
+/* ---- round-start banner (round_start_dialog) ------------------------------------------------------------------------ */
+.parb { --pu: .015rem; position: fixed; inset: 0; z-index: var(--z-banner); pointer-events: none; overflow: hidden;
+  animation: parb-in .26s var(--ease-out) both; }
+.parb.is-leaving { animation: parb-out .26s var(--ease-in) both; }
+@keyframes parb-in { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
+@keyframes parb-out { from { opacity: 1; } to { opacity: 0; transform: scale(.98); } }
+.parb i, .parb span, .parb div { position: absolute; display: block; }
+.parb .parb__c { overflow: visible; }
+/* 9-sliced plates are drawn by a ::before over the whole box (a border on the box itself would shrink the box its children
+   are placed in). The dark plate: round_bg (border 79 / 82 / 75 / 79 — its soft edge), the contour lines round_bg_line #31543b */
+.parb__bg, .parb__box, .prb__bg { isolation: isolate; }
+.parb__bg::before, .parb__box::before, .prb__bg::before { content: ''; position: absolute; inset: 0; z-index: -1; border-style: solid; border-color: transparent; box-sizing: border-box; }
+.parb__bg::before { border-width: calc(var(--pu) * 79) calc(var(--pu) * 82) calc(var(--pu) * 75) calc(var(--pu) * 79);
+  border-image: var(--pa-bg) 79 82 75 79 fill / calc(var(--pu) * 79) calc(var(--pu) * 82) calc(var(--pu) * 75) calc(var(--pu) * 79); opacity: .92; }
+.parb__line { background: #31543b;
+  -webkit-mask: var(--pa-line) center / 100% 100% no-repeat; mask: var(--pa-line) center / 100% 100% no-repeat; }
+.parb__tile { background: var(--pa-tile) 0 0 / calc(var(--pu) * 31) calc(var(--pu) * 31) repeat; opacity: .05;
+  -webkit-mask: radial-gradient(closest-side, #000 60%, transparent); mask: radial-gradient(closest-side, #000 60%, transparent); }
+.parb__cross { background: var(--pa-cross) center / 100% 100% no-repeat; }
+.parb__frame { border-style: solid; border-color: transparent; border-width: calc(var(--pu) * 4) 0; box-sizing: border-box;
+  border-image: var(--pa-frame) 4 0 fill / calc(var(--pu) * 4) 0; }
+.parb__frame.is-r, .parb__bracket.is-r { transform: scaleX(-1); }
+/* the clipboard: book_mask (38.9 × 52.3, turned 11.6° — Unity z, counter-clockwise) holds the book sprite; its stencil
+   hides the head under it, so it is drawn over the head */
+.parb__clip { transform: rotate(-11.6deg); }
+.parb__book { background: var(--pa-book) center / 100% 100% no-repeat;
+  filter: drop-shadow(calc(var(--pu) * 1.5) 0 0 #1c1c1c) drop-shadow(calc(var(--pu) * -1.5) 0 0 #1c1c1c) drop-shadow(0 calc(var(--pu) * 1.5) 0 #1c1c1c); } /* the dark edge the KR capture shows where it overlaps the head [추정: the mask's own outline] */
+.parb__head { background: var(--pa-head) center / 100% 100% no-repeat; }
+.parb__body { background: var(--pa-body) center / 100% 100% no-repeat; }
+.parb__hand { background: var(--pa-hand) center / 100% 100% no-repeat; transform-origin: 0 50%; animation: parb-wave .5s ease-in-out .2s 2 alternate; }
+@keyframes parb-wave { to { transform: rotate(-14deg); } }
+.parb__blank { background: #1aad88; animation: parb-float 1.2s ease-in-out calc(var(--k) * -.23s) infinite alternate; }
+@keyframes parb-float { to { transform: translateY(calc(var(--pu) * -4)); } }
+.parb__text1 { background: var(--pa-text1) center / 100% 100% no-repeat; }
+.parb__text2 { background: var(--pa-text2) center / 100% 100% no-repeat; }
+/* [回合] / [获得] boxes: round_left_bg 9-sliced (4 / 6 / 6 / 8), the bracket halves round_frame (#969696 · 60 %, gold #ffb135 · 60 %) */
+.parb__box::before { border-width: calc(var(--pu) * 8) calc(var(--pu) * 6) calc(var(--pu) * 6) calc(var(--pu) * 4);
+  border-image: var(--pa-box) 8 6 6 4 fill / calc(var(--pu) * 8) calc(var(--pu) * 6) calc(var(--pu) * 6) calc(var(--pu) * 4); }
+.parb__bracket { background: rgba(150, 150, 150, .6); -webkit-mask: var(--pa-bracket) center / 100% 100% no-repeat; mask: var(--pa-bracket) center / 100% 100% no-repeat; }
+.parb__box.is-gold .parb__bracket { background: rgba(255, 177, 53, .6); }
+.parb__title { display: flex !important; align-items: center; justify-content: center; white-space: nowrap; font-family: var(--font-cjk); font-weight: 500;
+  font-size: calc(var(--pu) * 22); color: #acacac; line-height: 1; }
+.parb__box.is-gold .parb__title { color: #ffbc09; }
+.parb__round { display: flex !important; align-items: center; justify-content: center; font-family: 'Novecento Wide', var(--font-display);
+  font-size: calc(var(--pu) * 40); color: #dfdfdf; line-height: 1; letter-spacing: .04em; }
+/* 获得: round_sources_icon (32 × 25) and round_plus (14.7 × 14) left of the count (#ffba00, 26) */
+.parb__src { display: flex !important; align-items: center; justify-content: center; }
+.parb__num { position: relative !important; font-family: 'Novecento Wide', var(--font-display); font-size: calc(var(--pu) * 26); color: #ffba00; line-height: 1;
+  text-shadow: 0 0 calc(var(--pu) * 6) rgba(255, 186, 0, .35); }
+.parb__gold { left: calc(var(--pu) * (-37.7 - 16)); top: 50%; width: calc(var(--pu) * 32); height: calc(var(--pu) * 25); margin-top: calc(var(--pu) * (-12.5 + 1.5));
+  background: var(--pa-gold) center / 100% 100% no-repeat; }
+.parb__plus { left: calc(var(--pu) * (-9.4 - 7.35)); top: 50%; width: calc(var(--pu) * 14.7); height: calc(var(--pu) * 14); margin-top: calc(var(--pu) * (-7 + 3.6));
+  background: var(--pa-plus) center / 100% 100% no-repeat; }
+/* the glow under the count ([추정] its ext sprite: a soft ellipse, #f2ff00) and the gold pixels of the ui_particle */
+.parb__glow { background: radial-gradient(closest-side, rgba(242, 255, 0, .16), transparent); animation: parb-glow 1.2s ease-out both; }
+@keyframes parb-glow { from { opacity: 0; } 30% { opacity: 1; } to { opacity: .4; } }
+.parb__dot { background: #ffc21a; opacity: 0; animation: parb-dot 1s ease-out var(--d) both; }
+@keyframes parb-dot { 0% { opacity: 0; transform: translateY(calc(var(--pu) * 6)); } 30% { opacity: .9; } 100% { opacity: 0; transform: translateY(calc(var(--pu) * -10)); } }
+@media (prefers-reduced-motion: reduce) { .parb, .parb *, .pcturn, .pcturn * { animation: none !important; } }
+
+/* ---- choice screen (autochess_battle_effect_choose_panel) ---------------------------------------------------------- */
+.spov__notice { display: none; }
+.spov.has-phase-art { --pu: .015rem; --pc-tone: #35d8b4; }
+.spov.has-phase-art .spov__veil { -webkit-backdrop-filter: none; backdrop-filter: none; border-left: 0;
+  background: var(--pc-grad) top / 100% 100% no-repeat, var(--pc-lines) 0 0 / calc(var(--pu) * 32) calc(var(--pu) * 32) repeat, rgba(36, 36, 36, .45); }
+.spov.has-phase-art .spov__veil::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10, 12, 12, .55), rgba(10, 12, 12, .35) 30%, rgba(10, 12, 12, .35)); }
+/* title row: the title (40, SourceHanSans Heavy, the family's typeTxtColor) over its `title` ornament, a 3-unit line, then
+   the description (18) and the notice (15, white 60 %) */
+.spov.has-phase-art .spov__titles > .micro, .spov.has-phase-art .spov__sub { display: none; }
+.spov.has-phase-art .spov__titles { position: relative; display: grid; grid-template-columns: auto calc(var(--pu) * 14) auto; grid-template-rows: auto auto;
+  align-items: center; column-gap: calc(var(--pu) * 6); row-gap: calc(var(--pu) * 2); justify-content: start; }
+.spov.has-phase-art .spov__titles::before { content: ''; position: absolute; left: calc(var(--pu) * (63 - 120.5)); top: calc(50% + var(--pu) * (13 - 72.5)); width: calc(var(--pu) * 241); height: calc(var(--pu) * 145);
+  background: var(--pc-tone); opacity: .9; -webkit-mask: var(--pc-title) center / 100% 100% no-repeat; mask: var(--pc-title) center / 100% 100% no-repeat; pointer-events: none; }
+.spov.has-phase-art .spov__title { display: contents; color: var(--pc-tone); text-shadow: none; }
+.spov.has-phase-art .spov__title.is-special { --pc-tone: #f2bd3e; }
+.spov.has-phase-art .spov__name { grid-column: 1; grid-row: 1 / 3; position: relative; font-size: calc(var(--pu) * 40); font-weight: 900; line-height: 1.1; letter-spacing: .02em; color: var(--pc-tone); }
+.spov.has-phase-art .spov__bar { grid-column: 2; grid-row: 1 / 3; justify-self: center; width: calc(var(--pu) * 3); height: calc(var(--pu) * 32); font-size: 0; color: transparent;
+  background: var(--pc-tone); opacity: .7; }
+.spov.has-phase-art .spov__desc { grid-column: 3; grid-row: 1; font-size: calc(var(--pu) * 18); font-weight: 900; color: var(--pc-tone); letter-spacing: .02em; align-self: end; }
+.spov.has-phase-art .spov__notice { display: block; grid-column: 3; grid-row: 2; align-self: start; font-size: calc(var(--pu) * 15); font-weight: 500; color: rgba(255, 255, 255, .6); letter-spacing: .02em; }
+/* the right tip (group_tip): my turn = #00ffc4 (20) over tip_glow; a teammate's = #c2c2c2 with the hourglass tip_wait */
+.spov.has-phase-art .spov__turntxt { font-size: calc(var(--pu) * 20); font-weight: 900; color: #c2c2c2; }
+/* my turn: the "轮到你了" flash says it (the KR capture has nothing at the top right; the prefab's root_self tip is not
+   shown there), so the original strip is hidden; a teammate's turn keeps the tip */
+.spov.has-phase-art .spov__turntxt.is-mine { display: none; }
+.spov.has-phase-art .spov__turntxt.is-mine { color: #00ffc4; text-shadow: 0 0 calc(var(--pu) * 8) rgba(0, 255, 196, .45); animation: none;
+  padding: 0 calc(var(--pu) * 60); background: var(--pc-tip-glow) center / calc(var(--pu) * 449) calc(var(--pu) * 58) no-repeat; }
+.spov.has-phase-art .spov__turntxt:not(.is-mine):not(.is-done) .icon { width: calc(var(--pu) * 18.5); height: calc(var(--pu) * 25.5); color: transparent;
+  background: var(--pc-wait) center / 100% 100% no-repeat; }
+.spov.has-phase-art .spov__confirm { display: none; }
+/* cards (card_small_item, 307 × 271): the stacked-paper plate bg_normal, the content inset 20.5 / 21.5, icon 86, name 20 white,
+   text 16 #cecece · 80 %; the grid at the prefab size, scaled down to fit two rows of six on a 16:9 screen */
+.spov.has-phase-art .spov__grid { --pu: min(.015rem, .125vh); grid-template-columns: repeat(3, calc(var(--pu) * 307)); grid-template-rows: repeat(2, calc(var(--pu) * 271));
+  justify-content: center; align-content: center; column-gap: calc(var(--pu) * 25); row-gap: calc(var(--pu) * 34); flex: 1; }
+.spov.has-phase-art .spov__grid--3 { --pu: min(.015rem, .2vh); grid-template-rows: calc(var(--pu) * 271); column-gap: calc(var(--pu) * 48); margin-top: 0; }
+.spov.has-phase-art .spcard { width: calc(var(--pu) * 307); height: calc(var(--pu) * 271); padding: calc(var(--pu) * 21.5) calc(var(--pu) * 22) 0 calc(var(--pu) * 20.5);
+  gap: calc(var(--pu) * 10); overflow: visible; border: 0; box-shadow: none; transform: none; filter: none; color: #fff;
+  background: var(--pc-card) center / 100% 100% no-repeat; }
+.spov.has-phase-art .spcard:hover, .spov.has-phase-art .spcard.is-pickable:hover { border: 0; box-shadow: none; transform: none; background: var(--pc-card) center / 100% 100% no-repeat; filter: brightness(1.08); }
+.spov.has-phase-art .spcard__glow { inset: auto; left: 50%; top: 50%; width: calc(var(--pu) * 362); height: calc(var(--pu) * 314); margin: calc(var(--pu) * -157) 0 0 calc(var(--pu) * -181);
+  background: none; opacity: 0; border-style: solid; border-color: transparent; border-width: calc(var(--pu) * 44); box-sizing: border-box;
+  border-image: var(--pc-glow) 44 fill / calc(var(--pu) * 44); transition: opacity var(--t-fast); z-index: -1; }
+.spov.has-phase-art .spcard__head { gap: calc(var(--pu) * 12); min-height: calc(var(--pu) * 100); }
+.spov.has-phase-art .spcard__icon, .spov.has-phase-art .spov__grid--3 .spcard__icon { width: calc(var(--pu) * 86); height: calc(var(--pu) * 86); padding: 0; border: 0;
+  background: rgba(0, 0, 0, .35); box-shadow: 0 0 0 calc(var(--pu) * 1) rgba(255, 255, 255, .12); }
+.spov.has-phase-art .spcard--bounty .spcard__icon { border: 0; background: #1b1b1b; }
+.spov.has-phase-art .spcard__name { font-size: calc(var(--pu) * 20); line-height: 1.3; letter-spacing: .02em; color: #fff; }
+.spov.has-phase-art .spcard__tag { font-size: calc(var(--pu) * 12); padding: 0 calc(var(--pu) * 6); }
+.spov.has-phase-art .spcard__desc { font-size: calc(var(--pu) * 16); line-height: 1.5; color: rgba(206, 206, 206, .8); padding: 0 calc(var(--pu) * 4); -webkit-line-clamp: 6; }
+.spov.has-phase-art .spcard__tier { left: calc(var(--pu) * 16.8); top: calc(var(--pu) * 22.2); }
+/* selected (the second tap confirms): select_glow (9-sliced 44) + select_frame (white, 9-sliced 8) + btn_certain — btn_bg
+   (333 × 115, 9-sliced 292 | 38, drawn 354 wide), btn_icon 31 and 确认选择 (23, black 90 %); the bar's bottom on the
+   card's (the KR capture: its card_small_select clip lifts the bar from the prefab's −122, [추정] by how much) */
+.spov.has-phase-art .spcard.is-armed, .spov.has-phase-art .spcard.is-armed:hover { transform: none; box-shadow: none; border: 0; background: var(--pc-card) center / 100% 100% no-repeat; }
+.spov.has-phase-art .spcard.is-armed .spcard__glow { opacity: 1; }
+.spov.has-phase-art .spcard.is-armed::after { content: ''; position: absolute; left: calc(50% + var(--pu) * (2.1 - 145)); top: calc(50% - var(--pu) * (0.6 + 122)); width: calc(var(--pu) * 290); height: calc(var(--pu) * 244);
+  border-style: solid; border-color: transparent; border-width: calc(var(--pu) * 8); box-sizing: border-box; border-image: var(--pc-frame) 8 / calc(var(--pu) * 8); pointer-events: none; }
+.spov.has-phase-art.has-armed .spcard.is-pickable:not(.is-armed) { filter: brightness(.75); }
+.spov.has-phase-art .spcard__confirm { left: calc(50% + var(--pu) * (2 - 177)); right: auto; top: calc(50% + var(--pu) * (135.5 - 115)); bottom: auto;
+  width: calc(var(--pu) * 354); height: calc(var(--pu) * 115); padding: 0; align-items: center; gap: calc(var(--pu) * 10); background: none; color: rgba(0, 0, 0, .9);
+  border-style: solid; border-color: transparent; border-width: 0 calc(var(--pu) * 38) 0 calc(var(--pu) * 292); box-sizing: border-box;
+  border-image: var(--pc-btn) 0 38 0 292 fill / 0 calc(var(--pu) * 38) 0 calc(var(--pu) * 292); }
+.spov.has-phase-art .spcard__confirm b { margin-left: calc(var(--pu) * -255); font-size: calc(var(--pu) * 23); letter-spacing: .04em; padding: 0; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: calc(var(--pu) * 10); }
+.spov.has-phase-art .spcard__confirm b::before { content: ''; width: calc(var(--pu) * 31); height: calc(var(--pu) * 31); background: var(--pc-btn-icon) center / 100% 100% no-repeat; }
+.spov.has-phase-art .spcard__confirm small { display: none; }
+/* taken: the grey plate bg_selected and the grey scan lines (repeat_line #c5c5c5 · 15 %) over it, the taker's round avatar
+   (card_avatar_item: head_bg 63, the avatar in a 40 circle, the teal ring head_outline 46.7) at the top-right */
+.spov.has-phase-art .spcard.is-taken::before { content: ''; position: absolute; left: calc(50% + var(--pu) * (1.8 - 145.3)); top: calc(50% - var(--pu) * (0.5 + 122.15));
+  width: calc(var(--pu) * 290.6); height: calc(var(--pu) * 244.3); background: var(--pc-card-grey) center / 100% 100% no-repeat; pointer-events: none; }
+.spov.has-phase-art .spcard.is-taken > :not(.spcard__taker):not(.spcard__glow) { position: relative; opacity: .7; filter: grayscale(1); }
+.spov.has-phase-art .spcard.is-mine > :not(.spcard__taker) { opacity: 1; filter: none; }
+.spov.has-phase-art .spcard__taker { --tk: calc(var(--pu) * 40); right: calc(var(--pu) * (17.5 + 16 + 11.5)); top: calc(var(--pu) * (16.5 - 31.5 + 11.5)); box-shadow: none;
+  padding: calc(var(--pu) * 11.5); background: var(--pc-head-bg) center / 100% 100% no-repeat; }
+.spov.has-phase-art .spcard__taker::after { content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--pu) * 46.7); height: calc(var(--pu) * 46.7);
+  margin: calc(var(--pu) * -23.35) 0 0 calc(var(--pu) * -23.35); background: var(--pc-head-ring) center / 100% 100% no-repeat; pointer-events: none; }
+.spov.has-phase-art .spcard__taker .pavatar { border: 0; }
+.spov.has-phase-art .spcard.is-taken .spcard__head { padding-right: calc(var(--pu) * 50); }
+
+/* "轮到你了" (panel_player_select): bg_circle, three rings ([추정] their ext sprite: thin teal circles), the four plus marks
+   (#18e6b8), the cube square_1 and its spark square_2, 轮到你了 (49, #00ffc4) over the bottom bar */
+.pcturn { position: absolute; inset: 0; z-index: 30; pointer-events: none; animation: pcturn 1.6s ease-out both; }
+.pcturn i, .pcturn b, .pcturn div { position: absolute; display: block; }
+@keyframes pcturn { 0% { opacity: 0; transform: scale(1.12); } 14% { opacity: 1; transform: none; } 78% { opacity: 1; } 100% { opacity: 0; } }
+.pcturn__bg { background: var(--pc-circle) center / 100% 100% no-repeat; }
+.pcturn__ring { border-radius: 50%; border: calc(var(--pu) * 14) solid rgba(0, 233, 255, .1); box-sizing: border-box; }
+.pcturn__ring.is-2 { border-color: rgba(0, 252, 255, .14); border-width: calc(var(--pu) * 10); }
+.pcturn__ring.is-3 { border-color: rgba(0, 208, 255, .12); border-width: calc(var(--pu) * 6); }
+.pcturn__plus i { width: calc(var(--pu) * 21); height: calc(var(--pu) * 22); margin: calc(var(--pu) * -11) 0 0 calc(var(--pu) * -10.5); background: #18e6b8;
+  -webkit-mask: var(--pc-plus) center / 100% 100% no-repeat; mask: var(--pc-plus) center / 100% 100% no-repeat; }
+.pcturn__plus .is-tl { left: 0; top: 0; } .pcturn__plus .is-tr { left: 100%; top: 0; }
+.pcturn__plus .is-bl { left: 0; top: 100%; } .pcturn__plus .is-br { left: 100%; top: 100%; }
+.pcturn__cube { background: var(--pc-cube) center / 100% 100% no-repeat; animation: pcturn-cube .5s var(--ease-out) both; }
+@keyframes pcturn-cube { from { transform: translateY(calc(var(--pu) * 20)) scale(.8); } to { transform: none; } }
+.pcturn__fx { background: var(--pc-cube-fx) center / 100% 100% no-repeat; }
+.pcturn__text { display: flex !important; align-items: center; justify-content: center; white-space: nowrap; font-size: calc(var(--pu) * 49); font-weight: 900;
+  color: #00ffc4; text-shadow: 0 0 calc(var(--pu) * 10) rgba(0, 255, 196, .4); line-height: 1; }
+.pcturn__bar { background: var(--pc-bottom) center / 100% 100% no-repeat; }
+
+/* ---- battle-end banner (round_result_dialog) ------------------------------------------------------------------------ */
+/* plates: bg_all (teal glow, 9-sliced 95 / 95 / 86 / 85) for a perfect battle, round_bg (9-sliced 79 / 82 / 75 / 79) else */
+.prb__bg::before { opacity: .94; border-width: calc(var(--pu) * 79) calc(var(--pu) * 82) calc(var(--pu) * 75) calc(var(--pu) * 79);
+  border-image: var(--pr-bg) 79 82 75 79 fill / calc(var(--pu) * 79) calc(var(--pu) * 82) calc(var(--pu) * 75) calc(var(--pu) * 79); }
+.prb.is-perfect .prb__bg::before { border-width: calc(var(--pu) * 85) calc(var(--pu) * 95) calc(var(--pu) * 86) calc(var(--pu) * 95);
+  border-image: var(--pr-all) 85 95 86 95 fill / calc(var(--pu) * 85) calc(var(--pu) * 95) calc(var(--pu) * 86) calc(var(--pu) * 95); }
+.prb__line { background: #31543b; -webkit-mask: var(--pr-line) center / 100% 100% no-repeat; mask: var(--pr-line) center / 100% 100% no-repeat; }
+.prb__dot { background: #28c79f; }
+.prb__dot.is-r { background: #279481; }
+.prb__doc { background: #28c79f; -webkit-mask: var(--pr-doc) center / 100% 100% no-repeat; mask: var(--pr-doc) center / 100% 100% no-repeat; }
+.prb__tile { background: var(--pr-tile) 0 0 / calc(var(--pu) * 31) calc(var(--pu) * 31) repeat; opacity: .05;
+  -webkit-mask: radial-gradient(closest-side, #000 60%, transparent); mask: radial-gradient(closest-side, #000 60%, transparent); }
+.prb__cross, .prb__frame, .prb__text1, .prb__text2 { background: #18e6b8; }
+.prb__cross { -webkit-mask: var(--pr-cross) center / 100% 100% no-repeat; mask: var(--pr-cross) center / 100% 100% no-repeat; }
+.prb__frame { -webkit-mask: var(--pr-frame) center / 100% 100% no-repeat; mask: var(--pr-frame) center / 100% 100% no-repeat; }
+.prb__frame.is-r { transform: scaleX(-1); }
+.prb__text1 { -webkit-mask: var(--pr-text1) center / 100% 100% no-repeat; mask: var(--pr-text1) center / 100% 100% no-repeat; }
+.prb__text2 { -webkit-mask: var(--pr-text2) center / 100% 100% no-repeat; mask: var(--pr-text2) center / 100% 100% no-repeat; }
+.prb__head { background: var(--pr-head) center / 100% 100% no-repeat; }
+.prb__head.is-miss { background-image: var(--pr-miss); }
+/* the sword sprite is white, tinted #39d3a5 (perfect) / #1aad88 (miss, mirrored); its pivot is the hilt end */
+.prb__sword { background: #39d3a5; -webkit-mask: var(--pr-sword) center / 100% 100% no-repeat; mask: var(--pr-sword) center / 100% 100% no-repeat;
+  transform-origin: 0 100%; animation: prb-swing .35s var(--ease-out) .15s both; }
+.prb__sword.is-down { background: #1aad88; transform: scaleX(-1); transform-origin: 100% 100%; animation: none; }
+@keyframes prb-swing { from { transform: rotate(-30deg); } to { transform: none; } }
+.prb__spark { background: #39d3a5; transform-origin: 50% 100%; transform: rotate(-30deg); animation: prb-spark .5s ease-out .3s both; }
+.prb__spark.is-2 { transform: rotate(-60deg); } .prb__spark.is-3 { transform: rotate(-90deg); height: calc(var(--pu) * 10) !important; }
+@keyframes prb-spark { from { opacity: 0; } to { opacity: 1; } }
+.prb__body { background: #1aad88; -webkit-mask: var(--pr-body) center / 100% 100% no-repeat; mask: var(--pr-body) center / 100% 100% no-repeat; }
+.prb__hand { background: #1aad88; }
+.prb__title { display: flex !important; align-items: center; justify-content: center; white-space: nowrap; font-size: calc(var(--pu) * 40); font-weight: 900;
+  color: #d0d0d0; line-height: 1; letter-spacing: .04em; }
+.prb__desc { display: flex !important; align-items: center; gap: calc(var(--pu) * 6); white-space: nowrap; font-size: calc(var(--pu) * 22); font-weight: 900; color: #2ce3b8; line-height: 1; }
+.prb.is-miss .prb__desc { font-size: calc(var(--pu) * 19); font-weight: 500; color: #f24549; }
+.prb__desc > * { position: static !important; }
+.prb__blood { display: inline-block !important; width: calc(var(--pu) * 13); height: calc(var(--pu) * 21); background: var(--pr-blood) center / 100% 100% no-repeat; margin-left: calc(var(--pu) * 4); }
+.prb__lost { font-family: 'Novecento Wide', var(--font-display); font-size: calc(var(--pu) * 26); font-weight: 400; color: #ff3b3b; }

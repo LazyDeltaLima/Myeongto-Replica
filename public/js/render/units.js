@@ -137,6 +137,11 @@ export const DOWN_LOOK = Object.freeze({
   size: 0.42, height: 1.02,
 });
 /**
+ * local patch (LOCAL-PATCH.md 「배치 UI」): a piece being placed — dragged, or held on its tile while its direction is
+ * chosen — is drawn see-through like the official client's deploy preview. [추정] 0.6 (KR client capture).
+ */
+export const GHOST_ALPHA = 0.6;
+/**
  * An enemy drawn with another enemy's web model because its own is only in the local client (manifest `spineAliasOf`
  * + `spineLocal`: 灼热 / 炽焰源石虫 → the plain 源石虫's skeleton, feedback D3 after 0.1.0): a multiply tint toward its own
  * lava colours (orange / red-orange), so it reads apart from the plain slug where the local art was not extracted
@@ -904,6 +909,7 @@ export class UnitView {
     }
     if (this.flags & UF.STEALTH) alpha *= 0.45;
     if (this.dimmed) alpha *= 0.35;
+    if (this.ghost) alpha *= GHOST_ALPHA; // local patch
     this.alpha = alpha;
 
     // body placement — the 0.12-tile jolt toward the target on an attack stands in for the avatar diamond's missing attack

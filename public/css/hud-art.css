@@ -254,40 +254,67 @@
 }
 .gm.has-hud-art.has-hud-team .team__status.has-sprite .lsprite { width: 100%; height: 100%; }
 
-/* ---- bond popup (ui/bondStrip.js BondPopup), as the KR client's (user screenshots 2026-10-06: 쉐라그, 에기르): a white
-   tile with the black bond icon, the small grey 核心盟约 / 附加盟约 label, the name, a dark pill 「激活所需人数 N」 (N = the
-   first threshold, in autochess.dgreen), then the bond text right away, in the official rich-text colours
-   (gamedata_const richTextStyles: ba.vup #0098DC, ba.vdown #FF6237, ba.rem #F49800, ba.kw #00B0FF, ba.acrem #727272,
-   autochess.gray #777777, autochess.dgreen #40B196). The client's own detail dialog (autochess_hud_bond_detail_dialog,
-   detail_bg 584×379) gives the plate; the tile and the pill are CSS [추정: no sprite of them in the bundles read].
-   Upstream's extras stay below the text: the tiers, 当前效果 (resolved numbers), the members. ---- */
-.bpop__kind, .bpop__need { display: none; }
+/* ---- bond popup (ui/bondStrip.js BondPopup) = the client's autochess_hud_bond_detail_dialog (KR captures 2026-10-06:
+   the panel measures 602×391 units there, the prefab 584×379). detail_view_root top-centre anchored, its centre 322 under
+   the screen's top → the panel's top at 132.5; detail_bg plate; header 104 tall: the bond's own disc (icon_view 80×80
+   centred 43.4 / 49.2 from the top-left: the bondBoardIcon board + icon 36), the name (20 px best-fit, from x 80), the
+   count pill (inactive_group: bond_inactive_bg red, title_char_icon #b6b6b6, "n/m" 18 px Novecento, 비활성화 16 px #fd6969;
+   active_group: bond_active_bg, the icon #00f0b4, active_icon) centred 61.9 down from x 81.3, "중첩 수 n" (16 px #d0d0d0 / white)
+   right-aligned 25 from the right, 34.5 down; then the scrolling content (padding 24 / 20 / 30, gap 19): the bond text
+   (18 px) and the member grid (cells 88×88, 5 a row, gaps 25.5 × 38: autochess_hud_bond_char_item — avatar 76, avatar_border
+   83, avatar_active_border 92×90 on members on the field, #3b3b3b 50 % on the others, the tier badge at the bottom left,
+   the name 16 px under it). Upstream's extras (the tiers, 当前效果, 同构 / 调和 / 本局禁用 marks) stay in the scroll, after
+   the text. The < > arrows (btn_prev / btn_next 100×100, arrow 87×86) sit 344 / 339 from the centre (ui/hudArt.js BondNav). ---- */
+.bpop__need, .bpop__stack { display: none; } /* (upstream look: its own facts row) */
 .gm.has-hud-art .bpop {
-  background: var(--ha-detail-bg, none) center / cover no-repeat, #232323; border: 0; gap: .14rem; padding: .22rem .24rem;
+  left: 50%; right: auto; top: calc(var(--u) * 132.5); bottom: auto; transform: translateX(-50%); z-index: 10;
+  width: calc(var(--u) * 584); height: calc(var(--u) * 379); max-height: none; padding: 0 calc(var(--u) * 20) calc(var(--u) * 30) calc(var(--u) * 24);
+  display: flex; flex-direction: column; gap: calc(var(--u) * 19); border: 0; box-shadow: 0 .1rem .3rem rgba(0, 0, 0, .5);
+  background: var(--ha-detail-bg, none) center / 100% 100% no-repeat, rgba(30, 30, 30, .94);
+  scrollbar-width: thin; scrollbar-color: rgba(141, 141, 141, .5) transparent;
 }
 .gm.has-hud-art .bpop.brackets::before, .gm.has-hud-art .bpop.brackets::after { display: none; }
-.gm.has-hud-art .bpop__head { align-items: flex-start; gap: .18rem; }
+.gm.has-hud-art .bpop__head {
+  position: sticky; top: 0; z-index: 2; flex: none; display: block; height: calc(var(--u) * 104); margin: 0 calc(var(--u) * -20) 0 calc(var(--u) * -24);
+  background: var(--ha-detail-bg, none) center top / calc(var(--u) * 584) calc(var(--u) * 379) no-repeat, rgb(30, 30, 30);
+}
 .gm.has-hud-art .bpop__disc {
-  width: .92rem; height: .92rem; border-radius: .1rem; border: 0; background: #f2f2f2; box-shadow: none;
+  position: absolute; left: calc(var(--u) * 3.4); top: calc(var(--u) * 9.2); width: calc(var(--u) * 80); height: calc(var(--u) * 80);
+  border: 0; border-radius: 0; box-shadow: none; background: var(--bb) center / 100% 100% no-repeat;
 }
-.gm.has-hud-art .bpop__disc .bglyph { width: .6rem; height: .6rem; }
-.gm.has-hud-art .bpop__disc .bglyph img { filter: brightness(0); }
-.gm.has-hud-art .bpop__titles { gap: .04rem; }
-.gm.has-hud-art .bpop__titles > .micro { display: none; }
-.gm.has-hud-art .bpop__kind { display: block; font-size: .14rem; color: #9a9a9a; }
-.gm.has-hud-art .bpop__name { font-size: .3rem; font-weight: 700; letter-spacing: .02em; color: #f4f4f4; }
+.gm.has-hud-art .bpop__disc .bglyph { width: calc(var(--u) * 36); height: calc(var(--u) * 36); }
+.gm.has-hud-art .bpop__disc .bglyph img { filter: brightness(0) invert(.72); opacity: .8; }
+.gm.has-hud-art .bpop__disc[data-full] .bglyph img { filter: brightness(0); opacity: 1; }
+.gm.has-hud-art .bpop__titles { position: absolute; inset: 0; display: block; }
+.gm.has-hud-art .bpop__titles > .micro, .gm.has-hud-art .bpop__facts { display: none; }
+.gm.has-hud-art .bpop__name {
+  position: absolute; left: calc(var(--u) * 80); top: calc(var(--u) * 34.5); transform: translateY(-50%); margin: 0;
+  font-size: calc(var(--u) * 24); font-weight: 500; letter-spacing: 0; color: #ececec;
+}
+.gm.has-hud-art .bpop__owner { position: absolute; left: calc(var(--u) * 80); top: calc(var(--u) * 82); font-size: calc(var(--u) * 13); }
 .gm.has-hud-art .bpop__need {
-  display: inline-flex; align-self: flex-start; align-items: center; gap: .1rem; padding: .03rem .16rem; border-radius: 1rem;
-  background: #3a3a3a; color: #e6e6e6; font-size: .15rem;
+  position: absolute; left: calc(var(--u) * 81.3); top: calc(var(--u) * 61.9); transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: calc(var(--u) * 6); height: calc(var(--u) * 25); padding: 0 calc(var(--u) * 8) 0 calc(var(--u) * 4);
+  background: var(--ha-bd-off, none) center / 100% 100% no-repeat, rgba(170, 40, 40, .75); color: #fff; font-size: calc(var(--u) * 16);
 }
-.gm.has-hud-art .bpop__need b { color: #40b196; font-size: .2rem; font-weight: 700; }
-.gm.has-hud-art .bpop__facts { font-size: .13rem; }
-/* the bond text first (no heading), then upstream's tiers, 当前效果 and members */
+.gm.has-hud-art .bpop__need.is-active { background: var(--ha-bd-on, none) center / 100% 100% no-repeat, rgba(70, 70, 70, .8); }
+.gm.has-hud-art .bpop__need b { font-family: 'Novecento Wide', var(--font-num); font-size: calc(var(--u) * 18); font-weight: 400; }
+.gm.has-hud-art .bpop__need em { font-style: normal; color: #fd6969; }
+.gm.has-hud-art .bpop__needicon { width: calc(var(--u) * 15); height: calc(var(--u) * 17); background: #b6b6b6;
+  -webkit-mask: var(--ha-bd-people) center / contain no-repeat; mask: var(--ha-bd-people) center / contain no-repeat; }
+.gm.has-hud-art .bpop__need.is-active .bpop__needicon { background: #00f0b4; }
+.gm.has-hud-art .bpop__needok { width: calc(var(--u) * 18); height: calc(var(--u) * 18); background: var(--ha-bd-ok) center / contain no-repeat; }
+.gm.has-hud-art .bpop__stack {
+  display: block; position: absolute; right: calc(var(--u) * 25); top: calc(var(--u) * 34.5); transform: translateY(-50%); color: #d0d0d0; font-size: calc(var(--u) * 16);
+}
+.gm.has-hud-art .bpop__stack b { color: #fff; font-family: 'Novecento Wide', var(--font-num); font-weight: 400; margin-left: calc(var(--u) * 4); }
+.gm.has-hud-art .bpop__close { position: absolute; z-index: 3; right: calc(var(--u) * 4); top: calc(var(--u) * 4); width: calc(var(--u) * 20); height: calc(var(--u) * 20); border: 0; opacity: .6; }
+/* the bond text first (its heading hidden), then upstream's tiers, 当前效果, and the members */
 .gm.has-hud-art .bpop > .bpop__tiers { order: 3; }
 .gm.has-hud-art .bpop > .bpop__sec--now { order: 4; }
 .gm.has-hud-art .bpop > .bpop__sec:last-child { order: 5; }
 .gm.has-hud-art .bpop > .bpop__sec:not(.bpop__sec--now):not(:last-child) > h4 { display: none; }
-.gm.has-hud-art .bpop__desc { font-size: .17rem; line-height: 1.6; color: #e8e8e8; }
+.gm.has-hud-art .bpop__desc { font-size: calc(var(--u) * 18); line-height: 1.55; color: #fff; }
 .gm.has-hud-art .bpop__sec--now { background: rgba(255, 255, 255, .04); border-left-color: #40b196; }
 .gm.has-hud-art .bpop .rt-vup, .gm.has-hud-art .dpanel .rt-vup { color: #0098dc; }
 .gm.has-hud-art .bpop .rt-vdown, .gm.has-hud-art .dpanel .rt-vdown { color: #ff6237; }
@@ -295,6 +322,46 @@
 .gm.has-hud-art .bpop .rt-kw, .gm.has-hud-art .dpanel .rt-kw { color: #00b0ff; }
 .gm.has-hud-art .bpop .rt-note, .gm.has-hud-art .dpanel .rt-note { color: #777; }
 .gm.has-hud-art .bpop .rt-mint, .gm.has-hud-art .dpanel .rt-mint { color: #40b196; }
+/* the member grid (char_group: 5 cells of 88, gaps 25.5 × 38) */
+.gm.has-hud-art .bpop__sec:last-child > h4 { display: none; }
+.gm.has-hud-art .bpop__members { grid-template-columns: repeat(5, calc(var(--u) * 88)); column-gap: calc(var(--u) * 25.5); row-gap: calc(var(--u) * 38);
+  padding-top: calc(var(--u) * 9); margin-left: calc(var(--u) * -3); }
+.gm.has-hud-art .bpop__member { width: calc(var(--u) * 88); height: calc(var(--u) * 88); padding: 0; border: 0; gap: 0; justify-content: center; overflow: visible; }
+.gm.has-hud-art .bpop__member:hover { background: none; border: 0; filter: brightness(1.12); }
+.gm.has-hud-art .bpop__member .uthumb { --ut: calc(var(--u) * 76); position: relative; }
+.gm.has-hud-art .bpop__member .uthumb__art { border: 0; border-radius: 0; box-shadow: none !important; }
+.gm.has-hud-art .bpop__member .uthumb::after { /* avatar_border 83 */
+  content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 83); height: calc(var(--u) * 83); transform: translate(-50%, -50%);
+  background: var(--ha-bd-border, none) center / 100% 100% no-repeat; box-shadow: inset 0 0 0 calc(var(--u) * 3) rgba(120, 120, 120, .55); pointer-events: none;
+}
+.gm.has-hud-art .bpop__member.is-on .uthumb::after { /* avatar_active_border 92×90 */
+  width: calc(var(--u) * 92); height: calc(var(--u) * 90); background-image: var(--ha-bd-border-on); box-shadow: inset 0 0 0 calc(var(--u) * 3) #2fe0b9;
+}
+.gm.has-hud-art .bpop__member:not(.is-on) .uthumb__art::after { content: ''; position: absolute; inset: 0; background: rgba(59, 59, 59, .5); }
+/* common_chess_level 30×30 centred 33.5 left / 30 under the item's centre */
+.gm.has-hud-art .bpop__member .uthumb__tier { left: calc(var(--u) * -10.5); top: auto; bottom: calc(var(--u) * -7); transform: none; z-index: 1; }
+/* char_name_text: its rect centred 66.8 under the item's, text top-aligned (upper centre) → the name's top ≈ 11 under the avatar */
+.gm.has-hud-art .bpop__mname { position: absolute; left: 50%; top: calc(var(--u) * 93); transform: translateX(-50%); width: calc(var(--u) * 112);
+  font-size: calc(var(--u) * 16); color: #fff; text-align: center; white-space: normal; overflow: visible; line-height: 1.1; }
+.gm.has-hud-art .bpop__member.is-on .bpop__mname, .gm.has-hud-art .bpop__member.is-owned .bpop__mname { color: #fff; }
+/* the < > arrows outside the panel (btn_prev / btn_next, 100×100 at −344 / +339, 12.8 above the panel's centre) */
+.bpop-nav { display: contents; }
+.bpop-nav__btn {
+  position: absolute; z-index: 11; top: calc(var(--u) * (322 - 12.8)); width: calc(var(--u) * 100); height: calc(var(--u) * 100); transform: translate(-50%, -50%);
+  border: 0; padding: 0; cursor: pointer; background: var(--ha-bd-arrow, none) center / calc(var(--u) * 87) calc(var(--u) * 86) no-repeat;
+}
+.bpop-nav__btn--prev { left: calc(50% - var(--u) * 344); }
+.bpop-nav__btn--next { left: calc(50% + var(--u) * 339); transform: translate(-50%, -50%) scaleX(-1); }
+.bpop-nav__btn:hover { filter: brightness(1.2); }
+/* the open bond's disc in the strip: group_select — select_glow behind, select_frame brackets left / right (21×61, ±34.5, 8.4 up) */
+.gm.has-hud-art .bslot.is-open { position: relative; }
+.gm.has-hud-art .bslot.is-open::before, .gm.has-hud-art .bslot.is-open::after {
+  content: ''; position: absolute; z-index: 2; top: calc(50% - var(--u) * 8.4); width: calc(var(--u) * 21); height: calc(var(--u) * 61);
+  background: var(--ha-sel-frame) center / 100% 100% no-repeat; pointer-events: none;
+}
+.gm.has-hud-art .bslot.is-open::before { left: calc(50% + var(--u) * 34.5); transform: translate(-50%, -50%); }
+.gm.has-hud-art .bslot.is-open::after { left: calc(50% - var(--u) * 34.5); transform: translate(-50%, -50%) scaleX(-1); }
+.gm.has-hud-art .bslot.is-open .bond__disc { box-shadow: 0 0 calc(var(--u) * 14) rgba(47, 224, 185, .35); border-radius: 50%; }
 
 /* ---- operator card (ui/detailArt.js ChessDetailArt), as the client's: no box — the art on the left edge at full height,
    fading out to the right, the texts over it. The subpanels are 735 units wide on the client's 1920×1080 battle canvas
@@ -327,7 +394,16 @@
 }
 /* the 180×360 portrait: the whole half body, its head near the top (the 立绘, when extracted, is drawn larger) */
 .dart__bg img { position: absolute; left: 1.6rem; top: .9rem; height: 62%; width: auto; max-width: none; }
+/* the 立绘 by its client frame (illust_<charId>_1 RectTransform: size --fw × --fh, centre offset --fx / --fy from the frame's
+   centre, y up): k = .012rem a frame unit, the frame's centre at (3.35rem, 5.53rem) — a face (≈ 244 units above the frame's
+   centre: 古米, 波登可 204) then sits right of the stats about 2.6rem down, the head about as large as in the KR captures
+   (≈ 1.7rem; their art is the player's skin, whose own frame places it elsewhere — [추정]) */
+.dart.has-full-art .dart__bg { --k: .012rem; --cx: 3.35rem; --cy: 5.53rem; }
 .dart.has-full-art .dart__bg img { left: -1.2rem; top: -.4rem; height: auto; width: 10.8rem; }
+.dart.has-frame .dart__bg img {
+  width: calc(var(--fw) * var(--k)); height: calc(var(--fh) * var(--k));
+  left: calc(var(--cx) + (var(--fx) - var(--fw) / 2) * var(--k)); top: calc(var(--cy) - (var(--fy) + var(--fh) / 2) * var(--k));
+}
 .dart__head { display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; }
 .dart__prof { width: .96rem; height: .96rem; display: grid; place-items: center; background: rgba(10, 10, 10, .85); border: .03rem solid #e3b53f; box-shadow: 0 0 .12rem rgba(227, 181, 63, .5); }
 .dart.is-token .dart__prof { border-color: #36d3e6; box-shadow: 0 0 .12rem rgba(54, 211, 230, .5); }
@@ -404,3 +480,48 @@
 .dart-placing .dpanel--chess, .dart-placing .dpanel--chess * { pointer-events: none !important; }
 .dart-placing .dpanel__close { display: none; }
 .dart-placing .dart__bg { opacity: .55; }
+
+/* ---- battle HUD (KR capture, 2000×1125, in battle): the round bar's pill is bg_battle + icon_battle with the kills
+   "6/9" (the killed number amber) — already above; the DP counter is the base game's battle cost panel (not in the
+   autochess bundles — from the capture, [추정]): no box, a white diamond "C" icon, the number ≈ .8rem white, a white
+   underline across, on a faint dark plate, at the right edge about three quarters down (its baseline ≈ 2.3rem above the
+   bottom). Upstream's COST label is not on it. ---- */
+.gm.has-hud-art .capsule__kills b { color: #f7a43b; }
+.gm.has-hud-art .dpbox {
+  top: auto; bottom: 2.3rem; right: .1rem; transform: none; flex-direction: row; align-items: center; gap: .16rem;
+  padding: .02rem .1rem .04rem .16rem; border: 0; border-bottom: .05rem solid #fff;
+  background: linear-gradient(90deg, rgba(20, 20, 20, 0), rgba(20, 20, 20, .5) 25%, rgba(20, 20, 20, .5));
+}
+.gm.has-hud-art .dpbox .micro { display: none; }
+.gm.has-hud-art .dpbox b { font-family: 'Novecento Wide', var(--font-num); font-size: .66rem; font-weight: 400; line-height: 1.1; letter-spacing: 0; text-shadow: 0 .02rem .06rem rgba(0, 0, 0, .5); }
+.gm.has-hud-art .dpbox__icon {
+  position: relative; width: .34rem; height: .34rem; color: transparent; overflow: visible;
+}
+.gm.has-hud-art .dpbox__icon * { display: none; }
+.gm.has-hud-art .dpbox::before, .gm.has-hud-art .dpbox::after { /* the white diamond, and the dark "C" on it (unrotated) */
+  content: ''; position: absolute; left: .18rem; top: 50%; width: .3rem; height: .3rem; transform: translateY(-50%) rotate(45deg); background: #fff;
+}
+.gm.has-hud-art .dpbox::after {
+  content: 'C'; background: none; transform: translateY(-50%); display: grid; place-items: center; color: #1a1a1a; font: 900 .22rem/1 var(--font-num);
+}
+
+/* the official list is not shown in a solo game (the KR solo captures, prep and battle: no list) [추정: solo only] */
+.gm.has-hud-art .team.is-solo { display: none; }
+/* (bond popup members) the tier badge at the client's 30 units; members not on the field are only darkened (img_inactive_mask), not grey */
+.gm.has-hud-art .bpop__member .uthumb__tier { transform: scale(2); transform-origin: bottom left; } /* ≈ 30 units (common_chess_level), ~0.4 of the avatar */
+.gm.has-hud-art .bpop__member .uthumb.is-dim .uthumb__art, .gm.has-hud-art .bpop__member .uthumb.is-dim .uthumb__art img { filter: none; opacity: 1; }
+
+/* ---- the shop card's first tap (autochess_shop_card_item btn_double_check; KR capture 20): group_able — bg_doublecheck1
+   (158×125, teal) over the card's lower part (its centre 25.5 under the card's), 确认购买 22 px Heavy #dcfff7 centred 62
+   under the card's centre, the art dimmed behind; group_disable (cannot buy) — bg_doublecheck2 grey, #e4e4e4. The upstream
+   "再次点击" hint and the lift stay (the hint small under the label). ---- */
+.gm.has-hud-art .shopbar.has-shop-art .scard.is-armed .scard__art { filter: brightness(.5); }
+.gm.has-hud-art .shopbar.has-shop-art .scard__confirm {
+  position: absolute; z-index: 6; left: 0; right: 0; bottom: 0; top: auto; height: calc(var(--u) * 125); transform: none;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 0; padding: 0 0 calc(var(--u) * 10);
+  background: var(--ha-dc1, none) center / 100% 100% no-repeat, rgba(27, 170, 140, .82); color: #dcfff7; border: 0; box-shadow: none;
+}
+.gm.has-hud-art .shopbar.has-shop-art .scard__confirm b { font-size: calc(var(--u) * 22); font-weight: 900; letter-spacing: .04em; padding: 0; line-height: 1.2; }
+.gm.has-hud-art .shopbar.has-shop-art .scard__confirm small { font-size: calc(var(--u) * 11); opacity: .75; }
+.gm.has-hud-art .shopbar.has-shop-art .scard__confirm.is-no { background: var(--ha-dc2, none) center / 100% 100% no-repeat, rgba(90, 90, 90, .85); color: #e4e4e4; }
+.gm.has-hud-art .shopbar.has-shop-art .scard__confirm.is-no small { color: #f0c8c2; }

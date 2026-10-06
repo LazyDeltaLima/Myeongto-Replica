@@ -527,6 +527,8 @@ export async function createFieldView(host, options = {}) {
   let prepXf = IDENTITY;
   let lastPrep = null;        // { ps, o } of the last setPrep (re-applied when the prep field changes)
   const hlReq = new Map();    // highlight group → { tiles (board space), style } requested through highlightTiles
+  const overlay3d = new Map(); // local patch: highlight group → display tiles drawn by the 3D board overlay (drawHighlight)
+  let legalKeep = null;        // local patch: { uid, tiles } — the deploy tiles of a board drop, lit again by its holdPiece
   // enemy preview pen (render/pen.js): figure key → UnitView (own map: never touched by the battle sync)
   const penViews = new Map();
   let penSig = null;
@@ -614,6 +616,11 @@ export async function createFieldView(host, options = {}) {
       const sz = size();
       b.resize(sz.width, sz.height, boardDpr());
       board3d = b;
+      // local patch: the client's attack-range stripes (battle/[pack]common.ab sprite_attack_range) for the 3D range overlay
+      try {
+        const su = assets.localUrl?.('battle/common', 'sprite_attack_range');
+        if (su && assets.image) assets.image(su).then((img) => { if (board3d === b) b.overlay?.setStripeImage(img); }, () => {});
+      } catch { /* the procedural stripes stay */ }
       tiles.setExternal(true);
       backdrop.visible = false;
       b.setArea(boardArea(viewKind(camKind, camOpts)));
@@ -1240,10 +1247,36 @@ export async function createFieldView(host, options = {}) {
     let t = tilesToDisp(IDENTITY, list);
     if (range) t = t.filter(([r]) => r !== GEO.HAND_ROW && r !== GEO.TEMP_ROW);
     if (mode === 'prep' && prepXf !== IDENTITY) t = tilesToDisp(prepXf, t);
+    // local patch (LOCAL-PATCH.md 「배치 UI」): on the 3D board the deploy tiles and the range previews are the official
+    // overlays drawn in the board itself (board3d/tileOverlay.js); the white drop-target / drag-origin marks are not shown
+    if (board3d?.overlay && (key === 'legal' || (range && key !== 'rangeStand') || key === 'dragFrom' || (key === 'dragTarget' && style !== 'illegal'))) {
+      tiles.clearHighlights(key);
+      if (key === 'dragFrom' || key === 'dragTarget') return;
+      overlay3d.set(key, t);
+      syncOverlay3d();
+      return;
+    }
+    if (overlay3d.delete(key)) syncOverlay3d();
     tiles.setHighlights(t, style, key, { stripes: range && key !== 'rangeStand' && !board3d });
+  }
+  /** local patch: the 3D overlay groups → the board's tint ('legal') and stripes (every range group). */
+  function syncOverlay3d() {
+    const o = board3d?.overlay;
+    if (!o) return;
+    o.setTint(overlay3d.get('legal') || null, heightAt);
+    const s = [];
+    for (const [g, t] of overlay3d) if (g !== 'legal') s.push(...t);
+    o.setStripes(s, heightAt);
   }
   function clearHl(group) {
     if (group) hlReq.delete(group); else hlReq.clear();
+    if (group ? overlay3d.delete(group) : overlay3d.size) { // local patch: the 3D overlay groups (a clear-all keeps the
+      if (!group) { //                                            deploy tiles of a piece held by the direction step)
+        overlay3d.clear();
+        if (legalKeep && held.has(legalKeep.uid) && !dragState) overlay3d.set('legal', legalKeep.tiles);
+      }
+      syncOverlay3d();
+    }
     tiles.clearHighlights(group);
     syncLeaderHits();
   }
@@ -1268,6 +1301,7 @@ export async function createFieldView(host, options = {}) {
     if (!v) return;
     dragState = { uid: p.uid, key, view: v, from: p.from, home: v._home || { x: v.x, y: v.y, z: v.z } };
     v.lift = 0.3;
+    v.ghost = true; // local patch: see-through while placed (units.js GHOST_ALPHA)
     v._tween = null;
     const t = pieceTile(p.piece);
     if (t) drawHighlight([[t.row, t.col]], 'hover', 'dragFrom');
@@ -1315,7 +1349,12 @@ export async function createFieldView(host, options = {}) {
       v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: h.x, ty: h.y, tz: h.z, t: 0 };
     }
     v.lift = 0;
+    v.ghost = held.has(dragState.uid); // local patch: stays see-through while the direction wheel holds it
+    // local patch: like the official client the deploy tiles stay lit while the direction is chosen (holdPiece null clears)
+    const keepLegal = !!(board3d?.overlay && t && t.area === 'board' && overlay3d.get('legal'));
+    legalKeep = keepLegal ? { uid: dragState.uid, tiles: overlay3d.get('legal') } : null;
     clearHl('dragFrom'); clearHl('dragTarget'); clearHl('legal');
+    if (keepLegal) { const k = legalKeep; setTimeout(() => { if (legalKeep === k && !held.has(k.uid)) legalKeep = null; }, 400); }
     dragState = null;
   }
 
@@ -1324,7 +1363,7 @@ export async function createFieldView(host, options = {}) {
       const v = dragState.view;
       const h = dragState.home;
       if (cancelled && v && !v.destroyed) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: h.x, ty: h.y, tz: h.z, t: 0 };
-      if (v) v.lift = 0;
+      if (v) { v.lift = 0; v.ghost = held.has(dragState.uid); } // local patch
     }
     dragState = null;
     clearHl('dragFrom'); clearHl('dragTarget'); clearHl('legal');
@@ -1951,16 +1990,23 @@ export async function createFieldView(host, options = {}) {
      * True when the view itself stripes range previews ('facing' / 'selRange' / 'range' groups) under the units (the 2D
      * board): the direction wheel then needs no striped overlay of its own (it would cover the units).
      */
-    stripesUnder() { return !destroyed && !board3d; },
+    stripesUnder() { return !destroyed && (!board3d || !!board3d.overlay); }, // local patch: the 3D board's own range overlay
     /** Where the prep pieces are shown: { kind: 'board'|'bossPrep', side: 'L'|'R', mirror } (render/prepfield.js). */
     prepField() { return { kind: prepXf.kind, side: prepXf.side, mirror: prepXf.mirror }; },
     holdPiece(uid, tile) {
       if (destroyed || !Number.isInteger(uid)) return false;
-      if (!tile || !Number.isInteger(tile.row) || !Number.isInteger(tile.col)) { held.delete(uid); return true; }
+      if (!tile || !Number.isInteger(tile.row) || !Number.isInteger(tile.col)) {
+        held.delete(uid);
+        const g = views.get('p:' + uid); if (g && (!dragState || dragState.uid !== uid)) g.ghost = false; // local patch
+        if (legalKeep?.uid === uid) { legalKeep = null; if (!dragState) clearHl('legal'); } // local patch: lit through the direction step
+        return true;
+      }
       const w = boardWorld(tile.row, tile.col);
       held.set(uid, w);
       const key = 'p:' + uid;
       const v = views.get(key);
+      if (v && !v.destroyed) v.ghost = true; // local patch: see-through while its direction is chosen (units.js GHOST_ALPHA)
+      if (legalKeep?.uid === uid && board3d?.overlay && !dragState) { overlay3d.set('legal', legalKeep.tiles); syncOverlay3d(); } // local patch
       if (v && !v.destroyed && (!dragState || dragState.key !== key)) {
         v._home = w;
         if (Math.abs(v.x - w.x) + Math.abs(v.y - w.y) + Math.abs(v.z - w.z) > 1e-3) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };

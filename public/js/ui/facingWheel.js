@@ -25,6 +25,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks
 import { html } from './components.js';
 import { LocalSprite } from './gameComponents.js';
 import { DIRS, DIR_LABEL, DEAD_ZONE_TILES, dirFromDelta, dirFromKey, rangeTiles, normDir, boardDir, viewMirrored } from './facing.js';
+import { dirArt, dirBasis, insideDiamond, PlaceWheelArt, DIR_HALF_TILES } from './placeArt.js'; // local patch: the official selector
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const rawOf = (view) => (view && view.raw) || view || null;
@@ -185,14 +186,17 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
   const [drag, setDrag] = useState(null); // { id } while a pointer is down
   const live = useRef({});
   const s = g && g.s > 0 ? g.s : 64;
-  const half = s * 1.5;              // half-diagonal: ~3 tiles across
+  // local patch (LOCAL-PATCH.md 「배치 UI」): the client's selector when its sprites are installed (ui/placeArt.js)
+  const art = dirArt();
+  const basis = art ? dirBasis(g) : null;
+  const half = basis ? s * DIR_HALF_TILES : s * 1.5; // half-diagonal: ~3 tiles across (official: DIR_HALF_TILES)
   const dead = s * DEAD_ZONE_TILES;  // centre dead-zone radius
   // `dir` is the SCREEN direction (chevrons, swipe, arrow keys). On the mirrored right half of the Final Assault prep
   // (research 09 §1.2: col c → 20 − c, RIGHT ↔ LEFT) the board direction differs: the range, the model preview and
   // the committed g.move / g.art use the BOARD direction (render/prepfield.js maps it back for display).
   const mirror = viewMirrored(view) || !!(g && g.mirror);
   const bdir = boardDir(dir, mirror);
-  live.current = { g, half, dead, dir, bdir, mirror, onCommit, onCancel, onPreview };
+  live.current = { g, half, dead, dir, bdir, mirror, onCommit, onCancel, onPreview, basis };
 
   // preview: model / wedge direction and the rotated range under the units
   const tiles = useRangeHighlight(view, grid, row, col, bdir);
@@ -209,6 +213,7 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
   const inside = (clientX, clientY) => {
     const L = live.current;
     if (!L.g) return true;
+    if (L.basis) return insideDiamond(L.basis, clientX, clientY); // local patch: the official diamond on the ground
     return Math.abs(clientX - L.g.x) + Math.abs(clientY - L.g.y) <= L.half * 1.18;
   };
 
@@ -253,7 +258,10 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
       onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${onPointerCancel}
       onContextMenu=${(e) => { e.preventDefault(); onCancel(); }}>
     ${g ? html`<${Stripes} tiles=${tiles} view=${view} row=${row} col=${col} />` : null}
-    ${g ? html`<div class="fwheel__dia" style=${`left:${g.x}px;top:${g.y}px;width:${box}px;height:${box}px`}>
+    ${g && basis ? html`<div class="fwheel__dia pwheel-host">
+      <${PlaceWheelArt} g=${g} basis=${basis} art=${art} dir=${dir} onCancel=${onCancel} />
+      <span class="fwheel__sr" aria-live="polite">${dir ? `朝向：${DIR_LABEL[dir]}` : ''}</span></div>` : null}
+    ${g && !basis ? html`<div class="fwheel__dia" style=${`left:${g.x}px;top:${g.y}px;width:${box}px;height:${box}px`}>
       <svg class="fwheel__svg" viewBox="-110 -110 220 220" aria-hidden="true">
         <path class="fwheel__outer" d="M0 -100 L100 0 L0 100 L-100 0 Z" />
         <path class=${cx('fwheel__quad', dir === 'UP' && 'is-on')} d="M0 -100 L50 -50 L0 0 L-50 -50 Z" />
@@ -318,7 +326,9 @@ export function stripePolys(view, tiles, ox = 0, oy = 0) {
  */
 function Stripes({ tiles, view, row, col }) {
   const [, setN] = useState(0);
-  const mount = stripeMount(view);
+  // local patch: the 3D board draws the official range stripes itself (render/board3d/tileOverlay.js)
+  const own3d = !!rawOf(view)?.debug?.board3d?.overlay;
+  const mount = own3d ? null : stripeMount(view);
   const key = tiles.map((t) => t.join(',')).join(';');
   // under the units (3D board): an imperatively managed <svg> between the two canvases
   useEffect(() => {
@@ -355,7 +365,7 @@ function Stripes({ tiles, view, row, col }) {
     return () => { cancelAnimationFrame(raf); svg.remove(); };
   }, [key, view, !!mount]);
   // overlay (2D board / fallback): never over the piece's own tile, so the unit being placed stays visible
-  const over = mount ? [] : tiles.filter(([r, c]) => r !== row || c !== col);
+  const over = mount || own3d ? [] : tiles.filter(([r, c]) => r !== row || c !== col);
   const overKey = over.map((t) => t.join(',')).join(';');
   useEffect(() => {
     if (!over.length) return undefined;

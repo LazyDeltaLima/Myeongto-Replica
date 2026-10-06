@@ -10,8 +10,9 @@
 // its official look (hudArt `has-hud-art`; css/hud-art.css).
 //
 // The art: the operator's 立绘 when the local client extraction lists it (data/local-assets.json group `chararts`,
-// `<charId>_1` / `_2` for an elite — not extracted yet: the client keeps them in chararts/<charId>.ab), else the web
-// manifest's half-body portrait (180×360), else no art.
+// `<charId>` — tools/local-extract/chararts_extract.py: the default art `<charId>_1` and its `illust_<charId>_1` frame,
+// the client's per-art size and offset that line the faces up), placed by that frame (css/hud-art.css `--fx/--fy/--fw/
+// --fh`); else the web manifest's half-body portrait (180×360); else no art.
 //
 //   ChessDetailArt(props)   the props of ChessDetail (ui/detailPanel.js)
 //   placingDetail(p, pieces) the card of the operator being placed — dragged (`drag`) or waiting for its direction
@@ -47,14 +48,18 @@ export function artParts(blocks) {
 }
 
 /**
- * The card's art: the local 立绘 (`chararts`), else the portrait. `full` — a square full art (drawn larger, centred).
- * @returns {{ src: string|null, full: boolean }}
+ * The card's art: the local 立绘 (`chararts`, with its illust frame), else the portrait.
+ * @returns {{ src: string|null, full: boolean, frame: { x: number, y: number, w: number, h: number } | null }}
  */
-export function cardArt(m, chess, golden) {
+export function cardArt(m, chess) {
   const id = chess?.charId;
-  const full = id ? (golden && localAsset('chararts', `${id}_2`)) || localAsset('chararts', `${id}_1`) : null;
-  if (full) return { src: full, full: true };
-  return { src: chessPortraitUrl(m, chess), full: false };
+  const e = id ? data.get('local')?.groups?.chararts?.[id] : null;
+  const src = id ? localAsset('chararts', id) : null;
+  if (src) {
+    const f = e && e.frame && [e.frame.x, e.frame.y, e.frame.w, e.frame.h].every(Number.isFinite) ? e.frame : null;
+    return { src, full: true, frame: f };
+  }
+  return { src: chessPortraitUrl(m, chess), full: false, frame: null };
 }
 
 const fmtInterval = (v) => (Number.isFinite(v) && v > 0 ? `${v.toFixed(2)}s` : '—');
@@ -74,7 +79,8 @@ export function ChessDetailArt(props) {
   const fr = lo?.record || c;
   const s = fr?.stats || {};
   const golden = !!(c.isGolden || piece?.golden);
-  const art = cardArt(m, c, golden);
+  const art = cardArt(m, c);
+  const fs = art.frame ? `--fx:${art.frame.x};--fy:${art.frame.y};--fw:${art.frame.w};--fh:${art.frame.h}` : '';
   const token = piece?.kind === 'token' || c.profession === 'TOKEN';
   const st = {
     atk: liveStat(live, 'atk', s.atk), def: liveStat(live, 'def', s.def), res: liveStat(live, 'res', s.res ?? 0, fmtRes),
@@ -91,8 +97,8 @@ export function ChessDetailArt(props) {
   const chips = findByClass(by.get('head'), 'dbonds');
   const prof = profIconUrl(m, c.profession);
   return [
-    html`<div key="art" class=${cx('dart', golden && 'is-golden', token && 'is-token', art.full && 'has-full-art')}>
-      <div class="dart__bg" aria-hidden="true">${art.src ? html`<${Img} src=${art.src} />` : null}</div>
+    html`<div key="art" class=${cx('dart', golden && 'is-golden', token && 'is-token', art.full && 'has-full-art', art.frame && 'has-frame')}>
+      <div class="dart__bg" aria-hidden="true" style=${fs}>${art.src ? html`<${Img} src=${art.src} />` : null}</div>
       <div class="dart__head">
         <span class="dart__prof"><i style=${prof ? `background-image:url("${prof}")` : ''}></i></span>
         <h3 class="dart__name">${c.name}</h3>

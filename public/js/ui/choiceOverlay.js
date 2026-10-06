@@ -23,6 +23,7 @@ import { itemIconUrl, enemyIconUrl, uiUrl } from './assetUrls.js';
 import { richTextPlain } from './richText.js';
 import { sortedPlayers } from './gameLogic.js';
 import { data } from '../data.js';
+import { phaseArt, useTurnFlash, YourTurn } from './phaseArt.js'; // local patch: the official look (css/phase-art.css)
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -128,6 +129,7 @@ export function ChoiceOverlay(props) {
   const { sp, myId, solo, busyIdx = null, onPick } = props;
   const [sel, setSel] = useState(null);
   const armed = armedCard(sel, sp, { myId, solo, busyIdx });
+  const turnFlash = useTurnFlash(!solo && !!sp && sp.turnPid === myId && sp.pickOf?.get?.(myId) == null); // local patch
   // a selection whose card cannot be picked any more (taken, the turn moved on, a pick in flight) is dropped
   useEffect(() => { if (sel != null && armed == null) setSel(null); }, [sel, armed]);
   useEffect(() => {
@@ -143,7 +145,7 @@ export function ChoiceOverlay(props) {
     setSel(r.armed);
     if (r.pick != null) onPick(r.pick);
   };
-  return html`<${ChoiceView} ...${props} armed=${armed} onTap=${tap}
+  return html`<${ChoiceView} ...${props} armed=${armed} onTap=${tap} turnFlash=${turnFlash}
     onConfirm=${() => { if (armed != null) tap(armed); }} onDisarm=${() => setSel(null)} />`;
 }
 
@@ -152,8 +154,9 @@ export function ChoiceOverlay(props) {
  * @param {{ pub:any, sp:any, myId:string, solo:boolean, busyIdx?:number|null, total?:number|null, armed?:number|null,
  *   onTap?:(idx:number)=>void, onConfirm?:()=>void, onDisarm?:()=>void }} props
  */
-export function ChoiceView({ pub, sp, myId, solo, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {} }) {
+export function ChoiceView({ pub, sp, myId, solo, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {}, turnFlash = false }) {
   if (!sp) return null;
+  const art = phaseArt('choose'); // local patch: the official look (ui/phaseArt.js)
   const fam = data.get('choices')?.families?.[sp.family] || null;
   const players = new Map(sortedPlayers(pub).map((p) => [p.playerId, p]));
   const myTurn = solo || sp.turnPid === myId;
@@ -171,13 +174,14 @@ export function ChoiceView({ pub, sp, myId, solo, busyIdx = null, total = null, 
     if (t && typeof t.closest === 'function' && t.closest('.spcard, .spov__confirm')) return;
     onDisarm();
   };
-  return html`<div class=${cx('spov', armed != null && 'has-armed')} role="dialog" aria-label="机变阶段" onPointerDown=${onDown}>
+  return html`<div class=${cx('spov', armed != null && 'has-armed', art.cls)} style=${art.style || undefined} role="dialog" aria-label="机变阶段" onPointerDown=${onDown}>
     <div class="spov__veil" aria-hidden="true"></div>
     <div class="spov__inner">
       <header class="spov__head">
         <div class="spov__titles">
           <${MicroLabel} tone="mint">CONTINGENCY // 机变阶段</${MicroLabel}>
-          <h2 class=${cx('spov__title', special && 'is-special')}>${sp.name || fam?.name || '机变'}<span class="spov__bar">|</span><span class="spov__desc"><${RichText} text=${sp.desc || fam?.desc || '选择一项'} /></span></h2>
+          <h2 class=${cx('spov__title', special && 'is-special')}><span class="spov__name">${sp.name || fam?.name || '机变'}</span><span class="spov__bar">|</span><span class="spov__desc"><${RichText} text=${sp.desc || fam?.desc || '选择一项'} /></span></h2>
+          <p class="spov__notice">选择后不可更改</p>${/* local patch: the official notice (css/phase-art.css; hidden without the art) */ ''}
           <p class="spov__sub">${timed ? '倒计时结束后仍未选定将自动分配' : '选择一项（无时间限制）'}${mine == null && myTurn ? ' · 点击卡牌选中，再次点击确认' : ''}</p>
         </div>
         <div class="spov__turn">
@@ -203,6 +207,7 @@ export function ChoiceView({ pub, sp, myId, solo, busyIdx = null, total = null, 
           </div>`;
         })}
       </div>` : null}
+      ${turnFlash && art.cls ? html`<${YourTurn} />` : null}
       <div class=${cx('spov__grid', sp.cards.length <= 3 && 'spov__grid--3')}>
         ${sp.cards.map((card) => {
           const r = resolveSpCard(card, sp.family);

@@ -99,6 +99,11 @@ JOBS = [
     ('arts/effects/[pack]map.ab', 'map/fx', {'Mesh', 'GameObject', 'Material', 'Texture2D'}),
     ('arts/maps/common/res.ab', 'map/common', {'Material', 'Texture2D'}, r'^(TX|MT)_wind_device$'),
     ('arts/maps/effect.ab', 'map/water', {'Texture2D'}, r'water_normal|Caustics|WaterNoise|noise_clouds|Water_Foam|SmoothWaves'),
+    # local patch (LOCAL-PATCH.md 「배치 UI」): the client's placement UI — the direction selector's sprites
+    # (battle/[pack]common.ab panel_direction_selector refers to them) and the attack-range stripe texture (range_material)
+    ('arts/ui/[uc]battlecommon.ab', 'ui/battlecommon', {'Sprite'},
+     r'^(sprite_direction_arrow|sprite_direction_thumb|sprite_rectangle_frame_triangle|btn_cancel|btn_drag_back)$'),
+    ('battle/[pack]common.ab', 'battle/common', {'Texture2D'}, r'^sprite_attack_range$'),
 ]
 
 # Enemy battle Spine models that no community dump carries (isHarryh/Ark-Models lists them with an empty assetList, so

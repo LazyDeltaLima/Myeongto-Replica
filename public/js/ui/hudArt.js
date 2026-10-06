@@ -12,6 +12,8 @@
 // under the open list, `btn_open` + two `btn_open_arrow` while folded) is web art: `has-hud-fold`.
 //
 //   hudArt()                  { cls, style } for the game screen root (screens/game.js)
+//   BondNav({ bonds, id, onOpen }) the bond popup's < > arrows (autochess_hud_bond_detail_dialog btn_prev / btn_next):
+//                             the previous / next bond of the strip's order (ui/bondStrip.js sortBonds), wrapping
 //   bondBoardStyle(max, tier) the disc board of one bond slot (ui/bondStrip.js): `bondBoardIcon/<max>_<tier>`, the
 //                             prefab's runtime `_imgBoard` — full teal at the top tier, ring arcs below it, the grey
 //                             ring `1_0` while inactive (matched against the in-game screenshots, 2026-10-06). The
@@ -21,6 +23,8 @@
 
 import { data, localAsset } from '../data.js';
 import { uiUrl } from './assetUrls.js';
+import { html } from './components.js';
+import { sortBonds } from './gameLogic.js';
 
 /** CSS variable → web manifest ui key. */
 const WEB = Object.freeze({
@@ -48,6 +52,10 @@ const WEB = Object.freeze({
   '--ha-open': 'hudPanel/btn_open',
   '--ha-open-arrow': 'hudPanel/btn_open_arrow',
   '--ha-close': 'hudPanel/btn_close',
+  '--ha-sel-frame': 'hudBondItem/select_frame',
+  '--ha-sel-glow': 'hudBondItem/select_glow',
+  '--ha-dc1': 'shopCard/bg_doublecheck1', // the shop card's 确认购买 state (autochess_shop_card_item btn_double_check)
+  '--ha-dc2': 'shopCard/bg_doublecheck2',
 });
 /** CSS variable → local-client sprite [group, name] (optional; see the header). */
 const LOCAL = Object.freeze({
@@ -58,7 +66,15 @@ const LOCAL = Object.freeze({
   '--ha-border': ['ui/battle', 'bg_team_border'],
   '--ha-php': ['ui/battle', 'bg_hp'],
   '--ha-self': ['ui/battle', 'icon_self'],
-  '--ha-detail-bg': ['ui/battle', 'detail_bg'], // the bond popup's plate (autochess_hud_bond_detail_dialog), optional
+  // the bond popup (autochess_hud_bond_detail_dialog / autochess_hud_bond_char_item), optional: CSS without them
+  '--ha-detail-bg': ['ui/battle', 'detail_bg'],
+  '--ha-bd-off': ['ui/battle', 'bond_inactive_bg'],
+  '--ha-bd-on': ['ui/battle', 'bond_active_bg'],
+  '--ha-bd-people': ['ui/battle', 'title_char_icon'],
+  '--ha-bd-ok': ['ui/battle', 'active_icon'],
+  '--ha-bd-border': ['ui/battle', 'avatar_border'],
+  '--ha-bd-border-on': ['ui/battle', 'avatar_active_border'],
+  '--ha-bd-arrow': ['ui/battle', 'arrow'],
   '--ha-ability-bg': ['ui/battle', 'acbattle_img_bg_bond_desc'], // the unit card's 特质 block (…subpanel_tabgroup), optional
   '--ha-ability-title': ['ui/battle', 'acbattle_img_bond_title'],
 });
@@ -102,4 +118,19 @@ export function bondBoardStyle(maxTier, tier) {
   const t = Math.max(0, Math.min(max, Math.trunc(Number(tier)) || 0));
   const u = uiUrl(data.get('assets'), t > 0 ? `bondBoardIcon/${max}_${t}` : 'bondBoardIcon/1_0');
   return { style: u ? `--bb:url("${u}")` : '', full: t > 0 && t === max };
+}
+
+/**
+ * The bond popup's < > arrows: the neighbours of `id` in the strip's order (sortBonds — the order the strip draws).
+ * @param {{ bonds: any[], id: string, onOpen: (bondId: string) => void }} props
+ */
+export function BondNav({ bonds, id, onOpen }) {
+  const list = sortBonds(Array.isArray(bonds) ? bonds : [], (b) => data.lookup('bonds', b)).filter((b) => !b.off).map((b) => b.bondId);
+  const i = list.indexOf(id);
+  if (i < 0 || list.length < 2) return null;
+  const go = (d) => onOpen(list[(i + d + list.length) % list.length]);
+  return html`<div class="bpop-nav" role="group" aria-label="切换盟约">
+    <button type="button" class="bpop-nav__btn bpop-nav__btn--prev" aria-label="上一个盟约" onClick=${() => go(-1)}></button>
+    <button type="button" class="bpop-nav__btn bpop-nav__btn--next" aria-label="下一个盟约" onClick=${() => go(1)}></button>
+  </div>`;
 }
