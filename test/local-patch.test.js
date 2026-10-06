@@ -1741,3 +1741,42 @@ describe('荒芜拉普兰德 S3 wolves: the drones\' positions reach the client 
     assert.equal(FX_KINDS.whitw2Drones?.a, 'none');
   });
 });
+
+describe('kit skill hit sounds (tools/assets/kit-sfx.mjs → sfx.kit, public/js/audio.js kitHitKey)', () => {
+  test('every kit hit key has its official sound in the manifest; 维什戴尔 has her normal hit (projectile_chr_wisdel_default)', async () => {
+    const { KIT_HIT_BANKS } = await import('../tools/assets/kit-sfx.mjs');
+    const { readFileSync } = await import('node:fs');
+    const m = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
+    for (const key of Object.keys(KIT_HIT_BANKS)) assert.match(m.audio.sfx.kit?.[key] || '', /\/p_(imp|atk)\/.+\.mp3$/, key);
+    assert.match(m.audio.sfx.units.char_1035_wisdel.hit, /p_imp_dkmrcaygn_n\.mp3$/);
+  });
+
+  test('the kits\' fx events map to their keys (and nothing else does)', async () => {
+    const { kitHitKey } = await import('../public/js/audio.js');
+    const units = new Map([[1, { def: 'char_1050_chen3' }], [2, { def: 'char_1035_wisdel' }], [3, { def: 'token_10035_wisdel_wward' }],
+      [4, { def: 'char_1038_whitw2', skillIndex: 2 }], [5, { def: 'char_4182_oblvns' }], [6, { def: 'char_263_skadi' }]]);
+    const of = (id) => units.get(id);
+    const cases = [
+      ['zone', { token: 'token_10064_wang_stone1', skill: 3 }, 'wang:3'], ['zone', { token: 'token_10064_wang_stone1', skill: 1 }, 'wang:1'],
+      ['wangLink', { first: true }, 'wang:link'], ['wangLink', { first: false }, null],
+      ['kitHit', { k: 'chen3:s3', id: 1 }, 'chen3:s3'], ['swordStorm', { id: 1 }, 'chen3:s2'], ['swordStorm', { x: 1 }, null],
+      ['bombardShell', { id: 2 }, 'wisdel:s2'], ['explode', { by: 2 }, 'wisdel:bomb'], ['explode', { by: 6 }, null],
+      ['burst', { id: 3 }, 'wisdel:token'], ['burst', { id: 5 }, null],
+      ['oblvnsNote', { e: 'hit', m: 'piano', id: 5 }, 'oblvns:piano'], ['oblvnsNote', { e: 'born', m: 'piano', id: 5 }, null],
+      ['drone', { id: 4 }, 'whitw2:s3'], ['drone', { id: 6 }, null], ['zone', { token: 'x', skill: 1 }, null],
+    ];
+    for (const [fx, ex, want] of cases) assert.equal(kitHitKey(fx, ex, of), want, `${fx} ${JSON.stringify(ex)}`);
+  });
+
+  test('赤刃明霄陈 S3: a 剑气 step that strikes sends kitHit chen3:s3 (her official projectile hit sound)', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true,
+      units: [{ chessId: 'chess_diy_chen3_6_b', row: 10, col: 4, uid: 1, skillIndex: 2, carryState: { sp: 999 } }],
+      enemies: [{ key: 'enemy_1422_lrsldr', time: 0, route: 0, count: 8, interval: 1.2 }, { key: 'enemy_1422_lrsldr', time: 1, route: 1, count: 6, interval: 1.6 }] });
+    for (let i = 0; i < 1200 && !h.b.finished && !h.events.some((e) => e[0] === 'fx' && e[1] === 'kitHit'); i++) h.step(1);
+    const k = h.events.find((e) => e[0] === 'fx' && e[1] === 'kitHit');
+    assert.ok(k, 'kitHit sent');
+    assert.equal(k[4].k, 'chen3:s3');
+    assert.equal(k[4].id, h.unit('chess_diy_chen3_6_b').id);
+  });
+});
