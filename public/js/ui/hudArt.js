@@ -58,6 +58,9 @@ const LOCAL = Object.freeze({
   '--ha-border': ['ui/battle', 'bg_team_border'],
   '--ha-php': ['ui/battle', 'bg_hp'],
   '--ha-self': ['ui/battle', 'icon_self'],
+  '--ha-detail-bg': ['ui/battle', 'detail_bg'], // the bond popup's plate (autochess_hud_bond_detail_dialog), optional
+  '--ha-ability-bg': ['ui/battle', 'acbattle_img_bg_bond_desc'], // the unit card's 特质 block (…subpanel_tabgroup), optional
+  '--ha-ability-title': ['ui/battle', 'acbattle_img_bond_title'],
 });
 const CD = ['--ha-cd-label', '--ha-cd-shadow', '--ha-cd-solid'];
 const TEAM = ['--ha-plist', '--ha-border', '--ha-php', '--ha-self'];

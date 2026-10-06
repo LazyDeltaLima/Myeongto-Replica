@@ -3,12 +3,15 @@
    Only under `.shopbar.has-shop-art` (js/ui/shopArt.js sets it with the sprite variables when the web manifest has the
    official shopPanel / shopCard sprites). Geometry from the client's prefabs (ui/autochess/[uc]autochessbattle.ab):
    autochess_shop_card_item 158×176, the upgrade group 111×175, the close box 168×184, buttons 128×55 (bg 149×77),
-   cost hexagon 44×35, bond rows 154×18 — in the client's canvas units. The scale comes from the in-game screenshots
-   (2026-10-06): a card is about a quarter of the top round banner's width, i.e. 1 unit ≈ 1.08 px at 1920×1080, so
-   `--u` = .0108rem.
+   cost hexagon 44×35, bond rows 154×18 — in the client's canvas units. The scale is the client's: the battle UI page's
+   CanvasScaler (auto_chess_battle_ui_page: 1280×720 reference) with every localScale from it down to the shop at 1,
+   i.e. 1 unit = 1.5 px at 1920×1080, so `--u` = .015rem (theme.css rem = 1/100 of a 1920×1080 frame; the CN capture of
+   2026-10-06 measures ≈ 1.5 too — docs/LOCAL-PATCH.md 「상점 화면」. It was .0108rem, fitted to screenshots, until then).
+   Capped so the widest bar (6 slots ≈ 1270 units) stays right of upstream's bottom-left buttons (emotes, chat, settings,
+   guide, fullscreen ≈ 4.4rem — the official prep screen has none there): at 16:9 a 6-slot bar is drawn ≈ 1.15 px/unit.
    ========================================================================================== */
 
-.shopbar.has-shop-art { --u: .0108rem; gap: calc(var(--u) * 6); }
+.shopbar.has-shop-art { --u: min(.015rem, calc((100vw - 4.75rem) / 1270)); gap: calc(var(--u) * 6); }
 .shopbar.has-shop-art .shopbar__row {
   gap: calc(var(--u) * 6); padding: calc(var(--u) * 10) calc(var(--u) * 6) calc(var(--u) * 6);
   background: var(--sa-shadow-total) center bottom / 100% 100% no-repeat; border: 0; box-shadow: none;

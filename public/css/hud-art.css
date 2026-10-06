@@ -6,10 +6,10 @@
    deco boxes 120×11 at ±162, the 休息一下 pill bg_rest 157×45 in its frame 183×51, round number on bg_round, 🔍 buttons on
    bg_check_btn 81×44 at ±305), autochess_hud_bond_item (83×84: board 80×80, icon 36×36, number 16 px on matte_num
    42×25, name 14 px), panel_prep_ready (ready_bg 152×49 in ready_frame 161×57, icon 25, text 18 px). Same scale as the
-   shop (css/shop-art.css): 1 unit ≈ 1.08 px at 1920×1080.
+   shop (css/shop-art.css): the client's, 1 unit = 1.5 px at 1920×1080 (1280×720 canvas, no scaled parent).
    ========================================================================================== */
 
-.gm.has-hud-art { --u: .0108rem; }
+.gm.has-hud-art { --u: .015rem; }
 
 /* ---- round bar ---- */
 .gm.has-hud-art .gtop__center {
@@ -239,3 +239,111 @@
   position: absolute; left: calc(var(--u) * 91); top: calc(var(--u) * 59); width: calc(var(--u) * 21); height: calc(var(--u) * 21);
 }
 .gm.has-hud-art.has-hud-team .team__status.has-sprite .lsprite { width: 100%; height: 100%; }
+
+/* ---- bond popup (ui/bondStrip.js BondPopup), as the KR client's (user screenshots 2026-10-06: 쉐라그, 에기르): a white
+   tile with the black bond icon, the small grey 核心盟约 / 附加盟约 label, the name, a dark pill 「激活所需人数 N」 (N = the
+   first threshold, in autochess.dgreen), then the bond text right away, in the official rich-text colours
+   (gamedata_const richTextStyles: ba.vup #0098DC, ba.vdown #FF6237, ba.rem #F49800, ba.kw #00B0FF, ba.acrem #727272,
+   autochess.gray #777777, autochess.dgreen #40B196). The client's own detail dialog (autochess_hud_bond_detail_dialog,
+   detail_bg 584×379) gives the plate; the tile and the pill are CSS [추정: no sprite of them in the bundles read].
+   Upstream's extras stay below the text: the tiers, 当前效果 (resolved numbers), the members. ---- */
+.bpop__kind, .bpop__need { display: none; }
+.gm.has-hud-art .bpop {
+  background: var(--ha-detail-bg, none) center / cover no-repeat, #232323; border: 0; gap: .14rem; padding: .22rem .24rem;
+}
+.gm.has-hud-art .bpop.brackets::before, .gm.has-hud-art .bpop.brackets::after { display: none; }
+.gm.has-hud-art .bpop__head { align-items: flex-start; gap: .18rem; }
+.gm.has-hud-art .bpop__disc {
+  width: .92rem; height: .92rem; border-radius: .1rem; border: 0; background: #f2f2f2; box-shadow: none;
+}
+.gm.has-hud-art .bpop__disc .bglyph { width: .6rem; height: .6rem; }
+.gm.has-hud-art .bpop__disc .bglyph img { filter: brightness(0); }
+.gm.has-hud-art .bpop__titles { gap: .04rem; }
+.gm.has-hud-art .bpop__titles > .micro { display: none; }
+.gm.has-hud-art .bpop__kind { display: block; font-size: .14rem; color: #9a9a9a; }
+.gm.has-hud-art .bpop__name { font-size: .3rem; font-weight: 700; letter-spacing: .02em; color: #f4f4f4; }
+.gm.has-hud-art .bpop__need {
+  display: inline-flex; align-self: flex-start; align-items: center; gap: .1rem; padding: .03rem .16rem; border-radius: 1rem;
+  background: #3a3a3a; color: #e6e6e6; font-size: .15rem;
+}
+.gm.has-hud-art .bpop__need b { color: #40b196; font-size: .2rem; font-weight: 700; }
+.gm.has-hud-art .bpop__facts { font-size: .13rem; }
+/* the bond text first (no heading), then upstream's tiers, 当前效果 and members */
+.gm.has-hud-art .bpop > .bpop__tiers { order: 3; }
+.gm.has-hud-art .bpop > .bpop__sec--now { order: 4; }
+.gm.has-hud-art .bpop > .bpop__sec:last-child { order: 5; }
+.gm.has-hud-art .bpop > .bpop__sec:not(.bpop__sec--now):not(:last-child) > h4 { display: none; }
+.gm.has-hud-art .bpop__desc { font-size: .17rem; line-height: 1.6; color: #e8e8e8; }
+.gm.has-hud-art .bpop__sec--now { background: rgba(255, 255, 255, .04); border-left-color: #40b196; }
+.gm.has-hud-art .bpop .rt-vup, .gm.has-hud-art .dpanel .rt-vup { color: #0098dc; }
+.gm.has-hud-art .bpop .rt-vdown, .gm.has-hud-art .dpanel .rt-vdown { color: #ff6237; }
+.gm.has-hud-art .bpop .rt-rem, .gm.has-hud-art .dpanel .rt-rem { color: #f49800; }
+.gm.has-hud-art .bpop .rt-kw, .gm.has-hud-art .dpanel .rt-kw { color: #00b0ff; }
+.gm.has-hud-art .bpop .rt-note, .gm.has-hud-art .dpanel .rt-note { color: #777; }
+.gm.has-hud-art .bpop .rt-mint, .gm.has-hud-art .dpanel .rt-mint { color: #40b196; }
+
+/* ---- operator card (ui/detailArt.js ChessDetailArt): act2autochess_character_info_subpanel_status / …_tabgroup and the
+   user's screenshots (深巡 / 乌尔比安 / 斯卡蒂). The art behind, fading into the board; the class icon in a gold frame; name
+   33 px; tier; the stat list (21 px, labels #b2b2b2, 阻挡 / 费用 white); the 攻击范围 tile and the bond tiles (112×105, dark);
+   the blue HP bar with 生命 x/y; the tabs 特质 / 技能 / 特性 / 天赋 (24 px, #ababab, the open one white); 特质 = the 作战能力
+   chip on acbattle_img_bond_title over acbattle_img_bg_bond_desc (local extraction, optional) and the equipped items.
+   Sizes in rem (the client panel is on its own 1920×1080 canvas: 1 unit = 1 px at 1080p = .01rem). ---- */
+.gm.has-hud-art .dpanel--chess {
+  background: linear-gradient(90deg, rgba(16, 16, 16, .95), rgba(16, 16, 16, .86) 70%, rgba(16, 16, 16, .7)); border: 0;
+}
+.gm.has-hud-art .dpanel--chess.brackets::before, .gm.has-hud-art .dpanel--chess.brackets::after { display: none; }
+.dart { position: relative; display: flex; flex-direction: column; gap: .12rem; isolation: isolate; }
+.dart__bg { position: absolute; z-index: -1; right: -.22rem; top: -.24rem; width: 3.4rem; height: 3.7rem; pointer-events: none; opacity: .6;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 45%), linear-gradient(transparent 60%, #000); -webkit-mask-composite: source-in;
+  mask: linear-gradient(90deg, transparent, #000 45%) intersect, linear-gradient(#000 55%, transparent); }
+.dart__bg img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.dart__head { display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; }
+.dart__prof { width: .7rem; height: .7rem; display: grid; place-items: center; background: #141414; border: .03rem solid #e3b53f; box-shadow: 0 0 .1rem rgba(227, 181, 63, .45); }
+/* prof/icon_*.png is the label sprite (名称 + the square class glyph on its right): its right square only */
+.dart__prof i { width: 82%; height: 82%; background: right center / auto 100% no-repeat; }
+.dart__name { font-size: .3rem; font-weight: 500; color: #fff; text-shadow: 0 1px 3px #000; }
+.dart__tier { display: flex; align-items: center; gap: .08rem; font-size: .17rem; color: #d0d0d0; }
+.dart__split { width: .03rem; height: .3rem; background: #626161; }
+.dart__sub { width: .28rem; height: .28rem; object-fit: contain; }
+.dart__mid { display: flex; align-items: flex-start; gap: .14rem; }
+.dart__stats { display: flex; flex-direction: column; gap: 0; min-width: 1.3rem; }
+.dart__stat { display: flex; align-items: baseline; gap: .08rem; font-size: .17rem; line-height: 1.2; color: #b2b2b2; text-shadow: 0 1px 2px #000; }
+.dart__stat b { font-weight: 400; color: #b2b2b2; }
+.dart__stat:nth-child(4) b, .dart__stat:nth-child(5) b { color: #fff; }
+.dart__stat.is-up b { color: #3fd08f; }
+.dart__stat.is-down b { color: #ff6237; }
+.dart__stat small { font-size: .13rem; color: inherit; opacity: .8; }
+.dart__stat.is-up small { color: #3fd08f; }
+.dart__stat.is-down small { color: #ff6237; }
+.dart__tiles { display: flex; flex-wrap: wrap; gap: .06rem; }
+.dart__tiles .dbonds { display: contents; }
+.dart__tile, .dart__tiles .dbond {
+  width: .92rem; min-height: .86rem; padding: .06rem .03rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .05rem;
+  background: rgba(24, 24, 24, .88); border: 0; border-radius: 0; color: #fff; font-size: .17rem; text-align: center;
+}
+.dart__range .drange__grid, .dart__range > :first-child { transform: scale(.9); }
+.dart__tiles .dbond .dbond__icon { width: .42rem; height: .42rem; }
+.dart__tiles .dbond .dbond__icon img { filter: brightness(0) invert(.92); }
+.dart__tiles .dbond .dbond__name { font-size: .15rem; color: #fff; }
+.dart__tiles .dbond .dbond__count { font-size: .12rem; color: #9a9a9a; }
+.dart__tiles .dbond .dbond__tiers { display: none; }
+.dart__tiles .dbond.is-active .dbond__icon img { filter: brightness(0) invert(.92) sepia(1) hue-rotate(115deg) saturate(3); }
+.dart__tiles .dbond:hover { background: rgba(48, 48, 48, .92); }
+.dart__hp { position: relative; height: .22rem; margin: .04rem -.22rem 0; background: rgba(255, 255, 255, .12); }
+.dart__hp > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#2aa6ff, #0a7fe0); }
+.dart__hp > span { position: absolute; right: .14rem; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: .06rem; font-size: .19rem; text-shadow: 0 1px 2px #000; }
+.dart__hp em { font-style: normal; color: #fff; }
+.dart__hp b { font-weight: 400; color: #fff; background: #0a7fe0; padding: 0 .06rem; }
+.dart__tabs { display: flex; margin: .02rem -.22rem 0; background: rgba(40, 40, 40, .9); }
+.dart__tab { flex: 1; padding: .06rem 0; background: none; border: 0; color: #ababab; font-size: .2rem; }
+.dart__tab.is-on { color: #fff; background: rgba(28, 28, 28, .95); box-shadow: inset 0 -.02rem 0 #898989; }
+.dart__pane { display: flex; flex-direction: column; gap: .12rem; }
+.dart__pane--garrison .dgarrison { padding: .1rem .12rem; background: var(--ha-ability-bg, linear-gradient(rgba(27, 180, 141, .22), transparent)) top / 100% 100% no-repeat; border: 0; }
+.dart__pane--garrison .dgarrison__k { display: none; }
+.dart__pane--garrison .dgarrison__type {
+  display: inline-flex; align-items: center; gap: .05rem; padding: .02rem .1rem .02rem .06rem; color: #161616; font-size: .17rem;
+  background: var(--ha-ability-title, #1bb48d) center / 100% 100% no-repeat; border-radius: .04rem;
+}
+.dart__pane--garrison .dgarrison__icon { filter: brightness(0); }
+.dart__pane--garrison .dgarrison__text { font-size: .17rem; color: #fff; }
+.dart__pane .dsec__title { display: none; }

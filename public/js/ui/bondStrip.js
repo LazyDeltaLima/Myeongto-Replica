@@ -119,8 +119,10 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
       <div class=${cx('bpop__disc', active && 'is-active')}><${BondGlyph} bondId=${bondId} /></div>
       <div class="bpop__titles">
         <${MicroLabel} tone="mint">${b.isCore ? 'CORE BOND // 核心盟约' : 'ADD-ON BOND // 附加盟约'}</${MicroLabel}>
+        <span class="bpop__kind">${b.isCore ? '核心盟约' : '附加盟约'}</span>${/* local patch: the official popup's label and count pill (css/hud-art.css) */ ''}
         ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" /><b>${owner}</b> 的盟约</span>` : null}
         <h3 class="bpop__name">${b.name}</h3>
+        ${th.length ? html`<span class="bpop__need">激活所需人数<b class="num">${th[0]}</b></span>` : null}
         <div class="bpop__facts">
           ${off ? null : html`<span>在场 <b class="num">${count}</b>${next != null ? html`<small class="num">/${next}</small>` : null}${countsHand ? html`<small>（含整备区）</small>` : null}${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>（含${harmonyName} +${harmony}）</small>` : null}</span>`}
           ${b.noStack ? html`<span>层数不显示</span>` : html`<span>层数 <b class="num t-mint">${layers}</b></span>`}
