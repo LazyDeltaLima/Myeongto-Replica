@@ -6,7 +6,9 @@
 //     `audio.voiceTable` below. The background resource download (resources.js) only takes the chosen dub (voiceWanted).
 //   * 休整期 lines (upstream keeps the prep silent; the owner wants them): 选中干员 `select` when the player picks up or
 //     selects an own operator, 部署 `place` when the player buys one in the shop or takes one from a reward offer. They
-//     go through the same VoiceGate as the battle lines (one at a time, its gap / cooldown / priorities).
+//     go through the same gate as the battle lines.
+//   * The official scheduling (voicePolicy.js, owner 2026-10-06): no global gap, priority / same-priority overlap /
+//     cooldown by the official voice type, a random 作战中, 行动开始 once per battle, no 部署 burst at the battle start.
 //
 //   <VoiceSetting />           the settings row (ui/settings.js): language
 //   voiceForPiece(piece)       screens/game.js: a picked-up / selected piece
@@ -16,6 +18,7 @@ import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, loadPref, savePref } from './store.js';
 import { audio } from './audio.js';
 import { data } from './data.js';
+import { OfficialVoiceGate, createVoicePolicy } from './voicePolicy.js';
 
 const PREF = 'voice';
 /** Voice languages offered with their labels: off, the build's dub (audio.voice) and the Japanese twin (audio.voiceJp). */
@@ -39,6 +42,17 @@ export function voiceTableOf(manifest, lang = voiceStore.get().lang) {
   return (lang === 'jp' ? manifest?.audio?.voiceJp : manifest?.audio?.voice) || null;
 }
 audio.voiceTable = () => voiceTableOf(audio.getManifest());
+
+// the official battle voice rules (voicePolicy.js): its gate replaces upstream's VoiceGate, its policy drives the
+// 作战中 / 行动开始 / opening-deployment choices in audio.js handleBattleEvents
+audio.voiceGate = new OfficialVoiceGate();
+audio.voicePolicy = createVoicePolicy({
+  skillOf: (u) => {
+    const rec = typeof u?.defId === 'string' ? data.lookup('chess', u.defId) : null;
+    return (Number.isInteger(u?.skillIndex) ? rec?.skills?.find((k) => k.index === u.skillIndex) : null) ?? rec?.skill ?? null;
+  },
+  slotsOf: (charId) => Object.keys(audio.voiceTable?.()?.[charId] || {}),
+});
 
 /**
  * Whether the background download keeps a browser-resources.json entry: a voice file only in the chosen language.
