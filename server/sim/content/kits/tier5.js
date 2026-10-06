@@ -998,7 +998,8 @@ const KITS = {
             const stolen = num(unit.mem.stolen);
             // (a boss sharing the match HP pool keeps its max HP: the pool is owned by the match)
             const n = Math.min(steal, cap - stolen, Math.floor(e.s.maxHp - 1)); // never below 1 max HP
-            if (n > 0 && !e.bossPool) {
+            // local patch: PRTS 萃血 备注 "偷取生命上限效果…无法对…拥有特殊生命值机制的敌人…生效" (频次 units: flag hitCount)
+            if (n > 0 && !e.bossPool && !(e.s.flags.hitCount || e.s.flags.hitCountArts)) {
               unit.mem.stolen = stolen + n;
               // the victim keeps an explicit running total (a 'stack' refresh would rescale every stack by the last n)
               const key = `etlchi:steal:${unit.id}`;
@@ -1043,7 +1044,9 @@ const KITS = {
         battle.on('damaged', (c) => {
           if (!mine(c.target) || !(c.amount > 0) || c.type === 'element') return;
           const o = c.target.mem.candleOf;
-          if (o && o.alive) battle.loseHp(o, c.amount, { source: unit });
+          // local patch: PRTS 备注 — the original takes one 无来源 true damage instance, so a 特殊生命值机制 one loses 1 (damage.js)
+          if (o && o.alive && (o.s.flags.hitCount || o.s.flags.hitCountArts)) battle.dealDamage(unit, o, { amount: c.amount, type: 'true', sourceless: true, canDodge: false, tags: ['etlchiCandle'] });
+          else if (o && o.alive) battle.loseHp(o, c.amount, { source: unit });
         }, { owner: unit });
         battle.on('death', (c) => { // the original fell or leaked: its candle goes out
           if (c.unit.side !== 'enemy' || c.unit.mem?.candleOwner) return;

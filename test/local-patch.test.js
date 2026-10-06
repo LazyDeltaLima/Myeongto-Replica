@@ -24,6 +24,7 @@ import * as enemiesMod from '../server/sim/content/enemies.js';
 import * as simPatch from '../server/sim/content/local-patch.js';
 import * as bossesMod from '../server/sim/content/bosses.js';
 import { BOSS_HIT_LIMIT } from '../shared/constants.js';
+import { COLS } from '../server/sim/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mod = (rel) => import(pathToFileURL(path.join(ROOT, 'public', 'js', rel)).href);
@@ -423,6 +424,35 @@ describe('선발 오퍼레이터 — 甄选 picks (shared/diy.js, server/local-p
     assert.deepEqual(effectsFor(['whitw2_attack_01_start', 'whitw2_hit_01'], 'attackStart'), ['whitw2_attack_01_start']);
     assert.deepEqual(effectsFor(['qiubai_attack_combat_A_start_01', 'qiubai_attack_start_01'], 'attackStart'), ['qiubai_attack_start_01']);
   });
+
+  test('丰川祥子 notes: client trail / hit prefab per sim note mode; the drawn flight is the sim\'s (render/fxmap.js NOTE_FX)', async () => {
+    const { noteEffects, NOTE_FX, NOTE_FLIGHT } = await mod('render/fxmap.js');
+    const { OBLVNS_NOTE } = await import('../server/sim/content/kits/diy.js');
+    // EN client projectile_chr_oblvns* `_mainEffect` / `_effectsWhenHit`
+    assert.deepEqual(noteEffects('base'), { trail: 'oblvns_attack_01_trail', hit: 'oblvns_attack_01_hit' });
+    assert.deepEqual(noteEffects('talent'), { trail: 'oblvns_talent_trail', hit: 'oblvns_attack_01_hit' });
+    assert.deepEqual(noteEffects('s1', 1), { trail: 'oblvns_skill_01_trail', hit: 'oblvns_skill_01_hit' });
+    assert.deepEqual(noteEffects('s1', 8), { trail: 'oblvns_skill_01_trail_08', hit: 'oblvns_skill_01_hit' });
+    assert.deepEqual(noteEffects('piano'), { trail: 'oblvns_skill_02_trail_02', hit: 'oblvns_skill_02_hit_02' });
+    assert.deepEqual(noteEffects('organ'), { trail: 'oblvns_skill_02_trail', hit: 'oblvns_skill_02_hit' });
+    assert.deepEqual(noteEffects('s3'), { trail: 'oblvns_skill_03_trail_02', hit: 'oblvns_skill_03_hit_02' });
+    assert.deepEqual(noteEffects('s3m'), { trail: 'oblvns_skill_03_trail', hit: 'oblvns_skill_03_hit' });
+    assert.equal(noteEffects('nope'), null);
+    assert.deepEqual(Object.keys(NOTE_FX).sort(), Object.keys(OBLVNS_NOTE).sort(), 'one effect per sim note mode');
+    for (const [k, f] of Object.entries(OBLVNS_NOTE)) {
+      for (const p of ['free', 'track', 'turn']) assert.equal(NOTE_FLIGHT[k][p], f[p], `${k}.${p}`);
+      assert.equal(NOTE_FLIGHT[k].sine ?? 0, f.sine ?? 0, `${k}.sine`);
+    }
+    const idx = path.join(ROOT, 'public/assets/local/fx/index.json');
+    if (existsSync(idx)) { // the extracted bundle (local client files only)
+      const { default: index } = await import(pathToFileURL(idx).href, { with: { type: 'json' } });
+      const have = new Set(index.bundles.oblvns || []);
+      for (const m of Object.keys(NOTE_FX)) for (let i = m === 's1' ? 1 : 0; i <= (m === 's1' ? 8 : 0); i++) {
+        const fx = noteEffects(m, i);
+        assert.ok(have.has(fx.trail) && have.has(fx.hit), `${m}${i || ''}: ${fx.trail} / ${fx.hit} extracted`);
+      }
+    }
+  });
 });
 
 test('skill sounds: ON_SKILL_START first, then the ability / custom-trigger banks (tools/assets/skill-sfx.mjs)', async () => {
@@ -545,14 +575,673 @@ describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
     assert.equal(h.unit('chess_diy_oblvns_6_b').mem.timbre, casts % 2 ? 'organ' : 'piano');
   });
 
-  test('望: only connected 棋子 trigger; 跟子 at the battle start; S3 drops stones on enemies; stones go on high ground too', async () => {
-    assert.equal(tagged(await battle('chess_diy_wang_6_b', 0, 11, 3, [stone(10, 6, 50)], 4), 'trap'), 0, 'a lone stone is not activated');
-    const h = await battle('chess_diy_wang_6_b', 0, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)]);
-    assert.ok(tagged(h, 'trap') > 0, 'connected stones trigger');
-    const stones = h.b.allies(h.unit('chess_diy_wang_6_b').ownerId).filter((a) => a.kind === 'token');
-    assert.ok(stones.length >= 4, `跟子 added (${stones.length})`);
+  // 丰川祥子 talents (namu 4.6 + PRTS 备注, 2026-10-05): 持续攻击 with no enemy, notes, ASPD aura incl. herself, LOR-Y
+  describe('丰川祥子 talents', () => {
+    const solo = async (id, sk, { flat, enemies = [], defs, secs = 6 } = {}) => {
+      const { makeBattle } = await import('./helpers/battleHarness.js');
+      const h = makeBattle({ seed: 5, timeLimit: Math.max(60, secs + 10), captureNoisy: true, flat, defs, enemies,
+        units: [{ chessId: id, row: 10, col: 4, uid: 1, skillIndex: sk }] });
+      h.run(secs);
+      return h;
+    };
+    const blankAtks = (h, u) => h.eventsOf('atk').filter((e) => e[1] === u.id && e[2] == null).length;
+
+    test('持续攻击: attacks with no enemy in range — attack SP, notes stack; ASPD aura on herself (data value)', async () => {
+      const { default: DIY } = await import('../data/diy.json', { with: { type: 'json' } });
+      for (const id of ['chess_diy_oblvns_5_a', 'chess_diy_oblvns_6_b']) {
+        const h = await solo(id, 1);
+        const u = h.unit(id);
+        assert.equal(h.b.errors.length, 0);
+        assert.ok(blankAtks(h, u) >= 4, `${id}: keeps attacking (${blankAtks(h, u)})`);
+        assert.ok(u.skill.sp >= 4, `${id}: attack-type SP from the empty attacks (${u.skill.sp})`);
+        assert.ok(u.mem.notes >= 1, `${id}: the notes count`);
+        const t1 = DIY.chess[id].talents.find((t) => t.index === 1).bb;
+        assert.equal(u.findBuff('oblvns:aspd')?.mods?.aspd, t1.attack_speed, `${id}: 毋畏遗忘 ASPD on herself`);
+      }
+    });
+
+    test('持续攻击: no note while the tile in front has 通行类型 无', async () => {
+      const id = 'chess_diy_oblvns_6_b';
+      const wall = (row) => row.slice(0, 5) + 'X' + row.slice(6);
+      const base = (await import('./helpers/battleHarness.js')).flatStage().rows;
+      const rows = {}; for (const r of [9, 10, 11, 12]) rows[r] = wall(base[r]);
+      const h = await solo(id, 1, { flat: { rows } });
+      const u = h.unit(id);
+      assert.equal(blankAtks(h, u), 0);
+      assert.equal(u.skill.sp, 0);
+    });
+
+    test('持续攻击 under S3: a blank attack plays 2 piano notes at the S3 attack@atk_scale, phys (the skill override; review 2026-10-06)', async () => {
+      const { default: DIY } = await import('../data/diy.json', { with: { type: 'json' } });
+      const { makeBattle } = await import('./helpers/battleHarness.js');
+      const id = 'chess_diy_oblvns_6_b';
+      const scale = DIY.chess[id].skills[2].bb['attack@atk_scale'];
+      assert.ok(scale > 1);
+      const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true, autoFinish: false,
+        enemies: [{ key: ENEMY, time: 5, route: 0, count: 3, interval: 1 }],
+        units: [{ chessId: id, row: 10, col: 4, uid: 1, skillIndex: 2 }] });
+      h.step(1);
+      const u = h.unit(id);
+      u.skill.activate('manual', { free: true });
+      assert.ok(u.skill.active);
+      const hits = [];
+      const orig = h.b.dealDamage.bind(h.b);
+      h.b.dealDamage = (src, t, d) => { if (src === u && d?.tags?.includes('blankNote') && u.skill.active) hits.push({ d, atk: u.s.atk }); return orig(src, t, d); };
+      h.run(3);
+      const born = h.eventsOf('fx').filter((e) => e[1] === 'oblvnsNote' && e[4].e === 'born' && e[4].m === 's3'); // s3m: the 2 organ notes, one each
+      assert.ok(born.length > 0 && born.every((e) => e[4].w === 2), `S3 piano notes are 2 each (${born.map((e) => e[4].w)})`);
+      h.run(12);
+      assert.ok(hits.length > 0, 'a blank note landed during S3');
+      for (const { d } of hits) assert.equal(d.type, 'phys');
+      // two hits per blank note; each ≥ the cached ATK × S3 scale × the ranged cut of her trait (not 1.0 × ATK)
+      const per = hits.map((x) => x.d.amount / x.atk);
+      assert.ok(Math.max(...per) > 1.2, `amount / ATK = ${per.map((v) => v.toFixed(2))} (S3 ${scale})`);
+    });
+
+    test('持续攻击: notes in flight home on an enemy entering her range', async () => {
+      const h = await solo('chess_diy_oblvns_6_b', 1, { enemies: [{ key: ENEMY, time: 6, route: 0, count: 3, interval: 1 }], secs: 25 });
+      assert.ok(tagged(h, 'blankNote') > 0);
+    });
+
+    // notes (local patch 2026-10-06, EN client projectile_chr_oblvns* + PRTS 备注; kits/diy.js NOTE)
+    const noteEvents = (h) => {
+      const m = new Map();
+      for (const e of h.eventsOf('fx')) {
+        if (e[1] !== 'oblvnsNote') continue;
+        const n = m.get(e[4].n) || { mode: e[4].m, ev: [] };
+        m.set(e[4].n, n);
+        n.ev.push({ e: e[4].e, x: e[2], y: e[3], t: e[4].t });
+      }
+      return m;
+    };
+
+    test('notes: an attack lands when its note arrives (client note speed ≈ 2 tiles/s), not at the arrow speed', async () => {
+      const id = 'chess_diy_oblvns_6_b';
+      const log = [];
+      const { makeBattle } = await import('./helpers/battleHarness.js');
+      const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true, units: [{ chessId: id, row: 10, col: 4, uid: 1, skillIndex: 1 }],
+        enemies: [{ key: ENEMY, time: 0, route: 0, count: 3, interval: 3 }],
+        setup(b) {
+          b.on('attack', (c) => { if (c.attacker.defId === id && c.targets[0]) log.push({ k: 'atk', t: b.time, d: Math.hypot(c.targets[0].x - c.attacker.x, c.targets[0].y - c.attacker.y) }); });
+          b.on('damaged', (c) => { if (c.source?.defId === id && c.dmg?.isAttack && !c.dmg.tags?.includes('blankNote')) log.push({ k: 'dmg', t: b.time }); });
+        } });
+      h.run(20);
+      assert.equal(h.b.errors.length, 0);
+      const a = log.find((x) => x.k === 'atk');
+      assert.ok(a, 'she attacked an enemy');
+      const d = log.find((x) => x.k === 'dmg' && x.t > a.t);
+      assert.ok(d, 'the attack landed');
+      // piano (S2 equipped, not cast yet: projectile_chr_oblvns_s2) frees 0.4 s at 1.9, then traces at 3.5 — the
+      // engine arrow (14 tiles/s) would land in d / 14 s
+      assert.ok(d.t - a.t >= 0.4, `lands after the free flight (${(d.t - a.t).toFixed(2)} s for ${a.d.toFixed(2)} tiles)`);
+      const notes = noteEvents(h);
+      assert.ok([...notes.values()].some((n) => n.ev[0].e === 'born' && n.ev.some((x) => x.e === 'track') && n.ev.at(-1).e === 'hit'), 'born → track → hit');
+    });
+
+    test('notes: untargeted notes fly on past her range and go `delay` s after leaving it; the count is the live notes', async () => {
+      const id = 'chess_diy_oblvns_6_b';
+      const h = await solo(id, 0, { secs: 12 });
+      const u = h.unit(id);
+      assert.equal(h.b.errors.length, 0);
+      const notes = noteEvents(h);
+      const keys = new Set(u.rangeKeys);
+      const gone = [...notes.values()].filter((n) => n.ev.at(-1).e === 'gone');
+      assert.ok(gone.length >= 3, `notes ended (${gone.length})`);
+      for (const n of gone) {
+        assert.equal(n.mode, 'talent', '持续攻击 without a skill: projectile_chr_oblvns_talent');
+        // a straight free flight from her tile: where it left her range, and how far it flew on (1 s × 1.3 tiles/s)
+        const [b, end] = [n.ev[0], n.ev.at(-1)];
+        const L = Math.hypot(end.x - b.x, end.y - b.y), ux = (end.x - b.x) / L, uy = (end.y - b.y) / L;
+        assert.ok(Math.abs(Math.atan2(uy, ux)) <= (20.5 * Math.PI) / 180, 'within ±20° of her facing (RIGHT)');
+        let last = 0;
+        for (let s = 0; s <= L; s += 0.01) if (keys.has(Math.round(b.y + uy * s) * COLS + Math.round(b.x + ux * s))) last = s;
+        assert.ok(L - last >= 1.2 && L - last <= 1.45, `flew ${(L - last).toFixed(2)} tiles past her range before it went`);
+      }
+      const alive = [...notes.values()].filter((n) => !['gone', 'hit'].includes(n.ev.at(-1).e)).length;
+      assert.equal(u.mem.noteList.length, alive, 'the kit keeps exactly the notes still flying');
+      h.run(0.3);
+      assert.equal(u.mem.notes, Math.min(10, u.mem.noteList.length), '颂乐音符 count = live notes (≤ max_cnt)');
+    });
+
+    test('notes: when she leaves, only the tracing notes stay — and still land', async () => {
+      const id = 'chess_diy_oblvns_6_b';
+      const { makeBattle } = await import('./helpers/battleHarness.js');
+      const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true, units: [{ chessId: id, row: 10, col: 4, uid: 1, skillIndex: 2, carryState: { sp: 999 } }],
+        enemies: [{ key: ENEMY, time: 0, route: 0, count: 6, interval: 1 }] });
+      const u = h.unit(id);
+      let tracing = 0;
+      for (let i = 0; i < 900 && !tracing; i++) {
+        h.step(1);
+        const l = u.mem.noteList || [];
+        if (l.some((n) => n.state === 'track') && l.some((n) => n.state === 'free')) tracing = l.filter((n) => n.state === 'track').length;
+      }
+      assert.ok(tracing > 0, 'tracing and free notes in flight');
+      h.b.retreat(u, { reason: 'retreat' });
+      h.step(1);
+      assert.ok(u.mem.noteList.length > 0 && u.mem.noteList.every((n) => n.state === 'track'), 'free notes cleared');
+      const before = h.hooksOf('damaged').filter((x) => x.source === u).length;
+      h.run(6);
+      assert.ok(h.hooksOf('damaged').filter((x) => x.source === u).length > before, 'a tracing note still hits');
+      assert.equal(u.mem.noteList.length, 0);
+      assert.equal(h.b.errors.length, 0);
+    });
+
+    test('LOR-Y stage 2+: no ranged ATK cut on her attacks while a skill runs', async () => {
+      const { default: DIY } = await import('../data/diy.json', { with: { type: 'json' } });
+      const id = 'chess_diy_oblvns_6_b';
+      const noMod = structuredClone(DIY.chess[id]);
+      noMod.talents = noMod.talents.map((t) => ({ ...t, fromModule: false }));
+      const enemies = [{ key: ENEMY, time: 0, route: 0, count: 8, interval: 1.2 }, { key: ENEMY, time: 1, route: 1, count: 6, interval: 1.6 }];
+      const perHit = (h) => {
+        const u = h.unit(id);
+        const d = h.hooksOf('damaged').filter((x) => x.source === u && x.dmg?.isAttack && x.dmg.isSkill && !x.dmg.tags?.includes('note'));
+        return d.reduce((a, x) => a + x.amount, 0) / Math.max(1, d.length);
+      };
+      const withMod = perHit(await solo(id, 2, { enemies, secs: 25 }));
+      const without = perHit(await solo(id, 2, { enemies, defs: { chess: { [id]: noMod } }, secs: 25 }));
+      assert.ok(withMod > without * 1.1, `${withMod} vs ${without}`);
+    });
+
+    test('S2 满月的舞会: organ attacks deal arts damage; in Fever every attack hits twice', async () => {
+      const id = 'chess_diy_oblvns_6_b';
+      const h = await solo(id, 1, { secs: 160, enemies: [{ key: ENEMY, time: 0, route: 0, count: 120, interval: 1 }, { key: ENEMY, time: 0.5, route: 1, count: 120, interval: 1 }] });
+      const u = h.unit(id);
+      assert.equal(h.b.errors.length, 0);
+      const atk = h.hooksOf('damaged').filter((x) => x.source === u && x.dmg?.isAttack && !x.dmg.tags?.includes('note'));
+      assert.ok(atk.some((x) => x.type === 'arts'), 'organ: arts');
+      assert.ok(atk.some((x) => x.type === 'phys'), 'piano: phys');
+      assert.ok(h.eventsOf('fx').some((e) => e[1] === 'sunBurst'), 'Fever reached');
+      const hits = new Map();
+      for (const x of atk) if (x.dmg.attackId) hits.set(x.dmg.attackId, (hits.get(x.dmg.attackId) || 0) + 1);
+      assert.ok([...hits.values()].some((n) => n >= 2), 'a Fever attack hits twice');
+    });
+  });
+
+  test('望: only connected 棋子 trigger; battle start = prep layout (no 跟子); traps take no hits; used up on a trigger, back on their tile for DP (the card returns); S3 x-6 area; stones go on high ground too', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const noSp = (extra) => { // S1 not cast yet (SP 0 of 16): only the placed stones
+      const b = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0 }, ...extra],
+        enemies: [{ key: ENEMY, time: 0, route: 0, count: 8, interval: 1.2 }, { key: ENEMY, time: 1, route: 1, count: 6, interval: 1.6 }] });
+      b.run(12);
+      return b;
+    };
+    assert.equal(tagged(noSp([stone(9, 6, 50)]), 'trap'), 0, 'a lone stone is not activated');
+    assert.ok(tagged(noSp([stone(9, 6, 50), stone(9, 7, 51)]), 'trap') > 0, 'connected stones trigger');
+    // six placed stones (the deploy limit): the layout at the battle start is the prep layout, also later on
+    const placed = [[10, 5], [10, 6], [10, 7], [11, 5], [11, 7], [12, 6]];
+    const h6 = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true,
+      units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0 }, ...placed.map(([r, c], i) => stone(r, c, 60 + i))],
+      enemies: [{ key: ENEMY, time: 0, route: 0, count: 6, interval: 1.2 }, { key: 'enemy_1019_jshoot', time: 0, route: 1, count: 4, interval: 2 }] });
+    const layout = () => h6.allies().filter((u) => u.kind === 'token' && u.alive).map((u) => `${u.tileR},${u.tileC}`).sort();
+    const want = placed.map(([r, c]) => `${r},${c}`).sort();
+    h6.step(1);
+    assert.deepEqual(layout(), want, 'battle start = prep layout');
+    h6.run(30);
+    for (const k of layout()) assert.ok(want.includes(k), `${k}: stones only come back on their own tiles`);
+    for (const t of h6.allies().filter((u) => u.kind === 'token')) assert.ok(t.s.flags.untargetable && t.s.flags.invulnerable, 'stones are traps');
+    assert.equal(h6.hooksOf('damaged').filter((d) => d.target?.kind === 'token').length, 0, 'no enemy hits a stone (ranged 弩手 included)');
+    // a trigger uses the stone up; it comes back on its tile after respawnTime, for its DP cost and one stone of the stock
+    const hc = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0 }, stone(9, 6, 50), stone(9, 7, 51)],
+      enemies: [{ key: ENEMY, time: 0, route: 0, count: 1 }, { key: ENEMY, time: 30, route: 1, count: 1 }] });
+    hc.runUntil(() => tagged(hc, 'trap') > 0, 20);
+    hc.step(1);
+    const used = hc.b.allyUnits.find((u) => u.kind === 'token' && !u.alive);
+    assert.ok(used && used.mem.wangUsed && !used.removed, 'the triggered stone is gone, waiting');
+    const w = hc.unit('chess_diy_wang_6_b'), stock0 = w.mem.wang.stock;
+    let dpBefore = 0;
+    for (let i = 0; i < 20 / 0.05 && !used.alive; i++) { dpBefore = hc.b.players[0].dp; hc.step(1); }
+    assert.ok(used.alive && used.mem.wangUsed === false, 'redeployed');
+    assert.equal(w.mem.wang.stock, stock0, 'the card itself comes back: no stock spent (token deck rule)');
+    assert.ok(hc.b.players[0].dp < dpBefore - 1.5, 'its DP cost paid (2 for the VI elite: module −1)');
+    // S1 with stones in the stock: deployed next to hers; their 跟子 do not count under the limit (nothing withdrawn)
+    const s1 = await battle('chess_diy_wang_6_b', 0, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)], 30);
+    const all = s1.allies().filter((u) => u.kind === 'token' && u.alive);
+    assert.ok(all.some((u) => u.mem.wangFollower), '跟子 with an automatic deployment');
+    assert.ok(all.filter((u) => !u.mem.wangFollower).length <= 6, 'stones ≤ maxDeployCount');
+    // S3 equipped: the x-6 cross triggers and hits (passive), flyers included
+    assert.ok(tagged(await battle('chess_diy_wang_6_b', 2, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)], 20), 'trap') > 0);
     const { loadData } = await import('../server/data.js');
     assert.equal(loadData(path.join(ROOT, 'data'), { log: { warn() {}, error() {} } }).tokens.token_10064_wang_stone1.position, 'ALL');
+  });
+
+  test('望 棋子: 激活 and 料敌机先 stacks are latched; with S3 a high-ground stone catches ground enemies (x-6), with S1 it does not', async () => {
+    const { makeBattle, flatStage } = await import('./helpers/battleHarness.js');
+    // three in a row, two of them leave before any enemy arrives: the last one stays active with 3 stacks
+    const h = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0 }, stone(9, 5, 50), stone(9, 6, 51), stone(9, 7, 52)],
+      enemies: [{ key: ENEMY, time: 0, route: 0, count: 3, interval: 1.2 }] });
+    h.step(2);
+    for (const c of [6, 7]) h.b.retreat(h.allies().find((u) => u.kind === 'token' && u.tileC === c), { reason: 'expired', permanent: true });
+    h.step(1);
+    const last = h.allies().filter((u) => u.kind === 'token' && u.alive);
+    assert.equal(last.length, 1);
+    assert.equal(last[0].mem.active, true, 'stays active');
+    assert.equal(last[0].mem.line, 3, '料敌机先 keeps 3 stacks');
+    let n = 0;
+    h.runUntil(() => (n = h.hooksOf('damaged').filter((d) => d.dmg?.tags?.includes('trap')).length) > 0, 15); // before S1 (16 SP)
+    assert.ok(n > 0, 'the lone (latched) stone triggers');
+    // 10,5 / 10,6 high ground beside the row-9 lane
+    const hi = (sk) => {
+      const b = makeBattle({ seed: 5, captureNoisy: true, stage: flatStage({ rows: { 10: '##hrrhhrrrfrrrrrrrf##' } }),
+        units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: sk }, stone(10, 5, 50), stone(10, 6, 51)],
+        enemies: [{ key: ENEMY, time: 0, route: 0, count: 6, interval: 1.2 }] });
+      b.run(15);
+      return b.hooksOf('damaged').filter((d) => d.dmg?.tags?.includes('trap') && d.source?.kind === 'token').length;
+    };
+    assert.ok(hi(2) > 0, 'S3: the x-6 cross reaches the lane');
+    assert.equal(hi(0), 0, 'S1: tile only — ground enemies never enter a high-ground stone');
+  });
+
+  test('维什戴尔 S2 过载: the main shot uses atk_scale_ol in the second half (her profile copy, not ctx.profile)', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, units: [{ chessId: 'chess_diy_wisdel_6_b', row: 11, col: 4, uid: 1, skillIndex: 1, carryState: { sp: 999 } }],
+      enemies: [{ key: ENEMY, time: 0, route: 0, count: 30, interval: 0.8 }] });
+    const u = h.unit('chess_diy_wisdel_6_b');
+    const first = [], ol = [];
+    h.b.on('hit', (c) => {
+      if (c.source !== u || !c.dmg?.isAttack || c.dmg.isSplash || c.dmg.tags?.includes('wisdelShot') || !u.skill.active) return;
+      (u.skill.timeLeft > u.skill.duration / 2 + 0.3 ? first : u.skill.timeLeft < u.skill.duration / 2 - 0.3 ? ol : []).push(c.dmg.amount / u.s.atk);
+    }, { priority: 100 });
+    h.run(45);
+    assert.ok(first.length && ol.length, 'attacks in both halves');
+    assert.ok(first.every((r) => Math.abs(r - 1) < 1e-6), 'first half: the full scale');
+    assert.ok(ol.every((r) => Math.abs(r - 0.7) < 1e-6), 'overload: atk_scale_ol 0.7');
+  });
+
+  test('望 S3 casts on an enemy in its range 4-12 that is outside her attack range 3-3 (DIY trigger deviation SKILL_RANGE)', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const { absoluteRangeKeys } = await import('../server/sim/targeting.js');
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 40, units: [{ chessId: 'chess_diy_wang_6_a', row: 10, col: 3, dir: 'RIGHT', uid: 1, skillIndex: 2, carryState: { sp: 999 } }],
+      enemies: [{ key: ENEMY, time: 0, route: 0, count: 6, interval: 1 }] });
+    const u = h.unit('chess_diy_wang_6_a');
+    assert.equal(u.skill.rule, 'SKILL_RANGE');
+    const base = new Set(absoluteRangeKeys(u.rangeGrid ?? h.b.data.chess('chess_diy_wang_6_a').rangeGrid, u.tileR, u.tileC, u.dir, 0));
+    let castWithOnlyWide = false;
+    h.b.on('skillStart', (c) => {
+      if (c.unit !== u) return;
+      const inBase = h.b.enemies.some((e) => e.alive && base.has(Math.round(e.y) * COLS + Math.round(e.x)));
+      if (!inBase) castWithOnlyWide = true;
+    }, { priority: 100 });
+    h.runUntil(() => u.skill.active, 30);
+    assert.ok(u.skill.active, 'S3 cast');
+    assert.ok(castWithOnlyWide, 'cast while no enemy stood on her 3-3 (only on the 4-12)');
+  });
+
+  test('赤刃明霄陈 S3 casts on a flyer in its range 3-12 (DIY trigger deviation SKILL_RANGE) and the 剑气 hits it', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const h = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_chen3_6_b', row: 10, col: 4, uid: 1, skillIndex: 2, carryState: { sp: 999 } }],
+      enemies: [{ key: 'enemy_1005_yokai', time: 0, route: 0, count: 3, interval: 1 }] });
+    const u = h.unit('chess_diy_chen3_6_b');
+    assert.equal(u.skill.rule, 'SKILL_RANGE');
+    let onFly = 0;
+    h.b.on('hit', (c) => { if (c.dmg?.tags?.includes('chen3Qi') && c.target.isFlying) onFly++; }, { priority: 100 });
+    h.run(30);
+    assert.ok(onFly > 0, 'cast with only flyers around, the 剑气 hits them');
+  });
+
+  test('선발 kits audit: 赤刃明霄陈 S2 never slashes an unrevealed 隐匿 enemy; 阿斯卡纶 S2 spreads 死亡拘审 on a death in range', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const { enemyStealthed } = await import('../server/sim/targeting.js');
+    const h = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_chen3_6_b', row: 10, col: 5, uid: 1, skillIndex: 1, carryState: { sp: 999 } }],
+      enemies: [{ key: 'enemy_1019_jshoot', time: 0, route: 0, count: 4, interval: 0.4 }, { key: ENEMY, time: 0.2, route: 0, count: 3, interval: 1 }] });
+    let bad = 0, good = 0;
+    h.b.on('hit', (c) => { if (c.dmg?.tags?.includes('chen3S2')) { if (c.target.s.flags.stealth && enemyStealthed(c.target)) bad++; else good++; } }, { priority: 100 });
+    h.run(25);
+    assert.equal(bad, 0, 'no slash on a 隐匿 enemy');
+    assert.ok(good > 0, 'the slashes wait for a selectable target');
+    const a = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_ascln_6_b', row: 10, col: 4, uid: 1, skillIndex: 1, carryState: { sp: 999 } }],
+      enemies: [{ key: ENEMY, time: 0, route: 0, count: 10, interval: 0.5 }] });
+    let spread = 0;
+    const f = a.b.foesInRadius.bind(a.b);
+    a.b.foesInRadius = (...args) => { if (Math.abs(args[2] - 1.3) < 1e-9 && args[3] === true) spread++; return f(...args); };
+    a.run(30);
+    assert.ok(spread > 0, 'the S2 death spread runs (rangeKeys is an array: `.has?.` never matched)');
+  });
+
+  test('赤刃明霄陈 S3 剑气 turns like the client (ChangeStateWithHighlandBehaviour: next tile highland / 侵入点 / 保护目标 / map edge within 0.25 → 90° clockwise)', async () => {
+    const { chen3QiAdvance } = await import('../server/sim/content/kits/diy.js');
+    const LOW = { height: 'LOW', pass: 'ALL' };
+    const grid = (special = {}) => ({   // rows / cols 0..9, row 0 at the bottom (UP = +row)
+      inRect: (r, c) => r >= 0 && r <= 9 && c >= 0 && c <= 9,
+      tile: (r, c) => special[`${r},${c}`] || LOW,
+    });
+    const run = (g, st, secs) => { const turns = []; for (let i = 0; i < Math.round(secs * 30); i++) { const { d, x, y } = st; if (chen3QiAdvance(g, st, 1.5 / 30)) turns.push({ from: d, to: st.d, x, y }); } return turns; };   // x, y: where it turned (before that tick's move)
+    // a highland 3 tiles ahead: the turn comes 0.25 past the centre of the last free tile (not 0.75 before the edge)
+    let st = { x: 2, y: 5, d: 'RIGHT' };
+    let turns = run(grid({ '5,5': { height: 'HIGH', pass: 'FLY' } }), st, 2);
+    assert.deepEqual(turns.map((t) => [t.from, t.to]), [['RIGHT', 'DOWN']], 'RIGHT → DOWN (clockwise, UP = +row)');
+    assert.ok(Math.abs(turns[0].x - 4.25) < 1e-6 && Math.abs(turns[0].y - 5) < 1e-9, `turned at x 4.25 (got ${turns[0].x})`);
+    // 侵入点 and 保护目标 are walls; a lowland impassable tile, a teleporter and a roadblock-like tile are not
+    for (const [t, wall] of [[{ height: 'LOW', pass: 'ALL', special: 'start' }, true], [{ height: 'LOW', pass: 'ALL', special: 'end' }, true],
+      [{ height: 'LOW', pass: 'NONE' }, false], [{ height: 'LOW', pass: 'ALL', special: 'telin' }, false]]) {
+      st = { x: 5, y: 2, d: 'UP' };
+      turns = run(grid({ '4,5': t }), st, 1);
+      assert.equal(turns.length > 0, wall, `${JSON.stringify(t)} ${wall ? 'turns' : 'passes'}`);
+      if (wall) assert.ok(Math.abs(turns[0].y - 3.25) < 1e-6 && turns[0].to === 'RIGHT', 'UP → RIGHT at 0.25 past row 3');
+    }
+    // the map edge: LEFT along row 0 turns UP at 0.25 past col 0; then UP to the top edge turns RIGHT
+    st = { x: 2, y: 0, d: 'LEFT' };
+    turns = run(grid(), st, 9);
+    assert.deepEqual(turns.slice(0, 2).map((t) => [t.from, t.to, +t.x.toFixed(2), +t.y.toFixed(2)]), [['LEFT', 'UP', -0.25, 0], ['UP', 'RIGHT', -0.25, 9.25]]);
+    // a dead end (walls ahead and to the right): one turn, 0.25 further, the second — never two in one place
+    st = { x: 5, y: 5, d: 'UP' };
+    turns = run(grid({ '6,5': { height: 'HIGH' }, '5,6': { height: 'HIGH' } }), st, 1);
+    assert.deepEqual(turns.map((t) => [t.from, t.to, +t.x.toFixed(2), +t.y.toFixed(2)]), [['UP', 'RIGHT', 5, 5.25], ['RIGHT', 'DOWN', 5.25, 5.25]]);
+    // in a battle: the fx payload keeps { x, y, id, dir } with dir ∈ UP/RIGHT/DOWN/LEFT, and every turn is clockwise
+    // (row 10 col 4 facing RIGHT: the field edge at col 10 turns it DOWN, then the 侵入点 at row 9 col 10 turns it LEFT)
+    const h = await battle('chess_diy_chen3_6_b', 2, 10, 4);
+    const qi = h.eventsOf('fx').filter((e) => e[1] === 'chen3Qi');
+    assert.ok(qi.length > 50, 'the 剑气 flies');
+    assert.deepEqual(qi.filter((e, i) => i && e[4].dir !== qi[i - 1][4].dir).map((e) => e[4].dir), ['DOWN', 'LEFT'], 'map edge, then 侵入点');
+    const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
+    for (let i = 0; i < qi.length; i++) {
+      assert.deepEqual(Object.keys(qi[i][4]).sort(), ['dir', 'id']);
+      assert.ok(DIRS.includes(qi[i][4].dir));
+      if (i && qi[i][4].dir !== qi[i - 1][4].dir) assert.equal(qi[i][4].dir, DIRS[(DIRS.indexOf(qi[i - 1][4].dir) + 1) % 4], 'turns clockwise');
+    }
+  });
+
+  test('望 棋子 through the real match path (Match board → battleInput → BattleSpec → browser createBattleFromSpec): a used-up stone comes back on its prep tile, again and again, for DP', async () => {
+    const { makeMatch, give } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, loadout: { chess_diy_wang_6_a: { diy: 1 } } }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+    h.toPrep(1);
+    h.setStage('act2autochess_m04');
+    const m = h.m, ps = h.ps('p_0');
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    const w = give(m, ps, 'chess_diy_wang_6_a');
+    assert.ok(m.handle('p_0', { t: 'g.move', uid: w.uid, to: { area: 'board', row: 9, col: 3 }, dir: 'RIGHT' }).ok);
+    for (let c = 4; c <= 9; c++) {
+      const card = ps.hand.find((p) => p && p.kind === 'token' && p.id === 'token_10064_wang_stone1');
+      assert.ok(card, 'the stone cards are in the hand');
+      assert.ok(m.handle('p_0', { t: 'g.move', uid: card.uid, to: { area: 'board', row: 9, col: c } }).ok, `stone on 9,${c}`);
+    }
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    b.start();
+    const back = [];
+    b.on('deploy', (c) => { if (c.unit.kind === 'token' && b.time > 0.5) back.push([c.unit.id, c.unit.tileR, c.unit.tileC, c.unit.homeR, c.unit.homeC]); });
+    const ev = [];
+    while (!b.finished && b.time < 15) { b.step(); ev.push(...b.drainEvents()); }
+    // before S1 (21 SP) refills anything: the earlier model (one stock stone per redeploy, stock 7 − 6 = 1) managed one
+    assert.ok(back.length >= 2, `used-up stones come back more than once (${back.length})`);
+    for (const [, r, c, hr, hc] of back) assert.deepEqual([r, c], [hr, hc], 'on the tile placed in the prep');
+    // the client sees the same unit die and deploy again (render/app.js: 'deploy' revives / rebuilds the view)
+    const id = back[0][0];
+    const kinds = ev.filter((e) => (e[0] === 'die' || e[0] === 'deploy') && e[1] === id).map((e) => e[0]);
+    assert.ok(kinds.indexOf('deploy', kinds.indexOf('die')) > 0, `die → deploy for the stone (${kinds.join(' ')})`);
+  });
+
+  test('望 client-data rules: hand cap 7 counts the hand only; S1 DoT ticks 7×; 望 leaving kills her stones; a redeployed stone brings a 跟子; flyers do not block a redeploy', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const six = [[9, 5], [9, 6], [9, 7], [10, 5], [10, 7], [11, 6]].map(([r, c], i) => stone(r, c, 60 + i));
+    // hand cap: 6 placed → 0 cards; S1 gains 2 cards (the field does not count)
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0, carryState: { sp: 999 } }, ...six],
+      enemies: [{ key: ENEMY, time: 30, route: 0, count: 1 }] });
+    h.step(2);
+    const w = h.unit('chess_diy_wang_6_b');
+    assert.equal(w.mem.wang.prepPlaced, 6);
+    assert.ok(h.hooksOf('skillStart').some((x) => x.unit === w), 'S1 cast');
+    assert.equal(w.mem.wang.stock, 2, '0 + 2 cards: the 6 on the field are not counted');
+    // DoT: first tick on application, then every second for 6.5 s → 7 ticks
+    const d = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0 }, stone(9, 6, 50), stone(9, 7, 51)],
+      enemies: [{ key: 'enemy_1001_bigbo', time: 0, route: 0, count: 1 }] });
+    d.runUntil(() => d.hooksOf('damaged').some((x) => x.dmg?.tags?.includes('dot')), 30);
+    const t0 = d.b.time;
+    d.run(8);
+    const ticks = d.hooksOf('damaged').filter((x) => x.dmg?.tags?.includes('dot') && x.dmg?.tags?.includes('trap'));
+    const first = ticks.filter((x) => x.dmg.sourceless);
+    assert.ok(first.length >= 7 && first.length % 7 === 0, `7 ticks per trigger (${first.length}, since ${t0.toFixed(1)})`);
+    // 望 leaves: every stone of hers dies; they come back (DP) once she stands again
+    const k = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0 }, stone(9, 6, 50), stone(9, 7, 51)], enemies: [{ key: ENEMY, time: 40, route: 0, count: 1 }] });
+    k.step(2);
+    const kw = k.unit('chess_diy_wang_6_b');
+    k.b.retreat(kw);
+    assert.equal(k.allies().filter((u) => u.kind === 'token' && u.alive).length, 0, 'KillTokens on her exit');
+    // a redeployed (used) stone brings a 跟子; a flyer on the tile does not block it
+    const r = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0 }, stone(9, 6, 50), stone(9, 7, 51)], enemies: [{ key: ENEMY, time: 0, route: 0, count: 1 }, { key: ENEMY, time: 40, route: 1, count: 1 }] });
+    r.runUntil(() => r.b.allyUnits.some((u) => u.kind === 'token' && u.mem.wangUsed), 30);
+    const used = r.b.allyUnits.find((u) => u.kind === 'token' && u.mem.wangUsed);
+    r.runUntil(() => used.alive, 20);
+    assert.ok(used.alive, 'redeployed');
+    assert.ok(r.allies().some((u) => u.kind === 'token' && u.alive && u.mem.wangFollower), '跟子 with the redeploy (ON_OWNER_BORN)');
+  });
+
+  test('望 跟子 never land on enemy spawn / goal / hole tiles (client exceptTileTypes mask 14) nor undeployable high ground — talent, redeploy, S3 overflow and in-skill builds', async () => {
+    const { makeBattle, flatStage } = await import('./helpers/battleHarness.js');
+    for (const sk of [0, 2]) {
+      // 12,10 = tile_start (the lane's red gate), 12,8 = undeployable high ground; the stones stand right beside them
+      const stage = flatStage({ rows: { 12: '##hrrrrr#rSrrrrrrrS##' } });
+      const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, stage,
+        units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 7, uid: 1, skillIndex: sk, carryState: { sp: sk === 2 ? 999 : 0 } }, stone(12, 9, 50), stone(11, 9, 51)],
+        enemies: [{ key: ENEMY, time: 0, route: 1, count: 6, interval: 3 }] });
+      assert.equal(h.b.grid.tile(12, 10).key, 'tile_start');
+      const bad = [];
+      let fol = 0;
+      const orig = h.b.spawnToken.bind(h.b);
+      h.b.spawnToken = (...a) => {
+        const u = orig(...a);
+        if (u && a[4]?.kit) {
+          fol++;
+          const t = h.b.grid.tile(a[2], a[3]);
+          if (t.special === 'start' || t.special === 'end' || /^tile_(start|end|hole|allygoal|enemygoal)/.test(t.key) || (t.build === 'NONE' && t.height === 'HIGH')) bad.push(`${a[2]},${a[3]} ${t.key}`);
+        }
+        return u;
+      };
+      h.run(40);
+      assert.deepEqual(bad, [], `S${sk + 1}: no 跟子 on forbidden tiles`);
+      if (sk === 2) assert.ok(fol > 0, 'S3 built 跟子 (elsewhere)');
+    }
+  });
+
+  test('望 S3: a used stone coming back during S3 is her deployment — it builds the S3 跟子 around it, one ammo each (browser report: ammo bar stayed full)', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
+      units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 2 }, ...[4, 5, 6, 7, 8, 9].map((c, i) => stone(9, c, 50 + i))],
+      enemies: [{ key: ENEMY, time: 0, route: 0, count: 6, interval: 2 }] });
+    h.step(2);
+    const w = h.unit('chess_diy_wang_6_b');
+    w.skill.activate('manual', { free: true });
+    h.b.players[0].dp = 99;
+    let built = 0;
+    const orig = h.b.spawnToken.bind(h.b);
+    h.b.spawnToken = (...a) => { const u = orig(...a); if (u && a[4]?.kit) built++; return u; };
+    const seen = [];
+    let redeploys = 0;
+    h.b.on('deploy', (c) => { if (c.unit.kind === 'token' && c.unit.mem?.wangUsed === true && w.skill.active) redeploys++; }); // wangUsed is reset right after this hook
+    const a0 = w.skill.ammoLeft;
+    for (let i = 0; i < 25 / 0.05 && w.skill.active; i++) {
+      const am = w.skill.ammoLeft, b0 = built;
+      h.step(1);
+      if (w.skill.active && built > b0) seen.push([am - w.skill.ammoLeft, built - b0]);
+    }
+    assert.ok(redeploys > 0, 'used stones came back during S3');
+    assert.ok(a0 - (w.skill.active ? w.skill.ammoLeft : 0) > 0, 'ammo spent');
+    for (const [spent, n] of seen) assert.equal(spent, n, 'one ammo per 跟子 built');
+  });
+
+  test('望 S3 through the real match path (6 prep stones, m04 round 4, enemies outside her range): ammo really drops per 跟子 built, the snapshot ammo bar follows, refund from the same count', async () => {
+    const { makeMatch, give } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, loadout: { chess_diy_wang_6_a: { diy: 1, skill: 2 } } }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+    h.toPrep(4);
+    h.setStage('act2autochess_m04');
+    const m = h.m, ps = h.ps('p_0');
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    const w = give(m, ps, 'chess_diy_wang_6_a');
+    assert.ok(m.handle('p_0', { t: 'g.move', uid: w.uid, to: { area: 'board', row: 9, col: 3 }, dir: 'RIGHT' }).ok);
+    for (let c = 4; c <= 9; c++) {
+      const card = ps.hand.find((p) => p && p.kind === 'token');
+      assert.ok(m.handle('p_0', { t: 'g.move', uid: card.uid, to: { area: 'board', row: 9, col: c } }).ok);
+    }
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp3', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    b.start();
+    const wu = b.allyUnits.find((u) => u.kind === 'op');
+    while (b.time < 8) b.step();
+    wu.skill.activate('manual', { free: true }); // the player's manual cast (MANUAL skill)
+    let built = 0;
+    const orig = b.spawnToken.bind(b);
+    b.spawnToken = (...a) => { const u = orig(...a); if (u && a[4]?.kit && wu.skill.active) built++; return u; };
+    const a0 = wu.skill.ammoLeft;
+    while (!b.finished && b.time < 22 && wu.skill.active) b.step();
+    assert.ok(wu.skill.ammoLeft < a0, `ammo spent (${a0} → ${wu.skill.ammoLeft})`);
+    assert.equal(wu.mem.wang.ammo, wu.skill.ammoLeft, 'the kit count = the engine count');
+    const tup = b.snapshot().units.find((x) => x[0] === wu.id);
+    assert.ok(Math.abs(tup[5] - tup[6] * wu.skill.ammoLeft / wu.skill.ammoMax) < 0.2, 'the snapshot ammo bar shows it');
+    const st0 = wu.mem.wang.stock, left = wu.skill.ammoLeft;
+    wu.skill.end('stop');
+    assert.equal(wu.mem.wang.stock, Math.min(wu.mem.wang.deckCap, st0 + left), 'refund = the ammo left');
+    assert.ok(built > 0);
+  });
+
+  test('望 S3: one ammo per 跟子 actually built around a deployment (client SpawnTokenS3InSkill BuildStone counter): 4 free neighbours → 4, fewer → fewer', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
+      units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 2 }, ...[5, 6, 7, 8, 9].map((c, i) => stone(12, c, 50 + i))] });
+    h.step(2);
+    const w = h.unit('chess_diy_wang_6_b');
+    w.skill.activate('manual', { free: true });
+    h.step(1);
+    assert.ok(w.skill.active);
+    // the S3-start overflow 跟子 land at random: clear them so the neighbour counts below are the board's own
+    for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
+    let built = 0;
+    const orig = h.b.spawnToken.bind(h.b);
+    h.b.spawnToken = (...a) => { const u = orig(...a); if (u && a[4]?.kit) built++; return u; };
+    const put = (r, c) => { const e = h.spawn('enemy_1001_bigbo', { pos: [r, c], route: 0 }); h.b.applyStatus(e, 'stun', { duration: 99 }); return e; };
+    const seen = [];
+    for (const [r, c] of [[10, 5], [11, 4]]) {
+      const a0 = w.skill.ammoLeft;
+      built = 0;
+      const e = put(r, c);
+      h.run(1.2);
+      seen.push([a0 - w.skill.ammoLeft, built]);
+      h.b.kill(e);
+    }
+    assert.deepEqual(seen[0], [4, 4], '10,5: four free neighbours → 4 跟子, 4 ammo');
+    assert.ok(seen[1][0] === seen[1][1] && seen[1][0] < 4 && seen[1][0] > 0, `11,4: fewer neighbours → fewer ammo (${seen[1]})`);
+  });
+
+  test('望 S3: among enemy tiles of her range the enemy closest to its goal comes first, not the one closest to her (user decision 2026-10-06)', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
+      units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 2 }, ...[5, 6, 7, 8, 9].map((c, i) => stone(12, c, 50 + i))] });
+    h.step(2);
+    const w = h.unit('chess_diy_wang_6_b');
+    w.skill.activate('manual', { free: true });
+    h.step(1);
+    assert.ok(w.skill.active);
+    const put = (r, c) => { const e = h.spawn('enemy_1001_bigbo', { pos: [r, c], route: 0 }); h.b.applyStatus(e, 'stun', { duration: 99 }); return e; };
+    const near = put(11, 4), goal = put(9, 4); // 11,4: 1 tile from her, farther along the path; 9,4: farther from her, nearer its goal
+    assert.ok(h.b.remainingDistance(goal) < h.b.remainingDistance(near));
+    // the stone triggers on its enemy at once and is used up: record where the first one went
+    const spawned = [];
+    const orig = h.b.spawnToken.bind(h.b);
+    h.b.spawnToken = (...a) => { const u = orig(...a); if (u) spawned.push([u.tileR, u.tileC]); return u; };
+    h.run(1.2);
+    assert.deepEqual(spawned[0], [9, 4], `the first stone went on the enemy nearest its goal (${JSON.stringify(spawned)})`);
+  });
+
+  test('望 S3: her used stones waiting to come back hold their slots — no prep stone is ever withdrawn by the deploy limit (review 2026-10-06)', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    for (const seed of [5, 7, 11, 13]) {
+      const h = makeBattle({ seed, captureNoisy: true, timeLimit: 120, autoFinish: false,
+        units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 2 }, ...[4, 5, 6, 7, 8, 9].map((c, i) => stone(9, c, 50 + i))],
+        enemies: [{ key: ENEMY, time: 0, route: 0, count: 8, interval: 1.5 }, { key: ENEMY, time: 0.5, route: 1, count: 8, interval: 1.7 }] });
+      h.step(2);
+      const w = h.unit('chess_diy_wang_6_b');
+      h.b.players[0].dp = 99;
+      let lost = 0, cast = false;
+      const orig = h.b.retreat.bind(h.b);
+      h.b.retreat = (t, o) => { if (t.kind === 'token' && o?.permanent && t.mem?.replaced) lost++; return orig(t, o); };
+      for (let i = 0; i < 40 / 0.05; i++) {
+        if (!cast && h.b.allyUnits.some((t) => t.mem?.wangUsed)) cast = w.skill.activate('manual', { free: true });
+        h.step(1);
+      }
+      assert.ok(cast, `seed ${seed}: S3 cast while a stone waited`);
+      assert.equal(lost, 0, `seed ${seed}: no stone withdrawn by the deploy limit`);
+    }
+  });
+
+  test('望 S3 start: overflow 跟子 go enemy tiles first, then by tile class — undeployable ground before deployable ground (PRTS 技能3 备注)', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    // undeployable ground ('f', class 0) at (10|11, 6|7) inside her S3 range, the rest road (class 1)
+    const base = (await import('./helpers/battleHarness.js')).flatStage().rows;
+    const rows = { 10: base[10].slice(0, 6) + 'ff' + base[10].slice(8), 11: base[11].slice(0, 6) + 'ff' + base[11].slice(8) };
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false, flat: { rows },
+      units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 2 }, stone(9, 9, 50)] });
+    h.step(2);
+    const w = h.unit('chess_diy_wang_6_b');
+    w.mem.wang.stock = w.mem.wang.deckCap; // a full hand: all 8 go out as 跟子
+    const placedAt = [];
+    const orig = h.b.spawnToken.bind(h.b);
+    h.b.spawnToken = (...a) => { const u = orig(...a); if (u) placedAt.push([u.tileR, u.tileC]); return u; };
+    w.skill.activate('manual', { free: true });
+    assert.ok(placedAt.length > 0);
+    const cls = ([r, c]) => { const t = h.b.grid.tile(r, c); return t.build === 'NONE' ? 0 : t.height === 'LOW' ? 1 : 2; };
+    const seq = placedAt.map(cls);
+    assert.deepEqual(seq.slice(0, 4), [0, 0, 0, 0], `the 4 undeployable ground tiles first: ${seq} at ${JSON.stringify(placedAt)}`);
+    for (let i = 1; i < seq.length; i++) assert.ok(seq[i] >= seq[i - 1], `class order ${seq} at ${JSON.stringify(placedAt)}`);
+  });
+
+  test('望 S3 天下劫 (ammo): no stone placed in the prep → nothing placed, stays active; with stones → 跟子 + deployments for ammo, leftover ammo back as stones', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const run = (extra) => {
+      const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 2 }, ...extra],
+        enemies: [{ key: ENEMY, time: 0, route: 0, count: 20, interval: 2 }, { key: ENEMY, time: 1, route: 1, count: 15, interval: 2.5 }] });
+      h.run(40);
+      return h;
+    };
+    const none = run([]);
+    const w0 = none.unit('chess_diy_wang_6_b');
+    assert.ok(w0.skill.active, 'zero stones: the skill stays active (user\'s observation of the real game)');
+    assert.equal(w0.skill.ammoLeft, 20, 'no ammo spent');
+    assert.equal(none.allies().filter((u) => u.kind === 'token' && u.alive).length, 0, 'no stone appears');
+    assert.equal(none.hooksOf('skillEnd').filter((x) => x.unit === w0).length, 0);
+    const some = run([stone(9, 6, 50), stone(9, 7, 51)]);
+    const w1 = some.unit('chess_diy_wang_6_b');
+    assert.ok(some.hooksOf('skillStart').some((x) => x.unit === w1), 'cast');
+    const fol = some.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower).length;
+    assert.ok(!w1.skill.active || w1.skill.ammoLeft < 20 || fol >= 8, `ammo spent by the extra 跟子 unless max_spawn_cnt (9) is (nearly) reached — the free talent 跟子 fills the last slot (${fol})`);
+    assert.ok(fol > 0, 'ChargeToken overflow → InstantSpawn 跟子');
+    assert.ok(tagged(some, 'trap') > 0);
+    // the refund: SkillRuntime.end zeroes ammoLeft before onEnd — the kit's mirrored count returns as stones
+    if (w1.skill.active) {
+      const st0 = w1.mem.wang.stock, left = w1.skill.ammoLeft;
+      w1.skill.end('stop');
+      assert.equal(w1.mem.wang.stock, Math.min(w1.mem.wang.deckCap, st0 + left), 'leftover ammo → cards in the hand (≤ 最多拥有 7)');
+    }
+  });
+
+  test('望 棋子: a stone neither selects nor hits an unrevealed 隐匿 enemy (隐形弩手), like Battle.foesInRadius', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    for (const sk of [1, 2]) {
+      const h = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: sk }, stone(9, 6, 50), stone(9, 7, 51), stone(10, 6, 52)],
+        enemies: [{ key: 'enemy_1019_jshoot', time: 0, route: 0, count: 2, interval: 0.6 }, { key: ENEMY, time: 0.3, route: 0, count: 2, interval: 0.6 }] });
+      h.run(20);
+      const trap = h.hooksOf('damaged').filter((d) => d.dmg?.tags?.includes('trap'));
+      assert.ok(trap.some((d) => d.target.defId !== 'enemy_1019_jshoot'), `S${sk + 1}: the others are hit`);
+      assert.equal(trap.filter((d) => d.target.defId === 'enemy_1019_jshoot').length, 0, `S${sk + 1}: no 隐匿 enemy in the blast`);
+    }
+  });
+
+  test('棋子 / 医疗探机: no HP bar on the stone, no direction step (shared/trap-tokens.js, ui/facing.js needsFacing)', async () => {
+    const { noHpBar, facingless } = await import('../shared/trap-tokens.js');
+    const { needsFacing } = await import('../public/js/ui/facing.js');
+    assert.equal(noHpBar('token_10064_wang_stone1'), true);
+    assert.equal(noHpBar('token_10000_silent_healrb'), false);
+    const ctx = (piece) => ({ pieces: new Map([[7, { piece }]]) });
+    const tgt = { area: 'board', row: 10, col: 5 }, res = { ok: true, action: 'move' };
+    for (const id of ['token_10064_wang_stone1', 'token_10000_silent_healrb']) {
+      assert.equal(facingless(id), true);
+      assert.equal(needsFacing(ctx({ uid: 7, kind: 'token', id }), 7, tgt, res), false, `${id}: placed at once`);
+    }
+    assert.equal(needsFacing(ctx({ uid: 7, kind: 'token', id: 'token_10028_vigil_wolf' }), 7, tgt, res), true, 'other summons keep the wheel');
+    assert.equal(needsFacing(ctx({ uid: 7, kind: 'chess', id: 'chess_diy_wang_6_a' }), 7, tgt, res), true, 'operators keep the wheel');
   });
 });
 
@@ -831,4 +1520,180 @@ test('甄选 picks travel through the lobby: room.loadout → seat → match kee
     assert.equal(seat.loadout.chess_diy_wang_5_a.diy, 1, 'the slot reaches the match (it was dropped: the match then refused the whole loadout)');
     assert.equal(seat.loadout.chess_diy_wisdel_6_a.diy, 2);
   } finally { await c.terminate().catch(() => {}); await srv.close(); }
+});
+
+describe('in-game debug panel: dbg.funds / dbg.addDiy, local debug mode only (server/local-patch.js debugIntent)', () => {
+  const DEBUG_ENV = { SP_DEBUG_PAGE: '1' };
+  const humans = () => [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }, { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true }];
+  const prep = () => { const h = makeMatch({ mode: 'coop', seats: humans(), seed: 3 }); h.start(); h.toPrep(1); return h; };
+
+  test('debug mode: SP_DEBUG_PAGE=1 or SP_DEBUG_FUNDS, never with NODE_ENV=production', async () => {
+    const { debugMode } = await import('../server/local-patch.js');
+    assert.equal(debugMode({}), false, 'deployed servers set neither');
+    assert.equal(debugMode({ SP_DEBUG_PAGE: '1' }), true);
+    assert.equal(debugMode({ SP_DEBUG_FUNDS: '99' }), true);
+    assert.equal(debugMode({ SP_DEBUG_FUNDS: 'lots' }), false);
+    assert.equal(debugMode({ SP_DEBUG_PAGE: '1', SP_DEBUG_FUNDS: '99', NODE_ENV: 'production' }), false, 'the Docker image');
+    assert.equal(validateC2S({ t: 'dbg.funds', on: true }), null);
+    assert.equal(validateC2S({ t: 'dbg.addDiy', chessId: 'chess_diy_wang_6_b' }), null);
+    assert.match(validateC2S({ t: 'dbg.addDiy', chessId: 'chess_char_1_01_a' }), /chessId/);
+  });
+
+  test('refused when debug mode is off: the intent, the lobby hook and a real server', async () => {
+    const { debugIntent, onMessage } = await import('../server/local-patch.js');
+    const h = prep(), ps = h.ps('p_0');
+    const funds = ps.funds;
+    assert.equal(debugIntent(h.m, 'p_0', { t: 'dbg.funds', on: true }, {}).error, ERR.BAD_MSG);
+    assert.equal(debugIntent(h.m, 'p_0', { t: 'dbg.addDiy', chessId: 'chess_diy_wang_6_a' }, { SP_DEBUG_PAGE: '1', NODE_ENV: 'production' }).error, ERR.BAD_MSG);
+    assert.equal(ps.funds, funds); assert.ok(!ps.hand.some((p) => p && /diy/.test(p.id)));
+    const saved = { p: process.env.SP_DEBUG_PAGE, f: process.env.SP_DEBUG_FUNDS };
+    delete process.env.SP_DEBUG_PAGE; delete process.env.SP_DEBUG_FUNDS;
+    try {
+      const lobby = { roomOf: () => ({ match: h.m }) };
+      assert.equal(onMessage(lobby, { playerId: 'p_0' }, { t: 'dbg.addDiy', chessId: 'chess_diy_wang_6_a' }).error, ERR.BAD_MSG);
+      assert.ok(!ps.hand.some((p) => p && /diy/.test(p.id)));
+      const srv = await startServer({ port: 0, host: '127.0.0.1', MatchClass: StubMatch, log: { info() {}, warn() {}, debug() {}, error() {} } });
+      const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
+      try {
+        await c.hello('Dbg');
+        const r = await c.request({ t: 'dbg.funds', on: true });
+        assert.equal(r.t, 'error'); assert.equal(r.code, ERR.BAD_MSG);
+      } finally { await c.terminate().catch(() => {}); await srv.close(); }
+    } finally {
+      if (saved.p !== undefined) process.env.SP_DEBUG_PAGE = saved.p;
+      if (saved.f !== undefined) process.env.SP_DEBUG_FUNDS = saved.f;
+    }
+  });
+
+  test('dbg.funds pins the sender\'s funds (others untouched) and unpins them', async () => {
+    const { debugIntent, debugView } = await import('../server/local-patch.js');
+    const h = prep(), ps = h.ps('p_0'), other = h.ps('p_1');
+    ps.funds = 7; other.funds = 5;
+    assert.deepEqual(debugIntent(h.m, 'p_0', { t: 'dbg.funds', on: true }, DEBUG_ENV), { ok: true });
+    assert.equal(ps.funds, 99);
+    assert.equal(debugView(ps).fundsPin, true);
+    assert.ok(ps.spend(10)); assert.equal(ps.funds, 99, 'spending never lowers it');
+    assert.equal(other.funds, 5, 'another player keeps real funds');
+    assert.deepEqual(debugIntent(h.m, 'p_0', { t: 'dbg.funds', on: false }, DEBUG_ENV), { ok: true });
+    assert.equal(ps.funds, 99, 'unpinned: starts from the pinned value');
+    assert.ok(ps.spend(4)); assert.equal(ps.funds, 95);
+    assert.equal(debugView(ps).fundsPin, false);
+    assert.deepEqual(debugView(ps).candidates.map((c) => c.key), ['wang', 'chen3', 'wisdel', 'oblvns', 'ascln']);
+  });
+
+  test('dbg.addDiy puts a 甄选 pick into the hand (acquireChess: merges), refuses a full hand and non-picks', async () => {
+    const { debugIntent } = await import('../server/local-patch.js');
+    const h = prep(), ps = h.ps('p_0');
+    ps.hand.fill(null);
+    const add = (chessId) => debugIntent(h.m, 'p_0', { t: 'dbg.addDiy', chessId }, DEBUG_ENV);
+    assert.deepEqual(add('chess_diy_wisdel_5_b'), { ok: true });
+    assert.deepEqual(ps.hand.filter(Boolean).map((p) => p.id), ['chess_diy_wisdel_5_b'], 'an elite straight into the hand');
+    for (let i = 0; i < 3; i++) assert.deepEqual(add('chess_diy_wang_6_a'), { ok: true });
+    const ids = ps.hand.filter(Boolean).map((p) => p.id).sort();
+    assert.deepEqual(ids, ['chess_diy_wang_6_b', 'chess_diy_wisdel_5_b'], 'three normal copies merge into the elite');
+    assert.equal(add('chess_char_1_01_a').error, ERR.BAD_TARGET, 'only 甄选 candidates');
+    assert.equal(add('chess_nope').error, ERR.BAD_TARGET);
+    while (ps.hand.includes(null)) assert.deepEqual(add('chess_diy_ascln_5_b'), { ok: true });
+    assert.equal(add('chess_diy_chen3_5_a').error, ERR.HAND_FULL, 'the hand is full');
+    assert.equal(ps.temp.filter(Boolean).length, 0, 'nothing spilled into temp');
+  });
+
+  test('dbg.addDiy skill / module: checked like room.loadout, written to the loadout entry the battle reads, no shop pick', async () => {
+    const { debugIntent, debugView } = await import('../server/local-patch.js');
+    const { tileKey } = await import('../server/match/board.js');
+    const seats = humans(); seats[0].loadout = { chess_diy_wisdel_6_a: { diy: 1, skill: 1 } };
+    const h = makeMatch({ mode: 'coop', seats, seed: 3 }); h.start(); h.toPrep(1);
+    const m = h.m, ps = h.ps('p_0');
+    ps.hand.fill(null);
+    const add = (f) => debugIntent(m, 'p_0', { t: 'dbg.addDiy', ...f }, DEBUG_ENV);
+    const owned = [...ps.diyOwned], poolBefore = JSON.stringify([...m.pool.entries]);
+    // refused choices add nothing and change nothing
+    assert.equal(add({ chessId: 'chess_diy_wang_6_b', skill: 5 }).error, ERR.BAD_TARGET, 'no S6');
+    assert.equal(add({ chessId: 'chess_diy_wang_6_b', module: 'uniequip_002_wisdel' }).error, ERR.BAD_TARGET, 'another operator\'s module');
+    assert.equal(add({ chessId: 'chess_diy_wang_6_a', module: 'none' }).error, ERR.BAD_TARGET, 'a normal record has no module');
+    assert.equal(ps.hand.filter(Boolean).length, 0);
+    assert.equal(ps.loadout.chess_diy_wang_6_a, undefined);
+    // an elite 望 with S3 and no module
+    assert.deepEqual(add({ chessId: 'chess_diy_wang_6_b', skill: 2, module: 'none' }), { ok: true });
+    assert.deepEqual({ ...ps.loadout.chess_diy_wang_6_a }, { skill: 2, module: 'none' }, 'no 甄选 slot added');
+    const piece = ps.hand.find(Boolean);
+    ps.hand[ps.hand.indexOf(piece)] = null; ps.board.set(tileKey(10, 2), piece); ps.recompute();
+    const u = ps.battleInput().units.find((x) => x.uid === piece.uid);
+    assert.equal(u.skillIndex, 2); assert.equal(u.moduleId, 'none', 'the battle fights with the choice');
+    // a pick keeps its slot; skill only for a normal record, module kept from the entry
+    assert.deepEqual(add({ chessId: 'chess_diy_wisdel_6_a', skill: 2 }), { ok: true });
+    assert.deepEqual({ ...ps.loadout.chess_diy_wisdel_6_a }, { skill: 2, module: 'uniequip_002_wisdel', diy: 1 });
+    assert.deepEqual([...ps.diyOwned], owned, 'diyOwned unchanged');
+    assert.equal(JSON.stringify([...m.pool.entries]), poolBefore, 'no pool copies taken');
+    ps.shop.level = 6;
+    for (let i = 0; i < 300; i++) assert.notEqual(m.gd.chess(ps._rollChessSlot()?.id)?.charId, 'char_2027_wang', 'the unpicked 望 never reaches the shop');
+    const wang = debugView(ps).candidates.find((c) => c.key === 'wang');
+    assert.deepEqual(wang.tiers[6].skills.map((s) => s.index), [0, 1, 2]);
+    assert.equal(wang.tiers[6].skills[0].name, '取势');
+    assert.deepEqual(wang.tiers[6].modules.map((x) => x.id), ['uniequip_002_wang', 'none']);
+  });
+});
+
+// 频次 enemies (特殊生命值机制, content/enemies.js `times`, damage.js flag hitCount): PRTS 特殊机制 "该目标在成功受到伤害，
+// 应用生命值变化时令生命值只降低1点（不论伤害多少）". User report 2026-10-06: they lost several hits at once.
+describe('频次 enemies lose exactly 1 HP per damage instance (server/sim/content/kits/tier5.js 隐德来希)', () => {
+  const TIMES = 'enemy_1200_msfjin'; // 青铜镜 · 30 hits
+  const run = (chessId, skillIndex, { enemies, units = [], secs = 15, at = [10, 5] } = {}) => {
+    const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true,
+      units: [{ chessId, row: at[0], col: at[1], uid: 1, skillIndex, carryState: { sp: 999 } }, ...units],
+      enemies: enemies ?? [{ key: TIMES, time: 0, route: 0, count: 3, interval: 1.5 }, { key: TIMES, time: 1, route: 1, count: 3, interval: 1.5 }] });
+    // per tick: the HP a 频次 enemy lost never exceeds the damage instances it took (HP loss 流失 aside)
+    let inst = new Map();
+    const over = [];
+    h.b.on('damaged', (c) => {
+      if (c.target?.side === 'enemy' && c.type !== 'element' && c.amount > 0 && !c.dmg?.tags?.includes('hpLoss')) inst.set(c.target, (inst.get(c.target) ?? 0) + c.amount);
+    });
+    const last = new Map();
+    for (let i = 0; i < Math.round(secs * 30); i++) {
+      inst = new Map();
+      h.step(1);
+      for (const e of new Set([...last.keys(), ...h.b.enemies])) {   // (a dead enemy may already be off the list)
+        if (!(e.s.flags.hitCount || e.s.flags.hitCountArts) && last.get(e) == null) continue;
+        const cur = e.alive ? e.hp : 0, prev = last.get(e);
+        last.set(e, cur);
+        if (prev != null && prev - cur > (inst.get(e) ?? 0) + 1e-6) over.push(`${e.defId} t=${h.b.time.toFixed(2)} −${(prev - cur).toFixed(2)} for ${inst.get(e) ?? 0}`);
+      }
+    }
+    return { h, over };
+  };
+
+  test('萃血 steals no max HP from a 频次 enemy (PRTS 备注: "无法对…拥有特殊生命值机制的敌人…生效"); others keep the steal', () => {
+    const { h, over } = run('chess_char_5_06_b', 0);
+    const u = h.unit('chess_char_5_06_b');
+    assert.deepEqual(over, [], 'one HP per damage instance');
+    const hit = h.b.enemies.filter((e) => e.hp < 30 || !e.alive);
+    assert.ok(hit.length >= 1, 'she hit a 青铜镜');
+    for (const e of hit) { assert.equal(e.s.maxHp, 30); assert.equal(e.findBuff(`etlchi:steal:${u.id}`), null); }
+    assert.equal(u.mem.stolen ?? 0, 0, 'nothing stolen, nothing gained');
+    const n = run('chess_char_5_06_b', 0, { enemies: [{ key: 'enemy_1422_lrsldr', time: 0, route: 0, count: 2, interval: 1.5 }] });
+    assert.ok(n.h.unit('chess_char_5_06_b').mem.stolen > 0, 'a regular enemy still loses max HP (upstream behaviour)');
+  });
+
+  test('心烛 (S3): the loss passed on to a 频次 original is one true damage instance = 1 HP (PRTS 备注 心烛)', () => {
+    const { h, over } = run('chess_char_5_06_b', 2);
+    assert.deepEqual(over, [], 'one HP per damage instance');
+    const passed = h.hooksOf('damaged').filter((d) => d.dmg?.tags?.includes('etlchiCandle'));
+    assert.ok(passed.length >= 1, 'a candle passed damage on');
+    assert.ok(passed.every((d) => d.amount === 1 && d.dmg.sourceless && d.type === 'true'), passed.map((d) => d.amount).join(','));
+  });
+
+  test('선발 kits × skills (望 stones, 陈 剑气 / S2, 维什戴尔, 祥子 notes, 阿斯卡纶 DoT): never more than 1 HP per instance', () => {
+    const stone = (row, col, uid) => ({ kind: 'token', tokenId: 'token_10064_wang_stone1', ownerUid: 1, row, col, uid });
+    const many = [{ key: TIMES, time: 0, route: 0, count: 6, interval: 1.2 }, { key: TIMES, time: 1, route: 1, count: 6, interval: 1.6 }];
+    const POS = { wang: [11, 3], chen3: [10, 4], wisdel: [11, 4], oblvns: [10, 4], ascln: [10, 4] };
+    for (const [key, at] of Object.entries(POS)) {
+      for (const sk of [0, 1, 2]) {
+        const { h, over } = run(`chess_diy_${key}_6_b`, sk, { at, units: key === 'wang' ? [stone(10, 6, 50), stone(10, 7, 51)] : [], secs: 25, enemies: many });
+        assert.equal(h.b.errors.length, 0);
+        assert.ok(h.hooksOf('damaged').some((d) => d.target?.side === 'enemy' && d.amount > 0 && d.type !== 'element'), `${key} S${sk + 1} hits`);
+        assert.deepEqual(over, [], `${key} S${sk + 1}`);
+        for (const d of h.hooksOf('damaged')) if (d.target?.side === 'enemy' && d.type !== 'element') assert.ok(d.amount <= 1, `${key} S${sk + 1}: ${d.amount}`);
+      }
+    }
+  });
 });

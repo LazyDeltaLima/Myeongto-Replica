@@ -32,6 +32,33 @@ export const DIY_CANDIDATES = Object.freeze([
 ]);
 const TIERS = [5, 6];
 
+/**
+ * Deliberate trigger deviations of the picks (like build-data's TRIGGER_DEVIATIONS, which validates against the shared
+ * chess table and so cannot hold these): charId → skillId → rule. A SKILL_RANGE deviation fires on the skill's own range.
+ * - 赤刃明霄陈 S3 赤霄·天喟 (owner's decision 2026-10-06): its 剑气 hits flyers too, but by the official rule ("攻击范围
+ *   扩大" = DEFAULT) she casts only before a normal attack with an enemy in her 1-1 — never for a flyer she cannot attack.
+ *   It casts once an enemy (flyers included) stands on its range 3-12.
+ */
+// - 望 S3 天下劫 (owner's decision 2026-10-06, same reason): 「停止攻击但攻击范围扩大」 = DEFAULT by the official rule, so it
+//   cast only with an enemy in her 3-3; it casts once an enemy stands on its 4-12 (the user's memory of the real game:
+//   a skill range wider than the attack range casts on it).
+const DIY_TRIGGER_DEVIATIONS = Object.freeze({
+  char_1050_chen3: { skchr_chen3_3: 'SKILL_RANGE' },
+  char_2027_wang: { skchr_wang_3: 'SKILL_RANGE' },
+});
+function applyDiyTriggerDeviations(rec) {
+  const dev = DIY_TRIGGER_DEVIATIONS[rec.charId];
+  if (!dev) return;
+  const fix = (s) => {
+    const rule = s && dev[s.skillId];
+    if (!rule) return;
+    if (rule === 'SKILL_RANGE' && !s.rangeGrid?.length) throw new Error(`diy trigger deviation ${rec.chessId} ${s.skillId}: SKILL_RANGE without a 技能范围`);
+    s.trigger = { rule, rawRule: s.trigger?.rawRule ?? 'DEFAULT', customRangeGrid: rule === 'SKILL_RANGE' ? s.rangeGrid.map((p) => p.slice()) : null };
+  };
+  for (const s of rec.skills || []) fix(s);
+  fix(rec.skill);
+}
+
 /** Faction → bond (nation, then group / team, e.g. 深海猎人 → 阿戈尔), else the fallback bond. */
 const NATION_BONDS = { yan: 'yanShip', sargon: 'sargonShip', victoria: 'victoriaShip', kjerag: 'kjeragShip', laterano: 'lateranoShip',
   egir: 'egirShip', siracusa: 'siracusaShip', kazimierz: 'kazimierzShip' };
@@ -90,6 +117,7 @@ export async function buildDiy(ctx) {
     rec.diyPick = true;
     rec.visible = false;
     rec.isHidden = false;
+    applyDiyTriggerDeviations(rec);
   }
   let enemies = {};
   try { enemies = JSON.parse(await readFile(join(ROOT, 'data', 'enemies.json'), 'utf8')); } catch { /* summons that are enemies: none here */ }
