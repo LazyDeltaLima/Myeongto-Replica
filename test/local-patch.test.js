@@ -329,6 +329,30 @@ describe('operator voice: Korean / Japanese / off and the 休整期 lines on ups
   });
 });
 
+describe('official shop look (public/js/ui/shopArt.js, css/shop-art.css)', () => {
+  test('sprite variables from the web manifest (+ the local cost hexagon); none without the frames; the watermark is the 特质 type icon', async () => {
+    const { data } = await mod('data.js');
+    const { shopArt, garrisonMarkUrl } = await mod('ui/shopArt.js');
+    const get = data.get, lookup = data.lookup;
+    const ui = { 'shopCard/frame_lv1': '/f1.png', 'shopPanel/bg_close': '/c.png', 'shopPanel/refresh_bg_normal': '/r.png', 'garrisonTypeIcon/icon_gold': '/g.png' };
+    try {
+      let local = { groups: { 'ui/battle': { cost_bg_1: { path: '/l/c1.png' } } } };
+      data.get = (n) => (n === 'assets' ? { ui } : n === 'local' ? local : get.call(data, n));
+      data.lookup = (n, id) => (n === 'garrisons' && id === 'g1' ? { eventTypeIcon: 'icon_gold' } : lookup.call(data, n, id));
+      const a = shopArt();
+      assert.match(a.cls, /has-shop-art/);
+      assert.match(a.cls, /has-shop-cost/);
+      assert.match(a.style, /--sa-card-frame1:url\("\/f1\.png"\)/);
+      assert.match(a.style, /--sa-cost:url\("\/l\/c1\.png"\)/);
+      assert.equal(garrisonMarkUrl({ garrisonIds: ['g1'] }), '/g.png');
+      assert.equal(garrisonMarkUrl({ garrisonIds: [] }), null);
+      local = { groups: {} };
+      data.get = (n) => (n === 'assets' ? { ui: { 'shopCard/frame_lv1': '/f1.png' } } : n === 'local' ? local : get.call(data, n));
+      assert.deepEqual(shopArt(), { cls: '', style: '' }, 'without the close box / buttons the bar keeps the upstream look');
+    } finally { data.get = get; data.lookup = lookup; }
+  });
+});
+
 describe('선발 오퍼레이터 — 甄选 picks (shared/diy.js, server/local-patch.js, ui/diySlots.js)', () => {
   test('data: diy.json merges into chess / tokens; records are invisible DIY picks with the slot status', async () => {
     const { loadData } = await import('../server/data.js');

@@ -25,6 +25,7 @@ import { Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js'
 import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip } from './gameLogic.js';
 import { chessPortraitUrl, itemIconUrl, profIconUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
+import { shopArt, garrisonMarkUrl } from './shopArt.js'; // local patch: the official shop look (css/shop-art.css)
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -76,7 +77,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'chess', hint); }}
       aria-label=${`${c?.name || '干员'}，价格 ${slot.price}${armed ? (disabled ? '，无法购买' : '，再次点击确认') : ''}`} aria-pressed=${onTap ? String(!!armed) : undefined}>
     <span class="scard__bg" aria-hidden="true"></span>
-    <span class="scard__water" aria-hidden="true">${bonds[0] ? html`<${BondGlyph} bondId=${bonds[0]} />` : null}</span>
+    <span class="scard__water" aria-hidden="true">${garrisonMarkUrl(c) ? html`<${Img} src=${garrisonMarkUrl(c)} class="scard__mark" />` /* local patch: 特质 type icon, as the client */ : bonds[0] ? html`<${BondGlyph} bondId=${bonds[0]} />` : null}</span>
     <${Img} src=${chessPortraitUrl(m, c)} class="scard__art" />
     <span class="scard__top">
       <${TierChip} tier=${tier} size="md" />
@@ -307,7 +308,8 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
     </div>`;
   }
 
-  return html`<section class=${cx('shopbar', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} ref=${barRef} aria-label="调度中心">
+  const art = shopArt(); // local patch: the official sprites (shopArt.js, css/shop-art.css)
+  return html`<section class=${cx('shopbar', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed', art.cls)} style=${art.style} ref=${barRef} aria-label="调度中心">
     <div class="shopbar__tools">
       <span class="shopbar__remain">剩余可放置角色：<b class=${cx('num', remaining === 0 && 't-orange')}>${remaining}</b></span>
       <button type="button" class=${cx('toolbtn', 'toolbtn--ice', frozen && 'is-on')} disabled=${!!frzReason} onClick=${onFreeze}

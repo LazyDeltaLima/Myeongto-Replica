@@ -1,0 +1,211 @@
+/* ==========================================================================================
+   shop-art.css — the official shop look (local patch, docs/LOCAL-PATCH.md "상점 화면"), over screens/game-shop.css.
+   Only under `.shopbar.has-shop-art` (js/ui/shopArt.js sets it with the sprite variables when the web manifest has the
+   official shopPanel / shopCard sprites). Geometry from the client's prefabs (ui/autochess/[uc]autochessbattle.ab):
+   autochess_shop_card_item 158×176, the upgrade group 111×175, the close box 168×184, buttons 128×55 (bg 149×77),
+   cost hexagon 44×35, bond rows 154×18 — in the client's canvas units. The scale comes from the in-game screenshots
+   (2026-10-06): a card is about a quarter of the top round banner's width, i.e. 1 unit ≈ 1.08 px at 1920×1080, so
+   `--u` = .0108rem.
+   ========================================================================================== */
+
+.shopbar.has-shop-art { --u: .0108rem; gap: calc(var(--u) * 6); }
+.shopbar.has-shop-art .shopbar__row {
+  gap: calc(var(--u) * 6); padding: calc(var(--u) * 10) calc(var(--u) * 6) calc(var(--u) * 6);
+  background: var(--sa-shadow-total) center bottom / 100% 100% no-repeat; border: 0; box-shadow: none;
+}
+.shopbar.has-shop-art .shopbar__row::before { display: none; }
+.shopbar.has-shop-art .shopbar__cards, .shopbar.has-shop-art .shopbar__item, .shopbar.has-shop-art .shopbar__rwcards { gap: calc(var(--u) * 6); }
+.shopbar.has-shop-art .shopbar__item { padding-left: 0; border-left: 0; }
+.shopbar.has-shop-art.is-frozen .shopbar__row { border: 0; }
+
+/* ---- 剩余可放置角色 + 冻结 / 刷新 (panel_ctrl_btn) ---- */
+.shopbar.has-shop-art .shopbar__tools { position: relative; z-index: 2; gap: calc(var(--u) * 4) calc(var(--u) * 14); margin-bottom: calc(var(--u) * 12); }
+.shopbar.has-shop-art .shopbar__remain {
+  font-size: calc(var(--u) * 20); color: #fff; background: rgba(49, 49, 49, .7); border-left: 0; padding: 0 calc(var(--u) * 12);
+  line-height: calc(var(--u) * 33); margin-bottom: calc(var(--u) * 26);
+}
+.shopbar.has-shop-art .shopbar__remain b { color: #fff; font-size: calc(var(--u) * 20); }
+.shopbar.has-shop-art .toolbtn {
+  position: relative; width: calc(var(--u) * 128); height: calc(var(--u) * 55); padding: 0; gap: 0; justify-content: center;
+  background: transparent; border: 0; box-shadow: none; color: rgba(0, 0, 0, .9); font-size: calc(var(--u) * 19); letter-spacing: .06em; overflow: visible;
+}
+/* the sprite is 149×77 and sits 9 units lower (its drop shadow) */
+.shopbar.has-shop-art .toolbtn::before {
+  content: ''; position: absolute; z-index: -1; left: 50%; top: 50%; width: calc(var(--u) * 149); height: calc(var(--u) * 77);
+  transform: translate(-50%, calc(-50% + var(--u) * 9)); background: var(--tb-art) center / 100% 100% no-repeat;
+}
+.shopbar.has-shop-art .toolbtn--ice { --tb-art: var(--sa-frozen); }
+.shopbar.has-shop-art .toolbtn--ice.is-on { --tb-art: var(--sa-frozen-on); background: transparent; color: rgba(0, 0, 0, .9); } /* [추정] frozen = frozen_bg_unselect */
+.shopbar.has-shop-art .toolbtn--amber { --tb-art: var(--sa-refresh); }
+.shopbar.has-shop-art .toolbtn:disabled { --tb-art: var(--sa-lock); color: rgba(0, 0, 0, .9); }
+.shopbar.has-shop-art .toolbtn:hover:not(:disabled) { background: transparent; filter: brightness(1.08); box-shadow: none; }
+.shopbar.has-shop-art .toolbtn__img { width: calc(var(--u) * 31); height: calc(var(--u) * 31); margin-right: calc(var(--u) * 13); }
+.shopbar.has-shop-art .toolbtn > span:not([class]) { min-width: calc(var(--u) * 55); text-align: center; font-weight: 700; }
+/* the key hint under the button (pc_key_holder, 39 units down) */
+.shopbar.has-shop-art .toolbtn kbd {
+  position: absolute; left: 50%; top: 100%; transform: translate(-50%, calc(var(--u) * 6)); margin: 0;
+  color: #e8e8e8 !important; background: rgba(20, 20, 20, .85) !important; border-color: rgba(255, 255, 255, .25) !important;
+}
+/* the refresh price above the button's top-right (root_cost 28 units up): FREE pill or the cost hexagon */
+.shopbar.has-shop-art .toolbtn--amber .hex, .shopbar.has-shop-art .toolbtn__free {
+  position: absolute; left: 50%; top: 0; transform: translate(-50%, calc(-50% - var(--u) * 6));
+}
+.shopbar.has-shop-art .toolbtn__free {
+  width: calc(var(--u) * 101); height: calc(var(--u) * 35); padding: 0 0 0 calc(var(--u) * 48); display: flex; align-items: center;
+  background: var(--sa-free) center / 100% 100% no-repeat; color: #fff; font-size: calc(var(--u) * 17); font-weight: 700; font-family: var(--font-num);
+}
+
+/* ---- price hexagon (autochess_shop_cost_item 44×35: cost_bg_1 + 22 px #ffc600, cost_bg_2 + #c0c5c3 when poor) ---- */
+.shopbar.has-shop-cost .scard__price, .shopbar.has-shop-cost .lvcard__price, .shopbar.has-shop-cost .toolbtn--amber .hex {
+  --hex-h: calc(var(--u) * 35); width: calc(var(--u) * 44); height: calc(var(--u) * 35); filter: none;
+  background: var(--sa-cost) center / 100% 100% no-repeat; clip-path: none;
+}
+.shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) .hex__fill { background: none; clip-path: none; width: 100%; height: 100%; display: grid; place-items: center; }
+.shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex)::before,
+.shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex)::after { display: none; }
+.shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) .hex__value { color: #ffc600; font-size: calc(var(--u) * 22); line-height: 1; font-weight: 700; }
+.shopbar.has-shop-cost :is(.scard__price.is-poor, .lvcard__price.hex--dark, .toolbtn--amber .hex--dark) { background-image: var(--sa-cost-grey); }
+.shopbar.has-shop-cost :is(.scard__price.is-poor, .lvcard__price.hex--dark, .toolbtn--amber .hex--dark) .hex__value { color: #c0c5c3; }
+
+/* ---- operator / item card (autochess_shop_card_item 158×176) ---- */
+.shopbar.has-shop-art .scard {
+  width: calc(var(--u) * 158); height: calc(var(--u) * 176); border: 0; background: var(--sa-card-black) center / 100% 100% no-repeat; overflow: visible;
+}
+.shopbar.has-shop-art .scard:not(.scard--sold)::before { /* frame_lv1 over everything (the prefab's group_frame); the armed card takes frame_lv2 */
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--sa-card-frame1) center / 100% 100% no-repeat;
+}
+.shopbar.has-shop-art .scard.is-armed::before, .shopbar.has-shop-art .scard.is-merge::before { background-image: var(--sa-card-frame2); }
+.shopbar.has-shop-art .scard__bg { inset: calc(var(--u) * 2); overflow: hidden; z-index: 1;
+  background: var(--sa-card-line) left top / auto repeat, var(--sa-card-common) center / 100% 100% no-repeat; opacity: 1; }
+/* portrait: top-right (root_char → char_portrait 90×179 pinned to the card's top-right corner, clipped by the card) */
+.shopbar.has-shop-art .scard__art {
+  z-index: 0; top: calc(var(--u) * 2); right: calc(var(--u) * 2); height: calc(var(--u) * 172); width: calc(var(--u) * 100); object-fit: cover; object-position: 30% top;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 30%), linear-gradient(180deg, #000 60%, transparent 92%);
+  mask-image: linear-gradient(90deg, transparent, #000 30%); }
+.shopbar.has-shop-art .scard:not(.scard--sold) { overflow: hidden; }
+/* watermark: the 特质 type icon (garrison_icon 65×65 at 35 %, its centre 39 left / 23 up of the card's) */
+.shopbar.has-shop-art .scard__water { z-index: 1; left: calc(var(--u) * 7); top: calc(var(--u) * 33); width: calc(var(--u) * 65); height: calc(var(--u) * 65); opacity: .35; }
+.shopbar.has-shop-art .scard__mark { width: 100%; height: 100%; object-fit: contain; }
+/* tier chip: root_tier (29×29 centred 23 / 24 from the top-left); price centred on top */
+.shopbar.has-shop-art .scard__top { z-index: 4; left: calc(var(--u) * 8); right: calc(var(--u) * 8); top: calc(var(--u) * 9); }
+.shopbar.has-shop-art .scard__top .tier { width: calc(var(--u) * 29); height: calc(var(--u) * 29); }
+.shopbar.has-shop-art .scard__price { top: calc(var(--u) * -12); }
+.shopbar.has-shop-art .scard__free { top: calc(var(--u) * -10); }
+/* bottom: bonds (rows 154×18, icon 22 #b8b8b8, 14 px #b7b7b7) above the name bar (prof icon 16 + name 16 px) */
+.shopbar.has-shop-art .scard__body {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 0;
+  padding: 0 0 calc(var(--u) * 4); background: none;
+}
+.shopbar.has-shop-art .scard__bonds { order: 1; flex-direction: column; gap: calc(var(--u) * 2); padding: 0 calc(var(--u) * 4) calc(var(--u) * 6); }
+.shopbar.has-shop-art .scard__bond { gap: calc(var(--u) * 4); font-size: calc(var(--u) * 14); line-height: calc(var(--u) * 18); color: #b7b7b7; }
+.shopbar.has-shop-art .scard__bond .bglyph { width: calc(var(--u) * 22); height: calc(var(--u) * 22); filter: grayscale(1) brightness(1.4); opacity: .8; }
+.shopbar.has-shop-art .scard__name, .shopbar.has-shop-art .scard--item .scard__name {
+  order: 3; position: relative; height: calc(var(--u) * 24); line-height: calc(var(--u) * 24); margin: 0 calc(var(--u) * 2);
+  padding-left: calc(var(--u) * 25); font-size: calc(var(--u) * 16); font-weight: 700; letter-spacing: .02em;
+  background: rgba(0, 0, 0, .55); text-shadow: none;
+}
+/* the profession icon goes into the name bar (the class subtitle is not on the official card) */
+.shopbar.has-shop-art .scard__class { order: 2; position: absolute; left: calc(var(--u) * 9); bottom: calc(var(--u) * 8); z-index: 2; display: flex; }
+.shopbar.has-shop-art .scard__class > span { display: none; }
+.shopbar.has-shop-art .scard__prof { width: calc(var(--u) * 16); height: calc(var(--u) * 16); opacity: .9; filter: brightness(0) invert(1); }
+/* the loadout's skill icon (upstream, DESIGN §16): bottom-right, just above the name bar (user 2026-10-06) */
+.shopbar.has-shop-art .scard__skill { top: auto; right: calc(var(--u) * 6); bottom: calc(var(--u) * 31); width: calc(var(--u) * 28); height: calc(var(--u) * 28); z-index: 3; }
+.shopbar.has-shop-art .scard__mergetag { top: calc(var(--u) * 42); }
+/* not affordable / not editable: the prefab's disable_matte (#5b5b5b99) */
+.shopbar.has-shop-art .scard.is-disabled:not(.is-armed)::after, .shopbar.has-shop-art.is-locked .scard:not(.scard--sold)::after {
+  content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none; background: rgba(91, 91, 91, .6); mix-blend-mode: multiply;
+}
+.shopbar.has-shop-art .scard.is-disabled .scard__art { filter: grayscale(1) brightness(.75); }
+/* frozen: ice_matte at the bottom + icon_ice (state_fx_frozen) */
+.shopbar.has-shop-art .scard.is-frozen::after {
+  inset: auto 0 0 0; height: calc(var(--u) * 67); box-shadow: none; background: var(--sa-card-icematte) center bottom / 100% 100% no-repeat;
+}
+.shopbar.has-shop-art .scard__ice { bottom: calc(var(--u) * 10); width: calc(var(--u) * 31); height: calc(var(--u) * 34); border: 0; background: var(--sa-card-ice) center / contain no-repeat; }
+.shopbar.has-shop-art .scard__ice .icon { display: none; }
+/* item card: deco_item 128×99 behind the 93×93 icon, the name bar with icon_item; no description on the official card */
+.shopbar.has-shop-art .scard--item .scard__bg { background: var(--sa-card-deco) center 38% / calc(var(--u) * 128) calc(var(--u) * 99) no-repeat, var(--sa-card-line) left top / auto repeat; }
+.shopbar.has-shop-art .scard__itemart { z-index: 2; top: calc(var(--u) * 28); width: calc(var(--u) * 93); height: calc(var(--u) * 93); background: none; }
+.shopbar.has-shop-art .scard__idesc { display: none; }
+.shopbar.has-shop-art .scard--item .scard__name::before {
+  content: ''; position: absolute; left: calc(var(--u) * 7); top: 50%; width: calc(var(--u) * 16); height: calc(var(--u) * 16); transform: translateY(-50%);
+  background: var(--sa-card-item) center / contain no-repeat;
+}
+/* sold / empty slot: bg_empty ([ NO INFO ]) */
+.shopbar.has-shop-art .scard--sold { border: 0; background: var(--sa-card-empty) center / 100% 100% no-repeat; }
+.shopbar.has-shop-art .scard__soldtxt { display: none; }
+.shopbar.has-shop-art .scard:not(.is-disabled):not(.scard--sold):hover { border: 0; box-shadow: none; }
+
+/* ---- upgrade (group_upgrade 111×175) ---- */
+.shopbar.has-shop-art .lvcard {
+  width: calc(var(--u) * 111); height: calc(var(--u) * 175); padding: 0; gap: 0; justify-content: flex-start; clip-path: none; overflow: visible;
+  background:
+    var(--sa-up-stripe) center / 100% 100% no-repeat,
+    var(--sa-card-line) left top / auto repeat,
+    #107463;
+}
+.shopbar.has-shop-art .lvcard::before { /* deco_up / deco_down */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: var(--sa-up-deco-up) center calc(var(--u) * 11) / calc(var(--u) * 49) calc(var(--u) * 6) no-repeat,
+              var(--sa-up-deco-down) center calc(100% - var(--u) * 5) / calc(var(--u) * 95) calc(var(--u) * 10) no-repeat;
+  opacity: .5;
+}
+.shopbar.has-shop-art .lvcard__price { top: calc(var(--u) * -6); }
+.shopbar.has-shop-art .lvcard__frame {
+  position: absolute; left: 50%; top: calc(var(--u) * 33); width: calc(var(--u) * 97); height: calc(var(--u) * 85); transform: translateX(-50%);
+  padding: 0; border: 0; justify-content: center;
+  background: var(--sa-up-frame) center / 100% 100% no-repeat,
+              radial-gradient(rgba(2, 2, 1, .6), rgba(2, 2, 1, .6)) center / calc(var(--u) * 85) calc(var(--u) * 69) no-repeat;
+}
+/* the inner icon is a near-black silhouette at 30 % (prefab colour #0205054c) */
+.shopbar.has-shop-art .lvcard__frame::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 60); height: calc(var(--u) * 61); transform: translate(-50%, -50%);
+  border: 0; background: var(--sa-up-icon) center / contain no-repeat; filter: brightness(0); opacity: .3;
+}
+.shopbar.has-shop-art .lvcard__frame::after { display: none; }
+.shopbar.has-shop-art .lvcard__micro { /* the prefab's 39×9 'level' text sprite (the web manifest's `shopPanel/level` is another sprite of that name) */
+  position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--u) * 8); text-align: center; font-size: calc(var(--u) * 11); line-height: 1; letter-spacing: .2em; padding-left: .2em; color: #57e8cb; opacity: .85; }
+.shopbar.has-shop-art .lvcard__num { position: relative; z-index: 1; margin-top: calc(var(--u) * 14); font-size: calc(var(--u) * 56); color: #57e8cb; font-weight: 700; }
+.shopbar.has-shop-art .lvcard__label { position: absolute; left: 0; right: 0; bottom: calc(var(--u) * 12); text-align: center; font-size: calc(var(--u) * 20); color: #6eecd2; letter-spacing: .2em; padding-left: .2em; }
+.shopbar.has-shop-art .lvcard__key { left: 50%; right: auto; top: 100%; bottom: auto; transform: translate(-50%, calc(var(--u) * 4));
+  color: #e8e8e8 !important; background: rgba(20, 20, 20, .85) !important; border-color: rgba(255, 255, 255, .25) !important; }
+.shopbar.has-shop-art .lvcard.is-disabled { background: var(--sa-up-disable) center / 100% 100% no-repeat; }
+.shopbar.has-shop-art .lvcard.is-disabled::before, .shopbar.has-shop-art .lvcard.is-max::before { display: none; }
+.shopbar.has-shop-art .lvcard.is-disabled .lvcard__frame, .shopbar.has-shop-art .lvcard.is-max .lvcard__frame { background: none; }
+.shopbar.has-shop-art .lvcard.is-disabled .lvcard__frame::before, .shopbar.has-shop-art .lvcard.is-max .lvcard__frame::before { display: none; }
+.shopbar.has-shop-art .lvcard.is-disabled .lvcard__micro { color: #b6b6b6; }
+.shopbar.has-shop-art .lvcard.is-max .lvcard__micro { color: #679a90; }
+.shopbar.has-shop-art .lvcard.is-disabled .lvcard__num { color: #b6b6b6; }
+.shopbar.has-shop-art .lvcard.is-disabled .lvcard__label { color: #444; }
+.shopbar.has-shop-art .lvcard.is-max { background: var(--sa-up-max) center / 100% 100% no-repeat; }
+.shopbar.has-shop-art .lvcard.is-max .lvcard__num, .shopbar.has-shop-art .lvcard.is-max .lvcard__label { color: #679a90; }
+.shopbar.has-shop-art .lvcard.is-armed { background: var(--sa-up-stripe) center / 100% 100% no-repeat, #1a9a83; animation: none;
+  box-shadow: 0 0 0 calc(var(--u) * 2) #6eecd2, 0 0 calc(var(--u) * 20) rgba(110, 236, 210, .45); }
+
+/* ---- funds (group_money: bg_money 110×37, 28 px #ffba00) + close box (bg_close 181×197, 收起 20 px #37e5ca + icon_x) ---- */
+.shopbar.has-shop-art .funds {
+  position: relative; width: calc(var(--u) * 168); height: calc(var(--u) * 176); padding: 0; gap: 0; border-left: 0; justify-content: flex-end;
+  background: var(--sa-close) center / calc(var(--u) * 181) calc(var(--u) * 197) no-repeat;
+}
+.shopbar.has-shop-art .funds__hex {
+  position: absolute; z-index: 3; left: 50%; top: calc(var(--u) * -12); transform: translateX(-50%); width: calc(var(--u) * 110); height: calc(var(--u) * 37);
+  flex-direction: row; gap: 0; padding-left: calc(var(--u) * 34); clip-path: none; background: var(--sa-money) center / 100% 100% no-repeat;
+}
+.shopbar.has-shop-art .funds__hex::before, .shopbar.has-shop-art .funds__coin { display: none; }
+.shopbar.has-shop-art .funds__num { font-size: calc(var(--u) * 28); color: #ffba00; }
+.shopbar.has-shop-art .funds__label { display: none; }
+.shopbar.has-shop-art .funds__collapse {
+  position: relative; flex-direction: row-reverse; margin-bottom: calc(var(--u) * 14); padding: calc(var(--u) * 10) calc(var(--u) * 30);
+  font-size: calc(var(--u) * 20); font-weight: 700; color: #37e5ca; border: 0; letter-spacing: .1em;
+  background: var(--sa-close-shadow) center / calc(var(--u) * 155) calc(var(--u) * 70) no-repeat;
+}
+.shopbar.has-shop-art .funds__collapse .icon { width: calc(var(--u) * 20); height: calc(var(--u) * 20); color: transparent; background: var(--sa-x) center / contain no-repeat; }
+.shopbar.has-shop-art .funds__collapse .icon * { display: none; }
+.shopbar.has-shop-art .funds__collapse:hover { color: #7ff5e2; }
+
+/* ---- promotion reward / special refresh header: as tall as the cards ---- */
+.shopbar.has-shop-art .rwtag { width: calc(var(--u) * 84); height: calc(var(--u) * 176); gap: calc(var(--u) * 4); padding: calc(var(--u) * 6) calc(var(--u) * 4); overflow: hidden; }
+.shopbar.has-shop-art .rwtag__icon { width: calc(var(--u) * 24); height: calc(var(--u) * 24); }
+.shopbar.has-shop-art .rwtag__title { writing-mode: horizontal-tb; font-size: calc(var(--u) * 16); line-height: 1.25; letter-spacing: .06em; text-align: center; }
+.shopbar.has-shop-art .rwtag__sub { font-size: calc(var(--u) * 11); }
+.shopbar.has-shop-art .rwtag__later { margin-top: 0; font-size: calc(var(--u) * 12); padding: calc(var(--u) * 2) calc(var(--u) * 6); }
+.shopbar.has-shop-art .shopbar__reward::before { inset: calc(var(--u) * -4) calc(var(--u) * -3); }
