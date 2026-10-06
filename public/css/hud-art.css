@@ -134,6 +134,8 @@
   -webkit-mask: linear-gradient(90deg, transparent, #000 calc(var(--u) * 15), #000 calc(100% - var(--u) * 15), transparent);
   mask: linear-gradient(90deg, transparent, #000 calc(var(--u) * 15), #000 calc(100% - var(--u) * 15), transparent); }
 .gm.has-hud-art .bstrip::-webkit-scrollbar { display: none; }
+/* local patch: the no-bond hint (BONDS + text) clear of the 15-unit edge fade — it ate the first and last letters */
+.gm.has-hud-art .bstrip--empty { padding-left: calc(var(--u) * 15); padding-right: calc(var(--u) * 15); }
 /* item width = the LayoutElement's preferred 80 (the layout group controls the width; the RectTransform's 83 is unused) */
 .gm.has-hud-art .bslot { flex: none; width: calc(var(--u) * 80); height: calc(var(--u) * 84); }
 .gm.has-hud-art .bslot .bond { --disc: calc(var(--u) * 58); position: relative; width: 100%; height: 100%; display: block; }
@@ -186,6 +188,8 @@
    upstream's 44 px minimum (GitHub #142). ---- */
 .gm.has-hud-art.has-hud-fold .gm__bonds { flex-direction: column; align-items: center; gap: 0; }
 .gm.has-hud-art.has-hud-fold .gm__bond-list { order: 1; }
+/* local patch: folded (收起, `hidden`) — the display: flex above outranked the UA [hidden] rule, so folding left the list on screen */
+.gm.has-hud-art .gm__bond-list[hidden] { display: none; }
 .gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle {
   order: 2; position: relative; min-width: calc(var(--u) * 102); min-height: 0; height: calc(var(--u) * 26); padding: 0;
   margin-top: calc(var(--u) * 2); border: 0; color: transparent; /* under the names (KR captures; at −11.5 it covered them) */ font-size: 0;
