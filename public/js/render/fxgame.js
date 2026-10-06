@@ -171,7 +171,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
 
   // 望's 棋子 (kits/diy.js): its effects are the token's own (pkgrps/btl_pfb_fx_token_3.ab → bundle wang_token).
-  // 'zone' with the stone token = it went off (skill 1 取势 / 2 连星 along its link axes / 3 the x-6 cross);
+  // 'zone' with the stone token = it went off (skill 1 取势 / 2 连星 along its link axes / 3 the x-1 diamond);
   // 'wangLink' = it activated (the golden cross, once); 'summon' of a stone = placed. The ground marks (the stone's own
   // looping cross, the link line) go on the lower layer, under the stone's model; the explosions over it. [ASSUMED] which prefab is which,
   // by name; S2's line blast is turned by its 'rotation_z' pivot (h = 0°, v = 90°).

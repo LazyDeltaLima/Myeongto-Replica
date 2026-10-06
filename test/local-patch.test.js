@@ -552,7 +552,10 @@ describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
     for (const [key, [r, c]] of Object.entries(POS)) {
       for (const sk of [0, 1, 2]) {
         const id = `chess_diy_${key}_6_b`;
-        const h = await battle(id, sk, r, c, key === 'wang' ? [stone(10, 6, 50), stone(10, 7, 51)] : []);
+        // 望 S3: one lone (never activated) prep stone — S3 needs a placed one, and with its x-1 passive area two linked
+        // stones by the lane clear the waves before she ever casts
+        const wangStones = sk < 2 ? [stone(10, 6, 50), stone(10, 7, 51)] : [stone(10, 6, 50)];
+        const h = await battle(id, sk, r, c, key === 'wang' ? wangStones : []);
         const u = h.unit(id);
         assert.equal(h.b.errors.length, 0, `${key} S${sk + 1}: ${h.b.errors[0]?.error?.message || ''}`);
         assert.equal(u.kit?.skillSource, 'skills', `${key} S${sk + 1} uses its hand spec`);
@@ -771,7 +774,7 @@ describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
     });
   });
 
-  test('望: only connected 棋子 trigger; battle start = prep layout (no 跟子); traps take no hits; used up on a trigger, back on their tile for DP (the card returns); S3 x-6 area; stones go on high ground too', async () => {
+  test('望: only connected 棋子 trigger; battle start = prep layout (no 跟子); traps take no hits; used up on a trigger, back on their tile for DP (the card returns); S3 x-1 area; stones go on high ground too', async () => {
     const { makeBattle } = await import('./helpers/battleHarness.js');
     const noSp = (extra) => { // S1 not cast yet (SP 0 of 16): only the placed stones
       const b = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0 }, ...extra],
@@ -812,13 +815,13 @@ describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
     const all = s1.allies().filter((u) => u.kind === 'token' && u.alive);
     assert.ok(all.some((u) => u.mem.wangFollower), '跟子 with an automatic deployment');
     assert.ok(all.filter((u) => !u.mem.wangFollower).length <= 6, 'stones ≤ maxDeployCount');
-    // S3 equipped: the x-6 cross triggers and hits (passive), flyers included
+    // S3 equipped: the x-1 diamond triggers and hits (passive), flyers included
     assert.ok(tagged(await battle('chess_diy_wang_6_b', 2, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)], 20), 'trap') > 0);
     const { loadData } = await import('../server/data.js');
     assert.equal(loadData(path.join(ROOT, 'data'), { log: { warn() {}, error() {} } }).tokens.token_10064_wang_stone1.position, 'ALL');
   });
 
-  test('望 棋子: 激活 and 料敌机先 stacks are latched; with S3 a high-ground stone catches ground enemies (x-6), with S1 it does not', async () => {
+  test('望 棋子: 激活 and 料敌机先 stacks are latched; with S3 a high-ground stone catches ground enemies (x-1 diamond), with S1 it does not', async () => {
     const { makeBattle, flatStage } = await import('./helpers/battleHarness.js');
     // three in a row, two of them leave before any enemy arrives: the last one stays active with 3 stacks
     const h = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0 }, stone(9, 5, 50), stone(9, 6, 51), stone(9, 7, 52)],
@@ -841,8 +844,17 @@ describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
       b.run(15);
       return b.hooksOf('damaged').filter((d) => d.dmg?.tags?.includes('trap') && d.source?.kind === 'token').length;
     };
-    assert.ok(hi(2) > 0, 'S3: the x-6 cross reaches the lane');
+    assert.ok(hi(2) > 0, 'S3: the x-1 diamond reaches the lane');
     assert.equal(hi(0), 0, 'S1: tile only — ground enemies never enter a high-ground stone');
+    // the S3 area is x-1 (radius-2 diamond, sktok_wang_3 prefab), not the table's x-6 cross: a stone at 10,1 (high ground
+    // beside the 9,2 end of the row-9 lane, 9,1 is a wall) reaches the lane only through its diagonal
+    const diag = makeBattle({ seed: 5, captureNoisy: true,
+      stage: flatStage({ rows: { 10: '#hhrrrrrrrfrrrrrrrf##', 11: '#hhrrrrrrrfrrrrrrrf##' } }),
+      units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 2 }, stone(10, 1, 50), stone(11, 1, 51)],
+      enemies: [{ key: ENEMY, time: 0, route: 0, count: 3, interval: 1.2 }] });
+    const fromCorner = () => diag.hooksOf('damaged').some((d) => d.dmg?.tags?.includes('trap') && d.source?.tileR === 10 && d.source?.tileC === 1);
+    diag.runUntil(fromCorner, 60);
+    assert.ok(fromCorner(), 'S3: the stone triggers through its x-1 diagonal');
   });
 
   test('维什戴尔 S2 过载: the main shot uses atk_scale_ol in the second half (her profile copy, not ctx.profile)', async () => {

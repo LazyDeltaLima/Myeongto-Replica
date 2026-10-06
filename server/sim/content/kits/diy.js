@@ -888,7 +888,7 @@ function sakiko(bb, chess, def) {
 // 望 (陷阱师) — 铸子 / 料敌机先; S1 取势, S2 连星, S3 天下劫; 棋子 (token_10064_wang_stone1)
 //
 // Sources: the official tables (character_table / skill_table: talents, skills, the token's sktok_wang_1..3 and its
-// x-6 range) and PRTS 「望」 备注 (fetched 2026-10-05). Rules followed:
+// x-6 range, overridden by the sktok_wang_3 prefab's x-1) and PRTS 「望」 备注 (fetched 2026-10-05). Rules followed:
 // - 棋子 = 陷阱: not an attack target, takes no damage (persistent untargetable + invulnerable; no HP bar on the client,
 //   shared/trap-tokens.js). A stone is 激活 once orthogonally connected to another stone or 跟子 of hers, and stays
 //   active after that neighbour leaves (latched; namu: "연결된 바둑돌이 사라져도 유지"); a selectable enemy (flyers too; no unrevealed 隐匿 one —
@@ -896,7 +896,9 @@ function sakiko(bb, chess, def) {
 //   第一个敌人会触发其效果"; the token has an ON_UNIT_DEAD sound; user report 2026-10-05). A used-up placed stone comes back
 //   on its own tile like the mode's redeploys (Battle.redeploy / tokens.js enableRespawn): after its respawnTime, for its
 //   DP cost (卫戍协议 in-battle DP: 10, +1/s), once no enemy stands there — the card itself comes back (token deck rule), no stock is spent. The trigger area is the
-//   stone's own tile, with S3 equipped (its passive: "棋子的触发和伤害范围扩大") the token range x-6 (a radius-2 cross)
+//   stone's own tile, with S3 equipped (its passive: "棋子的触发和伤害范围扩大") x-1, a radius-2 diamond of 13 tiles (the
+//   sktok_wang_3 prefab's SkillTrigger / Selector and PRTS 天下劫 "携带该技能时…x-1"; the table's x-6 cross is in no prefab —
+//   owner's decision 2026-10-06: the official diamond)
 //   and every enemy in it is hit — a high-ground stone thus catches ground enemies with S3; with S2 only a flyer
 //   entering its tile triggers it, and the line blast then hits ground enemies too.
 // - Stones are hand pieces placed in the prep (any deployable tile, ground or high ground — owner's decision 2026-10-05,
@@ -952,8 +954,8 @@ function lineCount(stones, s) {
   }
   return best;
 }
-/** The token's x-6 trigger / damage area (radius-2 cross) as [dr, dc] offsets. */
-const CROSS2 = Object.freeze([[0, 0], [1, 0], [2, 0], [-1, 0], [-2, 0], [0, 1], [0, 2], [0, -1], [0, -2]]);
+/** The S3-equipped stone's x-1 trigger / damage area (radius-2 diamond, 13 tiles) as [dr, dc] offsets. */
+const DIAMOND2 = Object.freeze([[0, 0], [1, 0], [2, 0], [-1, 0], [-2, 0], [0, 1], [0, 2], [0, -1], [0, -2], [1, 1], [1, -1], [-1, 1], [-1, -1]]);
 const enemiesOnTile = (battle, r, c) => battle.enemies.filter((e) => e.alive && !e.hidden && Math.round(e.y) === r && Math.round(e.x) === c);
 /** Walking enemies on a tile: the only ones that block a stone's placement / redeploy (client _excludeOccupiedByWalkEnemy). */
 const walkersOnTile = (battle, r, c) => enemiesOnTile(battle, r, c).filter((e) => !e.isFlying);
@@ -1287,13 +1289,13 @@ function wangStone(bb, raw, def) {
           unit.mem.line = Math.max(unit.mem.line ?? 0, lineCount(stones, unit));
         }
         const active = !!unit.mem.active;
-        const wide = wangSkill(owner) === 'skchr_wang_3'; // S3 equipped: x-6 trigger / damage area
+        const wide = wangSkill(owner) === 'skchr_wang_3'; // S3 equipped: x-1 trigger / damage area
         const inside = unit.mem.inside || (unit.mem.inside = new Set());
         const now = new Set();
         for (const e of battle.enemies) {
           if (!stoneSelectable(e)) continue;
           // a 跟子 checks the enemy's root tile (client _checkTargetRootTile); a stone its body on the tile
-          const on = wide ? inCross(e, unit) : isFollower(unit) ? (Math.round(e.x) === unit.tileC && Math.round(e.y) === unit.tileR)
+          const on = wide ? inArea(e, unit) : isFollower(unit) ? (Math.round(e.x) === unit.tileC && Math.round(e.y) === unit.tileR)
             : (e.hitArea ? bodyOnTile(e, unit.tileR, unit.tileC) : Math.abs(e.x - unit.tileC) <= 0.5 && Math.abs(e.y - unit.tileR) <= 0.5);
           if (on) now.add(e.id);
           if (!on || inside.has(e.id) || !active) continue;
@@ -1329,9 +1331,9 @@ function wangStone(bb, raw, def) {
     }
     return battle.enemiesInKeys(keys, unit, ANY);
   }
-  function inCross(e, unit) {
+  function inArea(e, unit) {
     const r = Math.round(e.y), c = Math.round(e.x);
-    return CROSS2.some(([dr, dc]) => unit.tileR + dr === r && unit.tileC + dc === c);
+    return DIAMOND2.some(([dr, dc]) => unit.tileR + dr === r && unit.tileC + dc === c);
   }
 
   function trigger(battle, unit, owner, stones, e, wide, axes) {
@@ -1342,12 +1344,12 @@ function wangStone(bb, raw, def) {
     const atk = owner.s?.atk ?? unit.s.atk;
     const src = isFollower(unit) ? owner : unit; // a 跟子's damage comes from 望 (PRTS 备注)
     const sk = wangSkill(owner);
-    // trigger / explosion fx: `skill` 1 | 2 | 3 = the effect of the stone (3 = S3 equipped, x-6 cross), `axes` the
+    // trigger / explosion fx: `skill` 1 | 2 | 3 = the effect of the stone (3 = S3 equipped, x-1 diamond), `axes` the
     // activated link directions (S2 line blast), `follower` = a 跟子; the stone is used up right after (`consumed`)
     battle.fx('zone', { x: unit.x, y: unit.y, id: unit.id, r: wide ? 2.5 : 0.6, dur: 0.6, consumed: true, token: STONE_ID,
       skill: wide ? 3 : sk === 'skchr_wang_2' ? 2 : 1, axes: [...axes], line: n, target: e.id, follower: isFollower(unit) });
     if (wide) {
-      for (const v of blastFoes(battle, unit, CROSS2)) {
+      for (const v of blastFoes(battle, unit, DIAMOND2)) {
         battle.dealDamage(src, v, { amount: atk * num(bb.atk_scale, 3.2) * mul, type: 'arts', resIgnoreFlat: resFlat, isSkill: true, canDodge: false, tags: ['summon', 'trap'] });
       }
       return;
