@@ -1538,6 +1538,67 @@ describe('圣堂剑士 spends ammo for 赐我力量！ (server/sim/content/local
   });
 });
 
+// ---- 深池暗影术师 never attacks a flying ally (server/sim/content/local-patch.js) ------------------------------------
+
+describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/content/local-patch.js)', () => {
+  const WALL = (id) => chessRec({ id, profession: 'TANK', stats: { atk: 0, maxHp: 2e7, def: 0, res: 0, blockCnt: 0 }, rangeGrid: [[0, 0]], skill: null });
+  // a flying ally (the 炎佑 dragon is one) deployed after the ground wall: the engine's order (latest deployed) picks it first
+  const field = (extra, key) => {
+    const h = makeBattle({
+      content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 600,
+      defs: { chess: { t_wall: WALL('t_wall'), t_wall2: WALL('t_wall2') } }, kits: { t_wall: () => ({ trait: { noAttack: true } }), t_wall2: () => ({ trait: { noAttack: true } }) },
+      units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 10, col: 8 }],
+    });
+    h.step();
+    const w = h.unit('t_wall'), fly = h.unit('t_wall2');
+    fly.motion = 'FLY';
+    assert.ok(fly.isFlying && fly.deploySeq > w.deploySeq);
+    const e = h.spawn(key, { pos: [10, 7], routeIndex: 0, mods: { speedMul: 0 } });
+    h.run(10);
+    assert.ok(e.stats.attacks >= 3, 'it attacked');
+    return { w, fly };
+  };
+
+  test('upstream: it shoots the flying ally (drop the patch when this fails)', () => {
+    const { fly } = field([enemiesMod], 'enemy_1168_dumage');
+    assert.ok(fly.stats.taken > 0);
+  });
+
+  for (const key of simPatch.NO_AIR_KEYS) {
+    test(`${key}: only the ground ally in range is shot`, () => {
+      const { w, fly } = field([enemiesMod, simPatch], key);
+      assert.equal(fly.stats.taken ?? 0, 0, 'the flyer is never hit');
+      assert.ok(w.stats.taken > 0, 'the ground wall is');
+    });
+  }
+
+  test('real match path (悬赏·折射II enemyeffect_15_5 → buildBattleSpec → createBattleFromSpec): the 炎佑 dragon is never its target', async () => {
+    const { makeMatch, give, legalTileFor, DATA } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const { bountyOf } = await import('../server/sim/content/choices.js');
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 11 }).start();
+    h.toPrep(1);
+    const m = h.m, ps = h.ps('p_0');
+    // six different 炎 operators: the bond summons the flying 炎佑 (power_bond_char_cnt 6)
+    for (const id of ['chess_char_1_03_a', 'chess_char_2_04_a', 'chess_char_3_03_a', 'chess_char_3_04_a', 'chess_char_4_17_a', 'chess_char_5_03_a']) { const at = legalTileFor(m, ps, id); if (at) give(m, ps, id, 'board', at); }
+    m.addBounty(ps, bountyOf(DATA.effects.enemyeffect_15_5));
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp_du', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    const hits = [];
+    b.on('damaged', (c) => { if (c.source && c.source.defId === 'enemy_1168_dumage') hits.push(c.target); });
+    b.start();
+    let checked = false;
+    while (!b.finished && b.time < 90) {
+      b.step(); b.drainEvents();
+      const e = b.enemies.find((x) => x.defId === 'enemy_1168_dumage' && x.alive);
+      const y = b.allies().find((u) => u.isFlying);
+      if (e && y && !checked) { checked = true; assert.equal(e.profile.canTarget(y), false, 'the dragon is filtered out'); }
+    }
+    assert.ok(checked, 'the bounty caster and the 炎佑 dragon met');
+    assert.ok(hits.every((u) => !u.isFlying), 'no hit on a flyer');
+  });
+});
+
 test('frozen shop: a slot a special refresh replaces stays frozen (佩佩 / 杜遥夜, server/match/effectsMeta.js setShopSlot)', async () => {
   const { makeMatch } = await import('./match/harness.js');
   const h = makeMatch({ mode: 'solo', humans: 1, seed: 1 }).start();

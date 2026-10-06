@@ -45,10 +45,15 @@ export const BARRAGE_DELAY = 1.33, BARRAGE_STEP = 0.53, BARRAGE_LIFE = 5.85;
 export function install(battle) {
   battle.on('enemySpawn', ({ enemy }) => { if (enemy && enemy.defId === VTSK) patchVtsk(battle, enemy); }, { priority: 101 });
   battle.on('enemySpawn', ({ enemy }) => { if (enemy && enemy.defId === HLCHGR) patchHlchgr(battle, enemy); }, { priority: 99 });
+  // 深池暗影术师 / 队长 "不会攻击飞行单位" (PRTS 天赋; EN client prefab Attack/Trigger _targetMotion 1 = ground only, where
+  // 控潮术师 / 萨卡兹王庭军精锐术师 have 3): the engine's candidate filter, as content/enemies.js noAirTargets (upstream
+  // gives these two only kitRefraction). A 起飞 ally is already out of a ground enemy's reach (targeting.js evadesGround).
+  battle.on('enemySpawn', ({ enemy }) => { if (enemy && NO_AIR_KEYS.includes(enemy.defId)) enemy.profile.canTarget = (u) => !u.isFlying; }, { priority: 99 });
   exemptDroneLink(battle);
 }
 
 export const HLCHGR = 'enemy_10087_hlchgr';
+export const NO_AIR_KEYS = Object.freeze(['enemy_1168_dumage', 'enemy_1168_dumage_2']);
 
 /** After content/enemies.js (priority 100): replace its 6 s timer with the ammo skill. */
 function patchHlchgr(b, e) {
