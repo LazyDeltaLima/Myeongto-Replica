@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
-import { buildOfficialScene, sceneGroup } from '../../public/js/render/board3d/official.js';
+import { buildOfficialScene, sceneGroup, OFFICIAL_DEVICE } from '../../public/js/render/board3d/official.js';
 import { focusUniforms } from '../../public/js/render/board3d/materials.js';
 import { AREAS, unionAreas, classifyStage } from '../../public/js/render/board3d/layout.js';
 import { TILE_H, tileTop } from '../../public/js/render/style.js';
@@ -101,6 +101,8 @@ describe('tileTop', () => {
     assert.equal(tileTop(null, { highlandHeight: 0.4 }), 0);
     for (const k of ['wall', 'forbid', 'sep', 'bench']) assert.equal(tileTop(k, { highlandHeight: 0.4 }), 0.4);
     assert.equal(tileTop('platform', { highlandHeight: 0.4 }), TILE_H.platform);
+    // the official 射击台 model's plate (scene/devices top), set by the app with the official scene
+    assert.equal(tileTop('platform', { highlandHeight: 0.4, platformHeight: 0.393 }), 0.393);
     const st = stages.act2autochess_m04;
     const g = classifyStage({ ...st, highlandHeight: 0.3 });
     assert.equal(g[0][0].h, 0.3);   // 'a' bench pad (Final Assault bench)
@@ -181,6 +183,26 @@ describe('extracted official scenes', { skip: !extracted.length && 'no scene ext
     }
     if (!n) return;  // extracted with --no-webp
     assert.ok(n >= 40);
+  });
+
+  test('device models (scene/devices): the 射击台 and 阻隔工事 prefabs, built with the stage, the platform plate under its rim', { skip: !manifest?.groups?.['scene/devices'] && 'devices not extracted (scene_extract.py --devices)' }, () => {
+    const id = extracted.includes('act1autochess_m03') ? 'act1autochess_m03' : extracted[0];
+    const load = (grp) => {
+      const g = manifest.groups[grp];
+      const raw = readFileSync(onDisk(g.geom.path));
+      return { doc: JSON.parse(readFileSync(onDisk(g.scene.path), 'utf8')), buffer: raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) };
+    };
+    const st = load(sceneGroup(id)), dv = load('scene/devices');
+    const built = buildOfficialScene(THREE, { stageId: id, ...st, textures: {}, lightmaps: [], devices: { stageId: 'devices', ...dv, textures: {}, lightmaps: [] } }, focusUniforms(THREE));
+    const D = built.devices;
+    assert.ok(D && D.has(OFFICIAL_DEVICE.platform) && D.has(OFFICIAL_DEVICE.crate));
+    const top = D.top(OFFICIAL_DEVICE.platform), b = D.bounds(OFFICIAL_DEVICE.platform);
+    assert.ok(top > 0.3 && top < b[1][2], `plate ${top} under the rim ${b[1][2]}`);
+    const g = D.mesh(OFFICIAL_DEVICE.platform);
+    assert.ok(g.children.length >= 1 && g.children.every((m) => m.material.defines.TRAP === 1 && !m.material.defines.LIGHTMAP));
+    const f = D.mesh(OFFICIAL_DEVICE.crate, { fade: true });
+    assert.ok(f.userData.materials.length && f.userData.materials.every((m) => m.transparent && m.uniforms.uFocus === g.children[0].material.uniforms.uFocus));
+    built.dispose();
   });
 
   test('built scene: one mesh per group; the hidden sets follow the built areas', () => {

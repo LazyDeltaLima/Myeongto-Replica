@@ -29,7 +29,7 @@ import {
   waterMaterial, mireMaterial, infectionMaterial, smogMaterial, dashTexture, environmentMap,
 } from './materials.js';
 import { syncThreeCamera } from '../projection.js';
-import { buildOfficialScene } from './official.js';
+import { buildOfficialScene, OFFICIAL_DEVICE } from './official.js';
 import { TileOverlay } from './tileOverlay.js'; // local patch: official deploy tint / range stripes (LOCAL-PATCH.md 「배치 UI」)
 
 /** Lighting rig (tuned against the official screenshots: bright even tops, darker sides, soft shadows). */
@@ -253,8 +253,12 @@ export class BoardScene {
   _clear() {
     for (const ch of [...this.root.children]) {
       this.root.remove(ch);
+      // official device models share the official scene's geometry (it disposes it): removed only
+      if (ch.userData?.officialDevice) continue;
       ch.traverse?.((o) => { if (o.geometry) o.geometry.dispose(); });
     }
+    this._officialStatic = [];
+    this._officialCrates = [];
     this.meshes = {};
   }
 
@@ -302,7 +306,7 @@ export class BoardScene {
         const built = buildOfficialScene(this.THREE, official, this.focus, { aniso: Math.min(8, this.renderer.capabilities?.getMaxAnisotropy?.() || 1) });
         for (const m of built.meshes) this.officialRoot.add(m);
         this.officialBuilt = built;
-        this.opts.onOfficial?.({ stageId: built.stageId, highland: built.highland });
+        this.opts.onOfficial?.({ stageId: built.stageId, highland: built.highland, platform: built.devices?.top(OFFICIAL_DEVICE.platform) ?? null });
       }
       this.officialBuilt.setArea(this.area);
       this._buildDevices(board);
@@ -346,16 +350,40 @@ export class BoardScene {
   /** The official scene's HIGH tile height for stage `id` (null: not drawn from an official scene). */
   highlandFor(id) { return this.officialBuilt && this.officialBuilt.stageId === id ? this.officialBuilt.highland : null; }
 
+  /** The official 射击台 plate height for stage `id` (null: not drawn from an official scene or no device models). */
+  platformFor(id) { return this.officialBuilt && this.officialBuilt.stageId === id ? (this.officialBuilt.devices?.top(OFFICIAL_DEVICE.platform) ?? null) : null; }
+
   /** Is the current stage drawn from its official scene? */
   get official() { return !!this.officialBuilt; }
+
+  /** The official device models (official.js devices: scene/devices) when the stage is drawn from its official scene. */
+  get _officialDevices() { return this.officialBuilt?.devices || null; }
 
   _buildDevices(board) {
     const crates = [], blowers = [];
     this.staticCrates = [];
+    // local patch (LOCAL-PATCH.md 「공식 스테이지 3D 씬」): with the official scene the procedural board mesh (where the
+    // 射击台 slabs lived) is not drawn; the client's own device models stand on their tiles instead
+    const OD = this._officialDevices;
+    // (setStage can re-enter through onOfficial → the app's setStage: drop what an inner build placed)
+    for (const g of this._officialStatic || []) this.root.remove(g);
+    this._officialStatic = [];
+    if (OD) {
+      const plat = OD.has(OFFICIAL_DEVICE.platform);
+      const seen = new Set();  // board.devices may list a tile twice (a device of two overlapping areas)
+      for (const d of board.devices) {
+        if (d.kind !== 'platform' || !plat || seen.has(`${d.r},${d.c}`)) continue;
+        seen.add(`${d.r},${d.c}`);
+        const g = OD.mesh(OFFICIAL_DEVICE.platform);
+        g.position.set(d.c, d.r, d.z0);
+        this._addOfficialDevice(g);
+      }
+    }
     const wind = this.pack?.meshes?.blower ? objToBoard(this.pack.meshes.blower, 1) : null;
     for (const d of board.devices) {
       if (d.kind === 'crate') this.staticCrates.push(d);
       else if (d.kind === 'blower' && wind && this.mat.wind) blowers.push(placeMesh(wind, { x: d.c, y: d.r, z: d.z0 + 0.078, rot: DIR_TURNS[d.dir] ?? 0 }));
+      else if (d.kind === 'platform') { /* procedural: in the board mesh (layout.js slabDevice); official: above */ }
       else if (d.kind === 'blower' || d.kind === 'turret') crates.push(placeMesh(boxWithTop(this.pack?.uv, d.kind), { x: d.c, y: d.r, z: d.z0 }));
       else if (d.kind === 'mound') crates.push(placeMesh(this.crateGeometry(), { x: d.c, y: d.r, z: d.z0, s: 0.95, sz: 0.55 }));
       else if (d.kind === 'bush') crates.push(placeMesh(bushData(), { x: d.c, y: d.r, z: d.z0 }));
@@ -365,10 +393,32 @@ export class BoardScene {
     this._rebuildCrates();
   }
 
+  /** A static official device model (Group) under root, removed with the stage (_clear) or the crate rebuild. */
+  _addOfficialDevice(g, list = (this._officialStatic ||= [])) {
+    g.userData.officialDevice = true;
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+    this.root.add(g);
+    list.push(g);
+    return g;
+  }
+
   _rebuildCrates() {
     if (this.meshes.crates) { this.root.remove(this.meshes.crates); this.meshes.crates.geometry.dispose(); this.meshes.crates = null; }
+    for (const g of this._officialCrates || []) this.root.remove(g);
+    this._officialCrates = [];
     const R = this.battleRect;
     const inside = (d) => !!R && d.r >= R.r0 && d.r <= R.r1 && d.c >= R.c0 && d.c <= R.c1;
+    const OD = this._officialDevices;
+    if (OD && OD.has(OFFICIAL_DEVICE.crate)) {
+      // the client's 阻隔工事 model (the procedural crate is the first season's s_common_box_01)
+      for (const d of (this.staticCrates || []).filter((x) => !inside(x))) {
+        const g = OD.mesh(OFFICIAL_DEVICE.crate);
+        g.position.set(d.c, d.r, d.z0);
+        this._addOfficialDevice(g, this._officialCrates);
+      }
+      this.renderer.shadowMap.needsUpdate = true;
+      return;
+    }
     const list = (this.staticCrates || []).filter((d) => !inside(d)).map((d) => placeMesh(this.crateGeometry(), { x: d.c, y: d.r, z: d.z0 }));
     if (list.length) this.meshes.crates = this._mesh(mergeInto(list), this.mat.board);
     this.renderer.shadowMap.needsUpdate = true;
@@ -511,6 +561,12 @@ export class BoardScene {
 
   /** A crate / device box driven by render/units.js DeviceView (see header). */
   createDevice() {
+    // local patch: a crate takes the client's 阻隔工事 model once the official scene (with scene/devices) is built —
+    // battle devices are often created before it has loaded, so the handle checks on every update
+    return this._createOfficialDevice();
+  }
+
+  _createProceduralDevice() {
     const T = this.THREE;
     const self = this;
     const geom = this._geometry({ ...this.crateGeometry(), color: null });
@@ -542,6 +598,62 @@ export class BoardScene {
         if (dead) return;
         dead = true;
         self.dynamic.remove(mesh); geom.dispose(); mat.dispose(); self.devices.delete(h);
+        if (!self.destroyed) self.renderer.shadowMap.needsUpdate = true;
+      },
+    };
+    this.devices.add(h);
+    this.renderer.shadowMap.needsUpdate = true;
+    return h;
+  }
+
+  /**
+   * createDevice with the client's 阻隔工事 model (local patch): the box spec's size / height at the first update are its
+   * native size, later ones scale it (the break shrink), alpha fades it. A turret box keeps the procedural crate.
+   */
+  _createOfficialDevice() {
+    const self = this;
+    let grp = null, ref = null, dead = false, fallback = null, owner = null;
+    const h = {
+      mesh: null,
+      board: this,
+      get destroyed() { return dead; },
+      update(cam, b) {
+        if (!b || dead) return;
+        if (!ref) ref = { size: b.size || 1, height: b.height || 1 };  // the first update: the box at full size
+        const OD = self._officialDevices;
+        const official = !!OD && OD.has(OFFICIAL_DEVICE.crate) && (!b.top || b.top === 'crateTop');
+        if (grp && owner !== OD) {  // the official scene was rebuilt / dropped: its models are gone
+          self.dynamic.remove(grp); for (const m of grp.userData.materials) m.dispose(); grp = null;
+        }
+        if (official && fallback) { fallback.destroy(); fallback = null; }
+        if (!official && !fallback) {  // not a crate, or no official model (yet): the procedural box handle
+          if (grp) { self.dynamic.remove(grp); for (const m of grp.userData.materials) m.dispose(); grp = null; }
+          fallback = self._createProceduralDevice();
+          self.devices.delete(fallback);  // h owns it (destroyed with h)
+        }
+        if (official && !grp) {
+          {
+            owner = OD;
+            grp = OD.mesh(OFFICIAL_DEVICE.crate, { fade: true });
+            grp.userData.officialDevice = true;
+            grp.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+            self.dynamic.add(grp);
+          }
+        }
+        if (fallback) { fallback.update(cam, b); return; }
+        const a = Math.max(0, Math.min(1, b.alpha ?? 1));
+        grp.visible = a > 0.01;
+        grp.position.set(b.x, b.y, b.z);
+        const s = (b.size || ref.size) / ref.size;
+        grp.scale.set(s, s, Math.max(0.001, (b.height ?? ref.height) / ref.height));
+        for (const m of grp.userData.materials) { m.uniforms.uOpacity.value = a; m.depthWrite = a > 0.98; }
+      },
+      destroy() {
+        if (dead) return;
+        dead = true;
+        if (fallback) fallback.destroy();
+        if (grp) { self.dynamic.remove(grp); for (const m of grp.userData.materials) m.dispose(); }
+        self.devices.delete(h);
         if (!self.destroyed) self.renderer.shadowMap.needsUpdate = true;
       },
     };

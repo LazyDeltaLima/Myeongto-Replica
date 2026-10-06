@@ -605,6 +605,198 @@ def export_stage(roots, index, stage, out_root, manifest, written):
     return True
 
 
+# ---- devices (runtime prefabs on top of the scene) -------------------------------------------------------------
+
+# The client instantiates the mode's devices (tiles' traps) from the level data on top of the scene: the scene only
+# holds their sockets (the 射击台 tiles show an empty frame / a zigzag mark without them). Their prefabs live in the
+# battle token packs (pkgrps/btl_pfb_tokens_*.ab: <key>/Graphic/Mesh/<key> MeshRenderer), their meshes / textures in
+# arts/maps/common/trap/trap_*.ab. Lit at run time (no lightmap): the stage's main light, ambient and reflection.
+DEVICE_KEYS = ('trap_1105_accrate', 'trap_1106_achplat')
+DEVICE_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
+
+
+def _load_with_deps(index, first):
+    import UnityPy
+    env = UnityPy.load(str(first))
+    loaded = {str(first)}
+    for _ in range(4):
+        want = set()
+        for f in list(env.files.values()):
+            for sf in getattr(f, 'files', {}).values():
+                for e in getattr(sf, 'externals', None) or []:
+                    cab = e.path.split('/')[-1].split('.')[0]
+                    if cab in index and index[cab] not in loaded:
+                        want.add(index[cab])
+        if not want:
+            break
+        for w in sorted(want):
+            try:
+                env.load_file(w)
+            except Exception as ex:
+                log(f'  warn dependency {w}: {ex}')
+            loaded.add(w)
+    return env, loaded
+
+
+def export_devices(roots, index, out_root, manifest, written, keys=DEVICE_KEYS):
+    """scene/devices/scene.json + geom.bin (the scene format, version 2): one group per (device, material), positions
+    in board space relative to the device's tile centre on the ground (z = up), lightmap −1."""
+    from UnityPy.helpers.MeshHelper import MeshHandler
+    out = out_root / 'scene' / 'devices'
+    out.mkdir(parents=True, exist_ok=True)
+    out_tex = out_root / 'scene' / 'tex'
+    out_tex.mkdir(parents=True, exist_ok=True)
+    found = {}
+    for pack in sorted(roots['pd'].glob(DEVICE_PACKS)):
+        if len(found) == len(keys):
+            break
+        names = None
+        try:
+            import UnityPy
+            probe = UnityPy.load(str(pack))
+            names = {o.read().m_Name for o in probe.objects if o.type.name == 'GameObject'}
+        except Exception as ex:
+            log(f'  skip {pack.name}: {ex}')
+            continue
+        want = [k for k in keys if k in names and k not in found]
+        if not want:
+            continue
+        env, deps = _load_with_deps(index, pack)
+        for k in want:
+            found[k] = (env, pack, deps)
+    groups, materials, packed, devices = {}, {}, [], {}
+    for key in keys:
+        if key not in found:
+            log(f'  device {key}: no prefab found')
+            continue
+        env, pack, _deps = found[key]
+        pfile = env.files[str(pack)]
+        objs = {}
+        for sf in getattr(pfile, 'files', {}).values():
+            for pid, o in (getattr(sf, 'objects', None) or {}).items():
+                objs[pid] = o
+        tf, go = {}, {}
+        for pid, o in objs.items():
+            if o.type.name in ('Transform', 'RectTransform'):
+                tf[pid] = o.read()
+            elif o.type.name == 'GameObject':
+                go[pid] = o.read()
+        # the prefab root: a GameObject named key, without a parent, with a Graphic child
+        root = None
+        for pid, t in tf.items():
+            g = go.get(t.m_GameObject.m_PathID)
+            if g and g.m_Name == key and not (t.m_Father and t.m_Father.m_PathID):
+                if any(go.get(tf[c.m_PathID].m_GameObject.m_PathID).m_Name == 'Graphic' for c in t.m_Children if c.m_PathID in tf):
+                    root = pid
+                    break
+        if root is None:
+            log(f'  device {key}: prefab root not found')
+            continue
+
+        def local(t):
+            return trs([t.m_LocalPosition.x, t.m_LocalPosition.y, t.m_LocalPosition.z],
+                       [t.m_LocalRotation.x, t.m_LocalRotation.y, t.m_LocalRotation.z, t.m_LocalRotation.w],
+                       [t.m_LocalScale.x, t.m_LocalScale.y, t.m_LocalScale.z])
+
+        stack = [(c.m_PathID, IDENTITY) for c in tf[root].m_Children if c.m_PathID in tf]
+        nodes = []
+        while stack:
+            pid, parent = stack.pop()
+            t = tf[pid]
+            g = go.get(t.m_GameObject.m_PathID)
+            if not g or not g.m_IsActive:
+                continue
+            m = mul(parent, local(t))
+            nodes.append((g, m))
+            stack += [(c.m_PathID, m) for c in t.m_Children if c.m_PathID in tf]
+        grp_keys = []
+        for g, m in nodes:
+            r = component(g, 'MeshRenderer')
+            mf = component(g, 'MeshFilter')
+            if not r or not mf or not mf.m_Mesh.m_PathID or not r.m_Enabled:
+                continue
+            mesh = mf.m_Mesh.read()
+            h = MeshHandler(mesh)
+            h.process()
+            tris = h.get_triangles()
+            nm, det = normal_matrix(m)
+            for si, mp in enumerate(r.m_Materials):
+                if si >= len(tris) or not mp.m_PathID:
+                    continue
+                mat = mp.read()
+                mname = mat.m_Name
+                if mname not in materials:
+                    info = material_info(mat)
+                    for k, tx in info['textures'].items():
+                        try:
+                            tex = next(e.m_Texture for kk, e in mat.m_SavedProperties.m_TexEnvs if kk == k).read()
+                            tx['file'] = texture_entry(tex, out_tex, TEX_KIND.get(k), written, manifest)
+                        except Exception as ex:
+                            log(f'  warn texture {mname}.{k}: {ex}')
+                    materials[mname] = info
+                gk = (key, mname)
+                grp = groups.get(gk)
+                if grp is None:
+                    grp = groups[gk] = {'device': key, 'material': mname, 'pos': [], 'nrm': [], 'uv0': [], 'uv1': [], 'col': [], 'idx': []}
+                    grp_keys.append(gk)
+                remap = {}
+                V, N, U0 = h.m_Vertices, h.m_Normals, h.m_UV0
+                for tri in tris[si]:
+                    o3 = []
+                    for vi in tri:
+                        if vi not in remap:
+                            remap[vi] = len(grp['pos']) // 3
+                            p = V[vi]
+                            wp = [m[i][0] * p[0] + m[i][1] * p[1] + m[i][2] * p[2] + m[i][3] for i in range(3)]
+                            grp['pos'] += (wp[0], wp[1], -wp[2])  # Unity battle space → board offset (z = up)
+                            if N:
+                                n = N[vi]
+                                wn = [nm[i][0] * n[0] + nm[i][1] * n[1] + nm[i][2] * n[2] for i in range(3)]
+                                ln = math.sqrt(sum(c * c for c in wn)) or 1.0
+                                grp['nrm'] += (wn[0] / ln, wn[1] / ln, -wn[2] / ln)
+                            else:
+                                grp['nrm'] += (0.0, 0.0, 1.0)
+                            u0 = U0[vi] if U0 else (0.0, 0.0)
+                            grp['uv0'] += (u0[0], u0[1])
+                            grp['uv1'] += (u0[0], u0[1])
+                            grp['col'] += (255, 255, 255, 255)
+                        o3.append(remap[vi])
+                    grp['idx'] += o3 if det < 0 else (o3[0], o3[2], o3[1])
+        pos = [v for gk in grp_keys for v in groups[gk]['pos']]
+        if pos:
+            # the standing surface: the highest up-facing level under the model's top rim (a 射击台's plate sits below its
+            # 0.47 rim at 0.39; a model without a raised rim: its top)
+            levels = sorted({round(gp[i + 2], 3) for gk in grp_keys for gp, gn in [(groups[gk]['pos'], groups[gk]['nrm'])]
+                             for i in range(0, len(gp), 3) if gn[i + 2] > 0.9}, reverse=True)
+            zmax = max(pos[2::3])
+            top = levels[1] if len(levels) > 1 and levels[0] >= zmax - 0.01 and zmax - levels[1] < 0.15 else (levels[0] if levels else None)
+            devices[key] = {'bounds': [[_num(min(pos[i::3]), 4) for i in range(3)], [_num(max(pos[i::3]), 4) for i in range(3)]],
+                            'top': _num(top, 4) if top is not None else None,
+                            'source': os.path.relpath(pack, roots['pd'].parent.parent)}
+            log(f'  device {key}: {len(grp_keys)} groups, bounds {devices[key]["bounds"]}')
+    out_groups = []
+    for (key, mname), grp in groups.items():
+        nv, ni = len(grp['pos']) // 3, len(grp['idx'])
+        if not nv or not ni:
+            continue
+        rec = {'device': key, 'material': mname, 'lightmap': -1, 'hidden': None, 'renderers': 1, 'vertices': nv, 'indices': ni}
+        out_groups.append(rec)
+        packed.append((rec, grp))
+    if not packed:
+        return False
+    blob, quant = pack_geometry(packed)
+    (out / 'geom.bin').write_bytes(bytes(blob))
+    doc = {'version': GEOM_VERSION, 'kind': 'devices', 'space': 'board offset from the tile centre on the ground (x = col, y = row, z = up)',
+           'vertexBytes': VERTEX_BYTES, 'quant': quant, 'devices': devices, 'materials': dict(sorted(materials.items())),
+           'groups': out_groups, 'stats': {'groups': len(out_groups), 'bytes': len(blob)}}
+    (out / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    gm = manifest.setdefault('scene/devices', {})
+    gm['scene'] = {'path': '/assets/local/scene/devices/scene.json', 'kind': 'Scene', 'groups': len(out_groups)}
+    gm['geom'] = {'path': '/assets/local/scene/devices/geom.bin', 'kind': 'Geometry', 'bytes': len(blob)}
+    log(f'devices: {len(out_groups)} groups, {len(devices)} devices, {len(blob) // 1024} KiB')
+    return True
+
+
 def _q16(v, lo, span):
     return min(Q16, max(0, int(round((v - lo) / span * Q16))))
 
@@ -781,6 +973,8 @@ def main():
                     help='only write the WebP copies of the scene art already under --out and list them (no client)')
     ap.add_argument('--reflections', action='store_true',
                     help='only add the reflection probe (scene.json reflection) to the scenes already under --out (needs the client)')
+    ap.add_argument('--devices', action='store_true',
+                    help='only export the device models (scene/devices: 阻隔工事, 射击台, “双眼皮”) and their textures (needs the client)')
     ap.add_argument('--requantize', action='store_true',
                     help='only rewrite the version-1 geometry already under --out in the quantized version 2 (no client)')
     args = ap.parse_args()
@@ -810,6 +1004,18 @@ def main():
     index = build_index(roots, cache) if args.rebuild_index or not cache.exists() else json.loads(cache.read_text(encoding='utf-8'))
     stages = args.stage or sorted(p.name[len('level_'):] for p in (roots['pd'] / SCENE_DIR).glob('act*autochess/level_*')
                                   if p.is_dir() and STAGE_RE.match(p.name[len('level_'):]))
+    if args.devices:
+        manifest, written = {}, {}
+        ok = export_devices(roots, index, out_root, manifest, written)
+
+        def merge(groups):
+            for k, v in manifest.items():
+                groups[k] = {**groups.get(k, {}), **v} if k == 'scene/tex' else v
+            if not args.no_webp:
+                # only the new entries (the dicts are shared, so the WebP paths land in the manifest)
+                apply_webp(out_root, {k: {e: groups[k][e] for e in manifest[k]} for k in manifest}, log)
+        write_manifest(mpath, merge, log)
+        return 0 if ok else 1
     if args.reflections:
         n = 0
         for stage in stages:
@@ -834,6 +1040,12 @@ def main():
             import traceback
             traceback.print_exc()
             log(f'FAIL {stage}: {e}')
+
+    if not args.stage:
+        try:
+            export_devices(roots, index, out_root, manifest, written)
+        except Exception as e:
+            log(f'FAIL devices: {e}')
 
     def update(groups):
         for k, v in manifest.items():

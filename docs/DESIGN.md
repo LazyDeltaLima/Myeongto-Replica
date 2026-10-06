@@ -652,6 +652,19 @@ board's atlas, the first-season look): act1 m01–m07, act2 m02 and m04 use `map
   (208/176/132), rock blocks 192/149/103 (200/153/106), open water 34/61/71 (38/61/73). `BoardScene` loads the scene per stage (`opts.loadOfficial`)
   and keeps the procedural board until it arrives; with a scene it skips the procedural tiles, background and terrain
   water but keeps devices, gates, field edges and terrain FX. `?officialBoard=0` forces the procedural board.
+- Devices (2026-10-06, user report: the 射击台 tiles of act1 m03 / m06 looked like fenced ground and undeployable marks):
+  the scene holds only their sockets — the client instantiates the level's traps (`trap_1106_achplat` 射击台,
+  `trap_1105_accrate` 阻隔工事) at run time from their prefabs (pkgrps/btl_pfb_tokens_*.ab
+  `<key>/Graphic/Mesh/<key>`, meshes / textures in arts/maps/common/trap). With the official scene the procedural board
+  mesh, where the 射击台 slabs lived, is not drawn, so they were missing. `scene_extract.py --devices` exports both
+  models to `scene/devices` (scene format v2, board offsets from the tile centre, `devices[key].top` = the standing
+  plate: 射击台 0.393 under its 0.465 rim); `loadOfficialScene` loads them with every stage and `built.devices` builds
+  them, shaded like Torappu/Scene/Trap/Shadow (`albedo × (_Ambient + _Diffuse · N·L · main light)`, no lightmap —
+  [ASSUMED] from the material's properties). BoardScene places a 射击台 on each active platform tile and the 阻隔工事
+  model for the static and battle crates (`createDevice` switches once the scene is built); the app sets
+  `stage.platformHeight` (style.js `tileTop('platform')`), so units on a 射击台 stand on its plate. The 土石结构 mound
+  (act1 m06 `trap_032_mound`) keeps the procedural crate (its standing height is not settled) and so does the “双眼皮”
+  turret (no prefab root in the token packs).
 - Not done: the StylizedWater shader is approximated (one deep colour: no depth-based shallow colour near the shore — the
   official water turns teal-green there —, no shore foam, caustics or sky reflection); the
   tide (act2 m04 涨潮控制) does not move the water or toggle the warning tiles yet; static crates / blowers are still

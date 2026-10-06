@@ -17,6 +17,8 @@ export const TILE_H = Object.freeze({
  */
 export function tileTop(hClass, stage) {
   if (!hClass) return 0;
+  // the official 射击台 model's plate (scene/devices, set with highlandHeight) — local patch
+  if (hClass === 'platform' && Number(stage?.platformHeight) > 0) return Number(stage.platformHeight);
   const h = Number(stage?.highlandHeight);
   return hClass !== 'platform' && Number.isFinite(h) && h > 0 ? h : TILE_H[hClass];
 }

@@ -341,7 +341,8 @@ export class TileField {
     for (const d of this._stageDevices()) {
       const t = this.grid[d.pos[0]]?.[d.pos[1]];
       if (!t) continue;
-      if (d.role === 'platform' || d.role === 'mound') t.devH = TILE_H.platform;
+      if (d.role === 'platform') t.devH = tileTop('platform', stage);  // local patch: the official plate when drawn
+      else if (d.role === 'mound') t.devH = TILE_H.platform;
       else if (d.role === 'waterPlatform') t.devH = DEVICE_BOX.waterPlatform.height;
     }
     const hs = new Set([0]);

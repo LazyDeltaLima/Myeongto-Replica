@@ -6,6 +6,12 @@
 //   const built = buildOfficialScene(THREE, data, focus)    // → { meshes: [Mesh], materials, dispose() }
 //   built.setArea(rects)                                    // show the hidden sets of the field(s) in play
 //   built.update(t)                                         // animated materials (water)
+//   built.devices?.mesh(key, x, y, z) → Mesh | null          // a runtime device model (scene/devices), e.g. 射击台
+//
+// Devices: the client instantiates the mode's traps from the level data on top of the scene (the scene only holds their
+// sockets: the 射击台 tile is an empty frame or a zigzag mark without its platform). scene_extract.py --devices exports
+// their prefab meshes (pkgrps/btl_pfb_tokens_*.ab → arts/maps/common/trap) to scene/devices/, loaded with every stage;
+// shaded like Torappu/Scene/Trap/Shadow: albedo × (_Ambient + _Diffuse · N·L · main light) — lit at run time, no lightmap.
 //
 // Hidden sets: the level's MapHiddenSettings keys (HIDDEN@1 left normal field, @2 right normal field, @3 boss
 // field) are saved hidden and shown by the client for the part of the map in play; a group tagged with a key is
@@ -36,6 +42,10 @@ const cache = new Map();
 
 /** Group key of a stage scene in data/local-assets.json. */
 export const sceneGroup = (stageId) => `scene/${stageId}`;
+/** The device models' pseudo stage (scene/devices: scene_extract.py --devices). */
+export const DEVICES_ID = 'devices';
+/** Stage device roles drawn with an official model (scene/devices keys). */
+export const OFFICIAL_DEVICE = Object.freeze({ crate: 'trap_1105_accrate', platform: 'trap_1106_achplat' });
 
 /** Is an official scene listed for `stageId`? (manifest only) */
 export function officialSceneListed(assets, stageId) {
@@ -82,7 +92,9 @@ export function loadOfficialScene(assets, stageId) {
       const img = await assets.image(u).catch(() => null);
       if (img && (img.width || img.naturalWidth) > 0) for (const s of sets) s(img);
     }));
-    return { stageId, doc, buffer: buf, textures, lightmaps };
+    // the runtime device models (scene/devices), shared by every stage; null on an older extract (none listed)
+    const devices = stageId === DEVICES_ID ? null : await loadOfficialScene(assets, DEVICES_ID);
+    return { stageId, doc, buffer: buf, textures, lightmaps, devices };
   })().catch((err) => { console.warn('[board3d] official scene load failed', stageId, err); return null; });
   cache.set(stageId, p);
   return p;
@@ -164,6 +176,7 @@ uniform float uLmGain;
 uniform float uDirectGain;
 uniform float uEmissionGain;
 uniform float uOpacity;
+uniform vec2 uTrap;          // Torappu/Scene/Trap/Shadow: _Ambient, _Diffuse
 uniform vec4 uFocus;
 uniform float uFocusDim;
 uniform float uFocusSoft;
@@ -253,6 +266,11 @@ void main() {
   #ifdef UNLIT
     outgoing = albedo.rgb;
   #endif
+  #ifdef TRAP
+    // a runtime trap model (scene/devices): the Trap/Shadow material's flat ambient + diffuse terms [ASSUMED: the shader
+    // source is compiled; its properties are _Ambient / _Diffuse / _ShadowStrength only]
+    outgoing = albedo.rgb * (uTrap.x + uTrap.y * nl * uLightColor * uDirectGain);
+  #endif
   vec2 fd = max(vec2(0.0), max(uFocus.xy - vWorld.xy, vWorld.xy - uFocus.zw));
   outgoing *= mix(uFocusDim, 1.0, 1.0 - smoothstep(0.0, uFocusSoft, length(fd)));
   gl_FragColor = vec4(outgoing, albedo.a * uOpacity);  // gamma-space result: written as is (no colorspace_fragment)
@@ -324,12 +342,14 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   const { doc, buffer } = data;
   const aniso = opts.aniso || 1;
   const texCache = new Map();
+  let texSrc = data.textures;  // the textures of the doc being built (the stage's, then the devices')
   const tex = (file, o) => {
-    if (!file || !data.textures[file]) return null;
+    if (!file || !texSrc?.[file]) return null;
     const k = `${file}|${!!o?.repeat}`;
-    if (!texCache.has(k)) texCache.set(k, texture(T, data.textures[file], { ...o, aniso }));
+    if (!texCache.has(k)) texCache.set(k, texture(T, texSrc[file], { ...o, aniso }));
     return texCache.get(k);
   };
+  let matSrc = doc.materials;
   const lms = (data.lightmaps || []).map((lm) => ({
     light: texture(T, lm.light),
     mask: texture(T, lm.mask),
@@ -351,10 +371,10 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   // q: a version-2 group's uv ranges ({ uv0, uv1: [sx, sy, ox, oy] }, u16 normalized → uv); folded into uMainST /
   // uUv1ST, so a quantized group gets a material of its own (same program, no extra draw calls)
   const materialFor = (name, lmIndex, q = null) => {
-    const key = `${name}|${lmIndex}${q ? `|${q.uv0}|${q.uv1}` : ''}`;
+    const key = `${matSrc === doc.materials ? '' : 'dev:'}${name}|${lmIndex}${q ? `|${q.uv0}|${q.uv1}` : ''}`;
     if (materials.has(key)) return materials.get(key);
     const q0 = q?.uv0 || [1, 1, 0, 0], q1 = q?.uv1 || [1, 1, 0, 0];
-    const info = doc.materials?.[name] || { shader: null, keywords: [], textures: {}, floats: {}, colors: {} };
+    const info = matSrc?.[name] || { shader: null, keywords: [], textures: {}, floats: {}, colors: {} };
     const kw = new Set(info.keywords || []);
     const F = info.floats || {}, C = info.colors || {}, X = info.textures || {};
     const shader = info.shader || '';
@@ -378,7 +398,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       const mainTex = tex(X._MainTex?.file);
       const st = X._MainTex ? [...X._MainTex.scale, ...X._MainTex.offset] : [1, 1, 0, 0];
       const particle = /Particles|Unlit|DynamicWaterTile/.test(shader);
-      const blend = kw.has('_ALPHABLEND_ON') || particle || (F._Mode ?? 0) >= 2;
+      const blend = !/Scene\/Trap/.test(shader) && (kw.has('_ALPHABLEND_ON') || particle || (F._Mode ?? 0) >= 2);
       const defines = {};
       if (kw.has('_ALPHATEST_ON')) defines.ALPHATEST = 1;
       if (kw.has('_HG_VERTEX_COLOR_BLEND_ON')) defines.VERTEX_BLEND = 1;
@@ -389,6 +409,8 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       const lm = lmIndex >= 0 ? lms[lmIndex] : null;
       if (lm && lm.light && lm.mask) defines.LIGHTMAP = 1;
       if (particle) defines.UNLIT = 1;
+      const trap = /Scene\/Trap/.test(shader);
+      if (trap) defines.TRAP = 1;
       // Standard metallic workflow: _METALLICGLOSSMAP → smoothness = map × _GlossMapScale (the export keeps the
       // smoothness only; the desert / Kazimierz / Syracuse maps have metallic ≈ 0), else _Glossiness / _Metallic
       const gloss = kw.has('_METALLICGLOSSMAP') ? tex(X._MetallicGlossMap?.file) : null;
@@ -418,6 +440,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
           uCutoff: { value: F._Cutoff ?? 0.5 }, uBumpScale: { value: F._BumpScale ?? 1 },
           uLmGain: { value: OFFICIAL_LIGHTING.lmGain }, uDirectGain: { value: OFFICIAL_LIGHTING.directGain },
           uEmissionGain: { value: OFFICIAL_LIGHTING.emissionGain }, uOpacity: { value: 1 },
+          uTrap: { value: new T.Vector2(F._Ambient ?? 0.85, F._Diffuse ?? 0.2) },
           ...focus,
         },
       });
@@ -434,28 +457,27 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   // geom.bin version 2 (scene_extract.py pack_geometry): u16 positions on the scene grid doc.quant.pos (the mesh
   // matrix maps them back: translate (x0, y0, z0), uniform scale span), i8 normals, u16 uvs per group range (g.q),
   // optional one-colour groups and u16 indices; version 1: f32 attributes, u32 indices
-  const qpos = doc.version >= 2 && Array.isArray(doc.quant?.pos) ? doc.quant.pos : null;
-  const dzs = new Set(Array.isArray(doc.quant?.dzs) ? doc.quant.dzs : []);
-  for (const g of doc.groups) {
-    if (!g || !g.vertices || !g.indices) continue;
+  const geometryOf = (D, buf, g) => {
+    const qp = D.version >= 2 && Array.isArray(D.quant?.pos) ? D.quant.pos : null;
+    const dz = new Set(Array.isArray(D.quant?.dzs) ? D.quant.dzs : []);
     const geo = new T.BufferGeometry();
-    const q = qpos && g.q ? g.q : null;
+    const q = qp && g.q ? g.q : null;
     if (q) {
       // the dzs arrays are delta + zigzag + byte-shuffled (scene_extract.py dzs): decoded into fresh arrays
-      const u16 = (k, comps) => (dzs.has(k) ? unDzs(buffer, g[k], 2, comps) : new Uint16Array(buffer, g[k][0], g[k][1]));
+      const u16 = (k, comps) => (dz.has(k) ? unDzs(buf, g[k], 2, comps) : new Uint16Array(buf, g[k][0], g[k][1]));
       geo.setAttribute('position', new T.BufferAttribute(u16('pos', 3), 3, true));
-      geo.setAttribute('normal', new T.BufferAttribute(new Int8Array(buffer, g.nrm[0], g.nrm[1]), 4, true));
+      geo.setAttribute('normal', new T.BufferAttribute(new Int8Array(buf, g.nrm[0], g.nrm[1]), 4, true));
       geo.setAttribute('uv', new T.BufferAttribute(u16('uv0', 2), 2, true));
       geo.setAttribute('uv1', new T.BufferAttribute(u16('uv1', 2), 2, true));
     } else {
-      const f32 = (r) => new Float32Array(buffer, r[0], r[1]);
+      const f32 = (r) => new Float32Array(buf, r[0], r[1]);
       geo.setAttribute('position', new T.BufferAttribute(f32(g.pos), 3));
       geo.setAttribute('normal', new T.BufferAttribute(f32(g.nrm), 3));
       geo.setAttribute('uv', new T.BufferAttribute(f32(g.uv0), 2));
       geo.setAttribute('uv1', new T.BufferAttribute(f32(g.uv1), 2));
     }
     let col;
-    if (g.col) col = new Uint8Array(buffer, g.col[0], g.col[1]);
+    if (g.col) col = new Uint8Array(buf, g.col[0], g.col[1]);
     else {
       col = new Uint8Array(g.vertices * 4);
       const c = Array.isArray(g.colConst) ? g.colConst : [255, 255, 255, 255];
@@ -463,9 +485,14 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
     }
     geo.setAttribute('color', new T.BufferAttribute(col, 4, true));
     const iw = q && g.idxType === 'u16' ? 2 : 4;
-    const idx = q && dzs.has('idx') ? unDzs(buffer, g.idx, iw, 1) : new (iw === 2 ? Uint16Array : Uint32Array)(buffer, g.idx[0], g.idx[1]);
+    const idx = q && dz.has('idx') ? unDzs(buf, g.idx, iw, 1) : new (iw === 2 ? Uint16Array : Uint32Array)(buf, g.idx[0], g.idx[1]);
     geo.setIndex(new T.BufferAttribute(idx, 1));
     geo.computeBoundingSphere();
+    return { geo, q, qpos: qp };
+  };
+  for (const g of doc.groups) {
+    if (!g || !g.vertices || !g.indices) continue;
+    const { geo, q, qpos } = geometryOf(doc, buffer, g);
     const mat = materialFor(g.material, g.lightmap, q);
     const mesh = new T.Mesh(geo, mat);
     mesh.matrixAutoUpdate = false;
@@ -483,6 +510,59 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
     if (/DynamicWaterTile/.test(doc.materials?.[g.material]?.shader || '')) { mesh.visible = false; mesh.userData.tideWarning = true; }
     meshes.push(mesh);
   }
+  // runtime device models (scene/devices, loaded with the stage as data.devices): shared geometry and materials, lit
+  // with this stage's main light (their materials are built from the devices' own material table and textures)
+  let devices = null;
+  const devGeos = [];
+  const DV = data.devices;
+  if (DV && isObj(DV.doc) && Array.isArray(DV.doc.groups) && DV.buffer) {
+    texSrc = DV.textures || {};
+    matSrc = DV.doc.materials || {};
+    const parts = new Map();  // device key → [{ geo, mat, qpos }]
+    for (const g of DV.doc.groups) {
+      if (!g || !g.vertices || !g.indices || !g.device) continue;
+      const { geo, q, qpos } = geometryOf(DV.doc, DV.buffer, g);
+      devGeos.push(geo);
+      if (!parts.has(g.device)) parts.set(g.device, []);
+      parts.get(g.device).push({ geo, mat: materialFor(g.material, -1, q), qpos: q ? qpos : null });
+    }
+    texSrc = data.textures;
+    matSrc = doc.materials;
+    const info = isObj(DV.doc.devices) ? DV.doc.devices : {};
+    devices = {
+      has: (key) => parts.has(key),
+      /** [[x0, y0, z0], [x1, y1, z1]] of the model around its tile centre (z from the ground). */
+      bounds: (key) => (Array.isArray(info[key]?.bounds) ? info[key].bounds : null),
+      /** The standing surface's height (a 射击台's plate), null when not recorded. */
+      top: (key) => (parts.has(key) && Number.isFinite(info[key]?.top) ? info[key].top : null),
+      /**
+       * A Group holding the device's model, its origin at the tile centre on the ground. `fade`: materials of its own
+       * (uOpacity, blended) sharing the uniforms (light, focus) — the caller disposes them (group.userData.materials).
+       */
+      mesh(key, { fade = false } = {}) {
+        const list = parts.get(key);
+        if (!list) return null;
+        const grp = new T.Group();
+        grp.userData.materials = [];
+        for (const p of list) {
+          let mat = p.mat;
+          if (fade) {
+            mat = new T.ShaderMaterial({
+              vertexShader: p.mat.vertexShader, fragmentShader: p.mat.fragmentShader, defines: { ...p.mat.defines },
+              uniforms: { ...p.mat.uniforms, uOpacity: { value: 1 } }, transparent: true,
+            });
+            mat.extensions = { derivatives: true };
+            grp.userData.materials.push(mat);
+          }
+          const m = new T.Mesh(p.geo, mat);
+          if (p.qpos) { m.position.set(p.qpos[0], p.qpos[1], p.qpos[2]); m.scale.setScalar(p.qpos[3]); }
+          m.name = `official-device:${key}`;
+          grp.add(m);
+        }
+        return grp;
+      },
+    };
+  }
   const hiddenTiles = doc.hidden || {};
   const overlaps = (t, a) => !!t && t[0] <= a.r1 && t[1] >= a.r0 && t[2] <= a.c1 && t[3] >= a.c0;
   const hl = Number(doc.map?.highlandHeight);
@@ -499,8 +579,10 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       }
     },
     lightDir, lightColor,
+    devices,
     dispose() {
       for (const m of meshes) m.geometry.dispose();
+      for (const g of devGeos) g.dispose();
       for (const m of materials.values()) m.dispose();
       for (const t of texCache.values()) t.dispose();
       for (const l of lms) { l.light?.dispose(); l.mask?.dispose(); }

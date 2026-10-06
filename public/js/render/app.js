@@ -607,9 +607,10 @@ export async function createFieldView(host, options = {}) {
         // the official scene's tile heights (style.js tileTop): the units, picking and highlights follow them
         onOfficial: (info) => {
           const h = info?.highland ?? null;
-          if (!stageRec || (stageRec.highlandHeight ?? null) === h) return;
-          const { highlandHeight: _drop, ...base } = stageRec;
-          setStage(h != null ? { ...base, highlandHeight: h } : base);
+          const p = info?.platform ?? null;  // the official 射击台 model's plate (style.js tileTop 'platform')
+          if (!stageRec || ((stageRec.highlandHeight ?? null) === h && (stageRec.platformHeight ?? null) === p)) return;
+          const { highlandHeight: _drop, platformHeight: _dropP, ...base } = stageRec;
+          setStage({ ...base, ...(h != null ? { highlandHeight: h } : {}), ...(p != null ? { platformHeight: p } : {}) });
         },
         official: !/[?&]officialBoard=0\b/.test(globalThis.location?.search || ''),
       });
@@ -862,6 +863,8 @@ export async function createFieldView(host, options = {}) {
     // local patch: a stage drawn from its official scene stands on the scene's tile heights (style.js tileTop)
     const hl = board3d?.highlandFor?.(st.id) ?? null;
     if (hl != null && st.highlandHeight !== hl) st = { ...st, highlandHeight: hl };
+    const ph = board3d?.platformFor?.(st.id) ?? null;
+    if (ph != null && st.platformHeight !== ph) st = { ...st, platformHeight: ph };
     stageRec = st;
     tiles.setStage(st);
     tiles.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
