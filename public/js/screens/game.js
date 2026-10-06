@@ -112,6 +112,7 @@ import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, pop
 import { data, localAsset, getMode } from '../data.js';
 import { voiceForPiece, voiceForBuy } from '../voice.js'; // local patch: 休整期 lines (选中 / 部署)
 import { hudArt } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
+import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { useDocClass, FullscreenButton } from '../ui/device.js';
 
@@ -1360,6 +1361,8 @@ function MatchScreen() {
       ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp} onClose=${() => { setDetail(null); setSel(null); }}
         bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} side=${dSide} shopOpen=${shopOpen} live=${liveStats} voice=${combat}
         onBond=${(id) => openBond(id, detailOwner, 'detail')} />` : null}
+      ${!resolved && hudLook.cls && (drag || facing) && placingDetail(drag || facing, placeCtx.pieces) ? html`<div class="dart-placing">
+        <${DetailPanel} detail=${placingDetail(drag || facing, placeCtx.pieces)} onClose=${() => {}} bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} /></div>` : null /* local patch: the card while placing (ui/detailArt.js) */}
 
       ${selEntry && editable && !facing && !drag && showPrep ? html`<${Underframe} key=${sel.uid} view=${view} uid=${sel.uid}
         row=${pieceTile(selEntry)?.row} col=${pieceTile(selEntry)?.col} actions=${underframeActions(placeCtx, sel.uid)} busy=${selBusy}

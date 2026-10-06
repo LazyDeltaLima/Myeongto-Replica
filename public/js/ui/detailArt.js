@@ -1,21 +1,30 @@
-// Official look of an operator's detail card (local patch, docs/LOCAL-PATCH.md 「정비 화면 HUD」 — 배치 기물 정보 창): the
-// client's act2autochess_character_info_subpanel_status / …_subpanel_tabgroup (ui/autochess/[uc]autochessbattle.ab) and
-// the user's in-game screenshots (深巡 / 乌尔比安 / 斯卡蒂, 2026-10-06): the art behind, the class icon in a gold frame,
-// the name, the tier, the stat list (攻击 防御 法抗 阻挡 费用, 21 px #b2b2b2 labels), the 攻击范围 tile and one tile per
-// bond, the blue HP bar (生命 x/y), then the tabs 特质 / 技能 / 特性 / 天赋 (特质 = the 卫戍协议 ability, with the equipped
-// items under it — buttonType 5 "autochess_equip" group). Built from ChessDetail's own blocks (ui/detailPanel.js), so
-// every upstream line stays: the live tag and +/− differences, 攻击间隔 / 再部署, the bond counts, the merge hint, the
-// module, the loadout tags, 出售. Only while the HUD has its official look (hudArt `has-hud-art`; css/hud-art.css).
+// Official look of an operator's detail card (local patch, docs/LOCAL-PATCH.md 「정비 화면 HUD」 — 배치 기물 정보 창): no
+// panel box — the operator's art on the left edge at full height, fading out to the right, with the client's
+// act2autochess_character_info_subpanel_status / …_subpanel_tabgroup (ui/autochess/[uc]autochessbattle.ab) laid over it,
+// matched against the user's in-game screenshots (深巡 / 乌尔比安 / 斯卡蒂 / 盟约·辅助干员, 2026-10-06): the class icon in a
+// gold frame (cyan for a helper token), the name, the tier | elite icon LV n (chess.json `status`, the official
+// charChessDataDict status), the stat list (攻击 防御 法抗 阻挡 费用, 21 px #b2b2b2), the 攻击范围 tile and one tile per bond, the
+// blue HP bar (生命 x/y), the tabs 特质 / 技能 / 特性 / 天赋 and their text. Built from ChessDetail's own blocks
+// (ui/detailPanel.js), so every upstream line stays: the live tag and +/− differences, 攻击间隔 / 再部署, the bond counts,
+// the merge hint, the module and loadout tags (出售 is the board underframe's, as in the client). Only while the HUD has
+// its official look (hudArt `has-hud-art`; css/hud-art.css).
+//
+// The art: the operator's 立绘 when the local client extraction lists it (data/local-assets.json group `chararts`,
+// `<charId>_1` / `_2` for an elite — not extracted yet: the client keeps them in chararts/<charId>.ab), else the web
+// manifest's half-body portrait (180×360), else no art.
 //
 //   ChessDetailArt(props)   the props of ChessDetail (ui/detailPanel.js)
+//   placingDetail(p, pieces) the card of the operator being placed — dragged (`drag`) or waiting for its direction
+//                           (`facing`, screens/game.js): the client shows the same card then, its art more transparent
+//                           (KR gameplay captures, 2026-10-06); null for an item / token or an unknown piece
 
 import { useState } from '../../vendor/hooks.module.js';
 import { html, TierChip } from './components.js';
 import { Img } from './gameComponents.js';
-import { ChessDetail, liveStat, RangeGrid, cardRangeGrid } from './detailPanel.js';
+import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail } from './detailPanel.js';
 import { attackInterval, fmtNum, chessLoadout } from './gameLogic.js';
-import { chessPortraitUrl, profIconUrl, subProfIconUrl } from './assetUrls.js';
-import { data } from '../data.js';
+import { chessPortraitUrl, profIconUrl, uiUrl } from './assetUrls.js';
+import { data, localAsset } from '../data.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -37,11 +46,22 @@ export function artParts(blocks) {
   return { by, tabs };
 }
 
+/**
+ * The card's art: the local 立绘 (`chararts`), else the portrait. `full` — a square full art (drawn larger, centred).
+ * @returns {{ src: string|null, full: boolean }}
+ */
+export function cardArt(m, chess, golden) {
+  const id = chess?.charId;
+  const full = id ? (golden && localAsset('chararts', `${id}_2`)) || localAsset('chararts', `${id}_1`) : null;
+  if (full) return { src: full, full: true };
+  return { src: chessPortraitUrl(m, chess), full: false };
+}
+
 const fmtInterval = (v) => (Number.isFinite(v) && v > 0 ? `${v.toFixed(2)}s` : '—');
 const fmtRes = (v) => (Number.isFinite(v) ? String(Math.round(v * 10) / 10) : '0');
 
-function Line({ k, v, tone, sub, title }) {
-  return html`<div class=${cx('dart__stat', tone && `is-${tone}`)} title=${title}><span>${k}</span><b class="num">${v}</b>${sub ? html`<small class="num">${sub}</small>` : null}</div>`;
+function Line({ k, v, tone, sub, title, cls }) {
+  return html`<div class=${cx('dart__stat', tone && `is-${tone}`, cls)} title=${title}><span>${k}</span><b class="num">${v}</b>${sub ? html`<small class="num">${sub}</small>` : null}</div>`;
 }
 
 export function ChessDetailArt(props) {
@@ -54,6 +74,8 @@ export function ChessDetailArt(props) {
   const fr = lo?.record || c;
   const s = fr?.stats || {};
   const golden = !!(c.isGolden || piece?.golden);
+  const art = cardArt(m, c, golden);
+  const token = piece?.kind === 'token' || c.profession === 'TOKEN';
   const st = {
     atk: liveStat(live, 'atk', s.atk), def: liveStat(live, 'def', s.def), res: liveStat(live, 'res', s.res ?? 0, fmtRes),
     blockCnt: liveStat(live, 'blockCnt', s.blockCnt, (v) => String(v)), interval: liveStat(live, 'interval', attackInterval(s.bat, s.aspd), fmtInterval),
@@ -62,22 +84,24 @@ export function ChessDetailArt(props) {
     : snapHp || { hp: Number.isFinite(live?.maxHp) ? live.maxHp : s.maxHp, max: Number.isFinite(live?.maxHp) ? live.maxHp : s.maxHp };
   const pct = Number.isFinite(hp?.hp) && hp.max > 0 ? Math.max(0, Math.min(100, (hp.hp / hp.max) * 100)) : 100;
   const cur = tabs.find((t) => t.id === tab) || tabs[0] || null;
+  const phase = Number.isInteger(c.status?.phase) ? c.status.phase : null;
+  const level = Number.isFinite(c.status?.level) ? c.status.level : null;
+  const eliteUrl = phase != null ? uiUrl(m, `elite/elite_${phase}`) : null;
   // the bond tiles: ChessDetail's own bond chips (counts, 同构, 本局禁用, the popup on a tap) out of its header
-  const head = by.get('head');
-  const chips = findByClass(head, 'dbonds');
+  const chips = findByClass(by.get('head'), 'dbonds');
+  const prof = profIconUrl(m, c.profession);
   return [
-    html`<div key="art" class=${cx('dart', golden && 'is-golden')}>
-      <div class="dart__bg" aria-hidden="true"><${Img} src=${chessPortraitUrl(m, c)} /></div>
+    html`<div key="art" class=${cx('dart', golden && 'is-golden', token && 'is-token', art.full && 'has-full-art')}>
+      <div class="dart__bg" aria-hidden="true">${art.src ? html`<${Img} src=${art.src} />` : null}</div>
       <div class="dart__head">
-        <span class="dart__prof"><i style=${profIconUrl(m, c.profession) ? `background-image:url("${profIconUrl(m, c.profession)}")` : ''}></i></span>
+        <span class="dart__prof"><i style=${prof ? `background-image:url("${prof}")` : ''}></i></span>
         <h3 class="dart__name">${c.name}</h3>
         <div class="dart__tier">
           <${TierChip} tier=${c.tier} golden=${golden} size="md" />
           ${golden ? html`<span class="dtag-elite">精锐</span>` : null}
-          ${piece?.kind === 'token' ? html`<span class="dtag-token">召唤物</span>` : null}
           <i class="dart__split"></i>
-          <${Img} src=${subProfIconUrl(m, c)} class="dart__sub" />
-          <span class="dart__subname">${c.subProfessionName || ''}</span>
+          ${eliteUrl ? html`<img class="dart__elite" src=${eliteUrl} alt="" />` : null}
+          ${level != null ? html`<span class="dart__lv"><small>LV</small><b class="num">${level}</b></span>` : null}
         </div>
       </div>
       <div class="dart__mid">
@@ -86,10 +110,10 @@ export function ChessDetailArt(props) {
           <${Line} k="攻击" ...${st.atk} />
           <${Line} k="防御" ...${st.def} />
           <${Line} k="法抗" ...${st.res} />
-          <${Line} k="阻挡" ...${st.blockCnt} />
-          <${Line} k="费用" v=${s.cost ?? '—'} />
-          <${Line} k="攻击间隔" ...${st.interval} />
-          <${Line} k="再部署" v=${s.respawnTime != null ? `${s.respawnTime}s` : '—'} />
+          <${Line} k="阻挡" ...${st.blockCnt} cls="is-white" />
+          <${Line} k="费用" v=${s.cost ?? '—'} cls="is-white" />
+          <${Line} k="攻击间隔" ...${st.interval} cls="is-extra" />
+          <${Line} k="再部署" v=${s.respawnTime != null ? `${s.respawnTime}s` : '—'} cls="is-extra" />
         </div>
         <div class="dart__tiles">
           <div class="dart__tile dart__range"><${RangeGrid} grid=${cardRangeGrid(live, fr, c)} /><span>攻击范围</span></div>
@@ -98,13 +122,12 @@ export function ChessDetailArt(props) {
       </div>
       <div class="dart__hp"><i style=${`width:${pct}%`}></i><span><em>生命</em><b class="num">${fmtNum(hp?.hp)}/${fmtNum(hp?.max)}</b></span></div>
     </div>`,
-    by.get('merge') || null,
     tabs.length ? html`<div key="tabs" class="dart__tabs" role="tablist">
       ${tabs.map((t) => html`<button key=${t.id} type="button" role="tab" aria-selected=${t === cur ? 'true' : 'false'}
           class=${cx('dart__tab', t === cur && 'is-on')} onClick=${() => setTab(t.id)}>${t.label}</button>`)}
     </div>` : null,
+    by.get('merge') || null,
     cur ? html`<div key=${`pane:${cur.id}`} class=${cx('dart__pane', `dart__pane--${cur.id}`)} role="tabpanel">${cur.nodes}</div>` : null,
-    by.get('actions') || null,
   ].filter(Boolean);
 }
 
@@ -121,4 +144,18 @@ function findByClass(node, cls, depth = 0) {
   if (c.split(/\s+/).includes(cls)) return node;
   if (typeof node.type === 'function' && node.type.name === 'BondChips') return node;
   return findByClass(p.children, cls, depth + 1);
+}
+
+/**
+ * @param {{ uid?: number, piece?: any } | null} p screens/game.js `drag` or `facing`
+ * @param {Map<number, any>} pieces indexPieces(priv)
+ * @returns {any|null} a resolveDetail result of type 'chess'
+ */
+export function placingDetail(p, pieces) {
+  if (!p || !Number.isInteger(p.uid)) return null;
+  const d = resolveDetail({ kind: 'piece', uid: p.uid }, pieces);
+  if (d && d.type === 'chess') return d;
+  const piece = p.piece;
+  const c = piece && piece.kind === 'chess' ? data.lookup('chess', piece.id) : null;
+  return c ? { type: 'chess', chess: c, piece } : null;
 }

@@ -42,13 +42,16 @@
    frozen, group_unlock (frozen_bg_unselect + frozen_icon2 — the crossed-out snowflake, "unfreeze") while it is,
    group_disable (bg_lock + frozen_icon_lock) */
 .shopbar.has-shop-art .toolbtn--ice.is-on { --tb-art: var(--sa-frozen-on); background: transparent; color: rgba(0, 0, 0, .9); }
+/* refresh_bg_normal is 147×77, one unit left of the button's centre (the lock / disabled art is 149×77, centred) */
+.shopbar.has-shop-art .toolbtn--amber:not(:disabled)::before { width: calc(var(--u) * 147); transform: translate(calc(-50% - var(--u) * 1), calc(-50% + var(--u) * 9)); }
 .shopbar.has-shop-art .toolbtn--amber { --tb-art: var(--sa-refresh); }
 .shopbar.has-shop-art .toolbtn:disabled { --tb-art: var(--sa-lock); color: rgba(0, 0, 0, .9); }
 /* the disabled groups' grey icons (frozen_icon_lock / refresh_icon_lock: the same glyph in grey, about 3/4 as bright) */
 .shopbar.has-shop-art .toolbtn:disabled .toolbtn__img { filter: grayscale(1) brightness(.75); }
 .shopbar.has-shop-art .toolbtn:hover:not(:disabled) { background: transparent; filter: brightness(1.08); box-shadow: none; }
-.shopbar.has-shop-art .toolbtn__img { width: calc(var(--u) * 31); height: calc(var(--u) * 31); margin-right: calc(var(--u) * 13); }
-.shopbar.has-shop-art .toolbtn > span:not([class]) { min-width: calc(var(--u) * 55); text-align: center; font-weight: 700; }
+/* icon 31×31 centred 26.5 left of the button's centre, text (54.5 wide) 18.5 right and 1 up (group_* icon / text) */
+.shopbar.has-shop-art .toolbtn__img { position: absolute; left: calc(50% - var(--u) * 26.5); top: 50%; transform: translate(-50%, -50%); width: calc(var(--u) * 31); height: calc(var(--u) * 31); margin: 0; }
+.shopbar.has-shop-art .toolbtn > span:not([class]) { position: absolute; left: calc(50% + var(--u) * 18.5); top: 50%; transform: translate(-50%, calc(-50% - var(--u) * 1)); width: calc(var(--u) * 54.5); text-align: center; font-weight: 700; white-space: nowrap; }
 /* the key hint under the button (pc_key_holder, 39 units down) */
 .shopbar.has-shop-art .toolbtn kbd {
   position: absolute; left: 50%; top: 100%; transform: translate(-50%, calc(var(--u) * 6)); margin: 0;
@@ -170,18 +173,22 @@
   border: 0; background: var(--sa-up-icon) center / contain no-repeat; filter: brightness(0); opacity: .3;
 }
 .shopbar.has-shop-art .lvcard__frame::after { display: none; }
-.shopbar.has-shop-art .lvcard__micro { /* the prefab's 39×9 'level' text sprite (the web manifest's `shopPanel/level` is another sprite of that name) */
-  position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--u) * 8); text-align: center; font-size: calc(var(--u) * 11); line-height: 1; letter-spacing: .2em; padding-left: .2em; color: #57e8cb; opacity: .85; }
-.shopbar.has-shop-art .lvcard__num { position: relative; z-index: 1; margin-top: calc(var(--u) * 14); font-size: calc(var(--u) * 56); color: #57e8cb; font-weight: 700; }
-.shopbar.has-shop-art .lvcard__label { position: absolute; left: 0; right: 0; bottom: calc(var(--u) * 12); text-align: center; font-size: calc(var(--u) * 20); color: #6eecd2; letter-spacing: .2em; padding-left: .2em; }
+.shopbar.has-shop-art .lvcard__micro { /* the prefab's 39×9 'level' text sprite, centred 51.5 under the box's top (root_inner +12, level +24); the web
+   manifest's `shopPanel/level` is another sprite of that name, so it is text here */
+  position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--u) * 18.5); transform: translateY(-50%); text-align: center; font-size: calc(var(--u) * 12); line-height: 1; letter-spacing: .2em; padding-left: .2em; color: #57e8cb; opacity: .85; }
+/* the number centred 75.5 under the box's top (root_num +4, text +8; group_disable / group_max text 12.3 up: 75.2) — both
+   inside .lvcard__frame, whose top is 33 under the box's: 18.5 / 42.5 there */
+.shopbar.has-shop-art .lvcard__num { position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--u) * 42.5); transform: translateY(-50%); margin: 0; text-align: center; line-height: 1; font-size: calc(var(--u) * 56); color: #57e8cb; font-weight: 700; }
+/* 升级 (text_tip, 100×30, 70.1 under the centre: centred 157.6 under the top) */
+.shopbar.has-shop-art .lvcard__label { position: absolute; left: 0; right: 0; top: calc(var(--u) * 157.6); bottom: auto; transform: translateY(-50%); line-height: 1; text-align: center; font-size: calc(var(--u) * 20); color: #6eecd2; letter-spacing: .2em; padding-left: .2em; }
 .shopbar.has-shop-art .lvcard__key { left: 50%; right: auto; top: 100%; bottom: auto; transform: translate(-50%, calc(var(--u) * 4));
   color: #e8e8e8 !important; background: rgba(20, 20, 20, .85) !important; border-color: rgba(255, 255, 255, .25) !important; }
 .shopbar.has-shop-art .lvcard.is-disabled { background: var(--sa-up-disable) center / 100% 100% no-repeat; }
 .shopbar.has-shop-art .lvcard.is-disabled::before, .shopbar.has-shop-art .lvcard.is-max::before { display: none; }
 .shopbar.has-shop-art .lvcard.is-disabled .lvcard__frame, .shopbar.has-shop-art .lvcard.is-max .lvcard__frame { background: none; }
 .shopbar.has-shop-art .lvcard.is-disabled .lvcard__frame::before, .shopbar.has-shop-art .lvcard.is-max .lvcard__frame::before { display: none; }
-.shopbar.has-shop-art .lvcard.is-disabled .lvcard__micro { color: #b6b6b6; }
-.shopbar.has-shop-art .lvcard.is-max .lvcard__micro { color: #679a90; }
+/* upgrade_disable / upgrade_max carry the LEVEL text, the frame and the lock glyph in the art: no text of ours there */
+.shopbar.has-shop-art .lvcard.is-disabled .lvcard__micro, .shopbar.has-shop-art .lvcard.is-max .lvcard__micro { display: none; }
 .shopbar.has-shop-art .lvcard.is-disabled .lvcard__num { color: #b6b6b6; }
 .shopbar.has-shop-art .lvcard.is-disabled .lvcard__label { color: #444; }
 .shopbar.has-shop-art .lvcard.is-max { background: var(--sa-up-max) center / 100% 100% no-repeat; }
@@ -192,10 +199,12 @@
 /* ---- funds (group_money: bg_money 110×37, 28 px #ffba00) + close box (bg_close 181×197, 收起 20 px #37e5ca + icon_x) ---- */
 .shopbar.has-shop-art .funds {
   position: relative; width: calc(var(--u) * 168); height: calc(var(--u) * 176); padding: 0; gap: 0; border-left: 0; justify-content: flex-end;
-  background: var(--sa-close) center / calc(var(--u) * 181) calc(var(--u) * 197) no-repeat;
+  /* bg_close 181×197 sits 3.5 left and 3.5 up of the 168×184 box */
+  background: var(--sa-close) calc(50% - var(--u) * 3.5) calc(50% - var(--u) * 3.5) / calc(var(--u) * 181) calc(var(--u) * 197) no-repeat;
 }
 .shopbar.has-shop-art .funds__hex {
-  position: absolute; z-index: 3; left: 50%; top: calc(var(--u) * -12); transform: translateX(-50%); width: calc(var(--u) * 110); height: calc(var(--u) * 37);
+  /* centred on the close box's top edge: group_money's bg 98.7 under main_view's top, btn_close's top 99 */
+  position: absolute; z-index: 3; left: 50%; top: calc(var(--u) * -18.8); transform: translateX(-50%); width: calc(var(--u) * 110); height: calc(var(--u) * 37);
   flex-direction: row; gap: 0; padding-left: calc(var(--u) * 34); clip-path: none; background: var(--sa-money) center / 100% 100% no-repeat;
 }
 .shopbar.has-shop-art .funds__hex::before, .shopbar.has-shop-art .funds__coin { display: none; }
