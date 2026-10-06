@@ -212,6 +212,7 @@ export const FX_KINDS = Object.freeze({
   // local patch: 赤刃明霄陈 S3 剑气 — render/fxgame.js carries her official trail; this pulse only without official effects
   // (low quality / no bundle) [ASSUMED colour]
   chen3Qi: { a: 'wave', c: 0xff6a4a, r: 0.6 },
+  whitw2Drones: { a: 'none', c: 0x8fe6ff }, // local patch: 荒芜拉普兰德 S3 drone positions (the wolves, render/fxgame.js; nothing in the fallback)
   oblvnsNote: { a: 'none', c: 0xffe6f0 }, // local patch: 丰川祥子's note flight (drawn by render/fxgame.js; the arrow stays the fallback)
   sonic: { a: 'wave', c: 0xc9a2ff, r: 1.5 }, pulse: { a: 'wave', c: 0x9ff0dc }, sermon: { a: 'wave', c: 0xffe28a, r: 1.5 }, ripple: { a: 'wave', c: 0x5fe0ff },
   tornadoPulse: { a: 'wave', c: 0xd8e8ff }, wake: { a: 'wave', c: 0x5fe0ff }, wolfShadow: { a: 'wave', c: 0x8fa0b0 }, wolfShadowLost: { a: 'vanish', c: 0x8fa0b0 },

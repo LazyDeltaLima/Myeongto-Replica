@@ -1821,3 +1821,23 @@ describe('频次 enemies lose exactly 1 HP per damage instance (server/sim/conte
     }
   });
 });
+
+describe('荒芜拉普兰德 S3 wolves: the drones\' positions reach the client (kits/tier6.js hook, render/fxgame.js)', () => {
+  test('S3 sends whitw2Drones with one (x, y) per drone every 0.15 s; the fallback draws nothing for it', async () => {
+    const { makeBattle } = await import('./helpers/battleHarness.js');
+    const { FX_KINDS } = await import('../public/js/render/fx.js');
+    const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true,
+      units: [{ chessId: 'chess_char_6_18_a', row: 11, col: 4, uid: 1, skillIndex: 2, carryState: { sp: 999 } }],
+      enemies: [{ key: 'enemy_1422_lrsldr', time: 0, route: 0, count: 6, interval: 1.2 }] });
+    const ev = [];
+    for (let i = 0; i < 600 && ev.filter((e) => e[0] === 'fx' && e[1] === 'whitw2Drones').length < 5; i++) { h.b.step(); ev.push(...h.b.drainEvents()); }
+    const pos = ev.filter((e) => e[0] === 'fx' && e[1] === 'whitw2Drones');
+    assert.ok(pos.length >= 5, 'positions while S3 runs');
+    const u = h.unit('chess_char_6_18_a');
+    const last = pos[pos.length - 1][4];
+    assert.equal(last.id, u.id);
+    assert.equal(last.d.length, 2 * u.mem.drones.length, 'one (x, y) per drone');
+    assert.ok(last.d.every(Number.isFinite));
+    assert.equal(FX_KINDS.whitw2Drones?.a, 'none');
+  });
+});
