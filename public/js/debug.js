@@ -151,7 +151,7 @@ function select(o) {
   d.replaceChildren();
   const u = manifest?.audio?.sfx?.units?.[o.charId] || {};
   const voiceLang = $('voice').value;
-  const v = manifest?.audio?.voice?.[voiceLang]?.[o.charId] || {};
+  const v = (voiceLang === 'jp' ? manifest?.audio?.voiceJp : manifest?.audio?.voice)?.[o.charId] || {}; // upstream slots (#73) + the Japanese twin
   const bundle = fxBundleOf(o.charId);
   const prefabs = fxIndex?.bundles?.[bundle] || [];
   const groups = effectGroups(prefabs);
@@ -166,7 +166,7 @@ function select(o) {
       const start = groups[`skill${n}`]?.find((p) => /start/.test(p)) || groups[`skill${n}`]?.[0];
       if (start) playFx(`${bundle}/${start}`);
       playSound(u.skills?.[s.index] || (s.index === (o.chess.skill?.index) ? u.skill : null), `S${n}`);
-      const lines = v.skill || [];
+      const lines = [].concat(v[`skill${Math.min(4, n)}`] || []);
       if (lines.length) playSound(lines[Math.floor(Math.random() * lines.length)], '대사');
     } }, `S${n} ${ko(s.name)}`));
   }
@@ -182,8 +182,9 @@ function select(o) {
   d.append(snd);
   d.append(el('h2', {}, `대사 (${voiceLang === 'kr' ? '한국어' : '일본어'})`));
   const vo = el('div', { class: 'row' });
-  for (const [role, label] of [['start', '작전 개시'], ['select', '선택'], ['deploy', '배치'], ['skill', '작전 중']]) {
-    (v[role] || []).forEach((url, i) => vo.append(el('button', { class: 'chip', onclick: () => playSound(url, `${label} ${i + 1}`) }, `${label} ${i + 1}`)));
+  for (const [role, label] of [['start', '행동 출발'], ['faceEnemy', '행동 개시'], ['select', '선택'], ['place', '배치'], ['skill1', '작전 중 1'], ['skill2', '작전 중 2'],
+    ['skill3', '작전 중 3'], ['skill4', '작전 중 4'], ['resultFour', '고난도 완료'], ['resultThree', '3성'], ['resultTwo', '비3성'], ['resultLose', '실패']]) {
+    [].concat(v[role] || []).forEach((url, i) => vo.append(el('button', { class: 'chip', onclick: () => playSound(url, `${label} ${i + 1}`) }, `${label} ${i + 1}`)));
   }
   if (!vo.childNodes.length) vo.append(el('span', { class: 'muted' }, '대사 없음'));
   d.append(vo);

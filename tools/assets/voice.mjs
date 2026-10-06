@@ -1,72 +1,61 @@
-// Operator voice lines (local patch, docs/LOCAL-PATCH.md): the official battle lines (작전 개시 / 선택 / 배치 / 작전 중) of every
-// pool operator in Korean and Japanese, downloaded with the rest of the audio (tools/fetch-assets.mjs) from the
-// ArknightsAssets2 `voice` branch (no jsDelivr mirror):
-//   sound_beta_2/voice_kr/{charId}/cn_NNN.mp3   Korean
-//   sound_beta_2/voice/{charId}/cn_NNN.mp3      Japanese (the default voice; the file names say cn_ in every language)
-// The line numbers are the charword_table voiceIds (checked against ko_KR charword_table 2026-10-05), nine lines:
-//   CN_020 작전 개시 → `start`, CN_021 / CN_022 오퍼레이터 선택 1·2 → `select`, CN_023 / CN_024 배치 1·2 → `deploy`,
-//   CN_025 … CN_028 작전 중 1~4 (played on skill start) → `skill`.
-// An operator without a line simply has no URL for it (a 404 is a miss, never an error).
-//
-// Manifest: audio.voice = { kr: { [charId]: { start, select, deploy, skill: [url…] } }, jp: { … } } — the client
-// (public/js/voice.js) plays the language the player picked, or none.
+// Operator voice in two languages (local patch, docs/LOCAL-PATCH.md). Upstream (#73, plan.mjs 干员战斗语音) plans ONE
+// voice dump per build (`--voice-lang`, cn by default) into `audio.voice[charId][slot]`. Here the build defaults to
+// Korean (fetch-assets `--voice-lang=kr`) and a Japanese twin of the very same slots goes to `audio.voiceJp`: the
+// player picks Korean / Japanese / off per browser (public/js/voice.js), and the audio manager's voice() reads the
+// chosen table. Same file names in every dub (`cn_NNN.mp3`), only the folder differs:
+//   audio/voice/kr/<charId>/cn_NNN.mp3  ← sound_beta_2/voice_kr/…     audio/voice/jp/…  ← sound_beta_2/voice/…
+// A line one dub lacks is simply left out (a 404 is a miss, never an error, and not worth a report line each).
 
-import { RAW, joinUrl, safeName } from './sources.mjs';
-import { kindOf } from './formats.mjs';
+import { VOICE_DIRS } from './audio.mjs';
 
-/** Voice language → folder under sound_beta_2. */
-export const VOICE_LANGS = Object.freeze({ kr: 'voice_kr', jp: 'voice' });
-
-/** Role → charword line numbers. */
-export const VOICE_LINES = Object.freeze({ start: [20], select: [21, 22], deploy: [23, 24], skill: [25, 26, 27, 28] });
-
-const lineFile = (n) => `cn_${String(n).padStart(3, '0')}.mp3`;
+/** The extra dubs planned beside the build's own (`--voice-lang`), manifest key → dub. */
+export const VOICE_TWINS = Object.freeze({ voiceJp: 'jp' });
 
 /**
- * Template of audio.voice for plan.mjs (manifest leaves: one alternative each).
- * @param {string[]} charIds operators to cover
- * @returns {{ [lang: string]: { [charId: string]: { [role: string]: { alts: object[] }[] } } }}
+ * The voice template of `from` rewritten to dub `to`: every leaf's `rel` (audio/voice/<from>/…) and source URL
+ * (…/<VOICE_DIRS[from]>/…) point at the other dub's same file.
+ * @param {object} voice plan template `audio.voice` ({ [charId]: { [slot]: leaf | leaf[] } })
+ * @param {string} from VOICE_DIRS key of the build's voice
+ * @param {string} to VOICE_DIRS key of the twin
  */
-export function voiceTemplate(charIds) {
+export function voiceTwin(voice, from, to) {
+  if (!VOICE_DIRS[from] || !VOICE_DIRS[to] || from === to) return {};
+  const relFrom = `audio/voice/${from}/`, relTo = `audio/voice/${to}/`;
+  const urlFrom = `/${VOICE_DIRS[from]}/`, urlTo = `/${VOICE_DIRS[to]}/`;
+  const altOf = (a) => ({ ...a, rel: String(a.rel).replace(relFrom, relTo), urls: a.urls.map((u) => String(u).replace(urlFrom, urlTo)), bytes: undefined });
+  const leafOf = (l) => (l && Array.isArray(l.alts) ? { alts: l.alts.map(altOf).map(({ bytes, ...a }) => a) } : null);
   const out = {};
-  for (const [lang, dir] of Object.entries(VOICE_LANGS)) {
-    const byChar = {};
-    for (const id of charIds) {
-      if (typeof id !== 'string' || !/^char_\d+_[a-z0-9_]+$/i.test(id)) continue;
-      const roles = {};
-      for (const [role, lines] of Object.entries(VOICE_LINES)) {
-        roles[role] = lines.map((n) => {
-          const file = lineFile(n);
-          const rel = `audio/voice/${lang}/${safeName(id)}/${file}`;
-          return { alts: [{ rel, urls: [joinUrl(RAW.aa2voice, `${dir}/${id}/${file}`)], kind: kindOf(file) }] };
-        });
-      }
-      byChar[id] = roles;
-    }
-    out[lang] = byChar;
+  for (const [charId, slots] of Object.entries(voice || {})) {
+    const v = {};
+    for (const [slot, l] of Object.entries(slots || {})) v[slot] = Array.isArray(l) ? l.map(leafOf).filter(Boolean) : leafOf(l);
+    out[charId] = v;
   }
   return out;
 }
 
 /**
- * After resolveTemplate: drop the roles (and operators) left without a file, and move the voice misses out of the
- * general miss list (a missing line is expected — not worth one report line each). Mutates both arguments.
+ * After resolveTemplate: drop the voice slots (and operators) left without a file in `audio.voice` and the twins, and
+ * move the voice misses out of the general miss list. Mutates both arguments.
  * @param {any} body resolved manifest body
  * @param {{ misses: string[] }} resolved
  * @returns {{ lines: number, missing: number }}
  */
 export function tidyVoice(body, resolved) {
-  const voice = body?.audio?.voice;
   let lines = 0;
-  for (const byChar of Object.values(voice || {})) {
-    for (const [id, roles] of Object.entries(byChar)) {
-      for (const [role, urls] of Object.entries(roles)) {
-        if (Array.isArray(urls) && urls.length) lines += urls.length; else delete roles[role];
+  for (const key of ['voice', ...Object.keys(VOICE_TWINS)]) {
+    const byChar = body?.audio?.[key];
+    if (!byChar || typeof byChar !== 'object') continue;
+    for (const [id, slots] of Object.entries(byChar)) {
+      for (const [slot, v] of Object.entries(slots || {})) {
+        const list = (Array.isArray(v) ? v : [v]).filter((u) => typeof u === 'string' && u);
+        if (!list.length) { delete slots[slot]; continue; }
+        slots[slot] = Array.isArray(v) ? list : list[0];
+        lines += list.length;
       }
-      if (!Object.keys(roles).length) delete byChar[id];
+      if (!Object.keys(slots || {}).length) delete byChar[id];
     }
   }
   const before = resolved.misses.length;
-  resolved.misses = resolved.misses.filter((p) => !String(p).startsWith('audio.voice.'));
+  resolved.misses = resolved.misses.filter((p) => !/^audio\.voice(Jp)?\./.test(String(p)));
   return { lines, missing: before - resolved.misses.length };
 }

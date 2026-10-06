@@ -265,70 +265,67 @@ describe('client helpers', () => {
 
 // ---- emote wheel tabs (public/js/ui/emotes.js) ------------------------------------------------------------------------
 
-describe('operator voice lines (tools/assets/voice.mjs, public/js/voice.js)', () => {
-  test('pipeline: Korean / Japanese start, select, deploy and skill lines per operator; empty roles and voice misses are tidied', async () => {
-    const { voiceTemplate, tidyVoice } = await import('../tools/assets/voice.mjs');
-    const t = voiceTemplate(['char_002_amiya', 'not-an-id']);
-    assert.deepEqual(Object.keys(t), ['kr', 'jp']);
-    assert.deepEqual(Object.keys(t.kr), ['char_002_amiya'], 'only operator ids');
-    const a = t.kr.char_002_amiya;
-    assert.deepEqual(Object.fromEntries(Object.entries(a).map(([k, v]) => [k, v.length])), { start: 1, select: 2, deploy: 2, skill: 4 }, 'nine lines');
-    assert.equal(a.start[0].alts[0].rel, 'audio/voice/kr/char_002_amiya/cn_020.mp3', '작전 개시');
-    assert.equal(a.deploy[1].alts[0].rel, 'audio/voice/kr/char_002_amiya/cn_024.mp3', '배치 2');
-    assert.equal(a.select[0].alts[0].rel, 'audio/voice/kr/char_002_amiya/cn_021.mp3');
-    assert.match(a.select[0].alts[0].urls[0], /\/voice\/assets\/dyn\/audio\/sound_beta_2\/voice_kr\/char_002_amiya\/cn_021\.mp3$/);
-    assert.match(t.jp.char_002_amiya.skill[3].alts[0].urls[0], /sound_beta_2\/voice\/char_002_amiya\/cn_028\.mp3$/, 'Japanese = the default voice folder');
-    const body = { audio: { voice: { kr: { a: { select: ['/x'], skill: [] }, b: { select: [], skill: [] } } } } };
-    const resolved = { misses: ['audio.voice.kr.b.select[0]', 'chars.x.avatar'] };
-    assert.deepEqual(tidyVoice(body, resolved), { lines: 1, missing: 1 });
-    assert.deepEqual(body.audio.voice.kr, { a: { select: ['/x'] } });
+describe('operator voice: Korean / Japanese / off and the 休整期 lines on upstream #73 (tools/assets/voice.mjs, public/js/voice.js)', () => {
+  test('pipeline: the Japanese twin mirrors the build voice slot for slot (rel + source folder); empty slots and voice misses are tidied', async () => {
+    const { voiceTwin, tidyVoice } = await import('../tools/assets/voice.mjs');
+    const leaf = (lang, dir, n) => ({ alts: [{ rel: `audio/voice/${lang}/char_002_amiya/cn_0${n}.mp3`, urls: [`https://raw.x/voice/assets/dyn/audio/sound_beta_2/${dir}/char_002_amiya/cn_0${n}.mp3`], kind: 'audio', bytes: 9 }] });
+    const kr = { char_002_amiya: { start: leaf('kr', 'voice_kr', 20), place: [leaf('kr', 'voice_kr', 23), leaf('kr', 'voice_kr', 24)] } };
+    const jp = voiceTwin(kr, 'kr', 'jp');
+    assert.equal(jp.char_002_amiya.start.alts[0].rel, 'audio/voice/jp/char_002_amiya/cn_020.mp3');
+    assert.match(jp.char_002_amiya.place[1].alts[0].urls[0], /sound_beta_2\/voice\/char_002_amiya\/cn_024\.mp3$/, 'Japanese = the default voice folder');
+    assert.equal(jp.char_002_amiya.place[1].alts[0].bytes, undefined, 'no size carried over from the other dub');
+    assert.equal(kr.char_002_amiya.start.alts[0].rel, 'audio/voice/kr/char_002_amiya/cn_020.mp3', 'the build voice is untouched');
+    const body = { audio: { voice: { a: { select: '/k', place: ['/k1', null] }, b: { select: null } }, voiceJp: { a: { select: null, place: [] } } } };
+    const resolved = { misses: ['audio.voiceJp.a.select', 'audio.voice.b.select', 'chars.x.avatar'] };
+    const r = tidyVoice(body, resolved);
+    assert.deepEqual(body.audio.voice, { a: { select: '/k', place: ['/k1'] } });
+    assert.deepEqual(body.audio.voiceJp, {});
     assert.deepEqual(resolved.misses, ['chars.x.avatar']);
+    assert.deepEqual(r, { lines: 2, missing: 2 });
   });
 
-  test('client: official battleVoice overlap rules (priority, same-priority override, cooldown)', async () => {
-    const { voiceAllowed, skillVoiceType } = await mod('voice.js');
-    assert.equal(skillVoiceType({ skillType: 'MANUAL', spCost: 3 }), 'SKILL_ACTIVE');
-    assert.equal(skillVoiceType({ skillType: 'AUTO', spCost: 10 }), 'SKILL_PASSIVE_IMP');
-    assert.equal(skillVoiceType({ skillType: 'AUTO', spCost: 9 }), 'SKILL_PASSIVE_NOR');
-    assert.equal(skillVoiceType({ skillType: 'PASSIVE' }), null);
-    const on = (type) => ({ type });
-    assert.equal(voiceAllowed('FOCUS_CHAR', null, undefined, 0), true, 'silence: anything plays');
-    assert.equal(voiceAllowed('FOCUS_CHAR', on('SKILL_ACTIVE'), undefined, 0), false, 'a select never cuts a skill line');
-    assert.equal(voiceAllowed('FOCUS_CHAR', on('FOCUS_CHAR'), undefined, 0), true, 'a newer select takes over');
-    assert.equal(voiceAllowed('SKILL_ACTIVE', on('SKILL_ACTIVE'), undefined, 0), true, 'a newer manual skill takes over');
-    assert.equal(voiceAllowed('SKILL_ACTIVE', on('SKILL_PASSIVE_IMP'), undefined, 0), true);
-    assert.equal(voiceAllowed('SKILL_PASSIVE_IMP', on('SKILL_ACTIVE'), undefined, 0), false);
-    assert.equal(voiceAllowed('SKILL_PASSIVE_NOR', on('SKILL_PASSIVE_NOR'), undefined, 0), false, 'auto skills never cut each other');
-    assert.equal(voiceAllowed('SKILL_PASSIVE_IMP', on('SKILL_PASSIVE_NOR'), undefined, 0), true);
-    assert.equal(voiceAllowed('SKILL_PASSIVE_IMP', null, 5, 14.9), false, '10 s cooldown');
-    assert.equal(voiceAllowed('SKILL_PASSIVE_IMP', null, 5, 15), true);
-    assert.equal(voiceAllowed('SKILL_ACTIVE', null, 5, 5.1), true, 'no cooldown for manual skills');
-    assert.equal(voiceAllowed('BATTLE_START', on('SKILL_ACTIVE'), undefined, 0), true, '작전 개시 cuts everything');
-    assert.equal(voiceAllowed('SKILL_PASSIVE_NOR', on('BATTLE_START'), undefined, 0), false);
-    assert.equal(voiceAllowed('PLACE_CHAR', on('FOCUS_CHAR'), undefined, 0), true, 'a bought operator cuts a select line');
-    assert.equal(voiceAllowed('PLACE_CHAR', on('PLACE_CHAR'), undefined, 0), true, 'two purchases: the newer line takes over');
-    assert.equal(voiceAllowed('FOCUS_CHAR', on('PLACE_CHAR'), undefined, 0), false);
-  });
-
-  test('client: preference, URLs of the chosen language, download filter', async () => {
-    const { sanitizeVoice, voiceUrls, voiceWanted, voiceStore } = await mod('voice.js');
-    assert.deepEqual(sanitizeVoice(null), { lang: 'kr', vol: 0.8 });
-    assert.deepEqual(sanitizeVoice({ lang: 'jp', vol: 2 }), { lang: 'jp', vol: 1 });
+  test('client: preference, the chosen dub feeds audio.voice, download filter', async () => {
+    const { sanitizeVoice, voiceTableOf, voiceWanted, voiceStore } = await mod('voice.js');
+    const { audio } = await mod('audio.js');
+    assert.deepEqual(sanitizeVoice(null), { lang: 'kr' });
+    assert.deepEqual(sanitizeVoice({ lang: 'jp', vol: 2 }), { lang: 'jp' });
     assert.equal(sanitizeVoice({ lang: 'cn' }).lang, 'kr');
-    const m = { audio: { voice: { kr: { c: { select: ['/k1', '/k2'] } }, jp: { c: { select: ['/j1'] } } } } };
-    assert.deepEqual(voiceUrls(m, 'c', 'select', 'kr'), ['/k1', '/k2']);
-    assert.deepEqual(voiceUrls(m, 'c', 'select', 'jp'), ['/j1']);
-    assert.deepEqual(voiceUrls(m, 'c', 'select', 'off'), []);
-    assert.deepEqual(voiceUrls(m, 'c', 'skill', 'kr'), []);
+    const m = { audio: { voice: { c: { select: ['/k1', '/k2'] } }, voiceJp: { c: { select: '/j1' } } } };
+    assert.deepEqual(voiceTableOf(m, 'kr'), m.audio.voice);
+    assert.deepEqual(voiceTableOf(m, 'jp'), m.audio.voiceJp);
+    assert.equal(voiceTableOf(m, 'off'), null);
+    assert.equal(typeof audio.voiceTable, 'function', 'voice.js hands audio.voice() the chosen table');
     const prev = voiceStore.get();
     try {
-      voiceStore.set({ lang: 'jp', vol: 0.8 });
+      voiceStore.set({ lang: 'jp' });
       assert.equal(voiceWanted({ p: '/assets/audio/voice/jp/c/cn_021.mp3' }), true);
       assert.equal(voiceWanted({ p: '/assets/audio/voice/kr/c/cn_021.mp3' }), false);
       assert.equal(voiceWanted({ p: '/assets/audio/sfx/x.mp3' }), true, 'other files untouched');
-      voiceStore.set({ lang: 'off', vol: 0.8 });
+      voiceStore.set({ lang: 'off' });
       assert.equal(voiceWanted({ p: '/assets/audio/voice/jp/c/cn_021.mp3' }), false);
     } finally { voiceStore.set(prev); }
+  });
+
+  test('client: 休整期 lines go through upstream audio.voice (选中 select on a piece, 部署 place on a buy) — items and tokens say nothing', async () => {
+    const v = await mod('voice.js');
+    const { audio } = await mod('audio.js');
+    const calls = [];
+    const orig = audio.voice;
+    audio.voice = (id, slot, o) => { calls.push([id, slot, o?.unitKey]); return true; };
+    try {
+      v.voiceForPiece({ kind: 'item', id: 'x' });
+      v.voiceForPiece({ kind: 'token', id: 'x' });
+      v.voiceForBuy({ kind: 'item', id: 'x' });
+      assert.equal(calls.length, 0);
+      const { data } = await mod('data.js');
+      const lookup = data.lookup;
+      data.lookup = (name, id) => (name === 'chess' && id === 'chess_x' ? { charId: 'char_002_amiya' } : lookup.call(data, name, id));
+      try {
+        v.voiceForPiece({ kind: 'chess', id: 'chess_x', uid: 7 });
+        v.voiceForBuy({ kind: 'chess', id: 'chess_x' });
+      } finally { data.lookup = lookup; }
+      assert.deepEqual(calls, [['char_002_amiya', 'select', 'prep:7'], ['char_002_amiya', 'place', 'prep:char_002_amiya']]);
+    } finally { audio.voice = orig; }
   });
 });
 
@@ -463,36 +460,6 @@ test('skill sounds: ON_SKILL_START first, then the ability / custom-trigger bank
   assert.deepEqual(skillStartSounds(audio, 'sk_a'), ['a.mp3'], 'numbered ability bank');
   assert.deepEqual(skillStartSounds(audio, 'sk_b'), ['b.mp3'], 'custom trigger [start]');
   assert.equal(skillStartSounds(audio, 'sk_none'), null);
-});
-
-test('per-round 作战 BGM: wave templates keep their own bgmEvent (tools/assets/round-bgm.mjs, public/js/round-bgm.js)', async () => {
-  const { waveBgmTemplate } = await import('../tools/assets/round-bgm.mjs');
-  const levels = {
-    act1autochess_01: { bgm: 'bat_kazimierz2_2', usedBy: ['mode_single_normal#1'] },
-    act1autochess_h01: { bgm: 'bat_kazimierz2_1', usedBy: ['mode_multi_hard#8'] },
-    act1autochess_b: { bgm: 'bat_boss_ancestor', usedBy: ['mode_single_normal#14 (boss:boss_1)'] },
-    act1autochess_escaped_single: { bgm: 'corrosion', usedBy: ['constData.escapedBattleTemplateMap*'] },
-  };
-  const wave = waveBgmTemplate(levels, (bank) => ({ loop: bank }));
-  assert.deepEqual(wave, {
-    act1autochess_01: { loop: 'battle.ON_GAME_READY.bat_kazimierz2_2' },
-    act1autochess_h01: { loop: 'battle.ON_GAME_READY.bat_kazimierz2_1' },
-  }, 'normal rounds only; boss and 联防 levels have their own tracks');
-
-  const { data } = await mod('data.js');
-  const { roundBgmKey } = await mod('round-bgm.js');
-  const { bgmKeyFor, resolveBgm } = await mod('audio.js');
-  const config = { modes: { mode_single_normal: { rounds: { 1: { template: 'act1autochess_01' }, 14: { template: null } } } } };
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: true, json: async () => config });
-  try { await data.load('config'); } finally { globalThis.fetch = realFetch; }
-  const pub = (phase, round) => ({ phase, round, modeId: 'mode_single_normal' });
-  assert.equal(roundBgmKey(bgmKeyFor('game', pub('COMBAT', 1)), pub('COMBAT', 1)), 'wave:act1autochess_01');
-  assert.equal(roundBgmKey(bgmKeyFor('game', pub('PREP', 1)), pub('PREP', 1)), 'prep', 'prep keeps its track');
-  assert.equal(roundBgmKey(bgmKeyFor('game', pub('COMBAT', 14)), pub('COMBAT', 14)), 'combat', 'no template: bgm.combat');
-  const manifest = { audio: { bgm: { prep: { loop: 'shop' }, combat: { loop: 'shop' } }, waveBgm: { act1autochess_01: { loop: 'k22' } } } };
-  assert.equal(resolveBgm(manifest, 'wave:act1autochess_01').loop, 'k22');
-  assert.equal(resolveBgm(manifest, 'wave:act1autochess_99').loop, 'shop', 'unknown template falls back to bgm.combat');
 });
 
 test('/healthz through the proxy: build only, no counters (server/local-patch.js proxiedRequest)', async () => {
