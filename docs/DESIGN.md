@@ -612,7 +612,16 @@ board's atlas, the first-season look): act1 m01–m07, act2 m02 and m04 use `map
   → `scene/tex/` (Unity DXT5nm normal maps rebuilt to RGB, gloss → roughness). 14–36 groups per stage, 17–80 k
   triangles (act2 m01: 98 k). Like the board textures of upstream #186, every texture / lightmap gets a WebP copy the
   manifest lists: a material's `_MainTex` lossy (q95), every data map and the RGBM lightmaps / shadowmasks lossless
-  (43 → 26 MB; geometry 36 MB); `--webp` converts already-extracted PNGs without the client, `--no-webp` skips it.
+  (43 → 26 MB); `--webp` converts already-extracted PNGs without the client, `--no-webp` skips it.
+- Geometry (`geom.bin` version 2, `scene_extract.py pack_geometry`): positions u16 on one grid per scene
+  (`quant.pos` = origin + one span, so the mesh matrix scales uniformly and the same vertex in two groups decodes to the
+  same point — no seams between groups), normals i8×4, uv0 / uv1 u16 on each group's range (`q.uv0` / `q.uv1`, folded into
+  the group material's `uMainST` / `uUv1ST`), a one-colour group stores `colConst` instead of the array, indices u16 up to
+  65 536 vertices (`idxType`); pos / uv1 / idx delta + zigzag + byte-shuffled (`quant.dzs`, `official.js unDzs`) so gzip
+  on the wire packs them. 11 stages: 37.2 → 18.2 MB raw, 10.8 → 3.8 MB gzip (act2 m01 8.1 → 4.1 MB, gzip 2.1 → 0.71 MB);
+  decode error ≤ 6·10⁻⁴ tile (position), 0.4° (normal), 5·10⁻⁵ (uv). The reader still takes version 1 (f32, u32
+  indices); `--requantize` rewrites version-1 files in place without the client. act2 m01 is large because the metro
+  scene is detailed (157 k vertices, no LODs and < 0.5 % duplicate vertices), not because of an export fault.
 - Hidden sets: the level root's `_settings` (`HIDDEN@1` left normal field, `@2` right normal field, `@3` boss field,
   `hide: 1`, `_hideBakeOffset (50,0,0)`) list the tile graphics (`_gridPos`) and props the client hides while that
   part of the map is not in play; saved inactive. Groups carry their key and `scene.json hidden[key].tiles`; the
@@ -620,7 +629,7 @@ board's atlas, the first-season look): act1 m01–m07, act2 m02 and m04 use `map
 - Heights: the level's `_mapSettings.highlandHeight` (desert 0.4, Kazimierz 0.3) is the one height of every HIGH tile
   (forbidden, separators, bench pads). While a stage is drawn from its scene the app passes it as
   `stage.highlandHeight`; `render/style.js tileTop` makes `tiles.js` / `layout.js` / bench placement use it.
-- Rendering: `render/board3d/official.js` (one ShaderMaterial per group: albedo × _Color, the desert vertex-colour sand
+- Rendering: `render/board3d/official.js` (one ShaderMaterial per material / lightmap, and per group for version-2 geometry: albedo × _Color, the desert vertex-colour sand
   blend toward `_BlendColor`, × (RGBM lightmap decoded 34.49·a^2.2 + main light × N·L × shadowmask) + emission, normal
   maps through a screen-space tangent frame, alpha test / blend per keyword, the shared focus falloff; a simplified
   StylizedWater; `DynamicWaterTile` tide warnings hidden). `BoardScene` loads the scene per stage (`opts.loadOfficial`)

@@ -16,7 +16,11 @@ get their transform and their lightmap scale/offset applied here.
 
 Output (under --out, default public/assets/local):
   scene/<stageId>/scene.json   groups (material, lightmap, buffer ranges), materials, lightmaps, main light, ambient
-  scene/<stageId>/geom.bin     per group: position f32×3, normal f32×3, uv0 f32×2, uv1 f32×2, colour u8×4, index u32
+  scene/<stageId>/geom.bin     per group, quantized (scene.json version 2, GEOM_VERSION): position u16×3 on one grid
+                               for the whole scene (quant.pos), normal i8×4, uv0 / uv1 u16×2 on the group's own
+                               range (q.uv0 / q.uv1), colour u8×4 (or one colConst for the group), index u16 / u32
+                               (idxType); pos / uv1 / idx delta + zigzag + byte-shuffled (quant.dzs: same size, gzip
+                               ≈ 2.8× smaller). Version 1 was f32 everywhere and index u32 (official.js reads both)
   scene/<stageId>/lm*.png      lightmaps (comp_light, RGBM-encoded) and shadowmasks
   scene/tex/<name>.png         theme textures (shared by stages; BC5 normal maps get Z rebuilt, gloss maps → roughness)
 and the manifest groups scene/<stageId> + scene/tex in data/local-assets.json. Like extract.py's board textures
@@ -29,6 +33,8 @@ Usage (WSL, the EN client on D:):
       [--stage act2autochess_m04 ...] [--rebuild-index] [--no-webp]
   .venv-extract/bin/python tools/local-extract/scene_extract.py --webp    (only the WebP copies, from the PNGs already
       under --out — e.g. scene art copied to a server; needs Pillow, not the client)
+  python3 tools/local-extract/scene_extract.py --requantize    (rewrite version-1 geom.bin / scene.json under --out in
+      the quantized version 2 and update the manifest's geom bytes; plain Python, no client)
 """
 
 import argparse
@@ -54,7 +60,11 @@ SCENE_DIR = 'scenes/activities'
 STAGE_RE = re.compile(r'^act\d+autochess_m\d+$')
 # Unity anchor of tile (0,0) (BATTLE/GAME/Map/Anchor)
 ANCHOR = (-10.0, -9.0, 0.0)
-VERTEX_BYTES = 4 * (3 + 3 + 2 + 2) + 4
+# geom.bin version 2 (quantized): position u16×3, normal i8×4, uv0 u16×2, uv1 u16×2, colour u8×4 (11 stages: 37.2 → 18.2 MB,
+# gzip 10.8 → 3.8 MB; version 1: f32 + u32 indices)
+GEOM_VERSION = 2
+VERTEX_BYTES = 2 * 3 + 4 + 2 * 2 + 2 * 2 + 4
+Q16 = 65535
 
 
 def log(*a):
@@ -499,25 +509,21 @@ def export_stage(roots, index, stage, out_root, manifest, written):
                     grp['idx'] += (out_idx[0], out_idx[2], out_idx[1])
 
     # write geometry
-    out_groups, blob = [], bytearray()
+    out_groups, packed = [], []
     for (mname, lmi, _hk), grp in sorted(groups.items()):
         nv, ni = len(grp['pos']) // 3, len(grp['idx'])
         if not nv or not ni:
             continue
         rec = {'material': mname, 'lightmap': lmi, 'hidden': grp['hidden'], 'renderers': grp['renderers'], 'vertices': nv, 'indices': ni}
-        for key, fmt, comps in (('pos', 'f', 3), ('nrm', 'f', 3), ('uv0', 'f', 2), ('uv1', 'f', 2), ('col', 'B', 4), ('idx', 'I', 1)):
-            while len(blob) % 4:
-                blob.append(0)
-            data = grp[key]
-            rec[key] = [len(blob), len(data)]
-            blob += struct.pack(f'<{len(data)}{fmt}', *data)
         pos = grp['pos']
         rec['bounds'] = [[_num(min(pos[i::3]), 4) for i in range(3)], [_num(max(pos[i::3]), 4) for i in range(3)]]
         out_groups.append(rec)
+        packed.append((rec, grp))
+    blob, quant = pack_geometry(packed)
     (out / 'geom.bin').write_bytes(bytes(blob))
-    doc = {'version': 1, 'stage': stage, 'source': os.path.relpath(scene_path, roots['pd'].parent.parent),
+    doc = {'version': GEOM_VERSION, 'stage': stage, 'source': os.path.relpath(scene_path, roots['pd'].parent.parent),
            'dependencies': deps, 'unresolved': missing, 'space': 'board (x = col, y = row, z = up)',
-           'vertexBytes': VERTEX_BYTES, 'settings': settings, 'lights': lights, 'lightmaps': lightmaps,
+           'vertexBytes': VERTEX_BYTES, 'quant': quant, 'settings': settings, 'lights': lights, 'lightmaps': lightmaps,
            'materials': dict(sorted(materials.items())), 'map': sc.map, 'hidden': sc.hidden, 'groups': out_groups, 'skipped': skipped,
            'stats': {'groups': len(out_groups), 'vertices': sum(g['vertices'] for g in out_groups),
                      'triangles': sum(g['indices'] for g in out_groups) // 3, 'bytes': len(blob)}}
@@ -529,6 +535,106 @@ def export_stage(roots, index, stage, out_root, manifest, written):
         f'{len(blob) // 1024} KiB, {len(materials)} materials, {len(lightmaps)} lightmaps, skipped {skipped}'
         + (f', unresolved {missing}' if missing else ''))
     return True
+
+
+def _q16(v, lo, span):
+    return min(Q16, max(0, int(round((v - lo) / span * Q16))))
+
+
+# arrays stored delta + zigzag + byte-shuffled (quant.dzs): same size, gzip on the wire ≈ 45 % smaller (indices ≈ 15×)
+DZS_KEYS = ('pos', 'uv1', 'idx')
+
+
+def dzs(data, fmt, comps):
+    """Delta per component (mod 2^16 / 2^32), zigzag, then the bytes shuffled by significance (all low bytes first).
+    Same length as the plain array; official.js undoes it at load (unDzs)."""
+    bits = 16 if fmt == 'H' else 32
+    mask, half = (1 << bits) - 1, 1 << (bits - 1)
+    prev, out = [0] * comps, []
+    for i, v in enumerate(data):
+        c = i % comps
+        d = ((v - prev[c] + half) & mask) - half
+        prev[c] = v
+        out.append(((d << 1) ^ (d >> (bits - 1))) & mask)
+    raw = struct.pack(f'<{len(out)}{fmt}', *out)
+    w = bits // 8
+    return b''.join(raw[j::w] for j in range(w))
+
+
+def _put(blob, rec, key, fmt, data, comps=0):
+    while len(blob) % 4:  # every array starts 4-byte aligned
+        blob.append(0)
+    rec[key] = [len(blob), len(data)]
+    blob += dzs(data, fmt, comps) if comps else struct.pack(f'<{len(data)}{fmt}', *data)
+
+
+def pack_geometry(packed):
+    """geom.bin version 2 from [(group record, {pos, nrm, uv0, uv1: float lists, col: u8 list, idx: int list})] in board
+    space. Positions go on one u16 grid for the whole scene (quant.pos = [x0, y0, z0, span]: board = x0 + q / 65535 ·
+    span, one span for the three axes so the mesh matrix scales uniformly and the shader's normals stay right) — the
+    same vertex in two groups lands on the same grid point, so the seams between groups stay closed. uv0 / uv1 are u16
+    on the group's own range (q.uvN = [sx, sy, ox, oy]: uv = q / 65535 · s + o), normals i8×4 (/127, w = 0), the colour
+    stays u8×4 unless the whole group has one (colConst, no array), indices u16 when the group has ≤ 65536 vertices.
+    pos / uv1 / idx are stored through dzs (quant.dzs). Fills the records' buffer ranges; returns (blob, quant)."""
+    lo, hi = [math.inf] * 3, [-math.inf] * 3
+    for _rec, d in packed:
+        pos = d['pos']
+        for i in range(3):
+            lo[i] = min(lo[i], min(pos[i::3]))
+            hi[i] = max(hi[i], max(pos[i::3]))
+    span = max(hi[i] - lo[i] for i in range(3)) or 1.0
+    blob = bytearray()
+    for rec, d in packed:
+        nv = len(d['pos']) // 3
+        _put(blob, rec, 'pos', 'H', [_q16(v, lo[k % 3], span) for k, v in enumerate(d['pos'])], 3)
+        nrm = d['nrm']
+        _put(blob, rec, 'nrm', 'b', [max(-127, min(127, int(round(nrm[3 * v + i] * 127)))) if i < 3 else 0
+                                     for v in range(nv) for i in range(4)])
+        q = {}
+        for key in ('uv0', 'uv1'):
+            u = d[key]
+            ulo = [min(u[0::2]), min(u[1::2])]
+            us = [(max(u[i::2]) - ulo[i]) or 1.0 for i in range(2)]
+            q[key] = [us[0], us[1], ulo[0], ulo[1]]
+            _put(blob, rec, key, 'H', [_q16(v, ulo[k % 2], us[k % 2]) for k, v in enumerate(u)], 2 if key in DZS_KEYS else 0)
+        rec['q'] = q
+        col = list(d['col'])
+        if col[:4] * nv == col:
+            rec['col'], rec['colConst'] = None, col[:4]
+        else:
+            _put(blob, rec, 'col', 'B', col)
+        rec['idxType'] = 'u16' if nv <= 65536 else 'u32'
+        _put(blob, rec, 'idx', 'H' if nv <= 65536 else 'I', list(d['idx']), 1)
+    return blob, {'pos': [lo[0], lo[1], lo[2], span], 'dzs': list(DZS_KEYS)}
+
+
+def requantize(out_root, groups, log):
+    """Rewrite the version-1 scenes (f32 attributes, u32 indices) under out_root/scene in version 2 (pack_geometry)
+    and update the manifest groups' geom bytes. Returns the number of stages rewritten."""
+    n = 0
+    for sj in sorted((Path(out_root) / 'scene').glob('*/scene.json')):
+        doc = json.loads(sj.read_text(encoding='utf-8'))
+        if doc.get('version', 1) >= GEOM_VERSION:
+            continue
+        gb = sj.with_name('geom.bin')
+        raw = gb.read_bytes()
+        read = lambda r, fmt, size: list(struct.unpack_from(f'<{r[1]}{fmt}', raw, r[0]))  # noqa: E731
+        packed = [(rec, {'pos': read(rec['pos'], 'f', 4), 'nrm': read(rec['nrm'], 'f', 4), 'uv0': read(rec['uv0'], 'f', 4),
+                         'uv1': read(rec['uv1'], 'f', 4), 'col': read(rec['col'], 'B', 1), 'idx': read(rec['idx'], 'I', 4)})
+                  for rec in doc['groups']]
+        blob, quant = pack_geometry(packed)
+        gb.write_bytes(bytes(blob))
+        doc.update(version=GEOM_VERSION, vertexBytes=VERTEX_BYTES, quant=quant)
+        doc.setdefault('stats', {})['bytes'] = len(blob)
+        sj.write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+        stage = sj.parent.name
+        g = groups.get(f'scene/{stage}')
+        if isinstance(g, dict) and isinstance(g.get('geom'), dict):
+            g['geom']['bytes'] = len(blob)
+        log(f'{stage}: geom.bin {len(raw) // 1024} → {len(blob) // 1024} KiB')
+        n += 1
+    log(f'requantize: {n} stages')
+    return n
 
 
 def webp_modes(out_root):
@@ -605,9 +711,18 @@ def main():
     ap.add_argument('--no-webp', action='store_true', help='keep the manifest on the PNGs (no WebP copies)')
     ap.add_argument('--webp', action='store_true',
                     help='only write the WebP copies of the scene art already under --out and list them (no client)')
+    ap.add_argument('--requantize', action='store_true',
+                    help='only rewrite the version-1 geometry already under --out in the quantized version 2 (no client)')
     args = ap.parse_args()
     mpath = Path(args.manifest)
     out_root = Path(args.out)
+    if args.requantize:
+        if not mpath.exists():
+            print(f'no manifest at {mpath}: extract the scenes first', file=sys.stderr)
+            return 2
+        n = [0]
+        write_manifest(mpath, lambda groups: n.__setitem__(0, requantize(out_root, groups, log)), log)
+        return 0
     if args.webp:
         if not mpath.exists():
             print(f'no manifest at {mpath}: extract the scenes first', file=sys.stderr)

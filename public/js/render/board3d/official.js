@@ -82,6 +82,26 @@ export function loadOfficialScene(assets, stageId) {
   return p;
 }
 
+/**
+ * Undo scene_extract.py dzs for the range `r` ([byte offset, count]) of `buffer`: the bytes come shuffled by
+ * significance (all low bytes, then the next…), each value is a zigzag delta from the previous one of the same
+ * component (mod 2^16 / 2^32). `w` 2 → Uint16Array, 4 → Uint32Array.
+ */
+export function unDzs(buffer, r, w, comps) {
+  const n = r[1], src = new Uint8Array(buffer, r[0], n * w);
+  const out = w === 2 ? new Uint16Array(n) : new Uint32Array(n);
+  const prev = new Array(comps).fill(0);
+  for (let i = 0, c = 0; i < n; i++) {
+    const z = w === 2 ? src[i] | (src[n + i] << 8) : (src[i] | (src[n + i] << 8) | (src[2 * n + i] << 16) | (src[3 * n + i] << 24)) >>> 0;
+    const d = (z >>> 1) ^ -(z & 1);
+    const v = w === 2 ? (prev[c] + d) & 0xffff : (prev[c] + d) >>> 0;
+    prev[c] = v;
+    out[i] = v;
+    if (++c === comps) c = 0;
+  }
+  return out;
+}
+
 /** Forget cached scenes (tests / hot reload). */
 export function resetOfficialScenes() { cache.clear(); }
 
@@ -98,9 +118,10 @@ varying vec3 vNormalW;
 varying vec3 vWorld;
 varying vec4 vColor;
 uniform vec4 uMainST;
+uniform vec4 uUv1ST;
 void main() {
   vUv = uv * uMainST.xy + uMainST.zw;
-  vUv1 = uv1;
+  vUv1 = uv1 * uUv1ST.xy + uUv1ST.zw;
   vColor = color;
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vWorld = wp.xyz;
@@ -274,9 +295,12 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
 
   const materials = new Map();
   const animated = [];
-  const materialFor = (name, lmIndex) => {
-    const key = `${name}|${lmIndex}`;
+  // q: a version-2 group's uv ranges ({ uv0, uv1: [sx, sy, ox, oy] }, u16 normalized → uv); folded into uMainST /
+  // uUv1ST, so a quantized group gets a material of its own (same program, no extra draw calls)
+  const materialFor = (name, lmIndex, q = null) => {
+    const key = `${name}|${lmIndex}${q ? `|${q.uv0}|${q.uv1}` : ''}`;
     if (materials.has(key)) return materials.get(key);
+    const q0 = q?.uv0 || [1, 1, 0, 0], q1 = q?.uv1 || [1, 1, 0, 0];
     const info = doc.materials?.[name] || { shader: null, keywords: [], textures: {}, floats: {}, colors: {} };
     const kw = new Set(info.keywords || []);
     const F = info.floats || {}, C = info.colors || {}, X = info.textures || {};
@@ -287,7 +311,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       mat = new T.ShaderMaterial({
         vertexShader: VERT, fragmentShader: WATER_FRAG, transparent: true, depthWrite: false,
         uniforms: {
-          uMainST: { value: new T.Vector4(1, 1, 0, 0) }, uWaves: { value: waves },
+          uMainST: { value: new T.Vector4(...q0) }, uUv1ST: { value: new T.Vector4(...q1) }, uWaves: { value: waves },
           uDeep: { value: new T.Vector4(...(C._DeepWaterColor || [0, 0.27, 0.4, 0.67])) },
           uShallow: { value: new T.Vector4(...(C._ShallowWaterColor || [0.39, 1, 0.7, 0.5])) },
           uLightDir: { value: lightDir }, uLightColor: { value: lightColor }, uTime: { value: 0 },
@@ -322,7 +346,9 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
         vertexShader: VERT, fragmentShader: FRAG, defines,
         transparent: blend, depthWrite: !blend, side: particle ? T.DoubleSide : T.FrontSide,
         uniforms: {
-          uMainST: { value: new T.Vector4(...st) },
+          // (q · s0 + o0) · st.xy + st.zw
+          uMainST: { value: new T.Vector4(q0[0] * st[0], q0[1] * st[1], q0[2] * st[0] + st[2], q0[3] * st[1] + st[3]) },
+          uUv1ST: { value: new T.Vector4(...q1) },
           uMap: { value: mainTex }, uNormal: { value: normal }, uEmission: { value: emission },
           uLight: { value: lm?.light || null }, uMask: { value: lm?.mask || null },
           uColor: { value: new T.Vector4(col.r, col.g, col.b, color[3] ?? 1) },
@@ -346,20 +372,48 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   };
 
   const meshes = [];
+  // geom.bin version 2 (scene_extract.py pack_geometry): u16 positions on the scene grid doc.quant.pos (the mesh
+  // matrix maps them back: translate (x0, y0, z0), uniform scale span), i8 normals, u16 uvs per group range (g.q),
+  // optional one-colour groups and u16 indices; version 1: f32 attributes, u32 indices
+  const qpos = doc.version >= 2 && Array.isArray(doc.quant?.pos) ? doc.quant.pos : null;
+  const dzs = new Set(Array.isArray(doc.quant?.dzs) ? doc.quant.dzs : []);
   for (const g of doc.groups) {
     if (!g || !g.vertices || !g.indices) continue;
     const geo = new T.BufferGeometry();
-    const f32 = (r) => new Float32Array(buffer, r[0], r[1]);
-    geo.setAttribute('position', new T.BufferAttribute(f32(g.pos), 3));
-    geo.setAttribute('normal', new T.BufferAttribute(f32(g.nrm), 3));
-    geo.setAttribute('uv', new T.BufferAttribute(f32(g.uv0), 2));
-    geo.setAttribute('uv1', new T.BufferAttribute(f32(g.uv1), 2));
-    geo.setAttribute('color', new T.BufferAttribute(new Uint8Array(buffer, g.col[0], g.col[1]), 4, true));
-    geo.setIndex(new T.BufferAttribute(new Uint32Array(buffer, g.idx[0], g.idx[1]), 1));
+    const q = qpos && g.q ? g.q : null;
+    if (q) {
+      // the dzs arrays are delta + zigzag + byte-shuffled (scene_extract.py dzs): decoded into fresh arrays
+      const u16 = (k, comps) => (dzs.has(k) ? unDzs(buffer, g[k], 2, comps) : new Uint16Array(buffer, g[k][0], g[k][1]));
+      geo.setAttribute('position', new T.BufferAttribute(u16('pos', 3), 3, true));
+      geo.setAttribute('normal', new T.BufferAttribute(new Int8Array(buffer, g.nrm[0], g.nrm[1]), 4, true));
+      geo.setAttribute('uv', new T.BufferAttribute(u16('uv0', 2), 2, true));
+      geo.setAttribute('uv1', new T.BufferAttribute(u16('uv1', 2), 2, true));
+    } else {
+      const f32 = (r) => new Float32Array(buffer, r[0], r[1]);
+      geo.setAttribute('position', new T.BufferAttribute(f32(g.pos), 3));
+      geo.setAttribute('normal', new T.BufferAttribute(f32(g.nrm), 3));
+      geo.setAttribute('uv', new T.BufferAttribute(f32(g.uv0), 2));
+      geo.setAttribute('uv1', new T.BufferAttribute(f32(g.uv1), 2));
+    }
+    let col;
+    if (g.col) col = new Uint8Array(buffer, g.col[0], g.col[1]);
+    else {
+      col = new Uint8Array(g.vertices * 4);
+      const c = Array.isArray(g.colConst) ? g.colConst : [255, 255, 255, 255];
+      for (let i = 0; i < col.length; i += 4) col.set(c, i);
+    }
+    geo.setAttribute('color', new T.BufferAttribute(col, 4, true));
+    const iw = q && g.idxType === 'u16' ? 2 : 4;
+    const idx = q && dzs.has('idx') ? unDzs(buffer, g.idx, iw, 1) : new (iw === 2 ? Uint16Array : Uint32Array)(buffer, g.idx[0], g.idx[1]);
+    geo.setIndex(new T.BufferAttribute(idx, 1));
     geo.computeBoundingSphere();
-    const mat = materialFor(g.material, g.lightmap);
+    const mat = materialFor(g.material, g.lightmap, q);
     const mesh = new T.Mesh(geo, mat);
     mesh.matrixAutoUpdate = false;
+    if (q) {
+      mesh.position.set(qpos[0], qpos[1], qpos[2]);
+      mesh.scale.setScalar(qpos[3]);
+    }
     mesh.updateMatrix();
     mesh.castShadow = false;
     mesh.receiveShadow = false;
