@@ -9,6 +9,18 @@ export const TILE_H = Object.freeze({
   platform: 0.26,  // active 射击台 / mound devices
 });
 
+/**
+ * Top height of a tile of height class `hClass` (TILE_H key, null = low ground). A stage drawn from its official
+ * scene (render/board3d/official.js, DESIGN §15.1) carries `highlandHeight` — every HIGH tile of the client's map
+ * (forbidden blocks, separators, bench pads, high ground) stands at that one height (0.4 desert, 0.3 Kazimierz) —
+ * local patch.
+ */
+export function tileTop(hClass, stage) {
+  if (!hClass) return 0;
+  const h = Number(stage?.highlandHeight);
+  return hClass !== 'platform' && Number.isFinite(h) && h > 0 ? h : TILE_H[hClass];
+}
+
 /** Stage glyph → material + height class (data/stages.json legend, DATA.md §12). */
 export const GLYPH = Object.freeze({
   '#': { mat: 'forbid', h: 'forbid' },

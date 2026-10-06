@@ -29,7 +29,7 @@
 // panelled cliff faces; beyond it the official background plane shows through (scene.js).
 
 import { SURFACES, surfaceUV, sideRect, tintRgb } from './atlas.js';
-import { GLYPH, TILEKEY_GLYPH, TILE_H } from '../style.js';
+import { GLYPH, TILEKEY_GLYPH, TILE_H, tileTop } from '../style.js';
 import { parsePenRect, PEN_RECT } from '../pen.js';
 
 export const ROWS = 19;
@@ -157,7 +157,7 @@ export function classifyStage(stage, area = null) {
       if (!GLYPH[g]) g = TILEKEY_GLYPH[legend[g]?.tileKey] || (legend[g]?.height === 'HIGH' ? '#' : 'R');
       const def = GLYPH[g];
       const inArea = !area || area.some((a) => r >= a.r0 && r <= a.r1 && c >= a.c0 && c <= a.c1);
-      row.push({ r, c, glyph: g, content: inArea && CONTENT_OF(g), inArea, drawn: false, h: def.h ? TILE_H[def.h] : 0, raised: !!def.h });
+      row.push({ r, c, glyph: g, content: inArea && CONTENT_OF(g), inArea, drawn: false, h: tileTop(def.h, stage), raised: !!def.h });
     }
     grid.push(row);
   }

@@ -585,6 +585,37 @@ Target: a **real 3D board layer** rendered with three.js (vendored ESM, no CDN) 
 - Implemented (`public/js/render/board3d/*`, `render/app.js`): three.js is downloaded only when the local-art manifest lists the board atlas; the built 3D area, the drawn 2D rows and the lit rect follow `viewKind(kind, {rect})` (the field the camera actually shows: a 'prep' camera on rows ≤ 6 = `bossPrep`); the background plane is extended with mirrored copies and the clear colour matches the fog (no visible edge at any aspect); battle crates live in their own group (survive scene rebuilds) and follow the board mode (`switchableBox`: 3D mesh ⇄ 2D box on a mode switch or a lost WebGL context); quality 'low' drops shadows; `?board=2d|3d` overrides. The direction wheel's range stripes sit between the board canvas and the unit canvas.
 - Done: Final Assault / Hidden Core prep takes place on your own half of the boss field (research 09 §1.2): pieces shown at boss-field positions (row − 7; right-hand player mirrored col → 20 − col, RIGHT ↔ LEFT), drop targets and wheel directions mapped back to board coordinates (`prepCamera` → `bossPrep` in public/js/ui/gameLogic.js; covered by the playtest2 browser tests).
 
+### 15.1 Official per-stage scenes (local patch, 2026-10-06)
+
+Correction of the 2026-09-28 finding: the EN client (hot update 2026-08-21 / 09-09) ships a **prebuilt Unity scene per
+stage**: `scenes/activities/act{1,2}autochess/level_<stage>/level_<stage>.ab` (GameObjects, meshes, MeshRenderers,
+static-batched "Combined Mesh (root: scene)" chunks), `…/level_<stage>/lightingdata.ab` (baked `Lightmap-N_comp_light`
+RGBM + `_comp_shadowmask`, BC7 1024²) and `…_lighting_settings.ab`. No stage uses `map_autochess` (the procedural
+board's atlas, the first-season look): act1 m01–m07, act2 m02 and m04 use `map_autochesssand` (desert), act2 m03
+`map_kxmr` + `map_lm_center` (Kazimierz Major), act2 m01 `map_syracuse_metro`.
+
+- Export: `tools/local-extract/scene_extract.py` (needs the client; LZ4AK via `aklz4.py`). Every active renderer is baked
+  into board space (Unity tile (r,c) = Anchor (−10,−9,0) + (c, r, −height) → board (ux+10, uy+9, −uz), winding flipped)
+  and merged per (material, lightmap, hidden set) → `scene/<stage>/scene.json` + `geom.bin` + `lm*.png`; theme textures
+  → `scene/tex/` (Unity DXT5nm normal maps rebuilt to RGB, gloss → roughness). 14–36 groups per stage, 17–80 k
+  triangles (act2 m01: 98 k); 78 MB for the 11 stages.
+- Hidden sets: the level root's `_settings` (`HIDDEN@1` left normal field, `@2` right normal field, `@3` boss field,
+  `hide: 1`, `_hideBakeOffset (50,0,0)`) list the tile graphics (`_gridPos`) and props the client hides while that
+  part of the map is not in play; saved inactive. Groups carry their key and `scene.json hidden[key].tiles`; the
+  renderer shows a set while its rect overlaps a built area (normal → @1, 联防 → @1 + @2, boss → @3).
+- Heights: the level's `_mapSettings.highlandHeight` (desert 0.4, Kazimierz 0.3) is the one height of every HIGH tile
+  (forbidden, separators, bench pads). While a stage is drawn from its scene the app passes it as
+  `stage.highlandHeight`; `render/style.js tileTop` makes `tiles.js` / `layout.js` / bench placement use it.
+- Rendering: `render/board3d/official.js` (one ShaderMaterial per group: albedo × _Color, the desert vertex-colour sand
+  blend toward `_BlendColor`, × (RGBM lightmap decoded 34.49·a^2.2 + main light × N·L × shadowmask) + emission, normal
+  maps through a screen-space tangent frame, alpha test / blend per keyword, the shared focus falloff; a simplified
+  StylizedWater; `DynamicWaterTile` tide warnings hidden). `BoardScene` loads the scene per stage (`opts.loadOfficial`)
+  and keeps the procedural board until it arrives; with a scene it skips the procedural tiles, background and terrain
+  water but keeps devices, gates, field edges and terrain FX. `?officialBoard=0` forces the procedural board.
+- Not done: the StylizedWater shader is approximated (no depth-based shore foam, caustics or sky reflection); the
+  tide (act2 m04 涨潮控制) does not move the water or toggle the warning tiles yet; static crates / blowers are still
+  our devices (the scenes do not contain them).
+
 ---
 
 ## 16. Operator loadout: skill & module selection (v2.1, user playtest #1)

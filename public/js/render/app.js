@@ -113,12 +113,13 @@ import { UnitView, ItemView, DeviceView, FORMS } from './units.js';
 import { FxSystem, ensureDamageFonts } from './fx.js';
 import { createDragController, pieceTile } from './drag.js';
 import { backdropTextures, shadowTexture, refreshTierChips, silhouetteTexture } from './textures.js';
-import { TILE_H, TIER_COLORS, COLORS } from './style.js';
+import { TILE_H, TIER_COLORS, COLORS, tileTop } from './style.js';
 import { createAssets, assets as defaultAssets } from '../assets.js';
 import { loadBoardArt } from './boardArt.js';
 import { ImpostorAtlas } from './impostor.js';
 import { loadThree, loadBoardPack, webgl2Available, boardArtListed } from './board3d/load.js';
 import { BoardScene } from './board3d/scene.js';
+import { loadOfficialScene } from './board3d/official.js'; // local patch
 import { AREAS, areaFor, unionAreas } from './board3d/layout.js';
 import { layoutPen, penSignature } from './pen.js';
 import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.js';
@@ -599,6 +600,16 @@ export async function createFieldView(host, options = {}) {
       board3dCanvas = c3;
       const b = new BoardScene(THREE, pack, {
         canvas: c3, antialias: settings.quality !== 'low' && (globalThis.devicePixelRatio || 1) < 2, shadows: settings.quality !== 'low',
+        // local patch: the official per-stage scenes (DESIGN §15.1); ?officialBoard=0 keeps the procedural board
+        loadOfficial: (id) => loadOfficialScene(assets, id),
+        // the official scene's tile heights (style.js tileTop): the units, picking and highlights follow them
+        onOfficial: (info) => {
+          const h = info?.highland ?? null;
+          if (!stageRec || (stageRec.highlandHeight ?? null) === h) return;
+          const { highlandHeight: _drop, ...base } = stageRec;
+          setStage(h != null ? { ...base, highlandHeight: h } : base);
+        },
+        official: !/[?&]officialBoard=0\b/.test(globalThis.location?.search || ''),
       });
       const sz = size();
       b.resize(sz.width, sz.height, boardDpr());
@@ -841,6 +852,9 @@ export async function createFieldView(host, options = {}) {
 
   function setStage(st) {
     if (!st || typeof st !== 'object' || !Array.isArray(st.rows)) return false;
+    // local patch: a stage drawn from its official scene stands on the scene's tile heights (style.js tileTop)
+    const hl = board3d?.highlandFor?.(st.id) ?? null;
+    if (hl != null && st.highlandHeight !== hl) st = { ...st, highlandHeight: hl };
     stageRec = st;
     tiles.setStage(st);
     tiles.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
@@ -896,7 +910,7 @@ export async function createFieldView(host, options = {}) {
   /** Board-space tile → world point of its top (the prep field transform applied). */
   function boardWorld(row, col, bench = false) {
     const d = prepXf.toDisp(row, col);
-    return { x: d.col, y: d.row, z: bench ? TILE_H.bench : heightAt(d.row, d.col) };
+    return { x: d.col, y: d.row, z: bench ? tileTop('bench', stageRec) : heightAt(d.row, d.col) };
   }
   /** The tile under a canvas point in BOARD space (null off-grid; an impossible tile off the player's half). */
   function pickBoardTile(x, y) {

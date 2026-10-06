@@ -11,6 +11,9 @@
 //                                      (render/units.js DeviceView boxes, drawn as the official crate mesh)
 //   board.flashObjective(r, c)       leak flash of a blue objective box
 //   board.render(cam, timeSec)       sync the camera, animate, draw
+//   opts.loadOfficial(stageId)       → Promise<official scene | null> (official.js loadOfficialScene): when a stage has
+//                                      an extracted official scene (DESIGN §15.1) it replaces the procedural tiles,
+//                                      background and shadows; gates, field edges, devices and terrain FX stay
 //   board.resize(w, h, dpr) · board.stats() · board.destroy()
 //
 // Draw calls: board (tiles + blocks + platforms, merged, MT_autochess), the pen's glass hatches (glassMaterial),
@@ -26,6 +29,7 @@ import {
   waterMaterial, mireMaterial, infectionMaterial, smogMaterial, dashTexture, environmentMap,
 } from './materials.js';
 import { syncThreeCamera } from '../projection.js';
+import { buildOfficialScene } from './official.js';
 
 /** Lighting rig (tuned against the official screenshots: bright even tops, darker sides, soft shadows). */
 export const LIGHTING = Object.freeze({
@@ -191,7 +195,8 @@ export class BoardScene {
     // DeviceView handles: they must survive a rebuild — a camera flight between areas rebuilds mid-battle)
     this.root = new T.Group();
     this.dynamic = new T.Group();
-    this.scene.add(this.root, this.dynamic);
+    this.officialRoot = new T.Group();   // official scene meshes: kept across area rebuilds of the same stage
+    this.scene.add(this.root, this.dynamic, this.officialRoot);
     this.stageKey = null;
     this.stage = null;
     this.area = AREAS.normal;
@@ -206,6 +211,9 @@ export class BoardScene {
     this.frames = 0;
     this.lastMs = 0;
     this._crateGeom = null;
+    this.officialData = new Map();   // stageId → loaded official scene (null: none / failed)
+    this.officialPending = new Set();
+    this.officialBuilt = null;
   }
 
   // ---- geometry ----------------------------------------------------------------------------------------------
@@ -230,6 +238,14 @@ export class BoardScene {
     m.matrixAutoUpdate = false; m.updateMatrix();
     this.root.add(m);
     return m;
+  }
+
+  _dropOfficial() {
+    if (!this.officialBuilt) return;
+    for (const m of this.officialBuilt.meshes) this.officialRoot.remove(m);
+    this.officialBuilt.dispose();
+    this.officialBuilt = null;
+    if (!this.destroyed) this.opts.onOfficial?.(null);
   }
 
   _clear() {
@@ -267,7 +283,7 @@ export class BoardScene {
   /** Rebuild everything for a stage (no-op when the same stage object/grid is set again). */
   setStage(stage) {
     if (this.destroyed) return;
-    const key = stage ? `${stage.id || ''}|${(stage.rows || []).join('/')}|${JSON.stringify((stage.devices || []).map((d) => [d.key, d.pos, d.active, d.dir]))}` : '';
+    const key = stage ? `${stage.id || ''}|${stage.highlandHeight ?? ''}|${(stage.rows || []).join('/')}|${JSON.stringify((stage.devices || []).map((d) => [d.key, d.pos, d.active, d.dir]))}` : '';
     if (key === this.stageKey) return;
     this.stageKey = key;
     this.stage = stage || null;
@@ -276,6 +292,25 @@ export class BoardScene {
     const board = buildBoard(stage, { uv: this.pack?.uv || null, area: this.area });
     this.board = board;
     const M = this.meshes = {};
+    const official = this._officialFor(stage);
+    if (this.officialBuilt && this.officialBuilt.stageId !== official?.stageId) this._dropOfficial();
+    if (official) {
+      // the official scene: the whole island as the client built it (tiles, props, surroundings, baked light)
+      if (!this.officialBuilt) {
+        const built = buildOfficialScene(this.THREE, official, this.focus, { aniso: Math.min(8, this.renderer.capabilities?.getMaxAnisotropy?.() || 1) });
+        for (const m of built.meshes) this.officialRoot.add(m);
+        this.officialBuilt = built;
+        this.opts.onOfficial?.({ stageId: built.stageId, highland: built.highland });
+      }
+      this.officialBuilt.setArea(this.area);
+      this._buildDevices(board);
+      this._buildGates(board);
+      this._buildEdges(board);
+      this._buildTerrain(board, { water: false });
+      this._fitShadow(board);
+      this.renderer.shadowMap.needsUpdate = true;
+      return;
+    }
     M.board = this._mesh(board.buckets.board, this.mat.board);
     M.glass = this._mesh(board.buckets.glass, this.mat.glass);
     M.decal = this._mesh(board.buckets.decal, this.mat.decal, { cast: false });
@@ -288,6 +323,29 @@ export class BoardScene {
     this._fitShadow(board);
     this.renderer.shadowMap.needsUpdate = true;
   }
+
+  /** The loaded official scene of `stage` (null while loading / none); starts the load once per stage. */
+  _officialFor(stage) {
+    const id = stage?.id;
+    const load = this.opts.loadOfficial;
+    if (!id || typeof load !== 'function' || this.opts.official === false) return null;
+    if (this.officialData.has(id)) return this.officialData.get(id);
+    if (!this.officialPending.has(id)) {
+      this.officialPending.add(id);
+      Promise.resolve(load(id)).catch(() => null).then((data) => {
+        this.officialPending.delete(id);
+        this.officialData.set(id, data || null);
+        if (data && !this.destroyed && this.stage?.id === id) { this.stageKey = null; this.setStage(this.stage); }
+      });
+    }
+    return null;
+  }
+
+  /** The official scene's HIGH tile height for stage `id` (null: not drawn from an official scene). */
+  highlandFor(id) { return this.officialBuilt && this.officialBuilt.stageId === id ? this.officialBuilt.highland : null; }
+
+  /** Is the current stage drawn from its official scene? */
+  get official() { return !!this.officialBuilt; }
 
   _buildDevices(board) {
     const crates = [], blowers = [];
@@ -372,7 +430,7 @@ export class BoardScene {
     this.meshes.edges = this._mesh({ position: new Float32Array(pos), normal: nrm, uv: new Float32Array(uv), color: null, index: new Uint16Array(idx) }, this.mat.edge, { cast: false, receive: false, order: 3 });
   }
 
-  _buildTerrain(board) {
+  _buildTerrain(board, { water = true } = {}) {
     const quads = (tiles, z, inset = 0) => {
       const pos = [], uv = [], idx = [];
       for (const [r, c] of tiles) {
@@ -386,7 +444,7 @@ export class BoardScene {
     };
     const T = board.terrain;
     const opt = { cast: false, receive: false, order: 2 };
-    if (T.water.length) this.meshes.water = this._mesh(quads(T.water, -0.035), this.mat.water, opt);
+    if (water && T.water.length) this.meshes.water = this._mesh(quads(T.water, -0.035), this.mat.water, opt);
     if (T.mire.length) this.meshes.mire = this._mesh(quads(T.mire, 0.006, 0.02), this.mat.mire, opt);
     if (T.infection.length) this.meshes.infection = this._mesh(quads(T.infection, 0.007, 0.02), this.mat.infection, opt);
     if (T.smog.length) {
@@ -550,6 +608,7 @@ export class BoardScene {
     for (let i = this.flashes.length - 1; i >= 0; i--) { const f = this.flashes[i]; f.t += dt; if (f.t > 1.2) this.flashes.splice(i, 1); else flash = Math.max(flash, 1 - f.t / 1.2); }
     for (const m of [this.mat.gateEndAdd, this.mat.gateEndAb]) if (m) m.uniforms.uFlash.value.setRGB(flash, flash * 0.12, flash * 0.1);
     for (const k of ['water', 'mire', 'infection', 'smog']) this.mat[k].uniforms.uTime.value = t;
+    this.officialBuilt?.update(t);
     this.renderer.render(this.scene, this.camera);
     this.frames++;
     if (t0) this.lastMs = this.lastMs * 0.9 + ((typeof performance !== 'undefined' ? performance.now() : t0) - t0) * 0.1;
@@ -558,7 +617,7 @@ export class BoardScene {
 
   stats() {
     const info = this.renderer.info;
-    return { calls: info?.render?.calls ?? 0, triangles: info?.render?.triangles ?? 0, textures: info?.memory?.textures ?? 0, geometries: info?.memory?.geometries ?? 0, frames: this.frames, cpuMs: Math.round(this.lastMs * 100) / 100, lost: this.lost };
+    return { official: !!this.officialBuilt, calls: info?.render?.calls ?? 0, triangles: info?.render?.triangles ?? 0, textures: info?.memory?.textures ?? 0, geometries: info?.memory?.geometries ?? 0, frames: this.frames, cpuMs: Math.round(this.lastMs * 100) / 100, lost: this.lost };
   }
 
   destroy() {
@@ -566,6 +625,7 @@ export class BoardScene {
     this.destroyed = true;
     for (const d of [...this.devices]) d.destroy();
     this._clear();
+    this._dropOfficial();
     this.mat.edge?.map?.dispose?.(); // canvas dash texture (not in this.tex)
     for (const m of Object.values(this.mat)) m?.dispose?.();
     for (const t of Object.values(this.tex)) t?.dispose?.();
