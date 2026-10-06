@@ -204,4 +204,34 @@ describe('extracted official scenes', { skip: !extracted.length && 'no scene ext
     for (const m of built.meshes) if (!m.userData.hidden) assert.equal(m.visible, !m.userData.tideWarning);
     built.dispose();
   });
+
+  test('gamma-space shading (the client is a Gamma-space project): reflection probe, Standard parameters, raw colours', () => {
+    for (const id of extracted) {
+      const doc = JSON.parse(readFileSync(onDisk(manifest.groups[sceneGroup(id)].scene.path), 'utf8'));
+      if (!doc.reflection) continue;  // extracted before scene_extract.py wrote the reflection
+      assert.equal(doc.reflection.faces.length, 6, id);
+      for (const f of doc.reflection.faces) assert.ok(f.length === 3 && f.every((v) => v >= 0 && v < 6), `${id} face ${f}`);
+    }
+    const id = extracted.includes('act2autochess_m04') ? 'act2autochess_m04' : extracted[0];
+    const g = manifest.groups[sceneGroup(id)];
+    const doc = JSON.parse(readFileSync(onDisk(g.scene.path), 'utf8'));
+    const raw = readFileSync(onDisk(g.geom.path));
+    const buffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
+    const built = buildOfficialScene(THREE, { stageId: id, doc, buffer, textures: {}, lightmaps: [] }, focusUniforms(THREE));
+    const lit = built.materials.filter((m) => m.uniforms.uRefl);
+    assert.ok(lit.length > 0);
+    for (const m of lit) {
+      assert.doesNotMatch(m.fragmentShader, /#include <colorspace_fragment>/);
+      assert.match(m.fragmentShader, /5\.0 \* lm\.a/);
+      if (doc.reflection) assert.ok(Math.abs(m.uniforms.uRefl.value[4].x - doc.reflection.faces[4][0] * doc.reflection.intensity) < 1e-6);
+    }
+    // material colours stay as stored (no sRGB → linear): the desert sand's _BlendColor
+    const sand = lit.find((m) => m.userData.official === 'MT_AutochessSand');
+    if (sand) {
+      const bc = doc.materials.MT_AutochessSand.colors._BlendColor;
+      assert.ok(Math.abs(sand.uniforms.uBlendColor.value.r - bc[0]) < 1e-6 && Math.abs(sand.uniforms.uBlendColor.value.b - bc[2]) < 1e-6);
+      assert.equal(sand.defines.GLOSSMAP, undefined, 'no gloss texture in this test (textures: {})');
+    }
+    built.dispose();
+  });
 });

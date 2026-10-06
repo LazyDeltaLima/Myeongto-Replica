@@ -12,10 +12,16 @@
 // visible while its tile rect (scene.json hidden[key].tiles) overlaps one of the built areas (layout.js AREAS).
 //
 // Shading follows the Torappu scene shaders closely enough for the board: albedo (× _Color, the desert theme's
-// vertex-colour sand blend toward _BlendColor) × (baked indirect light (RGBM lightmap, Unity's linear decode
-// 34.49 · a^2.2) + the mixed main light × N·L × its shadowmask) + emission. Without a lightmap (water, UI quads,
-// backgrounds) the main light plus the scene ambient apply. The same focus falloff as the procedural board
-// (materials.js addFocus) dims everything outside the active field.
+// vertex-colour sand blend toward _BlendColor) × (baked indirect light (RGBM lightmap) + the mixed main light × N·L ×
+// its shadowmask) + emission. Without a lightmap (water, UI quads, backgrounds) the main light plus the scene ambient
+// apply. The same focus falloff as the procedural board (materials.js addFocus) dims everything outside the active field.
+//
+// Colour space: the client is a Gamma-space Unity project (globalgamemanagers PlayerSettings m_ActiveColorSpace 0),
+// so the scene shaders multiply and add the stored (sRGB-encoded) values as they are and write the result unconverted;
+// the lightmaps are LightmapRGBM (Texture2D m_LightmapFormat 2), decoded the gamma way, 5 · a · rgb. These shaders do
+// the same: textures and colours untouched (NoColorSpace, no sRGB → linear), no output conversion (no
+// colorspace_fragment). Doing the maths in linear space instead made every product darker and more saturated (the
+// sand orange-brown and grimy, the _BlendColor tint far too strong) — DESIGN §15.1.
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
@@ -141,11 +147,17 @@ uniform sampler2D uLight;
 uniform sampler2D uMask;
 uniform vec4 uColor;
 uniform vec3 uEmissionColor;
+uniform sampler2D uGloss;    // TX_…_M as a three.js roughness map: G = 1 − smoothness
 uniform vec3 uBlendColor;
 uniform float uBlendStrength;
+uniform vec2 uBlendRange;    // _BlendRangeCtrl.xy
 uniform vec3 uLightDir;      // towards the light (board space)
-uniform vec3 uLightColor;    // linear, × intensity
+uniform vec3 uLightColor;    // gamma-space colour × intensity
 uniform vec3 uAmbient;
+uniform float uSmoothness;   // _Glossiness, or _GlossMapScale with the gloss map
+uniform float uMetallic;
+uniform float uSpecHighlights;
+uniform vec3 uRefl[6];       // reflection probe: mean colour per cube face, board +x −x +y −y +z −z
 uniform float uCutoff;
 uniform float uBumpScale;
 uniform float uLmGain;
@@ -173,13 +185,20 @@ vec3 perturb(vec3 n, vec3 mapN) {
   return normalize(T * (mapN.x * scale) + B * (mapN.y * scale) + n * mapN.z);
 }
 
+vec3 reflCube(vec3 d) {
+  vec3 d2 = d * d;
+  return d2.x * (d.x >= 0.0 ? uRefl[0] : uRefl[1]) + d2.y * (d.y >= 0.0 ? uRefl[2] : uRefl[3]) + d2.z * (d.z >= 0.0 ? uRefl[4] : uRefl[5]);
+}
+
 void main() {
   vec4 albedo = texture2D(uMap, vUv) * uColor;
   #ifdef ALPHATEST
     if (albedo.a < uCutoff) discard;
   #endif
   #ifdef VERTEX_BLEND
-    albedo.rgb = mix(albedo.rgb, albedo.rgb * uBlendColor * 2.0, clamp(vColor.r * uBlendStrength, 0.0, 1.0));
+    // _HG_VERTEX_COLOR_BLEND_ON: the vertex-painted sand (vertex colour, grey) covers the albedo with _BlendColor
+    float bm = clamp((vColor.r - uBlendRange.x) / max(uBlendRange.y - uBlendRange.x, 1e-4), 0.0, 1.0) * uBlendStrength;
+    albedo.rgb = mix(albedo.rgb, uBlendColor, clamp(bm, 0.0, 1.0));
   #endif
   vec3 n = normalize(vNormalW);
   if (!gl_FrontFacing) n = -n;
@@ -188,17 +207,46 @@ void main() {
     mapN.xy *= uBumpScale;
     n = perturb(n, normalize(mapN));
   #endif
-  float ndl = max(dot(n, normalize(uLightDir)), 0.0);
-  vec3 light;
+  vec3 l = normalize(uLightDir);
+  vec3 v = normalize(cameraPosition - vWorld);
+  float nl = max(dot(n, l), 0.0);
+  vec3 giDiffuse;
+  float atten;
   #ifdef LIGHTMAP
     vec4 lm = texture2D(uLight, vUv1);
-    vec3 indirect = lm.rgb * (34.493242 * pow(max(lm.a, 0.0), 2.2));
-    float mask = texture2D(uMask, vUv1).r;
-    light = indirect * uLmGain + uLightColor * ndl * mask * uDirectGain;
+    giDiffuse = lm.rgb * (5.0 * lm.a) * uLmGain;  // Unity DecodeLightmapRGBM, gamma space (linear space: 34.49 · a^2.2)
+    atten = texture2D(uMask, vUv1).r;             // shadowmask of the mixed main light
   #else
-    light = uAmbient + uLightColor * ndl * uDirectGain;
+    giDiffuse = uAmbient;
+    atten = 1.0;
   #endif
-  vec3 outgoing = albedo.rgb * light;
+  vec3 lightCol = uLightColor * atten * uDirectGain;
+  // Unity Standard BRDF1_Unity_PBS, gamma space (Torappu/Scene/StandardRealtimeShadow carries the Standard
+  // properties): dielectric specular 0.2209 (unity_ColorSpaceDielectricSpec), Disney diffuse, GGX + Smith joint,
+  // sqrt of the specular term, surface reduction 1 − 0.28 · roughness · perceptual roughness
+  float smoothness = uSmoothness;
+  #ifdef GLOSSMAP
+    smoothness *= 1.0 - texture2D(uGloss, vUv).g;
+  #endif
+  float oneMinusRefl = 0.7790837 * (1.0 - uMetallic);
+  vec3 specColor = mix(vec3(0.2209163), albedo.rgb, uMetallic);
+  vec3 diffColor = albedo.rgb * oneMinusRefl;
+  float pr = 1.0 - smoothness;
+  float rough = max(pr * pr, 0.002);
+  vec3 h = normalize(l + v);
+  float nv = abs(dot(n, v)), nh = max(dot(n, h), 0.0), lh = max(dot(l, h), 0.0);
+  float fd90 = 0.5 + 2.0 * lh * lh * pr;
+  float diffTerm = (1.0 + (fd90 - 1.0) * pow(1.0 - nl, 5.0)) * (1.0 + (fd90 - 1.0) * pow(1.0 - nv, 5.0)) * nl;
+  float lambdaV = nl * (nv * (1.0 - rough) + rough), lambdaL = nv * (nl * (1.0 - rough) + rough);
+  float vis = 0.5 / (lambdaV + lambdaL + 1e-5);
+  float a2 = rough * rough, dd = (nh * a2 - nh) * nh + 1.0;
+  float ggx = RECIPROCAL_PI * a2 / (dd * dd + 1e-7);
+  float specTerm = max(0.0, sqrt(max(1e-4, vis * ggx * PI)) * nl) * uSpecHighlights;
+  float surfaceReduction = 1.0 - 0.28 * rough * pr;
+  float grazing = clamp(smoothness + (1.0 - oneMinusRefl), 0.0, 1.0);
+  vec3 outgoing = diffColor * (giDiffuse + lightCol * diffTerm)
+    + specTerm * lightCol * (specColor + (1.0 - specColor) * pow(1.0 - lh, 5.0))
+    + surfaceReduction * reflCube(reflect(-v, n)) * mix(specColor, vec3(grazing), pow(1.0 - nv, 5.0));
   #ifdef EMISSION
     outgoing += texture2D(uEmission, vUv).rgb * uEmissionColor * uEmissionGain;
   #endif
@@ -207,18 +255,18 @@ void main() {
   #endif
   vec2 fd = max(vec2(0.0), max(uFocus.xy - vWorld.xy, vWorld.xy - uFocus.zw));
   outgoing *= mix(uFocusDim, 1.0, 1.0 - smoothstep(0.0, uFocusSoft, length(fd)));
-  gl_FragColor = vec4(outgoing, albedo.a * uOpacity);
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
+  gl_FragColor = vec4(outgoing, albedo.a * uOpacity);  // gamma-space result: written as is (no colorspace_fragment)
   #include <fog_fragment>
 }`;
 
-/** Simplified Torappu/Scene/StylizedWater: deep / shallow tint, scrolling wave normals, sky glint. */
+/** Simplified Torappu/Scene/StylizedWater: deep tint × _WaterColor × _WaterColorIntensity at the deep colour's alpha
+ * over the sea floor, scrolling wave normals, sky glint. */
 const WATER_FRAG = /* glsl */`
 #include <common>
 uniform sampler2D uWaves;
 uniform vec4 uDeep;
 uniform vec4 uShallow;
+uniform vec3 uWaterTint;     // _WaterColor × _WaterColorIntensity
 uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 uniform float uTime;
@@ -236,24 +284,22 @@ void main() {
   vec3 w1 = texture2D(uWaves, p * uWaveTiling + vec2(0.03, 0.017) * uTime).xyz * 2.0 - 1.0;
   vec3 w2 = texture2D(uWaves, p * uWaveTiling * 1.7 - vec2(0.021, 0.034) * uTime).xyz * 2.0 - 1.0;
   vec3 n = normalize(vec3((w1.xy + w2.xy) * 0.35, 1.0));
-  // the official shader blends shallow → deep by scene depth; the board's channels are deep: mostly the deep colour
-  vec3 base = mix(uShallow.rgb, uDeep.rgb, 0.86 + 0.1 * n.x);
+  // the official shader blends shallow → deep by scene depth; around the board the water is deep: the deep colour
+  vec3 base = uDeep.rgb * uWaterTint * (1.0 + 0.08 * n.x);
   float spec = pow(max(dot(reflect(-normalize(uLightDir), n), vec3(0.0, 0.0, 1.0)), 0.0), 40.0);
   vec3 col = base * (0.55 + 0.45 * max(dot(n, normalize(uLightDir)), 0.0)) + uLightColor * spec * 0.35;
   vec2 fd = max(vec2(0.0), max(uFocus.xy - vWorld.xy, vWorld.xy - uFocus.zw));
   col *= mix(uFocusDim, 1.0, 1.0 - smoothstep(0.0, uFocusSoft, length(fd)));
-  gl_FragColor = vec4(col, clamp(uDeep.a + 0.2, 0.0, 1.0));
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
+  gl_FragColor = vec4(col, uDeep.a);
 }`;
 
 /** Tunables (checked against the official screenshots; see DESIGN §15.1). */
 export const OFFICIAL_LIGHTING = Object.freeze({ lmGain: 1.0, directGain: 1.0, emissionGain: 1.0, ambientGain: 1.0 });
 
-function texture(THREE, img, { srgb = true, repeat = false, aniso = 1 } = {}) {
+function texture(THREE, img, { repeat = false, aniso = 1 } = {}) {
   if (!img) return null;
   const t = new THREE.Texture(img);
-  t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  t.colorSpace = THREE.NoColorSpace;  // gamma-space shading: sampled as stored (colour maps and data maps alike)
   t.anisotropy = aniso;
   t.wrapS = t.wrapT = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
   t.generateMipmaps = true;
@@ -263,7 +309,8 @@ function texture(THREE, img, { srgb = true, repeat = false, aniso = 1 } = {}) {
   return t;
 }
 
-const lin = (THREE, c) => (c ? new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace) : new THREE.Color(1, 1, 1));
+/** A material / light colour as Unity's gamma-space shaders use it: the stored value, unconverted. */
+const raw = (THREE, c) => (c ? new THREE.Color().setRGB(c[0], c[1], c[2], THREE.LinearSRGBColorSpace) : new THREE.Color(1, 1, 1));
 
 /**
  * Build three.js meshes for a loaded official scene (board space, static: matrixAutoUpdate off).
@@ -279,19 +326,25 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   const texCache = new Map();
   const tex = (file, o) => {
     if (!file || !data.textures[file]) return null;
-    const k = `${file}|${o?.srgb !== false}|${!!o?.repeat}`;
+    const k = `${file}|${!!o?.repeat}`;
     if (!texCache.has(k)) texCache.set(k, texture(T, data.textures[file], { ...o, aniso }));
     return texCache.get(k);
   };
   const lms = (data.lightmaps || []).map((lm) => ({
-    light: texture(T, lm.light, { srgb: true }),
-    mask: texture(T, lm.mask, { srgb: false }),
+    light: texture(T, lm.light),
+    mask: texture(T, lm.mask),
   }));
   const main = (doc.lights || []).find((l) => l.active && l.type === 1) || null;
   const lightDir = main ? new T.Vector3(-main.dir[0], -main.dir[1], -main.dir[2]).normalize() : new T.Vector3(0.4, 0.4, 0.8).normalize();
-  const lightColor = main ? lin(T, main.color).multiplyScalar(main.intensity) : new T.Color(1, 1, 1);
+  const lightColor = main ? raw(T, main.color).multiplyScalar(main.intensity) : new T.Color(1, 1, 1);
   const S = doc.settings || {};
-  const ambient = S.ambientSky ? lin(T, S.ambientSky).multiplyScalar((S.ambientIntensity ?? 1) * OFFICIAL_LIGHTING.ambientGain) : new T.Color(0.3, 0.3, 0.3);
+  // the reflection probe the scene's statics sample (scene_extract.py reflection: a baked ReflectionProbe, else the
+  // generated skybox reflection × m_ReflectionIntensity; mean colour per cube face); older extracts: the ambient sky
+  const R = doc.reflection;
+  const refl = Array.isArray(R?.faces) && R.faces.length === 6
+    ? R.faces.map((c) => new T.Vector3(c[0], c[1], c[2]).multiplyScalar(R.intensity ?? 1))
+    : new Array(6).fill(0).map(() => new T.Vector3(...(S.ambientSky || [0.3, 0.3, 0.3]).slice(0, 3)).multiplyScalar(S.ambientIntensity ?? 1));
+  const ambient = S.ambientSky ? raw(T, S.ambientSky).multiplyScalar((S.ambientIntensity ?? 1) * OFFICIAL_LIGHTING.ambientGain) : new T.Color(0.3, 0.3, 0.3);
 
   const materials = new Map();
   const animated = [];
@@ -307,23 +360,19 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
     const shader = info.shader || '';
     let mat;
     if (/StylizedWater/.test(shader)) {
-      const waves = tex(X._BumpMap?.file, { srgb: false, repeat: true });
+      const waves = tex(X._BumpMap?.file, { repeat: true });
       mat = new T.ShaderMaterial({
         vertexShader: VERT, fragmentShader: WATER_FRAG, transparent: true, depthWrite: false,
         uniforms: {
           uMainST: { value: new T.Vector4(...q0) }, uUv1ST: { value: new T.Vector4(...q1) }, uWaves: { value: waves },
           uDeep: { value: new T.Vector4(...(C._DeepWaterColor || [0, 0.27, 0.4, 0.67])) },
           uShallow: { value: new T.Vector4(...(C._ShallowWaterColor || [0.39, 1, 0.7, 0.5])) },
+          uWaterTint: { value: new T.Vector3(...(C._WaterColor || [1, 1, 1]).slice(0, 3)).multiplyScalar(F._WaterColorIntensity ?? 1) },
           uLightDir: { value: lightDir }, uLightColor: { value: lightColor }, uTime: { value: 0 },
           uWaveTiling: { value: new T.Vector2(...(X._BumpMap?.scale || [0.6, 0.37])) },
           ...focus,
         },
       });
-      // the shader takes linear colours: convert the material's sRGB ones
-      for (const u of ['uDeep', 'uShallow']) {
-        const v = mat.uniforms[u].value, c = new T.Color().setRGB(v.x, v.y, v.z, T.SRGBColorSpace);
-        v.set(c.r, c.g, c.b, v.w);
-      }
       animated.push(mat);
     } else {
       const mainTex = tex(X._MainTex?.file);
@@ -333,15 +382,19 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       const defines = {};
       if (kw.has('_ALPHATEST_ON')) defines.ALPHATEST = 1;
       if (kw.has('_HG_VERTEX_COLOR_BLEND_ON')) defines.VERTEX_BLEND = 1;
-      const normal = kw.has('_NORMALMAP') ? tex(X._BumpMap?.file, { srgb: false }) : null;
+      const normal = kw.has('_NORMALMAP') ? tex(X._BumpMap?.file) : null;
       if (normal) defines.NORMALMAP = 1;
       const emission = kw.has('_EMISSION') ? tex(X._EmissionMap?.file) : null;
       if (emission) defines.EMISSION = 1;
       const lm = lmIndex >= 0 ? lms[lmIndex] : null;
       if (lm && lm.light && lm.mask) defines.LIGHTMAP = 1;
       if (particle) defines.UNLIT = 1;
+      // Standard metallic workflow: _METALLICGLOSSMAP → smoothness = map × _GlossMapScale (the export keeps the
+      // smoothness only; the desert / Kazimierz / Syracuse maps have metallic ≈ 0), else _Glossiness / _Metallic
+      const gloss = kw.has('_METALLICGLOSSMAP') ? tex(X._MetallicGlossMap?.file) : null;
+      if (gloss) defines.GLOSSMAP = 1;
       const color = particle && C._TintColor ? C._TintColor.map((v, i) => (i < 3 ? v * 2 : v * 2)) : (C._Color || [1, 1, 1, 1]);
-      const col = lin(T, color);
+      const col = raw(T, color);
       mat = new T.ShaderMaterial({
         vertexShader: VERT, fragmentShader: FRAG, defines,
         transparent: blend, depthWrite: !blend, side: particle ? T.DoubleSide : T.FrontSide,
@@ -352,9 +405,15 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
           uMap: { value: mainTex }, uNormal: { value: normal }, uEmission: { value: emission },
           uLight: { value: lm?.light || null }, uMask: { value: lm?.mask || null },
           uColor: { value: new T.Vector4(col.r, col.g, col.b, color[3] ?? 1) },
-          uEmissionColor: { value: lin(T, C._EmissionColor || [1, 1, 1]) },
-          uBlendColor: { value: lin(T, C._BlendColor || [1, 1, 1]) },
+          uEmissionColor: { value: raw(T, C._EmissionColor || [1, 1, 1]) },
+          uBlendColor: { value: raw(T, C._BlendColor || [1, 1, 1]) },
           uBlendStrength: { value: F._BlendStrength ?? 1 },
+          uBlendRange: { value: new T.Vector2(...(C._BlendRangeCtrl || [0, 1]).slice(0, 2)) },
+          uGloss: { value: gloss },
+          uSmoothness: { value: gloss ? (F._GlossMapScale ?? 1) : (F._Glossiness ?? 0.5) },
+          uMetallic: { value: gloss ? 0 : (F._Metallic ?? 0) },
+          uSpecHighlights: { value: F._SpecularHighlights ?? 1 },
+          uRefl: { value: refl },
           uLightDir: { value: lightDir }, uLightColor: { value: lightColor }, uAmbient: { value: ambient },
           uCutoff: { value: F._Cutoff ?? 0.5 }, uBumpScale: { value: F._BumpScale ?? 1 },
           uLmGain: { value: OFFICIAL_LIGHTING.lmGain }, uDirectGain: { value: OFFICIAL_LIGHTING.directGain },

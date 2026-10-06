@@ -629,13 +629,31 @@ board's atlas, the first-season look): act1 m01–m07, act2 m02 and m04 use `map
 - Heights: the level's `_mapSettings.highlandHeight` (desert 0.4, Kazimierz 0.3) is the one height of every HIGH tile
   (forbidden, separators, bench pads). While a stage is drawn from its scene the app passes it as
   `stage.highlandHeight`; `render/style.js tileTop` makes `tiles.js` / `layout.js` / bench placement use it.
-- Rendering: `render/board3d/official.js` (one ShaderMaterial per material / lightmap, and per group for version-2 geometry: albedo × _Color, the desert vertex-colour sand
-  blend toward `_BlendColor`, × (RGBM lightmap decoded 34.49·a^2.2 + main light × N·L × shadowmask) + emission, normal
-  maps through a screen-space tangent frame, alpha test / blend per keyword, the shared focus falloff; a simplified
-  StylizedWater; `DynamicWaterTile` tide warnings hidden). `BoardScene` loads the scene per stage (`opts.loadOfficial`)
+- Rendering: `render/board3d/official.js` (one ShaderMaterial per material / lightmap, and per group for version-2
+  geometry). **Gamma space** like the client (globalgamemanagers PlayerSettings `m_ActiveColorSpace` 0 = Gamma): textures
+  and material / light colours are used as stored (`NoColorSpace`, no sRGB → linear) and the result is written without
+  `colorspace_fragment`. The lit scene shaders (`Torappu/Scene/StandardRealtimeShadow`, `…/Standard`) carry Unity
+  Standard's property set, so they follow `BRDF1_Unity_PBS` in gamma space: dielectric specular 0.2209
+  (diffuse × 0.779), Disney diffuse, GGX + Smith joint with the square-rooted specular term, surface reduction
+  1 − 0.28·r·pr, smoothness from `_MetallicGlossMap` × `_GlossMapScale` (else `_Glossiness`; the export keeps no
+  metallic — ≈ 0 in every theme map); gi.diffuse = the RGBM lightmap decoded the gamma way, 5·a·rgb (`m_LightmapFormat` 2;
+  the lighting settings bake indirect × 4, `m_UsingShadowmask`), the mixed main light × N·L × its shadowmask on top;
+  gi.specular = the scene's reflection (`scene.json reflection`: the island's baked ReflectionProbe — act2 m01 / m03 —
+  else RenderSettings' generated skybox reflection × `m_ReflectionIntensity`; mean colour per cube face, RGBM decoded
+  5·a·rgb) along the reflected view. `_HG_VERTEX_COLOR_BLEND_ON` covers the albedo with `_BlendColor` by the
+  vertex colour over `_BlendRangeCtrl.xy` × `_BlendStrength` (vertex-painted sand; the noise terms are not read) — the
+  plain sand floors and half-covered patterned tiles of the official screenshots. Normal maps through a screen-space
+  tangent frame, alpha test / blend per keyword, the shared focus falloff; a simplified StylizedWater
+  (`_DeepWaterColor` × `_WaterColor` × `_WaterColorIntensity` at the deep colour's alpha over the sea floor);
+  `DynamicWaterTile` tide warnings hidden). Before 2026-10-06 the maths ran in linear space (sRGB textures, the
+  linear-space RGBM decode 34.49·a^2.2, `_BlendColor` × 2 as a tint): every product came out darker and more
+  saturated — the desert sand orange-brown and grimy, the water vivid cyan. Measured on act1 m03 against a KR
+  client battle frame at the same camera (mean RGB): walkway 191/180/167 (official 191/179/166), floor 216/186/139
+  (208/176/132), rock blocks 192/149/103 (200/153/106), open water 34/61/71 (38/61/73). `BoardScene` loads the scene per stage (`opts.loadOfficial`)
   and keeps the procedural board until it arrives; with a scene it skips the procedural tiles, background and terrain
   water but keeps devices, gates, field edges and terrain FX. `?officialBoard=0` forces the procedural board.
-- Not done: the StylizedWater shader is approximated (no depth-based shore foam, caustics or sky reflection); the
+- Not done: the StylizedWater shader is approximated (one deep colour: no depth-based shallow colour near the shore — the
+  official water turns teal-green there —, no shore foam, caustics or sky reflection); the
   tide (act2 m04 涨潮控制) does not move the water or toggle the warning tiles yet; static crates / blowers are still
   our devices (the scenes do not contain them).
 

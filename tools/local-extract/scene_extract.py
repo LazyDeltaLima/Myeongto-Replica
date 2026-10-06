@@ -22,6 +22,8 @@ Output (under --out, default public/assets/local):
                                (idxType); pos / uv1 / idx delta + zigzag + byte-shuffled (quant.dzs: same size, gzip
                                ≈ 2.8× smaller). Version 1 was f32 everywhere and index u32 (official.js reads both)
   scene/<stageId>/lm*.png      lightmaps (comp_light, RGBM-encoded) and shadowmasks
+  scene.json reflection        the reflection the statics sample (scene_reflection: mean colour per cube face of the
+                               island's ReflectionProbe, else the generated skybox reflection; RGBM 5·a·rgb, gamma)
   scene/tex/<name>.png         theme textures (shared by stages; BC5 normal maps get Z rebuilt, gloss maps → roughness)
 and the manifest groups scene/<stageId> + scene/tex in data/local-assets.json. Like extract.py's board textures
 (WEBP, upstream #186), every texture and lightmap also gets a WebP copy next to its PNG and the manifest lists the
@@ -33,6 +35,8 @@ Usage (WSL, the EN client on D:):
       [--stage act2autochess_m04 ...] [--rebuild-index] [--no-webp]
   .venv-extract/bin/python tools/local-extract/scene_extract.py --webp    (only the WebP copies, from the PNGs already
       under --out — e.g. scene art copied to a server; needs Pillow, not the client)
+  .venv-extract/bin/python tools/local-extract/scene_extract.py --reflections    (only add scene.json reflection to the
+      scenes already under --out; needs the client, leaves geometry and textures alone)
   python3 tools/local-extract/scene_extract.py --requantize    (rewrite version-1 geom.bin / scene.json under --out in
       the quantized version 2 and update the manifest's geom bytes; plain Python, no client)
 """
@@ -348,6 +352,69 @@ def texture_entry(tex, out_tex, kind, written, manifest):
 TEX_KIND = {'_BumpMap': 'normal', '_MetallicGlossMap': 'gloss'}
 
 
+def cubemap_faces(cube):
+    """Mean colour per face of a baked reflection cubemap (mip 0), in board order +x −x +y −y +z −z (board z = Unity
+    −Z). RGBM-encoded faces (Texture2D m_LightmapFormat 5) decode the gamma way, 5 · a · rgb — the client is a
+    Gamma-space project. None for a format not handled here (DXT5 and RGBA32 are)."""
+    import texture2ddecoder
+    raw = cube.get_image_data()
+    w, fmt = cube.m_Width, cube.m_TextureFormat
+    if not raw or fmt not in (4, 12):
+        return None
+    per = len(raw) // 6
+    rgbm = getattr(cube, 'm_LightmapFormat', 0) == 5
+    faces = []
+    for f in range(6):
+        if fmt == 12:  # DXT5 → BGRA
+            px = texture2ddecoder.decode_bc3(raw[f * per:f * per + w * w], w, w)
+            order = (2, 1, 0, 3)
+        else:  # RGBA32
+            px = raw[f * per:f * per + w * w * 4]
+            order = (0, 1, 2, 3)
+        acc = [0.0, 0.0, 0.0]
+        for i in range(0, w * w * 4, 4):
+            m = 5.0 * px[i + order[3]] / 255.0 if rgbm else 1.0
+            for c in range(3):
+                acc[c] += px[i + order[c]] / 255.0 * m
+        faces.append([_num(a / (w * w), 4) for a in acc])
+    return [faces[i] for i in (0, 1, 2, 3, 5, 4)]
+
+
+def scene_reflection(env, scene_file):
+    """The reflection the scene's static renderers sample: an enabled baked ReflectionProbe of the scene (the
+    autochess ones box the whole island), else RenderSettings' generated skybox reflection × m_ReflectionIntensity.
+    {source, intensity, faces} (cubemap_faces) or None."""
+    probe, sky = None, None
+    for o in env.objects:
+        if o.assets_file is not scene_file:
+            continue
+        t = o.type.name
+        if t == 'ReflectionProbe' and probe is None:
+            tt = o.read_typetree()
+            if tt.get('m_Enabled', 1) and tt.get('m_BakedTexture', {}).get('m_PathID'):
+                intensity = tt.get('m_IntensityMultiplier', tt.get('m_Intensity', 1.0))
+                probe = (tt['m_BakedTexture']['m_PathID'], 1.0 if intensity is None else intensity)
+        elif t == 'RenderSettings':
+            tt = o.read_typetree()
+            if tt.get('m_DefaultReflectionMode', 0) == 0:
+                sky = (tt['m_GeneratedSkyboxReflection']['m_PathID'], tt.get('m_ReflectionIntensity', 1.0))
+            elif tt.get('m_CustomReflection', {}).get('m_PathID'):
+                sky = (tt['m_CustomReflection']['m_PathID'], tt.get('m_ReflectionIntensity', 1.0))
+    for kind, ref in (('probe', probe), ('sky', sky)):
+        if not ref:
+            continue
+        pid, intensity = ref
+        cube = next((o for o in env.objects if o.path_id == pid and o.type.name == 'Cubemap'), None)
+        if cube is None:
+            continue
+        d = cube.read()
+        faces = cubemap_faces(d)
+        if faces:
+            return {'source': d.m_Name, 'kind': kind, 'intensity': _num(intensity, 4), 'faces': faces,
+                    'decode': 'RGBM 5·a·rgb (gamma)' if getattr(d, 'm_LightmapFormat', 0) == 5 else 'rgb'}
+    return None
+
+
 def export_stage(roots, index, stage, out_root, manifest, written):
     from UnityPy.helpers.MeshHelper import MeshHandler
     loaded, scene_path = load_stage_env(roots, index, stage)
@@ -524,6 +591,7 @@ def export_stage(roots, index, stage, out_root, manifest, written):
     doc = {'version': GEOM_VERSION, 'stage': stage, 'source': os.path.relpath(scene_path, roots['pd'].parent.parent),
            'dependencies': deps, 'unresolved': missing, 'space': 'board (x = col, y = row, z = up)',
            'vertexBytes': VERTEX_BYTES, 'quant': quant, 'settings': settings, 'lights': lights, 'lightmaps': lightmaps,
+           'reflection': scene_reflection(env, scene_file),
            'materials': dict(sorted(materials.items())), 'map': sc.map, 'hidden': sc.hidden, 'groups': out_groups, 'skipped': skipped,
            'stats': {'groups': len(out_groups), 'vertices': sum(g['vertices'] for g in out_groups),
                      'triangles': sum(g['indices'] for g in out_groups) // 3, 'bytes': len(blob)}}
@@ -711,6 +779,8 @@ def main():
     ap.add_argument('--no-webp', action='store_true', help='keep the manifest on the PNGs (no WebP copies)')
     ap.add_argument('--webp', action='store_true',
                     help='only write the WebP copies of the scene art already under --out and list them (no client)')
+    ap.add_argument('--reflections', action='store_true',
+                    help='only add the reflection probe (scene.json reflection) to the scenes already under --out (needs the client)')
     ap.add_argument('--requantize', action='store_true',
                     help='only rewrite the version-1 geometry already under --out in the quantized version 2 (no client)')
     args = ap.parse_args()
@@ -740,6 +810,22 @@ def main():
     index = build_index(roots, cache) if args.rebuild_index or not cache.exists() else json.loads(cache.read_text(encoding='utf-8'))
     stages = args.stage or sorted(p.name[len('level_'):] for p in (roots['pd'] / SCENE_DIR).glob('act*autochess/level_*')
                                   if p.is_dir() and STAGE_RE.match(p.name[len('level_'):]))
+    if args.reflections:
+        n = 0
+        for stage in stages:
+            sj = out_root / 'scene' / stage / 'scene.json'
+            if not sj.exists():
+                continue
+            loaded, _ = load_stage_env(roots, index, stage)
+            if not loaded or loaded[1] is None:
+                log(f'skip {stage}: no scene bundle')
+                continue
+            doc = json.loads(sj.read_text(encoding='utf-8'))
+            doc['reflection'] = scene_reflection(loaded[0], loaded[1])
+            sj.write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+            log(f'{stage}: reflection {doc["reflection"] and doc["reflection"]["source"]} {doc["reflection"] and doc["reflection"]["faces"][4]}')
+            n += 1
+        return 0 if n else 1
     manifest, written, ok = {}, {}, 0
     for stage in stages:
         try:
