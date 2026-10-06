@@ -1976,7 +1976,7 @@ const kits = {
           unit.mem.redist += dt;
           if (unit.mem.redist + 1e-9 < redistIv) return;
           unit.mem.redist -= redistIv;
-          const pool = battle.alliesInGrid(unit).filter((a) => !(a.s.flags.noHeal || a.profile?.noHeal) || a === unit);
+          const pool = battle.alliesInGrid(unit); // local patch: 不成为治疗目标 / 禁疗 allies too — not a heal (client S3 selector ignoreHealFree 1; PRTS "所有友方单位"); docs/LOCAL-PATCH.md
           let hp = 0, max = 0;
           for (const a of pool) { hp += a.hp; max += a.s.maxHp; }
           if (!(max > 0) || pool.length < 2) return;

@@ -262,6 +262,30 @@ if (FIXED_FUNDS != null && debugMode()) {
   installFundsPin();
 }
 
+// The round-start dialog's 获得 (public/js/ui/phaseArt.js useRoundGold): the funds Match.startRound credited each player
+// (income + pending + onRoundStart grants), sent as m.private `roundGold { round, gain }`. The client cannot diff its
+// funds: m.private (new funds) goes out before the throttled m.public (phase ROUND_START), so its baseline was already
+// the new value (0 on every round), and a debug-pinned player's funds never change. While pinned, the gross credit counts.
+const upstreamMatchStartRound = Match.prototype.startRound;
+Match.prototype.startRound = function startRound(r) {
+  const list = Array.isArray(this.order) ? this.order : [];
+  for (const ps of list) if (ps) ps._roundGold = { round: r, gain: 0, on: true };
+  try { return upstreamMatchStartRound.call(this, r); } finally { for (const ps of list) if (ps && ps._roundGold) ps._roundGold.on = false; }
+};
+const upstreamAddFunds = PlayerState.prototype.addFunds;
+PlayerState.prototype.addFunds = function addFunds(n, opts) {
+  const got = upstreamAddFunds.call(this, n, opts);
+  const rg = this._roundGold;
+  if (rg && rg.on) rg.gain += fundsPinOf(this) == null || !fundsPinInstalled ? got : Math.trunc(Number(n) || 0);
+  return got;
+};
+const upstreamRoundGoldView = PlayerState.prototype.privateView;
+PlayerState.prototype.privateView = function privateView() {
+  const v = upstreamRoundGoldView.call(this);
+  try { if (v && this._roundGold) v.roundGold = { round: this._roundGold.round, gain: Math.max(0, this._roundGold.gain) }; } catch { /* display only */ }
+  return v;
+};
+
 const upstreamSetLoadout = PlayerState.prototype.setLoadout;
 PlayerState.prototype.setLoadout = function setLoadout(loadout) {
   const r = upstreamSetLoadout.call(this, loadout);

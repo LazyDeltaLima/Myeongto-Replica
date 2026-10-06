@@ -11,7 +11,7 @@
    guide, fullscreen ≈ 4.4rem — the official prep screen has none there): at 16:9 a 6-slot bar is drawn ≈ 1.15 px/unit.
    ========================================================================================== */
 
-.shopbar.has-shop-art { --u: min(.015rem, calc((100vw - 4.75rem) / 1270)); gap: calc(var(--u) * 6); }
+.shopbar.has-shop-art { --u: min(var(--ui-u, .015rem), calc((100vw - 4.75rem) / 1270)); /* --ui-u: css/hud-art.css (PC UI scale) */ gap: calc(var(--u) * 6); }
 .shopbar.has-shop-art .shopbar__row {
   gap: calc(var(--u) * 6); padding: calc(var(--u) * 10) calc(var(--u) * 6) calc(var(--u) * 6);
   background: var(--sa-shadow-total) center bottom / 100% 100% no-repeat; border: 0; box-shadow: none;

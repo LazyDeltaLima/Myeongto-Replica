@@ -84,12 +84,16 @@ export function Underframe({ view, uid = null, row, col, actions, name = '', bus
   const s = g.s > 0 ? g.s : 64;
   const half = s * 1.05;
   const stop = (e) => e.stopPropagation();
-  return html`<div class="uframe" data-uid=${uid} style=${`left:${g.x}px;top:${g.y}px;width:${half * 2}px;height:${half * 2}px`} role="group"
-      aria-label=${`${name || '单位'} 操作`}>
+  const box = `left:${g.x}px;top:${g.y}px;width:${half * 2}px;height:${half * 2}px`;
+  // local patch (2026-10-06, user report 14): the diamond is its own layer (.uframe--dia) so the official look can put it
+  // under the detail card (css/hud-art.css) while the buttons stay above every panel
+  return html`<div class="uframe uframe--dia" style=${box} aria-hidden="true">
     <svg class="uframe__dia" viewBox="-110 -110 220 220" aria-hidden="true">
       <path class="uframe__outer" d="M0 -100 L100 0 L0 100 L-100 0 Z" />
       <path class="uframe__corner" d="M-100 0 L-86 -14 M-100 0 L-86 14 M100 0 L86 -14 M100 0 L86 14 M0 -100 L-14 -86 M0 -100 L14 -86 M0 100 L-14 86 M0 100 L14 86" />
     </svg>
+  </div><div class="uframe" data-uid=${uid} style=${box} role="group"
+      aria-label=${`${name || '单位'} 操作`}>
     ${actions.retreat ? html`<button type="button" class="uframe__btn uframe__btn--retreat" disabled=${busy} onPointerDown=${stop}
         onClick=${(e) => { stop(e); onRetreat?.(); }} title=${actions.sell != null ? '撤退至整备区（Q）' : '撤退至整备区'} aria-label="撤退" aria-keyshortcuts=${actions.sell != null ? 'Q' : undefined}>
       <${RetreatGlyph} /><span class="uframe__label">${actions.sell != null ? '撤退[Q]' : '撤退'}</span>

@@ -1080,14 +1080,14 @@ export class UnitView {
     this.shieldBar.visible = !!shielded;
     if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }
     // SP
-    const showSp = showBars && !this.isEnemy && this.spMax > 0;
+    const showSp = showBars && this.spMax > 0; // local patch: an enemy sends SP only for 圣堂剑士's bullets (sim/content/local-patch.js)
     this.spBg.visible = this.spFill.visible = showSp;
     const spH = Math.max(2, bh * 0.6);
     let ready = false;
     if (showSp) {
       const active = !!(this.flags & UF.SKILL);
       const k = clamp(this.sp / this.spMax, 0, 1);
-      ready = !active && k >= 0.999;
+      ready = !active && k >= 0.999 && !this.isEnemy; // local patch: bullets, not a charged skill
       const sy = cy + bh / 2 + spH / 2 + 1.5;
       this.spBg.position.set(x0 - 1, sy); this.spBg.width = bw + 2; this.spBg.height = spH + 2;
       this.spFill.position.set(x0, sy); this.spFill.width = bw * k; this.spFill.height = spH;

@@ -6,7 +6,7 @@
    notice / flash defaults: upstream's PhaseBanner and cards stay as they are. */
 
 /* ---- round-start banner (round_start_dialog) ------------------------------------------------------------------------ */
-.parb { --pu: .015rem; position: fixed; inset: 0; z-index: var(--z-banner); pointer-events: none; overflow: hidden;
+.parb { --pu: var(--ui-u, .015rem); /* css/hud-art.css */ position: fixed; inset: 0; z-index: var(--z-banner); pointer-events: none; overflow: hidden;
   animation: parb-in .26s var(--ease-out) both; }
 .parb.is-leaving { animation: parb-out .26s var(--ease-in) both; }
 @keyframes parb-in { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
@@ -67,7 +67,13 @@
 
 /* ---- choice screen (autochess_battle_effect_choose_panel) ---------------------------------------------------------- */
 .spov__notice { display: none; }
-.spov.has-phase-art { --pu: .015rem; --pc-tone: #35d8b4; }
+.spov.has-phase-art { --pu: var(--ui-u, .015rem); --pc-tone: #35d8b4; }
+/* (2026-10-06, user report 12) the official panel covers the whole screen — upstream leaves the 2.8rem player column */
+.gm > .spov.has-phase-art { left: 0; right: 0; }
+/* (user report 13) the corner buttons (交流 · 聊天 · 设置 · 说明 · 全屏; screens/game.js renders them beside .gm__hud, not
+   in it) stay above the choice screen (z 20). Otherwise just above the HUD layer (z 3), under the direction wheel (z 6). */
+.gm > .gm__corner { left: calc(.24rem + var(--sa-l, 0px)); bottom: calc(.24rem + var(--sa-b, 0px)); z-index: 3; }
+.gm > .gm__corner.is-over-choice { z-index: 21; }
 .spov.has-phase-art .spov__veil { -webkit-backdrop-filter: none; backdrop-filter: none; border-left: 0;
   background: var(--pc-grad) top / 100% 100% no-repeat, var(--pc-lines) 0 0 / calc(var(--pu) * 32) calc(var(--pu) * 32) repeat, rgba(36, 36, 36, .45); }
 .spov.has-phase-art .spov__veil::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10, 12, 12, .55), rgba(10, 12, 12, .35) 30%, rgba(10, 12, 12, .35)); }
@@ -97,9 +103,9 @@
 .spov.has-phase-art .spov__confirm { display: none; }
 /* cards (card_small_item, 307 × 271): the stacked-paper plate bg_normal, the content inset 20.5 / 21.5, icon 86, name 20 white,
    text 16 #cecece · 80 %; the grid at the prefab size, scaled down to fit two rows of six on a 16:9 screen */
-.spov.has-phase-art .spov__grid { --pu: min(.015rem, .125vh); grid-template-columns: repeat(3, calc(var(--pu) * 307)); grid-template-rows: repeat(2, calc(var(--pu) * 271));
+.spov.has-phase-art .spov__grid { --pu: min(var(--ui-u, .015rem), .125vh); grid-template-columns: repeat(3, calc(var(--pu) * 307)); grid-template-rows: repeat(2, calc(var(--pu) * 271));
   justify-content: center; align-content: center; column-gap: calc(var(--pu) * 25); row-gap: calc(var(--pu) * 34); flex: 1; }
-.spov.has-phase-art .spov__grid--3 { --pu: min(.015rem, .2vh); grid-template-rows: calc(var(--pu) * 271); column-gap: calc(var(--pu) * 48); margin-top: 0; }
+.spov.has-phase-art .spov__grid--3 { --pu: min(var(--ui-u, .015rem), .2vh); grid-template-rows: calc(var(--pu) * 271); column-gap: calc(var(--pu) * 48); margin-top: 0; }
 .spov.has-phase-art .spcard { width: calc(var(--pu) * 307); height: calc(var(--pu) * 271); padding: calc(var(--pu) * 21.5) calc(var(--pu) * 22) 0 calc(var(--pu) * 20.5);
   gap: calc(var(--pu) * 10); overflow: visible; border: 0; box-shadow: none; transform: none; filter: none; color: #fff;
   background: var(--pc-card) center / 100% 100% no-repeat; }

@@ -356,7 +356,7 @@ describe('official shop look (public/js/ui/shopArt.js, css/shop-art.css)', () =>
 describe('official prep-screen HUD (public/js/ui/hudArt.js, css/hud-art.css)', () => {
   test('bond disc board: <max>_<tier> while active, the grey 1_0 ring otherwise; the black icon only at the top tier; no look without the sprites', async () => {
     const { data } = await mod('data.js');
-    const { hudArt, bondBoardStyle } = await mod('ui/hudArt.js');
+    const { hudArt, bondBoardStyle, bondBoardOf } = await mod('ui/hudArt.js');
     const get = data.get;
     const ui = {};
     for (const k of ['1_0', '2_1', '2_2', '3_1', '4_4']) ui[`bondBoardIcon/${k}`] = `/b/${k}.png`;
@@ -366,6 +366,16 @@ describe('official prep-screen HUD (public/js/ui/hudArt.js, css/hud-art.css)', (
       assert.deepEqual(bondBoardStyle(2, 2), { style: '--bb:url("/b/2_2.png")', full: true });
       assert.deepEqual(bondBoardStyle(3, 0), { style: '--bb:url("/b/1_0.png")', full: false });
       assert.equal(bondBoardStyle(6, 6).style, '--bb:url("/b/4_4.png")', 'more than 4 tiers: clamped to the 4-tier boards');
+      // segments = units to activate (thresholds[0]), lit = units present, full disc once active (KR captures 2026-10-06)
+      for (const k of ['3_2', '3_3']) ui[`bondBoardIcon/${k}`] = `/b/${k}.png`;
+      assert.deepEqual(bondBoardOf([3, 6], 2, false), { style: '--bb:url("/b/3_2.png")', full: false }, 'core bond, 2 of 3: two of three segments');
+      assert.deepEqual(bondBoardOf([3, 6], 6, true), { style: '--bb:url("/b/3_3.png")', full: true }, 'active at its 2nd tier: still the full disc');
+      assert.deepEqual(bondBoardOf([2, 3], 1, false), { style: '--bb:url("/b/2_1.png")', full: false }, 'add-on bond: two segments');
+      assert.deepEqual(bondBoardOf([2], 0, false).style, '--bb:url("/b/1_0.png")', 'nobody counted: the grey ring');
+      assert.deepEqual(bondBoardOf([1], 2, false).style, '--bb:url("/b/1_0.png")', '独行 over its cap: the grey ring');
+      // 界面大小 (the PC client's UI_SCALER .9–1): default .9, clamped, steps of .01
+      const { sanitizeUiScale } = await mod('ui/hudArt.js');
+      assert.deepEqual([sanitizeUiScale(null), sanitizeUiScale('x'), sanitizeUiScale(.5), sanitizeUiScale(1.2), sanitizeUiScale(.954)], [.9, .9, .9, 1, .95]);
       assert.deepEqual(hudArt(), { cls: '', style: '' }, 'without the round bar / ready sprites: upstream look');
       Object.assign(ui, { 'hudPanel/bg_board': '/h/b.png', 'hudPanel/bg_rest': '/h/r.png', 'prepReady/ready_bg': '/h/ok.png' });
       data.get = (n) => (n === 'assets' ? { ui: { ...ui } } : get.call(data, n));
@@ -1435,6 +1445,96 @@ describe('假想敌：胄 drone link is exempt from 限伤 (server/sim/content/l
     h.b.loseHp(boss, BOSS_HIT_LIMIT + 1);
     h.b.dealDamage(null, boss, { amount: BOSS_HIT_LIMIT * 2, type: 'true' });
     assert.equal(h.b.sharedBoss.hp, mid, '限伤 still cancels everything else');
+  });
+});
+
+// ---- 圣堂剑士 ammo (server/sim/content/local-patch.js) --------------------------------------------------------------
+
+describe('圣堂剑士 spends ammo for 赐我力量！ (server/sim/content/local-patch.js)', () => {
+  const KEY = simPatch.HLCHGR;
+  const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 2e7, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
+  const arena = (extra) => makeBattle({
+    content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 600,
+    defs: { chess: { t_wall: WALL } }, kits: { t_wall: () => ({ trait: { noAttack: true } }) }, units: [{ chessId: 't_wall', row: 10, col: 3 }],
+  });
+  const put = (h) => h.spawn(KEY, { pos: [10, 8], routeIndex: 0, mods: { speedMul: 0 } });
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, `${a} ≈ ${b}`);
+  const ATK = 400;
+
+  test('upstream: the 6 s timer enhances even while stunned and shows no ammo (drop the patch when this fails)', async () => {
+    const { unitTuple } = await import('../server/sim/snapshot.js');
+    const h = arena([enemiesMod]);
+    h.step();
+    const e = put(h);
+    h.b.applyStatus(e, 'stun', { duration: 99 });
+    h.run(6.1);
+    near(e.s.atk, ATK * 1.2);
+    assert.equal(unitTuple(e, h.b.time)[6], 0, 'no SP / ammo bar');
+  });
+
+  test('5 ammo shown as its SP; every 6 s one cast: ammo −1, ATK +20 %, move speed ×(1 + 20 % × casts), Skill clip; stops at 0 ammo', async () => {
+    const { unitTuple } = await import('../server/sim/snapshot.js');
+    const { ANIM } = await import('../shared/constants.js');
+    const h = arena([enemiesMod, simPatch]);
+    h.step();
+    const e = put(h);
+    const t0 = h.b.time;
+    let tu = unitTuple(e, h.b.time);
+    assert.deepEqual([tu[5], tu[6]], [5, 5], 'ammo 5 / 5');
+    h.run(5.9);
+    near(e.s.atk, ATK);
+    h.runUntil(() => e.s.atk > ATK, 1);
+    assert.ok(Math.abs(h.b.time - t0 - 6) < 0.06, `first cast at 6 s (${h.b.time - t0})`);
+    tu = unitTuple(e, h.b.time);
+    assert.equal(tu[5], 4, 'one bullet spent');
+    assert.equal(tu[8], ANIM.SKILL, 'plays its Skill clip');
+    near(e.s.atk, ATK * 1.2);
+    h.run(30);
+    near(e.s.atk, ATK * 2);
+    assert.equal(e.findBuff('ab:enhance').mods.moveMul, 2, 'FINAL_SCALER move speed 100 % + 5 × 20 %');
+    assert.equal(unitTuple(e, h.b.time)[5], 0, 'out of ammo');
+    h.run(30);
+    near(e.s.atk, ATK * 2);
+  });
+
+  test('a trigger while stunned fails: no bullet spent, tried again 6 s later', async () => {
+    const { unitTuple } = await import('../server/sim/snapshot.js');
+    const h = arena([enemiesMod, simPatch]);
+    h.step();
+    const e = put(h);
+    h.run(5);
+    h.b.applyStatus(e, 'stun', { duration: 2 });
+    h.run(2);
+    near(e.s.atk, ATK);
+    assert.equal(unitTuple(e, h.b.time)[5], 5);
+    h.run(5.1);
+    near(e.s.atk, ATK * 1.2);
+    assert.equal(unitTuple(e, h.b.time)[5], 4);
+  });
+
+  test('real match path (悬赏·特异II enemyeffect_18_4 → buildBattleSpec → createBattleFromSpec): ammo bar and casts', async () => {
+    const { makeMatch, DATA } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const { bountyOf } = await import('../server/sim/content/choices.js');
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 11 }).start();
+    h.toPrep(1);
+    const m = h.m, ps = h.ps('p_0');
+    m.addBounty(ps, bountyOf(DATA.effects.enemyeffect_18_4));
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp_hl', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    b.start();
+    const seen = [];
+    let spawnT = null;
+    while (!b.finished && b.time < 60) {
+      b.step(); b.drainEvents();
+      const e = b.enemies.find((x) => x.defId === KEY && x.alive);
+      if (!e) continue;
+      if (spawnT == null) spawnT = b.time;
+      const row = b.snapshot().units.find((u) => u[0] === e.id); // what the client draws
+      if (row && (!seen.length || seen[seen.length - 1][1] !== row[5])) seen.push([+(b.time - spawnT).toFixed(1), row[5], row[6]]);
+    }
+    assert.ok(spawnT != null, 'the bounty 圣堂剑士 appeared');
+    assert.deepEqual(seen.slice(0, 3).map((x) => x.slice(1)), [[5, 5], [4, 5], [3, 5]], JSON.stringify(seen));
   });
 });
 

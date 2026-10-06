@@ -138,10 +138,17 @@ async function sendLine(text) {
 function ChatLog({ lines, myId }) {
   const ref = useRef(null);
   const stick = useRef(true);
+  const newest = lines.length ? lines[lines.length - 1] : null;
   useEffect(() => {
     const el = ref.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [lines.length ? lines[lines.length - 1].seq : 0]);
+    // the player's own line always brings the log down (user report 2026-10-06: after scrolling up a little a sent
+    // line stayed out of view); again a frame later for a line whose wrap / font settles after this paint
+    if (!el || !(stick.current || (newest && newest.playerId === myId))) return undefined;
+    stick.current = true;
+    el.scrollTop = el.scrollHeight;
+    const raf = requestAnimationFrame(() => { if (stick.current) el.scrollTop = el.scrollHeight; });
+    return () => cancelAnimationFrame(raf);
+  }, [newest ? newest.seq : 0]);
   const onScroll = () => {
     const el = ref.current;
     if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;

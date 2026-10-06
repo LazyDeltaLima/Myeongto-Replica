@@ -9,7 +9,18 @@
    shop (css/shop-art.css): the client's, 1 unit = 1.5 px at 1920×1080 (1280×720 canvas, no scaled parent).
    ========================================================================================== */
 
-.gm.has-hud-art { --u: .015rem; }
+/* The one official-look unit (`--ui-u`, docs/LOCAL-PATCH.md 「크기 단위」): 1 unit of the client's 1280×720 canvas
+   (CanvasScaler ScaleWithScreenSize, match width) × the PC client's UI scale — StandaloneCanvasScaleHelper
+   MIN_SCALE_FACTOR .9 / MAX_SCALE_FACTOR 1 (global-metadata.dat constants; setting key UI_SCALER). Responsive [추정]:
+   1 (the prefab's 1.5 px at 1920 → 1 px at 1280) up to a 1280×720 frame (rem 66.7 px) — phones / small windows keep
+   today's size — then a straight line down to .9 at 1920×1080 (rem 100 px) and .9 above (the KR 3838-wide PC capture:
+   🔍 buttons 1649 px apart = 610 units × 2.70 px = .9 × 3838 / 1280). u = .0105 rem + .3 px meets both ends.
+   hud-art (--u), shop-art (--u), phase-art (--pu) all take it. */
+/* (2nd pass: Settings 「UI 크기」 = `--ui-k`, .9–1, ui/hudArt.js UiScaleSetting) the factor is 1 up to the 1280×720 frame and
+   `--ui-k` from 1920×1080: u = (.045k − .03) rem + (3 − 3k) px between, clamped to [.015k rem, .015 rem] — k .9 gives the
+   line above (.0105 rem + .3 px), k 1 gives today's .015 rem everywhere. */
+:root { --ui-k: .9; --ui-u: clamp(calc(.015rem * var(--ui-k)), calc((.045 * var(--ui-k) - .03) * 1rem + (3 - 3 * var(--ui-k)) * 1px), .015rem); }
+.gm.has-hud-art { --u: var(--ui-u, .015rem); }
 
 /* ---- round bar ---- */
 .gm.has-hud-art .gtop__center {
@@ -111,14 +122,30 @@
 
 /* ---- bond discs (autochess_hud_bond_item) on the bond list's matte ---- */
 /* matte_bg 420×96 (at least), the 9-slice matte (360×96, borders l / r 178); the 84-tall items at its top */
-.gm.has-hud-art .bstrip { gap: 0; padding: 0 calc(var(--u) * 12) calc(var(--u) * 12); min-width: calc(var(--u) * 420); justify-content: center; background: none;
+/* (2026-10-06 2nd pass) the matte is on the list box; the strip is bond_list_info_view's scroll_view: its viewport grows
+   with the items up to `_limitedWidth` 600 units (RectMask2D, softness 15 at the left / right edge), the content scrolls
+   sideways — 7 items of 80 fit, the 8th is cut (KR capture: 7 full discs + half of 라테). The 8 / 6 units above / below
+   keep the full disc's shadow and the names inside the clip. */
+.gm.has-hud-art .gm__bond-list { display: flex; justify-content: center; max-width: 100%; padding: 0 calc(var(--u) * 12) calc(var(--u) * 12); min-width: calc(var(--u) * 420);
   border-image: var(--ha-matte) 0 178 fill / 0 calc(var(--u) * 178); }
-.gm.has-hud-art .bslot { width: calc(var(--u) * 83); height: calc(var(--u) * 84); }
+.gm.has-hud-art .bstrip { gap: 0; padding: calc(var(--u) * 8) 0 calc(var(--u) * 6); margin: calc(var(--u) * -8) 0 calc(var(--u) * -6); min-width: 0;
+  max-width: calc(var(--u) * 600); justify-content: flex-start; background: none; border: 0; border-image: none;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 calc(var(--u) * 15), #000 calc(100% - var(--u) * 15), transparent);
+  mask: linear-gradient(90deg, transparent, #000 calc(var(--u) * 15), #000 calc(100% - var(--u) * 15), transparent); }
+.gm.has-hud-art .bstrip::-webkit-scrollbar { display: none; }
+/* item width = the LayoutElement's preferred 80 (the layout group controls the width; the RectTransform's 83 is unused) */
+.gm.has-hud-art .bslot { flex: none; width: calc(var(--u) * 80); height: calc(var(--u) * 84); }
 .gm.has-hud-art .bslot .bond { --disc: calc(var(--u) * 58); position: relative; width: 100%; height: 100%; display: block; }
+/* the board (bg 80×80): every bondBoardIcon sprite is 77×77 in the client, but the ring ones (`1_0`, `<max>_<n>` below
+   the full disc) are tight-packed — their texture is 64.86×64.86 centred in the 77 rect, and the web PNGs are that
+   texture (65 px). Unity draws the padding, so the rings go at 64.86 / 77 = 84.2 % of the board and only the full discs
+   at 100 % — stretching both to one box made the rings 14 % bigger than an active disc. */
 .gm.has-hud-art .bslot .bond__disc {
   position: absolute; left: 50%; top: calc(50% - var(--u) * 9); width: calc(var(--u) * 80); height: calc(var(--u) * 80); transform: translate(-50%, -50%);
-  background: var(--bb) center / calc(var(--u) * 72) calc(var(--u) * 72) no-repeat;
+  background: var(--bb) center / 84.2% 84.2% no-repeat;
 }
+.gm.has-hud-art .bslot[data-full] .bond__disc { background-size: 100% 100%; }
 .gm.has-hud-art .bslot .bond__ring { display: none; }
 .gm.has-hud-art .bslot .bond__core { width: calc(var(--u) * 36); height: calc(var(--u) * 36); background: none !important; box-shadow: none !important; border: 0; }
 .gm.has-hud-art .bslot .bond__icon { width: 100%; height: 100%; filter: brightness(0) invert(.78); }
@@ -142,6 +169,12 @@
 .gm.has-hud-art .gm__bonds { left: 50%; right: auto; transform: translateX(-50%); max-width: calc(100% - 3.2rem); top: calc(var(--u) * 55); }
 /* the ready count goes under the key hint */
 .gm.has-hud-art .readywrap { gap: calc(var(--u) * 30); }
+/* (2026-10-06 2nd pass) the effects list starts under that count: upstream's fixed 2.4rem put its EFFECTS label / first
+   icon over 「준비 완료 n/4」 (and the Space hint at 1280×720). The column's bottom measures 1.21rem + 113.3 units at
+   every size (countdown .7rem + gaps in rem, the ready button / hint / count in units) → .1rem under it; the
+   readiness reason line adds its own row as upstream does. */
+.gm.has-hud-art .gm__effects { top: max(2.4rem, calc(1.31rem + var(--u) * 114)); }
+.gm.has-hud-art.has-readywhy .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--u) * 114)) + max(.3rem, 16px)); }
 
 /* ---- bond disc, inactive (autochess_hud_bond_item _inactiveColorConfig: name #f4f4f4 at 70 %, stack #b2b2b2) ---- */
 .gm.has-hud-art .bslot:not(.is-active) .bond__name { color: rgba(244, 244, 244, .7); }
@@ -268,8 +301,10 @@
    the text. The < > arrows (btn_prev / btn_next 100×100, arrow 87×86) sit 344 / 339 from the centre (ui/hudArt.js BondNav). ---- */
 .bpop__need, .bpop__stack { display: none; } /* (upstream look: its own facts row) */
 .gm.has-hud-art .bpop {
-  --u: calc(.015rem * .71); /* KR 3838-wide captures: ≈ 620 px wide at 1920, .71 of the prefab's 584 units (a smaller unit, not a transform: a scaled scroller left a stale layer under it) */
-  left: 50%; right: auto; top: calc(.015rem * 132.5); bottom: auto; transform: translateX(-50%); z-index: 10;
+  /* KR 3838-wide captures: ≈ 620 px wide at 1920, .71 of the prefab's 584 units at 1.5 px — fitted to a .9-scaled capture,
+     so .71 / .9 = .789 of `--ui-u` (same size at 1920 as before); a smaller unit, not a transform: a scaled scroller left a stale layer under it */
+  --u: calc(var(--ui-u, .0135rem) * .789);
+  left: 50%; right: auto; top: calc(var(--ui-u, .0135rem) * 147.2); bottom: auto; transform: translateX(-50%); z-index: 10;
   width: calc(var(--u) * 584); height: calc(var(--u) * 379); max-height: none; padding: 0 calc(var(--u) * 20) calc(var(--u) * 30) calc(var(--u) * 24);
   display: flex; flex-direction: column; gap: calc(var(--u) * 19); border: 0; box-shadow: 0 .1rem .3rem rgba(0, 0, 0, .5);
   background: var(--ha-detail-bg, none) center / 100% 100% no-repeat, rgba(30, 30, 30, .94);
@@ -282,8 +317,9 @@
 }
 .gm.has-hud-art .bpop__disc {
   position: absolute; left: calc(var(--u) * 3.4); top: calc(var(--u) * 9.2); width: calc(var(--u) * 80); height: calc(var(--u) * 80);
-  border: 0; border-radius: 0; box-shadow: none; background: var(--bb) center / 100% 100% no-repeat;
+  border: 0; border-radius: 0; box-shadow: none; background: var(--bb) center / 84.2% 84.2% no-repeat; /* the ring sprites' padding: see .bslot .bond__disc */
 }
+.gm.has-hud-art .bpop__disc[data-full] { background-size: 100% 100%; }
 .gm.has-hud-art .bpop__disc .bglyph { width: calc(var(--u) * 36); height: calc(var(--u) * 36); }
 .gm.has-hud-art .bpop__disc .bglyph img { filter: brightness(0) invert(.72); opacity: .8; }
 .gm.has-hud-art .bpop__disc[data-full] .bglyph img { filter: brightness(0); opacity: 1; }
@@ -379,6 +415,13 @@
 @keyframes dart-in { from { opacity: 0; transform: translateX(-.2rem); } }
 .gm.has-hud-art .dpanel--chess.brackets::before, .gm.has-hud-art .dpanel--chess.brackets::after { display: none; }
 .gm.has-hud-art .dpanel--chess .dpanel__close, .dart__head, .dart__mid, .dart__tabs, .dart__pane { pointer-events: auto; }
+/* local patch (2026-10-06, user report 10): the tab text lies over the left bench pads (bench row y ≈ the pane) — the
+   pane passes presses through to the board; only its buttons / chips / thumbnails / tooltip targets take them */
+.gm.has-hud-art .dpanel--chess .dart__pane { pointer-events: none; }
+/* local patch (2026-10-06, user report 14): the selection diamond (ui/underframe.js .uframe--dia) goes under the card
+   (z 9) — a bench pad under the card showed the dashed diamond over its text; the 撤退 / 出售 buttons stay at z 12 */
+.gm.has-hud-art .gm__hud > .uframe--dia { z-index: 8; }
+.gm.has-hud-art .dpanel--chess .dart__pane :is(button, a, [title], [role="button"], .uthumb) { pointer-events: auto; }
 .gm.has-hud-art .dpanel--chess .dpanel__scroll { position: static; height: 100%; padding: 0; overflow: hidden auto; scrollbar-width: thin; display: flex; flex-direction: column; }
 .gm.has-hud-art .dpanel--chess .dpanel__close { top: 1.9rem; right: 2.2rem; border: 0; background: rgba(0, 0, 0, .35); z-index: 3; }
 /* KR captures at 2000×1125 (1rem = 104 px): class icon top ≈ 1.97rem, x .24rem */

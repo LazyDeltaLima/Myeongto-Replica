@@ -21,7 +21,21 @@
 // leader at or above the limit is passed on in equal parts below it (same total, credit and HP; other hits keep 限伤).
 // Expected upstream failure: 「限伤 vs 【死亡集群】」 of test/sim/playtest6_limits.test.js (it asserts the cancel).
 
-import { abOf, attach, hurt, allTargets, areaAlliesInTiles } from './enemies.js';
+//
+// 圣堂剑士 (enemy_10087_hlchgr, 悬赏·特异II) — 赐我力量！ spends ammo. Official data: spData {maxSp 5, initSp 5, increment 0}
+// (弹药上限：5, shown as its SP bar in bullet mode: prefab _showSpAsBulletMode), skill ForeverEnhance spCost 1 {atk_add 0.2,
+// move_speed_add 0.2}, talent SkillTrigger {interval 6, max_stack_cnt 10}. Buff templates (zh_CN buff_template_data):
+// hlchgr_t[skill_trigger] every `interval` s — while hlchgr_t[stack_mark] < max_stack_cnt — TriggerEnemySkill
+// ForeverEnhance (_checkSkillReady: needs the bullet; interrupts the current ability, Skill clip); each cast adds 0.2 to
+// the stored atk (AttributeModifier MULTIPLIER) and move_speed (start 1.0, FINAL_SCALER). PRTS 圣堂剑士: "每6s尝试触发
+// 一次【赐我力量！】，最多成功触发10次 … 自身移动速度最终提升至(100%+增益层数×20%)；自身攻击力+(增益层数×20%)"; 不可被沉默.
+// upstream (content/enemies.js KITS.enemy_10087_hlchgr): the same numbers on a plain 6 s timer, no ammo to see, no cast
+// (it also enhances while stunned) and move speed as +20 % base each. Here: the upstream timer is taken out after
+// enemies.js builds it (priority 99) and the ammo version attached; the bullets go to the snapshot as SP / SP max
+// (`e.lpAmmo`, server/sim/snapshot.js unitTuple 1 line; render/units.js draws an enemy bar only when it has one).
+// [ASSUMED] a trigger while stunned / frozen / asleep fails (no bullet, no count) — an enemy skill cannot start then.
+
+import { abOf, attach, hurt, allTargets, areaAlliesInTiles, canCast, T } from './enemies.js';
 import { BOSS_HIT_LIMIT } from '../../../shared/constants.js';
 
 export const VTSK = 'enemy_10027_vtsk';
@@ -30,7 +44,41 @@ export const BARRAGE_DELAY = 1.33, BARRAGE_STEP = 0.53, BARRAGE_LIFE = 5.85;
 
 export function install(battle) {
   battle.on('enemySpawn', ({ enemy }) => { if (enemy && enemy.defId === VTSK) patchVtsk(battle, enemy); }, { priority: 101 });
+  battle.on('enemySpawn', ({ enemy }) => { if (enemy && enemy.defId === HLCHGR) patchHlchgr(battle, enemy); }, { priority: 99 });
   exemptDroneLink(battle);
+}
+
+export const HLCHGR = 'enemy_10087_hlchgr';
+
+/** After content/enemies.js (priority 100): replace its 6 s timer with the ammo skill. */
+function patchHlchgr(b, e) {
+  const ab = abOf(b, e);
+  const sk = ab.sk.ForeverEnhance;
+  if (!sk) return;
+  ab.list = ab.list.filter((a) => !(a.tick && a.iv > 0 && !a.lpAmmo)); // upstream's only ability: the plain timer
+  const sp = (e.def && e.def.raw && e.def.raw.sp) || {};
+  const max = Math.max(1, Math.floor(Number(sp.maxSp) || 0));
+  e.lpAmmo = { left: Math.min(max, Math.max(0, Math.floor(Number(sp.initSp ?? max) || 0))), max };
+  attach(b, e, [foreverEnhance(ab, sk)]);
+}
+
+/** 赐我力量！: every SkillTrigger.interval s try one cast (≤ max_stack_cnt successes, 1 bullet each). */
+function foreverEnhance(ab, sk) {
+  const maxCasts = T(ab, 'SkillTrigger.max_stack_cnt') ?? Infinity;
+  const cost = Math.max(0, sk.sp ?? 1);
+  const atk0 = T(ab, 'AttributeStorage.atk') ?? 0, move0 = T(ab, 'AttributeStorage.move_speed') ?? 1;
+  return {
+    lpAmmo: true,
+    iv: T(ab, 'SkillTrigger.interval') ?? 6,
+    tick(b, e, a) {
+      const n = a.n ?? 0;
+      if (n >= maxCasts || !(e.lpAmmo.left >= cost) || !canCast(e, false)) return;
+      e.lpAmmo.left -= cost;
+      a.n = n + 1;
+      e.skillAnimUntil = b.time + 0.5;
+      b.addBuff(e, { key: 'ab:enhance', persist: true, mods: { atkPct: atk0 + a.n * (sk.bb.atk_add ?? 0), moveMul: move0 + a.n * (sk.bb.move_speed_add ?? 0) } });
+    },
+  };
 }
 
 const HELM = /^enemy_9013_acstmk/;

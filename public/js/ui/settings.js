@@ -12,6 +12,7 @@ import { detectFeatures } from './device.js';
 import { lang, setLang } from '../i18n/i18n.js';
 import { ResourceSetting } from '../resources.js'; // local patch
 import { VoiceSetting } from '../voice.js'; // local patch
+import { UiScaleSetting } from './hudArt.js'; // local patch: 界面大小 (the PC client's UI_SCALER)
 
 /** Settings store: { bgm, sfx, voice, muted, damageNumbers, quality }. */
 export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));
@@ -76,6 +77,7 @@ export function SettingsModal({ open, onClose }) {
             class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${label}</button>`)}
         </div>
       </div>
+      <${UiScaleSetting} />${/* local patch */ ''}
       <div class="set-row" data-i18n-skip>
         <span class="set-row__label">${lang === 'ko' ? '언어' : '语言'}<${MicroLabel}>LANGUAGE<//></span>
         <div class="set-seg" role="radiogroup">

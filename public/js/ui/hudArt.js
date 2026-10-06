@@ -20,11 +20,48 @@
 //                             sprites are indexed by tier (there is `<max>_1`…`<max>_<max>` and only `1_0`), never by
 //                             the number on the disc: that is the bond's 层数 (stack), so a bond that just activated
 //                             shows its first arc with a 0 on it
+//   bondBoardOf(th, count, active) what the strip / popup pass to it: segments = units needed to activate (th[0]),
+//                             lit = units present, the full disc once active (KR captures, 2026-10-06 2nd pass)
 
 import { data, localAsset } from '../data.js';
 import { uiUrl } from './assetUrls.js';
-import { html } from './components.js';
+import { html, Icon, MicroLabel } from './components.js';
 import { sortBonds } from './gameLogic.js';
+import { createStore, useStore, loadPref, savePref } from '../store.js';
+
+// ---- UI 크기 (the PC client's UI_SCALER setting: StandaloneCanvasScaleHelper MIN_SCALE_FACTOR .9 / MAX 1 / DEFAULT 1,
+// global-metadata.dat; docs/LOCAL-PATCH.md 「크기 단위」) ----
+// The slider sets `--ui-k` on <html>; css/hud-art.css `--ui-u` = the 1280×720 canvas unit × a factor that is 1 up to a
+// 1280×720 frame and reaches `--ui-k` at 1920×1080 (straight line between), so phones / small windows never shrink and
+// moving the slider redraws every official-look panel live. Default .9 (the KR PC capture; = the resolution curve).
+export const UI_SCALE_MIN = 0.9;
+export const UI_SCALE_MAX = 1;
+/** @param {unknown} v @returns {number} .9…1 in steps of .01 (default .9) */
+export function sanitizeUiScale(v) {
+  const n = Number(v);
+  if (v == null || !Number.isFinite(n)) return UI_SCALE_MIN;
+  return Math.round(Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, n)) * 100) / 100;
+}
+export const uiScaleStore = createStore({ k: sanitizeUiScale(loadPref('uiScale', null)) });
+function applyUiScale(k) {
+  try { globalThis.document?.documentElement?.style.setProperty('--ui-k', String(k)); } catch { /* no DOM */ }
+}
+applyUiScale(uiScaleStore.get().k);
+uiScaleStore.subscribe((s) => { savePref('uiScale', s.k); applyUiScale(s.k); });
+/** @param {number} v */
+export function setUiScale(v) { uiScaleStore.set({ k: sanitizeUiScale(v) }); }
+
+/** Settings row (ui/settings.js): 界面大小 90–100 %. */
+export function UiScaleSetting() {
+  const { k } = useStore((x) => x, Object.is, uiScaleStore);
+  const pct = Math.round(k * 100);
+  return html`<label class="set-row" data-ui-scale=${pct}>
+    <span class="set-row__label"><${Icon} name="expand" />界面大小<${MicroLabel}>UI SCALE<//></span>
+    <input class="set-range" type="range" min="90" max="100" step="1" value=${pct} style=${`--pct:${(pct - 90) * 10}%`}
+      onInput=${(e) => setUiScale(Number(e.currentTarget.value) / 100)} />
+    <span class="set-row__val num">${pct}</span>
+  </label>`;
+}
 
 /** CSS variable → web manifest ui key. */
 const WEB = Object.freeze({
@@ -118,6 +155,20 @@ export function bondBoardStyle(maxTier, tier) {
   const t = Math.max(0, Math.min(max, Math.trunc(Number(tier)) || 0));
   const u = uiUrl(data.get('assets'), t > 0 ? `bondBoardIcon/${max}_${t}` : 'bondBoardIcon/1_0');
   return { style: u ? `--bb:url("${u}")` : '', full: t > 0 && t === max };
+}
+
+/**
+ * The board of a bond's disc as the client draws it (KR captures 2026-10-06: 빅토리아 3 segments with 2 lit and a grey
+ * icon, full disc at 3 / 아케인 2 segments with 1 lit): the ring has one segment per unit the bond needs to activate
+ * (act2autochess bondInfoDict activeCount = thresholds[0]: core 3, add-on 2 — not the number of tiers), the units
+ * present light them, and an active bond is the full disc whatever its tier. Inactive with nobody counted (or a
+ * downward bond over its cap): the grey `1_0` ring.
+ * @param {number[]} thresholds @param {number} count units counted (调和's +1 included) @param {boolean} active
+ */
+export function bondBoardOf(thresholds, count, active) {
+  const need = Math.max(1, Math.min(4, Math.trunc(Number(Array.isArray(thresholds) ? thresholds[0] : 0)) || 1));
+  const n = Math.max(0, Math.trunc(Number(count)) || 0);
+  return bondBoardStyle(need, active ? need : Math.min(n, need - 1));
 }
 
 /**

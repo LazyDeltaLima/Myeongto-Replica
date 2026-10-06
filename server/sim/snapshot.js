@@ -100,6 +100,7 @@ export function unitTuple(u, t) {
       sp = spMax * (sk.timeLeft / sk.duration);
     }
   }
+  if (u.lpAmmo) { sp = u.lpAmmo.left; spMax = u.lpAmmo.max; } // local patch: 圣堂剑士 bullets (content/local-patch.js)
   // hp is rounded up (a living unit never shows 0) but never above the rounded max HP
   const maxHp = Math.max(1, Math.round(u.s.maxHp));
   const hp = u.alive ? Math.min(Math.max(1, Math.ceil(u.hp)), maxHp) : 0;

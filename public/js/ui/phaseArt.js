@@ -16,8 +16,10 @@
 //   phaseArt(kind)         { cls, style } — kind 'round' | 'choose' | 'result'
 //   RoundStartBanner       the banner (screens/game.js shows it for the ROUND_START banner when phaseArt('round') has art)
 //   BattleEndBanner        the battle-end banner (screens/game.js, on the own battle's result when phaseArt('result') has art)
-//   useRoundGold(phase, f) the funds the round start credited: own funds now − the last funds known before ROUND_START
-//                          (income + pending + onRoundStart grants arrive with the phase change: Match.startRound)
+//   useRoundGold(phase, f, rg, round) the funds the round start credited: the server's m.private `roundGold` (local patch
+//                          server/local-patch.js — Match.startRound's income + pending + onRoundStart grants), else own
+//                          funds now − the last funds known before ROUND_START (upstream server; often 0: m.private
+//                          with the new funds arrives before the throttled m.public that switches the phase)
 //   useTurnFlash(on)       true for TURN_FLASH_MS after `on` turns true (the client's panel_your_turn_show)
 //   YourTurn               the turn flash (ui/choiceOverlay.js)
 
@@ -111,6 +113,11 @@ const DOTS = [[-40, 4, 0], [-30, -20, 0.15], [36, 14, 0.3], [44, -8, 0.1], [-6, 
 export function RoundStartBanner({ round, gold = null, duration = 1800, onDone }) {
   const [leaving, setLeaving] = useState(false);
   const [gone, setGone] = useState(false);
+  // local patch: keep the credited funds once known — the banner outlives ROUND_START (the phase turns PREP / 机变 while
+  // it still shows, and useRoundGold is null there: the 获得 box dropped to 0)
+  const kept = useRef(null);
+  if (Number.isFinite(gold)) kept.current = gold;
+  gold = kept.current;
   useEffect(() => {
     const t1 = setTimeout(() => setLeaving(true), duration);
     const t2 = setTimeout(() => { setGone(true); onDone?.(); }, duration + 260);
@@ -221,18 +228,22 @@ export function BattleEndBanner({ perfect, lost = 0, duration = 1800, onDone }) 
 }
 
 /**
- * The funds the round start credited (the banner's 获得): own funds now minus the funds of the last render before the
- * phase became ROUND_START, while it is ROUND_START; null otherwise.
+ * The funds the round start credited (the banner's 获得), while it is ROUND_START; null otherwise. The server's
+ * `roundGold { round, gain }` (m.private, server/local-patch.js) of this round when present; else own funds now minus the
+ * funds of the last render before the phase became ROUND_START.
  * @param {string} phase @param {number|null|undefined} funds own m.private funds
+ * @param {{ round: number, gain: number }|null} [rg] m.private roundGold @param {number} [round] m.public round
  */
-export function useRoundGold(phase, funds) {
+export function useRoundGold(phase, funds, rg = null, round = null) {
   const last = useRef({ phase: null, funds: null, base: null });
   const f = Number.isFinite(funds) ? funds : null;
   const L = last.current;
   if (phase === PHASE.ROUND_START && L.phase !== PHASE.ROUND_START) L.base = L.funds;
   L.phase = phase;
   if (f != null) L.funds = f; // the last known funds (a render without the private state keeps them)
-  if (phase !== PHASE.ROUND_START || f == null) return null;
+  if (phase !== PHASE.ROUND_START) return null;
+  if (rg && Number.isFinite(rg.gain) && (round == null || rg.round === round)) return Math.max(0, rg.gain);
+  if (f == null) return null;
   return L.base == null ? null : Math.max(0, f - L.base);
 }
 

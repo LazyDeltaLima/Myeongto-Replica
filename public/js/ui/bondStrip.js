@@ -25,9 +25,17 @@ import { sortBonds, bondMembers, nextThreshold, bondTier, harmonyMembers, HARMON
 import { formatBondEffect } from './richText.js';
 import { bondIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
-import { bondBoardStyle } from './hudArt.js'; // local patch
+import { bondBoardStyle, bondBoardOf } from './hudArt.js'; // local patch
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+
+// local patch: the official list scrolls sideways past 7 bonds (css/hud-art.css) — a vertical wheel scrolls it too
+function stripWheel(e) {
+  const el = e.currentTarget;
+  if (!el || el.scrollWidth <= el.clientWidth + 1 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+  el.scrollLeft += e.deltaY;
+  e.preventDefault();
+}
 
 /** The "👁 name" tag of a teammate's strip (DESIGN §20.15). */
 function OwnerTag({ owner }) {
@@ -49,7 +57,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
   const m = data.get('assets');
   const shown = sorted.slice(0, max);
   const strip = html`<div class=${cx('bstrip', layersDisabled && 'is-frozen', owner && 'is-other')} role="list"
-      aria-label=${owner ? `${owner} 的盟约` : '我的盟约'} data-owner=${owner || null}>
+      aria-label=${owner ? `${owner} 的盟约` : '我的盟约'} data-owner=${owner || null} onWheel=${stripWheel /* local patch */}>
     ${owner ? html`<${OwnerTag} owner=${owner} />` : null}
     ${shown.map((b) => {
       const rec = data.lookup('bonds', b.bondId);
@@ -66,7 +74,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
         </div>`;
       }
       const next = nextThreshold(b.count ?? 0, th);
-      const board = bondBoardStyle(th.length, b.active ? b.tier ?? 0 : 0); // local patch: the official disc board (hudArt.js)
+      const board = bondBoardOf(th, b.count ?? 0, !!b.active); // local patch: the official disc board (hudArt.js)
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null} style=${board.style} data-full=${board.full ? '1' : null}
           class=${cx('bslot', b.active && 'is-active', openId === b.bondId && 'is-open')}>
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : b.layers ?? 0}
@@ -116,8 +124,8 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
       role="dialog" aria-label=${owner ? `${owner} 的盟约：${b.name}` : `盟约：${b.name}`}>
     <button type="button" class="bpop__close" aria-label="关闭" onClick=${onClose}><${Icon} name="close" /></button>
     <header class="bpop__head">
-      <div class=${cx('bpop__disc', active && 'is-active')} style=${bondBoardStyle(th.length, active ? tier : 0).style /* local patch */}
-          data-full=${active && tier >= th.length ? '1' : null}><${BondGlyph} bondId=${bondId} /></div>
+      <div class=${cx('bpop__disc', active && 'is-active')} style=${bondBoardOf(th, count, active).style /* local patch */}
+          data-full=${active ? '1' : null}><${BondGlyph} bondId=${bondId} /></div>
       <div class="bpop__titles">
         <${MicroLabel} tone="mint">${b.isCore ? 'CORE BOND // 核心盟约' : 'ADD-ON BOND // 附加盟约'}</${MicroLabel}>
         ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" /><b>${owner}</b> 的盟约</span>` : null}

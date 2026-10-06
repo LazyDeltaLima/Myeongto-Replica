@@ -237,7 +237,7 @@ function MatchScreen() {
   const battleState = useStore((s) => s.match.battle, shallowEqual); // local battle runner (client-side combat)
 
   const phase = pub?.phase;
-  const roundGold = useRoundGold(phase, priv?.funds); // local patch: the round-start banner's 获得 (ui/phaseArt.js)
+  const roundGold = useRoundGold(phase, priv?.funds, priv?.roundGold, pub?.round); // local patch: the round-start banner's 获得 (ui/phaseArt.js)
   const mode = phaseMode(phase);
   const combat = isCombatPhase(phase);
   const solo = roomSolo || String(pub?.modeId || '').includes('single');
@@ -1359,13 +1359,6 @@ function MatchScreen() {
 
       <${Ticker} />
 
-      <div class="gm__corner">
-        ${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id, set) => actions.emote(id, set)} disabled=${conn.status !== 'online'} />`}
-        ${solo ? null : html`<${GameChat} open=${chatOpen} onToggle=${(v) => { setChatOpen(v); if (v) setEmoteOpen(false); }} disabled=${conn.status !== 'online'} />`}
-        <button type="button" class="gm__gear" aria-label="设置" title="设置" onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
-        <button type="button" class="gm__gear gm__guide" aria-label="玩法说明" title="玩法说明" onClick=${() => openGuide(0)}><${Icon} name="book" /></button>
-        <${FullscreenButton} class="gm__gear gm__fs" />
-      </div>
 
       ${drawer ? html`<${EnemyDrawer} tab=${drawer} onTab=${setDrawer} pub=${pub} priv=${priv} onClose=${() => setDrawer(null)}
         bandId=${scoutBandId} bandOwner=${scoutBandOwner}
@@ -1391,6 +1384,14 @@ function MatchScreen() {
 
     ${sp ? html`<${ChoiceOverlay} pub=${pub} sp=${sp} myId=${myId} solo=${solo} busyIdx=${spBusy} total=${total}
       onPick=${async (i) => { setSpBusy(i); await actions.choice(i); setSpBusy(null); }} />` : null}
+
+    <div class=${sp ? 'gm__corner is-over-choice' : 'gm__corner'}>${/* local patch (user report 13): out of .gm__hud, above the 机变 / 悬赏 screen (css/phase-art.css) */ ''}
+      ${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id, set) => actions.emote(id, set)} disabled=${conn.status !== 'online'} />`}
+      ${solo ? null : html`<${GameChat} open=${chatOpen} onToggle=${(v) => { setChatOpen(v); if (v) setEmoteOpen(false); }} disabled=${conn.status !== 'online'} />`}
+      <button type="button" class="gm__gear" aria-label="设置" title="设置" onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
+      <button type="button" class="gm__gear gm__guide" aria-label="玩法说明" title="玩法说明" onClick=${() => openGuide(0)}><${Icon} name="book" /></button>
+      <${FullscreenButton} class="gm__gear gm__fs" />
+    </div>
 
     ${banner?.result ? html`<${BattleEndBanner} key=${banner.key} perfect=${banner.result.perfect} lost=${banner.result.lost} onDone=${() => setBanner(null)} />`
       : banner && String(banner.key).startsWith(`${PHASE.ROUND_START}:`) && phaseArt('round').cls
