@@ -53,7 +53,13 @@ export function install(battle) {
 }
 
 export const HLCHGR = 'enemy_10087_hlchgr';
-export const NO_AIR_KEYS = Object.freeze(['enemy_1168_dumage', 'enemy_1168_dumage_2']);
+// + the 2026-10-06 sweep of every enemy prefab: normal-attack target filter _targetMotion 1 and PRTS 天赋 「不会攻击飞行单位」
+// (烹泉 / 沏虹 「不可对空」) while upstream sets no rule — 隐形弩手(组长), 隐形术师, “庞贝”, 潜水员, 术师快艇, 无胄盟清扫小队, 烹泉,
+// 沏虹, 家族(暗影)灭迹人, 萨卡兹百夫长, “自在”, “遗弃者”, 假想敌：骨刺, “帝国的甲胄” (docs/LOCAL-PATCH.md for the cases left out)
+export const NO_AIR_KEYS = Object.freeze(['enemy_1168_dumage', 'enemy_1168_dumage_2',
+  'enemy_1019_jshoot', 'enemy_1019_jshoot_2', 'enemy_1023_jmage', 'enemy_1050_lslime', 'enemy_1158_divman', 'enemy_1162_magmot',
+  'enemy_1183_mlasrt', 'enemy_1203_sfhu', 'enemy_1203_sfhu_2', 'enemy_1283_sgkill', 'enemy_1283_sgkill_2', 'enemy_1501_demonk', 'enemy_1517_xi',
+  'enemy_2005_axetro', 'enemy_9008_acbunn', 'enemy_10027_vtsk']);
 
 /** After content/enemies.js (priority 100): replace its 6 s timer with the ammo skill. */
 function patchHlchgr(b, e) {

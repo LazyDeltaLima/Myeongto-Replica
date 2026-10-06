@@ -1564,7 +1564,33 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
     assert.ok(fly.stats.taken > 0);
   });
 
-  for (const key of simPatch.NO_AIR_KEYS) {
+  // sweep 2026-10-06: client prefab normal-attack target filter _targetMotion 1 (ground) + PRTS 「不会攻击飞行单位」/「不可对空」,
+  // upstream lets them shoot a flyer (docs/LOCAL-PATCH.md 「적 비행 유닛 공격 전수 조사」)
+  const SWEPT = ['enemy_1019_jshoot', 'enemy_1019_jshoot_2', 'enemy_1023_jmage', 'enemy_1050_lslime', 'enemy_1158_divman', 'enemy_1162_magmot',
+    'enemy_1183_mlasrt', 'enemy_1203_sfhu', 'enemy_1203_sfhu_2', 'enemy_1283_sgkill', 'enemy_1283_sgkill_2', 'enemy_1501_demonk', 'enemy_1517_xi',
+    'enemy_2005_axetro', 'enemy_9008_acbunn', 'enemy_10027_vtsk'];
+  const FLYER = { isFlying: true, ground: true, s: { flags: {} } }, GROUNDED = { isFlying: false, ground: true, s: { flags: {} } };
+  const ruleOf = (extra, key) => {
+    const h = makeBattle({ content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 60, units: [] });
+    h.step();
+    const e = h.spawn(key, { pos: [6, 8], routeIndex: 0, mods: { speedMul: 0 } });
+    h.run(0.2);
+    const ct = e.profile.canTarget;
+    return { air: typeof ct !== 'function' || !!ct(FLYER), ground: typeof ct !== 'function' || !!ct(GROUNDED) };
+  };
+
+  test('sweep: upstream lets every swept enemy shoot a flyer (drop a key when this fails for it)', () => {
+    for (const key of SWEPT) assert.deepEqual(ruleOf([enemiesMod, bossesMod], key), { air: true, ground: true }, key);
+  });
+
+  test('sweep: patched, every swept enemy keeps ground targets and skips flyers', () => {
+    for (const key of SWEPT) {
+      assert.ok(simPatch.NO_AIR_KEYS.includes(key), `${key} in NO_AIR_KEYS`);
+      assert.deepEqual(ruleOf([enemiesMod, bossesMod, simPatch], key), { air: false, ground: true }, key);
+    }
+  });
+
+  for (const key of ['enemy_1168_dumage', 'enemy_1168_dumage_2']) {
     test(`${key}: only the ground ally in range is shot`, () => {
       const { w, fly } = field([enemiesMod, simPatch], key);
       assert.equal(fly.stats.taken ?? 0, 0, 'the flyer is never hit');
@@ -1572,7 +1598,7 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
     });
   }
 
-  test('real match path (悬赏·折射II enemyeffect_15_5 → buildBattleSpec → createBattleFromSpec): the 炎佑 dragon is never its target', async () => {
+  for (const [EFF, KEY] of [['enemyeffect_15_5', 'enemy_1168_dumage'], ['enemyeffect_14_4', 'enemy_1019_jshoot']]) test(`real match path (bounty ${EFF} → buildBattleSpec → createBattleFromSpec): the 炎佑 dragon is never ${KEY}'s target`, async () => {
     const { makeMatch, give, legalTileFor, DATA } = await import('./match/harness.js');
     const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
     const { bountyOf } = await import('../server/sim/content/choices.js');
@@ -1581,16 +1607,16 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
     const m = h.m, ps = h.ps('p_0');
     // six different 炎 operators: the bond summons the flying 炎佑 (power_bond_char_cnt 6)
     for (const id of ['chess_char_1_03_a', 'chess_char_2_04_a', 'chess_char_3_03_a', 'chess_char_3_04_a', 'chess_char_4_17_a', 'chess_char_5_03_a']) { const at = legalTileFor(m, ps, id); if (at) give(m, ps, id, 'board', at); }
-    m.addBounty(ps, bountyOf(DATA.effects.enemyeffect_15_5));
+    m.addBounty(ps, bountyOf(DATA.effects[EFF]));
     const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp_du', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
     const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
     const hits = [];
-    b.on('damaged', (c) => { if (c.source && c.source.defId === 'enemy_1168_dumage') hits.push(c.target); });
+    b.on('damaged', (c) => { if (c.source && c.source.defId === KEY) hits.push(c.target); });
     b.start();
     let checked = false;
     while (!b.finished && b.time < 90) {
       b.step(); b.drainEvents();
-      const e = b.enemies.find((x) => x.defId === 'enemy_1168_dumage' && x.alive);
+      const e = b.enemies.find((x) => x.defId === KEY && x.alive);
       const y = b.allies().find((u) => u.isFlying);
       if (e && y && !checked) { checked = true; assert.equal(e.profile.canTarget(y), false, 'the dragon is filtered out'); }
     }
