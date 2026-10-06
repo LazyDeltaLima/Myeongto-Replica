@@ -208,6 +208,11 @@ export const FX_KINDS = Object.freeze({
   pull: { a: 'move', c: 0x9fd4ff }, push: { a: 'move', c: 0xffd9a0 }, displace: { a: 'move', c: 0xd0c0a0 }, lure: { a: 'move', c: 0xffb3ec },
   charge: { a: 'move', c: 0xff9c33 }, dash: { a: 'move', c: 0xffd9a0 }, slippery: { a: 'move', c: 0x9fe6ff },
   // pulses
+  wangLink: { a: 'wave', c: 0xffd27a, r: 0.6 }, // local patch: 望's 棋子 activated (golden link pulse)
+  // local patch: 赤刃明霄陈 S3 剑气 — render/fxgame.js carries her official trail; this pulse only without official effects
+  // (low quality / no bundle) [ASSUMED colour]
+  chen3Qi: { a: 'wave', c: 0xff6a4a, r: 0.6 },
+  oblvnsNote: { a: 'none', c: 0xffe6f0 }, // local patch: 丰川祥子's note flight (drawn by render/fxgame.js; the arrow stays the fallback)
   sonic: { a: 'wave', c: 0xc9a2ff, r: 1.5 }, pulse: { a: 'wave', c: 0x9ff0dc }, sermon: { a: 'wave', c: 0xffe28a, r: 1.5 }, ripple: { a: 'wave', c: 0x5fe0ff },
   tornadoPulse: { a: 'wave', c: 0xd8e8ff }, wake: { a: 'wave', c: 0x5fe0ff }, wolfShadow: { a: 'wave', c: 0x8fa0b0 }, wolfShadowLost: { a: 'vanish', c: 0x8fa0b0 },
   redistribute: { a: 'wave', c: 0x62f08a }, dilemma: { a: 'wave', c: 0xc9a2ff },

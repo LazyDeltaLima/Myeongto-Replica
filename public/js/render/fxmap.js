@@ -63,3 +63,34 @@ export function effectsFor(prefabs, kind, skillIndex = 0) {
     default: return [];
   }
 }
+
+// ---- 丰川祥子's notes (kits/diy.js NOTE; battle.fx 'oblvnsNote', local patch 2026-10-06) ----------------------------
+// The client's note projectiles (EN [uc]projectiles.ab projectile_chr_oblvns*: `_mainEffect` = the trail, `_effectsWhenHit`
+// = the hit) per sim note mode, and their flight (a copy of the sim's NOTE — test/local-patch.test.js keeps them equal;
+// `sine` the 扩张正弦 amplitude of the free flight, drawn here only; `pass` the piano note's 【已命中】 flight on through
+// its target: PRTS "固定3.0速度当前方向移动，持续0.5s").
+export const NOTE_FX = Object.freeze({
+  base: { trail: 'oblvns_attack_01_trail', hit: 'oblvns_attack_01_hit' },     // projectile_chr_oblvns
+  talent: { trail: 'oblvns_talent_trail', hit: 'oblvns_attack_01_hit' },      // _talent (持续攻击, no skill)
+  s1: { trail: 'oblvns_skill_01_trail', hit: 'oblvns_skill_01_hit' },         // _s1_1 … _s1_8 (trail, trail_02 … _08)
+  piano: { trail: 'oblvns_skill_02_trail_02', hit: 'oblvns_skill_02_hit_02' }, // _s2 / _s2_t
+  organ: { trail: 'oblvns_skill_02_trail', hit: 'oblvns_skill_02_hit' },       // _s2_slow / _s2_slow_t
+  s3: { trail: 'oblvns_skill_03_trail_02', hit: 'oblvns_skill_03_hit_02' },    // _s3_phy
+  s3m: { trail: 'oblvns_skill_03_trail', hit: 'oblvns_skill_03_hit' },         // _s3_mag
+});
+export const NOTE_FLIGHT = Object.freeze({
+  base: { free: 2.0, track: 2.0, turn: 5 },
+  talent: { free: 1.3, sine: 0.3, track: 2.0, turn: 7 },
+  s1: { free: 1.7, track: 2.2, turn: 5 },
+  piano: { free: 1.9, sine: 0.4, track: 3.5, turn: 15, pass: { speed: 3.0, time: 0.5 } },
+  organ: { free: 0.7, sine: 0.15, track: 1.0, turn: 2.5 },
+  s3: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5 },
+  s3m: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5 },
+});
+/** Trail / hit prefab of a note (`fan` 1–8: the S1 note's own trail). null for an unknown mode. */
+export function noteEffects(mode, fan = 0) {
+  const fx = NOTE_FX[mode];
+  if (!fx) return null;
+  if (mode === 's1' && fan > 1 && fan <= 8) return { trail: `${fx.trail}_0${fan}`, hit: fx.hit };
+  return fx;
+}

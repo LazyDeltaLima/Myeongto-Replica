@@ -434,7 +434,7 @@ export async function createFieldView(host, options = {}) {
     resolution: dpr(), autoDensity: true, powerPreference: 'high-performance',
   });
   const canvas = app.view;
-  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel }); // local patch
+  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1) }); // local patch
   canvas.style.display = 'block';
   canvas.style.width = '100%';
   canvas.style.height = '100%';
@@ -1554,7 +1554,7 @@ export async function createFieldView(host, options = {}) {
         // chain / chainHeal bounces: the "source" is the previous target of the bounce, not an attacker
         if (src && !CHAIN_KINDS.has(e[3])) src.onAttack?.(tgt, now, e[3]);
         if (e[3] === 'none' || !e[3]) { if (tgt && src) meleePending.set(tgt.id, { src, t: now }); }
-        fx.attack(src, tgt, e[3]);
+        fx.attack(src, tgt, fxGame.arrowKind(e)); // local patch: 丰川祥子's note replaces the arrow (render/fxgame.js)
         break;
       }
       case 'dmg': {
@@ -1606,6 +1606,7 @@ export async function createFieldView(host, options = {}) {
           const x = late > 0 ? { ...e[4], late, ...(Number(e[4].dur) > 0 ? { dur: Math.max(0, Number(e[4].dur) - late) } : {}) } : e[4];
           views.get(e[4].id)?.setForm?.(form, x);
         }
+        if (fxGame.ownsFx(e)) break; // local patch: drawn with its official effect (render/fxgame.js)
         if (!(late > 0)) fx.simFx(e[1], Number(e[2]), Number(e[3]), e[4]);
         break;
       }

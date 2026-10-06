@@ -19,6 +19,7 @@ Usage:
     python fx_extract.py --game <Arknights_Data> --build-cab-index .cache/fx-cab-index.json
     python fx_extract.py --game <Arknights_Data> --cab-index .cache/fx-cab-index.json --bundle chen3 [--prefab NAME ...]
                          [--match REGEX] [--list] [--all-skins] [--prune]
+    python fx_extract.py … --bundle wang_token --pack pkgrps/btl_pfb_fx_token_3.ab --match '^token_wang_'   (望's 棋子)
 Default skin only unless --all-skins; --prune deletes textures / meshes no effect uses any more.
 Needs UnityPy + lz4 (requirements.txt); LZ4AK bundles are decoded by aklz4.py.
 """
@@ -566,13 +567,15 @@ class Extractor:
                 return f'mat:{n}' + {4: '.r', 5: '.g', 6: '.b', 7: '.a'}.get(comp, '')
         return None
 
-    def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False):
-        rel = f'battle/prefabs/effects/{bundle}.ab'
+    def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False, pack=None):
+        # pack: a shared battle pack instead (e.g. pkgrps/btl_pfb_fx_token_3.ab, the summons' effects), its roots written
+        # as `bundle` — pick them with --match / --prefab
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
         env = self.load(rel)
         out = OUT
         main_file = None
         for f in env.files.values():
-            if str(getattr(f, 'name', '')).endswith(f'{bundle}.ab'):
+            if str(getattr(f, 'name', '')).endswith(Path(rel).name):
                 main_file = f
         roots = []
         for o in env.objects:
@@ -630,13 +633,15 @@ def main():
     ap.add_argument('--list', action='store_true', help='print the prefab names of the bundles, extract nothing')
     ap.add_argument('--png', action='store_true', help='write PNG textures instead of WebP')
     ap.add_argument('--prune', action='store_true', help='delete textures / meshes no extracted effect references')
+    ap.add_argument('--pack', metavar='REL', help='read the prefabs from this bundle (relative to the bundle folders, e.g. '
+                    'pkgrps/btl_pfb_fx_token_3.ab) and write them as --bundle (local patch: 望\'s 棋子 effects → wang_token)')
     a = ap.parse_args()
     if a.build_cab_index:
         build_cab_index(a.game, a.build_cab_index)
         return
     ex = Extractor(a.game, a.cab_index, png=a.png)
     for b in a.bundle:
-        ex.run(b, set(a.prefab) or None, all_skins=a.all_skins, match=re.compile(a.match) if a.match else None, list_only=a.list)
+        ex.run(b, set(a.prefab) or None, all_skins=a.all_skins, match=re.compile(a.match) if a.match else None, list_only=a.list, pack=a.pack)
     if a.prune:
         prune(OUT)
 

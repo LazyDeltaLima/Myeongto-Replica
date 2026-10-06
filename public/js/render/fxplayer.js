@@ -546,6 +546,12 @@ class TrailRenderer {
 
   get alive() { return this.count > 0; }
 
+  /** Move the recorded points by (x, y, z) in root space (FxInstance.update: the root moved; Unity trails are world space). */
+  shift(x, y, z) {
+    const R = this.ring;
+    for (let k = 0; k < this.count; k++) { const h = ((this.head + k) % TRAIL_KEEP) * 4; R[h] += x; R[h + 1] += y; R[h + 2] += z; }
+  }
+
   dispose() { this.batch.dispose(); }
 }
 
@@ -1010,9 +1016,30 @@ export class FxInstance {
     if (this.empty || this.disposed) return;
     this.time += dt;
     if (this.clip) this.applyClip(Math.min(this.time, this.clip.len));
+    this.followWorld();
     for (const s of this.systems) s.update(dt, this.time);
     for (const t of this.trails) t.update(dt, this.time);
     for (const m of this.meshMatList) m.uniforms.uTime.value = this.time;
+  }
+
+  /**
+   * local patch: Unity's world-space particles and trails stay where they were made when the effect moves (赤刃明霄陈 S3's
+   * 剑气 carries its trail across the board: the dragon's body and tail are its trails). They are kept in root space here,
+   * so when the root has moved since the last frame they are moved back by that much. A still effect: no change.
+   */
+  followWorld() {
+    const root = this.unity;
+    root.updateWorldMatrix(true, false);
+    const e = root.matrixWorld.elements;
+    const prev = this.rootAt || (this.rootAt = [e[12], e[13], e[14]]);
+    if (prev[0] === e[12] && prev[1] === e[13] && prev[2] === e[14]) return;
+    const off = tmpV.set(prev[0], prev[1], prev[2]).applyMatrix4(tmpM.copy(root.matrixWorld).invert());
+    prev[0] = e[12]; prev[1] = e[13]; prev[2] = e[14];
+    for (const s of this.systems) {
+      if (!s.world) continue;
+      for (let i = 0; i < s.n; i++) { s.pos[i * 3] += off.x; s.pos[i * 3 + 1] += off.y; s.pos[i * 3 + 2] += off.z; }
+    }
+    for (const t of this.trails) t.shift(off.x, off.y, off.z);
   }
 
   applyClip(t) {

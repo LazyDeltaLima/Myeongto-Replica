@@ -145,13 +145,13 @@ describe('sim fx coverage', () => {
       if (statSync(p).isDirectory()) walk(p);
       else if (f.endsWith('.js')) {
         const src = readFileSync(p, 'utf8');
-        for (const m of src.matchAll(/\b(?:battle|b|b2|this)\.fx\(\s*'([A-Za-z]+)'/g)) kinds.add(m[1]);
-        for (const m of src.matchAll(/\bfx\((?:battle|b), '([A-Za-z]+)'/g)) kinds.add(m[1]);
-        for (const m of src.matchAll(/[fF]x\(\s*(?:[\w.[\]]+\s*,\s*){0,2}'([A-Za-z]+)'/g)) kinds.add(m[1]);
-        for (const m of src.matchAll(/\bfxOn\(\s*\w+\s*,\s*'([A-Za-z]+)'/g)) kinds.add(m[1]);
+        for (const m of src.matchAll(/\b(?:battle|b|b2|this)\.fx\(\s*'([A-Za-z][A-Za-z0-9]*)'/g)) kinds.add(m[1]);
+        for (const m of src.matchAll(/\bfx\((?:battle|b), '([A-Za-z][A-Za-z0-9]*)'/g)) kinds.add(m[1]);
+        for (const m of src.matchAll(/[fF]x\(\s*(?:[\w.[\]]+\s*,\s*){0,2}'([A-Za-z][A-Za-z0-9]*)'/g)) kinds.add(m[1]);
+        for (const m of src.matchAll(/\bfxOn\(\s*\w+\s*,\s*'([A-Za-z][A-Za-z0-9]*)'/g)) kinds.add(m[1]);
         // kinds passed as options / defaults (tokens.js burst(…, { fx: 'kind' }), `fx = 'kind'`) and ternaries
-        for (const m of src.matchAll(/\bfx\s*[:=]\s*'([A-Za-z]+)'/g)) kinds.add(m[1]);
-        for (const m of src.matchAll(/\.fx\(\s*[\w.!]+\s*\?\s*'([A-Za-z]+)'\s*:\s*'([A-Za-z]+)'/g)) { kinds.add(m[1]); kinds.add(m[2]); }
+        for (const m of src.matchAll(/\bfx\s*[:=]\s*'([A-Za-z][A-Za-z0-9]*)'/g)) kinds.add(m[1]);
+        for (const m of src.matchAll(/\.fx\(\s*[\w.!]+\s*\?\s*'([A-Za-z][A-Za-z0-9]*)'\s*:\s*'([A-Za-z][A-Za-z0-9]*)'/g)) { kinds.add(m[1]); kinds.add(m[2]); }
       }
     }
   };
