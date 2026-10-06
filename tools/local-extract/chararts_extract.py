@@ -12,6 +12,13 @@ frame's centre, y up) — the per-character framing that lines the faces up. Thi
 and merges a `chararts` group into data/local-assets.json (re-read right before writing; other groups kept):
   chararts → { <charId>: { path, w, h, kind: 'Illust', frame: { x, y, w, h } } }   frame = the illust RectTransform
 
+Elite 2 (default, --elite 2): when the bundle has `<charId>_2` (the E2 art: a large scene in which the operator is
+small) and the web mirror's portraits exist, the E2 art is used instead, cropped around the operator: the E2 portrait
+(`/assets/char/portrait/<charId>_2.png`, itself a crop of that art) is found in it by multi-scale template matching
+(OpenCV, score ≥ 0.6), and the E1 portrait in the E1 art the same way; the crop's `frame` is then computed so the E2
+portrait lands exactly where the E1 portrait sits in the E1 frame — the card (ui/detailArt.js) frames it like before,
+no code change. No E2 art, no portrait or a weak match: the E1 art as before. The entry says `elite: 2 | 1`.
+
 Usage (from the repo root; --game = the folder holding chararts/, e.g. the EN client's PersistentData/Bundles):
   .venv-extract/bin/python tools/local-extract/chararts_extract.py --game <Bundles> [--id char_…]… [--max 1024] [--quality 85]
 Everything is (c) Hypergryph; for private, non-commercial fan use only.
@@ -54,14 +61,9 @@ def wanted_ids(root):
     return ids
 
 
-def export_art(ab, cid, out_dir, max_side, quality, log):
-    import aklz4  # noqa: F401  (registers the LZ4AK decoder)
-    import UnityPy
-    from PIL import Image
-    env = UnityPy.load(str(ab))
-    stem = f'{cid}_1'
-    tex = alpha = None
-    frame = None
+def _read(env, stem):
+    """(texture, alpha texture, frame) of `stem` in a chararts bundle."""
+    tex = alpha = frame = None
     objs = {o.path_id: o for o in env.objects}
     for o in env.objects:
         n = o.type.name
@@ -80,24 +82,106 @@ def export_art(ab, cid, out_dir, max_side, quality, log):
                 if co is not None and co.type.name == 'RectTransform':
                     rt = co.read_typetree()
                     p, s = rt['m_AnchoredPosition'], rt['m_SizeDelta']
-                    frame = {'x': round(p['x'], 2), 'y': round(p['y'], 2), 'w': round(s['x'], 2), 'h': round(s['y'], 2)}
-    if tex is None:
-        return None
+                    frame = {'x': p['x'], 'y': p['y'], 'w': s['x'], 'h': s['y']}
+    return tex, alpha, frame
+
+
+def _image(tex, alpha):
+    from PIL import Image
     img = tex.image.convert('RGBA')
     if alpha is not None:  # a separate alpha texture (any size): its channel becomes the art's alpha
-        a = alpha.image.convert('RGB')
-        a = a.convert('L').resize(img.size, Image.LANCZOS)  # stored as grey RGB (its own A is opaque)
+        a = alpha.image.convert('RGB').convert('L').resize(img.size, Image.LANCZOS)  # stored as grey RGB (its own A is opaque)
         img.putalpha(a)
+    return img
+
+
+def find_portrait(art, portrait):
+    """The portrait's rect (x, y, w, h, art px) inside `art` and the match score: multi-scale TM_CCOEFF_NORMED on grey
+    (transparent parts over mid grey) — a coarse pass at half size, then a fine one around the best scale."""
+    import cv2
+    import numpy as np
+    from PIL import Image
+
+    def grey(im):
+        bg = Image.new('RGBA', im.size, (128, 128, 128, 255))
+        bg.alpha_composite(im)
+        return cv2.cvtColor(np.array(bg.convert('RGB')), cv2.COLOR_RGB2GRAY)
+
+    W = art.width
+    def best_over(widths, p, f):
+        best = None
+        ph, pw = p.shape
+        for tw in widths:
+            a = grey(art.resize((max(1, round(tw * f)), max(1, round(tw * f * art.height / W))), Image.BILINEAR))
+            if a.shape[0] < ph or a.shape[1] < pw:
+                continue
+            _, mv, _, ml = cv2.minMaxLoc(cv2.matchTemplate(a, p, cv2.TM_CCOEFF_NORMED))
+            if best is None or mv > best[0]:
+                best = (mv, tw, ml)
+        return best
+
+    P = grey(portrait)
+    half = cv2.resize(P, (P.shape[1] // 2, P.shape[0] // 2), interpolation=cv2.INTER_AREA)
+    coarse = best_over(range(300, 5200, 60), half, 0.5)
+    if coarse is None:
+        return None, 0.0
+    fine = best_over(range(max(300, coarse[1] - 60), coarse[1] + 61, 6), P, 1.0)
+    mv, tw, (x, y) = fine
+    s = W / tw
+    return (x * s, y * s, P.shape[1] * s, P.shape[0] * s), mv
+
+
+def e2_crop(img2, fr2_unused, img1, fr1, por1, por2, log, cid):
+    """The E2 art cropped around the operator + a frame placing its portrait where the E1 portrait sits in the E1 frame."""
+    r1, m1 = find_portrait(img1, por1)
+    r2, m2 = find_portrait(img2, por2)
+    if r1 is None or r2 is None or m1 < 0.6 or m2 < 0.6:
+        log(f'{cid}: E2 match too weak (E1 {m1:.2f}, E2 {m2:.2f}) — E1 art kept')
+        return None
+    # E1: frame units per art px, and the portrait's centre / height in frame units (y up)
+    k1 = fr1['w'] / img1.width
+    U = fr1['x'] + ((r1[0] + r1[2] / 2) / img1.width - 0.5) * fr1['w']
+    V = fr1['y'] - ((r1[1] + r1[3] / 2) / img1.height - 0.5) * fr1['h']
+    k2 = r1[3] * k1 / r2[3]
+    # the crop: about 3.2 portrait heights wide, 4 high, from a portrait height above its centre (head to knees)
+    h2, cx2, cy2 = r2[3], r2[0] + r2[2] / 2, r2[1] + r2[3] / 2
+    x0, y0 = max(0, round(cx2 - 1.6 * h2)), max(0, round(cy2 - 1.0 * h2))
+    x1, y1 = min(img2.width, round(cx2 + 1.6 * h2)), min(img2.height, round(cy2 + 3.0 * h2))
+    crop = img2.crop((x0, y0, x1, y1))
+    cw, ch = crop.size
+    frame = {'x': U - (cx2 - x0 - cw / 2) * k2, 'y': V + (cy2 - y0 - ch / 2) * k2, 'w': cw * k2, 'h': ch * k2}
+    log(f'{cid}: E2 crop {cw}×{ch} at ({x0},{y0}) of {img2.width}², match E1 {m1:.2f} E2 {m2:.2f}')
+    return crop, frame
+
+
+def export_art(ab, cid, out_dir, max_side, quality, log, elite=2, portraits=None):
+    import aklz4  # noqa: F401  (registers the LZ4AK decoder)
+    import UnityPy
+    from PIL import Image
+    env = UnityPy.load(str(ab))
+    tex1, alpha1, frame = _read(env, f'{cid}_1')
+    if tex1 is None:
+        return None
+    img = _image(tex1, alpha1)
+    used = 1
+    if elite >= 2 and portraits and frame:
+        tex2, alpha2, fr2 = _read(env, f'{cid}_2')
+        p1, p2 = Path(portraits) / f'{cid}_1.png', Path(portraits) / f'{cid}_2.png'
+        if tex2 is not None and p1.exists() and p2.exists():
+            got = e2_crop(_image(tex2, alpha2), fr2, img, frame, Image.open(p1).convert('RGBA'), Image.open(p2).convert('RGBA'), log, cid)
+            if got:
+                img, frame = got
+                used = 2
     w, h = img.size
     scale = min(1.0, max_side / max(w, h))
     if scale < 1:
         img = img.resize((max(1, round(w * scale)), max(1, round(h * scale))), Image.LANCZOS)
     out = out_dir / f'{cid}.webp'
     img.save(out, 'WEBP', quality=quality, method=6, exact=False)
-    log(f'{cid}: {w}×{h} → {img.size[0]}×{img.size[1]} {out.stat().st_size // 1024} KB{" (+[alpha])" if alpha is not None else ""}{"" if frame else " (no illust frame)"}')
-    entry = {'path': f'/assets/local/{SUB}/{cid}.webp', 'w': img.size[0], 'h': img.size[1], 'kind': 'Illust'}
+    log(f'{cid}: E{used} {w}×{h} → {img.size[0]}×{img.size[1]} {out.stat().st_size // 1024} KB{"" if frame else " (no illust frame)"}')
+    entry = {'path': f'/assets/local/{SUB}/{cid}.webp', 'w': img.size[0], 'h': img.size[1], 'kind': 'Illust', 'elite': used}
     if frame:
-        entry['frame'] = frame
+        entry['frame'] = {k: round(v, 2) for k, v in frame.items()}
     return entry
 
 
@@ -109,6 +193,8 @@ def main():
     ap.add_argument('--id', action='append', default=[], help='charId (default: every charId of chess.json / diy.json, tokens with art)')
     ap.add_argument('--max', type=int, default=1024, help='long side, px')
     ap.add_argument('--quality', type=int, default=85)
+    ap.add_argument('--elite', type=int, default=2, choices=(1, 2), help='2: the E2 art cropped around the operator when it can be placed')
+    ap.add_argument('--portraits', default=str(ROOT / 'public/assets/char/portrait'), help='the web mirror portraits (<charId>_1/_2.png)')
     args = ap.parse_args()
     game = Path(args.game) / 'chararts'
     out_dir = Path(args.out) / SUB
@@ -121,7 +207,7 @@ def main():
                 print(f'skip (no bundle) {cid}')
             continue
         try:
-            e = export_art(ab, cid, out_dir, args.max, args.quality, print)
+            e = export_art(ab, cid, out_dir, args.max, args.quality, print, args.elite, args.portraits)
         except Exception as ex:  # a broken bundle: report it and go on
             print(f'FAIL {cid}: {ex}')
             continue
