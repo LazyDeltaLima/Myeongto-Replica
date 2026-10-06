@@ -71,6 +71,7 @@ import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTe
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
 import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local patch
+import { UF_CAMOU } from '../../../shared/local.js'; // local patch: 迷彩 icon
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -1360,7 +1361,7 @@ export class UnitView {
     if (f & UF.SLEEP) push('sleep');
     if (f & UF.COLD && !(f & UF.FROZEN)) push('cold');
     if (f & UF.INVULN) push('invuln');
-    if (f & UF.STEALTH) push('stealth');
+    if (f & UF.STEALTH) push(f & UF_CAMOU ? 'camou' : 'stealth'); // local patch: 迷彩 (위장) has its own icon
     for (const k of this.statuses) {
       if (out.length >= 4) break;
       if (k === 'skill') continue;
@@ -1371,6 +1372,7 @@ export class UnitView {
       const icon = statusIconKey(k);
       // flag-driven states are authoritative (a stale 'stun' status must not outlive the flag)
       if (!icon || icon === 'stun' || icon === 'freeze' || icon === 'sleep' || icon === 'stealth' || icon === 'invuln') continue;
+      if (icon === 'camou') continue; // local patch: flag-driven too (UF_CAMOU)
       if (icon === 'cold' && (f & UF.FROZEN)) continue;
       push(icon);
     }

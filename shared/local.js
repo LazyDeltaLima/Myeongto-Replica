@@ -16,6 +16,10 @@ export const CHAT_MAX_LEN = 120;
 export const CHAT_COOLDOWN_MS = 700;
 export const CHAT_HISTORY = 40;
 
+// b.snap unit flag bit beside shared/constants.js UF: the see-through state (UF.STEALTH) is 迷彩 (위장, buffs.js camou),
+// not 隐匿 — render/units.js shows its own icon (docs/LOCAL-PATCH.md "위장 아이콘"). Set only when no 隐匿 is in effect.
+export const UF_CAMOU = 1024;
+
 // chat faction: a colored tag a player may pick for their chat lines and avatar, cleared when the match ends;
 // `bond` is the nation bond whose icon (data/assets.json bonds) shows it
 export const CHAT_FACTIONS = Object.freeze([

@@ -14,6 +14,7 @@
 import { UF, ANIM } from '../../shared/constants.js';
 import { DIE_ANIM_TIME, ATTACK_ANIM_TIME, DEPLOY_ANIM_TIME } from './constants.js';
 import { enemyStealthed } from './targeting.js';
+import { UF_CAMOU } from '../../shared/local.js'; // local patch
 
 const r2 = (v) => Math.round(v * 100) / 100;
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -66,6 +67,7 @@ export function flagsOf(u) {
   // 作战机制 §隐匿 "在被阻挡时开关会被关掉从而失去隐匿，阻挡状态解除后3s开关重新被开启"; targeting.js enemyStealthed): a
   // blocked 逐火 余烬 is drawn solid while the team beats it, and for 3 s after it slips away
   if (u.side === 'enemy' ? (f.stealth && enemyStealthed(u)) || f.camou : f.stealth || f.camou) bits |= UF.STEALTH;
+  if (f.camou && !(u.side === 'enemy' ? f.stealth && enemyStealthed(u) : f.stealth)) bits |= UF_CAMOU; // local patch: 迷彩 icon (shared/local.js)
   if (u.skill && u.skill.active && u.skill.kind !== 'passive') bits |= UF.SKILL;
   if (u.s.shield > 0 || u.buffs.some((b) => b.shieldHits > 0)) bits |= UF.SHIELD;
   if (f.invulnerable) bits |= UF.INVULN;

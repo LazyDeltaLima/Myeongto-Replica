@@ -836,6 +836,7 @@ export function fxAtlas() {
 }
 
 export const STATUS_KEYS = ['stun', 'freeze', 'cold', 'stealth', 'shield', 'fragile', 'sleep', 'invuln', 'silence', 'slow', 'bind', 'fear', 'weaken', 'levitate', 'taunt', 'burn', 'neural', 'necrosis', 'blocked', 'skill', 'doll', 'healFree', 'refraction'];
+STATUS_KEYS.push('camou'); // local patch: 迷彩 (위장) icon, apart from 隐匿 (render/units.js UF_CAMOU)
 
 function drawStatusIcon(c, key, x, y, s) {
   const cx = x + s / 2, cy = y + s / 2;
@@ -856,6 +857,16 @@ function drawStatusIcon(c, key, x, y, s) {
       c.strokeStyle = key === 'freeze' ? '#e8f6ff' : '#9fd4ff'; c.lineWidth = 2;
       for (let k = 0; k < 3; k++) { const a = (k * Math.PI) / 3; c.beginPath(); c.moveTo(cx - Math.cos(a) * 10, cy - Math.sin(a) * 10); c.lineTo(cx + Math.cos(a) * 10, cy + Math.sin(a) * 10); c.stroke(); }
       if (key === 'freeze') { c.strokeStyle = '#9fd4ff'; c.strokeRect(cx - 4, cy - 4, 8, 8); }
+      break;
+    }
+    case 'camou': { // local patch: 迷彩 (위장) — an olive disc with camouflage blotches, a sage rim (隐匿 is the grey slashed eye)
+      disc('rgba(28,36,18,0.92)', '#a9c27a');
+      const blot = (dx, dy, rx, ry, a, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx + dx, cy + dy, rx, ry, a, 0, Math.PI * 2); c.fill(); };
+      blot(-5, -5, 6, 3.6, 0.5, '#6f8f3e');
+      blot(5, -2, 5, 3.2, -0.6, '#c8b77a');
+      blot(-3, 6, 5.5, 3, -0.2, '#4f6b2c');
+      blot(6, 7, 3.4, 2.4, 0.8, '#9fbf6a');
+      blot(0, 0, 2.6, 2, 0, '#2e3f1a');
       break;
     }
     case 'stealth': {
