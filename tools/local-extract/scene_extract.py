@@ -19,11 +19,16 @@ Output (under --out, default public/assets/local):
   scene/<stageId>/geom.bin     per group: position f32×3, normal f32×3, uv0 f32×2, uv1 f32×2, colour u8×4, index u32
   scene/<stageId>/lm*.png      lightmaps (comp_light, RGBM-encoded) and shadowmasks
   scene/tex/<name>.png         theme textures (shared by stages; BC5 normal maps get Z rebuilt, gloss maps → roughness)
-and the manifest groups scene/<stageId> + scene/tex in data/local-assets.json.
+and the manifest groups scene/<stageId> + scene/tex in data/local-assets.json. Like extract.py's board textures
+(WEBP, upstream #186), every texture and lightmap also gets a WebP copy next to its PNG and the manifest lists the
+copy: colour maps (a material's _MainTex only) lossy at quality 95, everything else lossless — normal / roughness /
+emission maps hold per-channel data, and the RGBM lightmaps keep their range in A (≈ 43 → 28 MB for the 11 stages).
 
 Usage (WSL, the EN client on D:):
   .venv-extract/bin/python tools/local-extract/scene_extract.py [--client /mnt/d/YostarGames/Arknights_EN/Arknights_Data]
-      [--stage act2autochess_m04 ...] [--rebuild-index]
+      [--stage act2autochess_m04 ...] [--rebuild-index] [--no-webp]
+  .venv-extract/bin/python tools/local-extract/scene_extract.py --webp    (only the WebP copies, from the PNGs already
+      under --out — e.g. scene art copied to a server; needs Pillow, not the client)
 """
 
 import argparse
@@ -36,7 +41,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from extract import material_info, derive_normal_rg, derive_rough_from_gloss, _normal_z_table, _num  # noqa: E402
+from extract import material_info, derive_normal_rg, derive_rough_from_gloss, _normal_z_table, _num, WEBP_OPTIONS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CLIENT = '/mnt/d/YostarGames/Arknights_EN/Arknights_Data'
@@ -526,6 +531,69 @@ def export_stage(roots, index, stage, out_root, manifest, written):
     return True
 
 
+def webp_modes(out_root):
+    """scene/tex file names to encode lossy: textures some material samples as its colour map (_MainTex) and none
+    samples as a data map."""
+    colour, data = set(), set()
+    for sj in sorted((Path(out_root) / 'scene').glob('*/scene.json')):
+        try:
+            doc = json.loads(sj.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for m in (doc.get('materials') or {}).values():
+            for slot, tx in (m.get('textures') or {}).items():
+                if isinstance(tx, dict) and tx.get('file'):
+                    (colour if slot == '_MainTex' else data).add(tx['file'])
+    return colour - data
+
+
+def apply_webp(out_root, groups, log):
+    """Write a WebP copy next to every scene texture / lightmap PNG of the manifest groups scene/* and point the
+    entries at it (`webp`: the mode). A Pillow without WebP support or a broken PNG keeps that entry's PNG."""
+    from PIL import Image
+    out_root = Path(out_root)
+    lossy = webp_modes(out_root)
+    n = 0
+    for g, entries in groups.items():
+        if not g.startswith('scene/') or not isinstance(entries, dict):
+            continue
+        for key, e in list(entries.items()):
+            if not isinstance(e, dict) or e.get('kind') not in ('Texture2D', 'Lightmap') or not isinstance(e.get('path'), str):
+                continue
+            rel = e['path'][len('/assets/local/'):] if e['path'].startswith('/assets/local/') else None
+            if not rel:
+                continue
+            png = (out_root / rel).with_suffix('.png')
+            if not png.exists():  # a texture an earlier extraction listed (shared scene/tex group) and no stage writes now
+                entries.pop(key)
+                log(f'  drop {g}/{key}: no {png.name}')
+                continue
+            mode = 'lossy' if g == 'scene/tex' and png.name in lossy else 'lossless'
+            dst = png.with_suffix('.webp')
+            try:
+                with Image.open(png) as img:
+                    img.save(dst, 'WEBP', **WEBP_OPTIONS[mode])
+            except Exception as ex:
+                log(f'  warn webp {png.name}: {ex}')
+                e.update(path='/assets/local/' + str(Path(rel).with_suffix('.png')))
+                e.pop('webp', None)
+                continue
+            e.update(path='/assets/local/' + str(Path(rel).with_suffix('.webp')), webp=mode)
+            n += 1
+    log(f'webp: {n} copies ({sum(1 for g in groups if g.startswith("scene/"))} groups)')
+    return n
+
+
+def write_manifest(mpath, groups_update, log):
+    doc = json.loads(mpath.read_text(encoding='utf-8')) if mpath.exists() else {'version': 1, 'source': 'local-client', 'groups': {}}
+    groups = doc.setdefault('groups', {})
+    groups_update(groups)
+    doc['groups'] = dict(sorted(groups.items()))
+    doc['count'] = sum(len(v) for v in groups.values())
+    mpath.write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    log(f'manifest {mpath} ({doc["count"]} entries)')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--client', default=DEFAULT_CLIENT, help='…/Arknights_Data of the client')
@@ -534,7 +602,19 @@ def main():
     ap.add_argument('--manifest', default=str(ROOT / 'data/local-assets.json'))
     ap.add_argument('--index', default=str(ROOT.parent / 'logs/scene-cab-index.json'), help='CAB index cache')
     ap.add_argument('--rebuild-index', action='store_true')
+    ap.add_argument('--no-webp', action='store_true', help='keep the manifest on the PNGs (no WebP copies)')
+    ap.add_argument('--webp', action='store_true',
+                    help='only write the WebP copies of the scene art already under --out and list them (no client)')
     args = ap.parse_args()
+    mpath = Path(args.manifest)
+    out_root = Path(args.out)
+    if args.webp:
+        if not mpath.exists():
+            print(f'no manifest at {mpath}: extract the scenes first', file=sys.stderr)
+            return 2
+        n = [0]
+        write_manifest(mpath, lambda groups: n.__setitem__(0, apply_webp(out_root, groups, log)), log)
+        return 0 if n[0] else 1
 
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     roots = bundle_roots(args.client)
@@ -545,7 +625,6 @@ def main():
     index = build_index(roots, cache) if args.rebuild_index or not cache.exists() else json.loads(cache.read_text(encoding='utf-8'))
     stages = args.stage or sorted(p.name[len('level_'):] for p in (roots['pd'] / SCENE_DIR).glob('act*autochess/level_*')
                                   if p.is_dir() and STAGE_RE.match(p.name[len('level_'):]))
-    out_root = Path(args.out)
     manifest, written, ok = {}, {}, 0
     for stage in stages:
         try:
@@ -554,18 +633,14 @@ def main():
             import traceback
             traceback.print_exc()
             log(f'FAIL {stage}: {e}')
-    mpath = Path(args.manifest)
-    doc = json.loads(mpath.read_text(encoding='utf-8')) if mpath.exists() else {'version': 1, 'source': 'local-client', 'groups': {}}
-    groups = doc.setdefault('groups', {})
-    for k, v in manifest.items():
-        if k == 'scene/tex':
-            groups[k] = {**groups.get(k, {}), **v}
-        else:
-            groups[k] = v
-    doc['groups'] = dict(sorted(groups.items()))
-    doc['count'] = sum(len(v) for v in groups.values())
-    mpath.write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
-    log(f'done: {ok}/{len(stages)} stages, manifest {mpath} ({doc["count"]} entries)')
+
+    def update(groups):
+        for k, v in manifest.items():
+            groups[k] = {**groups.get(k, {}), **v} if k == 'scene/tex' else v
+        if not args.no_webp:
+            apply_webp(out_root, groups, log)
+    write_manifest(mpath, update, log)
+    log(f'done: {ok}/{len(stages)} stages')
     return 0 if ok else 1
 
 

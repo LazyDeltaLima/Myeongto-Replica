@@ -96,6 +96,30 @@ describe('extracted official scenes', { skip: !extracted.length && 'no scene ext
     });
   }
 
+  test('WebP copies (when written): colour maps lossy, data maps and RGBM lightmaps lossless, files on disk', () => {
+    const colour = new Set(), data = new Set();
+    for (const id of extracted) {
+      const doc = JSON.parse(readFileSync(onDisk(manifest.groups[sceneGroup(id)].scene.path), 'utf8'));
+      for (const m of Object.values(doc.materials)) {
+        for (const [slot, tx] of Object.entries(m.textures || {})) if (tx.file) (slot === '_MainTex' ? colour : data).add(tx.file.replace(/\.png$/, ''));
+      }
+    }
+    let n = 0;
+    for (const [g, entries] of Object.entries(manifest.groups)) {
+      if (!g.startsWith('scene/')) continue;
+      for (const [name, e] of Object.entries(entries)) {
+        if (!e.webp) continue;
+        n++;
+        assert.match(e.path, /\.webp$/);
+        assert.ok(existsSync(onDisk(e.path)), `${e.path} on disk`);
+        if (e.kind === 'Lightmap' || data.has(name)) assert.equal(e.webp, 'lossless', `${g}/${name}`);
+        else if (colour.has(name)) assert.equal(e.webp, 'lossy', `${g}/${name}`);
+      }
+    }
+    if (!n) return;  // extracted with --no-webp
+    assert.ok(n >= 40);
+  });
+
   test('built scene: one mesh per group; the hidden sets follow the built areas', () => {
     const id = extracted.includes('act2autochess_m04') ? 'act2autochess_m04' : extracted[0];
     const g = manifest.groups[sceneGroup(id)];

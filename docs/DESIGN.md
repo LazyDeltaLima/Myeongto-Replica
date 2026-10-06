@@ -610,7 +610,9 @@ board's atlas, the first-season look): act1 m01–m07, act2 m02 and m04 use `map
   into board space (Unity tile (r,c) = Anchor (−10,−9,0) + (c, r, −height) → board (ux+10, uy+9, −uz), winding flipped)
   and merged per (material, lightmap, hidden set) → `scene/<stage>/scene.json` + `geom.bin` + `lm*.png`; theme textures
   → `scene/tex/` (Unity DXT5nm normal maps rebuilt to RGB, gloss → roughness). 14–36 groups per stage, 17–80 k
-  triangles (act2 m01: 98 k); 78 MB for the 11 stages.
+  triangles (act2 m01: 98 k). Like the board textures of upstream #186, every texture / lightmap gets a WebP copy the
+  manifest lists: a material's `_MainTex` lossy (q95), every data map and the RGBM lightmaps / shadowmasks lossless
+  (43 → 26 MB; geometry 36 MB); `--webp` converts already-extracted PNGs without the client, `--no-webp` skips it.
 - Hidden sets: the level root's `_settings` (`HIDDEN@1` left normal field, `@2` right normal field, `@3` boss field,
   `hide: 1`, `_hideBakeOffset (50,0,0)`) list the tile graphics (`_gridPos`) and props the client hides while that
   part of the map is not in play; saved inactive. Groups carry their key and `scene.json hidden[key].tiles`; the
