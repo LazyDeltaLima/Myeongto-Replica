@@ -810,6 +810,7 @@
   - `test/render/feedback3-skill-idle.test.js` 「unchanged: … (宴: its loop stays the stance)」, `test/render/feedback4-texas-skill-clip.test.js`
     「unchanged: a Begin clip …」: 宴 S2(skillIndex 1)가 Skill_Start → Skill_Loop(=S1 分神 자세)를 틀길 기대한다 — 아래 "전투 버그 수정" 우타게 항목(2026-10-06).
   - `test/asset-network.test.js` 「CLI source defaults to direct …」(upstream 0.1.4): 음성 기본값 `cn`을 기대한다(로컬은 `kr`).
+  - `test/version.test.js` 「the release version is what players see」: 타이틀·시작 로그가 `v${APP_VERSION}`이길 기대한다 — 로컬은 자체 버전(「버전 표기」).
   - `test/golden.test.js` 「golden roster / bonds / fields / matches」 4개(upstream 0.1.4): 원본 시뮬레이터 결과의 다이제스트를 기대한다 — 로컬 전투 패치(제국의 갑주, 限伤, 성당 검사, 비행 공격 규칙 등)가 결과를 바꾸므로 실패가 정상.
 - `node --test test/local-patch-battle.test.js` — 2026-10-06 플레이 제보 전투 버그 테스트 6개(우타게 S2 그림·저지, 魔王 S3 재분배, 은신·위장 vs 스플래시, 污染秽蚀 vs 은신).
 - `node --test test/local-patch-camou.test.js` — 위장 아이콘(`UF_CAMOU`) 테스트 2개.
