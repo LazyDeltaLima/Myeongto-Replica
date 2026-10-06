@@ -8,6 +8,7 @@
 //   botCap(room)                     Lobby.addBot: the refusal when SP_MAX_BOTS is reached, else null
 //   maxBotsSetting()                 room.state `maxBots` (null when unset)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
+//   dbg.funds / dbg.addDiy           (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
 //
 // 선발 오퍼레이터 (甄选 / DIY picks, shared/diy.js): no hook line — SharedPool / PlayerState are wrapped at import below.
 // A player's picks (loadout entries with `diy`) are pool entries of their own: cap = the tier's copies × the players who
@@ -34,6 +35,7 @@ import { SharedPool } from './match/pool.js';
 import { PlayerState } from './match/PlayerState.js';
 import { Match } from './match/Match.js';
 import { diyPicks, diyEquipRefused } from '../shared/diy.js';
+import { loadoutOptions, MODULE_NONE } from '../shared/protocol.js';
 
 const OK = Object.freeze({ ok: true });
 
@@ -90,6 +92,7 @@ const factionsMsg = (c) => ({ t: 'room.factions', factions: Object.fromEntries(c
 export function onMessage(lobby, session, msg) {
   if (msg.t === 'room.chat') return chat(lobby, session, msg);
   if (msg.t === 'room.chatFaction') return pickFaction(lobby, session, msg);
+  if (msg.t === 'dbg.funds' || msg.t === 'dbg.addDiy') return debugMessage(lobby, session, msg); // local debug mode only
   return null;
 }
 
@@ -240,13 +243,23 @@ export function debugFunds(env = process.env) {
   return Number.isInteger(n) && n >= 0 && n <= 999 ? n : null;
 }
 const FIXED_FUNDS = debugFunds();
-if (FIXED_FUNDS != null) {
-  console.warn(`[local-patch] SP_DEBUG_FUNDS: human players' funds fixed at ${FIXED_FUNDS} (debug only)`);
+// The in-game debug panel (below) toggles the pin per player: `ps.debugFundsPin` = the pinned value, null = real funds,
+// undefined = the env default (FIXED_FUNDS). The accessor is installed only in local debug mode — at startup when
+// SP_DEBUG_FUNDS is set, else on the first dbg.funds — so a deployed server keeps upstream's plain `funds` field.
+let fundsPinInstalled = false;
+function installFundsPin() {
+  if (fundsPinInstalled) return;
+  fundsPinInstalled = true;
   Object.defineProperty(PlayerState.prototype, 'funds', {
     configurable: true,
-    get() { return this.isBot ? (this._funds ?? 0) : FIXED_FUNDS; },
+    get() { const pin = fundsPinOf(this); return pin == null ? (this._funds ?? 0) : pin; },
     set(v) { this._funds = v; },
   });
+}
+const fundsPinOf = (ps) => (ps.isBot ? null : ps.debugFundsPin === undefined ? FIXED_FUNDS : ps.debugFundsPin);
+if (FIXED_FUNDS != null && debugMode()) {
+  console.warn(`[local-patch] SP_DEBUG_FUNDS: human players' funds fixed at ${FIXED_FUNDS} (debug only)`);
+  installFundsPin();
 }
 
 const upstreamSetLoadout = PlayerState.prototype.setLoadout;
@@ -324,3 +337,149 @@ export function debugPageHidden(decodedPath, env = process.env) {
  * room counters to the in-container checks (Dockerfile HEALTHCHECK, oci/deploy.sh `docker exec … wget`).
  */
 export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-forwarded-for']);
+
+// ---- local debug mode: the in-game debug panel (public/js/ui/debugPanel.js) --------------------------------------
+//
+// Local debug mode = SP_DEBUG_PAGE=1 or a valid SP_DEBUG_FUNDS, and NODE_ENV is not 'production'. 
+// local.sh sets both; the OCI / NAS compose files set neither and the Docker image sets NODE_ENV=production, so a
+// deployed server is never in it. Only then:
+//   m.private.debug = { fundsPin, pinValue, candidates }   (privateView wrapper, installed at import) — the client
+//                     renders the panel only when this is present
+//   dbg.funds { on }        the sender's funds pinned to pinValue (SP_DEBUG_FUNDS, else 99) or back to real funds
+//                           (they keep the pinned value and move normally from there)
+//   dbg.addDiy { chessId, skill?, module? }
+//                           a 甄选 candidate's chess (chess_diy_<key>_<5|6>_<a|b>) into the sender's hand through
+//                           PlayerState.acquireChess (merges, onGain, m.private), prep only, refused with a full hand
+//                           unless it completes a merge; no pool copies are taken (diyOwned / the shop are unchanged).
+//                           skill / module (module: elite only, a uniEquipId of the elite record or 'none') are checked
+//                           with loadoutOptions — the room.loadout rule — and written into the player's loadout entry of
+//                           that base chess id (DESIGN §16), so loadoutFor / battleInput / m.private.loadout use them.
+//                           The entry keeps its 甄选 `diy` slot when it has one and never gains one: an unpicked operator
+//                           is no pick (diyPicks reads `diy` only) and never reaches the shop.
+// Outside debug mode both messages are refused as BAD_MSG (the server never trusts the client's panel).
+
+export const DEBUG_PIN_DEFAULT = 99;
+
+/** Whether this server runs in local debug mode (see above). */
+export function debugMode(env = process.env) {
+  if (env.NODE_ENV === 'production') return false;
+  return env.SP_DEBUG_PAGE === '1' || debugFunds(env) != null;
+}
+
+/** loadoutOptions of a pick's base chess id (its elite record for the modules), or null. */
+function debugOptions(gd, baseId) {
+  const base = gd.chess(baseId);
+  if (!base || !base.diyPick || base.isGolden) return null;
+  return { base, golden: base.goldenId ? gd.chess(base.goldenId) || null : null, opt: loadoutOptions(base, base.goldenId ? gd.chess(base.goldenId) || null : null) };
+}
+
+/**
+ * The 甄选 candidates offered by the panel (data/diy.json `candidates`, else the tier-V pick records):
+ * [{ key, name, tiers: { 5|6: { baseId, skills: [{ index, name }], defaultSkill, modules: [{ id, name, type }], defaultModule } } }]
+ * — modules are the elite record's (plus 'none'); the client picks the current loadout entry over the defaults.
+ */
+export function debugCandidates(gd) {
+  const list = gd?.raw?.diy?.candidates;
+  const keys = Array.isArray(list) && list.length ? list.map((c) => ({ key: c.key, name: c.name }))
+    : Object.values(gd?.raw?.chess || {}).filter((c) => c && c.diyPick && !c.isGolden && c.tier === 5)
+      .map((c) => ({ key: /^chess_diy_(.+)_5_a$/.exec(c.chessId)?.[1], name: c.name })).filter((c) => c.key);
+  return keys.map(({ key, name }) => {
+    const tiers = {};
+    for (const t of [5, 6]) {
+      const o = typeof gd?.chess === 'function' ? debugOptions(gd, `chess_diy_${key}_${t}_a`) : null;
+      if (!o) continue;
+      const skillName = (i) => (o.base.skills || []).find((s) => s && s.index === i)?.name || '';
+      const mod = (id) => (o.golden?.modules || []).find((x) => x && x.uniEquipId === id) || null;
+      tiers[t] = {
+        baseId: o.base.chessId,
+        skills: o.opt.skills.map((i) => ({ index: i, name: skillName(i) })), defaultSkill: o.opt.defaultSkill,
+        modules: o.opt.modules.map((id) => ({ id, name: id === MODULE_NONE ? '' : mod(id)?.name || id, type: mod(id)?.typeName || '' })),
+        defaultModule: o.opt.defaultModule,
+      };
+    }
+    return { key, name, tiers };
+  });
+}
+
+/**
+ * The loadout entry a dbg.addDiy choice sets for `chessId`'s base chess (the room.loadout checks, loadoutOptions), or
+ * an error. skill omitted = the current one; module only for an elite (omitted = the current one), refused for a normal.
+ * The entry's 甄选 slot (`diy`) is kept as it is — never added.
+ */
+export function debugLoadoutEntry(ps, chessId, skill, module) {
+  const rec = ps.gd.chess(chessId);
+  const o = rec && debugOptions(ps.gd, rec.baseId || rec.chessId);
+  if (!o) return fail(ERR.BAD_TARGET, 'no 甄选 operator');
+  const prev = Object.hasOwn(ps.loadout, o.base.chessId) ? ps.loadout[o.base.chessId] : null;
+  const cur = ps.loadoutFor(o.golden || o.base);
+  if (skill !== undefined && !o.opt.skills.includes(skill)) return fail(ERR.BAD_TARGET, `skill ${skill} not available for ${o.base.chessId}`);
+  if (module !== undefined && !rec.isGolden) return fail(ERR.BAD_TARGET, 'a normal operator has no module');
+  if (module !== undefined && !o.opt.modules.includes(module)) return fail(ERR.BAD_TARGET, `module ${module} not available for ${o.base.chessId}`);
+  const entry = {
+    skill: skill ?? cur.skillIndex ?? o.opt.defaultSkill,
+    module: o.golden ? (module ?? cur.moduleId ?? o.opt.defaultModule) : null,
+    ...(prev && prev.diy ? { diy: prev.diy } : {}),
+  };
+  return { ok: true, baseId: o.base.chessId, entry: Object.freeze(entry) };
+}
+
+/** m.private.debug of a human player (debug mode only). */
+export function debugView(ps) {
+  if (!ps || ps.isBot) return null;
+  if (!ps.m.debugCandidates) ps.m.debugCandidates = debugCandidates(ps.gd);
+  return { fundsPin: fundsPinOf(ps) != null, pinValue: FIXED_FUNDS ?? DEBUG_PIN_DEFAULT, candidates: ps.m.debugCandidates };
+}
+
+/**
+ * A debug intent of a match player. `env` decides debug mode (tests pass their own).
+ * @returns {{ ok: true } | { error: string, detail?: string }}
+ */
+export function debugIntent(m, playerId, msg, env = process.env) {
+  if (!debugMode(env)) return fail(ERR.BAD_MSG, 'debug mode is off');
+  const ps = m && m.players && m.players.get(playerId);
+  if (!ps || ps.isBot || ps.left || ps.spectator) return fail(ERR.NOT_IN_ROOM);
+  if (m.disposed || m.ended) return fail(ERR.WRONG_PHASE);
+  if (msg.t === 'dbg.funds') {
+    installFundsPin();
+    if (Object.hasOwn(ps, 'funds')) { const v = ps.funds; delete ps.funds; ps._funds = v; } // created before the accessor
+    if (msg.on) ps.debugFundsPin = FIXED_FUNDS ?? DEBUG_PIN_DEFAULT;
+    else { ps._funds = ps.funds; ps.debugFundsPin = null; }
+    ps.dirty();
+    return OK;
+  }
+  if (msg.t === 'dbg.addDiy') {
+    const rec = m.gd.chess(msg.chessId);
+    if (!rec || !rec.diyPick) return fail(ERR.BAD_TARGET, 'no 甄选 operator');
+    const g = ps._gate({ allowWhenReady: true }); if (g) return g;
+    const lo = debugLoadoutEntry(ps, msg.chessId, msg.skill, msg.module);
+    if (lo.error) return lo;
+    if (!ps.hand.includes(null) && !ps.completesChessMerge(msg.chessId)) return fail(ERR.HAND_FULL);
+    const before = ps.loadout;
+    ps.loadout = Object.freeze({ ...before, [lo.baseId]: lo.entry }); // before the gain: onGain / summons read it
+    const piece = ps.acquireChess(msg.chessId, { source: 'grant', fromPool: false });
+    if (!piece) { ps.loadout = before; return fail(ERR.HAND_FULL); }
+    ps.dirty();
+    return OK;
+  }
+  return fail(ERR.BAD_MSG);
+}
+
+function debugMessage(lobby, session, msg) {
+  if (!debugMode()) return fail(ERR.BAD_MSG, 'debug mode is off');
+  const room = lobby.roomOf(session);
+  if (!room) return fail(ERR.NOT_IN_ROOM);
+  if (!room.match) return fail(ERR.WRONG_PHASE, 'no running match');
+  const res = debugIntent(room.match, session.playerId, msg);
+  try { room.match.flush?.(); } catch { /* the next push carries it */ }
+  return res;
+}
+
+if (debugMode()) {
+  console.warn('[local-patch] local debug mode: in-game debug panel on (dbg.funds / dbg.addDiy)');
+  const upstreamView = PlayerState.prototype.privateView;
+  PlayerState.prototype.privateView = function privateView() {
+    const v = upstreamView.call(this);
+    try { if (v) v.debug = debugView(this); } catch { /* display only */ }
+    return v;
+  };
+}

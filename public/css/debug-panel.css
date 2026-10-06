@@ -1,0 +1,26 @@
+/* In-game debug panel (local patch, docs/LOCAL-PATCH.md; public/js/ui/debugPanel.js) — local debug mode only.
+   Left of the board (clear of its left wing at every size), under the bond strip and right of the team panel: an empty strip of the match screen. The bond
+   popup and the detail card (left 2.3rem, top 2.1rem, z-index 8/9) open over it. */
+.dbgp {
+  position: absolute; left: 2.3rem; top: 1.86rem; z-index: 5; width: 2.1rem;
+  font-size: .13rem; color: var(--text-hi, #e8f0ec);
+  background: rgba(8, 11, 10, .82); border: 1px dashed rgba(255, 120, 47, .7);
+}
+.dbgp__head {
+  display: flex; width: 100%; align-items: center; justify-content: space-between; padding: .03rem .08rem;
+  background: rgba(255, 120, 47, .18); color: #ff9a5c; border: 0; font: inherit; font-weight: 700; letter-spacing: .12em; cursor: pointer;
+}
+.dbgp__fold { letter-spacing: 0; }
+.dbgp__body { display: flex; flex-direction: column; gap: .05rem; padding: .06rem .07rem .07rem; }
+.dbgp__pin { display: flex; align-items: center; gap: .06rem; cursor: pointer; }
+.dbgp__pin input { width: .18rem; height: .18rem; margin: 0; accent-color: #ff9a5c; }
+.dbgp__row { display: flex; align-items: center; gap: .06rem; }
+.dbgp__label { flex: none; min-width: .34rem; color: var(--text-lo, #9aa8a2); }
+.dbgp select {
+  flex: 1; min-width: 0; height: .26rem; font: inherit; color: inherit;
+  background: rgba(0, 0, 0, .55); border: 1px solid var(--line-2, #2c3833);
+}
+.dbgp__add {
+  height: .28rem; font: inherit; font-weight: 700; color: #1d1400; background: #ff9a5c; border: 0; cursor: pointer;
+}
+.dbgp__add:disabled { opacity: .45; cursor: default; }
