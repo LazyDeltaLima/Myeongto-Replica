@@ -425,10 +425,16 @@ def _text_bytes(text_asset):
 
 def merge_alpha(rgb, alpha):
     """RGBA page of a split texture: RGB of the main texture (premultiplied: the client's Spine material has
-    _StraightAlphaInput 0) and A from its [alpha] texture; RGB is clamped to A (block-compression bleed)."""
+    _StraightAlphaInput 0) and A from its [alpha] texture; RGB is clamped to A (block-compression bleed). Without an
+    [alpha] texture (the material's _AlphaTex empty: 望's 棋子, 维什戴尔's 魂灵之影) A is the main texture's own."""
     from PIL import Image, ImageChops
     r, g, b = rgb.convert('RGB').split()
-    a = alpha.convert('L').resize(rgb.size) if alpha is not None else Image.new('L', rgb.size, 255)
+    if alpha is not None:
+        a = alpha.convert('L').resize(rgb.size)
+    elif rgb.mode in ('RGBA', 'LA') or 'transparency' in rgb.info:
+        a = rgb.convert('RGBA').split()[3]
+    else:
+        a = Image.new('L', rgb.size, 255)
     return Image.merge('RGBA', tuple(ImageChops.darker(ch, a) for ch in (r, g, b)) + (a,))
 
 

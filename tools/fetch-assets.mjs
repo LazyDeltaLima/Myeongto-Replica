@@ -42,6 +42,7 @@ import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
 import { tidyVoice } from './assets/voice.mjs'; // local patch
 import { addDiyOperators } from './assets/diy.mjs'; // local patch
+import { addDiyTokenAssets, addDiyTokenModels } from './assets/local-token-spines.mjs'; // local patch
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = join(ROOT, 'public', 'assets');
@@ -221,6 +222,7 @@ async function main() {
     readJson('docs/research/05-maps.json'),
   ]);
   addDiyOperators(assets07, await readJson('data/diy.json').catch(() => null)); // local patch: 甄选 candidates' art
+  addDiyTokenAssets(assets07, await readJson('data/diy.json').catch(() => null)); // local patch: 甄选 tokens' avatars
   const { audioData, modelsData } = await loadIndexes(ROOT, { refresh: opts.refreshIndex && !opts.offline, offline: opts.offline, log });
   const audio = indexAudio(audioData);
   // The game data built by tools/build-data.mjs (when present) may reference more
@@ -237,6 +239,7 @@ async function main() {
     extraHandbook,
     localEnemySpines,
   });
+  await addDiyTokenModels(plan, await readJson('data/diy.json').catch(() => null)); // local patch: local-client token models
   const leaves = collectLeaves(plan.template);
   log(`[plan] ${leaves.length} files + ${plan.models.size} Spine models ` +
     `(${Object.keys(plan.template.chars).length} chars, ${Object.keys(plan.template.enemies).length} enemies, ` +

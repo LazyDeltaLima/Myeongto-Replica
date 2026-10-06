@@ -155,7 +155,7 @@ export function spineEntry(m, id, opts) {
     return validSpine(sp) ? sp : null;
   }
   const tk = get(get(m, 'tokens'), s);
-  if (tk) return validSpine(tk.spine) ? tk.spine : null;
+  if (tk) return (opts && opts.local && localSpineEntry(tk.spineLocal, opts.local, validSpine(tk.spine) ? tk.spine : null)) || (validSpine(tk.spine) ? tk.spine : null); // local patch: local-client token models (선발 summons)
   const en = get(get(m, 'enemies'), s);
   if (en) {
     let web = null;

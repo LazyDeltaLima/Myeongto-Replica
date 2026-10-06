@@ -1,0 +1,95 @@
+{
+  "about": "Spine metadata of the 선발 operators' token models only the local client has (tools/local-extract/token_spines.py); data/assets.json tokens[id].spineLocal. Written by node tools/assets/local-token-spines.mjs (local patch).",
+  "models": {
+    "token_10035_wisdel_wward": {
+      "skel": "token_10035_wisdel_wward.skel",
+      "atlas": "token_10035_wisdel_wward.atlas",
+      "textures": [
+        "token_10035_wisdel_wward.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack": 2.033,
+        "Die": 1,
+        "Idle": 2,
+        "Start": 1
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Attack": [
+          0.033
+        ]
+      },
+      "bounds": null
+    },
+    "token_10064_wang_stone1": {
+      "skel": "token_10064_wang_stone1.skel",
+      "atlas": "token_10064_wang_stone1.atlas",
+      "textures": [
+        "token_10064_wang_stone1.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Start",
+        "attack": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack": 0.333,
+        "Default": 0,
+        "Idle": 1.667,
+        "Start": 0.333
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Attack": [
+          0.167
+        ]
+      },
+      "bounds": null
+    }
+  }
+}

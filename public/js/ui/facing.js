@@ -14,6 +14,7 @@
 
 import { GEO } from '../../../shared/constants.js';
 import { attackRangeGrid } from '../../../shared/loadoutRecord.js';
+import { facingless } from '../../../shared/trap-tokens.js'; // local patch
 
 export const DIRS = Object.freeze(['UP', 'RIGHT', 'DOWN', 'LEFT']);
 export const DEFAULT_DIR = 'RIGHT';
@@ -169,6 +170,7 @@ export function needsFacing(ctx, uid, target, res) {
   if (!res || !res.ok || !isObj(target) || target.area !== 'board') return false;
   const piece = ctx?.pieces?.get(uid)?.piece;
   if (!piece) return false;
+  if (piece.kind === 'token' && facingless(piece.id)) return false; // local patch: no direction step
   if (piece.kind === 'chess' || piece.kind === 'token') return res.action === 'move' || res.action === 'swap' || res.action === 'orient';
   if (piece.kind === 'item' && res.action === 'art') return artHasFacing(ctx.getItem?.(piece.id));
   return false;

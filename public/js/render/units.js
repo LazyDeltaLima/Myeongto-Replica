@@ -70,6 +70,7 @@ import { SpineActor } from './spine.js';
 import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
+import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local patch
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -978,7 +979,8 @@ export class UnitView {
 
     // facing chevron on the ground, like the original's orange › (research 09 §1.2: prep and combat): own prep pieces
     // on the board (app.js sets _showFacing; bench pieces have none); battle / scouting allies whose dir is known
-    const wedge = this._showFacing !== undefined ? this._showFacing && this.prep : this.hasDir && this.info.kind !== 'device';
+    let wedge = this._showFacing !== undefined ? this._showFacing && this.prep : this.hasDir && this.info.kind !== 'device';
+    if (wedge && facingless(this.info.defId)) wedge = false; // local patch: summons placed without a facing
     if (wedge && this.alive) {
       if (!this.facingArrow) {
         this.facingArrow = new P.Sprite(fxAtlas().tex.chevron);
@@ -1047,7 +1049,7 @@ export class UnitView {
     const prep = this.prep;
     const showBars = !prep && this.alive && this.info.kind !== 'item';
     const damaged = this.hp < this.maxHp - 0.5;
-    const showHp = showBars && (!this.isEnemy || damaged || this.isBoss);
+    const showHp = showBars && (!this.isEnemy || damaged || this.isBoss) && !noHpBar(this.info.defId); // local patch: traps
     const bw = clamp(s * (this.isBoss ? UNIT.bossBarWidth : UNIT.barWidth), 24, this.isBoss ? 260 : 96);
     const bh = clamp(s * (this.isBoss ? 0.12 : 0.075), 3, this.isBoss ? 12 : 7);
     // a knocked-down operator's HUD is its redeploy ring alone, drawn at full strength over the greyed model
