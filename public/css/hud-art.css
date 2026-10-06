@@ -126,12 +126,12 @@
 /* the stack number on matte_num (42×25, 16 px white), on the ring's lower edge (KR captures: ≈ .75 of the radius under
    the centre; the prefab's 8 units looked too high in play, user 2026-10-06) */
 .gm.has-hud-art .bslot .bond__count {
-  position: absolute; left: 50%; top: calc(50% + var(--u) * 19); right: auto; bottom: auto; transform: translate(-50%, -50%);
+  position: absolute; left: 50%; top: calc(50% + var(--u) * 15); right: auto; bottom: auto; transform: translate(-50%, -50%);
   min-width: calc(var(--u) * 42); height: calc(var(--u) * 25); padding: 0 calc(var(--u) * 4); display: grid; place-items: center;
   background: var(--ha-num) center / 100% 100% no-repeat; border: 0; border-radius: 0; color: #fff; font-size: calc(var(--u) * 16); box-shadow: none;
 }
 .gm.has-hud-art .bslot .bond__name {
-  position: absolute; left: 50%; top: calc(50% + var(--u) * 42); transform: translate(-50%, -50%); font-size: calc(var(--u) * 14); /* under the lowered stack number (KR captures) */ color: #fff; font-weight: 500;
+  position: absolute; left: 50%; top: calc(50% + var(--u) * 33); transform: translate(-50%, -50%); font-size: calc(var(--u) * 14); /* under the lowered stack number (KR captures) */ color: #fff; font-weight: 500;
 }
 /* the count / next threshold is not on the official disc (its tooltip keeps it) */
 .gm.has-hud-art .bslot__count:not(.bslot__off) { display: none; }
@@ -155,7 +155,7 @@
 .gm.has-hud-art.has-hud-fold .gm__bond-list { order: 1; }
 .gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle {
   order: 2; position: relative; min-width: calc(var(--u) * 102); min-height: 0; height: calc(var(--u) * 26); padding: 0;
-  margin-top: calc(var(--u) * -11.5); border: 0; color: transparent; font-size: 0;
+  margin-top: calc(var(--u) * 2); border: 0; color: transparent; /* under the names (KR captures; at −11.5 it covered them) */ font-size: 0;
   background: var(--ha-close) center top / calc(var(--u) * 37) calc(var(--u) * 17) no-repeat;
 }
 .gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle > * { display: none; }
