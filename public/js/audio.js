@@ -827,10 +827,11 @@ export class AudioManager {
       const url = Array.isArray(line) ? line[Math.floor(Math.random() * line.length)] : line;
       if (typeof url !== 'string' || !url) return false;
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      const verdict = this.voiceGate.request(slot, o.unitKey ?? null, now);
+      // local patch: `o.type` = the official voice type for voicePolicy.js's gate (upstream's ignores it)
+      const verdict = this.voiceGate.request(slot, o.unitKey ?? null, now, o.type);
       if (verdict === 'drop') return false;
       if (verdict === 'preempt') this._stopVoice();
-      this.voiceGate.start(slot, o.unitKey ?? null, now);
+      this.voiceGate.start(slot, o.unitKey ?? null, now, o.type);
       const token = ++this.voiceToken;
       this._playVoice(url, token, o.volume);
       return true;
@@ -903,7 +904,7 @@ export class AudioManager {
     this.consumed.clear();
     // a new field is a new battle: the first operator deployed says 行动出发 again and no cooldown carries over
     this.startVoiceDone = false;
-    try { this.voiceGate.reset(); this._stopVoice(); } catch { /* ignore */ }
+    try { this.voiceGate.reset(); this._stopVoice(); this.voicePolicy?.reset(); } catch { /* ignore */ } // local patch: voicePolicy
     for (const u of Array.isArray(units) ? units : []) this._track(u);
   }
 
@@ -957,13 +958,18 @@ export class AudioManager {
             // 作战中N: the equipped skill's own slot (0-based; 作战中4 is the fallback of a 4th slot)
             if (unitSoundClass(u) === 'char') {
               const n = Number.isInteger(u.skillIndex) ? Math.min(4, u.skillIndex + 1) : 1;
-              this.voice(u.def, `skill${n}`, { unitKey: e[1] });
+              const pick = this.voicePolicy?.skill(u); // local patch: official type + a random 作战中 (voicePolicy.js)
+              if (pick) this.voice(u.def, pick.slot, { unitKey: e[1], type: pick.type });
+              else this.voice(u.def, `skill${n}`, { unitKey: e[1] });
             }
           }
         } else if (kind === 'engage') {
           // 行动开始: the first attack a unit makes on an enemy (the sim's ENGAGE, official ENCOUNTER_ENEMY, 3 s apart)
           const u = this.units.get(e[1]);
-          if (u && unitSoundClass(u) === 'char') this.voice(u.def, 'faceEnemy', { unitKey: e[1] });
+          if (u && unitSoundClass(u) === 'char') {
+            if (!this.voicePolicy) this.voice(u.def, 'faceEnemy', { unitKey: e[1] });
+            else if (this.voicePolicy.encounter(now)) this.voicePolicy.encountered(this.voice(u.def, 'faceEnemy', { unitKey: e[1] })); // local patch: once per battle
+          }
         } else if (kind === 'die') {
           const u = this.units.get(e[1]);
           if (!u) continue;
@@ -986,8 +992,11 @@ export class AudioManager {
           if (unitSoundClass(u) === 'char') {
             if (!this.startVoiceDone) {
               this.startVoiceDone = true;
-              if (!this.voice(u.def, 'start')) this.voice(u.def, 'place', { unitKey: e[1] });
-            } else this.voice(u.def, 'place', { unitKey: e[1] });
+              this.voicePolicy?.started(now); // local patch: the opening deployment stays silent after 行动出发
+              const said = this.voice(u.def, 'start');
+              if (!said && this.voicePolicy) this.startVoiceDone = false; // local patch: no 行动出发 line → the next operator says it
+              else if (!said) this.voice(u.def, 'place', { unitKey: e[1] });
+            } else if (!this.voicePolicy || this.voicePolicy.place(now)) this.voice(u.def, 'place', { unitKey: e[1] });
           }
           if (!url) continue;
           const own = url === m?.audio?.sfx?.units?.[u.def]?.born;
