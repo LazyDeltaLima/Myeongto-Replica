@@ -626,6 +626,15 @@
   스킬 동안 반복). 드론 공격은 `whitw2_skill_03_token_hit_01`([추정] 이름 기준 — funnel 프리팹에 hit 목록 없음). 스킬 종료·퇴장에 끝.
   `render/fx.js FX_KINDS.whitw2Drones`는 `none`(이펙트 추출이 없으면 예전처럼 퍼프만). 테스트: local-patch 「荒芜拉普兰德 S3 wolves」.
 
+- 스킬 타격 효과음 (2026-10-06, `tools/assets/kit-sfx.mjs` → manifest `audio.sfx.kit`, `public/js/audio.js kitHitKey`): 키트가 직접 주는
+  스킬 피해(바둑돌, 剑气, 음표, 혼령의 그림자, 드론)는 공격 이벤트가 없어 유닛 `hit` 소리가 나지 않았다. 공식 audio_data 뱅크(전부 파일 있음)를
+  키트의 fx 이벤트에 연결하고 키마다 동시 재생 제한: 望 `wang_stone1_t[damage_audio]`·`sktok_wang_2.extra.0`·`sktok_wang_3`·`wang_stone1_line_up`,
+  赤刃明霄陈 S2 `ON_ABILITY_HIT.skchr_chen3_2`·S3 `projectile_chr_chen3_s3`(새 fx `kitHit`, 剑气가 적을 친 틱마다), 维什戴尔 S2 포격
+  `projectile_chr_wisdel_s2`·残影 폭발 `…_s1_shock`(fx `explode`에 `by`)·혼령의 그림자 `…_token`, 丰川祥子 음표 종류별(`projectile_chr_oblvns`·
+  `_talent`·`_s2`·`_s2_slow`·`_s3_phy`·`_s3_mag`, S1 `projectile_chr_oblvns_s1_hit`), 荒芜拉普兰德 S3 늑대 `…_funnel_s3`. 그리고 维什戴尔의
+  일반 타격음이 없던 것(`projectile_chr_wisdel_default` — 이름 끝 `_default`를 plan.mjs가 몰랐음). 남은 것: 스킬 중 일반 공격의 스킬 모드
+  타격음(阿斯卡纶 `attack.1/.2`, 维什戴尔 S1/S3 본탄 `_s1`/`_s3`, 荒芜拉普兰德 S1/S2 드론) — 클라이언트가 스킬 진행 상태를 알아야 해서 미구현.
+
 ## 공식 스테이지 3D 씬 (2026-10-06)
 - 3D 보드는 원래 시즌 1 아틀라스(`map_autochess`)로 모든 스테이지를 그렸다. 지금 클라이언트는 스테이지마다 완성된 씬(`scenes/activities/act*autochess/level_*`)과 라이트맵을 갖고 있고, 테마는 사막(`map_autochesssand`), 카시미어(`map_kxmr`), 시라쿠사 지하철(`map_syracuse_metro`)이다. 자세한 내용은 DESIGN §15.1.
 - 추출: `.venv-extract/bin/python tools/local-extract/scene_extract.py` (기본 클라이언트 경로 `/mnt/d/YostarGames/Arknights_EN/Arknights_Data`, `--stage`로 일부만) → `public/assets/local/scene/**`, `data/local-assets.json`의 `scene/*` 그룹. CAB 색인은 `logs/scene-cab-index.json`에 캐시(`--rebuild-index`).

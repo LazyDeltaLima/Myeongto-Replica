@@ -65,6 +65,32 @@ const VOICE_XFADE_S = 0.1;
 const CHAIN_KINDS = new Set(['chain', 'chainHeal']);
 /** 'dmg' types that are an attack's impact (element gauge fills / 元素伤害 carry the element's name instead). */
 const IMPACT_TYPES = new Set(['phys', 'arts', 'true']);
+
+/**
+ * local patch: the `sfx.kit` key of a kit's skill hit (tools/assets/kit-sfx.mjs) for a battle.fx event, or null.
+ * @param {string} fx the fx kind (b.ev ['fx', kind, x, y, extra])
+ * @param {any} ex its extra
+ * @param {(id: any) => ({ def?: string, skillIndex?: number|null }|undefined)} unitOf the tracked unit of an id
+ */
+export function kitHitKey(fx, ex, unitOf) {
+  if (!ex || typeof ex !== 'object') return null;
+  const def = (id) => unitOf(id)?.def || '';
+  switch (fx) {
+    case 'kitHit': return typeof ex.k === 'string' ? ex.k : null;
+    case 'zone': return ex.token === 'token_10064_wang_stone1' && [1, 2, 3].includes(ex.skill) ? `wang:${ex.skill}` : null;
+    case 'wangLink': return ex.first ? 'wang:link' : null;
+    case 'swordStorm': return ex.id != null && def(ex.id) === 'char_1050_chen3' ? 'chen3:s2' : null;
+    case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : null;
+    case 'explode': return def(ex.by) === 'char_1035_wisdel' ? 'wisdel:bomb' : null;
+    case 'burst': return def(ex.id) === 'token_10035_wisdel_wward' ? 'wisdel:token' : null;
+    case 'oblvnsNote': return ex.e === 'hit' && typeof ex.m === 'string' ? `oblvns:${ex.m}` : null;
+    case 'drone': {
+      const u = unitOf(ex.id);
+      return u?.def === 'char_1038_whitw2' && Number.isInteger(u.skillIndex) ? `whitw2:s${u.skillIndex + 1}` : null;
+    }
+    default: return null;
+  }
+}
 /** A 'dmg' later than this (real ms) after the attack aimed at the target is not that attack's impact. */
 const IMPACT_WINDOW_MS = 2500;
 /** Official operator sound files of a skill mode: `…_d` / `…_h` / `…_s` (+ digits) — the normal attack's end in `_n`. */
@@ -995,6 +1021,10 @@ export class AudioManager {
           if (!unitSoundPlays(mix, this.random())) continue;
           this._playUnitUrl(url, own ? `${e[1]}:born` : 'deploy', own ? unitGain(0.8, mix) : 0.5);
         } else if (kind === 'fx') {
+          // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
+          const hk = kitHitKey(e[1], e[4], (id) => this.units.get(id));
+          const hurl = hk ? this.getManifest()?.audio?.sfx?.kit?.[hk] : null;
+          if (typeof hurl === 'string') this._play(hurl, { volume: 0.55, limited: true, unitKey: `kit:${hk}` });
           // a summon used up by its own effect (香槟炸弹 exploding: `consumed`): its impact sound now, no death sound
           const ex = e[4];
           if (!ex || typeof ex !== 'object' || !ex.consumed || ex.id == null) continue;

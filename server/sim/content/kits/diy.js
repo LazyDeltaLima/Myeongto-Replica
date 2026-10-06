@@ -65,7 +65,7 @@ function wisdel(bb, chess, def) {
     if (!e.alive || !e.buffs.some((b) => b.key === `wis:mark:${unit.id}`)) return;
     if (battle.rng() >= p) return;
     battle.removeBuff?.(e, `wis:mark:${unit.id}`);
-    battle.fx('explode', { x: e.x, y: e.y, r: bombR });
+    battle.fx('explode', { x: e.x, y: e.y, r: bombR, by: unit.id }); // local patch: `by` = her, for its hit sound (audio.js kitHitKey)
     for (const v of battle.foesInRadius(e.x, e.y, bombR, true)) {
       battle.dealDamage(unit, v, { amount: unit.s.atk * bombScale, type: 'phys', isSkill: true, tags: ['talent', 'wisdelBomb'] });
       if (v.alive) battle.applyStatus(v, 'stun', { duration: bombStun, source: unit });
@@ -426,11 +426,14 @@ function chen3(bb, chess, def) {
       if (turned || steps % 3 === 0) battle.fx('chen3Qi', { x, y, id: unit.id, dir: d });
       if (++steps % 9 === 0) battle.fx('swordStorm', { x, y, r: 0.5 }); // procedural fallback (render/fx.js)
       // local patch: only selectable enemies (PRTS AOE判定 "每个可以被选中的敌人": no unrevealed 隐匿 / untargetable)
+      let struck = false;
       for (const e of battle.foesInRadius(x, y, QI_RADIUS)) {
         if (!e.alive || hitSet.has(e.id)) continue;
         hitSet.add(e.id);
+        struck = true;
         battle.dealDamage(unit, e, { amount: Math.max(minDmg, e.hp * ratio), type: 'arts', isSkill: true, tags: ['skill', 'chen3Qi'] });
       }
+      if (struck) battle.fx('kitHit', { x, y, id: unit.id, k: 'chen3:s3' }); // local patch: its hit sound (projectile_chr_chen3_s3, audio.js)
     }, { owner: unit });
   };
 

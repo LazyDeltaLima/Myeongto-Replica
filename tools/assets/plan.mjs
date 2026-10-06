@@ -26,6 +26,7 @@ import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds } from './skill-sfx.mjs'; // local patch
 import { leakSfx } from './leak-sfx.mjs'; // local patch
+import { kitHitSfx } from './kit-sfx.mjs'; // local patch
 
 /**
  * The voice slots are read from the zh_CN charword table, whose voiceIds are always `CN_*`: the other dubs
@@ -148,6 +149,12 @@ function voiceAlt(asset, lang) {
 function soundAlt(path, sub = 'sfx') {
   const rel = `audio/${sub}/` + path.split('/').map(safeName).join('/');
   return alt(rel, joinUrl(RAW.aa2voice, path));
+}
+
+/** The first bank of `names` with sounds (local patch). */
+function firstBank(audio, names) {
+  for (const n of names) { const p = audio.bank(n); if (p && p.length) return p; }
+  return [];
 }
 
 function soundLeaf(paths, sub = 'sfx', max = 4) {
@@ -334,7 +341,9 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     // projectile banks projectile_chr_<name> as fallbacks — user playtest #4 item 6, audio.mjs pickUnitSfx)
     const short = id.replace(/^char_\d+_/, '');
     const sfx = pickUnitSfx(audio.unitBanks.get(id), { operator: true, projectile: {
-      born: audio.bank(`battle.ON_PROJECTILE_BORN.projectile_chr_${short}`), hit: audio.bank(`battle.ON_PROJECTILE_HIT.projectile_chr_${short}`) } });
+      born: audio.bank(`battle.ON_PROJECTILE_BORN.projectile_chr_${short}`),
+      // local patch: a projectile named <name>_default (维什戴尔's normal shot) when there is no plain one
+      hit: firstBank(audio, [`battle.ON_PROJECTILE_HIT.projectile_chr_${short}`, `battle.ON_PROJECTILE_HIT.projectile_chr_${short}_default`]) } });
     const { roles: u, mix } = unitSounds(audio, sfx);
     const skillSfx = {};
     for (const i of idx) {
@@ -592,5 +601,6 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   };
   for (const [key, lang] of Object.entries(VOICE_TWINS)) template.audio[key] = voiceTwin(voice, voiceLang, lang); // local patch: the other dub (tools/assets/voice.mjs)
   template.audio.sfx.battle.leak = leakSfx(audio, soundLeaf); // local patch: enemy reached the goal (tools/assets/leak-sfx.mjs)
+  template.audio.sfx.kit = kitHitSfx(audio, soundLeaf, notes); // local patch: the kits' skill hit sounds (tools/assets/kit-sfx.mjs)
   return { template, models, notes };
 }
