@@ -205,6 +205,15 @@
   content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 14); height: calc(var(--u) * 8);
   background: #94ffe2; -webkit-mask: var(--ha-open-arrow) center / 100% 100% no-repeat; mask: var(--ha-open-arrow) center / 100% 100% no-repeat;
 }
+/* local patch: on phones / touch the open tab's hit box is its picture (btn_close 37×17), not 102×26 — the wider box lay
+   over the far edge of row-12 tiles 4–6 and a tap on a back-row unit there folded the strip. Width floor 24 px (at
+   844×390 the picture is 22×10 px; 24 px = the WCAG 2.5.8 minimum); the height stays the picture's, because the tab
+   already sits on row 12 and every extra pixel lands on tile 5. The folded btn_open keeps its 102×37 picture. */
+@media (pointer: coarse), (max-height: 540px) {
+  .gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle[aria-expanded="true"] {
+    min-width: 0; width: max(calc(var(--u) * 37), 24px); height: calc(var(--u) * 17);
+  }
+}
 .gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle[aria-expanded="false"]::before { opacity: .5; transform: translate(-50%, calc(-50% - var(--u) * 8)); }
 .gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle[aria-expanded="false"]::after { transform: translate(-50%, calc(-50% - var(--u) * 2)); }
 

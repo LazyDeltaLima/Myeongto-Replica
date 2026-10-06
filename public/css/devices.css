@@ -104,6 +104,10 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 .fsbtn .icon { width: .26rem; height: .26rem; }
 .fsbtn:hover, .fsbtn[aria-pressed="true"] { color: var(--mint-400); border-color: var(--mint-700); }
 .title-fs, .title-settings { width: .4rem; height: .4rem; margin-left: .06rem; }
+/* local patch: on touch screens the two title buttons (upstream #183 added the gear beside 全屏) are tiny (16 px at
+   844×390) and their --tap-min hit areas overlapped, so the full-screen button's area took every tap on the gear —
+   bigger buttons with a gap so each one's own centre is its own */
+.sp-coarse .title-fs, .sp-coarse .title-settings { width: max(.4rem, 28px); height: max(.4rem, 28px); margin-left: max(.06rem, 14px); }
 /* standalone / fullscreen: the browser bars are gone, nothing to reserve */
 .sp-standalone .rotate-hint__micro::after { content: ' · PWA'; }
 
