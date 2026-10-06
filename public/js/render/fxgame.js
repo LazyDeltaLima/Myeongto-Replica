@@ -222,6 +222,50 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return false;
   }
 
+  // ---- 荒芜拉普兰德 S3's wolves (local patch, user report 2026-10-06: no wolf effect) ----
+  // The sim's drones are virtual (kits/tier6.js whitw2); a local-patch hook there sends their positions every 0.15 s
+  // ('whitw2Drones' {id, d: [x, y, …]}). In the client each S3 drone is a projectile_chr_whitw2_funnel_s3_1…4 whose
+  // _mainEffect is whitw2_skill_03_token_trail_01 (EN battle/prefabs/[uc]projectiles.ab) — the wolf; it glides to the
+  // latest sample, ends with the skill ('skill' off → stopBuffs) or her 'die'. A drone's attack ('drone') plays
+  // whitw2_skill_03_token_hit_01 [ASSUMED: by name — the funnel prefabs carry no hit list].
+  const WOLF = { bundle: 'whitw2', fly: 'whitw2_skill_03_token_trail_01', hit: 'whitw2_skill_03_token_hit_01', z: 0.35 };
+  const wolves = new Map();   // her id → { list: [{ inst, at, to }], pending }
+  const wolvesOn = () => !!(index?.bundles?.[WOLF.bundle]?.includes(WOLF.fly) && q() !== 'low' && !failed);
+  function wolfFx(e) {
+    const o = e[4];
+    if (!wolvesOn() || o?.id == null) return false;
+    ownFx.add(e);
+    const d = Array.isArray(o.d) ? o.d : [];
+    let w = wolves.get(o.id);
+    if (!w) { w = { list: [], pending: 0 }; wolves.set(o.id, w); }
+    for (let i = 0; i < d.length / 2; i++) {
+      const to = { x: Number(d[2 * i]), y: Number(d[2 * i + 1]) };
+      if (w.list[i]) { w.list[i].to = to; continue; }
+      if (i < w.list.length + w.pending) continue;   // still loading
+      w.pending++;
+      (async () => {
+        const def = (await ensure()) ? await lib.load(WOLF.bundle, WOLF.fly) : null;
+        w.pending--;
+        if (!def || !mod || wolves.get(o.id) !== w) return;
+        const facing = to.x < Number(e[2]) ? -1 : 1;   // [ASSUMED] the wolf faces away from her, left or right
+        const inst = new mod.fxp.FxInstance(def, { quality: q(), facing });
+        const at = { x: to.x, y: to.y, z: WOLF.z };
+        inst.object.position.set(at.x, at.y, at.z);
+        w.list.push({ inst, at, to });
+        addLive(inst, { view: at, owner: o.id, buff: true }, layers.over);
+      })();
+    }
+    return true;
+  }
+  function stepWolves(dt) {
+    const k = Math.min(1, dt * 8);
+    for (const w of wolves.values()) for (const m of w.list) {
+      m.at.x += (m.to.x - m.at.x) * k; m.at.y += (m.to.y - m.at.y) * k;
+      if (m.inst.time > 6) m.inst.time = 1;   // the prefab lasts 7 s: keep the wolf for the whole skill
+    }
+  }
+  function endWolves(id) { wolves.delete(id); }
+
   // ---- 丰川祥子's notes (see the header) ----
   const NOTE_Z = 0.35;           // flight height over the ground (tiles)
   const gameRate = () => { try { const r = Number(rate()); return r > 0 ? r : 1; } catch { return 1; } };
@@ -359,7 +403,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const v = views.get(e[1]);
           if (!isOp(v) || !bundleOf(v)) return;
           if (e[2]) { v._fxSkillOn = true; play(v, 'skillStart', skillIdx(v)); play(v, 'skillBuff', skillIdx(v), { buff: true }); }
-          else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id); }
+          else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id); endWolves(v.id ?? v.info.id); }
           return;
         }
         case 'atk': {
@@ -391,6 +435,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/diy.js) carries her official trail along its path
           if (stoneFx(e, views)) return;
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
+          if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
+          if ((e[1] === 'drone' || e[1] === 'drones') && e[4] && wolvesOn() && wolves.has(e[4].id)) {   // her wolves: no generic puff
+            ownFx.add(e);
+            if (e[1] === 'drone') playNoteHit(WOLF.bundle, WOLF.hit, { x: Number(e[2]), y: Number(e[3]), z: WOLF.z });
+            return;
+          }
           if (e[1] !== 'chen3Qi' || !e[4]) return;
           const src = views.get(e[4].id);
           if (!src || !bundleOf(src) || failed) return;
@@ -414,7 +464,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           })();
           return;
         }
-        case 'die': stopOwned(e[1]); return;
+        case 'die': stopOwned(e[1]); endWolves(e[1]); return;
         default:
       }
     },
@@ -422,6 +472,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     update(dt, cam, vp) {
       clockS += dt;
       stepNotes(dt, lastViews);   // the notes fly on while their trails load
+      stepWolves(dt);
       if (!mod) return;
       if (!live.length) { showLayers(); return; }
       const w = Math.max(1, vp.width | 0), h = Math.max(1, vp.height | 0);
@@ -463,7 +514,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     clear() {
       for (const l of live) dropLive(l);
       live.length = 0;
-      lastAtk.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear();
+      lastAtk.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear();
       if (mod) showLayers();
     },
 

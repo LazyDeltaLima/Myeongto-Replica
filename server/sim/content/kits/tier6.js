@@ -3005,6 +3005,7 @@ function whitw2(bb, chess, def) {
           flyDrone(battle, unit, d, dt, ok);
         }
         if (gone()) return;
+        if ((unit.mem.dronesFxT = (unit.mem.dronesFxT || 0) + dt) >= 0.15) { unit.mem.dronesFxT = 0; battle.fx('whitw2Drones', { x: unit.x, y: unit.y, id: unit.id, d: D.flatMap((q) => [Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100]) }); } // local patch: the drones' positions for the official wolves (render/fxgame.js)
         const near = new Set();
         for (const d of D) for (const e of battle.foesInRadius(d.x, d.y, R)) if (ok(e)) near.add(e);
         if (slow) for (const e of near) battle.addBuff(e, { key: 'whitw2:slow', duration: 0.2, refresh: 'replace', mods: { moveMul: Math.max(0, 1 + slow) }, source: unit });
