@@ -748,6 +748,16 @@
 - 확인: `test/local-patch-camou.test.js`(寒芒克洛丝 S1 迷彩 → `UF_CAMOU`, 叙拉古 隐匿 → 없음; 유닛 뷰 아이콘), headless Chromium 렌더 데모(포트 3103,
   寒芒克洛丝 S1 옆에 隐匿 오퍼레이터): 위장 무늬 아이콘과 은신 아이콘이 나란히 보임.
 
+## 버전 표기 (2026-10-06, 사용자 결정)
+- `upstream 버전 + "+mangho.N"`(semver 빌드 메타데이터): 예 `0.1.4+mangho.1`. N은 같은 upstream 판 위에서 OCI에 배포할 때마다 1씩 올리고,
+  upstream 새 판을 병합하면 1로 돌아간다. 원본 `APP_VERSION`(shared/constants.js)은 그대로 두고 `shared/local.js`의 `LOCAL_BUILD`만 바꾼다.
+- 보이는 곳: 타이틀 화면 `v0.1.4+mangho.1 · WEB SIMULATION`(title.js 1줄), `/healthz`의 `local` 필드(server/index.js), 서버 시작 로그.
+- **배포 순서:** `LOCAL_BUILD`를 올려 커밋 → `oci/deploy.sh`. STRONGHOLD.md 배포 기록에 버전도 적는다.
+
+## 협동 방 초대 링크 문구 (2026-10-06)
+- 「复制链接」이 클립보드에 넣는 문구(`room.js copy`)는 DOM 번역을 거치지 않아 중국어로 나갔다 → `tr()`로 감싸고 ko `patterns.json`에
+  「{0}邀请你加入卫戍协议：盟约【{1}】」→「{0} 님이 위수 협의: 맹약【{1}】에 초대했습니다」(난이도 이름은 data.json 번역).
+
 ## 원본이 고치면 뺄 것
 - 제국의 갑주 폭격·3연타 → `server/sim/content/local-patch.js`의 `patchVtsk`
 - 협동 보스 HP 인원 배율 → `server/local-patch.js`의 `bossPoolShare` 감싸기 (원본이 인원 배율을 넣으면 이중으로 곱해진다)
@@ -758,7 +768,7 @@
 - (뺐음, 2026-10-06) 방어 지점 경보음: 원본 #134(d5829258)가 같은 `ON_ENEMY_REACHED_EXIT`를 넣어 로컬 `leak-sfx.mjs`·`audio.js` 2줄·테스트를 지웠다(사용자 결정: 원본 사용)
 
 ## 테스트
-- `node --test test/local-patch.test.js` — 로컬 테스트 99개.
+- `node --test test/local-patch.test.js` — 로컬 테스트 100개.
 - 전체 `node --test`에서 원래부터 실패하는 것 (이 개발 사본에 게임 소재가 없음): 소재 manifest·로컬 추출·모듈 아이콘·이모티콘 그림 관련,
   `make-windows-bundle` 대소문자 검사. 2026-10-05 기준 12개. (`lobby-integration` 재접속 테스트와 `match/realtime.test.js` 「real-time co-op over websockets」가 가끔 시간 문제로 실패하는데, 단독으로 돌리면 통과한다. 2026-10-06 전체 실행: 최상위 실패 10개 = 소재·로컬 추출 관련 + 아래 의도한 실패 + 단독으로는 통과하는 realtime 1개)
 - 로컬 패치 때문에 실패하는 원본 테스트 (의도한 동작 변경이라 고치지 않음):

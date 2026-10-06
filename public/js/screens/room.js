@@ -18,6 +18,7 @@ import {
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
+import { tr } from '../i18n/i18n.js'; // local patch
 import { GuideButton } from '../ui/guide.js';
 import { LoadoutButton } from './loadout.js';
 import { net } from '../net.js';
@@ -164,7 +165,7 @@ function SpectatorBar({ facts, myId, busy, onRemove, onSit }) {
 
 function InviteBox({ code, name, difficulty }) {
   const copy = async (what) => {
-    const ok = await copyText(what === 'code' ? code : `${inviteLink(code)} ${name}邀请你加入卫戍协议：盟约【${DIFFICULTY_NAMES[difficulty]}】`);
+    const ok = await copyText(what === 'code' ? code : `${inviteLink(code)} ${tr(`${name}邀请你加入卫戍协议：盟约【${tr(DIFFICULTY_NAMES[difficulty])}】`)}`); // local patch: the copied invite in the UI language (i18n patterns.json)
     if (ok) toast(what === 'code' ? `已复制同盟密钥 ${code}` : '已复制邀请链接', 'success');
     else toast('复制失败，请手动复制', 'warn');
   };

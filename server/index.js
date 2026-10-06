@@ -43,6 +43,7 @@ import { Network, SessionRegistry, NET_DEFAULTS } from './net.js';
 import { Lobby } from './lobby.js';
 import { getData, loadData } from './data.js';
 import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
+import { localVersion } from '../shared/local.js'; // local patch: version label
 import { MEDIA_PREFIX, AUDIO_EXTS } from '../shared/media.js';
 import { debugPageHidden, proxiedRequest } from './local-patch.js'; // local patch: SP_DEBUG_PAGE, /healthz
 
@@ -665,10 +666,10 @@ export async function startServer(opts = {}) {
       sendError(req, res, 405, '不支持的请求方法 · Method not allowed');
       return;
     }
-    if (parts.rawPath === '/healthz' && proxiedRequest(req)) { sendJson(req, res, 200, { ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, build: buildTag() }); return; } // local patch: no counters through the proxy
+    if (parts.rawPath === '/healthz' && proxiedRequest(req)) { sendJson(req, res, 200, { ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion(APP_VERSION), build: buildTag() }); return; } // local patch: no counters through the proxy; `local` = shared/local.js localVersion
     if (parts.rawPath === '/healthz') {
       sendJson(req, res, 200, {
-        ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, uptimeSec: Math.round((Date.now() - startedAt) / 1000),
+        ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion(APP_VERSION) /* local patch */, uptimeSec: Math.round((Date.now() - startedAt) / 1000),
         // the runtime the server is serving right now (public/js/ui/buildGuard.js): a page whose own build is
         // older than this reloads itself, so a deploy reaches clients that never reload
         build: buildTag(),
@@ -770,7 +771,7 @@ async function main() {
     else console.error('[boot] failed to start', e);
     process.exit(1);
   }
-  console.log(`\n  卫戍协议：盟约 · Stronghold Protocol: Alliance v${APP_VERSION}`);
+  console.log(`\n  卫戍协议：盟约 · Stronghold Protocol: Alliance v${localVersion(APP_VERSION)}` /* local patch */);
   console.log(`  Local:   ${srv.url}`);
   if (srv.host === '0.0.0.0' || srv.host === '::') {
     for (const u of lanUrls(srv.port)) console.log(`  LAN:     ${u}`);

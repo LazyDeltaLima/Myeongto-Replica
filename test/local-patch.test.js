@@ -529,7 +529,8 @@ test('/healthz through the proxy: build only, no counters (server/local-patch.js
     const direct = await (await fetch(url)).json();
     assert.ok('sockets' in direct && 'rooms' in direct && direct.build);
     const viaProxy = await (await fetch(url, { headers: { 'X-Forwarded-For': '1.2.3.4' } })).json();
-    assert.deepEqual(Object.keys(viaProxy).sort(), ['app', 'build', 'ok', 'version']);
+    assert.deepEqual(Object.keys(viaProxy).sort(), ['app', 'build', 'local', 'ok', 'version']);
+    assert.match(viaProxy.local, /^\d+\.\d+\.\d+\+mangho\.\d+$/, 'local version label (shared/local.js)');
     assert.equal(viaProxy.build, direct.build);
   } finally { await srv.close(); }
 });

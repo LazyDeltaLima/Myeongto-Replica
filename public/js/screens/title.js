@@ -10,6 +10,7 @@
 
 import { useMemo, useState } from '../../vendor/hooks.module.js';
 import { NAME_MAX_LEN, APP_VERSION } from '../../../shared/constants.js';
+import { localVersion } from '../../../shared/local.js'; // local patch
 import { html, Button, Icon, MicroLabel, TextField, PingPill } from '../ui/components.js';
 import { GuideButton } from '../ui/guide.js';
 import { toast } from '../ui/toasts.js';
@@ -272,7 +273,7 @@ export function TitleScreen() {
 
     <footer class="title-foot">
       <span>非官方同人复刻 · 游戏素材版权归 上海鹰角网络 / Yostar 所有</span>
-      <${MicroLabel}>v${APP_VERSION} · WEB SIMULATION<//>
+      <${MicroLabel}>v${localVersion(APP_VERSION)} · WEB SIMULATION<//>${/* local patch: shared/local.js localVersion */ ''}
     </footer>
   </div>`;
 }
