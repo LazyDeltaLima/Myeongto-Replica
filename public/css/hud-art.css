@@ -129,3 +129,113 @@
 .gm.has-hud-art .gm__bonds { left: 50%; right: auto; transform: translateX(-50%); max-width: calc(100% - 3.2rem); top: calc(var(--u) * 92 + .26rem); }
 /* the ready count goes under the key hint */
 .gm.has-hud-art .readywrap { gap: calc(var(--u) * 30); }
+
+/* ---- bond disc, inactive (autochess_hud_bond_item _inactiveColorConfig: name #f4f4f4 at 70 %, stack #b2b2b2) ---- */
+.gm.has-hud-art .bslot:not(.is-active) .bond__name { color: rgba(244, 244, 244, .7); }
+.gm.has-hud-art .bslot:not(.is-active) .bond__count { color: #b2b2b2; }
+
+/* ---- the bond list's fold tab (bond_list_info_view btn_synergy, `has-hud-fold`): under the open list the small
+   btn_close (37×17, "︽") on the bottom edge of the matte (its centre 3 units above it); folded, btn_open (102×37) with
+   two btn_open_arrow chevrons (14×8, #94ffe2 at 50 % / 100 %). The label stays for screen readers; the hit area keeps
+   upstream's 44 px minimum (GitHub #142). ---- */
+.gm.has-hud-art.has-hud-fold .gm__bonds { flex-direction: column; align-items: center; gap: 0; }
+.gm.has-hud-art.has-hud-fold .gm__bond-list { order: 1; }
+.gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle {
+  order: 2; position: relative; min-width: calc(var(--u) * 102); min-height: 0; height: calc(var(--u) * 26); padding: 0;
+  margin-top: calc(var(--u) * -11.5); border: 0; color: transparent; font-size: 0;
+  background: var(--ha-close) center top / calc(var(--u) * 37) calc(var(--u) * 17) no-repeat;
+}
+.gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle > * { display: none; }
+.gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle:hover { filter: brightness(1.35); }
+.gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle[aria-expanded="false"] {
+  margin-top: 0; height: calc(var(--u) * 37); background: var(--ha-open) center / calc(var(--u) * 102) calc(var(--u) * 37) no-repeat;
+}
+.gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle[aria-expanded="false"]::before,
+.gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle[aria-expanded="false"]::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 14); height: calc(var(--u) * 8);
+  background: #94ffe2; -webkit-mask: var(--ha-open-arrow) center / 100% 100% no-repeat; mask: var(--ha-open-arrow) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle[aria-expanded="false"]::before { opacity: .5; transform: translate(-50%, calc(-50% - var(--u) * 8)); }
+.gm.has-hud-art.has-hud-fold .gm__bonds .bonds-toggle[aria-expanded="false"]::after { transform: translate(-50%, calc(-50% - var(--u) * 2)); }
+
+/* ---- countdown (auto_chess_countdown_view, `has-hud-cd`): the `countdown` label sprite (70×21) under the number, the
+   gauge bar_solid (24×63) over bar_shadow (33×71) in #00ffc4, #ef5510 in the last seconds (_colGreen / _colOrange),
+   and the pulsing light at the right edge (light_green #187d65, 2 s; light_orange #b94d22, 0.5 s — [추정] a soft
+   ellipse: the light's material is not extracted). Upstream's 5 gauge steps stay (each lit step shows its slice). ---- */
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown { position: relative; isolation: isolate; align-items: center; gap: calc(var(--u) * 6); }
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown::before {
+  content: ''; position: absolute; z-index: -1; right: calc(var(--u) * -120); top: 50%; width: calc(var(--u) * 344); height: calc(var(--u) * 265);
+  transform: translateY(-50%); pointer-events: none; mix-blend-mode: screen;
+  background: radial-gradient(closest-side, rgba(24, 125, 101, .55), rgba(24, 125, 101, 0)); animation: ha-cd-light 2s ease-in-out infinite alternate;
+}
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown.is-warn::before {
+  background: radial-gradient(closest-side, rgba(185, 77, 34, .6), rgba(185, 77, 34, 0)); animation-duration: .5s;
+}
+@keyframes ha-cd-light { from { opacity: .25; } to { opacity: 1; } }
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown__label {
+  width: calc(var(--u) * 70); height: calc(var(--u) * 21); margin-top: calc(var(--u) * 2); font-size: 0; color: transparent;
+  background: var(--ha-cd-label) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown__gauge {
+  position: relative; width: calc(var(--u) * 24); height: calc(var(--u) * 63); justify-content: flex-start; gap: 0;
+}
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown__gauge::before {
+  content: ''; position: absolute; z-index: -1; left: 50%; top: 50%; width: calc(var(--u) * 33); height: calc(var(--u) * 71);
+  transform: translate(-50%, -50%); background: var(--ha-cd-shadow) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown__gauge i { height: 20%; background: none; box-shadow: none; }
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown__gauge i.on {
+  background: #00ffc4; box-shadow: none;
+  -webkit-mask: var(--ha-cd-solid) 0 0 / calc(var(--u) * 24) calc(var(--u) * 63) no-repeat; mask: var(--ha-cd-solid) 0 0 / calc(var(--u) * 24) calc(var(--u) * 63) no-repeat;
+}
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown.is-warn .countdown__gauge i.on { background: #ef5510; }
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown__gauge i:nth-child(2) { -webkit-mask-position: 0 calc(var(--u) * -12.6); mask-position: 0 calc(var(--u) * -12.6); }
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown__gauge i:nth-child(3) { -webkit-mask-position: 0 calc(var(--u) * -25.2); mask-position: 0 calc(var(--u) * -25.2); }
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown__gauge i:nth-child(4) { -webkit-mask-position: 0 calc(var(--u) * -37.8); mask-position: 0 calc(var(--u) * -37.8); }
+.gm.has-hud-art.has-hud-cd .gtop__right .countdown__gauge i:nth-child(5) { -webkit-mask-position: 0 calc(var(--u) * -50.4); mask-position: 0 calc(var(--u) * -50.4); }
+
+/* ---- the left player list (panel_player_status / player_status_item, `has-hud-team`): 80×80 portraits 17 apart on
+   bg_player_list, the list centred on the left edge 34 units above the middle; each portrait in bg_team_border (100×100,
+   #59ffd2 on the board shown — [추정] the view / other groups of the item read as "the watched board / the rest", white
+   otherwise), icon_self (32×32) at its top-left corner, the LP on bg_hp (57×24, icon_hp, 16 px #f3f3f3) at its bottom,
+   the status icon (21×21) just right of its bottom corner. Upstream's name, 联防 tag, eye and 前往查看 stay beside it
+   (the official item has no name: kept as an upstream feature, like the shop's). ---- */
+.gm.has-hud-art.has-hud-team .team {
+  left: calc(var(--u) * 23); top: calc(50% - var(--u) * 34); transform: translateY(-50%); gap: calc(var(--u) * 17); padding: calc(var(--u) * 10) 0; isolation: isolate;
+}
+.gm.has-hud-art.has-hud-team .team::before {
+  content: ''; position: absolute; z-index: -1; left: calc(var(--u) * -8.5); top: calc(var(--u) * -6); bottom: calc(var(--u) * -6); width: calc(var(--u) * 117);
+  background: var(--ha-plist) center / 100% 100% no-repeat; pointer-events: none;
+}
+.gm.has-hud-art.has-hud-team .team__row { min-height: calc(var(--u) * 80); gap: calc(var(--u) * 40); align-items: flex-start; }
+.gm.has-hud-art.has-hud-team .team__btn:hover { transform: none; filter: brightness(1.12); }
+.gm.has-hud-art.has-hud-team .team .pavatar { --pa: calc(var(--u) * 80); border: 0; background: #383838; box-shadow: none !important; }
+.gm.has-hud-art.has-hud-team .team__btn::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 100); height: calc(var(--u) * 100); transform: translate(-50%, -50%);
+  pointer-events: none; background: #fff;
+  -webkit-mask: var(--ha-border) center / 100% 100% no-repeat; mask: var(--ha-border) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art.has-hud-team .team__row.is-watched .team__btn::after,
+.gm.has-hud-art.has-hud-team .team:not(.has-watched) .team__row.is-self .team__btn::after { background: #59ffd2; }
+.gm.has-hud-art.has-hud-team .team__row.is-open .team__btn::after { background: #59ffd2; filter: drop-shadow(0 0 .06rem rgba(89, 255, 210, .7)); }
+.gm.has-hud-art.has-hud-team .team__you {
+  left: calc(var(--u) * -7); top: calc(var(--u) * -7); right: auto; width: calc(var(--u) * 32); height: calc(var(--u) * 32); z-index: 1;
+  clip-path: none; background: var(--ha-self) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art.has-hud-team .team__you .icon { display: none; }
+.gm.has-hud-art.has-hud-team .team__row.is-self .team__seat { left: auto; right: calc(var(--u) * -2); }
+.gm.has-hud-art.has-hud-team .team__info { padding: calc(var(--u) * 4) calc(var(--u) * 10) calc(var(--u) * 4) 0; background: none; }
+.gm.has-hud-art.has-hud-team .team__name { font-size: calc(var(--u) * 15); color: #f3f3f3; }
+.gm.has-hud-art.has-hud-team .team__line { min-height: 0; }
+.gm.has-hud-art.has-hud-team .team__line .lp {
+  position: absolute; left: calc(var(--u) * 40); bottom: calc(var(--u) * -4); transform: translateX(-50%); z-index: 1;
+  width: calc(var(--u) * 57); height: calc(var(--u) * 24); justify-content: center; gap: calc(var(--u) * 6);
+  font-size: calc(var(--u) * 16); color: #f3f3f3; background: var(--ha-php) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art.has-hud-team .team__line .lp .lp__icon { width: calc(var(--u) * 9); height: calc(var(--u) * 13); filter: none; }
+.gm.has-hud-art.has-hud-team .team__line .lp.lp--danger { color: var(--red-premium); }
+.gm.has-hud-art.has-hud-team .team__line .lp__pend { position: absolute; left: 100%; margin-left: calc(var(--u) * 4); }
+.gm.has-hud-art.has-hud-team .team__status {
+  position: absolute; left: calc(var(--u) * 91); top: calc(var(--u) * 59); width: calc(var(--u) * 21); height: calc(var(--u) * 21);
+}
+.gm.has-hud-art.has-hud-team .team__status.has-sprite .lsprite { width: 100%; height: 100%; }

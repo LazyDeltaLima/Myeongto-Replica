@@ -4,12 +4,22 @@
 // the web manifest (data/assets.json ui `hudPanel/*`, `hudBondItem/*`, `prepReady/*`, `bondBoardIcon/*`), so every player
 // gets the look; without them the screen keeps upstream's CSS look (no `has-hud-art`).
 //
+// Also from the client, where the web manifest has nothing: the countdown (ui/autochess/[uc]autochesscommon.ab
+// auto_chess_countdown_view: `countdown` label, `bar_shadow` / `bar_solid` gauge) and the left player list
+// (panel_player_status / player_status_item: `bg_player_list`, `bg_team_border`, `bg_hp`, `icon_self`), read from the
+// local-client extraction (data/local-assets.json ui/common, ui/battle) — `has-hud-cd` / `has-hud-team` only when they
+// are there, else upstream's countdown / list. The bond list's fold tab (bond_list_info_view btn_synergy: `btn_close`
+// under the open list, `btn_open` + two `btn_open_arrow` while folded) is web art: `has-hud-fold`.
+//
 //   hudArt()                  { cls, style } for the game screen root (screens/game.js)
 //   bondBoardStyle(max, tier) the disc board of one bond slot (ui/bondStrip.js): `bondBoardIcon/<max>_<tier>`, the
 //                             prefab's runtime `_imgBoard` — full teal at the top tier, ring arcs below it, the grey
-//                             ring `1_0` while inactive (matched against the in-game screenshots, 2026-10-06)
+//                             ring `1_0` while inactive (matched against the in-game screenshots, 2026-10-06). The
+//                             sprites are indexed by tier (there is `<max>_1`…`<max>_<max>` and only `1_0`), never by
+//                             the number on the disc: that is the bond's 层数 (stack), so a bond that just activated
+//                             shows its first arc with a 0 on it
 
-import { data } from '../data.js';
+import { data, localAsset } from '../data.js';
 import { uiUrl } from './assetUrls.js';
 
 /** CSS variable → web manifest ui key. */
@@ -35,22 +45,47 @@ const WEB = Object.freeze({
   '--ha-ready-icon': 'prepReady/ready_icon',
   '--ha-cancel': 'prepReady/cancel_bg',
   '--ha-cancel-icon': 'prepReady/cancel_icon',
+  '--ha-open': 'hudPanel/btn_open',
+  '--ha-open-arrow': 'hudPanel/btn_open_arrow',
+  '--ha-close': 'hudPanel/btn_close',
 });
+/** CSS variable → local-client sprite [group, name] (optional; see the header). */
+const LOCAL = Object.freeze({
+  '--ha-cd-label': ['ui/common', 'countdown'],
+  '--ha-cd-shadow': ['ui/common', 'bar_shadow'],
+  '--ha-cd-solid': ['ui/common', 'bar_solid'],
+  '--ha-plist': ['ui/battle', 'bg_player_list'],
+  '--ha-border': ['ui/battle', 'bg_team_border'],
+  '--ha-php': ['ui/battle', 'bg_hp'],
+  '--ha-self': ['ui/battle', 'icon_self'],
+});
+const CD = ['--ha-cd-label', '--ha-cd-shadow', '--ha-cd-solid'];
+const TEAM = ['--ha-plist', '--ha-border', '--ha-php', '--ha-self'];
 
-let cache = { m: null, v: null };
+let cache = { m: null, l: null, v: null };
 
 /** { cls, style } of the game screen root: `has-hud-art` and the sprite variables, or nothing without the sprites. */
 export function hudArt() {
   const m = data.get('assets');
-  if (cache.m === m && cache.v) return cache.v;
+  const l = data.get('local');
+  if (cache.m === m && cache.l === l && cache.v) return cache.v;
   const vars = [];
   for (const [k, key] of Object.entries(WEB)) {
     const u = uiUrl(m, key);
     if (u) vars.push(`${k}:url("${u}")`);
   }
+  const have = new Set();
+  for (const [k, [group, name]] of Object.entries(LOCAL)) {
+    const u = localAsset(group, name);
+    if (u) { vars.push(`${k}:url("${u}")`); have.add(k); }
+  }
   const ok = !!(uiUrl(m, 'hudPanel/bg_board') && uiUrl(m, 'hudPanel/bg_rest') && uiUrl(m, 'prepReady/ready_bg') && uiUrl(m, 'bondBoardIcon/1_0'));
-  const v = ok ? { cls: 'has-hud-art', style: vars.join(';') } : { cls: '', style: '' };
-  cache = { m, v };
+  const cls = ['has-hud-art',
+    uiUrl(m, 'hudPanel/btn_open') && uiUrl(m, 'hudPanel/btn_open_arrow') && uiUrl(m, 'hudPanel/btn_close') && 'has-hud-fold',
+    CD.every((k) => have.has(k)) && 'has-hud-cd',
+    TEAM.every((k) => have.has(k)) && 'has-hud-team'].filter(Boolean).join(' ');
+  const v = ok ? { cls, style: vars.join(';') } : { cls: '', style: '' };
+  cache = { m, l, v };
   return v;
 }
 
