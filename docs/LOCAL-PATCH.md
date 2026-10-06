@@ -772,7 +772,7 @@
 - 로컬 판은 **자체 버전**(semver)을 쓴다: `shared/local.js LOCAL_VERSION`, 1.0.0부터(공식 화면 재현판이 첫 정식판). upstream `APP_VERSION`은 「기반」으로만 붙는다.
   처음 안 `0.1.4+mangho.N`은 "원본에 붙은 덧패치"로 읽혀서 사용자가 바꿈.
 - 올리는 규칙: 앞자리 = 큰 방향 전환(새 시즌 데이터 등), 가운데 = 기능·화면이 바뀐 배포, 끝자리 = 버그 수정만 있는 배포. upstream 병합은 기반 숫자만 바꾼다.
-- 보이는 곳: 타이틀 `v1.0.0 · 기반 0.1.4 · WEB SIMULATION`(title.js 1줄, ko 「基础 {0}」→「기반 {0}」), `/healthz`의 `local`(기반은 원래 `app`), 서버 시작 로그.
+- 보이는 곳: 타이틀 `v1.0.0 · BASE 0.1.4 · WEB SIMULATION`(title.js 1줄, 옆의 WEB SIMULATION처럼 영어 — 사용자 결정), `/healthz`의 `local`(기반은 원래 `app`), 서버 시작 로그.
 - **배포 순서:** `LOCAL_VERSION`을 올려 커밋 → `oci/deploy.sh`. STRONGHOLD.md 배포 기록에 버전도 적는다.
 
 ## 협동 방 초대 링크 문구 (2026-10-06)
