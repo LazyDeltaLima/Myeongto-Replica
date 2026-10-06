@@ -124,9 +124,8 @@
       battle_misc_table `tileTypeDict` 순서로 해석 [추정: DEFAULT 1, END 2, START 4, HOLE 8, FAKE_HIGHLAND 16, RESPAWN_ABNORMAL 32] →
       14 = END·START·HOLE = `tile_end`·`tile_end_cooperate`·`tile_allygoal`(방어 지점), `tile_start`·`tile_start_cooperate`·`tile_enemygoal`
       (적 침입 지점), `tile_hole`. 배치 불가 고지대도 불가(재능·재배치·S3 시작 초과분·S3 배치 모두 같은 `followerClass`). 비행 적 출현
-      칸(`tile_flystart`)은 이 목록에 없다. 망 S3 자동 발동(의도적 예외, 사용자 결정 2026-10-06): 공식 규칙으로는 「攻击范围扩大」라 기본 전략(평타 직전 + 3-3 안의 적)이지만,
-      스킬 범위 4-12(전방 5×5)에 적이 들어오면 켜지도록 `SKILL_RANGE`로 바꿨다(사용자 기억: 공격 범위보다 넓은 스킬 범위는 그 안에서 자동
-      발동). 첸 S3와 같은 `tools/build-diy.mjs DIY_TRIGGER_DEVIATIONS` → `data/diy.json`.
+      칸(`tile_flystart`)은 이 목록에 없다. 망 S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 3-3 안의 적, `DEFAULT`). 한때 스킬 범위 4-12에 적이 들어오면
+      켜지는 `SKILL_RANGE` 예외였으나 사용자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다(`tools/build-diy.mjs DIY_TRIGGER_DEVIATIONS` 비움).
     - 손패(재고) 상한 maxDeckStackCnt(7)는 **손패만** 센다(클라이언트 `wang_s3_charge_token` max_cnt/remaining_cnt =
       AssignTokenCardCntToBB 카드 수, `_stopSpWhenTokenIsFull`도 카드 수). 전투 시작 때 위수협약이 나눠 준 배치 한도 6장(PRTS
       「根据召唤物部署数量上限…发送等量召唤物至手牌区」) 중 놓지 않은 것이 손패. S1/S2 「즉시 2개 획득」 = min(7 − 손패, 2)장, 손패 7장이면 阻回.
@@ -160,8 +159,8 @@
     저지대 통행 불가 칸·장애물이 놓인 칸에서도 꺾었고, 侵入点에서는 꺾지 않았다. 판정 간격 0.03초(이전 0.1초 → 이제 매 틱),
     수명은 스킬 끝까지(`_lifeTimeType` 2 = 시간 제한 없음 [추정], 스킬 종료 버프 `chen3_s3[finish_projectile]`가 지운다).
     `diy.js chen3QiAdvance`(테스트용 export). `fx` 'chen3Qi'는 0.1초마다 + 꺾일 때 바로.
-    S3 자동 발동(의도적 예외, 사용자 결정 2026-10-06): 공식 규칙으로는 「攻击范围扩大」라 기본 전략(평타 직전 + 1-1 안의 적)이어서, 평타로
-    칠 수 없는 비행 적에게는 영영 켜지지 않았다. 검기는 비행 적도 맞히므로 `SKILL_RANGE`(3-12 안에 적이 있으면, 비행 포함)로 바꿨다.
+    S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 1-1 안의 적, `DEFAULT`) — 평타로 칠 수 없는 비행 적만 있으면 켜지지 않는다.
+    한때 3-12 안의 적(비행 포함)으로 켜지는 `SKILL_RANGE` 예외였으나 사용자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다. 예외가 다시 필요하면
     `tools/build-diy.mjs DIY_TRIGGER_DEVIATIONS` → `data/diy.json` (build-data의 `TRIGGER_DEVIATIONS`는 공용 기물 검사 때문에 못 쓴다).
   - 위셔델: 여진·잔영 폭발(재능1), 혼령의 그림자 소환과 근처 위장(재능2), S2 과부하([추정] 지속시간 후반부), S3 그림자 2개 추가(최대 3).
     S2 수정(2026-10-06): 과부하 본탄의 `attack@atk_scale_ol`(0.7)이 적용되지 않았다(사키코 S2와 같은 원인: `beforeAttack`의 `ctx.profile`

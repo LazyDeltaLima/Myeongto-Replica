@@ -847,13 +847,13 @@ describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
     assert.ok(ol.every((r) => Math.abs(r - 0.7) < 1e-6), 'overload: atk_scale_ol 0.7');
   });
 
-  test('望 S3 casts on an enemy in its range 4-12 that is outside her attack range 3-3 (DIY trigger deviation SKILL_RANGE)', async () => {
+  test('望 S3 follows the official rule (攻击范围扩大 = DEFAULT, owner 2026-10-06): cast before a normal attack with an enemy on her 3-3, never for one only on the 4-12', async () => {
     const { makeBattle } = await import('./helpers/battleHarness.js');
     const { absoluteRangeKeys } = await import('../server/sim/targeting.js');
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 40, units: [{ chessId: 'chess_diy_wang_6_a', row: 10, col: 3, dir: 'RIGHT', uid: 1, skillIndex: 2, carryState: { sp: 999 } }],
       enemies: [{ key: ENEMY, time: 0, route: 0, count: 6, interval: 1 }] });
     const u = h.unit('chess_diy_wang_6_a');
-    assert.equal(u.skill.rule, 'SKILL_RANGE');
+    assert.equal(u.skill.rule, 'DEFAULT');
     const base = new Set(absoluteRangeKeys(u.rangeGrid ?? h.b.data.chess('chess_diy_wang_6_a').rangeGrid, u.tileR, u.tileC, u.dir, 0));
     let castWithOnlyWide = false;
     h.b.on('skillStart', (c) => {
@@ -863,19 +863,17 @@ describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
     }, { priority: 100 });
     h.runUntil(() => u.skill.active, 30);
     assert.ok(u.skill.active, 'S3 cast');
-    assert.ok(castWithOnlyWide, 'cast while no enemy stood on her 3-3 (only on the 4-12)');
+    assert.ok(!castWithOnlyWide, 'never cast while no enemy stood on her 3-3');
   });
 
-  test('赤刃明霄陈 S3 casts on a flyer in its range 3-12 (DIY trigger deviation SKILL_RANGE) and the 剑气 hits it', async () => {
+  test('赤刃明霄陈 S3 follows the official rule (攻击范围扩大 = DEFAULT, owner 2026-10-06): no cast with only flyers around (she cannot attack them)', async () => {
     const { makeBattle } = await import('./helpers/battleHarness.js');
     const h = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_chen3_6_b', row: 10, col: 4, uid: 1, skillIndex: 2, carryState: { sp: 999 } }],
       enemies: [{ key: 'enemy_1005_yokai', time: 0, route: 0, count: 3, interval: 1 }] });
     const u = h.unit('chess_diy_chen3_6_b');
-    assert.equal(u.skill.rule, 'SKILL_RANGE');
-    let onFly = 0;
-    h.b.on('hit', (c) => { if (c.dmg?.tags?.includes('chen3Qi') && c.target.isFlying) onFly++; }, { priority: 100 });
+    assert.equal(u.skill.rule, 'DEFAULT');
     h.run(30);
-    assert.ok(onFly > 0, 'cast with only flyers around, the 剑气 hits them');
+    assert.equal(h.hooksOf('skillStart').filter((x) => x.unit === u).length, 0, 'no S3 cast for flyers only');
   });
 
   test('선발 kits audit: 赤刃明霄陈 S2 never slashes an unrevealed 隐匿 enemy; 阿斯卡纶 S2 spreads 死亡拘审 on a death in range', async () => {
