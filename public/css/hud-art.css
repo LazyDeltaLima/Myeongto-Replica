@@ -1,0 +1,131 @@
+/* ==========================================================================================
+   hud-art.css — the official prep-screen HUD look (local patch, docs/LOCAL-PATCH.md "정비 화면 HUD"), over
+   screens/game.css. Only under `.gm.has-hud-art` (js/ui/hudArt.js sets it with the sprite variables when the web manifest
+   has the official hudPanel / hudBondItem / prepReady / bondBoardIcon sprites). Geometry from the client's prefabs
+   (ui/autochess/[uc]autochessbattle.ab): autochess_hud_panel (round bar 510×68: board 473×40, end circles 103×85 at ±250,
+   deco boxes 120×11 at ±162, the 休息一下 pill bg_rest 157×45 in its frame 183×51, round number on bg_round, 🔍 buttons on
+   bg_check_btn 81×44 at ±305), autochess_hud_bond_item (83×84: board 80×80, icon 36×36, number 16 px on matte_num
+   42×25, name 14 px), panel_prep_ready (ready_bg 152×49 in ready_frame 161×57, icon 25, text 18 px). Same scale as the
+   shop (css/shop-art.css): 1 unit ≈ 1.08 px at 1920×1080.
+   ========================================================================================== */
+
+.gm.has-hud-art { --u: .0108rem; }
+
+/* ---- round bar ---- */
+.gm.has-hud-art .gtop__center {
+  height: calc(var(--u) * 85); width: calc(var(--u) * 692); padding: 0; gap: 0; justify-content: space-between; margin-top: calc(var(--u) * 6);
+  background: none; border: 0; box-shadow: none;
+}
+.gm.has-hud-art .gtop__center > :not(.tip-wrap):not(.tooltip-anchor) { position: relative; z-index: 1; }
+/* the board, the two end circles and the deco boxes (root_bg), centred */
+/* (.brackets: upstream's corner brackets use the same pseudo-elements — taken over here) */
+.gm.has-hud-art .gtop__center.brackets::before, .gm.has-hud-art .gtop__center::before {
+  content: ''; border: 0; right: auto; bottom: auto; position: absolute; z-index: 0; left: 50%; top: 50%; width: calc(var(--u) * 603); height: calc(var(--u) * 85);
+  transform: translate(-50%, -50%); pointer-events: none;
+  background:
+    var(--ha-circle-l) left center / calc(var(--u) * 103) calc(var(--u) * 85) no-repeat,
+    var(--ha-circle-r) right center / calc(var(--u) * 103) calc(var(--u) * 85) no-repeat,
+    var(--ha-deco-box) calc(var(--u) * 79.5) center / calc(var(--u) * 120) calc(var(--u) * 11) no-repeat,
+    var(--ha-deco-box) calc(100% - var(--u) * 79.5) center / calc(var(--u) * 120) calc(var(--u) * 11) no-repeat,
+    var(--ha-board) center / calc(var(--u) * 473) calc(var(--u) * 40) no-repeat,
+    /* the dark side panels behind 回合 / LP (group_normal frame_left, 150×30 each side) — a band in the screenshots */
+    linear-gradient(rgba(6, 9, 8, .62), rgba(6, 9, 8, .62)) center calc(50% + var(--u) * 2) / calc(var(--u) * 560) calc(var(--u) * 34) no-repeat;
+}
+.gm.has-hud-art .gtop__center.brackets::after, .gm.has-hud-art .gtop__center::after { /* the deco texts over the bar (root_deco) */
+  content: ''; right: auto; bottom: auto; position: absolute; z-index: 0; left: 50%; top: 50%; width: calc(var(--u) * 470); height: calc(var(--u) * 56);
+  transform: translate(-50%, calc(-50% - var(--u) * 4)); pointer-events: none; display: block; border: 0;
+  background:
+    var(--ha-deco-1) calc(var(--u) * 21) top calc(var(--u) * 9) / calc(var(--u) * 103) calc(var(--u) * 6) no-repeat,
+    var(--ha-deco-2) center top / calc(var(--u) * 53) calc(var(--u) * 5) no-repeat,
+    var(--ha-deco-3) calc(100% - var(--u) * 19) top calc(var(--u) * 9) / calc(var(--u) * 103) calc(var(--u) * 6) no-repeat;
+}
+/* 回合 + number on bg_round (14 px #a8a8a8, the number 20 px #171717) */
+.gm.has-hud-art .roundbox { gap: calc(var(--u) * 6); }
+.gm.has-hud-art .roundbox__label { font-size: calc(var(--u) * 14); color: #a8a8a8; letter-spacing: .04em; }
+.gm.has-hud-art .roundbox__num {
+  min-width: calc(var(--u) * 35); height: calc(var(--u) * 22); padding: 0 calc(var(--u) * 6); clip-path: none;
+  background: var(--ha-round) center / 100% 100% no-repeat; color: #171717; font-size: calc(var(--u) * 20);
+}
+/* the phase pill: bg_rest in frame_mid_normal (休息一下: icon_rest + 17 px #40b196); battle / 联防 their own pills */
+.gm.has-hud-art .capsule {
+  height: calc(var(--u) * 51); min-width: calc(var(--u) * 183); padding: 0 calc(var(--u) * 22); gap: calc(var(--u) * 8); justify-content: center;
+  border: 0; border-radius: 0; box-shadow: none;
+  background: var(--ha-rest) center / calc(var(--u) * 157) calc(var(--u) * 45) no-repeat, var(--ha-frame-mid) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art .capsule--combat { background: var(--ha-battle) center / calc(var(--u) * 155) calc(var(--u) * 43) no-repeat, var(--ha-frame-mid) center / 100% 100% no-repeat; }
+.gm.has-hud-art .capsule--unite { background: var(--ha-coop) center / calc(var(--u) * 155) calc(var(--u) * 43) no-repeat, var(--ha-frame-mid) center / 100% 100% no-repeat; }
+.gm.has-hud-art .capsule--boss { background: rgba(10, 14, 12, .85); border: 1px solid rgba(255, 122, 51, .5); }
+.gm.has-hud-art .capsule__icon { width: calc(var(--u) * 30); height: calc(var(--u) * 36); }
+.gm.has-hud-art .capsule__label { font-size: calc(var(--u) * 17); color: #40b196; letter-spacing: .06em; }
+.gm.has-hud-art .capsule__kills { font-size: calc(var(--u) * 18); color: #cecece; }
+.gm.has-hud-art .capsule__kills b { font-size: calc(var(--u) * 20); }
+/* LP: icon_hp + 20 px #a8a8a8 */
+.gm.has-hud-art .gtop__center .lp--lg { font-size: calc(var(--u) * 20); color: #a8a8a8; }
+.gm.has-hud-art .gtop__center .lp--lg .lp__icon { width: calc(var(--u) * 16); height: calc(var(--u) * 19); }
+.gm.has-hud-art .gtop__center .lp--danger { color: var(--red-premium); }
+/* 🔍 buttons on bg_check_btn (81×44); the sprite inside at its own size (35×29, 61×29 with chevrons) */
+.gm.has-hud-art .gtop__iconbtn.has-sprite, .gm.has-hud-art .enemybtn.has-sprite,
+.gm.has-hud-art .gtop__iconbtn.has-sprite.is-wide, .gm.has-hud-art .enemybtn.has-sprite.is-wide {
+  width: calc(var(--u) * 81); height: calc(var(--u) * 44); min-width: 0; border: 0; border-radius: 0;
+  background: var(--chk-sprite) center / calc(var(--u) * 35) calc(var(--u) * 29) no-repeat, var(--ha-check) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art .gtop__iconbtn.has-sprite.is-wide, .gm.has-hud-art .enemybtn.has-sprite.is-wide {
+  background: var(--chk-sprite) center / calc(var(--u) * 61) calc(var(--u) * 29) no-repeat, var(--ha-check) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art .gtop__iconbtn.has-sprite:hover, .gm.has-hud-art .enemybtn.has-sprite:hover:not(.is-grey),
+.gm.has-hud-art .gtop__iconbtn.has-sprite.is-on { background: var(--chk-sprite) center / calc(var(--u) * 35) calc(var(--u) * 29) no-repeat, var(--ha-check) center / 100% 100% no-repeat; filter: brightness(1.15); box-shadow: none; }
+.gm.has-hud-art .enemybtn.has-sprite.is-wide:hover:not(.is-grey) { background: var(--chk-sprite) center / calc(var(--u) * 61) calc(var(--u) * 29) no-repeat, var(--ha-check) center / 100% 100% no-repeat; }
+
+/* ---- 准备就绪 (panel_prep_ready: ready_bg + ready_icon + 18 px black; ready → cancel_bg + cancel_icon + #2f2f2f) ---- */
+.gm.has-hud-art .readybtn {
+  position: relative; height: calc(var(--u) * 57); min-width: calc(var(--u) * 161); padding: 0 calc(var(--u) * 18) 0 calc(var(--u) * 20); gap: calc(var(--u) * 8);
+  border: 0; box-shadow: none; color: #000; font-size: calc(var(--u) * 18); letter-spacing: .06em;
+  background: var(--ha-ready-frame) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art .readybtn::before {
+  content: ''; position: absolute; z-index: -1; left: 50%; top: 50%; width: calc(var(--u) * 152); height: calc(var(--u) * 49); transform: translate(-50%, -50%);
+  background: var(--ha-ready) center / 100% 100% no-repeat;
+}
+.gm.has-hud-art .readybtn { isolation: isolate; }
+.gm.has-hud-art .readybtn__box { width: calc(var(--u) * 25); height: calc(var(--u) * 25); border: 0; background: var(--ha-ready-icon) center / contain no-repeat; }
+.gm.has-hud-art .readybtn__box .icon { display: none; }
+.gm.has-hud-art .readybtn__label { flex: none; }
+.gm.has-hud-art .readybtn__key { position: absolute; left: 50%; top: 100%; transform: translate(-50%, calc(var(--u) * 6));
+  color: #e8e8e8; background: rgba(20, 20, 20, .85); border-color: rgba(255, 255, 255, .25); }
+.gm.has-hud-art .readybtn:hover:not(:disabled) { background: var(--ha-ready-frame) center / 100% 100% no-repeat; filter: brightness(1.08); box-shadow: none; }
+.gm.has-hud-art .readybtn.is-on { background: none; color: #2f2f2f; }
+.gm.has-hud-art .readybtn.is-on::before { background-image: var(--ha-cancel); }
+.gm.has-hud-art .readybtn.is-on .readybtn__box { width: calc(var(--u) * 23); height: calc(var(--u) * 23); background-image: var(--ha-cancel-icon); }
+.gm.has-hud-art .readybtn:disabled { background: none; color: rgba(0, 0, 0, .6); }
+.gm.has-hud-art .readybtn:disabled::before { filter: grayscale(1) brightness(.75); }
+
+/* ---- bond discs (autochess_hud_bond_item) on the bond list's matte ---- */
+.gm.has-hud-art .bstrip { gap: 0; padding: 0 calc(var(--u) * 12); background: var(--ha-matte) center / 100% 100% no-repeat; }
+.gm.has-hud-art .bslot { width: calc(var(--u) * 83); height: calc(var(--u) * 84); }
+.gm.has-hud-art .bslot .bond { --disc: calc(var(--u) * 58); position: relative; width: 100%; height: 100%; display: block; }
+.gm.has-hud-art .bslot .bond__disc {
+  position: absolute; left: 50%; top: calc(50% - var(--u) * 9); width: calc(var(--u) * 80); height: calc(var(--u) * 80); transform: translate(-50%, -50%);
+  background: var(--bb) center / calc(var(--u) * 72) calc(var(--u) * 72) no-repeat;
+}
+.gm.has-hud-art .bslot .bond__ring { display: none; }
+.gm.has-hud-art .bslot .bond__core { width: calc(var(--u) * 36); height: calc(var(--u) * 36); background: none !important; box-shadow: none !important; border: 0; }
+.gm.has-hud-art .bslot .bond__icon { width: 100%; height: 100%; filter: brightness(0) invert(.78); }
+.gm.has-hud-art .bslot[data-full] .bond__icon { filter: brightness(0); }
+/* the stack number on matte_num (42×25, 16 px white), 8 units under the disc's centre */
+.gm.has-hud-art .bslot .bond__count {
+  position: absolute; left: 50%; top: calc(50% + var(--u) * 8); right: auto; bottom: auto; transform: translate(-50%, -50%);
+  min-width: calc(var(--u) * 42); height: calc(var(--u) * 25); padding: 0 calc(var(--u) * 4); display: grid; place-items: center;
+  background: var(--ha-num) center / 100% 100% no-repeat; border: 0; border-radius: 0; color: #fff; font-size: calc(var(--u) * 16); box-shadow: none;
+}
+.gm.has-hud-art .bslot .bond__name {
+  position: absolute; left: 50%; top: calc(50% + var(--u) * 31); transform: translate(-50%, -50%); font-size: calc(var(--u) * 14); color: #fff; font-weight: 500;
+}
+/* the count / next threshold is not on the official disc (its tooltip keeps it) */
+.gm.has-hud-art .bslot__count:not(.bslot__off) { display: none; }
+.gm.has-hud-art .bslot .bond.is-clickable:hover .bond__core { transform: none; }
+.gm.has-hud-art .bslot .bond.is-clickable:hover .bond__disc { filter: brightness(1.15); }
+
+/* the bond list sits centred under the round bar (bond_list_info_view: top-centre anchored, 55 units under the HUD) */
+.gm.has-hud-art .gm__bonds { left: 50%; right: auto; transform: translateX(-50%); max-width: calc(100% - 3.2rem); top: calc(var(--u) * 92 + .26rem); }
+/* the ready count goes under the key hint */
+.gm.has-hud-art .readywrap { gap: calc(var(--u) * 30); }

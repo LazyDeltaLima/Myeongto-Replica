@@ -353,6 +353,29 @@ describe('official shop look (public/js/ui/shopArt.js, css/shop-art.css)', () =>
   });
 });
 
+describe('official prep-screen HUD (public/js/ui/hudArt.js, css/hud-art.css)', () => {
+  test('bond disc board: <max>_<tier> while active, the grey 1_0 ring otherwise; the black icon only at the top tier; no look without the sprites', async () => {
+    const { data } = await mod('data.js');
+    const { hudArt, bondBoardStyle } = await mod('ui/hudArt.js');
+    const get = data.get;
+    const ui = {};
+    for (const k of ['1_0', '2_1', '2_2', '3_1', '4_4']) ui[`bondBoardIcon/${k}`] = `/b/${k}.png`;
+    try {
+      data.get = (n) => (n === 'assets' ? { ui } : get.call(data, n));
+      assert.deepEqual(bondBoardStyle(2, 1), { style: '--bb:url("/b/2_1.png")', full: false });
+      assert.deepEqual(bondBoardStyle(2, 2), { style: '--bb:url("/b/2_2.png")', full: true });
+      assert.deepEqual(bondBoardStyle(3, 0), { style: '--bb:url("/b/1_0.png")', full: false });
+      assert.equal(bondBoardStyle(6, 6).style, '--bb:url("/b/4_4.png")', 'more than 4 tiers: clamped to the 4-tier boards');
+      assert.deepEqual(hudArt(), { cls: '', style: '' }, 'without the round bar / ready sprites: upstream look');
+      Object.assign(ui, { 'hudPanel/bg_board': '/h/b.png', 'hudPanel/bg_rest': '/h/r.png', 'prepReady/ready_bg': '/h/ok.png' });
+      data.get = (n) => (n === 'assets' ? { ui: { ...ui } } : get.call(data, n));
+      const a = hudArt();
+      assert.equal(a.cls, 'has-hud-art');
+      assert.match(a.style, /--ha-board:url\("\/h\/b\.png"\)/);
+    } finally { data.get = get; }
+  });
+});
+
 describe('선발 오퍼레이터 — 甄选 picks (shared/diy.js, server/local-patch.js, ui/diySlots.js)', () => {
   test('data: diy.json merges into chess / tokens; records are invisible DIY picks with the slot status', async () => {
     const { loadData } = await import('../server/data.js');
