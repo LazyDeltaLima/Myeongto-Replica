@@ -59,7 +59,7 @@
 }
 /* the refresh price above the button's top-right (root_cost 28 units up): FREE pill or the cost hexagon */
 .shopbar.has-shop-art .toolbtn--amber .hex, .shopbar.has-shop-art .toolbtn__free {
-  position: absolute; left: 50%; top: 0; transform: translate(-50%, calc(-50% - var(--u) * 6));
+  position: absolute; left: 50%; top: 0; transform: translate(-50%, calc(-50% - var(--u) * 15)); /* KR live check 2026-10-06: at −6 it covered the button's top */
 }
 .shopbar.has-shop-art .toolbtn__free {
   width: calc(var(--u) * 101); height: calc(var(--u) * 35); padding: 0 0 0 calc(var(--u) * 48); display: flex; align-items: center;

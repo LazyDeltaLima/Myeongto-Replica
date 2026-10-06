@@ -123,14 +123,15 @@
 .gm.has-hud-art .bslot .bond__core { width: calc(var(--u) * 36); height: calc(var(--u) * 36); background: none !important; box-shadow: none !important; border: 0; }
 .gm.has-hud-art .bslot .bond__icon { width: 100%; height: 100%; filter: brightness(0) invert(.78); }
 .gm.has-hud-art .bslot[data-full] .bond__icon { filter: brightness(0); }
-/* the stack number on matte_num (42×25, 16 px white), 8 units under the disc's centre */
+/* the stack number on matte_num (42×25, 16 px white), on the ring's lower edge (KR captures: ≈ .75 of the radius under
+   the centre; the prefab's 8 units looked too high in play, user 2026-10-06) */
 .gm.has-hud-art .bslot .bond__count {
-  position: absolute; left: 50%; top: calc(50% + var(--u) * 8); right: auto; bottom: auto; transform: translate(-50%, -50%);
+  position: absolute; left: 50%; top: calc(50% + var(--u) * 19); right: auto; bottom: auto; transform: translate(-50%, -50%);
   min-width: calc(var(--u) * 42); height: calc(var(--u) * 25); padding: 0 calc(var(--u) * 4); display: grid; place-items: center;
   background: var(--ha-num) center / 100% 100% no-repeat; border: 0; border-radius: 0; color: #fff; font-size: calc(var(--u) * 16); box-shadow: none;
 }
 .gm.has-hud-art .bslot .bond__name {
-  position: absolute; left: 50%; top: calc(50% + var(--u) * 31); transform: translate(-50%, -50%); font-size: calc(var(--u) * 14); color: #fff; font-weight: 500;
+  position: absolute; left: 50%; top: calc(50% + var(--u) * 42); transform: translate(-50%, -50%); font-size: calc(var(--u) * 14); /* under the lowered stack number (KR captures) */ color: #fff; font-weight: 500;
 }
 /* the count / next threshold is not on the official disc (its tooltip keeps it) */
 .gm.has-hud-art .bslot__count:not(.bslot__off) { display: none; }
@@ -267,7 +268,8 @@
    the text. The < > arrows (btn_prev / btn_next 100×100, arrow 87×86) sit 344 / 339 from the centre (ui/hudArt.js BondNav). ---- */
 .bpop__need, .bpop__stack { display: none; } /* (upstream look: its own facts row) */
 .gm.has-hud-art .bpop {
-  left: 50%; right: auto; top: calc(var(--u) * 132.5); bottom: auto; transform: translateX(-50%); z-index: 10;
+  --u: calc(.015rem * .71); /* KR 3838-wide captures: ≈ 620 px wide at 1920, .71 of the prefab's 584 units (a smaller unit, not a transform: a scaled scroller left a stale layer under it) */
+  left: 50%; right: auto; top: calc(.015rem * 132.5); bottom: auto; transform: translateX(-50%); z-index: 10;
   width: calc(var(--u) * 584); height: calc(var(--u) * 379); max-height: none; padding: 0 calc(var(--u) * 20) calc(var(--u) * 30) calc(var(--u) * 24);
   display: flex; flex-direction: column; gap: calc(var(--u) * 19); border: 0; box-shadow: 0 .1rem .3rem rgba(0, 0, 0, .5);
   background: var(--ha-detail-bg, none) center / 100% 100% no-repeat, rgba(30, 30, 30, .94);
@@ -347,11 +349,11 @@
 /* the < > arrows outside the panel (btn_prev / btn_next, 100×100 at −344 / +339, 12.8 above the panel's centre) */
 .bpop-nav { display: contents; }
 .bpop-nav__btn {
-  position: absolute; z-index: 11; top: calc(var(--u) * (322 - 12.8)); width: calc(var(--u) * 100); height: calc(var(--u) * 100); transform: translate(-50%, -50%);
-  border: 0; padding: 0; cursor: pointer; background: var(--ha-bd-arrow, none) center / calc(var(--u) * 87) calc(var(--u) * 86) no-repeat;
+  position: absolute; z-index: 11; top: calc(var(--u) * (132.5 + 189.5 * .71 - 12.8 * .71)); width: calc(var(--u) * 71); height: calc(var(--u) * 71); /* the popup's .71 scale */ transform: translate(-50%, -50%);
+  border: 0; padding: 0; cursor: pointer; background: var(--ha-bd-arrow, none) center / calc(var(--u) * 62) calc(var(--u) * 61) no-repeat;
 }
-.bpop-nav__btn--prev { left: calc(50% - var(--u) * 344); }
-.bpop-nav__btn--next { left: calc(50% + var(--u) * 339); transform: translate(-50%, -50%) scaleX(-1); }
+.bpop-nav__btn--prev { left: calc(50% - var(--u) * 344 * .71); }
+.bpop-nav__btn--next { left: calc(50% + var(--u) * 339 * .71); transform: translate(-50%, -50%) scaleX(-1); }
 .bpop-nav__btn:hover { filter: brightness(1.2); }
 /* the open bond's disc in the strip: group_select — select_glow behind, select_frame brackets left / right (21×61, ±34.5, 8.4 up) */
 .gm.has-hud-art .bslot.is-open { position: relative; }
@@ -383,7 +385,7 @@
 .dart { position: static; display: flex; flex-direction: column; isolation: isolate; padding: 1.97rem 0 0 .24rem; }
 /* the art behind the whole card: placed on the panel (the scroller and .dart are static), so it neither scrolls nor clips */
 .dart__bg {
-  position: absolute; z-index: -1; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; background: #121212;
+  position: absolute; z-index: -1; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; background: rgba(12, 12, 12, .42); /* the board shows through (KR captures) */
   /* the art fades out between ≈ 6.7rem and 8.6rem (KR captures) */
   -webkit-mask-image: linear-gradient(90deg, #000 78%, transparent 100%); mask-image: linear-gradient(90deg, #000 78%, transparent 100%);
 }
@@ -393,7 +395,7 @@
               linear-gradient(180deg, rgba(8, 8, 8, 0) 46%, rgba(8, 8, 8, .65) 56%, rgba(8, 8, 8, .78));
 }
 /* the 180×360 portrait: the whole half body, its head near the top (the 立绘, when extracted, is drawn larger) */
-.dart__bg img { position: absolute; left: 1.6rem; top: .9rem; height: 62%; width: auto; max-width: none; }
+.dart__bg img { position: absolute; left: 1.6rem; top: .9rem; height: 62%; width: auto; max-width: none; opacity: .82; }
 /* the 立绘 by its client frame (illust_<charId>_1 RectTransform: size --fw × --fh, centre offset --fx / --fy from the frame's
    centre, y up): k = .012rem a frame unit, the frame's centre at (3.35rem, 5.53rem) — a face (≈ 244 units above the frame's
    centre: 古米, 波登可 204) then sits right of the stats about 2.6rem down, the head about as large as in the KR captures

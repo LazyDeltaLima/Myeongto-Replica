@@ -1222,6 +1222,17 @@ function MatchScreen() {
   const popOps = cc && battleRunner && field?.local && bondOpen && bondOpen.ownerId !== myId ? battleRunner.ownerOps(bondOpen.ownerId, field.fieldId) : null;
   const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers });
   const openBond = (id, ownerId, from) => { setBondOpen((b) => toggleBond(b, id, ownerId, from)); audio.sfx('click', { volume: 0.4 }); };
+  // local patch (user 2026-10-06): a press outside the bond popup closes it (the strip's discs, its < > and the card's
+  // bond cells keep their own toggles)
+  useEffect(() => {
+    if (!bondOpen) return undefined;
+    const onDown = (e) => {
+      if (e.target?.closest?.('.bpop, .bpop-nav, .bslot, [data-bond], .modal')) return;
+      setBondOpen(null);
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, [!!bondOpen]);
   const watchingNow = combat ? (watching || field?.fieldId || home) : watching;
   const shopOpen = showShop && !collapsed;
   const ufShown = !!(selEntry && editable && !facing && !drag && showPrep && ufGeo);
