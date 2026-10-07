@@ -18,6 +18,7 @@ import { normalizeResult, fmtNum } from '../ui/gameLogic.js';
 import { enemyIconUrl, titleIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { store, useStore, emptyMatch } from '../store.js';
 import { audio } from '../audio.js';
+import { playMatchEndVoice } from '../voice.js'; // local patch: the 结算 line on a won settlement
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -82,7 +83,7 @@ export function ResultScreen() {
     for (const p of r.players) if (Number.isFinite(p.stats[k]) && p.stats[k] > 0 && (top == null || p.stats[k] > top.v)) top = { v: p.stats[k], id: p.playerId };
     if (top && r.players.length > 1) best[k] = top.id;
   }
-  useEffect(() => { audio.sfx(r.victory ? 'settlementSucceed' : 'settlementFail'); }, []);
+  useEffect(() => { audio.sfx(r.victory ? 'settlementSucceed' : 'settlementFail'); playMatchEndVoice(r, myId); /* local patch: voice.js */ }, []);
   const back = () => store.set({ match: emptyMatch() });
   const boss = r.bossId ? gd.boss(r.bossId) : null;
   // the Hidden Core medal (and its corrupted leader) only once R15 was actually fought

@@ -111,7 +111,7 @@ import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, cameraLayers, layerCamera, sidesOf, resumedWatch } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
 import { data, localAsset, getMode } from '../data.js';
-import { voiceForPiece, voiceForBuy } from '../voice.js'; // local patch: 休整期 lines (选中 / 部署)
+import { voiceForPiece, voiceForBuy, holdResultVoice } from '../voice.js'; // local patch: 休整期 lines (选中 / 部署), 结算 line kept
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
@@ -534,13 +534,15 @@ function MatchScreen() {
         }
         const charId = resultSpeaker(mine, Math.random, (id) => data.lookup('chess', id)?.charId ?? null);
         if (!charId) return;
-        audio.voice(charId, resultVoiceSlot({
+        // local patch: kept for the won settlement instead of said now (voice.js holdResultVoice — the official game is
+        // silent at a round's end)
+        holdResultVoice({ charId, slot: resultVoiceSlot({
           perfect: !!(mine?.perfect),
           leaked: Array.isArray(mine?.leaked) ? mine.leaked.length : 0,
           killed: mine?.killed ?? msg.result.killed,
           total: mine?.total ?? msg.result.total,
           hard: diff === 'HARD' || diff === 'ABYSS',
-        }));
+        }) });
       } catch { /* ignore */ }
     };
     const offs = [net.on('m.field', onFieldMeta), net.on('b.snap', onSnap), net.on('b.ev', onEv)];

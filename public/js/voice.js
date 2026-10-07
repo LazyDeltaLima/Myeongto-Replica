@@ -13,9 +13,17 @@
 //   <VoiceSetting />           the settings row (ui/settings.js): language
 //   voiceForPiece(piece)       screens/game.js: a picked-up / selected piece
 //   voiceForBuy(slot)          screens/game.js: a shop slot bought / a reward picked
+//   holdResultVoice(line)      screens/game.js onResult: the own battle's 结算 line, kept instead of played
+//   playMatchEndVoice(res, me) screens/result.js: the kept line on a won settlement, if the player was not knocked out
+//
+// 结算 lines (owner 2026-10-07, from play on the official client): upstream says the 3星 / 非3星 / 高难 / 失败 line at
+// the end of every battle; the official game is silent at a round's end and speaks only on the settlement after the
+// boss is down (作战结束). A player knocked out during the run hears nothing. The line and the speaker stay upstream's
+// pick (resultVoiceSlot / resultSpeaker) for the last battle the player fought; 行动失败 never goes with a win (a lost
+// Hidden Core round after the cleared boss) → the 非3星 line.
 
 import { html, MicroLabel } from './ui/components.js';
-import { createStore, useStore, loadPref, savePref } from './store.js';
+import { createStore, useStore, loadPref, savePref, store } from './store.js';
 import { audio } from './audio.js';
 import { data } from './data.js';
 import { OfficialVoiceGate, createVoicePolicy } from './voicePolicy.js';
@@ -87,6 +95,35 @@ export function voiceForBuy(slot) {
   if (!slot || slot.kind === 'item') return;
   const id = chessVoiceId(slot.id);
   if (id) audio.voice(id, 'place', { unitKey: `prep:${id}` });
+}
+
+let heldResult = null;
+// a new match (or leaving one) empties m.public / m.result: a line kept from the last run never reaches the next
+store.subscribe((s, prev) => { if (!s.match?.public && !s.match?.result && (prev?.match?.public || prev?.match?.result)) heldResult = null; });
+
+/** Keep the own battle's 结算 line (screens/game.js onResult) for the settlement. @param {{ charId: string, slot: string }|null} line */
+export function holdResultVoice(line) {
+  if (line && typeof line.charId === 'string' && typeof line.slot === 'string') heldResult = { charId: line.charId, slot: line.slot };
+}
+
+/**
+ * The settlement's line (pure): the kept line on a win when the player is still in; null otherwise.
+ * @param {{ charId: string, slot: string }|null} held
+ * @param {{ victory?: boolean, players?: Array<{ playerId?: string, alive?: boolean }> }|null} res normalizeResult()
+ * @param {string|null|undefined} myId
+ */
+export function matchEndVoice(held, res, myId) {
+  if (!held || !res?.victory) return null;
+  const me = Array.isArray(res.players) ? res.players.find((p) => p && p.playerId === myId) : null;
+  if (!me || me.alive === false) return null;
+  return { charId: held.charId, slot: held.slot === 'resultLose' ? 'resultTwo' : held.slot };
+}
+
+/** screens/result.js: say the kept line once (the settlement screen mounted). */
+export function playMatchEndVoice(res, myId) {
+  const line = matchEndVoice(heldResult, res, myId);
+  heldResult = null;
+  if (line) audio.voice(line.charId, line.slot);
 }
 
 /** Settings row (ui/settings.js): the voice language (the volume is upstream's 干员语音 slider). */

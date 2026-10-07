@@ -5,7 +5,7 @@
 
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -326,6 +326,37 @@ describe('operator voice: Korean / Japanese / off and the 休整期 lines on ups
       } finally { data.lookup = lookup; }
       assert.deepEqual(calls, [['char_002_amiya', 'select', 'prep:7'], ['char_002_amiya', 'place', 'prep:char_002_amiya']]);
     } finally { audio.voice = orig; }
+  });
+
+  test('client: 结算 lines wait for the won settlement (silent at a round\'s end, none for a knocked-out player)', async () => {
+    const v = await mod('voice.js');
+    const { audio } = await mod('audio.js');
+    const { store, emptyMatch } = await mod('store.js');
+    const held = { charId: 'char_002_amiya', slot: 'resultThree' };
+    const won = (alive = true) => ({ victory: true, players: [{ playerId: 'p1', alive }, { playerId: 'p2', alive: true }] });
+    assert.deepEqual(v.matchEndVoice(held, won(), 'p1'), held);
+    assert.equal(v.matchEndVoice(held, won(false), 'p1'), null, 'knocked out during the run: nothing');
+    assert.equal(v.matchEndVoice(held, { ...won(), victory: false }, 'p1'), null, 'a lost run: nothing');
+    assert.equal(v.matchEndVoice(null, won(), 'p1'), null);
+    assert.equal(v.matchEndVoice({ ...held, slot: 'resultLose' }, won(), 'p1').slot, 'resultTwo', '行动失败 never on a win');
+    const game = readFileSync(path.join(ROOT, 'public', 'js', 'screens', 'game.js'), 'utf8');
+    assert.ok(!/audio\.voice\(charId, resultVoiceSlot\(/.test(game), 'onResult no longer speaks');
+    assert.match(game, /holdResultVoice\(\{ charId, slot: resultVoiceSlot\(/);
+    const calls = [];
+    const orig = audio.voice;
+    audio.voice = (id, slot) => { calls.push([id, slot]); return true; };
+    try {
+      v.holdResultVoice({ charId: 'char_002_amiya', slot: 'resultTwo' });
+      v.holdResultVoice({ charId: 'char_002_amiya', slot: 'resultThree' }); // the last battle's line wins
+      v.playMatchEndVoice(won(), 'p1');
+      v.playMatchEndVoice(won(), 'p1'); // once
+      assert.deepEqual(calls, [['char_002_amiya', 'resultThree']]);
+      store.set({ match: { ...emptyMatch(), public: { phase: 'PREP' } } });
+      v.holdResultVoice(held);
+      store.set({ match: emptyMatch() }); // left the match: the kept line goes
+      v.playMatchEndVoice(won(), 'p1');
+      assert.equal(calls.length, 1);
+    } finally { audio.voice = orig; store.set({ match: emptyMatch() }); }
   });
 });
 

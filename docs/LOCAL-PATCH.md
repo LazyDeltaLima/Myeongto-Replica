@@ -22,7 +22,7 @@
 | `SP_MAX_BOTS` (방마다 AI 팀원 한도) | `server/local-patch.js` | `server/lobby.js` 훅, `screens/room.js` 한도 표시 |
 | 이모티콘 공식/유저 탭 | `shared/emote-art.js`, `public/img/emotes/*` | `ui/emotes.js`(약 100줄, 가장 큰 수정), `emotes.css`, `gameActions.js`, `gameLogic.js`, `teamPanel.js`, `Match.js`·`StubMatch.js` 의 `set` |
 | 리소스 미리 받기 | `public/js/resources.js`, `public/resource-worker.js`, `tools/build-browser-resources.mjs`, `public/css/resources.css` | `main.js`, `settings.js`, `index.html` |
-| 오퍼레이터 음성 언어 선택(한국어/일본어/끄기)과 정비 단계 대사(선택·배치) — 원본 #73 「干员战斗语音」 위에 | `tools/assets/voice.mjs`(일본어 쌍둥이 `audio.voiceJp`, 정리), `public/js/voice.js` | `tools/fetch-assets.mjs`(기본 `--voice-lang=kr` 1줄, `tidyVoice` 2줄), `tools/assets/plan.mjs` 2줄(import, `audio.voiceJp`), `audio.js voice()` 2줄(`audio.voiceTable`: 고른 언어의 표), 공식 재생 규칙 `public/js/voicePolicy.js` + `audio.js` 훅(`voice()` 유형 인자, 스킬·행동 개시·첫 배치·초기화 각 1~3줄), `screens/game.js`(import, 선택 2줄, `buy`·보상 선택), `ui/settings.js`(언어 줄), `resources.js`(언어 필터), `debug.js`(대사 버튼), `public/i18n/ko/ui.json` |
+| 오퍼레이터 음성 언어 선택(한국어/일본어/끄기)과 정비 단계 대사(선택·배치) — 원본 #73 「干员战斗语音」 위에 | `tools/assets/voice.mjs`(일본어 쌍둥이 `audio.voiceJp`, 정리), `public/js/voice.js` | `tools/fetch-assets.mjs`(기본 `--voice-lang=kr` 1줄, `tidyVoice` 2줄), `tools/assets/plan.mjs` 2줄(import, `audio.voiceJp`), `audio.js voice()` 2줄(`audio.voiceTable`: 고른 언어의 표), 공식 재생 규칙 `public/js/voicePolicy.js` + `audio.js` 훅(`voice()` 유형 인자, 스킬·행동 개시·첫 배치·초기화 각 1~3줄), `screens/game.js`(import, 선택 2줄, `buy`·보상 선택, 결산 대사 보관 `holdResultVoice`), `screens/result.js` 2줄(import, 승리 결산에서 `playMatchEndVoice`), `ui/settings.js`(언어 줄), `resources.js`(언어 필터), `debug.js`(대사 버튼), `public/i18n/ko/ui.json` |
 | 선발 오퍼레이터 (甄选 칸: 왕·첸 더 던스트릭·위셔델·사키코·아스카론) | `tools/build-diy.mjs` → `data/diy.json`, `shared/diy.js`, `public/js/ui/diySlots.js`, `public/css/diy.css`, `tools/assets/diy.mjs` | `tools/build-data.mjs`(스크립트 가드 + export), `server/data.js`·`public/js/data.js`·`public/js/battle/runner.js`(diy.json 병합 각 1줄), `shared/protocol.js`(loadout `diy` 키·검사), `server/match/PlayerState.js` 2줄(`diy` 유지), `server/lobby.js freezeLoadout` 1줄(`diy` 유지 — 없으면 매치가 구성 전체를 버린다), `server/local-patch.js`(전용 풀), `public/js/ui/loadoutModel.js`(`diy` 유지: `parseStored`·`setChoice`·`sanitizeEntries`), `screens/loadout.js` 3줄 + 내보내기 버튼 조건, `index.html` 1줄, `tools/fetch-assets.mjs` 2줄, `server/sim/Battle.js isReservedTile` 2줄(선택 인자 `except`: 望의 재배치 대기 돌 자리 제외) |
 | 선발 소환물 모델 (望 바둑돌·维什戴尔 혼령의 그림자: 웹 미러에 기본 모델이 없어 마름모로 보이던 것 → 로컬 클라이언트 추출) | `tools/local-extract/token_spines.py` → `public/assets/local/spine/token/<id>/` + `data/local-assets.json` 그룹 `spine/token/<id>`, `tools/assets/local-token-spines.mjs` → `tools/assets/local-token-spines.json` | `tools/fetch-assets.mjs` 3줄(import, `addDiyTokenAssets`, `addDiyTokenModels` → `data/assets.json tokens[id]` 아바타·`spineLocal`), `public/js/assets.js spineEntry` 토큰 분기 1줄(`spineLocal` 사용) |
 | 함정형 소환물 표시 (望 바둑돌은 HP 바 없음, 望 바둑돌·사일런스 의료 드론은 방향 선택 없이 바로 배치·방향 표시 없음) | `shared/trap-tokens.js` | `render/units.js` 3줄(import, HP 바 조건, 방향 표시), `ui/facing.js` 2줄(import, `needsFacing`), `render/fx.js FX_KINDS` 1줄(`wangLink`: 바둑돌 활성화 이벤트의 기본 연출) |
@@ -178,6 +178,13 @@
   클래스·필드 이름으로 추론해 사용자가 공식대로 정한 것: 작전중 대사는 1~4 중 무작위(`LoadRandomVoiceList`), 행동 개시는 전투당 1번
   (`m_encounterFirstEnemyFlag`, 버려진 시도는 3초 뒤 다시), 전투 시작은 한 명만 행동출발이고 나머지 첫 배치는 말하지 않음
   (`AutoChessGameModeVoicePlugin._OnCharacterPlacedAtBattle`; 2초 뒤 재배치는 배치 대사). 원본 테스트는 원본 `VoiceGate` 그대로라 깨지지 않는다.
+- 로컬 4 — 결산 대사는 승리 결산 화면에서만(2026-10-07, 사용자: 공식 게임 플레이 확인): 원본은 전투가 끝날 때마다 결산 4종 중 하나를
+  말하지만, 공식은 라운드가 끝나도 말하지 않고 보스를 처치한 결산 화면에서 작전 종료 대사를 말한다. 도중에 탈락한 플레이어는 말하지 않는다.
+  `screens/game.js onResult`는 원본이 고른 대사(`resultVoiceSlot`, 화자 `resultSpeaker` — 자기 전투의 오퍼레이터)를 재생하지 않고
+  `voice.js holdResultVoice`로 보관(마지막 전투 것이 남음, 매치를 떠나면 비움) → `screens/result.js`가 결산 화면에서 `playMatchEndVoice`:
+  `victory`이고 자기가 살아 있으면 한 번 재생. 승리에 행동 실패 대사는 붙지 않는다(숨은 핵심 라운드를 진 경우) → 비3성 대사.
+  서버는 마지막 전투 뒤 3초(`DELAYS.SETTLE`) 후 `m.result`를 보내므로 마지막 전투의 결과가 먼저 보관된다.
+  확인: `test/local-patch.test.js` 「结算 lines wait for the won settlement」, 브라우저(game-mock 결산: 승리 1회 재생, 탈락·패배 무음).
 
 ## 선발 오퍼레이터 (2026-10-05)
 - 원본 甄选 규칙(공식 데이터 + bilibili wiki 盟约): V·VI단계 2칸씩, 경기 전 오퍼레이터 구성 화면에서 고른다. 고른 오퍼레이터는 그
@@ -868,7 +875,7 @@
 - (뺐음, 2026-10-06) 방어 지점 경보음: 원본 #134(d5829258)가 같은 `ON_ENEMY_REACHED_EXIT`를 넣어 로컬 `leak-sfx.mjs`·`audio.js` 2줄·테스트를 지웠다(사용자 결정: 원본 사용)
 
 ## 테스트
-- `node --test test/local-patch.test.js` — 로컬 테스트 108개.
+- `node --test test/local-patch.test.js` — 로컬 테스트 109개.
 - 전체 `node --test`에서 원래부터 실패하는 것 (이 개발 사본에 게임 소재가 없음): 소재 manifest·로컬 추출·모듈 아이콘·이모티콘 그림 관련,
   `make-windows-bundle` 대소문자 검사. 2026-10-05 기준 12개. (`lobby-integration` 재접속 테스트와 `match/realtime.test.js` 「real-time co-op over websockets」가 가끔 시간 문제로 실패하는데, 단독으로 돌리면 통과한다. 2026-10-06 전체 실행: 최상위 실패 10개 = 소재·로컬 추출 관련 + 아래 의도한 실패 + 단독으로는 통과하는 realtime 1개)
 - 로컬 패치 때문에 실패하는 원본 테스트 (의도한 동작 변경이라 고치지 않음):
@@ -877,6 +884,7 @@
   - `test/sim/feedback1f-liftoff.test.js` 「F3 review … “帝国的甲胄” barrage」: 1.5초 안에 8발을 기대한다.
   - `test/sim/playtest6_limits.test.js` 「限伤 vs 【死亡集群】」: 풀이 크면 드론 피해가 무효이길 기대한다.
   - `test/docs-consistency.test.js` 「干员战斗语音 (DESIGN §21.30)」: 음성 경로가 원본 기본 `/voice/cn/`이길 기대한다(로컬은 한국어 빌드 + 일본어 쌍둥이).
+    마지막 줄의 `audio.voice(charId, resultVoiceSlot(` 검사도 로컬 4(결산 대사 보관) 때문에 맞지 않는다.
   - `test/render/feedback3-skill-idle.test.js` 「unchanged: … (宴: its loop stays the stance)」, `test/render/feedback4-texas-skill-clip.test.js`
     「unchanged: a Begin clip …」: 宴 S2(skillIndex 1)가 Skill_Start → Skill_Loop(=S1 分神 자세)를 틀길 기대한다 — 아래 "전투 버그 수정" 우타게 항목(2026-10-06).
   - `test/asset-network.test.js` 「CLI source defaults to direct …」(upstream 0.1.4): 음성 기본값 `cn`을 기대한다(로컬은 `kr`).
