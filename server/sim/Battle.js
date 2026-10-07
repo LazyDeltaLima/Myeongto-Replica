@@ -901,8 +901,11 @@ export class Battle {
       return false;
     }
     const k = R0 * COLS + C0;
+    // a flying ally (炎佑: motion FLY, set by its kit install) holds no field tile — it neither needs a free one nor keeps
+    // the one it appears over from deploys / summons / redeploys (user playtest 2026-10-08)
+    const fly = u.motion === 'FLY';
     const occ = this._occ[k];
-    if (occ && occ !== u && occ.alive && occ.deployed) { this.log(`tile ${R0},${C0} occupied; ${u} not deployed`); return false; }
+    if (!fly && occ && occ !== u && occ.alive && occ.deployed) { this.log(`tile ${R0},${C0} occupied; ${u} not deployed`); return false; }
     // "倒地干员所在地块视为可部署，但所有我方单位在此处的部署行为将被阻止" (PRTS 卫戍协议/帮助 §作战阶段 单位部署)
     if (this.downOn(R0, C0, u)) { this.log(`a knocked-out operator lies on ${R0},${C0}; ${u} not deployed`); return false; }
     const first = u.deploySeq === 0;
@@ -926,7 +929,7 @@ export class Battle {
     // an operator's HP ratio here, the SP in skill.reset and again after the `deploy` hook (below) — a summon's SP only
     const cs = initial || (first && this._startDeploying) ? (carry ?? u.carry) : null;
     if (cs && u.kind === 'op' && Number.isFinite(cs.hpPct)) u.hp = Math.max(1, u.s.maxHp * Math.max(0.01, Math.min(1, cs.hpPct)));
-    this._occ[k] = u;
+    if (!fly) this._occ[k] = u;
     this._refreshRange(u); // also rebuilds baseRangeKeys (initial range incl. permanent rangeExtend)
     if (!u.skill) this._setupUnit(u);
     u.skill.reset(cs);
@@ -1947,15 +1950,16 @@ export class Battle {
     if (!unit || unit.side !== 'ally' || !unit.alive || !unit.deployed) return false;
     if (!Number.isInteger(r) || !Number.isInteger(c) || !this.grid.inRect(r, c)) return false;
     const k = r * COLS + c;
-    if (this._occ[k] && this._occ[k] !== unit && this._occ[k].alive) return false;
-    if (this.downOn(r, c)) return false;
+    const fly = unit.motion === 'FLY'; // a flying ally holds no tile (_deploy)
+    if (!fly && this._occ[k] && this._occ[k] !== unit && this._occ[k].alive) return false;
+    if (!fly && this.downOn(r, c)) return false;
     const ok = unit.tileR * COLS + unit.tileC;
     if (this._occ[ok] === unit) this._occ[ok] = null;
     this.releaseBlocked(unit);
     if (unit.obstacle) this.grid.setObstacle(unit.tileR, unit.tileC, false, unit.obstacleKind);
     unit.tileR = r; unit.tileC = c; unit.x = c; unit.y = r;
     unit.ground = this.grid.isLow(r, c) && !this._elevated?.has(k);
-    this._occ[k] = unit;
+    if (!fly) this._occ[k] = unit;
     if (unit.obstacle) this.grid.setObstacle(r, c, true, unit.obstacleKind);
     this._refreshRange(unit); // current + base range, CUSTOM_RANGE trigger keys
     return true;

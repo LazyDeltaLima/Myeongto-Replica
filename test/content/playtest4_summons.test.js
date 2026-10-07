@@ -72,6 +72,21 @@ test('#12 炎佑 stays where it is when no enemy is on the field (no fixed retur
   checkInvariants(h.b);
 });
 
+test('炎佑 is a flyer: it holds no field tile, so its spawn tile stays free for a ground unit (user playtest 2026-10-08)', REAL, () => {
+  const h = makeBattle({ defs: { chess: { test_guard: guard() } }, units: [{ chessId: 'test_guard', row: 10, col: 4, uid: 1 }], autoFinish: false, timeLimit: 30 });
+  h.step();
+  const [y] = spawnYanyou(h.b, 'p1', { atk: 1000, hp: 5000 });
+  assert.ok(y && y.alive && y.motion === 'FLY');
+  assert.equal(h.b.unitAt(y.tileR, y.tileC), null, 'spawn tile not occupied');
+  assert.equal(h.b.isReservedTile(y.tileR, y.tileC), false, 'nor reserved');
+  // a ground unit may stand right under it
+  const g = h.unit('test_guard');
+  assert.ok(h.b.relocate(g, y.tileR, y.tileC), 'a ground unit moves onto that tile');
+  assert.equal(h.b.unitAt(y.tileR, y.tileC), g);
+  h.run(2);
+  checkInvariants(h.b);
+});
+
 test('#12 炎佑 tracks the highest-aggro enemy of the whole field (least remaining path), not the nearest one', REAL, () => {
   // two standing enemies on the walk route to the goal (9,2): (9,4) is 2 tiles from it, (12,9) far away
   const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [], enemies: [{ key: 'enemy_dummy', pos: [12, 9] }, { key: 'enemy_dummy', pos: [9, 4] }], autoFinish: false, timeLimit: 90 });

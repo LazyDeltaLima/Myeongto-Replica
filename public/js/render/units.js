@@ -1045,6 +1045,7 @@ export class UnitView {
     // on the board (app.js sets _showFacing; bench pieces have none); battle / scouting allies whose dir is known
     let wedge = this._showFacing !== undefined ? this._showFacing && this.prep : this.hasDir && this.info.kind !== 'device';
     if (wedge && facingless(this.info.defId)) wedge = false; // local patch: summons placed without a facing
+    if (wedge && this.flying) wedge = false; // a flying ally (炎佑) has no deploy tile nor facing
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): the official ring + arrow on the ground when the art is there (facing.js)
     const facingTex = wedge && this.alive ? facingTextures(P, this.ctx.assets) : null;
     if (facingTex) {
