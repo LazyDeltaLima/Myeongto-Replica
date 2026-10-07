@@ -8,7 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { attackMode, boundEffects } from '../public/js/render/fxmap.js';
+import { attackMode, boundEffects, activationEffects } from '../public/js/render/fxmap.js';
 import { loadCharModes } from '../tools/assets/skill-mode-sfx.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -71,5 +71,39 @@ describe('attack-mode effect bindings', () => {
       for (let n = 1; n < e.modes.length; n++) if (boundEffects(e, pre, n, 'cast').length) withCast++;
     }
     assert.ok(withCast >= 25, `skill modes with extracted cast effects: ${withCast}`);
+  });
+});
+
+// local patch (user report 2026-10-07, 11 items): a skill activation's effects — the name mapping ∪ the skill's own (skills.ab),
+// minus what the modes bind to an attack (d0e3e079's `_range` rule played 수르트 S3's hit range on her) and the skill's target /
+// end effects; the skill bindings and turned effects char_modes.py writes
+describe('skill activation effects', () => {
+  test('activationEffects: no mode-bound range on the caster, the skill\'s own cast / buff, its target and end effects elsewhere', () => {
+    const pre = ['x_skill_03_buff', 'x_skill_03_range', 'x_skill_03_start_01', 'x_skill_03_start_02', 'x_skill_03_end', 'x_skill_03_hit_1', 'x_skill_01_range', 'x_skill_01_start'];
+    const bind = { modes: ['Default', 'S3'], cast: [[], ['x_skill_03_start_01']], hit: [[], ['x_skill_03_range']], trail: [[], []], attach: [[], []],
+      skills: [{ cast: ['x_skill_01_start'], castLoop: ['x_skill_01_range'], buff: [], target: [], targetBuff: [] }, {},
+        { cast: [], castLoop: ['x_skill_03_start_02'], buff: [], target: [], targetBuff: ['x_skill_03_hit_1'], end: { cast: ['x_skill_03_end'], hit: [] } }] };
+    assert.deepEqual(activationEffects(bind, pre, 2), { start: ['x_skill_03_start_02'], loops: ['x_skill_03_buff'] });
+    assert.deepEqual(activationEffects(bind, pre, 0), { start: ['x_skill_01_start', 'x_skill_01_range'], loops: [] }, 'its cast range once, not as a loop');
+    assert.deepEqual(activationEffects(null, pre, 2).loops, ['x_skill_03_buff', 'x_skill_03_range'], 'unbound: the name rule as before');
+    assert.deepEqual(activationEffects(bind, pre, 2, new Set(['x_skill_03_buff'])).loops, [], 'a kit-owned prefab');
+  });
+
+  test('the reported skills with the extracted bindings', { skip: !extracted && 'no extracted effects' }, () => {
+    const fx = JSON.parse(readFileSync(path.join(FX, 'modes.json'), 'utf8'));
+    const index = JSON.parse(readFileSync(path.join(FX, 'index.json'), 'utf8')).bundles;
+    const act = (id, i, own) => activationEffects(fx[id], index[id.replace(/^char_\d+_/, '')], i, own);
+    const surtr = act('char_350_surtr', 2);
+    assert.ok(!surtr.loops.includes('surtr_skill_03_range') && surtr.loops.includes('surtr_skill_03_buff'), '수르트 S3: the range is her attacks\' hit');
+    const mly = act('char_4064_mlynar', 2);
+    assert.ok(!mly.loops.includes('mlynar_skill_03_range_01') && mly.loops.includes('mlynar_skill_03_buff_03'), '무에나 S3: range_01 is each attack\'s cast; buff_03 its loop');
+    const tex = act('char_102_texas', 1);
+    assert.deepEqual(tex.start, ['texas_skill_01_start', 'texas_skill_01_range'], '텍사스 S2 (its files are named _skill_01_)');
+    assert.deepEqual(fx.char_102_texas.skills[1].target, ['texas_skill_01_hit'], 'the falling sword on each target');
+    assert.deepEqual(act('char_4116_blkkgt', 2).start, ['blkkgt_skill_03_start_01', 'blkkgt_skill_03_start_02'], '데겐블레허 S3: the finisher pieces wait for its end');
+    assert.deepEqual(fx.char_4116_blkkgt.skills[2].end, { cast: ['blkkgt_skill_03_end', 'blkkgt_skill_03_start_03', 'blkkgt_skill_03_start_04'], hit: ['blkkgt_skill_03_hit_2'] });
+    assert.ok(!act('char_2026_yu', 2, new Set(['yu_skill3_range_01'])).loops.includes('yu_skill3_range_01'), '余 S3: the wall is drawn by its kit event');
+    assert.ok(!act('char_4193_lemuen', 2).loops.includes('lemuen_skill_03_crosshair_range'), '르무엔 S3: the aim\'s trail');
+    assert.ok(fx.char_496_wildmn.turn.includes('wildmn_skill_02_start'), '野鬃 S2\'s thrust turns to her facing');
   });
 });

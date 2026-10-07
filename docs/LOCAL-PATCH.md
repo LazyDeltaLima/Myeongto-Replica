@@ -934,6 +934,23 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     시작음(`ON_CUSTOM_TRIGGER.skchr_oblvns_3[start]`)이 `deferStart`(공격 능력 소리만 해당)에 잘못 걸려 거의 안 나던 것 수정
     (`skill-sfx.mjs skillStartIsFallback`: 커스텀 시작 트리거는 진짜 시작음). `/debug.html` 일시정지는 AudioContext도 멈춘다(루프가 계속 울리지 않게).
 
+  - **평타는 Default 모드 소리만** (사용자 제보 2026-10-07 7번 「실버애쉬 평타에 S3 소리」): `tools/assets/skill-mode-sfx.mjs defaultModeBanks` — 모드 정보가 있는
+    오퍼레이터는 스킬 모드 번호의 `ON_ABILITY_*.attack|combat.<n>` 뱅크를 평타 후보에서 뺀다(银灰 S3 `p_atk_silver_n`, 号角 S2 포격 시전음, 丰川祥子 S3,
+    圣约送葬人 S3_End, 雷蛇 S2가 평타마다 나던 누수). `.0…`(Default `_includeIndexZero`)은 파일 접미사와 상관없이 Default 것(`audio.mjs pickUnitSfx opts.defaultZero`
+    — 丰川祥子 `p_atk_mjckyrdnt_h`). Default 투사체(charpack `_projectileKey`, 银灰 `projectile_svrash`)의 BORN/HIT/REACH를 이름 추측보다 먼저(prove·slchan·
+    skgoat·vodfox·leizi·rosmon에 타격음이 생김). [추정] Default에 공격 뱅크도 투사체 뱅크도 없는 玛恩纳·蜜蜡·薄绿·卡涅利安·sbell2는 예전 것(스킬 모드 `_n`
+    파일)을 남긴다 — 스킬 없이 평타만 치는 공식 영상으로 무음이 확인되면 예외를 뺀다.
+  - **르무엔 S3 효과음** (10번): `kit-sfx.mjs KIT_HIT_BANKS` `lemuen:mark` = `ON_BUFF_SHOW_EFFECT.char_lemuen_range_aim`(S3 'lock'마다), `lemuen:s3end` =
+    `ON_ABILITY_START.char_4193_lemuen.attack.4`(S3_End 모드, 첫 'bombardShell' i 0), `lemuen:shell` = `ON_PROJECTILE_REACH.projectile_chr_lemuen_s3_attack`('bombard'마다),
+    `audio.js kitHitKey` 3줄. `lemuen_s3_audio_triggered`(p_atk_lmwlcrstr_s)는 시점이 불확실해 뺐다.
+  - **kit 소리 동시 재생 = 공식 popOldest**: kit 뱅크 22개는 공식에서 모두 `popOldest true`, 상한(`maxSoundAllowed`) 1–3. plan이 `kit-sfx.mjs kitHitLimits`로
+    `audio.sfx.kitLimit[key] = { max, pop }`에 싣고(`audio.mjs indexAudio limitOf`), `audio.js _play({ pop })`가 같은 파일이 상한에 차면 가장 오래된 복사본을 끊고
+    새 소리를 낸다(르무엔 착탄 5발 모두 — 예전엔 셋째부터 빠짐). 상한 1인 키(wang:1·wisdel:s2·whitw2:s2/s3·lemuen:mark)는 겹치던 두 번째 대신 앞 소리를 끊는다.
+    일반 유닛·전투 소리는 그대로(`MAX_PER_URL` 2, 넘으면 버림). 유닛별 160 ms 간격은 kit에도 걸려 2× 속도에서는 일부 빠질 수 있다.
+  - 확인: `test/local-patch-audio.test.js` +6(수정 전 실패 확인), 매니페스트 diff(위 오퍼레이터만), Windows Chrome `sndB_probe.mjs`(银灰 발동 전 평타
+    `p_imp_spear_n`만, 르무엔 mark 5·s3end 1·shell 5). 배포: 새 sfx 3개(`p_imp_lmwlcrstrmk`, `p_atk_lmwlcrstrst_s`, `p_imp_lmwlcrstr_s`) → `oci/deploy.sh --assets`.
+    로컬 재생성 때 매니페스트 키가 10개 줄어 `fetch-assets --allow-shrink`.
+
 - 스킬 중 공격 이펙트·이펙트 배속 (2026-10-07, 공식 비교 조사 `compare-fx.md` 1·9번):
   - 공식: 스킬 모드의 공격 능력에 `_castEffects`가 붙어 `*_skill_0N_start`는 스킬 중 **매 공격**(CAST_START)에 나오고, 발동 순간은 Begin
     애니 + 버프 루프뿐이다. 스킬 모드가 일반 공격 이펙트를 그대로 쓰는 경우도 많다. 이펙트는 전부 scaled time(배속을 따름).
@@ -991,6 +1008,44 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   첫 발은 파일을 받는 동안 절차 탄 그대로(안 보이는 탄 없음), 동시에 12개(`MAX_TRAILS`) 넘거나 부하 3단계면 절차 탄. 바인딩된 꼬리가 있는 오퍼레이터:
   추출된 25명 중 14명 이상(일반 공격) + 스킬 모드. `stats().trails`/`trailAt`(디버그). 확인: 디버그 아레나에서 위셔델·아처·르무엔·파싱어·라플란드·
   치우바이 비행 좌표·화면.
+
+- 사용자 제보 11건 (2026-10-07, 조사 `research/2026-10-07-user-issues/` issues-fx.md·issues-sound.md·issues-anim.md;
+  3·4는 b7f77ebb). 이번에 고친 것:
+  - **스킬 발동 이펙트 고르기** (`fxmap.js activationEffects`, 2·5·8·9·10·11): 이름 매핑 ∪ 스킬 자신의 이펙트(아래 `skills[i]`)에서 다음을 뺀다 —
+    ① 그 오퍼레이터의 모드가 공격의 cast/hit/trail로 묶은 프리팹(d0e3e079 `_range` 규칙의 회귀: 수르트 S3 range는 대상 타격, 무에나 S3 range_01·buff_01은
+    매 공격 시전, 르무엔 S3 crosshair_range는 조준 투사체 — 17개 스킬이 발동 때 시전자 몸에 한 번 더 틀었다), ② 스킬이 대상에 거는 것·끝에 트는 것
+    (target / targetBuff / end), ③ 키트 이벤트가 그리는 것(`fxgame.js KIT_OWNED`: 余 `yu_skill3_range_01`). 스킬이 스스로 시전하는 프리팹(`_castEffects`)은
+    이름이 `_buff`/`_range`여도 루프가 아니라 한 번. `ownsSkill`도 같은 목록으로 판단.
+  - **스킬 단위 바인딩** (`char_modes.py skill_effects` → `modes.json`·`local-char-modes.json` `skills[i]`, 스킬 순서): 그 스킬 프리팹(`[uc]skills.ab`)의
+    `_castEffects`(`_oneshot` 1 → `cast`, 0 → `castLoop`; 둘 다 발동 때 한 번, 프리팹 길이만큼), `_buffs[].overrideEffectKey`(`buff`, 시전자 루프),
+    `_activeBuffs`(`targetBuff`, 대상 표식), `_hitEffects` + 능력 투사체의 `_effectsToTargetWhenStart`/`_effectsWhenHit`/`_effectsWhenReached`(`target`),
+    이름이 `End…`인 능력은 `end: { cast, hit }`(풀에서 데겐블레허 S3 하나). 텍사스 S2는 파일 이름이 `_skill_01_`이라 이름 매핑으로는 0개였다.
+    공격 이벤트 없이 피해를 주는 순간은 `fxgame.js expect()`/`pendingHit()`: 발동 틱의 'dmg'(텍사스 S2 검 2발 — 대상당 한 번)에 `target`,
+    키트 fx 'slash'(데겐블레허 연속 베기)의 'dmg'에 `targetBuff`(대상당 한 번, 스킬 끝·대상 사망에 멈춤), 'finale'(마무리 일격, 시뮬레이션이 onEnd에서
+    'skill' off 전에 냄)에 `end.cast`(시전자) + 그 틱 'dmg'에 `end.hit`. 다른 유닛이 1초 안에 공격한 대상, 4.5칸 밖 대상은 가로채지 않는다.
+  - **4방향 회전** (6): `_useFourDirectionalFace: 1`인 이펙트(풀 12명: 野鬃 S2 start 등, `modes.json turn`)는 좌우 반전 대신 프리팹의 `rotation_z`를
+    유닛 방향으로 돌린다(RIGHT 0° / UP 90° / LEFT 180° / DOWN 270°, 첸 S3 검기와 같은 `aimMover`). 좌우는 지금 그려진 방향(visFacing).
+    `_directionType`의 방향별 사본(위·아래 배치)은 아직 기본 사본만 [남음].
+  - **키트 이벤트** (`fxgame.js kitFx`, 9·10): 余 S3 'firewall' → 벽이 지나는 줄(`fx.js wallTiles`, `app.js` `fieldRect` 옵션 1줄)의 칸마다
+    `yu_skill3_range_01` + 그의 칸에 `_root`, 스킬이 끝나면 멈춤 [추정 배치 — 좌우·끝 조각 `_R`/`_l`/`*_end`는 쓰지 않음, 공식 캡처로 확정 필요];
+    'firewallBlock' → `yu_skill3_annex_01`. 르무엔 S3(S3 장착일 때만 — S2 조준도 같은 'lock') 'lock' → 대상에 `crosshair_02`(그 대상의 포탄이 떨어질 때까지,
+    잠금 순서 = 착탄 순서), 'bombardShell' → `trail_02`가 3칸 위에서 수직으로 비행 시간 동안 떨어짐 [추정 높이·방향], 'bombard' → `hit_01`. 셋 다
+    `ownFx`라 `fx.js` 2D 대역(빨간 조준 원·주황 폭발)은 안 그린다.
+  - **셰이더** (`fxplayer.js`, 1·5·8·11): Dissolve … Double 재질(`_DissolveTex_01/_02`, `_Amount_01/_02`, `_BorderWidth_01/_02`; 재질에 남은 `_Amount`는
+    쓰지 않음 — 클립도 _01/_02만 움직임) → 무에나 S3 꽉 찬 반원판·데겐블레허 마무리 조각; 메시 정점 색 `col`(알파로 가장자리를 지우는 베기·고리 메시
+    446/665) → 실버애쉬 S3 호 끝; `Torappu/Particles/Rim/*`(6개) 법선 계산 + 알파 × (1−|N·V|)^`_RimPower` [추정 식] → 마터호른 S2 보호막(흰 덩어리 → 돔);
+    바닥 아래 잘라내기: 노드가 바닥보다 0.25 넘게 아래이고 깊이 비교하는 재질(`_ZTest` 0·8 아님)인 렌더러만, `FxInstance opts.floor`(유닛이 선 땅 높이,
+    기본 0) − 0.05 아래 픽셀을 버림 → 수르트 S3 5칸 왼쪽 빛(`gx_glow`), 르무엔 조준 고리. 모든 렌더러에 적용하면 236개 프리팹이 바뀌어(텍사스2 S3
+    연기가 가라앉아 사라짐) 좁혔다. `bench/fx/compare.mjs`(Windows GPU): 새 기능을 끈 판 0 차이, 켠 판은 정점 색 568·Double 29·Rim 5·바닥 2 프리팹만 다름.
+  - **렌더러별 위/아래 층** (1·8, 142e0a31의 「시전자 이펙트는 전부 아래」를 바꿈): 공식은 캐릭터 Spine이 깊이를 안 쓰고 Default 레이어 order 0이라 이펙트
+    렌더러의 sortingOrder > 0(또는 0이면서 파티클 fudge < 0)이면 캐릭터 앞, 나머지는 뒤다(마터호른 S2 돔 `hudun` order 0 + `hudun_2` order 1). 품질 'high' +
+    3D 보드일 때 시전자 이펙트·상태 이펙트(⑤)·바닥 키트 이펙트는 `FxInstance split`으로 렌더러마다 `FX_BACK`/`FX_FRONT` 층을 달고, 공유 장면
+    `layers.split`을 아래 캔버스(자기 장면 다음 FX_BACK)와 위 캔버스(FX_FRONT 다음 자기 장면)에 한 번씩 그린다(텍스처 업로드가 두 렌더러에 각각 — 'medium'
+    이하·2D 보드는 예전 규칙). 따라서 아스카론 S3 시전 섬광 등 order > 0 조각은 다시 오퍼레이터 위에 온다 — 사용자가 「덮는다」고 하면 공식 캡처와 비교.
+  - 확인: `test/local-patch-fxmodes.test.js` +2(activationEffects 합성 + 실제 바인딩 9개 — 모드 필터를 빼면 실패), 디버그 아레나(Windows Chrome
+    `fxA_cast2.mjs`): 텍사스 S2 range·검, 데겐블레허 S3 start_01/02 → 마무리 end/start_03/04/hit_2, 수르트 S3 range가 대상에, 野鬃 S2 오른쪽·위쪽 배치,
+    余 S3 열 전체 벽, 르무엔 S3 표식 5·포탄 5·착탄 5, 마터호른 S2 돔이 위에, 무에나·레인프로스트 반원. 전후 캡처 `research/2026-10-07-user-issues/fx-captures/fix_*.png`.
+  - 배포: `modes.json`이 바뀌었으니(`skills`·`turn`) `public/assets/local/fx/`를 서버로 rsync(이번에 새 프리팹은 없음).
 
 ## 공식 스테이지 3D 씬 (2026-10-06)
 - 3D 보드는 원래 시즌 1 아틀라스(`map_autochess`)로 모든 스테이지를 그렸다. 지금 클라이언트는 스테이지마다 완성된 씬(`scenes/activities/act*autochess/level_*`)과 라이트맵을 갖고 있고, 테마는 사막(`map_autochesssand`), 카시미어(`map_kxmr`), 시라쿠사 지하철(`map_syracuse_metro`)이다. 자세한 내용은 DESIGN §15.1.

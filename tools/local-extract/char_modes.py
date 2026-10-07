@@ -69,7 +69,13 @@ def char_skill_prefabs():
 SKILL_MODE_NAME = re.compile(r'^Sk?\d')
 
 
-def skill_switch_modes(client):
+def skills_tree(client):
+    """[(GameObject path, MonoBehaviour)] of battle/prefabs/[uc]skills.ab (the skill prefabs; ~1 min to read), [] without it."""
+    path = Path(client) / 'StreamingAssets/AB/Windows/battle/prefabs/[uc]skills.ab'
+    return load_tree(str(path))[0] if path.exists() else []
+
+
+def skill_switch_modes(tree):
     """{skill prefabId: mode index} — the mode a skill's own buff switches to (templateKey switch_mode*, blackboard
     `mode`) in battle/prefabs/[uc]skills.ab. Only skills with one such value."""
     found = {}
@@ -87,10 +93,6 @@ def skill_switch_modes(client):
             for v in o:
                 walk(v, sid)
 
-    path = Path(client) / 'StreamingAssets/AB/Windows/battle/prefabs/[uc]skills.ab'
-    if not path.exists():
-        return {}
-    tree, _ = load_tree(str(path))
     for gp, d, _pid in tree:
         walk(d, gp.split('/')[0])
     return {k: next(iter(v)) for k, v in found.items() if len(v) == 1}
@@ -204,7 +206,7 @@ class Projectiles:
 
     def effects(self, key, done=None):
         done = done if done is not None else set()
-        out = {'hit': [], 'trail': []}
+        out = {'hit': [], 'trail': [], 'start': []}
         if key in done:
             return out
         done.add(key)
@@ -212,12 +214,70 @@ class Projectiles:
             for k in PROJ_HIT_KEYS:
                 add(out['hit'], effect_names(d.get(k)))
             add(out['trail'], effect_names(d.get('_mainEffect')))
+            # on the target as the projectile starts (德克萨斯 S2's falling swords: projectile_sword_rain)
+            add(out['start'], effect_names(d.get('_effectsToTargetWhenStart')))
             for k in PROJ_SUB_KEYS:
                 if isinstance(d.get(k), str) and d[k]:
                     sub = self.effects(d[k], done)
-                    add(out['hit'], sub['hit'])
-                    add(out['trail'], sub['trail'])
+                    for r in out:
+                        add(out[r], sub[r])
         return out
+
+
+def turned(o, out=None):
+    """Effect names of the emitter entries that turn to the unit's facing (`_useFourDirectionalFace: 1` — the client turns
+    the prefab's 'rotation_z' pivot: 野鬃 S2's thrust is stored pointing up)."""
+    out = [] if out is None else out
+    if isinstance(o, dict):
+        if o.get('_useFourDirectionalFace') == 1 and isinstance(o.get('_effects'), list):
+            add(out, [e for e in o['_effects'] if isinstance(e, str)])
+        for v in o.values():
+            turned(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            turned(v, out)
+    return out
+
+
+def own_buff_effects(d, key):
+    """`overrideEffectKey`s of one buff list (`_buffs` on the caster, `_activeBuffs` on the targets)."""
+    return [b['overrideEffectKey'] for b in (d.get(key) or []) if isinstance(b, dict) and isinstance(b.get('overrideEffectKey'), str) and b['overrideEffectKey']]
+
+
+END_ABILITY = re.compile(r'^End', re.I)
+
+
+def skill_effects(tree, projectiles=None):
+    """{skill prefabId: { cast, castLoop, buff, target, targetBuff, end?, turn? }} from battle/prefabs/[uc]skills.ab — the
+    effects a skill binds itself (local patch, user report 2026-10-07: 德克萨斯 S2 / 戴菲恩 S3 showed the wrong ones by name):
+    cast = its abilities' `_castEffects` with `_oneshot 1` (once, on the caster), castLoop = `_oneshot 0` (while it casts),
+    buff = its `_buffs`' effects (on the caster while the buff lasts), targetBuff = its `_activeBuffs`' (on each target hit),
+    target = its `_hitEffects` + its projectiles' start / hit effects (on the targets). An ability named End… (戴菲恩 S3
+    EndAttack: the finishing blow after the slashes) goes to `end` { cast, hit } instead. Directional copies are left out."""
+    out = {}
+    for gp, d, _ in tree:
+        sid, _, rest = gp.partition('/')
+        if not sid.startswith('sk'):
+            continue
+        e = out.setdefault(sid, {'cast': [], 'castLoop': [], 'buff': [], 'target': [], 'targetBuff': [], 'end': {'cast': [], 'hit': []}, 'turn': []})
+        end = any(END_ABILITY.match(x) for x in rest.split('/') if x)
+        for c in d.get('_castEffects') or []:
+            if isinstance(c, dict):
+                add(e['end']['cast'] if end else e['cast'] if c.get('_oneshot', 1) else e['castLoop'], effect_names(c))
+        for k in HIT_KEYS:
+            add(e['end']['hit'] if end else e['target'], effect_names(d.get(k) or []))
+        add(e['buff'], own_buff_effects(d, '_buffs'))
+        add(e['targetBuff'], own_buff_effects(d, '_activeBuffs'))
+        if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
+            p = projectiles.effects(d['_projectileKey'])
+            add(e['end']['hit'] if end else e['target'], p['start'] + p['hit'])
+        add(e['turn'], turned(d))
+    for e in out.values():
+        if not e['end']['cast'] and not e['end']['hit']:
+            del e['end']
+        if not e['turn']:
+            del e['turn']
+    return out
 
 
 def modes_of(path, projectiles=None):
@@ -236,6 +296,7 @@ def modes_of(path, projectiles=None):
     modes = [p.split('/')[-1] if p else '?' for p in mode_paths]
     n = len(modes)
     proj, cast, hit, trail, attach = ([[] for _ in range(n)] for _ in range(5))
+    turn = []
     # alternatives: the first sibling (by name) of each parent stands for all
     alt_first = {}
     for gp, _, _ in tree:
@@ -267,6 +328,7 @@ def modes_of(path, projectiles=None):
             continue
         found = []
         keys(d, found)
+        add(turn, turned(d))
         for k in found:
             if k not in proj[i]:
                 proj[i].append(k)
@@ -294,7 +356,10 @@ def modes_of(path, projectiles=None):
             e = projectiles.effects(proj[i][0])
             add(hit[i], e['hit'])
             add(trail[i], e['trail'])
-    return {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail, 'attach': attach}
+    res = {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail, 'attach': attach}
+    if turn:
+        res['turn'] = turn
+    return res
 
 
 def main():
@@ -309,7 +374,9 @@ def main():
     missing = []
     projectiles = Projectiles(a.client)
     prefabs = char_skill_prefabs()
-    switch = skill_switch_modes(a.client)
+    stree = skills_tree(a.client)
+    switch = skill_switch_modes(stree)
+    sk_fx = skill_effects(stree, projectiles)
     for cid in ids:
         f = pack / f'{cid}.ab'
         if not f.exists():
@@ -324,6 +391,15 @@ def main():
             sm = skill_modes_of(m['modes'], prefabs.get(cid) or [], switch)
             if sm:
                 m['skillMode'] = sm
+            # local patch: the skills' own effects (skills.ab), in skill order; a skill's turned effects join the operator's
+            sks = [sk_fx.get(pid) or {} for pid in (prefabs.get(cid) or [])]
+            if any(sks):
+                m['skills'] = [{k: v for k, v in x.items() if k != 'turn'} for x in sks]
+                turn = list(m.get('turn') or [])
+                for x in sks:
+                    add(turn, x.get('turn') or [])
+                if turn:
+                    m['turn'] = turn
             out[cid] = m
     doc = {'$comment': 'Operator attack modes (charpack _modes order: index n = audio bank attack.<n>) with their projectiles and '
                        'effect bindings (cast / hit / trail). Written by tools/local-extract/char_modes.py from the local client '
@@ -331,7 +407,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'hit', 'trail', 'attach') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'hit', 'trail', 'attach', 'skills', 'turn') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

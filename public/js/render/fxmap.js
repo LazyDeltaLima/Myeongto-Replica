@@ -130,3 +130,38 @@ export function boundEffects(bind, prefabs, n, role) {
   const list = bind[role]?.[n];
   return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
 }
+
+// ---- a skill activation's effects (local patch, user report 2026-10-07, 11 items) ------------------------------------------
+// modes.json[charId].skills[i] = { cast, castLoop, buff, target, targetBuff, end?: { cast, hit } } — the skill's own effects
+// (char_modes.py from battle/prefabs/[uc]skills.ab); turn = the prefabs the client turns to the unit's facing.
+
+/**
+ * What a skill activation plays on the caster: `start` once (each until its prefab ends), `loops` while the skill lasts —
+ * the name mapping (effectsFor) ∪ the skill's own effects, minus
+ *  - a prefab the operator's modes bind as an attack's cast / hit / trail: that attack's (수르트 S3's range is its hit on the
+ *    target, 무에나 S3's range_01 the cast of each attack — d0e3e079's `_range` rule played them on the caster once more),
+ *  - a prefab the skill puts on its targets or plays at its end (德克萨斯 S2's falling sword, 戴菲恩 S3's finisher pieces),
+ *  - `kitOwned`: prefabs a kit event draws instead (余 S3's wall piece);
+ * a prefab the skill itself casts plays once (start), not as a loop.
+ * A skill mode with bound cast effects plays those on every attack, not here.
+ * @param {any} bind modes.json entry (or null)
+ * @param {string[]} prefabs the operator's extracted prefabs
+ * @param {number} skillIndex 0-based
+ * @param {Set<string>} [kitOwned]
+ */
+export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set()) {
+  const pre = prefabs || [];
+  const n = attackMode(bind, true, skillIndex) ?? -1;
+  const sk = bind?.skills?.[skillIndex] || null;
+  const has = (list) => (Array.isArray(list) ? list.filter((x) => pre.includes(x)) : []);
+  const modeOwn = new Set(['cast', 'hit', 'trail'].flatMap((r) => (bind?.[r] || []).flat()));
+  const notCaster = new Set([...(sk?.target || []), ...(sk?.targetBuff || []), ...(sk?.end?.cast || []), ...(sk?.end?.hit || [])]);
+  const keep = (x) => !modeOwn.has(x) && !notCaster.has(x) && !kitOwned.has(x);
+  // a prefab the skill casts (`_castEffects`, ending with its cast) is not a loop for the whole skill even if named _buff / _range
+  const cast = new Set([...(sk?.cast || []), ...(sk?.castLoop || [])]);
+  const loops = [...new Set([...effectsFor(pre, 'skillBuff', skillIndex).filter((x) => keep(x) && !cast.has(x)), ...has(sk?.buff), ...boundEffects(bind, pre, n, 'attach')])];
+  const modeCast = boundEffects(bind, pre, n, 'cast');
+  const start = [...new Set([...(modeCast.length ? [] : effectsFor(pre, 'skillStart', skillIndex)), ...has(sk?.cast), ...has(sk?.castLoop)])]
+    .filter((x) => keep(x) && !loops.includes(x));
+  return { start, loops };
+}

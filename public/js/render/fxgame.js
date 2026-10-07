@@ -43,8 +43,10 @@ import { syncThreeCamera } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects } from './fxmap.js'; // local patch: the mode bindings (modes.json)
+import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
+import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { PROJ } from './style.js';
 
 const INDEX_URL = '/assets/local/fx/index.json';
@@ -69,11 +71,12 @@ let modesPromise = null;
 const loadModes = () => (modesPromise ||= fetch(MODES_URL).then((r) => (r.ok ? r.json() : null)).catch(() => null));
 
 /**
- * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: () => string, load?: () => number, under?: () => boolean }} o
+ * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: () => string, load?: () => number, under?: () => boolean, fieldRect?: () => any }} o
  *   load: the view's adaptive load level 0–3 (render/app.js); under: whatever lies below the units canvas shows through
- *   it (the 3D board is on — the 2D board paints an opaque backdrop on the units canvas itself)
+ *   it (the 3D board is on — the 2D board paints an opaque backdrop on the units canvas itself); fieldRect: the battle
+ *   field's tile rect (local patch: 余 S3's wall runs across it, fx.js wallTiles)
  */
-export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1 }) {
+export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null }) {
   let index = null, modes = null;
   if (typeof fetch === 'function') { loadIndex().then((i) => { index = i; }); loadModes().then((m) => { modes = m; }); }
   let mod = null, loading = null, failed = false;
@@ -83,7 +86,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // two canvases: the effects on the caster (a skill's looping buff; local patch: its cast / skill start too) under the
   // units canvas, so the operator stays on top of them; the hits on targets, the trails and the moving 剑气 over it.
   // Without a see-through units canvas (2D board) the lower one moves above too.
-  const layers = { under: null, over: null };   // { canvas, renderer, scene, n: live count }
+  const layers = { under: null, over: null, split: null };   // { canvas, renderer, scene, n: live count }
+  // local patch (user report 2026-10-07, items 1 / 8): `split` is a scene drawn on both canvases — each renderer of its effects
+  // on the side its Unity sorting puts it (fxplayer.js FxInstance split: sortingOrder > 0 / fudge < 0 in front of the units,
+  // the rest behind; 마터호른 S2's dome has a back and a front copy). The effects on units go there at quality 'high'; at
+  // 'medium' (one upload per effect, not two) they keep the old rule: the caster's under the units, the rest over.
   const live = [];                   // { inst, view: followed view | null, owner: unit id, buff: boolean, layer }
   const lastAtk = new Map();         // target id → { src view, t }
   const lastHit = new Map();         // `${src}:${tgt}` → t
@@ -128,6 +135,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // under: z 1 like the units canvas and before it in the DOM (above the 3D board's z 0)
       layers.under = make(above, '1');
       layers.over = make(above.nextSibling, '2');
+      layers.split = { scene: new THREE.Scene(), n: 0 }; // local patch
       camera = new THREE.PerspectiveCamera();
       size = new THREE.Vector2();
       lib = new fxp.FxLibrary('/assets/local/fx/');
@@ -155,7 +163,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const z = below ? '1' : '2';
     if (layers.under.canvas.style.zIndex !== z) layers.under.canvas.style.zIndex = z;
     for (const L of [layers.under, layers.over]) {
-      const d = L.n ? 'block' : 'none';
+      const d = L.n || layers.split.n ? 'block' : 'none'; // local patch: split effects draw on both
       if (L.canvas.style.display !== d) L.canvas.style.display = d;
     }
   }
@@ -170,17 +178,30 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!mod) return;   // destroyed while the file loaded (the view left the battle)
       if (!def) continue;
       const anchor = at || view;
-      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1 });
+      // local patch (user report 2026-10-07: 野鬃 S2 stood upright): an effect the client turns to the unit's facing
+      // (charpack / skills.ab `_useFourDirectionalFace`: its 'rotation_z' pivot, stored at an editing angle) is turned, not mirrored
+      const turn = turns(view).has(n) && def.nodes?.some((d) => d.name === 'rotation_z');
+      const split = splitOn();
+      // local patch: cut at the ground the unit stands on (fxplayer.js floor — a tile's height, not a flyer's hover)
+      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: anchor.z || 0 });
+      if (turn) aimMover(inst, facingDir(view));
       inst.object.position.set(anchor.x, anchor.y, anchor.z || 0);
       // a one-shot on the caster (not a hit on a target) ends with its prefab's duration even if a system loops —
       // 望's S3 wang_skill_03_range_start (looping 'line1/2', the range cross) stayed on the board for good
       const until = buff ? null : clockS + (def.duration || 3) + 0.5;
       // local patch (user 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
       // skill start as well as its buff loops — goes under the units; the hits on a target stay over
-      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until }, buff || !at ? layers.under : layers.over);
+      // (local patch, user report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
+      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until }, buff || !at ? (split ? layers.split : layers.under) : layers.over);
       // the player's own cap: it has already ended the oldest (done, dispose is a no-op) — the same one here
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
     }
+  }
+
+  /** local patch: whether the effects on units split by sorting now ('high', a see-through units canvas — the 3D board). */
+  function splitOn() {
+    if (q() !== 'high') return false;
+    try { return !!under(); } catch { return false; }
   }
 
   function stopBuffs(ownerId, now = false) {
@@ -249,9 +270,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (view.hover || 0); },
       get alive() { return view.alive; }, get remove() { return view.remove; },
     };
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1 });
+    const split = splitOn(); // local patch: status prefabs split by their renderers' sorting too (the 冻结 block in front, …)
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0 });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
-    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac), unit: view }, layers.over);
+    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac), unit: view }, split ? layers.split : layers.over);
     while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
   }
 
@@ -314,6 +336,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const t = rec.tgt;
     if (t && t.alive !== false && !t.remove && Number.isFinite(t.x)) { rec.tx = t.x; rec.ty = t.y; }
     const k = Math.min(1, rec.k);
+    if (rec.dropZ) {   // local patch: a shell falling straight down (蕾缪안 S3), the trail's +x turned to −z
+      if (!rec.inst) return;
+      rec.inst.object.position.set(rec.x0, rec.y0, rec.dropZ * (1 - k));
+      rec.inst.object.rotation.set(0, Math.PI / 2, 0);
+      return;
+    }
     const x = rec.x0 + (rec.tx - rec.x0) * k, y = rec.y0 + (rec.ty - rec.y0) * k;
     const z = TRAIL_Z + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0);
     if (!rec.inst) return;
@@ -488,6 +516,130 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
+  // ---- local patch (user report 2026-10-07, items 2 / 9 / 10 / 11): skills that act through damage or kit events --------
+  /**
+   * One prefab of `bundle` at `at` (a view or point, followed): entry = addLive's { owner, buff, until, on (the unit it sits
+   * on: stopped at its 'die') }; `over` puts it over the units. Resolves the live entry (null if not played).
+   */
+  async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null } = {}) {
+    if (!index?.bundles?.[bundle]?.includes(name) || !(await ensure())) return null;
+    const def = await lib.load(bundle, name);
+    if (!mod || !def) return null;
+    const split = !over && splitOn();   // an effect on the ground / a unit splits by sorting at 'high'
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, split, floor: drop ? null : at.z && !over ? at.z : 0 });
+    inst.object.position.set(at.x, at.y, at.z || 0);
+    const e = { view: at, ...entry };
+    if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5;
+    if (drop) { drop.inst = inst; placeTrail(drop); }
+    addLive(inst, e, over ? layers.over : split ? layers.split : layers.under);
+    while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+    return live[live.length - 1];
+  }
+  /**
+   * A 'dmg' of this moment on `tid` that waiting skill effects claim (expect(); each plays its effect on the target once —
+   * 戴菲恩's finisher hit and its last slash's mark come together).
+   */
+  function pendingHit(tid, views) {
+    while (pending.length && clockS - pending[0].t > PENDING_S) pending.shift();
+    const tgt = pending.length ? views.get(tid) : null;
+    if (!tgt) return false;
+    let claimed = false;
+    for (const p of pending) {
+      // not another unit's hit of the same moment: an attack on it by someone else, or a target out of the skill's reach
+      const a = lastAtk.get(tid);
+      if (a && a.src !== p.src && clockS - a.t < 1) continue;
+      if (Math.hypot(tgt.x - p.src.x, tgt.y - p.src.y) > PENDING_REACH) continue;
+      claimed = true;
+      p.done ||= new Set();
+      if (p.done.has(tid)) continue;   // its second hit of the same moment (德克萨斯 S2: 2 swords)
+      p.done.add(tid);
+      const b = bundleOf(p.src);
+      if (!b) continue;
+      const srcId = p.src.id ?? p.src.info?.id;
+      if (p.buff) {   // a mark on the target while the skill lasts (once per target): ended with the skill's buffs or its death
+        p.src._fxMarked ||= new Set();
+        if (p.src._fxMarked.has(tid)) continue;
+        p.src._fxMarked.add(tid);
+        for (const n of p.names) spawn(b.bundle, n, tgt, { owner: srcId, buff: true, on: tid, until: null });
+      } else for (const n of p.names) spawn(b.bundle, n, tgt, { owner: null, buff: false });
+    }
+    if (claimed) lastAtk.delete(tid);
+    return claimed;
+  }
+  const lemuenOn = (v) => !!(v && fxBundleOf(v.info?.spine || v.info?.defId) === 'lemuen' && bundleOf(v) && !failed);
+  const lemMarks = new Map();   // 蕾缪安 id → [live entries of crosshair_02], in lock order (its shells land in that order)
+  const LEM_DROP_Z = 3;         // the shell falls from this height (tiles) [ASSUMED: straight down]
+  /** Kit 'fx' events drawn with official prefabs; true = handled here (ownFx: render/fx.js skips its stand-in). */
+  function kitFx(e, views) {
+    const o = e[4];
+    if (!o || typeof o !== 'object') return false;
+    const x = Number(e[2]), y = Number(e[3]);
+    // 余 S3 灶里乾坤: the client builds the wall from per-tile pieces along the skill's infinite line (skchr_yu_3/TileRange
+    // _isHorizontalInfinite) [ASSUMED layout: one yu_skill3_range_01 per tile, _root on his tile]; ends with the skill
+    if (e[1] === 'firewall') {
+      const src = views.get(o.id), b = bundleOf(src);
+      if (!b || !b.prefabs.includes('yu_skill3_range_01')) return false;
+      ownFx.add(e);
+      let rect = null;
+      try { rect = fieldRect(); } catch { /* the ±4 fallback */ }
+      for (const [r, c] of wallTiles(x, y, o.axis === 'row' ? 'row' : 'col', rect)) {
+        spawn(b.bundle, r === Math.round(y) && c === Math.round(x) ? 'yu_skill3_range_01_root' : 'yu_skill3_range_01', { x: c, y: r, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false });
+      }
+      spawn(b.bundle, 'yu_skill3_range_01', { x, y, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false });
+      return true;
+    }
+    // a blocked shot: skchr_yu_3/Aura/EnemyAura _effectOnEliminatePos
+    if (e[1] === 'firewallBlock') {
+      const b = bundleOf(views.get(o.id));
+      if (!b || !b.prefabs.includes('yu_skill3_annex_01')) return false;
+      ownFx.add(e);
+      spawn(b.bundle, 'yu_skill3_annex_01', { x, y, z: 0.3 }, { owner: null, buff: false });
+      return true;
+    }
+    // 蕾缪安 S3 ([uc]projectiles.ab projectile_chr_lemuen_s3_aim / _s3_attack): the lock leaves crosshair_02 on the target
+    // (its _extraBuffsInTheEnd) until that target's shell lands; each shell (_mainEffect trail_02) falls onto its point over
+    // the sim's flight time and explodes (_effectsWhenReached hit_01). Her S2 aim (the same 'lock') keeps fx.js's reticle.
+    if (e[1] === 'lock') {
+      const src = views.get(o.src);
+      if (!lemuenOn(src) || skillIdx(src) !== 2) return false;
+      ownFx.add(e);
+      const tgt = views.get(o.id);
+      spawn(bundleOf(src).bundle, 'lemuen_skill_03_crosshair_02', tgt || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30 }).then((l) => {
+        if (!l) return;
+        const list = lemMarks.get(o.src) || []; list.push(l); lemMarks.set(o.src, list);
+      });
+      return true;
+    }
+    if (e[1] === 'bombardShell' || e[1] === 'bombard') {
+      const src = views.get(o.id);
+      if (!lemuenOn(src)) return false;
+      ownFx.add(e);
+      if (e[1] === 'bombard') {
+        lemMarks.get(o.id)?.shift()?.inst.stop();
+        spawn(bundleOf(src).bundle, 'lemuen_skill_03_hit_01', { x, y, z: 0 }, { owner: null, buff: false });
+        return true;
+      }
+      const dur = Math.max(0.05, Number(o.t) || 0.5);
+      const rec = { inst: null, tgt: null, x0: x, y0: y, tx: x, ty: y, k: 0, dur, arc: 0, dropZ: LEM_DROP_Z };
+      trails.push(rec);
+      spawn(bundleOf(src).bundle, 'lemuen_skill_03_trail_02', { x, y, z: LEM_DROP_Z }, { view: null, owner: null, buff: false, until: clockS + dur + 2 }, { drop: rec })
+        .then((l) => { if (!l) { const i = trails.indexOf(rec); if (i >= 0) trails.splice(i, 1); } });
+      return true;
+    }
+    // 戴菲恩 S3 (skchr_blkkgt_3): each slash marks its targets (MultiAttack/Damage _activeBuffs → hit_1, while the skill lasts);
+    // the finisher (EndAttack, sim fx 'finale') casts end / start_03 / start_04 and hits hit_2 on its targets
+    if (e[1] === 'slash' || e[1] === 'finale') {
+      const src = views.get(o.id), sk = src && skillBind(src);
+      if (!sk || !bundleOf(src) || !src._fxSkillOn) return false;
+      if (e[1] === 'slash') { expect(src, extracted(src, sk.targetBuff), true); return false; }   // its 2D slash stays
+      if (!sk.end) return false;
+      play(src, 'skillStart', skillIdx(src), { names: extracted(src, sk.end.cast) });
+      expect(src, extracted(src, sk.end.hit));
+      return false;
+    }
+    return false;
+  }
+
   const isOp = (v) => v && v.info && v.info.side !== 'enemy';
   const skillIdx = (v) => (Number.isInteger(v?.info?.skillIndex) ? v.info.skillIndex : 0);
   // local patch: the attack-mode bindings (modes.json). bound(v, n, role) = the extracted prefabs of mode n's role;
@@ -497,6 +649,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const bound = (v, n, role) => boundEffects(bindOf(v), bundleOf(v)?.prefabs, n, role);
   const skillMode = (v) => attackMode(bindOf(v), true, skillIdx(v)) ?? -1;
   const modeNow = (v) => attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v));
+  // local patch (user report 2026-10-07, 11 items): the skill's own effects (modes.json `skills[i]`, char_modes.py from
+  // [uc]skills.ab: cast / castLoop / buff on the caster, target / targetBuff on its targets, end = a finishing ability's)
+  const skillBind = (v) => bindOf(v)?.skills?.[skillIdx(v)] || null;
+  const extracted = (v, list) => (Array.isArray(list) ? list.filter((n) => bundleOf(v)?.prefabs.includes(n)) : []);
+  const turns = (v) => new Set(bindOf(v)?.turn || []);
+  /** The unit's facing for a turned effect: its deploy direction, left / right as it is drawn now. */
+  const facingDir = (v) => (v.dir === 'UP' || v.dir === 'DOWN' ? v.dir : (v.visFacing ?? v.facing ?? 1) < 0 ? 'LEFT' : 'RIGHT');
+  // prefabs a kit event here draws instead (余 S3's wall piece: one per tile along the wall, not one on him)
+  const KIT_OWNED = new Set(['yu_skill3_range_01']);
+  /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
+  const activation = (v) => activationEffects(bindOf(v), bundleOf(v).prefabs, skillIdx(v), KIT_OWNED);
+  // effects waiting for the damage of this tick: a skill that hits without an attack event (德克萨斯 S2's sword rain on
+  // activation, 戴菲恩 S3's slashes / finisher) — the next 'dmg' events of the same moment are its targets
+  const pending = [];   // { src view, names, buff, t }
+  const PENDING_S = 0.02;
+  const PENDING_REACH = 4.5;   // tiles: farther targets are not this skill's (its ranges reach ≤ 4)
+  function expect(src, names, buff = false) { if (names.length) pending.push({ src, names, buff, t: clockS }); }
 
   return {
     /** The projectile kind render/fx.js should draw for an 'atk' event (her note replaces the arrow: 'oblvnsNote'). */
@@ -510,8 +679,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!(index && isOp(v) && bundleOf(v) && q() !== 'low' && !failed)) return false;
       // only a skill with official start / buff effects of its own: one whose bundle has none (many S1s — the client's common
       // buff effects are not extracted) keeps the procedural burst, or its activation would show nothing
-      const pre = bundleOf(v).prefabs, i = skillIdx(v), n = skillMode(v);
-      return bound(v, n, 'cast').length > 0 || bound(v, n, 'attach').length > 0 || effectsFor(pre, 'skillStart', i).length > 0 || effectsFor(pre, 'skillBuff', i).length > 0;
+      // (local patch: the same lists the activation plays — activation())
+      const { start, loops } = activation(v);
+      return bound(v, skillMode(v), 'cast').length > 0 || start.length > 0 || loops.length > 0;
     },
     /** local patch (⑤): whether the shared status prefab `bundle`/`name` can play (index loaded, not 'low', listed). */
     statusReady(bundle, name) { return !!(index && !failed && q() !== 'low' && index.bundles?.[bundle]?.includes(name) && !statusFailed.has(`${bundle}/${name}`)); },
@@ -546,13 +716,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (!isOp(v) || !bundleOf(v)) return;
           if (e[2]) {
             v._fxSkillOn = true;
-            // local patch: a skill mode with bound cast effects plays them on every attack (below), not once here
-            if (!bound(v, skillMode(v), 'cast').length) play(v, 'skillStart', skillIdx(v));
-            // the buff loops + (local patch) the skill mode's own buff effects (丰川祥子 S3's range), once each, while it lasts
-            const loops = [...new Set([...effectsFor(bundleOf(v).prefabs, 'skillBuff', skillIdx(v)), ...bound(v, skillMode(v), 'attach')])];
+            v._fxMarked = null;   // local patch: the targets its marks sit on (pendingHit)
+            // local patch: the activation's effects (activation(): name mapping + the skill's own, minus the attacks' / targets')
+            const { start, loops } = activation(v);
+            if (start.length) play(v, 'skillStart', skillIdx(v), { names: start });
             if (loops.length) play(v, 'skillBuff', skillIdx(v), { buff: true, names: loops });
+            expect(v, extracted(v, skillBind(v)?.target));   // local patch: its damage this tick (德克萨斯 S2)
           }
           // local patch (user 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
+          // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
           else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id, true); endWolves(v.id ?? v.info.id); }
           return;
         }
@@ -577,6 +749,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         case 'dmg': {
           const tid = e[1];
+          if (pendingHit(tid, views)) return; // local patch: a skill's damage without an attack
           const a = lastAtk.get(tid);
           if (!a || clockS - a.t > 2.5) return;
           const tgt = views.get(tid);
@@ -596,6 +769,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (stoneFx(e, views)) return;
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
+          if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
           if ((e[1] === 'drone' || e[1] === 'drones') && e[4] && wolvesOn() && wolves.has(e[4].id)) {   // her wolves: no generic puff
             ownFx.add(e);
             if (e[1] === 'drone') playNoteHit(WOLF.bundle, WOLF.hit, { x: Number(e[2]), y: Number(e[3]), z: WOLF.z });
@@ -624,7 +798,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           })();
           return;
         }
-        case 'die': stopOwned(e[1]); endWolves(e[1]); return;
+        case 'die': stopOwned(e[1]); endWolves(e[1]); for (const l of live) if (l.on === e[1]) l.inst.stop(true); return; // local patch: marks on it
         default:
       }
     },
@@ -640,7 +814,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const w = Math.max(1, vp.width | 0), h = Math.max(1, vp.height | 0);
       const pr = Math.min(globalThis.devicePixelRatio || 1, q() === 'medium' ? 1 : 1.5);
       for (const L of [layers.under, layers.over]) {
-        if (!L.n) continue;
+        if (!L.n && !layers.split.n) continue;
         if (L.renderer.getPixelRatio() !== pr) L.renderer.setPixelRatio(pr);
         const s = L.renderer.getSize(size);
         if (s.x !== w || s.y !== h) L.renderer.setSize(w, h, false);
@@ -664,11 +838,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       showLayers();
       const t1 = performance.now();
       let calls = 0;
-      for (const L of [layers.under, layers.over]) {
-        if (!L.n) continue;
-        L.renderer.render(L.scene, camera);
-        calls += L.renderer.info.render.calls;
-      }
+      // local patch: the split scene's back renderers after the lower canvas's own, its front ones before the upper's
+      const S = layers.split, { FX_BACK, FX_FRONT } = mod.fxp;
+      const draw = (L, scene, mask, clear) => {
+        camera.layers.set(mask); L.renderer.autoClear = clear; L.renderer.render(scene, camera); calls += L.renderer.info.render.calls;
+      };
+      if (layers.under.n || S.n) { draw(layers.under, layers.under.scene, 0, true); if (S.n) draw(layers.under, S.scene, FX_BACK, false); }
+      if (layers.over.n || S.n) { if (S.n) draw(layers.over, S.scene, FX_FRONT, true); draw(layers.over, layers.over.scene, 0, !S.n); }
+      camera.layers.set(0);
       perf.updateMs = perf.updateMs * 0.9 + (t1 - t0) * 0.1;
       perf.renderMs = perf.renderMs * 0.9 + (performance.now() - t1) * 0.1;
       perf.calls = calls;
@@ -677,8 +854,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     clear() {
       for (const l of live) dropLive(l);
       live.length = 0;
-      lastAtk.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear();
-      trails.length = 0; // local patch
+      lastAtk.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
+      trails.length = 0; pending.length = 0; // local patch
       if (mod) showLayers();
     },
 
@@ -688,7 +865,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         try { L?.renderer.dispose(); } catch { /* ignore */ }
         L?.canvas.remove();
       }
-      layers.under = layers.over = null;
+      layers.under = layers.over = layers.split = null;
       mod = null;
     },
 
@@ -703,9 +880,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const def = await lib.load(bundle, name);
       if (!mod || !def) return false;
       const f = facing ?? at.visFacing ?? at.facing ?? 1;
-      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: f < 0 ? -1 : 1 });
+      const onOp = at.info?.side !== 'enemy', split = onOp && splitOn(); // local patch: as play() — split at 'high'
+      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: f < 0 ? -1 : 1, split, floor: at.z || 0 });
       inst.object.position.set(at.x, at.y, at.z || 0);
-      addLive(inst, { view: at, owner: at.id ?? at.info?.id ?? null, buff: false, until: clockS + (def.duration || 3) + 0.5 }, at.info?.side !== 'enemy' ? layers.under : layers.over);
+      addLive(inst, { view: at, owner: at.id ?? at.info?.id ?? null, buff: false, until: clockS + (def.duration || 3) + 0.5 }, onOp ? (split ? layers.split : layers.under) : layers.over);
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
       return true;
     },
