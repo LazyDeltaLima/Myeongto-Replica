@@ -480,7 +480,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * official effects here — render/fx.js then skips its procedural burst (gold pillar, flash, rings over the unit) and
      * keeps only its ground aura.
      */
-    ownsSkill(v) { return !!(index && isOp(v) && bundleOf(v) && q() !== 'low' && !failed); },
+    ownsSkill(v) {
+      if (!(index && isOp(v) && bundleOf(v) && q() !== 'low' && !failed)) return false;
+      // only a skill with official start / buff effects of its own: one whose bundle has none (many S1s — the client's common
+      // buff effects are not extracted) keeps the procedural burst, or its activation would show nothing
+      const pre = bundleOf(v).prefabs, i = skillIdx(v), n = skillMode(v);
+      return bound(v, n, 'cast').length > 0 || bound(v, n, 'attach').length > 0 || effectsFor(pre, 'skillStart', i).length > 0 || effectsFor(pre, 'skillBuff', i).length > 0;
+    },
     /** Whether a 'fx' event is drawn here with its official effect (render/fx.js then skips its 2D stand-in). */
     ownsFx(e) { return ownFx.has(e); },
     /** A battle event render/app.js handled (the views map resolves unit ids). */
@@ -501,10 +507,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             v._fxSkillOn = true;
             // local patch: a skill mode with bound cast effects plays them on every attack (below), not once here
             if (!bound(v, skillMode(v), 'cast').length) play(v, 'skillStart', skillIdx(v));
-            play(v, 'skillBuff', skillIdx(v), { buff: true });
-            // local patch: the skill mode's own buff effects (丰川祥子 S3's range) while the skill lasts, under the operator
-            const attach = bound(v, skillMode(v), 'attach');
-            if (attach.length) play(v, 'skillBuff', skillIdx(v), { buff: true, names: attach });
+            // the buff loops + (local patch) the skill mode's own buff effects (丰川祥子 S3's range), once each, while it lasts
+            const loops = [...new Set([...effectsFor(bundleOf(v).prefabs, 'skillBuff', skillIdx(v)), ...bound(v, skillMode(v), 'attach')])];
+            if (loops.length) play(v, 'skillBuff', skillIdx(v), { buff: true, names: loops });
           }
           // local patch (user 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
           else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id, true); endWolves(v.id ?? v.info.id); }

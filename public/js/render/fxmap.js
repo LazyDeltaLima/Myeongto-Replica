@@ -58,7 +58,10 @@ export function effectsFor(prefabs, kind, skillIndex = 0) {
     case 'attackStart': return plainFirst(g.attack.filter((p) => !/hit|trail|range|line/i.test(tail(p)) && !ALT_RE.test(p)));
     case 'attackHit': return plainFirst(g.attack.filter((p) => /hit/i.test(tail(p)) && !ALT_RE.test(p))).slice(0, 1);
     case 'skillStart': return s.filter((p) => /_start/i.test(p));
-    case 'skillBuff': return s.filter((p) => /_buff/i.test(p) && !/_[BF]_/.test(p)).slice(0, 2);
+    // local patch: plus one lasting range display (`…_range` / `…_range_0N`, not a `_start` / `_end` / `_hit` one-shot) — the skills
+    // without mode bindings (사리아 skgoat_skill_01_range); the bound ones get theirs from modes.json `attach`
+    case 'skillBuff': return [...s.filter((p) => /_buff/i.test(p) && !/_[BF]_/.test(p)).slice(0, 2),
+      ...s.filter((p) => /_range(_0\d)?$/i.test(p)).slice(0, 1)];
     case 'skillHit': return s.filter((p) => /_hit/i.test(p)).slice(0, 1);
     case 'skillTrail': return s.filter((p) => /_trail_01$/i.test(p)).slice(0, 1);
     case 'birth': return g.birth.filter((p) => /start|_01/.test(p)).slice(0, 1);
