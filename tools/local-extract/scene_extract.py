@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export the official per-stage 3D board scenes of 卫戍协议 from a local Arknights client (DESIGN §15.1).
+"""Export the official per-stage 3D board scenes of 卫戍协议 from a local Arknights client (docs/local/official-scenes.md).
 
 The client ships one prebuilt Unity scene per autochess stage:
   scenes/activities/act{1,2}autochess/level_<stage>/level_<stage>.ab      the scene (GameObjects, meshes, renderers)

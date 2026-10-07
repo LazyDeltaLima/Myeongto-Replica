@@ -551,7 +551,7 @@ $('range').onchange = (ev) => arena?.showRange(ev.target.checked);
 $('lock').onclick = () => $('lock').classList.remove('on');
 window.addEventListener('keydown', (ev) => {
   if (ev.target && /INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) return;
-  if (ev.code === 'Space') { ev.preventDefault(); setPaused(!arena?.paused); } else if (ev.key === 'r' || ev.key === 'R') restart();
+  if (ev.key === ' ') { ev.preventDefault(); setPaused(!arena?.paused); } else if (ev.key === 'r' || ev.key === 'R') restart();
 });
 
 // ---- live status --------------------------------------------------------------------------------------------------

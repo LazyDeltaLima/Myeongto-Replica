@@ -12,7 +12,7 @@
 //   board.flashObjective(r, c)       leak flash of a blue objective box
 //   board.render(cam, timeSec)       sync the camera, animate, draw
 //   opts.loadOfficial(stageId)       → Promise<official scene | null> (official.js loadOfficialScene): when a stage has
-//                                      an extracted official scene (DESIGN §15.1) it replaces the procedural tiles,
+//                                      an extracted official scene (docs/local/official-scenes.md) it replaces the procedural tiles,
 //                                      background and shadows; gates, field edges, devices and terrain FX stay
 //   board.resize(w, h, dpr) · board.stats() · board.destroy()
 //

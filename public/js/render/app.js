@@ -360,7 +360,7 @@ export async function createFieldView(host, options = {}) {
       board3dCanvas = c3;
       const b = new BoardScene(THREE, pack, {
         canvas: c3, antialias: settings.quality !== 'low' && (globalThis.devicePixelRatio || 1) < 2, shadows: settings.quality !== 'low',
-        // local patch: the official per-stage scenes (DESIGN §15.1); ?officialBoard=0 keeps the procedural board
+        // local patch: the official per-stage scenes (docs/local/official-scenes.md); ?officialBoard=0 keeps the procedural board
         loadOfficial: (id) => loadOfficialScene(assets, id),
         // the official scene's tile heights (style.js tileTop): the units, picking and highlights follow them
         onOfficial: (info) => {

@@ -1,4 +1,4 @@
-// render/board3d/official.js — the official per-stage board scenes (DESIGN §15.1): the client's prebuilt Unity scene
+// render/board3d/official.js — the official per-stage board scenes (docs/local/official-scenes.md): the client's prebuilt Unity scene
 // of each autochess stage, exported by tools/local-extract/scene_extract.py into scene/<stageId>/ (merged draw groups
 // in board space + baked lightmaps / shadowmasks) and scene/tex/ (theme textures: map_autochesssand, map_kxmr, …).
 //
@@ -27,7 +27,7 @@
 // the lightmaps are LightmapRGBM (Texture2D m_LightmapFormat 2), decoded the gamma way, 5 · a · rgb. These shaders do
 // the same: textures and colours untouched (NoColorSpace, no sRGB → linear), no output conversion (no
 // colorspace_fragment). Doing the maths in linear space instead made every product darker and more saturated (the
-// sand orange-brown and grimy, the _BlendColor tint far too strong) — DESIGN §15.1.
+// sand orange-brown and grimy, the _BlendColor tint far too strong) — docs/local/official-scenes.md.
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
@@ -312,7 +312,7 @@ void main() {
 }`;
 
 /**
- * Tunables (checked against the official screenshots; see DESIGN §15.1). local patch (LOCAL-PATCH.md 「공식 맵 렌더링」,
+ * Tunables (checked against the official screenshots; see docs/local/official-scenes.md). local patch (LOCAL-PATCH.md 「공식 맵 렌더링」,
  * 2026-10-07): the user found the board slightly brighter than the KR client — matched regions of the same stage: plain
  * sand official/ours 0.964 in luma, the lit sand tops 0.92 (ours clipped: 13.6 % of pixels R ≥ 250 vs 5.0 %), stone /
  * crate / rocks ≈ 1. [추정] the cause (the scene's AE_Survivaloasis profile — shadowTint, heightFog — is native code):

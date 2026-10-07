@@ -1,4 +1,4 @@
-// test/render/board3d-official.test.js — the official per-stage board scenes (DESIGN §15.1): the DXT5nm normal-map
+// test/render/board3d-official.test.js — the official per-stage board scenes (docs/local/official-scenes.md): the DXT5nm normal-map
 // rebuild of tools/local-extract/scene_extract.py, style.js tileTop (the scenes' HIGH tile height), and — when the
 // scenes were extracted here — the scene.json / geom.bin layout render/board3d/official.js reads, the hidden sets
 // (HIDDEN@1 left normal field, @2 right normal field, @3 boss field) and their visibility per built area.

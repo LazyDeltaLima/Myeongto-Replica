@@ -11,7 +11,7 @@ export const TILE_H = Object.freeze({
 
 /**
  * Top height of a tile of height class `hClass` (TILE_H key, null = low ground). A stage drawn from its official
- * scene (render/board3d/official.js, DESIGN §15.1) carries `highlandHeight` — every HIGH tile of the client's map
+ * scene (render/board3d/official.js, docs/local/official-scenes.md) carries `highlandHeight` — every HIGH tile of the client's map
  * (forbidden blocks, separators, bench pads, high ground) stands at that one height (0.4 desert, 0.3 Kazimierz) —
  * local patch.
  */
