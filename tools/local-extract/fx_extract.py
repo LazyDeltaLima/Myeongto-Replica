@@ -531,7 +531,44 @@ class Extractor:
         out_def = {'version': 1, 'name': nodes[0]['name'], 'duration': r4(min(dur, 10)), 'nodes': nodes, 'materials': mats, 'clips': clips}
         if spawn is not None:
             out_def['spawn'] = spawn
+        right = self.right_effect(root)
+        if right:
+            out_def['right'] = right
         return out_def
+
+    def right_effect(self, root):
+        """local patch: the client's left / right effect pair — a second component on the root with `_rightEffect` (the
+        prefab played instead while the owner faces right; this one is the left-facing copy) and `_onlyCheckOnPlay`
+        (chen3 S3 buff_L / buff_R, mlynar, texas2, tippi: 15 pairs). Read by its type tree, else raw: header, empty name,
+        one string, one int. None when the root has no such component."""
+        try:
+            d = root.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            try:
+                t = comp.read_typetree()
+                if isinstance(t.get('_rightEffect'), str):
+                    return t['_rightEffect'] or None
+                continue
+            except Exception:
+                pass
+            raw = comp.get_raw_data()
+            off = 12 + 4 + 12
+            if len(raw) > 200 or len(raw) < off + 12 or struct.unpack_from('<i', raw, off)[0] != 0:
+                continue
+            off += 4
+            n = struct.unpack_from('<i', raw, off)[0]
+            end = (off + 4 + n + 3) & ~3
+            if not 0 < n <= 128 or end + 4 != len(raw):
+                continue
+            s = raw[off + 4:off + 4 + n].decode('utf-8', 'replace')
+            if re.fullmatch(r'[\w#.\-]+', s):
+                return s
+        return None
 
     def spawn_location(self, root):
         """local patch: the effect component's `_spawnLocation` on the root (1 feet, 2 body / HIT point, 4 head, 5 ground

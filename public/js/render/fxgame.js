@@ -175,10 +175,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!b) return;
     const names = given || effectsFor(b.prefabs, kind, skillIndex);
     if (!names.length || !(await ensure())) return;
-    for (const n of names) {
-      const def = await lib.load(b.bundle, n);
+    // local patch (user report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
+    // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right) is one effect —
+    // the copy for the facing, not mirrored; the right copy that the name lookup listed besides is skipped
+    const defs = await Promise.all(names.map((n) => lib.load(b.bundle, n)));
+    const twins = new Set(defs.map((d) => d?.right).filter(Boolean));
+    for (let i = 0; i < names.length; i++) {
+      let n = names[i], def = defs[i];
       if (!mod) return;   // destroyed while the file loaded (the view left the battle)
-      if (!def) continue;
+      if (!def || twins.has(n)) continue;
+      const sided = def.right ? ((view.visFacing ?? view.facing ?? 1) < 0 ? 'L' : 'R') : null;
+      if (sided === 'R') {
+        const r = await lib.load(b.bundle, def.right);
+        if (!mod) return;
+        if (r) { n = def.right; def = r; }
+      }
       const ground = at || view;
       const anchor = lifted(ground, def); // local patch: its _spawnLocation
       // local patch (user report 2026-10-07: 野鬃 S2 stood upright): an effect the client turns to the unit's facing
@@ -188,7 +199,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // which draws layer 0 only (split, every blast on a target was invisible at 'high' on the 3D board: 烛煌 S3)
       const split = (buff || !at) && splitOn();
       // local patch: cut at the ground the unit stands on (fxplayer.js floor — a tile's height, not a flyer's hover)
-      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: ground.z || 0 });
+      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn || sided ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: ground.z || 0 });
       if (turn) aimMover(inst, facingDir(view));
       inst.object.position.set(anchor.x, anchor.y, anchor.z || 0);
       // a one-shot on the caster (not a hit on a target) ends with its prefab's duration even if a system loops —
