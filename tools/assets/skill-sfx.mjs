@@ -27,8 +27,15 @@ export function skillStartSounds(audio, skillId) {
   return null;
 }
 
-/** local patch (skill-mode-sfx.mjs deferStart): the skill has a start sound, and it is not its own ON_SKILL_START bank. */
+/**
+ * local patch (skill-mode-sfx.mjs deferStart): the skill's start sound is not its own start bank but one of its attack
+ * ability's (ON_ABILITY_START / ON / HIT — the official client sounds those on the skill's attacks). A custom start trigger
+ * (丰川祥子 S3 `ON_CUSTOM_TRIGGER.skchr_oblvns_3[start]`) is a real start sound.
+ */
 export function skillStartIsFallback(audio, skillId) {
   if (!skillId || audio.skillBanks?.get(skillId)?.get('ON_SKILL_START')?.length) return false;
-  return !!skillStartSounds(audio, skillId)?.length;
+  const p = skillStartSounds(audio, skillId);
+  if (!p?.length) return false;
+  for (const suf of SUFFIXES) if (audio.bank(`battle.ON_CUSTOM_TRIGGER.${skillId}${suf}`) === p) return false;
+  return true;
 }

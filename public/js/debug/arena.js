@@ -150,7 +150,11 @@ export async function createArena(host, hooks = {}) {
     bags: () => arenaBags(battle),
     errors,
     get paused() { return paused; },
-    setPaused(v) { paused = !!v; acc = 0; },
+    setPaused(v) {
+      paused = !!v; acc = 0;
+      // the sounds stop with the battle (a skill's loop would play on)
+      try { if (audio.ctx) { if (paused) audio.ctx.suspend(); else audio.ctx.resume(); } } catch { /* ignore */ }
+    },
     get speed() { return speed; },
     setSpeed(x) { speed = Number(x) > 0 ? Number(x) : 1; view.setLocalFeed({ on: true, speed }); },
     /** Run `seconds` of game time now (paused stepping). */

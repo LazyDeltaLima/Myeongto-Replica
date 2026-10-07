@@ -81,3 +81,57 @@ export function modeEntry(entry, skillIndex, role = null) {
   if (!m || typeof m !== 'object') return null;
   return !role || typeof m[role] === 'string' ? m : null;
 }
+
+// ---- skill loops (sfx.units[id].loops, tools/assets/skill-mode-sfx.mjs skillLoops) ---------------------------------------
+// A skill's looping bank — 丰川祥子 S3's music (ON_BUFF_START.oblvns_s_3[loop]), the fields (ON_ABILITY_START.skchr_lisa_3 …)
+// — plays on a loop while the skill runs: started by its 'skill' on, faded out by its 'skill' off, the unit's 'die' or a
+// new field. One per unit; the loops live on the manager (`_skillLoops`) and play on its sfx channel.
+const LOOP_FADE_S = 0.25;
+
+/** Start unit `key`'s loop of `url` at `gain` (a running one of that unit is replaced). */
+export function startSkillLoop(mgr, key, url, gain) {
+  if (!mgr?.ctx || typeof url !== 'string' || mgr.volumes?.muted) return;
+  stopSkillLoop(mgr, key);
+  const loops = (mgr._skillLoops ||= new Map());
+  const rec = { url, src: null, gain: null, stopped: false };
+  loops.set(key, rec);
+  Promise.resolve(mgr._buffer(url)).then((buf) => {
+    if (!buf || rec.stopped || !mgr.ctx || loops.get(key) !== rec) return;
+    try {
+      const src = mgr.ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      const g = mgr.ctx.createGain();
+      g.gain.value = Math.max(0, Math.min(1.5, gain));
+      src.connect(g); g.connect(mgr.sfxGain);
+      src.start();
+      rec.src = src; rec.gain = g;
+    } catch { /* ignore */ }
+  }, () => {});
+}
+
+/** Fade out and stop unit `key`'s loop (no-op without one). */
+export function stopSkillLoop(mgr, key) {
+  const rec = mgr?._skillLoops?.get(key);
+  if (!rec) return;
+  mgr._skillLoops.delete(key);
+  rec.stopped = true;
+  if (!rec.src || !mgr.ctx) return;
+  try {
+    const t = mgr.ctx.currentTime;
+    rec.gain.gain.cancelScheduledValues(t);
+    rec.gain.gain.setValueAtTime(rec.gain.gain.value, t);
+    rec.gain.gain.linearRampToValueAtTime(0, t + LOOP_FADE_S);
+    rec.src.stop(t + LOOP_FADE_S + 0.02);
+  } catch { /* ignore */ }
+}
+
+/** Stop every skill loop (a new field). */
+export function stopSkillLoops(mgr) {
+  for (const key of [...(mgr?._skillLoops?.keys() || [])]) stopSkillLoop(mgr, key);
+}
+
+/** The loop entry of a unit's skill (sfx.units[defId].loops[skillIndex]) or null. */
+export const skillLoopOf = (entry, skillIndex) => (Number.isInteger(skillIndex) && entry?.loops?.[skillIndex]?.url ? entry.loops[skillIndex] : null);
+/** Its gain: the bank's mixer group × its volume. */
+export const loopGain = (loop) => groupGain(loop?.grp) * (Number.isFinite(loop?.vol) && loop.vol > 0 ? loop.vol : 1);

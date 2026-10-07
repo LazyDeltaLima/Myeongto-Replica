@@ -98,7 +98,8 @@ export function noteEffects(mode, fan = 0) {
 }
 
 // ---- attack-mode bindings (local patch 2026-10-07, docs/LOCAL-PATCH.md 「스킬 중 공격 이펙트」) ---------------------------
-// /assets/local/fx/modes.json[charId] = { modes: [Default, S2, …], cast: [[names]…], hit: [[names]…], trail: [[names]…] }
+// /assets/local/fx/modes.json[charId] = { modes: [Default, S2, …], cast: [[names]…], hit: [[names]…], trail: [[names]…],
+//   attach: [[names]…] }
 // (tools/local-extract/char_modes.py: the character prefab's attack modes and the effects their attacks bind).
 
 /**
@@ -119,7 +120,7 @@ export function attackMode(bind, skillOn, skillIndex) {
  * @param {any} bind modes.json entry
  * @param {string[]|null|undefined} prefabs the operator's extracted prefabs (index.json bundles[bundle])
  * @param {number|null} n
- * @param {'cast'|'hit'|'trail'} role
+ * @param {'cast'|'hit'|'trail'|'attach'} role
  */
 export function boundEffects(bind, prefabs, n, role) {
   if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0) return [];

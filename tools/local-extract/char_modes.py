@@ -106,6 +106,21 @@ def effect_names(v):
     return out
 
 
+def buff_effects(o, out=None):
+    """The `overrideEffectKey` effect names of the buffs a MonoBehaviour declares."""
+    out = [] if out is None else out
+    if isinstance(o, dict):
+        for k, v in o.items():
+            if k == 'overrideEffectKey' and isinstance(v, str) and v:
+                out.append(v)
+            else:
+                buff_effects(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            buff_effects(v, out)
+    return out
+
+
 def add(lst, names):
     for n in names:
         if n and not DIRECTIONAL.search(n) and n not in lst:
@@ -150,7 +165,8 @@ def modes_of(path, projectiles=None):
     """{ modes, proj, cast, hit, trail } of a charpack (per mode, in `_modes` order), or None:
     modes = the mode GameObject names; proj = the projectile keys under each mode; cast = the effects its attacks cast on
     the attacker; hit = those on the target (the emitters' hit lists + its own projectile's WhenHit / WhenReached); trail =
-    that projectile's main effect. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
+    that projectile's main effect; attach = the effects of the mode's own (Talents) buffs, shown on the operator while it
+    lasts. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
     only the first counts."""
     tree, go_name = load_tree(path)
     root = next((d for _, d, _ in tree if isinstance(d.get('_modes'), list) and d['_modes']), None)
@@ -160,7 +176,7 @@ def modes_of(path, projectiles=None):
     mode_paths = [by_pid.get(r.get('m_PathID')) or '' for r in root['_modes']]
     modes = [p.split('/')[-1] if p else '?' for p in mode_paths]
     n = len(modes)
-    proj, cast, hit, trail = ([[] for _ in range(n)] for _ in range(4))
+    proj, cast, hit, trail, attach = ([[] for _ in range(n)] for _ in range(5))
     # alternatives: the first sibling (by name) of each parent stands for all
     alt_first = {}
     for gp, _, _ in tree:
@@ -200,6 +216,10 @@ def modes_of(path, projectiles=None):
         add(cast[i], effect_names(d.get('_castEffects') or []))
         for k in HIT_KEYS:
             add(hit[i], effect_names(d.get(k) or []))
+        # the mode's own buffs (its Talents abilities: 丰川祥子 S3's oblvns_s_3[eff] → the range effect) show their effect on
+        # the operator while the mode lasts; buffs an attack puts on its target (_activeBuffs) are not these
+        if '/Talents/' in gp[len(mode_paths[i]):] + '/':
+            add(attach[i], buff_effects(d))
     # the mode's own shot first (projectile_chr_<name>[_default|_s<n>|_<X>]) — drones / talent shots after it; only that
     # projectile's hit / trail effects are the mode's (whitw2's funnels hit with their own when they fire)
     short = re.sub(r'^char_\d+_', '', Path(path).stem)
@@ -210,7 +230,7 @@ def modes_of(path, projectiles=None):
             e = projectiles.effects(proj[i][0])
             add(hit[i], e['hit'])
             add(trail[i], e['trail'])
-    return {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail}
+    return {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail, 'attach': attach}
 
 
 def main():
@@ -242,7 +262,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'cast', 'hit', 'trail') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'cast', 'hit', 'trail', 'attach') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

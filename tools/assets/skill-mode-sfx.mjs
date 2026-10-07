@@ -147,3 +147,40 @@ export function unitGroups(audio, roles, skillPaths = {}) {
   if (Object.keys(sk).length) out.skills = sk;
   return Object.keys(out).length ? out : null;
 }
+
+/** Events of a skill's looping bank (the loop runs while the skill does). */
+const LOOP_EVENTS = 'ON_SKILL_START|ON_ABILITY_START|ON_ABILITY_ON|ON_BUFF_START|ON_CUSTOM_TRIGGER';
+
+/**
+ * sfx.units[charId].loops: per skill index, the official looping bank the skill keeps playing while it runs (丰川祥子 S3's
+ * music `ON_BUFF_START.oblvns_s_3[loop]`, the fields `ON_ABILITY_START.skchr_lisa_3` / `ON_SKILL_START.skchr_cello_3` …):
+ * { url, grp?, vol?, start? } — `start` = it is also the skill's start sound (the client then plays it only as the loop).
+ * @param {{ loopBanks?: { name: string, paths: string[] }[], groupOf?: Function, mixOf?: Function }} audio
+ * @param {string} charId
+ * @param {{ index: number, skillId?: string }[]} skills
+ * @param {(paths: string[]) => any} soundLeaf
+ * @param {Record<string, string[]>} [startPaths] skill index → its start sound paths (plan.mjs skillPaths)
+ */
+export function skillLoops(audio, charId, skills, soundLeaf, startPaths = {}) {
+  const banks = Array.isArray(audio.loopBanks) ? audio.loopBanks : [];
+  if (!banks.length) return null;
+  const short = String(charId).replace(/^char_\d+_/, '');
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const out = {};
+  for (const s of Array.isArray(skills) ? skills : []) {
+    if (!s || !Number.isInteger(s.index)) continue;
+    const res = [];
+    if (s.skillId) res.push(new RegExp(`^battle\\.(${LOOP_EVENTS})\\.${esc(s.skillId)}(\\.\\d+)?(\\[.*\\])?$`));
+    res.push(new RegExp(`^battle\\.ON_BUFF_START\\.${esc(short)}_s_${s.index + 1}(\\[.*\\])?$`));
+    const b = banks.find((x) => res.some((re) => re.test(x.name)));
+    if (!b) continue;
+    const e = { url: soundLeaf(b.paths) };
+    const g = typeof audio.groupOf === 'function' ? audio.groupOf(b.paths) : null;
+    if (g) e.grp = g;
+    const m = typeof audio.mixOf === 'function' ? audio.mixOf(b.paths) : null;
+    if (m && Number.isFinite(m.vol)) e.vol = m.vol;
+    if (startPaths[String(s.index)] === b.paths) e.start = true;
+    out[String(s.index)] = e;
+  }
+  return Object.keys(out).length ? out : null;
+}

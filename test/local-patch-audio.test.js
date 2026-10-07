@@ -124,6 +124,30 @@ describe('the official mix and mode sounds in audio.js (audioOfficial.js)', () =
     assert.deepEqual(a.played.map((p) => p.unitKey), ['1:skill'], 'ended without an attack: the start sound then');
   });
 
+  test('skill loops: 丰川祥子 S3\'s music runs while the skill does, stops at its end / a new field; a looping start bank plays only as the loop', () => {
+    const U = UNITS.char_4182_oblvns;
+    assert.match(file(U.loops['2'].url), /^p_atk_mjckyrdslnt_lp\.mp3$/, 'ON_BUFF_START.oblvns_s_3[loop]');
+    assert.ok(!U.modes['2'].deferStart, 'her S3 start (ON_CUSTOM_TRIGGER …[start]) is a real start sound');
+    assert.equal(UNITS.char_174_slbell.loops['0'].start, true, 'a field whose start bank loops');
+    const a = manager();
+    a._buffer = async () => null;
+    a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: 'char_4182_oblvns', defId: 'chess_x', skillIndex: 2 }]);
+    a.handleBattleEvents([['skill', 1, 1]]);
+    assert.ok(a._skillLoops?.has(1), 'loop started');
+    assert.deepEqual(a.played.map((p) => p.unitKey), ['1:skill'], 'and its start sound');
+    a.handleBattleEvents([['skill', 1, 0]]);
+    assert.ok(!a._skillLoops.has(1), 'stopped with the skill');
+    a.handleBattleEvents([['skill', 1, 1]]);
+    a.setFieldUnits([]);
+    assert.equal(a._skillLoops.size, 0, 'a new field stops it');
+    const b = manager();
+    b._buffer = async () => null;
+    b.setFieldUnits([{ id: 3, kind: 'op', side: 'ally', spine: 'char_174_slbell', defId: 'chess_y', skillIndex: 0 }]);
+    b.handleBattleEvents([['skill', 3, 1]]);
+    assert.ok(b._skillLoops.has(3));
+    assert.equal(b.played.length, 0, 'the looping start bank is not also played once');
+  });
+
   test('enemies attack at Battle_E_NAtk or their own group (−9 dB under the old 0.55)', () => {
     const [id, U] = Object.entries(UNITS).find(([k, v]) => k.startsWith('enemy_') && typeof v.attack === 'string' && !v.mix?.attack?.p);
     const a = manager();

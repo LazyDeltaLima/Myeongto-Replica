@@ -48,7 +48,7 @@
 
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
-import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds
+import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops
 
 const MAX_VOICES = 8;
 const UNIT_COOLDOWN_MS = 160;
@@ -952,6 +952,7 @@ export class AudioManager {
     // a new field is a new battle: the first operator deployed says 行动出发 again and no cooldown carries over
     this.startVoiceDone = false;
     try { this.voiceGate.reset(); this._stopVoice(); this.voicePolicy?.reset(); } catch { /* ignore */ } // local patch: voicePolicy
+    stopSkillLoops(this); // local patch: no skill loop carries into a new field
     for (const u of Array.isArray(units) ? units : []) this._track(u);
   }
 
@@ -984,6 +985,9 @@ export class AudioManager {
           const su = this.units.get(e[1]);
           if (su) {
             su.skillOn = !!e[2];
+            const loop = skillLoopOf(this.getManifest()?.audio?.sfx?.units?.[su.def], su.skillIndex); // its looping bank (music, field)
+            if (loop && e[2]) startSkillLoop(this, e[1], loop.url, loopGain(loop));
+            else if (!e[2]) stopSkillLoop(this, e[1]);
             // modes[i].deferStart: a fallback start sound — it plays only for a skill that ended without an attack (its
             // attacks sound the skill's own attack sound, as the official ability signals do)
             if (!e[2] && su.startHeld) this.unit(su.def, 'skill', e[1], su.skillIndex ?? undefined);
@@ -1011,8 +1015,9 @@ export class AudioManager {
         } else if (kind === 'skill' && e[2]) {
           const u = this.units.get(e[1]);
           if (u) {
-            if (modeEntry(this.getManifest()?.audio?.sfx?.units?.[u.def], u.skillIndex)?.deferStart) u.startHeld = true; // local patch
-            else this.unit(u.def, 'skill', e[1], u.skillIndex ?? undefined);
+            const ue = this.getManifest()?.audio?.sfx?.units?.[u.def]; // local patch
+            if (modeEntry(ue, u.skillIndex)?.deferStart) u.startHeld = true; // local patch
+            else if (!skillLoopOf(ue, u.skillIndex)?.start) this.unit(u.def, 'skill', e[1], u.skillIndex ?? undefined); // local patch: a start bank that loops plays as the loop
             // 作战中N: the equipped skill's own slot (0-based; 作战中4 is the fallback of a 4th slot)
             if (unitSoundClass(u) === 'char') {
               const n = Number.isInteger(u.skillIndex) ? Math.min(4, u.skillIndex + 1) : 1;
@@ -1029,6 +1034,7 @@ export class AudioManager {
             else if (this.voicePolicy.encounter(now)) this.voicePolicy.encountered(this.voice(u.def, 'faceEnemy', { unitKey: e[1] })); // local patch: once per battle
           }
         } else if (kind === 'die') {
+          stopSkillLoop(this, e[1]); // local patch
           const u = this.units.get(e[1]);
           if (!u) continue;
           const consumed = this.consumed.delete(e[1]);

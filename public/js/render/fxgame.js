@@ -9,7 +9,8 @@
 // char_modes.py: the character prefab's attack modes with the effects their attacks cast / hit) lists the operator, its
 // attacks play their mode's effects — the running skill's mode (shared/skill-modes.js) on EVERY attack of the skill, like the
 // official client (its `_castEffects` sit on the skill mode's attack ability; the activation itself shows only the buff
-// loop), and the impacts that mode's hit effects (≤ 2). A skill that switches no mode keeps the name mapping below.
+// loop, plus the mode's own buff effects — `attach`, e.g. 丰川祥子 S3's range), and the impacts that mode's hit effects
+// (≤ 2). A skill that switches no mode keeps the name mapping below.
 // Trails (local patch 2026-10-07): a ranged attack whose mode binds a projectile `trail` (the projectile's `_mainEffect`) flies
 // that prefab from the shooter to its (moving) target over the sim's flight time (fx.js projSpeed — it lands with the damage,
 // lobbed shots on fx.js's arc) instead of render/fx.js's procedural shot (arrowKind 'officialTrail'); a trail's first shot
@@ -500,6 +501,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             // local patch: a skill mode with bound cast effects plays them on every attack (below), not once here
             if (!bound(v, skillMode(v), 'cast').length) play(v, 'skillStart', skillIdx(v));
             play(v, 'skillBuff', skillIdx(v), { buff: true });
+            // local patch: the skill mode's own buff effects (丰川祥子 S3's range) while the skill lasts, under the operator
+            const attach = bound(v, skillMode(v), 'attach');
+            if (attach.length) play(v, 'skillBuff', skillIdx(v), { buff: true, names: attach });
           }
           else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id); endWolves(v.id ?? v.info.id); }
           return;

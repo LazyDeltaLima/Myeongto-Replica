@@ -25,7 +25,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, skillModes, unitGroups } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, skillModes, unitGroups, skillLoops } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -369,6 +369,8 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     const grp = unitGroups(audio, sfx, skillPaths);
     if (grp) u.grp = grp;
     if (Object.keys(skillMix).length) u.skillMix = skillMix;
+    const loops = skillLoops(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf, skillPaths); // local patch
+    if (loops) u.loops = loops;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 

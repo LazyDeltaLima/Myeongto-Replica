@@ -10,6 +10,7 @@
 
 import { data } from './data.js';
 import { audio, kitHitKey, normalAttackSfx } from './audio.js';
+import { loopGain } from './audioOfficial.js';
 import { voiceStore, setVoiceLang } from './voice.js';
 import { fxBundleOf, effectGroups, effectsFor, attackMode, boundEffects } from './render/fxmap.js';
 import { loadoutOptions } from '../../shared/protocol.js';
@@ -179,6 +180,8 @@ function onEvents(ev, gt) {
           const sfx = unitSfx(u.spine);
           const url = sfx.skills?.[idx] ?? sfx.skill;
           if (typeof url !== 'string') note(`ss${idx}`, `스킬 효과음 데이터 없음: audio.sfx.units.${u.spine}.skills[${idx}] / .skill`);
+          const lp = sfx.loops?.[idx];   // its looping bank while it runs (audioOfficial.js startSkillLoop)
+          if (lp) log('snd', 'snd', `  ♪ S${idx + 1} 스킬 중 루프음 ${file(lp.url)} · 볼륨 ${loopGain(lp).toFixed(2)}`);
           const md = sfx.modes?.[idx];   // the skill's own attack / impact sounds (audioOfficial.js, tools/assets/skill-mode-sfx.mjs)
           if (md) log('snd', 'snd', `  ♪ S${idx + 1} 스킬 중 소리 — 공격: ${md.attack ? file(md.attack) : '일반'} · 타격: ${md.hit ? file(md.hit) : '일반'}${md.deferStart ? ' · 시작음은 공격이 없을 때만' : ''}`);
           else note(`sm${idx}`, `S${idx + 1} 스킬 중 전용 공격·타격음 없음 (일반 소리 그대로)`);
