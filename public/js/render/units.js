@@ -674,6 +674,7 @@ export class UnitView {
     this.hp = hp;
     this.sp = s.sp; this.spMax = s.spMax;
     this.ammo = s.ammo || null; // local patch: official bullet bar (b.snap `ammo`)
+    this.bsp = s.bsp || null;   // local patch: a boss's official SP (b.snap `bsp`)
     const prevFlags = this.flags;
     this.flags = s.flags | 0;
     this.anim = s.anim | 0;
@@ -1099,11 +1100,11 @@ export class UnitView {
       if (lp && this.isEnemy) {
         // (an enemy's SP is 圣堂剑士's bullets alone: sim/content/local-patch.js)
         lpBottom = this.lpBars.update(this.screen.x, this.screen.y, hudUnit(this.ctx.viewport?.()), s, dt,
-          { hp: k, ghost: g, ammo: this.spMax > 0 ? [this.sp, this.spMax] : null }, this.ctx.assets);
+          { hp: k, ghost: g, ammo: this.spMax > 0 ? [this.sp, this.spMax] : null, sp: this.bsp ? clamp(this.bsp[0] / this.bsp[1], 0, 1) : null }, this.ctx.assets);
       } else if (lp) {
         const u = hudUnit(this.ctx.viewport?.()), active = !!(this.flags & UF.SKILL);
         const sp = this.spMax > 0 ? clamp(this.sp / this.spMax, 0, 1) : null;
-        lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: k, ghost: g, sp, cast: active, ammo: active ? this.ammo : null });
+        lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: k, ghost: g, sp, cast: active, ammo: active ? this.ammo : null }, this.ctx.assets);
       }
       this.hpBg.position.set(x0 - 1, cy); this.hpBg.width = bw + 2; this.hpBg.height = bh + 2;
       this.hpGhost.position.set(x0, cy); this.hpGhost.width = bw * g; this.hpGhost.height = bh;

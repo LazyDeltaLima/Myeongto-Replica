@@ -41,7 +41,7 @@ import { SkillRuntime } from './skills.js';
 import { updateAlly, updateEnemy, compileRoute, remainingDistance, effectiveProfile, performAttack, acquireTargets } from './ai.js';
 import { resolveProfile } from './professions.js';
 import { unitInfo, snapshotUnits } from './snapshot.js';
-import { ammoList } from './local-hud.js'; // local patch
+import { hudLists } from './local-hud.js'; // local patch
 import { toDataSource, normalizeRoute, normalizeStage, normalizeToken, normalizeEnemy } from './simdata.js';
 import { installContent, setupUnitKit } from './content/index.js';
 
@@ -2365,7 +2365,7 @@ export class Battle {
       if (v) (elem || (elem = [])).push([u.id, v[0], v[1], v[2], v[3]]);
     }
     if (elem) snap.elem = elem;
-    const ammo = ammoList(this.units); if (ammo) snap.ammo = ammo; // local patch: official bullet bar (local-hud.js)
+    Object.assign(snap, hudLists(this.units)); // local patch: official bullet bar / boss SP (local-hud.js `ammo`, `bsp`)
     return snap;
   }
 

@@ -106,7 +106,9 @@ JOBS = [
      # local patch (LOCAL-PATCH.md 「전투 화면 UI」): act1autochess_battle_dummy_hud_plugin's equipment bar (prep)
      r'|equip_bg|equip_gold_icon|equip_normal_icon'
      # the boss HP bars' emblems, hit glow and frame (enemy_boss_hp_slider, panel_enemy_boss_info)
-     r'|sprite_enemy_boss_hud_small|sprite_enemy_boss_hud_large|sprite_bar_glow|sprite_enemy_boss_hp_bg)$'),
+     r'|sprite_enemy_boss_hud_small|sprite_enemy_boss_hud_large|sprite_bar_glow|sprite_enemy_boss_hp_bg'
+     # the bars' feathered plate (char_slider_background / enemy_slider_background / the boss sliders)
+     r'|sprite_bg)$'),
     ('battle/[pack]common.ab', 'battle/common', {'Texture2D'}, r'^sprite_attack_range$'),
 ]
 

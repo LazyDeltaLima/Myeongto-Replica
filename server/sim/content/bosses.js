@@ -146,6 +146,24 @@ export const SELF_BOUND = Object.freeze([
 ]);
 /** 阿利斯泰尔: enemy SP per second [ASSUMED] and 莫非王土 delay after each 王权号令 [ASSUMED]. */
 const ENEMY_SP_PER_SEC = 1, ANIMATE_DELAY = 2;
+
+/**
+ * Local patch (LOCAL-PATCH.md 「전투 화면 UI」, user decision 2026-10-07 「공식과 같은 a안」): the official enemy SP of a skill
+ * with an SP cost (enemy_database spData INCREASE_WITH_TIME — 管 0/50 +1/s with 裂管之奏 spCost 50, PRTS 「技力 0/50 自动回复
+ * 1.0 SP/s」; 弦 0/35 with 断弦之奏 25): the skill fires once its cooldown is over AND the SP reaches the cost [추정: both —
+ * the client's logic is native], the cast spends the cost; SP is gained only while the enemy can act (as 阿利斯泰尔's
+ * 王权号令 below). `e.mem.lpSp` = [sp, max] feeds the boss SP bar (server/sim/local-hud.js). Null without such data.
+ */
+function skillSp(e, s) {
+  const d = e.def && e.def.raw && e.def.raw.sp;
+  if (!s || !(s.sp > 0) || !d || d.type !== 'INCREASE_WITH_TIME') return null;
+  const max = Math.max(s.sp, Number(d.maxSp) || 0), inc = Number.isFinite(d.increment) ? d.increment : ENEMY_SP_PER_SEC;
+  const st = { sp: Math.min(max, Number(d.initSp) || 0), max, cost: s.sp };
+  st.ready = () => st.sp >= st.cost - 1e-9;
+  st.spend = (e2) => { st.sp = Math.max(0, st.sp - st.cost); e2.mem.lpSp = [st.sp, max]; };
+  st.ab = { tick(b2, e2, a, dt) { if (canCast(e2, false)) st.sp = Math.min(max, st.sp + dt * inc); e2.mem.lpSp = [st.sp, max]; } };
+  return st;
+}
 const EQUIP_KEYS = Object.freeze(['enemy_10028_vtswd', 'enemy_10029_vtshld', 'enemy_10030_vtwand']);
 const SHELL_KEY = 'enemy_9016_acstmr', ECHO_KEY = 'enemy_9023_acdums', PHANTOM_KEY = 'enemy_2017_csphts';
 
@@ -804,14 +822,16 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
 
 function kitPipe(ab, e, b, tpl) {
   const s = ab.sk['1'];
+  const g = skillSp(e, s); // local patch: official SP
   return [
     pipeCore(ab, e, b, tpl, { form: 'dark', prefix: 'acduml' }),
     {
       death(c, b2) { for (const o of b2.aliveEnemies()) if (o.defId === 'enemy_9022_acdumm') b2.kill(o, null); }, // 弦 leaves with 管
     },
     s && {
-      cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'dark').length > 0,
+      cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'dark').length > 0 && (!g || g.ready()), // local patch: + SP
       fire(b2, e2) { // 【裂管之奏】 three strikes on every dark echo
+        if (g) g.spend(e2); // local patch
         const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
         for (const echo of echoesOf(b2, 'dark')) for (let k = 0; k < 3; k++) b2.after(k * PIPE_STRIKE_GAP, () => {
           if (!e2.alive || !echo.alive) return;
@@ -821,17 +841,20 @@ function kitPipe(ab, e, b, tpl) {
         }, { owner: e2 });
       },
     },
+    g && g.ab, // local patch: the SP gain
   ];
 }
 
 function kitString(ab, e, b, tpl) {
   const s = ab.sk['1'];
+  const g = skillSp(e, s); // local patch: official SP
   return [
     pipeCore(ab, e, b, tpl, { form: 'gold', prefix: 'acdumm' }),
     { spawn(b2, e2) { b2.addBuff(e2, { key: 'boss:eternal', persist: true, flags: { invulnerable: true, untargetable: true } }); } }, // 永久无敌
     s && {
-      cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'gold').length > 0,
+      cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'gold').length > 0 && (!g || g.ready()), // local patch: + SP
       fire(b2, e2) { // 【断弦之奏】 AoE on every gold echo, which then turns dark
+        if (g) g.spend(e2); // local patch
         const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
         for (const echo of echoesOf(b2, 'gold')) {
           b2.fx('explode', { x: echo.x, y: echo.y, r, kind: 'stringStrike' });
@@ -840,6 +863,7 @@ function kitString(ab, e, b, tpl) {
         }
       },
     },
+    g && g.ab, // local patch: the SP gain
   ];
 }
 
@@ -1023,6 +1047,7 @@ function kitLion(ab, e, b) {
         if (!canCast(e2, false)) return;
         P.sp += dt * ENEMY_SP_PER_SEC;
         if (P.sp >= cost && decree(b2, e2)) P.sp = 0;
+        if (Number.isFinite(cost)) e2.mem.lpSp = [Math.min(P.sp, cost), cost]; // local patch: the boss SP bar (local-hud.js)
         // 【莫非王土】: ANIMATE_DELAY s after equipment first lies on the field, then once per 王权号令 cycle
         const has = equipment(b2).length > 0;
         if (!has) { P.nextAnim = null; return; }

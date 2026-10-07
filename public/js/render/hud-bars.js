@@ -13,8 +13,11 @@
 //
 // Allies (char_hp_slider / char_sp_slider / char_sp_cast_slider / char_bullet_bar / char_slider_background):
 //   HP 125×7 #49b2e3 α.7 over its delayed loss (white α.7, `slider_back`), SP 125×7 right under it — charging #caec46
-//   α.7, a running skill's remaining duration #ffa800 α.7 — on one black α.5 plate (`sprite_bg`) exactly under the bars
-//   (user check 2026-10-07: no outline — a 1-unit margin read as one). An ammo skill (b.snap `ammo`, server/sim/local-hud.js) shows its bullets left instead:
+//   α.7, a running skill's remaining duration #ffa800 α.7 — on one black α.5 plate. The plate is `sprite_bg` (9-sliced,
+//   borders 4 / 5): a black α .70 core with a 4–5 px feathered shadow, laid out 8.6 × 10.32 units larger than the bars (the
+//   prefab's 133.6 × (14 + 10.32) around 125 × 14) — i.e. the core (α .35 with the tint) under the bars and only the soft
+//   shadow outside: 「불투명도가 들어간 바 위에 색 바」 (user, capture 14; a hard 1-unit margin read as an outline). Without
+//   the sprite (local client art): a plain α .35 rect under the bars. An ammo skill (b.snap `ammo`, server/sim/local-hud.js) shows its bullets left instead:
 //   one block per bullet on a #e56d00 α.31 track (`char_bullet_bar`), the blocks laid out by code (UIBulletBar) —
 //   [추정] their colour #ffa800 and 2-unit gaps from the captures (7 bullets: 16–17 px blocks 2 px apart; 19 bullets: ~4.5 px
 //   blocks, the same gaps — many bullets make thin blocks, never one bar unless a block would be under 1 px). No glow when
@@ -30,19 +33,22 @@
 //   (equip_normal_icon) per item, [추정] the glowing gold pill (equip_gold_icon, 31×14 drawn at its own size) for a golden
 //   item; hidden without items. Sprites: local client ui/battlecommon (tools/local-extract/extract.py); none: item pips.
 // Enemies (shown once hurt, bosses always — `_alwaysShowHp` is off but on 圣堂剑士):
-//   - `enemy_hp_slider`: 105×7 #ea4700 α.7 over the white α.7 loss, black α.5 plate, 55.3 under hud_unit (CN captures:
-//     ≈ 110 px at 2000 wide);
-//   - `enemy_boss_hp_slider` (a boss without the giant panel: 铳, 卢西恩, …): 130×9 #ea2727 α.85, 43 under hud_unit, its black
-//     α.5 plate 10 × 8 larger (stretched child) and the boss emblem (sprite_enemy_boss_hud_small 57×65, 7 under the bar's
-//     centre) behind the bar;
+//   - `enemy_hp_slider`: 105×7 #ea4700 α.7 over the white α.7 loss, the sprite_bg plate 8 × 8.55 larger
+//     (enemy_slider_background), 55.3 under hud_unit (CN captures: ≈ 110 px at 2000 wide);
+//   - `enemy_boss_hp_slider` (a boss without the giant panel: 铳, 卢西恩, …): 130×9 #ea2727 α.85, 43 under hud_unit, its
+//     sprite_bg plate 10 × 8 larger and the boss emblem (sprite_enemy_boss_hud_small 57×65, 7 under the bar's centre) behind
+//     the bar; its SP (`enemy_boss_sp_slider` 130×6 #ebc9ff α.7, plate 10 × 7 larger) right under it [추정 place];
 //   - the giant boss panel (`EnemyGiantBoss`, battle/[pack]common.ab panel_enemy_boss_info — the 卫戍协议 bosses whose prefab
 //     has `_bossHudScale`, user: 「위수협의 모드에서만 넓게」): HP 798×10 × the prefab's x scale (0.35 → 279, CN capture 8 of
 //     假想敌：管 ≈ 281 × 9.3 units) #ff2b2b α.8 over the white α.7 loss, a black α.39 plate (800×12) and a white α.39 frame
-//     (sprite_enemy_boss_hp_bg, 9-sliced, 816×28); the emblem (sprite_enemy_boss_hud_large) behind its centre ≈ 39 units
+//     (sprite_enemy_boss_hp_bg, 9-sliced, 816×28: a grey α .76 core edged with dark lines); its SP (default_sp_slider
+//     798×8 #cab2d4 α.8, plate 800×12, frame 816×24) 16.3 under the HP bar's centre [캡처 8]; the emblem (sprite_enemy_boss_hud_large) behind its centre ≈ 39 units
 //     wide [캡처 8 / 10]; a hit flash (hit_effect: sprite_bar_glow, 9-sliced, 818×31, #ff0000 α.78 — user decision 2026-10-07)
 //     fading over HIT_FLASH s [추정]. Its centre on the feet [추정 — the placement is native code; the captures show it at
 //     the boss's feet], moved by the prefab's `_bossHudOffset` in tiles [추정 단위] (萨米的意志 / 昆图斯 up 1.4 / 1.02, 管 II
 //     right 1.4).
+//   Boss SP: the official enemy SP (enemy_database spData INCREASE_WITH_TIME — 管 0/50 +1/s, PRTS 「技力 0/50 自动回复」;
+//   阿利斯泰尔 25), b.snap `bsp` (server/sim/local-hud.js); only the bosses with SP show the bar (user decision 2026-10-07).
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -63,9 +69,9 @@ export const hudAnchorY = (feetY, u) => feetY - HUD_ANCHOR * u;
 
 /** Ally bars (see header), in HUD units (y: below hud_unit's centre). */
 export const ALLY_BAR = Object.freeze({
-  w: 125, h: 7, y: 54.5, pad: 0,
+  w: 125, h: 7, y: 54.5, grow: Object.freeze([8.6, 10.32]),
   hp: 0x49b2e3, sp: 0xcaec46, cast: 0xffa800, alpha: 0.7, ghost: 0xffffff,
-  plate: 0x000000, plateAlpha: 0.5,
+  plateAlpha: 0.5,
   ammoTrack: 0xe56d00, ammoTrackAlpha: 0.31, ammo: 0xffa800, ammoAlpha: 1, ammoGap: 2,
 });
 
@@ -75,14 +81,16 @@ export const PREP_CHIP = Object.freeze({ x: -45.5, y: 128, interior: 37.5 });
 export const PREP_EQUIP = Object.freeze({ x: 14.75, y: 129.5, w: 92.5, h: 37.5, slots: Object.freeze([-16, 16.25]), slotW: 28.75, slotH: 7.5, scale: 1.25 });
 
 /** Enemy bars (see header), in HUD units; y: below hud_unit's centre (normal / boss) or from the feet (giant). */
-export const ENEMY_BAR = Object.freeze({ w: 105, h: 7, y: 55.3, hp: 0xea4700, alpha: 0.7, plateAlpha: 0.5, grow: Object.freeze([0, 0]) });
+export const ENEMY_BAR = Object.freeze({ w: 105, h: 7, y: 55.3, hp: 0xea4700, alpha: 0.7, plateAlpha: 0.5, grow: Object.freeze([8, 8.55]) });
 export const BOSS_BAR = Object.freeze({
   w: 130, h: 9, y: 43, hp: 0xea2727, alpha: 0.85, plateAlpha: 0.5, grow: Object.freeze([10, 8]),
   emblem: Object.freeze({ name: 'sprite_enemy_boss_hud_small', w: 57, h: 65, dy: 7 }),
+  sp: Object.freeze({ h: 6, dy: 7.5, color: 0xebc9ff, alpha: 0.7, grow: Object.freeze([10, 7]) }),
 });
 export const GIANT_BAR = Object.freeze({
-  w: 798, h: 10, y: 0, hp: 0xff2b2b, alpha: 0.8, plateAlpha: 0.39, grow: Object.freeze([2, 2]),
+  w: 798, h: 10, y: 0, hp: 0xff2b2b, alpha: 0.8, plateAlpha: 0.39, grow: Object.freeze([2, 2]), hard: true,
   frame: Object.freeze({ name: 'sprite_enemy_boss_hp_bg', grow: Object.freeze([18, 18]), alpha: 0.39, border: Object.freeze([11, 10, 11, 10]) }),
+  sp: Object.freeze({ h: 8, dy: 16.3, color: 0xcab2d4, alpha: 0.8, grow: Object.freeze([2, 4]), frameGrow: Object.freeze([18, 16]) }),
   hit: Object.freeze({ name: 'sprite_bar_glow', grow: Object.freeze([20, 21]), tint: 0xff0000, alpha: 0.78, border: Object.freeze([18, 12, 18, 12]) }),
   emblem: Object.freeze({ name: 'sprite_enemy_boss_hud_large', w: 39, h: 39 * 67 / 59, dy: 2 }),
 });
@@ -115,6 +123,40 @@ function rect(P, parent, color, alpha) {
   return s;
 }
 
+/** Plate sprites: `sprite_bg` (bars) and the giant panel's frame; [left, top, right, bottom] 9-slice borders (texture px). */
+const PLATE = Object.freeze({ name: 'sprite_bg', border: Object.freeze([4, 5, 4, 5]), core: 179 / 255 });
+
+/**
+ * A plate around a bar box: the 9-sliced sprite `name` (local client ui/battlecommon) drawn with its texture px at `u`
+ * (× `sx` across, as the giant panel's scaled canvas) — `grow` units larger than the box — tinted `tint` α `alpha`; a
+ * plain rect of the box at `bare` alpha while the sprite is not there (`bare` null: nothing).
+ */
+class Plate {
+  constructor(P, parent, { name, border, tint = 0x000000, alpha, bare = null }) {
+    this.P = P; this.name = name; this.bare = bare;
+    this.rect = bare != null ? rect(P, parent, tint, bare) : null;
+    this.slice = P.NineSlicePlane ? new P.NineSlicePlane(P.Texture.WHITE, ...border) : null;
+    if (this.slice) { this.slice.tint = tint; this.slice.alpha = alpha; this.slice.visible = false; parent.addChild(this.slice); }
+  }
+
+  /** Around the box centred (cx, cy) px, `wU` × `hU` units (× `sx` across), sprite `grow` [x, y] units larger. */
+  update(assets, cx, cy, wU, hU, grow, u, sx = 1) {
+    const t = this.slice ? texOf(this.P, localUrl(assets, 'ui/battlecommon', this.name)) : null;
+    if (this.slice) this.slice.visible = !!t;
+    if (t) {
+      const o = this.slice;
+      if (o.texture !== t) o.texture = t;
+      o.scale.set(u * sx, u);
+      o.width = wU + grow[0]; o.height = hU + grow[1];
+      o.position.set(cx - (wU + grow[0]) * u * sx / 2, cy - (hU + grow[1]) * u / 2);
+    }
+    if (this.rect) {
+      this.rect.visible = !t;
+      if (!t) { this.rect.position.set(cx - wU * u * sx / 2, cy); this.rect.width = wU * u * sx; this.rect.height = hU * u; }
+    }
+  }
+}
+
 /**
  * The HP / SP / ammo bars of one allied unit (operator or summon), drawn into `parent` (the view's HUD container).
  * `update` places them; `hide` hides them; they go with the parent.
@@ -125,7 +167,7 @@ export class AllyBars {
     const B = ALLY_BAR;
     this.root = new P.Container();
     parent.addChild(this.root);
-    this.plate = rect(P, this.root, B.plate, B.plateAlpha);
+    this.plate = new Plate(P, this.root, { ...PLATE, alpha: B.plateAlpha, bare: B.plateAlpha * PLATE.core });
     this.ghost = rect(P, this.root, B.ghost, B.alpha);
     this.hp = rect(P, this.root, B.hp, B.alpha);
     this.sp = rect(P, this.root, B.sp, B.alpha);
@@ -138,18 +180,16 @@ export class AllyBars {
 
   /**
    * Draw for feet at (x, y) with `u` px per unit: `hp` / `ghost` (shares 0..1 of the max HP), `sp` (share 0..1 or null: no
-   * SP bar), `cast` (the skill runs: the SP bar is its remaining duration), `ammo` ([left, max] or null). Returns the
-   * bottom edge (px) of what it drew.
+   * SP bar), `cast` (the skill runs: the SP bar is its remaining duration), `ammo` ([left, max] or null); `assets` for
+   * the plate sprite. Returns the bottom edge (px) of the bars.
    */
-  update(x, y, u, { hp, ghost, sp = null, cast = false, ammo = null }) {
+  update(x, y, u, { hp, ghost, sp = null, cast = false, ammo = null }, assets = null) {
     const B = ALLY_BAR;
     this.root.visible = true;
     const w = B.w * u, h = B.h * u, x0 = x - w / 2;
     const hy = hudAnchorY(y, u) + B.y * u;
     const rows = sp == null && !ammo ? 1 : 2;
-    const pad = B.pad * u;
-    this.plate.position.set(x0 - pad, hy - h / 2 + (rows * h) / 2);
-    this.plate.width = w + 2 * pad; this.plate.height = rows * h + 2 * pad;
+    this.plate.update(assets, x, hy - h / 2 + (rows * h) / 2, B.w, rows * B.h, B.grow, u);
     this.ghost.position.set(x0, hy); this.ghost.width = w * clamp(ghost, 0, 1); this.ghost.height = h;
     this.hp.position.set(x0, hy); this.hp.width = w * clamp(hp, 0, 1); this.hp.height = h;
     const sy = hy + h;
@@ -161,7 +201,7 @@ export class AllyBars {
     }
     drawBullets(this, showAmmo ? ammo : null, x0, sy, w, h, u);
     this.box = { x0, w, top: hy - h / 2 };
-    return hy - h / 2 + rows * h + pad;
+    return hy - h / 2 + rows * h;
   }
 }
 
@@ -196,19 +236,26 @@ function drawBullets(o, ammo, x0, y, w, h, u) {
 export class EnemyBars {
   constructor(P, parent, kind, giant = null) {
     this.P = P; this.kind = kind; this.giant = giant;
-    this.B = kind === 'giant' ? GIANT_BAR : kind === 'boss' ? BOSS_BAR : ENEMY_BAR;
+    const B = this.B = kind === 'giant' ? GIANT_BAR : kind === 'boss' ? BOSS_BAR : ENEMY_BAR;
     this.root = new P.Container();
     parent.addChild(this.root);
-    const B = this.B;
     this.emblem = B.emblem ? new P.Sprite(P.Texture.EMPTY) : null;
     if (this.emblem) { this.emblem.anchor.set(0.5); this.emblem.visible = false; this.root.addChild(this.emblem); }
     this.hitGlow = B.hit ? slice(P, this.root, B.hit.border) : null;
     if (this.hitGlow) { this.hitGlow.tint = B.hit.tint; this.hitGlow.visible = false; }
-    this.frame = B.frame ? slice(P, this.root, B.frame.border) : null;
-    if (this.frame) { this.frame.alpha = B.frame.alpha; this.frame.visible = false; }
-    this.plate = rect(P, this.root, 0x000000, B.plateAlpha);
-    this.ghost = rect(P, this.root, 0xffffff, 0.7);
-    this.hp = rect(P, this.root, B.hp, B.alpha);
+    // a row: its plate(s) and fills — the giant panel's hard black plate under a white frame, the others' sprite_bg plate
+    const row = (color, alpha, sp) => {
+      const r = {};
+      if (B.frame) r.frame = new Plate(P, this.root, { name: B.frame.name, border: B.frame.border, tint: 0xffffff, alpha: B.frame.alpha });
+      r.plate = B.hard ? new Plate(P, this.root, { name: null, border: [0, 0, 0, 0], alpha: B.plateAlpha, bare: B.plateAlpha })
+        : new Plate(P, this.root, { ...PLATE, alpha: B.plateAlpha, bare: B.plateAlpha * PLATE.core });
+      if (!sp) r.ghost = rect(P, this.root, 0xffffff, 0.7);
+      r.fill = rect(P, this.root, color, alpha);
+      return r;
+    };
+    this.hpRow = row(B.hp, B.alpha, false);
+    this.hp = this.hpRow.fill; this.ghost = this.hpRow.ghost;
+    this.spRow = null;
     this.ammoTrack = null; this.blocks = [];
     this.flash = 0;
     this.root.visible = false;
@@ -221,9 +268,9 @@ export class EnemyBars {
 
   /**
    * Draw for feet at (x, y), `u` px per unit, `s` px per tile (the giant's tile offset), `dt` s; `hp` / `ghost` shares of
-   * the max HP; `assets` for the emblem / frame / glow textures.
+   * the max HP, `sp` a boss's SP share (null: none), `ammo` [left, max] (圣堂剑士); `assets` for the sprites.
    */
-  update(x, y, u, s, dt, { hp, ghost, ammo = null }, assets) {
+  update(x, y, u, s, dt, { hp, ghost, sp = null, ammo = null }, assets) {
     const B = this.B;
     this.root.visible = true;
     const sx = this.giant ? this.giant.sx : 1;
@@ -238,26 +285,48 @@ export class EnemyBars {
       this.emblem.visible = !!t;
       if (t) { this.emblem.texture = t; this.emblem.position.set(cx, cy + B.emblem.dy * u); this.emblem.width = B.emblem.w * u; this.emblem.height = B.emblem.h * u; }
     }
-    const place = (o, grow) => { o.position.set(cx - w / 2 - grow[0] * sx * u / 2, cy - h / 2 - grow[1] * u / 2); o.width = w + grow[0] * sx * u; o.height = h + grow[1] * u; };
-    if (this.frame) {
-      const t = tex(B.frame.name);
-      this.frame.visible = !!t;
-      if (t) { this.frame.texture = t; place(this.frame, B.frame.grow); }
-    }
     if (this.hitGlow) {
       this.flash = Math.max(0, this.flash - dt);
       const t = this.flash > 0 ? tex(B.hit.name) : null;
       this.hitGlow.visible = !!t;
-      if (t) { this.hitGlow.texture = t; this.hitGlow.alpha = B.hit.alpha * (this.flash / HIT_FLASH); place(this.hitGlow, B.hit.grow); }
+      if (t) {
+        const g = B.hit.grow;
+        this.hitGlow.texture = t; this.hitGlow.alpha = B.hit.alpha * (this.flash / HIT_FLASH);
+        this.hitGlow.scale.set(u * sx, u); this.hitGlow.width = B.w + g[0]; this.hitGlow.height = B.h + g[1];
+        this.hitGlow.position.set(cx - (B.w + g[0]) * u * sx / 2, cy - (B.h + g[1]) * u / 2);
+      }
     }
-    this.plate.position.set(x0 - B.grow[0] * sx * u / 2, cy); this.plate.width = w + B.grow[0] * sx * u; this.plate.height = h + B.grow[1] * u;
-    this.ghost.position.set(x0, cy); this.ghost.width = w * clamp(ghost, 0, 1); this.ghost.height = h;
-    this.hp.position.set(x0, cy); this.hp.width = w * clamp(hp, 0, 1); this.hp.height = h;
+    const r = this.hpRow;
+    if (r.frame) r.frame.update(assets, cx, cy, B.w, B.h, B.frame.grow, u, sx);
+    r.plate.update(assets, cx, cy, B.w + (B.hard ? B.grow[0] : 0), B.h + (B.hard ? B.grow[1] : 0), B.hard ? [0, 0] : B.grow, u, sx);
+    r.ghost.position.set(x0, cy); r.ghost.width = w * clamp(ghost, 0, 1); r.ghost.height = h;
+    r.fill.position.set(x0, cy); r.fill.width = w * clamp(hp, 0, 1); r.fill.height = h;
+    let bottom = cy + h / 2;
+    // a boss's SP row (BOSS_BAR / GIANT_BAR sp) under the HP bar
+    const S = B.sp;
+    if (S && sp != null) {
+      if (!this.spRow) {
+        const P = this.P, row = {};
+        if (B.frame) row.frame = new Plate(P, this.root, { name: B.frame.name, border: B.frame.border, tint: 0xffffff, alpha: B.frame.alpha });
+        row.plate = B.hard ? new Plate(P, this.root, { name: null, border: [0, 0, 0, 0], alpha: B.plateAlpha, bare: B.plateAlpha })
+          : new Plate(P, this.root, { ...PLATE, alpha: S.alpha, bare: S.alpha * PLATE.core });
+        row.fill = rect(P, this.root, S.color, S.alpha);
+        this.spRow = row;
+      }
+      const q = this.spRow, sy = cy + S.dy * u;
+      if (q.frame) q.frame.update(assets, cx, sy, B.w, S.h, S.frameGrow, u, sx);
+      q.plate.update(assets, cx, sy, B.w + (B.hard ? S.grow[0] : 0), S.h + (B.hard ? S.grow[1] : 0), B.hard ? [0, 0] : S.grow, u, sx);
+      q.fill.visible = true; q.fill.position.set(x0, sy); q.fill.width = w * clamp(sp, 0, 1); q.fill.height = S.h * u;
+      bottom = sy + S.h * u / 2;
+    } else if (this.spRow) {
+      for (const o of [this.spRow.frame?.slice, this.spRow.frame?.rect, this.spRow.plate.slice, this.spRow.plate.rect, this.spRow.fill]) if (o) o.visible = false;
+    }
     // an enemy's bullets (圣堂剑士, `enemy_bullet_bar` 105×7 [추정] right under the HP bar, the allies' blocks)
     if (ammo && !this.ammoTrack) this.ammoTrack = rect(this.P, this.root, ALLY_BAR.ammoTrack, ALLY_BAR.ammoTrackAlpha);
-    if (this.ammoTrack) drawBullets(this, ammo, x0, cy + h, w, h, u);
+    if (this.ammoTrack) drawBullets(this, ammo, x0, bottom + h / 2, w, h, u);
+    if (ammo) bottom += h;
     this.box = { x0, w, top: cy - h / 2 };
-    return cy + h / 2 + B.grow[1] * u / 2 + (ammo ? h : 0);
+    return bottom;
   }
 }
 

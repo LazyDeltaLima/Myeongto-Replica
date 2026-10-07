@@ -91,7 +91,8 @@ export function normalizeSnapshot(snap) {
     }
   }
   // local patch (LOCAL-PATCH.md 「전투 화면 UI」): b.snap `ammo` [[id, left, max]] rides on the tuple as `.ammo` (sample `ammo`)
-  if (Array.isArray(snap.ammo)) for (const e of snap.ammo) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[2]) > 0) tu.ammo = [Math.max(0, finite(e[1])), finite(e[2])]; }
+  // and `bsp` [[id, sp, max]] (a boss's official SP) as `.bsp`
+  for (const [key, list] of [['ammo', snap.ammo], ['bsp', snap.bsp]]) if (Array.isArray(list)) for (const e of list) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[2]) > 0) tu[key] = [Math.max(0, finite(e[1])), finite(e[2])]; }
   let down = null;
   if (Array.isArray(snap.down)) {
     for (const d of snap.down) {
@@ -319,7 +320,7 @@ export class SnapshotBuffer {
       o.flags = a[7];
       o.anim = a[8];
       if (a.length > 9) { o.el = a[9]; o.elFill = a[10]; o.elUntil = a[11]; o.elDur = a[12]; } else if (o.el !== null) { o.el = null; o.elFill = 0; o.elUntil = 0; o.elDur = 0; }
-      o.ammo = a.ammo || null; // local patch: official bullet bar
+      o.ammo = a.ammo || null; o.bsp = a.bsp || null; // local patch: official bullet bar, boss SP
       o.seen = stamp;
     }
     for (const id of out.keys()) if (!A.units.has(id)) out.delete(id);

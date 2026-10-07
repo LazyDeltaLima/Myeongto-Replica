@@ -47,7 +47,8 @@ describe('ally bars (char_hp_slider / char_sp_slider / char_bullet_bar)', () => 
     assert.equal(b.hp.tint, 0x49b2e3); assert.equal(b.hp.alpha, 0.7);
     assert.equal(b.sp.tint, 0xcaec46);
     assert.ok(Math.abs(b.sp.position.y - b.hp.position.y - 7 * u) < 1e-6, 'SP right under HP');
-    assert.ok(Math.abs(far.lpBars.plate.width - b.plate.width) < 1e-9, 'no perspective scaling');
+    assert.ok(Math.abs(far.lpBars.plate.rect.width - b.plate.rect.width) < 1e-9, 'no perspective scaling');
+    assert.ok(Math.abs(b.plate.rect.alpha - 0.5 * 179 / 255) < 1e-9, 'no sprite: a plain plate at the sprite core\'s alpha');
     assert.ok(!near.hpFill.visible && !near.spFill.visible && !near.spGlow.visible);
   });
 
@@ -152,6 +153,52 @@ describe('enemy bars (enemy_hp_slider / enemy_boss_hp_slider / the giant boss pa
     h.sync(sample({ hp: 500, sp: 3, spMax: 5 }), 0); h.update(1 / 60, cam(), 0);
     assert.equal(h.lpBars.blocks.filter((b) => b.visible).length, 3);
     assert.ok(!h.spFill.visible, 'the drawn SP bar stays hidden');
+  });
+});
+
+describe('plates (sprite_bg 9-sliced: the core under the bars, the feather outside) and the boss SP row', () => {
+  class NineSlicePlane extends fake.P.Container { constructor(t, l, tp, r, b) { super(); this.texture = t; this.borders = [l, tp, r, b]; } }
+  const P = () => ({ ...fake.P, NineSlicePlane, Texture: { ...fake.P.Texture, from: (url) => ({ url, width: 157, height: 22, baseTexture: { valid: true } }) } });
+  const assets = { localUrl: (g, n) => `/local/${g}/${n}.png` };
+  test('ally plate: sprite_bg, 8.6 × 10.32 units larger than the two bars, borders at u px per texture px', () => {
+    const b = new HB.AllyBars(P(), new fake.P.Container());
+    b.update(1000, 500, 2, { hp: 1, ghost: 1, sp: 0.5 }, assets);
+    const o = b.plate.slice;
+    assert.ok(o.visible && !b.plate.rect.visible);
+    assert.equal(o.texture.url, '/local/ui/battlecommon/sprite_bg.png');
+    assert.deepEqual(o.borders, [4, 5, 4, 5]);
+    assert.equal(o.scale.x, 2); assert.ok(Math.abs(o.width - 133.6) < 1e-9 && Math.abs(o.height - 24.32) < 1e-9);
+    assert.ok(Math.abs(o.position.x - (1000 - 133.6)) < 1e-9);
+  });
+  test('boss SP row under the HP bar (enemy_boss_sp_slider #ebc9ff) and the giant one (#cab2d4, 16.3 under)', () => {
+    const boss = new HB.EnemyBars(P(), new fake.P.Container(), 'boss');
+    boss.update(1000, 500, 1, 100, 0, { hp: 1, ghost: 1, sp: 0.4 }, assets);
+    assert.equal(boss.spRow.fill.tint, 0xebc9ff);
+    assert.ok(Math.abs(boss.spRow.fill.width - 130 * 0.4) < 1e-9);
+    assert.ok(Math.abs(boss.spRow.fill.position.y - boss.hp.position.y - 7.5) < 1e-9);
+    const giant = new HB.EnemyBars(P(), new fake.P.Container(), 'giant', HB.GIANT_BOSS.enemy_9021_acduml);
+    giant.update(1000, 500, 1, 100, 0, { hp: 1, ghost: 1, sp: 0.2 }, assets);
+    assert.equal(giant.spRow.fill.tint, 0xcab2d4);
+    assert.ok(Math.abs(giant.spRow.fill.position.y - giant.hp.position.y - 16.3) < 1e-9);
+    assert.ok(Math.abs(giant.spRow.fill.width - 798 * 0.35 * 0.2) < 1e-9);
+    giant.update(1000, 500, 1, 100, 0, { hp: 1, ghost: 1, sp: null }, assets);
+    assert.ok(!giant.spRow.fill.visible, 'no SP: no row');
+  });
+});
+
+describe('假想敌：管 official SP (content/bosses.js skillSp)', () => {
+  test('裂管之奏 waits for SP 50 (0/50 +1/s): first cast at 50 s, not its 40-s initial cooldown; b.snap `bsp`', () => {
+    const h = makeBattle({ seed: 3, timeLimit: 70, kind: 'boss', units: [{ chessId: 'chess_char_5_01_a', row: 9, col: 5, uid: 1, skillIndex: 0 }],
+      enemies: [{ key: 'enemy_9021_acduml', time: 0, route: 0, count: 1 }] });
+    const b = h.battle;
+    let first = null, at40 = null;
+    while (b.time < 60 && first == null) {
+      b.step();
+      for (const e of b.drainEvents()) if (e[0] === 'fx' && JSON.stringify(e).includes('pipeStrike') && first == null) first = b.time;
+      if (at40 == null && b.time >= 40) at40 = b.snapshot().bsp;
+    }
+    assert.ok(first != null && first >= 49.9 && first < 51, `first cast at ${first}`);
+    assert.ok(at40 && at40[0][2] === 50 && Math.abs(at40[0][1] - 40) < 0.2, 'SP 40/50 at 40 s');
   });
 });
 
