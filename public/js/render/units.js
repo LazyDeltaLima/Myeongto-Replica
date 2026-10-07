@@ -147,8 +147,17 @@ export const SPINE_STUCK_MS = 5000;
 
 /** Heights above this count as standing on a raised top (bench pads are the lowest raised tiles, 0.16). */
 const RAISED_Z = 0.12;
-/** Flying units hover this many tiles above the ground they cross. */
-export const FLY_HOVER = 0.32;
+/**
+ * Flying units (enemy drones and the flying ally 炎佑 alike) hover this many tiles above the ground they cross — ported
+ * from upstream 66ae86b9 (PR #211 by @xcdoge; research in upstream docs/research/12-flying-visuals-official.md, branch
+ * merge-0.2.0). The official client's fly offset is one model-independent constant, `Vector3(0, 0.35f, 0)`
+ * (`Torappu.Battle.CharacterAnimator`'s constructor; `_SetFlyMountPointOffset` / `_SetFlyHitOffset` add it while the
+ * unit flies), in the client's character space whose unit is the standard battle-prefab scale 0.27 (the base of our
+ * `enemies.json modelScale`): 0.35 / 0.27 ≈ 1.3 tiles [ASSUMED: that conversion]; an official screenshot of
+ * 帝国炮火先兆者 measures 1.2–1.4 tiles of clearance. It replaced a flat 0.32 (user report 2026-10-08: drones drawn
+ * almost on the ground). The shadow stays on the ground; the body, HP bar, damage numbers and effect anchors ride `hover`.
+ */
+export const FLY_HOVER = 1.3;
 
 /** b.snap `down` entry states (server/sim/constants.js DOWN_STATE). */
 export const DOWN_STATE = Object.freeze({ COUNTING: 0, WAIT_DP: 1, WAIT_TILE: 2 });
