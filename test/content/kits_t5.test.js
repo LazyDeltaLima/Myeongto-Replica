@@ -140,7 +140,8 @@ test('烛煌 S3: its target and the enemies within the 1.7 splash, BAT −1.3 s,
   assert.ok(h.runUntil(() => u.skill.active, 10));
   approx(u.s.atk, atk0 * (1 + bb.atk));
   approx(u.s.interval, u.base.bat + bb.base_attack_time, 1e-6, 'BAT 1.6 − 1.3 s');
-  h.run(1);
+  // (local-skill-range.js: cast on the tick the enemies stand on her 4-11 — the normal attack already under way lands first)
+  h.run(2);
   const hitIds = new Set(h.hooksOf('damaged').filter((c) => c.source === u && c.dmg.isSkill && c.dmg.isAttack).map((c) => c.target.id));
   assert.equal(hitIds.size, 3, 'group attack: the three stand within 1.7 of each other (PRTS 备注 "攻击溅射半径1.7")');
   // a burn burst anywhere: +ammo, 熔点引爆 elemental damage and heal
@@ -805,6 +806,8 @@ test('百炼嘉维尔 S2: drags unblocked enemies in front of her; T1 ATK/DEF +1
   const far = h.spawn('enemy_dummy', { pos: [9, 6] });
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 3));
+  // (local-skill-range.js: cast on the tick the enemies stand on her 2-5, before T1 has dropped the killed blockers)
+  h.run(0.1);
   approx(u.s.atk, u.base.atk * (1 + t0.atk + bb.atk));
   h.b.dealDamage(null, near, { amount: 1e9, type: 'true' });
   h.run(1.5);

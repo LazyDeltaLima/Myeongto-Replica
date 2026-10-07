@@ -42,6 +42,7 @@ import { updateAlly, updateEnemy, compileRoute, remainingDistance, effectiveProf
 import { resolveProfile } from './professions.js';
 import { unitInfo, snapshotUnits } from './snapshot.js';
 import { hudLists } from './local-hud.js'; // local patch
+import { installWideSkillRange } from './local-skill-range.js'; // local patch
 import { toDataSource, normalizeRoute, normalizeStage, normalizeToken, normalizeEnemy } from './simdata.js';
 import { installContent, setupUnitKit } from './content/index.js';
 
@@ -333,6 +334,7 @@ export class Battle {
     }
     const spec = u.kit.skill || null;
     u.skill = new SkillRuntime(this, u, u.def.skill, spec, u.def.skill?.bb ?? {});
+    installWideSkillRange(u); // local patch: a skill range past the attack range casts on its own (local-skill-range.js)
     if (u.profile.install && !u._profInstalled) {
       u._profInstalled = true;
       this._safe(() => u.profile.install(this, u), 'profile.install', u);

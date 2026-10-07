@@ -135,10 +135,11 @@ export class SkillRuntime {
       const list = b._safe(() => fn(b, u), 'skill.triggerRange', u);
       if (!list || typeof list[Symbol.iterator] !== 'function') continue;
       for (const x of list) {
-        let keys = null;
+        let keys = null, prof = TRIGGER_PROFILE;
         if (Array.isArray(x)) keys = x;
         else if (x && typeof x === 'object' && x.side === 'ally' && x.alive && x.deployed && !x.hidden) keys = x.rangeKeys;
-        if (keys && keys.length && b.enemiesInKeys(keys, u, TRIGGER_PROFILE).length) return true;
+        else if (x && Array.isArray(x.keys)) { keys = x.keys; prof = x.profile || TRIGGER_PROFILE; } // local patch: { keys, profile } (local-skill-range.js)
+        if (keys && keys.length && b.enemiesInKeys(keys, u, prof).length) return true;
       }
     }
     return false;

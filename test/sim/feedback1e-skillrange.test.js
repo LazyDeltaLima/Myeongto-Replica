@@ -10,7 +10,8 @@
 //   缩短) uses the official grid (skill rangeId, or the base grid grown by ability_range_forward_extend) while it runs —
 //   with every module of the loadout: a module's 攻击距离 widens it too, except where the skill's range ignores 攻击距离
 //   (信仰搅拌机 S3 with SPT-Y, PRTS 备注 "此技能的攻击范围不受'攻击距离'属性影响") — and the DEFAULT trigger still reads the
-//   initial range (PRTS 卫戍协议/帮助 "技能就绪，且即将进行普通攻击"). A skill grid that only selects targets (荒芜拉普兰德
+//   initial range (PRTS 卫戍协议/帮助 "技能就绪，且即将进行普通攻击") — local patch: the skill range casts it too
+//   (server/sim/local-skill-range.js, user decision 2026-10-07). A skill grid that only selects targets (荒芜拉普兰德
 //   S1: no rangeId, no 攻击范围 text) leaves the card on the unit's own range.
 
 import { test } from 'node:test';
@@ -34,6 +35,11 @@ const sameSet = (a, b) => a.size === b.size && [...a].every((k) => b.has(k));
 const tileKey = (e) => Math.round(e.y) * COLS + Math.round(e.x);
 const s3Grid = () => C[BLAZE].skills[2].rangeGrid;
 const baseGrid = () => C[BLAZE].rangeGrid;
+/**
+ * Run until S3 runs and its first bullet is fired. local patch (local-skill-range.js): she casts on the tick an enemy
+ * stands on her 4-11, not on her next attack — the normal attack already under way lands first.
+ */
+const untilS3Shot = (h, u, s = 5) => h.runUntil(() => u.skill.active && u.skill.ammoLeft < u.skill.ammoMax, s);
 const blazeArena = (enemies, o = {}) => makeBattle({
   defs: { enemies: Object.fromEntries(enemies.map((e) => [e.key, dummy(e.key, e.o)])) },
   units: [{ chessId: o.id ?? BLAZE, row: 10, col: 3, dir: 'RIGHT', skillIndex: 2 }],
@@ -54,18 +60,18 @@ test('data: 烛煌 S3 众恶的焚场 is the default skill (index 2), skill rang
   assert.equal(C.chess_char_5_03_b.skill.bb['attack@trigger_time'], 21);
 });
 
-test('烛煌 S3 attacks with the skill range: an enemy only in 4-11 is hit while it runs, an enemy only in 3-1 is not; the cast needs an enemy in 3-1', () => {
+test('烛煌 S3 attacks with the skill range: an enemy only in 4-11 is hit while it runs, an enemy only in 3-1 is not; an enemy on 4-11 alone casts it (local patch)', () => {
   // (10,7) = [0,4]: S3 only; (11,3) = [1,0]: base range only
   const h = blazeArena([{ key: 'enemy_far', pos: [10, 7] }]);
   const u = h.unit(BLAZE);
   h.step();
-  u.skill.gainSp(1000);
-  h.run(5);
-  assert.equal(h.hooksOf('skillStart').length, 0, 'no enemy in the initial range: no cast (DEFAULT, "即将进行普通攻击")');
   assert.equal(h.hooksOf('damaged').filter((c) => c.source === u).length, 0, 'nothing in reach of 3-1');
-  const near = h.spawn('enemy_far', { pos: [11, 3] });
-  assert.ok(h.runUntil(() => u.skill.active, 5), 'an enemy in 3-1: she casts on her next attack');
+  u.skill.gainSp(1000);
+  // official 技能策略 (DEFAULT, "即将进行普通攻击"): no cast without an enemy in 3-1 — local-skill-range.js casts on the
+  // skill range (user decision 2026-10-07)
+  assert.ok(h.runUntil(() => u.skill.active, 5), 'an enemy on 4-11 only: she casts');
   assert.ok(sameSet(new Set(u.rangeKeys), keysOf(s3Grid(), u)), 'the range keys are 4-11');
+  const near = h.spawn('enemy_far', { pos: [11, 3] });
   const mark = h.hooksOf('damaged').length;
   h.run(2);
   const hit = new Set(h.hooksOf('damaged').slice(mark).filter((c) => c.source === u && c.dmg.isAttack).map((c) => c.target));
@@ -75,13 +81,13 @@ test('烛煌 S3 attacks with the skill range: an enemy only in 4-11 is hit while
 });
 
 test('烛煌 S3 "攻击变为群体攻击" = one target + a 1.7 splash (PRTS 备注 "攻击溅射半径1.7"): it reaches past the diamond, never all of it at once', () => {
-  /** S3 running on an arena: (11,3) = [1,0] (base range only) makes her cast; returns her attacks and hits after that. */
+  /** S3 running on an arena (cast on the S3 enemies — local-skill-range.js; (11,3) = [1,0] is base range only); returns her attacks and hits after that. */
   const s3Hits = (enemies) => {
     const h = blazeArena([{ key: 'enemy_cast', pos: [11, 3] }, ...enemies]);
     const u = h.unit(BLAZE);
     h.step();
     u.skill.gainSp(1000);
-    assert.ok(h.runUntil(() => u.skill.active, 5), 'cast');
+    assert.ok(untilS3Shot(h, u), 'cast');
     const mark = h.hooksOf('attack').length;
     const dmark = h.hooksOf('damaged').length;
     h.run(3);
@@ -145,7 +151,7 @@ test('烛煌 S3: the +60 % ATK elemental damage hits every enemy of the attack i
   h.step();
   const out = h.enemy('enemy_out');
   u.skill.gainSp(1000);
-  assert.ok(h.runUntil(() => u.skill.active, 5));
+  assert.ok(untilS3Shot(h, u));
   h.b.applyStatus(out, 'burnBurst', { duration: 10 });
   assert.ok(out.findBuff('burnBurst'));
   const mark = h.hooksOf('damaged').length;
@@ -164,7 +170,7 @@ test('烛煌 S3: the burst bonus is dealt BEFORE the attack\'s damage (PRTS 备�
   h.step();
   const main = h.enemy('enemy_main'), low = h.enemy('enemy_low');
   u.skill.gainSp(1000);
-  assert.ok(h.runUntil(() => u.skill.active, 5));
+  assert.ok(untilS3Shot(h, u));
   h.b.applyStatus(main, 'burnBurst', { duration: 10 });
   h.b.applyStatus(low, 'burnBurst', { duration: 10 });
   const mark = h.hooksOf('damaged').length;
@@ -219,7 +225,7 @@ test('烛煌 S3: a burn burst refills 2 ammo but never above the skill\'s ammo (
     const max = u.def.skill.bb['attack@trigger_time'];
     h.step();
     u.skill.gainSp(1000);
-    assert.ok(h.runUntil(() => u.skill.active, 5));
+    assert.ok(untilS3Shot(h, u));
     const first = u.skill.ammoLeft;                 // the casting attack already fired one bullet
     assert.equal(first, max - 1);
     h.b.dealDamage(null, h.enemy('enemy_main'), { type: 'element', element: 'burn', amount: 1000 });
@@ -402,7 +408,7 @@ test('荒芜拉普兰德 S1 慵怠者悲鸣 (no rangeId, no 攻击范围 text): 
   }
 });
 
-test('audit: the DEFAULT trigger of an attack-range change reads the INITIAL range (PRTS "技能就绪，且即将进行普通攻击")', () => {
+test('local patch (local-skill-range.js): an attack-range change is cast with an enemy on its skill range alone — not only before a normal attack (official: the INITIAL range, PRTS "技能就绪，且即将进行普通攻击")', () => {
   // an enemy on [0,4]: inside 4-11, outside 3-1
   for (const id of [BLAZE, 'chess_char_5_03_b']) {
     const h = blazeArena([{ key: 'enemy_far', pos: [10, 7] }], { id });
@@ -410,7 +416,7 @@ test('audit: the DEFAULT trigger of an attack-range change reads the INITIAL ran
     h.step();
     u.skill.gainSp(1000);
     h.run(4);
-    assert.equal(h.hooksOf('skillStart').length, 0, `${id}: no cast`);
+    assert.equal(h.hooksOf('skillStart').length, 1, `${id}: cast`);
     done(h);
   }
 });

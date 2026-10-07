@@ -894,6 +894,10 @@ describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
       stage: flatStage({ rows: { 10: '#hhrrrrrrrfrrrrrrrf##', 11: '#hhrrrrrrrfrrrrrrrf##' } }),
       units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 2 }, stone(10, 1, 50), stone(11, 1, 51)],
       enemies: [{ key: ENEMY, time: 0, route: 0, count: 3, interval: 1.2 }] });
+    // S3 equipped for its stone area, never cast here: on her 4-12 it would fire (local-skill-range.js) and its 跟子 end the
+    // round before an enemy reaches the corner
+    diag.step();
+    diag.unit('chess_diy_wang_6_b').skill.opReadyAt = Infinity;
     const fromCorner = () => diag.hooksOf('damaged').some((d) => d.dmg?.tags?.includes('trap') && d.source?.tileR === 10 && d.source?.tileC === 1);
     diag.runUntil(fromCorner, 60);
     assert.ok(fromCorner(), 'S3: the stone triggers through its x-1 diagonal');
@@ -915,33 +919,45 @@ describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
     assert.ok(ol.every((r) => Math.abs(r - 0.7) < 1e-6), 'overload: atk_scale_ol 0.7');
   });
 
-  test('望 S3 follows the official rule (攻击范围扩大 = DEFAULT, owner 2026-10-06): cast before a normal attack with an enemy on her 3-3, never for one only on the 4-12', async () => {
+  // local patch (local-skill-range.js, user decision 2026-10-07 — 望 S3 / 赤刃明霄陈 S3 were back on the official DEFAULT
+  // since 2026-10-06): a skill range past the attack range casts the skill with an enemy on it, no normal attack needed
+  test('望 S3 is cast with an enemy on its 4-12 alone (local-skill-range.js; official: before a normal attack, an enemy on her 3-3)', async () => {
     const { makeBattle } = await import('./helpers/battleHarness.js');
     const { absoluteRangeKeys } = await import('../server/sim/targeting.js');
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 40, units: [{ chessId: 'chess_diy_wang_6_a', row: 10, col: 3, dir: 'RIGHT', uid: 1, skillIndex: 2, carryState: { sp: 999 } }],
       enemies: [{ key: ENEMY, time: 0, route: 0, count: 6, interval: 1 }] });
     const u = h.unit('chess_diy_wang_6_a');
-    assert.equal(u.skill.rule, 'DEFAULT');
+    assert.equal(u.skill.rule, 'DEFAULT', 'the data keeps the official rule');
+    assert.ok(u.skill.wideRange, 'the skill-range trigger is installed');
     const base = new Set(absoluteRangeKeys(u.rangeGrid ?? h.b.data.chess('chess_diy_wang_6_a').rangeGrid, u.tileR, u.tileC, u.dir, 0));
-    let castWithOnlyWide = false;
+    const wide = new Set(absoluteRangeKeys(u.def.skill.rangeGrid, u.tileR, u.tileC, u.dir, 0));
+    let at = null;
     h.b.on('skillStart', (c) => {
-      if (c.unit !== u) return;
-      const inBase = h.b.enemies.some((e) => e.alive && base.has(Math.round(e.y) * COLS + Math.round(e.x)));
-      if (!inBase) castWithOnlyWide = true;
+      if (c.unit !== u || at) return;
+      const on = (keys) => h.b.enemies.some((e) => e.alive && keys.has(Math.round(e.y) * COLS + Math.round(e.x)));
+      at = { base: on(base), wide: on(wide) };
     }, { priority: 100 });
     h.runUntil(() => u.skill.active, 30);
     assert.ok(u.skill.active, 'S3 cast');
-    assert.ok(!castWithOnlyWide, 'never cast while no enemy stood on her 3-3');
+    assert.deepEqual(at, { base: false, wide: true }, 'cast as soon as an enemy stood on 4-12, before any reached her 3-3');
   });
 
-  test('赤刃明霄陈 S3 follows the official rule (攻击范围扩大 = DEFAULT, owner 2026-10-06): no cast with only flyers around (she cannot attack them)', async () => {
+  test('赤刃明霄陈 S3 is cast for flyers on its 3-12 (the 剑气 hits them — `hitsFly`); a melee skill that cannot hit air is not', async () => {
     const { makeBattle } = await import('./helpers/battleHarness.js');
     const h = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_chen3_6_b', row: 10, col: 4, uid: 1, skillIndex: 2, carryState: { sp: 999 } }],
       enemies: [{ key: 'enemy_1005_yokai', time: 0, route: 0, count: 3, interval: 1 }] });
     const u = h.unit('chess_diy_chen3_6_b');
     assert.equal(u.skill.rule, 'DEFAULT');
+    assert.equal(u.skill.wideRange?.canHitFly, true);
     h.run(30);
-    assert.equal(h.hooksOf('skillStart').filter((x) => x.unit === u).length, 0, 'no S3 cast for flyers only');
+    assert.ok(h.hooksOf('skillStart').filter((x) => x.unit === u).length > 0, 'S3 cast for flyers only');
+    // 百炼嘉维尔 S2 (2-5, melee): flyers on her skill range do not cast it
+    const g = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_char_5_18_a', row: 10, col: 4, uid: 1, skillIndex: 1, carryState: { sp: 999 } }],
+      enemies: [{ key: 'enemy_1005_yokai', time: 0, route: 0, count: 3, interval: 1 }] });
+    const gv = g.unit('chess_char_5_18_a');
+    assert.equal(gv.skill.wideRange?.canHitFly, false);
+    g.run(30);
+    assert.equal(g.hooksOf('skillStart').filter((x) => x.unit === gv).length, 0, 'no cast for flyers she cannot hit');
   });
 
   test('선발 kits audit: 赤刃明霄陈 S2 never slashes an unrevealed 隐匿 enemy; 阿斯卡纶 S2 spreads 死亡拘审 on a death in range', async () => {
