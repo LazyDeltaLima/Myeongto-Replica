@@ -299,3 +299,18 @@ describe('deploy sounds on every placement (user report 2026-10-07 #1 / #2, audi
       ['p_atk_stwctp_d.mp3', 'p_imp_stwctp_d.mp3', 'p_atk_stwctp_h.mp3', 'p_imp_stwctp_h.mp3', 'p_atk_stwctps_h.mp3', 'p_imp_stwctp_h.mp3', 'p_atk_stwctp_s.mp3', 'p_imp_stwctp_s.mp3']);
   });
 });
+
+describe('a lone non-primary skill start sound is kept (user report 2026-10-08: 望 S3 had no sound, tools/assets/plan.mjs)', () => {
+  test('望 S3 skchr_wang_3 = ON_SKILL_START p_skill_stwctp_s (Battle_UI_Boost) — her S1 / S2 have none', () => {
+    assert.equal(file(UNITS.char_2027_wang.skills?.['2']), 'p_skill_stwctp_s.mp3');
+    assert.equal(UNITS.char_2027_wang.skills['0'], undefined);
+    const a = manager();
+    a.handleBattleEvents([['spawn', { id: 7, spine: 'char_2027_wang', defId: 'chess_diy_wang_6_a', kind: 'op', side: 'ally', skillIndex: 2 }], ['skill', 7, 1]]);
+    assert.deepEqual(a.played.filter((p) => /p_skill/.test(p.url)).map((p) => file(p.url)), ['p_skill_stwctp_s.mp3']);
+    const b = manager();
+    b.handleBattleEvents([['spawn', { id: 7, spine: 'char_2027_wang', defId: 'chess_diy_wang_6_a', kind: 'op', side: 'ally', skillIndex: 0 }], ['skill', 7, 1]]);
+    assert.equal(b.played.filter((p) => /p_skill/.test(p.url)).length, 0, 'S1 stays silent (no bank)');
+    // the same gap left 3 more operators silent: 琳琅诗怀雅 S3, 普罗旺斯 S2, 华法琳 S2 (b_char_atkboost / healboost)
+    for (const [id, i] of [['char_1033_swire2', '2'], ['char_145_prove', '1'], ['char_171_bldsk', '1']]) assert.equal(typeof UNITS[id].skills?.[i], 'string', id);
+  });
+});

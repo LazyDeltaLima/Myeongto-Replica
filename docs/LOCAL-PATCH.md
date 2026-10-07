@@ -1426,6 +1426,11 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 확인: `test/local-patch.test.js` 「望 client-data rules」(틱 수 = kitHit 수, 시뮬 수정 전 실패 확인), 「望 (user report 2026-10-07 #5)」, `test/local-patch-audio.test.js`
   「望 stone pop」·跟子 배치. 디버그 아레나(Windows `sp-check\snd_wangpop.mjs <port> <skill> <ms>`: 샌드백을 활성 바둑돌 칸으로 옮김) —
   S1 p_atk_stwctp_d + p_imp_stwctp_d, 이후 1초마다 p_imp_stwctp_d(총 7), S2 _h, S3 _s, 재배치 바둑돌 tkin, 재능 바둑돌 tkpa(tkin 없음).
+- 望 S3 발동음 (사용자 제보 2026-10-08 「S3 발동할 때 전용 사운드가 안나와」): 공식 `battle.ON_SKILL_START.skchr_wang_3` = **p_skill_stwctp_s**
+  (Battle_UI_Boost; S1·S2는 시작 뱅크 없음). `tools/assets/plan.mjs`가 소리 있는 스킬이 하나뿐이고 그게 풀의 기본 스킬 번호가 아니면 `skill`도 `skills`도
+  안 넣어 통째로 빠졌다 → 그 경우도 `skills`에 넣음. 같은 이유로 무음이던 琳琅诗怀雅 S3·普罗旺斯 S2·华法琳 S2(b_char_atkboost / healboost)도 같이 생김.
+  매니페스트 재생성(fetch-assets)으로 바뀐 것은 이 4명 + 파일 1개(p_skill_stwctp_s.mp3). 디버그 아레나에서 S3 발동 때 p_skill_stwctp_s 재생 확인
+  (`sp-check\snd_wangs3f.mjs <port>` — 아레나는 샌드백이 범위 밖이라 S3가 저절로 안 켜져서 `skill.activate`로 켬). 테스트 `test/local-patch-audio.test.js`.
 
 ## 유닛 모델 크기 (2026-10-08, 사용자 제공 공식 PC 캡처)
 - 근거(클라이언트 EN): 오퍼레이터 전투 스킨 `chararts/<char>.ab defaultskin.prefab` FaceSwitcher 스케일 0.27 × SkeletonDataAsset 0.01(호시구마·첸 등
