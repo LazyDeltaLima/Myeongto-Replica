@@ -50,7 +50,7 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     assert.equal(enemySpines.sub, 'spine/enemy');
     // every listed id is a token of the game data without a web model (data/assets.json tokens[id].spine), sorted, unique
     const ids = tokenSpines.ids;
-    assert.equal(ids.length, 39);
+    assert.equal(ids.length, 6);
     assert.deepEqual([...ids].sort(), ids);
     assert.equal(new Set(ids).size, ids.length);
     const tokens = JSON.parse(readFileSync(path.join(ROOT, 'data/tokens.json'), 'utf8'));

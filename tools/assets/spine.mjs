@@ -82,31 +82,10 @@ const clipOf = (loop, via) => (via ? { begin: null, loop, end: null, via } : { b
  * Role fixes of local models whose clip names the resolver (tools/assets/anim-roles.mjs, by name) cannot read: model id →
  * roles replacing the resolved ones (the others are kept); localSpineMeta applies them, so the committed metadata carries
  * them. A fix naming a clip the skeleton lacks is dropped and reported.
- * - 电弧's 戴乌 (token_10051_radian_tower1): its clips are C_Skill1_Start / _Idle / _Attack / _Die beside a 0 s C_Default
- *   pose, which the resolver took for its idle, deploy and attack;
- * - 酒神's 本能的召唤 (token_10054_phatm2_encdool): Start, Loop (5 s), End and a 0 s Default — idle on the Loop and the
- *   End as it goes [ASSUMED: by the clip names];
- * - 白铁's 白铁™多功能平台 (token_10027_ironmn_pile1 / pile2): Start, Idle, End — the End as it goes [ASSUMED: by the
- *   clip name; the resolver finds no Die clip];
- * - 凯尔希·思衡托's 战术锚点 (token_10068_kalts2_mtship): its Start / Idle / Die clips hide its one attachment (the official
- *   battle shows the anchor through other means), so it would be an empty tile; it stays on the 0 s Default pose, the
- *   skeleton's own white anchor mark, and fades out as it goes [ASSUMED].
+ * None is needed for the local models of this server (upstream's fixes served the summons of 自选 operators it no longer
+ * offers: 电弧's 戴乌, 酒神's 本能的召唤, 白铁's platforms, 凯尔希·思衡托's 战术锚点).
  */
-export const LOCAL_SPINE_ROLES = Object.freeze({
-  token_10051_radian_tower1: {
-    idle: 'C_Skill1_Idle', deploy: 'C_Skill1_Start', attack: clipOf('C_Skill1_Attack'),
-    skill: { ...clipOf('C_Skill1_Attack', 'attack'), index: 0, idle: null }, die: 'C_Skill1_Die',
-  },
-  token_10054_phatm2_encdool: {
-    idle: 'Loop', attack: clipOf('Loop', 'idle'), skill: { ...clipOf('Loop', 'attack'), index: 0, idle: null }, die: 'End',
-  },
-  token_10027_ironmn_pile1: { die: 'End' },
-  token_10027_ironmn_pile2: { die: 'End' },
-  token_10068_kalts2_mtship: {
-    idle: 'Default', deploy: 'Default', attack: clipOf('Default', 'idle'), skill: { ...clipOf('Default', 'attack'), index: 0, idle: null },
-    die: null,
-  },
-});
+export const LOCAL_SPINE_ROLES = Object.freeze({});
 
 /** The confined clips of 普通囚犯 / 老练囚犯: their grey *3 set (PREFAB_SPINE_ROLES). */
 const PRISONER_GREY_3 = Object.freeze({

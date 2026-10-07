@@ -15,8 +15,8 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     merged in (premultiplied RGB + A, the Ark-Models format; the atlas gets `size:` / `pma: true` like the fetched
     enemies); the client draws them instead of the web alias once this manifest lists them (data/assets.json
     enemies[id].spineLocal, docs/ASSETS.md "Enemy aliases")
-  - the token (summon) battle Spine models no community dump carries (TOKEN_SPINES: most 自选 summons, 凯瑟琳's
-    爬行号·防护单元, 凛御银灰's 风雪之眼), from the battle token prefabs (pkgrps/btl_pfb_tokens_*.ab: the skeleton
+  - the token (summon) battle Spine models no community dump carries (TOKEN_SPINES: our 自选 picks' summons — 望's 棋子,
+    维什戴尔's 魂灵之影 —, 凯瑟琳's 爬行号·防护单元, 凛御银灰's 风雪之眼), from the battle token prefabs (pkgrps/btl_pfb_tokens_*.ab: the skeleton
     the prefab's Front / only Spine renderer draws) → spine/token/<tokenId>/<stem>.skel|.atlas + merged page PNGs, the
     same format; drawn instead of the avatar diamond once this manifest lists them (data/assets.json
     tokens[id].spineLocal)
@@ -148,16 +148,8 @@ ENEMY_SPINE_SUB = 'spine/enemy'
 # or an effect only, and no avatar in either install's asset index) — 乌尔比安's 从不混淆的方向, 圣聆初雪's frozen
 # protection point, 酒神's 迷狂牢笼, 贝洛内's 牵绊, 予愿安洁莉娜's “一会儿见！” (token_10039 / 10058 / 10055 / 10065 / 10071).
 TOKEN_SPINES = [
-    'token_10002_kalts_mon3tr', 'token_10003_cgbird_bird', 'token_10005_mgllan_drone1', 'token_10005_mgllan_drone2',
-    'token_10005_mgllan_drone3', 'token_10007_phatom_twin', 'token_10008_cqbw_box', 'token_10009_weedy_cannon',
-    'token_10020_ling_soul1', 'token_10020_ling_soul2', 'token_10020_ling_soul3', 'token_10024_ebnhlz_rcube',
-    'token_10025_doroth_recttp', 'token_10026_bgsnow_subbow', 'token_10027_ironmn_pile1', 'token_10027_ironmn_pile2',
-    'token_10027_ironmn_pile3', 'token_10029_slent2_protrb', 'token_10032_jesca2_jckshd', 'token_10034_ray_sndbst',
-    'token_10035_wisdel_wward', 'token_10041_cathy_catsld', 'token_10043_necras_skeltn', 'token_10050_monstr_prosts',
-    'token_10051_radian_tower1', 'token_10052_radian_tower2', 'token_10053_radian_tower3', 'token_10054_phatm2_encdool',
-    'token_10057_svash2_eagle1', 'token_10057_svash2_eagle2', 'token_10057_svash2_eagle3', 'token_10059_nasti_nstdef',
-    'token_10060_nasti_nstchr', 'token_10061_nasti_nstbld', 'token_10064_wang_stone1', 'token_10066_closur_ourbase',
-    'token_10068_kalts2_mtship', 'token_10069_mcnist_mcgraf', 'token_10070_aphris_pc',
+    'token_10035_wisdel_wward', 'token_10041_cathy_catsld', 'token_10057_svash2_eagle1', 'token_10057_svash2_eagle2',
+    'token_10057_svash2_eagle3', 'token_10064_wang_stone1',
 ]
 TOKEN_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 TOKEN_SPINE_SUB = 'spine/token'

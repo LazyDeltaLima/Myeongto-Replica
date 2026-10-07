@@ -1,5 +1,5 @@
-// test/local-token-models.test.js — the token (summon) models only the local client has (0.2.0): 39 summons — most of the
-// 自选 picks' (data/backups.json `tokens`), 凯瑟琳's 爬行号·防护单元 and 凛御银灰's 风雪之眼 — have no battle Spine in
+// test/local-token-models.test.js — the token (summon) models only the local client has (0.2.0): 6 summons — our 自选
+// picks' (data/backups.json `tokens`: 望's 棋子, 维什戴尔's 魂灵之影), 凯瑟琳's 爬行号·防护单元 and 凛御银灰's 风雪之眼 — have no battle Spine in
 // any community dump (fetch-assets reported "missing skel"), so the client drew their avatar diamond. Their official
 // skeletons come from the battle token packs of the local client (tools/local-extract/extract.py TOKEN_SPINES →
 // public/assets/local/spine/token/<id>/, optional and git-ignored) and are an OVERLAY like the enemy models of
@@ -7,7 +7,7 @@
 // group `spine/token/<id>` with the metadata of the committed tools/assets/local-token-spines.json — never read from the
 // disk, so the manifest is the same with or without the extraction. The client (assets.js spineEntry) draws the model
 // when data/local-assets.json lists every one of its files; without it (or when it fails to load) the diamond stays.
-// Tokens whose prefab draws nothing (乌尔比安's 从不混淆的方向, 酒神's 迷狂牢笼, …) are not in the list (extract.py).
+// Tokens whose prefab draws nothing (乌尔比安's 从不混淆的方向, …) are not in the list (extract.py).
 // The extractor side (job table, prefab walk, alpha merge): test/local-extract.test.js.
 
 import { test, describe, before, after } from 'node:test';
@@ -55,7 +55,7 @@ function localManifest(ids, drop = null) {
 
 describe('the 自选 summon models from the local client are an optional overlay', () => {
   test('the committed metadata: the TOKEN_SPINES of extract.py, each a skeleton + same-stem atlas + pages, its roles on its own clips', () => {
-    assert.equal(IDS.length, 39);
+    assert.equal(IDS.length, 6);
     if (TOKEN_SPINES) assert.deepEqual(IDS, [...TOKEN_SPINES].sort(), 'one entry per extract.py TOKEN_SPINES id');
     for (const id of IDS) {
       const m = COMMITTED[id];
@@ -72,17 +72,11 @@ describe('the 自选 summon models from the local client are an optional overlay
     assert.deepEqual([...new Set(['1', '2', '3'].map((n) => COMMITTED[`token_10057_svash2_eagle${n}`].skel))], ['token_10057_svash2_eagle.skel']);
   });
 
-  test('role fixes: clips the resolver cannot read by name are mapped (电弧\'s 戴乌, 酒神\'s 本能的召唤, 白铁\'s platforms, the anchor)', () => {
+  test('role fixes: every fix names a local model and is in its metadata (none needed here); applyRoleFix', () => {
     for (const [id, fix] of Object.entries(LOCAL_SPINE_ROLES)) {
       assert.ok(COMMITTED[id], `${id} is a local model`);
       for (const [role, v] of Object.entries(fix)) assert.deepEqual(COMMITTED[id].anims[role], v, `${id} ${role}`);
     }
-    const tower = COMMITTED.token_10051_radian_tower1.anims;
-    assert.deepEqual([tower.idle, tower.deploy, tower.attack.loop, tower.die], ['C_Skill1_Idle', 'C_Skill1_Start', 'C_Skill1_Attack', 'C_Skill1_Die'],
-      '戴乌: its C_Skill1_* set, not the 0 s C_Default pose');
-    assert.equal(COMMITTED.token_10054_phatm2_encdool.anims.idle, 'Loop');
-    assert.equal(COMMITTED.token_10027_ironmn_pile1.anims.die, 'End');
-    assert.equal(COMMITTED.token_10068_kalts2_mtship.anims.idle, 'Default', '战术锚点: its Idle clip hides its only attachment');
     // a fix naming a clip the skeleton lacks is not applied
     const roles = { idle: 'Idle', die: null };
     assert.deepEqual(applyRoleFix(roles, { idle: 'Nope', die: 'End' }, { Idle: 1, End: 1 }), { roles: { idle: 'Idle', die: 'End' }, missing: ['idle'] });
@@ -104,7 +98,7 @@ describe('the 自选 summon models from the local client are an optional overlay
       for (const id of IDS) assert.deepEqual(value.tokens[id].spineLocal, { group: `spine/token/${id}`, ...COMMITTED[id] }, id);
     } finally { rmSync(tmp, { recursive: true, force: true }); }
     assert.ok(!collectLeaves(p.template).some((l) => /spineLocal/.test(l.path)), 'the overlay is no file to download');
-    assert.ok(p.notes.includes('token_10002_kalts_mon3tr: official Spine from the local client when extracted (spineLocal)'));
+    assert.ok(p.notes.includes('token_10064_wang_stone1: official Spine from the local client when extracted (spineLocal)'));
   });
 
   test('data/assets.json: tokens[id].spineLocal = the committed metadata for exactly these tokens; no /assets/local/ URL; no web model changed', () => {
@@ -173,8 +167,8 @@ describe('client: the official summon model only when data/local-assets.json lis
     }
     assert.equal(spineEntry(MANIFEST, 'token_10028_vigil_wolf', { local }), MANIFEST.tokens.token_10028_vigil_wolf.spine, 'a web token unchanged');
     const store = createAssets({ manifest: MANIFEST, localManifest: local });
-    assert.equal(store.spineEntry('token_10002_kalts_mon3tr').skel, '/assets/local/spine/token/token_10002_kalts_mon3tr/token_10002_kalts_mon3tr.skel');
-    assert.equal(createAssets({ manifest: MANIFEST }).spineEntry('token_10002_kalts_mon3tr'), null, 'before / without local(): the diamond');
+    assert.equal(store.spineEntry('token_10064_wang_stone1').skel, `/assets/local/spine/token/token_10064_wang_stone1/${COMMITTED.token_10064_wang_stone1.skel}`);
+    assert.equal(createAssets({ manifest: MANIFEST }).spineEntry('token_10064_wang_stone1'), null, 'before / without local(): the diamond');
   });
 
   describe('UnitView', () => {
@@ -199,11 +193,11 @@ describe('client: the official summon model only when data/local-assets.json lis
           release: (e) => released.push(e.skel),
         },
       });
-      const id = 'token_10051_radian_tower1';
+      const id = 'token_10064_wang_stone1';
       const ok = new UnitView(fakeViewCtx(fake.P, { assets: store(() => false), cam }), info(id));
       await tick(); await tick();
       assert.equal(ok.actor?.entry.skel, `/assets/local/spine/token/${id}/${COMMITTED[id].skel}`, 'the official model');
-      assert.equal(ok.actor.entry.anims.idle, 'C_Skill1_Idle', 'with the mapped clips');
+      assert.equal(ok.actor.entry.anims.idle, COMMITTED[id].anims.idle, 'with its own clips');
       asked.length = 0;
       const bad = new UnitView(fakeViewCtx(fake.P, { assets: store(() => true), cam }), info(id));
       await tick(); await tick(); await tick();
