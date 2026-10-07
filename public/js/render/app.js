@@ -261,6 +261,9 @@ export async function createFieldView(host, options = {}) {
   // local patch (user report 2026-10-07 #1): a prep sync already ran in this view — with nothing before it (round 1's
   // empty board and bench) the next piece is a new arrival, not the first build of a loaded / reconnected page
   let prepSynced = false;
+  // a scouted prep board's pieces as last shown { fieldId, at: Map(id → 'x,y'), prev } — re-entering the same board (the
+  // teammate moved a piece: a new m.field) drops in only what is new or moved
+  let scoutSeen = null;
   const promotions = [];      // the last merges cued by setPrep (fx.promote): { uid, id, area, row, col, idx, copies } — dev / tests
   let battleMeta = null;
   let sceneHold = null;       // release function of the Spine cache hold of battle mode (holdScene)
@@ -760,9 +763,10 @@ export async function createFieldView(host, options = {}) {
     // merges since the last state (render/promote.js): new elite uid → where its consumed copies stood (their views
     // still exist until the sweep below) — the elite gets the promotion cue instead of the deploy flash
     const promoFrom = new Map();
-    // back in the prep after a battle (the views were cleared, the pieces before it kept in promoBase): the board pieces
-    // sound their deploy (user 2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」)
+    // back in the own prep after a battle or a scouted board (the views were cleared, the pieces before it kept in
+    // promoBase): the lineup drops in again and the board pieces sound their deploy (user 2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」)
     const backFromBattle = !prepPieces.length && promoBase.length > 0;
+    scoutSeen = null; // the next look at a teammate's board drops it in again
     const before = prepPieces.length ? prepPieces : promoBase;
     promoBase = [];
     for (const [uid, copies] of promotionsOf(before, list, (id) => data.chess(id))) {
@@ -802,14 +806,19 @@ export async function createFieldView(host, options = {}) {
           if (promotions.length > 20) promotions.shift();
         } else if (e.area === 'board' && ((prevBoard.size && !prevBoard.has(e.uid)) || (prepSynced && !before.length))) { v.onDeploy?.(); fx.deploy(v); prepDeployed(e, info); }
         else if ((before.length || prepSynced) && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) { v.onDeploy?.(); fx.deploy(v); prepDeployed(e, info); } // local patch: onDeploy — a bench arrival drops in too
-        else if (backFromBattle && e.area === 'board') prepDeployed(e, info); // the sound only (no drop-in)
+        // the whole lineup drops in again (user 2026-10-08 「공식은 배치 연출이 있어」; the bench too [추정: the client's
+        // prep pieces are dummies made on their tile / slot]), the board pieces with their sound
+        else if (backFromBattle) { v.onDeploy?.(); fx.deploy(v); if (e.area === 'board') prepDeployed(e, info); }
       } else {
         const prevHome = v._home;
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
         if (dragState && dragState.key === key) {
           dragState.home = w;                       // being dragged: only its home slot changes
-        } else if (pending.has(key) && !moved && !splitLanded(e, pending.get(key).board, list)) {
-          // dropped, but this state predates the server applying the move: stay at the drop target
+        } else if (pending.has(key) && !moved && !splitLanded(e, pending.get(key).board, list) && !(e.area === 'board' && !prevBoard.has(e.uid))) {
+          // dropped, but this state predates the server applying the move: stay at the drop target. Not a piece this
+          // state shows newly on the board — the move was applied (the direction wheel's holdPiece already made the
+          // tile its home, so `moved` is false): it drops in with its sound below (user 2026-10-08 「오퍼를 벤치에서
+          // 보드에 배치시, 배치 효과음이 안나와」)
         } else {
           pending.delete(key);
           if (moved || Math.abs(v.x - w.x) + Math.abs(v.y - w.y) > 1e-3) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };
@@ -1351,6 +1360,10 @@ export async function createFieldView(host, options = {}) {
     const rect = meta.rect ? normRect(meta.rect) : (meta.kind === 'boss' || meta.kind === 'hidden' ? { ...GEO.BOSS_RECT } : meta.kind === 'unite' ? { ...GEO.UNITE_RECT } : { ...GEO.NORMAL_RECT });
     // prep: true = a read-only scouting board (a teammate's lineup during prep): prep-style pieces, no bars
     battleMeta = { fieldId: meta.fieldId ?? null, kind: meta.kind || 'normal', rect, stageId: meta.stageId ?? null, prep: meta.prep === true };
+    // local patch (user 2026-10-08 「협동 모드 중 휴식 기간에 다른 사람을 확인하려 갈때도 배치 연출이 보여」): a scouted board drops in
+    if (battleMeta.prep) {
+      scoutSeen = { fieldId: battleMeta.fieldId, at: new Map(), prev: scoutSeen && scoutSeen.fieldId === battleMeta.fieldId ? scoutSeen.at : null };
+    } else scoutSeen = null;
     // a scouted teammate's board shows THEIR pen (m.field nextEnemies; without it the shared wave composition of the
     // own preview, bounties excluded); a real battle empties the pen (the enemies are about to spawn)
     if (battleMeta.prep) setPenList(Array.isArray(meta.nextEnemies) ? meta.nextEnemies : (ownPen || []).filter((x) => x && x.source !== 'bounty' && x.source !== 'effect'));
@@ -1399,6 +1412,16 @@ export async function createFieldView(host, options = {}) {
     v._seen = false;
     v._born = performance.now();
     views.set(id, v);
+    // local patch: a scouted prep board's piece drops in when first shown there or moved (scoutSeen); a board piece (not
+    // the bench) with its deploy sound (user 2026-10-08: viewing another player's board sounds too)
+    if (scoutSeen && battleMeta?.prep && info.side === 'ally' && v instanceof UnitView) {
+      const k = `${info.x},${info.y}`;
+      scoutSeen.at.set(id, k);
+      if (scoutSeen.prev?.get(id) !== k) {
+        v.onDeploy?.(); fx.deploy(v);
+        if (info.y !== GEO.HAND_ROW && info.y !== GEO.TEMP_ROW) emit('pieceDeploy', { uid: info.uid ?? id, area: 'board', unit: info });
+      }
+    }
     return v;
   }
 

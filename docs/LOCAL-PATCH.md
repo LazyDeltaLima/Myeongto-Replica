@@ -1230,6 +1230,13 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     `anim-overrides.mjs`가 앞·뒤 모두에 `Skill_2_Begin`을 넣었는데 Back 스켈레톤에는 `Skill_2_Begin`·`_Awake`·`_Sleep`이 없다 → `applyAnimOverrides`가
     스켈레톤 클립 목록(`spine.mjs`가 넘김)에 없는 덮어쓰기 클립을 null로 둔다(Back S3는 시작 클립 없이 `Skill_2_Attack`·`_Idle`). `fetch-assets --offline`으로
     매니페스트를 다시 만들어 바뀐 것은 이 한 칸(+hash). 테스트 `test/local-patch-battle.test.js`.
+  - **望 바둑돌 이펙트 높이** (2026-10-08 사용자 「수동, 재능 바둑돌 이펙트가 loop 되지 않고 한번만 나타나고 있어서 모르겠어」): 공식 캡처
+    (`cap-231814.png`)는 돌의 금빛·십자·연결선이 **공 위**(그림자에서 화면상 0.19칸)인데, 우리는 `_spawnLocation` 5대로 땅에 그려 돌의 루프(`sz` 십자 빛)가
+    공 밑 그림자에 묻히고 첫 폭발만 보였다 → 탄생·跟子 이펙트(주인 따라감)와 연결선·활성 섬광을 공 중심(화면상 0.18칸, `fxgame.js STONE_BALL`·`ballZ`)에.
+    폭발(`token_wang_skill_0N_hit*`)은 그대로 땅. 확인: Windows `sp-check\wst5.mjs`(디버그 아레나, `CAST=i`로만 발동) → `wst5b-zoom.png`.
+  - **跟子 이펙트 반복** [추정]: 跟子의 `wang_passive_01_buff`(고리·검은 연기, 한 번짜리 시스템)를 돌이 있는 동안 프리팹 길이(3초)마다 다시 튼다(`playAt cycle`;
+    캡처의 재능 돌은 서 있는 동안 검은 연기가 보임 — 클라이언트 루프 플래그는 원시 필드에서 확인 못 함). 놓은 돌의 `token_wang_birth_01_buff`는 자체 루프(`sz`)라
+    다시 틀지 않는다(첫 폭발 `bom (1)`이 3초마다 번쩍임). 확인: `wst7.mjs`(跟子 확대 60장) → `wst7a-grid.jpg`.
   - **6. 赤刃明霄陈 S3 용이 그녀를 가림** (세션 stronghold-1d 첸 포크, 공식 캡처 `cap-230329.png` + 공식 녹화 `첸 S3.mp4`: 용은 그녀 뒤):
     ① 용 버프는 클라이언트가 **한쪽만** 튼다 — `skchr_chen3_3/SwitchMode` `overrideEffectKey` = `chen3_skill_03_buff_L_01`이고, 그 프리팹 루트의 두 번째
     컴포넌트 `_rightEffect` = `chen3_skill_03_buff_R_01`(`_onlyCheckOnPlay` 0)은 오른쪽을 볼 때 대신 트는 사본이다. 우리는 이름 규칙(`effectsFor
@@ -1432,6 +1439,11 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   들어올 때까지 기다렸다가 `Start`를 처음부터(1초 안에 안 오면 예전처럼 마름모). 모델이 이미 보이는 배치(정비 배치·재배치)는 바로 떨어진다.
   다시 잰 결과: 그림자 0.09초, 몸 0.23–0.41초(클립 0.02–0.07초 지점부터) — 공식 캡처(링 → 약 0.1초 뒤 몸)보다 링이 먼저 보이는 시간이 모델 준비만큼
   길다. 공식 캡처의 0.1초도 실제로는 배너 뒤·화면 밖의 낙하 앞부분일 수 있다(링 → 착지 170ms ≈ 클립 착지 시간).
+- 전투 시작 낙하 (사용자 2026-10-08 「작전 시작할때 배치 효과음은 나오는데 배치 연출이 안나오고 있어」): 여기서는 재현 안 됨 — `roundstart.mjs` 계열
+  (솔로·협동 봇 3, 1·2라운드, 품질 high·low, 1280×720·1920×1080: `roundstart2.mjs`·`roundstart_coop.mjs`, env `Q`·`VW`·`VH`)에서 모두 몸이 클립 0.01초
+  지점부터 보이고 프레임에 낙하가 찍힘. 낙하를 삼킬 수 있는 길을 막음 [추정: 사용자 화면의 원인]: 긴 프레임(전투 전환)이 기다림(`_bornWait`, 한 프레임 최대
+  0.25초)을 다 쓰거나 `Start`를 건너뛰지 않게 낙하 중에는 한 프레임 최대 1/30초(`DEPLOY_MAX_STEP_S`), 화면 밖에 있던 시간(`_offDt`)도 낙하 중에는 더하지 않음.
+  단위 테스트 「a long frame (the battle switch) …」(수정 전 실패 확인). 사용자 화면에서 또 안 보이면 품질·창 크기·첫 판 여부를 받아 다시 잴 것.
 - 처음 나타날 때 검은 실루엣인 오퍼레이터(아스카론·赤刃明霄陈 등)는 `Start` 클립 자체의 슬롯 색이 검정 → 원래 색이다(0초 0.0, 0.3초 0.78) — 공식 등장 연출.
 - 남은 차이: 착지 전에 시뮬레이션이 이미 공격하는 것(텍사스가 공중에서 첫 공격 — 공식은 `CHARACTER_BORN_TIME` 동안 못 하는 듯 [추정], 시뮬레이션
   변경이라 따로), 배치 효과음 시점(캡처에 소리 없음).
@@ -1448,11 +1460,19 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 고친 것: 소리는 정비 화면의 **낙하 연출과 같은 곳**에서 난다 — `render/app.js` setPrep이 내 보드·벤치 상태를 이전과 비교해 낙하(onDeploy)를 틀 때
   `pieceDeploy` 이벤트(`prepDeployed`) → `screens/game.js` → `audio.prepDeploy` → `playDeploySfx`(전투 'deploy'와 같은 함수: 전용 소리 → 공용, 공식 믹스).
   서버가 넣어 주는 보상(정예화 보상·결산 보상)도 상태 비교라 잡힌다. 경우별:
-  - 소리 남: 구매·보상으로 벤치 도착, 벤치→보드, 소환물(전용 또는 b_char_tokenset), **전투 뒤 정비로 돌아올 때 보드의 말**(`backFromBattle`, 낙하 없이
-    소리만 — 사용자 2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」; 실제 판에서 ROUND_START:2에 b_char_set 확인).
+  - 소리 남: 구매·보상으로 벤치 도착, 벤치→보드, 소환물(전용 또는 b_char_tokenset), **전투 뒤 정비로 돌아올 때 보드의 말**(`backFromBattle` — 사용자
+    2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」), **협동 정비에서 남의 보드를 보러 갈 때 그 보드의 말**(사용자 2026-10-08:
+    남의 보드도 소리 남)과 내 보드로 돌아올 때 [추정: 돌아올 때도 같은 규칙]. 벤치 말은 낙하만.
   - 소리 없음: 보드→벤치 복귀(낙하는 함 — 사용자 2026-10-08 「벤치로 되돌릴 때는 배치음이 안나오는게 일단 맞는 것 같아」), 판매, 페이지 로드·재접속
     첫 동기화, 전투 뒤 벤치 복원, 3장 합성 엘리트(합성 연출·`merge` 소리), 장비, 남의 보드(정탐은 전투 화면).
-  - [ ] 전투 뒤 정비 복귀 때 보드 말이 낙하(Start)도 해야 하는지 — 공식 캡처로 확인(지금은 소리만).
+  - 낙하(사용자 2026-10-08 「공식은 배치 연출이 있어. 협동 모드 중 휴식 기간에 다른 사람을 확인하려 갈때도 배치 연출이 보여」): 전투 뒤·정탐 뒤 내 정비로
+    돌아올 때 말 전부(벤치 포함 [추정: 클라이언트 정비 말은 칸·슬롯에 새로 만드는 더미]), 정탐한 보드(`enterBattle({prep})` → `battleView`)의 말 전부가
+    떨어진다. 같은 보드에 다시 들어오면(팀원이 말을 옮겨 m.field가 새로 옴, `scoutSeen`) 새로 왔거나 옮긴 말만. 실제 협동 판(`sp-check\dv_coop.mjs
+    <port> <out>`: 봇 3, 2라운드 — 팀원 줄 클릭 → 「보러 가기」 → 내 줄)에서 ROUND_START:2·정탐·복귀 모두 onDeploy + b_char_set, 프레임 `dvc4-scout-*`에 낙하.
+  - 벤치→보드를 실제 UI로(끌어 놓기 → 방향 휠 → 확정) 하면 소리·낙하가 없었다(사용자 2026-10-08 「오퍼를 벤치에서 보드에 배치시, 배치 효과음이 안나와」):
+    휠의 `holdPiece`가 그 칸을 뷰의 집(`_home`)으로 만들어 `moved`가 false라, 놓은 지 1.3초(`DROP_PENDING_MS`) 안에 온 상태는 「서버 적용 전」 분기로
+    빠졌다(snd_prep.mjs는 `actions.move`를 직접 불러 이 경로를 안 탔다). 상태에 보드로 새로 나타난 말은 그 분기에서 뺀다. 확인 `sp-check\dv_drag.mjs
+    <port> <out> [확정까지 ms]`(실제 마우스 끌기 + 방향키): 0.3초·2초 확정 모두 onDeploy + b_char_set.
   - 한 틱에 여럿(서버 자동 배치가 8~12개를 한 번에): 기존 제한기(같은 소리 45ms 간격·동시 2개)가 1~2번으로 줄인다.
   - 라운드 시작: 정비에서 막 놓은(1.5초 안, `PREP_DEPLOY_OVERLAP_MS`) 같은 모델의 전투 'deploy'는 다시 울리지 않는다.
 - 함께 고친 것: 1라운드처럼 보드·벤치가 비어 있을 때 **첫 말이 낙하하지 않던 것**(`before.length` 조건) — 동기화를 한 번 마친 뒤(`prepSynced`, 모든 말이 자리를 찾음)면
@@ -1478,6 +1498,11 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 확인: `test/local-patch.test.js` 「望 client-data rules」(틱 수 = kitHit 수, 시뮬 수정 전 실패 확인), 「望 (user report 2026-10-07 #5)」, `test/local-patch-audio.test.js`
   「望 stone pop」·跟子 배치. 디버그 아레나(Windows `sp-check\snd_wangpop.mjs <port> <skill> <ms>`: 샌드백을 활성 바둑돌 칸으로 옮김) —
   S1 p_atk_stwctp_d + p_imp_stwctp_d, 이후 1초마다 p_imp_stwctp_d(총 7), S2 _h, S3 _s, 재배치 바둑돌 tkin, 재능 바둑돌 tkpa(tkin 없음).
+- 望 S3 발동음 (사용자 제보 2026-10-08 「S3 발동할 때 전용 사운드가 안나와」): 공식 `battle.ON_SKILL_START.skchr_wang_3` = **p_skill_stwctp_s**
+  (Battle_UI_Boost; S1·S2는 시작 뱅크 없음). `tools/assets/plan.mjs`가 소리 있는 스킬이 하나뿐이고 그게 풀의 기본 스킬 번호가 아니면 `skill`도 `skills`도
+  안 넣어 통째로 빠졌다 → 그 경우도 `skills`에 넣음. 같은 이유로 무음이던 琳琅诗怀雅 S3·普罗旺斯 S2·华法琳 S2(b_char_atkboost / healboost)도 같이 생김.
+  매니페스트 재생성(fetch-assets)으로 바뀐 것은 이 4명 + 파일 1개(p_skill_stwctp_s.mp3). 디버그 아레나에서 S3 발동 때 p_skill_stwctp_s 재생 확인
+  (`sp-check\snd_wangs3f.mjs <port>` — 아레나는 샌드백이 범위 밖이라 S3가 저절로 안 켜져서 `skill.activate`로 켬). 테스트 `test/local-patch-audio.test.js`.
 
 ## 유닛 모델 크기 (2026-10-08, 사용자 제공 공식 PC 캡처)
 - 근거(클라이언트 EN): 오퍼레이터 전투 스킨 `chararts/<char>.ab defaultskin.prefab` FaceSwitcher 스케일 0.27 × SkeletonDataAsset 0.01(호시구마·첸 등

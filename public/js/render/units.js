@@ -145,6 +145,8 @@ const BORN_TINT_K = 0.4;
  */
 const BORN_LEAD_S = 0.1;
 const BORN_WAIT_MAX_S = 1;
+/** local patch: the most one frame advances a playing drop-in (Start) — a hitch of the battle switch cannot skip it. */
+const DEPLOY_MAX_STEP_S = 1 / 30;
 /** Units with no art in the game data drawn as an ice diamond: 圣聆初雪 S2's frozen protection point (保护目标（冻结状态）, PRTS
  *  无头像; data/assets.json has no avatar or model for it, so the token fallback showed 圣聆初雪's own face) — the marker of a
  *  frozen gate. */
@@ -1008,7 +1010,7 @@ export class UnitView {
     if (this.fadeIn < 1) this.fadeIn = Math.min(1, this.fadeIn + dt * 4);
     if (this._bornT > 0) this._bornT = Math.max(0, this._bornT - dt); // local patch: the dark first frames (BORN_TINT_S)
     if (this._bornWait >= 0) { // local patch: the body waits BORN_LEAD_S (and for its model) before Start plays
-      this._bornWait += dt;
+      this._bornWait += Math.min(dt, 0.25); // a hitch of the battle switch does not use up the wait (DEPLOY_MAX_STEP_S)
       if (this.actor && this.spineReady && this._bornWait >= BORN_LEAD_S && this.alive) { this._bornWait = -1; this.actor.deploy(); this._bornT = BORN_TINT_S; }
       else if (this._bornWait >= BORN_WAIT_MAX_S || !this.alive) this._bornWait = -1;
     }
@@ -1072,7 +1074,12 @@ export class UnitView {
       if (flashK > 0) tint = mixTint(tint, 0xff8a80, flashK * 0.8);
       if (this._bornT > 0) tint = mixTint(tint, 0x000000, BORN_TINT_K * (this._bornT / BORN_TINT_S)); // local patch
       let animDt = dt * (this.ctx.animRate?.() || 1);
-      if (this._offDt > 0) { animDt += Math.min(0.5, this._offDt); this._offDt = 0; }
+      // local patch (user 2026-10-08 「작전 시작할때 배치 효과음은 나오는데 배치 연출이 안나오고 있어」, not reproduced here [추정]):
+      // the drop-in (Start, landing at ~0.2 s) is never swallowed — no off-screen catch-up while it plays, and a long
+      // frame (the battle switch building the field) advances it by at most DEPLOY_MAX_STEP_S
+      const falling = this.actor.mode === 'deploy';
+      if (this._offDt > 0) { if (!falling) animDt += Math.min(0.5, this._offDt); this._offDt = 0; }
+      if (falling) animDt = Math.min(animDt, DEPLOY_MAX_STEP_S * (this.ctx.animRate?.() || 1));
       let interval = this.ctx.impostorInterval ? this.ctx.impostorInterval() : 0;
       if (this.lodIdle) interval = Math.max(interval, 3);
       const lvl = this.ctx.loadLevel ? this.ctx.loadLevel() : 0;

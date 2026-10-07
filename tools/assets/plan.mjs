@@ -411,7 +411,9 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     }
     const primarySkill = skillSfx[String(idx[0])];
     if (primarySkill) u.skill = primarySkill;
-    if (Object.keys(skillSfx).length > 1) u.skills = skillSfx;
+    // local patch (user report 2026-10-08 「望 S3 전용 사운드가 안나와」): one sounding skill that is not the pool's primary
+    // index (望: only S3 skchr_wang_3 has ON_SKILL_START p_skill_stwctp_s) was dropped — neither `skill` nor `skills`
+    if (Object.keys(skillSfx).length > 1 || (!primarySkill && Object.keys(skillSfx).length)) u.skills = skillSfx;
     if (mix) u.mix = mix;
     // local patch: skill-mode attack / impact sounds and the mixer groups (tools/assets/skill-mode-sfx.mjs)
     const modes = skillModes(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), charModes[id], soundLeaf, (sid) => skillStartIsFallback(audio, sid));
