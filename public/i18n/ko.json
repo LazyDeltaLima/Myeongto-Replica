@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 901 of 1116 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 902 of 1116 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -479,10 +479,10 @@
   "出售": "판매",
   "可晋升：{hint}": "정예 승진 가능: {hint}",
   "效果": "효과",
-  "进阶": "승급",
+  "进阶": "강화",
   "奇术": "아츠",
   "将其拖拽至战场上的格子使用": "전장의 칸으로 끌어다 놓아 사용",
-  "；2 件相同装备自动合成进阶装备": " ; 같은 장비 2개는 자동으로 승급 장비로 합성",
+  "；2 件相同装备自动合成进阶装备": " ; 같은 장비 2개는 자동으로 강화 장비로 합성",
   "效果获得": "효과로 획득",
   "晕眩": "기절",
   "沉默": "침묵",

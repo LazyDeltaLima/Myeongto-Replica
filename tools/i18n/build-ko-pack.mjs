@@ -55,15 +55,15 @@ const KEEP_UPSTREAM = {
   上: 'a direction label (ui/facing.js DIR_LABEL): 위, beside 왼쪽 / 오른쪽; official.json has 상 (another context)',
   下: 'a direction label (ui/facing.js DIR_LABEL): 아래; official.json has 하',
   全部: 'the "all" filter chip: 전체 (official KR uses 전체 in 3 of its 4 全部 keys); official.json has 전부',
-  进阶: 'the elite-equipment tag (detailPanel / equipReplace): 승급; official.json has 랭크업 (another context)',
 };
 
 /** msgid → our text, fixed (our dictionary has a typo or a wrong sense). */
 const FIXES = {
   敌方攻击强度到达极限的模拟训练: ['적의 공격 강도가 한계를 뛰어넘은 시뮬레이션', 'typo 강도하 in the official KR table'],
   // user decisions 2026-10-07
+  进阶: ['강화', 'the elite-equipment tag (detailPanel / equipReplace): 강화 — user decision 2026-10-07 (승급 is the shop\'s 升级 button; official.json has 랭크업, another context)'],
   全部显示: ['전체 표시', '全部 = 전체 (the damage-number setting; ui.json has 전부 표시)'],
-  '；2 件相同装备自动合成进阶装备': [' ; 같은 장비 2개는 자동으로 승급 장비로 합성', '进阶(装备) = 승급, as the elite-equipment tag (ui.json has 상위 장비)'],
+  '；2 件相同装备自动合成进阶装备': [' ; 같은 장비 2개는 자동으로 강화 장비로 합성', '进阶(装备) = 강화, as the elite-equipment tag (ui.json has 상위 장비)'],
   '冻结 / 解冻商店': ['상점 동결 / 해동', '解冻 = 해동 (the official shop button of this mode); upstream 상점 동결 / 해제'],
   助战及自选编队: ['지원과 선발 편성', '自选编队 = 선발 편성 (ui.json has 자유 편성)'],
   // 自选 on this server: only the five 선발 operators (shared/local-diy.js), no prototypes — the Korean promises none
