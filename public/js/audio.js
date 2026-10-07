@@ -54,6 +54,8 @@ const MAX_VOICES = 8;
 const UNIT_COOLDOWN_MS = 160;
 const URL_GAP_MS = 45;
 const MAX_PER_URL = 2;
+/** local patch: a battle 'deploy' this soon (real ms) after a prep drop-in of the same model stays silent (round start). */
+const PREP_DEPLOY_OVERLAP_MS = 1500;
 /**
  * 漏怪: the original Arknights exit alarm (`sfx.battle.leak`, `battle/b_ui/b_ui_alarmenter`) runs **1.44 s**, and the
  * official bank is a one-shot: `battle.ON_ENEMY_REACHED_EXIT` carries `maxSoundAllowed: 1` with `popOldest: true` on the
@@ -987,6 +989,45 @@ export class AudioManager {
   }
 
   /**
+   * local patch (user report 2026-10-07 #1 / #2): the deploy sound of an allied unit — its own ON_UNIT_BORN sound
+   * (望 b_char_stwctpbn, 余 p_skill_frbytrtn_bn …), else b_char_set / b_char_tokenset (deploySfxUrl) — through the
+   * official mix. A battle 'deploy' and a prep drop-in (screens/game.js 'pieceDeploy') both come here.
+   * @param {{ def?: string, defId?: string|null, kind?: string|null, side?: string }} u tracked unit (`def` = model id)
+   * @param {number|string} key its cooldown key (battle unit id / prep piece uid)
+   * @returns {boolean} whether a sound was started
+   */
+  playDeploySfx(u, key) {
+    const m = this.getManifest();
+    const url = deploySfxUrl(m, u);
+    if (!url) return false;
+    const own = url === m?.audio?.sfx?.units?.[u.def]?.born;
+    const mix = own ? m.audio.sfx.units[u.def].mix?.born : null;
+    if (!unitSoundPlays(mix, this.random())) return false;
+    // local patch: the official mix (audioOfficial.js) instead of unitGain(0.8, mix) / 0.5
+    this._playUnitUrl(url, own ? `${key}:born` : 'deploy', own ? officialGain(u.def, 'born', m.audio.sfx.units[u.def], mix) : battleGain('deploy'));
+    return true;
+  }
+
+  /**
+   * local patch (user report 2026-10-07 #1): an own prep piece dropped in (bought, a reward, moved onto the board or
+   * back to the bench — render/app.js prepDeployed): its deploy sound. `unit` is the view's piece info.
+   * @param {{ kind?: string, defId?: string, spine?: string|null }} unit
+   * @param {number|string} uid
+   */
+  prepDeploy(unit, uid) {
+    try {
+      if (!this.ctx || !unit || unit.kind === 'item') return;
+      const def = unit.spine || unit.defId;
+      if (typeof def !== 'string') return;
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (this.playDeploySfx({ def, defId: unit.defId ?? null, kind: unit.kind === 'token' ? 'token' : 'char', side: 'ally' }, `prep:${uid}`)) {
+        (this._prepDeployAt ||= new Map()).set(def, now);
+        if (this._prepDeployAt.size > 40) this._prepDeployAt.delete(this._prepDeployAt.keys().next().value);
+      }
+    } catch (err) { this._warn('prep-deploy', err); }
+  }
+
+  /**
    * React to `b.ev` tuples (DESIGN §8.2).
    * @param {any[]} ev
    */
@@ -1091,11 +1132,10 @@ export class AudioManager {
             } else if (!this.voicePolicy || this.voicePolicy.place(now)) this.voice(u.def, 'place', { unitKey: e[1] });
           }
           if (!url) continue;
-          const own = url === m?.audio?.sfx?.units?.[u.def]?.born;
-          const mix = own ? m.audio.sfx.units[u.def].mix?.born : null;
-          if (!unitSoundPlays(mix, this.random())) continue;
-          // local patch: the official mix (audioOfficial.js) instead of unitGain(0.8, mix) / 0.5
-          this._playUnitUrl(url, own ? `${e[1]}:born` : 'deploy', own ? officialGain(u.def, 'born', m.audio.sfx.units[u.def], mix) : battleGain('deploy'));
+          // local patch (user report 2026-10-07 #1): a piece dropped in by the prep just before the battle began sounded there
+          const prep = this._prepDeployAt?.get(u.def);
+          if (prep != null && now - prep < PREP_DEPLOY_OVERLAP_MS) continue;
+          this.playDeploySfx(u, e[1]);
         } else if (kind === 'fx') {
           // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
           const hk = kitHitKey(e[1], e[4], (id) => this.units.get(id));

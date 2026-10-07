@@ -1261,6 +1261,29 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 남은 차이: 착지 전에 시뮬레이션이 이미 공격하는 것(텍사스가 공중에서 첫 공격 — 공식은 `CHARACTER_BORN_TIME` 동안 못 하는 듯 [추정], 시뮬레이션
   변경이라 따로), 배치 효과음 시점(캡처에 소리 없음).
 
+## 배치 효과음 — 어떤 경로로 놓이든 (사용자 제보 2026-10-07 #1·#2)
+- 사용자: 「상점 구매, 정예화 보상, 전장에 배치 등 어떤 방식으로 배치되든 배치 효과음이 나와야 함」, 「일부 오퍼레이터(왕·위 등)는 전용 배치음」.
+  소환물도 배치음이 있고, 왕의 바둑돌은 수동 배치·재능 배치 모두 소리가 난다(사용자 확인).
+- 원래: 전투의 'deploy' 이벤트에서만 났다(라운드 시작 배치는 실제 판에서 확인함 — b_char_set 7 + 자기 소리). 정비 단계 배치·구매·보상·벤치 복귀는 무음,
+  구매는 상점 소리 `ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND`(b_char_tokenset = 소환물 배치음)였다.
+- 공식 자료(EN `audio_data.json`): 유닛 탄생 `battle.ON_UNIT_BORN.<id>`(전용) → `.char` b_char_set / `.token` b_char_tokenset, 그룹 Battle_UI_Important.
+  우리 로스터의 전용 배치음은 매니페스트에 이미 다 있다(`sfx.units[id].born`): 오퍼레이터 15명(望 b_char_stwctpbn, 余 p_skill_frbytrtn_bn, 斯卡蒂2 등),
+  소환물 11종(望 棋子 p_imp_stwctptkin, 维什戴尔 wward, 诅咒娃娃 등). 卫戍协议에는 「말 놓기」 전용 뱅크가 없다(`act1vautochess` SHOP_DROP=b_char_set은 다른 모드)
+  → 정비 단계도 유닛 탄생 소리를 쓴다 [추정: 공식 정비 화면이 유닛을 전투 유닛처럼 그리고, 놓일 때 Start 낙하가 나온다 — 「배치 낙하」].
+- 고친 것: 소리는 정비 화면의 **낙하 연출과 같은 곳**에서 난다 — `render/app.js` setPrep이 내 보드·벤치 상태를 이전과 비교해 낙하(onDeploy)를 틀 때
+  `pieceDeploy` 이벤트(`prepDeployed`) → `screens/game.js` → `audio.prepDeploy` → `playDeploySfx`(전투 'deploy'와 같은 함수: 전용 소리 → 공용, 공식 믹스).
+  서버가 넣어 주는 보상(정예화 보상·결산 보상)도 상태 비교라 잡힌다. 경우별:
+  - 소리 남: 구매·보상으로 벤치 도착, 벤치→보드, 보드→벤치 복귀(공식 캡처에서 벤치 복귀도 낙하 — 「배치 낙하」; 사용자 설계안의 「반환은 무음」과 다르다,
+    판매는 무음), 소환물(전용 또는 b_char_tokenset).
+  - 소리 없음: 페이지 로드·재접속 첫 동기화, 전투 뒤 보드 복원(`promoBase` — 전투 전 목록과 비교), 3장 합성 엘리트(합성 연출·`merge` 소리), 장비, 남의 보드(정탐은 전투 화면).
+  - 한 틱에 여럿(서버 자동 배치가 8~12개를 한 번에): 기존 제한기(같은 소리 45ms 간격·동시 2개)가 1~2번으로 줄인다.
+  - 라운드 시작: 정비에서 막 놓은(1.5초 안, `PREP_DEPLOY_OVERLAP_MS`) 같은 모델의 전투 'deploy'는 다시 울리지 않는다.
+- 함께 고친 것: 1라운드처럼 보드·벤치가 비어 있을 때 **첫 말이 낙하하지 않던 것**(`before.length` 조건) — 동기화를 한 번 마친 뒤(`prepSynced`, 모든 말이 자리를 찾음)면
+  빈 상태 다음 말도 새로 온 것. 오퍼레이터 구매는 상점 소리(b_char_tokenset)를 빼고 배치음만(장비 구매는 그대로).
+- 확인: 단위 `test/local-patch-audio.test.js` 「deploy sounds on every placement」, 소스 `test/render/local-deploy-drop.test.js`. 실제 판(Windows Chrome,
+  `sp-check\snd_prep.mjs <port> <out>`: 솔로 판, 1라운드 정비에서 구매 → 보드 → 벤치, 자동 배치, 전투 시작) — 세 경로 모두 b_char_set,
+  전용 소리(b_char_tpartclce·snwlprdg·p_skill_frbytrtn_bn) 확인, 전투 뒤 정비 시작에 전체가 울리지 않음.
+
 ## 원본 버그 수정 선반영 (2026-10-07, 사용자 요청 「upstream에 보고된 버그 중 쉬운 것 바로 수정」)
 upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 코드·테스트를 그대로** 옮기는 것이 목적이라 `// local patch` 주석을 달지 않고,
 "원본 테스트 파일은 고치지 않는다" 원칙의 예외로 원본이 같이 고친 테스트도 그대로 가져왔다(0.2.0 병합 때 같은 줄이 되어 사라진다).

@@ -508,6 +508,9 @@ export async function createFieldView(host, options = {}) {
   // the last prep pieces before a battle / scouting board emptied prepPieces: a merge completed between two preps (a band
   // or 机变 grant at ROUND_START, a SETTLE merge) is still recognised by the next setPrep (QA 6b)
   let promoBase = [];
+  // local patch (user report 2026-10-07 #1): a prep sync already ran in this view — with nothing before it (round 1's
+  // empty board and bench) the next piece is a new arrival, not the first build of a loaded / reconnected page
+  let prepSynced = false;
   const promotions = [];      // the last merges cued by setPrep (fx.promote): { uid, id, area, row, col, idx, copies } — dev / tests
   let battleMeta = null;
   let sceneHold = null;       // release function of the Spine cache hold of battle mode (holdScene)
@@ -902,6 +905,15 @@ export async function createFieldView(host, options = {}) {
 
   // ---- prep -----------------------------------------------------------------------------------------------
 
+  /**
+   * local patch (user report 2026-10-07 #1): an own operator / summon piece dropped in by the prep sync (bought, a
+   * server-given reward, bench → board, board → bench) — screens/game.js plays its deploy sound. Not a merge's elite
+   * (its promotion cue) and not an item.
+   */
+  function prepDeployed(e, info) {
+    if (info.kind !== 'item') emit('pieceDeploy', { uid: e.uid, area: e.area, unit: info });
+  }
+
   function pieceInfo(piece, area, byUid = null) {
     const kind = piece.kind;
     // board pieces face their stored dir (the server default RIGHT when absent), drawn through the prep field (mirrored
@@ -1018,8 +1030,8 @@ export async function createFieldView(host, options = {}) {
           fx.promote(v, promoFrom.get(e.uid).filter((f) => Math.abs(f.x - w.x) + Math.abs(f.y - w.y) > 1e-3));
           promotions.push({ uid: e.uid, id: e.piece.id, area: e.area, row: e.row ?? null, col: e.col ?? null, idx: e.idx ?? null, copies: promoFrom.get(e.uid).length });
           if (promotions.length > 20) promotions.shift();
-        } else if (e.area === 'board' && prevBoard.size && !prevBoard.has(e.uid)) { v.onDeploy?.(); fx.deploy(v); }
-        else if (before.length && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) { v.onDeploy?.(); fx.deploy(v); } // local patch: onDeploy — a bench arrival drops in too
+        } else if (e.area === 'board' && ((prevBoard.size && !prevBoard.has(e.uid)) || (prepSynced && !before.length))) { v.onDeploy?.(); fx.deploy(v); prepDeployed(e, info); }
+        else if ((before.length || prepSynced) && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) { v.onDeploy?.(); fx.deploy(v); prepDeployed(e, info); } // local patch: onDeploy — a bench arrival drops in too
       } else {
         const prevHome = v._home;
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
@@ -1032,9 +1044,9 @@ export async function createFieldView(host, options = {}) {
           if (moved || Math.abs(v.x - w.x) + Math.abs(v.y - w.y) > 1e-3) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };
           v.lift = 0;
           let dropped = false; // local patch: the official drop-in (units.js onDeploy → true)
-          if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) { dropped = v.onDeploy(); fx.deploy(v); }
+          if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) { dropped = v.onDeploy(); fx.deploy(v); prepDeployed(e, info); }
           // local patch: a piece sent back from the board to the bench drops in on its slot too (official capture)
-          else if ((e.area === 'hand' || e.area === 'temp') && prevBoard.has(e.uid) && v.onDeploy) dropped = v.onDeploy();
+          else if ((e.area === 'hand' || e.area === 'temp') && prevBoard.has(e.uid) && v.onDeploy) { dropped = v.onDeploy(); prepDeployed(e, info); }
           // local patch: the drop-in starts on the target tile — no slide from where it was
           if (dropped === true) { v._tween = null; v.x = w.x; v.y = w.y; v.z = w.z; }
         }
@@ -1051,6 +1063,7 @@ export async function createFieldView(host, options = {}) {
     }
     for (const k of [...views.keys()]) if (String(k).startsWith('p:') && !seen.has(Number(String(k).slice(2)))) dropView(k);
     prepPieces = list.filter((e) => e.key && views.has(e.key));
+    if (prepPieces.length === seen.size) prepSynced = true; // local patch: every piece found its slot (the scene is up)
     if (dragState && !views.has(dragState.key)) { drag.reset(); endDragVisual(false); }
     holdScene(false); // the prep pieces reference their models now (a battle's hold ends here)
     return true;
