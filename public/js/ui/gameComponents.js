@@ -2,7 +2,7 @@
 // unit thumbnails, LP tower, coin badge, official UI sprites. Styles: css/screens/game*.css.
 
 import { useState, useMemo } from '../../vendor/hooks.module.js';
-import { html, Icon, TierChip, Tooltip } from './components.js';
+import { html, Icon, TierChip, Tooltip, natSizeVars } from './components.js';
 import { data, useData, localAsset } from '../data.js';
 import { parseRichText, rtClassName } from './richText.js';
 import { FactionGlyph, FactionIcon, useSeatFaction } from './faction.js';
@@ -53,10 +53,10 @@ export function makeLookups(ready = true) {
  * <img> that swaps to a fallback node when the URL is missing or fails.
  * @param {{ src?: string|null, class?: string, alt?: string, fallback?: any, style?: string }} props
  */
-export function Img({ src, class: cls, alt = '', fallback = null, style }) {
+export function Img({ src, class: cls, alt = '', fallback = null, style, onLoad }) {
   const [bad, setBad] = useState(null);
   if (!src || bad === src) return fallback;
-  return html`<img class=${cls} src=${src} alt=${alt} draggable=${false} loading="lazy" style=${style} onError=${() => setBad(src)} />`;
+  return html`<img class=${cls} src=${src} alt=${alt} draggable=${false} loading="lazy" style=${style} onLoad=${onLoad /* local patch */} onError=${() => setBad(src)} />`;
 }
 
 /** Official UI sprite by 'group/key' with a fallback. */
@@ -215,7 +215,7 @@ export function BondGlyph({ bondId, class: cls }) {
   const b = data.lookup('bonds', bondId);
   const src = bondIconUrl(data.get('assets'), bondId);
   return html`<span class=${cx('bglyph', cls)} title=${b?.name || bondId}>
-    <${Img} src=${src} fallback=${html`<span class="bglyph__txt">${[...(b?.name || '?')][0]}</span>`} />
+    <${Img} src=${src} onLoad=${natSizeVars /* local patch */} fallback=${html`<span class="bglyph__txt">${[...(b?.name || '?')][0]}</span>`} />
   </span>`;
 }
 

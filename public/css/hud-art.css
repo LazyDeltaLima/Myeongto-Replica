@@ -151,6 +151,13 @@
 .gm.has-hud-art .bslot .bond__ring { display: none; }
 .gm.has-hud-art .bslot .bond__core { width: calc(var(--u) * 36); height: calc(var(--u) * 36); background: none !important; box-shadow: none !important; border: 0; }
 .gm.has-hud-art .bslot .bond__icon { width: 100%; height: 100%; filter: brightness(0) invert(.78); }
+/* (2026-10-07) the glyph sprites (icon_<bond>, [uc]autochesscommon) are 128×128 rects drawn into the 36-unit icon box,
+   their ~100 px textures tight-packed in the middle; the web PNGs are those textures, so filling the box made the glyph
+   ~25 % bigger than the client's (CN 联防 capture: glyph ≈ .5 of the ring vs .66 here). Natural px × 36 / 128 units
+   (`--nw` / `--nh` from ui/components.js natSizeVars), centred — the textures sit within 1–2 px of the rect's middle. */
+.gm.has-hud-art .bslot .bond__icon, .gm.has-hud-art .bpop__disc .bglyph img {
+  width: calc(var(--u) * 36 / 128 * var(--nw, 100)); height: calc(var(--u) * 36 / 128 * var(--nh, 100)); max-width: none; max-height: none; object-fit: fill;
+}
 .gm.has-hud-art .bslot[data-full] .bond__icon { filter: brightness(0); }
 /* the stack number on matte_num (42×25, 16 px white), on the ring's lower edge (KR captures: ≈ .75 of the radius under
    the centre; the prefab's 8 units looked too high in play, user 2026-10-06) */
@@ -159,8 +166,11 @@
   min-width: calc(var(--u) * 42); height: calc(var(--u) * 25); padding: 0 calc(var(--u) * 4); display: grid; place-items: center;
   background: var(--ha-num) center / 100% 100% no-repeat; border: 0; border-radius: 0; color: #fff; font-size: calc(var(--u) * 16); box-shadow: none;
 }
+/* the name: text_name (74×22 at 31 under the item's centre, 14 px, UpperCenter, line spacing .8) — its line hangs from the
+   box's top 20 under the centre, the glyphs ≈ 36 under the disc's centre (CN 联防 capture .73 of the ring; upstream-style
+   centring in that box put them 42 under, user 2026-10-07) */
 .gm.has-hud-art .bslot .bond__name {
-  position: absolute; left: 50%; top: calc(50% + var(--u) * 33); transform: translate(-50%, -50%); font-size: calc(var(--u) * 14); /* under the lowered stack number (KR captures) */ color: #fff; font-weight: 500;
+  position: absolute; left: 50%; top: calc(50% + var(--u) * 20); transform: translateX(-50%); font-size: calc(var(--u) * 14); line-height: 1; color: #fff; font-weight: 500;
 }
 /* the count / next threshold is not on the official disc (its tooltip keeps it) */
 .gm.has-hud-art .bslot__count:not(.bslot__off) { display: none; }
@@ -257,8 +267,8 @@
    bg_player_list, the list centred on the left edge 34 units above the middle; each portrait in bg_team_border (100×100,
    #59ffd2 on the board shown — [추정] the view / other groups of the item read as "the watched board / the rest", white
    otherwise), icon_self (32×32) at its top-left corner, the LP on bg_hp (57×24, icon_hp, 16 px #f3f3f3) at its bottom,
-   the status icon (21×21) just right of its bottom corner. Upstream's name, 联防 tag, eye and 前往查看 stay beside it
-   (the official item has no name: kept as an upstream feature, like the shop's). ---- */
+   the status icon (21×21) just right of its bottom corner. Upstream's 联防 tag, eye and 前往查看 stay beside it; the
+   name is hidden (the official item has none — CN 联防 capture, user 2026-10-07; the portrait's tooltip keeps it). ---- */
 .gm.has-hud-art.has-hud-team .team {
   left: calc(var(--u) * 23); top: calc(50% - var(--u) * 34); transform: translateY(-50%); gap: calc(var(--u) * 17); padding: calc(var(--u) * 10) 0; isolation: isolate;
 }
@@ -286,7 +296,7 @@
 .gm.has-hud-art.has-hud-team .team__you .icon { display: none; }
 .gm.has-hud-art.has-hud-team .team__row.is-self .team__seat { left: auto; right: calc(var(--u) * -2); }
 .gm.has-hud-art.has-hud-team .team__info { padding: calc(var(--u) * 4) calc(var(--u) * 10) calc(var(--u) * 4) 0; background: none; }
-.gm.has-hud-art.has-hud-team .team__name { font-size: calc(var(--u) * 15); color: #f3f3f3; }
+.gm.has-hud-art.has-hud-team .team__name { display: none; }
 .gm.has-hud-art.has-hud-team .team__line { min-height: 0; }
 .gm.has-hud-art.has-hud-team .team__line .lp {
   position: absolute; left: calc(var(--u) * 40); bottom: calc(var(--u) * -4); transform: translateX(-50%); z-index: 1;

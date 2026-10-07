@@ -203,6 +203,17 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls }) {
 }
 
 /**
+ * Local patch: an image's own pixel size as `--nw` / `--nh` (onLoad). The bond glyph PNGs are the client sprites'
+ * tight-packed textures (~100 px) without the 128×128 rect's transparent margin, so css/hud-art.css draws them at
+ * natural px × 36 / 128 units — the size Unity gives them in the 36-unit icon box.
+ */
+export function natSizeVars(e) {
+  const img = e.currentTarget;
+  img.style.setProperty('--nw', String(img.naturalWidth));
+  img.style.setProperty('--nh', String(img.naturalHeight));
+}
+
+/**
  * Bond disc: round glyph disc with segmented tier ring, stack count and name.
  * @param {{ name?: string, icon?: string, count?: number, layers?: number, tier?: number, maxTier?: number,
  *   active?: boolean, disabled?: boolean, layersDisabled?: boolean, size?: 'sm'|'md'|'lg', showName?: boolean,
@@ -235,7 +246,7 @@ export function BondDisc({
       </svg>
       <span class="bond__core">
         ${imgOk
-          ? html`<img class="bond__icon" src=${icon} alt="" draggable=${false} onError=${() => setBadSrc(icon)} />`
+          ? html`<img class="bond__icon" src=${icon} alt="" draggable=${false} onLoad=${natSizeVars /* local patch */} onError=${() => setBadSrc(icon)} />`
           : html`<span class="bond__glyph">${glyph}</span>`}
       </span>
       ${stack != null ? html`<span class="bond__count">${stack}</span>` : null}
