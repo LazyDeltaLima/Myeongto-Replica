@@ -1,6 +1,6 @@
 // test/local-patch-diy.test.js — the nas-local 선발 (自选) picks on upstream 0.2.0's 自选 framework (local patch,
-// docs/LOCAL-PATCH.md 「선발 오퍼레이터」): only the owner's five picks are offered and accepted (shared/local-diy.js, hooked
-// into shared/diy.js diyPool / validateDiyPicks), 丰川祥子 is built into data/backups.json (tools/build-data.mjs
+// docs/LOCAL-PATCH.md 「선발 오퍼레이터」): only the owner's five picks are offered and accepted (shared/local-diy.js: the
+// server's welcome `diyKitted` and its room.diy check — server/lobby.js; shared/diy.js stays upstream's), 丰川祥子 is built into data/backups.json (tools/build-data.mjs
 // DIY_LOCAL_INCLUDED), and the five kits (server/sim/content/kits/ops/op-wang.js, op-chen3.js, op-wisdel.js, op-oblvns.js,
 // op-ascln.js — the former kits/diy.js) keep the behaviour the owner decided. Every operator is fielded the production
 // way: a DIY slot + its `diy` pick (test/helpers/battleHarness.js `diy`), the elite with its X module (the module our
@@ -49,30 +49,35 @@ const battle = (key, sk, r, c, extra = [], secs = 25) => {
 };
 const POS = { wang: [11, 3], chen3: [10, 4], wisdel: [11, 4], oblvns: [10, 4], ascln: [10, 4] };
 
-describe('선발 picks on upstream 自选 (shared/local-diy.js, shared/diy.js hooks, tools/build-data.mjs)', () => {
-  test('offered: exactly the owner\'s five at both tiers, in his order — no prototype, no other owned 6★', () => {
+describe('선발 picks on upstream 自选 (shared/local-diy.js, server/lobby.js welcome / room.diy, tools/build-data.mjs)', () => {
+  test('offered: the welcome\'s diyKitted is exactly the owner\'s five in his order — the client picker (diyPool kitted) shows them only', async () => {
+    const { Lobby } = await import('../server/lobby.js');
     assert.deepEqual([...LOCAL_DIY_PICKS], Object.values(CHAR));
-    for (const tier of [5, 6]) {
-      assert.deepEqual(diyPool(tier, { data: DATA, kitted: KITTED_CHARS }), Object.values(CHAR), `tier ${tier}`);
-      assert.deepEqual(diyPool(tier, { data: DATA }), Object.values(CHAR), `tier ${tier} (no kit list)`);
-    }
-    // upstream's data stays whole: the 71 + her owned picks and the prototypes are still there, only not offered
+    const kitted = Lobby.prototype.welcomeInfo.call({}).diyKitted;
+    assert.deepEqual([...kitted].sort(), Object.values(CHAR).sort());
+    for (const tier of [5, 6]) assert.deepEqual(diyPool(tier, { data: DATA, kitted }).sort(), Object.values(CHAR).sort(), `tier ${tier}`);
+    // upstream's data and helpers stay whole: the 71 + her owned picks and the prototypes are still there, only not offered
     assert.ok(BACKUPS.diy.ownedPool.length > 5 && BACKUPS.diy.ownedPool.includes('char_112_siege'));
     assert.ok(BACKUPS.diy.prototypes[5].length > 0 && isPrototypePick(DATA, 6, 'char_609_acguad'));
+    assert.ok(diyPool(6, { data: DATA, kitted: KITTED_CHARS }).includes('char_112_siege'), 'upstream\'s diyPool unchanged');
     assert.equal(isLocalDiyPick('char_112_siege'), false);
     for (const id of Object.values(CHAR)) assert.ok(OPERATOR_KITS[id], `${id}: a kit (ops/op-<codename>.js)`);
   });
 
-  test('accepted: validateDiyPicks / checkDiyPicks take the five and refuse anyone else (another owned 6★, a prototype)', () => {
+  test('accepted: room.diy keeps the five and drops anyone else (another owned 6★, a prototype, a reserve) — the seat never holds one', async () => {
+    const { Lobby } = await import('../server/lobby.js');
+    const session = {};
+    const lobby = { safeData: () => DATA, roomOf: () => null };
+    const res = Lobby.prototype.diy.call(lobby, session, { picks: {
+      chess_char_5_diy1_a: { charId: 'char_112_siege', skillIndex: 0 }, chess_char_5_diy2_a: { charId: 'char_601_cguard' },
+      chess_char_6_diy1_a: pickOf('wang', false, 0), chess_char_6_diy2_a: { charId: 'char_609_acguad' } } });
+    assert.deepEqual(res, { ok: true });
+    assert.deepEqual(Object.keys(session.diy), ['chess_char_6_diy1_a'], 'only the local pick is kept');
+    assert.equal(session.diy.chess_char_6_diy1_a.charId, CHAR.wang);
     const ok = validateDiyPicks({ chess_char_5_diy1_a: pickOf('wisdel', false, 2), chess_char_6_diy1_a: pickOf('oblvns', false, 1) }, { data: DATA, kitted: KITTED_CHARS });
     assert.ok(ok.ok, ok.detail);
-    for (const bad of [{ charId: 'char_112_siege', skillIndex: 0 }, { charId: 'char_609_acguad' }, { charId: 'char_601_cguard' }]) {
-      const r = validateDiyPicks({ chess_char_5_diy1_a: bad }, { data: DATA, kitted: KITTED_CHARS });
-      assert.equal(r.error, 'BAD_TARGET', bad.charId);
-      assert.match(r.detail, /not a 自选 pick here/);
-    }
-    const lenient = checkDiyPicks({ chess_char_5_diy1_a: { charId: 'char_112_siege', skillIndex: 0 }, chess_char_6_diy1_a: pickOf('wang', false, 0) }, { data: DATA, kitted: KITTED_CHARS });
-    assert.deepEqual(Object.keys(lenient.picks), ['chess_char_6_diy1_a'], 'the room keeps the local pick, drops the other');
+    const lenient = checkDiyPicks({ chess_char_6_diy1_a: pickOf('wang', false, 0) }, { data: DATA, kitted: KITTED_CHARS });
+    assert.deepEqual(Object.keys(lenient.picks), ['chess_char_6_diy1_a']);
   });
 
   test('data: 丰川祥子 has her units / operators entries like the others (collab, taken in); 望 / 陈 炎, the others 协防; 望\'s 棋子 go on any tile', () => {

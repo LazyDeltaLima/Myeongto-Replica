@@ -101,6 +101,7 @@ import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
 import * as localPatch from './local-patch.js'; // local patch: room chat, chat factions, SP_MAX_BOTS
+import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: the five 自选 picks offered
 import { KITTED_CHARS } from './sim/content/kits/index.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
@@ -634,7 +635,7 @@ export class Lobby {
    * start.
    */
   diy(session, { picks }) {
-    const res = checkDiyPicks(picks, { data: this.safeData(), kitted: KITTED_CHARS });
+    const res = checkDiyPicks(picks, { data: this.safeData(), kitted: KITTED_CHARS.filter(isLocalDiyPick) }); // local patch: our five only
     if (!res || !('ok' in res)) return fail(ERR.BAD_MSG, res && res.detail);
     const kept = freezeDiy(res.picks);
     session.diy = kept;
@@ -648,7 +649,7 @@ export class Lobby {
 
   /** Extra fields of every `welcome` (net.js): the operators a 自选 slot may field (shared/diy.js `kitted`). */
   welcomeInfo() {
-    return { diyKitted: KITTED_CHARS };
+    return { diyKitted: KITTED_CHARS.filter(isLocalDiyPick) }; // local patch: the picker offers our five only
   }
 
   // ---------------------------------------------------------------------------------------------------
