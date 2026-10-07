@@ -614,8 +614,9 @@ export class UnitView {
     this.lpBars = !this.isEnemy ? new AllyBars(P, h) : new EnemyBars(P, h, giant ? 'giant' : this.isBoss ? 'boss' : 'normal', giant);
     this.ammo = null;
     this.chip = null;
-    // operators only: summon tokens have no tier (hand and field alike)
-    if (!this.isEnemy && !this.isToken && this.info.kind !== 'device') {
+    // operators only: summon tokens have no tier (hand and field alike) — local patch (user request 2026-10-08): a prep
+    // summon wears its owner's chip (app.js pieceInfo `chip`; official: same level chip as the operator)
+    if (!this.isEnemy && (!this.isToken || this.info.chip) && this.info.kind !== 'device') {
       this.chip = new P.Sprite(tierChip(this.tier, this.golden));
       this._chipTex = this.chip.texture; // local patch: the drawn chip, when the official one is not installed (hud-bars.js)
       this.chip.anchor.set(0.5);

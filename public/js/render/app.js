@@ -902,7 +902,7 @@ export async function createFieldView(host, options = {}) {
 
   // ---- prep -----------------------------------------------------------------------------------------------
 
-  function pieceInfo(piece, area) {
+  function pieceInfo(piece, area, byUid = null) {
     const kind = piece.kind;
     // board pieces face their stored dir (the server default RIGHT when absent), drawn through the prep field (mirrored
     // on the right half of the Final Assault prep); bench pieces face right
@@ -915,7 +915,10 @@ export async function createFieldView(host, options = {}) {
     }
     if (kind === 'token') {
       const rec = data.token(piece.id);
-      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id, tier: piece.tier || 1, golden: false, dir };
+      // local patch (user request 2026-10-08): a summon wears its owner operator's level chip (units.js `chip`)
+      const owner = Number.isInteger(piece.ownerUid) ? byUid?.get(piece.ownerUid) : null;
+      const orec = owner?.kind === 'chess' ? data.chess(owner.id) : null;
+      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id, tier: orec?.tier || piece.tier || 1, golden: false, chip: !!orec, dir };
     }
     const rec = data.chess(piece.id);
     return {
@@ -990,13 +993,14 @@ export async function createFieldView(host, options = {}) {
         return w ? { x: w.x, y: w.y, z: w.z || 0 } : null;
       }).filter(Boolean));
     }
+    const byUid = new Map(list.map((e) => [e.uid, e.piece])); // local patch: summon → owner (pieceInfo chip)
     for (const e of list) {
       if (seen.has(e.uid)) continue; // duplicate uid in bad state: keep the first
       seen.add(e.uid);
       const key = 'p:' + e.uid;
       e.key = key;
-      const info = pieceInfo(e.piece, e.area);
-      const sig = `${info.kind}|${info.defId}|${info.golden ? 1 : 0}`;
+      const info = pieceInfo(e.piece, e.area, byUid);
+      const sig = `${info.kind}|${info.defId}|${info.golden ? 1 : 0}${info.chip ? '|' + info.tier : ''}`; // local patch: a summon's owner chip
       let v = views.get(key);
       if (v && v._sig !== sig) { dropView(key); v = null; }
       const w = slotWorld(e);

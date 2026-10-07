@@ -1116,6 +1116,10 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     뷰는 `UF.INVULN` 플래그만 알아 스킬의 짧은 무적과 구분 못 함 [추정: 소환물은 공식도 없음].
   - 확인: Windows `sp-check\wst2.mjs`·`wst3.mjs`(`SMOG=1` = 돌에 tile_smog 隐匿)·`wst4.mjs`(2배 해상도) — 디버그 아레나 望 S1, 돌 3개 수동 배치.
     결과 jpg `wstB-*`(隐匿: 회색 연기, 나뭇잎 없음), `wstD-*`(跟子 고리·놓은 돌 별빛, 폭발에 노란 원·민트 육각 없음, 발동 기둥 없음), `c3s2-*`(첸 S2 타격).
+  - **소환물 레벨 칩** (2026-10-08 사용자 요청 「소환물도 본체 오퍼레이터와 같은 레벨 칩」): 정비 화면의 소환물(보드·벤치 스택)이 주인(`ownerUid`)
+    오퍼레이터의 칩(`tier`)을 단다(`app.js pieceInfo` `chip`, `units.js` 칩 생성 조건). 주인을 못 찾으면 예전처럼 칩 없음. 전투 중에는 오퍼레이터처럼 칩 없음.
+    칩 높이는 오퍼레이터와 같은 화면 고정 위치(발 기준)라 작은 소환물(드론) 위에서는 떠 보인다 — 공식 캡처로 확인할 것 [추정].
+    확인: Windows `sp-check\tokchip.mjs <port>`(game-mock PREP에 주인 있는 드론을 보드·벤치에 추가) → `tokchip3.png`.
 
 ## 공식 스테이지 3D 씬 (2026-10-06)
 - 3D 보드는 원래 시즌 1 아틀라스(`map_autochess`)로 모든 스테이지를 그렸다. 지금 클라이언트는 스테이지마다 완성된 씬(`scenes/activities/act*autochess/level_*`)과 라이트맵을 갖고 있고, 테마는 사막(`map_autochesssand`), 카시미어(`map_kxmr`), 시라쿠사 지하철(`map_syracuse_metro`)이다. 자세한 내용은 DESIGN §15.1.
