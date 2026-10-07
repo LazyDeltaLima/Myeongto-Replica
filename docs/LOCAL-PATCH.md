@@ -3,7 +3,56 @@
 `nas-local` 브랜치가 원본(`upstream` = sganggs/Stronghold-Protocol)과 다른 부분을 모두 정리한 문서다. 이 파일은 로컬에서만 만든 파일이라
 원본을 병합해도 충돌하지 않는다. 패치를 넣거나 뺄 때 같이 고친다. 운영 절차는 `STRONGHOLD.md`에 있다.
 
-최종 갱신: 2026-10-06 (게임 내 디버그 패널 추가; 커밋 `d85f961` 기준)
+최종 갱신: 2026-10-07 (upstream v0.2.0 병합 — 바로 아래 「0.2.0 병합」 절. 그 아래 절들의 파일 경로는 분할 전 이름일 수 있다: 대응표 참고)
+
+## 0.2.0 병합 (2026-10-07)
+upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트·선발 등 우리 기능은 우리 쪽, upstream이 나눈 파일과 같은 문제를 고친
+곳은 upstream 쪽으로 풀었다(사용자 결정). 병합 브랜치 `merge-0.2.0`.
+
+**upstream이 나눈 파일 → 우리 연결이 옮겨 간 곳** (아래 절들의 옛 경로를 읽을 때)
+| 옛 파일 | 새 파일 | 옮긴 local patch |
+|---|---|---|
+| `server/sim/Battle.js` | `server/sim/battle/*.js` | `battle/events.js` snapshot의 `hudLists`(+ import), `battle/tiles.js isReservedTile(r, c, except)` |
+| `server/sim/content/enemies.js` | `content/enemies/*.js` | `enemies/helpers.js targetsNear·allTargets`(lpGroundPicks), `enemies/archetypes.js artsBarrier`(blocked 숫자), `enemies/leaders.js`(기계 폭탄·破桎而出 비행 제외) |
+| `server/sim/content/kits/tier1~6.js` | `kits/ops/chess_char_<t>_<n>-<code>.js` + `kits/shared/tier*.js` | `4_16-texas2`(swordRain src), `4_25-cetsyr`(魔王 S3 재분배 대상), `5_06-etlchi`(频次 2곳), `6_18-whitw2`(드론 위치 fx), `6_19-blkkgt`(lpExpectDiv) |
+| `server/match/PlayerState.js` | `server/match/player/*.js` | (우리 선발 loadout `diy` 줄은 upstream 자선으로 대체되어 없어짐) |
+| `server/match/Match.js` | `server/match/match/*.js` | `match/intents.js` 이모티콘 세트(`emote(ps, id, set)` + import) |
+| `server/index.js` | `server/http/*.js` | `http/common.js`(iframe 차단 헤더), `http/routes.js`(/healthz `local`·프록시 축소), `http/static.js`(SP_DEBUG_PAGE), `http/boot.js`(배너 버전) |
+| `public/js/render/fx.js` | `public/js/render/fx/*.js` | `fx/numbers.js`(공식 숫자 import·분기), `fx/kinds.js`, `fx/system.js`, `fx/rings.js`, `fx/arrivals.js` |
+| `public/js/ui/gameLogic.js` | `public/js/ui/gameLogic/*.js` | `gameLogic/watch.js activeBubbles`(이모티콘 `set`) |
+
+**upstream이 같은 것을 넣어서 뺀 local patch**
+- 원본 버그 수정 선반영 10건(아래 절) — 0.2.0에 모두 들어 있다(#199 울피안은 upstream 방식 `downAtHome`).
+- 협동 보스 HP × 생존 인원, 胄 드론 몫 限伤 통과 — upstream이 PR #209를 채택(`gamedata.js bossPoolShareOf`, `Battle.loseHp noHitLimit`).
+  upstream은 **싱글 보스 HP를 bloodPoint ×1**로 바꿨다(우리 이전 문서는 ×0.25). 원작자 결정이라 그대로 둔다.
+- 스킬 범위 발동(a0da6834, 사용자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(사용자 결정 2026-10-07: upstream 사용). 「미확정」 표시는 유지.
+  `local-skill-range.js`·관련 테스트 삭제. 赤刃明霄陈 S3를 공중 적만으로 켜던 `hitsFly`는 upstream 규칙에 없다.
+- 사야 늑대(PR #225)·와파린·라플란드·페페 등은 upstream 구현으로 대체, PR #225가 바꾼 upstream 테스트는 upstream 판으로 되돌렸다.
+
+**선발 오퍼레이터 → upstream 「自选」 틀 (사용자 결정: 후보는 우리 5명만, 시제품 없음)**
+- 슬롯·재고·상점·로드아웃·로비 `room.diy`는 upstream(`shared/diy.js`, `server/match/player/diy.js`, 클라이언트 자선 편성 탭).
+- 후보 제한: `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶). `server/lobby.js` 2줄 — `room.diy` 검사와
+  welcome의 `diyKitted`(클라이언트 고르기 화면이 이것만 보여 준다)를 이 목록으로 거른다. upstream 데이터(72명 보유 풀, 시제품)·키트·`shared/diy.js`는 그대로라
+  매치·시뮬·upstream 테스트는 아무 픽이나 세울 수 있다.
+- 丰川祥子: upstream은 콜라보를 뺀다. `tools/build-data.mjs DIY_LOCAL_INCLUDED`로 보유 풀에 넣어 `data/backups.json`에 그녀의 units/operators가 생긴다.
+- 키트: `kits/ops/op-wang.js`·`op-chen3.js`·`op-wisdel.js`·`op-ascln.js`는 우리 키트(옛 `kits/diy.js`)로 교체, `op-oblvns.js` 새로 추가.
+  upstream 키트와의 동작 차이는 `research/2026-10-07-diy-kit-diff.md`(근거 비교, 사용자 결정 대기).
+- 정예화 보상(사용자 결정 2026-10-07): 보상 단계 = 조달 레벨 + 1(최대 6) 그대로, 그 단계의 선발 오퍼도 후보에 든다 — upstream은 상점의
+  조달 레벨 조건을 보상에도 걸어 V단계 선발이 보상에 한 번도 안 나왔다. `server/match/player/acquire.js pushRewardOffer` 1줄(`diyStockEntries`),
+  테스트 `test/local-patch-diy-reward.test.js`.
+- 지운 것: `data/diy.json`, `tools/build-diy.mjs`, `kits/diy.js`, `ui/diySlots.js`, `css/diy.css`, `tools/assets/diy.mjs`, `tools/assets/local-token-spines.mjs`,
+  `tools/local-extract/token_spines.py`(upstream `extract.py TOKEN_SPINES` + `--local-spines`가 같은 일), `server/local-patch.js`의 전용 풀·신표 거부 감싸기.
+- 디버그 패널 `dbg.addDiy { charId, tier, golden?, skill?, module? }`: 그 단계의 빈 슬롯(또는 같은 오퍼레이터의 슬롯)에 `setDiy`로 픽을 넣고
+  슬롯 기물을 손패로. 디버그 페이지(샌드백)는 슬롯 id + `diy` 픽으로 선발을 띄운다.
+- 테스트: `test/local-patch-diy.test.js`(옛 선발 키트 테스트 이전 + 제한·데이터·실제 경로).
+
+**언어**: 우리 번역을 upstream 언어 팩으로 옮긴다(사용자 결정, 진행 중) — `tools/i18n/build-ko-pack.mjs` → `public/i18n/ko.json`·`data/i18n/ko.json`.
+기본 언어 한국어, 「自选」 = 「선발」, 进阶 = 승급, 上/下(방향) = 위/아래, 全部 = 전체, 攻击/防御 = 공격/방어, 解冻 = 해동(공식 KR 문자열 표 대조).
+
+**기타**
+- 우리 DESIGN §15.1(공식 스테이지 씬)은 upstream이 설계 문서를 다시 써서 `docs/local/official-scenes.md`로 옮겼다.
+- `data/assets.json`은 우리 생성기로 다시 만들었다(`fetch-assets --add-only --allow-shrink`: 공유 `public/assets`에 없는 파일만 받음).
+- 0.2.0 개발 의존성(eslint·typescript)이 생겼다: `npm ci`.
 
 ## 원칙
 - 로컬 코드는 **새 파일**에 둔다. 원본 파일에는 연결용 한 줄만 넣고 `// local patch` 주석을 단다.
@@ -23,7 +72,7 @@
 | 이모티콘 공식/유저 탭 | `shared/emote-art.js`, `public/img/emotes/*` | `ui/emotes.js`(약 100줄, 가장 큰 수정), `emotes.css`, `gameActions.js`, `gameLogic.js`, `teamPanel.js`, `Match.js`·`StubMatch.js` 의 `set` |
 | 리소스 미리 받기 | `public/js/resources.js`, `public/resource-worker.js`, `tools/build-browser-resources.mjs`, `public/css/resources.css` | `main.js`, `settings.js`, `index.html` |
 | 오퍼레이터 음성 언어 선택(한국어/일본어/끄기)과 정비 단계 대사(선택·배치) — 원본 #73 「干员战斗语音」 위에 | `tools/assets/voice.mjs`(일본어 쌍둥이 `audio.voiceJp`, 정리), `public/js/voice.js` | `tools/fetch-assets.mjs`(기본 `--voice-lang=kr` 1줄, `tidyVoice` 2줄), `tools/assets/plan.mjs` 2줄(import, `audio.voiceJp`), `audio.js voice()` 2줄(`audio.voiceTable`: 고른 언어의 표), 공식 재생 규칙 `public/js/voicePolicy.js` + `audio.js` 훅(`voice()` 유형 인자, 스킬·행동 개시·첫 배치·초기화 각 1~3줄), `screens/game.js`(import, 선택 2줄, `buy`·보상 선택, 결산 대사 보관 `holdResultVoice`), `screens/result.js` 2줄(import, 승리 결산에서 `playMatchEndVoice`), `ui/settings.js`(언어 줄), `resources.js`(언어 필터), `debug.js`(대사 버튼), `public/i18n/ko/ui.json` |
-| 선발 오퍼레이터 (甄选 칸: 왕·첸 더 던스트릭·위셔델·사키코·아스카론) | `tools/build-diy.mjs` → `data/diy.json`, `shared/diy.js`, `public/js/ui/diySlots.js`, `public/css/diy.css`, `tools/assets/diy.mjs` | `tools/build-data.mjs`(스크립트 가드 + export), `server/data.js`·`public/js/data.js`·`public/js/battle/runner.js`(diy.json 병합 각 1줄), `shared/protocol.js`(loadout `diy` 키·검사), `server/match/PlayerState.js` 2줄(`diy` 유지), `server/lobby.js freezeLoadout` 1줄(`diy` 유지 — 없으면 매치가 구성 전체를 버린다), `server/local-patch.js`(전용 풀), `public/js/ui/loadoutModel.js`(`diy` 유지: `parseStored`·`setChoice`·`sanitizeEntries`), `screens/loadout.js` 3줄 + 내보내기 버튼 조건, `index.html` 1줄, `tools/fetch-assets.mjs` 2줄, `server/sim/Battle.js isReservedTile` 2줄(선택 인자 `except`: 望의 재배치 대기 돌 자리 제외) |
+| 선발 오퍼레이터 (0.2.0부터 upstream 自选 틀, 후보 = 望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶) | `shared/local-diy.js`, `kits/ops/op-{wang,chen3,wisdel,oblvns,ascln}.js` | `server/lobby.js` 2줄(`room.diy` 검사·welcome `diyKitted`), `tools/build-data.mjs DIY_LOCAL_INCLUDED`, `server/match/player/acquire.js` 1줄(정예화 보상) — 위 「0.2.0 병합」 |
 | 선발 소환물 모델 (望 바둑돌·维什戴尔 혼령의 그림자: 웹 미러에 기본 모델이 없어 마름모로 보이던 것 → 로컬 클라이언트 추출) | `tools/local-extract/token_spines.py` → `public/assets/local/spine/token/<id>/` + `data/local-assets.json` 그룹 `spine/token/<id>`, `tools/assets/local-token-spines.mjs` → `tools/assets/local-token-spines.json` | `tools/fetch-assets.mjs` 3줄(import, `addDiyTokenAssets`, `addDiyTokenModels` → `data/assets.json tokens[id]` 아바타·`spineLocal`), `public/js/assets.js spineEntry` 토큰 분기 1줄(`spineLocal` 사용) |
 | 함정형 소환물 표시 (望 바둑돌은 HP 바 없음, 望 바둑돌·사일런스 의료 드론은 방향 선택 없이 바로 배치·방향 표시 없음) | `shared/trap-tokens.js` | `render/units.js` 3줄(import, HP 바 조건, 방향 표시), `ui/facing.js` 2줄(import, `needsFacing`), `render/fx.js FX_KINDS` 1줄(`wangLink`: 바둑돌 활성화 이벤트의 기본 연출) |
 | 정비 화면 HUD 공식 모양 (클라이언트 프리팹 `autochess_hud_panel`·`autochess_hud_bond_item`·`panel_prep_ready`: 라운드 띠 판·양 끝 원·휴식 기간 알약·라운드 숫자판·🔍 버튼 판, 맹약 원 = `bondBoardIcon/<활성 인원>_<현재 인원>`(활성이면 꽉 찬 원) + 숫자 판 + 이름(개수/다음 단계 배지는 숨기고 툴팁에만), 준비 완료 버튼, 맹약 줄 가운데 정렬·접기 버튼, 카운트다운, 왼쪽 플레이어 목록, 맹약 팝업, 배치 기물 정보 창) | `public/js/ui/hudArt.js`, `public/js/ui/detailArt.js`, `public/css/hud-art.css` | `screens/game.js` 3줄(import, 루트 class·style), `ui/bondStrip.js` 15줄(import, 원 판 2곳, 팝업 라벨·알약, 휠 가로 스크롤 `stripWheel` + `onWheel`), `ui/teamPanel.js` 1줄(`has-watched`), `ui/components.js` 문양 크기 변수(`natSizeVars` + `BondDisc` img onLoad), `ui/gameComponents.js` 3줄(import, `Img` onLoad, `BondGlyph`), `ui/detailPanel.js` 3줄(import 2, 카드 선택), `screens/game.js` 배치 중 카드 3줄(import, 렌더), `index.html`·`dev/game-mock.html` 각 1줄, `public/i18n/ko/ui.json` 6줄(休息一下 → 휴식 기간, 剩余可放置角色 → 배치 가능 인원: 한국 서버 표기, 激活所需人数, 法抗·阻挡·费用 → 마항·저지·비용) |
@@ -45,14 +94,14 @@
 | `/healthz` 축소 (프록시를 거친 요청은 `ok`·`version`·`app`·`build`만, 접속자·방 수는 컨테이너 안 확인용) | `server/local-patch.js proxiedRequest` | `server/index.js` 2줄(import, `/healthz` 앞 1줄) |
 | 게임 결과 통계 로그 (2026-10-07: 판이 끝날 때마다 `[stats] {JSON}` 한 줄 — 모드·난이도·스테이지·보스·승패·도달 라운드·시간, 플레이어별 닉네임·봇 여부·라운드·LP·편성(id·티어·금색·장비)·맹약·전투 통계. playerId·시드는 뺌. DB·볼륨 없이 `docker logs`/OCI Logging에서 읽음) | `server/local-stats.js`, `test/local-patch-stats.test.js` | 없음 (`server/local-patch.js onMatchEnd` 1줄) |
 | 라운드 작전 종료 효과음 (2026-10-07: 내 일반 전투 결과에 공식 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*` — 아래 「작전 종료 효과음」) | `public/js/audioOfficial.js battleOverOf` | `screens/game.js` 6줄(import, 결과 배너 분기) |
-| 스킬 범위가 공격 범위보다 넓은 스킬의 자동 발동 (2026-10-07, **사용자 결정·미확정** — 공식 기본 전략과 다름, 아래 「스킬 범위 발동」) | `server/sim/local-skill-range.js` | `server/sim/Battle.js` 2줄(import, `_setupKit`), `server/sim/skills.js` 2줄(`_extraTriggerSatisfied`의 `{ keys, profile }`), `content/kits/diy.js` 1줄(赤刃明霄陈 S3 `hitsFly`) |
+| ~~스킬 범위 자동 발동~~ → 0.2.0 upstream ACTIVE_RANGE로 대체 (2026-10-07, **사용자 결정·미확정** — 공식 기본 전략과 다름, 아래 「스킬 범위 발동」) | `server/sim/local-skill-range.js` | `server/sim/Battle.js` 2줄(import, `_setupKit`), `server/sim/skills.js` 2줄(`_extraTriggerSatisfied`의 `{ keys, profile }`), `content/kits/diy.js` 1줄(赤刃明霄陈 S3 `hitsFly`) |
 | 오퍼레이터 배치 낙하 연출 (2026-10-07: 각 모델의 Start 클립으로 하늘에서 떨어짐 — 페이드·민트 기둥 없음, 아래 「배치 낙하」) | — | `render/units.js`(`onDeploy`, 모델 늦게 로드 시 클립 따라잡기, 어두운 첫 프레임, impostor), `render/fx.js` 1줄(`fx.deploy`가 `bornOfficial`이면 생략), `render/app.js` 6줄(벤치 도착·보드→벤치 복귀도 낙하, 미끄러짐 없이 목표 칸에서) |
-| iframe 차단 헤더 | — | `server/index.js` 3줄 |
+| iframe 차단 헤더 | — | `server/http/common.js setSecurityHeaders` 3줄 (0.2.0 분할 전 `server/index.js`) |
 | 나가기 창에서 「暂离（AI 托管）」 숨김 | — | `ui/matchChrome.js` (`AWAY_OPTION = false`) — 나가면 자리를 포기한다 |
 | 맹약 스택 세 자리 줄바꿈 수정 | `public/i18n/ko/ko.css` | — |
-| 협동 보스 HP = `bloodPoint` × 생존 인원 | `server/local-patch.js` (`GameData.prototype.bossPoolShare`를 감쌈) | 없음 (`lobby.js`가 이미 import) |
+| ~~협동 보스 HP = `bloodPoint` × 생존 인원~~ (0.2.0 upstream이 같은 규칙 — 패치 제거) | — | — |
 | 제국의 갑주 등장 폭격·3연타 PRTS 수치 | `server/sim/content/local-patch.js` | `server/sim/content/index.js` 1줄 (`DOMAIN_NAMES.push`) |
-| 胄 드론 연동 피해를 限伤에서 제외 | `server/sim/content/local-patch.js` | 위와 같음 |
+| ~~胄 드론 연동 피해를 限伤에서 제외~~ (0.2.0 upstream이 처리 — 패치 제거) | — | — |
 | 성당 검사(圣堂剑士) 탄약 소모 스킬·탄약 표시 (2026-10-06) | `server/sim/content/local-patch.js` | 위와 같음 + `server/sim/snapshot.js unitTuple` 1줄(`e.lpAmmo` → SP/SP 최대), `render/units.js` 2줄(SP가 있는 적도 막대 표시, 적은 「준비」 빛 없음) |
 | 더블린 그림자 캐스터(·리더) 외 27종은 비행 아군을 공격하지 않음 (2026-10-06, 아래 전수 조사; 자로는 2형태만) | `server/sim/content/local-patch.js` (`NO_AIR_KEYS`, `NO_AIR_FORMS`, `beforeAttack` 재필터) | 위와 같음 |
 | 频次(특수 HP, "N회 피해로 격파") 적에게 隐德来希 효과가 한 번에 여러 칸을 깎던 것 (2026-10-06, 원본 버그 — 원본 PR 후보): 萃血 최대 HP 흡수는 频次 적에게 안 걸림(PRTS 萃血 비고 「无法对…拥有特殊生命值机制的敌人…生效」), 心烛가 받은 피해를 원래 적에게 넘길 때 频次 적이면 출처 없는 진실 피해 1회(=1)로(PRTS 비고 「无来源真实伤害…如特殊生命值机制」) | — | `server/sim/content/kits/tier5.js` 隐德来希 2곳(萃血 조건 1줄, 心烛 전달 2줄) |
@@ -63,6 +112,7 @@
 ## 게임 수치 수정 상세 (2026-10-05)
 
 ### 협동 보스 HP
+> 0.2.0: upstream이 같은 규칙을 넣어 우리 패치를 뺐다(싱글은 upstream이 ×1로 바꿈). 아래는 기록.
 - 원본: 협동은 인원과 관계없이 `bloodPoint[난이도]` 하나, 싱글은 ×0.25. 공식 데이터·PRTS에 인원 계수는 없다(원본 이슈 #113, PR #126 모두 근거 없음을 인정).
 - 로컬: 협동 = `bloodPoint` × 최종 공세/히든 코어 시작 때 살아 있는 인원(1~4). 싱글은 원본 그대로.
   - 나간 사람은 서버가 탈락 처리하므로(`Match.onLeave` → `_quit`) 세지 않는다. HP가 0이 돼 탈락한 사람도 빠진다. AI 팀원은 센다.
@@ -76,6 +126,7 @@
 - PRTS에 없는 부분 [추정]: 제국의 갑주가 죽으면 남은 폭격도 멈춘다.
 
 ### 假想敌：胄 드론 연동과 限伤
+> 0.2.0: upstream이 드론 몫을 限伤 밖으로 처리해 `exemptDroneLink`를 뺐다. 아래는 기록.
 - 드론이 죽으면 리더가 HP 풀의 2%를 잃는다. 원본의 限伤(리더에게 300,000 이상 들어가는 한 방은 무효)에 걸려, 풀이 15,000,000을 넘으면
   드론을 잡아도 아무 일이 없었다. 위의 보스 HP 수정으로 절경 히든 胄 3~4인에서 그렇게 된다.
 - 로컬: 胄 드론의 사망 처리 중에 리더가 받는 한도 이상 손실은 한도 아래 조각으로 나눠 넣는다(합계·공로 동일). 다른 공격은 그대로 限伤이 적용된다.
@@ -192,6 +243,8 @@
   확인: `test/local-patch.test.js` 「结算 lines wait for the won settlement」, 브라우저(game-mock 결산: 승리 1회 재생, 탈락·패배 무음).
 
 ## 선발 오퍼레이터 (2026-10-05)
+> 0.2.0부터 upstream 「自选」 틀 위에서 동작한다(위 「0.2.0 병합」). 이 절의 데이터·풀·UI 설명(`data/diy.json`, 전용 풀, `diySlots.js`)은
+> 지난 구현 기록이고, 키트 동작과 사용자 결정은 `kits/ops/op-*.js`로 그대로 옮겨졌다.
 - 원본 甄选 규칙(공식 데이터 + bilibili wiki 盟约): V·VI단계 2칸씩, 경기 전 오퍼레이터 구성 화면에서 고른다. 고른 오퍼레이터는 그
   플레이어 상점에만 나오고, 일반 E2 Lv1·스킬 4 / 정예 E2 Lv60·스킬 7·모듈 1(V) 또는 3(VI), 가격 4·판매 1·3장 합성. 특질 없음.
   맹약은 진영으로(위키 규칙, 叙拉古·卡西米尔 확장은 [추정]), 없으면 협방(emptyShip): 왕·첸 → 염, 나머지 → 협방.
@@ -1197,6 +1250,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 테스트: `test/local-patch-battleover.test.js`.
 
 ## 스킬 범위 발동 (2026-10-07, 사용자 결정 — 미확정)
+> 0.2.0 병합에서 upstream `ACTIVE_RANGE` 규칙으로 대체(사용자 결정 2026-10-07). `local-skill-range.js`는 지웠다. 「미확정」은 그대로.
 - 사용자: 「스킬 범위가 공격 범위보다 넓은 오퍼레이터는 기본 공격을 못하더라도 스킬 범위 안에 적이 들어오면 자동으로 스킬을 사용해야 한다. 본체가 공중을
   못 쳐도 스킬이 공중을 치면(赤刃明霄陈 S3) 공중 적도 발동 조건」. 근거는 사용자 기억과 다른 플레이어의 제보이고 **공식 자료와 다르다** — 공식 기본 전략
   (`skillTriggerDataList`가 없는 MANUAL 스킬, PRTS 卫戍协议/帮助 「技能就绪，且即将进行普通攻击」, 「攻击范围扩大」 같은 공격 범위 변경은 기본 전략)이
@@ -1235,6 +1289,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   변경이라 따로), 배치 효과음 시점(캡처에 소리 없음).
 
 ## 원본 버그 수정 선반영 (2026-10-07, 사용자 요청 「upstream에 보고된 버그 중 쉬운 것 바로 수정」)
+> 0.2.0 병합으로 정리됨: 아래 10건은 모두 upstream 0.2.0에 들어 있어 병합에서 upstream 쪽을 택했다(정예화 보상의 선발 조건만 우리 결정으로 다시 고침 — 「0.2.0 병합」).
 upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 코드·테스트를 그대로** 옮기는 것이 목적이라 `// local patch` 주석을 달지 않고,
 "원본 테스트 파일은 고치지 않는다" 원칙의 예외로 원본이 같이 고친 테스트도 그대로 가져왔다(0.2.0 병합 때 같은 줄이 되어 사라진다).
 분류 기록: `upstream/ISSUES.md` 「로컬 패치함」.
@@ -1261,8 +1316,8 @@ upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 �
 ## 원본이 고치면 뺄 것
 - 원본 버그 수정 선반영(위 표, 2026-10-07) → 0.2.0 병합 때 충돌은 **원본 쪽**으로 푼다(#199는 PR #221 변경을 버림)
 - 제국의 갑주 폭격·3연타 → `server/sim/content/local-patch.js`의 `patchVtsk`
-- 협동 보스 HP 인원 배율 → `server/local-patch.js`의 `bossPoolShare` 감싸기 (원본이 인원 배율을 넣으면 이중으로 곱해진다)
-- 드론 限伤 예외 → `exemptDroneLink` (원본이 보스 HP를 바꾸거나 限伤 규칙을 바꾸면 다시 판단)
+- ~~협동 보스 HP 인원 배율~~ — 0.2.0에서 뺐다(upstream이 넣음)
+- ~~드론 限伤 예외~~ — 0.2.0에서 뺐다(upstream이 처리)
 - 频次 적 × 隐德来希 → `tier5.js`의 `// local patch` 2곳 (원본이 고치면 되돌린다. 테스트: 「频次 enemies lose exactly 1 HP per damage instance」)
 - 얼린 상점의 특수 갱신 칸 → `effectsMeta.js setShopSlot`의 `prev` 2줄 (원본이 고치면 되돌린다)
 - 채팅·관전석 등은 원본에 같은 기능이 생기면 비교해서 정리
