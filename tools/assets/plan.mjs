@@ -25,8 +25,8 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, skillModes, unitGroups, skillLoops } from './skill-mode-sfx.mjs'; // local patch
-import { kitHitSfx, kitHitGroups } from './kit-sfx.mjs'; // local patch
+import { loadCharModes, skillModes, unitGroups, skillLoops, defaultModeBanks } from './skill-mode-sfx.mjs'; // local patch
+import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
  * The voice slots are read from the zh_CN charword table, whose voiceIds are always `CN_*`: the other dubs
@@ -340,10 +340,18 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     // skill icons (+ skill SFX) of every skill index; normal-mode attack / impact sounds only (a ranged operator's own
     // projectile banks projectile_chr_<name> as fallbacks — user playtest #4 item 6, audio.mjs pickUnitSfx)
     const short = id.replace(/^char_\d+_/, '');
-    const sfx = pickUnitSfx(audio.unitBanks.get(id), { operator: true, projectile: {
-      born: audio.bank(`battle.ON_PROJECTILE_BORN.projectile_chr_${short}`),
+    // local patch (user report 2026-10-07 #7): an operator with known modes sounds its normal attack from its Default mode
+    // only (skill-mode-sfx.mjs defaultModeBanks: 银灰 S3's p_atk_silver_n rang on every attack), and the Default mode's own
+    // projectiles (charpack _projectileKey: 银灰 projectile_svrash) come before the name guess
+    const info = charModes[id];
+    const defProj = Array.isArray(info?.proj?.[0]) ? info.proj[0] : [];
+    const proj = {
+      born: firstBank(audio, [...defProj.map((k) => `battle.ON_PROJECTILE_BORN.${k}`), `battle.ON_PROJECTILE_BORN.projectile_chr_${short}`]),
       // local patch: a projectile named <name>_default (维什戴尔's normal shot) when there is no plain one
-      hit: firstBank(audio, [`battle.ON_PROJECTILE_HIT.projectile_chr_${short}`, `battle.ON_PROJECTILE_HIT.projectile_chr_${short}_default`]) } });
+      hit: firstBank(audio, [...defProj.flatMap((k) => [`battle.ON_PROJECTILE_HIT.${k}`, `battle.ON_PROJECTILE_REACH.${k}`]),
+        `battle.ON_PROJECTILE_HIT.projectile_chr_${short}`, `battle.ON_PROJECTILE_HIT.projectile_chr_${short}_default`]) };
+    const sfx = pickUnitSfx(defaultModeBanks(audio.unitBanks.get(id), info, { projectile: proj.born.length > 0 || proj.hit.length > 0 }),
+      { operator: true, defaultZero: !!info, projectile: proj });
     const { roles: u, mix } = unitSounds(audio, sfx);
     const skillSfx = {};
     const skillPaths = {}; // local patch: start sound paths per index (their mixer groups, skill-mode-sfx.mjs unitGroups)
@@ -618,5 +626,6 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   for (const [key, lang] of Object.entries(VOICE_TWINS)) template.audio[key] = voiceTwin(voice, voiceLang, lang); // local patch: the other dub (tools/assets/voice.mjs)
   template.audio.sfx.kit = kitHitSfx(audio, soundLeaf, notes); // local patch: the kits' skill hit sounds (tools/assets/kit-sfx.mjs)
   template.audio.sfx.kitGrp = kitHitGroups(audio); // local patch: their mixer groups (public/js/audioOfficial.js)
+  template.audio.sfx.kitLimit = kitHitLimits(audio); // local patch: their banks' popOldest / maxSoundAllowed (audio.js)
   return { template, models, notes };
 }

@@ -131,6 +131,31 @@ export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallba
   return Object.keys(out).length ? out : null;
 }
 
+/** A unit bank of an attack ability: `ON_ABILITY_START|ON|HIT.attack|combat[.<n>…]`. */
+const ATTACK_BANK = /^ON_ABILITY_(?:START|ON|HIT)\.(?:attack|combat)(?:\.(\d+))?(?:\.|$)/;
+/** A skill's mode name (`S<k>…`, `Sk<k>…`); talent modes (靛 Default_T1) are normal attacks. */
+const SKILL_MODE = /^Sk?\d/i;
+
+/**
+ * Normal attacks sound from the Default mode only (user report 2026-10-07 #7: 银灰's S3 p_atk_silver_n on every attack):
+ * a unit bank table without the attack banks of its skill modes (`ON_ABILITY_*.attack|combat.<n>…`, modes[n] a skill's
+ * mode). `.attack.0…` (Default with `_includeIndexZero`) and talent modes stay. Unchanged without mode info — and, [ASSUMED]
+ * conservative, when the Default mode would keep no attack bank at all and has no projectile bank (`projectile`): 玛恩纳 /
+ * 蜜蜡 / 薄绿 / 卡涅利安 / sbell2 keep their old pick rather than go silent until the official sound is confirmed.
+ * @param {Map<string, string[]>|undefined} banks audio.unitBanks.get(charId)
+ * @param {{ modes?: string[] }|undefined} info local-char-modes.json entry
+ * @param {{ projectile?: boolean }} [o] projectile: a Default projectile bank sounds the attack
+ */
+export function defaultModeBanks(banks, info, { projectile = false } = {}) {
+  if (!banks || !Array.isArray(info?.modes) || info.modes.length < 2) return banks;
+  const out = new Map([...banks].filter(([k]) => {
+    const m = ATTACK_BANK.exec(k);
+    return !m || m[1] == null || !SKILL_MODE.test(info.modes[+m[1]] || '');
+  }));
+  const kept = [...out.keys()].some((k) => ATTACK_BANK.test(k) && out.get(k)?.length);
+  return kept || projectile ? out : banks;
+}
+
 /**
  * sfx.units[id].grp: the mixer group of each role's bank ({ attack, hit, die, born } of pickUnitSfx, and
  * `skills: { [index]: group }` for the skill start sounds), or null.

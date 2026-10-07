@@ -90,7 +90,11 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'zone': return ex.token === 'token_10064_wang_stone1' && [1, 2, 3].includes(ex.skill) ? `wang:${ex.skill}` : null;
     case 'wangLink': return ex.first ? 'wang:link' : null;
     case 'swordStorm': return ex.id != null && def(ex.id) === 'char_1050_chen3' ? 'chen3:s2' : null;
-    case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : null;
+    // local patch (user report 2026-10-07 #10): 蕾缪安 S3 — the bombardment's start (first shell), each landing, the lock
+    // mark (S2's aim lock sends the same fx: only while her S3 is equipped)
+    case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : def(ex.id) === 'char_4193_lemuen' && ex.i === 0 ? 'lemuen:s3end' : null;
+    case 'bombard': return def(ex.id) === 'char_4193_lemuen' ? 'lemuen:shell' : null;
+    case 'lock': { const u = unitOf(ex.src); return u?.def === 'char_4193_lemuen' && u.skillIndex === 2 ? 'lemuen:mark' : null; }
     case 'explode': return def(ex.by) === 'char_1035_wisdel' ? 'wisdel:bomb' : null;
     case 'burst': return def(ex.id) === 'token_10035_wisdel_wward' ? 'wisdel:token' : null;
     case 'oblvnsNote': return ex.e === 'hit' && typeof ex.m === 'string' ? `oblvns:${ex.m}` : null;
@@ -364,9 +368,9 @@ export class SfxLimiter {
    * @param {string|number|null} unitKey e.g. `${unitId}:atk`
    * @param {string} url
    */
-  tryAcquire(now, unitKey, url) {
+  tryAcquire(now, unitKey, url, maxPerUrl = this.maxPerUrl) { // local patch: a bank's own cap (kit sounds, sfx.kitLimit)
     if (this.active >= this.maxVoices) return false;
-    if ((this.activeByUrl.get(url) || 0) >= this.maxPerUrl) return false;
+    if ((this.activeByUrl.get(url) || 0) >= maxPerUrl) return false;
     if (unitKey != null) {
       const t = this.lastByUnit.get(unitKey);
       if (t != null && now - t < this.unitCooldownMs) return false;
@@ -779,29 +783,42 @@ export class AudioManager {
 
   // ---- SFX ------------------------------------------------------------------------------------------------
 
-  _play(url, { volume = 1, rate = 1, limited = false, unitKey = null } = {}) {
+  _play(url, { volume = 1, rate = 1, limited = false, unitKey = null, pop = null } = {}) {
     if (!this.ctx || !url || this.volumes.muted || this.volumes.sfx <= 0) return;
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    if (limited) { if (!this.limiter.tryAcquire(now, unitKey, url)) return; }
+    // local patch (user report 2026-10-07 #10): `pop` = { max } of an official popOldest bank (kit sounds, sfx.kitLimit) —
+    // at its cap the oldest copy it started is cut for the new one (蕾缪安 S3's shells), where unit sounds drop the new one
+    const max = pop && Number.isInteger(pop.max) && pop.max > 0 ? pop.max : this.limiter.maxPerUrl;
+    const popped = pop ? (this._popped ||= new Map()) : null;
+    if (popped) { const list = popped.get(url); while (list?.length && (this.limiter.activeByUrl.get(url) || 0) >= max) list[0](); }
+    if (limited) { if (!this.limiter.tryAcquire(now, unitKey, url, max)) return; }
     else if (this.uiVoices >= 12) return;
     else this.uiVoices += 1;
-    const release = () => { if (limited) this.limiter.release(url); else this.uiVoices = Math.max(0, this.uiVoices - 1); };
+    let done = false, s = null, g = null;
+    const end = () => {
+      if (done) return;
+      done = true;
+      if (limited) this.limiter.release(url); else this.uiVoices = Math.max(0, this.uiVoices - 1);
+      if (popped) { const list = popped.get(url); const i = list ? list.indexOf(cut) : -1; if (i >= 0) list.splice(i, 1); if (list && !list.length) popped.delete(url); }
+      try { g?.disconnect(); } catch { /* ignore */ }
+    };
+    const cut = () => { try { s?.stop(); } catch { /* ignore */ } end(); };   // local patch: popOldest
+    if (popped) { if (!popped.has(url)) popped.set(url, []); popped.get(url).push(cut); }
     this._buffer(url).then((buf) => {
-      if (!buf || !this.ctx) { release(); return; }
+      if (done) return;   // local patch: cut while it loaded
+      if (!buf || !this.ctx) { end(); return; }
       try {
-        const s = this.ctx.createBufferSource();
+        s = this.ctx.createBufferSource();
         s.buffer = buf;
         s.playbackRate.value = rate;
-        const g = this.ctx.createGain();
+        g = this.ctx.createGain();
         g.gain.value = Math.max(0, Math.min(1.5, volume));
         s.connect(g); g.connect(this.sfxGain);
-        let done = false;
-        const end = () => { if (!done) { done = true; release(); try { g.disconnect(); } catch { /* ignore */ } } };
         s.onended = end;
         setTimeout(end, (buf.duration / rate) * 1000 + 250); // safety if onended never fires
         s.start();
-      } catch { release(); }
-    }, release);
+      } catch { end(); }
+    }, end);
   }
 
   /**
@@ -1083,7 +1100,8 @@ export class AudioManager {
           // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
           const hk = kitHitKey(e[1], e[4], (id) => this.units.get(id));
           const hurl = hk ? this.getManifest()?.audio?.sfx?.kit?.[hk] : null;
-          if (typeof hurl === 'string') this._play(hurl, { volume: groupGain(this.getManifest()?.audio?.sfx?.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, unitKey: `kit:${hk}` }); // local patch: its mixer group
+          if (typeof hurl === 'string') this._play(hurl, { volume: groupGain(this.getManifest()?.audio?.sfx?.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, unitKey: `kit:${hk}`,
+            pop: this.getManifest()?.audio?.sfx?.kitLimit?.[hk] ?? null }); // local patch: its mixer group; its bank's popOldest (sfx.kitLimit)
           // a summon used up by its own effect (香槟炸弹 exploding: `consumed`): its impact sound now, no death sound
           const ex = e[4];
           if (!ex || typeof ex !== 'object' || !ex.consumed || ex.id == null) continue;

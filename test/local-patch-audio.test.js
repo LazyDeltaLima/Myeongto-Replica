@@ -172,3 +172,91 @@ describe('the official mix and mode sounds in audio.js (audioOfficial.js)', () =
     assert.ok(a.played[0].volume < 0.4);
   });
 });
+
+describe('normal attacks sound only their Default mode (user report 2026-10-07 #7: 银灰 S3 on every attack)', () => {
+  test('defaultModeBanks: skill modes\' numbered attack banks leave the table; Default .0, combat, talent modes stay', async () => {
+    const { defaultModeBanks } = await import('../tools/assets/skill-mode-sfx.mjs');
+    const sv = new Map([['ON_ABILITY_HIT.combat', ['spear_n']], ['ON_ABILITY_START.attack.2', ['silver_n']], ['ON_ABILITY_HIT.attack.1', ['sword_n']],
+      ['ON_UNIT_DEAD', ['die']]]);
+    assert.deepEqual([...defaultModeBanks(sv, { modes: ['Default', 'S2', 'S3'] }).keys()], ['ON_ABILITY_HIT.combat', 'ON_UNIT_DEAD']);
+    const ob = new Map([['ON_ABILITY_ON.attack.0.1', ['a_h']], ['ON_ABILITY_START.attack.4.1', ['slnt']]]);
+    assert.deepEqual([...defaultModeBanks(ob, { modes: ['Default', 'S2_AttackSpeed', 'S2_Atk', 'S2_Fever', 'S3'] }).keys()], ['ON_ABILITY_ON.attack.0.1']);
+    const ind = new Map([['ON_ABILITY_ON.attack.1', ['t1']], ['ON_ABILITY_ON.attack.2', ['s1']]]);
+    assert.deepEqual([...defaultModeBanks(ind, { modes: ['Default', 'Default_T1', 'S1'] }, { projectile: true }).keys()], ['ON_ABILITY_ON.attack.1'], 'Default_T1 is a talent mode');
+    assert.equal(defaultModeBanks(sv, undefined), sv, 'no mode info: unchanged');
+    // [ASSUMED] no Default attack bank at all (玛恩纳 — only S1's): the old pick stays rather than a silent attack
+    const ml = new Map([['ON_ABILITY_HIT.attack.1', ['loyal_n']]]);
+    assert.equal(defaultModeBanks(ml, { modes: ['Default', 'S1', 'S2', 'S3'] }), ml);
+    assert.equal(defaultModeBanks(ml, { modes: ['Default', 'S1', 'S2', 'S3'] }, { projectile: true }).size, 0, 'a Default projectile bank counts');
+  });
+
+  test('the manifest: 银灰 / 号角 / 丰川祥子 / 圣约送葬人 / 雷蛇 normal attacks without their skill-mode sounds', () => {
+    const sv = UNITS.char_172_svrash;
+    assert.equal(sv.attack, undefined, '银灰: no Default attack sound (not S3\'s p_atk_silver_n)');
+    assert.match(file(sv.hit), /^p_imp_spear_n\.mp3$/, '银灰: his Default combat impact');
+    assert.ok(!/blackcannon/.test(UNITS.char_4039_horn.attack || ''), '号角: not S2\'s cannon cast');
+    assert.match(file(UNITS.char_4039_horn.hit), /^p_imp_heavygun_n\.mp3$/);
+    assert.match(file(UNITS.char_4182_oblvns.attack), /^p_atk_mjckyrdnt_h\.mp3$/, '丰川祥子: her Default ON.attack.0.1, not S3\'s slnt');
+    assert.equal(UNITS.char_1032_excu2.hit, undefined, '圣约送葬人: not S3_End\'s p_imp_bngel');
+    assert.equal(UNITS.char_107_liskam.hit, undefined, '雷蛇: not S2\'s lightning');
+    assert.match(file(UNITS.char_4064_mlynar.hit), /^p_imp_loyalsword_n\.mp3$/, '玛恩纳 [ASSUMED]: no Default bank — the old pick stays');
+    assert.match(file(UNITS.char_172_svrash.modes['2'].attack), /^p_atk_silver_n\.mp3$/, 'S3 keeps its own');
+  });
+
+  test('蕾缪安 S3: lock mark, bombardment start, each shell landing (user report #10)', async () => {
+    const { kitHitKey } = await import('../public/js/audio.js');
+    const units = new Map([[1, { def: 'char_4193_lemuen', skillIndex: 2 }], [2, { def: 'char_4193_lemuen', skillIndex: 1 }], [3, { def: 'char_1035_wisdel' }]]);
+    const of = (id) => units.get(id);
+    assert.equal(kitHitKey('lock', { id: 9, src: 1 }, of), 'lemuen:mark');
+    assert.equal(kitHitKey('lock', { id: 9, src: 2 }, of), null, 'S2\'s aim lock is no S3 mark');
+    assert.equal(kitHitKey('bombardShell', { id: 1, i: 0 }, of), 'lemuen:s3end');
+    assert.equal(kitHitKey('bombardShell', { id: 1, i: 3 }, of), null, 'the start sounds once');
+    assert.equal(kitHitKey('bombardShell', { id: 3, i: 0 }, of), 'wisdel:s2');
+    assert.equal(kitHitKey('bombard', { id: 1 }, of), 'lemuen:shell');
+    assert.equal(kitHitKey('bombard', { id: 3 }, of), null);
+    for (const k of ['lemuen:mark', 'lemuen:s3end', 'lemuen:shell']) assert.match(manifest.audio.sfx.kit?.[k] || '', /\/p_(imp|atk)\/p_(imp|atk)_lmwlcrstr/, k);
+    assert.equal(manifest.audio.sfx.kitGrp['lemuen:shell'], 'Battle_P_SImp');
+  });
+});
+
+describe('kit sounds cut their oldest copy like the official popOldest banks (蕾缪安 S3 shells, user report #10)', () => {
+  /** A manager with a fake Web Audio context: every source it starts / stops is recorded. */
+  function live() {
+    const a = new AudioManager({ win: null, getManifest: () => manifest, random: () => 0 });
+    const started = [], stopped = [];
+    a.ctx = {
+      createBufferSource: () => ({ buffer: null, playbackRate: { value: 1 }, onended: null, connect() {},
+        start() { started.push(this); }, stop() { stopped.push(this); this.onended?.(); } }),
+      createGain: () => ({ gain: { value: 1 }, connect() {}, disconnect() {} }),
+    };
+    a.sfxGain = {};
+    a._buffer = async () => ({ duration: 30 });
+    a.voice = () => false;
+    a.limiter.unitCooldownMs = 0; a.limiter.urlGapMs = 0;   // the gaps are not under test
+    return { a, started, stopped };
+  }
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+
+  test('the manifest carries the official limits of the kit banks (sfx.kitLimit)', () => {
+    assert.deepEqual(manifest.audio.sfx.kitLimit?.['lemuen:shell'], { max: 3, pop: true });
+    assert.deepEqual(manifest.audio.sfx.kitLimit?.['lemuen:mark'], { max: 1, pop: true });
+  });
+
+  test('five shells landing: all five sound, at most 3 at once, the oldest cut', async () => {
+    const { a, started, stopped } = live();
+    a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: 'char_4193_lemuen', defId: 'chess_x', skillIndex: 2 }]);
+    const url = manifest.audio.sfx.kit['lemuen:shell'];
+    for (let i = 0; i < 5; i++) { a.handleBattleEvents([['fx', 'bombard', 3, 3, { id: 1, r: 1 }]]); await tick(); }
+    const shells = started.filter((s) => s.buffer);
+    assert.equal(shells.length, 5, 'every landing starts its sound');
+    assert.equal(stopped.length, 2, 'the two oldest were cut');
+    assert.equal(a.limiter.activeByUrl.get(url), 3, 'three playing');
+  });
+
+  test('unit sounds keep the old cap: a third overlapping copy is dropped, nothing cut', async () => {
+    const { a, started, stopped } = live();
+    for (let i = 0; i < 3; i++) { a._play('/x/hit.mp3', { limited: true, unitKey: `u${i}` }); await tick(); }
+    assert.equal(started.length, 2);
+    assert.equal(stopped.length, 0);
+  });
+});

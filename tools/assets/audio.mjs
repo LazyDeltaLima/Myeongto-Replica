@@ -71,6 +71,7 @@ export function indexAudio(audioData) {
   const banks = new Map();
   const mixes = new WeakMap(); // a bank's path list (the very array every lookup hands out) → bankMix
   const groups = new WeakMap(); // local patch: the same list → its bank's customMixerGroup (tools/assets/skill-mode-sfx.mjs)
+  const limits = new WeakMap(); // local patch: the same list → { max: maxSoundAllowed, pop: popOldest } (tools/assets/kit-sfx.mjs)
   const loopBanks = []; // local patch: [{ name, paths }] of the looping banks (skill-mode-sfx.mjs skillLoops)
   for (const b of Array.isArray(audioData?.soundFXBanks) ? audioData.soundFXBanks : []) {
     if (!b || typeof b.name !== 'string') continue;
@@ -80,6 +81,7 @@ export function indexAudio(audioData) {
     for (const p of paths) if (!list.includes(p)) list.push(p);
     if (list.length && !mixes.has(list)) { const m = bankMix(b.sounds, list[0]); if (m) mixes.set(list, m); }
     if (list.length && !groups.has(list) && typeof b.customMixerGroup === 'string' && b.customMixerGroup) groups.set(list, b.customMixerGroup); // local patch
+    if (list.length && !limits.has(list) && Number.isInteger(b.maxSoundAllowed) && b.maxSoundAllowed > 0) limits.set(list, { max: b.maxSoundAllowed, pop: b.popOldest === true }); // local patch
     if (b.loop === true && list.length) loopBanks.push({ name: b.name, paths: list }); // local patch
   }
   const alias = audioData?.bankAlias && typeof audioData.bankAlias === 'object' ? audioData.bankAlias : {};
@@ -121,7 +123,8 @@ export function indexAudio(audioData) {
   for (const name of Object.keys(alias)) if (!banks.has(name)) { const p = bank(name); if (p.length) addUnit(name, p); }
   const mixOf = (paths) => (paths && typeof paths === 'object' && mixes.get(paths)) || null;
   const groupOf = (paths) => (paths && typeof paths === 'object' && groups.get(paths)) || null; // local patch
-  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf, loopBanks };
+  const limitOf = (paths) => (paths && typeof paths === 'object' && limits.get(paths)) || null; // local patch
+  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf, limitOf, loopBanks };
 }
 
 /** Sort key for ability sub-keys: plain first, then numeric suffixes ascending. */
@@ -135,9 +138,9 @@ function firstMatching(banks, event, abilities, ok = () => true) {
   const keys = [...banks.keys()].filter((k) => k.startsWith(event + '.'));
   for (const ab of abilities) {
     const exact = `${event}.${ab}`;
-    if (banks.get(exact)?.length && ok(banks.get(exact))) return banks.get(exact);
+    if (banks.get(exact)?.length && ok(banks.get(exact), exact)) return banks.get(exact);
     const numbered = keys.filter((k) => k.startsWith(exact + '.')).sort(abilityOrder);
-    for (const k of numbered) if (banks.get(k)?.length && ok(banks.get(k))) return banks.get(k);
+    for (const k of numbered) if (banks.get(k)?.length && ok(banks.get(k), k)) return banks.get(k); // local patch: + the key
   }
   return null;
 }
@@ -161,6 +164,9 @@ export function pickUnitSfx(banks, opts = {}) {
   // skill mode, whose files end in _d / _h / _s — never the normal attack's (纯烬艾雅法拉's S3 impact rang on every hit);
   // a ranged operator's normal attack / impact is its own projectile's bank (projectile_chr_<name>)
   const ok = opts.operator ? normalModeBank : () => true;
+  // local patch (user report 2026-10-07 #7): with the skill modes' banks taken out (skill-mode-sfx.mjs defaultModeBanks,
+  // opts.defaultZero) an `.attack.0…` / `.combat.0…` bank is the Default mode's own whatever its file suffix (丰川祥子 _h)
+  const okKey = opts.defaultZero ? (p, k) => ok(p) || (/^ON_ABILITY_\w+\.(attack|combat)\.0(\.|$)/.test(k || '') && p?.length > 0) : ok;
   // Looser pass: abilities whose name mentions attack/combat (PowerAttack, StunCombat, CrossAttack…).
   // Other abilities (skills, talents 'T.*', mode switches) are not normal attacks.
   const attackLike = (event) => {
@@ -175,10 +181,10 @@ export function pickUnitSfx(banks, opts = {}) {
   // operators: the plain ability of either event before any numbered variant
   const plain = opts.operator ? exact('ON_ABILITY_START') ?? exact('ON_ABILITY_ON') : null;
   const attack = plain
-    ?? firstMatching(banks, 'ON_ABILITY_START', ['attack', 'combat'], ok)
-    ?? firstMatching(banks, 'ON_ABILITY_ON', ['attack', 'combat'], ok)
+    ?? firstMatching(banks, 'ON_ABILITY_START', ['attack', 'combat'], okKey)
+    ?? firstMatching(banks, 'ON_ABILITY_ON', ['attack', 'combat'], okKey)
     ?? own(proj.born) ?? attackLike('ON_ABILITY_START') ?? attackLike('ON_ABILITY_ON');
-  const hit = firstMatching(banks, 'ON_ABILITY_HIT', ['attack', 'combat'], ok) ?? own(proj.hit) ?? attackLike('ON_ABILITY_HIT');
+  const hit = firstMatching(banks, 'ON_ABILITY_HIT', ['attack', 'combat'], okKey) ?? own(proj.hit) ?? attackLike('ON_ABILITY_HIT');
   if (attack) out.attack = attack;
   if (hit) out.hit = hit;
   if (banks.get('ON_UNIT_DEAD')?.length) out.die = banks.get('ON_UNIT_DEAD');

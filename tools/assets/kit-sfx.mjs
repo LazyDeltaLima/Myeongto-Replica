@@ -29,6 +29,11 @@ export const KIT_HIT_BANKS = Object.freeze({
   'whitw2:s1': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel_s1_1',
   'whitw2:s2': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel_s2',
   'whitw2:s3': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel_s3',
+  // 蕾缪安 S3 (user report 2026-10-07 #10): the lock mark (its buff's show effect), the bombardment's start (S3_End mode
+  // ability, once: the first shell), each shell landing (projectile_chr_lemuen_s3_attack reached)
+  'lemuen:mark': 'battle.ON_BUFF_SHOW_EFFECT.char_lemuen_range_aim',
+  'lemuen:s3end': 'battle.ON_ABILITY_START.char_4193_lemuen.attack.4',
+  'lemuen:shell': 'battle.ON_PROJECTILE_REACH.projectile_chr_lemuen_s3_attack',
 });
 
 /**
@@ -52,5 +57,18 @@ export function kitHitGroups(audio) {
   const out = {};
   if (typeof audio.groupOf !== 'function') return out;
   for (const [key, bank] of Object.entries(KIT_HIT_BANKS)) { const g = audio.groupOf(audio.bank(bank)); if (g) out[key] = g; }
+  return out;
+}
+
+/**
+ * sfx.kitLimit: key → { max, pop: true } for the keys whose bank cuts its oldest copy when full (`popOldest`, at most
+ * `maxSoundAllowed` at once) — public/js/audio.js plays those so every hit sounds (蕾缪安 S3: five shells 0.3 s apart on a
+ * 1.6 s file, user report 2026-10-07 #10) instead of dropping the newest at the unit sounds' 2.
+ * @param {{ bank: (name: string) => string[], limitOf?: (p: string[]) => ({ max: number, pop: boolean }|null) }} audio
+ */
+export function kitHitLimits(audio) {
+  const out = {};
+  if (typeof audio.limitOf !== 'function') return out;
+  for (const [key, bank] of Object.entries(KIT_HIT_BANKS)) { const l = audio.limitOf(audio.bank(bank)); if (l?.pop) out[key] = { max: l.max, pop: true }; }
   return out;
 }
