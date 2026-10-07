@@ -29,7 +29,7 @@
 | 정비 화면 HUD 공식 모양 (클라이언트 프리팹 `autochess_hud_panel`·`autochess_hud_bond_item`·`panel_prep_ready`: 라운드 띠 판·양 끝 원·휴식 기간 알약·라운드 숫자판·🔍 버튼 판, 맹약 원 = `bondBoardIcon/<활성 인원>_<현재 인원>`(활성이면 꽉 찬 원) + 숫자 판 + 이름(개수/다음 단계 배지는 숨기고 툴팁에만), 준비 완료 버튼, 맹약 줄 가운데 정렬·접기 버튼, 카운트다운, 왼쪽 플레이어 목록, 맹약 팝업, 배치 기물 정보 창) | `public/js/ui/hudArt.js`, `public/js/ui/detailArt.js`, `public/css/hud-art.css` | `screens/game.js` 3줄(import, 루트 class·style), `ui/bondStrip.js` 15줄(import, 원 판 2곳, 팝업 라벨·알약, 휠 가로 스크롤 `stripWheel` + `onWheel`), `ui/teamPanel.js` 1줄(`has-watched`), `ui/components.js` 문양 크기 변수(`natSizeVars` + `BondDisc` img onLoad), `ui/gameComponents.js` 3줄(import, `Img` onLoad, `BondGlyph`), `ui/detailPanel.js` 3줄(import 2, 카드 선택), `screens/game.js` 배치 중 카드 3줄(import, 렌더), `index.html`·`dev/game-mock.html` 각 1줄, `public/i18n/ko/ui.json` 6줄(休息一下 → 휴식 기간, 剩余可放置角色 → 배치 가능 인원: 한국 서버 표기, 激活所需人数, 法抗·阻挡·费用 → 마항·저지·비용) |
 | 상점 화면 공식 모양 (클라이언트 프리팹 `autochess_shop`·`_card_item`·`_cost_item`·`_bond_item` 좌표·글꼴·색, 공식 그림: 카드 테두리·[ NO INFO ]·동결/갱신/잠김 버튼·자금 알약·접기 상자·승급 상자·가격 육각형, 카드 워터마크 = 特质 유형 아이콘, 스킬 아이콘 오른쪽 아래) | `public/js/ui/shopArt.js`, `public/css/shop-art.css` | `ui/shopBar.js` 3줄(import, 워터마크, `<section>` class·style), `index.html`·`dev/game-mock.html` 각 1줄 |
 | 배치 UI 공식 모양 (3D 보드: 배치 가능 칸 초록 곱하기 틴트·공격 범위 주황 줄무늬 `sprite_attack_range`, 배치 중 기물 반투명, 방향 선택 = 클라이언트 `panel_direction_selector` 그림·주변 어둡게·취소 태그·「방향을 가운데로 되돌려 취소」 말풍선) | `public/js/render/board3d/tileOverlay.js`, `public/js/ui/placeArt.js`, `public/css/place-art.css`, `test/render/placement-ui.test.js` | `board3d/scene.js` 4줄(import, 생성, update, dispose), `render/app.js`(drawHighlight·clearHl 3D 분기, 줄무늬 그림 로드, ghost·holdPiece, `stripesUnder`), `render/units.js` 2줄(`GHOST_ALPHA`), `ui/facingWheel.js`(import, 공식 그림이 있으면 `PlaceWheelArt`, 3D 줄무늬 중복 방지), `index.html`·`dev/game-mock.html` 각 1줄, `dev/game-mock.js` `?stage=`, `i18n/ko/ui.json` 1줄, `tools/local-extract/extract.py` JOBS 2줄 |
-| 전투 화면 UI 공식 모양 (2026-10-07~, 진행 중: ① 아군 체력·SP·탄환 바 + 기물 레벨) — 바는 발밑 아래·화면 고정 크기(1단위 = min(폭/1920, 높이/1080)), HP `#49b2e3`·SP `#caec46`·스킬 중 `#ffa800`·검정 α.5 받침, 탄환형 스킬은 탄환마다 칸, SP 가득 참 빛 없음, 전투 중 레벨 칩 없음, 정비 중 레벨 칩 = 공식 `autochess_level_N` | `public/js/render/hud-bars.js`, `server/sim/local-hud.js`, `test/local-patch-hud.test.js` | `render/units.js`(import 1줄, `_buildHud` 2줄, `sync` 1줄, `_updateHud`의 아군 분기·칩·보호막·원소 줄 위치), `server/sim/Battle.js` 2줄(import, `snapshot()`의 `ammo`), `render/interp.js` 2줄(`ammo` → 샘플) |
+| 전투 화면 UI 공식 모양 (2026-10-07~, 진행 중: ① 아군 체력·SP·탄환 바 + 기물 레벨) — 바는 발밑 아래·화면 고정 크기(1단위 = min(폭/1920, 높이/1080)), HP `#49b2e3`·SP `#caec46`·스킬 중 `#ffa800`·검정 α.5 받침, 탄환형 스킬은 탄환마다 칸, SP 가득 참 빛 없음, 전투 중 레벨 칩 없음, 정비 중 레벨 칩 = 공식 그림(`img_chess_level_N`, 크기는 `autochess_level_N` 기준), 정비 중 장비 바(장착 아이템이 있을 때만) | `public/js/render/hud-bars.js`, `server/sim/local-hud.js`, `test/local-patch-hud.test.js` | `render/units.js`(import 1줄, `_buildHud` 2줄, `sync` 1줄, `_updateHud`의 아군 분기·칩·보호막·원소 줄 위치), `server/sim/Battle.js` 2줄(import, `snapshot()`의 `ammo`), `render/interp.js` 2줄(`ammo` → 샘플), `render/app.js` 2줄(`setEquip` 금색 여부), `tools/local-extract/extract.py` battlecommon 정규식(장비 바 그림 3개) |
 | 휴식 진입·현상 수배·전투 종료 화면 공식 모양 (클라이언트 프리팹 `round_start_dialog`·`autochess_battle_effect_choose_panel`·`card_small_item`·`card_avatar_item`·`round_result_dialog`: 라운드 시작 배너 [라운드 03 · 획득 +6], 机变/悬赏 선택 화면 제목·카드·선택 확인 막대·가져간 카드·「내 차례」, 전투 종료 배너 완벽한 작전/목표 HP 감소) | `public/js/ui/phaseArt.js`, `public/css/phase-art.css` | `screens/game.js` 9줄(import, `useRoundGold`, 결과 배너 4줄, 배너 분기 3줄), `ui/choiceOverlay.js` 7줄(import, `useTurnFlash`, `turnFlash` 2곳, 루트 class·style, 제목 `spov__name`, `spov__notice`, `YourTurn`), `index.html`·`dev/game-mock.html` 각 1줄, `dev/game-mock.js` ROUND_START 5줄, `public/i18n/ko/ui.json` 6줄 |
 | 공식 전투 이펙트 (로컬 클라이언트 추출) | `tools/local-extract/fx_extract.py` → `public/assets/local/fx/**`, `public/js/render/fxplayer.js`·`fxgame.js`·`fxmap.js` | `render/app.js` 8줄(이벤트·프레임·정리 훅, 부하 단계·3D 보드 여부·전투 시계 배속 전달, `stats()`의 `fxGame`, `atk`의 화살 종류 `fxGame.arrowKind(e)`, 공식 이펙트로 그린 `fx`는 2D 대체 생략 `fxGame.ownsFx(e)`), `render/fx.js FX_KINDS` 2줄(`oblvnsNote`, `chen3Qi`) |
 | 공식 스테이지 3D 씬 (스테이지별 사막·카시미어·시라쿠사 씬, 라이트맵, 필드별 숨김 세트) | `tools/local-extract/scene_extract.py` → `public/assets/local/scene/**`, `public/js/render/board3d/official.js`, `test/render/board3d-official.test.js` | `board3d/scene.js`(로더 옵션·`officialRoot`·`setStage` 분기·`highlandFor`), `render/app.js` 2곳(`loadOfficial`/`onOfficial` 옵션, `setStage`의 높이), `style.js tileTop` + `tiles.js`·`layout.js` 1줄씩 |
@@ -684,7 +684,8 @@
 **① 아군 바** (`AllyBars`, 아군 = 오퍼레이터·소환물):
 - 위치: `hud_unit`이 유닛 위치(발)에 있고 바 중심은 54.5단위 아래(캡처: 칸 중심 아래 약 55px) — 예전에는 머리 위.
 - HP 125×7 `#49b2e3` α.7, 그 뒤에 최근 깎인 만큼 흰색 α.7(`slider_back`, 예전 잔상 계산 그대로). 30 % 미만 노랑은 공식에 없어 뺐다.
-  SP 125×7을 HP 바로 아래(간격 0): 충전 `#caec46` α.7, 지속형 스킬 중 남은 시간 `#ffa800` α.7(`char_sp_cast_slider`). 받침 검정 α.5(`sprite_bg`)가 두 줄을 감싸고 1단위 넓음(캡처).
+  SP 125×7을 HP 바로 아래(간격 0): 충전 `#caec46` α.7, 지속형 스킬 중 남은 시간 `#ffa800` α.7(`char_sp_cast_slider`). 받침 검정 α.5(`sprite_bg`)는 두 줄 바로 아래만
+  (처음엔 캡처에서 본 1단위 여백을 줬는데 테두리처럼 보였다 — 사용자 확인 「인게임에선 바에 외선이 없다」).
 - SP 가득 참 빛 없음(사용자 결정: 캡처에 없고 자동 발동이라 순간).
 - 탄환형 스킬(사용자: 「탄환 개수에 따라 bar가 나뉜다」): `char_bullet_bar` 받침 `#e56d00` α.31 위에 남은 탄환마다 칸. 칸은 코드(UIBulletBar)가 만들어
   프리팹에 색이 없다 — [추정] 캡처 측정: 색 ≈ `#ffa800`(G 168 일치), 간격 2단위(7발: 16~17px 칸 2px 간격, 19발: 약 4.5px 칸 같은 간격). 칸이 1px보다 좁아지면 남은 비율 한 줄.
@@ -694,8 +695,15 @@
 - 원소 줄은 ③ 전까지 바 받침 아래로만 옮김.
 
 **기물 레벨**: 전투 중에는 없다(캡처 5·6·8 — 사용자 확인 「전투중에는 안나와」). 정비 중은 `shop_hud`의 `chess_level_icon`
-(`autochess_level_N`, rect 42 / 텍스처 37.85, 루트 배율 1.25, 발에서 (-45.5, +127.75)단위) — 로컬 추출 그림(`data/local-assets.json` `ui/battle`)이 있을 때만,
-없으면 원래 그린 칩(PR 가능 유지). 캡처 비교: 우리 칩 43px, 캡처 39px(약 10 % 큼) — 사용자 결정 대기.
+(`autochess_level_N`, rect 42 / 텍스처 37.85, 루트 배율 1.25, 발에서 (-45.5, +128)단위). 그 그림은 38px라 1.25배로 키우면 흐렸다(사용자 「화질이 좀 낮아보여」) →
+같은 디자인의 상점 카드 칩 `img_chess_level_N`(45px; 숫자가 어두운 안쪽의 0.53 × 0.70 — 두 그림 같고 캡처 4는 0.51 × 0.69)을 쓰고, 안쪽 39px를 공식
+30 × 1.25 = 37.5단위에 맞춘다(캡처 4 안쪽 39px = 37.4단위). 웹 manifest `shopCard/` → 로컬 `ui/battle` → `autochess_level_N` → 없으면 원래 그린 칩(PR 가능 유지).
+칩 위치·크기는 사용자가 직접 확인하기로 함(2026-10-07 「일단 지금 그대로」).
+
+**장비 바 (정비 중)**: 사용자 캡처 + 설명 「장착된 아이템이 있을 때만 2칸 바, 하나만 장착되면 한 칸만」. `shop_hud`의 `equip_bg`(74×30, shop_hud 안 (13, 29.4) —
+칩 오른쪽, × 1.25)와 칸 `equip_0`/`equip_1`(23×6, ±12.8 / 13): 아이템마다 흰 알약(`equip_normal_icon`), [추정] 금색 아이템이면 빛나는 금색 알약(`equip_gold_icon` 31×14,
+제 크기). 이 바가 그려지면 예전 아이템 아이콘(item pips)은 숨긴다(캡처에 아이콘 없음). 그림은 로컬 추출(`extract.py --only ui/battlecommon`)만 있어서
+없는 서버는 예전 아이콘 그대로. 금색 여부는 `render/app.js`의 `setItems` 옆 `setEquip` 한 줄씩(2곳)이 넘긴다. **배포할 때 로컬 소재(`public/assets/local/ui/battlecommon`)도 올려야 한다.**
 
 ## 공식 전투 이펙트 (2026-10-05)
 - `tools/local-extract/fx_extract.py`: EN 클라이언트 `battle/prefabs/effects/<이름>.ab`의 프리팹을 JSON(노드 트리, 파티클 모듈,
@@ -968,4 +976,4 @@
   - `test/golden.test.js` 「golden roster / bonds / fields / matches」 4개(upstream 0.1.4): 원본 시뮬레이터 결과의 다이제스트를 기대한다 — 로컬 전투 패치(제국의 갑주, 限伤, 성당 검사, 비행 공격 규칙 등)가 결과를 바꾸므로 실패가 정상.
 - `node --test test/local-patch-battle.test.js` — 2026-10-06 플레이 제보 전투 버그 테스트 6개(우타게 S2 그림·저지, 魔王 S3 재분배, 은신·위장 vs 스플래시, 污染秽蚀 vs 은신).
 - `node --test test/local-patch-camou.test.js` — 위장 아이콘(`UF_CAMOU`) 테스트 2개.
-- `node --test test/local-patch-hud.test.js` — 전투 화면 UI 테스트 7개(화면 고정 단위, 아군 바 위치·색, 탄환 칸, 전투 중 칩 없음, `b.snap.ammo`).
+- `node --test test/local-patch-hud.test.js` — 전투 화면 UI 테스트 9개(화면 고정 단위, 아군 바 위치·색, 탄환 칸, 전투 중 칩 없음, 정비 칩 그림 고르기, 장비 바, `b.snap.ammo`).

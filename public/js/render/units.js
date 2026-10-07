@@ -72,7 +72,7 @@ import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIcon
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
 import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local patch
 import { UF_CAMOU } from '../../../shared/local.js'; // local patch: 迷彩 icon
-import { AllyBars, hudUnit, prepChipTexture, PREP_CHIP } from './hud-bars.js'; // local patch: official battle HUD
+import { AllyBars, hudUnit, prepChip, PREP_CHIP, EquipBar, equipTextures } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -625,6 +625,9 @@ export class UnitView {
   }
 
   /** Equipped item pips (prep): list of item icon URLs. */
+  /** local patch (LOCAL-PATCH.md 「전투 화면 UI」): the equipped items' golden flags, for the official prep equip bar (hud-bars.js). */
+  setEquip(gold) { this._equip = Array.isArray(gold) ? gold.map(Boolean) : []; }
+
   setItems(urls) {
     const P = this.P;
     const list = Array.isArray(urls) ? urls.slice(0, 2) : [];
@@ -1120,11 +1123,11 @@ export class UnitView {
     if (this.chip) {
       // local patch (LOCAL-PATCH.md 「전투 화면 UI」): no chip in battle (official); in prep the official autochess_level_N
       // sprite at `shop_hud`'s place when the local client art is installed (hud-bars.js PREP_CHIP)
-      const off = prep ? prepChipTexture(this.P, this.ctx.assets, this.tier) : null;
+      const off = prep ? prepChip(this.P, this.ctx.assets, this.tier) : null;
       if (off) {
         const u = hudUnit(this.ctx.viewport?.());
-        if (this.chip.texture !== off) this.chip.texture = off;
-        this.chip.scale.set(PREP_CHIP.scale * u);
+        if (this.chip.texture !== off.tex) this.chip.texture = off.tex;
+        this.chip.scale.set(off.k * u);
         this.chip.visible = this.alive;
         this.chip.position.set(this.screen.x + PREP_CHIP.x * u, this.screen.y - PREP_CHIP.y * u);
       } else {
@@ -1169,12 +1172,16 @@ export class UnitView {
       this.countText.scale.set(clamp(s / 90, 0.5, 1.2));
       this.countText.position.set(x + s * 0.32, this.screen.y - s * 0.12);
     }
+    // local patch (LOCAL-PATCH.md 「전투 화면 UI」): in prep the official equip bar stands for the item pips when installed
+    const eqTex = prep && this._equip?.length && this.alive ? equipTextures(this.P, this.ctx.assets) : null;
+    if (eqTex) (this._equipBar || (this._equipBar = new EquipBar(this.P, this.hud))).update(this.screen.x, this.screen.y, hudUnit(this.ctx.viewport?.()), this._equip, eqTex);
+    else if (this._equipBar) this._equipBar.hide();
     for (let i = 0; i < this.itemPips.length; i++) {
       const pip = this.itemPips[i];
       const ps = clamp(s * 0.26, 12, 30);
       pip.width = pip.height = ps;
       pip.position.set(this.screen.x - s * 0.36 + i * (ps + 1), this.screen.y - s * 0.05);
-      pip.visible = this.alive;
+      pip.visible = this.alive && !eqTex; // local patch: the equip bar instead
     }
   }
 

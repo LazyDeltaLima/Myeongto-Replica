@@ -102,7 +102,9 @@ JOBS = [
     # local patch (LOCAL-PATCH.md 「배치 UI」): the client's placement UI — the direction selector's sprites
     # (battle/[pack]common.ab panel_direction_selector refers to them) and the attack-range stripe texture (range_material)
     ('arts/ui/[uc]battlecommon.ab', 'ui/battlecommon', {'Sprite'},
-     r'^(sprite_direction_arrow|sprite_direction_thumb|sprite_rectangle_frame_triangle|btn_cancel|btn_drag_back)$'),
+     r'^(sprite_direction_arrow|sprite_direction_thumb|sprite_rectangle_frame_triangle|btn_cancel|btn_drag_back'
+     # local patch (LOCAL-PATCH.md 「전투 화면 UI」): act1autochess_battle_dummy_hud_plugin's equipment bar (prep)
+     r'|equip_bg|equip_gold_icon|equip_normal_icon)$'),
     ('battle/[pack]common.ab', 'battle/common', {'Texture2D'}, r'^sprite_attack_range$'),
 ]
 

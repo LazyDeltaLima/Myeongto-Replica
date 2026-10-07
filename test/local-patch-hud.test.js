@@ -86,6 +86,35 @@ describe('ally bars (char_hp_slider / char_sp_slider / char_bullet_bar)', () => 
   });
 });
 
+describe('prep: official chip and equip bar (shop_hud)', () => {
+  const tex = (w, h) => ({ width: w, height: h, baseTexture: { valid: true } });
+  test('the chip takes the 45-px img_chess_level (web shopCard first), its 39-px interior at 37.5 units', () => {
+    const P = { Texture: { from: (u) => ({ ...tex(45, 45), url: u }) } };
+    const web = HB.prepChip(P, { ui: (n) => `/web/${n}.png`, localUrl: (g, n) => `/local/${g}/${n}.png` }, 4);
+    assert.equal(web.tex.url, '/web/shopCard/img_chess_level_4.png');
+    assert.ok(Math.abs(web.k * 39 - 37.5) < 1e-9);
+    const local = HB.prepChip(P, { localUrl: (g, n) => (n.startsWith('autochess') ? `/local/${g}/${n}.png` : null) }, 5);
+    assert.equal(local.tex.url, '/local/ui/battle/autochess_level_5.png');
+    assert.ok(Math.abs(local.k * 30 - 37.5) < 1e-9);
+    assert.equal(HB.prepChip(P, {}, 2), null, 'none installed: the drawn chip');
+  });
+
+  test('the equip bar fills one slot per item (white, gold for a golden item) and hides without items', () => {
+    const v = view({ tier: 4 }, { prep: true });
+    const bar = new HB.EquipBar(fake.P, v.hud);
+    const t = { bg: tex(74, 30), normal: tex(23, 6), gold: tex(31, 14) };
+    bar.update(1000, 500, 1, [false], t);
+    assert.ok(bar.root.visible && bar.slots[0].visible && !bar.slots[1].visible);
+    assert.equal(bar.slots[0].texture, t.normal);
+    assert.ok(Math.abs(bar.bg.position.x - 1014.75) < 1e-9 && Math.abs(bar.bg.position.y - (500 - 129.5)) < 1e-9);
+    bar.update(1000, 500, 1, [false, true], t);
+    assert.equal(bar.slots[1].texture, t.gold);
+    assert.ok(Math.abs(bar.slots[1].width - 31 * 1.25) < 1e-9);
+    v.setEquip([]); v.update(1 / 60, cam(), 0);
+    assert.ok(!v._equipBar || !v._equipBar.root.visible, 'no items: no bar');
+  });
+});
+
 describe('b.snap `ammo` (server/sim/local-hud.js)', () => {
   test('lists allies whose ammo skill runs, and interp hands it to the sample', () => {
     const units = [
