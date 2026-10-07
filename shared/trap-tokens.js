@@ -1,6 +1,6 @@
 // Summons without HP bar / facing (local patch, docs/LOCAL-PATCH.md) — shared by the server and the browser.
 //
-// 望's 棋子 is a trap (陷阱师): never an attack target, takes no damage (server/sim/content/kits/diy.js), so the client
+// 望's 棋子 is a trap (陷阱师): never an attack target, takes no damage (server/sim/content/kits/ops/op-wang.js), so the client
 // draws no HP bar over it. Summons whose range does not depend on the facing (a rotation-symmetric grid) and that the
 // user asked to place without the direction step (2026-10-05): 望's 棋子 ([[0,0]]) and 医疗探机 (3×3) — dropping one on
 // the board skips the facing wheel (ui/facing.js needsFacing) and shows no facing chevron (render/units.js).

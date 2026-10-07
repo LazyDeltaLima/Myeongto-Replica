@@ -103,7 +103,7 @@ export function setupUnitKit(battle, unit, mode = 'full') {
   const raw = def.raw ?? def;
   const bb = def.skill?.bb ?? {};
   if (unit.kind === 'token') {
-    const tk = mode === 'full' ? (tokens.kits?.[def.id] ?? tokens.default?.[def.id] ?? DIY.tokenKits?.[def.id]) : null; // local patch: DIY tokens
+    const tk = mode === 'full' ? (tokens.kits?.[def.id] ?? tokens.default?.[def.id]) : null;
     if (typeof tk === 'function') {
       try { const k = tk(bb, raw, def); if (k) return k; } catch (e) { battle._handlerError(`tokenKit:${def.id}`, unit, e); }
     }

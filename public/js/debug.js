@@ -16,6 +16,7 @@ import { voiceStore, setVoiceLang } from './voice.js';
 import { fxBundleOf, effectGroups, effectsFor, attackMode, boundEffects } from './render/fxmap.js';
 import { loadoutOptions } from '../../shared/protocol.js';
 import { diyRecord, diyTokenOwner } from '../../shared/diy.js';
+import { localDiyPool } from '../../shared/local-diy.js';
 import { createArena } from './debug/arena.js';
 import { TERRAINS, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, inArena, defaultBags, ownTokens, autoTokens, rangeOf } from './debug/sandbag.js';
 
@@ -61,7 +62,7 @@ const diyData = { chess: Object.fromEntries(data.list('chess').map((c) => [c.che
 const diyRec = (charId, { elite = false, skillIndex = 0, uniEquipId = null } = {}) => {
   try { return diyRecord(DIY_SLOT, { charId, skillIndex, uniEquipId }, { elite, data: diyData }); } catch { return null; }
 };
-for (const charId of backups?.diy?.ownedPool || []) {
+for (const charId of localDiyPool(backups?.diy?.ownedPool || [])) {
   const rec = diyRec(charId);
   if (rec && !ops.has(charId)) ops.set(charId, { charId, name: rec.name || backups.units?.[charId]?.name || charId, diy: true, chess: rec, tier: 6 });
 }

@@ -62,7 +62,7 @@ export class BattleTiles {
    * unit stands on it, or it is the rest tile (restTile) of an ally piece that has not deployed yet or waits to
    * redeploy — the tile a knocked-out operator lies on ("倒地干员所在地块…所有我方单位在此处的部署行为将被阻止", PRTS
    * 卫戍协议/帮助 §作战阶段 单位部署), else its home tile (a token parked there would keep that unit off the field).
-   * `except(a)` (local patch): a waiting piece it returns true for reserves nothing (望's own used stones, kits/diy.js).
+   * `except(a)` (local patch): a waiting piece it returns true for reserves nothing (望's own used stones, kits/ops/op-wang.js).
    */
   isReservedTile(r, c, except = null) {
     if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;

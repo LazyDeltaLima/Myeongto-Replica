@@ -69,7 +69,7 @@ export function effectsFor(prefabs, kind, skillIndex = 0) {
   }
 }
 
-// ---- 丰川祥子's notes (kits/diy.js NOTE; battle.fx 'oblvnsNote', local patch 2026-10-06) ----------------------------
+// ---- 丰川祥子's notes (kits/ops/op-oblvns.js NOTE; battle.fx 'oblvnsNote', local patch 2026-10-06) ----------------------------
 // The client's note projectiles (EN [uc]projectiles.ab projectile_chr_oblvns*: `_mainEffect` = the trail, `_effectsWhenHit`
 // = the hit) per sim note mode, and their flight (a copy of the sim's NOTE — test/local-patch.test.js keeps them equal;
 // `sine` the 扩张正弦 amplitude of the free flight, drawn here only; `pass` the piano note's 【已命中】 flight on through

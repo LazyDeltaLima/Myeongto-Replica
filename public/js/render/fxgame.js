@@ -33,7 +33,7 @@
 // effects (MAX_INSTANCES, the oldest ends). The view's adaptive load level (render/app.js adaptLoad, as render/fx.js
 // drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
 // stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame).
-// 丰川祥子's notes (kits/diy.js, battle.fx 'oblvnsNote' born / track / free / hit / gone): each note is her client trail
+// 丰川祥子's notes (kits/ops/op-oblvns.js, battle.fx 'oblvnsNote' born / track / free / hit / gone): each note is her client trail
 // prefab (fxmap.js NOTE_FX) flown here between the sim's events — free flight on its heading (the 扩张正弦 weave drawn
 // around it), tracing the target's view, the hit prefab on arrival (a piano note flies on 0.5 s); w = 2 draws two notes.
 // While they play, her 'atk' arrow of render/fx.js is not drawn (the event's projectile kind is replaced); without the
@@ -225,7 +225,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (pivot) pivot.rotation.set(0, 0, (deg * Math.PI) / 180);
   }
 
-  // 望's 棋子 (kits/diy.js): its effects are the token's own (pkgrps/btl_pfb_fx_token_3.ab → bundle wang_token).
+  // 望's 棋子 (kits/ops/op-wang.js): its effects are the token's own (pkgrps/btl_pfb_fx_token_3.ab → bundle wang_token).
   // 'zone' with the stone token = it went off (skill 1 取势 / 2 连星 along its link axes / 3 the x-1 diamond);
   // 'wangLink' = it activated (the golden cross, once); 'summon' of a stone = placed. The ground marks (the stone's own
   // looping cross, the link line) go on the lower layer, under the stone's model; the explosions over it. [ASSUMED] which prefab is which,
@@ -836,7 +836,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
           return;
         }
-        case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/diy.js) carries her official trail along its path
+        case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/ops/op-chen3.js) carries her official trail along its path
           if (stoneFx(e, views)) return;
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }

@@ -996,71 +996,6 @@ test('SP_DEBUG_FUNDS: parsed only as an integer 0..999, unset on deployed server
   assert.equal(debugFunds({ SP_DEBUG_FUNDS: '5000' }), null);
 });
 
-test('甄选 picks: banned with their bonds, rolled for their picker only (shop, promotion reward, effects such as 余), and a 信标 refuses them (server/local-patch.js, shared/diy.js)', async () => {
-  await import('../server/local-patch.js');
-  const { makeMatch, give, giveItem } = await import('./match/harness.js');
-  const { diyEquipRefused } = await import('../shared/diy.js');
-  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, loadout: { chess_diy_wang_6_a: { diy: 1 }, chess_diy_wisdel_6_a: { diy: 2 } } },
-    { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true }];
-  const run = (seed) => { const h = makeMatch({ mode: 'coop', seats, seed }); h.start(); h.toPrep(1); return h; };
-  let off = null, on = null;
-  for (let seed = 1; seed < 80 && !(off && on); seed++) { const h = run(seed); if (h.m.disabledBonds.includes('yanShip')) off ||= h; else on ||= h; }
-  assert.equal(off.m.pool.entries.get('chess_diy_wang_6_a')?.left ?? 0, 0, '炎 banned → no 望');
-  assert.ok(off.m.pool.entries.get('chess_diy_wisdel_6_a')?.left > 0, 'a pick of another bond stays');
-  assert.ok(on.m.pool.entries.get('chess_diy_wang_6_a')?.left > 0, '炎 active → 望 in the private pool');
-  const m = on.m, ps = on.ps('p_0');
-  const yan = (id) => (m.gd.chess(id)?.bonds || []).includes('yanShip');
-  for (let i = 0; i < 500; i++) assert.ok(!m.gd.chess(m.pool.roll(m.rngMeta, { maxTier: 6, filter: yan }))?.isDiy, 'a roll for nobody');
-  const p1 = on.ps('p_1');
-  let mine = 0, theirs = 0;
-  for (const who of [ps, p1]) who.shop.level = 5;
-  for (let i = 0; i < 300; i++) {
-    if (ps.pushRewardOffer('merge')?.slots.some((x) => m.gd.chess(x.id)?.isDiy)) mine++;
-    if (p1.pushRewardOffer('merge')?.slots.some((x) => m.gd.chess(x.id)?.isDiy)) theirs++;
-    ps.offers.length = 0; p1.offers.length = 0;
-  }
-  assert.ok(mine > 0, 'the picker\'s promotion reward offers the picks');
-  assert.equal(theirs, 0, 'nobody else\'s does');
-  for (let i = 0; i < 200; i++) assert.ok(!m.gd.chess(m.pool.roll(m.rngMeta, { maxTier: 6, filter: yan }))?.isDiy, 'a roll for nobody after offers');
-  // 余 (SERVER_MOST_BOND at round start): a 炎 row of three → a random 炎 operator, the picker's own picks included
-  const yanPool = Object.values(m.gd.raw.chess).filter((c) => c.visible && !c.isGolden && c.bonds.includes('yanShip') && m.pool.has(c.chessId) && c.chessId !== 'chess_char_6_03_a');
-  give(m, ps, 'chess_char_6_03_a', 'board', [10, 2]); give(m, ps, yanPool[0].chessId, 'board', [10, 3]); give(m, ps, yanPool[1].chessId, 'board', [10, 4]);
-  let yuPicks = 0, yuMine = 0;
-  for (let k = 0; k < 120; k++) {
-    const before = new Set([...ps.hand, ...ps.temp].filter(Boolean).map((x) => x.uid));
-    m.dispatch(ps, 'onRoundStart', { round: 2 });
-    for (const area of [ps.hand, ps.temp]) for (let i = 0; i < area.length; i++) {
-      const x = area[i];
-      if (!x || before.has(x.uid)) continue;
-      if (m.gd.chess(x.id)?.isDiy) { yuPicks++; if (ps.diyOwned.has(m.gd.baseIdOf(x.id))) yuMine++; }
-      ps.returnCopies(x); area[i] = null;
-    }
-  }
-  assert.ok(yuPicks > 0 && yuPicks === yuMine, `余 can grant the picker's own picks (${yuPicks})`);
-  const pick = give(m, ps, 'chess_diy_wang_6_a'), beacon = giveItem(m, ps, 'chess_item_5_04_e_a');
-  assert.equal(m.handle('p_0', { t: 'g.equip', itemUid: beacon.uid, targetUid: pick.uid }).error, 'BAD_TARGET');
-  assert.ok(ps.find(pick.uid), 'the pick is kept');
-  assert.equal(diyEquipRefused(m.gd.item('chess_item_5_04_e_b'), m.gd.chess('chess_diy_wang_6_b')), true, 'golden 信标 / elite pick');
-  assert.equal(diyEquipRefused(m.gd.item('chess_item_5_04_e_a'), m.gd.chess('chess_char_6_03_a')), false, 'pool operators take it');
-});
-
-test('甄选 picks travel through the lobby: room.loadout → seat → match keeps the slot (server/lobby.js freezeLoadout)', async () => {
-  class Rec extends StubMatch { constructor(opts) { super(opts); Rec.last = opts; } }
-  const srv = await startServer({ port: 0, host: '127.0.0.1', MatchClass: Rec, log: { info() {}, warn() {}, debug() {}, error() {} } });
-  const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
-  try {
-    c.id = (await c.hello('Pick')).playerId;
-    assert.equal((await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL' })).t, 'ok');
-    await c.waitFor('room.state', (s) => s.hostId === c.id);
-    const r = await c.request({ t: 'room.loadout', entries: { chess_diy_wang_5_a: { diy: 1 }, chess_diy_wisdel_6_a: { diy: 2, skill: 2 } } });
-    assert.equal(r.t, 'ok', JSON.stringify(r));
-    assert.equal((await c.request({ t: 'room.start' })).t, 'ok');
-    const seat = Rec.last.seats.find((s) => s.playerId === c.id);
-    assert.equal(seat.loadout.chess_diy_wang_5_a.diy, 1, 'the slot reaches the match (it was dropped: the match then refused the whole loadout)');
-    assert.equal(seat.loadout.chess_diy_wisdel_6_a.diy, 2);
-  } finally { await c.terminate().catch(() => {}); await srv.close(); }
-});
-
 describe('in-game debug panel: dbg.funds / dbg.addDiy, local debug mode only (server/local-patch.js debugIntent)', () => {
   const DEBUG_ENV = { SP_DEBUG_PAGE: '1' };
   const humans = () => [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }, { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true }];
@@ -1074,8 +1009,8 @@ describe('in-game debug panel: dbg.funds / dbg.addDiy, local debug mode only (se
     assert.equal(debugMode({ SP_DEBUG_FUNDS: 'lots' }), false);
     assert.equal(debugMode({ SP_DEBUG_PAGE: '1', SP_DEBUG_FUNDS: '99', NODE_ENV: 'production' }), false, 'the Docker image');
     assert.equal(validateC2S({ t: 'dbg.funds', on: true }), null);
-    assert.equal(validateC2S({ t: 'dbg.addDiy', chessId: 'chess_diy_wang_6_b' }), null);
-    assert.match(validateC2S({ t: 'dbg.addDiy', chessId: 'chess_char_1_01_a' }), /chessId/);
+    assert.equal(validateC2S({ t: 'dbg.addDiy', charId: 'char_2027_wang', tier: 6, golden: true }), null);
+    assert.match(validateC2S({ t: 'dbg.addDiy', charId: 'char_2027_wang', tier: 4 }), /tier/);
   });
 
   test('refused when debug mode is off: the intent, the lobby hook and a real server', async () => {
@@ -1083,13 +1018,13 @@ describe('in-game debug panel: dbg.funds / dbg.addDiy, local debug mode only (se
     const h = prep(), ps = h.ps('p_0');
     const funds = ps.funds;
     assert.equal(debugIntent(h.m, 'p_0', { t: 'dbg.funds', on: true }, {}).error, ERR.BAD_MSG);
-    assert.equal(debugIntent(h.m, 'p_0', { t: 'dbg.addDiy', chessId: 'chess_diy_wang_6_a' }, { SP_DEBUG_PAGE: '1', NODE_ENV: 'production' }).error, ERR.BAD_MSG);
+    assert.equal(debugIntent(h.m, 'p_0', { t: 'dbg.addDiy', charId: 'char_2027_wang', tier: 6 }, { SP_DEBUG_PAGE: '1', NODE_ENV: 'production' }).error, ERR.BAD_MSG);
     assert.equal(ps.funds, funds); assert.ok(!ps.hand.some((p) => p && /diy/.test(p.id)));
     const saved = { p: process.env.SP_DEBUG_PAGE, f: process.env.SP_DEBUG_FUNDS };
     delete process.env.SP_DEBUG_PAGE; delete process.env.SP_DEBUG_FUNDS;
     try {
       const lobby = { roomOf: () => ({ match: h.m }) };
-      assert.equal(onMessage(lobby, { playerId: 'p_0' }, { t: 'dbg.addDiy', chessId: 'chess_diy_wang_6_a' }).error, ERR.BAD_MSG);
+      assert.equal(onMessage(lobby, { playerId: 'p_0' }, { t: 'dbg.addDiy', charId: 'char_2027_wang', tier: 6 }).error, ERR.BAD_MSG);
       assert.ok(!ps.hand.some((p) => p && /diy/.test(p.id)));
       const srv = await startServer({ port: 0, host: '127.0.0.1', MatchClass: StubMatch, log: { info() {}, warn() {}, debug() {}, error() {} } });
       const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
@@ -1117,59 +1052,50 @@ describe('in-game debug panel: dbg.funds / dbg.addDiy, local debug mode only (se
     assert.equal(ps.funds, 99, 'unpinned: starts from the pinned value');
     assert.ok(ps.spend(4)); assert.equal(ps.funds, 95);
     assert.equal(debugView(ps).fundsPin, false);
-    assert.deepEqual(debugView(ps).candidates.map((c) => c.key), ['wang', 'chen3', 'wisdel', 'oblvns', 'ascln']);
+    assert.deepEqual(debugView(ps).candidates.map((c) => c.charId), ['char_2027_wang', 'char_1050_chen3', 'char_1035_wisdel', 'char_4182_oblvns', 'char_4132_ascln'], 'the five offered 自选 picks (shared/local-diy.js)');
   });
 
-  test('dbg.addDiy puts a 甄选 pick into the hand (acquireChess: merges), refuses a full hand and non-picks', async () => {
+  test('dbg.addDiy sets a 自选 pick on a slot of the tier and puts its chess into the hand (merges), refuses a full hand and non-candidates', async () => {
     const { debugIntent } = await import('../server/local-patch.js');
     const h = prep(), ps = h.ps('p_0');
     ps.hand.fill(null);
-    const add = (chessId) => debugIntent(h.m, 'p_0', { t: 'dbg.addDiy', chessId }, DEBUG_ENV);
-    assert.deepEqual(add('chess_diy_wisdel_5_b'), { ok: true });
-    assert.deepEqual(ps.hand.filter(Boolean).map((p) => p.id), ['chess_diy_wisdel_5_b'], 'an elite straight into the hand');
-    for (let i = 0; i < 3; i++) assert.deepEqual(add('chess_diy_wang_6_a'), { ok: true });
-    const ids = ps.hand.filter(Boolean).map((p) => p.id).sort();
-    assert.deepEqual(ids, ['chess_diy_wang_6_b', 'chess_diy_wisdel_5_b'], 'three normal copies merge into the elite');
-    assert.equal(add('chess_char_1_01_a').error, ERR.BAD_TARGET, 'only 甄选 candidates');
-    assert.equal(add('chess_nope').error, ERR.BAD_TARGET);
-    while (ps.hand.includes(null)) assert.deepEqual(add('chess_diy_ascln_5_b'), { ok: true });
-    assert.equal(add('chess_diy_chen3_5_a').error, ERR.HAND_FULL, 'the hand is full');
+    const add = (f) => debugIntent(h.m, 'p_0', { t: 'dbg.addDiy', ...f }, DEBUG_ENV);
+    assert.deepEqual(add({ charId: 'char_1035_wisdel', tier: 5, golden: true }), { ok: true });
+    assert.deepEqual(ps.hand.filter(Boolean).map((p) => p.id), ['chess_char_5_diy1_b'], 'an elite straight into the hand');
+    assert.equal(ps.diy.chess_char_5_diy1_a.charId, 'char_1035_wisdel');
+    for (let i = 0; i < 3; i++) assert.deepEqual(add({ charId: 'char_2027_wang', tier: 6 }), { ok: true });
+    assert.deepEqual(ps.hand.filter(Boolean).map((p) => p.id).sort(), ['chess_char_5_diy1_b', 'chess_char_6_diy1_b'], 'three normal copies merge into the elite');
+    assert.equal(ps.gd.chess('chess_char_6_diy1_b').charId, 'char_2027_wang', 'the slot fields 望 for this player');
+    assert.equal(add({ charId: 'char_112_siege', tier: 6 }).error, ERR.BAD_TARGET, 'only the five candidates');
+    assert.deepEqual(add({ charId: 'char_4132_ascln', tier: 6 }), { ok: true }, 'the second tier-6 slot');
+    assert.equal(add({ charId: 'char_1050_chen3', tier: 6 }).error, ERR.BAD_TARGET, 'both tier-6 slots taken by others');
+    while (ps.hand.includes(null)) assert.deepEqual(add({ charId: 'char_4132_ascln', tier: 6, golden: true }), { ok: true });
+    assert.equal(add({ charId: 'char_1050_chen3', tier: 5 }).error, ERR.HAND_FULL, 'the hand is full');
     assert.equal(ps.temp.filter(Boolean).length, 0, 'nothing spilled into temp');
   });
 
-  test('dbg.addDiy skill / module: checked like room.loadout, written to the loadout entry the battle reads, no shop pick', async () => {
+  test('dbg.addDiy skill / module: checked against the pick\'s forms, fought with in battle, no stock copies taken', async () => {
     const { debugIntent, debugView } = await import('../server/local-patch.js');
     const { tileKey } = await import('../server/match/board.js');
-    const seats = humans(); seats[0].loadout = { chess_diy_wisdel_6_a: { diy: 1, skill: 1 } };
-    const h = makeMatch({ mode: 'coop', seats, seed: 3 }); h.start(); h.toPrep(1);
-    const m = h.m, ps = h.ps('p_0');
+    const h = prep(), m = h.m, ps = h.ps('p_0');
     ps.hand.fill(null);
     const add = (f) => debugIntent(m, 'p_0', { t: 'dbg.addDiy', ...f }, DEBUG_ENV);
-    const owned = [...ps.diyOwned], poolBefore = JSON.stringify([...m.pool.entries]);
-    // refused choices add nothing and change nothing
-    assert.equal(add({ chessId: 'chess_diy_wang_6_b', skill: 5 }).error, ERR.BAD_TARGET, 'no S6');
-    assert.equal(add({ chessId: 'chess_diy_wang_6_b', module: 'uniequip_002_wisdel' }).error, ERR.BAD_TARGET, 'another operator\'s module');
-    assert.equal(add({ chessId: 'chess_diy_wang_6_a', module: 'none' }).error, ERR.BAD_TARGET, 'a normal record has no module');
+    assert.equal(add({ charId: 'char_2027_wang', tier: 6, golden: true, skill: 5 }).error, ERR.BAD_TARGET, 'no S6');
+    assert.equal(add({ charId: 'char_2027_wang', tier: 6, golden: true, module: 'uniequip_002_wisdel' }).error, ERR.BAD_TARGET, 'another operator\'s module');
     assert.equal(ps.hand.filter(Boolean).length, 0);
-    assert.equal(ps.loadout.chess_diy_wang_6_a, undefined);
-    // an elite 望 with S3 and no module
-    assert.deepEqual(add({ chessId: 'chess_diy_wang_6_b', skill: 2, module: 'none' }), { ok: true });
-    assert.deepEqual({ ...ps.loadout.chess_diy_wang_6_a }, { skill: 2, module: 'none' }, 'no 甄选 slot added');
+    const stock = JSON.stringify([...(ps.diyStock?.entries || [])]), poolBefore = JSON.stringify([...m.pool.entries]);
+    assert.deepEqual(add({ charId: 'char_2027_wang', tier: 6, golden: true, skill: 2, module: 'none' }), { ok: true });
+    assert.deepEqual({ ...ps.diy.chess_char_6_diy1_a }, { charId: 'char_2027_wang', skillIndex: 2, uniEquipId: null });
     const piece = ps.hand.find(Boolean);
     ps.hand[ps.hand.indexOf(piece)] = null; ps.board.set(tileKey(10, 2), piece); ps.recompute();
     const u = ps.battleInput().units.find((x) => x.uid === piece.uid);
-    assert.equal(u.skillIndex, 2); assert.equal(u.moduleId, 'none', 'the battle fights with the choice');
-    // a pick keeps its slot; skill only for a normal record, module kept from the entry
-    assert.deepEqual(add({ chessId: 'chess_diy_wisdel_6_a', skill: 2 }), { ok: true });
-    assert.deepEqual({ ...ps.loadout.chess_diy_wisdel_6_a }, { skill: 2, module: 'uniequip_002_wisdel', diy: 1 });
-    assert.deepEqual([...ps.diyOwned], owned, 'diyOwned unchanged');
+    assert.deepEqual(u.diy, { charId: 'char_2027_wang', skillIndex: 2, uniEquipId: null }, 'the battle fights with the choice');
     assert.equal(JSON.stringify([...m.pool.entries]), poolBefore, 'no pool copies taken');
-    ps.shop.level = 6;
-    for (let i = 0; i < 300; i++) assert.notEqual(m.gd.chess(ps._rollChessSlot()?.id)?.charId, 'char_2027_wang', 'the unpicked 望 never reaches the shop');
-    const wang = debugView(ps).candidates.find((c) => c.key === 'wang');
+    assert.equal(JSON.stringify([...(ps.diyStock?.entries || [])]), stock, 'no stock copies taken');
+    const wang = debugView(ps).candidates.find((c) => c.charId === 'char_2027_wang');
     assert.deepEqual(wang.tiers[6].skills.map((s) => s.index), [0, 1, 2]);
     assert.equal(wang.tiers[6].skills[0].name, '取势');
-    assert.deepEqual(wang.tiers[6].modules.map((x) => x.id), ['uniequip_002_wang', 'none']);
+    assert.deepEqual(wang.tiers[6].modules.map((x) => x.id), ['none', 'uniequip_002_wang']);
   });
 });
 

@@ -33,6 +33,7 @@ import { GameData } from './match/gamedata.js';
 import { PlayerState } from './match/PlayerState.js';
 import { Match } from './match/Match.js';
 import { diySlotIds, isDiyModule } from '../shared/diy.js';
+import { localDiyPool } from '../shared/local-diy.js';
 
 const OK = Object.freeze({ ok: true });
 
@@ -301,7 +302,7 @@ const formKey = (tier, elite) => (elite ? `2/60/7/${tier === 6 ? 3 : 1}` : '2/1/
  */
 export function debugCandidates(gd) {
   const b = gd?.raw?.backups;
-  const pool = Array.isArray(b?.diy?.ownedPool) ? b.diy.ownedPool : [];
+  const pool = Array.isArray(b?.diy?.ownedPool) ? localDiyPool(b.diy.ownedPool) : []; // the five offered, in the picker's order (shared/local-diy.js)
   return pool.map((charId) => {
     const u = b.units?.[charId];
     if (!u || !u.forms) return null;
