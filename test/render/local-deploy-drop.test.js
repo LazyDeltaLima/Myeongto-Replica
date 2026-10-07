@@ -107,7 +107,7 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
   });
 
   test('fx.deploy draws nothing for a bornOfficial view; app.js drops a bench arrival / board return in too', () => {
-    const fx = readFileSync(path.join(ROOT, 'public/js/render/fx.js'), 'utf8');
+    const fx = readFileSync(path.join(ROOT, 'public/js/render/fx/arrivals.js'), 'utf8'); // fx.js split in 0.2.0
     assert.match(fx, /deploy\(view\) \{\n\s+if \(!view\) return;\n\s+if \(view\.bornOfficial\) return;/);
     const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
     assert.match(app, /\(e\.area === 'hand' \|\| e\.area === 'temp'\) && !before\.some\(\(g\) => g\.uid === e\.uid\)\) \{ v\.onDeploy\?\.\(\); fx\.deploy\(v\); \}/);
