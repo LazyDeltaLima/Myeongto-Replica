@@ -1,302 +1,218 @@
-// server/sim/content/kits/ops/op-chen3.js — 赤刃明霄陈 (char_1050_chen3) 自选 operator kit: 6★ 术战者 (近卫), an owned-6★
-// pick of the tier-5 and tier-6 自选 slots; every skill, both talents, the trait and her module (AFT-X) at every form.
-// Kit contract and the 自选 rules: ../README.md ("How to add an operator (自选)").
+// server/sim/content/kits/ops/op-chen3.js — 赤刃明霄陈 (char_1050_chen3) 自选 operator kit — local patch: the nas-local 선발
+// kit (formerly kits/diy.js, docs/LOCAL-PATCH.md 「선발 오퍼레이터」) on upstream's 自选 framework; it replaces upstream's
+// op-chen3.js (the owner's rule: where the two differ, ours wins). Kit contract: ../README.md ("How to add an operator
+// (自选)"); `chess` = the composed 自选 record (shared/diy.js diyRecordOf), every number from it.
+// fx kinds the client draws / sounds from (render/fxgame.js, audio.js kitHitKey): 'chen3Qi' { x, y, id, dir } (S3 剑气 path),
+// 'kitHit' { k: 'chen3:s3' }, 'swordStorm' { id } (S2 slashes), 'teleport'.
 //
-// Forms (data/backups.json units.char_1050_chen3, the DIY slot statuses): normal = E2 Lv1, skills at rank 4, no module;
-// elite = E2 Lv60, rank 7, AFT-X at stage 1 (tier 5) or 3 (tier 6). Potential 0 [ASSUMED: no account].
-// Sources: character_table / skill_table / battle_equip_table (zh_CN, as built into backups.json); the client's battle
-// logic — buff_template_data (chen3_t2 / [timer] / [evade], chen3_s1[derived_silence], chen3_s2[dead_listener] /
-// [record_position] / [try_resapwn] / [respawn_buff], chen3_s3[ensure_dmg] / [finish_projectile]), her charpack (talent 1
-// chen3_t1 + common_weak_damage; S1 attack `_additionalTimes` 1; S3 attack `_additionalTimes` 2, ground selector), the
-// skill prefabs (skchr_chen3_2 S2MultiMeleeAttack: `_triggerDelta` 0.4, `s2_extend_time` 0.4 / `s2_times_add_one` 1 per
-// lost target; skchr_chen3_3: the sword wave) and projectile_chr_chen3_s3 (speed 1.5, no lifetime of its own — ended by
-// the skill —, `_hitDistance` 0.25, turns at high ground / map edge / 侵入点 / 保护目标, clears its hit list when it turns)
-// — and PRTS 赤刃明霄陈 (talent 1 修正 "造成的物理和法术伤害变为弱点伤害"; talent 2 备注 "闪避优先级为-1000，不可叠加…二技能
-// 移动时可继承闪避效果"; S2 / S3 备注), Terra wiki Ch'en the Dawnstreak (the wave's enemy hitbox 1.3).
-// - Trait (术战者) "攻击造成法术伤害": the artsfghter profile (melee arts, ground only), range 1-1, blocks 1. Module AFT-X
-//   “记忆残页” adds "未阻挡敌人时攻击速度+8" (trait attack_speed): ASPD + while she blocks nobody.
-// - T1 形意洞照 "攻击力+13%，攻击速度+13，造成的物理和法术伤害变为弱点伤害" (PRTS 修正): a permanent ATK / ASPD buff, and
-//   every physical or arts damage instance she deals becomes 弱点伤害 (ba.weaknessatk "根据目标防御力和法术抗性变更伤害类
-//   型"): the type the target resists less (items/battle.js weaknessRetype, as 双模机械臂 / 陈's band 以己之长).
-// - T2 寒暑觉知 "未受到伤害时，每N秒随机治疗自身一定（攻击力的X%~Y%）生命值，并闪避下次物理与法术攻击": a counter +1 every
-//   second (chen3_t2[timer]: triggerInterval 1, the first a second in), back to 0 with every damage instance she takes
-//   (ON_APPLIED_MODIFIER IsDamage: not a 流失, not an element fill; a dodged hit lands nothing); at stack_time it restarts and
-//   she heals herself ATK × a random whole percent in [heal_atk_scale_min, heal_atk_scale_max) (RandomSetter, PRTS
-//   "最小单位为1%") and holds one dodge (chen3_t2[evade]: STACK, maxStackCnt 1 — "不可叠加") that cancels the next physical
-//   or arts damage instance that can be dodged (Evade PHYSICAL_AND_MAGICAL), then is spent. Its priority is −1000 (PRTS;
-//   onEventPriority LOW_PRIORITY): her other dodges (S2's) are rolled first, and the held dodge is kept when one of them
-//   wins. S2's 【移动】 keeps it (PRTS "二技能移动时可继承闪避效果") — and the counter, as the engine's 【移动】 keeps the rest
-//   (DESIGN §22.3). AFT-X stage 2+: the module talent's numbers (stage 3: 6 s, 50 %–200 %).
-// - S1 赤霄·奔夜 (MANUAL, data DEFAULT): ATK +atk for `duration` s, every attack hits twice (二连击) and 特殊能力失效 — 沉默 —
-//   its target until the skill ends (chen3_s1[derived_silence]: derived from the skill's holder buff, independentCharacter
-//   Source): the status for the skill's time left; an early end (she leaves) lifts the ones she set.
-// - S2 赤霄·绝影-驰 (MANUAL, 技能范围 x-1, data SKILL_RANGE): she slashes the nearest enemy she can select in the x-1 (air units
-//   too) `times` (10) times, 0.4 s apart, for atk_scale × ATK arts each (the first at the cast [ASSUMED], so the slashing lasts
-//   0.4 s × its slashes); a target that leaves the field (or hides [ASSUMED]) hands the slashes to the selectable enemy
-//   nearest it within 1.7 of it, else in her x-1, and adds one slash (+0.4 s); with nobody to select the slashing ends.
-//   Meanwhile (PRTS): 无敌, 不可阻挡 (she blocks nothing), 阻回, 静默, stun / freeze immunity, no normal attack. Then always a
-//   【移动】 (Battle.moveRedeploy): onto the tile its last target stood on at its last slash (record_position) when that target
-//   still stands and the tile takes a melee operator, else back onto her own tile (PRTS "否则返回原位置"); the move's own
-//   travel and deploy clip (Start_2, 1 s) are not modelled [ASSUMED: instant, as every deployment of the engine]. From
-//   then the `duration` (6 s, "不包括斩击所耗时间"): ATK +respawn_buff.atk and respawn_buff.prob physical and arts dodge.
-// - S3 赤霄·天喟 (MANUAL, data ACTIVE_RANGE on its 3-12): range 3-12, every attack hits up to attack@max_target ground enemies
-//   three times (`_additionalTimes` 2) for attack@atk_scale × ATK arts, `duration` s. At the cast a sword wave leaves her
-//   tile in her direction at 1.5 tiles/s and roams until the skill ends (FinishManagedProjectiles) or she leaves: when its
-//   leading edge (0.25 ahead) would enter a high tile, the map's edge — the battle's field [ASSUMED: a battle's map is its
-//   field, the stage tiles beyond it are another player's half] —, an 侵入点 or a 保护目标 it turns 90° clockwise (four
-//   turns at most per tick; boxed in on every side it waits) and forgets whom it hit; each enemy it can select within 1.3
-//   (air too) is hit once per straight run for the larger of hp_ratio × its current HP (the unit's own HP, PRTS) and
-//   projectile_min_atk_scale × her ATK at the hit, arts (RES applies — PRTS "非伤害保底或无视法术抗性"; 普通伤害). Her
-//   begin clips (S1 0.2 s, S3 0.433 s) are not modelled [ASSUMED: the engine starts skills at once].
+// 赤刃明霄陈 (术战者) — 形意洞照 / 寒暑觉知; S1 赤霄·奔夜, S2 赤霄·绝影-驰, S3 赤霄·天喟
+//
+// Trait: arts damage (branch). 形意洞照: ATK +atk, ASPD +attack_speed, every damage of hers is 弱点伤害 (the less
+// resisted of phys / arts — items/battle.js weaknessRetype; PRTS: "根据目标防御力和法术抗性变更伤害类型").
+// 寒暑觉知: every stack_time s without taking damage she heals ATK × random(heal_atk_scale_min…max) % and dodges the
+// next physical / arts attack; taking damage restarts the clock (PRTS 备注). Module: ASPD +8 while blocking nobody.
+// S2 (PRTS 备注): a slash every 0.4 s, 无敌 meanwhile; a knocked-out target passes on to the nearest other enemy within
+// 1.7 of it, else of her range, remaining slashes +1; at the end she 【移动】s to a standing, deployable target's tile;
+// then ATK +respawn_buff.atk and respawn_buff.prob phys / arts dodge until the skill ends.
+// S3 剑气 (PRTS 备注): "剑气可对空，碰撞半径1.3，移动速度1.5，每次转向前对每个敌人仅判定一次伤害"; "在距离前进方向上的
+// 侵入点/保护目标/高度类型为高地的地块的距离不低于0.25时，顺时针旋转90°". Current-HP hp_ratio arts (≥ projectile_min_atk_scale × ATK).
+// (2026-10-06) — EN client battle/prefabs/[uc]projectiles.ab `projectile_chr_chen3_s3`:
+//   movement: straight (_moveType 4) from her facing (_useSourceDirection), _speed 1.5; untimed (_lifeTimeType 2 — [inferred]:
+//     other type-2 projectiles carry _lifeTime 0) and finished at the skill end by chen3_s3[finish_projectile]
+//     (FinishManagedProjectiles, _managedBySource).
+//   turning (ChangeStateWithHighlandBehaviour): _hitDistance 0.25, _hitEps 0.02, checks _checkHitHighland, _checkHitMapEdge,
+//     _checkTileStart (侵入点), _checkTileEnd (保护目标) on the NEXT tile ahead (_CheckNextTile*, _GetDistanceToNextTile) →
+//     _ChangeDirection, _clearTargetsAlreadyHitListWhenHit. Nothing else is an obstacle: lowland impassable tiles and
+//     things standing on a tile (roadblocks) are not ([inferred] from the flag list). It has no direction field; clockwise
+//     is PRTS. The distance is to the next tile's near edge ([inferred] from "_GetDistanceToNextTile" and PRTS), so it turns
+//     0.25 past the centre of the last free tile — before 2026-10-06 we looked 0.75 ahead and turned 0.5 too early, counted
+//     lowland impassable / blocked tiles and ignored 侵入点.
+//   hits: CircleCollider2D radius 1.3 (_ignoreRangeScale), _hitPasserby every 0.03 s (_interval; the sim ticks 1/30 s),
+//     ground + air, each enemy once until a turn clears the list (_canHitSameTargetMultipleTimes 0, _maxHitNum 9999).
 
-import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff, up } from '../shared/tier1.js';
-import { absoluteRangeKeys, canTargetEnemy } from '../../../targeting.js';
-import { bodyDist } from '../../../body.js';
+import { DIRS, dirVec, normDir } from '../../../dir.js';
 import { isHpLoss } from '../../../damage.js';
+import { canTargetEnemy } from '../../../targeting.js';
 import { weaknessRetype } from '../../items/battle.js';
+import { talentBb } from '../shared/tier1.js';
 
-const S1 = 'skchr_chen3_1';
-const S2 = 'skchr_chen3_2';
-const S3 = 'skchr_chen3_3';
-/** The skill ranges when a record carries none (data: x-1, 3-12). */
-const X_1 = Object.freeze([[2, 0], [1, -1], [1, 0], [1, 1], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [-1, -1], [-1, 0], [-1, 1], [-2, 0]]);
-const R3_12 = Object.freeze([[1, 0], [1, 1], [0, 0], [0, 1], [0, 2], [0, 3], [-1, 0], [-1, 1]]);
-/** skchr_chen3_2 S2MultiMeleeAttack `_triggerDelta` / dead_listener `s2_extend_time`: the time per slash. */
-const SLASH_IV = 0.4;
-/** PRTS S2 备注: a lost target hands over to "该目标半径1.7范围内的另一个目标". */
-const RETARGET_RADIUS = 1.7;
-/** projectile_chr_chen3_s3: speed; its terrain probe (`_hitDistance`); Terra wiki: its enemy hitbox. */
-const WAVE_SPEED = 1.5;
-const WAVE_PROBE = 0.25;
-const WAVE_HIT_RADIUS = 1.3;
-/** S1's early end: a silence of hers that ends within this of the skill's planned end ended with it. */
-const SILENCE_SLACK = 0.1;
-const AIR = Object.freeze({ canHitFly: true });
-const DASH_KEY = 'skill:chen3:dash';
-const AFTER_KEY = 'skill:chen3:respawn';
+const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
+const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null);
+const ANY = Object.freeze({ canHitFly: true });
+const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], unit, ANY);
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
-const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** Absolute tile keys of a skill range at the unit's tile and facing (a 技能范围 ignores 攻击距离). */
-const keysOf = (unit, grid) => absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0);
-/** An S2 target that left the field — dead, removed or hidden [ASSUMED: a hidden one counts as gone]. */
-const gone = (e) => !e || !e.alive || e.removed || e.hidden;
-/** The enemy of `list` nearest to (x, y) (body distance; ties by spawn order), or null. */
-function nearest(list, x, y) {
-  let best = null, bd = Infinity;
-  for (const e of list) {
-    const d = bodyDist(e, x, y);
-    if (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && best && e.spawnSeq < best.spawnSeq)) { bd = d; best = e; }
-  }
-  return best;
-}
-/** A tile S2's 【移动】 may land on: in the field, melee-deployable, free (her own tile aside), no operator lying there. */
-function landable(battle, unit, r, c) {
-  if (!Number.isInteger(r) || !Number.isInteger(c) || !battle.grid.inRect(r, c) || !battle.grid.canStand(r, c)) return false;
-  if (battle.downOn(r, c)) return false;
-  return (r === unit.tileR && c === unit.tileC) || !battle.isReservedTile(r, c);
-}
+const QI_SPEED = 1.5, QI_RADIUS = 1.3, QI_LOOK = 0.25, QI_EPS = 0.02, S2_INTERVAL = 0.4, S2_PASS_RADIUS = 1.7;
+
 /**
- * S3's wave turns before a high tile, the map's edge — the battle's field (`rect`): the official map of a battle is that
- * field, the stage tiles beyond it (another player's half) are not part of it —, an 侵入点 or a 保护目标.
+ * One tick of the S3 剑气 (exported for tests). `st` = { x, y, d } (x = col, y = row, d ∈ UP/RIGHT/DOWN/LEFT) is updated in
+ * place: turn 90° clockwise while the next tile ahead is an obstacle within QI_LOOK (+ QI_EPS), then move `dist`, stopping
+ * on the QI_LOOK mark in front of an obstacle. Returns the number of turns. `grid` needs inRect(r, c) and tile(r, c).
  */
-function waveBlocked(battle, w) {
-  const r = Math.round(w.y + w.dr * WAVE_PROBE), c = Math.round(w.x + w.dc * WAVE_PROBE);
-  if (!battle.grid.inRect(r, c)) return true;
-  const t = battle.grid.tile(r, c);
-  return t.height === 'HIGH' || t.special === 'start' || t.special === 'end';
+export function chen3QiAdvance(grid, st, dist) {
+  const wall = (r, c) => {
+    if (!grid.inRect(r, c)) return true;                                  // _checkHitMapEdge
+    const t = grid.tile(r, c);
+    return t.height === 'HIGH' || t.special === 'start' || t.special === 'end';  // highland / 侵入点 / 保护目标
+  };
+  const ahead = (d) => {
+    const [dr, dc] = dirVec(d), r0 = Math.round(st.y), c0 = Math.round(st.x);
+    const past = dr ? (st.y - r0) * dr : (st.x - c0) * dc;              // how far past the centre of its tile
+    return { gap: 0.5 - past, wall: wall(r0 + dr, c0 + dc) };
+  };
+  let turns = 0;
+  for (; turns < 4; turns++) {
+    const a = ahead(st.d);
+    if (!a.wall || a.gap > QI_LOOK + QI_EPS) break;
+    st.d = DIRS[(DIRS.indexOf(st.d) + 1) % 4];
+  }
+  const a = ahead(st.d);
+  const move = a.wall ? Math.max(0, Math.min(dist, a.gap - QI_LOOK)) : dist;
+  const [dr, dc] = dirVec(st.d);
+  st.x += dc * move; st.y += dr * move;
+  return turns;
+}
+
+function chen3(bb, chess, def) {
+  const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
+  const moduleAspd = num(chess?.trait?.bb?.attack_speed, 0);
+
+  /** 剑气 of S3: a virtual mover (chen3QiAdvance), damage once per enemy per straight run. */
+  const releaseQi = (battle, unit) => {
+    const st = { x: unit.x, y: unit.y, d: normDir(unit.dir) };
+    let hitSet = new Set();
+    let steps = 0;
+    const seq = unit.deploySeq;
+    const minDmg = unit.s.atk * num(bb.projectile_min_atk_scale, 5.5), ratio = num(bb.hp_ratio, 0.06);
+    const STEP = 1 / 30;   // the sim tick (constants.js TICK); the client hit interval is 0.03 s
+    const job = battle.every(STEP, () => {
+      if (unit.deploySeq !== seq || !unit.alive || !unit.skill?.active || unit.skill.id !== 'skchr_chen3_3') { job.cancel(); return; }
+      const turned = chen3QiAdvance(battle.grid, st, QI_SPEED * STEP) > 0;
+      if (turned) hitSet = new Set();   // _clearTargetsAlreadyHitListWhenHit: "每次转向前对每个敌人仅判定一次伤害"
+      const { x, y, d } = st;
+      // render/fxgame.js moves her official S3 trail along it: every 0.1 s and at once on a turn (re-aims the dragon)
+      if (turned || steps % 3 === 0) battle.fx('chen3Qi', { x, y, id: unit.id, dir: d });
+      if (++steps % 9 === 0) battle.fx('swordStorm', { x, y, r: 0.5 }); // procedural fallback (render/fx.js)
+      // local patch: only selectable enemies (PRTS AOE判定 "每个可以被选中的敌人": no unrevealed 隐匿 / untargetable)
+      let struck = false;
+      for (const e of battle.foesInRadius(x, y, QI_RADIUS)) {
+        if (!e.alive || hitSet.has(e.id)) continue;
+        hitSet.add(e.id);
+        struck = true;
+        battle.dealDamage(unit, e, { amount: Math.max(minDmg, e.hp * ratio), type: 'arts', isSkill: true, tags: ['skill', 'chen3Qi'] });
+      }
+      if (struck) battle.fx('kitHit', { x, y, id: unit.id, k: 'chen3:s3' }); // local patch: its hit sound (projectile_chr_chen3_s3, audio.js)
+    }, { owner: unit });
+  };
+
+  /** S2: 10 slashes (+1 per kill), passing on; then the 【移动】 and the buff. */
+  const slashes = (battle, unit) => {
+    const seq = unit.deploySeq;
+    const scale = num(bb.atk_scale, 4.3);
+    const grid = skillGridOf(def);
+    // local patch (audit 2026-10-06): unitsInGrid lists every enemy on the grid — only selectable ones (no unrevealed
+    // 隐匿 / untargetable), as the range picks below (enemiesInKeys → canTargetEnemy)
+    const keys = grid ? battle.unitsInGrid(unit, grid, { side: 'enemy' }).filter((e) => canTargetEnemy(unit, e, ANY)) : inRange(battle, unit);
+    const first = keys.filter((e) => e.alive).sort((a, b) => dist(a, unit) - dist(b, unit))[0]
+      || inRange(battle, unit).sort((a, b) => dist(a, unit) - dist(b, unit))[0];
+    // local patch: cast on a 隐匿 enemy alone (the skill-range trigger ignores selectability) — wait for a selectable one
+    if (!first) {
+      if (unit.skill?.active && unit.skill.id === 'skchr_chen3_2') battle.after(0.2, () => { if (unit.deploySeq === seq && unit.skill?.active && unit.skill.id === 'skchr_chen3_2') slashes(battle, unit); }, { owner: unit });
+      return;
+    }
+    battle.addBuff(unit, { key: 'chen3:s2:inv', duration: 10 * S2_INTERVAL + 2, flags: { invulnerable: true, disarm: true } });
+    let target = first, left = 10;
+    const step = () => {
+      if (unit.deploySeq !== seq || !unit.alive) return;
+      if (!target || !target.alive) {
+        const near = battle.foesInRadius(target ? target.x : unit.x, target ? target.y : unit.y, S2_PASS_RADIUS).filter((e) => e.alive);
+        target = (near.length ? near : inRange(battle, unit)).sort((a, b) => dist(a, unit) - dist(b, unit))[0] || null;
+      }
+      if (target && left > 0) {
+        left--;
+        battle.fx('swordStorm', { x: target.x, y: target.y, id: unit.id, r: 0.6 });
+        battle.dealDamage(unit, target, { amount: unit.s.atk * scale, type: 'arts', isSkill: true, tags: ['skill', 'chen3S2'] });
+        if (!target.alive) left++;
+        battle.after(S2_INTERVAL, step, { owner: unit });
+        return;
+      }
+      battle.removeBuff?.(unit, 'chen3:s2:inv');
+      // the 【移动】 to a standing target's tile (deployable for her, free)
+      if (target && target.alive && !target.isFlying) {
+        const r = Math.round(target.y), c = Math.round(target.x);
+        if ((r !== unit.tileR || c !== unit.tileC) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile?.(r, c)) {
+          const fromX = unit.x, fromY = unit.y;
+          if (battle.moveRedeploy(unit, r, c)) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+        }
+      }
+      if (unit.alive && unit.skill?.active) {
+        const p = num(bb['chen3_s2[respawn_buff].prob'], 0.5);
+        battle.addBuff(unit, { key: 'chen3:s2:after', duration: Math.max(0.5, num(unit.skill.timeLeft, 2)),
+          mods: { atkPct: num(bb['chen3_s2[respawn_buff].atk'], 2.6), dodgePhys: p, dodgeArts: p } });
+      }
+    };
+    step();
+  };
+
+  return {
+    skills: {
+      // 赤霄·奔夜: ATK +atk, two hits, the struck enemies lose their special abilities until the skill ends (silence)
+      skchr_chen3_1: {
+        kind: 'duration', mods: { atkPct: num(bb.atk) },
+        attack: {
+          hits: 2,
+          onEachHit({ battle, unit, target }) {
+            if (target?.alive) battle.applyStatus(target, 'silence', { duration: Math.max(0.1, num(unit.skill?.timeLeft, 1)), source: unit });
+          },
+        },
+      },
+      // 赤霄·绝影-驰
+      skchr_chen3_2: { kind: 'duration', onStart({ battle, unit }) { slashes(battle, unit); } },
+      // 赤霄·天喟: the 剑气 + range 3-12, each attack ≤ max_target ground enemies × 3 hits at attack@atk_scale
+      skchr_chen3_3: {
+        kind: 'duration',
+        hitsFly: true, // local patch: the 剑气 hits flyers — a flyer on the 3-12 casts it too (local-skill-range.js)
+        targeting: { rangeGrid: skillGridOf(def), maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), showOwnRange: true },
+        attack: { atkScale: num(bb['attack@atk_scale'], 1.8), hits: 3, maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), groundOnly: true, canHitFly: false },
+        onStart({ battle, unit }) { releaseQi(battle, unit); },
+      },
+    },
+    talents: [
+      { install(battle, unit) { // 形意洞照
+        battle.addBuff(unit, { key: 'chen3:t1', mods: { atkPct: num(t0.atk), aspd: num(t0.attack_speed) }, persist: true, allowDead: true });
+        battle.on('hit', (c) => { if (c.source === unit && c.dmg && (c.dmg.type === 'phys' || c.dmg.type === 'arts')) weaknessRetype(c.dmg, unit, c.target); }, { owner: unit, priority: -10 });
+      } },
+      { install(battle, unit) { // 寒暑觉知
+        const T = num(t1.stack_time, 7), lo = num(t1.heal_atk_scale_min, 30) / 100, hi = num(t1.heal_atk_scale_max, 160) / 100;
+        let since = battle.time, dodge = false;
+        battle.on('damaged', (c) => { if (c.target === unit && c.amount > 0 && !isHpLoss(c.dmg)) since = battle.time; }, { owner: unit });
+        battle.on('hit', (c) => {
+          if (c.target !== unit || !dodge || !c.dmg?.isAttack || (c.dmg.type !== 'phys' && c.dmg.type !== 'arts')) return;
+          dodge = false; c.dmg.cancel = true; since = battle.time;
+          battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id });
+        }, { owner: unit, priority: 4 });
+        battle.every(0.2, () => {
+          if (!live(unit) || battle.time - since < T) return;
+          since = battle.time;
+          battle.heal(unit, unit, unit.s.atk * (lo + battle.rng() * (hi - lo)), { self: true });
+          dodge = true;
+        }, { owner: unit });
+      } },
+      { install(battle, unit) { // module trait: ASPD while blocking nobody
+        if (!moduleAspd) return;
+        battle.every(0.25, () => {
+          if (!live(unit)) return;
+          const want = !(unit.blocking && unit.blocking.length);
+          const has = unit.buffs.some((b) => b.key === 'chen3:mod');
+          if (want && !has) battle.addBuff(unit, { key: 'chen3:mod', duration: Infinity, mods: { aspd: moduleAspd } });
+          else if (!want && has) battle.removeBuff?.(unit, 'chen3:mod');
+        }, { owner: unit });
+      } },
+    ],
+  };
 }
 
 export default {
-  char_1050_chen3: (bb, chess) => {
-    const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
-    const tb = traitBb(chess);
-    const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
-    const grid2 = skillRec(chess, S2)?.rangeGrid ?? X_1, grid3 = skillRec(chess, S3)?.rangeGrid ?? R3_12;
-    const slashes = Math.max(1, Math.floor(num(b2.times, 10)));
-
-    /** S2: the selectable enemies (air too) she may slash next — around the lost target, else in her x-1. */
-    const nextTarget = (battle, unit, from) => {
-      const near = battle.foesInRadius(from.x, from.y, RETARGET_RADIUS).filter((e) => e !== from.e && canTargetEnemy(unit, e, AIR));
-      if (near.length) return nearest(near, from.x, from.y);
-      const inRange = battle.enemiesInKeys(keysOf(unit, grid2), unit, AIR).filter((e) => e !== from.e);
-      return nearest(inRange, from.x, from.y);
-    };
-    /** S2: the slashing is over — the 【移动】, then the 6 s state. */
-    const landS2 = (battle, unit, skill, m) => {
-      battle.removeBuff(unit, DASH_KEY);
-      m.phase = 2;
-      const keep = m.target && !m.lost && !gone(m.target) && m.at;
-      const [r, c] = keep && landable(battle, unit, m.at[0], m.at[1]) ? m.at : [unit.tileR, unit.tileC];
-      battle.moveRedeploy(unit, r, c);
-      battle.fx('blink', { x: unit.x, y: unit.y, id: unit.id, skill: 'chen3:respawn' });
-      if (!unit.alive || !skill.active) return;
-      const p = num(b2['chen3_s2[respawn_buff].prob']);
-      battle.addBuff(unit, { key: AFTER_KEY, mods: { atkPct: num(b2['chen3_s2[respawn_buff].atk']), dodgePhys: p, dodgeArts: p }, tags: ['skill'] });
-      skill.timeLeft = Math.max(0.01, skill.duration);
-    };
-    /** S2: one slash on the current target; a target that falls hands over (+1 slash) or ends the slashing. */
-    const slash = (battle, unit, m) => {
-      const e = m.target;
-      m.n++;
-      m.at = [Math.round(e.y), Math.round(e.x)];           // record_position (each slash)
-      battle.fx('slash', { x: e.x, y: e.y, id: unit.id, n: 1, skill: 'chen3:slash' });
-      battle.dealDamage(unit, e, { amount: unit.s.atk * num(b2.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'chen3:slash'] });
-    };
-    /** S2: the current target left — retarget (+1 slash, +0.4 s) or end the slashing (it was lost). */
-    const handOver = (m, battle, unit) => {
-      const from = { e: m.target, x: m.target.x, y: m.target.y };
-      const next = nextTarget(battle, unit, from);
-      if (!next) { m.lost = true; return false; }
-      m.target = next;
-      m.lost = false;
-      m.hits++;
-      return true;
-    };
-
-    return {
-      // S2's slashes replace her attacks
-      trait: { canAttack: (b, u) => !(u.mem.chen3S2 && u.mem.chen3S2.phase === 1) },
-      skills: {
-        [S1]: {
-          kind: 'duration',
-          mods: { atkPct: num(b1.atk) },
-          attack: {
-            hits: 2,                                         // 二连击
-            onHit({ battle, unit, skill, target }) {         // 特殊能力失效 until the skill ends
-              if (!target || !target.alive || target.side !== 'enemy' || !skill.active) return;
-              if (battle.applyStatus(target, 'silence', { duration: Math.max(0.01, skill.timeLeft), source: unit })) unit.mem.chen3S1Silenced?.add(target);
-            },
-          },
-          onStart({ battle, unit, skill }) { unit.mem.chen3S1End = battle.time + skill.timeLeft; unit.mem.chen3S1Silenced = new Set(); },
-          onEnd({ battle, unit, reason }) {
-            const hit = unit.mem.chen3S1Silenced;
-            unit.mem.chen3S1Silenced = null;
-            if (reason === 'duration' || !hit) return;
-            // an early end lifts the silences she set (derived from the skill: _finishDerivedBuffIfParentFinish) — the ones
-            // that would have ended with it (a tick of slack: the status and the skill count down in different phases)
-            const left = num(unit.mem.chen3S1End) - battle.time + SILENCE_SLACK;
-            for (const e of hit) {
-              for (const s of [...e.buffs]) if (s.key === 'silence' && s.source === unit && s.timeLeft <= left) battle.removeBuff(e, s);
-            }
-          },
-        },
-        [S2]: {
-          kind: 'duration',
-          onStart({ battle, unit, skill }) {
-            const m = unit.mem.chen3S2 = { phase: 1, t: 0, n: 0, hits: slashes, target: null, at: null, lost: false };
-            battle.addBuff(unit, { key: DASH_KEY, flags: { invulnerable: true, noBlock: true, noSp: true, silence: true }, tags: ['skill'] });
-            battle.releaseBlocked(unit);
-            m.target = nearest(battle.enemiesInKeys(keysOf(unit, grid2), unit, AIR), unit.x, unit.y);
-            battle.fx('dash', { x: unit.x, y: unit.y, id: unit.id, skill: 'chen3:dash' });
-            if (!m.target) landS2(battle, unit, skill, m);
-          },
-          onTick({ battle, unit, skill, dt }) {
-            const m = unit.mem.chen3S2;
-            if (!m || m.phase !== 1) return;
-            skill.timeLeft = Math.max(0.01, skill.duration) + dt;   // the 6 s start after the move
-            m.t += dt;
-            if (gone(m.target) && !handOver(m, battle, unit)) { landS2(battle, unit, skill, m); return; }
-            while (m.n < m.hits && m.t + 1e-9 >= SLASH_IV * m.n) {
-              slash(battle, unit, m);
-              if (!unit.alive || !skill.active) return;
-              if (gone(m.target) && !handOver(m, battle, unit)) { landS2(battle, unit, skill, m); return; }
-            }
-            if (m.n >= m.hits && m.t + 1e-9 >= SLASH_IV * m.hits) landS2(battle, unit, skill, m);
-          },
-          onEnd({ battle, unit }) {
-            battle.removeBuff(unit, DASH_KEY);
-            battle.removeBuff(unit, AFTER_KEY);
-            unit.mem.chen3S2 = null;
-          },
-        },
-        [S3]: {
-          kind: 'duration',
-          targeting: { rangeGrid: grid3, maxTargets: Math.max(1, Math.floor(num(b3['attack@max_target'], 3))) },
-          attack: { atkScale: num(b3['attack@atk_scale'], 1), hits: 3 },   // `_additionalTimes` 2
-          onStart({ battle, unit, skill }) {
-            const [dr, dc] = unit.fwd;
-            unit.mem.chen3Wave = { x: unit.x, y: unit.y, dr, dc, hit: new Set(), act: skill.activations, seq: unit.deploySeq };
-            battle.fx('dash', { x: unit.x, y: unit.y, id: unit.id, skill: 'chen3:wave' });
-          },
-          onEnd({ unit }) { unit.mem.chen3Wave = null; },
-        },
-      },
-      talents: [
-        { install(battle, unit) { // 形意洞照: ATK / ASPD; every physical / arts damage of hers is 弱点伤害
-          statBuff(battle, unit, 'talent:chen3:insight', { atkPct: num(t0.atk), aspd: num(t0.attack_speed) });
-          battle.on('hit', (c) => { if (c.source === unit && c.target && c.target.side === 'enemy') weaknessRetype(c.dmg, unit, c.target); }, { owner: unit, priority: 5 });
-        } },
-        { install(battle, unit) { // 寒暑觉知: every stack_time s without damage: a random self-heal and one held dodge
-          const st = Math.max(1, Math.floor(num(t1.stack_time, 7))), lo = num(t1.heal_atk_scale_min), hi = num(t1.heal_atk_scale_max, lo + 1);
-          const fresh = () => ({ count: 0, acc: 0, evade: false });
-          unit.mem.chen3T2 = fresh();
-          // a 【移动】 (S2) keeps it — the dodge by PRTS, the counter as the engine's 【移动】 keeps the rest
-          battle.on('deploy', (c) => { if (c.unit === unit && !c.move) unit.mem.chen3T2 = fresh(); }, { owner: unit });
-          battle.on('tick', ({ dt }) => {
-            const m = unit.mem.chen3T2;
-            if (!up(unit) || !m) return;
-            m.acc += dt;
-            while (m.acc >= 1 - 1e-9) {
-              m.acc -= 1;
-              if (++m.count < st) continue;
-              m.count = 0;
-              m.evade = true;
-              const pct = lo + battle.rng.int(Math.max(1, Math.floor(hi - lo)));
-              battle.heal(unit, unit, unit.s.atk * pct / 100, { self: true });
-              battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id, skill: 'chen3:evade' });
-            }
-          }, { owner: unit });
-          battle.on('damaged', (c) => {
-            const m = unit.mem.chen3T2;
-            if (c.target !== unit || !m || !c.dmg || isHpLoss(c.dmg) || c.type === 'element') return;
-            m.count = 0;
-            m.acc = 0;
-          }, { owner: unit });
-          // the held dodge: after her other dodges (priority −1000), on a dodgeable physical / arts damage instance
-          battle.on('hit', (c) => {
-            const m = unit.mem.chen3T2, d = c.dmg;
-            if (c.target !== unit || !m || !m.evade || !d || d.cancel || !d.canDodge || (d.type !== 'phys' && d.type !== 'arts')) return;
-            const p = d.type === 'phys' ? unit.s.dodgePhys : unit.s.dodgeArts;
-            if (!(p > 0 && battle.rng() < p)) m.evade = false;   // one of her other dodges first: then it is kept
-            d.cancel = true;
-            battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id });
-            battle.emit('dodge', { source: c.credit ?? c.source, target: unit, dmg: d });
-          }, { owner: unit, priority: -1000 });
-        } },
-      ],
-      install(battle, unit) {
-        // AFT-X “记忆残页”: 未阻挡敌人时攻击速度+8
-        const as = num(tb.attack_speed);
-        if (as) toggleBuff(battle, unit, 'trait:chen3:unblocked', () => unit.blocking.length === 0, { aspd: as });
-        // S2: 眩晕 / 冻结 immunity while she slashes
-        battle.on('beforeStatus', (c) => {
-          if (c.target === unit && unit.mem.chen3S2 && unit.mem.chen3S2.phase === 1 && (c.status === 'stun' || c.status === 'freeze')) c.cancel = true;
-        }, { owner: unit });
-        // S3: the sword wave
-        if (unit.skill?.id !== S3) return;
-        const ratio = num(b3.hp_ratio), minScale = num(b3.projectile_min_atk_scale);
-        battle.on('tick', ({ dt }) => {
-          const w = unit.mem.chen3Wave;
-          if (!w) return;
-          const sk = unit.skill;
-          if (!up(unit) || unit.deploySeq !== w.seq || !sk || !sk.active || sk.activations !== w.act) { unit.mem.chen3Wave = null; return; }
-          for (let i = 0; i < 4 && waveBlocked(battle, w); i++) {   // turn 90° clockwise (row up, col right)
-            const dr = w.dr;
-            w.dr = 0 - w.dc;    // (`0 - x`: never a negative zero)
-            w.dc = dr;
-            w.hit.clear();
-          }
-          if (!waveBlocked(battle, w)) { w.x += w.dc * WAVE_SPEED * dt; w.y += w.dr * WAVE_SPEED * dt; }
-          for (const e of battle.foesInRadius(w.x, w.y, WAVE_HIT_RADIUS)) {
-            if (w.hit.has(e) || !canTargetEnemy(unit, e, AIR)) continue;
-            w.hit.add(e);
-            const amount = Math.max(ratio * e.hp, minScale * unit.s.atk);
-            battle.fx('slash', { x: e.x, y: e.y, id: unit.id, n: 1, skill: 'chen3:wave' });
-            battle.dealDamage(unit, e, { amount, type: 'arts', isSkill: true, tags: ['skill', 'chen3:wave'] });
-            if (!unit.alive || unit.mem.chen3Wave !== w) return;
-          }
-        }, { owner: unit });
-      },
-    };
-  },
+  char_1050_chen3: (bb, chess, def) => chen3(bb, chess, def),
 };

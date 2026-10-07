@@ -1117,6 +1117,11 @@ const DIY_EXCLUDED_TEAMS = Object.freeze(['rainbow', 'action4', 'mujica', 'sees'
  * Dungeon Meshi); every other prefix in the pool is a faction (LM, NM, RE, RL, …).
  */
 const DIY_EXCLUDED_NUMBER_PREFIXES = Object.freeze(['MH', 'RS', 'AM', 'PS', 'DD']);
+/**
+ * local patch (the owner's decision, 2026-10-05): collab 6★ taken into the owned pool after all — 丰川祥子, one of the
+ * owner's five 선발 picks (shared/local-diy.js LOCAL_DIY_PICKS restricts what is offered; docs/LOCAL-PATCH.md).
+ */
+const DIY_LOCAL_INCLUDED = Object.freeze(['char_4182_oblvns']);
 
 /**
  * The skill a prototype carries in a 自选 slot when no 补位 row of the slot's tier names it (only 预备干员-医疗 at tier 5:
@@ -1307,8 +1312,9 @@ function buildBackups(ctx, chess) {
       && !ch.isNotObtainable && !roster.has(id);
   }).sort(naturalCmp);
   const collabNumber = (ch) => DIY_EXCLUDED_NUMBER_PREFIXES.some((p) => new RegExp(`^${p}\\d`).test(ch.displayNumber || ''));
-  const excluded = legal6.filter((id) => teamsOf(charTable[id]).some((t) => excludedTeams.has(t)) || collabNumber(charTable[id]));
-  for (const t of DIY_EXCLUDED_TEAMS) if (!excluded.some((id) => teamsOf(charTable[id]).includes(t))) warn(`DIY_EXCLUDED_TEAMS: no owned-6★ pick of team ${t}`);
+  const excluded = legal6.filter((id) => (teamsOf(charTable[id]).some((t) => excludedTeams.has(t)) || collabNumber(charTable[id])) && !DIY_LOCAL_INCLUDED.includes(id)); // local patch: DIY_LOCAL_INCLUDED
+  for (const t of DIY_EXCLUDED_TEAMS) if (!excluded.some((id) => teamsOf(charTable[id]).includes(t)) && !DIY_LOCAL_INCLUDED.some((id) => charTable[id] && teamsOf(charTable[id]).includes(t))) warn( // local patch: DIY_LOCAL_INCLUDED
+    `DIY_EXCLUDED_TEAMS: no owned-6★ pick of team ${t}`);
   const ownedPool = legal6.filter((id) => !excluded.includes(id));
   for (const id of ownedPool) for (const st of diyStatuses.values()) addNeed(id, st);
 

@@ -150,6 +150,7 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-necras.js',
   'op-kalts2.js',
   'op-monstr.js',
+  'op-oblvns.js', // local patch: 丰川祥子 (a collab upstream leaves out; the owner's 선발 pick — shared/local-diy.js)
 ]);
 
 /**

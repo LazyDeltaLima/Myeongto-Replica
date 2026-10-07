@@ -1,311 +1,237 @@
-// server/sim/content/kits/ops/op-wisdel.js — 维什戴尔 (char_1035_wisdel) 自选 operator kit: 6★ 投掷手 (狙击), an owned-6★ pick
-// of the tier-5 and tier-6 自选 slots; every skill, both talents, the trait, her module BOM-X “‘祖宗发射器’” at every form, and
-// the kit of her summon “魂灵之影” (token_10035_wisdel_wward). Kit contract and the 自选 rules: ../README.md ("How to add an
-// operator (自选)").
+// server/sim/content/kits/ops/op-wisdel.js — 维什戴尔 (char_1035_wisdel) 自选 operator kit — local patch: the nas-local 선발
+// kit (formerly kits/diy.js, docs/LOCAL-PATCH.md 「선발 오퍼레이터」) on upstream's 自选 framework; it replaces upstream's
+// op-wisdel.js (the owner's rule: where the two differ, ours wins). 6★ 投掷手 (狙击); every skill, both talents, the trait,
+// the module and the kit of her summon 魂灵之影 (token_10035_wisdel_wward). Kit contract: ../README.md ("How to add an
+// operator (自选)"); `chess` = the composed 自选 record (shared/diy.js diyRecordOf), every number from it.
 //
-// Forms (data/backups.json units.char_1035_wisdel, the DIY slot statuses): normal = E2 Lv1, skills at rank 4, no module;
-// elite = E2 Lv60, rank 7, the module at stage 1 (tier 5) or 3 (tier 6) — the owner's decision of 2026-10-05. Potential 0
-// [ASSUMED: no account]. Sources: character_table / skill_table / battle_equip_table and the token record (zh_CN, as
-// built into backups.json); PRTS 维什戴尔, 魂灵之影 and 溅射半径一览 (the 备注 quoted below); the client's skill prefabs
-// ([uc]skills skchr_wisdel_1 / 2 / 3, sktok_wisdel_wward) and buff templates (wisdel_t_1[bomb] / [projectile_shock],
-// wisdel_token_t_1[bomb], token_wisdel_passive[to_host], token_wisdel_host[Camouflage], token_wisdel_skill_end,
-// wisdel_s_2[switch] / [overload_start], wisdel_s_3[trigger_spawn], wisdel_s_3_token[add_sp]).
-// - Trait (投掷手) "攻击对小范围的地面敌人造成两次物理伤害（第二次为余震，伤害降低至攻击力的一半）": the bombarder profile — a
-//   ground-only splash of SPLASH (PRTS 溅射半径一览 投掷手 0.9) at full damage, then 余震 (aftershocks) on the same spot
-//   SHOCK_GAP s apart (the engine's spacing [ASSUMED there]) at attack@append_atk_scale × the attack's ATK — her 3-9,
-//   blocks 1, never targets air units (data canHitFly false), ground enemies target her. The kit replaces the profile's
-//   aftershock (`afterHit`) to carry 好礼 and the skills' changes. Module BOM-X “‘祖宗发射器’” "三次物理伤害（后两次为余震…）"
-//   (trait bb attack@enable_third_attack 1): two aftershocks; ATK / 攻击速度 in the stats; stage 3 changes 好礼 (below).
-// - T1 好礼 "攻击时对主目标的攻击力提升至115%并为其附着残影，残影受到维什戴尔的余震影响时有15%概率爆炸，对周围所有敌人造成
-//   150%攻击力的物理伤害并使其晕眩1秒" (BOM-X stage 3: 125 % / 175 %). PRTS 备注 "攻击倍率提升效果仅对普通攻击（含余震）生效",
-//   "残影持续时间无限，不可叠加，维什戴尔退场后消失；每次余震独立判定残影爆炸，爆炸半径1.1（中点判定），爆炸效果可对空": every
-//   main target of her attacks (each of S2's targets, each overload round) takes ×main_atk_scale on that hit and on her
-//   aftershocks, and carries her 残影 (one per enemy, removed when she leaves the field — a knock-out too); each
-//   aftershock hit on a marked enemy that survives it rolls `prob` (wisdel_t_1[projectile_shock]: Dice, then the AOE) —
-//   on success the mark is spent and every targetable enemy within attack@range_radius of it, air units too, takes
-//   bomb_atk_scale × ATK physical and is stunned attack@stun s.
-// - T2 死魂灵的余息 "部署后立刻在攻击范围内召唤一个魂灵之影，在魂灵之影周围时获得迷彩": each deployment summons one 魂灵之影 on a
-//   free deployable tile of her range — PRTS 备注 "部署时优先在距离自身最近的>地图下方行>地图左侧列可部署位部署" (nearest to
-//   her, then the lower row, then the left column; at once — the deploy animation is not modelled [ASSUMED]) — while fewer
-//   than SHADOW_CAP stand ("最多存在3个"; beyond it nothing is summoned — S3_Spawn `_checkTokenMaxDeployCnt`, the talent's
-//   summon read alike [ASSUMED]). A shadow coming in gives her 迷彩 while it
-//   stays when she stands on its x-5 (token_wisdel_passive[to_host] + token_wisdel_host[Camouflage]: only the host keeps
-//   it; PRTS "仅在登场时尝试给予维什戴尔迷彩…可受孤立干扰", "本天赋的迷彩不会因维什戴尔阻挡敌人而解除" — the engine's 迷彩
-//   never lifts by blocking). Shadows stay when she leaves [ASSUMED: no source withdraws them; their skill needs her range].
-//   魂灵之影 (shadowKit): its stats are the form's (token variant), 禁疗, no normal attack, no range of its own (PRTS 备注 "持有
-//   禁疗 / 无视野范围 / 不进行普通攻击"); its skill (AUTO, 5 SP over time) "对一名在维什戴尔攻击范围内的敌人造成法术伤害，对其造成
-//   1秒停顿并附着残影，之后获得0-2点技力" — PRTS "技能仅攻击维什戴尔攻击范围内的敌人，优先攻击未携带残影的敌人，不可对空" (prefab
-//   SkillTrigger: `_fetchHost`, `_targetMotion` 1, `_withoutThisBuff` wisdel_t_1[bomb]): cast by this kit once ready with a
-//   targetable ground enemy in her current range (the data's DEFAULT read on her range, which the engine's rule cannot see),
-//   unmarked ones first, then the usual order: its ATK × 1 arts (`_atkScale` 1, `_damageType` magical), 停顿 `sluggish` s,
-//   her 残影 (while she is on the field — wisdel_token_t_1[bomb] hangs it on her talent), then
-//   sp_min … sp_max − 1 SP (token_wisdel_skill_end: RandomSetter, forced). It can be attacked (实体类型 默认).
-// - S1 定点清算 (AUTO, attack SP, data DEFAULT — the next attack): that attack splashes S1_SPLASH (PRTS 备注 "溅射半径1.1";
-//   its aftershocks too [ASSUMED]), makes 2 more aftershocks, each at append_atk_scale × ATK, and stuns every enemy it hits
-//   (main, splash, aftershocks) stun_duration s.
-// - S2 饱和复仇 (MANUAL, 25 s, data DEFAULT): ATK +atk, attack interval +base_attack_time s (−0.5 / −0.7 on 2.1 s), 3 targets
-//   at once. 过载 (ba.overdrive "技能持续拥有两段计量槽，技能进行到一半时触发额外效果": the second half, as 号角 S3 —
-//   OVERLOAD_AT): every attack becomes OVERLOAD_SHOTS rounds of attack@atk_scale_ol × ATK, each on a random enemy of her
-//   range (PRTS "过载模式下不再同时攻击3个目标，4次攻击分别随机索敌"; one draw per round, repeats allowed), the rounds of one
-//   attack at once [ASSUMED], their aftershocks at append_atk_scale × that ATK (PRTS S3 备注 "攻击倍率提升效果仅对普通攻击
-//   与余震生效" read for the overload rounds too [ASSUMED]). Manual close: N/A in the auto battle.
-// - S3 爆裂黎明 (MANUAL, 6 发弹药 — attack@trigger_time, data SP_FULL from the official ALWAYS row): at once max_cnt shadows
-//   (the first one with `sp` SP: wisdel_s_3_token[add_sp] — PRTS "初始技力分别为3sp（优先召唤）与0sp"), then ATK +atk, attack
-//   interval +base_attack_time s, each attack attack@atk_scale_3 × ATK with a splash of S3_SPLASH (PRTS 备注 "攻击溅射半径
-//   2.5"), 好礼 at attack@prob (100 %). PRTS "施加锁定、普通攻击、溅射均可对空": she targets and splashes air units meanwhile;
-//   the aftershocks stay on ground enemies [ASSUMED: PRTS names only the lock, the attack and its splash] on the 2.5 spot
-//   [ASSUMED], at append_atk_scale × the boosted ATK (the same 备注). Its <爆裂锁定> picks the target her own selection
-//   picks [ASSUMED: one 维什戴尔, no shared lock].
+// Trait: every attack = the main blast + aftershocks (append_atk_scale × ATK, the module's enable_third_attack adds one)
+// in the bombarder splash (0.9, PRTS 溅射半径一览), ground only. 好礼: the main target takes main_atk_scale × the hit and
+// gets an 残影 (one, kept); an 残影 struck by her aftershock explodes with `prob` (S3: 100 %): bomb_atk_scale × ATK phys
+// within range_radius (1.1, centre test, height ignored) + stun 1 s, the mark is used up [ASSUMED: used up — the text
+// does not say it stays]. 死魂灵的余息: on deploy a 魂灵之影 on the free tile of her range nearest to her (PRTS 备注:
+// lowest distance first); she has 迷彩 while one stands within 1.5 tiles [ASSUMED radius: "在魂灵之影周围"].
+// S2 过载 [ASSUMED: the second half of the 25 s — the table gives no switch time]: every attack becomes 4 shots of
+// atk_scale_ol × ATK at random targets of her range (each a full blast with its aftershocks).
+// fx kinds the client draws / sounds from (render/fxgame.js, audio.js kitHitKey): 'explode' { by } (好礼's bomb),
+// 'bombardShell' { id } (the overload shots), 'burst' { id: the shade } (魂灵之影's strike), 'summon'.
 
-import { num, talentBb, traitBb, skillRec, up, batMod } from '../shared/tier1.js';
-import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
-import { hasHp } from '../../../damage.js';
 import { COLS } from '../../../constants.js';
+import { talentBb } from '../shared/tier1.js';
 
-const S1 = 'skchr_wisdel_1';
-const S2 = 'skchr_wisdel_2';
-const S3 = 'skchr_wisdel_3';
-/** Her summon “魂灵之影” (T2 死魂灵的余息, S3 爆裂黎明). */
+const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
+const selectedSkill = (chess, def) => chess?.skill?.skillId ?? def?.skill?.id ?? null;
+/** Skill blackboard base_attack_time → engine batPct (a shortening is flat seconds, a lengthening scales). */
+function batOf(v, def) {
+  const x = num(v);
+  if (!x) return 0;
+  if (x > 0) return x;
+  return Math.max(-0.9, x / (num(def?.stats?.bat, 1) || 1));
+}
+const ANY = Object.freeze({ canHitFly: true });
+const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], unit, ANY);
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+const WIS_SPLASH = 0.9, WIS_S1_SPLASH = 1.1, WIS_S3_SPLASH = 1.7, WIS_WARD_NEAR = 1.5, WIS_WARD_MAX = 3;
+/** Her summon 魂灵之影 (T2 死魂灵的余息, S3 爆裂黎明). */
 export const SHADOW = 'token_10035_wisdel_wward';
-/** PRTS 溅射半径一览: 投掷手 0.9 (the bombarder profile's). */
-const SPLASH = 0.9;
-/** PRTS S1 备注 "溅射半径1.1" / S3 备注 "攻击溅射半径2.5". */
-const S1_SPLASH = 1.1;
-const S3_SPLASH = 2.5;
-/** Seconds between two aftershocks (professions.js bombarder's spacing) [ASSUMED there]. */
-const SHOCK_GAP = 0.3;
-/** "最多存在3个魂灵之影" (the token's maxDeployCount 3). */
-const SHADOW_CAP = 3;
-/** 过载 from the second half of the skill (ba.overdrive). */
-const OVERLOAD_AT = 0.5;
-/** "4连发". */
-const OVERLOAD_SHOTS = 4;
-/** The shadow's x-5 (PRTS 魂灵之影 备注 "登场时给予自身及周围4格的其他我方单位迷彩"). */
-const X5 = Object.freeze([[1, 0], [0, -1], [0, 0], [0, 1], [-1, 0]]);
-const GROUND = Object.freeze({ canHitFly: false });
 
-const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** Buff key of 维什戴尔 `host`'s 残影 on an enemy (one per enemy: "不可叠加"). */
-const markKey = (host) => `wisdel:mark:${host.id}`;
-/** Buff key of the 迷彩 a shadow gave its host. */
-const camoKey = (t) => `wisdel:camou:${t.id}`;
-const isShadowOf = (t, host) => !!t && t.kind === 'token' && t.defId === SHADOW && t.ownerUnit === host;
-const shadowsOf = (battle, host) => battle.allyUnits.filter((t) => t.alive && isShadowOf(t, host));
-
-/** Hang `host`'s 残影 on enemy `e` (while she is on the field). */
-function markOf(battle, host, e) {
-  if (!e || !e.alive || e.side !== 'enemy' || !up(host)) return;
-  const key = markKey(host);
-  if (!e.findBuff(key)) battle.addBuff(e, { key, source: host, tags: ['wisdel:mark'] });
-}
-
-/** 好礼's explosion on marked enemy `e` (the mark is spent). */
-function detonate(battle, unit, e, bomb) {
-  battle.removeBuff(e, markKey(unit));
-  const x = e.x, y = e.y;
-  battle.fx('aoe', { x, y, radius: bomb.radius, id: unit.id, skill: 'wisdel:bomb' });
-  for (const v of battle.foesInRadius(x, y, bomb.radius, true)) { // 爆炸效果可对空
-    battle.dealDamage(unit, v, { amount: unit.s.atk * bomb.scale * unit.s.atkScaleMul, type: 'phys', isSplash: true, tags: ['wisdel:bomb'] });
-    if (bomb.stun > 0 && hasHp(v)) battle.applyStatus(v, 'stun', { duration: bomb.stun, source: unit });
-  }
-}
-
-/**
- * The aftershocks of one hit (the profile's `afterHit`): `count` shocks SHOCK_GAP s apart on the hit's spot, each
- * hitting every targetable ground enemy within `radius` for `atkScale` × `shockScale` × ATK (×`mainScale` on the main
- * target), stunning them `stun` s, and rolling 好礼 on each marked survivor (`prob`).
- */
-function shocks({ count, atkScale, shockScale, radius, prob, stun, mainScale, bomb }) {
-  return (battle, unit, target, hctx) => {
-    for (let i = 1; i <= count; i++) {
-      battle.after(SHOCK_GAP * i, () => {
-        for (const e of battle.foesInRadius(hctx.x, hctx.y, radius, true)) {
-          if (e.isFlying) continue; // 余震: 地面敌人
-          const boost = e === target ? mainScale : 1;
-          battle.dealDamage(unit, e, { amount: unit.s.atk * atkScale * shockScale * boost * unit.s.atkScaleMul, type: 'phys', isSplash: true, isSkill: !!hctx.isSkill, tags: ['aftershock', 'wisdel:shock'] });
-          if (!hasHp(e)) continue;
-          if (stun > 0) battle.applyStatus(e, 'stun', { duration: stun, source: unit });
-          if (prob > 0 && e.findBuff(markKey(unit)) && (prob >= 1 || battle.rng.chance(prob))) detonate(battle, unit, e, bomb);
-        }
-      });
-    }
-  };
-}
-
-/** The free deployable tile of her range a shadow takes (PRTS: nearest to her > lower row > left column), or null. */
-function shadowTile(battle, host) {
-  let best = null, bd = Infinity;
-  for (const k of host.rangeKeys ?? []) {
-    const r = Math.floor(k / COLS), c = k % COLS;
-    if (!battle.grid.inRect(r, c) || !battle.grid.canStand(r, c, { ranged: true }) || battle.isReservedTile(r, c)) continue;
-    const d = Math.hypot(r - host.tileR, c - host.tileC);
-    if (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && (r < best[0] || (r === best[0] && c < best[1])))) { bd = d; best = [r, c]; }
-  }
-  return best;
-}
-
-/** The enemy a shadow strikes: a targetable ground enemy of `host`'s range, unmarked first, then the usual order. */
-function shadowTarget(battle, host, t) {
-  const pool = battle.enemiesInKeys(host.rangeKeys, t, GROUND);
-  if (!pool.length) return null;
-  const key = markKey(host);
-  const fresh = pool.filter((e) => !e.findBuff(key));
-  const list = fresh.length ? fresh : pool;
-  sortEnemyTargets(battle, t, list, null);
-  return list[0];
-}
-
-/** 魂灵之影's kit (header); `host` = 维什戴尔. */
-function shadowKit(host) {
+/** 魂灵之影: no attack; its AUTO skill hits one enemy of 维什戴尔's range (unmarked first): arts (its ATK), 停顿, 残影, SP. */
+function wisdelWard(bb) {
+  const slug = num(bb.sluggish, 1), spMin = num(bb.sp_min, 0), spMax = num(bb.sp_max, 3);
   return {
+    fromTokens: true, // under its deploy limit (content/tokens.js), as the token kits of tokens.js
     skill: {
       kind: 'instant',
-      trigger: 'NEVER', // cast by the install below on her range
-      onStart({ battle, unit, bb }) {
-        const e = unit.mem.wisdelTarget;
-        unit.mem.wisdelTarget = null;
-        if (e && e.alive) {
-          battle.fx('strike', { x: e.x, y: e.y, id: unit.id, target: e.id });
-          battle.dealDamage(unit, e, { amount: unit.s.atk * unit.s.atkScaleMul, type: 'arts', isSkill: true, tags: ['skill', 'wisdel:shadow'] });
-          if (hasHp(e)) {
-            const slug = num(bb.sluggish);
-            if (slug > 0) battle.applyStatus(e, 'sluggish', { duration: slug, source: unit });
-            markOf(battle, host, e);
-          }
+      trigger: { rule: 'SP_FULL' },
+      onStart({ battle, unit }) {
+        const owner = unit.ownerUnit;
+        if (!live(owner)) return;
+        const pool = inRange(battle, owner).filter((e) => e.alive);
+        if (!pool.length) { unit.skill?.gainSp?.(unit.skill.spCost ?? 0, 'refund'); return; }
+        const fresh = pool.filter((e) => !e.buffs.some((b) => b.key === `wis:mark:${owner.id}`));
+        const t = battle.rng.pick(fresh.length ? fresh : pool);
+        battle.fx('burst', { x: t.x, y: t.y, id: unit.id });
+        battle.dealDamage(unit, t, { amount: unit.s.atk, type: 'arts', isSkill: true, tags: ['summon'] });
+        if (t.alive) {
+          battle.applyStatus(t, 'sluggish', { duration: slug, source: unit });
+          battle.addBuff(t, { key: `wis:mark:${owner.id}`, duration: Infinity, source: owner, visible: true });
         }
-        // token_wisdel_skill_end: 之后获得0-2点技力 (an integer of [sp_min, sp_max), forced)
-        const lo = Math.floor(num(bb.sp_min)), hi = Math.floor(num(bb.sp_max, lo + 1));
-        const add = lo + battle.rng.int(Math.max(1, hi - lo));
-        if (add > 0) unit.skill.gainSp(add, 'init');
+        const sp = Math.floor(spMin + battle.rng() * Math.max(0, spMax - spMin)); // 0-2 (sp_max exclusive)
+        if (sp > 0 && owner.skill && !owner.skill.active) owner.skill.gainSp(sp, 'talent');
       },
     },
     trait: { noAttack: true },
-    install(battle, t) {
-      battle.addBuff(t, { key: 'trait:abnormal', flags: { noHeal: true }, persist: true, allowDead: true }); // 持有禁疗
-      battle.on('tick', () => {
-        const sk = t.skill;
-        if (!t.alive || !t.deployed || !sk || !sk.ready || sk.active || !t.canAct || t.s.flags.silence || !up(host)) return;
-        const e = shadowTarget(battle, host, t);
-        if (!e) return;
-        t.mem.wisdelTarget = e;
-        sk.activate('DEFAULT');
-      }, { owner: t });
-      battle.on('death', (ctx) => {
-        if (ctx.unit === t && host.findBuff(camoKey(t))) battle.removeBuff(host, camoKey(t));
-      }, { owner: t });
-    },
   };
 }
 
-/** A shadow coming in: 迷彩 for its host while it stays, when she stands on its x-5 and may be selected by it. */
-function grantCamo(battle, host, t) {
-  if (!up(host) || !battle.allySelectable(host, t)) return;
-  if (!absoluteRangeKeys(X5, t.tileR, t.tileC, t.dir, 0).includes(host.tileR * COLS + host.tileC)) return;
-  battle.addBuff(host, { key: camoKey(t), flags: { camou: true }, source: t, tags: ['talent'], visible: true });
-  battle.fx('camouflage', { x: host.x, y: host.y, id: host.id });
-}
+function wisdel(bb, chess, def) {
+  const sid = selectedSkill(chess, def);
+  const t0 = talentBb(chess, 0);
+  const tb = chess?.trait?.bb || {};
+  const append = num(tb['attack@append_atk_scale'], 0.5);
+  const shocks = 1 + (num(tb['attack@enable_third_attack']) ? 1 : 0);
+  const mainScale = num(t0['attack@main_atk_scale'], 1.15);
+  const markProb = num(t0['attack@prob'], 0.15), bombScale = num(t0['attack@bomb_atk_scale'], 1.5);
+  const bombStun = num(t0['attack@stun'], 1), bombR = num(t0['attack@range_radius'], 1.1);
 
-/** Summon up to `n` shadows for `host` (never beyond SHADOW_CAP); the first one starts with `firstSp` SP. */
-function summonShadows(battle, host, n, firstSp = 0) {
-  for (let i = 0; i < n; i++) {
-    if (shadowsOf(battle, host).length >= SHADOW_CAP) return;
-    const tile = shadowTile(battle, host);
-    if (!tile) return;
-    const t = battle.spawnToken(host, SHADOW, tile[0], tile[1], { kit: shadowKit(host) });
-    if (!t) return;
-    if (i === 0 && firstSp > 0 && t.skill) t.skill.gainSp(firstSp, 'init');
-    battle.fx('summon', { x: t.x, y: t.y, id: host.id, token: SHADOW });
-    grantCamo(battle, host, t);
-  }
+  /** The 残影 of a target: explode it (prob `p`) — called by an aftershock of hers striking a marked enemy. */
+  const tryBomb = (battle, unit, e, p) => {
+    if (!e.alive || !e.buffs.some((b) => b.key === `wis:mark:${unit.id}`)) return;
+    if (battle.rng() >= p) return;
+    battle.removeBuff?.(e, `wis:mark:${unit.id}`);
+    battle.fx('explode', { x: e.x, y: e.y, r: bombR, by: unit.id }); // `by` = her, for its hit sound (audio.js kitHitKey)
+    for (const v of battle.foesInRadius(e.x, e.y, bombR, true)) {
+      battle.dealDamage(unit, v, { amount: unit.s.atk * bombScale, type: 'phys', isSkill: true, tags: ['talent', 'wisdelBomb'] });
+      if (v.alive) battle.applyStatus(v, 'stun', { duration: bombStun, source: unit });
+    }
+  };
+  const mark = (battle, unit, e) => {
+    if (!e?.alive) return;
+    battle.addBuff(e, { key: `wis:mark:${unit.id}`, duration: Infinity, source: unit, visible: true });
+  };
+  /**
+   * One blast at (x, y) (the main target `main`): splash + `n` aftershocks of `scale` × ATK 0.3 s apart. `stun` stuns
+   * every enemy the blast hits; `prob` = the 残影 explosion chance of the aftershocks.
+   */
+  const blast = (battle, unit, main, { x, y, scale = 1, radius = WIS_SPLASH, n = shocks, after = append, stun = 0, prob = markProb, primary = false }) => {
+    if (!primary) {
+      for (const e of battle.foesInRadius(x, y, radius, true)) {
+        if (e.isFlying) continue;
+        battle.dealDamage(unit, e, { amount: unit.s.atk * scale * (e === main ? mainScale : 1), type: 'phys', isAttack: true, isSplash: e !== main, tags: ['wisdelShot'] });
+        if (stun && e.alive) battle.applyStatus(e, 'stun', { duration: stun, source: unit });
+      }
+    }
+    mark(battle, unit, main);
+    const seq = unit.deploySeq;
+    for (let i = 1; i <= n; i++) {
+      battle.after(0.3 * i, () => {
+        if (unit.deploySeq !== seq) return;
+        for (const e of battle.foesInRadius(x, y, radius, true)) {
+          if (e.isFlying) continue;
+          battle.dealDamage(unit, e, { amount: unit.s.atk * after, type: 'phys', isSplash: true, tags: ['aftershock'] });
+          if (stun && e.alive) battle.applyStatus(e, 'stun', { duration: stun, source: unit });
+          tryBomb(battle, unit, e, prob);
+        }
+      }, { owner: unit });
+    }
+  };
+
+  const ownWards = (battle, unit) => battle.allies(unit.ownerId).filter((a) => a.kind === 'token' && a.defId === SHADOW && a.ownerUnit === unit && a.alive);
+  const placeWard = (battle, unit) => {
+    if (ownWards(battle, unit).length >= WIS_WARD_MAX) return null;
+    const tiles = [...(unit.rangeKeys || [])].map((k) => [Math.floor(k / COLS), k % COLS])
+      .filter(([r, c]) => battle.grid.inRect(r, c) && battle.grid.canStand(r, c, { ranged: true }) && !battle.isReservedTile?.(r, c))
+      .sort((a, b) => Math.hypot(a[0] - unit.tileR, a[1] - unit.tileC) - Math.hypot(b[0] - unit.tileR, b[1] - unit.tileC) || a[1] - b[1]);
+    for (const [r, c] of tiles) {
+      // the shade's kit is given here (content/index.js resolves no token kit for it)
+      const w = battle.spawnToken(unit, SHADOW, r, c, { anySource: true, kit: wisdelWard(battle.tokenDef(SHADOW, unit)?.skill?.bb ?? {}) });
+      if (w) { battle.fx('summon', { x: w.x, y: w.y, id: w.id }); return w; }
+    }
+    return null;
+  };
+
+  const s3 = sid === 'skchr_wisdel_3';
+  return {
+    // the trait's aftershocks and the talents are this kit's own blast (it replaces the branch's afterHit)
+    trait: {
+      splashRadius: WIS_SPLASH,
+      afterHit(battle, unit, target, info) {
+        const sk = unit.skill;
+        const s1 = sk?.active && sk.id === 'skchr_wisdel_1';
+        const s3on = sk?.active && sk.id === 'skchr_wisdel_3';
+        blast(battle, unit, target, {
+          x: info.x, y: info.y, primary: true,
+          n: shocks + (s1 ? 2 : 0), after: s1 ? num(sk.bb?.append_atk_scale, 0.9) : append,
+          radius: s3on ? WIS_S3_SPLASH : s1 ? WIS_S1_SPLASH : WIS_SPLASH,
+          stun: s1 ? num(sk.bb?.stun_duration, 1) : 0, prob: s3on ? num(sk.bb?.['attack@prob'], 1) : markProb,
+        });
+        if (s1) battle.applyStatus(target, 'stun', { duration: num(sk.bb?.stun_duration, 1), source: unit });
+      },
+    },
+    skills: {
+      // 定点清算 (AUTO, attack SP): the next attack — 2 more aftershocks at append_atk_scale, stun, wider splash (afterHit)
+      skchr_wisdel_1: { kind: 'instant', attack: { splashRadius: WIS_S1_SPLASH } },
+      // 饱和复仇: ATK +atk, base attack time −0.7 s, 3 targets; 过载 (second half): 4 shots at random targets
+      skchr_wisdel_2: {
+        kind: 'duration',
+        mods: { atkPct: num(bb.atk), batPct: batOf(bb.base_attack_time, def) },
+        targeting: { maxTargets: 3 },
+      },
+      // 爆裂黎明: 2 shades (≤ 3, kept), ATK +atk, base attack time ×(1 + 2.9), atk_scale_3, huge splash, 残影 100 %, ammo
+      skchr_wisdel_3: {
+        kind: 'ammo', ammo: Math.max(1, Math.floor(num(bb['attack@trigger_time'], 6))),
+        mods: { atkPct: num(bb.atk), batPct: batOf(bb.base_attack_time, def) },
+        attack: { atkScale: num(bb['attack@atk_scale_3'], 1.9), splashRadius: WIS_S3_SPLASH },
+        onStart({ battle, unit }) { for (let i = 0; i < Math.max(1, num(bb.max_cnt, 2)); i++) placeWard(battle, unit); },
+      },
+    },
+    talents: [
+      { install(battle, unit) { // 好礼: the main target takes main_atk_scale × the attack
+        battle.on('hit', (c) => {
+          if (c.source !== unit || !c.dmg?.isAttack || c.dmg.isSplash || c.dmg.tags?.includes('wisdelShot')) return;
+          c.dmg.mul = num(c.dmg.mul, 1) * mainScale;
+        }, { owner: unit });
+      } },
+      { install(battle, unit) { // 死魂灵的余息: a shade on deploy; 迷彩 near a shade
+        battle.on('deploy', ({ unit: u }) => { if (u === unit) battle.after(0, () => { if (live(unit)) placeWard(battle, unit); }, { owner: unit }); }, { owner: unit });
+        battle.every(0.25, () => {
+          if (!live(unit)) return;
+          const near = ownWards(battle, unit).some((w) => dist(w, unit) <= WIS_WARD_NEAR);
+          const has = unit.buffs.some((b) => b.key === 'wis:camou');
+          if (near && !has) battle.addBuff(unit, { key: 'wis:camou', duration: Infinity, flags: { camou: true }, status: 'camou' });
+          else if (!near && has) battle.removeBuff?.(unit, 'wis:camou');
+        }, { owner: unit });
+      } },
+    ],
+    install(battle, unit) {
+      if (sid !== 'skchr_wisdel_2') return;
+      // 过载: the second half of 饱和复仇 — each attack is 4 shots at random targets of her range at atk_scale_ol
+      const overload = () => {
+        const sk = unit.skill;
+        if (!sk?.active || sk.id !== 'skchr_wisdel_2') return false;
+        const total = num(sk.duration, 25), left = num(sk.timeLeft, total);
+        return left <= total / 2;
+      };
+      // (2026-10-06) the main shot's atk_scale_ol lives on her own profile (a copy, like 丰川祥子 S2) — ai.js performAttack
+      // never read back a `beforeAttack` ctx.profile, so the main shot kept the full scale. Restored when the overload
+      // ends; re-applied when Battle._setupUnit resolves a fresh profile. Checked every step (the scheduled phase runs
+      // before the allies attack; at 0.2 s the main shot and the 4 shots could disagree for up to 0.2 s), and the 4 shots
+      // follow the applied profile, not a fresh overload() reading.
+      battle.every(battle.dt, () => {
+        const on = live(unit) && overload();
+        const m = unit.mem;
+        if (on) {
+          if (unit.profile === m.olProfile) return;
+          m.olBase = unit.profile;
+          if (!m.olBase) return;
+          unit.profile = m.olProfile = { ...m.olBase, atkScale: num(bb['attack@atk_scale_ol'], 0.7) };
+        } else if (m.olProfile) {
+          if (unit.profile === m.olProfile) unit.profile = m.olBase;
+          m.olProfile = m.olBase = null;
+        }
+      }, { owner: unit, immediate: true });
+      battle.on('beforeAttack', (ctx) => {
+        if (ctx.attacker !== unit || !unit.mem.olProfile || unit.profile !== unit.mem.olProfile) return;
+        const pool = inRange(battle, unit).filter((e) => !e.isFlying);
+        if (!pool.length) return;
+        ctx.targets = [battle.rng.pick(pool)];
+        for (let i = 1; i <= 3; i++) {
+          battle.after(0.12 * i, () => {
+            const p2 = inRange(battle, unit).filter((e) => !e.isFlying);
+            const t = p2.length ? battle.rng.pick(p2) : null;
+            if (!t || !live(unit)) return;
+            battle.fx('bombardShell', { x: t.x, y: t.y, id: unit.id, r: WIS_SPLASH, t: 0.25 });
+            blast(battle, unit, t, { x: t.x, y: t.y, scale: num(bb['attack@atk_scale_ol'], 0.7) });
+          }, { owner: unit });
+        }
+      }, { owner: unit, priority: 5 });
+    },
+    // the shades she owns are kept between her S3 casts; s3 flag for readers
+    meta: { s3 },
+  };
 }
 
 export default {
-  char_1035_wisdel: (bb, chess) => {
-    const tb = traitBb(chess);
-    const shockScale = num(tb['attack@append_atk_scale'], 0.5);
-    const count = num(tb['attack@enable_third_attack']) > 0 ? 2 : Math.max(1, Math.floor(num(tb['attack@times'], 2)) - 1);
-    const t0 = talentBb(chess, 0);
-    const mainScale = num(t0['attack@main_atk_scale'], 1);
-    const bomb = { scale: num(t0['attack@bomb_atk_scale']), stun: num(t0['attack@stun']), radius: num(t0['attack@range_radius'], 1.1) };
-    const base = { count, atkScale: 1, shockScale, radius: SPLASH, prob: num(t0['attack@prob']), stun: 0, mainScale, bomb };
-    const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
-    const s1 = skillRec(chess, S1);
-    const s3Scale = num(b3['attack@atk_scale_3'], 1);
-    return {
-      trait: {
-        splashRadius: SPLASH,
-        ...(mainScale !== 1 ? { dmgMul: () => mainScale } : null), // 好礼: 主目标 ×main_atk_scale (ai.js: the main target only)
-        onEachHit(battle, unit, victim, hc) { if (hc.kind === 'main') markOf(battle, unit, victim); }, // 附着残影
-        afterHit: shocks(base),
-      },
-      skills: {
-        [S1]: {
-          kind: num(s1?.maxChargeTime, 1) > 1 ? 'charges' : 'instant',
-          attack: {
-            splashRadius: S1_SPLASH,
-            onEachHit({ battle, unit, target }) {
-              const d = num(b1.stun_duration);
-              if (d > 0 && target && target.side === 'enemy' && hasHp(target)) battle.applyStatus(target, 'stun', { duration: d, source: unit });
-            },
-            afterHit: shocks({ ...base, count: count + 2, shockScale: num(b1.append_atk_scale, shockScale), radius: S1_SPLASH, stun: num(b1.stun_duration) }),
-          },
-        },
-        [S2]: {
-          kind: 'duration',
-          mods: { atkPct: num(b2.atk), batPct: batMod(b2.base_attack_time, chess) },
-          targeting: { maxTargets: 3 },
-          onStart({ unit }) { unit.mem.wisdelOverload = false; },
-          onTick({ battle, unit, skill }) {
-            if (unit.mem.wisdelOverload || skill.timeLeft > skill.duration * (1 - OVERLOAD_AT) + 1e-9) return;
-            unit.mem.wisdelOverload = true;
-            battle.fx('overload', { x: unit.x, y: unit.y, id: unit.id });
-          },
-          onEnd({ unit }) { unit.mem.wisdelOverload = false; },
-        },
-        [S3]: {
-          kind: 'ammo',
-          ammo: Math.max(1, Math.floor(num(b3['attack@trigger_time'], 6))),
-          mods: { atkPct: num(b3.atk), batPct: batMod(b3.base_attack_time, chess) },
-          targeting: { canHitFly: true },
-          attack: {
-            atkScale: s3Scale,
-            splashRadius: S3_SPLASH,
-            groundOnly: false,
-            afterHit: shocks({ ...base, atkScale: s3Scale, radius: S3_SPLASH, prob: num(b3['attack@prob'], 1) }),
-          },
-          onStart({ battle, unit }) { summonShadows(battle, unit, Math.max(0, Math.floor(num(b3.max_cnt, 1))), num(b3.sp)); },
-        },
-      },
-      talents: [
-        { install(battle, unit) { // 好礼: her 残影 leave with her
-          battle.on('death', (ctx) => {
-            if (ctx.unit !== unit) return;
-            const key = markKey(unit);
-            for (const e of battle.enemies) if (e.findBuff(key)) battle.removeBuff(e, key);
-          }, { owner: unit });
-        } },
-        { install(battle, unit) { // 死魂灵的余息: a shadow at each deployment
-          battle.on('deploy', (ctx) => { if (ctx.unit === unit) summonShadows(battle, unit, 1); }, { owner: unit });
-        } },
-      ],
-      install(battle, unit) {
-        // 过载: every attack becomes 4 rounds at attack@atk_scale_ol, each on a random enemy of her range
-        if (unit.skill?.id !== S2) return;
-        const ol = num(b2['attack@atk_scale_ol'], 1);
-        const olShock = shocks({ ...base, atkScale: ol });
-        battle.on('beforeAttack', (ctx) => {
-          if (ctx.attacker !== unit || !unit.mem.wisdelOverload || !unit.skill?.active || !ctx.profile) return;
-          const pool = battle.enemiesInKeys(unit.rangeKeys, unit, ctx.profile);
-          for (const e of battle.blockedTargets(unit, ctx.profile)) if (!pool.includes(e)) pool.push(e);
-          if (!pool.length) return;
-          const picks = [];
-          for (let i = 0; i < OVERLOAD_SHOTS; i++) picks.push(battle.rng.pick(pool));
-          ctx.targets = picks;
-          // (a per-attack copy while the skill runs: its targeting override makes effectiveProfile copy the profile)
-          ctx.profile.atkScale = ol;
-          ctx.profile.afterHit = olShock;
-        }, { owner: unit, priority: -100 });
-      },
-    };
-  },
+  char_1035_wisdel: (bb, chess, def) => wisdel(bb, chess, def),
 };

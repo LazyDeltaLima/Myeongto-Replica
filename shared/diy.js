@@ -24,6 +24,7 @@
 // (server/sim/content/kits/index.js KITTED_CHARS), passed in as `kitted`.
 
 import { composeUnitRecord, unitForm, statusKey } from './standIn.js';
+import { isLocalDiyPick, localDiyPool } from './local-diy.js'; // local patch: only the owner's five picks
 
 /** The tiers that have 自选 slots. */
 export const DIY_TIERS = Object.freeze([5, 6]);
@@ -141,7 +142,7 @@ export function diyPool(tier, { data, kitted = null } = { data: null }) {
   const diy = diyOf(data);
   if (!diy || !DIY_TIERS.includes(tier)) return [];
   const ok = kittedTest(kitted);
-  return [...new Set([...(diy.prototypes?.[tier] ?? []), ...(diy.ownedPool ?? [])])].filter(ok);
+  return localDiyPool([...new Set([...(diy.prototypes?.[tier] ?? []), ...(diy.ownedPool ?? [])])]).filter(ok); // local patch: localDiyPool
 }
 
 /**
@@ -261,6 +262,7 @@ export function validateDiyPicks(picks, { data, kitted = null } = { data: null }
     const c = checkDiyPick(slotId, pick, data);
     if (!('ok' in c)) return { error: 'BAD_TARGET', detail: c.error };
     const { charId } = c.pick;
+    if (!isLocalDiyPick(charId)) return { error: 'BAD_TARGET', detail: `${charId} is not a 自选 pick here` }; // local patch
     if (!ok(charId)) return { error: 'BAD_TARGET', detail: `${charId} has no kit yet` };
     const mod = c.pick.uniEquipId ? diyModuleOf(slotId, charId, c.pick.uniEquipId, data) : null;
     if (mod && !isDiyModule(mod)) return { error: 'BAD_TARGET', detail: `${charId}: ${c.pick.uniEquipId} is a module of another game mode (${mod.typeName}, ${/^RA-/.test(mod.typeName || '') ? '生息演算' : '集成战略'})` };
