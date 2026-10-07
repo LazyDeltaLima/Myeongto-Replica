@@ -79,6 +79,19 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     assert.notEqual(v.actor.mode, 'deploy', 'the clip ends');
   });
 
+  test('a long frame (the battle switch) neither uses up the wait nor skips the fall (user 2026-10-08)', async () => {
+    const v = unit(store());
+    v.onDeploy();
+    frames(v, 1, 1.4);                                  // a 1.4 s hitch: still waiting (not the diamond)
+    assert.equal(v.body.alpha, 0);
+    await settle();
+    frames(v, 8);                                       // past BORN_LEAD_S
+    assert.equal(v.actor.mode, 'deploy', 'Start plays');
+    frames(v, 1, 0.8);                                  // another hitch while it falls
+    assert.equal(v.actor.mode, 'deploy', 'the fall goes on');
+    assert.ok(v.actor.deployElapsed() < 0.2, `advanced by one capped step (${v.actor.deployElapsed()})`);
+  });
+
   test('a model that never comes: the diamond after BORN_WAIT_MAX_S', () => {
     const s = store();
     s.spine.acquire = () => new Promise(() => {});
