@@ -4,8 +4,12 @@
 // canvas: its size does not follow the camera or the unit's depth — in the CN capture (2000×1125) the bars of both
 // operator rows are 128–129 px wide for the prefab's 125 (≈ 2000 / 1920 px per unit), though the rows' tiles are 168
 // and 177 px apart. One unit here = min(width / 1920, height / 1080) CSS px of the view ([추정] the fit for other aspect
-// ratios: no CanvasScaler value found). Every size below is in those units, measured from the unit's feet (`hud_unit`
-// sits on the unit's position — the bars' centre lies 54.5 below it, the capture ≈ 55 px under the tile centre).
+// ratios: no CanvasScaler value found). Every size below is in those units, from `hud_unit`'s centre (prefab offsets).
+// That centre lies HUD_ANCHOR units above the unit's feet [캡처]: the HP bar's centre is ≈ 30 units under the deploy ring's
+// centre — where the shoes stand, in the captures and in ours alike — (CN captures 5 / 6 / 13: 27 / 29 / 33.7 units) where
+// the prefab puts it 54.5 under hud_unit (user check 2026-10-07: 54.5 under the feet drew the bars too low); the prep chip
+// of capture 4 also stood ≈ 16 units over the prefab's place. Presumably the unit's root over the model's (prefab
+// `Graphic` −0.2 tile).
 //
 // Allies (char_hp_slider / char_sp_slider / char_sp_cast_slider / char_bullet_bar / char_slider_background):
 //   HP 125×7 #49b2e3 α.7 over its delayed loss (white α.7, `slider_back`), SP 125×7 right under it — charging #caec46
@@ -38,7 +42,12 @@ export function hudUnit(vp) {
   return Math.min(w / HUD_REF.w, h / HUD_REF.h);
 }
 
-/** Ally bars (see header), in HUD units. */
+/** Units from the feet up to `hud_unit`'s centre (see header). */
+export const HUD_ANCHOR = 24.5;
+/** Screen y (px) of `hud_unit`'s centre for feet at `feetY` with `u` px per unit. */
+export const hudAnchorY = (feetY, u) => feetY - HUD_ANCHOR * u;
+
+/** Ally bars (see header), in HUD units (y: below hud_unit's centre). */
 export const ALLY_BAR = Object.freeze({
   w: 125, h: 7, y: 54.5, pad: 0,
   hp: 0x49b2e3, sp: 0xcaec46, cast: 0xffa800, alpha: 0.7, ghost: 0xffffff,
@@ -46,9 +55,9 @@ export const ALLY_BAR = Object.freeze({
   ammoTrack: 0xe56d00, ammoTrackAlpha: 0.31, ammo: 0xffa800, ammoAlpha: 1, ammoGap: 2,
 });
 
-/** Prep tier chip (`shop_hud` chess_level_icon), in HUD units: centre from the feet; the dark interior's size. */
+/** Prep tier chip (`shop_hud` chess_level_icon), in HUD units: centre from hud_unit's centre; the dark interior's size. */
 export const PREP_CHIP = Object.freeze({ x: -45.5, y: 128, interior: 37.5 });
-/** Prep equipment bar (`shop_hud` equip_bg, root scale 1.25), in HUD units: centre from the feet, size, slot centres. */
+/** Prep equipment bar (`shop_hud` equip_bg, root scale 1.25), in HUD units: centre from hud_unit's centre, size, slots. */
 export const PREP_EQUIP = Object.freeze({ x: 14.75, y: 129.5, w: 92.5, h: 37.5, slots: Object.freeze([-16, 16.25]), slotW: 28.75, slotH: 7.5, scale: 1.25 });
 
 /** Narrowest bullet block drawn (px): with more bullets than fit, the bullets left share the track as one bar. */
@@ -85,7 +94,7 @@ export class AllyBars {
   hide() { this.root.visible = false; }
 
   /**
-   * Draw at feet (x, y) with `u` px per unit: `hp` / `ghost` (shares 0..1 of the max HP), `sp` (share 0..1 or null: no
+   * Draw for feet at (x, y) with `u` px per unit: `hp` / `ghost` (shares 0..1 of the max HP), `sp` (share 0..1 or null: no
    * SP bar), `cast` (the skill runs: the SP bar is its remaining duration), `ammo` ([left, max] or null). Returns the
    * bottom edge (px) of what it drew.
    */
@@ -93,7 +102,7 @@ export class AllyBars {
     const B = ALLY_BAR;
     this.root.visible = true;
     const w = B.w * u, h = B.h * u, x0 = x - w / 2;
-    const hy = y + B.y * u;
+    const hy = hudAnchorY(y, u) + B.y * u;
     const rows = sp == null && !ammo ? 1 : 2;
     const pad = B.pad * u;
     this.plate.position.set(x0 - pad, hy - h / 2 + (rows * h) / 2);
@@ -183,11 +192,11 @@ export class EquipBar {
 
   hide() { this.root.visible = false; }
 
-  /** Draw at feet (x, y), `u` px per unit, for `gold` (one boolean per equipped item, at most 2 drawn) with textures `t`. */
+  /** Draw for feet at (x, y), `u` px per unit, for `gold` (one boolean per equipped item, at most 2 drawn) with textures `t`. */
   update(x, y, u, gold, t) {
     const E = PREP_EQUIP;
     this.root.visible = true;
-    const cx = x + E.x * u, cy = y - E.y * u;
+    const cx = x + E.x * u, cy = hudAnchorY(y, u) - E.y * u;
     this.bg.texture = t.bg; this.bg.position.set(cx, cy); this.bg.width = E.w * u; this.bg.height = E.h * u;
     for (let i = 0; i < this.slots.length; i++) {
       const s = this.slots[i];

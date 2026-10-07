@@ -72,7 +72,7 @@ import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIcon
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
 import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local patch
 import { UF_CAMOU } from '../../../shared/local.js'; // local patch: 迷彩 icon
-import { AllyBars, hudUnit, prepChip, PREP_CHIP, EquipBar, equipTextures } from './hud-bars.js'; // local patch: official battle HUD
+import { AllyBars, hudUnit, hudAnchorY, prepChip, PREP_CHIP, ALLY_BAR, EquipBar, equipTextures } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -1095,7 +1095,7 @@ export class UnitView {
     } else if (lp) this.lpBars.hide();
     const shielded = showHp && (this.flags & UF.SHIELD);
     this.shieldBar.visible = !!shielded;
-    if (shielded && lp) { const u = hudUnit(this.ctx.viewport?.()); this.shieldBar.position.set(this.screen.x + sx - 62.5 * u, this.screen.y + 49 * u); this.shieldBar.width = 125 * u; this.shieldBar.height = Math.max(1.5, 2.5 * u); } // local patch: a strip over the official HP bar
+    if (shielded && lp) { const u = hudUnit(this.ctx.viewport?.()); this.shieldBar.position.set(this.screen.x + sx - 62.5 * u, hudAnchorY(this.screen.y, u) + (ALLY_BAR.y - ALLY_BAR.h / 2 - 1.5) * u); this.shieldBar.width = 125 * u; this.shieldBar.height = Math.max(1.5, 2.5 * u); } // local patch: a strip over the official HP bar
     else if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }
     // SP
     const showSp = showBars && this.spMax > 0; // local patch: an enemy sends SP only for 圣堂剑士's bullets (sim/content/local-patch.js)
@@ -1129,7 +1129,7 @@ export class UnitView {
         if (this.chip.texture !== off.tex) this.chip.texture = off.tex;
         this.chip.scale.set(off.k * u);
         this.chip.visible = this.alive;
-        this.chip.position.set(this.screen.x + PREP_CHIP.x * u, this.screen.y - PREP_CHIP.y * u);
+        this.chip.position.set(this.screen.x + PREP_CHIP.x * u, hudAnchorY(this.screen.y, u) - PREP_CHIP.y * u);
       } else {
       if (this.chip.texture !== this._chipTex) this.chip.texture = this._chipTex;
       const cs = clamp(s * (prep ? 0.24 : 0.19), 11, 28) / 44;

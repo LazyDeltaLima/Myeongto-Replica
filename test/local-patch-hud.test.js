@@ -42,7 +42,7 @@ describe('ally bars (char_hp_slider / char_sp_slider / char_bullet_bar)', () => 
     for (const v of [near, far]) { v.sync(sample({ hp: 600, sp: 3, spMax: 10 }), 0); v.update(1 / 60, cam(), 0); }
     const u = HB.hudUnit(VP), b = near.lpBars;
     assert.ok(b.root.visible);
-    assert.ok(Math.abs(b.hp.position.y - (near.screen.y + 54.5 * u)) < 1e-6, 'HP centre 54.5 units under the feet');
+    assert.ok(Math.abs(b.hp.position.y - (near.screen.y + 30 * u)) < 1e-6, 'HP centre 30 units under the feet (54.5 under hud_unit, 24.5 over the feet)');
     assert.ok(Math.abs(b.hp.width - 125 * u * 0.6) < 1e-6);
     assert.equal(b.hp.tint, 0x49b2e3); assert.equal(b.hp.alpha, 0.7);
     assert.equal(b.sp.tint, 0xcaec46);
@@ -106,7 +106,7 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
     bar.update(1000, 500, 1, [false], t);
     assert.ok(bar.root.visible && bar.slots[0].visible && !bar.slots[1].visible);
     assert.equal(bar.slots[0].texture, t.normal);
-    assert.ok(Math.abs(bar.bg.position.x - 1014.75) < 1e-9 && Math.abs(bar.bg.position.y - (500 - 129.5)) < 1e-9);
+    assert.ok(Math.abs(bar.bg.position.x - 1014.75) < 1e-9 && Math.abs(bar.bg.position.y - (500 - 24.5 - 129.5)) < 1e-9);
     bar.update(1000, 500, 1, [false, true], t);
     assert.equal(bar.slots[1].texture, t.gold);
     assert.ok(Math.abs(bar.slots[1].width - 31 * 1.25) < 1e-9);
