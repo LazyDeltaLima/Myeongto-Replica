@@ -46,3 +46,16 @@ export function damageNumberFlag(dmg, ss, expected, final) {
   if (!ss || dmg.sourceless || tags.includes('dot') || tags.includes('hpLoss')) return 0;
   return expected > 0 && final >= expected * CRIT_THRESHOLD - 1e-6 ? 1 : 0;
 }
+
+/**
+ * Blocked numbers (PRTS 作战机制 「强制红字与蓝字」: a hit that would show a red number but is stopped by a 屏障 / 护盾 shows
+ * a blue number when that block allows it, else a yellow 「BLOCK」; user decision 2026-10-07 「파란 숫자랑 BLOCK 넣어줘」):
+ * the 'blk' event [id, damage, shown] (shown 1 = blue — client battle/[pack]common.ab `block_text` #3a35d9 —, 0 = BLOCK).
+ * Allowed = the client's BlockDamage `_showDamageNumber` (17 of 115 block nodes): in our roster the shields of xi
+ * (enemy_xi_s2), mdrock (enemy_mdrock_s_2) and mousek (mousek_shield) — their sim keys below.
+ */
+export const BLOCK_SHOWN = new Set(['ab:xiShield', 'ab:sandDef', 'ab:rockPower']);
+export function blockedEvent(battle, target, final, flag, key) {
+  if (!(flag > 0) || !(final > 0) || !target) return;
+  battle._ev(['blk', target.id, Math.round(final), BLOCK_SHOWN.has(key) ? 1 : 0]);
+}

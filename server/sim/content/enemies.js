@@ -95,6 +95,7 @@
 import { TICK, MOVE_SCALE, ELEMENT, ATTACK_PAUSE, PROJECTILE_SPEEDS, ALLY_COLLIDER_RADIUS, COLS } from '../constants.js';
 import { canTargetAlly, sortAllyTargets, aggroCmp, enemyStealthed, areaSelectable, auraSelectable } from '../targeting.js';
 import { mitigate, periodicDamage } from '../damage.js';
+import { damageNumberFlag, blockedEvent } from '../local-hud.js'; // local patch: blocked numbers
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -1049,7 +1050,9 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null } = {}) {
     spawn(b, e, a) { if (amount > 0) a.refresh(b, e, a); },
     hitIn(c, b, e, a) {
       if (!(a.left > 0)) return;
+      const lpF = expectedFinal(c.source, e, c.dmg); // local patch: a red number it stops → blue (local-hud.js)
       a.left -= absorbArts(c, a.left);
+      if (c.dmg.cancel) blockedEvent(b, e, lpF, damageNumberFlag(c.dmg, c.source && c.source.s, mitigate(c.dmg.amount, c.dmg.type, e.s, {}), lpF), key); // local patch
       if (a.left > 1e-6) return;
       a.left = 0;
       b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id });

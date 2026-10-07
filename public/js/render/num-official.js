@@ -17,6 +17,10 @@ export const OFFICIAL_NUM = Object.freeze({
   popup: 150, size: 30, life: 0.5, spread: Object.freeze([10, 5]), pop: 1.5, crit: 1.1, popT: 0.2, fadeFrom: 0.7,
   dmg: Object.freeze({ color: '#ff3a00', rise: 30, font: 'sp-num-off-dmg' }),
   heal: Object.freeze({ color: '#00ff95', rise: 40, font: 'sp-num-off-heal' }),
+  // a red number stopped by a 屏障 / 护盾 (PRTS 「强制红字与蓝字」, sim 'blk' event): blue (block_text #3a35d9, else as
+  // damage_text) where the block allows it, else a yellow 「BLOCK」 (PRTS #ff9000 [추정 look: no client sprite found])
+  blue: Object.freeze({ color: '#3a35d9', rise: 30, font: 'sp-num-off-blue' }),
+  block: Object.freeze({ color: '#ff9000', rise: 30, font: 'sp-num-off-block', chars: 'BLOCK' }),
 });
 /** Bitmap font size (px) the glyphs are rendered at; drawn scaled to the HUD size. */
 const GLYPH = 60;
@@ -26,14 +30,14 @@ const MAX = 80;
 let fonts = false;
 function ensureFonts(P) {
   if (fonts) return;
-  for (const k of ['dmg', 'heal']) {
+  for (const k of ['dmg', 'heal', 'blue', 'block']) {
     const o = OFFICIAL_NUM[k];
     try {
       P.BitmapFont.from(o.font, {
         fontFamily: ['Novecento Wide', 'Bender', 'sans-serif'], fontSize: GLYPH, fill: o.color,
         // Shadow (1, −1) at 30 → 2 px down-right at the glyph size
         dropShadow: true, dropShadowColor: '#000000', dropShadowAlpha: 0.5, dropShadowDistance: 2 * Math.SQRT2, dropShadowAngle: Math.PI / 4, dropShadowBlur: 0,
-      }, { chars: [['0', '9'], '+'], resolution: 1, padding: 4 });
+      }, { chars: o.chars ? [o.chars] : [['0', '9'], '+'], resolution: 1, padding: 4 });
     } catch (err) { console.warn('[num] bitmap font', o.font, err?.message || err); }
   }
   fonts = true;
@@ -56,9 +60,12 @@ export class OfficialNumbers {
 
   heal(view, amount) { this._spawn(view, amount, 'heal', false); }
 
+  /** A red number stopped by a shield: `shown` → the blue number of `amount`, else 「BLOCK」. */
+  blocked(view, amount, shown) { this._spawn(view, amount, shown ? 'blue' : 'block', false); }
+
   _spawn(view, amount, kind, crit) {
     const n = Math.round(amount);
-    if (!(n > 0) || !view || !view.screen) return;
+    if (!(n > 0 || kind === 'block') || !view || !view.screen) return;
     ensureFonts(this.P);
     const o = OFFICIAL_NUM[kind];
     let t = this.pool.get(o.font)?.pop();
@@ -68,7 +75,7 @@ export class OfficialNumbers {
       this.ctx.layers.text.addChild(text);
       t = { text, font: o.font };
     }
-    t.text.text = (kind === 'heal' ? '+' : '') + n;
+    t.text.text = kind === 'block' ? 'BLOCK' : (kind === 'heal' ? '+' : '') + n;
     t.text.visible = true;
     t.view = view; t.kind = kind; t.crit = crit; t.age = 0;
     t.dx = (Math.random() * 2 - 1) * OFFICIAL_NUM.spread[0];

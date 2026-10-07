@@ -44,7 +44,7 @@ const finite = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /** Cosmetic event kinds that may be dropped when far behind (never state-changing). */
-export const COSMETIC_EVENTS = new Set(['atk', 'dmg', 'heal', 'fx', 'layer', 'bounty']);
+export const COSMETIC_EVENTS = new Set(['atk', 'dmg', 'heal', 'fx', 'layer', 'bounty', 'blk']); // local patch: 'blk' (blue / BLOCK numbers)
 /**
  * Whether an event may be dropped when stale or shed from a full queue. An 'fx' that carries an enemy's model `form`
  * (shared/protocol.js fxForm) is state: dropping it left the view on the old model after a long main-thread stall, on a

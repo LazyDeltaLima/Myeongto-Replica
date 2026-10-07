@@ -1221,6 +1221,12 @@ export class FxSystem {
     }
   }
 
+  /** local patch (LOCAL-PATCH.md 「전투 화면 UI」 ④): a red number stopped by a shield (sim 'blk'): blue / BLOCK, official style only. */
+  blocked(view, amount, shown) {
+    if (!view || this.ctx.settings?.damageNumbers === false || numberStyle() !== 'official') return;
+    (this._offNums || (this._offNums = new OfficialNumbers(this.ctx))).blocked(view, amount, shown);
+  }
+
   /**
    * Melee blow on `view` by `src`: a crescent swept across the victim, bulging along the blow (attacker → victim on
    * screen, a little random tilt / mirroring), in the hit colour with a white-hot inner stroke.

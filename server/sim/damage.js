@@ -51,7 +51,7 @@
 import { MIN_DAMAGE_RATIO, ELEMENT, ELEMENT_ORDER, PALSY_MAX } from './constants.js';
 import { BOSS_HIT_LIMIT } from '../../shared/constants.js';
 import { evadesGround } from './targeting.js';
-import { damageNumberFlag } from './local-hud.js'; // local patch
+import { damageNumberFlag, blockedEvent } from './local-hud.js'; // local patch
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -181,8 +181,8 @@ export function leaderHitCancelled(battle, target, amount) {
   return true;
 }
 
-/** Absorb damage with shields on `target`. Returns the remaining amount. */
-export function absorbShields(battle, target, amount) {
+/** Absorb damage with shields on `target`. Returns the remaining amount. `info` (local patch): gets the absorbing buff's key. */
+export function absorbShields(battle, target, amount, info = null) {
   if (amount <= 0) return 0;
   let changed = false;
   let rest = amount;
@@ -191,6 +191,7 @@ export function absorbShields(battle, target, amount) {
     if (b.shieldHits > 0) {
       b.shieldHits--;
       rest = 0;
+      if (info) info.key = b.key; // local patch
       if (b.shieldHits <= 0 && !(b.shield > 0) && !b.mods && !b.flags) { battle._removeBuffAt(target, i); i--; }
       changed = true;
       break;
@@ -200,6 +201,7 @@ export function absorbShields(battle, target, amount) {
     const b = target.buffs[i];
     if (b.shield > 0) {
       const take = Math.min(b.shield, rest);
+      if (info) info.key = b.key; // local patch
       b.shield -= take;
       rest -= take;
       changed = true;
@@ -270,7 +272,9 @@ export function dealDamage(battle, source, target, dmgIn) {
   // 限伤: a leader's hit of ≥ BOSS_HIT_LIMIT in a boss / hidden battle is cancelled before it reaches shields / HP — what
   // ran before it (the attack, its SP, `hit` hook effects, separate element 损伤) stays; nothing after it happens
   if (final > 0 && leaderHitCancelled(battle, target, final)) return 0;
-  final = absorbShields(battle, target, final);
+  const lpShield = {}, lpBefore = final; // local patch: a red number stopped by a shield → blue / BLOCK (local-hud.js)
+  final = absorbShields(battle, target, final, lpShield);
+  if (lpBefore > 0 && !(final > 0)) blockedEvent(battle, target, lpBefore, dmg.lpNum, lpShield.key); // local patch
   return applyHpLoss(battle, source, target, final, dmg);
 }
 

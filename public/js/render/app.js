@@ -1653,6 +1653,7 @@ export async function createFieldView(host, options = {}) {
         break;
       }
       case 'heal': { const v = views.get(e[1]); if (v) fx.heal(v, Number(e[2]) || 0); break; }
+      case 'blk': { const v = views.get(e[1]); if (v) fx.blocked(v, Number(e[2]) || 0, !!e[3]); break; } // local patch: blue / BLOCK (sim local-hud.js)
       case 'skill': { const v = views.get(e[1]); if (v) { v.setSkill?.(!!e[2]); fx.skill(v, !!e[2], { burst: !fxGame.ownsSkill(v) }); } break; } // local patch: no gold pillar over an operator with official effects
       case 'die': {
         const v = views.get(e[1]);

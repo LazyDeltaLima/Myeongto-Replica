@@ -285,6 +285,30 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
     nums.update(0.3);
     assert.equal(nums.live.length, 0, 'gone after 0.5 s');
   });
+  test('blocked: a forced / crit hit stopped by a shield → \'blk\' (1 blue for the client\'s showing shields, 0 BLOCK); ordinary hits nothing', () => {
+    const run = (key) => {
+      const h = makeBattle({ seed: 3, timeLimit: 60, units: [{ chessId: 'chess_char_6_01_a', row: 9, col: 4, uid: 1, skillIndex: 2 }],
+        enemies: [{ key: 'enemy_1001_bigbo', time: 0, route: 0, count: 20, interval: 1.5 }] });
+      const u = h.battle.allyUnits.find((x) => x.kind === 'op');
+      h.run(1); u.skill.sp = u.skill.spCost;
+      for (let t = 0; t < 30; t++) {
+        h.run(1);
+        for (const e of h.battle.units) if (e.side === 'enemy' && e.alive && !e.findBuff(key)) h.battle.addBuff(e, { key, persist: true, shield: 1e9 });
+      }
+      return h.eventsOf('blk');
+    };
+    const plain = run('test:shield');
+    assert.ok(plain.length > 0 && plain.every((e) => e[3] === 0), 'BLOCK');
+    const xi = run('ab:xiShield');
+    assert.ok(xi.length > 0 && xi.every((e) => e[3] === 1 && e[2] > 0), 'blue numbers');
+  });
+  test('official numbers: blue digits / BLOCK', async () => {
+    const N = await import('../public/js/render/num-official.js');
+    const nums = new N.OfficialNumbers(fakeViewCtx(fake.P, { viewport: () => ({ width: 1920, height: 1080 }) }));
+    const v = { screen: { x: 0, y: 0 } };
+    nums.blocked(v, 1234, true); nums.blocked(v, 1234, false);
+    assert.deepEqual(nums.live.map((t) => [t.kind, t.text.text]), [['blue', '1234'], ['block', 'BLOCK']]);
+  });
   test('style setting: official by default, classic kept in localStorage', async () => {
     const store = new Map();
     const prev = globalThis.localStorage;
