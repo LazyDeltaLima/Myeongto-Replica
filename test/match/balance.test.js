@@ -41,8 +41,8 @@ test('no custom balance: legacy tuning multipliers are ignored; enemy scale = th
   assert.equal(DATA.config.bossHpScale.perPlayer, true);
   assert.equal(DATA.config.bossHpScale.aliveScaling, false, 'the fixed pool\'s optional scaling stays off');
   const solo = new GameData(RAW, 'mode_single_hard');
-  assert.equal(solo.bossPoolHp('boss_2'), DATA.bosses.boss_2.bloodPoint.HARD);
-  assert.equal(DATA.config.bossHpScale.solo, 1);
+  assert.equal(solo.bossPoolHp('boss_2'), Math.round(DATA.bosses.boss_2.bloodPoint.HARD * 0.25)); // local: solo × 0.25
+  assert.equal(DATA.config.bossHpScale.solo, 0.25);
   // the waves carry exactly the table
   const setup = setupMatchWaves(hard, createRng(3));
   const w = buildNormalWave(hard, createRng(3), setup.factions, 3);

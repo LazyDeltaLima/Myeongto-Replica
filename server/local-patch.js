@@ -337,10 +337,10 @@ export function debugIntent(m, playerId, msg, env = process.env) {
   if (msg.t === 'dbg.addDiy') {
     const tier = msg.tier;
     const cand = debugCandidates(m.gd).find((c) => c.charId === msg.charId);
-    if (!cand || !cand.tiers[tier]) return fail(ERR.BAD_TARGET, 'no 自选 operator');
+    if (!cand || !cand.tiers[tier]) return fail(ERR.BAD_TARGET, 'not a DIY candidate');
     const g = ps._gate({ allowWhenReady: true }); if (g) return g;
     const slotId = debugDiySlot(ps, msg.charId, tier);
-    if (!slotId) return fail(ERR.BAD_TARGET, `both 自选 slots of tier ${tier} are taken`);
+    if (!slotId) return fail(ERR.BAD_TARGET, `both DIY slots of tier ${tier} are taken`);
     const prev = ps.diy?.[slotId] || null;
     const skillIndex = msg.skill ?? prev?.skillIndex ?? 0;
     if (!cand.tiers[tier].skills.some((x) => x.index === skillIndex)) return fail(ERR.BAD_TARGET, `skill ${skillIndex} not available`);

@@ -75,7 +75,7 @@ export function bossPoolShareOf(modeScale, cfgScale, isSolo, aliveCount) {
   const cs = cfgScale && typeof cfgScale === 'object' ? cfgScale : {};
   const pick = (k, d) => (Number.isFinite(ms[k]) && ms[k] > 0 ? ms[k] : Number.isFinite(cs[k]) && cs[k] > 0 ? cs[k] : d);
   const flag = (k, d) => (typeof ms[k] === 'boolean' ? ms[k] : typeof cs[k] === 'boolean' ? cs[k] : d);
-  if (isSolo) return pick('solo', 1);
+  if (isSolo) return pick('solo', 0.25); // local patch: solo 0.25 (user decision 2026-10-07; data/config.json carries it too)
   const full = Math.max(1, Math.floor(pick('aliveFull', 4)));
   const n = Number(aliveCount);
   const alive = Number.isFinite(n) && n >= 1 ? Math.min(full, Math.floor(n)) : full;
