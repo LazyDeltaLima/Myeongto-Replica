@@ -1163,6 +1163,9 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     (`cap-231814.png`)는 돌의 금빛·십자·연결선이 **공 위**(그림자에서 화면상 0.19칸)인데, 우리는 `_spawnLocation` 5대로 땅에 그려 돌의 루프(`sz` 십자 빛)가
     공 밑 그림자에 묻히고 첫 폭발만 보였다 → 탄생·跟子 이펙트(주인 따라감)와 연결선·활성 섬광을 공 중심(화면상 0.18칸, `fxgame.js STONE_BALL`·`ballZ`)에.
     폭발(`token_wang_skill_0N_hit*`)은 그대로 땅. 확인: Windows `sp-check\wst5.mjs`(디버그 아레나, `CAST=i`로만 발동) → `wst5b-zoom.png`.
+  - **跟子 이펙트 반복** [추정]: 跟子의 `wang_passive_01_buff`(고리·검은 연기, 한 번짜리 시스템)를 돌이 있는 동안 프리팹 길이(3초)마다 다시 튼다(`playAt cycle`;
+    캡처의 재능 돌은 서 있는 동안 검은 연기가 보임 — 클라이언트 루프 플래그는 원시 필드에서 확인 못 함). 놓은 돌의 `token_wang_birth_01_buff`는 자체 루프(`sz`)라
+    다시 틀지 않는다(첫 폭발 `bom (1)`이 3초마다 번쩍임). 확인: `wst7.mjs`(跟子 확대 60장) → `wst7a-grid.jpg`.
   - **6. 赤刃明霄陈 S3 용이 그녀를 가림** (세션 stronghold-1d 첸 포크, 공식 캡처 `cap-230329.png` + 공식 녹화 `첸 S3.mp4`: 용은 그녀 뒤):
     ① 용 버프는 클라이언트가 **한쪽만** 튼다 — `skchr_chen3_3/SwitchMode` `overrideEffectKey` = `chen3_skill_03_buff_L_01`이고, 그 프리팹 루트의 두 번째
     컴포넌트 `_rightEffect` = `chen3_skill_03_buff_R_01`(`_onlyCheckOnPlay` 0)은 오른쪽을 볼 때 대신 트는 사본이다. 우리는 이름 규칙(`effectsFor

@@ -338,10 +338,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     get x() { return v.x; }, get y() { return v.y; }, get z() { return ballZ(v.x, v.y, (v.z || 0) + (v.hover || 0)); },
     get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
   });
-
+  // [추정] a 跟子's wang_passive_01_buff (rings, black wisps — the capture's talent stone has them while it stands) plays
+  // again every prefab length (3 s) while its stone stands; a placed stone's token_wang_birth_01_buff keeps its own loop
+  // (`sz`) and is not replayed (its burst `bom (1)` would flash every cycle)
+  const FOLLOWER_CYCLE = true;
   /** local patch: whether 望's stone effects play here (render/fx.js then skips its procedural stand-in). */
   const stonesOn = () => !!(index?.bundles?.[STONE_FX] && !failed && q() !== 'low');
-  async function playAt(names, at, { deg = null, owner = null, under = false, bundle = STONE_FX } = {}) {
+  async function playAt(names, at, { deg = null, owner = null, under = false, bundle = STONE_FX, cycle = false } = {}) {
     const prefabs = index?.bundles?.[bundle];
     if (!prefabs || !(await ensure())) return;
     for (const n of names) {
@@ -353,7 +356,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (deg != null) { const p = inst.nodes?.find((o) => o && o.name === 'rotation_z'); if (p) p.rotation.set(0, 0, (deg * Math.PI) / 180); }
       inst.object.position.set(at.x, at.y, at.z || 0);
       const until = owner == null ? clockS + (def.duration || 3) + 0.5 : Infinity;
-      addLive(inst, { view: owner == null ? null : at, owner, buff: owner != null, until }, under ? layers.under : layers.over);
+      // local patch: `cycle` — replayed every prefab length while its owner stands (FOLLOWER_CYCLE, update)
+      const again = cycle && owner != null ? () => playAt([n], at, { deg, owner, under, bundle, cycle }) : null;
+      addLive(inst, { view: owner == null ? null : at, owner, buff: owner != null, until, cycle: again ? (def.duration || 3) : 0, again }, under ? layers.under : layers.over);
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
     }
   }
@@ -436,7 +441,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stoneBirth.delete(o.id);
       if (isStone(v)) {
         // local patch: a 跟子's black-wisp rings (its own birth effect), a placed stone's gold glow
-        if (o.follower) playAt([STONE_BORN.follower], ballOf(v), { owner: o.id, under: true, bundle: FOLLOWER_FX });
+        if (o.follower) playAt([STONE_BORN.follower], ballOf(v), { owner: o.id, under: true, bundle: FOLLOWER_FX, cycle: FOLLOWER_CYCLE });
         else playAt([STONE_BORN.stone], ballOf(v), { owner: o.id, under: true });
         return true;
       }
@@ -1082,6 +1087,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
         l.inst.update(dt * rate2);   // local patch: every effect on the battle clock (the notes did already: trail = speed × time)
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
+        // local patch (user 2026-10-08): a stone effect replayed every prefab length while its stone stands (playAt cycle)
+        if (l.cycle && l.again && !l.stopped && l.inst.time >= l.cycle && l.view && l.view.alive !== false && !l.view.remove && !gone.has(l.owner)) { const a = l.again; l.again = null; l.stopped = true; l.inst.stop(); a(); }
         if (l.inst.done) { dropLive(l); live.splice(i, 1); }
       }
       showLayers();
