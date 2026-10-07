@@ -227,6 +227,16 @@ describe('§21.26 found on the way — the client-result layer bound reads the l
   const check = (s, gains, opts = { gd }) => { const v = validateClientResult(s, res(gains), opts); return v.ok ? 'ok' : v.reason; };
   const SEED_107_R12 = ['chess_char_1_06_b', 'chess_char_4_14_a', 'chess_char_4_13_a', 'chess_char_3_14_a', 'chess_char_3_11_a', 'chess_char_4_22_a', 'chess_char_3_20_a', 'chess_char_5_14_b'];
 
+  test('Warfarin granted-trait allowance uses the data caps of 7 / 14 (#175)', () => {
+    for (const [id, cap] of [['chess_char_4_26_a', 7], ['chess_char_4_26_b', 14]]) {
+      const s = spec(3, [id, 'chess_char_1_10_a']); // Warfarin + Gummy
+      // The validator conservatively counts a granted trait once per operator, plus its flat allowance.
+      const bound = 60 + 4 * 3 + 2 * cap;
+      assert.equal(check(s, { steadShip: bound }), 'ok');
+      assert.equal(check(s, { steadShip: bound + 1 }), 'layer bound');
+    }
+  });
+
   test('an uncapped freeze trait leaves 谢拉格 bounded only by 999: the honest +112 passes; a bond without such a trait keeps 60 + 4·round', () => {
     const s = spec(12, SEED_107_R12, { kjeragShip: { count: 6, active: true, tier: 2, layers: 39 }, swiftShip: { count: 2, active: true, tier: 1, layers: 0 } });
     assert.equal(check(s, { kjeragShip: 112 }), 'ok', 'the board of coop/FUNNY/107 R12');

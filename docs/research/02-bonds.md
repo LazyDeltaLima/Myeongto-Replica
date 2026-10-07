@@ -1341,7 +1341,7 @@ Bond items for 变形同构体 (`chess_item_6_09_e`, "携带者获得额外盟�
 
 Written 2026-09-27 by the completeness critic. Sources: the official 3/27 notice (`ak.hypergryph.com/news/8584`), PRTS `卫戍协议：盟约_下半` 更新记录, BWIKI `盟约` / `盟约/S.W.E.E.P.报告`, and the screenshot `i.meee.com.tw/9H7Kugy.png`.
 
-1. **§8 Q1 (华法琳 cap): resolved → use 12 per battle normal, 24 elite.** The official 3/27 notice says "调整每场战斗至多获得的层数". PRTS gives the numbers: "付与的特质的叠层上限从初始7/精锐14提升至初始12/精锐24". The client data (`garrison_72_*` → `garrison_95_*`, `max_add_count_per_battle` 7/14) was not updated for this line, although it already carries the other 3/27 changes: 奇迹 `baseprob` 0.18, 远见 80/150, 商业包装方案 8/7. Override `max_add_count_per_battle` to 12/24.
+1. **§8 Q1 (华法琳 cap): corrected for #175 → use the data's 7 per battle normal, 14 elite.** The previous implementation overrode `garrison_95_*` to 12/24 based on a patch-note interpretation, contradicting both `max_add_count_per_battle` and the displayed `garrison_72_*` descriptions. Remove that override in both battle simulation and client-result validation. Each activation adds 1/2 layers to each active bond; the seventh activation reaches the 7/14 cap and later activations add nothing. The earlier references to 12/24 above are historical research, not the implemented rule.
 2. **Per-match incomplete bonds (new, verified).** See 01 Addendum A2.
    - Each match disables a random set D: 3 core + 4 add-on in NORMAL+; the static list + 1 add-on in FUNNY.
    - Every operator whose bonds are **all** in D leaves the pool.
