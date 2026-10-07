@@ -270,7 +270,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (view.hover || 0); },
       get alive() { return view.alive; }, get remove() { return view.remove; },
     };
-    const split = splitOn(); // local patch: status prefabs split by their renderers' sorting too (the 冻结 block in front, …)
+    // local patch: status prefabs are NOT split — their renderers are sortingOrder 0 / fudge 0 (buff_autochess_frozen's
+    // block too), which the split puts behind the unit, while the client sorts them by depth and the 冻结 block covers the
+    // model (user capture 9); drawn over the units as before (the snowflake / fist over heads, capture 10)
+    const split = false;
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0 });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
     addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac), unit: view }, split ? layers.split : layers.over);
