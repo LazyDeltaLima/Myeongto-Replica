@@ -24,8 +24,9 @@ import { pickUnitSfx, UI_SFX, BATTLE_SFX, resolveSpec, indexVoice, VOICE_DIRS, V
 import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
-import { skillStartSounds } from './skill-sfx.mjs'; // local patch
-import { kitHitSfx } from './kit-sfx.mjs'; // local patch
+import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
+import { loadCharModes, skillModes, unitGroups } from './skill-mode-sfx.mjs'; // local patch
+import { kitHitSfx, kitHitGroups } from './kit-sfx.mjs'; // local patch
 
 /**
  * The voice slots are read from the zh_CN charword table, whose voiceIds are always `CN_*`: the other dubs
@@ -289,7 +290,7 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
  */
 export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, charword = null, voiceLang = 'cn',
   voiceSlots = VOICE_BATTLE_SLOTS,
-  extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {} }) {
+  extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, charModes = loadCharModes() }) { // local patch: charModes
   const notes = [];
   /** @type {Map<string, any>} */
   const models = new Map();
@@ -345,6 +346,8 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       hit: firstBank(audio, [`battle.ON_PROJECTILE_HIT.projectile_chr_${short}`, `battle.ON_PROJECTILE_HIT.projectile_chr_${short}_default`]) } });
     const { roles: u, mix } = unitSounds(audio, sfx);
     const skillSfx = {};
+    const skillPaths = {}; // local patch: start sound paths per index (their mixer groups, skill-mode-sfx.mjs unitGroups)
+    const skillMix = {}; // local patch: their bank mix (audioOfficial.js officialGain: skill start volume)
     for (const i of idx) {
       const s = (o.skills || []).find((k) => k.index === i);
       if (!s) { notes.push(`${id}: skill index ${i} missing in research data`); continue; }
@@ -352,12 +355,20 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       if (s.icon?.url && !skills[iconId]) skills[iconId] = leaf(alt(`skill/${safeName(iconId)}.png`, s.icon.url, s.icon.bytes));
       if (s.skillId) skillsById[s.skillId] = iconId;
       const ss = skillStartSounds(audio, s.skillId); // local patch: + ON_ABILITY_* / ON_CUSTOM_TRIGGER fallbacks (skill-sfx.mjs)
-      if (ss?.length) skillSfx[String(i)] = soundLeaf(ss);
+      if (ss?.length) { skillSfx[String(i)] = soundLeaf(ss); skillPaths[String(i)] = ss; } // local patch: skillPaths
+      const sm = ss?.length && typeof audio.mixOf === 'function' ? audio.mixOf(ss) : null; // local patch: its bank volume
+      if (sm) skillMix[String(i)] = sm;
     }
     const primarySkill = skillSfx[String(idx[0])];
     if (primarySkill) u.skill = primarySkill;
     if (Object.keys(skillSfx).length > 1) u.skills = skillSfx;
     if (mix) u.mix = mix;
+    // local patch: skill-mode attack / impact sounds and the mixer groups (tools/assets/skill-mode-sfx.mjs)
+    const modes = skillModes(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), charModes[id], soundLeaf, (sid) => skillStartIsFallback(audio, sid));
+    if (modes) u.modes = modes;
+    const grp = unitGroups(audio, sfx, skillPaths);
+    if (grp) u.grp = grp;
+    if (Object.keys(skillMix).length) u.skillMix = skillMix;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 
@@ -391,8 +402,10 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     }
     entry.spine = model;
     tokens[id] = entry;
-    const { roles: u, mix } = unitSounds(audio, pickUnitSfx(audio.unitBanks.get(id)));
+    const tokenSfx = pickUnitSfx(audio.unitBanks.get(id)); // local patch: kept for its mixer groups
+    const { roles: u, mix } = unitSounds(audio, tokenSfx);
     if (mix) u.mix = mix;
+    const tokenGrp = unitGroups(audio, tokenSfx); if (tokenGrp) u.grp = tokenGrp; // local patch
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 
@@ -462,8 +475,10 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       if (banks?.size) break;
       if (other) banks = audio.unitBanks.get(other);
     }
-    const { roles: u, mix } = unitSounds(audio, pickUnitSfx(banks));
+    const enemySfx = pickUnitSfx(banks); // local patch: kept for its mixer groups
+    const { roles: u, mix } = unitSounds(audio, enemySfx);
     if (mix) u.mix = mix;
+    const enemyGrp = unitGroups(audio, enemySfx); if (enemyGrp) u.grp = enemyGrp; // local patch
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 
@@ -600,5 +615,6 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   };
   for (const [key, lang] of Object.entries(VOICE_TWINS)) template.audio[key] = voiceTwin(voice, voiceLang, lang); // local patch: the other dub (tools/assets/voice.mjs)
   template.audio.sfx.kit = kitHitSfx(audio, soundLeaf, notes); // local patch: the kits' skill hit sounds (tools/assets/kit-sfx.mjs)
+  template.audio.sfx.kitGrp = kitHitGroups(audio); // local patch: their mixer groups (public/js/audioOfficial.js)
   return { template, models, notes };
 }

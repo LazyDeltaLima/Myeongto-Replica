@@ -48,6 +48,7 @@
 
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
+import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds
 
 const MAX_VOICES = 8;
 const UNIT_COOLDOWN_MS = 160;
@@ -629,9 +630,9 @@ export class AudioManager {
       this.master.gain.setTargetAtTime(this.volumes.muted ? 0 : 1, t, 0.03);
       // perceptual curve
       this.bgmGain.gain.setTargetAtTime(this.volumes.bgm ** 2 * 0.55, t, 0.05);
-      this.sfxGain.gain.setTargetAtTime(this.volumes.sfx ** 2 * 0.9, t, 0.03);
+      this.sfxGain.gain.setTargetAtTime(this.volumes.sfx ** 2, t, 0.03); // local patch: the mixer groups carry the SFX bus (audioOfficial.js)
       // no 0.9: a voice line is already mastered as loud as the rest of the official mix (settings 干员语音 tunes it)
-      this.voiceGain.gain.setTargetAtTime(this.volumes.voice ** 2, t, 0.03);
+      this.voiceGain.gain.setTargetAtTime(this.volumes.voice ** 2 * VOICE_GAIN, t, 0.03); // local patch: the Voice group
     } catch { /* ignore */ }
   }
 
@@ -819,7 +820,8 @@ export class AudioManager {
   battle(name, o = {}) {
     try {
       const url = this.getManifest()?.audio?.sfx?.battle?.[name];
-      if (typeof url === 'string') this._play(url, { volume: o.volume ?? 0.7, limited: true, unitKey: o.unitKey ?? `b:${name}` });
+      const volume = Object.hasOwn(BATTLE_GROUP, name) ? battleGain(name) : (o.volume ?? 0.7); // local patch: official mix
+      if (typeof url === 'string') this._play(url, { volume, limited: true, unitKey: o.unitKey ?? `b:${name}` });
     } catch { /* ignore */ }
   }
 
@@ -830,18 +832,22 @@ export class AudioManager {
    * @param {number|string} unitId battle unit id (cooldown key)
    * @returns {boolean} whether a unit-specific sound exists
    */
-  unit(defId, kind, unitId, skillIndex) {
+  unit(defId, kind, unitId, skillIndex, mode = null) {
     try {
       const u = this.getManifest()?.audio?.sfx?.units?.[defId];
+      // local patch: an attack / impact made while skill `mode` (its index) runs sounds that skill's mode (audioOfficial.js)
+      const m = kind === 'attack' || kind === 'hit' ? modeEntry(u, mode, kind) : null;
       // DESIGN §16: the equipped skill's own ON_SKILL_START sound (`skills[index]`) when the manifest has it
       const own = kind === 'skill' && Number.isInteger(skillIndex) && u?.skills ? u.skills[skillIndex] : null;
-      const url = typeof own === 'string' ? own : u?.[kind];
+      const url = m ? m[kind] : typeof own === 'string' ? own : u?.[kind];
       if (typeof url !== 'string') return false;
-      if ((kind === 'attack' || kind === 'hit') && !normalAttackSfx(defId, url)) return false;
+      if (!m && (kind === 'attack' || kind === 'hit') && !normalAttackSfx(defId, url)) return false;
       // the official bank's mix (header): a silent roll still counts as the unit's own sound (no generic fallback)
-      const mix = kind === 'skill' ? null : u?.mix?.[kind];
+      const mix = m ? m.mix?.[kind] : kind === 'skill' ? null : u?.mix?.[kind];
       if (!unitSoundPlays(mix, this.random())) return true;
-      this._play(url, { volume: unitGain(kind === 'attack' || kind === 'hit' ? 0.55 : 0.8, mix), limited: true, unitKey: `${unitId}:${kind}` });
+      // local patch: the official mixer group × bank volume (audioOfficial.js) instead of unitGain(0.55 | 0.8, mix)
+      const volume = officialGain(defId, kind, u, kind === 'skill' ? u?.skillMix?.[skillIndex] : mix, m ? { grp: m.grp, mode: true } : { skillIndex });
+      this._play(url, { volume, limited: true, unitKey: `${unitId}:${kind}` });
       return true;
     } catch { return false; }
   }
@@ -974,6 +980,16 @@ export class AudioManager {
         if (!Array.isArray(e)) continue;
         const kind = e[0];
         if (kind === 'spawn') { this._track(e[1]); continue; }
+        if (kind === 'skill') { // local patch: the running skill (its mode sounds, audioOfficial.js)
+          const su = this.units.get(e[1]);
+          if (su) {
+            su.skillOn = !!e[2];
+            // modes[i].deferStart: a fallback start sound — it plays only for a skill that ended without an attack (its
+            // attacks sound the skill's own attack sound, as the official ability signals do)
+            if (!e[2] && su.startHeld) this.unit(su.def, 'skill', e[1], su.skillIndex ?? undefined);
+            su.startHeld = false;
+          }
+        }
         if (kind === 'atk') {
           // a chain bounce: its first id is the previous target, whose attack sound this is not (see header)
           if (CHAIN_KINDS.has(e[3])) { this.lastAttacker.delete(e[2]); continue; }
@@ -981,19 +997,22 @@ export class AudioManager {
           if (!src) continue;
           // only a hostile attack authors the target's next impact (a heal — an ally aiming at an ally — never does)
           const tgt = this.units.get(e[2]);
-          if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now });
-          if (!this.unit(src.def, 'attack', e[1]) && src.side === 'enemy') this.battle('enemyHit', { unitKey: `${e[1]}:atk`, volume: 0.35 });
+          const mode = src.skillOn ? src.skillIndex : null; // local patch: the running skill's mode sounds (audioOfficial.js)
+          if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now, mode });
+          src.startHeld = false; // local patch
+          if (!this.unit(src.def, 'attack', e[1], undefined, mode) && src.side === 'enemy') this.battle('enemyHit', { unitKey: `${e[1]}:atk`, volume: 0.35 });
         } else if (kind === 'dmg') {
           const by = this.lastAttacker.get(e[1]);
           if (!by || !IMPACT_TYPES.has(e[3])) continue;
           this.lastAttacker.delete(e[1]); // one impact per attack
-          if (now - by.at <= IMPACT_WINDOW_MS) this.unit(by.def, 'hit', `h${e[1]}`);
+          if (now - by.at <= IMPACT_WINDOW_MS) this.unit(by.def, 'hit', `h${e[1]}`, undefined, by.mode); // local patch: by.mode
         } else if (kind === 'heal') {
           this.battle('heal', { unitKey: `heal:${e[1]}`, volume: 0.35 });
         } else if (kind === 'skill' && e[2]) {
           const u = this.units.get(e[1]);
           if (u) {
-            this.unit(u.def, 'skill', e[1], u.skillIndex ?? undefined);
+            if (modeEntry(this.getManifest()?.audio?.sfx?.units?.[u.def], u.skillIndex)?.deferStart) u.startHeld = true; // local patch
+            else this.unit(u.def, 'skill', e[1], u.skillIndex ?? undefined);
             // 作战中N: the equipped skill's own slot (0-based; 作战中4 is the fallback of a 4th slot)
             if (unitSoundClass(u) === 'char') {
               const n = Number.isInteger(u.skillIndex) ? Math.min(4, u.skillIndex + 1) : 1;
@@ -1019,7 +1038,8 @@ export class AudioManager {
           const own = url === m?.audio?.sfx?.units?.[u.def]?.die;
           const mix = own ? m.audio.sfx.units[u.def].mix?.die : null;
           if (!unitSoundPlays(mix, this.random())) continue;
-          this._playUnitUrl(url, own ? `${e[1]}:die` : `die:${e[1]}`, own ? unitGain(0.8, mix) : 0.7);
+          // local patch: the official mix (audioOfficial.js) instead of unitGain(0.8, mix) / 0.7
+          this._playUnitUrl(url, own ? `${e[1]}:die` : `die:${e[1]}`, own ? officialGain(u.def, 'die', m.audio.sfx.units[u.def], mix) : battleGain(u.side === 'enemy' ? 'enemyDie' : 'charDie'));
         } else if (kind === 'leak') {
           // 漏怪: an enemy reached its goal (Battle.leak emits the sim's own EV.LEAK — it is NOT a `die`, so until now a
           // leak was completely silent, for the player's own field and for a 联防 the helpers could not hold alike).
@@ -1051,12 +1071,13 @@ export class AudioManager {
           const own = url === m?.audio?.sfx?.units?.[u.def]?.born;
           const mix = own ? m.audio.sfx.units[u.def].mix?.born : null;
           if (!unitSoundPlays(mix, this.random())) continue;
-          this._playUnitUrl(url, own ? `${e[1]}:born` : 'deploy', own ? unitGain(0.8, mix) : 0.5);
+          // local patch: the official mix (audioOfficial.js) instead of unitGain(0.8, mix) / 0.5
+          this._playUnitUrl(url, own ? `${e[1]}:born` : 'deploy', own ? officialGain(u.def, 'born', m.audio.sfx.units[u.def], mix) : battleGain('deploy'));
         } else if (kind === 'fx') {
           // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
           const hk = kitHitKey(e[1], e[4], (id) => this.units.get(id));
           const hurl = hk ? this.getManifest()?.audio?.sfx?.kit?.[hk] : null;
-          if (typeof hurl === 'string') this._play(hurl, { volume: 0.55, limited: true, unitKey: `kit:${hk}` });
+          if (typeof hurl === 'string') this._play(hurl, { volume: groupGain(this.getManifest()?.audio?.sfx?.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, unitKey: `kit:${hk}` }); // local patch: its mixer group
           // a summon used up by its own effect (香槟炸弹 exploding: `consumed`): its impact sound now, no death sound
           const ex = e[4];
           if (!ex || typeof ex !== 'object' || !ex.consumed || ex.id == null) continue;

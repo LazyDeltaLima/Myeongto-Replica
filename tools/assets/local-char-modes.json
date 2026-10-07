@@ -1,0 +1,1815 @@
+{
+ "$comment": "Operator attack modes (charpack _modes order: index n = audio bank attack.<n>). Written by tools/local-extract/char_modes.py from the local client (local patch); read by tools/assets/plan.mjs.",
+ "char_1012_skadi2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_1014_nearl2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_1016_agoat2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S3",
+   "S3_End"
+  ],
+  "proj": [
+   [
+    "projectile_chr_agoat2"
+   ],
+   [
+    "projectile_chr_agoat2_s1"
+   ],
+   [],
+   []
+  ]
+ },
+ "char_1019_siege2": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_1020_reed2": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_reed2"
+   ],
+   [
+    "projectile_chr_reed2_s3"
+   ]
+  ]
+ },
+ "char_1021_kroos2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S2_Sub"
+  ],
+  "proj": [
+   [
+    "projectile_chr_kroos2",
+    "projectile_chr_kroos2_2"
+   ],
+   [
+    "projectile_chr_kroos2_s1"
+   ],
+   [
+    "projectile_chr_kroos2_s2"
+   ],
+   [
+    "projectile_chr_kroos2_s2_2"
+   ]
+  ]
+ },
+ "char_1023_ghost2": {
+  "modes": [
+   "Default",
+   "Stand",
+   "Empty",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_1026_gvial2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_1028_texas2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_102_texas": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ]
+ },
+ "char_1032_excu2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3",
+   "S3_End"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_1033_swire2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3",
+   "S3_End"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_1035_wisdel": {
+  "modes": [
+   "Default",
+   "S2",
+   "S2_Overload",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_wisdel_default"
+   ],
+   [
+    "projectile_chr_wisdel_s2"
+   ],
+   [
+    "projectile_chr_wisdel_s2"
+   ],
+   [
+    "projectile_chr_wisdel_s3"
+   ]
+  ]
+ },
+ "char_1038_whitw2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_whitw2_funnel_2",
+    "projectile_chr_whitw2_funnel_1",
+    "projectile_chr_whitw2",
+    "projectile_chr_whitw2_funnel_3"
+   ],
+   [
+    "projectile_chr_whitw2_funnel_s1_1",
+    "projectile_chr_whitw2_funnel_s1_3",
+    "projectile_chr_whitw2_s1",
+    "projectile_chr_whitw2_funnel_s1_2"
+   ],
+   [
+    "projectile_chr_whitw2_funnel_s2_3",
+    "projectile_chr_whitw2_s2",
+    "projectile_chr_whitw2_funnel_s2_4",
+    "projectile_chr_whitw2_funnel_s2_5",
+    "projectile_chr_whitw2_funnel_s2_1",
+    "projectile_chr_whitw2_funnel_s2_6",
+    "projectile_chr_whitw2_funnel_s2_2"
+   ],
+   [
+    "projectile_chr_whitw2_s3"
+   ]
+  ]
+ },
+ "char_1039_thorn2": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_thorn2"
+   ],
+   [
+    "projectile_chr_thorn2"
+   ]
+  ]
+ },
+ "char_103_angel": {
+  "modes": [
+   "Default",
+   "S2-3"
+  ],
+  "proj": [
+   [],
+   [
+    "projectile_angel"
+   ]
+  ]
+ },
+ "char_1040_blaze2": {
+  "modes": [
+   "Default",
+   "Reborn",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_blaze2"
+   ],
+   [],
+   [
+    "projectile_chr_blaze2_s2"
+   ],
+   [
+    "projectile_chr_blaze2_s3"
+   ]
+  ]
+ },
+ "char_1041_angel2": {
+  "modes": [
+   "Default",
+   "S2",
+   "S2_Down",
+   "S3",
+   "S3_Down",
+   "S1",
+   "S1_Burst_Mode"
+  ],
+  "proj": [
+   [
+    "projectile_chr_angel2"
+   ],
+   [
+    "projectile_chr_angel2_s2"
+   ],
+   [
+    "projectile_chr_angel2_s2"
+   ],
+   [
+    "projectile_chr_angel2_s3_start",
+    "projectile_chr_angel2_s3"
+   ],
+   [
+    "projectile_chr_angel2",
+    "projectile_chr_angel2_s3_start"
+   ],
+   [
+    "projectile_chr_angel2_s1",
+    "projectile_chr_angel2"
+   ],
+   [
+    "projectile_chr_angel2"
+   ]
+  ]
+ },
+ "char_1045_svash2": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_1046_sbell2": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_1047_halo2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_halo2"
+   ],
+   [
+    "projectile_chr_halo2_s1"
+   ],
+   [
+    "projectile_chr_halo2_s3"
+   ]
+  ]
+ },
+ "char_1050_chen3": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2Respawn",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_107_liskam": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_108_silent": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   [
+    "projectile_silent"
+   ]
+  ]
+ },
+ "char_126_shotst": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   [
+    "projectile_arrow"
+   ]
+  ]
+ },
+ "char_127_estell": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ]
+ },
+ "char_128_plosis": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_136_hsguma": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ]
+ },
+ "char_140_whitew": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_whitew_atk"
+   ],
+   [
+    "projectile_whitew_s2"
+   ]
+  ]
+ },
+ "char_143_ghost": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ]
+ },
+ "char_145_prove": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_prove"
+   ],
+   [
+    "projectile_prove"
+   ]
+  ]
+ },
+ "char_150_snakek": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_171_bldsk": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ]
+ },
+ "char_172_svrash": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_svrash"
+   ],
+   [],
+   []
+  ]
+ },
+ "char_173_slchan": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   [
+    "projectile_slchan"
+   ]
+  ]
+ },
+ "char_174_slbell": {
+  "modes": [
+   "Default",
+   "S1-2"
+  ],
+  "proj": [
+   [
+    "projectile_slbell"
+   ],
+   []
+  ]
+ },
+ "char_181_flower": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ]
+ },
+ "char_183_skgoat": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_skgoat"
+   ],
+   [
+    "projectile_skgoat"
+   ]
+  ]
+ },
+ "char_196_sunbr": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [
+    "projectile_sunbr"
+   ]
+  ]
+ },
+ "char_199_yak": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ]
+ },
+ "char_2015_dusk": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_2026_yu": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_2027_wang": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_wang",
+    "projectile_chr_wang_stone1"
+   ],
+   [
+    "projectile_chr_wang_stone2",
+    "projectile_chr_wang"
+   ],
+   []
+  ]
+ },
+ "char_202_demkni": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_206_gnosis": {
+  "modes": [
+   "Default",
+   "S2",
+   "S2+",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_gnosis"
+   ],
+   [],
+   [],
+   [
+    "projectile_chr_gnosis_s3"
+   ]
+  ]
+ },
+ "char_213_mostma": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_222_bpipe": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_237_gravel": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ]
+ },
+ "char_245_cello": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_cello"
+   ],
+   [
+    "projectile_chr_cello_s2"
+   ],
+   []
+  ]
+ },
+ "char_249_mlyss": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_mlyss"
+   ],
+   [
+    "projectile_chr_mlyss"
+   ],
+   [
+    "projectile_chr_mlyss_s2"
+   ],
+   [
+    "projectile_chr_mlyss_s3"
+   ]
+  ]
+ },
+ "char_253_greyy": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_greyy"
+   ],
+   [
+    "projectile_greyy"
+   ]
+  ]
+ },
+ "char_254_vodfox": {
+  "modes": [
+   "Default",
+   "S1"
+  ],
+  "proj": [
+   [
+    "projectile_vodfox"
+   ],
+   [
+    "projectile_vodfox"
+   ]
+  ]
+ },
+ "char_258_podego": {
+  "modes": [
+   "Default",
+   "S1"
+  ],
+  "proj": [
+   [
+    "projectile_chr_podego"
+   ],
+   [
+    "projectile_chr_podego_s1"
+   ]
+  ]
+ },
+ "char_263_skadi": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_264_f12yin": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_279_excu": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_290_vigna": {
+  "modes": [
+   "Default",
+   "S1-2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_291_aglina": {
+  "modes": [
+   "Default",
+   "Disarmed",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_aglina"
+   ],
+   [
+    "projectile_glassb"
+   ],
+   [
+    "projectile_aglina"
+   ],
+   [
+    "projectile_aglina_s2"
+   ],
+   [
+    "projectile_aglina"
+   ]
+  ]
+ },
+ "char_294_ayer": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_ayer"
+   ],
+   [
+    "projectile_chr_ayer_s2"
+   ]
+  ]
+ },
+ "char_306_leizi": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_leizi"
+   ],
+   [
+    "projectile_leizi_s2"
+   ]
+  ]
+ },
+ "char_308_swire": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_311_mudrok": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_332_archet": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_archet"
+   ],
+   [
+    "projectile_chr_archet_s3"
+   ]
+  ]
+ },
+ "char_337_utage": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_341_sntlla": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [
+    "projectile_chr_sntlla_s2"
+   ]
+  ]
+ },
+ "char_344_beewax": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_350_surtr": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_358_lisa": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_lisa"
+   ],
+   [
+    "projectile_chr_lisa_s2"
+   ],
+   []
+  ]
+ },
+ "char_373_lionhd": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ]
+ },
+ "char_381_bubble": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_388_mint": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_391_rosmon": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_rosmon_A",
+    "projectile_chr_rosmon_B"
+   ],
+   [
+    "projectile_chr_rosmon_s2"
+   ],
+   [
+    "projectile_chr_rosmon_s3"
+   ]
+  ]
+ },
+ "char_4010_etlchi": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_4013_kjera": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_kjera_funnel",
+    "projectile_chr_kjera"
+   ],
+   [
+    "projectile_chr_kjera_funnel_s2_1",
+    "projectile_chr_kjera_s2",
+    "projectile_chr_kjera_funnel_s2_2"
+   ]
+  ]
+ },
+ "char_4016_kazema": {
+  "modes": [
+   "Default",
+   "Stand",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_4026_vulpis": {
+  "modes": [
+   "Default",
+   "S3",
+   "S3_Down"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_4036_forcer": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   []
+  ]
+ },
+ "char_4039_horn": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3",
+   "S3(D)"
+  ],
+  "proj": [
+   [
+    "projectile_chr_horn"
+   ],
+   [
+    "projectile_chr_horn_s2",
+    "projectile_chr_horn_s2_melee"
+   ],
+   [
+    "projectile_chr_horn_s3"
+   ],
+   [
+    "projectile_chr_horn_s3"
+   ]
+  ]
+ },
+ "char_4040_rockr": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_rockr_funnel",
+    "projectile_chr_rockr"
+   ],
+   [
+    "projectile_chr_rockr_funnel_s2",
+    "projectile_chr_rockr_s2"
+   ]
+  ]
+ },
+ "char_4042_lumen": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_lumen"
+   ],
+   [
+    "projectile_chr_lumen_s3_1",
+    "projectile_chr_lumen_s3_2"
+   ]
+  ]
+ },
+ "char_4051_akkord": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_4054_malist": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   [
+    "projectile_chr_malist",
+    "projectile_chr_malist_funnel"
+   ]
+  ]
+ },
+ "char_4056_titi": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_titi"
+   ],
+   [
+    "projectile_chr_titi_s1"
+   ],
+   [],
+   [
+    "projectile_chr_titi_s3"
+   ]
+  ]
+ },
+ "char_4058_pepe": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_4064_mlynar": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_4079_haini": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_haini"
+   ],
+   [
+    "projectile_chr_haini_s2"
+   ]
+  ]
+ },
+ "char_4082_qiubai": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_qiubai"
+   ],
+   [
+    "projectile_chr_qiubai"
+   ],
+   [
+    "projectile_chr_qiubai_s3"
+   ]
+  ]
+ },
+ "char_4087_ines": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_ines_normal"
+   ],
+   [
+    "projectile_chr_ines_s2"
+   ],
+   [
+    "projectile_chr_ines_s3"
+   ]
+  ]
+ },
+ "char_4100_caper": {
+  "modes": [
+   "Default",
+   "S2",
+   "S2[Down]"
+  ],
+  "proj": [
+   [
+    "projectile_chr_caper"
+   ],
+   [
+    "projectile_chr_caper_s2"
+   ],
+   [
+    "projectile_chr_caper_s2"
+   ]
+  ]
+ },
+ "char_4114_harold": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_harold"
+   ],
+   [
+    "projectile_chr_harold_2"
+   ]
+  ]
+ },
+ "char_4116_blkkgt": {
+  "modes": [
+   "Default",
+   "S1"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_4122_grabds": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_grabds"
+   ],
+   [
+    "projectile_chr_grabds_s2"
+   ]
+  ]
+ },
+ "char_4132_ascln": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_4134_cetsyr": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_4137_udflow": {
+  "modes": [
+   "Default",
+   "S2",
+   "S2_Down"
+  ],
+  "proj": [
+   [
+    "projectile_chr_udflow"
+   ],
+   [],
+   []
+  ]
+ },
+ "char_4139_papyrs": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_papyrs"
+   ],
+   [
+    "projectile_chr_papyrs_s1"
+   ]
+  ]
+ },
+ "char_4145_ulpia": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3",
+   "S3_Respawn_A",
+   "S3_Restore"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_4146_nymph": {
+  "modes": [
+   "Default",
+   "S1",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_nymph"
+   ],
+   [
+    "projectile_chr_nymph_s1"
+   ],
+   [
+    "projectile_chr_nymph_s3"
+   ]
+  ]
+ },
+ "char_4148_philae": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_4151_tinman": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   [
+    "projectile_chr_tinman"
+   ]
+  ]
+ },
+ "char_4162_cathy": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_4163_rosesa": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_4182_oblvns": {
+  "modes": [
+   "Default",
+   "S2_AttackSpeed",
+   "S2_Atk",
+   "S2_Fever",
+   "S3",
+   "S2_Fever_Mag"
+  ],
+  "proj": [
+   [
+    "projectile_chr_oblvns_talent",
+    "projectile_chr_oblvns"
+   ],
+   [
+    "projectile_chr_oblvns_s2_slow_t",
+    "projectile_chr_oblvns_s2_slow"
+   ],
+   [
+    "projectile_chr_oblvns_s2",
+    "projectile_chr_oblvns_s2_t"
+   ],
+   [
+    "projectile_chr_oblvns_s2",
+    "projectile_chr_oblvns_s2_slow_t",
+    "projectile_chr_oblvns_s2_slow",
+    "projectile_chr_oblvns_s2_t"
+   ],
+   [
+    "projectile_chr_oblvns_s3_phy",
+    "projectile_chr_oblvns_s3_mag"
+   ],
+   [
+    "projectile_chr_oblvns_s2_slow",
+    "projectile_chr_oblvns_s2_slow_t"
+   ]
+  ]
+ },
+ "char_4191_tippi": {
+  "modes": [
+   "Default",
+   "S1_TakeOff",
+   "S1",
+   "S1_Landing",
+   "S2_TakeOff",
+   "S2",
+   "S2_Landing"
+  ],
+  "proj": [
+   [
+    "projectile_chr_tippi"
+   ],
+   [],
+   [
+    "projectile_chr_tippi_s1"
+   ],
+   [],
+   [],
+   [
+    "projectile_chr_tippi_s2"
+   ],
+   []
+  ]
+ },
+ "char_4193_lemuen": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3",
+   "S3_End"
+  ],
+  "proj": [
+   [
+    "projectile_chr_lemuen"
+   ],
+   [
+    "projectile_chr_lemuen_s1"
+   ],
+   [
+    "projectile_chr_lemuen_s2",
+    "projectile_chr_lemuen"
+   ],
+   [
+    "projectile_chr_lemuen_s3_aim"
+   ],
+   []
+  ]
+ },
+ "char_4194_rmixer": {
+  "modes": [
+   "Default",
+   "Sk2",
+   "Sk3",
+   "Sk3_Zero"
+  ],
+  "proj": [
+   [
+    "projectile_chr_rmixer"
+   ],
+   [
+    "projectile_chr_rmixer_sk2"
+   ],
+   [],
+   []
+  ]
+ },
+ "char_4196_reckpr": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_reckpr"
+   ],
+   [
+    "projectile_chr_reckpr_s2"
+   ]
+  ]
+ },
+ "char_4207_branch": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_420_flamtl": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_4211_snhunt": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   [
+    "projectile_chr_snhunt"
+   ]
+  ]
+ },
+ "char_423_blemsh": {
+  "modes": [
+   "Default",
+   "T2_Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_426_billro": {
+  "modes": [
+   "Default",
+   "S1",
+   "S1_Enhance",
+   "S2",
+   "S2_Enhance",
+   "S3",
+   "S3_Enhance"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_427_vigil": {
+  "modes": [
+   "Default",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_vigil"
+   ],
+   [
+    "projectile_chr_vigil_s3_1"
+   ]
+  ]
+ },
+ "char_430_fartth": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_fartth"
+   ],
+   [
+    "projectile_chr_fartth_s1"
+   ],
+   [
+    "projectile_chr_fartth_s2"
+   ],
+   [
+    "projectile_chr_fartth_s3"
+   ]
+  ]
+ },
+ "char_431_ashlok": {
+  "modes": [
+   "Default",
+   "S2(U)",
+   "S2(D)",
+   "S2(LR)"
+  ],
+  "proj": [
+   [
+    "projectile_chr_ashlok"
+   ],
+   [
+    "projectile_chr_ashlok_s2"
+   ],
+   [
+    "projectile_chr_ashlok_s2"
+   ],
+   [
+    "projectile_chr_ashlok_s2"
+   ]
+  ]
+ },
+ "char_437_mizuki": {
+  "modes": [
+   "Default",
+   "T1",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "char_440_pinecn": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_446_aroma": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_469_indigo": {
+  "modes": [
+   "Default",
+   "Default_T1",
+   "S1",
+   "S1_T1",
+   "S2",
+   "S2_T1"
+  ],
+  "proj": [
+   [
+    "projectile_chr_indigo"
+   ],
+   [
+    "projectile_chr_indigo"
+   ],
+   [
+    "projectile_chr_indigo_s1"
+   ],
+   [
+    "projectile_chr_indigo_s1"
+   ],
+   [
+    "projectile_chr_indigo_s2"
+   ],
+   [
+    "projectile_chr_indigo_s2"
+   ]
+  ]
+ },
+ "char_472_pasngr": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_pasngr"
+   ],
+   [
+    "projectile_chr_pasngr_s2"
+   ]
+  ]
+ },
+ "char_474_glady": {
+  "modes": [
+   "Default",
+   "S2",
+   "S3"
+  ],
+  "proj": [
+   [
+    "projectile_chr_glady"
+   ],
+   [
+    "projectile_chr_glady_s2"
+   ],
+   []
+  ]
+ },
+ "char_491_humus": {
+  "modes": [
+   "Default",
+   "S2"
+  ],
+  "proj": [
+   [],
+   []
+  ]
+ },
+ "char_494_vendla": {
+  "modes": [
+   "Default"
+  ],
+  "proj": [
+   [
+    "projectile_chr_vendla"
+   ]
+  ]
+ },
+ "char_496_wildmn": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [],
+   [],
+   []
+  ]
+ },
+ "char_498_inside": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_inside"
+   ],
+   [
+    "projectile_chr_inside_s1"
+   ],
+   [
+    "projectile_chr_inside_s2"
+   ]
+  ]
+ },
+ "char_616_pithst": {
+  "modes": [
+   "Default",
+   "S1"
+  ],
+  "proj": [
+   [
+    "projectile_chr_pithst"
+   ],
+   [
+    "projectile_chr_pithst"
+   ]
+  ]
+ }
+}

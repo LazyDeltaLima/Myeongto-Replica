@@ -179,6 +179,9 @@ function onEvents(ev, gt) {
           const sfx = unitSfx(u.spine);
           const url = sfx.skills?.[idx] ?? sfx.skill;
           if (typeof url !== 'string') note(`ss${idx}`, `스킬 효과음 데이터 없음: audio.sfx.units.${u.spine}.skills[${idx}] / .skill`);
+          const md = sfx.modes?.[idx];   // the skill's own attack / impact sounds (audioOfficial.js, tools/assets/skill-mode-sfx.mjs)
+          if (md) log('snd', 'snd', `  ♪ S${idx + 1} 스킬 중 소리 — 공격: ${md.attack ? file(md.attack) : '일반'} · 타격: ${md.hit ? file(md.hit) : '일반'}${md.deferStart ? ' · 시작음은 공격이 없을 때만' : ''}`);
+          else note(`sm${idx}`, `S${idx + 1} 스킬 중 전용 공격·타격음 없음 (일반 소리 그대로)`);
           const s = fxText(u, 'skillStart', idx), b = fxText(u, 'skillBuff', idx), h = fxText(u, 'skillHit', idx);
           if (s != null) log('fx', '', `  ✦ S${idx + 1} 이펙트 — start: ${s || '없음'} · buff: ${b || '없음'} · hit: ${h || '없음'}`);
         }
@@ -253,7 +256,8 @@ audio._play = (url, o = {}) => {
   const r = rawPlay(url, o);
   if (o.limited || o.unitKey != null) {
     const ok = o.limited ? verdict : true;
-    log('snd', ok ? 'snd' : 'blocked', `♪ ${soundLabel(o.unitKey)} ${file(url)}${ok ? '' : ' — 동시 재생 제한으로 생략'}`);
+    const vol = Number.isFinite(o.volume) ? ` · 볼륨 ${o.volume.toFixed(2)}` : '';
+    log('snd', ok ? 'snd' : 'blocked', `♪ ${soundLabel(o.unitKey)} ${file(url)}${vol}${ok ? '' : ' — 동시 재생 제한으로 생략'}`);
   }
   return r;
 };

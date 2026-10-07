@@ -38,6 +38,7 @@
 | 얼린 상점에서 특수 갱신이 바꾼 칸도 얼림 유지 (원본은 `setShopSlot`이 항상 `frozen: false` → 佩佩·杜遥夜가 넣은 칸이 전투 시작 때 사라짐) | — | `server/match/effectsMeta.js` `setShopSlot` 2줄 (바뀌기 전 칸의 얼림 상태, 없으면 상점 얼림 상태) |
 | 디버그용 재화 고정 (`SP_DEBUG_FUNDS=<0..999>`일 때 사람 플레이어 재화가 그 값으로 고정, 봇은 그대로. `local.sh`가 기본 99, 배포 서버는 미설정) | `server/local-patch.js debugFunds` (`PlayerState.prototype.funds` 접근자) | 없음 |
 | 게임 내 디버그 패널 (로컬 디버그 모드만: 보드 왼쪽·맹약 줄 아래. 「디버깅용 재화 99 고정」 체크박스 = 플레이어별로 재화 고정 켜고 끄기, 선발 오퍼레이터·티어·일반/정예·스킬(S1~S3)·모듈(정예만, 없음 포함)을 골라 정비 구역에 추가) | `server/local-patch.js` `debugMode`·`debugIntent`·`debugView`(`privateView` 감싸기 → `m.private.debug`, 디버그 모드일 때만 설치), `shared/local.js`(`dbg.funds`·`dbg.addDiy` 형식), `public/js/ui/debugPanel.js`, `public/css/debug-panel.css`, `public/i18n/ko/ui.json` 7줄 | `screens/game.js` 2줄(import, 렌더), `index.html` 1줄 |
+| 스킬 모드 공격·타격음 + 공식 믹서 그룹 볼륨 (2026-10-07) | `public/js/audioOfficial.js`, `tools/assets/skill-mode-sfx.mjs`, `tools/local-extract/char_modes.py` → `tools/assets/local-char-modes.json`, `test/local-patch-audio.test.js` | `public/js/audio.js`(import, `unit()` 모드·게인, 이벤트 루프 몇 줄, 채널 게인 2줄), `tools/assets/audio.mjs` 3줄, `plan.mjs` 몇 줄, `skill-sfx.mjs`·`kit-sfx.mjs` 함수 1개씩 |
 | 이펙트·사운드 디버그 페이지 = 샌드백 아레나 (`SP_DEBUG_PAGE=1`일 때만, 배포 서버는 404 — `/js/debug/*` 포함) | `public/debug.html`, `public/js/debug.js`, `public/js/debug/arena.js`·`sandbag.js` (`/fxlab.html`은 이리로 넘김), `server/local-patch.js debugPageHidden`, `test/local-patch-debug.test.js` | `server/index.js` 2줄, `render/app.js` `debugFx` 1줄(+헤더 1줄), `render/fxgame.js` `debugPlay` |
 | `/healthz` 축소 (프록시를 거친 요청은 `ok`·`version`·`app`·`build`만, 접속자·방 수는 컨테이너 안 확인용) | `server/local-patch.js proxiedRequest` | `server/index.js` 2줄(import, `/healthz` 앞 1줄) |
 | iframe 차단 헤더 | — | `server/index.js` 3줄 |
@@ -725,8 +726,28 @@
   赤刃明霄陈 S2 `ON_ABILITY_HIT.skchr_chen3_2`·S3 `projectile_chr_chen3_s3`(새 fx `kitHit`, 剑气가 적을 친 틱마다), 维什戴尔 S2 포격
   `projectile_chr_wisdel_s2`·残影 폭발 `…_s1_shock`(fx `explode`에 `by`)·혼령의 그림자 `…_token`, 丰川祥子 음표 종류별(`projectile_chr_oblvns`·
   `_talent`·`_s2`·`_s2_slow`·`_s3_phy`·`_s3_mag`, S1 `projectile_chr_oblvns_s1_hit`), 荒芜拉普兰德 S3 늑대 `…_funnel_s3`. 그리고 维什戴尔의
-  일반 타격음이 없던 것(`projectile_chr_wisdel_default` — 이름 끝 `_default`를 plan.mjs가 몰랐음). 남은 것: 스킬 중 일반 공격의 스킬 모드
-  타격음(阿斯卡纶 `attack.1/.2`, 维什戴尔 S1/S3 본탄 `_s1`/`_s3`, 荒芜拉普兰德 S1/S2 드론) — 클라이언트가 스킬 진행 상태를 알아야 해서 미구현.
+  일반 타격음이 없던 것(`projectile_chr_wisdel_default` — 이름 끝 `_default`를 plan.mjs가 몰랐음). 스킬 중 일반 공격의 스킬 모드
+  공격·타격음은 아래 「스킬 모드 효과음·믹서 볼륨」(2026-10-07)에서 구현. 남은 것: 荒芜拉普兰德 S1/S2 드론처럼 키트가 직접 주는 피해 중 매핑 안 된 것.
+
+- 스킬 모드 효과음·믹서 볼륨 (2026-10-07, 공식 비교 조사 `research/2026-10-07-official-compare/compare-audio.md` 1·2번):
+  - 공식: 오퍼레이터 공격 소리는 공격 모드 단위 뱅크 `battle.ON_ABILITY_START|ON|HIT.<charId>.attack.<n>`이고 n = 캐릭터 프리팹(charpack) `_modes`
+    목록 순번(Default 0, 이후 스킬 모드: 维什戴尔 [Default, S2, S2_Overload, S3] → S3 공격 = `attack.3`). 스킬 k의 모드는 이름이 `S<k>`(또는 `S<a>-<b>`,
+    `Sk<k>`, `S<k>_…`)인 것. 원거리 모드의 타격음은 그 모드 투사체의 `ON_PROJECTILE_HIT.<key>`. 모드를 바꾸지 않는 스킬은 자기 공격 능력
+    `ON_ABILITY_*.<skillId>`(공격·타격 믹서 그룹일 때만 — UI_Boost·Skill_Important는 시작음 그대로). 뱅크마다 믹서 그룹(`customMixerGroup`)이 있다.
+  - `tools/local-extract/char_modes.py` → `tools/assets/local-char-modes.json`(커밋, 126명: 모드 이름 순서 + 모드별 투사체 키; 클라이언트 업데이트 때
+    다시 실행, 약 6초). `tools/assets/skill-mode-sfx.mjs`가 매니페스트에 `sfx.units[id].modes[스킬번호] = { attack, hit, mix, grp, deferStart }`,
+    `grp`(역할별 믹서 그룹), `skillMix`(시작음 뱅크 볼륨), `sfx.kitGrp`를 더한다(원본 `mix`는 그대로). 오퍼레이터 103명, 315개 스킬 중 207개에 전용 소리.
+    원본 연결: `tools/assets/audio.mjs indexAudio` `groupOf` 3줄, `plan.mjs` 몇 줄, `skill-sfx.mjs skillStartIsFallback`, `kit-sfx.mjs kitHitGroups`.
+  - 클라이언트 `public/js/audioOfficial.js` + `audio.js` 연결: `skill` 이벤트로 유닛의 스킬 진행을 기억하고, 그동안의 `atk`와 그 `dmg` 타격음은
+    `modes[skillIndex]` 소리(스킬 모드 파일이라 `normalAttackSfx` 거름 없음). `deferStart`(시작음이 ON_SKILL_START가 아닌 대체음이고 스킬에 공격 소리가
+    있음: 阿斯卡纶 S1 등)면 시작음은 공격 없이 끝난 스킬에서만 낸다(공식은 그 소리를 공격에서 낸다).
+  - 볼륨: 클라이언트 `MainMixer`(EN `sharedassets1.assets`) Default 스냅샷의 그룹 게인(부모 합산) × 뱅크 볼륨(1 초과도 그대로, 노드 상한 1.5):
+    오퍼레이터 공격 0.348·타격 0.336, 스킬 공격 0.428·타격 0.348, 적 공격 0.163·타격 0.205, 보스 0.343·0.327, 스킬 시작 0.67, 배치·사망·이탈 0.614,
+    대사 채널 0.978, sfx 채널의 ×0.9 제거(그룹이 SFX 버스를 포함). 그룹 없는 뱅크(치유)는 SFX_Battle 0.696 [추정]. 이전(오퍼레이터·적 모두 0.55,
+    1 초과 잘림)보다 적 소리가 약 9 dB 작다. UI 효과음·BGM은 그대로.
+  - 확인: `test/local-patch-audio.test.js` 8개, 전 오퍼레이터×스킬 시뮬+AudioManager 일괄(강제 시전 시 207개 중 185개에서 전용 소리 — 나머지 22개는
+    피해를 키트가 직접 주는 스킬: 드론·음표·늑대·치유), 디버그 아레나(阿斯卡纶 S1/S3, 维什戴尔 S3, 赤刃明霄陈 S3 — 검기 타격 `p_imp_hljdswdlng_s`).
+  - 배포: 새 효과음 220개(2.4MB)는 서버의 `fetch-assets`가 받는다(`oci/deploy.sh --assets`).
 
 ## 공식 스테이지 3D 씬 (2026-10-06)
 - 3D 보드는 원래 시즌 1 아틀라스(`map_autochess`)로 모든 스테이지를 그렸다. 지금 클라이언트는 스테이지마다 완성된 씬(`scenes/activities/act*autochess/level_*`)과 라이트맵을 갖고 있고, 테마는 사막(`map_autochesssand`), 카시미어(`map_kxmr`), 시라쿠사 지하철(`map_syracuse_metro`)이다. 자세한 내용은 DESIGN §15.1.
@@ -830,6 +851,8 @@
     「unchanged: a Begin clip …」: 宴 S2(skillIndex 1)가 Skill_Start → Skill_Loop(=S1 分神 자세)를 틀길 기대한다 — 아래 "전투 버그 수정" 우타게 항목(2026-10-06).
   - `test/asset-network.test.js` 「CLI source defaults to direct …」(upstream 0.1.4): 음성 기본값 `cn`을 기대한다(로컬은 `kr`).
   - `test/version.test.js` 「the release version is what players see」: 타이틀·시작 로그가 `v${APP_VERSION}`이길 기대한다 — 로컬은 자체 버전(「버전 표기」).
+  - `test/ui/feedback3-audio-mix.test.js` 「a dog barks … at most the old gain」, 「妖怪 plays at 0.55 × 0.7 …」: 옛 고정 게인(0.55, 1 초과 잘림)을
+    기대한다 — 로컬은 공식 믹서 그룹 게인 × 뱅크 볼륨(위 「스킬 모드 효과음·믹서 볼륨」, 2026-10-07).
   - `test/golden.test.js` 「golden roster / bonds / fields / matches」 4개(upstream 0.1.4): 원본 시뮬레이터 결과의 다이제스트를 기대한다 — 로컬 전투 패치(제국의 갑주, 限伤, 성당 검사, 비행 공격 규칙 등)가 결과를 바꾸므로 실패가 정상.
 - `node --test test/local-patch-battle.test.js` — 2026-10-06 플레이 제보 전투 버그 테스트 6개(우타게 S2 그림·저지, 魔王 S3 재분배, 은신·위장 vs 스플래시, 污染秽蚀 vs 은신).
 - `node --test test/local-patch-camou.test.js` — 위장 아이콘(`UF_CAMOU`) 테스트 2개.

@@ -70,6 +70,7 @@ export function bankMix(sounds, path) {
 export function indexAudio(audioData) {
   const banks = new Map();
   const mixes = new WeakMap(); // a bank's path list (the very array every lookup hands out) → bankMix
+  const groups = new WeakMap(); // local patch: the same list → its bank's customMixerGroup (tools/assets/skill-mode-sfx.mjs)
   for (const b of Array.isArray(audioData?.soundFXBanks) ? audioData.soundFXBanks : []) {
     if (!b || typeof b.name !== 'string') continue;
     const paths = (Array.isArray(b.sounds) ? b.sounds : []).map((s) => assetToPath(s?.asset)).filter(Boolean);
@@ -77,6 +78,7 @@ export function indexAudio(audioData) {
     const list = banks.get(b.name);
     for (const p of paths) if (!list.includes(p)) list.push(p);
     if (list.length && !mixes.has(list)) { const m = bankMix(b.sounds, list[0]); if (m) mixes.set(list, m); }
+    if (list.length && !groups.has(list) && typeof b.customMixerGroup === 'string' && b.customMixerGroup) groups.set(list, b.customMixerGroup); // local patch
   }
   const alias = audioData?.bankAlias && typeof audioData.bankAlias === 'object' ? audioData.bankAlias : {};
   const bank = (name, depth = 0) => {
@@ -116,7 +118,8 @@ export function indexAudio(audioData) {
   for (const [name, paths] of banks) if (paths.length) addUnit(name, paths);
   for (const name of Object.keys(alias)) if (!banks.has(name)) { const p = bank(name); if (p.length) addUnit(name, p); }
   const mixOf = (paths) => (paths && typeof paths === 'object' && mixes.get(paths)) || null;
-  return { bank, bgm, unitBanks, skillBanks, mixOf };
+  const groupOf = (paths) => (paths && typeof paths === 'object' && groups.get(paths)) || null; // local patch
+  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf };
 }
 
 /** Sort key for ability sub-keys: plain first, then numeric suffixes ascending. */

@@ -46,3 +46,11 @@ export function kitHitSfx(audio, soundLeaf, notes = []) {
   }
   return out;
 }
+
+/** sfx.kitGrp: key → the mixer group of its bank (public/js/audioOfficial.js); keys without one are left out. */
+export function kitHitGroups(audio) {
+  const out = {};
+  if (typeof audio.groupOf !== 'function') return out;
+  for (const [key, bank] of Object.entries(KIT_HIT_BANKS)) { const g = audio.groupOf(audio.bank(bank)); if (g) out[key] = g; }
+  return out;
+}

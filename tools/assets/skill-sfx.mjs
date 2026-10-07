@@ -26,3 +26,9 @@ export function skillStartSounds(audio, skillId) {
   }
   return null;
 }
+
+/** local patch (skill-mode-sfx.mjs deferStart): the skill has a start sound, and it is not its own ON_SKILL_START bank. */
+export function skillStartIsFallback(audio, skillId) {
+  if (!skillId || audio.skillBanks?.get(skillId)?.get('ON_SKILL_START')?.length) return false;
+  return !!skillStartSounds(audio, skillId)?.length;
+}
