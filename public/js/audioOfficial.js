@@ -135,3 +135,19 @@ export function stopSkillLoops(mgr) {
 export const skillLoopOf = (entry, skillIndex) => (Number.isInteger(skillIndex) && entry?.loops?.[skillIndex]?.url ? entry.loops[skillIndex] : null);
 /** Its gain: the bank's mixer group × its volume. */
 export const loopGain = (loop) => groupGain(loop?.grp) * (Number.isFinite(loop?.vol) && loop.vol > 0 ? loop.vol : 1);
+
+/**
+ * The own battle's end (round_result_dialog, ui/phaseArt.js BattleEndBanner) as its official state + sound
+ * (`ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`, act1autochess custom SE — already in the manifest as sfx.ui.battleOver*):
+ * counted leaks (LP lost) ⇒ 'miss' / BATTLEOVER_REDUCE; no leak at all ⇒ 'perfect' / BATTLEOVER_NOREDUCE; leaks that
+ * cost no LP (uncounted) ⇒ 'done' / BATTLEOVER_NORMAL. The REDUCE pairing follows the bank name; NOREDUCE ↔ 完美作战 and
+ * NORMAL ↔ the plain 「战斗结束」 are [추정] (the three files are 1.4 s variants of one cue; the dialog's script is native).
+ * @param {{ perfect?: boolean, leaked?: Array<{ counted?: boolean }|null> }|null|undefined} pp that battle's perPlayer
+ * @returns {{ kind: 'perfect'|'miss'|'done', lost: number, sfx: 'battleOverNoReduce'|'battleOverReduce'|'battleOverNormal' }}
+ */
+export function battleOverOf(pp) {
+  const lost = (Array.isArray(pp?.leaked) ? pp.leaked : []).filter((l) => l && l.counted !== false).length;
+  if (lost > 0) return { kind: 'miss', lost, sfx: 'battleOverReduce' };
+  if (pp?.perfect) return { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' };
+  return { kind: 'done', lost: 0, sfx: 'battleOverNormal' };
+}

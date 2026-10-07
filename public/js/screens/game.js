@@ -117,6 +117,7 @@ import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official 
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
+import { battleOverOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
 import { useDocClass, FullscreenButton } from '../ui/device.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -530,9 +531,11 @@ function MatchScreen() {
         // teammate used to make THEIR operator say the viewer's line (review on #73). unitsEnd names chess ids: the
         // chess record gives the operator whose voice bank speaks
         // local patch: the official battle-end banner (ui/phaseArt.js BattleEndBanner) for the own normal battle
-        if (mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT && phaseArt('result').cls) {
-          const lost = (Array.isArray(mine.leaked) ? mine.leaked : []).filter((l) => l && l.counted !== false).length;
-          setBanner({ key: `result:${msg.battleId || st.match?.public?.round}`, result: { perfect: !!mine.perfect && lost === 0, lost } });
+        if (mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT) {
+          // + its official sound (BATTLEOVER_REDUCE / NOREDUCE / NORMAL, audioOfficial.js battleOverOf), art or not
+          const over = battleOverOf(mine);
+          audio.sfx(over.sfx);
+          if (phaseArt('result').cls) setBanner({ key: `result:${msg.battleId || st.match?.public?.round}`, result: { perfect: over.kind === 'perfect', lost: over.lost } });
         }
         const charId = resultSpeaker(mine, Math.random, (id) => data.lookup('chess', id)?.charId ?? null);
         if (!charId) return;

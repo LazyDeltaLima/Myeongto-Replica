@@ -44,6 +44,7 @@
 | 이펙트·사운드 디버그 페이지 = 샌드백 아레나 (`SP_DEBUG_PAGE=1`일 때만, 배포 서버는 404 — `/js/debug/*` 포함) | `public/debug.html`, `public/js/debug.js`, `public/js/debug/arena.js`·`sandbag.js` (`/fxlab.html`은 이리로 넘김), `server/local-patch.js debugPageHidden`, `test/local-patch-debug.test.js` | `server/index.js` 2줄, `render/app.js` `debugFx` 1줄(+헤더 1줄), `render/fxgame.js` `debugPlay` |
 | `/healthz` 축소 (프록시를 거친 요청은 `ok`·`version`·`app`·`build`만, 접속자·방 수는 컨테이너 안 확인용) | `server/local-patch.js proxiedRequest` | `server/index.js` 2줄(import, `/healthz` 앞 1줄) |
 | 게임 결과 통계 로그 (2026-10-07: 판이 끝날 때마다 `[stats] {JSON}` 한 줄 — 모드·난이도·스테이지·보스·승패·도달 라운드·시간, 플레이어별 닉네임·봇 여부·라운드·LP·편성(id·티어·금색·장비)·맹약·전투 통계. playerId·시드는 뺌. DB·볼륨 없이 `docker logs`/OCI Logging에서 읽음) | `server/local-stats.js`, `test/local-patch-stats.test.js` | 없음 (`server/local-patch.js onMatchEnd` 1줄) |
+| 라운드 작전 종료 효과음 (2026-10-07: 내 일반 전투 결과에 공식 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*` — 아래 「작전 종료 효과음」) | `public/js/audioOfficial.js battleOverOf` | `screens/game.js` 6줄(import, 결과 배너 분기) |
 | iframe 차단 헤더 | — | `server/index.js` 3줄 |
 | 나가기 창에서 「暂离（AI 托管）」 숨김 | — | `ui/matchChrome.js` (`AWAY_OPTION = false`) — 나가면 자리를 포기한다 |
 | 맹약 스택 세 자리 줄바꿈 수정 | `public/i18n/ko/ko.css` | — |
@@ -1140,6 +1141,17 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 타이틀 설정·전체 화면 버튼(upstream #183): 터치 화면에서 16px 버튼 두 개의 44px 터치 영역이 겹쳐 전체 화면 버튼이 설정 버튼을 가렸다 →
   28px + 간격 14px. (devices.css)
 - 확인: Windows PowerShell 서버 + Windows Chrome(GPU) 844×390·740×360·932·430·1920×1080 — 설정 버튼 중심이 자기 버튼, 접기 탭 24×10.
+
+## 작전 종료 효과음 (2026-10-07)
+- 사용자 제보 「라운드별 작전 종료 효과음이 빠져 있다」: 공식 효과음 3개는 이미 웹 매니페스트에 있었다(`sfx.ui.battleOverReduce` / `battleOverNoReduce` /
+  `battleOverNormal` = `act1autochess_b_ui_battleover_reduce|noreduce|normal.mp3`, 뱅크 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`, 각 1.4초) — 받기만 하고 재생하는
+  곳이 없었다. 외부 저장소를 따로 찾을 필요 없음.
+- 재생: 내 일반 전투(COMBAT)의 결과가 오면(`screens/game.js onResult`, 전투 종료 배너와 같은 자리), 배너 그림(로컬 추출)이 없어도 소리는 낸다.
+- 어느 소리인지(`audioOfficial.js battleOverOf`): 셈하는 누수(LP 감소) → REDUCE(뱅크 이름 그대로), 누수 없음(완벽한 작전) → NOREDUCE [추정],
+  셈하지 않는 누수만 → NORMAL [추정]. 클라이언트 `round_result_dialog`의 애니메이션 3개(`_allPrefectAnim`·`_perfectAnim`·`_missAnim`)와 짝으로 봤다.
+  어느 애니메이션이 어느 뱅크를 부르는지는 네이티브 코드라 확인 못 함 — 세 파일은 음색·길이가 거의 같은 변형이다. 공식 영상(소리 있는 것)으로 확인하면 좋다.
+- 联防·보스 라운드에는 내지 않는다(공식 결과 창이 다른 프리팹). `killBoss*`·`defenceStart`도 아직 연결 안 됨.
+- 테스트: `test/local-patch-battleover.test.js`.
 
 ## 원본이 고치면 뺄 것
 - 제국의 갑주 폭격·3연타 → `server/sim/content/local-patch.js`의 `patchVtsk`
