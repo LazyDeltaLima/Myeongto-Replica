@@ -399,3 +399,146 @@ export class EquipBar {
     }
   }
 }
+
+// ---- element (EP) rings ----------------------------------------------------------------------------------------------
+// User request 2026-10-07 (「원소 피해는 원형 바, 가운데 아이콘은 원소 유형에 따라 다르다」). The client's `char_ep_slider` /
+// `enemy_ep_slider` (arts/ui/[uc]battlecommon.ab), their UIHudUnitEpSlider `_elementDatas` in ELEMENT_ORDER (neural,
+// erosion, burn, apoptosis — sim constants.js; 'necrosis' takes apoptosis's [추정]):
+//   ally: ep_slider ×1.2 at 25.9 under hud_unit — ep_hit_spread (76×78, the element's colour, a pulse on a hit [추정 anim]),
+//     ep_center_color (sprite_ep_color 28, the element's colour), ep_back (slider_ep_back 54, α .784), the back slider
+//     (slider_ep_fill 28, white α .3: the value a moment ago, like the HP bar's loss) and the fill (slider_ep_fill 28,
+//     white) — both Image type Filled, Radial360 from the top clockwise (FillOrigin 2: the empty wedge left of 12 o'clock,
+//     as in CN captures 8 / 10) — and ep_icon (14×14: sprite_ep_icon / _water / _fire / _dark);
+//   enemy: ×1.2 at 26.5 — ep_back (slider_ep_back_enemy 51), ep_center_color (slider_ep_color_enemy, a 27-px disc in a
+//     51 rect), fill_back (slider_ep_fill_back_enemy 17, dark), the fill (slider_ep_fill_enemy 12, #d5d5d5), no icon;
+//     on its burst ep_break_spread (41×42, the element's break colour) with ep_break_hint (33) [추정 anim].
+// The value is render/units.js elementLeft(): the 元素值 left (PRTS 「以白条显示剩余的元素值」), refilling over a 爆发冷却.
+// Sprites: local client ui/battlecommon; without them (or SimpleMesh) units.js keeps its drawn gauge row.
+
+export const EP = Object.freeze({
+  ally: Object.freeze({
+    y: 25.9, scale: 1.2,
+    color: Object.freeze({ neural: 0x00ffd8, erosion: 0x3da1ff, burn: 0xff4901, apoptosis: 0x474747, necrosis: 0x474747 }),
+    icon: Object.freeze({ neural: 'sprite_ep_icon', erosion: 'sprite_ep_water_icon', burn: 'sprite_ep_fire_icon', apoptosis: 'sprite_ep_dark_icon', necrosis: 'sprite_ep_dark_icon' }),
+  }),
+  enemy: Object.freeze({
+    y: 26.5, scale: 1.2,
+    color: Object.freeze({ neural: 0x149882, erosion: 0x266ad0, burn: 0xe3531a, apoptosis: 0x7c7c7c, necrosis: 0x7c7c7c }),
+    breakColor: Object.freeze({ neural: 0x149882, erosion: 0x266ad0, burn: 0xe3531a, apoptosis: 0x1c1c1c, necrosis: 0x1c1c1c }),
+  }),
+});
+/** Seconds of a hit pulse / a burst's spread [추정: the clips are animations not read here]. */
+export const EP_PULSE = 0.4, EP_BREAK = 0.6;
+const FAN = 48;
+
+/** A texture drawn Filled Radial360 from the top, clockwise (Unity Image fill origin Top): a fan mesh over its square. */
+class RadialFill {
+  constructor(P, parent) {
+    this.n = FAN + 2;
+    this.v = new Float32Array(this.n * 2);
+    this.uv = new Float32Array(this.n * 2);
+    const idx = new Uint16Array(FAN * 3);
+    for (let i = 0; i < FAN; i++) { idx[i * 3] = 0; idx[i * 3 + 1] = i + 1; idx[i * 3 + 2] = i + 2; }
+    this.mesh = new P.SimpleMesh(P.Texture.WHITE, this.v, this.uv, idx);
+    this.amount = -1; this.size = -1;
+    parent.addChild(this.mesh);
+  }
+
+  /** Texture `t`, `size` local units across, fill `amount` 0..1. */
+  update(t, size, amount) {
+    const m = this.mesh;
+    if (m.texture !== t) m.texture = t;
+    amount = clamp(amount, 0, 1);
+    if (Math.abs(amount - this.amount) < 1e-4 && size === this.size) return;
+    this.amount = amount; this.size = size;
+    const v = this.v, uv = this.uv;
+    v[0] = 0; v[1] = 0; uv[0] = 0.5; uv[1] = 0.5;
+    const end = amount * Math.PI * 2;
+    for (let i = 0; i <= FAN; i++) {
+      const a = -Math.PI / 2 + Math.min(end, (i / FAN) * Math.PI * 2);   // screen y down: increasing angle = clockwise
+      const c = Math.cos(a), s = Math.sin(a), k = 0.5 / Math.max(Math.abs(c), Math.abs(s));
+      uv[(i + 1) * 2] = 0.5 + c * k; uv[(i + 1) * 2 + 1] = 0.5 + s * k;
+      v[(i + 1) * 2] = c * k * size; v[(i + 1) * 2 + 1] = s * k * size;
+    }
+    m.geometry.getBuffer('aTextureCoord').update(uv);
+    m.vertices = v;
+    m.visible = amount > 0;
+  }
+}
+
+/** The textures of an element ring for `side` 'ally' | 'enemy' (all of them, or null while any is missing). */
+function epTextures(P, assets, side) {
+  const names = side === 'ally'
+    ? ['sprite_ep_hit_spread', 'sprite_ep_color', 'slider_ep_back', 'slider_ep_fill', 'sprite_ep_icon', 'sprite_ep_water_icon', 'sprite_ep_fire_icon', 'sprite_ep_dark_icon']
+    : ['slider_ep_back_enemy', 'slider_ep_color_enemy', 'slider_ep_fill_back_enemy', 'slider_ep_fill_enemy', 'sprite_ep_break_spread', 'sprite_ep_break_hint'];
+  const out = {};
+  for (const n of names) { const t = texOf(P, localUrl(assets, 'ui/battlecommon', n)); if (!t) return null; out[n] = t; }
+  return out;
+}
+
+/** Whether the ring can be drawn (SimpleMesh and the sprites are there) for `side`. */
+export const epRingReady = (P, assets, side) => !!P.SimpleMesh && !!epTextures(P, assets, side);
+
+/** One unit's element ring (see above), in `parent` (the view's HUD container). */
+export class ElementRing {
+  constructor(P, parent, side) {
+    this.P = P; this.side = side;
+    this.root = new P.Container();
+    parent.addChild(this.root);
+    const spr = () => { const s = new P.Sprite(P.Texture.EMPTY); s.anchor.set(0.5); this.root.addChild(s); return s; };
+    if (side === 'ally') {
+      this.spread = spr(); this.disc = spr(); this.back = spr();
+      this.ghostFill = new RadialFill(P, this.root); this.ghostFill.mesh.alpha = 0.3;
+      this.fill = new RadialFill(P, this.root);
+      this.icon = spr();
+    } else {
+      this.back = spr(); this.disc = spr();
+      this.fillBack = new RadialFill(P, this.root);
+      this.fill = new RadialFill(P, this.root); this.fill.mesh.tint = 0xd5d5d5;
+      this.spread = spr(); this.hint = spr();
+    }
+    this.ghost = 1; this.last = 1; this.pulse = 0; this.burst = 0; this.cooling = false;
+    this.root.visible = false;
+  }
+
+  hide() { this.root.visible = false; this.ghost = 1; this.last = 1; this.cooling = false; }
+
+  /**
+   * Draw the gauge of element `el` (sim key) at value `k` 0..1 (elementLeft) for feet (x, y), `u` px per unit, `dt` s;
+   * `cooling`: in its 爆发冷却 (a burst just started when it turns on).
+   */
+  update(assets, el, k, cooling, x, y, u, dt) {
+    const E = EP[this.side], t = epTextures(this.P, assets, this.side);
+    if (!t) { this.hide(); return false; }
+    this.root.visible = true;
+    this.root.position.set(x, hudAnchorY(y, u) + E.y * u);
+    this.root.scale.set(E.scale * u);
+    const col = E.color[el] ?? E.color.burn;
+    if (k < this.last - 1e-4 && !cooling) this.pulse = EP_PULSE;            // a hit: the spread pulses
+    if (cooling && !this.cooling) this.burst = EP_BREAK;                      // the burst
+    this.cooling = cooling; this.last = k;
+    this.pulse = Math.max(0, this.pulse - dt); this.burst = Math.max(0, this.burst - dt);
+    // the back slider follows the value down with a delay (as the HP bar's loss), at once up
+    this.ghost = k >= this.ghost ? k : Math.max(k, this.ghost - dt * 0.9);
+    const set = (s, tex, w, h, tint = 0xffffff, alpha = 1) => { s.texture = tex; s.width = w; s.height = h; s.tint = tint; s.alpha = alpha; s.visible = alpha > 0; };
+    if (this.side === 'ally') {
+      const p = this.pulse / EP_PULSE;
+      set(this.spread, t.sprite_ep_hit_spread, 76 * (1 - p), 78 * (1 - p), col, p);
+      set(this.disc, t.sprite_ep_color, 28, 28, col);
+      set(this.back, t.slider_ep_back, 54, 54, 0xffffff, 0.784);
+      this.ghostFill.update(t.slider_ep_fill, 28, this.ghost);
+      this.fill.update(t.slider_ep_fill, 28, k);
+      const ic = t[EP.ally.icon[el] ?? 'sprite_ep_icon'];
+      set(this.icon, ic, ic.width, ic.height);
+    } else {
+      set(this.back, t.slider_ep_back_enemy, 51, 51);
+      set(this.disc, t.slider_ep_color_enemy, t.slider_ep_color_enemy.width, t.slider_ep_color_enemy.height, col);
+      this.fillBack.update(t.slider_ep_fill_back_enemy, 17, 1);
+      this.fill.update(t.slider_ep_fill_enemy, 12, k);
+      const b = this.burst / EP_BREAK, bc = EP.enemy.breakColor[el] ?? col;
+      set(this.spread, t.sprite_ep_break_spread, 41 * (1 - b * 0.5) * 1.5, 42 * (1 - b * 0.5) * 1.5, bc, b);
+      set(this.hint, t.sprite_ep_break_hint, 33, 33, 0xffffff, b);
+    }
+    return true;
+  }
+}

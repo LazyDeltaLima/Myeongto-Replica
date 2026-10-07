@@ -73,7 +73,7 @@ import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tile
 import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local patch
 import { UF_CAMOU } from '../../../shared/local.js'; // local patch: 迷彩 icon
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
-import { AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures } from './hud-bars.js'; // local patch: official battle HUD
+import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -1173,9 +1173,13 @@ export class UnitView {
       ic.position.set(x - ((icons.length - 1) * (isz + 2)) / 2 + i * (isz + 2), iy);
     }
     // element gauge row under the bars (b.snap `elem`); redeploy ring above a knocked-down operator (b.snap `down`)
-    if (lp) { // local patch: under the official bars (a full-HP enemy: where its bar would be)
-      const u = hudUnit(this.ctx.viewport?.()), w = (this.isEnemy ? 105 : 125) * u;
-      this._updateElementBar(showBars && !!this.el, lpBottom ? this.lpBars.box.x0 : this.screen.x - w / 2, lpBottom ? this.lpBars.box.w : w,
+    if (lp) { // local patch: the official element ring at the feet (hud-bars.js ElementRing); without its art the row under the bars
+      const u = hudUnit(this.ctx.viewport?.()), w = (this.isEnemy ? 105 : 125) * u, side = this.isEnemy ? 'enemy' : 'ally';
+      const want = showBars && !!this.el;
+      if (want && !this._elRing && epRingReady(this.P, this.ctx.assets, side)) this._elRing = new ElementRing(this.P, this.hud, side);
+      const ring = want && !!this._elRing && this._elRing.update(this.ctx.assets, this.el, this.elementLeft(), this.elementCooling(), this.screen.x, this.screen.y, u, dt);
+      if (!ring && this._elRing) this._elRing.hide();
+      this._updateElementBar(want && !ring, lpBottom ? this.lpBars.box.x0 : this.screen.x - w / 2, lpBottom ? this.lpBars.box.w : w,
         lpBottom || hudAnchorY(this.screen.y, u) + 59 * u, 7 * u, s, t);
     }
     else this._updateElementBar(showBars && !!this.el, x0, bw, cy + bh / 2 + (showSp ? spH + 1.5 : 0) + 1, spH, s, t);

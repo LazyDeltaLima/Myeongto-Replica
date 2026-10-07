@@ -202,6 +202,37 @@ describe('假想敌：管 official SP (content/bosses.js skillSp)', () => {
   });
 });
 
+describe('element ring (char_ep_slider / enemy_ep_slider)', () => {
+  class SimpleMesh extends fake.P.Container {
+    constructor(t, v, uv) { super(); this.texture = t; this.vertices = v; this.geometry = { getBuffer: () => ({ update() {} }) }; }
+  }
+  const P = () => ({ ...fake.P, SimpleMesh, Texture: { ...fake.P.Texture, from: (url) => ({ url, width: 14, height: 14, baseTexture: { valid: true } }) } });
+  const assets = { localUrl: (g, n) => `/local/${g}/${n}.png` };
+  test('no SimpleMesh or no art: not ready (the drawn row stays)', () => {
+    assert.equal(HB.epRingReady(fake.P, assets, 'ally'), false);
+    assert.equal(HB.epRingReady(P(), {}, 'ally'), false);
+    assert.equal(HB.epRingReady(P(), assets, 'enemy'), true);
+  });
+  test('ally: ×1.2 at 25.9 under hud_unit, the element colour and icon, a radial fill from 12 o\'clock clockwise', () => {
+    const r = new HB.ElementRing(P(), new fake.P.Container(), 'ally');
+    assert.ok(r.update(assets, 'apoptosis', 0.25, false, 1000, 500, 1, 0));
+    assert.ok(Math.abs(r.root.position.y - (500 - HB.HUD_ANCHOR + 25.9)) < 1e-9 && r.root.scale.x === 1.2);
+    assert.equal(r.disc.tint, 0x474747);
+    assert.equal(r.icon.texture.url, '/local/ui/battlecommon/sprite_ep_dark_icon.png');
+    const v = r.fill.v;
+    assert.ok(Math.abs(v[2]) < 1e-6 && v[3] < 0, 'starts at the top');
+    assert.ok(Math.abs(v[(48 + 1) * 2] - 14) < 1e-6 && Math.abs(v[(48 + 1) * 2 + 1]) < 1e-6, '25 %: ends at 3 o\'clock');
+    assert.equal(r.ghostFill.mesh.alpha, 0.3);
+  });
+  test('enemy: no icon, the grey fill (#d5d5d5) and the break colour on a burst', () => {
+    const r = new HB.ElementRing(P(), new fake.P.Container(), 'enemy');
+    r.update(assets, 'burn', 0.6, false, 0, 0, 1, 0);
+    assert.equal(r.disc.tint, 0xe3531a); assert.equal(r.fill.mesh.tint, 0xd5d5d5); assert.equal(r.icon, undefined);
+    r.update(assets, 'burn', 0, true, 0, 0, 1, 0.01);
+    assert.ok(r.spread.visible && r.spread.tint === 0xe3531a, 'the burst spreads');
+  });
+});
+
 describe('facing marker (DirectionIndicator: ring + arrow on the ground)', () => {
   test('no SimpleMesh / no art: none (the chevron stays)', async () => {
     const F = await import('../public/js/render/facing.js');

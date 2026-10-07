@@ -108,7 +108,11 @@ JOBS = [
      # the boss HP bars' emblems, hit glow and frame (enemy_boss_hp_slider, panel_enemy_boss_info)
      r'|sprite_enemy_boss_hud_small|sprite_enemy_boss_hud_large|sprite_bar_glow|sprite_enemy_boss_hp_bg'
      # the bars' feathered plate (char_slider_background / enemy_slider_background / the boss sliders)
-     r'|sprite_bg)$'),
+     r'|sprite_bg'
+     # the element (EP) rings: char_ep_slider / enemy_ep_slider
+     r'|slider_ep_back|slider_ep_fill|sprite_ep_color|sprite_ep_icon|sprite_ep_water_icon|sprite_ep_fire_icon|sprite_ep_dark_icon'
+     r'|sprite_ep_hit_spread|slider_ep_back_enemy|slider_ep_color_enemy|slider_ep_fill_back_enemy|slider_ep_fill_enemy'
+     r'|sprite_ep_break_spread|sprite_ep_break_hint)$'),
     ('battle/[pack]common.ab', 'battle/common', {'Texture2D'}, r'^sprite_attack_range$'),
 ]
 
