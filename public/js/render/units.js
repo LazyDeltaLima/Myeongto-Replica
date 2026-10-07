@@ -73,6 +73,7 @@ import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tile
 import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local patch
 import { UF_CAMOU } from '../../../shared/local.js'; // local patch: 迷彩 icon
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
+import { iconShownAsFx } from './fxstatus.js'; // local patch: statuses drawn as official effects
 import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -921,7 +922,10 @@ export class UnitView {
       if (this.dying < tail) alpha *= Math.max(0, this.dying / tail);
       if (this.dying <= 0) { this.dying = 0; this.remove = true; alpha = 0; }
     }
-    if (this.flags & UF.STEALTH) alpha *= 0.45;
+    // local patch (⑤): an enemy's 隐匿 drawn by its official effect takes the prefab's ColorModifier — grey (.5) at α .894
+    // (common_invisible) — instead of the 45 % ghost (allies, 迷彩, and without the effect keep it)
+    const lpInvis = this.isEnemy && this._fxStatusOn?.has('stealth');
+    if (this.flags & UF.STEALTH) alpha *= lpInvis ? 0.894 : 0.45;
     if (this.dimmed) alpha *= 0.35;
     if (this.ghost) alpha *= GHOST_ALPHA; // local patch
     this.alpha = alpha;
@@ -958,8 +962,9 @@ export class UnitView {
       const flashK = this.flash > 0 ? this.flash : 0;
       let tint = this.baseTint;
       if (this.down) tint = DOWN_LOOK.tint;
-      else if (this.flags & UF.FROZEN) tint = 0x9fd4ff;
-      else if (this.flags & UF.COLD) tint = 0xcfe6ff;
+      else if (this.flags & UF.FROZEN && !this._fxStatusOn?.has('freeze')) tint = 0x9fd4ff; // local patch: not under the official ice block
+      else if (this.flags & UF.COLD && !this._fxStatusOn?.has('cold')) tint = 0xcfe6ff;
+      else if (lpInvis) tint = 0x808080; // local patch: common_invisible's ColorModifier (.5, .5, .5)
       if (flashK > 0) tint = mixTint(tint, 0xff8a80, flashK * 0.8);
       let animDt = dt * (this.ctx.animRate?.() || 1);
       if (this._offDt > 0) { animDt += Math.min(0.5, this._offDt); this._offDt = 0; }
@@ -1416,12 +1421,14 @@ export class UnitView {
     out.length = 0;
     const f = this.flags;
     const push = (k) => { if (k && !out.includes(k) && out.length < 4) out.push(k); };
-    if (f & UF.FROZEN) push('freeze');
-    else if (f & UF.STUNNED) push('stun');
-    if (f & UF.SLEEP) push('sleep');
-    if (f & UF.COLD && !(f & UF.FROZEN)) push('cold');
+    // local patch (LOCAL-PATCH.md 「전투 화면 UI」 ⑤): a status shown by its official effect (fxstatus.js) has no icon
+    const fx = this._fxStatusOn && this._fxStatusOn.size ? this._fxStatusOn : null;
+    if (f & UF.FROZEN) { if (!fx?.has('freeze')) push('freeze'); }
+    else if (f & UF.STUNNED && !fx?.has('stun')) push('stun');
+    if (f & UF.SLEEP && !fx?.has('sleep')) push('sleep');
+    if (f & UF.COLD && !(f & UF.FROZEN) && !fx?.has('cold')) push('cold');
     if (f & UF.INVULN) push('invuln');
-    if (f & UF.STEALTH) push(f & UF_CAMOU ? 'camou' : 'stealth'); // local patch: 迷彩 (위장) has its own icon
+    if (f & UF.STEALTH && !(fx && (fx.has('camou') || fx.has('stealth') || fx.has('stealthAlly')))) push(f & UF_CAMOU ? 'camou' : 'stealth'); // local patch: 迷彩 (위장) has its own icon
     for (const k of this.statuses) {
       if (out.length >= 4) break;
       if (k === 'skill') continue;
@@ -1429,6 +1436,7 @@ export class UnitView {
       // (b.snap `elem`); only a feed without gauges (an older recording) shows it as a status
       if (this.el && k.endsWith('Burst')) continue;
       if (statusIconSuppressed(k, this.statuses)) continue; // 折射 while silenced
+      if (fx && iconShownAsFx(this, k)) continue; // local patch: drawn as its official effect
       const icon = statusIconKey(k);
       // flag-driven states are authoritative (a stale 'stun' status must not outlive the flag)
       if (!icon || icon === 'stun' || icon === 'freeze' || icon === 'sleep' || icon === 'stealth' || icon === 'invuln') continue;

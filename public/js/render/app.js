@@ -130,6 +130,7 @@ import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.j
 import { pickOnTile, pickBattle, hitRectAt, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
 import { createFxLayer } from './fxgame.js'; // local patch: official battle effects
+import { syncStatusFx } from './fxstatus.js'; // local patch: official status effects
 
 const VENDOR = { pixi: '/vendor/pixi.min.js', spine: '/vendor/pixi-spine.js' };
 const PIECE_DIRS = new Set(['UP', 'RIGHT', 'DOWN', 'LEFT']);
@@ -1903,6 +1904,7 @@ export async function createFieldView(host, options = {}) {
       updateInfectionMarks(); // local patch
       tiles.update(dt);
       fx.update(dt);
+      syncStatusFx(views, fxGame, mode === 'battle'); // local patch: official status effects (fxstatus.js)
       fxGame.update(dt, cam, vp); // local patch
       impostors.flush();
     } catch (err) {

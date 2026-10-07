@@ -324,6 +324,47 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
   });
 });
 
+describe('⑤ official status effects (fxstatus.js → fxgame.js statusOn / statusOff)', () => {
+  test('sim status keys → client prefabs (feet / body / head)', async () => {
+    const F = await import('../public/js/render/fxstatus.js');
+    assert.equal(F.statusFxKey('tremble'), 'tremble');
+    assert.deepEqual(F.STATUS_FX.tremble.slice(0, 2), ['common', 'common_buff_thrill']);
+    assert.equal(F.statusFxKey('artsFragile'), 'fragile');
+    assert.equal(F.statusFxKey('skill:haini_slow'), 'slow');
+    assert.equal(F.statusFxKey('ines:aspdGain'), null, 'an ASPD gain is no 攻速下降');
+    assert.equal(F.statusFxKey('bind'), null, 'no client prefab: the icon stays');
+    assert.equal(F.STATUS_FX.freeze[1], 'buff_autochess_frozen');
+    assert.equal(F.STATUS_FX.freeze[2], 0); assert.ok(F.STATUS_FX.cold[2] > 1, 'head point over the head');
+  });
+  test('flags and statuses → wanted effects; stealth by side, 迷彩 by its flag; sync turns them on / off', async () => {
+    const F = await import('../public/js/render/fxstatus.js');
+    const { UF_CAMOU } = await import('../shared/local.js');
+    const enemy = { isEnemy: true, alive: true, flags: UF.FROZEN | UF.COLD | UF.STEALTH, statuses: new Set(['tremble', 'bind']) };
+    assert.deepEqual([...F.wantedStatusFx(enemy)].sort(), ['cold', 'freeze', 'stealth', 'tremble']);
+    const ally = { isEnemy: false, alive: true, flags: UF.STEALTH | UF_CAMOU, statuses: new Set() };
+    assert.deepEqual([...F.wantedStatusFx(ally)], ['camou']);
+    const calls = [];
+    const fxGame = { statusReady: (b, n) => n !== 'common_buff_thrill', statusOn: (v, b, n, k) => { (v._fxStatusOn ||= new Set()).add(k); calls.push(['on', k]); }, statusOff: (v, k) => { v._fxStatusOn.delete(k); calls.push(['off', k]); } };
+    F.syncStatusFx(new Map([[1, enemy]]), fxGame, true);
+    assert.deepEqual(calls.filter((c) => c[0] === 'on').map((c) => c[1]).sort(), ['cold', 'freeze', 'stealth'], 'the unextracted fist keeps its icon');
+    assert.equal(F.iconShownAsFx(enemy, 'cold'), true); assert.equal(F.iconShownAsFx(enemy, 'tremble'), false);
+    enemy.flags = UF.COLD; calls.length = 0;
+    F.syncStatusFx(new Map([[1, enemy]]), fxGame, true);
+    assert.deepEqual(calls.map((c) => c.join(':')).sort(), ['off:freeze', 'off:stealth']);
+    F.syncStatusFx(new Map([[1, enemy]]), fxGame, false);
+    assert.equal(enemy._fxStatusOn.size, 0, 'none outside battle');
+  });
+  test('units.js: a status shown as an effect loses its icon (the rest keep theirs)', () => {
+    const v = view({ side: 'enemy', kind: 'enemy', defId: 'enemy_1001_bigbo' });
+    v.sync(sample({ hp: 500, flags: UF.COLD }), 0);
+    v.statuses.add('bind');
+    assert.ok(v._iconKeys().includes('cold'));
+    v._fxStatusOn = new Set(['cold']);
+    const k = v._iconKeys();
+    assert.ok(!k.includes('cold') && k.includes('bind'), 'bind keeps its icon');
+  });
+});
+
 describe('facing marker (DirectionIndicator: ring + arrow on the ground)', () => {
   test('no SimpleMesh / no art: none (the chevron stays)', async () => {
     const F = await import('../public/js/render/facing.js');

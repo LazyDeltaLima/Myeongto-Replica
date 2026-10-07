@@ -44,6 +44,7 @@ import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects } from './fxmap.js'; // local patch: the mode bindings (modes.json)
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
+import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { PROJ } from './style.js';
 
 const INDEX_URL = '/assets/local/fx/index.json';
@@ -229,6 +230,31 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
     }
   }
+  // ---- local patch (LOCAL-PATCH.md 「전투 화면 UI」 ⑤): status effects (render/fxstatus.js decides which, when) -------------
+  // A shared-bundle prefab (battle/prefabs/effects/buff.ab, common.ab) looping on a unit while its status lasts, at `frac`
+  // of its drawn height (the prefab's _spawnLocation: feet 0 / body .5 / head 1, through fx.js bodyZ), over the units
+  // (the 冻结 block encases the model, the marks float over heads); stopped by statusOff, the unit's death or clear().
+  // The prefabs are loops by their root flag (_isLoop 1) though some systems run once (buff_silence: 1 s) — a status
+  // effect that ends while its status is still on starts again (update).
+  let camRef = null;
+  const ownerOf = (v) => v.id ?? v.info?.id;
+  const statusFailed = new Set();   // `${bundle}/${name}` that did not load: their units keep the icon (statusReady false)
+  async function playStatus(view, bundle, name, key, frac) {
+    if (!(await ensure())) return;
+    const def = await lib.load(bundle, name);
+    if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
+    if (!mod || !view._fxStatusOn?.has(key)) return;   // destroyed, or turned off while it loaded
+    const anchor = {
+      get x() { return view.x; }, get y() { return view.y; },
+      get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (view.hover || 0); },
+      get alive() { return view.alive; }, get remove() { return view.remove; },
+    };
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1 });
+    inst.object.position.set(anchor.x, anchor.y, anchor.z);
+    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac), unit: view }, layers.over);
+    while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+  }
+
   function stoneFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
@@ -487,6 +513,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const pre = bundleOf(v).prefabs, i = skillIdx(v), n = skillMode(v);
       return bound(v, n, 'cast').length > 0 || bound(v, n, 'attach').length > 0 || effectsFor(pre, 'skillStart', i).length > 0 || effectsFor(pre, 'skillBuff', i).length > 0;
     },
+    /** local patch (⑤): whether the shared status prefab `bundle`/`name` can play (index loaded, not 'low', listed). */
+    statusReady(bundle, name) { return !!(index && !failed && q() !== 'low' && index.bundles?.[bundle]?.includes(name) && !statusFailed.has(`${bundle}/${name}`)); },
+    /** local patch (⑤): loop `bundle`/`name` on `view` as its status `key` (once per key) at `frac` of its height. */
+    statusOn(view, bundle, name, key, frac = 0) {
+      const on = view._fxStatusOn || (view._fxStatusOn = new Set());
+      if (on.has(key)) return;
+      on.add(key);
+      playStatus(view, bundle, name, key, frac);
+    },
+    /** local patch (⑤): end the status effect `key` on `view`. */
+    statusOff(view, key) {
+      if (!view._fxStatusOn?.delete(key)) return;
+      const id = ownerOf(view);
+      for (const l of live) if (l.status === key && l.owner === id) l.inst.stop();
+    },
     /** Whether a 'fx' event is drawn here with its official effect (render/fx.js then skips its 2D stand-in). */
     ownsFx(e) { return ownFx.has(e); },
     /** A battle event render/app.js handled (the views map resolves unit ids). */
@@ -589,6 +630,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
 
     update(dt, cam, vp) {
+      camRef = cam; // local patch: status effects' heights (playStatus)
       clockS += dt * gameRate(); // local patch: the battle clock (gaps, ends) — the official effects use scaled time
       stepTrails(dt * gameRate()); // local patch
       stepNotes(dt, lastViews);   // the notes fly on while their trails load
@@ -616,6 +658,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.view && l.view.alive !== false && !l.view.remove) l.inst.object.position.set(l.view.x, l.view.y, l.view.z || 0);
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
         l.inst.update(dt * rate2);   // local patch: every effect on the battle clock (the notes did already: trail = speed × time)
+        if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
         if (l.inst.done) { dropLive(l); live.splice(i, 1); }
       }
       showLayers();
