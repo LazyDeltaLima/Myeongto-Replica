@@ -28,9 +28,10 @@ const avatarOf = (m, unit, elite = false) => chessAvatarUrl(m, unit && { charId:
 const classLine = (u) => `${t(PROF_NAME[u?.profession] || '') || ''}${u?.subProfessionName ? ` · ${u.subProfessionName}` : ''}`;
 const bondName = (id) => data.lookup('bonds', id)?.name || id;
 
-/** The 原型 / 已持有 tag of a pick. */
-function KindTag({ proto }) {
-  return html`<span class=${cx('diy-tag', proto ? 'diy-tag--proto' : 'diy-tag--own')}>${proto ? t('原型') : t('已持有')}</span>`;
+/** The 原型 / 已持有 tag of a pick — none on this server: every pick is an owned 6★ (shared/local-diy.js; user decision
+ *  2026-10-07: no prototypes, so no 原型 / 已持有 tags or filter). */
+function KindTag() {
+  return null;
 }
 
 /** Bond chips (the bonds derived from the operator's factions; 协防 when none matches). */
@@ -169,10 +170,6 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
       <button type="button" class="diy-pick__x" aria-label=${t('关闭')} onClick=${onClose}><${Icon} name="close" /></button>
     </header>
     <div class="diy-pick__bar">
-      <div class="lo-chips" role="group" aria-label=${t('筛选')}>
-        ${[['all', t('全部')], ['proto', t('原型')], ['owned', t('已持有')]].map(([k, text]) => html`<button key=${k} type="button" class=${cx('lo-chip', filter === k && 'is-on')}
-          aria-pressed=${filter === k ? 'true' : 'false'} data-filter=${k} onClick=${() => setFilter(k)}>${text}</button>`)}
-      </div>
       <input type="search" class="diy-pick__search" value=${query} placeholder=${t('搜索干员 / 职业 / 盟约')} aria-label=${t('搜索干员 / 职业 / 盟约')}
         onInput=${(e) => setQuery(String(e.currentTarget.value).slice(0, 24))} />
     </div>
