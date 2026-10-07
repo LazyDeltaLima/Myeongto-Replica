@@ -225,8 +225,12 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   (`tools/assets/voice.mjs voiceTwin`, 파일은 `audio/voice/{kr|jp}/{charId}/cn_NNN.mp3`, 원천 `sound_beta_2/voice_kr/`·`voice/`).
   설정의 「语音语言」에서 브라우저마다 한국어/일본어/끄기(`sp.pref.voice`, 기본 한국어) → `audio.voiceTable`이 `audio.voice()`에 고른 표를 준다.
   리소스 미리 받기는 고른 언어만 받는다. 2026-10-06 기준 한국어 124명·일본어 125명, 대사 3,486줄(사키코는 한국어 더빙 없음).
-- 로컬 2 — 정비 단계 대사(원본은 휴식기 무음): 말을 집거나 선택하면 선택(`select`), 상점에서 사거나 정예화 보상·특수 제안에서 고르면
-  배치(`place`). 원본 `audio.voice()`의 VoiceGate를 그대로 거친다(`unitKey` `prep:…`).
+- 로컬 2 — 정비 단계 대사(원본은 휴식기 무음): 말을 **탭(선택)하면** 선택(`select`) — 이미 선택된 말을 다시 탭해도(사용자 2026-10-08 실제 게임
+  「선택된 오퍼를 재선택해도 대사가 나와」). **배치하려고 드래그할 때는 대사 없음**, **상점 구매·정예화 보상·특수 제안으로 얻을 때도 배치 대사 없음**
+  (배치 효과음만 — 사용자 2026-10-08 卫戍协议 영상 확인, 예전 「구매 때 배치 대사」 전달을 바로잡음; `voiceForBuy` 삭제). 전투 중 유닛 탭도 매번
+  선택 대사(`voice.js voiceForUnit`, 오퍼레이터만) — 원본 상세 패널의 「대상당 한 번」(`voice=${combat}`)을 대신함(원본 `docs-consistency` 단언 하나가
+  이것과 어긋남 — merge-0.2.0 테스트 정리 목록). 원본 `audio.voice()`의 게이트를 그대로 거친다(`unitKey` `prep:…`/`battle:…`).
+  확인: Windows `sp-check\vr_voice.mjs <port> <out>`(실제 솔로 판: 상점 카드 클릭 구매 → 배치음만, 탭 3번 → 선택 대사 3번, 드래그 → 없음).
 - 이전 로컬 패치에서 뺀 것: 작전 개시(무작위 한 명)·스킬 대사·자체 겹침 규칙·자체 음량 — 원본 것으로 대체.
 - 로컬 3 — 공식 재생 규칙(2026-10-06, 사용자 결정; `public/js/voicePolicy.js`를 `voice.js`가 설치, `audio.js`에는 훅 몇 줄):
   클라이언트 `audio_data.json battleVoice` 값 그대로 — 전체 간격 없음, 우선순위(행동출발 100·행동개시 90·수동 스킬 70·자동 스킬 60/50(SP 10 이상/미만)·
@@ -236,6 +240,11 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   FOCUS_CHAR `cooldown 0`·`overlapIfSamePriority true`(데이터), 卫戍协议 `AutoChessGameModeVoicePlugin._OnCharacterHighlighted`(이름) → 다시 선택하면 재생 중
   선택 대사를 0.1초 크로스페이드로 끊고 새 대사. 우리도 같다(원본 #73의 선택 1.5초 쿨다운은 이 규칙으로 이미 빠짐). 선택이 「강조가 바뀔 때만」인지(이미
   강조된 말을 다시 집을 때)는 네이티브라 확인 못 함 [추정: 집을 때마다]. `test/local-patch.test.js` 「official scheduling」.
+  대사 우선순위(사용자 2026-10-08 실제 게임: 「스킬 발동 대사가 나오는 중에는 오퍼 선택 대사가 재생되지 않아」): 위 게이트가 이미 그렇다 —
+  선택(FOCUS_CHAR 10)은 스킬(70) 재생 중이면 버림, 스킬은 선택을 끊음, 같은 우선순위는 `overlapIfSamePriority`대로(데이터). 클라이언트 이름:
+  `BattleVoiceOption`·`BattleVoiceType`·`CheckIfNeedPlayCharVoiceFromSingleSelect`(로직은 네이티브 — 「낮은 우선순위는 높은 것을 못 끊는다」는
+  필드 이름 priority/overlap에서 본 [추정]; 데이터에 `NORMAL_ATTACK` 5·쿨다운 36000초도 있으나 우리는 평타 대사 없음). Chrome 확인 `vr_prio.mjs`:
+  스킬 대사(4.6초) 중 선택 → 버림, 끝난 뒤 선택 → 재생, 선택 중 스킬 → 끊고 재생.
   클래스·필드 이름으로 추론해 사용자가 공식대로 정한 것: 작전중 대사는 1~4 중 무작위(`LoadRandomVoiceList`), 행동 개시는 전투당 1번
   (`m_encounterFirstEnemyFlag`, 버려진 시도는 3초 뒤 다시), 전투 시작은 한 명만 행동출발이고 나머지 첫 배치는 말하지 않음
   (`AutoChessGameModeVoicePlugin._OnCharacterPlacedAtBattle`; 2초 뒤 재배치는 배치 대사). 원본 테스트는 원본 `VoiceGate` 그대로라 깨지지 않는다.
@@ -816,6 +825,9 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 칩 위치·크기는 사용자가 직접 확인하기로 함(2026-10-07 「일단 지금 그대로」).
 2026-10-08: 모델이 클라이언트 크기(0.864배, 「유닛 모델 크기」)로 작아진 뒤 사용자 「작아진 크기에 맞춰 레벨칩 높이도 낮춰줘」 → 발에서 칩까지 높이를
 같은 비율로: (24.5 + 128) × 0.864 − 24.5 = 107.3단위(`PREP_CHIP.y`). 프리팹 128과 다르다 [사용자 결정]. 확인 `sp-check\chiplow.png`.
+같은 날 사용자 비교 캡처(望, 우리 `research/2026-10-07-user-issues-3/wang-chip-9.png` ↔ 공식 영상 `wang-chip-10.png`, 「칩 위치는 약간 더 올려야」):
+칩 크기(화면 고정)를 단위로 재면 칩 중심 → 눈 높이가 공식 53.7 / 우리 45.8단위 → `PREP_CHIP.y` 115. 모델 크기(얼굴 폭 44 / 45단위)·칩 x 오프셋은 같다.
+비교 `sp-check\wangchip-compare.png`(수정 전 · 후 · 공식), 스크립트 `wangchip.mjs`. [추정: 공식 프레임은 공격 동작 중이라 머리 위치 ±2px].
 
 **장비 바 (정비 중)**: 사용자 캡처 + 설명 「장착된 아이템이 있을 때만 2칸 바, 하나만 장착되면 한 칸만」. `shop_hud`의 `equip_bg`(74×30, shop_hud 안 (13, 29.4) —
 칩 오른쪽, × 1.25)와 칸 `equip_0`/`equip_1`(23×6, ±12.8 / 13): 아이템마다 흰 알약(`equip_normal_icon`), [추정] 금색 아이템이면 빛나는 금색 알약(`equip_gold_icon` 31×14,

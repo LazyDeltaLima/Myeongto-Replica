@@ -77,10 +77,12 @@ export const ALLY_BAR = Object.freeze({
 
 /**
  * Prep tier chip (`shop_hud` chess_level_icon), in HUD units: centre from hud_unit's centre; the dark interior's size.
- * y: the prefab's 128 lowered with the models (2ec78a6d drew them 0.864× — 1/320 → 0.0027): the feet → chip height
- * 24.5 + 128 = 152.5 units × 0.864 = 131.8 → 107.3 above hud_unit (user 2026-10-08 「작아진 크기에 맞춰 레벨칩 높이도 낮춰줘」).
+ * y: the prefab's 128 lowered with the models (2ec78a6d drew them 0.864× — 1/320 → 0.0027) to 107.3 (user 2026-10-08
+ * 「작아진 크기에 맞춰 레벨칩 높이도 낮춰줘」), then matched to the user's official video crop of 望 (research/2026-10-07-
+ * user-issues-3/wang-chip-10.png vs our wang-chip-9.png, measured in chip-size units): chip centre above the eyes
+ * 53.7 official vs 45.8 ours → +7.7 → 115.
  */
-export const PREP_CHIP = Object.freeze({ x: -45.5, y: 107.3, interior: 37.5 });
+export const PREP_CHIP = Object.freeze({ x: -45.5, y: 115, interior: 37.5 });
 /** Prep equipment bar (`shop_hud` equip_bg, root scale 1.25), in HUD units: centre from hud_unit's centre, size, slots. */
 export const PREP_EQUIP = Object.freeze({ x: 14.75, y: 129.5, w: 92.5, h: 37.5, slots: Object.freeze([-16, 16.25]), slotW: 28.75, slotH: 7.5, scale: 1.25 });
 

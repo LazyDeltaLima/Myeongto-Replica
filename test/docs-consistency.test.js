@@ -919,7 +919,9 @@ test('干员战斗语音 (DESIGN §21.30): the manifest data, the official prior
     assert.ok(!/voice\([^)]*'(gacha|squad|squadFirst)'/.test(src), `${name}: no prep slot is played`);
   }
   assert.match(panel, /const selectKey = voice && detail\?\.type === 'chess'/);
-  assert.match(game, /voice=\$\{combat\}/);
+  // local patch (LOCAL-PATCH.md 「음성」, user's official-video check 2026-10-08): a battle tap on an own operator speaks
+  // its 选中 line every time through voice.js voiceForUnit — the detail panel's `voice=${combat}` gate is gone
+  assert.match(game, /voiceForUnit\(e\.unit, e\.unitId\)/);
   // local patch (로컬 4): the result line is held for the result screen (holdResultVoice) instead of played at once
   assert.match(game, /holdResultVoice\(\{ charId, slot: resultVoiceSlot\(/);
 });
