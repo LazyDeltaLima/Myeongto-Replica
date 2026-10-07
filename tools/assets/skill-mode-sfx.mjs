@@ -102,7 +102,7 @@ export function abilitySounds(audio, skillId) {
  * @param {object} audio indexed audio_data (audio.mjs indexAudio)
  * @param {string} charId
  * @param {{ index: number, skillId?: string }[]} skills the character's skills (research 07 operators[id].skills)
- * @param {{ modes?: string[], proj?: string[][] }|undefined} info local-char-modes.json entry
+ * @param {{ modes?: string[], skillMode?: (number|null)[], proj?: string[][] }|undefined} info local-char-modes.json entry
  * @param {(paths: string[]) => any} soundLeaf plan.mjs leaf builder
  * @param {(skillId: string) => boolean} startIsFallback the skill's start sound is not its own ON_SKILL_START
  */
@@ -110,7 +110,7 @@ export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallba
   const out = {};
   for (const s of Array.isArray(skills) ? skills : []) {
     if (!s || !Number.isInteger(s.index)) continue;
-    const n = info ? skillModeIndex(info.modes, s.index) : -1;
+    const n = info ? skillModeIndex(info.modes, s.index, info.skillMode) : -1;
     const found = n > 0 ? modeSounds(audio, charId, n, info.proj?.[n]) : s.skillId ? abilitySounds(audio, s.skillId) : {};
     if (!found.attack && !found.hit) continue;
     const e = {};

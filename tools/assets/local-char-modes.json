@@ -36,6 +36,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   2,
+   3
   ]
  },
  "char_1014_nearl2": {
@@ -92,6 +97,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   null,
+   null
   ]
  },
  "char_1016_agoat2": {
@@ -150,6 +160,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   null,
+   null
   ]
  },
  "char_1019_siege2": {
@@ -192,6 +207,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
   ]
  },
  "char_1020_reed2": {
@@ -235,6 +255,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
   ]
  },
  "char_1021_kroos2": {
@@ -307,6 +332,10 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2
   ]
  },
  "char_1023_ghost2": {
@@ -377,6 +406,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   5
   ]
  },
  "char_1026_gvial2": {
@@ -440,6 +474,11 @@
    [
     "gvial2_chainsaw_glow_02"
    ]
+  ],
+  "skillMode": [
+   1,
+   2,
+   3
   ]
  },
  "char_1028_texas2": {
@@ -493,6 +532,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2,
+   3
   ]
  },
  "char_102_texas": {
@@ -723,6 +767,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   3
   ]
  },
  "char_1038_whitw2": {
@@ -807,6 +856,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   2,
+   3
   ]
  },
  "char_1039_thorn2": {
@@ -887,6 +941,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   1
   ]
  },
  "char_1040_blaze2": {
@@ -946,6 +1005,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   2,
+   3
   ]
  },
  "char_1041_angel2": {
@@ -1062,6 +1126,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   5,
+   null,
+   2
   ]
  },
  "char_1045_svash2": {
@@ -1097,6 +1166,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
   ]
  },
  "char_1046_sbell2": {
@@ -1137,6 +1211,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   2
   ]
  },
  "char_1047_halo2": {
@@ -1194,6 +1273,11 @@
    [
     "halo2_skill_03_range_01"
    ]
+  ],
+  "skillMode": [
+   1,
+   null,
+   2
   ]
  },
  "char_1050_chen3": {
@@ -1242,6 +1326,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   null,
+   3
   ]
  },
  "char_107_liskam": {
@@ -1277,6 +1366,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_108_silent": {
@@ -1381,6 +1474,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_136_hsguma": {
@@ -1451,6 +1548,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_143_ghost": {
@@ -1519,6 +1620,10 @@
    [
     "prove_skill_02_buff_02"
    ]
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_150_snakek": {
@@ -1551,6 +1656,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_171_bldsk": {
@@ -1622,6 +1731,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   2
   ]
  },
  "char_173_slchan": {
@@ -1682,6 +1796,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   1
   ]
  },
  "char_181_flower": {
@@ -1744,6 +1862,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_196_sunbr": {
@@ -1778,6 +1900,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_199_yak": {
@@ -1852,6 +1978,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
   ]
  },
  "char_2026_yu": {
@@ -1906,6 +2037,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2,
+   null
   ]
  },
  "char_2027_wang": {
@@ -1956,6 +2092,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   2
   ]
  },
  "char_202_demkni": {
@@ -1986,6 +2127,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
   ]
  },
  "char_206_gnosis": {
@@ -2077,6 +2223,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
   ]
  },
  "char_222_bpipe": {
@@ -2113,6 +2264,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
   ]
  },
  "char_237_gravel": {
@@ -2189,6 +2345,11 @@
     "cello_skill_03_buff_front_02",
     "cello_skill_03_buff_range"
    ]
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
   ]
  },
  "char_249_mlyss": {
@@ -2301,6 +2462,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_254_vodfox": {
@@ -2383,6 +2548,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   null
   ]
  },
  "char_263_skadi": {
@@ -2430,6 +2599,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
   ]
  },
  "char_264_f12yin": {
@@ -2479,6 +2653,11 @@
    [
     "buff_weak"
    ]
+  ],
+  "skillMode": [
+   null,
+   null,
+   2
   ]
  },
  "char_279_excu": {
@@ -2527,6 +2706,10 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2
   ]
  },
  "char_290_vigna": {
@@ -2562,6 +2745,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   1
   ]
  },
  "char_291_aglina": {
@@ -2642,6 +2829,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   2,
+   3,
+   4
   ]
  },
  "char_294_ayer": {
@@ -2686,6 +2878,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_306_leizi": {
@@ -2730,6 +2926,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_308_swire": {
@@ -2774,6 +2974,10 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2
   ]
  },
  "char_311_mudrok": {
@@ -2856,6 +3060,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
   ]
  },
  "char_337_utage": {
@@ -2900,6 +3109,10 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2
   ]
  },
  "char_341_sntlla": {
@@ -2937,6 +3150,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_344_beewax": {
@@ -2977,6 +3194,10 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2
   ]
  },
  "char_350_surtr": {
@@ -3073,6 +3294,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
   ]
  },
  "char_373_lionhd": {
@@ -3129,6 +3355,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_388_mint": {
@@ -3169,6 +3399,10 @@
     "mint_skill_01_range"
    ],
    []
+  ],
+  "skillMode": [
+   1,
+   null
   ]
  },
  "char_391_rosmon": {
@@ -3224,6 +3458,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
   ]
  },
  "char_4010_etlchi": {
@@ -3266,6 +3505,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
   ]
  },
  "char_4013_kjera": {
@@ -3312,6 +3556,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_4016_kazema": {
@@ -3504,6 +3752,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   null
   ]
  },
  "char_4040_rockr": {
@@ -3550,6 +3803,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_4042_lumen": {
@@ -3593,6 +3850,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
   ]
  },
  "char_4051_akkord": {
@@ -3629,6 +3891,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_4054_malist": {
@@ -3721,6 +3987,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2,
+   3
   ]
  },
  "char_4058_pepe": {
@@ -3765,6 +4036,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   null
   ]
  },
  "char_4064_mlynar": {
@@ -3817,6 +4093,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   null,
+   null
   ]
  },
  "char_4079_haini": {
@@ -3917,6 +4198,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
   ]
  },
  "char_4087_ines": {
@@ -4197,6 +4483,11 @@
    [
     "ascln_skill_03_range_01"
    ]
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
   ]
  },
  "char_4134_cetsyr": {
@@ -4329,6 +4620,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_4145_ulpia": {
@@ -4389,6 +4684,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   null
   ]
  },
  "char_4146_nymph": {
@@ -4445,6 +4745,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   null,
+   2
   ]
  },
  "char_4148_philae": {
@@ -4555,6 +4860,10 @@
     "cathy_skill_01_buff"
    ],
    []
+  ],
+  "skillMode": [
+   1,
+   2
   ]
  },
  "char_4163_rosesa": {
@@ -4589,6 +4898,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_4182_oblvns": {
@@ -4861,6 +5174,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2,
+   null
   ]
  },
  "char_4194_rmixer": {
@@ -4919,6 +5237,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   null
   ]
  },
  "char_4196_reckpr": {
@@ -4955,6 +5278,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_4207_branch": {
@@ -5032,6 +5359,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
   ]
  },
  "char_4211_snhunt": {
@@ -5115,6 +5447,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   2,
+   3
   ]
  },
  "char_426_billro": {
@@ -5244,6 +5581,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   null,
+   1
   ]
  },
  "char_430_fartth": {
@@ -5314,6 +5656,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   2,
+   3
   ]
  },
  "char_431_ashlok": {
@@ -5435,6 +5782,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   2,
+   3
   ]
  },
  "char_440_pinecn": {
@@ -5471,6 +5823,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_446_aroma": {
@@ -5656,6 +6012,11 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   null
   ]
  },
  "char_474_glady": {
@@ -5709,6 +6070,11 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1,
+   2
   ]
  },
  "char_491_humus": {
@@ -5745,6 +6111,10 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   null,
+   1
   ]
  },
  "char_494_vendla": {
@@ -5817,6 +6187,10 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2
   ]
  },
  "char_498_inside": {
@@ -5873,6 +6247,10 @@
    [],
    [],
    []
+  ],
+  "skillMode": [
+   1,
+   2
   ]
  },
  "char_616_pithst": {
@@ -5911,6 +6289,9 @@
   "attach": [
    [],
    []
+  ],
+  "skillMode": [
+   1
   ]
  }
 }

@@ -43,6 +43,21 @@ describe('skill-mode sounds: the data (local-char-modes.json, plan.mjs)', () => 
     assert.equal(skillModeIndex(['Default', 'Reborn', 'Stand'], 0), -1);
   });
 
+  test('skillModeIndex: the skills\' own prefab modes (char_modes.py skillMode) — 莫斯提马 S3 / 水月 S2·S3 (user report 2026-10-07)', () => {
+    // 莫斯提马 [Default, S2]: her S3 switches to mode 1 (skchr_mostma_3 switch_mode_restart_fsm mode 1), her S2 to none
+    assert.equal(skillModeIndex(['Default', 'S2'], 2, [null, null, 1]), 1);
+    assert.equal(skillModeIndex(['Default', 'S2'], 1, [null, null, 1]), -1, 'a mode another skill\'s prefab claims');
+    // 水月 [Default, T1, S1, S2]: S2 → 2, S3 → 3
+    assert.equal(skillModeIndex(['Default', 'T1', 'S1', 'S2'], 1, [null, 2, 3]), 2);
+    assert.equal(skillModeIndex(['Default', 'T1', 'S1', 'S2'], 2, [null, 2, 3]), 3);
+    // a name the prefabs do not contradict stays (新约能天使 S3 → S3, not its prefab's S2_Down)
+    assert.equal(skillModeIndex(['Default', 'S2', 'S2_Down', 'S3', 'S3_Down', 'S1', 'S1_Burst_Mode'], 2, [5, null, 2]), 3);
+    const lcm = loadCharModes(ROOT);
+    assert.deepEqual(lcm.char_213_mostma?.skillMode, [null, null, 1]);
+    assert.equal(UNITS.char_213_mostma.modes?.[2]?.attack, '/assets/audio/sfx/player/p_atk/p_atk_whitetimewand_s.mp3', 'S3 attacks with the white time wand');
+    assert.equal(UNITS.char_213_mostma.modes?.[1], undefined);
+  });
+
   test('local-char-modes.json: every operator of the pool, Default first, one projectile list per mode', () => {
     const modes = loadCharModes(ROOT);
     const chess = JSON.parse(readFileSync(path.join(ROOT, 'data', 'chess.json'), 'utf8'));

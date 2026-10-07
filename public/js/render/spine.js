@@ -266,15 +266,16 @@ export class SpineActor {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || !(lead >= 0)) return false;
     const clip = this._attackClip();
     if (!clip) return false;
-    const single = once || this.clipPerAttack;
+    const per = this.clipPerAttack || !!clip.strike; // local patch: a strike skill clip plays once per attack
+    const single = once || per;
     // in rhythm: attack() re-phases; a clip-per-attack actor starts each attack's clip anew unless already wound up for it
-    if (this.mode === 'attack' && this.current === clip.loop && (!this.clipPerAttack || once || this.wound)) return false;
+    if (this.mode === 'attack' && this.current === clip.loop && (!per || once || this.wound)) return false;
     const loopDur = this.dur(clip.loop);
     // a one-off cast plays at the clip's own speed (one loop per clip length), whatever the attack rhythm
     const iv = once ? loopDur : clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
     const hit = this._hitTime(clip.loop, loopDur);
     // clip per attack: its own speed, sped up only when the attacks come quicker than the clip
-    const plan = windUpPlan(loopDur, hit, this.clipPerAttack && !once ? Math.min(iv, loopDur) : iv, lead);
+    const plan = windUpPlan(loopDur, hit, per && !once ? Math.min(iv, loopDur) : iv, lead);
     if (!(hit > 0) || lead * plan.ts > hit + 1e-6) return false;
     if (!once) this.interval = iv;
     this.mode = 'attack';
@@ -296,7 +297,7 @@ export class SpineActor {
     const clip = this._attackClip();
     if (!clip) return;
     const loopDur = this.dur(clip.loop);
-    const per = this.clipPerAttack && !once;
+    const per = (this.clipPerAttack || !!clip.strike) && !once; // local patch: a strike skill clip
     const single = once || per;
     // clip per attack: its own speed (ts 1), faster only when the attacks come quicker than the clip
     const ts = once ? 1 : per ? clampN(loopDur / Math.min(this.interval, loopDur), 1, 4) : clampN(loopDur / this.interval, 0.35, 4);
@@ -372,7 +373,11 @@ export class SpineActor {
     if (on && sk) {
       this.skillEndPending = false;
       this.skillClipOnce = false;
-      if (this.has(sk.begin)) {
+      if (sk.strike) {
+        // local patch: the skill's clip is its empowered attack's (泥岩 S2 Skill_1, tools/assets/anim-overrides.mjs) —
+        // that attack plays it (windUp / attack), nothing at the cast
+        if (this.mode === 'base') this._play(this._baseName(), true);
+      } else if (this.has(sk.begin)) {
         this.mode = 'skillBegin';
         this._play(sk.begin, false, { mix: 0.08 });
         this.skillBeginUntil = this.clock + this.dur(sk.begin);
@@ -391,6 +396,8 @@ export class SpineActor {
         this.skillBeginUntil = this.clock + Math.max(SKILL_CLIP_MIN, this.dur(sk.loop));
       } else if (this.mode === 'base') this._play(this._baseName(), true);
     } else if (!on && sk) {
+      // local patch: a strike clip plays out — the 'skill' off comes in the same batch as its attack
+      if (sk.strike && this.mode === 'attack') return;
       // an instant skill switches off while its own one-shot clip runs: let the clip finish — the state machine plays
       // its End clip (or the base) when the window ends — instead of cutting it with End / base right now
       if (this.skillClipOnce && this.clock < this.skillBeginUntil) {

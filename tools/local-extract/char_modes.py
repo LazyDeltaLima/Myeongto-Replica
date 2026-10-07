@@ -4,7 +4,8 @@
 The official client sounds an operator's attacks through its attack mode: a bank `battle.<EVENT>.<charId>.attack.<n>`
 where n is the mode's index in the character prefab's `_modes` list (charpack/char_*.ab: Default = 0, then the skill
 modes in prefab order, e.g. 维什戴尔 [Default, S2, S2_Overload, S3] → S3's attacks sound `attack.3`). Which skill a mode
-belongs to is in its name (`S<n>` + optional suffix). audio_data.json does not carry this order, so the asset plan
+belongs to is in its name (`S<n>` + optional suffix), unless the skill's own prefab says otherwise: `skillMode`
+[mode | null per skill] from the switch_mode buff in battle/prefabs/[uc]skills.ab (莫斯提马 [Default, S2]: S3 → 1). audio_data.json does not carry this order, so the asset plan
 (tools/assets/plan.mjs) reads it from tools/assets/local-char-modes.json, which this script writes — with the projectile
 keys each mode's attack fires (`_projectileKey` under Modes/<name>/: a ranged mode's impact sound is its projectile's bank
 `battle.ON_PROJECTILE_HIT.<key>`):
@@ -45,6 +46,64 @@ def pool_char_ids():
             if isinstance(c, dict) and isinstance(c.get('charId'), str) and c['charId'].startswith('char_'):
                 ids.add(c['charId'])
     return sorted(ids)
+
+
+def char_skill_prefabs():
+    """{charId: [skill prefabId, …]} in skill order (data/chess.json, then data/diy.json for the rest)."""
+    out = {}
+    for f in ('data/chess.json', 'data/diy.json'):
+        path = ROOT / f
+        if not path.exists():
+            continue
+        d = json.loads(path.read_text(encoding='utf-8'))
+        recs = d.get('chess', d) if isinstance(d, dict) else d
+        for c in (recs.values() if isinstance(recs, dict) else recs):
+            if not isinstance(c, dict) or not isinstance(c.get('charId'), str) or c['charId'] in out:
+                continue
+            sk = c.get('skills')
+            if isinstance(sk, list) and sk:
+                out[c['charId']] = [s.get('prefabId') or s.get('skillId') for s in sk if isinstance(s, dict)]
+    return out
+
+
+SKILL_MODE_NAME = re.compile(r'^Sk?\d')
+
+
+def skill_switch_modes(client):
+    """{skill prefabId: mode index} — the mode a skill's own buff switches to (templateKey switch_mode*, blackboard
+    `mode`) in battle/prefabs/[uc]skills.ab. Only skills with one such value."""
+    found = {}
+
+    def walk(o, sid):
+        if isinstance(o, dict):
+            tk = o.get('templateKey')
+            if isinstance(tk, str) and 'switch_mode' in tk:
+                for b in o.get('blackboard') or []:
+                    if isinstance(b, dict) and b.get('key') == 'mode':
+                        found.setdefault(sid, set()).add(int(b['value']))
+            for v in o.values():
+                walk(v, sid)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v, sid)
+
+    path = Path(client) / 'StreamingAssets/AB/Windows/battle/prefabs/[uc]skills.ab'
+    if not path.exists():
+        return {}
+    tree, _ = load_tree(str(path))
+    for gp, d, _pid in tree:
+        walk(d, gp.split('/')[0])
+    return {k: next(iter(v)) for k, v in found.items() if len(v) == 1}
+
+
+def skill_modes_of(modes, prefabs, switch):
+    """[mode index | None] per skill: its prefab's switch_mode value when that names a skill mode (`S…`); 莫斯提马
+    [Default, S2] — S3 switches to mode 1, her S2 none. None = the name rule (shared/skill-modes.js)."""
+    res = []
+    for pid in prefabs:
+        n = switch.get(pid)
+        res.append(n if isinstance(n, int) and 0 < n < len(modes) and SKILL_MODE_NAME.match(modes[n]) else None)
+    return res if any(x is not None for x in res) else None
 
 
 DIRECTIONAL = re.compile(r'_(up|down|left|back)(_|$)', re.I)
@@ -249,6 +308,8 @@ def main():
     out.pop('$comment', None)
     missing = []
     projectiles = Projectiles(a.client)
+    prefabs = char_skill_prefabs()
+    switch = skill_switch_modes(a.client)
     for cid in ids:
         f = pack / f'{cid}.ab'
         if not f.exists():
@@ -260,6 +321,9 @@ def main():
             print(f'FAIL {cid}: {e}', file=sys.stderr)
             continue
         if m:
+            sm = skill_modes_of(m['modes'], prefabs.get(cid) or [], switch)
+            if sm:
+                m['skillMode'] = sm
             out[cid] = m
     doc = {'$comment': 'Operator attack modes (charpack _modes order: index n = audio bank attack.<n>) with their projectiles and '
                        'effect bindings (cast / hit / trail). Written by tools/local-extract/char_modes.py from the local client '
@@ -267,7 +331,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'cast', 'hit', 'trail', 'attach') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'hit', 'trail', 'attach') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')
