@@ -180,6 +180,10 @@
   클라이언트 `audio_data.json battleVoice` 값 그대로 — 전체 간격 없음, 우선순위(행동출발 100·행동개시 90·수동 스킬 70·자동 스킬 60/50(SP 10 이상/미만)·
   배치 20·선택 10), 같은 우선순위는 유형이 겹침 허용(행동출발·수동 스킬·배치·선택)이면 앞 대사를 끊고, 아니면 버림, 쿨다운은 자동 스킬 10초만(오퍼레이터별).
   원본 #73의 1.2초 간격·「+10 이상이어야 끊음」·모든 스킬 10초/70은 공식 값과 달라 스킬 대사가 많이 빠졌다(데이터로 확인).
+  선택 대사 쿨타임(사용자 질문 2026-10-08 「한 오퍼를 여러번 선택시 쿨타임이 없는 것 같은데 공식은?」): 공식에도 없다 — `audio_data.json battleVoice`
+  FOCUS_CHAR `cooldown 0`·`overlapIfSamePriority true`(데이터), 卫戍协议 `AutoChessGameModeVoicePlugin._OnCharacterHighlighted`(이름) → 다시 선택하면 재생 중
+  선택 대사를 0.1초 크로스페이드로 끊고 새 대사. 우리도 같다(원본 #73의 선택 1.5초 쿨다운은 이 규칙으로 이미 빠짐). 선택이 「강조가 바뀔 때만」인지(이미
+  강조된 말을 다시 집을 때)는 네이티브라 확인 못 함 [추정: 집을 때마다]. `test/local-patch.test.js` 「official scheduling」.
   클래스·필드 이름으로 추론해 사용자가 공식대로 정한 것: 작전중 대사는 1~4 중 무작위(`LoadRandomVoiceList`), 행동 개시는 전투당 1번
   (`m_encounterFirstEnemyFlag`, 버려진 시도는 3초 뒤 다시), 전투 시작은 한 명만 행동출발이고 나머지 첫 배치는 말하지 않음
   (`AutoChessGameModeVoicePlugin._OnCharacterPlacedAtBattle`; 2초 뒤 재배치는 배치 대사). 원본 테스트는 원본 `VoiceGate` 그대로라 깨지지 않는다.
