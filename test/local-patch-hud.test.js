@@ -267,6 +267,15 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
     assert.ok(h.eventsOf('dmg').some((e) => e[4] === 2), 'forced numbers');
     assert.ok(h.eventsOf('dmg').some((e) => !e[4]), 'normal hits: none');
   });
+  test('real battle: 锏 S3 slashes are red (天生的武者 at 100 %: its 165 % ATK is not in the expected damage — user video)', () => {
+    const h = makeBattle({ seed: 3, timeLimit: 60, units: [{ chessId: 'chess_char_6_19_a', row: 9, col: 4, uid: 1, skillIndex: 2 }],
+      enemies: [{ key: 'enemy_1001_bigbo', time: 0, route: 0, count: 20, interval: 1.5 }] });
+    const u = h.battle.allyUnits.find((x) => x.kind === 'op');
+    for (let i = 0; i < 20; i++) { h.run(1); if (!u.skill.active) u.skill.sp = u.skill.spCost; }
+    const d = h.eventsOf('dmg');
+    assert.ok(d.length >= 10, 'slashes landed');
+    assert.ok(d.filter((e) => e[4] === 1).length >= d.length * 0.8, 'nearly every slash red');
+  });
   test('official: damage only when flagged, heals always "+n"; sizes in HUD units from the popup 150 over hud_unit', async () => {
     const N = await import('../public/js/render/num-official.js');
     const ctx = fakeViewCtx(fake.P, { viewport: () => ({ width: 1920, height: 1080 }) });

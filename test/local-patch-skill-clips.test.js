@@ -71,3 +71,14 @@ test('莫斯提马 S3: every attack plays Skill_2_Loop (it stood in Skill_Loop b
   for (let i = 0; i < 3; i++) { a.attack(2.9); assert.equal(a.current, 'Skill_2_Loop'); run(a, 2.9); }
   assert.ok(!a.log.includes('Skill_Loop'));
 });
+
+test('焰影苇草 S3: attacks with Skill_3_Attack and idles in Skill_3_Loop (charpack mode pairs; user report 2026-10-07)', async () => {
+  const { applyAnimOverrides } = await import('../tools/assets/anim-overrides.mjs');
+  const anims = { skill: { begin: 'Skill_3_Begin', loop: 'Skill_3_Loop', end: 'Skill_3_End', index: 2, idle: null }, skills: { 2: { begin: 'Skill_3_Begin', loop: 'Skill_3_Loop', end: 'Skill_3_End', index: 2, idle: null } } };
+  const out = applyAnimOverrides('op:char_1020_reed2:front', anims);
+  assert.equal(out.skill.loop, 'Skill_3_Attack');
+  assert.equal(out.skill.idle, 'Skill_3_Loop');
+  const { readFileSync } = await import('node:fs');
+  const m = JSON.parse(readFileSync(new URL('../data/assets.json', import.meta.url), 'utf8'));
+  for (const side of ['front', 'back']) assert.equal(m.chars.char_1020_reed2.spine[side].anims.skills['2'].loop, 'Skill_3_Attack', side);
+});

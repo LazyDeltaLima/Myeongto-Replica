@@ -254,8 +254,10 @@ const VERT = /* glsl */`
       vec4 cv = modelViewMatrix * vec4(iPos, 1.0);
       vec3 vv = (modelViewMatrix * vec4(iVel, 0.0)).xyz;
       vec2 d = length(vv.xy) > 1e-5 ? normalize(vv.xy) : vec2(1.0, 0.0);
-      float len = iSize.x * uLengthScale + length(iVel) * uVelScale;
-      vec2 off = d * (position.x * len) + vec2(-d.y, d.x) * (position.y * iSize.y);
+      // local patch (user video 2026-10-07, 锏 S3: long thin slash lines): the length is the size's y × lengthScale, the
+      // width its x (3D start size 0.15 × 3.6 drew short fat petals the other way round); equal for a uniform size
+      float len = iSize.y * uLengthScale + length(iVel) * uVelScale;
+      vec2 off = d * (position.x * len) + vec2(-d.y, d.x) * (position.y * iSize.x);
       vH = (modelMatrix * vec4(iPos, 1.0)).z + hOfView(vec3(off, 0.0));
       gl_Position = projectionMatrix * vec4(cv.xyz + vec3(off, 0.0), 1.0);
       return;
@@ -314,8 +316,9 @@ const FRAG = /* glsl */`
       float amt = uAmount + (uCustom ? vC2.x : 0.0);
       float bw = max(uBorder, 1e-3);
       e = clamp((d - amt + bw * (1.0 - roundEven(amt + 0.5))) / bw, 0.0, 1.0);
-      // … (VertexColor Major): amount = 1 − vertex alpha, alpha = cut · texture alpha · tint alpha (vertex alpha not multiplied)
-      if (uVCMajor) { e = clamp((d - (1.0 - vColor.a) + vColor.a * bw) / bw, 0.0, 1.0); col.a = tex.a * uTint.a * 0.5; }
+      // … (VertexColor Major): amount = 1 − vertex alpha, alpha = cut · texture alpha · tint alpha (vertex alpha not multiplied),
+      // colour = 2 · texture · vertex colour
+      if (uVCMajor) { e = clamp((d - (1.0 - vColor.a) + vColor.a * bw) / bw, 0.0, 1.0); col.a = tex.a * uTint.a * 0.5; col.rgb = tex.rgb * 2.0 * vColor.rgb; } // (no tint rgb)
       col.a *= e;
       // local patch: the … Double family cuts by a second texture with its own amount / border too [ASSUMED: alpha × both]
       if (uHasDissolve2) {
@@ -1084,6 +1087,7 @@ export class FxInstance {
    */
   constructor(def, opts = {}) {
     this.def = def;
+    this.hold = opts.hold ?? null; // local patch: freeze the effect at this time (s) — a mark that stays once shown
     this.q = QUALITY[opts.quality] || QUALITY.high;
     this.time = 0;
     this.object = new THREE.Group();            // placed in board coordinates by the caller
@@ -1212,6 +1216,7 @@ export class FxInstance {
   update(dt) {
     // disposed: ended here (MAX_INSTANCES) while its owner still holds it — it must not keep simulating unseen
     if (this.empty || this.disposed) return;
+    if (this.hold != null && !this.stopping && this.time + dt > this.hold) dt = Math.max(0, this.hold - this.time); // local patch
     this.time += dt;
     if (this.clip) this.applyClip(Math.min(this.time, this.clip.len));
     this.followWorld();

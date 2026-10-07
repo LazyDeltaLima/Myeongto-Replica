@@ -264,6 +264,7 @@ export class SpineActor {
    */
   windUp(interval, lead, once = false) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || !(lead >= 0)) return false;
+    if (this._endPlaying()) return false; // local patch
     const clip = this._attackClip();
     if (!clip) return false;
     const per = this.clipPerAttack || !!clip.strike; // local patch: a strike skill clip plays once per attack
@@ -288,11 +289,18 @@ export class SpineActor {
   }
 
   /**
+   * local patch (user report 2026-10-07, video: 锏 S3's finisher is her Skill_3_End): a skill's End clip plays out — the
+   * next normal attack does not cut it (it cut it at once: she struck with the plain Attack)
+   */
+  _endPlaying() { return this.mode === 'skillEnd' && this.clock < this.skillEndUntil; }
+
+  /**
    * An attack happened now. `interval` = seconds between attacks (game time already scaled to real); `once` = a one-off
    * cast (no rhythm): the clip plays once at its own speed from its strike frame, then the resting state.
    */
   attack(interval, once = false) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change') return;   // a form change plays out
+    if (this._endPlaying()) return; // local patch
     if (!once) this.interval = clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
     const clip = this._attackClip();
     if (!clip) return;

@@ -28,7 +28,7 @@ import { UF_CAMOU } from '../../../shared/local.js';
 
 /** The client's HEAD_POINT sits a little over the drawn head (the 战栗 fist of capture 10 floats above it) [추정 share]. */
 const HEAD = 1.1;
-/** status → [bundle, prefab, height share (0 feet, .5 body, HEAD head)]; `stealth` takes the side's prefab. */
+/** status → [bundle, prefab, height share (0 feet, .5 body, HEAD head), hold (s: frozen there — local patch)]; `stealth` takes the side's prefab. */
 export const STATUS_FX = Object.freeze({
   stun: ['buff', 'buff_stun', HEAD], freeze: ['buff', 'buff_autochess_frozen', 0], cold: ['buff', 'buff_cold', HEAD],
   sleep: ['buff', 'buff_sleep', 0.5], silence: ['buff', 'buff_silence', HEAD], fear: ['common', 'common_buff_fear', HEAD],
@@ -39,7 +39,8 @@ export const STATUS_FX = Object.freeze({
   stealth: ['common', 'common_invisible', 0], stealthAlly: ['common', 'common_stealth', 0], camou: ['common', 'common_buff_micai_01', 0.5],
   // local patch (user report 2026-10-07): 蕾缪安's talent 跨境追缉许可 'lemuen:wanted' — the client's char_lemuen_range_aim[effect]
   // buff (overrideEffectKey lemuen_talent_buff_01, the crosshair on the wanted enemy) [추정: at the head]
-  wanted: ['lemuen', 'lemuen_talent_buff_01', HEAD],
+  // its systems loop in / pulse / out every 2.5 s; the user (2026-10-07): once shown it stays — held at 2.0 s (the X steady)
+  wanted: ['lemuen', 'lemuen_talent_buff_01', HEAD, 2.0],
   // local patch (user report 2026-10-07, video: orange X strokes on her marked enemies): 焰影苇草's 灼痕 'reed2:scorch' —
   // buff reed2_t_1 effectKey reed2_debuff_01 [추정: on the body]
   scorch: ['reed2', 'reed2_debuff_01', 0.5],
@@ -104,8 +105,8 @@ export function syncStatusFx(views, fxGame, battle) {
     const want = live ? wantedStatusFx(v) : (WANT.clear(), WANT);
     for (const k of want) {
       if (on && on.has(k)) continue;
-      const [bundle, name, frac] = STATUS_FX[k];
-      if (fxGame.statusReady(bundle, name)) fxGame.statusOn(v, bundle, name, k, frac);
+      const [bundle, name, frac, hold] = STATUS_FX[k];
+      if (fxGame.statusReady(bundle, name)) fxGame.statusOn(v, bundle, name, k, frac, hold);
     }
     if (on) for (const k of [...on]) if (!want.has(k)) fxGame.statusOff(v, k);
   }

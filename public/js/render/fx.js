@@ -1557,7 +1557,9 @@ export class FxSystem {
   skill(view, on, opts = null) {
     if (!view) return;
     if (!on) { this._aura(view, false); return; }
-    if (opts && opts.burst === false) { this._aura(view, true); return; } // local patch: its official start effects instead (render/fxgame.js ownsSkill)
+    // local patch: its official start effects instead (render/fxgame.js ownsSkill) — and no turning gold hex under it either
+    // (user 2026-10-07: 「정체불명의 돌아가는 육각형」 is not in the client)
+    if (opts && opts.burst === false) return;
     const z = (view.z || 0) + (view.hover || 0);
     const g = this._proj(view.x, view.y, z, this._g);
     const gx = g.x, gy = g.y, s = g.s;

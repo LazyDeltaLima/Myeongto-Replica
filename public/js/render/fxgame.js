@@ -278,7 +278,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   const ownerOf = (v) => v.id ?? v.info?.id;
   const statusFailed = new Set();   // `${bundle}/${name}` that did not load: their units keep the icon (statusReady false)
-  async function playStatus(view, bundle, name, key, frac) {
+  async function playStatus(view, bundle, name, key, frac, hold = null) {
     if (!(await ensure())) return;
     const def = await lib.load(bundle, name);
     if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
@@ -292,9 +292,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // block too), which the split puts behind the unit, while the client sorts them by depth and the 冻结 block covers the
     // model (user capture 9); drawn over the units as before (the snowflake / fist over heads, capture 10)
     const split = false;
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0 });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
-    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac), unit: view }, split ? layers.split : layers.over);
+    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold), unit: view }, split ? layers.split : layers.over);
     while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
   }
 
@@ -589,6 +589,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return claimed;
   }
   const lemuenOn = (v) => !!(v && fxBundleOf(v.info?.spine || v.info?.defId) === 'lemuen' && bundleOf(v) && !failed);
+  let SKY_Y = null, skyUp = null; // local patch: skyward beams (update; three.js loads lazily)
   const lemMarks = new Map();   // 蕾缪安 id → [[live entries of one lock's beam / reticle / mark]], in lock order (its shells land in that order)
   const LEM_DROP_Z = 3;         // the shell falls from this height (tiles) [ASSUMED: straight down]
   /** Kit 'fx' events drawn with official prefabs; true = handled here (ownFx: render/fx.js skips its stand-in). */
@@ -604,10 +605,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       ownFx.add(e);
       let rect = null;
       try { rect = fieldRect(); } catch { /* the ±4 fallback */ }
+      // local patch (user 2026-10-07): the pieces are authored for a row wall (deployed facing up / down); a column wall
+      // (facing left / right) turns each piece 90° about the height so its flames run along the column
+      const turn = (l) => { if (l && o.axis !== 'row') l.inst.object.rotation.set(0, 0, Math.PI / 2); };
       for (const [r, c] of wallTiles(x, y, o.axis === 'row' ? 'row' : 'col', rect)) {
-        spawn(b.bundle, r === Math.round(y) && c === Math.round(x) ? 'yu_skill3_range_01_root' : 'yu_skill3_range_01', { x: c, y: r, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false });
+        spawn(b.bundle, r === Math.round(y) && c === Math.round(x) ? 'yu_skill3_range_01_root' : 'yu_skill3_range_01', { x: c, y: r, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false }).then(turn);
       }
-      spawn(b.bundle, 'yu_skill3_range_01', { x, y, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false });
+      spawn(b.bundle, 'yu_skill3_range_01', { x, y, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false }).then(turn);
       return true;
     }
     // a blocked shot: skchr_yu_3/Aura/EnemyAura _effectOnEliminatePos
@@ -648,10 +652,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // crosshair_range, on the target with the lock mark [ASSUMED: all three stay until that target's shell]
       const mark = [];
       const list = lemMarks.get(o.src) || []; list.push(mark); lemMarks.set(o.src, list);
-      // the lock's flash: buff lemuen_proj_s3_effect CreateEffect crosshair_01 on the target (a one-shot)
-      spawn(bundleOf(src).bundle, 'lemuen_skill_03_crosshair_01', tgt || { x, y, z: 0 }, { owner: null, buff: false });
-      for (const n of ['lemuen_skill_03_trail_01', 'lemuen_skill_03_crosshair_range', 'lemuen_skill_03_crosshair_02']) {
-        spawn(bundleOf(src).bundle, n, tgt || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30 }).then((l) => {
+      // the lock's flash: buff lemuen_proj_s3_effect CreateEffect crosshair_01 on the target — that buff lives with the aim
+      // projectiles (FinishManagedProjectiles at lemuen_s3_end), so it ends with the mark too (user 2026-10-07: it outlived
+      // the bombing by up to 1 s as a 2.65 s one-shot)
+      for (const n of ['lemuen_skill_03_crosshair_01', 'lemuen_skill_03_trail_01', 'lemuen_skill_03_crosshair_range', 'lemuen_skill_03_crosshair_02']) {
+        spawn(bundleOf(src).bundle, n, tgt || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30, skyward: n.endsWith('trail_01') }).then((l) => {
           if (!l) return;
           if (mark.done) l.inst.stop(); else mark.push(l);
         });
@@ -704,6 +709,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function skillByFlag(v, views) {
     const on = !!((v.flags | 0) & UF.SKILL);
+    // a skill the events drive is theirs; and right after an 'off' event the snapshot's flag may still be set for a frame
+    // (user 2026-10-07: 缄默德克萨斯 S2's loops came back after the skill and stayed)
+    if (v._fxSkillByEvent || clockS - (v._fxSkillOffT ?? -9) < 0.5) return;
     if (on && !v._fxSkillOn) { v._fxSkillFlag = true; api.onEvent(['skill', v.id ?? v.info?.id, 1, 'flag'], views); }
     else if (!on && v._fxSkillOn && v._fxSkillFlag) { v._fxSkillFlag = false; api.onEvent(['skill', v.id ?? v.info?.id, 0], views); }
   }
@@ -745,11 +753,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     /** local patch (⑤): whether the shared status prefab `bundle`/`name` can play (index loaded, not 'low', listed). */
     statusReady(bundle, name) { return !!(index && !failed && q() !== 'low' && index.bundles?.[bundle]?.includes(name) && !statusFailed.has(`${bundle}/${name}`)); },
     /** local patch (⑤): loop `bundle`/`name` on `view` as its status `key` (once per key) at `frac` of its height. */
-    statusOn(view, bundle, name, key, frac = 0) {
+    statusOn(view, bundle, name, key, frac = 0, hold = null) {
       const on = view._fxStatusOn || (view._fxStatusOn = new Set());
       if (on.has(key)) return;
       on.add(key);
-      playStatus(view, bundle, name, key, frac);
+      playStatus(view, bundle, name, key, frac, hold);
     },
     /** local patch (⑤): end the status effect `key` on `view`. */
     statusOff(view, key) {
@@ -773,6 +781,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         case 'skill': {
           const v = views.get(e[1]);
           if (!isOp(v) || !bundleOf(v)) return;
+          if (e[2] && e[3] !== 'flag') v._fxSkillByEvent = true; // local patch: skillByFlag leaves it alone
+          if (!e[2] && e[3] !== 'flag') v._fxSkillOffT = clockS;
           if (e[2] && v._fxSkillFlag && e[3] !== 'flag') { v._fxSkillFlag = false; return; } // already started from its flag (skillByFlag)
           if (e[2]) {
             v._fxSkillOn = true;
@@ -868,6 +878,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       camRef = cam; // local patch: status effects' heights (playStatus)
       clockS += dt * gameRate(); // local patch: the battle clock (gaps, ends) — the official effects use scaled time
       stepTrails(dt * gameRate()); // local patch
+      if (lastViews && index) for (const v of lastViews.values()) if (isOp(v) && (v._fxSkillOn || ((v.flags | 0) & UF.SKILL)) && bundleOf(v)) skillByFlag(v, lastViews); // local patch
       stepNotes(dt, lastViews);   // the notes fly on while their trails load
       stepWolves(dt);
       if (!mod) return;
@@ -891,6 +902,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (let i = live.length - 1; i >= 0; i--) {
         const l = live[i];
         if (l.view && l.view.alive !== false && !l.view.remove) l.inst.object.position.set(l.view.x, l.view.y, l.view.z || 0);
+        // local patch (user 2026-10-07: 蕾缪安's beams must come straight down from the sky wherever the target stands): the
+        // effect's +y turned to the camera's up — a line along it projects to a screen-vertical line at any place
+        if (l.skyward) {
+          SKY_Y ||= new mod.THREE.Vector3(0, 1, 0); skyUp ||= new mod.THREE.Vector3();
+          l.inst.object.quaternion.setFromUnitVectors(SKY_Y, skyUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize());
+        }
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
         l.inst.update(dt * rate2);   // local patch: every effect on the battle clock (the notes did already: trail = speed × time)
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops

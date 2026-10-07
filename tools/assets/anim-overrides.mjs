@@ -32,6 +32,11 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
     1: clips({ loop: 'Skill_1', strike: true }),
     2: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Attack', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
   }),
+  // 焰影苇草 (char_1020_reed2): S3's charpack mode pairs Attack→Skill_3_Attack, Idle→Skill_3_Loop (EN client) — resolveSkill
+  // used the Loop stance as her attack, so she stood through S3 with no attack motion (user report 2026-10-07)
+  'op:char_1020_reed2:': Object.freeze({
+    2: clips({ begin: 'Skill_3_Begin', loop: 'Skill_3_Attack', end: 'Skill_3_End', idle: 'Skill_3_Loop' }),
+  }),
   'op:char_213_mostma:': Object.freeze({
     1: clips({ begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End' }),
     2: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),

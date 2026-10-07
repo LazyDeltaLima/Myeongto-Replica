@@ -3193,6 +3193,7 @@ function blkkgt(bb, chess, def) {
           const p = unit.skill?.active || unit.mem.dgbFinale ? num(bb.prob, prob) : prob;
           if (p > 0 && (p >= 1 || battle.rng() < p)) {
             d.amount *= sc;
+            d.lpExpectDiv = (d.lpExpectDiv || 1) * sc; // local patch: the proc's ATK rise is not in the expected damage (red numbers, local-hud.js)
             if (tr > 0 && t.alive) battle.applyStatus(t, 'tremble', { duration: tr, source: unit });
           }
           if (skillMul > 1 && d.isSkill) d.mul *= skillMul;
