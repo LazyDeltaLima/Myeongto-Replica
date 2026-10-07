@@ -4,7 +4,7 @@
 //
 //   onMessage(lobby, session, msg)   first line of Lobby.onMessage: answers room.chat / room.chatFaction, null otherwise
 //   onJoin(lobby, room, session)     a member joined, resumed or took a spectator seat: the recent lines + the factions
-//   onMatchEnd(lobby, room)          the match ended: factions are cleared (they last one match)
+//   onMatchEnd(lobby, room)          the match ended: one [stats] log line (local-stats.js), factions are cleared (they last one match)
 //   botCap(room)                     Lobby.addBot: the refusal when SP_MAX_BOTS is reached, else null
 //   maxBotsSetting()                 room.state `maxBots` (null when unset)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
@@ -27,6 +27,7 @@
 // The pool is computed on the server only (Match.startFinalAssault → finalAssault.bossPoolHp → GameData.bossPoolShare),
 // so wrapping bossPoolShare here, at import, covers it (audit.js reads the same function). Solo stays upstream's.
 
+import { logMatchStats } from './local-stats.js';
 import { ERR, MAX_SEATS } from '../shared/constants.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, chatFaction } from '../shared/local.js';
 import { sendSession } from './net.js';
@@ -150,6 +151,7 @@ export function onJoin(lobby, room, session) {
 
 /** The match ended: the factions last one match. */
 export function onMatchEnd(lobby, room) {
+  logMatchStats(lobby, room); // one [stats] log line per finished match (server/local-stats.js)
   const c = rooms.get(room);
   if (!c || !c.factions.size) return;
   c.factions.clear();
