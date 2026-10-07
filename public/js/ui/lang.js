@@ -8,7 +8,7 @@
 //
 // Chinese is the default (the owner's decision of 2026-10-05) — the browser's language is not consulted. Order at boot:
 // `?lang=<code>` in the URL (then removed from the address bar and kept as the choice), the stored choice (localStorage
-// `sp.pref.lang`), else Chinese; a code no pack has falls back to Chinese (`en-US` takes the `en` pack). A switch
+// `sp.pref.lang`), else Chinese (local patch: else Korean on a first visit — FIRST_VISIT_LANG); a code no pack has falls back to Chinese (`en-US` takes the `en` pack). A switch
 // re-renders the app in place (main.js App subscribes with useLang) — no reload; the game texts follow as soon as their
 // overlays have downloaded (data.js notifies its subscribers). Without an index (a static host that lacks the file) the
 // stored or requested pack still loads by its code, and the menu offers it beside Chinese.
@@ -28,6 +28,8 @@ import { html } from './components.js';
 /** The switch's own label, in both languages (whoever opens it may not read the current one). */
 const SWITCH_LABEL = 'Language / 语言'; // i18n-ignore
 const PREF_KEY = 'lang';
+/** local patch: the language of a first visit (initialLang); upstream opens in Chinese. */
+const FIRST_VISIT_LANG = 'ko';
 /** How long boot waits for the index and the UI strings before rendering in Chinese anyway (they apply when they arrive). */
 const BOOT_WAIT_MS = 2500;
 /** Up to this many languages the switch is a row of buttons (中文 | English …); more make it a list. */
@@ -130,9 +132,18 @@ export function initialLang(search = globalThis.location?.search || '', load = l
   let fromUrl = null;
   try { fromUrl = pick(new URLSearchParams(search).get('lang')); } catch { /* ignore */ }
   if (fromUrl) return { lang: fromUrl, fromUrl: true };
-  let stored = null;
-  try { stored = pick(load(PREF_KEY, null)); } catch { /* ignore */ }
-  return { lang: stored || DEFAULT_LANG, fromUrl: false };
+  let raw = null;
+  try { raw = load(PREF_KEY, null); } catch { /* ignore */ }
+  const stored = raw == null ? null : pick(raw);
+  if (stored) return { lang: stored, fromUrl: false };
+  // local patch (user decision 2026-10-07): a first visit — no `?lang=`, nothing stored — opens in Korean when the ko
+  // pack is listed (or, without an index, is tried by its code); a stored language whose pack is gone still opens in
+  // Chinese, as upstream. The stored value is upstream's (`sp.pref.lang` 'ko' | 'zh', as our old translator kept it).
+  if (raw == null) {
+    const first = normalizeLang(FIRST_VISIT_LANG) || (tentative ? FIRST_VISIT_LANG : null);
+    if (first) return { lang: first, fromUrl: false };
+  }
+  return { lang: DEFAULT_LANG, fromUrl: false };
 }
 
 function stripLangParam() {
@@ -158,6 +169,11 @@ function applyDocument(lang) {
   doc.documentElement.dataset.lang = lang;
   doc.documentElement.dataset.script = scriptOf(t('卫戍协议'));
   doc.title = t('卫戍协议：盟约 · STRONGHOLD PROTOCOL');
+  // local patch: index.html's static rotate hint (a phone held upright) follows the language too — our old DOM
+  // translator did that
+  const set = (sel, text) => { const el = doc.querySelector?.(sel); if (el) el.textContent = text; };
+  set('.rotate-hint__title', t('请将设备横屏'));
+  set('.rotate-hint__sub', t('卫戍协议：盟约 需要横屏显示以获得完整体验'));
 }
 
 // `{ dn }` params and tName(): Chinese game-data names → the current language (data/i18n/<lang>.json names)
@@ -189,12 +205,25 @@ function applyLang(lang) {
 }
 
 /**
+ * local patch: our old display-only translator (public/js/i18n/i18n.js, retired in 0.2.0) kept the same key
+ * `sp.pref.lang` as a bare 'ko' | 'zh', which loadPref (JSON) cannot read — such a choice is rewritten as JSON once, so
+ * a player who picked 中文 there stays in Chinese.
+ */
+export function migrateOldLangPref(ls = globalThis.localStorage) {
+  try {
+    const v = ls?.getItem(`sp.pref.${PREF_KEY}`);
+    if (v === 'ko' || v === 'zh') ls.setItem(`sp.pref.${PREF_KEY}`, JSON.stringify(v));
+  } catch { /* ignore */ }
+}
+
+/**
  * Boot: list the packs, choose the language and load its UI strings (waits at most BOOT_WAIT_MS) before the first
  * render; the game-text overlays download in the background.
  * @returns {Promise<string>} the language in effect
  */
 export async function initLang() {
   wire();
+  migrateOldLangPref(); // local patch
   applyDocument(getLang());
   const TIMEOUT = Symbol('timeout');
   const boot = (async () => {

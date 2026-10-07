@@ -27,10 +27,11 @@ import { createStore, useStore, loadPref, savePref, store } from './store.js';
 import { audio } from './audio.js';
 import { data } from './data.js';
 import { OfficialVoiceGate, createVoicePolicy } from './voicePolicy.js';
+import { t, N_ } from '../../shared/i18n.js';
 
 const PREF = 'voice';
 /** Voice languages offered with their labels: off, the build's dub (audio.voice) and the Japanese twin (audio.voiceJp). */
-export const VOICE_LANGS = Object.freeze([['off', '关闭'], ['kr', '韩语'], ['jp', '日语']]);
+export const VOICE_LANGS = Object.freeze([['off', N_('关闭')], ['kr', N_('韩语')], ['jp', N_('日语')]]);
 
 /** @param {any} raw @returns {{ lang: 'off'|'kr'|'jp' }} */
 export function sanitizeVoice(raw) {
@@ -130,10 +131,10 @@ export function playMatchEndVoice(res, myId) {
 export function VoiceSetting() {
   const s = useStore((x) => x, Object.is, voiceStore);
   return html`<div class="set-row">
-      <span class="set-row__label">语音语言<${MicroLabel}>VOICE LANGUAGE<//></span>
+      <span class="set-row__label">${t('语音语言')}<${MicroLabel}>VOICE LANGUAGE<//></span>
       <div class="set-seg" role="radiogroup">
         ${VOICE_LANGS.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.lang === id ? 'true' : 'false'}
-          class=${s.lang === id ? 'is-on' : ''} onClick=${() => setVoiceLang(id)}>${label}</button>`)}
+          class=${s.lang === id ? 'is-on' : ''} onClick=${() => setVoiceLang(id)}>${t(label)}</button>`)}
       </div>
     </div>`;
 }

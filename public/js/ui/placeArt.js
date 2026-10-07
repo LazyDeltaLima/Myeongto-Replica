@@ -15,7 +15,7 @@
 
 import { html } from './components.js';
 import { localAsset } from '../data.js';
-import { tr } from '../i18n/i18n.js';
+import { t } from '../../../shared/i18n.js';
 
 const G = 'ui/battlecommon';
 /** Half-diagonal of the diamond in tiles (KR capture). [추정] */
@@ -82,7 +82,7 @@ function quarter(d) {
  * @param {{ g: any, basis: any, art: { chev: string, cancel: string, bubble: string }, dir: string|null,
  *   onCancel: () => void, cancelLabel?: string, backLabel?: string }} props
  */
-export function PlaceWheelArt({ g, basis, art, dir, onCancel, cancelLabel = '取消', backLabel = '拖回中心区域取消' }) {
+export function PlaceWheelArt({ g, basis, art, dir, onCancel, cancelLabel = t('取消'), backLabel = t('拖回中心区域取消') }) {
   if (!g || !basis) return null;
   const [a, b, c, d, e, f] = basis.m;
   const M = `matrix(${a} ${b} ${c} ${d} ${e} ${f})`;
@@ -111,16 +111,16 @@ export function PlaceWheelArt({ g, basis, art, dir, onCancel, cancelLabel = '取
         <g class=${`pwheel__cancel${sel ? '' : ' is-on'}`} transform=${`translate(${CANCEL.at[0] - 213} ${CANCEL.at[1] - 213})`}>
           <image href=${art.cancel} width=${CANCEL.size} height=${CANCEL.size} clip-path="url(#pwheel-cut-cancel)" />
           <rect x=${CANCEL.text[0]} y=${CANCEL.text[1]} width=${CANCEL.text[2] - CANCEL.text[0]} height=${CANCEL.text[3] - CANCEL.text[1]} fill=${TAG} />
-          <text class="pwheel__label" x=${CANCEL.label[0]} y=${CANCEL.label[1]} text-anchor="middle" dominant-baseline="central">${tr(cancelLabel)}</text>
+          <text class="pwheel__label" x=${CANCEL.label[0]} y=${CANCEL.label[1]} text-anchor="middle" dominant-baseline="central">${cancelLabel}</text>
         </g>
       </g>
       <g class=${`pwheel__bubble${sel ? ' is-on' : ''}`} transform=${bubbleAt(pt)}>
         <image href=${art.bubble} width=${BUBBLE.w} height=${BUBBLE.h} clip-path="url(#pwheel-cut-bubble)" />
         <rect x=${BUBBLE.text[0]} y=${BUBBLE.text[1]} width=${BUBBLE.text[2] - BUBBLE.text[0]} height=${BUBBLE.text[3] - BUBBLE.text[1]} fill="#000" />
-        <text class="pwheel__label pwheel__label--tip" x=${BUBBLE.label[0]} y=${BUBBLE.label[1]} dominant-baseline="central">${tr(backLabel)}</text>
+        <text class="pwheel__label pwheel__label--tip" x=${BUBBLE.label[0]} y=${BUBBLE.label[1]} dominant-baseline="central">${backLabel}</text>
       </g>
     </svg>
-    <button type="button" class=${`fwheel__cancel pwheel__tap${sel ? '' : ' is-on'}`} aria-label="点击取消"
+    <button type="button" class=${`fwheel__cancel pwheel__tap${sel ? '' : ' is-on'}`} aria-label=${t('点击取消')}
       style=${`left:${tx}px;top:${ty}px;width:${tw}px;height:${th}px`}
       onPointerDown=${(ev) => ev.stopPropagation()} onClick=${(ev) => { ev.stopPropagation(); onCancel(); }}></button>`;
 }

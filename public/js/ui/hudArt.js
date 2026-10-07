@@ -28,6 +28,7 @@ import { uiUrl } from './assetUrls.js';
 import { html, Icon, MicroLabel } from './components.js';
 import { sortBonds } from './gameLogic.js';
 import { createStore, useStore, loadPref, savePref } from '../store.js';
+import { t } from '../../../shared/i18n.js';
 
 // ---- UI 크기 (the PC client's UI_SCALER setting: StandaloneCanvasScaleHelper MIN_SCALE_FACTOR .9 / MAX 1 / DEFAULT 1,
 // global-metadata.dat; docs/LOCAL-PATCH.md 「크기 단위」) ----
@@ -56,7 +57,7 @@ export function UiScaleSetting() {
   const { k } = useStore((x) => x, Object.is, uiScaleStore);
   const pct = Math.round(k * 100);
   return html`<label class="set-row" data-ui-scale=${pct}>
-    <span class="set-row__label"><${Icon} name="expand" />界面大小<${MicroLabel}>UI SCALE<//></span>
+    <span class="set-row__label"><${Icon} name="expand" />${t('界面大小')}<${MicroLabel}>UI SCALE<//></span>
     <input class="set-range" type="range" min="90" max="100" step="1" value=${pct} style=${`--pct:${(pct - 90) * 10}%`}
       onInput=${(e) => setUiScale(Number(e.currentTarget.value) / 100)} />
     <span class="set-row__val num">${pct}</span>
@@ -180,8 +181,8 @@ export function BondNav({ bonds, id, onOpen }) {
   const i = list.indexOf(id);
   if (i < 0 || list.length < 2) return null;
   const go = (d) => onOpen(list[(i + d + list.length) % list.length]);
-  return html`<div class="bpop-nav" role="group" aria-label="切换盟约">
-    <button type="button" class="bpop-nav__btn bpop-nav__btn--prev" aria-label="上一个盟约" onClick=${() => go(-1)}></button>
-    <button type="button" class="bpop-nav__btn bpop-nav__btn--next" aria-label="下一个盟约" onClick=${() => go(1)}></button>
+  return html`<div class="bpop-nav" role="group" aria-label=${t('切换盟约')}>
+    <button type="button" class="bpop-nav__btn bpop-nav__btn--prev" aria-label=${t('上一个盟约')} onClick=${() => go(-1)}></button>
+    <button type="button" class="bpop-nav__btn bpop-nav__btn--next" aria-label=${t('下一个盟约')} onClick=${() => go(1)}></button>
   </div>`;
 }

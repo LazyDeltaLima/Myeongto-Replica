@@ -23,6 +23,7 @@
 import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, store, loadPref, savePref, selectRoute } from './store.js';
 import { voiceWanted, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS } from './voice.js';
+import { t } from '../../shared/i18n.js';
 
 const CACHE = 'sp-res';
 const STATE = '/__sp_res_state__';
@@ -253,27 +254,27 @@ export function ResourceHost() {
   const route = useStore(selectRoute);
   if (route === 'game') return null;
   if (r.phase === 'ask') {
-    return html`<div class="res-ask-wrap"><aside class="res-ask" role="dialog" aria-label="预先下载游戏资源">
-      <strong>预先下载游戏资源</strong>
-      <p>下载后图片会立即显示，不会延迟出现。建议使用 Wi-Fi。</p>
-      <div class="res-ask__lang"><span>干员语音</span><div class="set-seg" role="radiogroup">
+    return html`<div class="res-ask-wrap"><aside class="res-ask" role="dialog" aria-label=${t('预先下载游戏资源')}>
+      <strong>${t('预先下载游戏资源')}</strong>
+      <p>${t('下载后图片会立即显示，不会延迟出现。建议使用 Wi-Fi。')}</p>
+      <div class="res-ask__lang"><span>${t('干员语音')}</span><div class="set-seg" role="radiogroup">
         ${VOICE_LANGS.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${lang === id ? 'true' : 'false'}
-          class=${lang === id ? 'is-on' : ''} onClick=${() => setVoiceLang(id)}>${label}</button>`)}
+          class=${lang === id ? 'is-on' : ''} onClick=${() => setVoiceLang(id)}>${t(label)}</button>`)}
       </div></div>
       <p class="res-ask__size num" data-i18n-skip="">${mb(r.bytesTotal)} MB</p>
       <div class="res-ask__btns">
-        <button type="button" class="res-ask__yes" onClick=${acceptResources}>下载</button>
-        <button type="button" class="res-ask__no" onClick=${postponeResources}>以后再说</button>
+        <button type="button" class="res-ask__yes" onClick=${acceptResources}>${t('下载')}</button>
+        <button type="button" class="res-ask__no" onClick=${postponeResources}>${t('以后再说')}</button>
       </div>
-      <p class="res-ask__note">不预先下载时，游戏会在需要时逐个下载并保存在此浏览器中。</p>
+      <p class="res-ask__note">${t('不预先下载时，游戏会在需要时逐个下载并保存在此浏览器中。')}</p>
     </aside></div>`;
   }
   if (r.phase === 'running') {
     const pct = r.bytesTotal ? Math.floor((r.bytesDone / r.bytesTotal) * 100) : 0;
-    return html`<div class="res-pill" role="status"><span>资源下载中</span> <b class="num" data-i18n-skip="">${pct}%</b></div>`;
+    return html`<div class="res-pill" role="status"><span>${t('资源下载中')}</span> <b class="num" data-i18n-skip="">${pct}%</b></div>`;
   }
   if (r.phase === 'error') {
-    return html`<div class="res-pill is-err" role="status">${r.error === 'quota' ? '浏览器存储空间不足，无法预先下载资源' : '资源下载中断，下次进入时继续'}</div>`;
+    return html`<div class="res-pill is-err" role="status">${r.error === 'quota' ? t('浏览器存储空间不足，无法预先下载资源') : t('资源下载中断，下次进入时继续')}</div>`;
   }
   return null;
 }
@@ -286,15 +287,15 @@ export function ResourceSetting() {
   const pct = r.bytesTotal ? Math.floor((r.bytesDone / r.bytesTotal) * 100) : 0;
   const left = r.pendingBytes > 0;
   return html`<div class="set-row res-set">
-    <span class="set-row__label">预先下载资源<${MicroLabel}>RESOURCES<//></span>
+    <span class="set-row__label">${t('预先下载资源')}<${MicroLabel}>RESOURCES<//></span>
     <div class="res-set__body">
       ${r.phase === 'running'
-        ? html`<span class="res-set__state"><span>资源下载中</span> <b class="num" data-i18n-skip="">${pct}%</b></span>`
+        ? html`<span class="res-set__state"><span>${t('资源下载中')}</span> <b class="num" data-i18n-skip="">${pct}%</b></span>`
         : left
           ? html`<button type="button" class="res-set__btn" onClick=${acceptResources}>
-              <span>${r.phase === 'error' || r.failed ? '重新下载' : '下载'}</span> <span class="num" data-i18n-skip="">${mb(r.pendingBytes)} MB</span></button>`
-          : html`<span class="res-set__state is-done">已全部下载</span>`}
-      ${r.phase === 'error' ? html`<span class="res-set__err">${r.error === 'quota' ? '浏览器存储空间不足，无法预先下载资源' : '资源下载中断，下次进入时继续'}</span>` : null}
+              <span>${r.phase === 'error' || r.failed ? t('重新下载') : t('下载')}</span> <span class="num" data-i18n-skip="">${mb(r.pendingBytes)} MB</span></button>`
+          : html`<span class="res-set__state is-done">${t('已全部下载')}</span>`}
+      ${r.phase === 'error' ? html`<span class="res-set__err">${r.error === 'quota' ? t('浏览器存储空间不足，无法预先下载资源') : t('资源下载中断，下次进入时继续')}</span>` : null}
     </div>
   </div>`;
 }

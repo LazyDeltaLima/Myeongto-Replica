@@ -145,8 +145,8 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
         <${MicroLabel} tone="mint">${b.isCore ? t('CORE BOND // 核心盟约') : t('ADD-ON BOND // 附加盟约')}</${MicroLabel}>
         ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
         <h3 class="bpop__name">${b.name}</h3>
-        ${th.length && !off ? html`<span class=${cx('bpop__need', active && 'is-active')}><i class="bpop__needicon"></i><b class="num">${count}/${next ?? th[th.length - 1]}</b>${active ? html`<i class="bpop__needok"></i>` : html`<em>尚未激活</em>`}</span>` : null}
-        ${b.noStack ? null : html`<span class="bpop__stack">层数 <b class="num">${layers}</b></span>`}${/* local patch: the client's count pill and 层数 (autochess_hud_bond_detail_dialog; css/hud-art.css) */ ''}
+        ${th.length && !off ? html`<span class=${cx('bpop__need', active && 'is-active')}><i class="bpop__needicon"></i><b class="num">${count}/${next ?? th[th.length - 1]}</b>${active ? html`<i class="bpop__needok"></i>` : html`<em>${t('尚未激活')}</em>`}</span>` : null}
+        ${b.noStack ? null : html`<span class="bpop__stack">${t('层数')} <b class="num">${layers}</b></span>`}${/* local patch: the client's count pill and 层数 (autochess_hud_bond_detail_dialog; css/hud-art.css) */ ''}
         <div class="bpop__facts">
           ${off ? null : html`<span>${t('在场')} <b class="num">${count}</b>${next != null ? html`<small class="num">/${next}</small>` : null}${countsHand ? html`<small>${t('（含整备区）')}</small>` : null}${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>${t('（含{harmonyName} +{harmony}）', { harmonyName, harmony })}</small>` : null}</span>`}
           ${b.noStack ? html`<span>${t('层数不显示')}</span>` : html`<span>${t('层数')} <b class="num t-mint">${layers}</b></span>`}

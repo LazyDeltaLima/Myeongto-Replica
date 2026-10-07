@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" media="print" onload="this.media='all'"
-        href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Oxanium:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" />
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Sans+KR:wght@400;500;700;900&family=Oxanium:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" />
   <!-- Self-hosted Bender / Novecento (provided by the assets pipeline). -->
   <link rel="stylesheet" href="/fonts/fonts.css" />
 
@@ -49,6 +49,7 @@
   <link rel="stylesheet" href="/css/debug-panel.css" /><!-- local patch: in-game debug panel (local debug mode) -->
   <link rel="stylesheet" href="/css/phase-art.css" /><!-- local patch: the official round-start / choice / battle-end look (js/ui/phaseArt.js) -->
   <link rel="stylesheet" href="/css/devices.css" />
+  <link rel="stylesheet" href="/i18n/ko/ko.css" /><!-- local patch: Korean line breaking under html[lang=ko] (Noto Sans KR: the Google Fonts link above) -->
 
   <script type="importmap">
     { "imports": { "preact": "/vendor/preact.module.js", "preact/hooks": "/vendor/hooks.module.js", "htm": "/vendor/htm.module.js" } }
@@ -76,7 +77,7 @@
   <div class="rotate-hint" role="alert">
     <div class="rotate-hint__phone"></div>
     <div class="rotate-hint__title">请将设备横屏</div>
-    <div>卫戍协议：盟约 需要横屏显示以获得完整体验</div>
+    <div class="rotate-hint__sub">卫戍协议：盟约 需要横屏显示以获得完整体验</div><!-- local patch: the class lets ui/lang.js translate it -->
     <div class="rotate-hint__micro">ROTATE DEVICE</div>
   </div>
 

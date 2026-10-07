@@ -21,7 +21,7 @@ import { localAsset, data } from '../data.js';
 import { itemIconUrl } from './assetUrls.js';
 import { canPlace, dropIntent, tileKey } from './gameLogic.js';
 import { useTileScreen } from './facingWheel.js';
-import { tr } from '../i18n/i18n.js';
+import { t } from '../../../shared/i18n.js';
 import { GEO } from '../../../shared/constants.js';
 
 const G = 'ui/battle';
@@ -139,7 +139,7 @@ export function EquipHoverPanel({ view, state }) {
       <i class="eqh__fr eqh__fr--l"></i><i class="eqh__fr eqh__fr--r"></i>
       ${slots.map((s, i) => html`<${Slot} key=${i} id=${s.id} target=${s.target} flash=${s.flash} art=${art} />`)}
       ${shown.full ? html`<span class="eqh__matte"><i class="eqh__matte-bg"></i><i class="eqh__matte-loop"></i>
-        <span class="eqh__swap"><i class="eqh__swap-icon"></i><span class="eqh__label">${tr('替换装备')}</span></span></span>` : null}
+        <span class="eqh__swap"><i class="eqh__swap-icon"></i><span class="eqh__label">${t('替换装备')}</span></span></span>` : null}
     </div>
   </div>`;
 }

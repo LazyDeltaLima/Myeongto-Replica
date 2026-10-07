@@ -28,6 +28,7 @@ import { html } from './components.js';
 import { uiUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { PHASE } from '../../../shared/constants.js';
+import { t } from '../../../shared/i18n.js';
 
 const ROUND = Object.freeze({
   '--pa-bg': 'roundStartDialog/round_bg',
@@ -128,7 +129,7 @@ export function RoundStartBanner({ round, gold = null, duration = 1800, onDone }
   const r = String(Math.max(0, Math.trunc(Number(round) || 0))).padStart(2, '0');
   const g = Number.isFinite(gold) && gold > 0 ? Math.trunc(gold) : 0;
   return html`<div class=${['parb', art.cls, leaving && 'is-leaving'].filter(Boolean).join(' ')} style=${art.style} role="status" aria-live="polite"
-      aria-label=${`回合 ${r}${g ? ` · 获得 ${g}` : ''}`}>
+      aria-label=${g ? t('回合 {r} · 获得 {g}', { r, g }) : t('回合 {r}', { r })}>
     <div class="parb__c" style=${box(0, 0, 1280, 720)}>
       <i class="parb__bg" style=${box(2.3, 2.8, 631.8, 298.6)} aria-hidden="true"><i class="parb__line" style=${box(-2, -0.6, 496, 169.2)}></i></i>
       <i class="parb__tile" style=${box(0, 0, 583.4, 222.2)} aria-hidden="true"></i>
@@ -148,12 +149,12 @@ export function RoundStartBanner({ round, gold = null, duration = 1800, onDone }
       </div>
       <div class="parb__box" style=${box(38.6, 1.8, 112, 108)}>
         ${i('parb__bracket', box(-36.2, 23.2, 4.2, 23.1))}${i('parb__bracket is-r', box(35.3, 23.2, 4.2, 23.1))}
-        <span class="parb__title" style=${box(0, 24.1, 71.7, 24.8)}>回合</span>
+        <span class="parb__title" style=${box(0, 24.1, 71.7, 24.8)}>${t('回合')}</span>
         <span class="parb__round num" style=${box(-2.7, -11.65, 100, 49.2)}>${r}</span>
       </div>
       <div class="parb__box is-gold" style=${box(168.6, 1.8, 112, 108)}>
         ${i('parb__bracket', box(-36.2, 23.2, 4.2, 23.1))}${i('parb__bracket is-r', box(35.3, 23.2, 4.2, 23.1))}
-        <span class="parb__title" style=${box(0, 24.1, 71.7, 24.8)}>获得</span>
+        <span class="parb__title" style=${box(0, 24.1, 71.7, 24.8)}>${t('获得')}</span>
         <span class="parb__src" style=${box(27, -13.2, 50, 28.9)}><span class="parb__num num">
           <i class="parb__gold" aria-hidden="true"></i><i class="parb__plus" aria-hidden="true"></i>${g}</span></span>
         <i class="parb__glow" style=${box(0, -15, 112, 32.5)} aria-hidden="true"></i>
@@ -192,7 +193,7 @@ export function BattleEndBanner({ perfect, lost = 0, duration = 1800, onDone }) 
   const rt = (x, y, w, h) => box(W / 2 + x, H / 2 + y, w, h);
   const ALPHA = [0.6, 1, 0.2, 0.6, 0.4, 1];
   return html`<div class=${['parb', 'prb', perfect ? 'is-perfect' : 'is-miss', art.cls, leaving && 'is-leaving'].filter(Boolean).join(' ')} style=${art.style}
-      role="status" aria-live="polite" aria-label=${perfect ? '战斗结束 · 完美作战！' : n > 0 ? `战斗结束 · 目标生命值减少 ${n}` : '战斗结束'}>
+      role="status" aria-live="polite" aria-label=${perfect ? t('战斗结束 · 完美作战！') : n > 0 ? t('战斗结束 · 目标生命值减少 {n}', { n }) : t('战斗结束')}>
     <div class="parb__c" style=${box(0, 0, 1280, 720)}>
       <i class="prb__bg" style=${P.bg} aria-hidden="true">
         <i class="prb__line" style=${box(-2, -0.6, 496, 169.2)}></i>
@@ -219,9 +220,9 @@ export function BattleEndBanner({ perfect, lost = 0, duration = 1800, onDone }) 
         ${i('prb__text1', box(-5.6, -60.9, 56.2, 7.2))}${i('prb__text2', box(-6.2, -67.8, 43.2, 4.1))}
       </div>
       <div class="prb__right" style=${box(105.4, 1.8, 284.7, 168.6)}>
-        <span class="prb__title" style=${box(P.title, 16.7, 249.7, 50)}>战斗结束</span>
-        <span class="prb__desc" style=${box(P.mask, -22.8, 222.4, 29)}>${perfect ? '完美作战！'
-          : n > 0 ? html`<span>目标生命值减少</span><i class="prb__blood" aria-hidden="true"></i><b class="prb__lost num">${n}</b>` : null}</span>
+        <span class="prb__title" style=${box(P.title, 16.7, 249.7, 50)}>${t('战斗结束')}</span>
+        <span class="prb__desc" style=${box(P.mask, -22.8, 222.4, 29)}>${perfect ? t('完美作战！')
+          : n > 0 ? html`<span>${t('目标生命值减少')}</span><i class="prb__blood" aria-hidden="true"></i><b class="prb__lost num">${n}</b>` : null}</span>
       </div>
     </div>
   </div>`;
@@ -273,7 +274,7 @@ export function YourTurn() {
       ${i('pcturn__cube', box(2, 6 + (0.5 - 0.1628) * 134, 131, 134))}
       ${i('pcturn__fx', box(-36.1 + (0.5 - 0.7064) * 80, 77.1 + (0.5 - 0.2889) * 80, 80, 80))}
       <div class="pcturn__bottom" style=${box(4, -50, 214.2, 100)}>
-        <b class="pcturn__text" style=${box(0, 20, 239.4, 67.1)}>轮到你了</b>
+        <b class="pcturn__text" style=${box(0, 20, 239.4, 67.1)}>${t('轮到你了')}</b>
         ${i('pcturn__bar', box(0, -22, 185, 11))}
       </div>
     </div>

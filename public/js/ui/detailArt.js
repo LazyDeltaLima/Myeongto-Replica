@@ -26,15 +26,16 @@ import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail } from '
 import { attackInterval, fmtNum, chessLoadout } from './gameLogic.js';
 import { chessPortraitUrl, profIconUrl, uiUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
+import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Tab → the ChessDetail blocks (CHESS_SECTIONS keys) it shows, in the client's tab order. */
 export const ART_TABS = Object.freeze([
-  ['garrison', '特质', ['garrison', 'equip']],
-  ['skill', '技能', ['skill', 'module']],
-  ['trait', '特性', ['trait']],
-  ['talents', '天赋', ['talents']],
+  ['garrison', N_('特质'), ['garrison', 'equip']],
+  ['skill', N_('技能'), ['skill', 'module']],
+  ['trait', N_('特性'), ['trait']],
+  ['talents', N_('天赋'), ['talents']],
 ]);
 
 /**
@@ -104,7 +105,7 @@ export function ChessDetailArt(props) {
         <h3 class="dart__name">${c.name}</h3>
         <div class="dart__tier">
           <${TierChip} tier=${c.tier} golden=${golden} size="md" />
-          ${golden ? html`<span class="dtag-elite">精锐</span>` : null}
+          ${golden ? html`<span class="dtag-elite">${t('精锐')}</span>` : null}
           <i class="dart__split"></i>
           ${eliteUrl ? html`<img class="dart__elite" src=${eliteUrl} alt="" />` : null}
           ${level != null ? html`<span class="dart__lv"><small>LV</small><b class="num">${level}</b></span>` : null}
@@ -112,25 +113,25 @@ export function ChessDetailArt(props) {
       </div>
       <div class="dart__mid">
         <div class=${cx('dart__stats', live && 'is-live')} data-live=${live ? live.src || 'prep' : undefined}
-            title=${live ? (live.src === 'battle' ? '当前作战中的实时数值（绿色为增益，红色为减益）' : '下一场作战开始时的数值') : undefined}>
-          <${Line} k="攻击" ...${st.atk} />
-          <${Line} k="防御" ...${st.def} />
-          <${Line} k="法抗" ...${st.res} />
-          <${Line} k="阻挡" ...${st.blockCnt} cls="is-white" />
-          <${Line} k="费用" v=${s.cost ?? '—'} cls="is-white" />
-          <${Line} k="攻击间隔" ...${st.interval} cls="is-extra" />
-          <${Line} k="再部署" v=${s.respawnTime != null ? `${s.respawnTime}s` : '—'} cls="is-extra" />
+            title=${live ? (live.src === 'battle' ? t('当前作战中的实时数值（绿色为增益，红色为减益）') : t('下一场作战开始时的数值')) : undefined}>
+          <${Line} k=${t('攻击')} ...${st.atk} />
+          <${Line} k=${t('防御')} ...${st.def} />
+          <${Line} k=${t('法抗')} ...${st.res} />
+          <${Line} k=${t('阻挡')} ...${st.blockCnt} cls="is-white" />
+          <${Line} k=${t('费用')} v=${s.cost ?? '—'} cls="is-white" />
+          <${Line} k=${t('攻击间隔')} ...${st.interval} cls="is-extra" />
+          <${Line} k=${t('再部署')} v=${s.respawnTime != null ? `${s.respawnTime}s` : '—'} cls="is-extra" />
         </div>
         <div class="dart__tiles">
-          <div class="dart__tile dart__range"><${RangeGrid} grid=${cardRangeGrid(live, fr, c)} /><span>攻击范围</span></div>
+          <div class="dart__tile dart__range"><${RangeGrid} grid=${cardRangeGrid(live, fr, c)} /><span>${t('攻击范围')}</span></div>
           ${chips}
         </div>
       </div>
-      <div class="dart__hp"><i style=${`width:${pct}%`}></i><span><em>生命</em><b class="num">${fmtNum(hp?.hp)}/${fmtNum(hp?.max)}</b></span></div>
+      <div class="dart__hp"><i style=${`width:${pct}%`}></i><span><em>${t('生命')}</em><b class="num">${fmtNum(hp?.hp)}/${fmtNum(hp?.max)}</b></span></div>
     </div>`,
     tabs.length ? html`<div key="tabs" class="dart__tabs" role="tablist">
-      ${tabs.map((t) => html`<button key=${t.id} type="button" role="tab" aria-selected=${t === cur ? 'true' : 'false'}
-          class=${cx('dart__tab', t === cur && 'is-on')} onClick=${() => setTab(t.id)}>${t.label}</button>`)}
+      ${tabs.map((tb) => html`<button key=${tb.id} type="button" role="tab" aria-selected=${tb === cur ? 'true' : 'false'}
+          class=${cx('dart__tab', tb === cur && 'is-on')} onClick=${() => setTab(tb.id)}>${t(tb.label)}</button>`)}
     </div>` : null,
     by.get('merge') || null,
     cur ? html`<div key=${`pane:${cur.id}`} class=${cx('dart__pane', `dart__pane--${cur.id}`)} role="tabpanel">${cur.nodes}</div>` : null,

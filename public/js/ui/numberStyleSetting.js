@@ -4,18 +4,19 @@
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, MicroLabel } from './components.js';
 import { numberStyle, setNumberStyle, onNumberStyle } from '../render/number-style.js';
+import { t, N_ } from '../../../shared/i18n.js';
 
-const OPTIONS = Object.freeze([['official', '官方'], ['classic', '全部显示']]);
+const OPTIONS = Object.freeze([['official', N_('官方')], ['classic', N_('全部显示')]]);
 
 /** Settings row: 伤害数字样式 (官方 / 全部显示). */
 export function NumberStyleSetting() {
   const [v, setV] = useState(numberStyle);
   useEffect(() => onNumberStyle(setV), []);
   return html`<div class="set-row" data-number-style=${v}>
-    <span class="set-row__label">伤害数字样式<${MicroLabel}>NUMBER STYLE<//></span>
+    <span class="set-row__label">${t('伤害数字样式')}<${MicroLabel}>NUMBER STYLE<//></span>
     <div class="set-seg" role="radiogroup">
       ${OPTIONS.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${v === id ? 'true' : 'false'}
-        class=${v === id ? 'is-on' : ''} onClick=${() => setNumberStyle(id)}>${label}</button>`)}
+        class=${v === id ? 'is-on' : ''} onClick=${() => setNumberStyle(id)}>${t(label)}</button>`)}
     </div>
   </div>`;
 }

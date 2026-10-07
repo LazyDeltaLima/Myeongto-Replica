@@ -13,6 +13,7 @@ import { data, useData } from '../data.js';
 import { bondIconUrl } from './assetUrls.js';
 import { useStore } from '../store.js';
 import { chatFaction } from '../../../shared/local.js';
+import { t } from '../../../shared/i18n.js';
 
 /** Icon URL of a faction record, or null. */
 export const factionIconUrl = (f) => (f ? bondIconUrl(data.get('assets'), f.bond) : null);
@@ -36,7 +37,7 @@ export function FactionGlyph({ f, name = '', fallback = null }) {
   const url = factionIconUrl(f);
   if (!url) return fallback;
   const letter = [...(name || '').trim()][0] || '?';
-  return html`<span class="fglyph" style=${`--fac:${f.color};--ico:url("${url}")`} title=${f.name}>
+  return html`<span class="fglyph" style=${`--fac:${f.color};--ico:url("${url}")`} title=${t(f.name)}>
     <i class="fglyph__ico" aria-hidden="true"></i><span class="fglyph__ch">${letter}</span>
   </span>`;
 }

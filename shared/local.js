@@ -10,6 +10,7 @@
 //   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } — local debug mode only (server/local-patch.js debugMode)
 
 import { EMOTE_SETS } from './emote-art.js';
+import { N_ } from './i18n.js';
 
 // local version (docs/LOCAL-PATCH.md "버전 표기"): this server's own semver, independent of upstream's APP_VERSION
 // (shared/constants.js), which is shown beside it as the base. major = a big direction change, minor = a deploy with
@@ -30,14 +31,14 @@ export const UF_CAMOU = 1024;
 // chat faction: a colored tag a player may pick for their chat lines and avatar, cleared when the match ends;
 // `bond` is the nation bond whose icon (data/assets.json bonds) shows it
 export const CHAT_FACTIONS = Object.freeze([
-  { id: 'yan', name: '炎国', color: '#ff3b42', bond: 'yanShip' },
-  { id: 'sargon', name: '萨尔贡', color: '#b87850', bond: 'sargonShip' },
-  { id: 'victoria', name: '维多利亚', color: '#ff782f', bond: 'victoriaShip' },
-  { id: 'kjerag', name: '谢拉格', color: '#43acec', bond: 'kjeragShip' },
-  { id: 'laterano', name: '拉特兰', color: '#ff4d91', bond: 'lateranoShip' },
-  { id: 'aegir', name: '阿戈尔', color: '#009fb2', bond: 'egirShip' },
-  { id: 'siracusa', name: '叙拉古', color: '#4776df', bond: 'siracusaShip' },
-  { id: 'kazimierz', name: '卡西米尔', color: '#d8b400', bond: 'kazimierzShip' },
+  { id: 'yan', name: N_('炎国'), color: '#ff3b42', bond: 'yanShip' },
+  { id: 'sargon', name: N_('萨尔贡'), color: '#b87850', bond: 'sargonShip' },
+  { id: 'victoria', name: N_('维多利亚'), color: '#ff782f', bond: 'victoriaShip' },
+  { id: 'kjerag', name: N_('谢拉格'), color: '#43acec', bond: 'kjeragShip' },
+  { id: 'laterano', name: N_('拉特兰'), color: '#ff4d91', bond: 'lateranoShip' },
+  { id: 'aegir', name: N_('阿戈尔'), color: '#009fb2', bond: 'egirShip' },
+  { id: 'siracusa', name: N_('叙拉古'), color: '#4776df', bond: 'siracusaShip' },
+  { id: 'kazimierz', name: N_('卡西米尔'), color: '#d8b400', bond: 'kazimierzShip' },
 ].map(Object.freeze));
 /** Chat faction record of an id, or null (safe for any input). */
 export const chatFaction = (id) => (typeof id === 'string' && CHAT_FACTIONS.find((f) => f.id === id)) || null;

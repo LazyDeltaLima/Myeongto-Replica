@@ -264,7 +264,7 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
     ${g ? html`<${Stripes} tiles=${tiles} view=${view} row=${row} col=${col} />` : null}
     ${g && basis ? html`<div class="fwheel__dia pwheel-host">
       <${PlaceWheelArt} g=${g} basis=${basis} art=${art} dir=${dir} onCancel=${onCancel} />
-      <span class="fwheel__sr" aria-live="polite">${dir ? `朝向：${DIR_LABEL[dir]}` : ''}</span></div>` : null}
+      <span class="fwheel__sr" aria-live="polite">${dir ? t('朝向：{dir}', { dir: t(DIR_LABEL[dir]) }) : ''}</span></div>` : null}
     ${g && !basis ? html`<div class="fwheel__dia" style=${`left:${g.x}px;top:${g.y}px;width:${box}px;height:${box}px`}>
       <svg class="fwheel__svg" viewBox="-110 -110 220 220" aria-hidden="true">
         <path class="fwheel__outer" d="M0 -100 L100 0 L0 100 L-100 0 Z" />

@@ -1,14 +1,9 @@
-/* 한글 패치: 한국어 글꼴과 글자 폭 보정 (js/i18n/i18n.js가 한국어 모드일 때만 넣는다). */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
-
-:root.lang-ko {
-  --font-cjk: 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', 'Noto Sans CJK KR', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
-  --font-num: 'Bender', 'Rajdhani', 'Oxanium', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-  --font-display: 'Novecento', 'Novecento Wide', 'Oxanium', 'Rajdhani', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-}
+/* local patch (한글 패치): Korean line breaking, under upstream's <html lang="ko"> (ui/lang.js htmlLang). Linked from
+   index.html for every language; the rules apply only while the Korean pack is in use. The Korean face itself is
+   upstream's (theme.css `:root:lang(ko) --cjk-faces`); index.html's non-blocking Google Fonts link adds Noto Sans KR. */
 
 /* 한국어는 띄어쓰기 단위로 줄바꿈한다 (중국어용 글자 단위 줄바꿈 방지). */
-:root.lang-ko body { word-break: keep-all; overflow-wrap: anywhere; }
+:root:lang(ko) body { word-break: keep-all; overflow-wrap: anywhere; }
 
 /* 위 overflow-wrap 때문에 맹약 원판의 스택 숫자(.bond__count, 원판 폭의 절반까지만 쓸 수 있다)가 세 자리에서 두 줄로 갈라진다. */
-:root.lang-ko .bond__count { white-space: nowrap; }
+:root:lang(ko) .bond__count { white-space: nowrap; }

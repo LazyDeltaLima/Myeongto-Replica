@@ -51,11 +51,28 @@ const PH = /\{([A-Za-z0-9_$]+)((?:\|[^{}|]*){2,})?\}/g; // shared/i18n.js PLACEH
 /** msgid → reason: upstream's text stays (our only entry is from another context). */
 const KEEP_UPSTREAM = {
   返回: 'a back button; official.json (string_map, context-free) has 취소 ("cancel")',
+  // user decisions 2026-10-07
+  上: 'a direction label (ui/facing.js DIR_LABEL): 위, beside 왼쪽 / 오른쪽; official.json has 상 (another context)',
+  下: 'a direction label (ui/facing.js DIR_LABEL): 아래; official.json has 하',
+  全部: 'the "all" filter chip: 전체 (official KR uses 전체 in 3 of its 4 全部 keys); official.json has 전부',
+  进阶: 'the elite-equipment tag (detailPanel / equipReplace): 승급; official.json has 랭크업 (another context)',
 };
 
 /** msgid → our text, fixed (our dictionary has a typo or a wrong sense). */
 const FIXES = {
   敌方攻击强度到达极限的模拟训练: ['적의 공격 강도가 한계를 뛰어넘은 시뮬레이션', 'typo 강도하 in the official KR table'],
+  // user decisions 2026-10-07
+  全部显示: ['전체 표시', '全部 = 전체 (the damage-number setting; ui.json has 전부 표시)'],
+  '；2 件相同装备自动合成进阶装备': [' ; 같은 장비 2개는 자동으로 승급 장비로 합성', '进阶(装备) = 승급, as the elite-equipment tag (ui.json has 상위 장비)'],
+  '冻结 / 解冻商店': ['상점 동결 / 해동', '解冻 = 해동 (the official shop button of this mode); upstream 상점 동결 / 해제'],
+  助战及自选编队: ['지원과 선발 편성', '自选编队 = 선발 편성 (ui.json has 자유 편성)'],
+  // 自选 on this server: only the five 선발 operators (shared/local-diy.js), no prototypes — the Korean promises none
+  '5阶与6阶各有两个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。': [
+    '5티어와 6티어에는 각각 선발 칸이 2개 있습니다. 보유한 6★ 오퍼레이터를 고르고 스킬과 모듈을 정하세요. 선발 오퍼레이터는 자신의 상점에만 등장하며, 보급센터가 해당 티어 레벨에 도달해야 갱신되고, 가격은 같은 티어의 오퍼레이터와 같습니다. 맹약은 오퍼레이터의 실제 소속 진영에 따라 배정되며 특질은 없습니다.',
+    '自选 = 선발; no prototypes on this server (upstream: 보유한 6★ 오퍼레이터 … 또는 프로토타입 오퍼레이터(스킬 고정))'],
+  '5阶、6阶的自选名额：持有的 6★ 干员或原型干员': ['5·6티어 선발 칸: 보유한 6★ 오퍼레이터', '自选名额 = 선발 칸; no prototypes on this server'],
+  '6★ 原型干员与持有的 6★ 干员，另有 4★ 原型干员（先锋、特种除外）': ['보유한 6★ 오퍼레이터', 'the 自选 picker\'s tier-5 note; no prototypes on this server'],
+  '6★ 原型干员与持有的 6★ 干员': ['보유한 6★ 오퍼레이터', 'the 自选 picker\'s tier-6 note; no prototypes on this server'],
 };
 
 /**
@@ -79,6 +96,12 @@ const TERMS = [
   { zh: /晋升/, from: /(?<!정예 )승진 (횟수|보상|가능)/g, to: '정예 승진 $1', why: '晋升 (noun) = 정예 승진' },
   { zh: /阶(?!段)/, from: /(\}|\d)단계/g, to: '$1티어', why: '(N)阶 = 티어' },
   { zh: /维维美/, from: '위위메이', to: '비비미', why: '维维美 = 비비미 (emote set)' },
+  // user decisions 2026-10-07: 自选 = 선발 (our old UI's word), longest first
+  { zh: /自选/, from: '자유 선택 오퍼레이터', to: '선발 오퍼레이터', why: '自选干员 = 선발 오퍼레이터' },
+  { zh: /自选/, from: '자유 선택 슬롯', to: '선발 칸', why: '自选名额 = 선발 칸' },
+  { zh: /自选/, from: '자유 편성', to: '선발 편성', why: '自选编队 = 선발 편성' },
+  { zh: /自选/, from: '자유 선택', to: '선발', why: '自选 = 선발' },
+  { zh: /解冻/, from: '동결 해제', to: '해동', why: '解冻 = 해동 (official shop button)' },
   { zh: /招募/, from: '구매', to: '모집', why: '招募 = 모집' },
   { zh: /头像/, from: '아이콘', to: '초상화', why: '头像 = 초상화' },
   { zh: /延迟/, from: '핑', to: '지연', why: '延迟 = 지연' },

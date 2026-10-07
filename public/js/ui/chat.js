@@ -22,7 +22,7 @@ import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction } from '../.
 import { html } from './components.js';
 import { net } from '../net.js';
 import { store, useStore, loadPref, savePref } from '../store.js';
-import { tr } from '../i18n/i18n.js';
+import { t } from '../../../shared/i18n.js';
 import { FactionIcon, factionIconUrl } from './faction.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -108,7 +108,7 @@ function markRead(seq) {
 /** A line's faction tag `(炎国)` in its color, or nothing. */
 function FactionTag({ id }) {
   const f = chatFaction(id);
-  return f ? html`<span class="chat__faction" style=${`color:${f.color}`}>(${tr(f.name)})</span>` : null;
+  return f ? html`<span class="chat__faction" style=${`color:${f.color}`}>(${t(f.name)})</span>` : null;
 }
 
 /** One chat line: `name(faction): text`, or the announcement of a faction pick. */
@@ -116,11 +116,11 @@ function Line({ l, myId, cls = '', style = '' }) {
   if (l.kind === 'faction') {
     const f = chatFaction(l.faction);
     return html`<li class=${cx('chat__line chat__line--sys', cls)} style=${style} data-i18n-skip="">
-      <b class="chat__name">${l.name}</b><span class="chat__text">${tr('选择了阵营')} <b style=${f ? `color:${f.color}` : ''}>${f ? tr(f.name) : '?'}</b></span>
+      <b class="chat__name">${l.name}</b><span class="chat__text">${t('选择了阵营')} <b style=${f ? `color:${f.color}` : ''}>${f ? t(f.name) : '?'}</b></span>
     </li>`;
   }
   return html`<li class=${cx('chat__line', l.playerId === myId && 'is-me', cls)} style=${style} data-i18n-skip="">
-    <b class="chat__name">${l.name}${l.spectator ? html`<span class="chat__spec">(${tr('观战')})</span>` : null}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>
+    <b class="chat__name">${l.name}${l.spectator ? html`<span class="chat__spec">(${t('观战')})</span>` : null}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>
   </li>`;
 }
 
@@ -130,7 +130,7 @@ async function sendLine(text) {
     await net.request('room.chat', { text });
     return null;
   } catch (err) {
-    return err?.code === 'RATE' ? '发送过快，请稍候' : err?.code === 'BAD_MSG' ? '无法发送空消息' : '发送失败';
+    return err?.code === 'RATE' ? t('发送过快，请稍候') : err?.code === 'BAD_MSG' ? t('无法发送空消息') : t('发送失败');
   }
 }
 
@@ -154,7 +154,7 @@ function ChatLog({ lines, myId }) {
     if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
   };
   return html`<ol class="chat__log" ref=${ref} onScroll=${onScroll} aria-live="polite">
-    ${lines.length ? lines.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} />`) : html`<li class="chat__empty">暂无消息</li>`}
+    ${lines.length ? lines.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} />`) : html`<li class="chat__empty">${t('暂无消息')}</li>`}
   </ol>`;
 }
 
@@ -176,10 +176,10 @@ function FactionPicker({ disabled }) {
   if (!seated) return null; // spectators have no faction
   return html`<div class="chat__fac">
     <button type="button" class=${cx('chat__facbtn', f && 'is-set')} style=${f ? `--fac:${f.color}` : ''} disabled=${disabled || busy}
-      aria-expanded=${open ? 'true' : 'false'} title="选择阵营" onClick=${() => setOpen(!open)}>${f ? (factionIconUrl(f) ? html`<${FactionIcon} f=${f} />` : f.name) : '阵营'}</button>
-    ${open ? html`<div class="chat__facs" role="group" aria-label="选择阵营">
+      aria-expanded=${open ? 'true' : 'false'} title=${t('选择阵营')} onClick=${() => setOpen(!open)}>${f ? (factionIconUrl(f) ? html`<${FactionIcon} f=${f} />` : t(f.name)) : t('阵营')}</button>
+    ${open ? html`<div class="chat__facs" role="group" aria-label=${t('选择阵营')}>
       ${CHAT_FACTIONS.map((x) => html`<button key=${x.id} type="button" class=${cx(x.id === mine && 'is-on')} style=${`--fac:${x.color}`}
-        aria-pressed=${x.id === mine ? 'true' : 'false'} onClick=${() => pick(x.id)}><${FactionIcon} f=${x} /><span>${x.name}</span></button>`)}
+        aria-pressed=${x.id === mine ? 'true' : 'false'} onClick=${() => pick(x.id)}><${FactionIcon} f=${x} /><span>${t(x.name)}</span></button>`)}
     </div>` : null}
   </div>`;
 }
@@ -202,7 +202,7 @@ function ChatInput({ disabled, inputRef, autoFocus = false, onEscape }) {
     e.preventDefault();
     const line = text.trim();
     if (!line || busy || disabled) return;
-    if (Date.now() - sentAt.current < CHAT_COOLDOWN_MS) { setErr('发送过快，请稍候'); return; }
+    if (Date.now() - sentAt.current < CHAT_COOLDOWN_MS) { setErr(t('发送过快，请稍候')); return; }
     sentAt.current = Date.now();
     setBusy(true);
     const fail = await sendLine(line);
@@ -217,9 +217,9 @@ function ChatInput({ disabled, inputRef, autoFocus = false, onEscape }) {
   return html`<form class="chat__form" onSubmit=${submit}>
     <${FactionPicker} disabled=${disabled} />
     <input ref=${ref} class="chat__input" type="text" value=${text} maxlength=${CHAT_MAX_LEN} enterkeyhint="send" autocomplete="off"
-      placeholder=${disabled ? '连接中断' : touchUi() ? '输入消息' : '输入消息，Enter 发送'} aria-label="聊天消息" disabled=${disabled}
+      placeholder=${disabled ? t('连接中断') : touchUi() ? t('输入消息') : t('输入消息，Enter 发送')} aria-label=${t('聊天消息')} disabled=${disabled}
       onInput=${(e) => setText(e.currentTarget.value)} onKeyDown=${onKey} data-i18n-skip="" />
-    <button type="submit" class="chat__send" disabled=${disabled || busy || !text.trim()} aria-label="发送" title="发送"><${Glyph} d=${SEND_D} /></button>
+    <button type="submit" class="chat__send" disabled=${disabled || busy || !text.trim()} aria-label=${t('发送')} title=${t('发送')}><${Glyph} d=${SEND_D} /></button>
     ${err ? html`<span class="chat__err" role="status">${err}</span>` : null}
   </form>`;
 }
@@ -263,13 +263,13 @@ export function RoomChat() {
   }, [open]);
   const unread = open ? 0 : unreadCount(lines, myId, seen);
   if (!open) {
-    return html`<button type="button" class="chat-fold" onClick=${() => toggle(true)} aria-label="打开聊天">
-      <${Glyph} d=${CHAT_D} /><span>聊天</span>${unread ? html`<b class="chat__badge num">${unread > 99 ? '99+' : unread}</b>` : null}
+    return html`<button type="button" class="chat-fold" onClick=${() => toggle(true)} aria-label=${t('打开聊天')}>
+      <${Glyph} d=${CHAT_D} /><span>${t('聊天')}</span>${unread ? html`<b class="chat__badge num">${unread > 99 ? '99+' : unread}</b>` : null}
     </button>`;
   }
-  return html`<section class="chat chat--room" aria-label="聊天">
-    <header class="chat__head"><${Glyph} d=${CHAT_D} /><span>同盟通讯</span>
-      <button type="button" class="chat__x" onClick=${() => toggle(false)} aria-label="收起聊天" title="收起">–</button>
+  return html`<section class="chat chat--room" aria-label=${t('聊天')}>
+    <header class="chat__head"><${Glyph} d=${CHAT_D} /><span>${t('同盟通讯')}</span>
+      <button type="button" class="chat__x" onClick=${() => toggle(false)} aria-label=${t('收起聊天')} title=${t('收起')}>–</button>
     </header>
     <${ChatLog} lines=${lines} myId=${myId} />
     <${ChatInput} disabled=${!online} inputRef=${inputRef} />
@@ -316,10 +316,10 @@ export function GameChat({ open, onToggle, disabled = false }) {
   const unread = open ? 0 : unreadCount(lines, myId, seen);
   return html`<div class="gchat">
     <button type="button" class=${cx('gchat__btn', open && 'is-on')} onClick=${() => onToggle(!open)}
-      aria-expanded=${open ? 'true' : 'false'} aria-label="聊天" title="聊天 (Enter)">
+      aria-expanded=${open ? 'true' : 'false'} aria-label=${t('聊天')} title=${t('聊天 (Enter)')}>
       <${Glyph} d=${CHAT_D} />${unread ? html`<b class="chat__badge num">${unread > 99 ? '99+' : unread}</b>` : null}
     </button>
-    ${open ? html`<section class="chat chat--game" role="dialog" aria-label="聊天">
+    ${open ? html`<section class="chat chat--game" role="dialog" aria-label=${t('聊天')}>
       <${ChatLog} lines=${lines} myId=${myId} />
       <${ChatInput} disabled=${disabled || !online} autoFocus=${true} onEscape=${() => onToggle(false)} />
     </section>` : null}

@@ -209,7 +209,7 @@ const BLEND = { 0: THREE.ZeroFactor, 1: THREE.OneFactor, 2: THREE.DstColorFactor
   4: THREE.OneMinusDstColorFactor, 5: THREE.SrcAlphaFactor, 6: THREE.OneMinusSrcColorFactor, 7: THREE.DstAlphaFactor,
   8: THREE.OneMinusDstAlphaFactor, 9: THREE.SrcAlphaSaturateFactor, 10: THREE.OneMinusSrcAlphaFactor };
 
-const VERT = /* glsl */`
+const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   attribute vec3 iPos; attribute vec3 iSize; attribute vec3 iRot; attribute vec4 iColor; attribute vec4 iC1; attribute vec4 iC2;
   attribute vec4 iUV; attribute vec3 iVel;
   attribute vec4 vcol; uniform bool uVCol; uniform bool uRim;
@@ -275,7 +275,7 @@ const VERT = /* glsl */`
     gl_Position = projectionMatrix * vec4(cv.xyz + vec3(rc, 0.0), 1.0);
   }`;
 
-const FRAG = /* glsl */`
+const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   uniform sampler2D uMain; uniform vec4 uMainST; uniform vec2 uMainSpeed; uniform vec4 uTint; uniform float uOpacity;
   uniform bool uHasDisturb; uniform sampler2D uDisturb; uniform vec4 uDisturbST; uniform vec2 uDisturbSpeed; uniform vec2 uDisturbStr;
   uniform float uDisturbMain; uniform float uDisturbDissolve;

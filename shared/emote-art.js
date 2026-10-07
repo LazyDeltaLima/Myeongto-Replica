@@ -6,6 +6,7 @@
 // Pages of the user tab: the pictures in natural filename order (c2 before c10), six per page.
 
 import { EMOTE_CATALOG } from './constants.js';
+import { N_ } from './i18n.js';
 
 /** Emote sets a player can send from: the official pictures, or the user pictures below. */
 export const EMOTE_SETS = Object.freeze(['official', 'user']);
@@ -57,6 +58,7 @@ const sorted = [...EMOTE_CATALOG].sort((a, b) => userEmoteArt(a.id).localeCompar
 /** Pages of the user tab: { key, name, emotes } × 6. */
 export const USER_EMOTE_PAGES = Object.freeze(Array.from({ length: Math.ceil(sorted.length / 6) }, (_, i) => Object.freeze({
   key: `user${i + 1}`,
-  name: `用户表情 ${i + 1}`,
+  name: N_('用户表情 {n}'), // shown as t(name, { n }) (ui/emotes.js)
+  n: i + 1,
   emotes: Object.freeze(sorted.slice(i * 6, (i + 1) * 6)),
 })));

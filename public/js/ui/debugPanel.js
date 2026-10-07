@@ -12,6 +12,7 @@
 import { useState } from '../../vendor/hooks.module.js';
 import { html } from './components.js';
 import { act } from './gameActions.js';
+import { t, tName } from '../../../shared/i18n.js';
 
 const NONE = 'none';
 
@@ -29,17 +30,17 @@ export function DebugPanel({ debug, prep, diy }) {
   const [busy, setBusy] = useState(false);
   if (!debug || !Array.isArray(debug.candidates)) return null;
   const cand = debug.candidates.find((c) => c.charId === key) || debug.candidates[0];
-  const t = cand?.tiers?.[tier] || null;
+  const tierRec = cand?.tiers?.[tier] || null;
   const pick = cand && diy ? Object.entries(diy).find(([id, p]) => p && p.charId === cand.charId && id.startsWith(`chess_char_${tier}_`))?.[1] : null;
   const entry = pick ? { skill: pick.skillIndex, module: pick.uniEquipId ?? NONE } : null;
-  const skills = t?.skills || [];
-  const modules = t?.modules || [];
+  const skills = tierRec?.skills || [];
+  const modules = tierRec?.modules || [];
   const skill = [skillSel, entry?.skill, 0].find((v) => skills.some((s) => s.index === v)) ?? skills[0]?.index ?? null;
   const module = [moduleSel, entry?.module].find((v) => modules.some((m) => m.id === v)) ?? NONE;
   const reset = () => { setSkillSel(null); setModuleSel(null); };
   const toggle = async (e) => { setBusy(true); await act('dbg.funds', { on: !!e.currentTarget.checked }, { sfx: false }); setBusy(false); };
   const add = async () => {
-    if (!cand || !t) return;
+    if (!cand || !tierRec) return;
     setBusy(true);
     const fields = { charId: cand.charId, tier: Number(tier), golden: elite === 'b' };
     if (Number.isInteger(skill)) fields.skill = skill;
@@ -47,42 +48,42 @@ export function DebugPanel({ debug, prep, diy }) {
     await act('dbg.addDiy', fields, { sfx: 'pick' });
     setBusy(false);
   };
-  return html`<div class="dbgp" role="group" aria-label="调试面板">
+  return html`<div class="dbgp" role="group" aria-label=${t('调试面板')}>
     <button type="button" class="dbgp__head" onClick=${() => setOpen(!open)} aria-expanded=${open ? 'true' : 'false'}>
       <span>DEBUG</span><span class="dbgp__fold">${open ? '−' : '+'}</span>
     </button>
     ${open ? html`<div class="dbgp__body">
       <label class="dbgp__pin">
         <input type="checkbox" checked=${!!debug.fundsPin} disabled=${busy} onChange=${toggle} />
-        <span>${`调试用资金固定 ${debug.pinValue}`}</span>
+        <span>${t('调试用资金固定 {pinValue}', { pinValue: debug.pinValue })}</span>
       </label>
       <div class="dbgp__row">
-        <span class="dbgp__label">自选</span>
+        <span class="dbgp__label">${t('自选')}</span>
         <select value=${cand?.charId || ''} onChange=${(e) => { setKey(e.currentTarget.value); reset(); }}>
-          ${debug.candidates.map((c) => html`<option key=${c.charId} value=${c.charId}>${c.name}</option>`)}
+          ${debug.candidates.map((c) => html`<option key=${c.charId} value=${c.charId}>${tName(c.name)}</option>`)}
         </select>
       </div>
       <div class="dbgp__row">
         <select value=${tier} onChange=${(e) => { setTier(e.currentTarget.value); reset(); }}>
-          <option value="5">V阶</option><option value="6">VI阶</option>
+          <option value="5">${t('V阶')}</option><option value="6">${t('VI阶')}</option>
         </select>
         <select value=${elite} onChange=${(e) => setElite(e.currentTarget.value)}>
-          <option value="a">普通</option><option value="b">精锐</option>
+          <option value="a">${t('普通')}</option><option value="b">${t('精锐')}</option>
         </select>
       </div>
       <div class="dbgp__row">
-        <span class="dbgp__label">技能</span>
+        <span class="dbgp__label">${t('技能')}</span>
         <select value=${String(skill ?? '')} onChange=${(e) => setSkillSel(Number(e.currentTarget.value))}>
-          ${skills.map((s) => html`<option key=${s.index} value=${String(s.index)}>${`S${s.index + 1} · ${s.name}`}</option>`)}
+          ${skills.map((s) => html`<option key=${s.index} value=${String(s.index)}>${`S${s.index + 1} · ${tName(s.name)}`}</option>`)}
         </select>
       </div>
       ${elite === 'b' ? html`<div class="dbgp__row">
-        <span class="dbgp__label">模组</span>
+        <span class="dbgp__label">${t('模组')}</span>
         <select value=${module} onChange=${(e) => setModuleSel(e.currentTarget.value)}>
-          ${modules.map((m) => html`<option key=${m.id} value=${m.id}>${m.id === NONE ? '无模组' : `${m.type || m.id} · ${m.name}`}</option>`)}
+          ${modules.map((m) => html`<option key=${m.id} value=${m.id}>${m.id === NONE ? t('无模组') : `${m.type || m.id} · ${tName(m.name)}`}</option>`)}
         </select>
       </div>` : null}
-      <button type="button" class="dbgp__add" disabled=${busy || !prep || !cand} onClick=${add}>加入整备区</button>
+      <button type="button" class="dbgp__add" disabled=${busy || !prep || !cand} onClick=${add}>${t('加入整备区')}</button>
     </div>` : null}
   </div>`;
 }

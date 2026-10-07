@@ -19,7 +19,6 @@ import {
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
-import { tr } from '../i18n/i18n.js'; // local patch
 import { GuideButton } from '../ui/guide.js';
 import { LoadoutButton } from './loadout.js';
 import { net } from '../net.js';
@@ -107,7 +106,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
       <footer class="seat__foot">
         ${canAdd
           ? html`<${Button} variant="secondary" size="sm" icon="robot" block=${true} loading=${busy === `add`} onClick=${onAddBot}>${t('添加 AI 队友')}<//>`
-          : html`<span class="seat__state t-dim">${capped ? (facts.maxBots === 0 ? '本服务器未开放 AI 队友' : `AI 队友已达上限（${facts.maxBots}）`) : t('空位')}</span>`}
+          : html`<span class="seat__state t-dim">${capped ? (facts.maxBots === 0 ? t('本服务器未开放 AI 队友') : t('AI 队友已达上限（{maxBots}）', { maxBots: facts.maxBots })) : t('空位')}</span>`}
       </footer>
     </article>`;
   }
@@ -168,8 +167,7 @@ function SpectatorBar({ facts, myId, busy, onRemove, onSit }) {
 function InviteBox({ code, name, difficulty }) {
   const copy = async (what) => {
     // the copied link carries an invitation line (#103): 「{name}邀请你加入卫戍协议：盟约【{difficulty}】」
-    // local patch: tr() — the copied invite in our UI language (i18n patterns.json); the DOM translator never sees it
-    const invite = tr(t('{name}邀请你加入卫戍协议：盟约【{difficulty}】', { name: name ?? '', difficulty: DIFFICULTY_NAMES[difficulty] ? tr(t(DIFFICULTY_NAMES[difficulty])) : '' }));
+    const invite = t('{name}邀请你加入卫戍协议：盟约【{difficulty}】', { name: name ?? '', difficulty: DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : '' });
     const ok = await copyText(what === 'code' ? code : `${inviteLink(code)} ${invite}`);
     if (ok) toast(what === 'code' ? t('已复制同盟密钥 {code}', { code }) : t('已复制邀请链接'), 'success');
     else toast(t('复制失败，请手动复制'), 'warn');

@@ -30,7 +30,7 @@ import { GIcon } from './gameComponents.js';
 import { data, useData, localAsset, artUrls, nextArtUrl } from '../data.js';
 import { loadPref, savePref } from '../store.js';
 import { EMOTE_SETS, USER_EMOTE_PAGES, userEmoteArt, emoteSet } from '../../../shared/emote-art.js';
-import { t } from '../../../shared/i18n.js';
+import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -38,7 +38,7 @@ export const EMOTE_CSS_HREF = '/css/emotes.css';
 const PREF_THEME = 'emoteTheme';
 const PREF_SET = 'emoteSet';
 const PREF_USER_PAGE = 'emoteUserPage';
-const SET_LABEL = { official: '官方表情', user: '用户表情' };
+const SET_LABEL = { official: N_('官方表情'), user: N_('用户表情') };
 const SWIPE_PX = 40;      // horizontal drag distance that turns the page
 const DRAG_SLOP_PX = 8;   // below this a press is a tap, not a drag
 export const WHEEL_STEP_PX = 60;  // wheel / trackpad scroll that turns the page
@@ -371,12 +371,12 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
     ${open ? html`<div class=${cx('ewheel__panel', panelBg && 'has-sprite', cellBg && 'has-cell')} style=${panelStyle} role="dialog" aria-label=${t('交流')}>
       <div class="ewheel__tabs" role="tablist" aria-label=${t('表情类型')}>
         ${EMOTE_SETS.map((k) => html`<button key=${k} type="button" role="tab" class=${cx('ewheel__tab', k === set && 'is-on')}
-          aria-selected=${k === set ? 'true' : 'false'} onClick=${() => pickSet(k)}>${SET_LABEL[k]}</button>`)}
+          aria-selected=${k === set ? 'true' : 'false'} onClick=${() => pickSet(k)}>${t(SET_LABEL[k])}</button>`)}
       </div>
       <div class="ewheel__viewport" onPointerDown=${onPointerDown} onPointerMove=${onPointerMove}
         onPointerUp=${(e) => endDrag(e, false)} onPointerCancel=${(e) => endDrag(e, true)} onWheel=${onWheel}>
         <div key=${set + ':' + theme.key} class=${cx('ewheel__page', dir > 0 && 'is-from-right', dir < 0 && 'is-from-left', dx !== 0 && 'is-dragging')}
-          style=${dx ? `transform:translateX(${dx}px)` : ''} role="group" aria-label=${t(theme.name)} data-theme=${theme.themeId || theme.key}>
+          style=${dx ? `transform:translateX(${dx}px)` : ''} role="group" aria-label=${t(theme.name, { n: theme.n })} data-theme=${theme.themeId || theme.key}>
           ${theme.emotes.map((e) => html`<button key=${e.id} type="button" class="ewheel__item" data-emote=${e.id} aria-label=${t(e.label)}
               disabled=${cooling || disabled} onClick=${() => send(e.id)}>
             <${EmoteArt} id=${e.id} set=${set} />
@@ -387,7 +387,7 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
       <button type="button" class="ewheel__nav is-next" aria-label=${t('下一组表情')} disabled=${page >= pages.length - 1} onClick=${() => go(page + 1)}><${GIcon} name="chevronRight" /></button>
       <div class="ewheel__dots" role="tablist" aria-label=${t('表情主题')}>
         ${pages.map((th, i) => html`<button key=${th.key} type="button" role="tab" class=${cx('ewheel__dot', i === page && 'is-on')}
-          aria-selected=${i === page ? 'true' : 'false'} aria-label=${`${t(th.name)} ${i + 1}/${pages.length}`} onClick=${() => go(i)}></button>`)}
+          aria-selected=${i === page ? 'true' : 'false'} aria-label=${`${t(th.name, { n: th.n })} ${i + 1}/${pages.length}`} onClick=${() => go(i)}></button>`)}
       </div>
     </div>` : null}
   </div>`;
