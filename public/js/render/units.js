@@ -109,12 +109,21 @@ const nowMs = () => (globalThis.performance ? globalThis.performance.now() : Dat
 /**
  * local patch (official deploy, research/2026-10-07-deploy-drop): an allied unit with a Spine model
  * drops in by its own Start clip (103 of 143 operator skeletons fall from 0.6–7 body heights, landing at ~0.2 s) — no
- * alpha fade-in, no mint pillar (fx.deploy skips a `bornOfficial` view), a model that loads after the deploy catches up
- * with the clip, and the body starts dark for BORN_TINT_S (the capture's first frame, client `_disableBornTweenColor`;
+ * alpha fade-in, no mint pillar (fx.deploy skips a `bornOfficial` view), the ring and shadow before the body (BORN_LEAD_S),
+ * and the body starts dark for BORN_TINT_S (the capture's first frame, client `_disableBornTweenColor`;
  * ×(1 − BORN_TINT_K) and the length are [추정]).
  */
 const BORN_TINT_S = 0.1;
 const BORN_TINT_K = 0.4;
+/**
+ * Deployed before its model is in (a battle start builds every view and model at once: the models came 0.17–0.31 s after
+ * the 'deploy' in a real round 1): the ground ring + shadow show first, the body (model, diamond, bars) at least
+ * BORN_LEAD_S later, when the model is in, and Start plays from its start — the official round start shows rings and
+ * shadows ~0.1 s before the operators (`11-phase-drop-rings-first`); catching the clip up skipped the whole fall. One not in
+ * within BORN_WAIT_MAX_S shows the diamond as before. A model already shown (a prep placement, a redeploy) drops at once.
+ */
+const BORN_LEAD_S = 0.1;
+const BORN_WAIT_MAX_S = 1;
 /** Units with no art in the game data drawn as an ice diamond: 圣聆初雪 S2's frozen protection point (保护目标（冻结状态）, PRTS
  *  无头像; data/assets.json has no avatar or model for it, so the token fallback showed 圣聆初雪's own face) — the marker of a
  *  frozen gate. */
@@ -357,7 +366,7 @@ export class UnitView {
     this._elBar = null;           // { root, disc, bg, fill } sprites of the element gauge row, built on first use
     this._downRing = null;        // { disc, track, arc, text } sprites, built on first use
     this.alpha = 1; this.fadeIn = this.prep ? 1 : 0;
-    this.bornOfficial = false; this._bornT = 0; this._deployPending = null; // local patch: official drop-in (onDeploy)
+    this.bornOfficial = false; this._bornT = 0; this._bornWait = -1; // local patch: official drop-in (onDeploy; -1 = not waiting)
     this.lunge = 0; this.lungeDir = { x: 1, y: 0 };
     this.flash = 0;
     this.bob = Math.random() * Math.PI * 2;
@@ -515,13 +524,10 @@ export class UnitView {
       // no fallback diamond in between; a deploy clip it was playing goes on on the new model (an operator facing UP
       // redeployed: its Back model takes over from the Front model it lay down with)
       const swap = !!this.actor;
-      let deployed = swap && this.alive ? this.actor.deployElapsed() : null;
-      // local patch: deployed before its model loaded (a battle start's views are built and deployed in one frame) — the
-      // Start clip from where it would be, shown at once (no cross-fade from the diamond)
-      const pend = this._deployPending;
-      this._deployPending = null;
-      const late = !swap && pend != null && this.alive;
-      if (late) deployed = Math.max(0, ((nowMs() - pend) / 1000) * (this.ctx.animRate?.() || 1));
+      const deployed = swap && this.alive ? this.actor.deployElapsed() : null;
+      // local patch: deployed before its model loaded (a battle start) — shown at once, no cross-fade from the diamond;
+      // update() starts its Start clip (BORN_LEAD_S)
+      const late = !swap && this._bornWait >= 0 && this.alive;
       if (swap) this._dropActor();
       this.actor = actor;
       this._actorEntry = entry;
@@ -817,12 +823,14 @@ export class UnitView {
   }
 
   onDeploy() {
-    const official = !this.isEnemy && !!this.entry; // local patch: the official drop-in (BORN_TINT_S)
+    const official = !this.isEnemy && !!this.entry; // local patch: the official drop-in (BORN_LEAD_S, BORN_TINT_S)
     this.bornOfficial = official;
     this.fadeIn = official ? 1 : 0;
     if (!this.alive) this.revive();
-    if (this.actor) this.actor.deploy();
-    if (official) { this._bornT = BORN_TINT_S; this._deployPending = this.actor ? null : nowMs(); }
+    // a model already shown drops in at once; none yet (a battle start builds every view then): the ring and shadow
+    // first, update() plays Start once the model is in (BORN_LEAD_S)
+    if (official && !this.actor) { this._bornWait = 0; this._bornT = 0; }
+    else if (this.actor) { this.actor.deploy(); if (official) this._bornT = BORN_TINT_S; }
     return official;
   }
 
@@ -931,6 +939,12 @@ export class UnitView {
     // fades
     if (this.fadeIn < 1) this.fadeIn = Math.min(1, this.fadeIn + dt * 4);
     if (this._bornT > 0) this._bornT = Math.max(0, this._bornT - dt); // local patch: the dark first frames (BORN_TINT_S)
+    if (this._bornWait >= 0) { // local patch: the body waits BORN_LEAD_S (and for its model) before Start plays
+      this._bornWait += dt;
+      if (this.actor && this.spineReady && this._bornWait >= BORN_LEAD_S && this.alive) { this._bornWait = -1; this.actor.deploy(); this._bornT = BORN_TINT_S; }
+      else if (this._bornWait >= BORN_WAIT_MAX_S || !this.alive) this._bornWait = -1;
+    }
+    this.body.alpha = this._bornWait >= 0 ? 0 : 1;
     let alpha = this.fadeIn;
     if (this.down) {
       // knocked down: the Die clip ends and holds its last frame (the actor keeps its clock), no fade
@@ -1110,7 +1124,7 @@ export class UnitView {
     const bw = clamp(s * (this.isBoss ? UNIT.bossBarWidth : UNIT.barWidth), 24, this.isBoss ? 260 : 96);
     const bh = clamp(s * (this.isBoss ? 0.12 : 0.075), 3, this.isBoss ? 12 : 7);
     // a knocked-down operator's HUD is its redeploy ring alone, drawn at full strength over the greyed model
-    this.hud.alpha = this.down ? this.fadeIn : this.dying > 0 ? 0 : alpha;
+    this.hud.alpha = this._bornWait >= 0 ? 0 : this.down ? this.fadeIn : this.dying > 0 ? 0 : alpha; // local patch: bars with the body
     let sx = this.shake > 0 ? Math.sin(t * 90) * this.shake * 10 : 0;
     this.shake = Math.max(0, this.shake - dt);
     const x0 = x - bw / 2 + sx;

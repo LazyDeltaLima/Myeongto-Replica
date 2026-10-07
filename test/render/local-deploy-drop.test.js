@@ -1,7 +1,7 @@
 // test/render/local-deploy-drop.test.js — local patch (official deploy, research/2026-10-07-deploy-drop):
 // an allied unit with a Spine model drops in by its own Start clip — no alpha fade-in, no mint pillar (fx.deploy skips a
-// `bornOfficial` view), dark for the first BORN_TINT_S, and a model that loads after the deploy (a battle start builds
-// and deploys its views in one frame) still plays the clip from where it would be, shown at once.
+// `bornOfficial` view), dark for the first BORN_TINT_S; deployed before its model is in (a battle start builds and deploys
+// its views in one frame) the ring and shadow show first and the whole clip plays once the model is in (BORN_LEAD_S).
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -50,24 +50,44 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     assert.ok(e && e.anims?.deploy === 'Start' && e.animations.Start > 0.3);
   });
 
-  test('deployed before its model loaded (battle start): no fade, the Start clip once the model is in, no cross-fade', async () => {
+  test('deployed before its model loaded (battle start): ring + shadow first, then the whole Start clip from its start', async () => {
     const v = unit(store());
     assert.equal(v.actor, null, 'model still loading');
     assert.equal(v.onDeploy(), true, 'the official drop-in');
     assert.equal(v.bornOfficial, true);
     assert.equal(v.fadeIn, 1, 'no alpha fade-in');
+    frames(v, 1);
+    assert.equal(v.body.alpha, 0, 'no body (nor diamond) yet');
+    assert.equal(v.hud.alpha, 0, 'no bars yet');
+    assert.ok(v.shadow.alpha > 0.4, 'the shadow is there');
     await settle();
     assert.ok(v.actor, 'model in');
-    assert.equal(v.actor.mode, 'deploy', 'the Start clip plays (it used to stand in Idle)');
-    assert.equal(v.swapT, 1, 'shown at once');
-    frames(v, 2);
-    assert.ok(v.alpha >= 0.999, `opaque (alpha ${v.alpha})`);
+    assert.equal(v.swapT, 1, 'shown at once when it appears (no cross-fade)');
+    assert.notEqual(v.actor.mode, 'deploy', 'Start waits for BORN_LEAD_S');
+    frames(v, 3);
+    assert.equal(v.body.alpha, 0);
+    frames(v, 4);                                       // 0.13 s since the deploy
+    assert.equal(v.body.alpha, 1, 'the body shows');
+    assert.equal(v.actor.mode, 'deploy', 'Start plays');
+    assert.ok(v.actor.deployElapsed() < 0.05, `from its start (${v.actor.deployElapsed()})`);
+    frames(v, 1);
     const dark = v._tint;
     assert.ok(((dark >> 16) & 255) < 255, `dark first frames (tint ${dark?.toString(16)})`);
     frames(v, 12);
     assert.equal(v._tint, 0xffffff, 'normal colour after BORN_TINT_S');
     frames(v, 60);
     assert.notEqual(v.actor.mode, 'deploy', 'the clip ends');
+  });
+
+  test('a model that never comes: the diamond after BORN_WAIT_MAX_S', () => {
+    const s = store();
+    s.spine.acquire = () => new Promise(() => {});
+    const v = unit(s);
+    assert.equal(v.onDeploy(), true);
+    frames(v, 30);
+    assert.equal(v.body.alpha, 0);
+    frames(v, 40);                                      // > 1 s
+    assert.equal(v.body.alpha, 1, 'the diamond shows');
   });
 
   test('a model already shown plays Start at once; enemies and model-less views keep the old fade', async () => {
