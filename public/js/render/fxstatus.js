@@ -111,7 +111,7 @@ export function syncStatusFx(views, fxGame, battle) {
       const [bundle, name, frac, hold] = STATUS_FX[k];
       if (fxGame.statusReady(bundle, name)) fxGame.statusOn(v, bundle, name, k, frac, hold);
     }
-    if (on) for (const k of [...on]) if (!want.has(k)) fxGame.statusOff(v, k);
+    if (on) for (const k of [...on]) if (!want.has(k) && STATUS_FX[k]) fxGame.statusOff(v, k); // local patch: not the prep 'golden' glow (fxgolden.js)
   }
 }
 

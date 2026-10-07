@@ -363,7 +363,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   const ownerOf = (v) => v.id ?? v.info?.id;
   const statusFailed = new Set();   // `${bundle}/${name}` that did not load: their units keep the icon (statusReady false)
-  async function playStatus(view, bundle, name, key, frac, hold = null) {
+  async function playStatus(view, bundle, name, key, frac, hold = null, under = false) {
     if (!(await ensure())) return;
     const def = await lib.load(bundle, name);
     if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
@@ -376,10 +376,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // local patch: status prefabs are NOT split — their renderers are sortingOrder 0 / fudge 0 (buff_autochess_frozen's
     // block too), which the split puts behind the unit, while the client sorts them by depth and the 冻结 block covers the
     // model (user capture 9); drawn over the units as before (the snowflake / fist over heads, capture 10)
-    const split = false;
+    // local patch (user request 2026-10-08): `under` (the prep elite glow, fxgolden.js — its glow / sparks are sortingOrder -1,
+    // behind the model) splits by sorting at 'high' like a caster's effect, else draws under the units
+    const split = !!under && splitOn();
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
-    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold), unit: view }, split ? layers.split : layers.over);
+    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold, under), unit: view }, split ? layers.split : under ? layers.under : layers.over);
     while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
   }
 
@@ -898,11 +900,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     /** local patch (⑤): whether the shared status prefab `bundle`/`name` can play (index loaded, not 'low', listed). */
     statusReady(bundle, name) { return !!(index && !failed && q() !== 'low' && index.bundles?.[bundle]?.includes(name) && !statusFailed.has(`${bundle}/${name}`)); },
     /** local patch (⑤): loop `bundle`/`name` on `view` as its status `key` (once per key) at `frac` of its height. */
-    statusOn(view, bundle, name, key, frac = 0, hold = null) {
+    statusOn(view, bundle, name, key, frac = 0, hold = null, under = false) {
       const on = view._fxStatusOn || (view._fxStatusOn = new Set());
       if (on.has(key)) return;
       on.add(key);
-      playStatus(view, bundle, name, key, frac, hold);
+      playStatus(view, bundle, name, key, frac, hold, under);
     },
     /** local patch (⑤): end the status effect `key` on `view`. */
     statusOff(view, key) {

@@ -1120,6 +1120,20 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     오퍼레이터의 칩(`tier`)을 단다(`app.js pieceInfo` `chip`, `units.js` 칩 생성 조건). 주인을 못 찾으면 예전처럼 칩 없음. 전투 중에는 오퍼레이터처럼 칩 없음.
     칩 높이는 오퍼레이터와 같은 화면 고정 위치(발 기준)라 작은 소환물(드론) 위에서는 떠 보인다 — 공식 캡처로 확인할 것 [추정].
     확인: Windows `sp-check\tokchip.mjs <port>`(game-mock PREP에 주인 있는 드론을 보드·벤치에 추가) → `tokchip3.png`.
+
+### 정예 기물 금빛 (2026-10-08, 사용자 요청 「정예화된 오퍼는 휴식 기간에 황금빛으로 빛나는 이펙트」)
+- 근거: zh_CN `gamedata/battle/battle_misc_table.json` `miscConfig.AUTOCHESS.act1autochess`·`act2autochess.effectConfig.goldenEffectId`
+  = `trap_acgarm_buff_loop_01`(클래스 `AutoChessBattleMiscConfig.EffectConfig`). 메타데이터: 정비 기물은 더미(`CreateDummyOnTile` → `_DoCreateOnTile` →
+  `_CreateGoldEffectIfNeed`) — 전투 유닛은 더미가 아니라 전투 중에는 없음. 프리팹은 `battle/prefabs/effects/trap.ab`(EN 클라이언트), `_spawnLocation` 1(발),
+  4초 루프: 금빛 glow(`bg_011_dm`, AlphaBlend)·위로 오르는 불티(`spark_p_02`)는 sortingOrder −1(모델 뒤), 별빛 메시·`bao` 2개는 0.
+- 구현: `render/fxgolden.js syncGoldenFx`(매 프레임, `app.js`가 `mode === 'prep'`일 때) → `fxgame.js statusOn(…, 'golden', 0, null, under=true)`.
+  `under`는 상태 이펙트와 달리 'high'+3D 보드에서 렌더러별 분할(−1은 모델 뒤), 그 밖에는 유닛 아래 캔버스. `fxstatus.js syncStatusFx`는 자기 키(STATUS_FX)만 끈다.
+  공식 이펙트가 도는 동안 원본의 절차 금빛 오라(`units.js aura`)는 숨김(전투 중 오라는 그대로).
+- 보이는 모습: 몸 뒤 은은한 금빛 + 머리 위로 오르는 금색 불티. 몸이 glow를 대부분 가린다(데이터대로) — 공식 캡처와 비교 [추정].
+  보드와 벤치 모두 [추정](벤치 기물도 더미 `placeToHand`). 소환물·적·장치 제외.
+- 소재(git 밖): `fx_extract.py --bundle trap --prefab trap_acgarm_buff_loop_01` → `public/assets/local/fx/trap/`, 텍스처 6·메시 1, `fx/index.json`의 `trap`.
+- 테스트 `test/local-patch-golden.test.js`. 확인: Windows `sp-check\goldglow.mjs`·`goldglow2x.mjs <port> <tag> <ms csv>`(game-mock PREP, 보드·벤치 기물 하나씩
+  golden) → `goldfinal-bench.png`, 프리팹 단독 `gold_seq.mjs`(→ `gold_seq.png`).
   - **나뭇잎 텍스처 폐기** (2026-10-08 사용자 「한번도 실제 인게임에서 해당 나뭇잎 텍스처를 못 봤어. 그 텍스처는 폐기해」): `common_stealth` 프리팹과
     `tex/common_leaf_*.webp`를 추출물·`fx/index.json`에서 지우고, `fx_extract.py DISCARD`로 재추출에서도 뺀다. 서버 assets/local/fx에 남은 사본은
     어디서도 참조하지 않는다(rsync `--delete`를 안 쓰면 남음 — 지워도 됨).

@@ -1083,6 +1083,7 @@ export class UnitView {
     if (this.aura) {
       const k = 0.35 + 0.12 * Math.sin(t * 2.2 + this.bob);
       this.aura.alpha = k;
+      this.aura.visible = !this._fxStatusOn?.has('golden'); // local patch: the official prep glow instead (fxgolden.js)
       this.aura.scale.set((s * 1.3) / 128, (s * 1.9) / 128);
     }
 

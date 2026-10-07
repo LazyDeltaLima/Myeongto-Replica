@@ -131,6 +131,7 @@ import { pickOnTile, pickBattle, hitRectAt, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
 import { createFxLayer } from './fxgame.js'; // local patch: official battle effects
 import { syncStatusFx } from './fxstatus.js'; // local patch: official status effects
+import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
 
 const VENDOR = { pixi: '/vendor/pixi.min.js', spine: '/vendor/pixi-spine.js' };
 const PIECE_DIRS = new Set(['UP', 'RIGHT', 'DOWN', 'LEFT']);
@@ -1927,6 +1928,7 @@ export async function createFieldView(host, options = {}) {
       tiles.update(dt);
       fx.update(dt);
       syncStatusFx(views, fxGame, mode === 'battle'); // local patch: official status effects (fxstatus.js)
+      syncGoldenFx(views, fxGame, mode === 'prep'); // local patch: the official elite glow in the prep (fxgolden.js)
       fxGame.update(dt, cam, vp); // local patch
       impostors.flush();
     } catch (err) {
