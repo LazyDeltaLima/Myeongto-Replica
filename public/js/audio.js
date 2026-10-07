@@ -89,7 +89,9 @@ export function kitHitKey(fx, ex, unitOf) {
   const def = (id) => unitOf(id)?.def || '';
   switch (fx) {
     case 'kitHit': return typeof ex.k === 'string' ? ex.k : null;
-    case 'zone': return ex.token === 'token_10064_wang_stone1' && [1, 2, 3].includes(ex.skill) ? `wang:${ex.skill}` : null;
+    // local patch (user report 2026-10-07 #5): S1's impact is its DoT's (kitHit wang:1, every tick — client
+    // wang_stone1_t[damage_audio]); the pop itself sounds through kitStartKey
+    case 'zone': return ex.token === 'token_10064_wang_stone1' && [2, 3].includes(ex.skill) ? `wang:${ex.skill}` : null;
     case 'wangLink': return ex.first ? 'wang:link' : null;
     case 'swordStorm': return ex.id != null && def(ex.id) === 'char_1050_chen3' ? 'chen3:s2' : null;
     // local patch (user report 2026-10-07 #10): 蕾缪安 S3 — the bombardment's start (first shell), each landing, the lock
@@ -106,6 +108,19 @@ export function kitHitKey(fx, ex, unitOf) {
     }
     default: return null;
   }
+}
+/**
+ * local patch (user report 2026-10-07 #5): the sound a kit plays as its skill goes off, before / beside its impact
+ * (kitHitKey) — 望's stone pop: a placed stone's sktok_wang_<n> ON_ABILITY_START (p_atk_stwctp_d / _h / _s); a 跟子 (a
+ * projectile of hers) sounds the same file through its projectile_chr_wang_stone<n> bank, but for S2
+ * (ON_PROJECTILE_BEHAVIOUR_TRIGGER, p_atk_stwctps_h). A 跟子 landing (summon fx `follower`): ON_PROJECTILE_BORN.
+ * @returns {string|null} sfx.kit key
+ */
+export function kitStartKey(fx, ex) {
+  if (!ex || typeof ex !== 'object') return null;
+  if (fx === 'zone' && ex.token === 'token_10064_wang_stone1' && [1, 2, 3].includes(ex.skill)) return ex.follower && ex.skill === 2 ? 'wang:2fs' : `wang:${ex.skill}s`;
+  if (fx === 'summon' && ex.follower) return 'wang:thrown';
+  return null;
 }
 /** A 'dmg' later than this (real ms) after the attack aimed at the target is not that attack's impact. */
 const IMPACT_WINDOW_MS = 2500;
@@ -1135,13 +1150,18 @@ export class AudioManager {
           // local patch (user report 2026-10-07 #1): a piece dropped in by the prep just before the battle began sounded there
           const prep = this._prepDeployAt?.get(u.def);
           if (prep != null && now - prep < PREP_DEPLOY_OVERLAP_MS) continue;
+          // local patch (user report 2026-10-07 #1): 望's 跟子 is a projectile of hers (PRTS) — it lands with
+          // ON_PROJECTILE_BORN (kitStartKey 'wang:thrown', its summon fx `follower` in the same tick), not as a stone's birth
+          if (ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
           this.playDeploySfx(u, e[1]);
         } else if (kind === 'fx') {
           // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
-          const hk = kitHitKey(e[1], e[4], (id) => this.units.get(id));
-          const hurl = hk ? this.getManifest()?.audio?.sfx?.kit?.[hk] : null;
-          if (typeof hurl === 'string') this._play(hurl, { volume: groupGain(this.getManifest()?.audio?.sfx?.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, unitKey: `kit:${hk}`,
-            pop: this.getManifest()?.audio?.sfx?.kitLimit?.[hk] ?? null }); // local patch: its mixer group; its bank's popOldest (sfx.kitLimit)
+          // local patch (user report 2026-10-07 #5): the skill's going-off sound first (kitStartKey), then its impact
+          for (const hk of [kitStartKey(e[1], e[4]), kitHitKey(e[1], e[4], (id) => this.units.get(id))]) {
+            const hurl = hk ? this.getManifest()?.audio?.sfx?.kit?.[hk] : null;
+            if (typeof hurl === 'string') this._play(hurl, { volume: groupGain(this.getManifest()?.audio?.sfx?.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, unitKey: `kit:${hk}`,
+              pop: this.getManifest()?.audio?.sfx?.kitLimit?.[hk] ?? null }); // local patch: its mixer group; its bank's popOldest (sfx.kitLimit)
+          }
           // a summon used up by its own effect (香槟炸弹 exploding: `consumed`): its impact sound now, no death sound
           const ex = e[4];
           if (!ex || typeof ex !== 'object' || !ex.consumed || ex.id == null) continue;

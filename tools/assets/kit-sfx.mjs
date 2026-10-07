@@ -10,6 +10,14 @@ export const KIT_HIT_BANKS = Object.freeze({
   'wang:2': 'battle.ON_ABILITY_HIT.sktok_wang_2.extra.0',
   'wang:3': 'battle.ON_ABILITY_HIT.sktok_wang_3',
   'wang:link': 'battle.ON_CUSTOM_TRIGGER.wang_stone1_line_up',
+  // local patch (user report 2026-10-07 #5): the pop itself (public/js/audio.js kitStartKey) — a placed stone's token
+  // ability start; a 跟子's (projectile) S2 behaviour trigger; a 跟子 landing (its projectile birth, #1). 'wang:1' (the
+  // impact) now sounds on every tick of S1's DoT (wang_stone1_t[damage_audio], triggerInterval 1 — kits/diy.js)
+  'wang:1s': 'battle.ON_ABILITY_START.sktok_wang_1',
+  'wang:2s': 'battle.ON_ABILITY_START.sktok_wang_2.extra.0',
+  'wang:2fs': 'battle.ON_PROJECTILE_BEHAVIOUR_TRIGGER.projectile_chr_wang_stone2',
+  'wang:3s': 'battle.ON_ABILITY_START.sktok_wang_3',
+  'wang:thrown': 'battle.ON_PROJECTILE_BORN.projectile_chr_wang_stone1',
   // 赤刃明霄陈: S2 slashes, S3 剑气 (projectile_chr_chen3_s3)
   'chen3:s2': 'battle.ON_ABILITY_HIT.skchr_chen3_2',
   'chen3:s3': 'battle.ON_PROJECTILE_HIT.projectile_chr_chen3_s3',

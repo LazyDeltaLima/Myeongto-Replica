@@ -1075,6 +1075,9 @@ describe('선발 오퍼레이터 kits (server/sim/content/kits/diy.js)', () => {
     const ticks = d.hooksOf('damaged').filter((x) => x.dmg?.tags?.includes('dot') && x.dmg?.tags?.includes('trap'));
     const first = ticks.filter((x) => x.dmg.sourceless);
     assert.ok(first.length >= 7 && first.length % 7 === 0, `7 ticks per trigger (${first.length}, since ${t0.toFixed(1)})`);
+    // user report 2026-10-07 #5: every tick sends its impact sound (client wang_stone1_t[damage_audio], triggerInterval 1)
+    const snd = d.events.filter((e) => e[0] === 'fx' && e[1] === 'kitHit' && e[4]?.k === 'wang:1');
+    assert.equal(snd.length, ticks.length, 'one kitHit wang:1 per DoT tick');
     // 望 leaves: every stone of hers dies; they come back (DP) once she stands again
     const k = makeBattle({ seed: 5, captureNoisy: true, units: [{ chessId: 'chess_diy_wang_6_b', row: 11, col: 3, uid: 1, skillIndex: 0 }, stone(9, 6, 50), stone(9, 7, 51)], enemies: [{ key: ENEMY, time: 40, route: 0, count: 1 }] });
     k.step(2);
@@ -2146,7 +2149,8 @@ describe('kit skill hit sounds (tools/assets/kit-sfx.mjs → sfx.kit, public/js/
       [4, { def: 'char_1038_whitw2', skillIndex: 2 }], [5, { def: 'char_4182_oblvns' }], [6, { def: 'char_263_skadi' }]]);
     const of = (id) => units.get(id);
     const cases = [
-      ['zone', { token: 'token_10064_wang_stone1', skill: 3 }, 'wang:3'], ['zone', { token: 'token_10064_wang_stone1', skill: 1 }, 'wang:1'],
+      ['zone', { token: 'token_10064_wang_stone1', skill: 3 }, 'wang:3'], ['zone', { token: 'token_10064_wang_stone1', skill: 1 }, null],
+      ['kitHit', { k: 'wang:1', id: 7 }, 'wang:1'],
       ['wangLink', { first: true }, 'wang:link'], ['wangLink', { first: false }, null],
       ['kitHit', { k: 'chen3:s3', id: 1 }, 'chen3:s3'], ['swordStorm', { id: 1 }, 'chen3:s2'], ['swordStorm', { x: 1 }, null],
       ['bombardShell', { id: 2 }, 'wisdel:s2'], ['explode', { by: 2 }, 'wisdel:bomb'], ['explode', { by: 6 }, null],
@@ -2155,6 +2159,18 @@ describe('kit skill hit sounds (tools/assets/kit-sfx.mjs → sfx.kit, public/js/
       ['drone', { id: 4 }, 'whitw2:s3'], ['drone', { id: 6 }, null], ['zone', { token: 'x', skill: 1 }, null],
     ];
     for (const [fx, ex, want] of cases) assert.equal(kitHitKey(fx, ex, of), want, `${fx} ${JSON.stringify(ex)}`);
+  });
+
+  test('望 (user report 2026-10-07 #5): a stone pop sounds its token ability start, a 跟子 landing its projectile birth', async () => {
+    const { kitStartKey } = await import('../public/js/audio.js');
+    const W = 'token_10064_wang_stone1';
+    const cases = [
+      ['zone', { token: W, skill: 1 }, 'wang:1s'], ['zone', { token: W, skill: 1, follower: true }, 'wang:1s'],
+      ['zone', { token: W, skill: 2 }, 'wang:2s'], ['zone', { token: W, skill: 2, follower: true }, 'wang:2fs'],
+      ['zone', { token: W, skill: 3 }, 'wang:3s'], ['zone', { token: 'x', skill: 1 }, null],
+      ['summon', { id: 3, follower: true }, 'wang:thrown'], ['summon', { id: 3 }, null], ['kitHit', { k: 'wang:1' }, null],
+    ];
+    for (const [fx, ex, want] of cases) assert.equal(kitStartKey(fx, ex), want, `${fx} ${JSON.stringify(ex)}`);
   });
 
   test('赤刃明霄陈 S3: a 剑气 step that strikes sends kitHit chen3:s3 (her official projectile hit sound)', async () => {

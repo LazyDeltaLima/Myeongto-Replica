@@ -1284,6 +1284,24 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   `sp-check\snd_prep.mjs <port> <out>`: 솔로 판, 1라운드 정비에서 구매 → 보드 → 벤치, 자동 배치, 전투 시작) — 세 경로 모두 b_char_set,
   전용 소리(b_char_tpartclce·snwlprdg·p_skill_frbytrtn_bn) 확인, 전투 뒤 정비 시작에 전체가 울리지 않음.
 
+### 望 棋子 효과음 (사용자 제보 2026-10-07 #5 「터질 때 뭔가 빠진 느낌」, #1 재능 바둑돌 배치음)
+- 공식(EN `audio_data.json` + zh_CN `buff_template_data.json`): 놓은 바둑돌(토큰)이 터지면 그 토큰 능력 `ON_ABILITY_START.sktok_wang_<n>`
+  = **p_atk_stwctp_d / _h / _s**(Battle_P_SAtk) + 타격 p_imp_stwctp_*(Battle_P_SImp). 우리는 타격음만 냈다(빠진 쪽 = 터지는 소리 자체).
+  - S1 取势 타격 `wang_stone1_t[damage_audio]`: 적에게 거는 `wang_stone1_t[damage]`(지속 `sluggish`, `triggerInterval 1`, 첫 발 즉시)의 자식 버프가
+    **매 틱** p_imp_stwctp_d를 튼다 → 6.5초 동안 7번. 우리는 터질 때 1번이었다.
+  - 재능 바둑돌(跟子 = 望의 투사체, PRTS): S1·S3는 같은 파일(`ON_PROJECTILE_HIT.projectile_chr_wang_stone1`, `BEHAVIOUR_TRIGGER.…stone3`),
+    S2는 `ON_PROJECTILE_BEHAVIOUR_TRIGGER.projectile_chr_wang_stone2` = p_atk_stwctps_h.
+  - 배치음: 수동(놓은·재배치) 바둑돌 = 토큰 탄생 `ON_UNIT_BORN.token_10064_wang_stone1` p_imp_stwctptkin, 재능 바둑돌 = 투사체 탄생
+    `ON_PROJECTILE_BORN.projectile_chr_wang_stone1~3` **p_imp_stwctptkpa** — 두 소리가 다르다(사용자: 둘 다 소리 남).
+- 고친 것: `tools/assets/kit-sfx.mjs` 키 5개(`wang:1s/2s/2fs/3s`, `wang:thrown`, 파일 5개 새로 받음), `audio.js kitStartKey`(터지는 소리 → 그다음 `kitHitKey` 타격),
+  S1의 `wang:1`은 `kits/diy.js` DoT 틱마다 소리 전용 fx `kitHit`(`zone`에서는 S1 타격음을 빼 이중 재생 없음). 재능 바둑돌은 같은 틱의 `summon` fx `follower`
+  (이펙트 세션이 넣은 플래그)로 알아보고 토큰 탄생음 대신 `wang:thrown`.
+- 안 한 것 [추정]: 다 쓴 바둑돌의 `ON_UNIT_DEAD`(b_char_tokendead) — 우리 시뮬레이션은 터진 바둑돌을 퇴장시키지만 `consumed`라 무음으로 둔다(공식이 이때 죽음 소리를
+  내는지 자료로 확인 못 함 — 사용자 귀로 확인 필요). 동시에 여럿 터질 때 공식 popOldest(최대 1~2)보다 우리 제한기(키별 160ms)가 더 줄인다.
+- 확인: `test/local-patch.test.js` 「望 client-data rules」(틱 수 = kitHit 수, 시뮬 수정 전 실패 확인), 「望 (user report 2026-10-07 #5)」, `test/local-patch-audio.test.js`
+  「望 stone pop」·跟子 배치. 디버그 아레나(Windows `sp-check\snd_wangpop.mjs <port> <skill> <ms>`: 샌드백을 활성 바둑돌 칸으로 옮김) —
+  S1 p_atk_stwctp_d + p_imp_stwctp_d, 이후 1초마다 p_imp_stwctp_d(총 7), S2 _h, S3 _s, 재배치 바둑돌 tkin, 재능 바둑돌 tkpa(tkin 없음).
+
 ## 원본 버그 수정 선반영 (2026-10-07, 사용자 요청 「upstream에 보고된 버그 중 쉬운 것 바로 수정」)
 upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 코드·테스트를 그대로** 옮기는 것이 목적이라 `// local patch` 주석을 달지 않고,
 "원본 테스트 파일은 고치지 않는다" 원칙의 예외로 원본이 같이 고친 테스트도 그대로 가져왔다(0.2.0 병합 때 같은 줄이 되어 사라진다).
