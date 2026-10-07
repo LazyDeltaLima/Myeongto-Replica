@@ -72,7 +72,8 @@ import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIcon
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
 import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local patch
 import { UF_CAMOU } from '../../../shared/local.js'; // local patch: 迷彩 icon
-import { AllyBars, hudUnit, hudAnchorY, prepChip, PREP_CHIP, ALLY_BAR, EquipBar, equipTextures } from './hud-bars.js'; // local patch: official battle HUD
+import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
+import { AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -585,7 +586,9 @@ export class UnitView {
     h.addChild(this.spGlow);
     // nothing shows until the first HUD update decides (a culled or prep view never draws bars)
     for (const b of [this.hpBg, this.hpGhost, this.hpFill, this.shieldBar, this.spBg, this.spFill, this.spGlow]) b.visible = false;
-    this.lpBars = this.isEnemy ? null : new AllyBars(P, h); // local patch: official ally bars (hud-bars.js)
+    // local patch: official bars (hud-bars.js) — allies, enemies, bosses and the 卫戍协议 giant bosses
+    const giant = this.isEnemy ? giantBossOf(this.info) : null;
+    this.lpBars = !this.isEnemy ? new AllyBars(P, h) : new EnemyBars(P, h, giant ? 'giant' : this.isBoss ? 'boss' : 'normal', giant);
     this.ammo = null;
     this.chip = null;
     // operators only: summon tokens have no tier (hand and field alike)
@@ -667,6 +670,7 @@ export class UnitView {
     if (s.maxHp > 0) this.maxHp = s.maxHp;
     const hp = clamp(s.hp, 0, this.maxHp);
     if (hp < this.hp - 0.5 && this.isBoss) this.shake = 0.25;
+    if (hp < this.hp - 0.5 && this.lpBars?.hit) this.lpBars.hit(); // local patch: a giant boss's hit flash
     this.hp = hp;
     this.sp = s.sp; this.spMax = s.spMax;
     this.ammo = s.ammo || null; // local patch: official bullet bar (b.snap `ammo`)
@@ -996,7 +1000,16 @@ export class UnitView {
     // on the board (app.js sets _showFacing; bench pieces have none); battle / scouting allies whose dir is known
     let wedge = this._showFacing !== undefined ? this._showFacing && this.prep : this.hasDir && this.info.kind !== 'device';
     if (wedge && facingless(this.info.defId)) wedge = false; // local patch: summons placed without a facing
-    if (wedge && this.alive) {
+    // local patch (LOCAL-PATCH.md 「전투 화면 UI」): the official ring + arrow on the ground when the art is there (facing.js)
+    const facingTex = wedge && this.alive ? facingTextures(P, this.ctx.assets) : null;
+    if (facingTex) {
+      if (!this._facing) this._facing = new FacingMarker(P, facingTex);
+      placeOnGround(this.ctx, this._facing.root, this.ctx.layers.groundFx, this.y, this.z);
+      this._facing.root.visible = this.lift <= 0;
+      this._facing.update(cam, this.x, this.y, this.z + 0.01, DIR_STEP[this.dir] || DIR_STEP.RIGHT, alpha);
+      if (this.facingArrow) this.facingArrow.visible = false;
+    } else if (this._facing) this._facing.root.visible = false;
+    if (wedge && this.alive && !facingTex) {
       if (!this.facingArrow) {
         this.facingArrow = new P.Sprite(fxAtlas().tex.chevron);
         this.facingArrow.anchor.set(0.5);
@@ -1054,7 +1067,7 @@ export class UnitView {
       this.root.visible = !off;
       this.hud.visible = !off;
       this.shadow.visible = !off;
-      if (off) { if (this.facingArrow) this.facingArrow.visible = false; this.blockIcon.visible = false; }
+      if (off) { if (this.facingArrow) this.facingArrow.visible = false; if (this._facing) this._facing.root.visible = false; this.blockIcon.visible = false; }
     }
     if (off) this._offDt += dt * (this.ctx.animRate?.() || 1);
     return off;
@@ -1083,7 +1096,11 @@ export class UnitView {
       if (this.ghostHp < this.hp) this.ghostHp = this.hp;
       else this.ghostHp = Math.max(this.hp, this.ghostHp - this.maxHp * dt * 0.9);
       const g = this.maxHp > 0 ? clamp(this.ghostHp / this.maxHp, 0, 1) : 0;
-      if (lp) {
+      if (lp && this.isEnemy) {
+        // (an enemy's SP is 圣堂剑士's bullets alone: sim/content/local-patch.js)
+        lpBottom = this.lpBars.update(this.screen.x, this.screen.y, hudUnit(this.ctx.viewport?.()), s, dt,
+          { hp: k, ghost: g, ammo: this.spMax > 0 ? [this.sp, this.spMax] : null }, this.ctx.assets);
+      } else if (lp) {
         const u = hudUnit(this.ctx.viewport?.()), active = !!(this.flags & UF.SKILL);
         const sp = this.spMax > 0 ? clamp(this.sp / this.spMax, 0, 1) : null;
         lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: k, ghost: g, sp, cast: active, ammo: active ? this.ammo : null });
@@ -1095,7 +1112,7 @@ export class UnitView {
     } else if (lp) this.lpBars.hide();
     const shielded = showHp && (this.flags & UF.SHIELD);
     this.shieldBar.visible = !!shielded;
-    if (shielded && lp) { const u = hudUnit(this.ctx.viewport?.()); this.shieldBar.position.set(this.screen.x + sx - 62.5 * u, hudAnchorY(this.screen.y, u) + (ALLY_BAR.y - ALLY_BAR.h / 2 - 1.5) * u); this.shieldBar.width = 125 * u; this.shieldBar.height = Math.max(1.5, 2.5 * u); } // local patch: a strip over the official HP bar
+    if (shielded && lp) { const u = hudUnit(this.ctx.viewport?.()), b = this.lpBars.box; this.shieldBar.position.set(b.x0, b.top - 1.5 * u); this.shieldBar.width = b.w; this.shieldBar.height = Math.max(1.5, 2.5 * u); } // local patch: a strip over the official HP bar
     else if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }
     // SP
     const showSp = showBars && this.spMax > 0; // local patch: an enemy sends SP only for 圣堂剑士's bullets (sim/content/local-patch.js)
@@ -1155,7 +1172,11 @@ export class UnitView {
       ic.position.set(x - ((icons.length - 1) * (isz + 2)) / 2 + i * (isz + 2), iy);
     }
     // element gauge row under the bars (b.snap `elem`); redeploy ring above a knocked-down operator (b.snap `down`)
-    if (lp) { const u = hudUnit(this.ctx.viewport?.()); this._updateElementBar(showBars && !!this.el, this.screen.x + sx - 62.5 * u, 125 * u, lpBottom, 7 * u, s, t); } // local patch
+    if (lp) { // local patch: under the official bars (a full-HP enemy: where its bar would be)
+      const u = hudUnit(this.ctx.viewport?.()), w = (this.isEnemy ? 105 : 125) * u;
+      this._updateElementBar(showBars && !!this.el, lpBottom ? this.lpBars.box.x0 : this.screen.x - w / 2, lpBottom ? this.lpBars.box.w : w,
+        lpBottom || hudAnchorY(this.screen.y, u) + 59 * u, 7 * u, s, t);
+    }
     else this._updateElementBar(showBars && !!this.el, x0, bw, cy + bh / 2 + (showSp ? spH + 1.5 : 0) + 1, spH, s, t);
     this._updateDownRing(!prep && !!this.down && !this.alive, x, this.screen.y - DOWN_LOOK.height * s, s, t);
     // blocked marker at the feet (enemies held by a blocker)
@@ -1431,6 +1452,7 @@ export class UnitView {
     this.shadow.destroy();
     this.blockIcon.destroy();
     if (this.facingArrow) this.facingArrow.destroy();
+    if (this._facing) this._facing.destroy(); // local patch
     this.hud.destroy({ children: true });
     this.root.destroy({ children: true });
   }

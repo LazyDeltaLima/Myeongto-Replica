@@ -29,7 +29,7 @@
 | 정비 화면 HUD 공식 모양 (클라이언트 프리팹 `autochess_hud_panel`·`autochess_hud_bond_item`·`panel_prep_ready`: 라운드 띠 판·양 끝 원·휴식 기간 알약·라운드 숫자판·🔍 버튼 판, 맹약 원 = `bondBoardIcon/<활성 인원>_<현재 인원>`(활성이면 꽉 찬 원) + 숫자 판 + 이름(개수/다음 단계 배지는 숨기고 툴팁에만), 준비 완료 버튼, 맹약 줄 가운데 정렬·접기 버튼, 카운트다운, 왼쪽 플레이어 목록, 맹약 팝업, 배치 기물 정보 창) | `public/js/ui/hudArt.js`, `public/js/ui/detailArt.js`, `public/css/hud-art.css` | `screens/game.js` 3줄(import, 루트 class·style), `ui/bondStrip.js` 15줄(import, 원 판 2곳, 팝업 라벨·알약, 휠 가로 스크롤 `stripWheel` + `onWheel`), `ui/teamPanel.js` 1줄(`has-watched`), `ui/components.js` 문양 크기 변수(`natSizeVars` + `BondDisc` img onLoad), `ui/gameComponents.js` 3줄(import, `Img` onLoad, `BondGlyph`), `ui/detailPanel.js` 3줄(import 2, 카드 선택), `screens/game.js` 배치 중 카드 3줄(import, 렌더), `index.html`·`dev/game-mock.html` 각 1줄, `public/i18n/ko/ui.json` 6줄(休息一下 → 휴식 기간, 剩余可放置角色 → 배치 가능 인원: 한국 서버 표기, 激活所需人数, 法抗·阻挡·费用 → 마항·저지·비용) |
 | 상점 화면 공식 모양 (클라이언트 프리팹 `autochess_shop`·`_card_item`·`_cost_item`·`_bond_item` 좌표·글꼴·색, 공식 그림: 카드 테두리·[ NO INFO ]·동결/갱신/잠김 버튼·자금 알약·접기 상자·승급 상자·가격 육각형, 카드 워터마크 = 特质 유형 아이콘, 스킬 아이콘 오른쪽 아래) | `public/js/ui/shopArt.js`, `public/css/shop-art.css` | `ui/shopBar.js` 3줄(import, 워터마크, `<section>` class·style), `index.html`·`dev/game-mock.html` 각 1줄 |
 | 배치 UI 공식 모양 (3D 보드: 배치 가능 칸 초록 곱하기 틴트·공격 범위 주황 줄무늬 `sprite_attack_range`, 배치 중 기물 반투명, 방향 선택 = 클라이언트 `panel_direction_selector` 그림·주변 어둡게·취소 태그·「방향을 가운데로 되돌려 취소」 말풍선) | `public/js/render/board3d/tileOverlay.js`, `public/js/ui/placeArt.js`, `public/css/place-art.css`, `test/render/placement-ui.test.js` | `board3d/scene.js` 4줄(import, 생성, update, dispose), `render/app.js`(drawHighlight·clearHl 3D 분기, 줄무늬 그림 로드, ghost·holdPiece, `stripesUnder`), `render/units.js` 2줄(`GHOST_ALPHA`), `ui/facingWheel.js`(import, 공식 그림이 있으면 `PlaceWheelArt`, 3D 줄무늬 중복 방지), `index.html`·`dev/game-mock.html` 각 1줄, `dev/game-mock.js` `?stage=`, `i18n/ko/ui.json` 1줄, `tools/local-extract/extract.py` JOBS 2줄 |
-| 전투 화면 UI 공식 모양 (2026-10-07~, 진행 중: ① 아군 체력·SP·탄환 바 + 기물 레벨) — 바는 발밑 아래·화면 고정 크기(1단위 = min(폭/1920, 높이/1080)), HP `#49b2e3`·SP `#caec46`·스킬 중 `#ffa800`·검정 α.5 받침, 탄환형 스킬은 탄환마다 칸, SP 가득 참 빛 없음, 전투 중 레벨 칩 없음, 정비 중 레벨 칩 = 공식 그림(`img_chess_level_N`, 크기는 `autochess_level_N` 기준), 정비 중 장비 바(장착 아이템이 있을 때만) | `public/js/render/hud-bars.js`, `server/sim/local-hud.js`, `test/local-patch-hud.test.js` | `render/units.js`(import 1줄, `_buildHud` 2줄, `sync` 1줄, `_updateHud`의 아군 분기·칩·보호막·원소 줄 위치), `server/sim/Battle.js` 2줄(import, `snapshot()`의 `ammo`), `render/interp.js` 2줄(`ammo` → 샘플), `render/app.js` 2줄(`setEquip` 금색 여부), `tools/local-extract/extract.py` battlecommon 정규식(장비 바 그림 3개) |
+| 전투 화면 UI 공식 모양 (2026-10-07~, 진행 중: ① 아군 체력·SP·탄환 바 + 기물 레벨, ② 적·보스·거대 보스 HP 바, 배치 방향 표시) — 바는 발밑 아래·화면 고정 크기(1단위 = min(폭/1920, 높이/1080)), HP `#49b2e3`·SP `#caec46`·스킬 중 `#ffa800`·검정 α.5 받침, 탄환형 스킬은 탄환마다 칸, SP 가득 참 빛 없음, 전투 중 레벨 칩 없음, 정비 중 레벨 칩 = 공식 그림(`img_chess_level_N`, 크기는 `autochess_level_N` 기준), 정비 중 장비 바(장착 아이템이 있을 때만) | `public/js/render/hud-bars.js`, `public/js/render/facing.js`, `server/sim/local-hud.js`, `test/local-patch-hud.test.js` | `render/units.js`(import 1줄, `_buildHud` 2줄, `sync` 1줄, `_updateHud`의 아군 분기·칩·보호막·원소 줄 위치), `server/sim/Battle.js` 2줄(import, `snapshot()`의 `ammo`), `render/interp.js` 2줄(`ammo` → 샘플), `render/app.js` 2줄(`setEquip` 금색 여부), `tools/local-extract/extract.py` battlecommon 정규식(장비 바 그림 3개, 보스 문양·바 테·맞을 때 빛 4개) |
 | 휴식 진입·현상 수배·전투 종료 화면 공식 모양 (클라이언트 프리팹 `round_start_dialog`·`autochess_battle_effect_choose_panel`·`card_small_item`·`card_avatar_item`·`round_result_dialog`: 라운드 시작 배너 [라운드 03 · 획득 +6], 机变/悬赏 선택 화면 제목·카드·선택 확인 막대·가져간 카드·「내 차례」, 전투 종료 배너 완벽한 작전/목표 HP 감소) | `public/js/ui/phaseArt.js`, `public/css/phase-art.css` | `screens/game.js` 9줄(import, `useRoundGold`, 결과 배너 4줄, 배너 분기 3줄), `ui/choiceOverlay.js` 7줄(import, `useTurnFlash`, `turnFlash` 2곳, 루트 class·style, 제목 `spov__name`, `spov__notice`, `YourTurn`), `index.html`·`dev/game-mock.html` 각 1줄, `dev/game-mock.js` ROUND_START 5줄, `public/i18n/ko/ui.json` 6줄 |
 | 공식 전투 이펙트 (로컬 클라이언트 추출) | `tools/local-extract/fx_extract.py` → `public/assets/local/fx/**`, `public/js/render/fxplayer.js`·`fxgame.js`·`fxmap.js` | `render/app.js` 8줄(이벤트·프레임·정리 훅, 부하 단계·3D 보드 여부·전투 시계 배속 전달, `stats()`의 `fxGame`, `atk`의 화살 종류 `fxGame.arrowKind(e)`, 공식 이펙트로 그린 `fx`는 2D 대체 생략 `fxGame.ownsFx(e)`), `render/fx.js FX_KINDS` 2줄(`oblvnsNote`, `chen3Qi`) |
 | 공식 스테이지 3D 씬 (스테이지별 사막·카시미어·시라쿠사 씬, 라이트맵, 필드별 숨김 세트) | `tools/local-extract/scene_extract.py` → `public/assets/local/scene/**`, `public/js/render/board3d/official.js`, `test/render/board3d-official.test.js` | `board3d/scene.js`(로더 옵션·`officialRoot`·`setStage` 분기·`highlandFor`), `render/app.js` 2곳(`loadOfficial`/`onOfficial` 옵션, `setStage`의 높이), `style.js tileTop` + `tiles.js`·`layout.js` 1줄씩 |
@@ -707,6 +707,26 @@
 제 크기). 이 바가 그려지면 예전 아이템 아이콘(item pips)은 숨긴다(캡처에 아이콘 없음). 그림은 로컬 추출(`extract.py --only ui/battlecommon`)만 있어서
 없는 서버는 예전 아이콘 그대로. 금색 여부는 `render/app.js`의 `setItems` 옆 `setEquip` 한 줄씩(2곳)이 넘긴다. **배포할 때 로컬 소재(`public/assets/local/ui/battlecommon`)도 올려야 한다.**
 
+**② 적 HP** (`EnemyBars`; 처음엔 맞기 전 숨김 — `_alwaysShowHp`는 圣堂剑士만 켜짐 — 보스는 늘 보임):
+- 일반·정예: `enemy_hp_slider` 105×7 `#ea4700` α.7, 흰 α.7 잔상, 검정 α.5 받침(바 크기 그대로), `hud_unit` 아래 55.3(캡처 ≈110px).
+- 보스(거대 패널이 아닌 보스 — 铳·卢西恩 등): `enemy_boss_hp_slider` 130×9 `#ea2727` α.85, `hud_unit` 아래 43, 받침은 프리팹대로 10×8 크다(늘어나는 자식) —
+  캡처가 없어 프리팹 그대로; 문양 `sprite_enemy_boss_hud_small`(57×65, 바 중심 7 아래)이 바 뒤에.
+- 거대 보스(사용자 「위수협의 모드에서만 넓게」): 보스 프리팹에 `_bossHudScale`이 있는 적(`EnemyGiantBoss`)은 `battle/[pack]common.ab`의
+  `panel_enemy_boss_info`를 쓴다 — HP 798×10 × x 배율(胄·管·阿利斯泰尔·萨米的意志 0.35, 昆图斯 0.765; 관 캡처 ≈281 × 9.3단위 ✓) `#ff2b2b` α.8,
+  흰 α.7 잔상, 검정 α.39 받침(800×12)과 흰 α.39 테(`sprite_enemy_boss_hp_bg` 9-slice 816×28), 문양 `sprite_enemy_boss_hud_large` 폭 ≈39단위([캡처 8·10]),
+  맞을 때 빛(`hit_effect` = `sprite_bar_glow` 9-slice 818×31 `#ff0000` α.78 — 사용자 결정, 0.35초 사라짐 [추정]). 중심 = 보스 발 [추정 — 배치는 네이티브 코드,
+  캡처에서 발 근처], `_bossHudOffset`만큼 타일 단위로 옮김 [추정 단위](萨米的意志 위 1.4, 昆图斯 위 1.02, 管 II 오른쪽 1.4). 표는 `GIANT_BOSS`(적 프리팹 전수 조사).
+- 圣堂剑士 탄약: HP 바 바로 아래 같은 폭에 아군과 같은 탄환 칸([추정] `enemy_bullet_bar` 105×7).
+- **보스 SP(연보라) 바는 아직 안 그림** — 공식은 쿨다운이 아니라 SP다(`enemy_database` spData: 管 INCREASE_WITH_TIME 0/50 +1/s, 스킬 spCost 50·cooldown 50·
+  initCooldown 40; PRTS 「技力 0/50 自动回复 1.0 SP/s」; 阿利斯泰尔 maxSp 25; 胄·萨米的意志·昆图斯·铳·卢西恩은 spData 없음 → SP 바 없음).
+  우리 시뮬레이션의 管은 쿨다운(첫 발동 40초)만 써서 공식(SP 50 필요 → 50초 [추정: 둘 다 필요])과 다르다 — 사용자 결정 대기.
+- 맞을 때 흔들림(원본 `shake`)은 새 바에 적용하지 않는다(공식 없음).
+
+**배치 방향 표시** (사용자 요청 「배치 방향 표시 화살표도 실제 인게임과 동일하게」, `facing.js`): 오퍼레이터 프리팹의 `Others/Direction/DirectionIndicator` —
+땅에 눕힌 SpriteRenderer 2장(배율 0.55): 링 `sprite_direction_ring`(rect 128, ppu 100 → 지름 0.704타일, 흰 α.502)과 화살표 `sprite_direction_arrow`
+(rect 128에 65×112가 (31, 8)에 패킹, 바깥쪽 0.333타일, `#FF9900`). 매 프레임 네 모서리를 카메라로 투영한 SimpleMesh라 보드에 눕는다. 그림은 웹 manifest
+`ui/battle/sprite_direction_*`(이미 있음); 없으면 예전 주황 셰브런. 청록 링(캡처 13)은 방향을 정할 때 잠깐 뜨는 `common_direction_hint_*` 이펙트로 별개(안 함).
+
 ## 공식 전투 이펙트 (2026-10-05)
 - `tools/local-extract/fx_extract.py`: EN 클라이언트 `battle/prefabs/effects/<이름>.ab`의 프리팹을 JSON(노드 트리, 파티클 모듈,
   재질, Mecanim 클립 곡선) + PNG 텍스처 + 메시 JSON으로 뽑는다. 텍스처는 다른 번들에 있어 CAB 색인(`--build-cab-index`, 약 15분)이 필요.
@@ -978,7 +998,8 @@
     기대한다 — 로컬은 공식 믹서 그룹 게인 × 뱅크 볼륨(위 「스킬 모드 효과음·믹서 볼륨」, 2026-10-07).
   - `test/render/unitview.test.js` 「operators keep their chip in prep and in battle」, `test/render/playtest6_elembar.test.js` 「the gauge row belongs to its unit」:
     전투 중 레벨 칩·예전 HP 바 기준 원소 줄을 기대한다 — 「전투 화면 UI」(2026-10-07, 공식은 전투 중 칩 없음, 바는 발밑).
+  - `test/render/feedback3-leader-prep.test.js` 「the leader's view … shows its full HP bar」: 예전 HP 바 스프라이트(`hpFill`)를 본다 — 보스는 이제 공식 거대 보스 바(`lpBars`).
   - `test/golden.test.js` 「golden roster / bonds / fields / matches」 4개(upstream 0.1.4): 원본 시뮬레이터 결과의 다이제스트를 기대한다 — 로컬 전투 패치(제국의 갑주, 限伤, 성당 검사, 비행 공격 규칙 등)가 결과를 바꾸므로 실패가 정상.
 - `node --test test/local-patch-battle.test.js` — 2026-10-06 플레이 제보 전투 버그 테스트 6개(우타게 S2 그림·저지, 魔王 S3 재분배, 은신·위장 vs 스플래시, 污染秽蚀 vs 은신).
 - `node --test test/local-patch-camou.test.js` — 위장 아이콘(`UF_CAMOU`) 테스트 2개.
-- `node --test test/local-patch-hud.test.js` — 전투 화면 UI 테스트 9개(화면 고정 단위, 아군 바 위치·색, 탄환 칸, 전투 중 칩 없음, 정비 칩 그림 고르기, 장비 바, `b.snap.ammo`).
+- `node --test test/local-patch-hud.test.js` — 전투 화면 UI 테스트 14개(화면 고정 단위, 아군 바 위치·색, 탄환 칸, 전투 중 칩 없음, 정비 칩 그림 고르기, 장비 바, 적·보스·거대 보스 바, 방향 표시, `b.snap.ammo`).

@@ -115,6 +115,67 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
   });
 });
 
+describe('enemy bars (enemy_hp_slider / enemy_boss_hp_slider / the giant boss panel)', () => {
+  const enemy = (info) => view({ side: 'enemy', kind: 'enemy', ...info });
+  test('kinds: a normal enemy, a boss, a 卫戍协议 giant boss (by Spine id: the _2 variants share the prefab)', () => {
+    assert.equal(enemy({ defId: 'enemy_1001_bigbo' }).lpBars.kind, 'normal');
+    assert.equal(enemy({ defId: 'enemy_2016_csphtm', boss: true }).lpBars.kind, 'boss');
+    const g = enemy({ defId: 'enemy_9013_acstmk_2', spine: 'enemy_9013_acstmk', boss: true }).lpBars;
+    assert.equal(g.kind, 'giant'); assert.equal(g.giant.sx, 0.35);
+    assert.deepEqual(HB.giantBossOf({ defId: 'enemy_9033_acdeer' }).off, [0, 1.4]);
+    assert.equal(HB.giantBossOf({ defId: 'enemy_1001_bigbo' }), null);
+  });
+
+  test('sizes, colours and places; a normal enemy only once hurt', () => {
+    const u = HB.hudUnit(VP);
+    const n = enemy({ defId: 'enemy_1001_bigbo' });
+    n.sync(sample({ hp: 1000 }), 0); n.update(1 / 60, cam(), 0);
+    assert.ok(!n.lpBars.root.visible, 'full HP: no bar');
+    n.sync(sample({ hp: 400 }), 0); n.update(1 / 60, cam(), 0);
+    assert.ok(n.lpBars.root.visible);
+    assert.equal(n.lpBars.hp.tint, 0xea4700);
+    assert.ok(Math.abs(n.lpBars.hp.width - 105 * u * 0.4) < 1e-6);
+    assert.ok(Math.abs(n.lpBars.hp.position.y - (n.screen.y + (55.3 - HB.HUD_ANCHOR) * u)) < 1e-6);
+    const g = enemy({ defId: 'enemy_9021_acduml', boss: true });
+    g.sync(sample({ hp: 1000 }), 0); g.update(1 / 60, cam(), 0);
+    assert.ok(g.lpBars.root.visible, 'bosses always');
+    assert.equal(g.lpBars.hp.tint, 0xff2b2b);
+    assert.ok(Math.abs(g.lpBars.hp.width - 798 * 0.35 * u) < 1e-6, '279 units at 0.35');
+    assert.ok(Math.abs(g.lpBars.hp.position.y - g.screen.y) < 1e-6, 'centred on the feet');
+  });
+
+  test('a hit flashes a giant boss bar; 圣堂剑士 bullets under its HP bar', () => {
+    const g = enemy({ defId: 'enemy_9021_acduml', boss: true });
+    g.sync(sample({ hp: 1000 }), 0); g.sync(sample({ hp: 900 }), 0);
+    assert.ok(g.lpBars.flash > 0);
+    const h = enemy({ defId: 'enemy_10087_hlchgr' });
+    h.sync(sample({ hp: 500, sp: 3, spMax: 5 }), 0); h.update(1 / 60, cam(), 0);
+    assert.equal(h.lpBars.blocks.filter((b) => b.visible).length, 3);
+    assert.ok(!h.spFill.visible, 'the drawn SP bar stays hidden');
+  });
+});
+
+describe('facing marker (DirectionIndicator: ring + arrow on the ground)', () => {
+  test('no SimpleMesh / no art: none (the chevron stays)', async () => {
+    const F = await import('../public/js/render/facing.js');
+    assert.equal(F.facingTextures(fake.P, { ui: () => '/x.png' }), null);
+  });
+  test('the arrow quad: 0.333 tiles out, the packed texture inside its 0.704-tile rect, turned with the facing', async () => {
+    const F = await import('../public/js/render/facing.js');
+    class SimpleMesh extends fake.P.Container { constructor(t, v) { super(); this.texture = t; this.vertices = v; } }
+    const P = { ...fake.P, SimpleMesh };
+    const m = new F.FacingMarker(P, { ring: {}, arrow: {} });
+    const camId = { project: (x, y, z, o) => { o.x = x; o.y = y; return o; } };
+    m.update(camId, 0, 0, 0, [1, 0], 1);
+    const v = m.arrow.vertices, k = 0.704 / 128;
+    assert.ok(Math.abs(v[0] - (0.333 + (31 - 64) * k)) < 1e-6 && Math.abs(v[1] - (64 - 8) * k) < 1e-6, 'left-top corner');
+    assert.ok(Math.abs(v[2] - (0.333 + (96 - 64) * k)) < 1e-6, 'tip side ≈ the tile edge');
+    m.update(camId, 0, 0, 0, [0, 1], 1);
+    assert.ok(Math.abs(m.arrow.vertices[1] - (0.333 + (31 - 64) * k)) < 1e-6, 'UP: along +y');
+    assert.equal(m.arrow.tint, 0xff9900); assert.equal(m.ring.alpha, 0.502);
+  });
+});
+
 describe('b.snap `ammo` (server/sim/local-hud.js)', () => {
   test('lists allies whose ammo skill runs, and interp hands it to the sample', () => {
     const units = [

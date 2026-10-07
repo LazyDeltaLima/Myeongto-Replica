@@ -1,4 +1,4 @@
-// render/hud-bars.js — local patch (docs/LOCAL-PATCH.md 「전투 화면 UI」): the official battle HUD of allied units.
+// render/hud-bars.js — local patch (docs/LOCAL-PATCH.md 「전투 화면 UI」): the official battle HUD of units (bars, prep chip).
 //
 // The client's unit HUD (EN client arts/ui/[uc]battlecommon.ab, battle/[pack]common.ab `hud_unit`) is a screen-space
 // canvas: its size does not follow the camera or the unit's depth — in the CN capture (2000×1125) the bars of both
@@ -29,6 +29,20 @@
 //   (74×30, at (13, 29.4) in shop_hud — right of the chip) with equip_0 / equip_1 (23×6 at ±12.8 / 13) — a white pill
 //   (equip_normal_icon) per item, [추정] the glowing gold pill (equip_gold_icon, 31×14 drawn at its own size) for a golden
 //   item; hidden without items. Sprites: local client ui/battlecommon (tools/local-extract/extract.py); none: item pips.
+// Enemies (shown once hurt, bosses always — `_alwaysShowHp` is off but on 圣堂剑士):
+//   - `enemy_hp_slider`: 105×7 #ea4700 α.7 over the white α.7 loss, black α.5 plate, 55.3 under hud_unit (CN captures:
+//     ≈ 110 px at 2000 wide);
+//   - `enemy_boss_hp_slider` (a boss without the giant panel: 铳, 卢西恩, …): 130×9 #ea2727 α.85, 43 under hud_unit, its black
+//     α.5 plate 10 × 8 larger (stretched child) and the boss emblem (sprite_enemy_boss_hud_small 57×65, 7 under the bar's
+//     centre) behind the bar;
+//   - the giant boss panel (`EnemyGiantBoss`, battle/[pack]common.ab panel_enemy_boss_info — the 卫戍协议 bosses whose prefab
+//     has `_bossHudScale`, user: 「위수협의 모드에서만 넓게」): HP 798×10 × the prefab's x scale (0.35 → 279, CN capture 8 of
+//     假想敌：管 ≈ 281 × 9.3 units) #ff2b2b α.8 over the white α.7 loss, a black α.39 plate (800×12) and a white α.39 frame
+//     (sprite_enemy_boss_hp_bg, 9-sliced, 816×28); the emblem (sprite_enemy_boss_hud_large) behind its centre ≈ 39 units
+//     wide [캡처 8 / 10]; a hit flash (hit_effect: sprite_bar_glow, 9-sliced, 818×31, #ff0000 α.78 — user decision 2026-10-07)
+//     fading over HIT_FLASH s [추정]. Its centre on the feet [추정 — the placement is native code; the captures show it at
+//     the boss's feet], moved by the prefab's `_bossHudOffset` in tiles [추정 단위] (萨米的意志 / 昆图斯 up 1.4 / 1.02, 管 II
+//     right 1.4).
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -59,6 +73,35 @@ export const ALLY_BAR = Object.freeze({
 export const PREP_CHIP = Object.freeze({ x: -45.5, y: 128, interior: 37.5 });
 /** Prep equipment bar (`shop_hud` equip_bg, root scale 1.25), in HUD units: centre from hud_unit's centre, size, slots. */
 export const PREP_EQUIP = Object.freeze({ x: 14.75, y: 129.5, w: 92.5, h: 37.5, slots: Object.freeze([-16, 16.25]), slotW: 28.75, slotH: 7.5, scale: 1.25 });
+
+/** Enemy bars (see header), in HUD units; y: below hud_unit's centre (normal / boss) or from the feet (giant). */
+export const ENEMY_BAR = Object.freeze({ w: 105, h: 7, y: 55.3, hp: 0xea4700, alpha: 0.7, plateAlpha: 0.5, grow: Object.freeze([0, 0]) });
+export const BOSS_BAR = Object.freeze({
+  w: 130, h: 9, y: 43, hp: 0xea2727, alpha: 0.85, plateAlpha: 0.5, grow: Object.freeze([10, 8]),
+  emblem: Object.freeze({ name: 'sprite_enemy_boss_hud_small', w: 57, h: 65, dy: 7 }),
+});
+export const GIANT_BAR = Object.freeze({
+  w: 798, h: 10, y: 0, hp: 0xff2b2b, alpha: 0.8, plateAlpha: 0.39, grow: Object.freeze([2, 2]),
+  frame: Object.freeze({ name: 'sprite_enemy_boss_hp_bg', grow: Object.freeze([18, 18]), alpha: 0.39, border: Object.freeze([11, 10, 11, 10]) }),
+  hit: Object.freeze({ name: 'sprite_bar_glow', grow: Object.freeze([20, 21]), tint: 0xff0000, alpha: 0.78, border: Object.freeze([18, 12, 18, 12]) }),
+  emblem: Object.freeze({ name: 'sprite_enemy_boss_hud_large', w: 39, h: 39 * 67 / 59, dy: 2 }),
+});
+/** Seconds a giant boss's hit flash fades over [추정]. */
+export const HIT_FLASH = 0.35;
+/**
+ * The giant boss panel's prefab values (enemy prefab `_bossHudScale.x`, `_bossHudOffset` in tiles), by Spine id / enemy
+ * key — every data/enemies.json prefab with the field (EN client battle/enm_pfb_*.ab, 2026-10-07).
+ */
+export const GIANT_BOSS = Object.freeze({
+  enemy_9013_acstmk: Object.freeze({ sx: 0.35, off: Object.freeze([0, 0]) }),     // 假想敌：胄 (and _2: same prefab)
+  enemy_9021_acduml: Object.freeze({ sx: 0.35, off: Object.freeze([0, 0]) }),     // 假想敌：管
+  enemy_9021_acduml_2: Object.freeze({ sx: 0.35, off: Object.freeze([1.4, 0]) }), // 假想敌：管 (隐秘核心)
+  enemy_9032_aclionk: Object.freeze({ sx: 0.35, off: Object.freeze([0, 0]) }),    // 阿利斯泰尔，帝国余晖
+  enemy_9033_acdeer: Object.freeze({ sx: 0.35, off: Object.freeze([0, 1.4]) }),   // “萨米的意志”
+  enemy_1521_dslily: Object.freeze({ sx: 0.765, off: Object.freeze([0, 1.02]) }), // 盐风主教昆图斯
+});
+/** The giant boss entry of a unit info (`spine` first: the _2 variants share a prefab), or null. */
+export const giantBossOf = (info) => (info && (GIANT_BOSS[info.spine] || GIANT_BOSS[info.defId])) || null;
 
 /** Narrowest bullet block drawn (px): with more bullets than fit, the bullets left share the track as one bar. */
 const AMMO_BLOCK_MIN = 1;
@@ -116,34 +159,113 @@ export class AllyBars {
       this.sp.tint = cast ? B.cast : B.sp;
       this.sp.position.set(x0, sy); this.sp.width = w * clamp(sp, 0, 1); this.sp.height = h;
     }
-    this.ammoTrack.visible = showAmmo;
-    let used = 0;
-    if (showAmmo) {
-      this.ammoTrack.position.set(x0, sy); this.ammoTrack.width = w; this.ammoTrack.height = h;
-      const max = Math.round(ammo[1]), left = clamp(Math.round(ammo[0]), 0, max);
-      const gap = B.ammoGap * u, bw = (w - gap * (max - 1)) / max;
-      if (bw >= AMMO_BLOCK_MIN) {
-        for (let i = 0; i < left; i++) {
-          const b = this._block(i);
-          b.position.set(x0 + i * (bw + gap), sy); b.width = bw; b.height = h;
-        }
-        used = left;
-      } else if (left > 0) {
-        const b = this._block(0);
-        b.position.set(x0, sy); b.width = (w * left) / max; b.height = h;
-        used = 1;
-      }
-    }
-    for (let i = used; i < this.blocks.length; i++) this.blocks[i].visible = false;
+    drawBullets(this, showAmmo ? ammo : null, x0, sy, w, h, u);
+    this.box = { x0, w, top: hy - h / 2 };
     return hy - h / 2 + rows * h + pad;
   }
+}
 
-  _block(i) {
-    let b = this.blocks[i];
-    if (!b) b = this.blocks[i] = rect(this.P, this.root, ALLY_BAR.ammo, ALLY_BAR.ammoAlpha);
-    b.visible = true;
-    return b;
+/**
+ * Bullet blocks (see header) on `o.ammoTrack` / `o.blocks` (made on use in `o.root`): `ammo` [left, max] or null (hidden),
+ * the row's left `x0`, centre `y`, size `w` × `h` px.
+ */
+function drawBullets(o, ammo, x0, y, w, h, u) {
+  const B = ALLY_BAR;
+  o.ammoTrack.visible = !!ammo;
+  let used = 0;
+  if (ammo) {
+    o.ammoTrack.position.set(x0, y); o.ammoTrack.width = w; o.ammoTrack.height = h;
+    const max = Math.round(ammo[1]), left = clamp(Math.round(ammo[0]), 0, max);
+    const gap = B.ammoGap * u, bw = (w - gap * (max - 1)) / max;
+    const block = (i) => { let b = o.blocks[i]; if (!b) b = o.blocks[i] = rect(o.P, o.root, B.ammo, B.ammoAlpha); b.visible = true; return b; };
+    if (bw >= AMMO_BLOCK_MIN) {
+      for (let i = 0; i < left; i++) { const b = block(i); b.position.set(x0 + i * (bw + gap), y); b.width = bw; b.height = h; }
+      used = left;
+    } else if (left > 0) {
+      const b = block(0); b.position.set(x0, y); b.width = (w * left) / max; b.height = h;
+      used = 1;
+    }
   }
+  for (let i = used; i < o.blocks.length; i++) o.blocks[i].visible = false;
+}
+
+/**
+ * The HP bar of an enemy (see header): `kind` 'normal' | 'boss' | 'giant' (`giant` = its GIANT_BOSS entry). `hit()`
+ * flashes a giant's bar; textures of the emblem / frame / glow come from `assets` once loaded (none: plain bars).
+ */
+export class EnemyBars {
+  constructor(P, parent, kind, giant = null) {
+    this.P = P; this.kind = kind; this.giant = giant;
+    this.B = kind === 'giant' ? GIANT_BAR : kind === 'boss' ? BOSS_BAR : ENEMY_BAR;
+    this.root = new P.Container();
+    parent.addChild(this.root);
+    const B = this.B;
+    this.emblem = B.emblem ? new P.Sprite(P.Texture.EMPTY) : null;
+    if (this.emblem) { this.emblem.anchor.set(0.5); this.emblem.visible = false; this.root.addChild(this.emblem); }
+    this.hitGlow = B.hit ? slice(P, this.root, B.hit.border) : null;
+    if (this.hitGlow) { this.hitGlow.tint = B.hit.tint; this.hitGlow.visible = false; }
+    this.frame = B.frame ? slice(P, this.root, B.frame.border) : null;
+    if (this.frame) { this.frame.alpha = B.frame.alpha; this.frame.visible = false; }
+    this.plate = rect(P, this.root, 0x000000, B.plateAlpha);
+    this.ghost = rect(P, this.root, 0xffffff, 0.7);
+    this.hp = rect(P, this.root, B.hp, B.alpha);
+    this.ammoTrack = null; this.blocks = [];
+    this.flash = 0;
+    this.root.visible = false;
+  }
+
+  hide() { this.root.visible = false; }
+
+  /** A hit: a giant's bar flashes (HIT_FLASH). */
+  hit() { if (this.hitGlow) this.flash = HIT_FLASH; }
+
+  /**
+   * Draw for feet at (x, y), `u` px per unit, `s` px per tile (the giant's tile offset), `dt` s; `hp` / `ghost` shares of
+   * the max HP; `assets` for the emblem / frame / glow textures.
+   */
+  update(x, y, u, s, dt, { hp, ghost, ammo = null }, assets) {
+    const B = this.B;
+    this.root.visible = true;
+    const sx = this.giant ? this.giant.sx : 1;
+    const w = B.w * sx * u, h = B.h * u;
+    let cx = x, cy;
+    if (this.giant) { cx += this.giant.off[0] * s; cy = y - this.giant.off[1] * s + B.y * u; }
+    else cy = hudAnchorY(y, u) + B.y * u;
+    const x0 = cx - w / 2;
+    const tex = (n) => texOf(this.P, localUrl(assets, 'ui/battlecommon', n));
+    if (this.emblem) {
+      const t = tex(B.emblem.name);
+      this.emblem.visible = !!t;
+      if (t) { this.emblem.texture = t; this.emblem.position.set(cx, cy + B.emblem.dy * u); this.emblem.width = B.emblem.w * u; this.emblem.height = B.emblem.h * u; }
+    }
+    const place = (o, grow) => { o.position.set(cx - w / 2 - grow[0] * sx * u / 2, cy - h / 2 - grow[1] * u / 2); o.width = w + grow[0] * sx * u; o.height = h + grow[1] * u; };
+    if (this.frame) {
+      const t = tex(B.frame.name);
+      this.frame.visible = !!t;
+      if (t) { this.frame.texture = t; place(this.frame, B.frame.grow); }
+    }
+    if (this.hitGlow) {
+      this.flash = Math.max(0, this.flash - dt);
+      const t = this.flash > 0 ? tex(B.hit.name) : null;
+      this.hitGlow.visible = !!t;
+      if (t) { this.hitGlow.texture = t; this.hitGlow.alpha = B.hit.alpha * (this.flash / HIT_FLASH); place(this.hitGlow, B.hit.grow); }
+    }
+    this.plate.position.set(x0 - B.grow[0] * sx * u / 2, cy); this.plate.width = w + B.grow[0] * sx * u; this.plate.height = h + B.grow[1] * u;
+    this.ghost.position.set(x0, cy); this.ghost.width = w * clamp(ghost, 0, 1); this.ghost.height = h;
+    this.hp.position.set(x0, cy); this.hp.width = w * clamp(hp, 0, 1); this.hp.height = h;
+    // an enemy's bullets (圣堂剑士, `enemy_bullet_bar` 105×7 [추정] right under the HP bar, the allies' blocks)
+    if (ammo && !this.ammoTrack) this.ammoTrack = rect(this.P, this.root, ALLY_BAR.ammoTrack, ALLY_BAR.ammoTrackAlpha);
+    if (this.ammoTrack) drawBullets(this, ammo, x0, cy + h, w, h, u);
+    this.box = { x0, w, top: cy - h / 2 };
+    return cy + h / 2 + B.grow[1] * u / 2 + (ammo ? h : 0);
+  }
+}
+
+/** A 9-sliced sprite (PIXI NineSlicePlane; a plain Sprite where there is none), anchored at its top-left. */
+function slice(P, parent, [l, t, r, b]) {
+  const o = P.NineSlicePlane ? new P.NineSlicePlane(P.Texture.WHITE, l, t, r, b) : new P.Sprite(P.Texture.WHITE);
+  parent.addChild(o);
+  return o;
 }
 
 const _tex = new Map();

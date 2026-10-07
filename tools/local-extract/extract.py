@@ -104,7 +104,9 @@ JOBS = [
     ('arts/ui/[uc]battlecommon.ab', 'ui/battlecommon', {'Sprite'},
      r'^(sprite_direction_arrow|sprite_direction_thumb|sprite_rectangle_frame_triangle|btn_cancel|btn_drag_back'
      # local patch (LOCAL-PATCH.md 「전투 화면 UI」): act1autochess_battle_dummy_hud_plugin's equipment bar (prep)
-     r'|equip_bg|equip_gold_icon|equip_normal_icon)$'),
+     r'|equip_bg|equip_gold_icon|equip_normal_icon'
+     # the boss HP bars' emblems, hit glow and frame (enemy_boss_hp_slider, panel_enemy_boss_info)
+     r'|sprite_enemy_boss_hud_small|sprite_enemy_boss_hud_large|sprite_bar_glow|sprite_enemy_boss_hp_bg)$'),
     ('battle/[pack]common.ab', 'battle/common', {'Texture2D'}, r'^sprite_attack_range$'),
 ]
 
