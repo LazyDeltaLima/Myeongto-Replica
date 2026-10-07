@@ -322,6 +322,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const FOLLOWER_FX = 'wang';
   const STONE_BORN = { stone: 'token_wang_birth_01_buff', follower: 'wang_passive_01_buff' };
   const STONE_ON = { stone: 'token_wang_01_buff', follower: 'wang_passive_01_buff_02' };
+  // local patch (user 2026-10-08 「수동, 재능 바둑돌 이펙트가 loop 되지 않고 한번만 나타나고 있어서 모르겠어」): official capture
+  // (research/2026-10-07-user-issues-3/cap-231814.png) — a stone's glow / cross / link line sit on its ball, 0.19 tile (on
+  // screen) above the shadow; ours drew them on the ground (_spawnLocation 5) under the ball, where the stone's own looping
+  // glow (the `sz` systems) hid under its shadow and only the first burst read. The ball centre is 0.18 tile up on screen.
+  const STONE_BALL = 0.18;
+  /** World height of a stone's ball centre at (x, y) on ground z0 (fx.js liftFor, the drawn height on screen). */
+  const ballZ = (x, y, z0) => {
+    if (!camRef || typeof camRef.liftFor !== 'function') return z0 + STONE_BALL;
+    const dz = camRef.liftFor(x, y, z0, STONE_BALL * camRef.scaleAt(x, y, z0));
+    return Number.isFinite(dz) ? z0 + dz : z0 + STONE_BALL;
+  };
+  /** A stone view's ball as an effect anchor (follows the view). */
+  const ballOf = (v) => ({
+    get x() { return v.x; }, get y() { return v.y; }, get z() { return ballZ(v.x, v.y, (v.z || 0) + (v.hover || 0)); },
+    get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
+  });
+
   /** local patch: whether 望's stone effects play here (render/fx.js then skips its procedural stand-in). */
   const stonesOn = () => !!(index?.bundles?.[STONE_FX] && !failed && q() !== 'low');
   async function playAt(names, at, { deg = null, owner = null, under = false, bundle = STONE_FX } = {}) {
@@ -389,6 +406,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+    // local patch (user 2026-10-08): the link line and the activation flash on the stones' balls (STONE_BALL)
+    const onBall = { x: at.x, y: at.y, z: ballZ(at.x, at.y, 0) };
     // local patch (user report 2026-10-07 #7: the old yellow circle / mint hex + pillar under the stones' official effects):
     // render/fx.js draws nothing for a stone event handled here
     const mine = (e[1] === 'zone' && o.token === STONE) || e[1] === 'wangLink' || (e[1] === 'summon' && isStone(views.get(o.id)));
@@ -405,10 +424,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     if (e[1] === 'wangLink') {
       if (o.first) {
-        playAt(['token_wang_passive_01_line'], at, { under: true });
+        playAt(['token_wang_passive_01_line'], onBall, { under: true });
         // local patch: the activation flash of its own kind (STONE_ON)
-        if (o.follower) playAt([STONE_ON.follower], at, { bundle: FOLLOWER_FX });
-        else playAt([STONE_ON.stone], at);
+        if (o.follower) playAt([STONE_ON.follower], onBall, { bundle: FOLLOWER_FX });
+        else playAt([STONE_ON.stone], onBall);
       }
       return true;
     }
@@ -417,8 +436,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stoneBirth.delete(o.id);
       if (isStone(v)) {
         // local patch: a 跟子's black-wisp rings (its own birth effect), a placed stone's gold glow
-        if (o.follower) playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX });
-        else playAt([STONE_BORN.stone], v, { owner: o.id, under: true });
+        if (o.follower) playAt([STONE_BORN.follower], ballOf(v), { owner: o.id, under: true, bundle: FOLLOWER_FX });
+        else playAt([STONE_BORN.stone], ballOf(v), { owner: o.id, under: true });
         return true;
       }
     }
@@ -433,7 +452,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!stoneBirth.size) return;
     for (const id of stoneBirth) {
       const v = views?.get(id);
-      if (isStone(v) && v.alive !== false && stonesOn()) playAt([STONE_BORN.stone], v, { owner: id, under: true });
+      if (isStone(v) && v.alive !== false && stonesOn()) playAt([STONE_BORN.stone], ballOf(v), { owner: id, under: true });
     }
     stoneBirth.clear();
   }
