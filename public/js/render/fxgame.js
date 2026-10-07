@@ -239,12 +239,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // owner: a stone's id — the effect follows it as a buff and stops on its 'die' (used up / withdrawn); without an
   // owner it is a one-shot, stopped after its prefab's duration even if a system loops (token_wang_birth_01_buff's
   // looping 'sz' kept its cross on the board forever)
-  async function playAt(names, at, { deg = null, owner = null, under = false } = {}) {
-    const prefabs = index?.bundles?.[STONE_FX];
+  // local patch (user report 2026-10-07 #4, capture: the hand-placed stone glows yellow, the talent's 跟子 has black
+  // wisps): a 跟子 is 望's projectile (PRTS 备注; client projectile_chr_wang_stone1/2/3), whose effects are hers (bundle
+  // wang): `_effectsToTileWhenStart` wang_passive_01_buff (the black / white / gold rings, andi_lne) and
+  // `_triggeredEffect` wang_passive_01_buff_02; the placed token's are its prefab `_startEffect` token_wang_birth_01_buff
+  // and sktok_wang_N/TriggeredEffect token_wang_01_buff [추정: TriggeredEffect = 激活, the link]
+  const FOLLOWER_FX = 'wang';
+  const STONE_BORN = { stone: 'token_wang_birth_01_buff', follower: 'wang_passive_01_buff' };
+  const STONE_ON = { stone: 'token_wang_01_buff', follower: 'wang_passive_01_buff_02' };
+  /** local patch: whether 望's stone effects play here (render/fx.js then skips its procedural stand-in). */
+  const stonesOn = () => !!(index?.bundles?.[STONE_FX] && !failed && q() !== 'low');
+  async function playAt(names, at, { deg = null, owner = null, under = false, bundle = STONE_FX } = {}) {
+    const prefabs = index?.bundles?.[bundle];
     if (!prefabs || !(await ensure())) return;
     for (const n of names) {
       if (!prefabs.includes(n)) continue;
-      const def = await lib.load(STONE_FX, n);
+      const def = await lib.load(bundle, n);
       if (!mod) return;   // destroyed while the file loaded
       if (!def) continue;
       const inst = new mod.fxp.FxInstance(def, { quality: q() });
@@ -302,6 +312,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+    // local patch (user report 2026-10-07 #7: the old yellow circle / mint hex + pillar under the stones' official effects):
+    // render/fx.js draws nothing for a stone event handled here
+    const mine = (e[1] === 'zone' && o.token === STONE) || e[1] === 'wangLink' || (e[1] === 'summon' && isStone(views.get(o.id)));
+    if (mine && stonesOn()) ownFx.add(e);
     if (e[1] === 'zone' && o.token === STONE) {
       const names = STONE_HIT[o.skill] || STONE_HIT[1];
       if (o.skill === 2) {
@@ -312,12 +326,39 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       } else playAt(names, at);
       return true;
     }
-    if (e[1] === 'wangLink') { if (o.first) playAt(['token_wang_passive_01_line'], at, { under: true }); return true; }
+    if (e[1] === 'wangLink') {
+      if (o.first) {
+        playAt(['token_wang_passive_01_line'], at, { under: true });
+        // local patch: the activation flash of its own kind (STONE_ON)
+        if (o.follower) playAt([STONE_ON.follower], at, { bundle: FOLLOWER_FX });
+        else playAt([STONE_ON.stone], at);
+      }
+      return true;
+    }
     if (e[1] === 'summon') {
       const v = views.get(o.id);
-      if (v?.info && (v.info.defId === STONE || v.info.spine === STONE)) { playAt(['token_wang_birth_01_buff'], v, { owner: o.id, under: true }); return true; }
+      stoneBirth.delete(o.id);
+      if (isStone(v)) {
+        // local patch: a 跟子's black-wisp rings (its own birth effect), a placed stone's gold glow
+        if (o.follower) playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX });
+        else playAt([STONE_BORN.stone], v, { owner: o.id, under: true });
+        return true;
+      }
     }
     return false;
+  }
+  const isStone = (v) => !!(v?.info && (v.info.defId === STONE || v.info.spine === STONE));
+  // local patch (user report 2026-10-07 #4, capture: the hand-placed stone keeps its gold glow): the prep's stones come in
+  // with the battle start ('spawn', no 'summon' fx — kits/diy.js), yet the token's `_startEffect` plays on every birth —
+  // a stone spawned without a 'summon' fx in the same batch is a placed one: its token_wang_birth_01_buff (update)
+  const stoneBirth = new Set();
+  function flushStoneBirths(views) {
+    if (!stoneBirth.size) return;
+    for (const id of stoneBirth) {
+      const v = views?.get(id);
+      if (isStone(v) && v.alive !== false && stonesOn()) playAt([STONE_BORN.stone], v, { owner: id, under: true });
+    }
+    stoneBirth.clear();
   }
 
   // ---- official projectile trails (local patch 2026-10-07, see the header) ----
@@ -775,6 +816,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         else if (e[0] === 'deploy') gone.delete(e[1]);
         else if (e[0] === 'spawn') gone.delete(e[1]?.id ?? e[1]);
         else if (e[0] === 'fx' && e[1] === 'summon' && e[4]) gone.delete(e[4].id);
+        // local patch: a stone spawned (its 'summon' fx of the same moment, if any, takes it off — stoneFx)
+        if (e[0] === 'spawn' && e[1] && (e[1].defId === STONE || e[1].spine === STONE)) stoneBirth.add(e[1].id);
       }
       if (!index || q() === 'low' || !Array.isArray(e)) return;
       switch (e[0]) {
@@ -881,6 +924,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (lastViews && index) for (const v of lastViews.values()) if (isOp(v) && (v._fxSkillOn || ((v.flags | 0) & UF.SKILL)) && bundleOf(v)) skillByFlag(v, lastViews); // local patch
       stepNotes(dt, lastViews);   // the notes fly on while their trails load
       stepWolves(dt);
+      flushStoneBirths(lastViews); // local patch
       if (!mod) return;
       if (!live.length) { showLayers(); return; }
       const w = Math.max(1, vp.width | 0), h = Math.max(1, vp.height | 0);

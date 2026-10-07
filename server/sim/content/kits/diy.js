@@ -1044,7 +1044,8 @@ function wang(bb, chess, def) {
     if (!f) return null;
     f.mem.wangFollower = true;
     if (battle.unitAt(r, c) === f) battle._occ[r * COLS + c] = null; // occupies no tile
-    battle.fx('summon', { x: f.x, y: f.y, id: f.id });
+    // local patch: `follower` — its own effect (render/fxgame.js: projectile_chr_wang_stone* wang_passive_01_buff)
+    battle.fx('summon', { x: f.x, y: f.y, id: f.id, follower: true });
     return f;
   };
   /** Follower tile class (PRTS 备注): 0 undeployable ground, 1 deployable ground, 2 deployable high ground, null = none. */
@@ -1285,7 +1286,7 @@ function wangStone(bb, raw, def) {
         const nAxes = axes.size;
         for (const [dr] of links) axes.add(dr ? 'v' : 'h');
         // link fx (official ON_CUSTOM_TRIGGER wang_stone1_line_up): on activation and on each new link direction
-        if (axes.size > nAxes) battle.fx('wangLink', { x: unit.x, y: unit.y, id: unit.id, axes: [...axes], first: !unit.mem.active });
+        if (axes.size > nAxes) battle.fx('wangLink', { x: unit.x, y: unit.y, id: unit.id, axes: [...axes], first: !unit.mem.active, follower: isFollower(unit) });
         // 激活 and 料敌机先 stacks are latched (PRTS / namu): once linked a stone stays active, and keeps the longest
         // straight line it has seen (≤ max_trigger_cnt) after a linked stone leaves
         if (links.length) {
