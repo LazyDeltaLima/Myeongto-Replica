@@ -32,7 +32,7 @@
 //     outside PREP (a SETTLE merge's elite waits in temp for the next prep).
 //   * Per-piece round counters (pieceRoundCount, piece.meta.round): an operator's own counts of the current round
 //     (拉普兰德: the manual refreshes she witnessed — player feedback after 0.1.0); a new piece starts at 0, an elite
-//     merged this round keeps the highest of its copies' [ASSUMED].
+//     merged this round too (a new 拉普兰德 — GitHub #169, the owner's decision of 2026-10-06).
 //   * Transformations (transformChess, 突变细胞 — PRTS 备注 "生效时，原干员销毁，获得一名高一阶的随机初始干员"): a destroy
 //     followed by a gain. The carrier leaves wherever it stands (a board tile is freed, the deploy count drops), its
 //     equipment — the cell included — returns to the hand first (overflow temp), then the new chess is gained like any
@@ -373,9 +373,10 @@ export class PlayerState {
 
   /**
    * Per-piece counter of the current round (`piece.meta.round` = { r, n: { key: count } }): 0 for a key not counted yet
-   * this round. The counters belong to the operator: a move keeps them, a new piece (bought, granted, transformed)
-   * starts at 0, and an elite merged this round keeps the highest count of its copies (_mergeChess) — 拉普兰德's
-   * "本回合首次主动刷新" is the first manual refresh she witnesses (player feedback after 0.1.0, garrisons/meta.js).
+   * this round. The counters belong to the operator: a move keeps them, a new piece (bought, granted, transformed, or
+   * an elite merged this round — _mergeChess carries none over: GitHub #169, the owner's decision of 2026-10-06)
+   * starts at 0 — 拉普兰德's "本回合首次主动刷新" is the first manual refresh she witnesses (player feedback after 0.1.0,
+   * garrisons/meta.js).
    */
   pieceRoundCount(piece, key) {
     const rc = piece && piece.meta && piece.meta.round;
@@ -542,12 +543,9 @@ export class PlayerState {
       l.piece.items = [];
     }
     const elite = this.newPiece('chess', goldenId, { poolCopies: copies });
-    // this round's per-piece counters: the highest of the copies' (an elite made from 拉普兰德 that already saw their
-    // first refresh this round does not fire again this round — [ASSUMED] conservative, pieceRoundCount)
-    for (const l of consumed) {
-      const rc = l.piece.meta && l.piece.meta.round;
-      if (rc && rc.r === this.m.round) for (const [k, v] of Object.entries(rc.n)) this.bumpPieceRoundCount(elite, k, Math.max(0, v - this.pieceRoundCount(elite, k)));
-    }
+    // a new piece: this round's per-piece counters start at 0, none is carried over from the copies — a newly merged
+    // elite 拉普兰德 is a new 拉普兰德 and fires +8 on its own first manual refresh this round (GitHub #169; the owner's
+    // decision of 2026-10-06; pieceRoundCount)
     const deployed = consumed.filter((l) => l.key && !this.board.has(l.key)).map((l) => ({ key: l.key, dir: pieceDir(l.piece) }));
     const toTile = (t) => { elite.dir = parseDir(t.dir) || 'RIGHT'; this.board.set(t.key, elite); return 'board'; };
     const tile = mergeTile(deployed, (r, c) => this._legal(elite, r, c));
