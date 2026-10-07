@@ -1042,8 +1042,11 @@ export async function createFieldView(host, options = {}) {
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
         if (dragState && dragState.key === key) {
           dragState.home = w;                       // being dragged: only its home slot changes
-        } else if (pending.has(key) && !moved && !splitLanded(e, pending.get(key).board, list)) {
-          // dropped, but this state predates the server applying the move: stay at the drop target
+        } else if (pending.has(key) && !moved && !splitLanded(e, pending.get(key).board, list) && !(e.area === 'board' && !prevBoard.has(e.uid))) {
+          // dropped, but this state predates the server applying the move: stay at the drop target. Not a piece this
+          // state shows newly on the board — the move was applied (the direction wheel's holdPiece already made the
+          // tile its home, so `moved` is false): it drops in with its sound below (user 2026-10-08 「오퍼를 벤치에서
+          // 보드에 배치시, 배치 효과음이 안나와」)
         } else {
           pending.delete(key);
           if (moved || Math.abs(v.x - w.x) + Math.abs(v.y - w.y) > 1e-3) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };

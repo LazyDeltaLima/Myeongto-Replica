@@ -115,6 +115,8 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     assert.match(app, /prevBoard\.has\(e\.uid\) && v\.onDeploy\) dropped = v\.onDeploy\(\);/);
     assert.match(app, /const backFromBattle = !prepPieces\.length && promoBase\.length > 0;/);
     assert.match(app, /else if \(backFromBattle && e\.area === 'board'\) prepDeployed\(e, info\);/);
+    // a bench → board move the direction wheel held on its tile drops in when the state shows it on the board
+    assert.match(app, /pending\.has\(key\) && !moved && !splitLanded\(e, pending\.get\(key\)\.board, list\) && !\(e\.area === 'board' && !prevBoard\.has\(e\.uid\)\)/);
     // user report 2026-10-07 #1: round 1's first piece (nothing before it, a sync already ran) drops in — with its sound
     assert.match(app, /\(before\.length \|\| prepSynced\) && \(e\.area === 'hand'/);
     assert.match(app, /if \(prepPieces\.length === seen\.size\) prepSynced = true;/);
