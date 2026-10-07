@@ -208,7 +208,7 @@ export async function processModels(models, { root, dl, cachePath, download = tr
     if (sk.missingRegions?.length) problems.push(`${m.key}: ${sk.missingRegions.length} attachment(s) not in atlas (e.g. ${sk.missingRegions[0]})`);
     if (!sk.animations.length) { problems.push(`${m.key}: skeleton has no animations`); continue; }
     const anims = resolveRoles(sk.animations, { skillIndices: m.skillIndices, durations: sk.durations });
-    applyAnimOverrides(m.key, anims); // local patch: 宴 S2 attacks with Attack (tools/assets/anim-overrides.mjs)
+    applyAnimOverrides(m.key, anims, sk.animations); // local patch: 宴 S2 attacks with Attack (tools/assets/anim-overrides.mjs)
     entries.set(m.key, {
       skel: assetUrl(m.skel.rel),
       atlas: assetUrl(m.atlas.rel),

@@ -93,6 +93,17 @@ describe('宴 S2 落地斩·破门 is not drawn as S1 分神 (tools/assets/anim-
     // another model is untouched
     assert.notEqual(applyAnimOverrides('op:char_102_texas:front', resolveRoles(names, { skillIndices: [1, 0] })).skills['1'].via, 'attack');
   });
+
+  test('an override clip one side lacks is dropped: 泥岩 Back has no Skill_2_Begin (S3 starts in Skill_2_Attack / _Idle)', () => {
+    const back = ['Attack', 'Default', 'Idle', 'Skill_1', 'Skill_2_Attack', 'Skill_2_End', 'Skill_2_Idle', 'Start'];
+    const r = applyAnimOverrides('op:char_311_mudrok:back', resolveRoles(back, { skillIndices: [0, 1, 2] }), back);
+    assert.equal(r.skills['2'].begin, null);
+    assert.equal(r.skills['2'].loop, 'Skill_2_Attack');
+    const front = [...back, 'Skill_2_Begin', 'Skill_2_Awake', 'Skill_2_Sleep'];
+    assert.equal(applyAnimOverrides('op:char_311_mudrok:front', resolveRoles(front, { skillIndices: [0, 1, 2] }), front).skills['2'].begin, 'Skill_2_Begin');
+    const mud = ASSETS.chars.char_311_mudrok.spine;
+    assert.equal(mud.back.anims.skills['2'].begin, null, 'the manifest (tools/fetch-assets.mjs) too');
+  });
 });
 
 describe('魔王 S3 编织重构现世: HP redistribution takes every ally in range, 不成为治疗目标 ones included (kits/tier4.js)', () => {
