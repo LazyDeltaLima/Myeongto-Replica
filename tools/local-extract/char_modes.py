@@ -165,8 +165,8 @@ def modes_of(path, projectiles=None):
     """{ modes, proj, cast, hit, trail } of a charpack (per mode, in `_modes` order), or None:
     modes = the mode GameObject names; proj = the projectile keys under each mode; cast = the effects its attacks cast on
     the attacker; hit = those on the target (the emitters' hit lists + its own projectile's WhenHit / WhenReached); trail =
-    that projectile's main effect; attach = the effects of the mode's own (Talents) buffs, shown on the operator while it
-    lasts. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
+    that projectile's main effect; attach = the effects of the mode's own (Talents) buffs and the effects its abilities
+    attach (`_attachEffects`, an ability's `_effects`), shown on the operator while it lasts. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
     only the first counts."""
     tree, go_name = load_tree(path)
     root = next((d for _, d, _ in tree if isinstance(d.get('_modes'), list) and d['_modes']), None)
@@ -220,6 +220,11 @@ def modes_of(path, projectiles=None):
         # the operator while the mode lasts; buffs an attack puts on its target (_activeBuffs) are not these
         if '/Talents/' in gp[len(mode_paths[i]):] + '/':
             add(attach[i], buff_effects(d))
+        # effects a mode's abilities attach while they run: an emitter's `_attachEffects`, and an ability's own `_effects`
+        # list (비르투오사 S3's GeneralAbilities: cello_skill_03_buff_01 / _front_02 / _range — her range)
+        add(attach[i], effect_names(d.get('_attachEffects') or []))
+        if isinstance(d.get('_effects'), list) and all(isinstance(x, str) for x in d['_effects']):
+            add(attach[i], d['_effects'])
     # the mode's own shot first (projectile_chr_<name>[_default|_s<n>|_<X>]) — drones / talent shots after it; only that
     # projectile's hit / trail effects are the mode's (whitw2's funnels hit with their own when they fire)
     short = re.sub(r'^char_\d+_', '', Path(path).stem)

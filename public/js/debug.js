@@ -11,6 +11,7 @@
 import { data } from './data.js';
 import { audio, kitHitKey, normalAttackSfx } from './audio.js';
 import { loopGain } from './audioOfficial.js';
+import { installResources } from './resources.js';
 import { voiceStore, setVoiceLang } from './voice.js';
 import { fxBundleOf, effectGroups, effectsFor, attackMode, boundEffects } from './render/fxmap.js';
 import { loadoutOptions } from '../../shared/protocol.js';
@@ -34,6 +35,9 @@ const DIR_LABEL = { RIGHT: '→', DOWN: '↓', LEFT: '←', UP: '↑' };
 const VOICE_SLOTS = { start: '행동 출발', faceEnemy: '행동 개시', select: '선택', place: '배치', skill1: '작전 중 1', skill2: '작전 중 2', skill3: '작전 중 3', skill4: '작전 중 4' };
 
 // ---- data ---------------------------------------------------------------------------------------------------------
+// the game page's resource worker answers /assets/ from its cache by path: sync that cache with the current list first, as
+// the game does on load (public/js/resources.js reconcile) — else a rebuilt fx/index.json or fx/modes.json stays its old copy
+try { await Promise.race([installResources(), new Promise((r) => setTimeout(r, 4000))]); } catch { /* the page works without it */ }
 const getJson = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 const [, fxIndex, koData, koDiy, fxModes] = await Promise.all([data.loadAll('chess', 'enemies', 'assets', 'local', 'stages'), getJson('/assets/local/fx/index.json'),
   getJson('/i18n/ko/data.json'), getJson('/i18n/ko/diy.json'), getJson('/assets/local/fx/modes.json')]);

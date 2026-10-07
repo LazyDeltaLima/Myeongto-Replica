@@ -50,6 +50,10 @@ describe('attack-mode effect bindings', () => {
     assert.deepEqual(w.trail[0], ['wisdel_attack_01_trail'], 'a ranged attack\'s projectile trail (its _mainEffect)');
     const o = modes.char_4182_oblvns;
     assert.deepEqual(o.attach[o.modes.indexOf('S3')], ['oblvns_skill_03_range'], '丰川祥子 S3\'s range: its mode buff\'s effect');
+    const c = modes.char_245_cello;
+    assert.ok(c.attach[c.modes.indexOf('S3')].includes('cello_skill_03_buff_range'), '비르투오사 S3\'s range: an ability\'s own _effects');
+    const a = modes.char_4132_ascln;
+    assert.ok(a.attach[a.modes.indexOf('S3')].includes('ascln_skill_03_range_01'), '阿斯卡纶 S3\'s range');
     assert.deepEqual(w.trail[3], ['wisdel_skill_03_trail'], 'S3\'s own projectile');
     assert.ok(Object.values(modes).filter((e) => e.trail[0].length).length >= 14, 'the ranged operators of the extracted 25 at least');
   });

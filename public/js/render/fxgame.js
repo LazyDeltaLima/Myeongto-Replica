@@ -505,7 +505,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             const attach = bound(v, skillMode(v), 'attach');
             if (attach.length) play(v, 'skillBuff', skillIdx(v), { buff: true, names: attach });
           }
-          else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id); endWolves(v.id ?? v.info.id); }
+          // local patch (user 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
+          else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id, true); endWolves(v.id ?? v.info.id); }
           return;
         }
         case 'atk': {
@@ -666,6 +667,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         live: live.length, loaded: !!mod, updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
         calls: perf.calls, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
         recent: recent.slice(), trails: trails.length, // local patch
+        buffs: live.filter((l) => l.buff && !l.inst.done).map((l) => l.inst.def?.name ?? '?'), // local patch: the looping effects on now
         trailAt: trails.map((r) => (r.inst ? [+r.inst.object.position.x.toFixed(2), +r.inst.object.position.y.toFixed(2), +r.k.toFixed(2)] : [r.k])), // local patch
       };
     },

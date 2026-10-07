@@ -433,9 +433,13 @@
   ],
   "attach": [
    [],
+   [
+    "gvial2_chainsaw_glow_02"
+   ],
    [],
-   [],
-   []
+   [
+    "gvial2_chainsaw_glow_02"
+   ]
   ]
  },
  "char_1028_texas2": {
@@ -1187,7 +1191,9 @@
   "attach": [
    [],
    [],
-   []
+   [
+    "halo2_skill_03_range_01"
+   ]
   ]
  },
  "char_1050_chen3": {
@@ -1510,7 +1516,9 @@
   ],
   "attach": [
    [],
-   []
+   [
+    "prove_skill_02_buff_02"
+   ]
   ]
  },
  "char_150_snakek": {
@@ -2176,7 +2184,11 @@
   "attach": [
    [],
    [],
-   []
+   [
+    "cello_skill_03_buff_01",
+    "cello_skill_03_buff_front_02",
+    "cello_skill_03_buff_range"
+   ]
   ]
  },
  "char_249_mlyss": {
@@ -3150,8 +3162,12 @@
    []
   ],
   "attach": [
-   [],
-   [],
+   [
+    "mint_buff_01_range"
+   ],
+   [
+    "mint_skill_01_range"
+   ],
    []
   ]
  },
@@ -4178,7 +4194,9 @@
   "attach": [
    [],
    [],
-   []
+   [
+    "ascln_skill_03_range_01"
+   ]
   ]
  },
  "char_4134_cetsyr": {
