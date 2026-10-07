@@ -72,6 +72,7 @@ import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIcon
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
 import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local patch
 import { UF_CAMOU } from '../../../shared/local.js'; // local patch: 迷彩 icon
+import { AllyBars, hudUnit, prepChipTexture, PREP_CHIP } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -584,10 +585,13 @@ export class UnitView {
     h.addChild(this.spGlow);
     // nothing shows until the first HUD update decides (a culled or prep view never draws bars)
     for (const b of [this.hpBg, this.hpGhost, this.hpFill, this.shieldBar, this.spBg, this.spFill, this.spGlow]) b.visible = false;
+    this.lpBars = this.isEnemy ? null : new AllyBars(P, h); // local patch: official ally bars (hud-bars.js)
+    this.ammo = null;
     this.chip = null;
     // operators only: summon tokens have no tier (hand and field alike)
     if (!this.isEnemy && !this.isToken && this.info.kind !== 'device') {
       this.chip = new P.Sprite(tierChip(this.tier, this.golden));
+      this._chipTex = this.chip.texture; // local patch: the drawn chip, when the official one is not installed (hud-bars.js)
       this.chip.anchor.set(0.5);
       h.addChild(this.chip);
     }
@@ -662,6 +666,7 @@ export class UnitView {
     if (hp < this.hp - 0.5 && this.isBoss) this.shake = 0.25;
     this.hp = hp;
     this.sp = s.sp; this.spMax = s.spMax;
+    this.ammo = s.ammo || null; // local patch: official bullet bar (b.snap `ammo`)
     const prevFlags = this.flags;
     this.flags = s.flags | 0;
     this.anim = s.anim | 0;
@@ -1065,30 +1070,39 @@ export class UnitView {
     this.shake = Math.max(0, this.shake - dt);
     const x0 = x - bw / 2 + sx;
     let cy = y - 4;
+    // local patch (LOCAL-PATCH.md 「전투 화면 UI」): allies draw the official bars under their feet, screen-fixed (hud-bars.js)
+    const lp = !!this.lpBars;
+    let lpBottom = 0;
     // HP
-    this.hpBg.visible = this.hpFill.visible = this.hpGhost.visible = showHp;
+    this.hpBg.visible = this.hpFill.visible = this.hpGhost.visible = showHp && !lp;
     if (showHp) {
       const k = this.maxHp > 0 ? clamp(this.hp / this.maxHp, 0, 1) : 0;
       if (this.ghostHp < this.hp) this.ghostHp = this.hp;
       else this.ghostHp = Math.max(this.hp, this.ghostHp - this.maxHp * dt * 0.9);
       const g = this.maxHp > 0 ? clamp(this.ghostHp / this.maxHp, 0, 1) : 0;
+      if (lp) {
+        const u = hudUnit(this.ctx.viewport?.()), active = !!(this.flags & UF.SKILL);
+        const sp = this.spMax > 0 ? clamp(this.sp / this.spMax, 0, 1) : null;
+        lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: k, ghost: g, sp, cast: active, ammo: active ? this.ammo : null });
+      }
       this.hpBg.position.set(x0 - 1, cy); this.hpBg.width = bw + 2; this.hpBg.height = bh + 2;
       this.hpGhost.position.set(x0, cy); this.hpGhost.width = bw * g; this.hpGhost.height = bh;
       this.hpFill.position.set(x0, cy); this.hpFill.width = bw * k; this.hpFill.height = bh;
       if (!this.isEnemy) this.hpFill.tint = k < 0.3 ? COLORS.hpAllyLow : COLORS.hpAlly;
-    }
+    } else if (lp) this.lpBars.hide();
     const shielded = showHp && (this.flags & UF.SHIELD);
     this.shieldBar.visible = !!shielded;
-    if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }
+    if (shielded && lp) { const u = hudUnit(this.ctx.viewport?.()); this.shieldBar.position.set(this.screen.x + sx - 62.5 * u, this.screen.y + 49 * u); this.shieldBar.width = 125 * u; this.shieldBar.height = Math.max(1.5, 2.5 * u); } // local patch: a strip over the official HP bar
+    else if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }
     // SP
     const showSp = showBars && this.spMax > 0; // local patch: an enemy sends SP only for 圣堂剑士's bullets (sim/content/local-patch.js)
-    this.spBg.visible = this.spFill.visible = showSp;
+    this.spBg.visible = this.spFill.visible = showSp && !lp; // local patch: allies' SP is in their official bars
     const spH = Math.max(2, bh * 0.6);
     let ready = false;
     if (showSp) {
       const active = !!(this.flags & UF.SKILL);
       const k = clamp(this.sp / this.spMax, 0, 1);
-      ready = !active && k >= 0.999 && !this.isEnemy; // local patch: bullets, not a charged skill
+      ready = !active && k >= 0.999 && !this.isEnemy && !lp; // local patch: bullets, not a charged skill; no glow on the official bars
       const sy = cy + bh / 2 + spH / 2 + 1.5;
       this.spBg.position.set(x0 - 1, sy); this.spBg.width = bw + 2; this.spBg.height = spH + 2;
       this.spFill.position.set(x0, sy); this.spFill.width = bw * k; this.spFill.height = spH;
@@ -1104,11 +1118,23 @@ export class UnitView {
     }
     // tier chip (left of the bars in battle; above the head in prep)
     if (this.chip) {
+      // local patch (LOCAL-PATCH.md 「전투 화면 UI」): no chip in battle (official); in prep the official autochess_level_N
+      // sprite at `shop_hud`'s place when the local client art is installed (hud-bars.js PREP_CHIP)
+      const off = prep ? prepChipTexture(this.P, this.ctx.assets, this.tier) : null;
+      if (off) {
+        const u = hudUnit(this.ctx.viewport?.());
+        if (this.chip.texture !== off) this.chip.texture = off;
+        this.chip.scale.set(PREP_CHIP.scale * u);
+        this.chip.visible = this.alive;
+        this.chip.position.set(this.screen.x + PREP_CHIP.x * u, this.screen.y - PREP_CHIP.y * u);
+      } else {
+      if (this.chip.texture !== this._chipTex) this.chip.texture = this._chipTex;
       const cs = clamp(s * (prep ? 0.24 : 0.19), 11, 28) / 44;
       this.chip.scale.set(cs);
-      this.chip.visible = this.alive;
+      this.chip.visible = this.alive && (prep || !lp);
       if (prep) this.chip.position.set(x, y - this.chip.height / 2 + 2);
       else this.chip.position.set(x0 - this.chip.width / 2 - 1, cy + (showSp ? spH / 2 : 0));
+      }
     }
     // status icons row above the bars
     const icons = this._iconKeys();
@@ -1126,7 +1152,8 @@ export class UnitView {
       ic.position.set(x - ((icons.length - 1) * (isz + 2)) / 2 + i * (isz + 2), iy);
     }
     // element gauge row under the bars (b.snap `elem`); redeploy ring above a knocked-down operator (b.snap `down`)
-    this._updateElementBar(showBars && !!this.el, x0, bw, cy + bh / 2 + (showSp ? spH + 1.5 : 0) + 1, spH, s, t);
+    if (lp) { const u = hudUnit(this.ctx.viewport?.()); this._updateElementBar(showBars && !!this.el, this.screen.x + sx - 62.5 * u, 125 * u, lpBottom, 7 * u, s, t); } // local patch
+    else this._updateElementBar(showBars && !!this.el, x0, bw, cy + bh / 2 + (showSp ? spH + 1.5 : 0) + 1, spH, s, t);
     this._updateDownRing(!prep && !!this.down && !this.alive, x, this.screen.y - DOWN_LOOK.height * s, s, t);
     // blocked marker at the feet (enemies held by a blocker)
     const blocked = !prep && this.alive && this.isEnemy && (this.flags & UF.BLOCKED);

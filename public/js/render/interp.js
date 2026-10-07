@@ -90,6 +90,8 @@ export function normalizeSnapshot(snap) {
       if (tu && tu.length === 9) tu.push(e[1], clamp(finite(e[2]), 0, 1), finite(e[3]), Math.max(0, finite(e[4])));
     }
   }
+  // local patch (LOCAL-PATCH.md 「전투 화면 UI」): b.snap `ammo` [[id, left, max]] rides on the tuple as `.ammo` (sample `ammo`)
+  if (Array.isArray(snap.ammo)) for (const e of snap.ammo) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[2]) > 0) tu.ammo = [Math.max(0, finite(e[1])), finite(e[2])]; }
   let down = null;
   if (Array.isArray(snap.down)) {
     for (const d of snap.down) {
@@ -317,6 +319,7 @@ export class SnapshotBuffer {
       o.flags = a[7];
       o.anim = a[8];
       if (a.length > 9) { o.el = a[9]; o.elFill = a[10]; o.elUntil = a[11]; o.elDur = a[12]; } else if (o.el !== null) { o.el = null; o.elFill = 0; o.elUntil = 0; o.elDur = 0; }
+      o.ammo = a.ammo || null; // local patch: official bullet bar
       o.seen = stamp;
     }
     for (const id of out.keys()) if (!A.units.has(id)) out.delete(id);
