@@ -343,14 +343,17 @@ SharedPool.prototype.tierShares = function tierShares(maxTier) {
 
 // ---- debug page (/debug.html) ----------------------------------------------------------------------------------
 
-/** The effect / sound debug page and its scripts (public/debug.html, js/debug.js; /fxlab.html redirects to it). */
+/** The effect / sound debug page and its scripts (public/debug.html, js/debug.js, js/debug/*: the sandbag arena;
+ *  /fxlab.html redirects to it). */
 const DEBUG_PATHS = new Set(['/debug.html', '/fxlab.html', '/js/debug.js']);
+const DEBUG_DIR = '/js/debug/';
 /**
  * Whether a static request is the debug page on a server that does not serve it: only `SP_DEBUG_PAGE=1` (local.sh)
  * serves it; deployed servers (OCI / NAS) answer 404.
  */
 export function debugPageHidden(decodedPath, env = process.env) {
-  return DEBUG_PATHS.has(String(decodedPath).toLowerCase()) && env.SP_DEBUG_PAGE !== '1';
+  const p = String(decodedPath).toLowerCase();
+  return (DEBUG_PATHS.has(p) || p.startsWith(DEBUG_DIR)) && env.SP_DEBUG_PAGE !== '1';
 }
 
 // ---- /healthz through the reverse proxy ------------------------------------------------------------------------

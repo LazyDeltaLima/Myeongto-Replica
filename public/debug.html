@@ -1,15 +1,18 @@
 <!doctype html>
-<!-- Debug page (local patch, docs/LOCAL-PATCH.md): official battle effects (tools/local-extract/fx_extract.py,
-     render/fxplayer.js), unit / skill sounds and voice lines per operator. Not linked from the game. -->
+<!-- Debug page (local patch, docs/LOCAL-PATCH.md): a sandbag arena — the game's battle view on a 7×7 tile island with the
+     chosen operator and immortal sandbag enemies, simulated in the page (js/debug/arena.js) — for the skill sounds,
+     impact sounds and effects of each operator; plus its sound / voice files and every extracted official effect
+     (tools/local-extract/fx_extract.py, render/fxplayer.js). Not linked from the game; local servers only. -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>이펙트·사운드 디버그</title>
+<link rel="icon" href="data:,">
 <style>
-  :root { color-scheme: dark; --line: #22302c; --mint: #2fd6a3; --dim: #8fb3a6; }
-  html, body { margin: 0; height: 100%; background: #0e1312; color: #d8e3de; font: 13px/1.45 system-ui, sans-serif; }
-  #app { display: grid; grid-template-columns: 220px 300px 1fr; height: 100%; }
+  :root { color-scheme: dark; --line: #22302c; --mint: #2fd6a3; --dim: #8fb3a6; --warn: #e0b45a; --bad: #e07a6a; --panel: #0e1312; }
+  html, body { margin: 0; height: 100%; background: var(--panel); color: #d8e3de; font: 13px/1.45 system-ui, sans-serif; }
+  #app { display: grid; grid-template-columns: 220px 330px 1fr; height: 100%; }
   aside, section.side { overflow: auto; border-right: 1px solid var(--line); padding: 8px; }
   h2 { font-size: 11px; margin: 12px 0 4px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
   h2:first-child { margin-top: 0; }
@@ -20,35 +23,79 @@
   button.op:hover, button.it:hover { background: #1a2421; }
   button.op.on, button.it.on { background: #24433a; }
   button.it .k { color: var(--dim); font-size: 11px; margin-left: auto; }
-  .row { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
-  .chip { background: #1a2421; border: 1px solid #2c3d38; color: inherit; border-radius: 4px; padding: 3px 8px; cursor: pointer; font: inherit; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; align-items: center; }
+  .chip, .side select, .side input[type=number] { background: #1a2421; border: 1px solid #2c3d38; color: inherit; border-radius: 4px; padding: 3px 8px; cursor: pointer; font: inherit; }
+  .side input[type=number] { width: 72px; cursor: text; padding: 3px 5px; }
+  .side select { max-width: 100%; }
   .chip:hover { border-color: var(--mint); }
   .chip.skill { border-color: #3b6b5c; }
+  .chip.on { background: #24433a; border-color: var(--mint); }
+  .chip:disabled { opacity: .45; cursor: default; }
   .muted { color: var(--dim); font-size: 12px; }
-  main { position: relative; }
-  canvas { display: block; width: 100%; height: 100%; }
-  #bar { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; align-items: center; background: #0e1312cc; padding: 6px 8px; border-radius: 6px; }
-  #bar button, #bar select { background: #1a2421; color: inherit; border: 1px solid #2c3d38; border-radius: 4px; padding: 3px 8px; font: inherit; }
-  #stats { position: absolute; right: 8px; top: 8px; font: 12px ui-monospace, monospace; background: #0e1312cc; padding: 6px 8px; border-radius: 6px; }
-  #now { position: absolute; left: 8px; bottom: 8px; font: 12px ui-monospace, monospace; background: #0e1312cc; padding: 4px 8px; border-radius: 6px; }
+  .warn { color: var(--warn); font-size: 12px; }
+  label.f { display: inline-flex; gap: 4px; align-items: center; color: var(--dim); font-size: 12px; }
+  #sp { font: 12px ui-monospace, monospace; background: #141c19; border: 1px solid #22302c; border-radius: 4px; padding: 4px 6px; white-space: pre-wrap; }
+  main { position: relative; display: grid; grid-template-rows: 1fr 230px; min-width: 0; min-height: 0; }
+  #field { position: relative; overflow: hidden; min-height: 0; background: #0a0e0d; }
+  #bar { position: absolute; left: 8px; top: 8px; z-index: 5; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; background: #0e1312cc; padding: 6px 8px; border-radius: 6px; max-width: calc(100% - 300px); }
+  #bar button, #bar select { background: #1a2421; color: inherit; border: 1px solid #2c3d38; border-radius: 4px; padding: 3px 8px; font: inherit; cursor: pointer; }
+  #bar input[type=range] { width: 70px; }
+  #stats { position: absolute; right: 8px; top: 8px; z-index: 5; font: 12px ui-monospace, monospace; background: #0e1312cc; padding: 6px 8px; border-radius: 6px; white-space: pre; text-align: right; }
+  #now { position: absolute; left: 8px; bottom: 8px; z-index: 5; font: 12px ui-monospace, monospace; background: #0e1312cc; padding: 4px 8px; border-radius: 6px; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #lock { position: absolute; inset: 0; z-index: 6; display: none; align-items: center; justify-content: center; background: #0008; font-size: 15px; cursor: pointer; }
+  #lock.on { display: flex; }
+  #logbox { display: grid; grid-template-rows: auto 1fr; border-top: 1px solid var(--line); min-height: 0; }
+  #logbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+  #logbar button { background: #1a2421; color: inherit; border: 1px solid #2c3d38; border-radius: 4px; padding: 1px 8px; font: inherit; cursor: pointer; }
+  #log { overflow: auto; font: 12px/1.5 ui-monospace, monospace; padding: 2px 8px; margin: 0; list-style: none; }
+  #log li { white-space: nowrap; }
+  #log .t { color: #5f7d73; margin-right: 6px; }
+  #log .snd { color: #9fd6ff; }
+  #log .voice { color: #d7b8ff; }
+  #log .skill { color: var(--mint); }
+  #log .miss { color: var(--warn); }
+  #log .blocked { color: var(--bad); }
+  #log.hide-atk .k-atk, #log.hide-dmg .k-dmg, #log.hide-snd .k-snd, #log.hide-voice .k-voice, #log.hide-fx .k-fx,
+  #log.hide-status .k-status, #log.hide-skill .k-skill, #log.hide-other .k-other { display: none; }
 </style>
 </head>
 <body>
 <div id="app">
   <aside><input class="search" id="q" placeholder="오퍼레이터 검색"><div id="ops"></div></aside>
-  <section class="side" id="detail"><p class="muted">왼쪽에서 오퍼레이터를 고르세요.</p></section>
+  <section class="side" id="detail"><p class="muted">불러오는 중…</p></section>
   <main>
-    <canvas id="c"></canvas>
-    <div id="bar">
-      <button id="replay">▶ 다시</button>
-      <label><input type="checkbox" id="loop"> 반복</label>
-      <select id="quality"><option value="high">high</option><option value="medium">medium</option><option value="low">low</option></select>
-      <select id="speed"><option value="1">1×</option><option value="0.5">0.5×</option><option value="0.25">0.25×</option></select>
-      <label><input type="checkbox" id="flip"> 왼쪽 보기</label>
-      <select id="voice"><option value="kr">음성 한국어</option><option value="jp">음성 일본어</option></select>
+    <div id="field">
+      <div id="bar">
+        <button id="pause" title="일시정지 / 재생 (Space)">⏸</button>
+        <button id="step" title="0.1초 진행 (멈춘 상태)">+0.1s</button>
+        <button id="restart" title="전투 다시 시작 (R)">↺ 재시작</button>
+        <select id="speed" title="게임 속도"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+        <select id="quality" title="그래픽 품질 (낮음 = 공식 이펙트 끔)"><option value="high">high</option><option value="medium">medium</option><option value="low">low</option></select>
+        <select id="voice" title="대사 언어"><option value="kr">음성 한국어</option><option value="jp">음성 일본어</option><option value="off">음성 끔</option></select>
+        <label class="f" title="효과음 볼륨">효과음 <input type="range" id="vsfx" min="0" max="1" step="0.05" value="0.8"></label>
+        <label class="f" title="대사 볼륨">대사 <input type="range" id="vvoice" min="0" max="1" step="0.05" value="0.8"></label>
+        <label class="f"><input type="checkbox" id="range"> 사거리</label>
+      </div>
+      <div id="stats"></div>
+      <div id="now"></div>
+      <div id="lock">🔈 클릭하면 소리가 켜집니다</div>
     </div>
-    <div id="stats"></div>
-    <div id="now"></div>
+    <div id="logbox">
+      <div id="logbar">
+        <span class="muted">이벤트·소리 로그</span>
+        <label class="f"><input type="checkbox" data-k="skill" checked> 스킬</label>
+        <label class="f"><input type="checkbox" data-k="atk" checked> 공격</label>
+        <label class="f"><input type="checkbox" data-k="dmg"> 피해</label>
+        <label class="f"><input type="checkbox" data-k="snd" checked> 효과음</label>
+        <label class="f"><input type="checkbox" data-k="voice" checked> 대사</label>
+        <label class="f"><input type="checkbox" data-k="fx" checked> fx</label>
+        <label class="f"><input type="checkbox" data-k="status"> 상태</label>
+        <label class="f"><input type="checkbox" data-k="other" checked> 기타</label>
+        <button id="logclear">지우기</button>
+        <label class="f"><input type="checkbox" id="logfollow" checked> 자동 스크롤</label>
+      </div>
+      <ul id="log"></ul>
+    </div>
   </main>
 </div>
 <script type="module" src="/js/debug.js"></script>

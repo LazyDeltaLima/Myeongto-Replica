@@ -537,7 +537,7 @@ test('/healthz through the proxy: build only, no counters (server/local-patch.js
 
 test('debug page: served only with SP_DEBUG_PAGE=1 (server/local-patch.js debugPageHidden)', async () => {
   const { debugPageHidden } = await import('../server/local-patch.js');
-  for (const p of ['/debug.html', '/DEBUG.html', '/js/debug.js', '/fxlab.html']) {
+  for (const p of ['/debug.html', '/DEBUG.html', '/js/debug.js', '/fxlab.html', '/js/debug/arena.js', '/js/debug/sandbag.js']) {
     assert.equal(debugPageHidden(p, {}), true, `${p} hidden by default`);
     assert.equal(debugPageHidden(p, { SP_DEBUG_PAGE: '1' }), false, `${p} served with the flag`);
   }

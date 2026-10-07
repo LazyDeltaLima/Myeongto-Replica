@@ -29,7 +29,8 @@
 //                                               model to that clip set (render/units.js FORMS)
 //   view.setLocalFeed({ on, speed })            frames come from the local sim every frame (client-side combat):
 //                                               ~2-frame buffer at the battle's game speed
-//   view.highlightTiles(tiles, style)           [[r,c]] | [{row,col}]; style 'legal'|'illegal'|'range'|'rangeStand'|
+//   view.debugFx(key, unitId) → Promise<bool>   local patch (/debug.html): one official effect prefab on a battle unit
+//   view.highlightTiles(tiles, style)          [[r,c]] | [{row,col}]; style 'legal'|'illegal'|'range'|'rangeStand'|
 //                                               'hover'|'target'|{color,fill,line,group}; highlightTiles(null) clears all
 //   view.on(name, fn) → unsubscribe ; view.off(name, fn)
 //        pieceDragStart { uid, piece, from } · pieceDrop { uid, piece, from, target } · pieceDragEnd {uid, dropped}
@@ -1965,6 +1966,8 @@ export async function createFieldView(host, options = {}) {
      * every animation frame instead of the network, so the render clock trails them by ~2 frames (not the 100 ms
      * jitter buffer) and runs at the battle's game speed. `{ on: false }` restores the network settings.
      */
+    /** local patch: /debug.html plays one official effect prefab (`bundle/prefab`) on a battle unit (render/fxgame.js debugPlay). */
+    debugFx(key, unitId, o) { const v = views.get(unitId); return v ? fxGame.debugPlay(key, v, o) : Promise.resolve(false); },
     setLocalFeed(o) {
       const on = !!(o && o.on);
       const speed = Number(o && o.speed) > 0 ? Number(o.speed) : 2;

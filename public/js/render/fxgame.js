@@ -528,6 +528,24 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       mod = null;
     },
 
+    /**
+     * /debug.html: one prefab `bundle/name` of the extracted index on `at` — a unit's view (followed, facing as it does)
+     * or a board point { x, y, z } — ended after its duration like play()'s one-shots; a `_buff` prefab goes under the
+     * units. Resolves false when the prefab is not extracted or the layer is off (quality low, no WebP).
+     */
+    async debugPlay(key, at, { facing = null } = {}) {
+      const [bundle, name] = String(key || '').split('/');
+      if (!at || !index?.bundles?.[bundle]?.includes(name) || !(await ensure())) return false;
+      const def = await lib.load(bundle, name);
+      if (!mod || !def) return false;
+      const f = facing ?? at.visFacing ?? at.facing ?? 1;
+      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: f < 0 ? -1 : 1 });
+      inst.object.position.set(at.x, at.y, at.z || 0);
+      addLive(inst, { view: at, owner: at.id ?? at.info?.id ?? null, buff: false, until: clockS + (def.duration || 3) + 0.5 }, /_buff/i.test(name) ? layers.under : layers.over);
+      while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+      return true;
+    },
+
     /** Per-frame averages (update = the players, render = the layer's draw), the last frame's draw calls, live particles. */
     stats() {
       return {
