@@ -71,7 +71,10 @@ describe('module type icons (local-client art, optional)', () => {
       if (!url) { missing.push(t); continue; }
       assert.ok(existsSync(path.join(ROOT, 'public', url)), `${t} → ${url} exists`);
     }
-    assert.deepEqual(missing, [], 'every module type has an official icon');
+    // local patch: types whose icon the extracted client has no sprite for (EN client 2026-10-08,
+    // spritepack/ui_equip_type_hub_h2_0.ab: inc-x but no inc-y) — the UI draws the lettered tile
+    const NOT_IN_CLIENT = new Set(['INC-Y']);
+    assert.deepEqual(missing.filter((t) => !NOT_IN_CLIENT.has(t)), [], 'every module type has an official icon');
   });
 
   test('干员调配 module tile: official icon when listed, lettered tile when the manifest or the entry is missing', async () => {

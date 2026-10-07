@@ -50,7 +50,7 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 기본 언어 한국어, 「自选」 = 「선발」, 进阶 = 승급, 上/下(방향) = 위/아래, 全部 = 전체, 攻击/防御 = 공격/방어, 解冻 = 해동(공식 KR 문자열 표 대조).
 
 **기타**
-- 우리 DESIGN §15.1(공식 스테이지 씬)은 upstream이 설계 문서를 다시 써서 `docs/local/official-scenes.md`로 옮겼다.
+- 우리 설계 문서의 15.1절(공식 스테이지 씬)은 upstream이 설계 문서를 다시 써서 `docs/local/official-scenes.md`로 옮겼다.
 - `data/assets.json`은 우리 생성기로 다시 만들었다(`fetch-assets --add-only --allow-shrink`: 공유 `public/assets`에 없는 파일만 받음).
 - 0.2.0 개발 의존성(eslint·typescript)이 생겼다: `npm ci`.
 
@@ -1505,28 +1505,21 @@ upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 �
 
 ## 테스트
 - `node --test test/local-patch.test.js` — 로컬 테스트 109개.
-- 전체 `node --test`에서 원래부터 실패하는 것 (이 개발 사본에 게임 소재가 없음): 소재 manifest·로컬 추출·모듈 아이콘·이모티콘 그림 관련,
-  `make-windows-bundle` 대소문자 검사. 2026-10-05 기준 12개. (`lobby-integration` 재접속 테스트와 `match/realtime.test.js` 「real-time co-op over websockets」가 가끔 시간 문제로 실패하는데, 단독으로 돌리면 통과한다. 2026-10-06 전체 실행: 최상위 실패 10개 = 소재·로컬 추출 관련 + 아래 의도한 실패 + 단독으로는 통과하는 realtime 1개)
-- 로컬 패치 때문에 실패하는 원본 테스트 (의도한 동작 변경이라 고치지 않음):
-  - `test/match/playtest6_summons.test.js` 「manually deployable summons」: 왕의 장기말이 손패 소환물로 추가됨.
-  - `test/render/issue25-downback.test.js`: 사키코 Front 스켈레톤에 쓰러짐 클립이 없다(공식 데이터, 예외 목록에 한 명 추가).
-  - `test/sim/feedback1f-liftoff.test.js` 「F3 review … “帝国的甲胄” barrage」: 1.5초 안에 8발을 기대한다.
-  - `test/sim/playtest6_limits.test.js` 「限伤 vs 【死亡集群】」: 풀이 크면 드론 피해가 무효이길 기대한다.
-  - `test/docs-consistency.test.js` 「干员战斗语音 (DESIGN §21.30)」: 음성 경로가 원본 기본 `/voice/cn/`이길 기대한다(로컬은 한국어 빌드 + 일본어 쌍둥이).
-    마지막 줄의 `audio.voice(charId, resultVoiceSlot(` 검사도 로컬 4(결산 대사 보관) 때문에 맞지 않는다.
-  - `test/render/feedback3-skill-idle.test.js` 「unchanged: … (宴: its loop stays the stance)」, `test/render/feedback4-texas-skill-clip.test.js`
-    「unchanged: a Begin clip …」: 宴 S2(skillIndex 1)가 Skill_Start → Skill_Loop(=S1 分神 자세)를 틀길 기대한다 — 아래 "전투 버그 수정" 우타게 항목(2026-10-06).
-  - `test/asset-network.test.js` 「CLI source defaults to direct …」(upstream 0.1.4): 음성 기본값 `cn`을 기대한다(로컬은 `kr`).
-  - `test/version.test.js` 「the release version is what players see」: 타이틀·시작 로그가 `v${APP_VERSION}`이길 기대한다 — 로컬은 자체 버전(「버전 표기」).
-  - `test/ui/feedback3-audio-mix.test.js` 「a dog barks … at most the old gain」, 「妖怪 plays at 0.55 × 0.7 …」: 옛 고정 게인(0.55, 1 초과 잘림)을
-    기대한다 — 로컬은 공식 믹서 그룹 게인 × 뱅크 볼륨(위 「스킬 모드 효과음·믹서 볼륨」, 2026-10-07).
-  - `test/render/unitview.test.js` 「operators keep their chip in prep and in battle」, `test/render/playtest6_elembar.test.js` 「the gauge row belongs to its unit」:
-    전투 중 레벨 칩·예전 HP 바 기준 원소 줄을 기대한다 — 「전투 화면 UI」(2026-10-07, 공식은 전투 중 칩 없음, 바는 발밑).
-  - `test/render/feedback3-leader-prep.test.js` 「the leader's view … shows its full HP bar」: 예전 HP 바 스프라이트(`hpFill`)를 본다 — 보스는 이제 공식 거대 보스 바(`lpBars`).
-  - `test/sim/battle.test.js` 「snapshot / event wire format (DESIGN §8.2)」: 'dmg' 이벤트가 4칸이길 기대한다 — 로컬은 5번째 칸(숫자 플래그, 「전투 화면 UI」 ④).
-  - `test/content/enemies_bosses.test.js` 「假想敌：管: … 裂管之奏 at 40 s …」, 「假想敌：管 (隐秘核心) + 假想敌：弦 …」: 스킬이 첫 쿨다운(40초 / 12초)에 나가길 기대한다 —
-    로컬은 공식 SP(0/50·0/35, 초당 1)가 차야 발동(50초 / 25초) — 「전투 화면 UI」 ② 보스 SP(사용자 결정 2026-10-07).
-  - `test/golden.test.js` 「golden roster / bonds / fields / matches」 4개(upstream 0.1.4): 원본 시뮬레이터 결과의 다이제스트를 기대한다 — 로컬 전투 패치(제국의 갑주, 限伤, 성당 검사, 비행 공격 규칙 등)가 결과를 바꾸므로 실패가 정상.
+- 전체 `node --test` (2026-10-08, merge-0.2.0 하드 포크 후): **실패 0이 기준.** 하드 포크(「0.2.0 병합」)부터 upstream 테스트도 우리 것이라,
+  로컬 동작 변경으로 깨지던 원본 테스트는 「의도한 실패」로 두지 않고 고쳤다. 고친 곳마다 `local patch` 주석이 근거 절을 가리킨다:
+  - 동작 변경에 맞춘 것: `render/unitview` 등급 칩(전투 중 없음), `render/playtest6_elembar`(원소 줄은 공식 발밑 바 `lpBars` 아래),
+    `render/feedback3-leader-prep`(보스는 `lpBars`), `sim/battle` 'dmg' 5번째 칸(숫자 플래그), `content/enemies_bosses` 管·弦 첫 발동(공식 SP
+    50초 / 25초, `firstCast`), `sim/feedback1f-liftoff` 제국의 갑주 포격(1.33초부터 0.53초 간격, 5.5초 동안 8발), `docs-consistency` 음성 경로
+    `/voice/kr/`·결산 대사 보관(`holdResultVoice`), `asset-network` 음성 기본 `kr`, `version` 자체 버전 표기, `ui/feedback3-audio-mix`
+    공식 믹서 게인(`officialGain`), `ui/standin-ui` 모델 서명 뒤 소환물 칩, `docs-paths`(옛 설계 문서 15.1절 인용을 문장으로).
+  - EN 클라이언트에 없는 것 허용: `ui/emotes`·`ui/localArt`(愚人节 이모티콘 테마 — fooldoctor 등 — 번들이 EN에 없음: 추출 안 된 테마는
+    건너뜀), `ui/moduleIcons`(INC-Y 아이콘이 EN `ui_equip_type_hub_h2_0.ab`에 없음 → 글자 타일), `render/board3d-extract` 立绘(`chararts`는
+    WebP만 — 아래 「立绘 추출」).
+  - 고친 버그: `render/board3d-extract` 노멀 맵 — EN 클라이언트의 `TX_autochessi_N`은 Unity DXT5nm(R=1, X는 A, Y는 G)인데 BC5(R=X)로 읽어
+    파생 노멀이 평평했다(z 평균 128). `tools/local-extract/extract.py derive_normal_rg`가 R이 전부 255이면 A를 X로 쓴다; 기존 PNG에서 다시
+    파생(`run_derived` + `run_webp`, 클라이언트 불필요). 泥岩 뒷모습 S2 클립(`assets.test`, nas-local 7fcaec09).
+  - 가끔 시간 문제로만 실패(단독 실행은 통과): `lobby` 「solo resume window」, `lobby-integration` 재접속, `match/realtime` 「real-time co-op over websockets」.
+  - golden 다이제스트는 전투 규칙을 바꾸면 `npm run golden:update`로 다시 만든다(바뀐 결과가 의도한 것인지 먼저 확인).
 - `node --test test/local-patch-battle.test.js` — 2026-10-06 플레이 제보 전투 버그 테스트 6개(우타게 S2 그림·저지, 魔王 S3 재분배, 은신·위장 vs 스플래시, 污染秽蚀 vs 은신).
 - `node --test test/local-patch-camou.test.js` — 위장 아이콘(`UF_CAMOU`) 테스트 2개.
 - `node --test test/local-patch-hud.test.js` — 전투 화면 UI 테스트 30개(화면 고정 단위, 아군 바 위치·색, 탄환 칸, 전투 중 칩 없음, 정비 칩 그림 고르기, 장비 바, 적·보스·거대 보스 바, 받침 그림, 보스 SP, 관의 공식 SP 발동, 원소 링, 공식 숫자·설정, 상태 이펙트, 방향 표시, `b.snap.ammo`).

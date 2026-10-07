@@ -194,6 +194,9 @@ describe('extracted board files (when a local client was extracted)', { skip: !m
       for (const [n, e] of Object.entries(entries)) {
         if (!/\.webp$/.test(e?.path || '')) continue;
         assert.ok(existsSync(onDisk(e.path)), `${g}/${n}`);
+        // local patch: the 立绘 of tools/local-extract/chararts_extract.py are WebP only (no PNG, no `webp` mode —
+        // LOCAL-PATCH.md 「立绘 추출」)
+        if (g === 'chararts') continue;
         assert.ok(existsSync(onDisk(pngOf(e.path))), `${g}/${n}: PNG`);
         assert.ok(e.webp === 'lossy' || e.webp === 'lossless', `${g}/${n}: mode ${e.webp}`);
       }

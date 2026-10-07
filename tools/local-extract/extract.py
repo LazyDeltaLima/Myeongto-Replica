@@ -407,13 +407,17 @@ def _normal_z_table():
 
 
 def derive_normal_rg(img):
-    """RGB tangent-space normal map from a two-channel (BC5: R = X, G = Y, B unused) one: Z rebuilt per pixel."""
+    """RGB tangent-space normal map from a two-channel (BC5: R = X, G = Y, B unused) one: Z rebuilt per pixel.
+    local patch (2026-10-08): the EN client's TX_autochessi_N is Unity's DXT5nm packing instead (R = 1 everywhere, X in A,
+    Y in G) — read as BC5 every normal leaned to +X and the rebuilt Z was flat 128 (board3d-extract test); a constant
+    full R takes X from A."""
     from PIL import Image
-    rgb = img.convert('RGB')
-    r, g, _ = rgb.split()
+    rgba = img.convert('RGBA')
+    r, g, _, a = rgba.split()
+    x = a if r.getextrema() == (255, 255) else r
     table = _normal_z_table()
-    z = bytes(table[(x << 8) | y] for x, y in zip(r.tobytes(), g.tobytes()))
-    return Image.merge('RGB', (r, g, Image.frombytes('L', rgb.size, z)))
+    z = bytes(table[(xv << 8) | y] for xv, y in zip(x.tobytes(), g.tobytes()))
+    return Image.merge('RGB', (x, g, Image.frombytes('L', rgba.size, z)))
 
 
 def derive_rough_from_gloss(img):

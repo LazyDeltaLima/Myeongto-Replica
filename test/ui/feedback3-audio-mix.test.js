@@ -10,6 +10,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AudioManager, unitGain, unitSoundPlays } from '../../public/js/audio.js';
+import { officialGain } from '../../public/js/audioOfficial.js'; // local patch: official mixer-group gains
 import { indexAudio, pickUnitSfx, bankMix } from '../../tools/assets/audio.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -57,7 +58,9 @@ test('data/assets.json carries the official mix: dogs 20 %, 妖怪 / 威龙 0.7 
   assert.equal(banks.get('battle.ON_ABILITY_ON.enemy_1005_yokai_2.attack').sounds[0].maxVolume, 0.7);
 });
 
-test('a dog barks only on its chance and never falls back to the generic enemy sound; at most the old gain', () => {
+// local patch (LOCAL-PATCH.md 「스킬 모드 효과음·믹서 볼륨」, 2026-10-07): a unit's own sound plays at the official mixer
+// group gain × its bank volume (audioOfficial.js officialGain) instead of the fixed 0.55 (enemy attack 0.163, …)
+test('a dog barks only on its chance and never falls back to the generic enemy sound; at the official enemy-attack gain', () => {
   assert.equal(unitSoundPlays({ p: 0.2 }, 0.19), true);
   assert.equal(unitSoundPlays({ p: 0.2 }, 0.2), false);
   assert.equal(unitSoundPlays(null, 0.99), true);
@@ -66,21 +69,24 @@ test('a dog barks only on its chance and never falls back to the generic enemy s
   for (let i = 0; i < 5; i++) { a.limiter = new a.limiter.constructor(); a.handleBattleEvents([['atk', 1, 2, 'none']]); }
   const barks = a.played.filter((p) => p.url === UNITS.enemy_1000_gopro_2.attack);
   assert.equal(barks.length, 2, 'rolls 0.1 and 0.05 of 0.5 / 0.9 / 0.1 / 0.3 / 0.05');
-  for (const b of barks) assert.equal(b.volume, 0.55, 'official volume 1: the same gain as before');
+  const want = officialGain('enemy_1000_gopro_2', 'attack', UNITS.enemy_1000_gopro_2, UNITS.enemy_1000_gopro_2.mix?.attack);
+  assert.ok(Math.abs(want - 0.163) < 0.01, `the enemy attack group (${want})`);
+  for (const b of barks) assert.ok(Math.abs(b.volume - want) < 1e-9, 'official volume 1: the group gain');
   assert.equal(a.played.length, 2, 'the silent rolls play nothing — not the generic enemyHit either');
 });
 
-test('妖怪 plays at 0.55 × 0.7; a bank louder than 1 stays at the old gain; die / born use the mix too', () => {
+test('妖怪 plays at its group gain × 0.7; unitGain still caps at 1; die / born use the mix too', () => {
   assert.equal(unitGain(0.55, { vol: 0.7 }), 0.55 * 0.7);
   assert.equal(unitGain(0.55, { vol: 2 }), 0.55, 'never louder than before');
   assert.equal(unitGain(0.8, null), 0.8);
   const a = manager([]);
   assert.equal(a.unit('enemy_1005_yokai_2', 'attack', 7), true);
-  assert.ok(Math.abs(a.played[0].volume - 0.385) < 1e-9);
+  assert.ok(Math.abs(a.played[0].volume - officialGain('enemy_1005_yokai_2', 'attack', UNITS.enemy_1005_yokai_2, { vol: 0.7 })) < 1e-9);
+  assert.ok(Math.abs(a.played[0].volume - 0.163 * 0.7) < 0.01, '≈ 0.163 × 0.7');
   assert.equal(a.unit('char_1028_texas2', 'hit', 8), true);
-  assert.equal(a.played[1].volume, 0.55, 'official 2: unchanged');
+  assert.ok(Math.abs(a.played[1].volume - officialGain('char_1028_texas2', 'hit', UNITS.char_1028_texas2, UNITS.char_1028_texas2.mix?.hit)) < 1e-9, 'official 2: its group gain');
   a.setFieldUnits([{ id: 3, side: 'ally', kind: 'op', spine: 'char_2026_yu', defId: 'chess_char_x' }]);
   a.handleBattleEvents([['deploy', 3]]);
   const born = a.played.find((p) => p.url === UNITS.char_2026_yu.born);
-  assert.ok(born && Math.abs(born.volume - 0.8 * 0.75) < 1e-9, '余 ON_UNIT_BORN at 0.75');
+  assert.ok(born && Math.abs(born.volume - officialGain('char_2026_yu', 'born', UNITS.char_2026_yu, { vol: 0.75 })) < 1e-9, '余 ON_UNIT_BORN: group gain × 0.75');
 });

@@ -335,7 +335,7 @@ test('CLI source defaults to direct and retains the 0.1.1 shrink/local-spine fla
     assert.equal(parseArgs([]).source, 'direct');
     process.env.SP_ASSET_SOURCE = 'mirror';
     assert.equal(parseArgs([]).source, 'mirror');
-    assert.equal(parseArgs([]).voiceLang, 'cn');
+    assert.equal(parseArgs([]).voiceLang, 'kr'); // local patch: Korean voice by default (LOCAL-PATCH.md 「음성」)
     assert.equal(parseArgs([]).voiceAll, false);
     const opts = parseArgs(['--asset-source=direct', '--allow-shrink', '--local-spines', '--voice-lang=jp', '--voice-all']);
     assert.equal(opts.source, 'direct');

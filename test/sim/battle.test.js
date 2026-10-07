@@ -381,7 +381,9 @@ test('snapshot / event wire format (DESIGN §8.2)', () => {
   const atk = allEv.find((e) => e[0] === 'atk');
   assert.equal(atk.length, 4);
   const dmg = allEv.find((e) => e[0] === 'dmg');
-  assert.equal(dmg.length, 4);
+  // local patch: a 5th field, the damage number flag (0 none / 1 critical / 2 forced — server/sim/local-hud.js)
+  assert.equal(dmg.length, 5);
+  assert.ok([0, 1, 2].includes(dmg[4]));
   assert.ok(['phys', 'arts', 'true', 'burn', 'neural', 'necrosis', 'apoptosis'].includes(dmg[3]));
   const flyInSnap = h.b.units.find((u) => u.defId === 'enemy_fly');
   if (flyInSnap.alive) assert.ok(snap.units.find((u) => u[0] === flyInSnap.id)[7] & UF.FLYING);

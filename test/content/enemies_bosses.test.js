@@ -43,6 +43,15 @@ const pool = (hp) => ({ hp, maxHp: hp, damage(pid, a) { this.hp = Math.max(0, th
 const put = (h, key, pos, o = {}) => h.spawn(key, { pos, routeIndex: 0, mods: { speedMul: o.move ? 1 : 0, ...(o.mods || {}) }, tag: o.tag ?? null, route: o.route });
 const tb = (key, k) => E[key].talents.bb[k];
 const skb = (key, p) => E[key].skills.find((s) => s.prefabKey === p);
+/**
+ * local patch (LOCAL-PATCH.md 「보스 SP 바와 관·현의 공식 SP」, user decision 2026-10-07): a skill with an SP cost fires once its
+ * initial cooldown is over AND the official SP (spData INCREASE_WITH_TIME) reaches the cost — 管 50 s, 弦 25 s.
+ */
+const firstCast = (key, p) => {
+  const s = skb(key, p), d = E[key].sp;
+  const spAt = d && d.type === 'INCREASE_WITH_TIME' && s.spCost > 0 ? (s.spCost - (d.initSp || 0)) / (d.increment || 1) : 0;
+  return Math.max(s.initCooldown, spAt);
+};
 const approx = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg} ${a} ≈ ${b}`);
 const nm = (k) => `${k} ${E[k] ? E[k].name : ''}`;
 const statuses = (h, id, key) => h.hooksOf('statusApplied').filter((c) => c.target.id === id && c.status === key);
@@ -2661,7 +2670,7 @@ test('“碎铳之簧”: damage taken costs 假想敌：铳 as much (等量, �
   assert.ok(h.result().perPlayer.p1.bossDamage >= dealt - 1e-6, 'the per-player pool tally');
 });
 
-test('假想敌：管: strikes dark 余音 (their pulse hurts operators); 裂管之奏 at 40 s; summons 余音 every 40 s', () => {
+test('假想敌：管: strikes dark 余音 (their pulse hurts operators); 裂管之奏 at 50 s (official SP); summons 余音 every 40 s', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 6 }], setup: setTpl('act1autochess_h07_03') });
   h.step();
   const e = put(h, 'enemy_9021_acduml', [3, 10], { tag: 'boss' });
@@ -2671,7 +2680,7 @@ test('假想敌：管: strikes dark 余音 (their pulse hurts operators); 裂管
   h.run(e.s.interval + 0.2);
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'beam' && f[4].kind === 'acdumlStrike'));
   assert.ok(h.unit('t_wall').stats.taken > 0 && h.unit('t_wall').elem.apoptosis > 0);
-  h.run(skb('enemy_9021_acduml', '1').initCooldown - h.b.time + 1.2);
+  h.run(firstCast('enemy_9021_acduml', '1') - h.b.time + 1.2);
   const strikes = h.eventsOf('fx').filter((f) => f[1] === 'explode' && f[4].kind === 'pipeStrike').length;
   assert.ok(strikes >= 3 && strikes % 3 === 0, `three strikes per dark echo (${strikes})`);
   assert.ok(alive(h, 'enemy_9023_acdums').length >= 2, 'summoned');
@@ -2685,7 +2694,7 @@ test('假想敌：管 (隐秘核心) + 假想敌：弦: 弦 is invulnerable, 断
   assert.ok(str.s.flags.invulnerable);
   const echo = put(h, 'enemy_9023_acdums', [3, 6], { tag: 'part' });
   bossesMod.setEchoForm(h.b, echo, 'gold');
-  h.run(skb('enemy_9022_acdumm', '1').initCooldown + 0.1);
+  h.run(firstCast('enemy_9022_acdumm', '1') + 0.1);
   assert.equal(echo.mem.ab.form, 'dark');
   assert.ok(h.unit('t_wall').stats.taken > 0);
   h.b.kill(pipe, null);

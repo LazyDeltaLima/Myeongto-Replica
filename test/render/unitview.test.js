@@ -50,13 +50,14 @@ describe('tier chips', () => {
     assert.ok(!v.chip || !v.chip.visible, 'no chip on a token');
   });
 
-  test('operators keep their chip in prep and in battle; enemies never have one', () => {
+  // local patch (LOCAL-PATCH.md 「전투 화면 UI」): the official shows the level chip in the prep only — none in battle
+  test('operators show their chip in prep, not in battle; enemies never have one', () => {
     const p = view({ kind: 'chess', tier: 4 }, { prep: true });
     p.update(1 / 60, cam(), 0);
     assert.ok(p.chip && p.chip.visible);
     const b = view({ kind: 'chess', tier: 2 });
     b.update(1 / 60, cam(), 0);
-    assert.ok(b.chip && b.chip.visible);
+    assert.ok(!b.chip || !b.chip.visible, 'no chip in battle');
     const e = view({ side: 'enemy', kind: 'enemy', defId: 'enemy_1007_slime' });
     e.update(1 / 60, cam(), 0);
     assert.equal(e.chip, null);

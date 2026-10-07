@@ -123,8 +123,10 @@ test('the gauge row belongs to its unit: under its own HP / SP bars and inside t
   const { rows, v } = renderRun(['enemy_1148_dssbr'], { seconds: 12 });
   assert.ok(rows.at(-1).el, 'a gauge shows');
   const r = v._elBar;
-  const x0 = v.hpBg.position.x + 1, bw = v.hpBg.width - 2;
-  const spBottom = v.spFill.visible ? v.spFill.position.y + v.spFill.height / 2 : v.hpFill.position.y + v.hpFill.height / 2;
+  // local patch (LOCAL-PATCH.md 「전투 화면 UI」): the gauge row sits under the official foot bars (hud-bars.js AllyBars `lpBars`)
+  const bars = v.lpBars;
+  const x0 = bars.box.x0, bw = bars.box.w;
+  const spBottom = bars.hp.position.y + bars.hp.height * (bars.sp.visible || bars.ammoTrack.visible ? 1.5 : 0.5); // (AllyBars.update: its return)
   const discR = r.disc.width * 0.5 * (43 / 64);  // the drawn disc (textures.js HUD_DISC of the cell)
   assert.ok(r.disc.position.x - discR >= x0 - 0.5, 'the icon starts at the bars\' left edge');
   assert.ok(r.bg.position.x + r.bg.width <= x0 + bw + 1.5, 'the bar ends at the bars\' right end (never beyond, over a neighbour)');

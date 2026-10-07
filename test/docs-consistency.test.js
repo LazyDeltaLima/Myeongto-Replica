@@ -893,7 +893,8 @@ test('干员战斗语音 (DESIGN §21.30): the manifest data, the official prior
   }
   // a battle slot usually carries several lines (选中干员 / 部署 have two), so the battle set alone stays well above 10 each
   assert.ok(lines.length >= charIds.length * 10, `${lines.length} voice lines for ${charIds.length} operators`);
-  for (const u of lines) assert.match(u, /^\/assets\/audio\/voice\/cn\/char_[^/]+\/cn_\d+\.mp3$/);
+  // local patch (LOCAL-PATCH.md 「음성」 로컬 1): the build language is Korean (`--voice-lang=kr`; the Japanese twin is audio.voiceJp)
+  for (const u of lines) assert.match(u, /^\/assets\/audio\/voice\/kr\/char_[^/]+\/cn_\d+\.mp3$/);
   // the official scheduling numbers (audio_data.json battleVoice.voiceTypeOptions)
   assert.equal(VOICE_PRIORITY.start, 100);
   assert.equal(VOICE_PRIORITY.faceEnemy, 90);
@@ -919,5 +920,6 @@ test('干员战斗语音 (DESIGN §21.30): the manifest data, the official prior
   }
   assert.match(panel, /const selectKey = voice && detail\?\.type === 'chess'/);
   assert.match(game, /voice=\$\{combat\}/);
-  assert.match(game, /audio\.voice\(charId, resultVoiceSlot\(/);
+  // local patch (로컬 4): the result line is held for the result screen (holdResultVoice) instead of played at once
+  assert.match(game, /holdResultVoice\(\{ charId, slot: resultVoiceSlot\(/);
 });
