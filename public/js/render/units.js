@@ -957,9 +957,10 @@ export class UnitView {
       if (this.dying < tail) alpha *= Math.max(0, this.dying / tail);
       if (this.dying <= 0) { this.dying = 0; this.remove = true; alpha = 0; }
     }
-    // local patch (⑤): an enemy's 隐匿 drawn by its official effect takes the prefab's ColorModifier — grey (.5) at α .894
-    // (common_invisible) — instead of the 45 % ghost (allies, 迷彩, and without the effect keep it)
-    const lpInvis = this.isEnemy && this._fxStatusOn?.has('stealth');
+    // local patch (⑤): a 隐匿 drawn by its official effect takes the prefab's ColorModifier — grey (.5) at α .894
+    // (common_invisible; allies too since user report 2026-10-07 #3 — fxstatus.js) — instead of the 45 % ghost (迷彩, and
+    // without the effect keep it)
+    const lpInvis = !!(this._fxStatusOn?.has('stealth') || this._fxStatusOn?.has('stealthAlly'));
     if (this.flags & UF.STEALTH) alpha *= lpInvis ? 0.894 : 0.45;
     if (this.dimmed) alpha *= 0.35;
     if (this.ghost) alpha *= GHOST_ALPHA; // local patch
