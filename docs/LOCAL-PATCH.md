@@ -232,6 +232,10 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   클라이언트 `audio_data.json battleVoice` 값 그대로 — 전체 간격 없음, 우선순위(행동출발 100·행동개시 90·수동 스킬 70·자동 스킬 60/50(SP 10 이상/미만)·
   배치 20·선택 10), 같은 우선순위는 유형이 겹침 허용(행동출발·수동 스킬·배치·선택)이면 앞 대사를 끊고, 아니면 버림, 쿨다운은 자동 스킬 10초만(오퍼레이터별).
   원본 #73의 1.2초 간격·「+10 이상이어야 끊음」·모든 스킬 10초/70은 공식 값과 달라 스킬 대사가 많이 빠졌다(데이터로 확인).
+  선택 대사 쿨타임(사용자 질문 2026-10-08 「한 오퍼를 여러번 선택시 쿨타임이 없는 것 같은데 공식은?」): 공식에도 없다 — `audio_data.json battleVoice`
+  FOCUS_CHAR `cooldown 0`·`overlapIfSamePriority true`(데이터), 卫戍协议 `AutoChessGameModeVoicePlugin._OnCharacterHighlighted`(이름) → 다시 선택하면 재생 중
+  선택 대사를 0.1초 크로스페이드로 끊고 새 대사. 우리도 같다(원본 #73의 선택 1.5초 쿨다운은 이 규칙으로 이미 빠짐). 선택이 「강조가 바뀔 때만」인지(이미
+  강조된 말을 다시 집을 때)는 네이티브라 확인 못 함 [추정: 집을 때마다]. `test/local-patch.test.js` 「official scheduling」.
   클래스·필드 이름으로 추론해 사용자가 공식대로 정한 것: 작전중 대사는 1~4 중 무작위(`LoadRandomVoiceList`), 행동 개시는 전투당 1번
   (`m_encounterFirstEnemyFlag`, 버려진 시도는 3초 뒤 다시), 전투 시작은 한 명만 행동출발이고 나머지 첫 배치는 말하지 않음
   (`AutoChessGameModeVoicePlugin._OnCharacterPlacedAtBattle`; 2초 뒤 재배치는 배치 대사). 원본 테스트는 원본 `VoiceGate` 그대로라 깨지지 않는다.
@@ -810,6 +814,8 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 같은 디자인의 상점 카드 칩 `img_chess_level_N`(45px; 숫자가 어두운 안쪽의 0.53 × 0.70 — 두 그림 같고 캡처 4는 0.51 × 0.69)을 쓰고, 안쪽 39px를 공식
 30 × 1.25 = 37.5단위에 맞춘다(캡처 4 안쪽 39px = 37.4단위). 웹 manifest `shopCard/` → 로컬 `ui/battle` → `autochess_level_N` → 없으면 원래 그린 칩(PR 가능 유지).
 칩 위치·크기는 사용자가 직접 확인하기로 함(2026-10-07 「일단 지금 그대로」).
+2026-10-08: 모델이 클라이언트 크기(0.864배, 「유닛 모델 크기」)로 작아진 뒤 사용자 「작아진 크기에 맞춰 레벨칩 높이도 낮춰줘」 → 발에서 칩까지 높이를
+같은 비율로: (24.5 + 128) × 0.864 − 24.5 = 107.3단위(`PREP_CHIP.y`). 프리팹 128과 다르다 [사용자 결정]. 확인 `sp-check\chiplow.png`.
 
 **장비 바 (정비 중)**: 사용자 캡처 + 설명 「장착된 아이템이 있을 때만 2칸 바, 하나만 장착되면 한 칸만」. `shop_hud`의 `equip_bg`(74×30, shop_hud 안 (13, 29.4) —
 칩 오른쪽, × 1.25)와 칸 `equip_0`/`equip_1`(23×6, ±12.8 / 13): 아이템마다 흰 알약(`equip_normal_icon`), [추정] 금색 아이템이면 빛나는 금색 알약(`equip_gold_icon` 31×14,
@@ -1323,11 +1329,17 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     아군 쪽 `ground` 사용처(隐德来希 S2, 赫默 재능 치료 배율, 焰影苇草 S2 순서)는 炎佑를 원래 고르지 않는다(孤立·禁疗·오퍼레이터만).
     테스트: `playtest4_summons.test.js` 「炎佑 is an air unit」(ground false, 칸이 위치를 따라감, 격자 범위), 「【污染秽蚀】 on 炎佑」(m02, 저지대 50).
 - **비행 유닛 높이 (2026-10-08 사용자 제보 「적 드론이 거의 지상 유닛처럼 땅에 붙어서 나온다」)**: nas-local은 0.2.0을 병합하지 않아
-  `FLY_HOVER`가 0.32칸이었다. upstream `66ae86b9`(PR #211 by @xcdoge, 연구 `docs/research/12-flying-visuals-official.md` — `merge-0.2.0` 브랜치에만
-  있음)를 골라 이식: 공식 클라이언트의 비행 오프셋은 모델과 무관한 상수 `Vector3(0, 0.35, 0)`(캐릭터 공간, 단위 0.27) ≈ **1.3칸**, 공식 스크린샷
+  `FLY_HOVER`가 0.32칸이었다. upstream `66ae86b9`(PR #211 by @xcdoge, 연구 `docs/research/12-flying-visuals-official.md`,
+  아래 모델 보정 때 함께 가져옴)를 골라 이식: 공식 클라이언트의 비행 오프셋은 모델과 무관한 상수 `Vector3(0, 0.35, 0)`(캐릭터 공간, 단위 0.27) ≈ **1.3칸**, 공식 스크린샷
   실측 1.2~1.4칸. `render/units.js FLY_HOVER = 1.3`; 몸체·HP 바·데미지 숫자·이펙트 기준점은 `hover`를 따라 올라가고 그림자는 땅에 남는다(이미
-  그렇게 되어 있었음). 炎佑도 같은 높이. 같은 커밋의 모델 보정 2개(帝国炮火先兆者 세로 1.263배 `modelScaleY`, 木制瑞印 좌우 반전 `mirrorX`)는
-  이식하지 않았다. 테스트: `test/render/unitview.test.js`(upstream 3개 + 炎佑).
+  그렇게 되어 있었음). 炎佑도 같은 높이. 테스트: `test/render/unitview.test.js`(upstream 3개 + 炎佑).
+  - 모델 보정 2개도 이식 (2026-10-08 사용자 요청 「모델 보정 두 개도 이식해줘」, 같은 upstream 커밋): 帝国炮火先兆者·帝国炮火中枢先兆者는 세로
+    1.263배(`modelScaleY`), 木制瑞印은 좌우 반전(`mirrorX`). EN 클라이언트로 다시 확인(`tools/local-extract/enemy_model_offsets.py`, upstream에서 가져옴):
+    `Graphic` 스케일 (0.19, 0.24, 0.24) → sy/sx 1.263, 木制瑞印 (−0.4, 0.4, 0.24) → 반전; 비교용 妖怪 (0.2, 0.2, 0.2). `tools/build-data.mjs`
+    `MODEL_STRETCH_Y`·`MIRRORED_PREFABS` → `data/enemies.json`(오프라인 재생성 — 바뀐 것은 이 3개 레코드뿐, 다른 data 파일은 바이트 동일),
+    `render/units.js` `enemyModelScaleY`(골격 Y 스케일·HP 바 높이·임포스터), 반전은 `flip`에 곱함. 2ec78a6d의 `UNIT.modelScale` 0.0027·
+    `TOKEN_MODEL_K`는 그대로(보정은 그 위의 비율). 연구 문서 `docs/research/12-flying-visuals-official.md`도 가져옴. 테스트
+    `test/render/playtest6-enemies.test.js`(upstream 그대로, 수정 전 렌더러로 2개 실패 확인). merge-0.2.0에는 v0.2.0으로 이미 있다(stronghold-79 확인).
 
 ## 위장 아이콘 (2026-10-06, 사용자 결정 「위장에 다른 아이콘을 붙여줘」)
 - 迷彩(위장)과 隐匿(은신)은 둘 다 반투명 + 같은 `stealth` 아이콘이라 구분이 안 됐다(위 "은신 아군이 적 스플래시에 맞음" — 迷彩는 스플래시를 맞는 게 공식).

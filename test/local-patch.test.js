@@ -1165,6 +1165,13 @@ describe('operator voice: the official scheduling (public/js/voicePolicy.js over
     assert.equal(g.request('skill1', 'a', 201, 'SKILL_ACTIVE'), 'play', 'MANUAL skill: no cooldown');
     g.start('faceEnemy', 'x', 300); 
     assert.equal(g.request('faceEnemy', 'y', 301), 'drop', 'ENCOUNTER_ENEMY does not overlap');
+    g.release();
+    // user question 2026-10-08 (선택 대사 쿨타임?): FOCUS_CHAR is cooldown 0 + overlapIfSamePriority in audio_data.json
+    // battleVoice — selecting the same operator again replaces its playing 选中 line (0.1 s crossfade), no cooldown
+    g.start('select', 'p:7', 400);
+    assert.equal(g.request('select', 'p:7', 401), 'preempt', 'FOCUS_CHAR: the same operator again takes its own line over');
+    g.release();
+    assert.equal(g.request('select', 'p:7', 402), 'play', 'FOCUS_CHAR: no cooldown');
     assert.equal(skillVoiceType({ skillType: 'MANUAL', spCost: 3 }), 'SKILL_ACTIVE');
     assert.equal(skillVoiceType({ skillType: 'AUTO', spCost: 10 }), 'SKILL_PASSIVE_IMP');
     assert.equal(skillVoiceType({ skillType: 'AUTO', spCost: 9 }), 'SKILL_PASSIVE_NOR');
