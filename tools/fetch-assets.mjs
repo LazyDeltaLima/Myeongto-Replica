@@ -62,8 +62,6 @@ import { collectLeaves, downloadLeaves, resolveTemplate, totalBytes, contentHash
 import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
 import { tidyVoice } from './assets/voice.mjs'; // local patch
-import { addDiyOperators } from './assets/diy.mjs'; // local patch
-import { addDiyTokenAssets, addDiyTokenModels } from './assets/local-token-spines.mjs'; // local patch
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = join(ROOT, 'public', 'assets');
@@ -315,8 +313,6 @@ async function main() {
     readJson('docs/research/05-enemies.json'),
     readJson('docs/research/05-maps.json'),
   ]);
-  addDiyOperators(assets07, await readJson('data/diy.json').catch(() => null)); // local patch: 甄选 candidates' art
-  addDiyTokenAssets(assets07, await readJson('data/diy.json').catch(() => null)); // local patch: 甄选 tokens' avatars
   const proxyPrefix = resolveProxyPrefix(opts.source, opts.offline);
   const source = await selectDownloadSource({ mode: opts.source, offline: opts.offline, proxyPrefix, log });
   const mirrorPolicy = new MirrorPolicy({ source, proxyPrefix, log });
@@ -344,7 +340,6 @@ async function main() {
     extraOperators: extras.extraOperators,
     moduleTypes: extras.moduleTypes,
   });
-  await addDiyTokenModels(plan, await readJson('data/diy.json').catch(() => null)); // local patch: local-client token models
   const leaves = collectLeaves(plan.template);
   log(`[plan] ${leaves.length} files + ${plan.models.size} Spine models ` +
     `(${Object.keys(plan.template.chars).length} chars, ${Object.keys(plan.template.enemies).length} enemies, ` +

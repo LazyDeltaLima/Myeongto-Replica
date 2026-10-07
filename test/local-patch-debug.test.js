@@ -161,10 +161,11 @@ describe('debug page sandbag arena (public/js/debug/sandbag.js)', () => {
 
   test('hand-placed pieces: the operator\'s placeable tokens, a default placement in its limits, deployed in the battle', () => {
     const tokensFile = JSON.parse(readFileSync(new URL('../data/tokens.json', import.meta.url), 'utf8'));
-    const diy = JSON.parse(readFileSync(new URL('../data/diy.json', import.meta.url), 'utf8'));
-    const list = [...Object.values(tokensFile.tokens ?? tokensFile), ...Object.values(diy.tokens || {})];
+    const backups = JSON.parse(readFileSync(new URL('../data/backups.json', import.meta.url), 'utf8'));
+    const list = [...Object.values(tokensFile.tokens ?? tokensFile), ...Object.values(backups.tokens || {})];
     assert.deepEqual(ownTokens('chess_char_2_02_a', list).map((t) => [t.tokenId, t.limit]), [['token_10000_silent_healrb', 1]], '赫默\'s 医疗探机');
-    const wang = ownTokens('chess_diy_wang_5_a', list);
+    // a 自选 pick's summons are owned by `charId@status` (shared/diy.js diyTokenOwner; the debug page's cfgTokens)
+    const wang = ownTokens('char_2027_wang@2/1/4/0', list);
     assert.deepEqual(wang.map((t) => [t.tokenId, t.limit]), [['token_10064_wang_stone1', 6]], '望\'s 6 棋子');
     assert.deepEqual(ownTokens('chess_char_1_01_a', list), [], 'none for an operator without');
     const vigil = ownTokens('chess_char_3_19_a', list);
@@ -177,7 +178,7 @@ describe('debug page sandbag arena (public/js/debug/sandbag.js)', () => {
     const stones = autoTokens(DEFAULT_OP, 'RIGHT', [[0, 0]], wang, bags);
     assert.equal(stones.length, 6);
     assert.ok(!stones.some((t) => (t.row === 10 && t.col === 4) || (t.row === 10 && t.col === 5)), 'not on the operator or a sandbag');
-    const b = make({ chessId: 'chess_diy_wang_5_a', bags, tokens: stones });
+    const b = make({ chessId: 'chess_char_6_diy1_a', diy: { charId: 'char_2027_wang', skillIndex: 0, uniEquipId: null }, bags, tokens: stones });
     run(b, 2);
     const units = b.allyUnits.filter((u) => u.kind === 'token');
     assert.equal(units.length, 6);

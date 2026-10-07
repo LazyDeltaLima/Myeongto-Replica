@@ -3,10 +3,10 @@
 // SP_DEBUG_PAGE=1 or SP_DEBUG_FUNDS, never NODE_ENV=production); without it this renders nothing. The server checks
 // every message again (debugIntent), so the panel is a convenience, not a gate.
 //   checkbox  dbg.funds { on }      the player's funds pinned to pinValue (local.sh: 99) or real funds
-//   pick add  dbg.addDiy { chessId, skill, module? } a 甄选 candidate (data/diy.json) of tier V / VI, normal / elite,
-//             into the hand, fighting with the chosen skill (S1–S3) and — elite only — module (or 'none'); the server
-//             writes them into the loadout entry of that base chess (DESIGN §16). The selectors start at the player's
-//             current loadout (m.private.loadout) or the defaults.
+//   pick add  dbg.addDiy { charId, tier, golden, skill, module? } a 自选 candidate (data/backups.json diy.ownedPool) of
+//             tier V / VI, normal / elite, into the hand, fighting with the chosen skill (S1–S3) and — elite only —
+//             module (or 'none'); the server sets it as the pick of a 自选 slot of that tier (PlayerState.setDiy). The
+//             selectors start at the player's current pick of that operator (m.private.diy) or the defaults.
 // Sits left of the board under the bond strip (css/debug-panel.css), clear of the board, shop and hand.
 
 import { useState } from '../../vendor/hooks.module.js';
@@ -17,9 +17,9 @@ const NONE = 'none';
 
 /**
  * @param {{ debug: { fundsPin: boolean, pinValue: number, candidates: any[] } | null | undefined, prep: boolean,
- *   loadout?: Record<string, { skill: number, module: string|null }> | null }} props
+ *   diy?: Record<string, { charId: string, skillIndex: number, uniEquipId: string|null }> | null }} props
  */
-export function DebugPanel({ debug, prep, loadout }) {
+export function DebugPanel({ debug, prep, diy }) {
   const [open, setOpen] = useState(true);
   const [key, setKey] = useState('');
   const [tier, setTier] = useState('6');
@@ -28,19 +28,20 @@ export function DebugPanel({ debug, prep, loadout }) {
   const [moduleSel, setModuleSel] = useState(null);
   const [busy, setBusy] = useState(false);
   if (!debug || !Array.isArray(debug.candidates)) return null;
-  const cand = debug.candidates.find((c) => c.key === key) || debug.candidates[0];
+  const cand = debug.candidates.find((c) => c.charId === key) || debug.candidates[0];
   const t = cand?.tiers?.[tier] || null;
-  const entry = t && loadout && Object.hasOwn(loadout, t.baseId) ? loadout[t.baseId] : null;
+  const pick = cand && diy ? Object.entries(diy).find(([id, p]) => p && p.charId === cand.charId && id.startsWith(`chess_char_${tier}_`))?.[1] : null;
+  const entry = pick ? { skill: pick.skillIndex, module: pick.uniEquipId ?? NONE } : null;
   const skills = t?.skills || [];
   const modules = t?.modules || [];
-  const skill = [skillSel, entry?.skill, t?.defaultSkill].find((v) => skills.some((s) => s.index === v)) ?? skills[0]?.index ?? null;
-  const module = [moduleSel, entry?.module, t?.defaultModule].find((v) => modules.some((m) => m.id === v)) ?? NONE;
+  const skill = [skillSel, entry?.skill, 0].find((v) => skills.some((s) => s.index === v)) ?? skills[0]?.index ?? null;
+  const module = [moduleSel, entry?.module].find((v) => modules.some((m) => m.id === v)) ?? NONE;
   const reset = () => { setSkillSel(null); setModuleSel(null); };
   const toggle = async (e) => { setBusy(true); await act('dbg.funds', { on: !!e.currentTarget.checked }, { sfx: false }); setBusy(false); };
   const add = async () => {
     if (!cand || !t) return;
     setBusy(true);
-    const fields = { chessId: `chess_diy_${cand.key}_${tier}_${elite}` };
+    const fields = { charId: cand.charId, tier: Number(tier), golden: elite === 'b' };
     if (Number.isInteger(skill)) fields.skill = skill;
     if (elite === 'b') fields.module = module;
     await act('dbg.addDiy', fields, { sfx: 'pick' });
@@ -56,9 +57,9 @@ export function DebugPanel({ debug, prep, loadout }) {
         <span>${`调试用资金固定 ${debug.pinValue}`}</span>
       </label>
       <div class="dbgp__row">
-        <span class="dbgp__label">甄选</span>
-        <select value=${cand?.key || ''} onChange=${(e) => { setKey(e.currentTarget.value); reset(); }}>
-          ${debug.candidates.map((c) => html`<option key=${c.key} value=${c.key}>${c.name}</option>`)}
+        <span class="dbgp__label">自选</span>
+        <select value=${cand?.charId || ''} onChange=${(e) => { setKey(e.currentTarget.value); reset(); }}>
+          ${debug.candidates.map((c) => html`<option key=${c.charId} value=${c.charId}>${c.name}</option>`)}
         </select>
       </div>
       <div class="dbgp__row">

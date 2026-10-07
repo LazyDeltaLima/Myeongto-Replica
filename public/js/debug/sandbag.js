@@ -34,7 +34,7 @@ export const HURT = Object.freeze({ every: 1.5, frac: 0.2, floor: 0.35 });
 const FRONT = Object.freeze({ RIGHT: [0, 1], LEFT: [0, -1], UP: [1, 0], DOWN: [-1, 0] });
 /** Data files the sim reads — a copy of battle/runner.js SIM_DATA_FILES (the test keeps them equal; importing
  *  runner.js would create the app's battle runner wired to the socket). */
-export const SIM_DATA_FILES = Object.freeze(['chess', 'enemies', 'tokens', 'stages', 'waves', 'bonds', 'items', 'garrisons', 'bands', 'effects']);
+export const SIM_DATA_FILES = Object.freeze(['chess', 'enemies', 'tokens', 'stages', 'waves', 'bonds', 'items', 'garrisons', 'bands', 'effects', 'backups']);
 
 const ROWS = 19, COLS = 21;
 
@@ -107,6 +107,7 @@ export function createSandbagBattle(sim, baseDs, cfg) {
   const unit = { uid: 1, kind: 'chess', chessId: cfg.chessId, row: op.row, col: op.col, dir: cfg.dir || 'RIGHT' };
   if (Number.isInteger(cfg.skillIndex)) unit.skillIndex = cfg.skillIndex;
   if (typeof cfg.moduleId === 'string' && cfg.moduleId) unit.moduleId = cfg.moduleId;
+  if (cfg.diy && typeof cfg.diy === 'object') unit.diy = cfg.diy; // a 自选 pick on its slot id (simdata getDiy)
   // the operator's hand-placed pieces (tokens.json `placeable`): board token pieces owned by it (PlayerState battleInput)
   const busy = (r, c) => (r === op.row && c === op.col);
   const tokens = (cfg.tokens || []).filter((t) => t && typeof t.tokenId === 'string' && inArena(t.row, t.col) && !busy(t.row, t.col))
@@ -215,7 +216,8 @@ export function rangeTiles(u, rotateOffset) {
 }
 
 /**
- * The pieces an operator places by hand (tokens.json / diy.json tokens with `placeable`, owned by this chess id):
+ * The pieces an operator places by hand (tokens.json / backups.json tokens with `placeable`, owned by this chess id —
+ * a 自选 pick's by its `charId@status` owner key, shared/diy.js diyTokenOwner):
  * [{ tokenId, name, limit (deployLimit), ownerRange (only on its owner's attack range) }].
  * @param {string} chessId the battle's chess id (normal or elite)
  * @param {any[]} tokens token records

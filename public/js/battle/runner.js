@@ -66,7 +66,6 @@ import { net as appNet } from '../net.js';
 import { store as appStore } from '../store.js';
 import { unitStatsEntry, fxForm } from '../../../shared/protocol.js';
 import { spectateEffects } from './observe.js';
-import { mergeDiyData } from '../../../shared/diy.js'; // local patch
 
 const TICK = 1 / 30;
 /** Fast-forward budget per frame (ticks) when far behind. */
@@ -145,10 +144,6 @@ export async function loadBrowserSim({ base = '/sim/', dataBase = '/data/', fetc
   const missing = SIM_DATA_FILES.filter((n, i) => !files[i] || typeof files[i] !== 'object');
   if (missing.length) throw new Error(`simulation data unavailable: ${missing.join(', ')}`);
   const raw = {};
-  // local patch: the 甄选 picks (data/diy.json) join chess / tokens, as on the server (server/data.js)
-  const merged = mergeDiyData({ chess: files[SIM_DATA_FILES.indexOf('chess')], tokens: files[SIM_DATA_FILES.indexOf('tokens')], diy: await fetchOnce('diy') });
-  files[SIM_DATA_FILES.indexOf('chess')] = merged.chess;
-  files[SIM_DATA_FILES.indexOf('tokens')] = merged.tokens;
   SIM_DATA_FILES.forEach((n, i) => { raw[n] = deepFreeze(files[i]); });
   simdata.setSimData(raw);
   if (typeof support.setGameData === 'function') support.setGameData(null); // re-read through the injected data

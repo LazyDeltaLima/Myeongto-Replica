@@ -17,7 +17,6 @@ import { createFieldView } from '../render/app.js';
 import { data } from '../data.js';
 import { assets } from '../assets.js';
 import { audio, installAudio } from '../audio.js';
-import { mergeDiyData } from '../../../shared/diy.js';
 import { ARENA, SIM_DATA_FILES, HURT, arenaStage, createSandbagBattle, arenaOp, arenaBags, keepSandbags, reviveSandbags, hurtOp, fillSp, castNow, rangeTiles } from './sandbag.js';
 
 const TICK = 1 / 30;
@@ -35,9 +34,6 @@ async function loadSim() {
   const missing = SIM_DATA_FILES.filter((n, i) => !files[i]);
   if (missing.length) throw new Error(`simulation data unavailable: ${missing.join(', ')}`);
   const raw = Object.fromEntries(SIM_DATA_FILES.map((n, i) => [n, files[i]]));
-  const merged = mergeDiyData({ chess: raw.chess, tokens: raw.tokens, diy: await get('diy') }); // the 甄选 picks, as the server
-  raw.chess = merged.chess;
-  raw.tokens = merged.tokens;
   simdata.setSimData(raw);
   if (typeof support.setGameData === 'function') support.setGameData(null);
   return { mods: { Battle: battleM.Battle, DataSource: simdata.DataSource, withUnitLoadouts: simdata.withUnitLoadouts }, ds: new simdata.DataSource(raw, null), rotateOffset: dirM.rotateOffset };

@@ -15,6 +15,7 @@ import { installResources } from './resources.js';
 import { voiceStore, setVoiceLang } from './voice.js';
 import { fxBundleOf, effectGroups, effectsFor, attackMode, boundEffects } from './render/fxmap.js';
 import { loadoutOptions } from '../../shared/protocol.js';
+import { diyRecord, diyTokenOwner } from '../../shared/diy.js';
 import { createArena } from './debug/arena.js';
 import { TERRAINS, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, inArena, defaultBags, ownTokens, autoTokens, rangeOf } from './debug/sandbag.js';
 
@@ -39,7 +40,7 @@ const VOICE_SLOTS = { start: '행동 출발', faceEnemy: '행동 개시', select
 // the game does on load (public/js/resources.js reconcile) — else a rebuilt fx/index.json or fx/modes.json stays its old copy
 try { await Promise.race([installResources(), new Promise((r) => setTimeout(r, 4000))]); } catch { /* the page works without it */ }
 const getJson = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-const [, fxIndex, koData, koDiy, fxModes] = await Promise.all([data.loadAll('chess', 'enemies', 'tokens', 'assets', 'local', 'stages'), getJson('/assets/local/fx/index.json'),
+const [, fxIndex, koData, koDiy, fxModes] = await Promise.all([data.loadAll('chess', 'enemies', 'tokens', 'assets', 'local', 'stages', 'backups'), getJson('/assets/local/fx/index.json'),
   getJson('/i18n/ko/data.json'), getJson('/i18n/ko/diy.json'), getJson('/assets/local/fx/modes.json')]);
 const manifest = data.get('assets');
 const ko = (s) => (koData && koData[s]) || (koDiy && koDiy[s]) || s;
@@ -49,8 +50,20 @@ const prefabsOf = (spine) => fxIndex?.bundles?.[fxBundleOf(spine)] || [];
 
 const ops = new Map(); // charId → { charId, name, diy, chess, tier }
 for (const c of data.list('chess')) {
-  if (!c?.charId || c.isGolden || ops.has(c.charId)) continue;
-  ops.set(c.charId, { charId: c.charId, name: c.name, diy: !!c.diyPick, chess: c, tier: c.tier });
+  if (!c?.charId || c.isGolden || c.isDiy || ops.has(c.charId)) continue;
+  ops.set(c.charId, { charId: c.charId, name: c.name, diy: false, chess: c, tier: c.tier });
+}
+// the 自选 picks (data/backups.json diy.ownedPool): fielded in the tier-VI slot as the match does (shared/diy.js)
+const DIY_SLOT = 'chess_char_6_diy1_a';
+const backups = data.get('backups');
+const diyData = { chess: Object.fromEntries(data.list('chess').map((c) => [c.chessId, c])), backups };
+/** The composed record of a 自选 pick (normal / elite) with skill / module — null when the slot or pick is unknown. */
+const diyRec = (charId, { elite = false, skillIndex = 0, uniEquipId = null } = {}) => {
+  try { return diyRecord(DIY_SLOT, { charId, skillIndex, uniEquipId }, { elite, data: diyData }); } catch { return null; }
+};
+for (const charId of backups?.diy?.ownedPool || []) {
+  const rec = diyRec(charId);
+  if (rec && !ops.has(charId)) ops.set(charId, { charId, name: rec.name || backups.units?.[charId]?.name || charId, diy: true, chess: rec, tier: 6 });
 }
 const list = [...ops.values()].sort((a, b) => (b.diy - a.diy) || (b.tier - a.tier) || String(a.name).localeCompare(String(b.name), 'zh'));
 const avatar = (id) => manifest?.chars?.[id]?.avatar || '';
@@ -76,10 +89,14 @@ let pendingFx = params.get('fx');
 /** The loadout choices of the selected operator: base / elite records and loadoutOptions. */
 function loadout() {
   const base = st.op?.chess;
-  const golden = base?.goldenId ? chessOf(base.goldenId) : null;
+  const golden = st.op?.diy ? diyRec(st.op.charId, { elite: true }) : base?.goldenId ? chessOf(base.goldenId) : null;
   const opt = base ? loadoutOptions(base, golden) : { skills: [], modules: [] };
   return { base, golden, opt };
 }
+/** The record a battle config fields (a 自选 pick composed from its slot) and its hand-placed pieces. */
+const cfgRecord = (cfg) => (cfg.diy ? diyRec(cfg.diy.charId, { elite: cfg.chessId.endsWith('_b'), skillIndex: cfg.diy.skillIndex, uniEquipId: cfg.diy.uniEquipId }) : chessOf(cfg.chessId));
+const cfgTokens = (cfg) => (cfg.diy ? ownTokens(diyTokenOwner(cfg.diy.charId, cfgRecord(cfg)?.status), Object.values(backups?.tokens || {})) : ownTokens(cfg.chessId, data.list('tokens')));
+
 /** The battle config of the current settings (js/debug/sandbag.js createSandbagBattle). */
 function battleConfig() {
   const { base, golden, opt } = loadout();
@@ -87,13 +104,16 @@ function battleConfig() {
   const skill = opt.skills.includes(st.skill) ? st.skill : opt.defaultSkill;
   const module = elite && opt.modules.includes(st.module) ? st.module : null;
   const chessId = elite ? golden.chessId : base.chessId;
-  const grid = (chessOf(chessId) || base).rangeGrid;
+  // a 自选 pick: the slot's id + the pick (the sim composes it, simdata getDiy); its summons are owned by charId@status
+  const diy = st.op.diy ? { charId: st.op.charId, skillIndex: Number.isInteger(skill) ? skill : 0, uniEquipId: module } : null;
+  const rec = diy ? diyRec(st.op.charId, { elite, skillIndex: diy.skillIndex, uniEquipId: module }) : chessOf(chessId);
+  const grid = (rec || base).rangeGrid;
   if (st.autoBags) st.bags = defaultBags(st.opTile, st.dir, grid);
-  const own = ownTokens(chessId, data.list('tokens'));
+  const own = diy ? ownTokens(diyTokenOwner(st.op.charId, rec?.status), Object.values(backups?.tokens || {})) : ownTokens(chessId, data.list('tokens'));
   if (st.autoTokens) st.tokens = autoTokens(st.opTile, st.dir, grid, own, st.bags);
   st.tokens = st.tokens.filter((t) => own.some((o) => o.tokenId === t.tokenId));
   return {
-    chessId, skillIndex: Number.isInteger(skill) ? skill : null, moduleId: module,
+    chessId, skillIndex: Number.isInteger(skill) ? skill : null, moduleId: module, diy,
     dir: st.dir, op: st.opTile, bags: st.bags, enemyKey: st.enemyKey, bag: { ...st.bag, hp: SANDBAG_HP }, terrain: st.terrain,
     tokens: st.tokens, spAuto: () => st.spAuto, hurt: () => st.hurt,
   };
@@ -338,7 +358,7 @@ function renderDetail() {
   if (!o) { d.append(el('p', { class: 'muted' }, '왼쪽에서 오퍼레이터를 고르세요.')); return; }
   const { base, golden, opt } = loadout();
   const cfg = battleConfig();
-  const rec = chessOf(cfg.chessId) || base;
+  const rec = cfgRecord(cfg) || base;
   d.append(el('h2', {}, `${ko(o.name)} · ${o.charId}`));
   if (arenaError) d.append(el('p', { class: 'warn' }, '전투 화면 없음 — 소리·대사·이펙트 목록만 쓸 수 있습니다.'));
 
@@ -373,7 +393,7 @@ function renderDetail() {
   const pr = el('div', { class: 'row' }, el('span', { class: 'muted' }, '빈 타일 클릭'));
   pr.append(chip('오퍼레이터 이동', st.place === 'op', () => { st.place = 'op'; renderDetail(); }));
   pr.append(chip('샌드백 추가/제거', st.place === 'bag', () => { st.place = 'bag'; renderDetail(); }));
-  const own = ownTokens(cfg.chessId, data.list('tokens'));
+  const own = cfgTokens(cfg);
   if (own.length) pr.append(chip('기물 놓기/치우기', st.place === 'token', () => { st.place = 'token'; renderDetail(); }));
   pr.append(chip('배치 초기화', false, () => { st.opTile = { ...DEFAULT_OP }; st.autoBags = true; st.autoTokens = true; restart(); }));
   d.append(pr);
@@ -461,12 +481,12 @@ const tileEq = (a, r, c) => Math.round(a.row) === r && Math.round(a.col) === c;
 /** 기물 모드의 타일: 기물이 있으면 치우고, 없으면 (한도·공격 범위 규칙 안에서) 고른 오퍼레이터의 기물을 놓는다. */
 function placeToken(row, col) {
   const cfg = battleConfig();
-  const own = ownTokens(cfg.chessId, data.list('tokens'));
+  const own = cfgTokens(cfg);
   if (!own.length) return;
   st.autoTokens = false;
   if (st.tokens.some((t) => tileEq(t, row, col))) { st.tokens = st.tokens.filter((t) => !tileEq(t, row, col)); renderDetail(); restart(); return; }
   if (tileEq(st.opTile, row, col)) return;
-  const grid = (chessOf(cfg.chessId) || st.op.chess).rangeGrid;
+  const grid = (cfgRecord(cfg) || st.op.chess).rangeGrid;
   const inRange = rangeOf(st.opTile, st.dir, grid).some((t) => t.row === row && t.col === col);
   const t = own.find((o) => st.tokens.filter((x) => x.tokenId === o.tokenId).length < o.limit && (!o.ownerRange || inRange));
   if (!t) { $('now').textContent = own.some((o) => o.ownerRange) && !inRange ? '이 기물은 오퍼레이터 공격 범위 안에만 놓을 수 있습니다' : '기물을 더 놓을 수 없습니다 (한도)'; return; }

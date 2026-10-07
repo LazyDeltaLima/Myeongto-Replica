@@ -7,7 +7,7 @@
 //   chat faction   room.chatFaction { faction } → room.factions { factions: { [playerId]: factionId } } (all members,
 //                  whenever it changes, and to whoever joins); cleared when the match ends
 //   emote sets     g.emote { id, set? } — 'user' pictures (shared/emote-art.js), missing = official
-//   debug panel    dbg.funds { on } · dbg.addDiy { chessId, skill?, module? } — local debug mode only (server/local-patch.js debugMode)
+//   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } — local debug mode only (server/local-patch.js debugMode)
 
 import { EMOTE_SETS } from './emote-art.js';
 
@@ -61,10 +61,12 @@ export function extendProtocol(C2S, S2C) {
   // local debug mode only (server/local-patch.js debugIntent refuses both otherwise): the in-game debug panel
   C2S['dbg.funds'] = { on: (v) => typeof v === 'boolean' };
   C2S['dbg.addDiy'] = {
-    chessId: (v) => typeof v === 'string' && /^chess_diy_[a-z0-9]{1,24}_[56]_[ab]$/.test(v),
-    skill: (v) => Number.isInteger(v) && v >= 0 && v <= 9,
+    charId: (v) => typeof v === 'string' && /^char_[A-Za-z0-9_]{1,40}$/.test(v),
+    tier: (v) => v === 5 || v === 6,
+    golden: (v) => typeof v === 'boolean',
+    skill: (v) => Number.isInteger(v) && v >= 0 && v <= 2,
     module: (v) => typeof v === 'string' && /^[A-Za-z0-9_\-]{1,64}$/.test(v),
-    $optional: ['skill', 'module'],
+    $optional: ['golden', 'skill', 'module'],
   };
   if (C2S['g.emote']) C2S['g.emote'] = { ...C2S['g.emote'], set: optional((v) => EMOTE_SETS.includes(v)) };
   for (const t of LOCAL_S2C) if (!S2C.includes(t)) S2C.push(t);

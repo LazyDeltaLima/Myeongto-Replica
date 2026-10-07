@@ -16,7 +16,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mergeDiyData } from '../shared/diy.js'; // local patch
 
 /** Repository root (…/Stronghold-Protocol). */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -76,7 +75,6 @@ export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES 
       log.error(`[data] skipping ${file}: ${e.message}`);
     }
   }
-  mergeDiyData(out); // local patch: 甄选 picks (data/diy.json) join chess / tokens
   const missing = expected.filter((k) => !(k in out));
   if (missing.length) log.warn(`[data] missing data files: ${missing.map((k) => k + '.json').join(', ')}`);
   return deepFreeze(out);

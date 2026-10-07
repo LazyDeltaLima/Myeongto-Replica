@@ -10,10 +10,8 @@
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
 //   dbg.funds / dbg.addDiy           (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
 //
-// 선발 오퍼레이터 (甄选 / DIY picks, shared/diy.js): no hook line — SharedPool / PlayerState are wrapped at import below.
-// A player's picks (loadout entries with `diy`) are pool entries of their own: cap = the tier's copies × the players who
-// picked that operator (each sees only their own picks, so two pickers each keep a full private share in effect); a
-// shop roll offers a pick only to the players who picked it; effect rolls (机变, 信标 …) and bots never see one.
+// 선발 오퍼레이터: since 0.2.0 upstream's 自选 framework (shared/diy.js, server/match/player/diy.js) with our five
+// operators as its only candidates (tools/build-data.mjs local patch); nothing of it is wrapped here.
 //
 // Room chat (co-op rooms only): one line from a human of the room — a player, or a spectator (`spectator: true`) — in the
 // lobby or during the match, broadcast to every connected member (Lobby.broadcastRoom) and kept in the room's short
@@ -32,11 +30,9 @@ import { ERR, MAX_SEATS } from '../shared/constants.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, chatFaction } from '../shared/local.js';
 import { sendSession } from './net.js';
 import { GameData } from './match/gamedata.js';
-import { SharedPool } from './match/pool.js';
 import { PlayerState } from './match/PlayerState.js';
 import { Match } from './match/Match.js';
-import { diyPicks, diyEquipRefused } from '../shared/diy.js';
-import { loadoutOptions, MODULE_NONE } from '../shared/protocol.js';
+import { diySlotIds, isDiyModule } from '../shared/diy.js';
 
 const OK = Object.freeze({ ok: true });
 
@@ -158,48 +154,6 @@ export function onMatchEnd(lobby, room) {
   lobby.broadcastRoom(room, factionsMsg(c));
 }
 
-// ---- 선발 오퍼레이터 (甄选 / DIY picks) ----------------------------------------------------------------------
-
-/** Whether a pick's bonds are all off this match (Match.disabledBonds + staticInactiveBonds, the pool's ban rule). */
-export function diyBanned(m, id) {
-  const off = new Set([...(m.disabledBonds || []), ...(m.staticInactiveBonds || [])]);
-  const bonds = m.gd.chess(id)?.bonds;
-  return Array.isArray(bonds) && bonds.length > 0 && bonds.every((b) => off.has(b));
-}
-
-// 信标 (eff_acarm109 / eff_acgarm109) "无法装备给自编干员" — official KR: 선발 오퍼레이터는 장착 불가. Upstream never had 甄选 picks,
-// so its equip never checked it: a pick carrying a beacon was destroyed and sent to a teammate (shared/diy.js diyEquipRefused).
-const upstreamEquip = PlayerState.prototype.equip;
-PlayerState.prototype.equip = function equip(itemUid, targetUid, replaceUid = null) {
-  const i = this.find(itemUid), t = this.find(targetUid);
-  if (i && t && i.piece.kind === 'item' && t.piece.kind === 'chess' && diyEquipRefused(this.gd.item(i.piece.id), this.gd.chess(t.piece.id))) {
-    return { error: ERR.BAD_TARGET, detail: '无法装备给自编干员' };
-  }
-  return upstreamEquip.call(this, itemUid, targetUid, replaceUid);
-};
-
-/** The picks' pool entries of a match, sized by who picked them (created lazily: the players exist before the pool). */
-export function refreshDiyPool(m) {
-  const pool = m && m.pool;
-  if (!pool || !m.players) return;
-  if (!pool.diyEntries) pool.diyEntries = new Set();
-  const pickers = new Map();
-  for (const ps of m.players.values()) for (const id of ps.diyOwned || []) pickers.set(id, (pickers.get(id) || 0) + 1);
-  for (const id of new Set([...pickers.keys(), ...pool.diyEntries])) {
-    // banned like any operator (pool.js drawDisabledBonds skips invisible chess): every bond of the pick switched off
-    // this match (drawn or mode-off) ⇒ no copies — a 炎 pick (望 / 赤刃明霄陈) never shows while 炎 is banned
-    const cap = diyBanned(m, id) ? 0 : (m.gd.poolCopies(id) || 0) * (pickers.get(id) || 0);
-    const e = pool.entries.get(id);
-    if (!e) {
-      if (cap > 0) { pool.entries.set(id, { cap, left: cap, tier: m.gd.tierOf(id) }); pool.diyEntries.add(id); }
-      continue;
-    }
-    const held = e.cap - e.left;          // never below the copies players already hold (left + held = cap)
-    e.cap = Math.max(cap, held);
-    e.left = e.cap - held;
-  }
-}
-
 // 갱신 버튼 강조 (refresh boost): m.private shop.refreshBoost = the player's strategy acts on its NEXT manual refresh, so
 // the client makes the refresh button's border glow (public/js/ui/shopBar.js, css/refresh-boost.css). Mirrors the
 // conditions of the band handlers in server/sim/content/bands/meta.js:
@@ -288,61 +242,6 @@ PlayerState.prototype.privateView = function privateView() {
   return v;
 };
 
-const upstreamSetLoadout = PlayerState.prototype.setLoadout;
-PlayerState.prototype.setLoadout = function setLoadout(loadout) {
-  const r = upstreamSetLoadout.call(this, loadout);
-  const picks = diyPicks(this.loadout, (id) => this.gd.chess(id));
-  this.diyOwned = new Set([...picks[5], ...picks[6]].filter(Boolean));
-  refreshDiyPool(this.m);
-  return r;
-};
-
-const upstreamRollChessSlot = PlayerState.prototype._rollChessSlot;
-PlayerState.prototype._rollChessSlot = function _rollChessSlot() {
-  const pool = this.m.pool;
-  if (!pool) return upstreamRollChessSlot.call(this);
-  if (!pool.diyEntries) refreshDiyPool(this.m);
-  const prev = pool.diyFor;
-  pool.diyFor = this;                     // this roll may offer this player's own picks
-  try { return upstreamRollChessSlot.call(this); } finally { pool.diyFor = prev; }
-};
-
-// Everything rolled FOR a player opens that player's picks (owner's call 2026-10-05: "선발 오퍼레이터는 위, 전략, 아이템
-// 효과로도 나와야 해, 밴 되지 않는 이상"): the promotion reward and pool-rolled pick-one offers, and every effect run for the
-// player — 特质 (余 SERVER_MOST_BOND …), strategies, items, 机变 cards (ctx.rollChess / ctx.rollPool → SharedPool.roll).
-// Other players' rolls never see them; a banned pick has no copies (refreshDiyPool).
-function asPicker(ps, fn) {
-  const pool = ps && ps.m && ps.m.pool;
-  if (!pool) return fn();
-  if (!pool.diyEntries) refreshDiyPool(ps.m);
-  const prev = pool.diyFor;
-  pool.diyFor = ps;
-  try { return fn(); } finally { pool.diyFor = prev; }
-}
-const upstreamPushRewardOffer = PlayerState.prototype.pushRewardOffer;
-PlayerState.prototype.pushRewardOffer = function pushRewardOffer(...args) { return asPicker(this, () => upstreamPushRewardOffer.apply(this, args)); };
-for (const name of ['dispatch', 'dispatchItem', '_applyCard']) {
-  const upstream = Match.prototype[name];
-  if (typeof upstream !== 'function') continue;
-  Match.prototype[name] = function picksOpen(ps, ...rest) { return asPicker(ps, () => upstream.call(this, ps, ...rest)); };
-}
-
-const upstreamEligible = SharedPool.prototype._eligible;
-SharedPool.prototype._eligible = function _eligible(opts) {
-  const el = upstreamEligible.call(this, opts);
-  if (!this.diyEntries || !this.diyEntries.size) return el;
-  const mine = this.diyFor && this.diyFor.diyOwned;
-  return el.filter(([id]) => !this.diyEntries.has(id) || (mine && mine.has(id)));
-};
-
-const upstreamTierShares = SharedPool.prototype.tierShares;
-SharedPool.prototype.tierShares = function tierShares(maxTier) {
-  if (!this.diyEntries || !this.diyEntries.size) return upstreamTierShares.call(this, maxTier);
-  const saved = [...this.diyEntries].map((id) => [id, this.entries.get(id)]);  // the shared odds leave the picks out
-  for (const [id] of saved) this.entries.delete(id);
-  try { return upstreamTierShares.call(this, maxTier); } finally { for (const [id, e] of saved) if (e) this.entries.set(id, e); }
-};
-
 // ---- debug page (/debug.html) ----------------------------------------------------------------------------------
 
 /** The effect / sound debug page and its scripts (public/debug.html, js/debug.js, js/debug/*: the sandbag arena;
@@ -376,15 +275,13 @@ export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-f
 //                     renders the panel only when this is present
 //   dbg.funds { on }        the sender's funds pinned to pinValue (SP_DEBUG_FUNDS, else 99) or back to real funds
 //                           (they keep the pinned value and move normally from there)
-//   dbg.addDiy { chessId, skill?, module? }
-//                           a 甄选 candidate's chess (chess_diy_<key>_<5|6>_<a|b>) into the sender's hand through
-//                           PlayerState.acquireChess (merges, onGain, m.private), prep only, refused with a full hand
-//                           unless it completes a merge; no pool copies are taken (diyOwned / the shop are unchanged).
-//                           skill / module (module: elite only, a uniEquipId of the elite record or 'none') are checked
-//                           with loadoutOptions — the room.loadout rule — and written into the player's loadout entry of
-//                           that base chess id (DESIGN §16), so loadoutFor / battleInput / m.private.loadout use them.
-//                           The entry keeps its 甄选 `diy` slot when it has one and never gains one: an unpicked operator
-//                           is no pick (diyPicks reads `diy` only) and never reaches the shop.
+//   dbg.addDiy { charId, tier, golden?, skill?, module? }
+//                           one of the 自选 candidates (data/backups.json diy.ownedPool) into the sender's hand: it takes
+//                           the tier's slot already holding that operator, else a free slot of the tier (both taken by
+//                           others ⇒ refused), sets the pick there (PlayerState.setDiy — skill 0-2, module: a uniEquipId
+//                           of the elite form or 'none'), then gains the slot's chess (normal, or the elite with
+//                           `golden`) through PlayerState.acquireChess (merges, onGain, m.private), prep only, refused with
+//                           a full hand unless it completes a merge; no stock copies are taken (the shop is unchanged).
 // Outside debug mode both messages are refused as BAD_MSG (the server never trusts the client's panel).
 
 export const DEBUG_PIN_DEFAULT = 99;
@@ -395,61 +292,37 @@ export function debugMode(env = process.env) {
   return env.SP_DEBUG_PAGE === '1' || debugFunds(env) != null;
 }
 
-/** loadoutOptions of a pick's base chess id (its elite record for the modules), or null. */
-function debugOptions(gd, baseId) {
-  const base = gd.chess(baseId);
-  if (!base || !base.diyPick || base.isGolden) return null;
-  return { base, golden: base.goldenId ? gd.chess(base.goldenId) || null : null, opt: loadoutOptions(base, base.goldenId ? gd.chess(base.goldenId) || null : null) };
-}
+const MODULE_NONE = 'none';
+const formKey = (tier, elite) => (elite ? `2/60/7/${tier === 6 ? 3 : 1}` : '2/1/4/0');
 
 /**
- * The 甄选 candidates offered by the panel (data/diy.json `candidates`, else the tier-V pick records):
- * [{ key, name, tiers: { 5|6: { baseId, skills: [{ index, name }], defaultSkill, modules: [{ id, name, type }], defaultModule } } }]
- * — modules are the elite record's (plus 'none'); the client picks the current loadout entry over the defaults.
+ * The 自选 candidates offered by the panel: [{ charId, name, tiers: { 5|6: { skills: [{ index, name }], modules: [{ id,
+ * name, type }] } } }] — skills of the normal form, modules of the tier's elite form (plus 'none', isDiyModule only).
  */
 export function debugCandidates(gd) {
-  const list = gd?.raw?.diy?.candidates;
-  const keys = Array.isArray(list) && list.length ? list.map((c) => ({ key: c.key, name: c.name }))
-    : Object.values(gd?.raw?.chess || {}).filter((c) => c && c.diyPick && !c.isGolden && c.tier === 5)
-      .map((c) => ({ key: /^chess_diy_(.+)_5_a$/.exec(c.chessId)?.[1], name: c.name })).filter((c) => c.key);
-  return keys.map(({ key, name }) => {
+  const b = gd?.raw?.backups;
+  const pool = Array.isArray(b?.diy?.ownedPool) ? b.diy.ownedPool : [];
+  return pool.map((charId) => {
+    const u = b.units?.[charId];
+    if (!u || !u.forms) return null;
     const tiers = {};
     for (const t of [5, 6]) {
-      const o = typeof gd?.chess === 'function' ? debugOptions(gd, `chess_diy_${key}_${t}_a`) : null;
-      if (!o) continue;
-      const skillName = (i) => (o.base.skills || []).find((s) => s && s.index === i)?.name || '';
-      const mod = (id) => (o.golden?.modules || []).find((x) => x && x.uniEquipId === id) || null;
+      const nf = u.forms[formKey(t, false)], ef = u.forms[formKey(t, true)];
+      if (!nf) continue;
       tiers[t] = {
-        baseId: o.base.chessId,
-        skills: o.opt.skills.map((i) => ({ index: i, name: skillName(i) })), defaultSkill: o.opt.defaultSkill,
-        modules: o.opt.modules.map((id) => ({ id, name: id === MODULE_NONE ? '' : mod(id)?.name || id, type: mod(id)?.typeName || '' })),
-        defaultModule: o.opt.defaultModule,
+        skills: (nf.skills || []).map((sk, i) => ({ index: i, name: sk?.name || '' })),
+        modules: [{ id: MODULE_NONE, name: '', type: '' }, ...(ef?.modules || []).filter(isDiyModule).map((m) => ({ id: m.uniEquipId, name: m.name || m.uniEquipId, type: m.typeName || '' }))],
       };
     }
-    return { key, name, tiers };
-  });
+    return { charId, name: u.name || charId, tiers };
+  }).filter(Boolean);
 }
 
-/**
- * The loadout entry a dbg.addDiy choice sets for `chessId`'s base chess (the room.loadout checks, loadoutOptions), or
- * an error. skill omitted = the current one; module only for an elite (omitted = the current one), refused for a normal.
- * The entry's 甄选 slot (`diy`) is kept as it is — never added.
- */
-export function debugLoadoutEntry(ps, chessId, skill, module) {
-  const rec = ps.gd.chess(chessId);
-  const o = rec && debugOptions(ps.gd, rec.baseId || rec.chessId);
-  if (!o) return fail(ERR.BAD_TARGET, 'no 甄选 operator');
-  const prev = Object.hasOwn(ps.loadout, o.base.chessId) ? ps.loadout[o.base.chessId] : null;
-  const cur = ps.loadoutFor(o.golden || o.base);
-  if (skill !== undefined && !o.opt.skills.includes(skill)) return fail(ERR.BAD_TARGET, `skill ${skill} not available for ${o.base.chessId}`);
-  if (module !== undefined && !rec.isGolden) return fail(ERR.BAD_TARGET, 'a normal operator has no module');
-  if (module !== undefined && !o.opt.modules.includes(module)) return fail(ERR.BAD_TARGET, `module ${module} not available for ${o.base.chessId}`);
-  const entry = {
-    skill: skill ?? cur.skillIndex ?? o.opt.defaultSkill,
-    module: o.golden ? (module ?? cur.moduleId ?? o.opt.defaultModule) : null,
-    ...(prev && prev.diy ? { diy: prev.diy } : {}),
-  };
-  return { ok: true, baseId: o.base.chessId, entry: Object.freeze(entry) };
+/** The slot base id a debug add of `charId` at `tier` uses for player `ps` (see dbg.addDiy above), or null. */
+export function debugDiySlot(ps, charId, tier) {
+  const ids = diySlotIds(ps.m.gd.raw).filter((id) => ps.m.gd.raw.backups?.diy?.slots?.[id]?.tier === tier);
+  const cur = ps.diy || {};
+  return ids.find((id) => cur[id]?.charId === charId) || ids.find((id) => !cur[id]) || null;
 }
 
 /** m.private.debug of a human player (debug mode only). */
@@ -477,16 +350,24 @@ export function debugIntent(m, playerId, msg, env = process.env) {
     return OK;
   }
   if (msg.t === 'dbg.addDiy') {
-    const rec = m.gd.chess(msg.chessId);
-    if (!rec || !rec.diyPick) return fail(ERR.BAD_TARGET, 'no 甄选 operator');
+    const tier = msg.tier;
+    const cand = debugCandidates(m.gd).find((c) => c.charId === msg.charId);
+    if (!cand || !cand.tiers[tier]) return fail(ERR.BAD_TARGET, 'no 自选 operator');
     const g = ps._gate({ allowWhenReady: true }); if (g) return g;
-    const lo = debugLoadoutEntry(ps, msg.chessId, msg.skill, msg.module);
-    if (lo.error) return lo;
-    if (!ps.hand.includes(null) && !ps.completesChessMerge(msg.chessId)) return fail(ERR.HAND_FULL);
-    const before = ps.loadout;
-    ps.loadout = Object.freeze({ ...before, [lo.baseId]: lo.entry }); // before the gain: onGain / summons read it
-    const piece = ps.acquireChess(msg.chessId, { source: 'grant', fromPool: false });
-    if (!piece) { ps.loadout = before; return fail(ERR.HAND_FULL); }
+    const slotId = debugDiySlot(ps, msg.charId, tier);
+    if (!slotId) return fail(ERR.BAD_TARGET, `both 自选 slots of tier ${tier} are taken`);
+    const prev = ps.diy?.[slotId] || null;
+    const skillIndex = msg.skill ?? prev?.skillIndex ?? 0;
+    if (!cand.tiers[tier].skills.some((x) => x.index === skillIndex)) return fail(ERR.BAD_TARGET, `skill ${skillIndex} not available`);
+    const mod = msg.module ?? (prev?.uniEquipId ?? MODULE_NONE);
+    if (!cand.tiers[tier].modules.some((x) => x.id === mod)) return fail(ERR.BAD_TARGET, `module ${mod} not available`);
+    const slot = m.gd.raw.backups.diy.slots[slotId];
+    const chessId = msg.golden ? slot.goldenId : slotId;
+    if (!ps.hand.includes(null) && !ps.completesChessMerge(chessId)) return fail(ERR.HAND_FULL);
+    const before = ps.diy;
+    if (!ps.setDiy({ ...before, [slotId]: { charId: msg.charId, skillIndex, uniEquipId: mod === MODULE_NONE ? null : mod } })) return fail(ERR.BAD_TARGET, 'pick refused');
+    const piece = ps.acquireChess(chessId, { source: 'grant', fromPool: false });
+    if (!piece) { ps.setDiy(before); return fail(ERR.HAND_FULL); }
     ps.dirty();
     return OK;
   }
