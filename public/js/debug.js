@@ -16,7 +16,7 @@ import { voiceStore, setVoiceLang } from './voice.js';
 import { fxBundleOf, effectGroups, effectsFor, attackMode, boundEffects } from './render/fxmap.js';
 import { loadoutOptions } from '../../shared/protocol.js';
 import { createArena } from './debug/arena.js';
-import { TERRAINS, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, inArena, defaultBags } from './debug/sandbag.js';
+import { TERRAINS, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, inArena, defaultBags, ownTokens, autoTokens, rangeOf } from './debug/sandbag.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
@@ -39,7 +39,7 @@ const VOICE_SLOTS = { start: '행동 출발', faceEnemy: '행동 개시', select
 // the game does on load (public/js/resources.js reconcile) — else a rebuilt fx/index.json or fx/modes.json stays its old copy
 try { await Promise.race([installResources(), new Promise((r) => setTimeout(r, 4000))]); } catch { /* the page works without it */ }
 const getJson = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-const [, fxIndex, koData, koDiy, fxModes] = await Promise.all([data.loadAll('chess', 'enemies', 'assets', 'local', 'stages'), getJson('/assets/local/fx/index.json'),
+const [, fxIndex, koData, koDiy, fxModes] = await Promise.all([data.loadAll('chess', 'enemies', 'tokens', 'assets', 'local', 'stages'), getJson('/assets/local/fx/index.json'),
   getJson('/i18n/ko/data.json'), getJson('/i18n/ko/diy.json'), getJson('/assets/local/fx/modes.json')]);
 const manifest = data.get('assets');
 const ko = (s) => (koData && koData[s]) || (koDiy && koDiy[s]) || s;
@@ -67,6 +67,8 @@ const st = {
   opTile: { ...DEFAULT_OP }, bags: [], autoBags: true,
   enemyKey: enemies.some((e) => e.key === params.get('enemy')) ? params.get('enemy') : SANDBAG_DEFAULT,
   bag: { def: 0, res: 0, atk: 0, fixed: true }, terrain: TERRAINS[params.get('terrain')] ? params.get('terrain') : 'flat',
+  // tokens: the operator's hand-placed pieces on the island ({ tokenId, row, col }); autoTokens = still the default placement
+  tokens: [], autoTokens: true,
   spAuto: true, hurt: false, place: 'op',
 };
 let pendingFx = params.get('fx');
@@ -85,11 +87,15 @@ function battleConfig() {
   const skill = opt.skills.includes(st.skill) ? st.skill : opt.defaultSkill;
   const module = elite && opt.modules.includes(st.module) ? st.module : null;
   const chessId = elite ? golden.chessId : base.chessId;
-  if (st.autoBags) st.bags = defaultBags(st.opTile, st.dir, (chessOf(chessId) || base).rangeGrid);
+  const grid = (chessOf(chessId) || base).rangeGrid;
+  if (st.autoBags) st.bags = defaultBags(st.opTile, st.dir, grid);
+  const own = ownTokens(chessId, data.list('tokens'));
+  if (st.autoTokens) st.tokens = autoTokens(st.opTile, st.dir, grid, own, st.bags);
+  st.tokens = st.tokens.filter((t) => own.some((o) => o.tokenId === t.tokenId));
   return {
     chessId, skillIndex: Number.isInteger(skill) ? skill : null, moduleId: module,
     dir: st.dir, op: st.opTile, bags: st.bags, enemyKey: st.enemyKey, bag: { ...st.bag, hp: SANDBAG_HP }, terrain: st.terrain,
-    spAuto: () => st.spAuto, hurt: () => st.hurt,
+    tokens: st.tokens, spAuto: () => st.spAuto, hurt: () => st.hurt,
   };
 }
 function syncUrl() {
@@ -367,7 +373,9 @@ function renderDetail() {
   const pr = el('div', { class: 'row' }, el('span', { class: 'muted' }, '빈 타일 클릭'));
   pr.append(chip('오퍼레이터 이동', st.place === 'op', () => { st.place = 'op'; renderDetail(); }));
   pr.append(chip('샌드백 추가/제거', st.place === 'bag', () => { st.place = 'bag'; renderDetail(); }));
-  pr.append(chip('배치 초기화', false, () => { st.opTile = { ...DEFAULT_OP }; st.autoBags = true; restart(); }));
+  const own = ownTokens(cfg.chessId, data.list('tokens'));
+  if (own.length) pr.append(chip('기물 놓기/치우기', st.place === 'token', () => { st.place = 'token'; renderDetail(); }));
+  pr.append(chip('배치 초기화', false, () => { st.opTile = { ...DEFAULT_OP }; st.autoBags = true; st.autoTokens = true; restart(); }));
   d.append(pr);
   d.append(el('div', { class: 'muted' }, '오퍼레이터를 클릭하면 방향이 돌아갑니다. 샌드백 모드에서 샌드백을 클릭하면 제거, 오퍼레이터 칸을 누르면 저지된 샌드백을 둡니다. 직접 고치기 전까지 샌드백은 사거리·방향에 맞춰 자동 배치(사거리가 자기 칸뿐이면 오퍼레이터 칸에 저지).'));
 
@@ -389,6 +397,19 @@ function renderDetail() {
   d.append(el('div', { class: 'row' },
     el('label', { class: 'f' }, el('input', { type: 'checkbox', checked: st.bag.fixed, onchange: (ev) => { st.bag.fixed = ev.target.checked; restart(); } }), '밀려나지 않음'),
     el('span', { class: 'muted' }, `체력 ${SANDBAG_HP.toExponential(0)} · 절반 아래면 회복 · 쓰러지면 재생성`)));
+
+  // hand-placed pieces (tokens.json placeable: 望's 棋子, 赫默's 医疗探机, 凯瑟琳's 防护单元 …)
+  if (own.length) {
+    d.append(el('h2', {}, '기물 (손패에서 직접 놓는 소환물·함정)'));
+    for (const t of own) {
+      const n = cfg.tokens.filter((x) => x.tokenId === t.tokenId).length;
+      d.append(el('div', { class: 'row' }, el('span', {}, `${ko(t.name)} ${n}/${t.limit}`), el('span', { class: 'muted' }, t.tokenId + (t.ownerRange ? ' · 공격 범위 안에만' : ''))));
+    }
+    d.append(el('div', { class: 'row' },
+      chip('자동 배치', st.autoTokens, () => { st.autoTokens = true; renderDetail(); restart(); }),
+      chip('모두 치우기', false, () => { st.autoTokens = false; st.tokens = []; renderDetail(); restart(); }),
+      el('span', { class: 'muted' }, '「기물 놓기/치우기」 모드에서 빈 타일 = 놓기, 기물 = 치우기')));
+  }
 
   // skill controls
   d.append(el('h2', {}, '스킬 조작'));
@@ -437,13 +458,31 @@ function renderDetail() {
 
 // ---- field clicks -------------------------------------------------------------------------------------------------
 const tileEq = (a, r, c) => Math.round(a.row) === r && Math.round(a.col) === c;
+/** 기물 모드의 타일: 기물이 있으면 치우고, 없으면 (한도·공격 범위 규칙 안에서) 고른 오퍼레이터의 기물을 놓는다. */
+function placeToken(row, col) {
+  const cfg = battleConfig();
+  const own = ownTokens(cfg.chessId, data.list('tokens'));
+  if (!own.length) return;
+  st.autoTokens = false;
+  if (st.tokens.some((t) => tileEq(t, row, col))) { st.tokens = st.tokens.filter((t) => !tileEq(t, row, col)); renderDetail(); restart(); return; }
+  if (tileEq(st.opTile, row, col)) return;
+  const grid = (chessOf(cfg.chessId) || st.op.chess).rangeGrid;
+  const inRange = rangeOf(st.opTile, st.dir, grid).some((t) => t.row === row && t.col === col);
+  const t = own.find((o) => st.tokens.filter((x) => x.tokenId === o.tokenId).length < o.limit && (!o.ownerRange || inRange));
+  if (!t) { $('now').textContent = own.some((o) => o.ownerRange) && !inRange ? '이 기물은 오퍼레이터 공격 범위 안에만 놓을 수 있습니다' : '기물을 더 놓을 수 없습니다 (한도)'; return; }
+  st.tokens = [...st.tokens, { tokenId: t.tokenId, row, col }];
+  renderDetail();
+  restart();
+}
 /** A sandbag on the operator's own tile, blocked (defaultBags with a block-only range). */
 const blockedBag = () => defaultBags(st.opTile, st.dir, [[0, 0]])[0];
 if (arena) {
   arena.view.on('tileClick', ({ row, col }) => {
     if (!inArena(row, col)) return;
+    if (st.place === 'token') { placeToken(row, col); return; }
     if (st.place === 'op') {
       st.bags = st.bags.filter((b) => !tileEq(b, row, col));
+      st.tokens = st.tokens.filter((t) => !tileEq(t, row, col));
       st.opTile = { row, col };
     } else {
       st.autoBags = false;
@@ -454,6 +493,11 @@ if (arena) {
   });
   arena.view.on('pieceClick', ({ unitId, unit }) => {
     if (unit?.side === 'ally') {
+      if (unit.kind === 'token' && st.place === 'token') { // a placed piece: take it back
+        const e = arena.battle()?.units.find((x) => x.id === unitId);
+        if (e) placeToken(Math.round(e.tileR ?? e.y), Math.round(e.tileC ?? e.x));
+        return;
+      }
       if (unit.kind !== 'op') return;
       st.dir = DIRS[(DIRS.indexOf(st.dir) + 1) % DIRS.length];
       renderDetail();

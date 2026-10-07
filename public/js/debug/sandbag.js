@@ -8,6 +8,8 @@
 //   keepSandbags(battle) / reviveSandbags(battle, ev)   called by the page after each step / drain: a sandbag never dies
 //   defaultBags(op, dir, rangeGrid)      the sandbag tile for an operator: the tile in front, or its own tile (blocked)
 //   hurtOp(battle)                       the "injured ally" option: a heal target for medics (true damage to the operator)
+//   ownTokens(chessId, tokens) / autoTokens(…)   the operator's hand-placed pieces (望's 棋子, 赫默's 医疗探机 …) and a default
+//                                        placement of them; createSandbagBattle places cfg.tokens like a board's token pieces
 //   fillSp(unit) / castNow(unit)         the operator's skill charged / cast at once (the debug buttons)
 //   rangeTiles(unit)                     the operator's live attack range as absolute tiles (the range overlay)
 
@@ -105,7 +107,11 @@ export function createSandbagBattle(sim, baseDs, cfg) {
   const unit = { uid: 1, kind: 'chess', chessId: cfg.chessId, row: op.row, col: op.col, dir: cfg.dir || 'RIGHT' };
   if (Number.isInteger(cfg.skillIndex)) unit.skillIndex = cfg.skillIndex;
   if (typeof cfg.moduleId === 'string' && cfg.moduleId) unit.moduleId = cfg.moduleId;
-  const players = [{ playerId: DEBUG_PLAYER, seat: 0, side: 'L', colOffset: 0, coords: 'field', units: [unit], bonds: {}, bandId: null, playerEffects: [] }];
+  // the operator's hand-placed pieces (tokens.json `placeable`): board token pieces owned by it (PlayerState battleInput)
+  const busy = (r, c) => (r === op.row && c === op.col);
+  const tokens = (cfg.tokens || []).filter((t) => t && typeof t.tokenId === 'string' && inArena(t.row, t.col) && !busy(t.row, t.col))
+    .map((t, i) => ({ uid: 2 + i, kind: 'token', tokenId: t.tokenId, row: t.row, col: t.col, dir: cfg.dir || 'RIGHT', ownerUid: 1 }));
+  const players = [{ playerId: DEBUG_PLAYER, seat: 0, side: 'L', colOffset: 0, coords: 'field', units: [unit, ...tokens], bonds: {}, bandId: null, playerEffects: [] }];
   const motion = String((raw.stats && raw.stats.motion) || raw.motion || 'WALK').toUpperCase();
   // a sandbag on the operator's tile only off-centre (defaultBags' blocked placement); off the island never
   const spawns = (cfg.bags || DEFAULT_BAGS).filter((b) => inArena(Math.round(b.row), Math.round(b.col))
@@ -204,6 +210,48 @@ export function rangeTiles(u, rotateOffset) {
     const [dr, dc] = rotateOffset(g[0], g[1], u.dir || 'RIGHT');
     const r = r0 + dr, c = c0 + dc;
     if (inArena(r, c)) out.push([r, c]);
+  }
+  return out;
+}
+
+/**
+ * The pieces an operator places by hand (tokens.json / diy.json tokens with `placeable`, owned by this chess id):
+ * [{ tokenId, name, limit (deployLimit), ownerRange (only on its owner's attack range) }].
+ * @param {string} chessId the battle's chess id (normal or elite)
+ * @param {any[]} tokens token records
+ */
+export function ownTokens(chessId, tokens) {
+  return (Array.isArray(tokens) ? tokens : []).filter((t) => t && t.placeable && Array.isArray(t.owners) && t.owners.includes(chessId))
+    .map((t) => ({ tokenId: t.tokenId, name: t.name, limit: Math.max(1, Number(t.deployLimit) || 1), ownerRange: !!t.ownerRange }));
+}
+
+/** The island tiles of an operator's attack range (its grid, authored facing RIGHT, turned to `dir`). */
+export function rangeOf(op, dir, grid) {
+  const turn = ([dr, dc]) => (dir === 'UP' ? [dc, -dr] : dir === 'LEFT' ? [-dr, -dc] : dir === 'DOWN' ? [-dc, dr] : [dr, dc]);
+  return (Array.isArray(grid) ? grid : []).filter(Array.isArray).map(turn).map(([dr, dc]) => ({ row: op.row + dr, col: op.col + dc }))
+    .filter((t) => inArena(t.row, t.col));
+}
+
+/**
+ * A default placement of an operator's pieces: up to each one's limit, on free island tiles nearest the operator
+ * (its attack range only for an `ownerRange` piece), the tiles in front of it first.
+ * @param {{ row: number, col: number }} op
+ * @param {string} dir
+ * @param {any[]} grid the operator's range grid
+ * @param {{ tokenId: string, limit: number, ownerRange: boolean }[]} own ownTokens
+ * @param {{ row: number, col: number }[]} [taken] tiles already used (the sandbags)
+ */
+export function autoTokens(op, dir, grid, own, taken = []) {
+  const [fr, fc] = FRONT[dir] || FRONT.RIGHT;
+  const used = new Set([`${op.row},${op.col}`, ...taken.map((t) => `${Math.round(t.row)},${Math.round(t.col)}`)]);
+  const all = [];
+  for (let r = ARENA.r0; r <= ARENA.r1; r++) for (let c = ARENA.c0; c <= ARENA.c1; c++) all.push({ row: r, col: c });
+  const score = (t) => { const dr = t.row - op.row, dc = t.col - op.col; return Math.abs(dr) + Math.abs(dc) - 0.5 * Math.sign(dr * fr + dc * fc); };
+  const inRange = new Set(rangeOf(op, dir, grid).map((t) => `${t.row},${t.col}`));
+  const out = [];
+  for (const t of own) {
+    const pool = all.filter((x) => !used.has(`${x.row},${x.col}`) && (!t.ownerRange || inRange.has(`${x.row},${x.col}`))).sort((a, b) => score(a) - score(b));
+    for (const x of pool.slice(0, t.limit)) { used.add(`${x.row},${x.col}`); out.push({ tokenId: t.tokenId, row: x.row, col: x.col }); }
   }
   return out;
 }

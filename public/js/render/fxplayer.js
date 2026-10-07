@@ -321,6 +321,10 @@ function makeMaterial(m, lib) {
     vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, depthTest: false,
     side: THREE.DoubleSide, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
     blendSrc: BLEND[src], blendDst: BLEND[dst],
+    // local patch (user 2026-10-07: black squares on 비르투오사's hit, 望's link): the alpha channel of a see-through canvas
+    // (render/fxgame.js, premultiplied) — additive light never covers what is under it (a texture without alpha has a black
+    // background: it added to the alpha before and composited as a black square), alpha blend is the premultiplied "over"
+    blendSrcAlpha: additive ? THREE.ZeroFactor : THREE.OneFactor, blendDstAlpha: additive ? THREE.OneFactor : THREE.OneMinusSrcAlphaFactor,
     uniforms: {
       uMain: { value: tex('_MainTex') || WHITE }, uMainST: { value: st('_MainTex') },
       uMainSpeed: { value: new THREE.Vector2(f._MainUSpeed || 0, f._MainVSpeed || 0) },

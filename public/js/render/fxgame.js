@@ -119,7 +119,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         canvas.setAttribute('aria-hidden', 'true');
         Object.assign(canvas.style, { position: 'absolute', left: '0', top: '0', width: '100%', height: '100%', display: 'none', pointerEvents: 'none', zIndex: z });
         host.insertBefore(canvas, before);
-        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, premultipliedAlpha: false, powerPreference: 'high-performance' });
+        // local patch: premultiplied — the page adds an additive effect's light and lets the alpha (fxplayer.js blendSrcAlpha) cover
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, premultipliedAlpha: true, powerPreference: 'high-performance' });
         renderer.setClearColor(0x000000, 0);
         return { canvas, renderer, scene: new THREE.Scene(), n: 0 };
       };

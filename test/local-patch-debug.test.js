@@ -12,7 +12,8 @@ import { rotateOffset } from '../server/sim/dir.js';
 import { SIM_DATA_FILES as RUNNER_FILES } from '../public/js/battle/runner.js';
 import {
   ARENA, inArena, arenaStage, sandbagRecord, createSandbagBattle, arenaOp, arenaBags, keepSandbags, reviveSandbags,
-  fillSp, castNow, rangeTiles, defaultBags, hurtOp, SIM_DATA_FILES, SANDBAG_DEFAULT, SANDBAG_HP, DEFAULT_OP, BLOCK_OFFSET, HURT,
+  fillSp, castNow, rangeTiles, defaultBags, hurtOp, ownTokens, autoTokens, rangeOf, SIM_DATA_FILES, SANDBAG_DEFAULT, SANDBAG_HP, DEFAULT_OP,
+  BLOCK_OFFSET, HURT,
 } from '../public/js/debug/sandbag.js';
 
 const stages = JSON.parse(readFileSync(new URL('../data/stages.json', import.meta.url), 'utf8'));
@@ -156,6 +157,32 @@ describe('debug page sandbag arena (public/js/debug/sandbag.js)', () => {
     assert.ok(healed > 0, 'the medic healed');
     op.hp = op.s.maxHp * HURT.floor;
     assert.equal(hurtOp(b), 0, 'no blow at the floor');
+  });
+
+  test('hand-placed pieces: the operator\'s placeable tokens, a default placement in its limits, deployed in the battle', () => {
+    const tokensFile = JSON.parse(readFileSync(new URL('../data/tokens.json', import.meta.url), 'utf8'));
+    const diy = JSON.parse(readFileSync(new URL('../data/diy.json', import.meta.url), 'utf8'));
+    const list = [...Object.values(tokensFile.tokens ?? tokensFile), ...Object.values(diy.tokens || {})];
+    assert.deepEqual(ownTokens('chess_char_2_02_a', list).map((t) => [t.tokenId, t.limit]), [['token_10000_silent_healrb', 1]], '赫默\'s 医疗探机');
+    const wang = ownTokens('chess_diy_wang_5_a', list);
+    assert.deepEqual(wang.map((t) => [t.tokenId, t.limit]), [['token_10064_wang_stone1', 6]], '望\'s 6 棋子');
+    assert.deepEqual(ownTokens('chess_char_1_01_a', list), [], 'none for an operator without');
+    const vigil = ownTokens('chess_char_3_19_a', list);
+    assert.equal(vigil[0].ownerRange, true, '狼群: only on the owner\'s attack range');
+    const grid = ds.rawChess('chess_char_3_19_a').rangeGrid;
+    const placed = autoTokens(DEFAULT_OP, 'RIGHT', grid, vigil, []);
+    const range = new Set(rangeOf(DEFAULT_OP, 'RIGHT', grid).map((t) => `${t.row},${t.col}`));
+    assert.ok(placed.length === 1 && range.has(`${placed[0].row},${placed[0].col}`));
+    const bags = [{ row: 10, col: 5 }];
+    const stones = autoTokens(DEFAULT_OP, 'RIGHT', [[0, 0]], wang, bags);
+    assert.equal(stones.length, 6);
+    assert.ok(!stones.some((t) => (t.row === 10 && t.col === 4) || (t.row === 10 && t.col === 5)), 'not on the operator or a sandbag');
+    const b = make({ chessId: 'chess_diy_wang_5_a', bags, tokens: stones });
+    run(b, 2);
+    const units = b.allyUnits.filter((u) => u.kind === 'token');
+    assert.equal(units.length, 6);
+    assert.ok(units.every((u) => u.deployed && u.ownerUnit === arenaOp(b)), 'deployed, owned by the operator');
+    assert.deepEqual(b.errors, []);
   });
 
   test('rangeTiles: the live range turned to the direction, clipped to the island', () => {
