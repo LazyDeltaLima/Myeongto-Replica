@@ -9,11 +9,19 @@
 //
 // Trait: arts damage (branch). 形意洞照: ATK +atk, ASPD +attack_speed, every damage of hers is 弱点伤害 (the less
 // resisted of phys / arts — items/battle.js weaknessRetype; PRTS: "根据目标防御力和法术抗性变更伤害类型").
-// 寒暑觉知: every stack_time s without taking damage she heals ATK × random(heal_atk_scale_min…max) % and dodges the
-// next physical / arts attack; taking damage restarts the clock (PRTS 备注). Module: ASPD +8 while blocking nobody.
-// S2 (PRTS 备注): a slash every 0.4 s, 无敌 meanwhile; a knocked-out target passes on to the nearest other enemy within
-// 1.7 of it, else of her range, remaining slashes +1; at the end she 【移动】s to a standing, deployable target's tile;
-// then ATK +respawn_buff.atk and respawn_buff.prob phys / arts dodge until the skill ends.
+// 寒暑觉知: every stack_time s without taking damage she heals ATK × random(heal_atk_scale_min…max) % and holds one dodge
+// of the next dodgeable physical / arts damage instance — any, not attacks only (BT chen3_t2[evade]: Evade
+// PHYSICAL_AND_MAGICAL, _applyWayFilter ALL), rolled after her other dodges (LOW_PRIORITY; PRTS 闪避优先级 −1000: when S2's
+// dodge wins, the held one is kept); damage taken restarts the clock, a dodge does not (chen3_t2 resets on
+// ON_APPLIED_MODIFIER IsDamage only). Module: ASPD +8 while blocking nobody.
+// S2 (PRTS 备注): a slash every 0.4 s; while slashing 无敌, no attack, 不可阻挡 (blocks nothing), 阻回 (no SP), stun / freeze
+// immune (PF skchr_chen3_2 chen3_s2[invincible] abnormalImmunes [0, 16] [ASSUMED: 0 = stun, 16 = freeze], BT
+// chen3_s2[ban_sp]) [not modelled: its 静默 (abnormalFlags 24) — her own skill is the one running]; a target that leaves
+// the field — knocked out by anyone, removed, hidden [ASSUMED: BT chen3_s2[dead_listener] ON_OWNER_FINISH = every exit] —
+// passes on to the nearest other enemy within 1.7 of it, else of her range, remaining slashes +1; at the end she
+// 【移动】s to a standing, deployable target's tile; then — for the skill's whole `duration` (6 s) from the landing, the
+// slashing time held (PF RespawnBuff chen3_s2[respawn_buff] durationKey duration; PRTS 「不包括斩击所耗时间」) — ATK
+// +respawn_buff.atk and respawn_buff.prob phys / arts dodge.
 // S3 剑气 (PRTS 备注): "剑气可对空，碰撞半径1.3，移动速度1.5，每次转向前对每个敌人仅判定一次伤害"; "在距离前进方向上的
 // 侵入点/保护目标/高度类型为高地的地块的距离不低于0.25时，顺时针旋转90°". Current-HP hp_ratio arts (≥ projectile_min_atk_scale × ATK).
 // (2026-10-06) — EN client battle/prefabs/[uc]projectiles.ab `projectile_chr_chen3_s3`:
@@ -38,6 +46,8 @@ import { talentBb } from '../shared/tier1.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
+/** An S2 target that left the field — dead, removed or hidden [ASSUMED: a hidden one counts as gone]. */
+const gone = (e) => !e || !e.alive || e.removed || e.hidden;
 const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null);
 const ANY = Object.freeze({ canHitFly: true });
 const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], unit, ANY);
@@ -106,7 +116,11 @@ function chen3(bb, chess, def) {
     }, { owner: unit });
   };
 
-  /** S2: 10 slashes (+1 per kill), passing on; then the 【移动】 and the buff. */
+  /**
+   * S2: 10 slashes (+1 per target that leaves the field), passing on; then the 【移动】 and the buff. While slashing
+   * (unit.mem.chen3Slashing): 无敌, no attack, 不可阻挡 (blocks nothing), 阻回 (no SP), stun / freeze immune (install), and
+   * the skill's 6 s wait (onTick) — they start when she lands.
+   */
   const slashes = (battle, unit) => {
     const seq = unit.deploySeq;
     const scale = num(bb.atk_scale, 4.3);
@@ -121,34 +135,44 @@ function chen3(bb, chess, def) {
       if (unit.skill?.active && unit.skill.id === 'skchr_chen3_2') battle.after(0.2, () => { if (unit.deploySeq === seq && unit.skill?.active && unit.skill.id === 'skchr_chen3_2') slashes(battle, unit); }, { owner: unit });
       return;
     }
-    battle.addBuff(unit, { key: 'chen3:s2:inv', duration: 10 * S2_INTERVAL + 2, flags: { invulnerable: true, disarm: true } });
+    // PF skchr_chen3_2 chen3_s2[invincible] / [skill_not_available], BT chen3_s2[ban_sp]: 无敌, 不可阻挡, 阻回, no attack
+    battle.addBuff(unit, { key: 'chen3:s2:inv', duration: Infinity, flags: { invulnerable: true, disarm: true, noBlock: true, noSp: true } });
+    battle.releaseBlocked?.(unit);
+    unit.mem.chen3Slashing = true;
     let target = first, left = 10;
     const step = () => {
       if (unit.deploySeq !== seq || !unit.alive) return;
-      if (!target || !target.alive) {
-        const near = battle.foesInRadius(target ? target.x : unit.x, target ? target.y : unit.y, S2_PASS_RADIUS).filter((e) => e.alive);
-        target = (near.length ? near : inRange(battle, unit)).sort((a, b) => dist(a, unit) - dist(b, unit))[0] || null;
+      // BT chen3_s2[dead_listener] (ON_OWNER_FINISH): a target that left the field — knocked out by anyone, removed,
+      // hidden [ASSUMED: OWNER_FINISH = every exit] — adds a slash (+0.4 s) and hands over to the nearest enemy around it
+      if (gone(target)) {
+        left++;
+        const near = battle.foesInRadius(target.x, target.y, S2_PASS_RADIUS).filter((e) => !gone(e));
+        target = (near.length ? near : inRange(battle, unit)).sort((a, b) => dist(a, unit) - dist(b, unit))[0] || target;
       }
-      if (target && left > 0) {
+      if (!gone(target) && left > 0) {
         left--;
         battle.fx('swordStorm', { x: target.x, y: target.y, id: unit.id, r: 0.6 });
         battle.dealDamage(unit, target, { amount: unit.s.atk * scale, type: 'arts', isSkill: true, tags: ['skill', 'chen3S2'] });
-        if (!target.alive) left++;
         battle.after(S2_INTERVAL, step, { owner: unit });
         return;
       }
       battle.removeBuff?.(unit, 'chen3:s2:inv');
+      unit.mem.chen3Slashing = false;
       // the 【移动】 to a standing target's tile (deployable for her, free)
-      if (target && target.alive && !target.isFlying) {
+      if (!gone(target) && !target.isFlying) {
         const r = Math.round(target.y), c = Math.round(target.x);
         if ((r !== unit.tileR || c !== unit.tileC) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile?.(r, c)) {
           const fromX = unit.x, fromY = unit.y;
           if (battle.moveRedeploy(unit, r, c)) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
         }
       }
-      if (unit.alive && unit.skill?.active) {
+      // the skill's `duration` (6 s) starts now ("不包括斩击所耗时间"; PF RespawnBuff chen3_s2[respawn_buff] durationKey
+      // duration): ATK + / dodge for all of it, lifted when the skill ends (onEnd)
+      const sk = unit.skill;
+      if (unit.alive && sk?.active && sk.id === 'skchr_chen3_2') {
+        sk.timeLeft = Math.max(0.01, num(sk.duration, 6));
         const p = num(bb['chen3_s2[respawn_buff].prob'], 0.5);
-        battle.addBuff(unit, { key: 'chen3:s2:after', duration: Math.max(0.5, num(unit.skill.timeLeft, 2)),
+        battle.addBuff(unit, { key: 'chen3:s2:after', duration: Infinity,
           mods: { atkPct: num(bb['chen3_s2[respawn_buff].atk'], 2.6), dodgePhys: p, dodgeArts: p } });
       }
     };
@@ -156,6 +180,13 @@ function chen3(bb, chess, def) {
   };
 
   return {
+    install(battle, unit) {
+      // S2: 眩晕 / 冻结 immunity while she slashes (PF chen3_s2[invincible] abnormalImmunes [0, 16] [ASSUMED: 0 = stun,
+      // 16 = freeze — the enum names are native])
+      battle.on('beforeStatus', (c) => {
+        if (c.target === unit && unit.mem.chen3Slashing && (c.status === 'stun' || c.status === 'freeze')) c.cancel = true;
+      }, { owner: unit });
+    },
     skills: {
       // 赤霄·奔夜: ATK +atk, two hits, the struck enemies lose their special abilities until the skill ends (silence)
       skchr_chen3_1: {
@@ -168,7 +199,17 @@ function chen3(bb, chess, def) {
         },
       },
       // 赤霄·绝影-驰
-      skchr_chen3_2: { kind: 'duration', onStart({ battle, unit }) { slashes(battle, unit); } },
+      skchr_chen3_2: {
+        kind: 'duration',
+        onStart({ battle, unit }) { slashes(battle, unit); },
+        // the 6 s wait while she slashes (onTick runs before the runtime counts `dt` down)
+        onTick({ unit, skill, dt }) { if (unit.mem.chen3Slashing) skill.timeLeft = Math.max(0.01, num(skill.duration, 6)) + dt; },
+        onEnd({ battle, unit }) {
+          unit.mem.chen3Slashing = false;
+          battle.removeBuff?.(unit, 'chen3:s2:inv');
+          battle.removeBuff?.(unit, 'chen3:s2:after');
+        },
+      },
       // 赤霄·天喟: the 剑气 + range 3-12, each attack ≤ max_target ground enemies × 3 hits at attack@atk_scale
       skchr_chen3_3: {
         kind: 'duration',
@@ -187,11 +228,19 @@ function chen3(bb, chess, def) {
         const T = num(t1.stack_time, 7), lo = num(t1.heal_atk_scale_min, 30) / 100, hi = num(t1.heal_atk_scale_max, 160) / 100;
         let since = battle.time, dodge = false;
         battle.on('damaged', (c) => { if (c.target === unit && c.amount > 0 && !isHpLoss(c.dmg)) since = battle.time; }, { owner: unit });
+        // the held dodge (BT chen3_t2[evade]: Evade PHYSICAL_AND_MAGICAL, _applyWayFilter ALL, LOW_PRIORITY): any dodgeable
+        // physical / arts damage instance, after her other dodges (PRTS 闪避优先级 −1000 — S2's 50 % is rolled first and,
+        // when it dodges, the held one is kept). A dodge lands no damage: the counter goes on (chen3_t2 resets on
+        // ON_APPLIED_MODIFIER IsDamage only).
         battle.on('hit', (c) => {
-          if (c.target !== unit || !dodge || !c.dmg?.isAttack || (c.dmg.type !== 'phys' && c.dmg.type !== 'arts')) return;
-          dodge = false; c.dmg.cancel = true; since = battle.time;
+          const d = c.dmg;
+          if (c.target !== unit || !dodge || !d || d.cancel || !d.canDodge || (d.type !== 'phys' && d.type !== 'arts')) return;
+          const p = d.type === 'phys' ? unit.s.dodgePhys : unit.s.dodgeArts;
+          if (!(p > 0 && battle.rng() < p)) dodge = false;
+          d.cancel = true;
           battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id });
-        }, { owner: unit, priority: 4 });
+          battle.emit('dodge', { source: c.credit ?? c.source, target: unit, dmg: d });
+        }, { owner: unit, priority: -1000 });
         battle.every(0.2, () => {
           if (!live(unit) || battle.time - since < T) return;
           since = battle.time;
