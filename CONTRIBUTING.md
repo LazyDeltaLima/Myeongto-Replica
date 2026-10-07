@@ -22,8 +22,8 @@ npm run dev        # 启动服务器（node --watch，改了服务器代码自�
 只跑和改动相关的测试，提交 PR 前再跑一次全部：
 
 ```bash
-node --test test/content/op_siege.test.js                        # 一个文件
-node --test --test-name-pattern="S3" test/content/op_siege.test.js  # 文件里的部分用例
+node --test test/content/op_wang.test.js                         # 一个文件
+node --test --test-name-pattern="S3" test/local-patch-diy.test.js   # 文件里的部分用例
 node --test                                                      # 全部（需要浏览器 / 素材的用例自动跳过）
 npm run golden                                                   # 黄金结果：整套固定种子的战斗和对局
 GOLDEN_FULL=1 node --test test/golden.test.js                    # 同上，node:test 形式
@@ -79,18 +79,18 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
 
 ## 5. 添加干员（自选编队）
 
-自选编队里的每名 6★ 干员都需要一个自己的战斗文件（kit），写法见
+本服务器的自选编队只提供五名干员（`shared/local-diy.js` 的 `LOCAL_DIY_PICKS`）；加人需要先经所有者决定，并加进该列表。每名干员都需要一个自己的战斗文件（kit），写法见
 [server/sim/content/kits/README.md](server/sim/content/kits/README.md) 的「How to add an operator (自选)」。简要步骤：
 
-1. 数据已经生成好：`data/backups.json` 的 `units[charId]`（各形态的数值、技能、天赋、模组）和 `tokens`（召唤物）。
-   先对照官方数据表和 PRTS 核对。
+1. 加进 `LOCAL_DIY_PICKS` 后跑 `node tools/build-data.mjs --offline`：`data/backups.json` 的 `units[charId]`（各形态的数值、技能、
+   天赋、模组）和 `tokens`（召唤物）随之生成。先对照官方数据表和 PRTS 核对。
 2. 新建 `server/sim/content/kits/ops/op-<codename>.js`（codename 是 charId 去掉 `char_<n>_`），默认导出只有一个键：charId。
 3. 把文件名加进 `server/sim/content/kits/index.js` 的 `OPERATOR_KIT_FILES`，这名干员就能在自选编队里选了。
-4. 写测试 `test/content/op_<codename>.test.js`（照 `test/content/op_siege.test.js` 的写法：每个形态、每个模组、每个技能），
+4. 写测试（照 `test/local-patch-diy.test.js` 的写法：每个形态、每个模组、每个技能），
    跑 `node --test test/content/kits_layout.test.js`，再 `npm run golden:update`（只应新增 `test/golden/diy.json` 的场景）。
 5. PR 里逐项勾选 README 里的「Fidelity checklist」。
 
-目前池子里的 71 名干员都已经有 kit；改进现有的 kit 也按同样的清单来。相关讨论见 GitHub issue #136。
+五名干员都已经有 kit；改进现有的 kit 也按同样的清单来。
 
 ---
 
@@ -119,5 +119,5 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
   Code is GPL-3.0-or-later; no monetisation features.
 - **Adding an operator (自选)**: follow "How to add an operator (自选)" in
   [server/sim/content/kits/README.md](server/sim/content/kits/README.md): `op-<codename>.js` keyed by the charId,
-  registered in `OPERATOR_KIT_FILES`, a test `test/content/op_<codename>.test.js`, the fidelity checklist in the pull
-  request. All 71 operators of the current pool have kits; improvements follow the same checklist (GitHub issue #136).
+  registered in `OPERATOR_KIT_FILES`, the charId in `shared/local-diy.js LOCAL_DIY_PICKS` (the owner's decision), a test,
+  the fidelity checklist. This server offers five operators, all with kits; improvements follow the same checklist.
