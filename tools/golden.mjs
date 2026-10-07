@@ -29,15 +29,16 @@
 //            险境 / 绝境 / 终极 ×2 seeds, co-op 2 / 3 / 4, one server-run combat match, two with LP and layers raised at the
 //            first prep so they reach the Hidden Core), one co-op match whose human seat (AI 托管, offline: its
 //            battles run on the server) does not own a few NORMAL chess — they fight as their 补位 stand-ins (0.2.0) — and
-//            one whose human seat slots 自选 picks (推进之王 and prototypes; its 调度中心 at level 5 from the first prep):
+//            one whose human seat slots 自选 picks (four of our five; its 调度中心 at level 5 from the first prep):
 //            its shop sells them and its AI fields them (0.2.0 自选编队, the digest's `diy`)
 //   standins 10 battles: every NORMAL chess record (normal + elite, 110) fielded as its 补位 stand-in (PlayerBattleInput
 //            standIn: true — DATA.md §18: the stand-in's body, its backup skill / module, its kit by charId; all 17
 //            stand-ins and every skill a chess names for them), 12 per battle by strength band, laid out by the stand-in's
 //            position on a real stage, against the round's real wave three times over, an item each, bonds from the board
 //   diy      自选 pieces (PlayerBattleInput `diy`, shared/diy.js): every owned 6★ with an operator kit (kits/index.js
-//            OPERATOR_KITS) in each form of tiers 5 and 6 — normal, elite with no module and with each module — under
-//            each of its skills, then every prototype pick with a kit at its locked selection, both forms of each tier;
+//            OPERATOR_KITS: our five) in each form of tiers 5 and 6 — normal, elite with no module and with each module —
+//            under each of its skills, then every prototype pick with a kit at its locked selection (none on this server:
+//            data/backups.json diy.prototypes is empty), both forms of each tier;
 //            12 pieces per battle on a real stage against the round's real wave three times over (diyScenarios)
 // Battles run through the production BattleSpec path (server/sim/spec.js buildBattleSpec → createBattleFromSpec, the
 // path browsers and the server's headless fields use) with every option explicit; matches construct Match directly
@@ -715,7 +716,7 @@ export function matchScenarios() {
   out.push({ id: 'coop2-ABYSS-10-boosted', mode: 'coop', difficulty: 'ABYSS', bots: 2, seed: 10, boost: { lp: 400, layers: 300 } });
   // 0.2.0 补位: a human seat (AI 托管, offline: its battles run on the server) that does not own a few NORMAL chess
   out.push({ id: 'coop2-NORMAL-14-standins', mode: 'coop', difficulty: 'NORMAL', bots: 1, seed: 14, human: { notOwned: MATCH_NOT_OWNED } });
-  // 0.2.0 自选编队: a human seat (AI 托管, offline) that slots 推进之王 and prototypes into the four DIY slots
+  // 0.2.0 自选编队: a human seat (AI 托管, offline) that slots four of our five 自选 picks into the four DIY slots
   // (its 调度中心 starts at level 5, like the boosted runs' raised LP: the 自选 pieces are sold from level 5 / 6, which the
   // AI otherwise reaches only with a full board, where a single new operator rarely improves its lineup)
   out.push({ id: `coop2-NORMAL-${MATCH_DIY_SEED}-diy`, mode: 'coop', difficulty: 'NORMAL', bots: 1, seed: MATCH_DIY_SEED, human: { diy: MATCH_DIY, shopLevel: 5 } });
@@ -725,16 +726,16 @@ export function matchScenarios() {
 }
 
 /**
- * The 自选 match's human seat (0.2.0 自选编队, shared/diy.js): 推进之王 (an owned 6★ with its operator kit; S3 and SOL-X) in a
- * tier-5 slot, Sharp (a prototype: its locked S3 + SOL-X) in the other tier-5 slot and a tier-6 one, 领主·Sharp in the last
- * — its shop sells them from 调度中心 level 5 / 6 and its AI fields them (the digest's `diy` lists the shop draws and the
- * fielded pieces per round).
+ * The 自选 match's human seat (0.2.0 自选编队, shared/diy.js; this server's picks, shared/local-diy.js): 望 (S3 and TRP-X:
+ * her 棋子 are placeable hand summons) and 赤刃明霄陈 (S3, AFT-X) in the tier-5 slots, 维什戴尔 (S3, BOM-X) and 阿斯卡纶 (S3,
+ * AMB-X) in the tier-6 ones — its shop sells them from 调度中心 level 5 / 6 and its AI fields them (the digest's `diy`
+ * lists the shop draws and the fielded pieces per round).
  */
 const MATCH_DIY = Object.freeze({
-  chess_char_5_diy1_a: { charId: 'char_112_siege', skillIndex: 2, uniEquipId: 'uniequip_002_siege' },
-  chess_char_5_diy2_a: { charId: 'char_609_acguad' },
-  chess_char_6_diy1_a: { charId: 'char_609_acguad' },
-  chess_char_6_diy2_a: { charId: 'char_617_sharp2' },
+  chess_char_5_diy1_a: { charId: 'char_2027_wang', skillIndex: 2, uniEquipId: 'uniequip_002_wang' },
+  chess_char_5_diy2_a: { charId: 'char_1050_chen3', skillIndex: 2, uniEquipId: 'uniequip_002_chen3' },
+  chess_char_6_diy1_a: { charId: 'char_1035_wisdel', skillIndex: 2, uniEquipId: 'uniequip_002_wisdel' },
+  chess_char_6_diy2_a: { charId: 'char_4132_ascln', skillIndex: 2, uniEquipId: 'uniequip_002_ascln' },
 });
 const MATCH_DIY_SEED = 70;
 
@@ -900,7 +901,7 @@ const diySlotRec = (tier, elite) => {
  * The 自选 configurations of the corpus, in a fixed order: every owned 6★ with an operator kit (OPERATOR_KITS, file
  * order) in each form of both tiers — normal (no module: none is active), elite with no module and with each module of
  * the form — under each skill; then every prototype pick with a kit (KITTED_CHARS: its stand-in kit, a 预备干员's generic
- * kit) at its locked selection, normal and elite, per tier. `{ tier, elite, pick, group }`.
+ * kit) at its locked selection, normal and elite, per tier (none on this server). `{ tier, elite, pick, group }`.
  */
 function diyConfigs() {
   const diy = data.backups?.diy;
