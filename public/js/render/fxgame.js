@@ -48,6 +48,7 @@ import { projSpeed } from './fx.js'; // local patch: the trails' flight time (th
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { PROJ } from './style.js';
+import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 
 const INDEX_URL = '/assets/local/fx/index.json';
 const MODES_URL = '/assets/local/fx/modes.json';   // effect bindings per attack mode (tools/local-extract/char_modes.py)
@@ -177,13 +178,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const def = await lib.load(b.bundle, n);
       if (!mod) return;   // destroyed while the file loaded (the view left the battle)
       if (!def) continue;
-      const anchor = at || view;
+      const ground = at || view;
+      const anchor = lifted(ground, def); // local patch: its _spawnLocation
       // local patch (user report 2026-10-07: 野鬃 S2 stood upright): an effect the client turns to the unit's facing
       // (charpack / skills.ab `_useFourDirectionalFace`: its 'rotation_z' pivot, stored at an editing angle) is turned, not mirrored
       const turn = turns(view).has(n) && def.nodes?.some((d) => d.name === 'rotation_z');
-      const split = splitOn();
+      // only the effects that go to the split scene (on the caster) split — a hit on a target goes to the upper canvas,
+      // which draws layer 0 only (split, every blast on a target was invisible at 'high' on the 3D board: 烛煌 S3)
+      const split = (buff || !at) && splitOn();
       // local patch: cut at the ground the unit stands on (fxplayer.js floor — a tile's height, not a flyer's hover)
-      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: anchor.z || 0 });
+      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: ground.z || 0 });
       if (turn) aimMover(inst, facingDir(view));
       inst.object.position.set(anchor.x, anchor.y, anchor.z || 0);
       // a one-shot on the caster (not a hit on a target) ends with its prefab's duration even if a system loops —
@@ -192,7 +196,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // local patch (user 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
       // skill start as well as its buff loops — goes under the units; the hits on a target stay over
       // (local patch, user report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
-      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until }, buff || !at ? (split ? layers.split : layers.under) : layers.over);
+      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until }, split ? layers.split : buff || !at ? layers.under : layers.over);
       // the player's own cap: it has already ended the oldest (done, dispose is a no-op) — the same one here
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
     }
@@ -258,6 +262,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // The prefabs are loops by their root flag (_isLoop 1) though some systems run once (buff_silence: 1 s) — a status
   // effect that ends while its status is still on starts again (update).
   let camRef = null;
+  // local patch (user report 2026-10-07, video: 史尔特尔's blast sits on the enemy's body): the prefab root's
+  // `_spawnLocation` (fx_extract.py spawn: 2 body / HIT point, 4 head; 1 feet, 5 ground centre and the rest stay on the
+  // ground) lifts an effect placed on a unit; points stay where they are
+  const SPAWN_FRAC = { 2: 0.5, 4: 1.1 };
+  function lifted(v, def) {
+    const frac = SPAWN_FRAC[def?.spawn];
+    if (!frac || !v || !(v.info || v.screen)) return v;
+    return {
+      get x() { return v.x; }, get y() { return v.y; },
+      get z() { return camRef ? bodyZ(camRef, v, frac) : (v.z || 0) + (v.hover || 0) + (v._headTiles || 1.2) * frac; },
+      get alive() { return v.alive; }, get remove() { return v.remove; },
+      id: v.id, info: v.info,
+    };
+  }
   const ownerOf = (v) => v.id ?? v.info?.id;
   const statusFailed = new Set();   // `${bundle}/${name}` that did not load: their units keep the icon (statusReady false)
   async function playStatus(view, bundle, name, key, frac) {
@@ -530,6 +548,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!mod || !def) return null;
     const split = !over && splitOn();   // an effect on the ground / a unit splits by sorting at 'high'
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, split, floor: drop ? null : at.z && !over ? at.z : 0 });
+    if (!drop) at = lifted(at, def); // local patch: its _spawnLocation
     inst.object.position.set(at.x, at.y, at.z || 0);
     const e = { view: at, ...entry };
     if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5;
@@ -570,7 +589,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return claimed;
   }
   const lemuenOn = (v) => !!(v && fxBundleOf(v.info?.spine || v.info?.defId) === 'lemuen' && bundleOf(v) && !failed);
-  const lemMarks = new Map();   // 蕾缪安 id → [live entries of crosshair_02], in lock order (its shells land in that order)
+  const lemMarks = new Map();   // 蕾缪安 id → [[live entries of one lock's beam / reticle / mark]], in lock order (its shells land in that order)
   const LEM_DROP_Z = 3;         // the shell falls from this height (tiles) [ASSUMED: straight down]
   /** Kit 'fx' events drawn with official prefabs; true = handled here (ownFx: render/fx.js skips its stand-in). */
   function kitFx(e, views) {
@@ -599,6 +618,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       spawn(b.bundle, 'yu_skill3_annex_01', { x, y, z: 0.3 }, { owner: null, buff: false });
       return true;
     }
+    // local patch (user report 2026-10-07, video: an ink sword falls on each target every second): 缄默德克萨斯 S3 剑雨滂沱's
+    // rain — the sim's 'swordRain' on a target (src = her) draws texas2_skill_03_hit there [ASSUMED: the rain's prefab by name]
+    if (e[1] === 'swordRain' && o.src != null) {
+      const src = views.get(o.src), b = bundleOf(src);
+      if (!b || !b.prefabs.includes('texas2_skill_03_hit')) return false;
+      ownFx.add(e);
+      spawn(b.bundle, 'texas2_skill_03_hit', views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false });
+      return true;
+    }
+    // local patch: 焰影苇草 S3 — a 灼痕 enemy's death bursts (sim 'scorchBurst', id = her): reed2_debuff_boom_01 there
+    if (e[1] === 'scorchBurst') {
+      const b = bundleOf(views.get(o.id));
+      if (!b || !b.prefabs.includes('reed2_debuff_boom_01')) return false;
+      ownFx.add(e);
+      spawn(b.bundle, 'reed2_debuff_boom_01', { x, y, z: 0 }, { owner: null, buff: false });
+      return true;
+    }
     // 蕾缪安 S3 ([uc]projectiles.ab projectile_chr_lemuen_s3_aim / _s3_attack): the lock leaves crosshair_02 on the target
     // (its _extraBuffsInTheEnd) until that target's shell lands; each shell (_mainEffect trail_02) falls onto its point over
     // the sim's flight time and explodes (_effectsWhenReached hit_01). Her S2 aim (the same 'lock') keeps fx.js's reticle.
@@ -607,10 +643,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!lemuenOn(src) || skillIdx(src) !== 2) return false;
       ownFx.add(e);
       const tgt = views.get(o.id);
-      spawn(bundleOf(src).bundle, 'lemuen_skill_03_crosshair_02', tgt || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30 }).then((l) => {
-        if (!l) return;
-        const list = lemMarks.get(o.src) || []; list.push(l); lemMarks.set(o.src, list);
-      });
+      // local patch (user report 2026-10-07, video: each locked enemy keeps a red beam and a shrinking reticle until its shell
+      // lands): the aim projectile's _effectsToTargetWhenStart trail_01 (LineRenderer beams) and its _mainEffect
+      // crosshair_range, on the target with the lock mark [ASSUMED: all three stay until that target's shell]
+      const mark = [];
+      const list = lemMarks.get(o.src) || []; list.push(mark); lemMarks.set(o.src, list);
+      // the lock's flash: buff lemuen_proj_s3_effect CreateEffect crosshair_01 on the target (a one-shot)
+      spawn(bundleOf(src).bundle, 'lemuen_skill_03_crosshair_01', tgt || { x, y, z: 0 }, { owner: null, buff: false });
+      for (const n of ['lemuen_skill_03_trail_01', 'lemuen_skill_03_crosshair_range', 'lemuen_skill_03_crosshair_02']) {
+        spawn(bundleOf(src).bundle, n, tgt || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30 }).then((l) => {
+          if (!l) return;
+          if (mark.done) l.inst.stop(); else mark.push(l);
+        });
+      }
       return true;
     }
     if (e[1] === 'bombardShell' || e[1] === 'bombard') {
@@ -618,7 +663,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!lemuenOn(src)) return false;
       ownFx.add(e);
       if (e[1] === 'bombard') {
-        lemMarks.get(o.id)?.shift()?.inst.stop();
+        const mark = lemMarks.get(o.id)?.shift();
+        if (mark) { mark.done = true; for (const l of mark) l.inst.stop(true); } // its long-lived glow particles go with the shell
         spawn(bundleOf(src).bundle, 'lemuen_skill_03_hit_01', { x, y, z: 0 }, { owner: null, buff: false });
         return true;
       }
@@ -651,6 +697,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const bindOf = (v) => { const id = v?.info?.spine || v?.info?.defId; return (id && modes?.[id]) || null; };
   const bound = (v, n, role) => boundEffects(bindOf(v), bundleOf(v)?.prefabs, n, role);
   const skillMode = (v) => attackMode(bindOf(v), true, skillIdx(v)) ?? -1;
+  /**
+   * local patch (user report 2026-10-07: 缄默德克萨斯 S2 / S3 drew her normal attacks): a deploy-time passive with a duration
+   * runs with no 'skill' event (server/sim/skills.js) — its view's UF.SKILL flag is the only sign. Its start / loops / mode
+   * follow that flag (checked on its attacks); a skill the events started is left to them.
+   */
+  function skillByFlag(v, views) {
+    const on = !!((v.flags | 0) & UF.SKILL);
+    if (on && !v._fxSkillOn) { v._fxSkillFlag = true; api.onEvent(['skill', v.id ?? v.info?.id, 1, 'flag'], views); }
+    else if (!on && v._fxSkillOn && v._fxSkillFlag) { v._fxSkillFlag = false; api.onEvent(['skill', v.id ?? v.info?.id, 0], views); }
+  }
   const modeNow = (v) => attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v));
   // local patch (user report 2026-10-07, 11 items): the skill's own effects (modes.json `skills[i]`, char_modes.py from
   // [uc]skills.ab: cast / castLoop / buff on the caster, target / targetBuff on its targets, end = a finishing ability's)
@@ -670,7 +726,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const PENDING_REACH = 4.5;   // tiles: farther targets are not this skill's (its ranges reach ≤ 4)
   function expect(src, names, buff = false) { if (names.length) pending.push({ src, names, buff, t: clockS }); }
 
-  return {
+  const api = {
     /** The projectile kind render/fx.js should draw for an 'atk' event (her note replaces the arrow: 'oblvnsNote'). */
     arrowKind(e) { return noteAtks.has(e) ? 'oblvnsNote' : trailAtks.has(e) ? 'officialTrail' : e[3]; }, // local patch: trails
     /**
@@ -717,6 +773,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         case 'skill': {
           const v = views.get(e[1]);
           if (!isOp(v) || !bundleOf(v)) return;
+          if (e[2] && v._fxSkillFlag && e[3] !== 'flag') { v._fxSkillFlag = false; return; } // already started from its flag (skillByFlag)
           if (e[2]) {
             v._fxSkillOn = true;
             v._fxMarked = null;   // local patch: the targets its marks sit on (pendingHit)
@@ -734,6 +791,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         case 'atk': {
           const src = views.get(e[1]);
           if (!isOp(src) || !bundleOf(src)) return;
+          skillByFlag(src, views); // local patch
           const tgt = views.get(e[2]);
           // 丰川祥子: her note (the 'oblvnsNote' born event of this attack) replaces render/fx.js's arrow
           if (tgt && fxBundleOf(src.info.spine || src.info.defId) === 'oblvns' && notesOn(src)) noteAtks.add(e);
@@ -902,4 +960,5 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       };
     },
   };
+  return api;
 }

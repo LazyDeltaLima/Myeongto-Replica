@@ -107,3 +107,31 @@ describe('skill activation effects', () => {
     assert.ok(fx.char_496_wildmn.turn.includes('wildmn_skill_02_start'), '野鬃 S2\'s thrust turns to her facing');
   });
 });
+
+// local patch (user report 2026-10-07, official videos): LineRenderer beams (蕾缪安 S3 aim) and order-0 domes in front (蛇屠箱 S2)
+test('fxplayer: a LineRenderer draws its strip until the effect stops; a tall order-0 mesh splits to the front, a flat one behind', async () => {
+  const THREE = await import('../public/vendor/three.module.js');
+  const fxp = await import('../public/js/render/fxplayer.js');
+  const mat = { shader: 'Torappu/Particles/Additive', tex: {}, floats: {}, colors: {} };
+  const node = (name, parent, extra = {}) => ({ name, parent, active: true, pos: [0, 0, 0], rot: [0, 0, 0, 1], scale: [1, 1, 1], ...extra });
+  const line = { pts: [[0, 4.31, 0], [0, 0, 0]], world: false, loop: false, width: 0.2, widthCurve: [[0, 1, 0, 0]],
+    grad: { c: [[0, 1, 1, 1], [1, 1, 1, 1]], a: [[0, 1], [1, 1]], mode: 0 }, align: 0, texMode: 0, mat: 'm', order: 2 };
+  const def = { name: 'beam', duration: 0.4, nodes: [node('beam', -1), node('Line', 0, { lineR: line })], materials: { m: mat }, clips: [], geoms: {}, lib: null };
+  const inst = new fxp.FxInstance(def, { quality: 'high' });
+  assert.equal(inst.lines.length, 1);
+  inst.update(1);
+  assert.ok(inst.lines[0].batch.geometry.drawRange.count > 0, 'drawn');
+  assert.equal(inst.done, false, 'a line stays after its clip / particles (Unity keeps the object)');
+  inst.stop();
+  assert.equal(inst.done, true);
+  inst.dispose();
+  // domes: a mesh standing 1 tile high vs a flat decal, both sortingOrder 0
+  const box = (h) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, -h], 3)); g.setIndex([0, 1, 2]); return g; };
+  const def2 = { name: 'dome', duration: 1, nodes: [node('dome', -1), node('hudun', 0, { mesh: { mesh: 'tall', mat: 'm', order: 0 } }), node('decal', 0, { mesh: { mesh: 'flat', mat: 'm', order: 0 } })],
+    materials: { m: mat }, clips: [], geoms: { tall: box(1), flat: box(0) }, lib: null };
+  const i2 = new fxp.FxInstance(def2, { quality: 'high', split: true });
+  const layerOf = (k) => i2.nodes[k].children.find((c) => c.isMesh).layers.mask;
+  assert.equal(layerOf(1), 1 << fxp.FX_FRONT, 'the dome covers the unit');
+  assert.equal(layerOf(2), 1 << fxp.FX_BACK, 'a ground decal stays under it');
+  i2.dispose();
+});

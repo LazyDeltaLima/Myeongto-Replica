@@ -1051,6 +1051,35 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     `fxA_cast2.mjs`): 텍사스 S2 range·검, 데겐블레허 S3 start_01/02 → 마무리 end/start_03/04/hit_2, 수르트 S3 range가 대상에, 野鬃 S2 오른쪽·위쪽 배치,
     余 S3 열 전체 벽, 르무엔 S3 표식 5·포탄 5·착탄 5, 마터호른 S2 돔이 위에, 무에나·레인프로스트 반원. 전후 캡처 `research/2026-10-07-user-issues/fx-captures/fix_*.png`.
   - 배포: `modes.json`이 바뀌었으니(`skills`·`turn`) `public/assets/local/fx/`를 서버로 rsync(이번에 새 프리팹은 없음).
+- 사용자 제보 재수정 (2026-10-07 저녁, 공식 인게임 녹화 10개 `녹화\stronghold fx\` — 리드 이격·위·데겐블레허·텍사스 이격 S2/S3·
+  첸·수르트·르무엔·실버애쉬 이격 S2·블레이즈 이격 S3). 확인 도구 Windows `sp-check\rf_cap.mjs`(아레나 연속 캡처, `op:skill!` = 배치 직후),
+  `rf_seq.mjs`(프리팹 단독, `only:노드`), `rf_probe.mjs`(살아 있는 인스턴스·입자 수; `app.js __fxDbg` 임시 훅은 커밋 전에 뺌). 셰이더는 클라이언트
+  `[uc]shaders.ab`의 DXBC를 직접 역어셈블해 확인(스크래치 `dxbc.py` — 저장소 밖).
+  - **대상 타격 이펙트가 전부 안 보이던 회귀** (e8d62545): `play()`가 대상에 붙는 hit까지 `split`(렌더러를 층 1/2로)으로 만들고 층 0만 그리는 위 캔버스에
+    넣어, 품질 high + 3D 보드에서 모든 타격 이펙트가 사라졌다(블레이즈 S3 폭발). split은 split 장면에 들어가는 것(시전자)만.
+  - **LineRenderer** (`fx_extract.py lineR`, `fxplayer.js LineRenderer`): 점 목록·폭(widthMultiplier, 클립 `width`)·폭 곡선·색 그라디언트·텍스처 모드
+    (Stretch / Tile = 거리 / 구간별)로 시선 정렬 띠. Unity처럼 효과가 끝날 때까지(stop) 남는다. 월드 좌표 선(스크립트가 점을 정함, 르무엔 S2 등)은
+    이펙트 공간에 그대로 그림 [추정]. 클립의 텍스처 ST(`_MainTex_ST` 등, 흐르는 점선)도 바인딩. 21개 프리팹.
+  - **르무엔 S3**: 'lock'마다 대상에 `trail_01`(하늘에서 내려오는 붉은 빔 4겹) + `crosshair_range`(수축하는 조준 원, 조준 투사체 `_mainEffect`) +
+    `crosshair_02`(표식) — 그 대상 포탄이 떨어질 때 즉시 지움(긴 수명 입자 남던 것) + `crosshair_01`(buff lemuen_proj_s3_effect의 한 번 섬광).
+    재능 通缉 'lemuen:wanted' → 상태 이펙트 `lemuen_talent_buff_01`(char_lemuen_range_aim[effect], 머리 [추정]).
+  - **Ram 계열 셰이더** (DXBC): `_RamTex`는 디졸브 경계 색 램프가 아니라 렌더러 uv × `_RamTex_ST`로 샘플해 rgba에 **곱하는** 텍스처 → 첸 S3 범위 벽이
+    흰색 → 황갈색(모래 바닥에서는 거의 안 보임). **디졸브** = sat((d − amount + border·(1 − roundEven(amount + .5))) / border) — amount 0이면 아무것도
+    안 잘림(어두운 텍셀이 구멍·점무늬로 보였음). **디스터브** = 노이즈 .r × 세기(−.5 중심 없음). `_ToggleUse*`는 Disturb Anchor만, `_UseDissolveTex`는
+    Dissolve(CustomData)만 선언 — 나머지 셰이더에서는 재질에 남은 값일 뿐이라 무시(항상 켬). **Rim**: rim 항이 색에도 곱해지고 Rim Tint는 ×2 없음
+    (Rim Texture·Additive는 ×2) → 쿠오라 S2 돔이 반투명.
+  - **order 0 입체 메시는 앞** (`FxInstance split`, `WRAP_H` 0.3칸): sortingOrder 0·fudge 없는 메시 중 높이가 있는 것(돔·껍질)은 유닛 앞(공식은 order 0을
+    거리로 정렬 — 쿠오라 S2 육각 돔이 그녀를 덮음, 영상), 평평한 바닥 데칼은 뒤.
+  - **`_spawnLocation`** (`fx_extract.py spawn`: 루트 컴포넌트 원시 필드 #13, buff_stun 4·buff_slowdown 1·buff_sleep 2로 검증): 2(몸 HIT)·4(머리)인 이펙트를
+    유닛에 붙일 때 그 높이로 올림(`fxgame.js lifted`) — 수르트 S3 타격 불덩이가 몸에. 1 발·5 바닥 중앙·8(미확인)은 땅. 전 번들 재추출(목록 그대로 `--prefab`).
+  - **지속형 패시브의 스킬 상태** (`fxgame.js skillByFlag`): 텍사스 이격 S1~S3는 'skill' 이벤트 없이 켜져(시뮬레이션 skills.js) 모드가 Default로 남아 평타
+    이펙트만 나왔다 → 공격 때 뷰의 `UF.SKILL` 플래그로 발동·루프·모드를 맞춤. S3 검우: 시뮬레이션 'swordRain'에 `src`(tier4.js 1줄) →
+    대상에 `texas2_skill_03_hit` [추정: 이름].
+  - **리드 이격**: 灼痕 'reed2:scorch' → 상태 이펙트 `reed2_debuff_01`(주황 X, 몸 [추정]), 'scorchBurst' → `reed2_debuff_boom_01`. 번들을 전체(21개)로 재추출.
+  - **데미지 숫자** (`num-official.js`, 데겐블레허 영상 30fps 프레임별 측정): 피해 계열은 0.87배로 나타나 0.1초에 최종 크기·위로 30, 유지, 마지막 0.13초에
+    축소하며 아래로 30(`_downOffset`), 투명해지지 않음. 회복 숫자는 예전(1.5배 팝·페이드).
+  - 남은 것: 수르트 S3 불덩이 크기, 위 S3 구체, 텍사스 S3 검우의 큰 먹 호(영상)는 대략만 맞춤 — 공식과 나란히 비교 필요. 데미지 숫자 색(영상 측정
+    ≈ #be361f, 압축 영향 가능 — #ff3a00 유지).
 
 ## 공식 스테이지 3D 씬 (2026-10-06)
 - 3D 보드는 원래 시즌 1 아틀라스(`map_autochess`)로 모든 스테이지를 그렸다. 지금 클라이언트는 스테이지마다 완성된 씬(`scenes/activities/act*autochess/level_*`)과 라이트맵을 갖고 있고, 테마는 사막(`map_autochesssand`), 카시미어(`map_kxmr`), 시라쿠사 지하철(`map_syracuse_metro`)이다. 자세한 내용은 DESIGN §15.1.

@@ -9,12 +9,17 @@
 // isCritical, BattleConsts.MODIFIER_CRIT_THRESHOLD 1.5) or one forced (强制红字: 蕾缪安 S3) — the sim marks them
 // (server/sim/local-hud.js damageNumberFlag, 'dmg' 5th field); heals always (no flag in the data; PRTS / 나무위키 silent). The motion is native code [추정]: a random start within ±(10, 5), popped in at
 // `_fontSizeScale` and settling to 1 (× 1.1 for a crit) over the first fifth, rising `_upOffset` (heals `_floatOffset`)
-// with an ease-out over the life, fading over its last 30 %. Sizes in HUD units (hud-bars.js hudUnit: screen-fixed).
+// with an ease-out over the life, fading over its last 30 % — the heals; the damage family measured from a user video
+// (OFFICIAL_NUM inT / outT: no pop, a shrink-and-drop exit, local patch 2026-10-07). Sizes in HUD units (hud-bars.js hudUnit: screen-fixed).
 
 import { hudUnit, hudAnchorY } from './hud-bars.js';
 
 export const OFFICIAL_NUM = Object.freeze({
   popup: 150, size: 30, life: 0.5, spread: Object.freeze([10, 5]), pop: 1.5, crit: 1.1, popT: 0.2, fadeFrom: 0.7,
+  // local patch (user video 2026-10-07, 锏 S3 red numbers measured frame by frame at 30 fps): a damage-family number shows at
+  // 0.87 of its size, reaches it with its rise (_upOffset) within `inT`, holds, and over its last `outT` shrinks to nothing
+  // while dropping `_downOffset` — no fade, no 1.5× pop (that motion stays for the heals)
+  inT: 0.1, outT: 0.13, from: 0.87, drop: 30,
   dmg: Object.freeze({ color: '#ff3a00', rise: 30, font: 'sp-num-off-dmg' }),
   heal: Object.freeze({ color: '#00ff95', rise: 40, font: 'sp-num-off-heal' }),
   // a red number stopped by a 屏障 / 护盾 (PRTS 「强制红字与蓝字」, sim 'blk' event): blue (block_text #3a35d9, else as
@@ -91,6 +96,15 @@ export class OfficialNumbers {
     const u = hudUnit(this.ctx.viewport?.());
     // follows its unit while it lives (the popup is a child of the unit's HUD); keeps the last place once it is gone
     if (t.view && !t.view.destroyed && t.view.screen) { t.x = t.view.screen.x; t.y = t.view.screen.y; }
+    if (t.kind !== 'heal') { // local patch: the damage text's measured motion (OFFICIAL_NUM inT / outT)
+      const a = Math.min(1, t.age / O.inT), e = Math.max(0, (t.age - (O.life - O.outT)) / O.outT);
+      const grow = (O.from + (1 - O.from) * a) * (1 - e * e);
+      const y = o.rise * (1 - (1 - a) * (1 - a)) - O.drop * e;
+      t.text.scale.set((O.size * u * grow * (t.crit ? O.crit : 1)) / GLYPH);
+      t.text.position.set(t.x + t.dx * u, hudAnchorY(t.y, u) - (O.popup + t.dy + y) * u);
+      t.text.alpha = 1;
+      return;
+    }
     const k = Math.min(1, t.age / O.life);
     const rise = o.rise * (1 - (1 - k) * (1 - k));
     const pop = t.age < O.popT ? O.pop + (1 - O.pop) * (t.age / O.popT) : 1;

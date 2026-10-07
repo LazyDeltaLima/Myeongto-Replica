@@ -16,6 +16,8 @@
 //   fragile 脆弱 (all kinds) → 'buff_ fragile_01' (feet)   levitate 浮空 → common_levitate_01 (ground)
 //   stealth 隐匿 → enemies common_invisible (feet; its ColorModifier greys the model to α .894 — units.js), allies
 //     common_stealth [추정]       camou 迷彩 → common_buff_micai_01 (body) [추정: _01 of the three]
+//   lemuen:wanted 通缉 (蕾缪安's talent) → lemuen/lemuen_talent_buff_01 (head) [추정 height]
+//   reed2:scorch 灼痕 (焰影苇草's talent) → reed2/reed2_debuff_01 (body) [추정 height]
 // A status the client draws (in this table, its prefab extracted, the effect layer on — not quality 'low', WebP) loses its
 // icon (units.js reads `view._fxStatusOn`); the rest keep the drawn icons (bind, taunt, invulnerable, shield, palsy, the
 // element bursts, 禁疗, 折射, 替身 …: no client prefab matched by name). Synced once per frame from the views' flags and
@@ -35,6 +37,12 @@ export const STATUS_FX = Object.freeze({
   weaken: ['buff', 'buff_weak', HEAD], defDown: ['buff', 'buff_defdown', HEAD], resDown: ['buff', 'buff_magic_resistance_down', HEAD],
   fragile: ['buff', 'buff_ fragile_01', 0], levitate: ['common', 'common_levitate_01', 0],
   stealth: ['common', 'common_invisible', 0], stealthAlly: ['common', 'common_stealth', 0], camou: ['common', 'common_buff_micai_01', 0.5],
+  // local patch (user report 2026-10-07): 蕾缪安's talent 跨境追缉许可 'lemuen:wanted' — the client's char_lemuen_range_aim[effect]
+  // buff (overrideEffectKey lemuen_talent_buff_01, the crosshair on the wanted enemy) [추정: at the head]
+  wanted: ['lemuen', 'lemuen_talent_buff_01', HEAD],
+  // local patch (user report 2026-10-07, video: orange X strokes on her marked enemies): 焰影苇草's 灼痕 'reed2:scorch' —
+  // buff reed2_t_1 effectKey reed2_debuff_01 [추정: on the body]
+  scorch: ['reed2', 'reed2_debuff_01', 0.5],
 });
 const ALIAS = Object.freeze({ artsFragile: 'fragile', physFragile: 'fragile', elemFragile: 'fragile' });
 

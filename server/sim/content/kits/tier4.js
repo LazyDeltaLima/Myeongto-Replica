@@ -1250,7 +1250,7 @@ const kits = {
         for (const e of list.slice(0, Math.max(1, Math.floor(num(bb.max_target, 2))))) {
           b.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 0.85), type: 'arts', isSkill: true, tags: ['skill', 'swordRain'] });
           if (e.alive) b.applyStatus(e, 'stun', { duration: num(bb.stun, 0.2), source: unit });
-          b.fx('swordRain', { x: e.x, y: e.y, id: e.id });
+          b.fx('swordRain', { x: e.x, y: e.y, id: e.id, src: unit.id }); // local patch: src — the client draws her rain prefab
         }
       }, { owner: unit });
       // Duration advances by dt in the ally phase; align the rain with that clock so the final wave lands before end.

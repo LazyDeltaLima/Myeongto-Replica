@@ -278,7 +278,7 @@ const FRAG = /* glsl */`
   uniform bool uHasDisturb; uniform sampler2D uDisturb; uniform vec4 uDisturbST; uniform vec2 uDisturbSpeed; uniform vec2 uDisturbStr;
   uniform float uDisturbMain; uniform float uDisturbDissolve;
   uniform bool uHasDissolve; uniform sampler2D uDissolve; uniform vec4 uDissolveST; uniform vec2 uDissolveSpeed;
-  uniform float uAmount; uniform float uBorder;
+  uniform float uAmount; uniform float uBorder; uniform bool uVCMajor;
   uniform bool uHasDissolve2; uniform sampler2D uDissolve2; uniform vec4 uDissolve2ST; uniform float uAmount2; uniform float uBorder2;
   uniform bool uRim; uniform float uRimPower; uniform float uFloor;
   varying float vH; varying vec3 vN; varying vec3 vVP;
@@ -293,20 +293,29 @@ const FRAG = /* glsl */`
     vec2 dis = vec2(0.0);
     if (uHasDisturb) {
       vec2 duv = vUv * uDisturbST.xy + uDisturbST.zw + uDisturbSpeed * uTime;
-      vec2 n = texture2D(uDisturb, duv).rg - 0.5;
+      // local patch (client DXBC): the noise's red channel times the strength, not centred
+      vec2 n = vec2(texture2D(uDisturb, duv).r);
       dis = n * (uDisturbStr + (uCustom ? vC1.zw : vec2(0.0)));
       uv += dis * uDisturbMain;
     }
     vec4 tex = texture2D(uMain, uv);
     vec4 col = tex * uTint * vColor;
-    // dissolve: the shaders declare no edge colour, so _BorderWidth is the softness of the cut; the Ram family colours
-    // that gradient through the ramp texture (its v through the ramp's tiling / offset) [ASSUMED]
+    // local patch (user report 2026-10-07, 赤刃明霄陈 S3's range too bright): the Ram family multiplies by _RamTex sampled at
+    // the renderer's own uv through its tiling / offset — all of rgba (the client's DXBC: Ram/Disturb(CustomData),
+    // Ram/Add, Ram/AlphaBlend) — not a ramp looked up by the dissolve edge as assumed before
+    if (uHasRam) col *= texture2D(uRam, vUv * uRamST.xy + uRamST.zw);
+    // dissolve: the shaders declare no edge colour, so _BorderWidth is the softness of the cut [ASSUMED]
     float e = 1.0;
     if (uHasDissolve) {
       vec2 suv = vUv * uDissolveST.xy + uDissolveST.zw + uDissolveSpeed * uTime + dis * uDisturbDissolve;
       float d = texture2D(uDissolve, suv).r;
-      float amt = clamp(uAmount + (uCustom ? vC2.x : 0.0), 0.0, 1.0);
-      e = clamp((d - amt) / max(uBorder, 1e-3), 0.0, 1.0);
+      // local patch (client DXBC): saturate((d − amount + border · (1 − roundEven(amount + .5))) / border) — at amount 0
+      // the border is added, so nothing is cut (the dark texels were holes before)
+      float amt = uAmount + (uCustom ? vC2.x : 0.0);
+      float bw = max(uBorder, 1e-3);
+      e = clamp((d - amt + bw * (1.0 - roundEven(amt + 0.5))) / bw, 0.0, 1.0);
+      // … (VertexColor Major): amount = 1 − vertex alpha, alpha = cut · texture alpha · tint alpha (vertex alpha not multiplied)
+      if (uVCMajor) { e = clamp((d - (1.0 - vColor.a) + vColor.a * bw) / bw, 0.0, 1.0); col.a = tex.a * uTint.a * 0.5; }
       col.a *= e;
       // local patch: the … Double family cuts by a second texture with its own amount / border too [ASSUMED: alpha × both]
       if (uHasDissolve2) {
@@ -315,8 +324,8 @@ const FRAG = /* glsl */`
       }
     }
     // local patch: Torappu/Particles/Rim — opaque at the silhouette, clear facing the camera [ASSUMED: alpha × (1 − |N·V|)^power]
-    if (uRim) col.a *= pow(clamp(1.0 - abs(dot(normalize(vN), normalize(-vVP))), 0.0, 1.0), uRimPower);
-    if (uHasRam) col.rgb = texture2D(uRam, vec2(0.5, clamp(e * uRamST.y + uRamST.w, 0.01, 0.99))).rgb * tex.rgb * uTint.rgb * vColor.rgb;
+    // (client DXBC, 2026-10-07: the rim term scales the colour as well as the alpha)
+    if (uRim) { float rim = pow(clamp(1.0 - abs(dot(normalize(vN), normalize(-vVP))), 0.0, 1.0), uRimPower); col *= rim; }
     col.a *= uOpacity;
     if (col.a < 0.002) discard;
     gl_FragColor = col;
@@ -332,7 +341,7 @@ function makeMaterial(m, lib) {
   const st = (k) => (t[k] ? new THREE.Vector4(t[k].tiling[0], t[k].tiling[1], t[k].offset[0], t[k].offset[1]) : new THREE.Vector4(1, 1, 0, 0));
   // the Torappu particle shaders' neutral colour is 0.5 (shader property defaults): colour = 2 · tint · vertex · texture
   const tint = /CustomData|Disturb|Ram/.test(shader) ? (c._MainColor || [0.5, 0.5, 0.5, 0.5]) : (c._TintColor || c._MainColor || c._Color || [0.5, 0.5, 0.5, 0.5]);
-  const tintMul = 2;
+  const tintMul = /Rim Tint/.test(shader) ? 1 : 2; // local patch (client DXBC): Rim Tint has no ×2 (Rim Texture, Additive … do)
   // blend: Additive / Dissolve Add = SrcAlpha One, AlphaBlend / … AB = SrcAlpha OneMinusSrcAlpha, the (CustomData) family
   // reads its `_DstBlend` enum (Add 1 / AlphaBlend 10). Materials also carry _SrcBlend/_DstBlend left over from Unity's
   // Standard shader: never read for the fixed families
@@ -347,6 +356,7 @@ function makeMaterial(m, lib) {
   const double = !t._DissolveTex && !!t._DissolveTex_01;
   const dissolve = double ? tex('_DissolveTex_01') : tex('_DissolveTex');
   const dissolve2 = double ? tex('_DissolveTex_02') : null;
+  const toggles = /Disturb Anchor/.test(shader), useTex = /Dissolve\(CustomData\)/.test(shader); // local patch
   const mat = new THREE.ShaderMaterial({
     vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, depthTest: false,
     side: THREE.DoubleSide, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
@@ -360,15 +370,19 @@ function makeMaterial(m, lib) {
       uMainSpeed: { value: new THREE.Vector2(f._MainUSpeed || 0, f._MainVSpeed || 0) },
       uTint: { value: new THREE.Vector4(tint[0] * tintMul, tint[1] * tintMul, tint[2] * tintMul, tint[3] * tintMul) },
       uOpacity: { value: f._Opacity ?? 1 },
-      uHasDisturb: { value: !!disturb && (f._ToggleUseDisturb2 ?? 1) !== 0 }, uDisturb: { value: disturb || WHITE },
+      // local patch (client DXBC, 2026-10-07): only Disturb Anchor declares the _ToggleUse* switches (and Dissolve(CustomData)
+      // _UseDissolveTex) — elsewhere they are values left over from another shader, and dissolve / disturb always run
+      uHasDisturb: { value: !!disturb && (!toggles || (f._ToggleUseDisturb2 ?? 1) !== 0) }, uDisturb: { value: disturb || WHITE },
       uDisturbST: { value: st(t._DisturbTex ? '_DisturbTex' : '_NoiseTex') },
       uDisturbSpeed: { value: new THREE.Vector2(f._DisturbUSpeed || 0, f._DisturbVSpeed || 0) },
       uDisturbStr: { value: new THREE.Vector2(f._IntensityU || 0, f._IntensityV || 0) },
       uDisturbMain: { value: f._DisturbInfluenceMainUV ?? 1 }, uDisturbDissolve: { value: f._DisturbInfluenceDissolveUV ?? 0 },
-      uHasDissolve: { value: !!dissolve && (f._ToggleUseDissolve ?? f._UseDissolveTex ?? 1) !== 0 }, uDissolve: { value: dissolve || WHITE },
+      uHasDissolve: { value: !!dissolve && (toggles ? (f._ToggleUseDissolve ?? 1) !== 0 : useTex ? (f._UseDissolveTex ?? 1) !== 0 : true) }, uDissolve: { value: dissolve || WHITE },
       uDissolveST: { value: st(double ? '_DissolveTex_01' : '_DissolveTex') },
       uDissolveSpeed: { value: new THREE.Vector2(f._DissolveUSpeed || 0, f._DissolveVSpeed || 0) },
-      uAmount: { value: (double ? f._Amount_01 : f._Amount) || 0 }, uBorder: { value: (double ? f._BorderWidth_01 : f._BorderWidth) || 0 },
+      // local patch (client DXBC): Dissolve(CustomData)'s amount is _DissolveIntensity (no _Amount), … (VertexColor Major) has none:
+      // its vertex alpha is the amount (uVCMajor)
+      uAmount: { value: (double ? f._Amount_01 : useTex ? f._DissolveIntensity : f._Amount) || 0 }, uVCMajor: { value: /VertexColor Major/.test(shader) }, uBorder: { value: (double ? f._BorderWidth_01 : f._BorderWidth) || 0 },
       uHasDissolve2: { value: !!dissolve2 }, uDissolve2: { value: dissolve2 || WHITE }, uDissolve2ST: { value: st('_DissolveTex_02') },
       uAmount2: { value: f._Amount_02 || 0 }, uBorder2: { value: f._BorderWidth_02 || 0 },
       // local patch: vertex colours / Rim — turned on by the geometry's owner (useMeshAttrs); the floor (FxInstance opts.floor)
@@ -611,6 +625,58 @@ class TrailRenderer {
   shift(x, y, z) {
     const R = this.ring;
     for (let k = 0; k < this.count; k++) { const h = ((this.head + k) % TRAIL_KEEP) * 4; R[h] += x; R[h + 1] += y; R[h + 2] += z; }
+  }
+
+  dispose() { this.batch.dispose(); }
+}
+
+// local patch (user report 2026-10-07: 蕾缪안 S3's aiming beams were missing) ---------------- line renderer
+/**
+ * A Unity LineRenderer (fx_extract.py lineR): a view-facing strip through fixed points of its node (local space; a
+ * world-space line's points come from a client script — drawn in the effect's space [ASSUMED]). Width = widthMultiplier
+ * (a clip may animate it: 'width') × widthCurve; colour = colorGradient along the line; u: Stretch 0..1, Tile = distance,
+ * Distribute / Repeat per segment = the segment index. Unity keeps the object (its last clip frame) until its owner
+ * destroys it: alive while the instance is not stopped.
+ */
+class LineRenderer {
+  constructor(ln, node, root, def) {
+    this.tr = ln; this.node = node; this.root = root;
+    this.w = ln.width;
+    const n = ln.pts.length + (ln.loop ? 1 : 0);
+    this.n = Math.min(n, TRAIL_PTS);
+    this.batch = new StripBatch(makeMaterial(def.materials[ln.mat], def.lib), this.n);
+    this.batch.mesh.renderOrder = ln.order || 0;
+    root.add(this.batch.mesh);
+  }
+
+  update(dt, sinceStart) {
+    const ln = this.tr, n = this.n;
+    this.batch.material.uniforms.uTime.value = sinceStart;
+    this.batch.begin();
+    let shown = true;
+    for (let o = this.node; o && o !== this.root; o = o.parent) if (!o.visible) { shown = false; break; }
+    if (shown && n >= 2 && this.w > 0) {
+      this.node.updateWorldMatrix(true, false);
+      this.root.updateWorldMatrix(true, false);
+      if (ln.world) tmpM.identity(); else tmpM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
+      let total = 0;
+      for (let k = 0; k < n; k++) {
+        const q = ln.pts[k % ln.pts.length];
+        const p = tmpV.set(q[0], q[1], q[2]).applyMatrix4(tmpM);
+        trailPts[k * 3] = p.x; trailPts[k * 3 + 1] = p.y; trailPts[k * 3 + 2] = p.z;
+        if (k) total += Math.hypot(p.x - trailPts[k * 3 - 3], p.y - trailPts[k * 3 - 2], p.z - trailPts[k * 3 - 1]);
+        trailU[k] = total;   // the distance so far (u below)
+      }
+      for (let k = 0; k < n; k++) {
+        const f = total > 0 ? trailU[k] / total : k / (n - 1);
+        trailW[k] = this.w * (ln.widthCurve?.length ? evalCurve(ln.widthCurve, f) : 1);
+        evalGradient(ln.grad, f, tmpC);
+        trailC.set(tmpC, k * 4);
+        trailU[k] = ln.texMode === 1 ? trailU[k] : ln.texMode === 2 ? k / (n - 1) : ln.texMode === 3 ? k : f;
+      }
+      this.batch.strip(trailPts, n, trailW, trailC, trailU);
+    }
+    this.batch.end();
   }
 
   dispose() { this.batch.dispose(); }
@@ -979,7 +1045,9 @@ const live = [];
 /** Clip tracks on material properties: the uniform each drives, and a colour component → vector axis. */
 const CLIP_UNIFORM = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: 'uBorder', _TintColor: 'uTint', _MainColor: 'uTint', _Color: 'uTint',
   // local patch: the … Double dissolve's two amounts / borders
-  _Amount_01: 'uAmount', _Amount_02: 'uAmount2', _BorderWidth_01: 'uBorder', _BorderWidth_02: 'uBorder2' };
+  _Amount_01: 'uAmount', _Amount_02: 'uAmount2', _BorderWidth_01: 'uBorder', _BorderWidth_02: 'uBorder2',
+  // local patch: textures' tiling / offset (a line's scrolling dots / flow)
+  _MainTex_ST: 'uMainST', _DissolveTex_ST: 'uDissolveST', _DisturbTex_ST: 'uDisturbST', _NoiseTex_ST: 'uDisturbST', _DissolveIntensity: 'uAmount' };
 /**
  * local patch: a renderer whose node rests more than this far under the ground (board height, tiles) is cut at the floor
  * (FxInstance opts.floor): the client's map hides it by depth (surtr_skill_03_range gx_glow 0.42 under, 5 tiles away;
@@ -987,6 +1055,19 @@ const CLIP_UNIFORM = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: '
  * sink a little (texas2 S3's smoke) are left whole [ASSUMED: whether the client's ground hides those is not known].
  */
 const UNDER_FLOOR = 0.25;
+/** local patch: an order-0 mesh at least this tall (tiles, board height) wraps the unit — drawn in front (FxInstance split). */
+const WRAP_H = 0.3;
+const tmpBox = new THREE.Box3();
+/** local patch: the board-height extent of `mesh` (its source geometry's bounds through its node, in `obj`'s space). */
+function meshHeight(mesh, obj) {
+  const g = mesh.geometry;
+  const pos = g.getAttribute('position');
+  if (!pos) return 0;
+  tmpBox.setFromBufferAttribute(pos);
+  tmpM.copy(obj.matrixWorld).invert().multiply(mesh.matrixWorld);
+  tmpBox.applyMatrix4(tmpM);
+  return tmpBox.max.z - tmpBox.min.z;
+}
 /** local patch: three.js layers of a split instance's renderers (FxInstance opts.split) — behind / in front of the units. */
 export const FX_BACK = 1, FX_FRONT = 2;
 const CLIP_AXIS = { r: 'x', g: 'y', b: 'z', a: 'w', x: 'x', y: 'y', z: 'z', w: 'w' };
@@ -1014,6 +1095,7 @@ export class FxInstance {
     this.systems = [];
     this.meshMats = [];
     this.trails = [];
+    this.lines = [];   // local patch: LineRenderers
     if (!def || !this.q.budget) { this.empty = true; return; }
     def.nodes.forEach((n, i) => {
       const o = new THREE.Group();
@@ -1046,6 +1128,7 @@ export class FxInstance {
     });
     def.nodes.forEach((n, i) => {
       if (n.trailR) this.trails.push(new TrailRenderer(n.trailR, this.nodes[i], unity, def));
+      if (n.lineR && def.materials[n.lineR.mat]) this.lines.push(new LineRenderer(n.lineR, this.nodes[i], unity, def)); // local patch
       if (n.ps && (n.ps.render?.mat || n.ps.render?.trailMat)) {
         // per-system cap: the extract's max, shared out of the quality budget
         this.systems.push(new ParticleSystem(n.ps, this.nodes[i], unity, def, { q: this.q, cap: Math.ceil(this.q.budget / 8) }));
@@ -1062,12 +1145,20 @@ export class FxInstance {
       this.meshMats.forEach((m, i) => { if (m) setFloor(m, this.nodes[i]); });
       for (const s of this.systems) { setFloor(s.material, s.node); if (s.trailBatch) setFloor(s.trailBatch.material, s.node); }
       for (const t of this.trails) setFloor(t.batch.material, t.node);
+      for (const t of this.lines) setFloor(t.batch.material, t.node); // local patch
     }
     this.layerN = [0, 0, 0];
     if (opts.split) {
       const put = (mesh, front) => { const k = front ? FX_FRONT : FX_BACK; mesh.layers.set(k); this.layerN[k]++; };
+      this.object.updateMatrixWorld(true);
       def.nodes.forEach((n, i) => {
-        if (this.meshMats[i]) { const mesh = this.nodes[i].children.find((c) => c.isMesh && c.material === this.meshMats[i]); if (mesh) put(mesh, (n.mesh.order || 0) > 0); }
+        if (this.meshMats[i]) {
+          const mesh = this.nodes[i].children.find((c) => c.isMesh && c.material === this.meshMats[i]);
+          // local patch (user report 2026-10-07, video: 蛇屠箱's S2 hex dome covers her): an order-0 mesh that stands up
+          // around the unit (a dome / shell, > WRAP_H tall) is in front — the client sorts order 0 by distance; a flat
+          // ground decal stays behind
+          if (mesh) put(mesh, (n.mesh.order || 0) > 0 || (!(n.mesh.order || 0) && meshHeight(mesh, this.object) > WRAP_H));
+        }
       });
       for (const s of this.systems) {
         const r = s.ps.render, o = r.order || 0, front = o > 0 || (o === 0 && (r.fudge || 0) < 0);
@@ -1075,6 +1166,7 @@ export class FxInstance {
         if (s.trailBatch) put(s.trailBatch.mesh, front);
       }
       for (const t of this.trails) put(t.batch.mesh, (t.tr.order || 0) > 0);
+      for (const t of this.lines) put(t.batch.mesh, (t.tr.order || 0) > 0); // local patch
     } else this.layerN[0] = 1;
     this.clipTracks = this.clip ? this.clip.tracks.map((tr) => this.bindTrack(tr)).filter(Boolean) : [];
     this.clipV = [];
@@ -1087,9 +1179,10 @@ export class FxInstance {
     const o = this.nodes[tr.node];
     if (!o) return null;
     if (tr.prop === 'pos' || tr.prop === 'scale' || tr.prop === 'quat' || tr.prop === 'euler') return { tr, o, kind: tr.prop };
+    if (tr.prop === 'width') { const ln = this.lines.find((t) => t.node === o); return ln ? { tr, o, kind: 'width', ln } : null; } // local patch
     if (!tr.prop.startsWith('mat:')) return null;
     const mat = this.meshMats[tr.node] || this.systems.find((s) => s.node === o)?.material
-      || this.trails.find((t) => t.node === o)?.batch.material;
+      || this.trails.find((t) => t.node === o)?.batch.material || this.lines.find((t) => t.node === o)?.batch.material;
     if (!mat) return null;
     const [name, comp] = tr.prop.slice(4).split('.');
     const uname = CLIP_UNIFORM[name];
@@ -1112,7 +1205,8 @@ export class FxInstance {
   get done() {
     if (this.empty || this.disposed) return true;
     const clipDone = !this.clip || this.time >= this.clip.len || this.stopping;
-    return clipDone && this.systems.every((s) => !s.alive) && this.trails.every((t) => !t.alive || this.time > (this.clip?.len || 0) + t.tr.time);
+    return clipDone && this.systems.every((s) => !s.alive) && this.trails.every((t) => !t.alive || this.time > (this.clip?.len || 0) + t.tr.time)
+      && (!this.lines.length || !!this.stopping); // local patch: a line stays until its effect is ended
   }
 
   update(dt) {
@@ -1123,6 +1217,7 @@ export class FxInstance {
     this.followWorld();
     for (const s of this.systems) s.update(dt, this.time);
     for (const t of this.trails) t.update(dt, this.time);
+    for (const t of this.lines) t.update(dt, this.time); // local patch
     for (const m of this.meshMatList) m.uniforms.uTime.value = this.time;
   }
 
@@ -1159,6 +1254,7 @@ export class FxInstance {
         case 'quat': o.quaternion.set(v[0], v[1], v[2], v[3]).normalize(); break;
         case 'euler': o.quaternion.setFromEuler(clipE.set(v[0] * D2R, v[1] * D2R, v[2] * D2R, 'YXZ')); break;
         case 'matComp': if (b.u.value?.isVector4) b.u.value[b.axis] = v[0] * b.k; break;
+        case 'width': b.ln.w = v[0]; break; // local patch
         default: b.u.value = v[0];
       }
     }
@@ -1169,6 +1265,7 @@ export class FxInstance {
     this.disposed = true;
     for (const s of this.systems) s.dispose();
     for (const t of this.trails) t.dispose();
+    for (const t of this.lines) t.dispose(); // local patch
     for (const m of this.meshMats) m?.dispose();
     this.object.removeFromParent();
     const i = live.indexOf(this);

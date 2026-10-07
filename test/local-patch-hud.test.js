@@ -309,6 +309,24 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
     nums.blocked(v, 1234, true); nums.blocked(v, 1234, false);
     assert.deepEqual(nums.live.map((t) => [t.kind, t.text.text]), [['blue', '1234'], ['block', 'BLOCK']]);
   });
+  test('damage numbers move as the user video measured: grow from 0.87, hold, shrink and drop at the end (no fade); heals keep the pop', async () => {
+    const N = await import('../public/js/render/num-official.js');
+    const nums = new N.OfficialNumbers(fakeViewCtx(fake.P, { viewport: () => ({ width: 1920, height: 1080 }) }));
+    const v = { screen: { x: 0, y: 600 } };
+    nums.damage(v, 2322, 2); nums.heal(v, 10);
+    const [d, hl] = nums.live;
+    nums.update(0.02);
+    const full = 30 / 60;
+    assert.ok(d.text.scale.x < full && d.text.scale.x > 0.85 * full, 'no 1.5× pop: a little under its size');
+    assert.ok(hl.text.scale.x > full, 'the heal still pops');
+    nums.update(0.28);
+    assert.ok(Math.abs(d.text.scale.x - full) < 1e-9);
+    const y = d.text.position.y;
+    nums.update(0.15);
+    assert.ok(d.text.scale.x < 0.8 * full, 'shrinking at the end');
+    assert.ok(d.text.position.y > y, 'dropping');
+    assert.equal(d.text.alpha, 1);
+  });
   test('style setting: official by default, classic kept in localStorage', async () => {
     const store = new Map();
     const prev = globalThis.localStorage;
@@ -331,6 +349,11 @@ describe('⑤ official status effects (fxstatus.js → fxgame.js statusOn / stat
     assert.deepEqual(F.STATUS_FX.tremble.slice(0, 2), ['common', 'common_buff_thrill']);
     assert.equal(F.statusFxKey('artsFragile'), 'fragile');
     assert.equal(F.statusFxKey('skill:haini_slow'), 'slow');
+    // local patch (user report 2026-10-07): talent marks — 蕾缪안 通缉 crosshair, 焰影苇草 灼痕 X
+    assert.equal(F.statusFxKey('lemuen:wanted'), 'wanted');
+    assert.deepEqual(F.STATUS_FX.wanted.slice(0, 2), ['lemuen', 'lemuen_talent_buff_01']);
+    assert.equal(F.statusFxKey('reed2:scorch'), 'scorch');
+    assert.deepEqual(F.STATUS_FX.scorch.slice(0, 2), ['reed2', 'reed2_debuff_01']);
     assert.equal(F.statusFxKey('ines:aspdGain'), null, 'an ASPD gain is no 攻速下降');
     assert.equal(F.statusFxKey('bind'), null, 'no client prefab: the icon stays');
     assert.equal(F.STATUS_FX.freeze[1], 'buff_autochess_frozen');

@@ -40,6 +40,7 @@ OUT = ROOT / 'public' / 'assets' / 'local' / 'fx'
 BUNDLE_DIRS = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')  # PersistentData (hot updates) first
 # skin / collab variants of a prefab (the remake draws the default skin only; keep in sync with render/fxmap.js isVariant)
 WEBP_QUALITY = 85
+WIDTH_ATTR = zlib.crc32(b'm_Parameters.widthMultiplier')   # local patch: the clip binding of a line / trail's width
 VARIANT_RE = re.compile(r'#\d+|_sale|_iteration|_avemujica|_cn_topolect', re.I)
 
 
@@ -453,6 +454,18 @@ class Extractor:
                                           'align': pr.get('alignment', 0), 'texMode': pr.get('textureMode', 0),
                                           'minDist': r4(tr_t.get('m_MinVertexDistance', 0.1)), 'emitting': bool(tr_t.get('m_Emitting', 1)),
                                           'mat': self.material(tm, out, mats), 'order': tr_t.get('m_SortingOrder', 0)}
+                elif t == 'LineRenderer':
+                    # local patch (user report 2026-10-07: 蕾缪安 S3's aiming beams were missing): a line through fixed points
+                    # (local space; world-space lines get their points from a client script — kept, drawn local [ASSUMED])
+                    ln_t = comp.read_typetree()
+                    lm = self.resolve(ln_t['m_Materials'][0], comp) if ln_t.get('m_Materials') else None
+                    pr = ln_t.get('m_Parameters', {})
+                    if lm is not None and ln_t.get('m_Enabled', 1) and len(ln_t.get('m_Positions') or []) >= 2:
+                        node['lineR'] = {'pts': [vec3(v) for v in ln_t['m_Positions']], 'world': bool(ln_t.get('m_UseWorldSpace', 0)),
+                                         'loop': bool(ln_t.get('m_Loop', 0)), 'width': r4(pr.get('widthMultiplier', 1)),
+                                         'widthCurve': curve_keys(pr.get('widthCurve')), 'grad': gradient(pr['colorGradient']),
+                                         'align': pr.get('alignment', 0), 'texMode': pr.get('textureMode', 0),
+                                         'mat': self.material(lm, out, mats), 'order': ln_t.get('m_SortingOrder', 0)}
             for comp_key in ('_ps',):
                 if comp_key in node:
                     psr = node.pop('_psr', None)
@@ -498,6 +511,7 @@ class Extractor:
                         walk(cgo, idx, f'{path}/{cname}' if path else cname)
 
         walk(root, -1, '')
+        spawn = self.spawn_location(root)
         clips = []
         for aidx, anim in animators:
             clips.extend(self.animator_clips(anim, aidx, nodes, paths, mats))
@@ -511,7 +525,36 @@ class Extractor:
                 dur = max(dur, dly + (ps['dur'] if not ps['loop'] else 2) + lmax)
         for c in clips:
             dur = max(dur, c['len'])
-        return {'version': 1, 'name': nodes[0]['name'], 'duration': r4(min(dur, 10)), 'nodes': nodes, 'materials': mats, 'clips': clips}
+        out_def = {'version': 1, 'name': nodes[0]['name'], 'duration': r4(min(dur, 10)), 'nodes': nodes, 'materials': mats, 'clips': clips}
+        if spawn is not None:
+            out_def['spawn'] = spawn
+        return out_def
+
+    def spawn_location(self, root):
+        """local patch: the effect component's `_spawnLocation` on the root (1 feet, 2 body / HIT point, 4 head, 5 ground
+        centre — LOCAL-PATCH.md 「사용자 제보 11건 재수정」). Its script's type tree is not in the bundle, so the raw fields are
+        read: after the MonoBehaviour header and name, int #13 (verified on buff_stun 4 / buff_slowdown 1 / buff_sleep 2);
+        the component is recognised by its float −1 at #6 and 2.0 at #10. None when not found."""
+        try:
+            d = root.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            raw = comp.get_raw_data()
+            off = 12 + 4 + 12
+            if len(raw) < off + 4:
+                continue
+            n = struct.unpack_from('<i', raw, off)[0]
+            off = (off + 4 + n + 3) & ~3
+            if len(raw) < off + 14 * 4:
+                continue
+            ints = struct.unpack_from('<14i', raw, off)
+            if ints[6] == -1082130432 and ints[10] == 1073741824 and 0 <= ints[13] <= 8:
+                return ints[13]
+        return None
 
     def animator_clips(self, anim, aidx, nodes, paths, mats):
         a = anim.read_typetree()
@@ -544,6 +587,8 @@ class Extractor:
                     n = {1: 3, 2: 4, 3: 3, 4: 3}.get(attr, 1)
                     prop = {1: 'pos', 2: 'quat', 3: 'scale', 4: 'euler'}.get(attr)
                 node = rel.get(b['path'])
+                if prop is None and node is not None and attr == WIDTH_ATTR:
+                    prop = 'width'   # local patch: a Line / Trail Renderer's widthMultiplier
                 if prop is None and node is not None:
                     prop = self.material_prop(attr, nodes[node], mats) or f'attr:{attr}'
                 if node is not None and prop:
@@ -557,7 +602,7 @@ class Extractor:
         """A material property binding (Mecanim customType 22): the low 28 bits are crc32(property name), the top nibble
         the component — 4..7 = r/g/b/a (x/y/z/w), 8 = a float. Matched against the bound renderer's material."""
         mk = (node.get('mesh') or {}).get('mat') or ((node.get('ps') or {}).get('render') or {}).get('mat') \
-            or (node.get('trailR') or {}).get('mat')
+            or (node.get('trailR') or {}).get('mat') or (node.get('lineR') or {}).get('mat')
         m = mats.get(mk) if mk else None
         if not m:
             return None
@@ -565,6 +610,10 @@ class Extractor:
         for n in list(m['floats'].keys()) + list(m['colors'].keys()):
             if crc32(n) & 0x0fffffff == low:
                 return f'mat:{n}' + {4: '.r', 5: '.g', 6: '.b', 7: '.a'}.get(comp, '')
+        # local patch: a texture's tiling / offset (_MainTex_ST: components 0..3 = tiling x, y, offset x, y) — scrolling lines
+        for n in m['tex'].keys():
+            if crc32(n + '_ST') & 0x0fffffff == low and comp <= 3:
+                return f'mat:{n}_ST.' + 'xyzw'[comp]
         return None
 
     def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False, pack=None):
