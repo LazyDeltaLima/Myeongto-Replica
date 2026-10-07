@@ -14,15 +14,18 @@
 // - 棋子 = 陷阱: not an attack target, takes no damage (persistent untargetable + invulnerable; no HP bar on the client,
 //   shared/trap-tokens.js). A stone is 激活 once orthogonally connected to another stone or 跟子 of hers, and stays
 //   active after that neighbour leaves (latched; namu: "연결된 바둑돌이 사라져도 유지"); a selectable enemy (flyers too; no unrevealed 隐匿 one —
-//   stoneSelectable) entering the trigger area of an activated stone triggers it and USES IT UP (陷阱师 traps: "踩上去的
+//   stoneSelectable) on the trigger area of an activated stone — checked every tick, one already standing there when it
+//   activates too (user decision 2026-10-07, W2) — triggers it and USES IT UP (陷阱师 traps: "踩上去的
 //   第一个敌人会触发其效果"; the token has an ON_UNIT_DEAD sound; user report 2026-10-05). A used-up placed stone comes back
 //   on its own tile like the mode's redeploys (Battle.redeploy / tokens.js enableRespawn): after its respawnTime, for its
-//   DP cost (卫戍协议 in-battle DP: 10, +1/s), once no enemy stands there — the card itself comes back (token deck rule), no stock is spent. The trigger area is the
+//   DP cost (卫戍协议 in-battle DP: 10, +1/s), once no walking enemy stands there (during S3 on a tile of her range it may
+//   come back onto one: 「在攻击范围内手动部署棋子时可部署至敌人所在位置」, user decision 2026-10-07, W10) — the card itself
+//   comes back (token deck rule), no stock is spent. The trigger area is the
 //   stone's own tile, with S3 equipped (its passive: "棋子的触发和伤害范围扩大") x-1, a radius-2 diamond of 13 tiles (the
 //   sktok_wang_3 prefab's SkillTrigger / Selector and PRTS 天下劫 "携带该技能时…x-1"; the table's x-6 cross is in no prefab —
 //   owner's decision 2026-10-06: the official diamond)
 //   and every enemy in it is hit — a high-ground stone thus catches ground enemies with S3; with S2 only a flyer
-//   entering its tile triggers it, and the line blast then hits ground enemies too.
+//   on its tile triggers it, and the line blast then hits ground enemies too.
 // - Stones are hand pieces placed in the prep (any deployable tile, ground or high ground — owner's decision 2026-10-05,
 //   tools/build-diy.mjs makes the token position ALL). They stay exactly where they were placed: the battle-start
 //   deployment is automatic, and 铸子's 跟子 comes only with a MANUAL deployment ("手动部署棋子时") — so none at the
@@ -31,11 +34,13 @@
 // - 跟子 (铸子, E1+): PRTS "通过天赋'额外部署的棋子'实为望自身发射的弹道 由此其不具有单位相关的性质（例如占据空位等）" — not a unit: it never counts under the stone deploy limit
 //   (maxDeployCount) and occupies no tile; ≤ attack@max_spawn_cnt of them. Tile: one of the 4 neighbours, enemy tiles
 //   first, then undeployable ground > deployable ground > deployable high ground (never undeployable high ground), ties
-//   random (client _alwaysRandomInTheEnd 1; PRTS's up > right > down > left is not used); only where no character unit stands. It needs no stock and is drawn as a stone. It links like a stone; its damage comes from 望.
+//   up > right > down > left as the board is drawn (PRTS 「相同优先级时按棋子上>右>下>左」, left / right swapped on a mirrored
+//   field; user decision 2026-10-07, W8 — it replaced the seeded random of the client's _alwaysRandomInTheEnd 1); only where no character unit stands. It needs no stock and is drawn as a stone. It links like a stone; its damage comes from 望.
 // - Stock (手牌): maxDeckStackCnt in all; at the battle start the stones not placed [ASSUMED: deckStack − placed].
 //   S1 / S2: "立即获得两枚棋子", 阻回 while the stock is full (PRTS 备注). S3: gains cnt, the stones above the stock limit
 //   go out as 跟子 on the enemies of her range (PRTS: "技能开启时自动部署的为第一天赋的跟子"); manual deployments in her
-//   range may go on enemy tiles and bring up to 3 extra 跟子 for as much ammo; it ends when stopped or out of stones,
+//   range may go on enemy tiles and bring the talent's 跟子 (free) + up to 3 extra 跟子, one ammo each — ≤ 3 ammo a deployment
+//   ([ASSUMED] reading of 「第一天赋额外至多部署3枚棋子并消耗等量弹药」, user decision 2026-10-07, W12); it ends when stopped or out of stones,
 //   the ammo left returns as stones.
 // - [ASSUMED] 卫戍协议 battles take no manual deployment: like the mode's 自动操作 of skills, stones of the stock are
 //   deployed automatically (S1 / S2: on the free deployable tile next to her stones that an enemy route crosses,
@@ -44,7 +49,9 @@
 //   come first: new tiles only beyond them. A deployment from the stock pays the stone's DP cost too.
 // - 取势: 停顿 + atk_scale × 望's ATK arts per second for `sluggish` s (independent per trigger, from 望).
 //   连星: arts atk_scale × 望's ATK to the enemies within 3 tiles on both sides along the link direction (vertical
-//   when linked up / down, horizontal when left / right; once activated a direction stays, PRTS 备注) + slow.
+//   when linked up / down, horizontal when left / right; once activated a direction stays, PRTS 备注) + slow: independent
+//   stacks, each on its own timer, 直接乘算 (their percentages add up in that stage), move speed ≥ 0.1 (addWangSlow; user
+//   decision 2026-10-07, W7).
 //   料敌机先: per stone on the continuous straight line through the triggering stone, +per_atk_scale damage and
 //   per_magic_resist_penetrate_fixed flat RES ignore (≤ max_trigger_cnt); latched per stone at the longest line it
 //   has seen (namu: 3 linked, one leaves → the others keep 3).
@@ -65,6 +72,8 @@ const STONE_ID = 'token_10064_wang_stone1';
 /** Her summon 棋子 (named as upstream's tests import it). */
 export const STONE = STONE_ID;
 const ORTHO = [[1, 0], [0, 1], [-1, 0], [0, -1]]; // up > right > down > left (row 0 = bottom)
+/** The same order on a mirrored field (drawn with col → 20 − col): 上 > 右 > 下 > 左 as drawn = +row, −col, −row, +col. */
+const ORTHO_MIRRORED = [[1, 0], [0, -1], [-1, 0], [0, 1]];
 const WANG_S3_PACE = 1; // [ASSUMED] one automatic deployment a second while S3 runs
 /**
  * Tiles no 跟子 may take (local patch 2026-10-06, user: "적 공격 포인트"): the client 跟子 selector has `exceptTileTypes`
@@ -135,27 +144,47 @@ function wang(bb, chess, def) {
    * User report 2026-10-06: the earlier model took a stock stone for every redeploy, the stock was 7 − placed (1 with
    * the usual 6 on the board), so after one redeploy no stone came back until S1 / S2.
    */
+  const inHerRange = (unit, r, c) => !!(unit.rangeKeySet?.has(r * COLS + c) ?? unit.rangeKeys?.includes(r * COLS + c));
+  /**
+   * S3 「第一天赋额外至多部署3枚棋子并消耗等量弹药」 (user decision 2026-10-07, W12) [ASSUMED reading]: a deployment during S3
+   * brings the talent's ordinary single 跟子 for free plus ≤ WANG_S3_EXTRA extra ones, one ammo each — so ≤ 3 ammo a
+   * deployment (the first 跟子 built is the free one). Formerly ≤ 4 跟子 and one ammo for every one (client
+   * SpawnTokenS3InSkill BuildStone counter `_countEvent 4, _expendPerTrigger 1`, user 2026-10-06); upstream: ≤ 3 in all,
+   * every one paid, no free one.
+   */
+  const s3Followers = (ammo) => 1 + Math.min(WANG_S3_EXTRA, ammo);
+  const s3Paid = (built) => Math.max(0, built - 1);
+  /** Spend the S3 ammo of a deployment that built `built` 跟子 (`ammo` = the count before it); the last ammo ends S3. */
+  const spendS3 = (unit, ammo, built) => {
+    const paid = s3Paid(built);
+    if (!(paid > 0)) return false;
+    unit.skill.ammoLeft = st(unit).ammo = Math.max(0, ammo - paid);
+    if (unit.skill.ammoLeft <= 0) { unit.skill.end('ammo'); return true; }
+    return false;
+  };
   const redeployUsed = (battle, unit) => {
     if (!live(unit)) return;
     for (const t of waitingOf(battle, unit).sort((a, b) => a.mem.respawnAt - b.mem.respawnAt)) {
-      if (battle.time + 1e-9 < t.mem.respawnAt || walkersOnTile(battle, t.homeR, t.homeC).length) continue;
+      if (battle.time + 1e-9 < t.mem.respawnAt) continue;
+      // trait 「陷阱无法放置于敌人已在的格子中」: no return while a walking enemy stands on its tile — except during S3 on a
+      // tile of her range: 天下劫 「在攻击范围内手动部署棋子时可部署至敌人所在位置」 (user decision 2026-10-07, W10: the
+      // return is her deployment of the stone in the mode, as below)
+      const s3 = unit.skill?.active && unit.skill.id === 'skchr_wang_3';
+      const s3Here = s3 && inHerRange(unit, t.homeR, t.homeC);
+      if (!s3Here && walkersOnTile(battle, t.homeR, t.homeC).length) continue;
       if (placed(battle, unit).length >= st(unit).fieldCap) break; // never over the deploy limit (it would withdraw a stone)
       if (!battle.redeploy(t, { free: false })) continue;
-      Object.assign(t.mem, { wangUsed: false, active: false, line: 0, inside: new Set(), axes: new Set() });
+      Object.assign(t.mem, { wangUsed: false, active: false, line: 0, axes: new Set() });
       battle.fx('summon', { x: t.x, y: t.y, id: t.id });
       // every stone birth brings its 跟子 (client wang_stone1_t_1[trigger] ON_OWNER_BORN) — the battle-start deployment
       // of the prep stones aside (user decision)
       // local patch (2026-10-06, user: "S3 ammo never drops"): while S3 runs, a used stone coming back IS her deployment
       // of a stone in the mode (卫戍协议 has no hand placement; the prep layout keeps the field at its cap of 6, so the
-      // S3 stand-in found no free slot and spent nothing) — it builds the S3 跟子 around it (≤ 4, one ammo each)
-      const s3 = unit.skill?.active && unit.skill.id === 'skchr_wang_3';
+      // S3 stand-in found no free slot and spent nothing) — it builds the S3 跟子 around it (s3Followers: the talent's
+      // one free + ≤ 3 extra, one ammo each)
       const ammo = s3 ? Math.max(0, Math.floor(num(unit.skill.ammoLeft, 0))) : 0;
-      const built = followAround(battle, unit, t, s3 ? Math.min(1 + WANG_S3_EXTRA, ammo) : 1);
-      if (s3 && built > 0) {
-        const st3 = st(unit);
-        unit.skill.ammoLeft = st3.ammo = Math.max(0, ammo - built);
-        if (unit.skill.ammoLeft <= 0) unit.skill.end('ammo');
-      }
+      const built = followAround(battle, unit, t, s3 ? s3Followers(ammo) : 1);
+      if (s3) spendS3(unit, ammo, built);
       syncSpLock(battle, unit);
     }
   };
@@ -194,14 +223,17 @@ function wang(bb, chess, def) {
   /** 铸子 跟子 around `s`; returns the count placed (≤ n). */
   const followAround = (battle, unit, s, n = 1) => {
     let k = 0;
+    // ties: PRTS 铸子 备注 「相同优先级时按棋子上>右>下>左」 as the board is drawn — the mirrored field (boss / hidden right
+    // side, drawn with col → 20 − col) swaps right and left (as upstream's SIDES_MIRRORED). User decision 2026-10-07 (W8):
+    // replaces the seeded random tie-break (client _alwaysRandomInTheEnd 1 — the sources disagree, the user chose PRTS)
+    const sides = battle.getPlayer(unit.ownerId)?.mirror ? ORTHO_MIRRORED : ORTHO;
     while (k < n && followers(battle, unit).length < followerCap) {
       const stones = stonesOf(battle, unit);
       const cand = [];
-      ORTHO.forEach(([dr, dc]) => {
+      sides.forEach(([dr, dc], idx) => {
         const r = s.tileR + dr, c = s.tileC + dc;
         const cls = followerClass(battle, r, c, stones);
-        // ties: random (client _alwaysRandomInTheEnd; seeded battle.rng — PRTS's up > right > down > left is not it)
-        if (cls != null) cand.push([r, c, enemiesOnTile(battle, r, c).length ? 0 : 1, cls, battle.rng()]);
+        if (cls != null) cand.push([r, c, enemiesOnTile(battle, r, c).length ? 0 : 1, cls, idx]);
       });
       cand.sort((a, b) => a[2] - b[2] || a[3] - b[3] || a[4] - b[4]);
       if (!cand.length || !placeFollower(battle, unit, cand[0][0], cand[0][1])) break;
@@ -342,16 +374,11 @@ function wang(bb, chess, def) {
               // deployed and never spent ammo); that stone waits until its tile is free again
               if (t.build === 'NONE' || battle.unitAt(r, c) || reservedForOthers(battle, unit, r, c)) continue;
               const ammo = Math.max(0, Math.floor(num(unit.skill.ammoLeft, 0)));
-              // client SpawnTokenS3InSkill: a BuildStone on each placeable neighbour (4 grid positions), its counter
-              // `_countEvent 4, _expendPerTrigger 1` spends one ammo per stone actually built — the talent's one included
-              // (user 2026-10-06; PRTS / namu read "额外至多部署3枚…并消耗等量弹药" as 3 paid: see LOCAL-PATCH.md)
-              const stone = deployStone(battle, unit, r, c, Math.min(1 + WANG_S3_EXTRA, ammo));
+              // the talent's 跟子 free + ≤ 3 extra for one ammo each (s3Followers / spendS3, user decision 2026-10-07,
+              // W12 [ASSUMED reading]; formerly ≤ 4, every one paid — client SpawnTokenS3InSkill `_countEvent 4`)
+              const stone = deployStone(battle, unit, r, c, s3Followers(ammo));
               if (!stone) continue;
-              const paid = Math.max(0, stone.mem.wangExtra);
-              if (paid > 0) {
-                unit.skill.ammoLeft = s.ammo = Math.max(0, ammo - paid);
-                if (unit.skill.ammoLeft <= 0) { unit.skill.end('ammo'); return true; }
-              }
+              if (spendS3(unit, ammo, Math.max(0, stone.mem.wangExtra))) return true;
               if (s.stock <= 0 && unit.skill?.active) unit.skill.end('stones');
               return true;
             }
@@ -434,17 +461,17 @@ function wangStone(bb, raw, def) {
           unit.mem.active = true;
           unit.mem.line = Math.max(unit.mem.line ?? 0, lineCount(stones, unit));
         }
-        const active = !!unit.mem.active;
+        if (!unit.mem.active) return;
         const wide = wangSkill(owner) === 'skchr_wang_3'; // S3 equipped: x-1 trigger / damage area
-        const inside = unit.mem.inside || (unit.mem.inside = new Set());
-        const now = new Set();
+        // presence, checked every tick (user decision 2026-10-07, W2): an activated stone goes off whenever a selectable
+        // enemy IS on its trigger area — one already standing there when it activates too, not only one entering it
+        // (client sktok_wang_1/3 SkillTrigger `_minTargetNum 1`: a selector that finds ≥ 1 target [추정: polled])
         for (const e of battle.enemies) {
           if (!stoneSelectable(e)) continue;
           // a 跟子 checks the enemy's root tile (client _checkTargetRootTile); a stone its body on the tile
           const on = wide ? inArea(e, unit) : isFollower(unit) ? (Math.round(e.x) === unit.tileC && Math.round(e.y) === unit.tileR)
             : (e.hitArea ? bodyOnTile(e, unit.tileR, unit.tileC) : Math.abs(e.x - unit.tileC) <= 0.5 && Math.abs(e.y - unit.tileR) <= 0.5);
-          if (on) now.add(e.id);
-          if (!on || inside.has(e.id) || !active) continue;
+          if (!on) continue;
           trigger(battle, unit, owner, stones, e, wide, axes);
           // a trap is used up by its trigger (陷阱师 traps: "踩上去的第一个敌人会触发其效果"; the stone has an
           // ON_UNIT_DEAD sound) — its fx carries `consumed` so the client plays no knock-out sound
@@ -452,7 +479,6 @@ function wangStone(bb, raw, def) {
           battle.retreat(unit, { reason: 'expired', permanent: true });
           return;
         }
-        unit.mem.inside = now;
       },
     },
     trait: { noAttack: true },
@@ -511,7 +537,7 @@ function wangStone(bb, raw, def) {
       }
       for (const v of hit) {
         battle.dealDamage(src, v, { amount: atk * num(bb.atk_scale, 4.8) * mul, type: 'arts', resIgnoreFlat: resFlat, isSkill: true, canDodge: false, tags: ['summon', 'trap'] });
-        if (v.alive) battle.applyStatus(v, 'slow', { duration: num(bb.duration, 6), value: Math.abs(num(bb.move_speed, -0.4)), source: owner });
+        if (v.alive) addWangSlow(battle, owner, v, -Math.abs(num(bb.move_speed, -0.4)), num(bb.duration, 6));
       }
       return;
     }
@@ -525,6 +551,48 @@ function wangStone(bb, raw, def) {
     tick(e);
     if (e.alive) battle.addBuff(e, { key: 'wang:dot', refresh: 'independent', duration: dur, interval: 1, source: owner, visible: true, onTick: ({ unit: t }) => tick(t) });
   }
+}
+
+const WANG_SLOW_KEY = 'wang:slow';
+/** 连星's move speed floor (PRTS S2 备注 「移动速度存在0.1数值下限」; PRTS 数值范围 移动速度 min 0.1). */
+const WANG_SLOW_FLOOR = 0.1;
+/**
+ * 连星's slow (user decision 2026-10-07, W7): client BT wang_stone2_s — MOVE_SPEED `MULTIPLIER` with `disableOverride`
+ * (every trigger its own modifier) — and PRTS S2 备注 「移动速度降低为直接乘算，可无限叠加，每层独立计时（但移动速度存在0.1数值
+ * 下限）」: every application is its own stack with its own timer, none replaces another. 直接乘算 = PRTS 属性基本公式's
+ * (1 + D_t) stage, whose percentages add up (「除最终乘算为变化数值之间相乘外，其余均为相加」; research/battle-mechanics-reference.md):
+ * the stage is max(0, 1 + Σ move_speed), e.g. 0.6 / 0.2 / 0 for 1 / 2 / 3 stacks of −0.4 — upstream's addSlow model. The
+ * floor: the enemy's move speed never drops under 0.1 through it (the stage is raised to 0.1 ÷ the speed the other effects
+ * leave; nothing to raise when they stop it outright). One buff per enemy holds the stacks (`data.list`); shown as 'slow'.
+ * Exported for the tests.
+ */
+export function addWangSlow(battle, src, e, value, duration) {
+  if (!e?.alive || !(duration > 0) || !value) return null;
+  const refresh = (unit, b) => {
+    const now = battle.time;
+    b.data.list = b.data.list.filter((x) => x.until > now + 1e-9);
+    if (!b.data.list.length) { battle.removeBuff(unit, b); return; }
+    const stage = Math.max(0, 1 + b.data.list.reduce((a, x) => a + x.v, 0));
+    // the speed the other effects leave: (base + Σ moveFlat) × Π moveMul of the other buffs
+    let flat = num(unit.base.moveSpeed, 0), mul = 1;
+    for (const o of unit.buffs) {
+      if (o === b || !o.mods) continue;
+      if (typeof o.mods.moveFlat === 'number') flat += o.mods.moveFlat * o.stacks;
+      if (typeof o.mods.moveMul === 'number') mul *= Math.pow(o.mods.moveMul, o.stacks);
+    }
+    const others = flat * mul;
+    const m = others > 1e-9 ? Math.max(stage, Math.min(1, WANG_SLOW_FLOOR / others)) : stage;
+    if (b.mods?.moveMul !== m) { b.mods = { moveMul: m }; unit.markDirty(); }
+  };
+  let b = e.buffs.find((x) => x.key === WANG_SLOW_KEY);
+  if (!b) {
+    b = battle.addBuff(e, { key: WANG_SLOW_KEY, status: 'slow', source: src, tags: ['skill'], data: { list: [] }, mods: { moveMul: 1 },
+      onTick: ({ unit, buff }) => refresh(unit, buff) });
+  }
+  if (!b) return null;
+  b.data.list.push({ v: value, until: battle.time + duration });
+  refresh(e, b);
+  return b;
 }
 
 /** The kit of a placed 棋子 (a hand piece; not a 跟子): under the stone deploy limit (content/tokens.js, `fromTokens`). */

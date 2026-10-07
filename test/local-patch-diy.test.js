@@ -611,7 +611,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     return () => n;
   };
 
-  test('望 S3: a used stone coming back during S3 is her deployment — it builds the S3 跟子 around it, one ammo each', () => {
+  test('望 S3: a used stone coming back during S3 is her deployment — it builds the S3 跟子 around it: the talent\'s one free, one ammo per extra (≤ 3)', () => {
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
       units: [op('wang', { sk: 2, row: 11, col: 3 }), ...[4, 5, 6, 7, 8, 9].map((c, i) => stone(9, c, 50 + i))],
       enemies: [{ key: ENEMY, time: 0, route: 0, count: 6, interval: 2 }] });
@@ -631,10 +631,11 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     }
     assert.ok(redeploys > 0, 'used stones came back during S3');
     assert.ok(a0 - (w.skill.active ? w.skill.ammoLeft : 0) > 0, 'ammo spent');
-    for (const [spent, n] of seen) assert.equal(spent, n, 'one ammo per 跟子 built');
+    // user decision 2026-10-07 (W12): the talent's 跟子 free + ≤ 3 extra, one ammo each (formerly one ammo per 跟子 built)
+    for (const [spent, n] of seen) assert.ok(spent <= 3 && spent <= Math.max(0, n - 1), `≤ 3 ammo, the first 跟子 free (${spent} for ${n})`);
   });
 
-  test('望 S3: one ammo per 跟子 actually built around a deployment: 4 free neighbours → 4, fewer → fewer', () => {
+  test('望 S3: ammo per deployment = 跟子 actually built − the talent\'s free one: 4 free neighbours → 4 跟子 / 3 ammo, fewer → fewer', () => {
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
       units: [op('wang', { sk: 2, row: 11, col: 3 }), ...[5, 6, 7, 8, 9].map((c, i) => stone(12, c, 50 + i))] });
     h.step(2);
@@ -655,8 +656,9 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
       seen.push([a0 - w.skill.ammoLeft, built() - base]);
       h.b.kill(e);
     }
-    assert.deepEqual(seen[0], [4, 4], '10,5: four free neighbours → 4 跟子, 4 ammo');
-    assert.ok(seen[1][0] === seen[1][1] && seen[1][0] < 4 && seen[1][0] > 0, `11,4: fewer neighbours → fewer ammo (${seen[1]})`);
+    // user decision 2026-10-07 (W12): the talent's 跟子 free + ≤ 3 extra, one ammo each
+    assert.deepEqual(seen[0], [3, 4], '10,5: four free neighbours → 4 跟子 (1 free + 3 extra), 3 ammo');
+    assert.ok(seen[1][0] === seen[1][1] - 1 && seen[1][1] < 4 && seen[1][1] > 0, `11,4: fewer neighbours → fewer 跟子, one free (${seen[1]})`);
   });
 
   test('望 S3: among enemy tiles of her range the enemy closest to its goal comes first, not the one closest to her (user decision 2026-10-06)', () => {
