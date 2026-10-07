@@ -1,8 +1,9 @@
 // test/local-patch-diy.test.js — the nas-local 선발 (自选) picks on upstream 0.2.0's 自选 framework (local patch,
 // docs/LOCAL-PATCH.md 「선발 오퍼레이터」): only the owner's five picks are offered and accepted (shared/local-diy.js: the
-// server's welcome `diyKitted` and its room.diy check — server/lobby.js; shared/diy.js stays upstream's), 丰川祥子 is built into data/backups.json (tools/build-data.mjs
-// DIY_LOCAL_INCLUDED), and the five kits (server/sim/content/kits/ops/op-wang.js, op-chen3.js, op-wisdel.js, op-oblvns.js,
-// op-ascln.js — the former kits/diy.js) keep the behaviour the owner decided. Every operator is fielded the production
+// server's welcome `diyKitted` and its room.diy check — server/lobby.js), they are the whole 自选 data of
+// data/backups.json (tools/build-data.mjs builds it from LOCAL_DIY_PICKS, 丰川祥子 included; no prototype), and the five
+// kits (server/sim/content/kits/ops/op-wang.js, op-chen3.js, op-wisdel.js, op-oblvns.js, op-ascln.js — the former
+// kits/diy.js) keep the behaviour the owner decided. Every operator is fielded the production
 // way: a DIY slot + its `diy` pick (test/helpers/battleHarness.js `diy`), the elite with its X module (the module our
 // former 선발 records carried by default), and the 望 stone tests also through the real match path (Match board →
 // battleInput → BattleSpec → createBattleFromSpec).
@@ -56,12 +57,13 @@ describe('선발 picks on upstream 自选 (shared/local-diy.js, server/lobby.js 
     const kitted = Lobby.prototype.welcomeInfo.call({}).diyKitted;
     assert.deepEqual([...kitted].sort(), Object.values(CHAR).sort());
     for (const tier of [5, 6]) assert.deepEqual(diyPool(tier, { data: DATA, kitted }).sort(), Object.values(CHAR).sort(), `tier ${tier}`);
-    // upstream's data and helpers stay whole: the 71 + her owned picks and the prototypes are still there, only not offered
-    assert.ok(BACKUPS.diy.ownedPool.length > 5 && BACKUPS.diy.ownedPool.includes('char_112_siege'));
-    assert.ok(BACKUPS.diy.prototypes[5].length > 0 && isPrototypePick(DATA, 6, 'char_609_acguad'));
-    assert.ok(diyPool(6, { data: DATA, kitted: KITTED_CHARS }).includes('char_112_siege'), 'upstream\'s diyPool unchanged');
+    // the data is our five (hard fork 2026-10-07, tools/build-data.mjs): upstream's other owned picks and the prototypes are gone
+    assert.deepEqual(BACKUPS.diy.ownedPool, [...LOCAL_DIY_PICKS]);
+    assert.deepEqual(BACKUPS.diy.prototypes, { 5: [], 6: [] });
+    assert.equal(isPrototypePick(DATA, 6, 'char_609_acguad'), false, 'a stand-in is no 自选 prototype here');
+    assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), [...LOCAL_DIY_PICKS], 'diyPool with the whole kit list: still the five');
     assert.equal(isLocalDiyPick('char_112_siege'), false);
-    for (const id of Object.values(CHAR)) assert.ok(OPERATOR_KITS[id], `${id}: a kit (ops/op-<codename>.js)`);
+    assert.deepEqual(Object.keys(OPERATOR_KITS).sort(), Object.values(CHAR).sort(), 'a kit (ops/op-<codename>.js) for each of the five, no other');
   });
 
   test('accepted: room.diy keeps the five and drops anyone else (another owned 6★, a prototype, a reserve) — the seat never holds one', async () => {
@@ -82,7 +84,7 @@ describe('선발 picks on upstream 自选 (shared/local-diy.js, server/lobby.js 
 
   test('data: 丰川祥子 has her units / operators entries like the others (collab, taken in); 望 / 陈 炎, the others 协防; 望\'s 棋子 go on any tile', () => {
     assert.ok(BACKUPS.diy.ownedPool.includes(CHAR.oblvns));
-    assert.ok(!BACKUPS.diy.excluded.includes(CHAR.oblvns));
+    assert.equal(BACKUPS.diy.excluded, undefined, 'no collab exclusion list any more');
     const u = BACKUPS.units[CHAR.oblvns];
     assert.deepEqual(Object.keys(u.forms).sort(), ['2/1/4/0', '2/60/7/1', '2/60/7/3']);
     for (const f of Object.values(u.forms)) assert.equal(f.skills.length, 3);

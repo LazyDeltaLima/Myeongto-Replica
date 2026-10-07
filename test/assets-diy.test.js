@@ -14,25 +14,28 @@ import { dataExtras, orphanFiles, parseArgs } from '../tools/fetch-assets.mjs';
 import { patternOperator, buildPlan } from '../tools/assets/plan.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
 import { Downloader } from '../tools/assets/downloader.mjs';
-import { isLocalDiyPick } from '../shared/local-diy.js';
+import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const load = (f) => JSON.parse(readFileSync(join(ROOT, 'data', `${f}.json`), 'utf8'));
 const BACKUPS = load('backups');
 const CHESS = load('chess');
-// local (hard fork 2026-10-07): only the offered 自选 picks (shared/local-diy.js) and the 补位 stand-ins get art
-const DROPPED = new Set(BACKUPS.diy.ownedPool.filter((id) => !isLocalDiyPick(id) && !(BACKUPS.units[id].standsIn || []).length));
-const PLANNED = Object.keys(BACKUPS.units).filter((id) => !DROPPED.has(id));
+// since the hard fork (2026-10-07) backups.json holds only the 补位 stand-ins and our five picks (shared/local-diy.js):
+// every unit is planned
+const PLANNED = Object.keys(BACKUPS.units);
+/** Operators no 自选 slot offers here, spot checks: upstream's collab exclusions (焰狐龙梓兰 MH05 among them) and owned picks it offers. */
+const LEFT_OUT = ['char_456_ash', 'char_1029_yato2', 'char_1048_orchd2', 'char_4123_ela', 'char_4141_marcil', 'char_4217_makoto',
+  'char_112_siege', 'char_2023_ling', 'char_017_huang', 'char_4195_radian', 'char_2024_chyue', 'char_003_kalts'];
 const YUAN = 'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/main/';
 const FEXLI = 'https://raw.githubusercontent.com/fexli/ArknightsResource/main/';
 
 test('dataExtras: every backups.json unit (skills by index, once), the 自选 summons, the type icon of every module of chess.json and backups.json', () => {
   const x = dataExtras(BACKUPS, CHESS);
-  assert.deepEqual(Object.keys(x.extraOperators), PLANNED, 'the stand-ins and the offered picks — not the other owned 6★');
+  assert.deepEqual(Object.keys(x.extraOperators), PLANNED, 'the stand-ins and the offered picks');
+  assert.deepEqual(PLANNED.filter((id) => !BACKUPS.units[id].standsIn.length), [...LOCAL_DIY_PICKS], 'the picks: our five');
   assert.equal(x.extraOperators.char_112_siege, undefined, '推进之王 is not offered here');
   assert.deepEqual(x.extraOperators.char_2027_wang.skills.map((s) => s.skillId), ['skchr_wang_1', 'skchr_wang_2', 'skchr_wang_3']);
-  const owners = (t) => (t.owners || []).map((o) => o.split('@')[0]);
-  assert.deepEqual(x.tokenIds, Object.keys(BACKUPS.tokens).filter((id) => !owners(BACKUPS.tokens[id]).length || owners(BACKUPS.tokens[id]).some((o) => !DROPPED.has(o))).sort());
+  assert.deepEqual(x.tokenIds, ['token_10035_wisdel_wward', 'token_10064_wang_stone1'], 'the summons of our picks');
   const types = new Set();
   for (const c of Object.values(CHESS)) for (const m of c.modules || []) types.add(m.typeIcon);
   for (const id of PLANNED) for (const f of Object.values(BACKUPS.units[id].forms)) for (const m of f.modules || []) types.add(m.typeIcon);
@@ -103,7 +106,7 @@ test('the committed data/assets.json lists every offered 自选 operator\'s avat
   const m = load('assets');
   const disk = existsSync(join(ROOT, 'public', 'assets', 'char'));
   const onDisk = (u) => !disk || existsSync(join(ROOT, 'public', u));
-  for (const id of BACKUPS.diy.ownedPool.filter((x) => !DROPPED.has(x))) {
+  for (const id of BACKUPS.diy.ownedPool) {
     const c = m.chars[id];
     assert.ok(c && c.avatar && c.portrait && c.spine?.front?.skel, `${id}: art`);
     for (const u of [c.avatar, c.portrait, c.spine.front.skel, c.spine.front.atlas, ...c.spine.front.textures]) assert.ok(onDisk(u), `${id}: ${u} on disk`);
@@ -114,11 +117,11 @@ test('the committed data/assets.json lists every offered 自选 operator\'s avat
   assert.equal(m.stats.modules, Object.keys(m.modules).length);
 });
 
-test('an operator left out of 自选 (data/backups.json diy.excluded: the collab picks, 焰狐龙梓兰 MH05 among them) keeps no art in data/assets.json, so the full release zip (tools/package.mjs) never ships it', () => {
+test('an operator no 自选 slot offers here (upstream\'s collab exclusions and its other owned picks) keeps no art in data/assets.json, so the full release zip (tools/package.mjs) never ships it', () => {
   const m = load('assets');
   const text = JSON.stringify(m);
-  assert.ok(BACKUPS.diy.excluded.includes('char_1048_orchd2'), '焰狐龙梓兰 is excluded');
-  for (const id of [...BACKUPS.diy.excluded, ...DROPPED]) { // local: and every owned pick not offered here
+  for (const id of LEFT_OUT) {
+    assert.equal(BACKUPS.units[id], undefined, `${id}: no unit in backups.json`);
     const code = id.split('_').slice(2).join('_');
     assert.equal(m.chars[id], undefined, `${id}: chars`);
     assert.equal(m.audio.sfx.units[id], undefined, `${id}: unit sfx`);

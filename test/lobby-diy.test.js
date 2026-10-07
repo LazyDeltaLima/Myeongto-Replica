@@ -1,23 +1,25 @@
 // test/lobby-diy.test.js — room.diy end to end over WebSocket (0.2.0 自选编队): lenient validation (only malformed picks
 // are refused; illegal ones are dropped), storage on the session (follows the player into rooms, survives a resume) and
 // on the seat, seats[].diy handed to the Match when it starts (bots: none), never to a running match (ROOM_STARTED:
-// stored for the next one — the next match takes it), every `welcome` carrying `diyKitted`, and the real match exposing
-// the picks as m.private.diy.
+// stored for the next one — the next match takes it), every `welcome` carrying `diyKitted` (our five: shared/local-diy.js),
+// and the real match exposing the picks as m.private.diy.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { KITTED_CHARS } from '../server/sim/content/kits/index.js';
+import { LOCAL_DIY_PICKS, isLocalDiyPick } from '../shared/local-diy.js';
 import { TestClient } from './helpers/wsClient.js';
 import { ERR, PHASE } from '../shared/constants.js';
 
 const T5A = 'chess_char_5_diy1_a';
 const T6A = 'chess_char_6_diy1_a';
 const T6B = 'chess_char_6_diy2_a';
-const SIEGE = { charId: 'char_112_siege', skillIndex: 2, uniEquipId: 'uniequip_002_siege' };
-const SHARP = { charId: 'char_609_acguad' };
-const SHARP_FULL = { charId: 'char_609_acguad', skillIndex: 2, uniEquipId: 'uniequip_002_acguad' };
+const WANG = { charId: 'char_2027_wang', skillIndex: 2, uniEquipId: 'uniequip_002_wang' };
+const ASCLN = { charId: 'char_4132_ascln', skillIndex: 0 };
+const ASCLN_FULL = { charId: 'char_4132_ascln', skillIndex: 0, uniEquipId: null };
+const CHEN3 = { charId: 'char_1050_chen3', skillIndex: 1, uniEquipId: 'uniequip_002_chen3' };
 
 class RecordingStub extends StubMatch {
   static instances = [];
@@ -64,24 +66,24 @@ describe('room.diy (lobby, stub match)', () => {
   afterEach(async () => { RecordingStub.instances = []; await pool.closeAll(); });
   after(async () => { await srv?.close(); });
 
-  test('welcome lists the operators a 自选 slot may field (the kit registry)', async () => {
+  test('welcome lists the operators a 自选 slot may field (the kit registry ∩ our five)', async () => {
     const c = await pool.player('Kit');
-    assert.deepEqual(c.welcome.diyKitted, [...KITTED_CHARS]);
-    assert.ok(c.welcome.diyKitted.includes(SIEGE.charId));
+    assert.deepEqual(c.welcome.diyKitted, KITTED_CHARS.filter(isLocalDiyPick));
+    assert.deepEqual([...c.welcome.diyKitted].sort(), [...LOCAL_DIY_PICKS].sort());
   });
 
   test('lenient: malformed picks are BAD_MSG; illegal ones dropped; stored per session and seat; bots none; the next match takes a change', async () => {
     const host = await pool.player('Host');
-    await err(host, { t: 'room.diy', picks: [SIEGE] }, ERR.BAD_MSG);
+    await err(host, { t: 'room.diy', picks: [WANG] }, ERR.BAD_MSG);
     await err(host, { t: 'room.diy', picks: { [T5A]: { skillIndex: 1 } } }, ERR.BAD_MSG);
-    // outside a room: accepted (a prototype off its locked skill, a second slot of the owned operator, junk dropped)
-    await ok(host, { t: 'room.diy', picks: { [T5A]: SIEGE, [T6A]: { charId: 'char_609_acguad', skillIndex: 0 }, [T6B]: { charId: SIEGE.charId, skillIndex: 1 }, nope: SHARP } });
+    // outside a room: accepted (a prototype — no pick here —, a second slot of the owned operator, junk dropped)
+    await ok(host, { t: 'room.diy', picks: { [T5A]: WANG, [T6A]: { charId: 'char_609_acguad', skillIndex: 2 }, [T6B]: { charId: WANG.charId, skillIndex: 1 }, nope: ASCLN } });
     const st = await createRoom(host);
     const guest = await pool.player('Guest');
     await ok(guest, { t: 'room.join', code: st.code });
     await guest.waitFor('room.state', (s) => s.seats.some((x) => x && x.playerId === guest.id));
-    await ok(guest, { t: 'room.diy', picks: { [T6A]: SHARP } });
-    await ok(guest, { t: 'room.diy', picks: { [T6A]: SHARP, [T5A]: SHARP } }); // re-sent: the latest wins
+    await ok(guest, { t: 'room.diy', picks: { [T6A]: ASCLN } });
+    await ok(guest, { t: 'room.diy', picks: { [T6A]: ASCLN, [T5A]: CHEN3 } }); // re-sent: the latest wins
     await ok(host, { t: 'room.addBot' });
     // the guest drops and resumes: the session keeps its picks
     await guest.terminate();
@@ -92,12 +94,12 @@ describe('room.diy (lobby, stub match)', () => {
     await host.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
     let seats = RecordingStub.instances.at(-1).opts.seats;
     const by = (id) => seats.find((s) => s.playerId === id);
-    assert.deepEqual(by(host.id).diy, { [T5A]: SIEGE });
+    assert.deepEqual(by(host.id).diy, { [T5A]: WANG });
     assert.ok(Object.isFrozen(by(host.id).diy) && Object.isFrozen(by(host.id).diy[T5A]));
-    assert.deepEqual(by(guest.id).diy, { [T5A]: SHARP_FULL, [T6A]: SHARP_FULL }, 'a prototype may fill a tier-5 and a tier-6 slot');
+    assert.deepEqual(by(guest.id).diy, { [T5A]: CHEN3, [T6A]: ASCLN_FULL }, 'the latest picks, completed (no module = null)');
     assert.equal(seats.find((s) => s.isBot).diy, null, 'bots field no 自选 piece');
     // during the match: refused for this match (ROOM_STARTED) but stored for the next one
-    const r = await err(host, { t: 'room.diy', picks: { [T6B]: SIEGE } }, ERR.ROOM_STARTED);
+    const r = await err(host, { t: 'room.diy', picks: { [T6B]: WANG } }, ERR.ROOM_STARTED);
     assert.match(r.detail || '', /next match/);
     // the stub ends once every human confirmed the briefing; the room is back in its lobby — the next match takes it
     await ok(host, { t: 'g.infoReady' });
@@ -108,7 +110,7 @@ describe('room.diy (lobby, stub match)', () => {
     await host.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
     assert.equal(RecordingStub.instances.length, 2);
     seats = RecordingStub.instances.at(-1).opts.seats;
-    assert.deepEqual(by(host.id).diy, { [T6B]: SIEGE });
+    assert.deepEqual(by(host.id).diy, { [T6B]: WANG });
     await back.terminate();
     assert.deepEqual(cap.errors, []);
   });
@@ -119,7 +121,7 @@ describe('room.diy (lobby, stub match)', () => {
     const spec = await pool.player('Watcher');
     await ok(spec, { t: 'room.spectate', code: st.code });
     await spec.waitFor('room.state', (s) => (s.spectators || []).some((x) => x.playerId === spec.id));
-    await ok(spec, { t: 'room.diy', picks: { [T5A]: SIEGE } });
+    await ok(spec, { t: 'room.diy', picks: { [T5A]: WANG } });
     await ok(host, { t: 'room.start' });
     await host.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
     const seats = RecordingStub.instances.at(-1).opts.seats;
@@ -141,12 +143,12 @@ describe('room.diy (lobby + real match)', () => {
 
   test('the picks the seat had at the start are the match\'s m.private.diy; a change during the briefing waits for the next match', async () => {
     const a = await pool.player('Solo');
-    await ok(a, { t: 'room.diy', picks: { [T5A]: SIEGE, [T6A]: SHARP } });
+    await ok(a, { t: 'room.diy', picks: { [T5A]: WANG, [T6A]: ASCLN } });
     await createRoom(a, 'solo');
     await ok(a, { t: 'room.start' });
     await a.waitFor('m.public', (p) => p.phase === PHASE.INFO_CHECK, 5000);
     const priv = await a.waitFor('m.private', (p) => p.diy && typeof p.diy === 'object', 3000);
-    assert.deepEqual(priv.diy, { [T5A]: SIEGE, [T6A]: SHARP_FULL });
+    assert.deepEqual(priv.diy, { [T5A]: WANG, [T6A]: ASCLN_FULL });
     assert.deepEqual(priv.diyBanned, []);
     await err(a, { t: 'room.diy', picks: {} }, ERR.ROOM_STARTED);
     await ok(a, { t: 'g.infoReady' });

@@ -29,18 +29,18 @@ await data.loadAll('chess', 'bonds', 'assets', 'backups');
 
 const T5A = 'chess_char_5_diy1_a';
 const T6A = 'chess_char_6_diy1_a';
-const SIEGE = 'char_112_siege';
-const LING = 'char_2023_ling';
+const WANG = 'char_2027_wang';
+const WISDEL = 'char_1035_wisdel'; // 维什戴尔: the banned one
 const D = { chess: DATA.chess, backups: DATA.backups };
 const getChess = (id) => (Object.hasOwn(DATA.chess, id) ? DATA.chess[id] : null);
 const priv = {
-  diy: { [T5A]: { charId: SIEGE, skillIndex: 2, uniEquipId: 'uniequip_002_siege' }, [T6A]: { charId: LING, skillIndex: 0, uniEquipId: null } },
+  diy: { [T5A]: { charId: WANG, skillIndex: 2, uniEquipId: 'uniequip_002_wang' }, [T6A]: { charId: WISDEL, skillIndex: 0, uniEquipId: null } },
   diyBanned: [T6A],
 };
 const textOf = (v) => (Array.isArray(v) ? v.map(textOf).join('') : v == null || typeof v === 'boolean' ? '' : typeof v === 'object' ? textOf(v.props?.children) : String(v));
 
 test('#11 diyBannedPieces: the banned slots with their operator\'s name, slot order; none without picks', () => {
-  assert.deepEqual(G.diyBannedPieces(priv, getChess, D), [{ slotId: T6A, charId: LING, name: DATA.backups.units[LING].name }]);
+  assert.deepEqual(G.diyBannedPieces(priv, getChess, D), [{ slotId: T6A, charId: WISDEL, name: DATA.backups.units[WISDEL].name }]);
   assert.deepEqual(G.diyBannedPieces({ diy: priv.diy, diyBanned: [] }, getChess, D), []);
   assert.deepEqual(G.diyBannedPieces({ diyBanned: [T6A] }, getChess, D), [], 'no pick for the slot: nothing');
   assert.deepEqual(G.diyBannedPieces(null, getChess, D), []);
@@ -54,7 +54,7 @@ test('#11 the match-info model and its line: the own banned 自选 piece is name
   const line = DiyBannedLine({ model });
   assert.ok(line, 'a line');
   const txt = textOf(line);
-  assert.ok(txt.includes('自选') && txt.includes(DATA.backups.units[LING].name) && txt.includes('不会出现在你的商店'), txt);
+  assert.ok(txt.includes('自选') && txt.includes(DATA.backups.units[WISDEL].name) && txt.includes('不会出现在你的商店'), txt);
   assert.equal(DiyBannedLine({ model: matchInfoModel(pub, { bonds: [], chess: getChess }) }), null, 'no priv: no line');
   assert.equal(DiyBannedLine({ model: matchInfoModel(pub, { bonds: [], chess: getChess, priv: { ...priv, diyBanned: [] }, diyData: D }) }), null);
   // English: the msgid is in public/i18n/en.json

@@ -1,5 +1,6 @@
 // 0.2.0 自选编队 — client side (research 0.2.0 §2; the owner's decisions of 2026-10-05): the 自选编队 tab's model (storage,
-// the slots, the picker's operators with the kit list, skill / module choices without 集成战略 modules, export / import)
+// the slots, the picker's operators with the kit list — our five, shared/local-diy.js, no prototype —, skill / module
+// choices without 集成战略 modules, export / import)
 // and its server sync (room.diy; welcome.diyKitted), the tab's components (four slots, the picker, 确认), and the match
 // UI of a 自选 piece — the shop / reward card and the detail card show the operator (name, art, class, derived bonds,
 // the pick's skill and module) with a 「自选」 badge, the own pieces get a tag, placement reads the operator's position, and
@@ -34,6 +35,7 @@ const { DiyPanelView, DiyPickerView } = await import('../../public/js/screens/di
 const { data } = await import('../../public/js/data.js');
 const { DATA } = await import('../match/harness.js');
 const { KITTED_CHARS } = await import('../../server/sim/content/kits/index.js');
+const { LOCAL_DIY_PICKS } = await import('../../shared/local-diy.js');
 
 await data.loadAll('chess', 'bonds', 'assets', 'garrisons', 'items', 'backups');
 
@@ -43,10 +45,11 @@ const T5A = 'chess_char_5_diy1_a';
 const T5B = 'chess_char_5_diy2_a';
 const T6A = 'chess_char_6_diy1_a';
 const T6B = 'chess_char_6_diy2_a';
-const SIEGE = 'char_112_siege';
-const SHARP = 'char_609_acguad';
-const KALTS = 'char_003_kalts'; // 凯尔希: an ISW-A module at both elite stages
-const SIEGE_PICK = { charId: SIEGE, skillIndex: 2, uniEquipId: 'uniequip_002_siege' };
+const ASCLN = 'char_4132_ascln'; // 阿斯卡纶: two advanced modules (AMB-X, AMB-Y), melee, 协防干员
+const WANG = 'char_2027_wang';   // 望: 炎
+const CHEN3 = 'char_1050_chen3'; // 赤刃明霄陈: 炎
+const MAIN_PICK = { charId: ASCLN, skillIndex: 2, uniEquipId: 'uniequip_002_ascln' };
+const WANG_PICK = { charId: WANG, skillIndex: 0, uniEquipId: 'uniequip_002_wang' };
 const KIT = [...KITTED_CHARS];
 
 function* walk(v) {
@@ -71,58 +74,59 @@ const textOf = (v) => [...walk(v)].flatMap((n) => (Array.isArray(n.props?.childr
 describe('自选编队 model (ui/diyModel.js)', () => {
   test('storage: tolerant parse, junk and hostile keys dropped, round trip', () => {
     assert.deepEqual(M.parseStoredDiy(null), {});
-    const raw = { v: 1, picks: { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP }, __proto__x: 1, bad: { charId: 'a b' }, [T6B]: { charId: SIEGE, skillIndex: 99 } } };
-    assert.deepEqual(M.parseStoredDiy(raw), { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP }, [T6B]: { charId: SIEGE } });
-    assert.deepEqual(M.toStoredDiy({ [T5A]: SIEGE_PICK }), { v: M.DIY_VERSION, picks: { [T5A]: SIEGE_PICK } });
-    assert.equal(M.diyCount({ [T5A]: SIEGE_PICK, [T6A]: null }), 1);
-    assert.deepEqual(M.setPick({ [T5A]: SIEGE_PICK }, T5A, null), {});
-    assert.deepEqual(M.setPick({}, T6A, { charId: SHARP }), { [T6A]: { charId: SHARP } });
+    const raw = { v: 1, picks: { [T5A]: MAIN_PICK, [T6A]: { charId: WANG }, __proto__x: 1, bad: { charId: 'a b' }, [T6B]: { charId: ASCLN, skillIndex: 99 } } };
+    assert.deepEqual(M.parseStoredDiy(raw), { [T5A]: MAIN_PICK, [T6A]: { charId: WANG }, [T6B]: { charId: ASCLN } });
+    assert.deepEqual(M.toStoredDiy({ [T5A]: MAIN_PICK }), { v: M.DIY_VERSION, picks: { [T5A]: MAIN_PICK } });
+    assert.equal(M.diyCount({ [T5A]: MAIN_PICK, [T6A]: null }), 1);
+    assert.deepEqual(M.setPick({ [T5A]: MAIN_PICK }, T5A, null), {});
+    assert.deepEqual(M.setPick({}, T6A, { charId: WANG }), { [T6A]: { charId: WANG } });
   });
 
   test('the four slots by tier, with the 调度中心 level that sells them', () => {
     assert.deepEqual(M.diySlotList(D).map((s) => [s.slotId, s.tier, s.shopLevel]), [[T5A, 5, 5], [T5B, 5, 5], [T6A, 6, 6], [T6B, 6, 6]]);
   });
 
-  test('the picker lists only kitted operators (prototypes first), marks one another slot holds', () => {
+  test('the picker lists only kitted operators — our five, no prototype —, marks one another slot holds', () => {
     const opts = M.pickOptions(T5A, {}, D, KIT);
     const ids = opts.map((o) => o.charId);
-    assert.ok(ids.includes(SIEGE) && ids.includes(SHARP) && ids.includes('char_601_cguard'));
+    assert.deepEqual([...ids].sort(), [...LOCAL_DIY_PICKS].sort(), 'our five');
     assert.ok(ids.every((id) => KIT.includes(id)), 'no operator without a kit');
-    assert.ok(ids.indexOf(SHARP) < ids.indexOf(SIEGE), 'prototypes first');
-    assert.deepEqual(opts.find((o) => o.charId === SIEGE).bonds, ['victoriaShip']);
-    assert.equal(opts.find((o) => o.charId === SHARP).proto, true);
-    assert.ok(!M.pickOptions(T6A, {}, D, KIT).some((o) => o.charId === 'char_601_cguard'), 'a 4★ reserve is a tier-5 pick only');
-    // taken: an owned operator in any other slot; a prototype in the other slot of its tier (not across tiers)
-    const roster = { [T5B]: { charId: SHARP }, [T6A]: SIEGE_PICK };
+    assert.ok(opts.every((o) => !o.proto), 'no prototype');
+    assert.ok(!ids.includes('char_609_acguad') && !ids.includes('char_601_cguard'), 'the stand-ins (in the kit list) are no picks');
+    assert.deepEqual(opts.find((o) => o.charId === ASCLN).bonds, ['emptyShip']);
+    assert.deepEqual(opts.find((o) => o.charId === WANG).bonds, ['yanShip']);
+    assert.deepEqual(M.pickOptions(T6A, {}, D, KIT).map((o) => o.charId).sort(), [...ids].sort(), 'the same five at tier 6');
+    // taken: an owned operator in any other slot
+    const roster = { [T5B]: { charId: WANG, skillIndex: 0 }, [T6A]: MAIN_PICK };
     const at5 = M.pickOptions(T5A, roster, D, KIT);
-    assert.equal(at5.find((o) => o.charId === SIEGE).taken, T6A);
-    assert.equal(at5.find((o) => o.charId === SHARP).taken, T5B);
-    assert.equal(M.pickOptions(T6B, roster, D, KIT).find((o) => o.charId === SHARP).taken, null, 'a prototype may fill a tier-5 and a tier-6 slot');
+    assert.equal(at5.find((o) => o.charId === ASCLN).taken, T6A);
+    assert.equal(at5.find((o) => o.charId === WANG).taken, T5B);
+    assert.equal(at5.find((o) => o.charId === CHEN3).taken, null);
     assert.deepEqual(M.pickOptions(T5A, {}, D, []), [], 'no kit list (not connected): nothing to pick');
   });
 
-  test('choices: three skills, the elite form\'s modules without the 集成战略 (ISW-A) ones; a prototype\'s locked selection', () => {
-    const ch = M.pickChoices(SIEGE, T6A, D);
+  test('choices: three skills, the elite form\'s modules without the 集成战略 (ISW-A) ones; the default pick', () => {
+    const ch = M.pickChoices(ASCLN, T6A, D);
     assert.deepEqual(ch.skills.map((s) => s.index), [0, 1, 2]);
-    assert.deepEqual(ch.modules.map((x) => x.uniEquipId), ['uniequip_002_siege', 'uniequip_003_siege']);
+    assert.deepEqual(ch.modules.map((x) => x.uniEquipId), ['uniequip_002_ascln', 'uniequip_003_ascln']);
     assert.equal(ch.stage, 3);
-    assert.equal(M.pickChoices(SIEGE, T5A, D).stage, 1);
-    const kalts = M.pickChoices(KALTS, T6A, D);
-    assert.ok(kalts.elite.modules.some((x) => x.typeName === 'ISW-A'), 'the form has one');
-    assert.ok(!kalts.modules.some((x) => x.rec.typeName === 'ISW-A'), 'never offered');
-    const proto = M.pickChoices(SHARP, T5A, D);
-    assert.equal(proto.proto, true);
-    assert.deepEqual(proto.locked, { skillIndex: 2, uniEquipId: 'uniequip_002_acguad' });
-    assert.deepEqual(M.defaultPick(SIEGE, T5A, D), { charId: SIEGE, skillIndex: 2, uniEquipId: 'uniequip_002_siege' }, 'S3 and the first module');
-    assert.deepEqual(M.defaultPick(SHARP, T5A, D), { charId: SHARP });
+    assert.equal(ch.proto, false);
+    assert.equal(M.pickChoices(ASCLN, T5A, D).stage, 1);
+    // none of our five has a mode-only module: the rule on synthetic data (阿斯卡纶's AMB-Y relabelled ISW-A)
+    const b2 = structuredClone(D.backups);
+    for (const f of Object.values(b2.units[ASCLN].forms)) for (const m of f.modules ?? []) if (m.uniEquipId === 'uniequip_003_ascln') m.typeName = 'ISW-A';
+    const isw = M.pickChoices(ASCLN, T6A, { ...D, backups: b2 });
+    assert.ok(isw.elite.modules.some((x) => x.typeName === 'ISW-A'), 'the form has one');
+    assert.ok(!isw.modules.some((x) => x.rec.typeName === 'ISW-A'), 'never offered');
+    assert.deepEqual(M.defaultPick(ASCLN, T5A, D), { charId: ASCLN, skillIndex: 2, uniEquipId: 'uniequip_002_ascln' }, 'S3 and the first module');
   });
 
   test('sanitize keeps what the server keeps; export / import envelopes', () => {
-    assert.deepEqual(M.sanitizeDiyPicks({ [T5A]: SIEGE_PICK, [T6A]: { charId: SIEGE, skillIndex: 0 } }, D, KIT), { [T5A]: SIEGE_PICK });
-    const text = M.serializeDiy({ [T5A]: SIEGE_PICK }, { now: 0 });
+    assert.deepEqual(M.sanitizeDiyPicks({ [T5A]: MAIN_PICK, [T6A]: { charId: ASCLN, skillIndex: 0 }, [T6B]: { charId: 'char_609_acguad' } }, D, KIT), { [T5A]: MAIN_PICK }, 'a second slot of the operator and a prototype dropped');
+    const text = M.serializeDiy({ [T5A]: MAIN_PICK }, { now: 0 });
     const env = JSON.parse(text);
-    assert.deepEqual([env.kind, env.v, env.count, env.picks], [M.DIY_EXPORT_KIND, 1, 1, { [T5A]: SIEGE_PICK }]);
-    assert.deepEqual(M.parseDiyImport(text), { ok: true, picks: { [T5A]: SIEGE_PICK } });
+    assert.deepEqual([env.kind, env.v, env.count, env.picks], [M.DIY_EXPORT_KIND, 1, 1, { [T5A]: MAIN_PICK }]);
+    assert.deepEqual(M.parseDiyImport(text), { ok: true, picks: { [T5A]: MAIN_PICK } });
     assert.deepEqual(M.parseDiyImport({ v: 1, picks: {} }), { ok: true, picks: {} });
     for (const bad of ['', '{nope', { v: 9, picks: {} }, { kind: 'stronghold.ownership', v: 1, notOwned: [] }, 'x'.repeat(M.DIY_IMPORT_MAX_BYTES + 1), [1]]) {
       assert.equal(M.parseDiyImport(bad).ok, false, JSON.stringify(bad).slice(0, 30));
@@ -173,16 +177,16 @@ test('diy sync: welcome brings the kit list and sends room.diy; edits are deboun
   const net = fakeNet();
   const T = fakeTimers();
   const told = [];
-  const target = createStore({ diy: { [T5A]: SIEGE_PICK }, diyKitted: null, open: false, diySync: 'idle' });
+  const target = createStore({ diy: { [T5A]: MAIN_PICK }, diyKitted: null, open: false, diySync: 'idle' });
   const s = installDiySync({ net, timers: T, target, notify: (x) => told.push(x) });
-  net.emit('welcome', { diyKitted: [SIEGE, SHARP, 7] });
-  assert.deepEqual(target.get().diyKitted, [SIEGE, SHARP]);
+  net.emit('welcome', { diyKitted: [ASCLN, WANG, 7] });
+  assert.deepEqual(target.get().diyKitted, [ASCLN, WANG]);
   await T.advance(100);
-  assert.deepEqual(net.sent, [{ t: 'room.diy', picks: { [T5A]: SIEGE_PICK } }]);
+  assert.deepEqual(net.sent, [{ t: 'room.diy', picks: { [T5A]: MAIN_PICK } }]);
   assert.equal(target.get().diySync, 'synced');
-  target.set({ diy: { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP } } });
+  target.set({ diy: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK } });
   await T.advance(SYNC_DEBOUNCE_MS + 10);
-  assert.deepEqual(net.sent[1], { t: 'room.diy', picks: { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP } } });
+  assert.deepEqual(net.sent[1], { t: 'room.diy', picks: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK } });
   net.replies.push({ error: 'ROOM_STARTED' });
   target.set({ diy: {} });
   await T.advance(SYNC_DEBOUNCE_MS + 10);
@@ -197,69 +201,73 @@ test('diy sync: welcome brings the kit list and sends room.diy; edits are deboun
 // ---- the tab --------------------------------------------------------------------------------------------------------------
 
 describe('自选编队 tab (screens/diy.js)', () => {
-  test('four slots by tier: an empty slot to fill, a filled one shows the operator, its tag, skill and module', () => {
-    const tree = expand(DiyPanelView({ m: data.get('assets'), picks: { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP } }, legal: { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP } }, kitted: KIT, onSet() {}, picking: null, onPicking() {} }));
+  test('four slots by tier: an empty slot to fill, a filled one shows the operator, its skill and module — no 原型 / 已持有 tag', () => {
+    const tree = expand(DiyPanelView({ m: data.get('assets'), picks: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, legal: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, kitted: KIT, onSet() {}, picking: null, onPicking() {} }));
     const slots = [...walk(tree)].filter((v) => hasClass(v, 'diy-slot'));
     assert.deepEqual(slots.map((v) => v.props['data-slot']), [T5A, T5B, T6A, T6B]);
-    const siege = slots[0];
-    assert.equal(siege.props['data-char'], SIEGE);
-    const txt = textOf(siege);
-    assert.ok(txt.includes(DATA.backups.units[SIEGE].name) && txt.includes('已持有') && txt.includes('S3') && txt.includes('SOL-X'), txt);
-    assert.ok(textOf(slots[2]).includes('原型'));
+    const first = slots[0];
+    assert.equal(first.props['data-char'], ASCLN);
+    const txt = textOf(first);
+    assert.ok(txt.includes(DATA.backups.units[ASCLN].name) && txt.includes('S3') && txt.includes('AMB-X'), txt);
+    assert.equal(slots[2].props['data-char'], WANG);
+    // every pick here is an owned 6★ (no prototypes): no 原型 / 已持有 tag on any slot (user decision 2026-10-07)
+    for (const v of slots) assert.ok(!textOf(v).includes('已持有') && !textOf(v).includes('原型') && ![...walk(v)].some((x) => hasClass(x, 'diy-tag')), v.props['data-slot']);
     assert.ok(hasClass(slots[1], 'is-empty') && textOf(slots[1]).includes('选择干员'));
   });
 
   test('the picker: the slot\'s operators; choosing one and its skill / module confirms the pick', () => {
     const done = [];
-    let draft = { ...SIEGE_PICK };
-    const view = () => expand(DiyPickerView({ m: null, slot: { slotId: T5A, tier: 5, shopLevel: 5 }, picks: { [T5A]: SIEGE_PICK }, kitted: KIT, onDone: (p) => done.push(p), onClose() {},
+    let draft = { ...MAIN_PICK };
+    const view = () => expand(DiyPickerView({ m: null, slot: { slotId: T5A, tier: 5, shopLevel: 5 }, picks: { [T5A]: MAIN_PICK }, kitted: KIT, onDone: (p) => done.push(p), onClose() {},
       filter: 'all', query: '', draft, onFilter() {}, onQuery() {}, onDraft: (d) => { draft = d; } }));
     let tree = view();
     const opts = [...walk(tree)].filter((v) => hasClass(v, 'diy-opt'));
-    assert.ok(opts.some((v) => v.props['data-char'] === SIEGE) && opts.some((v) => v.props['data-char'] === SHARP));
+    assert.deepEqual(opts.map((v) => v.props['data-char']).sort(), [...LOCAL_DIY_PICKS].sort());
+    // no 全部 / 原型 / 已持有 filter chips and no kind tags (user decision 2026-10-07)
+    assert.ok(![...walk(tree)].some((v) => v.props?.['data-filter'] != null || hasClass(v, 'lo-chip') || hasClass(v, 'diy-tag')), 'no filter chips, no tags');
     // the current pick is shown with its three skills and its modules (none + X + Y)
     const skills = [...walk(tree)].filter((v) => v.props?.role === 'radio' && v.props['data-skill'] != null);
     assert.deepEqual(skills.map((v) => v.props['data-skill']), [0, 1, 2]);
     assert.equal(skills.find((v) => v.props['aria-checked'] === 'true').props['data-skill'], 2);
     const mods = [...walk(tree)].filter((v) => v.props?.role === 'radio' && v.props['data-module'] != null);
-    assert.deepEqual(mods.map((v) => v.props['data-module']), ['none', 'uniequip_002_siege', 'uniequip_003_siege']);
+    assert.deepEqual(mods.map((v) => v.props['data-module']), ['none', 'uniequip_002_ascln', 'uniequip_003_ascln']);
     // another skill and no module, then 确认
     skills.find((v) => v.props['data-skill'] === 0).props.onClick();
     tree = view();
     [...walk(tree)].find((v) => v.props?.role === 'radio' && v.props['data-module'] === 'none').props.onClick();
     tree = view();
     [...walk(tree)].find((v) => v.props?.['data-testid'] === 'diy-confirm').props.onClick();
-    assert.deepEqual(done, [{ charId: SIEGE, skillIndex: 0, uniEquipId: null }]);
-    // a prototype: its locked skill only; 确认 sends just the operator (the server completes the locked selection)
-    [...walk(tree)].find((v) => hasClass(v, 'diy-opt') && v.props['data-char'] === SHARP).props.onClick();
+    assert.deepEqual(done, [{ charId: ASCLN, skillIndex: 0, uniEquipId: null }]);
+    // another operator: its default pick (S3, its first module) until changed
+    [...walk(tree)].find((v) => hasClass(v, 'diy-opt') && v.props['data-char'] === WANG).props.onClick();
     tree = view();
-    assert.deepEqual([...walk(tree)].filter((v) => v.props?.role === 'radio' && v.props['data-skill'] != null).map((v) => [v.props['data-skill'], v.props.disabled]), [[2, true]]);
+    assert.deepEqual([...walk(tree)].filter((v) => v.props?.role === 'radio' && v.props['data-module'] != null).map((v) => v.props['data-module']), ['none', 'uniequip_002_wang']);
     [...walk(tree)].find((v) => v.props?.['data-testid'] === 'diy-confirm').props.onClick();
-    assert.deepEqual(done.at(-1), { charId: SHARP });
+    assert.deepEqual(done.at(-1), { charId: WANG, skillIndex: 2, uniEquipId: 'uniequip_002_wang' });
   });
 });
 
 // ---- match UI -------------------------------------------------------------------------------------------------------------
 
 describe('match UI of a 自选 piece', () => {
-  const priv = { diy: { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP, skillIndex: 2, uniEquipId: 'uniequip_002_acguad' } }, loadout: {}, standIns: [], board: [], hand: [], temp: [] };
+  const priv = { diy: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, loadout: {}, standIns: [], board: [], hand: [], temp: [] };
   test('gameLogic: the own pick of a slot (normal + elite), the composed record, the own getter', () => {
-    assert.deepEqual(G.ownDiyPick(priv, getChess(T5A)), SIEGE_PICK);
-    assert.deepEqual(G.ownDiyPick(priv, getChess('chess_char_5_diy1_b')), SIEGE_PICK, 'the elite too');
+    assert.deepEqual(G.ownDiyPick(priv, getChess(T5A)), MAIN_PICK);
+    assert.deepEqual(G.ownDiyPick(priv, getChess('chess_char_5_diy1_b')), MAIN_PICK, 'the elite too');
     assert.equal(G.ownDiyPick(priv, getChess(T5B)), null, 'a slot not filled');
     assert.equal(G.ownDiyPick(priv, getChess('chess_char_4_22_a')), null);
     const rec = G.ownDiyRecord(getChess(T5A), priv, D);
-    assert.deepEqual([rec.name, rec.charId, rec.diyFor, rec.bonds, rec.tier, rec.price], [DATA.backups.units[SIEGE].name, SIEGE, T5A, ['victoriaShip'], 5, 4]);
+    assert.deepEqual([rec.name, rec.charId, rec.diyFor, rec.bonds, rec.tier, rec.price], [DATA.backups.units[ASCLN].name, ASCLN, T5A, ['emptyShip'], 5, 4]);
     assert.equal(G.ownDiyRecord(getChess(T5A), priv, D), rec, 'cached');
     const get = G.diyGetter(getChess, priv, D);
     assert.equal(get(T5A), rec);
     assert.equal(get('chess_char_4_22_a'), getChess('chess_char_4_22_a'));
-    assert.equal(G.chessLoadout(get('chess_char_5_diy1_b'), priv.loadout, get).skill.skillId, 'skchr_siege_3', 'the pick\'s skill');
-    assert.equal(G.deployedModuleId(get('chess_char_5_diy1_b'), priv, get, D.backups), 'uniequip_002_siege', 'the pick\'s module on the elite');
-    assert.equal(G.cardDiy(getChess(T5A), { unit: { diy: { charId: SHARP, skillIndex: 2, uniEquipId: 'uniequip_002_acguad' } }, data: D }).charId, SHARP, 'a teammate\'s unit says it itself');
+    assert.equal(G.chessLoadout(get('chess_char_5_diy1_b'), priv.loadout, get).skill.skillId, 'skchr_ascln_3', 'the pick\'s skill');
+    assert.equal(G.deployedModuleId(get('chess_char_5_diy1_b'), priv, get, D.backups), 'uniequip_002_ascln', 'the pick\'s module on the elite');
+    assert.equal(G.cardDiy(getChess(T5A), { unit: { diy: { charId: CHEN3, skillIndex: 2, uniEquipId: 'uniequip_002_chen3' } }, data: D }).charId, CHEN3, 'a teammate\'s unit says it itself');
   });
 
-  test('placement reads the operator\'s position (推进之王 melee) through the own getter', () => {
+  test('placement reads the operator\'s position (阿斯卡纶 melee) through the own getter', () => {
     const get = G.diyGetter(getChess, priv, D);
     const ctx = G.placementContext({ priv, stage: null, editable: true, getChess: get, backups: D.backups });
     assert.equal(G.piecePosition(ctx, { kind: 'chess', id: T5A }), 'MELEE');
@@ -270,11 +278,11 @@ describe('match UI of a 自选 piece', () => {
     const nodes = [...walk(card)];
     const badge = nodes.find((v) => hasClass(v, 'scard__diy'));
     assert.ok(badge);
-    assert.equal(badge.props['data-diy'], SIEGE);
+    assert.equal(badge.props['data-diy'], ASCLN);
     assert.equal(badge.props.children, '自选');
-    assert.equal(nodes.find((v) => hasClass(v, 'scard__name')).props.children, DATA.backups.units[SIEGE].name);
-    assert.ok(nodes.some((v) => v.props?.bondId === 'victoriaShip'), 'the derived bond');
-    assert.equal(nodes.find((v) => v?.type && v.props?.lo).props.lo.skill.skillId, 'skchr_siege_3');
+    assert.equal(nodes.find((v) => hasClass(v, 'scard__name')).props.children, DATA.backups.units[ASCLN].name);
+    assert.ok(nodes.some((v) => v.props?.bondId === 'emptyShip'), 'the derived bond');
+    assert.equal(nodes.find((v) => v?.type && v.props?.lo).props.lo.skill.skillId, 'skchr_ascln_3');
     const other = ChessCard({ slot: { kind: 'chess', id: T5A, price: 4, basePrice: 4 }, idx: 0, priv: { diy: {} }, onBuy() {}, onDetail() {} });
     assert.equal([...walk(other)].find((v) => hasClass(v, 'scard__diy')), undefined);
   });
@@ -283,50 +291,48 @@ describe('match UI of a 自选 piece', () => {
     const piece = { uid: 7, kind: 'chess', id: 'chess_char_5_diy1_b', golden: true, items: [] };
     const pieces = new Map([[7, { piece, area: 'board', row: 10, col: 4 }]]);
     const r = resolveDetail({ kind: 'piece', uid: 7 }, pieces, { priv, backups: D.backups });
-    assert.equal(r.chess.charId, SIEGE);
-    assert.deepEqual(r.diy, SIEGE_PICK);
-    assert.equal(resolveDetail({ kind: 'chess', id: T5A }, new Map(), { priv, backups: D.backups }).chess.charId, SIEGE, 'a shop card');
+    assert.equal(r.chess.charId, ASCLN);
+    assert.deepEqual(r.diy, MAIN_PICK);
+    assert.equal(resolveDetail({ kind: 'chess', id: T5A }, new Map(), { priv, backups: D.backups }).chess.charId, ASCLN, 'a shop card');
     assert.equal(resolveDetail({ kind: 'chess', id: T5A, foreign: true }, new Map(), { priv, backups: D.backups }).diy, undefined, 'the banned list / another player\'s card');
-    const u = resolveDetail({ kind: 'unit', unit: { id: 3, uid: 33, side: 'ally', kind: 'op', defId: T6A, diy: { charId: SHARP, skillIndex: 2, uniEquipId: 'uniequip_002_acguad' } } }, new Map(), { priv: null, backups: D.backups });
-    assert.equal(u.chess.charId, SHARP);
+    const u = resolveDetail({ kind: 'unit', unit: { id: 3, uid: 33, side: 'ally', kind: 'op', defId: T6A, diy: { charId: CHEN3, skillIndex: 2, uniEquipId: 'uniequip_002_chen3' } } }, new Map(), { priv: null, backups: D.backups });
+    assert.equal(u.chess.charId, CHEN3);
     const blocks = ChessDetail({ chess: r.chess, piece, editable: false, bonds: [], loadout: priv.loadout, diy: r.diy });
     const head = blocks.find((b) => b.key === 'head');
     assert.equal([...walk(head)].find((v) => hasClass(v, 'dtag-diy'))?.props.children, '自选');
-    assert.equal([...walk(head)].find((v) => hasClass(v, 'dhead__name')).props.children, DATA.backups.units[SIEGE].name);
+    assert.equal([...walk(head)].find((v) => hasClass(v, 'dhead__name')).props.children, DATA.backups.units[ASCLN].name);
     const skill = blocks.find((b) => b.key === 'skill');
-    assert.ok(JSON.stringify(skill.props).includes('skchr_siege_3'));
+    assert.ok(JSON.stringify(skill.props).includes('skchr_ascln_3'));
     const mod = blocks.find((b) => b.key === 'module');
-    assert.ok(JSON.stringify(mod.props).includes('uniequip_002_siege'), 'the pick\'s module (elite)');
+    assert.ok(JSON.stringify(mod.props).includes('uniequip_002_ascln'), 'the pick\'s module (elite)');
     assert.ok(!blocks.some((b) => b.key === 'garrison'), 'no 特质');
   });
 
   test('own prep pieces of a filled slot get the 「自选」 tag', () => {
     const p = { ...priv, hand: [{ uid: 1, kind: 'chess', id: T5A }, { uid: 2, kind: 'chess', id: 'chess_char_4_22_a' }], temp: [], board: [{ uid: 4, kind: 'chess', id: 'chess_char_6_diy1_b', row: 10, col: 4 }] };
-    assert.deepEqual(diyPieces(p, getChess, D).map((x) => [x.uid, x.area, x.label, x.name]), [[1, 'hand', '自选', DATA.backups.units[SIEGE].name], [4, 'board', '自选', DATA.backups.units[SHARP].name]]);
+    assert.deepEqual(diyPieces(p, getChess, D).map((x) => [x.uid, x.area, x.label, x.name]), [[1, 'hand', '自选', DATA.backups.units[ASCLN].name], [4, 'board', '自选', DATA.backups.units[WANG].name]]);
     assert.deepEqual(diyPieces({ ...p, diy: {} }, getChess, D), []);
   });
 
-  test('bonds: the popup lists the own 自选 member (煌-style several bonds count each) and a teammate\'s by its unit\'s pick', () => {
+  test('bonds: the popup lists the own 自选 member and a teammate\'s by its unit\'s pick', () => {
     const get = G.diyGetter(getChess, priv, D);
     const own = { ...priv, board: [{ uid: 4, kind: 'chess', id: T5A, row: 10, col: 4 }], hand: [{ uid: 5, kind: 'chess', id: T6A }] };
-    const vic = G.bondMembers(DATA.bonds.victoriaShip, own, [], get);
-    const row = vic.find((x) => x.diy);
-    assert.deepEqual([row.id, row.name, row.onBoard, row.owned, row.rec.charId], [T5A, DATA.backups.units[SIEGE].name, true, true, SIEGE]);
     const empty = G.bondMembers(DATA.bonds.emptyShip, own, [], get);
-    assert.deepEqual(empty.filter((x) => x.diy).map((x) => [x.id, x.inHand]), [[T6A, true]], 'the prototype in the hand counts for 协防');
-    assert.equal(G.memberHeadCount(vic.filter((x) => x.diy)), 1);
+    const row = empty.find((x) => x.diy);
+    assert.deepEqual([row.id, row.name, row.onBoard, row.owned, row.rec.charId], [T5A, DATA.backups.units[ASCLN].name, true, true, ASCLN]);
+    const yan = G.bondMembers(DATA.bonds.yanShip, own, [], get);
+    assert.deepEqual(yan.filter((x) => x.diy).map((x) => [x.id, x.inHand, x.rec.charId]), [[T6A, true, WANG]], '望 in the hand counts for 炎');
+    assert.equal(G.memberHeadCount(empty.filter((x) => x.diy)), 1);
     // a watched teammate: its board from the field units, their picks carried along (watchBonds ownerBoard)
-    const field = { units: [{ kind: 'op', ownerId: 'p_2', defId: T5B, diy: { charId: 'char_017_huang', skillIndex: 0, uniEquipId: null } }] };
+    const field = { units: [{ kind: 'op', ownerId: 'p_2', defId: T5B, diy: { charId: CHEN3, skillIndex: 0, uniEquipId: null } }] };
     const mate = ownerBoard(field, 'p_2');
-    assert.deepEqual(mate.board[0].diy, { charId: 'char_017_huang', skillIndex: 0, uniEquipId: null });
+    assert.deepEqual(mate.board[0].diy, { charId: CHEN3, skillIndex: 0, uniEquipId: null });
     const pieceRecord = (p) => (p.diy ? G.diyRecordFor(getChess(p.id), p.diy, D) : null) || getChess(p.id);
-    for (const b of ['yanShip', 'victoriaShip']) {
-      const rows = G.bondMembers(DATA.bonds[b], mate, [], getChess, () => null, pieceRecord);
-      assert.ok(rows.some((x) => x.diy && x.rec.charId === 'char_017_huang'), `煌 is a ${b} member`);
-    }
+    const rows = G.bondMembers(DATA.bonds.yanShip, mate, [], getChess, () => null, pieceRecord);
+    assert.ok(rows.some((x) => x.diy && x.rec.charId === CHEN3), '赤刃明霄陈 is a 炎 member');
     // the popup itself renders the 自选 row with its tag
-    const pop = expand(BondPopup({ bondId: 'victoriaShip', entry: { count: 1, active: false, tier: 0, layers: 0 }, priv: own, onClose() {} }));
-    const mrow = [...walk(pop)].find((v) => hasClass(v, 'bpop__member') && textOf(v).includes(DATA.backups.units[SIEGE].name));
+    const pop = expand(BondPopup({ bondId: 'emptyShip', entry: { count: 1, active: false, tier: 0, layers: 0 }, priv: own, onClose() {} }));
+    const mrow = [...walk(pop)].find((v) => hasClass(v, 'bpop__member') && textOf(v).includes(DATA.backups.units[ASCLN].name));
     assert.ok(mrow, 'the 自选 member row');
     assert.ok([...walk(mrow)].some((v) => hasClass(v, 'bpop__diy')), 'tagged 自选');
   });

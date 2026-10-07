@@ -10,7 +10,7 @@ import { diyGameData } from '../../server/match/player/diy.js';
 import { makeMatch, give, chessOfTier, checkInvariants } from './harness.js';
 
 const T5A = 'chess_char_5_diy1_a';
-const PICK = { charId: 'char_112_siege', skillIndex: 2, uniEquipId: 'uniequip_002_siege' }; // 推进之王
+const PICK = { charId: 'char_1035_wisdel', skillIndex: 2, uniEquipId: 'uniequip_002_wisdel' }; // 维什戴尔 (协防: never banned)
 
 function prep(seed = 911) {
   const seats = [

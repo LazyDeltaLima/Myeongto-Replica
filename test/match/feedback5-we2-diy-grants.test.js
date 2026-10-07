@@ -11,10 +11,10 @@ import { applyCard, tacticCard } from '../../server/match/choices.js';
 import { makeMatch, checkInvariants } from './harness.js';
 
 const T5A = 'chess_char_5_diy1_a';
-const SIEGE = 'char_112_siege'; // 推进之王 (维多利亚)
-const PICK = { charId: SIEGE, skillIndex: 2, uniEquipId: 'uniequip_002_siege' };
+const CHEN = 'char_1050_chen3'; // 赤刃明霄陈 (炎)
+const PICK = { charId: CHEN, skillIndex: 2, uniEquipId: 'uniequip_002_chen3' };
 
-/** A co-op match: p_0 slots 推进之王 at T5A, p_1 slots nothing; first prep. */
+/** A co-op match: p_0 slots 赤刃明霄陈 at T5A, p_1 slots nothing; first prep (the seed must not ban 炎). */
 function prep(seed = 911) {
   const seats = [
     { seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T5A]: PICK } },
@@ -41,10 +41,10 @@ test('#9 effect rolls (ctx.rollChess, any tier / bond filter) draw the player\'s
   assert.equal(c1.rollChess({ tier: 5 }), null, 'another player never draws it');
   // the 调度中心 level is not the shop's gate here: an effect's tier rule alone (p_0 is at level 1)
   assert.ok(p0.shop.level < 5);
-  // a bond filter reads the operator: 推进之王 is 维多利亚
-  drain(m, (id) => (m.gd.chess(id)?.bonds || []).includes('victoriaShip'));
-  assert.equal(c0.rollChess({ bond: 'victoriaShip' }), T5A);
-  assert.equal(c0.rollChess({ bond: 'yanShip', tier: 5 }), null, 'not a 炎 operator');
+  // a bond filter reads the operator: 赤刃明霄陈 is 炎
+  drain(m, (id) => (m.gd.chess(id)?.bonds || []).includes('yanShip'));
+  assert.equal(c0.rollChess({ bond: 'yanShip' }), T5A);
+  assert.equal(c0.rollChess({ bond: 'victoriaShip', tier: 5 }), null, 'not a 维多利亚 operator');
   // granting it takes one copy of her own stock
   assert.ok(c0.grantChess(T5A));
   assert.equal(p0.diyStock.left(T5A), 7);
@@ -53,17 +53,17 @@ test('#9 effect rolls (ctx.rollChess, any tier / bond filter) draw the player\'s
   m.dispose();
 });
 
-test('#9 reward pools (ctx.rollPool: a shared-pool chess pool) and the 维多利亚驰援 card draw it too', () => {
-  const { m, p0, p1 } = prep(910);
+test('#9 reward pools (ctx.rollPool: a shared-pool chess pool) and the 炎盟约驰援 card draw it too', () => {
+  const { m, p0, p1 } = prep(913);
   drain(m, (id, e) => e.tier === 5);
   const c0 = makeCtx(m, p0, { key: 'test' }, 'onTest');
   const c1 = makeCtx(m, p1, { key: 'test' }, 'onTest');
   assert.deepEqual(c0.rollPool('pool_chess_shop_5_reward'), { kind: 'chess', id: T5A, golden: false });
   assert.equal(c1.rollPool('pool_chess_shop_5_reward'), null);
-  // 维多利亚驰援 (allybuff_select_7_7, single_special_choice_gain_bond_chess) with every 维多利亚 copy of the pool taken:
-  // the card grants her 推进之王 from her own stock
-  drain(m, (id) => (m.gd.chess(id)?.bonds || []).includes('victoriaShip'));
-  const card = tacticCard(m.gd.choices.cards.tactic.find((c) => c.effectId === 'allybuff_select_7_7'));
+  // 炎盟约驰援 (allybuff_select_7_1, single_special_choice_gain_bond_chess) with every 炎 copy of the pool taken: the card
+  // grants her 赤刃明霄陈 from her own stock
+  drain(m, (id) => (m.gd.chess(id)?.bonds || []).includes('yanShip'));
+  const card = tacticCard(m.gd.choices.cards.tactic.find((c) => c.effectId === 'allybuff_select_7_1'));
   const owned = (ps) => [...ps.board.values(), ...ps.hand, ...ps.temp].filter((x) => x && x.kind === 'chess' && x.id === T5A).length;
   const before = p0.diyStock.left(T5A);
   applyCard(m, p0, card);

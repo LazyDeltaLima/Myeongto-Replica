@@ -46,6 +46,7 @@ test('a stand-in kit file standin-<codename>.js registers the kit of that stand-
 
 test('a 自选 kit file op-<codename>.js registers the kit of that owned-6★ pick (data/backups.json diy.ownedPool), every skill under `skills`', async () => {
   const pool = BACKUPS.diy.ownedPool;
+  assert.equal(OPERATOR_KIT_FILES.length, pool.length, 'one kit file per owned pick (our five: shared/local-diy.js)');
   for (const file of OPERATOR_KIT_FILES) {
     const m = /^op-([a-z0-9]+)\.js$/.exec(file);
     assert.ok(m, `${file}: name`);
