@@ -78,7 +78,7 @@ const loadModes = () => (modesPromise ||= fetch(MODES_URL).then((r) => (r.ok ? r
  *   it (the 3D board is on — the 2D board paints an opaque backdrop on the units canvas itself); fieldRect: the battle
  *   field's tile rect (local patch: 余 S3's wall runs across it, fx.js wallTiles)
  */
-export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null }) {
+export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null }) {
   let index = null, modes = null;
   if (typeof fetch === 'function') { loadIndex().then((i) => { index = i; }); loadModes().then((m) => { modes = m; }); }
   let mod = null, loading = null, failed = false;
@@ -138,6 +138,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       layers.under = make(above, '1');
       layers.over = make(above.nextSibling, '2');
       layers.split = { scene: new THREE.Scene(), n: 0 }; // local patch
+      occ = makeOccluders(THREE, [layers.under.scene, layers.over.scene, layers.split.scene]); // local patch
       camera = new THREE.PerspectiveCamera();
       size = new THREE.Vector2();
       lib = new fxp.FxLibrary('/assets/local/fx/');
@@ -212,6 +213,68 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // the player's own cap: it has already ended the oldest (done, dispose is a no-op) — the same one here
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
     }
+  }
+
+  // local patch (user report 2026-10-08: 赤刃明霄陈's S3 dragon over the 阻隔工事 crate behind her): the client's map and its
+  // devices are opaque geometry in the depth buffer, so an effect renderer that tests depth (`_ZTest` 4 — fxplayer.js
+  // userData.ztest; her dragon head, most of the 剑气 trail) is hidden inside / behind a crate or a raised tile, while one
+  // with `_ZTest` 0 draws over it. The board is another canvas here: its raised tiles (tile tops, `grid()`) and the battle's
+  // device boxes (render/units.js DeviceView: crates, turrets) are drawn into each effect canvas's depth only, first.
+  let occ = null, occKey = '', occGrid = null, occTiles = [], occGridN = 0;
+  const OCC_DOWN = 0.05; // tops a little lower: an effect on a unit standing on a high tile is at that height (fxplayer.js floor cut)
+  function makeOccluders(THREE, scenes) {
+    const geo = new THREE.BufferGeometry();
+    const mat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, depthTest: true, side: THREE.DoubleSide });
+    const meshes = scenes.map((sc) => {
+      const m = new THREE.Mesh(geo, mat);
+      m.renderOrder = -1e9; m.frustumCulled = false; m.layers.enableAll(); m.visible = false;
+      sc.add(m);
+      return m;
+    });
+    return { THREE, geo, meshes };
+  }
+  /** Rebuild the occluder boxes when the raised tiles or the live device boxes changed; none off the 3D board. */
+  function syncOccluders() {
+    if (!occ) return;
+    let on = false;
+    try { on = !!under(); } catch { /* 2D board: the units canvas paints the board */ }
+    const devs = [];
+    let g = null;
+    if (on) {
+      try { g = grid(); } catch { /* none */ }
+      if (g !== occGrid) { // the tile boxes change with the stage only (render/tiles.js rebuilds its grid)
+        occGrid = g; occGridN++; occTiles = [];
+        if (Array.isArray(g)) for (const row of g) for (const t of row || []) {
+          const h = t && t.drawn ? (t.h || 0) + (t.devH || 0) : 0;
+          if (h > OCC_DOWN + 0.01) occTiles.push([t.c, t.r, 0.5, h - OCC_DOWN]);
+        }
+      }
+      if (lastViews) for (const v of lastViews.values()) {
+        if (!v || !v.spec || !(v.spec.height > 0) || v.alive === false || v.remove || !('box' in v)) continue;
+        devs.push([v.x, v.y, (v.spec.size || 0.8) / 2, (v.z || 0) + v.spec.height - OCC_DOWN]);
+      }
+    }
+    const key = on ? `${occGridN}|${devs.map((b) => b.map((x) => Math.round(x * 100)).join(',')).join(';')}` : '';
+    const boxes = on ? [...occTiles, ...devs] : [];
+    if (key === occKey) return;
+    occKey = key;
+    const pos = new Float32Array(boxes.length * 36 * 3);
+    let k = 0;
+    const v = (x, y, z) => { pos[k++] = x; pos[k++] = y; pos[k++] = z; };
+    const quad = (a, b, c, d) => { v(...a); v(...b); v(...c); v(...a); v(...c); v(...d); };
+    for (const [x, y, hw, top] of boxes) {
+      const x0 = x - hw, x1 = x + hw, y0 = y - hw, y1 = y + hw, z0 = -1, z1 = top;
+      quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]);
+      quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]);
+      quad([x1, y1, z0], [x0, y1, z0], [x0, y1, z1], [x1, y1, z1]);
+      quad([x0, y1, z0], [x0, y0, z0], [x0, y0, z1], [x0, y1, z1]);
+      quad([x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]);
+      quad([x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0]);
+    }
+    occ.geo.dispose();
+    occ.geo.setAttribute('position', new occ.THREE.BufferAttribute(pos, 3));
+    occ.geo.setDrawRange(0, boxes.length * 36);
+    for (const m of occ.meshes) m.visible = boxes.length > 0;
   }
 
   /** local patch: whether the effects on units split by sorting now ('high', a see-through units canvas — the 3D board). */
@@ -978,6 +1041,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (s.x !== w || s.y !== h) L.renderer.setSize(w, h, false);
       }
       syncThreeCamera(cam, camera, w, h, { near: Math.max(0.3, cam.dist * 0.08), far: cam.dist + 70 });
+      syncOccluders(); // local patch
       const t0 = performance.now();
       for (const [id, m] of movers) {
         if (!m.inst) continue;
@@ -1030,6 +1094,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         L?.canvas.remove();
       }
       layers.under = layers.over = layers.split = null;
+      occ = null; occKey = ''; occGrid = null; occTiles = []; // local patch
       mod = null;
     },
 

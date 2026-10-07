@@ -440,7 +440,7 @@ export async function createFieldView(host, options = {}) {
     resolution: dpr(), autoDensity: true, powerPreference: 'high-performance',
   });
   const canvas = app.view;
-  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null) }); // local patch
+  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null), grid: () => tiles.grid }); // local patch
   canvas.style.display = 'block';
   canvas.style.width = '100%';
   canvas.style.height = '100%';

@@ -401,6 +401,9 @@ function makeMaterial(m, lib) {
   // local patch: whether the material tests depth (`_ZTest` 4 LessEqual …; 0 Disabled / 8 Always do not) — the floor cut
   // applies only to those: the client's map hides what they draw under the ground by depth [ASSUMED: 0 = Disabled is used]
   mat.userData.ztest = !(f._ZTest === 0 || f._ZTest === 8);
+  // local patch (user report 2026-10-08): … and against the map's raised tiles / crates (render/fxgame.js occluders —
+  // the only depth in an effect canvas: every effect renderer writes none, as before)
+  mat.depthTest = mat.userData.ztest;
   return mat;
 }
 

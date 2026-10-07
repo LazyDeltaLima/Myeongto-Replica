@@ -1136,6 +1136,21 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     [추정] 클라이언트는 order 0을 거리로 정렬(Spine의 정렬 기준점은 모름) — 「뒤에 떨어져 있으면 뒤」만 반영.
     - 남은 차이: 공식 녹화는 용 머리가 그녀 어깨 위로 크게 드러나는데 우리는 그녀 몸에 대부분 가린다. 같은 장면에서 우리 첸이 칸 대비 약 1.3배 크다
       (공식 녹화 키 ≈ 1.07칸, 아레나 ≈ 1.35칸, 사용자 캡처 ≈ 1.6칸) — 유닛 크기 문제로 보임, 이 수정 범위 밖(확인 필요).
+  - **8. 赤刃明霄陈 S3 검기가 상자(阻隔工事)를 뚫고 올라감** (`act2autochess_m03` 排气格栅, 상자 = 장치 `trap_1105_accrate`이 `b` 낮은 칸 위에 놓임 —
+    「언덕 타일」이 아니다): 시뮬레이션은 그대로 둠 — 클라이언트 상자 프리팹 모드 `_tileOptions.heightType` 0 + `_rewriteTileHeightType` 0
+    (`_rewriteTileHeight` 1, `_rewriteHeight` 0.4: 높이 값만 바꾸고 높이 종류는 LOWLAND 그대로)이고, 투사체 `ChangeStateWithHighlandBehaviour`는
+    `_checkHitHighland`(높이 종류)·맵 끝·侵入点·保护目标만 본다 → 공식도 검기는 상자를 지나간다 [추정: 높이 종류만 본다는 것은 필드 이름·PRTS 「高度类型为高地」].
+    대신 그리기: 공식 맵·장치는 깊이 버퍼에 있는 불투명 메시라 `_ZTest` 4인 렌더러(검기 용 머리 `long_02`·꼬리 리본 대부분, 버프 용 머리 `longtou`)는
+    상자 안에서 가려지고 `_ZTest` 0인 것(별빛·빛)만 위에 보인다. 우리 이펙트 캔버스는 보드와 다른 캔버스라 깊이가 없었다 → `fxgame.js` occluders:
+    3D 보드일 때 높은 칸(`tiles.grid` 높이, `app.js` `grid` 옵션 1줄)과 전투 장치 상자(`DeviceView` `spec` 크기·높이)를 상자 꼴로 이펙트 캔버스 셋의
+    깊이에만 먼저 그리고(색 안 씀), `fxplayer.js`는 재질의 `depthTest`를 `_ZTest`대로 켬(모든 이펙트 렌더러가 깊이를 안 쓰므로 가림막 말고는 차이 없음).
+    윗면은 0.05 낮춤(높은 칸 위 유닛 발밑 이펙트, 바닥 자르기와 같은 값). 검기 용은 클립으로 높이 약 0.55~0.6에서 날아 상자(0.74) 안에 들어간다.
+    - 디버그 아레나 `arenaStage('stage:<스테이지 id>')`: 실제 스테이지(씬·타일·상자)를 그대로 — 칩 없음, 확인 스크립트가 `__debug.st.terrain`으로 지정.
+    - 확인(Windows Chrome): `sp-check\chen_cap.mjs`(평지, 2배 해상도), `chen_cap2.mjs <port> <prefix> <op:skill:row.col.DIR> <n> <ms> 1
+      [terrain]`(`HEADFX=1` = git HEAD의 fxgame/fxplayer로 바꿔 끼워 전후 비교). 결과 `chenR/L-*`(평지, 용 뒤·한 마리), `chenUh-*`(HEAD: 상자 위로 용) ↔
+      `chenFinU-*`(수정: 상자 안에서 가려짐, 꺾은 뒤 다시 보임), `chenFinR-*`(오른쪽 배치, 뒤 상자 위에 용 없음).
+    - [추정]·남은 것: 상자 가림막은 칸 크기 상자(0.84×0.74, `DEVICE_BOX.crate`) — 공식 상자 메시 모양과 조금 다름. 전투 밖 정적 상자(전투 칸 밖)는 가림막에
+      안 넣음. 2D 보드는 그대로. 사용자가 「상자에서 꺾여야 한다」고 기억하면 시뮬레이션 변경이 필요(공식 녹화로 확인 후 결정).
 
 ## 공식 스테이지 3D 씬 (2026-10-06)
 - 3D 보드는 원래 시즌 1 아틀라스(`map_autochess`)로 모든 스테이지를 그렸다. 지금 클라이언트는 스테이지마다 완성된 씬(`scenes/activities/act*autochess/level_*`)과 라이트맵을 갖고 있고, 테마는 사막(`map_autochesssand`), 카시미어(`map_kxmr`), 시라쿠사 지하철(`map_syracuse_metro`)이다. 자세한 내용은 DESIGN §15.1.
