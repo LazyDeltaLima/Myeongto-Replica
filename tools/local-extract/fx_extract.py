@@ -42,6 +42,9 @@ BUNDLE_DIRS = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')  # Persis
 WEBP_QUALITY = 85
 WIDTH_ATTR = zlib.crc32(b'm_Parameters.widthMultiplier')   # local patch: the clip binding of a line / trail's width
 VARIANT_RE = re.compile(r'#\d+|_sale|_iteration|_avemujica|_cn_topolect', re.I)
+# local patch: prefabs never extracted — common_stealth (texture common_leaf; only the 生息演算 buildings use it, and the user has
+# never seen the leaf in the game, 2026-10-08: "그 텍스처는 폐기해")
+DISCARD = {'common_stealth'}
 
 
 def r4(v):
@@ -643,6 +646,8 @@ class Extractor:
         for go in roots:
             name = go.read_typetree()['m_Name']
             if prefabs and name not in prefabs:
+                continue
+            if name in DISCARD:
                 continue
             if not all_skins and VARIANT_RE.search(name):
                 continue
