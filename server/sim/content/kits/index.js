@@ -16,10 +16,11 @@
 // tier group: the chess keys keep their order, and `char_…` keys never meet `chess_char_…` ones.
 //
 // 自选 operator kits (DATA.md §18, README.md "How to add an operator (自选)"): OPERATOR_KIT_FILES lists
-// `ops/op-<codename>.js`, one per owned-6★ pick of data/backups.json `diy.ownedPool` (codename = its charId without
-// `char_<n>_`: `op-siege.js` = 推进之王, char_112_siege), each registering exactly that charId and writing every skill under
-// `skills`. A 自选 piece keeps its DIY slot's ids, so kitOf finds its kit by `def.charId` — a prototype pick runs its
-// stand-in kit, a 4★ reserve the generic kit (GENERIC_KIT_CHARS). OPERATOR_KITS is merged after the stand-ins.
+// `ops/op-<codename>.js`, one per owned-6★ pick of data/backups.json `diy.ownedPool` — our five (shared/local-diy.js;
+// upstream's other 67 are gone with the hard fork from 0.2.0) — (codename = its charId without `char_<n>_`: `op-wang.js`
+// = 望, char_2027_wang), each registering exactly that charId and writing every skill under `skills`. A 自选 piece keeps
+// its DIY slot's ids, so kitOf finds its kit by `def.charId` (a prototype pick — none on this server — would run its
+// stand-in kit, a 4★ reserve the generic kit: GENERIC_KIT_CHARS). OPERATOR_KITS is merged after the stand-ins.
 // KITTED_CHARS = every character a 自选 pick may field with a faithful kit; an operator outside it is not offered
 // (shared/diy.js diyPool / validateDiyPicks `kitted`).
 
@@ -79,83 +80,16 @@ export const STANDIN_KIT_FILES = Object.freeze(['standin-acguad.js', 'standin-sh
  * data/backups.json; a new file is appended). An operator without a file is not offered as a 自选 pick (KITTED_CHARS).
  */
 export const OPERATOR_KIT_FILES = Object.freeze([
-  'op-siege.js',
-  'op-chen.js',
-  'op-irene.js',
-  'op-helage.js',
-  'op-shining.js',
-  'op-cgbird.js',
-  'op-saga.js',
-  'op-amgoat.js',
-  'op-cerber.js',
-  'op-heyak.js',
-  'op-poca.js',
-  'op-typhon.js',
-  'op-narant.js',
-  'op-logos.js',
-  'op-mantra.js',
-  'op-veen.js',
-  'op-zuole.js',
-  'op-chyue.js',
-  'op-huang.js',
-  'op-shwaz.js',
-  'op-bgsnow.js',
-  'op-ifrit.js',
-  'op-aphris.js',
-  'op-lin.js',
-  'op-nian.js',
-  'op-hsgma2.js',
-  'op-thumpy.js',
-  'op-zumama.js',
-  'op-judge.js',
-  'op-shu.js',
-  'op-pallas.js',
-  'op-lessng.js',
-  'op-demetr.js',
-  'op-cqbw.js',
-  'op-phenxi.js',
   'op-wisdel.js',
-  'op-thorns.js',
   'op-chen3.js',
-  'op-leizi2.js',
-  'op-vvana.js',
-  'op-headb2.js',
-  'op-hodrer.js',
-  'op-chen2.js',
-  'op-ray.js',
   'op-ascln.js',
-  'op-jesca2.js',
-  'op-mcnist.js',
-  'op-kalts.js',
-  'op-sleach.js',
-  'op-closur.js',
-  'op-gdglow.js',
-  'op-haak.js',
-  'op-phatom.js',
-  'op-crosly.js',
-  'op-lmlee.js',
-  'op-weedy.js',
   'op-wang.js',
-  'op-doroth.js',
-  'op-aglna2.js',
-  'op-ebnhlz.js',
-  'op-mgllan.js',
-  'op-ling.js',
-  'op-radian.js',
-  'op-slent2.js',
-  'op-haruka.js',
-  'op-phatm2.js',
-  'op-ironmn.js',
-  'op-nasti.js',
-  'op-necras.js',
-  'op-kalts2.js',
-  'op-monstr.js',
-  'op-oblvns.js', // local patch: 丰川祥子 (a collab upstream leaves out; the owner's 선발 pick — shared/local-diy.js)
+  'op-oblvns.js', // 丰川祥子: a collab upstream leaves out, one of the owner's five (shared/local-diy.js)
 ]);
 
 /**
  * The 预备干员 whose every skill the generic kit covers exactly (冲锋号令, 攻击力 / 防御力 / 治疗强化, 战术咏唱, 一击即退 —
- * test/content/standin.test.js): fielded with no kit file, as 补位 stand-ins and as tier-5 自选 picks.
+ * test/content/standin.test.js): fielded with no kit file, as 补位 stand-ins (and as tier-5 自选 prototype picks, none here).
  */
 export const GENERIC_KIT_CHARS = Object.freeze(['char_600_cpione', 'char_601_cguard', 'char_602_cdfend', 'char_603_csnipe',
   'char_604_ccast', 'char_605_cmedic', 'char_606_csuppo', 'char_607_cspec']);

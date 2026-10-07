@@ -76,7 +76,7 @@ const isOtherBody = (def) => isStandInDef(def) || isDiyDef(def);
 
 /**
  * The kit builder of an operator def in `reg` ({ [key]: (bb, chess, def) => Kit }), or undefined. A stand-in's and a
- * 自选 piece's kit is keyed by its charId (`char_609_acguad`, `char_112_siege`) and by nothing else: the chess id it keeps
+ * 自选 piece's kit is keyed by its charId (`char_609_acguad`, `char_2027_wang`) and by nothing else: the chess id it keeps
  * names the replaced operator's kit (a DIY slot has none). Any other def: baseId (`…_a`, data/SIM.md), the exact id, or
  * the suffix-less id of DESIGN §5.6's example.
  */

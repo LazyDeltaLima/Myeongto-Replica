@@ -1,8 +1,7 @@
 // test/sim/feedback5-countdown-summons.test.js — the countdown summons (community report of 2026-10-06 「赫默的无人机、浊心
 // 斯卡蒂的海嗣等这种召唤物不会受到外来伤害（包括源石地板），也不会被干员治疗，血量随时间减少（血量就类似倒计时条，减少完召唤物就
-// 消失）」): the summons that "不会受到攻击" and leave after a fixed time — 医疗探机, 诅咒娃娃, 斯卡蒂的海嗣 and the 自选 ones
-// (工程蓄水炮, 沙地兽, “打字机”, 本能的召唤) — hold 无敌 + 禁疗 (PRTS 海嗣 / 沙地兽 「持有禁疗、无敌」, 工程蓄水炮 禁疗; the others
-// [ASSUMED] from the report) and their bar (the snapshot's hp) shows the share of their life left (content/tokens.js
+// 消失）」): the summons that "不会受到攻击" and leave after a fixed time — 医疗探机, 诅咒娃娃, 斯卡蒂的海嗣 (upstream's 自选
+// ones are gone with their kits) — hold 无敌 + 禁疗 (PRTS 海嗣 「持有禁疗、无敌」; the others [ASSUMED] from the report) and their bar (the snapshot's hp) shows the share of their life left (content/tokens.js
 // COUNTDOWN_SUMMONS / startCountdown). Until 0.2.0 a 海嗣 on 活性源石 lost 70 of its 100 HP every second and a hurt drone
 // drew the medics' heals. The 吟游者 trait (item 32) cannot refill such a bar either: their HP never moves.
 // Run: node --test test/sim/feedback5-countdown-summons.test.js
@@ -13,14 +12,11 @@ import { makeBattle, checkInvariants } from '../helpers/battleHarness.js';
 import { unitTuple } from '../../server/sim/snapshot.js';
 import { COUNTDOWN_SUMMONS } from '../../server/sim/content/tokens.js';
 
-/** [label, owner entry (uid 1), token id, life in s] — every placed countdown summon of the pool and of the 自选 pool. */
+/** [label, owner entry (uid 1), token id, life in s] — every placed countdown summon of the pool. */
 const CASES = [
   ['赫默 医疗探机', { chessId: 'chess_char_2_02_a' }, 'token_10000_silent_healrb', 10],
   ['巫恋 诅咒娃娃', { chessId: 'chess_char_3_15_a' }, 'token_10006_vodfox_doll', null],
   ['浊心斯卡蒂 海嗣', { chessId: 'chess_char_6_04_a' }, 'token_10017_skadi2_dedant', 25],
-  ['温蒂 工程蓄水炮', { diy: { slot: 5, charId: 'char_400_weedy', skillIndex: 0, uniEquipId: null } }, 'token_10009_weedy_cannon', 20],
-  ['莱伊 沙地兽', { diy: { slot: 5, charId: 'char_4117_ray', skillIndex: 0, uniEquipId: null } }, 'token_10034_ray_sndbst', 25],
-  ['鸿雪 打字机', { diy: { slot: 5, charId: 'char_4055_bgsnow', skillIndex: 0, uniEquipId: null } }, 'token_10026_bgsnow_subbow', 25],
 ];
 
 function field(owner, tokenId) {

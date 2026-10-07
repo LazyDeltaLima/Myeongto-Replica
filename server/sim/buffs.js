@@ -99,7 +99,7 @@ export const STATUS = Object.freeze({
   // 缚地 (gamedata_const ba.groundbind "目标变为地面单位，无法移动；使部分近地悬浮敌人掉落；对重量大于3的单位持续时间减半"):
   // an air unit (data flyer, 近地悬浮) counts as a ground unit (Unit.isFlying: melee operators hit it, ground blockers
   // block it) and cannot move; half duration on units with massLevel > 3 (Battle.applyStatus, as 浮空); a 浮空 still
-  // lands on it (PRTS 异常效果 "若单位数据上为飞行单位且不持有缚地异常…则Buff取消"). 予愿安洁莉娜 S2 (kits/ops/op-aglna2.js)
+  // lands on it (PRTS 异常效果 "若单位数据上为飞行单位且不持有缚地异常…则Buff取消"). (upstream's 自选 予愿安洁莉娜 S2 used it; no kit applies it here)
   groundbind: { flags: { groundbind: true, noMove: true }, mods: { moveMul: 0 } },
   // 麻痹: value = stacks (default 1, max 3); each stack cancels one enemy normal attack; lasts until consumed; honours
   // 麻痹免疫 (enemy_database palsyImmune, e.g. 假想敌：铳 — PRTS 元素: a 神经 burst gives 麻痹 only "若单位不具有麻痹免疫")

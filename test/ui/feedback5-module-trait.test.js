@@ -106,7 +106,7 @@ test('the 干员调配 module card: 特性 = the class trait (or the rewrite), �
 });
 
 test('the 自选 picker\'s module rows: the class trait, then the module\'s line', () => {
-  const pick = { charId: 'char_112_siege', skillIndex: 2, uniEquipId: 'uniequip_002_siege' };
+  const pick = { charId: 'char_2027_wang', skillIndex: 2, uniEquipId: 'uniequip_002_wang' };
   const slot = { slotId: 'chess_char_5_diy1_a', tier: 5, shopLevel: 5 };
   const tree = DiyPickerView({ m: null, slot, picks: { [slot.slotId]: pick }, kitted: [...KITTED_CHARS], onDone() {}, onClose() {},
     filter: 'all', query: '', draft: { ...pick }, onFilter() {}, onQuery() {}, onDraft() {} });
@@ -120,7 +120,7 @@ test('the 自选 picker\'s module rows: the class trait, then the module\'s line
   const rows = [...walk(expand(tree))].filter((v) => v.props?.role === 'radio' && v.props['data-module'] && v.props['data-module'] !== 'none');
   assert.ok(rows.length >= 1);
   const backups = data.get('backups');
-  const mods = Object.values(backups.units.char_112_siege.forms).flatMap((f) => f.modules || []);
+  const mods = Object.values(backups.units.char_2027_wang.forms).flatMap((f) => f.modules || []);
   for (const row of rows) {
     const rec = mods.find((x) => x.uniEquipId === row.props['data-module']);
     const t = rec.traitOverride;

@@ -45,7 +45,7 @@ export class BattleQueries {
   /**
    * Ally units an ally's attack selects like an enemy — the "ally targets" content registers (setAllyTarget): 白铁's
    * 铁钳号·原型机, a summon of the enemy camp that "可被我方干员攻击但不受伤害" (PRTS 铁钳号·原型机 备注 "该召唤物阵营为敌方";
-   * kits/ops/op-ironmn.js). Those standing on one of `keys`, alive and deployed — never `attacker` itself, and an ally target
+   * upstream's 自选 白铁 kit, removed here). Those standing on one of `keys`, alive and deployed — never `attacker` itself, and an ally target
    * selects none. ai.js acquireTargets appends them after the enemies (their 嘲讽等级 −2 puts them last). [] at once
    * while none is registered, so every other battle runs exactly as before.
    */

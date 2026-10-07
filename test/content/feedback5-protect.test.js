@@ -1,14 +1,13 @@
 // test/content/feedback5-protect.test.js — 庇护 is one effect per unit whoever grants it (gamedata_const ba.protect / PRTS 术语
-// 庇护 "受到的物理和法术伤害降低相应比例（同名效果取最高）"): the older kits — 宴, 余, 缪尔赛思 (chess), 赫拉格, 左乐, 赫德雷 (自选) —
-// hold it through the shared key the other 自选 kits use (kits/shared/tier1.js PROTECT / holdProtect → battle.applyStrongest),
-// so the strongest value applies instead of a product of every source. 遥's bubbles keep their own key (the client's
-// damage_resistance[bonus], which multiplies with the common damage_resistance[inf]).
+// 庇护 "受到的物理和法术伤害降低相应比例（同名效果取最高）"): the kits — 宴, 余, 缪尔赛思 (chess) — hold it through the shared
+// key (kits/shared/tier1.js PROTECT / holdProtect → battle.applyStrongest), so the strongest value applies instead of a
+// product of every source; no kit keeps a private copy of the key.
 // Run: node --test test/content/feedback5-protect.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, checkInvariants } from '../helpers/battleHarness.js';
 import { PROTECT, holdProtect } from '../../server/sim/content/kits/shared/tier1.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 
@@ -54,39 +53,18 @@ test('宴 below her threshold holds the shared 庇护; a stronger one from anoth
   done(w.h);
 });
 
-test('余 (blocking), 缪尔赛思\'s melee copies, 赫拉格 / 左乐 (SBL-X, below 50 %) and 赫德雷 (余火之氅) all hold 庇护 on the shared key', () => {
+test('余 (blocking) and 缪尔赛思\'s melee copies hold 庇护 on the shared key, as 宴 does', () => {
   const src = (f) => readFileSync(new URL(`../../server/sim/content/kits/ops/${f}`, import.meta.url), 'utf8');
-  for (const f of ['chess_char_1_18-utage.js', 'chess_char_6_03-yu.js', 'chess_char_6_11-mlyss.js', 'op-helage.js', 'op-zuole.js', 'op-hodrer.js']) {
+  for (const f of ['chess_char_1_18-utage.js', 'chess_char_6_03-yu.js', 'chess_char_6_11-mlyss.js']) {
     assert.match(src(f), /holdProtect\(/, `${f} uses the shared 庇护`);
     assert.doesNotMatch(src(f), /physTakenMul: 1 - dr|dmg\.mul \*= 1 - (dr|protectCut|num\(t\.damage_resistance\))/, `${f}: no private 庇护 multiplier left`);
   }
-  // 遥's bubble stays its own effect (damage_resistance[bonus])
-  assert.doesNotMatch(src('op-haruka.js'), /holdProtect\(/);
-  // 赫拉格 (SBL-X, tier 5) at 40 % HP: his 庇护 on the shared key
-  const h = makeBattle({
-    defs: { enemies: { e: enemyRec({ key: 'e', hp: 1e9, speed: 0 }) } },
-    units: [{ diy: { slot: 5, charId: 'char_188_helage', skillIndex: 0, uniEquipId: 'uniequip_002_helage' }, elite: true, row: 10, col: 5 }],
-    autoFinish: false, timeLimit: 30, seed: 3,
-  });
-  h.step();
-  const u = h.b.allyUnits.find((x) => x.def?.charId === 'char_188_helage');
-  u.hp = u.s.maxHp * 0.4;
-  h.step();
-  const b = u.findBuff(PROTECT);
-  assert.ok(b && b.source === u && b.data.value === 0.25, 'his SBL-X 庇护');
-  u.hp = u.s.maxHp;
-  h.step(3);
-  assert.equal(u.findBuff(PROTECT), null, 'gone above 50 %');
-  done(h);
 });
 
-test('0.2.0 WV: no kit keeps its own copy of the shared 庇护 key or mods — 淬羽赫默, 黍, 斥罪, 森蚺, 娜斯提 hold it through holdProtect, 遥\'s bubbles share only the mods', () => {
+test('0.2.0 WV: no kit keeps its own copy of the shared 庇护 key or mods', () => {
   const dir = new URL('../../server/sim/content/kits/ops/', import.meta.url);
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.js'))) {
     const s = readFileSync(new URL(f, dir), 'utf8');
     assert.doesNotMatch(s, /const (PROTECT|protectMods) =|applyStrongest\([^)]*['"]protect['"]|applyStrongest\(\w+, PROTECT\b/, `${f}: the shared tier1.js PROTECT / protectMods / holdProtect`);
-  }
-  for (const f of ['op-slent2.js', 'op-shu.js', 'op-judge.js', 'op-zumama.js', 'op-nasti.js']) {
-    assert.match(readFileSync(new URL(f, dir), 'utf8'), /holdProtect\(/, `${f} uses holdProtect`);
   }
 });

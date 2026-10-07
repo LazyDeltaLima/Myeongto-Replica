@@ -3,8 +3,8 @@
 // normal attack — its talent hurts every operator in range once a second (PRTS "无途径法术伤害"; buff_template_data
 // enemy_dsubrl_aoe[aura]: an AdvancedApplyDamage with the enemy as its source). The official counters fire on ON_TAKE_DAMAGE —
 // 菲莱 S2 philae_s_2 with no filter at all, the others on a source of the other side (inverse_damage — 星熊 S2 —,
-// inverse_damage[magic] + nian_s_2 — 年 S2 —, bubble_s_2 / bubble_t_1 — 泡泡 —, vendla_s_2 — 刺玫 S2 —, yu_s_1[inverse_damage] —
-// 余 S1 —, hsgma2_s_1 — 斩业星熊 S1 —, mlynar_t_2[inverse] — 玛恩纳 无动于衷) — but the remake took enemy attacks only.
+// bubble_s_2 / bubble_t_1 — 泡泡 —, vendla_s_2 — 刺玫 S2 —, yu_s_1[inverse_damage] — 余 S1 —, mlynar_t_2[inverse] — 玛恩纳
+// 无动于衷) — but the remake took enemy attacks only.
 // Now any damage instance from an enemy (kits/shared/tier1.js byEnemyAttack; 菲莱: any instance), never a 流失.
 // Run: node --test test/sim/feedback5-counters-any-damage.test.js
 
@@ -80,26 +80,6 @@ test('刺玫 S2 荆藤庇荫: a pulse on her protégé is answered (the counter 
   assert.ok(n >= 4, `${n} pulses on the protégé`);
   assert.equal(hits.length, n, `one counter per pulse on the protégé (${hits.length})`);
   assert.ok(hits.every((c) => c.dmg.traitAlly === p));
-});
-
-test('自选 年 S2 铜印 and 斩业星熊 S1 恶业苦果 answer the pulse too', () => {
-  const ni = nestFight([{ diy: { slot: 6, charId: 'char_2014_nian', skillIndex: 1 }, row: 10, col: 4 }]);
-  const n = ni.h.allies().find((u) => u.def?.charId === 'char_2014_nian' || u.charId === 'char_2014_nian' || /nian/.test(u.def?.diy?.charId ?? ''));
-  assert.ok(n, '年 fielded');
-  n.skill.gainSp(999, 'test');
-  if (!n.skill.active) n.skill.activate('test');
-  const before = pulsesOn(ni.h, ni.nest, n);
-  ni.h.run(6);
-  assert.ok(fromTo(ni.h, n, ni.nest, tagged('counter')).length >= pulsesOn(ni.h, ni.nest, n) - before && pulsesOn(ni.h, ni.nest, n) - before >= 4, '年 S2');
-  assert.ok(ni.nest.findBuff('silence') || ni.nest.s.flags.silence, '年 S2 silences the source');
-
-  const hm = nestFight([{ diy: { slot: 6, charId: 'char_1044_hsgma2', skillIndex: 0 }, row: 10, col: 4 }]);
-  const s = hm.h.allies()[0];
-  s.skill.gainSp(999, 'test');
-  if (!s.skill.active) s.skill.activate('test');
-  const before2 = pulsesOn(hm.h, hm.nest, s);
-  hm.h.run(6);
-  assert.ok(fromTo(hm.h, s, hm.nest, tagged('counter')).length >= pulsesOn(hm.h, hm.nest, s) - before2 && pulsesOn(hm.h, hm.nest, s) - before2 >= 4, '斩业星熊 S1');
 });
 
 test('never a 流失: an enemy\'s HP loss on 星熊 sets no 荆棘 off; another counter / reflection does not either', () => {

@@ -15,7 +15,6 @@ operators, the self-select 6★ operators, contributions from GitHub issue #136 
 | `ops/op-<codename>.js` | one 自选 operator kit per file (below: "How to add an operator (自选)") |
 | `shared/tier1.js` | the general kit helpers (blackboard readers, unit predicates, hit hooks, area queries, buffs, zones, free tiles, skill records) and the notes of the tier-1 kits |
 | `shared/tier2.js` … `tier6.js` | helpers two or more kits of that tier use, and that tier's notes (conventions, simplifications, fx kinds) |
-| `shared/summoner.js` | the 召唤师 summon deck the 自选 kits of 麦哲伦 / 令 / 电弧 share (`summonDeck`: the holding, a placed piece's return, recalls, the summons leaving with their owner; `holdBuff`, `tokenStat`) |
 
 `content/index.js` takes `KITS` from `index.js`: a unit's kit is `KITS[def.baseId]` (also the exact or the suffix-less
 id), else the generic kit built from the skill blackboard (`content/generic.js`, docs/SIM.md §7.4). A 补位 stand-in's
@@ -138,18 +137,12 @@ every active backup skill is cast).
 
 ## How to add an operator (自选)
 
-The 自选 (self-select) slots — two at tier 5, two at tier 6 — field a 6★ the player owns that is not in the chess pool,
-or a prototype (DATA.md §18, `shared/diy.js`). The prototypes run their stand-in kits, the 4★ 预备干员 the generic kit;
-an owned 6★ can be picked only once it has a kit of its own: one file per operator, the same rules as every kit above.
-Contributions are welcome — one operator per pull request is easiest to review.
-
-**Who.** The owned-6★ picks are `data/backups.json diy.ownedPool` (71 operators; the collab operators are not included,
-the owner's decision of 2026-10-05). The ones still without a kit:
-
-```sh
-node --input-type=module -e "import { readFileSync } from 'node:fs'; import { KITTED_CHARS } from './server/sim/content/kits/index.js';
-const b = JSON.parse(readFileSync('data/backups.json', 'utf8')); for (const id of b.diy.ownedPool) if (!KITTED_CHARS.includes(id)) console.log(id, b.units[id].name);"
-```
+The 自选 (self-select) slots — two at tier 5, two at tier 6 — field a 6★ the player owns that is not in the chess pool
+(DATA.md §18, `shared/diy.js`; upstream also offers prototypes, this server none). This server offers the owner's five
+(`shared/local-diy.js LOCAL_DIY_PICKS`: 望, 赤刃明霄陈, 维什戴尔, 丰川祥子, 阿斯卡纶); upstream's other owned-6★ picks and
+their kits are gone with the hard fork from 0.2.0 (2026-10-07). Another operator needs the owner's decision, then:
+`LOCAL_DIY_PICKS` (`tools/build-data.mjs` builds `diy.ownedPool` from it), the data rebuild and a kit of its own — one
+file per operator, the same rules as every kit above.
 
 **The data is already built** — `data/backups.json units[charId]` (no chess record exists for these operators):
 - `forms['2/1/4/0']` = the normal form (E2 Lv1, skills at rank 4, no module), `forms['2/60/7/1']` = the tier-5 elite (E2
@@ -164,9 +157,9 @@ const b = JSON.parse(readFileSync('data/backups.json', 'utf8')); for (const id o
   `node tools/build-data.mjs --offline` and check with a JSON compare that only the intended data changed.
 
 **File and registration.**
-1. `ops/op-<codename>.js`, the code name being the charId without `char_<n>_` (`op-siege.js` = 推进之王,
-   `char_112_siege`); the Chinese name in the first line.
-2. The default export has exactly one key, the charId: `export default { char_112_siege: (bb, chess, def) => Kit }`.
+1. `ops/op-<codename>.js`, the code name being the charId without `char_<n>_` (`op-wang.js` = 望, `char_2027_wang`);
+   the Chinese name in the first line.
+2. The default export has exactly one key, the charId: `export default { char_2027_wang: (bb, chess, def) => Kit }`.
 3. Append the file name to `OPERATOR_KIT_FILES` in `index.js`. The operator becomes a legal pick (`KITTED_CHARS`;
    `shared/diy.js diyPool` / `validateDiyPicks` with `kitted`) — never register it under a chess or slot id.
 4. `node --test test/content/kits_layout.test.js` checks the name, the key (an owned pick), the registry and that every
@@ -176,33 +169,28 @@ const b = JSON.parse(readFileSync('data/backups.json', 'utf8')); for (const id o
 composed record (`shared/diy.js diyRecordOf`): `skills` (all three at that rank), `talents` with the picked module's
 changes, `trait` (the module's override), `module` (`{ id, level: 1 | 3, active }` — active on the elite only), and on an
 elite with a module stage `statsBase` / `traitBase` / `talentsBase` / `modules[]` (a module talent that adds to a base
-talent: read the base from `talentsBase` and the module's own part from the module's `talentChanges`, as `op-siege.js`
-万兽之王); `def.tier` (5 / 6), `def.golden`, `def.charId`, `def.diyFor` (the slot). There is **no default skill**: the
+talent: read the base from `talentsBase` and the module's own part from the module's `talentChanges`); `def.tier` (5 / 6), `def.golden`, `def.charId`, `def.diyFor` (the slot). There is **no default skill**: the
 pick chooses any of the three, so write every skill under `skills: { [skillId]: SkillSpec }` (`skill` is ignored);
 `talents`, `trait` and `install` apply under every skill. Read every number from `chess` / `bb` — the same file serves
 both tiers, both forms and both module stages. A 自选 piece has no 特质 and its bonds come from its factions: neither is
 the kit's business. Summons: `battle.tokenDef(tokenId, unit)` / `battle.spawnToken(unit, …)` resolve the variant of the
 pick. A **placeable** summon (data/backups.json `tokens[id].placeable`, made by the pick's skill or a talent — the
-variant's `sources` — and shown by its owner: a skill's own object such as 予愿安洁莉娜's “一会儿见！” is not) is a hand piece like any operator's: when the 自选 piece is deployed in prep its player gets one
-stack of the variant's `deployLimit` — the picked module's own when its variant has one (望's TRP-X: 7 棋子); it holds
-the token's own talent additions (max_deploy_count / max_deck_stack_cnt, tools/build-data.mjs `tokenTalentDeckBonus`:
-麦哲伦 / 令 3, SUM-Y stage 2+ 4, 白铁 2, 夜莺 3), so a deck reads `deployLimit` / `deckStack` as they are —
-(server/match/player/diy.js `placeableTokens`, PlayerState `grantTokensFor`), places
-it on a legal tile (the token's position / `ownerRange`), loses it with its owner (sold, merged, moved back), and the
-match hands every placed piece to the battle as a PlayerBattleInput token unit `{ kind: 'token', tokenId, ownerUid }` —
-so a kit finds its pieces before the battle starts as `battle.allyUnits` with `kind === 'token'`, its `defId` and
-`ownerUnit === unit`, still undeployed (e.g. `op-bgsnow.js` gives its 打字机 pieces their kit in a talent's `install`
-with `battle._setupUnit(t, kit)`; `op-cgbird.js` counts its 幻影). A **skill's** summon piece (the variant's `sources` has
-'skill', not 'talent') is docked by content/tokens.js before the units are set up — it deploys once, free, at the battle
-start, then takes the field when the kit calls `releaseSkillSummon(battle, unit, tokenId)` — and the dock hooks are owned
-by the piece: give it its kit with `battle._setupUnit(t, kit)` and **no** `offOwner` (the generic token kit registers no
-hook), and clear the owner's `mem.summonStock[tokenId]` when the skill takes the summon back (`op-slent2.js` 夜灯,
-`op-phatm2.js` 本能的召唤). A kit test fields a piece the same way:
-`units: [op, { uid, kind: 'token', tokenId, ownerUid, row, col }]` (`test/content/op_bgsnow.test.js`); the match side is
-covered by `test/match/diy-shop.test.js` (a DIY 鸿雪's 打字机 from prep to battle). A 召唤师 whose talent holds a deck of
-summons ("可以使用5个召唤物（最多同时部署3个）") takes `shared/summoner.js summonDeck` — the holding, a placed piece's return
-on its tile, recalls, its pieces' kits (`op-mgllan.js`, `op-ling.js`, `op-radian.js`). Potential is 0 [ASSUMED: no account]. A new kit makes the operator a legal pick at once:
-the server's `welcome.diyKitted` lists `KITTED_CHARS`, so the 自选编队 picker offers it and `room.diy` keeps it.
+variant's `sources` — and shown by its owner) is a hand piece like any operator's: when the 自选 piece is deployed in
+prep its player gets one stack of the variant's `deployLimit` — the picked module's own when its variant has one (望's
+TRP-X: 7 棋子); it holds the token's own talent additions (max_deploy_count / max_deck_stack_cnt, tools/build-data.mjs
+`tokenTalentDeckBonus`), so a deck reads `deployLimit` / `deckStack` as they are — (server/match/player/diy.js
+`placeableTokens`, PlayerState `grantTokensFor`), places it on a legal tile (the token's position / `ownerRange`), loses
+it with its owner (sold, merged, moved back), and the match hands every placed piece to the battle as a
+PlayerBattleInput token unit `{ kind: 'token', tokenId, ownerUid }` — so a kit finds its pieces before the battle starts
+as `battle.allyUnits` with `kind === 'token'`, its `defId` and `ownerUnit === unit`, still undeployed (`op-wang.js`: 望's
+棋子). A **skill's** summon piece (the variant's `sources` has 'skill', not 'talent') is docked by content/tokens.js before
+the units are set up — it deploys once, free, at the battle start, then takes the field when the kit calls
+`releaseSkillSummon(battle, unit, tokenId)` — and the dock hooks are owned by the piece: give it its kit with
+`battle._setupUnit(t, kit)` and **no** `offOwner` (the generic token kit registers no hook), and clear the owner's
+`mem.summonStock[tokenId]` when the skill takes the summon back. A kit test fields a piece the same way:
+`units: [op, { uid, kind: 'token', tokenId, ownerUid, row, col }]` (`test/local-patch-diy.test.js`, 望's 棋子). Potential
+is 0 [ASSUMED: no account]. A new kit makes the operator a legal pick only with `LOCAL_DIY_PICKS`: the server's
+`welcome.diyKitted` lists `KITTED_CHARS` ∩ those, so the 自选编队 picker offers it and `room.diy` keeps it.
 
 **The fidelity rule and the checklist** above apply item by item: every skill at rank 4 and 7, every talent, every
 module at stages 1 and 3 (trait override, talent changes, stats), the range while a skill runs, the auto-cast trigger
@@ -210,9 +198,9 @@ module at stages 1 and 3 (trait override, talent changes, stats), the range whil
 targetability, damage typing, summons, statuses. Mark what no source settles `[ASSUMED]` in the comment and the pull
 request.
 
-**Tests** — `test/content/op_<codename>.test.js`, the pattern of `test/content/op_siege.test.js`:
-- field the operator the production way: `makeBattle({ units: [{ diy: { slot: 5, charId: 'char_112_siege',
-  skillIndex: 2, uniEquipId: 'uniequip_002_siege' }, elite: true, row: 10, col: 5 }] })` — `slot` = a DIY slot id or its
+**Tests** — `test/local-patch-diy.test.js` (our five):
+- field the operator the production way: `makeBattle({ units: [{ diy: { slot: 6, charId: 'char_2027_wang',
+  skillIndex: 2, uniEquipId: 'uniequip_002_wang' }, elite: true, row: 10, col: 5 }] })` — `slot` = a DIY slot id or its
   tier (5 / 6 ⇒ that tier's first slot), `elite` = the `_b` form, `uniEquipId` null / omitted = no module;
 - loop over every form (`[5, false]`, `[6, false]`, and both tiers' elites with no module and with each module) and every
   skill; assert that the unit is yours (`u.def.charId`, `!u.kit.generic`, `u.kit.skillSource === 'skills'`), then the

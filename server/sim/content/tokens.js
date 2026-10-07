@@ -198,19 +198,18 @@ function untargetable(battle, unit) {
 
 /**
  * Countdown summons — the summons that "不会受到攻击" and leave after a fixed time: 赫默's 医疗探机 (10 s, skcom_withdraw),
- * 巫恋's 诅咒娃娃 (15 s, its skill), 浊心斯卡蒂's 斯卡蒂的海嗣 (talent 远古血亲 25 / 30 s) and, among the 自选 operators, 温蒂's
- * 工程蓄水炮 (20 s), 莱伊's 沙地兽 (25 s), 鸿雪's “打字机” (25 s) and 酒神's 本能的召唤 (10 s). Community report of 2026-10-06
- * (the official mode): they take no outside damage — 活性源石 included —, no operator heals them and their bar runs down
- * like a timer, the summon leaving when it is empty. PRTS / client data: 海嗣 and 沙地兽 hold 无敌 + 禁疗 (PRTS 海嗣 备注
- * 「持有禁疗、无敌」; token prefabs: abnormal flags 5 + 7), 工程蓄水炮 禁疗 (PRTS 备注); the others have no abnormal flag in the
- * base-game prefabs — [ASSUMED] the report's 无敌 + 禁疗 for every one of them. startCountdown gives them both (their HP never
+ * 巫恋's 诅咒娃娃 (15 s, its skill) and 浊心斯卡蒂's 斯卡蒂的海嗣 (talent 远古血亲 25 / 30 s); upstream also lists four 自选
+ * summons whose operators this server does not offer (温蒂's 工程蓄水炮, 莱伊's 沙地兽, 鸿雪's “打字机”, 酒神's 本能的召唤).
+ * Community report of 2026-10-06 (the official mode): they take no outside damage — 活性源石 included —, no operator heals
+ * them and their bar runs down like a timer, the summon leaving when it is empty. PRTS / client data: 海嗣 holds 无敌 + 禁疗
+ * (PRTS 海嗣 备注 「持有禁疗、无敌」; token prefab: abnormal flags 5 + 7); the others have no abnormal flag in the base-game
+ * prefabs — [ASSUMED] the report's 无敌 + 禁疗 for every one of them. startCountdown gives them both (their HP never
  * moves) and the bar (Unit.countdown, shown by snapshot.js as the share of the life left). The other timed summons (沙之碑,
  * 战术装备, “小自在”, 结构性原理 …) block and are attacked: their HP stays HP. Until 0.2.0 a 海嗣 on 活性源石 lost 70 HP/s (of
  * 100) and a hurt drone drew every medic's heals.
  */
 export const COUNTDOWN_SUMMONS = Object.freeze(new Set([
   TOKEN_IDS.healDrone, TOKEN_IDS.curseDoll, TOKEN_IDS.seaborn,
-  'token_10009_weedy_cannon', 'token_10034_ray_sndbst', 'token_10026_bgsnow_subbow', 'token_10054_phatm2_encdool',
 ]));
 const COUNTDOWN_KEY = 'token:countdown';
 

@@ -274,8 +274,8 @@ export function reviveNow(battle, c, by) {
  * on the unit (`mem.undyingUntil`, `mem.undyingAt`) and a battle-level hook holds it (hammerAcquire), so it outlives the
  * grant that started it — a lend running out mid-window leaves the 不死 for its 8 s [ASSUMED: the 异常效果 outlasts its
  * source] — and ends with the deployment. 信仰搅拌机 S2 steps aside while it holds (kits/ops/chess_char_4_01-rmixer.js).
- * A content 不死 window counts too: a buff with the flag `undying` (淬羽赫默 S3 无畏者协议, kits/ops/op-slent2.js — its own
- * battle-level hook holds it), so the savers that do not spend themselves while a 不死 holds ("_dontConsumeWhenUndeadable":
+ * A content 不死 window counts too: a buff with the flag `undying` (upstream's 自选 淬羽赫默 S3 无畏者协议 set one —
+ * its own battle-level hook held it; no kit here does), so the savers that do not spend themselves while a 不死 holds ("_dontConsumeWhenUndeadable":
  * 左乐, 莱恩哈特, 信仰搅拌机) step aside for it as well.
  */
 export function holdsUndying(battle, u) {

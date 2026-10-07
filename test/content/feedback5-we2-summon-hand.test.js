@@ -1,11 +1,10 @@
 // test/content/feedback5-we2-summon-hand.test.js — 0.2.0 WE2 #21: the hand count of every 自选 summoner's placeable summon
 // is its deploy limit (PRTS 卫戍协议/帮助 §战斗部署 "根据召唤物部署数量上限（非初始持有量），发送等量召唤物至手牌区"), and the
 // data's deploy limit / holding carry the tokens' own talent additions (tools/build-data.mjs tokenTalentDeckBonus: the
-// hidden "TOKEN数" talent max_deploy_count / max_deck_stack_cnt on top of the attribute frame). Official counts: the owners'
-// talents (麦哲伦 / 令 / 电弧 "最多同时部署3个", SUM-Y stage 2+ "最多同时部署4个", 白铁 / 娜斯提 "最多可部署2个", 望 "可以使用6枚
-// 棋子", TRP-X +1), PRTS 幻影 备注 "最大可部署数量为3" (夜莺).
+// hidden "TOKEN数" talent max_deploy_count / max_deck_stack_cnt on top of the attribute frame). On this server the only
+// 自选 summoner with a placeable summon is 望 ("可以使用6枚棋子", TRP-X +1); upstream's other summoners are gone.
 // #24: a summon no owner shows (displayTokenDict: the variants' `display` source) is its skill's own object, never a hand
-// card — 予愿安洁莉娜 S3's “一会儿见！” (PRTS 予愿安洁莉娜 S3 备注: the skill deploys it at her initial tile).
+// card.
 // Run: node --test test/content/feedback5-we2-summon-hand.test.js
 
 import { test } from 'node:test';
@@ -25,16 +24,9 @@ const STAGE = { 5: 1, 6: 3 };
 const statusOf = (tier, elite) => (elite ? `2/60/7/${STAGE[tier]}` : '2/1/4/0');
 
 /** The official hand count of `charId`'s summon under a module at its stage (null module = none). */
-function official(charId, mod, stage) {
+function official(charId, mod) {
   switch (charId) {
-    case 'char_248_mgllan': return mod === 'uniequip_003_mgllan' && stage >= 2 ? 4 : 3;   // SUM-Y stage 2+: 最多同时部署4个
-    case 'char_2023_ling': return mod === 'uniequip_002_ling' && stage >= 2 ? 4 : 3;      // SUM-Y stage 2+
-    case 'char_4195_radian': return 3;
-    case 'char_4072_ironmn': return 2;
-    case 'char_4212_nasti': return 2;
-    case 'char_179_cgbird': return 3;                                                      // PRTS 幻影 备注
     case 'char_2027_wang': return mod === 'uniequip_002_wang' ? 7 : 6;                     // TRP-X +1
-    case 'char_4048_doroth': return 9;                                                     // 10 / 13, the hand's 9 cap
     default: return 1;
   }
 }
@@ -51,7 +43,7 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
       owners.get(cid).add(tid);
     }
   }
-  assert.ok(['char_248_mgllan', 'char_2023_ling', 'char_4195_radian', 'char_4072_ironmn', 'char_179_cgbird', 'char_2027_wang'].every((c) => owners.has(c)));
+  assert.deepEqual([...owners.keys()], ['char_2027_wang']);
   let checked = 0;
   for (const [charId] of owners) {
     if (!BACKUPS.diy.ownedPool.includes(charId)) continue;
@@ -67,7 +59,7 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
             assert.ok(rec, `${charId} T${tier} ${elite ? 'elite' : 'normal'} ${mod} S${s.index + 1}`);
             const view = diyGameData(gd, new Map([[id, rec]]));
             for (const { tokenId, count } of view.placeableTokens(id, { skillIndex: s.index, moduleId: mod })) {
-              assert.equal(count, official(charId, mod, elite ? STAGE[tier] : 0), `${charId} T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'} S${s.index + 1}: ${tokenId}`);
+              assert.equal(count, official(charId, mod), `${charId} T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'} S${s.index + 1}: ${tokenId}`);
               checked++;
             }
           }
@@ -75,47 +67,25 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
       }
     }
   }
-  assert.ok(checked > 200, `${checked} hand counts checked`);
+  assert.equal(checked, 18, "2 tiers × (3 normal + 3 skills × (no module, TRP-X) elite)");
 });
 
 test('the data: deploy limit / holding = the attribute frame + the token talents\' max_deploy_count / max_deck_stack_cnt (a module token part of the same talent replaces it)', () => {
   const v = (tid, owner) => BACKUPS.tokens[tid].variants[owner];
-  // 麦哲伦: 1 + 2 standing, 0 + 5 held; SUM-Y +3 held, stage 3 its token part max_deploy_count 3 ⇒ 4
-  const d1 = 'token_10005_mgllan_drone1';
-  assert.deepEqual([v(d1, 'char_248_mgllan@2/1/4/0').stats.deployLimit, v(d1, 'char_248_mgllan@2/1/4/0').stats.deckStack], [3, 5]);
-  assert.deepEqual([v(d1, 'char_248_mgllan@2/60/7/1').byModule.uniequip_003_mgllan.stats.deployLimit, v(d1, 'char_248_mgllan@2/60/7/1').byModule.uniequip_003_mgllan.stats.deckStack], [3, 8]);
-  assert.deepEqual([v(d1, 'char_248_mgllan@2/60/7/3').byModule.uniequip_003_mgllan.stats.deployLimit, v(d1, 'char_248_mgllan@2/60/7/3').byModule.uniequip_003_mgllan.stats.deckStack], [4, 8]);
-  // 夜莺's 幻影: its visible talent's max_deploy_count 2 (RIN-Y stage 3 restates the same talent: not counted twice)
-  const ph = 'token_10003_cgbird_bird';
-  assert.equal(v(ph, 'char_179_cgbird@2/1/4/0').stats.deployLimit, 3);
-  assert.equal(v(ph, 'char_179_cgbird@2/60/7/3').byModule.uniequip_003_cgbird.stats.deployLimit, 3);
   // 望's 棋子: the rank-2 talent (+1) is a potential talent — potential 0 keeps 6
   assert.equal(v('token_10064_wang_stone1', 'char_2027_wang@2/1/4/0').stats.deployLimit, 6);
+  assert.equal(v('token_10064_wang_stone1', 'char_2027_wang@2/60/7/3').byModule.uniequip_002_wang.stats.deployLimit, 7);
   // the chess summons of tokens.json have no such talent: 凯瑟琳's 爬行号 2 of 3, everyone else 1
   const tokens = load('tokens');
   assert.equal(tokens.token_10041_cathy_catsld.variants.chess_char_4_11_a.stats.deployLimit, 2);
   assert.equal(tokens.token_10000_silent_healrb.variants.chess_char_2_02_a.stats.deployLimit, 1);
 });
 
-test('#24 a summon no owner shows is never a hand card: 予愿安洁莉娜 S3\'s “一会儿见！” is not placeable, every placeable summon is displayed', () => {
-  const MARKER = 'token_10071_aglna2_agairp';
-  const AGLNA2 = 'char_1015_aglna2';
-  assert.equal(BACKUPS.tokens[MARKER].placeable, false);
+test('#24 a summon no owner shows is never a hand card: every placeable summon is displayed, every undisplayed one HIDDEN', () => {
   const shows = (v) => (v.sources ?? []).includes('display') || Object.values(v.bySkill ?? {}).some((a) => (a.sources ?? []).includes('display'));
   for (const t of [...Object.values(load('tokens')), ...Object.values(BACKUPS.tokens)]) {
     if (t.kind !== 'summon') continue;
     if (t.placeable) assert.ok(Object.values(t.variants).some(shows), `${t.tokenId} ${t.name}: placeable and displayed`);
-    else if (!Object.values(t.variants).some(shows)) assert.ok(t.displayType === 'HIDDEN' || t.tokenId === MARKER, `${t.tokenId} ${t.name}: undisplayed ⇒ HIDDEN (or the marker)`);
-  }
-  for (const tier of [5, 6]) {
-    for (const elite of [false, true]) {
-      const slot = diySlot(SLOT[tier], DATA);
-      const id = elite ? slot.goldenId : slot.baseId;
-      for (const skillIndex of [0, 1, 2]) {
-        const rec = diyRecord(SLOT[tier], { charId: AGLNA2, skillIndex, uniEquipId: null }, { elite, data: DATA });
-        const view = diyGameData(gd, new Map([[id, rec]]));
-        assert.deepEqual(view.placeableTokens(id, { skillIndex, moduleId: null }), [], `T${tier} ${elite ? 'elite' : 'normal'} S${skillIndex + 1}: no hand piece`);
-      }
-    }
+    else if (!Object.values(t.variants).some(shows)) assert.equal(t.displayType, 'HIDDEN', `${t.tokenId} ${t.name}: undisplayed ⇒ HIDDEN`);
   }
 });

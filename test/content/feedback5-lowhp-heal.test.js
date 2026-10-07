@@ -1,7 +1,7 @@
 // test/content/feedback5-lowhp-heal.test.js — the module trait "治疗生命值低于50%的友方单位时治疗量提升15%" (PHY-X / GUA-X) compares the
 // target's HP the way the client's module buff does (follow-up 19): FilterByTargetHpRatio LT — strictly below — for 瑕光 /
 // 古米 / 塞雷娅's GUA-X (set_heal_scale_by_hpratio) and 录武官's PHY-X (reckpr_e_002_tr); LE — at or below — for the template
-// heal_scale_up[hpratio][LE] of 华法琳's and 闪灵's PHY-X (and 黍's GUA-X, 凯尔希's PHY-X, already so). The text's 「低于」 is the
+// heal_scale_up[hpratio][LE] of 华法琳's PHY-X (upstream's removed 自选 闪灵 / 黍 / 凯尔希 read it so too). The text's 「低于」 is the
 // display; the buff templates decide (the local client's [uc]equips.ab prefabs and buff_template_data, read 2026-10-06).
 // Run: node --test test/content/feedback5-lowhp-heal.test.js
 
@@ -25,14 +25,11 @@ function factorAt(unitSpec, ratio) {
 }
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-9, `${msg}: ${a} vs ${b}`);
 
-test('LE (heal_scale_up[hpratio][LE]): 华法琳 (tier 4 and 5) and 闪灵 PHY-X heal an ally at exactly 50 % HP ×1.15', () => {
+test('LE (heal_scale_up[hpratio][LE]): 华法琳 (tier 4 and 5) PHY-X heals an ally at exactly 50 % HP ×1.15', () => {
   for (const id of ['chess_char_4_26_b', 'chess_char_5_04_b']) {
     near(factorAt({ uid: 1, chessId: id, row: 10, col: 5 }, 0.5), 1.15, `${id} at 50 %`);
     near(factorAt({ uid: 1, chessId: id, row: 10, col: 5 }, 0.6), 1, `${id} at 60 %`);
   }
-  const shining = { uid: 1, diy: { slot: 6, charId: 'char_147_shining', skillIndex: 0, uniEquipId: 'uniequip_003_shining' }, elite: true, row: 10, col: 5 };
-  near(factorAt(shining, 0.5), 1.15, '闪灵 PHY-X at 50 %');
-  near(factorAt(shining, 0.6), 1, '闪灵 PHY-X at 60 %');
 });
 
 test('LT (set_heal_scale_by_hpratio, reckpr_e_002_tr): 塞雷娅 GUA-X and 录武官 PHY-X (tier 4 and 5) give nothing at exactly 50 %, ×1.15 below', () => {
