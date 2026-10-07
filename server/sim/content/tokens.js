@@ -1151,6 +1151,9 @@ function yanyouKit(bb, raw) {
               const R = battle.rect;
               unit.x = Math.max(R.c0, Math.min(R.c1, unit.x + (dx / d) * step));
               unit.y = Math.max(R.r0, Math.min(R.r1, unit.y + (dy / d) * step));
+              // its tile is the one under it now (格子判定 picks it there — enemy tile areas, ally tile ranges); it
+              // never holds that tile (_deploy: a flyer is not in the occupancy map)
+              unit.tileR = Math.round(unit.y); unit.tileC = Math.round(unit.x);
             }
           }
         }

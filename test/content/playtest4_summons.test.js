@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { hasGeneratedData } from '../../server/sim/simdata.js';
 import { spawnYanyou, TOKEN_IDS } from '../../server/sim/content/tokens.js';
+import { alliesInTiles } from '../../server/sim/content/enemies.js';
 
 const REAL = { skip: !hasGeneratedData() };
 const dummy = (o = {}) => enemyRec({ key: o.key ?? 'enemy_dummy', hp: 1e7, speed: 0, ...o });
@@ -84,6 +85,39 @@ test('炎佑 is a flyer: it holds no field tile, so its spawn tile stays free fo
   assert.ok(h.b.relocate(g, y.tileR, y.tileC), 'a ground unit moves onto that tile');
   assert.equal(h.b.unitAt(y.tileR, y.tileC), g);
   h.run(2);
+  checkInvariants(h.b);
+});
+
+test('炎佑 is an air unit: never on the ground, and its tile is the one under it as it flies (enemy tile areas find it there)', REAL, () => {
+  const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [], enemies: [{ key: 'enemy_dummy', pos: [9, 4] }], autoFinish: false, timeLimit: 60 });
+  h.step();
+  const [y] = spawnYanyou(h.b, 'p1', { atk: 1000, hp: 5000 });
+  assert.equal(y.ground, false, 'not a ground unit (Battle._deploy)');
+  const spawn = [y.tileR, y.tileC];
+  const e = h.enemy('enemy_dummy');
+  assert.ok(h.runUntil(() => dist(y, e) <= 0.3, 30), 'flies over the enemy');
+  assert.deepEqual([y.tileR, y.tileC], [Math.round(y.y), Math.round(y.x)], 'tile = the one under it');
+  assert.notDeepEqual([y.tileR, y.tileC], spawn);
+  assert.ok(alliesInTiles(h.b, Math.round(e.y), Math.round(e.x), 'plus', 0).includes(y), 'a tile area on the enemy takes it');
+  assert.ok(!alliesInTiles(h.b, spawn[0], spawn[1], 'plus', 0).includes(y), 'its spawn tile no longer does');
+  assert.equal(y.ground, false);
+  checkInvariants(h.b);
+});
+
+test('【污染秽蚀】 on 炎佑 goes by the tile under it (client polluted_area: CheckHeightTypeOfCharacterRootTile), not by its air status', REAL, () => {
+  const h = makeBattle({
+    stageId: 'act2autochess_m02', seed: 3, autoFinish: false, timeLimit: 400, hooks: ['damaged'], captureNoisy: true, units: [],
+    enemies: [{ key: 'enemy_1267_nhpbr', pos: [9, 6], mods: { hpMul: 0.01, speedMul: 0 } }],
+  });
+  h.step();
+  const [y] = spawnYanyou(h.b, 'p1', { atk: 1000, hp: 50000 });
+  assert.ok(h.runUntil(() => !h.b.enemies.some((e) => e.alive), 30), 'it kills the 战士 (death → 【污染秽蚀】)');
+  h.run(4);
+  assert.equal(y.ground, false);
+  assert.ok(h.b.grid.isLow(y.tileR, y.tileC), 'it hovers over a low tile');
+  const ticks = h.hooksOf('damaged').filter((c) => c.target === y && (c.dmg?.tags || []).includes('pollution'));
+  assert.ok(ticks.length >= 3, `pollution ticks on it: ${ticks.length}`);
+  for (const c of ticks) assert.equal(Math.round(c.amount), 50, 'the low-ground rate (not the high 25)');
   checkInvariants(h.b);
 });
 

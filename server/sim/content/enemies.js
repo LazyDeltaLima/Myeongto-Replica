@@ -1195,7 +1195,9 @@ function bleed(ab) {
 function pollution(b, src, x, y, r, life, low, high) {
   zone(b, { x, y, r, life, iv: POLLUTION_INTERVAL, kind: 'pollution', tick(units) {
     for (const u of units) {
-      const v = u.ground ? low : high;
+      // the client's polluted_area buff: IfElse(CheckHeightTypeOfCharacterRootTile LOWLAND) → polluted_damage_low / _high —
+      // the tile under the unit, no motion check: a flyer (炎佑, unit.ground false) over a low tile takes `low` too
+      const v = (u.isFlying ? b.grid.isLow(u.tileR, u.tileC) && !b._elevated?.has(u.tileR * COLS + u.tileC) : u.ground) ? low : high;
       if (!(v > 0) || b.time - (u.mem.pollutedAt ?? -Infinity) < POLLUTION_INTERVAL - 1e-6) continue;
       u.mem.pollutedAt = b.time;
       hurt(b, src, u, v, 'true', { tags: ['pollution'], ignoreSelect: true });
