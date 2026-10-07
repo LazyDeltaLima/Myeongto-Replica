@@ -51,6 +51,7 @@
 import { MIN_DAMAGE_RATIO, ELEMENT, ELEMENT_ORDER, PALSY_MAX } from './constants.js';
 import { BOSS_HIT_LIMIT } from '../../shared/constants.js';
 import { evadesGround } from './targeting.js';
+import { damageNumberFlag } from './local-hud.js'; // local patch
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -251,6 +252,7 @@ export function dealDamage(battle, source, target, dmgIn) {
   }
   // 无来源 damage (element bursts) takes nothing from its source's stats; the source still gets the credit below
   const ss = source && source.s && !dmg.sourceless ? source.s : null;
+  dmg.lpNum = damageNumberFlag(dmg, ss); // local patch: official damage numbers (local-hud.js)
   let final = mitigate(dmg.amount, type, ts, {
     defIgnorePct: dmg.defIgnorePct + (ss ? ss.defIgnorePct : 0),
     defIgnoreFlat: dmg.defIgnoreFlat + (ss ? ss.defIgnoreFlat : 0),
@@ -312,7 +314,7 @@ export function applyHpLoss(battle, source, target, amount, dmg) {
   target.lastHitAt = battle.time;
   if (dmg && !dmg.silent && amount >= 0.5) {
     const shown = dmg.type === 'element' ? dmg.element : dmg.type === 'elemental' ? (dmg.element || 'true') : dmg.type;
-    battle._ev(['dmg', target.id, Math.round(amount), shown]);
+    battle._ev(['dmg', target.id, Math.round(amount), shown, dmg.lpNum || 0]); // local patch: 5th = number flag (local-hud.js)
   }
   if (battle._hooks.damaged) battle.emit('damaged', { source: hs, target, amount, type: dmg ? dmg.type : 'true', dmg, credit: source });
   if (target.side === 'ally' && target.skill && dmg && !dmg.noSp && dmg.type !== 'element') battle._skills.onDamaged(target);

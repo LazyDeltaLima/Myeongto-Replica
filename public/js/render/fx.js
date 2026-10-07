@@ -8,6 +8,9 @@
 //                per kind on arrival; chain lightning (chain / chainHeal) and beams as short-lived jagged lines
 //   hits         glow + sparks by damage type; a melee blow adds a slash crescent swept along the blow (attacker →
 //                victim) in the hit colour; AoE ground rings for splash attackers
+//   numbers      local patch (LOCAL-PATCH.md 「전투 화면 UI」 ④): by default the client's numbers (num-official.js: a damage
+//                number only for a critical / forced hit — the 'dmg' 5th field — heals always); 全部显示 in the settings
+//                (number-style.js) keeps the drawn ones below:
 //   numbers      damage numbers (phys orange-white, arts purple, true white, heal green, elements orange) as
 //                pooled BitmapText (per font); rapid same-style hits on a target merge into a running total; big hits
 //                (≥ 18 % max HP) pop larger; ≤ 4 per target; laid out in screen space against every live number (lanes
@@ -35,6 +38,8 @@
 
 import { fxAtlas } from './textures.js';
 import { DMG_STYLE, dmgStyleKey, HIT_TINT, PROJ, COLORS } from './style.js';
+import { OfficialNumbers } from './num-official.js'; // local patch: the client's damage / heal numbers
+import { numberStyle } from './number-style.js'; // local patch: 官方 / 全部 (settings)
 
 /**
  * The sim's projectile speeds (server/sim/constants.js PROJECTILE_SPEEDS — pure data, served read-only at
@@ -353,6 +358,7 @@ export class FxSystem {
     this.beamList = [];
     this.flames = [];         // fire jets (炎佑 祛恶之焰) { src, tgt, x, y, z, r, col, t, end, disc, edge, … }
     this.nums = [];
+    this._offNums = null;         // local patch: OfficialNumbers, made on the first official number (num-official.js)
     this._numPools = new Map();   // bitmap font → free number records
     this.auras = new Map();   // unit id → { sprite, ring, t }
     this.rings = [];          // ground rings { sprite, x, y, z, t, dur, r0, r1, tint }
@@ -1190,7 +1196,7 @@ export class FxSystem {
   // ---- hits / numbers -----------------------------------------------------------------------------------------
 
   /** b.ev 'dmg' visual: glow + sparks in the hit colour; a melee blow (atk 'none' just before) adds its slash. */
-  damage(view, amount, type, srcView) {
+  damage(view, amount, type, srcView, numFlag = 0) {
     if (!view) return;
     const style = dmgStyleKey(type);
     const p = this._chest(view);
@@ -1208,7 +1214,11 @@ export class FxSystem {
       }
     }
     view.onHit?.();
-    if (this.ctx.settings?.damageNumbers !== false) this.number(view, amount, style, big);
+    if (this.ctx.settings?.damageNumbers !== false) {
+      // local patch (LOCAL-PATCH.md 「전투 화면 UI」 ④): the official numbers unless 全部显示 is chosen
+      if (numberStyle() === 'official') (this._offNums || (this._offNums = new OfficialNumbers(this.ctx))).damage(view, amount, numFlag);
+      else this.number(view, amount, style, big);
+    }
   }
 
   /**
@@ -1238,7 +1248,10 @@ export class FxSystem {
         tint: 0x7dffa8, vy: -s * 0.9, life: 0.7, s0: s / 64 * 0.32, s1: s / 64 * 0.2, a0: 0.95, a1: 0, fadeIn: 0.08,
       });
     }
-    if (this.ctx.settings?.damageNumbers !== false) this.number(view, amount, 'heal', false);
+    if (this.ctx.settings?.damageNumbers !== false) {
+      if (numberStyle() === 'official') (this._offNums || (this._offNums = new OfficialNumbers(this.ctx))).heal(view, amount); // local patch
+      else this.number(view, amount, 'heal', false);
+    }
   }
 
   /**
@@ -2193,6 +2206,7 @@ export class FxSystem {
     this._slashAt = null;
     for (const t of this.nums) this._releaseNum(t);
     this.nums.length = 0;
+    this._offNums?.clear(); // local patch
     for (const r of this.rings) { r.sp.visible = false; this.ringFree.push(r); }
     this.rings.length = 0;
     for (const a of this.auras.values()) a.sp.destroy({ children: true });
@@ -2222,6 +2236,7 @@ export class FxSystem {
     this._updateBeams(dt);
     this._updateFlames(dt);
     this._updateNums(dt);
+    this._offNums?.update(dt); // local patch
     this._updateRings(dt);
     this._updateAuras(dt);
     this._updatePops(dt);
@@ -2261,6 +2276,7 @@ export class FxSystem {
     this.tintSprite.destroy();
     for (const list of this._numPools.values()) for (const t of list) t.text.destroy();
     this._numPools.clear();
+    this._offNums?.destroy(); // local patch
   }
 }
 

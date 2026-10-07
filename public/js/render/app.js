@@ -1649,7 +1649,7 @@ export async function createFieldView(host, options = {}) {
         const m = meleePending.get(v.id);
         let src = null;
         if (m && now - m.t < 0.35) { src = m.src; meleePending.delete(v.id); fx._slashAt = src.id; }
-        fx.damage(v, amt, e[3], src);
+        fx.damage(v, amt, e[3], src, Number(e[4]) || 0); // local patch: 5th = official number flag (sim local-hud.js)
         break;
       }
       case 'heal': { const v = views.get(e[1]); if (v) fx.heal(v, Number(e[2]) || 0); break; }

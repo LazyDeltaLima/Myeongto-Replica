@@ -13,6 +13,7 @@ import { lang, setLang } from '../i18n/i18n.js';
 import { ResourceSetting } from '../resources.js'; // local patch
 import { VoiceSetting } from '../voice.js'; // local patch
 import { UiScaleSetting } from './hudArt.js'; // local patch: 界面大小 (the PC client's UI_SCALER)
+import { NumberStyleSetting } from './numberStyleSetting.js'; // local patch
 
 /** Settings store: { bgm, sfx, voice, muted, damageNumbers, quality }. */
 export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));
@@ -70,6 +71,7 @@ export function SettingsModal({ open, onClose }) {
       <${VoiceSetting} />
       <${Toggle} label="静音" micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
       <${Toggle} label="显示伤害数字" micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
+      ${s.damageNumbers ? html`<${NumberStyleSetting} />` : ''}${/* local patch: 官方 / 全部 numbers */ ''}
       <div class="set-row">
         <span class="set-row__label">画面质量<${MicroLabel}>QUALITY<//></span>
         <div class="set-seg" role="radiogroup">

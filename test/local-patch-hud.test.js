@@ -233,6 +233,58 @@ describe('element ring (char_ep_slider / enemy_ep_slider)', () => {
   });
 });
 
+describe('④ official damage / heal numbers (num-official.js, local-hud.js damageNumberFlag, number-style.js)', () => {
+  test('flag: a hit of ≥ 1.5 × the attacker\'s ATK is critical; 蕾缪安 S3 shells (tag bombard) are forced; DoT / sourceless never', async () => {
+    const { damageNumberFlag } = await import('../server/sim/local-hud.js');
+    const ss = { atk: 1000 };
+    assert.equal(damageNumberFlag({ amount: 1499, tags: [] }, ss), 0);
+    assert.equal(damageNumberFlag({ amount: 1500, tags: [] }, ss), 1);
+    assert.equal(damageNumberFlag({ amount: 3000, tags: ['dot'] }, ss), 0);
+    assert.equal(damageNumberFlag({ amount: 3000, tags: [], sourceless: true }, ss), 0);
+    assert.equal(damageNumberFlag({ amount: 10, tags: ['skill', 'bombard'] }, ss), 2);
+    assert.equal(damageNumberFlag({ amount: 3000, tags: [] }, null), 0);
+  });
+  test('real battle: 蕾缪안 S3 shells carry the forced flag in the dmg event\'s 5th field', () => {
+    const h = makeBattle({ seed: 3, timeLimit: 60, units: [{ chessId: 'chess_char_6_01_a', row: 9, col: 4, uid: 1, skillIndex: 2 }],
+      enemies: [{ key: 'enemy_1001_bigbo', time: 0, route: 0, count: 20, interval: 1.5 }] });
+    const u = h.battle.allyUnits.find((x) => x.kind === 'op');
+    h.run(1); u.skill.sp = u.skill.spCost; h.run(30);
+    assert.ok(h.eventsOf('dmg').some((e) => e[4] === 2), 'forced numbers');
+    assert.ok(h.eventsOf('dmg').some((e) => !e[4]), 'normal hits: none');
+  });
+  test('official: damage only when flagged, heals always "+n"; sizes in HUD units from the popup 150 over hud_unit', async () => {
+    const N = await import('../public/js/render/num-official.js');
+    const ctx = fakeViewCtx(fake.P, { viewport: () => ({ width: 1920, height: 1080 }) });
+    const nums = new N.OfficialNumbers(ctx);
+    const v = { screen: { x: 500, y: 600 }, destroyed: false };
+    nums.damage(v, 800, 0);
+    assert.equal(nums.live.length, 0, 'an ordinary hit: no number');
+    nums.damage(v, 1600, 1); nums.heal(v, 37);
+    assert.equal(nums.live.length, 2);
+    const [d, hl] = nums.live;
+    assert.equal(d.text.text, '1600'); assert.equal(hl.text.text, '+37');
+    assert.ok(d.crit && !hl.crit);
+    nums.update(0.3);
+    assert.ok(Math.abs(d.text.scale.x - 30 * 1.1 / 60) < 1e-9, 'crit: 30 × 1.1 after the pop');
+    assert.ok(d.text.position.y < 600 - (HB.HUD_ANCHOR + 150 - 5) , 'over the popup');
+    nums.update(0.3);
+    assert.equal(nums.live.length, 0, 'gone after 0.5 s');
+  });
+  test('style setting: official by default, classic kept in localStorage', async () => {
+    const store = new Map();
+    const prev = globalThis.localStorage;
+    globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
+    try {
+      const S = await import('../public/js/render/number-style.js?t=' + Date.now());
+      assert.equal(S.numberStyle(), 'official');
+      S.setNumberStyle('classic');
+      assert.equal(S.numberStyle(), 'classic'); assert.equal(store.get('sp.pref.dmgNumberStyle'), '"classic"');
+      S.setNumberStyle('nonsense');
+      assert.equal(S.numberStyle(), 'official');
+    } finally { globalThis.localStorage = prev; }
+  });
+});
+
 describe('facing marker (DirectionIndicator: ring + arrow on the ground)', () => {
   test('no SimpleMesh / no art: none (the chevron stays)', async () => {
     const F = await import('../public/js/render/facing.js');

@@ -29,3 +29,18 @@ export function hudLists(units) {
   }
   return out;
 }
+
+/**
+ * The 'dmg' event's 5th field (render/fx.js official damage numbers): 1 = a critical hit — the client's Modifier.isCritical,
+ * BattleConsts.MODIFIER_CRIT_THRESHOLD 1.5 [추정: the raw hit (before DEF / RES) ≥ 1.5 × the attacker's ATK — the check is
+ * native code]; 2 = a hit the data forces to show (lemuen_s3_attack `_forceDisplayDamageNum`: 蕾缪安 S3 shells, tag
+ * 'bombard'); 0 = none. Sourceless and fixed-value DoT damage never counts as critical. The client shows a damage number
+ * only for these (user decision 2026-10-07; the old "every hit" numbers stay a setting).
+ */
+export const CRIT_THRESHOLD = 1.5;
+export function damageNumberFlag(dmg, ss) {
+  const tags = dmg.tags || [];
+  if (tags.includes('bombard')) return 2;
+  if (!ss || dmg.sourceless || !(ss.atk > 0) || tags.includes('dot') || tags.includes('hpLoss')) return 0;
+  return dmg.amount >= ss.atk * CRIT_THRESHOLD - 1e-6 ? 1 : 0;
+}
