@@ -10,6 +10,10 @@
 // attacks play their mode's effects — the running skill's mode (shared/skill-modes.js) on EVERY attack of the skill, like the
 // official client (its `_castEffects` sit on the skill mode's attack ability; the activation itself shows only the buff
 // loop), and the impacts that mode's hit effects (≤ 2). A skill that switches no mode keeps the name mapping below.
+// Trails (local patch 2026-10-07): a ranged attack whose mode binds a projectile `trail` (the projectile's `_mainEffect`) flies
+// that prefab from the shooter to its (moving) target over the sim's flight time (fx.js projSpeed — it lands with the damage,
+// lobbed shots on fx.js's arc) instead of render/fx.js's procedural shot (arrowKind 'officialTrail'); a trail's first shot
+// keeps the procedural one while its file loads, and past MAX_TRAILS live trails or at load level 3 the procedural shot stays.
 // Clock: every effect, its gaps and its end run on the battle clock (`rate`, the game speed — the official effects use
 // scaled time), not only the notes.
 // Event → effect (render/fxmap.js effectsFor, by the client's prefab names):
@@ -20,8 +24,9 @@
 // Effects follow their unit's rendered position and facing.
 //
 // Cost: nothing is loaded (three.js, the player, the files) until an operator with an extracted bundle acts; the layer
-// is two transparent canvases (pointer-events none) — the looping skill buffs under the units canvas (the operator on
-// top; above it on the 2D board, whose backdrop is opaque), everything else over it — each drawn only while one of its
+// is two transparent canvases (pointer-events none) — the effects on the caster (buff loops, local patch: its cast / skill
+// start too) under the units canvas (the operator on top; above it on the 2D board, whose backdrop is opaque), the hits on
+// targets, trails and notes over it — each drawn only while one of its
 // effects is alive, at most
 // at device pixel ratio 1.5 (1 at 'medium'); quality 'low' turns the layer off. render/fxplayer.js caps particles and
 // effects (MAX_INSTANCES, the oldest ends). The view's adaptive load level (render/app.js adaptLoad, as render/fx.js
@@ -37,10 +42,14 @@ import { syncThreeCamera } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects } from './fxmap.js'; // local patch: the mode bindings (modes.json)
+import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
+import { PROJ } from './style.js';
 
 const INDEX_URL = '/assets/local/fx/index.json';
 const MODES_URL = '/assets/local/fx/modes.json';   // effect bindings per attack mode (tools/local-extract/char_modes.py)
 const MAX_HIT_FX = 2;
+const MAX_TRAILS = 12;      // official projectile trails in flight at once (then fx.js's procedural shots)
+const TRAIL_Z = 0.35;       // their height over the ground (tiles) at both ends [ASSUMED]
 const HIT_GAP_S = 0.12;        // one hit effect per attacker → target pair within this time (multi-hit skills)
 const ATTACK_GAP_S = 0.2;
 let webpPromise = null;
@@ -69,9 +78,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   let webp = null;   // the WebP probe's answer once known (the note layer decides synchronously)
   if (typeof Image !== 'undefined') webpOk().then((v) => { webp = v; });
   let camera = null, lib = null, size = null;
-  // two canvases: a skill's looping buff effect under the units canvas, so the operator stays on top of it; every
-  // other effect (skill start, attacks, hits, the moving 剑气 trail) over it. Without a see-through units canvas (2D
-  // board) the lower one moves above too.
+  // two canvases: the effects on the caster (a skill's looping buff; local patch: its cast / skill start too) under the
+  // units canvas, so the operator stays on top of them; the hits on targets, the trails and the moving 剑气 over it.
+  // Without a see-through units canvas (2D board) the lower one moves above too.
   const layers = { under: null, over: null };   // { canvas, renderer, scene, n: live count }
   const live = [];                   // { inst, view: followed view | null, owner: unit id, buff: boolean, layer }
   const lastAtk = new Map();         // target id → { src view, t }
@@ -163,7 +172,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // a one-shot on the caster (not a hit on a target) ends with its prefab's duration even if a system loops —
       // 望's S3 wang_skill_03_range_start (looping 'line1/2', the range cross) stayed on the board for good
       const until = buff ? null : clockS + (def.duration || 3) + 0.5;
-      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until }, buff ? layers.under : layers.over);
+      // local patch (user 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
+      // skill start as well as its buff loops — goes under the units; the hits on a target stay over
+      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until }, buff || !at ? layers.under : layers.over);
       // the player's own cap: it has already ended the oldest (done, dispose is a no-op) — the same one here
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
     }
@@ -236,6 +247,59 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (v?.info && (v.info.defId === STONE || v.info.spine === STONE)) { playAt(['token_wang_birth_01_buff'], v, { owner: o.id, under: true }); return true; }
     }
     return false;
+  }
+
+  // ---- official projectile trails (local patch 2026-10-07, see the header) ----
+  const trails = [];               // { inst, tgt view, x0, y0, tx, ty, k, dur, arc }
+  const trailReady = new Set();    // `bundle/prefab` loaded once: its shots draw the official trail from then on
+  const trailAtks = new WeakSet(); // 'atk' tuples drawn here (fx.js skips its shot: arrowKind)
+  /** Whether this attack flies its mode's official trail (decided now, synchronously, for arrowKind); loads it otherwise. */
+  function trailShot(e, src, tgt, mode) {
+    if (!tgt || mode == null || level() >= 3 || failed) return false;
+    const spec = PROJ[e[3]];
+    const name = spec ? bound(src, mode, 'trail')[0] : null;
+    if (!name) return false;
+    const b = bundleOf(src);
+    const key = `${b.bundle}/${name}`;
+    if (!trailReady.has(key)) {
+      ensure().then((ok) => (ok ? lib.load(b.bundle, name) : null)).then((def) => { if (def) trailReady.add(key); }, () => {});
+      return false;
+    }
+    if (trails.length >= MAX_TRAILS) return false;
+    trailAtks.add(e);
+    const dx = tgt.x - src.x, dy = tgt.y - src.y, dist = Math.hypot(dx, dy);
+    const rec = { inst: null, tgt, x0: src.x, y0: src.y, tx: tgt.x, ty: tgt.y, k: 0, dur: Math.max(0.04, dist / projSpeed(e[3])),
+      arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 };
+    trails.push(rec);
+    lib.load(b.bundle, name).then((def) => {
+      if (!mod || !def || !trails.includes(rec)) { const i = trails.indexOf(rec); if (i >= 0) trails.splice(i, 1); return; }
+      const inst = new mod.fxp.FxInstance(def, { quality: q() });
+      rec.inst = inst;
+      placeTrail(rec);
+      addLive(inst, { view: null, owner: null, buff: false, until: clockS + rec.dur + (def.duration || 2) + 0.5 }, layers.over);
+      while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+    }, () => {});
+    return true;
+  }
+  /** A trail at flight fraction k: on the line to the target's current spot (a lob on its arc), turned along it. */
+  function placeTrail(rec) {
+    const t = rec.tgt;
+    if (t && t.alive !== false && !t.remove && Number.isFinite(t.x)) { rec.tx = t.x; rec.ty = t.y; }
+    const k = Math.min(1, rec.k);
+    const x = rec.x0 + (rec.tx - rec.x0) * k, y = rec.y0 + (rec.ty - rec.y0) * k;
+    const z = TRAIL_Z + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0);
+    if (!rec.inst) return;
+    rec.inst.object.position.set(x, y, z);
+    rec.inst.object.rotation.set(0, 0, Math.atan2(rec.ty - rec.y0, rec.tx - rec.x0));
+  }
+  /** Fly the trails one frame (game time); a trail that arrived stops emitting and fades out. */
+  function stepTrails(g) {
+    for (let i = trails.length - 1; i >= 0; i--) {
+      const rec = trails[i];
+      rec.k += g / rec.dur;
+      placeTrail(rec);
+      if (rec.k >= 1) { rec.inst?.stop(); trails.splice(i, 1); }
+    }
   }
 
   // ---- 荒芜拉普兰德 S3's wolves (local patch, user report 2026-10-06: no wolf effect) ----
@@ -408,7 +472,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
   return {
     /** The projectile kind render/fx.js should draw for an 'atk' event (her note replaces the arrow: 'oblvnsNote'). */
-    arrowKind(e) { return noteAtks.has(e) ? 'oblvnsNote' : e[3]; },
+    arrowKind(e) { return noteAtks.has(e) ? 'oblvnsNote' : trailAtks.has(e) ? 'officialTrail' : e[3]; }, // local patch: trails
+    /**
+     * local patch (user 2026-10-07: effects covered the operator): whether a unit's skill activation is shown by its
+     * official effects here — render/fx.js then skips its procedural burst (gold pillar, flash, rings over the unit) and
+     * keeps only its ground aura.
+     */
+    ownsSkill(v) { return !!(index && isOp(v) && bundleOf(v) && q() !== 'low' && !failed); },
     /** Whether a 'fx' event is drawn here with its official effect (render/fx.js then skips its 2D stand-in). */
     ownsFx(e) { return ownFx.has(e); },
     /** A battle event render/app.js handled (the views map resolves unit ids). */
@@ -442,6 +512,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (tgt && fxBundleOf(src.info.spine || src.info.defId) === 'oblvns' && notesOn(src)) noteAtks.add(e);
           const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode });
+          if (!noteAtks.has(e)) trailShot(e, src, tgt, mode); // local patch: its projectile's official trail
           const sid = src.id ?? src.info.id;
           if (level() >= 3) return;   // the busiest effects go first under load
           const cast = mode != null ? bound(src, mode, 'cast') : [];
@@ -508,6 +579,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
     update(dt, cam, vp) {
       clockS += dt * gameRate(); // local patch: the battle clock (gaps, ends) — the official effects use scaled time
+      stepTrails(dt * gameRate()); // local patch
       stepNotes(dt, lastViews);   // the notes fly on while their trails load
       stepWolves(dt);
       if (!mod) return;
@@ -552,6 +624,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (const l of live) dropLive(l);
       live.length = 0;
       lastAtk.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear();
+      trails.length = 0; // local patch
       if (mod) showLayers();
     },
 
@@ -567,8 +640,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
     /**
      * /debug.html: one prefab `bundle/name` of the extracted index on `at` — a unit's view (followed, facing as it does)
-     * or a board point { x, y, z } — ended after its duration like play()'s one-shots; a `_buff` prefab goes under the
-     * units. Resolves false when the prefab is not extracted or the layer is off (quality low, no WebP).
+     * or a board point { x, y, z } — ended after its duration like play()'s one-shots; on an operator it goes under the
+     * units like play()'s caster effects, on an enemy over them. Resolves false when the prefab is not extracted or the layer is off (quality low, no WebP).
      */
     async debugPlay(key, at, { facing = null } = {}) {
       const [bundle, name] = String(key || '').split('/');
@@ -578,7 +651,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const f = facing ?? at.visFacing ?? at.facing ?? 1;
       const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: f < 0 ? -1 : 1 });
       inst.object.position.set(at.x, at.y, at.z || 0);
-      addLive(inst, { view: at, owner: at.id ?? at.info?.id ?? null, buff: false, until: clockS + (def.duration || 3) + 0.5 }, /_buff/i.test(name) ? layers.under : layers.over);
+      addLive(inst, { view: at, owner: at.id ?? at.info?.id ?? null, buff: false, until: clockS + (def.duration || 3) + 0.5 }, at.info?.side !== 'enemy' ? layers.under : layers.over);
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
       return true;
     },
@@ -588,7 +661,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return {
         live: live.length, loaded: !!mod, updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
         calls: perf.calls, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
-        recent: recent.slice(), // local patch
+        recent: recent.slice(), trails: trails.length, // local patch
+        trailAt: trails.map((r) => (r.inst ? [+r.inst.object.position.x.toFixed(2), +r.inst.object.position.y.toFixed(2), +r.k.toFixed(2)] : [r.k])), // local patch
       };
     },
   };

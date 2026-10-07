@@ -47,6 +47,9 @@ describe('attack-mode effect bindings', () => {
     assert.deepEqual(w.cast[0], ['wisdel_attack_a_start'], 'of Attack_A/B/C only the first');
     assert.equal(modes.char_1038_whitw2.proj[1][0], 'projectile_chr_whitw2_s1', '荒芜拉普兰德 S1: her shot before the drones');
     assert.deepEqual(modes.char_1038_whitw2.hit[0], ['whitw2_hit_01'], 'the drones\' hits are theirs, not the attack\'s');
+    assert.deepEqual(w.trail[0], ['wisdel_attack_01_trail'], 'a ranged attack\'s projectile trail (its _mainEffect)');
+    assert.deepEqual(w.trail[3], ['wisdel_skill_03_trail'], 'S3\'s own projectile');
+    assert.ok(Object.values(modes).filter((e) => e.trail[0].length).length >= 14, 'the ranged operators of the extracted 25 at least');
   });
 
   test('modes.json for the effect layer matches the committed bindings (when the effects are extracted)', { skip: !extracted && 'no extracted effects' }, () => {

@@ -1535,9 +1535,10 @@ export class FxSystem {
    * Skill activation (on) / end (off). On: a flash at the body, a gold light pillar with a white-hot core from the
    * feet, a shockwave and a hex ring on the ground, rising motes — then the active aura (_aura) until it ends.
    */
-  skill(view, on) {
+  skill(view, on, opts = null) {
     if (!view) return;
     if (!on) { this._aura(view, false); return; }
+    if (opts && opts.burst === false) { this._aura(view, true); return; } // local patch: its official start effects instead (render/fxgame.js ownsSkill)
     const z = (view.z || 0) + (view.hover || 0);
     const g = this._proj(view.x, view.y, z, this._g);
     const gx = g.x, gy = g.y, s = g.s;
