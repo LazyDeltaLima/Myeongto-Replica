@@ -106,6 +106,15 @@ export function dieClipDur(entry) {
 /** World step (x = col, y = row) of a direction. */
 export const DIR_STEP = Object.freeze({ UP: [0, 1], RIGHT: [1, 0], DOWN: [0, -1], LEFT: [-1, 0] });
 const nowMs = () => (globalThis.performance ? globalThis.performance.now() : Date.now());
+/**
+ * local patch (official deploy, research/2026-10-07-deploy-drop): an allied unit with a Spine model
+ * drops in by its own Start clip (103 of 143 operator skeletons fall from 0.6–7 body heights, landing at ~0.2 s) — no
+ * alpha fade-in, no mint pillar (fx.deploy skips a `bornOfficial` view), a model that loads after the deploy catches up
+ * with the clip, and the body starts dark for BORN_TINT_S (the capture's first frame, client `_disableBornTweenColor`;
+ * ×(1 − BORN_TINT_K) and the length are [추정]).
+ */
+const BORN_TINT_S = 0.1;
+const BORN_TINT_K = 0.4;
 /** Units with no art in the game data drawn as an ice diamond: 圣聆初雪 S2's frozen protection point (保护目标（冻结状态）, PRTS
  *  无头像; data/assets.json has no avatar or model for it, so the token fallback showed 圣聆初雪's own face) — the marker of a
  *  frozen gate. */
@@ -348,6 +357,7 @@ export class UnitView {
     this._elBar = null;           // { root, disc, bg, fill } sprites of the element gauge row, built on first use
     this._downRing = null;        // { disc, track, arc, text } sprites, built on first use
     this.alpha = 1; this.fadeIn = this.prep ? 1 : 0;
+    this.bornOfficial = false; this._bornT = 0; this._deployPending = null; // local patch: official drop-in (onDeploy)
     this.lunge = 0; this.lungeDir = { x: 1, y: 0 };
     this.flash = 0;
     this.bob = Math.random() * Math.PI * 2;
@@ -505,15 +515,21 @@ export class UnitView {
       // no fallback diamond in between; a deploy clip it was playing goes on on the new model (an operator facing UP
       // redeployed: its Back model takes over from the Front model it lay down with)
       const swap = !!this.actor;
-      const deployed = swap && this.alive ? this.actor.deployElapsed() : null;
+      let deployed = swap && this.alive ? this.actor.deployElapsed() : null;
+      // local patch: deployed before its model loaded (a battle start's views are built and deployed in one frame) — the
+      // Start clip from where it would be, shown at once (no cross-fade from the diamond)
+      const pend = this._deployPending;
+      this._deployPending = null;
+      const late = !swap && pend != null && this.alive;
+      if (late) deployed = Math.max(0, ((nowMs() - pend) / 1000) * (this.ctx.animRate?.() || 1));
       if (swap) this._dropActor();
       this.actor = actor;
       this._actorEntry = entry;
       this.baseTint = (!entry.local && ALIAS_TINT[id]) || 0xffffff;   // the web alias of a local-only model
       this.body.addChild(this.actor.spine);
       this.spineReady = true;
-      this.swapT = swap ? 1 : 0;
-      this.actor.spine.alpha = swap ? 1 : 0;
+      this.swapT = swap || late ? 1 : 0;
+      this.actor.spine.alpha = swap || late ? 1 : 0;
       // a mode the unit is already in (a model built or rebuilt after the change): its clip set, no change clip — a dead
       // one lies in the form it died in (a 替身 knocked out: the sim resets the form at once, but the Front model it lies
       // down with facing UP, §22.1, is built a frame later; a model rebuilt while it is down)
@@ -801,9 +817,13 @@ export class UnitView {
   }
 
   onDeploy() {
-    this.fadeIn = 0;
+    const official = !this.isEnemy && !!this.entry; // local patch: the official drop-in (BORN_TINT_S)
+    this.bornOfficial = official;
+    this.fadeIn = official ? 1 : 0;
     if (!this.alive) this.revive();
     if (this.actor) this.actor.deploy();
+    if (official) { this._bornT = BORN_TINT_S; this._deployPending = this.actor ? null : nowMs(); }
+    return official;
   }
 
   onStatus(key, on) {
@@ -910,6 +930,7 @@ export class UnitView {
     const s = p.s;
     // fades
     if (this.fadeIn < 1) this.fadeIn = Math.min(1, this.fadeIn + dt * 4);
+    if (this._bornT > 0) this._bornT = Math.max(0, this._bornT - dt); // local patch: the dark first frames (BORN_TINT_S)
     let alpha = this.fadeIn;
     if (this.down) {
       // knocked down: the Die clip ends and holds its last frame (the actor keeps its clock), no fade
@@ -966,6 +987,7 @@ export class UnitView {
       else if (this.flags & UF.COLD && !this._fxStatusOn?.has('cold')) tint = 0xcfe6ff;
       else if (lpInvis) tint = 0x808080; // local patch: common_invisible's ColorModifier (.5, .5, .5)
       if (flashK > 0) tint = mixTint(tint, 0xff8a80, flashK * 0.8);
+      if (this._bornT > 0) tint = mixTint(tint, 0x000000, BORN_TINT_K * (this._bornT / BORN_TINT_S)); // local patch
       let animDt = dt * (this.ctx.animRate?.() || 1);
       if (this._offDt > 0) { animDt += Math.min(0.5, this._offDt); this._offDt = 0; }
       let interval = this.ctx.impostorInterval ? this.ctx.impostorInterval() : 0;
@@ -980,7 +1002,8 @@ export class UnitView {
         this.actor.setClipping(clip);
         if (clip && this.ctx.impostors) interval = Math.max(1, interval);
       }
-      if (interval > 0 && this.ctx.renderer) {
+      // local patch: no impostor while an unclipped model falls in (its slot is sized from the standing pose)
+      if (interval > 0 && this.ctx.renderer && !(this.actor.mode === 'deploy' && !this.actor.clipped)) {
         this._updateImpostor(sc, flip, tint, animDt, interval);
       } else {
         if (this.imp) this._leaveImpostor();
@@ -1359,7 +1382,9 @@ export class UnitView {
 
   _renderImpostor(sc, atlas) {
     const P = this.P, R = this.ctx.renderer, imp = this.imp;
-    const box = this._impBox();
+    let box = this._impBox();
+    // local patch: a clipped model stays an impostor while it falls in — room for its Start clip's height above (≤ 7 H)
+    if (this.actor.mode === 'deploy') box = { x0: box.x0, y0: box.y0 - box.h * 7, w: box.w, h: box.h * 8 };
     const w = Math.max(8, Math.ceil(box.w * sc)), h = Math.max(8, Math.ceil(box.h * sc));
     const sp = this.actor.spine;
     sp.alpha = 1;

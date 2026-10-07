@@ -1015,7 +1015,7 @@ export async function createFieldView(host, options = {}) {
           promotions.push({ uid: e.uid, id: e.piece.id, area: e.area, row: e.row ?? null, col: e.col ?? null, idx: e.idx ?? null, copies: promoFrom.get(e.uid).length });
           if (promotions.length > 20) promotions.shift();
         } else if (e.area === 'board' && prevBoard.size && !prevBoard.has(e.uid)) { v.onDeploy?.(); fx.deploy(v); }
-        else if (before.length && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) fx.deploy(v);
+        else if (before.length && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) { v.onDeploy?.(); fx.deploy(v); } // local patch: onDeploy — a bench arrival drops in too
       } else {
         const prevHome = v._home;
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
@@ -1027,7 +1027,12 @@ export async function createFieldView(host, options = {}) {
           pending.delete(key);
           if (moved || Math.abs(v.x - w.x) + Math.abs(v.y - w.y) > 1e-3) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };
           v.lift = 0;
-          if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) { v.onDeploy(); fx.deploy(v); }
+          let dropped = false; // local patch: the official drop-in (units.js onDeploy → true)
+          if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) { dropped = v.onDeploy(); fx.deploy(v); }
+          // local patch: a piece sent back from the board to the bench drops in on its slot too (official capture)
+          else if ((e.area === 'hand' || e.area === 'temp') && prevBoard.has(e.uid) && v.onDeploy) dropped = v.onDeploy();
+          // local patch: the drop-in starts on the target tile — no slide from where it was
+          if (dropped === true) { v._tween = null; v.x = w.x; v.y = w.y; v.z = w.z; }
         }
       }
       v._home = w;

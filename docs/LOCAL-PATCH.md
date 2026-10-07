@@ -46,6 +46,7 @@
 | 게임 결과 통계 로그 (2026-10-07: 판이 끝날 때마다 `[stats] {JSON}` 한 줄 — 모드·난이도·스테이지·보스·승패·도달 라운드·시간, 플레이어별 닉네임·봇 여부·라운드·LP·편성(id·티어·금색·장비)·맹약·전투 통계. playerId·시드는 뺌. DB·볼륨 없이 `docker logs`/OCI Logging에서 읽음) | `server/local-stats.js`, `test/local-patch-stats.test.js` | 없음 (`server/local-patch.js onMatchEnd` 1줄) |
 | 라운드 작전 종료 효과음 (2026-10-07: 내 일반 전투 결과에 공식 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*` — 아래 「작전 종료 효과음」) | `public/js/audioOfficial.js battleOverOf` | `screens/game.js` 6줄(import, 결과 배너 분기) |
 | 스킬 범위가 공격 범위보다 넓은 스킬의 자동 발동 (2026-10-07, **사용자 결정·미확정** — 공식 기본 전략과 다름, 아래 「스킬 범위 발동」) | `server/sim/local-skill-range.js` | `server/sim/Battle.js` 2줄(import, `_setupKit`), `server/sim/skills.js` 2줄(`_extraTriggerSatisfied`의 `{ keys, profile }`), `content/kits/diy.js` 1줄(赤刃明霄陈 S3 `hitsFly`) |
+| 오퍼레이터 배치 낙하 연출 (2026-10-07: 각 모델의 Start 클립으로 하늘에서 떨어짐 — 페이드·민트 기둥 없음, 아래 「배치 낙하」) | — | `render/units.js`(`onDeploy`, 모델 늦게 로드 시 클립 따라잡기, 어두운 첫 프레임, impostor), `render/fx.js` 1줄(`fx.deploy`가 `bornOfficial`이면 생략), `render/app.js` 6줄(벤치 도착·보드→벤치 복귀도 낙하, 미끄러짐 없이 목표 칸에서) |
 | iframe 차단 헤더 | — | `server/index.js` 3줄 |
 | 나가기 창에서 「暂离（AI 托管）」 숨김 | — | `ui/matchChrome.js` (`AWAY_OPTION = false`) — 나가면 자리를 포기한다 |
 | 맹약 스택 세 자리 줄바꿈 수정 | `public/i18n/ko/ko.css` | — |
@@ -1198,6 +1199,21 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 바뀐 테스트: `feedback1e-skillrange`(烛煌 S3 발동·사격 대기 `untilS3Shot`), `kits_t5`(烛煌 S3·百炼嘉维尔 S2 시간창), `feedback1-transform`(실전 라운드 2개:
   莫斯提马 S3가 먼 적에 먼저 켜져 결과가 달라짐 → 스킬·자리 조정), `local-patch`(望 S3·陈 S3 규칙 테스트를 새 규칙으로, 望 棋子 대각 테스트는 S3를 안 켬).
 - 알려진 차이: 틱에서 켜지므로 이미 나간 일반 공격의 쿨다운(BAT 그대로)이 끝나야 첫 스킬 공격이 나간다(엔진 그대로, 공식 SKILL_RANGE 스킬과 같음).
+
+## 배치 낙하 (2026-10-07)
+- 사용자: 「인게임에서는 하늘에서 떨어지듯이 배치된다」. 조사 `research/2026-10-07-deploy-drop/`(사용자 캡처 프레임 시트,
+  `start-clip-survey.tsv`). 낙하는 코드가 아니라 각 모델의 Spine `Start` 클립이다(143명 중 103명: 몸 높이 0.6–7배 위에서, 착지 중앙값 0.2초, 가속·튐 없음,
+  `OnStart` 이벤트 = 착지). 나머지 40명(赤刃明霄陈·蕾缪安 등)은 자기 등장 동작.
+- 원본도 배치 때 `Start`를 틀었지만 가려졌다: 0.25초 투명도 페이드, 전투 시작처럼 모델이 로드되기 전에 'deploy'가 오면 `Start`를 건너뜀(그냥 Idle로
+  서 있음), 새 모델 0.2초 크로스페이드, impostor 슬롯이 서 있는 자세 크기, `fx.deploy` 민트 기둥·링·입자.
+- 고친 것(아군 + Spine 모델이 있는 유닛만, `UnitView.onDeploy`가 true를 돌려줌 → `bornOfficial`): 페이드 없음, 기둥 없음, 로드 전 배치는 로드되면 그만큼
+  지난 시점부터 `Start` 재생(크로스페이드 없이), 클리핑 없는 모델은 낙하 중 impostor를 쓰지 않음(클리핑 모델은 위로 7배 넓힌 슬롯), 첫 0.1초 RGB×0.6
+  [추정: 캡처 첫 프레임이 어둡다(≤66ms), 클라이언트 `_disableBornTweenColor`]. 정비 단계: 보드 배치·벤치 도착(구매·반환)·보드→벤치 복귀 모두 낙하, 목표 칸으로
+  미끄러지지 않고 그 자리에서. 보드→보드 이동은 예전처럼 미끄러짐(캡처에서 높은 낙하는 안 보였다 — 카메라 이동 중이라 불확실). 적·모델 없는 마름모는 원본 그대로.
+- 확인: Windows Chrome `sp-check\drop.mjs <port> <charId> <out> [quality]`(디버그 아레나 재시작 직후 14장) — 텍사스가 타일 위에서 떨어짐,
+  high·low 모두. 원본은 같은 자리에 민트 기둥 + 이미 선 모델. 단위 테스트 `test/render/local-deploy-drop.test.js`.
+- 남은 차이: 라운드 시작 때 링·그림자가 약 0.1초 먼저 나오는 것, 착지 전에 시뮬레이션이 이미 공격하는 것(텍사스가 공중에서 첫 공격 — 공식은
+  `CHARACTER_BORN_TIME` 동안 못 하는 듯 [추정], 시뮬레이션 변경이라 따로), 배치 효과음 시점(캡처에 소리 없음).
 
 ## 원본이 고치면 뺄 것
 - 제국의 갑주 폭격·3연타 → `server/sim/content/local-patch.js`의 `patchVtsk`

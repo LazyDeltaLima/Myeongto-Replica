@@ -1634,6 +1634,7 @@ export class FxSystem {
 
   deploy(view) {
     if (!view) return;
+    if (view.bornOfficial) return; // local patch: the official deploy has no effect — the model drops in (units.js onDeploy)
     const p = this._proj(view.x, view.y, view.z || 0);
     const s = p.s;
     const col = view.isEnemy ? 0xff6a5a : 0x9ff0dc;
