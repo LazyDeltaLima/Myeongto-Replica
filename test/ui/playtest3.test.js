@@ -2,7 +2,7 @@
 //   2  the own LP drops live while the own battle's enemies enter the blue gate — pendingLoss / liveLp (the settle
 //      rule min(lpCapPerRound, counted leaks), reset when the settled m.private lands, 联防中 during 联防), the team
 //      panel rows (rowLp: own live value, teammates' m.public players[].pendingLp), the LP tower's −N tick, and the
-//      server's pendingLp (server/match/Match.js _pendingLpView)
+//      server's pendingLp (server/match/match/views.js _pendingLpView)
 //   3  the temp overflow row (临时整备区): the ready button's visible reason, the row's frame geometry (tempRowFrame)
 //   8  the operator's own effect (特质 / garrison) right under the detail card's header (CHESS_SECTIONS, rendered order)
 //   9  no spinning busy indicators next to texts: no wait / progress cursors, the button's busy bar instead of a
@@ -269,7 +269,8 @@ describe('3: the temp overflow row (临时整备区)', () => {
 // ---- 8: the operator's own effect first --------------------------------------------------------------------------------
 
 describe('8: 特质 right under the detail card\'s header', () => {
-  test('Warfarin normal and elite cards display the 7 / 14 layer caps (#175)', async () => {
+  // GitHub #175 (from PR #192 by @kukiC): the card's 7 / 14 is the cap the battle applies
+  test('华法琳\'s normal and elite cards show the 7 / 14 layer caps (GitHub #175)', async () => {
     await data.loadAll('chess', 'garrisons', 'assets', 'bonds', 'items');
     for (const [id, cap] of [['chess_char_4_26_a', 7], ['chess_char_4_26_b', 14]]) {
       const blocks = ChessDetail({ chess: data.lookup('chess', id), piece: null, editable: false, bonds: [], loadout: null });

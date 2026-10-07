@@ -4,8 +4,6 @@
 // map (act1autochess_escaped_single: the helper's pieces on the left half, the enemies out of the middle gate at col 10) the
 // right half is no tile his player deploys on, yet an anchor that met no enemy flew there and he moved behind the red gate for
 // the whole skill. Now the landing must lie on his own board (Battle.onOwnBoard, the board region mapped onto the field).
-// Local patch backport (0.1.4): 联防 is played on the round's stage opened to both halves (UNITE_RECT), not on 0.2.0's
-// escaped maps — the 联防 cases use act1autochess_m04 (row 10 is open ground on both halves). Also GitHub #216's comment.
 // Run: node --test test/sim/feedback5-ulpia-own-board.test.js
 
 import { test } from 'node:test';
@@ -16,7 +14,7 @@ const ULPIA = 'chess_char_5_05_a';
 const dummy = enemyRec({ key: 'enemy_anchor_dummy', hp: 1e9, speed: 0, mass: 0, atk: 0 });
 
 /** 乌尔比安 cast S3 on `tile` of `kind`'s field; `enemy` = a parked enemy's tile or null. Returns where he stands after the cast. */
-function cast({ kind = 'unite', stageId = 'act1autochess_m04', tile = [10, 7], enemy = null, colOffset = 0 } = {}) {
+function cast({ kind = 'unite', stageId = 'act1autochess_escaped_single', tile = [10, 7], enemy = null, colOffset = 0 } = {}) {
   const h = makeBattle({
     kind, stageId, seed: 5, autoFinish: false, timeLimit: 120, defs: { enemies: { enemy_anchor_dummy: dummy } },
     players: [{ playerId: 'p1', seat: 0, side: 'L', colOffset, units: [{ uid: 1, kind: 'chess', chessId: ULPIA, row: tile[0], col: tile[1] }], bonds: {} }],
@@ -49,10 +47,10 @@ test('one-helper 联防: an enemy on his half still draws the anchor and he move
 });
 
 test('two-helper 联防: the left helper never lands on the right helper\'s half; the right helper moves on its own half', () => {
-  const left = cast({ stageId: 'act1autochess_m04', tile: [10, 7] });
+  const left = cast({ stageId: 'act1autochess_escaped_multi', tile: [10, 7] });
   assert.deepEqual(left.at, left.home, `left helper stays (${left.at})`);
   // the right-hand helper (colOffset 8): board col 3 → field col 11, enemy 3 tiles ahead on its own half
-  const right = cast({ stageId: 'act1autochess_m04', tile: [10, 3], colOffset: 8, enemy: [10, 14] });
+  const right = cast({ stageId: 'act1autochess_escaped_multi', tile: [10, 3], colOffset: 8, enemy: [10, 14] });
   assert.deepEqual(right.home, [10, 11]);
   assert.deepEqual(right.at, [10, 14], 'moves on its own half');
   assert.ok(right.h.b.onOwnBoard(right.u.player, 10, 14) && !right.h.b.onOwnBoard(right.u.player, 10, 7));

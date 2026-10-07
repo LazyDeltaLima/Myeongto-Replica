@@ -3,10 +3,8 @@
 //   「…新约能天使在开了突袭之后蹦到了下方原本用来临时放置溢出的干员和道具的那一栏高台的最左侧位置」 — on a boss field the
 //     battle rect (BOSS_RECT rows 0–5) holds the hand row (0) and the 临时整备区 row (1), high ground buildable ALL, so a
 //     ranged member could land there;
-//   「单人联防时突袭也可以跑到对面的场地上」 (GitHub #216) — on the 联防 field of one helper the right half (cols 11–20)
+//   「单人联防时突袭也可以跑到对面的场地上」 — on the 联防 map of one helper (escaped_single) the right half (cols 11–18)
 //     is in the rect but is nobody's board.
-// Local patch backport (0.1.4): 联防 is played on the round's stage opened to both halves (UNITE_RECT), not on 0.2.0's
-// escaped_single / escaped_multi maps — the 联防 cases use act1autochess_m01.
 // raidTile now takes only tiles of Battle.onOwnBoard: the board region (rows 9–12, cols 2–10) mapped onto the field.
 // Run: node --test test/sim/feedback5-raid-own-board.test.js
 
@@ -66,22 +64,22 @@ test('boss field pair: the mirrored right player lands on its own half only', ()
   assert.equal(h.b.onOwnBoard(u.player, 3, 15), true);
 });
 
-test('联防 with one helper (the round\'s stage, both halves): 突袭 does not jump onto the right half', () => {
+test('联防 with one helper (escaped_single): 突袭 does not jump onto the right half', () => {
   for (const pos of [[10, 15], [11, 17], [9, 12]]) {
-    const { h, mine, homes } = jump({ kind: 'unite', stageId: 'act1autochess_m01', players: [seat('H', 0, { units: [unitAt(12, 9)] })], enemyPos: pos });
+    const { h, mine, homes } = jump({ kind: 'unite', stageId: 'act1autochess_escaped_single', players: [seat('H', 0, { units: [unitAt(12, 9)] })], enemyPos: pos });
     const u = mine[0];
     assert.ok(u.tileC <= 10, `enemy ${pos}: landed on (${u.tileR},${u.tileC})`);
     assert.ok(h.b.onOwnBoard(u.player, u.tileR, u.tileC), `enemy ${pos}`);
     if (pos[1] >= 13) assert.deepEqual([u.tileR, u.tileC], homes[0], `enemy ${pos}: out of reach from the left half, it stays`);
   }
   // an enemy the left half can reach: it still jumps (onto the left half)
-  const { mine } = jump({ kind: 'unite', stageId: 'act1autochess_m01', players: [seat('H', 0, { units: [unitAt(12, 3)] })], enemyPos: [9, 9] });
+  const { mine } = jump({ kind: 'unite', stageId: 'act1autochess_escaped_single', players: [seat('H', 0, { units: [unitAt(12, 3)] })], enemyPos: [9, 9] });
   assert.ok(mine[0].tileC <= 10 && mine[0].tileC >= 7, `landed on (${mine[0].tileR},${mine[0].tileC})`);
 });
 
-test('联防 with two helpers (the round\'s stage, both halves): each helper lands on its own half', () => {
+test('联防 with two helpers (escaped_multi): each helper lands on its own half', () => {
   const players = [seat('L', 0, { units: [unitAt(12, 3, 1)] }), seat('R', 1, { colOffset: 8, units: [unitAt(12, 9, 2)] })];
-  const { h, mine } = jump({ kind: 'unite', stageId: 'act1autochess_m01', players, enemyPos: [10, 15] });
+  const { h, mine } = jump({ kind: 'unite', stageId: 'act1autochess_escaped_multi', players, enemyPos: [10, 15] });
   const right = mine.find((u) => u.ownerId === 'R'), left = mine.find((u) => u.ownerId === 'L');
   assert.ok(right.tileC >= 11, `the right helper lands on its half: (${right.tileR},${right.tileC})`);
   assert.ok(h.b.onOwnBoard(right.player, right.tileR, right.tileC));
