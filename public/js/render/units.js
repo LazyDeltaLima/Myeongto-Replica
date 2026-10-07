@@ -93,6 +93,15 @@ export function enemyModelScale(rec) {
   return Number.isFinite(k) && k > 0.05 && k < 20 ? k : 1;
 }
 /**
+ * Official size factor of a summon's model: its battle prefab (pkgrps/btl_pfb_tokens_*.ab) Spine transform product / the
+ * standard 0.27, like an enemy's `modelScale` (2026-10-08, client EN; every other tokens.json summon is 0.27).
+ */
+export const TOKEN_MODEL_K = Object.freeze({
+  token_10000_silent_healrb: 0.4 / 0.27, token_10006_vodfox_doll: 0.4 / 0.27,
+  token_10031_swire2_gdtrap: 0.25 / 0.27, token_10057_svash2_eagle1: 0.25 / 0.27, token_10057_svash2_eagle2: 0.25 / 0.27,
+  token_10057_svash2_eagle3: 0.25 / 0.27,
+});
+/**
  * Seconds of the death clip of a manifest Spine entry (`anims.die`, else a 'Die' clip, as SpineActor.dieClip; its
  * `animations` duration), 0 when it has none — 131 of the 135 operator Back models (GitHub issue #25).
  */
@@ -347,7 +356,7 @@ export class UnitView {
     this.isEnemy = info.side === 'enemy';
     this.isBoss = !!info.boss;
     // enemies: the official prefab's size factor (1 for operators, summons and enemies at the standard size)
-    this.modelK = this.isEnemy ? enemyModelScale(ctx.lookupDef ? ctx.lookupDef(info) : null) : 1;
+    this.modelK = this.isEnemy ? enemyModelScale(ctx.lookupDef ? ctx.lookupDef(info) : null) : TOKEN_MODEL_K[info.defId] || 1;
     this.isToken = info.kind === 'token';
     this.golden = !!info.golden;
     this.tier = clamp(Number(info.tier) || 1, 1, 6);

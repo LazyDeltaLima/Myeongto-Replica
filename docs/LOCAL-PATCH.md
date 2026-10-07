@@ -1383,6 +1383,19 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   「望 stone pop」·跟子 배치. 디버그 아레나(Windows `sp-check\snd_wangpop.mjs <port> <skill> <ms>`: 샌드백을 활성 바둑돌 칸으로 옮김) —
   S1 p_atk_stwctp_d + p_imp_stwctp_d, 이후 1초마다 p_imp_stwctp_d(총 7), S2 _h, S3 _s, 재배치 바둑돌 tkin, 재능 바둑돌 tkpa(tkin 없음).
 
+## 유닛 모델 크기 (2026-10-08, 사용자 제공 공식 PC 캡처)
+- 근거(클라이언트 EN): 오퍼레이터 전투 스킨 `chararts/<char>.ab defaultskin.prefab` FaceSwitcher 스케일 0.27 × SkeletonDataAsset 0.01(호시구마·첸 등
+  확인), 적도 같은 0.27 표준(`enemy_scales.py`), 타일 = Unity 1단위. 캐릭터 프리팹 `Graphic`이 X축 −30°로 기울어 30° 카메라(`projection.js OFFICIAL`)를 정면으로
+  보므로 화면에서 스켈레톤 1단위 = 발 위치의 타일당 px × 0.0027. 원본은 `UNIT.modelScale` 1/320(≈ 16 % 큼) → **0.0027**(`style.js`),
+  머리 높이 `UNIT.headroom` 1.18 → 1.02(같은 비율; 이펙트 head/body 앵커·숫자 위치가 따라감).
+- 소환물: 프리팹마다 곱이 달라(`pkgrps/btl_pfb_tokens_*.ab`) 적처럼 0.27 대비 계수 `units.js TOKEN_MODEL_K`: 医疗探机·诅咒娃娃 0.4, 香槟炸弹·
+  银灰(svash2) 독수리 3종 0.25, 나머지 0.27(tokens.json 전부 확인; char_605/613·acloon은 프리팹 못 찾음 → 1).
+- 화면 대조(타일 폭 대비 키, 머리 끝~발): 琳琅诗怀雅 공식(`research/2026-10-07-user-issues-3/official-pc-round8.png`, 공격 중) 1.14 · 수정 전 1.24 · 수정 후 1.08;
+  赤刃明霄陈 S3 공식 녹화 1.07 · 수정 전 아레나 1.35 · 수정 후 ≈ 1.17(계산). 자세가 달라 ±8 % 오차 [추정] — 판단은 클라이언트 수치로 했다.
+  공식 이펙트(월드 단위)는 바뀌지 않으므로 모델 대비 이펙트 크기도 공식에 가까워진다(첸 S3 용 머리가 몸에 가리던 것).
+- 확인: Windows `sp-check\usz_arena.mjs <port> <out> <charId> <row,col> [stage:<id>]`(디버그 아레나 m03), `usz_mock.mjs`(game-mock 페이즈) →
+  `usz-swire*.png`, `usz-prep-after.png`. `unitview.test.js` 머리 높이 기대값 1.02.
+
 ## 원본 버그 수정 선반영 (2026-10-07, 사용자 요청 「upstream에 보고된 버그 중 쉬운 것 바로 수정」)
 upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 코드·테스트를 그대로** 옮기는 것이 목적이라 `// local patch` 주석을 달지 않고,
 "원본 테스트 파일은 고치지 않는다" 원칙의 예외로 원본이 같이 고친 테스트도 그대로 가져왔다(0.2.0 병합 때 같은 줄이 되어 사라진다).

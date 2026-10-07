@@ -210,11 +210,17 @@ export function statusIconKey(key) {
 }
 
 export const UNIT = Object.freeze({
-  /** Spine skeleton units → world tiles (skeletons are ~360–450 units tall ⇒ ~1.2 tiles). */
-  modelScale: 1 / 320,
+  /**
+   * Spine skeleton units → world tiles: the client's battle skin prefab (chararts `defaultskin.prefab`: FaceSwitcher scale
+   * 0.27 × SkeletonDataAsset scale 0.01; enemies the same 0.27 standard, tools/local-extract/enemy_scales.py) on a tile of 1
+   * Unity unit, drawn on a plane facing the 30° camera (charpack `Graphic` rotation −30° about X) — so on screen a skeleton
+   * unit is 0.0027 × the camera's px per tile at the feet, as here. User report 2026-10-08 (official PC capture): it was
+   * upstream's 1 / 320 (≈ 16 % too big).
+   */
+  modelScale: 0.0027,
   /** Fallback diamond size in tiles. */
   diamond: 0.78,
-  headroom: 1.18, // tiles above the feet where bars sit (operators; enemies use their bounds)
+  headroom: 1.02, // tiles above the feet of an operator's head (fx / number anchors; enemies use their bounds) — 1.18 × 0.0027 × 320
   barWidth: 0.64,
   bossBarWidth: 2.2,
 });

@@ -220,11 +220,11 @@ describe('bounds (view.pieceScreenRect)', () => {
     const { x, y, s } = v.screen;
     const r = v.bounds();
     assert.ok(Math.abs(r.x - (x - 0.35 * s)) < 1e-6 && Math.abs(r.width - 0.7 * s) < 1e-6);
-    assert.ok(Math.abs(r.y - (y - 1.18 * s)) < 1e-6 && Math.abs(r.y + r.height - (y + 0.1 * s)) < 1e-6);
+    assert.ok(Math.abs(r.y - (y - 1.02 * s)) < 1e-6 && Math.abs(r.y + r.height - (y + 0.1 * s)) < 1e-6);
     assert.equal(typeof v.pickShape, 'undefined', 'no hit shapes any more');
     const foe = view({ side: 'enemy', kind: 'enemy', defId: 'enemy_big' }, {}, store({ spine: true }));
     await tick(); await tick();
-    foe.actor.entry.bounds = { height: 640 }; // setup-pose bounds: 2 tiles (UNIT.modelScale 1/320) × 0.92
+    foe.actor.entry.bounds = { height: 640 }; // setup-pose bounds: 1.73 tiles (UNIT.modelScale 0.0027) × 0.92
     foe.update(1 / 60, cam(), 0);
     const fr = foe.bounds();
     assert.ok(Math.abs(fr.y - (foe.screen.y - foe._headTiles * foe.screen.s)) < 1e-6 && foe._headTiles > 1.5, 'its own height');
