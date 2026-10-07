@@ -112,7 +112,7 @@ import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, cameraLayers, layerCamera, sidesOf, resumedWatch } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
 import { data, localAsset, getMode } from '../data.js';
-import { voiceForPiece, voiceForBuy, holdResultVoice } from '../voice.js'; // local patch: 休整期 lines (选中 / 部署), 结算 line kept
+import { voiceForPiece, voiceForUnit, holdResultVoice } from '../voice.js'; // local patch: 选中 lines on a tap, 结算 line kept
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
@@ -702,19 +702,13 @@ function MatchScreen() {
 
   // ---- actions ----------------------------------------------------------------------------------------------
   const buy = useCallback(async (i) => {
-    const slot = live.current.priv?.shop?.slots?.[i]; // local patch: the bought operator's deploy line (voice.js)
+    const slot = live.current.priv?.shop?.slots?.[i];
     // local patch (user report 2026-10-07 #1): an operator / summon lands on the bench with its deploy sound (pieceDeploy) —
-    // the shop's own sound (ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND, b_char_tokenset) stays for equipment
-    const ok = await actions.buy(i, slot && slot.kind !== 'item' ? { sfx: false } : undefined);
-    if (ok) voiceForBuy(slot); // local patch
-    return ok;
+    // the shop's own sound (ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND, b_char_tokenset) stays for equipment. No 部署 line (owner's
+    // 卫戍协议 videos, 2026-10-08: a purchase / reward only sounds the deploy SFX).
+    return actions.buy(i, slot && slot.kind !== 'item' ? { sfx: false } : undefined);
   }, []);
-  const pickReward = useCallback(async (i) => { // local patch: a 晋升奖励 / special offer pick speaks like a purchase (voice.js)
-    const slot = live.current.priv?.shop?.rewardOffer?.slots?.[i];
-    const ok = await actions.reward(i);
-    if (ok) voiceForBuy(slot);
-    return ok;
-  }, []);
+  const pickReward = useCallback((i) => actions.reward(i), []);
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
   // under AI 托管 — gameLogic.readyFundsPrompt). The button and Space both come here.
   const askingReady = useRef(false);
@@ -875,8 +869,7 @@ function MatchScreen() {
         const L = live.current;
         const entry = L.placeCtx?.pieces.get(e?.uid);
         if (!entry || !L.editable) return;
-        audio.sfx('pick', { volume: 0.6 });
-        voiceForPiece(entry.piece); // local patch
+        audio.sfx('pick', { volume: 0.6 }); // no 选中 line when a drag to place starts (owner's 卫戍协议 videos, 2026-10-08)
         setSel(null);
         // a new placement: a piece's detail card (right-click / long-press) would sit beside the wheel showing another unit
         setDetail((d) => (d?.kind === 'piece' ? null : d));
@@ -949,7 +942,11 @@ function MatchScreen() {
         // an enemy of the preview pen (research 09 §2.2 "Intel": tap it for its detail card)
         const penKey = previewEnemyKey(e);
         if (penKey) { setDetail({ kind: 'enemy', id: penKey }); return; }
-        if (e.unitId != null || e.unit) { setDetail({ kind: 'unit', unit: e.unit || null, unitId: e.unitId, uid: e.uid }); return; }
+        if (e.unitId != null || e.unit) {
+          setDetail({ kind: 'unit', unit: e.unit || null, unitId: e.unitId, uid: e.uid });
+          if (isCombatPhase(live.current.pub?.phase)) voiceForUnit(e.unit, e.unitId); // local patch: 选中 line, a re-tap too
+          return;
+        }
         if (!Number.isInteger(e.uid)) return;
         setDetail({ kind: 'piece', uid: e.uid });
         // a tap selects an own piece (underframe + range); right-click / long-press only opens its detail card. A tap on
@@ -959,7 +956,7 @@ function MatchScreen() {
         const wasSel = pressSel.current === e.uid;
         pressSel.current = null;
         setSel(wasSel ? null : { uid: e.uid });
-        if (!wasSel) voiceForPiece(L.placeCtx?.pieces.get(e.uid)?.piece); // local patch
+        voiceForPiece(L.placeCtx?.pieces.get(e.uid)?.piece); // local patch: a re-tap of the selected one speaks too (official)
         if (wasSel) setDetail((d) => (d?.kind === 'piece' && d.uid === e.uid ? null : d));
       }),
       // a tap on the ground itself: a special terrain tile explains itself (GitHub issue #184 「建议加入对于特殊地形的单击
@@ -1431,7 +1428,7 @@ function MatchScreen() {
       ${bondPop && hudLook.cls && bondPop.ownerId === strip.ownerId ? html`<${BondNav} bonds=${stripBonds} id=${bondPop.bondId} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />` : null /* local patch: the popup's < > (ui/hudArt.js) */}
 
       ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp} onClose=${() => { setDetail(null); setSel(null); }}
-        bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} side=${dSide} shopOpen=${shopOpen} live=${liveStats} voice=${combat}
+        bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} side=${dSide} shopOpen=${shopOpen} live=${liveStats}
         onBond=${(id) => openBond(id, detailOwner, 'detail')} />` : null}
       ${!resolved && hudLook.cls && (drag || facing) && placingDetail(drag || facing, placeCtx.pieces) ? html`<div class="dart-placing">
         <${DetailPanel} detail=${placingDetail(drag || facing, placeCtx.pieces)} onClose=${() => {}} bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} /></div>` : null /* local patch: the card while placing (ui/detailArt.js) */}

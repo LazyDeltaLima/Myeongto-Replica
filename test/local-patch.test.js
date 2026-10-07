@@ -306,7 +306,7 @@ describe('operator voice: Korean / Japanese / off and the 休整期 lines on ups
     } finally { voiceStore.set(prev); }
   });
 
-  test('client: 休整期 lines go through upstream audio.voice (选中 select on a piece, 部署 place on a buy) — items and tokens say nothing', async () => {
+  test('client: 选中 lines on a tap only — a tapped piece / battle operator (a re-tap too), none on a drag start or a purchase / reward (owner 2026-10-08)', async () => {
     const v = await mod('voice.js');
     const { audio } = await mod('audio.js');
     const calls = [];
@@ -315,17 +315,25 @@ describe('operator voice: Korean / Japanese / off and the 休整期 lines on ups
     try {
       v.voiceForPiece({ kind: 'item', id: 'x' });
       v.voiceForPiece({ kind: 'token', id: 'x' });
-      v.voiceForBuy({ kind: 'item', id: 'x' });
+      v.voiceForUnit({ side: 'enemy', spine: 'enemy_1007_slime' }, 3);
+      v.voiceForUnit({ side: 'ally', kind: 'token', spine: 'token_10000_silent_healrb' }, 4);
       assert.equal(calls.length, 0);
+      assert.equal(v.voiceForBuy, undefined, 'no 部署 line on a purchase / reward');
       const { data } = await mod('data.js');
       const lookup = data.lookup;
       data.lookup = (name, id) => (name === 'chess' && id === 'chess_x' ? { charId: 'char_002_amiya' } : lookup.call(data, name, id));
       try {
         v.voiceForPiece({ kind: 'chess', id: 'chess_x', uid: 7 });
-        v.voiceForBuy({ kind: 'chess', id: 'chess_x' });
+        v.voiceForUnit({ side: 'ally', kind: 'op', spine: 'char_002_amiya' }, 12);
       } finally { data.lookup = lookup; }
-      assert.deepEqual(calls, [['char_002_amiya', 'select', 'prep:7'], ['char_002_amiya', 'place', 'prep:char_002_amiya']]);
+      assert.deepEqual(calls, [['char_002_amiya', 'select', 'prep:7'], ['char_002_amiya', 'select', 'battle:12']]);
     } finally { audio.voice = orig; }
+    const game = readFileSync(path.join(ROOT, 'public', 'js', 'screens', 'game.js'), 'utf8');
+    const dragStart = game.slice(game.indexOf("view.on('pieceDragStart'"), game.indexOf("view.on('pieceDragStart'") + 600);
+    assert.ok(!/voiceFor/.test(dragStart), 'no line when a drag to place starts');
+    assert.match(game, /\n\s+voiceForPiece\(L\.placeCtx\?\.pieces\.get\(e\.uid\)\?\.piece\);/, 'every tap, the re-tap of the selected one too');
+    assert.match(game, /if \(isCombatPhase\(live\.current\.pub\?\.phase\)\) voiceForUnit\(e\.unit, e\.unitId\);/);
+    assert.ok(!/voice=\$\{combat\}/.test(game), "the detail panel's once-per-target line is replaced by the tap's");
   });
 
   test('client: 结算 lines wait for the won settlement (silent at a round\'s end, none for a knocked-out player)', async () => {

@@ -4,15 +4,16 @@
 //   * Language: Korean (`audio.voice`, the build's dub — fetch-assets --voice-lang=kr), Japanese (`audio.voiceJp`, the
 //     twin of tools/assets/voice.mjs) or off, per browser (`sp.pref.voice`). audio.voice() reads the table given by
 //     `audio.voiceTable` below. The background resource download (resources.js) only takes the chosen dub (voiceWanted).
-//   * 休整期 lines (upstream keeps the prep silent; the owner wants them): 选中干员 `select` when the player picks up or
-//     selects an own operator, 部署 `place` when the player buys one in the shop or takes one from a reward offer. They
-//     go through the same gate as the battle lines.
+//   * 选中干员 `select` (upstream keeps the prep silent; the owner wants it): when the player taps an own operator on the
+//     board / bench — again on a tap of the one already selected — and a battle unit. Not when a drag to place starts,
+//     and no 部署 `place` line when an operator is bought / rewarded (only its deploy SFX) — the owner's 卫戍协议 videos,
+//     2026-10-08. They go through the same gate as the battle lines (a 选中 line never cuts a skill line: priority).
 //   * The official scheduling (voicePolicy.js, owner 2026-10-06): no global gap, priority / same-priority overlap /
 //     cooldown by the official voice type, a random 作战中, 行动开始 once per battle, no 部署 burst at the battle start.
 //
 //   <VoiceSetting />           the settings row (ui/settings.js): language
-//   voiceForPiece(piece)       screens/game.js: a picked-up / selected piece
-//   voiceForBuy(slot)          screens/game.js: a shop slot bought / a reward picked
+//   voiceForPiece(piece)       screens/game.js: a tapped board / bench piece
+//   voiceForUnit(info, id)     screens/game.js: a tapped battle unit
 //   holdResultVoice(line)      screens/game.js onResult: the own battle's 结算 line, kept instead of played
 //   playMatchEndVoice(res, me) screens/result.js: the kept line on a won settlement, if the player was not knocked out
 //
@@ -78,7 +79,7 @@ export function chessVoiceId(chessId) {
 }
 
 /**
- * The operator of a board / bench piece (screens/game.js pieceDragStart / pieceClick): its 选中干员 line.
+ * The operator of a board / bench piece the player tapped (screens/game.js pieceClick): its 选中干员 line.
  * @param {{ kind?: string, id?: string, uid?: string|number }|null|undefined} piece
  */
 export function voiceForPiece(piece) {
@@ -88,13 +89,15 @@ export function voiceForPiece(piece) {
 }
 
 /**
- * A shop slot the player just bought / a reward offer taken (screens/game.js buy, pickReward): its 部署 line.
- * @param {{ kind?: string, id?: string }|null|undefined} slot
+ * A battle unit the player tapped (screens/game.js pieceClick, also on a re-tap): an operator's 选中干员 line — not an
+ * enemy's, a summon's or a device's.
+ * @param {{ side?: string, kind?: string, spine?: string|null, defId?: string|null }|null|undefined} info render UnitInfo
+ * @param {string|number|null} [unitId]
  */
-export function voiceForBuy(slot) {
-  if (!slot || slot.kind === 'item') return;
-  const id = chessVoiceId(slot.id);
-  if (id) audio.voice(id, 'place', { unitKey: `prep:${id}` });
+export function voiceForUnit(info, unitId = null) {
+  if (!info || info.side === 'enemy' || info.kind === 'token' || info.kind === 'device') return;
+  const id = info.spine || (typeof info.defId === 'string' ? chessVoiceId(info.defId) : null);
+  if (typeof id === 'string' && id.startsWith('char_')) audio.voice(id, 'select', { unitKey: `battle:${unitId ?? id}` });
 }
 
 let heldResult = null;
