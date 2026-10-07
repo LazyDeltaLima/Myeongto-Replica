@@ -637,7 +637,9 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
 
   test('望 S3: ammo per deployment = 跟子 actually built − the talent\'s free one: 4 free neighbours → 4 跟子 / 3 ammo, fewer → fewer', () => {
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
-      units: [op('wang', { sk: 2, row: 11, col: 3 }), ...[5, 6, 7, 8, 9].map((c, i) => stone(12, c, 50 + i))] });
+      // the non-module form: deploy limit 6 (the module's 7 leaves room for one more stand-in drop — module case:
+      // local-patch-diy-wang.test.js)
+      units: [op('wang', { sk: 2, row: 11, col: 3, elite: false }), ...[5, 6, 7, 8, 9].map((c, i) => stone(12, c, 50 + i))] });
     h.step(2);
     const w = h.unit(1);
     w.skill.activate('manual', { free: true });
@@ -722,7 +724,9 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const run = (extra) => {
       const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, units: [op('wang', { sk: 2, row: 11, col: 3 }), ...extra],
         enemies: [{ key: ENEMY, time: 0, route: 0, count: 20, interval: 2 }, { key: ENEMY, time: 1, route: 1, count: 15, interval: 2.5 }] });
+      const built = countFollowers(h.b, () => h.unit(1)?.skill?.active);
       h.run(40);
+      h.followersBuilt = built();
       return h;
     };
     const none = run([]);
@@ -736,7 +740,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     assert.ok(some.hooksOf('skillStart').some((x) => x.unit === w1), 'cast');
     const fol = some.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower).length;
     assert.ok(!w1.skill.active || w1.skill.ammoLeft < 20 || fol >= 8, `ammo spent unless max_spawn_cnt is (nearly) reached (${fol})`);
-    assert.ok(fol > 0, 'ChargeToken overflow → InstantSpawn 跟子');
+    assert.ok(some.followersBuilt > 0, `跟子 during S3 (ChargeToken overflow → InstantSpawn, deployments) (${some.followersBuilt})`);
     assert.ok(tagged(some, 'trap') > 0);
     if (w1.skill.active) {
       const st0 = w1.mem.wang.stock, left = w1.skill.ammoLeft;

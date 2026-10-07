@@ -39,7 +39,8 @@
 //   field; user decision 2026-10-07, W8 — it replaced the seeded random of the client's _alwaysRandomInTheEnd 1; the
 //   priority confirmed in game by the user 2026-10-07); only where no character unit stands and no knocked-out operator
 //   lies (downOn, as upstream; user decision 2026-10-07). It needs no stock and is drawn as a stone. It links like a stone; its damage comes from 望.
-// - Stock (手牌): at the battle start the stones not placed (fieldCap 6 − placed; user decision 2026-10-07), ≤ maxDeckStackCnt.
+// - Stock (手牌): at the battle start the stones not placed (deploy limit − placed: 6, 7 with her module
+//   uniequip_002_wang — stoneLimits; user decision 2026-10-07), ≤ maxDeckStackCnt.
 //   S1 / S2: "立即获得两枚棋子", 阻回 while the stock is full (PRTS 备注). S3: gains cnt, the stones above the stock limit
 //   go out as 跟子 on the enemies of her range (PRTS: "技能开启时自动部署的为第一天赋的跟子"); manual deployments in her
 //   range may go on enemy tiles and bring the talent's 跟子 (free) + up to 3 extra 跟子, one ammo each — ≤ 3 ammo a deployment
@@ -131,6 +132,20 @@ function wang(bb, chess, def) {
   // the 棋子 variant of her form / skill / module (a 自选 piece's token variants are keyed by its owner form)
   const stoneDef = (battle, unit) => battle.tokenDef(STONE_ID, unit);
   const stoneStats = (battle, unit) => stoneDef(battle, unit)?.stats ?? {};
+  /**
+   * deployLimit / deckStack of her stone variant with her module (normalizeToken drops both from `stats`; tokens.js
+   * deployLimitOf reads the raw variant the same way). local patch (2026-10-08): the module raises the deploy limit
+   * 6 → 7 (uniequip_002_wang `byModule` stats) — the kit used to fall back to 6 always (user's video: 7 stones in the prep).
+   */
+  const stoneLimits = (battle, unit) => {
+    const raw = stoneDef(battle, unit)?.raw;
+    const oid = unit.def?.tokenOwner ?? unit.defId;
+    let v = raw?.variants?.[oid] ?? raw?.variants?.[String(oid).replace(/_b$/, '_a')] ?? null;
+    const mid = unit.def?.loadout?.moduleId;
+    if (v && typeof mid === 'string' && v.byModule?.[mid]) v = { ...v, ...v.byModule[mid], stats: { ...v.stats, ...v.byModule[mid].stats } };
+    const vs = v?.stats ?? {};
+    return { deployLimit: vs.deployLimit ?? raw?.deployLimit ?? raw?.stats?.deployLimit, deckStack: vs.deckStack ?? raw?.stats?.deckStack };
+  };
   // stock = the stone cards in her hand, ≤ deckCap ("最多拥有": the client's card counts — wang_s3_charge_token
   // max_cnt / remaining_cnt via AssignTokenCardCntToBB, _stopSpWhenTokenIsFull; local patch 2026-10-06: not field + hand)
   const st = (unit) => unit.mem.wang || (unit.mem.wang = { stock: 0, deckCap: 7, fieldCap: 6, prepPlaced: 0 });
@@ -147,7 +162,7 @@ function wang(bb, chess, def) {
    * Battle.redeploy): after its respawnTime, paying its DP cost; the tile must be free of units and enemies (trait).
    * [ASSUMED] she must be on the field (a hand piece of hers).
    * Stock (user decision 2026-10-07, the trapmaster rule the user knows from the game): every return takes one stone
-   * of her stock (6 − the stones placed in the prep at the start); with the stock empty a used stone waits until S1 / S2
+   * of her stock (the deploy limit — 6, 7 with her module — minus the stones placed in the prep at the start); with the stock empty a used stone waits until S1 / S2
    * 「立即获得两枚棋子」 refill it. `RETURN_USES_STOCK`.
    * Former rule (2026-10-06 – 2026-10-07, kept for reference, off): a consumed stone was a card again (the token deck:
    * a summon that leaves returns to the hand after its 再部署时间 — the stock is the deck, not a count used up) and came
@@ -419,7 +434,7 @@ function wang(bb, chess, def) {
           battle._setupUnit(t, placedStoneKit(t.def));
         }
         battle.on('battleStart', () => {
-          const ss = stoneStats(battle, unit);
+          const ss = stoneLimits(battle, unit);
           const s = st(unit);
           s.deckCap = Math.max(1, num(ss.deckStack, 7));
           s.fieldCap = Math.max(1, num(ss.deployLimit, 6));

@@ -156,6 +156,19 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
     }
   });
 
+  test('module (uniequip_002_wang): deploy limit 7 — seven prep stones all stand, stock 0; without it 6', () => {
+    const seven = [4, 5, 6, 7, 8, 9, 10].map((c, i) => stone(9, c, 50 + i));
+    for (const [elite, cap] of [[true, 7], [false, 6]]) {
+      const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 30, autoFinish: false,
+        units: [{ ...op(0, 11, 3), elite, diy: { slot: 6, ...pick(0, elite) } }, ...seven], enemies: [] });
+      h.step(1);
+      const s = h.unit(1).mem.wang;
+      assert.equal(s.fieldCap, cap, `deploy limit (elite ${elite})`);
+      assert.equal(h.b.allyUnits.filter((u) => u.kind === 'token' && u.alive && !u.mem.wangFollower).length, cap, 'stones standing');
+      assert.equal(s.stock, 0, 'stock = limit − placed, never below 0');
+    }
+  });
+
   test('跟子 never land on a knocked-out operator (downOn, as upstream; user decision 2026-10-07)', () => {
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false,
       units: [op(0, 11, 3), stone(11, 5, 50), stone(11, 6, 51)] });
