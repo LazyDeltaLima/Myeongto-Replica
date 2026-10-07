@@ -41,6 +41,7 @@ import { Grid, DEPLOY_REFUSED_TILES } from '../server/sim/grid.js';
 import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { extendedGrid } from '../shared/loadoutRecord.js';
+import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 
 // ===== CLI & IO ==================================================================================
 
@@ -487,15 +488,6 @@ const STANDIN_TRIGGER_DEVIATIONS = Object.freeze({
 });
 
 /**
- * Corrections for 自选 units whose skill text no longer matches the live client (keyed by charId and skill id): 菲亚梅塔
- * S1 — PRTS 备注 for the 2026-08-01 client: it no longer targets flyers and its "攻击距离+1" no longer grows the range
- * (the client's selector agrees), so the basic strategy (DEFAULT), not ACTIVE_RANGE on a +1 grid she cannot reach (O12).
- */
-const UNIT_TRIGGER_CORRECTIONS = Object.freeze({
-  char_300_phenxi: { skchr_phenxi_1: 'DEFAULT' },
-});
-
-/**
  * The attack range a MANUAL skill gives while it runs, when its text changes the attack range (ATTACK_RANGE_CHANGE): its
  * own rangeId grid, else the operator's range grown by `ability_range_forward_extend` ("攻击距离+N": 空弦 S3, 史尔特尔
  * S2 / S3, 异客 S2 — the kits' targeting.rangeExtend, extendedGrid as Battle._refreshRange); null for any other skill and
@@ -567,9 +559,6 @@ function resolveTrigger(ctx, char, charId, skillIdx, skill, { operator = false, 
     return { rule: 'SKILL_RANGE', rawRule: 'DEFAULT', customRangeGrid: skill.rangeGrid.map((p) => p.slice()) };
   }
   const rawRule = pick ? pick.skillTriggerType : 'DEFAULT';
-  // a live-client correction is final (no ACTIVE_RANGE upgrade: the text's larger range is gone in the client)
-  const correction = unitCharId ? UNIT_TRIGGER_CORRECTIONS[unitCharId]?.[skill.skillId] : null;
-  if (correction) return { rule: correction, rawRule, customRangeGrid: null };
   // the 重装 exception also covers every 自选 重装 (a backups.json unit of the TANK class whose MANUAL skill meets the
   // class row's TAKE_DAMAGE casts with an enemy in range — the owner's decision of 2026-10-05, as for the stand-ins)
   const deviation = chessId ? TRIGGER_DEVIATIONS[chessId]?.[skill.skillId]
@@ -809,7 +798,7 @@ function classifyAttack(char, traitText) {
   const trait = traitText || '';
   // 驭法铁卫 (斩业星熊) "技能开启时普通攻击会造成法术伤害": arts is the skill-on type; the normal attack — the record's
   // dmgType, what a card and the bot read — is physical (display only: her kit attacks physically off-skill and in arts
-  // while a skill runs, op-hsgma2.js)
+  // while a skill runs — upstream's 自选 kit)
   const skillOnArts = /技能开启时[^，。；]*法术伤害/.test(trait);
   let dmgType;
   if ((prof === 'MEDIC' && sub !== 'incantationmedic') || sub === 'bard') dmgType = 'heal';
@@ -1099,37 +1088,12 @@ function buildChess(ctx) {
 // ===== backups (补位 stand-ins, 自选 DIY slots) ===================================================
 
 /**
- * 自选 picks beyond the 6★ the slot requirement names (diyChessDict says only TIER_6): PRTS 「卫戍协议：盟约
- * 下半/PRTS盟约记录」 干员数据库 "可选干员范围为除所有预设干员以外的玩家拥有的六星干员、所有六星原型干员，第5阶可额外从6名四星
- * 原型干员（先锋、特种职业除外）中选取" — per slot tier, the extra prototype rarity and the professions left out.
+ * The 自选 picks this server offers (shared/local-diy.js LOCAL_DIY_PICKS, the owner's five 선발 operators — 丰川祥子 a
+ * collab upstream leaves out): the whole owned-6★ pool of data/backups.json, built in that order. Upstream's 72-operator
+ * pool and its prototype picks (原型干员 / 预备干员 at tier 5 and 6) are gone with the hard fork from 0.2.0
+ * (2026-10-07): `diy.prototypes` is empty at every slot tier, while the prototypes stay units as 补位 stand-ins.
  */
-const DIY_EXTRA_PROTOTYPES = Object.freeze({ 5: Object.freeze({ rarity: 4, excludedProfessions: Object.freeze(['PIONEER', 'SPECIAL']) }) });
-
-/**
- * 自选 owned picks left out of the data and the pool by the owner's decision of 2026-10-05: the collab operators
- * (copyright) — every 6★ whose `mainPower` or a `subPower` names one of these 联动 teams: rainbow (灰烬, 艾拉), action4
- * (麒麟R夜刀), mujica (丰川祥子), sees (结城理), laios (玛露西尔). The excel does not exclude them (research 0.2.0 §2.2).
- */
-const DIY_EXCLUDED_TEAMS = Object.freeze(['rainbow', 'action4', 'mujica', 'sees', 'laios']);
-/**
- * …and every 6★ of a 联动寻访, by the prefix of its character_table `displayNumber` (the collab series: MH Monster Hunter —
- * 麒麟R夜刀 MH02, 焰狐龙梓兰 MH05, whose team reserve6 names no collab —, RS Rainbow Six, AM Ave Mujica, PS Persona, DD
- * Dungeon Meshi); every other prefix in the pool is a faction (LM, NM, RE, RL, …).
- */
-const DIY_EXCLUDED_NUMBER_PREFIXES = Object.freeze(['MH', 'RS', 'AM', 'PS', 'DD']);
-/**
- * local patch (the owner's decision, 2026-10-05): collab 6★ taken into the owned pool after all — 丰川祥子, one of the
- * owner's five 선발 picks (shared/local-diy.js LOCAL_DIY_PICKS restricts what is offered; docs/LOCAL-PATCH.md).
- */
-const DIY_LOCAL_INCLUDED = Object.freeze(['char_4182_oblvns']);
-
-/**
- * The skill a prototype carries in a 自选 slot when no 补位 row of the slot's tier names it (only 预备干员-医疗 at tier 5:
- * it stands in at tier 3 only). PRTS 卫戍协议 says the prototypes' "技能携带规则与系统补位时一致"; [ASSUMED] (the owner's
- * decision of 2026-10-05) the selection of its 补位 rows at that tier, and for this one S3 — every other 4★ reserve's
- * tier-5 row — with no module.
- */
-const DIY_PROTOTYPE_FALLBACK_SKILL = 2;
+const DIY_OWNED_PICKS = LOCAL_DIY_PICKS;
 
 const rarityOf = (char) => Number(String(char?.rarity).replace('TIER_', '')) || null;
 const statusCmp = (a, b) => a.phase - b.phase || a.level - b.level || a.skillLevel - b.skillLevel || a.equipLevel - b.equipLevel;
@@ -1235,18 +1199,17 @@ function buildUnitForm(ctx, charId, status, { chessId = null, skillIndex = null 
  * data/backups.json (DATA.md §18; DESIGN 0.2.0 draft): the data of 补位 and 自选.
  * - `units`: every character a 补位 or 自选 piece fields, with a form for every status it fights at. First the 17
  *   原型干员 a NORMAL chess names as `backup.charId` (预备干员 char_600–607, the 6★ 罗德岛特派高级资深干员 char_608–615 and
- *   领主·Sharp char_617) at the statuses of the chess it stands in for (normal and elite) and of the DIY slots it may fill;
- *   then every owned-6★ pick (`diy.ownedPool`) at the DIY slot statuses — E2 Lv1 skill rank 4 without a module, E2 Lv60
- *   rank 7 with every module at stage 1 (tier 5) and at stage 3 (tier 6). No unit for a PRESET chess (特许: always the
- *   real operator; its backup is itself) or a DIY slot (no backup).
+ *   领主·Sharp char_617) at the statuses of the chess it stands in for (normal and elite); then every owned-6★ pick
+ *   (`diy.ownedPool`) at the DIY slot statuses — E2 Lv1 skill rank 4 without a module, E2 Lv60 rank 7 with every module
+ *   at stage 1 (tier 5) and at stage 3 (tier 6). No unit for a PRESET chess (特许: always the real operator; its backup
+ *   is itself) or a DIY slot (no backup).
  * - `tokens`: the summons of the owned picks (buildDiyTokens: tokens.json records whose `variants` are keyed by owner
  *   form, `<charId>@<statusKey>`).
  * - `diy`: the slots (tier, elite id, the shop level that lists them, the rarity requirement), the prototype picks per
- *   slot tier (DIY_EXTRA_PROTOTYPES) and the skill / module each carries there (`locked`: its 补位 rows' selection at
- *   that tier — "技能携带规则与系统补位时一致"), the owned-6★ pool (obtainable, not a roster operator: no chess names it,
- *   hidden chess included — "不可甄选加入已在名单中的固定干员" — and not a collab, DIY_EXCLUDED_TEAMS: `excluded`) and, for
- *   every pick, its faction ids (`mainPower` and every `subPower`: "依据其「所属势力」「隐藏势力」等属性决定其盟约") and the
- *   core bonds whose `powerIdList` meets them, else `constData.fallbackBondId` (协防干员) — PRTS 「卫戍协议」
+ *   slot tier and the skill / module each carries there (`prototypes` / `locked`: empty on this server — DIY_OWNED_PICKS),
+ *   the owned-6★ pool (DIY_OWNED_PICKS, each a legal pick: obtainable, not a roster operator) and, for every pick, its
+ *   faction ids (`mainPower` and every `subPower`: "依据其「所属势力」「隐藏势力」等属性决定其盟约") and the core bonds whose
+ *   `powerIdList` meets them, else `constData.fallbackBondId` (协防干员) — PRTS 「卫戍协议」
  *   "甄选加入的干员会根据其实际阵营所属分配核心盟约，若没有可匹配的则改为分配协防干员盟约".
  */
 function buildBackups(ctx, chess) {
@@ -1281,41 +1244,20 @@ function buildBackups(ctx, chess) {
     requirements.add(s.diyRequirement);
     slots[s.chessId] = { tier: s.tier, goldenId: s.goldenId, shopLevel: shopLevelOf[s.chessId] ?? null, requirement: s.diyRequirement };
     for (const rec of [s, golden]) diyStatuses.set(statusKey(rec.status), rec.status);
-    const extra = DIY_EXTRA_PROTOTYPES[s.tier];
-    const picks = standInIds.filter((id) => {
-      const ch = charTable[id];
-      return ch.rarity === s.diyRequirement || (!!extra && rarityOf(ch) === extra.rarity && !extra.excludedProfessions.includes(ch.profession));
-    });
-    if (prototypes[s.tier] && JSON.stringify(prototypes[s.tier]) !== JSON.stringify(picks)) warn(`DIY tier ${s.tier}: slots disagree on the prototype picks`);
-    prototypes[s.tier] = picks;
-    for (const id of picks) { addNeed(id, s.status); addNeed(id, golden.status); }
-    // the skill / module a prototype carries in a slot of this tier: its 补位 rows' (the NORMAL base chess of the tier
-    // whose backup it is), else DIY_PROTOTYPE_FALLBACK_SKILL without a module [ASSUMED]
+    prototypes[s.tier] = [];   // no prototype pick on this server (DIY_OWNED_PICKS)
     locked[s.tier] = {};
-    for (const id of picks) {
-      const rows = Object.values(chess).filter((c) => c.chessType === 'NORMAL' && !c.isGolden && c.tier === s.tier && c.backup?.charId === id)
-        .sort((x, y) => naturalCmp(x.chessId, y.chessId));
-      const kinds = new Set(rows.map((c) => `${c.backup.skillIndex}|${c.backup.uniEquipId ?? ''}`));
-      if (kinds.size > 1) warn(`DIY tier ${s.tier} prototype ${id}: its 补位 rows carry different selections (${[...kinds].join(', ')}); the first row's is used`);
-      locked[s.tier][id] = rows.length
-        ? { skillIndex: rows[0].backup.skillIndex, uniEquipId: rows[0].backup.uniEquipId ?? null, from: rows.map((c) => c.chessId) }
-        : { skillIndex: DIY_PROTOTYPE_FALLBACK_SKILL, uniEquipId: null, from: [] };
-    }
   }
 
+  // the owned picks: each must be a legal 自选 operator — a character of a slot's rarity, obtainable, not a TOKEN / TRAP
+  // and not a roster operator (no chess names it, hidden chess included: "不可甄选加入已在名单中的固定干员")
   const roster = new Set(Object.values(act.charShopChessDatas).map((r) => r.charId).filter(Boolean));
-  const teamsOf = (ch) => [ch.mainPower?.teamId ?? ch.teamId, ...(ch.subPower || []).map((p) => p?.teamId)].filter(Boolean);
-  const excludedTeams = new Set(DIY_EXCLUDED_TEAMS);
-  const legal6 = Object.keys(charTable).filter((id) => {
+  const ownedPool = DIY_OWNED_PICKS.filter((id) => {
     const ch = charTable[id];
-    return id.startsWith('char_') && requirements.has(ch.rarity) && ch.profession !== 'TOKEN' && ch.profession !== 'TRAP'
+    const legal = !!ch && requirements.has(ch.rarity) && ch.profession !== 'TOKEN' && ch.profession !== 'TRAP'
       && !ch.isNotObtainable && !roster.has(id);
-  }).sort(naturalCmp);
-  const collabNumber = (ch) => DIY_EXCLUDED_NUMBER_PREFIXES.some((p) => new RegExp(`^${p}\\d`).test(ch.displayNumber || ''));
-  const excluded = legal6.filter((id) => (teamsOf(charTable[id]).some((t) => excludedTeams.has(t)) || collabNumber(charTable[id])) && !DIY_LOCAL_INCLUDED.includes(id)); // local patch: DIY_LOCAL_INCLUDED
-  for (const t of DIY_EXCLUDED_TEAMS) if (!excluded.some((id) => teamsOf(charTable[id]).includes(t)) && !DIY_LOCAL_INCLUDED.some((id) => charTable[id] && teamsOf(charTable[id]).includes(t))) warn( // local patch: DIY_LOCAL_INCLUDED
-    `DIY_EXCLUDED_TEAMS: no owned-6★ pick of team ${t}`);
-  const ownedPool = legal6.filter((id) => !excluded.includes(id));
+    if (!legal) warn(`DIY_OWNED_PICKS: ${id} is not a legal 自选 pick (left out)`);
+    return legal;
+  });
   for (const id of ownedPool) for (const st of diyStatuses.values()) addNeed(id, st);
 
   const units = {};
@@ -1336,7 +1278,7 @@ function buildBackups(ctx, chess) {
   const coreBonds = Object.values(ac.bondInfoDict || {}).filter((b) => b.isPower && (b.powerIdList || []).length);
   const fallback = act.constData.fallbackBondId;
   const operators = {};
-  for (const id of [...new Set([...ownedPool, ...Object.values(prototypes).flat()])].sort(naturalCmp)) {
+  for (const id of ownedPool) {
     const ch = charTable[id];
     const powers = [];
     for (const p of [ch.mainPower ?? { nationId: ch.nationId, groupId: ch.groupId, teamId: ch.teamId }, ...(ch.subPower || [])]) {
@@ -1348,7 +1290,7 @@ function buildBackups(ctx, chess) {
       obtainable: !ch.isNotObtainable, powers, bonds: hit.length ? hit : [fallback],
     };
   }
-  return { units, tokens, diy: { slots, prototypes, locked, ownedPool, excluded, operators } };
+  return { units, tokens, diy: { slots, prototypes, locked, ownedPool, operators } };
 }
 
 /**
@@ -3765,7 +3707,6 @@ function validateAll(f) {
     for (const [id, s] of Object.entries(backups.diy.slots)) {
       const slot = chess[id], golden = chess[s.goldenId];
       if (!slot?.isDiy || slot.isGolden || slot.tier !== s.tier || !golden?.isDiy) { err(`DIY slot ${id}: not a DIY chess pair of tier ${s.tier}`); continue; }
-      if (!backups.diy.prototypes[s.tier]?.length) err(`DIY slot ${id}: no prototype picks`);
       for (const p of backups.diy.prototypes[s.tier] || []) {
         for (const rec of [slot, golden]) if (!unitForm(backups, p, rec.status)) err(`DIY slot ${rec.chessId}: prototype ${p} has no form ${statusKey(rec.status)}`);
         // the locked selection exists at both slot forms (the module at the elite's stage)

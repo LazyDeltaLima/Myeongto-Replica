@@ -7,7 +7,8 @@
 // - two slots per tier, 5 and 6: chess_char_5_diy1/2_a, chess_char_6_diy1/2_a, each with its `_b` elite twin (tier,
 //   price, merge of the slot: buy 4, sell 1);
 // - the picks of a tier: the owned 6★ outside the chess pool (`diy.ownedPool`: no preset operator, no collab) and the
-//   nine 6★ prototypes at both tiers, the six 4★ reserves (not 先锋 / 特种) at tier 5 only (`diy.prototypes[tier]`);
+//   nine 6★ prototypes at both tiers, the six 4★ reserves (not 先锋 / 特种) at tier 5 only (`diy.prototypes[tier]`) —
+//   on this server the owned pool is our five and the prototype lists are empty (shared/local-diy.js, tools/build-data.mjs);
 // - a prototype may fill one tier-5 and one tier-6 slot, an owned operator one slot; the two picks of a tier differ;
 // - no 特质 (PRTS "甄选加入的干员不会拥有任何特质"); bonds from the operator's factions (`diy.operators[id].bonds`);
 // - the normal form is E2 Lv1, skill rank 4, no module; the elite E2 Lv60, rank 7, its module at stage 1 (tier 5) or 3
