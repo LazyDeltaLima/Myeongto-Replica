@@ -31,16 +31,18 @@ export function hudLists(units) {
 }
 
 /**
- * The 'dmg' event's 5th field (render/fx.js official damage numbers): 1 = a critical hit — the client's Modifier.isCritical,
- * BattleConsts.MODIFIER_CRIT_THRESHOLD 1.5 [추정: the raw hit (before DEF / RES) ≥ 1.5 × the attacker's ATK — the check is
- * native code]; 2 = a hit the data forces to show (lemuen_s3_attack `_forceDisplayDamageNum`: 蕾缪安 S3 shells, tag
- * 'bombard'); 0 = none. Sourceless and fixed-value DoT damage never counts as critical. The client shows a damage number
- * only for these (user decision 2026-10-07; the old "every hit" numbers stay a setting).
+ * The 'dmg' event's 5th field (render/fx.js official damage numbers): 1 = a critical hit — PRTS 作战机制 「伤害红字（暴击）」
+ * 「单位在造成的伤害不低于预期伤害的1.5倍时，会在造成伤害后弹出红色的数字…官方称呼为Critical」 (client Modifier.isCritical,
+ * BattleConsts.MODIFIER_CRIT_THRESHOLD 1.5): the hit `final` (after 脆弱, damage multipliers and 穿透) ≥ 1.5 × its
+ * expected damage `expected` (ATK × multiplier through the target's DEF / RES, no 穿透 — research/battle-mechanics-
+ * reference.md), so red numbers mostly come with 脆弱 / 增伤 / 穿透; 2 = a hit PRTS 「强制红字」 / the data force to show:
+ * 蕾缪安 S3 归乡邀约 (瞄准射击时 — tags 'snipe' and 'bombard'; client lemuen_s3_attack `_forceDisplayDamageNum`);
+ * 0 = none. Sourceless and fixed-value DoT damage never counts. A first version (2026-10-07) compared with the ATK alone.
  */
 export const CRIT_THRESHOLD = 1.5;
-export function damageNumberFlag(dmg, ss) {
+export function damageNumberFlag(dmg, ss, expected, final) {
   const tags = dmg.tags || [];
-  if (tags.includes('bombard')) return 2;
-  if (!ss || dmg.sourceless || !(ss.atk > 0) || tags.includes('dot') || tags.includes('hpLoss')) return 0;
-  return dmg.amount >= ss.atk * CRIT_THRESHOLD - 1e-6 ? 1 : 0;
+  if (tags.includes('bombard') || tags.includes('snipe')) return 2;
+  if (!ss || dmg.sourceless || tags.includes('dot') || tags.includes('hpLoss')) return 0;
+  return expected > 0 && final >= expected * CRIT_THRESHOLD - 1e-6 ? 1 : 0;
 }

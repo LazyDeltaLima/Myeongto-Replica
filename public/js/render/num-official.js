@@ -5,9 +5,9 @@
 //     `_randomRange` (10, 5), `_lifeTime` 0.5, `_upOffset` / `_downOffset` (0, 30), `_fontSizeScale` 1.5;
 //     UIDamageText.CRITICAL_FONT_SIZE_SCALE 1.1 (EN client metadata);
 //   heal_text (UIHealText): the same font, #00ff95, "+n", `_randomRange` (10, 5), `_lifeTime` 0.5, `_floatOffset` (0, 40).
-// When: a damage number only for a critical hit (Modifier.isCritical, BattleConsts.MODIFIER_CRIT_THRESHOLD 1.5) or one the
-// data forces (FORCE_TO_DISPLAY_NUMBER) — the sim marks them (server/sim/local-hud.js damageNumberFlag, 'dmg' 5th field);
-// heals always (no flag in the data). The motion is native code [추정]: a random start within ±(10, 5), popped in at
+// When: a damage number only for a critical hit (PRTS 「伤害红字（暴击）」: ≥ 1.5 × the hit's expected damage — Modifier.
+// isCritical, BattleConsts.MODIFIER_CRIT_THRESHOLD 1.5) or one forced (强制红字: 蕾缪安 S3) — the sim marks them
+// (server/sim/local-hud.js damageNumberFlag, 'dmg' 5th field); heals always (no flag in the data; PRTS / 나무위키 silent). The motion is native code [추정]: a random start within ±(10, 5), popped in at
 // `_fontSizeScale` and settling to 1 (× 1.1 for a crit) over the first fifth, rising `_upOffset` (heals `_floatOffset`)
 // with an ease-out over the life, fading over its last 30 %. Sizes in HUD units (hud-bars.js hudUnit: screen-fixed).
 

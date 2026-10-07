@@ -234,17 +234,32 @@ describe('element ring (char_ep_slider / enemy_ep_slider)', () => {
 });
 
 describe('④ official damage / heal numbers (num-official.js, local-hud.js damageNumberFlag, number-style.js)', () => {
-  test('flag: a hit of ≥ 1.5 × the attacker\'s ATK is critical; 蕾缪安 S3 shells (tag bombard) are forced; DoT / sourceless never', async () => {
+  test('flag: a hit ≥ 1.5 × its expected damage is critical (PRTS 伤害红字); 蕾缪안 S3 (snipe / bombard) forced; DoT / sourceless never', async () => {
     const { damageNumberFlag } = await import('../server/sim/local-hud.js');
     const ss = { atk: 1000 };
-    assert.equal(damageNumberFlag({ amount: 1499, tags: [] }, ss), 0);
-    assert.equal(damageNumberFlag({ amount: 1500, tags: [] }, ss), 1);
-    assert.equal(damageNumberFlag({ amount: 3000, tags: ['dot'] }, ss), 0);
-    assert.equal(damageNumberFlag({ amount: 3000, tags: [], sourceless: true }, ss), 0);
-    assert.equal(damageNumberFlag({ amount: 10, tags: ['skill', 'bombard'] }, ss), 2);
-    assert.equal(damageNumberFlag({ amount: 3000, tags: [] }, null), 0);
+    assert.equal(damageNumberFlag({ amount: 3000, tags: [] }, ss, 1000, 1499), 0, 'a 300 % skill without 脆弱: no number');
+    assert.equal(damageNumberFlag({ amount: 1000, tags: [] }, ss, 600, 900), 1, '脆弱 / 增伤 ×1.5');
+    assert.equal(damageNumberFlag({ amount: 3000, tags: ['dot'] }, ss, 100, 3000), 0);
+    assert.equal(damageNumberFlag({ amount: 3000, tags: [], sourceless: true }, ss, 100, 3000), 0);
+    assert.equal(damageNumberFlag({ amount: 10, tags: ['skill', 'bombard'] }, ss, 10, 10), 2);
+    assert.equal(damageNumberFlag({ amount: 10, tags: ['skill', 'snipe'] }, ss, 10, 10), 2);
+    assert.equal(damageNumberFlag({ amount: 3000, tags: [] }, null, 100, 3000), 0);
   });
-  test('real battle: 蕾缪안 S3 shells carry the forced flag in the dmg event\'s 5th field', () => {
+  test('real battle: 脆弱 makes red numbers — the same hits without it have none', () => {
+    const run = (fragile) => {
+      const h = makeBattle({ seed: 3, timeLimit: 40, units: [{ chessId: 'chess_char_5_01_a', row: 9, col: 4, uid: 1, skillIndex: 0 }],
+        enemies: [{ key: 'enemy_1001_bigbo', time: 0, route: 0, count: 6, interval: 2 }] });
+      for (let t = 0; t < 28; t++) {
+        h.run(1);
+        if (fragile) for (const e of h.battle.units) if (e.side === 'enemy' && e.alive && !e.findBuff('test:fragile')) h.battle.addBuff(e, { key: 'test:fragile', persist: true, mods: { dmgTakenMul: 1.6 } });
+      }
+      assert.ok(h.eventsOf('dmg').length > 0, 'hits landed');
+      return h.eventsOf('dmg').filter((e) => e[4] === 1).length;
+    };
+    assert.equal(run(false), 0);
+    assert.ok(run(true) > 0, 'with 脆弱 ×1.6');
+  });
+  test('real battle: 蕾缪안 S3 shots / shells carry the forced flag in the dmg event\'s 5th field', () => {
     const h = makeBattle({ seed: 3, timeLimit: 60, units: [{ chessId: 'chess_char_6_01_a', row: 9, col: 4, uid: 1, skillIndex: 2 }],
       enemies: [{ key: 'enemy_1001_bigbo', time: 0, route: 0, count: 20, interval: 1.5 }] });
     const u = h.battle.allyUnits.find((x) => x.kind === 'op');

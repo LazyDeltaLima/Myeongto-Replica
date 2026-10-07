@@ -252,7 +252,6 @@ export function dealDamage(battle, source, target, dmgIn) {
   }
   // 无来源 damage (element bursts) takes nothing from its source's stats; the source still gets the credit below
   const ss = source && source.s && !dmg.sourceless ? source.s : null;
-  dmg.lpNum = damageNumberFlag(dmg, ss); // local patch: official damage numbers (local-hud.js)
   let final = mitigate(dmg.amount, type, ts, {
     defIgnorePct: dmg.defIgnorePct + (ss ? ss.defIgnorePct : 0),
     defIgnoreFlat: dmg.defIgnoreFlat + (ss ? ss.defIgnoreFlat : 0),
@@ -266,6 +265,8 @@ export function dealDamage(battle, source, target, dmgIn) {
   mul *= type === 'phys' ? ts.physTakenMul : type === 'arts' ? ts.artsTakenMul : type === 'elemental' ? ts.elementalTakenMul : ts.trueTakenMul;
   final *= mul;
   if (!(final > 0) || !Number.isFinite(final)) final = 0;
+  // local patch: official damage numbers (local-hud.js) — a crit is ≥ 1.5 × the expected damage (no 穿透, no multipliers)
+  dmg.lpNum = damageNumberFlag(dmg, ss, mitigate(dmg.amount, type, ts, { elementalRes: type === 'elemental' ? (target.def?.epDamageResistance ?? 0) : 0 }), final);
   // 限伤: a leader's hit of ≥ BOSS_HIT_LIMIT in a boss / hidden battle is cancelled before it reaches shields / HP — what
   // ran before it (the attack, its SP, `hit` hook effects, separate element 损伤) stays; nothing after it happens
   if (final > 0 && leaderHitCancelled(battle, target, final)) return 0;
