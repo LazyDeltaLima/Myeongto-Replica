@@ -62,6 +62,7 @@ import { collectLeaves, downloadLeaves, resolveTemplate, totalBytes, contentHash
 import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
 import { tidyVoice } from './assets/voice.mjs'; // local patch
+import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: only the offered 自选 picks get art
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = join(ROOT, 'public', 'assets');
@@ -155,7 +156,10 @@ export function resolveProxyPrefix(source, offline = false, value = process.env.
 export function dataExtras(backups, chess) {
   const extraOperators = {};
   const moduleTypes = new Set();
+  // local patch: an owned-6★ 自选 pick this server does not offer (shared/local-diy.js) and no 补位 stand-in plans no art
+  const dropped = new Set((backups?.diy?.ownedPool || []).filter((id) => !isLocalDiyPick(id) && !(backups?.units?.[id]?.standsIn || []).length));
   for (const [id, u] of Object.entries(backups?.units || {})) {
+    if (dropped.has(id)) continue; // local patch
     const skills = new Map();
     for (const f of Object.values(u.forms || {})) {
       for (const sk of f.skills || []) if (!skills.has(sk.index)) skills.set(sk.index, { index: sk.index, skillId: sk.skillId, iconId: sk.iconId || sk.skillId });
@@ -164,7 +168,10 @@ export function dataExtras(backups, chess) {
     extraOperators[id] = { name: u.name, subProfessionId: u.subProfessionId, nationId: u.nationId, skills: [...skills.values()].sort((a, b) => a.index - b.index) };
   }
   for (const c of Object.values(chess || {})) for (const m of c?.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
-  return { extraOperators, tokenIds: Object.keys(backups?.tokens || {}).sort(), moduleTypes: [...moduleTypes].sort() };
+  const ownerOf = (key) => String(key).split('@')[0];
+  const tokenIds = Object.entries(backups?.tokens || {}) // local patch: no summons of a dropped pick
+    .filter(([, t]) => !Array.isArray(t?.owners) || !t.owners.length || t.owners.some((o) => !dropped.has(ownerOf(o)))).map(([id]) => id);
+  return { extraOperators, tokenIds: tokenIds.sort(), moduleTypes: [...moduleTypes].sort() };
 }
 
 /**

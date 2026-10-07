@@ -14,25 +14,28 @@ import { dataExtras, orphanFiles, parseArgs } from '../tools/fetch-assets.mjs';
 import { patternOperator, buildPlan } from '../tools/assets/plan.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
 import { Downloader } from '../tools/assets/downloader.mjs';
+import { isLocalDiyPick } from '../shared/local-diy.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const load = (f) => JSON.parse(readFileSync(join(ROOT, 'data', `${f}.json`), 'utf8'));
 const BACKUPS = load('backups');
 const CHESS = load('chess');
+// local (hard fork 2026-10-07): only the offered 自选 picks (shared/local-diy.js) and the 补位 stand-ins get art
+const DROPPED = new Set(BACKUPS.diy.ownedPool.filter((id) => !isLocalDiyPick(id) && !(BACKUPS.units[id].standsIn || []).length));
+const PLANNED = Object.keys(BACKUPS.units).filter((id) => !DROPPED.has(id));
 const YUAN = 'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/main/';
 const FEXLI = 'https://raw.githubusercontent.com/fexli/ArknightsResource/main/';
 
 test('dataExtras: every backups.json unit (skills by index, once), the 自选 summons, the type icon of every module of chess.json and backups.json', () => {
   const x = dataExtras(BACKUPS, CHESS);
-  assert.deepEqual(Object.keys(x.extraOperators), Object.keys(BACKUPS.units));
-  assert.deepEqual(x.extraOperators.char_112_siege, {
-    name: '推进之王', subProfessionId: 'pioneer', nationId: 'victoria',
-    skills: [{ index: 0, skillId: 'skcom_charge_cost[3]', iconId: 'skcom_charge_cost[3]' }, { index: 1, skillId: 'skchr_siege_2', iconId: 'skchr_siege_2' }, { index: 2, skillId: 'skchr_siege_3', iconId: 'skchr_siege_3' }],
-  });
-  assert.deepEqual(x.tokenIds, Object.keys(BACKUPS.tokens).sort());
+  assert.deepEqual(Object.keys(x.extraOperators), PLANNED, 'the stand-ins and the offered picks — not the other owned 6★');
+  assert.equal(x.extraOperators.char_112_siege, undefined, '推进之王 is not offered here');
+  assert.deepEqual(x.extraOperators.char_2027_wang.skills.map((s) => s.skillId), ['skchr_wang_1', 'skchr_wang_2', 'skchr_wang_3']);
+  const owners = (t) => (t.owners || []).map((o) => o.split('@')[0]);
+  assert.deepEqual(x.tokenIds, Object.keys(BACKUPS.tokens).filter((id) => !owners(BACKUPS.tokens[id]).length || owners(BACKUPS.tokens[id]).some((o) => !DROPPED.has(o))).sort());
   const types = new Set();
   for (const c of Object.values(CHESS)) for (const m of c.modules || []) types.add(m.typeIcon);
-  for (const u of Object.values(BACKUPS.units)) for (const f of Object.values(u.forms)) for (const m of f.modules || []) types.add(m.typeIcon);
+  for (const id of PLANNED) for (const f of Object.values(BACKUPS.units[id].forms)) for (const m of f.modules || []) types.add(m.typeIcon);
   assert.deepEqual(x.moduleTypes, [...types].sort());
   assert.ok(x.moduleTypes.includes('sol-x') && x.moduleTypes.includes('sol-y'));
   assert.deepEqual(dataExtras(null, null), { extraOperators: {}, tokenIds: [], moduleTypes: [] });
@@ -49,7 +52,7 @@ test('patternOperator / buildPlan: an operator research 07 lacks gets the 07 URL
   const known = { name: 'x', avatar: { e0e1: { url: 'https://example.invalid/known.png' } }, skills: [] };
   const t = buildPlan({
     assets07: { operators: { char_609_acguad: known } }, ops03: {}, enemies05: {}, maps05: {}, audio: indexAudio({}), modelsData: {},
-    extraOperators: { char_112_siege: dataExtras(BACKUPS, CHESS).extraOperators.char_112_siege, char_609_acguad: { skills: [] }, 'bad id': {} },
+    extraOperators: { char_112_siege: { name: '推进之王', subProfessionId: 'pioneer', nationId: 'victoria', skills: [{ index: 0, skillId: 'skcom_charge_cost[3]', iconId: 'skcom_charge_cost[3]' }, { index: 1, skillId: 'skchr_siege_2', iconId: 'skchr_siege_2' }, { index: 2, skillId: 'skchr_siege_3', iconId: 'skchr_siege_3' }] }, char_609_acguad: { skills: [] }, 'bad id': {} },
     moduleTypes: ['sol-x', 'sol-x', 'bad/type'],
   });
   const c = t.template.chars.char_112_siege;
@@ -96,11 +99,11 @@ test('--add-only: parsed, refused with --prune / --force; its downloader keeps e
   assert.deepEqual([...dl.written], []);
 });
 
-test('the committed data/assets.json lists every 自选 operator\'s avatar, portrait, Front Spine and skill icons, and a type icon per module (files on disk when public/assets is here)', () => {
+test('the committed data/assets.json lists every offered 自选 operator\'s avatar, portrait, Front Spine and skill icons, and a type icon per module (files on disk when public/assets is here)', () => {
   const m = load('assets');
   const disk = existsSync(join(ROOT, 'public', 'assets', 'char'));
   const onDisk = (u) => !disk || existsSync(join(ROOT, 'public', u));
-  for (const id of BACKUPS.diy.ownedPool) {
+  for (const id of BACKUPS.diy.ownedPool.filter((x) => !DROPPED.has(x))) {
     const c = m.chars[id];
     assert.ok(c && c.avatar && c.portrait && c.spine?.front?.skel, `${id}: art`);
     for (const u of [c.avatar, c.portrait, c.spine.front.skel, c.spine.front.atlas, ...c.spine.front.textures]) assert.ok(onDisk(u), `${id}: ${u} on disk`);
@@ -115,7 +118,7 @@ test('an operator left out of 自选 (data/backups.json diy.excluded: the collab
   const m = load('assets');
   const text = JSON.stringify(m);
   assert.ok(BACKUPS.diy.excluded.includes('char_1048_orchd2'), '焰狐龙梓兰 is excluded');
-  for (const id of BACKUPS.diy.excluded) {
+  for (const id of [...BACKUPS.diy.excluded, ...DROPPED]) { // local: and every owned pick not offered here
     const code = id.split('_').slice(2).join('_');
     assert.equal(m.chars[id], undefined, `${id}: chars`);
     assert.equal(m.audio.sfx.units[id], undefined, `${id}: unit sfx`);
