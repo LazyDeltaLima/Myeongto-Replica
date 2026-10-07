@@ -5,7 +5,8 @@
 // - W7  连星's slow: independent stacks with their own timers in the 直接乘算 stage (their values add up), speed ≥ 0.1;
 // - W8  跟子 ties: up > right > down > left as drawn (PRTS), left / right swapped on a mirrored field;
 // - W10 during S3 a used stone may come back onto a walking enemy's tile inside her range (not outside it / outside S3);
-// - W12 S3: per deployment the talent's 跟子 free + ≤ 3 extra, one ammo each [ASSUMED reading].
+// - W12 S3: per deployment the talent's 跟子 free + ≤ 3 extra, one ammo each (user 2026-10-07: confirmed in game);
+// - 跟子 skip a knocked-out operator's tile (downOn, as upstream).
 // The last describe runs S3 through the real match path (Match board → buildBattleSpec → createBattleFromSpec).
 
 import { describe, test } from 'node:test';
@@ -155,6 +156,20 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
     }
   });
 
+  test('跟子 never land on a knocked-out operator (downOn, as upstream; user decision 2026-10-07)', () => {
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false,
+      units: [op(0, 11, 3), stone(11, 5, 50), stone(11, 6, 51)] });
+    h.step(2);
+    h.b.players[0].dp = 99;
+    // a down body on 12,5 (up — the first in the PRTS order): the battle's own downOn answers for that tile
+    const down = h.b.downOn.bind(h.b);
+    h.b.downOn = (r, c, except) => (r === 12 && c === 5 ? h.unit(1) : down(r, c, except));
+    const groups = trackDeployments(h.b);
+    useUp(h, stoneOn(h, 11, 5));
+    h.runUntil(() => groups.length && groups[0].fol.length, 5);
+    assert.deepEqual(groups[0]?.fol[0], { r: 10, c: 5 }, 'up holds a down body, right a stone → down');
+  });
+
   test('W8: on a mirrored field (boss right side, drawn col → 20 − col) right and left swap', () => {
     const slots = BACKUPS.diy.slots;
     const base = Object.keys(slots).find((id) => slots[id].tier === 6);
@@ -247,7 +262,9 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
       h.b.players[0].dp = 99;
       const a0 = w.skill.ammoLeft, g0 = groups.length;
       h.step(1);
-      spent += a0 - (w.skill.active ? w.skill.ammoLeft : 0);
+      // (the step S3 ends in is left out: the ammo left then returns as stones, it is not spent)
+      if (!w.skill.active) break;
+      spent += a0 - w.skill.ammoLeft;
       for (const g of groups.slice(g0)) { assert.ok(g.fol.length <= 4, `≤ 4 跟子 a deployment (${g.fol.length})`); want += Math.max(0, g.fol.length - 1); }
     }
     const sizes = groups.map((g) => g.fol.length);
@@ -289,7 +306,8 @@ describe('望 S3 through the real match path (seats[].diy → Match board → bu
     while (!b.finished && b.time < 30 && wu.skill.active) {
       const a0 = wu.skill.ammoLeft, g0 = groups.length;
       b.step();
-      spent += a0 - (wu.skill.active ? wu.skill.ammoLeft : 0);
+      if (!wu.skill.active) break; // the ending step: the ammo left returns as stones (not spent)
+      spent += a0 - wu.skill.ammoLeft;
       for (const g of groups.slice(g0)) { assert.ok(g.fol.length <= 4); want += Math.max(0, g.fol.length - 1); }
     }
     const sizes = groups.map((g) => g.fol.length);

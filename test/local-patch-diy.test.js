@@ -425,7 +425,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     let dpBefore = 0;
     for (let i = 0; i < 20 / 0.05 && !used.alive; i++) { dpBefore = hc.b.players[0].dp; hc.step(1); }
     assert.ok(used.alive && used.mem.wangUsed === false, 'redeployed');
-    assert.equal(w.mem.wang.stock, stock0, 'the card itself comes back: no stock spent (token deck rule)');
+    assert.equal(w.mem.wang.stock, stock0 - 1, 'a return takes one stone of the stock (user decision 2026-10-07)');
     assert.ok(hc.b.players[0].dp < dpBefore - 1.5, 'its DP cost paid (2 for the VI elite: module −1)');
     // S1 with stones in the stock: deployed next to hers; their 跟子 do not count under the limit (nothing withdrawn)
     const s1 = battle('wang', 0, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)], 30);
@@ -800,17 +800,23 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
     return { h, m, ps, b };
   };
 
-  test('a used-up stone comes back on its prep tile, again and again, for DP; the client sees die → deploy', async () => {
+  test('six prep stones = no stock: a used-up stone waits until S1 refills the stock, then comes back on its prep tile for DP; the client sees die → deploy', async () => {
     const { b, m } = await wangMatch(0, 1);
     b.start();
     const wu = b.allyUnits.find((u) => u.kind === 'op');
     assert.equal(wu.def.charId, CHAR.wang);
+    assert.equal(wu.mem.wang.stock, 0, 'stock = 6 − the stones placed in the prep');
     for (const t of b.allyUnits.filter((u) => u.kind === 'token')) assert.ok(t.kit?.fromTokens && !t.kit.generic, 'placed stones run the stone kit');
     const back = [];
-    b.on('deploy', (c) => { if (c.unit.kind === 'token' && b.time > 0.5) back.push([c.unit.id, c.unit.tileR, c.unit.tileC, c.unit.homeR, c.unit.homeC]); });
+    let usedBeforeS1 = 0;
+    b.on('deploy', (c) => { if (c.unit.kind === 'token' && !c.unit.mem.wangFollower && b.time > 0.5) back.push([c.unit.id, c.unit.tileR, c.unit.tileC, c.unit.homeR, c.unit.homeC, wu.mem.wang.stock]); });
     const ev = [];
-    while (!b.finished && b.time < 15) { b.step(); ev.push(...b.drainEvents()); }
-    assert.ok(back.length >= 2, `used-up stones come back more than once (${back.length})`);
+    while (!b.finished && b.time < 30) {
+      b.step(); ev.push(...b.drainEvents());
+      if (!back.length) usedBeforeS1 = Math.max(usedBeforeS1, b.allyUnits.filter((u) => u.kind === 'token' && !u.alive && u.mem.wangUsed).length);
+    }
+    assert.ok(usedBeforeS1 > 0, 'stones were used up and waited (no stock)');
+    assert.ok(back.length >= 2, `S1's two stones bring used-up stones back (${back.length})`);
     for (const [, r, c, hr, hc] of back) assert.deepEqual([r, c], [hr, hc], 'on the tile placed in the prep');
     const id = back[0][0];
     const kinds = ev.filter((e) => (e[0] === 'die' || e[0] === 'deploy') && e[1] === id).map((e) => e[0]);

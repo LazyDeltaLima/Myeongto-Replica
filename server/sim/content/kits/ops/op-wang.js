@@ -19,8 +19,9 @@
 //   第一个敌人会触发其效果"; the token has an ON_UNIT_DEAD sound; user report 2026-10-05). A used-up placed stone comes back
 //   on its own tile like the mode's redeploys (Battle.redeploy / tokens.js enableRespawn): after its respawnTime, for its
 //   DP cost (卫戍协议 in-battle DP: 10, +1/s), once no walking enemy stands there (during S3 on a tile of her range it may
-//   come back onto one: 「在攻击范围内手动部署棋子时可部署至敌人所在位置」, user decision 2026-10-07, W10) — the card itself
-//   comes back (token deck rule), no stock is spent. The trigger area is the
+//   come back onto one: 「在攻击范围内手动部署棋子时可部署至敌人所在位置」, user decision 2026-10-07, W10) — and it takes
+//   one stone of the stock: with the stock empty the used stones wait until S1 / S2 refill it (user decision 2026-10-07,
+//   RETURN_USES_STOCK; the former card rule, no stock spent, is kept off beside it). The trigger area is the
 //   stone's own tile, with S3 equipped (its passive: "棋子的触发和伤害范围扩大") x-1, a radius-2 diamond of 13 tiles (the
 //   sktok_wang_3 prefab's SkillTrigger / Selector and PRTS 天下劫 "携带该技能时…x-1"; the table's x-6 cross is in no prefab —
 //   owner's decision 2026-10-06: the official diamond)
@@ -35,12 +36,15 @@
 //   (maxDeployCount) and occupies no tile; ≤ attack@max_spawn_cnt of them. Tile: one of the 4 neighbours, enemy tiles
 //   first, then undeployable ground > deployable ground > deployable high ground (never undeployable high ground), ties
 //   up > right > down > left as the board is drawn (PRTS 「相同优先级时按棋子上>右>下>左」, left / right swapped on a mirrored
-//   field; user decision 2026-10-07, W8 — it replaced the seeded random of the client's _alwaysRandomInTheEnd 1); only where no character unit stands. It needs no stock and is drawn as a stone. It links like a stone; its damage comes from 望.
-// - Stock (手牌): maxDeckStackCnt in all; at the battle start the stones not placed [ASSUMED: deckStack − placed].
+//   field; user decision 2026-10-07, W8 — it replaced the seeded random of the client's _alwaysRandomInTheEnd 1; the
+//   priority confirmed in game by the user 2026-10-07); only where no character unit stands and no knocked-out operator
+//   lies (downOn, as upstream; user decision 2026-10-07). It needs no stock and is drawn as a stone. It links like a stone; its damage comes from 望.
+// - Stock (手牌): at the battle start the stones not placed (fieldCap 6 − placed; user decision 2026-10-07), ≤ maxDeckStackCnt.
 //   S1 / S2: "立即获得两枚棋子", 阻回 while the stock is full (PRTS 备注). S3: gains cnt, the stones above the stock limit
 //   go out as 跟子 on the enemies of her range (PRTS: "技能开启时自动部署的为第一天赋的跟子"); manual deployments in her
 //   range may go on enemy tiles and bring the talent's 跟子 (free) + up to 3 extra 跟子, one ammo each — ≤ 3 ammo a deployment
-//   ([ASSUMED] reading of 「第一天赋额外至多部署3枚棋子并消耗等量弹药」, user decision 2026-10-07, W12); it ends when stopped or out of stones,
+//   (「第一天赋额外至多部署3枚棋子并消耗等量弹药」: one manual stone = the talent's 1 + S3's ≤ 3 — confirmed in game by the
+//   user 2026-10-07, W12); it ends when stopped or out of stones,
 //   the ammo left returns as stones.
 // - [ASSUMED] 卫戍协议 battles take no manual deployment: like the mode's 自动操作 of skills, stones of the stock are
 //   deployed automatically (S1 / S2: on the free deployable tile next to her stones that an enemy route crosses,
@@ -75,6 +79,8 @@ const ORTHO = [[1, 0], [0, 1], [-1, 0], [0, -1]]; // up > right > down > left (r
 /** The same order on a mirrored field (drawn with col → 20 − col): 上 > 右 > 下 > 左 as drawn = +row, −col, −row, +col. */
 const ORTHO_MIRRORED = [[1, 0], [0, -1], [-1, 0], [0, 1]];
 const WANG_S3_PACE = 1; // [ASSUMED] one automatic deployment a second while S3 runs
+/** A used stone's return takes one stone of the stock (user decision 2026-10-07); false = the former card rule (no stock). */
+const RETURN_USES_STOCK = true;
 /**
  * Tiles no 跟子 may take (local patch 2026-10-06, user: "적 공격 포인트"): the client 跟子 selector has `exceptTileTypes`
  * with tileTypesMask 14. Torappu TileTypesMask bits, in the order of battle_misc_table tileTypeDict (DEFAULT 1 assumed
@@ -137,16 +143,21 @@ function wang(bb, chess, def) {
   const reservedForOthers = (battle, unit, r, c) =>
     battle.isReservedTile(r, c, (a) => a.kind === 'token' && a.defId === STONE_ID && a.ownerUnit === unit && a.mem.wangUsed);
   /**
-   * A consumed stone is a card again (the token deck: a summon that leaves returns to the hand after its 再部署时间,
-   * respawnTime — the official token rule, so the stock is the deck, not a count used up) and comes back on its own
-   * tile like any redeploy of the mode (tokens.js enableRespawn / Battle.redeploy): after its respawnTime, paying its DP
-   * cost; the tile must be free of units and enemies (trait). [ASSUMED] she must be on the field (a hand piece of hers).
-   * User report 2026-10-06: the earlier model took a stock stone for every redeploy, the stock was 7 − placed (1 with
-   * the usual 6 on the board), so after one redeploy no stone came back until S1 / S2.
+   * A consumed stone comes back on its own tile like any redeploy of the mode (tokens.js enableRespawn /
+   * Battle.redeploy): after its respawnTime, paying its DP cost; the tile must be free of units and enemies (trait).
+   * [ASSUMED] she must be on the field (a hand piece of hers).
+   * Stock (user decision 2026-10-07, the trapmaster rule the user knows from the game): every return takes one stone
+   * of her stock (6 − the stones placed in the prep at the start); with the stock empty a used stone waits until S1 / S2
+   * 「立即获得两枚棋子」 refill it. `RETURN_USES_STOCK`.
+   * Former rule (2026-10-06 – 2026-10-07, kept for reference, off): a consumed stone was a card again (the token deck:
+   * a summon that leaves returns to the hand after its 再部署时间 — the stock is the deck, not a count used up) and came
+   * back without spending the stock, so the placed stones cycled for the whole battle. It replaced an earlier model
+   * where the stock was 7 − placed (1 with 6 on the board) and the stones stopped after one return (user report
+   * 2026-10-06 「돌이 다시 놓이지 않는다」 — with the decision of 2026-10-07 that is the intended behaviour again).
    */
   const inHerRange = (unit, r, c) => !!(unit.rangeKeySet?.has(r * COLS + c) ?? unit.rangeKeys?.includes(r * COLS + c));
   /**
-   * S3 「第一天赋额外至多部署3枚棋子并消耗等量弹药」 (user decision 2026-10-07, W12) [ASSUMED reading]: a deployment during S3
+   * S3 「第一天赋额外至多部署3枚棋子并消耗等量弹药」 (user decision 2026-10-07, W12; confirmed in game by the user the same day): a deployment during S3
    * brings the talent's ordinary single 跟子 for free plus ≤ WANG_S3_EXTRA extra ones, one ammo each — so ≤ 3 ammo a
    * deployment (the first 跟子 built is the free one). Formerly ≤ 4 跟子 and one ammo for every one (client
    * SpawnTokenS3InSkill BuildStone counter `_countEvent 4, _expendPerTrigger 1`, user 2026-10-06); upstream: ≤ 3 in all,
@@ -173,7 +184,9 @@ function wang(bb, chess, def) {
       const s3Here = s3 && inHerRange(unit, t.homeR, t.homeC);
       if (!s3Here && walkersOnTile(battle, t.homeR, t.homeC).length) continue;
       if (placed(battle, unit).length >= st(unit).fieldCap) break; // never over the deploy limit (it would withdraw a stone)
+      if (RETURN_USES_STOCK && st(unit).stock <= 0) break; // the stock is out: wait for S1 / S2 (user decision 2026-10-07)
       if (!battle.redeploy(t, { free: false })) continue;
+      if (RETURN_USES_STOCK) st(unit).stock--;
       Object.assign(t.mem, { wangUsed: false, active: false, line: 0, axes: new Set() });
       battle.fx('summon', { x: t.x, y: t.y, id: t.id });
       // every stone birth brings its 跟子 (client wang_stone1_t_1[trigger] ON_OWNER_BORN) — the battle-start deployment
@@ -213,6 +226,7 @@ function wang(bb, chess, def) {
   /** Follower tile class (PRTS 备注): 0 undeployable ground, 1 deployable ground, 2 deployable high ground, null = none. */
   const followerClass = (battle, r, c, stones) => {
     if (!battle.grid.inRect(r, c) || stoneAt(stones, r, c) || battle.grid.isObstacle(r, c)) return null;
+    if (battle.downOn(r, c)) return null; // a knocked-out operator lies there (user decision 2026-10-07, as upstream's downOn)
     const occ = battle.unitAt(r, c);
     if (occ && !isFollower(occ)) return null; // no character unit
     const t = battle.grid.tile(r, c);
