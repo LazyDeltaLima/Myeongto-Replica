@@ -35,26 +35,8 @@ export function loadCharModes(root = process.cwd()) {
   } catch { return {}; }
 }
 
-/**
- * The mode index of skill `i` (0-based) in a `_modes` name list, or -1: the mode named exactly `S<k>` / `Sk<k>` first,
- * then a range `S<a>-<b>` holding k, then the first `S<k>…` variant (S2_Overload, S2Respawn, S3(D) …).
- * @param {string[]} modes
- * @param {number} i
- */
-export function skillModeIndex(modes, i) {
-  const k = i + 1;
-  let best = -1, rank = 9;
-  (Array.isArray(modes) ? modes : []).forEach((name, n) => {
-    if (n === 0) return;
-    const m = /^Sk?(\d)(?:-(\d))?/.exec(String(name));
-    if (!m) return;
-    const a = Number(m[1]), b = Number(m[2] || m[1]);
-    if (k < a || k > b) return;
-    const r = name === `S${k}` || name === `Sk${k}` ? 0 : a !== b ? 1 : 2;
-    if (r < rank) { rank = r; best = n; }
-  });
-  return best;
-}
+export { skillModeIndex } from '../../shared/skill-modes.js'; // the same rule as the effect layer (render/fxgame.js)
+import { skillModeIndex } from '../../shared/skill-modes.js';
 
 /** Sub-ability order: the plain key first, then deeper keys with numeric parts ascending (audio.mjs abilityOrder). */
 const order = (a, b) => (a.split('.').length - b.split('.').length) || a.localeCompare(b, 'en', { numeric: true });

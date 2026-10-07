@@ -17,6 +17,7 @@ Without --id every operator of data/chess.json + data/diy.json. Everything is (c
 """
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -24,6 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-char-modes.json'
+# the effect bindings for the game's effect layer (render/fxgame.js), beside the extracted effects (git-ignored like them)
+FX_OUT = ROOT / 'public/assets/local/fx/modes.json'
 DEFAULT_CLIENT = '/mnt/d/YostarGames/Arknights_EN/Arknights_Data'
 
 
@@ -44,13 +47,20 @@ def pool_char_ids():
     return sorted(ids)
 
 
-def modes_of(path):
-    """{ modes: the `_modes` order (mode GameObject names), proj: per mode the projectile keys under it } or None."""
+DIRECTIONAL = re.compile(r'_(up|down|left|back)(_|$)', re.I)
+# sibling attack abilities the Selector picks one of per attack (wisdel Attack_A/B/C, siege2 Attack_1/2): the first stands for all
+ALTERNATIVE = re.compile(r'^(attack|combat)_?([a-z]|\d+)$', re.I)
+HIT_KEYS = ('_hitEffects', '_inputTargetEffects', '_castTargetEffects')
+PROJ_HIT_KEYS = ('_effectsWhenHit', '_effectsWhenReached')
+PROJ_SUB_KEYS = ('_projectileKey', '_subProjectileKey', '_childProjectileKey')
+
+
+def load_tree(path):
+    """[(GameObject path, MonoBehaviour typetree)] of a bundle (unreadable MonoBehaviours skipped)."""
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
     env = UnityPy.load(str(path))
-    go_name, mb, tr_of_go, parent = {}, [], {}, {}
-    root = None
+    go_name, tr_of_go, parent, mb = {}, {}, {}, []
     for o in env.objects:
         t = o.type.name
         if t == 'GameObject':
@@ -65,24 +75,106 @@ def modes_of(path):
             except Exception:
                 continue
             mb.append((o.path_id, d))
-            if root is None and isinstance(d.get('_modes'), list) and d['_modes']:
-                root = d
-    if root is None:
-        return None
-    go_of_tr = {tr: go for tr, (go, _) in parent.items()}
+    cache = {}
 
     def go_path(go):
+        if go in cache:
+            return cache[go]
         parts, tr = [], tr_of_go.get(go)
         while tr:
             g, father = parent[tr]
             parts.append(go_name.get(g) or '?')
             tr = father if father in parent else None
-        return '/'.join(reversed(parts))
+        cache[go] = '/'.join(reversed(parts))
+        return cache[go]
+    return [(go_path(d.get('m_GameObject', {}).get('m_PathID')), d, pid) for pid, d in mb], go_name
 
-    mb_go = {pid: d.get('m_GameObject', {}).get('m_PathID') for pid, d in mb}
-    modes = [go_name.get(mb_go.get(r.get('m_PathID'))) or '?' for r in root['_modes']]
-    mode_paths = [go_path(mb_go.get(r.get('m_PathID'))) for r in root['_modes']]
-    proj = [[] for _ in modes]
+
+def effect_names(v):
+    """Effect prefab names of an emitter list / projectile field (strings, or entries naming one)."""
+    out = []
+    items = v if isinstance(v, list) else [v]
+    for x in items:
+        if isinstance(x, str):
+            out.append(x)
+        elif isinstance(x, dict):
+            if isinstance(x.get('_effects'), list):
+                out += [e for e in x['_effects'] if isinstance(e, str)]
+            for k in ('_effectKey', 'effectKey', '_key', '_effect'):
+                if isinstance(x.get(k), str):
+                    out.append(x[k])
+    return out
+
+
+def add(lst, names):
+    for n in names:
+        if n and not DIRECTIONAL.search(n) and n not in lst:
+            lst.append(n)
+
+
+class Projectiles:
+    """Projectile prefabs ([uc]projectiles.ab, PersistentData first): key → { hit: [...], trail: [...] }."""
+    def __init__(self, client):
+        self.roots = {}
+        for f in (Path(client) / 'PersistentData/Bundles/battle/prefabs/[uc]projectiles.ab',
+                  Path(client) / 'StreamingAssets/AB/Windows/battle/prefabs/[uc]projectiles.ab'):
+            if not f.exists():
+                continue
+            seen = set()
+            for gp, d, _ in load_tree(f)[0]:
+                root = gp.split('/')[0]
+                if root in self.roots and root not in seen:
+                    continue   # the newer bundle already had it
+                seen.add(root)
+                self.roots.setdefault(root, []).append(d)
+
+    def effects(self, key, done=None):
+        done = done if done is not None else set()
+        out = {'hit': [], 'trail': []}
+        if key in done:
+            return out
+        done.add(key)
+        for d in self.roots.get(key, []):
+            for k in PROJ_HIT_KEYS:
+                add(out['hit'], effect_names(d.get(k)))
+            add(out['trail'], effect_names(d.get('_mainEffect')))
+            for k in PROJ_SUB_KEYS:
+                if isinstance(d.get(k), str) and d[k]:
+                    sub = self.effects(d[k], done)
+                    add(out['hit'], sub['hit'])
+                    add(out['trail'], sub['trail'])
+        return out
+
+
+def modes_of(path, projectiles=None):
+    """{ modes, proj, cast, hit, trail } of a charpack (per mode, in `_modes` order), or None:
+    modes = the mode GameObject names; proj = the projectile keys under each mode; cast = the effects its attacks cast on
+    the attacker; hit = those on the target (the emitters' hit lists + its own projectile's WhenHit / WhenReached); trail =
+    that projectile's main effect. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
+    only the first counts."""
+    tree, go_name = load_tree(path)
+    root = next((d for _, d, _ in tree if isinstance(d.get('_modes'), list) and d['_modes']), None)
+    if root is None:
+        return None
+    by_pid = {pid: gp for gp, _, pid in tree}
+    mode_paths = [by_pid.get(r.get('m_PathID')) or '' for r in root['_modes']]
+    modes = [p.split('/')[-1] if p else '?' for p in mode_paths]
+    n = len(modes)
+    proj, cast, hit, trail = ([[] for _ in range(n)] for _ in range(4))
+    # alternatives: the first sibling (by name) of each parent stands for all
+    alt_first = {}
+    for gp, _, _ in tree:
+        par, _, name = gp.rpartition('/')
+        if ALTERNATIVE.match(name):
+            alt_first[par] = min(alt_first.get(par, name), name)
+
+    def skipped(gp):
+        parts = gp.split('/')
+        for k in range(1, len(parts)):
+            par, name = '/'.join(parts[:k]), parts[k]
+            if ALTERNATIVE.match(name) and alt_first.get(par) != name:
+                return True
+        return False
 
     def keys(o, out):
         if isinstance(o, dict):
@@ -94,18 +186,31 @@ def modes_of(path):
         elif isinstance(o, list):
             for v in o:
                 keys(v, out)
-    for pid, d in mb:
+    for gp, d, _ in tree:
+        i = next((k for k, mp in enumerate(mode_paths) if mp and (gp == mp or gp.startswith(mp + '/'))), None)
+        if i is None:
+            continue
         found = []
         keys(d, found)
-        if not found:
+        for k in found:
+            if k not in proj[i]:
+                proj[i].append(k)
+        if skipped(gp):
             continue
-        p = go_path(mb_go.get(pid))
-        for i, mp in enumerate(mode_paths):
-            if mp and (p == mp or p.startswith(mp + '/')):
-                for k in found:
-                    if k not in proj[i]:
-                        proj[i].append(k)
-    return {'modes': modes, 'proj': proj}
+        add(cast[i], effect_names(d.get('_castEffects') or []))
+        for k in HIT_KEYS:
+            add(hit[i], effect_names(d.get(k) or []))
+    # the mode's own shot first (projectile_chr_<name>[_default|_s<n>|_<X>]) — drones / talent shots after it; only that
+    # projectile's hit / trail effects are the mode's (whitw2's funnels hit with their own when they fire)
+    short = re.sub(r'^char_\d+_', '', Path(path).stem)
+    main = re.compile(rf'^projectile_chr_{re.escape(short)}(_default|_s\d+|_[a-z])?$', re.I)
+    for i in range(n):
+        proj[i].sort(key=lambda k: 0 if main.match(k) else 1)
+        if projectiles and proj[i]:
+            e = projectiles.effects(proj[i][0])
+            add(hit[i], e['hit'])
+            add(trail[i], e['trail'])
+    return {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail}
 
 
 def main():
@@ -118,23 +223,29 @@ def main():
     out = json.loads(OUT.read_text(encoding='utf-8')) if OUT.exists() else {}
     out.pop('$comment', None)
     missing = []
+    projectiles = Projectiles(a.client)
     for cid in ids:
         f = pack / f'{cid}.ab'
         if not f.exists():
             missing.append(cid)
             continue
         try:
-            m = modes_of(f)
+            m = modes_of(f, projectiles)
         except Exception as e:  # a pack that fails to load is reported, the old entry kept
             print(f'FAIL {cid}: {e}', file=sys.stderr)
             continue
         if m:
             out[cid] = m
-    doc = {'$comment': 'Operator attack modes (charpack _modes order: index n = audio bank attack.<n>). Written by '
-                       'tools/local-extract/char_modes.py from the local client (local patch); read by tools/assets/plan.mjs.'}
+    doc = {'$comment': 'Operator attack modes (charpack _modes order: index n = audio bank attack.<n>) with their projectiles and '
+                       'effect bindings (cast / hit / trail). Written by tools/local-extract/char_modes.py from the local client '
+                       '(local patch); read by tools/assets/plan.mjs. The effect part also goes to public/assets/local/fx/modes.json.'}
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-    print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}; no charpack: {", ".join(missing) or "none"}')
+    if FX_OUT.parent.exists():
+        fx = {k: {f: v[f] for f in ('modes', 'cast', 'hit', 'trail') if f in v} for k, v in sorted(out.items())}
+        FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+    print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
+          + f'; no charpack: {", ".join(missing) or "none"}')
 
 
 if __name__ == '__main__':

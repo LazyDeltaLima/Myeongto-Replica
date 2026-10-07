@@ -11,7 +11,7 @@
 import { data } from './data.js';
 import { audio, kitHitKey, normalAttackSfx } from './audio.js';
 import { voiceStore, setVoiceLang } from './voice.js';
-import { fxBundleOf, effectGroups, effectsFor } from './render/fxmap.js';
+import { fxBundleOf, effectGroups, effectsFor, attackMode, boundEffects } from './render/fxmap.js';
 import { loadoutOptions } from '../../shared/protocol.js';
 import { createArena } from './debug/arena.js';
 import { TERRAINS, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, inArena, defaultBags } from './debug/sandbag.js';
@@ -34,8 +34,8 @@ const VOICE_SLOTS = { start: '행동 출발', faceEnemy: '행동 개시', select
 
 // ---- data ---------------------------------------------------------------------------------------------------------
 const getJson = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-const [, fxIndex, koData, koDiy] = await Promise.all([data.loadAll('chess', 'enemies', 'assets', 'local', 'stages'), getJson('/assets/local/fx/index.json'),
-  getJson('/i18n/ko/data.json'), getJson('/i18n/ko/diy.json')]);
+const [, fxIndex, koData, koDiy, fxModes] = await Promise.all([data.loadAll('chess', 'enemies', 'assets', 'local', 'stages'), getJson('/assets/local/fx/index.json'),
+  getJson('/i18n/ko/data.json'), getJson('/i18n/ko/diy.json'), getJson('/assets/local/fx/modes.json')]);
 const manifest = data.get('assets');
 const ko = (s) => (koData && koData[s]) || (koDiy && koDiy[s]) || s;
 const chessOf = (id) => data.lookup('chess', id);
@@ -182,8 +182,13 @@ function onEvents(ev, gt) {
           const md = sfx.modes?.[idx];   // the skill's own attack / impact sounds (audioOfficial.js, tools/assets/skill-mode-sfx.mjs)
           if (md) log('snd', 'snd', `  ♪ S${idx + 1} 스킬 중 소리 — 공격: ${md.attack ? file(md.attack) : '일반'} · 타격: ${md.hit ? file(md.hit) : '일반'}${md.deferStart ? ' · 시작음은 공격이 없을 때만' : ''}`);
           else note(`sm${idx}`, `S${idx + 1} 스킬 중 전용 공격·타격음 없음 (일반 소리 그대로)`);
-          const s = fxText(u, 'skillStart', idx), b = fxText(u, 'skillBuff', idx), h = fxText(u, 'skillHit', idx);
-          if (s != null) log('fx', '', `  ✦ S${idx + 1} 이펙트 — start: ${s || '없음'} · buff: ${b || '없음'} · hit: ${h || '없음'}`);
+          const bind = fxModes?.[u.spine], pre = prefabsOf(u.spine), mn = attackMode(bind, true, idx);
+          const bc = boundEffects(bind, pre, mn, 'cast'), bh = boundEffects(bind, pre, mn, 'hit');
+          if (bc.length || bh.length) log('fx', '', `  ✦ S${idx + 1} 모드 ${bind.modes[mn]} — 공격마다 시전: ${bc.join(', ') || '없음'} · 타격: ${bh.join(', ') || '이름 매핑'} · 버프: ${fxText(u, 'skillBuff', idx) || '없음'}`);
+          else {
+            const s = fxText(u, 'skillStart', idx), b = fxText(u, 'skillBuff', idx), h = fxText(u, 'skillHit', idx);
+            if (s != null) log('fx', '', `  ✦ S${idx + 1} 이펙트 (이름 매핑) — start: ${s || '없음'} · buff: ${b || '없음'} · hit: ${h || '없음'}`);
+          }
         }
         break;
       }
@@ -196,8 +201,10 @@ function onEvents(ev, gt) {
           else if (!normalAttackSfx(src.spine, sfx.attack)) note('sa', `공격음이 스킬 모드 파일이라 일반 공격엔 안 남: ${file(sfx.attack)}`);
           if (typeof sfx.hit !== 'string') note('sh', `타격음 데이터 없음: audio.sfx.units.${src.spine}.hit`);
           else if (!normalAttackSfx(src.spine, sfx.hit)) note('sh', `타격음이 스킬 모드 파일이라 일반 공격엔 안 남: ${file(sfx.hit)}`);
-          const a = fxText(src, 'attackStart'), h = fxText(src, 'attackHit');
-          if (a != null && !told.has('fxa')) { told.add('fxa'); log('fx', '', `  ✦ 일반 공격 이펙트 — start: ${a || '없음'} · hit: ${h || '없음'}`); }
+          const bind = fxModes?.[src.spine], pre = prefabsOf(src.spine);
+          const bc = boundEffects(bind, pre, 0, 'cast'), bh = boundEffects(bind, pre, 0, 'hit');
+          const a = bc.length ? bc.join(', ') : fxText(src, 'attackStart'), h = bh.length ? bh.join(', ') : fxText(src, 'attackHit');
+          if (a != null && !told.has('fxa')) { told.add('fxa'); log('fx', '', `  ✦ 일반 공격 이펙트${bc.length ? ' (공식 바인딩)' : ' (이름 매핑)'} — 시전: ${a || '없음'} · 타격: ${h || '없음'}`); }
         }
         break;
       }
@@ -497,8 +504,14 @@ function status() {
   const win = dmgWin.reduce((a, [, n]) => a + n, 0) / Math.min(5, Math.max(0.001, now - (t0 ?? now)));
   const all = t0 != null && now > t0 ? dmgTotal / (now - t0) : 0;
   const vs = arena.stats().view;
+  for (const r of vs?.fxGame?.recent || []) { // the effects the layer actually started (render/fxgame.js stats().recent)
+    if (r.seq <= fxSeen) continue;
+    fxSeen = r.seq;
+    log('fx', 'skill', `✦ 이펙트 재생 ${r.n}`);
+  }
   $('stats').textContent = `t ${now.toFixed(1)}s · ${vs?.fps ?? '-'} fps${arena.paused ? ' · 정지' : ''}\n피해 ${fmt(dmgTotal)} (${dmgHits}타)\nDPS 5초 ${fmt(win)} · 전체 ${fmt(all)}${arena.errors.length ? `\nsim 오류 ${arena.errors.length}건` : ''}`;
 }
+let fxSeen = 0;
 setInterval(status, 100);
 
 renderOps();

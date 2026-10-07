@@ -5,10 +5,18 @@
 // (tools/local-extract/fx_extract.py → /assets/local/fx/index.json); everyone else keeps the procedural FX of
 // render/fx.js, which also keep playing for these operators (damage numbers, projectiles, hit flashes).
 //
+// Bindings (2026-10-07, docs/LOCAL-PATCH.md 「스킬 중 공격 이펙트」): when /assets/local/fx/modes.json (tools/local-extract/
+// char_modes.py: the character prefab's attack modes with the effects their attacks cast / hit) lists the operator, its
+// attacks play their mode's effects — the running skill's mode (shared/skill-modes.js) on EVERY attack of the skill, like the
+// official client (its `_castEffects` sit on the skill mode's attack ability; the activation itself shows only the buff
+// loop), and the impacts that mode's hit effects (≤ 2). A skill that switches no mode keeps the name mapping below.
+// Clock: every effect, its gaps and its end run on the battle clock (`rate`, the game speed — the official effects use
+// scaled time), not only the notes.
 // Event → effect (render/fxmap.js effectsFor, by the client's prefab names):
 //   'skill' on   → <op>_skill_0N_start_* on the caster, <op>_skill_0N_buff_* looping on it until 'skill' off / death
 //   'atk'        → <op>_attack_start_* on the attacker (normal attacks; skill attacks show the skill's hit)
-//   'dmg'        → <op>_attack_hit_01 / <op>_skill_0N_hit_01 on the target of that attacker's last attack (≤ HIT_GAP_S)
+//   'dmg'        → <op>_attack_hit_01 / <op>_skill_0N_hit_01 on the target of that attacker's last attack (≤ HIT_GAP_S; local
+//                  patch: once per attack — the first damage after it)
 // Effects follow their unit's rendered position and facing.
 //
 // Cost: nothing is loaded (three.js, the player, the files) until an operator with an extracted bundle acts; the layer
@@ -28,8 +36,11 @@
 import { syncThreeCamera } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
+import { attackMode, boundEffects } from './fxmap.js'; // local patch: the mode bindings (modes.json)
 
 const INDEX_URL = '/assets/local/fx/index.json';
+const MODES_URL = '/assets/local/fx/modes.json';   // effect bindings per attack mode (tools/local-extract/char_modes.py)
+const MAX_HIT_FX = 2;
 const HIT_GAP_S = 0.12;        // one hit effect per attacker → target pair within this time (multi-hit skills)
 const ATTACK_GAP_S = 0.2;
 let webpPromise = null;
@@ -43,6 +54,8 @@ const webpOk = () => (webpPromise ||= new Promise((resolve) => {
 }));
 let indexPromise = null;
 const loadIndex = () => (indexPromise ||= fetch(INDEX_URL).then((r) => (r.ok ? r.json() : null)).catch(() => null));
+let modesPromise = null;
+const loadModes = () => (modesPromise ||= fetch(MODES_URL).then((r) => (r.ok ? r.json() : null)).catch(() => null));
 
 /**
  * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: () => string, load?: () => number, under?: () => boolean }} o
@@ -50,8 +63,8 @@ const loadIndex = () => (indexPromise ||= fetch(INDEX_URL).then((r) => (r.ok ? r
  *   it (the 3D board is on — the 2D board paints an opaque backdrop on the units canvas itself)
  */
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1 }) {
-  let index = null;
-  if (typeof fetch === 'function') loadIndex().then((i) => { index = i; });
+  let index = null, modes = null;
+  if (typeof fetch === 'function') { loadIndex().then((i) => { index = i; }); loadModes().then((m) => { modes = m; }); }
   let mod = null, loading = null, failed = false;
   let webp = null;   // the WebP probe's answer once known (the note layer decides synchronously)
   if (typeof Image !== 'undefined') webpOk().then((v) => { webp = v; });
@@ -69,6 +82,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   let clockS = 0;
   let lastViews = null;               // the views map of the last event (the notes trace their targets' views)
   const perf = { updateMs: 0, renderMs: 0, calls: 0 };
+  const recent = []; // local patch: the last prefabs started ({ n: name, t: battle clock, seq }) — stats().recent, /debug.html's log
+  let recentSeq = 0;
 
   const level = () => { try { return load() || 0; } catch { return 0; } };
   const q = () => {
@@ -115,6 +130,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const gone = new Set();
   function addLive(inst, entry, layer) {
     if (entry.owner != null && gone.has(entry.owner) && (entry.buff || entry.onCaster)) { inst.dispose(); return; }
+    recent.push({ n: inst.def?.name ?? inst.name ?? '?', t: clockS, seq: ++recentSeq }); if (recent.length > 24) recent.shift(); // local patch
     layer.scene.add(inst.object);
     layer.n++;
     live.push({ inst, ...entry, layer });
@@ -132,10 +148,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
-  async function play(view, kind, skillIndex = 0, { at = null, buff = false } = {}) {
+  async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null } = {}) {
     const b = bundleOf(view);
     if (!b) return;
-    const names = effectsFor(b.prefabs, kind, skillIndex);
+    const names = given || effectsFor(b.prefabs, kind, skillIndex);
     if (!names.length || !(await ensure())) return;
     for (const n of names) {
       const def = await lib.load(b.bundle, n);
@@ -382,6 +398,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
   const isOp = (v) => v && v.info && v.info.side !== 'enemy';
   const skillIdx = (v) => (Number.isInteger(v?.info?.skillIndex) ? v.info.skillIndex : 0);
+  // local patch: the attack-mode bindings (modes.json). bound(v, n, role) = the extracted prefabs of mode n's role;
+  // skillMode(v) = the mode of its equipped skill (> 0) or -1; modeNow(v) = the mode its attacks use now (the running skill's,
+  // Default 0) — null when the operator is not listed, -1 for a running skill that switches no mode (the name mapping)
+  const bindOf = (v) => { const id = v?.info?.spine || v?.info?.defId; return (id && modes?.[id]) || null; };
+  const bound = (v, n, role) => boundEffects(bindOf(v), bundleOf(v)?.prefabs, n, role);
+  const skillMode = (v) => attackMode(bindOf(v), true, skillIdx(v)) ?? -1;
+  const modeNow = (v) => attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v));
 
   return {
     /** The projectile kind render/fx.js should draw for an 'atk' event (her note replaces the arrow: 'oblvnsNote'). */
@@ -402,7 +425,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         case 'skill': {
           const v = views.get(e[1]);
           if (!isOp(v) || !bundleOf(v)) return;
-          if (e[2]) { v._fxSkillOn = true; play(v, 'skillStart', skillIdx(v)); play(v, 'skillBuff', skillIdx(v), { buff: true }); }
+          if (e[2]) {
+            v._fxSkillOn = true;
+            // local patch: a skill mode with bound cast effects plays them on every attack (below), not once here
+            if (!bound(v, skillMode(v), 'cast').length) play(v, 'skillStart', skillIdx(v));
+            play(v, 'skillBuff', skillIdx(v), { buff: true });
+          }
           else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id); endWolves(v.id ?? v.info.id); }
           return;
         }
@@ -412,9 +440,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const tgt = views.get(e[2]);
           // 丰川祥子: her note (the 'oblvnsNote' born event of this attack) replaces render/fx.js's arrow
           if (tgt && fxBundleOf(src.info.spine || src.info.defId) === 'oblvns' && notesOn(src)) noteAtks.add(e);
-          if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS });
+          const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
+          if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode });
           const sid = src.id ?? src.info.id;
           if (level() >= 3) return;   // the busiest effects go first under load
+          const cast = mode != null ? bound(src, mode, 'cast') : [];
+          if (cast.length) { // local patch: the mode's own cast effects, a skill's on each of its attacks
+            if (clockS - (lastAttackFx.get(sid) ?? -9) >= ATTACK_GAP_S) { lastAttackFx.set(sid, clockS); play(src, 'attackStart', 0, { names: cast }); }
+            return;
+          }
           if (!src._fxSkillOn && clockS - (lastAttackFx.get(sid) ?? -9) >= ATTACK_GAP_S) { lastAttackFx.set(sid, clockS); play(src, 'attackStart'); }
           return;
         }
@@ -429,6 +463,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const key = `${a.src.id ?? a.src.info?.id}:${tid}`;
           if (clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return;
           lastHit.set(key, clockS);
+          lastAtk.delete(tid); // local patch: one impact per attack (a mark's / DoT's later ticks are no attack's hit; audio.js does the same)
+          const hits = a.mode != null ? bound(a.src, a.mode, 'hit').slice(0, MAX_HIT_FX) : []; // local patch: the mode's hit effects
+          if (hits.length) { play(a.src, 'attackHit', 0, { at: tgt, names: hits }); return; }
           play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
           return;
         }
@@ -470,7 +507,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
 
     update(dt, cam, vp) {
-      clockS += dt;
+      clockS += dt * gameRate(); // local patch: the battle clock (gaps, ends) — the official effects use scaled time
       stepNotes(dt, lastViews);   // the notes fly on while their trails load
       stepWolves(dt);
       if (!mod) return;
@@ -495,7 +532,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const l = live[i];
         if (l.view && l.view.alive !== false && !l.view.remove) l.inst.object.position.set(l.view.x, l.view.y, l.view.z || 0);
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
-        l.inst.update(l.game ? dt * rate2 : dt);   // the notes run on the battle clock (their trails' length = speed × time)
+        l.inst.update(dt * rate2);   // local patch: every effect on the battle clock (the notes did already: trail = speed × time)
         if (l.inst.done) { dropLive(l); live.splice(i, 1); }
       }
       showLayers();
@@ -551,6 +588,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return {
         live: live.length, loaded: !!mod, updateMs: Math.round(perf.updateMs * 100) / 100, renderMs: Math.round(perf.renderMs * 100) / 100,
         calls: perf.calls, particles: mod ? mod.fxp.fxStats().particles : 0, notes: notes.size,
+        recent: recent.slice(), // local patch
       };
     },
   };

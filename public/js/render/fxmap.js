@@ -6,6 +6,8 @@
 // (_iteration#4, _sale#14, _avemujica#1 …) and are left out: the remake draws the default skin.
 // [ASSUMED] the mapping by name; the client binds effects per ability in its charpack prefabs (`_startEffect` …).
 
+import { skillModeIndex } from '../../../shared/skill-modes.js';
+
 /** Effect bundle of an operator (charId without its numeric prefix). */
 export const fxBundleOf = (charId) => String(charId || '').replace(/^char_\d+_/, '');
 
@@ -93,4 +95,34 @@ export function noteEffects(mode, fan = 0) {
   if (!fx) return null;
   if (mode === 's1' && fan > 1 && fan <= 8) return { trail: `${fx.trail}_0${fan}`, hit: fx.hit };
   return fx;
+}
+
+// ---- attack-mode bindings (local patch 2026-10-07, docs/LOCAL-PATCH.md 「스킬 중 공격 이펙트」) ---------------------------
+// /assets/local/fx/modes.json[charId] = { modes: [Default, S2, …], cast: [[names]…], hit: [[names]…], trail: [[names]…] }
+// (tools/local-extract/char_modes.py: the character prefab's attack modes and the effects their attacks bind).
+
+/**
+ * The attack mode an operator's attack uses: the running skill's mode (shared/skill-modes.js) or Default 0; -1 for a
+ * running skill that switches no mode; null without bindings.
+ * @param {any} bind modes.json entry
+ * @param {boolean} skillOn
+ * @param {number} skillIndex 0-based
+ */
+export function attackMode(bind, skillOn, skillIndex) {
+  if (!bind || !Array.isArray(bind.modes)) return null;
+  return skillOn ? skillModeIndex(bind.modes, skillIndex) : 0;
+}
+
+/**
+ * The extracted prefabs mode `n` binds for `role` ('cast' on the attacker, 'hit' on the target, 'trail'), in order; [] for
+ * no mode / nothing extracted.
+ * @param {any} bind modes.json entry
+ * @param {string[]|null|undefined} prefabs the operator's extracted prefabs (index.json bundles[bundle])
+ * @param {number|null} n
+ * @param {'cast'|'hit'|'trail'} role
+ */
+export function boundEffects(bind, prefabs, n, role) {
+  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0) return [];
+  const list = bind[role]?.[n];
+  return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
 }
