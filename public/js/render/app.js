@@ -908,8 +908,8 @@ export async function createFieldView(host, options = {}) {
 
   /**
    * local patch (user report 2026-10-07 #1): an own operator / summon piece dropped in by the prep sync (bought, a
-   * server-given reward, bench → board, board → bench) — screens/game.js plays its deploy sound. Not a merge's elite
-   * (its promotion cue) and not an item.
+   * server-given reward, bench → board; the board again when the prep returns after a battle — not board → bench) —
+   * screens/game.js plays its deploy sound. Not a merge's elite (its promotion cue) and not an item.
    */
   function prepDeployed(e, info) {
     if (info.kind !== 'item') emit('pieceDeploy', { uid: e.uid, area: e.area, unit: info });
@@ -995,6 +995,9 @@ export async function createFieldView(host, options = {}) {
     // merges since the last state (render/promote.js): new elite uid → where its consumed copies stood (their views
     // still exist until the sweep below) — the elite gets the promotion cue instead of the deploy flash
     const promoFrom = new Map();
+    // back in the prep after a battle (the views were cleared, the pieces before it kept in promoBase): the board pieces
+    // sound their deploy (user 2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」)
+    const backFromBattle = !prepPieces.length && promoBase.length > 0;
     const before = prepPieces.length ? prepPieces : promoBase;
     promoBase = [];
     for (const [uid, copies] of promotionsOf(before, list, (id) => data.chess(id))) {
@@ -1033,6 +1036,7 @@ export async function createFieldView(host, options = {}) {
           if (promotions.length > 20) promotions.shift();
         } else if (e.area === 'board' && ((prevBoard.size && !prevBoard.has(e.uid)) || (prepSynced && !before.length))) { v.onDeploy?.(); fx.deploy(v); prepDeployed(e, info); }
         else if ((before.length || prepSynced) && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) { v.onDeploy?.(); fx.deploy(v); prepDeployed(e, info); } // local patch: onDeploy — a bench arrival drops in too
+        else if (backFromBattle && e.area === 'board') prepDeployed(e, info); // the sound only (no drop-in)
       } else {
         const prevHome = v._home;
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
@@ -1046,8 +1050,9 @@ export async function createFieldView(host, options = {}) {
           v.lift = 0;
           let dropped = false; // local patch: the official drop-in (units.js onDeploy → true)
           if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) { dropped = v.onDeploy(); fx.deploy(v); prepDeployed(e, info); }
-          // local patch: a piece sent back from the board to the bench drops in on its slot too (official capture)
-          else if ((e.area === 'hand' || e.area === 'temp') && prevBoard.has(e.uid) && v.onDeploy) { dropped = v.onDeploy(); prepDeployed(e, info); }
+          // local patch: a piece sent back from the board to the bench drops in on its slot too (official capture), silently
+          // (user 2026-10-08 「벤치로 되돌릴 때는 배치음이 안나오는게 일단 맞는 것 같아」)
+          else if ((e.area === 'hand' || e.area === 'temp') && prevBoard.has(e.uid) && v.onDeploy) dropped = v.onDeploy();
           // local patch: the drop-in starts on the target tile — no slide from where it was
           if (dropped === true) { v._tween = null; v.x = w.x; v.y = w.y; v.z = w.z; }
         }
