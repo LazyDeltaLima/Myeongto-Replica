@@ -282,7 +282,7 @@ describe('enemy preview pen figures (lod idle)', () => {
 // Ported from upstream 66ae86b9 (user report here 2026-10-08: drones drawn almost on the ground). Player report 2026-10-05: 「无人机等飞行单位贴图位置明显偏低」, and the follow-up "绝对不止 0.35" with an official
 // screenshot of 帝国炮火先兆者 over a tile (PR #211 by @xcdoge; the owner's decision of 2026-10-06). The lift is the
 // official client's own single constant — Vector3(0, 0.35, 0) written by Torappu.Battle.CharacterAnimator's constructor
-// (upstream docs/research/12-flying-visuals-official.md, branch merge-0.2.0) — measured in the client's character space, whose unit is the standard
+// (docs/research/12-flying-visuals-official.md) — measured in the client's character space, whose unit is the standard
 // battle-prefab scale 0.27, so the tile-space lift is 0.35 / 0.27 ≈ 1.3 tiles (the screenshot measures 1.2–1.4). The
 // client applies it to the model's root transform and nothing per model (its battle prefabs carry no flyer-specific
 // vertical offset), so a model whose art hangs below its origin keeps that hang and flies with it — 妖怪 at ≈ 0.9 tiles
