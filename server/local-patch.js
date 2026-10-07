@@ -19,17 +19,13 @@
 // Chat faction: a seated player's nation tag (shared/local.js CHAT_FACTIONS) on their lines and avatar, announced as a
 // `kind: 'faction'` line and sent as room.factions; shares the chat cooldown; spectators have none.
 //
-// Co-op leader HP (local decision 2026-10-05): the shared Final Assault / Hidden Core pool is bloodPoint × the players
-// alive when that boss round starts — upstream keeps one bloodPoint whatever the team size (DESIGN §20.10; issue #113
-// asks for this). A human who left is eliminated (Match.onLeave → _quit), so they are not counted; AI teammates are.
-// The pool is computed on the server only (Match.startFinalAssault → finalAssault.bossPoolHp → GameData.bossPoolShare),
-// so wrapping bossPoolShare here, at import, covers it (audit.js reads the same function). Solo stays upstream's.
+// Co-op leader HP: since 0.2.0 upstream's own rule (gamedata.js bossPoolShareOf, PR #209 — the same bloodPoint × alive
+// players this file used to wrap in; removed here so it is not applied twice).
 
 import { logMatchStats } from './local-stats.js';
 import { ERR, MAX_SEATS } from '../shared/constants.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, chatFaction } from '../shared/local.js';
 import { sendSession } from './net.js';
-import { GameData } from './match/gamedata.js';
 import { PlayerState } from './match/PlayerState.js';
 import { Match } from './match/Match.js';
 import { diySlotIds, isDiyModule } from '../shared/diy.js';
@@ -37,18 +33,6 @@ import { localDiyPool } from '../shared/local-diy.js';
 
 const OK = Object.freeze({ ok: true });
 
-/** Players a co-op leader pool is sized for: the alive count (omitted ⇒ a full team, as upstream), 1…MAX_SEATS. */
-export function coopPoolPlayers(aliveCount) {
-  const n = Math.floor(Number(aliveCount));
-  return Number.isFinite(n) && n >= 1 ? Math.min(MAX_SEATS, n) : MAX_SEATS;
-}
-
-const upstreamPoolShare = GameData.prototype.bossPoolShare;
-/** Co-op: upstream's full-team share (bossHpScale.coop) × coopPoolPlayers; solo: upstream's. */
-GameData.prototype.bossPoolShare = function bossPoolShare(aliveCount) {
-  if (this.isSolo) return upstreamPoolShare.call(this, aliveCount);
-  return upstreamPoolShare.call(this) * coopPoolPlayers(aliveCount);
-};
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
 
 // one line of printable text — the cleaning of net.js sanitizeName (keep in sync) with another cap

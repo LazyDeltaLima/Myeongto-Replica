@@ -17,7 +17,6 @@ import { ERR, EMOTES } from '../shared/constants.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction } from '../shared/local.js';
 import { validateC2S, C2S, S2C } from '../shared/protocol.js';
 import { USER_EMOTE_PAGES, userEmoteArt, emoteSet } from '../shared/emote-art.js';
-import { coopPoolPlayers } from '../server/local-patch.js';
 import { bossPoolHp } from '../server/match/finalAssault.js';
 import { makeBattle, chessRec } from './helpers/battleHarness.js';
 import * as enemiesMod from '../server/sim/content/enemies.js';
@@ -486,29 +485,6 @@ describe('emote wheel sets (public/js/ui/emotes.js)', () => {
 
 // ---- co-op leader HP (server/local-patch.js) -----------------------------------------------------------------------
 
-describe('co-op leader pool = bloodPoint × alive players (server/local-patch.js)', () => {
-  test('co-op share × the alive count (1…4, omitted = 4); solo keeps upstream\'s 0.25', () => {
-    const gd = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 4, seed: 3 }).m.gd;
-    assert.deepEqual([0, 1, 2, 3, 4, 5, undefined].map(coopPoolPlayers), [4, 1, 2, 3, 4, 4, 4]);
-    assert.deepEqual([1, 2, 3, 4].map((n) => gd.bossPoolShare(n)), [1, 2, 3, 4]);
-    assert.equal(gd.bossPoolShare(), 4);
-    const bp = gd.boss('boss_1').bloodPoint.HARD;
-    assert.equal(bossPoolHp(gd, 'boss_1', 2), bp * 2);
-    const solo = makeMatch({ mode: 'solo', difficulty: 'HARD', humans: 1, seed: 3 }).m.gd;
-    assert.equal(solo.bossPoolShare(1), 0.25);
-  });
-
-  test('a player who left is not counted at the Final Assault', () => {
-    const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 4, seed: 3 });
-    const m = h.m;
-    m.start();
-    m.onLeave('p_3');
-    assert.equal(m.alivePlayers().length, 3);
-    m.startFinalAssault(false);
-    assert.equal(m.bossPool.maxHp, m.gd.boss(m.bossId).bloodPoint.HARD * 3);
-    assert.deepEqual(h.logs.error, []);
-  });
-});
 
 // ---- “帝国的甲胄” (server/sim/content/local-patch.js) ----------------------------------------------------------------
 
@@ -583,44 +559,6 @@ describe('“帝国的甲胄” barrage and charged triple (server/sim/content/l
 
 // ---- 胄 drone link vs 限伤 (server/sim/content/local-patch.js) -------------------------------------------------------
 
-describe('假想敌：胄 drone link is exempt from 限伤 (server/sim/content/local-patch.js)', () => {
-  const POOL = 7200000 * 4; // 隐秘核心 终极, four players: a drone = 2 % = 576 000 ≥ BOSS_HIT_LIMIT
-  const GUN = chessRec({ id: 't_gun', profession: 'SNIPER', projectile: 'none', stats: { atk: 0, maxHp: 1e7, bat: 1, blockCnt: 0 }, rangeGrid: [[0, 0]], skill: null });
-  const pool = (hp) => ({ hp, maxHp: hp, damage(pid, a) { this.hp = Math.max(0, this.hp - a); } });
-  const field = (extra) => {
-    const h = makeBattle({
-      kind: 'hidden', sharedBoss: pool(POOL), content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 600,
-      defs: { chess: { t_gun: GUN } }, kits: { t_gun: () => ({ trait: { noAttack: true } }) }, units: [{ chessId: 't_gun', row: 12, col: 3 }],
-      setup: (b) => { b.opts.templateId = 'act1autochess_h08_01'; },
-    });
-    h.step();
-    const boss = h.spawn('enemy_9013_acstmk_2', { pos: [3, 10], routeIndex: 0, mods: { speedMul: 0 }, tag: 'boss' });
-    boss.profile.noAttack = true;
-    h.run(10.2); // 死亡集群 initCooldown 10
-    const drone = h.enemies().find((e) => e.defId === 'enemy_1005_yokai');
-    assert.ok(drone, 'a drone was summoned');
-    return { h, boss, drone };
-  };
-
-  test('upstream: the 576 000 link is one hit over the limit and is cancelled (why the patch exists)', () => {
-    const { h, drone } = field([enemiesMod, bossesMod]);
-    const before = h.b.sharedBoss.hp;
-    h.b.kill(drone, h.unit('t_gun'));
-    assert.equal(h.b.sharedBoss.hp, before);
-  });
-
-  test('patched: the drone kill takes the full 2 % of the pool; other hits over the limit stay cancelled', () => {
-    const { h, boss, drone } = field([enemiesMod, bossesMod, simPatch]);
-    const before = h.b.sharedBoss.hp;
-    h.b.kill(drone, h.unit('t_gun'));
-    assert.ok(Math.abs(before - h.b.sharedBoss.hp - POOL * 0.02) < 1e-3, `${before - h.b.sharedBoss.hp}`);
-    assert.ok(h.result().perPlayer.p1.bossDamage >= POOL * 0.02 - 1e-3, 'credited to the killer');
-    const mid = h.b.sharedBoss.hp;
-    h.b.loseHp(boss, BOSS_HIT_LIMIT + 1);
-    h.b.dealDamage(null, boss, { amount: BOSS_HIT_LIMIT * 2, type: 'true' });
-    assert.equal(h.b.sharedBoss.hp, mid, '限伤 still cancels everything else');
-  });
-});
 
 // ---- 圣堂剑士 ammo (server/sim/content/local-patch.js) --------------------------------------------------------------
 

@@ -14,12 +14,8 @@
 // behaviour so a merge that changes it fails there. Expected upstream failure while this patch is in: the “帝国的甲胄”
 // case of test/sim/feedback1f-liftoff.test.js (F3 review) counts all 8 barrage hits 1.5 s after the spawn.
 //
-// 假想敌：胄 死亡集群 vs 限伤 (local decision 2026-10-05): a drone's death costs the leader 2 % of the shared pool
-// (content/bosses.js kitHelm, one Battle.loseHp), and a leader hit of ≥ BOSS_HIT_LIMIT is cancelled (sim/damage.js
-// leaderHitCancelled). With the local per-player pool (server/local-patch.js) a pool above 15 M — 隐秘核心 终极 with
-// three or four players — made every drone kill do nothing. While such a drone's death is dispatched, a loss on a
-// leader at or above the limit is passed on in equal parts below it (same total, credit and HP; other hits keep 限伤).
-// Expected upstream failure: 「限伤 vs 【死亡集群】」 of test/sim/playtest6_limits.test.js (it asserts the cancel).
+// 假想敌：胄 死亡集群 vs 限伤: since 0.2.0 upstream's own (Battle.loseHp noHitLimit for the drone share, PR #209); our
+// exemptDroneLink is gone.
 
 //
 // 圣堂剑士 (enemy_10087_hlchgr, 悬赏·特异II) — 赐我力量！ spends ammo. Official data: spData {maxSp 5, initSp 5, increment 0}
@@ -36,7 +32,6 @@
 // [ASSUMED] a trigger while stunned / frozen / asleep fails (no bullet, no count) — an enemy skill cannot start then.
 
 import { abOf, attach, hurt, allTargets, areaAlliesInTiles, canCast, T } from './enemies.js';
-import { BOSS_HIT_LIMIT } from '../../../shared/constants.js';
 
 export const VTSK = 'enemy_10027_vtsk';
 /** 回忆里的誓死 (PRTS): first hit after 1.33 s, one every 0.53 s, the 3×3 弹道 lasts 5.85 s. */
@@ -61,7 +56,6 @@ export function install(battle) {
   // skills whose client Trigger / Selector is _targetMotion 1: their target picks (enemies.js allTargets / targetsNear) skip a
   // flyer; an area their projectile then covers keeps its own client filter (鼠王 唱沙 / 沙狱, “自在” 纬地经天: collision 3)
   battle.on('enemySpawn', ({ enemy }) => { if (enemy && NO_AIR_PICKS.includes(enemy.defId)) enemy.lpGroundPicks = true; }, { priority: 99 });
-  exemptDroneLink(battle);
 }
 
 export const HLCHGR = 'enemy_10087_hlchgr';
@@ -112,31 +106,6 @@ function foreverEnhance(ab, sk) {
       e.skillAnimUntil = b.time + 0.5;
       b.addBuff(e, { key: 'ab:enhance', persist: true, mods: { atkPct: atk0 + a.n * (sk.bb.atk_add ?? 0), moveMul: move0 + a.n * (sk.bb.move_speed_add ?? 0) } });
     },
-  };
-}
-
-const HELM = /^enemy_9013_acstmk/;
-/** The 死亡集群 drone key of a 假想敌：胄 (its skill 2 enemy_key; content/bosses.js kitHelm's default). */
-const droneKeyOf = (boss) => ((boss.def && boss.def.skills) || []).find((s) => s && s.prefabKey === '2')?.bbStr?.enemy_key ?? 'enemy_1005_yokai';
-const isHelmDrone = (b, u) => !!u && u.side === 'enemy' && !u.isBoss
-  && b.enemies.some((o) => o.isBoss && HELM.test(o.defId) && droneKeyOf(o) === u.defId);
-
-/** Whether a 'death' event marked by exemptDroneLink is being dispatched (Battle.emit's open frames). */
-function inDroneDeath(b) {
-  for (let i = 0; i < (b._emitDepth | 0); i++) if (b._frameName?.[i] === 'death' && b._frameCtx?.[i]?.localDroneLink) return true;
-  return false;
-}
-
-/** Before content/enemies.js's death dispatch (priority 50) the event is marked; a 胄 drone's link loss is split below 限伤. */
-function exemptDroneLink(b) {
-  b.on('death', (c) => { if (isHelmDrone(b, c.unit)) c.localDroneLink = true; }, { priority: 51 });
-  const loseHp = b.loseHp.bind(b);
-  b.loseHp = (target, amount, opts) => {
-    if (!target || !target.isBoss || !(BOSS_HIT_LIMIT > 0) || !(Math.ceil(amount) >= BOSS_HIT_LIMIT) || !inDroneDeath(b)) return loseHp(target, amount, opts);
-    const n = Math.ceil(amount / (BOSS_HIT_LIMIT - 1));
-    let sum = 0;
-    for (let i = 0; i < n && target.alive; i++) sum += loseHp(target, amount / n, opts) || 0;
-    return sum;
   };
 }
 
