@@ -47,6 +47,7 @@ import { activationEffects } from './fxmap.js'; // local patch: a skill activati
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
+import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { PROJ } from './style.js';
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 
@@ -361,6 +362,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     stoneBirth.clear();
   }
 
+  // local patch (user report 2026-10-07 #7: "전용 이펙트가 추가된 오퍼레이터들의 스킬 효과 등에는 옛날 공용 이펙트 효과(노란 원형)도
+  // 제거"): a kit 'fx' event of an operator whose official effects play (its bundle extracted, not 'low') draws none of
+  // render/fx.js's procedural skill stand-ins — the orange zone circle, the blast rings, the mint hex + pillar, the buff
+  // sparkle, the shield hex, the pulses. What the client draws for that moment is its skill / hit prefabs (played from the
+  // 'skill' / 'atk' / 'dmg' events or kitFx); informational marks stay (dodge / crit text, DP, locks and marks, beams,
+  // displacement arrows, heals). The event's operator: `src`, else `by`, else `id` (an ally token / device keeps them).
+  const STAND_IN = new Set(['blast', 'zone', 'wall', 'summon', 'buff', 'wave', 'pillar', 'element', 'healAoe', 'shield', 'shatter', 'strike', 'volley']);
+  function standInOff(e, views) {
+    const o = e[4];
+    if (!o || typeof o !== 'object' || !index || failed || q() === 'low') return false;
+    if (!STAND_IN.has(fxSpec(e[1], o).a)) return false;
+    const v = views.get(o.src ?? o.by ?? o.id);
+    const k = v?.info?.kind;
+    return !!(isOp(v) && k !== 'token' && k !== 'device' && k !== 'item' && bundleOf(v));
+  }
+
   // ---- official projectile trails (local patch 2026-10-07, see the header) ----
   const trails = [];               // { inst, tgt view, x0, y0, tx, ty, k, dur, arc }
   const trailReady = new Set();    // `bundle/prefab` loaded once: its shots draw the official trail from then on
@@ -672,6 +689,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       spawn(b.bundle, 'texas2_skill_03_hit', views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false });
       return true;
     }
+    // local patch (user report 2026-10-07 #7: the old stand-ins go — standInOff): the kit events whose moment has an official
+    // prefab draw it instead of nothing — 维什戴尔's 残影 bomb ('explode', by = her) wisdel_bomb_01_hit [추정: by name; no
+    // prefab key found], 赤刃明霄陈 S2's strikes ('swordStorm', id = her) skchr_chen3_2 _hitGroups[0..5] in turn [추정: one
+    // group a strike], 丰川祥子's fever ('sunBurst', id = her) her Combat mode's cast oblvns_combat_01_start [추정]
+    if (e[1] === 'explode' || e[1] === 'swordStorm' || e[1] === 'sunBurst') {
+      const src = views.get(e[1] === 'explode' ? o.by : o.id), b = bundleOf(src);
+      const n = !b ? null : e[1] === 'explode' ? (b.bundle === 'wisdel' ? 'wisdel_bomb_01_hit' : null)
+        : e[1] === 'swordStorm' ? (b.bundle === 'chen3' ? `chen3_skill_02_hit_0${((src._fxStormN = ((src._fxStormN ?? -1) + 1) % 6)) + 1}` : null)
+          : b.bundle === 'oblvns' ? 'oblvns_combat_01_start' : null;
+      if (!n || !b.prefabs.includes(n)) return false;
+      ownFx.add(e);
+      spawn(b.bundle, n, e[1] === 'sunBurst' ? src : { x, y, z: 0 }, { owner: null, buff: false });
+      return true;
+    }
     // local patch: 焰影苇草 S3 — a 灼痕 enemy's death bursts (sim 'scorchBurst', id = her): reed2_debuff_boom_01 there
     if (e[1] === 'scorchBurst') {
       const b = bundleOf(views.get(o.id));
@@ -784,12 +815,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * keeps only its ground aura.
      */
     ownsSkill(v) {
-      if (!(index && isOp(v) && bundleOf(v) && q() !== 'low' && !failed)) return false;
-      // only a skill with official start / buff effects of its own: one whose bundle has none (many S1s — the client's common
-      // buff effects are not extracted) keeps the procedural burst, or its activation would show nothing
-      // (local patch: the same lists the activation plays — activation())
-      const { start, loops } = activation(v);
-      return bound(v, skillMode(v), 'cast').length > 0 || start.length > 0 || loops.length > 0;
+      // local patch (user report 2026-10-07 #7: "전용 이펙트가 추가된 오퍼레이터들의 스킬 효과 등에는 옛날 공용 이펙트 효과도 제거" —
+      // 望 S1's gold pillar + hex): every operator with official effects, also a skill with no start / buff effect of its
+      // own (望 S1 skchr_wang_1: no effect key in skills.ab) — its activation shows what the client shows, its own prefabs or none.
+      // It used to keep the procedural burst for those (many S1s), so the activation was not silent on screen.
+      return !!(index && isOp(v) && bundleOf(v) && q() !== 'low' && !failed);
     },
     /** local patch (⑤): whether the shared status prefab `bundle`/`name` can play (index loaded, not 'low', listed). */
     statusReady(bundle, name) { return !!(index && !failed && q() !== 'low' && index.bundles?.[bundle]?.includes(name) && !statusFailed.has(`${bundle}/${name}`)); },
@@ -884,6 +914,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
+          if (standInOff(e, views)) ownFx.add(e); // local patch: no old procedural stand-in for an operator with official effects
           if ((e[1] === 'drone' || e[1] === 'drones') && e[4] && wolvesOn() && wolves.has(e[4].id)) {   // her wolves: no generic puff
             ownFx.add(e);
             if (e[1] === 'drone') playNoteHit(WOLF.bundle, WOLF.hit, { x: Number(e[2]), y: Number(e[3]), z: WOLF.z });

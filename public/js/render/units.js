@@ -1467,7 +1467,10 @@ export class UnitView {
     else if (f & UF.STUNNED && !fx?.has('stun')) push('stun');
     if (f & UF.SLEEP && !fx?.has('sleep')) push('sleep');
     if (f & UF.COLD && !(f & UF.FROZEN) && !fx?.has('cold')) push('cold');
-    if (f & UF.INVULN) push('invuln');
+    // local patch (user report 2026-10-07 #7, official capture: 望's stones carry no badge; then "소환물 위에 붙어 있는 노란 방패
+    // 모양 아이콘을 제거해줘"): no shield icon over a summon — a trap's standing invulnerability (shared/trap-tokens.js) is no
+    // status, and the view cannot tell a skill's short one from it (only the UF.INVULN flag) [추정: summons show none]
+    if (f & UF.INVULN && !this.isToken && !noHpBar(this.info?.defId)) push('invuln');
     if (f & UF.STEALTH && !(fx && (fx.has('camou') || fx.has('stealth') || fx.has('stealthAlly')))) push(f & UF_CAMOU ? 'camou' : 'stealth'); // local patch: 迷彩 (위장) has its own icon
     for (const k of this.statuses) {
       if (out.length >= 4) break;
