@@ -452,7 +452,10 @@ function MatchScreen() {
     if (early && early.length) {
       // replay state-bearing events only (a burst of stale hit sparks / damage numbers would look wrong)
       view.pushEvents(early);
-      audio.handleBattleEvents(early.filter((e) => e[0] === 'spawn'));
+      // the opening deployment of a battle that just began sits in this buffer too (the local sim runs before the view
+      // enters the field): its deploy sounds / lines play — user re-report 2026-10-08 「작전 시작할 때 배치 효과음이 안 들림」
+      const opening = combat && !watchingOther && !(earlySnap && Number(earlySnap.gt) > 2);
+      audio.handleBattleEvents(early.filter((e) => e[0] === 'spawn' || (opening && e[0] === 'deploy')));
     }
     if (!earlySnap && (field.prep || !combat) && Array.isArray(field.units)) {
       // prep scouting: no battle snapshots follow. A later m.field for this board (the teammate moved) re-enters
