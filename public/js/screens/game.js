@@ -1503,7 +1503,7 @@ function MatchScreen() {
       ${bondPop ? html`<${BondPopup} bondId=${bondPop.bondId} entry=${bondPop.entry} priv=${bondPop.priv} banned=${pub?.bannedChess || []} owner=${bondPop.name}
         off=${offBonds.has(bondPop.bondId)}
         place=${bpPlace} over=${!!resolved && bpPlace === dSide}
-        onClose=${() => setBondOpen(null)} onMember=${(id, items, standInFor) => setDetail({ kind: 'chess', id, owner: bondPop.ownerId, items: items || null, standInFor: standInFor || null })} />` : null}
+        onClose=${() => setBondOpen(null)} onMember=${(id, items, standInFor, diy) => setDetail({ kind: 'chess', id, owner: bondPop.ownerId, items: items || null, standInFor: standInFor || null, diy: diy || null })} />` : null}
       ${bondPop && hudLook.cls && bondPop.ownerId === strip.ownerId ? html`<${BondNav} bonds=${stripBonds} id=${bondPop.bondId} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />` : null /* local patch: the popup's < > (ui/hudArt.js) */}
 
       ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp} onClose=${() => { setDetail(null); setSel(null); }}
