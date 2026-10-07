@@ -549,6 +549,7 @@ export function install(battle) {
       if (u.defId === CRATE_KEY && st.crateOff.has(k) && !st.started) { u.mem.removedByOverride = true; battle.retreat(u, { reason: 'removed', permanent: true }); }
       return;
     }
+    if (u.motion === 'FLY') return; // an air unit (炎佑) stands on no platform
     if (st.platformOn.has(k)) u.ground = false;
     else if (st.platformOff.has(k)) u.ground = battle.grid.isLow(u.tileR, u.tileC);
   }, { priority: 100 });

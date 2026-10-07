@@ -22,8 +22,11 @@ export class BattleDeploy {
       return false;
     }
     const k = R0 * COLS + C0;
+    // a flying ally (炎佑: motion FLY, set by its kit install) holds no field tile — it neither needs a free one nor keeps
+    // the one it appears over from deploys / summons / redeploys (user playtest 2026-10-08)
+    const fly = u.motion === 'FLY';
     const occ = this._occ[k];
-    if (occ && occ !== u && occ.alive && occ.deployed) { this.log(`tile ${R0},${C0} occupied; ${u} not deployed`); return false; }
+    if (!fly && occ && occ !== u && occ.alive && occ.deployed) { this.log(`tile ${R0},${C0} occupied; ${u} not deployed`); return false; }
     // "倒地干员所在地块视为可部署，但所有我方单位在此处的部署行为将被阻止" (PRTS 卫戍协议/帮助 §作战阶段 单位部署)
     if (this.downOn(R0, C0, u)) { this.log(`a knocked-out operator lies on ${R0},${C0}; ${u} not deployed`); return false; }
     const first = u.deploySeq === 0;
@@ -42,14 +45,14 @@ export class BattleDeploy {
     u.atkCd = 0;
     u.lastAttackAt = -Infinity;
     u.elem.burn = u.elem.neural = u.elem.necrosis = u.elem.apoptosis = u.elem.erosion = 0;
-    u.ground = this.grid.isLow(R0, C0) && !this._elevated?.has(k);
+    u.ground = !fly && this.grid.isLow(R0, C0) && !this._elevated?.has(k); // a flyer is an air unit, on no ground at all
     u.markDirty();
     u.hp = u.s.maxHp;
     // 联防 carry (PRTS 卫戍协议/帮助 §联防阶段 "将对应单位的生命比例、技力修改至与上一阶段结束时相同（召唤物仅修改技力…）"):
     // an operator's HP ratio here, the SP in skill.reset and again after the `deploy` hook (below) — a summon's SP only
     const cs = initial || (first && this._startDeploying) ? (carry ?? u.carry) : null;
     if (cs && u.kind === 'op' && Number.isFinite(cs.hpPct)) u.hp = Math.max(1, u.s.maxHp * Math.max(0.01, Math.min(1, cs.hpPct)));
-    this._occ[k] = u;
+    if (!fly) this._occ[k] = u;
     this._refreshRange(u); // also rebuilds baseRangeKeys (initial range incl. permanent rangeExtend)
     if (!u.skill) this._setupUnit(u);
     u.skill.reset(cs);

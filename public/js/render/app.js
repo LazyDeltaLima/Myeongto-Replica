@@ -143,6 +143,7 @@ import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind
 import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { t } from '../../../shared/i18n.js';
+import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
 
 export { ensurePixi } from './app/pixi.js';
 export { PEN_CAMERA_MS, LEADER_HIT_STYLE, DRAG_HOLD_TILES } from './app/tune.js';
@@ -189,7 +190,7 @@ export async function createFieldView(host, options = {}) {
     resolution: dpr(), autoDensity: true, powerPreference: 'high-performance',
   });
   const canvas = app.view;
-  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null) }); // local patch
+  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null), grid: () => tiles.grid }); // local patch
   canvas.style.display = 'block';
   canvas.style.width = '100%';
   canvas.style.height = '100%';
@@ -257,6 +258,9 @@ export async function createFieldView(host, options = {}) {
   // the last prep pieces before a battle / scouting board emptied prepPieces: a merge completed between two preps (a band
   // or 机变 grant at ROUND_START, a SETTLE merge) is still recognised by the next setPrep (QA 6b)
   let promoBase = [];
+  // local patch (user report 2026-10-07 #1): a prep sync already ran in this view — with nothing before it (round 1's
+  // empty board and bench) the next piece is a new arrival, not the first build of a loaded / reconnected page
+  let prepSynced = false;
   const promotions = [];      // the last merges cued by setPrep (fx.promote): { uid, id, area, row, col, idx, copies } — dev / tests
   let battleMeta = null;
   let sceneHold = null;       // release function of the Spine cache hold of battle mode (holdScene)
@@ -656,7 +660,16 @@ export async function createFieldView(host, options = {}) {
 
   // ---- prep -----------------------------------------------------------------------------------------------
 
-  function pieceInfo(piece, area) {
+  /**
+   * local patch (user report 2026-10-07 #1): an own operator / summon piece dropped in by the prep sync (bought, a
+   * server-given reward, bench → board; the board again when the prep returns after a battle — not board → bench) —
+   * screens/game.js plays its deploy sound. Not a merge's elite (its promotion cue) and not an item.
+   */
+  function prepDeployed(e, info) {
+    if (info.kind !== 'item') emit('pieceDeploy', { uid: e.uid, area: e.area, unit: info });
+  }
+
+  function pieceInfo(piece, area, byUid = null) {
     const kind = piece.kind;
     // board pieces face their stored dir (the server default RIGHT when absent), drawn through the prep field (mirrored
     // on the right half of the Final Assault prep); bench pieces face right
@@ -669,7 +682,10 @@ export async function createFieldView(host, options = {}) {
     }
     if (kind === 'token') {
       const rec = data.token(piece.id);
-      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id, tier: piece.tier || 1, golden: false, dir };
+      // local patch (user request 2026-10-08): a summon wears its owner operator's level chip (units.js `chip`)
+      const owner = Number.isInteger(piece.ownerUid) ? byUid?.get(piece.ownerUid) : null;
+      const orec = owner?.kind === 'chess' ? data.chess(owner.id) : null;
+      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id, tier: orec?.tier || piece.tier || 1, golden: false, chip: !!orec, dir };
     }
     const chess = data.chess(piece.id);
     // 0.2.0 补位: a piece of a chess the player does not own (m.private.standIns) is its stand-in's model, in the hand,
@@ -744,6 +760,9 @@ export async function createFieldView(host, options = {}) {
     // merges since the last state (render/promote.js): new elite uid → where its consumed copies stood (their views
     // still exist until the sweep below) — the elite gets the promotion cue instead of the deploy flash
     const promoFrom = new Map();
+    // back in the prep after a battle (the views were cleared, the pieces before it kept in promoBase): the board pieces
+    // sound their deploy (user 2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」)
+    const backFromBattle = !prepPieces.length && promoBase.length > 0;
     const before = prepPieces.length ? prepPieces : promoBase;
     promoBase = [];
     for (const [uid, copies] of promotionsOf(before, list, (id) => data.chess(id))) {
@@ -755,14 +774,15 @@ export async function createFieldView(host, options = {}) {
         return w ? { x: w.x, y: w.y, z: w.z || 0 } : null;
       }).filter(Boolean));
     }
+    const byUid = new Map(list.map((e) => [e.uid, e.piece])); // local patch: summon → owner (pieceInfo chip)
     for (const e of list) {
       if (seen.has(e.uid)) continue; // duplicate uid in bad state: keep the first
       seen.add(e.uid);
       const key = 'p:' + e.uid;
       e.key = key;
-      const info = pieceInfo(e.piece, e.area);
+      const info = pieceInfo(e.piece, e.area, byUid);
       // (the model is part of it: a piece whose body changes — a merge, an own 补位 / 自选 setting arriving — is rebuilt)
-      const sig = `${info.kind}|${info.defId}|${info.golden ? 1 : 0}|${info.spine || ''}`;
+      const sig = `${info.kind}|${info.defId}|${info.golden ? 1 : 0}|${info.spine || ''}${info.chip ? '|' + info.tier : ''}`; // local patch: a summon's owner chip
       let v = views.get(key);
       if (v && v._sig !== sig) { dropView(key); v = null; }
       const w = slotWorld(e);
@@ -780,8 +800,9 @@ export async function createFieldView(host, options = {}) {
           fx.promote(v, promoFrom.get(e.uid).filter((f) => Math.abs(f.x - w.x) + Math.abs(f.y - w.y) > 1e-3));
           promotions.push({ uid: e.uid, id: e.piece.id, area: e.area, row: e.row ?? null, col: e.col ?? null, idx: e.idx ?? null, copies: promoFrom.get(e.uid).length });
           if (promotions.length > 20) promotions.shift();
-        } else if (e.area === 'board' && prevBoard.size && !prevBoard.has(e.uid)) { v.onDeploy?.(); fx.deploy(v); }
-        else if (before.length && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) { v.onDeploy?.(); fx.deploy(v); } // local patch: onDeploy — a bench arrival drops in too
+        } else if (e.area === 'board' && ((prevBoard.size && !prevBoard.has(e.uid)) || (prepSynced && !before.length))) { v.onDeploy?.(); fx.deploy(v); prepDeployed(e, info); }
+        else if ((before.length || prepSynced) && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) { v.onDeploy?.(); fx.deploy(v); prepDeployed(e, info); } // local patch: onDeploy — a bench arrival drops in too
+        else if (backFromBattle && e.area === 'board') prepDeployed(e, info); // the sound only (no drop-in)
       } else {
         const prevHome = v._home;
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
@@ -794,8 +815,9 @@ export async function createFieldView(host, options = {}) {
           if (moved || Math.abs(v.x - w.x) + Math.abs(v.y - w.y) > 1e-3) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };
           v.lift = 0;
           let dropped = false; // local patch: the official drop-in (units.js onDeploy → true)
-          if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) { dropped = v.onDeploy(); fx.deploy(v); }
-          // local patch: a piece sent back from the board to the bench drops in on its slot too (official capture)
+          if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) { dropped = v.onDeploy(); fx.deploy(v); prepDeployed(e, info); }
+          // local patch: a piece sent back from the board to the bench drops in on its slot too (official capture), silently
+          // (user 2026-10-08 「벤치로 되돌릴 때는 배치음이 안나오는게 일단 맞는 것 같아」)
           else if ((e.area === 'hand' || e.area === 'temp') && prevBoard.has(e.uid) && v.onDeploy) dropped = v.onDeploy();
           // local patch: the drop-in starts on the target tile — no slide from where it was
           if (dropped === true) { v._tween = null; v.x = w.x; v.y = w.y; v.z = w.z; }
@@ -815,6 +837,7 @@ export async function createFieldView(host, options = {}) {
     // the boss round's prep: the pair partner's board on its half of the boss field (item 51; display only)
     syncMates(prepXf.kind === 'bossPrep' && src.bossMate && Array.isArray(src.bossMate.units) ? src.bossMate.units : []);
     prepPieces = list.filter((e) => e.key && views.has(e.key));
+    if (prepPieces.length === seen.size) prepSynced = true; // local patch: every piece found its slot (the scene is up)
     if (dragState && !views.has(dragState.key)) { drag.reset(); endDragVisual(false); }
     holdScene(false); // the prep pieces reference their models now (a battle's hold ends here)
     return true;
@@ -1706,6 +1729,7 @@ export async function createFieldView(host, options = {}) {
       tiles.update(dt);
       fx.update(dt);
       syncStatusFx(views, fxGame, mode === 'battle'); // local patch: official status effects (fxstatus.js)
+      syncGoldenFx(views, fxGame, mode === 'prep'); // local patch: the official elite glow in the prep (fxgolden.js)
       fxGame.update(dt, cam, vp); // local patch
       impostors.flush();
     } catch (err) {

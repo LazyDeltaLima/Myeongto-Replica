@@ -110,8 +110,15 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     const fx = readFileSync(path.join(ROOT, 'public/js/render/fx/arrivals.js'), 'utf8'); // fx.js split in 0.2.0
     assert.match(fx, /deploy\(view\) \{\n\s+if \(!view\) return;\n\s+if \(view\.bornOfficial\) return;/);
     const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
-    assert.match(app, /\(e\.area === 'hand' \|\| e\.area === 'temp'\) && !before\.some\(\(g\) => g\.uid === e\.uid\)\) \{ v\.onDeploy\?\.\(\); fx\.deploy\(v\); \}/);
+    assert.match(app, /\(e\.area === 'hand' \|\| e\.area === 'temp'\) && !before\.some\(\(g\) => g\.uid === e\.uid\)\) \{ v\.onDeploy\?\.\(\); fx\.deploy\(v\); prepDeployed\(e, info\); \}/);
+    // user 2026-10-08: a board → bench return drops in silently; the board sounds again when the prep returns after a battle
     assert.match(app, /prevBoard\.has\(e\.uid\) && v\.onDeploy\) dropped = v\.onDeploy\(\);/);
+    assert.match(app, /const backFromBattle = !prepPieces\.length && promoBase\.length > 0;/);
+    assert.match(app, /else if \(backFromBattle && e\.area === 'board'\) prepDeployed\(e, info\);/);
+    // user report 2026-10-07 #1: round 1's first piece (nothing before it, a sync already ran) drops in — with its sound
+    assert.match(app, /\(before\.length \|\| prepSynced\) && \(e\.area === 'hand'/);
+    assert.match(app, /if \(prepPieces\.length === seen\.size\) prepSynced = true;/);
+    assert.match(app, /function prepDeployed\(e, info\) \{\n\s+if \(info\.kind !== 'item'\) emit\('pieceDeploy'/);
     assert.match(app, /if \(dropped === true\) \{ v\._tween = null;/);
   });
 });

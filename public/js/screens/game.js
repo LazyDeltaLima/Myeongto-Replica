@@ -692,6 +692,9 @@ function MatchScreen() {
   // shop's refresh sound instead of the promotion cue
   const offerCue = priv?.shop?.rewardOffer ? (priv.shop.rewardOffer.source === 'special' ? 'refresh' : 'merge') : null;
   useEffect(() => { if (offerCue) audio.sfx(offerCue); }, [offerCue]);
+  // local patch (user report 2026-10-07 #1): an own operator dropped in on the prep board / bench — bought, a reward the
+  // server gave, moved to the board or back to the bench — plays its deploy sound (render/app.js prepDeployed)
+  useEffect(() => (view ? view.on('pieceDeploy', (e) => audio.prepDeploy(e?.unit, e?.uid)) : undefined), [view]);
   // a shop / reward card armed for a purchase that completes a merge lights the tile its elite will take (the deployed
   // copy that deploys first — PRTS 卫戍协议/帮助 "若消耗已部署至作战区的干员，则发送至作战区对应位置", gameLogic.mergeTarget)
   const mergeAt = armedCard?.kind === 'chess' && editable && showPrep ? mergeTarget(priv, armedCard.id, gd.chess) : null;
@@ -720,7 +723,9 @@ function MatchScreen() {
   // ---- actions ----------------------------------------------------------------------------------------------
   const buy = useCallback(async (i) => {
     const slot = live.current.priv?.shop?.slots?.[i]; // local patch: the bought operator's deploy line (voice.js)
-    const ok = await actions.buy(i);
+    // local patch (user report 2026-10-07 #1): an operator / summon lands on the bench with its deploy sound (pieceDeploy) —
+    // the shop's own sound (ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND, b_char_tokenset) stays for equipment
+    const ok = await actions.buy(i, slot && slot.kind !== 'item' ? { sfx: false } : undefined);
     if (ok) voiceForBuy(slot); // local patch
     return ok;
   }, []);

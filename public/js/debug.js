@@ -9,7 +9,7 @@
 // &fx=<bundle>/<prefab> (played on the operator once it stands).
 
 import { data } from './data.js';
-import { audio, kitHitKey, normalAttackSfx } from './audio.js';
+import { audio, kitHitKey, kitStartKey, normalAttackSfx } from './audio.js';
 import { loopGain } from './audioOfficial.js';
 import { installResources } from './resources.js';
 import { voiceStore, setVoiceLang } from './voice.js';
@@ -255,9 +255,9 @@ function onEvents(ev, gt) {
         const ex = e[4] && typeof e[4] === 'object' ? e[4] : null;
         const brief = ex ? JSON.stringify(ex).slice(0, 90) : '';
         let tail = '';
-        const hk = kitHitKey(e[1], ex, (id) => audio.units.get(id));
-        if (hk) { const url = manifest?.audio?.sfx?.kit?.[hk]; tail = typeof url === 'string' ? ` · 키트 타격음 ${hk}` : ` · ⚠ 키트 타격음 매핑 없음 (sfx.kit.${hk})`; }
-        log('fx', hk && !manifest?.audio?.sfx?.kit?.[hk] ? 'miss' : '', `fx ${e[1]} ${brief}${tail}`);
+        const keys = [kitStartKey(e[1], ex), kitHitKey(e[1], ex, (id) => audio.units.get(id))].filter(Boolean); // local patch: + the start layer
+        for (const hk of keys) { const url = manifest?.audio?.sfx?.kit?.[hk]; tail += typeof url === 'string' ? ` · 키트 소리 ${hk}` : ` · ⚠ 키트 소리 매핑 없음 (sfx.kit.${hk})`; }
+        log('fx', keys.some((hk) => !manifest?.audio?.sfx?.kit?.[hk]) ? 'miss' : '', `fx ${e[1]} ${brief}${tail}`);
         break;
       }
       case 'die': {

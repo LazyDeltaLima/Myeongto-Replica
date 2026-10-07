@@ -260,3 +260,42 @@ describe('kit sounds cut their oldest copy like the official popOldest banks (�
     assert.equal(stopped.length, 0);
   });
 });
+
+describe('deploy sounds on every placement (user report 2026-10-07 #1 / #2, audio.js playDeploySfx / prepDeploy)', () => {
+  test('a prep drop-in sounds the operator\'s own ON_UNIT_BORN (望, 余), else b_char_set; summons theirs / b_char_tokenset; items nothing', () => {
+    const a = manager();
+    a.prepDeploy({ kind: 'op', defId: 'chess_diy_wang_6_a', spine: 'char_2027_wang' }, 1);
+    a.prepDeploy({ kind: 'op', defId: 'x', spine: 'char_2026_yu' }, 2);
+    a.prepDeploy({ kind: 'op', defId: 'x', spine: 'char_263_skadi' }, 3);
+    a.prepDeploy({ kind: 'token', defId: 'token_10064_wang_stone1', spine: 'token_10064_wang_stone1' }, 4);
+    a.prepDeploy({ kind: 'token', defId: 'token_10017_skadi2_dedant', spine: 'token_10017_skadi2_dedant' }, 5);
+    a.prepDeploy({ kind: 'item', defId: 'item_x' }, 6);
+    assert.deepEqual(a.played.map((p) => file(p.url)),
+      ['b_char_stwctpbn.mp3', 'p_skill_frbytrtn_bn.mp3', 'b_char_set.mp3', 'p_imp_stwctptkin.mp3', 'b_char_tokenset.mp3']);
+    assert.ok(a.played.every((p, i) => close(p.volume, GROUP_GAIN.Battle_UI_Important * (i === 1 ? 0.75 : 1))), 'Battle_UI_Important (× 余\'s bank volume 0.75)');
+  });
+
+  test('battle: a deploy sounds once — not again right after the same model\'s prep drop-in; a 跟子 lands with its projectile birth, not a stone\'s', () => {
+    const a = manager();
+    a.handleBattleEvents([['spawn', { id: 7, spine: 'char_2027_wang', defId: 'chess_diy_wang_6_a', kind: 'op', side: 'ally' }], ['deploy', 7]]);
+    assert.deepEqual(a.played.map((p) => file(p.url)), ['b_char_stwctpbn.mp3']);
+    const b = manager();
+    b.prepDeploy({ kind: 'op', defId: 'chess_diy_wang_6_a', spine: 'char_2027_wang' }, 1);
+    b.handleBattleEvents([['spawn', { id: 7, spine: 'char_2027_wang', defId: 'chess_diy_wang_6_a', kind: 'op', side: 'ally' }], ['deploy', 7]]);
+    assert.equal(b.played.length, 1, 'the prep drop-in already sounded');
+    const c = manager();
+    const S = 'token_10064_wang_stone1';
+    c.handleBattleEvents([['spawn', { id: 8, spine: S, defId: S, kind: 'token', side: 'ally' }], ['deploy', 8],
+      ['spawn', { id: 9, spine: S, defId: S, kind: 'token', side: 'ally' }], ['deploy', 9], ['fx', 'summon', 0, 0, { id: 9, follower: true }]]);
+    assert.deepEqual(c.played.map((p) => file(p.url)), ['p_imp_stwctptkin.mp3', 'p_imp_stwctptkpa.mp3']);
+  });
+
+  test('望 stone pop: the token ability start (p_atk_stwctp_*) with its impact; S1\'s impact rides the DoT ticks', () => {
+    const a = manager();
+    const S = 'token_10064_wang_stone1';
+    a.handleBattleEvents([['fx', 'zone', 0, 0, { token: S, skill: 1, id: 3 }], ['fx', 'kitHit', 0, 0, { k: 'wang:1', id: 1 }],
+      ['fx', 'zone', 0, 0, { token: S, skill: 2, id: 4 }], ['fx', 'zone', 0, 0, { token: S, skill: 2, id: 5, follower: true }], ['fx', 'zone', 0, 0, { token: S, skill: 3, id: 6 }]]);
+    assert.deepEqual(a.played.map((p) => file(p.url)),
+      ['p_atk_stwctp_d.mp3', 'p_imp_stwctp_d.mp3', 'p_atk_stwctp_h.mp3', 'p_imp_stwctp_h.mp3', 'p_atk_stwctps_h.mp3', 'p_imp_stwctp_h.mp3', 'p_atk_stwctp_s.mp3', 'p_imp_stwctp_s.mp3']);
+  });
+});

@@ -401,6 +401,9 @@ function makeMaterial(m, lib) {
   // local patch: whether the material tests depth (`_ZTest` 4 LessEqual …; 0 Disabled / 8 Always do not) — the floor cut
   // applies only to those: the client's map hides what they draw under the ground by depth [ASSUMED: 0 = Disabled is used]
   mat.userData.ztest = !(f._ZTest === 0 || f._ZTest === 8);
+  // local patch (user report 2026-10-08): … and against the map's raised tiles / crates (render/fxgame.js occluders —
+  // the only depth in an effect canvas: every effect renderer writes none, as before)
+  mat.depthTest = mat.userData.ztest;
   return mat;
 }
 
@@ -1060,16 +1063,23 @@ const CLIP_UNIFORM = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: '
 const UNDER_FLOOR = 0.25;
 /** local patch: an order-0 mesh at least this tall (tiles, board height) wraps the unit — drawn in front (FxInstance split). */
 const WRAP_H = 0.3;
+/** local patch: … unless it starts more than this far behind the unit (rows, +y) — it stands behind her, not around her. */
+const WRAP_BEHIND = 0.5;
 const tmpBox = new THREE.Box3();
-/** local patch: the board-height extent of `mesh` (its source geometry's bounds through its node, in `obj`'s space). */
-function meshHeight(mesh, obj) {
+/**
+ * local patch: whether the order-0 mesh `mesh` wraps the unit at `obj`'s origin (its source geometry's bounds through its
+ * node, in `obj`'s space): taller than WRAP_H and reaching the unit's own tile row. 蛇屠箱 / 마터호른 S2's domes do (front,
+ * official video); 赤刃明霄陈 S3's dragon head `longtou` lies 0.8–1.6 rows behind her (back — official capture: the dragon
+ * is behind her) [추정: the client sorts order 0 by distance; the Spine's own sort point is not known].
+ */
+function wrapsUnit(mesh, obj) {
   const g = mesh.geometry;
   const pos = g.getAttribute('position');
-  if (!pos) return 0;
+  if (!pos) return false;
   tmpBox.setFromBufferAttribute(pos);
   tmpM.copy(obj.matrixWorld).invert().multiply(mesh.matrixWorld);
   tmpBox.applyMatrix4(tmpM);
-  return tmpBox.max.z - tmpBox.min.z;
+  return tmpBox.max.z - tmpBox.min.z > WRAP_H && tmpBox.min.y <= WRAP_BEHIND;
 }
 /** local patch: three.js layers of a split instance's renderers (FxInstance opts.split) — behind / in front of the units. */
 export const FX_BACK = 1, FX_FRONT = 2;
@@ -1161,7 +1171,7 @@ export class FxInstance {
           // local patch (user report 2026-10-07, video: 蛇屠箱's S2 hex dome covers her): an order-0 mesh that stands up
           // around the unit (a dome / shell, > WRAP_H tall) is in front — the client sorts order 0 by distance; a flat
           // ground decal stays behind
-          if (mesh) put(mesh, (n.mesh.order || 0) > 0 || (!(n.mesh.order || 0) && meshHeight(mesh, this.object) > WRAP_H));
+          if (mesh) put(mesh, (n.mesh.order || 0) > 0 || (!(n.mesh.order || 0) && wrapsUnit(mesh, this.object)));
         }
       });
       for (const s of this.systems) {

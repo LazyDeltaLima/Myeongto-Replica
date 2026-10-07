@@ -46,6 +46,11 @@ const ROWS = 19, COLS = 21;
  * @param {any} [stages]
  */
 export function arenaStage(terrain = 'flat', stages = null) {
+  // local patch (2026-10-08): `stage:<id>` — that real stage as it is (its scene, tiles and devices: 阻隔工事 crates …); the
+  // island rect stays the camera's frame and the operator / sandbag bounds (check scripts set it, no chip)
+  const real = typeof terrain === 'string' && terrain.startsWith('stage:') && stages && typeof stages === 'object'
+    ? Object.values(stages).find((s) => s && s.id === terrain.slice(6)) : null;
+  if (real) return { ...real };
   const rows = [];
   for (let r = 0; r < ROWS; r++) {
     let line = '';

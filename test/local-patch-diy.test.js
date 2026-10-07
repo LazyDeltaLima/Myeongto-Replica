@@ -566,6 +566,9 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const ticks = d.hooksOf('damaged').filter((x) => x.dmg?.tags?.includes('dot') && x.dmg?.tags?.includes('trap'));
     const first = ticks.filter((x) => x.dmg.sourceless);
     assert.ok(first.length >= 7 && first.length % 7 === 0, `7 ticks per trigger (${first.length})`);
+    // user report 2026-10-07 #5: every tick sends its impact sound (client wang_stone1_t[damage_audio], triggerInterval 1)
+    const snd = d.events.filter((e) => e[0] === 'fx' && e[1] === 'kitHit' && e[4]?.k === 'wang:1');
+    assert.equal(snd.length, ticks.length, 'one kitHit wang:1 per DoT tick');
     const k = makeBattle({ seed: 5, captureNoisy: true, units: [op('wang', { sk: 0, row: 11, col: 3 }), stone(9, 6, 50), stone(9, 7, 51)], enemies: [{ key: ENEMY, time: 40, route: 0, count: 1 }] });
     k.step(2);
     k.b.retreat(k.unit(1));

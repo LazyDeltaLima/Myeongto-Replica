@@ -1165,6 +1165,85 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   - 남은 것: 수르트 S3 불덩이 크기, 위 S3 구체, 텍사스 S3 검우의 큰 먹 호(영상)는 대략만 맞춤 — 공식과 나란히 비교 필요. 데미지 숫자 색(영상 측정
     ≈ #be361f, 압축 영향 가능 — #ff3a00 유지).
 
+- 사용자 제보 3차 (2026-10-07 밤, 캡처 `research/2026-10-07-user-issues-3/`) — 이펙트 쪽 3·4·7번 (세션 stronghold-1d 포크):
+  - **3. 배기 구역의 나뭇잎**: `排气格栅`(`tile_smog`)는 아군에게 隐匿을 줘서 그 위 望 바둑알이 `stealthAlly` 상태 이펙트를 받았고, 그 프리팹
+    `common_stealth`(텍스처 `common_leaf`)가 나뭇잎이었다. 클라이언트에서 `common_stealth`를 쓰는 곳은 生息演算 건물 토큰(trap_405/406/459 재능
+    overrideEffectKey)뿐, 오퍼레이터 자신의 隐匿(守林人 S1 `skchr_milu_1`, dynamicabilities `Invisible`)은 `common_invisible` → 아군 隐匿도
+    `common_invisible`(`fxstatus.js`)이고 그 ColorModifier(회색 α .894)도 아군에 적용(`units.js lpInvis`). [추정] 타일 隐匿도 같은 프리팹(타일 프리팹 못 찾음).
+  - **4. 손으로 놓은 돌 / 재능(跟子) 돌**: 跟子는 望의 투사체(PRTS 备注, 클라이언트 `projectile_chr_wang_stone1/2/3`)라 이펙트가 그녀 번들(`wang`)의 것 —
+    `_effectsToTileWhenStart` `wang_passive_01_buff`(검·흰·금 고리, andi_lne + 루프 별빛), `_triggeredEffect` `wang_passive_01_buff_02`. 놓은 돌(토큰
+    `token_10064_wang_stone1`)은 프리팹 `_startEffect` `token_wang_birth_01_buff`(금빛 루프 별빛), `sktok_wang_N/TriggeredEffect` `token_wang_01_buff`
+    [추정: TriggeredEffect = 激活(연결) 때]. 시뮬레이션은 표시용 `follower` 플래그만 붙임(kits/diy.js 'summon'·'wangLink' 2줄, 규칙 그대로).
+    정비에서 놓은 돌은 전투 시작에 'summon' fx 없이 'spawn'만 와서 탄생 이펙트가 없었다 → 같은 배치(batch)에 'summon'이 없는 돌 'spawn'은 놓은 돌로
+    보고 `token_wang_birth_01_buff`(`fxgame.js stoneBirth`). 跟子 고리의 검은색(Disturb, `_MainColor` 검정)이 공식 캡처처럼 짙은지는 실제 판 확인 [추정].
+  - **7. 공용(절차) 이펙트 제거**: ① 望 돌 이벤트('zone' 폭발·'summon'·'wangLink')는 `stoneFx`가 그리면서 `ownFx`에 안 넣어 `fx.js`가 노란 원(zone)·
+    민트 육각+기둥(summon)·파동을 같이 그렸다 → 넣음. ② 공식 이펙트 번들이 있는 오퍼레이터의 키트 'fx' 이벤트는 `fx.js` 절차 대체(blast·zone·wall·
+    summon·buff·wave·pillar·element·healAoe·shield·shatter·strike·volley)를 안 그림(`fxgame.js standInOff`; 이벤트의 오퍼레이터 = `src` → `by` → `id`,
+    소환물·장치는 예외; 회피·치명·DP·표식·빔·이동 화살표·단일 회복은 남김). 그 순간에 공식 프리팹이 있는 것은 그것으로: 维什戴尔 残影 폭발 'explode' →
+    `wisdel_bomb_01_hit` [추정: 이름], 赤刃明霄陈 S2 'swordStorm' → `skchr_chen3_2 _hitGroups[0..5]`(`chen3_skill_02_hit_01~06` 차례로 [추정]),
+    丰川祥子 열광 'sunBurst' → Combat 모드 cast `oblvns_combat_01_start` [추정]. ③ 스킬 발동 금빛 기둥·육각(`fx.skill` burst)·`_aura`: 자기 시작·버프
+    이펙트가 없는 스킬(望 S1 `skchr_wang_1` — skills.ab에 이펙트 키 없음)도 공식 번들이 있으면 안 그림(`ownsSkill`) — 발동이 화면상 조용할 수 있다.
+    ④ 소환물(토큰) 머리 위 노란 방패(`invuln`) 아이콘 안 그림(공식 캡처의 돌에 없음; 사용자 「소환물 위에 붙어 있는 노란 방패 모양 아이콘을 제거」) —
+    뷰는 `UF.INVULN` 플래그만 알아 스킬의 짧은 무적과 구분 못 함 [추정: 소환물은 공식도 없음].
+  - 확인: Windows `sp-check\wst2.mjs`·`wst3.mjs`(`SMOG=1` = 돌에 tile_smog 隐匿)·`wst4.mjs`(2배 해상도) — 디버그 아레나 望 S1, 돌 3개 수동 배치.
+    결과 jpg `wstB-*`(隐匿: 회색 연기, 나뭇잎 없음), `wstD-*`(跟子 고리·놓은 돌 별빛, 폭발에 노란 원·민트 육각 없음, 발동 기둥 없음), `c3s2-*`(첸 S2 타격).
+  - **소환물 레벨 칩** (2026-10-08 사용자 요청 「소환물도 본체 오퍼레이터와 같은 레벨 칩」): 정비 화면의 소환물(보드·벤치 스택)이 주인(`ownerUid`)
+    오퍼레이터의 칩(`tier`)을 단다(`app.js pieceInfo` `chip`, `units.js` 칩 생성 조건). 주인을 못 찾으면 예전처럼 칩 없음. 전투 중에는 오퍼레이터처럼 칩 없음.
+    칩 높이는 오퍼레이터와 같은 화면 고정 위치(발 기준)라 작은 소환물(드론) 위에서는 떠 보인다 — 공식 캡처로 확인할 것 [추정].
+    확인: Windows `sp-check\tokchip.mjs <port>`(game-mock PREP에 주인 있는 드론을 보드·벤치에 추가) → `tokchip3.png`.
+
+### 정예 기물 금빛 (2026-10-08, 사용자 요청 「정예화된 오퍼는 휴식 기간에 황금빛으로 빛나는 이펙트」)
+- 근거: zh_CN `gamedata/battle/battle_misc_table.json` `miscConfig.AUTOCHESS.act1autochess`·`act2autochess.effectConfig.goldenEffectId`
+  = `trap_acgarm_buff_loop_01`(클래스 `AutoChessBattleMiscConfig.EffectConfig`). 메타데이터: 정비 기물은 더미(`CreateDummyOnTile` → `_DoCreateOnTile` →
+  `_CreateGoldEffectIfNeed`) — 전투 유닛은 더미가 아니라 전투 중에는 없음. 프리팹은 `battle/prefabs/effects/trap.ab`(EN 클라이언트), `_spawnLocation` 1(발),
+  4초 루프: 금빛 glow(`bg_011_dm`, AlphaBlend)·위로 오르는 불티(`spark_p_02`)는 sortingOrder −1(모델 뒤), 별빛 메시·`bao` 2개는 0.
+- 구현: `render/fxgolden.js syncGoldenFx`(매 프레임, `app.js`가 `mode === 'prep'`일 때) → `fxgame.js statusOn(…, 'golden', 0, null, under=true)`.
+  `under`는 상태 이펙트와 달리 'high'+3D 보드에서 렌더러별 분할(−1은 모델 뒤), 그 밖에는 유닛 아래 캔버스. `fxstatus.js syncStatusFx`는 자기 키(STATUS_FX)만 끈다.
+  공식 이펙트가 도는 동안 원본의 절차 금빛 오라(`units.js aura`)는 숨김(전투 중 오라는 그대로).
+- 보이는 모습: 몸 뒤 은은한 금빛 + 머리 위로 오르는 금색 불티. 몸이 glow를 대부분 가린다(데이터대로) — 공식 캡처와 비교 [추정].
+  보드와 벤치 모두 [추정](벤치 기물도 더미 `placeToHand`). 소환물·적·장치 제외.
+- 소재(git 밖): `fx_extract.py --bundle trap --prefab trap_acgarm_buff_loop_01` → `public/assets/local/fx/trap/`, 텍스처 6·메시 1, `fx/index.json`의 `trap`.
+- 테스트 `test/local-patch-golden.test.js`. 확인: Windows `sp-check\goldglow.mjs`·`goldglow2x.mjs <port> <tag> <ms csv>`(game-mock PREP, 보드·벤치 기물 하나씩
+  golden) → `goldfinal-bench.png`, 프리팹 단독 `gold_seq.mjs`(→ `gold_seq.png`).
+  - **나뭇잎 텍스처 폐기** (2026-10-08 사용자 「한번도 실제 인게임에서 해당 나뭇잎 텍스처를 못 봤어. 그 텍스처는 폐기해」): `common_stealth` 프리팹과
+    `tex/common_leaf_*.webp`를 추출물·`fx/index.json`에서 지우고, `fx_extract.py DISCARD`로 재추출에서도 뺀다. 서버 assets/local/fx에 남은 사본은
+    어디서도 참조하지 않는다(rsync `--delete`를 안 쓰면 남음 — 지워도 됨).
+  - **泥岩 Back 스켈레톤의 S3 시작 클립** (2026-10-08 테스트 정리에서 발견, `assets.test` 「Spine animation roles resolve」): b7f77ebb의
+    `anim-overrides.mjs`가 앞·뒤 모두에 `Skill_2_Begin`을 넣었는데 Back 스켈레톤에는 `Skill_2_Begin`·`_Awake`·`_Sleep`이 없다 → `applyAnimOverrides`가
+    스켈레톤 클립 목록(`spine.mjs`가 넘김)에 없는 덮어쓰기 클립을 null로 둔다(Back S3는 시작 클립 없이 `Skill_2_Attack`·`_Idle`). `fetch-assets --offline`으로
+    매니페스트를 다시 만들어 바뀐 것은 이 한 칸(+hash). 테스트 `test/local-patch-battle.test.js`.
+  - **6. 赤刃明霄陈 S3 용이 그녀를 가림** (세션 stronghold-1d 첸 포크, 공식 캡처 `cap-230329.png` + 공식 녹화 `첸 S3.mp4`: 용은 그녀 뒤):
+    ① 용 버프는 클라이언트가 **한쪽만** 튼다 — `skchr_chen3_3/SwitchMode` `overrideEffectKey` = `chen3_skill_03_buff_L_01`이고, 그 프리팹 루트의 두 번째
+    컴포넌트 `_rightEffect` = `chen3_skill_03_buff_R_01`(`_onlyCheckOnPlay` 0)은 오른쪽을 볼 때 대신 트는 사본이다. 우리는 이름 규칙(`effectsFor
+    skillBuff`)으로 L·R을 둘 다 틀어 용이 두 마리였다. → `fx_extract.py right_effect`가 L 프리팹 JSON에 `right`를 쓰고(전 번들 15쌍: chen3 1, mlynar
+    12(기본 스킨 추출분 3), texas2 1(미추출 스킨), tippi 1 — 추출된 L 5개만 다시 뽑음), `fxgame.js play()`는 오른쪽이면 R, 왼쪽이면 L을 **뒤집지 않고**
+    한 번만 튼다(R은 목록에 같이 있어도 건너뜀). [추정] 뒤집지 않음: L을 뒤집으면 왼쪽을 볼 때 용 머리가 그녀 앞(진행 방향)에 오는데 공식 녹화는 뒤.
+    `_onlyCheckOnPlay` 0(방향이 바뀌면 다시 고름)은 구현 안 함 — 발동 때만 고름.
+    ② order 0 입체 메시 「앞」 규칙(`WRAP_H`, 쿠오라·마터호른 돔)에 조건 추가: 메시가 유닛 칸 줄에 닿아야(`min.y` ≤ 0.5행) 감싼다고 본다(`fxplayer.js
+    wrapsUnit`). 용 머리 `longtou`(order 0, 높이 0.56)는 그녀 뒤 0.8~1.6행에 놓여 뒤로 간다; 돔은 −0.1행부터라 그대로 앞. 전 프리팹 중 바뀐 메시는 7개
+    (chen3 buff_L/R longtou·range 뒤 벽, pepe S2 hit trail, texas2 S3 range_start 2, philae S1 start) — 모두 유닛보다 뒤에 놓인 것.
+    [추정] 클라이언트는 order 0을 거리로 정렬(Spine의 정렬 기준점은 모름) — 「뒤에 떨어져 있으면 뒤」만 반영.
+    - 남은 차이: 공식 녹화는 용 머리가 그녀 어깨 위로 크게 드러나는데 우리는 그녀 몸에 대부분 가린다. 같은 장면에서 우리 첸이 칸 대비 약 1.3배 크다
+      (공식 녹화 키 ≈ 1.07칸, 아레나 ≈ 1.35칸, 사용자 캡처 ≈ 1.6칸) — 유닛 크기 문제로 보임, 이 수정 범위 밖(확인 필요).
+  - **8. 赤刃明霄陈 S3 검기가 상자(阻隔工事)를 뚫고 올라감** (`act2autochess_m03` 排气格栅, 상자 = 장치 `trap_1105_accrate`이 `b` 낮은 칸 위에 놓임 —
+    「언덕 타일」이 아니다): 시뮬레이션은 그대로 둠 — 클라이언트 상자 프리팹 모드 `_tileOptions.heightType` 0 + `_rewriteTileHeightType` 0
+    (`_rewriteTileHeight` 1, `_rewriteHeight` 0.4: 높이 값만 바꾸고 높이 종류는 LOWLAND 그대로)이고, 투사체 `ChangeStateWithHighlandBehaviour`는
+    `_checkHitHighland`(높이 종류)·맵 끝·侵入点·保护目标만 본다 → 공식도 검기는 상자를 지나간다 [추정: 높이 종류만 본다는 것은 필드 이름·PRTS 「高度类型为高地」].
+    대신 그리기: 공식 맵·장치는 깊이 버퍼에 있는 불투명 메시라 `_ZTest` 4인 렌더러(검기 용 머리 `long_02`·꼬리 리본 대부분, 버프 용 머리 `longtou`)는
+    상자 안에서 가려지고 `_ZTest` 0인 것(별빛·빛)만 위에 보인다. 우리 이펙트 캔버스는 보드와 다른 캔버스라 깊이가 없었다 → `fxgame.js` occluders:
+    3D 보드일 때 높은 칸(`tiles.grid` 높이, `app.js` `grid` 옵션 1줄)과 전투 장치 상자(`DeviceView` `spec` 크기·높이)를 상자 꼴로 이펙트 캔버스 셋의
+    깊이에만 먼저 그리고(색 안 씀), `fxplayer.js`는 재질의 `depthTest`를 `_ZTest`대로 켬(모든 이펙트 렌더러가 깊이를 안 쓰므로 가림막 말고는 차이 없음).
+    윗면은 0.05 낮춤(높은 칸 위 유닛 발밑 이펙트, 바닥 자르기와 같은 값). 검기 용은 클립으로 높이 약 0.55~0.6에서 날아 상자(0.74) 안에 들어간다.
+    - 디버그 아레나 `arenaStage('stage:<스테이지 id>')`: 실제 스테이지(씬·타일·상자)를 그대로 — 칩 없음, 확인 스크립트가 `__debug.st.terrain`으로 지정.
+    - 확인(Windows Chrome): `sp-check\chen_cap.mjs`(평지, 2배 해상도), `chen_cap2.mjs <port> <prefix> <op:skill:row.col.DIR> <n> <ms> 1
+      [terrain]`(`HEADFX=1` = git HEAD의 fxgame/fxplayer로 바꿔 끼워 전후 비교). 결과 `chenR/L-*`(평지, 용 뒤·한 마리), `chenUh-*`(HEAD: 상자 위로 용) ↔
+      `chenFinU-*`(수정: 상자 안에서 가려짐, 꺾은 뒤 다시 보임), `chenFinR-*`(오른쪽 배치, 뒤 상자 위에 용 없음).
+    - [추정]·남은 것: 상자 가림막은 칸 크기 상자(0.84×0.74, `DEVICE_BOX.crate`) — 공식 상자 메시 모양과 조금 다름. 전투 밖 정적 상자(전투 칸 밖)는 가림막에
+      안 넣음. 2D 보드는 그대로. 사용자가 「상자에서 꺾여야 한다」고 기억하면 시뮬레이션 변경이 필요(공식 녹화로 확인 후 결정).
+    - 사용자 답(2026-10-08): 「해당 맵은 기억이 안나. 일단 배치 불가 언덕처럼 보여서 그렇게 판단했으니, 이건 문서에 기록해놔」 — 제보는 상자를
+      배치 불가 언덕으로 본 것이고 공식 동작 기억은 없다. 시뮬레이션(상자를 지나감)은 그대로, 공식 녹화에서 검기가 상자에서 꺾이는 것이 보이면 다시 연다.
+      참고: 공식 PC 캡처 `research/2026-10-07-user-issues-3/official-pc-round8.png`(사막 맵)에서 전투 중 상자(HP 바 있음)는 칸 위 장치로 보인다.
+
 ## 공식 스테이지 3D 씬 (2026-10-06)
 - 3D 보드는 원래 시즌 1 아틀라스(`map_autochess`)로 모든 스테이지를 그렸다. 지금 클라이언트는 스테이지마다 완성된 씬(`scenes/activities/act*autochess/level_*`)과 라이트맵을 갖고 있고, 테마는 사막(`map_autochesssand`), 카시미어(`map_kxmr`), 시라쿠사 지하철(`map_syracuse_metro`)이다. 자세한 내용은 docs/local/official-scenes.md.
 - 추출: `.venv-extract/bin/python tools/local-extract/scene_extract.py` (기본 클라이언트 경로 `/mnt/d/YostarGames/Arknights_EN/Arknights_Data`, `--stage`로 일부만) → `public/assets/local/scene/**`, `data/local-assets.json`의 `scene/*` 그룹. CAB 색인은 `logs/scene-cab-index.json`에 캐시(`--rebuild-index`).
@@ -1222,6 +1301,33 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     无视无法选择、迷彩；同名效果不叠加）」 — 隐匿은 无法选择의 하나라서 공식으로 맞는다(`enemies.js pollution` `ignoreSelect`). 부패의 전차(`enemy_1272_nhtank`)의
     秽蚀轰击 지대도 같다. 叙拉古 6은 隐匿(`bonds/core.js` `flags.stealth`, 迷彩 아님)이고 배치 후 공속 버프와 같은 시간만 지속된다. 아군 隐匿은 저지해도
     풀리지 않고, 저지당한 적 하나만 그 오퍼를 공격한다(PRTS 「敌人会在自身被干员阻挡情况下强行无视对方可选性发动攻击」). 코드 변경 없음, 테스트로 고정.
+- **炎佑가 지상 유닛처럼 타일을 차지함 (2026-10-08 사용자 제보)**: 炎 6명 맹약의 「炎佑」(`enemy_9012_acloon`, 키트가 `motion 'FLY'`)는
+  비행 유닛인데 `Battle._deploy`가 생성 칸을 `_occ`에 넣어, 날아간 뒤에도 그 칸이 막혀 있었다(배치·소환·재배치·쓰러진 오퍼 복귀 대기).
+  화면도 지상 유닛처럼 배치 방향 링·화살표를 그렸다. 수정: `_deploy`·`relocate`는 `motion === 'FLY'` 아군을 `_occ`에 넣지 않고 그 칸의 점유도
+  따지지 않는다; `render/units.js`는 비행 아군에 방향 표시를 그리지 않는다. 테스트: `test/content/playtest4_summons.test.js`(생성 칸이 비어 있고
+  지상 유닛이 그 칸에 설 수 있음), `test/ui/unitFacing.test.js`, `test/helpers/battleHarness.js checkInvariants`(비행 아군은 어느 칸도 차지하지 않음).
+  - **공중 판정 (2026-10-08 후속, 사용자 「공식 규칙을 확인하고 고쳐줘. 공중 유닛이 맞아」)**: ① 비행 아군은 `unit.ground = false`
+    (`_deploy`·`relocate`, 맵 카드 플랫폼 훅 `devices.js`는 비행 아군을 건너뜀). ② 炎佑가 날아가도 `tileR/tileC`가 생성 칸에 남아 적의 격자 판정
+    (`alliesInTiles` 등 칸 기준 선택)이 엉뚱한 칸에서 炎佑를 잡았다 → 이동할 때마다 `tileR/tileC` = 지금 아래 칸(반올림, 점유는 안 함).
+    ③ EN 클라이언트로 확인한 적 능력별 규칙(UnityPy로 `battle/enm_pfb_*.ab`·`[uc]projectiles.ab`, 버프 템플릿은 CN `buff_template_data.json`):
+
+| 능력 | 클라이언트 | PRTS | 비행 아군 | 시뮬 |
+|---|---|---|---|---|
+| 【污染秽蚀】 `nhpbr`·`nhtank` | 투사체 충돌 `targetMotion 3`; 버프 `polluted_area` = `IfElse(CheckHeightTypeOfCharacterRootTile LOWLAND)` → `polluted_damage_low` / `_high`, 이동 방식 검사 없음 | 「位于低地/高地的…50/25…（可对空…）」 | 맞는다, 값은 **아래 칸 높이**로(저지대 50) | `pollution`: 비행이면 아래 칸 `isLow`(플랫폼 칸은 고지대 [추정]), 아니면 `ground` — 수정 |
+| 리드 `enemy_1539_reid` 【冲锋】 | `Rush/Selector` `_targetMotion 1` | 「…距离自身最近的我方单位」 | 대상 아님 | `u.ground` 필터 — `ground=false`로 맞음 |
+| 假想敌：铳 `enemy_9017_achunt` 【最终之罚】 | `TraceEnemy` `_targetMotion 1`, `tileOptions heightType 0`(저지대); 돌진 접촉 피해 `targetMotion 3` | 「位于低地且防御力最高…（不会选择飞行单位…）」「（包括飞行单位）」 | 대상 아님, 접촉 피해는 맞음 | `groundTargets`·`areaAllies` — 맞음 |
+| 부패의 전차 `nhtank` 일반 공격·秽蚀轰击 | Trigger `_targetMotion 1` + `_heightType 0` | 「只攻击位于低地的我方单位，且不会攻击飞行单位」 | 대상 아님 | `canTarget` `ground && !isFlying` — 맞음 |
+
+    일반 규칙: 선택자는 공중(`targetMotion`)과 칸 높이(`heightType`)를 따로 거르고, 높이를 거르는 선택자는 전부 `targetMotion 1`이라 비행은 늘 빠진다.
+    버프 템플릿은 자기 칸 높이만 본다(비행 여부 무관) — 비행 아군은 아래 칸으로 판정 [추정: 런타임의 「root tile」 = 지금 아래 칸].
+    아군 쪽 `ground` 사용처(隐德来希 S2, 赫默 재능 치료 배율, 焰影苇草 S2 순서)는 炎佑를 원래 고르지 않는다(孤立·禁疗·오퍼레이터만).
+    테스트: `playtest4_summons.test.js` 「炎佑 is an air unit」(ground false, 칸이 위치를 따라감, 격자 범위), 「【污染秽蚀】 on 炎佑」(m02, 저지대 50).
+- **비행 유닛 높이 (2026-10-08 사용자 제보 「적 드론이 거의 지상 유닛처럼 땅에 붙어서 나온다」)**: nas-local은 0.2.0을 병합하지 않아
+  `FLY_HOVER`가 0.32칸이었다. upstream `66ae86b9`(PR #211 by @xcdoge, 연구 `docs/research/12-flying-visuals-official.md` — `merge-0.2.0` 브랜치에만
+  있음)를 골라 이식: 공식 클라이언트의 비행 오프셋은 모델과 무관한 상수 `Vector3(0, 0.35, 0)`(캐릭터 공간, 단위 0.27) ≈ **1.3칸**, 공식 스크린샷
+  실측 1.2~1.4칸. `render/units.js FLY_HOVER = 1.3`; 몸체·HP 바·데미지 숫자·이펙트 기준점은 `hover`를 따라 올라가고 그림자는 땅에 남는다(이미
+  그렇게 되어 있었음). 炎佑도 같은 높이. 같은 커밋의 모델 보정 2개(帝国炮火先兆者 세로 1.263배 `modelScaleY`, 木制瑞印 좌우 반전 `mirrorX`)는
+  이식하지 않았다. 테스트: `test/render/unitview.test.js`(upstream 3개 + 炎佑).
 
 ## 위장 아이콘 (2026-10-06, 사용자 결정 「위장에 다른 아이콘을 붙여줘」)
 - 迷彩(위장)과 隐匿(은신)은 둘 다 반투명 + 같은 `stealth` 아이콘이라 구분이 안 됐다(위 "은신 아군이 적 스플래시에 맞음" — 迷彩는 스플래시를 맞는 게 공식).
@@ -1305,6 +1411,62 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 처음 나타날 때 검은 실루엣인 오퍼레이터(아스카론·赤刃明霄陈 등)는 `Start` 클립 자체의 슬롯 색이 검정 → 원래 색이다(0초 0.0, 0.3초 0.78) — 공식 등장 연출.
 - 남은 차이: 착지 전에 시뮬레이션이 이미 공격하는 것(텍사스가 공중에서 첫 공격 — 공식은 `CHARACTER_BORN_TIME` 동안 못 하는 듯 [추정], 시뮬레이션
   변경이라 따로), 배치 효과음 시점(캡처에 소리 없음).
+
+## 배치 효과음 — 어떤 경로로 놓이든 (사용자 제보 2026-10-07 #1·#2)
+- 사용자: 「상점 구매, 정예화 보상, 전장에 배치 등 어떤 방식으로 배치되든 배치 효과음이 나와야 함」, 「일부 오퍼레이터(왕·위 등)는 전용 배치음」.
+  소환물도 배치음이 있고, 왕의 바둑돌은 수동 배치·재능 배치 모두 소리가 난다(사용자 확인).
+- 원래: 전투의 'deploy' 이벤트에서만 났다(라운드 시작 배치는 실제 판에서 확인함 — b_char_set 7 + 자기 소리). 정비 단계 배치·구매·보상·벤치 복귀는 무음,
+  구매는 상점 소리 `ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND`(b_char_tokenset = 소환물 배치음)였다.
+- 공식 자료(EN `audio_data.json`): 유닛 탄생 `battle.ON_UNIT_BORN.<id>`(전용) → `.char` b_char_set / `.token` b_char_tokenset, 그룹 Battle_UI_Important.
+  우리 로스터의 전용 배치음은 매니페스트에 이미 다 있다(`sfx.units[id].born`): 오퍼레이터 15명(望 b_char_stwctpbn, 余 p_skill_frbytrtn_bn, 斯卡蒂2 등),
+  소환물 11종(望 棋子 p_imp_stwctptkin, 维什戴尔 wward, 诅咒娃娃 등). 卫戍协议에는 「말 놓기」 전용 뱅크가 없다(`act1vautochess` SHOP_DROP=b_char_set은 다른 모드)
+  → 정비 단계도 유닛 탄생 소리를 쓴다 [추정: 공식 정비 화면이 유닛을 전투 유닛처럼 그리고, 놓일 때 Start 낙하가 나온다 — 「배치 낙하」].
+- 고친 것: 소리는 정비 화면의 **낙하 연출과 같은 곳**에서 난다 — `render/app.js` setPrep이 내 보드·벤치 상태를 이전과 비교해 낙하(onDeploy)를 틀 때
+  `pieceDeploy` 이벤트(`prepDeployed`) → `screens/game.js` → `audio.prepDeploy` → `playDeploySfx`(전투 'deploy'와 같은 함수: 전용 소리 → 공용, 공식 믹스).
+  서버가 넣어 주는 보상(정예화 보상·결산 보상)도 상태 비교라 잡힌다. 경우별:
+  - 소리 남: 구매·보상으로 벤치 도착, 벤치→보드, 소환물(전용 또는 b_char_tokenset), **전투 뒤 정비로 돌아올 때 보드의 말**(`backFromBattle`, 낙하 없이
+    소리만 — 사용자 2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」; 실제 판에서 ROUND_START:2에 b_char_set 확인).
+  - 소리 없음: 보드→벤치 복귀(낙하는 함 — 사용자 2026-10-08 「벤치로 되돌릴 때는 배치음이 안나오는게 일단 맞는 것 같아」), 판매, 페이지 로드·재접속
+    첫 동기화, 전투 뒤 벤치 복원, 3장 합성 엘리트(합성 연출·`merge` 소리), 장비, 남의 보드(정탐은 전투 화면).
+  - [ ] 전투 뒤 정비 복귀 때 보드 말이 낙하(Start)도 해야 하는지 — 공식 캡처로 확인(지금은 소리만).
+  - 한 틱에 여럿(서버 자동 배치가 8~12개를 한 번에): 기존 제한기(같은 소리 45ms 간격·동시 2개)가 1~2번으로 줄인다.
+  - 라운드 시작: 정비에서 막 놓은(1.5초 안, `PREP_DEPLOY_OVERLAP_MS`) 같은 모델의 전투 'deploy'는 다시 울리지 않는다.
+- 함께 고친 것: 1라운드처럼 보드·벤치가 비어 있을 때 **첫 말이 낙하하지 않던 것**(`before.length` 조건) — 동기화를 한 번 마친 뒤(`prepSynced`, 모든 말이 자리를 찾음)면
+  빈 상태 다음 말도 새로 온 것. 오퍼레이터 구매는 상점 소리(b_char_tokenset)를 빼고 배치음만(장비 구매는 그대로).
+- 확인: 단위 `test/local-patch-audio.test.js` 「deploy sounds on every placement」, 소스 `test/render/local-deploy-drop.test.js`. 실제 판(Windows Chrome,
+  `sp-check\snd_prep.mjs <port> <out>`: 솔로 판, 1라운드 정비에서 구매 → 보드 → 벤치, 자동 배치, 전투 시작) — 세 경로 모두 b_char_set,
+  전용 소리(b_char_tpartclce·snwlprdg·p_skill_frbytrtn_bn) 확인, 전투 뒤 정비 시작에 전체가 울리지 않음.
+
+### 望 棋子 효과음 (사용자 제보 2026-10-07 #5 「터질 때 뭔가 빠진 느낌」, #1 재능 바둑돌 배치음)
+- 공식(EN `audio_data.json` + zh_CN `buff_template_data.json`): 놓은 바둑돌(토큰)이 터지면 그 토큰 능력 `ON_ABILITY_START.sktok_wang_<n>`
+  = **p_atk_stwctp_d / _h / _s**(Battle_P_SAtk) + 타격 p_imp_stwctp_*(Battle_P_SImp). 우리는 타격음만 냈다(빠진 쪽 = 터지는 소리 자체).
+  - S1 取势 타격 `wang_stone1_t[damage_audio]`: 적에게 거는 `wang_stone1_t[damage]`(지속 `sluggish`, `triggerInterval 1`, 첫 발 즉시)의 자식 버프가
+    **매 틱** p_imp_stwctp_d를 튼다 → 6.5초 동안 7번. 우리는 터질 때 1번이었다.
+  - 재능 바둑돌(跟子 = 望의 투사체, PRTS): S1·S3는 같은 파일(`ON_PROJECTILE_HIT.projectile_chr_wang_stone1`, `BEHAVIOUR_TRIGGER.…stone3`),
+    S2는 `ON_PROJECTILE_BEHAVIOUR_TRIGGER.projectile_chr_wang_stone2` = p_atk_stwctps_h.
+  - 배치음: 수동(놓은·재배치) 바둑돌 = 토큰 탄생 `ON_UNIT_BORN.token_10064_wang_stone1` p_imp_stwctptkin, 재능 바둑돌 = 투사체 탄생
+    `ON_PROJECTILE_BORN.projectile_chr_wang_stone1~3` **p_imp_stwctptkpa** — 두 소리가 다르다(사용자: 둘 다 소리 남).
+- 고친 것: `tools/assets/kit-sfx.mjs` 키 5개(`wang:1s/2s/2fs/3s`, `wang:thrown`, 파일 5개 새로 받음), `audio.js kitStartKey`(터지는 소리 → 그다음 `kitHitKey` 타격),
+  S1의 `wang:1`은 `kits/diy.js` DoT 틱마다 소리 전용 fx `kitHit`(`zone`에서는 S1 타격음을 빼 이중 재생 없음). 재능 바둑돌은 같은 틱의 `summon` fx `follower`
+  (이펙트 세션이 넣은 플래그)로 알아보고 토큰 탄생음 대신 `wang:thrown`.
+- 안 한 것 [추정]: 다 쓴 바둑돌의 `ON_UNIT_DEAD`(b_char_tokendead) — 우리 시뮬레이션은 터진 바둑돌을 퇴장시키지만 `consumed`라 무음으로 둔다(공식이 이때 죽음 소리를
+  내는지 자료로 확인 못 함 — 사용자 귀로 확인 필요). 동시에 여럿 터질 때 공식 popOldest(최대 1~2)보다 우리 제한기(키별 160ms)가 더 줄인다.
+- 확인: `test/local-patch.test.js` 「望 client-data rules」(틱 수 = kitHit 수, 시뮬 수정 전 실패 확인), 「望 (user report 2026-10-07 #5)」, `test/local-patch-audio.test.js`
+  「望 stone pop」·跟子 배치. 디버그 아레나(Windows `sp-check\snd_wangpop.mjs <port> <skill> <ms>`: 샌드백을 활성 바둑돌 칸으로 옮김) —
+  S1 p_atk_stwctp_d + p_imp_stwctp_d, 이후 1초마다 p_imp_stwctp_d(총 7), S2 _h, S3 _s, 재배치 바둑돌 tkin, 재능 바둑돌 tkpa(tkin 없음).
+
+## 유닛 모델 크기 (2026-10-08, 사용자 제공 공식 PC 캡처)
+- 근거(클라이언트 EN): 오퍼레이터 전투 스킨 `chararts/<char>.ab defaultskin.prefab` FaceSwitcher 스케일 0.27 × SkeletonDataAsset 0.01(호시구마·첸 등
+  확인), 적도 같은 0.27 표준(`enemy_scales.py`), 타일 = Unity 1단위. 캐릭터 프리팹 `Graphic`이 X축 −30°로 기울어 30° 카메라(`projection.js OFFICIAL`)를 정면으로
+  보므로 화면에서 스켈레톤 1단위 = 발 위치의 타일당 px × 0.0027. 원본은 `UNIT.modelScale` 1/320(≈ 16 % 큼) → **0.0027**(`style.js`),
+  머리 높이 `UNIT.headroom` 1.18 → 1.02(같은 비율; 이펙트 head/body 앵커·숫자 위치가 따라감).
+- 소환물: 프리팹마다 곱이 달라(`pkgrps/btl_pfb_tokens_*.ab`) 적처럼 0.27 대비 계수 `units.js TOKEN_MODEL_K`: 医疗探机·诅咒娃娃 0.4, 香槟炸弹·
+  银灰(svash2) 독수리 3종 0.25, 나머지 0.27(tokens.json 전부 확인; char_605/613·acloon은 프리팹 못 찾음 → 1).
+- 화면 대조(타일 폭 대비 키, 머리 끝~발): 琳琅诗怀雅 공식(`research/2026-10-07-user-issues-3/official-pc-round8.png`, 공격 중) 1.14 · 수정 전 1.24 · 수정 후 1.08;
+  赤刃明霄陈 S3 공식 녹화 1.07 · 수정 전 아레나 1.35 · 수정 후 ≈ 1.17(계산). 자세가 달라 ±8 % 오차 [추정] — 판단은 클라이언트 수치로 했다.
+  공식 이펙트(월드 단위)는 바뀌지 않으므로 모델 대비 이펙트 크기도 공식에 가까워진다(첸 S3 용 머리가 몸에 가리던 것).
+- 확인: Windows `sp-check\usz_arena.mjs <port> <out> <charId> <row,col> [stage:<id>]`(디버그 아레나 m03), `usz_mock.mjs`(game-mock 페이즈) →
+  `usz-swire*.png`, `usz-prep-after.png`. `unitview.test.js` 머리 높이 기대값 1.02.
 
 ## 원본 버그 수정 선반영 (2026-10-07, 사용자 요청 「upstream에 보고된 버그 중 쉬운 것 바로 수정」)
 > 0.2.0 병합으로 정리됨: 아래 10건은 모두 upstream 0.2.0에 들어 있어 병합에서 upstream 쪽을 택했다(정예화 보상의 선발 조건만 우리 결정으로 다시 고침 — 「0.2.0 병합」).

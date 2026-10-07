@@ -43,15 +43,22 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   }),
 });
 
-/** Apply SKILL_CLIP_OVERRIDES to resolveRoles' result for model `key` (mutates and returns `anims`). */
-export function applyAnimOverrides(key, anims) {
+/**
+ * Apply SKILL_CLIP_OVERRIDES to resolveRoles' result for model `key` (mutates and returns `anims`). `names` (the
+ * skeleton's clip names, optional): an override clip the model lacks is dropped — one side's skeleton can miss a clip
+ * the other has (泥岩 Back has no Skill_2_Begin / _Awake / _Sleep: its S3 starts straight in Skill_2_Attack / _Idle).
+ */
+export function applyAnimOverrides(key, anims, names = null) {
   if (!anims || typeof key !== 'string') return anims;
   for (const [prefix, map] of Object.entries(SKILL_CLIP_OVERRIDES)) {
     if (!key.startsWith(prefix)) continue;
     for (const [i, how] of Object.entries(map)) {
       let clip = null;
       if (how === 'attack' && anims.attack) clip = { ...anims.attack, via: 'attack', index: Number(i), idle: null };
-      else if (how && typeof how === 'object') clip = { ...how, index: Number(i) };
+      else if (how && typeof how === 'object') {
+        clip = { ...how, index: Number(i) };
+        if (names) for (const f of ['begin', 'loop', 'end', 'idle']) if (clip[f] && !names.includes(clip[f])) clip[f] = null;
+      }
       if (!clip) continue;
       if (anims.skills && anims.skills[i]) anims.skills[i] = clip;
       if (anims.skill && anims.skill.index === Number(i)) anims.skill = clip;

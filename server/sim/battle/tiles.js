@@ -17,15 +17,16 @@ export class BattleTiles {
     if (!unit || unit.side !== 'ally' || !unit.alive || !unit.deployed) return false;
     if (!Number.isInteger(r) || !Number.isInteger(c) || !this.grid.inRect(r, c)) return false;
     const k = r * COLS + c;
-    if (this._occ[k] && this._occ[k] !== unit && this._occ[k].alive) return false;
-    if (this.downOn(r, c)) return false;
+    const fly = unit.motion === 'FLY'; // a flying ally holds no tile (_deploy)
+    if (!fly && this._occ[k] && this._occ[k] !== unit && this._occ[k].alive) return false;
+    if (!fly && this.downOn(r, c)) return false;
     const ok = unit.tileR * COLS + unit.tileC;
     if (this._occ[ok] === unit) this._occ[ok] = null;
     this.releaseBlocked(unit);
     if (unit.obstacle) this.grid.setObstacle(unit.tileR, unit.tileC, false, unit.obstacleKind);
     unit.tileR = r; unit.tileC = c; unit.x = c; unit.y = r;
-    unit.ground = this.grid.isLow(r, c) && !this._elevated?.has(k);
-    this._occ[k] = unit;
+    unit.ground = !fly && this.grid.isLow(r, c) && !this._elevated?.has(k);
+    if (!fly) this._occ[k] = unit;
     if (unit.obstacle) this.grid.setObstacle(r, c, true, unit.obstacleKind);
     this._refreshRange(unit); // current + base range, CUSTOM_RANGE trigger keys
     return true;

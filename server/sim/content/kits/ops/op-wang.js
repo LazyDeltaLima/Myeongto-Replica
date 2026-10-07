@@ -235,7 +235,8 @@ function wang(bb, chess, def) {
     if (!f) return null;
     f.mem.wangFollower = true;
     if (battle.unitAt(r, c) === f) battle._occ[r * COLS + c] = null; // occupies no tile
-    battle.fx('summon', { x: f.x, y: f.y, id: f.id });
+    // local patch: `follower` — its own effect (render/fxgame.js: projectile_chr_wang_stone* wang_passive_01_buff)
+    battle.fx('summon', { x: f.x, y: f.y, id: f.id, follower: true });
     return f;
   };
   /** Follower tile class (PRTS 备注): 0 undeployable ground, 1 deployable ground, 2 deployable high ground, null = none. */
@@ -483,7 +484,7 @@ function wangStone(bb, raw, def) {
         const nAxes = axes.size;
         for (const [dr] of links) axes.add(dr ? 'v' : 'h');
         // link fx (official ON_CUSTOM_TRIGGER wang_stone1_line_up): on activation and on each new link direction
-        if (axes.size > nAxes) battle.fx('wangLink', { x: unit.x, y: unit.y, id: unit.id, axes: [...axes], first: !unit.mem.active });
+        if (axes.size > nAxes) battle.fx('wangLink', { x: unit.x, y: unit.y, id: unit.id, axes: [...axes], first: !unit.mem.active, follower: isFollower(unit) });
         // 激活 and 料敌机先 stacks are latched (PRTS / namu): once linked a stone stays active, and keeps the longest
         // straight line it has seen (≤ max_trigger_cnt) after a linked stone leaves
         if (links.length) {
@@ -575,7 +576,12 @@ function wangStone(bb, raw, def) {
     battle.applyStatus(e, 'sluggish', { duration: dur, source: owner });
     // PRTS S1 备注: "由望依自身属性预计算伤害后、以无来源的形式施加给目标" — 无来源 (望 keeps the credit) for a stone's DoT; a
     // 跟子's damage keeps 望 as its source (client: the 跟子 is her projectile)
-    const tick = (t) => battle.dealDamage(owner, t, { amount: atk * scale * mul, type: 'arts', resIgnoreFlat: resFlat, canDodge: false, ignoreSelect: true, sourceless: !isFollower(unit), tags: ['dot', 'trap'] });
+    // local patch (user report 2026-10-07 #5): every tick sounds — the client's wang_stone1_t[damage_audio] child buff
+    // (triggerInterval 1, first at once) plays p_imp_stwctp_d on each trigger; `kitHit` is the sound-only fx (audio.js)
+    const tick = (t) => {
+      battle.fx('kitHit', { x: t.x, y: t.y, id: owner.id, k: 'wang:1' });
+      battle.dealDamage(owner, t, { amount: atk * scale * mul, type: 'arts', resIgnoreFlat: resFlat, canDodge: false, ignoreSelect: true, sourceless: !isFollower(unit), tags: ['dot', 'trap'] });
+    };
     // client buff: triggerInterval 1.0, waitFirstTriggerInterval false, lifetime 6.5 s → ticks at 0, 1, … 6 (7 in all)
     tick(e);
     if (e.alive) battle.addBuff(e, { key: 'wang:dot', refresh: 'independent', duration: dur, interval: 1, source: owner, visible: true, onTick: ({ unit: t }) => tick(t) });

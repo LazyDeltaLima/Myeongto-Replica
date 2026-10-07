@@ -154,4 +154,10 @@ describe('ground wedge in combat (research 09 §1.2: "prep and combat") — revi
     bench.update(1 / 60, cam(), 0);
     assert.ok(!bench.facingArrow || !bench.facingArrow.visible, 'own bench piece: none');
   });
+  test('a flying ally (炎佑, motion FLY) has no ring / wedge even with a dir', () => {
+    const fly = view({ kind: 'token', defId: 'enemy_9012_acloon', dir: 'RIGHT', motion: 'FLY' }, {}, store({ back: false }));
+    fly.update(1 / 60, cam(), 0);
+    assert.ok(!fly.facingArrow || !fly.facingArrow.visible, 'no wedge');
+    assert.ok(!fly._facing || !fly._facing.root.visible, 'no official ring');
+  });
 });

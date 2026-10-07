@@ -14,8 +14,11 @@
 //   aspdDown → buff_attack_speed_reduction_01 (feet)   weaken 虚弱 → buff_weak (head)
 //   defDown → buff_defdown (head)             resDown → buff_magic_resistance_down (head)
 //   fragile 脆弱 (all kinds) → 'buff_ fragile_01' (feet)   levitate 浮空 → common_levitate_01 (ground)
-//   stealth 隐匿 → enemies common_invisible (feet; its ColorModifier greys the model to α .894 — units.js), allies
-//     common_stealth [추정]       camou 迷彩 → common_buff_micai_01 (body) [추정: _01 of the three]
+//   stealth 隐匿 → common_invisible on both sides (feet; its ColorModifier greys the model to α .894 — units.js) —
+//     local patch (user report 2026-10-07 #3: a big green leaf on 望's stone on an 排气格栅 tile): the leaf was
+//     common_stealth (texture common_leaf), which only the 生息演算 buildings use (trap_405/406/459 talents' overrideEffectKey);
+//     an operator's own 隐匿 is common_invisible (skchr_milu_1 overrideEffectKey, dynamicabilities Invisible) [추정: the
+//     tile's 隐匿 the same]       camou 迷彩 → common_buff_micai_01 (body) [추정: _01 of the three]
 //   lemuen:wanted 通缉 (蕾缪安's talent) → lemuen/lemuen_talent_buff_01 (head) [추정 height]
 //   reed2:scorch 灼痕 (焰影苇草's talent) → reed2/reed2_debuff_01 (body) [추정 height]
 // A status the client draws (in this table, its prefab extracted, the effect layer on — not quality 'low', WebP) loses its
@@ -36,7 +39,7 @@ export const STATUS_FX = Object.freeze({
   slow: ['buff', 'buff_slowdown', 0], sluggish: ['buff', 'buff_sluggish', 0], aspdDown: ['buff', 'buff_attack_speed_reduction_01', 0],
   weaken: ['buff', 'buff_weak', HEAD], defDown: ['buff', 'buff_defdown', HEAD], resDown: ['buff', 'buff_magic_resistance_down', HEAD],
   fragile: ['buff', 'buff_ fragile_01', 0], levitate: ['common', 'common_levitate_01', 0],
-  stealth: ['common', 'common_invisible', 0], stealthAlly: ['common', 'common_stealth', 0], camou: ['common', 'common_buff_micai_01', 0.5],
+  stealth: ['common', 'common_invisible', 0], stealthAlly: ['common', 'common_invisible', 0], camou: ['common', 'common_buff_micai_01', 0.5],
   // local patch (user report 2026-10-07): 蕾缪安's talent 跨境追缉许可 'lemuen:wanted' — the client's char_lemuen_range_aim[effect]
   // buff (overrideEffectKey lemuen_talent_buff_01, the crosshair on the wanted enemy) [추정: at the head]
   // its systems loop in / pulse / out every 2.5 s; the user (2026-10-07): once shown it stays — held at 2.0 s (the X steady)
@@ -108,7 +111,7 @@ export function syncStatusFx(views, fxGame, battle) {
       const [bundle, name, frac, hold] = STATUS_FX[k];
       if (fxGame.statusReady(bundle, name)) fxGame.statusOn(v, bundle, name, k, frac, hold);
     }
-    if (on) for (const k of [...on]) if (!want.has(k)) fxGame.statusOff(v, k);
+    if (on) for (const k of [...on]) if (!want.has(k) && STATUS_FX[k]) fxGame.statusOff(v, k); // local patch: not the prep 'golden' glow (fxgolden.js)
   }
 }
 

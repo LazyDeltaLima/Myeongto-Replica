@@ -220,11 +220,11 @@ describe('bounds (view.pieceScreenRect)', () => {
     const { x, y, s } = v.screen;
     const r = v.bounds();
     assert.ok(Math.abs(r.x - (x - 0.35 * s)) < 1e-6 && Math.abs(r.width - 0.7 * s) < 1e-6);
-    assert.ok(Math.abs(r.y - (y - 1.18 * s)) < 1e-6 && Math.abs(r.y + r.height - (y + 0.1 * s)) < 1e-6);
+    assert.ok(Math.abs(r.y - (y - 1.02 * s)) < 1e-6 && Math.abs(r.y + r.height - (y + 0.1 * s)) < 1e-6);
     assert.equal(typeof v.pickShape, 'undefined', 'no hit shapes any more');
     const foe = view({ side: 'enemy', kind: 'enemy', defId: 'enemy_big' }, {}, store({ spine: true }));
     await tick(); await tick();
-    foe.actor.entry.bounds = { height: 640 }; // setup-pose bounds: 2 tiles (UNIT.modelScale 1/320) × 0.92
+    foe.actor.entry.bounds = { height: 640 }; // setup-pose bounds: 1.73 tiles (UNIT.modelScale 0.0027) × 0.92
     foe.update(1 / 60, cam(), 0);
     const fr = foe.bounds();
     assert.ok(Math.abs(fr.y - (foe.screen.y - foe._headTiles * foe.screen.s)) < 1e-6 && foe._headTiles > 1.5, 'its own height');
@@ -343,5 +343,14 @@ describe('flying units hover FLY_HOVER above the ground, whatever their model', 
     assert.ok(fly.screen.top < fly.screen.y && Math.abs((fly.screen.y - fly.screen.top) - (ground.screen.y - ground.screen.top)) < 0.1 * (ground.screen.y - ground.screen.top), 'the HP bar keeps its head height over the body');
     assert.ok(ground.screen.top - fly.screen.top > 0.9 * lift, `the HP bar rides the body (${ground.screen.top - fly.screen.top} vs ${lift})`);
     assert.ok(Math.abs(fly.shadow.position.y - ground.shadow.position.y) < 1e-9, 'the shadow stays on the ground');
+  });
+
+  test('the flying ally 炎佑 (motion FLY) gets the same lift', async () => {
+    const { FLY_HOVER } = await import('../../public/js/render/units.js');
+    const ctx = fakeViewCtx(fake.P, { assets: store(), cam });
+    const y = new UnitView(ctx, { id: 3, side: 'ally', kind: 'token', defId: 'enemy_9012_acloon', x: 5, y: 12, maxHp: 100, dir: 'RIGHT', motion: 'FLY' }, {});
+    await tick(); await tick();
+    for (let i = 0; i < 180; i++) y.update(1 / 60, cam(), i / 60);
+    assert.ok(Math.abs(y.hover - FLY_HOVER) < 1e-3);
   });
 });

@@ -105,6 +105,15 @@ export function enemyModelScaleY(rec) {
   return Number.isFinite(k) && k > 0.2 && k < 5 ? k : 1;
 }
 /**
+ * Official size factor of a summon's model: its battle prefab (pkgrps/btl_pfb_tokens_*.ab) Spine transform product / the
+ * standard 0.27, like an enemy's `modelScale` (2026-10-08, client EN; every other tokens.json summon is 0.27).
+ */
+export const TOKEN_MODEL_K = Object.freeze({
+  token_10000_silent_healrb: 0.4 / 0.27, token_10006_vodfox_doll: 0.4 / 0.27,
+  token_10031_swire2_gdtrap: 0.25 / 0.27, token_10057_svash2_eagle1: 0.25 / 0.27, token_10057_svash2_eagle2: 0.25 / 0.27,
+  token_10057_svash2_eagle3: 0.25 / 0.27,
+});
+/**
  * Seconds of the death clip of a manifest Spine entry (`anims.die`, else a 'Die' clip, as SpineActor.dieClip; its
  * `animations` duration), 0 when it has none — 131 of the 135 operator Back models (GitHub issue #25).
  */
@@ -391,7 +400,7 @@ export class UnitView {
     this.isBoss = !!info.boss;
     // enemies: the official prefab's size factor (1 for operators, summons and enemies at the standard size)
     const def = this.isEnemy && ctx.lookupDef ? ctx.lookupDef(info) : null;
-    this.modelK = this.isEnemy ? enemyModelScale(def) : 1;
+    this.modelK = this.isEnemy ? enemyModelScale(def) : TOKEN_MODEL_K[info.defId] || 1; // local patch: summon prefab sizes
     // the official's own model quirks (enemies.json, read from its battle prefabs — tools/local-extract/enemy_model_offsets.py,
     // PR #211): a vertical stretch (its Graphic scale's sy / sx, the two 帝国炮火先兆者 at 1.263) and a mirrored X scale
     // (the Graphic's sx is negative, so the official draws the authored model flipped: 木制瑞印)
@@ -672,8 +681,9 @@ export class UnitView {
     this.lpBars = !this.isEnemy ? new AllyBars(P, h) : new EnemyBars(P, h, giant ? 'giant' : this.isBoss ? 'boss' : 'normal', giant);
     this.ammo = null;
     this.chip = null;
-    // operators only: summon tokens have no tier (hand and field alike)
-    if (!this.isEnemy && !this.isToken && this.info.kind !== 'device') {
+    // operators only: summon tokens have no tier (hand and field alike) — local patch (user request 2026-10-08): a prep
+    // summon wears its owner's chip (app.js pieceInfo `chip`; official: same level chip as the operator)
+    if (!this.isEnemy && (!this.isToken || this.info.chip) && this.info.kind !== 'device') {
       this.chip = new P.Sprite(tierChip(this.tier, this.golden));
       this._chipTex = this.chip.texture; // local patch: the drawn chip, when the official one is not installed (hud-bars.js)
       this.chip.anchor.set(0.5);
@@ -1015,9 +1025,10 @@ export class UnitView {
       if (this.dying < tail) alpha *= Math.max(0, this.dying / tail);
       if (this.dying <= 0) { this.dying = 0; this.remove = true; alpha = 0; }
     }
-    // local patch (⑤): an enemy's 隐匿 drawn by its official effect takes the prefab's ColorModifier — grey (.5) at α .894
-    // (common_invisible) — instead of the 45 % ghost (allies, 迷彩, and without the effect keep it)
-    const lpInvis = this.isEnemy && this._fxStatusOn?.has('stealth');
+    // local patch (⑤): a 隐匿 drawn by its official effect takes the prefab's ColorModifier — grey (.5) at α .894
+    // (common_invisible; allies too since user report 2026-10-07 #3 — fxstatus.js) — instead of the 45 % ghost (迷彩, and
+    // without the effect keep it)
+    const lpInvis = !!(this._fxStatusOn?.has('stealth') || this._fxStatusOn?.has('stealthAlly'));
     if (this.flags & UF.STEALTH) alpha *= lpInvis ? 0.894 : 0.45;
     if (this.dimmed) alpha *= 0.35;
     if (this.ghost) alpha *= GHOST_ALPHA; // local patch
@@ -1101,6 +1112,7 @@ export class UnitView {
     // on the board (app.js sets _showFacing; bench pieces have none); battle / scouting allies whose dir is known
     let wedge = this._showFacing !== undefined ? this._showFacing && this.prep : this.hasDir && this.info.kind !== 'device';
     if (wedge && facingless(this.info.defId)) wedge = false; // local patch: summons placed without a facing
+    if (wedge && this.flying) wedge = false; // a flying ally (炎佑) has no deploy tile nor facing
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): the official ring + arrow on the ground when the art is there (facing.js)
     const facingTex = wedge && this.alive ? facingTextures(P, this.ctx.assets) : null;
     if (facingTex) {
@@ -1138,6 +1150,7 @@ export class UnitView {
     if (this.aura) {
       const k = 0.35 + 0.12 * Math.sin(t * 2.2 + this.bob);
       this.aura.alpha = k;
+      this.aura.visible = !this._fxStatusOn?.has('golden'); // local patch: the official prep glow instead (fxgolden.js)
       this.aura.scale.set((s * 1.3) / 128, (s * 1.9) / 128);
     }
 
@@ -1525,7 +1538,10 @@ export class UnitView {
     else if (f & UF.STUNNED && !fx?.has('stun')) push('stun');
     if (f & UF.SLEEP && !fx?.has('sleep')) push('sleep');
     if (f & UF.COLD && !(f & UF.FROZEN) && !fx?.has('cold')) push('cold');
-    if (f & UF.INVULN) push('invuln');
+    // local patch (user report 2026-10-07 #7, official capture: 望's stones carry no badge; then "소환물 위에 붙어 있는 노란 방패
+    // 모양 아이콘을 제거해줘"): no shield icon over a summon — a trap's standing invulnerability (shared/trap-tokens.js) is no
+    // status, and the view cannot tell a skill's short one from it (only the UF.INVULN flag) [추정: summons show none]
+    if (f & UF.INVULN && !this.isToken && !noHpBar(this.info?.defId)) push('invuln');
     if (f & UF.STEALTH && !(fx && (fx.has('camou') || fx.has('stealth') || fx.has('stealthAlly')))) push(f & UF_CAMOU ? 'camou' : 'stealth'); // local patch: 迷彩 (위장) has its own icon
     for (const k of this.statuses) {
       if (out.length >= 4) break;

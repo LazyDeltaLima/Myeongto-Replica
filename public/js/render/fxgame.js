@@ -47,6 +47,7 @@ import { activationEffects } from './fxmap.js'; // local patch: a skill activati
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
+import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { PROJ } from './style.js';
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 
@@ -77,7 +78,7 @@ const loadModes = () => (modesPromise ||= fetch(MODES_URL).then((r) => (r.ok ? r
  *   it (the 3D board is on — the 2D board paints an opaque backdrop on the units canvas itself); fieldRect: the battle
  *   field's tile rect (local patch: 余 S3's wall runs across it, fx.js wallTiles)
  */
-export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null }) {
+export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null }) {
   let index = null, modes = null;
   if (typeof fetch === 'function') { loadIndex().then((i) => { index = i; }); loadModes().then((m) => { modes = m; }); }
   let mod = null, loading = null, failed = false;
@@ -137,6 +138,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       layers.under = make(above, '1');
       layers.over = make(above.nextSibling, '2');
       layers.split = { scene: new THREE.Scene(), n: 0 }; // local patch
+      occ = makeOccluders(THREE, [layers.under.scene, layers.over.scene, layers.split.scene]); // local patch
       camera = new THREE.PerspectiveCamera();
       size = new THREE.Vector2();
       lib = new fxp.FxLibrary('/assets/local/fx/');
@@ -174,10 +176,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!b) return;
     const names = given || effectsFor(b.prefabs, kind, skillIndex);
     if (!names.length || !(await ensure())) return;
-    for (const n of names) {
-      const def = await lib.load(b.bundle, n);
+    // local patch (user report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
+    // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right) is one effect —
+    // the copy for the facing, not mirrored; the right copy that the name lookup listed besides is skipped
+    const defs = await Promise.all(names.map((n) => lib.load(b.bundle, n)));
+    const twins = new Set(defs.map((d) => d?.right).filter(Boolean));
+    for (let i = 0; i < names.length; i++) {
+      let n = names[i], def = defs[i];
       if (!mod) return;   // destroyed while the file loaded (the view left the battle)
-      if (!def) continue;
+      if (!def || twins.has(n)) continue;
+      const sided = def.right ? ((view.visFacing ?? view.facing ?? 1) < 0 ? 'L' : 'R') : null;
+      if (sided === 'R') {
+        const r = await lib.load(b.bundle, def.right);
+        if (!mod) return;
+        if (r) { n = def.right; def = r; }
+      }
       const ground = at || view;
       const anchor = lifted(ground, def); // local patch: its _spawnLocation
       // local patch (user report 2026-10-07: 野鬃 S2 stood upright): an effect the client turns to the unit's facing
@@ -187,7 +200,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // which draws layer 0 only (split, every blast on a target was invisible at 'high' on the 3D board: 烛煌 S3)
       const split = (buff || !at) && splitOn();
       // local patch: cut at the ground the unit stands on (fxplayer.js floor — a tile's height, not a flyer's hover)
-      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: ground.z || 0 });
+      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn || sided ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: ground.z || 0 });
       if (turn) aimMover(inst, facingDir(view));
       inst.object.position.set(anchor.x, anchor.y, anchor.z || 0);
       // a one-shot on the caster (not a hit on a target) ends with its prefab's duration even if a system loops —
@@ -200,6 +213,68 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // the player's own cap: it has already ended the oldest (done, dispose is a no-op) — the same one here
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
     }
+  }
+
+  // local patch (user report 2026-10-08: 赤刃明霄陈's S3 dragon over the 阻隔工事 crate behind her): the client's map and its
+  // devices are opaque geometry in the depth buffer, so an effect renderer that tests depth (`_ZTest` 4 — fxplayer.js
+  // userData.ztest; her dragon head, most of the 剑气 trail) is hidden inside / behind a crate or a raised tile, while one
+  // with `_ZTest` 0 draws over it. The board is another canvas here: its raised tiles (tile tops, `grid()`) and the battle's
+  // device boxes (render/units.js DeviceView: crates, turrets) are drawn into each effect canvas's depth only, first.
+  let occ = null, occKey = '', occGrid = null, occTiles = [], occGridN = 0;
+  const OCC_DOWN = 0.05; // tops a little lower: an effect on a unit standing on a high tile is at that height (fxplayer.js floor cut)
+  function makeOccluders(THREE, scenes) {
+    const geo = new THREE.BufferGeometry();
+    const mat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, depthTest: true, side: THREE.DoubleSide });
+    const meshes = scenes.map((sc) => {
+      const m = new THREE.Mesh(geo, mat);
+      m.renderOrder = -1e9; m.frustumCulled = false; m.layers.enableAll(); m.visible = false;
+      sc.add(m);
+      return m;
+    });
+    return { THREE, geo, meshes };
+  }
+  /** Rebuild the occluder boxes when the raised tiles or the live device boxes changed; none off the 3D board. */
+  function syncOccluders() {
+    if (!occ) return;
+    let on = false;
+    try { on = !!under(); } catch { /* 2D board: the units canvas paints the board */ }
+    const devs = [];
+    let g = null;
+    if (on) {
+      try { g = grid(); } catch { /* none */ }
+      if (g !== occGrid) { // the tile boxes change with the stage only (render/tiles.js rebuilds its grid)
+        occGrid = g; occGridN++; occTiles = [];
+        if (Array.isArray(g)) for (const row of g) for (const t of row || []) {
+          const h = t && t.drawn ? (t.h || 0) + (t.devH || 0) : 0;
+          if (h > OCC_DOWN + 0.01) occTiles.push([t.c, t.r, 0.5, h - OCC_DOWN]);
+        }
+      }
+      if (lastViews) for (const v of lastViews.values()) {
+        if (!v || !v.spec || !(v.spec.height > 0) || v.alive === false || v.remove || !('box' in v)) continue;
+        devs.push([v.x, v.y, (v.spec.size || 0.8) / 2, (v.z || 0) + v.spec.height - OCC_DOWN]);
+      }
+    }
+    const key = on ? `${occGridN}|${devs.map((b) => b.map((x) => Math.round(x * 100)).join(',')).join(';')}` : '';
+    const boxes = on ? [...occTiles, ...devs] : [];
+    if (key === occKey) return;
+    occKey = key;
+    const pos = new Float32Array(boxes.length * 36 * 3);
+    let k = 0;
+    const v = (x, y, z) => { pos[k++] = x; pos[k++] = y; pos[k++] = z; };
+    const quad = (a, b, c, d) => { v(...a); v(...b); v(...c); v(...a); v(...c); v(...d); };
+    for (const [x, y, hw, top] of boxes) {
+      const x0 = x - hw, x1 = x + hw, y0 = y - hw, y1 = y + hw, z0 = -1, z1 = top;
+      quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]);
+      quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]);
+      quad([x1, y1, z0], [x0, y1, z0], [x0, y1, z1], [x1, y1, z1]);
+      quad([x0, y1, z0], [x0, y0, z0], [x0, y0, z1], [x0, y1, z1]);
+      quad([x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]);
+      quad([x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0]);
+    }
+    occ.geo.dispose();
+    occ.geo.setAttribute('position', new occ.THREE.BufferAttribute(pos, 3));
+    occ.geo.setDrawRange(0, boxes.length * 36);
+    for (const m of occ.meshes) m.visible = boxes.length > 0;
   }
 
   /** local patch: whether the effects on units split by sorting now ('high', a see-through units canvas — the 3D board). */
@@ -239,12 +314,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // owner: a stone's id — the effect follows it as a buff and stops on its 'die' (used up / withdrawn); without an
   // owner it is a one-shot, stopped after its prefab's duration even if a system loops (token_wang_birth_01_buff's
   // looping 'sz' kept its cross on the board forever)
-  async function playAt(names, at, { deg = null, owner = null, under = false } = {}) {
-    const prefabs = index?.bundles?.[STONE_FX];
+  // local patch (user report 2026-10-07 #4, capture: the hand-placed stone glows yellow, the talent's 跟子 has black
+  // wisps): a 跟子 is 望's projectile (PRTS 备注; client projectile_chr_wang_stone1/2/3), whose effects are hers (bundle
+  // wang): `_effectsToTileWhenStart` wang_passive_01_buff (the black / white / gold rings, andi_lne) and
+  // `_triggeredEffect` wang_passive_01_buff_02; the placed token's are its prefab `_startEffect` token_wang_birth_01_buff
+  // and sktok_wang_N/TriggeredEffect token_wang_01_buff [추정: TriggeredEffect = 激活, the link]
+  const FOLLOWER_FX = 'wang';
+  const STONE_BORN = { stone: 'token_wang_birth_01_buff', follower: 'wang_passive_01_buff' };
+  const STONE_ON = { stone: 'token_wang_01_buff', follower: 'wang_passive_01_buff_02' };
+  /** local patch: whether 望's stone effects play here (render/fx.js then skips its procedural stand-in). */
+  const stonesOn = () => !!(index?.bundles?.[STONE_FX] && !failed && q() !== 'low');
+  async function playAt(names, at, { deg = null, owner = null, under = false, bundle = STONE_FX } = {}) {
+    const prefabs = index?.bundles?.[bundle];
     if (!prefabs || !(await ensure())) return;
     for (const n of names) {
       if (!prefabs.includes(n)) continue;
-      const def = await lib.load(STONE_FX, n);
+      const def = await lib.load(bundle, n);
       if (!mod) return;   // destroyed while the file loaded
       if (!def) continue;
       const inst = new mod.fxp.FxInstance(def, { quality: q() });
@@ -278,7 +363,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   const ownerOf = (v) => v.id ?? v.info?.id;
   const statusFailed = new Set();   // `${bundle}/${name}` that did not load: their units keep the icon (statusReady false)
-  async function playStatus(view, bundle, name, key, frac, hold = null) {
+  async function playStatus(view, bundle, name, key, frac, hold = null, under = false) {
     if (!(await ensure())) return;
     const def = await lib.load(bundle, name);
     if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
@@ -291,10 +376,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // local patch: status prefabs are NOT split — their renderers are sortingOrder 0 / fudge 0 (buff_autochess_frozen's
     // block too), which the split puts behind the unit, while the client sorts them by depth and the 冻结 block covers the
     // model (user capture 9); drawn over the units as before (the snowflake / fist over heads, capture 10)
-    const split = false;
+    // local patch (user request 2026-10-08): `under` (the prep elite glow, fxgolden.js — its glow / sparks are sortingOrder -1,
+    // behind the model) splits by sorting at 'high' like a caster's effect, else draws under the units
+    const split = !!under && splitOn();
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
-    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold), unit: view }, split ? layers.split : layers.over);
+    addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold, under), unit: view }, split ? layers.split : under ? layers.under : layers.over);
     while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
   }
 
@@ -302,6 +389,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+    // local patch (user report 2026-10-07 #7: the old yellow circle / mint hex + pillar under the stones' official effects):
+    // render/fx.js draws nothing for a stone event handled here
+    const mine = (e[1] === 'zone' && o.token === STONE) || e[1] === 'wangLink' || (e[1] === 'summon' && isStone(views.get(o.id)));
+    if (mine && stonesOn()) ownFx.add(e);
     if (e[1] === 'zone' && o.token === STONE) {
       const names = STONE_HIT[o.skill] || STONE_HIT[1];
       if (o.skill === 2) {
@@ -312,12 +403,55 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       } else playAt(names, at);
       return true;
     }
-    if (e[1] === 'wangLink') { if (o.first) playAt(['token_wang_passive_01_line'], at, { under: true }); return true; }
+    if (e[1] === 'wangLink') {
+      if (o.first) {
+        playAt(['token_wang_passive_01_line'], at, { under: true });
+        // local patch: the activation flash of its own kind (STONE_ON)
+        if (o.follower) playAt([STONE_ON.follower], at, { bundle: FOLLOWER_FX });
+        else playAt([STONE_ON.stone], at);
+      }
+      return true;
+    }
     if (e[1] === 'summon') {
       const v = views.get(o.id);
-      if (v?.info && (v.info.defId === STONE || v.info.spine === STONE)) { playAt(['token_wang_birth_01_buff'], v, { owner: o.id, under: true }); return true; }
+      stoneBirth.delete(o.id);
+      if (isStone(v)) {
+        // local patch: a 跟子's black-wisp rings (its own birth effect), a placed stone's gold glow
+        if (o.follower) playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX });
+        else playAt([STONE_BORN.stone], v, { owner: o.id, under: true });
+        return true;
+      }
     }
     return false;
+  }
+  const isStone = (v) => !!(v?.info && (v.info.defId === STONE || v.info.spine === STONE));
+  // local patch (user report 2026-10-07 #4, capture: the hand-placed stone keeps its gold glow): the prep's stones come in
+  // with the battle start ('spawn', no 'summon' fx — kits/diy.js), yet the token's `_startEffect` plays on every birth —
+  // a stone spawned without a 'summon' fx in the same batch is a placed one: its token_wang_birth_01_buff (update)
+  const stoneBirth = new Set();
+  function flushStoneBirths(views) {
+    if (!stoneBirth.size) return;
+    for (const id of stoneBirth) {
+      const v = views?.get(id);
+      if (isStone(v) && v.alive !== false && stonesOn()) playAt([STONE_BORN.stone], v, { owner: id, under: true });
+    }
+    stoneBirth.clear();
+  }
+
+  // local patch (user report 2026-10-07 #7: "전용 이펙트가 추가된 오퍼레이터들의 스킬 효과 등에는 옛날 공용 이펙트 효과(노란 원형)도
+  // 제거"): a kit 'fx' event of an operator whose official effects play (its bundle extracted, not 'low') draws none of
+  // render/fx.js's procedural skill stand-ins — the orange zone circle, the blast rings, the mint hex + pillar, the buff
+  // sparkle, the shield hex, the pulses. What the client draws for that moment is its skill / hit prefabs (played from the
+  // 'skill' / 'atk' / 'dmg' events or kitFx); informational marks stay (dodge / crit text, DP, locks and marks, beams,
+  // displacement arrows, heals). The event's operator: `src`, else `by`, else `id` (an ally token / device keeps them).
+  const STAND_IN = new Set(['blast', 'zone', 'wall', 'summon', 'buff', 'wave', 'pillar', 'element', 'healAoe', 'shield', 'shatter', 'strike', 'volley']);
+  function standInOff(e, views) {
+    const o = e[4];
+    if (!o || typeof o !== 'object' || !index || failed || q() === 'low') return false;
+    if (!STAND_IN.has(fxSpec(e[1], o).a)) return false;
+    const v = views.get(o.src ?? o.by ?? o.id);
+    const k = v?.info?.kind;
+    return !!(isOp(v) && k !== 'token' && k !== 'device' && k !== 'item' && bundleOf(v));
   }
 
   // ---- official projectile trails (local patch 2026-10-07, see the header) ----
@@ -631,6 +765,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       spawn(b.bundle, 'texas2_skill_03_hit', views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false });
       return true;
     }
+    // local patch (user report 2026-10-07 #7: the old stand-ins go — standInOff): the kit events whose moment has an official
+    // prefab draw it instead of nothing — 维什戴尔's 残影 bomb ('explode', by = her) wisdel_bomb_01_hit [추정: by name; no
+    // prefab key found], 赤刃明霄陈 S2's strikes ('swordStorm', id = her) skchr_chen3_2 _hitGroups[0..5] in turn [추정: one
+    // group a strike], 丰川祥子's fever ('sunBurst', id = her) her Combat mode's cast oblvns_combat_01_start [추정]
+    if (e[1] === 'explode' || e[1] === 'swordStorm' || e[1] === 'sunBurst') {
+      const src = views.get(e[1] === 'explode' ? o.by : o.id), b = bundleOf(src);
+      const n = !b ? null : e[1] === 'explode' ? (b.bundle === 'wisdel' ? 'wisdel_bomb_01_hit' : null)
+        : e[1] === 'swordStorm' ? (b.bundle === 'chen3' ? `chen3_skill_02_hit_0${((src._fxStormN = ((src._fxStormN ?? -1) + 1) % 6)) + 1}` : null)
+          : b.bundle === 'oblvns' ? 'oblvns_combat_01_start' : null;
+      if (!n || !b.prefabs.includes(n)) return false;
+      ownFx.add(e);
+      spawn(b.bundle, n, e[1] === 'sunBurst' ? src : { x, y, z: 0 }, { owner: null, buff: false });
+      return true;
+    }
     // local patch: 焰影苇草 S3 — a 灼痕 enemy's death bursts (sim 'scorchBurst', id = her): reed2_debuff_boom_01 there
     if (e[1] === 'scorchBurst') {
       const b = bundleOf(views.get(o.id));
@@ -743,21 +891,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * keeps only its ground aura.
      */
     ownsSkill(v) {
-      if (!(index && isOp(v) && bundleOf(v) && q() !== 'low' && !failed)) return false;
-      // only a skill with official start / buff effects of its own: one whose bundle has none (many S1s — the client's common
-      // buff effects are not extracted) keeps the procedural burst, or its activation would show nothing
-      // (local patch: the same lists the activation plays — activation())
-      const { start, loops } = activation(v);
-      return bound(v, skillMode(v), 'cast').length > 0 || start.length > 0 || loops.length > 0;
+      // local patch (user report 2026-10-07 #7: "전용 이펙트가 추가된 오퍼레이터들의 스킬 효과 등에는 옛날 공용 이펙트 효과도 제거" —
+      // 望 S1's gold pillar + hex): every operator with official effects, also a skill with no start / buff effect of its
+      // own (望 S1 skchr_wang_1: no effect key in skills.ab) — its activation shows what the client shows, its own prefabs or none.
+      // It used to keep the procedural burst for those (many S1s), so the activation was not silent on screen.
+      return !!(index && isOp(v) && bundleOf(v) && q() !== 'low' && !failed);
     },
     /** local patch (⑤): whether the shared status prefab `bundle`/`name` can play (index loaded, not 'low', listed). */
     statusReady(bundle, name) { return !!(index && !failed && q() !== 'low' && index.bundles?.[bundle]?.includes(name) && !statusFailed.has(`${bundle}/${name}`)); },
     /** local patch (⑤): loop `bundle`/`name` on `view` as its status `key` (once per key) at `frac` of its height. */
-    statusOn(view, bundle, name, key, frac = 0, hold = null) {
+    statusOn(view, bundle, name, key, frac = 0, hold = null, under = false) {
       const on = view._fxStatusOn || (view._fxStatusOn = new Set());
       if (on.has(key)) return;
       on.add(key);
-      playStatus(view, bundle, name, key, frac, hold);
+      playStatus(view, bundle, name, key, frac, hold, under);
     },
     /** local patch (⑤): end the status effect `key` on `view`. */
     statusOff(view, key) {
@@ -775,6 +922,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         else if (e[0] === 'deploy') gone.delete(e[1]);
         else if (e[0] === 'spawn') gone.delete(e[1]?.id ?? e[1]);
         else if (e[0] === 'fx' && e[1] === 'summon' && e[4]) gone.delete(e[4].id);
+        // local patch: a stone spawned (its 'summon' fx of the same moment, if any, takes it off — stoneFx)
+        if (e[0] === 'spawn' && e[1] && (e[1].defId === STONE || e[1].spine === STONE)) stoneBirth.add(e[1].id);
       }
       if (!index || q() === 'low' || !Array.isArray(e)) return;
       switch (e[0]) {
@@ -841,6 +990,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
+          if (standInOff(e, views)) ownFx.add(e); // local patch: no old procedural stand-in for an operator with official effects
           if ((e[1] === 'drone' || e[1] === 'drones') && e[4] && wolvesOn() && wolves.has(e[4].id)) {   // her wolves: no generic puff
             ownFx.add(e);
             if (e[1] === 'drone') playNoteHit(WOLF.bundle, WOLF.hit, { x: Number(e[2]), y: Number(e[3]), z: WOLF.z });
@@ -881,6 +1031,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (lastViews && index) for (const v of lastViews.values()) if (isOp(v) && (v._fxSkillOn || ((v.flags | 0) & UF.SKILL)) && bundleOf(v)) skillByFlag(v, lastViews); // local patch
       stepNotes(dt, lastViews);   // the notes fly on while their trails load
       stepWolves(dt);
+      flushStoneBirths(lastViews); // local patch
       if (!mod) return;
       if (!live.length) { showLayers(); return; }
       const w = Math.max(1, vp.width | 0), h = Math.max(1, vp.height | 0);
@@ -892,6 +1043,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (s.x !== w || s.y !== h) L.renderer.setSize(w, h, false);
       }
       syncThreeCamera(cam, camera, w, h, { near: Math.max(0.3, cam.dist * 0.08), far: cam.dist + 70 });
+      syncOccluders(); // local patch
       const t0 = performance.now();
       for (const [id, m] of movers) {
         if (!m.inst) continue;
@@ -944,6 +1096,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         L?.canvas.remove();
       }
       layers.under = layers.over = layers.split = null;
+      occ = null; occKey = ''; occGrid = null; occTiles = []; // local patch
       mod = null;
     },
 
