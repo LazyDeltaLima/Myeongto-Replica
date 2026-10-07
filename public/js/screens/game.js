@@ -91,6 +91,7 @@ import { FacingWheel, holdPiece, setPieceDir, syncPieceDirs, showRange, useTileS
 import { Underframe, underframeRect, TempRowNotice } from '../ui/underframe.js';
 import { needsFacing, facingIntent, previewGrid, pieceDir, underframeActions, retreatSlot, itemDestroyable } from '../ui/facing.js';
 import { EquipReplaceDialog, replaceRequest, replaceIntent } from '../ui/equipReplace.js';
+import { EquipHoverPanel, equipHoverState } from '../ui/equipHover.js'; // local patch: the official equip-slot popup
 import { pauseAvailable, isPaused, frozenNow } from '../ui/matchStatus.js';
 import { pieceTile } from '../render/drag.js';
 import {
@@ -232,6 +233,7 @@ function MatchScreen() {
   const [pen, setPen] = useState(false);                 // the camera shows the enemy preview pen (research 09 §2)
   const [camKind, setCamKind] = useState('prep');        // kind of the last camera request (data-camera)
   const [replace, setReplace] = useState(null);          // equip-replace dialog: { request, resolve }
+  const [eqHover, setEqHover] = useState(null);          // local patch: the equip-slot popup (ui/equipHover.js)
   const [pauseBusy, setPauseBusy] = useState(false);
   const [armedCard, setArmedCard] = useState(null);     // the shop bar's armed card { kind, id } (merge tile cue)
   const cc = isClientCombat(pub);
@@ -818,6 +820,9 @@ function MatchScreen() {
     // the drop target is the tile under the pointer (render/drag.js; an item dropped on a unit's tile equips that unit —
     // user playtest #4 item 1); `tile` = the last target tile (tileHover), `released` = the pointer went up (not a cancel)
     const ptr = { released: false, tile: null };
+    // local patch: the item being dragged (its equip-slot popup over the operator under it) and the popup's last state
+    const eq = { uid: null, state: null };
+    const setEq = (st) => { eq.state = st; setEqHover(st); };
     const lookups = { getChess: gd.chess, getToken: gd.token, getItem: gd.item, chessRecord: (rec) => chessLoadout(rec, live.current.priv?.loadout ?? null, gd.chess)?.record };
     const runIntent = async (intent) => {
       const L = live.current;
@@ -844,6 +849,8 @@ function MatchScreen() {
     const endDrag = () => {
       moveOff?.(); moveOff = null;
       setDrag(null);
+      eq.uid = null;
+      if (eq.state && !eq.state.equipped) setEq(null);
       view.highlightTiles(null, null);
     };
     /** Open the direction wheel for a legal board drop (the piece stays on the tile meanwhile). */
@@ -866,7 +873,16 @@ function MatchScreen() {
         // a new placement: a piece's detail card (right-click / long-press) would sit beside the wheel showing another unit
         setDetail((d) => (d?.kind === 'piece' ? null : d));
         setDrag({ uid: entry.piece.uid, kind: entry.piece.kind, id: entry.piece.id, area: entry.area });
+        eq.uid = entry.piece.kind === 'item' ? entry.piece.uid : null;
+        setEq(null);
         const { legal } = boardTargets(L.placeCtx, entry.piece.uid);
+        // local patch (LOCAL-PATCH.md 「배치 UI」): the bench slots that take the piece are tinted too (teal, board3d
+        // tileOverlay BENCH_TINT), its own slot included — like the official prep (KR capture: the whole bench while an
+        // item is dragged)
+        for (let i = 0; i < GEO.HAND_SIZE; i++) {
+          const own = entry.area === 'hand' && entry.idx === i;
+          if (own || canPlace(L.placeCtx, entry.piece.uid, { area: 'hand', idx: i }).ok) legal.push([GEO.HAND_ROW, i]);
+        }
         view.highlightTiles(null, null);
         view.highlightTiles(legal, 'legal');
         ptr.released = false; ptr.tile = null;
@@ -875,9 +891,19 @@ function MatchScreen() {
         window.addEventListener('pointerup', onUp, { passive: true, capture: true });
         moveOff = () => window.removeEventListener('pointerup', onUp, { capture: true });
       }),
-      view.on('tileHover', (t) => { ptr.tile = t && typeof t === 'object' ? t : null; }),
+      view.on('tileHover', (t) => {
+        ptr.tile = t && typeof t === 'object' ? t : null;
+        if (eq.uid != null) setEq(equipHoverState(live.current.placeCtx, eq.uid, ptr.tile)); // local patch
+      }),
       view.on('pieceDrop', async (e) => {
+        // local patch: an item dropped on the operator its popup shows plays the slot's equipped flash, then closes
+        const st = eq.state;
+        const t0 = e?.target || {};
+        const onIt = st && !st.full && eq.uid === e?.uid
+          && (t0.area === 'board' ? t0.row === st.row && t0.col === st.col : t0.area === 'hand' && st.row === GEO.HAND_ROW && t0.idx === st.col);
         endDrag();
+        setEq(onIt ? { ...st, equipped: true } : null);
+        if (onIt) setTimeout(() => { if (eq.state?.equipped) setEq(null); }, 0);
         const L = live.current;
         if (!e || !L.editable) return;
         const entry = L.placeCtx?.pieces.get(e.uid);
@@ -1429,6 +1455,8 @@ function MatchScreen() {
       grid=${facing.grid} name=${facing.name} onPreview=${previewFacing} onCommit=${commitFacing} onCancel=${cancelFacing} />` : null}
 
     ${paused ? html`<${PausedOverlay} canResume=${solo} busy=${pauseBusy} onResume=${() => togglePause(false)} onExit=${() => setExitOpen(true)} />` : null}
+
+    ${view ? html`<${EquipHoverPanel} view=${view} state=${eqHover} />` : null}
 
     ${replace ? html`<${EquipReplaceDialog} request=${replace.request} getItem=${gd.item}
       onConfirm=${(uid) => closeReplace(uid)} onCancel=${() => closeReplace(null)} />` : null}

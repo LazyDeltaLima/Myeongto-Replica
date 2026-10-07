@@ -31,6 +31,7 @@ import {
 import { syncThreeCamera } from '../projection.js';
 import { buildOfficialScene, OFFICIAL_DEVICE } from './official.js';
 import { TileOverlay } from './tileOverlay.js'; // local patch: official deploy tint / range stripes (LOCAL-PATCH.md 「배치 UI」)
+import { InfectionFx } from './infection.js'; // local patch: the 活性源石 tile effect (LOCAL-PATCH.md 「공식 맵 렌더링」)
 
 /** Lighting rig (tuned against the official screenshots: bright even tops, darker sides, soft shadows). */
 export const LIGHTING = Object.freeze({
@@ -51,6 +52,18 @@ export const LIGHTING = Object.freeze({
 
 /** Additive gain of the gate boxes at the curve's mean (tuned against the official screenshots). */
 export const GATE_GAIN = 0.6;
+/**
+ * local patch (LOCAL-PATCH.md 「공식 맵 렌더링」): the gates as the client's tile effects draw them (battle/prefabs/effects/
+ * tile.ab — the scene's Tile `_effect` "tile_start" / "tile_end"; [pack]map.ab's start_box / end_box are only the art):
+ * tile_start = Start_down / Start_up / Start_back additive [opt]start_end_add + Start_up AGAIN alpha-blended
+ * [opt]start_end_ab (the solid red 255,51,51 of the merged texture), tile_end = its Start_up1 both additive and
+ * alpha-blended; _TintColor 1 everywhere and no animated tint (the KR capture: red lines ≈ 229,63,60, cyan ≈ 136,226,249
+ * — ours were pink-white 255,180,200 and saturated blue 53,162,254). Additive gains [추정] fitted to that capture.
+ */
+export const GATE_ADD = Object.freeze({ start: 0.2, end: 0.5 });
+/** [추정] The start box's colour: the KR capture draws its warning triangle and corner dashes red as well (every
+ *  merged_textures variant has them white) — a red tint fitted to its lines (≈ 253,47,62). */
+export const GATE_START_TINT = Object.freeze([1, 0.22, 0.25]);
 
 /** Gate pulse: the official clip's _TintColor.a curve (2 s loop, 0.134 → 0.229 → 0.134) scaled to our intensity. */
 export function gatePulse(t, phase = 0) {
@@ -168,7 +181,8 @@ export class BoardScene {
       pipe: pipeMaterial(T, this.focus),
       bg: this.tex.BG ? unlitMaterial(T, this.tex.BG, new T.Color().setScalar(LIGHTING.bg.color * LIGHTING.bg.dim)) : new T.MeshBasicMaterial({ color: 0x1a1d1f }),
       wind: this.tex.wind ? unlitMaterial(T, this.tex.wind) : null,
-      gateStartAdd: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: true }) : null,
+      gateStartAdd: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: true, tint: GATE_START_TINT }) : null, // local patch: tint
+      gateStartAb: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: false, tint: GATE_START_TINT }) : null, // local patch
       gateEndAdd: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: true }) : null,
       gateEndAb: this.tex.gate ? gateMaterial(T, this.tex.gate, { additive: false }) : null,
       edge: glowMaterial(T, dashTexture(T)),
@@ -216,6 +230,7 @@ export class BoardScene {
     this.officialPending = new Set();
     this.officialBuilt = null;
     this.overlay = new TileOverlay(T, this.scene); // local patch
+    this.infectionFx = new InfectionFx(T, this.scene); // local patch
   }
 
   // ---- geometry ----------------------------------------------------------------------------------------------
@@ -294,6 +309,7 @@ export class BoardScene {
     this.stageKey = key;
     this.stage = stage || null;
     this._clear();
+    this.infectionFx?.setTiles(null); // local patch
     if (!stage) return;
     const board = buildBoard(stage, { uv: this.pack?.uv || null, area: this.area });
     this.board = board;
@@ -311,8 +327,11 @@ export class BoardScene {
       this.officialBuilt.setArea(this.area);
       this._buildDevices(board);
       this._buildGates(board);
-      this._buildEdges(board);
-      this._buildTerrain(board, { water: false });
+      // local patch (LOCAL-PATCH.md 「공식 맵 렌더링」): the official scene carries the 活性源石 tile's own decal (frame,
+      // dashed rings, crystal, WARNING sticker — user KR capture 2026-10-07) on a plain floor — the procedural crust is not
+      // drawn over it; nor are the cyan field edges, which the official board has none of
+      this._buildTerrain(board, { water: false, infection: false });
+      this.infectionFx?.setTiles(board.terrain.infection.map(([r, c]) => [r, c, 0])); // its map_promote_01 instead
       this._fitShadow(board);
       this.renderer.shadowMap.needsUpdate = true;
       return;
@@ -441,19 +460,22 @@ export class BoardScene {
       return objToBoard(rec.mesh, 0.01);
     };
     const parts = { startDown: place('startDown'), startUp: place('startUp'), startBack: place('startBack'), endDown: place('endDown'), endUp: place('endUp') };
-    const startAdd = [], endAdd = [], endAb = [];
+    const startAdd = [], startAb = [], endAdd = [], endAb = [];
     for (const g of board.gates) {
       // the tile effect's prefab rotation (0, .707, −.707, 0) maps the mesh to (x', −z', y') of the exported OBJ:
       // objToBoard's frame turned half a turn — the warning glyph on the top face points north (the official look)
       const at = { x: g.c, y: g.r, z: g.z + 0.5 + 0.003, rot: 2 };
-      if (g.kind === 'start') for (const k of ['startDown', 'startUp', 'startBack']) { if (parts[k]) startAdd.push(placeMesh(parts[k], at)); }
-      else {
+      if (g.kind === 'start') {
+        for (const k of ['startDown', 'startUp', 'startBack']) { if (parts[k]) startAdd.push(placeMesh(parts[k], at)); }
+        if (parts.startUp) startAb.push(placeMesh(parts.startUp, at)); // local patch: tile_start's alpha-blended Start_up
+      } else {
         if (parts.endDown) endAdd.push(placeMesh(parts.endDown, at));
-        if (parts.endUp) endAb.push(placeMesh(parts.endUp, at));
+        if (parts.endUp) { endAb.push(placeMesh(parts.endUp, at)); endAdd.push(placeMesh(parts.endUp, at)); } // local patch: both
       }
     }
     const opt = { cast: false, receive: false, order: 5 };
     if (startAdd.length) this.meshes.gateStart = this._mesh(mergeInto(startAdd), this.mat.gateStartAdd, opt);
+    if (startAb.length && this.mat.gateStartAb) this.meshes.gateStartAb = this._mesh(mergeInto(startAb), this.mat.gateStartAb, { ...opt, order: 4 }); // local patch
     if (endAdd.length) this.meshes.gateEndAdd = this._mesh(mergeInto(endAdd), this.mat.gateEndAdd, opt);
     if (endAb.length) this.meshes.gateEndAb = this._mesh(mergeInto(endAb), this.mat.gateEndAb, { ...opt, order: 4 });
   }
@@ -482,7 +504,7 @@ export class BoardScene {
     this.meshes.edges = this._mesh({ position: new Float32Array(pos), normal: nrm, uv: new Float32Array(uv), color: null, index: new Uint16Array(idx) }, this.mat.edge, { cast: false, receive: false, order: 3 });
   }
 
-  _buildTerrain(board, { water = true } = {}) {
+  _buildTerrain(board, { water = true, infection = true } = {}) {
     const quads = (tiles, z, inset = 0) => {
       const pos = [], uv = [], idx = [];
       for (const [r, c] of tiles) {
@@ -498,7 +520,7 @@ export class BoardScene {
     const opt = { cast: false, receive: false, order: 2 };
     if (water && T.water.length) this.meshes.water = this._mesh(quads(T.water, -0.035), this.mat.water, opt);
     if (T.mire.length) this.meshes.mire = this._mesh(quads(T.mire, 0.006, 0.02), this.mat.mire, opt);
-    if (T.infection.length) this.meshes.infection = this._mesh(quads(T.infection, 0.007, 0.02), this.mat.infection, opt);
+    if (infection && T.infection.length) this.meshes.infection = this._mesh(quads(T.infection, 0.007, 0.02), this.mat.infection, opt);
     if (T.smog.length) {
       // two crossed haze cards per grille tile, standing up
       const pos = [], uv = [], idx = [];
@@ -714,16 +736,18 @@ export class BoardScene {
       else F.set(F.x + (tg[0] - F.x) * k, F.y + (tg[1] - F.y) * k, F.z + (tg[2] - F.z) * k, F.w + (tg[3] - F.w) * k);
     }
     // gate pulses (official 2 s curve → additive intensity), objective leak flashes
-    const pulse = gatePulse(t);
-    if (this.mat.gateStartAdd) this.mat.gateStartAdd.uniforms.uPulse.value = GATE_GAIN * pulse / 0.18;
-    if (this.mat.gateEndAdd) this.mat.gateEndAdd.uniforms.uPulse.value = GATE_GAIN * gatePulse(t, 0.5) / 0.18;
-    if (this.mat.gateEndAb) this.mat.gateEndAb.uniforms.uPulse.value = 0.9;
+    // local patch: the client's tile_start / tile_end have no animated tint (GATE_ADD; gatePulse / GATE_GAIN were ours)
+    if (this.mat.gateStartAdd) this.mat.gateStartAdd.uniforms.uPulse.value = GATE_ADD.start;
+    if (this.mat.gateStartAb) this.mat.gateStartAb.uniforms.uPulse.value = 1;
+    if (this.mat.gateEndAdd) this.mat.gateEndAdd.uniforms.uPulse.value = GATE_ADD.end;
+    if (this.mat.gateEndAb) this.mat.gateEndAb.uniforms.uPulse.value = 1;
     let flash = 0;
     for (let i = this.flashes.length - 1; i >= 0; i--) { const f = this.flashes[i]; f.t += dt; if (f.t > 1.2) this.flashes.splice(i, 1); else flash = Math.max(flash, 1 - f.t / 1.2); }
     for (const m of [this.mat.gateEndAdd, this.mat.gateEndAb]) if (m) m.uniforms.uFlash.value.setRGB(flash, flash * 0.12, flash * 0.1);
     for (const k of ['water', 'mire', 'infection', 'smog']) this.mat[k].uniforms.uTime.value = t;
     this.officialBuilt?.update(t);
     this.overlay?.update(t); // local patch
+    this.infectionFx?.update(t); // local patch
     this.renderer.render(this.scene, this.camera);
     this.frames++;
     if (t0) this.lastMs = this.lastMs * 0.9 + ((typeof performance !== 'undefined' ? performance.now() : t0) - t0) * 0.1;
@@ -742,6 +766,7 @@ export class BoardScene {
     this._clear();
     this._dropOfficial();
     this.overlay?.dispose(); // local patch
+    this.infectionFx?.dispose(); // local patch
     this.mat.edge?.map?.dispose?.(); // canvas dash texture (not in this.tex)
     for (const m of Object.values(this.mat)) m?.dispose?.();
     for (const t of Object.values(this.tex)) t?.dispose?.();

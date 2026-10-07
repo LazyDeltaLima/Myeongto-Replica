@@ -7,6 +7,11 @@
 //            0.58) — a 2× modulate (src·dst + dst·src) with src = (0.29, 0.55, 0.29). [추정] the mechanism: the client's
 //            tile highlight is native code (shader Torappu/Scene/Special/HighlightTile exists, its material is made at run
 //            time); the colour is fitted to the capture.
+//   bench    the bench slots (hand pads) while a piece is dragged: the same 2× modulate in a teal tone. The client gives
+//            valid bench tiles their own highlight + emission colour (AutoChessGameMode
+//            AUTOCHESS_VALID_HANDTILE_CUSTOM_HIGHLIGHT / _EMISSION — static readonly, set in native code: no value in the
+//            data); fitted to the user's KR capture (2026-10-07, an item dragged): the bench plank 245,198,138 (ours,
+//            untinted) → 140,215,177, × (0.57, 1.09, 1.28).
 //   stripes  range previews (the direction wheel's 'facing', a selected piece's 'selRange' …): the client's attack-range
 //            material (battle/[pack]common.ab `range_material`, shader Torappu/Battle/AttackRange): texture
 //            `sprite_attack_range` (white diagonal stripes, 3 per tile) × colour, alpha _Color.a 0.749, alpha blend, no
@@ -16,6 +21,7 @@
 //
 //   const ov = new TileOverlay(THREE, scene)
 //   ov.setTint(tiles | null, heightAt)        [[r, c]] board tiles; heightAt(r, c) = top height (tiles.heightAt)
+//   ov.setBenchTint(tiles | null, heightAt)
 //   ov.setStripes(tiles | null, heightAt)
 //   ov.setStripeImage(img)                    HTMLImageElement of sprite_attack_range (optional)
 //   ov.update(timeSec) · ov.dispose()
@@ -23,6 +29,8 @@
 
 /** 2× modulate source colour of the deploy tint (× 0.58, 1.1, 0.58). */
 export const TINT = Object.freeze([0.29, 0.55, 0.29]);
+/** 2× modulate source colour of the bench tint (× 0.58, 1.1, 1.3 — teal; fitted to the KR capture). */
+export const BENCH_TINT = Object.freeze([0.29, 0.55, 0.65]);
 /** Attack-range stripes: colour (sRGB 0..1), alpha (range_material _Color.a), scroll speed (uv / s, _AnimationSpeed). */
 export const STRIPES = Object.freeze({ color: [1, 0.55, 0], alpha: 0.749, speed: 0.5 });
 /** Lift of the overlays above coplanar board surfaces (depth units, polygon offset). */
@@ -130,6 +138,8 @@ export class TileOverlay {
       blendSrcAlpha: T.ZeroFactor, blendDstAlpha: T.OneFactor,
       polygonOffset: true, polygonOffsetFactor: OFFSET.tint[0], polygonOffsetUnits: OFFSET.tint[1],
     }), 900);
+    this.bench = this._mesh(this.tint.material.clone(), 900);
+    this.bench.material.uniforms = { uTint: { value: new T.Vector3(...BENCH_TINT) } };
     const cv = stripeCanvas();
     this.stripeTex = cv ? this._texture(new T.CanvasTexture(cv)) : null;
     this.stripes = this._mesh(new T.ShaderMaterial({
@@ -138,7 +148,7 @@ export class TileOverlay {
       transparent: true, depthWrite: false, depthTest: true, fog: false, toneMapped: false, blending: T.NormalBlending,
       polygonOffset: true, polygonOffsetFactor: OFFSET.stripes[0], polygonOffsetUnits: OFFSET.stripes[1],
     }), 901);
-    this.keys = { tint: '', stripes: '' };
+    this.keys = { tint: '', bench: '', stripes: '' };
   }
 
   _texture(tex) {
@@ -183,6 +193,9 @@ export class TileOverlay {
   /** Deployable tiles of the dragged piece (null / [] clears). */
   setTint(tiles, heightAt) { this._set('tint', tiles, heightAt); }
 
+  /** Bench slots that take the dragged piece (null / [] clears). */
+  setBenchTint(tiles, heightAt) { this._set('bench', tiles, heightAt); }
+
   /** Range preview tiles (null / [] clears). */
   setStripes(tiles, heightAt) { this._set('stripes', tiles, heightAt); }
 
@@ -202,7 +215,7 @@ export class TileOverlay {
   }
 
   dispose() {
-    for (const m of [this.tint, this.stripes]) {
+    for (const m of [this.tint, this.bench, this.stripes]) {
       this.parent?.remove?.(m);
       m.geometry.dispose();
       m.material.dispose();

@@ -14,7 +14,7 @@ import { parseObj, mapMesh } from '../../public/js/render/board3d/obj.js';
 import {
   buildBoard, classifyStage, heightOf, AREAS, areaFor, unionAreas, objToBoard, boxProjectUV, tube, Geom, uvAt, ROWS, COLS,
 } from '../../public/js/render/board3d/layout.js';
-import { BoardScene, gatePulse, DIR_TURNS, boxData, LIGHTING } from '../../public/js/render/board3d/scene.js';
+import { BoardScene, gatePulse, DIR_TURNS, boxData, LIGHTING, GATE_ADD } from '../../public/js/render/board3d/scene.js';
 import { loadBoardPack, resetBoardPack, PACK_IMAGES } from '../../public/js/render/board3d/load.js';
 import { parseStage } from '../../public/js/render/tiles.js';
 import { TILE_H } from '../../public/js/render/style.js';
@@ -275,9 +275,10 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
       const a = new THREE.Vector3(x, y, z).project(board.camera), b = new THREE.Vector3(x, y, z).project(ref);
       assert.ok(near(a.x, b.x, 1e-9) && near(a.y, b.y, 1e-9));
     }
-    const p0 = board.mat.gateStartAdd.uniforms.uPulse.value;
+    // local patch (LOCAL-PATCH.md 「공식 맵 렌더링」): the client's tile_start / tile_end have no animated tint — constant gains
     board.render(cam, 2.25);
-    assert.notEqual(board.mat.gateStartAdd.uniforms.uPulse.value, p0, 'gate pulse animates');
+    assert.equal(board.mat.gateStartAdd.uniforms.uPulse.value, GATE_ADD.start, 'gate gain constant');
+    assert.equal(board.mat.gateStartAb.uniforms.uPulse.value, 1, 'start box alpha-blended pass');
     board.flashObjective(9, 2);
     board.render(cam, 2.4);
     assert.ok(board.mat.gateEndAb.uniforms.uFlash.value.r > 0.5, 'leak flash');

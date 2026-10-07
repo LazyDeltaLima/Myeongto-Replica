@@ -113,6 +113,7 @@ import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect } 
 import { SnapshotBuffer, frameTime } from './interp.js';
 import { TileField } from './tiles.js';
 import { UnitView, ItemView, DeviceView, FORMS } from './units.js';
+import { createInfectionMarks } from './infectionMark.js'; // local patch: the red 「!!!」 over units on 活性源石
 import { FxSystem, ensureDamageFonts } from './fx.js';
 import { createDragController, pieceTile } from './drag.js';
 import { backdropTextures, shadowTexture, refreshTierChips, silhouetteTexture } from './textures.js';
@@ -625,6 +626,11 @@ export async function createFieldView(host, options = {}) {
         const su = assets.localUrl?.('battle/common', 'sprite_attack_range');
         if (su && assets.image) assets.image(su).then((img) => { if (board3d === b) b.overlay?.setStripeImage(img); }, () => {});
       } catch { /* the procedural stripes stay */ }
+      // local patch (LOCAL-PATCH.md 「공식 맵 렌더링」): the 活性源石 tile effect's textures (tools/local-extract/boardfx_extract.py)
+      try {
+        const fu = assets.localUrl?.('board/fx', 'flow_26'), mu = assets.localUrl?.('board/fx', 'mask_123');
+        if (fu && mu && assets.image) Promise.all([assets.image(fu), assets.image(mu)]).then(([flow, mask]) => { if (board3d === b) b.infectionFx?.setImages({ flow, mask }); }, () => {});
+      } catch { /* no tile effect */ }
       tiles.setExternal(true);
       backdrop.visible = false;
       b.setArea(boardArea(viewKind(camKind, camOpts)));
@@ -1270,7 +1276,12 @@ export async function createFieldView(host, options = {}) {
   function syncOverlay3d() {
     const o = board3d?.overlay;
     if (!o) return;
-    o.setTint(overlay3d.get('legal') || null, heightAt);
+    // local patch: the bench slots get their own (teal) tint — rows 7 / 8 are the bench only in the normal prep (the Final Assault
+    // prep maps the board onto the boss field and drops them)
+    const legal = overlay3d.get('legal') || [];
+    const isBench = ([r]) => prepXf === IDENTITY && (r === GEO.HAND_ROW || r === GEO.TEMP_ROW);
+    o.setTint(legal.filter((t) => !isBench(t)), heightAt);
+    o.setBenchTint?.(legal.filter(isBench), heightAt);
     const s = [];
     for (const [g, t] of overlay3d) if (g !== 'legal') s.push(...t);
     o.setStripes(s, heightAt);
@@ -1889,6 +1900,7 @@ export async function createFieldView(host, options = {}) {
       }
       if (!penHidden) for (const v of penViews.values()) v.update(dt, cam, clock);
       if (leader && !leaderHidden) leader.view.update(dt, cam, clock);
+      updateInfectionMarks(); // local patch
       tiles.update(dt);
       fx.update(dt);
       fxGame.update(dt, cam, vp); // local patch
@@ -1896,6 +1908,38 @@ export async function createFieldView(host, options = {}) {
     } catch (err) {
       if (!frame.warned) { frame.warned = true; console.error('[render] frame failed', err); }
     }
+  }
+  // local patch (LOCAL-PATCH.md 「공식 맵 렌더링」): the red 「!!!」 of the 活性源石 buff (render/infectionMark.js) — in prep
+  // over the board pieces standing on the tile, in battle over every ground unit that has touched one this battle (the
+  // buff outlasts the battle: duration 300 s after the last contact; the sim does not report it)
+  let infMarks = null;
+  const infTouched = new Set();
+  function updateInfectionMarks() {
+    if (!infMarks) {
+      if (frameNo % 60 !== 1) return;
+      const icon = assets.localUrl?.('board/fx', 'kuangre_01'), glow = assets.localUrl?.('board/fx', 'star_02');
+      if (!icon || !glow) return;
+      infMarks = createInfectionMarks(P, layers.bars, { icon, glow });
+    }
+    const list = [];
+    const onTile = (v) => tiles.tile(Math.round(v.y), Math.round(v.x)).mat === 'infection';
+    const mark = (v) => { if (!v.culled && v.screen) list.push({ x: v.screen.x, y: v.screen.top, s: v.screen.s }); };
+    if (mode === 'battle') {
+      for (const [key, v] of views) {
+        if (!(v instanceof UnitView) || !v.alive || v.flying) continue;
+        if (onTile(v)) infTouched.add(key);
+        if (infTouched.has(key)) mark(v);
+      }
+    } else {
+      infTouched.clear();
+      if (mode === 'prep') {
+        for (const e of prepPieces) {
+          const v = e.area === 'board' ? views.get(e.key) : null;
+          if (v instanceof UnitView && !v.lift && !v._tween && onTile(v)) mark(v);
+        }
+      }
+    }
+    infMarks.update(list, clock);
   }
   app.ticker.add(frame);
   // render-cost probe (PIXI renders at UPDATE_PRIORITY.LOW = -25)

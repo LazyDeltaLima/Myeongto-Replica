@@ -1,0 +1,65 @@
+/* Official equipment-slot popup over an operator while an item is dragged onto it (local patch, docs/LOCAL-PATCH.md
+   「배치 UI」; js/ui/equipHover.js). Prefab act1autochess_equip_slot_panel (EN client) in the 1280×720 canvas unit
+   (--ui-u, css/hud-art.css) × the panel's root scale 0.8 = --eh. Sprites (img_EquipSlot_*) come in as --eqh-* variables.
+   Clips: show — alpha 0→1 in .067 s, scale .831→.974 (.067 s)→1 (.333 s), y 94→120; close — alpha 1 until .2 s, 0 at
+   .4 s, scale →.942, y 120→94; equipped — the slot pops 1→1.333 (.017 s)→.95 (.133 s)→1 (.183 s) with a teal fill
+   flash and the glow. */
+.eqh { --eh: calc(var(--ui-u, .015rem) * .8); position: fixed; width: 0; height: 0; z-index: var(--z-banner); pointer-events: none; }
+.eqh i, .eqh span { position: absolute; display: block; }
+.eqh__p { position: absolute; left: calc(var(--eh) * -167); bottom: calc(var(--eh) * 120); width: calc(var(--eh) * 334); height: calc(var(--eh) * 152);
+  transform-origin: 50% 100%; animation: eqh-in .333s linear both; }
+.eqh.is-leaving .eqh__p { animation: eqh-out .4s linear both; }
+@keyframes eqh-in {
+  0% { opacity: 0; transform: translateY(calc(var(--eh) * 26)) scale(.831); }
+  20% { opacity: 1; transform: translateY(0) scale(.974); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes eqh-out {
+  0%, 50% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(calc(var(--eh) * 26)) scale(.942); }
+}
+/* Bg: img_EquipSlot_bg (the black pill with its own grey brackets), Image colour white α .79 */
+.eqh__bg { inset: 0; background: var(--eqh-bg) center / 100% 100% no-repeat; opacity: .79; }
+/* Root_Frame_Normal / _Full: FrameL / FrameR 109 × 109 (pivots (1, .5) / (0, .5) at the pill centre + 2) */
+.eqh__fr { top: calc(var(--eh) * 21.5); width: calc(var(--eh) * 109); height: calc(var(--eh) * 109); background: var(--eqh-frame1) center / 100% 100% no-repeat; }
+.eqh__fr--l { left: calc(var(--eh) * 60); }
+.eqh__fr--r { left: calc(var(--eh) * 169); }
+.eqh.is-full .eqh__fr { background-image: var(--eqh-frame1_red); }
+/* Group_LeftSlot / Group_RightSlot: 108 × 108 at ±54 (+2); their 90 × 90 contents centred */
+.eqh__slot { top: calc(var(--eh) * 22); width: calc(var(--eh) * 108); height: calc(var(--eh) * 108); }
+.eqh__slot:nth-of-type(1) { left: calc(var(--eh) * 61); }
+.eqh__slot:nth-of-type(2) { left: calc(var(--eh) * 169); }
+.eqh__equip, .eqh__empty { left: calc(var(--eh) * 9); top: calc(var(--eh) * 9); width: calc(var(--eh) * 90); height: calc(var(--eh) * 90); }
+.eqh__box { inset: 0; background: #1e1e1e; }
+.eqh__icon { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+/* Frame: img_EquipSlot_frame2, Sliced, border 4 */
+.eqh__frame { inset: 0; border: calc(var(--eh) * 4) solid transparent; box-sizing: border-box;
+  border-image: var(--eqh-frame2) 4 / calc(var(--eh) * 4) stretch; }
+/* Root_Empty (the slot the item goes into): img_EquipSlot_frame3 (90 × 89) + Fx_LoopLight 81 × 80
+   img_EquipSlot_SlotGlow × #55ffeb, additive (M_AutoChess_EquipSlot_BasicAdd One / One), CanvasGroup α 1 ↔ .4 / .7 s */
+.eqh__frame3 { left: 0; top: calc(var(--eh) * .5); width: 100%; height: calc(var(--eh) * 89); background: var(--eqh-frame3) center / 100% 100% no-repeat; }
+.eqh__loop { left: calc(var(--eh) * 4.5); top: calc(var(--eh) * 5); width: calc(var(--eh) * 81); height: calc(var(--eh) * 80); background: #55ffeb;
+  -webkit-mask: var(--eqh-SlotGlow) center / 100% 100% no-repeat; mask: var(--eqh-SlotGlow) center / 100% 100% no-repeat; mask-mode: luminance;
+  mix-blend-mode: plus-lighter; animation: eqh-loop .7s ease-in-out infinite alternate; }
+@keyframes eqh-loop { from { opacity: 1; } to { opacity: .4; } }
+/* equipped (autochess_equip_slot_equipped on the receiving slot) */
+.eqh__slot.is-flash .eqh__equip { animation: eqh-pop .183s linear both; }
+@keyframes eqh-pop { 0% { transform: scale(1); } 9% { transform: scale(1.333); } 73% { transform: scale(.95); } 100% { transform: scale(1); } }
+.eqh__fill { inset: 0; background: #b6fff6; mix-blend-mode: plus-lighter; animation: eqh-fill .183s linear both; }
+@keyframes eqh-fill { 0% { opacity: 0; background: #5b9891; } 9%, 45% { opacity: 1; } 100% { opacity: 0; background: #b6fff6; } }
+.eqh__glowfx { left: calc(var(--eh) * 2); top: calc(var(--eh) * 2.6); width: calc(var(--eh) * 85.8); height: calc(var(--eh) * 84.8); background: #b0fff6;
+  -webkit-mask: var(--eqh-sg) center / 100% 100% no-repeat; mask: var(--eqh-sg) center / 100% 100% no-repeat; mask-mode: luminance;
+  mix-blend-mode: plus-lighter; animation: eqh-glow .417s linear both; }
+@keyframes eqh-glow { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+/* Root_Matte_Full (both slots used — the drop replaces): img_EquipSlot_glow α .71 + its loop light α 0 ↔ .5 / 1 s,
+   the swap icon (53 × 46) and the label (30, white ↔ 1, .794, .794 / 1 s), centred, spacing 6, padding-left 8 */
+.eqh__matte { inset: 0; display: flex !important; align-items: center; justify-content: center; gap: calc(var(--eh) * 6); padding-left: calc(var(--eh) * 8); }
+.eqh__matte-bg, .eqh__matte-loop { inset: 0; background: var(--eqh-glow) center / 100% 100% no-repeat; }
+.eqh__matte-bg { opacity: .71; }
+.eqh__matte-loop { animation: eqh-matte 1s ease-in-out infinite alternate; }
+@keyframes eqh-matte { from { opacity: 0; } to { opacity: .5; } }
+.eqh__swap { position: relative !important; display: flex !important; align-items: center; gap: calc(var(--eh) * 6); animation: eqh-pink 1s ease-in-out infinite alternate; }
+.eqh__swap-icon { position: relative !important; width: calc(var(--eh) * 53); height: calc(var(--eh) * 46); background: currentColor;
+  -webkit-mask: var(--eqh-icon) center / 100% 100% no-repeat; mask: var(--eqh-icon) center / 100% 100% no-repeat; }
+.eqh__label { position: relative !important; font-size: calc(var(--eh) * 30); line-height: 1; font-weight: 500; white-space: nowrap; }
+@keyframes eqh-pink { from { color: #fff; } to { color: #ffcaca; } }
