@@ -45,6 +45,12 @@ VARIANT_RE = re.compile(r'#\d+|_sale|_iteration|_avemujica|_cn_topolect', re.I)
 # local patch: prefabs never extracted — common_stealth (texture common_leaf; only the 生息演算 buildings use it, and the user has
 # never seen the leaf in the game, 2026-10-08: "그 텍스처는 폐기해")
 DISCARD = {'common_stealth'}
+# local patch (user report 4 #4-5, user's decision 2026-10-08): Unity's built-in meshes a MeshFilter / mesh particle names in
+# `Library/unity default resources` (FileID → that external, the PathID below) — 缄默德克萨斯 S3's falling sword blade is a
+# Quad. The client ships the file (<Arknights_Data>/Resources); only Quad / Plane are read from it (Cube 10202 / Sphere 10207
+# are left out by the decision)
+BUILTIN_RES = 'unity default resources'
+BUILTIN_MESHES = {10209: 'Plane', 10210: 'Quad'}
 
 
 def r4(v):
@@ -293,6 +299,7 @@ class Extractor:
         self.cab = json.loads(Path(cab_index).read_text()) if cab_index else {}
         self.textures = {}   # path_id/name key -> file name
         self.meshes = {}
+        self.builtin = None  # the client's unity default resources, loaded on first use (mesh_ref)
 
     def load(self, bundle_rel):
         files = [bundle_path(self.game, bundle_rel)]
@@ -336,6 +343,29 @@ class Extractor:
                         return sf.objects.get(pptr['m_PathID'])
         except Exception:
             return None
+        return None
+
+    def mesh_ref(self, pptr, ctx):
+        """local patch: resolve() for a mesh, falling back to the built-in Quad / Plane (BUILTIN_MESHES)."""
+        o = self.resolve(pptr, ctx)
+        if o is not None or not pptr or not pptr.get('m_FileID') or pptr.get('m_PathID') not in BUILTIN_MESHES:
+            return o
+        try:
+            if ctx.assets_file.externals[pptr['m_FileID'] - 1].path.split('/')[-1].lower() != BUILTIN_RES:
+                return None
+        except Exception:
+            return None
+        if self.builtin is None:
+            p = self.game / 'Resources' / BUILTIN_RES
+            self.builtin = self.UnityPy.load(str(p)) if p.exists() else False
+            if not self.builtin:
+                print(f'[fx] no {p}: the built-in Quad / Plane meshes are skipped')
+        if not self.builtin:
+            return None
+        for f in self.builtin.files.values():
+            o = getattr(f, 'objects', {}).get(pptr['m_PathID'])
+            if o is not None:
+                return o
         return None
 
     def texture(self, obj, out):
@@ -484,7 +514,7 @@ class Extractor:
                                 trail_mat = self.material(m2, out, mats)
                     mesh_key = None
                     if psr_t.get('m_RenderMode') == 4:
-                        mo = self.resolve(psr_t.get('m_Mesh'), psr)
+                        mo = self.mesh_ref(psr_t.get('m_Mesh'), psr)
                         if mo is not None:
                             mesh_key = self.mesh(mo, out)
                     ps_t = node.pop('_ps').read_typetree()
@@ -496,7 +526,7 @@ class Extractor:
             if '_mr' in node and '_mf' in node:
                 mr = node.pop('_mr').read_typetree()
                 mf = node.pop('_mf')
-                mo = self.resolve(mf.read_typetree()['m_Mesh'], mf)
+                mo = self.mesh_ref(mf.read_typetree()['m_Mesh'], mf)
                 mat = self.resolve(mr['m_Materials'][0], node.get('_ctx', mf)) if mr.get('m_Materials') else None
                 if mo is not None and mat is not None:
                     node['mesh'] = {'mesh': self.mesh(mo, out), 'mat': self.material(mat, out, mats),

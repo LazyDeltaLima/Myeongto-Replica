@@ -61,3 +61,14 @@ test('#4-3 her S2 activation: the 4 nested slashes fade out within 1 s, the effe
   assert.equal(inst.clipLen, 2);
   inst.dispose();
 });
+
+// #4-5 B (user's decision 2026-10-08: the texas2 bundle re-extracted first): the blades are Unity's built-in Quad
+// (`unity default resources`, PathID 10210), read by tools/local-extract/fx_extract.py mesh_ref from the client's own file
+test('#4-5 the falling sword\'s blade nodes carry the built-in Quad mesh (skipped without public/assets)', { skip: !existsSync(HIT02) && 'no extracted fx' }, () => {
+  const d = JSON.parse(readFileSync(HIT02, 'utf8'));
+  for (const n of ['jian', 'jian1', 'add']) assert.match(d.nodes.find((x) => x.name === n)?.mesh?.mesh || '', /^Quad_000027e2$/, n);
+  assert.ok(!d.clips.some((c) => c.tracks.some((t) => t.prop.startsWith('attr:'))), 'their material tracks resolve now');
+  const q = JSON.parse(readFileSync(path.join(FX, '..', 'mesh', 'Quad_000027e2.json'), 'utf8'));
+  assert.deepEqual(q.idx, [0, 3, 1, 3, 0, 2]);
+  assert.equal(q.pos.length, 12);
+});
