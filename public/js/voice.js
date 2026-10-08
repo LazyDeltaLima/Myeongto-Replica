@@ -12,7 +12,7 @@
 //     cooldown by the official voice type, a random 作战中, 行动开始 once per battle, no 部署 burst at the battle start.
 //
 //   <VoiceSetting />           the settings row (ui/settings.js): language
-//   voiceForPiece(piece)       screens/game.js: a tapped board / bench piece
+//   voiceForPiece(piece, shown) screens/game.js: a tapped board / bench piece (shown = the record it shows: 自选 / 补位)
 //   voiceForPlace(unit, uid)   screens/game.js: an operator the player placed from the bench on the board (部署)
 //   voiceForUnit(info, id)     screens/game.js: a tapped battle unit
 //   holdResultVoice(line)      screens/game.js onResult: the own battle's 结算 line, kept instead of played
@@ -29,6 +29,7 @@ import { createStore, useStore, loadPref, savePref, store } from './store.js';
 import { audio } from './audio.js';
 import { data } from './data.js';
 import { OfficialVoiceGate, createVoicePolicy } from './voicePolicy.js';
+import { unitForm } from '../../shared/standIn.js';
 import { t, N_ } from '../../shared/i18n.js';
 
 const PREF = 'voice';
@@ -58,12 +59,29 @@ audio.voiceTable = () => voiceTableOf(audio.getManifest());
 // 作战中 / 行动开始 / opening-deployment choices in audio.js handleBattleEvents
 audio.voiceGate = new OfficialVoiceGate();
 audio.voicePolicy = createVoicePolicy({
-  skillOf: (u) => {
-    const rec = typeof u?.defId === 'string' ? data.lookup('chess', u.defId) : null;
-    return (Number.isInteger(u?.skillIndex) ? rec?.skills?.find((k) => k.index === u.skillIndex) : null) ?? rec?.skill ?? null;
-  },
+  skillOf: (u) => unitSkillOf(typeof u?.defId === 'string' ? data.lookup('chess', u.defId) : null, u?.def, u?.skillIndex, data.get('backups')),
   slotsOf: (charId) => Object.keys(audio.voiceTable?.()?.[charId] || {}),
 });
+
+/**
+ * The skill record a battle unit fights with (voicePolicy `skillOf`: its official voice type — 自动 60 / 50 with the 10 s
+ * cooldown, 手动 70). `rec` is the unit's chess record (UnitInfo `defId`); when the unit's model `def` (UnitInfo `spine` —
+ * the operator who fields it) is another character, the chess is a 自选 slot (0.2.0: `charId` null, no skills of its own)
+ * or a 补位 chess (its record holds the replaced operator's skills) → the skill of that character's form at the chess's
+ * status (data/backups.json — the form shared/diy.js / shared/standIn.js compose the fielded record from), by the unit's
+ * skill index. Session K 2026-10-08 (K-2): 望 S1 / S2, 维什戴尔 S1, 阿斯卡纶 S1 (AUTO) were typed SKILL_ACTIVE.
+ * @param {any} rec data/chess.json record @param {string|null|undefined} def @param {number|null|undefined} skillIndex
+ * @param {any} backups data/backups.json
+ */
+export function unitSkillOf(rec, def, skillIndex, backups) {
+  if (!rec) return null;
+  const byIndex = (list) => (Number.isInteger(skillIndex) && Array.isArray(list) ? list.find((k) => k && k.index === skillIndex) ?? null : null);
+  if (typeof def === 'string' && def.startsWith('char_') && def !== rec.charId) {
+    const form = unitForm(backups, def, rec.status);
+    if (form) return byIndex(form.skills);
+  }
+  return byIndex(rec.skills) ?? rec.skill ?? null;
+}
 
 /**
  * Whether the background download keeps a browser-resources.json entry: a voice file only in the chosen language.
@@ -82,12 +100,16 @@ export function chessVoiceId(chessId) {
 
 /**
  * The operator of a board / bench piece the player tapped (screens/game.js pieceClick): its 选中干员 line.
+ * `shown` = the record the own piece shows (screens/game.js ownShown): a filled 自选 slot's operator (0.2.0: the slot's
+ * chess record has no charId / assets), a 补位 piece's stand-in (its own voice bank — the 预备干员 have none, so it is
+ * silent like its battle unit, voiceForUnit) — session K 2026-10-08 (K-1); without it the chess record's operator.
  * @param {{ kind?: string, id?: string, uid?: string|number }|null|undefined} piece
+ * @param {{ charId?: string|null, assets?: { spine?: string|null }|null }|null} [shown]
  */
-export function voiceForPiece(piece) {
+export function voiceForPiece(piece, shown = null) {
   if (!piece || piece.kind === 'item' || piece.kind === 'token') return;
-  const id = chessVoiceId(piece.id);
-  if (id) audio.voice(id, 'select', { unitKey: `prep:${piece.uid ?? id}` });
+  const id = shown && typeof shown === 'object' ? shown.assets?.spine || shown.charId || null : chessVoiceId(piece.id);
+  if (typeof id === 'string' && id.startsWith('char_')) audio.voice(id, 'select', { unitKey: `prep:${piece.uid ?? id}` });
 }
 
 /**

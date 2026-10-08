@@ -330,9 +330,48 @@ describe('operator voice: Korean / Japanese / off and the 休整期 lines on ups
     const game = readFileSync(path.join(ROOT, 'public', 'js', 'screens', 'game.js'), 'utf8');
     const dragStart = game.slice(game.indexOf("view.on('pieceDragStart'"), game.indexOf("view.on('pieceDragStart'") + 600);
     assert.ok(!/voiceFor/.test(dragStart), 'no line when a drag to place starts');
-    assert.match(game, /\n\s+voiceForPiece\(L\.placeCtx\?\.pieces\.get\(e\.uid\)\?\.piece\);/, 'every tap, the re-tap of the selected one too');
+    assert.match(game, /\n\s+const tapped = L\.placeCtx\?\.pieces\.get\(e\.uid\)\?\.piece;\n(\s+\/\/.*\n)*\s+voiceForPiece\(tapped, tapped && tapped\.kind !== 'item' && tapped\.kind !== 'token' \? ownShown\(tapped\.id\) : null\);/,
+      'every tap, the re-tap of the selected one too — in the voice of what the piece shows');
     assert.match(game, /if \(isCombatPhase\(live\.current\.pub\?\.phase\)\) voiceForUnit\(e\.unit, e\.unitId\);/);
     assert.ok(!/voice=\$\{combat\}/.test(game), "the detail panel's once-per-target line is replaced by the tap's");
+  });
+
+  test('client: a 自选 / 补位 piece speaks and casts as the operator it fields (session K 2026-10-08, K-1 / K-2)', async () => {
+    const v = await mod('voice.js');
+    const { audio } = await mod('audio.js');
+    const { skillVoiceType } = await import('../public/js/voicePolicy.js');
+    const { diyRecordOf } = await import('../shared/diy.js');
+    const { standInRecord } = await import('../shared/standIn.js');
+    const chess = JSON.parse(readFileSync(path.join(ROOT, 'data', 'chess.json'), 'utf8'));
+    const backups = JSON.parse(readFileSync(path.join(ROOT, 'data', 'backups.json'), 'utf8'));
+    const slot = chess.chess_char_6_diy1_a;
+    assert.equal(slot.charId, null, '0.2.0: a 自选 slot record has no operator of its own');
+    assert.equal(v.chessVoiceId(slot.chessId), null);
+    const wang = diyRecordOf(slot, { charId: 'char_2027_wang', skillIndex: 0, uniEquipId: null }, { chess, backups });
+    const titi = chess.chess_char_5_02_a; // 补位: 预备干员-术师 (char_604_ccast) fields for it
+    const si = standInRecord(titi, backups);
+    assert.equal(si.charId, 'char_604_ccast');
+    const calls = [];
+    const orig = audio.voice;
+    audio.voice = (id, s, o) => { calls.push([id, s, o?.unitKey]); return true; };
+    try {
+      v.voiceForPiece({ kind: 'chess', id: slot.chessId, uid: 2 }, wang);
+      v.voiceForPiece({ kind: 'chess', id: titi.chessId, uid: 1 }, si);
+    } finally { audio.voice = orig; }
+    assert.deepEqual(calls, [['char_2027_wang', 'select', 'prep:2'], ['char_604_ccast', 'select', 'prep:1']],
+      "the 自选 operator's line; the stand-in's (no voice bank: silent, like its battle unit) — not the replaced operator's");
+    // the battle's skill voice type: the fielded operator's skill at the chess's status, by the unit's skill index
+    const type = (rec, def, i) => skillVoiceType(v.unitSkillOf(rec, def, i, backups));
+    assert.equal(type(slot, 'char_2027_wang', 0), 'SKILL_PASSIVE_IMP', '望 S1 AUTO (SP 21)');
+    assert.equal(type(slot, 'char_2027_wang', 1), 'SKILL_PASSIVE_IMP', '望 S2 AUTO (SP 17)');
+    assert.equal(type(slot, 'char_2027_wang', 2), 'SKILL_ACTIVE', '望 S3 MANUAL');
+    assert.equal(type(slot, 'char_1035_wisdel', 0), 'SKILL_PASSIVE_NOR', '维什戴尔 S1 AUTO (SP 4)');
+    assert.equal(type(chess.chess_char_5_diy1_a, 'char_4132_ascln', 0), 'SKILL_PASSIVE_IMP', '阿斯卡纶 S1 AUTO (SP 10)');
+    const mostma = chess.chess_char_4_02_a; // own skills MANUAL, its stand-in 预备干员-狙击's S1 AUTO
+    assert.equal(type(mostma, standInRecord(mostma, backups).charId, standInRecord(mostma, backups).skill.index), 'SKILL_PASSIVE_IMP');
+    assert.equal(type(mostma, mostma.charId, mostma.skill.index), skillVoiceType(mostma.skill), 'an ordinary chess keeps its own record');
+    const game = readFileSync(path.join(ROOT, 'public', 'js', 'screens', 'game.js'), 'utf8');
+    assert.match(game, /voiceForPiece\(tapped, [^\n]*ownShown\(tapped\.id\)/, 'the tap passes the record the own piece shows');
   });
 
   test('client: 部署 line when the player places an operator from the bench on the board (2-5, owner 2026-10-08)', async () => {

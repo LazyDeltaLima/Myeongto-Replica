@@ -1005,7 +1005,9 @@ function MatchScreen() {
         const wasSel = pressSel.current === e.uid;
         pressSel.current = null;
         setSel(wasSel ? null : { uid: e.uid });
-        voiceForPiece(L.placeCtx?.pieces.get(e.uid)?.piece); // local patch: a re-tap of the selected one speaks too (official)
+        const tapped = L.placeCtx?.pieces.get(e.uid)?.piece;
+        // a re-tap of the selected one speaks too (official); the voice of what the piece shows — 自选 / 补位 (voice.js)
+        voiceForPiece(tapped, tapped && tapped.kind !== 'item' && tapped.kind !== 'token' ? ownShown(tapped.id) : null);
         if (wasSel) setDetail((d) => (d?.kind === 'piece' && d.uid === e.uid ? null : d));
       }),
       // a tap on the ground itself: a special terrain tile explains itself (GitHub issue #184 「建议加入对于特殊地形的单击
