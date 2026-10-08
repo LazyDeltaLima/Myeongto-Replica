@@ -57,7 +57,9 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
     case PHASE.ROUND_START: return { title: t('第 {r} 回合', { r }), micro: `ROUND ${String(r).padStart(2, '0')}`, tone: 'mint',
       sub: spectator || alive === false ? t('观战中') : t('资金已到账') };
     case PHASE.SP_DRAFT: return { title: t('机变阶段'), micro: 'CONTINGENCY', tone: 'gold', sub: t('依次选择机变') };
-    case PHASE.PREP: return { title: t('休整期'), micro: `ROUND ${String(r).padStart(2, '0')} // REST`, tone: 'mint', sub: t('部署干员，准备迎敌') };
+    // no 休整期 band: the official game opens the rest with the round-start dialog alone (回合 NN · 获得 +N, ui/phaseArt.js
+    // RoundStartBanner at ROUND_START) — user decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」
+    case PHASE.PREP: return null;
     case PHASE.COMBAT: return { title: t('作战开始'), micro: 'COMBAT', tone: 'orange', sub: t('各自行动阶段') };
     case PHASE.UNITE: {
       const names = new Map(sortedPlayers(pub).map((p) => [p.playerId, p.name || t('博士')]));

@@ -91,7 +91,7 @@ describe('phases', () => {
     // the title and the other phases' copy are the same for every viewer
     for (const v of [{ alive: true }, { alive: false }, { alive: false, spectator: true }]) {
       assert.equal(round(v).title, '第 2 回合');
-      assert.equal(phaseBanner(PHASE.PREP, pub, v).sub, phaseBanner(PHASE.PREP, pub).sub);
+      assert.equal(phaseBanner(PHASE.PREP, pub, v), null, 'no 休整期 band (user decision 2026-10-08: the official game has none)');
     }
     // the match screen hands the banner its viewer (screens/game.js `alive` folds a spectator seat in)
     const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
