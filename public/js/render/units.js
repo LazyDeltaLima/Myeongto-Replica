@@ -74,6 +74,7 @@ import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local p
 import { UF_CAMOU } from '../../../shared/local.js'; // local patch: 迷彩 icon
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
 import { iconShownAsFx } from './fxstatus.js'; // local patch: statuses drawn as official effects
+import { syncHeldWeapon } from './boomerang.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -1087,6 +1088,7 @@ export class UnitView {
     // model / fallback
     const spineShown = this.actor && this.spineReady;
     if (spineShown) {
+      syncHeldWeapon(this.actor, this); // local patch (user report 4 #4-6): the held boomerang, off while one flies
       if (this.swapT < 1) this.swapT = Math.min(1, this.swapT + dt * 5);
       this.fallback.alpha = 1 - this.swapT;
       this.fallback.visible = this.swapT < 1;

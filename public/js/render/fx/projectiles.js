@@ -5,6 +5,7 @@ import { PROJ } from '../style.js';
 import { SHOT_HEIGHT, bodyZ, feetZ } from './camera.js';
 import { clamp } from './limits.js';
 import { projSpeed } from './speeds.js';
+import { boomerangThrown, boomerangCaught } from '../boomerang.js'; // local patch: the 回环射手's held boomerang
 
 const MAX_PROJ = 260;
 
@@ -80,6 +81,8 @@ export class FxProjectiles {
     pr.spin = Math.random() * 6;
     this._dressProj(pr);
     this.projs.push(pr);
+    // local patch (user report 4 #4-6): the boomerang leaves her hand until this flight ends (_releaseProj; render/boomerang.js)
+    if (look === 'boomerang') { pr.held = src; boomerangThrown(src); }
     if (this.rich) this._muzzle(pr);
   }
 
@@ -129,6 +132,7 @@ export class FxProjectiles {
 
   _releaseProj(pr) {
     pr.trail.visible = pr.halo.visible = pr.core.visible = pr.shadow.visible = false;
+    if (pr.held) { boomerangCaught(pr.held); pr.held = null; } // local patch: back in her hand
     pr.src = pr.tgt = null;
     this.projFree.push(pr);
   }

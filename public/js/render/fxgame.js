@@ -50,6 +50,7 @@ import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
 import { loadPoints, pointKey, pointOn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { boomerangThrown, boomerangCaught } from './boomerang.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 
@@ -605,13 +606,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const from = shotFrom(src);
     const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: tgt.x, ty: tgt.y, tz: shotTo(tgt), k: 0,
       dur: Math.max(0.04, dist / projSpeed(e[3])), arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 };
+    // local patch (user report 4 #4-6, 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
+    // both ways — projectile_chr_caper `_comeBack` 1 at `_comeBackSpeedScale` .25 (the sim's BOOMERANG_RETURN_SPEED), its
+    // `_mainEffect` kept (`_clearMainEffectWhenReached` 0): it turns at the hit and flies back to her (stepTrails), and the
+    // wheel is out of her hand meanwhile (render/boomerang.js)
+    if (e[3] === 'boomerang') { rec.src = src; rec.back = Math.max(0.04, dist / projSpeed('boomerangReturn')); boomerangThrown(src); }
     trails.push(rec);
     lib.load(b.bundle, name).then((def) => {
-      if (!mod || !def || !trails.includes(rec)) { const i = trails.indexOf(rec); if (i >= 0) trails.splice(i, 1); return; }
+      if (!mod || !def || !trails.includes(rec)) { const i = trails.indexOf(rec); if (i >= 0) { trails.splice(i, 1); if (rec.back) boomerangCaught(rec.src); } return; }
       const inst = new mod.fxp.FxInstance(def, { quality: q() });
       rec.inst = inst;
       placeTrail(rec);
-      addLive(inst, { view: null, owner: null, buff: false, until: clockS + rec.dur + (def.duration || 2) + 0.5 }, layers.over);
+      addLive(inst, { view: null, owner: null, buff: false, until: clockS + rec.dur + (rec.back || 0) + (def.duration || 2) + 0.5 }, layers.over);
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
     }, () => {});
     return true;
@@ -647,8 +653,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function stepTrails(g) {
     for (let i = trails.length - 1; i >= 0; i--) {
       const rec = trails[i];
+      if (rec.phase === 1) {
+        // local patch (#4-6): a boomerang on its way back, from the hit point to where it left her (her Muzzle) at
+        // .25 of its speed, turned to her (`_rotateToTarget`); caught there — or gone with her — it is gone at once (its
+        // wheel is a 5 s particle: stopped, it hung where it ended)
+        const home = !!rec.src && rec.src.alive !== false && !rec.src.remove;
+        rec.k = Math.max(0, rec.k - g / rec.back);
+        placeTrail(rec);
+        rec.inst?.object.rotation.set(0, 0, Math.atan2(rec.y0 - rec.ty, rec.x0 - rec.tx));
+        if (rec.k <= 0 || !home) { rec.inst?.stop(true); trails.splice(i, 1); boomerangCaught(rec.src); }
+        continue;
+      }
       rec.k += g / rec.dur;
       placeTrail(rec);
+      if (rec.k >= 1 && rec.back) { rec.phase = 1; rec.k = 1; rec.tgt = null; continue; } // local patch (#4-6): turns back at the hit point
       if (rec.k >= 1) { rec.inst?.stop(); trails.splice(i, 1); }
     }
   }
@@ -1234,6 +1252,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (const l of live) dropLive(l);
       live.length = 0;
       lastAtk.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
+      for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch (#4-6): back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
       if (mod) showLayers();
     },
