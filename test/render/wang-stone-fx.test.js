@@ -102,3 +102,30 @@ test('#2-7 the extracted token_wang_skill_03_hit_03 is the S3 blast again, 2 til
   const sys = h3.nodes.filter((x) => x.ps);
   assert.ok(sys.length > 10 && sys.every((x) => x.pos[0] === 2), 'offset copy');
 });
+
+test('#2-7 a BoxShell / BoxEdge emitter spreads over its scale once, like a Box (fxplayer.js shapeSample)', async () => {
+  const fxp = await import('../../public/js/render/fxplayer.js');
+  const mm = (s) => ({ m: 0, s });
+  const sys = (type) => ({
+    dur: 1, loop: false, delay: mm(0), speedMul: 1, space: 0, scaling: 1, prewarm: false, life: mm(1), speed: mm(0),
+    color: { m: 0, a: [1, 1, 1, 1] }, size: mm(0.1), rot: mm(0), max: 1000, gravity: mm(0), flipRot: 0, rate: mm(0),
+    bursts: [{ t: 0, n: mm(300) }], mods: {},
+    // 望 S3 token_wang_skill_03_hit lizi_l: BoxShell scale (2, 3, 0)
+    shape: { type, radius: 1, angle: 0, arc: 360, thick: 1, length: 1, pos: [0, 0, 0], rotE: [0, 0, 0], scale: [2, 3, 0], box: [0, 0, 0] },
+    render: { mode: 0, mat: 'm', mesh: null, align: 0, pivot: [0, 0, 0], order: 0 },
+  });
+  const node = (name, parent, ps) => ({ name, parent, active: true, pos: [0, 0, 0], rot: [0, 0, 0, 1], scale: [1, 1, 1], ...(ps ? { ps } : {}) });
+  const def = {
+    name: 'box', duration: 1, nodes: [node('root', -1), node('box', 0, sys(5)), node('shell', 0, sys(15)), node('edge', 0, sys(16))],
+    materials: { m: { shader: 'Torappu/Particles/Additive', tex: {}, floats: {}, colors: {} } }, clips: [], geoms: {}, lib: { texture: () => null },
+  };
+  const inst = new fxp.FxInstance(def, { quality: 'high' });
+  inst.update(1 / 30);
+  for (const s of inst.systems) {
+    let mx = 0, my = 0;
+    for (let i = 0; i < s.n; i++) { mx = Math.max(mx, Math.abs(s.pos[i * 3])); my = Math.max(my, Math.abs(s.pos[i * 3 + 1])); }
+    assert.ok(s.n > 100, s.node.name);
+    assert.ok(mx <= 1 + 1e-6 && my <= 1.5 + 1e-6, `${s.node.name}: ±${mx.toFixed(2)} × ±${my.toFixed(2)} (the scale 2 × 3 once)`);
+    assert.ok(mx > 0.8 && my > 1.2, `${s.node.name} fills its box`);
+  }
+});

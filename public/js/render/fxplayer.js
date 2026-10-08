@@ -1042,7 +1042,10 @@ function shapeSample(sh, p, d) {
       break;
     default: break;
   }
-  if (sh.type !== 5 && sh.type !== 18 && sh.scale) p.multiply(SCALE.set(sh.scale[0], sh.scale[1], sh.scale[2]));
+  // the box family (5 Box, 15 BoxShell, 16 BoxEdge) and the rectangle took the scale as their size above — once (user
+  // decision 2026-10-08, re-report 3 #2-7: BoxShell / BoxEdge were scaled twice — 望 S3's lizi_l lines spread ±2 × ±4.5
+  // tiles instead of ±1 × ±1.5; 58 systems of 36 prefabs)
+  if (sh.type !== 5 && sh.type !== 15 && sh.type !== 16 && sh.type !== 18 && sh.scale) p.multiply(SCALE.set(sh.scale[0], sh.scale[1], sh.scale[2]));
   if (sh.rotE && (sh.rotE[0] || sh.rotE[1] || sh.rotE[2])) {
     tmpQ.setFromEuler(shapeE.set(sh.rotE[0] * D2R, sh.rotE[1] * D2R, sh.rotE[2] * D2R, 'YXZ'));
     p.applyQuaternion(tmpQ); d.applyQuaternion(tmpQ);
