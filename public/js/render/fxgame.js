@@ -915,12 +915,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return true;
     }
     // local patch (user report 2026-10-07, video: an ink sword falls on each target every second): 缄默德克萨斯 S3 剑雨滂沱's
-    // rain — the sim's 'swordRain' on a target (src = her) draws texas2_skill_03_hit there [ASSUMED: the rain's prefab by name]
+    // rain — the sim's 'swordRain' on a target (src = her) draws her skill's target effect there (user report 4 #4-5,
+    // 2026-10-08): ModeWithSwordRain's EmitSword shoots projectile_chr_texas2_s3_sword_rain, whose _effectsToTargetWhenStart
+    // is texas2_skill_03_hit_02 (the sword dropping from 5.5 tiles up + its landing) — modes.json skills[2].target
     if (e[1] === 'swordRain' && o.src != null) {
       const src = views.get(o.src), b = bundleOf(src);
-      if (!b || !b.prefabs.includes('texas2_skill_03_hit')) return false;
+      const names = b ? extracted(src, skillBind(src)?.target) : [];
+      if (!names.length) return false;
       ownFx.add(e);
-      spawn(b.bundle, 'texas2_skill_03_hit', views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false });
+      for (const n of names) spawn(b.bundle, n, views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false });
       return true;
     }
     // local patch (user report 2026-10-07 #7: the old stand-ins go — standInOff): the kit events whose moment has an official
