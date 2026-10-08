@@ -15,7 +15,7 @@ import { N_ } from './i18n.js';
 // local version (docs/LOCAL-PATCH.md "버전 표기"): this server's own semver, independent of upstream's APP_VERSION
 // (shared/constants.js), which is shown beside it as the base. major = a big direction change, minor = a deploy with
 // new features / screens, patch = a fix-only deploy; merging an upstream release changes only the base.
-export const LOCAL_VERSION = '1.0.0';
+export const LOCAL_VERSION = '1.1.0';
 /** @returns {string} the local version (the `app` argument is kept for the callers; the base is shown separately) */
 export const localVersion = () => LOCAL_VERSION;
 
