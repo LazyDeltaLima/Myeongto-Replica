@@ -114,9 +114,6 @@ ALTERNATIVE = re.compile(r'^(attack|combat)_?([a-z]|\d+)$', re.I)
 HIT_KEYS = ('_hitEffects', '_inputTargetEffects', '_castTargetEffects')
 PROJ_HIT_KEYS = ('_effectsWhenHit', '_effectsWhenReached')
 PROJ_SUB_KEYS = ('_projectileKey', '_subProjectileKey', '_childProjectileKey')
-# operators whose mode GeneralAbilities buffs' effects join the mode's `attach` (session L 2026-10-08: 스펙터 디 언체인드 only
-# until the user decides on the others the rule would change — research/2026-10-08-mount-points/README.md)
-GENERAL_BUFF_CHARS = {'char_1023_ghost2'}
 
 
 def load_tree(path):
@@ -342,10 +339,11 @@ def modes_of(path, projectiles=None):
             add(hit[i], effect_names(d.get(k) or []))
         # the mode's own buffs (its Talents abilities: 丰川祥子 S3's oblvns_s_3[eff] → the range effect) show their effect on
         # the operator while the mode lasts; buffs an attack puts on its target (_activeBuffs) are not these. So do the
-        # buffs of the mode's GeneralAbilities for GENERAL_BUFF_CHARS (local patch, user report 4 #4-7, session L
-        # 2026-10-08: 스펙터 디 언체인드 S2's ghost_s_2[effect] → ghost2_skill_02_buff_02, the red ring on her saw, and buff_03)
+        # buffs of the mode's GeneralAbilities (local patch, user report 4 #4-7, session L 2026-10-08: 스펙터 디 언체인드 S2's
+        # ghost_s_2[effect] → ghost2_skill_02_buff_02, the red ring on her saw, and buff_03; every operator by the user's
+        # decision 2026-10-08 「켜줘」)
         sub = gp[len(mode_paths[i]):] + '/'
-        if '/Talents/' in sub or ('/GeneralAbilities/' in sub and Path(path).stem in GENERAL_BUFF_CHARS):
+        if '/Talents/' in sub or '/GeneralAbilities/' in sub:
             add(attach[i], buff_effects(d))
         # effects a mode's abilities attach while they run: an emitter's `_attachEffects`, and an ability's own `_effects`
         # list (비르투오사 S3's GeneralAbilities: cello_skill_03_buff_01 / _front_02 / _range — her range)

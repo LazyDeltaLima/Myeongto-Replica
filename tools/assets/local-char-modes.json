@@ -492,7 +492,9 @@
   "attach": [
    [],
    [],
-   [],
+   [
+    "kroos2_skill_02_buff_01"
+   ],
    []
   ],
   "skillMode": [
@@ -1266,8 +1268,14 @@
   "attach": [
    [],
    [],
-   [],
-   []
+   [
+    "whitw2_skill_02_buff_01",
+    "whitw2_skill_02_range_01"
+   ],
+   [
+    "whitw2_skill_03_buff_start",
+    "whitw2_skill_03_buff_01"
+   ]
   ],
   "skillMode": [
    null,
@@ -1915,6 +1923,7 @@
    [],
    [],
    [
+    "halo2_skill_03_buff_02",
     "halo2_skill_03_range_01"
    ]
   ],
@@ -5968,7 +5977,9 @@
    ]
   ],
   "attach": [
-   [],
+   [
+    "rockr_token_01"
+   ],
    []
   ],
   "skillMode": [
@@ -6173,7 +6184,9 @@
    ]
   ],
   "attach": [
-   []
+   [
+    "malist_drone"
+   ]
   ],
   "skills": [
    {
@@ -7351,7 +7364,9 @@
    [],
    [],
    [],
-   [],
+   [
+    "ulpia_skill_03_buff_01"
+   ],
    []
   ],
   "skillMode": [
@@ -7952,12 +7967,38 @@
   ],
   "attach": [
    [],
-   [],
-   [],
-   [],
-   [],
-   [],
-   []
+   [
+    "common_idle_ground",
+    "tippi_line_01_1",
+    "tippi_line_01_2"
+   ],
+   [
+    "common_idle_ground",
+    "tippi_line_01_1",
+    "tippi_line_01_2",
+    "tippi_skill_01_buff"
+   ],
+   [
+    "common_land_ground",
+    "tippi_line_01_1",
+    "tippi_line_01_2"
+   ],
+   [
+    "common_idle_ground",
+    "tippi_line_01_1",
+    "tippi_line_01_2"
+   ],
+   [
+    "common_idle_ground",
+    "tippi_line_01_1",
+    "tippi_line_01_2",
+    "tippi_skill_02_buff_L"
+   ],
+   [
+    "common_land_ground",
+    "tippi_line_01_1",
+    "tippi_line_01_2"
+   ]
   ],
   "skills": [
    {
