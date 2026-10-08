@@ -53,6 +53,22 @@ function unitBank(banks, key) {
 const firstNonEmpty = (lists) => lists.find((p) => Array.isArray(p) && p.length) || null;
 
 /**
+ * local patch (user report 2026-10-08 「이격 니어 S3 타격 효과음」): an ability with both a START (the swing, an attack group)
+ * and an ON bank on an impact group (Battle_P_SImp / NImp) sounds the ON one as its impact — 耀骑士临光 S3 attack.3
+ * p_atk_goldspear_s + p_imp_goldspear_s, 夕 / 莫斯提马 / 水月 / 野鬃 Default, 归溟幽灵鲨 S3, 夕 S2 / S3, 卡涅利安 (billro) S1–S3:
+ * the client plays both (the impact was dropped as the ON bank only stood in for a missing START). Exact keys only.
+ * @param {Map<string, string[]>|undefined} banks a unit's bank table
+ * @param {string} ability e.g. 'attack.3' or 'attack'
+ * @param {((p: string[]) => string|null)|undefined} groupOf
+ * @returns {string[]|null}
+ */
+export function onImpact(banks, ability, groupOf) {
+  if (!banks || typeof groupOf !== 'function' || !banks.get(`ON_ABILITY_START.${ability}`)?.length) return null;
+  const on = banks.get(`ON_ABILITY_ON.${ability}`);
+  return on?.length && IMPACT_GROUPS.has(groupOf(on)) ? on : null;
+}
+
+/**
  * Attack / impact sound paths of mode `n` of an operator.
  * @param {{ unitBanks: Map<string, Map<string, string[]>>, bank: (name: string) => string[] }} audio indexed audio_data
  * @param {string} charId
@@ -65,7 +81,8 @@ export function modeSounds(audio, charId, n, projKeys = []) {
   const keys = Array.isArray(projKeys) ? projKeys : [];
   const attack = unitBank(banks, `ON_ABILITY_START.attack.${n}`) ?? unitBank(banks, `ON_ABILITY_ON.attack.${n}`)
     ?? firstNonEmpty(keys.map((k) => audio.bank(`battle.ON_PROJECTILE_BORN.${k}`)));
-  const hit = unitBank(banks, `ON_ABILITY_HIT.attack.${n}`) ?? firstNonEmpty(keys.map((k) => audio.bank(`battle.ON_PROJECTILE_HIT.${k}`)));
+  const hit = unitBank(banks, `ON_ABILITY_HIT.attack.${n}`) ?? firstNonEmpty(keys.map((k) => audio.bank(`battle.ON_PROJECTILE_HIT.${k}`)))
+    ?? onImpact(banks, `attack.${n}`, audio.groupOf);
   const out = {};
   if (attack) out.attack = attack;
   if (hit) out.hit = hit;

@@ -203,7 +203,8 @@ export function pickUnitSfx(banks, opts = {}) {
   // their default mode too (attack.0 …) and keep the rule below
   if (opts.operator && ['ON_ABILITY_START', 'ON_ABILITY_ON', 'ON_ABILITY_HIT'].some((e) => exact(e))) {
     const swing = exact('ON_ABILITY_START') ?? exact('ON_ABILITY_ON') ?? own(proj.born);
-    const impact = exact('ON_ABILITY_HIT') ?? own(proj.hit);
+    // local patch (user report 2026-10-08): + the ON bank on an impact group beside a START swing (skill-mode-sfx.mjs onImpact)
+    const impact = exact('ON_ABILITY_HIT') ?? own(proj.hit) ?? (typeof opts.impactOf === 'function' ? own(opts.impactOf(banks)) : null);
     if (swing) out.attack = swing;
     if (impact) out.hit = impact;
     if (banks.get('ON_UNIT_DEAD')?.length) out.die = banks.get('ON_UNIT_DEAD');

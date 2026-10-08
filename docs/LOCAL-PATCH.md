@@ -1164,6 +1164,13 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
       - **[추정]**: 시점 규칙 — 훅이 시작되면 `delay` 뒤 `dur` 초 동안 스냅샷으로, 훅 소리가 끝나면 같은 `dur`로 Default로(클라이언트 `SnapshotTransition`·
         `TransitionToDefaultSnapshot`은 네이티브. 浊心斯卡蒂의 0.1 초가 「유지 시간」이면 의미가 없어 전환 시간으로 읽음). 겹치면 마지막 훅이 끝날 때까지 유지.
         리버브는 초기 반사 없는 평탄한 잡음 꼬리. 안 한 것: Music 자체 5000 Hz(556 Hz 안쪽이라 차이 없음), 스냅샷의 그룹 볼륨 차이(몇 dB, 옛 레벨이 남은 것으로 보임).
+      - **휘두름 + 타격** (사용자 제보 2026-10-08 「이격 니어 S3 발동 후 적을 타격할 때마다 전용 효과음… 여러 종류 효과음이 같이 재생」): 능력에 START 뱅크(휘두름,
+        공격 그룹)와 **타격 그룹**(Battle_P_SImp / NImp)의 ON 뱅크가 둘 다 있으면 공식은 둘 다 낸다 — 耀骑士临光 S3 `attack.3` START p_atk_goldspear_s + ON p_imp_goldspear_s.
+        생성기는 ON을 START가 없을 때의 대체로만 써서 타격음이 빠졌다(4-4의 `noHit`까지 붙음). `skill-mode-sfx.mjs onImpact`(정확한 키만) → 모드 `hit`(`modeSounds`)과
+        평타 `hit`(`audio.mjs pickUnitSfx` `opts.impactOf`, plan 1줄). 바뀐 것(매니페스트 diff 그대로): 모드 — 耀骑士临光 S3, 归溟幽灵鲨 S3, 夕 S2·S3, 卡涅利安 S1–S3(이 7개의 `noHit` 빠짐);
+        평타 — 夕·莫斯提马·水月·野鬃. ON만 있는 능력(缄默德克萨斯 S2)·하위 능력에만 START가 있는 것(号角 S2)은 그대로. 새 sfx 10개 → 배포 `--assets`.
+        S3 발동 순간의 소리(b_char_atkboost·p_skill_goldspearboost1·耀阳 검 탄생 p_skill_goldspearset)는 이미 났다 — 이격 니어의 공식 뱅크는 이것으로 전부.
+        확인: `test/local-patch-skill-impact.test.js` 3개(실제 매치 경로: S3 공격마다 휘두름·타격 둘 다). 브라우저 청취는 안 함.
       - 耀骑士临光 S2: 세션 G 인계의 「sim이 'skill'을 안 보내 extras가 안 남」은 **틀림** — S2는 `kind: 'duration', activateOnDeploy`라 'skill'이 'spawn'보다 먼저 오고,
         같은 커밋의 배치 전 'skill' 잡아 두기로 이미 `p_skill_goldspearboost`가 난다(실제 경로 테스트로 고정). `skills.js _startPassive` 주석의 「耀骑士临光 S2」도 낡음(sim이라 안 고침).
       - 확인: `test/local-patch-skill-snapshot.test.js` 6개(매니페스트, 공식 데이터 규칙, 가짜 Web Audio 그래프의 램프 556 Hz/5 초·복귀·bus 밖 경로, 실제 매치 경로

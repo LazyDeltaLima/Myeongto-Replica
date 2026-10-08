@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, onImpact } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -393,7 +393,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       hit: firstBank(audio, [...defProj.flatMap((k) => [`battle.ON_PROJECTILE_HIT.${k}`, `battle.ON_PROJECTILE_REACH.${k}`]),
         `battle.ON_PROJECTILE_HIT.projectile_chr_${short}`, `battle.ON_PROJECTILE_HIT.projectile_chr_${short}_default`]) };
     const sfx = pickUnitSfx(defaultModeBanks(audio.unitBanks.get(id), info, { projectile: proj.born.length > 0 || proj.hit.length > 0 }),
-      { operator: true, defaultZero: !!info, projectile: proj });
+      { operator: true, defaultZero: !!info, projectile: proj, impactOf: (bk) => onImpact(bk, 'attack', audio.groupOf) ?? onImpact(bk, 'combat', audio.groupOf) }); // local patch: impactOf
     const { roles: u, mix } = unitSounds(audio, sfx);
     const skillSfx = {};
     const skillPaths = {}; // local patch: start sound paths per index (their mixer groups, skill-mode-sfx.mjs unitGroups)
