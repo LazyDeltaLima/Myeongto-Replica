@@ -71,6 +71,14 @@ test('#2-2 the birth effects (the gold cross, the 跟子\'s rings) play on the s
   assert.doesNotMatch(SRC, /STONE_BORN\.[a-z]+\], ballOf/);
 });
 
+test('report 5 #4: a stone gets no procedural skill burst (its passive \'skill\' on precedes the return \'deploy\')', () => {
+  // the sim's order for a used stone coming back (same id, ~2 s after its 'die' in S3): ['skill', id, 1] → ['deploy', id];
+  // the dying view (fade ≤ 2.15 s) was still there and render/app.js drew fx.skill's gold pillar + hex on it
+  assert.match(SRC, /ownsSkill\(v\) \{[\s\S]*?if \(isStone\(v\)\) return stonesOn\(\);[\s\S]*?\n    \},/);
+  const APP = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
+  assert.match(APP, /fx\.skill\(v, !!e\[2\], \{ burst: !fxGame\.ownsSkill\(v\) \}\)/);
+});
+
 test('#2-1 the extracted activation prefabs: wisps that dissolve in and stay (skipped without public/assets)', { skip: !haveFx && 'no extracted fx' }, () => {
   // the activation wisps (`line` meshes) dissolve IN (_Amount 1 → ~0) and stay: nothing ends them but the effect
   for (const [b, n] of [['wang_token', 'token_wang_01_buff'], ['wang', 'wang_passive_01_buff_02']]) {

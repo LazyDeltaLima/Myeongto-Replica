@@ -1062,6 +1062,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // 望 S1's gold pillar + hex): every operator with official effects, also a skill with no start / buff effect of its
       // own (望 S1 skchr_wang_1: no effect key in skills.ab) — its activation shows what the client shows, its own prefabs or none.
       // It used to keep the procedural burst for those (many S1s), so the activation was not silent on screen.
+      // A 望 stone too (report 3 B ① / report 5 #4): its token passive's 'skill' on comes BEFORE the 'deploy' of a used stone
+      // coming back (same id, 2 s after its 'die' during S3) — while the dying view still fades (≤ 2.15 s), so the gold
+      // pillar + hex was drawn on it. The client shows the stone's own birth / activation prefabs (stoneFx), no burst.
+      if (isStone(v)) return stonesOn();
       return !!(index && isOp(v) && bundleOf(v) && q() !== 'low' && !failed);
     },
     /** local patch (⑤): whether the shared status prefab `bundle`/`name` can play (index loaded, not 'low', listed). */
