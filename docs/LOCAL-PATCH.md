@@ -1269,6 +1269,37 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   것으로 보임 [추정]. 오퍼레이터마다 `chararts/<charId>.ab`(스킨은 `skinpack/`) `SingleSpineAnimator`의 Muzzle·SpecialPoint 본을 뽑아 표로 만들면
   `SPECIAL_BONES`를 일반화할 수 있다(추출 스크립트 초안: `research/2026-10-08-elite-glow/sp1.py`·`chain.py`). 비르투오사 S3의 `buff_back_02`
   (모델 뒤 짝)·`buff_03/04/05`는 우리 바인딩에 없어 안 튼다 — 클라이언트가 트는지 확인 필요.
+- **일반화 (세션 F, 2026-10-08, 9682d45c·baf0d91f·e6dc540c)** — 이펙트 붙는 자리를 오퍼레이터 전체에:
+  - **점 표** `tools/local-extract/char_points.py` → `tools/assets/local-char-points.json`(git, 검토용) + `public/assets/local/fx/points.json`(git 밖, 클라이언트가 읽음).
+    근거: chararts `DefaultSkin` 애니메이터의 typetree — 양면 모델은 `_front`/`_back` 레코드(`muzzlaTransform`[원문 오타]·`hitTransform`·`headTransform`·
+    `shadowTransform`·`specialPoint0~15`), 한 면 모델(`char_1012_skadi2`)은 자기 필드(`_muzzleTransform`…). 각 점의 BoneFollower `boneName`·`followBoneRotation`,
+    고정 위치는 로컬 좌표 ÷ SkeletonDataAsset `scale`(0.01) = 스켈레톤 단위(비르투오사 Muzzle (0.678, 1.902) = `F_Muzzle` Idle (67.8, 190.2) — 데이터로 확인).
+    점 이름은 모델마다 다르다(`MuzzlePoint`·`Special_0`·`Special0`) — 이름이 아니라 애니메이터 필드로 찾는다. 126명.
+  - **`render/fxpoints.js`** `pointKey`(3·6 → muzzle, MP_SPECIAL_N → spN: 8~11 → 0~3, 13~16 → 4~7, 18~25 → 8~15; 12 CAMERA·17 TILE_CENTER 제외)·`pointOn`
+    (그 면의 본 → 다른 면의 본 → 그 면의 고정 위치). `fxgame.js lifted()`가 표에서 점을 찾는다(`SPECIAL_BONES` 삭제 — 비르투오사는 같은 본, 테스트로 고정).
+    표에 없는 유닛(적, 근접 모델의 muzzle, 표 없음)은 예전대로 바닥. 본 회전(`followBoneRotation`, 3은 회전 포함·6은 없음)은 적용 안 함 [추정: 프리팹의 `fixed` 자식이 세워진 채].
+  - **MP_SPECIAL_1~6** (baf0d91f): `fx_extract.py spawn_location`이 0~8만 받아 9·10·11·13·14·15인 **66개**가 `spawn` 없이(=바닥) 추출돼 있었다. 값 = 열거형 순서의 근거:
+    9~15를 쓰는 오퍼레이터는 정확히 그만큼 특수점을 가진다(`thorn2` sp0~4·값 13, `angel2` sp0~6·값 15, `agoat2` sp0~5·값 14까지). 66개만 `--prefab`로 재추출 — `spawn` 외 변화 없음,
+    index.json 그대로.
+  - **꼬리 투사체** (e6dc540c): `TRAIL_Z` 0.35칸 고정 대신 발사자의 Muzzle(쏘는 순간 위치) → 대상의 맞는 높이(`SPAWN_FRAC[2]`, 클라이언트 HitPoint [추정]),
+    Muzzle이 없으면 fx.js `SHOT_HEIGHT.launch`.
+  - **NONE(0) 136개**: 클라이언트가 0을 어디에 놓는지는 메타데이터에 근거 없음(`ParticleEffect`/`SimpleEffect`의 `_spawnLocation`, 문자열 「Unit {0} has no muzzlePoint」 등뿐 — 로직은 네이티브).
+    지금대로 바닥 [추정]. 참고: 0인 공격 시작 프리팹(`kroos2_attack_start_01`·`horn_attack_01_start_02` 등)은 노드가 `qiangkou`(총구)처럼 무기 끝 기준으로 짜여 있다 — 호출자가 위치를 주는 것일 수 있음.
+  - **GROUND_CENTER_WITH_ZERO_HEIGHT(7) 30개**: 확인만 — 이름대로 바닥, 안 바꿈 [추정].
+  - **알려진 빈자리**: `swire_attack_01_start`(3, 근접 모델에 Muzzle 없음 → 바닥), `char_1012_skadi2`(Back 모델 없음), 史尔特尔 S3 `buff_03/04` Back 레코드가 Back 스켈레톤에 없는
+    `F_Face_Default_*` 본을 가리킴(클라이언트 데이터 — 고정 위치 사용), `nymph_talent_buff_02` Back은 본 없는 고정 위치.
+  - **바뀐 프리팹 목록**(되돌림용): `research/2026-10-08-fx-spawn/changed-prefabs.tsv` 218개(3: 48, 8: 104, 9~15: 66) — 프리팹마다 앞/뒤 본.
+    이상하다는 제보가 오면: 9 이상만 되돌리기 = baf0d91f revert(코드가 9+를 무시 — 재추출 불필요), 꼬리만 = e6dc540c revert.
+  - **사용자 확인 이펙트에 생긴 변화**: 첸(赤刃明霄陈) S2 `chen3_skill_02_buff_01`(9 → `C_Weapon`)은 그녀의 검을 따라가는데, 숨는 동안 `Skill_2_Disappear` 클립이 검 본을 약 1.4칸 앞(+538 단위)으로
+    옮겨 둔다 → 예전에는 배치 링 안 바닥에 보이던 붉은 빛이 이제 그 자리에 없다(디버그 아레나 `f_probe.mjs`로 본 위치 확인, 실제 판에서도 같음). 클라이언트 BoneFollower도
+    같은 본을 따른다 [추정] — 사용자 확인 필요. 비르투오사 S3·르무엔 S3·余는 전·후 같음(아레나·픽셀 비교), 丰川祥子 음표는 음표 경로(`NOTE_Z`)라 영향 없음.
+  - **확인**: 단위(`test/local-patch-fxspawn.test.js` — `pointKey`·`pointOn`, 비르투오사 본, 표의 고정 위치 = Idle 본, 추출 프리팹 218개가 우리 스켈레톤에서 점을 찾음),
+    아레나 전·후(HEAD 사본 3161 / 작업 트리 3162, Windows `sp-check\f_pair.sh`): 空弦 화살·발사 고리가 발 → 석궁, 新约能天使(angel2) 총구 섬광 발 → 총구,
+    이격 니어 S3 시작·`buff_02_a`가 발 → 무기·머리 높이, 비르투오사 S3 그대로, 첸 S2(위 변화). **실제 판**(`f_real.mjs`, 솔로 판 정비에 维什戴尔 S3·첸 S2 디버그 추가 → 전투):
+    维什戴尔 꼬리가 총에서 출발, S3 버프·첸 S2 버프 재생 확인. 그림은 `research/2026-10-08-fx-spawn/`.
+  - **이격 스펙터 공격 원형(제보 4차 4-7)은 이 수정으로 안 바뀐다**: `ghost2_attack_start_01`은 `_spawnLocation` 1(FOOT)이고 모델에 Muzzle·shadow 점이 없다 — 데이터상 발.
+    원형은 `daoguang*` 빌보드(카메라 정면, 재질 `daoguang_21_ab_ZT` `_ZTest` 0 = 깊이 검사 없음)인데 우리는 `fxplayer.js` 바닥 자르기(`vH < uFloor discard`)로
+    바닥 아래 반을 버린다 — 클라이언트는 원 전체를 그릴 것으로 보임 [추정]. fxplayer 담당 범위라 고치지 않음(공식 영상과 나란히 비교 필요).
 
 ### 정예 기물 금빛 (2026-10-08, 사용자 요청 「정예화된 오퍼는 휴식 기간에 황금빛으로 빛나는 이펙트」)
 - 근거: zh_CN `gamedata/battle/battle_misc_table.json` `miscConfig.AUTOCHESS.act1autochess`·`act2autochess.effectConfig.goldenEffectId`
