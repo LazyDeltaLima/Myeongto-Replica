@@ -56,7 +56,7 @@ test('pointOn: the drawn side\'s bone, else the other side\'s, else that side\'s
   assert.equal(pointOn(entry, null, false), null);
 });
 
-test('비르투오사 stays on her cello: SpecialPoint0 follows F_Weapon_Chord / B_Weapon_Chord (the 9458e2fa bones)', () => {
+test('비르투오사 stays on her cello: SpecialPoint0 follows F_Weapon_Chord / B_Weapon_Chord (the 836b61e6 bones)', () => {
   const sp0 = TABLE.char_245_cello?.sp0;
   assert.equal(sp0?.F?.bone, 'F_Weapon_Chord');
   assert.equal(sp0?.B?.bone, 'B_Weapon_Chord');

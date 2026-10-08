@@ -75,7 +75,7 @@ describe('attack-mode effect bindings', () => {
 });
 
 // local patch (user report 2026-10-07, 11 items): a skill activation's effects — the name mapping ∪ the skill's own (skills.ab),
-// minus what the modes bind to an attack (d0e3e079's `_range` rule played 수르트 S3's hit range on her) and the skill's target /
+// minus what the modes bind to an attack (67a2bdb4's `_range` rule played 수르트 S3's hit range on her) and the skill's target /
 // end effects; the skill bindings and turned effects char_modes.py writes
 describe('skill activation effects', () => {
   test('activationEffects: no mode-bound range on the caster, the skill\'s own cast / buff, its target and end effects elsewhere', () => {

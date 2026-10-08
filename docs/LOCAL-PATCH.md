@@ -24,10 +24,10 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 **upstream이 같은 것을 넣어서 뺀 local patch**
 - 원본 버그 수정 선반영 10건(아래 절) — 0.2.0에 모두 들어 있다(#199 울피안은 upstream 방식 `downAtHome`).
 - 협동 보스 HP × 생존 인원, 胄 드론 몫 限伤 통과 — upstream이 PR #209를 채택(`gamedata.js bossPoolShareOf`, `Battle.loseHp noHitLimit`).
-  upstream은 싱글 보스 HP를 bloodPoint ×1로 바꿨지만, **우리는 싱글 ×0.25로 되돌렸다**(91900cf5, 사용자 결정 2026-10-07: 혼자서는
+  upstream은 싱글 보스 HP를 bloodPoint ×1로 바꿨지만, **우리는 싱글 ×0.25로 되돌렸다**(904777a2, 사용자 결정 2026-10-07: 혼자서는
   팀원이 없다 — `server/match/gamedata.js bossPoolShareOf`의 `solo` 기본값, `tools/build-data.mjs` → `data/config.json bossHpScale.solo`).
   협동은 upstream의 × 생존 인원 그대로.
-- 스킬 범위 발동(a0da6834, 사용자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(사용자 결정 2026-10-07: upstream 사용). 「미확정」 표시는 유지.
+- 스킬 범위 발동(96a7df1d, 사용자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(사용자 결정 2026-10-07: upstream 사용). 「미확정」 표시는 유지.
   `local-skill-range.js`·관련 테스트 삭제. 赤刃明霄陈 S3를 공중 적만으로 켜던 `hitsFly`는 upstream 규칙에 없다 — 읽는 곳이 없던
   남은 플래그는 `kits/ops/op-chen3.js`에서 지웠다(2026-10-08 세션 K, 동작 영향 없음: golden 전부 일치).
 - 사야 늑대(PR #225)·와파린·라플란드·페페 등은 upstream 구현으로 대체, PR #225가 바꾼 upstream 테스트는 upstream 판으로 되돌렸다.
@@ -70,7 +70,7 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   **사용자 결정 2026-10-08 「C」**: 낙하·사망음·배치음은 그대로, 部署 대사만 뺀다 — `audio.js` 'deploy'가 같은 묶음에 그 유닛의 'revive' fx
   (`reviveNow` 뒤 `fxOn`)가 있으면 대사를 건너뛴다. 확인: 실제 솔로 판(fastServer SP_START_ROUND=boss, M3茧甲 금색, `k_revive.mjs`) 부활 2번 모두
   `b_char_dead`·`b_char_set`·`onDeploy`만, 대사 없음; 단위 `test/local-patch-audio.test.js`.
-- K-6 문서: 싱글 보스 HP ×0.25(91900cf5) 반영, `op-chen3.js`의 읽는 곳 없는 `hitsFly` 삭제.
+- K-6 문서: 싱글 보스 HP ×0.25(904777a2) 반영, `op-chen3.js`의 읽는 곳 없는 `hitsFly` 삭제.
 
 **병합 뒤 겹친 기능 정리 — 화면 UI (2026-10-08 세션 J)** (같은 조사 목록. 확인: 실제 솔로 판 `test/e2e/fastServer.mjs` 3127(SP_START_ROUND=2·
 SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg.addDiy` 望 정예, `sp-check\j_repro.mjs`), 서버 전투 모드 3129(`SP_COMBAT=server`),
@@ -165,7 +165,7 @@ SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg
 ## 게임 수치 수정 상세 (2026-10-05)
 
 ### 협동 보스 HP
-> 0.2.0: upstream이 같은 협동 규칙을 넣어 우리 패치를 뺐다. 싱글은 upstream이 ×1로 바꿨으나 우리는 ×0.25로 되돌렸다(91900cf5,
+> 0.2.0: upstream이 같은 협동 규칙을 넣어 우리 패치를 뺐다. 싱글은 upstream이 ×1로 바꿨으나 우리는 ×0.25로 되돌렸다(904777a2,
 > 사용자 결정 2026-10-07 — 위 「0.2.0 병합」). 아래는 기록.
 - 원본: 협동은 인원과 관계없이 `bloodPoint[난이도]` 하나, 싱글은 ×0.25. 공식 데이터·PRTS에 인원 계수는 없다(원본 이슈 #113, PR #126 모두 근거 없음을 인정).
 - 로컬: 협동 = `bloodPoint` × 최종 공세/히든 코어 시작 때 살아 있는 인원(1~4). 싱글은 원본 그대로.
@@ -958,7 +958,7 @@ SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg
   나머지는 코드: `Modifier.isCritical`, `BattleConsts.MODIFIER_CRIT_THRESHOLD = 1.5`, `UIDamageText.CRITICAL_FONT_SIZE_SCALE = 1.1`(메타데이터 기본값).
   치명타 = PRTS 作战机制 「伤害红字（暴击）」 「单位在造成的伤害不低于预期伤害的1.5倍时，会在造成伤害后弹出红色的数字…官方称呼为Critical」 —
   예상 피해 = ATK × 배율을 대상 방어/법저로 깎은 값(穿透 제외), 실제 피해 = 脆弱·피해 배율·穿透까지 넣은 값 → 빨간 숫자는 사실상 脆弱·增伤·穿透와 함께 나온다
-  (처음 커밋 13fdc651은 「ATK × 1.5 이상」으로 잘못 봤다 → 고침). 강제 표시는 PRTS 「强制红字」의 蕾缪安 归乡邀约(瞄准射击时 — 우리 S3 'snipe'·'bombard' 태그).
+  (처음 커밋 e071dde8은 「ATK × 1.5 이상」으로 잘못 봤다 → 고침). 강제 표시는 PRTS 「强制红字」의 蕾缪安 归乡邀约(瞄准射击时 — 우리 S3 'snipe'·'bombard' 태그).
   보호막: PRTS 「强制红字与蓝字」 — 빨간 숫자가 될 타격이 屏障/护盾을 못 뚫으면 그 막기 방식이 허용하면 파란 숫자(클라 `block_text` `#3a35d9`, 나머지는
   damage_text와 같음), 거부하면 노란 「BLOCK」 → 막힌 타격에 빨간 숫자는 없다(사용자 기억과 같음). 허용 플래그 = `BlockDamage._showDamageNumber`(115개 중 17개,
   로스터에선 xi·mdrock·mousek 보호막). **구현(사용자 결정 「파란 숫자랑 BLOCK 넣어줘」)**: 시뮬레이션이 빨간 숫자감(치명타·강제) 타격을 보호막이 전부 막으면
@@ -985,10 +985,10 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 脆弱(4종) `buff_ fragile_01`(발) · 浮空 `common_levitate_01`(바닥) · 적 隐匿 `common_invisible`(발; 그 ColorModifier대로 모델 회색 .5·α .894 — 예전 45 % 반투명 대신) ·
 아군 隐匿 `common_stealth` [추정] · 迷彩 `common_buff_micai_01`(몸) [추정: 세 변형 중 _01].
 - 머리 높이 = 모델 높이 × 1.1 [추정 — 캡처 10의 주먹이 머리 위], 몸 .5, 발 0(`fx.js bodyZ`). 늘 위 캔버스(유닛 위)에 그린다: 이펙트 세션의 렌더러별
-  위/아래 나누기(e8d62545, sortingOrder > 0 또는 0 + fudge < 0 = 위)를 상태 프리팹에 쓰면 冻结 얼음(전부 order 0·fudge 0)이 유닛 뒤로 가서 캡처 9와 달랐다
+  위/아래 나누기(5ca3807e, sortingOrder > 0 또는 0 + fudge < 0 = 위)를 상태 프리팹에 쓰면 冻结 얼음(전부 order 0·fudge 0)이 유닛 뒤로 가서 캡처 9와 달랐다
   — 클라는 order 0을 깊이로 정렬해 덩어리가 모델 앞에 온다 → 상태 이펙트는 나누지 않는다(`playStatus` `split = false`).
 - 일부 프리팹은 파티클이 한 번만 돌아(`buff_silence` 1초) 상태가 남아 있으면 다시 시작한다. 파일을 못 읽으면 그 상태는 예전 아이콘.
-- **중첩 수정**(사용자 제보 4차 4-1 「기절이 중첩되면 머리 위 기절 이펙트가 겹쳐 보인다」, 2026-10-08 세션 I, 84e2fc56): `statusOff`가 멈춘
+- **중첩 수정**(사용자 제보 4차 4-1 「기절이 중첩되면 머리 위 기절 이펙트가 겹쳐 보인다」, 2026-10-08 세션 I, 79fbda88): `statusOff`가 멈춘
   인스턴스의 `again`(다시 시작)을 남겨 두어, 파티클이 다 죽은 뒤 상태가 다시 켜져 있으면(다음 기절) 새 인스턴스 옆에 복사본을 하나 더
   틀었다 — 다시 걸릴 때마다 하나씩 늘었다(아레나 1 2 3 4…, 실제 솔로 판 최대 8). 또 방출만 멈춰서 `buff_stun`의 표시(수명 10초 파티클 1개)가
   상태가 끝난 뒤 최대 10초 머리 위에 남았다. → `statusOff`가 `again`을 지우고, `fxstatus.js`는 `now`로 끝낸다(파티클 즉시 제거
@@ -1244,9 +1244,9 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   치우바이 비행 좌표·화면.
 
 - 사용자 제보 11건 (2026-10-07, 조사 `research/2026-10-07-user-issues/` issues-fx.md·issues-sound.md·issues-anim.md;
-  3·4는 b7f77ebb). 이번에 고친 것:
+  3·4는 2402d13a). 이번에 고친 것:
   - **스킬 발동 이펙트 고르기** (`fxmap.js activationEffects`, 2·5·8·9·10·11): 이름 매핑 ∪ 스킬 자신의 이펙트(아래 `skills[i]`)에서 다음을 뺀다 —
-    ① 그 오퍼레이터의 모드가 공격의 cast/hit/trail로 묶은 프리팹(d0e3e079 `_range` 규칙의 회귀: 수르트 S3 range는 대상 타격, 무에나 S3 range_01·buff_01은
+    ① 그 오퍼레이터의 모드가 공격의 cast/hit/trail로 묶은 프리팹(67a2bdb4 `_range` 규칙의 회귀: 수르트 S3 range는 대상 타격, 무에나 S3 range_01·buff_01은
     매 공격 시전, 르무엔 S3 crosshair_range는 조준 투사체 — 17개 스킬이 발동 때 시전자 몸에 한 번 더 틀었다), ② 스킬이 대상에 거는 것·끝에 트는 것
     (target / targetBuff / end), ③ 키트 이벤트가 그리는 것(`fxgame.js KIT_OWNED`: 余 `yu_skill3_range_01`). 스킬이 스스로 시전하는 프리팹(`_castEffects`)은
     이름이 `_buff`/`_range`여도 루프가 아니라 한 번. `ownsSkill`도 같은 목록으로 판단.
@@ -1271,7 +1271,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     바닥 아래 잘라내기: 노드가 바닥보다 0.25 넘게 아래이고 깊이 비교하는 재질(`_ZTest` 0·8 아님)인 렌더러만, `FxInstance opts.floor`(유닛이 선 땅 높이,
     기본 0) − 0.05 아래 픽셀을 버림 → 수르트 S3 5칸 왼쪽 빛(`gx_glow`), 르무엔 조준 고리. 모든 렌더러에 적용하면 236개 프리팹이 바뀌어(텍사스2 S3
     연기가 가라앉아 사라짐) 좁혔다. `bench/fx/compare.mjs`(Windows GPU): 새 기능을 끈 판 0 차이, 켠 판은 정점 색 568·Double 29·Rim 5·바닥 2 프리팹만 다름.
-  - **렌더러별 위/아래 층** (1·8, 142e0a31의 「시전자 이펙트는 전부 아래」를 바꿈): 공식은 캐릭터 Spine이 깊이를 안 쓰고 Default 레이어 order 0이라 이펙트
+  - **렌더러별 위/아래 층** (1·8, a661c85d의 「시전자 이펙트는 전부 아래」를 바꿈): 공식은 캐릭터 Spine이 깊이를 안 쓰고 Default 레이어 order 0이라 이펙트
     렌더러의 sortingOrder > 0(또는 0이면서 파티클 fudge < 0)이면 캐릭터 앞, 나머지는 뒤다(마터호른 S2 돔 `hudun` order 0 + `hudun_2` order 1). 품질 'high' +
     3D 보드일 때 시전자 이펙트·상태 이펙트(⑤)·바닥 키트 이펙트는 `FxInstance split`으로 렌더러마다 `FX_BACK`/`FX_FRONT` 층을 달고, 공유 장면
     `layers.split`을 아래 캔버스(자기 장면 다음 FX_BACK)와 위 캔버스(FX_FRONT 다음 자기 장면)에 한 번씩 그린다(텍스처 업로드가 두 렌더러에 각각 — 'medium'
@@ -1284,7 +1284,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   첸·수르트·르무엔·실버애쉬 이격 S2·블레이즈 이격 S3). 확인 도구 Windows `sp-check\rf_cap.mjs`(아레나 연속 캡처, `op:skill!` = 배치 직후),
   `rf_seq.mjs`(프리팹 단독, `only:노드`), `rf_probe.mjs`(살아 있는 인스턴스·입자 수; `app.js __fxDbg` 임시 훅은 커밋 전에 뺌). 셰이더는 클라이언트
   `[uc]shaders.ab`의 DXBC를 직접 역어셈블해 확인(스크래치 `dxbc.py` — 저장소 밖).
-  - **대상 타격 이펙트가 전부 안 보이던 회귀** (e8d62545): `play()`가 대상에 붙는 hit까지 `split`(렌더러를 층 1/2로)으로 만들고 층 0만 그리는 위 캔버스에
+  - **대상 타격 이펙트가 전부 안 보이던 회귀** (5ca3807e): `play()`가 대상에 붙는 hit까지 `split`(렌더러를 층 1/2로)으로 만들고 층 0만 그리는 위 캔버스에
     넣어, 품질 high + 3D 보드에서 모든 타격 이펙트가 사라졌다(블레이즈 S3 폭발). split은 split 장면에 들어가는 것(시전자)만.
   - **LineRenderer** (`fx_extract.py lineR`, `fxplayer.js LineRenderer`): 점 목록·폭(widthMultiplier, 클립 `width`)·폭 곡선·색 그라디언트·텍스처 모드
     (Stretch / Tile = 거리 / 구간별)로 시선 정렬 띠. Unity처럼 효과가 끝날 때까지(stop) 남는다. 월드 좌표 선(스크립트가 점을 정함, 르무엔 S2 등)은
@@ -1371,7 +1371,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   것으로 보임 [추정]. 오퍼레이터마다 `chararts/<charId>.ab`(스킨은 `skinpack/`) `SingleSpineAnimator`의 Muzzle·SpecialPoint 본을 뽑아 표로 만들면
   `SPECIAL_BONES`를 일반화할 수 있다(추출 스크립트 초안: `research/2026-10-08-elite-glow/sp1.py`·`chain.py`). 비르투오사 S3의 `buff_back_02`
   (모델 뒤 짝)·`buff_03/04/05`는 우리 바인딩에 없어 안 튼다 — 클라이언트가 트는지 확인 필요.
-- **일반화 (세션 F, 2026-10-08, 9682d45c·baf0d91f·e6dc540c)** — 이펙트 붙는 자리를 오퍼레이터 전체에:
+- **일반화 (세션 F, 2026-10-08, 9bc2b9e6·a4aaf1de·50f3c164)** — 이펙트 붙는 자리를 오퍼레이터 전체에:
   - **점 표** `tools/local-extract/char_points.py` → `tools/assets/local-char-points.json`(git, 검토용) + `public/assets/local/fx/points.json`(git 밖, 클라이언트가 읽음).
     근거: chararts `DefaultSkin` 애니메이터의 typetree — 양면 모델은 `_front`/`_back` 레코드(`muzzlaTransform`[원문 오타]·`hitTransform`·`headTransform`·
     `shadowTransform`·`specialPoint0~15`), 한 면 모델(`char_1012_skadi2`)은 자기 필드(`_muzzleTransform`…). 각 점의 BoneFollower `boneName`·`followBoneRotation`,
@@ -1380,10 +1380,10 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   - **`render/fxpoints.js`** `pointKey`(3·6 → muzzle, MP_SPECIAL_N → spN: 8~11 → 0~3, 13~16 → 4~7, 18~25 → 8~15; 12 CAMERA·17 TILE_CENTER 제외)·`pointOn`
     (그 면의 본 → 다른 면의 본 → 그 면의 고정 위치). `fxgame.js lifted()`가 표에서 점을 찾는다(`SPECIAL_BONES` 삭제 — 비르투오사는 같은 본, 테스트로 고정).
     표에 없는 유닛(적, 근접 모델의 muzzle, 표 없음)은 예전대로 바닥. 본 회전(`followBoneRotation`, 3은 회전 포함·6은 없음)은 적용 안 함 [추정: 프리팹의 `fixed` 자식이 세워진 채].
-  - **MP_SPECIAL_1~6** (baf0d91f): `fx_extract.py spawn_location`이 0~8만 받아 9·10·11·13·14·15인 **66개**가 `spawn` 없이(=바닥) 추출돼 있었다. 값 = 열거형 순서의 근거:
+  - **MP_SPECIAL_1~6** (a4aaf1de): `fx_extract.py spawn_location`이 0~8만 받아 9·10·11·13·14·15인 **66개**가 `spawn` 없이(=바닥) 추출돼 있었다. 값 = 열거형 순서의 근거:
     9~15를 쓰는 오퍼레이터는 정확히 그만큼 특수점을 가진다(`thorn2` sp0~4·값 13, `angel2` sp0~6·값 15, `agoat2` sp0~5·값 14까지). 66개만 `--prefab`로 재추출 — `spawn` 외 변화 없음,
     index.json 그대로.
-  - **꼬리 투사체** (e6dc540c): `TRAIL_Z` 0.35칸 고정 대신 발사자의 Muzzle(쏘는 순간 위치) → 대상의 맞는 높이(`SPAWN_FRAC[2]`, 클라이언트 HitPoint [추정]),
+  - **꼬리 투사체** (50f3c164): `TRAIL_Z` 0.35칸 고정 대신 발사자의 Muzzle(쏘는 순간 위치) → 대상의 맞는 높이(`SPAWN_FRAC[2]`, 클라이언트 HitPoint [추정]),
     Muzzle이 없으면 fx.js `SHOT_HEIGHT.launch`.
   - **NONE(0) 136개**: 클라이언트가 0을 어디에 놓는지는 메타데이터에 근거 없음(`ParticleEffect`/`SimpleEffect`의 `_spawnLocation`, 문자열 「Unit {0} has no muzzlePoint」 등뿐 — 로직은 네이티브).
     지금대로 바닥 [추정]. 참고: 0인 공격 시작 프리팹(`kroos2_attack_start_01`·`horn_attack_01_start_02` 등)은 노드가 `qiangkou`(총구)처럼 무기 끝 기준으로 짜여 있다 — 호출자가 위치를 주는 것일 수 있음.
@@ -1391,7 +1391,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   - **알려진 빈자리**: `swire_attack_01_start`(3, 근접 모델에 Muzzle 없음 → 바닥), `char_1012_skadi2`(Back 모델 없음), 史尔特尔 S3 `buff_03/04` Back 레코드가 Back 스켈레톤에 없는
     `F_Face_Default_*` 본을 가리킴(클라이언트 데이터 — 고정 위치 사용), `nymph_talent_buff_02` Back은 본 없는 고정 위치.
   - **바뀐 프리팹 목록**(되돌림용): `research/2026-10-08-fx-spawn/changed-prefabs.tsv` 218개(3: 48, 8: 104, 9~15: 66) — 프리팹마다 앞/뒤 본.
-    이상하다는 제보가 오면: 9 이상만 되돌리기 = baf0d91f revert(코드가 9+를 무시 — 재추출 불필요), 꼬리만 = e6dc540c revert.
+    이상하다는 제보가 오면: 9 이상만 되돌리기 = a4aaf1de revert(코드가 9+를 무시 — 재추출 불필요), 꼬리만 = 50f3c164 revert.
   - **사용자 확인 이펙트에 생긴 변화**: 첸(赤刃明霄陈) S2 `chen3_skill_02_buff_01`(9 → `C_Weapon`)은 그녀의 검을 따라가는데, 숨는 동안 `Skill_2_Disappear` 클립이 검 본을 약 1.4칸 앞(+538 단위)으로
     옮겨 둔다 → 예전에는 배치 링 안 바닥에 보이던 붉은 빛이 이제 그 자리에 없다(디버그 아레나 `f_probe.mjs`로 본 위치 확인, 실제 판에서도 같음). 클라이언트 BoneFollower도
     같은 본을 따른다 [추정] — 사용자 확인 필요. 비르투오사 S3·르무엔 S3·余는 전·후 같음(아레나·픽셀 비교), 丰川祥子 음표는 음표 경로(`NOTE_Z`)라 영향 없음.
@@ -1416,18 +1416,18 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   번호가 다르다(UI·GROUND는 문자열 중복 제거로 이름 표에 안 보임). 추출 프리팹의 (spawn, mount) 쌍이 모두 맞는다(8↔5 98개, 10↔8 14개, 3↔2 12개 …).
 - 스펙터 디 언체인드: S2 모드 `Body/GeneralAbilities/Ability0` 버프 `ghost_s_2[effect]` → `ghost2_skill_02_buff_02`(붉은 원, 마운트 5 = 톱날 링 `B_W_Ring`/`F_W_Ring`,
   `pauseWhenInvalid` 1)·`_buff_03`(눈 빛, 6 = `F_L_Eyeball`/`B_L_Eye`). 평타 `ghost2_attack_start_01`·S3 `skill_03_start_01`·`skill_03_buff_02`도 마운트 5.
-- 구현: `fx_extract.py mount_point` → JSON `mount`(0e8f3fda); `char_modes.py`가 모드 GeneralAbilities 버프의 `overrideEffectKey`를 `attach`에 —
-  **`GENERAL_BUFF_CHARS`(ghost2만)**(470969bf); `fxpoints.js mountSpawn`(마운트 → 같은 점의 `_spawnLocation`, UI·GROUND는 null)·`boneMissing`, `fxgame.js lifted()`가
+- 구현: `fx_extract.py mount_point` → JSON `mount`(12195aa1); `char_modes.py`가 모드 GeneralAbilities 버프의 `overrideEffectKey`를 `attach`에 —
+  **`GENERAL_BUFF_CHARS`(ghost2만)**(1fc69ae3); `fxpoints.js mountSpawn`(마운트 → 같은 점의 `_spawnLocation`, UI·GROUND는 null)·`boneMissing`, `fxgame.js lifted()`가
   `mount`를 `_spawnLocation`보다 먼저 쓰고(같은 본 getter로 매 프레임 따라감), `pauseWhenInvalid`면 지금 스켈레톤에 그 점의 본이 하나도 없을 때 업데이트를 멈춤
-  (끄는 중이면 계속 — 5071f4bb, 매핑 정정 c2d21a87). 적 앞: `baoshan` 원은 fudge −50, 점 입자는 order 2 → 분할(high)에서 FX_FRONT(기존 규칙). 분할이 꺼진 품질은 예전대로 유닛 아래.
+  (끄는 중이면 계속 — 2af00c04, 매핑 정정 00dc87bb). 적 앞: `baoshan` 원은 fudge −50, 점 입자는 order 2 → 분할(high)에서 FX_FRONT(기존 규칙). 분할이 꺼진 품질은 예전대로 유닛 아래.
 - ghost2만 재추출(마운트 프리팹 5개만 반영; 같이 재추출하면 `skill_02_buff_01`·`beidong_buff_01(_end)`·`skill_01_buff`·`skill_03_buff_01`에 세션 H 내장 Quad `bg_01`이
   생겨 이전 파일로 둠 — H-3 「텍사스만」). **배포 때 `oci/deploy.sh --fx`**(ghost2 JSON·modes.json).
-- **전체 적용(사용자 결정 2026-10-08 「전체 적용」·「켜줘」)**: `fx_extract.py --mount-only`(9afebeb2)가 추출된 프리팹 JSON에 `mount`만 넣는다 — 재추출하면 세션 H 내장 Quad
+- **전체 적용(사용자 결정 2026-10-08 「전체 적용」·「켜줘」)**: `fx_extract.py --mount-only`(cca89127)가 추출된 프리팹 JSON에 `mount`만 넣는다 — 재추출하면 세션 H 내장 Quad
   같은 다른 변화가 섞이므로. 전 번들: 마운트 프리팹 359개(93 번들), 파일 354개 변경(ghost2 5개는 이미), `mount` 외 키 변화 0. 자리가 바뀌는 것 174개(49 번들 — 텍사스 디
-  오메르토사 `buff_02_start`, 무에나, 비질 등). GeneralAbilities 버프 바인딩도 전원(5e116d97) — 7명(크루스 더 킨 글린트·라플란드 더 데카덴차·아스트젠 더 라이트체이서·
+  오메르토사 `buff_02_start`, 무에나, 비질 등). GeneralAbilities 버프 바인딩도 전원(957c94c7) — 7명(크루스 더 킨 글린트·라플란드 더 데카덴차·아스트젠 더 라이트체이서·
   락락·미니멀리스트·울피아누스·티피) 바뀜. 목록 `research/2026-10-08-mount-points/`(작업 공간 루트). 알려진 빈자리: 비즈왁스 S2 `beewax_skill_02_buff_01`(마운트 특수점 0,
   모델에 없음 — 공식은 멈춤, 우리는 바닥). **이상한 위치가 보이면** 그 프리팹 JSON의 `mount`를 빼거나 `fxgame.js lifted()`의 `mountSpawn(...) ??` 한 줄을 되돌린다.
-- **대역(替身)의 파란 이펙트**(사용자 2026-10-08 「대역 전환시 파란 이펙트는 안 보이는데」, 7b669fd7 → 공식 녹화로 정정 569c32ce): 바인딩 `attach[Stand]`는
+- **대역(替身)의 파란 이펙트**(사용자 2026-10-08 「대역 전환시 파란 이펙트는 안 보이는데」, 2f981801 → 공식 녹화로 정정 f318f42b): 바인딩 `attach[Stand]`는
   있었지만 스킬 모드가 아닌 모드의 attach를 트는 곳이 없어 한 번도 안 나왔다(세션 L 이전부터). 첫 수정은 둘 다 대역에 계속 틀었는데, 사용자 녹화(`화면 녹화 중 2026-10-08 211902.mp4`,
   프레임 보드)와 사용자 설명(「파란 소용돌이가 잠깐 나왔다가 사라지고, 3x3칸짜리 원형 이펙트도 따로 있어」)으로 정정:
   - 파란 소용돌이·물보라 = 대역 등장 `[switch2stand]/StandBorn` `_castEffects` `ghost2_birth_01_start` — 1회(공식 약 0.4~1.4초). `char_modes.py` `dollBorn`.
@@ -1437,9 +1437,9 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   - `fxgame.js dollFx`: fx `substitute`에 dollBorn 1회 + Stand 모드 attach − attachFoe 반복, `swap`·`dollEnd`에 끔. 아레나·실제 솔로 판: 전환 순간 본체에 소용돌이 약 0.6초, 3×3 원형 유지.
     남은 것: 3×3 원형 메시의 왜곡 텍스처 흐름 컴포넌트(84바이트 MonoBehaviour, `_DisturTex` 속도)는 안 읽음 — 원형이 멈춘 그림처럼 보일 수 있음; `beidong_buff_01_end` 안 틂;
     `beidong_buff_02`를 적에게 붙이는 것은 안 함.
-- 안 한 것: `_followScaleSign`·`_followScale`(좌우·크기 따라감). `_keepOriginRotation`(본 회전)은 아래 「이펙트 방향」(세션 stronghold-99, daf72239)에서 적용.
+- 안 한 것: `_followScaleSign`·`_followScale`(좌우·크기 따라감). `_keepOriginRotation`(본 회전)은 아래 「이펙트 방향」(세션 stronghold-99, 98bf89fc)에서 적용.
 - **확인 필요(사용자 2026-10-08 「아스트젠 같은 일부 오퍼는 적에게 붙어야 하는 이펙트가 오퍼 본인에게 붙어 있어 — 직접 비교해 봐야 하니 문서로만」)**: GeneralAbilities 버프 바인딩
-  전원 적용(5e116d97)으로 늘어난 attach 중 일부는 적에게 붙는 버프의 이펙트일 수 있다. `attachFoe`(같은 GameObject의 `targetSide 2`)로 잡히는 것은 스펙터 디 언체인드·인디고뿐이고
+  전원 적용(957c94c7)으로 늘어난 attach 중 일부는 적에게 붙는 버프의 이펙트일 수 있다. `attachFoe`(같은 GameObject의 `targetSide 2`)로 잡히는 것은 스펙터 디 언체인드·인디고뿐이고
   아스트젠 더 라이트체이서(`halo2_skill_03_buff_02`)는 안 잡힌다 — 대상을 다른 방식(선택기·투사체 등)으로 고르는 버프. 대상 7명: 크루스 더 킨 글린트 `kroos2_skill_02_buff_01`, 라플란드 더 데카덴차
   `whitw2_skill_02_buff_01`·`_range_01`·`skill_03_buff_start`·`_buff_01`, 아스트젠 더 라이트체이서 `halo2_skill_03_buff_02`, 락락 `rockr_token_01`, 미니멀리스트 `malist_drone`, 울피아누스
   `ulpia_skill_03_buff_01`, 티피 `tippi_skill_01_buff`·`_skill_02_buff_L`·`common_idle_ground`·`common_land_ground`·`tippi_line_01_1/_2`. 공식 영상과 하나씩 비교한 뒤 오퍼별로 정한다.
@@ -1452,7 +1452,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   톱날을 따라 움직이고 샌드백 앞에 그려짐), **실제 솔로 판**(`l_real.mjs` — S2 발동 뒤 톱날에 붉은 원, 프레임마다 톱날 위치를 따라감). 대역 전환은 S2가 끝날 때 일어난다
   (처음엔 치명 피해로 일으키려다 못 봄 — 위 「대역의 파란 이펙트」에서 확인). 전체 적용의 다른 오퍼 174개는 화면 확인 안 함(단위 테스트로 우리 모델에서 점을 찾는지만). 공식 녹화 없음.
 
-### 이펙트 방향 — 방향 칸·마운트 회전 (세션 stronghold-99, 2026-10-08, 사용자 제보 5차 5-2, daf72239)
+### 이펙트 방향 — 방향 칸·마운트 회전 (세션 stronghold-99, 2026-10-08, 사용자 제보 5차 5-2, 98bf89fc)
 - 제보: 아르케토 S3 이펙트가 배치 방향과 상관없이 항상 세로로 보인다 → 오퍼레이터 방향을 따라야 한다(다른 오퍼에도 있을 수 있음).
   **사용자 결정(2026-10-08)**: 방향 칸 「13명 전체」, 마운트 회전 「전체 적용」(이상한 이펙트는 나중에 그것만 뺀다).
 - **방향 칸** (근거: charpack·skills.ab 이펙트 발생기 항목): `_effects`는 칸 배열 — 0 위, 1 오른쪽, 2 아래, 3 왼쪽(스펙터 디 언체인드 `_up`/`_down`, 백파이프
@@ -1464,9 +1464,9 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   앞모습], 나머지 보는 방향의 칸. 빈 칸은 안 틂. 좌우 사본이 따로 있는 묶음에서 고른 사본은 다시 뒤집지 않음 [추정]. 사본 프리팹은 이미 전부 추출돼 있었다(재추출 없음).
   대상 14명: 스펙터 디 언체인드, 가비알 디 인빈서블, 이그제큐터 디 엑스 포에데레, 위셔델, 엑시아 더 뉴 커버넌트, 백파이프, 아르케토, 불피스폴리아, 언더플로우,
   르무엔, 산크타 믹사파라토, 비질, 아로마 + 데겐블레허(S2 `start_04_v`/`_h`, skills.ab).
-  **선발 오퍼레이터 항목** (75de3b8f, 사용자 요청 2026-10-08): 0.2.0 병합 뒤 `data/diy.json`이 없어져 `char_modes.py`가 선발 5명을 다시 만들지 못했다(전체 실행에서
+  **선발 오퍼레이터 항목** (f93ebce4, 사용자 요청 2026-10-08): 0.2.0 병합 뒤 `data/diy.json`이 없어져 `char_modes.py`가 선발 5명을 다시 만들지 못했다(전체 실행에서
   빠지고 예전 항목이 남음). → `diy_operators()`가 `data/backups.json` `diy.operators`(선발 목록)와 `units.<charId>.forms`의 스킬을 읽는다. 재생성 결과: 토가와
-  사키코만 바뀜 — S2 모드 4개(공속·공격·피버·피버 마법)의 기본 능력 버프 이펙트 `oblvns_skill_02_buff`/`_buff_01`이 `attach`에(5e116d97의 「모두에게」 규칙),
+  사키코만 바뀜 — S2 모드 4개(공속·공격·피버·피버 마법)의 기본 능력 버프 이펙트 `oblvns_skill_02_buff`/`_buff_01`이 `attach`에(957c94c7의 「모두에게」 규칙),
   아레나에서 S2 동안 몸 뒤 분홍 오라로 보임(공식 대조 안 함). 왕·첸 더 던스트릭·위셔델·아스카론은 그대로. 이전 바인딩 백업 `research/2026-10-08-diy-bindings/before/`(작업 공간 루트).
 - **마운트 회전**: FollowMountPoint `_keepOriginRotation` 0 = 효과가 마운트 지점의 회전을 받는다. 아르케토 S3 시전 부채꼴 `archet_skill_03_start`는 마운트 2(MUZZLE)·0이고
   루트에 회전 필드가 없다; 총구 점(`points.json` `F_Muzzle`/`B_Muzzle`, `rot 1` = 본 회전 따라감)의 본은 Skill_3 동안 네 방향 모두 월드 −90°(런타임 값).
@@ -1498,7 +1498,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   보이는 빛은 `bao`(Additive, 1초 × speedMul 0.8 = 1.25초 주기)의 금빛 띠 — 로컬 정렬(align 2) 쿼드가 바닥면에 누워 pivot x 0.95·회전 −90°로
   발 앞에서 유닛 뒤로 뻗는다. 우리는 ① 렌더러 `m_Pivot`을 무시해 띠가 노드 자리(발 앞 0.4칸)에 놓였고 ② 프리팹 루트 위치(z −0.25)를 더해 전체가 떴다.
   → `fxplayer.js FxInstance` 옵션 두 개: `pivot`(빌보드·정렬·수평 쿼드가 회전 전 모서리를 pivot × 크기만큼 옮김, 셰이더 `uPivot`; 늘인 빌보드·메시 파티클은
-  미적용), `atSpawn`(루트 노드 자기 위치를 버림 — 호출자가 놓는 자리가 대신함). 처음(6c782d40)에는 정예 금빛에만 켰고,
+  미적용), `atSpawn`(루트 노드 자기 위치를 버림 — 호출자가 놓는 자리가 대신함). 처음(391c7838)에는 정예 금빛에만 켰고,
   **사용자 결정 2026-10-08 「둘 다 전체 적용」**으로 두 옵션 모두 기본값이 켜짐(`false`를 넘기면 예전 방식, 지금 끄는 호출자 없음).
   영향: pivot 쿼드 412 시스템 / 242 프리팹(전체 pivot 1,836 시스템 중 늘인 빌보드 1,193·메시 94 등은 아직 미구현), 루트 위치 104 프리팹(대부분 투사체 꼬리).
   - 비교 자료(`research/2026-10-08-elite-glow/a2-pivot.png`·`a2-root.png`, 프리팹 단독 current / pivot / pivot+root — Windows `fxcmp.mjs`)와
@@ -1512,13 +1512,13 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     `_overwriteHeight`·`_heightOffset` 필드가 있다 — 이 프리팹 루트 값은 false / 0(원시 필드)이라 `static_offset`(z −0.34)은 그대로 둔다 [추정: 로직은 네이티브].
     카메라는 공식 값(30°·40°, configBlackBoard 위치 — `projection.js`)이라 높이·깊이 화면 계수 차이는 원인이 아니다.
   - 측정(띠의 세로 무게중심, 발 위 칸 수 — 유닛 양옆 열, 프레임별 밝기에서 조용한 프레임을 뺀 값; 공식 칸 크기는 레벨 칩 73px ÷ 우리 43.3px × 우리 칸 124px
-    = 210px, 모델 키 공식 1.14칸 / 우리 1.10칸으로 교차 확인): **공식 0.43** · 수정 전(7d7693ec) 0.0~0.08(최고점이 발 아래 = 제보) · pivot만 0.56 ·
+    = 210px, 모델 키 공식 1.14칸 / 우리 1.10칸으로 교차 확인): **공식 0.43** · 수정 전(2b7f7184) 0.0~0.08(최고점이 발 아래 = 제보) · pivot만 0.56 ·
     **pivot + 루트 버리기 0.46~0.48**. 번쩍인 뒤 0.3초 동안의 궤적은 공식과 0.05칸 안(예: +0.1초 0.30 / 공식 0.29). 이전 메모의 「아직 0.2칸 높다」는
     공식 띠를 눈대중(0~0.45칸)으로 잡은 비교였다.
   - **띠는 모델 앞** (2026-10-08 사용자 「금빛 띠가 오퍼레이터 뒤에 있어. 실제 인게임에선 위에 있었어」; 녹화도 번쩍일 때 검은 신발·정강이가
     금빛으로 덮인다): `bao`는 sortingOrder 0 — 분할 규칙이 order 0 파티클을 모두 모델 뒤 캔버스에 두었다. 클라이언트는 같은 order(Spine도 0)를
     거리로 정렬하고 `bao` 노드는 발 앞 0.4칸이라 모델 위에 그려진다 → `fxplayer.js FxInstance` 옵션 `ahead`(분할할 때 노드가 유닛보다 0.1칸 넘게
-    앞인 order 0 파티클을 FX_FRONT로). `bao (1)`(뒤 0.6칸)·order −1 glow·불티는 그대로 뒤. 처음(0fe8987e)에는 정예 금빛에만 넘겼고,
+    앞인 order 0 파티클을 FX_FRONT로). `bao (1)`(뒤 0.6칸)·order −1 glow·불티는 그대로 뒤. 처음(15cac83a)에는 정예 금빛에만 넘겼고,
     **사용자 결정 2026-10-08 「일단 19개에게도 적용해놔. 나중에 이상하면 수정요청할게」**로 기본값 켜짐(`ahead: false`면 예전 방식, 끄는 호출자 없음).
     품질 high + 3D 보드(분할)일 때만 — medium 이하는 예전처럼 전부 유닛 아래. 분할 안 하는 대상 타격·상태 이펙트는 영향 없음.
     [추정] 공식은 유닛마다 거리로 정렬하지만 우리는 「모든 유닛 앞 / 모든 유닛 뒤」 둘뿐이라 옆 칸 유닛까지 덮을 수 있다.
@@ -1540,7 +1540,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   - **나뭇잎 텍스처 폐기** (2026-10-08 사용자 「한번도 실제 인게임에서 해당 나뭇잎 텍스처를 못 봤어. 그 텍스처는 폐기해」): `common_stealth` 프리팹과
     `tex/common_leaf_*.webp`를 추출물·`fx/index.json`에서 지우고, `fx_extract.py DISCARD`로 재추출에서도 뺀다. 서버 assets/local/fx에 남은 사본은
     어디서도 참조하지 않는다(rsync `--delete`를 안 쓰면 남음 — 지워도 됨).
-  - **泥岩 Back 스켈레톤의 S3 시작 클립** (2026-10-08 테스트 정리에서 발견, `assets.test` 「Spine animation roles resolve」): b7f77ebb의
+  - **泥岩 Back 스켈레톤의 S3 시작 클립** (2026-10-08 테스트 정리에서 발견, `assets.test` 「Spine animation roles resolve」): 2402d13a의
     `anim-overrides.mjs`가 앞·뒤 모두에 `Skill_2_Begin`을 넣었는데 Back 스켈레톤에는 `Skill_2_Begin`·`_Awake`·`_Sleep`이 없다 → `applyAnimOverrides`가
     스켈레톤 클립 목록(`spine.mjs`가 넘김)에 없는 덮어쓰기 클립을 null로 둔다(Back S3는 시작 클립 없이 `Skill_2_Attack`·`_Idle`). `fetch-assets --offline`으로
     매니페스트를 다시 만들어 바뀐 것은 이 한 칸(+hash). 테스트 `test/local-patch-battle.test.js`.
@@ -1549,19 +1549,19 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     공 밑 그림자에 묻히고 첫 폭발만 보였다 → 탄생·跟子 이펙트(주인 따라감)와 연결선·활성 섬광을 공 중심(화면상 0.18칸, `fxgame.js STONE_BALL`·`ballZ`)에.
     폭발(`token_wang_skill_0N_hit*`)은 그대로 땅. 확인: Windows `sp-check\wst5.mjs`(디버그 아레나, `CAST=i`로만 발동) → `wst5b-zoom.png`.
     → **재제보 2-2로 일부 되돌림** (아래 「望 바둑돌 이펙트 재제보」): 탄생 십자는 다시 땅, 활성 휘감김·연결선만 공에.
-  - ~~**跟子 이펙트 반복** [추정]~~ (637a43e0, 2026-10-08 재제보 2-1에서 삭제): 跟子의 `wang_passive_01_buff`를 3초마다 다시 틀던 것. 캡처의 검은 연기는
+  - ~~**跟子 이펙트 반복** [추정]~~ (55a8b583, 2026-10-08 재제보 2-1에서 삭제): 跟子의 `wang_passive_01_buff`를 3초마다 다시 틀던 것. 캡처의 검은 연기는
     탄생 이펙트가 아니라 활성 이펙트(`wang_passive_01_buff_02`의 `line` 메시)였다.
   - **望 바둑돌 이펙트 재제보** (세션 B, 2026-10-08, `research/2026-10-08-report3-status.md` 2-1·2-2·2-7, 캡처·스크립트 `research/2026-10-08-wang-stone/`):
-    - **2-1 활성 이펙트 유지** (82b1b028): 「루프」로 보여야 하는 것은 활성(연결) 이펙트 — 놓은 돌 `token_wang_01_buff`(sktok_wang_N/TriggeredEffect
+    - **2-1 활성 이펙트 유지** (25781d71): 「루프」로 보여야 하는 것은 활성(연결) 이펙트 — 놓은 돌 `token_wang_01_buff`(sktok_wang_N/TriggeredEffect
       `_buffs[0].overrideEffectKey` = 버프 이펙트), 跟子 `wang_passive_01_buff_02`(투사체 `_triggeredEffect`). 둘 다 `line` 메시(검은·금빛 휘감김)가 클립의
       `_Amount` 1 → 0으로 0.6초에 드러나고 그대로 남는다. 루트 효과 컴포넌트 원시 int #17이 상태 버프 거의 전부와 이 둘·탄생 이펙트 = 1, 폭발 = 0
       [추정: `_isLoop`]. 우리는 클립·파티클이 끝나면(약 1초) 버렸다 → `playAt keep`으로 돌에 붙여 그 돌의 `die`(소모·회수)까지 유지. 그리고 정비에서 붙여 놓은
       돌은 전투 첫 틱에 활성되는데 그 'wangLink'가 화면이 필드에 들어가기 전이라 `screens/game/early.js keepEarly`가 버렸다(fx라서) → 'wangLink'도 남김.
       탄생 이펙트 `token_wang_birth_01_buff`에는 같은 `line` 메시가 꺼져 있다(외톨이 돌은 휘감김 없음 = 공식 캡처 아래쪽 돌).
-    - **2-2 탄생 십자는 땅** (bc4a202e, 사용자 정정: 「공이 아니라 공 밑 십자가 모양 이펙트가 타일 위치와 어긋남」): 탄생 이펙트의 루프 십자(`sz`/`sz1`: 땅 평면의
+    - **2-2 탄생 십자는 땅** (8888c80c, 사용자 정정: 「공이 아니라 공 밑 십자가 모양 이펙트가 타일 위치와 어긋남」): 탄생 이펙트의 루프 십자(`sz`/`sz1`: 땅 평면의
       길이 1칸 납작한 쿼드)는 땅 표시 — 공식 캡처에서 팔이 타일 가장자리에서 가장자리까지, 타일 중간보다 8~10px(타일 ~250px) 위. 공 높이로 올리면 화면에서
       약 0.15칸 위로 뜨고 원근 때문에 칸마다 다르게 어긋난다 → STONE_BORN은 돌 뷰의 땅. 활성 휘감김·연결선은 공에(캡처에서 공을 감쌈).
-    - **2-7 폭발** (8ede3fc9, 95c4e8d4): 돌에서는 클라이언트가 트는 것만 — sktok_wang_1/3 `_castEffects`, sktok_wang_2/ExplodeRow·Col·Cross `_effectKey`
+    - **2-7 폭발** (71f1725f, 7a8d85bf): 돌에서는 클라이언트가 트는 것만 — sktok_wang_1/3 `_castEffects`, sktok_wang_2/ExplodeRow·Col·Cross `_effectKey`
       (축마다), 跟子 투사체 `_effectOnTrigger`(`fxgame.js stoneBlastFx`). `_02`는 타격 이펙트(ExplodeRow `_hitEffects`, S3 跟子 `_effectsWhenHit`)라
       같은 순간의 'dmg'로 범위 안 적·터뜨린 적마다(`stoneHit`, `inStoneBlast`). `token_wang_skill_03_hit_03`(모든 시스템 x+2칸 = S3 폭발 사본)은 어디서도
       참조하지 않아(charpack, 토큰 번들, `[uc]` 6개, 표) 안 튼다 — 2칸 옆 두 번째 폭발과 ~9칸 직선 입자의 원인. 그리고 `fxplayer.js shapeSample`이
@@ -1609,7 +1609,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
       배치 불가 언덕으로 본 것이고 공식 동작 기억은 없다. 시뮬레이션(상자를 지나감)은 그대로, 공식 녹화에서 검기가 상자에서 꺾이는 것이 보이면 다시 연다.
       참고: 공식 PC 캡처 `research/2026-10-07-user-issues-3/official-pc-round8.png`(사막 맵)에서 전투 중 상자(HP 바 있음)는 칸 위 장치로 보인다.
 
-### 回环射手 부메랑 (2026-10-08, 사용자 제보 4차 4-6 「투사체는 하나만 있고 부메랑처럼 돌아온다. 공격하지 않을 때는 오퍼 손에 들려 있어야 한다」, 세션 I 521a00dc)
+### 回环射手 부메랑 (2026-10-08, 사용자 제보 4차 4-6 「투사체는 하나만 있고 부메랑처럼 돌아온다. 공격하지 않을 때는 오퍼 손에 들려 있어야 한다」, 세션 I aa843e4c)
 回环射手는 풀에 跃跃(케이퍼 `char_4100_caper`, `chess_char_1_09`)뿐이다(`data/chess.json` loopshooter). 시뮬레이션(`ai.js throwBoomerang`)은 이미 한 개를
 던지고 받은 뒤 다시 공격한다 — 화면만 고쳤다.
 - 근거(EN 클라이언트, 2026-10-08 UnityPy): `projectile_chr_caper`(`battle/prefabs/[uc]projectiles.ab`) `_speed` 15, `_comeBack` 1,
@@ -1632,16 +1632,16 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 
 ### 사용자 제보 4차 텍사스 — 텍사스 디 오메르토사 S2 발동·S3 검우 (2026-10-08, 4-3 「S2 이펙트가 이미지처럼 멈춤」·4-5 「S3 지속 중 검이 계속 떨어져야」, 세션 H)
 원인 조사·반박 검증은 `research/2026-10-08-orchestration/triage-report4.md`(워크스페이스 루트). 사용자 결정 2026-10-08: ① 4-3은 A만, ② 4-5는 이름 교체 + texas2 번들만 재추출.
-- **4-5 A — 검우 프리팹 이름** (26e57300): 시뮬레이션 'swordRain'(대상마다, `src` = 그녀)이 클라이언트에 없는 이름 `texas2_skill_03_hit`(검 없는 스파크)를
+- **4-5 A — 검우 프리팹 이름** (7714f5ab): 시뮬레이션 'swordRain'(대상마다, `src` = 그녀)이 클라이언트에 없는 이름 `texas2_skill_03_hit`(검 없는 스파크)를
   그렸다. 공식: `[uc]skills.ab` ModeWithSwordRain의 EmitSword가 1초마다 투사체 `projectile_chr_texas2_s3_sword_rain`을 쏘고, 그 `_effectsToTargetWhenStart` =
   `texas2_skill_03_hit_02`(5.5칸 위에서 0.13초 낙하 `luojian` + 착지 `luo`, 2.62초). → `fxgame.js`가 스킬 바인딩의 target(`modes.json skills[2].target`)을 그린다.
-- **4-3 — 재생기 다중 클립** (602d2fac): 프리팹 안의 중첩 서브프리팹은 자기 Animator·클립을 가진다. `FxInstance`가 `clips[0]`(루트 것)만 틀어 S2 발동
+- **4-3 — 재생기 다중 클립** (4a190181): 프리팹 안의 중첩 서브프리팹은 자기 Animator·클립을 가진다. `FxInstance`가 `clips[0]`(루트 것)만 틀어 S2 발동
   `texas2_birth_02_start`의 베기 4개(메시 16개)가 머티리얼 기본값으로 약 2초 굳어 있었다. 이제 모든 클립의 트랙을 묶어 각 클립 길이까지 재생(끝 프레임 유지),
   `done`·꼬리는 가장 긴 클립 기준. 추출기는 이미 클립 노드를 전체 트리 번호로 풀어 둠 → 재추출 없음. 적용 안 한 것(결정): 중첩 서브프리팹 `_delayTime` 0~0.3초(B,
   지금은 동시 시작), 루트 `_delayTime`(①-b, 약 310 이펙트) 보류. `m_IsActive`(C)는 아래 「착지한 낙하 검」에서 나중 결정으로 적용.
   `bench/fx/compare.mjs`(HEAD 대비 1983 이펙트 × 4프레임): 바뀐 것은 클립 2개 이상인 11 프리팹뿐(바인딩된 6: 텍사스 디 오메르토사 S2 발동·S3 범위 시작, 무에나 S2,
   위셔델 S2 2종, 불피스폴리아 S2 / 바인딩 안 된 svash2 방패·불피스폴리아 방향별 4), 나머지 1972는 픽셀 동일.
-- **4-5 B — 내장 Quad/Plane 메시** (fe9dce69): 검날 노드(jian / jian1 / add)는 Unity 내장 Quad(FileID → `Library/unity default resources`, PathID 10210)
+- **4-5 B — 내장 Quad/Plane 메시** (23bfcb41): 검날 노드(jian / jian1 / add)는 Unity 내장 Quad(FileID → `Library/unity default resources`, PathID 10210)
   MeshFilter라 `fx_extract.py`가 못 풀어 메시가 빠졌다(재질 트랙도 'attr:'로 남음). 클라이언트가 그 파일을 `<Arknights_Data>/Resources/unity default resources`로
   싣고 있어 합성 대신 **실제 메시를 읽는다**(`Extractor.mesh_ref`, 메시 자리만; Quad 10210·Plane 10209만 — Cube 10202·Sphere 10207은 결정 범위 밖).
   재추출은 texas2 번들만: 9 프리팹 69 노드에 메시가 생김(S3 낙하 검·범위 모서리 검·범위 시작 27, S2 버프 메시 5, S1·S3 버프, buff_02_start 2종), 그 밖의 필드는
@@ -1652,13 +1652,13 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   **실제 솔로 판**(`sp-check\h_real.mjs`, 상점 구매 → 배치): S2 발동이 전투 카메라 진입 중 재생·0.6초에 사라지고 버프만 남음; S3 검우
   `hit_02`가 1초 간격(32.18/33.14/34.14/35.14)으로 적 위에 사선 낙하. **공식 녹화**: S2 녹화(3초)는 스킬 중 평타 구간뿐이라 발동 프레임 대조 불가 — 평타 베기는
   0.4초 안에 사라져 멈춘 그림 없음. S3 녹화(확대)의 「위에서 사선으로 내려오는 큰 먹 검」과 우리 낙하 검의 모양·색은 맞음; 크기·각도의 프레임 단위 대조는 안 함.
-- **착지한 낙하 검 — `m_IsActive`** (f08c997f, 사용자 결정 2026-10-08 「공식과 동일하게」): 메시가 생기자 `texas2_skill_03_range_start`(낙하 4)·`_start`의
+- **착지한 낙하 검 — `m_IsActive`** (d1ae2699, 사용자 결정 2026-10-08 「공식과 동일하게」): 메시가 생기자 `texas2_skill_03_range_start`(낙하 4)·`_start`의
   검이 착지 뒤에도 클립 끝(1.53초)까지 α 0.5로 남았다 — 공식은 클립의 `m_IsActive` 트랙(Mecanim type 1, crc32 2086281974)으로 0.2초(start 0.37초)에 끈다.
   `FxInstance`가 이 트랙을 묶어 노드 visible을 따르게 하고(메시·라인), 그 아래 파티클은 꺼질 때 비우고 멈추며 다시 켜지면 처음부터(Unity GameObject 비활성 /
   playOnAwake), 꼬리는 꺼질 때 비운다 [추정: 비움]. 이 트랙이 있는 프리팹 83개 전체에 적용 — 픽셀 비교(1983 × 4프레임)에서 43개가 바뀌고 모두 83개 안
   (로즈몬티스 13·라플란드 더 데카덴차 소환물 타격 6·위셔델 4·쉐라·락락 소환물 타격 각 4·엑시아 더 뉴 커버넌트 버프 3 등), 나머지 1940 동일.
   아레나·실제 솔로 판 S3 재확인(오류 없음, 범위 시작 착지 검 9 → 5).
-- **처음부터 꺼진 노드** (b1b16daf, 사용자 2026-10-08 「일단 꺼봐」 — 시험 적용): 트랙 없이 처음부터 꺼진 노드 아래 파티클·꼬리(166 프리팹 51 번들, 파티클 455·꼬리 61)를
+- **처음부터 꺼진 노드** (efcf38ac, 사용자 2026-10-08 「일단 꺼봐」 — 시험 적용): 트랙 없이 처음부터 꺼진 노드 아래 파티클·꼬리(166 프리팹 51 번들, 파티클 455·꼬리 61)를
   이제 재생하지 않는다(메시는 원래 숨김). 근거: EN 클라이언트 번들 검사(워크스페이스 루트 `research/2026-10-08-inactive-nodes/`) — 164 프리팹은 그 노드를 켜는 트랙도
   가리키는 컴포넌트도 없음, 1개는 `_inactiveOnFinish`(끝날 때 끄는 목록)만, 1개는 트랙(위). 네이티브 코드가 이름으로 켜는 경우는 배제 못함 [추정].
   표본 아르케토 S3: `archet_skill_03_start`의 꺼진 `smoke`가 대상 위에 큰 연기를 그렸다 — 같은 시스템이 `archet_skill_03_start_01`에 켜진 채 뒤쪽(0.65, 0.63)에
@@ -1754,7 +1754,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     1.263배(`modelScaleY`), 木制瑞印은 좌우 반전(`mirrorX`). EN 클라이언트로 다시 확인(`tools/local-extract/enemy_model_offsets.py`, upstream에서 가져옴):
     `Graphic` 스케일 (0.19, 0.24, 0.24) → sy/sx 1.263, 木制瑞印 (−0.4, 0.4, 0.24) → 반전; 비교용 妖怪 (0.2, 0.2, 0.2). `tools/build-data.mjs`
     `MODEL_STRETCH_Y`·`MIRRORED_PREFABS` → `data/enemies.json`(오프라인 재생성 — 바뀐 것은 이 3개 레코드뿐, 다른 data 파일은 바이트 동일),
-    `render/units.js` `enemyModelScaleY`(골격 Y 스케일·HP 바 높이·임포스터), 반전은 `flip`에 곱함. 2ec78a6d의 `UNIT.modelScale` 0.0027·
+    `render/units.js` `enemyModelScaleY`(골격 Y 스케일·HP 바 높이·임포스터), 반전은 `flip`에 곱함. d52b8a85의 `UNIT.modelScale` 0.0027·
     `TOKEN_MODEL_K`는 그대로(보정은 그 위의 비율). 연구 문서 `docs/research/12-flying-visuals-official.md`도 가져옴. 테스트
     `test/render/playtest6-enemies.test.js`(upstream 그대로, 수정 전 렌더러로 2개 실패 확인). merge-0.2.0에는 v0.2.0으로 이미 있다(stronghold-79 확인).
 
@@ -2005,8 +2005,8 @@ upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 �
     WebP만 — 아래 「立绘 추출」).
   - 고친 버그: `render/board3d-extract` 노멀 맵 — EN 클라이언트의 `TX_autochessi_N`은 Unity DXT5nm(R=1, X는 A, Y는 G)인데 BC5(R=X)로 읽어
     파생 노멀이 평평했다(z 평균 128). `tools/local-extract/extract.py derive_normal_rg`가 R이 전부 255이면 A를 X로 쓴다; 기존 PNG에서 다시
-    파생(`run_derived` + `run_webp`, 클라이언트 불필요). 泥岩 뒷모습 S2 클립(`assets.test`, nas-local 7fcaec09).
-  - 2026-10-08 nas-local(ccf3058e)에서 다시 확인: 4716개 중 통과 4712, 실패 0, 건너뜀 4(Chrome·zip·토큰 모델 추출 필요). 새로 받은 노멀
+    파생(`run_derived` + `run_webp`, 클라이언트 불필요). 泥岩 뒷모습 S2 클립(`assets.test`, nas-local 4f27dccd).
+  - 2026-10-08 nas-local(756319fb)에서 다시 확인: 4716개 중 통과 4712, 실패 0, 건너뜀 4(Chrome·zip·토큰 모델 추출 필요). 새로 받은 노멀
     맵은 B 평균 249. EN 클라이언트에 `emoticon_foolsday_*` 번들이 없고, `ui_equip_type_hub_h2_0.ab`·`ui_equip_type_direction_hub_h2_0.ab`에는
     `inc-x`만 있다(UnityPy로 확인) — fooldoctor·INC-Y는 CN 클라이언트가 있어야 뽑을 수 있다.
   - 가끔 시간 문제로만 실패(단독 실행은 통과): `lobby` 「solo resume window」, `lobby-integration` 재접속, `match/realtime` 「real-time co-op over websockets」.

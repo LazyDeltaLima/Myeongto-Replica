@@ -419,7 +419,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     get x() { return v.x; }, get y() { return v.y; }, get z() { return ballZ(v.x, v.y, (v.z || 0) + (v.hover || 0)); },
     get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
   });
-  // (2026-10-08 #2-1: the 3-second replay of a 跟子's wang_passive_01_buff (637a43e0, [추정]) is gone — the capture's wisps
+  // (2026-10-08 #2-1: the 3-second replay of a 跟子's wang_passive_01_buff (55a8b583, [추정]) is gone — the capture's wisps
   // are its activation effect, kept above; the birth prefab's rings are one-shot systems and its `sz1` cross loops itself)
   /** local patch: whether 望's stone effects play here (render/fx.js then skips its procedural stand-in). */
   const stonesOn = () => !!(index?.bundles?.[STONE_FX] && !failed && q() !== 'low');
