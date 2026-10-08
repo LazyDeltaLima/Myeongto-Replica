@@ -876,6 +876,8 @@ export class AudioManager {
       const u = this.getManifest()?.audio?.sfx?.units?.[defId];
       // local patch: an attack / impact made while skill `mode` (its index) runs sounds that skill's mode (audioOfficial.js)
       const m = kind === 'attack' || kind === 'hit' ? modeEntry(u, mode, kind) : null;
+      // local patch (user report 4 #4-4): a mode whose ability has no impact bank sounds none (缄默德克萨斯 S2, modes[i].noHit)
+      if (kind === 'hit' && !m && Number.isInteger(mode) && u?.modes?.[mode]?.noHit) return true;
       // DESIGN §16: the equipped skill's own ON_SKILL_START sound (`skills[index]`) when the manifest has it
       const own = kind === 'skill' && Number.isInteger(skillIndex) && u?.skills ? u.skills[skillIndex] : null;
       const url = m ? m[kind] : typeof own === 'string' ? own : u?.[kind];
@@ -995,6 +997,7 @@ export class AudioManager {
     this._openingTimers?.clear();
     try { this.voiceGate.reset(); this._stopVoice(); this.voicePolicy?.reset(); } catch { /* ignore */ } // local patch: voicePolicy
     stopSkillLoops(this); // local patch: no skill loop carries into a new field
+    this._skillEarly = null; // local patch: nor a skill event held for its unit's spawn
     for (const u of Array.isArray(units) ? units : []) this._track(u);
   }
 
@@ -1050,6 +1053,13 @@ export class AudioManager {
     } catch (err) { this._warn('prep-deploy', err); }
   }
 
+  /** local patch (user report 4 #4-4): replay the 'skill' events held for unit `id` until its spawn / deploy. */
+  _flushSkillEarly(id) {
+    const held = this._skillEarly?.get(id);
+    this._skillEarly?.delete(id);
+    if (held?.length) this.handleBattleEvents(held);
+  }
+
   /** local patch (user report 4 #4-2): play a dollkeeper switch's sounds (audioOfficial.js dollSwitchSfx) as sfx.kit keys. */
   _dollSwitch(id, ds) {
     const sfx = this.getManifest()?.audio?.sfx;
@@ -1070,8 +1080,19 @@ export class AudioManager {
       for (const e of ev) {
         if (!Array.isArray(e)) continue;
         const kind = e[0];
-        if (kind === 'spawn') { this._track(e[1]); continue; }
+        if (kind === 'spawn') {
+          this._track(e[1]);
+          // local patch (user report 4 #4-4): a skill that starts on deployment (缄默德克萨斯 S1–S3, Skill.reset activateOnDeploy)
+          // sends its 'skill' before the unit's 'spawn' — held until then; with a 'deploy' in this batch, until that sounds
+          const id = e[1]?.id;
+          if (this._skillEarly?.has(id) && !ev.some((x) => Array.isArray(x) && x[0] === 'deploy' && x[1] === id)) this._flushSkillEarly(id);
+          continue;
+        }
         if (OPENING_ENDS.has(kind)) { if (this._opening) this._opening.over = true; else this._opening = { at: -Infinity, n: 0, over: true }; }
+        if (kind === 'skill' && !this.units.has(e[1])) { // local patch: before its unit's spawn (see 'spawn')
+          if (e[1] != null) { const m = (this._skillEarly ||= new Map()); m.set(e[1], [...(m.get(e[1]) || []), e]); }
+          continue;
+        }
         if (kind === 'skill') { // local patch: the running skill (its mode sounds, audioOfficial.js)
           const su = this.units.get(e[1]);
           if (su) {
@@ -1174,6 +1195,7 @@ export class AudioManager {
               continue;
             }
           }
+          if (this._skillEarly?.has(e[1])) this._flushSkillEarly(e[1]); // local patch: its deploy-time skill (see 'spawn')
           const m = this.getManifest();
           const url = deploySfxUrl(m, u);
           // 行动出发 / 部署: the first operator of the battle says the battle-start line, the others their deploy line

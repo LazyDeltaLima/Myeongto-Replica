@@ -75,13 +75,15 @@ function run(a, b, until, max = 40) {
 }
 
 describe('the manifest: skill extras, loops, mode impacts and the 替身 switch (tools/assets)', () => {
-  test('耀骑士临光 S3 / 塑心 S3 extras, 烛煌 S3 loop, 归溟幽灵鲨 switch keys', () => {
+  test('耀骑士临光 S3 / 塑心 S3 extras, 烛煌 S3 loop, 缄默德克萨斯 S2 noHit, 归溟幽灵鲨 switch keys', () => {
     assert.deepEqual(skillExtrasOf(UNITS.char_1014_nearl2, 2).map((x) => file(x.url)), ['p_skill_goldspearboost1.mp3']);
     const cello = skillExtrasOf(UNITS.char_245_cello, 2);
     assert.deepEqual(cello.map((x) => [file(x.url), x.stop ?? null]), [['p_skill_shphrtcltrill.mp3', null], ['p_skill_shphrtcltrillmelody.mp3', 0.2]]);
     assert.equal(cello[1].grp, 'Battle_P_SAtk');
     assert.equal(file(UNITS.char_245_cello.loops['2'].url), 'p_skill_thrill_loop.mp3', 'the field loop stays');
     assert.equal(file(UNITS.char_1040_blaze2.loops['2'].url), 'p_skill_hcnsrfrfld.mp3', 'ON_ABILITY_END loop');
+    assert.equal(UNITS.char_1028_texas2.modes['1'].noHit, true);
+    assert.equal(file(UNITS.char_1028_texas2.modes['1'].attack), 'p_imp_reticentsword_h.mp3');
     const kit = manifest.audio.sfx.kit;
     assert.deepEqual(['ghost2:stand', 'ghost2:standin', 'ghost2:normal'].map((k) => file(kit[k])),
       ['p_skill_sharpstandborn.mp3', 'p_skill_sharpstandspell.mp3', 'p_skill_sharpborn.mp3']);
@@ -89,9 +91,9 @@ describe('the manifest: skill extras, loops, mode impacts and the 替身 switch 
     assert.equal(dollSwitchSfx('char_4016_kazema', 'substitute'), null);
   });
 
-  test('generator rules on the official audio_data (skillExtras)', { skip: !existsSync(OFFICIAL) && 'no .cache/gamedata' }, async () => {
+  test('generator rules on the official audio_data (skillExtras / skillModes noHit)', { skip: !existsSync(OFFICIAL) && 'no .cache/gamedata' }, async () => {
     const { indexAudio } = await import('../tools/assets/audio.mjs');
-    const { skillExtras } = await import('../tools/assets/skill-mode-sfx.mjs');
+    const { skillExtras, skillModes, loadCharModes } = await import('../tools/assets/skill-mode-sfx.mjs');
     const { skillStartSounds } = await import('../tools/assets/skill-sfx.mjs');
     const audio = indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8')));
     const leaf = (p) => p[0];
@@ -101,10 +103,37 @@ describe('the manifest: skill extras, loops, mode impacts and the 替身 switch 
     assert.deepEqual(x['2'].map((e) => [e.url, e.stop ?? null]), [['player/p_skill/p_skill_shphrtcltrill.mp3', null], ['player/p_skill/p_skill_shphrtcltrillmelody.mp3', 0.2]]);
     // a skill whose generic start cue is its only other bank gets nothing (诗怀雅 S2: ON_ABILITY_START b_char_atkboost)
     assert.equal(skillExtras(audio, 'char_173_slchan', sk('slchan', 2), leaf, starts('slchan', 2)), null);
+    const modes = skillModes(audio, 'char_1028_texas2', sk('texas2', 3), loadCharModes(ROOT)['char_1028_texas2'], leaf);
+    assert.equal(modes['1'].noHit, true, 'attack.2 has ON_ABILITY_ON only');
   });
 });
 
-describe('real match path → audio.js (user report 4 #4-2)', () => {
+describe('real match path → audio.js (user report 4 #4-2 / #4-4)', () => {
+  test('缄默德克萨斯 S2: its deploy-time skill reaches the audio (held for its spawn); S2 hits sound p_imp_reticentsword_h only', async () => {
+    const { b, u } = await realBattle('chess_char_4_16_b', 1);
+    assert.equal(u.def.charId, 'char_1028_texas2');
+    const a = manager();
+    a.setFieldUnits([]);
+    const early = b.drainEvents();
+    assert.ok(early.findIndex((e) => e[0] === 'skill' && e[1] === u.id) < early.findIndex((e) => e[0] === 'spawn' && e[1]?.id === u.id), 'the sim sends skill before spawn');
+    // screens/game.js: the opening buffer's spawn / deploy / skill
+    a.handleBattleEvents(early.filter((e) => e[0] === 'spawn' || e[0] === 'deploy' || e[0] === 'skill'));
+    assert.equal(a.units.get(u.id)?.skillOn, true, 'S2 runs for the audio');
+    assert.ok(a.played.some((p) => p.unitKey === `${u.id}:skill` && file(p.url) === 'p_skill_reticentsword_h.mp3'), 'its start sound');
+    a.played.length = 0;
+    u.skill.timeLeft = 120; // the enemies of this field reach her after S2's 8 s: keep it running until a few attacks landed
+    run(a, b, () => a.played.filter((p) => file(p.url) === 'p_imp_reticentsword_h.mp3').length >= 3, 90);
+    u.skill.end('test');
+    b.step(); a.handleBattleEvents(b.drainEvents());
+    const during = a.played.filter((p) => String(p.unitKey).startsWith(`${u.id}:`) || String(p.unitKey).startsWith('h')).map((p) => file(p.url));
+    assert.ok(during.includes('p_imp_reticentsword_h.mp3'), `S2 attack sound (${during.slice(0, 6)})`);
+    assert.ok(!during.includes('p_atk_reticentsword_n.mp3'), 'no Default impact while S2 runs');
+    assert.equal(a.units.get(u.id).skillOn, false, 'ended');
+    a.played.length = 0;
+    run(a, b, () => a.played.some((p) => file(p.url) === 'p_atk_reticentsword_n.mp3'), b.time + 10);
+    assert.ok(a.played.some((p) => file(p.url) === 'p_atk_reticentsword_n.mp3'), 'after S2: the Default impact again');
+  });
+
   test('耀骑士临光 S3: its start bank and its ability\'s p_skill_goldspearboost1', async () => {
     const { b, u } = await realBattle('chess_char_6_17_b', 2);
     const a = manager();

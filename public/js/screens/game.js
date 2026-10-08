@@ -456,7 +456,8 @@ function MatchScreen() {
       // the opening deployment of a battle that just began sits in this buffer too (the local sim runs before the view
       // enters the field): its deploy sounds / lines play — user re-report 2026-10-08 「작전 시작할 때 배치 효과음이 안 들림」
       const opening = combat && !watchingOther && !(earlySnap && Number(earlySnap.gt) > 2);
-      audio.handleBattleEvents(early.filter((e) => e[0] === 'spawn' || (opening && e[0] === 'deploy')));
+      // + its deploy-time skills (缄默德克萨斯 S2's mode sounds, user report 4 #4-4 — audio.js holds them for the unit's deploy)
+      audio.handleBattleEvents(early.filter((e) => e[0] === 'spawn' || (opening && (e[0] === 'deploy' || e[0] === 'skill'))));
     }
     if (!earlySnap && (field.prep || !combat) && Array.isArray(field.units)) {
       // prep scouting: no battle snapshots follow. A later m.field for this board (the teammate moved) re-enters

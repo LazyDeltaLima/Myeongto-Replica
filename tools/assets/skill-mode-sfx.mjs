@@ -126,6 +126,9 @@ export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallba
     if (Object.keys(mix).length) e.mix = mix;
     if (Object.keys(grp).length) e.grp = grp;
     if (s.skillId && startIsFallback(s.skillId)) e.deferStart = true;
+    // local patch (user report 4 #4-4, 2026-10-08): a mode ability with its own attack bank and no impact bank (缄默德克萨斯 S2
+    // attack.2: ON_ABILITY_ON only) — the Default ability's HIT bank does not fire while the mode runs: no impact sound
+    if (n > 0 && found.attack && !found.hit) e.noHit = true;
     out[String(s.index)] = e;
   }
   return Object.keys(out).length ? out : null;
