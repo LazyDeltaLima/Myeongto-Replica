@@ -188,3 +188,24 @@ test('fxplayer: a clip\'s m_IsActive track switches its node\'s meshes and parti
   assert.ok(inst.nodes[1].visible && sys.n > 0, 'on again: emitting from its start');
   inst.dispose();
 });
+
+// local patch (user 2026-10-08 「일단 꺼봐」): a node inactive from the start with no m_IsActive track never emits (Unity: an
+// inactive GameObject's system does not play) — 아르케토 S3's stray smoke in archet_skill_03_start
+test('fxplayer: a particle system under a node inactive from the start never emits', async () => {
+  const fxp = await import('../public/js/render/fxplayer.js');
+  const c = (v) => ({ m: 0, s: v });
+  const ps = { dur: 1, loop: true, delay: c(0), speedMul: 1, space: 0, scaling: 1, prewarm: false, life: c(5), speed: c(0),
+    color: { m: 0, a: [1, 1, 1, 1] }, size: c(0.1), rot: c(0), max: 100, gravity: c(0), flipRot: 0, rate: c(20), bursts: [{ t: 0, n: c(10) }], mods: {},
+    shape: { type: 5, radius: 1, angle: 0, arc: 360, thick: 1, length: 1, pos: [0, 0, 0], rotE: [0, 0, 0], scale: [1, 1, 1], box: [0, 0, 0] },
+    render: { mode: 0, mat: 'm', mesh: null, align: 0, pivot: [0, 0, 0], order: 0 } };
+  const node = (name, parent, extra = {}) => ({ name, parent, active: true, pos: [0, 0, 0], rot: [0, 0, 0, 1], scale: [1, 1, 1], ...extra });
+  const def = { name: 'off', duration: 1, nodes: [node('off', -1), node('on', 0, { ps }), node('smoke', 0, { active: false, ps }), node('under', 2, { ps })],
+    materials: { m: { shader: 'Torappu/Particles/Additive', tex: {}, floats: {}, colors: {} } }, clips: [], geoms: {}, lib: { texture: () => null } };
+  const inst = new fxp.FxInstance(def, { quality: 'high', atSpawn: false });
+  inst.update(0.5);
+  const [on, smoke, under] = inst.systems;
+  assert.ok(on.n > 0, 'an active node emits');
+  assert.equal(smoke.n, 0, 'an inactive node does not');
+  assert.equal(under.n, 0, 'nor anything under it');
+  inst.dispose();
+});

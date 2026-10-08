@@ -1238,11 +1238,12 @@ export class FxInstance {
     this.clipTracks = this.clips.flatMap((c) => c.tracks.map((tr) => this.bindTrack(tr, c.len || 0)).filter(Boolean));
     // local patch (m_IsActive, user's decision 2026-10-08 「공식과 동일하게」 — report 4 #4-5: 缄默德克萨斯 S3's falling blades are
     // switched off as they land): the particle systems / trails under a node a clip switches on and off follow it (meshes and
-    // lines follow by their node's visibility). Nodes inactive from the start with no such track are left as they were (a
-    // client script may switch them on — direction variants)
+    // lines follow by their node's visibility). And those under a node inactive from the start (user 2026-10-08 「일단 꺼봐」):
+    // in 164 of the 166 such prefabs nothing in the prefab switches the node on (research/2026-10-08-inactive-nodes, the
+    // workspace root) — 아르케토 S3's stray `smoke` lives on, switched on, in archet_skill_03_start_01
     const switched = new Set(this.clipTracks.filter((b) => b.kind === 'active').map((b) => b.o));
-    const under = (o) => { for (let p = o; p && p !== unity; p = p.parent) if (switched.has(p)) return true; return false; };
-    this.gated = switched.size ? [...this.systems, ...this.trails].filter((x) => under(x.node)).map((x) => ({ x, on: true })) : [];
+    const under = (o) => { for (let p = o; p && p !== unity; p = p.parent) if (switched.has(p) || !p.visible) return true; return false; };
+    this.gated = [...this.systems, ...this.trails].filter((x) => under(x.node)).map((x) => ({ x, on: true }));
     this.clipV = [];
     live.push(this);
     while (live.length > MAX_INSTANCES) live[0].dispose(); // the oldest goes (dispose removes it from `live`)
