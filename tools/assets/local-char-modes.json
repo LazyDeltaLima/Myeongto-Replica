@@ -1219,6 +1219,44 @@
    [],
    []
   ],
+  "dirs": [
+   {
+    "t": 3,
+    "s": [
+     "wisdel_attack_b_start",
+     "wisdel_attack_b_start",
+     "wisdel_attack_down_b_start",
+     "wisdel_attack_b_start"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "wisdel_attack_c_start",
+     "wisdel_attack_c_start",
+     "wisdel_attack_down_c_start",
+     "wisdel_attack_c_start"
+    ]
+   },
+   {
+    "t": 3,
+    "s": [
+     "wisdel_attack_a_start",
+     "wisdel_attack_a_start",
+     "wisdel_attack_down_a_start",
+     "wisdel_attack_a_start"
+    ]
+   },
+   {
+    "t": 0,
+    "s": [
+     "wisdel_skill_03_start",
+     "wisdel_skill_03_start",
+     "wisdel_skill_03_down_start",
+     "wisdel_skill_03_start"
+    ]
+   }
+  ],
   "skillMode": [
    null,
    null,
@@ -1259,44 +1297,6 @@
     ],
     "target": [],
     "targetBuff": []
-   }
-  ],
-  "dirs": [
-   {
-    "t": 3,
-    "s": [
-     "wisdel_attack_b_start",
-     "wisdel_attack_b_start",
-     "wisdel_attack_down_b_start",
-     "wisdel_attack_b_start"
-    ]
-   },
-   {
-    "t": 3,
-    "s": [
-     "wisdel_attack_c_start",
-     "wisdel_attack_c_start",
-     "wisdel_attack_down_c_start",
-     "wisdel_attack_c_start"
-    ]
-   },
-   {
-    "t": 3,
-    "s": [
-     "wisdel_attack_a_start",
-     "wisdel_attack_a_start",
-     "wisdel_attack_down_a_start",
-     "wisdel_attack_a_start"
-    ]
-   },
-   {
-    "t": 0,
-    "s": [
-     "wisdel_skill_03_start",
-     "wisdel_skill_03_start",
-     "wisdel_skill_03_down_start",
-     "wisdel_skill_03_start"
-    ]
    }
   ]
  },
@@ -8093,13 +8093,21 @@
   ],
   "attach": [
    [],
-   [],
-   [],
-   [],
+   [
+    "oblvns_skill_02_buff"
+   ],
+   [
+    "oblvns_skill_02_buff_01"
+   ],
+   [
+    "oblvns_skill_02_buff_01"
+   ],
    [
     "oblvns_skill_03_range"
    ],
-   []
+   [
+    "oblvns_skill_02_buff"
+   ]
   ],
   "skills": [
    {

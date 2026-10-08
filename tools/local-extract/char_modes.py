@@ -31,8 +31,29 @@ FX_OUT = ROOT / 'public/assets/local/fx/modes.json'
 DEFAULT_CLIENT = '/mnt/d/YostarGames/Arknights_EN/Arknights_Data'
 
 
+def diy_operators():
+    """{charId: [skill prefabId, …]} of the 自选 operators — local patch (2026-10-08, user's request): upstream 0.2.0 moved
+    them from data/diy.json (gone) to data/backups.json `diy.operators` (the picks) with their forms under `units.<charId>.forms`
+    (`'<phase>/<level>/<skillLevel>/<equip>'` → { skills }), so the 선발 operators (왕, 첸 더 던스트릭, 위셔델 …) were left out of
+    every run since the merge and kept their pre-merge bindings. Skill order of the first form that lists skills."""
+    path = ROOT / 'data/backups.json'
+    if not path.exists():
+        return {}
+    d = json.loads(path.read_text(encoding='utf-8'))
+    ops = (d.get('diy') or {}).get('operators') or {}
+    units = d.get('units') or {}
+    out = {}
+    for cid in ops:
+        if not (isinstance(cid, str) and cid.startswith('char_')):
+            continue
+        forms = (units.get(cid) or {}).get('forms') or {}
+        sk = next((f['skills'] for f in forms.values() if isinstance(f, dict) and isinstance(f.get('skills'), list) and f['skills']), [])
+        out[cid] = [x.get('prefabId') or x.get('skillId') for x in sk if isinstance(x, dict)]
+    return out
+
+
 def pool_char_ids():
-    ids = set()
+    ids = set(diy_operators())
     chess = json.loads((ROOT / 'data/chess.json').read_text(encoding='utf-8'))
     recs = chess.get('chess', chess)
     for c in (recs.values() if isinstance(recs, dict) else recs):
@@ -63,6 +84,9 @@ def char_skill_prefabs():
             sk = c.get('skills')
             if isinstance(sk, list) and sk:
                 out[c['charId']] = [s.get('prefabId') or s.get('skillId') for s in sk if isinstance(s, dict)]
+    for cid, sk in diy_operators().items():
+        if cid not in out and sk:
+            out[cid] = sk
     return out
 
 
