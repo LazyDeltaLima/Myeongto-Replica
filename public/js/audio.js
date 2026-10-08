@@ -1201,7 +1201,10 @@ export class AudioManager {
           // 行动出发 / 部署: the first operator of the battle says the battle-start line, the others their deploy line
           // (a knocked-out operator redeploying in the same battle is one of the others; a summon says nothing).
           // Kept ahead of the deploy-SFX guards below: the voice channel is independent of the unit sound's roll.
-          if (unitSoundClass(u) === 'char') {
+          // local patch (session K-5, user's decision 2026-10-08 「C」): a 复活 (M3茧甲 / 埃芒加德 reviveNow — a redeploy in the
+          // knock-out's tick, its 'revive' fx in the same batch) keeps the drop and b_char_set but says no 部署 line
+          const revived = ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'revive' && x[4]?.id === e[1]);
+          if (unitSoundClass(u) === 'char' && !revived) {
             if (!this.startVoiceDone) {
               this.startVoiceDone = true;
               this.voicePolicy?.started(now); // local patch: the opening deployment stays silent after 行动出发

@@ -313,6 +313,19 @@ describe('deploy sounds on every placement (user report 2026-10-07 #1 / #2, audi
     assert.equal(b.played.length, 1, 'cancelled with the field');
   });
 
+  test('a 复活 (M3茧甲 / 埃芒加德: die + deploy + \'revive\' fx in one tick) keeps the deploy sound but says no 部署 line (K-5 「C」)', () => {
+    const a = manager();
+    const said = [];
+    a.voice = (def, slot) => { said.push(slot); return true; };
+    a.handleBattleEvents([['spawn', { id: 1, spine: 'char_263_skadi', defId: 'x', kind: 'op', side: 'ally' }], ['deploy', 1]]);
+    a._opening.at -= 5000;
+    a.handleBattleEvents([['die', 1, 'killed'], ['deploy', 1], ['fx', 'revive', 0, 0, { id: 1, src: 'item:chess_item_4_12_e', key: 'r', left: 0 }]]);
+    assert.deepEqual(said, ['start'], 'no 部署 line on the revive');
+    assert.equal(a.played.filter((p) => file(p.url) === 'b_char_set.mp3').length, 2, 'b_char_set both times');
+    a.handleBattleEvents([['deploy', 1]]);
+    assert.deepEqual(said, ['start', 'place'], 'a plain redeploy still speaks');
+  });
+
   test('望 stone pop: the token ability start (p_atk_stwctp_*) with its impact; S1\'s impact rides the DoT ticks', () => {
     const a = manager();
     const S = 'token_10064_wang_stone1';

@@ -62,8 +62,11 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 - K-3 보스 라운드 정비의 짝 기물(upstream ef101647 `render/app.js syncMates`)도 공식 장비 바(`setEquip`) — 옛 초록 아이콘이 섞이던 것.
   확인: 실제 협동 판(`test/e2e/fastServer.mjs` SP_START_ROUND=boss, 사람 2명이 아이템 장착, `sp-check\k_mates.mjs`), 단위 `test/local-patch-hud.test.js`.
 - K-4 引星棘刺 S2 炼金单元 등 떨어진 곳의 오래가는 zone은 2D 원을 남김 → 아래 「공식 전투 이펙트」 7번 예외.
-- K-5 埃芒加德·M3茧甲 부활(upstream a3a0ddd2: 쓰러짐 + 그 자리 즉시 무료 재배치)은 지금 일반 자동 재배치와 똑같이 보인다(실제 판 확인: 같은 틱
-  'die' → 'deploy', 사망음 + 部署 대사 + 배치음 + `onDeploy` 하늘 낙하). 공식 부활 연출의 클라이언트 근거는 못 찾음 — **사용자 결정 대기**(STRONGHOLD.md §11).
+- K-5 埃芒加德·M3茧甲 부활(upstream a3a0ddd2: 쓰러짐 + 그 자리 즉시 무료 재배치)은 일반 자동 재배치와 똑같이 보였다(실제 판 확인: 같은 틱
+  'die' → 'deploy', 사망음 + 部署 대사 + 배치음 + `onDeploy` 하늘 낙하). 공식 부활 연출의 클라이언트 근거는 못 찾음.
+  **사용자 결정 2026-10-08 「C」**: 낙하·사망음·배치음은 그대로, 部署 대사만 뺀다 — `audio.js` 'deploy'가 같은 묶음에 그 유닛의 'revive' fx
+  (`reviveNow` 뒤 `fxOn`)가 있으면 대사를 건너뛴다. 확인: 실제 솔로 판(fastServer SP_START_ROUND=boss, M3茧甲 금색, `k_revive.mjs`) 부활 2번 모두
+  `b_char_dead`·`b_char_set`·`onDeploy`만, 대사 없음; 단위 `test/local-patch-audio.test.js`.
 - K-6 문서: 싱글 보스 HP ×0.25(91900cf5) 반영, `op-chen3.js`의 읽는 곳 없는 `hitsFly` 삭제.
 
 ## 원칙
