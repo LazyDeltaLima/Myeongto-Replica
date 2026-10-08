@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { pointKey, pointOn } from '../public/js/render/fxpoints.js';
+import { boneMissing, mountSpawn, pointKey, pointOn } from '../public/js/render/fxpoints.js';
 
 const ROOT = new URL('../', import.meta.url);
 const FX = new URL('public/assets/local/fx/', ROOT);
@@ -82,7 +82,8 @@ function pointPrefabs() {
       if (!f.endsWith('.json')) continue;
       let d;
       try { d = JSON.parse(readFileSync(new URL(`${b.name}/${f}`, FX), 'utf8')); } catch { continue; }
-      if (pointKey(d?.spawn)) out.push([b.name, f.slice(0, -5), d.spawn]);
+      const spawn = mountSpawn(d?.mount) ?? d?.spawn;
+      if (pointKey(spawn)) out.push([b.name, f.slice(0, -5), spawn]);
     }
   }
   return out;
@@ -115,10 +116,38 @@ test('the extracted 비르투오사 S3 glow is a _spawnLocation 8 prefab', { ski
 
 test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body / head lifts unchanged; trails leave the muzzle', () => {
   const src = readFileSync(new URL('public/js/render/fxgame.js', ROOT), 'utf8');
-  assert.match(src, /const key = pointKey\(def\?\.spawn\);/);
+  assert.match(src, /const spawn = mountSpawn\(def\?\.mount\) \?\? def\?\.spawn;\n    const key = pointKey\(spawn\);/);
   assert.match(src, /specialPoint\(v, p, key\)/);
   assert.match(src, /const SPAWN_FRAC = \{ 2: 0\.5, 4: 1\.1 \};/, 'the body / head lifts are unchanged');
   assert.doesNotMatch(src, /const TRAIL_Z|TRAIL_Z \+ /, 'no fixed trail height');
   assert.match(src, /const p = specialPoint\(src, shotAt, 'muzzle'\);/);
   assert.match(src, /const z = rec\.z0 \+ \(rec\.tz - rec\.z0\) \* k/);
 });
+
+// session L (user report 4 #4-7, 2026-10-08): an effect's FollowMountPoint (fx_extract.py `mount`) — 스펙터 디 언체인드 S2's red ring
+test('mountSpawn: MountPointType 1–4 FOOT / HIT / MUZZLE / HEAD, 5–20 SPECIAL_0–15 → the _spawnLocation of the same point', () => {
+  assert.deepEqual([1, 2, 3, 4].map((type) => mountSpawn({ type })), [1, 2, 3, 4]);
+  assert.deepEqual([5, 6, 8, 9, 12, 13, 20].map((type) => pointKey(mountSpawn({ type }))), ['sp0', 'sp1', 'sp3', 'sp4', 'sp7', 'sp8', 'sp15']);
+  for (const m of [undefined, null, {}, { type: 0 }, { type: 21 }]) assert.equal(mountSpawn(m), null);
+});
+
+test('boneMissing: only when the skeleton has none of the point\'s bones (fixed spots are never invalid)', () => {
+  const entry = { F: { bone: 'F_W_Ring' }, B: { bone: 'B_W_Ring' } };
+  assert.equal(boneMissing(entry, skel({ B_W_Ring: [0, 0] })), false);
+  assert.equal(boneMissing(entry, skel({})), true);
+  assert.equal(boneMissing({ F: { at: [1, 2] } }, skel({})), false);
+  assert.equal(boneMissing(entry, null), false, 'no skeleton yet: not paused');
+});
+
+const GHOST2 = new URL('ghost2/', FX);
+test('스펙터 디 언체인드: S2 plays the red ring on her saw (buff_02, mount SPECIAL_0) and the eye light (buff_03, SPECIAL_1)',
+  { skip: !existsSync(new URL('ghost2_skill_02_buff_02.json', GHOST2)) && 'no extracted effects' }, () => {
+    const fx = (n) => JSON.parse(readFileSync(new URL(`${n}.json`, GHOST2), 'utf8'));
+    assert.deepEqual([fx('ghost2_skill_02_buff_02').mount.type, fx('ghost2_skill_02_buff_02').mount.pauseWhenInvalid], [5, 1]);
+    assert.equal(fx('ghost2_skill_02_buff_03').mount.type, 6);
+    assert.equal(fx('ghost2_attack_start_01').mount.type, 5, 'the attack ring is on the saw too');
+    assert.equal(fx('ghost2_beidong_buff_01').mount, undefined, 'the stand-in\'s blue waves stay on the ground');
+    const m = JSON.parse(readFileSync(new URL('tools/assets/local-char-modes.json', ROOT), 'utf8')).char_1023_ghost2;
+    assert.deepEqual(m.attach[m.modes.indexOf('S2')], ['ghost2_skill_02_buff_02', 'ghost2_skill_02_buff_03']);
+    assert.deepEqual(TABLE.char_1023_ghost2.sp0.F.bone, 'B_W_Ring');
+  });

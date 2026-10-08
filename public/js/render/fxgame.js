@@ -49,7 +49,7 @@ import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
-import { loadPoints, pointKey, pointOn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { boneMissing, loadPoints, mountSpawn, pointKey, pointOn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { boomerangThrown, boomerangCaught } from './boomerang.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
@@ -448,18 +448,24 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     out.x = v.x + (g.x - v.screen.x) / v.screen.s; out.y = v.y; out.z = z0 + (Number.isFinite(dz) ? dz : 0);
     return out;
   }
+  // local patch (user report 4 #4-7, session L 2026-10-08): a prefab with a FollowMountPoint (fx_extract.py `mount`) is placed
+  // at and follows its mount point instead of its _spawnLocation; with `pauseWhenInvalid` it stands still (`paused`, the
+  // frame loop skips its update) while the unit's current skeleton has none of the point's bones
   function lifted(v, def) {
-    const key = pointKey(def?.spawn);
+    const spawn = mountSpawn(def?.mount) ?? def?.spawn;
+    const key = pointKey(spawn);
     if (key && v && pointsOn(v) && points[v.info.spine || v.info.defId][key]) {
       const p = { x: 0, y: 0, z: 0 };
       const at = () => specialPoint(v, p, key) || (camRef ? { x: v.x, y: v.y, z: bodyZ(camRef, v, 0.5) } : v);
+      const pause = !!def?.mount?.pauseWhenInvalid;
       return {
         get x() { return at().x; }, get y() { return at().y; }, get z() { return at().z; },
         get alive() { return v.alive; }, get remove() { return v.remove; },
+        get paused() { return pause && boneMissing(points[v.info.spine || v.info.defId][key], v.actor?.spine?.skeleton); },
         id: v.id, info: v.info,
       };
     }
-    const frac = SPAWN_FRAC[def?.spawn];
+    const frac = SPAWN_FRAC[spawn];
     if (!frac || !v || !(v.info || v.screen)) return v;
     return {
       get x() { return v.x; }, get y() { return v.y; },
@@ -1230,7 +1236,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           l.inst.object.quaternion.setFromUnitVectors(SKY_Y, skyUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize());
         }
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
-        l.inst.update(dt * rate2);   // local patch: every effect on the battle clock (the notes did already: trail = speed × time)
+        if (!l.view?.paused || l.inst.stopping) l.inst.update(dt * rate2);   // local patch: every effect on the battle clock (the notes did already: trail = speed × time)
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
         // (#2-1) a kept effect (playAt `keep`: 望's stone activation) stays until its owner's 'die' stops it
         if (l.inst.done && !(l.keep && !l.inst.stopping)) { dropLive(l); live.splice(i, 1); }

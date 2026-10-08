@@ -30,6 +30,23 @@ export function pointKey(spawn) {
 }
 
 /**
+ * The `_spawnLocation` value of the point an effect's FollowMountPoint names (fx_extract.py `mount.type`, the client's
+ * MountPointType: 1 FOOT, 2 HIT, 3 MUZZLE, 4 HEAD, 5–20 SPECIAL_0–15 — global-metadata enum order, 0 NONE [추정]), or null.
+ * The effect follows that point every frame (local patch, user report 4 #4-7, session L 2026-10-08: 스펙터 디 언체인드 S2's
+ * red ring, mount 5 = SPECIAL_0 = her saw's ring bone [추정]).
+ * @param {{type?: number}|null|undefined} mount
+ * @returns {number|null}
+ */
+export function mountSpawn(mount) {
+  const t = mount?.type;
+  if (!Number.isInteger(t) || t <= 0) return null;
+  if (t <= 4) return t;
+  if (t <= 8) return t + 3;
+  if (t <= 12) return t + 4;
+  return t <= 20 ? t + 5 : null;
+}
+
+/**
  * Where point `entry` ({ F, B }) is on skeleton `sk` now, in the skeleton's own frame as the Spine runtime gives it
  * (bone.worldX / worldY: y down), or null. The side's bone when the skeleton has it (the other side's next — a model
  * swapping Front ⇄ Back), else that side's fixed spot.
@@ -50,4 +67,15 @@ export function pointOn(entry, sk, back, out = { x: 0, y: 0 }) {
   if (!Array.isArray(at) || !Number.isFinite(at[0]) || !Number.isFinite(at[1])) return null;
   out.x = at[0]; out.y = -at[1];
   return out;
+}
+
+/**
+ * Whether skeleton `sk` lacks every bone point `entry` follows (an invalid mount point: the client pauses an effect whose
+ * FollowMountPoint has _pauseWhenMountPointInvalid). A point at fixed spots only is never invalid.
+ * @param {{F?: {bone?: string}, B?: {bone?: string}}|null|undefined} entry
+ * @param {{findBone: (name: string) => object|null}|null|undefined} sk
+ */
+export function boneMissing(entry, sk) {
+  const bones = [entry?.F?.bone, entry?.B?.bone].filter(Boolean);
+  return !!sk && bones.length > 0 && bones.every((b) => !sk.findBone(b));
 }
