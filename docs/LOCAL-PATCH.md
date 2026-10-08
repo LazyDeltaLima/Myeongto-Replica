@@ -69,6 +69,33 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   `b_char_dead`·`b_char_set`·`onDeploy`만, 대사 없음; 단위 `test/local-patch-audio.test.js`.
 - K-6 문서: 싱글 보스 HP ×0.25(91900cf5) 반영, `op-chen3.js`의 읽는 곳 없는 `hitsFly` 삭제.
 
+**병합 뒤 겹친 기능 정리 — 화면 UI (2026-10-08 세션 J)** (같은 조사 목록. 확인: 실제 솔로 판 `test/e2e/fastServer.mjs` 3127(SP_START_ROUND=2·
+SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg.addDiy` 望 정예, `sp-check\j_repro.mjs`), 서버 전투 모드 3129(`SP_COMBAT=server`),
+협동 보스 라운드 3128(`j7.mjs`), 협동 탈락자 3130(`SP_ELIMINATE=1`, `j6.mjs`); 단위 `test/local-patch-merge-ui.test.js`·`test/ui/diy-ui.test.js`·`test/ui/gameLogic.test.js`)
+- J-1 「선발」 이름표(upstream 0def7bab `screens/game/standInTags.js diyPieces`) 삭제(사용자 제보). 补位 「替补」 이름표는 그대로.
+- J-2 「선발」 배지 두 곳 — 상점·보상 카드 `ui/shopBar.js scard__diy`, 맹약 팝업 멤버 `ui/bondStrip.js bpop__diy` — 삭제(**사용자 결정 2026-10-08 「빼야 해」**).
+  공식 모양이 아닌 상세 카드(`ui/detailPanel.js ChessDetail`, HUD 공식 모양을 못 쓸 때)의 「自选」 태그는 남김.
+- J-3·J-4 전투 종료 배너·효과음이 두 번(우리 「완벽한 작전!」 + NOREDUCE, 이어서 SETTLE에 upstream 「작전 종료 / 전원 무사!」 + NORMAL — 실제 판에서 재현)
+  → **우리 것만**(사용자 결정 2026-10-08). `screens/game.js announceBattleEnd`가 라운드마다 한 번: 내 일반 전투 결과가 오면(그대로),
+  안 왔으면 SETTLE에 `ui/gameLogic/phases.js settleBattleEnd`로(서버 전투 모드·재접속·클라이언트가 안 돌린 전투). upstream에서 가져온 규칙:
+  SETTLE 경로의 숫자는 联防이 있었으면 서버가 실제로 깎은 LP(`m.public.uniteResult.losses[나]`), 관전 좌석·탈락자·보스 라운드는 없음.
+  SETTLE 경로는 셈하지 않는 누수만 있는 판을 완벽한 작전과 구분하지 못한다 — LP 0이면 완벽한 작전(NOREDUCE) [추정].
+  배너 그림(로컬 추출)이 없는 클라이언트는 upstream 상자(`ResultDialog`·`roundResultBox`)를 같은 순간에 대신 띄운다.
+  联防이 이어지는 판에서 누수한 쪽의 배너 숫자는 지금처럼 联防 전 누수 수다(내 전투가 끝난 순간) — 공식이 联防 뒤에 다시 알리는지는 근거 없음.
+  지운 것: `battleOverSfx`·`uniteResultBox`·`battleResultBox`와 그 테스트, `test/ui/resultbox.e2e.test.js`(upstream SETTLE 상자 브라우저 테스트).
+- J-5 PREP의 upstream 「休整期」 띠(`ui/gameLogic/phases.js phaseBanner`) 삭제 — **사용자 확인 2026-10-08: 공식은 휴식 기간 띠가 없고 라운드·획득 배너만**.
+  PREP 진입 효과음(`rest`)은 그대로.
+- J-6 탈락자·관전 좌석의 라운드 시작 배너: upstream 7d97b80b(#236)처럼 「获得 +0」 대신 「观战中」(`ui/phaseArt.js RoundStartBanner watching`, [获得] 상자 자리에
+  [回合] 상자 모양으로 [추정: 관전자 캡처 없음]).
+- J-7 보스 라운드 짝 아바타 테두리 두 겹(우리 `bg_team_border` + upstream ef101647 `.team__frame`, 화면 확인) → 공식 HUD 모양에서는 upstream 테두리를 숨기고
+  우리 테두리를 짝 두 명 모두 초록(#59ffd2)으로(`css/hud-art.css`, [추정]: 보스 라운드 플레이어 목록 캡처 없음). 공식 HUD가 아닐 때는 upstream 그대로.
+- J-8 补位 기물의 공식 모양 상세 카드(`ui/detailArt.js ChessDetailArt`)가 원래 오퍼(갖고 있지 않은 오퍼)의 그림·이름·스탯을 보였다 → upstream `ChessDetail`처럼
+  대체 오퍼의 그림·직군·이름·스탯·사거리(그의 고정 스킬·모듈), 「替补」 태그와 「X의 대체」 줄. 등급·정예 레벨·맹약·특질은 기물 것.
+- 드래그 카드(사용자 제보 2026-10-08 「선발 오퍼를 드래그-유지하면 0.2.0 카드」): `placingDetail`이 m.private 없이 기물을 풀어서 선발 슬롯 기록 그대로
+  「선발 오퍼레이터」(스탯 —)를 보였다 → 탭과 같은 `resolveDetail(…, { priv, backups })`. 补位 기물도 드래그 중 대체 오퍼 카드.
+- J-9 (의심) 선발 정예 카드 스탯: 확인만 — 공식 모양 카드·0.2.0 카드·전투 유닛(`simdata.js getDiy`)의 스탯·스킬·모듈이 望·赤刃明霄陈·阿斯卡纶·维什戴尔 모두 같다.
+  카드도 0.2.0 카드와 같은 조회(`pickGetter`)를 쓰게 맞추고 테스트로 고정.
+
 ## 원칙
 **2026-10-07부터 하드 포크**: upstream v0.2.0 병합이 마지막이다(사용자 결정, `STRONGHOLD.md` 2·5장). 그래서 예전의
 병합용 규칙(원본 파일에는 연결 한 줄만, 원본 테스트는 고치지 않기, 의도된 실패 목록 유지)은 풀었다.
@@ -753,7 +780,8 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   「目标生命值减少」 #f24549 + `blood_icon` + 잃을 LP #ff3b3b — `Match.settle`처럼 `counted !== false`인 누수 수, 联防이 다시 배분하기 전 값),
   셈하지 않는 누수만 있으면 → panel_miss 제목만([추정], 캡처 없음). 공통: 모서리 `left_cross`, `left_frame` 괄호, `doc_text_01/02`(#18e6b8),
   오른쪽 SIGNAL `doc_01` · 점 2×3 `dot_blank`(#28c79f, 알파 .6/1/.2/.6/.4/1) · 오른쪽 위 점(#279481). 보스전(최종 공세·隐秘核心)은 공식에 다른 프리팹
-  (`panel_win_*`, `panel_lose_*`)이 있어 이 배너를 띄우지 않는다. **이 그림들은 웹 소재에 없어 로컬 추출(ui/battle)이 있을 때만 배너가 뜬다**(없으면 원본처럼 배너 없음).
+  (`panel_win_*`, `panel_lose_*`)이 있어 이 배너를 띄우지 않는다. **이 그림들은 웹 소재에 없어 로컬 추출(ui/battle)이 있을 때만 배너가 뜬다**(없으면 upstream의
+  「作战结束」 상자). 내 전투 결과가 오지 않은 라운드(서버 전투 모드·재접속)는 SETTLE에 띄우고, 라운드마다 한 번만 — 위 「0.2.0 병합」 J-3.
 - 9-slice 판은 `::before`로 그린다(판 자체에 테두리를 주면 자식 위치 기준 상자가 테두리만큼 줄어든다).
 - 번역(ui.json): 「选择后不可更改」「轮到你了」「确认选择」(공식표의 「확인」 대신 KR 캡처의 「선택 확인」 — 모든 确认选择에 적용) 「战斗结束」「完美作战！」「目标生命值减少」.
   CN 원문 문자열은 클라이언트 문자열표에서 못 찾아 [추정](KR 캡처 문구로 역추정).
@@ -1637,6 +1665,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   `battleOverNormal` = `act1autochess_b_ui_battleover_reduce|noreduce|normal.mp3`, 뱅크 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`, 각 1.4초) — 받기만 하고 재생하는
   곳이 없었다. 외부 저장소를 따로 찾을 필요 없음.
 - 재생: 내 일반 전투(COMBAT)의 결과가 오면(`screens/game.js onResult`, 전투 종료 배너와 같은 자리), 배너 그림(로컬 추출)이 없어도 소리는 낸다.
+  결과가 안 온 라운드는 SETTLE에(`settleBattleEnd`), 라운드마다 한 번 — upstream SETTLE 효과음(`battleOverSfx`)은 지움(위 「0.2.0 병합」 J-4).
 - 어느 소리인지(`audioOfficial.js battleOverOf`): 셈하는 누수(LP 감소) → REDUCE(뱅크 이름 그대로), 누수 없음(완벽한 작전) → NOREDUCE [추정],
   셈하지 않는 누수만 → NORMAL [추정]. 클라이언트 `round_result_dialog`의 애니메이션 3개(`_allPrefectAnim`·`_perfectAnim`·`_missAnim`)와 짝으로 봤다.
   어느 애니메이션이 어느 뱅크를 부르는지는 네이티브 코드라 확인 못 함 — 세 파일은 음색·길이가 거의 같은 변형이다. 공식 영상(소리 있는 것)으로 확인하면 좋다.
