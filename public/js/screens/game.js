@@ -7,7 +7,8 @@
 // shop bar (prep), merge-reward and 机变 overlays, detail panel, enemy / match-info drawer, combat HUD
 // (DP, "作战结束，等待队友完成作战" + teammates' progress, observing pill, 联防 / 最终攻势 ‹ › camera halves),
 // phase banners, the own battle's end (the official round_result_dialog banner and its BATTLEOVER sound once per round:
-// when the own result comes in, else at SETTLE — ui/gameLogic/phases.js settleBattleEnd), ticker, emote wheel + bubbles,
+// when the own result comes in in solo, at SETTLE in co-op (after a 联防) and when no result came: ui/gameLogic/phases.js holdsBattleEnd /
+// settleBattleEnd), ticker, emote wheel + bubbles,
 // settings, exit flow. Drag & drop from the view: pieceDrop on a board tile (also the piece's own tile) opens the
 // direction wheel (ui/facingWheel.js, research 09 §1.2) and its release sends g.move {uid, to, dir} (g.art {…, dir}
 // for 画卷); pieceDrop on a bench slot → g.move; items → g.equip (confirm when replacing) / g.art. Equipment
@@ -97,7 +98,7 @@ import { pauseAvailable, isPaused, frozenNow } from '../ui/matchStatus.js';
 import { pieceTile } from '../render/drag.js';
 import {
   phaseMode, phaseBanner, isCombatPhase, showDeadPill, isBossPhase, placementContext, canPlace, boardTargets, dropIntent,
-  settleBattleEnd, roundResultBox,
+  holdsBattleEnd, settleBattleEnd, roundResultBox,
   snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, sortedPlayers,
   terrainInfo,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
@@ -271,6 +272,7 @@ function MatchScreen() {
   // the official round_result_dialog (ui/phaseArt.js BattleEndBanner; without its local art the plain box) and its
   // BATTLEOVER sound. `over` = audioOfficial.js battleOverOf / settleBattleEnd { kind, lost, sfx }.
   const battleEndRound = useRef(null);                   // the round whose battle end was announced
+  const heldEndRef = useRef(null);                       // { round, over }: a co-op result held for SETTLE (holdsBattleEnd)
   const resultSeq = useRef(0);                           // re-keys the plain result box
   const announceBattleEnd = (over, round) => {
     battleEndRound.current = round;
@@ -546,9 +548,12 @@ function MatchScreen() {
         // record the own piece shows gives the operator whose voice bank speaks — a 补位 piece's stand-in (its own
         // voice, like its 选中 line) and a filled 自选 slot's operator (ownShown), else the chess record's charId
         // local patch: the own normal battle's end — the official banner and sound (BATTLEOVER_REDUCE / NOREDUCE / NORMAL,
-        // audioOfficial.js battleOverOf), once per round (announceBattleEnd)
+        // audioOfficial.js battleOverOf), once per round (announceBattleEnd); in co-op it waits for SETTLE, after the 联防
+        // that may follow (ui/gameLogic/phases.js holdsBattleEnd)
         const round = st.match?.public?.round;
-        if (mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT && battleEndRound.current !== round) announceBattleEnd(battleOverOf(mine), round);
+        const over = mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT && battleEndRound.current !== round ? battleOverOf(mine) : null;
+        if (over && holdsBattleEnd(over, st.match?.public, pid)) heldEndRef.current = { round, over };
+        else if (over) announceBattleEnd(over, round);
         const charId = resultSpeaker(mine, Math.random, (id) => ownShown(id)?.charId ?? null);
         if (!charId) return;
         // local patch: kept for the won settlement instead of said now (voice.js holdResultVoice — the official game is
@@ -643,13 +648,16 @@ function MatchScreen() {
     else if (phase === PHASE.HIDDEN_CORE) audio.sfx('bossRoundSecret');
     else if (phase === PHASE.SP_DRAFT) audio.sfx('draft');
     else if (phase === PHASE.SETTLE) {
-      // the own battle's end when its result never came in (server-run combat, a reconnect, a battle this
-      // client did not run): from what the round kept — after a 联防 the authority's own charge (m.public.uniteResult
-      // .losses: a leaker pays for the survivors, not for its own battle's leaks; ui/gameLogic/phases.js settleBattleEnd)
+      // the own battle's end held for SETTLE (co-op — holdsBattleEnd) or whose result never came in (server-run combat, a
+      // reconnect, a battle this client did not run): after a 联防 the authority's own charge (m.public.uniteResult.losses:
+      // a leaker pays for the survivors, not for its own battle's leaks), else the held result, else what the round kept
+      // (ui/gameLogic/phases.js settleBattleEnd)
       const kept = roundLossRef.current;
       roundLossRef.current = null;
       const cost = kept && kept.round === pub?.round ? kept : null;
-      const over = battleEndRound.current === pub?.round ? null : settleBattleEnd(cost, pub?.uniteResult?.losses?.[myId]);
+      const held = heldEndRef.current && heldEndRef.current.round === pub?.round ? heldEndRef.current.over : null;
+      heldEndRef.current = null;
+      const over = battleEndRound.current === pub?.round ? null : settleBattleEnd(cost, pub?.uniteResult?.losses?.[myId], held);
       if (over) announceBattleEnd(over, pub?.round);
     }
     // the server resets every watcher to its own field on phase changes — but an eliminated player / spectator seat

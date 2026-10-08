@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold,
-  settleBattleEnd, ownRoundLoss, roundResultBox, RESULT_BOX_MS,
+  holdsBattleEnd, settleBattleEnd, ownRoundLoss, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
   rangeGridBox, shortcutFor, sanitizeSettings, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
@@ -115,12 +115,30 @@ describe('phases', () => {
     assert.equal(settleBattleEnd(undefined, 0), null);
     assert.equal(settleBattleEnd({ cap: 10 }), null);
   });
+  // the user's recall of the official game (2026-10-08): a leak that goes on into a 联防 shows no banner at the own
+  // battle's end; after the 联防 the LP it left (目标生命值减少 N) or, nothing charged, the success banner
+  test('holdsBattleEnd: in co-op with a teammate still in, every own result waits for SETTLE (a 联防 may follow); solo does not', () => {
+    const miss = { kind: 'miss', lost: 3, sfx: 'battleOverReduce' }, perfect = { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' };
+    const coop = { modeId: 'act1autochess_team', players: [{ playerId: 'p_0', alive: true }, { playerId: 'p_1', alive: true }] };
+    assert.equal(holdsBattleEnd(miss, coop, 'p_0'), true);
+    assert.equal(holdsBattleEnd(perfect, coop, 'p_0'), true, 'a perfect player may become a helper (user 2026-10-08)');
+    assert.equal(holdsBattleEnd(miss, { ...coop, players: [coop.players[0], { playerId: 'p_1', alive: false }] }, 'p_0'), false, 'every teammate out: no 联防');
+    assert.equal(holdsBattleEnd(miss, { modeId: 'mode_x', players: [coop.players[0]] }, 'p_0'), false, 'solo');
+    assert.equal(holdsBattleEnd(null, coop, 'p_0'), false);
+    // at SETTLE: a 联防's charge decides (charged → 目标生命值减少, spared / a helper → 完美作战), else the held result
+    assert.deepEqual(settleBattleEnd({ leaks: 3, cap: 10 }, 2, miss), { kind: 'miss', lost: 2, sfx: 'battleOverReduce' });
+    assert.equal(settleBattleEnd({ leaks: 3, cap: 10 }, 0, miss).kind, 'perfect');
+    assert.equal(settleBattleEnd({ leaks: 0, cap: 10 }, 0, perfect).kind, 'perfect');
+    assert.equal(settleBattleEnd({ leaks: 3, cap: 10 }, null, miss), miss, 'no 联防: the held result as is');
+    const done = { kind: 'done', lost: 0, sfx: 'battleOverNormal' };
+    assert.equal(settleBattleEnd(null, null, done), done);
+  });
   test('the match screen announces the own battle\'s end once per round, and no upstream SETTLE box beside it', () => {
     const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
     assert.equal((src.match(/const announceBattleEnd = /g) || []).length, 1);
     assert.equal((src.match(/announceBattleEnd\(/g) || []).length, 2, 'called from the own result and from SETTLE only');
-    assert.match(src, /battleEndRound\.current !== round\) announceBattleEnd\(battleOverOf\(mine\), round\)/);
-    assert.match(src, /battleEndRound\.current === pub\?\.round \? null : settleBattleEnd\(cost, pub\?\.uniteResult\?\.losses\?\.\[myId\]\)/);
+    assert.match(src, /if \(over && holdsBattleEnd\(over, st\.match\?\.public, pid\)\) heldEndRef\.current = \{ round, over \};\n\s+else if \(over\) announceBattleEnd\(over, round\);/);
+    assert.match(src, /battleEndRound\.current === pub\?\.round \? null : settleBattleEnd\(cost, pub\?\.uniteResult\?\.losses\?\.\[myId\], held\)/);
     assert.doesNotMatch(src, /uniteResultBox|battleResultBox|battleOverSfx/);
   });
   test('ownRoundLoss: min(cap, leaks) — what settlement charges outside a 联防', () => {
