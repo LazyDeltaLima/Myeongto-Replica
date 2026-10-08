@@ -479,6 +479,8 @@
 /* prof/icon_*.png is the label sprite (名称 + the square class glyph on its right): its right square only */
 .dart__prof i { width: 80%; height: 80%; background: right center / auto 100% no-repeat; }
 .dart__name { margin-top: .1rem; font-size: .28rem; font-weight: 500; color: #fff; text-shadow: 0 1px 3px #000; }
+/* 0.2.0 补位: 「X的替补」 under a stand-in's name (ui/detailArt.js; [ASSUMED] placement, as ChessDetail's dhead__for) */
+.dart__for { margin-top: -.04rem; font-size: .15rem; color: #b2b2b2; text-shadow: 0 1px 2px #000; }
 .dart__tier { display: flex; align-items: center; gap: .12rem; }
 .dart__split { width: .02rem; height: .3rem; background: #8a8a8a; }
 .dart__elite { width: .38rem; height: .34rem; object-fit: contain; }

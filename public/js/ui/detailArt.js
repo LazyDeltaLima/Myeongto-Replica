@@ -14,16 +14,23 @@
 // the client's per-art size and offset that line the faces up), placed by that frame (css/hud-art.css `--fx/--fy/--fw/
 // --fh`); else the web manifest's half-body portrait (180×360); else no art.
 //
+// 0.2.0 补位 (docs/LOCAL-PATCH.md 「0.2.0 병합」 J-8): a chess the player fields as its stand-in shows the
+// stand-in like ChessDetail does — art, class, name, stats, range, skill, talents (its backup selection) — with ChessDetail's
+// 「替补」 tag and 「X的替补」 line; the chess's tier, elite level, bonds and 特质 stay. 0.2.0 自选: the composed record's
+// stats through the pick (the same lookup as ChessDetail; checked equal to the battle's def, 2026-10-08).
+//
 //   ChessDetailArt(props)   the props of ChessDetail (ui/detailPanel.js)
-//   placingDetail(p, pieces) the card of the operator being placed — dragged (`drag`) or waiting for its direction
+//   placingDetail(p, pieces, opts) the card of the operator being placed — dragged (`drag`) or waiting for its direction
 //                           (`facing`, screens/game.js): the client shows the same card then, its art more transparent
-//                           (KR gameplay captures, 2026-10-06); null for an item / token or an unknown piece
+//                           (KR gameplay captures, 2026-10-06); resolved like a tap's card (resolveDetail with the
+//                           player's m.private: a 自选 slot's operator, a 补位 stand-in — user report 2026-10-08: the
+//                           drag showed the bare slot record 「自选干员」); null for an item / token or an unknown piece
 
 import { useState } from '../../vendor/hooks.module.js';
 import { html, TierChip } from './components.js';
 import { Img } from './gameComponents.js';
 import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail } from './detailPanel.js';
-import { attackInterval, fmtNum, chessLoadout } from './gameLogic.js';
+import { attackInterval, fmtNum, chessLoadout, pickGetter, standInLoadout, standInLabel, standInTip, standInForText } from './gameLogic.js';
 import { chessPortraitUrl, profIconUrl, uiUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -72,15 +79,20 @@ function Line({ k, v, tone, sub, title, cls }) {
 
 export function ChessDetailArt(props) {
   const [tab, setTab] = useState(null);
-  const { chess: c, piece, live = null, snapHp = null, loadout = null } = props;
+  const { chess: c, piece, live = null, snapHp = null, loadout = null, standIn = null, diy = null } = props;
   const blocks = ChessDetail(props);
   const { by, tabs } = artParts(blocks);
   const m = data.get('assets');
-  const lo = chessLoadout(c, loadout, (id) => data.lookup('chess', id));
-  const fr = lo?.record || c;
+  // the body the card shows and the record the unit fights with: as ChessDetail (ui/detailPanel.js) — a 补位 stand-in's
+  // backup selection, else the player's loadout over the chess (a 自选 record through its pick)
+  const si = standIn && standIn.standInFor ? standIn : null;
+  const body = si || c;
+  const getChess = diy ? pickGetter((id) => data.lookup('chess', id), diy, { chess: data.get('chess'), backups: data.get('backups') }) : (id) => data.lookup('chess', id);
+  const lo = si ? standInLoadout(si, getChess, data.get('backups')) : chessLoadout(c, loadout, getChess);
+  const fr = lo?.record || body;
   const s = fr?.stats || {};
   const golden = !!(c.isGolden || piece?.golden);
-  const art = cardArt(m, c);
+  const art = cardArt(m, body);
   const fs = art.frame ? `--fx:${art.frame.x};--fy:${art.frame.y};--fw:${art.frame.w};--fh:${art.frame.h}` : '';
   const token = piece?.kind === 'token' || c.profession === 'TOKEN';
   const st = {
@@ -96,16 +108,18 @@ export function ChessDetailArt(props) {
   const eliteUrl = phase != null ? uiUrl(m, `elite/elite_${phase}`) : null;
   // the bond tiles: ChessDetail's own bond chips (counts, 同构, 本局禁用, the popup on a tap) out of its header
   const chips = findByClass(by.get('head'), 'dbonds');
-  const prof = profIconUrl(m, c.profession);
+  const prof = profIconUrl(m, body.profession);
   return [
     html`<div key="art" class=${cx('dart', golden && 'is-golden', token && 'is-token', art.full && 'has-full-art', art.frame && 'has-frame')}>
       <div class="dart__bg" aria-hidden="true" style=${fs}>${art.src ? html`<${Img} src=${art.src} />` : null}</div>
       <div class="dart__head">
         <span class="dart__prof"><i style=${prof ? `background-image:url("${prof}")` : ''}></i></span>
-        <h3 class="dart__name">${c.name}</h3>
+        <h3 class="dart__name">${si ? si.name : c.name}</h3>
+        ${si ? html`<span class="dart__for" data-for=${c.chessId}>${standInForText(c.name)}</span>` : null}
         <div class="dart__tier">
           <${TierChip} tier=${c.tier} golden=${golden} size="md" />
           ${golden ? html`<span class="dtag-elite">${t('精锐')}</span>` : null}
+          ${si ? html`<span class="dtag-standin" data-standin=${si.charId} title=${standInTip(si, c.name)}>${standInLabel(si)}</span>` : null}
           <i class="dart__split"></i>
           ${eliteUrl ? html`<img class="dart__elite" src=${eliteUrl} alt="" />` : null}
           ${level != null ? html`<span class="dart__lv"><small>LV</small><b class="num">${level}</b></span>` : null}
@@ -156,11 +170,12 @@ function findByClass(node, cls, depth = 0) {
 /**
  * @param {{ uid?: number, piece?: any } | null} p screens/game.js `drag` or `facing`
  * @param {Map<number, any>} pieces indexPieces(priv)
+ * @param {{ priv?: any, backups?: any }} [opts] resolveDetail's: the player's m.private (its 自选 picks and 补位 list)
  * @returns {any|null} a resolveDetail result of type 'chess'
  */
-export function placingDetail(p, pieces) {
+export function placingDetail(p, pieces, opts) {
   if (!p || !Number.isInteger(p.uid)) return null;
-  const d = resolveDetail({ kind: 'piece', uid: p.uid }, pieces);
+  const d = resolveDetail({ kind: 'piece', uid: p.uid }, pieces, opts);
   if (d && d.type === 'chess') return d;
   const piece = p.piece;
   const c = piece && piece.kind === 'chess' ? data.lookup('chess', piece.id) : null;

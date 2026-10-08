@@ -1489,8 +1489,8 @@ function MatchScreen() {
       ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp} onClose=${() => { setDetail(null); setSel(null); }}
         bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} side=${dSide} shopOpen=${shopOpen} live=${liveStats}
         onBond=${(id) => openBond(id, detailOwner, 'detail')} />` : null}
-      ${!resolved && hudLook.cls && (drag || facing) && placingDetail(drag || facing, placeCtx.pieces) ? html`<div class="dart-placing">
-        <${DetailPanel} detail=${placingDetail(drag || facing, placeCtx.pieces)} onClose=${() => {}} bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} /></div>` : null /* local patch: the card while placing (ui/detailArt.js) */}
+      ${!resolved && hudLook.cls && (drag || facing) && placingDetail(drag || facing, placeCtx.pieces, { priv, backups: gd.backups }) ? html`<div class="dart-placing">
+        <${DetailPanel} detail=${placingDetail(drag || facing, placeCtx.pieces, { priv, backups: gd.backups })} onClose=${() => {}} bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} /></div>` : null /* local patch: the card while placing (ui/detailArt.js) */}
 
       ${selEntry && editable && !facing && !drag && showPrep ? html`<${Underframe} key=${sel.uid} view=${view} uid=${sel.uid}
         row=${pieceTile(selEntry)?.row} col=${pieceTile(selEntry)?.col} actions=${underframeActions(placeCtx, sel.uid)} busy=${selBusy}
