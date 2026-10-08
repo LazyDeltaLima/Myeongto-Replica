@@ -319,6 +319,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // wang): `_effectsToTileWhenStart` wang_passive_01_buff (the black / white / gold rings, andi_lne) and
   // `_triggeredEffect` wang_passive_01_buff_02; the placed token's are its prefab `_startEffect` token_wang_birth_01_buff
   // and sktok_wang_N/TriggeredEffect token_wang_01_buff [추정: TriggeredEffect = 激活, the link]
+  // (user re-report 2026-10-08 #2-1 「바둑알 이펙트 루프가 아직 안 됨」): the activation effect (STONE_ON) is a
+  // buff's `overrideEffectKey` (sktok_wang_N/TriggeredEffect `_buffs[0]`) and both it and the 跟子's `_triggeredEffect` are
+  // loop prefabs (root effect component int #17 = 1, as every status buff; the blasts 0 — [추정] that field is `_isLoop`):
+  // their dark / gold wisps (the `line` meshes, dissolved in over 0.6 s by the clip) stay on the stone while it stands —
+  // the official capture's upper stone. We dropped them after the clip (~1 s), so they flashed once; and the stones
+  // placed linked in the prep never showed them (their 'wangLink' came before the view entered the field — the early
+  // buffer, screens/game/early.js keepEarly). Kept now (playAt `keep`), stopped at the stone's 'die' (used up / withdrawn).
   const FOLLOWER_FX = 'wang';
   const STONE_BORN = { stone: 'token_wang_birth_01_buff', follower: 'wang_passive_01_buff' };
   const STONE_ON = { stone: 'token_wang_01_buff', follower: 'wang_passive_01_buff_02' };
@@ -338,13 +345,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     get x() { return v.x; }, get y() { return v.y; }, get z() { return ballZ(v.x, v.y, (v.z || 0) + (v.hover || 0)); },
     get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
   });
-  // [추정] a 跟子's wang_passive_01_buff (rings, black wisps — the capture's talent stone has them while it stands) plays
-  // again every prefab length (3 s) while its stone stands; a placed stone's token_wang_birth_01_buff keeps its own loop
-  // (`sz`) and is not replayed (its burst `bom (1)` would flash every cycle)
-  const FOLLOWER_CYCLE = true;
+  // (2026-10-08 #2-1: the 3-second replay of a 跟子's wang_passive_01_buff (637a43e0, [추정]) is gone — the capture's wisps
+  // are its activation effect, kept above; the birth prefab's rings are one-shot systems and its `sz1` cross loops itself)
   /** local patch: whether 望's stone effects play here (render/fx.js then skips its procedural stand-in). */
   const stonesOn = () => !!(index?.bundles?.[STONE_FX] && !failed && q() !== 'low');
-  async function playAt(names, at, { deg = null, owner = null, under = false, bundle = STONE_FX, cycle = false } = {}) {
+  // `keep`: with an owner, the effect stays after its clip and systems end (a loop prefab whose meshes hold — STONE_ON)
+  // until the owner's 'die' stops it (update)
+  async function playAt(names, at, { deg = null, owner = null, under = false, bundle = STONE_FX, keep = false } = {}) {
     const prefabs = index?.bundles?.[bundle];
     if (!prefabs || !(await ensure())) return;
     for (const n of names) {
@@ -356,9 +363,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (deg != null) { const p = inst.nodes?.find((o) => o && o.name === 'rotation_z'); if (p) p.rotation.set(0, 0, (deg * Math.PI) / 180); }
       inst.object.position.set(at.x, at.y, at.z || 0);
       const until = owner == null ? clockS + (def.duration || 3) + 0.5 : Infinity;
-      // local patch: `cycle` — replayed every prefab length while its owner stands (FOLLOWER_CYCLE, update)
-      const again = cycle && owner != null ? () => playAt([n], at, { deg, owner, under, bundle, cycle }) : null;
-      addLive(inst, { view: owner == null ? null : at, owner, buff: owner != null, until, cycle: again ? (def.duration || 3) : 0, again }, under ? layers.under : layers.over);
+      addLive(inst, { view: owner == null ? null : at, owner, buff: owner != null, until, keep: !!keep && owner != null }, under ? layers.under : layers.over);
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
     }
   }
@@ -431,9 +436,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (e[1] === 'wangLink') {
       if (o.first) {
         playAt(['token_wang_passive_01_line'], onBall, { under: true });
-        // local patch: the activation flash of its own kind (STONE_ON)
-        if (o.follower) playAt([STONE_ON.follower], onBall, { bundle: FOLLOWER_FX });
-        else playAt([STONE_ON.stone], onBall);
+        // local patch: the activation effect of its own kind (STONE_ON), on the ball, kept while the stone stands (#2-1)
+        const sv = views.get(o.id);
+        const on = isStone(sv) ? { at: ballOf(sv), owner: o.id, keep: true } : { at: onBall };
+        playAt([o.follower ? STONE_ON.follower : STONE_ON.stone], on.at, { owner: on.owner, keep: on.keep, bundle: o.follower ? FOLLOWER_FX : STONE_FX });
       }
       return true;
     }
@@ -441,8 +447,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const v = views.get(o.id);
       stoneBirth.delete(o.id);
       if (isStone(v)) {
-        // local patch: a 跟子's black-wisp rings (its own birth effect), a placed stone's gold glow
-        if (o.follower) playAt([STONE_BORN.follower], ballOf(v), { owner: o.id, under: true, bundle: FOLLOWER_FX, cycle: FOLLOWER_CYCLE });
+        // local patch: a 跟子's rings (its own birth effect), a placed stone's gold glow
+        if (o.follower) playAt([STONE_BORN.follower], ballOf(v), { owner: o.id, under: true, bundle: FOLLOWER_FX });
         else playAt([STONE_BORN.stone], ballOf(v), { owner: o.id, under: true });
         return true;
       }
@@ -1088,9 +1094,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
         l.inst.update(dt * rate2);   // local patch: every effect on the battle clock (the notes did already: trail = speed × time)
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
-        // local patch (user 2026-10-08): a stone effect replayed every prefab length while its stone stands (playAt cycle)
-        if (l.cycle && l.again && !l.stopped && l.inst.time >= l.cycle && l.view && l.view.alive !== false && !l.view.remove && !gone.has(l.owner)) { const a = l.again; l.again = null; l.stopped = true; l.inst.stop(); a(); }
-        if (l.inst.done) { dropLive(l); live.splice(i, 1); }
+        // (#2-1) a kept effect (playAt `keep`: 望's stone activation) stays until its owner's 'die' stops it
+        if (l.inst.done && !(l.keep && !l.inst.stopping)) { dropLive(l); live.splice(i, 1); }
       }
       showLayers();
       const t1 = performance.now();
