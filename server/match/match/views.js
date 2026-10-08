@@ -11,6 +11,7 @@ import { cardView } from '../choices.js';
 import { bountySpawns, previewOf } from '../waves.js';
 import { timelineAt } from '../fields.js';
 import { bossFieldPlacement } from '../finalAssault.js';
+import { bossFieldPaths } from '../bossPath.js';
 import { battleProgress } from '../../sim/spec.js';
 
 export class MatchViews {
@@ -184,7 +185,12 @@ export class MatchViews {
     if (this.bossWaves) {
       const g = this.bossGroupOf(ps);
       if (!g) return [];
-      return previewOf([...g.wave.spawns, ...bountySpawns(this.gd, this.round, g.wave, ps.bounties, ps.playerId, { solo: this.isSolo, side: g.side })]);
+      const list = previewOf([...g.wave.spawns, ...bountySpawns(this.gd, this.round, g.wave, ps.bounties, ps.playerId, { solo: this.isSolo, side: g.side })]);
+      // a walking leader's paths (LOCAL-PATCH.md 「보스 경로 미리보기」) on this field (server/match/bossPath.js)
+      const lead = list.find((e) => e.boss && Array.isArray(e.start));
+      const paths = lead ? bossFieldPaths(this, g).filter((p) => p.enemyKey === lead.enemyKey).map((p) => p.pts) : [];
+      if (paths.length) lead.paths = paths;
+      return list;
     }
     if (!this.wave) return [];
     const bounty = bountySpawns(this.gd, this.round, this.wave, ps.bounties, ps.playerId, { solo: this.isSolo });

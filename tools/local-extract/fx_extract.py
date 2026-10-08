@@ -767,7 +767,8 @@ class Extractor:
         out = OUT
         main_file = None
         for f in env.files.values():
-            if str(getattr(f, 'name', '')).endswith(Path(rel).name):
+            # the first match: a dependency may share the name (battle/[pack]common.ab pulls in another [pack]common.ab)
+            if main_file is None and str(getattr(f, 'name', '')).endswith(Path(rel).name):
                 main_file = f
         roots = []
         for o in env.objects:

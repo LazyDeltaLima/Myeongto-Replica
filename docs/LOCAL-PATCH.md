@@ -140,6 +140,7 @@ SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg
 | 스킬 모드 공격·타격음 + 공식 믹서 그룹 볼륨 (2026-10-07) | `public/js/audioOfficial.js`, `tools/assets/skill-mode-sfx.mjs`, `tools/local-extract/char_modes.py` → `tools/assets/local-char-modes.json`, `test/local-patch-audio.test.js`, `test/local-patch-skill-music.test.js` | `public/js/audio.js`(import, `unit()` 모드·게인, 이벤트 루프 몇 줄, 채널 게인 2줄, 스킬 extras·잡아 둔 'skill'·替身 전환 메서드 2개), `tools/assets/audio.mjs` 몇 줄, `plan.mjs` 몇 줄, `skill-sfx.mjs`·`kit-sfx.mjs` 함수 1개씩, `screens/game.js` early 필터 1줄 |
 | 스킬 중 매 공격 이펙트(공식 모드 바인딩) + 이펙트 배속 연동 + 투사체 꼬리 + 시전자 이펙트는 유닛 아래 (2026-10-07) | `shared/skill-modes.js`, `public/assets/local/fx/modes.json`(git 밖, `char_modes.py`), `test/local-patch-fxmodes.test.js` | `render/fxgame.js`(로컬 파일), `render/fxmap.js`(로컬 파일) `attackMode`·`boundEffects` |
 | 이펙트·사운드 디버그 페이지 = 샌드백 아레나 (`SP_DEBUG_PAGE=1`일 때만, 배포 서버는 404 — `/js/debug/*` 포함) | `public/debug.html`, `public/js/debug.js`, `public/js/debug/arena.js`·`sandbag.js` (`/fxlab.html`은 이리로 넘김), `server/local-patch.js debugPageHidden`, `test/local-patch-debug.test.js` | `server/index.js` 2줄, `render/app.js` `debugFx` 1줄(+헤더 1줄), `render/fxgame.js` `debugPlay` |
+| 보스 경로 미리보기 (2026-10-08: 최종 공세·숨겨진 핵심 준비 단계에서 걷는 보스의 이번 판 경로를 공식 경로 미리보기 커서로 반복 표시, 아래 「보스 경로 미리보기」) | `server/match/bossPath.js`, `public/js/render/fxroute.js`, `tools/boss-route-map.mjs`, `test/match/boss-path.test.js`, `public/assets/local/fx/route_cursor/`(git 밖) | `server/match/match/views.js` `nextEnemiesFor` 5줄(import, 보스 항목 `paths`), `render/app.js` 4줄(import, 생성, 프레임 `sync`, 정리), `render/fxgame.js` `playFree`, `tools/local-extract/fx_extract.py` 1줄(`--pack`의 본 번들 = 이름이 맞는 첫 파일) |
 | `/healthz` 축소 (프록시를 거친 요청은 `ok`·`version`·`app`·`build`만, 접속자·방 수는 컨테이너 안 확인용) | `server/local-patch.js proxiedRequest` | `server/index.js` 2줄(import, `/healthz` 앞 1줄) |
 | 게임 결과 통계 로그 (2026-10-07: 판이 끝날 때마다 `[stats] {JSON}` 한 줄 — 모드·난이도·스테이지·보스·승패·도달 라운드·시간, 플레이어별 닉네임·봇 여부·라운드·LP·편성(id·티어·금색·장비)·맹약·전투 통계. playerId·시드는 뺌. DB·볼륨 없이 `docker logs`/OCI Logging에서 읽음) | `server/local-stats.js`, `test/local-patch-stats.test.js` | 없음 (`server/local-patch.js onMatchEnd` 1줄) |
 | 라운드 작전 종료 효과음 (2026-10-07: 내 일반 전투 결과에 공식 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*` — 아래 「작전 종료 효과음」) | `public/js/audioOfficial.js battleOverOf` | `screens/game.js` 6줄(import, 결과 배너 분기) |
@@ -1853,6 +1854,31 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   공식 이펙트(월드 단위)는 바뀌지 않으므로 모델 대비 이펙트 크기도 공식에 가까워진다(첸 S3 용 머리가 몸에 가리던 것).
 - 확인: Windows `sp-check\usz_arena.mjs <port> <out> <charId> <row,col> [stage:<id>]`(디버그 아레나 m03), `usz_mock.mjs`(game-mock 페이즈) →
   `usz-swire*.png`, `usz-prep-after.png`. `unitview.test.js` 머리 높이 기대값 1.02.
+
+## 보스 경로 미리보기 (2026-10-08, 사용자 「이동형 보스의 이동 경로가 실제 인게임 경로와 다르다」 제보 → 「실제 루트를 알 수 없으니 준비기간에 경로를 표시」)
+- 조사(공식 데이터): 걷는 보스는 가상적: 총(boss_2·9)과 루시안(boss_5)뿐(나머지는 自缚). 경로는 보스 레벨 파일의 체크포인트뿐이고
+  (`level_act1autochess_h07_02`·`h08_02` route 6/0, `act2autochess_h07_05` route 8: 출발 (4,10) → 순찰 (3,9) → (2,3) → (5,9), 2인 복제본 (3,11) → (2,17) → (5,11);
+  루시안은 같은 세 점 ×5 사이에 MOVE (5,9)), **전장마다 같다**. 칸 사이 길은 그 판 전장의 보스 구역 지형(울타리·벽·늪·상자·토석·나무…) 위에서 클라이언트
+  길찾기가 계산한다 — 맵별 경로 표는 클라이언트 표·레벨 파일·PRTS(「卫戍协议：盟约/战场一览」은 전장 그림뿐) 어디에도 없다. 순찰 반복 규칙(PATROL_MOVE)도
+  메타데이터 이름(`PatrolMoveCheckpoint`, `IsValidPatrolCheckPoint`, 「PatrolMoveCheckpoint in dead loop」)뿐, 로직은 네이티브라 못 읽음 →
+  우리 `bosses.js patrolLoop`(마지막 지점 뒤 첫 구간으로)는 [추정]. 원본 커뮤니티 제보 29번(`docs/history/0.2.0.md` §25.18.9)은 걸을 수 있는 칸·순서만 확인했다.
+- 경로: `server/match/bossPath.js` — 조작원 없이 그 필드의 지도자 출현만 넣은 헤드리스 보스전을 돌려(2인 필드는 분기 `boss_battle_multi_player`의 복제본도)
+  매 틱 위치를 기록, 첫 체크포인트에 두 번째 도착하면 끝(가는 길 + 순찰 한 바퀴, 루시안의 5바퀴는 1바퀴로). Douglas–Peucker 0.02칸. 10초 동안 출발점을 못 벗어나면
+  걷지 않는 보스로 보고 제외. 전장 × 템플릿 × 인원 × 장치 덮어쓰기로 캐시(64개). 매치의 전투 팩토리(`Match.newBattle`)가 아니라 시뮬 `Battle`을 직접 만든다
+  (테스트가 가짜 전투를 넣고 개수를 센다). `nextEnemiesFor`가 보스 항목에 `paths`(복제본마다 [[row, col], …], 필드 좌표)를 붙인다 — 2인이면 두 사람 모두 두 경로.
+  계산 비용: 루시안 2인 필드 ≈ 50 ms(처음 한 번), 55판 전부 0.6초.
+- 표시: `render/fxroute.js` — 공식 경로 미리보기 커서(일반 스테이지에서 적 출현 전 경로를 달리는 표시; 메타데이터 `CreatePreviewCursor`·`ShowRoutePreviewCursor`,
+  프리팹 `WalkPreviewCursor`·`FlyPreviewCursor` = EN `battle/[pack]common.ab`, `fx_extract.py --bundle route_cursor --pack 'battle/[pack]common.ab' --match 'PreviewCursor$'`).
+  컨트롤러 값 `_moveSpeed` 8칸/초, `_height` 0.3(지상)/1.2(공중), `_times` 1, `_delayToRecycle` 0.5초. 모양은 빨간 리본 트레일(0.25초, 폭 0.4, AlphaBlend 틴트 α 0.178)
+  + 가는 가산 트레일(0.5초, 폭 0.1) + 불티(`lizi`); `weiyi` 노드의 파티클은 방출·렌더러가 꺼진 운반 노드(데이터). 보스 구역 준비 카메라에서 지도자가 보일 때만
+  경로마다 커서를 달리고, 끝나면 0.5초 + `ROUTE_GAP_S` 1.5초 [추정: `ROUTE_SHOWN_INTERVAL` 값은 네이티브] 뒤 다시. 공식 이펙트를 못 쓰면(품질 낮음·미추출·WebP 없음)
+  `render/fx.js`의 빨간 입자 꼬리로 같은 길을 달린다. `fxgame.js playFree` = 호출자가 움직이는 점에 붙는 자유 인스턴스(`alive()`로 clear·개수 상한 탈락 확인).
+- `fx_extract.py --pack` 버그: 의존 번들 중 같은 이름(`[pack]common.ab`)이 있으면 마지막 것을 본 번들로 잡아 루트 0개 → 이름이 맞는 **첫** 파일.
+- 경로 지도: `node tools/boss-route-map.mjs` → `research/<날짜>-boss-routes/index.html`(전장 11개 × 총(최종 공세·숨겨진 핵심)·루시안, 2인 두 복제본,
+  보스 구역 타일·장치). 1인 템플릿 경로 = 2인 왼쪽 복제본(33/33). 인게임 영상과 대조할 때 쓴다.
+- 확인(2026-10-08, Windows Chrome, 실제 서버 + 확인용 런처로 보스 라운드를 2라운드로 당김, 전장 #01·루시안): 준비 화면에서 `WalkPreviewCursor`가 약 4.9초마다
+  재생되고 경로(상자를 피해 5행으로 돌아 (2,3)까지, 다시 (5,9) → (3,9))를 달림. 공식 리본은 옅고 빨라 한눈에 잘 안 띈다(데이터대로) — 대체 입자 꼬리가 더 잘 보임.
+  남은 일: 인게임 경로 대조(영상), `ROUTE_SHOWN_INTERVAL` 값, 숨겨진 핵심의 '총을 부수는 리드'(부속, 순찰 경로) 표시 여부.
 
 ## 원본 버그 수정 선반영 (2026-10-07, 사용자 요청 「upstream에 보고된 버그 중 쉬운 것 바로 수정」)
 > 0.2.0 병합으로 정리됨: 아래 10건은 모두 upstream 0.2.0에 들어 있어 병합에서 upstream 쪽을 택했다(정예화 보상의 선발 조건만 우리 결정으로 다시 고침 — 「0.2.0 병합」).

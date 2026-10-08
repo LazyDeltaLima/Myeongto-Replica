@@ -144,6 +144,7 @@ import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { t } from '../../../shared/i18n.js';
 import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
+import { createRouteCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」)
 
 export { ensurePixi } from './app/pixi.js';
 export { PEN_CAMERA_MS, LEADER_HIT_STYLE, DRAG_HOLD_TILES } from './app/tune.js';
@@ -336,6 +337,9 @@ export async function createFieldView(host, options = {}) {
     },
   });
   ctx.fx = fx;
+  // the walking leader's route preview cursor in the boss-field prep (render/fxroute.js); without the official effect a
+  // trail of red motes
+  const routeCursors = createRouteCursors({ fxGame, heightAt, fallback: (x, y, z) => { const p = fx._proj(x, y, z); fx._mote(p.x, p.y, p.s, 0xff3a24, 0.45); } });
   // battle devices (crates / turrets as sim units): the official crate mesh in the 3D scene, else a Pixi box
   ctx.createBox = () => switchableBox({ board: () => board3d, pixi: () => tiles.createBox() });
   const impostors = new ImpostorAtlas(app.renderer);
@@ -1761,6 +1765,7 @@ export async function createFieldView(host, options = {}) {
       fx.update(dt);
       syncStatusFx(views, fxGame, mode === 'battle'); // local patch: official status effects (fxstatus.js)
       syncGoldenFx(views, fxGame, mode === 'prep'); // local patch: the official elite glow in the prep (fxgolden.js)
+      routeCursors.sync(leader && !leaderHidden && mode === 'prep' && prepXf.kind === 'bossPrep' ? leader.stand.entry.paths : null, leader?.stand.entry.fly ? 'FLY' : 'WALK', dt);
       fxGame.update(dt, cam, vp); // local patch
       impostors.flush();
     } catch (err) {
@@ -1999,6 +2004,7 @@ export async function createFieldView(host, options = {}) {
       clearPen();
       holdScene(false); // no scene any more: the quiet budget may free the skeletons (lobby / room / result)
       try { fx.destroy(); } catch { /* ignore */ }
+      try { routeCursors.clear(); } catch { /* ignore */ }
       try { fxGame.destroy(); } catch { /* ignore */ } // local patch
       try { tiles.destroy(); } catch { /* ignore */ }
       try { impostors.destroy(); } catch { /* ignore */ }

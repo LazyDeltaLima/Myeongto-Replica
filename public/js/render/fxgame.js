@@ -1103,6 +1103,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const id = ownerOf(view);
       for (const l of live) if (l.status === key && l.owner === id) { l.again = null; l.inst.stop(now); }
     },
+    /**
+     * `bundle`/`name` on the board point `at` ({ x, y, z }, followed every frame: the caller moves it), over the units,
+     * until its handle's stop() — the Final Assault prep's route preview cursor (render/fxroute.js, LOCAL-PATCH.md
+     * 「보스 경로 미리보기」). Resolves { stop(now), alive() } — alive() false once a clear() or the instance cap dropped it —
+     * or null when it cannot play (not extracted, quality low, no WebP).
+     */
+    async playFree(bundle, name, at) {
+      if (!at || !index?.bundles?.[bundle]?.includes(name) || q() === 'low' || failed || !(await ensure())) return null;
+      const def = await lib.load(bundle, name);
+      if (!mod || !def) return null;
+      const inst = new mod.fxp.FxInstance(def, { quality: q() });
+      inst.object.position.set(at.x, at.y, at.z || 0);
+      addLive(inst, { view: at, owner: null, buff: true, keep: true }, layers.over);
+      while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+      return { stop: (now = false) => inst.stop(now), alive: () => live.some((l) => l.inst === inst) };
+    },
     /** Whether a 'fx' event is drawn here with its official effect (render/fx.js then skips its 2D stand-in). */
     ownsFx(e) { return ownFx.has(e); },
     /** A battle event render/app.js handled (the views map resolves unit ids). */
