@@ -48,6 +48,7 @@ import { projSpeed } from './fx.js'; // local patch: the trails' flight time (th
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
+import { loadPoints, pointKey, pointOn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { PROJ } from './style.js';
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 
@@ -406,32 +407,36 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // `_spawnLocation` (fx_extract.py spawn: 2 body / HIT point, 4 head; 1 feet, 5 ground centre and the rest stay on the
   // ground) lifts an effect placed on a unit; points stay where they are
   const SPAWN_FRAC = { 2: 0.5, 4: 1.1 };
-  // local patch (user report 2026-10-08: 비르투오사's S3 effect comes out of the cello she holds): _spawnLocation 8 is the
-  // client's SpawnLocation.MP_SPECIAL_0 (global-metadata enum: 1 FOOT, 2 HIT, 3 MUZZLE, 4 HEAD, 5 GROUND_CENTER, 8 MP_SPECIAL_0)
-  // = the model's SpecialPoint0, a Spine bone follower — for 비르투오사 (chararts/char_245_cello.ab DefaultSkin) the bone
-  // F_Weapon_Chord, B_Weapon_Chord on the back. Only hers so far; other operators' special points stay on the ground
-  const SPECIAL_BONES = { char_245_cello: ['F_Weapon_Chord', 'B_Weapon_Chord'] };
-  /** The world point of a unit's special-point bone (its current skeleton's, front or back), or null. */
-  function specialPoint(v, out) {
-    const bones = SPECIAL_BONES[v.info?.spine || v.info?.defId];
-    const sp = bones && v.actor?.spine, sk = sp?.skeleton;
+  // local patch (user report 2026-10-08: 비르투오사's S3 effect comes out of the cello she holds; generalised by session F the
+  // same day): _spawnLocation 3 / 6 (MUZZLE_POINT) and MP_SPECIAL_N are the model's Muzzle / SpecialPointN (fxpoints.js
+  // pointKey; chararts DefaultSkin, mostly Spine bone followers — 비르투오사's SpecialPoint0 follows F_Weapon_Chord /
+  // B_Weapon_Chord, her cello). The table (tools/local-extract/char_points.py → points.json) covers the operators; a unit
+  // without the point (an enemy, a melee model's muzzle, no table) keeps the old place, the ground
+  let points = null;
+  const pointsOn = (v) => !!(points && v?.info && points[v.info.spine || v.info.defId]);
+  loadPoints().then((p) => { points = p; });
+  const boneAt = { x: 0, y: 0 };
+  /** The world point of a unit's model point `key` (muzzle, sp0…; its current skeleton's, front or back), or null. */
+  function specialPoint(v, out, key = 'sp0') {
+    const entry = pointsOn(v) ? points[v.info.spine || v.info.defId][key] : null;
+    const sp = entry && v.actor?.spine, sk = sp?.skeleton;
     if (!sk || !v.screen?.s || !camRef || !sp.scale) return null;
-    let bone = null;
-    for (const n of bones) if ((bone = sk.findBone(n))) break;
+    const bone = pointOn(entry, sk, !!v.entryBack, boneAt);
     if (!bone) return null;
     // the bone in the skeleton's own frame times the model's display scale, from the unit's root + body (not through the
     // display tree: an impostor-drawn model renders its skeleton elsewhere, units.js _updateImpostor)
     const ox = (v.root?.x ?? v.screen.x) + (v.body?.x || 0), oy = (v.root?.y ?? v.screen.y) + (v.body?.y || 0);
-    const g = { x: ox + bone.worldX * sp.scale.x, y: oy + bone.worldY * sp.scale.y };
+    const g = { x: ox + bone.x * sp.scale.x, y: oy + bone.y * sp.scale.y };
     const z0 = (v.z || 0) + (v.hover || 0);
     const dz = camRef.liftFor(v.x, v.y, z0, v.screen.y - g.y);
     out.x = v.x + (g.x - v.screen.x) / v.screen.s; out.y = v.y; out.z = z0 + (Number.isFinite(dz) ? dz : 0);
     return out;
   }
   function lifted(v, def) {
-    if (def?.spawn === 8 && v && SPECIAL_BONES[v.info?.spine || v.info?.defId]) {
+    const key = pointKey(def?.spawn);
+    if (key && v && pointsOn(v) && points[v.info.spine || v.info.defId][key]) {
       const p = { x: 0, y: 0, z: 0 };
-      const at = () => specialPoint(v, p) || (camRef ? { x: v.x, y: v.y, z: bodyZ(camRef, v, 0.5) } : v);
+      const at = () => specialPoint(v, p, key) || (camRef ? { x: v.x, y: v.y, z: bodyZ(camRef, v, 0.5) } : v);
       return {
         get x() { return at().x; }, get y() { return at().y; }, get z() { return at().z; },
         get alive() { return v.alive; }, get remove() { return v.remove; },
