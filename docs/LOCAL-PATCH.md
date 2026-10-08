@@ -76,12 +76,17 @@ SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg
 - J-2 「선발」 배지 두 곳 — 상점·보상 카드 `ui/shopBar.js scard__diy`, 맹약 팝업 멤버 `ui/bondStrip.js bpop__diy` — 삭제(**사용자 결정 2026-10-08 「빼야 해」**).
   공식 모양이 아닌 상세 카드(`ui/detailPanel.js ChessDetail`, HUD 공식 모양을 못 쓸 때)의 「自选」 태그는 남김.
 - J-3·J-4 전투 종료 배너·효과음이 두 번(우리 「완벽한 작전!」 + NOREDUCE, 이어서 SETTLE에 upstream 「작전 종료 / 전원 무사!」 + NORMAL — 실제 판에서 재현)
-  → **우리 것만**(사용자 결정 2026-10-08). `screens/game.js announceBattleEnd`가 라운드마다 한 번: 내 일반 전투 결과가 오면(그대로),
-  안 왔으면 SETTLE에 `ui/gameLogic/phases.js settleBattleEnd`로(서버 전투 모드·재접속·클라이언트가 안 돌린 전투). upstream에서 가져온 규칙:
-  SETTLE 경로의 숫자는 联防이 있었으면 서버가 실제로 깎은 LP(`m.public.uniteResult.losses[나]`), 관전 좌석·탈락자·보스 라운드는 없음.
+  → **우리 것만**(사용자 결정 2026-10-08). `screens/game.js announceBattleEnd`가 라운드마다 한 번: 솔로 판은 내 일반 전투 결과가 오면(그대로).
+  **협동 판(살아 있는 팀원이 있을 때)은 누수든 완벽한 작전이든 결과를 잡아 두고 SETTLE에** 띄운다(`ui/gameLogic/phases.js holdsBattleEnd`) —
+  사용자 기억(2026-10-08): 联防이 이어지면 내 전투가 끝났을 때 배너가 없고, 联防이 끝난 뒤 막은 수에 따라 감소량 배너 또는 완벽한 작전 배너,
+  완벽한 작전 쪽(돕는 쪽)도 联防이 끝난 뒤. 내 전투가 끝난 순간에는 팀원이 누수할지 몰라 联防 여부를 알 수 없으므로 联防이 없는 협동 라운드도 SETTLE에 뜬다 [추정 시점].
+  SETTLE의 판단(`settleBattleEnd`): 联防이 있었으면 서버가 실제로 깎은 LP(`m.public.uniteResult.losses[나]`, upstream 규칙) — 감소 N이면 「목표 HP 감소 N」 +
+  REDUCE, 0이면 「완벽한 작전!」 + NOREDUCE(구해진 누수 쪽·돕는 쪽 모두); 없으면 잡아 둔 결과 그대로; 결과가 안 온 라운드(서버 전투 모드·재접속·
+  클라이언트가 안 돌린 전투)는 라운드 동안 센 누수 수. 관전 좌석·탈락자·보스 라운드는 없음.
+  확인(실제 협동 판 3131, `j_unite.mjs`): 联防에서 12마리 통과 → 누수 쪽 SETTLE에 「목표 HP 감소 6」 + REDUCE(서버 감소량 6), 돕는 쪽 「완벽한 작전!」;
+  联防이 다 막음 → 둘 다 「완벽한 작전!」; 联防 없는 협동 라운드 → 둘 다 SETTLE에 「완벽한 작전!」; 전투가 끝난 순간에는 어느 쪽도 배너 없음.
   SETTLE 경로는 셈하지 않는 누수만 있는 판을 완벽한 작전과 구분하지 못한다 — LP 0이면 완벽한 작전(NOREDUCE) [추정].
   배너 그림(로컬 추출)이 없는 클라이언트는 upstream 상자(`ResultDialog`·`roundResultBox`)를 같은 순간에 대신 띄운다.
-  联防이 이어지는 판에서 누수한 쪽의 배너 숫자는 지금처럼 联防 전 누수 수다(내 전투가 끝난 순간) — 공식이 联防 뒤에 다시 알리는지는 근거 없음.
   지운 것: `battleOverSfx`·`uniteResultBox`·`battleResultBox`와 그 테스트, `test/ui/resultbox.e2e.test.js`(upstream SETTLE 상자 브라우저 테스트).
 - J-5 PREP의 upstream 「休整期」 띠(`ui/gameLogic/phases.js phaseBanner`) 삭제 — **사용자 확인 2026-10-08: 공식은 휴식 기간 띠가 없고 라운드·획득 배너만**.
   PREP 진입 효과음(`rest`)은 그대로.
