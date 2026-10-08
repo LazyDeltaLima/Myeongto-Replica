@@ -7,10 +7,11 @@
 //     players: [{ seat, name, bot, left, alive, victory, rounds, elimRound, lp, band, title, trophies,
 //                 lineup: [[id, tier, golden, [itemIds]]], bonds: [[bondId, layers, active]], stats: {…} }] }
 //
+// `title` is the settlement title's id (data/config.json titles; v2 — v1 logged the whole Chinese title object).
 // Nicknames are already in the [lobby] lines; playerIds (random per session) and the seed are left out. Nothing is
 // kept in memory or on disk here.
 
-export const STATS_VERSION = 1;
+export const STATS_VERSION = 2;
 
 /** The `[stats]` record for a match summary (Match.finish → room.lastSummary), or null when there is none. */
 export function matchStats(room, summary) {
@@ -45,7 +46,7 @@ export function matchStats(room, summary) {
       elimRound: p.eliminatedRound ?? null,
       lp: p.lp ?? null,
       band: p.bandId ?? null,
-      title: p.title ?? null,
+      title: p.title?.id ?? null, // the title id only (comment_N): its name / text are upstream's Chinese data
       trophies: p.trophies ?? 0,
       lineup: (p.lineup || []).map((u) => [u.id, u.tier ?? null, !!u.golden, u.items || []]),
       bonds: (p.bonds || []).map((b) => [b.bondId, b.layers ?? 0, !!b.active]),

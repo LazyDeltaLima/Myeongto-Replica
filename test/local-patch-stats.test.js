@@ -58,10 +58,12 @@ test('matchStats: compact lineup / bonds tuples, null without a summary', () => 
       lineup: [{ id: 'char_1', tier: 3, golden: true, row: 0, col: 1, items: ['it_1'] }],
       bonds: [{ bondId: 'b_1', count: 3, active: true, tier: 1, layers: 2 }],
       stats: { kills: 4 },
+      title: { id: 'comment_3', name: '坚若磐石', picId: 'comment_icon_3', text: '目标生命值损失最少' },
     }],
   });
   assert.equal(rec.durationS, 61);
   assert.deepEqual(rec.players[0].lineup, [['char_1', 3, true, ['it_1']]]);
   assert.deepEqual(rec.players[0].bonds, [['b_1', 2, true]]);
   assert.deepEqual(rec.players[0].stats, { kills: 4 });
+  assert.equal(rec.players[0].title, 'comment_3');
 });
