@@ -722,6 +722,43 @@ class Extractor:
                 return f'mat:{n}_ST.' + 'xyzw'[comp]
         return None
 
+    def mount_only(self, bundle, pack=None):
+        """local patch (session L, user's decision 2026-10-08 「전체 적용」): write only the `mount` of the bundle's already
+        extracted prefabs (mount_point), nothing else — a full re-extract would also bring every other extractor change
+        since (session H's built-in Quad meshes, decided for texas2 only). Returns (prefabs with a mount, files changed)."""
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
+        p = bundle_path(self.game, rel)
+        if not p:
+            print(f'[fx] {bundle}: bundle not found, skipped')
+            return 0, 0
+        env = self.UnityPy.load(str(p))   # the root components only: no dependency bundles
+        found = changed = 0
+        for o in env.objects:
+            if o.type.name != 'Transform':
+                continue
+            t = o.read_typetree()
+            if t['m_Father']['m_PathID'] != 0:
+                continue
+            go = self.resolve(t['m_GameObject'], o)
+            if go is None:
+                continue
+            f = OUT / bundle / f"{go.read_typetree()['m_Name']}.json"
+            if not f.exists():
+                continue
+            mount = self.mount_point(go)
+            d = json.loads(f.read_text())
+            found += mount is not None
+            if d.get('mount') == mount:
+                continue
+            if mount is None:
+                d.pop('mount', None)
+            else:
+                d['mount'] = mount
+            f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+            changed += 1
+        print(f'[fx] {bundle}: {found} mount prefab(s), {changed} file(s) changed')
+        return found, changed
+
     def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False, pack=None):
         # pack: a shared battle pack instead (e.g. pkgrps/btl_pfb_fx_token_3.ab, the summons' effects), its roots written
         # as `bundle` — pick them with --match / --prefab
@@ -790,6 +827,8 @@ def main():
     ap.add_argument('--list', action='store_true', help='print the prefab names of the bundles, extract nothing')
     ap.add_argument('--png', action='store_true', help='write PNG textures instead of WebP')
     ap.add_argument('--prune', action='store_true', help='delete textures / meshes no extracted effect references')
+    ap.add_argument('--mount-only', action='store_true', help='only write the FollowMountPoint `mount` into the already '
+                    'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch, session L)')
     ap.add_argument('--pack', metavar='REL', help='read the prefabs from this bundle (relative to the bundle folders, e.g. '
                     'pkgrps/btl_pfb_fx_token_3.ab) and write them as --bundle (local patch: 望\'s 棋子 effects → wang_token)')
     a = ap.parse_args()
@@ -797,6 +836,11 @@ def main():
         build_cab_index(a.game, a.build_cab_index)
         return
     ex = Extractor(a.game, a.cab_index, png=a.png)
+    if a.mount_only:
+        bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
+        tot = [ex.mount_only(b, pack=a.pack) for b in bundles]
+        print(f'[fx] mount: {sum(x[0] for x in tot)} prefab(s) with a mount, {sum(x[1] for x in tot)} file(s) changed')
+        return
     for b in a.bundle:
         ex.run(b, set(a.prefab) or None, all_skins=a.all_skins, match=re.compile(a.match) if a.match else None, list_only=a.list, pack=a.pack)
     if a.prune:
