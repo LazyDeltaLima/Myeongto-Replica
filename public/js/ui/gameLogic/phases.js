@@ -80,7 +80,8 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
 // still in it is held until the round's battles are over (`holdsBattleEnd`): a 联防 may follow, and the official game then
 // shows no banner — neither the leaker's nor the perfect players' — until the 联防 is over, then the LP it left (目标生命值
 // 减少 N) or, nothing charged, 完美作战 (the user's recall, 2026-10-08); the client cannot tell at its own battle's end
-// whether a teammate will leak, so a co-op round without 联防 shows the held result at SETTLE too [추정 moment]. Upstream's
+// whether a teammate will leak — and the official game waits too: a co-op round without 联防 shows 完美作战 only once the
+// teammates' battles are over (the user, 2026-10-08), i.e. at SETTLE. Upstream's
 // second announcement at SETTLE
 // (GitHub #235, PR #112: ResultDialog + its own sound mapping) is gone; what is left of it here is the fallback for a
 // round whose own result never came in — server-run combat (SP_COMBAT=server), a reconnect, a battle the client did not
