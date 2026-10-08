@@ -406,7 +406,38 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // `_spawnLocation` (fx_extract.py spawn: 2 body / HIT point, 4 head; 1 feet, 5 ground centre and the rest stay on the
   // ground) lifts an effect placed on a unit; points stay where they are
   const SPAWN_FRAC = { 2: 0.5, 4: 1.1 };
+  // local patch (user report 2026-10-08: 비르투오사's S3 effect comes out of the cello she holds): _spawnLocation 8 is the
+  // client's SpawnLocation.MP_SPECIAL_0 (global-metadata enum: 1 FOOT, 2 HIT, 3 MUZZLE, 4 HEAD, 5 GROUND_CENTER, 8 MP_SPECIAL_0)
+  // = the model's SpecialPoint0, a Spine bone follower — for 비르투오사 (chararts/char_245_cello.ab DefaultSkin) the bone
+  // F_Weapon_Chord, B_Weapon_Chord on the back. Only hers so far; other operators' special points stay on the ground
+  const SPECIAL_BONES = { char_245_cello: ['F_Weapon_Chord', 'B_Weapon_Chord'] };
+  /** The world point of a unit's special-point bone (its current skeleton's, front or back), or null. */
+  function specialPoint(v, out) {
+    const bones = SPECIAL_BONES[v.info?.spine || v.info?.defId];
+    const sp = bones && v.actor?.spine, sk = sp?.skeleton;
+    if (!sk || !v.screen?.s || !camRef || !sp.scale) return null;
+    let bone = null;
+    for (const n of bones) if ((bone = sk.findBone(n))) break;
+    if (!bone) return null;
+    // the bone in the skeleton's own frame times the model's display scale, from the unit's root + body (not through the
+    // display tree: an impostor-drawn model renders its skeleton elsewhere, units.js _updateImpostor)
+    const ox = (v.root?.x ?? v.screen.x) + (v.body?.x || 0), oy = (v.root?.y ?? v.screen.y) + (v.body?.y || 0);
+    const g = { x: ox + bone.worldX * sp.scale.x, y: oy + bone.worldY * sp.scale.y };
+    const z0 = (v.z || 0) + (v.hover || 0);
+    const dz = camRef.liftFor(v.x, v.y, z0, v.screen.y - g.y);
+    out.x = v.x + (g.x - v.screen.x) / v.screen.s; out.y = v.y; out.z = z0 + (Number.isFinite(dz) ? dz : 0);
+    return out;
+  }
   function lifted(v, def) {
+    if (def?.spawn === 8 && v && SPECIAL_BONES[v.info?.spine || v.info?.defId]) {
+      const p = { x: 0, y: 0, z: 0 };
+      const at = () => specialPoint(v, p) || (camRef ? { x: v.x, y: v.y, z: bodyZ(camRef, v, 0.5) } : v);
+      return {
+        get x() { return at().x; }, get y() { return at().y; }, get z() { return at().z; },
+        get alive() { return v.alive; }, get remove() { return v.remove; },
+        id: v.id, info: v.info,
+      };
+    }
     const frac = SPAWN_FRAC[def?.spawn];
     if (!frac || !v || !(v.info || v.screen)) return v;
     return {

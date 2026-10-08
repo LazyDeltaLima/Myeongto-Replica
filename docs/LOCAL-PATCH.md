@@ -1226,6 +1226,24 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     칩 높이는 오퍼레이터와 같은 화면 고정 위치(발 기준)라 작은 소환물(드론) 위에서는 떠 보인다 — 공식 캡처로 확인할 것 [추정].
     확인: Windows `sp-check\tokchip.mjs <port>`(game-mock PREP에 주인 있는 드론을 보드·벤치에 추가) → `tokchip3.png`.
 
+### 이펙트 붙는 자리 MP_SPECIAL_0 — 비르투오사 S3 (2026-10-08, 사용자 「인게임은 비르투오사가 들고있는 악기에서 이펙트가 나와야 해」)
+- 근거: 클라이언트 `global-metadata.dat` 열거형 `SpawnLocation`(필드 순서·기본값): 0 NONE, 1 FOOT_POINT, 2 HIT_POINT, 3 MUZZLE_POINT, 4 HEAD_POINT,
+  5 GROUND_CENTER, 6 MUZZLE_POINT_WITHOUT_ROTATION, 7 GROUND_CENTER_WITH_ZERO_HEIGHT, 8 MP_SPECIAL_0, 9 MP_SPECIAL_1, 10 MP_SPECIAL_2, 11 MP_SPECIAL_3,
+  12 CAMERA, 13~ MP_SPECIAL_4…, TILE_CENTER …. 위치는 모델 프리팹의 `Torappu.Battle.SingleSpineAnimator`(`_muzzleTransform`·`_hitTransform`·
+  `_headTransform`·`_specialPoint0~15`)가 가리키는 Transform — 비르투오사 기본 스킨은 `PersistentData/Bundles/chararts/char_245_cello.ab`
+  `DefaultSkin` → `Front`/`Back` 아래 `SpecialPoint0`, Spine 본 추종 컴포넌트가 `F_Weapon_Chord` / `B_Weapon_Chord`(첼로 현)를 따라간다.
+- 우리는 1·2·4·5만 알아 8을 바닥에 놓았다 → S3 `cello_skill_03_buff_front_02`(빛나는 원·무지개·음표, `_spawnLocation` 8)가 발밑에 깔렸다.
+  `fxgame.js lifted()`: 8이고 `SPECIAL_BONES`에 있는 캐릭터(지금은 `char_245_cello`만)면 매 프레임 그 본의 위치(스켈레톤 좌표 × 모델 표시 배율,
+  유닛 root + body 기준 — 임포스터로 그릴 때는 스켈레톤이 다른 컨테이너에 있어 화면 트리를 쓰지 않음)를 `liftFor`로 월드 높이로 바꿔 놓는다.
+  본을 못 찾으면 몸 가운데(`bodyZ` 0.5). `SPAWN_FRAC` 표는 그대로 — 다른 프리팹 높이는 안 바뀜.
+- 확인: 디버그 아레나 비르투오사 S3 전·후(Windows `a2arena.mjs` `vc-bef-*`/`vc-aft-*`, `research/2026-10-08-elite-glow/cello-s3-spawn8.png`) — 원·빛이 발밑에서
+  첼로 위치로. 테스트 `test/local-patch-fxspawn.test.js`(소스 확인 + 추출물 `spawn` 8). 실제 판·공식 영상과의 나란히 비교는 안 함.
+- **다른 세션에 인계 (사용자 2026-10-08 「붙는 자리 값이 다른 경우가 꽤 많은 것 같아. 비르투오사까지만 수정하고 나머지는 다른 세션에 인계」)**:
+  추출 프리팹 기준 8(MP_SPECIAL_0) 104개·3(MUZZLE) 48개·0(NONE) 136개가 지금 바닥(또는 발)에 놓인다. 7(GROUND_CENTER_WITH_ZERO_HEIGHT) 30개는 바닥 그대로가 맞을
+  것으로 보임 [추정]. 오퍼레이터마다 `chararts/<charId>.ab`(스킨은 `skinpack/`) `SingleSpineAnimator`의 Muzzle·SpecialPoint 본을 뽑아 표로 만들면
+  `SPECIAL_BONES`를 일반화할 수 있다(추출 스크립트 초안: `research/2026-10-08-elite-glow/sp1.py`·`chain.py`). 비르투오사 S3의 `buff_back_02`
+  (모델 뒤 짝)·`buff_03/04/05`는 우리 바인딩에 없어 안 튼다 — 클라이언트가 트는지 확인 필요.
+
 ### 정예 기물 금빛 (2026-10-08, 사용자 요청 「정예화된 오퍼는 휴식 기간에 황금빛으로 빛나는 이펙트」)
 - 근거: zh_CN `gamedata/battle/battle_misc_table.json` `miscConfig.AUTOCHESS.act1autochess`·`act2autochess.effectConfig.goldenEffectId`
   = `trap_acgarm_buff_loop_01`(클래스 `AutoChessBattleMiscConfig.EffectConfig`). 메타데이터: 정비 기물은 더미(`CreateDummyOnTile` → `_DoCreateOnTile` →
