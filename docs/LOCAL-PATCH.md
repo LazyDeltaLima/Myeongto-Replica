@@ -89,7 +89,7 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 | 얼린 상점에서 특수 갱신이 바꾼 칸도 얼림 유지 (원본은 `setShopSlot`이 항상 `frozen: false` → 佩佩·杜遥夜가 넣은 칸이 전투 시작 때 사라짐) | — | `server/match/effectsMeta.js` `setShopSlot` 2줄 (바뀌기 전 칸의 얼림 상태, 없으면 상점 얼림 상태) |
 | 디버그용 재화 고정 (`SP_DEBUG_FUNDS=<0..999>`일 때 사람 플레이어 재화가 그 값으로 고정, 봇은 그대로. `local.sh`가 기본 99, 배포 서버는 미설정) | `server/local-patch.js debugFunds` (`PlayerState.prototype.funds` 접근자) | 없음 |
 | 게임 내 디버그 패널 (로컬 디버그 모드만: 보드 왼쪽·맹약 줄 아래. 「디버깅용 재화 99 고정」 체크박스 = 플레이어별로 재화 고정 켜고 끄기, 선발 오퍼레이터·티어·일반/정예·스킬(S1~S3)·모듈(정예만, 없음 포함)을 골라 정비 구역에 추가) | `server/local-patch.js` `debugMode`·`debugIntent`·`debugView`(`privateView` 감싸기 → `m.private.debug`, 디버그 모드일 때만 설치), `shared/local.js`(`dbg.funds`·`dbg.addDiy` 형식), `public/js/ui/debugPanel.js`, `public/css/debug-panel.css`, `public/i18n/ko/ui.json` 7줄 | `screens/game.js` 2줄(import, 렌더), `index.html` 1줄 |
-| 스킬 모드 공격·타격음 + 공식 믹서 그룹 볼륨 (2026-10-07) | `public/js/audioOfficial.js`, `tools/assets/skill-mode-sfx.mjs`, `tools/local-extract/char_modes.py` → `tools/assets/local-char-modes.json`, `test/local-patch-audio.test.js` | `public/js/audio.js`(import, `unit()` 모드·게인, 이벤트 루프 몇 줄, 채널 게인 2줄), `tools/assets/audio.mjs` 3줄, `plan.mjs` 몇 줄, `skill-sfx.mjs`·`kit-sfx.mjs` 함수 1개씩 |
+| 스킬 모드 공격·타격음 + 공식 믹서 그룹 볼륨 (2026-10-07) | `public/js/audioOfficial.js`, `tools/assets/skill-mode-sfx.mjs`, `tools/local-extract/char_modes.py` → `tools/assets/local-char-modes.json`, `test/local-patch-audio.test.js`, `test/local-patch-skill-music.test.js` | `public/js/audio.js`(import, `unit()` 모드·게인, 이벤트 루프 몇 줄, 채널 게인 2줄, 스킬 extras·잡아 둔 'skill'·替身 전환 메서드 2개), `tools/assets/audio.mjs` 몇 줄, `plan.mjs` 몇 줄, `skill-sfx.mjs`·`kit-sfx.mjs` 함수 1개씩, `screens/game.js` early 필터 1줄 |
 | 스킬 중 매 공격 이펙트(공식 모드 바인딩) + 이펙트 배속 연동 + 투사체 꼬리 + 시전자 이펙트는 유닛 아래 (2026-10-07) | `shared/skill-modes.js`, `public/assets/local/fx/modes.json`(git 밖, `char_modes.py`), `test/local-patch-fxmodes.test.js` | `render/fxgame.js`(로컬 파일), `render/fxmap.js`(로컬 파일) `attackMode`·`boundEffects` |
 | 이펙트·사운드 디버그 페이지 = 샌드백 아레나 (`SP_DEBUG_PAGE=1`일 때만, 배포 서버는 404 — `/js/debug/*` 포함) | `public/debug.html`, `public/js/debug.js`, `public/js/debug/arena.js`·`sandbag.js` (`/fxlab.html`은 이리로 넘김), `server/local-patch.js debugPageHidden`, `test/local-patch-debug.test.js` | `server/index.js` 2줄, `render/app.js` `debugFx` 1줄(+헤더 1줄), `render/fxgame.js` `debugPlay` |
 | `/healthz` 축소 (프록시를 거친 요청은 `ok`·`version`·`app`·`build`만, 접속자·방 수는 컨테이너 안 확인용) | `server/local-patch.js proxiedRequest` | `server/index.js` 2줄(import, `/healthz` 앞 1줄) |
@@ -1061,6 +1061,32 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   - 확인: `test/local-patch-audio.test.js` +6(수정 전 실패 확인), 매니페스트 diff(위 오퍼레이터만), Windows Chrome `sndB_probe.mjs`(银灰 발동 전 평타
     `p_imp_spear_n`만, 르무엔 mark 5·s3end 1·shell 5). 배포: 새 sfx 3개(`p_imp_lmwlcrstrmk`, `p_atk_lmwlcrstrst_s`, `p_imp_lmwlcrstr_s`) → `oci/deploy.sh --assets`.
     로컬 재생성 때 매니페스트 키가 10개 줄어 `fetch-assets --allow-shrink`.
+  - **스킬 특수 음악·대역 전환·모드 타격음** (사용자 제보 4차 4-2·4-4, 2026-10-08, 세션 G — 조사 표 `research/2026-10-08-handoff/G-skill-music-hit-sfx.md` 「결과」):
+    - 원인(데이터로 확인): plan은 스킬마다 시작음 1개(`skills[i]`)·`loop: true` 뱅크 1개(`loops[i]`)·모드 공격음만 실었다. 공식은 그 밖의 뱅크도 낸다 —
+      耀骑士临光 S3 `ON_SKILL_START` b_char_atkboost **+** `ON_ABILITY_START.skchr_nearl2_3` p_skill_goldspearboost1(5.8 초), 塑心 S3 루프
+      p_skill_thrill_loop(Battle_P_Field 0.267, 이미 나고 있었음) **+** `ON_ABILITY_START.skchr_cello_3` p_skill_shphrtcltrill **+** 음악
+      `ON_BUFF_START.cello_s_3[audio]` p_skill_shphrtcltrillmelody(20.4 초, `ON_SKILL_FINISH.skchr_cello_3` ctrlStop 0.2 초). 塑心은 재생 조건이 아니라 이 두 뱅크가 없었다.
+    - `tools/assets/skill-mode-sfx.mjs skillExtras` → `sfx.units[id].extras[i] = [{ url, grp?, vol?, stop? }]`: ① 스킬 자신의 `ON_ABILITY_START.<skillId>`
+      (Skill_Important·UI_Boost·P_Field 그룹, 시작음과 다르고 공용 `battle/b_char/*` 아님), ② `ON_SKILL_FINISH|ON_ABILITY_END.<skillId>` ctrlStop이 끊는 뱅크(`stop` =
+      그 페이드). [추정] ①은 스킬 시작 순간(대상 15명 모두 「立即…」·시전형). `audio.mjs indexAudio`에 `ctrlStops`·`isLoop`. `skillLoops`는 `ON_ABILITY_END`도 본다
+      (烛煌 S3 장판 루프 p_skill_hcnsrfrfld — 빠진 루프는 이것 하나). 새로 생긴 extras: nearl2 S2/S3, cello S3, blaze2 S3, mostma S2(stop 0.7)/S3, gnosis S3,
+      mudrok S3, archet S2, surtr S3, bubble S2, sunbr S2, cetsyr S3, rmixer S2, blemsh S3, pasngr S3.
+    - `audioOfficial.js startSkillLoop(…, { loop: false, fade })`(끊을 수 있는 한 번 재생), `stopUnitLoops`, `skillExtrasOf`; `audio.js`가 'skill' 켜짐에 extras를
+      내고(stop 있는 것은 키 `<id>:x<k>`로 잡아 두고 꺼짐에 끊음), 'die'는 그 유닛의 루프·잡아 둔 소리 전부를 끊는다.
+    - 归溟幽灵鲨 「S2 종료 후 대역 전환」: S2 끝 → <替身> 전환(sim fx 'substitute', professions.js installDollkeeper)의 공식 뱅크 —
+      `ON_BUFF_START.ghost2_switch2stand` p_skill_sharpstandborn, `ON_BUFF_SHOW_EFFECT.ghost2_standin[switch]` p_skill_sharpstandspell(11.6 초, ctrlStop
+      `ghost2_stand_effect_end` 0.8 초), 본체 복귀(fx 'swap') `ghost2_switch2normal` p_skill_sharpborn. `kit-sfx.mjs` 키 `ghost2:stand|standin|normal`,
+      `audioOfficial.js dollSwitchSfx`(오퍼별 표), `audio.js _dollSwitch`. [추정] standin은 전환과 함께 나고 본체 복귀·퇴장·替身 격파에 끊는다(버프 타이밍은 네이티브).
+      안 한 것: 같은 뱅크에 걸린 스냅샷 `AllLowpass_Reverb`(전체 저역 통과 5 초).
+    - 缄默德克萨斯 S2 타격음(4-4): ① 배치 즉시 켜지는 스킬(`activateOnDeploy`: S1–S3)은 'skill'이 그 유닛의 'spawn'보다 먼저 와서(실제 경로 확인) 오디오가 버렸다 →
+      `audio.js`가 추적 전 유닛의 'skill'을 잡아 두었다가 'spawn'(같은 묶음에 'deploy'가 있으면 그 'deploy')에서 처리, `screens/game.js` 작전 시작 early 버퍼도 'skill'을
+      넘긴다(1줄). ② 모드 능력에 공격 뱅크만 있고 HIT 뱅크가 없으면(S2 `attack.2`는 `ON_ABILITY_ON` p_imp_reticentsword_h뿐) Default의 HIT(p_atk_reticentsword_n)는
+      나지 않는다 → `skillModes`가 `noHit: true`, `audio.js unit()`이 그 모드의 타격음을 비운다. 실제로 바뀐 오퍼: texas2 S2, ghost2 S2/S3, gvial2 S2, svash2 S3,
+      whitew S2, rosmon S2/S3, pepe S3, mlynar S2/S3(나머지 16명은 Default 타격음이 원래 없음). [추정] 뱅크가 없으면 무음(클라이언트 재생 코드는 네이티브).
+    - 확인: `test/local-patch-skill-music.test.js` 6개(수정 전 6개 모두 실패 확인 — 실제 경로 Match → buildBattleSpec → createBattleFromSpec 이벤트를 AudioManager에),
+      Windows Chrome Web Audio 계측(`sp-check\snd_g_hook.js` — AudioBufferSourceNode start/stop을 파일 이름으로): 디버그 아레나
+      (`snd_g_arena.mjs`) nearl2 S3·cello S3·ghost2 S2·texas2 S2, 실제 솔로 판(`snd_g_real.mjs`: 로드아웃 + 재화 고정 + 상점 리롤로 구매) texas2 S2·ghost2 S2.
+      cello·nearl2(6성)는 상점에 안 나와 실제 판 확인 못 함. 배포: 새 sfx 21개 → `oci/deploy.sh --assets`.
 
 - 스킬 중 공격 이펙트·이펙트 배속 (2026-10-07, 공식 비교 조사 `compare-fx.md` 1·9번):
   - 공식: 스킬 모드의 공격 능력에 `_castEffects`가 붙어 `*_skill_0N_start`는 스킬 중 **매 공격**(CAST_START)에 나오고, 발동 순간은 Begin
