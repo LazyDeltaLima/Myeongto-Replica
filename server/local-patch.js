@@ -28,8 +28,11 @@ import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, chatFaction } from '../sh
 import { sendSession } from './net.js';
 import { PlayerState } from './match/PlayerState.js';
 import { Match } from './match/Match.js';
-import { diySlotIds, isDiyModule } from '../shared/diy.js';
+import { diyRecord, diySlot, diySlotIds, isDiyModule } from '../shared/diy.js';
 import { localDiyPool } from '../shared/local-diy.js';
+import { checkDiyPicks } from '../shared/protocol.js';
+import { diyGameData } from './match/player/diy.js';
+import { KITTED_CHARS } from './sim/content/kits/index.js';
 
 const OK = Object.freeze({ ok: true });
 
@@ -262,9 +265,12 @@ export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-f
 //                           (they keep the pinned value and move normally from there)
 //   dbg.addDiy { charId, tier, golden?, skill?, module? }
 //                           one of the 自选 candidates (data/backups.json diy.ownedPool) into the sender's hand: it takes
-//                           the tier's slot already holding that operator, else a free slot of the tier (both taken by
-//                           others ⇒ refused), sets the pick there (PlayerState.setDiy — skill 0-2, module: a uniEquipId
-//                           of the elite form or 'none'), then gains the slot's chess (normal, or the elite with
+//                           the tier's slot already holding that operator, else a free slot of the tier, else one whose
+//                           operator (the room's 自选编队 pick, say) has no piece in hand / temp / board (otherwise ⇒
+//                           refused), sets the pick there (debugSetPick — skill 0-2, module: a uniEquipId of the elite
+//                           form or 'none'; that one slot checked alone, so the roster rule "an owned operator fills one
+//                           slot" does not apply: the same operator may sit at both tiers — under PlayerState.setDiy that
+//                           rule dropped the new slot and the gain failed as HAND_FULL), then gains the slot's chess (normal, or the elite with
 //                           `golden`) through PlayerState.acquireChess (merges, onGain, m.private), prep only, refused with
 //                           a full hand unless it completes a merge; no stock copies are taken (the shop is unchanged).
 // Outside debug mode both messages are refused as BAD_MSG (the server never trusts the client's panel).
@@ -305,9 +311,36 @@ export function debugCandidates(gd) {
 
 /** The slot base id a debug add of `charId` at `tier` uses for player `ps` (see dbg.addDiy above), or null. */
 export function debugDiySlot(ps, charId, tier) {
-  const ids = diySlotIds(ps.m.gd.raw).filter((id) => ps.m.gd.raw.backups?.diy?.slots?.[id]?.tier === tier);
+  const data = ps.m.gd.raw;
+  const ids = diySlotIds(data).filter((id) => data.backups?.diy?.slots?.[id]?.tier === tier);
   const cur = ps.diy || {};
-  return ids.find((id) => cur[id]?.charId === charId) || ids.find((id) => !cur[id]) || null;
+  const unused = (id) => { const s = diySlot(id, data); return !ps._chessLocations().some((l) => l.piece.id === s.baseId || l.piece.id === s.goldenId); };
+  return ids.find((id) => cur[id]?.charId === charId) || ids.find((id) => !cur[id]) || ids.find(unused) || null;
+}
+
+/**
+ * Put `pick` into DIY slot `slotId` of player `ps` mid-match (dbg.addDiy): the pick checked on its own (checkDiyPicks of
+ * that one slot: kit, skill, module, a prototype's locked selection), the slot's two records composed and the player's
+ * data view rebuilt like PlayerState.setDiy does — the other slots keep their picks and records. Returns a restore
+ * function, or null when the pick is refused.
+ */
+export function debugSetPick(ps, slotId, pick) {
+  const data = ps.m.gd.raw;
+  const res = checkDiyPicks({ [slotId]: pick }, { data, kitted: KITTED_CHARS });
+  const kept = res && 'ok' in res ? res.picks[slotId] : null;
+  const slot = diySlot(slotId, data);
+  if (!kept || !slot) return null;
+  let normal, golden;
+  try { normal = diyRecord(slotId, kept, { elite: false, data }); golden = diyRecord(slotId, kept, { elite: true, data }); } catch { return null; }
+  if (!normal || !golden) return null;
+  const before = { diy: ps.diy, records: ps._diyRecords, gd: ps.gd };
+  const records = new Map(ps._diyRecords || []);
+  records.set(slot.baseId, Object.freeze(normal));
+  records.set(slot.goldenId, Object.freeze(golden));
+  ps.diy = Object.freeze({ ...(ps.diy || {}), [slot.baseId]: Object.freeze({ charId: kept.charId, skillIndex: kept.skillIndex, uniEquipId: kept.uniEquipId ?? null }) });
+  ps._diyRecords = records;
+  ps.gd = diyGameData(ps.m.gd, records);
+  return () => { ps.diy = before.diy; ps._diyRecords = before.records; ps.gd = before.gd; };
 }
 
 /** m.private.debug of a human player (debug mode only). */
@@ -340,8 +373,8 @@ export function debugIntent(m, playerId, msg, env = process.env) {
     if (!cand || !cand.tiers[tier]) return fail(ERR.BAD_TARGET, 'not a DIY candidate');
     const g = ps._gate({ allowWhenReady: true }); if (g) return g;
     const slotId = debugDiySlot(ps, msg.charId, tier);
-    if (!slotId) return fail(ERR.BAD_TARGET, `both DIY slots of tier ${tier} are taken`);
-    const prev = ps.diy?.[slotId] || null;
+    if (!slotId) return fail(ERR.BAD_TARGET, `both DIY slots of tier ${tier} hold other operators with pieces`);
+    const prev = ps.diy?.[slotId]?.charId === msg.charId ? ps.diy[slotId] : null;
     const skillIndex = msg.skill ?? prev?.skillIndex ?? 0;
     if (!cand.tiers[tier].skills.some((x) => x.index === skillIndex)) return fail(ERR.BAD_TARGET, `skill ${skillIndex} not available`);
     const mod = msg.module ?? (prev?.uniEquipId ?? MODULE_NONE);
@@ -349,10 +382,10 @@ export function debugIntent(m, playerId, msg, env = process.env) {
     const slot = m.gd.raw.backups.diy.slots[slotId];
     const chessId = msg.golden ? slot.goldenId : slotId;
     if (!ps.hand.includes(null) && !ps.completesChessMerge(chessId)) return fail(ERR.HAND_FULL);
-    const before = ps.diy;
-    if (!ps.setDiy({ ...before, [slotId]: { charId: msg.charId, skillIndex, uniEquipId: mod === MODULE_NONE ? null : mod } })) return fail(ERR.BAD_TARGET, 'pick refused');
+    const restore = debugSetPick(ps, slotId, { charId: msg.charId, skillIndex, uniEquipId: mod === MODULE_NONE ? null : mod });
+    if (!restore) return fail(ERR.BAD_TARGET, 'pick refused');
     const piece = ps.acquireChess(chessId, { source: 'grant', fromPool: false });
-    if (!piece) { ps.setDiy(before); return fail(ERR.HAND_FULL); }
+    if (!piece) { restore(); return fail(ERR.HAND_FULL); }
     ps.dirty();
     return OK;
   }

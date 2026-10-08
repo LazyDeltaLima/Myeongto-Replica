@@ -1081,6 +1081,34 @@ describe('in-game debug panel: dbg.funds / dbg.addDiy, local debug mode only (se
     assert.equal(ps.temp.filter(Boolean).length, 0, 'nothing spilled into temp');
   });
 
+  test('dbg.addDiy puts one operator at both tiers (the roster\'s one-slot rule is not applied; it used to fail as HAND_FULL)', async () => {
+    const { debugIntent } = await import('../server/local-patch.js');
+    for (const order of [[5, 6], [6, 5]]) {
+      const h = prep(), ps = h.ps('p_0');
+      ps.hand.fill(null);
+      for (const tier of order) assert.deepEqual(debugIntent(h.m, 'p_0', { t: 'dbg.addDiy', charId: 'char_2027_wang', tier }, DEBUG_ENV), { ok: true }, `tier ${tier} after ${order[0]}`);
+      assert.equal(ps.diy.chess_char_5_diy1_a.charId, 'char_2027_wang');
+      assert.equal(ps.diy.chess_char_6_diy1_a.charId, 'char_2027_wang', 'the first pick is kept');
+      assert.deepEqual(ps.hand.filter(Boolean).map((p) => ps.gd.chess(p.id).charId), ['char_2027_wang', 'char_2027_wang'], 'both pieces have a body');
+    }
+  });
+
+  test('dbg.addDiy with the room\'s 自选编队 filling every slot: replaces a slot whose operator has no piece, keeps one with pieces', async () => {
+    const { debugIntent } = await import('../server/local-patch.js');
+    const pk = (charId) => ({ charId, skillIndex: 0, uniEquipId: null });
+    const diy = { chess_char_5_diy1_a: pk('char_1035_wisdel'), chess_char_5_diy2_a: pk('char_4182_oblvns'), chess_char_6_diy1_a: pk('char_2027_wang'), chess_char_6_diy2_a: pk('char_1050_chen3') };
+    const h = makeMatch({ mode: 'coop', seats: humans().map((s, i) => (i === 0 ? { ...s, diy } : s)), seed: 3 }); h.start(); h.toPrep(1);
+    const ps = h.ps('p_0');
+    ps.hand.fill(null);
+    const add = (f) => debugIntent(h.m, 'p_0', { t: 'dbg.addDiy', ...f }, DEBUG_ENV);
+    assert.deepEqual(add({ charId: 'char_4132_ascln', tier: 6 }), { ok: true });
+    assert.equal(ps.diy.chess_char_6_diy1_a.charId, 'char_4132_ascln', 'the first slot without a piece');
+    assert.equal(ps.diy.chess_char_6_diy2_a.charId, 'char_1050_chen3');
+    assert.deepEqual(add({ charId: 'char_2027_wang', tier: 6 }), { ok: true }, 'the other slot had no piece either');
+    assert.equal(add({ charId: 'char_1050_chen3', tier: 6 }).error, ERR.BAD_TARGET, 'both slots now hold pieces');
+    assert.deepEqual(ps.hand.filter(Boolean).map((p) => ps.gd.chess(p.id).charId).sort(), ['char_2027_wang', 'char_4132_ascln']);
+  });
+
   test('dbg.addDiy skill / module: checked against the pick\'s forms, fought with in battle, no stock copies taken', async () => {
     const { debugIntent, debugView } = await import('../server/local-patch.js');
     const { tileKey } = await import('../server/match/board.js');

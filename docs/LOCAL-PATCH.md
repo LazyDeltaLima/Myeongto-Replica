@@ -45,8 +45,11 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   테스트 `test/local-patch-diy-reward.test.js`.
 - 지운 것: `data/diy.json`, `tools/build-diy.mjs`, `kits/diy.js`, `ui/diySlots.js`, `css/diy.css`, `tools/assets/diy.mjs`, `tools/assets/local-token-spines.mjs`,
   `tools/local-extract/token_spines.py`(upstream `extract.py TOKEN_SPINES` + `--local-spines`가 같은 일), `server/local-patch.js`의 전용 풀·신표 거부 감싸기.
-- 디버그 패널 `dbg.addDiy { charId, tier, golden?, skill?, module? }`: 그 단계의 빈 슬롯(또는 같은 오퍼레이터의 슬롯)에 `setDiy`로 픽을 넣고
-  슬롯 기물을 손패로. 디버그 페이지(샌드백)는 슬롯 id + `diy` 픽으로 선발을 띄운다.
+- 디버그 패널 `dbg.addDiy { charId, tier, golden?, skill?, module? }`: 그 단계에서 같은 오퍼레이터의 슬롯 → 빈 슬롯 → 기물이 하나도 없는 슬롯
+  (방의 자선 편대 픽이라도) 순으로 골라 픽을 넣고 슬롯 기물을 손패로. 픽은 `debugSetPick`이 **그 슬롯 하나만** 검사해(`checkDiyPicks`) 넣는다 —
+  `setDiy`(편성 전체 검사)를 쓰던 때는 "보유 오퍼레이터는 슬롯 하나" 규칙이 같은 오퍼레이터의 두 번째 단계 픽을 조용히 버려
+  「정비 구역이 가득 찼습니다」(HAND_FULL)로 실패했다(사용자 제보 2026-10-08). 디버그에서는 한 오퍼레이터를 V·VI단계에 함께 둘 수 있다.
+  디버그 페이지(샌드백)는 슬롯 id + `diy` 픽으로 선발을 띄운다.
 - 테스트: `test/local-patch-diy.test.js`(옛 선발 키트 테스트 이전 + 제한·데이터·실제 경로).
 
 **언어**: 우리 번역을 upstream 언어 팩으로 옮긴다(사용자 결정, 진행 중) — `tools/i18n/build-ko-pack.mjs` → `public/i18n/ko.json`·`data/i18n/ko.json`.
