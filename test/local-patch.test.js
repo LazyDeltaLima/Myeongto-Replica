@@ -335,6 +335,28 @@ describe('operator voice: Korean / Japanese / off and the 休整期 lines on ups
     assert.ok(!/voice=\$\{combat\}/.test(game), "the detail panel's once-per-target line is replaced by the tap's");
   });
 
+  test('client: 部署 line when the player places an operator from the bench on the board (2-5, owner 2026-10-08)', async () => {
+    const v = await mod('voice.js');
+    const { audio } = await mod('audio.js');
+    const calls = [];
+    const orig = audio.voice;
+    audio.voice = (id, slot, o) => { calls.push([id, slot, o?.unitKey]); return true; };
+    try {
+      v.voiceForPlace({ kind: 'item', defId: 'x' }, 1);
+      v.voiceForPlace({ kind: 'token', spine: 'token_10064_wang_stone1' }, 2);
+      v.voiceForPlace(null, 3);
+      assert.equal(calls.length, 0, 'no line for an item / summon');
+      v.voiceForPlace({ kind: 'chess', defId: 'chess_diy_wang_6_a', spine: 'char_2027_wang' }, 7);
+      assert.deepEqual(calls, [['char_2027_wang', 'place', 'prep:7']], 'the model shown speaks (a 自选 slot: its operator)');
+    } finally { audio.voice = orig; }
+    const game = readFileSync(path.join(ROOT, 'public', 'js', 'screens', 'game.js'), 'utf8');
+    // only a committed direction-wheel placement whose piece was not on the board (bench → board), said as it lands
+    assert.match(game, /const from = live\.current\.placeCtx\?\.pieces\.get\(f\.uid\)\?\.area;\n\s+if \(f\.piece\.kind === 'chess' && from && from !== 'board'\) placedRef\.current\.set\(f\.uid, Date\.now\(\)\);/);
+    assert.match(game, /const at = e\?\.area === 'board' \? placedRef\.current\.get\(e\.uid\) : undefined;/);
+    assert.match(game, /if \(Date\.now\(\) - at <= PLACE_VOICE_MS\) voiceForPlace\(e\.unit, e\.uid\);/);
+    assert.equal((game.match(/voiceForPlace\(/g) || []).length, 1, 'no other path (a purchase, a return, the lineup after a battle) speaks');
+  });
+
   test('client: 结算 lines wait for the won settlement (silent at a round\'s end, none for a knocked-out player)', async () => {
     const v = await mod('voice.js');
     const { audio } = await mod('audio.js');

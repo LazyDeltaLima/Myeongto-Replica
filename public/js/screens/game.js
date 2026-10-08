@@ -114,7 +114,7 @@ import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, cameraLayers, layerCamera, sidesOf, resumedWatch, followedScout } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
 import { data, localAsset, getMode } from '../data.js';
-import { voiceForPiece, voiceForUnit, holdResultVoice } from '../voice.js'; // local patch: 选中 lines on a tap, 结算 line kept
+import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
@@ -126,6 +126,9 @@ import { HUD_HZ_MS, MERGE_HL, SEL_RANGE, cx } from './game/marks.js';
 import { keepEarly } from './game/early.js';
 import { MatchEnded, PausedOverlay } from './game/overlays.js';
 import { t, tParts } from '../../../shared/i18n.js';
+
+/** LOCAL-PATCH.md 「오퍼레이터 음성」 (2-5): a committed bench → board placement still says its 部署 line when its drop-in comes this late (ms). */
+const PLACE_VOICE_MS = 3000;
 
 /** Router for the in-match screens. */
 export function GameScreen() {
@@ -697,7 +700,16 @@ function MatchScreen() {
   useEffect(() => { if (offerCue) audio.sfx(offerCue); }, [offerCue]);
   // local patch (user report 2026-10-07 #1): an own operator dropped in on the prep board / bench — bought, a reward the
   // server gave, moved to the board or back to the bench — plays its deploy sound (render/app.js prepDeployed)
-  useEffect(() => (view ? view.on('pieceDeploy', (e) => audio.prepDeploy(e?.unit, e?.uid)) : undefined), [view]);
+  // LOCAL-PATCH.md 「오퍼레이터 음성」 (2-5, owner 2026-10-08): one the player placed from the bench (commitFacing → placedRef) says its 部署 line
+  // as it lands on the board
+  const placedRef = useRef(new Map()); // uid → Date.now() of a committed bench → board placement
+  useEffect(() => (view ? view.on('pieceDeploy', (e) => {
+    audio.prepDeploy(e?.unit, e?.uid);
+    const at = e?.area === 'board' ? placedRef.current.get(e.uid) : undefined;
+    if (at === undefined) return;
+    placedRef.current.delete(e.uid);
+    if (Date.now() - at <= PLACE_VOICE_MS) voiceForPlace(e.unit, e.uid);
+  }) : undefined), [view]);
   // a shop / reward card armed for a purchase that completes a merge lights the tile its elite will take (the deployed
   // copy that deploys first — PRTS 卫戍协议/帮助 "若消耗已部署至作战区的干员，则发送至作战区对应位置", gameLogic.mergeTarget)
   const mergeAt = armedCard?.kind === 'chess' && editable && showPrep ? mergeTarget(priv, armedCard.id, gd.chess) : null;
@@ -1098,10 +1110,14 @@ function MatchScreen() {
     setFacing(null);
     const intent = facingIntent(f.piece, { row: f.row, col: f.col }, dir);
     heldRef.current.set(f.uid, { row: f.row, col: f.col, t: Date.now() });
+    // 2-5: a bench → board placement says its 部署 line when it lands (pieceDeploy) — not a move on the board
+    const from = live.current.placeCtx?.pieces.get(f.uid)?.area;
+    if (f.piece.kind === 'chess' && from && from !== 'board') placedRef.current.set(f.uid, Date.now());
     const ok = intent.t === 'g.art'
       ? await actions.art(intent.fields.itemUid, intent.fields.row, intent.fields.col, intent.fields.dir)
       : await actions.move(intent.fields.uid, intent.fields.to, intent.fields.dir);
     if (!ok) {
+      placedRef.current.delete(f.uid); // 2-5
       if (f.piece.kind !== 'item') setPieceDir(view, f.uid, pieceDir(f.piece));
       releaseHold(f.uid);
       return;

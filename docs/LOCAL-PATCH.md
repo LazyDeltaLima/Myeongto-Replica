@@ -230,6 +230,12 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   (배치 효과음만 — 사용자 2026-10-08 卫戍协议 영상 확인, 예전 「구매 때 배치 대사」 전달을 바로잡음; `voiceForBuy` 삭제). 전투 중 유닛 탭도 매번
   선택 대사(`voice.js voiceForUnit`, 오퍼레이터만) — 원본 상세 패널의 「대상당 한 번」(`voice=${combat}`)을 대신함(원본 `docs-consistency` 단언 하나가
   이것과 어긋남 — merge-0.2.0 테스트 정리 목록). 원본 `audio.voice()`의 게이트를 그대로 거친다(`unitKey` `prep:…`/`battle:…`).
+  **벤치의 오퍼레이터를 보드에 놓으면 배치 대사**(`place` = PLACE_CHAR; 사용자 재제보 2026-10-08 2-5 「오퍼가 보드에 배치될 때 배치 대사가 안 나옴」,
+  사용자 결정 2026-10-08: 벤치→보드만): 방향 휠 확정(`screens/game.js commitFacing`)이 보드 밖에서 온 오퍼레이터를 기억했다가 그 말이 보드에
+  떨어질 때(`pieceDeploy`, 3초 안) `voice.js voiceForPlace` — 배치 효과음과 같은 순간. 보드 안 이동·벤치 복귀·전투 뒤 정비 복귀·자동 배치·소환물은
+  대사 없음. 근거: 클라이언트 정비 말 관리자 `AutoChessDummyManager._OnCharacterPlaced(placeToBattle, placeToHand)` → `_PlayAudioWhenCharacterPlaced`
+  (이름만 — 그 소리에 대사가 들어 있다는 것은 사용자 플레이 기억 [추정]). 확인: 실제 솔로 판 실제 마우스 끌기 + 방향 확정
+  (`sp-check\sd_check.mjs`) → b_char_set + 배치 대사, 자동 배치·정비 복귀는 대사 없음. 단위 `test/local-patch.test.js` 「部署 line」.
   확인: Windows `sp-check\vr_voice.mjs <port> <out>`(실제 솔로 판: 상점 카드 클릭 구매 → 배치음만, 탭 3번 → 선택 대사 3번, 드래그 → 없음).
 - 이전 로컬 패치에서 뺀 것: 작전 개시(무작위 한 명)·스킬 대사·자체 겹침 규칙·자체 음량 — 원본 것으로 대체.
 - 로컬 3 — 공식 재생 규칙(2026-10-06, 사용자 결정; `public/js/voicePolicy.js`를 `voice.js`가 설치, `audio.js`에는 훅 몇 줄):

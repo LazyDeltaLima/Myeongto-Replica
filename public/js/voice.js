@@ -7,12 +7,13 @@
 //   * 选中干员 `select` (upstream keeps the prep silent; the owner wants it): when the player taps an own operator on the
 //     board / bench — again on a tap of the one already selected — and a battle unit. Not when a drag to place starts,
 //     and no 部署 `place` line when an operator is bought / rewarded (only its deploy SFX) — the owner's 卫戍协议 videos,
-//     2026-10-08. They go through the same gate as the battle lines (a 选中 line never cuts a skill line: priority).
+//     2026-10-08. The 部署 line when the player places one from the bench on the board (voiceForPlace, 2-5 2026-10-08). They go through the same gate as the battle lines (a 选中 line never cuts a skill line: priority).
 //   * The official scheduling (voicePolicy.js, owner 2026-10-06): no global gap, priority / same-priority overlap /
 //     cooldown by the official voice type, a random 作战中, 行动开始 once per battle, no 部署 burst at the battle start.
 //
 //   <VoiceSetting />           the settings row (ui/settings.js): language
 //   voiceForPiece(piece)       screens/game.js: a tapped board / bench piece
+//   voiceForPlace(unit, uid)   screens/game.js: an operator the player placed from the bench on the board (部署)
 //   voiceForUnit(info, id)     screens/game.js: a tapped battle unit
 //   holdResultVoice(line)      screens/game.js onResult: the own battle's 结算 line, kept instead of played
 //   playMatchEndVoice(res, me) screens/result.js: the kept line on a won settlement, if the player was not knocked out
@@ -87,6 +88,22 @@ export function voiceForPiece(piece) {
   if (!piece || piece.kind === 'item' || piece.kind === 'token') return;
   const id = chessVoiceId(piece.id);
   if (id) audio.voice(id, 'select', { unitKey: `prep:${piece.uid ?? id}` });
+}
+
+/**
+ * An operator the player placed from the bench on the board (screens/game.js: a committed direction-wheel placement whose
+ * piece then drops in on its tile — render/app.js pieceDeploy): its 部署 line. User re-report 2026-10-08 2-5 「오퍼가 보드에
+ * 배치될 때 배치 대사가 안 나옴」, owner decision 2026-10-08: bench → board only (not a move on the board, a return to the
+ * bench, the lineup dropping in again after a battle, the server's auto placement). Client: the prep's piece manager
+ * AutoChessDummyManager `_OnCharacterPlaced(placeToBattle, placeToHand)` → `_PlayAudioWhenCharacterPlaced` (names only —
+ * that its sound includes the line is [추정], from the user's play). Not a summon's (no voice bank).
+ * @param {{ kind?: string, spine?: string|null, defId?: string|null }|null|undefined} unit render piece info
+ * @param {string|number|null} [uid]
+ */
+export function voiceForPlace(unit, uid = null) {
+  if (!unit || unit.kind === 'item' || unit.kind === 'token') return;
+  const id = unit.spine || (typeof unit.defId === 'string' ? chessVoiceId(unit.defId) : null);
+  if (typeof id === 'string' && id.startsWith('char_')) audio.voice(id, 'place', { unitKey: `prep:${uid ?? id}` });
 }
 
 /**
