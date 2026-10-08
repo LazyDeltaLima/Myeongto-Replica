@@ -7,7 +7,8 @@
 // - W10 during S3 a used stone may come back onto a walking enemy's tile inside her range (not outside it / outside S3);
 // - W12 S3: per deployment the talent's 跟子 free + ≤ 3 extra, one ammo each (user 2026-10-07: confirmed in game);
 // - 跟子 skip a knocked-out operator's tile (downOn, as upstream).
-// The last describe runs S3 through the real match path (Match board → buildBattleSpec → createBattleFromSpec).
+// The S3 describe runs S3 through the real match path (Match board → buildBattleSpec → createBattleFromSpec); the last one
+// checks every tick of S1 / S2 / S3 battles on that path for two of her stones on one tile (report 3 #2-3).
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -331,4 +332,87 @@ describe('望 S3 through the real match path (seats[].diy → Match board → bu
     assert.equal(b.errors.length, 0);
     m.dispose?.();
   });
+});
+
+/**
+ * Report 3 #2-3 (2026-10-08, user: 望 stones suspected to stack on one tile), through the real match path. Every tick:
+ * no tile holds two placed stones, two 跟子, or a stone / 跟子 of hers with another ally. The one overlap the sim does
+ * have (research/2026-10-08-report3-status.md 2-3): a used placed stone coming back on its home tile (Battle.redeploy
+ * checks `_occ` only) onto a 跟子 — a projectile that holds no tile — put there by a neighbour's deployment while the
+ * stone waited. Which rule removes it is the user's choice (pending); this pins that it is the only one.
+ */
+describe('望 stones never share a tile (real match path, report 3 #2-3)', () => {
+  const T6 = 'chess_char_6_diy1_a';
+  const runWang = async ({ sk, stones, seed, until }) => {
+    const { makeMatch } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T6]: pick(sk, false) } }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed }).start();
+    h.toPrep(4);
+    h.setStage('act2autochess_m04');
+    const m = h.m, ps = h.ps('p_0');
+    ps.initDiyStock?.(new Set());
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    const wp = ps.acquireChess(T6, { source: 'buy' });
+    assert.ok(m.handle('p_0', { t: 'g.move', uid: wp.uid, to: { area: 'board', row: 10, col: 5 }, dir: 'RIGHT' }).ok);
+    for (const [r, c] of stones) {
+      const card = ps.hand.find((p) => p && p.kind === 'token' && p.id === STONE);
+      assert.ok(card && m.handle('p_0', { t: 'g.move', uid: card.uid, to: { area: 'board', row: r, col: c } }).ok, `stone on ${r},${c}`);
+    }
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    const how = new Map(); // unit → how it last came on the field ('redeploy' | 'stock' | 'follower')
+    const spawn = b.spawnToken.bind(b), redeploy = b.redeploy.bind(b);
+    const seen = { redeploy: 0, stock: 0, follower: 0 };
+    b.spawnToken = (...a) => { const u = spawn(...a); if (u?.defId === STONE) { const k = a[4]?.kit?.follower ? 'follower' : 'stock'; how.set(u, k); seen[k]++; } return u; };
+    b.redeploy = (u, o) => { const ok = redeploy(u, o); if (ok && u.defId === STONE) { how.set(u, 'redeploy'); seen.redeploy++; } return ok; };
+    b.start();
+    const wu = b.allyUnits.find((u) => u.kind === 'op');
+    assert.equal(wu.def.charId, CHAR);
+    const pairs = new Map(); // "r,c:idA+idB" → { kind, last } at the tick the pair first shared the tile
+    let s3 = 0;
+    while (!b.finished && b.time < until) {
+      const before = new Map([...b.allyUnits].map((u) => [u, u.alive && u.deployed]));
+      b.step();
+      if (wu.skill?.active && wu.skill.id === 'skchr_wang_3') s3++;
+      const at = new Map();
+      for (const u of b.allyUnits) {
+        if (!u.alive || !u.deployed || u.removed) continue;
+        const k = `${u.tileR},${u.tileC}`;
+        (at.get(k) ?? at.set(k, []).get(k)).push(u);
+      }
+      for (const [k, us] of at) {
+        if (us.length < 2) continue;
+        const key = `${k}:${us.map((u) => u.id).join('+')}`;
+        if (pairs.has(key)) continue;
+        const tag = (u) => (u.defId !== STONE ? 'U' : u.mem?.wangFollower ? 'F' : 'S');
+        const fresh = us.filter((u) => !before.get(u)); // came on the field this tick
+        pairs.set(key, { kind: us.map(tag).sort().join('+'), last: fresh.map((u) => `${tag(u)}:${how.get(u)}`) });
+      }
+    }
+    m.dispose?.();
+    return { pairs: [...pairs.values()], seen, s3, errors: b.errors };
+  };
+  const LAYOUTS = {
+    // the six stones round her (10,5) on the m04 lanes: S3 deployments and returns among them
+    near: [[10, 4], [11, 5], [12, 5], [11, 4], [9, 6], [9, 4]],
+    // two lanes further off: S1 refills, returns whose 跟子 land on a neighbour's home tile
+    far: [[12, 4], [9, 7], [12, 7], [9, 8], [12, 8], [9, 9]],
+    one: [[10, 4]],
+  };
+  for (const [sk, layout, seed] of [[0, 'far', 1], [1, 'one', 2], [2, 'near', 1], [2, 'one', 1]]) {
+    test(`S${sk + 1} ${layout} seed ${seed}: no two placed stones / 跟子 on a tile — only a return onto a 跟子 overlaps`, async () => {
+      const r = await runWang({ sk, stones: LAYOUTS[layout], seed, until: 60 });
+      assert.equal(r.errors.length, 0);
+      assert.ok(r.seen.redeploy > 0 && r.seen.follower > 0, `returns and 跟子 happened (${JSON.stringify(r.seen)})`);
+      if (sk === 2) assert.ok(r.s3 > 0, 'S3 ran');
+      if (layout === 'one') assert.ok(r.seen.stock > 0, 'stones deployed from the stock');
+      for (const p of r.pairs) {
+        assert.equal(p.kind, 'F+S', `only a stone with a 跟子 ever shares a tile (${JSON.stringify(p)})`);
+        // the stone is the one that came: its return (Battle.redeploy) — never a stock deployment, never a 跟子 landing on a stone
+        assert.ok(p.last.includes('S:redeploy') && !p.last.includes('S:stock') && (p.last.length === 1 || p.last.includes('F:follower')), JSON.stringify(p));
+      }
+    });
+  }
 });
