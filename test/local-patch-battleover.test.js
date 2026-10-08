@@ -14,6 +14,14 @@ describe('battle-over sound (round_result_dialog)', () => {
     assert.equal(battleOverOf(null).kind, 'done');
   });
 
+  test('the box says the LP lost, capped per round like Match.settle — not the raw leak count (user report 2026-10-09)', () => {
+    const leaked = Array.from({ length: 17 }, () => ({ counted: true }));
+    assert.deepEqual(battleOverOf({ perfect: false, leaked }), { kind: 'miss', lost: 10, sfx: 'battleOverReduce' });
+    assert.equal(battleOverOf({ perfect: false, leaked }, 10).lost, 10);
+    assert.equal(battleOverOf({ perfect: false, leaked: leaked.slice(0, 7) }, 10).lost, 7);
+    assert.equal(battleOverOf({ perfect: false, leaked }, 20).lost, 17);
+  });
+
   test('the three sounds are in the web manifest (sfx.ui)', () => {
     for (const k of ['battleOverReduce', 'battleOverNoReduce', 'battleOverNormal']) {
       assert.match(manifest.audio.sfx.ui[k], /act1autochess_b_ui_battleover_(reduce|noreduce|normal)\.mp3$/, k);

@@ -186,11 +186,15 @@ const DOLL_SFX = Object.freeze({
  * counted leaks (LP lost) ⇒ 'miss' / BATTLEOVER_REDUCE; no leak at all ⇒ 'perfect' / BATTLEOVER_NOREDUCE; leaks that
  * cost no LP (uncounted) ⇒ 'done' / BATTLEOVER_NORMAL. The REDUCE pairing follows the bank name; NOREDUCE ↔ 完美作战 and
  * NORMAL ↔ the plain 「战斗结束」 are [추정] (the three files are 1.4 s variants of one cue; the dialog's script is native).
+ * `lost` is the LP the leaks cost, min(cap, counted) as Match.settle charges them — never the raw leak count (user
+ * report 2026-10-09: 17 leaks showed 目标生命值减少 17 while the LP fell by 10).
  * @param {{ perfect?: boolean, leaked?: Array<{ counted?: boolean }|null> }|null|undefined} pp that battle's perPlayer
+ * @param {number} [cap] lpCapPerRound (no cap known → the official 10)
  * @returns {{ kind: 'perfect'|'miss'|'done', lost: number, sfx: 'battleOverNoReduce'|'battleOverReduce'|'battleOverNormal' }}
  */
-export function battleOverOf(pp) {
-  const lost = (Array.isArray(pp?.leaked) ? pp.leaked : []).filter((l) => l && l.counted !== false).length;
+export function battleOverOf(pp, cap = 10) {
+  const counted = (Array.isArray(pp?.leaked) ? pp.leaked : []).filter((l) => l && l.counted !== false).length;
+  const lost = Math.min(Number.isFinite(cap) && cap > 0 ? Math.trunc(cap) : 10, counted);
   if (lost > 0) return { kind: 'miss', lost, sfx: 'battleOverReduce' };
   if (pp?.perfect) return { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' };
   return { kind: 'done', lost: 0, sfx: 'battleOverNormal' };

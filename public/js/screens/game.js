@@ -300,7 +300,7 @@ function MatchScreen() {
     getChess: (id) => { const c = gd.chess(id); return ownDiyRecord(c, priv, { chess: data.get('chess'), backups: data.get('backups') }) || c; },
     getToken: gd.token, getItem: gd.item, getEffect: gd.effect, backups: gd.backups,
   }), [priv, pub?.stageId, editable, gd.ready, deployField]);
-  live.current = { pub, priv, field, editable, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, collapsedNow: collapsed, localDone: false, canPause: false, paused };
+  live.current = { pub, priv, field, editable, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, collapsedNow: collapsed, localDone: false, canPause: false, paused, cap: gd.config?.lpCapPerRound };
 
   // ---- camera: every request goes through setCam, which remembers it for the pen's way back -----------------------
   // the own prep board: the normal board, or — in the prep of a boss round — the player's half of the boss field
@@ -557,7 +557,7 @@ function MatchScreen() {
         // audioOfficial.js battleOverOf), once per round (announceBattleEnd); in co-op it waits for SETTLE, after the 联防
         // that may follow (ui/gameLogic/phases.js holdsBattleEnd)
         const round = st.match?.public?.round;
-        const over = mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT && battleEndRound.current !== round ? battleOverOf(mine) : null;
+        const over = mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT && battleEndRound.current !== round ? battleOverOf(mine, live.current.cap) : null;
         if (over && holdsBattleEnd(over, st.match?.public, pid)) heldEndRef.current = { round, over };
         else if (over) announceBattleEnd(over, round);
         const charId = resultSpeaker(mine, Math.random, (id) => ownShown(id)?.charId ?? null);
