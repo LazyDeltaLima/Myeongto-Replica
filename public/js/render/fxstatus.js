@@ -111,7 +111,9 @@ export function syncStatusFx(views, fxGame, battle) {
       const [bundle, name, frac, hold] = STATUS_FX[k];
       if (fxGame.statusReady(bundle, name)) fxGame.statusOn(v, bundle, name, k, frac, hold);
     }
-    if (on) for (const k of [...on]) if (!want.has(k) && STATUS_FX[k]) fxGame.statusOff(v, k); // local patch: not the prep 'golden' glow (fxgolden.js)
+    // local patch: not the prep 'golden' glow (fxgolden.js); local patch (user report 4 #4-1, 2026-10-08): `now` — an ended
+    // status takes its effect's particles with it (buff_stun's mark lives 10 s: it hung on beside the next stun's)
+    if (on) for (const k of [...on]) if (!want.has(k) && STATUS_FX[k]) fxGame.statusOff(v, k, true);
   }
 }
 

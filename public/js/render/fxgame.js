@@ -474,6 +474,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const def = await lib.load(bundle, name);
     if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
     if (!mod || !view._fxStatusOn?.has(key)) return;   // destroyed, or turned off while it loaded
+    // local patch (user report 4 #4-1, 2026-10-08: the stun marks stacked over a re-stunned enemy): one effect per unit and
+    // status — a status turned off and on again while its file loaded started a second load; the first one lands here too
+    if (live.some((l) => l.status === key && l.unit === view && !l.inst.stopping && !l.inst.done)) return;
     const anchor = {
       get x() { return view.x; }, get y() { return view.y; },
       get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (view.hover || 0); },
@@ -1043,11 +1046,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       on.add(key);
       playStatus(view, bundle, name, key, frac, hold, under);
     },
-    /** local patch (⑤): end the status effect `key` on `view`. */
-    statusOff(view, key) {
+    /**
+     * local patch (⑤): end the status effect `key` on `view`; `now`: its particles go at once (render/fxstatus.js) instead
+     * of living out their lifetimes.
+     * local patch (user report 4 #4-1, 2026-10-08: the stun marks stacked over a re-stunned enemy): an ended effect never
+     * restarts (`again` was still set — the stopped one, done, saw the status on again and started a copy beside the new
+     * one, one more per re-stun), and fxstatus.js ends a status `now`: buff_stun's mark is one 10 s particle, so a
+     * stopped one hung over the head for up to 10 s beside the next stun's [추정: the client drops a buff's effect with it].
+     */
+    statusOff(view, key, now = false) {
       if (!view._fxStatusOn?.delete(key)) return;
       const id = ownerOf(view);
-      for (const l of live) if (l.status === key && l.owner === id) l.inst.stop();
+      for (const l of live) if (l.status === key && l.owner === id) { l.again = null; l.inst.stop(now); }
     },
     /** Whether a 'fx' event is drawn here with its official effect (render/fx.js then skips its 2D stand-in). */
     ownsFx(e) { return ownFx.has(e); },
