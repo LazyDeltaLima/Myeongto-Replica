@@ -119,6 +119,47 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     assert.equal(n.bornOfficial, false);
   });
 
+  test('the opening deployment one by one (2-4, owner 2026-10-08): the n-th waits n × BORN_STAGGER_S wholly hidden, then drops', async () => {
+    const { BORN_STAGGER_S } = await import('../../public/js/render/units.js');
+    assert.equal(BORN_STAGGER_S, 0.12, 'official 「왕 S3.mp4」: rings ~0.12 s apart');
+    const v = unit(store());
+    await settle();
+    frames(v, 30);                                      // model in (a battle view built before the deploy)
+    assert.equal(v.onDeploy({ order: 2 }), true);
+    frames(v, 1);
+    assert.notEqual(v.actor.mode, 'deploy', 'not its turn yet');
+    assert.equal(v.body.alpha, 0, 'no body');
+    assert.equal(v.hud.alpha, 0, 'no bars');
+    assert.equal(v.shadow.alpha, 0, 'no shadow');
+    assert.ok(!v._facing?.root?.visible, 'no ground ring');
+    frames(v, 12);                                      // 0.22 s
+    assert.notEqual(v.actor.mode, 'deploy');
+    frames(v, 2, 1 / 30);                               // past 2 × 0.12 s
+    assert.equal(v.actor.mode, 'deploy', 'its drop starts');
+    assert.equal(v.body.alpha, 1);
+    assert.ok(v.shadow.alpha > 0.4);
+    assert.ok(v.actor.deployElapsed() < 0.1, `from the clip's start (${v.actor.deployElapsed()})`);
+    // a long hitch uses at most 0.25 s of the wait; the first of the opening and a later deploy do not wait
+    const w = unit(store(), { id: 8 });
+    w.onDeploy({ order: 4 });                           // 0.48 s, model still loading
+    frames(w, 1, 1.4);
+    assert.ok(w._bornHold > 0.2, `a hitch does not use it up (${w._bornHold})`);
+    const f = unit(store(), { id: 9 });
+    await settle();
+    frames(f, 30);
+    f.onDeploy({ order: 0 });
+    assert.equal(f.actor.mode, 'deploy', 'the first drops at once');
+    const p = new UnitView(fakeViewCtx(fake.P, { assets: store(), cam }), { id: 10, side: 'ally', kind: 'chess', defId: TEXAS, spine: TEXAS, tier: 1, x: 5, y: 10, maxHp: 1, dir: 'RIGHT' }, { prep: true });
+    await settle();
+    frames(p, 30);
+    p.onDeploy({ order: 3 });
+    assert.equal(p.actor.mode, 'deploy', 'a prep piece never waits');
+    // app.js numbers the allied deploys of the battle's first game second (not a scouted board, not a device)
+    const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
+    assert.match(app, /const order = v && !battleMeta\?\.prep && v\.info\?\.side === 'ally' && v\.info\.kind !== 'device' && now <= OPENING_DROP_GT \? openingDrops\+\+ : 0;\n\s+if \(v\) \{ v\.onDeploy\?\.\(\{ order \}\);/);
+    assert.match(app, /renderT0Battle = null;\n\s+openingDrops = 0;/);
+  });
+
   test('fx.deploy draws nothing for a bornOfficial view; app.js drops a bench arrival / board return in too', () => {
     const fx = readFileSync(path.join(ROOT, 'public/js/render/fx/arrivals.js'), 'utf8'); // fx.js split in 0.2.0
     assert.match(fx, /deploy\(view\) \{\n\s+if \(!view\) return;\n\s+if \(view\.bornOfficial\) return;/);

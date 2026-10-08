@@ -1356,6 +1356,7 @@ export async function createFieldView(host, options = {}) {
     consumedIds.clear();
     clearHl();
     renderT0Battle = null;
+    openingDrops = 0;
     mode = 'battle';
     const rect = meta.rect ? normRect(meta.rect) : (meta.kind === 'boss' || meta.kind === 'hidden' ? { ...GEO.BOSS_RECT } : meta.kind === 'unite' ? { ...GEO.UNITE_RECT } : { ...GEO.NORMAL_RECT });
     // prep: true = a read-only scouting board (a teammate's lineup during prep): prep-style pieces, no bars
@@ -1489,7 +1490,10 @@ export async function createFieldView(host, options = {}) {
       case 'deploy': {
         gone.delete(e[1]);
         const v = battleView(e[1]);
-        if (v) { v.onDeploy?.(); if (v.info?.kind !== 'device') fx.deploy(v); }
+        // LOCAL-PATCH.md 「배치 낙하」 (units.js BORN_STAGGER_S): the battle's opening deployment drops in one
+        // by one like the official round start — the n-th allied piece deployed in its first game second waits its turn
+        const order = v && !battleMeta?.prep && v.info?.side === 'ally' && v.info.kind !== 'device' && now <= OPENING_DROP_GT ? openingDrops++ : 0;
+        if (v) { v.onDeploy?.({ order }); if (v.info?.kind !== 'device') fx.deploy(v); }
         break;
       }
       case 'atk': {
@@ -1590,6 +1594,8 @@ export async function createFieldView(host, options = {}) {
   }
 
   let renderT0Battle = null;   // game time of the first rendered battle frame (spawn puffs skip the initial wave)
+  let openingDrops = 0;        // allied deploys of the battle's opening so far (units.js BORN_STAGGER_S)
+  const OPENING_DROP_GT = 1;   // game seconds that count as the opening deployment
   let downSeq = 0;             // syncBattle pass counter: a view still marked down after a pass left the `down` list
   function syncBattle(renderT) {
     if (renderT0Battle == null) renderT0Battle = renderT;

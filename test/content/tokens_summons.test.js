@@ -50,7 +50,7 @@ function recordingAudio() {
 // =================================================================================================================
 // #4 香槟炸弹
 
-test('#4 香槟炸弹 (琳琅诗怀雅): used up by its blast = no knock-out — no death count, no operator-knocked-down sound, its explosion is heard', REAL, () => {
+test('#4 香槟炸弹 (琳琅诗怀雅): used up by its blast = no knock-out — no death count, no operator-knocked-down sound, its explosion is heard', REAL, async () => {
   const id = 'chess_char_3_04_a';
   const knocked = [];
   const h = makeBattle({
@@ -82,6 +82,9 @@ test('#4 香槟炸弹 (琳琅诗怀雅): used up by its blast = no knock-out —
   assert.ok(!played.includes(SFX.battle.charDie), 'no 干员被击倒 sound');
   assert.ok(!played.includes(TOKEN_DEAD), 'no token death sound either (it exploded)');
   assert.ok(played.includes(SFX.units[TOKEN_IDS.champagne].hit), 'its explosion (official ON_ABILITY_HIT) is heard');
+  // LOCAL-PATCH.md 「배치 낙하」: placed in the opening deployment, its sound comes with its turn (audio.js
+  // OPENING_DEPLOY_STAGGER_MS)
+  await new Promise((r) => setTimeout(r, 1500));
   assert.ok(played.includes(SFX.units[TOKEN_IDS.champagne].born), 'placed with its own sound');
   // …and the renderer shows no knock-down particles for it (its blast is its end — integration)
   for (const bid of bombIds) {

@@ -290,6 +290,29 @@ describe('deploy sounds on every placement (user report 2026-10-07 #1 / #2, audi
     assert.deepEqual(c.played.map((p) => file(p.url)), ['p_imp_stwctptkin.mp3', 'p_imp_stwctptkpa.mp3']);
   });
 
+  test('battle start: the opening deployment sounds one by one with its drops (2-4, render/units.js BORN_STAGGER_S)', async () => {
+    const src = readFileSync(path.join(ROOT, 'public', 'js', 'audio.js'), 'utf8');
+    assert.match(src, /const OPENING_DEPLOY_STAGGER_MS = 120;/, '= BORN_STAGGER_S 0.12 s');
+    const a = manager();
+    const ops = ['char_2027_wang', 'char_2026_yu', 'char_263_skadi'];
+    a.handleBattleEvents(ops.flatMap((spine, i) => [['spawn', { id: i + 1, spine, defId: 'x', kind: 'op', side: 'ally' }], ['deploy', i + 1]]));
+    assert.deepEqual(a.played.map((p) => file(p.url)), ['b_char_stwctpbn.mp3'], 'the first at once');
+    await new Promise((r) => setTimeout(r, 160));
+    assert.deepEqual(a.played.map((p) => file(p.url)), ['b_char_stwctpbn.mp3', 'p_skill_frbytrtn_bn.mp3'], 'the second 0.12 s later');
+    await new Promise((r) => setTimeout(r, 120));
+    assert.equal(a.played.length, 3, 'the third 0.24 s later');
+    // a later deploy (a redeploy) is not part of it; a new field forgets the last one's pending turns
+    a.handleBattleEvents([['spawn', { id: 9, spine: 'char_263_skadi', defId: 'x', kind: 'op', side: 'ally' }]]);
+    a._opening.at -= 5000;
+    a.handleBattleEvents([['deploy', 9]]);
+    assert.equal(a.played.length, 4, 'a redeploy sounds at once');
+    const b = manager();
+    b.handleBattleEvents(ops.flatMap((spine, i) => [['spawn', { id: i + 1, spine, defId: 'x', kind: 'op', side: 'ally' }], ['deploy', i + 1]]));
+    b.setFieldUnits([]);
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal(b.played.length, 1, 'cancelled with the field');
+  });
+
   test('望 stone pop: the token ability start (p_atk_stwctp_*) with its impact; S1\'s impact rides the DoT ticks', () => {
     const a = manager();
     const S = 'token_10064_wang_stone1';

@@ -145,6 +145,17 @@ const BORN_TINT_K = 0.4;
  */
 const BORN_LEAD_S = 0.1;
 const BORN_WAIT_MAX_S = 1;
+/**
+ * LOCAL-PATCH.md 「배치 낙하」 (user re-report 2026-10-08 2-4 「작전 시작 낙하가 공식보다 빠름」, owner decision 2026-10-08: render only): the
+ * official round start deploys its operators one by one — in 卫戍协议 「왕 S3.mp4」 (30 fps, real time: the battle countdown
+ * steps every 30 frames) the rings come at frames 204 · 207 · 211 · 215 · 219 · 222 · … · 230, ~0.12 s apart, nine operators
+ * over ~0.9 s, each falling ~0.2 s; ours all dropped at once. The view of the n-th allied deploy of a battle's opening
+ * (render/app.js `order`) stays wholly hidden (ring, shadow, body, bars) for n × BORN_STAGGER_S, then drops in. The sim is
+ * unchanged — a unit may act before it shows (a sim-side sequential deployment is a separate item). The order is the
+ * sim's deploy order [추정: the official order looked like neither placement nor left-to-right]. The audio defers the
+ * deploy sound by the same step (audio.js OPENING_DEPLOY_STAGGER_MS).
+ */
+export const BORN_STAGGER_S = 0.12;
 /** local patch: the most one frame advances a playing drop-in (Start) — a hitch of the battle switch cannot skip it. */
 const DEPLOY_MAX_STEP_S = 1 / 30;
 /** Units with no art in the game data drawn as an ice diamond: 圣聆初雪 S2's frozen protection point (保护目标（冻结状态）, PRTS
@@ -436,6 +447,7 @@ export class UnitView {
     this._downRing = null;        // { disc, track, arc, text } sprites, built on first use
     this.alpha = 1; this.fadeIn = this.prep ? 1 : 0;
     this.bornOfficial = false; this._bornT = 0; this._bornWait = -1; // local patch: official drop-in (onDeploy; -1 = not waiting)
+    this._bornHold = 0; // seconds the opening deployment's view stays hidden before its drop (BORN_STAGGER_S)
     this.lunge = 0; this.lungeDir = { x: 1, y: 0 };
     this.flash = 0;
     this.bob = Math.random() * Math.PI * 2;
@@ -596,7 +608,7 @@ export class UnitView {
       const deployed = swap && this.alive ? this.actor.deployElapsed() : null;
       // local patch: deployed before its model loaded (a battle start) — shown at once, no cross-fade from the diamond;
       // update() starts its Start clip (BORN_LEAD_S)
-      const late = !swap && this._bornWait >= 0 && this.alive;
+      const late = !swap && (this._bornWait >= 0 || this._bornHold > 0) && this.alive;
       if (swap) this._dropActor();
       this.actor = actor;
       this._actorEntry = entry;
@@ -892,16 +904,25 @@ export class UnitView {
     if (this.actor) this.actor.setSkill(on);
   }
 
-  onDeploy() {
+  /** @param {{ order?: number }} [opts] order: this view's place in a battle's opening deployment (BORN_STAGGER_S) */
+  onDeploy(opts = {}) {
     const official = !this.isEnemy && !!this.entry; // local patch: the official drop-in (BORN_LEAD_S, BORN_TINT_S)
     this.bornOfficial = official;
     this.fadeIn = official ? 1 : 0;
     if (!this.alive) this.revive();
-    // a model already shown drops in at once; none yet (a battle start builds every view then): the ring and shadow
-    // first, update() plays Start once the model is in (BORN_LEAD_S)
+    // the opening deployment one by one — wholly hidden until its turn, then update() drops it in
+    const order = official && !this.prep && Number.isInteger(opts?.order) && opts.order > 0 ? opts.order : 0;
+    this._bornHold = order * BORN_STAGGER_S;
+    if (this._bornHold > 0) { this._bornWait = -1; this._bornT = 0; return official; }
+    this._bornStart(official);
+    return official;
+  }
+
+  /** A model already shown drops in at once; none yet (a battle start builds every view then): the ring and
+   *  shadow first, update() plays Start once the model is in (BORN_LEAD_S). */
+  _bornStart(official) {
     if (official && !this.actor) { this._bornWait = 0; this._bornT = 0; }
     else if (this.actor) { this.actor.deploy(); if (official) this._bornT = BORN_TINT_S; }
-    return official;
   }
 
   onStatus(key, on) {
@@ -1009,12 +1030,17 @@ export class UnitView {
     // fades
     if (this.fadeIn < 1) this.fadeIn = Math.min(1, this.fadeIn + dt * 4);
     if (this._bornT > 0) this._bornT = Math.max(0, this._bornT - dt); // local patch: the dark first frames (BORN_TINT_S)
+    if (this._bornHold > 0) { // the opening deployment's turn (BORN_STAGGER_S); a hitch uses at most 0.25 s of it
+      this._bornHold -= Math.min(dt, 0.25);
+      if (this._bornHold <= 0) { this._bornHold = 0; if (this.alive) this._bornStart(true); }
+      else if (!this.alive) this._bornHold = 0;
+    }
     if (this._bornWait >= 0) { // local patch: the body waits BORN_LEAD_S (and for its model) before Start plays
       this._bornWait += Math.min(dt, 0.25); // a hitch of the battle switch does not use up the wait (DEPLOY_MAX_STEP_S)
       if (this.actor && this.spineReady && this._bornWait >= BORN_LEAD_S && this.alive) { this._bornWait = -1; this.actor.deploy(); this._bornT = BORN_TINT_S; }
       else if (this._bornWait >= BORN_WAIT_MAX_S || !this.alive) this._bornWait = -1;
     }
-    this.body.alpha = this._bornWait >= 0 ? 0 : 1;
+    this.body.alpha = this._bornWait >= 0 || this._bornHold > 0 ? 0 : 1;
     let alpha = this.fadeIn;
     if (this.down) {
       // knocked down: the Die clip ends and holds its last frame (the actor keeps its clock), no fade
@@ -1056,7 +1082,7 @@ export class UnitView {
     this.shadow.position.set(sh.x, sh.y);
     const shw = s * (this.isBoss ? 1.6 : 0.95) / this.shadow.texture.width;
     this.shadow.scale.set(shw, shw * (this.shadow.texture === shadowTexture() ? 1 : 1.05));
-    this.shadow.alpha = 0.5 * alpha * (this.lift > 0 ? 0.6 : 1);
+    this.shadow.alpha = this._bornHold > 0 ? 0 : 0.5 * alpha * (this.lift > 0 ? 0.6 : 1); // hidden until its opening turn
 
     // model / fallback
     const spineShown = this.actor && this.spineReady;
@@ -1120,6 +1146,7 @@ export class UnitView {
     let wedge = this._showFacing !== undefined ? this._showFacing && this.prep : this.hasDir && this.info.kind !== 'device';
     if (wedge && facingless(this.info.defId)) wedge = false; // local patch: summons placed without a facing
     if (wedge && this.flying) wedge = false; // a flying ally (炎佑) has no deploy tile nor facing
+    if (wedge && this._bornHold > 0) wedge = false; // no ring before its turn in the opening deployment
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): the official ring + arrow on the ground when the art is there (facing.js)
     const facingTex = wedge && this.alive ? facingTextures(P, this.ctx.assets) : null;
     if (facingTex) {
@@ -1202,7 +1229,7 @@ export class UnitView {
     const bw = clamp(s * (this.isBoss ? UNIT.bossBarWidth : UNIT.barWidth), 24, this.isBoss ? 260 : 96);
     const bh = clamp(s * (this.isBoss ? 0.12 : 0.075), 3, this.isBoss ? 12 : 7);
     // a knocked-down operator's HUD is its redeploy ring alone, drawn at full strength over the greyed model
-    this.hud.alpha = this._bornWait >= 0 ? 0 : this.down ? this.fadeIn : this.dying > 0 ? 0 : alpha; // local patch: bars with the body
+    this.hud.alpha = this._bornWait >= 0 || this._bornHold > 0 ? 0 : this.down ? this.fadeIn : this.dying > 0 ? 0 : alpha; // local patch: bars with the body
     let sx = this.shake > 0 ? Math.sin(t * 90) * this.shake * 10 : 0;
     this.shake = Math.max(0, this.shake - dt);
     const x0 = x - bw / 2 + sx;

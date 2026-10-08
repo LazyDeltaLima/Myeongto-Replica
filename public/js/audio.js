@@ -56,6 +56,11 @@ const URL_GAP_MS = 45;
 const MAX_PER_URL = 2;
 /** local patch: a battle 'deploy' this soon (real ms) after a prep drop-in of the same model stays silent (round start). */
 const PREP_DEPLOY_OVERLAP_MS = 1500;
+/** The opening deployment one by one (LOCAL-PATCH.md 「배치 낙하」) — its step (= render/units.js BORN_STAGGER_S) and the burst window. */
+const OPENING_DEPLOY_STAGGER_MS = 120;
+const OPENING_DEPLOY_WINDOW_MS = 400;
+/** The first of these events in a field ends its opening deployment (the fighting began). */
+const OPENING_ENDS = new Set(['atk', 'dmg', 'heal', 'die', 'leak']);
 /**
  * 漏怪: the original Arknights exit alarm (`sfx.battle.leak`, `battle/b_ui/b_ui_alarmenter`) runs **1.44 s**, and the
  * official bank is a one-shot: `battle.ON_ENEMY_REACHED_EXIT` carries `maxSoundAllowed: 1` with `popOldest: true` on the
@@ -985,6 +990,9 @@ export class AudioManager {
     this.consumed.clear();
     // a new field is a new battle: the first operator deployed says 行动出发 again and no cooldown carries over
     this.startVoiceDone = false;
+    this._opening = null; // a new field's opening deployment (OPENING_DEPLOY_STAGGER_MS); none of the last one's turns
+    for (const timer of this._openingTimers || []) clearTimeout(timer);
+    this._openingTimers?.clear();
     try { this.voiceGate.reset(); this._stopVoice(); this.voicePolicy?.reset(); } catch { /* ignore */ } // local patch: voicePolicy
     stopSkillLoops(this); // local patch: no skill loop carries into a new field
     for (const u of Array.isArray(units) ? units : []) this._track(u);
@@ -1054,6 +1062,7 @@ export class AudioManager {
         if (!Array.isArray(e)) continue;
         const kind = e[0];
         if (kind === 'spawn') { this._track(e[1]); continue; }
+        if (OPENING_ENDS.has(kind)) { if (this._opening) this._opening.over = true; else this._opening = { at: -Infinity, n: 0, over: true }; }
         if (kind === 'skill') { // local patch: the running skill (its mode sounds, audioOfficial.js)
           const su = this.units.get(e[1]);
           if (su) {
@@ -1132,6 +1141,21 @@ export class AudioManager {
         } else if (kind === 'deploy') {
           const u = this.units.get(e[1]);
           if (!u || u.side === 'enemy') continue;
+          // LOCAL-PATCH.md 「배치 낙하」: the opening deployment drops in one by one (render/units.js
+          // BORN_STAGGER_S) — the n-th allied piece of the field's first burst sounds (and speaks) with its own drop
+          if (!e.lpTurn && unitSoundClass(u) !== 'device') {
+            // the opening = the field's first burst of deploys, before any fighting (a catch-up batch that also carries
+            // later summons, or a whole battle fed at once, staggers only those)
+            const op = this._opening && !this._opening.over && now - this._opening.at <= OPENING_DEPLOY_WINDOW_MS ? this._opening : null;
+            if (!this._opening) this._opening = { at: now, n: 0 };
+            const n = op ? ++op.n : 0;
+            if (n > 0) {
+              const held = Object.assign(e.slice(), { lpTurn: true, lpFollower: ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1]) });
+              const timer = setTimeout(() => { this._openingTimers?.delete(timer); this.handleBattleEvents([held]); }, n * OPENING_DEPLOY_STAGGER_MS);
+              (this._openingTimers ||= new Set()).add(timer);
+              continue;
+            }
+          }
           const m = this.getManifest();
           const url = deploySfxUrl(m, u);
           // 行动出发 / 部署: the first operator of the battle says the battle-start line, the others their deploy line
@@ -1152,7 +1176,7 @@ export class AudioManager {
           if (prep != null && now - prep < PREP_DEPLOY_OVERLAP_MS) continue;
           // local patch (user report 2026-10-07 #1): 望's 跟子 is a projectile of hers (PRTS) — it lands with
           // ON_PROJECTILE_BORN (kitStartKey 'wang:thrown', its summon fx `follower` in the same tick), not as a stone's birth
-          if (ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
+          if (e.lpFollower || ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
           this.playDeploySfx(u, e[1]);
         } else if (kind === 'fx') {
           // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
