@@ -923,6 +923,14 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   위/아래 나누기(e8d62545, sortingOrder > 0 또는 0 + fudge < 0 = 위)를 상태 프리팹에 쓰면 冻结 얼음(전부 order 0·fudge 0)이 유닛 뒤로 가서 캡처 9와 달랐다
   — 클라는 order 0을 깊이로 정렬해 덩어리가 모델 앞에 온다 → 상태 이펙트는 나누지 않는다(`playStatus` `split = false`).
 - 일부 프리팹은 파티클이 한 번만 돌아(`buff_silence` 1초) 상태가 남아 있으면 다시 시작한다. 파일을 못 읽으면 그 상태는 예전 아이콘.
+- **중첩 수정**(사용자 제보 4차 4-1 「기절이 중첩되면 머리 위 기절 이펙트가 겹쳐 보인다」, 2026-10-08 세션 I, 84e2fc56): `statusOff`가 멈춘
+  인스턴스의 `again`(다시 시작)을 남겨 두어, 파티클이 다 죽은 뒤 상태가 다시 켜져 있으면(다음 기절) 새 인스턴스 옆에 복사본을 하나 더
+  틀었다 — 다시 걸릴 때마다 하나씩 늘었다(아레나 1 2 3 4…, 실제 솔로 판 최대 8). 또 방출만 멈춰서 `buff_stun`의 표시(수명 10초 파티클 1개)가
+  상태가 끝난 뒤 최대 10초 머리 위에 남았다. → `statusOff`가 `again`을 지우고, `fxstatus.js`는 `now`로 끝낸다(파티클 즉시 제거
+  [추정: 클라는 버프가 빠질 때 그 이펙트를 같이 없앤다고 봄]; 정비 금빛은 예전처럼 서서히). `playStatus`는 같은 유닛·같은 키의 살아 있는
+  인스턴스가 있으면 새로 만들지 않는다(로드 중 꺼졌다 켜지면 로드가 둘 걸리던 것). 같은 경로라 목록 전체에 적용 — 수정 전 아레나에서
+  18종 중 13종이 겹쳤다(기절·冻结·寒冷·沉睡·减速·攻速下降·虚弱·防御下降·法抗下降·脆弱·浮空·隐匿·迷彩; 沉默·恐惧·战栗·缴械·迟缓은 파티클 수명이
+  짧아 거의 안 보였음), 수정 후 18종 모두 최대 1개·상태가 끝나면 0개. 테스트 `test/local-patch-status-boomerang.test.js`.
 - 이펙트로 그리는 상태는 아이콘 줄에서 빠지고(`units.js _iconKeys`, `view._fxStatusOn`), 冻结·寒冷 파란 틴트도 그 동안은 안 쓴다. 클라 프리팹이 없는 상태
   (束缚, 嘲讽, 无敌, 护盾, 麻痹, 원소 폭발, 禁疗, 折射, 替身 …)와 이펙트 층이 꺼진 경우(품질 낮음, WebP 없음, 추출 없음)는 예전 아이콘 그대로.
 - 디버그 아레나 확인: 寒冷+战栗(눈꽃 위·주먹 아래, 캡처 10과 같음), 冻结+寒冷(캡처 9의 얼음), 沉默 ✕, 脆弱, 沉睡, 迷彩. 아레나에서 WebGL 경고
@@ -1418,6 +1426,27 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
       배치 불가 언덕으로 본 것이고 공식 동작 기억은 없다. 시뮬레이션(상자를 지나감)은 그대로, 공식 녹화에서 검기가 상자에서 꺾이는 것이 보이면 다시 연다.
       참고: 공식 PC 캡처 `research/2026-10-07-user-issues-3/official-pc-round8.png`(사막 맵)에서 전투 중 상자(HP 바 있음)는 칸 위 장치로 보인다.
 
+### 回环射手 부메랑 (2026-10-08, 사용자 제보 4차 4-6 「투사체는 하나만 있고 부메랑처럼 돌아온다. 공격하지 않을 때는 오퍼 손에 들려 있어야 한다」, 세션 I 521a00dc)
+回环射手는 풀에 跃跃(케이퍼 `char_4100_caper`, `chess_char_1_09`)뿐이다(`data/chess.json` loopshooter). 시뮬레이션(`ai.js throwBoomerang`)은 이미 한 개를
+던지고 받은 뒤 다시 공격한다 — 화면만 고쳤다.
+- 근거(EN 클라이언트, 2026-10-08 UnityPy): `projectile_chr_caper`(`battle/prefabs/[uc]projectiles.ab`) `_speed` 15, `_comeBack` 1,
+  `_comeBackSpeedScale` 0.25(= 3.75, 시뮬레이션 `BOOMERANG_RETURN_SPEED`), `_mainEffect` `caper_attack_01_trail`, `_clearMainEffectWhenReached` 0 —
+  돌아올 때도 같은 이펙트. 그 이펙트의 `wheel` 파티클(텍스처 `caper_wheel`, 수명 5초 1개)이 던진 바퀴다. 스켈레톤(`.skel`, front·back)은 그
+  바퀴(영역 `C_Weapon_03`, 같은 그림)를 기본 스킨에 두지 않고 Spine 스킨 **`Bullet`**(첨부 1개)에만 둔다. 특성 능력(`Others/Direction/Trait`,
+  「持有回旋投射物时才能够攻击」)의 `_skinKey`가 `"Bullet"` → 투사체를 들고 있으면 `Bullet` 스킨이 켜진다고 봄 [추정: 켜고 끄는 코드는 네이티브.
+  애니메이션은 모두 `C_Weapon_03`를 키로 갖고, 숨기는 키는 없다]. 우리 Spine 중 기본 외 스킨은 이것 하나뿐(전수).
+- 수정 전: 공식 꼬리(`trailShot`)가 대상까지만 날아가 멈췄고 바퀴 파티클(5초)이 대상 위에 남아 공격마다 하나씩 늘었다. 꼬리 파일 로드 중 첫 공격은
+  절차 부메랑(두 갈래 그림)이었다. 손에는 바퀴가 한 번도 안 보였다(`Bullet` 스킨을 안 씀).
+- 수정: `fxgame.js` — `'boomerang'` 꼬리는 맞은 자리에서 돌아서 쏜 자리(Muzzle)로 `projSpeed('boomerangReturn')`로 돌아오고(진행률 k를 1→0, 방향은
+  그녀 쪽 = `_rotateToTarget`), 받거나 그녀가 없어지면 즉시 지운다(`stop(true)`), `clear()`는 날던 것을 돌려준다. 새 `render/boomerang.js` —
+  그려진 비행(공식 꼬리, `fx/projectiles.js` 절차 부메랑)이 `view._boomOut`을 세고, `units.js`가 하나도 없을 때 `Bullet` 스킨을 켠다(`heldStats()`는
+  확인용). S2 `caper_skill_02_trail`도 같은 길.
+- 확인: 디버그 아레나(Windows Chrome, 수정 전·후 캡처 — 바퀴가 돌아오고 한 번에 하나, 대상 없을 때 손에 바퀴 front·back, S2) + 실제 솔로 판(상점에서
+  산 跃跃: 던짐/잡음 전환, 꼬리 복귀). 테스트 `test/local-patch-status-boomerang.test.js`(스킨 데이터 고정 포함).
+- 남은 것(범위 밖, 시뮬레이션): 공식 S2 「每次攻击额外发射1个回旋投射物」은 투사체 2개(`projectile_chr_caper_s2`·`_s2_1`)인데 시뮬레이션은 1개에 2타라
+  화면에도 바퀴 1개. 시뮬레이션은 받는 틱에 바로 다음 공격을 던져(공격 쿨다운이 이미 참) 손에 든 모습은 연속 공격 중 거의 안 보인다 — 공식은 받은 뒤
+  Attack 클립(OnAttack 0.533초)이 돈 다음 던진다고 봄 [추정]. 둘 다 `server/sim/ai.js`라 이 세션에서 안 고침.
+
 ## 공식 스테이지 3D 씬 (2026-10-06)
 - 3D 보드는 원래 시즌 1 아틀라스(`map_autochess`)로 모든 스테이지를 그렸다. 지금 클라이언트는 스테이지마다 완성된 씬(`scenes/activities/act*autochess/level_*`)과 라이트맵을 갖고 있고, 테마는 사막(`map_autochesssand`), 카시미어(`map_kxmr`), 시라쿠사 지하철(`map_syracuse_metro`)이다. 자세한 내용은 docs/local/official-scenes.md.
 - 추출: `.venv-extract/bin/python tools/local-extract/scene_extract.py` (기본 클라이언트 경로 `/mnt/d/YostarGames/Arknights_EN/Arknights_Data`, `--stage`로 일부만) → `public/assets/local/scene/**`, `data/local-assets.json`의 `scene/*` 그룹. CAB 색인은 `logs/scene-cab-index.json`에 캐시(`--rebuild-index`).
@@ -1737,4 +1766,5 @@ upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 �
   - golden 다이제스트는 전투 규칙을 바꾸면 `npm run golden:update`로 다시 만든다(바뀐 결과가 의도한 것인지 먼저 확인).
 - `node --test test/local-patch-battle.test.js` — 2026-10-06 플레이 제보 전투 버그 테스트 6개(우타게 S2 그림·저지, 魔王 S3 재분배, 은신·위장 vs 스플래시, 污染秽蚀 vs 은신).
 - `node --test test/local-patch-camou.test.js` — 위장 아이콘(`UF_CAMOU`) 테스트 2개.
+- `node --test test/local-patch-status-boomerang.test.js` — 상태 이펙트 중첩(제보 4차 4-1)·回环射手 부메랑(4-6) 테스트 9개(跃跃 스킨 데이터는 로컬 Spine 소재가 있을 때만).
 - `node --test test/local-patch-hud.test.js` — 전투 화면 UI 테스트 30개(화면 고정 단위, 아군 바 위치·색, 탄환 칸, 전투 중 칩 없음, 정비 칩 그림 고르기, 장비 바, 적·보스·거대 보스 바, 받침 그림, 보스 SP, 관의 공식 SP 발동, 원소 링, 공식 숫자·설정, 상태 이펙트, 방향 표시, `b.snap.ammo`).
