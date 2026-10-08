@@ -2,7 +2,7 @@
 // tools/local-extract/fx_extract.py exported from a local client (public/assets/local/fx/**) in a three.js scene that
 // uses the battlefield camera (render/projection.js — Arknights' own 30° / 40° camera, so the effects keep their framing).
 //
-// An effect = a node tree (Unity transforms) with particle systems, plain meshes and one Mecanim clip. The whole tree is
+// An effect = a node tree (Unity transforms) with particle systems, plain meshes and its Mecanim clips. The whole tree is
 // simulated in Unity's battle frame (x = col, y = row, z = −height) under a root that mirrors z, so every module keeps
 // Unity's own semantics (shapes, alignments, euler order ZXY) and the scene sees board coordinates.
 //
@@ -1176,7 +1176,12 @@ export class FxInstance {
         this.systems.push(new ParticleSystem(n.ps, this.nodes[i], unity, def, { q: this.q, cap: Math.ceil(this.q.budget / 8), pivot: opts.pivot !== false }));
       }
     });
-    this.clip = def.clips?.[0] || null;
+    // local patch (user report 4 #4-3, user's decision 2026-10-08): every clip of the prefab plays — a nested sub-prefab has
+    // its own Animator (缄默德克萨斯 S2's texas2_birth_02_start: the root + 4 slashes; clips[0] alone left the slashes frozen
+    // on their material defaults). The extract resolves each clip's nodes into the whole tree; together they all start at 0
+    // (the sub-prefabs' _delayTime 0–0.3 s is not applied) and the effect's clip time is the longest
+    this.clips = def.clips || [];
+    this.clipLen = this.clips.reduce((m, c) => Math.max(m, c.len || 0), 0);
     this.meshMatList = this.meshMats.filter(Boolean);
     // local patch: the floor cut and the per-renderer layers
     if (opts.floor !== null) {
@@ -1215,18 +1220,18 @@ export class FxInstance {
       for (const t of this.trails) put(t.batch.mesh, (t.tr.order || 0) > 0);
       for (const t of this.lines) put(t.batch.mesh, (t.tr.order || 0) > 0); // local patch
     } else this.layerN[0] = 1;
-    this.clipTracks = this.clip ? this.clip.tracks.map((tr) => this.bindTrack(tr)).filter(Boolean) : [];
+    this.clipTracks = this.clips.flatMap((c) => c.tracks.map((tr) => this.bindTrack(tr, c.len || 0)).filter(Boolean));
     this.clipV = [];
     live.push(this);
     while (live.length > MAX_INSTANCES) live[0].dispose(); // the oldest goes (dispose removes it from `live`)
   }
 
   /** What a clip track drives, resolved once (applyClip runs every frame). */
-  bindTrack(tr) {
+  bindTrack(tr, len) {
     const o = this.nodes[tr.node];
     if (!o) return null;
-    if (tr.prop === 'pos' || tr.prop === 'scale' || tr.prop === 'quat' || tr.prop === 'euler') return { tr, o, kind: tr.prop };
-    if (tr.prop === 'width') { const ln = this.lines.find((t) => t.node === o); return ln ? { tr, o, kind: 'width', ln } : null; } // local patch
+    if (tr.prop === 'pos' || tr.prop === 'scale' || tr.prop === 'quat' || tr.prop === 'euler') return { tr, o, kind: tr.prop, len };
+    if (tr.prop === 'width') { const ln = this.lines.find((t) => t.node === o); return ln ? { tr, o, kind: 'width', ln, len } : null; } // local patch
     if (!tr.prop.startsWith('mat:')) return null;
     const mat = this.meshMats[tr.node] || this.systems.find((s) => s.node === o)?.material
       || this.trails.find((t) => t.node === o)?.batch.material || this.lines.find((t) => t.node === o)?.batch.material;
@@ -1236,7 +1241,7 @@ export class FxInstance {
     const u = mat.uniforms[uname];
     if (!u) return null;
     const k = uname === 'uTint' ? 2 : 1;   // the material tint carries the shaders' ×2 (makeMaterial)
-    return comp ? { tr, o, kind: 'matComp', u, axis: CLIP_AXIS[comp], k } : { tr, o, kind: 'mat', u };
+    return comp ? { tr, o, kind: 'matComp', u, axis: CLIP_AXIS[comp], k, len } : { tr, o, kind: 'mat', u, len };
   }
 
   /** local patch: whether layer k (0, or FX_BACK / FX_FRONT of a split instance) has a renderer of this effect. */
@@ -1251,8 +1256,8 @@ export class FxInstance {
 
   get done() {
     if (this.empty || this.disposed) return true;
-    const clipDone = !this.clip || this.time >= this.clip.len || this.stopping;
-    return clipDone && this.systems.every((s) => !s.alive) && this.trails.every((t) => !t.alive || this.time > (this.clip?.len || 0) + t.tr.time)
+    const clipDone = !this.clips.length || this.time >= this.clipLen || this.stopping;
+    return clipDone && this.systems.every((s) => !s.alive) && this.trails.every((t) => !t.alive || this.time > this.clipLen + t.tr.time)
       && (!this.lines.length || !!this.stopping); // local patch: a line stays until its effect is ended
   }
 
@@ -1261,7 +1266,7 @@ export class FxInstance {
     if (this.empty || this.disposed) return;
     if (this.hold != null && !this.stopping && this.time + dt > this.hold) dt = Math.max(0, this.hold - this.time); // local patch
     this.time += dt;
-    if (this.clip) this.applyClip(Math.min(this.time, this.clip.len));
+    if (this.clipTracks.length) this.applyClip(this.time);
     this.followWorld();
     for (const s of this.systems) s.update(dt, this.time);
     for (const t of this.trails) t.update(dt, this.time);
@@ -1289,12 +1294,13 @@ export class FxInstance {
     for (const t of this.trails) t.shift(off.x, off.y, off.z);
   }
 
+  /** Every clip's tracks at effect time t, each held on its own clip's last frame. */
   applyClip(t) {
     const v = this.clipV;
     for (const b of this.clipTracks) {
-      const curves = b.tr.curves;
+      const curves = b.tr.curves, tc = Math.min(t, b.len);
       v.length = curves.length;
-      for (let i = 0; i < curves.length; i++) v[i] = evalClipCurve(curves[i], t);
+      for (let i = 0; i < curves.length; i++) v[i] = evalClipCurve(curves[i], tc);
       const o = b.o;
       switch (b.kind) {
         case 'pos': o.position.set(v[0], v[1], v[2]); break;

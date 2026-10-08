@@ -135,3 +135,27 @@ test('fxplayer: a LineRenderer draws its strip until the effect stops; a tall or
   assert.equal(layerOf(2), 1 << fxp.FX_BACK, 'a ground decal stays under it');
   i2.dispose();
 });
+
+// local patch (user report 4 #4-3, user's decision 2026-10-08 「A만」): a prefab's nested sub-prefabs have their own Animator
+// clips — every clip plays, each held on its own last frame; the effect's clip time is the longest (缄默德克萨斯 S2's
+// texas2_birth_02_start: the root + 4 slashes, the slashes stood frozen on clips[0] alone)
+test('fxplayer: every clip of a prefab plays, each to its own length; the effect lasts the longest', async () => {
+  const fxp = await import('../public/js/render/fxplayer.js');
+  const node = (name, parent) => ({ name, parent, active: true, pos: [0, 0, 0], rot: [0, 0, 0, 1], scale: [1, 1, 1] });
+  const lin = (t1, v0, v1) => [[0, 0, 0, (v1 - v0) / t1, v0], [t1, 0, 0, 0, v1]];
+  const zTrack = (n, t1, v0, v1) => ({ node: n, prop: 'pos', type: 4, curves: [[[0, 0, 0, 0, 0]], [[0, 0, 0, 0, 0]], lin(t1, v0, v1)] });
+  const def = { name: 'two', duration: 2, nodes: [node('two', -1), node('root', 0), node('slash', 0)], materials: {},
+    clips: [{ name: 'root', len: 2, tracks: [zTrack(1, 2, 0, 4)] }, { name: 'slash', len: 0.5, tracks: [zTrack(2, 0.5, 0, 1)] }], geoms: {}, lib: null };
+  const inst = new fxp.FxInstance(def, { quality: 'high', atSpawn: false });
+  assert.equal(inst.clipTracks.length, 2, 'both clips are bound');
+  assert.equal(inst.clipLen, 2);
+  inst.update(0.25);
+  assert.ok(Math.abs(inst.nodes[1].position.z - 0.5) < 1e-6, 'the first clip runs');
+  assert.ok(Math.abs(inst.nodes[2].position.z - 0.5) < 1e-6, 'the second clip runs too');
+  inst.update(0.75);
+  assert.ok(Math.abs(inst.nodes[2].position.z - 1) < 1e-6, 'a shorter clip holds its last frame');
+  assert.ok(!inst.done, 'until the longest clip ends');
+  inst.update(1.1);
+  assert.ok(inst.done);
+  inst.dispose();
+});
