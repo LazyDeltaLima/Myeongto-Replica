@@ -51,6 +51,9 @@ DISCARD = {'common_stealth'}
 # are left out by the decision)
 BUILTIN_RES = 'unity default resources'
 BUILTIN_MESHES = {10209: 'Plane', 10210: 'Quad'}
+# local patch (session L 2026-10-08): the MonoScript PathID of the effects' FollowMountPoint component (mount_point); 1205
+# default-skin prefabs of the EN client carry one (research/2026-10-08-mount-points/)
+MOUNT_SCRIPT = 0x7b5c342088cfcad4
 
 
 def r4(v):
@@ -561,6 +564,9 @@ class Extractor:
         out_def = {'version': 1, 'name': nodes[0]['name'], 'duration': r4(min(dur, 10)), 'nodes': nodes, 'materials': mats, 'clips': clips}
         if spawn is not None:
             out_def['spawn'] = spawn
+        mount = self.mount_point(root)
+        if mount is not None:
+            out_def['mount'] = mount
         right = self.right_effect(root)
         if right:
             out_def['right'] = right
@@ -625,6 +631,34 @@ class Extractor:
             ints = struct.unpack_from('<14i', raw, off)
             if ints[6] == -1082130432 and ints[10] == 1073741824 and 0 <= ints[13] < 64:
                 return ints[13]
+        return None
+
+    def mount_point(self, root):
+        """local patch (user report 4 #4-7, session L 2026-10-08): the root's FollowMountPoint component — the effect follows
+        a model point of its owner every frame (스펙터 디 언체인드 S2's red ring on her saw). Its script's type tree is not in
+        the bundle; the component is recognised by its MonoScript (PathID MOUNT_SCRIPT) and read raw: after the header and
+        the empty name, 7 ints in the field order of global-metadata's field table — _mountPointType (MountPointType:
+        0 NONE [추정], 1 FOOT, 2 HIT, 3 MUZZLE, 4 HEAD, 5… SPECIAL_0…15), _followScaleSign, _followScale,
+        _pauseWhenMountPointInvalid, _onlyPauseWhenMountPointInvalid, _keepOriginRotation, _useBehaviourPause (bools as
+        ints). None when the root has none."""
+        try:
+            d = root.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            raw = comp.get_raw_data()
+            if len(raw) < 32 or struct.unpack_from('<q', raw, 20)[0] != MOUNT_SCRIPT:
+                continue
+            n = struct.unpack_from('<i', raw, 28)[0]
+            off = (32 + n + 3) & ~3
+            if len(raw) < off + 7 * 4:
+                return None
+            v = struct.unpack_from('<7i', raw, off)
+            return {'type': v[0], 'followScaleSign': v[1], 'followScale': v[2], 'pauseWhenInvalid': v[3],
+                    'onlyPauseWhenInvalid': v[4], 'keepOriginRotation': v[5], 'useBehaviourPause': v[6]}
         return None
 
     def animator_clips(self, anim, aidx, nodes, paths, mats):
