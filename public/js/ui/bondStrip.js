@@ -114,7 +114,8 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   const th = Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
   const tier = off ? 0 : entry?.tier ?? bondTier(count, th, b.maxCount);
   const active = !off && (entry ? !!entry.active : tier > 0);
-  // (自选 pieces are their operators: the own ones by m.private.diy, a watched teammate's by the pick its unit carries)
+  // (自选 pieces are their operators: the own ones by m.private.diy, a watched teammate's by the pick its unit carries;
+  // their rows wear no 「自选」 badge — user decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」)
   const dd = { chess: data.get('chess'), backups: data.get('backups') };
   const getChess = diyGetter((id) => data.lookup('chess', id), priv, dd);
   const pieceRecord = (p) => (p && p.diy && typeof p.diy === 'object' ? diyRecordFor(data.lookup('chess', p.id), p.diy, dd) : null) || getChess(p.id);
@@ -186,7 +187,6 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
             <span class="bpop__mname">${name}</span>
             ${mb.banned ? html`<span class="bpop__ban"><${Icon} name="close" /></span>` : null}
             ${mb.granted ? html`<span class="bpop__iso" aria-hidden="true">${t('同构')}</span>` : null}
-            ${mb.diy ? html`<span class="bpop__iso bpop__diy" data-diy="1" aria-hidden="true">${t('自选')}</span>` : null}
           </button>`;
         })}
       </div>

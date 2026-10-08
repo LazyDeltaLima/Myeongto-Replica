@@ -2,7 +2,7 @@
 // 自选编队 tab of the 干员调配 overlay fills the first tier-5 slot with 赤刃明霄陈 (real clicks: the slot, the operator,
 // S3, the AFT-X module, 确认; persisted in localStorage; room.diy → session → seat → the next match's m.private.diy); the
 // picker lists our five only (shared/local-diy.js: no prototype); in the match the 调度中心 is at level 5 and the shop
-// sells the slot as 赤刃明霄陈 with the 「自选」 badge; bought, the hand piece is tagged 「自选」 and draws her model;
+// sells the slot as 赤刃明霄陈 (no 「自选」 badge or tag since the user's decision of 2026-10-08); bought, the hand piece draws her model;
 // deployed, the detail card shows 赤刃明霄陈 with the pick's skill; and in the browser's own battle (client-side combat)
 // the unit is the operator — the b.start spec carries the pick (`diy`), the local sim fields char_1050_chen3 with her
 // operator kit, and the battle view draws her Spine model.
@@ -76,13 +76,13 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
       await c.waitFor((s) => s.phase === 'PREP' && !s.ready && s.funds >= 4 && s.level >= 5, 'prep at 调度中心 level 5', 60000);
       await sleep(1800); // camera flight
 
-      // 3) the shop card at level 5: 赤刃明霄陈 with 「自选」 (only this player's shop sells it); two taps buy it
-      await c.page.waitForSelector('.scard .scard__diy', { visible: true, timeout: 10000 });
+      // 3) the shop card at level 5: 赤刃明霄陈, no 「自选」 badge (only this player's shop sells it); two taps buy it
+      await c.page.waitForFunction(() => [...document.querySelectorAll('.scard .scard__name')].some((n) => n.textContent === '赤刃明霄陈'), { timeout: 10000 });
       const shopCard = await c.page.evaluate(() => {
-        const el = document.querySelector('.scard .scard__diy')?.closest('.scard');
-        return el ? { name: el.querySelector('.scard__name')?.textContent, badge: el.querySelector('.scard__diy')?.textContent, diy: el.querySelector('.scard__diy')?.dataset.diy, bonds: el.querySelector('.scard__bonds')?.textContent } : null;
+        const el = [...document.querySelectorAll('.scard')].find((x) => x.querySelector('.scard__name')?.textContent === '赤刃明霄陈');
+        return el ? { name: el.querySelector('.scard__name')?.textContent, badge: el.querySelector('.scard__diy')?.textContent ?? null, bonds: el.querySelector('.scard__bonds')?.textContent } : null;
       });
-      assert.deepEqual([shopCard?.name, shopCard?.badge, shopCard?.diy], ['赤刃明霄陈', '自选', CHEN3]);
+      assert.deepEqual([shopCard?.name, shopCard?.badge], ['赤刃明霄陈', null]);
       assert.ok(shopCard.bonds.includes('炎'), `derived bond: ${shopCard.bonds}`);
       const level = await c.page.evaluate(() => globalThis.__SP__.store.get().match.private?.shop?.level);
       assert.ok(level >= 5, 'sold from 调度中心 level 5');
@@ -94,7 +94,8 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
       await sleep(900);
       const [piece] = (await c.handPieces('chess')).filter((p) => p.id === SLOT);
       assert.ok(piece, 'the slot\'s piece is in the hand');
-      await c.page.waitForFunction((uid) => document.querySelector(`.sitag[data-uid="${uid}"]`)?.textContent === '自选', { timeout: 5000 }, piece.uid);
+      await sleep(600);
+      assert.equal(await c.page.evaluate((uid) => !!document.querySelector(`.sitag[data-uid="${uid}"]`), piece.uid), false, 'no 「自选」 tag under the piece');
       const handModel = await c.page.evaluate((uid) => globalThis.__SP_VIEW__?.raw?.debug?.views?.get(`p:${uid}`)?.info?.spine ?? null, piece.uid);
       assert.equal(handModel, CHEN3, 'the hand draws the operator');
       await c.shot('hand');

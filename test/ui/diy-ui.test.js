@@ -30,7 +30,7 @@ const { ChessCard } = await import('../../public/js/ui/shopBar.js');
 const { ChessDetail, resolveDetail } = await import('../../public/js/ui/detailPanel.js');
 const { BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { ownerBoard } = await import('../../public/js/ui/watchBonds.js');
-const { diyPieces } = await import('../../public/js/screens/game/standInTags.js');
+const { standInPieces } = await import('../../public/js/screens/game/standInTags.js');
 const { DiyPanelView, DiyPickerView } = await import('../../public/js/screens/diy.js');
 const { data } = await import('../../public/js/data.js');
 const { DATA } = await import('../match/harness.js');
@@ -273,18 +273,15 @@ describe('match UI of a 自选 piece', () => {
     assert.equal(G.piecePosition(ctx, { kind: 'chess', id: T5A }), 'MELEE');
   });
 
-  test('shop / reward card: the operator\'s name and bonds, the 「自选」 badge, the pick\'s skill', () => {
+  // user decision 2026-10-08: no 「自选」 badge on the card — upstream 0def7bab's removed
+  test('shop / reward card: the operator\'s name and bonds, the pick\'s skill, no 「自选」 badge', () => {
     const card = ChessCard({ slot: { kind: 'chess', id: T5A, price: 4, basePrice: 4 }, idx: 0, priv, onBuy() {}, onDetail() {} });
     const nodes = [...walk(card)];
-    const badge = nodes.find((v) => hasClass(v, 'scard__diy'));
-    assert.ok(badge);
-    assert.equal(badge.props['data-diy'], ASCLN);
-    assert.equal(badge.props.children, '自选');
+    assert.equal(nodes.find((v) => hasClass(v, 'scard__diy')), undefined);
+    assert.ok(!JSON.stringify(nodes.map((v) => v?.props?.children ?? null).filter((x) => typeof x === 'string')).includes('自选'), 'no 自选 text');
     assert.equal(nodes.find((v) => hasClass(v, 'scard__name')).props.children, DATA.backups.units[ASCLN].name);
     assert.ok(nodes.some((v) => v.props?.bondId === 'emptyShip'), 'the derived bond');
     assert.equal(nodes.find((v) => v?.type && v.props?.lo).props.lo.skill.skillId, 'skchr_ascln_3');
-    const other = ChessCard({ slot: { kind: 'chess', id: T5A, price: 4, basePrice: 4 }, idx: 0, priv: { diy: {} }, onBuy() {}, onDetail() {} });
-    assert.equal([...walk(other)].find((v) => hasClass(v, 'scard__diy')), undefined);
   });
 
   test('detail card: own piece / card / a unit carrying diy → the operator, the 「自选」 tag, the pick\'s skill and module', () => {
@@ -308,10 +305,11 @@ describe('match UI of a 自选 piece', () => {
     assert.ok(!blocks.some((b) => b.key === 'garrison'), 'no 特质');
   });
 
-  test('own prep pieces of a filled slot get the 「自选」 tag', () => {
+  // user report 2026-10-08: no 「自选」 tag under the own pieces of a filled slot — upstream 0def7bab's removed
+  test('own prep pieces of a filled slot get no tag (the 补位 「替补」 tag stays its own)', () => {
     const p = { ...priv, hand: [{ uid: 1, kind: 'chess', id: T5A }, { uid: 2, kind: 'chess', id: 'chess_char_4_22_a' }], temp: [], board: [{ uid: 4, kind: 'chess', id: 'chess_char_6_diy1_b', row: 10, col: 4 }] };
-    assert.deepEqual(diyPieces(p, getChess, D).map((x) => [x.uid, x.area, x.label, x.name]), [[1, 'hand', '自选', DATA.backups.units[ASCLN].name], [4, 'board', '自选', DATA.backups.units[WANG].name]]);
-    assert.deepEqual(diyPieces({ ...p, diy: {} }, getChess, D), []);
+    assert.deepEqual(standInPieces(p, getChess, D.backups), []);
+    assert.doesNotMatch(readFileSync(path.join(ROOT, 'public/js/screens/game/standInTags.js'), 'utf8'), /diyPieces|ownDiyRecord|t\('自选'\)/);
   });
 
   test('bonds: the popup lists the own 自选 member and a teammate\'s by its unit\'s pick', () => {
@@ -334,7 +332,7 @@ describe('match UI of a 自选 piece', () => {
     const pop = expand(BondPopup({ bondId: 'emptyShip', entry: { count: 1, active: false, tier: 0, layers: 0 }, priv: own, onClose() {} }));
     const mrow = [...walk(pop)].find((v) => hasClass(v, 'bpop__member') && textOf(v).includes(DATA.backups.units[ASCLN].name));
     assert.ok(mrow, 'the 自选 member row');
-    assert.ok([...walk(mrow)].some((v) => hasClass(v, 'bpop__diy')), 'tagged 自选');
+    assert.ok(![...walk(mrow)].some((v) => hasClass(v, 'bpop__diy')), 'no 「自选」 badge (user decision 2026-10-08)');
   });
 
   test('the renderer draws the operator (pieceInfo reads m.private.diy; UnitInfo diy is kept)', () => {

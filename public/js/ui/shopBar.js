@@ -22,7 +22,8 @@
 // fights — with the chess's bonds, tier and price and a small ice 「替补」 mark (the owner's recall of the official mode,
 // 2026-10-06; the replaced operator's name is in the mark's title and on the detail card the first tap opens). A 自选
 // piece (0.2.0, m.private.diy — a DIY slot the player filled, only ever in its own shop) shows the operator — name,
-// portrait, class, the bonds of its factions, the pick's skill and module — with a mint 「自选」 badge.
+// portrait, class, the bonds of its factions, the pick's skill and module — with no badge (user decision 2026-10-08:
+// upstream 0def7bab's 「自选」 badge removed, docs/LOCAL-PATCH.md 「0.2.0 병합」).
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel } from './components.js';
@@ -102,7 +103,6 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
       </span>` : null}
     </span>
     ${si ? html`<span class="scard__standin" data-standin=${si.charId} data-for=${c0.chessId} title=${standInTip(si, c0.name)}>${standInLabel(si)}</span>` : null}
-    ${dr ? html`<span class="scard__diy" data-diy=${dr.charId} title=${t('自选编队：{name}（只在你的商店出现）', { name: dr.name })}>${t('自选')}</span>` : null}
     <span class="scard__body">
       ${lo?.skill ? html`<${SkillBadge} chess=${c} lo=${lo} standIn=${!!si} />` : null}
       <span class="scard__name">${c?.name || slot.id}</span>
