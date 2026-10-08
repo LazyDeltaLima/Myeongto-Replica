@@ -79,15 +79,18 @@ test('combat limits and the boss overtime are REAL seconds (code) and the docs s
   const gd = new GameData(DATA, 'mode_multi_hard');
   assert.equal(gd.combatTimeScale, 2);
   assert.equal(gd.combatTimeLimit(1), 2 * gd.combatTimeLimitReal(1), 'Battle limit = 2 × data (game s)');
-  assert.equal(gd.bossOvertimeAfterReal, 150);
-  assert.equal(gd.bossOvertimeDue(300), 0, 'nothing at 150 real s = 300 game s');
-  assert.equal(gd.bossOvertimeDue(302), 1, 'the first point at 151 real s');
-  assert.equal(gd.bossOvertimeDue(320), 10, '1 LP per real second');
+  assert.equal(gd.bossOvertimeAfterReal, 150, 'the data\'s bossTurnHpReduceTime (fallback only)');
   assert.equal(gd.bossLevelTime(14), 120, 'the Final Assault countdown (not a hard stop)');
+  // local patch (user decision 2026-10-09): the drain starts as the countdown ends — no 30 s grace
+  const start = gd.bossOvertimeStartReal(14);
+  assert.equal(start, 120);
+  assert.equal(gd.bossOvertimeDue(240, start), 0, 'nothing at 120 real s = 240 game s');
+  assert.equal(gd.bossOvertimeDue(242, start), 1, 'the first point at 121 real s');
+  assert.equal(gd.bossOvertimeDue(260, start), 10, '1 LP per real second');
   // DESIGN
   assert.ok(!/overtime −1 LP\/s after 150 s game time/.test(DESIGN), 'DESIGN §6.1: no game-second overtime');
   assert.ok(!/team LP per game second after `bossOvertimeAfter` game s/.test(DESIGN), 'DESIGN §14: no game-second overtime');
-  assert.match(DESIGN, /150 real s/);
+  assert.match(DESIGN, /from the countdown's end, 120 real s/);
   assert.match(DESIGN, /overtimeAt/);
   // DATA
   assert.match(dataRow('combatTimeLimit', DATA_MD.indexOf('`rounds[r]`:')), /\*\*real\*\* seconds/, 'rounds[r].combatTimeLimit row');
@@ -95,7 +98,7 @@ test('combat limits and the boss overtime are REAL seconds (code) and the docs s
   assert.match(dataRow('bossOvertimeAfter'), /\*\*real\*\* second/, 'rounds[r].bossOvertimeAfter row');
   assert.match(dataRow('levelMaxPlayTime'), /countdown/);
   // META / SIM / PLAYING
-  assert.match(META, /150 real s/);
+  assert.match(META, /overtime drain from the countdown's end \(120 real s\)/);
   assert.match(META, /`m\.public\.overtimeAt`/);
   assert.match(SIM, /2 × the round's combatTimeLimit/);
   assert.match(PLAYING, /120 秒倒计时结束后战斗\*\*继续\*\*/);

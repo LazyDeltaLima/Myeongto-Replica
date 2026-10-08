@@ -27,7 +27,7 @@ LOBBY(room) → INFO_CHECK (co-op 25 s; solo and any single-human match untimed 
      SETTLE        (LP −min(leaks,10) per player (unite survivors to their source); eliminations; layer gains applied; coins; broadcast;
                     after a 联防 the outcome and every player's charge ride the SETTLE m.public as `uniteResult`, GitHub #235)
    R14 FINAL_ASSAULT (merged team LP; pairs by seat; shared boss pool; 120 real s countdown, no hard stop; overtime −1 team LP per
-                    real s after 150 real s (§4, m.public.overtimeAt); no layer gains; team LP 0 ⇒ defeat at once (PRTS 直接失败),
+                    real s from the countdown's end, 120 real s (§4, m.public.overtimeAt); no layer gains; team LP 0 ⇒ defeat at once (PRTS 直接失败),
                     pool 0 ⇒ victory — the first end the server registers decides, §20.5)
    R15 HIDDEN_CORE  (if difficulty ≥ NORMAL and Σ activated layers > 350 solo / 1200 co-op and team LP > 1)
 → RESULT (per-player stats, titles, rounds passed, victory/defeat)

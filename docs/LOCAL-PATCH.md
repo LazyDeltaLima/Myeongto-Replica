@@ -172,6 +172,17 @@ SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg
   - 나간 사람은 서버가 탈락 처리하므로(`Match.onLeave` → `_quit`) 세지 않는다. HP가 0이 돼 탈락한 사람도 빠진다. AI 팀원은 센다.
   - 보스전 도중에 나가도 이미 정해진 풀은 줄지 않는다.
 
+### 보스전 초과 시간 (2026-10-09, 사용자 제보 「카운트다운 종료 후 바로 HP가 깎이기 시작했는데 지금은 30초 유예」)
+- 원본: 카운트다운 = 보스 레벨 `maxPlayTime` 120초, 팀 생명 감소 = 활동 테이블 `bossTurnHpReduceTime` 150초부터(둘 다 실제 초). 그 사이 30초 유예.
+- 로컬: 감소를 카운트다운이 끝나는 순간(120초)부터 — `server/match/gamedata.js bossOvertimeStartReal(r)`(레벨 시간 없을 때만 150), `match/bossRounds.js`
+  (`overtimeStartReal`, `m.public.overtimeAt` = `deadline`). 근거: **사용자 결정 2026-10-09** — 공식 플레이 영상에서 120초 카운트다운이 끝나자
+  유예 없이 감소 시작(팀 생명 50이면 보스전 최대 170초); PRTS 卫戍协议/帮助 「计时结束后战斗仍然会继续，但每超时1秒扣除1目标生命值」. `bossTurnHpReduceTime`
+  150이 무엇을 세는지는 모른다 [추정 없음 — 미확인].
+- 테스트: `test/match/finalAssault.test.js` 「overtime」, `test/match/clientCombat.test.js` 「Final Assault: leaks…」, `test/docs-consistency.test.js`.
+  골든 `matches` 3개(보스전 생명) 갱신. 문서: design/geometry-time·match, META, DATA, SIM, PLAYING, BALANCE.
+- 미반영 (정리만, 사용자 2026-10-09): 공식은 보스전 진입 후 처음 약 6초를 오퍼레이터 배치 모션과 보스 등장 모션이 차지해 체감 전투 시간이 약 114초다.
+  우리는 이 연출 시간이 없다(카운트다운과 전투가 바로 시작). 나중에 연출을 넣을 때 카운트다운 시작 시점을 함께 볼 것.
+
 ### “帝国的甲胄” (제국의 갑주, `enemy_10027_vtsk`)
 - 출처: PRTS 「“帝国的甲胄”」.
 - 등장 폭격(回忆里的誓死): 등장 때 전장에서 체력이 가장 높은 아군 위치에 3×3 구역(5.85초). 1.33초 뒤부터 0.53초마다 구역 안의 체력이 가장

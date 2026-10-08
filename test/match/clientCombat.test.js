@@ -279,7 +279,7 @@ test('Final Assault: two client-run pair fields share the server pool (b.progres
   m.dispose();
 });
 
-test('Final Assault: leaks and leader LP effects from b.progress drain the team LP; overtime after 150 real s at 1 LP/real s; team LP 0 → b.end → defeat', () => {
+test('Final Assault: leaks and leader LP effects from b.progress drain the team LP; overtime from the 120 s countdown\'s end at 1 LP/real s; team LP 0 → b.end → defeat', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 2, seed: 9109, fake: true, clientCombat: true, instant: false,
     script: (b) => (b.kind === 'boss' ? { bossDps: 0, leakEvents: [{ at: 2, lpr: 3 }], lpLossEvents: [{ at: 3, amount: 2 }] } : { duration: 2 }) }).start();
   const m = h.m;
@@ -289,14 +289,15 @@ test('Final Assault: leaks and leader LP effects from b.progress drain the team 
   h.sched.advance(4000);
   assert.equal(m.teamLp, lp0 - 5, 'leak lpr 3 + leader effect 2');
   const lp1 = m.teamLp;
-  // overtime (bossTurnHpReduceTime): 150 REAL s like the level's 120 s countdown, then 1 LP per real second
+  // overtime: the drain starts as the level's 120 REAL s countdown ends (no grace — user decision 2026-10-09, official
+  // footage; the data's bossTurnHpReduceTime 150 is not used), then 1 LP per real second
   const t0 = m._bossStartAt;
   const pub = () => h.bc.filter((x) => x.t === 'm.public').pop();
   m.flush(true);
   assert.equal(pub().deadline, t0 + 120000, 'the HUD counts the boss level\'s 120 s down');
-  assert.equal(pub().overtimeAt, t0 + 150000, 'and knows when the drain starts');
-  h.sched.advance(t0 + 150000 - m.sched.now() + 500);
-  assert.equal(m.teamLp, lp1, 'no drain before 150 real s (the countdown ran out at 120 s, the battle went on)');
+  assert.equal(pub().overtimeAt, t0 + 120000, 'and the drain starts the moment it ends');
+  h.sched.advance(t0 + 120000 - m.sched.now() + 500);
+  assert.equal(m.teamLp, lp1, 'no drain before the countdown ends (the battle goes on past it)');
   h.sched.advance(5000);
   assert.ok(m.teamLp <= lp1 - 4 && m.teamLp >= lp1 - 6, `overtime drain ≈ 5 LP over 5 real s (${lp1} → ${m.teamLp})`);
   const end = h.runToEnd();

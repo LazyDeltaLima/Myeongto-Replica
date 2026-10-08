@@ -434,11 +434,18 @@ export class GameData {
   /** Team LP drained per GAME second of overtime (1 per real second = 0.5 per game second). */
   get bossOvertimeDrain() { return this.bossOvertimeDrainReal / this.combatTimeScale; }
   /**
-   * Team LP the overtime drain has taken when a boss field clock reads `gt` game seconds: bossOvertimeDrainReal per
-   * whole REAL second past bossOvertimeAfterReal (the first point at 151 real s).
+   * REAL second of boss round `r` at which the overtime drain starts: the boss level's countdown (levelMaxPlayTime, 120)
+   * — local patch (LOCAL-PATCH.md 「보스전 초과 시간」, user decision 2026-10-09 from official footage: the countdown runs
+   * from 120 and the team LP drops as soon as it ends, no grace; PRTS 「计时结束后…每超时1秒扣除1目标生命值」). The data's
+   * bossTurnHpReduceTime (150, bossOvertimeAfterReal) is kept only for a round without a level time.
    */
-  bossOvertimeDue(gt) {
-    const over = (Number(gt) || 0) / this.combatTimeScale - this.bossOvertimeAfterReal;
+  bossOvertimeStartReal(r) { return this.bossLevelTime(r) ?? this.bossOvertimeAfterReal; }
+  /**
+   * Team LP the overtime drain has taken when a boss field clock reads `gt` game seconds: bossOvertimeDrainReal per
+   * whole REAL second past `startReal` (bossOvertimeStartReal; the first point 1 real s after it).
+   */
+  bossOvertimeDue(gt, startReal = this.bossOvertimeAfterReal) {
+    const over = (Number(gt) || 0) / this.combatTimeScale - startReal;
     return over >= 1 ? Math.floor(over) * this.bossOvertimeDrainReal : 0;
   }
   get dp() {

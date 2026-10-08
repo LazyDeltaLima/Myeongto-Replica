@@ -418,7 +418,7 @@ recorded for the player whose half contains the goal it reached, with `sourcePla
   0, so float dust of the pool sync can never keep a leader alive; user playtest #6). A boss/hidden battle **with a
   `sharedBoss`** ends only when the pool reaches 0 or on `forceEnd` (DESIGN §5.5) — an emptied field keeps running
   (the h07_04 pair leader has no wait step and can walk into the objective: the leak costs its `lpr`, then the field
-  idles while another field may still empty the pool or the match's overtime drain — team LP, from 150 real s — ends it); without a pool
+  idles while another field may still empty the pool or the match's overtime drain — team LP, from the 120 real s countdown's end — ends it); without a pool
   (sandboxes, tools) it still ends `cleared` when empty. `timeout`: `time ≥ timeLimit` —
   every living non-boss enemy becomes a leak; spawns that never happened are dropped from `total` and listed in `unspawned`.
 - `leaked[].counted = false` for `notCountInTotal`/`unharmful`/boss parts (LP rules: normal rounds count only `counted`

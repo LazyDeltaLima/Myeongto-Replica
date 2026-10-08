@@ -406,7 +406,7 @@ export function runBoss({ data, mode, difficulty, round, seed, profile = 1, boss
     }, { priority: -1000, owner: 'balance' });
     return b;
   });
-  const after = gd.bossOvertimeAfter;
+  const after = gd.bossOvertimeStartReal(round) * gd.combatTimeScale; // game s: the drain starts as the countdown ends
   let dmg150 = null;
   let killTime = null;
   let t = 0;

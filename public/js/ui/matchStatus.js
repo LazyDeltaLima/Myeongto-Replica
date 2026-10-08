@@ -2,7 +2,8 @@
 //
 //   * Boss-round clock (最终攻势 / 隐秘核心, research 00-INDEX §5, 01 §10): m.public.deadline is the level's
 //     maxPlayTime countdown (120 real s, config modes[…].rounds[r].levelMaxPlayTime) — "计时结束后战斗仍然会继续" —
-//     and m.public.overtimeAt is when the overtime drain starts (bossTurnHpReduceTime, 150 real s): from then on the
+//     and m.public.overtimeAt is when the overtime drain starts — the same moment (server gamedata.js
+//     bossOvertimeStartReal; the data's bossTurnHpReduceTime 150 only without a level time): from then on the
 //     merged team LP loses config.bossOvertimeDrainPerSec (1) per whole real second (server gamedata.js
 //     bossOvertimeDue: the first point at overtimeAt + 1 s). `overtimeState` says what the red DOT warning shows.
 //   * Solo pause (official 独立模拟 battles): C2S g.pause {on}; the server says so in m.public.paused (optionally

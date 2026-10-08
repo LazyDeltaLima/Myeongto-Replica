@@ -71,7 +71,7 @@ and runs the real
 field **4 boards** against the same wave and then run **联防** exactly like the match (`unite.js`: ≤ 2 perfect helpers,
 only the survivors cost their source LP). Boss rounds build the Final Assault fields exactly like `Match.startFinalAssault`
 (pairs / `_s` for a lone player, shared pool `GameData.bossPoolHp` = `bloodPoint` × the players alive (solo × 1, §25.13.4), merged team LP of 15 per player, leaks' `lpr`,
-−1 LP/s after 150 s) and record the pool damage by 150 s, the kill time and the win rate.
+−1 LP/s after the 120 s countdown) and record the pool damage by 150 s, the kill time and the win rate.
 
 Metrics: **capped leaks** = min(leaks, 10) per board and round (what that board alone would lose; the targets below
 use it — raw means are dominated by swarm rounds that cap at 10 anyway), **LP/rd after 联防** (co-op), perfect-round

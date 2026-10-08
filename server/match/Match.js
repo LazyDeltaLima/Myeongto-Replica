@@ -331,6 +331,8 @@ export class Match {
     this.deadline = 0;
     /** Final Assault / Hidden Core: ms epoch when the overtime drain starts (m.public.overtimeAt) */
     this.overtimeAt = 0;
+    /** …and that start in REAL seconds of the boss round (gamedata.js bossOvertimeStartReal) */
+    this.overtimeStartReal = null;
     this.uidSeq = 0;
     this.ended = false;
     this.disposed = false;

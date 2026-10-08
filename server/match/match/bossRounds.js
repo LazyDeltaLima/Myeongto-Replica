@@ -116,11 +116,12 @@ export class MatchBoss {
     });
     this.overtimeApplied = 0;
     // HUD: the boss level's countdown (maxPlayTime, 120 real s — the battle goes on past it) and the moment the
-    // overtime drain starts (150 real s), both on the field clock
+    // overtime drain starts — the same moment (gamedata.js bossOvertimeStartReal), both on the field clock
     const onClock = (realS) => this.sched.now() + Math.round(((realS * this.gd.combatTimeScale) / this.gameSpeed) * 1000);
     const levelTime = this.gd.bossLevelTime(this.round);
+    this.overtimeStartReal = this.gd.bossOvertimeStartReal(this.round);
     this.deadline = this.sched.instant || !levelTime ? 0 : onClock(levelTime);
-    this.overtimeAt = this.sched.instant ? 0 : onClock(this.gd.bossOvertimeAfterReal);
+    this.overtimeAt = this.sched.instant ? 0 : onClock(this.overtimeStartReal);
     if (this.clientCombat) { this._startFinalClient(hidden); return; }
     this._defaultWatch();
     this.markPublic();
@@ -442,11 +443,11 @@ export class MatchBoss {
   }
 
   /**
-   * Overtime drain on the boss field clock (`gt` game seconds): 1 team LP per real second from the 150 real-second mark
-   * (bossTurnHpReduceTime, gamedata.js bossOvertimeDue).
+   * Overtime drain on the boss field clock (`gt` game seconds): 1 team LP per real second from the end of the level's
+   * countdown (gamedata.js bossOvertimeStartReal / bossOvertimeDue).
    */
   _applyOvertime(gt) {
-    const due = this.gd.bossOvertimeDue(gt);
+    const due = this.gd.bossOvertimeDue(gt, this.overtimeStartReal ?? this.gd.bossOvertimeStartReal(this.round));
     if (due > this.overtimeApplied) {
       const loss = due - this.overtimeApplied;
       this.overtimeApplied = due;

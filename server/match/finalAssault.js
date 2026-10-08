@@ -15,10 +15,11 @@
 //     @qingjingshenghuo, which replaces the fixed pool of 「保持固定血量」 (config bossHpScale perPlayer false / solo 0.25
 //     restores it); × the tuning bossHpMul when data/tuning.json still has one (docs/BALANCE.md); bosses are never scaled
 //     by enemyScale and their parts / escorts keep their own HP.
-//   * Overtime: bossTurnHpReduceTime counts REAL seconds like the level's 120 s maxPlayTime (which runs out first; the
-//     battle goes on): from 150 real s (300 game s on the 2× field clock) the team loses bossOvertimeDrainPerSec (1) LP
-//     per real second (gamedata.js bossOvertimeDue); m.public.deadline = the 120 s countdown, m.public.overtimeAt = the
-//     drain start. Minion / boss leaks cost their `lpr`; team LP 0 ⇒ defeat (all fields force-ended; PRTS 卫戍协议：盟约 下半
+//   * Overtime: the level's 120 s maxPlayTime counts REAL seconds and the battle goes on past it; from the moment it
+//     runs out (240 game s on the 2× field clock) the team loses bossOvertimeDrainPerSec (1) LP per real second
+//     (gamedata.js bossOvertimeStartReal / bossOvertimeDue — user decision 2026-10-09 from official footage, no grace; the
+//     data's bossTurnHpReduceTime 150 only without a level time); m.public.deadline = the 120 s countdown,
+//     m.public.overtimeAt = the drain start (the same moment). Minion / boss leaks cost their `lpr`; team LP 0 ⇒ defeat (all fields force-ended; PRTS 卫戍协议：盟约 下半
 //     "…使目标生命值扣除至0，则无视倒计时直接失败"); pool 0 ⇒ victory. The first of the two the server registers decides
 //     (Match._finalEnding): a report that arrives after the team LP ran out credits nothing (user playtest #6 item 5).
 //   * Pool HP is a float that never keeps float dust: the hit that would leave less than BOSS_POOL_MIN_HP (1) takes the
