@@ -80,4 +80,25 @@ test('fxgame: no effect opts out of the pivot / root drop (user decision 2026-10
   const calls = src.split('\n').filter((l) => /new mod\.fxp\.FxInstance\(/.test(l));
   assert.ok(calls.length >= 5, `FxInstance calls ${calls.length}`);
   for (const l of calls) assert.doesNotMatch(l, /\b(atSpawn|pivot):/, l.trim());
+  assert.ok(calls.some((l) => /\bhold, ahead: !!under\b/.test(l)), 'playStatus: the elite glow (under) splits its order-0 band ahead');
+});
+
+// user report 2026-10-08 (「금빛 띠가 오퍼레이터 뒤에 있어. 실제 인게임에선 위에 있었어」, the recording: the band washes over the boots):
+// with opts.ahead an order-0 system whose node lies in front of the unit is split to the front, one behind stays back
+test('fxplayer: opts.ahead splits an order-0 system in front of the unit to FX_FRONT; behind it, or without ahead, FX_BACK', async () => {
+  const fxp = await import('../public/js/render/fxplayer.js');
+  const mat = { shader: 'Torappu/Particles/Additive', tex: {}, floats: {}, colors: {} };
+  const node = (name, parent, extra = {}) => ({ name, parent, active: true, pos: [0, 0, 0], rot: [0, 0, 0, 1], scale: [1, 1, 1], ...extra });
+  const k = (s) => ({ m: 0, s });
+  const ps = (order) => ({ dur: 1, loop: true, delay: k(0), speedMul: 1, space: 0, scaling: 1, prewarm: false, life: k(1), speed: k(0), color: { m: 0, a: [1, 1, 1, 1] },
+    size: k(1), rot: k(0), max: 1, gravity: k(0), flipRot: 0, rate: k(1), bursts: [], mods: {},
+    render: { mode: 0, mesh: null, mat: 'm', lengthScale: 2, velScale: 0, align: 2, pivot: [0, 0, 0], order, fudge: 0, maxSize: 2, streams: [0, 1, 3, 4] } });
+  const def = { name: 'glow', duration: 4, materials: { m: mat }, clips: [], geoms: {}, lib: null,
+    nodes: [node('glow', -1, { pos: [0, 0, -0.25] }), node('static_offset', 0, { pos: [0, 0, -0.34] }),
+      node('bao', 1, { pos: [0.019, -0.397, 0.15], ps: ps(0) }), node('bao (1)', 1, { pos: [0, 0.609, 0.152], ps: ps(0) }), node('glow_back', 1, { pos: [0, -0.4, 0], ps: ps(-1) })] };
+  const layers = (opts) => { const i = new fxp.FxInstance(def, { quality: 'high', split: true, ...opts }); const m = i.systems.map((s) => s.mesh.layers.mask); i.dispose(); return m; };
+  const F = 1 << fxp.FX_FRONT, B = 1 << fxp.FX_BACK;
+  assert.deepEqual(layers({ ahead: true }), [F, B, B], 'the band in front of the feet over the model; the one behind and order -1 stay back');
+  assert.deepEqual(layers({}), [B, B, B], 'without ahead: order 0 behind as before');
+  assert.deepEqual(layers({ ahead: true, facing: -1 }), [F, B, B], 'mirrored the same');
 });

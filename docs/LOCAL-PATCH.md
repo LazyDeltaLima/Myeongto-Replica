@@ -1253,6 +1253,13 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     = 210px, 모델 키 공식 1.14칸 / 우리 1.10칸으로 교차 확인): **공식 0.43** · 수정 전(7d7693ec) 0.0~0.08(최고점이 발 아래 = 제보) · pivot만 0.56 ·
     **pivot + 루트 버리기 0.46~0.48**. 번쩍인 뒤 0.3초 동안의 궤적은 공식과 0.05칸 안(예: +0.1초 0.30 / 공식 0.29). 이전 메모의 「아직 0.2칸 높다」는
     공식 띠를 눈대중(0~0.45칸)으로 잡은 비교였다.
+  - **띠는 모델 앞** (2026-10-08 사용자 「금빛 띠가 오퍼레이터 뒤에 있어. 실제 인게임에선 위에 있었어」; 녹화도 번쩍일 때 검은 신발·정강이가
+    금빛으로 덮인다): `bao`는 sortingOrder 0 — 분할 규칙이 order 0 파티클을 모두 모델 뒤 캔버스에 두었다. 클라이언트는 같은 order(Spine도 0)를
+    거리로 정렬하고 `bao` 노드는 발 앞 0.4칸이라 모델 위에 그려진다 → `fxplayer.js FxInstance` 옵션 `ahead`(분할할 때 노드가 유닛보다 0.1칸 넘게
+    앞인 order 0 파티클을 FX_FRONT로), `fxgame.js playStatus`가 정예 금빛(`under`)에만 넘김. `bao (1)`(뒤 0.6칸)·order −1 glow·불티는 그대로 뒤.
+    품질 high + 3D 보드(분할)일 때만 — medium 이하는 예전처럼 전부 유닛 아래. 같은 규칙을 다른 이펙트에 쓰면 35 프리팹 / 77 시스템이 바뀐다
+    (사용자 결정 전이라 금빛만). 확인: mock `gg17s-*`(모델 보임, 공식과 나란히 `research/2026-10-08-elite-glow/official-vs-ours-front.png`),
+    실제 판 `ggreal-*`(보드·벤치) — 둘 다 번쩍일 때 다리가 금빛에 덮임. 테스트 `test/local-patch-golden.test.js` 「opts.ahead」.
   - 남은 차이(이 수정 범위 밖): 띠가 공식보다 어둡다(칸당 밝기 합 약 2/3, 녹화 압축·감마 감안 [추정]) — 공식은 번쩍일 때 발 높이에 흰 띠가 뚜렷하다.
   - 테스트 `test/local-patch-golden.test.js`(기본값: 루트 버림·`uPivot` 설정, `false`면 예전 방식; `fxgame.js`의 어떤 호출도 끄지 않음).
     확인: Windows `sp-check\gg14.mjs <port> <tag> hide|show [frames]`(game-mock PREP, rAF·`performance.now`를 스크립트가 1/30초씩 넘김)

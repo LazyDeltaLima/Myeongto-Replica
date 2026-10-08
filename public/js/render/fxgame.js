@@ -434,7 +434,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // local patch (user request 2026-10-08): `under` (the prep elite glow, fxgolden.js — its glow / sparks are sortingOrder -1,
     // behind the model) splits by sorting at 'high' like a caster's effect, else draws under the units
     const split = !!under && splitOn();
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold });
+    // the elite glow's gold band (bao, order 0) starts in front of the feet: over the model (fxplayer opts.ahead; user report 2026-10-08)
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold, ahead: !!under });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
     addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold, under), unit: view }, split ? layers.split : under ? layers.under : layers.over);
     while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());

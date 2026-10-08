@@ -1090,6 +1090,14 @@ function wrapsUnit(mesh, obj) {
   tmpBox.applyMatrix4(tmpM);
   return tmpBox.max.z - tmpBox.min.z > WRAP_H && tmpBox.min.y <= WRAP_BEHIND;
 }
+/** local patch (FxInstance opts.ahead): rows in front of the unit (−y, nearer the camera) where an order-0 system counts as ahead. */
+const AHEAD_Y = 0.1;
+/** Whether `node` sits more than AHEAD_Y in front of `obj`'s origin (the unit's feet), in `obj`'s frame. */
+function aheadOf(node, obj) {
+  node.getWorldPosition(tmpV);
+  obj.worldToLocal(tmpV);
+  return tmpV.y < -AHEAD_Y;
+}
 /** local patch: three.js layers of a split instance's renderers (FxInstance opts.split) — behind / in front of the units. */
 export const FX_BACK = 1, FX_FRONT = 2;
 const CLIP_AXIS = { r: 'x', g: 'y', b: 'z', a: 'w', x: 'x', y: 'y', z: 'z', w: 'w' };
@@ -1104,7 +1112,8 @@ export class FxInstance {
    *   negative sorting fudge = in front of the units, whose Spine renderers are Default / order 0 and write no depth) —
    *   without it everything stays on layer 0; atSpawn (default on; false keeps it) = drop the root node's own position (the
    *   caller's placement replaces it); pivot (default on; false ignores it) = billboard / aligned / horizontal quads use their
-   *   renderer's pivot (uPivot) — on for every effect by the user's decision 2026-10-08 (docs/LOCAL-PATCH.md 「정예 기물 금빛」)
+   *   renderer's pivot (uPivot) — on for every effect by the user's decision 2026-10-08 (docs/LOCAL-PATCH.md 「정예 기물 금빛」);
+   *   ahead (with split) = an order-0 particle system whose node lies in front of the unit goes to FX_FRONT (the prep elite glow)
    */
   constructor(def, opts = {}) {
     this.def = def;
@@ -1192,8 +1201,11 @@ export class FxInstance {
           if (mesh) put(mesh, (n.mesh.order || 0) > 0 || (!(n.mesh.order || 0) && wrapsUnit(mesh, this.object)));
         }
       });
+      // local patch (opts.ahead, user report 2026-10-08: the elite glow's gold band covers the legs in the game): an order-0
+      // system whose node lies in front of the unit (nearer the camera) is drawn over it — the client sorts order 0 by distance
       for (const s of this.systems) {
-        const r = s.ps.render, o = r.order || 0, front = o > 0 || (o === 0 && (r.fudge || 0) < 0);
+        const r = s.ps.render, o = r.order || 0;
+        const front = o > 0 || (o === 0 && ((r.fudge || 0) < 0 || (!!opts.ahead && aheadOf(s.node, this.object))));
         if (s.draws) put(s.mesh, front); else s.mesh.layers.set(front ? FX_FRONT : FX_BACK);
         if (s.trailBatch) put(s.trailBatch.mesh, front);
       }
