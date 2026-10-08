@@ -1437,8 +1437,10 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   앞모습], 나머지 보는 방향의 칸. 빈 칸은 안 틂. 좌우 사본이 따로 있는 묶음에서 고른 사본은 다시 뒤집지 않음 [추정]. 사본 프리팹은 이미 전부 추출돼 있었다(재추출 없음).
   대상 14명: 스펙터 디 언체인드, 가비알 디 인빈서블, 이그제큐터 디 엑스 포에데레, 위셔델, 엑시아 더 뉴 커버넌트, 백파이프, 아르케토, 불피스폴리아, 언더플로우,
   르무엔, 산크타 믹사파라토, 비질, 아로마 + 데겐블레허(S2 `start_04_v`/`_h`, skills.ab).
-  **위셔델 항목**: 0.2.0 병합 뒤 `data/diy.json`이 없어 선발 오퍼레이터는 `char_modes.py`가 스킬 정보를 못 읽는다(전체 실행은 pool에 없어 안 건드리고, `--id`면
-  skills·skillMode가 사라짐) — 예전 항목을 두고 `dirs`만 더했다. 왕·첸 더 던스트릭 등 선발 항목도 같은 상태(범위 밖, 안 고침).
+  **선발 오퍼레이터 항목** (75de3b8f, 사용자 요청 2026-10-08): 0.2.0 병합 뒤 `data/diy.json`이 없어져 `char_modes.py`가 선발 5명을 다시 만들지 못했다(전체 실행에서
+  빠지고 예전 항목이 남음). → `diy_operators()`가 `data/backups.json` `diy.operators`(선발 목록)와 `units.<charId>.forms`의 스킬을 읽는다. 재생성 결과: 토가와
+  사키코만 바뀜 — S2 모드 4개(공속·공격·피버·피버 마법)의 기본 능력 버프 이펙트 `oblvns_skill_02_buff`/`_buff_01`이 `attach`에(5e116d97의 「모두에게」 규칙),
+  아레나에서 S2 동안 몸 뒤 분홍 오라로 보임(공식 대조 안 함). 왕·첸 더 던스트릭·위셔델·아스카론은 그대로. 이전 바인딩 백업 `research/2026-10-08-diy-bindings/before/`(작업 공간 루트).
 - **마운트 회전**: FollowMountPoint `_keepOriginRotation` 0 = 효과가 마운트 지점의 회전을 받는다. 아르케토 S3 시전 부채꼴 `archet_skill_03_start`는 마운트 2(MUZZLE)·0이고
   루트에 회전 필드가 없다; 총구 점(`points.json` `F_Muzzle`/`B_Muzzle`, `rot 1` = 본 회전 따라감)의 본은 Skill_3 동안 네 방향 모두 월드 −90°(런타임 값).
   → `fxpoints.js pointTurn`(그 쪽 본이 `rot 1`이면 `getWorldRotationX` 라디안, 아니면 null), `fxgame.js lifted()`의 `rot`(마운트가 있고 `keepOriginRotation === 0`일 때),
