@@ -125,10 +125,12 @@ test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body /
 });
 
 // session L (user report 4 #4-7, 2026-10-08): an effect's FollowMountPoint (fx_extract.py `mount`) — 스펙터 디 언체인드 S2's red ring
-test('mountSpawn: MountPointType 1–4 FOOT / HIT / MUZZLE / HEAD, 5–20 SPECIAL_0–15 → the _spawnLocation of the same point', () => {
-  assert.deepEqual([1, 2, 3, 4].map((type) => mountSpawn({ type })), [1, 2, 3, 4]);
-  assert.deepEqual([5, 6, 8, 9, 12, 13, 20].map((type) => pointKey(mountSpawn({ type }))), ['sp0', 'sp1', 'sp3', 'sp4', 'sp7', 'sp8', 'sp15']);
-  for (const m of [undefined, null, {}, { type: 0 }, { type: 21 }]) assert.equal(mountSpawn(m), null);
+test('mountSpawn: MountPointType 0–3 FOOT / HIT / MUZZLE / HEAD, 5 / 6 / 8–21 SPECIAL_0 / 1 / 2–15 (4 UI, 7 GROUND) → the same point\'s _spawnLocation', () => {
+  assert.deepEqual([0, 1, 2, 3].map((type) => mountSpawn({ type })), [1, 2, 3, 4]);
+  assert.deepEqual([5, 6, 8, 9, 10, 13, 14, 21].map((type) => pointKey(mountSpawn({ type }))), ['sp0', 'sp1', 'sp2', 'sp3', 'sp4', 'sp7', 'sp8', 'sp15']);
+  // the pairs the extracted prefabs carry (spawn ↔ mount): 8 ↔ 5, 9 ↔ 6, 10 ↔ 8, 11 ↔ 9, 13 ↔ 10, 14 ↔ 11, 15 ↔ 12, 2 ↔ 1, 3 ↔ 2, 4 ↔ 3
+  for (const [spawn, type] of [[8, 5], [9, 6], [10, 8], [11, 9], [13, 10], [14, 11], [15, 12], [2, 1], [3, 2], [4, 3]]) assert.equal(mountSpawn({ type }), spawn);
+  for (const m of [undefined, null, {}, { type: -1 }, { type: 4 }, { type: 7 }, { type: 22 }]) assert.equal(mountSpawn(m), null);
 });
 
 test('boneMissing: only when the skeleton has none of the point\'s bones (fixed spots are never invalid)', () => {

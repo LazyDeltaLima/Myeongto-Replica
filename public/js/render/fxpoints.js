@@ -30,20 +30,20 @@ export function pointKey(spawn) {
 }
 
 /**
- * The `_spawnLocation` value of the point an effect's FollowMountPoint names (fx_extract.py `mount.type`, the client's
- * MountPointType: 1 FOOT, 2 HIT, 3 MUZZLE, 4 HEAD, 5–20 SPECIAL_0–15 — global-metadata enum order, 0 NONE [추정]), or null.
- * The effect follows that point every frame (local patch, user report 4 #4-7, session L 2026-10-08: 스펙터 디 언체인드 S2's
- * red ring, mount 5 = SPECIAL_0 = her saw's ring bone [추정]).
+ * The `_spawnLocation` value of the point an effect's FollowMountPoint names (fx_extract.py `mount.type`), or null (the
+ * effect keeps its `_spawnLocation`). MountPointType's constants (global-metadata field default values): 0 FOOT, 1 HIT,
+ * 2 MUZZLE, 3 HEAD, 4 UI, 5 SPECIAL_0, 6 SPECIAL_1, 7 GROUND, 8–21 SPECIAL_2–15 — the extracted prefabs that carry both
+ * agree (spawn 8 ↔ mount 5, 10 ↔ 8, 3 ↔ 2). The effect follows that point every frame (local patch, user report 4 #4-7,
+ * session L 2026-10-08: 스펙터 디 언체인드 S2's red ring, mount 5 = SPECIAL_0 = her saw's ring bone). UI / GROUND: null.
  * @param {{type?: number}|null|undefined} mount
  * @returns {number|null}
  */
 export function mountSpawn(mount) {
   const t = mount?.type;
-  if (!Number.isInteger(t) || t <= 0) return null;
-  if (t <= 4) return t;
-  if (t <= 8) return t + 3;
-  if (t <= 12) return t + 4;
-  return t <= 20 ? t + 5 : null;
+  if (!Number.isInteger(t) || t < 0 || t === 4 || t === 7 || t > 21) return null;
+  if (t <= 3) return t + 1;
+  const k = t <= 6 ? t - 5 : t - 6; // SPECIAL_k
+  return k <= 3 ? 8 + k : k <= 7 ? 9 + k : 10 + k;
 }
 
 /**

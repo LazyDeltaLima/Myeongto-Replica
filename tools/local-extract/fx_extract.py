@@ -637,8 +637,9 @@ class Extractor:
         """local patch (user report 4 #4-7, session L 2026-10-08): the root's FollowMountPoint component — the effect follows
         a model point of its owner every frame (스펙터 디 언체인드 S2's red ring on her saw). Its script's type tree is not in
         the bundle; the component is recognised by its MonoScript (PathID MOUNT_SCRIPT) and read raw: after the header and
-        the empty name, 7 ints in the field order of global-metadata's field table — _mountPointType (MountPointType:
-        0 NONE [추정], 1 FOOT, 2 HIT, 3 MUZZLE, 4 HEAD, 5… SPECIAL_0…15), _followScaleSign, _followScale,
+        the empty name, 7 ints in the field order of global-metadata's field table — _mountPointType (MountPointType,
+        its constants: 0 FOOT, 1 HIT, 2 MUZZLE, 3 HEAD, 4 UI, 5 SPECIAL_0, 6 SPECIAL_1, 7 GROUND, 8–21 SPECIAL_2–15;
+        render/fxpoints.js mountSpawn), _followScaleSign, _followScale,
         _pauseWhenMountPointInvalid, _onlyPauseWhenMountPointInvalid, _keepOriginRotation, _useBehaviourPause (bools as
         ints). None when the root has none."""
         try:
