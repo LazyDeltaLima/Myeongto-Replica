@@ -325,6 +325,17 @@ def modes_of(path, projectiles=None):
     proj, cast, hit, trail, attach = ([[] for _ in range(n)] for _ in range(5))
     turn = []
     dirs = []
+    # local patch (session L, user report 2026-10-08: 스펙터 디 언체인드's 替身): `attachFoe` = the part of `attach` from buffs of
+    # an ability that targets enemies (`_targetOptions.targetSide` 2 on the same GameObject — ghost2_t_1[stand]'s
+    # beidong_buff_02 shows on the enemies it hits, not on her); `dollBorn` = the 替身's appearance (`[switch2stand]/StandBorn`
+    # `_castEffects`: ghost2_birth_01_start, the blue swirl)
+    foe_go = {d['m_GameObject']['m_PathID'] for _, d, _ in tree
+              if isinstance(d.get('_targetOptions'), dict) and d['_targetOptions'].get('targetSide') == 2}
+    attach_foe = [[] for _ in range(n)]
+    doll_born = []
+    for gp, d, _ in tree:
+        if '[switch2stand]/StandBorn' in gp:
+            add(doll_born, effect_names(d.get('_castEffects') or []))
     # alternatives: the first sibling (by name) of each parent stands for all
     alt_first = {}
     for gp, _, _ in tree:
@@ -374,6 +385,8 @@ def modes_of(path, projectiles=None):
         sub = gp[len(mode_paths[i]):] + '/'
         if '/Talents/' in sub or '/GeneralAbilities/' in sub:
             add(attach[i], buff_effects(d))
+            if d.get('m_GameObject', {}).get('m_PathID') in foe_go:
+                add(attach_foe[i], buff_effects(d))
         # effects a mode's abilities attach while they run: an emitter's `_attachEffects`, and an ability's own `_effects`
         # list (비르투오사 S3's GeneralAbilities: cello_skill_03_buff_01 / _front_02 / _range — her range)
         add(attach[i], effect_names(d.get('_attachEffects') or []))
@@ -394,6 +407,10 @@ def modes_of(path, projectiles=None):
         res['turn'] = turn
     if dirs:
         res['dirs'] = dirs
+    if any(attach_foe):
+        res['attachFoe'] = attach_foe
+    if doll_born:
+        res['dollBorn'] = doll_born
     return res
 
 
@@ -446,7 +463,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'hit', 'trail', 'attach', 'skills', 'turn', 'dirs') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'hit', 'trail', 'attach', 'attachFoe', 'dollBorn', 'skills', 'turn', 'dirs') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

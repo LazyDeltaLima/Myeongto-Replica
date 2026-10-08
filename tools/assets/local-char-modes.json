@@ -605,6 +605,20 @@
     ]
    }
   ],
+  "attachFoe": [
+   [],
+   [
+    "ghost2_beidong_buff_02"
+   ],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dollBorn": [
+   "ghost2_birth_01_start",
+   "ghost2_birth_empty_02"
+  ],
   "skillMode": [
    null,
    null,
@@ -5837,6 +5851,9 @@
    [],
    []
   ],
+  "dollBorn": [
+   "kazema_birth_01_start"
+  ],
   "skills": [
    {
     "cast": [],
@@ -9604,6 +9621,20 @@
    ]
   ],
   "attach": [
+   [],
+   [
+    "indigo_buff_01_start"
+   ],
+   [],
+   [
+    "indigo_buff_01_start"
+   ],
+   [],
+   [
+    "indigo_buff_01_start"
+   ]
+  ],
+  "attachFoe": [
    [],
    [
     "indigo_buff_01_start"

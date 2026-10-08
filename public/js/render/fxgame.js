@@ -616,16 +616,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // displacement arrows, heals). The event's operator: `src`, else `by`, else `id` (an ally token / device keeps them).
   const STAND_IN = new Set(['blast', 'zone', 'wall', 'summon', 'buff', 'wave', 'pillar', 'element', 'healAoe', 'shield', 'shatter', 'strike', 'volley']);
   // local patch (user 2026-10-08, report 4 #4-7 follow-up: 스펙터 디 언체인드's blue effects after the switch to the 替身 never
-  // showed): a 傀儡师's 替身 is its charpack mode 'Stand', whose Talents buffs' effects (modes.json `attach`: ghost2_beidong_buff_02
-  // the ring, _buff_01 the 3×3 waves) last while the form does — from sim fx 'substitute' (professions.js installDollkeeper)
-  // until 'swap' (back to the 本体) or 'dollEnd' (knocked out as the 替身). Started with the switch [추정: the client's
-  // Talents buffs apply as the mode changes]; the prefabs' own end effects (beidong_buff_01_end) are not played.
+  // showed): a 傀儡师's 替身 is its charpack mode 'Stand', whose own Talents buffs' effects (modes.json `attach` minus
+  // `attachFoe`: ghost2_beidong_buff_01, the 3×3 circle of ghost2_standin[switch]) last while the form does — from sim fx
+  // 'substitute' (professions.js installDollkeeper) until 'swap' (back to the 本体) or 'dollEnd' (knocked out as the 替身) —
+  // and its appearance (`dollBorn`, [switch2stand]/StandBorn: ghost2_birth_01_start, the blue swirl) plays once. The
+  // enemy-targeted buff's effect (beidong_buff_02, on the enemies 拥抱自我 hits) is not on her (user 2026-10-08 with the
+  // official video: 「파란 소용돌이가 잠깐 나왔다가 사라지고, 3x3칸짜리 원형 이펙트도 따로 있어」). Started with the switch
+  // [추정]; the prefabs' own end effects (beidong_buff_01_end) are not played.
   function dollFx(e, views) {
     const id = e[4].id, v = views.get(id);
     for (const l of live) if (l.tag === 'doll' && l.owner === id) l.inst.stop(e[1] === 'dollEnd');
     if (e[1] !== 'substitute' || !v || q() === 'low') return;
-    const n = bindOf(v)?.modes?.indexOf('Stand') ?? -1;
-    const names = n > 0 ? bound(v, n, 'attach') : [];
+    const b = bindOf(v), pre = bundleOf(v)?.prefabs || [];
+    const born = (b?.dollBorn || []).filter((x) => pre.includes(x));
+    if (born.length) play(v, 'skillStart', 0, { names: born });
+    const n = b?.modes?.indexOf('Stand') ?? -1;
+    const foe = new Set(n > 0 ? b?.attachFoe?.[n] || [] : []);
+    const names = n > 0 ? bound(v, n, 'attach').filter((x) => !foe.has(x)) : [];
     if (names.length) play(v, 'skillBuff', 0, { names, buff: true, tag: 'doll' });
   }
   function standInOff(e, views) {
