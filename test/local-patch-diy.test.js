@@ -390,7 +390,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     });
   });
 
-  test('望: only connected 棋子 trigger; battle start = prep layout (no 跟子); traps take no hits; used up on a trigger, back on their tile for DP (the card returns); S3 x-1 area', () => {
+  test('望: only connected 棋子 trigger; battle start = prep layout (no 跟子); traps take no hits; used up on a trigger, back on their tile for DP (no stock spent); S3 x-1 area', () => {
     const noSp = (extra) => { // S1 not cast yet: only the placed stones
       const b = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true, units: [op('wang', { sk: 0, row: 11, col: 3 }), ...extra],
         enemies: [{ key: ENEMY, time: 0, route: 0, count: 8, interval: 1.2 }, { key: ENEMY, time: 1, route: 1, count: 6, interval: 1.6 }] });
@@ -425,13 +425,15 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     let dpBefore = 0;
     for (let i = 0; i < 20 / 0.05 && !used.alive; i++) { dpBefore = hc.b.players[0].dp; hc.step(1); }
     assert.ok(used.alive && used.mem.wangUsed === false, 'redeployed');
-    assert.equal(w.mem.wang.stock, stock0 - 1, 'a return takes one stone of the stock (user decision 2026-10-07)');
+    assert.equal(w.mem.wang.stock, stock0, 'a return takes no stone of the stock (PRTS 「原地再部署」, user decision 2026-10-08)');
     assert.ok(hc.b.players[0].dp < dpBefore - 1.5, 'its DP cost paid (2 for the VI elite: module −1)');
     // S1 with stones in the stock: deployed next to hers; their 跟子 do not count under the limit (nothing withdrawn)
     const s1 = battle('wang', 0, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)], 30);
     const all = s1.allies().filter((u) => u.kind === 'token' && u.alive);
     assert.ok(all.some((u) => u.mem.wangFollower), '跟子 with an automatic deployment');
-    assert.ok(all.filter((u) => !u.mem.wangFollower).length <= 6, 'stones ≤ maxDeployCount');
+    const cap = s1.unit(1).mem.wang.fieldCap;
+    assert.equal(cap, 7, 'the VI elite carries her module: deploy limit 7');
+    assert.ok(all.filter((u) => !u.mem.wangFollower).length <= cap, 'stones ≤ the deploy limit');
     // S3 equipped: the x-1 diamond triggers and hits (passive), flyers included
     assert.ok(tagged(battle('wang', 2, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)], 20), 'trap') > 0);
   });
@@ -807,7 +809,7 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
     return { h, m, ps, b };
   };
 
-  test('six prep stones = no stock: a used-up stone waits until S1 refills the stock, then comes back on its prep tile for DP; the client sees die → deploy', async () => {
+  test('six prep stones = no stock: a used-up stone still comes back on its prep tile for DP, before any S1 (user decision 2026-10-08); the client sees die → deploy', async () => {
     const { b, m } = await wangMatch(0, 1);
     b.start();
     const wu = b.allyUnits.find((u) => u.kind === 'op');
@@ -815,17 +817,23 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
     assert.equal(wu.mem.wang.stock, 0, 'stock = 6 − the stones placed in the prep');
     for (const t of b.allyUnits.filter((u) => u.kind === 'token')) assert.ok(t.kit?.fromTokens && !t.kit.generic, 'placed stones run the stone kit');
     const back = [];
-    let usedBeforeS1 = 0;
-    b.on('deploy', (c) => { if (c.unit.kind === 'token' && !c.unit.mem.wangFollower && b.time > 0.5) back.push([c.unit.id, c.unit.tileR, c.unit.tileC, c.unit.homeR, c.unit.homeC, wu.mem.wang.stock]); });
+    let casts = 0;
+    b.on('skillStart', (c) => { if (c.unit === wu) casts++; });
+    // filtered at the end: a 跟子 gets mem.wangFollower only after its deploy fires
+    b.on('deploy', (c) => { if (c.unit.kind === 'token' && b.time > 0.5) back.push([c.unit, c.unit.tileR, c.unit.tileC, c.unit.homeR, c.unit.homeC, casts]); });
+    let dp = b.getPlayer('p_0').dp, paid = 0;
     const ev = [];
     while (!b.finished && b.time < 30) {
       b.step(); ev.push(...b.drainEvents());
-      if (!back.length) usedBeforeS1 = Math.max(usedBeforeS1, b.allyUnits.filter((u) => u.kind === 'token' && !u.alive && u.mem.wangUsed).length);
+      const now = b.getPlayer('p_0').dp;
+      if (now < dp - 1) paid++;
+      dp = now;
     }
-    assert.ok(usedBeforeS1 > 0, 'stones were used up and waited (no stock)');
-    assert.ok(back.length >= 2, `S1's two stones bring used-up stones back (${back.length})`);
-    for (const [, r, c, hr, hc] of back) assert.deepEqual([r, c], [hr, hc], 'on the tile placed in the prep');
-    const id = back[0][0];
+    const stones = back.filter(([u]) => !u.mem.wangFollower);
+    assert.ok(stones.some((x) => x[5] === 0), `a used-up stone came back before S1, with the stock at 0 (${stones.length})`);
+    assert.ok(paid > 0, 'its return paid DP');
+    for (const [, r, c, hr, hc] of stones) assert.deepEqual([r, c], [hr, hc], 'on the tile placed in the prep');
+    const id = stones[0][0].id;
     const kinds = ev.filter((e) => (e[0] === 'die' || e[0] === 'deploy') && e[1] === id).map((e) => e[0]);
     assert.ok(kinds.indexOf('deploy', kinds.indexOf('die')) > 0, `die → deploy for the stone (${kinds.join(' ')})`);
     assert.equal(b.errors.length, 0);

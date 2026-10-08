@@ -20,8 +20,9 @@
 //   on its own tile like the mode's redeploys (Battle.redeploy / tokens.js enableRespawn): after its respawnTime, for its
 //   DP cost (卫戍协议 in-battle DP: 10, +1/s), once no walking enemy stands there (during S3 on a tile of her range it may
 //   come back onto one: 「在攻击范围内手动部署棋子时可部署至敌人所在位置」, user decision 2026-10-07, W10) — and it takes
-//   one stone of the stock: with the stock empty the used stones wait until S1 / S2 refill it (user decision 2026-10-07,
-//   RETURN_USES_STOCK; the former card rule, no stock spent, is kept off beside it). The trigger area is the
+//   no stone of the stock: PRTS 卫戍协议 「若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个」, so the placed stones keep
+//   coming back for DP the whole battle (user decision 2026-10-08, RETURN_USES_STOCK false — the user remembers those
+//   DP payments draining a 行商 like 琳琅诗怀雅 off the field; the stock rule of 2026-10-07 is kept off beside it). The trigger area is the
 //   stone's own tile, with S3 equipped (its passive: "棋子的触发和伤害范围扩大") x-1, a radius-2 diamond of 13 tiles (the
 //   sktok_wang_3 prefab's SkillTrigger / Selector and PRTS 天下劫 "携带该技能时…x-1"; the table's x-6 cross is in no prefab —
 //   owner's decision 2026-10-06: the official diamond)
@@ -80,8 +81,11 @@ const ORTHO = [[1, 0], [0, 1], [-1, 0], [0, -1]]; // up > right > down > left (r
 /** The same order on a mirrored field (drawn with col → 20 − col): 上 > 右 > 下 > 左 as drawn = +row, −col, −row, +col. */
 const ORTHO_MIRRORED = [[1, 0], [0, -1], [-1, 0], [0, 1]];
 const WANG_S3_PACE = 1; // [ASSUMED] one automatic deployment a second while S3 runs
-/** A used stone's return takes one stone of the stock (user decision 2026-10-07); false = the former card rule (no stock). */
-const RETURN_USES_STOCK = true;
+/**
+ * A used stone's return takes one stone of the stock (user decision 2026-10-07); false = it comes back for DP alone, as
+ * PRTS 卫戍协议 「…退场，将在满足条件后立即原地再部署1个」 (user decision 2026-10-08: back to false).
+ */
+const RETURN_USES_STOCK = false;
 /**
  * Tiles no 跟子 may take (local patch 2026-10-06, user: "적 공격 포인트"): the client 跟子 selector has `exceptTileTypes`
  * with tileTypesMask 14. Torappu TileTypesMask bits, in the order of battle_misc_table tileTypeDict (DEFAULT 1 assumed
@@ -161,14 +165,13 @@ function wang(bb, chess, def) {
    * A consumed stone comes back on its own tile like any redeploy of the mode (tokens.js enableRespawn /
    * Battle.redeploy): after its respawnTime, paying its DP cost; the tile must be free of units and enemies (trait).
    * [ASSUMED] she must be on the field (a hand piece of hers).
-   * Stock (user decision 2026-10-07, the trapmaster rule the user knows from the game): every return takes one stone
-   * of her stock (the deploy limit — 6, 7 with her module — minus the stones placed in the prep at the start); with the stock empty a used stone waits until S1 / S2
-   * 「立即获得两枚棋子」 refill it. `RETURN_USES_STOCK`.
-   * Former rule (2026-10-06 – 2026-10-07, kept for reference, off): a consumed stone was a card again (the token deck:
-   * a summon that leaves returns to the hand after its 再部署时间 — the stock is the deck, not a count used up) and came
-   * back without spending the stock, so the placed stones cycled for the whole battle. It replaced an earlier model
-   * where the stock was 7 − placed (1 with 6 on the board) and the stones stopped after one return (user report
-   * 2026-10-06 「돌이 다시 놓이지 않는다」 — with the decision of 2026-10-07 that is the intended behaviour again).
+   * No stock (user decision 2026-10-08, `RETURN_USES_STOCK` false): the stone comes back without spending the stock, so
+   * the placed stones cycle for the whole battle and each return pays its DP (PRTS 卫戍协议 「若召唤物在战斗期间退场，将在满足
+   * 条件后立即原地再部署1个」; the user remembers those payments retreating 琳琅诗怀雅; the 「왕 S3.mp4」 DP counter fell by 2–3
+   * every ~1.5 s after the first stones were used — LOCAL-PATCH). The same rule held 2026-10-06 – 2026-10-07.
+   * Former rule (2026-10-07 – 2026-10-08, kept off): every return took one stone of her stock (the deploy limit minus the
+   * stones placed in the prep); with the stock empty a used stone waited until S1 / S2 「立即获得两枚棋子」 refilled it —
+   * a full prep layout got no stone back before S1 (and none at all with S3).
    */
   const inHerRange = (unit, r, c) => !!(unit.rangeKeySet?.has(r * COLS + c) ?? unit.rangeKeys?.includes(r * COLS + c));
   /**
@@ -203,7 +206,7 @@ function wang(bb, chess, def) {
       // until the 跟子 goes off, as it waits for a stone S3 put on its tile (the drop below)
       if (stoneAt(stonesOf(battle, unit), t.homeR, t.homeC)) continue;
       if (placed(battle, unit).length >= st(unit).fieldCap) break; // never over the deploy limit (it would withdraw a stone)
-      if (RETURN_USES_STOCK && st(unit).stock <= 0) break; // the stock is out: wait for S1 / S2 (user decision 2026-10-07)
+      if (RETURN_USES_STOCK && st(unit).stock <= 0) break; // (the former stock rule, off) the stock is out: wait for S1 / S2
       if (!battle.redeploy(t, { free: false })) continue;
       if (RETURN_USES_STOCK) st(unit).stock--;
       Object.assign(t.mem, { wangUsed: false, active: false, line: 0, axes: new Set() });
