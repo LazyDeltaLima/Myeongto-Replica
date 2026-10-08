@@ -874,6 +874,8 @@ export async function createFieldView(host, options = {}) {
       v._showFacing = true;
       if (v.setItems && Array.isArray(info.items) && info.items.length) {
         v.setItems(info.items.map((it) => { const r = data.item(it); return assets.itemIcon ? assets.itemIcon(r ? { trapId: r.trapId, iconId: r.iconId } : it) : null; }));
+        // the official equip bar like the own pieces (LOCAL-PATCH.md 「전투 화면 UI」; 0.2.0 merge, session K 2026-10-08 K-3)
+        if (v.setEquip) v.setEquip(info.items.map((it) => !!data.item(it)?.isGolden));
       }
       views.set(info.id, v);
     }

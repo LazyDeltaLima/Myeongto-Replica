@@ -114,6 +114,15 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
     v.setEquip([]); v.update(1 / 60, cam(), 0);
     assert.ok(!v._equipBar || !v._equipBar.root.visible, 'no items: no bar');
   });
+
+  test('every prep piece wears the equip bar: own pieces, battle-field prep units and the boss round partner (session K 2026-10-08, K-3)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../public/js/render/app.js', import.meta.url), 'utf8');
+    const mates = src.slice(src.indexOf('function syncMates('), src.indexOf('function syncMates(') + 2000);
+    assert.match(mates, /v\.setItems\(info\.items\.map[^\n]*\n(\s+\/\/[^\n]*\n)*\s+if \(v\.setEquip\) v\.setEquip\(info\.items\.map\(\(it\) => !!data\.item\(it\)\?\.isGolden\)\);/,
+      "upstream ef101647's partner pieces (syncMates) set the official equip bar too, not only the old item pips");
+    assert.equal((src.match(/v\.setItems\(/g) || []).length, (src.match(/v\.setEquip\(/g) || []).length, 'each setItems has its setEquip');
+  });
 });
 
 describe('enemy bars (enemy_hp_slider / enemy_boss_hp_slider / the giant boss panel)', () => {
