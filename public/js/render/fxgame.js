@@ -48,6 +48,7 @@ import { projSpeed } from './fx.js'; // local patch: the trails' flight time (th
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
+import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
 import { loadPoints, pointKey, pointOn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { PROJ } from './style.js';
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
@@ -76,7 +77,6 @@ const INDEX_URL = '/assets/local/fx/index.json';
 const MODES_URL = '/assets/local/fx/modes.json';   // effect bindings per attack mode (tools/local-extract/char_modes.py)
 const MAX_HIT_FX = 2;
 const MAX_TRAILS = 12;      // official projectile trails in flight at once (then fx.js's procedural shots)
-const TRAIL_Z = 0.35;       // their height over the ground (tiles) at both ends [ASSUMED]
 const HIT_GAP_S = 0.12;        // one hit effect per attacker → target pair within this time (multi-hit skills)
 const ATTACK_GAP_S = 0.2;
 let webpPromise = null;
@@ -582,8 +582,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (trails.length >= MAX_TRAILS) return false;
     trailAtks.add(e);
     const dx = tgt.x - src.x, dy = tgt.y - src.y, dist = Math.hypot(dx, dy);
-    const rec = { inst: null, tgt, x0: src.x, y0: src.y, tx: tgt.x, ty: tgt.y, k: 0, dur: Math.max(0.04, dist / projSpeed(e[3])),
-      arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 };
+    const from = shotFrom(src);
+    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: tgt.x, ty: tgt.y, tz: shotTo(tgt), k: 0,
+      dur: Math.max(0.04, dist / projSpeed(e[3])), arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 };
     trails.push(rec);
     lib.load(b.bundle, name).then((def) => {
       if (!mod || !def || !trails.includes(rec)) { const i = trails.indexOf(rec); if (i >= 0) trails.splice(i, 1); return; }
@@ -595,10 +596,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }, () => {});
     return true;
   }
+  // local patch (session F 2026-10-08, was TRAIL_Z 0.35 tile at both ends [ASSUMED] — 空弦's arrows flew at her feet): a
+  // trail leaves the shooter's Muzzle point (fxpoints.js; the client's "Unit {0} has no muzzlePoint" — its projectiles start
+  // there), where it is at the shot, and flies to the target's hit point, the height its _spawnLocation 2 hit effects take
+  // [ASSUMED: the client's HitPoint]. A shooter without one (no table, no muzzle) starts at fx.js's shot height.
+  const shotAt = { x: 0, y: 0, z: 0 };
+  function shotFrom(src) {
+    const p = specialPoint(src, shotAt, 'muzzle');
+    return p ? { x: p.x, y: p.y, z: p.z } : { x: src.x, y: src.y, z: bodyZ(camRef, src, SHOT_HEIGHT.launch) };
+  }
+  const shotTo = (t) => bodyZ(camRef, t, SPAWN_FRAC[2]);
   /** A trail at flight fraction k: on the line to the target's current spot (a lob on its arc), turned along it. */
   function placeTrail(rec) {
     const t = rec.tgt;
-    if (t && t.alive !== false && !t.remove && Number.isFinite(t.x)) { rec.tx = t.x; rec.ty = t.y; }
+    if (t && t.alive !== false && !t.remove && Number.isFinite(t.x)) { rec.tx = t.x; rec.ty = t.y; rec.tz = shotTo(t); }
     const k = Math.min(1, rec.k);
     if (rec.dropZ) {   // local patch: a shell falling straight down (蕾缪안 S3), the trail's +x turned to −z
       if (!rec.inst) return;
@@ -607,7 +618,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return;
     }
     const x = rec.x0 + (rec.tx - rec.x0) * k, y = rec.y0 + (rec.ty - rec.y0) * k;
-    const z = TRAIL_Z + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0);
+    const z = rec.z0 + (rec.tz - rec.z0) * k + (rec.arc ? rec.arc * 4 * k * (1 - k) : 0);
     if (!rec.inst) return;
     rec.inst.object.position.set(x, y, z);
     rec.inst.object.rotation.set(0, 0, Math.atan2(rec.ty - rec.y0, rec.tx - rec.x0));

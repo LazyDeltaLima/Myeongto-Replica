@@ -113,9 +113,12 @@ test('the extracted 비르투오사 S3 glow is a _spawnLocation 8 prefab', { ski
   assert.equal(JSON.parse(readFileSync(CELLO_FX, 'utf8')).spawn, 8);
 });
 
-test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body / head lifts unchanged', () => {
+test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body / head lifts unchanged; trails leave the muzzle', () => {
   const src = readFileSync(new URL('public/js/render/fxgame.js', ROOT), 'utf8');
   assert.match(src, /const key = pointKey\(def\?\.spawn\);/);
   assert.match(src, /specialPoint\(v, p, key\)/);
   assert.match(src, /const SPAWN_FRAC = \{ 2: 0\.5, 4: 1\.1 \};/, 'the body / head lifts are unchanged');
+  assert.doesNotMatch(src, /const TRAIL_Z|TRAIL_Z \+ /, 'no fixed trail height');
+  assert.match(src, /const p = specialPoint\(src, shotAt, 'muzzle'\);/);
+  assert.match(src, /const z = rec\.z0 \+ \(rec\.tz - rec\.z0\) \* k/);
 });
