@@ -290,6 +290,11 @@
 .gm.has-hud-art.has-hud-team .team__row.is-watched .team__btn::after,
 .gm.has-hud-art.has-hud-team .team:not(.has-watched) .team__row.is-self .team__btn::after { background: #59ffd2; }
 .gm.has-hud-art.has-hud-team .team__row.is-open .team__btn::after { background: #59ffd2; filter: drop-shadow(0 0 .06rem rgba(89, 255, 210, .7)); }
+/* 最终攻势 / 隐秘核心: the viewer's pair (upstream ef101647 .team__frame, a second bg_team_border over this one — two frames
+   on each portrait) wears this frame alone, in the green of the board shown (docs/LOCAL-PATCH.md 「0.2.0 병합」 J-7;
+   [추정]: no capture of a boss round's player list) */
+.gm.has-hud-art.has-hud-team .team__frame { display: none; }
+.gm.has-hud-art.has-hud-team .team__row.is-team .team__btn::after { background: #59ffd2; }
 .gm.has-hud-art.has-hud-team .team__you {
   left: calc(var(--u) * -7); top: calc(var(--u) * -7); right: auto; width: calc(var(--u) * 32); height: calc(var(--u) * 32); z-index: 1;
   clip-path: none; background: var(--ha-self) center / 100% 100% no-repeat;

@@ -5,7 +5,8 @@
 //   - user report 2026-10-08: dragging a 自选 piece showed the bare slot record 「自选干员」 (stats —) — placingDetail
 //     resolved without the player's m.private.
 //   - J-9: the card's 自选 stats are the battle's (server/sim/simdata.js getDiy) — checked equal, pinned here.
-// J-6: the round-start banner of an eliminated player / spectator seat says 观战中, not 获得 +0. (J-1 / J-2: test/ui/diy-ui.test.js; J-3 / J-4 / J-5:
+// J-6: the round-start banner of an eliminated player / spectator seat says 观战中, not 获得 +0. J-7: the boss round's pair
+// wears one frame (ours), not ours + upstream's .team__frame. (J-1 / J-2: test/ui/diy-ui.test.js; J-3 / J-4 / J-5:
 // test/ui/gameLogic.test.js, test/local-patch-battleover.test.js.)
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -125,4 +126,9 @@ describe('round-start banner and the boss round\'s player list', () => {
     assert.match(src, /<\$\{RoundStartBanner\} key=\$\{banner\.key\} round=\$\{pub\?\.round\} gold=\$\{roundGold\} watching=\$\{spectator \|\| !alive\}/);
   });
 
+  test('J-7: in the official HUD look the pair\'s avatars keep one frame — upstream\'s .team__frame is hidden, ours is green', () => {
+    const css = readFileSync(path.join(ROOT, 'public/css/hud-art.css'), 'utf8');
+    assert.match(css, /\.gm\.has-hud-art\.has-hud-team \.team__frame \{ display: none; \}/);
+    assert.match(css, /\.gm\.has-hud-art\.has-hud-team \.team__row\.is-team \.team__btn::after \{ background: #59ffd2; \}/);
+  });
 });
