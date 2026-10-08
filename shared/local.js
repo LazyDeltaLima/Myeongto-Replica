@@ -39,7 +39,7 @@ export const CHAT_FACTIONS = Object.freeze([
   { id: 'aegir', name: N_('阿戈尔'), color: '#009fb2', bond: 'egirShip' },
   { id: 'siracusa', name: N_('叙拉古'), color: '#4776df', bond: 'siracusaShip' },
   { id: 'kazimierz', name: N_('卡西米尔'), color: '#d8b400', bond: 'kazimierzShip' },
-].map(Object.freeze));
+].map((f) => Object.freeze(f)));
 /** Chat faction record of an id, or null (safe for any input). */
 export const chatFaction = (id) => (typeof id === 'string' && CHAT_FACTIONS.find((f) => f.id === id)) || null;
 
