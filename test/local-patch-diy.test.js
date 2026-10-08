@@ -136,7 +136,7 @@ describe('선발 picks on upstream 自选 (shared/local-diy.js, server/lobby.js 
     }
     const idx = path.join(ROOT, 'public/assets/local/fx/index.json');
     if (existsSync(idx)) { // the extracted bundle (local client files only)
-      const { default: index } = await import(pathToFileURL(idx).href, { with: { type: 'json' } });
+      const index = JSON.parse(readFileSync(idx, 'utf8'));
       const have = new Set(index.bundles.oblvns || []);
       for (const m of Object.keys(NOTE_FX)) for (let i = m === 's1' ? 1 : 0; i <= (m === 's1' ? 8 : 0); i++) {
         const fx = noteEffects(m, i);
