@@ -239,6 +239,30 @@ def turned(o, out=None):
     return out
 
 
+def dir_groups(o, out=None):
+    """local patch (user report 5 #5-2, user's decision 2026-10-08 「13명 전체」): an effect emitter entry's `_effects` is a
+    slot list — 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT (스펙터 디 언체인드 S3 `_up` / `_down`, 백파이프 S3 `_right` / `_left`) — and its
+    `_directionType` (global-metadata DirectionType in declaration order: 0 NONE, 1 L_OR_R, 2 U_OR_D, 3 FOUR_DIR, 4 UD_OR_LR,
+    5 FOUR_DIR_FIXED, 6 L_OR_R_NOT_UD [ASSUMED: value = order, every entry agrees]) says which slot plays for the owner's
+    facing (render/fxgame.js dirPick). `add()` drops `_up` / `_down` / `_left` / `_back` names and keeps the others side by
+    side, so both copies of 아르케토 S3 `start_02` (UP) / `start_02_B` played at once. The entries naming more than one
+    effect: [{ t: directionType, s: [up, right, down, left] }]."""
+    out = [] if out is None else out
+    if isinstance(o, dict):
+        eff = o.get('_effects')
+        if isinstance(o.get('_directionType'), int) and isinstance(eff, list) and all(isinstance(e, str) for e in eff):
+            slots = (list(eff) + ['', '', '', ''])[:4]
+            g = {'t': o['_directionType'], 's': slots}
+            if len({e for e in slots if e}) > 1 and g not in out:
+                out.append(g)
+        for v in o.values():
+            dir_groups(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            dir_groups(v, out)
+    return out
+
+
 def own_buff_effects(d, key):
     """`overrideEffectKey`s of one buff list (`_buffs` on the caster, `_activeBuffs` on the targets)."""
     return [b['overrideEffectKey'] for b in (d.get(key) or []) if isinstance(b, dict) and isinstance(b.get('overrideEffectKey'), str) and b['overrideEffectKey']]
@@ -259,7 +283,7 @@ def skill_effects(tree, projectiles=None):
         sid, _, rest = gp.partition('/')
         if not sid.startswith('sk'):
             continue
-        e = out.setdefault(sid, {'cast': [], 'castLoop': [], 'buff': [], 'target': [], 'targetBuff': [], 'end': {'cast': [], 'hit': []}, 'turn': []})
+        e = out.setdefault(sid, {'cast': [], 'castLoop': [], 'buff': [], 'target': [], 'targetBuff': [], 'end': {'cast': [], 'hit': []}, 'turn': [], 'dirs': []})
         end = any(END_ABILITY.match(x) for x in rest.split('/') if x)
         for c in d.get('_castEffects') or []:
             if isinstance(c, dict):
@@ -272,11 +296,14 @@ def skill_effects(tree, projectiles=None):
             p = projectiles.effects(d['_projectileKey'])
             add(e['end']['hit'] if end else e['target'], p['start'] + p['hit'])
         add(e['turn'], turned(d))
+        dir_groups(d, e['dirs'])
     for e in out.values():
         if not e['end']['cast'] and not e['end']['hit']:
             del e['end']
         if not e['turn']:
             del e['turn']
+        if not e['dirs']:
+            del e['dirs']
     return out
 
 
@@ -297,6 +324,7 @@ def modes_of(path, projectiles=None):
     n = len(modes)
     proj, cast, hit, trail, attach = ([[] for _ in range(n)] for _ in range(5))
     turn = []
+    dirs = []
     # alternatives: the first sibling (by name) of each parent stands for all
     alt_first = {}
     for gp, _, _ in tree:
@@ -329,6 +357,7 @@ def modes_of(path, projectiles=None):
         found = []
         keys(d, found)
         add(turn, turned(d))
+        dir_groups(d, dirs)
         for k in found:
             if k not in proj[i]:
                 proj[i].append(k)
@@ -363,6 +392,8 @@ def modes_of(path, projectiles=None):
     res = {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail, 'attach': attach}
     if turn:
         res['turn'] = turn
+    if dirs:
+        res['dirs'] = dirs
     return res
 
 
@@ -398,12 +429,16 @@ def main():
             # local patch: the skills' own effects (skills.ab), in skill order; a skill's turned effects join the operator's
             sks = [sk_fx.get(pid) or {} for pid in (prefabs.get(cid) or [])]
             if any(sks):
-                m['skills'] = [{k: v for k, v in x.items() if k != 'turn'} for x in sks]
+                m['skills'] = [{k: v for k, v in x.items() if k not in ('turn', 'dirs')} for x in sks]
                 turn = list(m.get('turn') or [])
+                dirs = list(m.get('dirs') or [])
                 for x in sks:
                     add(turn, x.get('turn') or [])
+                    dirs += [g for g in x.get('dirs') or [] if g not in dirs]
                 if turn:
                     m['turn'] = turn
+                if dirs:
+                    m['dirs'] = dirs
             out[cid] = m
     doc = {'$comment': 'Operator attack modes (charpack _modes order: index n = audio bank attack.<n>) with their projectiles and '
                        'effect bindings (cast / hit / trail). Written by tools/local-extract/char_modes.py from the local client '
@@ -411,7 +446,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'hit', 'trail', 'attach', 'skills', 'turn') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'hit', 'trail', 'attach', 'skills', 'turn', 'dirs') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

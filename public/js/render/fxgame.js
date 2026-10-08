@@ -49,7 +49,7 @@ import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
-import { boneMissing, loadPoints, mountSpawn, pointKey, pointOn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { boneMissing, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { boomerangThrown, boomerangCaught } from './boomerang.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
@@ -60,6 +60,34 @@ import { UF } from '../../../shared/constants.js'; // local patch: the views' sk
  * activated axis, a 跟子's `_effectOnTrigger`); `target`: on each enemy it damages (S2 ExplodeRow `_hitEffects` / a 跟子's
  * `_effectsWhenHit`; S3 a 跟子 only). token_wang_skill_03_hit_03 is referenced by nothing in the client: never played.
  */
+/**
+ * local patch (user report 5 #5-2): `names` with each directional emitter entry of `groups` (char_modes.py `dirs` [{ t, s }])
+ * replaced by its copy for facing `d` (0 UP, 1 RIGHT, 2 DOWN, 3 LEFT; `left` = drawn facing left) — see dirPick in
+ * createFxLayer. Exported for the tests.
+ * @param {Array<{t: number, s: string[]}>|null|undefined} groups
+ * @param {string[]} names
+ * @param {number} d
+ * @param {boolean} left
+ * @returns {{ names: string[], unflip: Set<string> }}
+ */
+export function dirCopies(groups, names, d, left) {
+  const unflip = new Set();
+  if (!Array.isArray(groups) || !groups.length || !names.length) return { names, unflip };
+  let out = names;
+  for (const g of groups) {
+    const s = Array.isArray(g?.s) ? g.s : [];
+    if (!out.some((n) => s.includes(n))) continue;
+    const slot = g.t === 0 ? 0 : g.t === 1 || g.t === 6 ? (left ? 3 : 1) : g.t === 2 ? (d === 0 ? 0 : 2) : d;
+    const pick = s[slot] || '';
+    const at = out.findIndex((n) => s.includes(n));
+    out = out.filter((n, i) => i === at || !s.includes(n));
+    out = pick ? out.map((n, i) => (i === at ? pick : n)) : out.filter((_, i) => i !== at);
+    if (pick && s[1] && s[3] && s[1] !== s[3]) unflip.add(pick);
+  }
+  out = out.filter((n, i) => out.indexOf(n) === i);
+  return { names: out, unflip };
+}
+
 export function stoneBlastFx(skill, follower = false) {
   if (skill === 2) return { at: ['token_wang_skill_02_hit'], target: 'token_wang_skill_02_hit_02' };
   if (skill === 3) return { at: ['token_wang_skill_03_hit'], target: follower ? 'token_wang_skill_03_hit_02' : null };
@@ -211,7 +239,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null, tag = null } = {}) {
     const b = bundleOf(view);
     if (!b) return;
-    const names = given || effectsFor(b.prefabs, kind, skillIndex);
+    // local patch (user report 5 #5-2): a directional emitter entry plays the copy for the facing (dirPick)
+    const { names, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex));
     if (!names.length || !(await ensure())) return;
     // local patch (user report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
     // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right) is one effect —
@@ -237,7 +266,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // which draws layer 0 only (split, every blast on a target was invisible at 'high' on the 3D board: 烛煌 S3)
       const split = (buff || !at) && splitOn();
       // local patch: cut at the ground the unit stands on (fxplayer.js floor — a tile's height, not a flyer's hover)
-      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn || sided ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: ground.z || 0 });
+      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn || sided || unflip.has(names[i]) ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: ground.z || 0 });
       if (turn) aimMover(inst, facingDir(view));
       inst.object.position.set(anchor.x, anchor.y, anchor.z || 0);
       // a one-shot on the caster (not a hit on a target) ends with its prefab's duration even if a system loops —
@@ -458,10 +487,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const p = { x: 0, y: 0, z: 0 };
       const at = () => specialPoint(v, p, key) || (camRef ? { x: v.x, y: v.y, z: bodyZ(camRef, v, 0.5) } : v);
       const pause = !!def?.mount?.pauseWhenInvalid;
+      // local patch (user report 5 #5-2 — 아르케토 S3's cast fan stood upright; user's decision 2026-10-08 「전체 적용」): a
+      // FollowMountPoint with `_keepOriginRotation` 0 gives the effect its point's turn too (fxpoints.js pointTurn) — the
+      // frame loop turns the prefab root about the Unity frame's z (the board's normal: +x = column, +y = row, as aimMover)
+      // by it, inside the facing mirror. [ASSUMED] the sign: the bone's reported angle as is (아르케토 −90°) lays her fan —
+      // authored pointing +y up the board, its ring round its axis — along her shot, the ring standing across it
+      const turns = def?.mount && def.mount.keepOriginRotation === 0;
       return {
         get x() { return at().x; }, get y() { return at().y; }, get z() { return at().z; },
         get alive() { return v.alive; }, get remove() { return v.remove; },
         get paused() { return pause && boneMissing(points[v.info.spine || v.info.defId][key], v.actor?.spine?.skeleton); },
+        get rot() { return turns ? pointTurn(points[v.info.spine || v.info.defId][key], v.actor?.spine?.skeleton, !!v.entryBack) : null; },
         id: v.id, info: v.info,
       };
     }
@@ -1051,6 +1087,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const turns = (v) => new Set(bindOf(v)?.turn || []);
   /** The unit's facing for a turned effect: its deploy direction, left / right as it is drawn now. */
   const facingDir = (v) => (v.dir === 'UP' || v.dir === 'DOWN' ? v.dir : (v.visFacing ?? v.facing ?? 1) < 0 ? 'LEFT' : 'RIGHT');
+  /**
+   * local patch (user report 5 #5-2 — 아르케토 S3's `start_02` / `start_02_B` both played; user's decision 2026-10-08 「13명
+   * 전체」): an emitter entry's `_effects` is a slot list 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT and its `_directionType` picks the slot
+   * for the owner's facing (char_modes.py `dirs` [{ t, s }]): 0 NONE slot 0; 1 L_OR_R / 6 L_OR_R_NOT_UD left or right (up /
+   * down by the side it is drawn facing); 2 U_OR_D UP slot 0, any other facing slot 2 [ASSUMED: the sides are the front model];
+   * 3 FOUR_DIR / 4 UD_OR_LR / 5 FOUR_DIR_FIXED the facing's own slot. An empty slot plays nothing. Every name of the entry in
+   * `names` gives way to that one copy, at the first one's place. `unflip`: a copy picked from an entry with its own RIGHT
+   * and LEFT copies (백파이프 S2 / S3 `_right` / `_left`) is authored for that side — not mirrored again [ASSUMED].
+   */
+  const dirPick = (v, names) => dirCopies(bindOf(v)?.dirs, names, ['UP', 'RIGHT', 'DOWN', 'LEFT'].indexOf(facingDir(v)), (v.visFacing ?? v.facing ?? 1) < 0);
   // prefabs a kit event here draws instead (余 S3's wall piece: one per tile along the wall, not one on him)
   const KIT_OWNED = new Set(['yu_skill3_range_01']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
@@ -1262,7 +1308,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const rate2 = gameRate();
       for (let i = live.length - 1; i >= 0; i--) {
         const l = live[i];
-        if (l.view && l.view.alive !== false && !l.view.remove) l.inst.object.position.set(l.view.x, l.view.y, l.view.z || 0);
+        if (l.view && l.view.alive !== false && !l.view.remove) {
+          l.inst.object.position.set(l.view.x, l.view.y, l.view.z || 0);
+          const r = l.view.rot;   // local patch (report 5 #5-2): its mount point's turn (lifted)
+          if (r != null && l.inst.nodes?.[0]) l.inst.nodes[0].rotation.set(0, 0, r);
+        }
         // local patch (user 2026-10-07: 蕾缪安's beams must come straight down from the sky wherever the target stands): the
         // effect's +y turned to the camera's up — a line along it projects to a screen-vertical line at any place
         if (l.skyward) {
