@@ -65,6 +65,7 @@
 import { COLS } from '../../../constants.js';
 import { bodyOnTile } from '../../../body.js';
 import { enemyStealthed } from '../../../targeting.js';
+import { DEPLOY_REFUSED_TILES } from '../../../grid.js';
 import { talentBb } from '../shared/tier1.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -93,6 +94,13 @@ const RETURN_USES_STOCK = false;
  * tile_end / tile_end_cooperate / tile_allygoal, tile_start / tile_start_cooperate / tile_enemygoal, tile_hole.
  */
 const FOLLOWER_EXCEPT_TILES = new Set(['tile_end', 'tile_end_cooperate', 'tile_allygoal', 'tile_start', 'tile_start_cooperate', 'tile_enemygoal', 'tile_hole']);
+/**
+ * Nor a tile whose mechanism refuses deployment (grid.js DEPLOY_REFUSED_TILES: 深水区 tile_deepsea), although the grid
+ * makes it 「不可部署地块」 ground, the 跟子's first class — user decision 2026-10-08 (report 5 #5-1: 跟子 stood in
+ * act2 m04's deep water; 「해당 타일은 발판 같은 기물이 있어야 배치가 가능한 특수 타일」, the 特制水上平台 the sim does not model)
+ * [not in the client mask 14 above]. Every 跟子 tile goes through followerClass: the talent's, S3's on enemy tiles.
+ */
+const FOLLOWER_REFUSED_TILES = DEPLOY_REFUSED_TILES;
 const WANG_S3_EXTRA = 3; // "第一天赋额外至多部署3枚棋子"
 
 function stonesOf(battle, owner) {
@@ -253,7 +261,7 @@ function wang(bb, chess, def) {
     const occ = battle.unitAt(r, c);
     if (occ && !isFollower(occ)) return null; // no character unit
     const t = battle.grid.tile(r, c);
-    if (FOLLOWER_EXCEPT_TILES.has(t.key) || t.special === 'start' || t.special === 'end') return null; // local patch
+    if (FOLLOWER_EXCEPT_TILES.has(t.key) || FOLLOWER_REFUSED_TILES.has(t.key) || t.special === 'start' || t.special === 'end') return null; // local patch
     if (t.build === 'NONE') return t.pass === 'ALL' && t.height === 'LOW' ? 0 : null;
     return t.height === 'LOW' ? 1 : 2;
   };

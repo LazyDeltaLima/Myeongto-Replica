@@ -371,6 +371,7 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
     const wu = b.allyUnits.find((u) => u.kind === 'op');
     assert.equal(wu.def.charId, CHAR);
     const pairs = new Map(); // "r,c:idA+idB" → { kind, last } at the tick the pair first shared the tile
+    const deep = new Set(); // 跟子 seen on a 深水区 tile (report 5 #5-1)
     let s3 = 0;
     while (!b.finished && b.time < until) {
       const before = new Map([...b.allyUnits].map((u) => [u, u.alive && u.deployed]));
@@ -379,6 +380,7 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
       const at = new Map();
       for (const u of b.allyUnits) {
         if (!u.alive || !u.deployed || u.removed) continue;
+        if (u.mem?.wangFollower && b.grid.tile(u.tileR, u.tileC).key === 'tile_deepsea') deep.add(u.id);
         const k = `${u.tileR},${u.tileC}`;
         (at.get(k) ?? at.set(k, []).get(k)).push(u);
       }
@@ -392,7 +394,7 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
       }
     }
     m.dispose?.();
-    return { pairs: [...pairs.values()], seen, s3, errors: b.errors };
+    return { pairs: [...pairs.values()], seen, s3, deep: deep.size, errors: b.errors };
   };
   const LAYOUTS = {
     // the six stones round her (10,5) on the m04 lanes: S3 deployments and returns among them
@@ -400,6 +402,8 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
     // two lanes further off: S1 refills, returns whose 跟子 land on a neighbour's home tile
     far: [[12, 4], [9, 7], [12, 7], [9, 8], [12, 8], [9, 9]],
     one: [[10, 4]],
+    // next to m04's 深水区 column 6 (rows 10–12): a stone's 跟子 would take the water first (「不可部署地块」, class 0)
+    side: [[11, 5], [12, 5], [10, 7], [11, 7], [12, 7], [9, 6]],
   };
   for (const [sk, layout, seed] of [[0, 'far', 1], [1, 'one', 2], [2, 'near', 1], [2, 'one', 1]]) {
     test(`S${sk + 1} ${layout} seed ${seed}: no two placed stones / 跟子 on a tile — only a return onto a 跟子 overlaps`, async () => {
@@ -414,6 +418,16 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
         // the stone is the one that came: its return (Battle.redeploy) — never a stock deployment, never a 跟子 landing on a stone
         assert.ok(p.last.includes('S:redeploy') && !p.last.includes('S:stock') && (p.last.length === 1 || p.last.includes('F:follower')), JSON.stringify(p));
       }
+    });
+  }
+  // report 5 #5-1 (user decision 2026-10-08): no 跟子 on 深水区 — the talent's around a stone, S3's on enemy tiles. Before
+  // the fix these runs put 1–7 跟子 each in m04's water (19 in all over the scratch check of six runs).
+  for (const [sk, layout, seed] of [[1, 'side', 2], [2, 'near', 1], [2, 'side', 1], [0, 'near', 4]]) {
+    test(`S${sk + 1} ${layout} seed ${seed}: no 跟子 on a 深水区 tile (report 5 #5-1)`, async () => {
+      const r = await runWang({ sk, stones: LAYOUTS[layout], seed, until: 90 });
+      assert.equal(r.errors.length, 0);
+      assert.ok(r.seen.follower > 0, `跟子 were built (${JSON.stringify(r.seen)})`);
+      assert.equal(r.deep, 0, 'no 跟子 stood in the deep water');
     });
   }
 });
