@@ -213,7 +213,6 @@ function chen3(bb, chess, def) {
       // 赤霄·天喟: the 剑气 + range 3-12, each attack ≤ max_target ground enemies × 3 hits at attack@atk_scale
       skchr_chen3_3: {
         kind: 'duration',
-        hitsFly: true, // local patch: the 剑气 hits flyers — a flyer on the 3-12 casts it too (local-skill-range.js)
         targeting: { rangeGrid: skillGridOf(def), maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), showOwnRange: true },
         attack: { atkScale: num(bb['attack@atk_scale'], 1.8), hits: 3, maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), groundOnly: true, canHitFly: false },
         onStart({ battle, unit }) { releaseQi(battle, unit); },

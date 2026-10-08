@@ -24,9 +24,12 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 **upstream이 같은 것을 넣어서 뺀 local patch**
 - 원본 버그 수정 선반영 10건(아래 절) — 0.2.0에 모두 들어 있다(#199 울피안은 upstream 방식 `downAtHome`).
 - 협동 보스 HP × 생존 인원, 胄 드론 몫 限伤 통과 — upstream이 PR #209를 채택(`gamedata.js bossPoolShareOf`, `Battle.loseHp noHitLimit`).
-  upstream은 **싱글 보스 HP를 bloodPoint ×1**로 바꿨다(우리 이전 문서는 ×0.25). 원작자 결정이라 그대로 둔다.
+  upstream은 싱글 보스 HP를 bloodPoint ×1로 바꿨지만, **우리는 싱글 ×0.25로 되돌렸다**(91900cf5, 사용자 결정 2026-10-07: 혼자서는
+  팀원이 없다 — `server/match/gamedata.js bossPoolShareOf`의 `solo` 기본값, `tools/build-data.mjs` → `data/config.json bossHpScale.solo`).
+  협동은 upstream의 × 생존 인원 그대로.
 - 스킬 범위 발동(a0da6834, 사용자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(사용자 결정 2026-10-07: upstream 사용). 「미확정」 표시는 유지.
-  `local-skill-range.js`·관련 테스트 삭제. 赤刃明霄陈 S3를 공중 적만으로 켜던 `hitsFly`는 upstream 규칙에 없다.
+  `local-skill-range.js`·관련 테스트 삭제. 赤刃明霄陈 S3를 공중 적만으로 켜던 `hitsFly`는 upstream 규칙에 없다 — 읽는 곳이 없던
+  남은 플래그는 `kits/ops/op-chen3.js`에서 지웠다(2026-10-08 세션 K, 동작 영향 없음: golden 전부 일치).
 - 사야 늑대(PR #225)·와파린·라플란드·페페 등은 upstream 구현으로 대체, PR #225가 바꾼 upstream 테스트는 upstream 판으로 되돌렸다.
 
 **선발 오퍼레이터 → upstream 「自选」 틀 (사용자 결정: 후보는 우리 5명만, 시제품 없음)**
@@ -53,6 +56,15 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 - 우리 설계 문서의 15.1절(공식 스테이지 씬)은 upstream이 설계 문서를 다시 써서 `docs/local/official-scenes.md`로 옮겼다.
 - `data/assets.json`은 우리 생성기로 다시 만들었다(`fetch-assets --add-only --allow-shrink`: 공유 `public/assets`에 없는 파일만 받음).
 - 0.2.0 개발 의존성(eslint·typescript)이 생겼다: `npm ci`.
+
+**병합 뒤 겹친 기능 정리 — 대사·전투 화면 (2026-10-08 세션 K)** (조사 목록: `STRONGHOLD.md` §11 「0.2.0 병합으로 겹친 기능」)
+- K-1·K-2 선발·补位 기물의 정비 탭 대사와 스킬 대사 유형 → 아래 「오퍼레이터 음성」 로컬 2.
+- K-3 보스 라운드 정비의 짝 기물(upstream ef101647 `render/app.js syncMates`)도 공식 장비 바(`setEquip`) — 옛 초록 아이콘이 섞이던 것.
+  확인: 실제 협동 판(`test/e2e/fastServer.mjs` SP_START_ROUND=boss, 사람 2명이 아이템 장착, `sp-check\k_mates.mjs`), 단위 `test/local-patch-hud.test.js`.
+- K-4 引星棘刺 S2 炼金单元 등 떨어진 곳의 오래가는 zone은 2D 원을 남김 → 아래 「공식 전투 이펙트」 7번 예외.
+- K-5 埃芒加德·M3茧甲 부활(upstream a3a0ddd2: 쓰러짐 + 그 자리 즉시 무료 재배치)은 지금 일반 자동 재배치와 똑같이 보인다(실제 판 확인: 같은 틱
+  'die' → 'deploy', 사망음 + 部署 대사 + 배치음 + `onDeploy` 하늘 낙하). 공식 부활 연출의 클라이언트 근거는 못 찾음 — **사용자 결정 대기**(STRONGHOLD.md §11).
+- K-6 문서: 싱글 보스 HP ×0.25(91900cf5) 반영, `op-chen3.js`의 읽는 곳 없는 `hitsFly` 삭제.
 
 ## 원칙
 **2026-10-07부터 하드 포크**: upstream v0.2.0 병합이 마지막이다(사용자 결정, `STRONGHOLD.md` 2·5장). 그래서 예전의
@@ -113,7 +125,8 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 ## 게임 수치 수정 상세 (2026-10-05)
 
 ### 협동 보스 HP
-> 0.2.0: upstream이 같은 규칙을 넣어 우리 패치를 뺐다(싱글은 upstream이 ×1로 바꿈). 아래는 기록.
+> 0.2.0: upstream이 같은 협동 규칙을 넣어 우리 패치를 뺐다. 싱글은 upstream이 ×1로 바꿨으나 우리는 ×0.25로 되돌렸다(91900cf5,
+> 사용자 결정 2026-10-07 — 위 「0.2.0 병합」). 아래는 기록.
 - 원본: 협동은 인원과 관계없이 `bloodPoint[난이도]` 하나, 싱글은 ×0.25. 공식 데이터·PRTS에 인원 계수는 없다(원본 이슈 #113, PR #126 모두 근거 없음을 인정).
 - 로컬: 협동 = `bloodPoint` × 최종 공세/히든 코어 시작 때 살아 있는 인원(1~4). 싱글은 원본 그대로.
   - 나간 사람은 서버가 탈락 처리하므로(`Match.onLeave` → `_quit`) 세지 않는다. HP가 0이 돼 탈락한 사람도 빠진다. AI 팀원은 센다.
@@ -237,6 +250,12 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   (이름만 — 그 소리에 대사가 들어 있다는 것은 사용자 플레이 기억 [추정]). 확인: 실제 솔로 판 실제 마우스 끌기 + 방향 확정
   (`sp-check\sd_check.mjs`) → b_char_set + 배치 대사, 자동 배치·정비 복귀는 대사 없음. 단위 `test/local-patch.test.js` 「部署 line」.
   확인: Windows `sp-check\vr_voice.mjs <port> <out>`(실제 솔로 판: 상점 카드 클릭 구매 → 배치음만, 탭 3번 → 선택 대사 3번, 드래그 → 없음).
+  **0.2.0 선발·补位 (2026-10-08 세션 K, K-1·K-2)**: 0.2.0의 선발 슬롯 기록(`chess_char_*_diy*`)은 `charId`·`assets`가 비어 있어 정비 탭이 말이 없었고,
+  补位 기물은 대체된 원래 오퍼 목소리로 말했다 → `screens/game.js`가 내 기물이 보여 주는 기록(`ownShown`: 선발 픽의 오퍼, 补位는 대체 오퍼 — 预备干员은
+  음성 뱅크가 없어 전투 중 탭처럼 조용)을 `voiceForPiece(piece, shown)`에 넘긴다. 스킬 대사 유형(`voicePolicy skillOf`)도 슬롯·원래 오퍼의 스킬을 봐서
+  자동 스킬이 모두 수동(70, 쿨다운 없음)이었다 → `voice.js unitSkillOf`: 유닛 모델(`spine`)이 기록의 `charId`와 다르면 그 캐릭터의 기물 상태 폼
+  (`data/backups.json`, 스킬 번호)으로 — 望 S1/S2·阿斯卡纶 S1은 SKILL_PASSIVE_IMP, 维什戴尔 S1은 _NOR. `voiceForPlace`는 렌더 정보의 `spine`을 써서 원래 맞음.
+  확인: 실제 솔로 판 `sp-check\k_voice.mjs <port> <out>`(전부 补位 + 디버그 패널 선발 3명, 마우스 탭, 4라운드), 단위 `test/local-patch.test.js` 「自选 / 补位」.
 - 이전 로컬 패치에서 뺀 것: 작전 개시(무작위 한 명)·스킬 대사·자체 겹침 규칙·자체 음량 — 원본 것으로 대체.
 - 로컬 3 — 공식 재생 규칙(2026-10-06, 사용자 결정; `public/js/voicePolicy.js`를 `voice.js`가 설치, `audio.js`에는 훅 몇 줄):
   클라이언트 `audio_data.json battleVoice` 값 그대로 — 전체 간격 없음, 우선순위(행동출발 100·행동개시 90·수동 스킬 70·자동 스킬 60/50(SP 10 이상/미만)·
@@ -1249,7 +1268,12 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     summon·buff·wave·pillar·element·healAoe·shield·shatter·strike·volley)를 안 그림(`fxgame.js standInOff`; 이벤트의 오퍼레이터 = `src` → `by` → `id`,
     소환물·장치는 예외; 회피·치명·DP·표식·빔·이동 화살표·단일 회복은 남김). 그 순간에 공식 프리팹이 있는 것은 그것으로: 维什戴尔 残影 폭발 'explode' →
     `wisdel_bomb_01_hit` [추정: 이름], 赤刃明霄陈 S2 'swordStorm' → `skchr_chen3_2 _hitGroups[0..5]`(`chen3_skill_02_hit_01~06` 차례로 [추정]),
-    丰川祥子 열광 'sunBurst' → Combat 모드 cast `oblvns_combat_01_start` [추정]. ③ 스킬 발동 금빛 기둥·육각(`fx.skill` burst)·`_aura`: 자기 시작·버프
+    丰川祥子 열광 'sunBurst' → Combat 모드 cast `oblvns_combat_01_start` [추정].
+    **예외 (2026-10-08 세션 K, K-4)**: 오퍼레이터에게서 0.5칸 넘게 떨어진 오래가는 'zone'(`key`가 있거나 지속 > 1초)은 2D 원을 남긴다
+    (`fxgame.js areaAway`) — 그 자리의 공식 프리팹(`…_token`·`…_range`)을 트는 곳이 없어서, 引星棘刺 S2 炼金单元(upstream f1e462ef: 1초마다 `key`로
+    다시 보냄)이 품질 low가 아니면 아무것도 안 보였다(실제 판 확인). 전수: 引星棘刺 S1·S2·S3, 锡人, 歌蕾蒂娅 漩涡, 号角 조명, 异客 폭풍 → 2D 원.
+    莫斯提马 S2(자기 자리)·纯烬艾雅法拉 방패(shield 유형)는 공식만. 공식 `thorn2_skill_0N_token`/`_range`를 그 자리에서 움직이며 트는 것은 남은 일
+    (클라이언트 배치 로직은 네이티브라 [추정]이 많음). ③ 스킬 발동 금빛 기둥·육각(`fx.skill` burst)·`_aura`: 자기 시작·버프
     이펙트가 없는 스킬(望 S1 `skchr_wang_1` — skills.ab에 이펙트 키 없음)도 공식 번들이 있으면 안 그림(`ownsSkill`) — 발동이 화면상 조용할 수 있다.
     ④ 소환물(토큰) 머리 위 노란 방패(`invuln`) 아이콘 안 그림(공식 캡처의 돌에 없음; 사용자 「소환물 위에 붙어 있는 노란 방패 모양 아이콘을 제거」) —
     뷰는 `UF.INVULN` 플래그만 알아 스킬의 짧은 무적과 구분 못 함 [추정: 소환물은 공식도 없음].
