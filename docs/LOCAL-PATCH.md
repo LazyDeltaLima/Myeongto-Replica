@@ -1271,9 +1271,27 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     (`cap-231814.png`)는 돌의 금빛·십자·연결선이 **공 위**(그림자에서 화면상 0.19칸)인데, 우리는 `_spawnLocation` 5대로 땅에 그려 돌의 루프(`sz` 십자 빛)가
     공 밑 그림자에 묻히고 첫 폭발만 보였다 → 탄생·跟子 이펙트(주인 따라감)와 연결선·활성 섬광을 공 중심(화면상 0.18칸, `fxgame.js STONE_BALL`·`ballZ`)에.
     폭발(`token_wang_skill_0N_hit*`)은 그대로 땅. 확인: Windows `sp-check\wst5.mjs`(디버그 아레나, `CAST=i`로만 발동) → `wst5b-zoom.png`.
-  - **跟子 이펙트 반복** [추정]: 跟子의 `wang_passive_01_buff`(고리·검은 연기, 한 번짜리 시스템)를 돌이 있는 동안 프리팹 길이(3초)마다 다시 튼다(`playAt cycle`;
-    캡처의 재능 돌은 서 있는 동안 검은 연기가 보임 — 클라이언트 루프 플래그는 원시 필드에서 확인 못 함). 놓은 돌의 `token_wang_birth_01_buff`는 자체 루프(`sz`)라
-    다시 틀지 않는다(첫 폭발 `bom (1)`이 3초마다 번쩍임). 확인: `wst7.mjs`(跟子 확대 60장) → `wst7a-grid.jpg`.
+    → **재제보 2-2로 일부 되돌림** (아래 「望 바둑돌 이펙트 재제보」): 탄생 십자는 다시 땅, 활성 휘감김·연결선만 공에.
+  - ~~**跟子 이펙트 반복** [추정]~~ (637a43e0, 2026-10-08 재제보 2-1에서 삭제): 跟子의 `wang_passive_01_buff`를 3초마다 다시 틀던 것. 캡처의 검은 연기는
+    탄생 이펙트가 아니라 활성 이펙트(`wang_passive_01_buff_02`의 `line` 메시)였다.
+  - **望 바둑돌 이펙트 재제보** (세션 B, 2026-10-08, `research/2026-10-08-report3-status.md` 2-1·2-2·2-7, 캡처·스크립트 `research/2026-10-08-wang-stone/`):
+    - **2-1 활성 이펙트 유지** (82b1b028): 「루프」로 보여야 하는 것은 활성(연결) 이펙트 — 놓은 돌 `token_wang_01_buff`(sktok_wang_N/TriggeredEffect
+      `_buffs[0].overrideEffectKey` = 버프 이펙트), 跟子 `wang_passive_01_buff_02`(투사체 `_triggeredEffect`). 둘 다 `line` 메시(검은·금빛 휘감김)가 클립의
+      `_Amount` 1 → 0으로 0.6초에 드러나고 그대로 남는다. 루트 효과 컴포넌트 원시 int #17이 상태 버프 거의 전부와 이 둘·탄생 이펙트 = 1, 폭발 = 0
+      [추정: `_isLoop`]. 우리는 클립·파티클이 끝나면(약 1초) 버렸다 → `playAt keep`으로 돌에 붙여 그 돌의 `die`(소모·회수)까지 유지. 그리고 정비에서 붙여 놓은
+      돌은 전투 첫 틱에 활성되는데 그 'wangLink'가 화면이 필드에 들어가기 전이라 `screens/game/early.js keepEarly`가 버렸다(fx라서) → 'wangLink'도 남김.
+      탄생 이펙트 `token_wang_birth_01_buff`에는 같은 `line` 메시가 꺼져 있다(외톨이 돌은 휘감김 없음 = 공식 캡처 아래쪽 돌).
+    - **2-2 탄생 십자는 땅** (bc4a202e, 사용자 정정: 「공이 아니라 공 밑 십자가 모양 이펙트가 타일 위치와 어긋남」): 탄생 이펙트의 루프 십자(`sz`/`sz1`: 땅 평면의
+      길이 1칸 납작한 쿼드)는 땅 표시 — 공식 캡처에서 팔이 타일 가장자리에서 가장자리까지, 타일 중간보다 8~10px(타일 ~250px) 위. 공 높이로 올리면 화면에서
+      약 0.15칸 위로 뜨고 원근 때문에 칸마다 다르게 어긋난다 → STONE_BORN은 돌 뷰의 땅. 활성 휘감김·연결선은 공에(캡처에서 공을 감쌈).
+    - **2-7 폭발** (8ede3fc9, 95c4e8d4): 돌에서는 클라이언트가 트는 것만 — sktok_wang_1/3 `_castEffects`, sktok_wang_2/ExplodeRow·Col·Cross `_effectKey`
+      (축마다), 跟子 투사체 `_effectOnTrigger`(`fxgame.js stoneBlastFx`). `_02`는 타격 이펙트(ExplodeRow `_hitEffects`, S3 跟子 `_effectsWhenHit`)라
+      같은 순간의 'dmg'로 범위 안 적·터뜨린 적마다(`stoneHit`, `inStoneBlast`). `token_wang_skill_03_hit_03`(모든 시스템 x+2칸 = S3 폭발 사본)은 어디서도
+      참조하지 않아(charpack, 토큰 번들, `[uc]` 6개, 표) 안 튼다 — 2칸 옆 두 번째 폭발과 ~9칸 직선 입자의 원인. 그리고 `fxplayer.js shapeSample`이
+      BoxShell/BoxEdge(15/16)의 크기를 두 번 곱했다 → S3 `lizi_l`이 ±1×±1.5칸 대신 ±2×±4.5칸. **사용자 결정(2026-10-08): 전체 적용** — 58 시스템·36 프리팹
+      (buff_sluggish, buff_autochess_frozen, 첸 S3 범위, 로즈몬티스 S3 …), 전후 `research/2026-10-07-user-issues-3/boxshell-before-after.png`.
+      남은 차이 [추정]: S3 `lizi2 (1)/(2)` 가는 호는 프리팹 자체가 반지름 2.2 원에서 나와 마름모 대각선 모서리를 조금 넘음(공식도 같다고 봄), 늘인 빌보드
+      pivot(`lizi2 (2)` 0.5, `sdx_line` 1, `baoci` −0.5) 미구현. 테스트 `test/render/wang-stone-fx.test.js`.
   - **6. 赤刃明霄陈 S3 용이 그녀를 가림** (세션 stronghold-1d 첸 포크, 공식 캡처 `cap-230329.png` + 공식 녹화 `첸 S3.mp4`: 용은 그녀 뒤):
     ① 용 버프는 클라이언트가 **한쪽만** 튼다 — `skchr_chen3_3/SwitchMode` `overrideEffectKey` = `chen3_skill_03_buff_L_01`이고, 그 프리팹 루트의 두 번째
     컴포넌트 `_rightEffect` = `chen3_skill_03_buff_R_01`(`_onlyCheckOnPlay` 0)은 오른쪽을 볼 때 대신 트는 사본이다. 우리는 이름 규칙(`effectsFor
