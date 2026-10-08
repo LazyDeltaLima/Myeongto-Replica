@@ -1366,11 +1366,35 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     아레나 전·후(HEAD 사본 3161 / 작업 트리 3162, Windows `sp-check\f_pair.sh`): 空弦 화살·발사 고리가 발 → 석궁, 新约能天使(angel2) 총구 섬광 발 → 총구,
     이격 니어 S3 시작·`buff_02_a`가 발 → 무기·머리 높이, 비르투오사 S3 그대로, 첸 S2(위 변화). **실제 판**(`f_real.mjs`, 솔로 판 정비에 维什戴尔 S3·첸 S2 디버그 추가 → 전투):
     维什戴尔 꼬리가 총에서 출발, S3 버프·첸 S2 버프 재생 확인. 그림은 `research/2026-10-08-fx-spawn/`.
-  - **이격 스펙터 공격 원형(제보 4차 4-7)은 이 수정으로 안 바뀐다**: `ghost2_attack_start_01`은 `_spawnLocation` 1(FOOT)이고 모델에 Muzzle·shadow 점이 없다 — 데이터상 발.
+  - **이격 스펙터 공격 원형(제보 4차 4-7)은 이 수정으로 안 바뀐다**: `ghost2_attack_start_01`은 `_spawnLocation` 1(FOOT)이고 모델에 Muzzle·shadow 점이 없다 — ~~데이터상 발~~
+    (**틀림**, 세션 L: 같은 루트의 FollowMountPoint가 5 = SPECIAL_0 = 톱날 링 본이라 공식은 톱날을 따라간다 — 아래 「이펙트 마운트 지점」).
     원형은 `daoguang*` 빌보드(카메라 정면, 재질 `daoguang_21_ab_ZT` `_ZTest` 0 = 깊이 검사 없음). ~~우리 `fxplayer.js` 바닥 자르기가 바닥 아래 반을 버린다~~
     — **기각**(2026-10-08 report-triage 반박 검증, `research/2026-10-08-orchestration/triage-report4.md` 4-7): 자르기는 노드가 원점보다 0.25(`UNDER_FLOOR`)
     넘게 아래이고 **깊이 검사 재질**일 때만 켜지는데(`fxplayer.js` `under`·`setFloor`), daoguang 3노드는 발 원점(−.002, −.006, .028)이고 `_ZTest` 0이라 둘 다 해당 없음.
     4-7의 원인은 다시 조사 중(사용자 교정 2026-10-08: 평타가 아니라 S2 발동의 붉은 원형) — 결론은 그 조사에서 적는다.
+    → **결론(세션 L)**: 원인은 바닥 자르기도 `_spawnLocation`도 아니고, 추출기·바인딩·재생기가 모르던 **FollowMountPoint 컴포넌트**와 S2 모드
+    `GeneralAbilities` 버프 이펙트(`ghost2_skill_02_buff_02`)를 아예 안 틀던 것 — 아래 절.
+
+### 이펙트 마운트 지점 FollowMountPoint — 스펙터 디 언체인드 S2 붉은 원형 (세션 L, 2026-10-08, 사용자 제보 4차 4-7)
+- 사용자(2026-10-08): S2 발동의 붉은 원형은 무기(톱날)에 붙어 따라가고 적과 겹쳐도 적 위에 떠 있어야 한다. 대역(替身) 전환 뒤 파란 2종(1칸 남짓 원 → 3×3 물결)은 바닥이 맞다.
+- 근거(클라이언트 데이터): 이펙트 프리팹 루트의 MonoBehaviour `FollowMountPoint`(MonoScript PathID `0x7b5c342088cfcad4`) — 이름 뒤 int 7개 = global-metadata
+  필드 표 순서 `_mountPointType, _followScaleSign, _followScale, _pauseWhenMountPointInvalid, _onlyPauseWhenMountPointInvalid, _keepOriginRotation, _useBehaviourPause`.
+  `MountPointType` 상수(메타데이터 필드 기본값): **0 FOOT, 1 HIT, 2 MUZZLE, 3 HEAD, 4 UI, 5 SPECIAL_0, 6 SPECIAL_1, 7 GROUND, 8~21 SPECIAL_2~15** — SpawnLocation과
+  번호가 다르다(UI·GROUND는 문자열 중복 제거로 이름 표에 안 보임). 추출 프리팹의 (spawn, mount) 쌍이 모두 맞는다(8↔5 98개, 10↔8 14개, 3↔2 12개 …).
+- 스펙터 디 언체인드: S2 모드 `Body/GeneralAbilities/Ability0` 버프 `ghost_s_2[effect]` → `ghost2_skill_02_buff_02`(붉은 원, 마운트 5 = 톱날 링 `B_W_Ring`/`F_W_Ring`,
+  `pauseWhenInvalid` 1)·`_buff_03`(눈 빛, 6 = `F_L_Eyeball`/`B_L_Eye`). 평타 `ghost2_attack_start_01`·S3 `skill_03_start_01`·`skill_03_buff_02`도 마운트 5.
+- 구현: `fx_extract.py mount_point` → JSON `mount`(0e8f3fda); `char_modes.py`가 모드 GeneralAbilities 버프의 `overrideEffectKey`를 `attach`에 —
+  **`GENERAL_BUFF_CHARS`(ghost2만)**(470969bf); `fxpoints.js mountSpawn`(마운트 → 같은 점의 `_spawnLocation`, UI·GROUND는 null)·`boneMissing`, `fxgame.js lifted()`가
+  `mount`를 `_spawnLocation`보다 먼저 쓰고(같은 본 getter로 매 프레임 따라감), `pauseWhenInvalid`면 지금 스켈레톤에 그 점의 본이 하나도 없을 때 업데이트를 멈춤
+  (끄는 중이면 계속 — 5071f4bb, 매핑 정정 c2d21a87). 적 앞: `baoshan` 원은 fudge −50, 점 입자는 order 2 → 분할(high)에서 FX_FRONT(기존 규칙). 분할이 꺼진 품질은 예전대로 유닛 아래.
+- ghost2만 재추출(마운트 프리팹 5개만 반영; 같이 재추출하면 `skill_02_buff_01`·`beidong_buff_01(_end)`·`skill_01_buff`·`skill_03_buff_01`에 세션 H 내장 Quad `bg_01`이
+  생겨 이전 파일로 둠 — H-3 「텍사스만」). **배포 때 `oci/deploy.sh --fx`**(ghost2 JSON·modes.json).
+- **전체 적용은 사용자 결정 대기**: 우리 추출물 중 마운트 프리팹 359개(93 번들), 자리가 바뀔 것 174개(49 번들 — 텍사스 디 오메르토사 `buff_02_start`, 믈리나르, 비질 등 포함).
+  GeneralAbilities 버프 바인딩도 모두에게 켜면 7명(kroos2·whitw2·halo2·rockr·malist·ulpia·tippi) 바뀜. 목록 `research/2026-10-08-mount-points/`(작업 공간 루트).
+- 안 한 것: `_followScaleSign`·`_followScale`(좌우·크기 따라감), `_keepOriginRotation`(본 회전) — 위치만 따라간다.
+- 확인: 단위(`test/local-patch-fxspawn.test.js` mountSpawn·boneMissing·ghost2 추출물·바인딩), 아레나(`l_arena.mjs` — 평타 원형·S2 붉은 원이 발이 아니라 톱날 높이에서
+  톱날을 따라 움직이고 샌드백 앞에 그려짐), **실제 솔로 판**(`l_real.mjs` — S2 발동 뒤 톱날에 붉은 원, 프레임마다 톱날 위치를 따라감). 대역 전환 뒤 파란 2종은 아레나·판에서
+  전환을 못 일으켜 화면 확인 못 함 — 두 프리팹은 JSON·바인딩·코드 경로가 그대로(마운트 없음, spawn 5·1). 공식 녹화 없음(사용자 설명 기준).
 
 ### 정예 기물 금빛 (2026-10-08, 사용자 요청 「정예화된 오퍼는 휴식 기간에 황금빛으로 빛나는 이펙트」)
 - 근거: zh_CN `gamedata/battle/battle_misc_table.json` `miscConfig.AUTOCHESS.act1autochess`·`act2autochess.effectConfig.goldenEffectId`
