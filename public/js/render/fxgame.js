@@ -490,14 +490,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // local patch (user report 5 #5-2 — 아르케토 S3's cast fan stood upright; user's decision 2026-10-08 「전체 적용」): a
       // FollowMountPoint with `_keepOriginRotation` 0 gives the effect its point's turn too (fxpoints.js pointTurn) — the
       // frame loop turns the prefab root about the Unity frame's z (the board's normal: +x = column, +y = row, as aimMover)
-      // by it, inside the facing mirror. [ASSUMED] the sign: the bone's reported angle as is (아르케토 −90°) lays her fan —
-      // authored pointing +y up the board, its ring round its axis — along her shot, the ring standing across it
+      // by it, inside the facing mirror: 아르케토's fan (authored pointing +y up the board, its ring round its axis) lies along
+      // her shot, opening behind her with its spike toward the enemy (the user's account of the client, 2026-10-08). Taken
+      // once, as the effect starts (the first frame its bone is there), then kept [ASSUMED]: 니어 더 래디언트 나이트 S3's light
+      // lance (nearl2_skill_03_start `qiang`, on F_Weapon) thrusts forward at 0° while her lance swings back to ~160° in the
+      // next 0.5 s — following every frame turned the thrust backward (user 2026-10-08 「빛으로 된 창으로 찌르는 이펙트가 허전해」)
       const turns = def?.mount && def.mount.keepOriginRotation === 0;
+      let turn0 = null;
       return {
         get x() { return at().x; }, get y() { return at().y; }, get z() { return at().z; },
         get alive() { return v.alive; }, get remove() { return v.remove; },
         get paused() { return pause && boneMissing(points[v.info.spine || v.info.defId][key], v.actor?.spine?.skeleton); },
-        get rot() { return turns ? pointTurn(points[v.info.spine || v.info.defId][key], v.actor?.spine?.skeleton, !!v.entryBack) : null; },
+        get rot() { return turns ? (turn0 ??= pointTurn(points[v.info.spine || v.info.defId][key], v.actor?.spine?.skeleton, !!v.entryBack)) : null; },
         id: v.id, info: v.info,
       };
     }

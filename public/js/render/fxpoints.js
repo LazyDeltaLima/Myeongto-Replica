@@ -73,8 +73,10 @@ export function pointOn(entry, sk, back, out = { x: 0, y: 0 }) {
  * local patch (user report 5 #5-2, user's decision 2026-10-08 「전체 적용」): the turn (radians) of point `entry` on skeleton
  * `sk` now — the world rotation of the bone its side follows WITH its rotation (char_points.py `rot` 1: the point Transform
  * turns with the bone), the side picked as pointOn does — or null (no such bone, a fixed spot, a point that does not turn).
- * An effect whose FollowMountPoint has `_keepOriginRotation` 0 takes it (render/fxgame.js lifted `rot`). In the Spine
- * runtime's frame (y down) as the bone reports it: 아르케토's F_Muzzle / B_Muzzle read −90° in Skill_3 facing every way.
+ * An effect whose FollowMountPoint has `_keepOriginRotation` 0 takes it (render/fxgame.js lifted `rot`). The Spine runtime
+ * here reports angles in its y-down frame; the client's (Unity, y up) turn is the negative — 아르케토's F_Muzzle / B_Muzzle read
+ * −90° in Skill_3 facing every way, i.e. +90°: her S3 fan opens behind her, its spike toward the enemy (user 2026-10-08: facing
+ * down with the enemy on the right, the fan opens to the left; the first take, the angle as reported, had it the other way).
  * @param {{F?: {bone?: string, rot?: number}, B?: {bone?: string, rot?: number}}|null|undefined} entry
  * @param {{findBone: (name: string) => ({getWorldRotationX: () => number}|null)}|null|undefined} sk
  * @param {boolean} back
@@ -86,7 +88,7 @@ export function pointTurn(entry, sk, back) {
   const other = mine === entry.F ? entry.B : entry.F;
   for (const p of [mine, other]) {
     const b = p?.bone ? sk.findBone(p.bone) : null;
-    if (b) return p.rot === 1 && typeof b.getWorldRotationX === 'function' ? (b.getWorldRotationX() * Math.PI) / 180 : null;
+    if (b) return p.rot === 1 && typeof b.getWorldRotationX === 'function' ? (-b.getWorldRotationX() * Math.PI) / 180 : null;
   }
   return null;
 }

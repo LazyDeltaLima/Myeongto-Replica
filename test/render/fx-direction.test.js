@@ -58,11 +58,12 @@ test('L_OR_R: the side\'s own copy, not mirrored again; NONE: slot 0; an empty s
   assert.deepEqual(dirCopies(null, ['a', 'b'], 0, false).names, ['a', 'b']);
 });
 
-test('pointTurn: the bone\'s world rotation (radians) when the point turns with it, else null', () => {
+test('pointTurn: the bone\'s world rotation (radians, y up) when the point turns with it, else null', () => {
   const sk = { findBone: (n) => (n === 'F_Muzzle' || n === 'B_Muzzle' ? { getWorldRotationX: () => -90 } : null) };
   const entry = { F: { bone: 'F_Muzzle', rot: 1, at: [168, 230] }, B: { bone: 'B_Muzzle', rot: 1, at: [169, 243] } };
-  assert.equal(pointTurn(entry, sk, false), -Math.PI / 2);
-  assert.equal(pointTurn(entry, sk, true), -Math.PI / 2);
+  // the runtime's y-down angle −90° is the client's +90° (her fan opens behind her — user 2026-10-08)
+  assert.equal(pointTurn(entry, sk, false), Math.PI / 2);
+  assert.equal(pointTurn(entry, sk, true), Math.PI / 2);
   assert.equal(pointTurn({ F: { bone: 'F_Muzzle', rot: 0 } }, sk, false), null, 'a point that does not turn');
   assert.equal(pointTurn({ F: { at: [0, 400] } }, sk, false), null, 'a fixed spot');
   assert.equal(pointTurn(entry, null, false), null);
@@ -70,7 +71,8 @@ test('pointTurn: the bone\'s world rotation (radians) when the point turns with 
 
 test('a mounted effect with _keepOriginRotation 0 turns its root about the board normal every frame', () => {
   assert.match(SRC, /const turns = def\?\.mount && def\.mount\.keepOriginRotation === 0;/);
-  assert.match(SRC, /get rot\(\) \{ return turns \? pointTurn\(/);
+  // taken once as it starts (니어 더 래디언트 나이트 S3's lance thrust), then kept
+  assert.match(SRC, /get rot\(\) \{ return turns \? \(turn0 \?\?= pointTurn\(/);
   assert.match(SRC, /if \(r != null && l\.inst\.nodes\?\.\[0\]\) l\.inst\.nodes\[0\]\.rotation\.set\(0, 0, r\);/);
   // the directional pick runs on every play()
   assert.match(SRC, /const \{ names, unflip \} = dirPick\(view, given \|\| effectsFor\(b\.prefabs, kind, skillIndex\)\);/);
