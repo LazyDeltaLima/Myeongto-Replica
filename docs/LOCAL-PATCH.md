@@ -1330,8 +1330,10 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     이격 니어 S3 시작·`buff_02_a`가 발 → 무기·머리 높이, 비르투오사 S3 그대로, 첸 S2(위 변화). **실제 판**(`f_real.mjs`, 솔로 판 정비에 维什戴尔 S3·첸 S2 디버그 추가 → 전투):
     维什戴尔 꼬리가 총에서 출발, S3 버프·첸 S2 버프 재생 확인. 그림은 `research/2026-10-08-fx-spawn/`.
   - **이격 스펙터 공격 원형(제보 4차 4-7)은 이 수정으로 안 바뀐다**: `ghost2_attack_start_01`은 `_spawnLocation` 1(FOOT)이고 모델에 Muzzle·shadow 점이 없다 — 데이터상 발.
-    원형은 `daoguang*` 빌보드(카메라 정면, 재질 `daoguang_21_ab_ZT` `_ZTest` 0 = 깊이 검사 없음)인데 우리는 `fxplayer.js` 바닥 자르기(`vH < uFloor discard`)로
-    바닥 아래 반을 버린다 — 클라이언트는 원 전체를 그릴 것으로 보임 [추정]. fxplayer 담당 범위라 고치지 않음(공식 영상과 나란히 비교 필요).
+    원형은 `daoguang*` 빌보드(카메라 정면, 재질 `daoguang_21_ab_ZT` `_ZTest` 0 = 깊이 검사 없음). ~~우리 `fxplayer.js` 바닥 자르기가 바닥 아래 반을 버린다~~
+    — **기각**(2026-10-08 report-triage 반박 검증, `research/2026-10-08-orchestration/triage-report4.md` 4-7): 자르기는 노드가 원점보다 0.25(`UNDER_FLOOR`)
+    넘게 아래이고 **깊이 검사 재질**일 때만 켜지는데(`fxplayer.js` `under`·`setFloor`), daoguang 3노드는 발 원점(−.002, −.006, .028)이고 `_ZTest` 0이라 둘 다 해당 없음.
+    4-7의 원인은 다시 조사 중(사용자 교정 2026-10-08: 평타가 아니라 S2 발동의 붉은 원형) — 결론은 그 조사에서 적는다.
 
 ### 정예 기물 금빛 (2026-10-08, 사용자 요청 「정예화된 오퍼는 휴식 기간에 황금빛으로 빛나는 이펙트」)
 - 근거: zh_CN `gamedata/battle/battle_misc_table.json` `miscConfig.AUTOCHESS.act1autochess`·`act2autochess.effectConfig.goldenEffectId`
