@@ -1141,7 +1141,8 @@ describe('kit skill hit sounds (tools/assets/kit-sfx.mjs → sfx.kit, public/js/
     const { KIT_HIT_BANKS } = await import('../tools/assets/kit-sfx.mjs');
     const { readFileSync } = await import('node:fs');
     const m = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
-    for (const key of Object.keys(KIT_HIT_BANKS)) assert.match(m.audio.sfx.kit?.[key] || '', /\/p_(imp|atk)\/.+\.mp3$/, key);
+    // (+ p_skill: 归溟幽灵鲨's 替身 switch, user report 4 #4-2 — test/local-patch-skill-music.test.js)
+    for (const key of Object.keys(KIT_HIT_BANKS)) assert.match(m.audio.sfx.kit?.[key] || '', /\/p_(imp|atk|skill)\/.+\.mp3$/, key);
     assert.match(m.audio.sfx.units.char_1035_wisdel.hit, /p_imp_dkmrcaygn_n\.mp3$/);
   });
 

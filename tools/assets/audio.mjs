@@ -84,6 +84,13 @@ export function indexAudio(audioData) {
     if (list.length && !limits.has(list) && Number.isInteger(b.maxSoundAllowed) && b.maxSoundAllowed > 0) limits.set(list, { max: b.maxSoundAllowed, pop: b.popOldest === true }); // local patch
     if (b.loop === true && list.length) loopBanks.push({ name: b.name, paths: list }); // local patch
   }
+  // local patch: bank → { by, fade } of the control banks that cut it (soundFXCtrlBanks ctrlStop: 塑心 S3's melody stops on
+  // ON_SKILL_FINISH.skchr_cello_3) — skill-mode-sfx.mjs skillExtras
+  const stops = new Map();
+  for (const c of Array.isArray(audioData?.soundFXCtrlBanks) ? audioData.soundFXCtrlBanks : []) {
+    if (c && c.ctrlStop === true && typeof c.targetBank === 'string' && typeof c.name === 'string' && !stops.has(c.targetBank)) stops.set(c.targetBank, { by: c.name, fade: Number(c.ctrlStopFadetime) || 0 });
+  }
+  const loopNames = new Set(loopBanks.map((l) => l.name)); // local patch
   const alias = audioData?.bankAlias && typeof audioData.bankAlias === 'object' ? audioData.bankAlias : {};
   const bank = (name, depth = 0) => {
     if (banks.has(name) && banks.get(name).length) return banks.get(name);
@@ -124,7 +131,10 @@ export function indexAudio(audioData) {
   const mixOf = (paths) => (paths && typeof paths === 'object' && mixes.get(paths)) || null;
   const groupOf = (paths) => (paths && typeof paths === 'object' && groups.get(paths)) || null; // local patch
   const limitOf = (paths) => (paths && typeof paths === 'object' && limits.get(paths)) || null; // local patch
-  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf, limitOf, loopBanks };
+  const stopOf = (name) => stops.get(name) || null; // local patch
+  const ctrlStops = [...stops].map(([name, v]) => ({ name, ...v })); // local patch
+  const isLoop = (name) => loopNames.has(name); // local patch
+  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf, limitOf, loopBanks, stopOf, isLoop, ctrlStops };
 }
 
 /** Sort key for ability sub-keys: plain first, then numeric suffixes ascending. */

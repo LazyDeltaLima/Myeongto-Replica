@@ -174,7 +174,7 @@ export function unitGroups(audio, roles, skillPaths = {}) {
 }
 
 /** Events of a skill's looping bank (the loop runs while the skill does). */
-const LOOP_EVENTS = 'ON_SKILL_START|ON_ABILITY_START|ON_ABILITY_ON|ON_BUFF_START|ON_CUSTOM_TRIGGER';
+const LOOP_EVENTS = 'ON_SKILL_START|ON_ABILITY_START|ON_ABILITY_ON|ON_ABILITY_END|ON_BUFF_START|ON_CUSTOM_TRIGGER'; // ON_ABILITY_END: 烛煌 S3's field after its cast (report 4 #4-2)
 
 /**
  * sfx.units[charId].loops: per skill index, the official looping bank the skill keeps playing while it runs (丰川祥子 S3's
@@ -206,6 +206,60 @@ export function skillLoops(audio, charId, skills, soundLeaf, startPaths = {}) {
     if (m && Number.isFinite(m.vol)) e.vol = m.vol;
     if (startPaths[String(s.index)] === b.paths) e.start = true;
     out[String(s.index)] = e;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** Mixer groups of a skill's own one-shot (not an attack / impact): its start-like sounds. */
+const EXTRA_GROUPS = new Set(['Battle_Skill_Important', 'Battle_UI_Boost', 'Battle_P_Field']);
+/** The shared start cues (b_char_atkboost / tactboost …): every skill's generic sound, never a skill's own extra. */
+const GENERIC_CUE = /^battle\/b_char\//;
+
+/**
+ * local patch (user report 4 #4-2, 2026-10-08: 耀骑士临光 S3, 塑心 S3 「스킬 음악이 안 나온다」) sfx.units[charId].extras: per skill
+ * index, the official one-shot banks the skill plays as it starts besides its start sound (`skills[i]`) and its loop
+ * (`loops[i]`), which plan.mjs never picked:
+ *   - its own ability's start `ON_ABILITY_START.<skillId>` on a skill mixer group when the skill also has its own
+ *     ON_SKILL_START (耀骑士临光 S3: ON_SKILL_START b_char_atkboost + ON_ABILITY_START p_skill_goldspearboost1, 5.8 s;
+ *     塑心 S3 p_skill_shphrtcltrill) — the client fires the skill's ability as the skill starts [추정: same moment];
+ *   - a bank a control bank cuts at the skill's end (`ON_SKILL_FINISH|ON_ABILITY_END.<skillId>` ctrlStop): 塑心 S3's
+ *     melody `ON_BUFF_START.cello_s_3[audio]` (p_skill_shphrtcltrillmelody 20.4 s, cut 0.2 s), 莫斯提马 S2's layer.
+ * [{ url, grp?, vol?, stop? }] — `stop` = the fade (s) the client cuts it with when the skill ends.
+ * @param {{ bank: (n: string) => string[], groupOf?: Function, mixOf?: Function, isLoop?: Function, ctrlStops?: { name: string, by: string, fade: number }[] }} audio
+ * @param {string} charId
+ * @param {{ index: number, skillId?: string }[]} skills
+ * @param {(paths: string[]) => any} soundLeaf
+ * @param {Record<string, string[]>} [startPaths] skill index → its start sound paths (plan.mjs skillPaths)
+ */
+export function skillExtras(audio, charId, skills, soundLeaf, startPaths = {}) {
+  const groupOf = (p) => (typeof audio.groupOf === 'function' ? audio.groupOf(p) : null);
+  const isLoop = (n) => (typeof audio.isLoop === 'function' ? audio.isLoop(n) : false);
+  const out = {};
+  for (const s of Array.isArray(skills) ? skills : []) {
+    if (!s || !Number.isInteger(s.index) || !s.skillId) continue;
+    const start = startPaths[String(s.index)];
+    const found = new Map(); // bank name → { paths, stop? }
+    const own = `battle.ON_ABILITY_START.${s.skillId}`;
+    const op = audio.bank(own);
+    if (op?.length && op !== start && EXTRA_GROUPS.has(groupOf(op)) && !GENERIC_CUE.test(op[0]) && !isLoop(own)) found.set(own, { paths: op });
+    const ends = new Set([`battle.ON_SKILL_FINISH.${s.skillId}`, `battle.ON_ABILITY_END.${s.skillId}`]);
+    for (const c of Array.isArray(audio.ctrlStops) ? audio.ctrlStops : []) {
+      if (!ends.has(c.by) || isLoop(c.name)) continue;
+      const p = audio.bank(c.name);
+      if (!p?.length || p === start || GENERIC_CUE.test(p[0])) continue;
+      found.set(c.name, { paths: p, stop: Math.max(0, Number(c.fade) || 0) });
+    }
+    const list = [];
+    for (const { paths, stop } of found.values()) {
+      const e = { url: soundLeaf(paths) };
+      const g = groupOf(paths);
+      if (g) e.grp = g;
+      const m = typeof audio.mixOf === 'function' ? audio.mixOf(paths) : null;
+      if (m && Number.isFinite(m.vol)) e.vol = m.vol;
+      if (stop != null) e.stop = stop;
+      list.push(e);
+    }
+    if (list.length) out[String(s.index)] = list;
   }
   return Object.keys(out).length ? out : null;
 }

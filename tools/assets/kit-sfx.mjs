@@ -42,6 +42,13 @@ export const KIT_HIT_BANKS = Object.freeze({
   'lemuen:mark': 'battle.ON_BUFF_SHOW_EFFECT.char_lemuen_range_aim',
   'lemuen:s3end': 'battle.ON_ABILITY_START.char_4193_lemuen.attack.4',
   'lemuen:shell': 'battle.ON_PROJECTILE_REACH.projectile_chr_lemuen_s3_attack',
+  // 归溟幽灵鲨 (user report 4 #4-2, 2026-10-08 「S2 종료 후 대역 전환」): the switch to her <替身> (sim fx 'substitute',
+  // professions.js installDollkeeper) — its buff start p_skill_sharpstandborn and the stand-in's show effect
+  // p_skill_sharpstandspell (11.6 s, cut 0.8 s by ghost2_stand_effect_end: public/js/audio.js on her switch back / death);
+  // back to the 本体 (fx 'swap') ghost2_switch2normal p_skill_sharpborn
+  'ghost2:stand': 'battle.ON_BUFF_START.ghost2_switch2stand',
+  'ghost2:standin': 'battle.ON_BUFF_SHOW_EFFECT.ghost2_standin[switch]',
+  'ghost2:normal': 'battle.ON_BUFF_START.ghost2_switch2normal',
 });
 
 /**

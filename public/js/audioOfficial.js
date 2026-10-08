@@ -88,19 +88,24 @@ export function modeEntry(entry, skillIndex, role = null) {
 // new field. One per unit; the loops live on the manager (`_skillLoops`) and play on its sfx channel.
 const LOOP_FADE_S = 0.25;
 
-/** Start unit `key`'s loop of `url` at `gain` (a running one of that unit is replaced). */
-export function startSkillLoop(mgr, key, url, gain) {
+/**
+ * Start unit `key`'s loop of `url` at `gain` (a running one of that unit is replaced). local patch (report 4 #4-2):
+ * `o.loop` false = a one-shot held under that key so the skill's end can cut it (塑心 S3's melody: its ctrlStop bank),
+ * `o.fade` = the fade (s) stopSkillLoop cuts it with (default LOOP_FADE_S).
+ */
+export function startSkillLoop(mgr, key, url, gain, o = {}) {
   if (!mgr?.ctx || typeof url !== 'string' || mgr.volumes?.muted) return;
   stopSkillLoop(mgr, key);
   const loops = (mgr._skillLoops ||= new Map());
-  const rec = { url, src: null, gain: null, stopped: false };
+  const rec = { url, src: null, gain: null, stopped: false, fade: Number.isFinite(o.fade) && o.fade >= 0 ? o.fade : LOOP_FADE_S };
   loops.set(key, rec);
   Promise.resolve(mgr._buffer(url)).then((buf) => {
     if (!buf || rec.stopped || !mgr.ctx || loops.get(key) !== rec) return;
     try {
       const src = mgr.ctx.createBufferSource();
       src.buffer = buf;
-      src.loop = true;
+      src.loop = o.loop !== false;
+      if (!src.loop) src.onended = () => { if (loops.get(key) === rec) loops.delete(key); };
       const g = mgr.ctx.createGain();
       g.gain.value = Math.max(0, Math.min(1.5, gain));
       src.connect(g); g.connect(mgr.sfxGain);
@@ -121,10 +126,25 @@ export function stopSkillLoop(mgr, key) {
     const t = mgr.ctx.currentTime;
     rec.gain.gain.cancelScheduledValues(t);
     rec.gain.gain.setValueAtTime(rec.gain.gain.value, t);
-    rec.gain.gain.linearRampToValueAtTime(0, t + LOOP_FADE_S);
-    rec.src.stop(t + LOOP_FADE_S + 0.02);
+    rec.gain.gain.linearRampToValueAtTime(0, t + rec.fade);
+    rec.src.stop(t + rec.fade + 0.02);
   } catch { /* ignore */ }
 }
+
+/** local patch: stop every held sound of unit `id` — its loop (key `id`) and its held one-shots (keys `id:…`). */
+export function stopUnitLoops(mgr, id) {
+  const pre = `${id}:`;
+  for (const key of [...(mgr?._skillLoops?.keys() || [])]) if (key === id || String(key).startsWith(pre)) stopSkillLoop(mgr, key);
+}
+
+/**
+ * local patch (report 4 #4-2): the extra one-shots of a unit's skill (sfx.units[defId].extras[skillIndex], tools/assets/
+ * skill-mode-sfx.mjs skillExtras) — [{ url, grp?, vol?, stop? }], `stop` = cut with that fade when the skill ends.
+ */
+export const skillExtrasOf = (entry, skillIndex) => {
+  const l = Number.isInteger(skillIndex) ? entry?.extras?.[skillIndex] : null;
+  return Array.isArray(l) ? l.filter((x) => typeof x?.url === 'string') : [];
+};
 
 /** Stop every skill loop (a new field). */
 export function stopSkillLoops(mgr) {
@@ -135,6 +155,28 @@ export function stopSkillLoops(mgr) {
 export const skillLoopOf = (entry, skillIndex) => (Number.isInteger(skillIndex) && entry?.loops?.[skillIndex]?.url ? entry.loops[skillIndex] : null);
 /** Its gain: the bank's mixer group × its volume. */
 export const loopGain = (loop) => groupGain(loop?.grp) * (Number.isFinite(loop?.vol) && loop.vol > 0 ? loop.vol : 1);
+
+/**
+ * local patch (user report 4 #4-2, 2026-10-08 「이격 스펙터 S2 종료 후 대역 전환」): the sounds of a dollkeeper's form switch (sim
+ * professions.js installDollkeeper: fx 'substitute' = to the <替身>, 'swap' = back to the 本体, 'dollEnd' = the 替身 knocked
+ * out) as sfx.kit keys (tools/assets/kit-sfx.mjs): `play` one-shots, `hold` a one-shot held so the switch back cuts it
+ * (`fade` s: its ctrlStop bank ghost2_stand_effect_end 0.8 s), `stop` = cut the held one. [추정] the stand-in's show
+ * effect sounds with the switch (the buff's own timing is native code) and stops when she leaves the 替身.
+ * @param {string} def the unit's model id
+ * @param {string} fx the fx kind
+ * @returns {{ play: string[], hold: { key: string, fade: number }|null, stop: boolean }|null}
+ */
+export function dollSwitchSfx(def, fx) {
+  const d = DOLL_SFX[def];
+  if (!d) return null;
+  if (fx === 'substitute') return { play: d.on, hold: d.hold, stop: false };
+  if (fx === 'swap') return { play: d.off, hold: null, stop: true };
+  if (fx === 'dollEnd') return { play: [], hold: null, stop: true };
+  return null;
+}
+const DOLL_SFX = Object.freeze({
+  char_1023_ghost2: { on: ['ghost2:stand'], hold: { key: 'ghost2:standin', fade: 0.8 }, off: ['ghost2:normal'] },
+});
 
 /**
  * The own battle's end (round_result_dialog, ui/phaseArt.js BattleEndBanner) as its official state + sound

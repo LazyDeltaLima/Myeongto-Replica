@@ -48,7 +48,7 @@
 
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
-import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops
+import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, dollSwitchSfx } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras
 
 const MAX_VOICES = 8;
 const UNIT_COOLDOWN_MS = 160;
@@ -1050,6 +1050,15 @@ export class AudioManager {
     } catch (err) { this._warn('prep-deploy', err); }
   }
 
+  /** local patch (user report 4 #4-2): play a dollkeeper switch's sounds (audioOfficial.js dollSwitchSfx) as sfx.kit keys. */
+  _dollSwitch(id, ds) {
+    const sfx = this.getManifest()?.audio?.sfx;
+    const gain = (k) => groupGain(sfx?.kitGrp?.[k] ?? 'Battle_Skill_Important');
+    if (ds.stop) stopSkillLoop(this, `${id}:doll`);
+    for (const k of ds.play) if (typeof sfx?.kit?.[k] === 'string') this._play(sfx.kit[k], { volume: gain(k), limited: true, unitKey: `${id}:${k}` });
+    if (ds.hold && typeof sfx?.kit?.[ds.hold.key] === 'string') startSkillLoop(this, `${id}:doll`, sfx.kit[ds.hold.key], gain(ds.hold.key), { loop: false, fade: ds.hold.fade });
+  }
+
   /**
    * React to `b.ev` tuples (DESIGN §8.2).
    * @param {any[]} ev
@@ -1067,9 +1076,18 @@ export class AudioManager {
           const su = this.units.get(e[1]);
           if (su) {
             su.skillOn = !!e[2];
-            const loop = skillLoopOf(this.getManifest()?.audio?.sfx?.units?.[su.def], su.skillIndex); // its looping bank (music, field)
+            const ue = this.getManifest()?.audio?.sfx?.units?.[su.def];
+            const loop = skillLoopOf(ue, su.skillIndex); // its looping bank (music, field)
             if (loop && e[2]) startSkillLoop(this, e[1], loop.url, loopGain(loop));
             else if (!e[2]) stopSkillLoop(this, e[1]);
+            // local patch (user report 4 #4-2): its extra one-shots (耀骑士临光 S3, 塑心 S3's melody — held ones cut at its end)
+            if (e[2]) {
+              skillExtrasOf(ue, su.skillIndex).forEach((x, k) => {
+                const gain = loopGain(x);
+                if (Number.isFinite(x.stop)) startSkillLoop(this, `${e[1]}:x${k}`, x.url, gain, { loop: false, fade: x.stop });
+                else this._play(x.url, { volume: gain, limited: true, unitKey: `${e[1]}:x${k}` });
+              });
+            } else skillExtrasOf(ue, su.skillIndex).forEach((x, k) => stopSkillLoop(this, `${e[1]}:x${k}`));
             // modes[i].deferStart: a fallback start sound — it plays only for a skill that ended without an attack (its
             // attacks sound the skill's own attack sound, as the official ability signals do)
             if (!e[2] && su.startHeld) this.unit(su.def, 'skill', e[1], su.skillIndex ?? undefined);
@@ -1116,7 +1134,7 @@ export class AudioManager {
             else if (this.voicePolicy.encounter(now)) this.voicePolicy.encountered(this.voice(u.def, 'faceEnemy', { unitKey: e[1] })); // local patch: once per battle
           }
         } else if (kind === 'die') {
-          stopSkillLoop(this, e[1]); // local patch
+          stopUnitLoops(this, e[1]); // local patch: its loop and held one-shots
           const u = this.units.get(e[1]);
           if (!u) continue;
           const consumed = this.consumed.delete(e[1]);
@@ -1179,6 +1197,9 @@ export class AudioManager {
           if (e.lpFollower || ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
           this.playDeploySfx(u, e[1]);
         } else if (kind === 'fx') {
+          // local patch (user report 4 #4-2): a dollkeeper's form switch (归溟幽灵鲨: to the 替身 and back, audioOfficial.js)
+          const ds = e[4]?.id != null ? dollSwitchSfx(this.units.get(e[4].id)?.def, e[1]) : null;
+          if (ds) this._dollSwitch(e[4].id, ds);
           // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
           // local patch (user report 2026-10-07 #5): the skill's going-off sound first (kitStartKey), then its impact
           for (const hk of [kitStartKey(e[1], e[4]), kitHitKey(e[1], e[4], (id) => this.units.get(id))]) {
