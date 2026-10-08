@@ -127,6 +127,35 @@ describe('1. equip-replace dialog', () => {
     assert.equal(itemDestroyable(ctxOf(after), a.uid), false);
     h.invariants();
   });
+
+  // user report 2026-10-09: 变形同构体 + another item, then a normal 博士投影 (it stays equipped until the next round start):
+  // no dialog was shown and the server dropped the oldest item — the 变形同构体
+  test('a normal 博士投影 on a full operator asks too and replaces the picked item; the golden one is consumed (no dialog)', () => {
+    const h = makeMatch({ mode: 'solo', difficulty: 'FUNNY', humans: 1, seed: 5 });
+    h.start();
+    h.toPrep(1);
+    const m = h.m;
+    const ps = h.ps('p_0');
+    const chessId = Object.values(DATA.chess).find((c) => c.visible && !c.isGolden && c.tier === 1).chessId;
+    const at = legalTileFor(m, ps, chessId);
+    const unit = give(m, ps, chessId, 'board', at);
+    const iso = giveItem(m, ps, 'chess_item_6_09_e_a');
+    const other = giveItem(m, ps, A);
+    assert.equal(m.handle('p_0', { t: 'g.equip', itemUid: iso.uid, targetUid: unit.uid }).error, undefined);
+    assert.equal(m.handle('p_0', { t: 'g.equip', itemUid: other.uid, targetUid: unit.uid }).error, undefined);
+    const holo = giveItem(m, ps, 'chess_item_5_06_e_a');
+    const gold = giveItem(m, ps, 'chess_item_5_06_e_b');
+    h.flushAll();
+    const cx = ctxOf(h.lastTo('p_0', 'm.private'));
+    const tile = { area: 'board', row: at[0], col: at[1] };
+    assert.equal(dropIntent(cx, gold.uid, tile).confirmReplace, false, 'golden: promotes at once, takes no slot');
+    const intent = dropIntent(cx, holo.uid, tile);
+    assert.equal(intent.confirmReplace, true, 'normal: stays equipped, so the client asks');
+    const r = replaceIntent(intent, other.uid);
+    assert.equal(m.handle('p_0', { t: r.t, ...r.fields }).error, undefined);
+    assert.deepEqual(unit.items.map((x) => x.uid).sort(), [iso.uid, holo.uid].sort(), 'the picked item replaced, 变形同构体 kept');
+    h.invariants();
+  });
 });
 
 describe('2. boss-round countdown and the overtime (DOT) warning', () => {

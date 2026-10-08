@@ -39,7 +39,8 @@ export class PlayerItems {
       if (again && again.area !== 'equipped') this._detach(again);
       if (ev.keep) {
         const holder = this.find(target.uid);
-        if (holder && holder.piece.kind === 'chess') this._attach(holder.piece, item);
+        // the equipped item the replace dialog picked (a normal 博士投影 on a full carrier) — not the oldest one
+        if (holder && holder.piece.kind === 'chess') this._attach(holder.piece, item, replaceUid);
       }
       this.stats.itemsEquipped++;
       this.checkItemMerges();

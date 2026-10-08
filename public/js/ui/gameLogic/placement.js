@@ -392,9 +392,16 @@ function equipCheck(ctx, itemPiece, targetPiece) {
   return { ok: true, action: 'equip' };
 }
 
-/** Whether equipping `itemId` attaches it (true) or consumes it on equip (false: no slot is used / replaced). */
+/**
+ * Whether equipping `itemId` attaches it (true) or consumes it on equip (false: no slot is used / replaced). The normal
+ * 博士投影 (`consume_on_equip_or_delayed`, not golden) stays equipped until the next round start (server builtinMeta.js
+ * equip_round_start_upgrade_char `keep`), so it takes a slot like any equipment and a full carrier needs the replace dialog
+ * — without it the server dropped the oldest item, e.g. a 变形同构体 (user report 2026-10-09).
+ */
 export function itemAttaches(item) {
-  return !(typeof item?.kind === 'string' && item.kind.startsWith('consume_on_equip'));
+  if (typeof item?.kind !== 'string') return true;
+  if (item.kind === 'consume_on_equip_or_delayed') return !item.isGolden;
+  return !item.kind.startsWith('consume_on_equip');
 }
 
 /**
