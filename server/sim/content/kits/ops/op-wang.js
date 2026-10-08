@@ -198,6 +198,10 @@ function wang(bb, chess, def) {
       const s3 = unit.skill?.active && unit.skill.id === 'skchr_wang_3';
       const s3Here = s3 && inHerRange(unit, t.homeR, t.homeC);
       if (!s3Here && walkersOnTile(battle, t.homeR, t.homeC).length) continue;
+      // [추정] (report 3 #2-3, 2026-10-08) nor while a 跟子 of hers lies there: a 跟子 holds no tile (`_occ`, PRTS 「不具有单位
+      // 相关的性质（例如占据空位等）」), so Battle.redeploy would bring the stone back onto it — two stones on one tile. It waits
+      // until the 跟子 goes off, as it waits for a stone S3 put on its tile (the drop below)
+      if (stoneAt(stonesOf(battle, unit), t.homeR, t.homeC)) continue;
       if (placed(battle, unit).length >= st(unit).fieldCap) break; // never over the deploy limit (it would withdraw a stone)
       if (RETURN_USES_STOCK && st(unit).stock <= 0) break; // the stock is out: wait for S1 / S2 (user decision 2026-10-07)
       if (!battle.redeploy(t, { free: false })) continue;

@@ -408,6 +408,7 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
       assert.ok(r.seen.redeploy > 0 && r.seen.follower > 0, `returns and 跟子 happened (${JSON.stringify(r.seen)})`);
       if (sk === 2) assert.ok(r.s3 > 0, 'S3 ran');
       if (layout === 'one') assert.ok(r.seen.stock > 0, 'stones deployed from the stock');
+      assert.deepEqual(r.pairs, [], 'nothing of hers ever shares a tile (a used stone waits while a 跟子 lies on its home)');
       for (const p of r.pairs) {
         assert.equal(p.kind, 'F+S', `only a stone with a 跟子 ever shares a tile (${JSON.stringify(p)})`);
         // the stone is the one that came: its return (Battle.redeploy) — never a stock deployment, never a 跟子 landing on a stone

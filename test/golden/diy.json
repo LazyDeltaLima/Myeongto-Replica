@@ -290,9 +290,9 @@
       "bossHpLeft": null,
       "rngDraws": 162,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":13,"total":123,"perfect":false,"leaks":110,"leaksUncounted":0,"coins":0,"dmg":323729,"bossDmg":0,"heal":0,"deaths":13,"layerGains":{}}},
+      "players": {"p1":{"killed":13,"total":123,"perfect":false,"leaks":110,"leaksUncounted":0,"coins":0,"dmg":323740,"bossDmg":0,"heal":0,"deaths":13,"layerGains":{}}},
       "units": [
-        ["p1",1,"op","chess_char_5_diy1_a",0,null,0,0,194,3,58728,4872,0,20,52],
+        ["p1",1,"op","chess_char_5_diy1_a",0,null,0,0,193,3,58739,4872,0,21,52],
         ["p1",2,"op","chess_char_5_diy2_a",1,null,0,0,163,3,9256,3248,0,17,4],
         ["p1",3,"op","chess_char_5_diy1_a",2,null,0,0,179,0,13514,3248,0,20,1],
         ["p1",4,"op","chess_char_5_diy2_b",0,"none",0,0,107,0,13216,3820,0,22,5],
@@ -310,7 +310,7 @@
         ["p1","~2","token","token_10064_wang_stone1",null,null,1000,1,31,0,0,0,0,0,0],
         ["p1","~3","token","token_10064_wang_stone1",null,null,1000,1,32,0,0,0,0,0,0],
         ["p1","~4","token","token_10064_wang_stone1",null,null,1000,1,33,0,0,0,0,0,0],
-        ["p1","~5","token","token_10064_wang_stone1",null,null,1000,1,193,0,0,0,0,0,0],
+        ["p1","~5","token","token_10064_wang_stone1",null,null,1000,0,167,0,0,0,0,0,0],
         ["p1","~6","token","token_10064_wang_stone1",null,null,1000,0,36,0,0,0,0,0,0],
         ["p1","~7","token","token_10064_wang_stone1",null,null,1000,1,191,0,0,0,0,0,0],
         ["p1","~8","token","token_10064_wang_stone1",null,null,1000,0,45,0,0,0,0,0,0],
@@ -337,11 +337,11 @@
         ["p1","~29","token","token_10064_wang_stone1",null,null,1000,1,187,0,0,0,0,0,0],
         ["p1","~30","token","token_10064_wang_stone1",null,null,1000,1,192,0,0,0,0,0,0]
       ],
-      "enemies": {"enemy_1006_shield_3":[21,0,21,11379,52151],"enemy_1043_zomsbr":[66,12,54,1109,117400],"enemy_1402_tgshd_2":[36,1,35,10339,154178]},
-      "hooks": [1,194,6494,634,634,1225,1225,5851,26,173,80,115,0,8603,37,29,123,110,1,26,0,0,0],
-      "events": {"atk":680,"deploy":69,"die":63,"dmg":1225,"engage":12,"fx":2900,"leak":110,"skill":245,"spawn":167,"status":176},
-      "fx": {"burst":344,"expose":459,"kitHit":217,"oblvnsNote":1732,"spGain":8,"summon":50,"sunBurst":1,"wangLink":52,"zone":37},
-      "snaps": "0f6debf2 fe642615 908e7ff0 2852659b 22951ae2 4ed68a21 cfed16cc 43f30d5a 83f03277 034d1125 f0492d72 2fb5905d ac33113c e18e0e0a 694f17de 15ba3b8e 9a89d3e9 15abfeba 9e27ee1b ddbac8b6 cb4933da 9d883fb8"
+      "enemies": {"enemy_1006_shield_3":[21,0,21,11379,52151],"enemy_1043_zomsbr":[66,12,54,1109,117400],"enemy_1402_tgshd_2":[36,1,35,10339,154190]},
+      "hooks": [1,193,6494,635,635,1225,1225,5851,26,173,80,115,0,8603,37,29,123,110,1,26,0,0,0],
+      "events": {"atk":680,"deploy":68,"die":63,"dmg":1225,"engage":12,"fx":2900,"leak":110,"skill":243,"spawn":167,"status":176},
+      "fx": {"burst":344,"expose":461,"kitHit":217,"oblvnsNote":1732,"spGain":8,"summon":49,"sunBurst":1,"wangLink":51,"zone":37},
+      "snaps": "0f6debf2 fe642615 908e7ff0 2852659b 22951ae2 4ed68a21 cfed16cc 43f30d5a 83f03277 034d1125 f0492d72 2fb5905d ac33113c e18e0e0a 694f17de 15ba3b8e 9a89d3e9 15abfeba 9e27ee1b ddbac8b6 cbf53e48 a11592ba"
     },
     "diy-008": {
       "about": "5_diy1_b=oblvns/S1/002_oblvns 5_diy2_b=oblvns/S2/002_oblvns 5_diy1_b=oblvns/S3/002_oblvns 6_diy1_a=oblvns/S1 6_diy2_a=oblvns/S2 6_diy1_a=oblvns/S3 6_diy2_b=oblvns/S1 6_diy1_b=oblvns/S2 6_diy2_b=oblvns/S3 6_diy1_b=oblvns/S1/002_oblvns 6_diy2_b=oblvns/S2/002_oblvns 6_diy1_b=oblvns/S3/002_oblvns",
