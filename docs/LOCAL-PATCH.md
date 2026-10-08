@@ -1404,10 +1404,36 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   있었지만 스킬 모드가 아닌 모드의 attach를 트는 곳이 없어 한 번도 안 나왔다(세션 L 이전부터). `fxgame.js dollFx`: 시뮬레이션 fx `substitute`(대역으로)에 Stand 모드 attach를
   루프로 틀고 `swap`(본체로)·`dollEnd`(대역 쓰러짐)에 끔. 전환 시작부터 [추정], 두 이펙트 동시 시작(사용자 설명은 원 → 물결 순서 — 공식 녹화로 대조 필요), `beidong_buff_01_end`
   (끝 이펙트)는 안 틂. 아레나·실제 솔로 판: S2가 끝나 대역으로 바뀌는 순간부터 바닥에 파란 물결·입자.
-- 안 한 것: `_followScaleSign`·`_followScale`(좌우·크기 따라감), `_keepOriginRotation`(본 회전) — 위치만 따라간다.
+- 안 한 것: `_followScaleSign`·`_followScale`(좌우·크기 따라감). `_keepOriginRotation`(본 회전)은 아래 「이펙트 방향」(세션 stronghold-99, daf72239)에서 적용.
 - 확인: 단위(`test/local-patch-fxspawn.test.js` mountSpawn·boneMissing·ghost2 추출물·바인딩), 아레나(`l_arena.mjs` — 평타 원형·S2 붉은 원이 발이 아니라 톱날 높이에서
   톱날을 따라 움직이고 샌드백 앞에 그려짐), **실제 솔로 판**(`l_real.mjs` — S2 발동 뒤 톱날에 붉은 원, 프레임마다 톱날 위치를 따라감). 대역 전환은 S2가 끝날 때 일어난다
   (처음엔 치명 피해로 일으키려다 못 봄 — 위 「대역의 파란 이펙트」에서 확인). 전체 적용의 다른 오퍼 174개는 화면 확인 안 함(단위 테스트로 우리 모델에서 점을 찾는지만). 공식 녹화 없음.
+
+### 이펙트 방향 — 방향 칸·마운트 회전 (세션 stronghold-99, 2026-10-08, 사용자 제보 5차 5-2, daf72239)
+- 제보: 아르케토 S3 이펙트가 배치 방향과 상관없이 항상 세로로 보인다 → 오퍼레이터 방향을 따라야 한다(다른 오퍼에도 있을 수 있음).
+  **사용자 결정(2026-10-08)**: 방향 칸 「13명 전체」, 마운트 회전 「전체 적용」(이상한 이펙트는 나중에 그것만 뺀다).
+- **방향 칸** (근거: charpack·skills.ab 이펙트 발생기 항목): `_effects`는 칸 배열 — 0 위, 1 오른쪽, 2 아래, 3 왼쪽(스펙터 디 언체인드 `_up`/`_down`, 백파이프
+  `_right`/`_left` 이름으로 확인) — 이고 `_directionType`이 칸을 고른다. global-metadata `DirectionType` 선언 순서 0 NONE, 1 L_OR_R, 2 U_OR_D, 3 FOUR_DIR,
+  4 UD_OR_LR, 5 FOUR_DIR_FIXED, 6 L_OR_R_NOT_UD [추정: 값 = 선언 순서, 모든 항목과 맞음]. 우리 `char_modes.py`는 칸을 다 펼치고 이름 규칙(`DIRECTIONAL`
+  `_up/_down/_left/_back`)으로만 걸러, 아르케토 S3 `start_02`(위)·`start_02_B`(그 밖)를 **동시에** 틀고 이름에 up/down이 있는 사본은 방향과 상관없이 버렸다.
+  → `char_modes.py dir_groups`가 칸이 둘 이상 다른 항목을 `dirs: [{ t, s: [위, 오른쪽, 아래, 왼쪽] }]`로 기록(바인딩 목록은 그대로), `fxgame.js dirCopies`/`dirPick`이
+  `play()`마다 그 묶음의 이름을 보는 방향의 사본 하나로 바꾼다: NONE 0번, L_OR_R 좌우(위·아래를 볼 때는 그려진 좌우), U_OR_D 위면 0번·그 밖 2번 [추정: 옆은
+  앞모습], 나머지 보는 방향의 칸. 빈 칸은 안 틂. 좌우 사본이 따로 있는 묶음에서 고른 사본은 다시 뒤집지 않음 [추정]. 사본 프리팹은 이미 전부 추출돼 있었다(재추출 없음).
+  대상 14명: 스펙터 디 언체인드, 가비알 디 인빈서블, 이그제큐터 디 엑스 포에데레, 위셔델, 엑시아 더 뉴 커버넌트, 백파이프, 아르케토, 불피스폴리아, 언더플로우,
+  르무엔, 산크타 믹사파라토, 비질, 아로마 + 데겐블레허(S2 `start_04_v`/`_h`, skills.ab).
+  **위셔델 항목**: 0.2.0 병합 뒤 `data/diy.json`이 없어 선발 오퍼레이터는 `char_modes.py`가 스킬 정보를 못 읽는다(전체 실행은 pool에 없어 안 건드리고, `--id`면
+  skills·skillMode가 사라짐) — 예전 항목을 두고 `dirs`만 더했다. 왕·첸 더 던스트릭 등 선발 항목도 같은 상태(범위 밖, 안 고침).
+- **마운트 회전**: FollowMountPoint `_keepOriginRotation` 0 = 효과가 마운트 지점의 회전을 받는다. 아르케토 S3 시전 부채꼴 `archet_skill_03_start`는 마운트 2(MUZZLE)·0이고
+  루트에 회전 필드가 없다; 총구 점(`points.json` `F_Muzzle`/`B_Muzzle`, `rot 1` = 본 회전 따라감)의 본은 Skill_3 동안 네 방향 모두 월드 −90°(런타임 값).
+  → `fxpoints.js pointTurn`(그 쪽 본이 `rot 1`이면 `getWorldRotationX` 라디안, 아니면 null), `fxgame.js lifted()`의 `rot`(마운트가 있고 `keepOriginRotation === 0`일 때),
+  프레임 루프가 프리팹 루트(`nodes[0]`)를 Unity 프레임 z(보드 법선; +x 열·+y 행 — `aimMover`와 같은 축)로 그만큼 돌린다(뒤집기 안쪽이라 왼쪽은 거울).
+  [추정] 축·부호: 깊이 축(y)으로 돌리면 부채꼴이 얇아질 뿐 세로 그대로였고, z로 −90°면 부채꼴이 활 방향으로 눕고 그 고리(`huan`)가 발사 방향에 수직으로 선다(총구
+  충격파 모양) — 단독 렌더 `sp-check\w52cmp.mjs`(루트 0 / −90 / +90). 위·아래를 볼 때도 본이 −90°라 부채꼴은 화면 오른쪽(공식도 같은 데이터면 같다고 봄).
+  범위: 마운트 359개 중 `keepOriginRotation` 0이 358개, 그중 점이 본 회전을 따르는 **337개(88명)**가 돈다(각도는 애니메이션마다 — 0°에 가까운 것은 안 바뀜).
+- 확인: 단위 `test/render/fx-direction.test.js`(7개: dirs 기록, U_OR_D·FOUR_DIR·L_OR_R·NONE 고르기, pointTurn, 소스 고정, 추출물 mount). **아레나**(`w52_bone.mjs`
+  — 아르케토 S3 네 방향, 수정 전 세로 기둥 → 후 활에서 적 쪽으로 가로 부채꼴, 고리가 서 있음; `w52_op.mjs` — 스펙터 디 언체인드 S2·엑시아 더 뉴 커버넌트 S1·니어 더
+  래디언트 나이트 S3 이상한 모습 없음, 니어는 수정 전 세로 기둥 → 눕힌 호/빔). 실제 판·공식 녹화 대조는 안 함(아르케토 공식 녹화 없음). 나머지 85명 화면 확인 안 함.
+- 배포: `public/assets/local/fx/modes.json`(git 밖, `dirs` 추가)을 올려야 한다 → `oci/deploy.sh --fx`.
 
 ### 정예 기물 금빛 (2026-10-08, 사용자 요청 「정예화된 오퍼는 휴식 기간에 황금빛으로 빛나는 이펙트」)
 - 근거: zh_CN `gamedata/battle/battle_misc_table.json` `miscConfig.AUTOCHESS.act1autochess`·`act2autochess.effectConfig.goldenEffectId`
