@@ -51,6 +51,26 @@ import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a ki
 import { PROJ } from './style.js';
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 
+/**
+ * (user re-report 2026-10-08 #2-7, LOCAL-PATCH.md 「사용자 제보 3차」) the official effects of a 望 stone's blast (createFxLayer stoneFx) — `at`:
+ * played at the stone (S1 sktok_wang_1 / S3 sktok_wang_3 `_castEffects`, S2 ExplodeRow·Col·Cross `_effectKey` once per
+ * activated axis, a 跟子's `_effectOnTrigger`); `target`: on each enemy it damages (S2 ExplodeRow `_hitEffects` / a 跟子's
+ * `_effectsWhenHit`; S3 a 跟子 only). token_wang_skill_03_hit_03 is referenced by nothing in the client: never played.
+ */
+export function stoneBlastFx(skill, follower = false) {
+  if (skill === 2) return { at: ['token_wang_skill_02_hit'], target: 'token_wang_skill_02_hit_02' };
+  if (skill === 3) return { at: ['token_wang_skill_03_hit'], target: follower ? 'token_wang_skill_03_hit_02' : null };
+  return { at: ['token_wang_skill_01_hit'], target: null };
+}
+/** Whether an enemy `dx`, `dy` tiles from a stone lies on its blast (kits/ops/op-wang.js trigger): S2 its activated link
+ *  axes ('h' / 'v') ≤ 3 tiles each way, S3 the x-1 diamond (radius 2), S1 the stone's own tile. */
+export function inStoneBlast(skill, axes, dx, dy) {
+  const c = Math.round(dx), r = Math.round(dy);
+  if (skill === 2) return (axes || ['h']).some((a) => (a === 'v' ? c === 0 && Math.abs(r) <= 3 : r === 0 && Math.abs(c) <= 3));
+  if (skill === 3) return Math.abs(c) + Math.abs(r) <= 2;
+  return c === 0 && r === 0;
+}
+
 const INDEX_URL = '/assets/local/fx/index.json';
 const MODES_URL = '/assets/local/fx/modes.json';   // effect bindings per attack mode (tools/local-extract/char_modes.py)
 const MAX_HIT_FX = 2;
@@ -306,11 +326,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // looping cross, the link line) go on the lower layer, under the stone's model; the explosions over it. [ASSUMED] which prefab is which,
   // by name; S2's line blast is turned by its 'rotation_z' pivot (h = 0°, v = 90°).
   const STONE = 'token_10064_wang_stone1', STONE_FX = 'wang_token';
-  const STONE_HIT = {
-    1: ['token_wang_skill_01_hit'],
-    2: ['token_wang_skill_02_hit', 'token_wang_skill_02_hit_02'],
-    3: ['token_wang_skill_03_hit', 'token_wang_skill_03_hit_02', 'token_wang_skill_03_hit_03'],
-  };
+  // (user re-report 2026-10-08 #2-7 「터질 때 직선 파티클이 폭발 범위보다 넓게 나옴」): what the client plays at the
+  // stone is its trigger's cast effect only — sktok_wang_1 / sktok_wang_3 `_castEffects`, sktok_wang_2/ExplodeRow·Col·Cross
+  // `_effectKey` (the line, turned by `rotation_z`) and the 跟子 projectiles' `_effectOnTrigger` (EN client [uc]skills.ab /
+  // [uc]projectiles.ab). The `_02` prefabs are the HIT effects on each enemy hit (ExplodeRow `_hitEffects`, the S3 跟子's
+  // `_effectsWhenHit`; stoneBlastFx `target`), and token_wang_skill_03_hit_03 — a copy of the S3 blast 2 tiles off along its
+  // `rotation_z` — is referenced by no ability, skill, projectile or table: it is not played (it drew a second blast and
+  // its line particles up to ~9 tiles out beside the x-1 diamond).
+  // (stoneBlastFx / inStoneBlast below the layer)
   // owner: a stone's id — the effect follows it as a buff and stops on its 'die' (used up / withdrawn); without an
   // owner it is a one-shot, stopped after its prefab's duration even if a system loops (token_wang_birth_01_buff's
   // looping 'sz' kept its cross on the board forever)
@@ -411,8 +434,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // local patch (user request 2026-10-08): `under` (the prep elite glow, fxgolden.js — its glow / sparks are sortingOrder -1,
     // behind the model) splits by sorting at 'high' like a caster's effect, else draws under the units
     const split = !!under && splitOn();
-    // the elite glow drops its root offset and uses the renderers' pivots (fxplayer opts.atSpawn / pivot; official recording 2026-10-08)
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold, atSpawn: !!under, pivot: !!under });
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
     addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold, under), unit: view }, split ? layers.split : under ? layers.under : layers.over);
     while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
@@ -429,13 +451,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const mine = (e[1] === 'zone' && o.token === STONE) || e[1] === 'wangLink' || (e[1] === 'summon' && isStone(views.get(o.id)));
     if (mine && stonesOn()) ownFx.add(e);
     if (e[1] === 'zone' && o.token === STONE) {
-      const names = STONE_HIT[o.skill] || STONE_HIT[1];
-      if (o.skill === 2) {
-        const [hit, ...rest] = names;
-        const axes = Array.isArray(o.axes) && o.axes.length ? o.axes : ['h'];
-        for (const a of axes) playAt([hit], at, { deg: a === 'v' ? 90 : 0 });
-        playAt(rest, at);
-      } else playAt(names, at);
+      const fx = stoneBlastFx(o.skill, !!o.follower);
+      const axes = Array.isArray(o.axes) && o.axes.length ? o.axes : ['h'];
+      if (o.skill === 2) for (const a of axes) playAt(fx.at, at, { deg: a === 'v' ? 90 : 0 });
+      else playAt(fx.at, at);
+      if (fx.target) stoneHits.push({ t: clockS, x: at.x, y: at.y, skill: o.skill, axes, by: o.target, name: fx.target, done: new Set() });
       return true;
     }
     if (e[1] === 'wangLink') {
@@ -459,6 +479,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
     }
     return false;
+  }
+  // (#2-7) a stone blast's hit effect on each enemy it damages — the 'dmg' of the same moment on its area
+  // (S2: its activated link lines, ≤ 3 tiles each way; S3: the x-1 diamond) — and always the enemy that set it off ('zone'
+  // `target`), wherever its view is drawn this frame
+  const stoneHits = [];
+  function stoneHit(tid, views) {
+    while (stoneHits.length && clockS - stoneHits[0].t > PENDING_S) stoneHits.shift();
+    const tgt = stoneHits.length ? views.get(tid) : null;
+    if (!tgt) return false;
+    let claimed = false;
+    for (const h of stoneHits) {
+      if (h.done.has(tid) || (tid !== h.by && !inStoneBlast(h.skill, h.axes, tgt.x - h.x, tgt.y - h.y))) continue;
+      h.done.add(tid);
+      claimed = true;
+      spawn(STONE_FX, h.name, tgt, { owner: null, buff: false });
+    }
+    return claimed;
   }
   const isStone = (v) => !!(v?.info && (v.info.defId === STONE || v.info.spine === STONE));
   // local patch (user report 2026-10-07 #4, capture: the hand-placed stone keeps its gold glow): the prep's stones come in
@@ -1005,6 +1042,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         case 'dmg': {
           const tid = e[1];
+          if (stoneHit(tid, views)) return; // a 望 stone blast's hit effect (#2-7)
           if (pendingHit(tid, views)) return; // local patch: a skill's damage without an attack
           const a = lastAtk.get(tid);
           if (!a || clockS - a.t > 2.5) return;
