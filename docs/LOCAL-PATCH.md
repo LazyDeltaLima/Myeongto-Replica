@@ -137,7 +137,7 @@ SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg
 | 얼린 상점에서 특수 갱신이 바꾼 칸도 얼림 유지 (원본은 `setShopSlot`이 항상 `frozen: false` → 佩佩·杜遥夜가 넣은 칸이 전투 시작 때 사라짐) | — | `server/match/effectsMeta.js` `setShopSlot` 2줄 (바뀌기 전 칸의 얼림 상태, 없으면 상점 얼림 상태) |
 | 디버그용 재화 고정 (`SP_DEBUG_FUNDS=<0..999>`일 때 사람 플레이어 재화가 그 값으로 고정, 봇은 그대로. `local.sh`가 기본 99, 배포 서버는 미설정) | `server/local-patch.js debugFunds` (`PlayerState.prototype.funds` 접근자) | 없음 |
 | 게임 내 디버그 패널 (로컬 디버그 모드만: 보드 왼쪽·맹약 줄 아래. 「디버깅용 재화 99 고정」 체크박스 = 플레이어별로 재화 고정 켜고 끄기, 선발 오퍼레이터·티어·일반/정예·스킬(S1~S3)·모듈(정예만, 없음 포함)을 골라 정비 구역에 추가) | `server/local-patch.js` `debugMode`·`debugIntent`·`debugView`(`privateView` 감싸기 → `m.private.debug`, 디버그 모드일 때만 설치), `shared/local.js`(`dbg.funds`·`dbg.addDiy` 형식), `public/js/ui/debugPanel.js`, `public/css/debug-panel.css`, `public/i18n/ko/ui.json` 7줄 | `screens/game.js` 2줄(import, 렌더), `index.html` 1줄 |
-| 스킬 모드 공격·타격음 + 공식 믹서 그룹 볼륨 (2026-10-07) | `public/js/audioOfficial.js`, `tools/assets/skill-mode-sfx.mjs`, `tools/local-extract/char_modes.py` → `tools/assets/local-char-modes.json`, `test/local-patch-audio.test.js`, `test/local-patch-skill-music.test.js` | `public/js/audio.js`(import, `unit()` 모드·게인, 이벤트 루프 몇 줄, 채널 게인 2줄, 스킬 extras·잡아 둔 'skill'·替身 전환 메서드 2개), `tools/assets/audio.mjs` 몇 줄, `plan.mjs` 몇 줄, `skill-sfx.mjs`·`kit-sfx.mjs` 함수 1개씩, `screens/game.js` early 필터 1줄 |
+| 스킬 모드 공격·타격음 + 공식 믹서 그룹 볼륨 (2026-10-07) + 믹서 스냅샷 (2026-10-08) | `public/js/audioOfficial.js`, `public/js/audioSnapshot.js`, `tools/assets/skill-mode-sfx.mjs`, `tools/local-extract/char_modes.py` → `tools/assets/local-char-modes.json`, `test/local-patch-audio.test.js`, `test/local-patch-skill-music.test.js`, `test/local-patch-skill-snapshot.test.js` | `public/js/audio.js`(import, `unit()` 모드·게인, 이벤트 루프 몇 줄, 채널 게인 2줄, 스킬 extras·잡아 둔 'skill'·替身 전환 메서드 2개, unlock의 bus·`sfxOutside` 몇 줄, `_play` 출력·스냅샷 3줄), `tools/assets/audio.mjs` 몇 줄, `plan.mjs` 몇 줄, `skill-sfx.mjs`·`kit-sfx.mjs` 함수 1개씩, `screens/game.js` early 필터 1줄 |
 | 스킬 중 매 공격 이펙트(공식 모드 바인딩) + 이펙트 배속 연동 + 투사체 꼬리 + 시전자 이펙트는 유닛 아래 (2026-10-07) | `shared/skill-modes.js`, `public/assets/local/fx/modes.json`(git 밖, `char_modes.py`), `test/local-patch-fxmodes.test.js` | `render/fxgame.js`(로컬 파일), `render/fxmap.js`(로컬 파일) `attackMode`·`boundEffects` |
 | 이펙트·사운드 디버그 페이지 = 샌드백 아레나 (`SP_DEBUG_PAGE=1`일 때만, 배포 서버는 404 — `/js/debug/*` 포함) | `public/debug.html`, `public/js/debug.js`, `public/js/debug/arena.js`·`sandbag.js` (`/fxlab.html`은 이리로 넘김), `server/local-patch.js debugPageHidden`, `test/local-patch-debug.test.js` | `server/index.js` 2줄, `render/app.js` `debugFx` 1줄(+헤더 1줄), `render/fxgame.js` `debugPlay` |
 | 보스 경로 미리보기 (2026-10-08: 최종 공세·숨겨진 핵심 준비 단계에서 걷는 보스의 이번 판 경로를 공식 경로 미리보기 커서로 반복 표시, 아래 「보스 경로 미리보기」) | `server/match/bossPath.js`, `public/js/render/fxroute.js`, `tools/boss-route-map.mjs`, `test/match/boss-path.test.js`, `public/assets/local/fx/route_cursor/`(git 밖) | `server/match/match/views.js` `nextEnemiesFor` 5줄(import, 보스 항목 `paths`), `render/app.js` 4줄(import, 생성, 프레임 `sync`, 정리), `render/fxgame.js` `playFree`, `tools/local-extract/fx_extract.py` 1줄(`--pack`의 본 번들 = 이름이 맞는 첫 파일) |
@@ -1147,7 +1147,24 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
       `ON_BUFF_START.ghost2_switch2stand` p_skill_sharpstandborn, `ON_BUFF_SHOW_EFFECT.ghost2_standin[switch]` p_skill_sharpstandspell(11.6 초, ctrlStop
       `ghost2_stand_effect_end` 0.8 초), 본체 복귀(fx 'swap') `ghost2_switch2normal` p_skill_sharpborn. `kit-sfx.mjs` 키 `ghost2:stand|standin|normal`,
       `audioOfficial.js dollSwitchSfx`(오퍼별 표), `audio.js _dollSwitch`. [추정] standin은 전환과 함께 나고 본체 복귀·퇴장·替身 격파에 끊는다(버프 타이밍은 네이티브).
-      안 한 것: 같은 뱅크에 걸린 스냅샷 `AllLowpass_Reverb`(전체 저역 통과 5 초).
+      스냅샷은 아래 「믹서 스냅샷」(2026-10-08 stronghold-27).
+    - **믹서 스냅샷** (4-2 남은 것, stronghold-27): 공식 `snapshotBanks`는 훅 뱅크가 날 때 `MainMixer` 스냅샷을 켠다 — 게임 데이터의 훅은 모두
+      `AllLowpass_Reverb`: 归溟幽灵鲨 `ON_BUFF_START.ghost2_switch2stand`(5 초), 浊心斯卡蒂 배치·S1–S3 시작(0.1 초; `@JP` 등 더빙 사본은 같은 훅이라 뺌).
+      스냅샷 값(EN `sharedassets1.assets` 믹서 상수, Default와 비교 **[데이터]**): BattleGameSound(Music·Voice·전투 그룹 전부의 부모) Lowpass 22000 → 556 Hz,
+      SFX Reverb 켜짐(dry −6696 mB, room 0, room HF −1594 mB, decay 5.7 초, reverb −219 mB, reverb delay 0.0464 초), Music Lowpass 22000 → 5000 Hz.
+      훅 뱅크 자신은 `Independent` 그룹(BattleGameSound 밖)이라 또렷하게 남고 나머지가 가라앉는다.
+      - 생성: `audio.mjs indexAudio` `snapshots`, `skill-mode-sfx.mjs snapshotSfx` → `sfx.snap = { hook: { url: { snap, dur, delay? } }, outside: [url] }`
+        (outside = 매니페스트에서 Independent 그룹인 파일 6개: 훅들 + 대역 sharpstandspell). 매니페스트 diff는 `snap`·hash뿐.
+      - 재생: `public/js/audioSnapshot.js`. `audio.js unlock`이 세 채널을 `bus`(BattleGameSound)로 모아 master에 잇고, `sfxOutside`는 bus를 건너뛴다
+        (`sfx.snap.outside`와 UI 한 번 소리 — SFX_UI도 bus 밖). 첫 훅에서 bus → lowpass → dry → master, lowpass → convolver(5.7 초 감쇠 잡음, 46 ms 지연) → wet → master를 만든다.
+        리버브는 꼬리가 끝나면 입력을 끊는다(convolver 비용).
+      - **[추정]**: 시점 규칙 — 훅이 시작되면 `delay` 뒤 `dur` 초 동안 스냅샷으로, 훅 소리가 끝나면 같은 `dur`로 Default로(클라이언트 `SnapshotTransition`·
+        `TransitionToDefaultSnapshot`은 네이티브. 浊心斯卡蒂의 0.1 초가 「유지 시간」이면 의미가 없어 전환 시간으로 읽음). 겹치면 마지막 훅이 끝날 때까지 유지.
+        리버브는 초기 반사 없는 평탄한 잡음 꼬리. 안 한 것: Music 자체 5000 Hz(556 Hz 안쪽이라 차이 없음), 스냅샷의 그룹 볼륨 차이(몇 dB, 옛 레벨이 남은 것으로 보임).
+      - 耀骑士临光 S2: 세션 G 인계의 「sim이 'skill'을 안 보내 extras가 안 남」은 **틀림** — S2는 `kind: 'duration', activateOnDeploy`라 'skill'이 'spawn'보다 먼저 오고,
+        같은 커밋의 배치 전 'skill' 잡아 두기로 이미 `p_skill_goldspearboost`가 난다(실제 경로 테스트로 고정). `skills.js _startPassive` 주석의 「耀骑士临光 S2」도 낡음(sim이라 안 고침).
+      - 확인: `test/local-patch-skill-snapshot.test.js` 6개(매니페스트, 공식 데이터 규칙, 가짜 Web Audio 그래프의 램프 556 Hz/5 초·복귀·bus 밖 경로, 실제 매치 경로
+        归溟幽灵鲨 S2 → 대역 → 스냅샷 켜짐, 耀骑士临光 S2 배치 소리). **Windows Chrome 청취·계측은 안 함.** 배포 플래그 불필요(새 소리 파일 없음).
     - 缄默德克萨斯 S2 타격음(4-4): ① 배치 즉시 켜지는 스킬(`activateOnDeploy`: S1–S3)은 'skill'이 그 유닛의 'spawn'보다 먼저 와서(실제 경로 확인) 오디오가 버렸다 →
       `audio.js`가 추적 전 유닛의 'skill'을 잡아 두었다가 'spawn'(같은 묶음에 'deploy'가 있으면 그 'deploy')에서 처리, `screens/game.js` 작전 시작 early 버퍼도 'skill'을
       넘긴다(1줄). ② 모드 능력에 공격 뱅크만 있고 HIT 뱅크가 없으면(S2 `attack.2`는 `ON_ABILITY_ON` p_imp_reticentsword_h뿐) Default의 HIT(p_atk_reticentsword_n)는
@@ -1923,7 +1940,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 확인(2026-10-08, Windows Chrome, 실제 서버 + 확인용 런처로 보스 라운드를 2라운드로 당김, 전장 #01·루시안): 준비 화면에서 `WalkPreviewCursor`가 약 4.9초마다
   재생되고 경로(상자를 피해 5행으로 돌아 (2,3)까지, 다시 (5,9) → (3,9))를 달림. 공식 리본은 옅고 빨라 한눈에 잘 안 띈다(데이터대로) — 대체 입자 꼬리가 더 잘 보임.
   **사용자 결정 2026-10-08: 공식 그대로**(고정 경로선 추가·속도/진하기 조절 안 함).
-  남은 일: 인게임 경로 대조(영상), `ROUTE_SHOWN_INTERVAL` 값, 숨겨진 핵심의 '총을 부수는 리드'(부속, 순찰 경로) 표시 여부.
+  남은 일: 인게임 경로 대조(영상), `ROUTE_SHOWN_INTERVAL` 값. 숨겨진 핵심의 '총을 부수는 리드'(부속, 순찰 경로)는 **표시하지 않는다 — 보스 경로만(사용자 결정 2026-10-08)**.
 
 ## 원본 버그 수정 선반영 (2026-10-07, 사용자 요청 「upstream에 보고된 버그 중 쉬운 것 바로 수정」)
 > 0.2.0 병합으로 정리됨: 아래 10건은 모두 upstream 0.2.0에 들어 있어 병합에서 upstream 쪽을 택했다(정예화 보상의 선발 조건만 우리 결정으로 다시 고침 — 「0.2.0 병합」).

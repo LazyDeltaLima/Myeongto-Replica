@@ -134,7 +134,14 @@ export function indexAudio(audioData) {
   const stopOf = (name) => stops.get(name) || null; // local patch
   const ctrlStops = [...stops].map(([name, v]) => ({ name, ...v })); // local patch
   const isLoop = (name) => loopNames.has(name); // local patch
-  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf, limitOf, loopBanks, stopOf, isLoop, ctrlStops };
+  // local patch (user report 4 #4-2 leftover): the mixer snapshots a bank turns on while it plays (snapshotBanks: 归溟幽灵鲨's
+  // switch to her 替身 → AllLowpass_Reverb, 5 s) — skill-mode-sfx.mjs snapshotSfx. A dub's copy (`…@JP`) is the same hook.
+  const snapshots = [];
+  for (const s of Array.isArray(audioData?.snapshotBanks) ? audioData.snapshotBanks : []) {
+    if (!s || typeof s.hookSoundFxBank !== 'string' || typeof s.targetSnapshot !== 'string' || s.hookSoundFxBank.includes('@')) continue;
+    snapshots.push({ hook: s.hookSoundFxBank, snap: s.targetSnapshot, delay: Math.max(0, Number(s.delay) || 0), dur: Math.max(0, Number(s.duration) || 0) });
+  }
+  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf, limitOf, loopBanks, stopOf, isLoop, ctrlStops, snapshots };
 }
 
 /** Sort key for ability sub-keys: plain first, then numeric suffixes ascending. */

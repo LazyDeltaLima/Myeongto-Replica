@@ -266,3 +266,49 @@ export function skillExtras(audio, charId, skills, soundLeaf, startPaths = {}) {
   }
   return Object.keys(out).length ? out : null;
 }
+
+/** The mixer groups outside the BattleGameSound bus a snapshot filters (MainMixer: Independent / _2 under ~FX_VolumeControl). */
+const OUTSIDE_GROUPS = new Set(['Independent', 'Independent_2']);
+// a plan.mjs template leaf ({ alts: [{ rel }] }, resolved by fetch-assets to `/assets/<rel>` of the alternative it keeps) or
+// an already resolved url / list of urls
+const leafUrls = (l) => (typeof l === 'string' ? [l] : Array.isArray(l) ? l.flatMap(leafUrls)
+  : Array.isArray(l?.alts) ? l.alts.map((a) => (typeof a?.rel === 'string' ? `/assets/${a.rel}` : null)).filter(Boolean) : []);
+
+/**
+ * local patch (user report 4 #4-2 leftover, 归溟幽灵鲨's switch to her 替身): sfx.snap = { hook, outside } —
+ *   hook: url → { snap, dur, delay? } for the files of the banks that turn a mixer snapshot on while they play
+ *     (audio_data snapshotBanks, audio.mjs indexAudio `snapshots`; only files the manifest plays: built `sfx`);
+ *   outside: the urls whose bank sits on a group outside the filtered bus (Independent: the hooks themselves, 浊心斯卡蒂's
+ *     deploy / skill starts, the 替身's held sharpstandspell) — public/js/audioOfficial.js routes them around the snapshot.
+ * @param {{ snapshots?: Array<{ hook: string, snap: string, delay: number, dur: number }>, bank: (n: string) => string[] }} audio
+ * @param {(paths: string[]) => any} soundLeaf plan.mjs leaf builder
+ * @param {{ units?: Record<string, any>, kit?: Record<string, any>, kitGrp?: Record<string, string> }} sfx the built sfx tree
+ * @returns {{ hook: Record<string, { snap: string, dur: number, delay?: number }>, outside: string[] }|null}
+ */
+export function snapshotSfx(audio, soundLeaf, sfx) {
+  const outside = new Set();
+  const add = (g, l) => { if (OUTSIDE_GROUPS.has(g)) for (const u of leafUrls(l)) outside.add(u); };
+  for (const u of Object.values(sfx?.units || {})) {
+    const g = u?.grp || {};
+    for (const r of ['attack', 'hit', 'die', 'born']) add(g[r], u[r]);
+    for (const [i, gi] of Object.entries(g.skills || {})) add(gi, u.skills ? u.skills[i] : u.skill);
+    for (const m of Object.values(u?.modes || {})) for (const r of ['attack', 'hit']) add(m?.grp?.[r], m?.[r]);
+    for (const l of Object.values(u?.loops || {})) add(l?.grp, l?.url);
+    for (const list of Object.values(u?.extras || {})) for (const e of list || []) add(e?.grp, e?.url);
+  }
+  for (const [k, g] of Object.entries(sfx?.kitGrp || {})) add(g, sfx?.kit?.[k]);
+  const known = new Set();
+  const walk = (o) => { if (typeof o === 'string' || o?.alts) for (const u of leafUrls(o)) known.add(u); else if (o && typeof o === 'object') for (const v of Object.values(o)) walk(v); };
+  walk(sfx);
+  const hook = {};
+  for (const s of Array.isArray(audio?.snapshots) ? audio.snapshots : []) {
+    const paths = audio.bank(s.hook);
+    if (!paths?.length) continue;
+    for (const url of leafUrls(soundLeaf(paths))) {
+      if (!known.has(url) || hook[url]) continue;
+      hook[url] = { snap: s.snap, dur: s.dur, ...(s.delay > 0 ? { delay: s.delay } : {}) };
+    }
+  }
+  if (!Object.keys(hook).length) return null;
+  return { hook, outside: [...outside].sort() };
+}

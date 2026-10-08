@@ -49,6 +49,7 @@
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
 import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, dollSwitchSfx } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras
+import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // local patch: mixer snapshots (归溟幽灵鲨's 替身 switch)
 
 const MAX_VOICES = 8;
 const UNIT_COOLDOWN_MS = 160;
@@ -502,6 +503,8 @@ export class AudioManager {
     this.bgmGain = null;
     this.sfxGain = null;
     this.voiceGain = null;
+    this.bus = null;          // local patch: BattleGameSound — the channels a mixer snapshot filters (audioSnapshot.js)
+    this.sfxOutside = null;   // local patch: sfx outside it (Independent banks, UI one-shots)
     this.volumes = { bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false };
     this.buffers = new Map(); // url → Promise<AudioBuffer|null> (insertion order = LRU)
     this.bufBytes = new Map(); // url → decoded PCM bytes (the byte budget of the LRU, see _buffer)
@@ -564,9 +567,15 @@ export class AudioManager {
       this.bgmGain = this.ctx.createGain();
       this.sfxGain = this.ctx.createGain();
       this.voiceGain = this.ctx.createGain();
-      this.bgmGain.connect(this.master);
-      this.sfxGain.connect(this.master);
-      this.voiceGain.connect(this.master);
+      // local patch (report 4 #4-2 leftover): the channels meet on `bus` (BattleGameSound) so a mixer snapshot can filter
+      // them (audioSnapshot.js); `sfxOutside` carries the sfx outside that bus straight to the master
+      this.bus = this.ctx.createGain();
+      this.sfxOutside = this.ctx.createGain();
+      this.bgmGain.connect(this.bus);
+      this.sfxGain.connect(this.bus);
+      this.voiceGain.connect(this.bus);
+      this.bus.connect(this.master);
+      this.sfxOutside.connect(this.master);
       this.master.connect(this.ctx.destination);
       // iOS / iPadOS: a call, Siri or another app's audio moves a running context to 'interrupted' (or 'suspended');
       // a resume without a gesture may then be refused — listen for the next gesture again (dropped once it runs)
@@ -657,6 +666,7 @@ export class AudioManager {
       // perceptual curve
       this.bgmGain.gain.setTargetAtTime(this.volumes.bgm ** 2 * 0.55, t, 0.05);
       this.sfxGain.gain.setTargetAtTime(this.volumes.sfx ** 2, t, 0.03); // local patch: the mixer groups carry the SFX bus (audioOfficial.js)
+      this.sfxOutside?.gain.setTargetAtTime(this.volumes.sfx ** 2, t, 0.03); // local patch: the same channel outside the snapshot bus
       // no 0.9: a voice line is already mastered as loud as the rest of the official mix (settings 干员语音 tunes it)
       this.voiceGain.gain.setTargetAtTime(this.volumes.voice ** 2 * VOICE_GAIN, t, 0.03); // local patch: the Voice group
     } catch { /* ignore */ }
@@ -816,10 +826,11 @@ export class AudioManager {
     if (limited) { if (!this.limiter.tryAcquire(now, unitKey, url, max)) return; }
     else if (this.uiVoices >= 12) return;
     else this.uiVoices += 1;
-    let done = false, s = null, g = null;
+    let done = false, s = null, g = null, unsnap = null;
     const end = () => {
       if (done) return;
       done = true;
+      unsnap?.(); // local patch: a hook's mixer snapshot ends with it (audioSnapshot.js)
       if (limited) this.limiter.release(url); else this.uiVoices = Math.max(0, this.uiVoices - 1);
       if (popped) { const list = popped.get(url); const i = list ? list.indexOf(cut) : -1; if (i >= 0) list.splice(i, 1); if (list && !list.length) popped.delete(url); }
       try { g?.disconnect(); } catch { /* ignore */ }
@@ -835,10 +846,12 @@ export class AudioManager {
         s.playbackRate.value = rate;
         g = this.ctx.createGain();
         g.gain.value = Math.max(0, Math.min(1.5, volume));
-        s.connect(g); g.connect(this.sfxGain);
+        s.connect(g); g.connect(sfxOut(this, url, !limited)); // local patch: outside the snapshot bus (audioSnapshot.js)
         s.onended = end;
         setTimeout(end, (buf.duration / rate) * 1000 + 250); // safety if onended never fires
         s.start();
+        const hook = snapshotHookOf(this, url); // local patch: 归溟幽灵鲨's switch sinks the rest of the mix (audioSnapshot.js)
+        if (hook) unsnap = holdSnapshot(this, hook);
       } catch { end(); }
     }, end);
   }

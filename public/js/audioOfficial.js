@@ -11,6 +11,8 @@
 // Skill modes: sfx.units[id].modes[skillIndex] = { attack?, hit?, mix?, grp?, deferStart? } (tools/assets/skill-mode-sfx.mjs)
 // — the attack / impact sounds of the attacks an operator makes while that skill runs.
 
+import { sfxOut } from './audioSnapshot.js'; // local patch: sounds outside the mixer snapshot bus
+
 /** Linear gain of each mixer group (Default snapshot, parents included). */
 export const GROUP_GAIN = Object.freeze({
   Battle_P_NAtk: 0.348, Battle_P_NImp: 0.336, Battle_P_SAtk: 0.428, Battle_P_SImp: 0.348, Battle_P_Field: 0.267,
@@ -108,7 +110,7 @@ export function startSkillLoop(mgr, key, url, gain, o = {}) {
       if (!src.loop) src.onended = () => { if (loops.get(key) === rec) loops.delete(key); };
       const g = mgr.ctx.createGain();
       g.gain.value = Math.max(0, Math.min(1.5, gain));
-      src.connect(g); g.connect(mgr.sfxGain);
+      src.connect(g); g.connect(sfxOut(mgr, url)); // local patch: 归溟幽灵鲨's held stand-in sound stays outside the snapshot bus
       src.start();
       rec.src = src; rec.gain = g;
     } catch { /* ignore */ }

@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -689,5 +689,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   template.audio.sfx.kit = kitHitSfx(audio, soundLeaf, notes); // local patch: the kits' skill hit sounds (tools/assets/kit-sfx.mjs)
   template.audio.sfx.kitGrp = kitHitGroups(audio); // local patch: their mixer groups (public/js/audioOfficial.js)
   template.audio.sfx.kitLimit = kitHitLimits(audio); // local patch: their banks' popOldest / maxSoundAllowed (audio.js)
+  const snap = snapshotSfx(audio, soundLeaf, template.audio.sfx); // local patch (report 4 #4-2): mixer snapshots (audioOfficial.js)
+  if (snap) template.audio.sfx.snap = snap;
   return { template, models, notes };
 }
