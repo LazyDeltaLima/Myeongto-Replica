@@ -574,7 +574,8 @@ class Extractor:
         """local patch: the effect component's `_spawnLocation` on the root (1 feet, 2 body / HIT point, 4 head, 5 ground
         centre — LOCAL-PATCH.md 「사용자 제보 11건 재수정」). Its script's type tree is not in the bundle, so the raw fields are
         read: after the MonoBehaviour header and name, int #13 (verified on buff_stun 4 / buff_slowdown 1 / buff_sleep 2);
-        the component is recognised by its float −1 at #6 and 2.0 at #10. None when not found."""
+        the component is recognised by its float −1 at #6 and 2.0 at #10. None when not found. Any SpawnLocation value
+        (local patch, session F 2026-10-08: 9–15 = MP_SPECIAL_1…6 — the cap at 8 left 66 prefabs without one)."""
         try:
             d = root.read_typetree()
         except Exception:
@@ -592,7 +593,7 @@ class Extractor:
             if len(raw) < off + 14 * 4:
                 continue
             ints = struct.unpack_from('<14i', raw, off)
-            if ints[6] == -1082130432 and ints[10] == 1073741824 and 0 <= ints[13] <= 8:
+            if ints[6] == -1082130432 and ints[10] == 1073741824 and 0 <= ints[13] < 64:
                 return ints[13]
         return None
 

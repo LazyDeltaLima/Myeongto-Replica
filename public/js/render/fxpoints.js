@@ -15,13 +15,17 @@ export const loadPoints = () => (pointsPromise ||= typeof fetch !== 'function' ?
 /**
  * The model point a `_spawnLocation` names, or null (feet, body, head and ground keep render/fxgame.js's own heights).
  * 3 and 6 are the muzzle (the bone's turn that 3 also takes is not applied: the prefabs keep their 'fixed' children
- * upright [ASSUMED]); 8 SpecialPoint0.
+ * upright [ASSUMED]); SpecialPointN: 8–11 MP_SPECIAL_0–3, 13–16 MP_SPECIAL_4–7, 18–25 MP_SPECIAL_8–15 (12 is CAMERA, 17
+ * TILE_CENTER). The values are the enum's order: every operator whose prefabs use 9–15 has exactly those special points
+ * (char_1039_thorn2 sp0–4 and 13, char_1041_angel2 sp0–6 and 15).
  * @param {number|null|undefined} spawn
  * @returns {string|null}
  */
 export function pointKey(spawn) {
   if (spawn === 3 || spawn === 6) return 'muzzle';
-  if (spawn === 8) return 'sp0';
+  if (spawn >= 8 && spawn <= 11) return `sp${spawn - 8}`;
+  if (spawn >= 13 && spawn <= 16) return `sp${spawn - 9}`;
+  if (spawn >= 18 && spawn <= 25) return `sp${spawn - 10}`;
   return null;
 }
 

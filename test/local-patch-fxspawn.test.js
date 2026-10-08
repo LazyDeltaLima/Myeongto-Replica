@@ -36,11 +36,13 @@ function ourSkeleton(charId, side, anim = 'Idle') {
   return sk;
 }
 
-test('pointKey: _spawnLocation 3 / 6 → muzzle, 8 → sp0, the rest keep their own heights', () => {
+test('pointKey: _spawnLocation 3 / 6 → muzzle, MP_SPECIAL_0–15 → sp0–sp15 by the enum order, the rest keep their own heights', () => {
   assert.equal(pointKey(3), 'muzzle');
   assert.equal(pointKey(6), 'muzzle');
-  assert.equal(pointKey(8), 'sp0');
-  for (const s of [undefined, null, 0, 1, 2, 4, 5, 7, 9, 12]) assert.equal(pointKey(s), null, `spawn ${s}`);
+  assert.deepEqual([8, 9, 10, 11].map(pointKey), ['sp0', 'sp1', 'sp2', 'sp3']);
+  assert.deepEqual([13, 14, 15, 16].map(pointKey), ['sp4', 'sp5', 'sp6', 'sp7'], '12 is CAMERA');
+  assert.deepEqual([18, 25].map(pointKey), ['sp8', 'sp15'], '17 is TILE_CENTER');
+  for (const s of [undefined, null, 0, 1, 2, 4, 5, 7, 12, 17, 26]) assert.equal(pointKey(s), null, `spawn ${s}`);
 });
 
 test('pointOn: the drawn side\'s bone, else the other side\'s, else that side\'s fixed spot (y up → the runtime\'s y down)', () => {
@@ -89,8 +91,9 @@ function pointPrefabs() {
 test('every extracted muzzle / special-point prefab finds its point on our model (known gaps listed)',
   { skip: (!existsSync(FX) || !runtime) && 'no extracted effects or pixi-spine' }, () => {
     const byCode = Object.fromEntries(Object.keys(TABLE).filter((k) => k.startsWith('char_')).map((k) => [k.replace(/^char_\d+_/, ''), k]));
-    // swire's melee model has no Muzzle (its attack start keeps the ground); 浊心斯卡蒂 has no Back model
-    const GAPS = new Set(['swire/swire_attack_01_start']);
+    // swire's melee model has no Muzzle (its attack start keeps the ground); 浊心斯卡蒂 has no Back model; 史尔特尔's Back
+    // record follows Front face bones the Back skeleton lacks (client data — its fixed spot is used)
+    const GAPS = new Set(['swire/swire_attack_01_start', 'surtr/surtr_skill_03_buff_03 B', 'surtr/surtr_skill_03_buff_04 B']);
     const missing = [];
     for (const [b, n, spawn] of pointPrefabs()) {
       if (GAPS.has(`${b}/${n}`)) continue;
