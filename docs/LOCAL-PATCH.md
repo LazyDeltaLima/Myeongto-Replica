@@ -60,7 +60,7 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 - `data/assets.json`은 우리 생성기로 다시 만들었다(`fetch-assets --add-only --allow-shrink`: 공유 `public/assets`에 없는 파일만 받음).
 - 0.2.0 개발 의존성(eslint·typescript)이 생겼다: `npm ci`.
 
-**병합 뒤 겹친 기능 정리 — 대사·전투 화면 (2026-10-08 세션 K)** (조사 목록: `STRONGHOLD.md` §11 「0.2.0 병합으로 겹친 기능」)
+**병합 뒤 겹친 기능 정리 — 대사·전투 화면 (2026-10-08 세션 K)** (조사 목록: `handoffs/2026-10-08.md` 「0.2.0 병합으로 겹친 기능」)
 - K-1·K-2 선발·补位 기물의 정비 탭 대사와 스킬 대사 유형 → 아래 「오퍼레이터 음성」 로컬 2.
 - K-3 보스 라운드 정비의 짝 기물(upstream ef101647 `render/app.js syncMates`)도 공식 장비 바(`setEquip`) — 옛 초록 아이콘이 섞이던 것.
   확인: 실제 협동 판(`test/e2e/fastServer.mjs` SP_START_ROUND=boss, 사람 2명이 아이템 장착, `sp-check\k_mates.mjs`), 단위 `test/local-patch-hud.test.js`.
@@ -1039,7 +1039,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   클라이언트에만 있는 파일이라 공개 미러가 없다 → NAS/OCI `assets/local/fx`로 복사해 서버가 직접 보낸다.
 - `render/fxplayer.js`: Unity 파티클 부분집합 + TrailRenderer/파티클 트레일 + 클립(위치·회전·재질 값) 재생, Torappu 셰이더를 흉내 낸 셰이더 1개.
   셰이더 속성·블렌드는 클라이언트 선언에서 확인, custom data·램프·디졸브 해석은 [추정](화면 보고 맞춤).
-  성능(2026-10-05, `STRONGHOLD.md` 10장 "WebAssembly 포팅 검토"): 입자 수는 카운터로, 프레임마다 만들던 배열·객체
+  성능(2026-10-05, `research/2026-10-05-review-notes.md` "WebAssembly 포팅 검토"): 입자 수는 카운터로, 프레임마다 만들던 배열·객체
   제거, 곡선·그라디언트는 로드할 때 Float64Array로 평탄화(계산식과 순서는 그대로), 인스턴스 속성 8개는 interleaved 버퍼 하나(시스템당
   업로드 1번), 꼬리 버퍼는 쓴 구간만 업로드, MAX_INSTANCES로 끝난 인스턴스는 `done`. 렌더 결과는 바꾸지 않는다:
   `bench/fx/compare.mjs`(git 판과 픽셀 비교, 361개 × 4프레임 동일). 빈 꼬리 메시를 숨기면 다른 그리기의 픽셀이 조금
