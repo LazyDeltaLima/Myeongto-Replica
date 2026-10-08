@@ -584,8 +584,13 @@
    ],
    [],
    [],
-   [],
-   []
+   [
+    "ghost2_skill_02_buff_02",
+    "ghost2_skill_02_buff_03"
+   ],
+   [
+    "ghost2_skill_03_buff_02"
+   ]
   ],
   "skillMode": [
    null,
