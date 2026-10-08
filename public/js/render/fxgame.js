@@ -99,6 +99,21 @@ const loadModes = () => (modesPromise ||= fetch(MODES_URL).then((r) => (r.ok ? r
  *   it (the 3D board is on — the 2D board paints an opaque backdrop on the units canvas itself); fieldRect: the battle
  *   field's tile rect (local patch: 余 S3's wall runs across it, fx.js wallTiles)
  */
+/**
+ * Whether a kit 'fx' zone event is a lasting ground area away from its operator's view `v` — 引星棘刺's 炼金单元 (S1 / S3
+ * on allies, S2 drifting and re-sent each second under its `key`: upstream f1e462ef), 锡人's charges, 歌蕾蒂娅's 漩涡, 号角's
+ * flare, 异客's storm. The client draws it with the skill's `…_token` / `…_range` prefabs at the area, which nothing here
+ * plays there (the skill's effects play on the caster), so standInOff keeps its 2D zone (render/fx/zones.js) — session K
+ * 2026-10-08 (K-4; before, an operator with official effects drew nothing at the area). Short bursts and areas on the
+ * operator itself (莫斯提马 S2) stay official-only.
+ */
+export function areaAway(e, v) {
+  const o = e && e[4];
+  if (!o || typeof o !== 'object' || !v) return false;
+  if (!(o.key != null || Number(o.duration ?? o.dur) > 1)) return false;
+  return Math.hypot(Number(e[2]) - Number(v.x), Number(e[3]) - Number(v.y)) > 0.5;
+}
+
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null }) {
   let index = null, modes = null;
   if (typeof fetch === 'function') { loadIndex().then((i) => { index = i; }); loadModes().then((m) => { modes = m; }); }
@@ -557,9 +572,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function standInOff(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object' || !index || failed || q() === 'low') return false;
-    if (!STAND_IN.has(fxSpec(e[1], o).a)) return false;
+    const a = fxSpec(e[1], o).a;
+    if (!STAND_IN.has(a)) return false;
     const v = views.get(o.src ?? o.by ?? o.id);
     const k = v?.info?.kind;
+    if (a === 'zone' && v && areaAway(e, v)) return false; // session K 2026-10-08 (K-4): see areaAway
     return !!(isOp(v) && k !== 'token' && k !== 'device' && k !== 'item' && bundleOf(v));
   }
 

@@ -73,3 +73,21 @@ test('the renderer applies it: four alchemy units on one spot draw their discs a
   const ratio = stacked[0].disc.alpha / lone.disc.alpha;
   assert.ok(Math.abs(ratio - 0.5) < 1e-9, `÷ √4 (${ratio})`);
 });
+
+// session K 2026-10-08 (K-4): with the operator's official effects on, render/fxgame.js standInOff skips the 2D stand-in
+// of its kit fx — but nothing plays the client's `…_token` / `…_range` prefab at a lasting area thrown away from her, so
+// these zones keep their 2D drawing (areaAway); a short burst or an area on the operator stays official-only.
+test('fxgame.js areaAway: a lasting zone away from its operator keeps the 2D zone (引星棘刺 S2 炼金单元, 锡人, 号角 …)', async () => {
+  const { areaAway } = await import('../../public/js/render/fxgame.js');
+  const thorn2 = { x: 7, y: 10 };
+  assert.equal(areaAway(['fx', 'zone', 8.2, 10, { id: 1, r: 1.1, duration: 12, key: 'thorn2:1:1' }], thorn2), true, 'S2: the drifting unit');
+  assert.equal(areaAway(['fx', 'zone', 8.9, 10, { id: 1, r: 2.4, duration: 0.4, key: 'thorn2:1:1' }], thorn2), true, 'its last re-send (keyed)');
+  assert.equal(areaAway(['fx', 'zone', 4, 11, { id: 1, x: 4, y: 11, radius: 1, dur: 5 }], thorn2), true, '锡人: `dur`');
+  assert.equal(areaAway(['fx', 'zone', 7, 10, { id: 1, duration: 10 }], thorn2), false, '莫斯提马 S2: on herself');
+  assert.equal(areaAway(['fx', 'zone', 9, 10, { id: 1, r: 1 }], thorn2), false, 'a short burst (default 3 s stand-in, no duration)');
+  assert.equal(areaAway(['fx', 'zone', 9, 10, { id: 1, dur: 0.6 }], thorn2), false, '望 stone blast (0.6 s)');
+  assert.equal(areaAway(['fx', 'zone', 9, 10, null], thorn2), false);
+  const src = (await import('node:fs')).readFileSync(new URL('../../public/js/render/fxgame.js', import.meta.url), 'utf8');
+  const off = src.slice(src.indexOf('function standInOff('), src.indexOf('function standInOff(') + 700);
+  assert.match(off, /if \(a === 'zone' && v && areaAway\(e, v\)\) return false;/, 'standInOff leaves such a zone to render/fx.js');
+});
