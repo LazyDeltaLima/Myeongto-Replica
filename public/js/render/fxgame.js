@@ -333,6 +333,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // (research/2026-10-07-user-issues-3/cap-231814.png) — a stone's glow / cross / link line sit on its ball, 0.19 tile (on
   // screen) above the shadow; ours drew them on the ground (_spawnLocation 5) under the ball, where the stone's own looping
   // glow (the `sz` systems) hid under its shadow and only the first burst read. The ball centre is 0.18 tile up on screen.
+  // (user re-report 2026-10-08 #2-2 「바둑알 밑의 십자가 모양 이펙트가 타일 위치와 어긋남」): the birth effects' cross
+  // (`sz` / `sz1`: flat quads 1 tile long in the ground plane) is a ground mark — in the official capture its arms run edge
+  // to edge of the stone's tile, about its middle (8–10 px of a ~250 px tile above it); lifted to the ball it sat 0.15 tile
+  // up the tile and slid off it by the perspective, so STONE_BORN plays on the ground again (the 跟子's rings are
+  // `_effectsToTileWhenStart` too). The activation wisps and the link line stay on the ball (the wisps wrap it in the capture).
   const STONE_BALL = 0.18;
   /** World height of a stone's ball centre at (x, y) on ground z0 (fx.js liftFor, the drawn height on screen). */
   const ballZ = (x, y, z0) => {
@@ -447,9 +452,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const v = views.get(o.id);
       stoneBirth.delete(o.id);
       if (isStone(v)) {
-        // local patch: a 跟子's rings (its own birth effect), a placed stone's gold glow
-        if (o.follower) playAt([STONE_BORN.follower], ballOf(v), { owner: o.id, under: true, bundle: FOLLOWER_FX });
-        else playAt([STONE_BORN.stone], ballOf(v), { owner: o.id, under: true });
+        // local patch: a 跟子's rings (its own birth effect), a placed stone's gold cross — on the ground (#2-2)
+        if (o.follower) playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX });
+        else playAt([STONE_BORN.stone], v, { owner: o.id, under: true });
         return true;
       }
     }
@@ -464,7 +469,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!stoneBirth.size) return;
     for (const id of stoneBirth) {
       const v = views?.get(id);
-      if (isStone(v) && v.alive !== false && stonesOn()) playAt([STONE_BORN.stone], ballOf(v), { owner: id, under: true });
+      if (isStone(v) && v.alive !== false && stonesOn()) playAt([STONE_BORN.stone], v, { owner: id, under: true }); // on the ground (#2-2)
     }
     stoneBirth.clear();
   }

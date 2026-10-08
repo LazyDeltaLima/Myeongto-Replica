@@ -31,6 +31,14 @@ test('#2-1 the activation effect is kept on the stone\'s ball until its die', ()
   assert.doesNotMatch(SRC, /FOLLOWER_CYCLE|l\.cycle/);
 });
 
+test('#2-2 the birth effects (the gold cross, the 跟子\'s rings) play on the stone\'s ground, not on its ball', () => {
+  // births (STONE_BORN): the view itself (its ground), never the ball anchor
+  assert.match(SRC, /playAt\(\[STONE_BORN\.follower\], v, \{ owner: o\.id, under: true, bundle: FOLLOWER_FX \}\)/);
+  assert.match(SRC, /playAt\(\[STONE_BORN\.stone\], v, \{ owner: o\.id, under: true \}\)/);
+  assert.match(SRC, /playAt\(\[STONE_BORN\.stone\], v, \{ owner: id, under: true \}\)/);
+  assert.doesNotMatch(SRC, /STONE_BORN\.[a-z]+\], ballOf/);
+});
+
 test('#2-1 the extracted activation prefabs: wisps that dissolve in and stay (skipped without public/assets)', { skip: !haveFx && 'no extracted fx' }, () => {
   // the activation wisps (`line` meshes) dissolve IN (_Amount 1 → ~0) and stay: nothing ends them but the effect
   for (const [b, n] of [['wang_token', 'token_wang_01_buff'], ['wang', 'wang_passive_01_buff_02']]) {
@@ -47,4 +55,11 @@ test('#2-1 the extracted activation prefabs: wisps that dissolve in and stay (sk
   // a placed stone's birth effect has the wisps but off: they come with its activation only
   const birth0 = prefab('wang_token', 'token_wang_birth_01_buff');
   assert.ok(birth0.nodes.filter((x) => x.name === 'line' || x.name === 'line1').every((x) => x.active === false));
+});
+
+test('#2-2 the extracted birth cross: flat 1-tile looping quads at the root (skipped without public/assets)', { skip: !haveFx && 'no extracted fx' }, () => {
+  const birth = prefab('wang_token', 'token_wang_birth_01_buff');
+  // its looping cross: flat 1-tile quads at the root's ground (no height of their own)
+  const sz = birth.nodes.filter((x) => x.ps && /^sz/.test(x.name));
+  assert.ok(sz.length && sz.every((x) => x.ps.loop && x.ps.render.align === 2 && x.ps.size.s === 1 && x.pos.every((c) => c === 0)));
 });
