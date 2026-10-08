@@ -1260,12 +1260,20 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   - **띠는 모델 앞** (2026-10-08 사용자 「금빛 띠가 오퍼레이터 뒤에 있어. 실제 인게임에선 위에 있었어」; 녹화도 번쩍일 때 검은 신발·정강이가
     금빛으로 덮인다): `bao`는 sortingOrder 0 — 분할 규칙이 order 0 파티클을 모두 모델 뒤 캔버스에 두었다. 클라이언트는 같은 order(Spine도 0)를
     거리로 정렬하고 `bao` 노드는 발 앞 0.4칸이라 모델 위에 그려진다 → `fxplayer.js FxInstance` 옵션 `ahead`(분할할 때 노드가 유닛보다 0.1칸 넘게
-    앞인 order 0 파티클을 FX_FRONT로), `fxgame.js playStatus`가 정예 금빛(`under`)에만 넘김. `bao (1)`(뒤 0.6칸)·order −1 glow·불티는 그대로 뒤.
-    품질 high + 3D 보드(분할)일 때만 — medium 이하는 예전처럼 전부 유닛 아래. 같은 규칙을 다른 이펙트에 쓰면 35 프리팹 / 77 시스템이 바뀐다
-    (사용자 결정 전이라 금빛만). 확인: mock `gg17s-*`(모델 보임, 공식과 나란히 `research/2026-10-08-elite-glow/official-vs-ours-front.png`),
+    앞인 order 0 파티클을 FX_FRONT로). `bao (1)`(뒤 0.6칸)·order −1 glow·불티는 그대로 뒤. 처음(0fe8987e)에는 정예 금빛에만 넘겼고,
+    **사용자 결정 2026-10-08 「일단 19개에게도 적용해놔. 나중에 이상하면 수정요청할게」**로 기본값 켜짐(`ahead: false`면 예전 방식, 끄는 호출자 없음).
+    품질 high + 3D 보드(분할)일 때만 — medium 이하는 예전처럼 전부 유닛 아래. 분할 안 하는 대상 타격·상태 이펙트는 영향 없음.
+    [추정] 공식은 유닛마다 거리로 정렬하지만 우리는 「모든 유닛 앞 / 모든 유닛 뒤」 둘뿐이라 옆 칸 유닛까지 덮을 수 있다.
+    - 실제로 바뀌는 프리팹(엔진으로 전 1,983개를 만들어 센 것 — `research/2026-10-08-elite-glow/ahead-in-engine-42-prefabs.txt` 42개 중 분할 경로 25개):
+      정예 금빛, 데겐블레허 S3 시작, 라플란드 더 데카덴차 늑대 토큰, 텍사스 디 오메르토사 S3 범위 시작, 프라마닉스 더 프레리타 범위·S3 범위·S3 시작,
+      실버애쉬 더 레인프로스트 S3 범위, 비르투오사 S3 버프 04·05(사용자가 전에 확인한 이펙트), 가비알 디 인빈서블 S1 치유·S2 버프, 글래디아 S3 버프,
+      마운틴 S3 범위, 비질 토큰 치유, 사리아 자기 버프, 스카디 S3 버프, 스펙터 디 언체인드 패시브 버프·끝·S1 시작, 시 S3 버프, 시빌라이트 에테르나 S3 버프,
+      울피아누스 S3 범위, 첸 더 던스트릭 S3 범위, 페페 등장. 처음 결정 때 보여 준 「19개」는 노드 회전을 뺀 오프라인 계산이라 조금 달랐다
+      (`gvial2_skill_2_start_03`은 실제로는 뒤 그대로, 비르투오사·사리아·스펙터 패시브·프라마닉스 범위가 더해짐).
+      샘플 비교 `ahead-sample-gvial2-s2.png`·`ahead-sample-blkkgt-s3.png`(사용자: 차이를 잘 모르겠다). 확인: mock `gg17s-*`(모델 보임, 공식과 나란히 `research/2026-10-08-elite-glow/official-vs-ours-front.png`),
     실제 판 `ggreal-*`(보드·벤치) — 둘 다 번쩍일 때 다리가 금빛에 덮임. 테스트 `test/local-patch-golden.test.js` 「opts.ahead」.
   - 남은 차이(이 수정 범위 밖): 띠가 공식보다 어둡다(칸당 밝기 합 약 2/3, 녹화 압축·감마 감안 [추정]) — 공식은 번쩍일 때 발 높이에 흰 띠가 뚜렷하다.
-  - 테스트 `test/local-patch-golden.test.js`(기본값: 루트 버림·`uPivot` 설정, `false`면 예전 방식; `fxgame.js`의 어떤 호출도 끄지 않음).
+  - 테스트 `test/local-patch-golden.test.js`(기본값: 루트 버림·`uPivot` 설정·order 0 앞 분할, `false`면 예전 방식; `fxgame.js`의 어떤 호출도 끄지 않음).
     확인: Windows `sp-check\gg14.mjs <port> <tag> hide|show [frames]`(game-mock PREP, rAF·`performance.now`를 스크립트가 1/30초씩 넘김)
     → `gg15h-*`(모델 숨김)·`gg14s-*`(모델 보임), `gg_real.mjs`(실제 솔로 판 정비, `dbg.addDiy golden` 보드 1·벤치 1) → `ggreal-*`.
 - 소재(git 밖): `fx_extract.py --bundle trap --prefab trap_acgarm_buff_loop_01` → `public/assets/local/fx/trap/`, 텍스처 6·메시 1, `fx/index.json`의 `trap`.

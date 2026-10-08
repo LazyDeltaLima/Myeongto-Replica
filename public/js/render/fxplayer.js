@@ -1113,7 +1113,8 @@ export class FxInstance {
    *   without it everything stays on layer 0; atSpawn (default on; false keeps it) = drop the root node's own position (the
    *   caller's placement replaces it); pivot (default on; false ignores it) = billboard / aligned / horizontal quads use their
    *   renderer's pivot (uPivot) — on for every effect by the user's decision 2026-10-08 (docs/LOCAL-PATCH.md 「정예 기물 금빛」);
-   *   ahead (with split) = an order-0 particle system whose node lies in front of the unit goes to FX_FRONT (the prep elite glow)
+   *   ahead (default on, with split; false keeps order 0 behind) = an order-0 particle system whose node lies in front of the unit
+   *   goes to FX_FRONT — the elite glow first, every split effect by the user's decision 2026-10-08
    */
   constructor(def, opts = {}) {
     this.def = def;
@@ -1201,11 +1202,13 @@ export class FxInstance {
           if (mesh) put(mesh, (n.mesh.order || 0) > 0 || (!(n.mesh.order || 0) && wrapsUnit(mesh, this.object)));
         }
       });
-      // local patch (opts.ahead, user report 2026-10-08: the elite glow's gold band covers the legs in the game): an order-0
-      // system whose node lies in front of the unit (nearer the camera) is drawn over it — the client sorts order 0 by distance
+      // local patch (opts.ahead, user report 2026-10-08: the elite glow's gold band covers the legs in the game; every split
+      // effect by the user's decision 2026-10-08 — 19 caster / ground prefabs): an order-0 system whose node lies in front of
+      // the unit (nearer the camera) is drawn over it — the client sorts order 0 by distance [ASSUMED for all but the glow:
+      // in front of / behind every unit at once, not sorted per unit]
       for (const s of this.systems) {
         const r = s.ps.render, o = r.order || 0;
-        const front = o > 0 || (o === 0 && ((r.fudge || 0) < 0 || (!!opts.ahead && aheadOf(s.node, this.object))));
+        const front = o > 0 || (o === 0 && ((r.fudge || 0) < 0 || (opts.ahead !== false && aheadOf(s.node, this.object))));
         if (s.draws) put(s.mesh, front); else s.mesh.layers.set(front ? FX_FRONT : FX_BACK);
         if (s.trailBatch) put(s.trailBatch.mesh, front);
       }
