@@ -159,3 +159,32 @@ test('fxplayer: every clip of a prefab plays, each to its own length; the effect
   assert.ok(inst.done);
   inst.dispose();
 });
+
+// local patch (m_IsActive, user's decision 2026-10-08 「공식과 동일하게」): a clip switching a node off hides its meshes and
+// clears / stops its particle systems; switched on again a system plays from its start (Unity's playOnAwake)
+test('fxplayer: a clip\'s m_IsActive track switches its node\'s meshes and particle systems off and on', async () => {
+  const fxp = await import('../public/js/render/fxplayer.js');
+  const mat = { shader: 'Torappu/Particles/Additive', tex: {}, floats: {}, colors: {} };
+  const node = (name, parent, extra = {}) => ({ name, parent, active: true, pos: [0, 0, 0], rot: [0, 0, 0, 1], scale: [1, 1, 1], ...extra });
+  const c = (v) => ({ m: 0, s: v });
+  const ps = { dur: 1, loop: true, delay: c(0), speedMul: 1, space: 0, scaling: 1, prewarm: false, life: c(5), speed: c(0),
+    color: { m: 0, a: [1, 1, 1, 1] }, size: c(0.1), rot: c(0), max: 100, gravity: c(0), flipRot: 0, rate: c(20), bursts: [], mods: {},
+    shape: { type: 5, radius: 1, angle: 0, arc: 360, thick: 1, length: 1, pos: [0, 0, 0], rotE: [0, 0, 0], scale: [1, 1, 1], box: [0, 0, 0] },
+    render: { mode: 0, mat: 'm', mesh: null, align: 0, pivot: [0, 0, 0], order: 0 } };
+  // on 0–0.2 s, off 0.2–0.6 s, on again after
+  const step = [[0, 0, 0, 0, 1], [0.2, 0, 0, 0, 0], [0.6, 0, 0, 0, 1]];
+  const def = { name: 'sw', duration: 1, nodes: [node('sw', -1), node('blade', 0), node('sparks', 1, { ps })], materials: { m: mat },
+    clips: [{ name: 'sw', len: 1, tracks: [{ node: 1, prop: 'attr:2086281974', type: 1, curves: [step] }] }], geoms: {}, lib: { texture: () => null } };
+  const inst = new fxp.FxInstance(def, { quality: 'high', atSpawn: false });
+  const sys = inst.systems[0];
+  inst.update(0.1);
+  assert.ok(inst.nodes[1].visible && sys.n > 0, 'on: drawn and emitting');
+  inst.update(0.2);
+  assert.equal(inst.nodes[1].visible, false, 'off at 0.2 s');
+  assert.equal(sys.n, 0, 'its particles cleared');
+  inst.update(0.2);
+  assert.equal(sys.n, 0, 'and none emitted while off');
+  inst.update(0.2);
+  assert.ok(inst.nodes[1].visible && sys.n > 0, 'on again: emitting from its start');
+  inst.dispose();
+});

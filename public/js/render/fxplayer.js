@@ -597,6 +597,8 @@ class TrailRenderer {
   update(dt, sinceStart) {
     this.time += dt;
     this.batch.material.uniforms.uTime.value = sinceStart;
+    // local patch (m_IsActive): switched off by a clip — not drawn, its points dropped [ASSUMED: cleared, not kept for the next on]
+    if (this.off) { this.count = 0; this.batch.begin(); this.batch.end(); return; }
     const tr = this.tr, R = this.ring;
     this.node.updateWorldMatrix(true, false);
     this.root.updateWorldMatrix(true, false);
@@ -770,6 +772,17 @@ class ParticleSystem {
   }
 
   get alive() { return this.n > 0 || (!this.stopped && (this.ps.loop || this.time < this.ps.dur)); }
+
+  /**
+   * local patch (m_IsActive, user's decision 2026-10-08 「공식과 동일하게」): its GameObject switched off by a clip — Unity clears
+   * the system and stops it; switched on again it plays from its start (playOnAwake).
+   */
+  setActive(on) {
+    if (on) {
+      this.time = -(evalMM(this.ps.delay, 0, Math.random()) || 0);
+      this.emitAcc = 0; this.burstDone.fill(0); this.stopped = false; this.cycle = 0;
+    } else { this.stopped = true; while (this.n) this.kill(this.n - 1); }
+  }
 
   emit(count) {
     const ps = this.ps;
@@ -1101,6 +1114,8 @@ function aheadOf(node, obj) {
 /** local patch: three.js layers of a split instance's renderers (FxInstance opts.split) — behind / in front of the units. */
 export const FX_BACK = 1, FX_FRONT = 2;
 const CLIP_AXIS = { r: 'x', g: 'y', b: 'z', a: 'w', x: 'x', y: 'y', z: 'z', w: 'w' };
+// local patch: a clip's GameObject m_IsActive binding (Mecanim type 1, crc32('m_IsActive'); the extract keeps it as 'attr:…')
+const ACTIVE_PROP = 'attr:2086281974';
 const clipE = new THREE.Euler();
 
 export class FxInstance {
@@ -1221,6 +1236,13 @@ export class FxInstance {
       for (const t of this.lines) put(t.batch.mesh, (t.tr.order || 0) > 0); // local patch
     } else this.layerN[0] = 1;
     this.clipTracks = this.clips.flatMap((c) => c.tracks.map((tr) => this.bindTrack(tr, c.len || 0)).filter(Boolean));
+    // local patch (m_IsActive, user's decision 2026-10-08 「공식과 동일하게」 — report 4 #4-5: 缄默德克萨斯 S3's falling blades are
+    // switched off as they land): the particle systems / trails under a node a clip switches on and off follow it (meshes and
+    // lines follow by their node's visibility). Nodes inactive from the start with no such track are left as they were (a
+    // client script may switch them on — direction variants)
+    const switched = new Set(this.clipTracks.filter((b) => b.kind === 'active').map((b) => b.o));
+    const under = (o) => { for (let p = o; p && p !== unity; p = p.parent) if (switched.has(p)) return true; return false; };
+    this.gated = switched.size ? [...this.systems, ...this.trails].filter((x) => under(x.node)).map((x) => ({ x, on: true })) : [];
     this.clipV = [];
     live.push(this);
     while (live.length > MAX_INSTANCES) live[0].dispose(); // the oldest goes (dispose removes it from `live`)
@@ -1232,6 +1254,7 @@ export class FxInstance {
     if (!o) return null;
     if (tr.prop === 'pos' || tr.prop === 'scale' || tr.prop === 'quat' || tr.prop === 'euler') return { tr, o, kind: tr.prop, len };
     if (tr.prop === 'width') { const ln = this.lines.find((t) => t.node === o); return ln ? { tr, o, kind: 'width', ln, len } : null; } // local patch
+    if (tr.prop === ACTIVE_PROP && tr.type === 1) return { tr, o, kind: 'active', len }; // local patch: m_IsActive
     if (!tr.prop.startsWith('mat:')) return null;
     const mat = this.meshMats[tr.node] || this.systems.find((s) => s.node === o)?.material
       || this.trails.find((t) => t.node === o)?.batch.material || this.lines.find((t) => t.node === o)?.batch.material;
@@ -1267,6 +1290,13 @@ export class FxInstance {
     if (this.hold != null && !this.stopping && this.time + dt > this.hold) dt = Math.max(0, this.hold - this.time); // local patch
     this.time += dt;
     if (this.clipTracks.length) this.applyClip(this.time);
+    for (const g of this.gated) { // local patch: m_IsActive — on only while every node above it is
+      let on = true;
+      for (let p = g.x.node; p && p !== this.unity; p = p.parent) if (!p.visible) { on = false; break; }
+      if (on === g.on) continue;
+      g.on = on;
+      if (g.x instanceof ParticleSystem) { if (!on || !this.stopping) g.x.setActive(on); } else g.x.off = !on;
+    }
     this.followWorld();
     for (const s of this.systems) s.update(dt, this.time);
     for (const t of this.trails) t.update(dt, this.time);
@@ -1309,6 +1339,7 @@ export class FxInstance {
         case 'euler': o.quaternion.setFromEuler(clipE.set(v[0] * D2R, v[1] * D2R, v[2] * D2R, 'YXZ')); break;
         case 'matComp': if (b.u.value?.isVector4) b.u.value[b.axis] = v[0] * b.k; break;
         case 'width': b.ln.w = v[0]; break; // local patch
+        case 'active': o.visible = v[0] > 0.5; break; // local patch: m_IsActive
         default: b.u.value = v[0];
       }
     }

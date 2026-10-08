@@ -72,3 +72,23 @@ test('#4-5 the falling sword\'s blade nodes carry the built-in Quad mesh (skippe
   assert.deepEqual(q.idx, [0, 3, 1, 3, 0, 2]);
   assert.equal(q.pos.length, 12);
 });
+
+// the client switches the falling blades off as they land (m_IsActive 0.2 s; texas2_skill_03_start 0.37 s) — they stayed to the
+// end of the 1.53 s clip before (user's decision 2026-10-08 「공식과 동일하게」)
+test('#4-5 her S3 range start: the 4 falling blades are switched off as they land (skipped without public/assets)', { skip: !existsSync(path.join(FX, 'texas2_skill_03_range_start.json')) && 'no extracted fx' }, async () => {
+  const THREE = await import('../../public/vendor/three.module.js');
+  const fxp = await import('../../public/js/render/fxplayer.js');
+  const def = JSON.parse(readFileSync(path.join(FX, 'texas2_skill_03_range_start.json'), 'utf8'));
+  const tri = () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3)); g.setIndex([0, 1, 2]); return g; };
+  def.geoms = new Proxy({}, { get: () => tri() });
+  def.lib = { texture: () => new THREE.Texture() };
+  const inst = new fxp.FxInstance(def, { quality: 'high' });
+  const blades = def.nodes.map((n, i) => (n.name === 'jian' && n.mesh ? inst.nodes[i] : null)).filter(Boolean);
+  const switched = blades.filter((o) => inst.clipTracks.some((b) => b.kind === 'active' && b.o === o));
+  assert.equal(switched.length, 4, 'the 4 falling blades carry a switch');
+  inst.update(0.1);
+  assert.ok(switched.every((o) => o.visible), 'falling');
+  inst.update(0.15);
+  assert.ok(switched.every((o) => !o.visible), 'gone once landed');
+  inst.dispose();
+});
