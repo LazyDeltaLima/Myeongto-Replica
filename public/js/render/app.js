@@ -658,6 +658,9 @@ export async function createFieldView(host, options = {}) {
     if (!v) return;
     views.delete(key);
     if (hoverUnit === v) hoverUnit = null;
+    // its looping status effects end with it: syncGoldenFx / syncStatusFx only see the views still in the map, so a sold or
+    // rebuilt elite's prep glow kept looping where it stood (user report 2026-10-09); outside a battle the particles go at once
+    if (v._fxStatusOn?.size) for (const k of [...v._fxStatusOn]) fxGame.statusOff(v, k, mode !== 'battle');
     try { v.destroy(); } catch (err) { console.warn('[render] view destroy', err); }
   }
 

@@ -1534,6 +1534,11 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   - 테스트 `test/local-patch-golden.test.js`(기본값: 루트 버림·`uPivot` 설정·order 0 앞 분할, `false`면 예전 방식; `fxgame.js`의 어떤 호출도 끄지 않음).
     확인: Windows `sp-check\gg14.mjs <port> <tag> hide|show [frames]`(game-mock PREP, rAF·`performance.now`를 스크립트가 1/30초씩 넘김)
     → `gg15h-*`(모델 숨김)·`gg14s-*`(모델 보임), `gg_real.mjs`(실제 솔로 판 정비, `dbg.addDiy golden` 보드 1·벤치 1) → `ggreal-*`.
+- **판매 뒤 남는 금빛** (2026-10-09 사용자 제보 「정예화된 오퍼 판매시, 정예화 이펙트가 사라지지 않음」): `syncGoldenFx`는 `views`에 남은 뷰만 보므로
+  판매·이동으로 `app.js dropView`가 지운 뷰의 루프는 끄는 쪽이 없어 그 자리에서 계속 돌았다(같은 기물이 `_sig`가 바뀌어 다시 만들어질 때도 하나씩 쌓임).
+  → `dropView`가 그 뷰의 상태 이펙트(`_fxStatusOn`)를 모두 `statusOff` — 전투 밖은 즉시(`now`), 전투 중은 남은 파티클 수명대로.
+  확인: Windows `sp-check\goldsell.mjs <port> <tag>`(실제 솔로 판 정비, `dbg.addDiy golden` 보드 배치 → `g.sell`):
+  수정 전 판매 뒤 `trap_acgarm_buff_loop_01` 1개 남음(빈 칸에 금빛 불티) / 수정 후 0개.
 - 소재(git 밖): `fx_extract.py --bundle trap --prefab trap_acgarm_buff_loop_01` → `public/assets/local/fx/trap/`, 텍스처 6·메시 1, `fx/index.json`의 `trap`.
 - 테스트 `test/local-patch-golden.test.js`. 확인: Windows `sp-check\goldglow.mjs`·`goldglow2x.mjs <port> <tag> <ms csv>`(game-mock PREP, 보드·벤치 기물 하나씩
   golden) → `goldfinal-bench.png`, 프리팹 단독 `gold_seq.mjs`(→ `gold_seq.png`).
