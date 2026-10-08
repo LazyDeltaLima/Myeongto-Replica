@@ -304,7 +304,7 @@ export class BoardScene {
   /** Rebuild everything for a stage (no-op when the same stage object/grid is set again). */
   setStage(stage) {
     if (this.destroyed) return;
-    const key = stage ? `${stage.id || ''}|${stage.highlandHeight ?? ''}|${(stage.rows || []).join('/')}|${JSON.stringify((stage.devices || []).map((d) => [d.key, d.pos, d.active, d.dir]))}` : '';
+    const key = stage ? `${stage.id || ''}|${stage.sceneId || ''}|${stage.highlandHeight ?? ''}|${(stage.rows || []).join('/')}|${JSON.stringify((stage.devices || []).map((d) => [d.key, d.pos, d.active, d.dir]))}` : '';
     if (key === this.stageKey) return;
     this.stageKey = key;
     this.stage = stage || null;
@@ -349,9 +349,12 @@ export class BoardScene {
     this.renderer.shadowMap.needsUpdate = true;
   }
 
-  /** The loaded official scene of `stage` (null while loading / none); starts the load once per stage. */
+  /**
+   * The loaded official scene of `stage` (null while loading / none); starts the load once per stage. `stage.sceneId`
+   * names another stage's scene — a 联防 template map has none, it is drawn on the round's own map (render/app.js setStage).
+   */
   _officialFor(stage) {
-    const id = stage?.id;
+    const id = stage?.sceneId || stage?.id;
     const load = this.opts.loadOfficial;
     if (!id || typeof load !== 'function' || this.opts.official === false) return null;
     if (this.officialData.has(id)) return this.officialData.get(id);
@@ -360,7 +363,7 @@ export class BoardScene {
       Promise.resolve(load(id)).catch(() => null).then((data) => {
         this.officialPending.delete(id);
         this.officialData.set(id, data || null);
-        if (data && !this.destroyed && this.stage?.id === id) { this.stageKey = null; this.setStage(this.stage); }
+        if (data && !this.destroyed && (this.stage?.sceneId || this.stage?.id) === id) { this.stageKey = null; this.setStage(this.stage); }
       });
     }
     return null;

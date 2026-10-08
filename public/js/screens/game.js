@@ -386,7 +386,13 @@ function MatchScreen() {
     || (Array.isArray(shownField.players) ? shownField.players : null)) : null;
   const ownView = showPrep || (shownField ? (shownMembers ? shownMembers.includes(myId) : shownField.fieldId === ownFieldId(myId)) : !watchingOther);
   // a field on a map of its own (联防: the escaped template's map, GitHub #41) shows that map; leaving it restores the board's
-  const fieldStage = gd.ready && shownField && shownField.stageId && shownField.stageId !== pub?.stageId ? gd.stage(shownField.stageId) : null;
+  const fieldStageId = gd.ready && shownField && shownField.stageId && shownField.stageId !== pub?.stageId ? shownField.stageId : null;
+  // the 联防 template level has no official 3D scene (the client has none): the board draws the round's own map behind it
+  // (user decision 2026-10-09: the official 联防 screen shows that map as it is) — render/board3d/scene.js `sceneId`
+  const fieldStage = useMemo(() => {
+    const st = fieldStageId ? gd.stage(fieldStageId) : null;
+    return st && st.kind === 'unite' && pub?.stageId ? { ...st, sceneId: pub.stageId } : st;
+  }, [fieldStageId, pub?.stageId, gd.ready]);
   useEffect(() => {
     if (!view) return;
     const st = fieldStage || (ownView ? ownStage : baseStage);

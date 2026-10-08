@@ -251,6 +251,7 @@ export async function createFieldView(host, options = {}) {
   let destroyed = false;
   let mode = 'idle';          // 'idle' | 'prep' | 'battle'
   let stageRec = null;
+  let roundSceneId = null;      // the id of the last non-联防 stage shown (setStage: a 联防 map draws its official scene)
   let cam = presetCamera('prep', { width: s0.width, height: s0.height, padding: defaultPadding('prep', s0) }, { hud: hudBands('prep', s0) });
   let camFrom = null, camTo = null, camT0 = 0, camKind = 'prep', camOpts = {}, camMs = CAMERA_MS;
   let pendingView = null;     // tile band/focus to apply when the camera transition ends
@@ -635,10 +636,15 @@ export async function createFieldView(host, options = {}) {
 
   function setStage(st) {
     if (!st || typeof st !== 'object' || !Array.isArray(st.rows)) return false;
+    // a 联防 template map (kind 'unite') has no official scene: the board draws the round's own map (`sceneId`, screens/
+    // game.js; else the last other stage this view showed — a battle entered through enterBattle)
+    if (st.kind !== 'unite') roundSceneId = st.id;
+    else if (!st.sceneId && roundSceneId) st = { ...st, sceneId: roundSceneId };
+    const sceneId = st.sceneId || st.id;
     // local patch: a stage drawn from its official scene stands on the scene's tile heights (style.js tileTop)
-    const hl = board3d?.highlandFor?.(st.id) ?? null;
+    const hl = board3d?.highlandFor?.(sceneId) ?? null;
     if (hl != null && st.highlandHeight !== hl) st = { ...st, highlandHeight: hl };
-    const ph = board3d?.platformFor?.(st.id) ?? null;
+    const ph = board3d?.platformFor?.(sceneId) ?? null;
     if (ph != null && st.platformHeight !== ph) st = { ...st, platformHeight: ph };
     stageRec = st;
     tiles.setStage(st);
