@@ -1394,12 +1394,19 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   (끄는 중이면 계속 — 5071f4bb, 매핑 정정 c2d21a87). 적 앞: `baoshan` 원은 fudge −50, 점 입자는 order 2 → 분할(high)에서 FX_FRONT(기존 규칙). 분할이 꺼진 품질은 예전대로 유닛 아래.
 - ghost2만 재추출(마운트 프리팹 5개만 반영; 같이 재추출하면 `skill_02_buff_01`·`beidong_buff_01(_end)`·`skill_01_buff`·`skill_03_buff_01`에 세션 H 내장 Quad `bg_01`이
   생겨 이전 파일로 둠 — H-3 「텍사스만」). **배포 때 `oci/deploy.sh --fx`**(ghost2 JSON·modes.json).
-- **전체 적용은 사용자 결정 대기**: 우리 추출물 중 마운트 프리팹 359개(93 번들), 자리가 바뀔 것 174개(49 번들 — 텍사스 디 오메르토사 `buff_02_start`, 믈리나르, 비질 등 포함).
-  GeneralAbilities 버프 바인딩도 모두에게 켜면 7명(kroos2·whitw2·halo2·rockr·malist·ulpia·tippi) 바뀜. 목록 `research/2026-10-08-mount-points/`(작업 공간 루트).
+- **전체 적용(사용자 결정 2026-10-08 「전체 적용」·「켜줘」)**: `fx_extract.py --mount-only`(9afebeb2)가 추출된 프리팹 JSON에 `mount`만 넣는다 — 재추출하면 세션 H 내장 Quad
+  같은 다른 변화가 섞이므로. 전 번들: 마운트 프리팹 359개(93 번들), 파일 354개 변경(ghost2 5개는 이미), `mount` 외 키 변화 0. 자리가 바뀌는 것 174개(49 번들 — 텍사스 디
+  오메르토사 `buff_02_start`, 무에나, 비질 등). GeneralAbilities 버프 바인딩도 전원(5e116d97) — 7명(크루스 더 킨 글린트·라플란드 더 데카덴차·아스트젠 더 라이트체이서·
+  락락·미니멀리스트·울피아누스·티피) 바뀜. 목록 `research/2026-10-08-mount-points/`(작업 공간 루트). 알려진 빈자리: 비즈왁스 S2 `beewax_skill_02_buff_01`(마운트 특수점 0,
+  모델에 없음 — 공식은 멈춤, 우리는 바닥). **이상한 위치가 보이면** 그 프리팹 JSON의 `mount`를 빼거나 `fxgame.js lifted()`의 `mountSpawn(...) ??` 한 줄을 되돌린다.
+- **대역(替身)의 파란 이펙트**(사용자 2026-10-08 「대역 전환시 파란 이펙트는 안 보이는데」, 7b669fd7): 바인딩 `attach[Stand]`(`ghost2_beidong_buff_02` 원·`_buff_01` 3×3 물결)는
+  있었지만 스킬 모드가 아닌 모드의 attach를 트는 곳이 없어 한 번도 안 나왔다(세션 L 이전부터). `fxgame.js dollFx`: 시뮬레이션 fx `substitute`(대역으로)에 Stand 모드 attach를
+  루프로 틀고 `swap`(본체로)·`dollEnd`(대역 쓰러짐)에 끔. 전환 시작부터 [추정], 두 이펙트 동시 시작(사용자 설명은 원 → 물결 순서 — 공식 녹화로 대조 필요), `beidong_buff_01_end`
+  (끝 이펙트)는 안 틂. 아레나·실제 솔로 판: S2가 끝나 대역으로 바뀌는 순간부터 바닥에 파란 물결·입자.
 - 안 한 것: `_followScaleSign`·`_followScale`(좌우·크기 따라감), `_keepOriginRotation`(본 회전) — 위치만 따라간다.
 - 확인: 단위(`test/local-patch-fxspawn.test.js` mountSpawn·boneMissing·ghost2 추출물·바인딩), 아레나(`l_arena.mjs` — 평타 원형·S2 붉은 원이 발이 아니라 톱날 높이에서
-  톱날을 따라 움직이고 샌드백 앞에 그려짐), **실제 솔로 판**(`l_real.mjs` — S2 발동 뒤 톱날에 붉은 원, 프레임마다 톱날 위치를 따라감). 대역 전환 뒤 파란 2종은 아레나·판에서
-  전환을 못 일으켜 화면 확인 못 함 — 두 프리팹은 JSON·바인딩·코드 경로가 그대로(마운트 없음, spawn 5·1). 공식 녹화 없음(사용자 설명 기준).
+  톱날을 따라 움직이고 샌드백 앞에 그려짐), **실제 솔로 판**(`l_real.mjs` — S2 발동 뒤 톱날에 붉은 원, 프레임마다 톱날 위치를 따라감). 대역 전환은 S2가 끝날 때 일어난다
+  (처음엔 치명 피해로 일으키려다 못 봄 — 위 「대역의 파란 이펙트」에서 확인). 전체 적용의 다른 오퍼 174개는 화면 확인 안 함(단위 테스트로 우리 모델에서 점을 찾는지만). 공식 녹화 없음.
 
 ### 정예 기물 금빛 (2026-10-08, 사용자 요청 「정예화된 오퍼는 휴식 기간에 황금빛으로 빛나는 이펙트」)
 - 근거: zh_CN `gamedata/battle/battle_misc_table.json` `miscConfig.AUTOCHESS.act1autochess`·`act2autochess.effectConfig.goldenEffectId`
