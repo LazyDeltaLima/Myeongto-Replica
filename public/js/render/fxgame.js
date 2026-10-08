@@ -208,7 +208,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
-  async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null } = {}) {
+  async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null, tag = null } = {}) {
     const b = bundleOf(view);
     if (!b) return;
     const names = given || effectsFor(b.prefabs, kind, skillIndex);
@@ -246,7 +246,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // local patch (user 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
       // skill start as well as its buff loops — goes under the units; the hits on a target stay over
       // (local patch, user report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
-      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until }, split ? layers.split : buff || !at ? layers.under : layers.over);
+      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag }, split ? layers.split : buff || !at ? layers.under : layers.over);
       // the player's own cap: it has already ended the oldest (done, dispose is a no-op) — the same one here
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
     }
@@ -579,6 +579,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // 'skill' / 'atk' / 'dmg' events or kitFx); informational marks stay (dodge / crit text, DP, locks and marks, beams,
   // displacement arrows, heals). The event's operator: `src`, else `by`, else `id` (an ally token / device keeps them).
   const STAND_IN = new Set(['blast', 'zone', 'wall', 'summon', 'buff', 'wave', 'pillar', 'element', 'healAoe', 'shield', 'shatter', 'strike', 'volley']);
+  // local patch (user 2026-10-08, report 4 #4-7 follow-up: 스펙터 디 언체인드's blue effects after the switch to the 替身 never
+  // showed): a 傀儡师's 替身 is its charpack mode 'Stand', whose Talents buffs' effects (modes.json `attach`: ghost2_beidong_buff_02
+  // the ring, _buff_01 the 3×3 waves) last while the form does — from sim fx 'substitute' (professions.js installDollkeeper)
+  // until 'swap' (back to the 本体) or 'dollEnd' (knocked out as the 替身). Started with the switch [추정: the client's
+  // Talents buffs apply as the mode changes]; the prefabs' own end effects (beidong_buff_01_end) are not played.
+  function dollFx(e, views) {
+    const id = e[4].id, v = views.get(id);
+    for (const l of live) if (l.tag === 'doll' && l.owner === id) l.inst.stop(e[1] === 'dollEnd');
+    if (e[1] !== 'substitute' || !v || q() === 'low') return;
+    const n = bindOf(v)?.modes?.indexOf('Stand') ?? -1;
+    const names = n > 0 ? bound(v, n, 'attach') : [];
+    if (names.length) play(v, 'skillBuff', 0, { names, buff: true, tag: 'doll' });
+  }
   function standInOff(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object' || !index || failed || q() === 'low') return false;
@@ -1169,6 +1182,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
+          if ((e[1] === 'substitute' || e[1] === 'swap' || e[1] === 'dollEnd') && e[4]) dollFx(e, views); // local patch: the 替身's own effects
           if (standInOff(e, views)) ownFx.add(e); // local patch: no old procedural stand-in for an operator with official effects
           if ((e[1] === 'drone' || e[1] === 'drones') && e[4] && wolvesOn() && wolves.has(e[4].id)) {   // her wolves: no generic puff
             ownFx.add(e);

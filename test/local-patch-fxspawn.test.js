@@ -93,8 +93,9 @@ test('every extracted muzzle / special-point prefab finds its point on our model
   { skip: (!existsSync(FX) || !runtime) && 'no extracted effects or pixi-spine' }, () => {
     const byCode = Object.fromEntries(Object.keys(TABLE).filter((k) => k.startsWith('char_')).map((k) => [k.replace(/^char_\d+_/, ''), k]));
     // swire's melee model has no Muzzle (its attack start keeps the ground); 浊心斯卡蒂 has no Back model; 史尔特尔's Back
-    // record follows Front face bones the Back skeleton lacks (client data — its fixed spot is used)
-    const GAPS = new Set(['swire/swire_attack_01_start', 'surtr/surtr_skill_03_buff_03 B', 'surtr/surtr_skill_03_buff_04 B']);
+    // record follows Front face bones the Back skeleton lacks (client data — its fixed spot is used); 비즈왁스's model has
+    // no SpecialPoint0 for her S2 buff's mount (session L: the client pauses it, _pauseWhenMountPointInvalid; it keeps the ground)
+    const GAPS = new Set(['swire/swire_attack_01_start', 'surtr/surtr_skill_03_buff_03 B', 'surtr/surtr_skill_03_buff_04 B', 'beewax/beewax_skill_02_buff_01']);
     const missing = [];
     for (const [b, n, spawn] of pointPrefabs()) {
       if (GAPS.has(`${b}/${n}`)) continue;
