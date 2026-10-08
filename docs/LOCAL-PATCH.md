@@ -387,7 +387,12 @@ SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg
       battle_misc_table `tileTypeDict` 순서로 해석 [추정: DEFAULT 1, END 2, START 4, HOLE 8, FAKE_HIGHLAND 16, RESPAWN_ABNORMAL 32] →
       14 = END·START·HOLE = `tile_end`·`tile_end_cooperate`·`tile_allygoal`(방어 지점), `tile_start`·`tile_start_cooperate`·`tile_enemygoal`
       (적 침입 지점), `tile_hole`. 배치 불가 고지대도 불가(재능·재배치·S3 시작 초과분·S3 배치 모두 같은 `followerClass`). 비행 적 출현
-      칸(`tile_flystart`)은 이 목록에 없다. 망 S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 3-3 안의 적, `DEFAULT`). 한때 스킬 범위 4-12에 적이 들어오면
+      칸(`tile_flystart`)은 이 목록에 없다. **깊은 심해(`tile_deepsea`)도 불가** (사용자 제보 5차 5-1, 사용자 결정 2026-10-08 — 공식 마스크 14에는 없음):
+      `grid.js DEPLOY_REFUSED_TILES`가 깊은 심해를 「배치 불가 지면」(`build 'NONE'`)으로 만드는데, PRTS 비고의 순서가 그 지면을 跟子 1순위로 두어
+      act2 m04 물길(6·14열 10–12행)에 跟子가 먼저 들어갔다(실제 매치 경로 6판 중 5판, 19개). 사용자 설명: 「발판 같은 기물(특제 수상 플랫폼 特制水上平台)이
+      있어야 배치가 가능한 특수 타일」 — 시뮬레이션은 그 플랫폼이 없으므로(`grid.js` [ASSUMED]) 깊은 심해 전체를 막는다(`op-wang.js FOLLOWER_REFUSED_TILES`).
+      재능·S3 「적이 있는 칸」 모두 `followerClass`라 같이 막히고, S3 손패 배치·S1/S2 자동 배치는 이미 `build 'NONE'`을 건너뛴다. 플랫폼을 모델링하면
+      그 칸만 다시 열 것. 테스트 `test/local-patch-diy-wang.test.js` 「no 跟子 on a 深水区 tile」. 망 S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 3-3 안의 적, `DEFAULT`). 한때 스킬 범위 4-12에 적이 들어오면
       켜지는 `SKILL_RANGE` 예외였으나 사용자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다(`tools/build-diy.mjs DIY_TRIGGER_DEVIATIONS` 비움).
     - 손패(재고) 상한 maxDeckStackCnt(7)는 **손패만** 센다(클라이언트 `wang_s3_charge_token` max_cnt/remaining_cnt =
       AssignTokenCardCntToBB 카드 수, `_stopSpWhenTokenIsFull`도 카드 수). 전투 시작 때 위수협약이 나눠 준 배치 한도 6장(PRTS
@@ -1481,6 +1486,14 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
       (buff_sluggish, buff_autochess_frozen, 첸 S3 범위, 로즈몬티스 S3 …), 전후 `research/2026-10-07-user-issues-3/boxshell-before-after.png`.
       남은 차이 [추정]: S3 `lizi2 (1)/(2)` 가는 호는 프리팹 자체가 반지름 2.2 원에서 나와 마름모 대각선 모서리를 조금 넘음(공식도 같다고 봄), 늘인 빌보드
       pivot(`lizi2 (2)` 0.5, `sdx_line` 1, `baoci` −0.5) 미구현. 테스트 `test/render/wang-stone-fx.test.js`.
+    - **돌아오는 돌 위 금빛 기둥·육각형** (세션 B 범위 밖 ①, 2026-10-08 세션 stronghold-99): 세션 B 캡처 `real-after-s3-blast.png` f2의 노란 기둥+흰 심지+
+      육각형은 소환 대체 그림(민트)이 아니라 **스킬 발동 대체 그림** `fx.skill`이다. 소모된 놓은 돌이 같은 id로 돌아올 때 시뮬레이션은 토큰 패시브의
+      `['skill', id, 1]`을 `['deploy', id]`보다 **먼저** 보낸다(`deploy.js` `skill.reset` → 'deploy'; 실제 매치 5판에서 S3 중 `die` 2.0초 뒤가 대부분).
+      쓰러지는 뷰는 최대 2.15초 남으므로(`units.js` `dying`) 그 뷰 위에 `render/app.js`가 `burst: !ownsSkill(v)`로 금빛 기둥을 그렸다(토큰은 `isOp`가 아님).
+      → `fxgame.js ownsSkill`이 望 돌 뷰에 `stonesOn()`을 돌려줌(돌의 탄생·활성은 stoneFx의 공식 프리팹). 세션 B의 「跟子 'summon'이 뷰보다 먼저 온다」는
+      추정은 틀렸다: 실제 매치 경로 124개 summon 모두 spawn 뒤, Windows Chrome 실제 판에서도 소환 대체 그림 0회, 跟子 탄생은 `wang_passive_01_buff`(3/3).
+      확인 수준: 실제 판에서 돌의 `fx.skill`이 수정 전 `burst: true` → 후 `false`(Windows `sp-check\w4_real.mjs`), 기둥 자체는 실제 판에서
+      다시 찍히지 않음(쓰러지는 뷰와 겹치는 타이밍이 이번 판들에 없었음 — 원인은 이벤트 순서 데이터 + 페이드 시간으로 추론).
   - **6. 赤刃明霄陈 S3 용이 그녀를 가림** (세션 stronghold-1d 첸 포크, 공식 캡처 `cap-230329.png` + 공식 녹화 `첸 S3.mp4`: 용은 그녀 뒤):
     ① 용 버프는 클라이언트가 **한쪽만** 튼다 — `skchr_chen3_3/SwitchMode` `overrideEffectKey` = `chen3_skill_03_buff_L_01`이고, 그 프리팹 루트의 두 번째
     컴포넌트 `_rightEffect` = `chen3_skill_03_buff_R_01`(`_onlyCheckOnPlay` 0)은 오른쪽을 볼 때 대신 트는 사본이다. 우리는 이름 규칙(`effectsFor
