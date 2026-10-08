@@ -1225,12 +1225,20 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   `under`는 상태 이펙트와 달리 'high'+3D 보드에서 렌더러별 분할(−1은 모델 뒤), 그 밖에는 유닛 아래 캔버스. `fxstatus.js syncStatusFx`는 자기 키(STATUS_FX)만 끈다.
   공식 이펙트가 도는 동안 원본의 절차 금빛 오라(`units.js aura`)는 숨김(전투 중 오라는 그대로).
 - 보이는 모습: 몸 뒤 은은한 금빛 + 머리 위로 오르는 금색 불티. 몸이 glow를 대부분 가린다(데이터대로) — 공식 캡처와 비교 [추정].
+  보드와 벤치 모두 [추정](벤치 기물도 더미 `placeToHand`). 소환물·적·장치 제외.
 - **위치 수정** (2026-10-08 사용자 「빛은 뒤에 있는게 맞는데 glow 효과가 오퍼보다 아래에 있어」, 공식 녹화 `research/2026-10-07-user-issues-3/official-elite-glow.mp4`):
   보이는 빛은 `bao`(Additive, 1초 × speedMul 0.8 = 1.25초 주기)의 금빛 띠 — 로컬 정렬(align 2) 쿼드가 바닥면에 누워 pivot x 0.95·회전 −90°로
   발 앞에서 유닛 뒤로 뻗는다. 우리는 ① 렌더러 `m_Pivot`을 무시해 띠가 노드 자리(발 앞 0.4칸)에 놓였고 ② 프리팹 루트 위치(z −0.25)를 더해 전체가 떴다.
   → `fxplayer.js FxInstance` 옵션 두 개: `pivot`(빌보드·정렬·수평 쿼드가 회전 전 모서리를 pivot × 크기만큼 옮김, 셰이더 `uPivot`; 늘인 빌보드·메시 파티클은
-  미적용), `atSpawn`(루트 노드 자기 위치를 버림 — 호출자가 놓는 자리가 대신함). `fxgame.js playStatus`가 `under`(정예 금빛)일 때만 둘 다 켠다 —
-  **다른 이펙트에 적용할지는 사용자 결정 대기**(pivot 쿼드 412 시스템 / 242 프리팹, 루트 위치 104 프리팹).
+  미적용), `atSpawn`(루트 노드 자기 위치를 버림 — 호출자가 놓는 자리가 대신함). 처음(6c782d40)에는 정예 금빛에만 켰고,
+  **사용자 결정 2026-10-08 「둘 다 전체 적용」**으로 두 옵션 모두 기본값이 켜짐(`false`를 넘기면 예전 방식, 지금 끄는 호출자 없음).
+  영향: pivot 쿼드 412 시스템 / 242 프리팹(전체 pivot 1,836 시스템 중 늘인 빌보드 1,193·메시 94 등은 아직 미구현), 루트 위치 104 프리팹(대부분 투사체 꼬리).
+  - 비교 자료(`research/2026-10-08-elite-glow/a2-pivot.png`·`a2-root.png`, 프리팹 단독 current / pivot / pivot+root — Windows `fxcmp.mjs`)와
+    디버그 아레나 전·후(`a2arena.mjs`: 野鬃 S2 `a2w-*`, 空弦 공격 `a2a-*`):
+    野鬃 S2 찌르기 빛줄기는 전에는 적 **반대쪽**으로 2칸 넘게 뻗었고 이제 유닛에서 적 쪽으로 뻗는다(pivot x 1.0 × 크기 1.6).
+    꼬리(空弦 `archet_attack_01_trail` 루트 (0.39, 0.65), 丰川祥子 음표 등)는 투사체 선에서 떨어져 날다가 이제 선 위로 — 그런데 그 선의 높이가
+    `fxgame.js TRAIL_Z` 0.35칸([추정])이라 空弦 화살이 화면에서 발 높이로 낮게 난다(전에는 루트 오프셋 덕에 머리 높이로 보였다).
+    TRAIL_Z를 공식 발사 지점 높이로 맞추는 것은 따로 할 일. 첸 S2·비르투오사 S3·르무엔 S3·余·취약은 조금만 바뀜.
   - 근거·[추정]: pivot 부호(+)는 녹화에서 띠가 유닛 뒤로 가는 것(−면 발 앞·아래), 루트 버리기는 Unity `Instantiate(prefab, pos, …)` 동작 + 녹화 높이.
     클라이언트 `Torappu.Battle.Effects.ParticleEffect`(메타데이터 필드 기본값)가 자식 이름 `static_offset`·`rotation_y`·`rotation_z`·`flip_x`를 상수로 갖고
     `_overwriteHeight`·`_heightOffset` 필드가 있다 — 이 프리팹 루트 값은 false / 0(원시 필드)이라 `static_offset`(z −0.34)은 그대로 둔다 [추정: 로직은 네이티브].
@@ -1240,10 +1248,9 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
     **pivot + 루트 버리기 0.46~0.48**. 번쩍인 뒤 0.3초 동안의 궤적은 공식과 0.05칸 안(예: +0.1초 0.30 / 공식 0.29). 이전 메모의 「아직 0.2칸 높다」는
     공식 띠를 눈대중(0~0.45칸)으로 잡은 비교였다.
   - 남은 차이(이 수정 범위 밖): 띠가 공식보다 어둡다(칸당 밝기 합 약 2/3, 녹화 압축·감마 감안 [추정]) — 공식은 번쩍일 때 발 높이에 흰 띠가 뚜렷하다.
-  - 테스트 `test/local-patch-golden.test.js`(옵션 없으면 그대로, `atSpawn`은 루트만, `pivot`은 `uPivot`; `playStatus`가 정예 금빛에만 넘김).
+  - 테스트 `test/local-patch-golden.test.js`(기본값: 루트 버림·`uPivot` 설정, `false`면 예전 방식; `fxgame.js`의 어떤 호출도 끄지 않음).
     확인: Windows `sp-check\gg14.mjs <port> <tag> hide|show [frames]`(game-mock PREP, rAF·`performance.now`를 스크립트가 1/30초씩 넘김)
     → `gg15h-*`(모델 숨김)·`gg14s-*`(모델 보임), `gg_real.mjs`(실제 솔로 판 정비, `dbg.addDiy golden` 보드 1·벤치 1) → `ggreal-*`.
-  보드와 벤치 모두 [추정](벤치 기물도 더미 `placeToHand`). 소환물·적·장치 제외.
 - 소재(git 밖): `fx_extract.py --bundle trap --prefab trap_acgarm_buff_loop_01` → `public/assets/local/fx/trap/`, 텍스처 6·메시 1, `fx/index.json`의 `trap`.
 - 테스트 `test/local-patch-golden.test.js`. 확인: Windows `sp-check\goldglow.mjs`·`goldglow2x.mjs <port> <tag> <ms csv>`(game-mock PREP, 보드·벤치 기물 하나씩
   golden) → `goldfinal-bench.png`, 프리팹 단독 `gold_seq.mjs`(→ `gold_seq.png`).

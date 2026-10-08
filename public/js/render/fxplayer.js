@@ -249,7 +249,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       return;
     }
     // quad corner, -0.5..0.5; local patch: + the renderer's pivot (m_Pivot, in particle sizes) when the instance asks for it
-    // (FxInstance opts.pivot): the quad's centre sits pivot x size from the particle, turned with it (elite glow bao: pivot x
+    // (FxInstance opts.pivot, default on): the quad's centre sits pivot x size from the particle, turned with it (elite glow bao: pivot x
     // .95 at rotation -90 deg, its gold band runs from the feet back behind the unit, official recording 2026-10-08;
     // [ASSUMED] the sign: + puts that band behind the unit as recorded, - would put it in front of the feet).
     // Billboards / aligned / horizontal quads only (stretched and mesh particles: not yet)
@@ -742,7 +742,7 @@ class ParticleSystem {
     mat.uniforms.uLengthScale.value = ps.render.lengthScale ?? 2;
     mat.uniforms.uVelScale.value = ps.render.velScale ?? 0;
     mat.uniforms.uAlign.value = ps.render.align ?? 0;
-    if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0); // local patch (FxInstance opts.pivot)
+    if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0); // local patch (FxInstance opts.pivot, default on)
     if (geomSrc !== QUAD) useMeshAttrs(g, geomSrc, mat); // local patch
     this.material = mat;
     this.mesh = new THREE.Mesh(g, mat);
@@ -1099,9 +1099,9 @@ export class FxInstance {
    *   local patch: floor = the board height of the ground under it (default 0): what lies more than 0.05 below is not drawn
    *   (null: no cut); split = each renderer on layer FX_FRONT or FX_BACK by its Unity sorting (sortingOrder > 0, or 0 with a
    *   negative sorting fudge = in front of the units, whose Spine renderers are Default / order 0 and write no depth) —
-   *   without it everything stays on layer 0; atSpawn = drop the root node's own position (the caller's placement replaces
-   *   it); pivot = billboard / aligned / horizontal quads use their renderer's pivot (uPivot) — both only for the prep elite
-   *   glow so far (docs/LOCAL-PATCH.md 「정예 기물 금빛」)
+   *   without it everything stays on layer 0; atSpawn (default on; false keeps it) = drop the root node's own position (the
+   *   caller's placement replaces it); pivot (default on; false ignores it) = billboard / aligned / horizontal quads use their
+   *   renderer's pivot (uPivot) — on for every effect by the user's decision 2026-10-08 (docs/LOCAL-PATCH.md 「정예 기물 금빛」)
    */
   constructor(def, opts = {}) {
     this.def = def;
@@ -1122,12 +1122,14 @@ export class FxInstance {
     def.nodes.forEach((n, i) => {
       const o = new THREE.Group();
       o.name = n.name;
-      // local patch (opts.atSpawn): an effect the client instantiates at a spawn point drops its root's own position (Unity
-      // Instantiate(prefab, position, …) overwrites it) — the elite glow's root z −0.25 lifted the whole glow a quarter tile.
+      // local patch (opts.atSpawn, default on — every effect, user decision 2026-10-08): an effect the client instantiates at
+      // a spawn point drops its root's own position (Unity Instantiate(prefab, position, …) overwrites it) — the elite glow's
+      // root z −0.25 lifted the whole glow a quarter tile; 104 prefabs have one, mostly projectile trails, which flew 0.4–0.65
+      // tile off their shot's line (空弦 archet, 丰川祥子 oblvns).
       // [ASSUMED] (the client code is native): the recording's band height matches with it dropped, not with it kept. The child
       // static_offset stays — the client's ParticleEffect names it (CHILD_NAME_STATIC_OFFSET); what would move it is
       // presumably its _overwriteHeight / _heightOffset, false / 0 on this prefab
-      if (n.pos && !(opts.atSpawn && n.parent < 0)) o.position.set(n.pos[0], n.pos[1], n.pos[2]);
+      if (n.pos && !(opts.atSpawn !== false && n.parent < 0)) o.position.set(n.pos[0], n.pos[1], n.pos[2]);
       if (n.rot) o.quaternion.set(n.rot[0], n.rot[1], n.rot[2], n.rot[3]);
       if (n.scale) o.scale.set(n.scale[0], n.scale[1], n.scale[2]);
       o.visible = n.active !== false;
@@ -1158,7 +1160,7 @@ export class FxInstance {
       if (n.lineR && def.materials[n.lineR.mat]) this.lines.push(new LineRenderer(n.lineR, this.nodes[i], unity, def)); // local patch
       if (n.ps && (n.ps.render?.mat || n.ps.render?.trailMat)) {
         // per-system cap: the extract's max, shared out of the quality budget
-        this.systems.push(new ParticleSystem(n.ps, this.nodes[i], unity, def, { q: this.q, cap: Math.ceil(this.q.budget / 8), pivot: !!opts.pivot }));
+        this.systems.push(new ParticleSystem(n.ps, this.nodes[i], unity, def, { q: this.q, cap: Math.ceil(this.q.budget / 8), pivot: opts.pivot !== false }));
       }
     });
     this.clip = def.clips?.[0] || null;

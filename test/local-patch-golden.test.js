@@ -44,9 +44,10 @@ test('battle (not prep) or a removed view: the glow ends; nothing before the pre
   assert.equal(none.calls.length, 0);
 });
 
-// the glow's place (official recording 2026-10-08): fxplayer FxInstance opts.atSpawn drops the root node's own position,
-// opts.pivot hands each quad renderer its m_Pivot (uPivot) — the elite glow's bao band pivot x .95 runs behind the unit
-test('fxplayer: atSpawn drops only the root position, pivot sets the quad renderers\' uPivot; neither by default', async () => {
+// the glow's place (official recording 2026-10-08): fxplayer FxInstance drops the root node's own position (opts.atSpawn)
+// and hands each quad renderer its m_Pivot (uPivot, opts.pivot) — the elite glow's bao band pivot x .95 runs behind the unit;
+// both on for every effect by the user's decision 2026-10-08, false opts out
+test('fxplayer: by default the root position is dropped and the quad renderers get their uPivot; false keeps the old way', async () => {
   const fxp = await import('../public/js/render/fxplayer.js');
   const mat = { shader: 'Torappu/Particles/Additive', tex: {}, floats: {}, colors: {} };
   const node = (name, parent, extra = {}) => ({ name, parent, active: true, pos: [0, 0, 0], rot: [0, 0, 0, 1], scale: [1, 1, 1], ...extra });
@@ -56,27 +57,27 @@ test('fxplayer: atSpawn drops only the root position, pivot sets the quad render
     render: { mode: 0, mesh: null, mat: 'm', lengthScale: 2, velScale: 0, align: 2, pivot: [0.95, 0, 0], order: 0, fudge: 0, maxSize: 2, streams: [0, 1, 3, 4] } };
   const def = { name: 'glow', duration: 4, materials: { m: mat }, clips: [], geoms: {}, lib: null,
     nodes: [node('glow', -1, { pos: [0, 0, -0.25] }), node('static_offset', 0, { pos: [0, 0, -0.34] }), node('bao', 1, { pos: [0.019, -0.397, 0.15], ps })] };
-  const plain = new fxp.FxInstance(def, { quality: 'high' });
-  assert.deepEqual(plain.nodes[0].position.toArray(), [0, 0, -0.25], 'kept by default');
-  assert.deepEqual(plain.systems[0].material.uniforms.uPivot.value.toArray(), [0, 0], 'no pivot by default');
-  plain.dispose();
-  const spawn = new fxp.FxInstance(def, { quality: 'high', atSpawn: true });
-  assert.deepEqual(spawn.nodes[0].position.toArray(), [0, 0, 0], 'the root position is the caller\'s');
-  assert.deepEqual(spawn.nodes[1].position.toArray(), [0, 0, -0.34], 'children keep theirs (static_offset)');
-  assert.deepEqual(spawn.nodes[2].position.toArray(), [0.019, -0.397, 0.15]);
-  assert.deepEqual(spawn.systems[0].material.uniforms.uPivot.value.toArray(), [0, 0], 'atSpawn alone: no pivot');
-  spawn.dispose();
-  const piv = new fxp.FxInstance(def, { quality: 'high', pivot: true });
-  assert.deepEqual(piv.nodes[0].position.toArray(), [0, 0, -0.25], 'pivot alone: the root stays');
-  const u = piv.systems[0].material.uniforms.uPivot.value;
-  assert.ok(Math.abs(u.x - 0.95) < 1e-6 && u.y === 0, `uPivot ${u.x},${u.y}`);
-  piv.dispose();
+  const uPivot = (inst) => inst.systems[0].material.uniforms.uPivot.value;
+  const dflt = new fxp.FxInstance(def, { quality: 'high' });
+  assert.deepEqual(dflt.nodes[0].position.toArray(), [0, 0, 0], 'the root position is the caller\'s');
+  assert.deepEqual(dflt.nodes[1].position.toArray(), [0, 0, -0.34], 'children keep theirs (static_offset)');
+  assert.deepEqual(dflt.nodes[2].position.toArray(), [0.019, -0.397, 0.15]);
+  assert.ok(Math.abs(uPivot(dflt).x - 0.95) < 1e-6 && uPivot(dflt).y === 0, `uPivot ${uPivot(dflt).x},${uPivot(dflt).y}`);
+  dflt.dispose();
+  const keep = new fxp.FxInstance(def, { quality: 'high', atSpawn: false });
+  assert.deepEqual(keep.nodes[0].position.toArray(), [0, 0, -0.25], 'atSpawn false keeps the root position');
+  assert.ok(uPivot(keep).x > 0.9, 'and still pivots');
+  keep.dispose();
+  const flat = new fxp.FxInstance(def, { quality: 'high', pivot: false });
+  assert.deepEqual(uPivot(flat).toArray(), [0, 0], 'pivot false: no pivot');
+  assert.deepEqual(flat.nodes[0].position.toArray(), [0, 0, 0]);
+  flat.dispose();
 });
 
-test('fxgame: the elite glow (under) asks for atSpawn and pivot; other status effects do not', async () => {
+test('fxgame: no effect opts out of the pivot / root drop (user decision 2026-10-08: every effect)', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../public/js/render/fxgame.js', import.meta.url), 'utf8');
-  const call = src.split('\n').find((l) => /new mod\.fxp\.FxInstance\(def, \{[^}]*\bhold\b/.test(l));
-  assert.ok(call, 'playStatus FxInstance call');
-  assert.match(call, /atSpawn: !!under, pivot: !!under/);
+  const calls = src.split('\n').filter((l) => /new mod\.fxp\.FxInstance\(/.test(l));
+  assert.ok(calls.length >= 5, `FxInstance calls ${calls.length}`);
+  for (const l of calls) assert.doesNotMatch(l, /\b(atSpawn|pivot):/, l.trim());
 });
