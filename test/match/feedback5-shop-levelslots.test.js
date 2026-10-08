@@ -1,17 +1,16 @@
-// Community report of 2026-10-06, item 19: 「升级商店获得新的商店位时用新卡补上，而不是空着」. The official tutorial's 休整期
-// page says 「升级：消耗资金升级调度中心。升级后将出现更多的商品栏位、可调度干员以及新装备」: the upgrade itself opens the
-// new level's extra slot. Until 0.2.0 the shop kept its old slot count until the next roll (a refresh or the round start),
-// so a level-up from 1 to 2 (险境: 3 → 4 operator slots) or 3 to 4 (4 → 5) showed no new card. Now the upgrade adds the
-// extra slots at once, each with a new card drawn at the new level, and leaves the cards already shown where they are.
+// The 调度中心's upgrade and the shop layout — local patch (docs/LOCAL-PATCH.md 「상점 칸 배치」, user 2026-10-09 from the
+// game): the new level's extra slot opens EMPTY on the left and the cards shown keep their places until the next roll (a
+// refresh or the round start); after a roll the item slot is on the left, then the operators. Upstream 0.2.0 filled the new
+// slot at once (community report of 2026-10-06, item 19: 「升级商店获得新的商店位时用新卡补上，而不是空着」) with the item
+// after the operators; 0.1.x kept the old slot count until the next roll.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeMatch, DATA } from './harness.js';
 import { GameData } from '../../server/match/gamedata.js';
 
 const ids = (slots) => slots.map((s) => (s ? `${s.kind}:${s.id}${s.sold ? '(sold)' : ''}` : null));
-const tierOf = (id) => DATA.chess[id]?.tier ?? 0;
 
-test('a level-up opens the new level\'s operator slot at once with a new card; the cards shown stay in place', () => {
+test('a level-up opens the new operator slot empty on the left; the cards shown keep their places; a roll puts the item back on the left', () => {
   const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 7, fake: true }).start();
   h.toPrep(1);
   const ps = h.ps('p_0');
@@ -19,53 +18,60 @@ test('a level-up opens the new level\'s operator slot at once with a new card; t
   assert.deepEqual(h.m.gd.shopSlots(1), { chess: 3, item: 1 });
   const s1 = ps.shop.slots.slice();
   assert.equal(s1.length, 4);
+  assert.equal(s1[0]?.kind, 'item', 'after the roll the item is on the left');
+  assert.deepEqual(s1.slice(1).map((x) => x?.kind), ['chess', 'chess', 'chess']);
   assert.deepEqual(h.m.handle('p_0', { t: 'g.levelUp' }), { ok: true });
-  // level 2: 4 operator slots + the item slot — the three cards and the item kept (the same objects), one new card
+  // level 2: 4 operator slots + the item slot — a new empty slot on the left, the four cards shifted right (the same objects)
   assert.equal(ps.shop.level, 2);
   assert.deepEqual(ps.shop.layout, { chess: 4, item: 1 });
   assert.equal(ps.shop.slots.length, 5);
-  for (let i = 0; i < 3; i++) assert.equal(ps.shop.slots[i], s1[i], `operator card ${i} kept`);
-  assert.equal(ps.shop.slots[4], s1[3], 'the item card stays after the operator cards');
-  const added = ps.shop.slots[3];
-  assert.ok(added && added.kind === 'chess' && !added.sold, `a new operator card: ${JSON.stringify(added)}`);
-  assert.ok(tierOf(added.id) >= 1 && tierOf(added.id) <= 2, `drawn at the new level (tier ${tierOf(added.id)})`);
-  assert.equal(added.frozen, false);
-  // the player sees it right away (m.private shop)
-  assert.deepEqual(ids(ps.privateView().shop.slots), ids(ps.shop.slots));
-  // 2 → 3 keeps 4 operator slots: nothing rerolled
+  assert.equal(ps.shop.slots[0], null, 'the new slot is empty');
+  for (let i = 0; i < 4; i++) assert.equal(ps.shop.slots[i + 1], s1[i], `card ${i} kept in its place`);
+  assert.deepEqual(ps.shop.kinds, ['chess', 'item', 'chess', 'chess', 'chess']);
+  // the player sees it right away (m.private shop, with the kinds of empty slots)
+  const view = ps.privateView().shop;
+  assert.deepEqual(ids(view.slots), ids(ps.shop.slots));
+  assert.deepEqual(view.kinds, ps.shop.kinds);
+  // 2 → 3 keeps 4 operator slots: nothing changes
   const s2 = ps.shop.slots.slice();
   h.m.handle('p_0', { t: 'g.levelUp' });
   assert.equal(ps.shop.level, 3);
   assert.deepEqual(ps.shop.slots, s2, 'no extra slot at level 3, no reroll');
-  // 3 → 4: the fifth operator slot
+  // 3 → 4: the fifth operator slot, again empty on the left
   h.m.handle('p_0', { t: 'g.levelUp' });
   assert.equal(ps.shop.level, 4);
   assert.deepEqual(ps.shop.layout, { chess: 5, item: 1 });
-  for (let i = 0; i < 4; i++) assert.equal(ps.shop.slots[i], s2[i]);
-  assert.equal(ps.shop.slots[5], s2[4]);
-  assert.ok(ps.shop.slots[4]?.kind === 'chess' && tierOf(ps.shop.slots[4].id) <= 4);
+  assert.equal(ps.shop.slots[0], null);
+  for (let i = 0; i < 5; i++) assert.equal(ps.shop.slots[i + 1], s2[i]);
+  // a refresh lays the shop out again: the item on the left, five operator cards
+  assert.deepEqual(h.m.handle('p_0', { t: 'g.refresh' }), { ok: true });
+  assert.deepEqual(ps.shop.slots.map((x) => x?.kind), ['item', 'chess', 'chess', 'chess', 'chess', 'chess']);
+  assert.ok(ps.shop.slots.every(Boolean), 'every slot filled by the roll');
   h.invariants();
   h.m.dispose();
 });
 
-test('a bought card stays sold; a frozen shop freezes the new card too [ASSUMED], and the round start keeps it', () => {
+test('a bought card stays sold; a frozen shop keeps its cards through the level-up and the round start, the new slot is rolled then', () => {
   const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 11, fake: true }).start();
   h.toPrep(1);
   const ps = h.ps('p_0');
   ps.funds = 200;
-  assert.deepEqual(h.m.handle('p_0', { t: 'g.buy', slot: 0 }), { ok: true });
-  assert.equal(ps.shop.slots[0].sold, true);
+  assert.deepEqual(h.m.handle('p_0', { t: 'g.buy', slot: 1 }), { ok: true });
+  assert.equal(ps.shop.slots[1].sold, true);
   assert.deepEqual(h.m.handle('p_0', { t: 'g.freeze' }), { ok: true });
   h.m.handle('p_0', { t: 'g.levelUp' });
-  assert.equal(ps.shop.slots[0].sold, true, 'the bought slot is not refilled');
-  const added = ps.shop.slots[3];
-  assert.ok(added && !added.sold && added.frozen === true, 'the new card follows the freeze toggle');
-  const keep = ps.shop.slots.filter((s) => s && !s.sold && s.frozen).map((s) => s.id);
-  assert.equal(keep.length, 4, 'two operator cards, the new one and the item');
-  // the next round start keeps every frozen card (in place) and rolls only the sold slot
+  assert.equal(ps.shop.slots[0], null, 'the new slot stays empty');
+  assert.equal(ps.shop.slots[2].sold, true, 'the bought slot is not refilled');
+  const item = ps.shop.slots[1];
+  const chessKept = ps.shop.slots.filter((x) => x && x.kind === 'chess' && !x.sold && x.frozen).map((x) => x.id);
+  assert.equal(chessKept.length, 2, 'two frozen operator cards');
+  // the next round start keeps every frozen card — the item on the left, the operators in their order — and rolls the rest
   h.drive(() => h.m.phase === 'PREP' && h.m.round === 2);
-  assert.deepEqual(ps.shop.slots.slice(1).map((s) => s.id), keep);
   assert.equal(ps.shop.slots.length, 5);
+  assert.equal(ps.shop.slots[0].id, item.id, 'the frozen item back on the left');
+  const chess = ps.shop.slots.slice(1);
+  assert.ok(chess.every((x) => x && x.kind === 'chess' && !x.sold));
+  assert.deepEqual(chess.slice(2, 4).map((x) => x.id), chessKept, 'the frozen operators keep their places among the operator slots (the empty one and the sold one rolled)');
   h.invariants();
   h.m.dispose();
 });
@@ -83,9 +89,10 @@ test('every mode\'s slot table: a level-up adds exactly the slots the new level 
       const { chess, item } = gd.shopSlots(lv);
       assert.equal(ps.shop.slots.length, chess + item, `${mode} ${difficulty} L${lv}`);
       const grew = chess - gd.shopSlots(lv - 1).chess;
-      const kept = ps.shop.slots.filter((s) => before.includes(s)).length;
-      assert.equal(kept, before.length, `${mode} ${difficulty} L${lv}: every shown card kept`);
-      assert.equal(ps.shop.slots.length - before.length, grew + (item - gd.shopSlots(lv - 1).item));
+      const added = ps.shop.slots.length - before.length;
+      assert.equal(added, grew + (item - gd.shopSlots(lv - 1).item));
+      assert.ok(ps.shop.slots.slice(0, added).every((s) => s === null), `${mode} ${difficulty} L${lv}: the new slots are empty, on the left`);
+      assert.deepEqual(ps.shop.slots.slice(added), before, `${mode} ${difficulty} L${lv}: every shown card kept in place`);
     }
     h.invariants();
     h.m.dispose();

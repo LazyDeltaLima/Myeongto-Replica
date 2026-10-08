@@ -434,7 +434,7 @@ test('GEO sanity used by the fixes (boss rect, normal rect)', () => {
   assert.deepEqual(GEO.BOSS_RECT, { r0: 0, r1: 5, c0: 0, c1: 20 });
 });
 
-test('the rule auditor follows the engine: PRTS 联防 helper order (not LP), silent solo presentation steps, a frozen item slot moved right by a level-up', () => {
+test('the rule auditor follows the engine: PRTS 联防 helper order (not LP), silent solo presentation steps, a frozen item slot pushed right by a level-up and back on the left at the next roll', () => {
   // co-op: the human (seat 0) plays nothing, the bots field full boards; only the last bot leaks → the helpers are the
   // two perfect bots with the most units (unite.js helperOrder), whatever the LP / seat order says
   const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 1, bots: 3, seed: 934, fake: true,
@@ -448,20 +448,23 @@ test('the rule auditor follows the engine: PRTS 联防 helper order (not LP), si
   h.runToEnd({ maxSteps: 3e6 });
   assert.deepEqual(audit.violations, [], audit.violations.join('\n'));
   m.dispose();
-  // solo: BATTLE_CHECK / ROUND_START / SETTLE run silently; a frozen item slot follows the chess slots after a level-up
+  // solo: BATTLE_CHECK / ROUND_START / SETTLE run silently; a level-up opens an empty slot on the left (the frozen item moves
+  // right one place) and the round start's roll puts the item back on the left (LOCAL-PATCH.md 「상점 칸 배치」)
   const s = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 935, fake: true }).start();
   const sa = attachAudit(s.m);
   s.toPrep(1);
   const ps = s.ps('p_0');
   ps.funds = 50;
   const itemAt = ps.shop.slots.findIndex((x) => x && x.kind === 'item');
-  assert.ok(itemAt >= 0);
+  assert.equal(itemAt, 0, 'the item slot is on the left after a roll');
   const itemId = ps.shop.slots[itemAt].id;
   assert.deepEqual(s.m.handle('p_0', { t: 'g.freeze' }), { ok: true });
   assert.deepEqual(s.m.handle('p_0', { t: 'g.levelUp' }), { ok: true });
+  assert.equal(ps.shop.slots[0], null, 'the new slot opens empty on the left');
+  assert.equal(ps.shop.slots[1]?.id, itemId, 'the shown cards keep their places until the next roll');
   s.drive(() => s.m.phase === PHASE.PREP && s.m.round === 2, { ready: true });
   const now = ps.shop.slots.findIndex((x) => x && x.kind === 'item');
-  assert.ok(now > itemAt, `the item slot moved right (${itemAt} → ${now})`);
+  assert.equal(now, 0, 'the round start\'s roll puts the item back on the left');
   assert.equal(ps.shop.slots[now].id, itemId, 'the frozen item was kept');
   s.drive(() => s.ended != null, { ready: true, maxSteps: 3e6 });
   assert.ok(s.ended, 'the solo match ended');

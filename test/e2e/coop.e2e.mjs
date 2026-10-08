@@ -56,13 +56,13 @@ async function checkHud(c, where) {
     const s = globalThis.__SP__.store.get();
     const pub = s.match.public; const priv = s.match.private;
     const txt = (sel) => document.querySelector(sel)?.textContent?.trim() ?? null;
-    const shopChess = (priv?.shop?.slots || []).filter((x) => x && x.kind !== 'item').length;
+    const shopChess = (priv?.shop?.kinds || (priv?.shop?.slots || []).map((x) => x?.kind || 'chess')).filter((k) => k !== 'item').length;
     return {
       phase: pub?.phase, round: pub?.round, lastRound: pub?.lastRound, players: (pub?.players || []).length,
       lp: priv?.lp, teamLp: pub?.teamLp, funds: priv?.funds, cap: priv?.deployCap, count: priv?.deployCount,
       boardChess: (priv?.board || []).filter((p) => p.kind === 'chess').length, hand: (priv?.hand || []).length, temp: (priv?.temp || []).length,
       domRound: txt('.roundbox__num'), domLp: txt('.gtop .lp b'), domFunds: txt('.funds__num'), domRemain: txt('.shopbar__remain b'),
-      teamRows: document.querySelectorAll('.team__row').length, cards: document.querySelectorAll('.shopbar__cards > *').length,
+      teamRows: document.querySelectorAll('.team__row').length, cards: document.querySelectorAll('.shopbar__cards > .scard:not(.scard--item)').length,
       shopChess, shopShown: !!document.querySelector('.shopbar'),
     };
   });
@@ -101,7 +101,7 @@ async function takeReward(c, did) {
   return true;
 }
 
-const BUYABLE = '.shopbar__cards .scard:not(.scard--sold):not(.is-disabled)';
+const BUYABLE = '.shopbar__cards .scard:not(.scard--item):not(.scard--sold):not(.is-disabled)';
 /**
  * Two-tap purchase (research 09 §5): the first tap arms the card (确认购买, detail open, nothing bought), the second
  * tap on the same card buys it.
@@ -505,7 +505,7 @@ async function inspectUnit(c) {
 }
 
 async function inspectShopCard(c) {
-  const ok = await c.click('.shopbar__cards .scard:not(.scard--sold)', null, { button: 'right', optional: true, timeout: 1500, any: true });
+  const ok = await c.click('.shopbar__cards .scard:not(.scard--item):not(.scard--sold)', null, { button: 'right', optional: true, timeout: 1500, any: true });
   if (!ok) return false;
   await c.page.waitForSelector('.dpanel', { timeout: 5000 });
   await sleep(300);

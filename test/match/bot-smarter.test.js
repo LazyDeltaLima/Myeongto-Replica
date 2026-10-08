@@ -211,11 +211,12 @@ test('economy: a held pair is completed — bought when affordable, else the sho
   h.run(() => m.phase === PHASE.PREP && m.round === 6);
   // the third copy in the shop, unaffordable this prep
   ps.funds = 0;
-  ps.shop.slots[0] = { kind: 'chess', id, basePrice: m.gd.chessPrice(id), price: m.gd.chessPrice(id), sold: false, frozen: false };
+  const c0 = ps.shop.slots.findIndex((s) => s && s.kind === 'chess'); // after the item slot (rollShop: the item on the left)
+  ps.shop.slots[c0] = { kind: 'chess', id, basePrice: m.gd.chessPrice(id), price: m.gd.chessPrice(id), sold: false, frozen: false };
   const merges = ps.stats.merges;
   h.run(() => m.phase === PHASE.COMBAT && m.round === 6);
   if (ps.stats.merges === merges) {
-    assert.ok(ps.shop.slots[0] && ps.shop.slots[0].id === id && ps.shop.slots[0].frozen, 'the shop was frozen with the third copy in it');
+    assert.ok(ps.shop.slots[c0] && ps.shop.slots[c0].id === id && ps.shop.slots[c0].frozen, 'the shop was frozen with the third copy in it');
     h.run(() => m.phase === PHASE.COMBAT && m.round === 7);
   }
   assert.ok(ps.stats.merges > merges, 'the pair was completed');

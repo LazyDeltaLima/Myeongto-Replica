@@ -49,21 +49,22 @@ test('a full hand refuses a purchase / pick that would complete a merge (chess, 
   giveItem(m, ps, twin, 'hand', 2);
   fillHand(ps, [twin]);
   assert.ok(ps.completesChessMerge(id) && ps.completesItemMerge(twin));
-  ps.shop.slots[0] = { kind: 'chess', id, basePrice: m.gd.chessPrice(id), frozen: false, sold: false };
-  const itemSlot = ps.shop.slots.findIndex((s, i) => i > 0 && s && s.kind === 'item');
+  const c0 = ps.shop.slots.findIndex((s) => s && s.kind === 'chess'); // after the item slot (rollShop: the item on the left)
+  ps.shop.slots[c0] = { kind: 'chess', id, basePrice: m.gd.chessPrice(id), frozen: false, sold: false };
+  const itemSlot = ps.shop.slots.findIndex((s) => s && s.kind === 'item');
   ps.shop.slots[itemSlot] = { kind: 'item', id: twin, basePrice: 2, frozen: false, sold: false };
   const left = m.pool.left(id);
-  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 0 }), { error: ERR.HAND_FULL }, 'the third copy of a held pair');
+  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: c0 }), { error: ERR.HAND_FULL }, 'the third copy of a held pair');
   assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: itemSlot }), { error: ERR.HAND_FULL }, 'an item whose twin is in the hand');
   ps.pushRewardOffer('merge', { ids: [id] });
   assert.deepEqual(m.handle('p_0', { t: 'g.reward', idx: 0 }), { error: ERR.HAND_FULL }, 'a merge-completing reward pick');
   assert.equal(ps.funds, 100, 'nothing spent');
   assert.equal(m.pool.left(id), left, 'no copy taken');
-  assert.ok(!ps.shop.slots[0].sold && !ps.shop.slots[itemSlot].sold);
+  assert.ok(!ps.shop.slots[c0].sold && !ps.shop.slots[itemSlot].sold);
   assert.equal(ps.countCopies(m.gd.baseIdOf(id)), 2, 'no merge');
   // a free slot (an item destroyed) lets the purchase through: it completes the merge, the elite goes to the hand
   assert.deepEqual(m.handle('p_0', { t: 'g.destroy', uid: ps.hand[9].uid }), { ok: true });
-  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 0 }), { ok: true });
+  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: c0 }), { ok: true });
   assert.ok(ps.hand.some((p) => p && p.id === m.gd.goldenIdOf(id)), 'the elite in the hand');
   assert.equal(ps.hand.filter(Boolean).length, 8, '10 − the destroyed item − 2 copies + the elite');
   checkInvariants(m);

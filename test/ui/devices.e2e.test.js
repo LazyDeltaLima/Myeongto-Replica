@@ -182,7 +182,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
       assert.equal(await page.$('.tooltip.is-shown'), null, 'a tap never leaves a tooltip behind');
       // two taps buy
       const funds0 = await page.evaluate(() => globalThis.__MOCK__.S().priv.funds);
-      await tap('.shopbar__cards .scard:not(.scard--sold):not(.is-disabled)');
+      await tap('.shopbar__cards .scard:not(.scard--item):not(.scard--sold):not(.is-disabled)');
       assert.ok(await page.$('.scard.is-armed'), 'first tap arms 确认购买');
       await tap('.scard.is-armed');
       const funds1 = await page.evaluate(() => globalThis.__MOCK__.S().priv.funds);
@@ -190,7 +190,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
       // long press on a card: its detail, no purchase / arming
       await page.keyboard.press('Escape');
       await sleep(200);
-      const card = await page.$eval('.shopbar__cards .scard:not(.scard--sold):not(.is-disabled):not(.is-armed)', (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; });
+      const card = await page.$eval('.shopbar__cards .scard:not(.scard--item):not(.scard--sold):not(.is-disabled):not(.is-armed)', (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; });
       await page.touchscreen.touchStart(card.x, card.y);
       await sleep(800);
       await page.touchscreen.touchEnd();
@@ -253,7 +253,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
       // not a card that completes a merge: it lights its elite's board tile, and the card moves to the right slot when that
       // tile lies under the left one (screens/game.js dSide, DESIGN §20.11) — 20–40 ms after it opened on the left, at
       // 640×360 for the mock's first card, so the left card was caught only sometimes and the check below saw the right one
-      const card = await page.$eval('.shopbar__cards .scard:not(.scard--sold):not(.is-disabled):not(.is-merge)', (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; });
+      const card = await page.$eval('.shopbar__cards .scard:not(.scard--item):not(.scard--sold):not(.is-disabled):not(.is-merge)', (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; });
       await page.touchscreen.tap(card.x, card.y);
       await page.waitForSelector('.dpanel:not(.dpanel--right)', { timeout: 3000 });
       await sleep(400);

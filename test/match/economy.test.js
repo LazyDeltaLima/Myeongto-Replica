@@ -92,26 +92,30 @@ test('shop slots per level (+ the item slot), buy prices by tier, SOLD_OUT, NO_F
   }
   ps.shop.level = 1;
   ps.rollShop();
+  // the operator slots follow the item slot (player/economy.js rollShop: the item on the left)
+  const c0 = ps.shop.slots.findIndex((s) => s && s.kind === 'chess');
+  assert.equal(c0, 1);
+  const c1 = c0 + 1;
   ps.funds = 1;
-  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 0 }), { error: ERR.NO_FUNDS });
+  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: c0 }), { error: ERR.NO_FUNDS });
   ps.funds = 50;
-  const slot0 = ps.shop.slots[0];
+  const slot0 = ps.shop.slots[c0];
   const left0 = m.pool.left(slot0.id);
-  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 0 }), { ok: true });
+  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: c0 }), { ok: true });
   assert.equal(ps.funds, 48);
   assert.equal(m.pool.left(slot0.id), left0 - 1);
   assert.equal(ps.hand[9].id, slot0.id, 'hand fills right→left');
-  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 0 }), { error: ERR.SOLD_OUT });
+  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: c0 }), { error: ERR.SOLD_OUT });
   assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 15 }).error, ERR.BAD_TARGET);
   // a display is not a reservation: an empty pool makes the buy fail
-  const s1 = ps.shop.slots[1];
+  const s1 = ps.shop.slots[c1];
   const taken = m.pool.take(s1.id, 100);
-  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 1 }), { error: ERR.SOLD_OUT });
+  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: c1 }), { error: ERR.SOLD_OUT });
   m.pool.give(s1.id, taken);
   // full hand blocks buys
   const fillers = chessOfTier(3).filter((x) => m.pool.has(x) && x !== s1.id);
   for (let i = 0; ps.hand.some((x) => x == null); i++) give(m, ps, fillers[i]);
-  if (ps.countCopies(m.gd.baseIdOf(s1.id)) === 0) assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 1 }), { error: ERR.HAND_FULL });
+  if (ps.countCopies(m.gd.baseIdOf(s1.id)) === 0) assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: c1 }), { error: ERR.HAND_FULL });
   const itemSlot = ps.shop.slots.findIndex((s) => s && s.kind === 'item');
   assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: itemSlot }), { error: ERR.HAND_FULL });
   checkInvariants(m);

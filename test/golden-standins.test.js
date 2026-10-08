@@ -56,7 +56,9 @@ test('matches: the 补位 match\'s human seat fields stand-ins (listed per round
   assert.ok(dg, 'scenario present');
   assert.deepEqual(dg.errors, { engine: 0, logged: 0, sim: 0, dispatcher: 0 });
   const fielded = dg.standIns.rounds.filter(([, s]) => s).flatMap(([, s]) => s.split(' '));
-  assert.ok(new Set(fielded).size >= 3, `stand-ins fielded: ${[...new Set(fielded)].join(', ')}`);
+  // how many distinct ones depends on the bots' shop draws (the 2026-10-09 shop layout — a level-up no longer draws — took
+  // this seed from 3 to 2); the point is that more than one kind is fielded
+  assert.ok(new Set(fielded).size >= 2, `stand-ins fielded: ${[...new Set(fielded)].join(', ')}`);
   for (const f of fielded) {
     const [id, charId] = f.split('→');
     const c = CHESS[`chess_char_${id}`];

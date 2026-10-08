@@ -61,10 +61,10 @@ describe('user playtest #6 follow-up: a merge\'s elite takes the deployed copy\'
       const promos0 = await c.page.evaluate(() => globalThis.__SP_VIEW__?.raw?.debug?.promotions?.length ?? 0);
       // first tap: armed — the card says 可晋升 and the gold highlight lights the copy's tile
       const name = await c.page.evaluate((id) => globalThis.__SP__.data.lookup('chess', id)?.name, GUMMY);
-      await c.click('.shopbar__cards .scard', name);
+      await c.click('.shopbar__cards .scard:not(.scard--item)', name);
       await sleep(400);
       const armed = await c.page.evaluate(() => {
-        const card = document.querySelector('.shopbar__cards .scard.is-armed');
+        const card = document.querySelector('.shopbar__cards .scard:not(.scard--item).is-armed');
         const hl = globalThis.__SP_VIEW__?.raw?.debug?.tiles?.highlights?.get('mergeTile');
         const hint = document.querySelector('.dpanel .dhint--merge');
         return { merge: !!card?.querySelector('.scard__mergetag'), title: card?.querySelector('.scard__mergetag')?.title || null, tiles: hl ? hl.tiles : null,
@@ -78,7 +78,7 @@ describe('user playtest #6 follow-up: a merge\'s elite takes the deployed copy\'
       assert.deepEqual(armed.tiles, [[tile.row, tile.col]], 'the merge highlight lights the deployed copy\'s tile');
       await c.shot('elite-armed');
       // second tap: bought
-      await c.click('.shopbar__cards .scard.is-armed');
+      await c.click('.shopbar__cards .scard:not(.scard--item).is-armed');
       await c.page.waitForFunction((id) => (globalThis.__SP__.store.get().match.private?.board || []).some((p) => p.golden && p.id === id), { timeout: 8000 }, `${GUMMY.slice(0, -2)}_b`);
       const priv = await privOf(c);
       const elite = priv.board.find((p) => p.golden);

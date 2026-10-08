@@ -170,6 +170,11 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
   return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${card}<//>` : card;
 }
 
+/** A slot a level-up just opened (empty until the next roll): the official empty card, no text. */
+function EmptyCard({ item = false }) {
+  return html`<div class=${cx('scard', 'scard--sold', 'scard--empty', item && 'scard--item')} aria-label=${t('空')}></div>`;
+}
+
 function SoldCard({ item = false }) {
   return html`<div class=${cx('scard', 'scard--sold', item && 'scard--item')} aria-label=${t('已售出')}>
     <span class="scard__soldtxt"><${MicroLabel}>SOLD OUT</${MicroLabel}><span>${item ? t('已购买') : t('已招募')}</span></span>
@@ -278,8 +283,11 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   reward = null, onReward, onRewardLater, onArm = null, offBonds = null }) {
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
-  const chessSlots = slots.map((s, i) => ({ s, i })).filter(({ s }) => !s || s.kind !== 'item');
-  const itemSlots = slots.map((s, i) => ({ s, i })).filter(({ s }) => s && s.kind === 'item');
+  // the slots in the server's display order (player/economy.js rollShop: the item on the left after a roll; a level-up's
+  // new slots open empty on the left) — `shop.kinds` names the kind of an empty one
+  const kinds = Array.isArray(shop.kinds) ? shop.kinds : [];
+  const ordered = slots.map((s, i) => ({ s, i, kind: s ? (s.kind === 'item' ? 'item' : 'chess') : kinds[i] === 'item' ? 'item' : 'chess' }));
+  const hasItemSlot = ordered.some((o) => o.kind === 'item');
   const frozen = !!shop.frozen;
   const funds = Number(priv?.funds) || 0;
   const remaining = Math.max(0, (priv?.deployCap ?? 8) - (priv?.deployCount ?? 0));
@@ -347,23 +355,22 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
       ${showReward ? html`<${RewardCards} offer=${reward} priv=${priv} editable=${editable} onPick=${onReward} onDetail=${onDetail} onLater=${onRewardLater}
           armed=${armed} onTap=${tapCard} offBonds=${offBonds} />`
         : html`<div class="shopbar__cards">
-        ${chessSlots.map(({ s, i }) => {
-          if (!s || s.sold) return html`<${SoldCard} key=${`s${i}`} />`;
+        ${hasItemSlot ? null : html`<${SoldCard} key="noitem" item=${true} />`}
+        ${ordered.map(({ s, i, kind }) => {
+          if (kind === 'item') {
+            if (!s) return html`<${EmptyCard} key=${`ie${i}`} item=${true} />`;
+            if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} />`;
+            const reason = shopBlockReason('buy', { priv, editable, slot: s, ...LOOKUPS });
+            return html`<${ItemCard} key=${`i${i}:${s.id}`} slot=${s} idx=${i} frozen=${frozen} onBuy=${onBuy} onDetail=${onDetail} reason=${reason}
+              armed=${armed === armKey('i', i, s)} onTap=${editable ? (idx) => tapCard('i', idx, s, 'item', reason, onBuy) : null} />`;
+          }
+          if (!s) return html`<${EmptyCard} key=${`e${i}`} />`;
+          if (s.sold) return html`<${SoldCard} key=${`s${i}`} />`;
           const reason = shopBlockReason('buy', { priv, editable, slot: s, ...LOOKUPS });
           return html`<${ChessCard} key=${`c${i}:${s.id}`} slot=${s} idx=${i} priv=${priv} frozen=${frozen} onBuy=${onBuy} onDetail=${onDetail} offBonds=${offBonds}
               reason=${reason} armed=${armed === armKey('c', i, s)} onTap=${editable ? (idx) => tapCard('c', idx, s, 'chess', reason, onBuy) : null} />`;
         })}
       </div>`}
-      <div class="shopbar__item">
-        ${itemSlots.length
-          ? itemSlots.map(({ s, i }) => {
-            if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} />`;
-            const reason = shopBlockReason('buy', { priv, editable, slot: s, ...LOOKUPS });
-            return html`<${ItemCard} key=${`i${i}:${s.id}`} slot=${s} idx=${i} frozen=${frozen} onBuy=${onBuy} onDetail=${onDetail} reason=${reason}
-              armed=${armed === armKey('i', i, s)} onTap=${editable ? (idx) => tapCard('i', idx, s, 'item', reason, onBuy) : null} />`;
-          })
-          : html`<${SoldCard} item=${true} />`}
-      </div>
       <div class="funds">
         <div class="funds__hex">
           <${CoinGlyph} class="funds__coin" />

@@ -72,49 +72,65 @@ export class PlayerEconomy {
   }
 
   /**
+   * The kind ('chess' | 'item') of every shop position, in display order (`shop.kinds`, empty slots included). A shop
+   * without it (an older state) had its operator slots first, then the item slots (`shop.layout`).
+   * @returns {string[]}
+   */
+  _shopKinds() {
+    const slots = this.shop.slots;
+    if (Array.isArray(this.shop.kinds) && this.shop.kinds.length === slots.length) return this.shop.kinds;
+    const layout = this.shop.layout || { chess: slots.length, item: 0 };
+    return slots.map((s, i) => (s ? s.kind : i < layout.chess ? 'chess' : 'item'));
+  }
+
+  /**
    * Reroll the shop. keepFrozen → frozen unsold slots survive (round start); otherwise everything is rerolled
-   * (manual refresh). Slot counts follow the current level.
+   * (manual refresh). Slot counts follow the current level. The array is the display order, left to right: after a roll
+   * the item slot(s) come first, then the operators — local patch (LOCAL-PATCH.md 「상점 칸 배치」, user 2026-10-09: in the
+   * game the item is always on the left). A frozen card keeps its place among the slots of its kind. The draws run
+   * operators first, then items, as before (the shop RNG sequence is unchanged).
    */
   rollShop({ keepFrozen = false } = {}) {
     const { chess: nChess, item: nItem } = this.gd.shopSlots(this.shop.level);
     const old = this.shop.slots;
-    const layout = this.shop.layout || { chess: old.length, item: 0 };
-    const oldChess = old.slice(0, layout.chess);
-    const oldItems = old.slice(layout.chess);
+    const kinds = this._shopKinds();
+    const oldChess = old.filter((_, i) => kinds[i] === 'chess');
+    const oldItems = old.filter((_, i) => kinds[i] === 'item');
     const keep = (s, kind) => (keepFrozen && s && s.kind === kind && !s.sold && s.frozen ? { ...s } : null);
     // frozen slots keep their position; sold / empty / unfrozen positions are rerolled
-    const slots = [];
-    for (let i = 0; i < nChess; i++) slots.push(keep(oldChess[i], 'chess') ?? this._rollChessSlot());
-    for (let i = 0; i < nItem; i++) slots.push(keep(oldItems[i], 'item') ?? this._rollItemSlot());
+    const chess = [];
+    for (let i = 0; i < nChess; i++) chess.push(keep(oldChess[i], 'chess') ?? this._rollChessSlot());
+    const items = [];
+    for (let i = 0; i < nItem; i++) items.push(keep(oldItems[i], 'item') ?? this._rollItemSlot());
+    const slots = [...items, ...chess];
     this.shop.slots = slots;
+    this.shop.kinds = [...items.map(() => 'item'), ...chess.map(() => 'chess')];
     this.shop.layout = { chess: nChess, item: nItem };
     for (const s of slots) if (s) s.frozen = this.shop.frozen;
     this.dirty();
   }
 
   /**
-   * The 调度中心's upgrade opens the new level's extra slots at once, each with a new card drawn at the new level; the
-   * cards already shown stay where they are (chess slots keep their index, the item slot stays after them). Official: the
-   * tutorial's 休整期 page 「升级：…升级后将出现更多的商品栏位、可调度干员以及新装备」; the community report of 2026-10-06
-   * (item 19) 「升级商店获得新的商店位时用新卡补上，而不是空着」. Until 0.2.0 the extra slots waited for the next roll (a
-   * refresh or the round start). [ASSUMED] the new card follows the freeze toggle, as a manual refresh's cards do.
+   * The 调度中心's upgrade opens the new level's extra slots EMPTY, on the left; the cards shown keep their places until
+   * the next roll (a refresh or the round start) puts the item back on the left — local patch (LOCAL-PATCH.md 「상점 칸
+   * 배치」, user 2026-10-09 from the game). Upstream 0.2.0 filled them with new cards at once (community report of
+   * 2026-10-06, item 19); 0.1.x left them empty after the operators.
    */
   _openLevelSlots() {
     const { chess: nChess, item: nItem } = this.gd.shopSlots(this.shop.level);
-    const old = this.shop.slots;
-    const layout = this.shop.layout || { chess: old.length, item: 0 };
-    if (nChess <= layout.chess && nItem <= layout.item) return;
-    const chess = old.slice(0, layout.chess);
-    const items = old.slice(layout.chess);
-    const fresh = (s) => { if (s) s.frozen = this.shop.frozen; return s; };
-    while (chess.length < nChess) chess.push(fresh(this._rollChessSlot()));
-    while (items.length < nItem) items.push(fresh(this._rollItemSlot()));
-    this.shop.slots = [...chess, ...items];
-    this.shop.layout = { chess: chess.length, item: items.length };
+    const kinds = this._shopKinds();
+    const haveChess = kinds.filter((k) => k === 'chess').length;
+    const haveItems = kinds.length - haveChess;
+    const addChess = Math.max(0, nChess - haveChess), addItems = Math.max(0, nItem - haveItems);
+    if (!addChess && !addItems) return;
+    this.shop.slots = [...new Array(addItems + addChess).fill(null), ...this.shop.slots];
+    this.shop.kinds = [...new Array(addItems).fill('item'), ...new Array(addChess).fill('chess'), ...kinds];
+    this.shop.layout = { chess: haveChess + addChess, item: haveItems + addItems };
   }
 
   /** Combat start: unfrozen slots are emptied (research 01 A1). */
   clearUnfrozenShop() {
+    this.shop.kinds = this._shopKinds().slice();
     this.shop.slots = this.shop.slots.map((s) => (s && s.frozen && !s.sold ? s : null));
     this.dirty();
   }

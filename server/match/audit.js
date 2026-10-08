@@ -143,7 +143,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       const up0 = ps.shop.upgradePrice;
       const kept = ps.shop.slots.map((s, i) => (s ? { i, kind: s.kind, id: s.id, frozen: !!s.frozen, sold: !!s.sold } : null)).filter(Boolean);
       const offers0 = ps.offers.slice();
-      const layout0 = ps.shop.layout || { chess: ps.shop.slots.length, item: 0 };
+      const kinds0 = ps._shopKinds().slice();
       incomeEv.delete(ps);
       const res = orig(r);
       check('round start', () => {
@@ -170,8 +170,10 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         if (ps.shop.slots.length !== chess + item) fail(`${id}: ${ps.shop.slots.length} shop slots at level ${ps.shop.level}, expected ${chess}+${item}`);
         for (const k of kept) {
           if (!k.frozen || k.sold) { fail(`${id}: slot ${k.i} (${k.id}) survived combat unfrozen/sold`); continue; }
-          // chess slots keep their index; item slots keep their place after the chess slots (whose count may have grown)
-          const at = k.i < layout0.chess ? k.i : chess + (k.i - layout0.chess);
+          // a frozen card keeps its place among the slots of its kind; the roll lays the item slot(s) out first, then the
+          // operators (player/economy.js rollShop, LOCAL-PATCH.md 「상점 칸 배치」)
+          const j = kinds0.slice(0, k.i).filter((x) => x === k.kind).length;
+          const at = k.kind === 'item' ? j : item + j;
           const s = ps.shop.slots[at];
           if (!s || s.id !== k.id || s.kind !== k.kind) fail(`${id}: frozen slot ${k.i} (${k.id}) not kept in place (slot ${at} now ${s ? s.id : 'empty'})`);
         }
@@ -222,21 +224,23 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       const f0 = ps.funds;
       const fx = hasSpendEffects(m, ps);
       const slots0 = ps.shop.slots.slice();
-      const layout0 = ps.shop.layout || { chess: slots0.length, item: 0 };
+      const kinds0 = ps._shopKinds().slice();
       const res = orig();
       if (res && res.ok) check('levelUp', () => {
         if (ps.shop.level !== lv + 1) fail(`${ps.playerId}: level ${lv} → ${ps.shop.level}`);
         if (f0 - ps.funds !== price && !fx && !hasSpendEffects(m, ps)) fail(`${ps.playerId}: level-up paid ${f0 - ps.funds}, price ${price}`);
         const next = gd.upgradeBase(ps.shop.level) ?? 0;
         if (ps.shop.upgradePrice !== next) fail(`${ps.playerId}: upgrade price after level-up ${ps.shop.upgradePrice}, expected ${next}`);
-        // the new level's extra slots open at once (item 19 of 2026-10-06); the cards shown before stay in place
+        // the new level's extra slots open EMPTY on the left; the cards shown before keep their places (shifted right by
+        // the new slots) until the next roll (LOCAL-PATCH.md 「상점 칸 배치」, user 2026-10-09)
         const { chess, item } = gd.shopSlots(ps.shop.level);
-        const want = Math.max(chess, layout0.chess) + Math.max(item, layout0.item);
+        const had = (k) => kinds0.filter((x) => x === k).length;
+        const want = Math.max(chess, had('chess')) + Math.max(item, had('item'));
         if (ps.shop.slots.length !== want) fail(`${ps.playerId}: ${ps.shop.slots.length} shop slots after the level-up to ${ps.shop.level}, expected ${want}`);
-        const layout = ps.shop.layout || layout0;
+        const added = ps.shop.slots.length - slots0.length;
+        for (let i = 0; i < added; i++) if (ps.shop.slots[i] !== null) fail(`${ps.playerId}: new shop slot ${i} not empty after the level-up`);
         slots0.forEach((s, i) => {
-          const at = i < layout0.chess ? i : layout.chess + (i - layout0.chess);
-          if (ps.shop.slots[at] !== s) fail(`${ps.playerId}: shop slot ${i} changed by the level-up`);
+          if (ps.shop.slots[i + added] !== s) fail(`${ps.playerId}: shop slot ${i} changed by the level-up`);
         });
       });
       return res;

@@ -10,7 +10,7 @@
 // SP_IDLE_BOTS=1: AI seats only ready up (no shop, no board) — test/ui/playtest2.real.e2e.test.js observes their battles.
 // SP_START_ITEMS=<itemId,…>: the starter kit also puts these items into the hand (test/ui/leftovers.e2e.test.js: three
 // distinct equipment items → the equip-replace dialog).
-// SP_START_SHOP=<chessId,…>: the starter kit also stocks the first shop slots with these chess at their normal price
+// SP_START_SHOP=<chessId,…>: the starter kit also stocks the first operator slots of the shop with these chess at their normal price
 // (test/ui/playtest6-elite.e2e.test.js: the copy that completes a merge).
 // SP_START_KITS=<JSON [[chessId,…], …]>: per-human starter kits in seat order, overriding SP_START_CHESS for the humans
 // listed ([] = no operators: a leaker without a board — test/ui/watch-bonds.e2e.test.js, 联防).
@@ -168,8 +168,11 @@ if (!process.env.NODE_TEST_CONTEXT) {
         ps.shop.upgradePrice = this.gd.upgradeBase(ps.shop.level) ?? 0;
         ps.rollShop({ keepFrozen: false });
       }
-      kitShop.forEach((id, i) => {
-        if (i < ps.shop.slots.length && this.gd.chess(id)) ps.shop.slots[i] = { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false };
+      // the first OPERATOR slots (the item slot is on the left: player/economy.js rollShop)
+      const chessAt = ps.shop.slots.map((s, i) => (s && s.kind === 'chess' ? i : -1)).filter((i) => i >= 0);
+      kitShop.forEach((id, k) => {
+        const i = chessAt[k];
+        if (i != null && this.gd.chess(id)) ps.shop.slots[i] = { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false };
       });
       ps.addFunds(20, { reason: 'income' });
       ps.recompute();

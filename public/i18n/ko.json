@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 902 of 1116 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 903 of 1117 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1059,6 +1059,7 @@
   "全员无伤！": "전원 무사!",
   "生命值减少 −{n}": "HP 감소 −{n}",
   "当前语言的界面文字为机器翻译，可能不够准确，欢迎在 GitHub 上指正。": "현재 언어의 화면 텍스트는 기계 번역이므로 정확하지 않을 수 있습니다. GitHub에서 수정 제안을 환영합니다.",
+  "空": "비어있음",
   "预先下载游戏资源": "게임 리소스 미리 받기",
   "下载后图片会立即显示，不会延迟出现。建议使用 Wi-Fi。": "받아 두면 이미지가 늦게 뜨지 않고 바로 표시됩니다. 게임을 하는 동안 백그라운드에서 받으며, Wi-Fi 사용을 권장합니다.",
   "下载": "받기",
