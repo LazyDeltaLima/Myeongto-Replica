@@ -1567,6 +1567,9 @@ upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 �
   - 고친 버그: `render/board3d-extract` 노멀 맵 — EN 클라이언트의 `TX_autochessi_N`은 Unity DXT5nm(R=1, X는 A, Y는 G)인데 BC5(R=X)로 읽어
     파생 노멀이 평평했다(z 평균 128). `tools/local-extract/extract.py derive_normal_rg`가 R이 전부 255이면 A를 X로 쓴다; 기존 PNG에서 다시
     파생(`run_derived` + `run_webp`, 클라이언트 불필요). 泥岩 뒷모습 S2 클립(`assets.test`, nas-local 7fcaec09).
+  - 2026-10-08 nas-local(ccf3058e)에서 다시 확인: 4716개 중 통과 4712, 실패 0, 건너뜀 4(Chrome·zip·토큰 모델 추출 필요). 새로 받은 노멀
+    맵은 B 평균 249. EN 클라이언트에 `emoticon_foolsday_*` 번들이 없고, `ui_equip_type_hub_h2_0.ab`·`ui_equip_type_direction_hub_h2_0.ab`에는
+    `inc-x`만 있다(UnityPy로 확인) — fooldoctor·INC-Y는 CN 클라이언트가 있어야 뽑을 수 있다.
   - 가끔 시간 문제로만 실패(단독 실행은 통과): `lobby` 「solo resume window」, `lobby-integration` 재접속, `match/realtime` 「real-time co-op over websockets」.
   - golden 다이제스트는 전투 규칙을 바꾸면 `npm run golden:update`로 다시 만든다(바뀐 결과가 의도한 것인지 먼저 확인).
 - `node --test test/local-patch-battle.test.js` — 2026-10-06 플레이 제보 전투 버그 테스트 6개(우타게 S2 그림·저지, 魔王 S3 재분배, 은신·위장 vs 스플래시, 污染秽蚀 vs 은신).
