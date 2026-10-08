@@ -1219,6 +1219,24 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   `under`는 상태 이펙트와 달리 'high'+3D 보드에서 렌더러별 분할(−1은 모델 뒤), 그 밖에는 유닛 아래 캔버스. `fxstatus.js syncStatusFx`는 자기 키(STATUS_FX)만 끈다.
   공식 이펙트가 도는 동안 원본의 절차 금빛 오라(`units.js aura`)는 숨김(전투 중 오라는 그대로).
 - 보이는 모습: 몸 뒤 은은한 금빛 + 머리 위로 오르는 금색 불티. 몸이 glow를 대부분 가린다(데이터대로) — 공식 캡처와 비교 [추정].
+- **위치 수정** (2026-10-08 사용자 「빛은 뒤에 있는게 맞는데 glow 효과가 오퍼보다 아래에 있어」, 공식 녹화 `research/2026-10-07-user-issues-3/official-elite-glow.mp4`):
+  보이는 빛은 `bao`(Additive, 1초 × speedMul 0.8 = 1.25초 주기)의 금빛 띠 — 로컬 정렬(align 2) 쿼드가 바닥면에 누워 pivot x 0.95·회전 −90°로
+  발 앞에서 유닛 뒤로 뻗는다. 우리는 ① 렌더러 `m_Pivot`을 무시해 띠가 노드 자리(발 앞 0.4칸)에 놓였고 ② 프리팹 루트 위치(z −0.25)를 더해 전체가 떴다.
+  → `fxplayer.js FxInstance` 옵션 두 개: `pivot`(빌보드·정렬·수평 쿼드가 회전 전 모서리를 pivot × 크기만큼 옮김, 셰이더 `uPivot`; 늘인 빌보드·메시 파티클은
+  미적용), `atSpawn`(루트 노드 자기 위치를 버림 — 호출자가 놓는 자리가 대신함). `fxgame.js playStatus`가 `under`(정예 금빛)일 때만 둘 다 켠다 —
+  **다른 이펙트에 적용할지는 사용자 결정 대기**(pivot 쿼드 412 시스템 / 242 프리팹, 루트 위치 104 프리팹).
+  - 근거·[추정]: pivot 부호(+)는 녹화에서 띠가 유닛 뒤로 가는 것(−면 발 앞·아래), 루트 버리기는 Unity `Instantiate(prefab, pos, …)` 동작 + 녹화 높이.
+    클라이언트 `Torappu.Battle.Effects.ParticleEffect`(메타데이터 필드 기본값)가 자식 이름 `static_offset`·`rotation_y`·`rotation_z`·`flip_x`를 상수로 갖고
+    `_overwriteHeight`·`_heightOffset` 필드가 있다 — 이 프리팹 루트 값은 false / 0(원시 필드)이라 `static_offset`(z −0.34)은 그대로 둔다 [추정: 로직은 네이티브].
+    카메라는 공식 값(30°·40°, configBlackBoard 위치 — `projection.js`)이라 높이·깊이 화면 계수 차이는 원인이 아니다.
+  - 측정(띠의 세로 무게중심, 발 위 칸 수 — 유닛 양옆 열, 프레임별 밝기에서 조용한 프레임을 뺀 값; 공식 칸 크기는 레벨 칩 73px ÷ 우리 43.3px × 우리 칸 124px
+    = 210px, 모델 키 공식 1.14칸 / 우리 1.10칸으로 교차 확인): **공식 0.43** · 수정 전(7d7693ec) 0.0~0.08(최고점이 발 아래 = 제보) · pivot만 0.56 ·
+    **pivot + 루트 버리기 0.46~0.48**. 번쩍인 뒤 0.3초 동안의 궤적은 공식과 0.05칸 안(예: +0.1초 0.30 / 공식 0.29). 이전 메모의 「아직 0.2칸 높다」는
+    공식 띠를 눈대중(0~0.45칸)으로 잡은 비교였다.
+  - 남은 차이(이 수정 범위 밖): 띠가 공식보다 어둡다(칸당 밝기 합 약 2/3, 녹화 압축·감마 감안 [추정]) — 공식은 번쩍일 때 발 높이에 흰 띠가 뚜렷하다.
+  - 테스트 `test/local-patch-golden.test.js`(옵션 없으면 그대로, `atSpawn`은 루트만, `pivot`은 `uPivot`; `playStatus`가 정예 금빛에만 넘김).
+    확인: Windows `sp-check\gg14.mjs <port> <tag> hide|show [frames]`(game-mock PREP, rAF·`performance.now`를 스크립트가 1/30초씩 넘김)
+    → `gg15h-*`(모델 숨김)·`gg14s-*`(모델 보임), `gg_real.mjs`(실제 솔로 판 정비, `dbg.addDiy golden` 보드 1·벤치 1) → `ggreal-*`.
   보드와 벤치 모두 [추정](벤치 기물도 더미 `placeToHand`). 소환물·적·장치 제외.
 - 소재(git 밖): `fx_extract.py --bundle trap --prefab trap_acgarm_buff_loop_01` → `public/assets/local/fx/trap/`, 텍스처 6·메시 1, `fx/index.json`의 `trap`.
 - 테스트 `test/local-patch-golden.test.js`. 확인: Windows `sp-check\goldglow.mjs`·`goldglow2x.mjs <port> <tag> <ms csv>`(game-mock PREP, 보드·벤치 기물 하나씩

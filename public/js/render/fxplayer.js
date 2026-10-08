@@ -213,7 +213,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   attribute vec3 iPos; attribute vec3 iSize; attribute vec3 iRot; attribute vec4 iColor; attribute vec4 iC1; attribute vec4 iC2;
   attribute vec4 iUV; attribute vec3 iVel;
   attribute vec4 vcol; uniform bool uVCol; uniform bool uRim;
-  uniform int uMode; uniform float uLengthScale; uniform float uVelScale; uniform int uAlign;
+  uniform int uMode; uniform float uLengthScale; uniform float uVelScale; uniform int uAlign; uniform vec2 uPivot;
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   // local patch: vH = the board height (scene z) of the fragment — what lies under the floor is cut (FRAG uFloor; the
   // official map's opaque ground hides it by depth); vN / vVP = view-space normal / position of a mesh (the Rim shaders)
@@ -248,7 +248,12 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       gl_Position = projectionMatrix * modelViewMatrix * vec4(iPos + p, 1.0);
       return;
     }
-    vec2 c = position.xy * iSize.xy;        // quad corner, -0.5..0.5
+    // quad corner, -0.5..0.5; local patch: + the renderer's pivot (m_Pivot, in particle sizes) when the instance asks for it
+    // (FxInstance opts.pivot): the quad's centre sits pivot x size from the particle, turned with it (elite glow bao: pivot x
+    // .95 at rotation -90 deg, its gold band runs from the feet back behind the unit, official recording 2026-10-08;
+    // [ASSUMED] the sign: + puts that band behind the unit as recorded, - would put it in front of the feet).
+    // Billboards / aligned / horizontal quads only (stretched and mesh particles: not yet)
+    vec2 c = (position.xy + uPivot) * iSize.xy;
     float cr = cos(-iRot.z), sr = sin(-iRot.z);
     if (uMode == 1) {                       // stretched billboard: along the view-space velocity
       vec4 cv = modelViewMatrix * vec4(iPos, 1.0);
@@ -393,7 +398,7 @@ function makeMaterial(m, lib) {
       uHasRam: { value: !!t._RamTex }, uRam: { value: tex('_RamTex') || WHITE }, uRamST: { value: st('_RamTex') },
       uCustom: { value: (f._HGCustomVertexStream ?? (/CustomData/.test(shader) ? 1 : 0)) !== 0 },
       uTime: { value: 0 }, uAdditive: { value: additive },
-      uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 },
+      uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector2() },
     },
   });
   mat.userData.order = m?.queue ?? 3000;
@@ -737,6 +742,7 @@ class ParticleSystem {
     mat.uniforms.uLengthScale.value = ps.render.lengthScale ?? 2;
     mat.uniforms.uVelScale.value = ps.render.velScale ?? 0;
     mat.uniforms.uAlign.value = ps.render.align ?? 0;
+    if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0); // local patch (FxInstance opts.pivot)
     if (geomSrc !== QUAD) useMeshAttrs(g, geomSrc, mat); // local patch
     this.material = mat;
     this.mesh = new THREE.Mesh(g, mat);
@@ -1089,11 +1095,13 @@ const clipE = new THREE.Euler();
 export class FxInstance {
   /**
    * @param {any} def FxLibrary.load result
-   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, scale?: number, floor?: number|null, split?: boolean }} [opts]
+   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, scale?: number, floor?: number|null, split?: boolean, atSpawn?: boolean, pivot?: boolean }} [opts]
    *   local patch: floor = the board height of the ground under it (default 0): what lies more than 0.05 below is not drawn
    *   (null: no cut); split = each renderer on layer FX_FRONT or FX_BACK by its Unity sorting (sortingOrder > 0, or 0 with a
    *   negative sorting fudge = in front of the units, whose Spine renderers are Default / order 0 and write no depth) —
-   *   without it everything stays on layer 0
+   *   without it everything stays on layer 0; atSpawn = drop the root node's own position (the caller's placement replaces
+   *   it); pivot = billboard / aligned / horizontal quads use their renderer's pivot (uPivot) — both only for the prep elite
+   *   glow so far (docs/LOCAL-PATCH.md 「정예 기물 금빛」)
    */
   constructor(def, opts = {}) {
     this.def = def;
@@ -1114,7 +1122,12 @@ export class FxInstance {
     def.nodes.forEach((n, i) => {
       const o = new THREE.Group();
       o.name = n.name;
-      if (n.pos) o.position.set(n.pos[0], n.pos[1], n.pos[2]);
+      // local patch (opts.atSpawn): an effect the client instantiates at a spawn point drops its root's own position (Unity
+      // Instantiate(prefab, position, …) overwrites it) — the elite glow's root z −0.25 lifted the whole glow a quarter tile.
+      // [ASSUMED] (the client code is native): the recording's band height matches with it dropped, not with it kept. The child
+      // static_offset stays — the client's ParticleEffect names it (CHILD_NAME_STATIC_OFFSET); what would move it is
+      // presumably its _overwriteHeight / _heightOffset, false / 0 on this prefab
+      if (n.pos && !(opts.atSpawn && n.parent < 0)) o.position.set(n.pos[0], n.pos[1], n.pos[2]);
       if (n.rot) o.quaternion.set(n.rot[0], n.rot[1], n.rot[2], n.rot[3]);
       if (n.scale) o.scale.set(n.scale[0], n.scale[1], n.scale[2]);
       o.visible = n.active !== false;
@@ -1145,7 +1158,7 @@ export class FxInstance {
       if (n.lineR && def.materials[n.lineR.mat]) this.lines.push(new LineRenderer(n.lineR, this.nodes[i], unity, def)); // local patch
       if (n.ps && (n.ps.render?.mat || n.ps.render?.trailMat)) {
         // per-system cap: the extract's max, shared out of the quality budget
-        this.systems.push(new ParticleSystem(n.ps, this.nodes[i], unity, def, { q: this.q, cap: Math.ceil(this.q.budget / 8) }));
+        this.systems.push(new ParticleSystem(n.ps, this.nodes[i], unity, def, { q: this.q, cap: Math.ceil(this.q.budget / 8), pivot: !!opts.pivot }));
       }
     });
     this.clip = def.clips?.[0] || null;
