@@ -6,8 +6,8 @@
 // with the DOM HUD layered on top: top bar, bond strip + popup, team panel (click = g.watch), effects,
 // shop bar (prep), merge-reward and 机变 overlays, detail panel, enemy / match-info drawer, combat HUD
 // (DP, "作战结束，等待队友完成作战" + teammates' progress, observing pill, 联防 / 最终攻势 ‹ › camera halves),
-// phase banners, the round's result box at SETTLE (官方「作战结束」 + 「全员无伤！」 / 「生命值减少 −N」 and the BATTLEOVER sound;
-// GitHub #235, PR #112), ticker, emote wheel + bubbles,
+// phase banners, the own battle's end (the official round_result_dialog banner and its BATTLEOVER sound once per round:
+// when the own result comes in, else at SETTLE — ui/gameLogic/phases.js settleBattleEnd), ticker, emote wheel + bubbles,
 // settings, exit flow. Drag & drop from the view: pieceDrop on a board tile (also the piece's own tile) opens the
 // direction wheel (ui/facingWheel.js, research 09 §1.2) and its release sends g.move {uid, to, dir} (g.art {…, dir}
 // for 画卷); pieceDrop on a bench slot → g.move; items → g.equip (confirm when replacing) / g.art. Equipment
@@ -97,7 +97,7 @@ import { pauseAvailable, isPaused, frozenNow } from '../ui/matchStatus.js';
 import { pieceTile } from '../render/drag.js';
 import {
   phaseMode, phaseBanner, isCombatPhase, showDeadPill, isBossPhase, placementContext, canPlace, boardTargets, dropIntent,
-  battleOverSfx, uniteResultBox, battleResultBox,
+  settleBattleEnd, roundResultBox,
   snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, sortedPlayers,
   terrainInfo,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
@@ -254,23 +254,32 @@ function MatchScreen() {
     uniteLeft: leaker ? uniteRemaining(localLeft, meP?.uniteLeft) : null,
   });
   lpBaseRef.current = liveLpNow.base;
-  // what this round's battle cost me, kept while it runs for the result box and the 战斗结束 sound at SETTLE (GitHub
-  // #235, PR #112 by @Convey123): by then the settlement has landed (Match.flush sends m.private before the SETTLE
-  // m.public) and the live count reads 0. A per-round MAXIMUM — leaks only grow within a round, and a frame that lands
-  // after the settlement must not wipe a real count — and only for a player in the round (a spectator seat or an
-  // eliminated player fights nothing and gets no box, ui/gameLogic/phases.js battleResultBox). `unite`: a 联防 ran.
+  // what this round's battle cost me, kept while it runs for the battle-end announcement at SETTLE when the own result
+  // never came in (server-run combat, a reconnect — ui/gameLogic/phases.js settleBattleEnd; GitHub #235, PR #112 by
+  // @Convey123): by then the settlement has landed (Match.flush sends m.private before the SETTLE m.public) and the live
+  // count reads 0. A per-round MAXIMUM — leaks only grow within a round, and a frame that lands after the settlement must
+  // not wipe a real count — and only for a player in the round (a spectator seat or an eliminated player fights nothing
+  // and gets no announcement).
   const roundLossRef = useRef(null);
   if (isCombatPhase(phase) && alive) {
     const prev = roundLossRef.current;
     const same = !!prev && prev.round === pub?.round;
     const leaks = ownLeaks(localLeaks, meP?.pendingLp);
-    roundLossRef.current = {
-      round: pub?.round,
-      leaks: same ? Math.max(prev.leaks, leaks) : leaks,
-      cap: gd.config?.lpCapPerRound,
-      unite: phase === PHASE.UNITE || (same && prev.unite),
-    };
+    roundLossRef.current = { round: pub?.round, leaks: same ? Math.max(prev.leaks, leaks) : leaks, cap: gd.config?.lpCapPerRound };
   }
+  // the own battle's end, once per round (docs/LOCAL-PATCH.md 「0.2.0 병합」, user decision 2026-10-08: ours only) —
+  // the official round_result_dialog (ui/phaseArt.js BattleEndBanner; without its local art the plain box) and its
+  // BATTLEOVER sound. `over` = audioOfficial.js battleOverOf / settleBattleEnd { kind, lost, sfx }.
+  const battleEndRound = useRef(null);                   // the round whose battle end was announced
+  const resultSeq = useRef(0);                           // re-keys the plain result box
+  const announceBattleEnd = (over, round) => {
+    battleEndRound.current = round;
+    audio.sfx(over.sfx);
+    resultSeq.current += 1;
+    const key = `result:${round}:${resultSeq.current}`;
+    if (phaseArt('result').cls) setBanner({ key, result: { perfect: over.kind === 'perfect', lost: over.lost } });
+    else setResultBox({ ...roundResultBox(over.lost), key });
+  };
 
   // latest values for event handlers bound once
   const live = useRef({});
@@ -536,13 +545,10 @@ function MatchScreen() {
         // teammate used to make THEIR operator say the viewer's line (review on #73). unitsEnd names chess ids: the
         // record the own piece shows gives the operator whose voice bank speaks — a 补位 piece's stand-in (its own
         // voice, like its 选中 line) and a filled 自选 slot's operator (ownShown), else the chess record's charId
-        // local patch: the official battle-end banner (ui/phaseArt.js BattleEndBanner) for the own normal battle
-        if (mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT) {
-          // + its official sound (BATTLEOVER_REDUCE / NOREDUCE / NORMAL, audioOfficial.js battleOverOf), art or not
-          const over = battleOverOf(mine);
-          audio.sfx(over.sfx);
-          if (phaseArt('result').cls) setBanner({ key: `result:${msg.battleId || st.match?.public?.round}`, result: { perfect: over.kind === 'perfect', lost: over.lost } });
-        }
+        // local patch: the own normal battle's end — the official banner and sound (BATTLEOVER_REDUCE / NOREDUCE / NORMAL,
+        // audioOfficial.js battleOverOf), once per round (announceBattleEnd)
+        const round = st.match?.public?.round;
+        if (mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT && battleEndRound.current !== round) announceBattleEnd(battleOverOf(mine), round);
         const charId = resultSpeaker(mine, Math.random, (id) => ownShown(id)?.charId ?? null);
         if (!charId) return;
         // local patch: kept for the won settlement instead of said now (voice.js holdResultVoice — the official game is
@@ -623,7 +629,6 @@ function MatchScreen() {
   // phase changes: banners, sounds, resets
   const phaseKey = `${phase}:${pub?.round}`;
   const prevPhase = useRef(null);
-  const resultSeq = useRef(0);                           // re-keys the result box (ResultDialog) at every SETTLE
   useEffect(() => {
     const prev = prevPhase.current;
     prevPhase.current = phase;
@@ -638,17 +643,14 @@ function MatchScreen() {
     else if (phase === PHASE.HIDDEN_CORE) audio.sfx('bossRoundSecret');
     else if (phase === PHASE.SP_DRAFT) audio.sfx('draft');
     else if (phase === PHASE.SETTLE) {
-      // the official 战斗结束 sound and result box (GitHub #235, PR #112 by @Convey123; ui/gameLogic/phases.js): the LP this
-      // round cost ME — after a 联防 the authority's own charge (m.public.uniteResult.losses: a leaker pays for the
-      // survivors, not for its own battle's leaks), else the own battle's as kept while it ran (roundLossRef)
+      // the own battle's end when its result never came in (server-run combat, a reconnect, a battle this
+      // client did not run): from what the round kept — after a 联防 the authority's own charge (m.public.uniteResult
+      // .losses: a leaker pays for the survivors, not for its own battle's leaks; ui/gameLogic/phases.js settleBattleEnd)
       const kept = roundLossRef.current;
       roundLossRef.current = null;
       const cost = kept && kept.round === pub?.round ? kept : null;
-      const sfx = battleOverSfx(cost, pub?.uniteResult?.losses?.[myId]);
-      if (sfx) audio.sfx(sfx);
-      const box = uniteResultBox(pub?.uniteResult, myId) || battleResultBox(cost);
-      resultSeq.current += 1;
-      if (box) setResultBox({ ...box, key: `result:${pub?.round}:${resultSeq.current}` });
+      const over = battleEndRound.current === pub?.round ? null : settleBattleEnd(cost, pub?.uniteResult?.losses?.[myId]);
+      if (over) announceBattleEnd(over, pub?.round);
     }
     // the server resets every watcher to its own field on phase changes — but an eliminated player / spectator seat
     // keeps the prep board it follows from 回合开始 through 机变 and 休整期 (Match._followScout re-points it only at the

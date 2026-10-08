@@ -745,10 +745,11 @@ export function PhaseBanner({ title, sub, micro, tone = 'mint', mode = 'inline',
 }
 
 /**
- * The round's result box (the official round result dialog, shown at settlement; GitHub #235, PR #112 by @Convey123):
- * a centred framed plate — tone-coloured frame and corner ticks, chevrons either side of the title — that opens, holds
- * `duration` ms and closes by itself. Purely presentational: ui/gameLogic/phases.js (roundResultBox / uniteResultBox /
- * battleResultBox) picks the words, screens/game.js the moment (SETTLE). `pointer-events: none`: it never takes a click.
+ * The plain result box (GitHub #235, PR #112 by @Convey123): a centred framed plate — tone-coloured frame and corner
+ * ticks, chevrons either side of the title — that opens, holds `duration` ms and closes by itself. Since 2026-10-08 the
+ * stand-in of the official round_result_dialog banner (ui/phaseArt.js BattleEndBanner) on a client without its local
+ * art; ui/gameLogic/phases.js roundResultBox picks the words, screens/game.js announceBattleEnd the moment.
+ * `pointer-events: none`: it never takes a click.
  * @param {{ title: any, sub?: any, micro?: string, tone?: 'mint'|'orange'|'red', duration?: number, onDone?: Function }} props
  *   duration (ms) > 0 auto-hides then calls onDone. Re-key to replay.
  */

@@ -444,7 +444,7 @@ test('#7 a leaked enemy that splits (磨砻: DeadSpawn ×2) raises the counter �
 // =====================================================================================================================
 // GitHub #235 (PR #112 by @Convey123): the official result box at settlement. The 联防's outcome rides the SETTLE
 // m.public as data (`uniteResult`), each player's own LP charge in `losses` — the number the client's 「生命值减少 −N」
-// shows (ui/gameLogic/phases.js uniteResultBox) — and that box is the only announcement: no 联防 result ticker line.
+// reads at SETTLE when its own battle end was not announced yet (ui/gameLogic/phases.js settleBattleEnd) — no 联防 result ticker line.
 
 test('#235 联防 outcome: the SETTLE view carries every player\'s own charge (= the LP settled), no result line is broadcast, and the next phase drops it', () => {
   const run = (survivors) => {

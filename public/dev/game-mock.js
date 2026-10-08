@@ -399,12 +399,11 @@ function startCombat(phase) {
     pub.unite = leakMock ? { helpers: ['ai_2', 'p3'], leakers: ['p1', 'p4'] } : { helpers: ['p1', 'ai_2'], leakers: ['p3'] };
     if (leakMock) { leftOf('p1', 13); leftOf('p4', 3); pub.players[0].status = 'done'; pub.players[2].status = 'helping'; } else leftOf('p3', 12);
   }
-  // the result box after a 联防 (server settle → m.public.uniteResult, ui/gameLogic/phases.js uniteResultBox; GitHub #235):
-  // ?phase=SETTLE&variant=unite — you (p1) leaked and the helpers stopped every enemy: nobody paid → 全员无伤！;
-  // `unite,through` — 3 got through and you were charged 3 → 生命值减少 −3; `unite,through,helper` — you HELPED, a
-  // teammate leaked and paid → the official title alone (全员无伤！ would be false for that teammate); `unite,dead` — you
-  // were eliminated before the round, so `losses` (alive players only, like the server) does not list you → no box.
-  // Without `unite` the SETTLE view has no uniteResult: the round's own battle result box takes over (battleResultBox).
+  // the SETTLE view after a 联防 (server settle → m.public.uniteResult; GitHub #235): ?phase=SETTLE&variant=unite — you
+  // (p1) leaked and the helpers stopped every enemy: nobody paid; `unite,through` — 3 got through and you were charged 3;
+  // `unite,through,helper` — you HELPED, a teammate leaked and paid; `unite,dead` — you were eliminated before the round,
+  // so `losses` (alive players only, like the server) does not list you. The screen reads the viewer's charge only when
+  // the own battle's end was not announced yet this round (ui/gameLogic/phases.js settleBattleEnd).
   if (phase === PHASE.SETTLE && VARIANTS.has('unite')) {
     const helpers = ['ai_2', 'p3'], leakers = ['p1', 'p4'];
     pub.uniteResult = VARIANTS.has('through')

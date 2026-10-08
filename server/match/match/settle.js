@@ -21,8 +21,8 @@ export class MatchSettle {
     const uniteRan = !!(plan && uniteResult && !uniteResult.synthetic);
     const survivors = uniteRan ? uniteSurvivors(plan, uniteResult) : null;
     // The 联防's outcome as data for the SETTLE view (m.public.uniteResult, views.js; GitHub #235, PR #112 by @Convey123):
-    // each client pops the official result box from it (ui/gameLogic/phases.js uniteResultBox) — `through` = the leakers'
-    // enemies that still got through (uncapped; only decides whether 「全员无伤！」 is true), `losses` = every alive
+    // a client whose own battle end was not announced yet reads its charge from it (ui/gameLogic/phases.js
+    // settleBattleEnd) — `through` = the leakers' enemies that still got through (uncapped), `losses` = every alive
     // player's own LP charge of this round, the same `loss` deducted below, so the box and the LP bar never disagree. A
     // leaker's own battle leaks are not its charge in a 联防 round, which is why the client cannot work the number out
     // itself. No ticker line: the official reports the outcome in the one dialog. null when no 联防 resolved.
