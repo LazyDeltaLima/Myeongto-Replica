@@ -5,6 +5,8 @@
 //   - user report 2026-10-08: dragging a 自选 piece showed the bare slot record 「自选干员」 (stats —) — placingDetail
 //     resolved without the player's m.private.
 //   - J-9: the card's 自选 stats are the battle's (server/sim/simdata.js getDiy) — checked equal, pinned here.
+// J-6: the round-start banner of an eliminated player / spectator seat says 观战中, not 获得 +0. (J-1 / J-2: test/ui/diy-ui.test.js; J-3 / J-4 / J-5:
+// test/ui/gameLogic.test.js, test/local-patch-battleover.test.js.)
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -25,6 +27,7 @@ globalThis.fetch = async (url) => {
 const { options } = await import('../public/vendor/preact.module.js');
 const G = await import('../public/js/ui/gameLogic.js');
 const { ChessDetailArt, placingDetail } = await import('../public/js/ui/detailArt.js');
+const { RoundStartBanner } = await import('../public/js/ui/phaseArt.js');
 const { data } = await import('../public/js/data.js');
 const { DATA } = await import('./match/harness.js');
 const { DataSource } = await import('../server/sim/simdata.js');
@@ -106,4 +109,20 @@ describe('detail card (official look): 补位 stand-in and 自选 piece', () => 
       assert.equal(lo.skill.skillId, def.skill.skillId ?? def.skill.id);
     }
   });
+});
+
+describe('round-start banner and the boss round\'s player list', () => {
+  test('J-6: a watcher\'s round-start banner says 观战中 instead of 获得 +0', () => {
+    const watcher = [...walk(render(RoundStartBanner, { round: 4, gold: 0, watching: true }))];
+    const root = watcher[0];
+    assert.match(root.props['aria-label'], /观战中/);
+    assert.ok(watcher.some((v) => hasClass(v, 'is-watch') && textOf(v).includes('观战中')));
+    assert.ok(!watcher.some((v) => hasClass(v, 'is-gold')), 'no 获得 box');
+    const player = [...walk(render(RoundStartBanner, { round: 4, gold: 7 }))];
+    assert.ok(player.some((v) => hasClass(v, 'is-gold') && textOf(v).includes('获得')));
+    assert.ok(!player.some((v) => hasClass(v, 'is-watch')));
+    const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
+    assert.match(src, /<\$\{RoundStartBanner\} key=\$\{banner\.key\} round=\$\{pub\?\.round\} gold=\$\{roundGold\} watching=\$\{spectator \|\| !alive\}/);
+  });
+
 });

@@ -108,10 +108,13 @@ const BLANKS = [[-30, 50.7], [-47.8, 38.1], [-38, 25.7], [47.2, 41], [55.2, 24.9
 const DOTS = [[-40, 4, 0], [-30, -20, 0.15], [36, 14, 0.3], [44, -8, 0.1], [-6, 26, 0.45], [24, -24, 0.25], [-44, -12, 0.35]];
 
 /**
- * The round-start banner (round_start_dialog): ~1.8 s, then fades (its round_start_dialog_out).
- * @param {{ round: number, gold?: number|null, duration?: number, onDone?: () => void }} props
+ * The round-start banner (round_start_dialog): ~1.8 s, then fades (its round_start_dialog_out). `watching`: an eliminated
+ * player or a spectator seat — the round pays it nothing (server startRound pays the seats still in), so the [获得] box
+ * gives way to 「观战中」 in the [回合] box's look (upstream 7d97b80b / GitHub #236's word; [추정] look: no capture of a
+ * watcher's dialog).
+ * @param {{ round: number, gold?: number|null, watching?: boolean, duration?: number, onDone?: () => void }} props
  */
-export function RoundStartBanner({ round, gold = null, duration = 1800, onDone }) {
+export function RoundStartBanner({ round, gold = null, watching = false, duration = 1800, onDone }) {
   const [leaving, setLeaving] = useState(false);
   const [gone, setGone] = useState(false);
   // local patch: keep the credited funds once known — the banner outlives ROUND_START (the phase turns PREP / 机变 while
@@ -129,7 +132,7 @@ export function RoundStartBanner({ round, gold = null, duration = 1800, onDone }
   const r = String(Math.max(0, Math.trunc(Number(round) || 0))).padStart(2, '0');
   const g = Number.isFinite(gold) && gold > 0 ? Math.trunc(gold) : 0;
   return html`<div class=${['parb', art.cls, leaving && 'is-leaving'].filter(Boolean).join(' ')} style=${art.style} role="status" aria-live="polite"
-      aria-label=${g ? t('回合 {r} · 获得 {g}', { r, g }) : t('回合 {r}', { r })}>
+      aria-label=${watching ? `${t('回合 {r}', { r })} · ${t('观战中')}` : g ? t('回合 {r} · 获得 {g}', { r, g }) : t('回合 {r}', { r })}>
     <div class="parb__c" style=${box(0, 0, 1280, 720)}>
       <i class="parb__bg" style=${box(2.3, 2.8, 631.8, 298.6)} aria-hidden="true"><i class="parb__line" style=${box(-2, -0.6, 496, 169.2)}></i></i>
       <i class="parb__tile" style=${box(0, 0, 583.4, 222.2)} aria-hidden="true"></i>
@@ -152,14 +155,17 @@ export function RoundStartBanner({ round, gold = null, duration = 1800, onDone }
         <span class="parb__title" style=${box(0, 24.1, 71.7, 24.8)}>${t('回合')}</span>
         <span class="parb__round num" style=${box(-2.7, -11.65, 100, 49.2)}>${r}</span>
       </div>
-      <div class="parb__box is-gold" style=${box(168.6, 1.8, 112, 108)}>
+      ${watching ? html`<div class="parb__box is-watch" style=${box(168.6, 1.8, 112, 108)}>
+        ${i('parb__bracket', box(-36.2, 23.2, 4.2, 23.1))}${i('parb__bracket is-r', box(35.3, 23.2, 4.2, 23.1))}
+        <span class="parb__title" style=${box(0, 0, 100, 24.8)}>${t('观战中')}</span>
+      </div>` : html`<div class="parb__box is-gold" style=${box(168.6, 1.8, 112, 108)}>
         ${i('parb__bracket', box(-36.2, 23.2, 4.2, 23.1))}${i('parb__bracket is-r', box(35.3, 23.2, 4.2, 23.1))}
         <span class="parb__title" style=${box(0, 24.1, 71.7, 24.8)}>${t('获得')}</span>
         <span class="parb__src" style=${box(27, -13.2, 50, 28.9)}><span class="parb__num num">
           <i class="parb__gold" aria-hidden="true"></i><i class="parb__plus" aria-hidden="true"></i>${g}</span></span>
         <i class="parb__glow" style=${box(0, -15, 112, 32.5)} aria-hidden="true"></i>
         ${DOTS.map(([x, y, d], k) => html`<i key=${k} class="parb__dot" style=${`${box(27 + x, -13 + y, 4, 4)};--d:${d}s`} aria-hidden="true"></i>`)}
-      </div>
+      </div>`}
     </div>
   </div>`;
 }

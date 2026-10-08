@@ -1511,7 +1511,7 @@ function MatchScreen() {
 
     ${banner?.result ? html`<${BattleEndBanner} key=${banner.key} perfect=${banner.result.perfect} lost=${banner.result.lost} onDone=${() => setBanner(null)} />`
       : banner && String(banner.key).startsWith(`${PHASE.ROUND_START}:`) && phaseArt('round').cls
-        ? html`<${RoundStartBanner} key=${banner.key} round=${pub?.round} gold=${roundGold} onDone=${() => setBanner(null)} />` /* local patch: ui/phaseArt.js */
+        ? html`<${RoundStartBanner} key=${banner.key} round=${pub?.round} gold=${roundGold} watching=${spectator || !alive} onDone=${() => setBanner(null)} />` /* local patch: ui/phaseArt.js */
         : banner && !(String(banner.key).startsWith(`${PHASE.SP_DRAFT}:`) && phaseArt('choose').cls) ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}
       tone=${banner.tone} duration=${banner.duration || 1500} onDone=${() => setBanner(null)} />` : null}
 
