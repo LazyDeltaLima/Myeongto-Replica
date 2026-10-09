@@ -749,7 +749,7 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
   // upstream lets them shoot a flyer (docs/LOCAL-PATCH.md 「적 비행 유닛 공격 전수 조사」)
   const SWEPT = ['enemy_1019_jshoot', 'enemy_1019_jshoot_2', 'enemy_1023_jmage', 'enemy_1050_lslime', 'enemy_1158_divman', 'enemy_1162_magmot',
     'enemy_1183_mlasrt', 'enemy_1203_sfhu', 'enemy_1203_sfhu_2', 'enemy_1283_sgkill', 'enemy_1283_sgkill_2', 'enemy_1501_demonk', 'enemy_1517_xi',
-    'enemy_2005_axetro', 'enemy_9008_acbunn', 'enemy_10027_vtsk'];
+    'enemy_2005_axetro', 'enemy_10027_vtsk'];
   const FLYER = { isFlying: true, ground: true, s: { flags: {} } }, GROUNDED = { isFlying: false, ground: true, s: { flags: {} } };
   const ruleOf = (extra, key) => {
     const h = makeBattle({ content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 60, units: [] });
@@ -773,7 +773,16 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
 
   // user decision 「공식 클라이언트를 따라 막아」: client normal attack 1 though PRTS is silent / forms or selectors mixed
   const CLIENT_ONLY = ['enemy_2010_csdcr', 'enemy_1252_lysytb_2', 'enemy_1427_lrnazg', 'enemy_1509_mousek', 'enemy_1504_cqbw', 'enemy_1516_jakill',
-    'enemy_10098_crhro', 'enemy_10099_crvln', 'enemy_9014_acstma', 'enemy_9015_acstmb'];
+    'enemy_10098_crhro', 'enemy_10099_crvln'];
+  // upstream 0.2.2 grounds these itself (c250ff66 假想敌：骨刺, 977215e1 斩胄之剑 / 破胄之锤 — ported 2026-10-09): out of NO_AIR_KEYS
+  const NOW_UPSTREAM = ['enemy_9008_acbunn', 'enemy_9014_acstma', 'enemy_9015_acstmb'];
+
+  test('now upstream\'s own rule: 假想敌：骨刺 and the 胄 blades skip flyers without the patch, and are out of NO_AIR_KEYS', () => {
+    for (const key of NOW_UPSTREAM) {
+      assert.ok(!simPatch.NO_AIR_KEYS.includes(key), `${key} left NO_AIR_KEYS`);
+      assert.deepEqual(ruleOf([enemiesMod, bossesMod], key), { air: false, ground: true }, key);
+    }
+  });
 
   test('client-only: upstream lets them shoot a flyer; patched, ground only (扎罗 only in its second form)', () => {
     for (const key of CLIENT_ONLY) {
