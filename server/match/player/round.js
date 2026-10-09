@@ -65,6 +65,7 @@ export class PlayerRound {
     this._tempDue.clear();
     this.offers = [];
     this.bounties = [];
+    this.personalChoice = null;
     this.shop.slots = [];
     this.shop.kinds = [];
     this.funds = 0;
