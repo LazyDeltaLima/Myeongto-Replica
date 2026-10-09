@@ -465,3 +465,19 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 확인: `test/local-restart.test.js`(시점·취소·만료는 가짜 타이머, 실제 서버의 방송·welcome·healthz·판 시작 거부, 실제 프로세스에 `SIGUSR2`, 클라이언트 토스트 조건).
   Windows Chrome(로컬 서버 + `SIGUSR2`): 로비 30분, 정비 화면 10분 토스트(전투 중 5분 토스트는 그 뒤 뺌), 협동 판(AI 3명) 정비·전투·휴대폰 가로에서 5분 띠 위치 확인(2026-10-09).
   띠는 보드 배치 칸·상점·팀원 목록·준비 완료 버튼을 가리지 않는다(사용자 확인 대기).
+
+## upstream 이식 ui-1 (2026-10-09)
+
+upstream v0.2.0 이후 UI 수정 15건(`research/2026-10-09-upstream-compare/ui.md`, 기록 `upstream/ISSUES.md` 「이식함」). 대부분 upstream 버그 수정을
+그대로 받은 것이고, 우리 규칙과 맞물리는 것만 적는다.
+- 준비 완료 시 상점 접기(`2b236081` ← `7fb41f4f`, 사용자 결정 2026-10-09: 공식도 준비 완료 때 상점이 접힌다 — 사용자 공식 화면 스크린샷,
+  「준비 완료, 시뮬레이션 대기 중」 띠 + 대기석만): `gameLogic readyShopFold`가 확정된 `m.private.ready`의 한 정비 안 변화만 본다.
+  공식 모양 접기 상자(상점 화면 「접기 상자」)는 같은 `collapsed` 상태라 같이 접힌다. 「준비 완료, 시뮬레이션 대기 중」 띠 자체는 아직 없다.
+- 공용 `Modal` 포커스 가두기(`a6ee32fd` ← `e2503c7f`): 맨 위 대화상자 안에서만 Tab이 돌고, 밖으로 나간 포커스는 첫 버튼으로 돌아온다(가이드가 위에 열려 있으면 양보).
+  채팅 패널(z-index 6–40)·디버그 패널은 `.modal` 배경(z 80) 아래라 대화상자가 열린 동안 클릭으로 포커스를 못 가져간다 [추정, CSS로만 판단].
+- 방향 선택 중 Enter(`102c96a1` ← `a1bc37ed`): 공식 선택기(`placeArt.js` `PlaceWheelArt`)의 ✕도 `.fwheel__cancel`이라 `facingEnter`가 두 그림 모두에 맞는다.
+  선택기가 열리면 루트가 포커스를 가져가고 테두리는 그리지 않는다(`.fwheel:focus-visible`).
+- 진단 복사(`05330d9e` ← `3f884412`, 사용자 결정 2026-10-09): 설정 → 「문제 제보」. 안내 주소와 PLAYING.md §12는 upstream이 아니라 우리 저장소
+  `LazyDeltaLima/Stronghold-Protocol-KR/issues` — **임시**(저장소 아직 비공개, 제보 창구는 사용자 결정 대기, STRONGHOLD.md §11).
+- 선발 선택 창 테스트(`ac82143e`·`d45b56f1`)는 우리 5명(아스카론·왕)과 필터 칩 없는 선택 창(사용자 결정 2026-10-07)에 맞춰 고쳐 넣었다.
+- 브라우저 e2e(`SP_E2E=1`)로 들어온 테스트(`mock` `settings-entry` `diy` `facing` `modal` `loadout` `i18n` `ready-fold`)는 여기서 돌리지 않았다 — 화면 확인 때 함께.
