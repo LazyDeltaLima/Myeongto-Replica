@@ -17,7 +17,8 @@
 // 0.2.0 补位 (docs/LOCAL-PATCH.md 「0.2.0 병합」 J-8): a chess the player fields as its stand-in shows the
 // stand-in like ChessDetail does — art, class, name, stats, range, skill, talents (its backup selection) — with ChessDetail's
 // 「替补」 tag and 「X的替补」 line; the chess's tier, elite level, bonds and 特质 stay. 0.2.0 自选: the composed record's
-// stats through the pick (the same lookup as ChessDetail; checked equal to the battle's def, 2026-10-08).
+// stats through the pick (the same lookup as ChessDetail; checked equal to the battle's def, 2026-10-08), at the
+// operator's 潜能 / 练度 (ChessDetail's `cultOpts`, upstream 7a0937e3).
 //
 //   ChessDetailArt(props)   the props of ChessDetail (ui/detailPanel.js)
 //   placingDetail(p, pieces, opts) the card of the operator being placed — dragged (`drag`) or waiting for its direction
@@ -79,7 +80,7 @@ function Line({ k, v, tone, sub, title, cls }) {
 
 export function ChessDetailArt(props) {
   const [tab, setTab] = useState(null);
-  const { chess: c, piece, live = null, snapHp = null, loadout = null, standIn = null, diy = null } = props;
+  const { chess: c, piece, live = null, snapHp = null, loadout = null, standIn = null, diy = null, cultOpts = null } = props;
   const blocks = ChessDetail(props);
   const { by, tabs } = artParts(blocks);
   const m = data.get('assets');
@@ -88,7 +89,8 @@ export function ChessDetailArt(props) {
   const si = standIn && standIn.standInFor ? standIn : null;
   const body = si || c;
   const getChess = diy ? pickGetter((id) => data.lookup('chess', id), diy, { chess: data.get('chess'), backups: data.get('backups') }) : (id) => data.lookup('chess', id);
-  const lo = si ? standInLoadout(si, getChess, data.get('backups')) : chessLoadout(c, loadout, getChess);
+  // 0.2.2 潜能 / 练度 (upstream 7a0937e3): the same `cultOpts` as ChessDetail — the player's settings or a teammate's unit's own
+  const lo = si ? standInLoadout(si, getChess, data.get('backups')) : chessLoadout(c, loadout, getChess, { ...(cultOpts || {}), effects: data.get('effects') });
   const fr = lo?.record || body;
   const s = fr?.stats || {};
   const golden = !!(c.isGolden || piece?.golden);

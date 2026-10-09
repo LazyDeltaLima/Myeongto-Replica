@@ -132,3 +132,17 @@ describe('round-start banner and the boss round\'s player list', () => {
     assert.match(css, /\.gm\.has-hud-art\.has-hud-team \.team__row\.is-team \.team__btn::after \{ background: #59ffd2; \}/);
   });
 });
+
+describe('detail card (official look): 0.2.2 潜能 / 练度 (upstream 7a0937e3)', () => {
+  test('the card\'s stats are the operator\'s at the player\'s 潜能 / 练度 (DetailPanel cultOpts), as ChessDetail and the battle', async () => {
+    await data.loadAll('effects');
+    const chess = DATA.chess.chess_char_1_06_a; // 刺玫 (the upstream potential-ui test's operator)
+    const ops = { [chess.charId]: { potential: 1, cultivate: 0 } };
+    const at = (cultOpts) => statLine(card({ chess, piece: null }, { cultOpts }), '攻击');
+    const want = (o) => String(Math.round(G.chessLoadout(chess, null, (id) => DATA.chess[id], { ...o, effects: data.get('effects') }).record.stats.atk)); // the card rounds
+    assert.equal(at({ ops }), want({ ops }), '潜能1 / 练度0');
+    assert.equal(at({ ops: {} }), want({ ops: {} }), 'the defaults (满潜能, 练度 3)');
+    assert.notEqual(at({ ops }), at({ ops: {} }));
+    assert.equal(at({ cultivation: { potential: 1, cultivate: 0 } }), want({ ops }), 'a teammate\'s unit at its own');
+  });
+});

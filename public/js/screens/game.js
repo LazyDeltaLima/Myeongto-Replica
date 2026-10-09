@@ -1540,10 +1540,10 @@ function MatchScreen() {
       ${bondPop && hudLook.cls && bondPop.ownerId === strip.ownerId ? html`<${BondNav} bonds=${stripBonds} id=${bondPop.bondId} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />` : null /* local patch: the popup's < > (ui/hudArt.js) */}
 
       ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp} onClose=${() => { setDetail(null); setSel(null); }}
-        bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} side=${dSide} shopOpen=${shopOpen} live=${liveStats}
+        bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} ops=${priv?.ops ?? null} side=${dSide} shopOpen=${shopOpen} live=${liveStats}
         onBond=${(id) => openBond(id, detailOwner, 'detail')} />` : null}
       ${!resolved && hudLook.cls && (drag || facing) && placingDetail(drag || facing, placeCtx.pieces, { priv, backups: gd.backups }) ? html`<div class="dart-placing">
-        <${DetailPanel} detail=${placingDetail(drag || facing, placeCtx.pieces, { priv, backups: gd.backups })} onClose=${() => {}} bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} /></div>` : null /* local patch: the card while placing (ui/detailArt.js) */}
+        <${DetailPanel} detail=${placingDetail(drag || facing, placeCtx.pieces, { priv, backups: gd.backups })} onClose=${() => {}} bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} ops=${priv?.ops ?? null} /></div>` : null /* local patch: the card while placing (ui/detailArt.js) */}
 
       ${selEntry && editable && !facing && !drag && showPrep ? html`<${Underframe} key=${sel.uid} view=${view} uid=${sel.uid}
         row=${pieceTile(selEntry)?.row} col=${pieceTile(selEntry)?.col} actions=${underframeActions(placeCtx, sel.uid)} busy=${selBusy}
