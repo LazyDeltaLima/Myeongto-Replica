@@ -1031,6 +1031,14 @@ function manifold(bb, raw, def) {
   };
 }
 
+/**
+ * The enemies a 香槟炸弹 may set off on: ground and selectable (canTargetEnemy) — a 隐匿 enemy that is neither revealed nor
+ * blocked is none, nor a sleeping one (PRTS 作战机制 §隐匿 "隐匿效果使得获得该效果的单位无法被任何敌方的能力索敌选中"; 沉睡 =
+ * 无敌且无法行动; its pages carry no 无视隐匿 / 无视可选性 note; the other contact traps — 多萝西's 共振装置, 望's 棋子 — select so
+ * too). A community report upstream relayed (「香槟炸到没有破隐的隐匿敌人了」): until 0.2.1 it went off on any ground enemy.
+ */
+export const CHAMPAGNE_TRIGGER = Object.freeze({ canHitFly: false, groundOnly: true });
+
 /** 香槟炸弹 (琳琅诗怀雅 S2): untargetable trap consumed by the first ground enemy touching its tile. */
 function champagne(bb) {
   const scale = num(bb['attack@atk_scale'] ?? bb.atk_scale, 0);
@@ -1043,7 +1051,7 @@ function champagne(bb) {
         if (!unit.alive) return;
         let hit = null;
         for (const e of battle.enemies) {
-          if (!e.alive || e.hidden || e.isFlying) continue;
+          if (!canTargetEnemy(unit, e, CHAMPAGNE_TRIGGER)) continue;   // (no unrevealed 隐匿 enemy)
           // touching its tile: a huge enemy on any tile of its body (body.js)
           const on = e.hitArea ? bodyOnTile(e, unit.tileR, unit.tileC) : Math.abs(e.x - unit.tileC) <= 0.5 && Math.abs(e.y - unit.tileR) <= 0.5;
           if (on && (!hit || e.spawnSeq < hit.spawnSeq)) hit = e;
