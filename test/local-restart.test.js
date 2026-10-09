@@ -59,7 +59,7 @@ describe('restart countdown: pieces', () => {
     assert.equal(bannerVisible({ status: 'online' }, false, false, false, true), false, 'not before the title');
   });
 
-  test('the client: toasts — each mark, one on a welcome that brings news, the cancel to pages that knew', () => {
+  test('the client: toasts — each mark above the last 5 minutes, one on a welcome that brings news, the cancel to pages that knew', () => {
     const on = new Map();
     const shown = [];
     installRestartNotice({ net: { on: (type, fn) => on.set(type, fn) }, notify: (text, kind, opts) => shown.push([kind, opts.ttl]) });
@@ -80,6 +80,18 @@ describe('restart countdown: pieces', () => {
     assert.equal(store.get().ui.restartAt, null);
     welcome({});
     assert.equal(shown.length, 3);
+    // the last 5 minutes belong to the banner: no 5 / 3 / 1 toasts, none on a hello either
+    push({ inMs: 6 * 60_000, mark: 6 });
+    assert.equal(shown.length, 4, 'a mark above 5 still toasts');
+    push({ inMs: 5 * 60_000, mark: 5 });
+    push({ inMs: 3 * 60_000, mark: 3 });
+    push({ inMs: 60_000, mark: 1 });
+    assert.equal(shown.length, 4, 'no toast in the banner minutes');
+    push({ inMs: null });
+    shown.length = 0;
+    welcome({ restart: { inMs: 4 * 60_000 } });
+    assert.deepEqual(shown, [], 'a hello in the last minutes: the banner only');
+    welcome({});
   });
 
   test('room.start refusal: the last 5 minutes by default, SP_RESTART_NO_START_MIN overrides (0 = never)', () => {
