@@ -79,6 +79,8 @@ export class PlayerViews {
         upgradePrice: this.shop.level >= this.gd.maxShopLevel ? 0 : this.shop.upgradePrice,
         refreshPrice: free ? 0 : this.gd.refreshPrice,
         freeRefreshes: this.shop.freeRefreshes,
+        // the player's 刷新 count this match: the bar plays the official card_item_refresh when it goes up (ui/shopBar.js)
+        refreshes: this.stats.refreshes,
         frozen: this.shop.frozen,
         slots,
         // the kind of every slot in display order, empty ones included (an empty item slot draws as one)

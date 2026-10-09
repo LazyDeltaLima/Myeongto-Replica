@@ -25,13 +25,14 @@
 // portrait, class, the bonds of its factions, the pick's skill and module — with no badge (user decision 2026-10-08:
 // upstream 0def7bab's 「自选」 badge removed, docs/LOCAL-PATCH.md 「0.2.0 병합」).
 
-import { useEffect, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel } from './components.js';
 import { Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js';
 import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
 import { chessPortraitUrl, itemIconUrl, profIconUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
 import { shopArt, garrisonMarkUrl } from './shopArt.js'; // local patch: the official shop look (css/shop-art.css)
+import { RollFx } from './shopRollFx.js';
 import { hotkeyLabelOf } from './settings.js';
 import { t } from '../../../shared/i18n.js';
 
@@ -279,6 +280,9 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
   </div>`;
 }
 
+const ROLL_MS = 400; // card_item_refresh lasts 0.233 s (game-shop.css shop-card-rise)
+const SPECIAL_ROLL_MS = 1400; // card_whole_refresh_special's particle_ctrl stays on to 80/60 s (shopRollFx.js)
+
 /**
  * The bar.
  * @param {{ priv:any, editable:boolean, collapsed:boolean, onCollapse:(c:boolean)=>void,
@@ -321,6 +325,18 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   const armedSig = armedSlot ? `${armedSlot.kind}:${armedSlot.id}` : '';
   useEffect(() => { onArm?.(armedSlot ? { kind: armedSlot.kind === 'item' ? 'item' : 'chess', id: armedSlot.id } : null); }, [armedSig]);
   useEffect(() => () => onArm?.(null), []);
+  // 刷新 plays the official card_item_refresh (every card rises from below) + card_whole_refresh_normal (the card row
+  // fades in) — game-shop.css .shopbar__cards.is-rolled. Driven by the server's refresh count (button and R key alike);
+  // a round start's reroll and the bar's first draw do not play it. The class stays for the clip's length only, so a
+  // later remount of the row (a promotion reward picked) does not replay it. A 特殊刷新 of the strategy (杜遥夜, 梓兰,
+  // 佩佩 — server/local-patch.js specialRefresh, shop.specialRefreshAt = that refresh's count) plays
+  // card_whole_refresh_special instead: the same plus the orange sweep and stars over the row (shopRollFx.js).
+  const rolls = Number(shop.refreshes) || 0;
+  const special = rolls > 0 && Number(shop.specialRefreshAt) === rolls;
+  const roll = useRef(null);
+  if (!roll.current) roll.current = { n: rolls, until: 0 };
+  else if (roll.current.n !== rolls) roll.current = { n: rolls, until: rolls > roll.current.n ? performance.now() + (special ? SPECIAL_ROLL_MS : ROLL_MS) : 0 };
+  const rolled = performance.now() < roll.current.until;
   /** First tap arms + opens the detail; the second buys (or says why it can't). */
   const tapCard = (kind, idx, slot, detailKind, reason, buy) => {
     const key = armKey(kind, idx, slot);
@@ -364,7 +380,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
       <${LevelCard} shop=${shop} reason=${lvReason} armed=${armed === levelKey} onTap=${tapLevel} />
       ${showReward ? html`<${RewardCards} offer=${reward} priv=${priv} editable=${editable} onPick=${onReward} onDetail=${onDetail} onLater=${onRewardLater}
           armed=${armed} onTap=${tapCard} offBonds=${offBonds} />`
-        : html`<div class="shopbar__cards">
+        : html`<div key=${`roll${rolls}`} class=${cx('shopbar__cards', rolled && 'is-rolled', rolled && special && 'is-special')}>
         ${hasItemSlot ? null : html`<${SoldCard} key="noitem" item=${true} />`}
         ${ordered.map(({ s, i, kind }) => {
           if (kind === 'item') {
@@ -380,6 +396,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
           return html`<${ChessCard} key=${`c${i}:${s.id}`} slot=${s} idx=${i} priv=${priv} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} offBonds=${offBonds}
               reason=${reason} armed=${armed === armKey('c', i, s)} onTap=${editable ? (idx) => tapCard('c', idx, s, 'chess', reason, onBuy) : null} />`;
         })}
+        ${rolled && special ? html`<${RollFx} key="rollfx" />` : null}
       </div>`}
       <div class="funds">
         <div class="funds__hex">

@@ -192,6 +192,21 @@
   들어 올림은 남김. 동시에 왼쪽 기물 정보 카드가 그 오퍼레이터(立绘 포함)로 열린다(원본 동작 그대로). 그림 변수는 `hudArt.js`(`--ha-dc1/2`), CSS는
   hud-art.css. ko 「确认购买」 → 「구매 확인」(ui.json이 official.json의 「구매한다」를 덮음).
 - 단축키는 원본 그대로(D 승급 · F 동결 · R 갱신): 스크린샷의 G/S/D/A는 그 유저가 바꿨을 수 있다(사용자 판단 2026-10-06).
+- 갱신 애니메이션(2026-10-09, 사용자 요청 「갱신하면 카드가 아래에서 위로」): 같은 번들의 클립. 카드 프리팹 `autochess_shop_card_item`의 Animation
+  `card_item_refresh` = root y −135 → −25.92(4/60초) → 0(14/60초), 접선 0 → 444.3 → 0, `root_layout`의 `card_whole_refresh_normal` =
+  `group_slots`(카드 줄, 승급 상자 제외) alpha 0 → 1(0.1초). 60fps Hermite(가중치 1/3)를 구간마다 cubic-bezier로 옮겨 그대로 씀(game-shop.css
+  `shop-card-rise`). 계기는 서버의 갱신 횟수(`m.private.shop.refreshes` = `stats.refreshes`, 버튼·R 키 모두): 라운드 시작의 다시 뽑기와 상점이
+  처음 그려질 때는 재생하지 않음 [추정 — 언제 재생하는지는 네이티브 코드라 확인 못 함]. 카드 사이 시차 없음(클립에 없음 [추정]).
+  - 특수 갱신(2026-10-09, 사용자 「전략 능력으로 특별 갱신일 때 나타나는 연출일 것」): 전략 문구가 「特殊刷新」라고 부르는 수동 갱신 — 두요야
+    【인재 교류】(라운드 첫 2회), 梓兰 【猎头顾问】(매번), 佩佩 【博学多通】(2·4·6레벨 업그레이드 뒤 1회) — 에는 `card_whole_refresh_special`
+    (贾维의 갱신 횟수 보상은 문구에 特殊刷新이 없어 제외). 서버 `server/local-patch.js specialRefresh`가 그 갱신의 횟수를
+    `shop.specialRefreshAt`로 보냄. 클립 = normal + `root_fx`(카드 줄 영역, RectMask2D, 카드처럼 −135 → 0)의 ① `grad`:
+    `img_uifx_sweep_03`(arts/ui/[uc]fxcommon.ab)을 180° 돌려 982 × 721.83, × #ffb500, 가산(`m_colordodge2` One One), 2/60 → 34/60초에 켜지고
+    y −473 → −143.61(0.1초) → 76.67(0.2초) → 457.5(0.567초) — 그림 세로 단면을 CSS 그라데이션으로 옮겨 그림이 필요 없음(game-shop.css
+    `.shopbar__sweep`). ② `particle_ctrl`(UIParticle, 1/60 → 80/60초) 별 3개 시스템, 텍스처 `img_uifx_star_4`(로컬 추출 `ui/fxcommon`, 없으면
+    둥근 점): star1 상자 6.64 × 1.25에서 3개씩 5번, star2·star3 줄 왼쪽·오른쪽 끝에 큰 별 1개씩 — 값은 `public/js/ui/shopRollFx.js` 머리말.
+    [추정] 파티클 1단위 = 프리팹 100단위(Local 크기 + 0.01 캔버스로 봄), 크기·알파 곡선은 키 사이를 직선으로(접선 안 읽음), 아이템이 여는
+    특수 갱신(寻呼模块 등, 보상 카드 자리)에도 쓰는지는 모름 — 지금은 수동 갱신만.
 - 동결 버튼 (2026-10-06 프리팹으로 확인): `btn_frozen`의 3상태 스위치가 `_unselect` = `group_disable`(`bg_lock` + `frozen_icon_lock`),
   `_firstSelect` = `group_lock`(`frozen_bg_normal` 파랑 + `frozen_icon` 눈송이), `_secondSelect` = `group_unlock`(`frozen_bg_unselect` 흰 파랑 + `frozen_icon2`
   빗금 친 눈송이)이다. 그룹 이름은 상태가 아니라 누르면 하는 동작(잠그기·풀기)이고, 원본도 동결 중에 `frozen_icon2`를 쓴다 → 평소 파랑 + 눈송이,

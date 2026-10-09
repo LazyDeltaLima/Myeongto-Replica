@@ -94,6 +94,9 @@ JOBS = [
     ('ui/autochess/[uc]autochesscommon.ab', 'ui/common', {'Sprite'}),
     ('ui/autochess/[uc]autochessbattle.ab', 'ui/battle', {'Sprite', 'TextAsset'}),
     ('ui/autochess/[uc]autochessouter.ab', 'ui/outer', {'Sprite'}),
+    # the shop's special-refresh stars (autochessbattle root_layout/root_fx/particle_ctrl, material m_particle_star —
+    # ui/shopBar.js RollFx, docs/rules/ui.md 「상점 화면」)
+    ('arts/ui/[uc]fxcommon.ab', 'ui/fxcommon', {'Texture2D'}, r'^img_uifx_star_4$'),
     *[(f'ui/emoticon/theme/[uc]{theme}.ab', f'emoticon/{sub}', {'Sprite'}, BATTLE_EMOTE) for theme, sub in EMOTE_THEMES],
     ('arts/guidebookpages/[pack]autochess.ab', 'guide', {'Sprite', 'Texture2D'}),
     ('battle/prefabs/[uc]projectiles.ab', 'projectiles', {'Sprite', 'Texture2D'}),

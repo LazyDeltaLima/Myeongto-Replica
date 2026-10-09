@@ -150,31 +150,56 @@ export function onMatchEnd(lobby, room) {
 //   佩佩   up_shop_next_refresh_must_present_bond_char  a special refresh is pending (after a listed level-up)
 //   贾维   refresh_shop_count_gain_coin_bond_char_chess the next refresh completes refresh_count, round cap not reached
 export function refreshBoost(ps) {
+  return bandBuffs(ps).some((b) => buffBoosts(ps, b));
+}
+
+const bandBuffs = (ps) => {
   const band = ps.bandId ? ps.gd.band(ps.bandId) : null;
+  return band && Array.isArray(band.buffs) ? band.buffs : [];
+};
+
+/** Whether this band buff acts on the player's next manual refresh. */
+function buffBoosts(ps, b) {
+  const bb = b?.bb || {};
   const c = (k) => (Number.isFinite(ps.counters?.[k]) ? ps.counters[k] : 0);
   const n = (v, d) => (Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : d);
-  for (const b of (band && Array.isArray(band.buffs) ? band.buffs : [])) {
-    const bb = b?.bb || {};
-    switch (b?.key) {
-      case 'band_first_self_refresh_present_char': if ((ps.round?.refreshes || 0) < 2) return true; break;
-      case 'band_shop_refresh_copy_max_lv_char': return true;
-      case 'up_shop_next_refresh_must_present_bond_char': if (c('band:pepe:special') > 0) return true; break;
-      case 'refresh_shop_count_gain_coin_bond_char_chess': {
-        const every = n(bb.refresh_count, 0);
-        const used = c('band:chiave:r') === ps.m?.round ? c('band:chiave') : 0;
-        if (every > 0 && (c('band:chiave:refreshes') + 1) % every === 0 && used < n(bb.max_count, Infinity)) return true;
-        break;
-      }
-      default: break;
+  switch (b?.key) {
+    case 'band_first_self_refresh_present_char': return (ps.round?.refreshes || 0) < 2;
+    case 'band_shop_refresh_copy_max_lv_char': return true;
+    case 'up_shop_next_refresh_must_present_bond_char': return c('band:pepe:special') > 0;
+    case 'refresh_shop_count_gain_coin_bond_char_chess': {
+      const every = n(bb.refresh_count, 0);
+      const used = c('band:chiave:r') === ps.m?.round ? c('band:chiave') : 0;
+      return every > 0 && (c('band:chiave:refreshes') + 1) % every === 0 && used < n(bb.max_count, Infinity);
     }
+    default: return false;
   }
-  return false;
 }
+
+// 특수 갱신 연출: the manual refreshes the strategy text calls 特殊刷新 (杜遥夜 【广交豪杰】 the round's first 2, 梓兰
+// 【猎头顾问】 every one, 佩佩 【博学多通】 the one owed after a listed level-up — 贾维's coin count is not one) play the
+// client's card_whole_refresh_special instead of _normal (ui/shopBar.js, docs/rules/ui.md 「상점 화면」). The refresh
+// records its stats.refreshes count in shop.specialAt; the view sends it as shop.specialRefreshAt.
+const SPECIAL_REFRESH_KEYS = new Set(['band_first_self_refresh_present_char', 'band_shop_refresh_copy_max_lv_char', 'up_shop_next_refresh_must_present_bond_char']);
+export function specialRefresh(ps) {
+  return bandBuffs(ps).some((b) => SPECIAL_REFRESH_KEYS.has(b?.key) && buffBoosts(ps, b));
+}
+
+const upstreamRefresh = PlayerState.prototype.refresh;
+PlayerState.prototype.refresh = function refresh() {
+  let special = false;
+  try { special = specialRefresh(this); } catch { /* display only */ }
+  const before = this.stats.refreshes;
+  const r = upstreamRefresh.call(this);
+  if (special && this.stats.refreshes > before) this.shop.specialAt = this.stats.refreshes;
+  return r;
+};
 
 const upstreamPrivateView = PlayerState.prototype.privateView;
 PlayerState.prototype.privateView = function privateView() {
   const v = upstreamPrivateView.call(this);
   try { if (v && v.shop) v.shop.refreshBoost = refreshBoost(this); } catch { /* display only */ }
+  if (v && v.shop) v.shop.specialRefreshAt = this.shop.specialAt ?? 0;
   return v;
 };
 

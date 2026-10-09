@@ -10,6 +10,51 @@
   animation: shop-up var(--t-slow) var(--ease-out);
 }
 @keyframes shop-up { from { opacity: 0; transform: translateY(.3rem); } }
+/* 刷新 (ui/shopBar.js `is-rolled`): the EN client's clips (ui/autochess/[uc]autochessbattle.ab). Each card's
+   card_item_refresh moves the card root y −135 → −25.92 (4/60 s) → 0 (14/60 s), and the row's card_whole_refresh_normal
+   fades group_slots (the cards, not the LEVEL box) α 0 → 1 in 0.1 s. Keys are 60 fps Hermite with weight 1/3 = one cubic
+   Bézier per segment (tangents 0 → 444.3 → 0 units/s; α 0 → 10/s). 1 unit = --u (css/shop-art.css). The orange sweep of
+   card_whole_refresh_special is not drawn. */
+.shopbar__cards.is-rolled { animation: shop-cards-fade .1s cubic-bezier(.333, 0, .667, .667); }
+.shopbar__cards.is-rolled > * { animation: shop-card-rise .2333s; }
+@keyframes shop-cards-fade { from { opacity: 0; } }
+@keyframes shop-card-rise {
+  0% { transform: translateY(calc(var(--u, .015rem) * 135)); animation-timing-function: cubic-bezier(.333, 0, .667, .91); }
+  28.571% { transform: translateY(calc(var(--u, .015rem) * 25.92)); animation-timing-function: cubic-bezier(.333, .952, .667, 1); }
+  100% { transform: none; }
+}
+/* 특수 갱신 (strategy 特殊刷新, `is-special`): card_whole_refresh_special = the above + root_fx (the row's rect, RectMask2D,
+   rising like a card) with grad — img_uifx_sweep_03 rotated 180°, 982 × 721.83, × #ffb500, additive (m_colordodge2
+   One One) — shown 2/60 → 34/60 s while its y goes −473 → −143.61 (0.1 s) → 76.67 (0.2 s) → 457.5 (0.567 s), tangents
+   3945.8 / 2748.3 / 1334.8 / 0. The gradient is the sprite's column (rows every 8 px, brightness = alpha) top to bottom
+   after the turn. Stars: ui/shopRollFx.js. */
+.shopbar__cards.is-special { position: relative; }
+.shopbar__rollfx { position: absolute; inset: 0; z-index: 5; overflow: hidden; pointer-events: none; mix-blend-mode: plus-lighter; }
+.shopbar__rollunit { position: absolute; width: calc(var(--u, .015rem) * 100); height: 0; visibility: hidden; }
+.shopbar__sweep {
+  position: absolute; left: 50%; top: 50%; width: calc(var(--u, .015rem) * 982); height: calc(var(--u, .015rem) * 721.83);
+  margin: calc(var(--u, .015rem) * -360.915) 0 0 calc(var(--u, .015rem) * -491);
+  background: linear-gradient(to bottom, rgba(255, 181, 0, 0) 1.6%, rgba(255, 181, 0, .06) 3.1%, rgba(255, 181, 0, .26) 6.3%,
+    rgba(255, 181, 0, .51) 9.4%, rgba(255, 181, 0, .75) 12.5%, rgba(255, 181, 0, .94) 15.6%, rgba(255, 181, 0, 1) 18.8%,
+    rgba(255, 181, 0, 1) 21.9%, rgba(255, 181, 0, .98) 25%, rgba(255, 181, 0, .95) 31.3%, rgba(255, 181, 0, .88) 37.5%,
+    rgba(255, 181, 0, .81) 43.8%, rgba(255, 181, 0, .71) 50%, rgba(255, 181, 0, .62) 56.3%, rgba(255, 181, 0, .51) 62.5%,
+    rgba(255, 181, 0, .4) 68.8%, rgba(255, 181, 0, .3) 75%, rgba(255, 181, 0, .21) 81.3%, rgba(255, 181, 0, .12) 87.5%,
+    rgba(255, 181, 0, .05) 93.8%, rgba(255, 181, 0, 0) 100%);
+  opacity: 0; animation: shop-sweep-move .5667s, shop-sweep-on .5667s linear;
+}
+@keyframes shop-sweep-move {
+  0% { transform: translateY(calc(var(--u, .015rem) * 473)); animation-timing-function: cubic-bezier(.333, .399, .667, .722); }
+  17.65% { transform: translateY(calc(var(--u, .015rem) * 143.61)); animation-timing-function: cubic-bezier(.333, .416, .667, .798); }
+  35.29% { transform: translateY(calc(var(--u, .015rem) * -76.67)); animation-timing-function: cubic-bezier(.333, .428, .667, 1); }
+  100% { transform: translateY(calc(var(--u, .015rem) * -457.5)); }
+}
+@keyframes shop-sweep-on { 0%, 5.87% { opacity: 0; } 5.88%, 100% { opacity: 1; } }
+/* particle_ctrl m_IsActive 0 at 80/60 s: the stars still alive are cut */
+.shopbar__stars { position: absolute; inset: 0; animation: shop-stars-off 1.3333s step-end forwards; }
+@keyframes shop-stars-off { to { visibility: hidden; } }
+.shopbar__star { position: absolute; opacity: 0; mix-blend-mode: plus-lighter;
+  -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+@media (prefers-reduced-motion: reduce) { .shopbar__cards.is-rolled, .shopbar__cards.is-rolled > * { animation: none; } .shopbar__rollfx { display: none; } }
 /* Official layout (research 06 §11.2 / D3): "剩余可放置角色: N" on its own line, right-aligned ABOVE [冻结] [刷新]. On one
    line the block reached over the bench's last pads (整备区 slot 9 at 16:9 under the official shop camera). Only the
    bar's parts take the pointer: its box spans the empty space left of the tools, which used to swallow drags and taps
