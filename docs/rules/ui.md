@@ -573,7 +573,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   한 판 3건, 주소당 하루 10건, 전체 하루 200건(메모리, 재시작하면 초기화). `SP_FEEDBACK_DIR/inbox/FB-<UTC 날짜>-<id>.json` 하나에
   종류·내용(제어 문자 제거, 줄바꿈 유지)·진단·전투(풀어서, 4 MB 넘으면 버림)·버전·빌드·이 판의 `[stats]` 기록(이름 뺌, 방 코드·판 번호로 로그와 이어짐)·
   `sender`(주소의 HMAC-SHA256 앞 16자, 키는 `SP_FEEDBACK_DIR/.key`)를 쓴다. 90일 지난 파일은 시작할 때와 6시간마다 지운다.
-- 확인: `test/local-feedback.test.js`(검증·꺼짐·저장 내용·주소 해시·제한·정리·전투 묶기·실제 서버에서 판 끝난 뒤 전송). 화면 확인 전(§11).
+- 확인: `test/local-feedback.test.js`(검증·꺼짐·저장 내용·주소 해시·제한·정리·전투 묶기·실제 서버에서 판 끝난 뒤 전송). [화면 미확인]
 - **GitHub issue 자동 등록**(2단계, `server/feedback-relay.js`, `node server/feedback-relay.js`): 게임 서버와 따로 도는 프로세스. 게임 서버는 네트워크
   밖으로 나가지 않고 보관함에 쓰기만 하고, relay가 `SP_FEEDBACK_DIR/inbox/`를 읽어(읽기 전용이어도 됨) 올린 기록을 `SP_FEEDBACK_DIR/issues/`에 쓴다.
   작성자는 사람 계정이 아니라 그 저장소 하나에만 설치한 GitHub App(권한 Issues 읽기·쓰기)의 봇. 설정: 두 쪽 모두 `SP_FEEDBACK_REPO=owner/name`,
