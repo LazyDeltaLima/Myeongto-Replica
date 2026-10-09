@@ -2,7 +2,11 @@
 
 `nas-local`이 원본(`upstream` = sganggs/Stronghold-Protocol)과 다르게 정한 규칙·기능과 그 **근거**(공식 테이블·EN 클라이언트 데이터·PRTS·사용자 결정과 날짜·[추정] 표시·측정)를 적는 곳이다.
 2026-10-09까지는 `docs/LOCAL-PATCH.md` 한 파일이었고, 하드 포크(2026-10-07) 뒤 병합 대비 목록이라는 역할이 없어져 영역별 파일로 나눴다. `docs/LOCAL-PATCH.md`는 옛 참조(「LOCAL-PATCH.md 「절 이름」」, 코드·테스트 주석 약 120곳)를 위한 **색인**으로 남는다.
-운영 절차·열린 일은 `STRONGHOLD.md`(§11 열린 일), 세션 인계는 `handoffs/`.
+운영 절차·열린 일·세션 인계·조사 기록은 관리자의 **비공개 운영 폴더**에 있고 이 저장소에는 없다. 규칙 문서와 코드 주석에 나오는
+`STRONGHOLD.md`(§11 = 열린 일), `handoffs/`, 날짜가 붙은 `research/<날짜>-…`·`research/battle-mechanics-reference.md`, `upstream/ISSUES.md`,
+`oci/`, `bench/`, `logs/`, `local.sh`는 그 폴더를 가리킨다(근거를 다시 찾을 수 있게 이름만 남김). `sp-check\…`는 관리자 Windows PC의 화면 확인
+스크립트, `녹화\…`는 공식 인게임 녹화로, 역시 공개하지 않는다. 날짜 없는 `research/NN-…`은 이 저장소의 `docs/research/`다.
+이 저장소의 파일에는 홈 폴더 절대 경로(`/home/…`, `C:\Users\…`, `~/Personal/…`)와 이 PC의 계정 이름을 쓰지 않는다(`test/public-repo.test.js`).
 
 | 파일 | 영역 | 담당 |
 |---|---|---|

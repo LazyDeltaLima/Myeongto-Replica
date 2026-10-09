@@ -297,7 +297,7 @@ export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-f
 
 // ---- local debug mode: the in-game debug panel (public/js/ui/debugPanel.js) --------------------------------------
 //
-// Local debug mode = SP_DEBUG_PAGE=1 or a valid SP_DEBUG_FUNDS, and NODE_ENV is not 'production'. 
+// Local debug mode = SP_DEBUG_PAGE=1 or a valid SP_DEBUG_FUNDS, and NODE_ENV is not 'production'.
 // local.sh sets both; the OCI / NAS compose files set neither and the Docker image sets NODE_ENV=production, so a
 // deployed server is never in it. Only then:
 //   m.private.debug = { fundsPin, pinValue, candidates }   (privateView wrapper, installed at import) — the client
