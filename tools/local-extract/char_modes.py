@@ -28,7 +28,8 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-char-modes.json'
 # the effect bindings for the game's effect layer (render/fxgame.js), beside the extracted effects (git-ignored like them)
 FX_OUT = ROOT / 'public/assets/local/fx/modes.json'
-DEFAULT_CLIENT = str(ROOT / '.client' / 'Arknights_Data')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --client
+from client_path import client_data  # noqa: E402
+DEFAULT_CLIENT = client_data()  # SP_CLIENT / .env / .client (client_path.py); --client overrides
 
 
 def diy_operators():

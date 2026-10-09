@@ -31,7 +31,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-char-points.json'
 FX_OUT = ROOT / 'public/assets/local/fx/points.json'
-DEFAULT_CLIENT = str(ROOT / '.client' / 'Arknights_Data')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --client
+from client_path import client_data  # noqa: E402
+DEFAULT_CLIENT = client_data()  # SP_CLIENT / .env / .client (client_path.py); --client overrides
 
 
 def char_ids(client):

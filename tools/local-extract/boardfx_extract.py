@@ -28,7 +28,8 @@ import UnityPy  # noqa: E402
 import extract  # noqa: E402  (merge_manifest)
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_GAME = str(ROOT / '.client' / 'Arknights_Data')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --game
+from client_path import client_data  # noqa: E402
+DEFAULT_GAME = client_data()  # SP_CLIENT / .env / .client (client_path.py); --game overrides
 SUB = 'board/fx'
 # (bundle under PersistentData/Bundles or StreamingAssets/AB/Windows, material, texture slots to export)
 WANT = [

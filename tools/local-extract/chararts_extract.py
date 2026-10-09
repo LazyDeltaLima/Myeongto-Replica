@@ -32,7 +32,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import extract  # noqa: E402  (merge_manifest)
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_GAME = str(ROOT / '.client' / 'Arknights_Data' / 'PersistentData' / 'Bundles')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --game
+from client_path import client_data  # noqa: E402
+DEFAULT_GAME = client_data('PersistentData', 'Bundles')  # SP_CLIENT / .env / .client (client_path.py); --game overrides
 SUB = 'chararts'
 
 

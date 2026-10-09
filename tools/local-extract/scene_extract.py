@@ -54,7 +54,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from extract import material_info, derive_normal_rg, derive_rough_from_gloss, _normal_z_table, _num, WEBP_OPTIONS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CLIENT = str(ROOT / '.client' / 'Arknights_Data')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --client
+from client_path import client_data  # noqa: E402
+DEFAULT_CLIENT = client_data()  # SP_CLIENT / .env / .client (client_path.py); --client overrides
 # CAB → bundle index of the bundles a stage scene can depend on (scanned once, cached: --rebuild-index)
 INDEX_DIRS = [
     ('pd', 'arts/maps'), ('pd', 'battle/[pack]common.ab'), ('pd', 'shaders'), ('pd', '[uc]shaders.ab'),
