@@ -52,11 +52,13 @@
   남은 것: 土石结构(act1 m06 `trap_032_mound`)와 “双眼皮” 포탑은 절차 상자 그대로.
 - **联防 화면** (2026-10-09, 사용자 제보 「협동 방어에 들어갈시, 우리 맵이 안나오고 옛날 upstream 맵이 나오고있어」): 0.2.0(upstream `8a436249`)부터
   联防은 템플릿 레벨 `act1autochess_escaped_single/_multi`에서 진행되는데, 클라이언트에 이 레벨의 씬이 없어(`scenes/activities/…/level_*`은 일반 11개뿐)
-  절차 보드로 떨어졌다. **사용자 결정 2026-10-09**: 공식 联防 화면은 그 판 맵 그대로(장애물·물 포함) → 联防 스테이지(`kind: 'unite'`)에
-  `sceneId` = 라운드 맵(`screens/game.js` `fieldStage`, 없으면 `render/app.js setStage`가 마지막 일반 스테이지), `board3d/scene.js _officialFor`가
-  `sceneId`로 씬을 읽고 스테이지 키에 넣는다. 칸·경로·배치는 템플릿 맵 그대로라 그 판 맵의 장애물 그림 위에 유닛이 설 수 있다(공식도 같다고 봄).
-  확인: 실제 협동 판(`test/e2e/fastServer.mjs` SP_START_ROUND=3·SP_STAGE=act2autochess_m03, Windows `unite_scene.mjs`) — 联防 중 공식 카시미어 씬.
-  테스트 `test/render/board3d-lifecycle.test.js` 「a 联防 map loads the official scene its sceneId names」.
+  절차 보드로 떨어졌다. **사용자 결정 2026-10-09**: 공식 联防 화면은 그 판 맵 그대로(장애물·물 포함).
+  처음(`24d6a7ba`)에는 템플릿 맵에 `sceneId` = 라운드 맵을 붙여 씬만 바꿨다(칸·경로는 템플릿 그대로라 유닛이 장애물 그림 위에 설 수 있었다).
+  지금은 联防 자체가 그 라운드 전장에서 진행된다(upstream `75202776`, sim-2 `473ce4af` — 지형·상자·물·기기 포함, `docs/rules/sim.md`
+  「upstream 이식 sim-2」): 필드 meta의 stageId가 경기 stageId라 보드는 일반 판과 같은 `ownStage`/`baseStage`·공식 씬을 그리고, 칸·경로·배치도 그 맵의 것이다.
+  그래서 render-2(2026-10-09)에서 우회를 걷어냈다 — `screens/game.js` `fieldStage`(upstream 75202776의 game.js hunk 그대로), `render/app.js setStage`의
+  `roundSceneId`, `board3d/scene.js`의 `sceneId` 키·`_officialFor`, 그 테스트. 실제 경기 경로: `test/match/feedback5-unite-map.test.js`
+  (필드 meta·spec·`publicView()` 모두 경기 stageId), 브라우저 `test/e2e/coop.e2e.mjs`(`SP_E2E=1`, 联防 필드가 경기 맵을 그림 — 화면 확인 목록).
 - 남은 것: 공식 물 셰이더는 근사(깊은 색 하나 — 공식은 해안 근처가 깊이에 따라 청록으로 얕아짐, 거품·커스틱·하늘 반사 없음), m04 밀물 연출 미구현, `_HG_VERTEX_COLOR_BLEND`의 노이즈 항(`_BlendNoiseStrength`·`_BlendMaskNoiseSkew`)은 읽지 않음.
 
 ## 배치 낙하 (2026-10-07)

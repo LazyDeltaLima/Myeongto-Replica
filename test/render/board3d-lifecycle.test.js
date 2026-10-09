@@ -232,19 +232,3 @@ describe('asset pack gate', () => {
     assert.equal(await boardArtListed({ local: 1 }), false);
   });
 });
-
-// user decision 2026-10-09: the 联防 template level (act1autochess_escaped_*) has no official scene in the client — the
-// board draws the round's own map behind it (screens/game.js / render/app.js setStage pass `sceneId`)
-test('a 联防 map loads the official scene its sceneId names (the round\'s map), and a new sceneId rebuilds', () => {
-  const asked = [];
-  const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer(), loadOfficial: (id) => { asked.push(id); return new Promise(() => {}); } });
-  const unite = stages.act1autochess_escaped_multi;
-  assert.equal(unite.kind, 'unite');
-  board.setStage({ ...unite, sceneId: 'act2autochess_m03' });
-  assert.deepEqual(asked, ['act2autochess_m03']);
-  board.setStage({ ...unite, sceneId: 'act1autochess_m01' });
-  assert.deepEqual(asked, ['act2autochess_m03', 'act1autochess_m01'], 'the stage key carries sceneId');
-  board.setStage(stages.act1autochess_m04);
-  assert.deepEqual(asked.at(-1), 'act1autochess_m04', 'an ordinary stage loads its own');
-  board.destroy();
-});
