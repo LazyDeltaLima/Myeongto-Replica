@@ -98,6 +98,9 @@ export class Unit {
     this.anim = 0;
     this.persist = { redeployMul: 1, freeRedeploys: 0 };
     this.isBoss = false;
+    // the HUD capsule's own flag (battle/spawns.js: set on the enemies the field itself scheduled, DESIGN §14); declared
+    // here so every unit keeps the same object shape (the hot loops' property reads)
+    this.inTotal = false;
     this.bossPool = null;
     // 练度 (自持有, 0.2.2; battle/players.js): the owned operator's tier (0–3, effects.json aceffect_char_1…4) and its
     // char_attribute_mul — ATK / DEF / max HP, a multiplier of its own (never summed with the 直接乘算 percentages)
