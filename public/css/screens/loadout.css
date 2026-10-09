@@ -215,8 +215,9 @@
 /* the detail's 潜能 / 练度 section */
 .lo-sec--cult { padding: .08rem .1rem .1rem; margin-bottom: .14rem; background: rgba(0, 0, 0, .22); border: 1px solid var(--line); border-left: 3px solid var(--mint-500); }
 .lo-sec--cult .lo-sec__head .lo-badge { margin-left: auto; }
-.lo-cult__row { display: grid; grid-template-columns: max(.5rem, 30px) minmax(0, 1fr); align-items: center; gap: .08rem; }
-.lo-cult__k { font-size: max(.13rem, 10px); color: var(--text-dim); letter-spacing: .08em; }
+/* the label column fits the Korean 잠재능력 / 육성도 on one line (4 characters at .13rem + .08em spacing ≈ .56rem) */
+.lo-cult__row { display: grid; grid-template-columns: max(.62rem, 46px) minmax(0, 1fr); align-items: center; gap: .08rem; }
+.lo-cult__k { font-size: max(.13rem, 10px); color: var(--text-dim); letter-spacing: .08em; white-space: nowrap; }
 .lo .lo-cult__row .lo-seg { margin-left: 0; flex-wrap: wrap; justify-self: start; }
 .lo-seg--pot button { min-width: max(.36rem, 26px); font-family: var(--font-num); }
 .lo-seg--tier button { padding: 0 .1rem; }
