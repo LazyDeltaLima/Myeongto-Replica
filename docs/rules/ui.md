@@ -481,3 +481,31 @@ upstream v0.2.0 이후 UI 수정 15건(`research/2026-10-09-upstream-compare/ui.
   `LazyDeltaLima/Stronghold-Protocol-KR/issues`(사용자 결정 2026-10-09: 이 주소 유지 — 저장소는 아직 안 만들어서 만들 때까지 열리지 않음).
 - 선발 선택 창 테스트(`ac82143e`·`d45b56f1`)는 우리 5명(아스카론·왕)과 필터 칩 없는 선택 창(사용자 결정 2026-10-07)에 맞춰 고쳐 넣었다.
 - 브라우저 e2e(`SP_E2E=1`)로 들어온 테스트(`mock` `settings-entry` `diy` `facing` `modal` `loadout` `i18n` `ready-fold`)는 여기서 돌리지 않았다 — 화면 확인 때 함께.
+
+## upstream 이식 ui-2 (2026-10-09)
+
+upstream UI 12건 + `66297106`의 테스트 조각(`research/2026-10-09-upstream-compare/` README 「정해진 것」 4·5차와 결정 9·11·12·13, 기록
+`upstream/ISSUES.md` 「이식함」). **upstream 커밋 순서로** 이식했다(프롬프트 순서와 다름 — 뒤 커밋이 앞 커밋 문맥을 전제): `41fd3c7e` →
+`c623550f` → `438a6b52` `51e0e60b` → `0ca2a9c2` → `56a7b918` → `7a0937e3` `519f04e2` `dc336f24` `4f8f5d2a` `9f36db32` `4d63e9d5`.
+- 맹약 팝업의 선발 행(`ec1014a6` ← `41fd3c7e`, 결정 12: 공식도 사기 전부터 맹약 목록에 흐리게): 「自选」 태그는 없다(J-2, `upstream.md`).
+  우리 선발 다섯은 맹약이 하나씩이라 upstream의 「두 맹약에 다 나오는」 경우가 없다 — 테스트를 赤刃明霄陈(炎)·阿斯卡纶(无)로 바꿈.
+- Touch·预备干员-医疗 카드(`5ac7f55c` ← `c623550f` UI 부분): 공식 모양 카드 `ChessDetailArt`는 `ChessDetail`의 블록을 그대로 쓰므로
+  恳切福音 아래 PRTS 정정 줄도 공식 모양에서 나온다.
+- 통계 페이지(`ff6a1a5d` ← `438a6b52`, `50a56438` ← `51e0e60b`, 결정 11): upstream 화면 그대로(공식 모양은 나중). 결산 다시 보기
+  (`ResultView` `quiet`)는 정산 효과음과 우리 결과 음성(`playMatchEndVoice`)을 둘 다 내지 않는다. 로비·대기실 윗줄은 「统计」 다음에 우리
+  설정 버튼. PLAYING.md는 우리 §12 「反馈问题」가 있어 통계가 **§13**. 서버가 끝낸 판은 기록하지 않는다(리롤 세션의 다시 뽑기도 이 규칙).
+- 상세 카드 공격 범위(`0cdb77be` ← `0ca2a9c2`, 결정 9): 정비 중 「선택한 기물 범위」 효과를 대체한다. 우리도 탭이 카드를 여므로 정비 중
+  범위 표시는 그대로. 같은 `SEL_RANGE` 그룹이라 3D 판은 공식 `tileOverlay` 줄무늬. upstream 테스트의 自由的杰西卡(우리에게 없는 선발 kit)
+  경우는 실제 전투(能天使, `unitStatsEntry` `dir`) 경우로 바꿈.
+- 교편 3택 클라이언트(`b8da80a6` ← `56a7b918`, 결정 13): 개인 선택에는 「轮到你」(`YourTurn`)를 띄우지 않는다 — `normalizePersonalChoice`가
+  `turn` = 자신이라 `useTurnFlash`에서 `personal`을 뺐다. 안내 「从候选中选择一项战术特训」은 `is-personal`(upstream `is-mine`은 우리
+  phase-art CSS가 숨기고 game-panels.css가 차례 표시로 깜빡임). 공식 개인 선택 화면 캡처는 없다 [추정: 제목·안내 배치는 upstream대로].
+- 잠재·练度 UI(`1e3d0070` `700a04f2` `1b732b8d` `0620bda5` `17c7b7f5` ← `7a0937e3` `519f04e2` `dc336f24` `4f8f5d2a` `9f36db32`): upstream에 없는
+  우리 카드 두 곳도 맞춤 — 공식 모양 카드 `ChessDetailArt`(수치 줄을 스스로 계산)가 `cultOpts`를, 배치 중 카드(`dart-placing`)가 `ops`를
+  받는다. 한국어: 潜能 = **잠재능력**, 练度 = **육성도**(공식 KR 클라이언트 「练度和潜能均为…」 → 「육성도와 잠재능력은…」), 未精英化 /
+  精英阶段n = 비정예화 / n차 정예화. 「特许干员」 = 특별 허가 오퍼레이터 [추정: KR 표기 근거 못 찾음]. 우리 선발 풀에는 프로토타입이 없어
+  (2026-10-07) 「原型干员没有潜能与练度」 줄은 우리 데이터로는 나오지 않는다. 선발 카드 수치 = 전투 합성(维什戴尔 潜能1 583 / 25, 潜能6 615 / 23).
+- 고른 스킬 테두리(`fe2c9105` ← `4d63e9d5`, #398): ui-1에서 넘긴 CSS 1줄 — 로컬 클라이언트 그림 `image_skill_select_outline`이 있을 때만 보임.
+- 실제 경기 경로: `test/ui/ui2-real-match.test.js`(`b58fd977`) — 교편 제안(서버 m.private) → 클라이언트 선택지 → 준비 거부 → `g.choice` →
+  준비 완료, 그리고 `m.private.ops`로 만든 카드 = 같은 판의 전투 수치(팀원 정찰 유닛도). 브라우저 e2e(`SP_E2E=1`: `stats` `inspect-range`
+  `mock` `playtest2.real` `loadout*` `teammate-loadout`)는 돌리지 않았다 — 화면 확인 때.
