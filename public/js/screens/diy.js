@@ -8,7 +8,7 @@
 // /diy.js). Out of match: the next match takes the picks. The picks live in ui/loadoutSync.js (localStorage + room.diy);
 // the model is ui/diyModel.js. Styles: css/screens/loadout.css (diy-*).
 
-import { useEffect, useState } from '../../vendor/hooks.module.js';
+import { useLayoutEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, TierChip } from '../ui/components.js';
 import { Img, RichText, BondGlyph } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, profIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
@@ -143,8 +143,10 @@ export function DiyPicker(props) {
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState(cur ? { ...cur } : null);
   // Esc cancels only the picker, like its 取消 (GitHub #284, idea from PR #286); the 干员调配 overlay's own Esc skips
-  // while a picker is open, and a dialog over the picker (导入) still takes Esc first
-  useEffect(() => {
+  // while a picker is open, and a dialog over the picker (导入) still takes Esc first. A layout effect: the listener is
+  // attached in the same commit as the picker (a plain effect waits for the next frame, and an Esc pressed in between
+  // was swallowed — the overlay skipped it, the picker did not hear it yet; the 0.2.2 full browser pass)
+  useLayoutEffect(() => {
     const onKey = (e) => {
       if (e.key !== 'Escape' || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.modal')) return;
       e.preventDefault();
@@ -169,7 +171,10 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
   const list = options.filter((o) => (filter === 'all' || (filter === 'proto') === o.proto)
     && (!q || [o.unit?.name, o.unit?.appellation, o.unit?.subProfessionName, t(PROF_NAME[o.unit?.profession] || ''), ...o.bonds.map(bondName)].some((x) => typeof x === 'string' && x.toLowerCase().includes(q))));
   const ch = draft ? pickChoices(draft.charId, slot.slotId, D) : null;
-  const sel = (charId) => setDraft(cur && cur.charId === charId ? { ...cur } : defaultPick(charId, slot.slotId, D));
+  const sel = (charId) => {
+    if (draft?.charId === charId) return;
+    setDraft(cur && cur.charId === charId ? { ...cur } : defaultPick(charId, slot.slotId, D));
+  };
   const lk = ch?.locked || null;
   const skillOn = ch ? (ch.proto ? lk?.skillIndex : draft.skillIndex) : null;
   const modOn = ch ? (ch.proto ? lk?.uniEquipId ?? null : draft.uniEquipId ?? null) : null;

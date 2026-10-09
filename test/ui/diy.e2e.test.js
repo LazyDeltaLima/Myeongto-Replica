@@ -22,8 +22,91 @@ const UI_ENABLED = process.env.SP_E2E === '1' && hasChrome();
 const ENABLED = UI_ENABLED && existsSync(path.join(ROOT, 'public/assets'));
 const SLOT = 'chess_char_5_diy1_a';
 const CHEN3 = 'char_1050_chen3';
+const ASCLN = 'char_4132_ascln'; // 阿斯卡纶: two advanced modules, legal in the 5阶 and 6阶 slots
 const PICK = { charId: CHEN3, skillIndex: 2, uniEquipId: 'uniequip_002_chen3' };
 const LOCAL_FIVE = ['char_2027_wang', 'char_1050_chen3', 'char_1035_wisdel', 'char_4182_oblvns', 'char_4132_ascln'];
+
+describe('自选编队 picker: reselecting retains the draft (real server, no art needed)', { skip: !UI_ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
+  for (const slot of [SLOT, 'chess_char_6_diy1_a']) {
+    test(`${slot}: same operator retains skill/module edits; cancel, confirm and reload keep their semantics`, { timeout: 90000 }, async () => {
+      const srv = await startRealServer();
+      const P = (await import('puppeteer-core')).default;
+      const c = new Client(P, srv.base, 'diy-reselect', { prefix: `diy-reselect-${slot}`, w: 1280, h: 720 });
+      const picker = '[data-testid="diy-picker"]';
+      const operator = `${picker} .diy-opt[data-char="${ASCLN}"]`;
+      const saved = () => c.page.evaluate((id) => JSON.parse(localStorage.getItem('sp.pref.diy') || 'null')?.picks?.[id] ?? null, slot);
+      const choices = () => c.page.evaluate((selector) => {
+        const el = document.querySelector(selector);
+        return { skill: el?.querySelector('[data-skill][aria-checked="true"]')?.dataset.skill,
+          module: el?.querySelector('[data-module][aria-checked="true"]')?.dataset.module };
+      }, picker);
+      const edited = { charId: ASCLN, skillIndex: 0, uniEquipId: null };
+      const changed = { charId: ASCLN, skillIndex: 1, uniEquipId: 'uniequip_003_ascln' };
+      const open = async () => {
+        await c.click(`.diy-slot[data-slot="${slot}"] :is(.diy-slot__fill, [data-testid="diy-change"])`);
+        await c.page.waitForSelector(picker, { visible: true, timeout: 8000 });
+      };
+      const confirm = async (expected) => {
+        await c.click('[data-testid="diy-confirm"]');
+        await c.page.waitForSelector(picker, { hidden: true, timeout: 3000 });
+        assert.deepEqual(await saved(), expected);
+      };
+      try {
+        await c.open();
+        await c.enter('自选配置回归');
+        await c.click('.lobby-screen [data-testid="loadout-open"]');
+        await c.click('.lo .lo-tab[data-tab="diy"]');
+        await open();
+        await c.click(operator);
+        await c.click(`${picker} [data-skill="0"]`);
+        await c.click(`${picker} [data-module="none"]`);
+        await c.shot('empty-edited');
+        await c.click(operator);
+        await c.shot('empty-reselected');
+        assert.deepEqual(await choices(), { skill: '0', module: 'none' }, 'an empty slot retains its edited draft');
+        // Search the current operator out, then back in and reselect it (no 原型 / 已持有 filter since 2026-10-07)
+        await c.click(`${picker} input[type="search"]`);
+        await c.page.keyboard.type('no matching operator');
+        assert.equal(await c.page.$(operator), null);
+        await c.page.evaluate((sel) => { const el = document.querySelector(sel); el.select(); }, `${picker} input[type="search"]`);
+        await c.page.keyboard.type('阿斯卡纶');
+        await c.click(operator);
+        assert.deepEqual(await choices(), { skill: '0', module: 'none' });
+        await confirm(edited);
+        await c.shot('empty-saved');
+        // A saved non-default pick must not overwrite new edits on a repeated operator click.
+        await open();
+        await c.click(`${picker} [data-skill="1"]`);
+        await c.click(`${picker} [data-module="uniequip_003_ascln"]`);
+        await c.click(operator);
+        assert.deepEqual(await choices(), { skill: '1', module: 'uniequip_003_ascln' });
+        await c.shot('saved-reselected');
+        await c.click(`${picker} .diy-pick__foot button`, '取消');
+        await c.page.waitForSelector(picker, { hidden: true, timeout: 3000 });
+        assert.deepEqual(await saved(), edited, 'cancel leaves the saved pick unchanged');
+        await open();
+        assert.deepEqual(await choices(), { skill: '0', module: 'none' });
+        await c.click(`${picker} [data-skill="1"]`);
+        await c.click(`${picker} [data-module="uniequip_003_ascln"]`);
+        await c.click(operator);
+        await confirm(changed);
+        await c.page.reload({ waitUntil: 'domcontentloaded' });
+        await c.page.waitForSelector('.lobby-screen', { timeout: 20000 });
+        await c.click('.lobby-screen [data-testid="loadout-open"]');
+        await c.click('.lo .lo-tab[data-tab="diy"]');
+        await open();
+        assert.deepEqual(await choices(), { skill: '1', module: 'uniequip_003_ascln' });
+        assert.deepEqual(await saved(), changed, 'confirm persists the current draft across reload');
+        await c.shot('reload');
+        assert.deepEqual(c.problems.filter((p) => p.startsWith('pageerror:')), []);
+      } finally {
+        console.log(JSON.stringify({ slot, problems: problemsOf([c]) }));
+        await c.close();
+        await srv.stop();
+      }
+    });
+  }
+});
 
 // GitHub #284 (idea from PR #286): Esc in the picker cancels only the picker, like its 取消, also from its search
 // field — the 干员调配 overlay and its four slots stay, and the saved picks do not change; the next Esc closes the overlay
@@ -54,6 +137,19 @@ describe('自选编队 picker: Esc closes only the picker (real server, no art n
         assert.ok(await c.page.$('.lo'), `${slot}: Esc keeps the 干员调配 overlay${search ? ' (from the search field)' : ''}`);
         assert.equal((await c.page.$$('.diy-slot')).length, 4, `${slot}: the four slots stay`);
       }
+      // an Esc pressed the moment the picker appears — before the next animation frame — closes it too: its listener comes
+      // with the picker's own commit (a plain effect attached it a frame later and the overlay skipped the key: the
+      // picker stayed open — the 0.2.2 full browser pass)
+      const opened = await c.page.evaluate(async (slot, sel) => {
+        document.querySelector(`.diy-slot[data-slot="${slot}"] .diy-slot__fill`).click();
+        for (let k = 0; k < 50 && !document.querySelector(sel); k++) await Promise.resolve();
+        const open = !!document.querySelector(sel);
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        return open;
+      }, SLOT, picker);
+      assert.ok(opened, 'the picker opened');
+      await c.page.waitForSelector(picker, { hidden: true, timeout: 3000 });
+      assert.ok(await c.page.$('.lo'), 'an immediate Esc keeps the 干员调配 overlay');
       assert.equal(await saved(), before, 'cancelling a picker does not change the saved picks');
       await c.page.keyboard.press('Escape');
       await c.page.waitForFunction(() => !document.querySelector('.lo'), { timeout: 3000 });

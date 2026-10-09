@@ -201,6 +201,48 @@ test('diy sync: welcome brings the kit list and sends room.diy; edits are deboun
 // ---- the tab --------------------------------------------------------------------------------------------------------------
 
 describe('自选编队 tab (screens/diy.js)', () => {
+  for (const slotId of [T5A, T6A]) {
+    for (const saved of [null, MAIN_PICK]) {
+      test(`the picker: ${slotId}, ${saved ? 'saved' : 'empty'} slot retains edits when reselecting its operator`, () => {
+        const picks = saved ? { [slotId]: saved } : {};
+        const done = [];
+        let draft = saved ? { ...saved } : null;
+        let filter = 'all';
+        let query = '';
+        const view = () => expand(DiyPickerView({ m: null, slot: { slotId }, picks, kitted: KIT,
+          onDone: (p) => done.push(p), onClose() {}, filter, query, draft,
+          onFilter: (f) => { filter = f; }, onQuery: (q) => { query = q; }, onDraft: (d) => { draft = d; } }));
+        const click = (key, value) => {
+          const node = [...walk(view())].find((v) => v.props?.[key] === value && typeof v.props.onClick === 'function');
+          assert.ok(node, `${key}=${value} is clickable`);
+          node.props.onClick();
+        };
+        click('data-char', ASCLN);
+        click('data-skill', 0);
+        click('data-module', 'none');
+        const edited = { charId: ASCLN, skillIndex: 0, uniEquipId: null };
+        assert.deepEqual(draft, edited);
+        click('data-char', ASCLN);
+        assert.deepEqual(draft, edited, 'reselecting keeps both the skill and explicit no-module choice');
+        // Searching the operator out and back in must not change the draft either (no 原型 / 已持有 filter here since 2026-10-07).
+        query = 'no matching operator';
+        assert.ok(![...walk(view())].some((v) => hasClass(v, 'diy-opt')));
+        query = '阿斯卡纶';
+        click('data-char', ASCLN);
+        assert.deepEqual(draft, edited);
+        click('data-testid', 'diy-confirm');
+        assert.deepEqual(done, [edited]);
+        assert.deepEqual(picks, saved ? { [slotId]: saved } : {}, 'the saved picks stay unchanged until the parent saves');
+        // Switching operators still initializes the new pick, and returning restores the saved/default pick.
+        query = '';
+        click('data-char', WANG);
+        assert.deepEqual(draft, M.defaultPick(WANG, slotId, D));
+        click('data-char', ASCLN);
+        assert.deepEqual(draft, saved || M.defaultPick(ASCLN, slotId, D));
+      });
+    }
+  }
+
   test('four slots by tier: an empty slot to fill, a filled one shows the operator, its skill and module — no 原型 / 已持有 tag', () => {
     const tree = expand(DiyPanelView({ m: data.get('assets'), picks: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, legal: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, kitted: KIT, onSet() {}, picking: null, onPicking() {} }));
     const slots = [...walk(tree)].filter((v) => hasClass(v, 'diy-slot'));
