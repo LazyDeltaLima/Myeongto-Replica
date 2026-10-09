@@ -4,7 +4,7 @@
 //   * a URL longer than 4096 characters → 414; one that does not parse → 400;
 //   * any method but GET / HEAD → 405 with `Allow: GET, HEAD`;
 //   * GET /healthz → JSON status (protocol `version`, release `app`, uptime, the served `build`, sockets, sessions,
-//     rooms, matches), never cached;
+//     rooms, matches), never cached; GET /healthz/rooms → the per-room status list (server/local-rooms.js), inside only;
 //   * everything else → the static files (static.js).
 // A route that throws is logged and answers 500.
 
@@ -13,6 +13,7 @@ import { buildTag } from './buildTag.js';
 import { setSecurityHeaders, sendError, sendJson, splitUrl } from './common.js';
 import { localVersion } from '../../shared/local.js'; // local patch: version label
 import { proxiedRequest } from '../local-patch.js'; // local patch: /healthz through the proxy
+import { roomList } from '../local-rooms.js';
 
 const MAX_URL_LENGTH = 4096;
 
@@ -53,6 +54,11 @@ export function createRequestHandler({ serveStatic, health, log }) {
     if (parts.rawPath === '/healthz' && proxiedRequest(req)) { sendJson(req, res, 200, { ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion(), build: buildTag() }); return; } // local patch: no counters through the proxy; `local` = shared/local.js localVersion
     if (parts.rawPath === '/healthz') {
       sendJson(req, res, 200, healthReport(health));
+      return;
+    }
+    if (parts.rawPath === '/healthz/rooms') { // per-room status (local-rooms.js), 404 through the proxy
+      if (proxiedRequest(req)) sendError(req, res, 404, '页面不存在 · Not found');
+      else sendJson(req, res, 200, { rooms: roomList(health.lobby) });
       return;
     }
     await serveStatic(req, res, parts.rawPath, parts.query);
