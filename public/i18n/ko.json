@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 909 of 1123 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 918 of 1132 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1060,6 +1060,15 @@
   "生命值减少 −{n}": "HP 감소 −{n}",
   "当前语言的界面文字为机器翻译，可能不够准确，欢迎在 GitHub 上指正。": "현재 언어의 화면 텍스트는 기계 번역이므로 정확하지 않을 수 있습니다. GitHub에서 수정 제안을 환영합니다.",
   "空": "비어있음",
+  "问题反馈": "문제 제보",
+  "复制诊断信息": "진단 정보 복사",
+  "遇到问题时，复制诊断信息并粘贴到 GitHub issue 中，开发者就能看到出错时的情况。诊断信息只在本机生成，不会自动上传；玩家名和房间号会被替换。": "문제가 생기면 진단 정보를 복사해 GitHub issue에 붙여 넣어 주세요. 오류가 났을 때의 상황을 개발자가 볼 수 있습니다. 진단 정보는 이 기기에서만 만들어지고 자동으로 올라가지 않으며, 플레이어 이름과 동맹 코드는 다른 값으로 바뀝니다.",
+  "已记录的错误": "기록된 오류",
+  "附上本场战斗": "이 전투 첨부",
+  "开发者可以用附上的战斗数据重现这场战斗。": "첨부한 전투 데이터로 개발자가 이 전투를 다시 재생할 수 있습니다.",
+  "已复制诊断信息，可以粘贴到 GitHub issue 中": "진단 정보를 복사했습니다. GitHub issue에 붙여 넣어 주세요",
+  "无法写入剪贴板，请手动复制下面的内容": "클립보드에 쓸 수 없습니다. 아래 내용을 직접 복사해 주세요",
+  "诊断信息": "진단 정보",
   "预先下载游戏资源": "게임 리소스 미리 받기",
   "下载后图片会立即显示，不会延迟出现。建议使用 Wi-Fi。": "받아 두면 이미지가 늦게 뜨지 않고 바로 표시됩니다. 게임을 하는 동안 백그라운드에서 받으며, Wi-Fi 사용을 권장합니다.",
   "下载": "받기",
