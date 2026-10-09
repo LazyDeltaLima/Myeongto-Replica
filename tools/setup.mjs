@@ -204,7 +204,7 @@ export function checkAssets() {
 export const LOCAL_ART_FALLBACK = '3D 棋盘改用 2D，部分官方界面图标、灼热/炽焰源石虫模型和多数自选召唤物模型用替代样式';
 /** Where a machine without the client gets the local art (docs/DEPLOY.md §6「本地客户端素材」); shown by doctor (setup's row,
  * printed on every start by scripts/launch.mjs, only points to that section). */
-export const LOCAL_ART_COPY_HINT = '没有客户端的服务器可以从同一版本的整合包（完整包）复制 public/assets/local 和 data/local-assets.json';
+export const LOCAL_ART_COPY_HINT = '没有客户端的服务器可以从同一版本代码、已经提取过的电脑复制 public/assets/local 和 data/local-assets.json（本仓库不发布整合包）';
 
 /**
  * Local-client art (optional): manifest entry count, whether the 3D board atlas is on disk and whether the extraction
