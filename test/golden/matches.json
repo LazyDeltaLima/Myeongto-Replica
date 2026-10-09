@@ -1292,7 +1292,7 @@
           "title": {"id":"comment_4","name":"精英云集","picId":"comment_icon_4","text":"晋升精锐次数最多"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":262,"bossDamage":446258,"dmgDealt":3887538,"gold":137,"itemsEquipped":14,"kills":281,"leaks":11,"lpLost":1,"merges":3,"perfectRounds":9,"refreshes":25},
+          "stats": {"activatedLayers":262,"bossDamage":439246,"dmgDealt":3888402,"gold":137,"itemsEquipped":14,"kills":282,"leaks":11,"lpLost":1,"merges":3,"perfectRounds":9,"refreshes":25},
           "lineup": ["5_10_a@12,3[1_01_e_a+3_08_e_a]","1_17_a@11,3[1_02_e_a]","1_06_b@11,6","6_05_a@11,7[3_04_e_a]","4_14_a@10,3[1_05_e_b]","4_10_a@10,7[3_11_e_a+4_03_e_a]","1_08_b@10,8[5_02_e_a+4_10_e_a]","6_07_a@9,9"],
           "bonds": ["arcaneShip 1/51","deputShip 0/16","emptyShip 0/10","indomShip 0/8","kjeragShip 0/2","preciShip 2/53","siracusaShip 1/89","soloShip 1/27","steadShip 0/2","suntShip 1/10","swiftShip 1/32","victoriaShip 0/8","visiShip 0/8"]
         },
@@ -1306,7 +1306,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":289,"bossDamage":903742,"dmgDealt":4435665,"gold":136,"itemsEquipped":18,"kills":279,"leaks":0,"lpLost":0,"merges":3,"perfectRounds":13,"refreshes":22},
+          "stats": {"activatedLayers":289,"bossDamage":910754,"dmgDealt":4443964,"gold":136,"itemsEquipped":18,"kills":279,"leaks":0,"lpLost":0,"merges":3,"perfectRounds":13,"refreshes":22},
           "lineup": ["6_18_a@12,3[3_11_e_a+5_01_e_a]","5_10_a@11,3[1_05_e_a+3_04_e_a]","1_17_a@11,6[5_07_e_a+1_02_e_b]","6_12_a@11,7","5_20_a@10,3[3_05_e_a+2_01_e_a]","4_10_a@10,7[2_01_e_b+1_01_e_a]","3_18_a@10,8[4_06_e_a+4_10_e_a]","1_08_a@9,9[4_11_e_a]"],
           "bonds": ["arcaneShip 1/40","emptyShip 1/6","indomShip 0/8","kjeragShip 0/13","miraShip 0/9","preciShip 1/9","siracusaShip 2/234","soloShip 1/0","steadShip 0/8","swiftShip 0/6","victoriaShip 0/8","visiShip 0/8"]
         }
@@ -1390,7 +1390,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 0,
           "reward": 425,
-          "stats": {"activatedLayers":2283,"bossDamage":1145000,"dmgDealt":3099027,"gold":175,"itemsEquipped":26,"kills":367,"leaks":1,"lpLost":1,"merges":6,"perfectRounds":12,"refreshes":35},
+          "stats": {"activatedLayers":2283,"bossDamage":1145000,"dmgDealt":3099028,"gold":175,"itemsEquipped":26,"kills":367,"leaks":1,"lpLost":1,"merges":6,"perfectRounds":12,"refreshes":35},
           "lineup": ["4_02_b@12,7[3_08_e_a+3_03_e_b]","6_01_a@12,8[3_02_e_a]","6_16_a@11,5[1_05_e_b+3_03_e_a]","3_18_a@11,8[4_11_e_a+4_05_e_b]","4_10_b@10,4[4_07_e_a+1_02_e_b]","6_05_a@10,5","4_01_b@10,6[6_03_e_a+4_06_e_a]","1_08_b@9,9"],
           "bonds": ["arcaneShip 2/395","deputShip 0/300","egirShip 0/300","emptyShip 0/300","indomShip 0/308","investShip 0/300","kazimierzShip 0/308","kjeragShip 0/300","lateranoShip 1/310","maniShip 0/300","miraShip 0/300","preciShip 1/302","raidShip 0/300","sargonShip 0/300","siracusaShip 1/353","skillfulShip 0/343","soloShip 1/307","steadShip 0/300","suntShip 1/300","swiftShip 1/316","victoriaShip 0/300","visiShip 0/300","yanShip 0/300"]
         }
@@ -1690,17 +1690,17 @@
         },
         {
           "round": 11,
-          "h_0": [1,27,12,0,0,6,8,"c50c2aa7",291,"indomShip 1/16, preciShip 2/59, sargonShip 1/147, soloShip 1/0, steadShip 2/46, swiftShip 1/23, yanShip 0/18",19,19,0,95],
+          "h_0": [1,27,12,0,0,6,8,"c50c2aa7",289,"indomShip 1/16, preciShip 2/58, sargonShip 1/146, soloShip 1/0, steadShip 2/46, swiftShip 1/23, yanShip 0/18",19,19,0,95],
           "ai_0": [1,28,12,0,0,5,8,"de69a1da",48,"miraShip 0/7, raidShip 1/0, sargonShip 0/4, siracusaShip 1/16, soloShip 1/0, steadShip 1/12, suntShip 2/0, yanShip 1/20",19,19,0,104]
         },
         {
           "round": 12,
-          "h_0": [1,27,12,0,0,6,8,"c5dffde7",382,"indomShip 1/20, miraShip 1/0, preciShip 2/87, sargonShip 1/188, soloShip 1/0, steadShip 2/55, swiftShip 1/28, visiShip 1/4, yanShip 0/18",33,33,0,107],
+          "h_0": [1,27,12,0,0,6,8,"c5dffde7",374,"indomShip 1/18, miraShip 1/0, preciShip 2/85, sargonShip 1/186, soloShip 1/0, steadShip 2/55, swiftShip 1/28, visiShip 1/2, yanShip 0/18",33,33,0,107],
           "ai_0": [1,28,12,0,0,6,8,"4c2c3364",50,"miraShip 0/7, sargonShip 0/4, siracusaShip 1/26, skillfulShip 1/0, soloShip 1/0, steadShip 0/12, suntShip 2/0, yanShip 1/24",15,33,18,118]
         },
         {
           "round": 13,
-          "h_0": [1,27,12,0,0,6,8,"e317f10a",457,"indomShip 1/20, preciShip 2/114, sargonShip 1/218, steadShip 1/64, suntShip 1/0, swiftShip 1/41, visiShip 0/4, yanShip 0/18",50,50,0,122],
+          "h_0": [1,27,12,0,0,6,8,"e317f10a",443,"indomShip 1/18, preciShip 2/108, sargonShip 1/212, steadShip 1/64, suntShip 1/0, swiftShip 1/41, visiShip 0/2, yanShip 0/18",50,50,0,122],
           "ai_0": [1,28,12,0,2,6,8,"275a316e",68,"miraShip 0/7, raidShip 1/0, sargonShip 0/4, siracusaShip 1/36, skillfulShip 1/0, soloShip 1/0, steadShip 0/12, suntShip 2/0, yanShip 1/32",25,50,25,131]
         }
       ],
@@ -1715,9 +1715,9 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":479,"bossDamage":971514,"dmgDealt":5250402,"gold":134,"itemsEquipped":22,"kills":352,"leaks":1,"lpLost":0,"merges":2,"perfectRounds":12,"refreshes":22},
+          "stats": {"activatedLayers":465,"bossDamage":966407,"dmgDealt":5244989,"gold":134,"itemsEquipped":22,"kills":352,"leaks":1,"lpLost":0,"merges":2,"perfectRounds":12,"refreshes":22},
           "lineup": ["5_02_a@11,7[4_03_e_a+1_05_e_a]","6_05_a@11,8[2_01_e_a+5_02_e_b]","4_14_a@10,4[6_01_e_a]","5_15_b@10,6[1_01_e_a+2_04_e_a]","3_16_a@9,4","2_08_a@9,5[4_04_e_a+4_11_e_a]","6_06_a@9,8[4_02_e_a+3_04_e_a]","4_23_b@9,9[4_10_e_a+4_06_e_b]"],
-          "bonds": ["indomShip 1/20","preciShip 2/119","sargonShip 1/218","steadShip 1/68","suntShip 1/0","swiftShip 1/54","visiShip 0/4","yanShip 0/18"]
+          "bonds": ["indomShip 1/18","preciShip 2/113","sargonShip 1/212","steadShip 1/68","suntShip 1/0","swiftShip 1/54","visiShip 0/2","yanShip 0/18"]
         },
         "ai_0": {
           "alive": true,
@@ -1729,7 +1729,7 @@
           "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":78,"bossDamage":603486,"dmgDealt":3068862,"gold":144,"itemsEquipped":23,"kills":246,"leaks":44,"lpLost":0,"merges":6,"perfectRounds":10,"refreshes":29},
+          "stats": {"activatedLayers":78,"bossDamage":608593,"dmgDealt":3074276,"gold":144,"itemsEquipped":23,"kills":246,"leaks":44,"lpLost":0,"merges":6,"perfectRounds":10,"refreshes":29},
           "lineup": ["5_10_a@12,8","6_18_a@11,7","2_04_b@11,8[1_02_e_b+3_05_e_a]","3_13_b@10,6","6_15_a@10,7[4_06_e_b+4_02_e_a]","3_03_b@10,8[6_09_e_a]","1_08_b@9,8[4_04_e_a]","4_16_b@9,9[3_08_e_a]"],
           "bonds": ["miraShip 0/7","raidShip 1/0","sargonShip 0/4","siracusaShip 1/36","skillfulShip 1/0","soloShip 1/0","steadShip 0/12","suntShip 2/0","yanShip 1/42"]
         }
