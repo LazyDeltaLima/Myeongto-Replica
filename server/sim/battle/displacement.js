@@ -166,6 +166,7 @@ export class BattleDisplacement {
     if (!(dur > 0) || !e || !e.alive) return;
     const until = this.time + dur;
     if (!(e.unbalanceUntil >= until)) e.unbalanceUntil = until;
+    this._cutAttackStand(e);
     e.atkStandUntil = -Infinity;
   }
 
@@ -197,6 +198,7 @@ export class BattleDisplacement {
     if (moved > 0) {
       this._unblock(e);
       // 失衡 ends the attack clip it stood for (PRTS 状态机: the states are exclusive — UNBALANCE, then DEFAULT → MOVE)
+      this._cutAttackStand(e);
       e.atkStandUntil = -Infinity;
       if (e.route) e.route.pts = null;
       // `dur` (game s): the 失衡 the push / pull gives — the client's slide takes that long (render/units.js slideTo)

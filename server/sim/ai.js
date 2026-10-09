@@ -547,6 +547,7 @@ export function updateEnemy(b, e, dt) {
   if (!e.alive) return;
   // hidden (teleporting) enemies only advance wait legs
   const stunned = e.s.flags.stun;
+  if (stunned || e.hidden || e.s.flags.fear) b._cutAttackStand(e);
   // 失衡 (UNBALANCE, battle/displacement.js _unbalance): a state machine, not a status — 浮空 ends it (PRTS 术语释义 浮空
   // 「触发浮空时清除受到的推/拉力…无法陷入失衡」); while it lasts the enemy neither walks nor starts a normal attack
   if (e.s.flags.levitate && e.unbalanceUntil > b.time) e.unbalanceUntil = -Infinity;
@@ -664,6 +665,7 @@ function advanceRoute(b, e, dt, R, standing = false) {
       continue;
     }
     if (leg.t === 'disappear') {
+      b._cutAttackStand(e);
       b._setHidden(e, true);
       e.atkStandUntil = -Infinity; standing = false;   // off the field: its attack clip is over
       R.legIdx++; R.pts = null;
