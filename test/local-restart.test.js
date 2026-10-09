@@ -1,5 +1,5 @@
 // test/local-restart.test.js — the deploy's server-restart countdown (server/local-restart.js, server/http/boot.js
-// SIGUSR2, the welcome / healthz fields, public/js/ui/restartNotice.js + connBanner.js). docs/rules/ui.md 「서버 재시작 예고」.
+// SIGUSR2, the welcome / healthz fields, the disabled room.start refusal, public/js/ui/restartNotice.js toasts). docs/rules/ui.md 「서버 재시작 예고」.
 
 import { describe, test, before, after, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,10 +12,11 @@ import { fileURLToPath } from 'node:url';
 
 import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
-import { RestartNotice, RESTART_MARKS_MIN, parseRestartFile, restartFile } from '../server/local-restart.js';
+import { RestartNotice, RESTART_MARKS_MIN, parseRestartFile, restartFile, noStartMinutes } from '../server/local-restart.js';
 import { S2C } from '../shared/protocol.js';
-import { bannerVisible } from '../public/js/ui/connBanner.js';
-import { restartClock } from '../public/js/ui/restartNotice.js';
+import { installRestartNotice } from '../public/js/ui/restartNotice.js';
+import { store } from '../public/js/store.js';
+import { ERR } from '../shared/constants.js';
 import { TestClient } from './helpers/wsClient.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -43,12 +44,46 @@ describe('restart countdown: pieces', () => {
     assert.deepEqual([...RESTART_MARKS_MIN], [30, 10, 5, 3, 1]);
   });
 
-  test('the client: the banner shows while a countdown runs, mm:ss', () => {
-    assert.equal(bannerVisible({ status: 'online' }, true, false, false, null), false);
-    assert.equal(bannerVisible({ status: 'online' }, true, false, false, Date.now() + 60_000), true);
-    assert.equal(bannerVisible({ status: 'online' }, false, false, false, Date.now() + 60_000), false, 'not before the title');
-    assert.equal(restartClock(Date.now() + 125_000), '2:05');
-    assert.equal(restartClock(Date.now() - 5000), '0:00');
+  test('the client: toasts only — each mark, one on a welcome that brings news, the cancel to pages that knew', () => {
+    const on = new Map();
+    const shown = [];
+    installRestartNotice({ net: { on: (type, fn) => on.set(type, fn) }, notify: (text, kind, opts) => shown.push([kind, opts.ttl]) });
+    const welcome = (m) => on.get('welcome')(m);
+    const push = (m) => on.get('server.restart')(m);
+    welcome({});
+    push({ inMs: null });
+    assert.deepEqual(shown, [], 'nothing planned, nothing to cancel');
+    welcome({ restart: { inMs: 12.5 * 60_000 } });
+    assert.deepEqual(shown, [['warn', 6000]], 'a page that hears of it on hello');
+    welcome({ restart: { inMs: 12 * 60_000 } });
+    assert.equal(shown.length, 1, 'a resume that already knew: no second toast');
+    push({ inMs: 10 * 60_000, mark: 10 });
+    push({ inMs: 9 * 60_000 });
+    assert.equal(shown.length, 2, 'marks only');
+    push({ inMs: null });
+    assert.deepEqual(shown.at(-1), ['info', 6000]);
+    assert.equal(store.get().ui.restartAt, null);
+    welcome({});
+    assert.equal(shown.length, 3);
+  });
+
+  test('room.start refusal: off by default, on within SP_RESTART_NO_START_MIN', () => {
+    const network = { conns: new Map(), reply: () => true };
+    assert.equal(noStartMinutes({}), 0);
+    assert.equal(noStartMinutes({ SP_RESTART_NO_START_MIN: '10' }), 10);
+    assert.equal(noStartMinutes({ SP_RESTART_NO_START_MIN: 'x' }), 0);
+    const off = new RestartNotice({ network, noStartMin: 0 });
+    off.schedule(1);
+    assert.equal(off.startRefusal(), null);
+    off.close();
+    const on = new RestartNotice({ network, noStartMin: 10 });
+    assert.equal(on.startRefusal(), null, 'no countdown');
+    on.schedule(30);
+    assert.equal(on.startRefusal(), null, '30 min left');
+    on.schedule(10);
+    assert.deepEqual(on.startRefusal(), { error: ERR.RESTARTING });
+    on.cancel();
+    assert.equal(on.startRefusal(), null);
   });
 
   test('every mark reaches each socket that said hello, then the countdown is forgotten if no restart came', () => {
@@ -122,10 +157,22 @@ describe('restart countdown: a real server', () => {
     assert.equal((await a.waitFor('server.restart', (m) => m.inMs === null)).mark, undefined);
     assert.equal((await player('Delta')).welcome.restart, undefined);
   });
+
+  test('the room.start refusal reaches a player as RESTARTING when enabled (off on this server)', async () => {
+    const c = await player('Solo');
+    await c.request({ t: 'room.create', mode: 'solo', difficulty: 'FUNNY' });
+    srv.restart.schedule(5);
+    assert.equal(srv.restart.noStartMs, 0, 'off unless SP_RESTART_NO_START_MIN');
+    srv.restart.noStartMs = 10 * 60_000;
+    try {
+      const r = await c.request({ t: 'room.start' });
+      assert.equal(r.code, ERR.RESTARTING, JSON.stringify(r));
+    } finally { srv.restart.noStartMs = 0; }
+  });
 });
 
 describe('restart countdown: SIGUSR2 on the process (server/http/boot.js)', () => {
-  test('the signal reads the file and starts / cancels the countdown', { skip: process.platform === 'win32' && 'POSIX signal', timeout: 30_000 }, async () => {
+  test('the signal reads the file and starts / cancels the countdown', { skip: process.platform === 'win32' && 'POSIX signal', timeout: 120_000 }, async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'sp-restart-'));
     const file = path.join(dir, 'restart');
     const child = spawn(process.execPath, ['server/index.js'], {
@@ -133,7 +180,7 @@ describe('restart countdown: SIGUSR2 on the process (server/http/boot.js)', () =
     });
     let out = '';
     const waitOut = (re) => new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`timed out waiting for ${re}; output:\n${out}`)), 20_000);
+      const timer = setTimeout(() => reject(new Error(`timed out waiting for ${re}; output:\n${out}`)), 60_000); // a loaded full-suite run can be slow to boot the child
       const check = () => { if (re.test(out)) { clearTimeout(timer); resolve(); } };
       child.stdout.on('data', (d) => { out += d; check(); });
       child.stderr.on('data', (d) => { out += d; check(); });

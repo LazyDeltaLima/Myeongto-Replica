@@ -1,33 +1,34 @@
-// The deploy's server-restart countdown (server/local-restart.js). server.restart { inMs, mark? } and the
-// welcome's `restart: { inMs }` set ui.restartAt (this page's clock); the connection banner (ui/connBanner.js) counts it
-// down, and each `mark` (30 / 10 / 5 / 3 / 1 minutes before) also comes as a toast. inMs null = called off.
+// The deploy's server-restart countdown (server/local-restart.js), as toasts only: each server.restart `mark` (30 / 10 /
+// 5 / 3 / 1 minutes before) shows 「N分钟后重启」 for a few seconds, and a page that says hello during a countdown (welcome
+// `restart: { inMs }`: a new player, a reload) gets one such toast with the minutes left. ui.restartAt (this page's clock)
+// only remembers that a countdown runs — a resumed page that already knew it gets no second toast — and lets a
+// cancellation ({ inMs: null }) say so to the pages that had heard of it.
 
 import { store } from '../store.js';
 import { toast } from './toasts.js';
 import { t } from '../../../shared/i18n.js';
 
+const TOAST_MS = 6000;
 const restartAtOf = (inMs) => (Number.isFinite(inMs) && inMs >= 0 ? Date.now() + inMs : null);
 
-/** mm:ss until the restart (0:00 once due). @param {number} restartAt */
-export function restartClock(restartAt) {
-  const secs = Math.max(0, Math.ceil((restartAt - Date.now()) / 1000));
-  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-}
-
-/** @param {{ net: { on: Function } }} deps */
-export function installRestartNotice({ net }) {
-  // a welcome without `restart` (a fresh server after the restart, or none planned) clears the banner
-  net.on('welcome', (msg) => store.patch('ui', { restartAt: restartAtOf(msg?.restart?.inMs) }));
+/** @param {{ net: { on: Function }, notify?: typeof toast }} deps notify: the toast (tests pass their own) */
+export function installRestartNotice({ net, notify = toast }) {
+  const warn = (minutes) => notify(t('服务器将在 {minutes} 分钟后重启，进行中的对局将会结束', { minutes }), 'warn', { ttl: TOAST_MS });
+  net.on('welcome', (msg) => {
+    const restartAt = restartAtOf(msg?.restart?.inMs);
+    const had = store.get().ui.restartAt != null;
+    store.patch('ui', { restartAt });
+    // a welcome without `restart` (none planned, or the new server after the restart) just forgets it
+    if (restartAt != null && !had && msg.restart.inMs >= 60_000) warn(Math.ceil(msg.restart.inMs / 60_000));
+  });
   net.on('server.restart', (msg) => {
     const restartAt = restartAtOf(msg.inMs);
     const had = store.get().ui.restartAt != null;
     store.patch('ui', { restartAt });
     if (restartAt == null) {
-      if (had) toast(t('服务器重启已取消'), 'info');
+      if (had) notify(t('服务器重启已取消'), 'info', { ttl: TOAST_MS });
       return;
     }
-    if (Number.isInteger(msg.mark) && msg.mark > 0) {
-      toast(t('服务器将在 {minutes} 分钟后重启，进行中的对局将会结束', { minutes: msg.mark }), 'warn', { ttl: 10_000 });
-    }
+    if (Number.isInteger(msg.mark) && msg.mark > 0) warn(msg.mark);
   });
 }

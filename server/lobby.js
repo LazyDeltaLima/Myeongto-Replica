@@ -579,6 +579,8 @@ export class Lobby {
       this.limitWarn(`match limit (${this.opts.maxMatchesPerAddr}) reached for ${session.addr}`);
       return fail(ERR.RATE, 'too many running matches from your network');
     }
+    const late = this.restartNotice?.startRefusal(); // the deploy countdown (local-restart.js; off unless SP_RESTART_NO_START_MIN)
+    if (late) return late;
     return this.startMatch(room, key);
   }
 
