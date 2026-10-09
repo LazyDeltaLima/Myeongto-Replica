@@ -101,7 +101,7 @@
     공식 믹서 게인(`officialGain`), `ui/standin-ui` 모델 서명 뒤 소환물 칩, `docs-paths`(옛 설계 문서 15.1절 인용을 문장으로).
   - EN 클라이언트에 없는 것 허용: `ui/emotes`·`ui/localArt`(愚人节 이모티콘 테마 — fooldoctor 등 — `emoticon_foolsday_*` 번들이 EN에 없음: 추출 안 된
     테마는 건너뜀), `ui/moduleIcons`(INC-Y 아이콘이 EN `ui_equip_type_hub_h2_0.ab`·`ui_equip_type_direction_hub_h2_0.ab`에 없고 `inc-x`만 있음 →
-    글자 타일), `render/board3d-extract` 立绘(`chararts`는 WebP만 — `render.md` 「立绘 추출」). fooldoctor·INC-Y는 CN 클라이언트가 있어야 뽑을 수 있다.
+    글자 타일), `render/board3d-extract` 立绘(`chararts`는 WebP만 — `ui.md` 「정비 화면 HUD」의 立绘 추출). fooldoctor·INC-Y는 CN 클라이언트가 있어야 뽑을 수 있다.
   - 고친 버그: `render/board3d-extract` 노멀 맵 — EN 클라이언트의 `TX_autochessi_N`은 Unity DXT5nm(R=1, X는 A, Y는 G)인데 BC5(R=X)로 읽어
     파생 노멀이 평평했다(z 평균 128). `tools/local-extract/extract.py derive_normal_rg`가 R이 전부 255이면 A를 X로 쓴다(다시 파생한 노멀 맵은
     B 평균 249); 기존 PNG에서 다시 파생(`run_derived` + `run_webp`, 클라이언트 불필요).
