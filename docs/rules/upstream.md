@@ -138,7 +138,10 @@ upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 �
 - 频次 적 × 隐德来希 → `tier5.js`의 `// local patch` 2곳 (원본이 고치면 되돌린다. 테스트: 「频次 enemies lose exactly 1 HP per damage instance」)
 - 얼린 상점의 특수 갱신 칸 → `effectsMeta.js setShopSlot`의 `prev` 2줄 (원본이 고치면 되돌린다)
 - 채팅·관전석 등은 원본에 같은 기능이 생기면 비교해서 정리
-- 일반 박사 투영(博士投影, 장비)이 꽉 찬 오퍼레이터의 장비를 말없이 파괴 (2026-10-09 사용자 제보 「구성체 아이템 장착 후 정예화 아이템 장착시, 구성체가
+- (대체됨, 2026-10-09 sim-4) upstream `8cef750e`(GitHub #263, 사용자 결정 2026-10-09 #7)이 이 수정을 덮는다: 꽉 찬 오퍼레이터에는 소모 아이템
+  전부(박사 투영·맹약의 동전 등)가 교체 창을 띄우고 고른 장비를 먼저 파괴한다(PRTS 「达到上限强行佩戴会改为替换装备」). `itemAttaches`는 없어지고
+  `equipReplaces`가 대신한다. 테스트 「博士投影 and 盟约之币 on a full operator」. 아래는 옛 기록 —
+  일반 박사 투영(博士投影, 장비)이 꽉 찬 오퍼레이터의 장비를 말없이 파괴 (2026-10-09 사용자 제보 「구성체 아이템 장착 후 정예화 아이템 장착시, 구성체가
   증발」): `consume_on_equip_or_delayed`의 일반본은 다음 라운드 시작까지 장착된 채 남는데(`builtinMeta.js equip_round_start_upgrade_char` `keep`),
   클라이언트 `placement.js itemAttaches`는 `consume_on_equip*` 전부를 「칸을 안 씀」으로 보고 교체 창을 띄우지 않았고, 서버 `player/items.js equip`의
   `keep` 경로는 `replaceUid`를 넘기지 않아 가장 먼저 장착한 장비(변형 구조체)를 버렸다. → 일반 박사 투영도 교체 창을 띄우고, 서버는 고른 장비를 바꾼다
