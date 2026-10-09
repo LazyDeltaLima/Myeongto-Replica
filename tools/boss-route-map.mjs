@@ -4,7 +4,7 @@
 // SVG per stage × leader (pair field: both copies), on the stage's boss-field tiles and its devices at their start
 // state. For comparing with in-game footage; nothing here is official beyond the checkpoints and the tiles.
 //
-//   node tools/boss-route-map.mjs [out.html]      (default ../research/<today>-boss-routes/index.html)
+//   node tools/boss-route-map.mjs [out.html]      (default .cache/boss-routes-<today>/index.html, git-ignored)
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,7 +16,7 @@ import { runLeaderPaths } from '../server/match/bossPath.js';
 
 const data = getData({ log: { info() {}, warn() {}, error() {} } });
 const ds = new DataSource(data, null);
-const out = process.argv[2] || path.join(ROOT, '..', 'research', `${new Date().toISOString().slice(0, 10)}-boss-routes`, 'index.html');
+const out = process.argv[2] || path.join(ROOT, '.cache', `boss-routes-${new Date().toISOString().slice(0, 10)}`, 'index.html');
 
 // [template, label] — the pair templates (both copies); the solo ones walk the left copy's path
 const LEADERS = [

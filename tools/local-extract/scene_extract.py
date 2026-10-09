@@ -967,7 +967,7 @@ def main():
     ap.add_argument('--stage', action='append', default=[], help='stage id (repeatable); default: every stage with a scene')
     ap.add_argument('--out', default=str(ROOT / 'public/assets/local'))
     ap.add_argument('--manifest', default=str(ROOT / 'data/local-assets.json'))
-    ap.add_argument('--index', default=str(ROOT.parent / 'logs/scene-cab-index.json'), help='CAB index cache')
+    ap.add_argument('--index', default=str(ROOT / '.cache' / 'scene-cab-index.json'), help='CAB index cache (git-ignored .cache/)')
     ap.add_argument('--rebuild-index', action='store_true')
     ap.add_argument('--no-webp', action='store_true', help='keep the manifest on the PNGs (no WebP copies)')
     ap.add_argument('--webp', action='store_true',
