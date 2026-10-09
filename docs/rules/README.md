@@ -9,7 +9,7 @@
 | `README.md` | 이 안내, 원칙, 기능별 목록, 버전 표기, **테스트(실패 0 기준선)** | 공통 |
 | `sim.md` | 전투·경기 규칙: 게임 수치 수정, 상점 칸·보스전 시간, 적 비행 공격, 전투 버그 수정, 스킬 범위 발동(미확정) | sim |
 | `diy.md` | 선발 오퍼레이터 — **「새 선발 오퍼레이터 키트 체크리스트」** | sim |
-| `ui.md` | 화면 UI: 디버그 패널, 정비 화면 HUD, 상점, 휴식 진입·현상 수배·전투 종료 화면, 배치 UI, 전투 화면 UI, 위장 아이콘, 초대 링크, 휴대폰 | ui |
+| `ui.md` | 화면 UI: 디버그 패널, 정비 화면 HUD, 상점, 휴식 진입·현상 수배·전투 종료 화면, 배치 UI, 전투 화면 UI, 위장 아이콘, 초대 링크, 휴대폰, 서버 재시작 예고 | ui |
 | `render.md` | 보드·유닛 렌더링·연출: 공식 맵, 공식 스테이지 3D 씬, 배치 낙하, 유닛 모델 크기, 보스 경로 미리보기 | render |
 | `fx.md` | 공식 전투 이펙트: 추출·재생기·붙는 자리·마운트·방향·정예 금빛·제보별 수정 | render(fx) |
 | `audio.md` | 소리·음성: 오퍼레이터 음성, 스킬 효과음·믹서, 작전 종료 효과음, 배치 효과음 | audio |
@@ -35,6 +35,7 @@
 |---|---|---|
 | 한국어 번역 (UI·데이터·공식 문구) | `public/js/i18n/*`, `public/i18n/ko/*`, `tools/i18n/*` | `main.js` import, `richText.js` `tr()`, `settings.js` 언어 선택, `lobby.js` 언어 버튼 |
 | 협동 방 채팅 | `server/local-patch.js`, `shared/local.js`, `public/js/ui/chat.js`, `public/css/chat.css` | `server/lobby.js` 훅, `shared/protocol.js` 2줄, `screens/room.js`·`screens/game.js`, `store.js` 1줄, `index.html` |
+| 서버 재시작 예고 (배포 카운트다운, ui.md) | `server/local-restart.js`, `public/js/ui/restartNotice.js`, `test/local-restart.test.js` | `server/http/boot.js` `SIGUSR2`, `server/index.js` 3줄, `server/http/routes.js` healthz 1줄, `server/lobby.js` welcome 1줄, `shared/local.js` `LOCAL_S2C`, `main.js`·`store.js` 각 1줄, `ui/connBanner.js` 띠, 언어 팩 5문구 |
 | 채팅 진영 (8개국, 맹약 아이콘) | `shared/local.js`, `public/js/ui/faction.js` | `components.js` `AvatarFrame`의 `mark`, `gameComponents.js` 아바타 |
 | `SP_MAX_BOTS` (방마다 AI 팀원 한도) | `server/local-patch.js` | `server/lobby.js` 훅, `screens/room.js` 한도 표시 |
 | 이모티콘 공식/유저 탭 | `shared/emote-art.js`, `public/img/emotes/*` | `ui/emotes.js`(약 100줄, 가장 큰 수정), `emotes.css`, `gameActions.js`, `gameLogic.js`, `teamPanel.js`, `Match.js`·`StubMatch.js` 의 `set` |

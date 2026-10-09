@@ -19,15 +19,16 @@ const MAX_URL_LENGTH = 4096;
 /**
  * The GET /healthz body.
  * @param {{ startedAt: number, network: import('../net.js').Network, registry: import('../net.js').SessionRegistry,
- *           lobby: import('../lobby.js').Lobby }} health
+ *           lobby: import('../lobby.js').Lobby, restart?: import('../local-restart.js').RestartNotice }} health
  */
-export function healthReport({ startedAt, network, registry, lobby }) {
+export function healthReport({ startedAt, network, registry, lobby, restart }) {
   return {
     ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion() /* local patch */, uptimeSec: Math.round((Date.now() - startedAt) / 1000),
     // the runtime the server is serving right now (public/js/ui/buildGuard.js): a page whose own build is
     // older than this reloads itself, so a deploy reaches clients that never reload
     build: buildTag(),
     sockets: network.connectionCount, sessions: registry.size, ...lobby.stats(),
+    restartInSec: restart ? (restart.inMs() == null ? null : Math.ceil(restart.inMs() / 1000)) : null, // the deploy's restart countdown (local-restart.js)
   };
 }
 

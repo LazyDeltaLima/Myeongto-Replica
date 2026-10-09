@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 903 of 1117 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 908 of 1122 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1134,5 +1134,10 @@
   "叙拉古": "시라쿠사",
   "卡西米尔": "카시미어",
   "请将设备横屏": "기기를 가로로 돌려 주세요",
-  "卫戍协议：盟约 需要横屏显示以获得完整体验": "위수 협의: 맹약은 가로 화면에서 온전히 즐길 수 있습니다"
+  "卫戍协议：盟约 需要横屏显示以获得完整体验": "위수 협의: 맹약은 가로 화면에서 온전히 즐길 수 있습니다",
+  "服务器重启倒计时": "서버 재시작까지",
+  "进行中的对局将会结束": "진행 중인 판은 종료됩니다",
+  "服务器正在重启": "서버를 재시작하는 중입니다",
+  "服务器将在 {minutes} 分钟后重启，进行中的对局将会结束": "{minutes}분 후 서버가 재시작됩니다. 진행 중인 판은 종료됩니다",
+  "服务器重启已取消": "서버 재시작이 취소되었습니다"
 }

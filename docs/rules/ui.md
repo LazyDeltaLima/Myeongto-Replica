@@ -433,3 +433,20 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 타이틀 설정·전체 화면 버튼(upstream #183): 터치 화면에서 16px 버튼 두 개의 44px 터치 영역이 겹쳐 전체 화면 버튼이 설정 버튼을 가렸다 →
   28px + 간격 14px. (devices.css)
 - 확인: Windows PowerShell 서버 + Windows Chrome(GPU) 844×390·740×360·932·430·1920×1080 — 설정 버튼 중심이 자기 버튼, 접기 탭 24×10.
+
+## 서버 재시작 예고 (2026-10-09, 사용자 결정)
+- 사용자 결정(2026-10-09): 배포는 이제 늘 진행한다(`--force` 폐지). 바로 재시작하지 않고 30분 뒤에 재시작하며, 그동안 진행 중인 판·대기실에 30·10·5·3·1분 전 예고를 보낸다. 카운트가 끝나면 배포한다.
+  공식 게임에는 없는 기능(우리 서버 운영용)이다.
+- 서버 `server/local-restart.js` `RestartNotice`: `SIGUSR2`(`server/http/boot.js`)를 받으면 `SP_RESTART_FILE`(기본 `<tmpdir>/stronghold-restart`, 컨테이너는 tmpfs `/tmp`)에서
+  분(`30`) 또는 `0`/`cancel`을 읽는다. 시작할 때와 `RESTART_MARKS_MIN` 30·10·5·3·1분 전에 hello를 마친 **모든 소켓**(타이틀·로비·대기실·판·관전)에
+  `server.restart { inMs, mark }`, 취소는 `{ inMs: null }`. 카운트다운 중에 새로 접속하거나 다시 연결하면 `welcome.restart { inMs }`(토스트 없음, 띠만).
+  `inMs`는 남은 시간이라 클라이언트 시계가 틀려도 맞다. 서버는 재시작을 직접 하지 않는다. 끝나고 10분이 지나도 재시작이 오지 않으면 취소로 본다.
+  내부 `/healthz`에 `restartInSec`(없으면 null, 프록시 경유 응답에는 없음).
+- 클라이언트 `public/js/ui/restartNotice.js` → `ui.restartAt`: 연결 띠(`ui/connBanner.js`)에 「서버 재시작까지 m:ss · 진행 중인 판은 종료됩니다」가 계속 보이고
+  (0이 되면 「서버를 재시작하는 중입니다」), 각 `mark`마다 경고 토스트 「N분 후 서버가 재시작됩니다…」(10초). 취소되면 「서버 재시작이 취소되었습니다」.
+  재시작 뒤에는 기존 흐름 그대로: `room.closed shutdown` → 재연결 → 새 서버의 welcome에는 `restart`가 없으므로 띠가 사라지고, buildGuard가 새 빌드를 받아 새로고침한다.
+- 배포 쪽(`oci/deploy.sh`): 이미지를 먼저 빌드하고(옛 컨테이너는 계속 서비스), 접속자가 있으면 `docker exec stronghold sh -c 'echo 30 > /tmp/stronghold-restart && kill -USR2 1'`로
+  카운트다운을 시작한다. 내부 healthz를 15초마다 보고 0이 되면 재생성한다. 접속자가 없으면 카운트다운 없이 바로 진행하고, 도중에 모두 나가면 앞당긴다.
+  Ctrl-C나 실패가 나면 취소 공지를 보낸다. `--now`는 카운트다운 없음, `--notice N`은 N분, `--rollback`은 기본으로 바로 진행한다(비상용).
+  이 기능이 없는 옛 서버(healthz에 `restartInSec` 없음)에 접속자가 있으면 멈춘다. 그때는 `--now`로 진행한다.
+- 확인: `test/local-restart.test.js`(시점·취소·만료는 가짜 타이머, 실제 서버의 방송·welcome·healthz, 실제 프로세스에 `SIGUSR2`). 화면(띠·토스트)은 Windows Chrome 확인 대기(STRONGHOLD.md §11).

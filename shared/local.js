@@ -8,6 +8,8 @@
 //                  whenever it changes, and to whoever joins); cleared when the match ends
 //   emote sets     g.emote { id, set? } — 'user' pictures (shared/emote-art.js), missing = official
 //   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } — local debug mode only (server/local-patch.js debugMode)
+//   restart        server.restart { inMs, mark? } (every connected socket; inMs null = called off) + welcome `restart: { inMs }`
+//                  while a countdown runs — the deploy's server-restart notice (server/local-restart.js)
 
 import { EMOTE_SETS } from './emote-art.js';
 import { N_ } from './i18n.js';
@@ -47,7 +49,7 @@ const isStr = (v, max) => typeof v === 'string' && v.length <= max;
 const optional = (check) => (v) => v === undefined || check(v);
 
 /** Server → client message types this patch adds (protocol.js S2C). */
-export const LOCAL_S2C = Object.freeze(['room.chat', 'room.chatlog', 'room.factions']);
+export const LOCAL_S2C = Object.freeze(['room.chat', 'room.chatlog', 'room.factions', 'server.restart']);
 
 /**
  * Add this patch's messages to the protocol tables (called once by shared/protocol.js, after both are defined). An

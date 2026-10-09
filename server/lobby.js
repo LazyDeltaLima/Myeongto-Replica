@@ -649,7 +649,8 @@ export class Lobby {
 
   /** Extra fields of every `welcome` (net.js): the operators a 自选 slot may field (shared/diy.js `kitted`). */
   welcomeInfo() {
-    return { diyKitted: KITTED_CHARS.filter(isLocalDiyPick) }; // local patch: the picker offers our five only
+    // + a running restart countdown (local-restart.js, set by server/index.js)
+    return { diyKitted: KITTED_CHARS.filter(isLocalDiyPick), ...this.restartNotice?.welcomeInfo() }; // local patch: the picker offers our five only
   }
 
   // ---------------------------------------------------------------------------------------------------

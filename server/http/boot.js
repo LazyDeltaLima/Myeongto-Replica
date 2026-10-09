@@ -5,13 +5,15 @@
 //   * a server that cannot start exits 1 (with a hint when the port is in use); unhandled rejections and uncaught
 //     exceptions are logged, not fatal;
 //   * graceful shutdown on SIGINT/SIGTERM (rooms get room.closed{reason:'shutdown'}, sockets close 1001); a second
-//     signal exits at once, and the process exits anyway 5 s after the first.
+//     signal exits at once, and the process exits anyway 5 s after the first;
+//   * SIGUSR2 reads the restart countdown file and announces it (server/local-restart.js).
 
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { APP_VERSION, DEV_BUILD } from '../../shared/constants.js';
 import { localVersion } from '../../shared/local.js'; // local patch: version label
+import { restartFile, parseRestartFile } from '../local-restart.js';
 
 /** Non-internal IPv4 addresses as http URLs. @param {number} port */
 export function lanUrls(port) {
@@ -47,7 +49,8 @@ export function printBanner(srv) {
 
 /**
  * The process main: start the server, print the banner, stop gracefully on SIGINT / SIGTERM.
- * @param {() => Promise<{ url: string, host: string, port: number, close: () => Promise<void> }>} start index.js startServer
+ * @param {() => Promise<{ url: string, host: string, port: number, close: () => Promise<void>,
+ *                         restart?: import('../local-restart.js').RestartNotice }>} start index.js startServer
  */
 export async function runMain(start) {
   process.on('unhandledRejection', (e) => console.error('[process] unhandled rejection', e));
@@ -72,4 +75,13 @@ export async function runMain(start) {
   };
   process.on('SIGINT', () => stop('SIGINT'));
   process.on('SIGTERM', () => stop('SIGTERM'));
+  // the deploy's restart countdown (server/local-restart.js) — the minutes come from a file, the signal says "read it"
+  process.on('SIGUSR2', () => {
+    const file = restartFile();
+    fs.promises.readFile(file, 'utf8').then((text) => {
+      const minutes = parseRestartFile(text);
+      if (minutes == null) { console.error(`[restart] ${file}: expected minutes or "cancel", got ${JSON.stringify(text.slice(0, 40))}`); return; }
+      srv.restart?.schedule(minutes);
+    }, (e) => console.error(`[restart] cannot read ${file}: ${e.code || e.message}`));
+  });
 }

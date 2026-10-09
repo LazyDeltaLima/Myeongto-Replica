@@ -52,6 +52,7 @@ import { LoadoutHost } from './screens/loadout.js';
 import { installLoadoutSync, installOwnershipSync, installDiySync } from './ui/loadoutSync.js';
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
+import { installRestartNotice } from './ui/restartNotice.js'; // the deploy's restart countdown
 import { installResources, ResourceHost } from './resources.js';
 import { emoteSet } from '../../shared/emote-art.js';
 import { initLang, useLang, tickerText } from './ui/lang.js';
@@ -345,6 +346,7 @@ async function boot() {
   wireNet();
   installLoadoutSync({ net });
   installChat();
+  installRestartNotice({ net });
   installResources();
   installOwnershipSync({ net });
   installDiySync({ net });
