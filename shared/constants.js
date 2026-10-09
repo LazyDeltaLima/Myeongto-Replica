@@ -147,7 +147,7 @@ export const ERR = Object.freeze({
   TEMP_NOT_EMPTY: 'TEMP_NOT_EMPTY',
   ELIMINATED: 'ELIMINATED',
   SPECTATOR: 'SPECTATOR',         // a spectator seat only watches (MAX_SPECTATORS)
-  RESTARTING: 'RESTARTING',       // no new match this close to a deploy restart (server/local-restart.js, off unless SP_RESTART_NO_START_MIN)
+  RESTARTING: 'RESTARTING',       // no new match this close to a deploy restart (server/local-restart.js, last 5 min)
   INTERNAL: 'INTERNAL',
 });
 

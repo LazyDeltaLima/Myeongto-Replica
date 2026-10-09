@@ -35,7 +35,7 @@
 |---|---|---|
 | 한국어 번역 (UI·데이터·공식 문구) | `public/js/i18n/*`, `public/i18n/ko/*`, `tools/i18n/*` | `main.js` import, `richText.js` `tr()`, `settings.js` 언어 선택, `lobby.js` 언어 버튼 |
 | 협동 방 채팅 | `server/local-patch.js`, `shared/local.js`, `public/js/ui/chat.js`, `public/css/chat.css` | `server/lobby.js` 훅, `shared/protocol.js` 2줄, `screens/room.js`·`screens/game.js`, `store.js` 1줄, `index.html` |
-| 서버 재시작 예고 (배포 카운트다운, ui.md) | `server/local-restart.js`, `public/js/ui/restartNotice.js`, `test/local-restart.test.js` | `server/http/boot.js` `SIGUSR2`, `server/index.js` 3줄, `server/http/routes.js` healthz 1줄, `server/lobby.js` welcome 1줄, `shared/local.js` `LOCAL_S2C`, `main.js`·`store.js` 각 1줄, `server/lobby.js start` 1줄(꺼진 판 시작 거부), `shared/constants.js` `ERR.RESTARTING`, 언어 팩 3문구 |
+| 서버 재시작 예고 (배포 카운트다운, ui.md) | `server/local-restart.js`, `public/js/ui/restartNotice.js`, `test/local-restart.test.js` | `server/http/boot.js` `SIGUSR2`, `server/index.js` 3줄, `server/http/routes.js` healthz 1줄, `server/lobby.js` welcome 1줄, `shared/local.js` `LOCAL_S2C`, `main.js`·`store.js` 각 1줄, `server/lobby.js start` 1줄(마지막 5분 판 시작 거부), `shared/constants.js` `ERR.RESTARTING`, `shared/local.js RESTART_FINAL_MIN`, `ui/connBanner.js` 마지막 5분 띠, 언어 팩 6문구 |
 | 채팅 진영 (8개국, 맹약 아이콘) | `shared/local.js`, `public/js/ui/faction.js` | `components.js` `AvatarFrame`의 `mark`, `gameComponents.js` 아바타 |
 | `SP_MAX_BOTS` (방마다 AI 팀원 한도) | `server/local-patch.js` | `server/lobby.js` 훅, `screens/room.js` 한도 표시 |
 | 이모티콘 공식/유저 탭 | `shared/emote-art.js`, `public/img/emotes/*` | `ui/emotes.js`(약 100줄, 가장 큰 수정), `emotes.css`, `gameActions.js`, `gameLogic.js`, `teamPanel.js`, `Match.js`·`StubMatch.js` 의 `set` |

@@ -437,20 +437,24 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 ## 서버 재시작 예고 (2026-10-09, 사용자 결정)
 - 사용자 결정(2026-10-09): 배포는 이제 늘 진행한다(`--force` 폐지). 바로 재시작하지 않고 30분 뒤에 재시작하며, 그동안 진행 중인 판·대기실에 30·10·5·3·1분 전 예고를 보낸다. 카운트가 끝나면 배포한다.
   공식 게임에는 없는 기능(우리 서버 운영용)이다.
-- 서버 `server/local-restart.js` `RestartNotice`: `SIGUSR2`(`server/http/boot.js`)를 받으면 `SP_RESTART_FILE`(기본 `<tmpdir>/stronghold-restart`, 컨테이너는 tmpfs `/tmp`)에서
+- 서버 `server/local-restart.js` `RestartNotice`: `SIGUSR2`(`server/http/boot.js`, 서버 시작 전에 등록 — 처리기 없는 SIGUSR2는 프로세스를 끝내고, 시작 중에 온 신호는 시작 뒤에 읽는다)를 받으면 `SP_RESTART_FILE`(기본 `<tmpdir>/stronghold-restart`, 컨테이너는 tmpfs `/tmp`)에서
   분(`30`) 또는 `0`/`cancel`을 읽는다. 시작할 때와 `RESTART_MARKS_MIN` 30·10·5·3·1분 전에 hello를 마친 **모든 소켓**(타이틀·로비·대기실·판·관전)에
   `server.restart { inMs, mark }`, 취소는 `{ inMs: null }`. 카운트다운 중에 새로 접속하거나 다시 연결하면 `welcome.restart { inMs }`.
   `inMs`는 남은 시간이라 클라이언트 시계가 틀려도 맞다. 서버는 재시작을 직접 하지 않는다. 끝나고 10분이 지나도 재시작이 오지 않으면 취소로 본다.
   내부 `/healthz`에 `restartInSec`(없으면 null, 프록시 경유 응답에는 없음).
-- 클라이언트 `public/js/ui/restartNotice.js`: **토스트만**(사용자 2026-10-09 「기존 메세지 토스트처럼 잠깐 나왔다가 사라지는 걸」 — 처음 구현의 연결 띠 카운트다운은 뺐다).
+- 마지막 5분(`shared/local.js RESTART_FINAL_MIN`, 사용자 2026-10-09 「재시작 직전 5분 전에 판을 막고, 5분부터는 띠도 표시」):
+  - 새 판 시작 막기: `room.start`를 `ERR.RESTARTING`(「서버가 곧 재시작되어 지금은 새 시뮬레이션을 시작할 수 없습니다」)으로 거부. 이미 진행 중인 판은 그대로.
+    `SP_RESTART_NO_START_MIN`이 있으면 그 분(0 = 막지 않음). (같은 날 앞서 「일단 구현만 해놓고 활성화하진 마」로 꺼 두었다가 이 결정으로 켬.)
+  - 연결 띠(`ui/connBanner.js`): 「서버 재시작까지 m:ss · 진행 중인 판은 종료됩니다」(0이 되면 「서버를 재시작하는 중입니다」). 판 밖 = 아래 가운데,
+    판 안 = 라운드 캡슐 아래 한 줄(토스트는 그 아래로 밀림). 휴대폰 가로(844×390)에서도 한 줄.
+- 클라이언트 `public/js/ui/restartNotice.js`: 그 전까지는 **토스트만**(사용자 2026-10-09 「기존 메세지 토스트처럼 잠깐 나왔다가 사라지는 걸」 — 처음 구현의 30분 내내 띠는 뺐다).
   각 `mark`마다 경고 토스트 「N분 후 서버가 재시작됩니다. 진행 중인 판은 종료됩니다」(6초), 카운트다운 중에 접속한 페이지는 welcome에서 남은 분으로 한 번
   (`ui.restartAt`로 이미 알던 페이지의 재연결은 다시 띄우지 않음), 취소되면 알던 페이지에만 「서버 재시작이 취소되었습니다」. 판 밖에서는 위쪽 가운데, 판 안
   (`html.sp-in-match`)에서는 라운드 캡슐 아래(기존 토스트 자리). 재시작 뒤에는 기존 흐름 그대로: `room.closed shutdown` → 재연결 → buildGuard가 새 빌드로 새로고침.
-- 새 판 시작 막기(구현만, 꺼 둠 — 사용자 2026-10-09 「일단 구현만 해놓고 활성화하진 마. 막을지는 더 생각해볼게」): `SP_RESTART_NO_START_MIN`=N이면 재시작 N분 안에서
-  `room.start`를 `ERR.RESTARTING`(「서버가 곧 재시작되어 지금은 새 시뮬레이션을 시작할 수 없습니다」)으로 거부. 비워 두면(기본) 동작 없음. 켜려면 `oci/compose.yml` environment에 추가.
 - 배포 쪽(`oci/deploy.sh`): 이미지를 먼저 빌드하고(옛 컨테이너는 계속 서비스), 접속자가 있으면 `docker exec stronghold sh -c 'echo 30 > /tmp/stronghold-restart && kill -USR2 1'`로
   카운트다운을 시작한다. 내부 healthz를 15초마다 보고 0이 되면 재생성한다. 접속자가 없으면 카운트다운 없이 바로 진행하고, 도중에 모두 나가면 앞당긴다.
   Ctrl-C나 실패가 나면 취소 공지를 보낸다. `--now`는 카운트다운 없음, `--notice N`은 N분, `--rollback`은 기본으로 바로 진행한다(비상용).
   이 기능이 없는 옛 서버(healthz에 `restartInSec` 없음)에 접속자가 있으면 멈춘다. 그때는 `--now`로 진행한다.
 - 확인: `test/local-restart.test.js`(시점·취소·만료는 가짜 타이머, 실제 서버의 방송·welcome·healthz·판 시작 거부, 실제 프로세스에 `SIGUSR2`, 클라이언트 토스트 조건).
-  Windows Chrome(로컬 서버 + `SIGUSR2`): 로비 30분, 정비 화면 10분, 전투 중 5분 토스트가 위 자리에 뜨는 것 확인(2026-10-09).
+  Windows Chrome(로컬 서버 + `SIGUSR2`): 로비 30분, 정비 화면 10분, 전투 중 5분 토스트, 협동 판(AI 3명) 정비·전투·휴대폰 가로에서 5분 띠 위치 확인(2026-10-09).
+  띠는 보드 배치 칸·상점·팀원 목록·준비 완료 버튼을 가리지 않는다(사용자 확인 대기).

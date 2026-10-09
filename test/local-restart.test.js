@@ -1,5 +1,5 @@
 // test/local-restart.test.js — the deploy's server-restart countdown (server/local-restart.js, server/http/boot.js
-// SIGUSR2, the welcome / healthz fields, the disabled room.start refusal, public/js/ui/restartNotice.js toasts). docs/rules/ui.md 「서버 재시작 예고」.
+// SIGUSR2, the welcome / healthz fields, the room.start refusal, public/js/ui/restartNotice.js toasts + the banner). docs/rules/ui.md 「서버 재시작 예고」.
 
 import { describe, test, before, after, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +14,9 @@ import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { RestartNotice, RESTART_MARKS_MIN, parseRestartFile, restartFile, noStartMinutes } from '../server/local-restart.js';
 import { S2C } from '../shared/protocol.js';
-import { installRestartNotice } from '../public/js/ui/restartNotice.js';
+import { installRestartNotice, restartBannerDue, restartClock } from '../public/js/ui/restartNotice.js';
+import { bannerVisible } from '../public/js/ui/connBanner.js';
+import { RESTART_FINAL_MIN } from '../shared/local.js';
 import { store } from '../public/js/store.js';
 import { ERR } from '../shared/constants.js';
 import { TestClient } from './helpers/wsClient.js';
@@ -44,7 +46,20 @@ describe('restart countdown: pieces', () => {
     assert.deepEqual([...RESTART_MARKS_MIN], [30, 10, 5, 3, 1]);
   });
 
-  test('the client: toasts only — each mark, one on a welcome that brings news, the cancel to pages that knew', () => {
+  test('the client banner: only in the last 5 minutes, m:ss', () => {
+    const now = 1_000_000;
+    assert.equal(restartBannerDue(null, now), false);
+    assert.equal(restartBannerDue(now + 5 * 60_000 + 1000, now), false);
+    assert.equal(restartBannerDue(now + 5 * 60_000, now), true);
+    assert.equal(restartBannerDue(now - 1000, now), true, 'still shows once due (服务器正在重启)');
+    assert.equal(restartClock(now + 125_000, now), '2:05');
+    assert.equal(restartClock(now - 5000, now), '0:00');
+    assert.equal(bannerVisible({ status: 'online' }, true, false, false, true), true);
+    assert.equal(bannerVisible({ status: 'online' }, true, false, false, false), false);
+    assert.equal(bannerVisible({ status: 'online' }, false, false, false, true), false, 'not before the title');
+  });
+
+  test('the client: toasts — each mark, one on a welcome that brings news, the cancel to pages that knew', () => {
     const on = new Map();
     const shown = [];
     installRestartNotice({ net: { on: (type, fn) => on.set(type, fn) }, notify: (text, kind, opts) => shown.push([kind, opts.ttl]) });
@@ -67,10 +82,13 @@ describe('restart countdown: pieces', () => {
     assert.equal(shown.length, 3);
   });
 
-  test('room.start refusal: off by default, on within SP_RESTART_NO_START_MIN', () => {
+  test('room.start refusal: the last 5 minutes by default, SP_RESTART_NO_START_MIN overrides (0 = never)', () => {
     const network = { conns: new Map(), reply: () => true };
-    assert.equal(noStartMinutes({}), 0);
+    assert.equal(RESTART_FINAL_MIN, 5);
+    assert.equal(noStartMinutes({}), 5);
+    assert.equal(noStartMinutes({ SP_RESTART_NO_START_MIN: '' }), 5);
     assert.equal(noStartMinutes({ SP_RESTART_NO_START_MIN: '10' }), 10);
+    assert.equal(noStartMinutes({ SP_RESTART_NO_START_MIN: '0' }), 0);
     assert.equal(noStartMinutes({ SP_RESTART_NO_START_MIN: 'x' }), 0);
     const off = new RestartNotice({ network, noStartMin: 0 });
     off.schedule(1);
@@ -158,16 +176,12 @@ describe('restart countdown: a real server', () => {
     assert.equal((await player('Delta')).welcome.restart, undefined);
   });
 
-  test('the room.start refusal reaches a player as RESTARTING when enabled (off on this server)', async () => {
+  test('in the last 5 minutes room.start reaches a player as RESTARTING', async () => {
     const c = await player('Solo');
     await c.request({ t: 'room.create', mode: 'solo', difficulty: 'FUNNY' });
     srv.restart.schedule(5);
-    assert.equal(srv.restart.noStartMs, 0, 'off unless SP_RESTART_NO_START_MIN');
-    srv.restart.noStartMs = 10 * 60_000;
-    try {
-      const r = await c.request({ t: 'room.start' });
-      assert.equal(r.code, ERR.RESTARTING, JSON.stringify(r));
-    } finally { srv.restart.noStartMs = 0; }
+    const r = await c.request({ t: 'room.start' });
+    assert.equal(r.code, ERR.RESTARTING, JSON.stringify(r));
   });
 });
 
@@ -179,11 +193,19 @@ describe('restart countdown: SIGUSR2 on the process (server/http/boot.js)', () =
       cwd: ROOT, env: { ...process.env, PORT: '0', HOST: '127.0.0.1', SP_RESTART_FILE: file }, stdio: ['ignore', 'pipe', 'pipe'],
     });
     let out = '';
+    let exited = null;
+    const waiting = new Set();
+    const settle = () => { for (const w of [...waiting]) w(); };
+    child.stdout.on('data', (d) => { out += d; settle(); });
+    child.stderr.on('data', (d) => { out += d; settle(); });
+    child.on('exit', (code, signal) => { exited = `exited (${code ?? signal})`; settle(); });
+    // the output so far matches `re` → resolve; the child gone or 60 s (a loaded full-suite run can be slow to boot it) → reject
     const waitOut = (re) => new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`timed out waiting for ${re}; output:\n${out}`)), 60_000); // a loaded full-suite run can be slow to boot the child
-      const check = () => { if (re.test(out)) { clearTimeout(timer); resolve(); } };
-      child.stdout.on('data', (d) => { out += d; check(); });
-      child.stderr.on('data', (d) => { out += d; check(); });
+      const done = (err) => { clearTimeout(timer); waiting.delete(check); if (err) reject(err); else resolve(); };
+      const fail = (why) => done(new Error(`waiting for ${re}: child ${why}; output:\n${out}`));
+      const check = () => { if (re.test(out)) done(); else if (exited) fail(exited); };
+      const timer = setTimeout(() => fail('timed out'), 60_000);
+      waiting.add(check);
       check();
     });
     try {
@@ -199,7 +221,8 @@ describe('restart countdown: SIGUSR2 on the process (server/http/boot.js)', () =
       await waitOut(/\[restart\] server restart cancelled/);
     } finally {
       child.kill('SIGTERM');
-      await new Promise((r) => (child.exitCode != null ? r() : child.once('exit', r)));
+      // `exited`, not exitCode: a child ended by a signal has exitCode null and its 'exit' event is already gone
+      await new Promise((r) => (exited ? r() : child.once('exit', r)));
       rmSync(dir, { recursive: true, force: true });
     }
   });

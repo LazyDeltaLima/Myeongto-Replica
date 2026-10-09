@@ -4,17 +4,19 @@
 // match the banner sits at the bottom centre; in a match (html.sp-in-match, set by the match screen) it moves under the
 // top bar so it never covers the combat view switcher or the shop bar. While it shows, html.sp-conn moves the toasts
 // below it (classes instead of CSS :has(), which Firefox ESR / Safari < 15.4 lack).
+// The deploy's restart countdown (ui/restartNotice.js, ui.restartAt) shows here in its last 5 minutes, ahead of 服务器已更新.
 
 import { html, Button, Icon, useTicker } from './components.js';
 import { net, CLIENT_ERR_TEXT } from '../net.js';
 import { useStore, shallowEqual } from '../store.js';
 import { useDocClass } from './device.js';
 import { t } from '../../../shared/i18n.js';
+import { restartBannerDue, restartClock } from './restartNotice.js';
 
 /** Whether the banner shows for this connection state (mirrors the early returns below). */
-export function bannerVisible(conn, entered, restoring, buildStale = false) {
+export function bannerVisible(conn, entered, restoring, buildStale = false, restartDue = false) {
   if (!entered || !conn) return false;
-  if (conn.status === 'online') return !!restoring || !!buildStale;
+  if (conn.status === 'online') return !!restoring || !!buildStale || !!restartDue;
   if (!conn.everOnline && (conn.status === 'connecting' || conn.status === 'handshaking' || conn.status === 'idle')) return false;
   return true;
 }
@@ -24,12 +26,24 @@ export function ConnectionBanner() {
   const entered = useStore((s) => s.session.entered);
   const restoring = useStore((s) => s.ui.restoring);
   const buildStale = useStore((s) => !!s.ui.buildStale);
-  useTicker(conn.status === 'reconnecting' ? 500 : 0);
-  useDocClass('sp-conn', bannerVisible(conn, entered, restoring, buildStale));
+  const restartAt = useStore((s) => s.ui.restartAt ?? null);
+  // a running countdown ticks every second: it crosses into the banner's last minutes and counts down there
+  useTicker(conn.status === 'reconnecting' ? 500 : restartAt != null ? 1000 : 0);
+  const restartDue = restartBannerDue(restartAt);
+  useDocClass('sp-conn', bannerVisible(conn, entered, restoring, buildStale, restartDue));
   if (!entered) return null;
-  if (conn.status === 'online' && !restoring && !buildStale) return null;
+  if (conn.status === 'online' && !restoring && !buildStale && !restartDue) return null;
   if (conn.status === 'online' && restoring) {
     return html`<div class="conn-banner" role="status"><${Icon} name="refresh" /><span>${t('正在同步同盟状态…')}</span></div>`;
+  }
+  if (conn.status === 'online' && restartDue) {
+    const due = restartAt <= Date.now();
+    return html`<div class="conn-banner" role="status">
+      <${Icon} name="refresh" />
+      <span>${due ? t('服务器正在重启') : t('服务器重启倒计时')}</span>
+      ${due ? null : html`<span class="conn-banner__sub">${restartClock(restartAt)}</span>`}
+      <span class="conn-banner__sub">${t('进行中的对局将会结束')}</span>
+    </div>`;
   }
   if (conn.status === 'online' && buildStale) {
     // the server has a newer build than this page: the guard reloads by itself once the match is over, the button is

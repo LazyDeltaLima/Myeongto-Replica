@@ -9,12 +9,13 @@
 //             during the countdown gets `restart: { inMs }` in its welcome (the client toasts the minutes left once).
 //             inMs is relative: the client works on its own clock.
 //   /healthz  restartInSec (internal answers only; null when nothing is planned) — deploy.sh waits on it.
-//   room.start  refused (ERR.RESTARTING) within SP_RESTART_NO_START_MIN of the restart — off unless that is set.
+//   room.start  refused (ERR.RESTARTING) in the last RESTART_FINAL_MIN (5) minutes — SP_RESTART_NO_START_MIN overrides, 0 = off.
 // The countdown is forgotten STALE_MS after it ended (a deploy that died after the countdown): everyone gets { inMs: null }.
 
 import os from 'node:os';
 import path from 'node:path';
 import { ERR } from '../shared/constants.js';
+import { RESTART_FINAL_MIN } from '../shared/local.js';
 
 /** The minutes before the restart at which every connected player is told again (the first notice comes at the start). */
 export const RESTART_MARKS_MIN = Object.freeze([30, 10, 5, 3, 1]);
@@ -22,10 +23,11 @@ const STALE_MS = 10 * 60_000;
 const MAX_MINUTES = 24 * 60;
 
 /**
- * SP_RESTART_NO_START_MIN: room.start is refused (ERR.RESTARTING) this many minutes before the restart. Unset / 0 = off —
- * built but not enabled (user 2026-10-09: 「일단 구현만 해놓고 활성화하진 마」, whether to block is still open).
+ * How many minutes before the restart room.start is refused (ERR.RESTARTING): RESTART_FINAL_MIN (user 2026-10-09:
+ * 「재시작 직전 5분 전에 판을 막고」), or SP_RESTART_NO_START_MIN when set (0 = never).
  */
 export function noStartMinutes(env = process.env) {
+  if (env.SP_RESTART_NO_START_MIN == null || env.SP_RESTART_NO_START_MIN === '') return RESTART_FINAL_MIN;
   const n = Number(env.SP_RESTART_NO_START_MIN);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }

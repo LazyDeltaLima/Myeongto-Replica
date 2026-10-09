@@ -21,6 +21,11 @@ export const LOCAL_VERSION = '1.1.0';
 /** @returns {string} the local version (the `app` argument is kept for the callers; the base is shown separately) */
 export const localVersion = () => LOCAL_VERSION;
 
+// the deploy's restart countdown (server/local-restart.js, public/js/ui/restartNotice.js): in its last RESTART_FINAL_MIN
+// minutes no new match starts and the connection banner counts down (user 2026-10-09: 「재시작 직전 5분 전에 판을 막고,
+// 5분부터는 띠도 표시」)
+export const RESTART_FINAL_MIN = 5;
+
 // room chat: a line's length in code points, the per-player gap between lines, the lines a (re)joining member gets back
 export const CHAT_MAX_LEN = 120;
 export const CHAT_COOLDOWN_MS = 700;

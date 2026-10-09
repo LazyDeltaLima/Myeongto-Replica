@@ -56,6 +56,19 @@ export async function runMain(start) {
   process.on('unhandledRejection', (e) => console.error('[process] unhandled rejection', e));
   process.on('uncaughtException', (e) => console.error('[process] uncaught exception', e));
   let srv;
+  // the deploy's restart countdown (server/local-restart.js) — the minutes come from a file, the signal says "read it".
+  // Listened for before the server starts: an unhandled SIGUSR2 would end the process; one that comes while it boots is
+  // read once it is up.
+  let restartSignalled = false;
+  const readRestart = () => {
+    const file = restartFile();
+    fs.promises.readFile(file, 'utf8').then((text) => {
+      const minutes = parseRestartFile(text);
+      if (minutes == null) { console.error(`[restart] ${file}: expected minutes or "cancel", got ${JSON.stringify(text.slice(0, 40))}`); return; }
+      srv.restart?.schedule(minutes);
+    }, (e) => console.error(`[restart] cannot read ${file}: ${e.code || e.message}`));
+  };
+  process.on('SIGUSR2', () => { if (srv) readRestart(); else restartSignalled = true; });
   try {
     srv = await start();
   } catch (e) {
@@ -64,6 +77,7 @@ export async function runMain(start) {
     process.exit(1);
   }
   printBanner(srv);
+  if (restartSignalled) readRestart();
 
   let stopping = false;
   const stop = (signal) => {
@@ -75,13 +89,4 @@ export async function runMain(start) {
   };
   process.on('SIGINT', () => stop('SIGINT'));
   process.on('SIGTERM', () => stop('SIGTERM'));
-  // the deploy's restart countdown (server/local-restart.js) — the minutes come from a file, the signal says "read it"
-  process.on('SIGUSR2', () => {
-    const file = restartFile();
-    fs.promises.readFile(file, 'utf8').then((text) => {
-      const minutes = parseRestartFile(text);
-      if (minutes == null) { console.error(`[restart] ${file}: expected minutes or "cancel", got ${JSON.stringify(text.slice(0, 40))}`); return; }
-      srv.restart?.schedule(minutes);
-    }, (e) => console.error(`[restart] cannot read ${file}: ${e.code || e.message}`));
-  });
 }
