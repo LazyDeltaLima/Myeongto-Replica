@@ -7,7 +7,7 @@
 //   chat faction   room.chatFaction { faction } → room.factions { factions: { [playerId]: factionId } } (all members,
 //                  whenever it changes, and to whoever joins); cleared when the match ends
 //   emote sets     g.emote { id, set? } — 'user' pictures (shared/emote-art.js), missing = official
-//   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } — local debug mode only (server/local-patch.js debugMode)
+//   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } · dbg.finish { victory } — local debug mode only (server/local-patch.js debugMode)
 //   restart        server.restart { inMs, mark? } (every connected socket; inMs null = called off) + welcome `restart: { inMs }`
 //                  while a countdown runs — the deploy's server-restart notice (server/local-restart.js)
 //   feedback       fb.send { id, kind, text, diag?, battles?, match? } → ok — the settlement screen's 피드백 보내기, stored in
@@ -78,6 +78,7 @@ export function extendProtocol(C2S, S2C) {
   C2S['room.chatFaction'] = { faction: (v) => !!chatFaction(v) };
   // local debug mode only (server/local-patch.js debugIntent refuses both otherwise): the in-game debug panel
   C2S['dbg.funds'] = { on: (v) => typeof v === 'boolean' };
+  C2S['dbg.finish'] = { victory: (v) => typeof v === 'boolean' };
   C2S['dbg.addDiy'] = {
     charId: (v) => typeof v === 'string' && /^char_[A-Za-z0-9_]{1,40}$/.test(v),
     tier: (v) => v === 5 || v === 6,

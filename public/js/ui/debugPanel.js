@@ -7,6 +7,7 @@
 //             tier V / VI, normal / elite, into the hand, fighting with the chosen skill (S1–S3) and — elite only —
 //             module (or 'none'); the server sets it as the pick of a 自选 slot of that tier (PlayerState.setDiy). The
 //             selectors start at the player's current pick of that operator (m.private.diy) or the defaults.
+//   end       dbg.finish { victory } the match ends now as won / lost — the settlement screen (and its feedback) at once
 // Sits left of the board under the bond strip (css/debug-panel.css), clear of the board, shop and hand.
 
 import { useState } from '../../vendor/hooks.module.js';
@@ -38,6 +39,7 @@ export function DebugPanel({ debug, prep, diy }) {
   const skill = [skillSel, entry?.skill, 0].find((v) => skills.some((s) => s.index === v)) ?? skills[0]?.index ?? null;
   const module = [moduleSel, entry?.module].find((v) => modules.some((m) => m.id === v)) ?? NONE;
   const reset = () => { setSkillSel(null); setModuleSel(null); };
+  const finish = async (victory) => { setBusy(true); await act('dbg.finish', { victory }, { sfx: false }); setBusy(false); };
   const toggle = async (e) => { setBusy(true); await act('dbg.funds', { on: !!e.currentTarget.checked }, { sfx: false }); setBusy(false); };
   const add = async () => {
     if (!cand || !tierRec) return;
@@ -84,6 +86,11 @@ export function DebugPanel({ debug, prep, diy }) {
         </select>
       </div>` : null}
       <button type="button" class="dbgp__add" disabled=${busy || !prep || !cand} onClick=${add}>${t('加入整备区')}</button>
+      <div class="dbgp__row">
+        <span class="dbgp__label">${t('结算')}</span>
+        <button type="button" class="dbgp__end" disabled=${busy} onClick=${() => finish(true)}>${t('胜利')}</button>
+        <button type="button" class="dbgp__end" disabled=${busy} onClick=${() => finish(false)}>${t('失败')}</button>
+      </div>
     </div>` : null}
   </div>`;
 }

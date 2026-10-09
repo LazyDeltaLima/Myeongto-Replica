@@ -1038,7 +1038,7 @@ test('SP_DEBUG_FUNDS: parsed only as an integer 0..999, unset on deployed server
   assert.equal(debugFunds({ SP_DEBUG_FUNDS: '5000' }), null);
 });
 
-describe('in-game debug panel: dbg.funds / dbg.addDiy, local debug mode only (server/local-patch.js debugIntent)', () => {
+describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.finish, local debug mode only (server/local-patch.js debugIntent)', () => {
   const DEBUG_ENV = { SP_DEBUG_PAGE: '1' };
   const humans = () => [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }, { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true }];
   const prep = () => { const h = makeMatch({ mode: 'coop', seats: humans(), seed: 3 }); h.start(); h.toPrep(1); return h; };
@@ -1079,6 +1079,24 @@ describe('in-game debug panel: dbg.funds / dbg.addDiy, local debug mode only (se
       if (saved.p !== undefined) process.env.SP_DEBUG_PAGE = saved.p;
       if (saved.f !== undefined) process.env.SP_DEBUG_FUNDS = saved.f;
     }
+  });
+
+  test('dbg.finish ends the match now as won / lost: every human gets m.result; off outside debug mode', async () => {
+    const { debugIntent } = await import('../server/local-patch.js');
+    assert.equal(validateC2S({ t: 'dbg.finish', victory: true }), null);
+    assert.ok(validateC2S({ t: 'dbg.finish' }));
+    let h = prep();
+    assert.equal(debugIntent(h.m, 'p_0', { t: 'dbg.finish', victory: true }, {}).error, ERR.BAD_MSG);
+    assert.equal(h.m.ended, false);
+    assert.deepEqual(debugIntent(h.m, 'p_0', { t: 'dbg.finish', victory: true }, DEBUG_ENV), { ok: true });
+    assert.equal(h.m.ended, true);
+    assert.equal(h.ended.reason, 'victory');
+    for (const id of ['p_0', 'p_1']) assert.equal(h.lastTo(id, 'm.result')?.victory, true);
+    assert.equal(debugIntent(h.m, 'p_0', { t: 'dbg.finish', victory: false }, DEBUG_ENV).error, ERR.WRONG_PHASE, 'once');
+    h = prep();
+    debugIntent(h.m, 'p_1', { t: 'dbg.finish', victory: false }, DEBUG_ENV);
+    assert.equal(h.ended.reason, 'defeat');
+    assert.equal(h.lastTo('p_0', 'm.result')?.victory, false);
   });
 
   test('dbg.funds pins the sender\'s funds (others untouched) and unpins them', async () => {

@@ -24,3 +24,7 @@
   height: .28rem; font: inherit; font-weight: 700; color: #1d1400; background: #ff9a5c; border: 0; cursor: pointer;
 }
 .dbgp__add:disabled { opacity: .45; cursor: default; }
+.dbgp__end {
+  flex: 1; height: .26rem; font: inherit; color: #ffcfae; background: rgba(0, 0, 0, .55); border: 1px solid #ff9a5c; cursor: pointer;
+}
+.dbgp__end:disabled { opacity: .45; cursor: default; }

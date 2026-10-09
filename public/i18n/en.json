@@ -1127,6 +1127,8 @@
   "选择后不可更改": "Cannot be changed once chosen",
   "调试面板": "Debug panel",
   "调试用资金固定 {pinValue}": "Pin funds at {pinValue} (debug)",
+  "胜利": "Victory",
+  "失败": "Defeat",
   "V阶": "Tier V",
   "VI阶": "Tier VI",
   "无模组": "No module",

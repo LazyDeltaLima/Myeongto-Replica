@@ -10,7 +10,7 @@
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
 //   fb.send                          (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
-//   dbg.funds / dbg.addDiy           (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
+//   dbg.funds / dbg.addDiy / dbg.finish  (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
 //
 // 선발 오퍼레이터: since 0.2.0 upstream's 自选 framework (shared/diy.js, server/match/player/diy.js) with our five
 // operators as its only candidates (tools/build-data.mjs local patch); nothing of it is wrapped here.
@@ -80,7 +80,7 @@ const factionsMsg = (c) => ({ t: 'room.factions', factions: Object.fromEntries(c
 export function onMessage(lobby, session, msg) {
   if (msg.t === 'room.chat') return chat(lobby, session, msg);
   if (msg.t === 'room.chatFaction') return pickFaction(lobby, session, msg);
-  if (msg.t === 'dbg.funds' || msg.t === 'dbg.addDiy') return debugMessage(lobby, session, msg); // local debug mode only
+  if (msg.t === 'dbg.funds' || msg.t === 'dbg.addDiy' || msg.t === 'dbg.finish') return debugMessage(lobby, session, msg); // local debug mode only
   if (msg.t === 'fb.send') return feedbackOf(lobby).submit(session, msg);
   return null;
 }
@@ -314,7 +314,9 @@ export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-f
 //                           rule dropped the new slot and the gain failed as HAND_FULL), then gains the slot's chess (normal, or the elite with
 //                           `golden`) through PlayerState.acquireChess (merges, onGain, m.private), prep only, refused with
 //                           a full hand unless it completes a merge; no stock copies are taken (the shop is unchanged).
-// Outside debug mode both messages are refused as BAD_MSG (the server never trusts the client's panel).
+//   dbg.finish { victory }  the match ends now as won / lost (Match.finish, reason victory / defeat): the settlement screen,
+//                           its [stats] line and its feedback (local-feedback.js) without playing to the end — any phase
+// Outside debug mode these messages are refused as BAD_MSG (the server never trusts the client's panel).
 
 export const DEBUG_PIN_DEFAULT = 99;
 
@@ -408,6 +410,10 @@ export function debugIntent(m, playerId, msg, env = process.env) {
     ps.dirty();
     return OK;
   }
+  if (msg.t === 'dbg.finish') {
+    m.finish({ victory: msg.victory, reason: msg.victory ? 'victory' : 'defeat' });
+    return OK;
+  }
   if (msg.t === 'dbg.addDiy') {
     const tier = msg.tier;
     const cand = debugCandidates(m.gd).find((c) => c.charId === msg.charId);
@@ -444,7 +450,7 @@ function debugMessage(lobby, session, msg) {
 }
 
 if (debugMode()) {
-  console.warn('[local-patch] local debug mode: in-game debug panel on (dbg.funds / dbg.addDiy)');
+  console.warn('[local-patch] local debug mode: in-game debug panel on (dbg.funds / dbg.addDiy / dbg.finish)');
   const upstreamView = PlayerState.prototype.privateView;
   PlayerState.prototype.privateView = function privateView() {
     const v = upstreamView.call(this);
