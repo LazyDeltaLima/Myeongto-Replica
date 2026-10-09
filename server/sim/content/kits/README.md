@@ -177,7 +177,7 @@ the kit's business. Summons: `battle.tokenDef(tokenId, unit)` / `battle.spawnTok
 pick. A **placeable** summon (data/backups.json `tokens[id].placeable`, made by the pick's skill or a talent — the
 variant's `sources` — and shown by its owner) is a hand piece like any operator's: when the 自选 piece is deployed in
 prep its player gets one stack of the variant's `deployLimit` — the picked module's own when its variant has one (望's
-TRP-X: 7 棋子); it holds the token's own talent additions (max_deploy_count / max_deck_stack_cnt, tools/build-data.mjs
+TRP-X: 8 棋子 at full potential); it holds the token's own talent additions (max_deploy_count / max_deck_stack_cnt, tools/build-data.mjs
 `tokenTalentDeckBonus`), so a deck reads `deployLimit` / `deckStack` as they are — (server/match/player/diy.js
 `placeableTokens`, PlayerState `grantTokensFor`), places it on a legal tile (the token's position / `ownerRange`), loses
 it with its owner (sold, merged, moved back), and the match hands every placed piece to the battle as a
@@ -188,9 +188,10 @@ the units are set up — it deploys once, free, at the battle start, then takes 
 `releaseSkillSummon(battle, unit, tokenId)` — and the dock hooks are owned by the piece: give it its kit with
 `battle._setupUnit(t, kit)` and **no** `offOwner` (the generic token kit registers no hook), and clear the owner's
 `mem.summonStock[tokenId]` when the skill takes the summon back. A kit test fields a piece the same way:
-`units: [op, { uid, kind: 'token', tokenId, ownerUid, row, col }]` (`test/local-patch-diy.test.js`, 望's 棋子). Every pick
-fights at full potential, as every chess (the owner's decision of 2026-10-07: data/backups.json forms, build-data
-`OPERATOR_POTENTIAL`; upstream 806a0477). A new kit makes the operator a legal pick only with `LOCAL_DIY_PICKS`: the server's
+`units: [op, { uid, kind: 'token', tokenId, ownerUid, row, col }]` (`test/local-patch-diy.test.js`, 望's 棋子). Every owned
+pick fights at its player's potential and 练度, as every chess (default 潜能 6 and 精英2 Lv.60 — upstream's owner's
+decision of 2026-10-08, ported 2026-10-09; data/backups.json forms are built at full potential and carry the lower
+ranks, DATA.md §2.3). A new kit makes the operator a legal pick only with `LOCAL_DIY_PICKS`: the server's
 `welcome.diyKitted` lists `KITTED_CHARS` ∩ those, so the 自选编队 picker offers it and `room.diy` keeps it.
 
 **The fidelity rule and the checklist** above apply item by item: every skill at rank 4 and 7, every talent, every
