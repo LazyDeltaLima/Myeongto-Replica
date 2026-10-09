@@ -52,6 +52,7 @@ import { LoadoutHost } from './screens/loadout.js';
 import { StatsHost } from './screens/stats.js';
 import { recordResult, installStatsRecorder } from './ui/stats.js';
 import { installLoadoutSync, installOwnershipSync, installDiySync } from './ui/loadoutSync.js';
+import { installDiyPresets } from './ui/diyPresets.js'; // 진영별 선발 프리셋
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
 import { installRestartNotice } from './ui/restartNotice.js'; // the deploy's restart countdown
@@ -375,6 +376,7 @@ async function boot() {
   installResources();
   installOwnershipSync({ net });
   installDiySync({ net });
+  installDiyPresets();
   net.attachBrowserHooks();
   // Audio: unlock on first gesture, BGM follows the route / match phase (js/audio.js).
   installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });

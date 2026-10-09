@@ -8,6 +8,9 @@
 // /diy.js). Out of match: the next match takes the picks. The picks live in ui/loadoutSync.js (localStorage + room.diy);
 // the model is ui/diyModel.js. Styles: css/screens/loadout.css (diy-*). An owned pick's card carries its operator's 潜能 /
 // 练度 selects (0.2.2, screens/cultivation.js — the same per-operator settings as 干员调配, `ops`); a prototype has neither.
+// Above the slots, the 阵营预设 bar (local feature, user decisions 2026-10-09; ui/diyPresets.js): 不使用预设 + the eight chat
+// factions — a saved preset is applied and linked, an empty one is made from the current picks; while one is linked every
+// change here is saved into it; picking that faction in the chat applies it.
 
 import { useLayoutEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, TierChip } from '../ui/components.js';
@@ -17,6 +20,10 @@ import { data } from '../data.js';
 import { PROF_NAME, skillLabel, moduleBadge, fullTraitText } from '../ui/loadoutModel.js';
 import { diySlotList, pickChoices, pickOptions, slotRecord, defaultPick } from '../ui/diyModel.js';
 import { CultivationSelects } from './cultivation.js';
+import { useStore } from '../store.js';
+import { FactionIcon } from '../ui/faction.js';
+import { diyPresetStore, selectPreset, deletePreset } from '../ui/diyPresets.js';
+import { CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
 import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -238,11 +245,37 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
  */
 export function DiyPanel(props) {
   const [picking, setPicking] = useState(null);
-  return DiyPanelView({ ...props, picking, onPicking: setPicking });
+  const presets = useStore((s) => s.presets, Object.is, diyPresetStore);
+  const activePreset = useStore((s) => s.active, Object.is, diyPresetStore);
+  return DiyPanelView({ ...props, picking, onPicking: setPicking, presets, activePreset, onPreset: selectPreset, onPresetDelete: deletePreset });
+}
+
+/**
+ * The 阵营预设 bar (ui/diyPresets.js): 不使用预设, then a chip per chat faction — filled when it holds a preset, the
+ * linked one marked — and 删除 for the linked preset.
+ * @param {{ presets: Record<string, any>, active: string|null, onSelect: (id: string|null) => void, onDelete: (id: string) => void }} props
+ */
+export function DiyPresetBar({ presets, active, onSelect, onDelete }) {
+  const on = chatFaction(active);
+  return html`<div class="diy-presets" role="group" aria-label=${t('阵营预设')} data-testid="diy-presets">
+    <span class="diy-presets__k">${t('阵营预设')}</span>
+    <button type="button" class=${cx('diy-preset', 'diy-preset--none', !on && 'is-on')} aria-pressed=${on ? 'false' : 'true'}
+      data-preset="" onClick=${() => onSelect(null)}>${t('不使用预设')}</button>
+    ${CHAT_FACTIONS.map((f) => {
+      const has = !!presets?.[f.id];
+      return html`<button key=${f.id} type="button" class=${cx('diy-preset', has && 'has-preset', active === f.id && 'is-on')} style=${`--fac:${f.color}`}
+        aria-pressed=${active === f.id ? 'true' : 'false'} data-preset=${f.id} title=${`${t(f.name)} · ${has ? t('已保存预设') : t('尚未设置预设')}`}
+        onClick=${() => onSelect(f.id)}><${FactionIcon} f=${f} /><span>${t(f.name)}</span></button>`;
+    })}
+    ${on ? html`<${Button} variant="ghost" size="sm" icon="close" class="diy-presets__del" data-testid="diy-preset-delete"
+      onClick=${() => onDelete(on.id)}>${t('删除{faction}预设', { faction: t(on.name) })}<//>` : null}
+    <p class="diy-presets__hint">${on ? t('此处的修改会保存到{faction}预设；在聊天中选择{faction}时自动套用', { faction: t(on.name) })
+      : t('选择一个阵营即可为其保存自选；在聊天中选择该阵营时自动套用')}</p>
+  </div>`;
 }
 
 /** The tab's view (no hooks: the tests draw it): `picking` = the slot being filled, or null. */
-export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPicking: setPicking, ops = {}, onOps = null }) {
+export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPicking: setPicking, ops = {}, onOps = null, presets = null, activePreset = null, onPreset = null, onPresetDelete = null }) {
   const slots = diySlotList(diyData());
   const slot = picking ? slots.find((s) => s.slotId === picking) : null;
   const tiers = [...new Set(slots.map((s) => s.tier))];
@@ -250,6 +283,7 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPickin
     <div class="own__bar">
       <p class="own__lead">${t('5阶与6阶各有两个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。')}</p>
     </div>
+    ${onPreset ? html`<${DiyPresetBar} presets=${presets || {}} active=${activePreset} onSelect=${onPreset} onDelete=${onPresetDelete || (() => {})} />` : null}
     <div class="diy__body">
       ${tiers.map((tier) => html`<section key=${tier} class="own-tier diy-tier" data-tier=${tier} aria-label=${t('{tier}阶', { tier })}>
         <h3 class="own-tier__head"><${TierChip} tier=${tier} size="sm" /><span class="num">${ROMAN[tier]}</span><span>${t('阶')}</span></h3>

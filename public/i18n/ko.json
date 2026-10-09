@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1023 of 1237 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1033 of 1247 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1254,5 +1254,15 @@
   "投票重新抽取首领、战场、特训敌人与禁用盟约：重抽票多于就绪票时重新抽取，票数相同则返回等待室": "리더 적·전장·특훈 적·결석 맹약 다시 뽑기 투표: 다시 뽑기가 준비 완료보다 많으면 다시 뽑고, 같으면 대기실로 돌아갑니다",
   "已重新抽取本局信息": "이번 판 정보를 다시 뽑았습니다",
   "就绪与重新抽取票数相同，已返回等待室": "준비 완료와 다시 뽑기가 같은 수라 대기실로 돌아왔습니다",
-  "无法开始新的模拟，已返回等待室": "새 시뮬레이션을 시작할 수 없어 대기실로 돌아왔습니다"
+  "无法开始新的模拟，已返回等待室": "새 시뮬레이션을 시작할 수 없어 대기실로 돌아왔습니다",
+  "阵营预设": "진영 프리셋",
+  "不使用预设": "프리셋 없음",
+  "已保存预设": "저장된 프리셋",
+  "尚未设置预设": "아직 프리셋 없음",
+  "删除{faction}预设": "{faction} 프리셋 삭제",
+  "此处的修改会保存到{faction}预设；在聊天中选择{faction}时自动套用": "여기서 바꾸면 {faction} 프리셋에 저장됩니다. 채팅에서 {faction}을(를) 고르면 자동으로 적용됩니다",
+  "选择一个阵营即可为其保存自选；在聊天中选择该阵营时自动套用": "진영을 고르면 지금 선발 편성이 그 진영 프리셋으로 저장됩니다. 채팅에서 그 진영을 고르면 자동으로 적용됩니다",
+  "已将{faction}预设套用到自选编队": "{faction} 프리셋을 선발 편성에 적용했습니다",
+  "下一局起生效（重新抽取后也生效）": "다음 판부터 적용(다시 뽑기 후에도 적용)",
+  "撤销": "되돌리기"
 }

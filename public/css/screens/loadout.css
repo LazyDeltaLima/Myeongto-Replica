@@ -444,6 +444,26 @@
 .diy__body { flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; display: flex; flex-direction: column; gap: .18rem; padding: 0 .06rem .2rem 0;
   scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
 .diy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(max(5.2rem, 300px), 1fr)); gap: .1rem; }
+/* 阵营预设 bar (screens/diy.js DiyPresetBar, ui/diyPresets.js): 不使用预设 + the eight chat factions; a saved preset filled,
+   an empty one dashed, the linked one ringed */
+.diy-presets { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .06rem; }
+.diy-presets__k { font-size: max(.14rem, 11px); font-weight: 700; color: var(--text-lo); margin-right: .04rem; }
+.diy-preset {
+  display: inline-flex; align-items: center; gap: .05rem; height: max(.34rem, 26px); padding: 0 .1rem;
+  border: 1px dashed var(--line-3); border-radius: .03rem; background: rgba(0, 0, 0, .3);
+  color: var(--text-lo); font-size: max(.14rem, 11px); font-weight: 700; white-space: nowrap; opacity: .7;
+}
+.diy-preset.has-preset { border-style: solid; border-color: var(--fac); color: var(--fac); background: rgba(255, 255, 255, .05); opacity: 1; }
+.diy-preset.is-on { opacity: 1; border-style: solid; border-color: var(--fac, var(--mint-400)); box-shadow: inset 0 0 0 1px var(--fac, var(--mint-400)); background: rgba(255, 255, 255, .1); color: var(--fac, var(--mint-400)); }
+.diy-preset--none.is-on { color: var(--mint-400); }
+.diy-preset .chat__facico { width: max(.2rem, 15px); height: max(.2rem, 15px); }
+.diy-presets__del { margin-left: .04rem; }
+.diy-presets__hint { flex-basis: 100%; margin: 0; font-size: max(.13rem, 10px); color: var(--text-dim); }
+@media (max-width: 760px) {
+  .diy-presets__hint, .diy-presets__k { display: none; }
+  .diy-preset span { display: none; }
+  .diy-preset--none { padding: 0 .08rem; }
+}
 .diy-slot {
   position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .1rem; align-items: start; min-width: 0;
   padding: .08rem; background: rgba(255, 255, 255, .03); border: 1px solid var(--line); border-left: 3px solid var(--tc, var(--line-3));

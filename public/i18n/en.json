@@ -1250,5 +1250,15 @@
   "投票重新抽取首领、战场、特训敌人与禁用盟约：重抽票多于就绪票时重新抽取，票数相同则返回等待室": "Vote to draw the enemy leader, the battlefield, the special enemies and the disabled bonds again: more reroll votes than ready votes redraw them, a tie returns to the waiting room",
   "已重新抽取本局信息": "This match was drawn again",
   "就绪与重新抽取票数相同，已返回等待室": "Ready and reroll votes tied: back to the waiting room",
-  "无法开始新的模拟，已返回等待室": "A new simulation could not start: back to the waiting room"
+  "无法开始新的模拟，已返回等待室": "A new simulation could not start: back to the waiting room",
+  "阵营预设": "Faction presets",
+  "不使用预设": "No preset",
+  "已保存预设": "Preset saved",
+  "尚未设置预设": "No preset yet",
+  "删除{faction}预设": "Delete the {faction} preset",
+  "此处的修改会保存到{faction}预设；在聊天中选择{faction}时自动套用": "Changes here are saved to the {faction} preset; picking {faction} in the chat applies it",
+  "选择一个阵营即可为其保存自选；在聊天中选择该阵营时自动套用": "Pick a faction to save these picks as its preset; picking that faction in the chat applies it",
+  "已将{faction}预设套用到自选编队": "Applied the {faction} preset to your self-select squad",
+  "下一局起生效（重新抽取后也生效）": "Takes effect from the next match (or after a reroll)",
+  "撤销": "Undo"
 }
