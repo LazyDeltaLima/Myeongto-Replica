@@ -1,10 +1,11 @@
 # 화면 UI
 
-원래 `docs/LOCAL-PATCH.md` 한 파일이던 것을 2026-10-09에 영역별로 나눴다(내용은 그대로 옮김, 색인은 `docs/LOCAL-PATCH.md`). 본문의 「아래」「위」는 옛 한 파일 기준이라 다른 파일에 있을 수 있다 — 절 이름으로 `docs/LOCAL-PATCH.md` 색인이나 `grep -rn "<이름>" docs/rules/`로 찾는다.
+옛 `docs/LOCAL-PATCH.md`에서 2026-10-09에 나눈 파일이다. 옛 절 이름은 `docs/LOCAL-PATCH.md` 색인에서 찾는다.
+본문의 「캡처 N」·「KR 캡처 N」·「이미지 N」은 관리자가 준 공식 화면 캡처 묶음(비공개)의 번호다.
 
 ## 게임 내 디버그 패널 (2026-10-06)
 - **로컬 디버그 모드** = `SP_DEBUG_PAGE=1` 또는 올바른 `SP_DEBUG_FUNDS`(0..999), 그리고 `NODE_ENV`가 `production`이 아닐 때
-  (`server/local-patch.js debugMode`). `local.sh`가 둘 다 켠다. 배포 서버는 둘 다 설정하지 않고,
+  (`server/local-patch.js debugMode`). 로컬 개발 서버는 둘 다 켜고, 배포 서버는 둘 다 설정하지 않고,
   Docker 이미지는 `NODE_ENV=production`이라 배포 서버는 절대 디버그 모드가 아니다.
   - 이 조건은 `SP_DEBUG_FUNDS` 재화 고정에도 적용된다(예전에는 `SP_DEBUG_FUNDS`만 보고 고정했다).
 - 서버: `dbg.funds { on }`, `dbg.addDiy { chessId }`는 `Lobby.onMessage` 첫 줄의 기존 훅(`localPatch.onMessage`)으로 들어온다.
@@ -23,7 +24,7 @@
     기록의 `modules` 또는 `none`; 일반 기록에 모듈을 보내면 거부). 생략하면 현재 값. 항목의 `diy`(선발 칸)는 있으면 유지하고 새로 붙이지 않는다
     → 고르지 않은 오퍼레이터는 픽이 되지 않는다(`diyPicks`는 `diy`만 본다, `setLoadout`/`checkLoadout`을 거치지 않아 `diyOwned`도 그대로).
     거부되면 아무것도 바뀌지 않고, 정비 구역이 차서 못 넣으면 loadout을 되돌린다. 일반 기물에만 스킬을 고르면 같은 항목의 모듈(합성된 정예가 쓸 것)은 유지된다.
-  - 결산(2026-10-09, 사용자 요청 「디버그용으로 결산화면을 바로 볼 수 있어?」): `dbg.finish { victory }` → `Match.finish({ victory, reason: victory ? 'victory' : 'defeat' })`.
+  - 결산(2026-10-09, 관리자 요청 「디버그용으로 결산화면을 바로 볼 수 있어?」): `dbg.finish { victory }` → `Match.finish({ victory, reason: victory ? 'victory' : 'defeat' })`.
     어느 단계에서나 판을 바로 끝낸다 — 모든 사람 자리에 `m.result`, `onMatchEnd`(`[stats]` 줄, 결산 화면 피드백 허용)가 그대로 돈다. 패널 맨 아래 「정산 [승리] [패배]」.
 - 클라이언트: `m.private.debug`가 있을 때만 `DebugPanel`을 그린다(관전석 제외). 위치는 왼쪽 팀 패널 오른쪽, 맹약 줄 아래(`left 2.3rem, top 2.05rem`)
   — 보드·상점·정비 구역과 겹치지 않는다(1920×1080·1280×720 확인, 폭 2.1rem: 그보다 넓으면 보드 왼쪽 날개에 닿는다).
@@ -31,8 +32,8 @@
   문구는 중국어 원문 + `public/i18n/ko/ui.json`(「调试用资金固定 {0}」 → 「디버깅용 재화 {0} 고정」 등).
 
 ## 정비 화면 HUD (2026-10-06)
-상점과 같은 방식(사용자 요청: 정비 화면 나머지도 실제 게임과 같게). 근거는 EN 클라이언트 `[uc]autochessbattle.ab`의 `autochess_hud_panel`,
-`autochess_hud_bond_item`, `panel_prep_ready`와 사용자 스크린샷(한국 서버). 그림은 모두 웹 소재(`hudPanel/*`, `hudBondItem/*`, `prepReady/*`,
+상점과 같은 방식(관리자 요청: 정비 화면 나머지도 실제 게임과 같게). 근거는 EN 클라이언트 `[uc]autochessbattle.ab`의 `autochess_hud_panel`,
+`autochess_hud_bond_item`, `panel_prep_ready`와 관리자 스크린샷(한국 서버). 그림은 모두 웹 소재(`hudPanel/*`, `hudBondItem/*`, `prepReady/*`,
 `bondBoardIcon/*`)라 모든 플레이어에게 같다. 크기 단위는 클라이언트 값(아래 「크기 단위」): 1단위 = 1920×1080 기준 1.5px(`--u` .015rem).
 - 라운드 띠: 판(`bg_board`)·양 끝 원·장식 상자·장식 글자, 그 뒤 어두운 띠(프리팹의 `frame_left` 옆판 — 스크린샷의 어두운 띠를 CSS로),
   가운데 단계 알약(`bg_rest`/`bg_battle`/`bg_coop` + `frame_mid_normal`, 글자 17px #40b196), 라운드 숫자 `bg_round`(20px #171717), LP 20px #a8a8a8,
@@ -53,7 +54,7 @@
 - 활성/비활성 원 크기 차이(2026-10-06 2차): 클라이언트의 `bondBoardIcon` 스프라이트는 모두 77×77인데 고리(`1_0`, 덜 찬 `<n>_<k>`)는
   tight 패킹이라 텍스처가 64.86×64.86(가운데)이고 웹 PNG는 그 텍스처(65px)다. 같은 상자에 늘려 그려서 고리가 꽉 찬 원보다 14 % 컸다 →
   고리는 판(80)의 84.2 %, 꽉 찬 원만 100 %(`[data-full]`). 맹약 팝업 원도 같게.
-- 맹약 문양 크기·이름 간격, 플레이어 목록 이름(2026-10-07, 사용자: 중국 서버 联防 캡처와 비교): 문양 스프라이트(`[uc]autochesscommon` `icon_<맹약>`)는
+- 맹약 문양 크기·이름 간격, 플레이어 목록 이름(2026-10-07, 관리자 제보: 중국 서버 联防 캡처와 비교): 문양 스프라이트(`[uc]autochesscommon` `icon_<맹약>`)는
   128×128 rect 안에 ~100px 텍스처가 tight 패킹이고 웹 PNG는 그 텍스처라, 36단위 상자를 꽉 채우면 공식보다 약 25 % 컸다 → 원래 px × 36/128단위,
   가운데(`components.js natSizeVars`가 `--nw`/`--nh`를 넣는다: `BondDisc` img, `gameComponents.js` `Img` onLoad·`BondGlyph`; 팝업 원도 같게).
   이름은 `text_name`(14px, UpperCenter, 상자 위가 중심 20 아래)대로 위쪽 정렬 → 원 중심에서 글자 중심 ≈36(전에는 42). 왼쪽 플레이어 목록의 이름은
@@ -78,26 +79,26 @@
   자기 칸은 왼쪽 위에 `icon_self`, LP는 초상 아래쪽 `bg_hp`(57×24, icon_hp, 16px #f3f3f3), 상태 아이콘(21×21)은 초상 오른쪽 아래 바깥. 공식 칸에는 이름이 없지만
   원본 기능이라 이름·联防 태그·눈·前往查看은 옆에 남겼다(상점과 같은 원칙). 로컬 추출이 없으면 원본 목록.
 - 소통(이모티콘) 버튼: 원본이 이미 공식 `emoji_btn`(151×55)·왼쪽 아래 배치라 그대로.
-- 크기 단위(2026-10-06 후속, 사용자 결정 「클라 추출 근거면 공식 단위」): `auto_chess_battle_ui_page`의 Canvas는 ScreenSpace-Camera(`m_RenderMode` 1) +
+- 크기 단위(2026-10-06 후속, 관리자 결정 「클라 추출 근거면 공식 단위」): `auto_chess_battle_ui_page`의 Canvas는 ScreenSpace-Camera(`m_RenderMode` 1) +
   CanvasScaler ScaleWithScreenSize, 기준 1280×720, `m_ScreenMatchMode` 0, `m_MatchWidthOrHeight` 0(가로). 그 아래 `panel_ui` → `panel_below`/`panel_hud`/
   `panel_shop` → 프리팹 루트(`autochess_hud_panel`, `autochess_shop`) → `player_info_view`·`bond_list_info_view`까지 localScale은 모두 1(상점 안에서 크기가
   다른 것은 마스코트 Spine 0.42와 말풍선 0.87뿐). → 1920×1080에서 1단위 = 1920/1280 = 1.5px. 이전 값 1.08(= 1.5 × 0.72)은 스크린샷에서 맞춘 것이고
-  0.72배 부모는 없다. 사용자 CN 캡처(846×528, 16:10)로 확인: 두 🔍 버튼 중심 간격 457px / 611단위 = 0.75px/단위 ≈ 528/720(세로 기준) — 16:9에서는
+  0.72배 부모는 없다. 관리자 CN 캡처(846×528, 16:10)로 확인: 두 🔍 버튼 중심 간격 457px / 611단위 = 0.75px/단위 ≈ 528/720(세로 기준) — 16:9에서는
   가로·세로 모두 1.5라 같다. 준비 완료 161단위 = 캡처 약 118px(0.73), 카드 간격 약 123px = 164단위(카드 158 + 간격 6). 우리 rem(1920×1080 기준
-  `min(vw/19.2, vh/10.8)`)은 16:10에서 가로를 따라 공식보다 약 10 % 작다(스크린샷 `u15-1610.png` 기준 808px 대 915px).
+  `min(vw/19.2, vh/10.8)`)은 16:10에서 가로를 따라 공식보다 약 10 % 작다(16:10 스크린샷 기준 808px 대 915px).
 - 프리팹·스프라이트 읽기 도구(2026-10-07): `tools/local-extract/ui_inspect.py` (`src/.venv-extract`, `python -I`).
   `prefab <번들> <GameObject>` = RectTransform 트리(앵커·위치·크기·피벗) + Image 스프라이트·색, Text 글자 크기·정렬·줄 간격·레이아웃 값,
   `sprites <번들> [이름 일부…]` = 스프라이트 rect·텍스처 rect·오프셋(tight 패킹이면 웹 PNG에 여백이 없다 — 맹약 문양 128 rect / 텍스처 ~100).
   번들은 경로 또는 클라이언트 `PersistentData/Bundles` 아래 경로(예: `ui/autochess/[uc]autochessbattle.ab`).
-- **PC UI 배율 + 해상도 반응형(2026-10-06 2차, 사용자 요청 「해상도 기준 반응형」)**: 단위는 한 곳 — `css/hud-art.css` `:root --ui-u`
+- **PC UI 배율 + 해상도 반응형(2026-10-06 2차, 관리자 요청 「해상도 기준 반응형」)**: 단위는 한 곳 — `css/hud-art.css` `:root --ui-u`
   = `clamp(.0135rem, .0105rem + .3px, .015rem)`. hud-art `--u`, shop-art `--u`(기존 폭 상한 `min(…)` 유지), phase-art `--pu`(세로 상한 유지)가 모두 이것을 쓴다.
   - 데이터 확인: EN(PC) 클라이언트 `global-metadata.dat` — `StandaloneCanvasScaleHelper`(`NotifySettingChange`, `_SetAllCanvasScale`)의 상수
     `MIN_SCALE_FACTOR` 0.9 · `MAX_SCALE_FACTOR` 1.0 · `DEFAULT_SCALE_FACTOR` 1.0(필드 기본값 표에서 직접 읽음), 설정 키 `UI_SCALER`(SettingManager, SLIDER).
-    즉 PC판은 1280×720 캔버스 단위에 **사용자 설정 UI 배율 0.9~1.0(기본 1.0)**을 곱한다. 적용 방식(모든 캔버스 배율 곱)은 메서드 이름으로 본 [추정](로직은 네이티브).
+    즉 PC판은 1280×720 캔버스 단위에 **플레이어가 설정하는 UI 배율 0.9~1.0(기본 1.0)**을 곱한다. 적용 방식(모든 캔버스 배율 곱)은 메서드 이름으로 본 [추정](로직은 네이티브).
   - KR 캡처(3838×2158, PC)는 🔍 버튼 간격 1649px = 610단위 × 2.70px = 0.9 × 3838/1280 → 그 플레이어는 최소 0.9로 둔 것. 해상도별 공식 표는 못 찾았다.
   - 곡선 [추정]: 1280×720 프레임(rem 66.7px) 이하는 1.0(=지금 크기 — 폰·작은 창은 그대로, 줄이지 않음), 1920×1080(rem 100px)에서 0.9, 그 사이 직선,
     그 위는 0.9. 1단위 = 1280 이하 `.015rem`, 1920×1080 1.35px, 2560×1440 1.8px, 3840×2160 2.7px.
-  - **설정 「UI 크기」(사용자 결정 2026-10-06)**: 공식 PC판 UI_SCALER처럼 90~100 % 슬라이더(1 % 단위, 기본 90 = 위 곡선). 값 k는 곡선의 끝값을 바꾼다 —
+  - **설정 「UI 크기」(관리자 결정 2026-10-06)**: 공식 PC판 UI_SCALER처럼 90~100 % 슬라이더(1 % 단위, 기본 90 = 위 곡선). 값 k는 곡선의 끝값을 바꾼다 —
     1280×720 이하는 늘 1.0, 1920×1080 이상은 k, 사이는 직선: `--ui-u = clamp(.015k rem, (.045k − .03) rem + (3 − 3k) px, .015 rem)`(k .9 = 위 식,
     k 1 = 예전 `.015rem` 고정). 그래서 폰은 어떤 값에서도 지금보다 작아지지 않는다. `ui/hudArt.js` `UiScaleSetting`·`uiScaleStore`(localStorage
     `sp.pref.uiScale`, `loadPref`/`savePref`라 저장소 오류는 무시)이 `<html>`에 `--ui-k`를 바로 넣어 슬라이더를 움직이는 동안 화면이 바뀐다.
@@ -109,9 +110,9 @@
   - 바꾸지 않은 것: 배치 기물 정보 창(1920 캔버스, `.01rem` 직접 값)과 이모티콘(`.01rem`)은 스크린샷에 맞춘 rem 값이라 이 단위를 안 쓴다.
   - 확인(headless, 목 화면 맹약 10개): 2000×1125 🔍 간격 860px(캡처 환산 859), 맹약 간격 113px(112.7), 3840×2160 1650px·216px(캡처 3838 폭 1649·216),
     모든 해상도에서 맹약 7개 + 8번째 잘림. 준비 완료 버튼은 맹약 줄과 겹치지 않음.
-- 배치 기물 정보 창(2026-10-06 후속, 같은 날 2차로 다시 짬 — 사용자 제보, `ui/detailArt.js`): 상자 없이 화면 왼쪽 끝에
+- 배치 기물 정보 창(2026-10-06 후속, 같은 날 2차로 다시 짬 — 관리자 제보, `ui/detailArt.js`): 상자 없이 화면 왼쪽 끝에
   전체 높이로 오퍼레이터 아트, 오른쪽으로 투명해지는 가로 마스크(55 %→100 %), 글자 뒤·탭 아래는 어둡게. 그 위에 `act2autochess_character_info_subpanel_status`·
-  `…_tabgroup`(735단위 폭, 클라이언트 1920×1080 캔버스라 1단위 = .01rem — 스크린샷의 직군 아이콘 중심 x≈79와 일치)과 사용자 스크린샷(深巡·乌尔比安·斯卡蒂·
+  `…_tabgroup`(735단위 폭, 클라이언트 1920×1080 캔버스라 1단위 = .01rem — 스크린샷의 직군 아이콘 중심 x≈79와 일치)과 관리자 스크린샷(深巡·乌尔比安·斯卡蒂·
   盟约·辅助干员) 순서: 금색 틀 직군 아이콘(소환물·보조 오퍼레이터는 청록 틀 [추정]), 이름 33px, 등급 | 정예 아이콘 LV n(`chess.json status`의 phase·level =
   공식 charChessDataDict status, 예: 深巡 LV 55·乌尔比安 LV 1), 능력치 목록(攻击 防御 法抗 阻挡 费用 21px — 원본의 攻击间隔·再部署는 작게 이어서), 攻击范围 칸
   (136×105)과 맹약 칸(112×105, 원본 맹약 칩: 개수·同构·本局禁用·팝업), 얇은 파란 체력 막대(555)와 끝의 「生命」+파란 값 상자, 탭 特质 / 技能(+모듈) / 特性 /
@@ -131,7 +132,7 @@
   **배치 중에도**(드래그 중·방향 고르는 중, `screens/game.js` 2줄 + `detailArt.js placingDetail`) 같은 카드를 띄우고 아트를 더 투명하게(.55), 포인터는 받지 않는다
   (`.dart-placing`) — KR 캡처대로. 보드 쪽(배치 가능 칸·방향 마름모·범위 미리보기)은 다른 작업.
 - 맹약 팝업(2026-10-06 후속, 같은 날 다시 짬 — KR 인게임 캡처 21·22): **클라이언트 `autochess_hud_bond_detail_dialog` 그대로.** 처음의 흰 타일·
-  「핵심 맹약」·「활성화 필요 인원」 모양(사용자가 준 이미지 1·6)은 도감 화면 것이라 HUD에서는 쓰지 않는다. 캡처 대조: 맹약 줄 간격 170px = 83단위 →
+  「핵심 맹약」·「활성화 필요 인원」 모양(관리자가 준 이미지 1·6)은 도감 화면 것이라 HUD에서는 쓰지 않는다. 캡처 대조: 맹약 줄 간격 170px = 83단위 →
   패널 602×391단위(프리팹 584×379), 위 ≈135(프리팹 132.5).
   - 패널: 위 가운데 고정, 중심이 화면 위에서 322 → 윗변 132.5, 584×379, `detail_bg`. 머리 104 높이(스크롤해도 고정): 맹약 원판(80×80, `bondBoardIcon` +
     아이콘 36, 중심 왼쪽 위에서 43.4 / 49.2), 이름(24, x 80부터), 인원 알약(중심 61.9 아래, x 81.3: 비활성 = `bond_inactive_bg` 빨강 + `title_char_icon`
@@ -150,56 +151,56 @@
   오른쪽 끝 아래쪽 4분의 3 높이(밑에서 2.3rem). 원본 「COST」 글자는 숨김.
 - 왼쪽 플레이어 목록: KR 솔로 캡처(정비·전투 모두)에는 목록이 없어 **혼자일 때는 숨긴다** [추정: 멀티는 그대로] — `teamPanel.js` 훅에 `is-solo`.
 - 저지 수(阻挡)와 에기르 포식(2026-10-06 확인): 실제 대전 경로(매치 하네스 정비 → `m._normalOpts` → 실제 `Battle`)에서 深巡·幽灵鲨·斯卡蒂 + 앞 칸 오퍼레이터를
-  한 줄로 놓으면 深巡 3 → 7(먹은 셋의 기본 저지 2+1+1), 斯卡蒂 1 → 2(사용자 스크린샷의 斯卡蒂 2와 같은 +1). 카드가 읽는 값 — 전투 중 `unitStatsEntry(u, u._s)`,
+  한 줄로 놓으면 深巡 3 → 7(먹은 셋의 기본 저지 2+1+1), 斯卡蒂 1 → 2(관리자 스크린샷의 斯卡蒂 2와 같은 +1). 카드가 읽는 값 — 전투 중 `unitStatsEntry(u, u._s)`,
   정비 중 「开战时」 미리보기 `Match._unitStatsOf`(battleStart 훅까지 실행) — 둘 다 7·2이고 원본 카드도 같은 값(초록 +4)을 보인다. 시뮬레이터 문제 없음.
 - 위치 수정(2026-10-06 2차): 라운드 띠 중심을 화면 위에서 34단위로(`player_info_view` 위 고정 156 높이, `group_hud` +44 — 전에는 약 62단위라 위 공백이 컸다),
   🔍 버튼은 띠 중심보다 6.5 위, 맹약 줄은 위에서 55(`bond_list_info_view`, 원 중심 88), matte 96 높이·최소 420 폭, 준비 완료는 틀(161×57) 안에서 판이
   3.1 왼쪽·1.3 아래이고 아이콘·글자는 `panel_content` 기준(글자 중심 판 중심 +17.6, 아이콘은 글자 왼쪽 끝에서 19.7), 플레이어 목록 판은 초상 왼쪽 17(전에는 8.5).
 - 그대로 둔 것: 단축키(원본), 준비 완료 아래 플레이어 준비 칸(`panel_player`: `player_bg` + 사람마다 `player_ready` 막대 — 지금은 「준비 완료 n/4」 글자).
-- 사용자 제보 수정(2026-10-06 3차):
-  - 왼쪽 벤치 칸 선택 불가(제보 10): 정보 카드의 탭 내용(`.dart__pane`, pointer-events auto)이 벤치 줄(y ≈ 620–790, 2000×1125)과 겹쳐 0–2번 칸
+- 관리자 제보 수정(2026-10-06 3차):
+  - 왼쪽 벤치 칸 선택 불가: 정보 카드의 탭 내용(`.dart__pane`, pointer-events auto)이 벤치 줄(y ≈ 620–790, 2000×1125)과 겹쳐 0–2번 칸
     (x ≈ 300–630)을 누르면 카드가 받았다(elementFromPoint = `.dgarrison__head` 등). 이제 탭 내용은 누름을 보드로 넘기고 버튼·링크·`[title]`·
     썸네일만 받는다(hud-art.css). 탭 줄·머리·능력치 칸은 그대로 받는다.
-  - 선택 마름모가 카드를 덮음(제보 14): `Underframe`이 마름모를 따로 그린다(`.uframe.uframe--dia`, 버튼 없는 층). 공식 모양에서는 z 8로
+  - 선택 마름모가 카드를 덮음: `Underframe`이 마름모를 따로 그린다(`.uframe.uframe--dia`, 버튼 없는 층). 공식 모양에서는 z 8로
     카드(z 9) 아래, 撤退·出售 버튼(`.uframe[data-uid]`)은 그대로 z 12. 원본 모양은 둘 다 z 12라 보이는 것은 같다.
-  - 채팅 자동 스크롤(제보 3): 원본 `ChatLog`는 맨 아래에서 24px 넘게 올라가 있으면 새 줄에 따라가지 않는다 → 내가 보낸 줄이면 항상 맨 아래로,
-    한 프레임 뒤에 한 번 더(줄바꿈·글꼴이 늦게 잡힐 때). headless에서는 맨 아래에 있을 때 원본도 따라갔으므로 사용자가 조금 올려 둔 상태였다고 본다 [추정].
+  - 채팅 자동 스크롤: 원본 `ChatLog`는 맨 아래에서 24px 넘게 올라가 있으면 새 줄에 따라가지 않는다 → 내가 보낸 줄이면 항상 맨 아래로,
+    한 프레임 뒤에 한 번 더(줄바꿈·글꼴이 늦게 잡힐 때). headless에서는 맨 아래에 있을 때 원본도 따라갔으므로 제보 때는 조금 올려 둔 상태였다고 본다 [추정].
 
 ## 상점 화면 (2026-10-06)
-사용자 요청: 상점을 실제 게임과 같게. 근거는 EN 클라이언트 `ui/autochess/[uc]autochessbattle.ab`의 프리팹(`autochess_shop`, `autochess_shop_card_item`,
-`autochess_shop_cost_item`, `autochess_shop_bond_item`)과 사용자가 준 실제 게임 스크린샷 3장.
+관리자 요청: 상점을 실제 게임과 같게. 근거는 EN 클라이언트 `ui/autochess/[uc]autochessbattle.ab`의 프리팹(`autochess_shop`, `autochess_shop_card_item`,
+`autochess_shop_cost_item`, `autochess_shop_bond_item`)과 관리자가 준 실제 게임 스크린샷 3장.
 - 그림: 웹 소재(`data/assets.json` ui `shopPanel/*`·`shopCard/*`·`garrisonTypeIcon/*`)라 로컬 클라이언트가 없는 플레이어도 같다. 가격 육각형
   (`cost_bg_1`/`cost_bg_2`)만 로컬 추출본(ui/battle)이라 없으면 원본 CSS 육각형. 웹 그림이 없으면 `has-shop-art`가 붙지 않아 원본 모양 그대로.
 - 크기: 프리팹 단위(카드 158×176, 승급 111×175, 접기 상자 168×184, 버튼 128×55). 1단위 = 1920×1080 기준 1.5px(클라이언트 값, 근거는 「정비 화면 HUD」
   「크기 단위」; 2026-10-06까지 스크린샷으로 맞춘 1.08px). 단 6칸 상점(약 1270단위)이 왼쪽 아래 원본 버튼(소통·채팅·설정·설명·전체 화면, 약 4.4rem —
   공식 정비 화면에는 없음)을 덮지 않도록 `min(.015rem, (100vw − 4.75rem) / 1270)`: 16:9에서 6칸이면 약 1.15px로 그려진다.
-- 정렬 수정(2026-10-06 2차, 사용자 제보): 원인 둘. ① 클라이언트에서 9-slice(`m_Type` 1 + `m_Border`)인 그림을 `100% 100%`로 늘려 그렸다 —
+- 정렬 수정(2026-10-06 2차, 관리자 제보): 원인 둘. ① 클라이언트에서 9-slice(`m_Type` 1 + `m_Border`)인 그림을 `100% 100%`로 늘려 그렸다 —
   가장자리 빛·여백까지 늘어나 판과 틀이 어긋남. 이제 `border-image`로: `ready_bg` 48×49(테두리 23), `ready_frame` 23×20(l 9 / b 7 / r 10 / t 8),
   `cancel_bg` 51×49, `frame_mid_normal`(t 18 / b 12), `matte`(l·r 178), `bg_player_list`(l·r 30, t·b 25), `acbattle_img_bond_title`(l·r 9, t 8, b 6).
   (`bg_board`도 9-slice지만 균일한 반투명이라 그대로.) 웹 소재 PNG 크기는 `battle_repeatline`·`repeat_line`(1px 작음) 말고 모두 스프라이트 rect와 같다.
   ② 손으로 맞춘 위치가 프리팹과 달랐다: `upgrade_disable`/`upgrade_max` 그림에 LEVEL·잠금 아이콘이 박혀 있는데 우리 LEVEL 글자를 또 그림(→ 그 상태에서는 숨김),
   LEVEL·숫자·「승급」 위치(상자 위에서 51.5 / 75.5 / 157.6, 프레임 안 기준 18.5 / 42.5), 자금 알약(접기 상자 윗변에 중심, −18.8), 접기 상자 그림(3.5 왼쪽·위),
-  동결/갱신 아이콘(중심 −26.5)·글자(+18.5, 1 위)·갱신 판(147 폭, 1 왼쪽). 크롭: 스크래치 `hud/align/c2000-*`, `c1920-*`.
+  동결/갱신 아이콘(중심 −26.5)·글자(+18.5, 1 위)·갱신 판(147 폭, 1 왼쪽).
 - 카드: 오른쪽 위 초상화, 왼쪽 흐린 워터마크 = 기물의 첫 特质의 유형 아이콘(프리팹 `garrison_icon` 65×65·35 %, `garrisons.json eventTypeIcon`
   → `garrisonTypeIcon/icon_*`; 스크린샷의 에스텔·아르케토·锡人과 맞음. 刺玫는 우리 데이터 icon_bond인데 스크린샷은 icon_gold — 2026-10-06 확인:
   프리팹 `garrison_icon`은 그림이 비어 있고 카드 스크립트 `_garrisonIcon`이 실행 중에 채운다(규칙은 네이티브). CN 표는 두 시즌 모두 icon_bond
   (act1 `garrison_25` 获得时 盟约+2, act2 `garrison_154` 休整期结束时 维多利亚+1)이고, 한국 서버 표는 구할 수 없다(Kengxxiao YoStar 저장소는
-  2025-11에서 멈췄고 `act1vautochess`만 있음, 클라이언트 표는 `anon/*.bin` 암호화). **해결(2026-10-06, 사용자 KR 캡처):** 지금 시즌 KR 벤델라(刺玫)
+  2025-11에서 멈췄고 `act1vautochess`만 있음, 클라이언트 표는 `anon/*.bin` 암호화). **해결(2026-10-06, 관리자 KR 캡처):** 지금 시즌 KR 벤델라(刺玫)
   카드 워터마크는 사슬(icon_bond), 정보 카드 特质 칩은 「지속 중첩」 <휴식 기간 종료 시> 활성화된 [빅토리아] 중첩 수 +1 = 우리 데이터(act2 `garrison_154`)와 같음
   → 규칙·데이터 모두 맞다. 처음 스크린샷의 icon_gold는 다른 시즌·다른 카드였던 것으로 본다. 정비 능력 特质(예: 락락 <획득 시>)는 마름모(icon_gold)),
   맹약 줄(14px #b7b7b7) 위에 이름 띠(직군 아이콘 + 이름 16px), 아이템은 설명 없이 그림 + 이름, 팔린 칸 `[ NO INFO ]`, 돈이 모자라면 회색 막.
-  업로드 화면에 없는 원본 기능(스킬·모듈 표시, 승진 가능 표시, 두 번 눌러 사기)은 남겼다. 스킬 아이콘은 오른쪽 아래(사용자 요청).
+  업로드 화면에 없는 원본 기능(스킬·모듈 표시, 승진 가능 표시, 두 번 눌러 사기)은 남겼다. 스킬 아이콘은 오른쪽 아래(관리자 요청).
 - 첫 탭(선택) 상태(2026-10-06, KR 캡처 20): `btn_double_check` group_able — 카드 아래쪽에 `bg_doublecheck1`(158×125, 청록, 카드 중심보다 25.5 아래),
   「구매 확인」 22 Heavy #dcfff7(중심보다 62 아래), 아트 어둡게; 살 수 없을 때 group_disable(`bg_doublecheck2` 회색, #e4e4e4). 원본의 「한 번 더 누르기」와
   들어 올림은 남김. 동시에 왼쪽 기물 정보 카드가 그 오퍼레이터(立绘 포함)로 열린다(원본 동작 그대로). 그림 변수는 `hudArt.js`(`--ha-dc1/2`), CSS는
   hud-art.css. ko 「确认购买」 → 「구매 확인」(ui.json이 official.json의 「구매한다」를 덮음).
-- 단축키는 원본 그대로(D 승급 · F 동결 · R 갱신): 스크린샷의 G/S/D/A는 그 유저가 바꿨을 수 있다(사용자 판단 2026-10-06).
-- 갱신 애니메이션(2026-10-09, 사용자 요청 「갱신하면 카드가 아래에서 위로」): 같은 번들의 클립. 카드 프리팹 `autochess_shop_card_item`의 Animation
+- 단축키는 원본 그대로(D 승급 · F 동결 · R 갱신): 스크린샷의 G/S/D/A는 그 플레이어가 바꾼 설정일 수 있다(관리자 판단 2026-10-06).
+- 갱신 애니메이션(2026-10-09, 관리자 요청 「갱신하면 카드가 아래에서 위로」): 같은 번들의 클립. 카드 프리팹 `autochess_shop_card_item`의 Animation
   `card_item_refresh` = root y −135 → −25.92(4/60초) → 0(14/60초), 접선 0 → 444.3 → 0, `root_layout`의 `card_whole_refresh_normal` =
   `group_slots`(카드 줄, 승급 상자 제외) alpha 0 → 1(0.1초). 60fps Hermite(가중치 1/3)를 구간마다 cubic-bezier로 옮겨 그대로 씀(game-shop.css
   `shop-card-rise`). 계기는 서버의 갱신 횟수(`m.private.shop.refreshes` = `stats.refreshes`, 버튼·R 키 모두): 라운드 시작의 다시 뽑기와 상점이
   처음 그려질 때는 재생하지 않음 [추정 — 언제 재생하는지는 네이티브 코드라 확인 못 함]. 카드 사이 시차 없음(클립에 없음 [추정]).
-  - 특수 갱신(2026-10-09, 사용자 제보): 전략 문구가 「特殊刷新」라고 부르는 수동 갱신 — 두요야
+  - 특수 갱신(2026-10-09, 관리자 제보): 전략 문구가 「特殊刷新」라고 부르는 수동 갱신 — 두요야
     【인재 교류】(라운드 첫 2회), 梓兰 【猎头顾问】(매번), 佩佩 【博学多通】(2·4·6레벨 업그레이드 뒤 1회) — 에는 `card_whole_refresh_special`
     (贾维의 갱신 횟수 보상은 문구에 特殊刷新이 없어 제외). 서버 `server/local-patch.js specialRefresh`가 그 갱신의 횟수를
     `shop.specialRefreshAt`로 보냄. 클립 = normal + `root_fx`(카드 줄 영역, RectMask2D, 카드처럼 −135 → 0)의 ① `grad`:
@@ -218,7 +219,7 @@
   승급 상자의 "LEVEL"은 글자로 그림.
 
 ## 휴식 진입·현상 수배·전투 종료 화면 (2026-10-06)
-사용자 요청: 휴식 시간 진입, 현상 수배 선택, 전투 종료를 실제 게임(KR 클라이언트 영상 캡처)과 같게. 근거는 EN 클라이언트
+관리자 요청: 휴식 시간 진입, 현상 수배 선택, 전투 종료를 실제 게임(KR 클라이언트 영상 캡처)과 같게. 근거는 EN 클라이언트
 `ui/autochess/[uc]autochessbattle.ab`의 프리팹 좌표(1280×720 캔버스, 1단위 = 1920 기준 1.5px, `--pu`)와 9-slice 테두리(스프라이트 `m_Border`).
 - 라운드 시작 배너(`round_start_dialog`): ROUND_START의 PhaseBanner 대신. 어두운 판 `round_bg`(9-slice 79/82/75/79) + 등고선 `round_bg_line`(#31543b),
   왼쪽 픽셀 마스코트(`round_emoji_head/body/hand`, 클립보드 `round_emoji_book`은 `book_mask` 상자(11.6° 기울임) 안에서 머리 위에, 떠다니는 #1aad88 네모 5개, 모서리 `round_cross`, `common_frame` 괄호, `round_text_01/02`),
@@ -242,27 +243,27 @@
   `_perfectAnim`·`_missAnim` panel_miss)를 이렇게 맞춤: 완벽한 작전 → panel_perfect(청록 빛 판 `bg_all` 9-slice 95/95/86/85, X 눈 큐브 + 검 #39d3a5,
   「战斗结束」/「完美作战！」 #2ce3b8), 셈하는 누수가 있으면 → panel_miss(어두운 판, 해골 큐브 `miss_emoji_head` + 몸 + 내린 검 #1aad88,
   「目标生命值减少」 #f24549 + `blood_icon` + 잃을 LP #ff3b3b — `Match.settle`처럼 `counted !== false`인 누수 수를 라운드 상한(`lpCapPerRound` 10)으로 자른 값, 联防이 다시 배분하기 전 값;
-  2026-10-09 사용자 제보 전까지 상한 없이 누수 수를 그대로 띄워 실제 LP −10인데 배너만 17로 보였다),
+  2026-10-09 관리자 제보 전까지 상한 없이 누수 수를 그대로 띄워 실제 LP −10인데 배너만 17로 보였다),
   셈하지 않는 누수만 있으면 → panel_miss 제목만([추정], 캡처 없음). 공통: 모서리 `left_cross`, `left_frame` 괄호, `doc_text_01/02`(#18e6b8),
   오른쪽 SIGNAL `doc_01` · 점 2×3 `dot_blank`(#28c79f, 알파 .6/1/.2/.6/.4/1) · 오른쪽 위 점(#279481). 보스전(최종 공세·隐秘核心)은 공식에 다른 프리팹
   (`panel_win_*`, `panel_lose_*`)이 있어 이 배너를 띄우지 않는다. **이 그림들은 웹 소재에 없어 로컬 추출(ui/battle)이 있을 때만 배너가 뜬다**(없으면 upstream의
-  「作战结束」 상자). 내 전투 결과가 오지 않은 라운드(서버 전투 모드·재접속)는 SETTLE에 띄우고, 라운드마다 한 번만 — 위 「0.2.0 병합」 J-3.
+  「作战结束」 상자). 내 전투 결과가 오지 않은 라운드(서버 전투 모드·재접속)는 SETTLE에 띄우고, 라운드마다 한 번만 — `upstream.md` 「0.2.0 병합」.
 - 9-slice 판은 `::before`로 그린다(판 자체에 테두리를 주면 자식 위치 기준 상자가 테두리만큼 줄어든다).
 - 번역(ui.json): 「选择后不可更改」「轮到你了」「确认选择」(공식표의 「확인」 대신 KR 캡처의 「선택 확인」 — 모든 确认选择에 적용) 「战斗结束」「完美作战！」「目标生命值减少」.
   CN 원문 문자열은 클라이언트 문자열표에서 못 찾아 [추정](KR 캡처 문구로 역추정).
 - 개발 목업: `dev/game-mock.html`에 ROUND_START(라운드 3, 자금 +6) 추가.
-- 사용자 제보 수정(2026-10-06 3차):
-  - [获得]가 늘 0(제보 4): 서버는 `m.private`(새 자금)를 먼저, 10/s로 묶인 `m.public`(단계 ROUND_START)을 나중에 보낸다 → `useRoundGold`가 단계가
+- 관리자 제보 수정(2026-10-06 3차):
+  - [获得]가 늘 0: 서버는 `m.private`(새 자금)를 먼저, 10/s로 묶인 `m.public`(단계 ROUND_START)을 나중에 보낸다 → `useRoundGold`가 단계가
     바뀔 때 잡는 기준값이 이미 새 자금이라 차이 0(디버그 고정 99가 아니어도, 실제 서버에서 1–3라운드 모두 0 확인). 또 배너는 단계가 PREP로 바뀐 뒤에도
     떠 있어 그때 0으로 떨어졌다. 수정: `server/local-patch.js`가 `Match.startRound` 동안의 `addFunds`를 모아 `m.private.roundGold { round, gain }`로
     보내고(자금 고정 중에는 고정 전 금액 합), `useRoundGold`는 이 라운드의 값이 있으면 그것을, 없으면(원본 서버) 예전 차이를 쓴다. 배너는 한 번 받은
     값을 끝까지 유지. 확인: 실제 솔로 판 1–3라운드 +4/+5/+6(고정 없음·`SP_DEBUG_FUNDS=99` 모두).
-  - 선택 화면 배경(제보 12): 원본은 왼쪽 2.8rem(플레이어 목록 칸)을 비운다 → 공식 모양에서는 화면 전체(`.gm > .spov.has-phase-art`).
-  - 왼쪽 아래 버튼(소통·채팅·설정·설명·전체 화면, 제보 13): `.gm__corner`를 `.gm__hud`(z 3 쌓임 맥락) 밖, 선택 화면 뒤로 옮겼다(`screens/game.js`).
+  - 선택 화면 배경: 원본은 왼쪽 2.8rem(플레이어 목록 칸)을 비운다 → 공식 모양에서는 화면 전체(`.gm > .spov.has-phase-art`).
+  - 왼쪽 아래 버튼(소통·채팅·설정·설명·전체 화면): `.gm__corner`를 `.gm__hud`(z 3 쌓임 맥락) 밖, 선택 화면 뒤로 옮겼다(`screens/game.js`).
     평소 z 3(HUD 위 — 정보 카드에 가려지지 않음, 방향 휠 z 6 아래), 선택 화면이 있으면 `is-over-choice`로 z 21. 위치는 안전 영역만큼 띄운다.
 
 ## 배치 UI (2026-10-06)
-사용자 요청: 보드에 기물을 배치할 때(드래그·방향 선택)를 실제 게임과 같게. 근거는 사용자가 준 KR 클라이언트 플레이 영상 캡처 2장(2000×1125,
+관리자 요청: 보드에 기물을 배치할 때(드래그·방향 선택)를 실제 게임과 같게. 근거는 관리자가 준 KR 클라이언트 플레이 영상 캡처 2장(2000×1125,
 드래그 중 / 방향 선택 중)과 EN 클라이언트 `battle/[pack]common.ab`(`panel_direction_selector`, `range_material`), `arts/ui/[uc]battlecommon.ab`(그림).
 - 추출: `tools/local-extract/extract.py` JOBS 2줄 → `assets/local/ui/battlecommon/`(`sprite_direction_arrow`·`sprite_direction_thumb`·
   `sprite_rectangle_frame_triangle`·`btn_cancel`·`btn_drag_back`), `assets/local/battle/common/sprite_attack_range.png`, `data/local-assets.json` 그룹
@@ -274,7 +275,7 @@
 - 공격 범위(3D 보드, stripes: 방향 선택 `facing`, 선택한 기물 `selRange` 등): `range_material`(셰이더 `Torappu/Battle/AttackRange`: 알파 블렌드,
   깊이 쓰기 없음, `_Color.a` 0.749, `_AnimationSpeed` 0.5)대로 `sprite_attack_range`(대각선 흰 줄 3개/칸) × 주황 255,140,0([추정] 실행 중 색 —
   캡처 225,148,20 = 0.75·주황 + 0.25·초록과 맞음), 흐르는 방향 [추정]. 그림이 없으면 같은 모양의 절차 텍스처. 이전의 Pixi 주황 칠·SVG 줄무늬는 3D에서 안 그린다.
-- 배치 중인 기물(드래그 중·방향 선택 중) 반투명 `GHOST_ALPHA` 0.6 [추정](사용자: "배치할 때는 투명도가 더 들어가는 것 같아").
+- 배치 중인 기물(드래그 중·방향 선택 중) 반투명 `GHOST_ALPHA` 0.6 [추정](관리자 제보: 배치 중에는 더 투명하다).
 - 방향 선택(`ui/placeArt.js`, 공식 그림이 있을 때만 — 없으면 원본 휠): 클라이언트 `panel_direction_selector` 구성대로
   - 마름모(`offset` 426 회전 −45°, 반대각 301단위)의 네 꼭짓점 쪽 L자 테두리(흰색, 고른 방향은 `_highlightColor` 255,226,176) + 고른 꼭짓점에
     `sprite_direction_arrow`(빛나는 V). 마름모 밖은 검정 39 %(`mask_*`, HUD까지 — 캡처에서 밖이 0.61배).
@@ -284,77 +285,77 @@
   - [추정] 마름모를 바닥 평면에 투영(아래 칸의 화면 모양으로 기울임)하고 반대각 2.6칸(`DIR_HALF_TILES`, 캡처: 약 325 px / 칸 125 px). 말풍선은
     글자가 눌리지 않게 화면에 똑바로. 엄지(`sprite_direction_thumb`)는 캡처에 안 보여 그리지 않음.
 - 2D 보드(WebGL2·로컬 그림 없음)는 초록·주황 강조가 원본 그대로(방향 선택 그림만 공식).
-- 확인: `dev/game-mock.html?stage=act1autochess_m02`(사막)·`act2autochess_m01`, 2000×1125·1920×1080 headless 캡처를 사용자 캡처와 나란히 비교,
+- 확인: `public/dev/game-mock.html?stage=act1autochess_m02`(사막)·`act2autochess_m01`, 2000×1125·1920×1080 headless 캡처를 관리자 캡처와 나란히 비교,
   취소 태그 누르기·방향 확정 동작. 테스트 `test/render/placement-ui.test.js`.
-- 서버에 올릴 것(git 밖): `public/assets/local/ui/battlecommon/`, `public/assets/local/battle/common/`, `data/local-assets.json` → `build-browser-resources.mjs`.
+- git 밖 생성물: `public/assets/local/ui/battlecommon/`, `public/assets/local/battle/common/`, `data/local-assets.json`(바뀌면 `node tools/build-browser-resources.mjs`).
 
-## 전투 화면 UI (2026-10-07, 진행 중)
-사용자 요청 「전투 화면 UI를 공식 인게임과 똑같이」: ① 아군 체력·SP·탄환 바 + 기물 레벨 → ② 적 HP(보스 포함) → ③ 원소 원형 바 → ④ 데미지·회복 숫자 순서,
-항목마다 근거를 보여 주고 사용자 확인 뒤 고친다. 상태 표시(寒冷 눈꽃·冻结 얼음 블록·战栗 주먹·은신·위장)도 사용자 요청으로 뒤에 추가.
+## 전투 화면 UI (2026-10-07)
+관리자 요청 「전투 화면 UI를 공식 인게임과 똑같이」: ① 아군 체력·SP·탄환 바 + 기물 레벨 → ② 적 HP(보스 포함) → ③ 원소 원형 바 → ④ 데미지·회복 숫자 순서,
+상태 표시(寒冷 눈꽃·冻结 얼음 블록·战栗 주먹·은신·위장)도 관리자 요청으로 뒤에 추가.
 근거: EN 클라이언트 `arts/ui/[uc]battlecommon.ab`(바 프리팹·스프라이트), `battle/[pack]common.ab`(`hud_unit`, `damage_text`, `heal_text`),
 `ui/autochess/[uc]autochessbattle.ab`·`battlecommon`의 `act1autochess_battle_dummy_hud_plugin`(정비 칩) — `tools/local-extract/ui_inspect.py`로 읽음 —
-과 사용자 중국 서버 캡처(2000×1125, numpy 측정). 캡처 원본은 세션 scratchpad `cap/cn-battle-4~8.png`, `cn-status-*.png`.
+과 관리자 중국 서버 캡처(2000×1125, numpy 측정).
 
-**크기 단위 (사용자 결정 2026-10-07 「제시한 기준대로」)**: 공식 유닛 HUD는 화면 공간 캔버스라 카메라·원근과 상관없이 같은 크기다 —
+**크기 단위 (관리자 결정 2026-10-07 「제시한 기준대로」)**: 공식 유닛 HUD는 화면 공간 캔버스라 카메라·원근과 상관없이 같은 크기다 —
 캡처에서 앞뒤 줄(칸 간격 168 / 177 px)의 바가 모두 128~129 px = 프리팹 125단위 × 2000/1920. → 1단위 = `min(폭/1920, 높이/1080)` CSS px
 (`hud-bars.js hudUnit`; 16:9가 아닌 화면의 맞춤 방식은 CanvasScaler 값을 못 찾아 [추정]). 해상도에 비례: 1280×720 83px, 1920×1080 125px, 4K 250px.
 예전 바는 칸 크기 × 0.64(24~96px 제한)라 뒷줄이 작고 4K에서 공식의 약 40 %였다.
 
 **① 아군 바** (`AllyBars`, 아군 = 오퍼레이터·소환물):
 - 위치: 프리팹은 `hud_unit` 중심에서 HP 바 중심이 54.5단위 아래. `hud_unit` 중심 = 발(배치 링 중심, 신발이 서는 곳) 위 24.5단위로 둔다(`HUD_ANCHOR`, [캡처]) —
-  처음엔 발 = `hud_unit`로 54.5 아래에 그렸더니 낮았다(사용자 확인 + 캡처 13). 캡처 5 / 6 / 13에서 링 중심 → HP 중심 27 / 29 / 33.7단위 → 약 30단위.
+  처음엔 발 = `hud_unit`로 54.5 아래에 그렸더니 낮았다(관리자 확인 + 캡처 13). 캡처 5 / 6 / 13에서 링 중심 → HP 중심 27 / 29 / 33.7단위 → 약 30단위.
   정비 칩·장비 바도 같은 기준점(캡처 4의 칩도 프리팹 자리보다 약 16단위 위). 예전에는 머리 위.
 - HP 125×7 `#49b2e3` α.7, 그 뒤에 최근 깎인 만큼 흰색 α.7(`slider_back`, 예전 잔상 계산 그대로). 30 % 미만 노랑은 공식에 없어 뺐다.
   SP 125×7을 HP 바로 아래(간격 0): 충전 `#caec46` α.7, 지속형 스킬 중 남은 시간 `#ffa800` α.7(`char_sp_cast_slider`).
   받침 = `sprite_bg`(9-slice, 테두리 4/5): 검정 α.70 가운데 + 4~5px 부드러운 그림자, 검정 α.5 틴트 → 가운데 α.35. 프리팹은 받침을 바보다 8.6 × 10.32 크게
-  (133.6 × (14 + 10.32)) 두는데 그 여분이 바로 그림자 폭이라, 가운데는 바 밑에 깔리고 바깥엔 부드러운 그림자만 보인다 — 사용자 제보
+  (133.6 × (14 + 10.32)) 두는데 그 여분이 바로 그림자 폭이라, 가운데는 바 밑에 깔리고 바깥엔 부드러운 그림자만 보인다 — 관리자 제보
   (캡처 14). 처음엔 딱딱한 1단위 여백을 줬다가 테두리처럼 보여 없앴었다. 그림(로컬 추출)이 없으면 바 크기 그대로 α.35 사각형.
-- SP 가득 참 빛 없음(사용자 결정: 캡처에 없고 자동 발동이라 순간).
-- 탄환형 스킬(사용자 제보): `char_bullet_bar` 받침 `#e56d00` α.31 위에 남은 탄환마다 칸. 칸은 코드(UIBulletBar)가 만들어
+- SP 가득 참 빛 없음(관리자 결정: 캡처에 없고 자동 발동이라 순간).
+- 탄환형 스킬(관리자 제보): `char_bullet_bar` 받침 `#e56d00` α.31 위에 남은 탄환마다 칸. 칸은 코드(UIBulletBar)가 만들어
   프리팹에 색이 없다 — [추정] 캡처 측정: 색 ≈ `#ffa800`(G 168 일치), 간격 2단위(7발: 16~17px 칸 2px 간격, 19발: 약 4.5px 칸 같은 간격). 칸이 1px보다 좁아지면 남은 비율 한 줄.
   탄환 수는 시뮬레이션이 `b.snap.ammo = [[id, 남은, 최대]]`로 넘긴다(`server/sim/local-hud.js`; 시뮬레이션은 브라우저에서 돈다 — `battle/runner.js`).
-  성능(사용자 요청 점검): 유닛 48개 전투에서 `ammoList` 0.5µs/스냅샷 = 스냅샷 전체(22.5µs)의 2.2 %, 칸은 `Texture.WHITE` 스프라이트라 배치가 늘지 않는다.
+  성능(관리자 요청 점검): 유닛 48개 전투에서 `ammoList` 0.5µs/스냅샷 = 스냅샷 전체(22.5µs)의 2.2 %, 칸은 `Texture.WHITE` 스프라이트라 배치가 늘지 않는다.
 - 보호막 줄(`UF.SHIELD`)은 공식 근거가 없어 HP 바 바로 위 얇은 줄로 유지. 상태 아이콘 줄은 머리 위 그대로(상태 표시 단계에서 바꿈).
 - 원소 줄은 ③ 전까지 바 받침 아래로만 옮김.
 
-**기물 레벨**: 전투 중에는 없다(캡처 5·6·8 — 사용자 확인 「전투중에는 안나와」). 정비 중은 `shop_hud`의 `chess_level_icon`
-(`autochess_level_N`, rect 42 / 텍스처 37.85, 루트 배율 1.25, 발에서 (-45.5, +128)단위). 그 그림은 38px라 1.25배로 키우면 흐렸다(사용자 제보) →
+**기물 레벨**: 전투 중에는 없다(캡처 5·6·8 — 관리자 확인 「전투중에는 안나와」). 정비 중은 `shop_hud`의 `chess_level_icon`
+(`autochess_level_N`, rect 42 / 텍스처 37.85, 루트 배율 1.25, 발에서 (-45.5, +128)단위). 그 그림은 38px라 1.25배로 키우면 흐렸다(관리자 제보) →
 같은 디자인의 상점 카드 칩 `img_chess_level_N`(45px; 숫자가 어두운 안쪽의 0.53 × 0.70 — 두 그림 같고 캡처 4는 0.51 × 0.69)을 쓰고, 안쪽 39px를 공식
 30 × 1.25 = 37.5단위에 맞춘다(캡처 4 안쪽 39px = 37.4단위). 웹 manifest `shopCard/` → 로컬 `ui/battle` → `autochess_level_N` → 없으면 원래 그린 칩(PR 가능 유지).
-칩 위치·크기는 사용자가 직접 확인하기로 함(2026-10-07 「일단 지금 그대로」).
-2026-10-08: 모델이 클라이언트 크기(0.864배, 「유닛 모델 크기」)로 작아진 뒤 사용자 제보 → 발에서 칩까지 높이를
-같은 비율로: (24.5 + 128) × 0.864 − 24.5 = 107.3단위(`PREP_CHIP.y`). 프리팹 128과 다르다 [사용자 결정]. 확인 `sp-check\chiplow.png`.
-같은 날 사용자 비교 캡처(望, 우리 `research/2026-10-07-user-issues-3/wang-chip-9.png` ↔ 공식 영상 `wang-chip-10.png`, 「칩 위치는 약간 더 올려야」):
+칩 위치·크기는 관리자가 직접 확인하기로 함(2026-10-07 「일단 지금 그대로」).
+2026-10-08: 모델이 클라이언트 크기(0.864배, 「유닛 모델 크기」)로 작아진 뒤 관리자 제보 → 발에서 칩까지 높이를
+같은 비율로: (24.5 + 128) × 0.864 − 24.5 = 107.3단위(`PREP_CHIP.y`). 프리팹 128과 다르다 [관리자 결정].
+같은 날 관리자 비교 캡처(望, 우리 ↔ 공식 영상; 관리자 제보: 칩이 조금 낮다):
 칩 크기(화면 고정)를 단위로 재면 칩 중심 → 눈 높이가 공식 53.7 / 우리 45.8단위 → `PREP_CHIP.y` 115. 모델 크기(얼굴 폭 44 / 45단위)·칩 x 오프셋은 같다.
-비교 `sp-check\wangchip-compare.png`(수정 전 · 후 · 공식), 스크립트 `wangchip.mjs`. [추정: 공식 프레임은 공격 동작 중이라 머리 위치 ±2px].
+수정 전·후·공식을 나란히 비교. [추정: 공식 프레임은 공격 동작 중이라 머리 위치 ±2px].
 
-**장비 바 (정비 중)**: 사용자 제보(캡처). `shop_hud`의 `equip_bg`(74×30, shop_hud 안 (13, 29.4) —
+**장비 바 (정비 중)**: 관리자 제보(캡처). `shop_hud`의 `equip_bg`(74×30, shop_hud 안 (13, 29.4) —
 칩 오른쪽, × 1.25)와 칸 `equip_0`/`equip_1`(23×6, ±12.8 / 13): 아이템마다 흰 알약(`equip_normal_icon`), [추정] 금색 아이템이면 빛나는 금색 알약(`equip_gold_icon` 31×14,
 제 크기). 이 바가 그려지면 예전 아이템 아이콘(item pips)은 숨긴다(캡처에 아이콘 없음). 그림은 로컬 추출(`extract.py --only ui/battlecommon`)만 있어서
-없는 서버는 예전 아이콘 그대로. 금색 여부는 `render/app.js`의 `setItems` 옆 `setEquip` 한 줄씩(2곳)이 넘긴다. **배포할 때 로컬 소재(`public/assets/local/ui/battlecommon`)도 올려야 한다.**
+없는 서버는 예전 아이콘 그대로. 금색 여부는 `render/app.js`의 `setItems` 옆 `setEquip` 한 줄씩(2곳)이 넘긴다. 장비 바 그림은 git 밖 로컬 소재(`public/assets/local/ui/battlecommon`)다.
 
 **② 적 HP** (`EnemyBars`; 처음엔 맞기 전 숨김 — `_alwaysShowHp`는 圣堂剑士만 켜짐 — 보스는 늘 보임):
 - 일반·정예: `enemy_hp_slider` 105×7 `#ea4700` α.7, 흰 α.7 잔상, `sprite_bg` 받침 8 × 8.55 크게(`enemy_slider_background`; 위 그림자 설명), `hud_unit` 아래 55.3(캡처 ≈110px).
 - 보스(거대 패널이 아닌 보스 — 铳·卢西恩 등): `enemy_boss_hp_slider` 130×9 `#ea2727` α.85, `hud_unit` 아래 43, `sprite_bg` 받침 10×8 크게
-  (처음엔 딱딱한 사각형이라 테두리로 보였다 — 사용자 캡처 14로 그림자 받침임을 확인); 문양 `sprite_enemy_boss_hud_small`(57×65, 바 중심 7 아래)이 바 뒤에;
+  (처음엔 딱딱한 사각형이라 테두리로 보였다 — 관리자 캡처 14로 그림자 받침임을 확인); 문양 `sprite_enemy_boss_hud_small`(57×65, 바 중심 7 아래)이 바 뒤에;
   SP(`enemy_boss_sp_slider` 130×6 `#ebc9ff` α.7, 받침 10×7 크게)는 HP 바로 아래 [추정 위치] — SP 있는 보스만.
-- 거대 보스(사용자 제보): 보스 프리팹에 `_bossHudScale`이 있는 적(`EnemyGiantBoss`)은 `battle/[pack]common.ab`의
+- 거대 보스(관리자 제보): 보스 프리팹에 `_bossHudScale`이 있는 적(`EnemyGiantBoss`)은 `battle/[pack]common.ab`의
   `panel_enemy_boss_info`를 쓴다 — HP 798×10 × x 배율(胄·管·阿利斯泰尔·萨米的意志 0.35, 昆图斯 0.765; 관 캡처 ≈281 × 9.3단위 ✓) `#ff2b2b` α.8,
   흰 α.7 잔상, 검정 α.39 딱딱한 받침(800×12 — 캡처 14의 SP 바 둘레 검은 테가 이것)과 흰 α.39 테(`sprite_enemy_boss_hp_bg` 9-slice 816×28: 회색 가운데 위아래에
   어두운 선; 테두리도 가로 배율로 눌림), SP(`default_sp_slider` 798×8 `#cab2d4` α.8, 받침 800×12, 테 816×24)는 HP 중심 16.3 아래 [캡처 8], 문양 `sprite_enemy_boss_hud_large` 폭 ≈39단위([캡처 8·10]),
-  맞을 때 빛(`hit_effect` = `sprite_bar_glow` 9-slice 818×31 `#ff0000` α.78 — 사용자 결정, 0.35초 사라짐 [추정]). 중심 = 보스 발 [추정 — 배치는 네이티브 코드,
+  맞을 때 빛(`hit_effect` = `sprite_bar_glow` 9-slice 818×31 `#ff0000` α.78 — 관리자 결정, 0.35초 사라짐 [추정]). 중심 = 보스 발 [추정 — 배치는 네이티브 코드,
   캡처에서 발 근처], `_bossHudOffset`만큼 타일 단위로 옮김 [추정 단위](萨米的意志 위 1.4, 昆图斯 위 1.02, 管 II 오른쪽 1.4). 표는 `GIANT_BOSS`(적 프리팹 전수 조사).
 - 圣堂剑士 탄약: HP 바 바로 아래 같은 폭에 아군과 같은 탄환 칸([추정] `enemy_bullet_bar` 105×7).
-- **보스 SP 바와 관·현의 공식 SP** (사용자 결정 2026-10-07 「공식과 같은 a안」): 공식은 쿨다운이 아니라 SP다(`enemy_database` spData: 管 INCREASE_WITH_TIME
+- **보스 SP 바와 관·현의 공식 SP** (관리자 결정 2026-10-07 「공식과 같은 a안」): 공식은 쿨다운이 아니라 SP다(`enemy_database` spData: 管 INCREASE_WITH_TIME
   0/50 +1/s, 裂管之奏 spCost 50·cooldown 50·initCooldown 40; PRTS 「技力 0/50 自动回复 1.0 SP/s」; 阿利斯泰尔 maxSp 25; 胄·萨米的意志·昆图斯·铳·卢西恩은 spData 없음
   → SP 바 없음). 시뮬레이션 `content/bosses.js skillSp`: SP는 행동할 수 있을 때(기절 아님) 초당 increment, 스킬은 쿨다운이 끝나고 **SP ≥ 비용**일 때 발동
   [추정: 둘 다 필요 — 클라 로직은 네이티브], 발동하면 비용만큼 소모. 管 첫 발동 40초 → 50초(테스트). 같은 구조의 弦(엘리트, spData 0/35, 断弦之奏 25·icd 12)도
   같은 규칙(첫 발동 12초 → 25초). 阿利斯泰尔은 원래 SP를 세고 있어 값만 노출. 막대는 `b.snap.bsp`(`local-hud.js hudLists` — `ammo`와 한 번에 돈다).
-  성능(사용자 요청 점검): SP 틱 0.06µs = 전투 한 스텝(88µs)의 0.07 %, `hudLists` = 스냅샷의 2.2 %(이전 `ammoList`와 같음).
+  성능(관리자 요청 점검): SP 틱 0.06µs = 전투 한 스텝(88µs)의 0.07 %, `hudLists` = 스냅샷의 2.2 %(이전 `ammoList`와 같음).
   [추정] 凋亡 폭발 「15秒内无法开启技能，每秒损失1点技力」(적 쪽)은 아직 없음.
 - 맞을 때 흔들림(원본 `shake`)은 새 바에 적용하지 않는다(공식 없음).
 
-**③ 원소 원형 바** (사용자 제보; `hud-bars.js ElementRing`): 클라이언트 `char_ep_slider`·`enemy_ep_slider`. 그 스크립트
+**③ 원소 원형 바** (관리자 제보; `hud-bars.js ElementRing`): 클라이언트 `char_ep_slider`·`enemy_ep_slider`. 그 스크립트
 (UIHudUnitEpSlider)의 `_elementDatas`가 시뮬레이션 `ELEMENT_ORDER`(neural, erosion, burn, apoptosis) 순서로 원소별 색·아이콘을 갖는다 —
 아군: `#00ffd8` + `sprite_ep_icon` / `#3da1ff` + 물 / `#ff4901` + 불 / `#474747` + 어둠, 적: `#149882` / `#266ad0` / `#e3531a` / `#7c7c7c`(폭발 색 `#1c1c1c`), 'necrosis'는 凋亡 것 [추정].
 - 아군: 전체 ×1.2, `hud_unit` 아래 25.9(= 발 근처; 캡처 8에서 링이 HP 바 29단위 위). 아래부터 ep_hit_spread(76×78, 원소 색 — 맞을 때 퍼짐 [추정 애니]),
@@ -368,23 +369,23 @@
 - 그림(로컬 추출 14개)이나 SimpleMesh가 없으면 예전 줄(원판 + 흰 막대)을 바 아래에 그린다.
 - 디버그 아레나에서 `battle.dealDamage(…, { type: 'element' })`로 凋亡(아군)·灼燃(적) 확인(25 %, 폭발, 회복 중).
 
-**④ 데미지·회복 숫자** (사용자 결정 2026-10-07: 표시 조건은 제안대로, 모양은 공식 프리팹대로, 「지금 표시 방식도 설정에서 고를 수 있게」):
+**④ 데미지·회복 숫자** (관리자 결정 2026-10-07: 표시 조건은 제안대로, 모양은 공식 프리팹대로, 「지금 표시 방식도 설정에서 고를 수 있게」):
 - 프리팹(`battle/[pack]common.ab`): `damage_text`(UIDamageText) Novecentowide 30 `#ff3a00`, Shadow 검정 α.5 (1, −1), `_randomRange` (10, 5), `_lifeTime` 0.5,
   `_upOffset`/`_downOffset` 30, `_fontSizeScale` 1.5; `heal_text`(UIHealText) `#00ff95` "+n", `_floatOffset` 40; `hud_unit`의 `popup`(중심 위 150)에서 생김.
-- 언제(데이터 전수 조사 69,123개 컴포넌트, scratchpad dmgnum/NOTES.md): 숫자 표시를 데이터가 강제하는 건 극소수 — 로스터에선 蕾缪안 S3 포탄
+- 언제(데이터 전수 조사 69,123개 컴포넌트, 비공개 조사 기록): 숫자 표시를 데이터가 강제하는 건 극소수 — 로스터에선 蕾缪안 S3 포탄
   (`lemuen_s3_attack` FixedValueDamage `_forceDisplayDamageNum`)과 적 xi·mdrock·mousek 보호막 흡수(`BlockDamage._showDamageNumber`, **아직 안 함**).
   나머지는 코드: `Modifier.isCritical`, `BattleConsts.MODIFIER_CRIT_THRESHOLD = 1.5`, `UIDamageText.CRITICAL_FONT_SIZE_SCALE = 1.1`(메타데이터 기본값).
   치명타 = PRTS 作战机制 「伤害红字（暴击）」 「单位在造成的伤害不低于预期伤害的1.5倍时，会在造成伤害后弹出红色的数字…官方称呼为Critical」 —
   예상 피해 = ATK × 배율을 대상 방어/법저로 깎은 값(穿透 제외), 실제 피해 = 脆弱·피해 배율·穿透까지 넣은 값 → 빨간 숫자는 사실상 脆弱·增伤·穿透와 함께 나온다
   (처음 커밋 da9df76f은 「ATK × 1.5 이상」으로 잘못 봤다 → 고침). 강제 표시는 PRTS 「强制红字」의 蕾缪安 归乡邀约(瞄准射击时 — 우리 S3 'snipe'·'bombard' 태그).
   보호막: PRTS 「强制红字与蓝字」 — 빨간 숫자가 될 타격이 屏障/护盾을 못 뚫으면 그 막기 방식이 허용하면 파란 숫자(클라 `block_text` `#3a35d9`, 나머지는
-  damage_text와 같음), 거부하면 노란 「BLOCK」 → 막힌 타격에 빨간 숫자는 없다(사용자 기억과 같음). 허용 플래그 = `BlockDamage._showDamageNumber`(115개 중 17개,
-  로스터에선 xi·mdrock·mousek 보호막). **구현(사용자 결정 「파란 숫자랑 BLOCK 넣어줘」)**: 시뮬레이션이 빨간 숫자감(치명타·강제) 타격을 보호막이 전부 막으면
+  damage_text와 같음), 거부하면 노란 「BLOCK」 → 막힌 타격에 빨간 숫자는 없다(관리자 기억과 같음). 허용 플래그 = `BlockDamage._showDamageNumber`(115개 중 17개,
+  로스터에선 xi·mdrock·mousek 보호막). **구현(관리자 결정 「파란 숫자랑 BLOCK 넣어줘」)**: 시뮬레이션이 빨간 숫자감(치명타·강제) 타격을 보호막이 전부 막으면
   'blk' 이벤트 [id, 피해, 1 파란 / 0 BLOCK] — `damage.js absorbShields`(흡수한 버프 키를 `info`로 돌려줌)와 `enemies.js artsBarrier`(법술 장벽, 취소 시);
   허용 키 = `local-hud.js BLOCK_SHOWN`(`ab:xiShield`, `ab:sandDef` 鼠王, `ab:rockPower` 泥岩). 렌더: `num-official.js` 파란 숫자 `#3a35d9`(block_text),
   노란 「BLOCK」 `#ff9000`([추정 모양] 클라 그림 못 찾음 — PRTS 색), 공식 숫자 방식에서만. 보호막을 뚫은 타격은 그대로 빨간 숫자(흡수 뒤 HP 감소량).
   「卫戍协议：盟约」 전 동시 10개 제한은 안 함(그 뒤 버전은 제한 없음). 회복 `+n`은 데이터에 끄는 플래그가 없어 늘 표시 [추정;
-  PRTS·나무위키 언급 없음]. 전투 공식 정리: `research/battle-mechanics-reference.md`.
+  PRTS·나무위키 언급 없음]. 전투 공식 정리는 비공개 조사 기록(`research/battle-mechanics-reference.md`).
 - 시뮬레이션: `server/sim/local-hud.js damageNumberFlag(dmg, ss, 예상, 실제)` → `damage.js`(피해 배율까지 계산한 뒤)가 'dmg' 이벤트 5번째 칸(0 / 1 치명타 / 2 강제).
   지속 피해('dot')·무来源은 치명타 아님.
 - 렌더: `render/num-official.js` — 피해는 플래그 있을 때만, 회복은 늘. 30단위(화면 고정 hudUnit), 치명타 ×1.1, 0.5초, 흩어짐 ±(10, 5), 위로 30(회복 40,
@@ -393,7 +394,7 @@
   「대미지 숫자 표시」를 켰을 때만 보인다. 2D 대체 화면(`ui/fallbackField.js`)의 숫자는 그대로.
 - 디버그 아레나·mock: 회복 `+180`만 뜨고 일반 피해는 숫자 없음; 테스트: 蕾缪안 S3 강제 표시, 같은 전투에 脆弱 ×1.6을 걸면 빨간 숫자가 생김.
 
-**⑤ 상태 이펙트** (사용자 요청 「冷氣·冻结·战栗·은신·위장 … 그 외 상태도 확인 후 같이」, 방법 1 = 공식 이펙트 그대로; `render/fxstatus.js` → `fxgame.js statusOn/Off`):
+**⑤ 상태 이펙트** (관리자 요청 「冷氣·冻结·战栗·은신·위장 … 그 외 상태도 확인 후 같이」, 방법 1 = 공식 이펙트 그대로; `render/fxstatus.js` → `fxgame.js statusOn/Off`):
 공식은 상태를 아이콘 줄이 아니라 이펙트 프리팹으로 보인다(캡처 9·10). 프리팹은 `battle/prefabs/effects/buff.ab`·`common.ab`(`fx_extract.py --bundle buff/common`,
 index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_isLoop` 1), 붙는 곳은 `_spawnLocation`(1 발, 2 몸 HIT, 4 머리, 5 바닥 중앙 — 데이터).
 상태 → 프리팹은 이름으로 맞춤(클라 매핑은 네이티브, 메타데이터 `COMMON_EFFECT_PREFIX`) [추정]:
@@ -406,7 +407,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   위/아래 나누기(5e64df52, sortingOrder > 0 또는 0 + fudge < 0 = 위)를 상태 프리팹에 쓰면 冻结 얼음(전부 order 0·fudge 0)이 유닛 뒤로 가서 캡처 9와 달랐다
   — 클라는 order 0을 깊이로 정렬해 덩어리가 모델 앞에 온다 → 상태 이펙트는 나누지 않는다(`playStatus` `split = false`).
 - 일부 프리팹은 파티클이 한 번만 돌아(`buff_silence` 1초) 상태가 남아 있으면 다시 시작한다. 파일을 못 읽으면 그 상태는 예전 아이콘.
-- **중첩 수정**(사용자 제보 4차 4-1, 2026-10-08 세션 I, 26108991): `statusOff`가 멈춘
+- **중첩 수정**(관리자 제보 2026-10-08, 26108991): `statusOff`가 멈춘
   인스턴스의 `again`(다시 시작)을 남겨 두어, 파티클이 다 죽은 뒤 상태가 다시 켜져 있으면(다음 기절) 새 인스턴스 옆에 복사본을 하나 더
   틀었다 — 다시 걸릴 때마다 하나씩 늘었다(아레나 1 2 3 4…, 실제 솔로 판 최대 8). 또 방출만 멈춰서 `buff_stun`의 표시(수명 10초 파티클 1개)가
   상태가 끝난 뒤 최대 10초 머리 위에 남았다. → `statusOff`가 `again`을 지우고, `fxstatus.js`는 `now`로 끝낸다(파티클 즉시 제거
@@ -418,14 +419,14 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   (束缚, 嘲讽, 无敌, 护盾, 麻痹, 원소 폭발, 禁疗, 折射, 替身 …)와 이펙트 층이 꺼진 경우(품질 낮음, WebP 없음, 추출 없음)는 예전 아이콘 그대로.
 - 디버그 아레나 확인: 寒冷+战栗(눈꽃 위·주먹 아래, 캡처 10과 같음), 冻结+寒冷(캡처 9의 얼음), 沉默 ✕, 脆弱, 沉睡, 迷彩. 아레나에서 WebGL 경고
   `drawElementsInstanced: no buffer is bound` — 상태를 하나도 안 걸어도 나와서 이번 작업과 무관(조사 안 함).
-- **배포 때 git 밖**: `public/assets/local/fx/buff/`, `fx/common/`, 새 텍스처·메시, `fx/index.json`.
+- git 밖 생성물: `public/assets/local/fx/buff/`, `fx/common/`, 새 텍스처·메시, `fx/index.json`.
 
-**배치 방향 표시** (사용자 요청 「배치 방향 표시 화살표도 실제 인게임과 동일하게」, `facing.js`): 오퍼레이터 프리팹의 `Others/Direction/DirectionIndicator` —
+**배치 방향 표시** (관리자 요청 「배치 방향 표시 화살표도 실제 인게임과 동일하게」, `facing.js`): 오퍼레이터 프리팹의 `Others/Direction/DirectionIndicator` —
 땅에 눕힌 SpriteRenderer 2장(배율 0.55): 링 `sprite_direction_ring`(rect 128, ppu 100 → 지름 0.704타일, 흰 α.502)과 화살표 `sprite_direction_arrow`
 (rect 128에 65×112가 (31, 8)에 패킹, 바깥쪽 0.333타일, `#FF9900`). 매 프레임 네 모서리를 카메라로 투영한 SimpleMesh라 보드에 눕는다. 그림은 웹 manifest
 `ui/battle/sprite_direction_*`(이미 있음); 없으면 예전 주황 셰브런. 청록 링(캡처 13)은 방향을 정할 때 잠깐 뜨는 `common_direction_hint_*` 이펙트로 별개(안 함).
 
-## 위장 아이콘 (2026-10-06, 사용자 결정 「위장에 다른 아이콘을 붙여줘」)
+## 위장 아이콘 (2026-10-06, 관리자 결정 「위장에 다른 아이콘을 붙여줘」)
 - 迷彩(위장)과 隐匿(은신)은 둘 다 반투명 + 같은 `stealth` 아이콘이라 구분이 안 됐다(위 "은신 아군이 적 스플래시에 맞음" — 迷彩는 스플래시를 맞는 게 공식).
 - 서버: b.snap 유닛 플래그에 `UF_CAMOU`(1024, `shared/local.js`)를 더한다 — `server/sim/snapshot.js flagsOf` 1줄. 迷彩이고 효력 있는 隐匿가 없을 때만
   (둘 다면 은신 아이콘). 반투명(`UF.STEALTH`)은 그대로 둘 다 켠다.
@@ -442,78 +443,76 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 「复制链接」이 클립보드에 넣는 문구(`room.js copy`)는 DOM 번역을 거치지 않아 중국어로 나갔다 → `tr()`로 감싸고 ko `patterns.json`에
   「{0}邀请你加入卫戍协议：盟约【{1}】」→「{0} 님이 위수 협의: 맹약【{1}】에 초대했습니다」(난이도 이름은 data.json 번역).
 
-## 휴대폰 화면 조정 (2026-10-06, 사용자 요청)
+## 휴대폰 화면 조정 (2026-10-06, 관리자 요청)
 - 맹약 줄 「︽」 접기 탭: 터치 화면(`pointer: coarse` 또는 높이 ≤540)에서는 터치 영역 = 그림(`btn_close` 37×17단위, 최소 폭 24px).
   예전 102×26단위 상자(844×390에서 61×16px)가 12번째 줄 4–6칸 끝을 덮어 그 칸의 오퍼를 누르면 줄이 접혔다 → 24×10px. 접힌 `btn_open`은 그대로. (hud-art.css)
 - 리소스 미리 받기 카드: 높이 ≤540에서 화면 전체를 어둡게 막던 대화 상자 → 오른쪽 위 작은 카드(폭 min(240px, 30vw), 글자 11.5px),
   나머지 화면은 그대로 누를 수 있다. 동의해야 받는 동작은 같음. (resources.css)
 - 타이틀 설정·전체 화면 버튼(upstream #183): 터치 화면에서 16px 버튼 두 개의 44px 터치 영역이 겹쳐 전체 화면 버튼이 설정 버튼을 가렸다 →
   28px + 간격 14px. (devices.css)
-- 확인: Windows PowerShell 서버 + Windows Chrome(GPU) 844×390·740×360·932·430·1920×1080 — 설정 버튼 중심이 자기 버튼, 접기 탭 24×10.
+- 확인: Chrome(GPU) 844×390·740×360·932·430·1920×1080 — 설정 버튼 중심이 자기 버튼, 접기 탭 24×10.
 
-## 서버 재시작 예고 (2026-10-09, 사용자 결정)
-- 사용자 결정(2026-10-09): 배포는 이제 늘 진행한다(`--force` 폐지). 바로 재시작하지 않고 30분 뒤에 재시작하며, 그동안 진행 중인 판·대기실에 30·10·5·3·1분 전 예고를 보낸다. 카운트가 끝나면 배포한다.
+## 서버 재시작 예고 (2026-10-09, 관리자 결정)
+- 관리자 결정(2026-10-09): 배포 때 바로 재시작하지 않고 30분 뒤에 재시작하며, 그동안 진행 중인 판·대기실에 30·10·5·3·1분 전 예고를 보낸다. 카운트가 끝나면 배포한다.
   공식 게임에는 없는 기능(우리 서버 운영용)이다.
 - 서버 `server/local-restart.js` `RestartNotice`: `SIGUSR2`(`server/http/boot.js`, 서버 시작 전에 등록 — 처리기 없는 SIGUSR2는 프로세스를 끝내고, 시작 중에 온 신호는 시작 뒤에 읽는다)를 받으면 `SP_RESTART_FILE`(기본 `<tmpdir>/stronghold-restart`, 컨테이너는 tmpfs `/tmp`)에서
   분(`30`) 또는 `0`/`cancel`을 읽는다. 시작할 때와 `RESTART_MARKS_MIN` 30·10·5·3·1분 전에 hello를 마친 **모든 소켓**(타이틀·로비·대기실·판·관전)에
   `server.restart { inMs, mark }`, 취소는 `{ inMs: null }`. 카운트다운 중에 새로 접속하거나 다시 연결하면 `welcome.restart { inMs }`.
   `inMs`는 남은 시간이라 클라이언트 시계가 틀려도 맞다. 서버는 재시작을 직접 하지 않는다. 끝나고 10분이 지나도 재시작이 오지 않으면 취소로 본다.
   내부 `/healthz`에 `restartInSec`(없으면 null, 프록시 경유 응답에는 없음).
-- 마지막 5분(`shared/local.js RESTART_FINAL_MIN`, 사용자 제보 2026-10-09):
+- 마지막 5분(`shared/local.js RESTART_FINAL_MIN`, 관리자 제보 2026-10-09):
   - 새 판 시작 막기: `room.start`를 `ERR.RESTARTING`(「서버가 곧 재시작되어 지금은 새 시뮬레이션을 시작할 수 없습니다」)으로 거부. 이미 진행 중인 판은 그대로.
     `SP_RESTART_NO_START_MIN`이 있으면 그 분(0 = 막지 않음). (같은 날 앞서 「일단 구현만 해놓고 활성화하진 마」로 꺼 두었다가 이 결정으로 켬.)
   - 연결 띠(`ui/connBanner.js`): 「서버 재시작까지 m:ss · 진행 중인 판은 종료됩니다」(0이 되면 「서버를 재시작하는 중입니다」). 판 밖 = 아래 가운데,
     판 안 = 라운드 캡슐 아래 한 줄(토스트는 그 아래로 밀림). 휴대폰 가로(844×390)에서도 한 줄.
-  - 이 5분 동안은 토스트를 띄우지 않는다(5·3·1분 표시, 접속 때 토스트 모두 — 사용자 제보 2026-10-09). 서버는 5·3·1분에도 `server.restart`를 보내지만(남은 시간 갱신) 클라이언트가 토스트를 거른다.
-- 클라이언트 `public/js/ui/restartNotice.js`: 그 전까지는 **토스트만**(사용자 제보 2026-10-09 — 처음 구현의 30분 내내 띠는 뺐다).
+  - 이 5분 동안은 토스트를 띄우지 않는다(5·3·1분 표시, 접속 때 토스트 모두 — 관리자 제보 2026-10-09). 서버는 5·3·1분에도 `server.restart`를 보내지만(남은 시간 갱신) 클라이언트가 토스트를 거른다.
+- 클라이언트 `public/js/ui/restartNotice.js`: 그 전까지는 **토스트만**(관리자 제보 2026-10-09 — 처음 구현의 30분 내내 띠는 뺐다).
   5분보다 큰 `mark`(30·10분)마다 경고 토스트 「N분 후 서버가 재시작됩니다. 진행 중인 판은 종료됩니다」(6초), 카운트다운 중에 접속한 페이지는 welcome에서 남은 분으로 한 번(남은 시간이 5분보다 클 때만)
   (`ui.restartAt`로 이미 알던 페이지의 재연결은 다시 띄우지 않음), 취소되면 알던 페이지에만 「서버 재시작이 취소되었습니다」. 판 밖에서는 위쪽 가운데, 판 안
   (`html.sp-in-match`)에서는 라운드 캡슐 아래(기존 토스트 자리). 재시작 뒤에는 기존 흐름 그대로: `room.closed shutdown` → 재연결 → buildGuard가 새 빌드로 새로고침.
 - 배포 쪽(배포 스크립트, 이 저장소에 없음): 이미지를 먼저 빌드하고(옛 컨테이너는 계속 서비스), 접속자가 있으면 컨테이너 안에서
-  `echo 30 > /tmp/stronghold-restart && kill -USR2 1`로 카운트다운을 시작한다. 내부 healthz를 15초마다 보고 0이 되면 재생성한다. 접속자가 없으면 카운트다운 없이 바로 진행하고, 도중에 모두 나가면 앞당긴다.
-  Ctrl-C나 실패가 나면 취소 공지를 보낸다. `--now`는 카운트다운 없음, `--notice N`은 N분, `--rollback`은 기본으로 바로 진행한다(비상용).
-  이 기능이 없는 옛 서버(healthz에 `restartInSec` 없음)에 접속자가 있으면 멈춘다. 그때는 `--now`로 진행한다.
-- 방별 진행 상황(2026-10-09, 사용자 결정 「방별 진행 상황 정도면 충분해」·방 코드는 그대로 표시): 내부 `GET /healthz/rooms`(`server/local-rooms.js`, 프록시 경유는 404)가
+  `echo 30 > /tmp/stronghold-restart && kill -USR2 1`로 카운트다운을 시작하고, 내부 healthz의 `restartInSec`가 0이 되면 컨테이너를 다시 만든다.
+  접속자가 없으면 카운트다운 없이 바로 진행하고, 도중에 모두 나가면 앞당긴다. 실패하면 취소 공지를 보낸다.
+- 방별 진행 상황(2026-10-09, 관리자 결정 「방별 진행 상황 정도면 충분해」·방 코드는 그대로 표시): 내부 `GET /healthz/rooms`(`server/local-rooms.js`, 프록시 경유는 404)가
   방마다 `{ code, mode, difficulty, phase, round, stageId, bossId, humans, connected, bots, spectators, ageMin, matchMin }`를 준다(진행 중인 판 먼저, 라운드 높은 순).
-  배포 스크립트는 카운트다운 시작 때와, 분이 바뀔 때 목록이 달라졌으면 「ABCD 협동 극한 R7 휴식 기간 · 사람 2(접속 1) 봇 2 · 판 23분」처럼 찍고,
-  배포 없이 지금 목록만 보여 주는 옵션도 있다. 지금 상태만 보여 줄 뿐 로그에는 남기지 않는다(판 결과는 `[stats]` 줄).
+  배포 스크립트는 카운트다운 동안 이 목록을 「ABCD 협동 극한 R7 휴식 기간 · 사람 2(접속 1) 봇 2 · 판 23분」처럼 보여 준다.
+  지금 상태만 보여 줄 뿐 로그에는 남기지 않는다(판 결과는 `[stats]` 줄).
   확인: `test/local-patch-rooms.test.js`(실제 서버·실제 Match로 대기실·판 시작 뒤 목록, 프록시 헤더면 404).
 - 확인: `test/local-restart.test.js`(시점·취소·만료는 가짜 타이머, 실제 서버의 방송·welcome·healthz·판 시작 거부, 실제 프로세스에 `SIGUSR2`, 클라이언트 토스트 조건).
-  Windows Chrome(로컬 서버 + `SIGUSR2`): 로비 30분, 정비 화면 10분 토스트(전투 중 5분 토스트는 그 뒤 뺌), 협동 판(AI 3명) 정비·전투·휴대폰 가로에서 5분 띠 위치 확인(2026-10-09).
-  띠는 보드 배치 칸·상점·팀원 목록·준비 완료 버튼을 가리지 않는다(사용자 확인 대기).
+  Chrome(로컬 서버 + `SIGUSR2`): 로비 30분, 정비 화면 10분 토스트(전투 중 5분 토스트는 그 뒤 뺌), 협동 판(AI 3명) 정비·전투·휴대폰 가로에서 5분 띠 위치 확인(2026-10-09).
+  띠는 보드 배치 칸·상점·팀원 목록·준비 완료 버튼을 가리지 않는다 [관리자 화면 미확인].
 
-## upstream 이식 ui-1 (2026-10-09)
+## upstream 0.2.1·0.2.2 이식 — UI (2026-10-09)
 
-upstream v0.2.0 이후 UI 수정 15건(`research/2026-10-09-upstream-compare/ui.md`, 기록 `upstream/ISSUES.md` 「이식함」). 대부분 upstream 버그 수정을
+upstream v0.2.0 이후 UI 수정(비공개 비교 기록). 첫 묶음 15건은 대부분 upstream 버그 수정을
 그대로 받은 것이고, 우리 규칙과 맞물리는 것만 적는다.
-- 준비 완료 시 상점 접기(`513c86e1` ← `7fb41f4f`, 사용자 결정 2026-10-09: 공식도 준비 완료 때 상점이 접힌다 — 사용자 공식 화면 스크린샷,
+- 준비 완료 시 상점 접기(`513c86e1` ← `7fb41f4f`, 관리자 결정 2026-10-09: 공식도 준비 완료 때 상점이 접힌다 — 관리자의 공식 화면 스크린샷,
   「준비 완료, 시뮬레이션 대기 중」 띠 + 대기석만): `gameLogic readyShopFold`가 확정된 `m.private.ready`의 한 정비 안 변화만 본다.
   공식 모양 접기 상자(상점 화면 「접기 상자」)는 같은 `collapsed` 상태라 같이 접힌다. 「준비 완료, 시뮬레이션 대기 중」 띠 자체는 아직 없다.
 - 공용 `Modal` 포커스 가두기(`8299f906` ← `e2503c7f`): 맨 위 대화상자 안에서만 Tab이 돌고, 밖으로 나간 포커스는 첫 버튼으로 돌아온다(가이드가 위에 열려 있으면 양보).
   채팅 패널(z-index 6–40)·디버그 패널은 `.modal` 배경(z 80) 아래라 대화상자가 열린 동안 클릭으로 포커스를 못 가져간다 [추정, CSS로만 판단].
 - 방향 선택 중 Enter(`163e8130` ← `a1bc37ed`): 공식 선택기(`placeArt.js` `PlaceWheelArt`)의 ✕도 `.fwheel__cancel`이라 `facingEnter`가 두 그림 모두에 맞는다.
   선택기가 열리면 루트가 포커스를 가져가고 테두리는 그리지 않는다(`.fwheel:focus-visible`).
-- 진단 복사(`b3864563` ← `3f884412`, 사용자 결정 2026-10-09): 설정 → 「문제 제보」. 안내 주소와 PLAYING.md §12는 upstream이 아니라 우리 저장소
-  `LazyDeltaLima/Myeongto-Replica/issues`(사용자 결정 2026-10-09: 우리 저장소 주소 유지. 저장소 이름은 같은 날 `Stronghold-Protocol-KR` → `Myeongto-Replica`로 정해 만들었다).
-- 선발 선택 창 테스트(`0b561e51`·`ee1fc522`)는 우리 5명(아스카론·왕)과 필터 칩 없는 선택 창(사용자 결정 2026-10-07)에 맞춰 고쳐 넣었다.
-- 브라우저 e2e(`SP_E2E=1`)로 들어온 테스트(`mock` `settings-entry` `diy` `facing` `modal` `loadout` `i18n` `ready-fold`)는 여기서 돌리지 않았다 — 화면 확인 때 함께.
+- 진단 복사(`b3864563` ← `3f884412`, 관리자 결정 2026-10-09): 설정 → 「문제 제보」. 안내 주소와 PLAYING.md §12는 upstream이 아니라 우리 저장소
+  `LazyDeltaLima/Myeongto-Replica/issues`(관리자 결정 2026-10-09).
+- 선발 선택 창 테스트(`0b561e51`·`ee1fc522`)는 우리 5명(아스카론·왕)과 필터 칩 없는 선택 창(관리자 결정 2026-10-07)에 맞춰 고쳐 넣었다.
+- 브라우저 e2e(`SP_E2E=1`)로 들어온 테스트(`mock` `settings-entry` `diy` `facing` `modal` `loadout` `i18n` `ready-fold`) [화면 미확인].
 
-## upstream 이식 ui-2 (2026-10-09)
+### 두 번째 묶음 — 잠재·练度 UI, 통계 페이지 등
 
-upstream UI 12건 + `66297106`의 테스트 조각(`research/2026-10-09-upstream-compare/` README 「정해진 것」 4·5차와 결정 9·11·12·13, 기록
-`upstream/ISSUES.md` 「이식함」). **upstream 커밋 순서로** 이식했다(프롬프트 순서와 다름 — 뒤 커밋이 앞 커밋 문맥을 전제): `41fd3c7e` →
+upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09). **upstream 커밋 순서로** 이식했다(뒤 커밋이 앞 커밋 문맥을 전제): `41fd3c7e` →
 `c623550f` → `438a6b52` `51e0e60b` → `0ca2a9c2` → `56a7b918` → `7a0937e3` `519f04e2` `dc336f24` `4f8f5d2a` `9f36db32` `4d63e9d5`.
-- 맹약 팝업의 선발 행(`3b71c534` ← `41fd3c7e`, 결정 12: 공식도 사기 전부터 맹약 목록에 흐리게): 「自选」 태그는 없다(J-2, `upstream.md`).
+- 맹약 팝업의 선발 행(`3b71c534` ← `41fd3c7e`, 관리자 결정: 공식도 사기 전부터 맹약 목록에 흐리게): 「自选」 태그는 없다(`upstream.md` 「0.2.0 병합」).
   우리 선발 다섯은 맹약이 하나씩이라 upstream의 「두 맹약에 다 나오는」 경우가 없다 — 테스트를 赤刃明霄陈(炎)·阿斯卡纶(无)로 바꿈.
 - Touch·预备干员-医疗 카드(`be9ab8d4` ← `c623550f` UI 부분): 공식 모양 카드 `ChessDetailArt`는 `ChessDetail`의 블록을 그대로 쓰므로
   恳切福音 아래 PRTS 정정 줄도 공식 모양에서 나온다.
-- 통계 페이지(`139f48f8` ← `438a6b52`, `4638d88d` ← `51e0e60b`, 결정 11): upstream 화면 그대로(공식 모양은 나중). 결산 다시 보기
+- 통계 페이지(`139f48f8` ← `438a6b52`, `4638d88d` ← `51e0e60b`, 관리자 결정): upstream 화면 그대로(공식 모양은 나중). 결산 다시 보기
   (`ResultView` `quiet`)는 정산 효과음과 우리 결과 음성(`playMatchEndVoice`)을 둘 다 내지 않는다. 로비·대기실 윗줄은 「统计」 다음에 우리
-  설정 버튼. PLAYING.md는 우리 §12 「反馈问题」가 있어 통계가 **§13**. 서버가 끝낸 판은 기록하지 않는다(리롤 세션의 다시 뽑기도 이 규칙).
-- 상세 카드 공격 범위(`1c803022` ← `0ca2a9c2`, 결정 9): 정비 중 「선택한 기물 범위」 효과를 대체한다. 우리도 탭이 카드를 여므로 정비 중
+  설정 버튼. PLAYING.md는 우리 §12 「反馈问题」가 있어 통계가 **§13**. 서버가 끝낸 판은 기록하지 않는다(「본판 정보 다시 뽑기」도 이 규칙).
+- 상세 카드 공격 범위(`1c803022` ← `0ca2a9c2`, 관리자 결정): 정비 중 「선택한 기물 범위」 효과를 대체한다. 우리도 탭이 카드를 여므로 정비 중
   범위 표시는 그대로. 같은 `SEL_RANGE` 그룹이라 3D 판은 공식 `tileOverlay` 줄무늬. upstream 테스트의 自由的杰西卡(우리에게 없는 선발 kit)
   경우는 실제 전투(能天使, `unitStatsEntry` `dir`) 경우로 바꿈.
-- 교편 3택 클라이언트(`4d1f091b` ← `56a7b918`, 결정 13): 개인 선택에는 「轮到你」(`YourTurn`)를 띄우지 않는다 — `normalizePersonalChoice`가
+- 교편 3택 클라이언트(`4d1f091b` ← `56a7b918`, 관리자 결정): 개인 선택에는 「轮到你」(`YourTurn`)를 띄우지 않는다 — `normalizePersonalChoice`가
   `turn` = 자신이라 `useTurnFlash`에서 `personal`을 뺐다. 안내 「从候选中选择一项战术特训」은 `is-personal`(upstream `is-mine`은 우리
   phase-art CSS가 숨기고 game-panels.css가 차례 표시로 깜빡임). 공식 개인 선택 화면 캡처는 없다 [추정: 제목·안내 배치는 upstream대로].
 - 잠재·练度 UI(`274ad2a5` `b9b7f1a8` `ae710a03` `a897e6b4` `7d32a49a` ← `7a0937e3` `519f04e2` `dc336f24` `4f8f5d2a` `9f36db32`): upstream에 없는
@@ -521,37 +520,37 @@ upstream UI 12건 + `66297106`의 테스트 조각(`research/2026-10-09-upstream
   받는다. 한국어: 潜能 = **잠재능력**, 练度 = **육성도**(공식 KR 클라이언트 「练度和潜能均为…」 → 「육성도와 잠재능력은…」), 未精英化 /
   精英阶段n = 비정예화 / n차 정예화. 「特许干员」 = 특별 허가 오퍼레이터 [추정: KR 표기 근거 못 찾음]. 우리 선발 풀에는 프로토타입이 없어
   (2026-10-07) 「原型干员没有潜能与练度」 줄은 우리 데이터로는 나오지 않는다. 선발 카드 수치 = 전투 합성(维什戴尔 潜能1 583 / 25, 潜能6 615 / 23).
-- 고른 스킬 테두리(`3bc664f0` ← `4d63e9d5`, #398): ui-1에서 넘긴 CSS 1줄 — 로컬 클라이언트 그림 `image_skill_select_outline`이 있을 때만 보임.
+- 고른 스킬 테두리(`3bc664f0` ← `4d63e9d5`, #398): 첫 묶음에서 넘긴 CSS 1줄 — 로컬 클라이언트 그림 `image_skill_select_outline`이 있을 때만 보임.
 - 실제 경기 경로: `test/ui/ui2-real-match.test.js`(`1b5120aa`) — 교편 제안(서버 m.private) → 클라이언트 선택지 → 준비 거부 → `g.choice` →
   준비 완료, 그리고 `m.private.ops`로 만든 카드 = 같은 판의 전투 수치(팀원 정찰 유닛도). 브라우저 e2e(`SP_E2E=1`: `stats` `inspect-range`
-  `mock` `playtest2.real` `loadout*` `teammate-loadout`)는 돌리지 않았다 — 화면 확인 때.
+  `mock` `playtest2.real` `loadout*` `teammate-loadout`) [화면 미확인].
 
-## 본판 정보 다시 뽑기 (2026-10-09, 사용자 결정)
-- 공식에 없는 기능(`feat`). 싱글에서 결석 맹약·리더 적을 보고 나갔다가 새로 시작하는 일이 많아서 넣었다(사용자 2026-10-09).
+## 본판 정보 다시 뽑기 (2026-10-09, 관리자 결정)
+- 공식에 없는 기능(`feat`). 싱글에서 결석 맹약·리더 적을 보고 나갔다가 새로 시작하는 일이 많아서 넣었다(관리자 2026-10-09).
   INFO_CHECK(「确认本局信息」, `screens/briefing.js`) 아래쪽, 준비 완료 버튼 왼쪽에 「다시 뽑기」(`重新抽取`, `g.infoReroll`).
-- 투표 규칙(`server/match/match/phases.js maybeEndInfo`, 사용자 결정 2026-10-09 1~7번):
+- 투표 규칙(`server/match/match/phases.js maybeEndInfo`, 관리자 결정 2026-10-09):
   - 사람 자리마다 준비 완료와 다시 뽑기 중 **하나만**, 바꿀 수 없다. 하나를 누르면 두 버튼이 다 꺼진다. 다른 쪽을 보내면 `ALREADY`.
   - AI 팀원과 나간 자리는 투표하지 않는다(AI는 들어오자마자 준비 완료라 넣으면 만장일치가 안 된다). 관전석은 자리가 아니다.
   - 모두 투표하면, 또는 협동 25초가 끝나면(투표 안 한 자리 = 준비 완료): 준비 완료가 많으면 맹약 선택으로, **다시 뽑기가 많으면 다시 뽑기**(만장일치가 아니어도), 같으면 대기실로.
     사람이 혼자면(싱글, AI 팀원만 있는 협동 방) 누르는 즉시 결정된다.
-  - 무엇을 다시 뽑나(결정 1): **새 시드로 판 전체** — 리더 적·숨은 리더·전장·특훈 적·결석 맹약·공유 풀·선발 재고. 표준 난이도는 전장이 하나라(「战场固定」) 전장은 그대로다.
+  - 무엇을 다시 뽑나: **새 시드로 판 전체** — 리더 적·숨은 리더·전장·특훈 적·결석 맹약·공유 풀·선발 재고. 표준 난이도는 전장이 하나라(「战场固定」) 전장은 그대로다.
   - 횟수 제한 없음. 브리핑이 시작되고 1초 동안은 `RATE`(`INFO_REROLL_MIN_MS`, 버튼을 계속 눌러 판을 연달아 만들지 않게). 클라이언트 버튼도 1.1초 뒤에 켜진다.
 - 서버 경로: 판은 `m.result` 없이 끝나고(`_endInfo`, 마지막 m.public에 `infoOutcome` `reroll`|`split`) `onEnd({ reason })`.
   `server/lobby.js onMatchEnd`: 다시 뽑기면 같은 방에서 `startMatch`를 바로 다시 부른다(새 시드, matchNo + 1, `room.start`의 준비 확인 없이 — 투표가 합의).
   남은 일 정리는 보통 판 끝과 같다(나간 자리 비우기 등). `lastSummary`·리플레이를 남기지 않아 `[stats]` 줄도 없다.
-  채팅 진영은 두 경우 모두 지운다(결정 7: 사람들이 결석 맹약을 보고 진영을 고르므로). 배포 카운트다운 마지막 5분(`startRefusal`)이면 새 판을 못 만들어 대기실로 돌아간다.
+  채팅 진영은 두 경우 모두 지운다(사람들이 결석 맹약을 보고 진영을 고르므로). 재시작 예고 마지막 5분(`startRefusal`)이면 새 판을 못 만들어 대기실로 돌아간다.
 - `room.state.matchNo`(새 필드): 다시 뽑기는 `inMatch`가 true인 채로 판을 바꾸므로, 클라이언트 `main.js onRoomState`가 matchNo가 바뀌면 경기 상태를 비운다(협동이면 토스트 「이번 판 정보를 다시 뽑았습니다」).
   동률·시작 실패로 `inMatch`가 false가 되면 「시뮬레이션 종료」 창 없이 바로 대기실로 가고 경고 토스트를 띄운다.
 - 화면: 다시 뽑기를 누른 사람의 칸 아이콘은 금색 새로고침 아이콘, 협동이면 「다시 뽑기 N」 수를 준비 완료 수 옆에 표시한다.
 - 확인: `test/match/info-reroll.test.js`(투표 규칙·서로 배타·25초·AI 제외·나간 자리), `test/lobby-info-reroll.test.js`(실제 서버·실제 Match: 새 시드·matchNo 2·리플레이/[stats] 없음, 협동 동률 → 대기실·진영 지움).
-  화면 확인 전(§11).
+  [화면 미확인]
 
-## 결산 화면 피드백 보내기 (2026-10-09, 사용자 결정)
-- 공식에 없는 기능(`feat`). 사용자 요청 2026-10-09: 「게임이 종료된 후 결산화면에 버그 제보나 기능 제안 등 피드백을 할 수 있게」.
-  설정 → 「문제 제보」(upstream PR #321 이식, 위 「upstream 이식 ui-1」)는 클립보드 복사만 하고, 판이 끝나면 전투 실행기가 전투를 지워(`runner.js clear()`)
+## 결산 화면 피드백 보내기 (2026-10-09, 관리자 결정)
+- 공식에 없는 기능(`feat`). 관리자 요청 2026-10-09: 「게임이 종료된 후 결산화면에 버그 제보나 기능 제안 등 피드백을 할 수 있게」.
+  설정 → 「문제 제보」(upstream PR #321 이식, 위 「upstream 0.2.1·0.2.2 이식 — UI」)는 클립보드 복사만 하고, 판이 끝나면 전투 실행기가 전투를 지워(`runner.js clear()`)
   결산 화면에서는 전투를 붙일 수 없었다.
-- 사용자 결정(2026-10-09): **1단계 = 서버에 보관하고 운영자가 가져간다**. 보관 90일, IP는 저장하지 않고 키 해시만.
-  **2단계(같은 날, 사용자 결정: 모든 제보 자동 등록, 창의 안내 문구도 공개에 맞게)**: 공개 저장소 `LazyDeltaLima/Myeongto-Replica`의 issue로
+- 관리자 결정(2026-10-09): **1단계 = 서버에 보관하고 운영자가 가져간다**. 보관 90일, IP는 저장하지 않고 키 해시만.
+  **2단계(같은 날, 관리자 결정: 모든 제보 자동 등록, 창의 안내 문구도 공개에 맞게)**: 공개 저장소 `LazyDeltaLima/Myeongto-Replica`의 issue로
   모든 제보를 자동 등록한다(운영자가 고르는 반자동 아님). 아래 「GitHub issue 자동 등록」.
 - 화면(`public/js/ui/feedback.js`, `screens/result.js`): 실시간 결산 화면의 「返回同盟」 옆 「피드백 보내기」(통계 페이지에서 다시 보는 결산에는 없음).
   서버가 `welcome.feedback`을 줄 때만 보인다(`SP_FEEDBACK_DIR`가 없는 로컬 서버는 버튼 없음). 창: 종류(버그·제안·기타), 내용(2000자),
@@ -561,9 +560,9 @@ upstream UI 12건 + `66297106`의 테스트 조각(`research/2026-10-09-upstream
   누구나 볼 수 있으니 개인 정보를 쓰지 말 것, 이름·동맹 코드는 바뀜, 전투 데이터는 공개하지 않고 서버에만 90일, IP는 구분 코드만.
   그렇지 않으면 1단계 문구(「서버에 저장되어 개발자만 보고 90일 뒤 삭제」). 공개 안내일 때 접수 화면에 「몇 분 뒤 GitHub에 공개로 등록」 +
   「GitHub에서 보기」(그 저장소 issue 검색 `is:issue <접수 번호>`).
-  버튼은 「返回同盟」과 같은 크기로 그 아래에 쌓는다(사용자 제보 2026-10-09; 나란히는 5.6rem 칸에 안 들어감 — 1600×900에서 226 px 중 247 px 필요).
+  버튼은 「返回同盟」과 같은 크기로 그 아래에 쌓는다(관리자 제보 2026-10-09; 나란히는 5.6rem 칸에 안 들어감 — 1600×900에서 226 px 중 247 px 필요).
   높이 500 px 이하(휴대폰 가로 844×390)에서는 왼쪽 칸 간격을 줄여 두 번째 버튼이 화면 안에 들어오게 한다. 창은 결산 바닥줄 안에서 그려지므로
-  `result.css`의 버튼 최소 폭은 바닥줄 바로 아래 버튼에만(`.result__foot > .btn`) — 전에는 창의 취소·전송까지 3.4rem이 되어 창 밖으로 나갔다(사용자 제보 2026-10-09).
+  `result.css`의 버튼 최소 폭은 바닥줄 바로 아래 버튼에만(`.result__foot > .btn`) — 전에는 창의 취소·전송까지 3.4rem이 되어 창 밖으로 나갔다(관리자 제보 2026-10-09).
 - 전투 데이터(`diag.js rememberBattle`·`matchBattles`): 전투 실행기가 받은 자기 전투(관전 `watch` 제외)의 b.start를 판 끝까지 보관하고, battleId 앞부분
   (`<seed36>[-<matchNo36>]`)이 바뀌면(다음 판) 비운다. 오류 기록에 그때 화면의 battleId를 붙여 전투마다 오류 수(`errors`)를 센다.
   이름·방 코드는 설정의 진단 복사와 같은 방식(값이 정확히 같을 때만)으로 바꾼다. 브라우저 `CompressionStream` gzip + base64로 보내고,
@@ -578,7 +577,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(`research/2026-10-09-upstream
 - **GitHub issue 자동 등록**(2단계, `server/feedback-relay.js`, `node server/feedback-relay.js`): 게임 서버와 따로 도는 프로세스. 게임 서버는 네트워크
   밖으로 나가지 않고 보관함에 쓰기만 하고, relay가 `SP_FEEDBACK_DIR/inbox/`를 읽어(읽기 전용이어도 됨) 올린 기록을 `SP_FEEDBACK_DIR/issues/`에 쓴다.
   작성자는 사람 계정이 아니라 그 저장소 하나에만 설치한 GitHub App(권한 Issues 읽기·쓰기)의 봇. 설정: 두 쪽 모두 `SP_FEEDBACK_REPO=owner/name`,
-  relay에만 `SP_GITHUB_APP_ID`·`SP_GITHUB_APP_KEY`(비밀 키 PEM 경로)·선택 `SP_GITHUB_INSTALLATION`·`SP_RELAY_POLL_S`(기본 300초 = 5분, 사용자 결정 2026-10-09 — 검사는 보관함만 읽고 GitHub에는 제보가 있을 때만 묻는다). 키는 저장소에 두지 않는다.
+  relay에만 `SP_GITHUB_APP_ID`·`SP_GITHUB_APP_KEY`(비밀 키 PEM 경로)·선택 `SP_GITHUB_INSTALLATION`·`SP_RELAY_POLL_S`(기본 300초 = 5분, 관리자 결정 2026-10-09 — 검사는 보관함만 읽고 GitHub에는 제보가 있을 때만 묻는다). 키는 저장소에 두지 않는다.
   - 올리는 것: `public: true`로 저장된 제보만 — 창이 공개 안내를 보였을 때만 클라이언트가 `public`을 보내고, 서버는 `SP_FEEDBACK_REPO`가 있을 때만 그 값을
     남긴다. 1단계 안내(「개발자만 봄」)를 보고 보낸 제보, 옛 화면에서 보낸 제보는 공개되지 않는다.
   - issue 내용: 제목 `[버그|제안|기타] <첫 줄 60자>`, 본문은 접수 번호·종류·버전·받은 때·내용·(첨부했으면) 접힌 진단 정보·전투 수 한 줄, 끝에
@@ -588,5 +587,5 @@ upstream UI 12건 + `66297106`의 테스트 조각(`research/2026-10-09-upstream
   - 한 번만 올림: 요청 전 `issues/<id>.posting`(배타 생성), 성공하면 `issues/<id>.json { number, url, at }`. HTTP 응답이 201이 아니거나 연결 자체가
     안 열렸으면 표시를 지우고 기다림을 두 배로 늘려(최대 1시간) 다시. 응답 없이 끊긴 요청(시간 초과 등)과 중단으로 남은 표시는 저장소의 issue 목록에서
     본문의 `<!-- FB-… -->`를 찾아 정리하고, 3분이 지나도 없으면 안 만들어진 것으로 보고 다시 올린다. 기록 파일은 보관함과 같이 90일.
-  - 확인: `test/feedback-relay.test.js`(가짜 GitHub API: JWT 서명, 본문 가림, 공개분만·한 번만, 재시도 대기, 응답 없는 요청 정리). 실제 저장소에
-    올리는 것은 App을 만든 뒤 배포 서버에서 확인(§11).
+  - 확인: `test/feedback-relay.test.js`(가짜 GitHub API: JWT 서명, 본문 가림, 공개분만·한 번만, 재시도 대기, 응답 없는 요청 정리). 배포 서버에서 App 설치·relay 가동은
+    2026-10-09에 했고, 실제 저장소에 첫 issue가 등록되는지는 [미확인].
