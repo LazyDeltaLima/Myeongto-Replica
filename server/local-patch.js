@@ -7,6 +7,8 @@
 //   onMatchEnd(lobby, room)          the match ended: one [stats] log line (local-stats.js), factions are cleared (they last one match)
 //   botCap(room)                     Lobby.addBot: the refusal when SP_MAX_BOTS is reached, else null
 //   maxBotsSetting()                 room.state `maxBots` (null when unset)
+//   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
+//   fb.send                          (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
 //   dbg.funds / dbg.addDiy           (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
 //
@@ -23,6 +25,7 @@
 // players this file used to wrap in; removed here so it is not applied twice).
 
 import { logMatchStats } from './local-stats.js';
+import { FeedbackInbox } from './local-feedback.js';
 import { ERR, MAX_SEATS } from '../shared/constants.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_HISTORY, chatFaction } from '../shared/local.js';
 import { sendSession } from './net.js';
@@ -78,7 +81,19 @@ export function onMessage(lobby, session, msg) {
   if (msg.t === 'room.chat') return chat(lobby, session, msg);
   if (msg.t === 'room.chatFaction') return pickFaction(lobby, session, msg);
   if (msg.t === 'dbg.funds' || msg.t === 'dbg.addDiy') return debugMessage(lobby, session, msg); // local debug mode only
+  if (msg.t === 'fb.send') return feedbackOf(lobby).submit(session, msg);
   return null;
+}
+
+/** The lobby's feedback inbox (SP_FEEDBACK_DIR; off when unset) — made on first use, or the one a test put there. */
+export function feedbackOf(lobby) {
+  if (!lobby.feedback) lobby.feedback = FeedbackInbox.fromEnv(process.env, lobby.log);
+  return lobby.feedback;
+}
+
+/** Extra welcome fields of this patch (Lobby.welcomeInfo). */
+export function welcomeInfo(lobby) {
+  return feedbackOf(lobby).welcomeInfo();
 }
 
 function chat(lobby, session, { text }) {
@@ -136,6 +151,7 @@ export function onJoin(lobby, room, session) {
 /** The match ended: the factions last one match. */
 export function onMatchEnd(lobby, room) {
   logMatchStats(lobby, room); // one [stats] log line per finished match (server/local-stats.js)
+  feedbackOf(lobby).noteMatchEnd(room); // its players may send feedback from the settlement screen
   const c = rooms.get(room);
   if (!c || !c.factions.size) return;
   c.factions.clear();

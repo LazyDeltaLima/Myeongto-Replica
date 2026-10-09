@@ -1,6 +1,6 @@
 // Result screen (research 06 §10.6): victory / defeat hero with rounds passed, boss medallions, and a
 // card per player — band, final lineup avatars with elite marks, stats, title (评语) with its icon —
-// plus 返回同盟.
+// plus 返回同盟 and, local patch, 피드백 보내기 (ui/feedback.js: only on the live screen, while the server keeps feedback).
 //
 // Expected m.result (free-form in DESIGN §8.2; fields read tolerantly, see gameLogic.normalizeResult):
 //   { victory, roundsPassed, lastRound?, hiddenCleared?, bossId?, hiddenBossId?, difficulty?, modeId?, durationMs?,
@@ -25,6 +25,7 @@ import { store, useStore, emptyMatch } from '../store.js';
 import { audio } from '../audio.js';
 import { playMatchEndVoice } from '../voice.js'; // local patch: the 结算 line on a won settlement
 import { sentText } from '../ui/lang.js';
+import { FeedbackButton } from '../ui/feedback.js'; // local patch: the settlement screen's feedback
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -111,15 +112,17 @@ export function ResultScreen() {
   const myId = useStore((s) => s.me.playerId);
   const hasRoom = useStore((s) => !!s.room);
   const back = () => store.set({ match: emptyMatch() });
-  return html`<${ResultView} res=${res} pub=${pub} myId=${myId} backLabel=${hasRoom ? t('返回同盟') : t('返回大厅')} onBack=${back} />`;
+  return html`<${ResultView} res=${res} pub=${pub} myId=${myId} backLabel=${hasRoom ? t('返回同盟') : t('返回大厅')} onBack=${back}
+    extra=${html`<${FeedbackButton} />`} />`;
 }
 
 /**
  * The settlement view of one m.result payload — the live screen above, and the stats page's re-view of a stored match
  * (screens/stats.js, which hands it the payload recordToResult rebuilt; `quiet`: no settlement jingle).
- * @param {{ res: any, pub?: any, myId?: string|null, backLabel: string, onBack: () => void, quiet?: boolean }} props
+ * `extra`: more buttons beside the back button (the live screen's 피드백 보내기).
+ * @param {{ res: any, pub?: any, myId?: string|null, backLabel: string, onBack: () => void, quiet?: boolean, extra?: any }} props
  */
-export function ResultView({ res, pub = null, myId = null, backLabel, onBack, quiet = false }) {
+export function ResultView({ res, pub = null, myId = null, backLabel, onBack, quiet = false, extra = null }) {
   const gd = useGameData();
   const r = normalizeResult(res, pub);
   const titles = Array.isArray(gd.config?.titles) ? gd.config.titles : [];
@@ -161,6 +164,7 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
         ${mins ? html`<p class="result__time t-lo">${tParts('本局耗时 {n} 分钟', { n: html`<b class="num">${mins}</b>`, mins })}</p>` : null}
         <footer class="result__foot">
           <${Button} variant="primary" size="xl" icon="chevronLeft" onClick=${onBack}>${backLabel}<//>
+          ${extra}
         </footer>
       </section>
       <section class="result__players">

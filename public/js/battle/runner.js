@@ -72,7 +72,7 @@ import { net as appNet } from '../net.js';
 import { store as appStore } from '../store.js';
 import { unitStatsEntry, fxForm } from '../../../shared/protocol.js';
 import { spectateEffects } from './observe.js';
-import { recordError, setBattleSource } from '../diag.js';
+import { recordError, setBattleSource, rememberBattle } from '../diag.js';
 
 const TICK = 1 / 30;
 /** Fast-forward budget per frame (ticks) when far behind. */
@@ -673,6 +673,7 @@ export function createBattleRunner(deps) {
       held: [], stale: false, slices: [],
     };
     pending.set(e.battleId, e);
+    if (e.own) rememberBattle(e); // kept for the settlement screen's feedback (diag.js)
     loading = e;
     publishState();
     e.ready = prepare(e);

@@ -10,6 +10,8 @@
 //   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } — local debug mode only (server/local-patch.js debugMode)
 //   restart        server.restart { inMs, mark? } (every connected socket; inMs null = called off) + welcome `restart: { inMs }`
 //                  while a countdown runs — the deploy's server-restart notice (server/local-restart.js)
+//   feedback       fb.send { id, kind, text, diag?, battles?, match? } → ok — the settlement screen's 피드백 보내기, stored in
+//                  the server's inbox (server/local-feedback.js); welcome `feedback: true` while the inbox is on
 
 import { EMOTE_SETS } from './emote-art.js';
 import { N_ } from './i18n.js';
@@ -30,6 +32,14 @@ export const RESTART_FINAL_MIN = 5;
 export const CHAT_MAX_LEN = 120;
 export const CHAT_COOLDOWN_MS = 700;
 export const CHAT_HISTORY = 40;
+
+// feedback (server/local-feedback.js, public/js/ui/feedback.js): the kinds, the text's length in code points, and the
+// sizes of the attachments in UTF-16 units — the whole fb.send frame must stay under the socket's 64 KB inbound limit
+// (server/http/websocket.js): text ≤ 2000 code points (≤ 8 KB as UTF-8 JSON), diag ≤ 14000, battles ≤ 38000 base64
+export const FEEDBACK_KINDS = Object.freeze(['bug', 'idea', 'other']);
+export const FEEDBACK_TEXT_MAX = 2000;
+export const FEEDBACK_DIAG_MAX = 14000;
+export const FEEDBACK_BATTLES_MAX = 38000;
 
 // b.snap unit flag bit beside shared/constants.js UF: the see-through state (UF.STEALTH) is 迷彩 (위장, buffs.js camou),
 // not 隐匿 — render/units.js shows its own icon (docs/LOCAL-PATCH.md "위장 아이콘"). Set only when no 隐匿 is in effect.
@@ -75,6 +85,16 @@ export function extendProtocol(C2S, S2C) {
     skill: (v) => Number.isInteger(v) && v >= 0 && v <= 2,
     module: (v) => typeof v === 'string' && /^[A-Za-z0-9_\-]{1,64}$/.test(v),
     $optional: ['golden', 'skill', 'module'],
+  };
+  // the settlement screen's feedback (server/local-feedback.js checks the sender and cleans the text)
+  C2S['fb.send'] = {
+    id: (v) => typeof v === 'string' && /^[a-z0-9]{8}$/.test(v),
+    kind: (v) => FEEDBACK_KINDS.includes(v),
+    text: (v) => isStr(v, FEEDBACK_TEXT_MAX * 2) && v.trim().length > 0,
+    diag: (v) => isStr(v, FEEDBACK_DIAG_MAX),
+    battles: (v) => isStr(v, FEEDBACK_BATTLES_MAX) && /^[A-Za-z0-9+/]*={0,2}$/.test(v),
+    match: (v) => isStr(v, 32) && /^[a-z0-9-]*$/.test(v),
+    $optional: ['diag', 'battles', 'match'],
   };
   if (C2S['g.emote']) C2S['g.emote'] = { ...C2S['g.emote'], set: optional((v) => EMOTE_SETS.includes(v)) };
   for (const t of LOCAL_S2C) if (!S2C.includes(t)) S2C.push(t);

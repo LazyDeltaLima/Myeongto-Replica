@@ -12,6 +12,11 @@
 //                                      (a failed request or error push the player was shown)
 //   errorLog() / errorCount() / clearErrorLog()
 //   setBattleSource(fn)                the battle runner registers how to read the battle on screen
+//   rememberBattle(entry)              the runner's own battles of this match (b.start fields), kept past the match's
+//                                      end for the settlement screen's feedback (ui/feedback.js); a battle of another
+//                                      match (another battleId prefix) starts the list again
+//   matchBattles(state)                those battles as the feedback attaches them (secrets replaced, errors counted)
+//   battleCount()                      how many there are (cheap: no copy)
 //   buildDiagnostics(input)            the report text (pure: the state, the environment and the battle are passed in)
 //   diagnosticsText({ state, settings, attachBattle })  the report of this page (this browser, the battle on screen)
 //
@@ -23,7 +28,7 @@ export const LOG_MAX = 40;
 export const STACK_LINES = 6;
 const MESSAGE_MAX = 300;
 
-/** @type {{ source: string, message: string, stack: string|null, detail: string|null, at: number, lastAt: number, count: number }[]} */
+/** @type {{ source: string, message: string, stack: string|null, detail: string|null, battleId: string|null, at: number, lastAt: number, count: number }[]} */
 const log = [];
 let total = 0;
 let dropped = 0;
@@ -62,20 +67,22 @@ export const stripHosts = (s) => String(s).replace(/\b[a-z][a-z0-9+.-]*:\/\/[^/\
 
 /**
  * Record an error. An entry identical to the newest one (same source, message and stack) raises its count instead.
+ * The battle on screen when it happened is noted (`battleId`): the feedback counts each battle's errors.
  * @param {string} source @param {any} err @param {string|null} [detail] @param {number} [at] epoch ms
  */
 export function recordError(source, err, detail = null, at = Date.now()) {
   const message = stripHosts(messageOf(err));
   const stack = stackOf(err);
   const det = detail == null ? null : stripHosts(String(detail)).slice(0, MESSAGE_MAX);
+  const battleId = currentBattle()?.battleId ?? null;
   total++;
   const last = log[log.length - 1];
-  if (last && last.source === source && last.message === message && last.stack === stack && last.detail === det) {
+  if (last && last.source === source && last.message === message && last.stack === stack && last.detail === det && last.battleId === battleId) {
     last.count++;
     last.lastAt = at;
     return last;
   }
-  const e = { source: String(source), message, stack, detail: det, at, lastAt: at, count: 1 };
+  const e = { source: String(source), message, stack, detail: det, battleId, at, lastAt: at, count: 1 };
   log.push(e);
   while (log.length > LOG_MAX) { log.shift(); dropped++; }
   return e;
@@ -93,6 +100,43 @@ export function setBattleSource(fn) { battleSource = typeof fn === 'function' ? 
 /** The battle on screen for a report, or null. */
 export function currentBattle() {
   try { return battleSource ? battleSource() || null : null; } catch { return null; }
+}
+
+/** The match a battleId belongs to: its prefix `<seed36>[-<matchNo36>]` (server/match/Match.js battlePrefix). */
+export const matchKeyOf = (battleId) => (typeof battleId === 'string' ? battleId.split('.')[0] : '');
+
+/** @type {{ battleId: string, fieldId: string|null, kind: string|null, spec: object }[]} */
+const battles = [];
+export const BATTLES_KEPT = 40;
+/**
+ * Keep one of the runner's own battles of this match (its b.start fields). A battle of another match clears the list.
+ * @param {{ battleId: string, fieldId?: string|null, kind?: string|null, spec: object }} b
+ */
+export function rememberBattle(b) {
+  if (!b || typeof b.battleId !== 'string' || !b.spec) return;
+  if (battles.length && matchKeyOf(battles[0].battleId) !== matchKeyOf(b.battleId)) battles.length = 0;
+  if (battles.some((x) => x.battleId === b.battleId)) return;
+  battles.push({ battleId: b.battleId, fieldId: b.fieldId ?? null, kind: b.kind ?? null, spec: b.spec });
+  while (battles.length > BATTLES_KEPT) battles.shift();
+}
+export function clearBattles() { battles.length = 0; }
+/** How many battles matchBattles would attach. */
+export const battleCount = () => battles.length;
+
+/**
+ * This match's battles as the feedback attaches them, oldest first: b.start payloads (the dev tools replay them) with
+ * the secrets of `state` replaced as exact values, each with the errors recorded while it was on screen (`errors`).
+ * @param {any} state the store state
+ * @returns {{ match: string, list: object[] }}
+ */
+export function matchBattles(state) {
+  const pairs = secretsOf(state);
+  const errs = new Map();
+  for (const e of log) if (e.battleId) errs.set(e.battleId, (errs.get(e.battleId) || 0) + e.count);
+  const list = battles.map((b) => redactValues({
+    t: 'b.start', battleId: b.battleId, fieldId: b.fieldId, kind: b.kind, spec: b.spec, errors: errs.get(b.battleId) || 0,
+  }, pairs));
+  return { match: battles.length ? matchKeyOf(battles[0].battleId) : '', list };
 }
 
 /** Secrets worth replacing: non-empty strings, later pair winning when the same value is listed twice. */
@@ -214,7 +258,8 @@ export function buildDiagnostics(input) {
   lines.push('');
   lines.push(`errors: ${tot ? `${tot} recorded${drop ? `, ${drop} oldest entries dropped` : ''}` : 'none recorded'}`);
   shown.forEach((e, i) => {
-    lines.push(`#${i + 1} ${clockOf(e.at)}${e.count > 1 ? ` (x${e.count}, last ${clockOf(e.lastAt)})` : ''} ${e.source}: ${e.message}`);
+    lines.push(`#${i + 1} ${clockOf(e.at)}${e.count > 1 ? ` (x${e.count}, last ${clockOf(e.lastAt)})` : ''} ${e.source}: ${e.message}`
+      + (e.battleId ? ` [battle ${e.battleId}]` : ''));
     if (e.detail) lines.push(`   ${e.detail}`);
     if (e.stack) for (const l of e.stack.split('\n')) lines.push(`   ${l}`);
   });
