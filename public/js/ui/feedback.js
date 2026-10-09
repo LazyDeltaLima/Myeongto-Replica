@@ -1,11 +1,14 @@
 // Local patch: the settlement screen's 피드백 보내기 (screens/result.js) — a bug report or a suggestion sent to this
-// server's feedback inbox (fb.send → server/local-feedback.js; user decision 2026-10-09, stage 1: kept on the server for
-// the operator to pull, nothing is posted to GitHub). The player picks the kind, writes what happened and chooses the
+// server's feedback inbox (fb.send → server/local-feedback.js). Where the server names a repository (welcome
+// `feedbackIssues`, user decision 2026-10-09 stage 2) every report becomes a public issue there (server/feedback-relay.js):
+// the window says so, sends `public`, and the receipt links to the issue search; otherwise the report stays on the
+// server for the operator (stage 1) and the window says that. The player picks the kind, writes what happened and chooses the
 // attachments: the diagnostics of this page (diag.js: version, browser, the error log) and this match's battles as the
 // browser received them (diag.js matchBattles: the dev tools replay them; gzip + base64 to fit the socket's 64 KB
 // frame — the oldest battles without errors are left out first when it does not). Player names and the room code are
 // replaced in both, as in 设置 → 问题反馈 (which only copies). The button shows only while the server says its inbox is
-// on (welcome `feedback`) — off on a local server without SP_FEEDBACK_DIR.
+// on (welcome `feedback`) — off on a local server without SP_FEEDBACK_DIR. Only the text and the diagnostics are posted;
+// the battles stay on the server.
 
 import { useState } from '../../vendor/hooks.module.js';
 import { html, Modal, Button, MicroLabel } from './components.js';
@@ -19,13 +22,19 @@ import { FEEDBACK_KINDS, FEEDBACK_TEXT_MAX, FEEDBACK_DIAG_MAX, FEEDBACK_BATTLES_
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
-/** Whether this server keeps feedback (the last welcome's `feedback`). */
-export const feedbackStore = createStore({ enabled: false });
+/** Whether this server keeps feedback (the last welcome's `feedback`) and the issue list reports are posted to, if any. */
+export const feedbackStore = createStore({ enabled: false, issues: null });
+
+/** An https://github.com/<owner>/<name>/issues address, or null. @param {unknown} v */
+export const issuesUrlOf = (v) => (typeof v === 'string' && /^https:\/\/github\.com\/[A-Za-z0-9-]+\/[A-Za-z0-9._-]+\/issues$/.test(v) ? v : null);
 
 /** @param {{ net: { on: Function } }} deps */
 export function installFeedback({ net }) {
-  net.on('welcome', (msg) => feedbackStore.set({ enabled: !!msg?.feedback }));
+  net.on('welcome', (msg) => feedbackStore.set({ enabled: !!msg?.feedback, issues: msg?.feedback ? issuesUrlOf(msg.feedbackIssues) : null }));
 }
+
+/** The issue search of a receipt id (the relay writes the id into the issue). @param {string} issues @param {string} id */
+export const issueSearchUrl = (issues, id) => `${issues}?q=${encodeURIComponent(`is:issue ${id}`)}`;
 
 /** A kind's label (context `feedback`: 错误 alone is too common a msgid). @param {string} k */
 const kindLabel = (k) => (k === 'bug' ? tc('feedback', '错误') : k === 'idea' ? tc('feedback', '建议') : tc('feedback', '其他'));
@@ -83,6 +92,7 @@ const SEND_ERRORS = {
 
 /** @param {{ onClose: () => void }} props */
 export function FeedbackModal({ onClose }) {
+  const issues = useStore((s) => s.issues, Object.is, feedbackStore);
   const [kind, setKind] = useState('bug');
   const [text, setText] = useState('');
   const [withDiag, setWithDiag] = useState(true);
@@ -108,6 +118,7 @@ export function FeedbackModal({ onClose }) {
     try {
       const id = feedbackId();
       const fields = { id, kind, text: text.trim() };
+      if (issues) fields.public = true;
       const diag = report();
       if (diag) fields.diag = diag;
       if (battlesOn && battleCount) {
@@ -136,6 +147,7 @@ export function FeedbackModal({ onClose }) {
       <div class="fb" data-testid="feedback-done">
         <p class="fb__thanks">${t('已收到反馈，谢谢！')}</p>
         <p class="set-hint">${t('受理编号')} <b class="num fb__id">${done}</b></p>
+        ${issues ? html`<p class="set-hint">${t('一分钟左右后会公开登记到 GitHub。')}${' '}<a href=${issueSearchUrl(issues, done)} target="_blank" rel="noopener noreferrer" data-testid="feedback-issue">${t('在 GitHub 上查看')}</a></p>` : null}
       </div>
     <//>`;
   }
@@ -157,7 +169,9 @@ export function FeedbackModal({ onClose }) {
         <span>${t('附上诊断信息')}<${MicroLabel}>DIAGNOSTICS<//></span></label>
       ${battleCount ? html`<label class="fb__check"><input type="checkbox" checked=${battlesOn} onChange=${(e) => setWithBattles(e.currentTarget.checked)} />
         <span>${t('附上本局战斗数据（{n} 场）', { n: battleCount })}<${MicroLabel}>BATTLES<//></span></label>` : null}
-      <p class="set-hint">${t('反馈保存在本服务器上，只有开发者能看到，90 天后删除。玩家名和房间号会被替换；IP 地址不会保存，只保存一个无法还原的区分码。')}</p>
+      <p class=${cx('set-hint', issues && 'fb__public')} data-testid="feedback-notice">${issues
+        ? t('反馈内容和诊断信息会自动登记为公开 GitHub 仓库的 issue，任何人都能看到，请不要写个人信息。玩家名和房间号会被替换；战斗数据只保存在本服务器上（不公开），90 天后删除。IP 地址不会保存，只保存一个无法还原的区分码。')
+        : t('反馈保存在本服务器上，只有开发者能看到，90 天后删除。玩家名和房间号会被替换；IP 地址不会保存，只保存一个无法还原的区分码。')}</p>
       ${error ? html`<p class="set-keys__note is-warn" role="status" aria-live="polite">${t(error)}
         <${Button} variant="ghost" size="sm" icon="copy" onClick=${copy}>${copied ? t('已复制') : t('复制内容')}<//></p>` : null}
     </div>

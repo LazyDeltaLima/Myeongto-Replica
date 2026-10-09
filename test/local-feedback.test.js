@@ -39,7 +39,8 @@ const msgOf = (over = {}) => ({ t: 'fb.send', id: 'abcd1234', kind: 'bug', text:
 
 test('fb.send validation: id, kind, text, attachment sizes', () => {
   assert.equal(validateC2S(msgOf()), null);
-  assert.equal(validateC2S(msgOf({ diag: 'x', battles: 'H4sI', match: 'k1-2' })), null);
+  assert.equal(validateC2S(msgOf({ diag: 'x', battles: 'H4sI', match: 'k1-2', public: true })), null);
+  assert.ok(validateC2S(msgOf({ public: 'yes' })));
   assert.ok(validateC2S(msgOf({ id: 'ABCD1234' })));
   assert.ok(validateC2S(msgOf({ kind: 'spam' })));
   assert.ok(validateC2S(msgOf({ text: '   ' })));
@@ -88,6 +89,36 @@ test('a player of a match that just ended stores one file: text cleaned, stats w
     assert.equal(inbox.submit(session, msgOf({ id: 'zzzz0000' })).error, 'WRONG_PHASE');
   } finally {
     inbox.stop();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('SP_FEEDBACK_REPO: welcome names the issue list, `public` is kept only from a window that said so', () => {
+  const dir = tmpDir();
+  const inbox = new FeedbackInbox({ dir, log: quiet, repo: 'LazyDeltaLima/Myeongto-Replica' });
+  const off = new FeedbackInbox({ dir, log: quiet });
+  try {
+    assert.deepEqual(inbox.welcomeInfo(), { feedback: true, feedbackIssues: 'https://github.com/LazyDeltaLima/Myeongto-Replica/issues' });
+    assert.equal(new FeedbackInbox({ dir: null, log: quiet, repo: 'a/b' }).welcomeInfo(), null);
+    const warned = [];
+    const bad = FeedbackInbox.fromEnv({ SP_FEEDBACK_DIR: dir, SP_FEEDBACK_REPO: 'https://github.com/a/b' }, { ...quiet, warn: (m) => warned.push(m) });
+    assert.equal(bad.repo, null);
+    assert.equal(warned.length, 1);
+    bad.stop();
+    assert.equal(FeedbackInbox.fromEnv({ SP_FEEDBACK_DIR: dir, SP_FEEDBACK_REPO: ' a-b/c.d ' }, quiet).repo, 'a-b/c.d');
+    inbox.noteMatchEnd(roomOf());
+    off.noteMatchEnd(roomOf({ code: 'ZXCV' }));
+    const session = { playerId: 'p_1', addr: '203.0.113.7' };
+    assert.deepEqual(inbox.submit(session, msgOf({ id: 'pub00001', public: true })), { ok: true });
+    assert.deepEqual(inbox.submit(session, msgOf({ id: 'pub00002' })), { ok: true }, 'an old window (no `public`) stays private');
+    assert.deepEqual(off.submit(session, msgOf({ id: 'pub00003', public: true })), { ok: true }, 'no repository: stays private');
+    const pub = (id) => JSON.parse(fs.readFileSync(path.join(dir, 'inbox', filesOf(dir).find((n) => n.endsWith(`-${id}.json`))), 'utf8')).public;
+    assert.equal(pub('pub00001'), true);
+    assert.equal(pub('pub00002'), false);
+    assert.equal(pub('pub00003'), false);
+  } finally {
+    inbox.stop();
+    off.stop();
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -175,12 +206,13 @@ test('packBattles fits the limit by leaving out the oldest battles without error
 test('real server: welcome says feedback, a player sends it from the settlement of a finished match', async () => {
   const dir = tmpDir();
   const srv = await startServer({ port: 0, host: '127.0.0.1', log: { info() {}, warn() {}, debug() {}, error() {} }, MatchClass: RealMatch, seedFn: () => 1312887319 });
-  srv.lobby.feedback = new FeedbackInbox({ dir, log: quiet });
+  srv.lobby.feedback = new FeedbackInbox({ dir, log: quiet, repo: 'o/r' });
   let a;
   try {
     a = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
     const welcome = await a.hello('제보');
     assert.equal(welcome.feedback, true);
+    assert.equal(welcome.feedbackIssues, 'https://github.com/o/r/issues');
     a.id = welcome.playerId;
     assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'FUNNY' })).t, 'ok');
     await a.waitFor('room.state', (s) => s.hostId === a.id);
@@ -194,9 +226,10 @@ test('real server: welcome says feedback, a player sends it from the settlement 
     room.match.finish({ victory: false, reason: 'defeat' });
     await delay(20);
     const battles = gz([{ t: 'b.start', battleId: 'x.1.1', spec: {} }]);
-    assert.equal((await a.request(msgOf({ id: 'ffff0000', kind: 'idea', text: '관전 기능', battles }))).t, 'ok');
+    assert.equal((await a.request(msgOf({ id: 'ffff0000', kind: 'idea', text: '관전 기능', battles, public: true }))).t, 'ok');
     const rec = readOne(dir);
     assert.equal(rec.kind, 'idea');
+    assert.equal(rec.public, true);
     assert.equal(rec.stats.room, room.code);
     assert.equal(rec.battles.length, 1);
   } finally {

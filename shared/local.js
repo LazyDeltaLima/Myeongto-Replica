@@ -10,8 +10,9 @@
 //   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } · dbg.finish { victory } — local debug mode only (server/local-patch.js debugMode)
 //   restart        server.restart { inMs, mark? } (every connected socket; inMs null = called off) + welcome `restart: { inMs }`
 //                  while a countdown runs — the deploy's server-restart notice (server/local-restart.js)
-//   feedback       fb.send { id, kind, text, diag?, battles?, match? } → ok — the settlement screen's 피드백 보내기, stored in
-//                  the server's inbox (server/local-feedback.js); welcome `feedback: true` while the inbox is on
+//   feedback       fb.send { id, kind, text, diag?, battles?, match?, public? } → ok — the settlement screen's 피드백 보내기, stored in
+//                  the server's inbox (server/local-feedback.js); welcome `feedback: true` while the inbox is on, `feedbackIssues`
+//                  (a repository's issue list) while reports sent with `public` become issues there (server/feedback-relay.js)
 
 import { EMOTE_SETS } from './emote-art.js';
 import { APP_VERSION } from './constants.js';
@@ -95,7 +96,8 @@ export function extendProtocol(C2S, S2C) {
     diag: (v) => isStr(v, FEEDBACK_DIAG_MAX),
     battles: (v) => isStr(v, FEEDBACK_BATTLES_MAX) && /^[A-Za-z0-9+/]*={0,2}$/.test(v),
     match: (v) => isStr(v, 32) && /^[a-z0-9-]*$/.test(v),
-    $optional: ['diag', 'battles', 'match'],
+    public: (v) => v === true,
+    $optional: ['diag', 'battles', 'match', 'public'],
   };
   if (C2S['g.emote']) C2S['g.emote'] = { ...C2S['g.emote'], set: optional((v) => EMOTE_SETS.includes(v)) };
   for (const t of LOCAL_S2C) if (!S2C.includes(t)) S2C.push(t);

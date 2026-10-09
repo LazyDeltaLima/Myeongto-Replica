@@ -1,15 +1,19 @@
 // Local patch, server side: the settlement screen's 피드백 보내기 (feedback) inbox. A player who just finished a match
 // sends a bug report or a suggestion (fb.send, shared/local.js); this server keeps it as one JSON file in
-// SP_FEEDBACK_DIR/inbox/ for the operator to pull and triage. Nothing is posted anywhere from here
-// (user decision 2026-10-09: stage 1 = keep on the server and pull; a GitHub issue relay may read the same inbox later).
-// Called from server/local-patch.js (onMessage, onMatchEnd, welcomeInfo — one line each).
+// SP_FEEDBACK_DIR/inbox/ for the operator to pull and triage. Nothing is posted anywhere from here: with
+// SP_FEEDBACK_REPO (`owner/name`) set, server/feedback-relay.js — a separate process, the one with network access — posts
+// each report the player sent as public as an issue of that repository (stage 2, user decision 2026-10-09: every report,
+// automatically). Called from server/local-patch.js (onMessage, onMatchEnd, welcomeInfo — one line each).
 //
-//   fb.send { id, kind: 'bug' | 'idea' | 'other', text, diag?, battles?, match? }
+//   fb.send { id, kind: 'bug' | 'idea' | 'other', text, diag?, battles?, match?, public? }
 //     id       8 lower-case letters / digits, made by the client — the receipt number it shows (FB-<date>-<id>)
 //     text     what the player wrote (≤ FEEDBACK_TEXT_MAX code points after cleaning; newlines kept)
 //     diag     public/js/diag.js diagnosticsText: version, browser, the client's error log (names already replaced)
 //     battles  this match's battles as the browser received them (b.start payloads, names replaced), gzip + base64
 //     match    the battleId prefix of those battles (`<seed36>[-<matchNo36>]`), to tell matches apart
+//     public   true when the window told the player the text and diagnostics become a public issue (welcome
+//              `feedbackIssues`); stored as `public` only while SP_FEEDBACK_REPO is set — the relay posts nothing else,
+//              so a report sent under the stage-1 notice (「only the developers see it」) never becomes public
 //
 // Who may send: a human seat (or spectator) of a match that ended on this server within RECENT_MS (onMatchEnd marks them), at most
 // PER_MATCH reports per match, PER_ADDR per address and GLOBAL in all per day (in memory; a restart forgets them).
@@ -20,6 +24,7 @@
 // deleted (on start and every few hours); the pull removes what it copied.
 //
 // Off (fb.send → BAD_MSG, no `feedback` in welcome, the client shows no button) unless SP_FEEDBACK_DIR is set.
+// Welcome carries `feedbackIssues` (the repository's issue list) while SP_FEEDBACK_REPO is set too.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -40,6 +45,9 @@ const PRUNE_EVERY_MS = 6 * 60 * 60_000;
 /** The unpacked battles may be at most this large (zlib maxOutputLength: a gzip bomb stops here). */
 export const BATTLES_MAX_BYTES = 4 * 1024 * 1024;
 export const BATTLES_MAX = 40;
+
+/** `owner/name` of a GitHub repository. */
+export const REPO_RE = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
 
 const OK = Object.freeze({ ok: true });
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
@@ -80,10 +88,12 @@ export function unpackBattles(b64) {
 export class FeedbackInbox {
   /**
    * @param {{ dir?: string|null, now?: () => number, log?: { info: Function, warn: Function, error: Function },
-   *   limits?: { recentMs?: number, perMatch?: number, perAddr?: number, global?: number } }} [opts]
+   *   limits?: { recentMs?: number, perMatch?: number, perAddr?: number, global?: number }, repo?: string|null }} [opts]
    */
-  constructor({ dir = null, now = Date.now, log = console, limits = {} } = {}) {
+  constructor({ dir = null, now = Date.now, log = console, limits = {}, repo = null } = {}) {
     this.dir = dir ? path.resolve(dir) : null;
+    /** `owner/name` the relay posts public reports to (SP_FEEDBACK_REPO), or null: reports stay on this server */
+    this.repo = typeof repo === 'string' && REPO_RE.test(repo) ? repo : null;
     this.now = now;
     this.log = log;
     this.limits = { recentMs: RECENT_MS, perMatch: PER_MATCH, perAddr: PER_ADDR, global: GLOBAL, ...limits };
@@ -110,10 +120,12 @@ export class FeedbackInbox {
     }
   }
 
-  /** The inbox of SP_FEEDBACK_DIR (off when unset). */
+  /** The inbox of SP_FEEDBACK_DIR (off when unset); SP_FEEDBACK_REPO names the repository the relay posts to. */
   static fromEnv(env = process.env, log = console) {
     const dir = typeof env.SP_FEEDBACK_DIR === 'string' && env.SP_FEEDBACK_DIR.trim() ? env.SP_FEEDBACK_DIR.trim() : null;
-    return new FeedbackInbox({ dir, log });
+    const repo = typeof env.SP_FEEDBACK_REPO === 'string' ? env.SP_FEEDBACK_REPO.trim() : '';
+    if (dir && repo && !REPO_RE.test(repo)) log.warn(`[feedback] SP_FEEDBACK_REPO ${JSON.stringify(repo.slice(0, 80))} is not owner/name — reports stay on this server`);
+    return new FeedbackInbox({ dir, log, repo: repo || null });
   }
 
   get enabled() { return !!this.dir; }
@@ -165,8 +177,14 @@ export class FeedbackInbox {
     for (const [id, r] of this.recent) if (at - r.at > this.limits.recentMs) this.recent.delete(id);
   }
 
-  /** Extra welcome fields: `feedback: true` while the inbox is on. */
-  welcomeInfo() { return this.dir ? { feedback: true } : null; }
+  /** The repository's issue list while reports are posted there, else null. */
+  get issuesUrl() { return this.dir && this.repo ? `https://github.com/${this.repo}/issues` : null; }
+
+  /** Extra welcome fields: `feedback: true` while the inbox is on, `feedbackIssues` while reports become public issues. */
+  welcomeInfo() {
+    if (!this.dir) return null;
+    return this.repo ? { feedback: true, feedbackIssues: this.issuesUrl } : { feedback: true };
+  }
 
   /**
    * fb.send from `session` (validated by shared/local.js): stored, or refused.
@@ -201,6 +219,7 @@ export class FeedbackInbox {
       stats: r.stats,
       diag: typeof msg.diag === 'string' && msg.diag ? msg.diag : null,
       battles, ...(battlesError ? { battlesError } : {}),
+      public: !!this.repo && msg.public === true,
     };
     try {
       fs.writeFileSync(file, JSON.stringify(rec), { flag: 'wx', mode: 0o640 });
@@ -213,7 +232,7 @@ export class FeedbackInbox {
     times.push(now);
     this.perAddr.set(addr, times);
     this.sent.push(now);
-    this.log.info(`[feedback] ${id} ${msg.kind} ${r.key}${battles ? ` battles ${battles.length}` : ''}`);
+    this.log.info(`[feedback] ${id} ${msg.kind} ${r.key}${battles ? ` battles ${battles.length}` : ''}${rec.public ? ' public' : ''}`);
     return OK;
   }
 }

@@ -28,3 +28,5 @@
 .fb .set-keys__note { display: flex; flex-wrap: wrap; align-items: center; gap: .08rem; }
 .fb__thanks { font-size: .2rem; color: var(--text-hi); }
 .fb__id { font-family: var(--font-num); font-size: .2rem; color: var(--mint-400); -webkit-user-select: all; user-select: all; }
+.fb__public { color: var(--amber); }
+.fb a { color: var(--mint-400); text-decoration: underline; text-underline-offset: 2px; }
