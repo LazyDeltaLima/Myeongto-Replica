@@ -559,7 +559,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(`research/2026-10-09-upstream
   보내면 접수 번호(8자)를 보여 준다. 실패하면 이유(너무 자주·1시간 지남·연결 끊김)와 「내용 복사」.
   안내 문구는 서버가 저장소를 알려 줄 때(welcome `feedbackIssues`) 공개 안내(호박색): 내용과 진단 정보가 공개 GitHub 저장소의 issue로 자동 등록되어
   누구나 볼 수 있으니 개인 정보를 쓰지 말 것, 이름·동맹 코드는 바뀜, 전투 데이터는 공개하지 않고 서버에만 90일, IP는 구분 코드만.
-  그렇지 않으면 1단계 문구(「서버에 저장되어 개발자만 보고 90일 뒤 삭제」). 공개 안내일 때 접수 화면에 「1분쯤 뒤 GitHub에 공개로 등록」 +
+  그렇지 않으면 1단계 문구(「서버에 저장되어 개발자만 보고 90일 뒤 삭제」). 공개 안내일 때 접수 화면에 「몇 분 뒤 GitHub에 공개로 등록」 +
   「GitHub에서 보기」(그 저장소 issue 검색 `is:issue <접수 번호>`).
   버튼은 「返回同盟」과 같은 크기로 그 아래에 쌓는다(사용자 제보 2026-10-09; 나란히는 5.6rem 칸에 안 들어감 — 1600×900에서 226 px 중 247 px 필요).
   높이 500 px 이하(휴대폰 가로 844×390)에서는 왼쪽 칸 간격을 줄여 두 번째 버튼이 화면 안에 들어오게 한다. 창은 결산 바닥줄 안에서 그려지므로
@@ -578,7 +578,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(`research/2026-10-09-upstream
 - **GitHub issue 자동 등록**(2단계, `server/feedback-relay.js`, `node server/feedback-relay.js`): 게임 서버와 따로 도는 프로세스. 게임 서버는 네트워크
   밖으로 나가지 않고 보관함에 쓰기만 하고, relay가 `SP_FEEDBACK_DIR/inbox/`를 읽어(읽기 전용이어도 됨) 올린 기록을 `SP_FEEDBACK_DIR/issues/`에 쓴다.
   작성자는 사람 계정이 아니라 그 저장소 하나에만 설치한 GitHub App(권한 Issues 읽기·쓰기)의 봇. 설정: 두 쪽 모두 `SP_FEEDBACK_REPO=owner/name`,
-  relay에만 `SP_GITHUB_APP_ID`·`SP_GITHUB_APP_KEY`(비밀 키 PEM 경로)·선택 `SP_GITHUB_INSTALLATION`·`SP_RELAY_POLL_S`(기본 30초). 키는 저장소에 두지 않는다.
+  relay에만 `SP_GITHUB_APP_ID`·`SP_GITHUB_APP_KEY`(비밀 키 PEM 경로)·선택 `SP_GITHUB_INSTALLATION`·`SP_RELAY_POLL_S`(기본 300초 = 5분, 사용자 결정 2026-10-09 — 검사는 보관함만 읽고 GitHub에는 제보가 있을 때만 묻는다). 키는 저장소에 두지 않는다.
   - 올리는 것: `public: true`로 저장된 제보만 — 창이 공개 안내를 보였을 때만 클라이언트가 `public`을 보내고, 서버는 `SP_FEEDBACK_REPO`가 있을 때만 그 값을
     남긴다. 1단계 안내(「개발자만 봄」)를 보고 보낸 제보, 옛 화면에서 보낸 제보는 공개되지 않는다.
   - issue 내용: 제목 `[버그|제안|기타] <첫 줄 60자>`, 본문은 접수 번호·종류·버전·받은 때·내용·(첨부했으면) 접힌 진단 정보·전투 수 한 줄, 끝에

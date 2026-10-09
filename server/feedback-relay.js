@@ -11,7 +11,7 @@
 //   SP_GITHUB_APP_ID       the GitHub App's id
 //   SP_GITHUB_APP_KEY      path of the app's private key (PEM)
 //   SP_GITHUB_INSTALLATION optional: the installation id (else looked up from the repository)
-//   SP_RELAY_POLL_S        optional: seconds between inbox scans (default 30)
+//   SP_RELAY_POLL_S        optional: seconds between inbox scans (default 300: 5 minutes, user decision 2026-10-09)
 //
 // What is posted: only reports stored with `public: true` (the window told the player the report becomes a public issue —
 // a report sent under the stage-1 notice stays private), and of those only the kind, the text, the versions, the receipt
@@ -40,6 +40,8 @@ const KIND_TITLE = { bug: '버그', idea: '제안', other: '기타' };
 const BACKOFF_MAX_MS = 60 * 60_000;
 /** the request without an answer after this long is abandoned (and its marker kept) */
 const REQUEST_TIMEOUT_MS = 30_000;
+/** between inbox scans (a scan reads the local inbox only; GitHub is asked only when a report waits) */
+export const POLL_MS = 5 * 60_000;
 /** a marker this old with no issue carrying its id means the issue was never made */
 const MARKER_SETTLE_MS = 3 * 60_000;
 /** errors of a connection that never opened: the issue cannot exist */
@@ -123,7 +125,7 @@ export class FeedbackRelay {
    * @param {{ dir: string, repo: string, appId: string, key: string|Buffer|crypto.KeyObject, installation?: string|null,
    *   pollMs?: number, fetch?: typeof fetch, now?: () => number, log?: { info: Function, warn: Function, error: Function } }} opts
    */
-  constructor({ dir, repo, appId, key, installation = null, pollMs = 30_000, fetch: fetchImpl = globalThis.fetch,
+  constructor({ dir, repo, appId, key, installation = null, pollMs = POLL_MS, fetch: fetchImpl = globalThis.fetch,
     now = Date.now, log = console }) {
     if (!dir) throw new Error('feedback relay: no SP_FEEDBACK_DIR');
     if (!REPO_RE.test(repo || '')) throw new Error('feedback relay: SP_FEEDBACK_REPO must be owner/name');
@@ -153,7 +155,7 @@ export class FeedbackRelay {
     return new FeedbackRelay({
       dir: env.SP_FEEDBACK_DIR, repo: (env.SP_FEEDBACK_REPO || '').trim(), appId: env.SP_GITHUB_APP_ID,
       key: fs.readFileSync(keyFile), installation: env.SP_GITHUB_INSTALLATION || null,
-      pollMs: Number.isFinite(poll) && poll >= 5 ? poll * 1000 : 30_000, log,
+      pollMs: Number.isFinite(poll) && poll >= 5 ? poll * 1000 : POLL_MS, log,
     });
   }
 

@@ -843,7 +843,7 @@
   "附上本局战斗数据（{n} 场）": "Attach this match's battle data ({n})",
   "反馈保存在本服务器上，只有开发者能看到，90 天后删除。玩家名和房间号会被替换；IP 地址不会保存，只保存一个无法还原的区分码。": "Feedback is kept on this server, seen only by the developers and deleted after 90 days. Player names and the room code are replaced; your IP address is not stored, only a code that cannot be turned back into it.",
   "反馈内容和诊断信息会自动登记为公开 GitHub 仓库的 issue，任何人都能看到，请不要写个人信息。玩家名和房间号会被替换；战斗数据只保存在本服务器上（不公开），90 天后删除。IP 地址不会保存，只保存一个无法还原的区分码。": "Your feedback and the diagnostics are posted automatically as an issue of a public GitHub repository that anyone can read, so do not write personal information. Player names and the room code are replaced; the battle data stays on this server only (not public) and is deleted after 90 days. Your IP address is not stored, only a code that cannot be turned back into it.",
-  "一分钟左右后会公开登记到 GitHub。": "It appears on GitHub in about a minute.",
+  "几分钟后会公开登记到 GitHub。": "It appears on GitHub in a few minutes.",
   "在 GitHub 上查看": "View on GitHub",
   "已复制": "Copied",
   "复制内容": "Copy text",

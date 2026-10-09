@@ -147,7 +147,7 @@ export function FeedbackModal({ onClose }) {
       <div class="fb" data-testid="feedback-done">
         <p class="fb__thanks">${t('已收到反馈，谢谢！')}</p>
         <p class="set-hint">${t('受理编号')} <b class="num fb__id">${done}</b></p>
-        ${issues ? html`<p class="set-hint">${t('一分钟左右后会公开登记到 GitHub。')}${' '}<a href=${issueSearchUrl(issues, done)} target="_blank" rel="noopener noreferrer" data-testid="feedback-issue">${t('在 GitHub 上查看')}</a></p>` : null}
+        ${issues ? html`<p class="set-hint">${t('几分钟后会公开登记到 GitHub。')}${' '}<a href=${issueSearchUrl(issues, done)} target="_blank" rel="noopener noreferrer" data-testid="feedback-issue">${t('在 GitHub 上查看')}</a></p>` : null}
       </div>
     <//>`;
   }
