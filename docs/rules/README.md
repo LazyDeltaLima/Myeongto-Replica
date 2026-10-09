@@ -90,7 +90,8 @@
   처음 안 `0.1.4+mangho.N`은 "원본에 붙은 덧패치"로 읽혀서 사용자가 바꿈.
 - 올리는 규칙: 앞자리 = 큰 방향 전환(새 시즌 데이터 등), 가운데 = 기능·화면이 바뀐 배포, 끝자리 = 버그 수정만 있는 배포. upstream 병합은 기반 숫자만 바꾼다.
 - 보이는 곳: 타이틀 `v1.0.0 · BASE 0.1.4 · WEB SIMULATION`(title.js 1줄, 옆의 WEB SIMULATION처럼 영어 — 사용자 결정), `/healthz`의 `local`(기반은 원래 `app`), 서버 시작 로그.
-- **배포 순서:** `LOCAL_VERSION`을 올려 커밋 → `oci/deploy.sh`. STRONGHOLD.md 배포 기록에 버전도 적는다.
+- **배포 순서:** `LOCAL_VERSION`을 올리고 `README.md`의 버전 배지와 `v… · BASE …` 문구도 같이 고쳐 커밋(`test/version.test.js`가 확인,
+  README에 배포 버전을 쓰기로 한 사용자 결정 2026-10-09) → `oci/deploy.sh`. STRONGHOLD.md 배포 기록에 버전도 적는다.
 
 ## 테스트
 - `node --test test/local-patch.test.js` — 로컬 테스트 109개.

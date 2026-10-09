@@ -1,5 +1,5 @@
-// Documentation ⇄ code consistency (docs/DESIGN.md with docs/design/ and docs/history/, DATA.md, META.md, SIM.md, README.md,
-// DEPLOY.md, PLAYING.md).
+// Documentation ⇄ code consistency (docs/DESIGN.md with docs/design/ and docs/history/, DATA.md, META.md, SIM.md,
+// DEPLOY.md, PLAYING.md). The README is our own Korean one since 2026-10-09 (public repo) and no longer repeats the rules.
 // Every rule the final documentation sweep corrected is checked twice: the code still behaves as the docs now say, and
 // the stale wording does not come back. Topics: combat / boss clocks in REAL seconds (overtime after 150 real s,
 // m.public.overtimeAt), 联防 helper order (unite.helperOrder, research 08 §5), boss results handed over instead of a
@@ -67,7 +67,6 @@ const DESIGN = designText(ROOT);
 const META = doc('docs/META.md');
 const DATA_MD = doc('docs/DATA.md');
 const SIM = doc('docs/SIM.md');
-const README = doc('README.md');
 const DEPLOY = doc('docs/DEPLOY.md');
 const PLAYING = doc('docs/PLAYING.md');
 /** The table row of DATA.md whose first cell is `key` (backticked), or ''. */
@@ -150,18 +149,16 @@ test('reconnect windows: co-op 10 min, solo singleReconnectTime 24 h (code, data
   assert.match(DESIGN, /24 h/);
   assert.match(META, /singleReconnectTime/);
   assert.match(dataRow('constants'), /singleReconnectTime/);
-  for (const [name, text] of [['README', README], ['DEPLOY', DEPLOY], ['PLAYING', PLAYING]]) {
+  for (const [name, text] of [['DEPLOY', DEPLOY], ['PLAYING', PLAYING]]) {
     assert.match(text, /24 小时/, `${name}: solo resume window`);
     assert.match(text, /10 分钟/, `${name}: co-op window`);
   }
-  assert.ok(!/断线 10 分钟内可重连，掉线期间 AI 托管/.test(README), 'README: a dropped seat is not AI-played unless 暂离');
 });
 
 test('equipment: g.equip replaceUid and locked equipped items are in the contract docs', () => {
   assert.match(DESIGN, /`g\.equip \{itemUid, targetUid, replaceUid\?\}`/);
   assert.match(DESIGN, /equipped items are locked/);
   assert.match(META, /g\.equip\s*\n?\s*\{ itemUid, targetUid, replaceUid \}/);
-  assert.match(README, /已配发的装备锁定在干员身上/);
   assert.match(PLAYING, /已配发的装备锁定在干员身上/);
 });
 
@@ -228,7 +225,6 @@ test('solo pause: g.pause {on} is solo-only and m.public.paused follows (code) �
   assert.match(DESIGN, /`g\.pause \{on\}`/);
   assert.match(DESIGN, /\*\*Solo pause/);
   assert.match(META, /`m\.public\.paused`|`paused`\n?\(solo pause/);
-  assert.match(README, /暂停（独立模拟）/);
   assert.match(PLAYING, /同盟模拟的作战不能暂停/);
 });
 
@@ -294,7 +290,6 @@ test('lost models, live LP, detail card order, static game data (user playtest #
   assert.match(DESIGN, /pendingLp\? \/\* COMBAT \/ 联防 of a normal round/);
   assert.match(DESIGN, /`ownLeaks\(local, server\)`/);
   assert.match(PLAYING, /顶栏的目标生命值会\*\*立即\*\*显示扣除后的数值/);
-  assert.match(README, /漏怪时顶栏的目标生命值实时减少/);
 });
 
 test('user playtest #4 (DESIGN §18): picking by tile, timers, 机变 two taps, down / element state, content — code and every doc agree', () => {
@@ -312,8 +307,7 @@ test('user playtest #4 (DESIGN §18): picking by tile, timers, 机变 two taps, 
   assert.match(DESIGN, /`ENEMY_REACH` 0\.6 tile/);
   assert.match(DESIGN, /render\/pick\.js/);
   assert.ok(!/pieceDragOver'\|/.test(DESIGN), 'DESIGN §9: no pieceDragOver event');
-  assert.match(README, /按地上的方格/);
-  for (const [name, text] of [['README', README], ['PLAYING', PLAYING]]) {
+  for (const [name, text] of [['PLAYING', PLAYING]]) {
     assert.ok(!/画面上实际画出的干员/.test(text), `${name}: no body picking`);
     assert.ok(!/模型抬高到手指上方|模型在手指上方/.test(text), `${name}: no touch lift`);
   }
@@ -335,7 +329,6 @@ test('user playtest #4 (DESIGN §18): picking by tile, timers, 机变 two taps, 
   assert.match(META, /`ev\.preview` true/, 'META: onBattleStart handlers must not change the match for the stats preview');
   // #2 机变 two taps
   assert.match(PLAYING, /选卡要\*\*点两次\*\*/);
-  assert.match(README, /机变选卡/);
   // #8 / #9 element gauges (爆发冷却) and knocked-out operators
   assert.equal(ELEMENT.erosion.ally.duration, 10, 'operators\' 侵蚀 burst has its 10 s cooldown');
   assert.deepEqual(ELEMENT_ORDER.slice(0, 4), ['neural', 'erosion', 'burn', 'apoptosis']);
@@ -511,8 +504,6 @@ test('user playtest #6 (DESIGN §20): summons, skill triggers, blocking, push fo
   // the 机变 card and the card tap (§10 = §18.2 = §20.7)
   assert.match(sec(10), /a tap anywhere on the card, its confirm strip included, is the card's tap/);
   assert.match(sec(18), /Each card shows its full effect text \(§20\.7\)/);
-  // README: the test count stays in the right order of magnitude
-  assert.match(README, /约 31\d0 项/);
 });
 
 test('user playtest #6 follow-up: a merge consuming a deployed copy puts the elite on that tile (code + research + META / PLAYING / SIM agree)', () => {

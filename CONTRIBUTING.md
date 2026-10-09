@@ -1,5 +1,12 @@
 # 参与贡献
 
+> **이 저장소(명토 레플리카)에 기여하실 때** — 원본 [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol)의
+> 기여 안내를 그대로 옮긴 문서이고, 아래 두 가지만 다릅니다(2026-10-09).
+> - Issue, Pull Request, 새로 쓰는 문서는 **한국어**로 씁니다. 코드와 주석은 지금처럼 영어입니다.
+> - 커밋 제목은 `type(area): …`(type = `fix` `feat` `docs` `test` `refactor` `chore`, area = `docs/rules/`의 파일 이름
+>   `sim` `diy` `ui` `render` `fx` `audio` `upstream` 또는 `i18n` `tools`)입니다. 원본과 다르게 정한 규칙과 근거는
+>   [docs/rules/](docs/rules/README.md)에 적습니다.
+
 欢迎提 Issue 和 Pull Request：bug、和官方规则不一致的地方、新干员的战斗逻辑、翻译、文档都可以。动手之前先看一眼
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)（代码地图：哪个规则在哪个文件）。English summary at the end.
 
@@ -8,8 +15,8 @@
 需要 Node.js 22 或 24（CI 在这两个版本上跑）。
 
 ```bash
-git clone https://github.com/sganggs/Stronghold-Protocol.git
-cd Stronghold-Protocol
+git clone https://github.com/LazyDeltaLima/Myeongto-Replica.git
+cd Myeongto-Replica
 npm install        # postinstall 把 pixi / preact / three 复制到 public/vendor
 npm run setup      # 下载美术 / 音频（只跑测试可以不下载，缺素材的用例会自动跳过）
 npm run dev        # 启动服务器（node --watch，改了服务器代码自动重启）：http://localhost:3000
@@ -70,7 +77,7 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
 - 规则改了，相关文档一起改：`docs/design/` 里对应的规则（章节号与文件见 docs/DESIGN.md 的索引）、`docs/history/` 里当前版本的
   修订记录、docs/SIM.md、docs/META.md、docs/DATA.md 等。
   `test/docs-consistency.test.js` 固定了文档里的一些句子，改文档后跑一下。
-- 代码和注释用英文；玩家文档（README、PLAYING、DEPLOY）用简体中文，技术文档用英文。界面上的文字写中文并用 `t('…')`
+- 代码和注释用英文；Issue、PR 和新写的文档用韩语（2026-10-09 起，见本文开头），原有的中文 / 英文文档可以按原语言修改。界面上的文字写中文并用 `t('…')`
   包起来，英文放进 `public/i18n/en.json`（[docs/I18N.md](docs/I18N.md)）。
 - 翻译成新的语言：一个语言就是 `public/i18n/` 里的一个文件，不用改代码。`node tools/i18n.mjs template <语言代码>` 生成骨架，
   翻译后用 `node tools/i18n.mjs check <语言代码>` 检查，步骤见 [docs/I18N.md](docs/I18N.md)「Adding a language」；语言包是

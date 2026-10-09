@@ -8,6 +8,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_VERSION, PROTOCOL_VERSION, DEV_BUILD } from '../shared/constants.js';
 import { isDevVersion } from '../tools/package.mjs';
+import { LOCAL_VERSION } from '../shared/local.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -25,7 +26,7 @@ test('one release version: package.json, package-lock.json and APP_VERSION', () 
   assert.equal(pkg.private, true, 'never published to npm');
 });
 
-test('CHANGELOG.md opens with the release version, and the README links it', () => {
+test('CHANGELOG.md opens with the release version', () => {
   const log = read('CHANGELOG.md');
   const first = log.match(/^## (\d+\.\d+\.\d+) — (\d{4}-\d{2}-\d{2})/m);
   assert.ok(first, 'a "## x.y.z — date" heading');
@@ -36,10 +37,13 @@ test('CHANGELOG.md opens with the release version, and the README links it', () 
     assert.ok(a[0] < b[0] || (a[0] === b[0] && (a[1] < b[1] || (a[1] === b[1] && a[2] < b[2]))), `the newest entry ${first[1]} precedes ${APP_VERSION}`);
   } else assert.equal(first[1], APP_VERSION, 'the newest entry is the current version');
   assert.match(log, /^## 0\.1\.0 — 2026-10-02/m, 'the first public release stays listed');
+});
+
+test('the README shows our own version and the upstream base (user decision 2026-10-09: the deployed version)', () => {
   const readme = read('README.md');
-  assert.match(readme, /\[CHANGELOG\.md\]\(CHANGELOG\.md\)/);
-  // shields.io escapes a '-' inside a badge field as '--'
-  assert.match(readme, new RegExp(`badge/version-${APP_VERSION.replace(/-/g, '--').replace(/\./g, '\\.')}-`), 'the README badge');
+  // shields.io escapes a '-' inside a badge field as '--'; bump the README with LOCAL_VERSION
+  assert.match(readme, new RegExp(`badge/version-${LOCAL_VERSION.replace(/-/g, '--').replace(/\./g, '\\.')}-`), 'the README badge');
+  assert.match(readme, new RegExp(`v${LOCAL_VERSION.replace(/\./g, '\\.')} · BASE ${APP_VERSION.replace(/\./g, '\\.')}`), 'the title-screen footer quoted in the README');
 });
 
 test('the release version is what players see', () => {
@@ -53,9 +57,10 @@ test('the release version is what players see', () => {
 
 test('the English title is the official one: Stronghold Protocol: Alliance (as in the reply to GitHub issue #38, which stays open)', () => {
   // EN client data, activity_table basicInfo.act2autochess.name = "Stronghold Protocol: Alliance" (CN 卫戍协议:盟约);
-  // the project used to call it "Covenant". The Chinese title stays 卫戍协议：盟约; the repository keeps its name.
+  // the project used to call it "Covenant". The Chinese title stays 卫戍协议：盟约. The public repository and its README are
+  // called 명토 레플리카 · Myeongto Replica (user 2026-10-09); the README names the mode by its official title.
   const readme = read('README.md');
-  assert.match(readme.split('\n')[0], /^# 卫戍协议：盟约 · Stronghold Protocol: Alliance$/, 'README title');
+  assert.match(readme.split('\n')[0], /^# 명토 레플리카 · Myeongto Replica$/, 'README title');
   assert.match(readme, /mode \*Stronghold Protocol: Alliance\*/, 'README English summary');
   assert.match(read('server/http/boot.js'), /卫戍协议：盟约 · Stronghold Protocol: Alliance v/, 'boot banner');
   assert.equal(pkg.name, 'stronghold-protocol-alliance');
@@ -72,7 +77,7 @@ test('GPL-3.0-or-later: LICENSE, package metadata and notices', () => {
   assert.match(license, /END OF TERMS AND CONDITIONS/);
   assert.equal(pkg.license, 'GPL-3.0-or-later');
   assert.equal(lock.packages[''].license, 'GPL-3.0-or-later');
-  assert.match(pkg.repository.url, /github\.com\/sganggs\/Stronghold-Protocol/);
+  assert.match(pkg.repository.url, /github\.com\/LazyDeltaLima\/Myeongto-Replica\.git$/);
   for (const f of ['NOTICE.md', 'THIRD-PARTY-NOTICES.md', 'tools/local-extract/LICENSE-Ark-Unpacker.txt']) {
     assert.ok(existsSync(join(ROOT, f)), f);
   }
