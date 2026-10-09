@@ -18,7 +18,7 @@ git-ignored beside the effects).
 Usage (from the repo root; --client = the EN client's Arknights_Data folder):
   .venv-extract/bin/python -I tools/local-extract/char_points.py [--client <…/Arknights_Data>] [--id char_…]…
 Without --id every operator with an extracted effect bundle (public/assets/local/fx/index.json) or in data/chess.json +
-data/diy.json. Everything is (c) Hypergryph; private fan use only.
+the 선발 picks of data/backups.json (char_modes.py pool_char_ids). Everything is (c) Hypergryph; private fan use only.
 """
 import argparse
 import json

@@ -121,7 +121,9 @@
   - 立绘 추출(2026-10-06): `.venv-extract/bin/python tools/local-extract/chararts_extract.py`(기본 `--game` = EN 클라이언트 Bundles). 클라이언트
     `chararts/<charId>.ab`의 기본 아트 `<charId>_1`(정사각 1200/2048, BC7 + 때로 `[alpha]` 텍스처 → 알파로 합침)을 캔버스 그대로 긴 변 ≤1024,
     WebP q85(알파 유지)로 `public/assets/local/chararts/<charId>.webp`에, `data/local-assets.json` 그룹 `chararts` → `{ <charId>: { path, w, h,
-    kind: 'Illust', frame } }`(쓰기 직전에 다시 읽어 병합). 대상: chess.json·diy.json의 charId 128명(토큰은 아트 번들이 없으면 건너뜀), 합계 18.1MB.
+    kind: 'Illust', frame } }`(쓰기 직전에 다시 읽어 병합). 대상: chess.json의 charId와 backups.json의 선발 오퍼레이터(`diy.ownedPool`), 토큰은 아트 번들이
+    있을 때만(2026-10-06 실행: 128명, 합계 18.1MB). 0.2.0 병합으로 `data/diy.json`이 없어진 뒤 기본 대상에서 선발 5명이 빠져 있었다 → 2026-10-09
+    `backups.json`을 읽게 고침(선발 5명의 立绘는 병합 전 실행분이 남아 있어 화면에는 빠진 적이 없다).
   - 배치 근거: 같은 번들의 `illust_<charId>_1` RectTransform(`m_SizeDelta` = 그릴 크기, `m_AnchoredPosition` = 프레임 중심에서의 오프셋, y 위)이
     캐릭터마다 얼굴 위치를 맞추는 클라이언트 값이다(古米 953 @ (6, −93) → 눈이 중심 244 위, 波登可 854 @ (0, −81) → 204 위). 카드는 이 값으로 그린다
     (`--fx/--fy/--fw/--fh`): 1단위 = .012rem, 프레임 중심 (3.35rem, 5.53rem) — 얼굴이 능력치 오른쪽 약 2.6rem 아래, 머리 크기 ≈1.7rem.

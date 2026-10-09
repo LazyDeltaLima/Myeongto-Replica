@@ -14,7 +14,7 @@ keys each mode's attack fires (`_projectileKey` under Modes/<name>/: a ranged mo
 
 Usage (from the repo root; --client = the EN client's Arknights_Data folder):
   .venv-extract/bin/python tools/local-extract/char_modes.py [--client <…/Arknights_Data>] [--id char_…]…
-Without --id every operator of data/chess.json + data/diy.json. Everything is (c) Hypergryph; private fan use only.
+Without --id every operator of data/chess.json + the 선발 picks of data/backups.json. Everything is (c) Hypergryph; private fan use only.
 """
 import argparse
 import json
@@ -60,31 +60,20 @@ def pool_char_ids():
     for c in (recs.values() if isinstance(recs, dict) else recs):
         if isinstance(c, dict) and isinstance(c.get('charId'), str) and c['charId'].startswith('char_'):
             ids.add(c['charId'])
-    diy = ROOT / 'data/diy.json'
-    if diy.exists():
-        d = json.loads(diy.read_text(encoding='utf-8'))
-        recs = (d.get('chess') or {})
-        for c in (recs.values() if isinstance(recs, dict) else recs):
-            if isinstance(c, dict) and isinstance(c.get('charId'), str) and c['charId'].startswith('char_'):
-                ids.add(c['charId'])
     return sorted(ids)
 
 
 def char_skill_prefabs():
-    """{charId: [skill prefabId, …]} in skill order (data/chess.json, then data/diy.json for the rest)."""
+    """{charId: [skill prefabId, …]} in skill order (data/chess.json, then the 선발 picks of data/backups.json)."""
     out = {}
-    for f in ('data/chess.json', 'data/diy.json'):
-        path = ROOT / f
-        if not path.exists():
+    d = json.loads((ROOT / 'data/chess.json').read_text(encoding='utf-8'))
+    recs = d.get('chess', d) if isinstance(d, dict) else d
+    for c in (recs.values() if isinstance(recs, dict) else recs):
+        if not isinstance(c, dict) or not isinstance(c.get('charId'), str) or c['charId'] in out:
             continue
-        d = json.loads(path.read_text(encoding='utf-8'))
-        recs = d.get('chess', d) if isinstance(d, dict) else d
-        for c in (recs.values() if isinstance(recs, dict) else recs):
-            if not isinstance(c, dict) or not isinstance(c.get('charId'), str) or c['charId'] in out:
-                continue
-            sk = c.get('skills')
-            if isinstance(sk, list) and sk:
-                out[c['charId']] = [s.get('prefabId') or s.get('skillId') for s in sk if isinstance(s, dict)]
+        sk = c.get('skills')
+        if isinstance(sk, list) and sk:
+            out[c['charId']] = [s.get('prefabId') or s.get('skillId') for s in sk if isinstance(s, dict)]
     for cid, sk in diy_operators().items():
         if cid not in out and sk:
             out[cid] = sk

@@ -7,7 +7,7 @@ carry the 180×360 half-body portraits. The client keeps the arts in chararts/<c
 `<charId>_1[alpha]` texture beside it) and a GameObject `illust_<charId>_1` whose RectTransform places the art in the
 client's illustration frame: `m_SizeDelta` (the drawn size) and `m_AnchoredPosition` (its centre's offset from the
 frame's centre, y up) — the per-character framing that lines the faces up. This writes, for every charId the mode uses
-(data/chess.json, data/diy.json; tokens only when they have an art bundle):
+(data/chess.json, the 선발 picks of data/backups.json; tokens only when they have an art bundle):
   chararts/<charId>.webp   the default art, the full canvas, long side ≤ 1024, lossy q85 with alpha
 and merges a `chararts` group into data/local-assets.json (re-read right before writing; other groups kept):
   chararts → { <charId>: { path, w, h, kind: 'Illust', frame: { x, y, w, h } } }   frame = the illust RectTransform
@@ -38,24 +38,26 @@ SUB = 'chararts'
 
 
 def wanted_ids(root):
-    """charIds of data/chess.json and data/diy.json (operators and the 甄选 picks), then token ids (art only if bundled)."""
+    """charIds of data/chess.json and the 선발 picks of data/backups.json (`diy.ownedPool`), then token ids of
+    data/tokens.json and data/backups.json `tokens` (art only if bundled)."""
     ids = []
-    for name in ('chess.json', 'diy.json'):
-        p = root / 'data' / name
-        if not p.exists():
-            continue
+    doc = json.loads((root / 'data' / 'chess.json').read_text(encoding='utf-8'))
+    recs = doc.get('chess', doc) if isinstance(doc, dict) else doc
+    for r in (recs.values() if isinstance(recs, dict) else recs):
+        cid = r.get('charId') if isinstance(r, dict) else None
+        if isinstance(cid, str) and cid.startswith('char_') and cid not in ids:
+            ids.append(cid)
+    p = root / 'data' / 'backups.json'
+    backups = json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}
+    for cid in (backups.get('diy') or {}).get('ownedPool') or []:
+        if isinstance(cid, str) and cid.startswith('char_') and cid not in ids:
+            ids.append(cid)
+    token_maps = [backups.get('tokens') or {}]
+    p = root / 'data' / 'tokens.json'
+    if p.exists():
         doc = json.loads(p.read_text(encoding='utf-8'))
-        recs = doc.get('chess', doc) if isinstance(doc, dict) else doc
-        if isinstance(recs, dict):
-            recs = recs.values()
-        for r in recs:
-            cid = r.get('charId') if isinstance(r, dict) else None
-            if isinstance(cid, str) and cid.startswith('char_') and cid not in ids:
-                ids.append(cid)
-    tokens = root / 'data' / 'tokens.json'
-    if tokens.exists():
-        doc = json.loads(tokens.read_text(encoding='utf-8'))
-        recs = doc.get('tokens', doc) if isinstance(doc, dict) else {}
+        token_maps.insert(0, doc.get('tokens', doc) if isinstance(doc, dict) else {})
+    for recs in token_maps:
         for tid in (recs.keys() if isinstance(recs, dict) else []):
             if tid not in ids:
                 ids.append(tid)
@@ -191,7 +193,7 @@ def main():
     ap.add_argument('--game', default=DEFAULT_GAME, help='folder holding chararts/<charId>.ab')
     ap.add_argument('--out', default=str(ROOT / 'public/assets/local'))
     ap.add_argument('--manifest', default=str(ROOT / 'data/local-assets.json'))
-    ap.add_argument('--id', action='append', default=[], help='charId (default: every charId of chess.json / diy.json, tokens with art)')
+    ap.add_argument('--id', action='append', default=[], help='charId (default: every charId of chess.json and the 선발 picks of backups.json, tokens with art)')
     ap.add_argument('--max', type=int, default=1024, help='long side, px')
     ap.add_argument('--quality', type=int, default=85)
     ap.add_argument('--elite', type=int, default=2, choices=(1, 2), help='2: the E2 art cropped around the operator when it can be placed')
