@@ -14,7 +14,7 @@ the 1280×720 canvas unit, Image sprites, legacy Text font size / alignment. Two
       texture, so the transparent margin must be put back when drawing (bond glyphs: rect 128, texture ~100).
 
 <bundle> is a path, or a path under the client's Bundles folder (default
-/mnt/d/YostarGames/Arknights_EN/Arknights_Data/PersistentData/Bundles, --client to change), e.g.
+.client/Arknights_Data/PersistentData/Bundles in the repository, --client to change), e.g.
   python -I tools/local-extract/ui_inspect.py prefab 'ui/autochess/[uc]autochessbattle.ab' autochess_hud_bond_item
   python -I tools/local-extract/ui_inspect.py sprites 'ui/autochess/[uc]autochesscommon.ab' Ship
 
@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import aklz4  # noqa: F401,E402  (registers the client's LZ4 variant with UnityPy)
 import UnityPy  # noqa: E402
 
-DEFAULT_CLIENT = '/mnt/d/YostarGames/Arknights_EN/Arknights_Data/PersistentData/Bundles'
+DEFAULT_CLIENT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '.client', 'Arknights_Data', 'PersistentData', 'Bundles')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --client
 ALIGN = ['UpperLeft', 'UpperCenter', 'UpperRight', 'MiddleLeft', 'MiddleCenter', 'MiddleRight', 'LowerLeft', 'LowerCenter', 'LowerRight']
 IMAGE_TYPE = ['Simple', 'Sliced', 'Tiled', 'Filled']
 

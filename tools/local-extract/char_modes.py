@@ -13,7 +13,7 @@ keys each mode's attack fires (`_projectileKey` under Modes/<name>/: a ranged mo
                           "proj": [["projectile_chr_wisdel_default"], ["projectile_chr_wisdel_s2"], …] }, … }
 
 Usage (from the repo root; --client = the EN client's Arknights_Data folder):
-  .venv-extract/bin/python tools/local-extract/char_modes.py [--client /mnt/d/YostarGames/Arknights_EN/Arknights_Data] [--id char_…]…
+  .venv-extract/bin/python tools/local-extract/char_modes.py [--client <…/Arknights_Data>] [--id char_…]…
 Without --id every operator of data/chess.json + data/diy.json. Everything is (c) Hypergryph; private fan use only.
 """
 import argparse
@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-char-modes.json'
 # the effect bindings for the game's effect layer (render/fxgame.js), beside the extracted effects (git-ignored like them)
 FX_OUT = ROOT / 'public/assets/local/fx/modes.json'
-DEFAULT_CLIENT = '/mnt/d/YostarGames/Arknights_EN/Arknights_Data'
+DEFAULT_CLIENT = str(ROOT / '.client' / 'Arknights_Data')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --client
 
 
 def diy_operators():

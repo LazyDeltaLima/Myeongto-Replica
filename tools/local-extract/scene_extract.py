@@ -31,7 +31,7 @@ copy: colour maps (a material's _MainTex only) lossy at quality 95, everything e
 emission maps hold per-channel data, and the RGBM lightmaps keep their range in A (≈ 43 → 28 MB for the 11 stages).
 
 Usage (WSL, the EN client on D:):
-  .venv-extract/bin/python tools/local-extract/scene_extract.py [--client /mnt/d/YostarGames/Arknights_EN/Arknights_Data]
+  .venv-extract/bin/python tools/local-extract/scene_extract.py [--client <…/Arknights_Data>]
       [--stage act2autochess_m04 ...] [--rebuild-index] [--no-webp]
   .venv-extract/bin/python tools/local-extract/scene_extract.py --webp    (only the WebP copies, from the PNGs already
       under --out — e.g. scene art copied to a server; needs Pillow, not the client)
@@ -54,7 +54,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from extract import material_info, derive_normal_rg, derive_rough_from_gloss, _normal_z_table, _num, WEBP_OPTIONS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CLIENT = '/mnt/d/YostarGames/Arknights_EN/Arknights_Data'
+DEFAULT_CLIENT = str(ROOT / '.client' / 'Arknights_Data')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --client
 # CAB → bundle index of the bundles a stage scene can depend on (scanned once, cached: --rebuild-index)
 INDEX_DIRS = [
     ('pd', 'arts/maps'), ('pd', 'battle/[pack]common.ab'), ('pd', 'shaders'), ('pd', '[uc]shaders.ab'),

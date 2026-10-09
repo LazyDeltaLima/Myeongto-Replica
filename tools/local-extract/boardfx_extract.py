@@ -28,7 +28,7 @@ import UnityPy  # noqa: E402
 import extract  # noqa: E402  (merge_manifest)
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_GAME = '/mnt/d/YostarGames/Arknights_EN/Arknights_Data'
+DEFAULT_GAME = str(ROOT / '.client' / 'Arknights_Data')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --game
 SUB = 'board/fx'
 # (bundle under PersistentData/Bundles or StreamingAssets/AB/Windows, material, texture slots to export)
 WANT = [

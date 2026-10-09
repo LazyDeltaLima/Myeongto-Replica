@@ -16,7 +16,7 @@ tools/assets/local-char-points.json (reviewed in git) and public/assets/local/fx
 git-ignored beside the effects).
 
 Usage (from the repo root; --client = the EN client's Arknights_Data folder):
-  .venv-extract/bin/python -I tools/local-extract/char_points.py [--client /mnt/d/YostarGames/Arknights_EN/Arknights_Data] [--id char_…]…
+  .venv-extract/bin/python -I tools/local-extract/char_points.py [--client <…/Arknights_Data>] [--id char_…]…
 Without --id every operator with an extracted effect bundle (public/assets/local/fx/index.json) or in data/chess.json +
 data/diy.json. Everything is (c) Hypergryph; private fan use only.
 """
@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'tools/assets/local-char-points.json'
 FX_OUT = ROOT / 'public/assets/local/fx/points.json'
-DEFAULT_CLIENT = '/mnt/d/YostarGames/Arknights_EN/Arknights_Data'
+DEFAULT_CLIENT = str(ROOT / '.client' / 'Arknights_Data')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --client
 
 
 def char_ids(client):

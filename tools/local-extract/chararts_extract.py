@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import extract  # noqa: E402  (merge_manifest)
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_GAME = '/mnt/d/YostarGames/Arknights_EN/Arknights_Data/PersistentData/Bundles'
+DEFAULT_GAME = str(ROOT / '.client' / 'Arknights_Data' / 'PersistentData' / 'Bundles')  # the client folder: .client/ in the repository (a link to the install, git-ignored), or --game
 SUB = 'chararts'
 
 
