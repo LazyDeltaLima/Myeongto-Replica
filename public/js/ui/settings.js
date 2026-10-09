@@ -159,7 +159,7 @@ function HotkeySection({ keys, touchUi }) {
  * upstream's — this fork's reports are ours to triage (user decision 2026-10-09: this address, before the repository
  * exists — it opens once the repository is created).
  */
-export const ISSUES_URL = 'https://github.com/LazyDeltaLima/Stronghold-Protocol-KR/issues';
+export const ISSUES_URL = 'https://github.com/LazyDeltaLima/Myeongto-Replica/issues';
 
 /**
  * 问题反馈: copy the diagnostics of this page (diag.js) for a GitHub issue — the errors recorded since the page opened,
