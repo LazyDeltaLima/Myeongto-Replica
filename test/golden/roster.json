@@ -2652,16 +2652,16 @@
       "rngDraws": 314,
       "errors": {"count":0,"kinds":[]},
       "players": {
-        "p1": {"killed":53,"total":64,"perfect":false,"leaks":11,"leaksUncounted":0,"coins":4,"dmg":914327,"bossDmg":0,"heal":19215,"deaths":16,"layerGains":{"indomShip":40}}
+        "p1": {"killed":53,"total":64,"perfect":false,"leaks":11,"leaksUncounted":0,"coins":4,"dmg":903469,"bossDmg":0,"heal":19093,"deaths":16,"layerGains":{"indomShip":40}}
       },
       "units": [
-        ["p1",1,"op","chess_char_5_08_a",1,null,0,0,81,8,112364,20016,6048,34,2],
+        ["p1",1,"op","chess_char_5_08_a",1,null,0,0,81,8,109547,20016,6048,34,2],
         ["p1",2,"op","chess_char_5_11_a",2,null,3861.68,1,96,1,12040,15923,443,21,1],
         ["p1",3,"op","chess_char_5_05_a",1,null,6693.29,1,88,0,27874,10393,2600,11,0],
         ["p1",4,"op","chess_char_5_06_a",1,null,2241.8,1,75,5,70203,8785,3467,4,2],
         ["p1",5,"op","chess_char_5_13_a",2,null,1534.3,1,37,4,78451,13123,0,19,1],
-        ["p1",6,"op","chess_char_5_14_a",2,null,1905.2,1,95,4,45448,7600,3145,50,1],
-        ["p1",7,"op","chess_char_5_07_a",1,null,2437.6,1,91,0,23448,4487,0,15,1],
+        ["p1",6,"op","chess_char_5_14_a",2,null,1905.2,1,93,4,46484,7478,3023,49,1],
+        ["p1",7,"op","chess_char_5_07_a",1,null,2437.6,1,91,0,14371,4487,0,15,0],
         ["p1",8,"op","chess_char_5_17_a",2,null,272.33,1,85,10,202607,10603,0,120,2],
         ["p1",9,"op","chess_char_5_03_a",1,null,905.52,1,6,11,132532,6517,3513,38,3],
         ["p1",10,"op","chess_char_5_10_a",1,null,1302.4,1,67,2,25076,3552,0,45,0],
@@ -2678,16 +2678,16 @@
         "enemy_1161_tidmag_2": [1,1,0,5318,13271],
         "enemy_1202_msfzhi_2": [1,1,0,0,4],
         "enemy_1267_nhpbr_2": [33,30,3,21181,279392],
-        "enemy_1270_nhstlk_2": [12,10,2,22284,280499],
+        "enemy_1270_nhstlk_2": [12,10,2,22552,280142],
         "enemy_1275_dwlock_2": [1,1,0,5221,23224],
         "enemy_1422_lrsldr": [1,1,0,0,7797],
-        "enemy_2004_balloon": [1,0,1,552,50856],
-        "enemy_9006_actoxi": [12,8,4,27591,248557]
+        "enemy_2004_balloon": [1,0,1,552,44436],
+        "enemy_9006_actoxi": [12,8,4,27202,244476]
       },
-      "hooks": [1,96,5038,716,716,2046,2151,3963,70,83,14,12,16,27654,781,78,64,11,1,88,8,8,0],
-      "events": {"atk":812,"bounty":2,"deploy":29,"die":72,"dmg":2146,"engage":13,"fx":182,"heal":968,"layer":8,"leak":11,"skill":26,"spawn":80,"status":427},
-      "fx": {"aoe":4,"beam":1,"bloodBattle":5,"burst":8,"crit":34,"displace":49,"dollEnd":1,"downed":2,"ember":1,"explode":1,"garrison":8,"meltdown":5,"overload":2,"reborn":1,"revive":8,"steal":1,"substitute":4,"summon":1,"swap":3,"telegraph":3,"zone":40},
-      "snaps": "81ea2ae4 ae81ec74 73b1e282 ec218569 d7de4397 ba155955 bc7e584b 42febcc7 cb24f691 aa5c73d0 9ec3d90f 411a6d5c e93bf6b3 87d6e894 5bf025e7 10ba87a1 becd920d"
+      "hooks": [1,96,5038,715,715,2039,2144,3915,70,83,13,11,16,27845,792,78,64,11,1,88,8,8,0],
+      "events": {"atk":811,"bounty":2,"deploy":29,"die":72,"dmg":2139,"engage":13,"fx":183,"heal":968,"layer":8,"leak":11,"skill":24,"spawn":80,"status":427},
+      "fx": {"aoe":4,"beam":1,"bloodBattle":5,"burst":8,"crit":35,"displace":49,"dollEnd":1,"downed":2,"ember":1,"explode":1,"garrison":8,"meltdown":5,"overload":2,"reborn":1,"revive":8,"steal":1,"substitute":4,"summon":1,"swap":3,"telegraph":3,"zone":40},
+      "snaps": "81ea2ae4 ae81ec74 73b1e282 ec218569 d7de4397 ba155955 4874cf6e 087cfbdb 10736ed1 d5d60437 301b4227 6c754b95 555b6854 cb582100 ed2915b2 cf6e2f09 f1157952"
     },
     "roster-044": {
       "about": "pass 2 band 6: chess_char_5_19_a chess_char_5_11_b chess_char_5_19_b chess_char_5_13_b chess_char_5_14_b chess_char_5_17_b chess_char_5_20_a chess_char_5_22_a chess_char_5_12_b chess_char_5_15_b chess_char_5_20_b chess_char_5_22_b",
