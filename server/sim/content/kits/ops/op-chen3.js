@@ -43,6 +43,7 @@ import { isHpLoss } from '../../../damage.js';
 import { canTargetEnemy } from '../../../targeting.js';
 import { weaknessRetype } from '../../items/battle.js';
 import { talentBb } from '../shared/tier1.js';
+import { hypot } from '../../../detmath.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
@@ -51,7 +52,7 @@ const gone = (e) => !e || !e.alive || e.removed || e.hidden;
 const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null);
 const ANY = Object.freeze({ canHitFly: true });
 const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], unit, ANY);
-const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const dist = (a, b) => hypot(a.x - b.x, a.y - b.y);
 
 const QI_SPEED = 1.5, QI_RADIUS = 1.3, QI_LOOK = 0.25, QI_EPS = 0.02, S2_INTERVAL = 0.4, S2_PASS_RADIUS = 1.7;
 

@@ -34,6 +34,7 @@
 import { COLS } from '../../../constants.js';
 import { sortEnemyTargets } from '../../../targeting.js';
 import { talentBb } from '../shared/tier1.js';
+import { hypot } from '../../../detmath.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
@@ -178,7 +179,7 @@ function wisdel(bb, chess, def) {
     if (ownWards(battle, unit).length >= WIS_WARD_MAX) return null;
     const tiles = [...(unit.rangeKeys || [])].map((k) => [Math.floor(k / COLS), k % COLS])
       .filter(([r, c]) => battle.grid.inRect(r, c) && battle.grid.canStand(r, c, { ranged: true }) && !battle.isReservedTile?.(r, c))
-      .sort((a, b) => Math.hypot(a[0] - unit.tileR, a[1] - unit.tileC) - Math.hypot(b[0] - unit.tileR, b[1] - unit.tileC) || a[1] - b[1]);
+      .sort((a, b) => hypot(a[0] - unit.tileR, a[1] - unit.tileC) - hypot(b[0] - unit.tileR, b[1] - unit.tileC) || a[1] - b[1]);
     for (const [r, c] of tiles) {
       // the shade's kit is given here (content/index.js resolves no token kit for it)
       const w = battle.spawnToken(unit, SHADOW, r, c, { anySource: true, kit: wisdelWard(battle.tokenDef(SHADOW, unit)?.skill?.bb ?? {}) });

@@ -41,6 +41,7 @@ import { COLS } from '../../../constants.js';
 import { dirVec } from '../../../dir.js';
 import { sortEnemyTargets, canTargetEnemy } from '../../../targeting.js';
 import { talentBb, alliesInGridOf, installAura } from '../shared/tier1.js';
+import { hypot, atan2, sin, cos } from '../../../detmath.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
@@ -108,7 +109,7 @@ function sakiko(bb, chess, def) {
   // target, seekT, outT, w (count: 2 = a two-hit note), hit(target) }
   const notesOf = (unit) => unit.mem.noteList || (unit.mem.noteList = []);
   const noteFx = (battle, unit, n, e, extra = null) => battle.fx('oblvnsNote', {
-    x: n.x, y: n.y, id: unit.id, n: n.id, e, m: n.mode, a: Math.round((Math.atan2(n.dy, n.dx) * 180) / Math.PI),
+    x: n.x, y: n.y, id: unit.id, n: n.id, e, m: n.mode, a: Math.round((atan2(n.dy, n.dx) * 180) / Math.PI),
     ...(n.target ? { t: n.target.id } : null), ...(n.w > 1 ? { w: n.w } : null), ...(n.fan ? { i: n.fan } : null), ...extra,
   });
   /**
@@ -118,8 +119,8 @@ function sakiko(bb, chess, def) {
   const spawnNote = (battle, unit, { mode, target = null, hit, w = 1, deg = null, fan = 0 }) => {
     const [dr, dc] = dirVec(unit.dir);
     const off = ((deg ?? (battle.rng() * 2 - 1) * NOTE_ARC) * Math.PI) / 180;
-    const base = Math.atan2(dr, dc);
-    const n = { id: ++noteSeq, mode, x: unit.x, y: unit.y, dx: Math.cos(base + off), dy: Math.sin(base + off), age: 0, state: 'free',
+    const base = atan2(dr, dc);
+    const n = { id: ++noteSeq, mode, x: unit.x, y: unit.y, dx: cos(base + off), dy: sin(base + off), age: 0, state: 'free',
       target: target && target.alive ? target : null, seekT: 0, outT: 0, w, hit, fan };
     notesOf(unit).push(n);
     noteFx(battle, unit, n, 'born');
@@ -147,7 +148,7 @@ function sakiko(bb, chess, def) {
         let best = null, bd = Infinity;
         for (const e of battle.foesInRadius(n.x, n.y, mv.seek, true)) {
           if (!noteTargetOk(e)) continue;
-          const d = Math.hypot(e.x - n.x, e.y - n.y);
+          const d = hypot(e.x - n.x, e.y - n.y);
           if (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && best && e.spawnSeq < best.spawnSeq)) { bd = d; best = e; }
         }
         n.target = best;
@@ -156,11 +157,11 @@ function sakiko(bb, chess, def) {
       let speed = mv.free;
       if (n.state === 'track') {
         speed = mv.track;
-        const tx = n.target.x - n.x, ty = n.target.y - n.y, d = Math.hypot(tx, ty);
+        const tx = n.target.x - n.x, ty = n.target.y - n.y, d = hypot(tx, ty);
         if (d <= Math.max(mv.hit, speed * dt)) { const t = n.target; end('hit'); battle._safe(() => n.hit(t, n), 'oblvns.note', unit); continue; }
         const k = Math.min(1, mv.turn * dt);
         let ndx = n.dx + (tx / d - n.dx) * k, ndy = n.dy + (ty / d - n.dy) * k;
-        const l = Math.hypot(ndx, ndy);
+        const l = hypot(ndx, ndy);
         if (l > 1e-6) { n.dx = ndx / l; n.dy = ndy / l; } else { n.dx = tx / d; n.dy = ty / d; }
       }
       n.x += n.dx * speed * dt; n.y += n.dy * speed * dt;

@@ -67,6 +67,7 @@ import { bodyOnTile } from '../../../body.js';
 import { enemyStealthed } from '../../../targeting.js';
 import { DEPLOY_REFUSED_TILES } from '../../../grid.js';
 import { talentBb } from '../shared/tier1.js';
+import { hypot, powi } from '../../../detmath.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
@@ -314,7 +315,7 @@ function wang(bb, chess, def) {
         const t = battle.grid.tile(r, c);
         if (t.build === 'NONE' || battle.grid.isObstacle(r, c) || battle.unitAt(r, c) || battle.isReservedTile(r, c)) continue;
         if (walkersOnTile(battle, r, c).length) continue; // trait: only walking enemies block (_excludeOccupiedByWalkEnemy)
-        const near = battle.enemies.filter((e) => e.alive).reduce((m, e) => Math.min(m, Math.hypot(e.x - c, e.y - r)), 99);
+        const near = battle.enemies.filter((e) => e.alive).reduce((m, e) => Math.min(m, hypot(e.x - c, e.y - r)), 99);
         cand.push([r, c, t.pass === 'ALL' && t.height === 'LOW' ? 0 : 1, near]);
       }
     }
@@ -400,7 +401,7 @@ function wang(bb, chess, def) {
             const tiles = goalFirst(battle, inRange(battle, unit).filter(stoneSelectable)).map((e) => [Math.round(e.y), Math.round(e.x)]);
             const alive = battle.enemies.filter((e) => e.alive && !e.hidden);
             if (alive.length) {
-              const near = (r, c) => alive.reduce((m, e) => Math.min(m, Math.hypot(e.x - c, e.y - r)), 99);
+              const near = (r, c) => alive.reduce((m, e) => Math.min(m, hypot(e.x - c, e.y - r)), 99);
               const extra = [];
               for (const k of unit.rangeKeys || []) {
                 const r = Math.floor(k / COLS), c = k % COLS;
@@ -628,7 +629,7 @@ export function addWangSlow(battle, src, e, value, duration) {
     for (const o of unit.buffs) {
       if (o === b || !o.mods) continue;
       if (typeof o.mods.moveFlat === 'number') flat += o.mods.moveFlat * o.stacks;
-      if (typeof o.mods.moveMul === 'number') mul *= Math.pow(o.mods.moveMul, o.stacks);
+      if (typeof o.mods.moveMul === 'number') mul *= powi(o.mods.moveMul, o.stacks);
     }
     const others = flat * mul;
     const m = others > 1e-9 ? Math.max(stage, Math.min(1, WANG_SLOW_FLOOR / others)) : stage;
