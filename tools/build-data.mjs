@@ -4089,8 +4089,8 @@ async function main() {
   }
 }
 
-// local patch: run only as a script; tools/build-diy.mjs imports the builders below (data/diy.json)
-export { loadContext, buildChess, buildTokens, warnings as buildWarnings };
+// local patch: run only as a script; tools/i18n/build-ko-diy.mjs imports the builders below (the 선발 picks' Korean)
+export { loadContext, buildChess, buildBackups, buildTokens, warnings as buildWarnings };
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) main().catch((e) => {
   console.error('build-data failed:', e && e.stack ? e.stack : e);
   process.exitCode = 1;

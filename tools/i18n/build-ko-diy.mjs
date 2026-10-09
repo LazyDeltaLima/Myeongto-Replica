@@ -1,7 +1,8 @@
-// tools/i18n/build-ko-diy.mjs — 선발 오퍼레이터(data/diy.json) 한국어 사전 (local patch, docs/LOCAL-PATCH.md)
-// build-ko-data-dict.mjs와 같은 생각: data/diy.json(중국어)은 그대로 두고, 같은 빌더(tools/build-diy.mjs buildDiy)를 한국어
-// 문자열을 넣은 테이블로 한 번 더 돌려 같은 경로의 문자열끼리 짝지어 public/i18n/ko/diy.json ({ "중국어": "한국어" })을 만든다.
-// 숫자·태그는 빌더가 채우므로 원문과 정확히 같다.
+// tools/i18n/build-ko-diy.mjs — 선발 오퍼레이터(data/backups.json의 선발 5명) 한국어 사전 (local patch, docs/rules/diy.md)
+// build-ko-data-dict.mjs와 같은 생각: data/backups.json(중국어)은 그대로 두고, 같은 빌더(tools/build-data.mjs buildBackups)를
+// 한국어 문자열을 넣은 테이블로 한 번 더 돌려 같은 경로의 문자열끼리 짝지어 public/i18n/ko/diy.json ({ "중국어": "한국어" })을
+// 만든다. 대상은 선발 오퍼레이터(shared/local-diy.js LOCAL_DIY_PICKS)의 unit·소환물·operators 항목이고, 잠재 1–6 전부를 짝짓는다
+// (낮은 잠재의 재능 문구도 data에 실린다). 숫자·태그는 빌더가 채우므로 원문과 정확히 같다.
 //
 // 한국어 원천 (원천 문자열마다, 같은 JSON 경로로):
 //   1. KR 공식 테이블 (Kengxxiao/ArknightsGameData_YoStar ko_KR: character / skill / uniequip / battle_equip) — 한국 서버에 있는
@@ -17,8 +18,9 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadContext } from '../build-data.mjs';
-import { buildDiy, DIY_CANDIDATES } from '../build-diy.mjs';
+import { loadContext, buildChess, buildBackups } from '../build-data.mjs';
+import { LOCAL_DIY_PICKS } from '../../shared/local-diy.js';
+import { FULL_RANK } from '../../shared/potential.js';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const KR_CACHE = join(ROOT, '.cache', 'gamedata-ko-diy');
@@ -47,15 +49,15 @@ function sources(ctx, kr) {
   const skills = new Set();
   const modules = new Set();
   const subProfs = new Set();
-  for (const c of DIY_CANDIDATES) {
-    const ch = ctx.charTable[c.charId];
+  for (const charId of LOCAL_DIY_PICKS) {
+    const ch = ctx.charTable[charId];
     for (const id of Object.keys(ch.displayTokenDict || {})) tokens.add(id);
     for (const s of ch.skills || []) { if (s.skillId) skills.add(s.skillId); if (s.overrideTokenKey) tokens.add(s.overrideTokenKey); }
-    for (const id of ctx.uniequip.charEquip?.[c.charId] || []) modules.add(id);
+    for (const id of ctx.uniequip.charEquip?.[charId] || []) modules.add(id);
     subProfs.add(ch.subProfessionId);
   }
   for (const id of tokens) for (const s of ctx.charTable[id]?.skills || []) if (s.skillId) skills.add(s.skillId);
-  for (const id of [...DIY_CANDIDATES.map((c) => c.charId), ...tokens]) {
+  for (const id of [...LOCAL_DIY_PICKS, ...tokens]) {
     add(`char ${id}`, ctx.charTable[id], kr.char[id], (v) => { ctx.charTable[id] = v; });
   }
   for (const id of skills) add(`skill ${id}`, ctx.skillTable[id], kr.skill[id], (v) => { ctx.skillTable[id] = v; });
@@ -102,7 +104,19 @@ async function main() {
     if (ko == null) return null;
     return zh.includes('\\n') ? ko.replace(/\n/g, '\\n') : ko;
   };
-  const cnBuild = await buildDiy(base);
+  // the DIY slots come from the chess records (no operator string): one CN build serves both languages
+  const { chess } = buildChess({ ...base, potRank: FULL_RANK });
+  const build = (ctx) => {
+    const out = [];
+    for (let r = 0; r <= FULL_RANK; r++) {
+      const b = buildBackups({ ...ctx, potRank: r }, chess);
+      const units = {};
+      for (const id of b.diy.ownedPool) units[id] = b.units[id];
+      out.push({ u: units, t: b.tokens, o: b.diy.operators });
+    }
+    return out;
+  };
+  const cnBuild = build(base);
 
   // a context whose candidate strings are Korean (KR table at the same path, else the manual dictionary, else a marker)
   const ctx = { ...base, charTable: { ...base.charTable }, skillTable: { ...base.skillTable },
@@ -121,9 +135,9 @@ async function main() {
       return m;
     }));
   }
-  const koBuild = await buildDiy(ctx);
+  const koBuild = build(ctx);
   const dict = new Map();
-  pairs({ c: cnBuild.chess, t: cnBuild.tokens }, { c: koBuild.chess, t: koBuild.tokens }, dict);
+  pairs(cnBuild, koBuild, dict);
   // markers that reached the records = source strings still needing a translation
   const used = new Set();
   for (const ko of dict.values()) for (const m of ko.match(/⟦\d+⟧/g) || []) used.add(m);
