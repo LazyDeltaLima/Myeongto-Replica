@@ -78,6 +78,7 @@ test('chat pick: a faction without a preset changes nothing; with one, the picks
   const n = P.applyFactionPreset('yan', { inMatch: true, now: 5 });
   assert.equal(n.factionId, 'yan');
   assert.equal(n.inMatch, true);
+  assert.equal(n.canReroll, false, 'past the briefing: no reroll to mention');
   assert.deepEqual(loadoutStore.get().diy, { [T6A]: WANG, [T6B]: CHEN });
   assert.equal(P.diyPresetStore.get().active, 'yan');
   assert.equal(P.diyPresetStore.get().notice, n);
@@ -86,6 +87,10 @@ test('chat pick: a faction without a preset changes nothing; with one, the picks
   assert.equal(P.diyPresetStore.get().active, null);
   assert.deepEqual(P.diyPresetStore.get().presets.yan, { [T6A]: WANG, [T6B]: CHEN }, 'undo leaves the preset alone');
   assert.equal(P.undoFactionPreset(), false);
+
+  setDiyPicks({ [T6A]: WIS });
+  assert.equal(P.applyFactionPreset('yan', { inMatch: true, canReroll: true }).canReroll, true, 'in the briefing a reroll takes it');
+  P.undoFactionPreset();
 
   // the picks already are the preset: linked, no notice
   P.selectPreset('yan');

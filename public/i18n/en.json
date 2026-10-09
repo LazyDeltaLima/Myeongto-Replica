@@ -1260,5 +1260,6 @@
   "选择一个阵营即可为其保存自选；在聊天中选择该阵营时自动套用": "Pick a faction to save these picks as its preset; picking that faction in the chat applies it",
   "已将{faction}预设套用到自选编队": "Applied the {faction} preset to your self-select squad",
   "下一局起生效（重新抽取后也生效）": "Takes effect from the next match (or after a reroll)",
-  "撤销": "Undo"
+  "撤销": "Undo",
+  "下一局起生效": "Takes effect from the next match"
 }

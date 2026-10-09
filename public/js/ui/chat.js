@@ -178,7 +178,7 @@ function FactionPicker({ disabled }) {
     let ok = false;
     try { await net.request('room.chatFaction', { faction: id }); ok = true; } catch { /* cooldown / offline: the chip stays */ }
     setBusy(false);
-    if (ok) applyFactionPreset(id, { inMatch: !!store.get().room?.inMatch });
+    if (ok) applyFactionPreset(id, { inMatch: !!store.get().room?.inMatch, canReroll: store.get().match?.public?.phase === 'INFO_CHECK' });
   };
   if (!seated) return null; // spectators have no faction
   const isOff = (x) => Array.isArray(off) && off.includes(x.bond);
@@ -204,7 +204,7 @@ function PresetNotice() {
   const f = n ? chatFaction(n.factionId) : null;
   if (!f) return null;
   return html`<p class="chat__preset" role="status" data-testid="preset-notice">
-    <${FactionIcon} f=${f} /><span>${t('已将{faction}预设套用到自选编队', { faction: t(f.name) })}${n.inMatch ? html`<small>${t('下一局起生效（重新抽取后也生效）')}</small>` : null}</span>
+    <${FactionIcon} f=${f} /><span>${t('已将{faction}预设套用到自选编队', { faction: t(f.name) })}${n.inMatch ? html`<small>${n.canReroll ? t('下一局起生效（重新抽取后也生效）') : t('下一局起生效')}</small>` : null}</span>
     <button type="button" class="chat__preset-undo" data-testid="preset-undo" onClick=${undoFactionPreset}>${t('撤销')}</button>
   </p>`;
 }

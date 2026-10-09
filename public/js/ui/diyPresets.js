@@ -80,15 +80,16 @@ export function deletePreset(id) {
  * notice goes, it was about another faction); else the notice, kept in the store for its 撤销 — none when the picks
  * already were the preset.
  * @param {string} id chat faction id
- * @param {{ inMatch?: boolean, now?: number }} [o] inMatch: the picks wait for the next match (or a reroll)
+ * @param {{ inMatch?: boolean, canReroll?: boolean, now?: number }} [o] inMatch: the picks wait for the next match;
+ *   canReroll: the briefing still runs, so its 重新抽取 starts a match that takes them
  */
-export function applyFactionPreset(id, { inMatch = false, now = Date.now() } = {}) {
+export function applyFactionPreset(id, { inMatch = false, canReroll = false, now = Date.now() } = {}) {
   const { presets, active } = diyPresetStore.get();
   const preset = presets[id];
   if (!chatFaction(id) || !preset) { clearPresetNotice(); return null; }
   const prev = { picks: loadoutStore.get().diy, active };
   const changed = !samePicks(prev.picks, preset);
-  const notice = changed ? { factionId: id, prev, inMatch: !!inMatch, at: now } : null;
+  const notice = changed ? { factionId: id, prev, inMatch: !!inMatch, canReroll: !!inMatch && !!canReroll, at: now } : null;
   save(presets, id, { notice });
   if (changed) setDiyPicks(preset);
   return notice;

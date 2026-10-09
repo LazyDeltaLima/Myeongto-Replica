@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1033 of 1247 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1034 of 1248 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1264,5 +1264,6 @@
   "选择一个阵营即可为其保存自选；在聊天中选择该阵营时自动套用": "진영을 고르면 지금 선발 편성이 그 진영 프리셋으로 저장됩니다. 채팅에서 그 진영을 고르면 자동으로 적용됩니다",
   "已将{faction}预设套用到自选编队": "{faction} 프리셋을 선발 편성에 적용했습니다",
   "下一局起生效（重新抽取后也生效）": "다음 판부터 적용(다시 뽑기 후에도 적용)",
-  "撤销": "되돌리기"
+  "撤销": "되돌리기",
+  "下一局起生效": "다음 판부터 적용"
 }
