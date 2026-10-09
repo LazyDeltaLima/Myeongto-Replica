@@ -478,6 +478,6 @@ upstream v0.2.0 이후 UI 수정 15건(`research/2026-10-09-upstream-compare/ui.
 - 방향 선택 중 Enter(`102c96a1` ← `a1bc37ed`): 공식 선택기(`placeArt.js` `PlaceWheelArt`)의 ✕도 `.fwheel__cancel`이라 `facingEnter`가 두 그림 모두에 맞는다.
   선택기가 열리면 루트가 포커스를 가져가고 테두리는 그리지 않는다(`.fwheel:focus-visible`).
 - 진단 복사(`05330d9e` ← `3f884412`, 사용자 결정 2026-10-09): 설정 → 「문제 제보」. 안내 주소와 PLAYING.md §12는 upstream이 아니라 우리 저장소
-  `LazyDeltaLima/Stronghold-Protocol-KR/issues` — **임시**(저장소 아직 비공개, 제보 창구는 사용자 결정 대기, STRONGHOLD.md §11).
+  `LazyDeltaLima/Stronghold-Protocol-KR/issues`(사용자 결정 2026-10-09: 이 주소 유지 — 저장소는 아직 안 만들어서 만들 때까지 열리지 않음).
 - 선발 선택 창 테스트(`ac82143e`·`d45b56f1`)는 우리 5명(아스카론·왕)과 필터 칩 없는 선택 창(사용자 결정 2026-10-07)에 맞춰 고쳐 넣었다.
 - 브라우저 e2e(`SP_E2E=1`)로 들어온 테스트(`mock` `settings-entry` `diy` `facing` `modal` `loadout` `i18n` `ready-fold`)는 여기서 돌리지 않았다 — 화면 확인 때 함께.

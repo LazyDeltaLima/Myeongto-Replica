@@ -156,8 +156,8 @@ function HotkeySection({ keys, touchUi }) {
 
 /**
  * Where a report goes (shown as text the player can select; a link may open nothing): our own repository's tracker, not
- * upstream's — this fork's reports are ours to triage [provisional: the repository is not public yet and the user decides
- * the channel, STRONGHOLD.md §11].
+ * upstream's — this fork's reports are ours to triage (user decision 2026-10-09: this address, before the repository
+ * exists — it opens once the repository is created).
  */
 export const ISSUES_URL = 'https://github.com/LazyDeltaLima/Stronghold-Protocol-KR/issues';
 
