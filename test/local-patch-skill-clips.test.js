@@ -63,6 +63,16 @@ test('泥岩 S2: nothing at the cast; the empowered attack plays Skill_1 once an
   assert.equal(a.log.filter((n) => n === 'Skill_1').length, 1, 'once');
 });
 
+// upstream 6326dd4d (#246) plays a late-seen attack whole from its wind-up only for the clip-per-attack actors (enemies);
+// our strike skill clips (`strike`, also played once per attack) keep the strike-frame start (render-1 port, 2026-10-09)
+test('泥岩 S2 seen late (no wind-up): Skill_1 starts on its strike frame even when the rhythm leaves room for the whole clip', () => {
+  const a = actor('char_311_mudrok', 1);
+  a.setSkill(true);
+  a.attack(8);
+  assert.equal(a.current, 'Skill_1');
+  assert.ok(a.spine.state.tracks[0].trackTime > 0, 'from the strike frame, not the wind-up');
+});
+
 test('莫斯提马 S3: every attack plays Skill_2_Loop (it stood in Skill_Loop before)', () => {
   const a = actor('char_213_mostma', 2);
   a.setSkill(true);
