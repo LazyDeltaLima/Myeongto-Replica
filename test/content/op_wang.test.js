@@ -82,7 +82,7 @@ test('望 in every 自选 form: her kit, stats + module attributes, 3-3, blocks 
       assert.deepEqual([s.base.cost, s.base.respawnTime, s.def.skill.id, !!s.s.flags.untargetable, s.s.blockCnt, !!s.profile.noAttack],
         [v.stats.cost, v.stats.respawnTime, v.skill.skillId, true, 0, true], `${label(f)}: 棋子`);
       assert.equal(s.base.cost, elite && mod === X ? 2 : 3, `${label(f)}: TRP-X 部署费用更低（-1）`);
-      assert.deepEqual([v.stats.deployLimit], [elite && mod === X ? 7 : 6], `${label(f)}: TRP-X 可同时部署的陷阱数量提升（+1）`);
+      assert.deepEqual([v.stats.deployLimit], [elite && mod === X ? 8 : 7], `${label(f)}: TRP-X 可同时部署的陷阱数量提升（+1）`);
       done(h);
     }
   }
@@ -93,10 +93,10 @@ test('望 in every 自选 form: her kit, stats + module attributes, 3-3, blocks 
   assert.equal(validateDiyPicks({ [SLOT[6]]: { charId: WANG, skillIndex: 2, uniEquipId: X } }, { data, kitted: KITTED_CHARS }).ok, true);
 });
 
-test('the hand: deploying her in prep brings 6 棋子 (TRP-X "可同时部署的陷阱数量提升": 7) — the match\'s data view reads the module variant\'s deploy limit', () => {
+test('the hand: deploying her in prep brings 7 棋子 at full potential (潜能 3 「第一天赋效果增强」; TRP-X "可同时部署的陷阱数量提升": 8) — the match\'s data view reads the module variant\'s deploy limit', () => {
   const gd = new GameData(getData({ log: { warn() {}, error() {}, info() {} } }), 'mode_multi_hard');
   const data = { chess: CHESS, backups: BACKUPS };
-  for (const [tier, elite, mod, n] of [[5, false, null, 6], [6, false, null, 6], [5, true, null, 6], [6, true, null, 6], [5, true, X, 7], [6, true, X, 7]]) {
+  for (const [tier, elite, mod, n] of [[5, false, null, 7], [6, false, null, 7], [5, true, null, 7], [6, true, null, 7], [5, true, X, 8], [6, true, X, 8]]) {
     const slot = elite ? SLOT[tier].replace(/_a$/, '_b') : SLOT[tier];
     const rec = diyRecord(SLOT[tier], { charId: WANG, skillIndex: 1, uniEquipId: mod }, { elite, data });
     const view = diyGameData(gd, new Map([[slot, rec]]));

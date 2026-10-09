@@ -270,10 +270,10 @@ test('DIY: the 5 owned 6★ picks (shared/local-diy.js) — a form at every slot
     assert.deepEqual(Object.keys(rec.variants), rec.owners, `${id}: owners = variant keys`);
     for (const o of rec.owners) assert.ok(/^char_\w+@\d+\/\d+\/\d+\/\d+$/.test(o) && ownedPool.includes(o.split('@')[0]), `${id}: owner ${o}`);
   }
-  // spot checks (zh_CN client data): 望 E2 Lv60 = 1375 HP / 553 ATK, TRP-X stage 1 HP +100 ATK +36; her 棋子 placeable,
+  // spot checks (zh_CN client data): 望 E2 Lv60 = 1375 HP / 553 ATK (+ 攻击力+27 at full potential: 580), TRP-X stage 1 HP +100 ATK +36; her 棋子 placeable,
   // made by a talent and a skill; 维什戴尔's 魂灵之影 by a talent (not a hand piece)
   const wang = backups.units.char_2027_wang.forms;
-  assert.deepEqual([wang['2/60/7/1'].stats.maxHp, wang['2/60/7/1'].stats.atk], [1375, 553]);
+  assert.deepEqual([wang['2/60/7/1'].stats.maxHp, wang['2/60/7/1'].stats.atk], [1375, 580]);
   assert.deepEqual(wang['2/60/7/1'].modules.find((m) => m.typeName === 'TRP-X').attr, { maxHp: 100, atk: 36 });
   const stone = backups.tokens.token_10064_wang_stone1;
   assert.deepEqual([stone.placeable, stone.variants['char_2027_wang@2/60/7/3'].sources], [true, ['talent', 'skill', 'display']]);

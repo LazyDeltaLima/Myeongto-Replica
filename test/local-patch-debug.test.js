@@ -166,7 +166,7 @@ describe('debug page sandbag arena (public/js/debug/sandbag.js)', () => {
     assert.deepEqual(ownTokens('chess_char_2_02_a', list).map((t) => [t.tokenId, t.limit]), [['token_10000_silent_healrb', 1]], '赫默\'s 医疗探机');
     // a 自选 pick's summons are owned by `charId@status` (shared/diy.js diyTokenOwner; the debug page's cfgTokens)
     const wang = ownTokens('char_2027_wang@2/1/4/0', list);
-    assert.deepEqual(wang.map((t) => [t.tokenId, t.limit]), [['token_10064_wang_stone1', 6]], '望\'s 6 棋子');
+    assert.deepEqual(wang.map((t) => [t.tokenId, t.limit]), [['token_10064_wang_stone1', 7]], '望\'s 7 棋子 (full potential)');
     assert.deepEqual(ownTokens('chess_char_1_01_a', list), [], 'none for an operator without');
     const vigil = ownTokens('chess_char_3_19_a', list);
     assert.equal(vigil[0].ownerRange, true, '狼群: only on the owner\'s attack range');
@@ -176,12 +176,12 @@ describe('debug page sandbag arena (public/js/debug/sandbag.js)', () => {
     assert.ok(placed.length === 1 && range.has(`${placed[0].row},${placed[0].col}`));
     const bags = [{ row: 10, col: 5 }];
     const stones = autoTokens(DEFAULT_OP, 'RIGHT', [[0, 0]], wang, bags);
-    assert.equal(stones.length, 6);
+    assert.equal(stones.length, 7);
     assert.ok(!stones.some((t) => (t.row === 10 && t.col === 4) || (t.row === 10 && t.col === 5)), 'not on the operator or a sandbag');
     const b = make({ chessId: 'chess_char_6_diy1_a', diy: { charId: 'char_2027_wang', skillIndex: 0, uniEquipId: null }, bags, tokens: stones });
     run(b, 2);
     const units = b.allyUnits.filter((u) => u.kind === 'token');
-    assert.equal(units.length, 6);
+    assert.equal(units.length, 7);
     assert.ok(units.every((u) => u.deployed && u.ownerUnit === arenaOp(b)), 'deployed, owned by the operator');
     assert.deepEqual(b.errors, []);
   });

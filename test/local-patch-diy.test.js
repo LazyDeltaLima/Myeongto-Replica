@@ -181,8 +181,17 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
   });
 
   test('维什戴尔: 残影 explodes on aftershocks; the 魂灵之影 hits; S3 summons more shades (≤ 3)', () => {
+    // the explosion is a 15 % roll per aftershock on a marked enemy that survives it: a sturdy dummy and the roll pinned
+    // to succeed (at full potential the soldiers fall to the aftershocks before a seed-5 roll lands — upstream 806a0477)
+    const hb = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true, autoFinish: false,
+      units: [op('wisdel', { sk: 0, row: 11, col: 4 })], enemies: [] });
+    hb.step();
+    hb.spawn('enemy_dummy', { pos: [11, 6] });
+    hb.b.rng = Object.assign(() => 0, hb.b.rng);
+    hb.run(10);
+    assert.ok(tagged(hb, 'wisdelBomb') > 0, 'a 残影 explodes');
     const h = battle('wisdel', 2, 11, 4);
-    assert.ok(tagged(h, 'wisdelBomb') > 0 && tagged(h, 'summon') > 0);
+    assert.ok(tagged(h, 'summon') > 0);
     const shades = h.b.allies(h.unit(1).ownerId).filter((a) => a.kind === 'token' && a.defId === SHADE);
     assert.ok(shades.length > 1 && shades.length <= 3, `shades ${shades.length}`);
     for (const s of shades) assert.ok(s.kit && !s.kit.generic && s.kit.fromTokens, 'the shade runs its kit (under its deploy limit)');
@@ -432,7 +441,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const all = s1.allies().filter((u) => u.kind === 'token' && u.alive);
     assert.ok(all.some((u) => u.mem.wangFollower), '跟子 with an automatic deployment');
     const cap = s1.unit(1).mem.wang.fieldCap;
-    assert.equal(cap, 7, 'the VI elite carries her module: deploy limit 7');
+    assert.equal(cap, 8, 'the VI elite carries her module: deploy limit 8 (7 at full potential + 1)');
     assert.ok(all.filter((u) => !u.mem.wangFollower).length <= cap, 'stones ≤ the deploy limit');
     // S3 equipped: the x-1 diamond triggers and hits (passive), flyers included
     assert.ok(tagged(battle('wang', 2, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)], 20), 'trap') > 0);
@@ -642,9 +651,9 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
 
   test('望 S3: ammo per deployment = 跟子 actually built − the talent\'s free one: 4 free neighbours → 4 跟子 / 3 ammo, fewer → fewer', () => {
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
-      // the non-module form: deploy limit 6 (the module's 7 leaves room for one more stand-in drop — module case:
-      // local-patch-diy-wang.test.js)
-      units: [op('wang', { sk: 2, row: 11, col: 3, elite: false }), ...[5, 6, 7, 8, 9].map((c, i) => stone(12, c, 50 + i))] });
+      // the non-module form: deploy limit 7 at full potential, six stones (the module's 8 leaves room for one more
+      // stand-in drop — module case: local-patch-diy-wang.test.js)
+      units: [op('wang', { sk: 2, row: 11, col: 3, elite: false }), ...[5, 6, 7, 8, 9, 10].map((c, i) => stone(12, c, 50 + i))] });
     h.step(2);
     const w = h.unit(1);
     w.skill.activate('manual', { free: true });
@@ -783,7 +792,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
 
 describe('望 棋子 through the real match path (seats[].diy → Match board → battleInput → BattleSpec → createBattleFromSpec)', () => {
   const T6 = 'chess_char_6_diy1_a';
-  /** A solo match whose player slots 望 (skill `sk`) in the first tier-6 slot, on m04 at `round`, with her on 9,3 and her six stones on 9,4…9,9. */
+  /** A solo match whose player slots 望 (skill `sk`) in the first tier-6 slot, on m04 at `round`, with her on 9,3 and her seven stones (full potential) on 9,4…9,9 and 10,3. */
   const wangMatch = async (sk, round) => {
     const { makeMatch } = await import('./match/harness.js');
     const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
@@ -799,22 +808,22 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
     const w = ps.acquireChess(T6, { source: 'buy' });
     assert.ok(w, 'her piece');
     assert.ok(m.handle('p_0', { t: 'g.move', uid: w.uid, to: { area: 'board', row: 9, col: 3 }, dir: 'RIGHT' }).ok);
-    for (let c = 4; c <= 9; c++) {
+    for (const [r, c] of [[9, 4], [9, 5], [9, 6], [9, 7], [9, 8], [9, 9], [10, 3]]) {
       const card = ps.hand.find((p) => p && p.kind === 'token' && p.id === STONE);
       assert.ok(card, 'the stone cards are in the hand');
-      assert.ok(m.handle('p_0', { t: 'g.move', uid: card.uid, to: { area: 'board', row: 9, col: c } }).ok, `stone on 9,${c}`);
+      assert.ok(m.handle('p_0', { t: 'g.move', uid: card.uid, to: { area: 'board', row: r, col: c } }).ok, `stone on ${r},${c}`);
     }
     const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
     const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
     return { h, m, ps, b };
   };
 
-  test('six prep stones = no stock: a used-up stone still comes back on its prep tile for DP, before any S1 (user decision 2026-10-08); the client sees die → deploy', async () => {
+  test('seven prep stones (her deploy limit at full potential) = no stock: a used-up stone still comes back on its prep tile for DP, before any S1 (user decision 2026-10-08); the client sees die → deploy', async () => {
     const { b, m } = await wangMatch(0, 1);
     b.start();
     const wu = b.allyUnits.find((u) => u.kind === 'op');
     assert.equal(wu.def.charId, CHAR.wang);
-    assert.equal(wu.mem.wang.stock, 0, 'stock = 6 − the stones placed in the prep');
+    assert.equal(wu.mem.wang.stock, 0, 'stock = 7 − the stones placed in the prep');
     for (const t of b.allyUnits.filter((u) => u.kind === 'token')) assert.ok(t.kit?.fromTokens && !t.kit.generic, 'placed stones run the stone kit');
     const back = [];
     let casts = 0;
@@ -840,7 +849,7 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
     m.dispose?.();
   });
 
-  test('S3 (6 prep stones, m04 round 4): ammo really drops per 跟子 built, the snapshot ammo bar follows, refund from the same count', async () => {
+  test('S3 (7 prep stones, m04 round 4): ammo really drops per 跟子 built, the snapshot ammo bar follows, refund from the same count', async () => {
     const { b, m } = await wangMatch(2, 4);
     b.start();
     const wu = b.allyUnits.find((u) => u.kind === 'op');

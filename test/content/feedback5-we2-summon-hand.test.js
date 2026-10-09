@@ -2,7 +2,8 @@
 // is its deploy limit (PRTS 卫戍协议/帮助 §战斗部署 "根据召唤物部署数量上限（非初始持有量），发送等量召唤物至手牌区"), and the
 // data's deploy limit / holding carry the tokens' own talent additions (tools/build-data.mjs tokenTalentDeckBonus: the
 // hidden "TOKEN数" talent max_deploy_count / max_deck_stack_cnt on top of the attribute frame). On this server the only
-// 自选 summoner with a placeable summon is 望 ("可以使用6枚棋子", TRP-X +1); upstream's other summoners are gone.
+// 自选 summoner with a placeable summon is 望 ("可以使用6枚棋子" — 7 at full potential (望's 潜能 3 「第一天赋效果增强」, the
+// owner's decision of 2026-10-07, upstream 806a0477) —, TRP-X +1); upstream's other summoners are gone.
 // #24: a summon no owner shows (displayTokenDict: the variants' `display` source) is its skill's own object, never a hand
 // card.
 // Run: node --test test/content/feedback5-we2-summon-hand.test.js
@@ -26,7 +27,7 @@ const statusOf = (tier, elite) => (elite ? `2/60/7/${STAGE[tier]}` : '2/1/4/0');
 /** The official hand count of `charId`'s summon under a module at its stage (null module = none). */
 function official(charId, mod) {
   switch (charId) {
-    case 'char_2027_wang': return mod === 'uniequip_002_wang' ? 7 : 6;                     // TRP-X +1
+    case 'char_2027_wang': return mod === 'uniequip_002_wang' ? 8 : 7;                     // 7 at full potential, TRP-X +1
     default: return 1;
   }
 }
@@ -72,9 +73,9 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
 
 test('the data: deploy limit / holding = the attribute frame + the token talents\' max_deploy_count / max_deck_stack_cnt (a module token part of the same talent replaces it)', () => {
   const v = (tid, owner) => BACKUPS.tokens[tid].variants[owner];
-  // 望's 棋子: the rank-2 talent (+1) is a potential talent — potential 0 keeps 6
-  assert.equal(v('token_10064_wang_stone1', 'char_2027_wang@2/1/4/0').stats.deployLimit, 6);
-  assert.equal(v('token_10064_wang_stone1', 'char_2027_wang@2/60/7/3').byModule.uniequip_002_wang.stats.deployLimit, 7);
+  // 望's 棋子: the rank-2 talent (+1) is a potential talent (望's 潜能 3) — at full potential 6 + 1 = 7
+  assert.equal(v('token_10064_wang_stone1', 'char_2027_wang@2/1/4/0').stats.deployLimit, 7);
+  assert.equal(v('token_10064_wang_stone1', 'char_2027_wang@2/60/7/3').byModule.uniequip_002_wang.stats.deployLimit, 8);
   // the chess summons of tokens.json have no such talent: 凯瑟琳's 爬行号 2 of 3, everyone else 1
   const tokens = load('tokens');
   assert.equal(tokens.token_10041_cathy_catsld.variants.chess_char_4_11_a.stats.deployLimit, 2);

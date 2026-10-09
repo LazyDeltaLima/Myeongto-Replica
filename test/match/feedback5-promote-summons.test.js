@@ -1,7 +1,7 @@
 // Promote in place (升华 / 博士投影: PlayerState.promote) of a 自选 summoner standing on the board tops its summon stacks up
 // to the ELITE's deploy limit, like an elite merged onto a tile (_mergeChess → grantTokensFor). 0.2.0 review round 17 (then
 // 麦哲伦 with SUM-Y, an upstream pick this server does not offer): the promote used to leave the hand at the normal count.
-// Here 望 with TRP-X: 6 棋子 as a normal piece, 7 as an elite (the module's own deploy limit, active on the elite only).
+// Here 望 with TRP-X: 7 棋子 as a normal piece, 8 as an elite (full potential) (the module's own deploy limit, active on the elite only).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hasGeneratedData } from '../../server/sim/simdata.js';
@@ -19,7 +19,7 @@ function summonsOf(ps, uid) {
   return n;
 }
 
-test('a promoted 自选 summoner on the board gets the elite\'s summon count (望 TRP-X: 6 → 7 棋子)', REAL, () => {
+test('a promoted 自选 summoner on the board gets the elite\'s summon count (望 TRP-X: 7 → 8 棋子)', REAL, () => {
   const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T6B]: { charId: WANG, skillIndex: 0, uniEquipId: TRP_X } } }];
   const h = makeMatch({ mode: 'solo', seats, seed: 21 }).start();
   try {
@@ -35,7 +35,7 @@ test('a promoted 自选 summoner on the board gets the elite\'s summon count (�
     assert.equal(summonsOf(ps, piece.uid), normal, 'placing the normal piece brings its own count');
     assert.equal(ps.promote(piece), true);
     const elite = limit(piece);
-    assert.deepEqual([normal, elite], [6, 7], 'the elite\'s limit is above the normal one');
+    assert.deepEqual([normal, elite], [7, 8], 'the elite\'s limit is above the normal one');
     assert.equal(summonsOf(ps, piece.uid), elite, 'the promote tops the stacks up to the elite limit');
   } finally { h.m.dispose(); }
 });

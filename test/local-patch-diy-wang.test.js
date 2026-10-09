@@ -157,11 +157,11 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
     }
   });
 
-  test('module (uniequip_002_wang): deploy limit 7 — seven prep stones all stand, stock 0; without it 6', () => {
-    const seven = [4, 5, 6, 7, 8, 9, 10].map((c, i) => stone(9, c, 50 + i));
-    for (const [elite, cap] of [[true, 7], [false, 6]]) {
+  test('module (uniequip_002_wang): deploy limit 8 — eight prep stones all stand, stock 0; without it 7 (full potential)', () => {
+    const eight = [3, 4, 5, 6, 7, 8, 9, 10].map((c, i) => stone(9, c, 50 + i));
+    for (const [elite, cap] of [[true, 8], [false, 7]]) {
       const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 30, autoFinish: false,
-        units: [{ ...op(0, 11, 3), elite, diy: { slot: 6, ...pick(0, elite) } }, ...seven], enemies: [] });
+        units: [{ ...op(0, 11, 3), elite, diy: { slot: 6, ...pick(0, elite) } }, ...eight], enemies: [] });
       h.step(1);
       const s = h.unit(1).mem.wang;
       assert.equal(s.fieldCap, cap, `deploy limit (elite ${elite})`);
@@ -208,8 +208,9 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
   });
 
   test('W10: during S3 a used stone comes back onto a walking enemy\'s tile inside her range — not outside it, not without S3', () => {
-    // her S3 range (4-12 from 11,3) covers cols 3–7 of rows 9–12; six prep stones keep the field full (no S3 stand-in drop)
-    const layout = [[12, 4], [9, 8], [9, 9], [10, 9], [11, 9], [12, 9]];
+    // her S3 range (4-12 from 11,3) covers cols 3–7 of rows 9–12; seven prep stones (full potential) keep the field full
+    // (no S3 stand-in drop)
+    const layout = [[12, 4], [9, 8], [9, 9], [10, 9], [11, 9], [12, 9], [9, 10]];
     const run = (cast, home) => {
       const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
         units: [op(2, 11, 3), ...layout.map(([r, c], i) => stone(r, c, 50 + i))] });

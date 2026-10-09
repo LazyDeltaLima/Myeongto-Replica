@@ -69,8 +69,8 @@ test('赤刃明霄陈 in every 自选 form: her operator kit (all three skills a
       done(h);
     }
   }
-  // E2 Lv1 2211 / 542 / 352, E2 Lv60 2674 / 627 / 400; AFT-X +240 / +30 → +420 / +60 (HP / ATK)
-  assert.deepEqual([FORMS['2/1/4/0'].stats.maxHp, FORMS['2/1/4/0'].stats.atk, FORMS['2/60/7/1'].stats.maxHp, FORMS['2/60/7/1'].stats.atk], [2211, 542, 2674, 627]);
+  // E2 Lv1 2211 / 542 / 352, E2 Lv60 2674 / 627 / 400 (+ 攻击力+28 at full potential: 570 / 655); AFT-X +240 / +30 → +420 / +60 (HP / ATK)
+  assert.deepEqual([FORMS['2/1/4/0'].stats.maxHp, FORMS['2/1/4/0'].stats.atk, FORMS['2/60/7/1'].stats.maxHp, FORMS['2/60/7/1'].stats.atk], [2211, 570, 2674, 655]);
   assert.deepEqual([modOf(5, AFTX).attr, modOf(6, AFTX).attr], [{ maxHp: 240, atk: 30 }, { maxHp: 420, atk: 60 }]);
 });
 
