@@ -31,6 +31,8 @@
 //   --dict      a community dictionary { "<Chinese data text>": "<translation>" } (a language without an official
 //               client: the only source besides the pack's UI file; with a client: tried after it). Matching is exact
 //               (a text with its numbers resolved needs its own entry); the rest falls back per text at run time.
+//   --fix       corrections { "<Chinese data text>": "<translation>" } tried BEFORE the official client: only for a typo
+//               of the official table (local patch: tools/i18n/build-ko-pack.mjs DATA_FIXES, the KR 「강도하」 typo).
 //   --source    tables of the language: 'assets' (default) = ArknightsAssets/ArknightsGamedata (en / jp / kr / tw;
 //               current, has the 盟约 seasons act1autochess / act2autochess); for en also 'yostar' =
 //               Kengxxiao/ArknightsGameData_YoStar en_US (archived in 2025-11: no 盟约 season, only the 2025 test event
@@ -53,7 +55,7 @@ import { fileURLToPath } from 'node:url';
 import { buildRecordOverlay, applyFileOverlay, OVERLAY_VERSION } from '../shared/i18nData.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const USAGE = 'usage: node tools/build-i18n.mjs [--lang en|ja|ko|zh-TW | --lang <code> --dict <file.json>] [--dict <file.json>] [--refresh | --offline] [--source assets|yostar] [--cache <dir>] [--cache-en <dir>] [--data <dir>] [--out <file>] [--report <file>] [--check] [--quiet]';
+const USAGE = 'usage: node tools/build-i18n.mjs [--lang en|ja|ko|zh-TW | --lang <code> --dict <file.json>] [--dict <file.json>] [--fix <file.json>] [--refresh | --offline] [--source assets|yostar] [--cache <dir>] [--cache-en <dir>] [--data <dir>] [--out <file>] [--report <file>] [--check] [--quiet]';
 
 const ASSETS_HOME = 'https://github.com/ArknightsAssets/ArknightsGamedata';
 /** The official client tables of a language other than English (ArknightsAssets/ArknightsGamedata <server>/gamedata). */
@@ -219,7 +221,7 @@ function parseArgs(argv) {
     cache: join(ROOT, '.cache', 'gamedata'), cacheEn: null, data: join(ROOT, 'data'), out: null, report: null,
   };
   const flags = { '--refresh': 'refresh', '--offline': 'offline', '--quiet': 'quiet', '--check': 'check' };
-  const vals = { '--source': 'source', '--lang': 'lang', '--dict': 'dict', '--cache': 'cache', '--cache-en': 'cacheEn', '--data': 'data', '--out': 'out', '--report': 'report' };
+  const vals = { '--source': 'source', '--lang': 'lang', '--dict': 'dict', '--fix': 'fix', '--cache': 'cache', '--cache-en': 'cacheEn', '--data': 'data', '--out': 'out', '--report': 'report' };
   for (let i = 0; i < argv.length; i++) {
     const eq = argv[i].indexOf('=');
     const [name, inline] = eq > 0 ? [argv[i].slice(0, eq), argv[i].slice(eq + 1)] : [argv[i], null];
@@ -464,10 +466,11 @@ class Translator {
    * @param {PairIndex} index
    * @param {{ name: string, map: Map<string, string> }[]} fallbacks in order of preference
    */
-  constructor(index, fallbacks, { composites = true } = {}) {
+  constructor(index, fallbacks, { composites = true, fixes = null } = {}) {
     this.index = index;
     this.fallbacks = fallbacks;
     this.composites = composites;
+    this.fixes = fixes; // Map: corrections of the official table, before every other source (--fix)
   }
 
   /**
@@ -476,6 +479,8 @@ class Translator {
    * @returns {{ en: string, how: string } | null}
    */
   translate(zh, ctx) {
+    const fx = this.fixes?.get(zh);
+    if (fx) return { en: fx, how: 'fix' };
     const ex = this.index.exact.get(zh);
     if (ex) return { en: bestVariant(ex, ctx).en, how: 'exact' };
     // a plain text (build-data strips the markup of `desc`, `text`, card / device descriptions) against stripped sources
@@ -626,7 +631,7 @@ function translateScalar(file, id, text, tr, stats, samples) {
 
 class Stats {
   constructor() { this.kinds = {}; this.missing = new Map(); }
-  row(kind) { return this.kinds[kind] || (this.kinds[kind] = { texts: 0, exact: 0, template: 0, composite: 0, remake: 0, pr70: 0, ui: 0, dict: 0, missing: 0, notes: 0 }); }
+  row(kind) { return this.kinds[kind] || (this.kinds[kind] = { texts: 0, exact: 0, template: 0, composite: 0, remake: 0, pr70: 0, ui: 0, dict: 0, fix: 0, missing: 0, notes: 0 }); }
   hit(kind, how) { const r = this.row(kind); r.texts++; r[how]++; }
   miss(kind, text) {
     const r = this.row(kind);
@@ -645,7 +650,7 @@ const dictMap = (d, untranslated = (zh, t) => hasCjk(t)) => new Map(Object.entri
 
 /**
  * Build the overlay. Exported for tests (they pass in-memory tables).
- * @param {{ zh: object[], en: object[], data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object }, source?: object }} input
+ * @param {{ zh: object[], en: object[], data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object, dict?: object, fix?: object }, source?: object }} input
  *   zh / en: the picked sub-trees of TABLES, in order
  */
 export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang = 'en' }) {
@@ -657,7 +662,7 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
     { name: 'remake', map: dictMap(fallback.remake, untranslated) },
     { name: 'pr70', map: dictMap(fallback.pr70, untranslated) },
     { name: 'ui', map: dictMap(fallback.ui, untranslated) },
-  ], { composites: LANG_SOURCES[lang]?.composite ?? false });
+  ], { composites: LANG_SOURCES[lang]?.composite ?? false, fixes: fallback.fix ? dictMap(fallback.fix, untranslated) : null });
   const stats = new Stats();
   const samples = {};
   const files = {};
@@ -695,7 +700,7 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
   const coverage = {};
   let total = 0, translated = 0, official = 0;
   for (const [kind, r] of Object.entries(stats.kinds).sort()) {
-    const ok = r.exact + r.template + r.composite + r.remake + r.pr70 + r.ui + r.dict;
+    const ok = r.exact + r.template + r.composite + r.remake + r.pr70 + r.ui + r.dict + r.fix;
     coverage[kind] = { ...r, translated: ok, pct: r.texts ? Math.round((ok / r.texts) * 1000) / 10 : 100 };
     total += r.texts; translated += ok; official += r.exact + r.template + r.composite;
   }
@@ -758,6 +763,7 @@ async function main() {
     ui: await readDict(join(ROOT, 'public', 'i18n', 'en.json')),
   } : { ui: await readDict(join(ROOT, 'public', 'i18n', `${opts.lang}.json`)) };
   if (opts.dict) fallback.dict = JSON.parse(await readFile(opts.dict, 'utf8'));
+  if (opts.fix) fallback.fix = JSON.parse(await readFile(opts.fix, 'utf8'));
   const { overlay, report } = buildOverlay({ zh, en, data, fallback, lang: opts.lang, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
 
   // self-check: applying the overlay keeps every record's shape (strings replace strings only)
@@ -774,7 +780,7 @@ async function main() {
   if (client) log(`  season in the ${opts.lang} build: ${seasonEn}${version ? ` · ${version.replace(/\s+/g, ' ')}` : ''}`);
   log(`  ${report.pairs} zh→${opts.lang} source pairs; coverage per kind (translated / texts):`);
   for (const [kind, c] of Object.entries(report.coverage)) {
-    const fb = [c.remake && `remake ${c.remake}`, c.pr70 && `PR #70 ${c.pr70}`, c.ui && `UI ${c.ui}`, c.dict && `dictionary ${c.dict}`].filter(Boolean).join(' · ');
+    const fb = [c.remake && `remake ${c.remake}`, c.pr70 && `PR #70 ${c.pr70}`, c.ui && `UI ${c.ui}`, c.dict && `dictionary ${c.dict}`, c.fix && `fixed ${c.fix}`].filter(Boolean).join(' · ');
     log(`    ${kind.padEnd(10)} ${String(c.translated).padStart(5)} / ${String(c.texts).padEnd(5)} ${String(c.pct).padStart(5)} %   official ${c.exact + c.template + c.composite} (exact ${c.exact} · template ${c.template} · composite ${c.composite})${fb ? ` · ${fb}` : ''}${c.notes ? ` · notes skipped ${c.notes}` : ''}`);
   }
   log(`  total ${report.totals.translated} / ${report.totals.texts} (${report.totals.pct} %), official ${report.totals.official}; ${Object.keys(overlay.names).length} names (${report.nameConflicts.length} with several ${opts.lang} forms)`);

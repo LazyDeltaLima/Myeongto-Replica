@@ -5,6 +5,7 @@
 //   public/i18n/ko.json   UI strings: Chinese msgid (`ctx::msgid` for a context) → Korean
 //   data/i18n/ko.json     game texts: upstream's official-KR overlay (tools/build-i18n.mjs --lang ko) plus our data
 //                         dictionaries for what the KR tables lack (passed to it as --dict, tried after the KR client)
+//                         and DATA_FIXES for typos of the KR tables (--fix, tried before the KR client)
 //
 // Sources
 //   ours   public/i18n/ko/{official,data,manual,diy,ui,patterns}.json — the dictionaries of our display-only translator
@@ -55,6 +56,12 @@ const KEEP_UPSTREAM = {
   上: 'a direction label (ui/facing.js DIR_LABEL): 위, beside 왼쪽 / 오른쪽; official.json has 상 (another context)',
   下: 'a direction label (ui/facing.js DIR_LABEL): 아래; official.json has 하',
   全部: 'the "all" filter chip: 전체 (official KR uses 전체 in 3 of its 4 全部 keys); official.json has 전부',
+};
+
+/** Data text → our text over the official KR table (build-i18n --fix): typos of the KR client itself, which the data
+ * pack would otherwise take before our dictionaries (data/i18n/ko.json; the UI pack has the same entry in FIXES). */
+const DATA_FIXES = {
+  敌方攻击强度到达极限的模拟训练: ['적의 공격 강도가 한계를 뛰어넘은 시뮬레이션', 'typo 강도하 in the official KR table (the 超越 difficulty card in the lobby, 2026-10-09)'],
 };
 
 /** msgid → our text, fixed (our dictionary has a typo or a wrong sense). */
@@ -354,7 +361,9 @@ function buildData(ours, o, log) {
   const tmp = mkdtempSync(path.join(tmpdir(), 'ko-pack-'));
   const dictFile = path.join(tmp, 'ko-dict.json');
   writeFileSync(dictFile, JSON.stringify(dict));
-  const args = [path.join(ROOT, 'tools', 'build-i18n.mjs'), '--lang', 'ko', '--dict', dictFile, '--report', path.join(ROOT, '.cache', 'build-i18n-report.ko.json')];
+  const fixFile = path.join(tmp, 'ko-fix.json');
+  writeFileSync(fixFile, JSON.stringify(Object.fromEntries(Object.entries(DATA_FIXES).map(([k, [v]]) => [k, v]))));
+  const args = [path.join(ROOT, 'tools', 'build-i18n.mjs'), '--lang', 'ko', '--dict', dictFile, '--fix', fixFile, '--report', path.join(ROOT, '.cache', 'build-i18n-report.ko.json')];
   if (o.offline) args.push('--offline');
   if (o.check) args.push('--check');
   let out;
