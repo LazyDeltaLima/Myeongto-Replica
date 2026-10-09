@@ -4,7 +4,7 @@
 
 ## 게임 내 디버그 패널 (2026-10-06)
 - **로컬 디버그 모드** = `SP_DEBUG_PAGE=1` 또는 올바른 `SP_DEBUG_FUNDS`(0..999), 그리고 `NODE_ENV`가 `production`이 아닐 때
-  (`server/local-patch.js debugMode`). `local.sh`가 둘 다 켠다. OCI(`oci/compose.yml`)·NAS 스택은 둘 다 설정하지 않고,
+  (`server/local-patch.js debugMode`). `local.sh`가 둘 다 켠다. 배포 서버는 둘 다 설정하지 않고,
   Docker 이미지는 `NODE_ENV=production`이라 배포 서버는 절대 디버그 모드가 아니다.
   - 이 조건은 `SP_DEBUG_FUNDS` 재화 고정에도 적용된다(예전에는 `SP_DEBUG_FUNDS`만 보고 고정했다).
 - 서버: `dbg.funds { on }`, `dbg.addDiy { chessId }`는 `Lobby.onMessage` 첫 줄의 기존 훅(`localPatch.onMessage`)으로 들어온다.
@@ -470,14 +470,14 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   5분보다 큰 `mark`(30·10분)마다 경고 토스트 「N분 후 서버가 재시작됩니다. 진행 중인 판은 종료됩니다」(6초), 카운트다운 중에 접속한 페이지는 welcome에서 남은 분으로 한 번(남은 시간이 5분보다 클 때만)
   (`ui.restartAt`로 이미 알던 페이지의 재연결은 다시 띄우지 않음), 취소되면 알던 페이지에만 「서버 재시작이 취소되었습니다」. 판 밖에서는 위쪽 가운데, 판 안
   (`html.sp-in-match`)에서는 라운드 캡슐 아래(기존 토스트 자리). 재시작 뒤에는 기존 흐름 그대로: `room.closed shutdown` → 재연결 → buildGuard가 새 빌드로 새로고침.
-- 배포 쪽(`oci/deploy.sh`): 이미지를 먼저 빌드하고(옛 컨테이너는 계속 서비스), 접속자가 있으면 `docker exec stronghold sh -c 'echo 30 > /tmp/stronghold-restart && kill -USR2 1'`로
-  카운트다운을 시작한다. 내부 healthz를 15초마다 보고 0이 되면 재생성한다. 접속자가 없으면 카운트다운 없이 바로 진행하고, 도중에 모두 나가면 앞당긴다.
+- 배포 쪽(배포 스크립트, 이 저장소에 없음): 이미지를 먼저 빌드하고(옛 컨테이너는 계속 서비스), 접속자가 있으면 컨테이너 안에서
+  `echo 30 > /tmp/stronghold-restart && kill -USR2 1`로 카운트다운을 시작한다. 내부 healthz를 15초마다 보고 0이 되면 재생성한다. 접속자가 없으면 카운트다운 없이 바로 진행하고, 도중에 모두 나가면 앞당긴다.
   Ctrl-C나 실패가 나면 취소 공지를 보낸다. `--now`는 카운트다운 없음, `--notice N`은 N분, `--rollback`은 기본으로 바로 진행한다(비상용).
   이 기능이 없는 옛 서버(healthz에 `restartInSec` 없음)에 접속자가 있으면 멈춘다. 그때는 `--now`로 진행한다.
 - 방별 진행 상황(2026-10-09, 사용자 결정 「방별 진행 상황 정도면 충분해」·방 코드는 그대로 표시): 내부 `GET /healthz/rooms`(`server/local-rooms.js`, 프록시 경유는 404)가
   방마다 `{ code, mode, difficulty, phase, round, stageId, bossId, humans, connected, bots, spectators, ageMin, matchMin }`를 준다(진행 중인 판 먼저, 라운드 높은 순).
-  `deploy.sh`는 카운트다운 시작 때와, 분이 바뀔 때 목록이 달라졌으면 「ABCD 협동 극한 R7 휴식 기간 · 사람 2(접속 1) 봇 2 · 판 23분」처럼 찍고,
-  `oci/deploy.sh --rooms`는 배포 없이 지금 목록만 보여 준다. 지금 상태만 보여 줄 뿐 로그에는 남기지 않는다(판 결과는 `[stats]` 줄).
+  배포 스크립트는 카운트다운 시작 때와, 분이 바뀔 때 목록이 달라졌으면 「ABCD 협동 극한 R7 휴식 기간 · 사람 2(접속 1) 봇 2 · 판 23분」처럼 찍고,
+  배포 없이 지금 목록만 보여 주는 옵션도 있다. 지금 상태만 보여 줄 뿐 로그에는 남기지 않는다(판 결과는 `[stats]` 줄).
   확인: `test/local-patch-rooms.test.js`(실제 서버·실제 Match로 대기실·판 시작 뒤 목록, 프록시 헤더면 404).
 - 확인: `test/local-restart.test.js`(시점·취소·만료는 가짜 타이머, 실제 서버의 방송·welcome·healthz·판 시작 거부, 실제 프로세스에 `SIGUSR2`, 클라이언트 토스트 조건).
   Windows Chrome(로컬 서버 + `SIGUSR2`): 로비 30분, 정비 화면 10분 토스트(전투 중 5분 토스트는 그 뒤 뺌), 협동 판(AI 3명) 정비·전투·휴대폰 가로에서 5분 띠 위치 확인(2026-10-09).

@@ -1,6 +1,6 @@
 // Local patch, server side: the settlement screen's 피드백 보내기 (feedback) inbox. A player who just finished a match
 // sends a bug report or a suggestion (fb.send, shared/local.js); this server keeps it as one JSON file in
-// SP_FEEDBACK_DIR/inbox/ for the operator to pull (oci/feedback.sh) and triage. Nothing is posted anywhere from here
+// SP_FEEDBACK_DIR/inbox/ for the operator to pull and triage. Nothing is posted anywhere from here
 // (user decision 2026-10-09: stage 1 = keep on the server and pull; a GitHub issue relay may read the same inbox later).
 // Called from server/local-patch.js (onMessage, onMatchEnd, welcomeInfo — one line each).
 //

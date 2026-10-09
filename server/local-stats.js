@@ -1,5 +1,5 @@
 // Local patch, server side: one `[stats]` log line per finished match, so the deployed server's play statistics can be
-// read from the container log (docker logs / an OCI Logging custom log) without a database or a volume. Called from
+// read from the container log (docker logs or a log collector) without a database or a volume. Called from
 // server/local-patch.js onMatchEnd (one line). The line is compact JSON after the `[stats] ` prefix:
 //
 //   { v, room, match, mode, difficulty, modeId, stageId, bossId, hiddenBossId, victory, rounds, hiddenReached,

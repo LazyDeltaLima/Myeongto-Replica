@@ -279,7 +279,7 @@ const DEBUG_PATHS = new Set(['/debug.html', '/fxlab.html', '/js/debug.js']);
 const DEBUG_DIR = '/js/debug/';
 /**
  * Whether a static request is the debug page on a server that does not serve it: only `SP_DEBUG_PAGE=1` (local.sh)
- * serves it; deployed servers (OCI / NAS) answer 404.
+ * serves it; deployed servers answer 404.
  */
 export function debugPageHidden(decodedPath, env = process.env) {
   const p = String(decodedPath).toLowerCase();
@@ -289,17 +289,17 @@ export function debugPageHidden(decodedPath, env = process.env) {
 // ---- /healthz through the reverse proxy ------------------------------------------------------------------------
 
 /**
- * Whether a request came through the reverse proxy (Caddy on OCI, cloudflared on the NAS: both add X-Forwarded-For).
- * Such a /healthz answer keeps only what the page needs (`build` for public/js/ui/buildGuard.js) and leaves the player /
- * room counters to the in-container checks (Dockerfile HEALTHCHECK, oci/deploy.sh `docker exec … wget`).
+ * Whether a request came through a reverse proxy (it adds X-Forwarded-For). Such a /healthz answer keeps only what the
+ * page needs (`build` for public/js/ui/buildGuard.js) and leaves the player / room counters to checks made from inside
+ * the container (Dockerfile HEALTHCHECK, the deploy script).
  */
 export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-forwarded-for']);
 
 // ---- local debug mode: the in-game debug panel (public/js/ui/debugPanel.js) --------------------------------------
 //
 // Local debug mode = SP_DEBUG_PAGE=1 or a valid SP_DEBUG_FUNDS, and NODE_ENV is not 'production'.
-// local.sh sets both; the OCI / NAS compose files set neither and the Docker image sets NODE_ENV=production, so a
-// deployed server is never in it. Only then:
+// local.sh sets both; deployed servers set neither and the Docker image sets NODE_ENV=production, so a deployed
+// server is never in it. Only then:
 //   m.private.debug = { fundsPin, pinValue, candidates }   (privateView wrapper, installed at import) — the client
 //                     renders the panel only when this is present
 //   dbg.funds { on }        the sender's funds pinned to pinValue (SP_DEBUG_FUNDS, else 99) or back to real funds

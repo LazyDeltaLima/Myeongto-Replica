@@ -18,8 +18,8 @@ import { APP_VERSION } from './constants.js';
 import { N_ } from './i18n.js';
 
 // local version (docs/rules/README.md 「버전 표기」): since 1.2.0 it is APP_VERSION (shared/constants.js) itself — the hard
-// fork has no upstream base to show beside it. Kept for /healthz `local` and the feedback records, which oci/deploy.sh and
-// oci/feedback.sh read (a server before 1.2.0 sends its own number there and the upstream base as `app`).
+// fork has no upstream base to show beside it. Kept for /healthz `local` and the feedback records, which the operator's deploy and
+// feedback scripts read (a server before 1.2.0 sends its own number there and the upstream base as `app`).
 /** @returns {string} the version */
 export const localVersion = () => APP_VERSION;
 

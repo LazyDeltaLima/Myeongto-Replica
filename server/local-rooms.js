@@ -1,6 +1,6 @@
 // Server side: the per-room status list behind the internal `GET /healthz/rooms` (server/http/routes.js),
-// so an operator can see which rooms are where before a restart (oci/deploy.sh prints it during the countdown and
-// with --rooms). One row per room:
+// so an operator can see which rooms are where before a restart (the deploy script prints it during the countdown and
+// on request). One row per room:
 //
 //   { code, mode, difficulty, phase, round, stageId, bossId, humans, connected, bots, spectators, ageMin, matchMin }
 //

@@ -84,7 +84,7 @@
     1 초과 잘림)보다 적 소리가 약 9 dB 작다. UI 효과음·BGM은 그대로.
   - 확인: `test/local-patch-audio.test.js` 8개, 전 오퍼레이터×스킬 시뮬+AudioManager 일괄(강제 시전 시 207개 중 185개에서 전용 소리 — 나머지 22개는
     피해를 키트가 직접 주는 스킬: 드론·음표·늑대·치유), 디버그 아레나(阿斯卡纶 S1/S3, 维什戴尔 S3, 赤刃明霄陈 S3 — 검기 타격 `p_imp_hljdswdlng_s`).
-  - 배포: 새 효과음 220개(2.4MB)는 서버의 `fetch-assets`가 받는다(`oci/deploy.sh --assets`).
+  - 배포: 새 효과음 220개(2.4MB)는 서버의 `fetch-assets`가 받는다(배포 때 소재 갱신).
   - 스킬 루프음 (2026-10-07 사용자 제보 「丰川祥子 S3 발동 시 고유 음악이 안 나온다」): 공식 뱅크 중 `loop: true`인 스킬 소리 — 丰川祥子 S3
     `ON_BUFF_START.oblvns_s_3[loop]`(`p_atk_MJCkyrdslnt_lp`, 공식 데이터에 스킬용 BGM 전환은 없음), 장판 `ON_ABILITY_START.skchr_lisa_3` /
     `ON_SKILL_START.skchr_cello_3` 등 풀 17명 — 를 `skill-mode-sfx.mjs skillLoops`가 `sfx.units[id].loops[스킬번호] = { url, grp, vol, start }`로
@@ -107,7 +107,7 @@
     새 소리를 낸다(르무엔 착탄 5발 모두 — 예전엔 셋째부터 빠짐). 상한 1인 키(wang:1·wisdel:s2·whitw2:s2/s3·lemuen:mark)는 겹치던 두 번째 대신 앞 소리를 끊는다.
     일반 유닛·전투 소리는 그대로(`MAX_PER_URL` 2, 넘으면 버림). 유닛별 160 ms 간격은 kit에도 걸려 2× 속도에서는 일부 빠질 수 있다.
   - 확인: `test/local-patch-audio.test.js` +6(수정 전 실패 확인), 매니페스트 diff(위 오퍼레이터만), Windows Chrome `sndB_probe.mjs`(银灰 발동 전 평타
-    `p_imp_spear_n`만, 르무엔 mark 5·s3end 1·shell 5). 배포: 새 sfx 3개(`p_imp_lmwlcrstrmk`, `p_atk_lmwlcrstrst_s`, `p_imp_lmwlcrstr_s`) → `oci/deploy.sh --assets`.
+    `p_imp_spear_n`만, 르무엔 mark 5·s3end 1·shell 5). 배포: 새 sfx 3개(`p_imp_lmwlcrstrmk`, `p_atk_lmwlcrstrst_s`, `p_imp_lmwlcrstr_s`) → 배포 때 소재 갱신.
     로컬 재생성 때 매니페스트 키가 10개 줄어 `fetch-assets --allow-shrink`.
   - **스킬 특수 음악·대역 전환·모드 타격음** (사용자 제보 4차 4-2·4-4, 2026-10-08, 세션 G — 조사 표 `research/2026-10-08-handoff/G-skill-music-hit-sfx.md` 「결과」):
     - 원인(데이터로 확인): plan은 스킬마다 시작음 1개(`skills[i]`)·`loop: true` 뱅크 1개(`loops[i]`)·모드 공격음만 실었다. 공식은 그 밖의 뱅크도 낸다 —
@@ -158,7 +158,7 @@
     - 확인: `test/local-patch-skill-music.test.js` 6개(수정 전 6개 모두 실패 확인 — 실제 경로 Match → buildBattleSpec → createBattleFromSpec 이벤트를 AudioManager에),
       Windows Chrome Web Audio 계측(`sp-check\snd_g_hook.js` — AudioBufferSourceNode start/stop을 파일 이름으로): 디버그 아레나
       (`snd_g_arena.mjs`) nearl2 S3·cello S3·ghost2 S2·texas2 S2, 실제 솔로 판(`snd_g_real.mjs`: 로드아웃 + 재화 고정 + 상점 리롤로 구매) texas2 S2·ghost2 S2.
-      cello·nearl2(6성)는 상점에 안 나와 실제 판 확인 못 함. 배포: 새 sfx 21개 → `oci/deploy.sh --assets`.
+      cello·nearl2(6성)는 상점에 안 나와 실제 판 확인 못 함. 배포: 새 sfx 21개 → 배포 때 소재 갱신.
 
 ## 작전 종료 효과음 (2026-10-07)
 - 사용자 제보 「라운드별 작전 종료 효과음이 빠져 있다」: 공식 효과음 3개는 이미 웹 매니페스트에 있었다(`sfx.ui.battleOverReduce` / `battleOverNoReduce` /

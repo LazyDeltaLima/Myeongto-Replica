@@ -4,7 +4,7 @@
 2026-10-09까지는 `docs/LOCAL-PATCH.md` 한 파일이었고, 하드 포크(2026-10-07) 뒤 병합 대비 목록이라는 역할이 없어져 영역별 파일로 나눴다. `docs/LOCAL-PATCH.md`는 옛 참조(「LOCAL-PATCH.md 「절 이름」」, 코드·테스트 주석 약 120곳)를 위한 **색인**으로 남는다.
 운영 절차·열린 일·세션 인계·조사 기록은 관리자의 **비공개 운영 폴더**에 있고 이 저장소에는 없다. 규칙 문서와 코드 주석에 나오는
 `STRONGHOLD.md`(§11 = 열린 일), `handoffs/`, 날짜가 붙은 `research/<날짜>-…`·`research/battle-mechanics-reference.md`, `upstream/ISSUES.md`,
-`oci/`, `bench/`, `logs/`, `local.sh`는 그 폴더를 가리킨다(근거를 다시 찾을 수 있게 이름만 남김). `sp-check\…`는 관리자 Windows PC의 화면 확인
+`bench/`, `logs/`, `local.sh`는 그 폴더를 가리킨다(근거를 다시 찾을 수 있게 이름만 남김). `sp-check\…`는 관리자 Windows PC의 화면 확인
 스크립트, `녹화\…`는 공식 인게임 녹화로, 역시 공개하지 않는다. 날짜 없는 `research/NN-…`은 이 저장소의 `docs/research/`다.
 이 저장소의 파일에는 홈 폴더 절대 경로(`/home/…`, `C:\Users\…`, `~/Personal/…`)와 이 PC의 계정 이름을 쓰지 않는다(`test/public-repo.test.js`).
 
@@ -66,8 +66,8 @@
 | 이펙트·사운드 디버그 페이지 = 샌드백 아레나 (`SP_DEBUG_PAGE=1`일 때만, 배포 서버는 404 — `/js/debug/*` 포함) | `public/debug.html`, `public/js/debug.js`, `public/js/debug/arena.js`·`sandbag.js` (`/fxlab.html`은 이리로 넘김), `server/local-patch.js debugPageHidden`, `test/local-patch-debug.test.js` | `server/index.js` 2줄, `render/app.js` `debugFx` 1줄(+헤더 1줄), `render/fxgame.js` `debugPlay` |
 | 보스 경로 미리보기 (2026-10-08: 최종 공세·숨겨진 핵심 준비 단계에서 걷는 보스의 이번 판 경로를 공식 경로 미리보기 커서로 반복 표시, 아래 「보스 경로 미리보기」) | `server/match/bossPath.js`, `public/js/render/fxroute.js`, `tools/boss-route-map.mjs`, `test/match/boss-path.test.js`, `public/assets/local/fx/route_cursor/`(git 밖) | `server/match/match/views.js` `nextEnemiesFor` 5줄(import, 보스 항목 `paths`), `render/app.js` 4줄(import, 생성, 프레임 `sync`, 정리), `render/fxgame.js` `playFree`, `tools/local-extract/fx_extract.py` 1줄(`--pack`의 본 번들 = 이름이 맞는 첫 파일) |
 | `/healthz` 축소 (프록시를 거친 요청은 `ok`·`version`·`app`·`build`만, 접속자·방 수는 컨테이너 안 확인용) | `server/local-patch.js proxiedRequest` | `server/index.js` 2줄(import, `/healthz` 앞 1줄) |
-| 방별 진행 상황 (2026-10-09: 내부 `GET /healthz/rooms` — 방 코드·모드·난이도·단계·라운드·사람/접속/봇 수, 프록시 경유는 404. `deploy.sh` 카운트다운·`--rooms`가 표시, ui.md 「서버 재시작 예고」) | `server/local-rooms.js`, `test/local-patch-rooms.test.js` | `server/http/routes.js` 6줄(import, 경로 분기) |
-| 게임 결과 통계 로그 (2026-10-07: 판이 끝날 때마다 `[stats] {JSON}` 한 줄 — 모드·난이도·스테이지·보스·승패·도달 라운드·시간, 플레이어별 닉네임·봇 여부·라운드·LP·편성(id·티어·금색·장비)·맹약·전투 통계. playerId·시드는 뺌. DB·볼륨 없이 `docker logs`/OCI Logging에서 읽음) | `server/local-stats.js`, `test/local-patch-stats.test.js` | 없음 (`server/local-patch.js onMatchEnd` 1줄) |
+| 방별 진행 상황 (2026-10-09: 내부 `GET /healthz/rooms` — 방 코드·모드·난이도·단계·라운드·사람/접속/봇 수, 프록시 경유는 404. 배포 스크립트가 카운트다운 때 표시, ui.md 「서버 재시작 예고」) | `server/local-rooms.js`, `test/local-patch-rooms.test.js` | `server/http/routes.js` 6줄(import, 경로 분기) |
+| 게임 결과 통계 로그 (2026-10-07: 판이 끝날 때마다 `[stats] {JSON}` 한 줄 — 모드·난이도·스테이지·보스·승패·도달 라운드·시간, 플레이어별 닉네임·봇 여부·라운드·LP·편성(id·티어·금색·장비)·맹약·전투 통계. playerId·시드는 뺌. DB·볼륨 없이 컨테이너 로그에서 읽음) | `server/local-stats.js`, `test/local-patch-stats.test.js` | 없음 (`server/local-patch.js onMatchEnd` 1줄) |
 | 결산 화면 피드백 보내기 (2026-10-09: 버그·제안을 서버 `SP_FEEDBACK_DIR`에 보관, 진단·이번 판 전투 첨부, `ui.md` 「결산 화면 피드백 보내기」) | `server/local-feedback.js`, `public/js/ui/feedback.js`, `public/css/feedback.css`, `test/local-feedback.test.js` | `server/local-patch.js`(onMessage·onMatchEnd 1줄씩, `feedbackOf`·`welcomeInfo`), `server/lobby.js welcomeInfo` 1줄, `shared/local.js` `fb.send`, `diag.js`(전투 보관·오류의 battleId), `battle/runner.js` 1줄, `screens/result.js` `extra`, `main.js` 1줄, `index.html` 1줄 |
 | 라운드 작전 종료 효과음 (2026-10-07: 내 일반 전투 결과에 공식 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*` — 아래 「작전 종료 효과음」) | `public/js/audioOfficial.js battleOverOf` | `screens/game.js` 6줄(import, 결과 배너 분기) |
 | ~~스킬 범위 자동 발동~~ → 0.2.0 upstream ACTIVE_RANGE로 대체 (2026-10-07, **사용자 결정·미확정** — 공식 기본 전략과 다름, 아래 「스킬 범위 발동」) | `server/sim/local-skill-range.js` | `server/sim/Battle.js` 2줄(import, `_setupKit`), `server/sim/skills.js` 2줄(`_extraTriggerSatisfied`의 `{ keys, profile }`), `content/kits/diy.js` 1줄(赤刃明霄陈 S3 `hitsFly`) |
@@ -90,13 +90,13 @@
 - **1.2.0부터 버전은 하나**(사용자 결정 2026-10-09): 하드 포크로 원본 기반 숫자가 0.2.0에 멈췄고(0.2.1·0.2.2 수정은 이미 옮겨 와서 오히려
   틀린 정보), 그래서 `shared/constants.js APP_VERSION` 자체를 우리 버전으로 쓴다. `package.json`·`package-lock.json`·`CHANGELOG.md` 첫 항목이 같은 값
   (`test/version.test.js`). 1.1.0까지 쓰던 `shared/local.js LOCAL_VERSION`과 타이틀의 `BASE 0.2.0`은 없앴다. `localVersion()`은 `APP_VERSION`을
-  그대로 돌려주며 `/healthz`·피드백 기록의 `local` 칸에 남는다(`oci/deploy.sh`·`oci/feedback.sh`가 읽고, 1.2.0 전 서버는 그 칸에 자체 버전, `app`에 원본 기반을 보낸다).
+  그대로 돌려주며 `/healthz`·피드백 기록의 `local` 칸에 남는다(관리자의 배포·피드백 스크립트가 읽고, 1.2.0 전 서버는 그 칸에 자체 버전, `app`에 원본 기반을 보낸다).
   언어 팩의 `app` 범위 `>=0.2.0`은 1.2.0도 만족하므로 그대로 둔다.
 - 올리는 규칙: 앞자리 = 큰 방향 전환(새 시즌 데이터 등), 가운데 = 기능·화면이 바뀐 배포, 끝자리 = 버그 수정만 있는 배포.
 - 보이는 곳: 타이틀 `v1.2.0 · WEB SIMULATION`(title.js 1줄, 영어 — 사용자 결정), `/healthz`의 `app`·`local`, 서버 시작 로그.
 - **배포 순서:** `APP_VERSION`, `package.json`·`package-lock.json`의 version, `CHANGELOG.md` 첫 항목(`## x.y.z — 날짜`), `README.md`의 버전 배지와
   `v… · WEB SIMULATION` 문구를 같이 고쳐 커밋(`test/version.test.js`가 확인, README에 배포 버전을 쓰기로 한 사용자 결정 2026-10-09)
-  → `oci/deploy.sh`. STRONGHOLD.md 배포 기록에 버전도 적는다.
+  → 배포. STRONGHOLD.md 배포 기록에 버전도 적는다.
 
 ## 테스트
 - `node --test test/local-patch.test.js` — 로컬 테스트 109개.

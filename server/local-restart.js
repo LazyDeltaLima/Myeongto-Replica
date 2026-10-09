@@ -1,14 +1,14 @@
-// The server-restart countdown before a deploy (docs/rules/ui.md 「서버 재시작 예고」, oci/deploy.sh in the
-// workspace). The deploy script builds the new image while this server keeps running, then starts the countdown and
+// The server-restart countdown before a deploy (docs/rules/ui.md 「서버 재시작 예고」; the deploy script is not in this
+// repository). The deploy script builds the new image while this server keeps running, then starts the countdown and
 // recreates the container when it ends; this module only announces it — it never stops the server itself.
 //
 //   trigger   SIGUSR2 (server/http/boot.js) → read restartFile(): the minutes until the restart (`30`), or `0` / `cancel`
-//             to call it off. In the container: docker exec stronghold sh -c 'echo 30 > /tmp/stronghold-restart && kill -USR2 1'
+//             to call it off. Inside the container: echo 30 > /tmp/stronghold-restart && kill -USR2 1
 //   message   server.restart { inMs, mark? } to every connected socket — at the start and at each RESTART_MARKS_MIN mark
 //             (`mark` = those minutes: the client toasts them); { inMs: null } = called off. A socket that says hello
 //             during the countdown gets `restart: { inMs }` in its welcome (the client toasts the minutes left once).
 //             inMs is relative: the client works on its own clock.
-//   /healthz  restartInSec (internal answers only; null when nothing is planned) — deploy.sh waits on it.
+//   /healthz  restartInSec (internal answers only; null when nothing is planned) — the deploy script waits on it.
 //   room.start  refused (ERR.RESTARTING) in the last RESTART_FINAL_MIN (5) minutes — SP_RESTART_NO_START_MIN overrides, 0 = off.
 // The countdown is forgotten STALE_MS after it ended (a deploy that died after the countdown): everyone gets { inMs: null }.
 

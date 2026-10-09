@@ -1,6 +1,6 @@
 // Resource service worker (local patch): answers game art requests from the Cache Storage 'sp-res', and fetches
-// what is not there yet on demand — upstream art from jsDelivr / GitHub raw rather than from this server — so the NAS
-// upload carries little of the art, and a picture seen once never pops in late again (no round trip, no revalidation).
+// what is not there yet on demand — upstream art from jsDelivr / GitHub raw rather than from this server — so the
+// server's upload carries little of the art, and a picture seen once never pops in late again (no round trip, no revalidation).
 //
 // The list is /assets/browser-resources.json (tools/build-browser-resources.mjs): { p, s, h, u? } per file. A request
 // for a listed file that is not cached is fetched from its sources — jsDelivr, then GitHub raw for upstream art (`u`),
