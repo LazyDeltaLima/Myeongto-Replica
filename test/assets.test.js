@@ -77,6 +77,58 @@ describe('animation-role resolver (research 07 §5.4)', () => {
     assert.deepEqual(r.skill, { begin: 'Skill2_Begin', loop: 'Skill2_Loop', end: 'Skill2_End', index: 1, idle: null });
   });
 
+  // PR #275: the stun family is spelled Stun / Stun_End, Stun_1 / Stun_2 (巨大的丑东西: first form, second form) and
+  // Dizzy_Begin / Dizzy_Loop / Dizzy_End (斩胄之剑 / 破胄之锤); without a role a stunned enemy freezes its clip.
+  test('stun clips: numbered Stun_N and the Dizzy_* family are recognised', () => {
+    const mc = resolveRoles(['Attack_1', 'Die', 'Idle_1', 'Idle_2', 'Move_1', 'Move_2', 'Stun_1', 'Stun_2'], {});
+    assert.deepEqual(mc.stun, { begin: null, loop: 'Stun_1', end: null });
+    const dz = resolveRoles(['Attack', 'Die', 'Idle_B', 'Move', 'Dizzy_Begin', 'Dizzy_Loop', 'Dizzy_End', 'Dizzy_Die'], {});
+    assert.deepEqual(dz.stun, { begin: 'Dizzy_Begin', loop: 'Dizzy_Loop', end: 'Dizzy_End' });
+    assert.deepEqual(resolveRoles(['Attack', 'Die', 'Idle', 'Stun', 'Stun_End'], {}).stun, { begin: null, loop: 'Stun', end: 'Stun_End' });
+    assert.equal(resolveRoles(['Attack', 'Die', 'Idle', 'Move'], {}).stun, null);
+  });
+
+  // PR #275: a model's own Run cycle is a role of its own (猎狗pro: Move_Loop 0.80 s, Run_Loop 0.53 s); the move choice
+  // is unchanged, the renderer switches to it for a fast enemy.
+  test('the model’s own Run cycle becomes a separate run role', () => {
+    const names = ['Attack', 'Default', 'Die', 'Idle', 'Move_Begin', 'Move_End', 'Move_Loop', 'Run_Begin', 'Run_End', 'Run_Loop'];
+    const r = resolveRoles(names, {});
+    assert.deepEqual(r.move, { begin: 'Move_Begin', loop: 'Move_Loop', end: 'Move_End' }, 'the move role is unchanged');
+    assert.deepEqual(r.run, { begin: 'Run_Begin', loop: 'Run_Loop', end: 'Run_End' });
+    assert.ok(roleAnimationNames(r).includes('Run_Loop'), 'the manifest writer validates the Run clips');
+    assert.equal(resolveRoles(['Attack', 'Die', 'Idle', 'Move'], {}).run, undefined, 'no Run cycle, no role');
+  });
+
+  // The manifest (tools/fetch-assets.mjs --offline with this resolver): every model whose skeleton has a stun / Run clip
+  // has the role.
+  describe('data/assets.json roles (PR #275)', () => {
+    const manifest = JSON.parse(readFileSync(new URL('../data/assets.json', import.meta.url), 'utf8'));
+    const models = [];
+    for (const [id, e] of Object.entries(manifest.enemies || {})) if (e.spine) models.push([`enemies.${id}`, e.spine]);
+    for (const [id, e] of Object.entries(manifest.tokens || {})) if (e.spine) models.push([`tokens.${id}`, e.spine]);
+    for (const [id, e] of Object.entries(manifest.chars || {})) if (e.spine?.front) models.push([`chars.${id}`, e.spine.front]);
+    const walk = (re, ok) => {
+      const bad = [];
+      let seen = 0;
+      for (const [id, sp] of models) {
+        if (!sp.animations || !Object.keys(sp.animations).some((n) => re.test(n))) continue;
+        seen++;
+        if (!ok(sp.anims || {}, id)) bad.push(id);
+      }
+      return { bad, seen };
+    };
+    test('every model with a stun clip has a stun role', () => {
+      const { bad, seen } = walk(/^(stun|dizzy)/i, (a) => !!a.stun);
+      assert.ok(seen >= 6, `models with a stun clip (${seen})`);
+      assert.deepEqual(bad, []);
+    });
+    test('every model with a Run clip has a run role', () => {
+      const { bad, seen } = walk(/^run/i, (a) => !!a.run);
+      assert.ok(seen >= 3, `models with a Run clip (${seen})`);
+      assert.deepEqual(bad, []);
+    });
+  });
+
   test('pure supporter without Attack (char_4134_cetsyr)', () => {
     const r = resolveRoles(['Die', 'Idle', 'Skill_1_Begin', 'Skill_1_End', 'Skill_1_Loop', 'Skill_2_Begin', 'Skill_2_Loop', 'Start', 'Stun', 'Stun_Begin'], { skillIndices: [1] });
     assert.deepEqual(r.attack, { begin: null, loop: 'Skill_1_Loop', end: null, via: 'skill' });

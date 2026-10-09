@@ -32,13 +32,16 @@
 //   die    : Die → <form>Die → first /^Die/ → first /_Die$/ → null (renderer: Front model's Die, else fade)
 //   move   : Move_Begin|Move_Start + (Move_Loop → Move) + Move_End → <form>Move → Run_Begin/Loop/End
 //            → Run → first /^Move/ → null
-//   stun   : Stun_Begin + Stun (+ Stun_End) → Stun → null (renderer: freeze the track)
+//   run    : Run_Begin/Loop/End → Run → <form>Run → absent (only a model with its own Run cycle has the role)
+//   stun   : (Stun_Begin | Dizzy_Begin) + (Stun → Stun_1 → Dizzy_Loop) (+ Stun_End | Dizzy_End) → Stun_Begin alone
+//            → null (renderer: freeze the track)
 
 /**
  * @typedef {{ begin: string|null, loop: string, end: string|null, via?: string }} Clip
  * @typedef {Clip & { index: number, idle: string|null }} SkillClip
  * @typedef {{ idle: string|null, deploy: string|null, attack: Clip|null, attackDown: Clip|null,
- *   skill: SkillClip|null, skills?: Record<string, SkillClip>, die: string|null, move: Clip|null, stun: Clip|null }} Roles
+ *   skill: SkillClip|null, skills?: Record<string, SkillClip>, die: string|null, move: Clip|null, run?: Clip,
+ *   stun: Clip|null }} Roles
  */
 
 function makeFinder(names) {
@@ -221,10 +224,27 @@ function resolveMove(names, find, form) {
   return any ? clip(null, any, null) : null;
 }
 
+/**
+ * The model's own run cycle, when it has one (猎狗pro: Move_Loop 0.80 s next to Run_Loop 0.53 s): a role of its own, not
+ * the move choice — the renderer walks a fast enemy on it (render/units.js `moveFast`; PR #275 by @xcdoge).
+ */
+function resolveRun(find, form) {
+  const t = triple(find, 'Run');
+  if (t) return t;
+  const r = find('Run') ?? form('Run');
+  return r ? clip(null, r, null) : null;
+}
+
+/**
+ * The stun family is spelled two ways and sometimes numbered (PR #275 by @xcdoge): Stun / Stun_Begin / Stun_End
+ * (吉兆飞鳞, 乌顶巨角卢鲁), Stun_1 / Stun_2 (巨大的丑东西: its first and its second form — render/units.js FORMS gives the
+ * second form Stun_2), Dizzy_Begin / Dizzy_Loop / Dizzy_End (斩胄之剑 / 破胄之锤, stun-immune in this mode). Without a role
+ * a stunned enemy freezes its current clip.
+ */
 function resolveStun(find) {
-  const stun = find('Stun');
-  const begin = find('Stun_Begin');
-  if (stun) return clip(begin, stun, find('Stun_End'));
+  const stun = find('Stun') ?? find('Stun_1') ?? find('Dizzy_Loop');
+  const begin = find('Stun_Begin') ?? find('Dizzy_Begin');
+  if (stun) return clip(begin, stun, find('Stun_End') ?? find('Dizzy_End'));
   if (begin) return clip(null, begin, null);
   return null;
 }
@@ -272,6 +292,8 @@ export function resolveRoles(animationNames, opts = {}) {
     move: resolveMove(names, find, form),
     stun: resolveStun(find),
   };
+  const run = resolveRun(find, form);
+  if (run) roles.run = run;
   if (indices.length > 1) roles.skills = skills;
   return roles;
 }
@@ -289,7 +311,7 @@ export function roleAnimationNames(roles) {
   };
   if (!roles) return [];
   for (const k of ['idle', 'deploy', 'die']) if (typeof roles[k] === 'string') out.add(roles[k]);
-  for (const k of ['attack', 'attackDown', 'skill', 'move', 'stun']) addClip(roles[k]);
+  for (const k of ['attack', 'attackDown', 'skill', 'move', 'run', 'stun']) addClip(roles[k]);
   if (roles.skills) for (const c of Object.values(roles.skills)) addClip(c);
   return [...out];
 }
