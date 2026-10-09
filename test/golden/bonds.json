@@ -889,9 +889,9 @@
       "players": {"p1":{"killed":21,"total":21,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":73125,"bossDmg":0,"heal":0,"deaths":0,"layerGains":{"visiShip":6}}},
       "units": [
         ["p1",1,"op","chess_char_4_11_a",1,null,2358.4,1,6,0,0,0,0,0,0],
-        ["p1",2,"op","chess_char_4_04_a",1,null,1936,1,7,4,5340,0,0,22,2],
-        ["p1",3,"op","chess_char_4_07_a",1,null,1472.8,1,8,3,5038,439,0,17,4],
-        ["p1",4,"op","chess_char_4_09_a",1,null,2351.36,1,10,9,32663,0,0,16,2],
+        ["p1",2,"op","chess_char_4_04_a",1,null,1936,1,7,3,6072,0,0,22,2],
+        ["p1",3,"op","chess_char_4_07_a",1,null,1472.8,1,8,3,5178,439,0,17,4],
+        ["p1",4,"op","chess_char_4_09_a",1,null,2351.36,1,10,10,31792,0,0,16,2],
         ["p1",5,"op","chess_char_1_09_a",1,null,1947,1,4,0,0,0,0,0,0],
         ["p1",6,"op","chess_char_1_17_a",1,null,1252.9,1,5,0,0,0,0,0,0],
         ["p1",7,"op","chess_char_4_10_a",1,null,1416.8,1,9,2,10854,0,0,11,1],
@@ -903,10 +903,10 @@
         ["-","~3","device","trap_1105_accrate",null,null,100,1,3,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_1249_lysdb_2":[5,5,0,0,27000],"enemy_1251_lysyta":[15,15,0,0,37125],"enemy_1328_cbjedi":[1,1,0,439,9000]},
-      "hooks": [1,34,1562,85,85,133,128,0,21,21,10,7,0,6453,24,1,21,0,1,21,3,0,0],
-      "events": {"atk":101,"deploy":10,"die":21,"dmg":128,"engage":5,"fx":57,"layer":3,"skill":17,"spawn":34,"status":36},
-      "fx": {"charge":4,"dilemma":2,"displace":14,"garrison":3,"levitate":10,"pull":1,"shadowWeave":7,"shieldBreak":5,"slippery":1,"splash":2,"stealth":2,"tornado":1,"tornadoPulse":5},
-      "snaps": "76268a87 f2615369 d3546305 de4a2a41 be5e1416 9332444a"
+      "hooks": [1,34,1562,85,85,133,128,0,21,21,10,7,0,6453,25,1,21,0,1,21,3,0,0],
+      "events": {"atk":101,"deploy":10,"die":21,"dmg":128,"engage":5,"fx":57,"layer":3,"skill":17,"spawn":34,"status":37},
+      "fx": {"charge":4,"dilemma":2,"displace":13,"garrison":3,"levitate":10,"pull":1,"shadowWeave":8,"shieldBreak":5,"slippery":1,"splash":2,"stealth":2,"tornado":1,"tornadoPulse":5},
+      "snaps": "76268a87 f2615369 9578576a cae21d0f c467c1d1 f09fdfc9"
     },
     "bond-preciShip-high": {
       "about": "精准 high: tier 2 layers 999; chess_char_4_11_b chess_char_4_09_b chess_char_1_09_b chess_char_1_17_b chess_char_2_01_b chess_char_4_10_b chess_char_4_12_b chess_char_4_13_b token_10041_cathy_catsld token_10041_cathy_catsld",
