@@ -9,8 +9,8 @@
 // the model is ui/diyModel.js. Styles: css/screens/loadout.css (diy-*). An owned pick's card carries its operator's 潜能 /
 // 练度 selects (0.2.2, screens/cultivation.js — the same per-operator settings as 干员调配, `ops`); a prototype has neither.
 // Above the slots, the 阵营预设 bar (local feature, user decisions 2026-10-09; ui/diyPresets.js): 不使用预设 + the eight chat
-// factions — a saved preset is applied and linked, an empty one is made from the current picks; while one is linked every
-// change here is saved into it; picking that faction in the chat applies it.
+// factions, each its own roster — a chip shows its roster (a faction without one starts empty), every change here is
+// saved into the roster shown; picking that faction in the chat or the strategy draft applies it.
 
 import { useLayoutEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, TierChip } from '../ui/components.js';
@@ -252,7 +252,7 @@ export function DiyPanel(props) {
 
 /**
  * The 阵营预设 bar (ui/diyPresets.js): 不使用预设, then a chip per chat faction — filled when it holds a preset, the
- * linked one marked — and 删除 for the linked preset.
+ * shown one marked — and 删除 for the shown faction's preset.
  * @param {{ presets: Record<string, any>, active: string|null, onSelect: (id: string|null) => void, onDelete: (id: string) => void }} props
  */
 export function DiyPresetBar({ presets, active, onSelect, onDelete }) {
@@ -267,10 +267,10 @@ export function DiyPresetBar({ presets, active, onSelect, onDelete }) {
         aria-pressed=${active === f.id ? 'true' : 'false'} data-preset=${f.id} title=${`${t(f.name)} · ${has ? t('已保存预设') : t('尚未设置预设')}`}
         onClick=${() => onSelect(f.id)}><${FactionIcon} f=${f} /><span>${t(f.name)}</span></button>`;
     })}
-    ${on ? html`<${Button} variant="ghost" size="sm" icon="close" class="diy-presets__del" data-testid="diy-preset-delete"
+    ${on && presets?.[on.id] ? html`<${Button} variant="ghost" size="sm" icon="close" class="diy-presets__del" data-testid="diy-preset-delete"
       onClick=${() => onDelete(on.id)}>${t('删除{faction}预设', { faction: t(on.name) })}<//>` : null}
     <p class="diy-presets__hint">${on ? t('此处的修改会保存到{faction}预设；在聊天中选择{faction}时自动套用', { faction: t(on.name) })
-      : t('选择一个阵营即可为其保存自选；在聊天中选择该阵营时自动套用')}</p>
+      : t('「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设')}</p>
   </div>`;
 }
 

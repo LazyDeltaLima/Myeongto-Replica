@@ -81,7 +81,8 @@
 //     of one owned operator, the same operator twice in a tier, an unknown slot / skill / module — is dropped, never the
 //     whole roster; only malformed picks are BAD_MSG) and stored on the session and the seat exactly like the
 //     not-owned list: the match receives seats[].diy when it starts (bots: none — they field no 自选 piece [ASSUMED]),
-//     and a change while it runs is stored for the next match (ROOM_STARTED 'stored for the next match'). Every
+//     and a change while it runs reaches it during its briefing / strategy draft (match.setDiy, 진영별 선발 프리셋 —
+//     user decision 2026-10-09), else is stored for the next match (ROOM_STARTED 'stored for the next match'). Every
 //     `welcome` carries `diyKitted` (welcomeInfo): the operators a DIY slot may field, so the client's picker offers
 //     exactly what the server accepts.
 //   * Spectator seats (community report #26, owner's decision 2026-10-04 — a remake feature, the official room has none):
@@ -661,8 +662,9 @@ export class Lobby {
 
   /**
    * room.diy (0.2.0 自选编队): keep the legal picks (checkDiyPicks against the data and KITTED_CHARS), store them on the
-   * session and the seat (see the header). A running match never takes them: it keeps the picks its seat had at its
-   * start.
+   * session and the seat (see the header). A running match takes them only while its briefing or strategy draft runs
+   * (match.setDiy, 진영별 선발 프리셋 — user decision 2026-10-09); otherwise it keeps the picks its seat had at its start
+   * and these wait for the next match (ROOM_STARTED).
    */
   diy(session, { picks }) {
     const res = checkDiyPicks(picks, { data: this.safeData(), kitted: KITTED_CHARS.filter(isLocalDiyPick) }); // local patch: our five only
@@ -673,7 +675,11 @@ export class Lobby {
     if (!room) return OK;
     const seat = room.seatOf(session.playerId);
     if (seat) seat.diy = kept;
-    if (room.match && seat) return fail(ERR.ROOM_STARTED, 'stored for the next match');
+    if (room.match && seat) {
+      let r = null;
+      try { r = typeof room.match.setDiy === 'function' ? room.match.setDiy(session.playerId, kept) : null; } catch (e) { this.log.error(`[lobby] ${room.code} match.setDiy threw`, e); }
+      if (!r || r.error) return fail(ERR.ROOM_STARTED, 'stored for the next match');
+    }
     return OK;
   }
 

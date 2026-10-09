@@ -1,6 +1,6 @@
 // server/match/match/platform.js — Match methods: the platform interface of the server/match/Match.js header
 // (server/lobby.js ⇄ Match) — start, handle (validation, error isolation, flush; the intents themselves: intents.js
-// _handle), setLoadout (INFO_CHECK only), onDisconnect / onReconnect and the full resync of one human, onLeave and 中途退出
+// _handle), setLoadout (INFO_CHECK only), setDiy (INFO_CHECK / BAND_DRAFT), onDisconnect / onReconnect and the full resync of one human, onLeave and 中途退出
 // = elimination (_quit), dispose.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
@@ -72,6 +72,32 @@ export class MatchPlatform {
     let res = OK;
     this.guard(() => {
       if (!ps.setLoadout(loadout, ops)) { res = fail(ERR.BAD_TARGET, 'loadout does not match the game data'); return; }
+      this.markPrivate(ps);
+    });
+    return res;
+  }
+
+  /**
+   * room.diy during the match (local feature, user decision 2026-10-09 — 진영별 선발 프리셋; docs/rules/diy.md): the 自选
+   * picks still change THIS match while the briefing or the strategy draft runs, as long as none of the player's 自选
+   * stock has been drawn (the stock is first read by the prep's shop, rewards and effects, so re-making it draws no
+   * randomness). Afterwards (or refused) the lobby keeps the picks for the next match.
+   * @param {string} playerId
+   * @param {Record<string, { charId: string, skillIndex?: number, uniEquipId?: string|null }>} picks checked by the lobby
+   * @returns {{ ok: true } | { error: string, detail?: string }}
+   */
+  setDiy(playerId, picks) {
+    const ps = this.players.get(playerId);
+    if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
+    if (this.disposed || this.ended || this.infoOutcome || (this.phase !== PHASE.INFO_CHECK && this.phase !== PHASE.BAND_DRAFT)) {
+      return fail(ERR.WRONG_PHASE, 'DIY picks locked for this match');
+    }
+    if (ps.diyStock && [...ps.diyStock.entries.values()].some((e) => e.left !== e.cap)) return fail(ERR.WRONG_PHASE, 'DIY stock already drawn');
+    let res = OK;
+    this.guard(() => {
+      if (!ps.setDiy(picks)) { res = fail(ERR.BAD_TARGET, 'DIY picks do not match the game data'); return; }
+      ps.initDiyStock(new Set([...this.disabledBonds, ...this.staticInactiveBonds]));
+      ps.recompute();
       this.markPrivate(ps);
     });
     return res;

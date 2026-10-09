@@ -11,6 +11,9 @@ import { INFO_REROLL_MIN_MS } from '../server/match/match/phases.js';
 import { TestClient } from './helpers/wsClient.js';
 import { PHASE } from '../shared/constants.js';
 
+/** generous waits: the whole suite runs these next to heavy files */
+const W = 6000;
+
 describe('briefing reroll vote', () => {
   let srv;
   let url;
@@ -38,22 +41,22 @@ describe('briefing reroll vote', () => {
     c.id = (await c.hello(name)).playerId;
     return c;
   };
-  const ok = async (c, msg) => { const r = await c.request(msg); assert.equal(r.t, 'ok', `${msg.t}: ${JSON.stringify(r)}`); return r; };
-  const briefing = (c) => c.waitFor('m.public', (p) => p.phase === PHASE.INFO_CHECK, 4000);
+  const ok = async (c, msg) => { const r = await c.request(msg, W); assert.equal(r.t, 'ok', `${msg.t}: ${JSON.stringify(r)}`); return r; };
+  const briefing = (c) => c.waitFor('m.public', (p) => p.phase === PHASE.INFO_CHECK, W);
 
   test('solo: a reroll starts a new match with a new seed and the next matchNo; no replay, no [stats] line', async () => {
     const a = await player('Solo');
     await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
-    const st = await a.waitFor('room.state', (s) => s.hostId === a.id);
+    const st = await a.waitFor('room.state', (s) => s.hostId === a.id, W);
     await ok(a, { t: 'room.start' });
-    await a.waitFor('room.state', (s) => s.inMatch && s.matchNo === 1);
+    await a.waitFor('room.state', (s) => s.inMatch && s.matchNo === 1, W);
     await briefing(a);
     const room = srv.lobby.getRoom(st.code);
     const first = room.match;
     await delay(INFO_REROLL_MIN_MS + 100);
     await ok(a, { t: 'g.infoReroll' });
-    await a.waitFor('m.public', (p) => p.infoOutcome === 'reroll');
-    const next = await a.waitFor('room.state', (s) => s.inMatch && s.matchNo === 2, 4000);
+    await a.waitFor('m.public', (p) => p.infoOutcome === 'reroll', W);
+    const next = await a.waitFor('room.state', (s) => s.inMatch && s.matchNo === 2, W);
     assert.equal(next.inMatch, true);
     await briefing(a);
     assert.notEqual(room.match, first, 'a new match');
@@ -69,24 +72,45 @@ describe('briefing reroll vote', () => {
     const a = await player('Host');
     const b = await player('Guest');
     await ok(a, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });
-    const st = await a.waitFor('room.state', (s) => s.hostId === a.id);
+    const st = await a.waitFor('room.state', (s) => s.hostId === a.id, W);
     await ok(b, { t: 'room.join', code: st.code });
     await ok(b, { t: 'room.ready', ready: true });
-    await a.waitFor('room.state', (s) => s.seats.some((x) => x && x.playerId === b.id && x.ready));
+    await a.waitFor('room.state', (s) => s.seats.some((x) => x && x.playerId === b.id && x.ready), W);
     await ok(a, { t: 'room.start' });
     await briefing(a);
     await briefing(b);
     await ok(b, { t: 'room.chatFaction', faction: 'yan' });
-    await a.waitFor('room.factions', (m) => m.factions[b.id] === 'yan');
+    await a.waitFor('room.factions', (m) => m.factions[b.id] === 'yan', W);
     await delay(INFO_REROLL_MIN_MS + 100);
     await ok(a, { t: 'g.infoReroll' });
     await ok(b, { t: 'g.infoReady' });
-    await a.waitFor('m.public', (p) => p.infoOutcome === 'split');
+    await a.waitFor('m.public', (p) => p.infoOutcome === 'split', W);
     // (the inbox still holds the frames from before the start: wait for the one after the match)
-    const back = await a.waitFor('room.state', (s) => !s.inMatch && s.matchNo === 1, 4000);
+    const back = await a.waitFor('room.state', (s) => !s.inMatch && s.matchNo === 1, W);
     assert.equal(back.inMatch, false);
     assert.equal(srv.lobby.getRoom(st.code).match, null);
-    await a.waitFor('room.factions', (m) => Object.keys(m.factions).length === 0 && !m.factions[b.id]);
+    await a.waitFor('room.factions', (m) => Object.keys(m.factions).length === 0 && !m.factions[b.id], W);
     assert.equal(stats.length, 0);
+  });
+
+  test('room.diy reaches the running match during its briefing (진영별 선발 프리셋), and only the next one from the prep on', async () => {
+    const a = await player('Diy');
+    await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
+    const st = await a.waitFor('room.state', (s) => s.hostId === a.id, W);
+    await ok(a, { t: 'room.diy', picks: { chess_char_6_diy1_a: { charId: 'char_1035_wisdel', skillIndex: 0 } } });
+    await ok(a, { t: 'room.start' });
+    await briefing(a);
+    const room = srv.lobby.getRoom(st.code);
+    const ps = () => room.match.players.get(a.id);
+    assert.equal(ps().diy.chess_char_6_diy1_a.charId, 'char_1035_wisdel');
+    await ok(a, { t: 'room.diy', picks: { chess_char_6_diy1_a: { charId: 'char_2027_wang', skillIndex: 2 } } });
+    assert.equal(ps().diy.chess_char_6_diy1_a.charId, 'char_2027_wang', 'the briefing takes it for this match');
+    await a.waitFor('m.private', (p) => p.diy?.chess_char_6_diy1_a?.charId === 'char_2027_wang', W);
+    room.match.phase = PHASE.PREP; // (the phase gate only; the match flow itself is test/match/diy-midmatch.test.js)
+    const r = await a.request({ t: 'room.diy', picks: { chess_char_6_diy1_a: { charId: 'char_4132_ascln', skillIndex: 0 } } }, W);
+    assert.equal(r.t, 'error');
+    assert.equal(r.code, 'ROOM_STARTED');
+    assert.equal(ps().diy.chess_char_6_diy1_a.charId, 'char_2027_wang', 'the prep keeps the match\'s picks');
+    assert.equal(room.seatOf(a.id).diy.chess_char_6_diy1_a.charId, 'char_4132_ascln', 'the seat keeps it for the next match');
   });
 });

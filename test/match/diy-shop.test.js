@@ -317,13 +317,14 @@ test('prep scouting (m.field) and the result name the operator: a teammate\'s �
   m.dispose();
 });
 
-test('a match keeps the picks its seat had at its start (the next match takes a change: test/lobby-diy.test.js)', REAL, () => {
+test('from the prep on a match keeps its picks (the next match takes a change: test/lobby-diy.test.js; the briefing / draft may still change them: test/match/diy-midmatch.test.js)', REAL, () => {
   const h = diyMatch().start();
   const p1 = h.ps('p_1');
   const before = p1.diy;
   h.toPrep(1);
   assert.equal(p1.diy, before);
-  assert.equal(typeof h.m.setDiy, 'undefined', 'the match has no way to change them');
+  assert.equal(h.m.setDiy('p_1', { [T6A]: { charId: CHEN, skillIndex: 1 } }).error, 'WRONG_PHASE', 'the prep refuses a change (진영별 선발 프리셋, user 2026-10-09)');
+  assert.equal(p1.diy, before);
   h.m.dispose();
   // the next match: new seats, new picks
   const seats = [{ seat: 0, playerId: 'p_1', name: 'P1', isBot: false, connected: true, diy: { [T6A]: { charId: CHEN, skillIndex: 1 } } }];

@@ -1,19 +1,22 @@
 // 맹약별 선발 프리셋 (local feature, user decisions 2026-10-09 8–10; docs/rules/diy.md 「진영별 선발 프리셋」): per-browser
-// 自选编队 presets, one per chat faction (shared/local.js CHAT_FACTIONS — the eight nation bonds), all empty until the
-// player makes them. Picking a faction in the chat (ui/chat.js FactionPicker) applies that faction's preset to the 自选
-// picks, with a 撤销 next to the picker; a faction without a preset changes nothing.
+// 自选编队 rosters — one for 不使用预设 (`base`) and one per chat faction (shared/local.js CHAT_FACTIONS — the eight nation
+// bonds), each its own; a faction's is empty until the player fills it (an empty one is no preset). Picking a faction
+// (ui/factionPick.js chooseFaction: the chat, the strategy draft's row) applies that faction's preset to the 自选 picks,
+// with a 撤销; a faction without a preset changes nothing.
 //
-//   diyPresetStore   { presets: { [factionId]: picks }, active: factionId | null, notice }
-//                    `active` = the preset the 自选编队 tab is linked to: while it is set, every change of the picks (a slot,
-//                    清空, an import) is saved into that preset too. `notice` = the last chat apply, for its 撤销.
-//   selectPreset(id) the tab's preset bar: a saved preset is applied and linked; an empty one is created from the current
-//                    picks and linked; null unlinks (the picks stay).
-//   deletePreset(id) forget a preset (unlinks it).
-//   applyFactionPreset(id) / undoFactionPreset()   the chat faction pick.
-//   installDiyPresets()   main.js, once: follow the picks into the linked preset.
-// The picks themselves stay ui/loadoutSync.js's (setDiyPicks → localStorage + room.diy); a running match never takes them,
-// so a preset applied during a match fields from the next match — or from the new match a briefing reroll starts.
-// Storage: localStorage `sp.pref.diyPresets` = { v: 1, presets, active } (each preset cleaned like the picks).
+//   diyPresetStore   { presets: { [factionId]: picks }, base: picks, active: factionId | null, notice }
+//                    `active` = the roster the 自选编队 tab shows (null = 不使用预设); the live picks are always that
+//                    roster, and every change of them (a slot, 清空, an import) is saved into it (an emptied faction's
+//                    preset goes). `notice` = the last faction apply, for its 撤销.
+//   selectPreset(id) the tab's preset bar: switch to that roster (a faction without one starts empty; null = base) —
+//                    the one left keeps its picks (user report 2026-10-09: switching once copied them over).
+//   deletePreset(id) forget a faction's preset (and go back to base if it was shown).
+//   applyFactionPreset(id) / undoFactionPreset()   the faction pick.
+//   installDiyPresets()   main.js, once: follow the picks into the shown roster.
+// The picks themselves stay ui/loadoutSync.js's (setDiyPicks → localStorage + room.diy); a running match takes them while
+// its briefing or strategy draft runs (server platform.js setDiy) — from the prep on a faction pick applies no preset.
+// Storage: localStorage `sp.pref.diyPresets` = { v: 2, presets, base, active } (each roster cleaned like the picks; a v1
+// envelope without `base` takes the current picks as base when it showed none).
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { loadoutStore, setDiyPicks } from './loadoutSync.js';
@@ -21,105 +24,132 @@ import { cleanPicks } from './diyModel.js';
 import { chatFaction } from '../../../shared/local.js';
 
 export const DIY_PRESETS_PREF = 'diyPresets';
-export const DIY_PRESETS_VERSION = 1;
+export const DIY_PRESETS_VERSION = 2;
 /** How long the chat's 「…预设已套用 · 撤销」 line stays (ms). */
 export const PRESET_NOTICE_MS = 10000;
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/** The valid presets of a stored envelope (unknown factions and junk dropped). @param {any} raw */
-export function parseStoredPresets(raw) {
+const isEmpty = (p) => !p || Object.keys(p).length === 0;
+
+/**
+ * The valid rosters of a stored envelope (unknown factions, empty presets and junk dropped).
+ * @param {any} raw
+ * @param {Record<string, any>} [current] the live picks: a v1 envelope's base when it showed 不使用预设
+ */
+export function parseStoredPresets(raw, current = {}) {
   const out = {};
   const src = isObj(raw) && isObj(raw.presets) ? raw.presets : {};
-  for (const [id, picks] of Object.entries(src)) if (chatFaction(id) && isObj(picks)) out[id] = cleanPicks(picks);
-  const active = isObj(raw) && chatFaction(raw.active) && out[raw.active] ? raw.active : null;
-  return { presets: out, active };
+  for (const [id, picks] of Object.entries(src)) {
+    if (!chatFaction(id) || !isObj(picks)) continue;
+    const clean = cleanPicks(picks);
+    if (!isEmpty(clean)) out[id] = clean;
+  }
+  const active = isObj(raw) && chatFaction(raw.active) ? raw.active : null;
+  const base = isObj(raw) && isObj(raw.base) ? cleanPicks(raw.base) : active ? {} : cleanPicks(current);
+  return { presets: out, base, active };
 }
 
 /** The envelope for localStorage. */
-export function toStoredPresets(presets, active) {
-  return { v: DIY_PRESETS_VERSION, presets, active: active ?? null };
+export function toStoredPresets(presets, base, active) {
+  return { v: DIY_PRESETS_VERSION, presets, base: base || {}, active: active ?? null };
 }
 
 const samePicks = (a, b) => JSON.stringify(cleanPicks(a)) === JSON.stringify(cleanPicks(b));
 
 function readStored() {
-  try { return parseStoredPresets(loadPref(DIY_PRESETS_PREF, null)); } catch { return { presets: {}, active: null }; }
+  try { return parseStoredPresets(loadPref(DIY_PRESETS_PREF, null), loadoutStore.get().diy); } catch { return { presets: {}, base: {}, active: null }; }
 }
 
 export const diyPresetStore = createStore({ ...readStored(), notice: null });
 
-function save(presets, active, extra = {}) {
-  try { savePref(DIY_PRESETS_PREF, toStoredPresets(presets, active)); } catch { /* private mode: the session keeps it */ }
-  diyPresetStore.set({ presets, active, ...extra });
+/** The roster `id` holds (null = base; a faction without a preset: empty). */
+function rosterOf(s, id) {
+  return id == null ? s.base || {} : s.presets[id] || {};
 }
 
-/** The tab's preset bar: apply + link a saved preset, create one from the current picks, or unlink (null). */
+function save(patch, extra = {}) {
+  const next = { ...diyPresetStore.get(), ...patch };
+  try { savePref(DIY_PRESETS_PREF, toStoredPresets(next.presets, next.base, next.active)); } catch { /* private mode: the session keeps it */ }
+  diyPresetStore.set({ presets: next.presets, base: next.base, active: next.active, ...extra });
+}
+
+/** Store `picks` as roster `id` (null = base); an emptied faction's preset goes. */
+function withRoster(s, id, picks) {
+  const clean = cleanPicks(picks);
+  if (id == null) return { base: clean };
+  const presets = { ...s.presets };
+  if (isEmpty(clean)) delete presets[id];
+  else presets[id] = clean;
+  return { presets };
+}
+
+/** The tab's preset bar: show roster `id` (a faction or null = 不使用预设); the roster left keeps its picks. */
 export function selectPreset(id) {
-  const { presets } = diyPresetStore.get();
-  if (id == null || !chatFaction(id)) { save(presets, null); return; }
-  if (presets[id]) {
-    save(presets, id);
-    setDiyPicks(presets[id]);
-    return;
-  }
-  save({ ...presets, [id]: cleanPicks(loadoutStore.get().diy) }, id);
+  const target = id != null && chatFaction(id) ? id : null;
+  const s = diyPresetStore.get();
+  if (target === s.active) return;
+  // the shown roster already follows every edit (installDiyPresets); store it once more in case the follower is off
+  save({ ...withRoster(s, s.active, loadoutStore.get().diy), active: target });
+  setDiyPicks(rosterOf(diyPresetStore.get(), target));
 }
 
-/** Forget a faction's preset (and unlink it). */
+/** Forget a faction's preset (and show 不使用预设 again if it was the one shown). */
 export function deletePreset(id) {
-  const { presets, active } = diyPresetStore.get();
-  if (!presets[id]) return;
-  const next = { ...presets };
-  delete next[id];
-  save(next, active === id ? null : active);
+  const s = diyPresetStore.get();
+  if (!s.presets[id] && s.active !== id) return;
+  const presets = { ...s.presets };
+  delete presets[id];
+  if (s.active !== id) { save({ presets }); return; }
+  save({ presets, active: null });
+  setDiyPicks(s.base || {});
 }
 
 /**
- * The chat faction pick: apply that faction's preset (and link it). Null when it has none (the picks stay; an earlier
- * notice goes, it was about another faction); else the notice, kept in the store for its 撤销 — none when the picks
- * already were the preset.
+ * A faction pick: show that faction's preset. Null when it has none (nothing changes; an earlier notice goes, it was
+ * about another faction); else the notice, kept in the store for its 撤销 — none when that roster was already shown.
  * @param {string} id chat faction id
- * @param {{ inMatch?: boolean, canReroll?: boolean, now?: number }} [o] inMatch: the picks wait for the next match;
- *   canReroll: the briefing still runs, so its 重新抽取 starts a match that takes them
+ * @param {{ inMatch?: boolean, now?: number }} [o] inMatch: a running match takes the picks (its briefing / strategy
+ *   draft — the caller, ui/factionPick.js chooseFaction, applies a preset only then)
  */
-export function applyFactionPreset(id, { inMatch = false, canReroll = false, now = Date.now() } = {}) {
-  const { presets, active } = diyPresetStore.get();
-  const preset = presets[id];
-  if (!chatFaction(id) || !preset) { clearPresetNotice(); return null; }
-  const prev = { picks: loadoutStore.get().diy, active };
-  const changed = !samePicks(prev.picks, preset);
-  const notice = changed ? { factionId: id, prev, inMatch: !!inMatch, canReroll: !!inMatch && !!canReroll, at: now } : null;
-  save(presets, id, { notice });
-  if (changed) setDiyPicks(preset);
+export function applyFactionPreset(id, { inMatch = false, now = Date.now() } = {}) {
+  const s = diyPresetStore.get();
+  const preset = chatFaction(id) ? s.presets[id] : null;
+  if (!preset) { clearPresetNotice(); return null; }
+  if (s.active === id && samePicks(loadoutStore.get().diy, preset)) { clearPresetNotice(); return null; }
+  const prev = { picks: loadoutStore.get().diy, active: s.active };
+  const notice = { factionId: id, prev, inMatch: !!inMatch, at: now };
+  save({ ...withRoster(s, s.active, prev.picks), active: id }, { notice });
+  setDiyPicks(preset);
   return notice;
 }
 
-/** 撤销 of the last chat apply: the picks and the linked preset as they were. */
+/** 撤销 of the last faction apply: the roster shown before, with its picks. */
 export function undoFactionPreset() {
-  const { presets, notice } = diyPresetStore.get();
-  if (!notice) return false;
-  save(presets, notice.prev.active, { notice: null });
-  setDiyPicks(notice.prev.picks);
+  const s = diyPresetStore.get();
+  const n = s.notice;
+  if (!n) return false;
+  save({ active: n.prev.active }, { notice: null });
+  setDiyPicks(n.prev.picks);
   return true;
 }
 
-/** Drop the chat notice (its time ran out or it was closed). */
+/** Drop the notice (its time ran out). */
 export function clearPresetNotice() {
   if (diyPresetStore.get().notice) diyPresetStore.set({ notice: null });
 }
 
 let installed = null;
-/** Follow every change of the 自选 picks into the linked preset (main.js, once; returns the unsubscribe). */
+/** Follow every change of the 自选 picks into the shown roster (main.js, once; returns the unsubscribe). */
 export function installDiyPresets({ source = loadoutStore } = {}) {
   if (installed) return installed;
   let last = source.get().diy;
   const off = source.subscribe((s) => {
     if (s.diy === last) return;
     last = s.diy;
-    const { presets, active } = diyPresetStore.get();
-    if (!active || samePicks(presets[active], s.diy)) return;
-    save({ ...presets, [active]: cleanPicks(s.diy) }, active);
+    const cur = diyPresetStore.get();
+    if (samePicks(rosterOf(cur, cur.active), s.diy)) return;
+    save(withRoster(cur, cur.active, s.diy));
   });
   installed = () => { off(); installed = null; };
   return installed;

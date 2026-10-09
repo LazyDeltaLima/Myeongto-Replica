@@ -29,6 +29,31 @@
 .dorder.is-done { border-color: var(--mint-800); }
 .dorder.is-self .dorder__name { color: var(--mint-400); }
 .draft-order__tip { margin-top: auto; font-size: .13rem; line-height: 1.6; color: var(--text-dim); }
+/* the faction row under the order (ui/factionPick.js DraftFactionPicker): the chat faction + its 自选 preset */
+.dfac { display: flex; flex-direction: column; gap: .06rem; padding: .08rem; background: rgba(12, 15, 14, .82); border: 1px solid var(--line); }
+.dfac__h { margin: 0; display: flex; flex-direction: column; gap: .02rem; font-size: .15rem; color: var(--text-md); }
+.dfac__h small { font-size: .12rem; font-weight: 400; color: var(--text-dim); }
+.dfac__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .04rem; }
+.dfac__btn {
+  position: relative; min-width: 0; overflow: hidden; display: flex; align-items: center; gap: .05rem;
+  height: max(.34rem, 26px); padding: 0 .06rem; border: 1px solid transparent; border-radius: .03rem;
+  background: rgba(255, 255, 255, .04); color: var(--fac); font-size: max(.14rem, 11px); font-weight: 700; text-align: left;
+}
+.dfac__btn span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dfac__btn .chat__facico { flex: none; width: max(.2rem, 15px); height: max(.2rem, 15px); }
+.dfac__btn:hover, .dfac__btn.is-on { background: rgba(255, 255, 255, .1); border-color: var(--fac); }
+.dfac__btn.is-on { box-shadow: inset 0 0 0 1px var(--fac); }
+.dfac__btn.is-off { opacity: .45; }
+.dfac__btn small { flex: none; padding: 0 .03rem; font-size: max(.11rem, 10px); line-height: 1.3; white-space: nowrap; color: var(--text-lo); border: 1px solid var(--line-2); border-radius: .02rem; }
+/* the preset dot sits left of a 禁用 tag */
+.dfac__btn.is-off.has-preset::after { right: auto; left: .04rem; }
+/* phone landscape: the name and its 禁用 tag before the icon */
+@media (max-width: 900px), (max-height: 500px) {
+  .dfac__btn .chat__facico { display: none; }
+  .dfac__btn { padding: 0 .05rem; gap: .03rem; }
+}
+/* a saved 自选 preset: a dot in the corner */
+.dfac__btn.has-preset::after { content: ''; position: absolute; top: .04rem; right: .04rem; width: .06rem; height: .06rem; min-width: 5px; min-height: 5px; border-radius: 50%; background: var(--fac); }
 
 .draft-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(1.36rem, 1fr)); grid-auto-rows: min-content; gap: .12rem;

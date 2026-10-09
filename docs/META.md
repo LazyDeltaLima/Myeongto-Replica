@@ -546,7 +546,9 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
 * **Pool**: copies 12/14/18/16/8/5 (缪尔赛思 4); a normal piece holds 1 copy, an elite 3; displays never reserve copies;
   selling, temp resolution and elimination return exactly what a piece holds (`left + held = cap` always).
 * **自选编队 (0.2.0, `player/diy.js`; research 0.2.0 §2, the owner's decisions of 2026-10-05)**: a human's `seat.diy`
-  picks (room.diy, checked again against the match's data and kits) are fixed for the match; bots field none [ASSUMED].
+  picks (room.diy, checked again against the match's data and kits) are fixed for the match once its strategy draft ends
+  (local: during the briefing / draft `match.setDiy` re-makes them while the player's 自选 stock is untouched — 진영별 선발
+  프리셋, user decision 2026-10-09, docs/rules/diy.md); bots field none [ASSUMED].
   The player's `ps.gd` is then a view of the match's GameData whose `chess(id)` of a slotted slot (normal and elite) is
   the composed 自选 record (shared/diy.js `diyRecord`): every rule that reads a record through `ps.gd` — bonds
   (bondsMeta: BOARD / BOARD_AND_DECK distinct pieces, 煌's 炎 + 维多利亚, 绝技 elites), 特质 / meta effects (`makeCtx`

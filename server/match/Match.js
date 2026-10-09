@@ -27,7 +27,8 @@
 //                    `notOwned` (0.2.0 补位, optional): the base chess ids the human marked as not owned (干员持有) — fixed
 //                    for the match; those chess fight as their stand-ins (PlayerState setNotOwned; bots own everything).
 //                    `diy` (0.2.0 自选编队, optional): the human's 自选 picks (shared/protocol.js checkDiyPicks) — fixed for
-//                    the match; the slotted operators join the human's own shop (PlayerState setDiy / initDiyStock).
+//                    the match once its strategy draft ends (setDiy below); the slotted operators join the human's own
+//                    shop (PlayerState setDiy / initDiyStock).
 //   opts.spectators  string[] (optional)        the room's spectator seats (remake feature, community report #26;
 //                                              server/lobby.js): never players — see addSpectator below
 //   opts.seed        uint32                     master seed for all match randomness
@@ -64,6 +65,10 @@
 //                           checked operator loadout (and its 潜能 / 练度 `ops`, 0.2.2) from room.loadout. Accepted only
 //                           during INFO_CHECK (the briefing's 干员调配 entry); afterwards the match's loadout is locked
 //                           (WRONG_PHASE).
+// setDiy(playerId, picks) → { ok } | { error, detail? }   (local, optional for the platform) new checked 自选 picks from
+//                           room.diy: accepted during INFO_CHECK / BAND_DRAFT while the player's 自选 stock is untouched
+//                           (진영별 선발 프리셋, user decision 2026-10-09); else WRONG_PHASE and the lobby keeps them for the
+//                           next match.
 // onLeave(playerId)         The human quit permanently (g.leave, room.leave, or the 10-minute reconnect
 //                           window expired). They will never return under this playerId in this match;
 //                           treat as quit (AI takes over / eliminated per DESIGN). No onDisconnect follows.

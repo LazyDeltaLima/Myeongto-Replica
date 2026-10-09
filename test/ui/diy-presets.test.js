@@ -1,6 +1,7 @@
-// 진영별 선발 프리셋 (local feature, user decisions 2026-10-09 8–10; public/js/ui/diyPresets.js): per-browser 自选 presets
-// per chat faction, all empty at first; the 自选编队 tab's bar makes / applies / links / deletes them, edits follow the
-// linked preset, and a chat faction pick applies that faction's preset with a 撤销 (a faction without one changes nothing).
+// 진영별 선발 프리셋 (local feature, user decisions 2026-10-09 8–10; public/js/ui/diyPresets.js): per-browser 自选 rosters,
+// one for 不使用预设 and one per chat faction, each its own (a faction's empty until filled — then no preset); the
+// 自选编队 tab's bar switches between them, edits follow the roster shown, and a faction pick (chat / strategy draft)
+// applies that faction's preset with a 撤销 (a faction without one changes nothing).
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -21,6 +22,7 @@ const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
 
 const P = await import('../../public/js/ui/diyPresets.js');
+const { presetPickLive } = await import('../../public/js/ui/factionPick.js');
 const { loadoutStore, setDiyPicks } = await import('../../public/js/ui/loadoutSync.js');
 const { DiyPanelView, DiyPresetBar } = await import('../../public/js/screens/diy.js');
 const { data } = await import('../../public/js/data.js');
@@ -35,40 +37,47 @@ const stored = () => JSON.parse(mem.get(`sp.pref.${P.DIY_PRESETS_PREF}`) || 'nul
 
 P.installDiyPresets();
 beforeEach(() => {
-  P.diyPresetStore.set({ presets: {}, active: null, notice: null });
+  P.diyPresetStore.set({ presets: {}, base: {}, active: null, notice: null });
   setDiyPicks({});
   mem.delete(`sp.pref.${P.DIY_PRESETS_PREF}`);
 });
 
-test('stored presets: only chat factions and clean picks; the link only to a preset that exists', () => {
-  const got = P.parseStoredPresets({ v: 1, presets: { yan: { [T6A]: WANG, junk: 3 }, nowhere: { [T6A]: WANG }, kjerag: 'x' }, active: 'kjerag' });
+test('stored rosters: only chat factions, clean and non-empty picks; a v1 envelope takes the live picks as base', () => {
+  const got = P.parseStoredPresets({ v: 2, presets: { yan: { [T6A]: WANG, junk: 3 }, nowhere: { [T6A]: WANG }, kjerag: 'x', sargon: {} }, base: { [T6A]: WIS }, active: 'kjerag' });
   assert.deepEqual(Object.keys(got.presets), ['yan']);
   assert.deepEqual(got.presets.yan, { [T6A]: WANG });
-  assert.equal(got.active, null);
-  assert.deepEqual(P.parseStoredPresets(null), { presets: {}, active: null });
-  assert.equal(P.parseStoredPresets({ presets: { yan: {} }, active: 'yan' }).active, 'yan', 'an empty preset (no 自选 at all) is a preset');
+  assert.deepEqual(got.base, { [T6A]: WIS });
+  assert.equal(got.active, 'kjerag', 'an empty faction may be the one shown');
+  assert.deepEqual(P.parseStoredPresets(null), { presets: {}, base: {}, active: null });
+  assert.deepEqual(P.parseStoredPresets({ v: 1, presets: { yan: { [T6A]: WANG } }, active: null }, { [T6A]: CHEN }).base, { [T6A]: CHEN });
+  assert.deepEqual(P.parseStoredPresets({ v: 1, presets: { yan: { [T6A]: WANG } }, active: 'yan' }, { [T6A]: WANG }).base, {});
 });
 
-test('the bar: an empty faction is made from the current picks and linked; edits follow it; 不使用预设 unlinks', () => {
-  setDiyPicks({ [T6A]: WANG });
+test('the bar: 不使用预设 and every faction keep their own picks — switching never copies them (user report 2026-10-09)', () => {
+  setDiyPicks({ [T6A]: WIS }); // shown: 不使用预设
   P.selectPreset('yan');
-  assert.equal(P.diyPresetStore.get().active, 'yan');
-  assert.deepEqual(P.diyPresetStore.get().presets.yan, { [T6A]: WANG });
+  assert.deepEqual(loadoutStore.get().diy, {}, 'a faction without a preset starts empty, not with the picks left behind');
+  assert.equal(P.diyPresetStore.get().presets.yan, undefined, 'an empty roster is no preset');
   setDiyPicks({ [T6A]: WANG, [T6B]: CHEN });
-  assert.deepEqual(P.diyPresetStore.get().presets.yan, { [T6A]: WANG, [T6B]: CHEN }, 'an edit is saved into the linked preset');
+  assert.deepEqual(P.diyPresetStore.get().presets.yan, { [T6A]: WANG, [T6B]: CHEN }, 'an edit is saved into the roster shown');
   assert.deepEqual(stored().presets.yan, { [T6A]: WANG, [T6B]: CHEN }, 'and persisted');
+  P.selectPreset('sargon');
+  assert.deepEqual(loadoutStore.get().diy, {}, 'another empty faction: empty again');
   P.selectPreset(null);
-  setDiyPicks({ [T6A]: WIS });
-  assert.deepEqual(P.diyPresetStore.get().presets.yan, { [T6A]: WANG, [T6B]: CHEN }, 'unlinked: the preset stays');
+  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WIS }, '不使用预设 has its own picks back');
+  assert.deepEqual(P.diyPresetStore.get().base, { [T6A]: WIS });
   P.selectPreset('yan');
-  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WANG, [T6B]: CHEN }, 'a saved preset is applied');
+  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WANG, [T6B]: CHEN }, 'a saved preset is shown');
+  setDiyPicks({});
+  assert.equal(P.diyPresetStore.get().presets.yan, undefined, 'emptied: no preset any more');
+  setDiyPicks({ [T6A]: WANG });
   P.deletePreset('yan');
   assert.equal(P.diyPresetStore.get().active, null);
   assert.equal(P.diyPresetStore.get().presets.yan, undefined);
-  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WANG, [T6B]: CHEN }, 'deleting keeps the picks');
+  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WIS }, 'deleting the shown preset goes back to 不使用预设');
 });
 
-test('chat pick: a faction without a preset changes nothing; with one, the picks change and 撤销 restores them', () => {
+test('faction pick: a faction without a preset changes nothing; with one, the picks change and 撤销 restores them', () => {
   setDiyPicks({ [T6A]: WIS });
   assert.equal(P.applyFactionPreset('yan'), null);
   assert.deepEqual(loadoutStore.get().diy, { [T6A]: WIS });
@@ -78,9 +87,9 @@ test('chat pick: a faction without a preset changes nothing; with one, the picks
   const n = P.applyFactionPreset('yan', { inMatch: true, now: 5 });
   assert.equal(n.factionId, 'yan');
   assert.equal(n.inMatch, true);
-  assert.equal(n.canReroll, false, 'past the briefing: no reroll to mention');
   assert.deepEqual(loadoutStore.get().diy, { [T6A]: WANG, [T6B]: CHEN });
   assert.equal(P.diyPresetStore.get().active, 'yan');
+  assert.deepEqual(P.diyPresetStore.get().base, { [T6A]: WIS }, '不使用预设 keeps its picks');
   assert.equal(P.diyPresetStore.get().notice, n);
   assert.equal(P.undoFactionPreset(), true);
   assert.deepEqual(loadoutStore.get().diy, { [T6A]: WIS });
@@ -88,16 +97,13 @@ test('chat pick: a faction without a preset changes nothing; with one, the picks
   assert.deepEqual(P.diyPresetStore.get().presets.yan, { [T6A]: WANG, [T6B]: CHEN }, 'undo leaves the preset alone');
   assert.equal(P.undoFactionPreset(), false);
 
-  setDiyPicks({ [T6A]: WIS });
-  assert.equal(P.applyFactionPreset('yan', { inMatch: true, canReroll: true }).canReroll, true, 'in the briefing a reroll takes it');
-  P.undoFactionPreset();
-
-  // the picks already are the preset: linked, no notice
+  // the preset already shown: no notice
   P.selectPreset('yan');
-  P.selectPreset(null);
   assert.equal(P.applyFactionPreset('yan'), null);
-  assert.equal(P.diyPresetStore.get().active, 'yan');
   assert.equal(P.diyPresetStore.get().notice, null);
+  // a faction without a preset while a preset is shown: still nothing changes
+  assert.equal(P.applyFactionPreset('sargon'), null);
+  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WANG, [T6B]: CHEN });
 });
 
 test('the tab draws the bar: 不使用预设 + eight factions, saved ones filled, the linked one on, 删除 for it', () => {
@@ -113,4 +119,11 @@ test('the tab draws the bar: 不使用预设 + eight factions, saved ones filled
   const panel = (extra) => JSON.stringify(DiyPanelView({ m: null, picks: {}, legal: {}, kitted: null, onSet() {}, picking: null, onPicking() {}, ...extra }), (k, v) => (typeof v === 'function' ? (v.name || 'fn') : v));
   assert.doesNotMatch(panel({}), /DiyPresetBar/);
   assert.match(panel({ presets: {}, activePreset: null, onPreset() {}, onPresetDelete() {} }), /DiyPresetBar/);
+});
+
+test('a faction pick applies its preset out of a match and in its briefing / strategy draft only (user 2026-10-09)', () => {
+  assert.equal(presetPickLive({ room: { inMatch: false } }), true);
+  assert.equal(presetPickLive({ room: null }), true);
+  for (const phase of ['INFO_CHECK', 'BAND_DRAFT']) assert.equal(presetPickLive({ room: { inMatch: true }, match: { public: { phase } } }), true, phase);
+  for (const phase of ['PREP', 'COMBAT', 'SP_DRAFT', 'FINAL_ASSAULT']) assert.equal(presetPickLive({ room: { inMatch: true }, match: { public: { phase } } }), false, phase);
 });

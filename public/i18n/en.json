@@ -1257,9 +1257,9 @@
   "尚未设置预设": "No preset yet",
   "删除{faction}预设": "Delete the {faction} preset",
   "此处的修改会保存到{faction}预设；在聊天中选择{faction}时自动套用": "Changes here are saved to the {faction} preset; picking {faction} in the chat applies it",
-  "选择一个阵营即可为其保存自选；在聊天中选择该阵营时自动套用": "Pick a faction to save these picks as its preset; picking that faction in the chat applies it",
   "已将{faction}预设套用到自选编队": "Applied the {faction} preset to your self-select squad",
-  "下一局起生效（重新抽取后也生效）": "Takes effect from the next match (or after a reroll)",
   "撤销": "Undo",
-  "下一局起生效": "Takes effect from the next match"
+  "本局生效": "Takes effect in this match",
+  "选择阵营后套用该阵营的自选预设": "Picking a faction applies its self-select preset",
+  "「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设": "No preset and each faction keep their own picks; picking a faction in the chat or the strategy draft applies its preset"
 }

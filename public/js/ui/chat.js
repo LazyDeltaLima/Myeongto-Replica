@@ -11,8 +11,9 @@
 //                  history lines a player gets on joining or resyncing count as read.
 //   FactionPicker  the chat faction (server/local-patch.js, room.factions → store.chatFactions): a colored tag on the
 //                  player's lines and avatar until the match ends; picking one announces it as a `kind: 'faction'` line
-//                  and applies the faction's 自选 preset if the player made one (ui/diyPresets.js; PresetNotice = the
-//                  「…预设已套用 · 撤销」 line above the input); during a match a faction whose bond is off is dimmed
+//                  and applies the faction's 自选 preset if the player made one (ui/factionPick.js chooseFaction — the
+//                  strategy draft's row picks the same way; PresetNotice = the 「…预设已套用 · 撤销」 line above the
+//                  input); during a match a faction whose bond is off is dimmed
 //   RoomChat       the room screen's panel: log + input, folds to a button (unread count while folded)
 //   GameChat       the match: a 聊天 button beside 交流 (unread badge) + panel above it; while it is closed, new lines
 //                  of the others float above the corner for a few seconds. Enter opens it, Esc closes it.
@@ -26,7 +27,7 @@ import { net } from '../net.js';
 import { store, useStore, loadPref, savePref } from '../store.js';
 import { t } from '../../../shared/i18n.js';
 import { FactionIcon, factionIconUrl } from './faction.js';
-import { diyPresetStore, applyFactionPreset, undoFactionPreset, clearPresetNotice, PRESET_NOTICE_MS } from './diyPresets.js';
+import { chooseFaction, PresetNotice } from './factionPick.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const KEEP = 60;            // lines kept on the client
@@ -175,10 +176,8 @@ function FactionPicker({ disabled }) {
     setOpen(false);
     if (id === mine || busy) return;
     setBusy(true);
-    let ok = false;
-    try { await net.request('room.chatFaction', { faction: id }); ok = true; } catch { /* cooldown / offline: the chip stays */ }
+    await chooseFaction(id); // false on a cooldown / offline: the chip stays
     setBusy(false);
-    if (ok) applyFactionPreset(id, { inMatch: !!store.get().room?.inMatch, canReroll: store.get().match?.public?.phase === 'INFO_CHECK' });
   };
   if (!seated) return null; // spectators have no faction
   const isOff = (x) => Array.isArray(off) && off.includes(x.bond);
@@ -191,22 +190,6 @@ function FactionPicker({ disabled }) {
         onClick=${() => pick(x.id)}><${FactionIcon} f=${x} /><span>${t(x.name)}</span>${isOff(x) ? html`<small>${t('禁用')}</small>` : null}</button>`)}
     </div>` : null}
   </div>`;
-}
-
-/** The last chat apply of a 自选 preset (ui/diyPresets.js notice): 「炎国预设已套用到自选编队 · 撤销」 for PRESET_NOTICE_MS. */
-function PresetNotice() {
-  const n = useStore((s) => s.notice, Object.is, diyPresetStore);
-  useEffect(() => {
-    if (!n) return undefined;
-    const h = setTimeout(() => { if (diyPresetStore.get().notice === n) clearPresetNotice(); }, Math.max(0, n.at + PRESET_NOTICE_MS - Date.now()));
-    return () => clearTimeout(h);
-  }, [n]);
-  const f = n ? chatFaction(n.factionId) : null;
-  if (!f) return null;
-  return html`<p class="chat__preset" role="status" data-testid="preset-notice">
-    <${FactionIcon} f=${f} /><span>${t('已将{faction}预设套用到自选编队', { faction: t(f.name) })}${n.inMatch ? html`<small>${n.canReroll ? t('下一局起生效（重新抽取后也生效）') : t('下一局起生效')}</small>` : null}</span>
-    <button type="button" class="chat__preset-undo" data-testid="preset-undo" onClick=${undoFactionPreset}>${t('撤销')}</button>
-  </p>`;
 }
 
 /** Input + send. `autoFocus` focuses it on mount; Esc calls onEscape. */
