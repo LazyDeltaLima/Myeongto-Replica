@@ -63,7 +63,7 @@ test('the English title is the official one: Stronghold Protocol: Alliance (as i
   // called 명토 레플리카 · Myeongto Replica (user 2026-10-09); the README names the mode by its official title.
   const readme = read('README.md');
   assert.match(readme.split('\n')[0], /^# 명토 레플리카 · Myeongto Replica$/, 'README title');
-  assert.match(readme, /mode \*Stronghold Protocol: Alliance\*/, 'README English summary');
+  assert.match(readme, /mode [*_]Stronghold Protocol: Alliance[*_]/, 'README English summary (either emphasis mark)');
   assert.match(read('server/http/boot.js'), /卫戍协议：盟约 · Stronghold Protocol: Alliance v/, 'boot banner');
   assert.equal(pkg.name, 'stronghold-protocol-alliance');
   assert.equal(lock.name, pkg.name);
