@@ -1,7 +1,13 @@
 /* Local patch: the settlement screen's 피드백 보내기 (js/ui/feedback.js) — the button beside 返回同盟 and its modal. The
    kind switch reuses the settings' .set-seg, the hint and the warning line .set-hint / .set-keys__note (screens/game.css). */
-.result__foot { gap: .14rem; flex-wrap: wrap; }
-.result__foot .result__feedback { min-width: 0; }
+/* the two buttons stacked at the back button's width (side by side they would not fit the 5.6rem column: 「동맹으로 돌아가기」
+   needs 247 px of 226 at 1600×900); a short screen (phone landscape, 844×390) tightens the column so the second one shows */
+.result__foot { display: grid; width: max-content; gap: .14rem; }
+@media (max-height: 500px) {
+  .result__main { padding-top: .2rem; padding-bottom: .2rem; }
+  .result__hero { gap: .08rem; padding-top: .1rem; }
+  .result__foot { gap: .08rem; padding-top: .1rem; }
+}
 
 .fb { display: flex; flex-direction: column; gap: .1rem; }
 .fb__kinds { align-self: flex-start; }

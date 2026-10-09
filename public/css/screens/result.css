@@ -75,4 +75,4 @@
 .rstat b { font-size: .18rem; color: #fff; }
 .rstat.is-best b { color: var(--gold); }
 .result__foot { margin-top: auto; padding-top: .2rem; display: flex; }
-.result__foot .btn { min-width: 3.4rem; }
+.result__foot > .btn { min-width: 3.4rem; } /* its own buttons only: the feedback modal (ui/feedback.js) renders inside the footer */
