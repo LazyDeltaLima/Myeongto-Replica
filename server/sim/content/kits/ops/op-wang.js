@@ -68,6 +68,7 @@ import { enemyStealthed } from '../../../targeting.js';
 import { DEPLOY_REFUSED_TILES } from '../../../grid.js';
 import { talentBb } from '../shared/tier1.js';
 import { hypot, powi } from '../../../detmath.js';
+import { atPotential } from '../../../../../shared/potential.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
@@ -154,6 +155,8 @@ function wang(bb, chess, def) {
     const raw = stoneDef(battle, unit)?.raw;
     const oid = unit.def?.tokenOwner ?? unit.defId;
     let v = raw?.variants?.[oid] ?? raw?.variants?.[String(oid).replace(/_b$/, '_a')] ?? null;
+    // at her potential (0.2.2, upstream ec0a2fc6: the player's 潜能 — 6 棋子 / 7 held below 潜能 3; shared/potential.js)
+    if (v) v = atPotential(v, unit.def?.loadout?.potential);
     const mid = unit.def?.loadout?.moduleId;
     if (v && typeof mid === 'string' && v.byModule?.[mid]) v = { ...v, ...v.byModule[mid], stats: { ...v.stats, ...v.byModule[mid].stats } };
     const vs = v?.stats ?? {};
