@@ -158,3 +158,21 @@ upstream v0.2.0 이후 렌더 수정 8건(`research/2026-10-09-upstream-compare/
   근거는 upstream 주인의 공식 녹화(2026-10-09, upstream PR #403 제보). 픽·강조·`tileHover`·방향 선택·드롭은 여전히 포인터 칸.
   우리 배치 중 반투명(`GHOST_ALPHA`, ui.md)은 그대로 겹친다. 아이템 판은 늘 포인터 위.
 - 화면 확인은 안 함 — 목록은 `research/2026-10-09-upstream-compare/render.md` 「4. 화면 확인 목록」 1·2·5·6·7·8 + 드래그 스냅(STRONGHOLD.md §11).
+
+## upstream 이식 render-2 (2026-10-09)
+
+sim에 기대는 렌더 수정(`research/2026-10-09-upstream-compare/render.md` 표 3·4·5·10, sim-2 뒤). 근거는 upstream 커밋(재현·측정은 upstream 몫).
+- 공격 후딜 서 있기(`a42c1667` ← `8a64edc9`, PR #381): 스냅샷 `stand`·`standCut`(표시용, golden 그대로), `interp.js`가 후딜 끝까지 위치를 잡고 남은 구간만 보간.
+  sim hunk(events.js·ai.js·deploy.js·displacement.js·spawns.js)는 sim-3(stronghold-6b) 허락 받고 같은 커밋에 — `_unbalance`에 `_cutAttackStand` 복귀.
+  우리에게 온디(温蒂) 키트가 없어 테스트의 밀어 죽이기는 같은 移动创伤 메커니즘을 테스트 안에 둠.
+- 밀림 슬라이드·비행 적 사망·긴 Die(`5d362a58` ← `2669b6ab`, `ee02bd82` ← `7a33bc7e`) → 슬라이드 시간 = sim 失衡 시간(`b4ca6c52` ← `cdf2bd5c` 렌더 hunk,
+  fx `dur` ÷ `ctx.animRate`; `dur` 없는 옛 녹화만 √D 대체 [ASSUMED]). `syncBattle`의 미리보기는 우리 개시 낙하 카운터(「배치 낙하」) 위에 둠.
+- 적 애니메이션(`76756274` ← `76a2db7d`, PR #275): 빠른 적(moveSpeed > 1 [ASSUMED])의 Run 순환, `Stun_1`·`Dizzy_*` 기절 클립, 거대하고 못생긴 것(적)·
+  自在(적) 重生의 Revive. **`cast`는 안 받음** — upstream·우리 sim 모두 `cast` 이벤트가 없어 `case 'cast'`·`setSkillSlot`·적 `anims.skills`(numberedSkills)는
+  읽는 곳이 없다. `data/assets.json` 오프라인 재생성(적 6 run·3 stun, 그 밖 변화 없음) → **배포 때 `--assets`**.
+- 联防 sceneId 우회 정리(`60024037`): 위 「联防 화면」.
+- 렌더러 타임아웃(`98a787f7` ← `030d0a29`, PR #302): `createFieldView({signal})`·`mountFieldView`. 우리 자원 중 빌드 중에 만들어지는
+  공식 이펙트 층(`fxGame`)·보스 준비 경로 커서(`routeCursors`)도 중단 정리(`setupCleanup`)에 등록. 보드 아트·3D 보드 대기는 view 객체 뒤로 옮겨졌지만
+  여전히 `return` 전이라 호출자(공식 씬 `setStage`, 개시 낙하)가 보는 순서는 같다 [코드 읽기로 확인, 화면 미확인].
+- 화면 확인은 안 함 — `research/2026-10-09-upstream-compare/render.md` 「4. 화면 확인 목록」 3·4·9·10 + 联防 씬(STRONGHOLD.md §11 「upstream render-2」).
+  브라우저 테스트 `RENDER_E2E=1 test/render/initialization.browser.test.js`·`SP_E2E=1 test/e2e/coop.e2e.mjs`(联防 필드가 경기 맵을 그림)도 그때.

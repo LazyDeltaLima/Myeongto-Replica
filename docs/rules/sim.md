@@ -249,9 +249,8 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   escaped 템플릿 맵은 모든 웨이브 템플릿 레벨이 같은 칸을 갖는 빈 길(자리표시 격자)이었다. `unitePhase.js _uniteOpts`가 `this.stageId`,
   `unite.js uniteStageId` 삭제, `data/stages.json`의 `kind: 'unite'` 두 레코드는 남음(아무 필드도 안 씀). 실제 경기 경로
   `test/match/feedback5-unite-map.test.js`: 필드 meta·리커의 spec·`publicView()` 모두 경기 stageId.
-  → 우리 `24d6a7ba`(联防 sceneId 우회, `render.md` 「联防 화면」)는 **이제 실행되지 않는 코드**: `screens/game.js`의 `fieldStage`는
-  `shownField.stageId !== pub.stageId`일 때만 서고, `render/app.js setStage`는 `kind === 'unite'`일 때만 `roundSceneId`를 쓴다.
-  upstream `game.js` hunk(fieldStage 삭제)·우회 정리·render.md 문장 수정은 render-2.
+  → 우리 `24d6a7ba`(联防 sceneId 우회, `render.md` 「联防 화면」)는 이로써 실행되지 않는 코드가 되어 render-2 `60024037`에서 걷어냈다
+  (upstream `game.js` hunk 포함).
 - **보스 필드 포털** (`c4ec21e3` ← `a87cc1e9`, `1fb84b24` ← `1205336a`, GitHub #336 / PR #337, 공식 녹화): 경로가 모서리 포털 입구([1,3]/[1,17])에서
   끝나면 누수가 아니라 가장 먼 출구 [5,10]으로 나와 그쪽 파란 문까지 걸어가 누수. 포털 안 3초는 [ASSUMED](데이터 명시 통과 95개 중 85개가 3초).
   APPEAR 없는 통과 4개(h07_02 #4, h08_02 #5/#9, act2 h07_05 #6)에 출구 APPEAR 추가(`simdata.js portalAppear`). 짝짓기(입구→가장 먼 출구)도 [ASSUMED].
@@ -259,9 +258,8 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   밀린 적은 受力等级별 位移时间(−2 0.2 s … 3 35/30 s), 당긴 적은 1 s(−2 이하 0.5 s) 동안 걷지 않고(恐惧·诱导 포함) 평타를 시작하지 않으며
   스킬·순간이동·스크립트 이동도 멈춘다. 静态刚体는 밀기 0.1 s·당기기 그 창 전체, 이동 0. 浮空·重生·逐火 余烬·경로 APPEAR가 끝낸다.
   弧光锋卫 출혈은 失衡 동안 0.066 s마다 400. 기절이 아님(상태 없음, SP·쿨다운 흐름). [ASSUMED]: 벽에 막힌 밀기도 그 행의 시간, 첫 칸에서
-  막히면 0.1 s; 적 능력의 전역 잠금 범위. 손 이식: upstream 문맥의 `_cutAttackStand`(`8a64edc9`, render-2)가 아직 없어 `_unbalance`는
-  `atkStandUntil = -Infinity`만 — `8a64edc9` 이식 때 `_unbalance`에 `this._cutAttackStand(e)`를 다시 넣을 것. displace fx의 `dur`는
-  실리지만 클라이언트 슬라이드(`units.js slideTo`)는 render-2 전까지 예전 `DISPLACE_SLIDE` 근사.
+  막히면 0.1 s; 적 능력의 전역 잠금 범위. `_unbalance`의 `_cutAttackStand`(upstream 문맥, `8a64edc9`)는
+  render-2 `a42c1667`에서 다시 넣음. 클라이언트 슬라이드는 displace fx의 `dur`(render-2 `b4ca6c52`, `render.md` 「upstream 이식 render-2」).
 - **정수 프레임** (`3b0a0bef` ← `227ab9e7` + `6de5dec3`, PR #402; PRTS 作战机制/sandbox 「帧对齐机制对攻速的影响」 1프레임 = 1/30 s):
   `ai.js attackCountdown`(0에서 1e-9 이내 = 0) — 오퍼레이터·적 공격 간격, 双眼皮 포탑, 寒檀 S2 고드름; `SkillRuntime.gainSp`가 코스트에서
   1e-9 이내면 충전. 1 s = 30프레임(전엔 31). 정수가 아닌 간격은 여전히 ⌈30 × t⌉(공식 四舍五入과 다른 옛 차이, 그대로).
