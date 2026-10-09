@@ -21,6 +21,7 @@
 
 ## 쓰는 법
 - 규칙을 바꾸거나 새 기능을 넣으면 그 영역 파일의 해당 절에 적는다: 무엇을, 근거(어느 데이터·문서로 확인했는지 / 추론이면 `[추정]`), 사용자 결정은 날짜와 원문, 확인 방법(실제 판·아레나·단위).
+- 사용자 제보는 문장을 인용하지 않고 「사용자 제보」와 날짜만 적는다(사용자 결정 2026-10-09, 공개 저장소). 무엇이 틀렸는지는 우리 말로 쓴다.
 - 새 절(`##`)을 만들면 `docs/LOCAL-PATCH.md` 색인에도 한 줄 넣는다.
 - 영역 파일은 담당 세션이 하나씩 고친다(여러 세션이 한 파일을 동시에 고치지 않는다). 다른 영역 파일은 담당 세션에 알리거나 끝난 뒤 고친다.
 - 아직 안 끝난 일은 여기 말고 `STRONGHOLD.md` §11에 한 줄로.
@@ -112,8 +113,8 @@
     WebP만 — 아래 「立绘 추출」).
   - 고친 버그: `render/board3d-extract` 노멀 맵 — EN 클라이언트의 `TX_autochessi_N`은 Unity DXT5nm(R=1, X는 A, Y는 G)인데 BC5(R=X)로 읽어
     파생 노멀이 평평했다(z 평균 128). `tools/local-extract/extract.py derive_normal_rg`가 R이 전부 255이면 A를 X로 쓴다; 기존 PNG에서 다시
-    파생(`run_derived` + `run_webp`, 클라이언트 불필요). 泥岩 뒷모습 S2 클립(`assets.test`, nas-local 87f38bc3).
-  - 2026-10-08 nas-local(e39e2565)에서 다시 확인: 4716개 중 통과 4712, 실패 0, 건너뜀 4(Chrome·zip·토큰 모델 추출 필요). 새로 받은 노멀
+    파생(`run_derived` + `run_webp`, 클라이언트 불필요). 泥岩 뒷모습 S2 클립(`assets.test`, nas-local 5afb7c4e).
+  - 2026-10-08 nas-local(6b313362)에서 다시 확인: 4716개 중 통과 4712, 실패 0, 건너뜀 4(Chrome·zip·토큰 모델 추출 필요). 새로 받은 노멀
     맵은 B 평균 249. EN 클라이언트에 `emoticon_foolsday_*` 번들이 없고, `ui_equip_type_hub_h2_0.ab`·`ui_equip_type_direction_hub_h2_0.ab`에는
     `inc-x`만 있다(UnityPy로 확인) — fooldoctor·INC-Y는 CN 클라이언트가 있어야 뽑을 수 있다.
   - 가끔 시간 문제로만 실패(단독 실행은 통과): `lobby` 「solo resume window」, `lobby-integration` 재접속, `match/realtime` 「real-time co-op over websockets」.

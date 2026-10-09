@@ -1,7 +1,7 @@
 // test/ui/ui2-real-match.test.js — the upstream ui-2 ports (2026-10-09) on the real match path: the server's own
 // m.private / scouting units (test/match/harness.js makeMatch → Match → PlayerState views) read by the client helpers,
 // and the client's messages back through Match.handle.
-// - 教鞭 (upstream 56a7b918 client + a844690f server): the m.private.personalChoice a cast sends is the client's
+// - 教鞭 (upstream 56a7b918 client + f066c6b5 server): the m.private.personalChoice a cast sends is the client's
 //   personal ChoiceOverlay (gameLogic normalizePersonalChoice), Ready is refused with its reason until the pick, and the
 //   message actions.choice(idx, choiceId) builds (ui/gameActions.js) is the one Match accepts.
 // - 潜能 / 练度 (upstream 7a0937e3): a card composed by gameLogic chessLoadout at m.private.ops shows the numbers the

@@ -85,7 +85,7 @@
   - 확인: `test/local-patch-audio.test.js` 8개, 전 오퍼레이터×스킬 시뮬+AudioManager 일괄(강제 시전 시 207개 중 185개에서 전용 소리 — 나머지 22개는
     피해를 키트가 직접 주는 스킬: 드론·음표·늑대·치유), 디버그 아레나(阿斯卡纶 S1/S3, 维什戴尔 S3, 赤刃明霄陈 S3 — 검기 타격 `p_imp_hljdswdlng_s`).
   - 배포: 새 효과음 220개(2.4MB)는 서버의 `fetch-assets`가 받는다(배포 때 소재 갱신).
-  - 스킬 루프음 (2026-10-07 사용자 제보 「丰川祥子 S3 발동 시 고유 음악이 안 나온다」): 공식 뱅크 중 `loop: true`인 스킬 소리 — 丰川祥子 S3
+  - 스킬 루프음 (2026-10-07 사용자 제보): 공식 뱅크 중 `loop: true`인 스킬 소리 — 丰川祥子 S3
     `ON_BUFF_START.oblvns_s_3[loop]`(`p_atk_MJCkyrdslnt_lp`, 공식 데이터에 스킬용 BGM 전환은 없음), 장판 `ON_ABILITY_START.skchr_lisa_3` /
     `ON_SKILL_START.skchr_cello_3` 등 풀 17명 — 를 `skill-mode-sfx.mjs skillLoops`가 `sfx.units[id].loops[스킬번호] = { url, grp, vol, start }`로
     싣고(`audio.mjs indexAudio` `loopBanks`), `audioOfficial.js startSkillLoop`가 스킬 동안 반복 재생(그룹 게인 × 볼륨, sfx 채널), 스킬 끝·퇴장·
@@ -93,7 +93,7 @@
     시작음(`ON_CUSTOM_TRIGGER.skchr_oblvns_3[start]`)이 `deferStart`(공격 능력 소리만 해당)에 잘못 걸려 거의 안 나던 것 수정
     (`skill-sfx.mjs skillStartIsFallback`: 커스텀 시작 트리거는 진짜 시작음). `/debug.html` 일시정지는 AudioContext도 멈춘다(루프가 계속 울리지 않게).
 
-  - **평타는 Default 모드 소리만** (사용자 제보 2026-10-07 7번 「실버애쉬 평타에 S3 소리」): `tools/assets/skill-mode-sfx.mjs defaultModeBanks` — 모드 정보가 있는
+  - **평타는 Default 모드 소리만** (사용자 제보 2026-10-07 7번): `tools/assets/skill-mode-sfx.mjs defaultModeBanks` — 모드 정보가 있는
     오퍼레이터는 스킬 모드 번호의 `ON_ABILITY_*.attack|combat.<n>` 뱅크를 평타 후보에서 뺀다(银灰 S3 `p_atk_silver_n`, 号角 S2 포격 시전음, 丰川祥子 S3,
     圣约送葬人 S3_End, 雷蛇 S2가 평타마다 나던 누수). `.0…`(Default `_includeIndexZero`)은 파일 접미사와 상관없이 Default 것(`audio.mjs pickUnitSfx opts.defaultZero`
     — 丰川祥子 `p_atk_mjckyrdnt_h`). Default 투사체(charpack `_projectileKey`, 银灰 `projectile_svrash`)의 BORN/HIT/REACH를 이름 추측보다 먼저(prove·slchan·
@@ -139,7 +139,7 @@
       - **[추정]**: 시점 규칙 — 훅이 시작되면 `delay` 뒤 `dur` 초 동안 스냅샷으로, 훅 소리가 끝나면 같은 `dur`로 Default로(클라이언트 `SnapshotTransition`·
         `TransitionToDefaultSnapshot`은 네이티브. 浊心斯卡蒂의 0.1 초가 「유지 시간」이면 의미가 없어 전환 시간으로 읽음). 겹치면 마지막 훅이 끝날 때까지 유지.
         리버브는 초기 반사 없는 평탄한 잡음 꼬리. 안 한 것: Music 자체 5000 Hz(556 Hz 안쪽이라 차이 없음), 스냅샷의 그룹 볼륨 차이(몇 dB, 옛 레벨이 남은 것으로 보임).
-      - **휘두름 + 타격** (사용자 제보 2026-10-08 「이격 니어 S3 발동 후 적을 타격할 때마다 전용 효과음… 여러 종류 효과음이 같이 재생」): 능력에 START 뱅크(휘두름,
+      - **휘두름 + 타격** (사용자 제보 2026-10-08): 능력에 START 뱅크(휘두름,
         공격 그룹)와 **타격 그룹**(Battle_P_SImp / NImp)의 ON 뱅크가 둘 다 있으면 공식은 둘 다 낸다 — 耀骑士临光 S3 `attack.3` START p_atk_goldspear_s + ON p_imp_goldspear_s.
         생성기는 ON을 START가 없을 때의 대체로만 써서 타격음이 빠졌다(4-4의 `noHit`까지 붙음). `skill-mode-sfx.mjs onImpact`(정확한 키만) → 모드 `hit`(`modeSounds`)과
         평타 `hit`(`audio.mjs pickUnitSfx` `opts.impactOf`, plan 1줄). 바뀐 것(매니페스트 diff 그대로): 모드 — 耀骑士临光 S3, 归溟幽灵鲨 S3, 夕 S2·S3, 卡涅利安 S1–S3(이 7개의 `noHit` 빠짐);
@@ -161,7 +161,7 @@
       cello·nearl2(6성)는 상점에 안 나와 실제 판 확인 못 함. 배포: 새 sfx 21개 → 배포 때 소재 갱신.
 
 ## 작전 종료 효과음 (2026-10-07)
-- 사용자 제보 「라운드별 작전 종료 효과음이 빠져 있다」: 공식 효과음 3개는 이미 웹 매니페스트에 있었다(`sfx.ui.battleOverReduce` / `battleOverNoReduce` /
+- 사용자 제보: 공식 효과음 3개는 이미 웹 매니페스트에 있었다(`sfx.ui.battleOverReduce` / `battleOverNoReduce` /
   `battleOverNormal` = `act1autochess_b_ui_battleover_reduce|noreduce|normal.mp3`, 뱅크 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`, 각 1.4초) — 받기만 하고 재생하는
   곳이 없었다. 외부 저장소를 따로 찾을 필요 없음.
 - 재생: 내 일반 전투(COMBAT)의 결과가 오면(`screens/game.js onResult`, 전투 종료 배너와 같은 자리), 배너 그림(로컬 추출)이 없어도 소리는 낸다.
@@ -173,7 +173,7 @@
 - 테스트: `test/local-patch-battleover.test.js`.
 
 ## 배치 효과음 — 어떤 경로로 놓이든 (사용자 제보 2026-10-07 #1·#2)
-- 사용자: 「상점 구매, 정예화 보상, 전장에 배치 등 어떤 방식으로 배치되든 배치 효과음이 나와야 함」, 「일부 오퍼레이터(왕·위 등)는 전용 배치음」.
+- 사용자 제보.
   소환물도 배치음이 있고, 왕의 바둑돌은 수동 배치·재능 배치 모두 소리가 난다(사용자 확인).
 - 원래: 전투의 'deploy' 이벤트에서만 났다(라운드 시작 배치는 실제 판에서 확인함 — b_char_set 7 + 자기 소리). 정비 단계 배치·구매·보상·벤치 복귀는 무음,
   구매는 상점 소리 `ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND`(b_char_tokenset = 소환물 배치음)였다.
@@ -187,13 +187,13 @@
   - 소리 남: 구매·보상으로 벤치 도착, 벤치→보드, 소환물(전용 또는 b_char_tokenset), **전투 뒤 정비로 돌아올 때 보드의 말**(`backFromBattle` — 사용자
     2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」), **협동 정비에서 남의 보드를 보러 갈 때 그 보드의 말**(사용자 2026-10-08:
     남의 보드도 소리 남)과 내 보드로 돌아올 때 [추정: 돌아올 때도 같은 규칙]. 벤치 말은 낙하만.
-  - 소리 없음: 보드→벤치 복귀(낙하는 함 — 사용자 2026-10-08 「벤치로 되돌릴 때는 배치음이 안나오는게 일단 맞는 것 같아」), 판매, 페이지 로드·재접속
+  - 소리 없음: 보드→벤치 복귀(낙하는 함 — 사용자 제보 2026-10-08), 판매, 페이지 로드·재접속
     첫 동기화, 전투 뒤 벤치 복원, 3장 합성 엘리트(합성 연출·`merge` 소리), 장비, 남의 보드(정탐은 전투 화면).
-  - 낙하(사용자 2026-10-08 「공식은 배치 연출이 있어. 협동 모드 중 휴식 기간에 다른 사람을 확인하려 갈때도 배치 연출이 보여」): 전투 뒤·정탐 뒤 내 정비로
+  - 낙하(사용자 제보 2026-10-08): 전투 뒤·정탐 뒤 내 정비로
     돌아올 때 말 전부(벤치 포함 [추정: 클라이언트 정비 말은 칸·슬롯에 새로 만드는 더미]), 정탐한 보드(`enterBattle({prep})` → `battleView`)의 말 전부가
     떨어진다. 같은 보드에 다시 들어오면(팀원이 말을 옮겨 m.field가 새로 옴, `scoutSeen`) 새로 왔거나 옮긴 말만. 실제 협동 판(`sp-check\dv_coop.mjs
     <port> <out>`: 봇 3, 2라운드 — 팀원 줄 클릭 → 「보러 가기」 → 내 줄)에서 ROUND_START:2·정탐·복귀 모두 onDeploy + b_char_set, 프레임 `dvc4-scout-*`에 낙하.
-  - 벤치→보드를 실제 UI로(끌어 놓기 → 방향 휠 → 확정) 하면 소리·낙하가 없었다(사용자 2026-10-08 「오퍼를 벤치에서 보드에 배치시, 배치 효과음이 안나와」):
+  - 벤치→보드를 실제 UI로(끌어 놓기 → 방향 휠 → 확정) 하면 소리·낙하가 없었다(사용자 제보 2026-10-08):
     휠의 `holdPiece`가 그 칸을 뷰의 집(`_home`)으로 만들어 `moved`가 false라, 놓은 지 1.3초(`DROP_PENDING_MS`) 안에 온 상태는 「서버 적용 전」 분기로
     빠졌다(snd_prep.mjs는 `actions.move`를 직접 불러 이 경로를 안 탔다). 상태에 보드로 새로 나타난 말은 그 분기에서 뺀다. 확인 `sp-check\dv_drag.mjs
     <port> <out> [확정까지 ms]`(실제 마우스 끌기 + 방향키): 0.3초·2초 확정 모두 onDeploy + b_char_set.
@@ -205,7 +205,7 @@
   `sp-check\snd_prep.mjs <port> <out>`: 솔로 판, 1라운드 정비에서 구매 → 보드 → 벤치, 자동 배치, 전투 시작) — 세 경로 모두 b_char_set,
   전용 소리(b_char_tpartclce·snwlprdg·p_skill_frbytrtn_bn) 확인, 전투 뒤 정비 시작에 전체가 울리지 않음.
 
-### 望 棋子 효과음 (사용자 제보 2026-10-07 #5 「터질 때 뭔가 빠진 느낌」, #1 재능 바둑돌 배치음)
+### 望 棋子 효과음 (사용자 제보 2026-10-07 #5, #1 재능 바둑돌 배치음)
 - 공식(EN `audio_data.json` + zh_CN `buff_template_data.json`): 놓은 바둑돌(토큰)이 터지면 그 토큰 능력 `ON_ABILITY_START.sktok_wang_<n>`
   = **p_atk_stwctp_d / _h / _s**(Battle_P_SAtk) + 타격 p_imp_stwctp_*(Battle_P_SImp). 우리는 타격음만 냈다(빠진 쪽 = 터지는 소리 자체).
   - S1 取势 타격 `wang_stone1_t[damage_audio]`: 적에게 거는 `wang_stone1_t[damage]`(지속 `sluggish`, `triggerInterval 1`, 첫 발 즉시)의 자식 버프가
@@ -222,7 +222,7 @@
 - 확인: `test/local-patch.test.js` 「望 client-data rules」(틱 수 = kitHit 수, 시뮬 수정 전 실패 확인), 「望 (user report 2026-10-07 #5)」, `test/local-patch-audio.test.js`
   「望 stone pop」·跟子 배치. 디버그 아레나(Windows `sp-check\snd_wangpop.mjs <port> <skill> <ms>`: 샌드백을 활성 바둑돌 칸으로 옮김) —
   S1 p_atk_stwctp_d + p_imp_stwctp_d, 이후 1초마다 p_imp_stwctp_d(총 7), S2 _h, S3 _s, 재배치 바둑돌 tkin, 재능 바둑돌 tkpa(tkin 없음).
-- 望 S3 발동음 (사용자 제보 2026-10-08 「S3 발동할 때 전용 사운드가 안나와」): 공식 `battle.ON_SKILL_START.skchr_wang_3` = **p_skill_stwctp_s**
+- 望 S3 발동음 (사용자 제보 2026-10-08): 공식 `battle.ON_SKILL_START.skchr_wang_3` = **p_skill_stwctp_s**
   (Battle_UI_Boost; S1·S2는 시작 뱅크 없음). `tools/assets/plan.mjs`가 소리 있는 스킬이 하나뿐이고 그게 풀의 기본 스킬 번호가 아니면 `skill`도 `skills`도
   안 넣어 통째로 빠졌다 → 그 경우도 `skills`에 넣음. 같은 이유로 무음이던 琳琅诗怀雅 S3·普罗旺斯 S2·华法琳 S2(b_char_atkboost / healboost)도 같이 생김.
   매니페스트 재생성(fetch-assets)으로 바뀐 것은 이 4명 + 파일 1개(p_skill_stwctp_s.mp3). 디버그 아레나에서 S3 발동 때 p_skill_stwctp_s 재생 확인

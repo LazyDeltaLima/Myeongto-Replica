@@ -21,10 +21,10 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 **upstream이 같은 것을 넣어서 뺀 local patch**
 - 원본 버그 수정 선반영 10건(아래 절) — 0.2.0에 모두 들어 있다(#199 울피안은 upstream 방식 `downAtHome`).
 - 협동 보스 HP × 생존 인원, 胄 드론 몫 限伤 통과 — upstream이 PR #209를 채택(`gamedata.js bossPoolShareOf`, `Battle.loseHp noHitLimit`).
-  upstream은 싱글 보스 HP를 bloodPoint ×1로 바꿨지만, **우리는 싱글 ×0.25로 되돌렸다**(cfadd871, 사용자 결정 2026-10-07: 혼자서는
+  upstream은 싱글 보스 HP를 bloodPoint ×1로 바꿨지만, **우리는 싱글 ×0.25로 되돌렸다**(ccf1e0d3, 사용자 결정 2026-10-07: 혼자서는
   팀원이 없다 — `server/match/gamedata.js bossPoolShareOf`의 `solo` 기본값, `tools/build-data.mjs` → `data/config.json bossHpScale.solo`).
   협동은 upstream의 × 생존 인원 그대로.
-- 스킬 범위 발동(3063e90c, 사용자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(사용자 결정 2026-10-07: upstream 사용). 「미확정」 표시는 유지.
+- 스킬 범위 발동(a2b7c16c, 사용자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(사용자 결정 2026-10-07: upstream 사용). 「미확정」 표시는 유지.
   `local-skill-range.js`·관련 테스트 삭제. 赤刃明霄陈 S3를 공중 적만으로 켜던 `hitsFly`는 upstream 규칙에 없다 — 읽는 곳이 없던
   남은 플래그는 `kits/ops/op-chen3.js`에서 지웠다(2026-10-08 세션 K, 동작 영향 없음: golden 전부 일치).
 - 사야 늑대(PR #225)·와파린·라플란드·페페 등은 upstream 구현으로 대체, PR #225가 바꾼 upstream 테스트는 upstream 판으로 되돌렸다.
@@ -32,14 +32,14 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 **선발 오퍼레이터 → upstream 「自选」 틀 (사용자 결정: 후보는 우리 5명만, 시제품 없음)**
 - 슬롯·재고·상점·로드아웃·로비 `room.diy`는 upstream(`shared/diy.js`, `server/match/player/diy.js`, 클라이언트 자선 편성 탭).
 - 후보 제한: `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶). `server/lobby.js` 2줄 — `room.diy` 검사와
-  welcome의 `diyKitted`(클라이언트 고르기 화면이 이것만 보여 준다)를 이 목록으로 거른다. 하드 포크 뒤(1f92d3cc, 2026-10-07) 데이터도 이 5명뿐이다 —
+  welcome의 `diyKitted`(클라이언트 고르기 화면이 이것만 보여 준다)를 이 목록으로 거른다. 하드 포크 뒤(1684ef83, 2026-10-07) 데이터도 이 5명뿐이다 —
   `tools/build-data.mjs`가 `data/backups.json diy.ownedPool`을 이 목록으로 만들고 `diy.prototypes`는 비어 있으며, 나머지 67명의 키트(`kits/ops/op-<code>.js`·
   `OPERATOR_KIT_FILES` 항목·`kits/shared/summoner.js`)와 그 테스트(`test/content/op_<code>.test.js`)는 지웠다. 로비 검사는 데이터 위에 한 겹 더 거르는 것이다.
   `shared/diy.js`(upstream 틀)는 그대로.
 - 丰川祥子: upstream은 콜라보를 뺀다. `tools/build-data.mjs DIY_LOCAL_INCLUDED`로 보유 풀에 넣어 `data/backups.json`에 그녀의 units/operators가 생긴다.
 - 키트: `kits/ops/op-wang.js`·`op-chen3.js`·`op-wisdel.js`·`op-ascln.js`는 우리 키트(옛 `kits/diy.js`)로 교체, `op-oblvns.js` 새로 추가.
   upstream 키트와의 동작 차이는 `research/2026-10-07-diy-kit-diff.md`(근거 비교) — 사용자 승인(2026-10-07)으로 반영했다:
-  维什戴尔 4225a201, 赤刃明霄陈 ef896103, 望 1f074a94, 阿斯卡纶 de3067f5. 그 뒤 바뀐 望 규칙은 `docs/rules/diy.md`.
+  维什戴尔 16571145, 赤刃明霄陈 7057041a, 望 ab6b6d25, 阿斯卡纶 dbe94796. 그 뒤 바뀐 望 규칙은 `docs/rules/diy.md`.
 - 정예화 보상(사용자 결정 2026-10-07): 보상 단계 = 조달 레벨 + 1(최대 6) 그대로, 그 단계의 선발 오퍼도 후보에 든다 — upstream은 상점의
   조달 레벨 조건을 보상에도 걸어 V단계 선발이 보상에 한 번도 안 나왔다. `server/match/player/acquire.js pushRewardOffer` 1줄(`diyStockEntries`),
   테스트 `test/local-patch-diy-reward.test.js`.
@@ -70,7 +70,7 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   **사용자 결정 2026-10-08 「C」**: 낙하·사망음·배치음은 그대로, 部署 대사만 뺀다 — `audio.js` 'deploy'가 같은 묶음에 그 유닛의 'revive' fx
   (`reviveNow` 뒤 `fxOn`)가 있으면 대사를 건너뛴다. 확인: 실제 솔로 판(fastServer SP_START_ROUND=boss, M3茧甲 금색, `k_revive.mjs`) 부활 2번 모두
   `b_char_dead`·`b_char_set`·`onDeploy`만, 대사 없음; 단위 `test/local-patch-audio.test.js`.
-- K-6 문서: 싱글 보스 HP ×0.25(cfadd871) 반영, `op-chen3.js`의 읽는 곳 없는 `hitsFly` 삭제.
+- K-6 문서: 싱글 보스 HP ×0.25(ccf1e0d3) 반영, `op-chen3.js`의 읽는 곳 없는 `hitsFly` 삭제.
 
 **병합 뒤 겹친 기능 정리 — 화면 UI (2026-10-08 세션 J)** (같은 조사 목록. 확인: 실제 솔로 판 `test/e2e/fastServer.mjs` 3127(SP_START_ROUND=2·
 SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg.addDiy` 望 정예, `sp-check\j_repro.mjs`), 서버 전투 모드 3129(`SP_COMBAT=server`),
@@ -100,7 +100,7 @@ SP_START_LEVEL=5·补位 3명 `room.ownership`·`room.diy` 赤刃明霄陈·`dbg
   우리 테두리를 짝 두 명 모두 초록(#59ffd2)으로(`css/hud-art.css`, [추정]: 보스 라운드 플레이어 목록 캡처 없음). 공식 HUD가 아닐 때는 upstream 그대로.
 - J-8 补位 기물의 공식 모양 상세 카드(`ui/detailArt.js ChessDetailArt`)가 원래 오퍼(갖고 있지 않은 오퍼)의 그림·이름·스탯을 보였다 → upstream `ChessDetail`처럼
   대체 오퍼의 그림·직군·이름·스탯·사거리(그의 고정 스킬·모듈), 「替补」 태그와 「X의 대체」 줄. 등급·정예 레벨·맹약·특질은 기물 것.
-- 드래그 카드(사용자 제보 2026-10-08 「선발 오퍼를 드래그-유지하면 0.2.0 카드」): `placingDetail`이 m.private 없이 기물을 풀어서 선발 슬롯 기록 그대로
+- 드래그 카드(사용자 제보 2026-10-08): `placingDetail`이 m.private 없이 기물을 풀어서 선발 슬롯 기록 그대로
   「선발 오퍼레이터」(스탯 —)를 보였다 → 탭과 같은 `resolveDetail(…, { priv, backups })`. 补位 기물도 드래그 중 대체 오퍼 카드.
 - J-9 (의심) 선발 정예 카드 스탯: 확인만 — 공식 모양 카드·0.2.0 카드·전투 유닛(`simdata.js getDiy`)의 스탯·스킬·모듈이 望·赤刃明霄陈·阿斯卡纶·维什戴尔 모두 같다.
   카드도 0.2.0 카드와 같은 조회(`pickGetter`)를 쓰게 맞추고 테스트로 고정.
@@ -141,8 +141,7 @@ upstream 0.1.4 위에 원본의 버그 수정을 먼저 가져왔다. **원본 �
 - (대체됨, 2026-10-09 sim-4) upstream `8cef750e`(GitHub #263, 사용자 결정 2026-10-09 #7)이 이 수정을 덮는다: 꽉 찬 오퍼레이터에는 소모 아이템
   전부(박사 투영·맹약의 동전 등)가 교체 창을 띄우고 고른 장비를 먼저 파괴한다(PRTS 「达到上限强行佩戴会改为替换装备」). `itemAttaches`는 없어지고
   `equipReplaces`가 대신한다. 테스트 「博士投影 and 盟约之币 on a full operator」. 아래는 옛 기록 —
-  일반 박사 투영(博士投影, 장비)이 꽉 찬 오퍼레이터의 장비를 말없이 파괴 (2026-10-09 사용자 제보 「구성체 아이템 장착 후 정예화 아이템 장착시, 구성체가
-  증발」): `consume_on_equip_or_delayed`의 일반본은 다음 라운드 시작까지 장착된 채 남는데(`builtinMeta.js equip_round_start_upgrade_char` `keep`),
+  일반 박사 투영(博士投影, 장비)이 꽉 찬 오퍼레이터의 장비를 말없이 파괴 (2026-10-09 사용자 제보): `consume_on_equip_or_delayed`의 일반본은 다음 라운드 시작까지 장착된 채 남는데(`builtinMeta.js equip_round_start_upgrade_char` `keep`),
   클라이언트 `placement.js itemAttaches`는 `consume_on_equip*` 전부를 「칸을 안 씀」으로 보고 교체 창을 띄우지 않았고, 서버 `player/items.js equip`의
   `keep` 경로는 `replaceUid`를 넘기지 않아 가장 먼저 장착한 장비(변형 구조체)를 버렸다. → 일반 박사 투영도 교체 창을 띄우고, 서버는 고른 장비를 바꾼다
   (금빛 박사 투영은 즉시 정예화·소모라 그대로 창 없음). 테스트 `test/ui/leftovers.test.js` 「a normal 博士投影 on a full operator asks too」.
