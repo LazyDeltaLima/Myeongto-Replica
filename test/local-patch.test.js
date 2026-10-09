@@ -506,7 +506,7 @@ test('/healthz through the proxy: build only, no counters (server/local-patch.js
     assert.ok('sockets' in direct && 'rooms' in direct && direct.build);
     const viaProxy = await (await fetch(url, { headers: { 'X-Forwarded-For': '1.2.3.4' } })).json();
     assert.deepEqual(Object.keys(viaProxy).sort(), ['app', 'build', 'local', 'ok', 'version']);
-    assert.match(viaProxy.local, /^\d+\.\d+\.\d+$/, 'local version (shared/local.js LOCAL_VERSION), app = the upstream base');
+    assert.match(viaProxy.local, /^\d+\.\d+\.\d+$/, '`local` repeats APP_VERSION since 1.2.0 (shared/local.js localVersion) for oci/deploy.sh');
     assert.equal(viaProxy.build, direct.build);
   } finally { await srv.close(); }
 });

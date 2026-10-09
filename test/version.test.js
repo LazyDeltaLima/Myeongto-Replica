@@ -8,7 +8,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_VERSION, PROTOCOL_VERSION, DEV_BUILD } from '../shared/constants.js';
 import { isDevVersion } from '../tools/package.mjs';
-import { LOCAL_VERSION } from '../shared/local.js';
+import { localVersion } from '../shared/local.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -39,19 +39,21 @@ test('CHANGELOG.md opens with the release version', () => {
   assert.match(log, /^## 0\.1\.0 — 2026-10-02/m, 'the first public release stays listed');
 });
 
-test('the README shows our own version and the upstream base (user decision 2026-10-09: the deployed version)', () => {
+test('the README shows the deployed version, with no upstream base beside it (user decisions 2026-10-09)', () => {
   const readme = read('README.md');
-  // shields.io escapes a '-' inside a badge field as '--'; bump the README with LOCAL_VERSION
-  assert.match(readme, new RegExp(`badge/version-${LOCAL_VERSION.replace(/-/g, '--').replace(/\./g, '\\.')}-`), 'the README badge');
-  assert.match(readme, new RegExp(`v${LOCAL_VERSION.replace(/\./g, '\\.')} · BASE ${APP_VERSION.replace(/\./g, '\\.')}`), 'the title-screen footer quoted in the README');
+  // shields.io escapes a '-' inside a badge field as '--'; bump the README with APP_VERSION
+  assert.match(readme, new RegExp(`badge/version-${APP_VERSION.replace(/-/g, '--').replace(/\./g, '\\.')}-`), 'the README badge');
+  assert.match(readme, new RegExp(`\`v${APP_VERSION.replace(/\./g, '\\.')} · WEB SIMULATION\``), 'the title-screen footer quoted in the README');
+  assert.ok(!/BASE \d|badge\/base-/.test(readme), 'no upstream base shown: the hard fork stays at 0.2.0 for good');
 });
 
 test('the release version is what players see', () => {
-  // local patch (LOCAL-PATCH.md 「버전 표기」): the local version (shared/local.js localVersion) first, upstream's APP_VERSION as the base
-  assert.match(read('public/js/screens/title.js'), /v\$\{localVersion\(\)\} · BASE \$\{APP_VERSION\}/, 'title screen footer');
+  // docs/rules/README.md 「버전 표기」: one version since 1.2.0 — APP_VERSION is ours, localVersion() only repeats it
+  assert.equal(localVersion(), APP_VERSION);
+  assert.match(read('public/js/screens/title.js'), /v\$\{APP_VERSION\} · WEB SIMULATION/, 'title screen footer');
   assert.ok(!/PROTOCOL v1/.test(read('public/js/screens/title.js')), 'no protocol number posing as a version');
   // the server's entry is server/index.js; the banner and /healthz live in server/http/ (boot.js, routes.js)
-  assert.match(read('server/http/boot.js'), /Stronghold Protocol: Alliance v\$\{localVersion\(\)\} \(base \$\{APP_VERSION\}\)/, 'boot banner');
+  assert.match(read('server/http/boot.js'), /Stronghold Protocol: Alliance v\$\{APP_VERSION\}`/, 'boot banner');
   assert.match(read('server/http/routes.js'), /app: APP_VERSION, local: localVersion\(\)/, '/healthz');
 });
 

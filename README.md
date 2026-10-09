@@ -4,8 +4,7 @@
 
 [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) v0.2.0에서 갈라져 나온 **한국어 하드 포크**입니다.
 
-![version](https://img.shields.io/badge/version-1.1.0-2ea44f)
-![base](https://img.shields.io/badge/base-Stronghold--Protocol%200.2.0-lightgrey)
+![version](https://img.shields.io/badge/version-1.2.0-2ea44f)
 ![license](https://img.shields.io/badge/code%20license-GPL--3.0--or--later-blue)
 ![node](https://img.shields.io/badge/node-22%20%7C%2024-339933)
 
@@ -30,7 +29,7 @@ English summary: [below](#english) · 中文说明：[见下](#中文)
 - **선발 오퍼레이터**는 키트를 직접 구현하고 공식 동작과 대조한 5명만 고를 수 있습니다: 왕, 첸 더 던스트릭, 위셔델, 토가와 사키코, 아스카론.
 - **원본과의 관계.** 2026-10-07에 v0.2.0을 병합한 것이 마지막입니다. 그 뒤로는 원본의 버그 수정과 기능을 골라서 손으로 옮겨 옵니다([docs/rules/upstream.md](docs/rules/upstream.md)).
 
-현재 버전은 **1.1.0**(기반: 원본 0.2.0)이고, 타이틀 화면 아래에 `v1.1.0 · BASE 0.2.0`으로 표시됩니다. 완성본 zip(Releases)은 배포하지 않으므로 소스에서 실행합니다.
+현재 버전은 **1.2.0**이고, 타이틀 화면 아래에 `v1.2.0 · WEB SIMULATION`으로 표시됩니다. 버전은 이 저장소가 매기며 원본 버전을 함께 적지 않습니다(1.1.0까지는 원본 버전 0.2.0을 함께 적었습니다). 완성본 zip(Releases)은 배포하지 않으므로 소스에서 실행합니다.
 
 ## 실행하기
 

@@ -14,14 +14,14 @@
 //                  the server's inbox (server/local-feedback.js); welcome `feedback: true` while the inbox is on
 
 import { EMOTE_SETS } from './emote-art.js';
+import { APP_VERSION } from './constants.js';
 import { N_ } from './i18n.js';
 
-// local version (docs/LOCAL-PATCH.md "버전 표기"): this server's own semver, independent of upstream's APP_VERSION
-// (shared/constants.js), which is shown beside it as the base. major = a big direction change, minor = a deploy with
-// new features / screens, patch = a fix-only deploy; merging an upstream release changes only the base.
-export const LOCAL_VERSION = '1.1.0';
-/** @returns {string} the local version (the `app` argument is kept for the callers; the base is shown separately) */
-export const localVersion = () => LOCAL_VERSION;
+// local version (docs/rules/README.md 「버전 표기」): since 1.2.0 it is APP_VERSION (shared/constants.js) itself — the hard
+// fork has no upstream base to show beside it. Kept for /healthz `local` and the feedback records, which oci/deploy.sh and
+// oci/feedback.sh read (a server before 1.2.0 sends its own number there and the upstream base as `app`).
+/** @returns {string} the version */
+export const localVersion = () => APP_VERSION;
 
 // the deploy's restart countdown (server/local-restart.js, public/js/ui/restartNotice.js): in its last RESTART_FINAL_MIN
 // minutes no new match starts and the connection banner counts down (user 2026-10-09: 「재시작 직전 5분 전에 판을 막고,

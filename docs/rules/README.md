@@ -85,13 +85,18 @@
 `server/sim/content/local-patch.js`는 시뮬레이션 모듈이라 서버와 브라우저(클라이언트가 돌리는 보스·히든 전투) 양쪽에서 실행된다.
 `server/local-patch.js`는 서버 전용이다.
 
-## 버전 표기 (2026-10-06, 사용자 결정)
-- 로컬 판은 **자체 버전**(semver)을 쓴다: `shared/local.js LOCAL_VERSION`, 1.0.0부터(공식 화면 재현판이 첫 정식판). upstream `APP_VERSION`은 「기반」으로만 붙는다.
-  처음 안 `0.1.4+mangho.N`은 "원본에 붙은 덧패치"로 읽혀서 사용자가 바꿈.
-- 올리는 규칙: 앞자리 = 큰 방향 전환(새 시즌 데이터 등), 가운데 = 기능·화면이 바뀐 배포, 끝자리 = 버그 수정만 있는 배포. upstream 병합은 기반 숫자만 바꾼다.
-- 보이는 곳: 타이틀 `v1.0.0 · BASE 0.1.4 · WEB SIMULATION`(title.js 1줄, 옆의 WEB SIMULATION처럼 영어 — 사용자 결정), `/healthz`의 `local`(기반은 원래 `app`), 서버 시작 로그.
-- **배포 순서:** `LOCAL_VERSION`을 올리고 `README.md`의 버전 배지와 `v… · BASE …` 문구도 같이 고쳐 커밋(`test/version.test.js`가 확인,
-  README에 배포 버전을 쓰기로 한 사용자 결정 2026-10-09) → `oci/deploy.sh`. STRONGHOLD.md 배포 기록에 버전도 적는다.
+## 버전 표기 (2026-10-06, 사용자 결정; 2026-10-09 하나로 합침)
+- 로컬 판은 **자체 버전**(semver)을 쓴다. 1.0.0부터(공식 화면 재현판이 첫 정식판). 처음 안 `0.1.4+mangho.N`은 "원본에 붙은 덧패치"로 읽혀서 사용자가 바꿈.
+- **1.2.0부터 버전은 하나**(사용자 결정 2026-10-09): 하드 포크로 원본 기반 숫자가 0.2.0에 멈췄고(0.2.1·0.2.2 수정은 이미 옮겨 와서 오히려
+  틀린 정보), 그래서 `shared/constants.js APP_VERSION` 자체를 우리 버전으로 쓴다. `package.json`·`package-lock.json`·`CHANGELOG.md` 첫 항목이 같은 값
+  (`test/version.test.js`). 1.1.0까지 쓰던 `shared/local.js LOCAL_VERSION`과 타이틀의 `BASE 0.2.0`은 없앴다. `localVersion()`은 `APP_VERSION`을
+  그대로 돌려주며 `/healthz`·피드백 기록의 `local` 칸에 남는다(`oci/deploy.sh`·`oci/feedback.sh`가 읽고, 1.2.0 전 서버는 그 칸에 자체 버전, `app`에 원본 기반을 보낸다).
+  언어 팩의 `app` 범위 `>=0.2.0`은 1.2.0도 만족하므로 그대로 둔다.
+- 올리는 규칙: 앞자리 = 큰 방향 전환(새 시즌 데이터 등), 가운데 = 기능·화면이 바뀐 배포, 끝자리 = 버그 수정만 있는 배포.
+- 보이는 곳: 타이틀 `v1.2.0 · WEB SIMULATION`(title.js 1줄, 영어 — 사용자 결정), `/healthz`의 `app`·`local`, 서버 시작 로그.
+- **배포 순서:** `APP_VERSION`, `package.json`·`package-lock.json`의 version, `CHANGELOG.md` 첫 항목(`## x.y.z — 날짜`), `README.md`의 버전 배지와
+  `v… · WEB SIMULATION` 문구를 같이 고쳐 커밋(`test/version.test.js`가 확인, README에 배포 버전을 쓰기로 한 사용자 결정 2026-10-09)
+  → `oci/deploy.sh`. STRONGHOLD.md 배포 기록에 버전도 적는다.
 
 ## 테스트
 - `node --test test/local-patch.test.js` — 로컬 테스트 109개.
