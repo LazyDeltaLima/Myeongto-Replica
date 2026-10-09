@@ -32,11 +32,14 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 **선발 오퍼레이터 → upstream 「自选」 틀 (사용자 결정: 후보는 우리 5명만, 시제품 없음)**
 - 슬롯·재고·상점·로드아웃·로비 `room.diy`는 upstream(`shared/diy.js`, `server/match/player/diy.js`, 클라이언트 자선 편성 탭).
 - 후보 제한: `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶). `server/lobby.js` 2줄 — `room.diy` 검사와
-  welcome의 `diyKitted`(클라이언트 고르기 화면이 이것만 보여 준다)를 이 목록으로 거른다. upstream 데이터(72명 보유 풀, 시제품)·키트·`shared/diy.js`는 그대로라
-  매치·시뮬·upstream 테스트는 아무 픽이나 세울 수 있다.
+  welcome의 `diyKitted`(클라이언트 고르기 화면이 이것만 보여 준다)를 이 목록으로 거른다. 하드 포크 뒤(0c8e2893, 2026-10-07) 데이터도 이 5명뿐이다 —
+  `tools/build-data.mjs`가 `data/backups.json diy.ownedPool`을 이 목록으로 만들고 `diy.prototypes`는 비어 있으며, 나머지 67명의 키트(`kits/ops/op-<code>.js`·
+  `OPERATOR_KIT_FILES` 항목·`kits/shared/summoner.js`)와 그 테스트(`test/content/op_<code>.test.js`)는 지웠다. 로비 검사는 데이터 위에 한 겹 더 거르는 것이다.
+  `shared/diy.js`(upstream 틀)는 그대로.
 - 丰川祥子: upstream은 콜라보를 뺀다. `tools/build-data.mjs DIY_LOCAL_INCLUDED`로 보유 풀에 넣어 `data/backups.json`에 그녀의 units/operators가 생긴다.
 - 키트: `kits/ops/op-wang.js`·`op-chen3.js`·`op-wisdel.js`·`op-ascln.js`는 우리 키트(옛 `kits/diy.js`)로 교체, `op-oblvns.js` 새로 추가.
-  upstream 키트와의 동작 차이는 `research/2026-10-07-diy-kit-diff.md`(근거 비교, 사용자 결정 대기).
+  upstream 키트와의 동작 차이는 `research/2026-10-07-diy-kit-diff.md`(근거 비교) — 사용자 승인(2026-10-07)으로 반영했다:
+  维什戴尔 1b774cc9, 赤刃明霄陈 758c9591, 望 902312bb, 阿斯卡纶 068367e8. 그 뒤 바뀐 望 규칙은 `docs/rules/diy.md`.
 - 정예화 보상(사용자 결정 2026-10-07): 보상 단계 = 조달 레벨 + 1(최대 6) 그대로, 그 단계의 선발 오퍼도 후보에 든다 — upstream은 상점의
   조달 레벨 조건을 보상에도 걸어 V단계 선발이 보상에 한 번도 안 나왔다. `server/match/player/acquire.js pushRewardOffer` 1줄(`diyStockEntries`),
   테스트 `test/local-patch-diy-reward.test.js`.
