@@ -189,8 +189,20 @@ function onRoomState(msg) {
     return;
   }
   const prevRoom = store.get().room;
-  // A (new) match starts: forget the previous match's state so stale results never show.
-  if (room.inMatch && !(prevRoom && prevRoom.inMatch && prevRoom.code === room.code)) store.set({ match: emptyMatch() });
+  const sameRoom = !!prevRoom && prevRoom.code === room.code;
+  // the briefing's vote ended the match (server phases.js maybeEndInfo): 'reroll' | 'split'
+  const outcome = sameRoom && prevRoom.inMatch ? store.get().match.public?.infoOutcome : null;
+  // A (new) match starts: forget the previous match's state so stale results never show — also when a briefing reroll
+  // replaced the match while inMatch stayed true (a new matchNo).
+  if (room.inMatch && !(sameRoom && prevRoom.inMatch && prevRoom.matchNo === room.matchNo)) {
+    store.set({ match: emptyMatch() });
+    if (outcome === 'reroll' && room.mode === 'coop') toast(t('已重新抽取本局信息'), 'info');
+  } else if (!room.inMatch && outcome) {
+    // a tied vote, or a reroll the server could not start (the deploy's restart countdown): straight back to the room
+    // (there is no result to show)
+    store.set({ match: emptyMatch() });
+    toast(outcome === 'split' ? t('就绪与重新抽取票数相同，已返回等待室') : t('无法开始新的模拟，已返回等待室'), 'warn', { ttl: 6000 });
+  }
   store.set({ room });
   if (room.mode === 'coop' && typeof room.code === 'string') rememberRoom(room.code);
   maybeFinishRestore();

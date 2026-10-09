@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1016 of 1230 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1023 of 1237 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1247,5 +1247,12 @@
   "精英2": "정예2",
   "精英2 Lv.60": "정예2 Lv.60",
   "开始模拟前可调整干员携带的技能与模组，以及潜能与练度；干员的局内等级不可调整": "시뮬레이션 시작 전에 오퍼레이터의 스킬과 모듈, 잠재능력과 육성도를 조정할 수 있습니다. 게임 내 오퍼레이터 레벨은 조정할 수 없습니다",
-  "默认满潜能、精英2 Lv.60（满加成）。官方的潜能取你自己的潜能，练度是自持有加成（已持有的同名干员的养成，攻击 / 防御 / 生命单独乘算）；未持有的特许干员在官方按潜能1、没有加成，要照官方打请手动设为潜能1、未精英化。": "기본값은 최대 잠재능력, 2차 정예화 Lv.60(최대 보너스)입니다. 공식에서 잠재능력은 자신이 보유한 오퍼레이터의 잠재능력이고, 육성도는 자체 보유 보너스(보유한 같은 오퍼레이터의 육성 상태, 공격 / 방어 / HP에 따로 곱함)입니다. 보유하지 않은 특별 허가 오퍼레이터는 공식에서 잠재능력 1, 보너스 없이 출전하므로, 공식대로 하려면 직접 잠재능력 1, 비정예화로 설정하세요."
+  "默认满潜能、精英2 Lv.60（满加成）。官方的潜能取你自己的潜能，练度是自持有加成（已持有的同名干员的养成，攻击 / 防御 / 生命单独乘算）；未持有的特许干员在官方按潜能1、没有加成，要照官方打请手动设为潜能1、未精英化。": "기본값은 최대 잠재능력, 2차 정예화 Lv.60(최대 보너스)입니다. 공식에서 잠재능력은 자신이 보유한 오퍼레이터의 잠재능력이고, 육성도는 자체 보유 보너스(보유한 같은 오퍼레이터의 육성 상태, 공격 / 방어 / HP에 따로 곱함)입니다. 보유하지 않은 특별 허가 오퍼레이터는 공식에서 잠재능력 1, 보너스 없이 출전하므로, 공식대로 하려면 직접 잠재능력 1, 비정예화로 설정하세요.",
+  "重新抽取": "다시 뽑기",
+  "已申请重新抽取": "다시 뽑기 신청함",
+  "重新抽取首领、战场、特训敌人与禁用盟约": "리더 적·전장·특훈 적·결석 맹약을 다시 뽑습니다",
+  "投票重新抽取首领、战场、特训敌人与禁用盟约：重抽票多于就绪票时重新抽取，票数相同则返回等待室": "리더 적·전장·특훈 적·결석 맹약 다시 뽑기 투표: 다시 뽑기가 준비 완료보다 많으면 다시 뽑고, 같으면 대기실로 돌아갑니다",
+  "已重新抽取本局信息": "이번 판 정보를 다시 뽑았습니다",
+  "就绪与重新抽取票数相同，已返回等待室": "준비 완료와 다시 뽑기가 같은 수라 대기실로 돌아왔습니다",
+  "无法开始新的模拟，已返回等待室": "새 시뮬레이션을 시작할 수 없어 대기실로 돌아왔습니다"
 }

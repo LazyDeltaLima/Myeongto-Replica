@@ -409,6 +409,8 @@ export const C2S = {
 
   // match
   'g.infoReady': {},
+  // the briefing's 重新抽取 vote (server/match/match/phases.js maybeEndInfo): ready OR reroll
+  'g.infoReroll': {},
   'g.band': { bandId: isId },
   'g.bandSkip': {},
   // the strategy highlighted in the draft screen (user playtest #4 item 4): a turn that runs out takes it while it is

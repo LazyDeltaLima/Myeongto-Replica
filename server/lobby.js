@@ -225,6 +225,8 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       inMatch: !!this.match,
+      // the room's match number (DESIGN §14): a briefing reroll replaces the match while inMatch stays true
+      matchNo: this.matchCount,
       maxBots: localPatch.maxBotsSetting(), // local patch
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
@@ -741,15 +743,23 @@ export class Lobby {
     return OK;
   }
 
-  /** onEnd callback: return the room to LOBBY and dispose the match on the next macrotask. */
+  /**
+   * onEnd callback: return the room to LOBBY and dispose the match on the next macrotask. The briefing's vote
+   * (Match phases.js maybeEndInfo) ends a match before its first round with reason 'reroll' — a new match with a new seed
+   * starts at once, without room.start's ready check (the vote was the agreement) — or 'split' (back to the room); nothing
+   * was played, so no lastSummary ([stats] line) and no replay. The chat factions are cleared either way (players pick
+   * one after seeing the banned bonds, user 2026-10-09).
+   */
   onMatchEnd(room, ctx, summary) {
     if (ctx.ended || !ctx.live || room.matchCtx !== ctx || room.disposed) return;
     ctx.ended = true;
-    room.lastSummary = summary ?? null;
+    const vote = summary?.reason === 'reroll' || summary?.reason === 'split';
+    const key = room.matchKey;
+    room.lastSummary = vote ? null : summary ?? null;
     room.match = null;
     room.matchCtx = null;
     room.matchKey = null;
-    room.replay = this.buildReplay(room, ctx);
+    room.replay = vote ? null : this.buildReplay(room, ctx);
     setImmediate(() => this.disposeMatchCtx(ctx));
     this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended`);
     localPatch.onMatchEnd(this, room); // local patch: chat factions last one match
@@ -764,7 +774,11 @@ export class Lobby {
     const host = room.hostId ? room.seatOf(room.hostId) : null;
     if (!host || host.isBot || host.left) this.migrateHost(room);
     if (room.activeHumans().length === 0) this.disposeRoom(room, 'empty');
-    else this.broadcastState(room);
+    else if (summary?.reason === 'reroll' && !this.restartNotice?.startRefusal()) {
+      // the old match goes now: the new one may reuse nothing of it (startMatch broadcasts the room.state)
+      this.disposeMatchCtx(ctx);
+      this.startMatch(room, key);
+    } else this.broadcastState(room);
   }
 
   /** Match unicast; m.result frames are also kept for the replay. */

@@ -37,7 +37,7 @@ export class MatchViews {
     if (ps.left) return 'left';
     if (!ps.alive) return 'dead';
     switch (this.phase) {
-      case PHASE.INFO_CHECK: return ps.infoReady ? 'ready' : 'deciding';
+      case PHASE.INFO_CHECK: return ps.infoReady || ps.infoReroll ? 'ready' : 'deciding';
       case PHASE.BAND_DRAFT:
         if (this.draft && this.draft.picks[ps.playerId]) return 'ready';
         return this.draft && this.draftTurn() === ps.playerId ? 'deciding' : 'acting';
@@ -96,6 +96,8 @@ export class MatchViews {
         shopLevel: ps.shop.level,
         boardCount: ps.deployCount,
         ready: this.phase === PHASE.INFO_CHECK ? ps.infoReady : ps.ready,
+        // the briefing's 重新抽取 vote (phases.js maybeEndInfo), only while INFO_CHECK runs
+        ...(this.phase === PHASE.INFO_CHECK && ps.infoReroll ? { reroll: true } : {}),
         // the strip of a teammate watching this player (DESIGN §20.15): every bond with members, layers or an active tier
         // (= the player's own m.private list without thresholds / countsHand — the client reads those from bonds.json),
         // this round's in-battle gains included once the COMBAT phase ended (PlayerState.bondsView); [] once eliminated —
@@ -117,6 +119,8 @@ export class MatchViews {
       }),
     };
     if (this.teamLp != null) v.teamLp = Math.max(0, Math.round(this.teamLp));
+    // the briefing's vote ended the match: 'reroll' (a new match follows at once) | 'split' (back to the room)
+    if (this.infoOutcome) v.infoOutcome = this.infoOutcome;
     // 最终攻势 / 隐秘核心: when the overtime drain starts (ms epoch; `deadline` is the level's 120 s countdown)
     if ((this.phase === PHASE.FINAL_ASSAULT || this.phase === PHASE.HIDDEN_CORE) && this.overtimeAt) v.overtimeAt = this.overtimeAt;
     if (this.bossPool) v.bossHp = { hp: Math.max(0, Math.round(this.bossPool.hp)), max: Math.round(this.bossPool.maxHp) };

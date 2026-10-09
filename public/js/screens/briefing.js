@@ -1,11 +1,14 @@
 // Briefing — INFO_CHECK "1/2 确认本局信息" (research 06 §4.1, D1): enemy leader (silhouette, name,
 // abilities), stage (+ its pool: 战场固定 / 战场随机（共N张）), 特训敌人 factions (icon, name, description), the difficulty
-// tag, the ready count x/N with person pips, the 准备就绪 button (g.infoReady) and the countdown. The right column — 核心盟约
+// tag, the ready count x/N with person pips, the 准备就绪 button (g.infoReady) and the countdown. Next to it 重新抽取
+// (g.infoReroll, feat — user decision 2026-10-09; the official briefing has no such button): a vote instead of ready, one
+// or the other; alone it redraws at once, in co-op more reroll votes than ready ones redraw (a new match) and a tie
+// returns to the room (server phases.js maybeEndInfo). The right column — 核心盟约
 // / 附加盟约 rows of bond discs (disabled bonds greyed with the banned-member badge), the legend and the 本局禁用干员
 // avatars, with the player's own 自选 pieces out of the shop (m.private.diyBanned) — is ui/matchInfo.js MatchInfo, the same
 // blocks the strategy draft's 本局信息 dialog shows (screens/bandDraft.js).
 
-import { useState } from '../../vendor/hooks.module.js';
+import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel } from '../ui/components.js';
 import { useGameData, Img, RichText } from '../ui/gameComponents.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
@@ -27,13 +30,26 @@ export function BriefingScreen() {
   const myId = useStore((s) => s.me.playerId);
   const solo = useStore((s) => s.room?.mode === 'solo') || String(pub?.modeId || '').includes('single');
   const gd = useGameData();
+  const matchNo = useStore((s) => s.room?.matchNo ?? 0);
   const [exit, setExit] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(null);
+  // the server refuses 重新抽取 in the briefing's first second (phases.js INFO_REROLL_MIN_MS): the button waits as long
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    setArmed(false);
+    const h = setTimeout(() => setArmed(true), 1100);
+    return () => clearTimeout(h);
+  }, [matchNo]);
   if (!pub) return null;
 
   const players = sortedPlayers(pub);
   const me = players.find((p) => p.playerId === myId);
   const readyN = players.filter((p) => p.ready).length;
+  const rerollN = players.filter((p) => p.reroll).length;
+  // a single human decides alone (solo, or a 同盟 room with AI teammates only)
+  const alone = players.filter((p) => !p.isBot).length <= 1;
+  const voted = !!(me?.ready || me?.reroll);
+  const closing = !!pub.infoOutcome;
   const mode = gd.config?.modes?.[pub.modeId];
   // (+ the own 自选 pieces this match leaves out of the shop: m.private.diyBanned)
   const info = matchInfoModel(pub, { bonds: gd.list('bonds'), chess: gd.chess, mode, priv, diyData: { chess: data.get('chess'), backups: data.get('backups') } });
@@ -47,12 +63,14 @@ export function BriefingScreen() {
   const factions = gd.factions?.types || {};
   const m = gd.m;
 
-  const ready = async () => {
-    if (busy || me?.ready) return;
-    setBusy(true);
-    await actions.infoReady();
-    setBusy(false);
+  const vote = (kind) => async () => {
+    if (busy || voted || closing) return;
+    setBusy(kind);
+    await (kind === 'reroll' ? actions.infoReroll() : actions.infoReady());
+    setBusy(null);
   };
+  const rerollTip = alone ? t('重新抽取首领、战场、特训敌人与禁用盟约')
+    : t('投票重新抽取首领、战场、特训敌人与禁用盟约：重抽票多于就绪票时重新抽取，票数相同则返回等待室');
 
   return html`<div class="screen brief">
     <div class="brief__bg" aria-hidden="true"></div>
@@ -95,10 +113,14 @@ export function BriefingScreen() {
       <${LoadoutButton} from="briefing" size="lg" class="brief-loadout" />
       <div class="brief-ready">
         <span class="brief-ready__txt">${t('已就绪')} <b class="num">${readyN}</b><span class="num">/${players.length}</span></span>
-        <span class="brief-ready__pips">${players.map((p) => html`<i key=${p.playerId} class=${cx(p.ready && 'on', p.playerId === myId && 'me')} title=${p.name}><${Icon} name="user" /></i>`)}</span>
+        ${!alone && rerollN ? html`<span class="brief-ready__txt brief-ready__txt--rr" data-testid="reroll-count">${t('重新抽取')} <b class="num">${rerollN}</b></span>` : null}
+        <span class="brief-ready__pips">${players.map((p) => html`<i key=${p.playerId} class=${cx(p.ready && 'on', p.reroll && 'rr', p.playerId === myId && 'me')} title=${p.name}><${Icon} name=${p.reroll ? 'refresh' : 'user'} /></i>`)}</span>
       </div>
-      <${Button} variant="primary" size="xl" icon=${me?.ready ? 'check' : me ? 'play' : 'eye'} active=${!!me?.ready} loading=${busy}
-        disabled=${!!me?.ready || !me} onClick=${ready}>${me?.ready ? t('已就绪') : me ? t('准备就绪') : t('观战中')}<//>
+      ${me ? html`<${Button} variant="secondary" size="xl" icon="refresh" class="brief-reroll" data-testid="info-reroll" title=${rerollTip}
+        active=${!!me.reroll} loading=${busy === 'reroll' || pub.infoOutcome === 'reroll'} disabled=${voted || closing || !armed}
+        onClick=${vote('reroll')}>${me.reroll && !alone ? t('已申请重新抽取') : t('重新抽取')}<//>` : null}
+      <${Button} variant="primary" size="xl" icon=${me?.ready ? 'check' : me ? 'play' : 'eye'} active=${!!me?.ready} loading=${busy === 'ready'}
+        disabled=${voted || closing || !me} onClick=${vote('ready')}>${me?.ready ? t('已就绪') : me ? t('准备就绪') : t('观战中')}<//>
     </footer>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
   </div>`;

@@ -1,4 +1,5 @@
-// server/match/match/phases.js — Match methods: the round flow up to the prep — INFO_CHECK, the strategy draft
+// server/match/match/phases.js — Match methods: the round flow up to the prep — INFO_CHECK (with its reroll vote), the
+// strategy draft
 // (BAND_DRAFT: one countdown of BAND_TURN_SECONDS per turn, 队友已选, the highlighted strategy on a timeout, skips),
 // BATTLE_CHECK and ROUND_START (the round's enemies — a normal wave or the boss pairing — planned before the players'
 // round start).
@@ -10,24 +11,78 @@ import { pairPlayers } from '../finalAssault.js';
 import { botPickBand } from '../bot.js';
 import { OK, fail, DELAYS, BAND_TURN_SECONDS } from './common.js';
 
+/** The briefing's 重新抽取 is refused this long after INFO_CHECK starts (ms; MatchPhases.voteReroll). */
+export const INFO_REROLL_MIN_MS = 1000;
+
 export class MatchPhases {
   enterInfoCheck() {
     this.phase = PHASE.INFO_CHECK;
+    this.infoAt = this.sched.now();
     for (const ps of this.order) if (ps.botControlled) ps.infoReady = true;
-    // solo: no time limit (the player confirms); co-op: the official 25 s guard
-    this.setDeadline(this.soloUntimed ? 0 : this.gd.timer('infoCheck'), () => this.enterBandDraft());
+    // solo: no time limit (the player confirms); co-op: the official 25 s guard — a seat that has not voted then counts
+    // as ready (maybeEndInfo)
+    this.setDeadline(this.soloUntimed ? 0 : this.gd.timer('infoCheck'), () => this.maybeEndInfo(true));
     this.markPublic();
     for (const ps of this.order) this.markPrivate(ps);
     this.flush(true);
     this.maybeEndInfo();
   }
 
-  maybeEndInfo() {
-    if (this.phase !== PHASE.INFO_CHECK) return;
-    if (this.order.every((p) => p.isBot || p.left || p.infoReady)) {
-      this.setDeadline(0);
-      this.later(0, () => { if (this.phase === PHASE.INFO_CHECK) this.enterBandDraft(); });
+  /**
+   * The briefing's vote (feat, user decision 2026-10-09 — the official briefing has 准备就绪 only): every human seat
+   * still in the match votes 准备就绪 (infoReady) or 重新抽取 (infoReroll), one or the other, and cannot change it. AI
+   * seats and departed seats do not vote (an AI seat is ready at once, so with it a reroll could never be unanimous);
+   * spectators hold no seat. When every voter has voted — or the co-op 25 s guard runs out (`timeout`: a seat that has not
+   * voted counts as ready) — more ready votes start the strategy draft, more reroll votes end this match for a new one
+   * with a new seed (_endInfo('reroll'): the lobby starts it at once, so the boss, the hidden boss, the battlefield, the
+   * 特训敌人 and the banned bonds are all drawn again), and a tie ends it back to the room's lobby (_endInfo('split')). A
+   * single human decides alone (solo, or a 同盟 room with AI teammates only).
+   */
+  maybeEndInfo(timeout = false) {
+    if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return;
+    const voters = this.order.filter((p) => !p.isBot && !p.left);
+    if (!timeout && !voters.every((p) => p.infoReady || p.infoReroll)) return;
+    const reroll = voters.filter((p) => p.infoReroll).length;
+    const ready = voters.length - reroll;
+    this.setDeadline(0);
+    if (reroll > ready || (reroll && reroll === ready)) {
+      this.infoOutcome = reroll > ready ? 'reroll' : 'split';
+      this.markPublic();
+      this.later(0, () => this._endInfo());
+      return;
     }
+    this.later(0, () => { if (this.phase === PHASE.INFO_CHECK && !this.ended) this.enterBandDraft(); });
+  }
+
+  /** g.infoReroll: the seat's 重新抽取 vote (maybeEndInfo). Refused within INFO_REROLL_MIN_MS of the briefing's start,
+   *  so one held button cannot spin up matches back to back. */
+  voteReroll(ps) {
+    if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return fail(ERR.WRONG_PHASE);
+    if (ps.infoReady) return fail(ERR.ALREADY, 'already ready');
+    if (ps.infoReroll) return OK;
+    if (this.sched.now() - (this.infoAt ?? 0) < INFO_REROLL_MIN_MS) return fail(ERR.RATE, 'the briefing just started');
+    ps.infoReroll = true;
+    this.markPublic();
+    this.maybeEndInfo();
+    return OK;
+  }
+
+  /**
+   * The vote ended the match before its first round (this.infoOutcome 'reroll' | 'split'): no m.result — the last
+   * m.public carries `infoOutcome`, then onEnd({ reason }) hands the room back to the lobby, which starts the new
+   * match for a reroll (server/lobby.js onMatchEnd). Nothing was played: no [stats] line, no replay.
+   */
+  _endInfo() {
+    if (this.ended || this.disposed || this.phase !== PHASE.INFO_CHECK) return;
+    this.ended = true;
+    this.cancel(this._phaseTimer);
+    for (const h of this._timers) { try { this.sched.clearTimeout(h); } catch { /* ignore */ } }
+    this._timers.clear();
+    this.deadline = 0;
+    this.markPublic();
+    try { this.flush(true); } catch (e) { this.reportError('flush', e); }
+    const summary = { reason: this.infoOutcome, modeId: this.modeId, difficulty: this.difficulty, stageId: this.stageId, bossId: this.bossId, players: [] };
+    try { this.onEndFn(summary); } catch (e) { this.reportError('onEnd', e); }
   }
 
   /**
@@ -38,7 +93,7 @@ export class MatchPhases {
    * (timeoutBand). Solo, and any single-human match (soloUntimed): untimed. Solo also keeps seat order and has no skip.
    */
   enterBandDraft() {
-    if (this.phase !== PHASE.INFO_CHECK) return;
+    if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return;
     this.phase = PHASE.BAND_DRAFT;
     const order = this.order.map((p) => p.playerId);
     if (!this.isSolo) this.rngDraft.shuffle(order);
