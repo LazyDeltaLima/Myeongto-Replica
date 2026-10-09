@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 989 of 1203 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 995 of 1209 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1220,5 +1220,11 @@
   "清空本机的统计数据": "이 기기의 통계 비우기",
   "本机数据：只保存在这个浏览器里，不会上传到服务器；同盟对局里队友的代号也会存在本机（导出文件里也有）。": "이 기기의 데이터: 이 브라우저에만 저장되고 서버로 올라가지 않습니다. 연합 시뮬레이션에서 함께한 팀원의 코드네임도 이 기기에 저장됩니다 (내보낸 파일에도 들어 있음).",
   "本机保存的统计数据无法读取，已另存为备份，从现在起重新记录。": "이 기기에 저장된 통계를 읽을 수 없어 백업으로 따로 두었습니다. 지금부터 새로 기록합니다.",
-  "有 {n} 条记录已损坏，已忽略。": "손상된 기록 {n}건을 무시했습니다."
+  "有 {n} 条记录已损坏，已忽略。": "손상된 기록 {n}건을 무시했습니다.",
+  "攻回": "공격 회복",
+  "受回": "피격 회복",
+  "自回": "자연 회복",
+  "常驻": "상시",
+  "瞬发": "즉시",
+  "部署触发": "배치 시 발동"
 }
