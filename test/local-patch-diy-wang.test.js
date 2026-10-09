@@ -184,6 +184,29 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
     assert.deepEqual(groups[0]?.fol[0], { r: 10, c: 5 }, 'up holds a down body, right a stone → down');
   });
 
+  test('a deployment on a 跟子\'s tile removes it — a stone\'s return, an operator\'s move (PRTS 铸子 备注; user decision 2026-10-09 #3)', () => {
+    // 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」: until 2026-10-09 the stone waited for the 跟子 to go off
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false,
+      units: [op(0, 11, 3), stone(11, 5, 50), stone(11, 6, 51), stone(12, 5, 52)] });
+    h.step(2);
+    h.b.players[0].dp = 99;
+    const fol = () => h.allies().filter((u) => u.mem?.wangFollower && u.alive);
+    const groups = trackDeployments(h.b);
+    useUp(h, stoneOn(h, 11, 5));
+    h.run(0.5);
+    useUp(h, stoneOn(h, 12, 5)); // comes back 0.5 s after 11,5, whose 跟子 takes its empty home first (up)
+    h.runUntil(() => groups.length, 5);
+    assert.deepEqual(groups[0].fol, [{ r: 12, c: 5 }], '11,5 is back, its 跟子 on the waiting stone\'s home 12,5');
+    h.runUntil(() => stoneOn(h, 12, 5).alive, 5);
+    assert.ok(stoneOn(h, 12, 5).alive, 'the stone came back at once — it did not wait for the 跟子');
+    assert.ok(!fol().some((f) => f.tileR === 12 && f.tileC === 5), 'the 跟子 on its tile is gone');
+    // an operator's move onto a 跟子 (乌尔比安-like moveRedeploy: "类似部署的行为")
+    const f = fol()[0];
+    assert.ok(f, 'a 跟子 is on the field (12,5\'s own)');
+    assert.ok(h.b.moveRedeploy(h.unit(1), f.tileR, f.tileC), '望 moves onto it');
+    assert.ok(!f.alive, 'removed by the move');
+  });
+
   test('W8: on a mirrored field (boss right side, drawn col → 20 − col) right and left swap', () => {
     const slots = BACKUPS.diy.slots;
     const base = Object.keys(slots).find((id) => slots[id].tier === 6);
@@ -337,10 +360,11 @@ describe('望 S3 through the real match path (seats[].diy → Match board → bu
 
 /**
  * Report 3 #2-3 (2026-10-08, user: 望 stones suspected to stack on one tile), through the real match path. Every tick:
- * no tile holds two placed stones, two 跟子, or a stone / 跟子 of hers with another ally. The one overlap the sim does
+ * no tile holds two placed stones, two 跟子, or a stone / 跟子 of hers with another ally. The one overlap the sim could
  * have (research/2026-10-08-report3-status.md 2-3): a used placed stone coming back on its home tile (Battle.redeploy
  * checks `_occ` only) onto a 跟子 — a projectile that holds no tile — put there by a neighbour's deployment while the
- * stone waited. Which rule removes it is the user's choice (pending); this pins that it is the only one.
+ * stone waited. PRTS 铸子 备注 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」 (user decision 2026-10-09 #3,
+ * upstream 5a045731 (b)): the return removes that 跟子 (`gone` counts them); until then the stone waited for it [추정].
  */
 describe('望 stones never share a tile (real match path, report 3 #2-3)', () => {
   const T6 = 'chess_char_6_diy1_a';
@@ -365,7 +389,14 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
     const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
     const how = new Map(); // unit → how it last came on the field ('redeploy' | 'stock' | 'follower')
     const spawn = b.spawnToken.bind(b), redeploy = b.redeploy.bind(b);
-    const seen = { redeploy: 0, stock: 0, follower: 0 };
+    const seen = { redeploy: 0, stock: 0, follower: 0, gone: 0 };
+    // a 跟子 retreated while another ally of hers stands on its tile = removed by that deployment (a trigger spends one
+    // with nobody on its tile: a 跟子 never lands on a unit's tile)
+    const retreat = b.retreat.bind(b);
+    b.retreat = (u, o) => {
+      if (u?.mem?.wangFollower && b.allyUnits.some((a) => a !== u && a.alive && a.deployed && a.tileR === u.tileR && a.tileC === u.tileC)) seen.gone++;
+      return retreat(u, o);
+    };
     b.spawnToken = (...a) => { const u = spawn(...a); if (u?.defId === STONE) { const k = a[4]?.kit?.follower ? 'follower' : 'stock'; how.set(u, k); seen[k]++; } return u; };
     b.redeploy = (u, o) => { const ok = redeploy(u, o); if (ok && u.defId === STONE) { how.set(u, 'redeploy'); seen.redeploy++; } return ok; };
     b.start();
@@ -407,13 +438,15 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
     side: [[11, 5], [12, 5], [10, 7], [11, 7], [12, 7], [9, 6]],
   };
   for (const [sk, layout, seed] of [[0, 'far', 1], [1, 'one', 2], [2, 'near', 1], [2, 'one', 1]]) {
-    test(`S${sk + 1} ${layout} seed ${seed}: no two placed stones / 跟子 on a tile — only a return onto a 跟子 overlaps`, async () => {
+    test(`S${sk + 1} ${layout} seed ${seed}: no two placed stones / 跟子 on a tile — a return onto a 跟子 removes it`, async () => {
       const r = await runWang({ sk, stones: LAYOUTS[layout], seed, until: 60 });
       assert.equal(r.errors.length, 0);
       assert.ok(r.seen.redeploy > 0 && r.seen.follower > 0, `returns and 跟子 happened (${JSON.stringify(r.seen)})`);
+      // (seen: far 0, one 1, near 3, S3 one 3) — fails on the former rule, where the stone waited and `gone` stayed 0
+      if (layout !== 'far') assert.ok(r.seen.gone > 0, `a deployment removed a 跟子 on its tile (${JSON.stringify(r.seen)})`);
       if (sk === 2) assert.ok(r.s3 > 0, 'S3 ran');
       if (layout === 'one') assert.ok(r.seen.stock > 0, 'stones deployed from the stock');
-      assert.deepEqual(r.pairs, [], 'nothing of hers ever shares a tile (a used stone waits while a 跟子 lies on its home)');
+      assert.deepEqual(r.pairs, [], 'nothing of hers ever shares a tile (a deployment on a 跟子 removes it)');
       for (const p of r.pairs) {
         assert.equal(p.kind, 'F+S', `only a stone with a 跟子 ever shares a tile (${JSON.stringify(p)})`);
         // the stone is the one that came: its return (Battle.redeploy) — never a stock deployment, never a 跟子 landing on a stone

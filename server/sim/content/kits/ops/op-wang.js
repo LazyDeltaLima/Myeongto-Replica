@@ -213,10 +213,12 @@ function wang(bb, chess, def) {
       const s3 = unit.skill?.active && unit.skill.id === 'skchr_wang_3';
       const s3Here = s3 && inHerRange(unit, t.homeR, t.homeC);
       if (!s3Here && walkersOnTile(battle, t.homeR, t.homeC).length) continue;
-      // [추정] (report 3 #2-3, 2026-10-08) nor while a 跟子 of hers lies there: a 跟子 holds no tile (`_occ`, PRTS 「不具有单位
-      // 相关的性质（例如占据空位等）」), so Battle.redeploy would bring the stone back onto it — two stones on one tile. It waits
-      // until the 跟子 goes off, as it waits for a stone S3 put on its tile (the drop below)
-      if (stoneAt(stonesOf(battle, unit), t.homeR, t.homeC)) continue;
+      // nor while a placed stone of hers stands there (S3 put one on its tile). A 跟子 there does not hold it: the return
+      // is a deployment on that tile, and PRTS 铸子 备注 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」 —
+      // the `deploy` hook below removes the 跟子 (user decision 2026-10-09 #3, upstream 5a045731 (b); until then [추정]
+      // report 3 #2-3, 2026-10-08: the stone waited for the 跟子 to go off)
+      const occupant = stoneAt(stonesOf(battle, unit), t.homeR, t.homeC);
+      if (occupant && !isFollower(occupant)) continue;
       if (placed(battle, unit).length >= st(unit).fieldCap) break; // never over the deploy limit (it would withdraw a stone)
       if (RETURN_USES_STOCK && st(unit).stock <= 0) break; // (the former stock rule, off) the stock is out: wait for S1 / S2
       if (!battle.redeploy(t, { free: false })) continue;
@@ -476,6 +478,16 @@ function wang(bb, chess, def) {
             battle.retreat(t, { reason: 'expired', permanent: true });
           }
         }, { owner: unit, priority: -20 });
+        // PRTS 铸子 备注 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」: any ally deploying on the tile of a
+        // 跟子 of hers — a placed stone coming back, a stone from the stock, an operator's redeploy or move — removes it (user
+        // decision 2026-10-09 #3, upstream 5a045731 (b); the battle-start deployment drops no 跟子 at all, so none is there then)
+        battle.on('deploy', (ctx) => {
+          const a = ctx.unit;
+          if (!a || a.side !== 'ally' || isFollower(a)) return;
+          for (const f of followers(battle, unit)) {
+            if (f !== a && f.tileR === a.tileR && f.tileC === a.tileC) battle.retreat(f, { reason: 'expired', permanent: true });
+          }
+        }, { owner: unit, priority: 50 });
         // a placed stone used up by its trigger waits for its redeploy (a 跟子 — a projectile — is simply gone)
         battle.on('death', (ctx) => {
           const t = ctx.unit;
