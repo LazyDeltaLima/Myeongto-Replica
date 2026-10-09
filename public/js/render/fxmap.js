@@ -139,7 +139,7 @@ export function boundEffects(bind, prefabs, n, role) {
  * What a skill activation plays on the caster: `start` once (each until its prefab ends), `loops` while the skill lasts —
  * the name mapping (effectsFor) ∪ the skill's own effects, minus
  *  - a prefab the operator's modes bind as an attack's cast / hit / trail: that attack's (수르트 S3's range is its hit on the
- *    target, 무에나 S3's range_01 the cast of each attack — 67a2bdb4's `_range` rule played them on the caster once more),
+ *    target, 무에나 S3's range_01 the cast of each attack — d8681af6's `_range` rule played them on the caster once more),
  *  - a prefab the skill puts on its targets or plays at its end (德克萨斯 S2's falling sword, 戴菲恩 S3's finisher pieces),
  *  - `kitOwned`: prefabs a kit event draws instead (余 S3's wall piece);
  * a prefab the skill itself casts plays once (start), not as a loop.

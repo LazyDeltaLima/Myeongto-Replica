@@ -53,8 +53,8 @@
 - **联防 화면** (2026-10-09, 사용자 제보 「협동 방어에 들어갈시, 우리 맵이 안나오고 옛날 upstream 맵이 나오고있어」): 0.2.0(upstream `8a436249`)부터
   联防은 템플릿 레벨 `act1autochess_escaped_single/_multi`에서 진행되는데, 클라이언트에 이 레벨의 씬이 없어(`scenes/activities/…/level_*`은 일반 11개뿐)
   절차 보드로 떨어졌다. **사용자 결정 2026-10-09**: 공식 联防 화면은 그 판 맵 그대로(장애물·물 포함).
-  처음(`24d6a7ba`)에는 템플릿 맵에 `sceneId` = 라운드 맵을 붙여 씬만 바꿨다(칸·경로는 템플릿 그대로라 유닛이 장애물 그림 위에 설 수 있었다).
-  지금은 联防 자체가 그 라운드 전장에서 진행된다(upstream `75202776`, sim-2 `473ce4af` — 지형·상자·물·기기 포함, `docs/rules/sim.md`
+  처음(`205159bc`)에는 템플릿 맵에 `sceneId` = 라운드 맵을 붙여 씬만 바꿨다(칸·경로는 템플릿 그대로라 유닛이 장애물 그림 위에 설 수 있었다).
+  지금은 联防 자체가 그 라운드 전장에서 진행된다(upstream `75202776`, sim-2 `cf400175` — 지형·상자·물·기기 포함, `docs/rules/sim.md`
   「upstream 이식 sim-2」): 필드 meta의 stageId가 경기 stageId라 보드는 일반 판과 같은 `ownStage`/`baseStage`·공식 씬을 그리고, 칸·경로·배치도 그 맵의 것이다.
   그래서 render-2(2026-10-09)에서 우회를 걷어냈다 — `screens/game.js` `fieldStage`(upstream 75202776의 game.js hunk 그대로), `render/app.js setStage`의
   `roundSceneId`, `board3d/scene.js`의 `sceneId` 키·`_officialFor`, 그 테스트. 실제 경기 경로: `test/match/feedback5-unite-map.test.js`
@@ -145,15 +145,15 @@
 
 upstream v0.2.0 이후 렌더 수정 8건(`research/2026-10-09-upstream-compare/render.md`, 기록 `upstream/ISSUES.md` 「이식함」). 근거는 upstream 커밋이고
 (재현·측정은 upstream 몫), 우리 코드의 같은 줄을 읽어 같은 버그를 확인했다. 우리 규칙과 맞물리는 것만 적는다.
-- 눈꺼풀(`1e1f0248` ← `1e78648a`), 비행 적 고도(`d5433ede` ← `14df10a5`, 적 비행체는 늘 z 0 위 `FLY_HOVER`, 그림자만 아래 칸 높이 — 그림자 쪽은 upstream도 [ASSUMED]),
-  가상적: 골극(적) 폼(`06f26dcf` ← `bfef34ff`), impostor 갱신 순번(`101d0203` ← `bc11c0d6`), 쉐라그(맹약) 寒风 눈보라(`8e1bfa41` ← `7c56335c`)는 그대로.
+- 눈꺼풀(`453d7e6b` ← `1e78648a`), 비행 적 고도(`817f80bc` ← `14df10a5`, 적 비행체는 늘 z 0 위 `FLY_HOVER`, 그림자만 아래 칸 높이 — 그림자 쪽은 upstream도 [ASSUMED]),
+  가상적: 골극(적) 폼(`0686a46a` ← `bfef34ff`), impostor 갱신 순번(`19220f00` ← `bc11c0d6`), 쉐라그(맹약) 寒风 눈보라(`4368770c` ← `7c56335c`)는 그대로.
   쉐라그 寒风은 절차 이펙트지만 장치에 공식 이펙트가 없어 fx.md 「7.」(공식 번들 있는 오퍼레이터만 절차 대체 금지)과 충돌하지 않는다. 노시스(오퍼레이터) S3의 자기 냉기(`id` 있음)는 가벼운 그대로.
-- 늦게 본 공격의 와인드업(`60235fac` ← `6326dd4d`, 중범죄수 철구): upstream 조건 `per`는 우리에게 로컬 strike 스킬 클립(머드락 S2 `Skill_1`, sim.md
+- 늦게 본 공격의 와인드업(`b6394fd5` ← `6326dd4d`, 중범죄수 철구): upstream 조건 `per`는 우리에게 로컬 strike 스킬 클립(머드락 S2 `Skill_1`, sim.md
   「스킬 클립·스킬 모드 번호 교정」)도 포함하므로 `this.clipPerAttack &&`로 좁혔다 — 적만 전체 클립, strike 스킬 클립은 타격 프레임부터(`test/local-patch-skill-clips.test.js`).
-- 샴페인 폭탄(스와이어 디 엘리건트 위트의 소환물) HP 바 숨김(`e7db12dc` ← `dd23572b`, **사용자 결정 2026-10-09**): PRTS 香槟炸弹 备注
+- 샴페인 폭탄(스와이어 디 엘리건트 위트의 소환물) HP 바 숨김(`5ef45af8` ← `dd23572b`, **사용자 결정 2026-10-09**): PRTS 香槟炸弹 备注
   「即使自身生命值未满，模型下方也不会显示生命值槽」. `shared/trap-tokens.js NO_HP_TOKENS`에 한 줄 — HP 바만 숨기고 피해·치유는 그대로.
   upstream의 무적 `5f98baec`은 받지 않는다(우리는 공식대로 HP 손실·禁疗 있음).
-- 드래그 중 놓을 수 있는 칸에 서기(`f3503a5c` ← `9405aae6`, **사용자 결정 2026-10-09** 16): 끄는 오퍼레이터는 놓을 수 있는 칸(보드·대기석) 위에서는 그 칸에
+- 드래그 중 놓을 수 있는 칸에 서기(`8333338b` ← `9405aae6`, **사용자 결정 2026-10-09** 16): 끄는 오퍼레이터는 놓을 수 있는 칸(보드·대기석) 위에서는 그 칸에
   서고(`render/drag.js dragStandTile` → `boardWorld`, 드롭 트윈과 같은 점), 그 밖(놓을 수 없는 칸·상점 띠)에서는 포인터 아래 `DRAG_HOLD_TILES`.
   근거는 upstream 주인의 공식 녹화(2026-10-09, upstream PR #403 제보). 픽·강조·`tileHover`·방향 선택·드롭은 여전히 포인터 칸.
   우리 배치 중 반투명(`GHOST_ALPHA`, ui.md)은 그대로 겹친다. 아이템 판은 늘 포인터 위.
@@ -162,16 +162,16 @@ upstream v0.2.0 이후 렌더 수정 8건(`research/2026-10-09-upstream-compare/
 ## upstream 이식 render-2 (2026-10-09)
 
 sim에 기대는 렌더 수정(`research/2026-10-09-upstream-compare/render.md` 표 3·4·5·10, sim-2 뒤). 근거는 upstream 커밋(재현·측정은 upstream 몫).
-- 공격 후딜 서 있기(`a42c1667` ← `8a64edc9`, PR #381): 스냅샷 `stand`·`standCut`(표시용, golden 그대로), `interp.js`가 후딜 끝까지 위치를 잡고 남은 구간만 보간.
+- 공격 후딜 서 있기(`7fc265eb` ← `8a64edc9`, PR #381): 스냅샷 `stand`·`standCut`(표시용, golden 그대로), `interp.js`가 후딜 끝까지 위치를 잡고 남은 구간만 보간.
   sim hunk(events.js·ai.js·deploy.js·displacement.js·spawns.js)는 sim-3(stronghold-6b) 허락 받고 같은 커밋에 — `_unbalance`에 `_cutAttackStand` 복귀.
   우리에게 온디(温蒂) 키트가 없어 테스트의 밀어 죽이기는 같은 移动创伤 메커니즘을 테스트 안에 둠.
-- 밀림 슬라이드·비행 적 사망·긴 Die(`5d362a58` ← `2669b6ab`, `ee02bd82` ← `7a33bc7e`) → 슬라이드 시간 = sim 失衡 시간(`b4ca6c52` ← `cdf2bd5c` 렌더 hunk,
+- 밀림 슬라이드·비행 적 사망·긴 Die(`0eeef856` ← `2669b6ab`, `52dfd402` ← `7a33bc7e`) → 슬라이드 시간 = sim 失衡 시간(`d1ba043b` ← `cdf2bd5c` 렌더 hunk,
   fx `dur` ÷ `ctx.animRate`; `dur` 없는 옛 녹화만 √D 대체 [ASSUMED]). `syncBattle`의 미리보기는 우리 개시 낙하 카운터(「배치 낙하」) 위에 둠.
-- 적 애니메이션(`76756274` ← `76a2db7d`, PR #275): 빠른 적(moveSpeed > 1 [ASSUMED])의 Run 순환, `Stun_1`·`Dizzy_*` 기절 클립, 거대하고 못생긴 것(적)·
+- 적 애니메이션(`c8b7f24f` ← `76a2db7d`, PR #275): 빠른 적(moveSpeed > 1 [ASSUMED])의 Run 순환, `Stun_1`·`Dizzy_*` 기절 클립, 거대하고 못생긴 것(적)·
   自在(적) 重生의 Revive. **`cast`는 안 받음** — upstream·우리 sim 모두 `cast` 이벤트가 없어 `case 'cast'`·`setSkillSlot`·적 `anims.skills`(numberedSkills)는
   읽는 곳이 없다. `data/assets.json` 오프라인 재생성(적 6 run·3 stun, 그 밖 변화 없음) → **배포 때 `--assets`**.
-- 联防 sceneId 우회 정리(`60024037`): 위 「联防 화면」.
-- 렌더러 타임아웃(`98a787f7` ← `030d0a29`, PR #302): `createFieldView({signal})`·`mountFieldView`. 우리 자원 중 빌드 중에 만들어지는
+- 联防 sceneId 우회 정리(`84c17a5b`): 위 「联防 화면」.
+- 렌더러 타임아웃(`48f8279c` ← `030d0a29`, PR #302): `createFieldView({signal})`·`mountFieldView`. 우리 자원 중 빌드 중에 만들어지는
   공식 이펙트 층(`fxGame`)·보스 준비 경로 커서(`routeCursors`)도 중단 정리(`setupCleanup`)에 등록. 보드 아트·3D 보드 대기는 view 객체 뒤로 옮겨졌지만
   여전히 `return` 전이라 호출자(공식 씬 `setStage`, 개시 낙하)가 보는 순서는 같다 [코드 읽기로 확인, 화면 미확인].
 - 화면 확인은 안 함 — `research/2026-10-09-upstream-compare/render.md` 「4. 화면 확인 목록」 3·4·9·10 + 联防 씬(STRONGHOLD.md §11 「upstream render-2」).

@@ -59,7 +59,7 @@ test('#2-1 the activation effect is kept on the stone\'s ball until its die', ()
   // activation (STONE_ON): bound to the stone view and kept (playAt keep) until its 'die'
   assert.match(SRC, /const on = isStone\(sv\) \? \{ at: ballOf\(sv\), owner: o\.id, keep: true \} : \{ at: onBall \};/);
   assert.match(SRC, /if \(l\.inst\.done && !\(l\.keep && !l\.inst\.stopping\)\) \{ dropLive\(l\); live\.splice\(i, 1\); \}/);
-  // the 3-second replay of the 跟子's rings (55a8b583, an assumption) is gone
+  // the 3-second replay of the 跟子's rings (e98f7e23, an assumption) is gone
   assert.doesNotMatch(SRC, /FOLLOWER_CYCLE|l\.cycle/);
 });
 
