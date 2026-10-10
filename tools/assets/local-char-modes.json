@@ -9766,6 +9766,9 @@
     ]
    }
   ],
+  "hitAim": [
+   "udflow_skill_02_hit_01"
+  ],
   "skills": [
    {
     "cast": [],
