@@ -10,6 +10,10 @@ import { hudLists } from '../local-hud.js'; // local patch
 export class BattleEvents {
   fx(kind, params = {}) {
     const { x = 0, y = 0, ...extra } = params || {};
+    // inside an enemy skill's cast (content/enemies.js onTick): the fx it makes carry the official ability name and its
+    // caster (docs/SIM.md events) unless they name one themselves
+    const cast = this._castAbility;
+    if (cast && extra.ability === undefined) { extra.ability = cast.ability; extra.caster = cast.id; }
     this._ev(['fx', kind, Math.round(x * 100) / 100, Math.round(y * 100) / 100, extra]);
   }
 

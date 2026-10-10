@@ -6,7 +6,7 @@ import { aggroCmp, areaSelectable } from '../../targeting.js';
 import { periodicDamage } from '../../damage.js';
 import {
   nthOf, T, hurt, alliesInTiles, targetsNear, allTargets, areaAllies, areaAlliesInTiles, auraAllies, targetAndArea,
-  byPriority, setForm, auraBuff, watchDeaths, unbalancedNow,
+  byPriority, setForm, auraBuff, watchDeaths, unbalancedNow, shoot,
 } from './helpers.js';
 import {
   unblockable, maxTargets, onHitStatus, splashAttack, pathKeysAhead, noAirTargets, resist, nthAttackStatus, lowHpBuff,
@@ -196,15 +196,22 @@ function kitLeaderMisc(key, ab, e) {
       const cands = (b, e2) => byPriority(e2, targetsNear(b, e2, e2.base.rangeRadius || 2.5));
       return [kitDekght(ab), maxTargets(2), skill(s, (b, e2) => {
         const delay = s.bb['dekght_2[aoe].interval'] ?? 0, scale = s.bb['dekght_2[aoe].atk_scale'] ?? 1;
+        // each arrow is the skill's official projectile (skills TripleAttack.proj — projectile_enemy_dekght_s, TRACE 10
+        // tiles/s; enemies/helpers.js shoot): it sticks where its target stands when it lands, the blast `interval` s later
+        // (until 2026-10-10 the delay ran from the cast, on the target's tile then) [추정: the blast's delay counted from the
+        // arrow's arrival — the interval buff `dekght_2[aoe]` goes on the hit target]
         for (const t of cands(b, e2).slice(0, 3)) {
-          const r = t.tileR, cc = t.tileC;
-          b.fx('telegraph', { x: cc, y: r, r: 1, dur: delay, kind: 'blastArrow', tiles: 'plus', id: e2.id });
-          b.after(delay, () => {
-            if (!e2.alive) return;
-            b.fx('explode', { x: cc, y: r, r: 1, kind: 'blastArrow', tiles: 'plus' });
-            // "对主目标造成法术普通伤害，对溅射目标造成法术溅射伤害": the arrow's target + the 周围四格 (an area)
-            for (const u of targetAndArea(t, areaAlliesInTiles(b, e2, r, cc, 'plus', 1))) hurt(b, e2, u, e2.s.atk * scale, 'arts');
-          }, { owner: e2 });
+          shoot(b, e2, t, s.proj, (tt) => {
+            if (!e2.alive || !tt) return;
+            const r = tt.tileR, cc = tt.tileC;
+            b.fx('telegraph', { x: cc, y: r, r: 1, dur: delay, kind: 'blastArrow', tiles: 'plus', id: e2.id });
+            b.after(delay, () => {
+              if (!e2.alive) return;
+              b.fx('explode', { x: cc, y: r, r: 1, kind: 'blastArrow', tiles: 'plus' });
+              // "对主目标造成法术普通伤害，对溅射目标造成法术溅射伤害": the arrow's target + the 周围四格 (an area)
+              for (const u of targetAndArea(tt, areaAlliesInTiles(b, e2, r, cc, 'plus', 1))) hurt(b, e2, u, e2.s.atk * scale, 'arts');
+            }, { owner: e2 });
+          });
         }
       }, { cond: (b, e2) => cands(b, e2).length > 0 })];
     }
@@ -234,7 +241,9 @@ function kitLeaderMisc(key, ab, e) {
       return [skill(s, (b, e2) => {
         const t = byPriority(e2, cands(b, e2))[0];
         if (!t) return;
-        b.addProjectile({ from: e2, target: t, speed: 8, visual: 'lob', source: e2, onHit: (c) => {
+        // its official projectile (data/enemies.json skills StunAttack.proj — projectile_enemy_rockman, TRACE_TARGET_WITH_SPEED
+        // at 10 tiles/s; until 2026-10-10 8)
+        b.addProjectile({ from: e2, target: t, speed: s.proj?.speed || 10, visual: 'lob', source: e2, onHit: (c) => {
           if (!c.target || !c.target.alive) return;
           hurt(b, e2, c.target, e2.s.atk * (s.bb.atk_scale ?? 1), 'phys');
           if (c.target.alive) b.applyStatus(c.target, 'stun', { duration: s.bb.stun ?? 0, source: e2 });
@@ -323,15 +332,21 @@ function kitLeaderMisc(key, ab, e) {
         const bb = cb.bb, jump = bb.projectile_range ?? jr, max = bb['chain.max_target'] ?? 3;
         const near = (x, y, r, seen) => b.enemiesInRadius(x, y, r).filter((o) => o !== e2 && !seen.has(o))
           .sort((p, q) => hypot(p.x - x, p.y - y) - hypot(q.x - x, q.y - y) || p.spawnSeq - q.spawnSeq)[0];
+        // the chain flies as the skill's official projectile (skills ChainBuff.proj — projectile_enemy_smsha_s, TRACE 15
+        // tiles/s; enemies/helpers.js shoot): each enemy gets the buff as it arrives and the next jump leaves from there,
+        // chosen then (until 2026-10-10 the whole chain at the cast) [추정: the jumps fly the same projectile at its speed]
         const seen = new Set();
-        let prev = e2, cur = near(e2.x, e2.y, e2.base.rangeRadius || 3.5, seen);
-        while (cur && seen.size < max) {
+        const hop = (prev, cur) => {
+          if (!cur || seen.size >= max) return;
           seen.add(cur);
           b.fx('beam', { x: prev.x, y: prev.y, from: prev.id, to: cur.id, kind: 'chainBuff' });
-          b.addBuff(cur, { key: 'ab:chainBuff', duration: bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (bb.move_speed ?? 0), aspd: bb.attack_speed ?? 0 } });
-          prev = cur;
-          cur = near(cur.x, cur.y, jump, seen);
-        }
+          shoot(b, prev, cur, cb.proj, (o) => {
+            if (!o || !o.alive) return;
+            b.addBuff(o, { key: 'ab:chainBuff', duration: bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (bb.move_speed ?? 0), aspd: bb.attack_speed ?? 0 } });
+            hop(o, near(o.x, o.y, jump, seen));
+          }, { source: e2 });
+        };
+        hop(e2, near(e2.x, e2.y, e2.base.rangeRadius || 3.5, seen));
       }, { sil: true, cond: (b, e2) => b.enemiesInRadius(e2.x, e2.y, e2.base.rangeRadius || 3.5).some((o) => o !== e2) })];
     }
     case 'enemy_2052_smgia': {
@@ -433,7 +448,11 @@ function kitWarden(ab) {
       // 能使多名单位晕眩: the skill attack stuns up to max_target units in its range (its target first)
       const l = byPriority(e, targetsNear(b, e, e.base.rangeRadius || 2));
       for (const t of c.targets) if (!l.includes(t)) l.unshift(t);
-      for (const u of l.slice(0, iron.bb.max_target ?? 1)) if (u.alive) b.applyStatus(u, 'stun', { duration: iron.bb.stun ?? 0, source: e });
+      // each stun rides the skill's official projectile (skills ironsandstorm.proj — projectile_enemy_jakill_s1, TRACE 10
+      // tiles/s; enemies/helpers.js shoot), landing as it arrives (until 2026-10-10 at the attack)
+      for (const u of l.slice(0, iron.bb.max_target ?? 1)) {
+        if (u.alive) shoot(b, e, u, iron.proj, (t) => { if (t && t.alive) b.applyStatus(t, 'stun', { duration: iron.bb.stun ?? 0, source: e }); });
+      }
     },
   }, reborn({
     dur: T(ab, 'reborn.duration') ?? 0,

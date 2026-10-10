@@ -397,6 +397,7 @@ async function loadContext() {
     manifest: await loadManifest(),
     attackTiming: await loadLocalJson('tools/assets/local-attack-timing.json', 'attack timings (tools/local-extract/attack_timing.py): no `_maxAnimScale` …'),
     charModes: await loadLocalJson('tools/assets/local-char-modes.json', 'operator modes (tools/local-extract/char_modes.py)'),
+    enemyProjectiles: await loadLocalJson('tools/assets/local-enemy-projectiles.json', 'enemy projectiles (tools/local-extract/enemy_projectiles.py): no `proj` …'),
   };
 }
 
@@ -2378,6 +2379,51 @@ function abilityTiming(t) {
   };
 }
 
+/**
+ * The official projectiles of an enemy (tools/assets/local-enemy-projectiles.json, tools/local-extract/enemy_projectiles.py)
+ * → enemies.json `proj` (its normal attack's shot: the unblocked one, Attack, else the blocked one, Combat), `projModes`
+ * ({mode name: shot} — a later mode that shoots another one), `skills[i].proj` (+ `projAlt`: the skill's other shots;
+ * the skill matched by its GameObject name, case-insensitive — the client's `Skills/Boomb` is the table's `boomb`) and
+ * `talentProj` ({talent name: shot}). A shot = `{ key, mount, move, speed, … }`: the projectile prefab key, the model
+ * point it leaves from (Entity.MountPointType) and its movement (`move` TRACE_TARGET_WITH_SPEED / PARACURVE / HARPOON /
+ * FIXED_DIRECTION / ATTACH / NONE, `speed` tiles per second, `height` `delay` `link` `life` `dir` … as read) — the sim
+ * times the hit by it (server/sim/ai.js enemyShot), the renderer and the sound plan bind the key. `proj: null` = the
+ * prefab was read and its normal attack has no projectile (written for enemies with a range only); absent = not read.
+ */
+function enemyProjectiles(ctx, spineId, key) {
+  const src = ctx.enemyProjectiles;
+  const e = src?.enemies?.[spineId] ?? src?.enemies?.[key];
+  if (!e) return null;
+  const rec = (s) => {
+    if (!s || typeof s.key !== 'string') return null;
+    const p = src.projectiles?.[s.key];
+    return { key: s.key, ...(s.mount ? { mount: s.mount } : {}), ...(p || { move: 'NONE', speed: 0 }) };
+  };
+  // null: the prefab was read and its normal attack has no projectile (the client hits at the strike)
+  const proj = rec(e.attack ?? e.combat) ?? null;
+  const projModes = {};
+  for (const m of e.modes || []) {
+    const r = rec(m.attack ?? m.combat);
+    if (r && r.key !== proj?.key) projModes[m.name] = r;
+  }
+  const lower = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k.toLowerCase(), v]));
+  const skills = lower(e.skills);
+  const talentProj = {};
+  for (const [k, v] of Object.entries(e.talents || {})) { const r = rec(v[0]); if (r) talentProj[k] = r; }
+  return { proj, projModes, skills, talentProj, rec };
+}
+
+/** enemies.json `skills` with each skill's official projectile (enemyProjectiles). */
+function withSkillProjectiles(skills, P) {
+  if (!P) return skills;
+  return skills.map((sk) => {
+    const shots = P.skills[String(sk.prefabKey).toLowerCase()];
+    if (!shots || !shots.length) return sk;
+    const [first, ...rest] = shots.map(P.rec).filter(Boolean);
+    return { ...sk, ...(first ? { proj: first } : {}), ...(rest.length ? { projAlt: rest } : {}) };
+  });
+}
+
 /** An enemy's attack ability (local-attack-timing.json `enemies`): the blocked one (Combat) for a melee enemy, else Attack. */
 function enemyAbility(ctx, spineId, key, applyWay) {
   const e = ctx.attackTiming?.enemies?.[spineId] ?? ctx.attackTiming?.enemies?.[key];
@@ -2515,13 +2561,14 @@ function buildEnemies(ctx) {
     const modelScale = MODEL_SCALE_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     const modelScaleY = MODEL_STRETCH_Y_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     const attackAnim = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyAbility(ctx, mv(data.prefabKey) || key, key, applyWay));
+    const shots = enemyProjectiles(ctx, mv(data.prefabKey) || key, key);
     out[key] = {
       key, name, level: wantLevel, rank: mv(data.levelType, 'NORMAL'), handbookIndex: hb?.enemyIndex || null,
       desc: stripRich(descRaw), descRaw: richRaw(descRaw),
       applyWay, stats,
       abilities,
       talents: { bb: talents.bb, bbStr: talents.bbStr },
-      skills: enemySkills(data.skills, `enemy ${key}`),
+      skills: withSkillProjectiles(enemySkills(data.skills, `enemy ${key}`), shots),
       // SP pool of SP-cost skills (e.g. 假想敌：黑云 技力上限 3 = 全弹发射 hits); only when the database has one
       ...(data.spData ? { sp: { type: data.spData.spType ?? null, maxSp: data.spData.maxSp ?? 0, initSp: data.spData.initSp ?? 0, increment: data.spData.increment ?? 0 } } : {}),
       notCountInTotal: !!mv(data.notCountInTotal, false),
@@ -2540,6 +2587,10 @@ function buildEnemies(ctx) {
       ...(modelScaleY != null && modelScaleY !== 1 ? { modelScaleY } : {}),
       ...(MIRRORED_PREFABS.has(mv(data.prefabKey) || key) ? { mirrorX: true } : {}),
       ...(attackAnim ? { attackAnim } : {}),
+      // `proj: null` only for an enemy with a range (rawRangeRadius > 0) whose attack has no projectile: its ranged hit lands at the strike
+      ...(shots?.proj ? { proj: shots.proj } : shots && rawRangeRadius > 0 ? { proj: null } : {}),
+      ...(shots && Object.keys(shots.projModes).length ? { projModes: shots.projModes } : {}),
+      ...(shots && Object.keys(shots.talentProj).length ? { talentProj: shots.talentProj } : {}),
       ...(attacksOnTheMove(abilities) ? { attackMoves: true } : {}),
     };
   }

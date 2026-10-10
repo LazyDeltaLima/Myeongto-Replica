@@ -972,8 +972,44 @@ function enemyTargets(e, targets) {
   return targets.length > n ? targets.slice(0, n) : targets;
 }
 
-/** Whether an enemy's shot at `target` flies (a ranged enemy, unless it hits its own blocker from under 1 tile). */
-const rangedShotAt = (e, radius, target) => radius > 0 && !(e.blockedBy && target === e.blockedBy && radius < 1);
+/**
+ * The official projectile of enemy `e`'s normal attack (data/enemies.json `proj`, tools/local-extract/enemy_projectiles.py;
+ * simdata.js normShot): the shot of its current mode — `projModes[<mode>]` when its form (content/enemies/helpers.js
+ * setForm) names a mode that shoots another one (守墓石像 'fly' ↔ the client's `Fly`), else `proj`. A shot is
+ * { key, move, speed, delay }; null = the official attack has no projectile (its hit lands at the strike, the hit effect
+ * on the target — 妖怪MKII, 萨卡兹百夫长 …); undefined = not read (test units, data without the extract): the old shot at
+ * PROJECTILE_SPEEDS.enemy.
+ */
+export function enemyShot(e) {
+  const d = e.def;
+  if (!d) return undefined;
+  const pm = d.projModes;
+  if (pm && e.form != null) {
+    const f = String(e.form).toLowerCase();
+    for (const k in pm) if (k.toLowerCase() === f) return pm[k];
+  }
+  return d.proj;
+}
+
+/**
+ * The flight speed (tiles per game second) of a shot (docs/rules/sim.md 「적 투사체」): TRACE_TARGET_WITH_SPEED (AdvancedMovement)
+ * homes on its target at `_speed`; a PARACURVE (ParacurveMovement) arc covers the horizontal distance to the target's
+ * current position at `_speed` (client code ParacurveMovement.OnInit: flight time = horizontal distance / speed; the
+ * height only draws the arc); a HARPOON line (HarpoonMovement) extends to it at `_speed`; FIXED_DIRECTION is flown at
+ * its speed towards the target it was aimed at [추정: no enemy normal attack in the mode flies one but 萨米的意志's, which
+ * its kit resolves]. 0 = it does not fly: ATTACH (AttachToTarget — on the target, after `_delayToStart`) and NONE.
+ */
+export function shotSpeed(shot) {
+  if (shot === undefined) return PROJECTILE_SPEEDS.enemy;
+  if (!shot || shot.move === 'ATTACH' || shot.move === 'NONE') return 0;
+  return shot.speed > 0 ? shot.speed : 0;
+}
+
+/**
+ * Whether an enemy's shot at `target` flies: a ranged enemy whose attack has a projectile that moves (enemyShot /
+ * shotSpeed), unless it hits its own blocker from under 1 tile.
+ */
+const rangedShotAt = (e, radius, target) => radius > 0 && !(e.blockedBy && target === e.blockedBy && radius < 1) && shotSpeed(enemyShot(e)) > 0;
 
 /** The 'atk' / 'swing' kind of an enemy's attack on `targets`. */
 function shotKind(e, radius, targets) {
@@ -1051,7 +1087,7 @@ function enemyStrike(b, e, radius, reach, own) {
       b.dealDamage(e, tt, { amount: e.s.atk * (e.profile?.atkScale ?? 1), type, isAttack: true, attackId, isProjectile });
     };
     if (rangedShot && hypot(t.x - e.x, t.y - e.y) > 0.75) {
-      b.addProjectile({ from: e, target: t, speed: PROJECTILE_SPEEDS.enemy, visual: 'enemy', source: e, onHit: (c) => hit(c.target, true) });
+      b.addProjectile({ from: e, target: t, speed: shotSpeed(enemyShot(e)), visual: 'enemy', source: e, onHit: (c) => hit(c.target, true) });
     } else hit(t);
   }
   if (b._hooks.attack) b.emit('attack', { attacker: e, targets, isSkill: false });

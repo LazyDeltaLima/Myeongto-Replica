@@ -73,7 +73,7 @@ import { compileRoute } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
 import {
   ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies,
-  remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, nthOf,
+  remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, nthOf, shoot,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
 
@@ -416,7 +416,7 @@ function kitHelm(ab, e, b, tpl) {
       },
     },
     s1 && {
-      cd: s1.cd, icd: s1.icd, cond: (b2) => shellTargets(b2).length > 0,
+      name: s1.name, cd: s1.cd, icd: s1.icd, cond: (b2) => shellTargets(b2).length > 0,
       // 【灭顶之灾】 one shell, also below 20 %: the handbook's "额外发射<刺胄之弹>" is wrong in game (PRTS 能力修正 原因 6
       // "描述与游戏实际表现不符合": "【灭顶之灾】不会额外发射") and no blackboard holds a second shell (skill 1 has none)
       fire(b2, e2) {
@@ -425,7 +425,7 @@ function kitHelm(ab, e, b, tpl) {
       },
     },
     s2 && {
-      cd: s2.cd, icd: s2.icd,
+      name: s2.name, cd: s2.cd, icd: s2.icd,
       // 【死亡集群】: a drone on the branch route; when it dies (PRTS 能力修正 "该无人机单位死亡时", whoever kills it) the leader
       // loses hp_ratio × max HP. Drone HP: `summon.hp_ratio` (隐秘核心 only) scales it [ASSUMED: the summon's max HP]; the
       // `max_hp` 0.5 both copies carry is not read [ASSUMED] — no source says what it does (PRTS 技能 lists the 2 % only,
@@ -566,7 +566,7 @@ function kitBlade(ab, e, b, tpl) {
       },
     },
     s && {
-      cd: s.cd, icd: s.icd, cond: (b2) => P.state === 'hover' && opsOnly(allTargets(b2, e)).length > 0, // 存在至少1名可选我方干员
+      name: s.name, cd: s.cd, icd: s.icd, cond: (b2) => P.state === 'hover' && opsOnly(allTargets(b2, e)).length > 0, // 存在至少1名可选我方干员
       fire(b2, e2) { // 【掷剑】/【掷锤】 → 出击模式
         const t = opsOnly(b2.allies()).sort((p, q) => p.s.atk - q.s.atk || aggroCmp(p, q))[0];
         if (!t) return;
@@ -627,7 +627,7 @@ function kitGun(ab, e, b) {
       },
     },
     s1 && {
-      cd: s1.cd, icd: s1.icd, cond: (b2) => groundTargets(b2).length > 0 && !P.charge,
+      name: s1.name, cd: s1.cd, icd: s1.icd, cond: (b2) => groundTargets(b2).length > 0 && !P.charge,
       fire(b2, e2) { // 【最终之罚】 charge at the highest-DEF ground unit
         const t = groundTargets(b2).sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0];
         if (!t) return;
@@ -657,7 +657,7 @@ function kitGun(ab, e, b) {
       },
     });
     if (s2) list.push({
-      cd: s2.cd, icd: s2.icd, cond: (b2) => b2.enemies.some((o) => o.alive && isSpring(o)),
+      name: s2.name, cd: s2.cd, icd: s2.icd, cond: (b2) => b2.enemies.some((o) => o.alive && isSpring(o)),
       fire(b2, e2) { // 【末日布道】 springs chase 铳 for the whole 5 s gain, invulnerable, trampling operators (kitSpring)
         // PRTS “碎铳之簧” 追逐模式 "不进行普通攻击": `disarm` for the dash (until 0.1.3 it kept shooting while it ran).
         // Each gun casts on its own data timer, and a cast takes every spring — on a pair field the later of the two
@@ -751,20 +751,27 @@ function kitSpring(ab, e) {
         if (a.n % nthOf(sk)) return;
         const t0 = c.targets.find((u) => u && u.alive);
         if (!t0) return;
+        // the special attack flies the skill's official projectile (skills `1`.proj — 元素护盾 projectile_enemy_actrpb TRACE 15,
+        // 频次护盾 projectile_enemy_actrpc TRACE 10 tiles/s; enemies/helpers.js shoot): damage as it arrives, a bounce
+        // leaving from the target it hit (until 2026-10-10 everything at the attack) [추정: a bounce flies the same projectile]
         if (kind === 'element') { // bouncing element bullet: `times` targets, weaker after each bounce
           const times = sk.bb.times || 1, ratio = sk.bb.ep_damage_ratio || 0;
-          let t = t0;
           const hit = new Set();
-          for (let k = 0; k < times && t; k++) {
+          const fly = (from, t, k) => {
+            if (!t || k >= times) return;
             hit.add(t);
-            b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'springBullet' });
-            elem(b, e2, t, 'erosion', e2.s.atk * ratio * powi(SPRING_BOUNCE_FALLOFF, k));
-            const prev = t;
-            t = areaAllies(b, e2, prev.x, prev.y, SPRING_BOUNCE_RANGE).filter((u) => !hit.has(u)).sort((p, q) => hypot(p.x - prev.x, p.y - prev.y) - hypot(q.x - prev.x, q.y - prev.y) || aggroCmp(p, q))[0];
-          }
-        } else { // 十连击
+            b.fx('beam', { x: from.x, y: from.y, from: from.id, to: t.id, kind: 'springBullet' });
+            shoot(b, from, t, sk.proj, (tt) => {
+              if (!tt || !tt.alive) return;
+              elem(b, e2, tt, 'erosion', e2.s.atk * ratio * powi(SPRING_BOUNCE_FALLOFF, k));
+              const nx = areaAllies(b, e2, tt.x, tt.y, SPRING_BOUNCE_RANGE).filter((u) => !hit.has(u)).sort((p, q) => hypot(p.x - tt.x, p.y - tt.y) - hypot(q.x - tt.x, q.y - tt.y) || aggroCmp(p, q))[0];
+              fly(tt, nx, k + 1);
+            }, { source: e2 });
+          };
+          fly(e2, t0, 0);
+        } else { // 十连击 [추정: the ten hits land together as the shot arrives — their spacing was not read]
           b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t0.id, kind: 'springCombo' });
-          for (let i = 0; i < SPRING_COMBO_HITS && t0.alive; i++) hurt(b, e2, t0, e2.s.atk * (sk.bb.atk_scale || 0), 'phys');
+          shoot(b, e2, t0, sk.proj, (tt) => { for (let i = 0; i < SPRING_COMBO_HITS && tt && tt.alive; i++) hurt(b, e2, tt, e2.s.atk * (sk.bb.atk_scale || 0), 'phys'); });
         }
       },
     },
@@ -811,7 +818,7 @@ function kitEcho(ab, e) {
       taken(c, b, e2) { const s = c.source || c.credit; if (s && s.side === 'ally') echoHit(b, e2); }, // 受到伤害时以自身为中心造成一次范围伤害 (a 无来源 burst too)
     },
     s && {
-      cd: s.cd, icd: s.icd,
+      name: s.name, cd: s.cd, icd: s.icd,
       fire(b, e2) { // 合奏
         const gold = e2.mem.ab.form === 'gold';
         const r = gold ? ECHO_ENSEMBLE_RADIUS.gold : ECHO_ENSEMBLE_RADIUS.dark;
@@ -847,7 +854,9 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
       e2.lastAttackAt = b2.time;
       e2.stats.attacks++;
       b2.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: `${prefix}Strike` });
-      echoHit(b2, t);
+      // its normal attack's official projectile (data/enemies.json `proj` — projectile_enemy_acduml / _acdumm, TRACE 10
+      // tiles/s; enemies/helpers.js shoot): the echo takes the strike as it arrives (until 2026-10-10 at once)
+      shoot(b2, e2, t, e2.def?.proj, (o) => { if (o && o.alive) echoHit(b2, o); });
     },
   };
 }
@@ -861,16 +870,24 @@ function kitPipe(ab, e, b, tpl) {
       death(c, b2) { for (const o of b2.aliveEnemies()) if (o.defId === 'enemy_9022_acdumm') b2.kill(o, null); }, // 弦 leaves with 管
     },
     s && {
-      cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'dark').length > 0 && (!g || g.ready()), // local patch: + SP
+      name: s.name, cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'dark').length > 0 && (!g || g.ready()), // local patch: + SP
       fire(b2, e2) { // 【裂管之奏】 three strikes on every dark echo
         if (g) g.spend(e2); // local patch
         const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
-        for (const echo of echoesOf(b2, 'dark')) for (let k = 0; k < 3; k++) b2.after(k * PIPE_STRIKE_GAP, () => {
+        // each strike is the skill's official projectile (skills `1`.proj — projectile_enemy_acduml, TRACE 10 tiles/s;
+        // enemies/helpers.js shoot) at the echo, bursting as it arrives (until 2026-10-10 at the strike's moment)
+        const strike = (echo) => {
           if (!e2.alive || !echo.alive) return;
-          b2.fx('explode', { x: echo.x, y: echo.y, r, kind: 'pipeStrike' });
-          for (const u of areaAllies(b2, e2, echo.x, echo.y, r)) { hurt(b2, e2, u, e2.s.atk, 'arts'); elem(b2, e2, u, 'apoptosis', e2.s.atk * ep); }
-          echoHit(b2, echo);
-        }, { owner: e2 });
+          shoot(b2, e2, echo, s.proj, (o) => {
+            if (!o || !o.alive) return;
+            b2.fx('explode', { x: o.x, y: o.y, r, kind: 'pipeStrike' });
+            for (const u of areaAllies(b2, e2, o.x, o.y, r)) { hurt(b2, e2, u, e2.s.atk, 'arts'); elem(b2, e2, u, 'apoptosis', e2.s.atk * ep); }
+            echoHit(b2, o);
+          });
+        };
+        for (const echo of echoesOf(b2, 'dark')) for (let k = 0; k < 3; k++) {
+          if (k === 0) strike(echo); else b2.after(k * PIPE_STRIKE_GAP, () => strike(echo), { owner: e2 });
+        }
       },
     },
     g && g.ab, // local patch: the SP gain
@@ -884,14 +901,19 @@ function kitString(ab, e, b, tpl) {
     pipeCore(ab, e, b, tpl, { form: 'gold', prefix: 'acdumm' }),
     { spawn(b2, e2) { b2.addBuff(e2, { key: 'boss:eternal', persist: true, flags: { invulnerable: true, untargetable: true } }); } }, // 永久无敌
     s && {
-      cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'gold').length > 0 && (!g || g.ready()), // local patch: + SP
+      name: s.name, cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'gold').length > 0 && (!g || g.ready()), // local patch: + SP
       fire(b2, e2) { // 【断弦之奏】 AoE on every gold echo, which then turns dark
         if (g) g.spend(e2); // local patch
         const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
+        // the skill's official projectile (skills `1`.proj — projectile_enemy_acdumm, TRACE 10 tiles/s; enemies/helpers.js
+        // shoot) to every gold echo: its burst and the echo's turn to dark as it arrives (until 2026-10-10 at the cast)
         for (const echo of echoesOf(b2, 'gold')) {
-          b2.fx('explode', { x: echo.x, y: echo.y, r, kind: 'stringStrike' });
-          for (const u of areaAllies(b2, e2, echo.x, echo.y, r)) { hurt(b2, e2, u, e2.s.atk, 'arts'); elem(b2, e2, u, 'apoptosis', e2.s.atk * ep); }
-          setEchoForm(b2, echo, 'dark');
+          shoot(b2, e2, echo, s.proj, (o) => {
+            if (!o || !o.alive) return;   // a shot in flight lands even if its shooter fell meanwhile
+            b2.fx('explode', { x: o.x, y: o.y, r, kind: 'stringStrike' });
+            for (const u of areaAllies(b2, e2, o.x, o.y, r)) { hurt(b2, e2, u, e2.s.atk, 'arts'); elem(b2, e2, u, 'apoptosis', e2.s.atk * ep); }
+            setEchoForm(b2, o, 'dark');
+          });
         }
       },
     },
@@ -911,7 +933,7 @@ function kitQuintus(ab, e, b, tpl) {
     const s = ab.sk[name];
     if (!s) return null;
     const kind = name.replace(/G\d$/, '');
-    const a = { cd: s.cd, icd: s.icd, stage, cond: () => P.stage === stage, fire: (b2, e2) => QUINTUS[kind](b2, e2, s, P, tpl) };
+    const a = { name: s.name, cd: s.cd, icd: s.icd, stage, cond: () => P.stage === stage, fire: (b2, e2) => QUINTUS[kind](b2, e2, s, P, tpl) };
     skills.push(a);
     return a;
   };
@@ -995,7 +1017,7 @@ function lucienCore(ab, e) {
       // cast with a target in the radius (PRTS 技能 "需要目标"; 不祥幻影 "仅在半径2范围内存在我方单位时触发"): the trigger
       // selection (targetsNear — PRTS 选择器 "所有触发选择器通常不无视迷彩"): an airborne (起飞) operator evades a ground
       // leader (对地规避 — counting her spent the skill on nobody, §21.22), nor does an unblocking 隐匿 or 迷彩 one count
-      cd: s.cd, icd: s.icd, cond: (b) => targetsNear(b, e, LUCIEN_AOE_RADIUS).length > 0,
+      name: s.name, cd: s.cd, icd: s.icd, cond: (b) => targetsNear(b, e, LUCIEN_AOE_RADIUS).length > 0,
       fire(b, e2) {
         // "该技能伤害无视迷彩": an area selection (areaAllies) — a 迷彩 operator is hit, an unblocking 隐匿 one not
         b.fx('explode', { x: e2.x, y: e2.y, r: LUCIEN_AOE_RADIUS, kind: 'crimsonAoe' });
@@ -1008,7 +1030,7 @@ function lucienCore(ab, e) {
 function kitLucien(ab, e) {
   const s = ab.sk.blink;
   return [...lucienCore(ab, e), s && {
-    cd: s.cd, icd: s.icd, cond: () => !!e.blockedBy,
+    name: s.name, cd: s.cd, icd: s.icd, cond: () => !!e.blockedBy,
     fire(b, e2) { // blink past the blocker, leaving a 不祥幻影 on its path
       const route = remainingRoute(e2);
       const from = blinkForward(b, e2, s.bb.dist ?? 1.5);
@@ -1094,7 +1116,7 @@ function kitLion(ab, e, b) {
       dealt(c, b2, e2) { if (!P.wand) return; P.wand = false; if (disarm > 0) b2.applyStatus(c.target, 'disarm', { duration: disarm, source: e2 }); },
     },
     su && {
-      cd: su.cd, icd: su.icd,
+      name: su.name, cd: su.cd, icd: su.icd,
       fire(b2, e2) { // 【斥退】 "对场上所有我方单位…": every operator it can select (fieldAllies)
         b2.fx('telegraph', { x: e2.x, y: e2.y, r: 99, kind: 'repel', id: e2.id });
         for (const u of fieldAllies(b2, e2)) hurt(b2, e2, u, e2.s.atk * (su.bb.atk_scale ?? 0), 'arts');
@@ -1143,7 +1165,7 @@ function kitDeer(ab, e) {
       },
     },
     lasso && {
-      cd: lasso.cd, icd: lasso.icd, cond: (b) => allTargets(b, e).length > 0,
+      name: lasso.name, cd: lasso.cd, icd: lasso.icd, cond: (b) => allTargets(b, e).length > 0,
       fire(b, e2) { // 【自然涌动】 stun + arts per second
         const n = P.low ? skN : (lasso.bb.max_target ?? 1);
         const dur = lasso.bb.projectile_life_time ?? 0;
@@ -1156,7 +1178,7 @@ function kitDeer(ab, e) {
       },
     },
     doom && {
-      cd: doom.cd, icd: doom.icd,
+      name: doom.name, cd: doom.cd, icd: doom.icd,
       fire(b, e2) {
         b.fx('telegraph', { x: e2.x, y: e2.y, r: 99, kind: 'samiDoom', id: e2.id });
         for (const u of fieldAllies(b, e2)) hurt(b, e2, u, e2.s.atk * (doom.bb.atk_scale ?? 0), 'arts');

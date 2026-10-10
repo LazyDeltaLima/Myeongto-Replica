@@ -144,12 +144,14 @@ test(`${nm('enemy_1404_msnip')}: 直击 — 1.4 s after the cast a unit in line 
   assert.ok(e.findBuff('ab:revealed') && e.s.flags.noMove, 'cast: revealed, standing');
   h.run(1.2);                                               // 1.3 s into the skill: still charging
   assert.equal(w.stats.taken, 0, 'no bolt before the 1.4 s charge');
-  h.run(0.8);                                               // 2.1 s in: the bolt (4 tiles at 12/s) has landed
+  h.run(0.7);                                               // 2.0 s in: the bolt (4 tiles at the official 5/s, 0.8 s) still flies
+  assert.equal(w.stats.taken, 0, 'projectile_enemy_msnip: 5 tiles/s');
+  h.run(0.3);                                               // 2.3 s in: it has landed
   assert.equal(statuses(h, w.id, 'stun').length, 1);
   approx(statuses(h, w.id, 'stun')[0].duration, s.bb.stun);
   approx(w.stats.taken, e.s.atk * s.bb.atk_scale * (1 - 0 / 100));
-  assert.ok(e.findBuff('ab:revealed'), 'still revealed at 2.1 s');
-  h.run(0.5);                                               // 2.6 s in: the skill is over
+  assert.ok(e.findBuff('ab:revealed'), 'still revealed at 2.3 s');
+  h.run(0.3);                                               // 2.6 s in: the skill is over
   assert.ok(!e.findBuff('ab:revealed') && !e.s.flags.noMove, 'skill over after 2.5 s');
   // stunned during the charge: no bolt
   const h2 = arena({ units: [{ chessId: 't_wall', row: 9, col: 4 }] });
@@ -855,7 +857,7 @@ test(`${nm('enemy_10122_uacann_2')}: each hit leaves a burning zone (${tb('enemy
   h.step();
   const e = put(h, 'enemy_10122_uacann_2', [10, 9]);
   h.runUntil(() => e.stats.attacks >= 1, 10);
-  h.run(2);
+  h.run(3);   // the shell: 6 tiles at the official 4/s (projectile_enemy_uacann, a PARACURVE) — 1.5 s — then the zone's first second
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'zone' && f[4].kind === 'burning'));
   assert.ok(h.unit('t_wall').stats.taken >= e.s.atk + tb('enemy_10122_uacann_2', 'ProjectileBoomRange.attack@value') - 1e-6);
 });
@@ -1080,8 +1082,9 @@ test(`${nm('enemy_9009_acfort')}: grabs ≤ 3 normal flyers within 2.5 × range_
   assert.ok(out.alive, 'out of reach');
   const w1 = h.unit('t_wall'), w2 = h.unit('t_wall2');
   // 全弹发射 fires as soon as it has ammo: 3 hits of ATK×1.3, each on a random ally of the whole field
+  // each hit flies the official projectile (projectile_enemy_acfort_skill, 10 tiles/s): ≤ 0.6 s to the farther wall
   assert.ok(h.runUntil(() => w1.stats.taken + w2.stats.taken > 0, f.cooldown + 1));
-  h.run(0.1);
+  h.run(0.7);
   approx(w1.stats.taken + w2.stats.taken, 3 * e.s.atk * f.bb.atk_scale, 1e-6, 'one hit per ammo');
   assert.equal(e.mem.ab.ammo, 0, 'all SP spent');
   checkInvariants(h.b);
@@ -1984,6 +1987,9 @@ test(`${nm('enemy_1513_dekght_2')}: 爆炸箭 — 3 targets, ${skb('enemy_1513_d
   e.profile.noAttack = true;
   const s = skb('enemy_1513_dekght_2', 'TripleAttack');
   h.run(s.initCooldown + 0.1);
+  // the arrows fly the official projectile (projectile_enemy_dekght_s, 10 tiles/s): the blast marks come as they land
+  assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'enemyShot' && f[4].key === s.proj.key).length, 3, 'three arrows');
+  h.run(0.2);
   assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'telegraph' && f[4].kind === 'blastArrow').length, 3);
   assert.equal(h.unit('t_wall').stats.taken, 0, 'delayed');
   h.run(s.bb['dekght_2[aoe].interval']);
@@ -2020,7 +2026,7 @@ test(`${nm('enemy_2050_smsha')}: 【反自然馈赠】 chains over ${skb('enemy_
     const e = put(h, 'enemy_2050_smsha', [10, 8]);
     const others = [[10, 6], [10, 5], [11, 4], [12, 3]].map((p) => put(h, 'enemy_1007_slime', p));
     if (silenced) h.b.applyStatus(e, 'silence', { duration: 60 });
-    h.run(skb('enemy_2050_smsha', 'ChainBuff').initCooldown + 0.1);
+    h.run(skb('enemy_2050_smsha', 'ChainBuff').initCooldown + 0.5);   // the hops fly at 15 tiles/s (projectile_enemy_smsha_s)
     return others.map((o) => !!o.findBuff('ab:chainBuff'));
   };
   assert.deepEqual(run(false), [true, true, true, false]);
@@ -2162,6 +2168,7 @@ test(`${nm('enemy_1516_jakill')}: 狱警 — RES +${tb('enemy_1516_jakill', 'enh
   assert.equal(e.s.res, E.enemy_1516_jakill.stats.res + tb('enemy_1516_jakill', 'enhance.magic_resistance'));
   const iron = skb('enemy_1516_jakill', 'ironsandstorm');
   h.runUntil(() => e.stats.attacks >= iron.spCost + 1, 60);
+  h.run(0.5);   // the stuns ride the skill's projectile (projectile_enemy_jakill_s1, 10 tiles/s)
   const hit = h.hooksOf('damaged').find((c) => c.source === e && c.dmg.isAttack);
   assert.equal(hit.dmg.type, 'arts');
   const stunned = new Set(h.hooksOf('statusApplied').filter((c) => c.status === 'stun' && c.source === e).map((c) => c.target.id));
@@ -2774,6 +2781,7 @@ test('“碎铳之簧” 元素护盾 (9019): phys/arts ×0.1 until its own elem
   h.runUntil(() => sp.stats.attacks >= sk.spCost, 60);
   assert.ok(!h.eventsOf('fx').some((f) => f[1] === 'beam' && f[4].kind === 'springBullet'), 'not before the skill attack');
   h.runUntil(() => sp.stats.attacks >= sk.spCost + 1, 30);
+  h.run(0.8);   // the bullet and its bounce fly the official projectile (projectile_enemy_actrpb, 15 tiles/s)
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'beam' && f[4].kind === 'springBullet'));
   assert.ok(h.unit('t_wall').elem[EROSION] > 0 && h.unit('t_wall2').elem[EROSION] > 0, 'bounced');
   h.b.dealDamage(null, sp, { type: 'element', element: 'burn', amount: 1000 });
@@ -2797,7 +2805,7 @@ test('“碎铳之簧” 频次护盾 (9020): negates 5 hits, then comes back 25
   const sk = skb('enemy_9020_actrpc', '1');
   const n = sk.spCost + 1;
   h.runUntil(() => sp.stats.attacks >= n, 60);
-  h.run(0.5);
+  h.run(1);   // 7 tiles at 10 tiles/s (projectile_enemy_actrpc) for the attack and the combo
   const combos = h.eventsOf('fx').filter((f) => f[1] === 'beam' && f[4].kind === 'springCombo').length;
   assert.equal(combos, 1);
   approx(w.stats.taken, n * sp.s.atk + 10 * sp.s.atk * sk.bb.atk_scale);
@@ -2832,10 +2840,10 @@ test('假想敌：管: strikes dark 余音 (their pulse hurts operators); 裂管
   const echo = put(h, 'enemy_9023_acdums', [3, 6], { tag: 'part' });
   assert.equal(echo.mem.ab.form, 'dark');
   assert.equal(e.s.interval, E.enemy_9021_acduml.stats.bat * 100 / 20);
-  h.run(e.s.interval + 0.2);
+  h.run(e.s.interval + 0.6);   // the strike flies 4 tiles at 10 tiles/s (projectile_enemy_acduml)
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'beam' && f[4].kind === 'acdumlStrike'));
   assert.ok(h.unit('t_wall').stats.taken > 0 && h.unit('t_wall').elem.apoptosis > 0);
-  h.run(firstCast('enemy_9021_acduml', '1') - h.b.time + 1.2);
+  h.run(firstCast('enemy_9021_acduml', '1') - h.b.time + 1.6);   // the third strike leaves 0.8 s in, lands 0.4 s later
   const strikes = h.eventsOf('fx').filter((f) => f[1] === 'explode' && f[4].kind === 'pipeStrike').length;
   assert.ok(strikes >= 3 && strikes % 3 === 0, `three strikes per dark echo (${strikes})`);
   assert.ok(alive(h, 'enemy_9023_acdums').length >= 2, 'summoned');
@@ -2849,7 +2857,7 @@ test('假想敌：管 (隐秘核心) + 假想敌：弦: 弦 is invulnerable, 断
   assert.ok(str.s.flags.invulnerable);
   const echo = put(h, 'enemy_9023_acdums', [3, 6], { tag: 'part' });
   bossesMod.setEchoForm(h.b, echo, 'gold');
-  h.run(firstCast('enemy_9022_acdumm', '1') + 0.1);
+  h.run(firstCast('enemy_9022_acdumm', '1') + 0.7);   // the shot flies 5 tiles at 10 tiles/s (projectile_enemy_acdumm)
   assert.equal(echo.mem.ab.form, 'dark');
   assert.ok(h.unit('t_wall').stats.taken > 0);
   h.b.kill(pipe, null);

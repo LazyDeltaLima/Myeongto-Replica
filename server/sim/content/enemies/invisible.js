@@ -17,6 +17,7 @@ const ACBUNN_TARGETS = 3;
 /** 重弩突袭者 直击 reach along a row/column [ASSUMED]; the skill's length and its charge before the bolt (PRTS 直击 "蓄力1.4s后
  *  向目标方向发射1支弩箭…※技能持续2.5s"). */
 const CROSS_REACH = 6, CROSS_SKILL = 2.5, CROSS_CHARGE = 1.4;
+const CROSS_BOLT_SPEED = 5;   // projectile_enemy_msnip `_speed` (the data's skills CrossAttack.proj when present)
 
 // ---------------------------------------------------------------------------------------------------------------
 // kits
@@ -41,7 +42,9 @@ function kitCrossbow(ab) {
       if (!e.alive || e.hidden || e.s.flags.stun || e.s.flags.silence) return;
       const tt = nearest(b, e, aligned(b, e).filter((u) => Math.sign(Math.round(u.x - e.x)) === dx && Math.sign(Math.round(u.y - e.y)) === dy));
       if (!tt) return;
-      b.addProjectile({ from: e, target: tt, speed: 12, visual: 'enemy', source: e, onHit: (c) => {
+      // the bolt: its official projectile (data/enemies.json skills CrossAttack.proj — projectile_enemy_msnip, a
+      // FIXED_DIRECTION AdvancedMovement at 5 tiles/s; until 2026-10-10 12), flown at the unit it was aimed at
+      b.addProjectile({ from: e, target: tt, speed: s.proj?.speed || CROSS_BOLT_SPEED, visual: 'enemy', source: e, onHit: (c) => {
         if (!c.target || !c.target.alive) return;
         hurt(b, e, c.target, e.s.atk * (bb.atk_scale ?? 1), 'arts');
         if (bb.stun > 0 && c.target.alive) b.applyStatus(c.target, 'stun', { duration: bb.stun, source: e });
@@ -83,7 +86,7 @@ function kitJazz(ab, e) {
     // priority: the blocker first), floor(10.6 / 0.5) = 21 ticks at 0.5 … 10.5 s. The channel also ends when that target
     // is gone, makes no normal attacks meanwhile and is never re-cast over itself — the 10 s cooldown (enemy_database
     // skill 'fire') runs out mid-channel, the next cast waits for its end [ASSUMED "持续施法", as 死亡之眼].
-    sil: true, cd: s.cd, icd: s.icd, cond: (b, e2) => revealed(e2) && !(e2.mem.jazzChannel && !e2.mem.jazzChannel.cancelled) && targetsNear(b, e2, r).length > 0,
+    sil: true, name: s.name, cd: s.cd, icd: s.icd, cond: (b, e2) => revealed(e2) && !(e2.mem.jazzChannel && !e2.mem.jazzChannel.cancelled) && targetsNear(b, e2, r).length > 0,
     fire(b, e2) {
       const dur = s.bb['enemy_cnvsax[cd].duration'] ?? 0, iv = s.bb.hit_interval ?? 0.5;
       const t = byPriority(e2, targetsNear(b, e2, r))[0];

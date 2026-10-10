@@ -281,6 +281,25 @@ function normOpAttackAnim(a) {
   return base || skills.some(Boolean) ? { base, skills } : null;
 }
 
+/**
+ * An official projectile of data/enemies.json (`proj`, `projModes[mode]`, `skills[i].proj`, `talentProj[name]` — tools/
+ * build-data.mjs enemyProjectiles) → { key, move, speed, delay }, or null when malformed. `speed` in tiles per second
+ * (0 = it does not fly), `delay` the AttachToTarget's `_delayToStart` (0 when none).
+ */
+export function normShot(p) {
+  if (!p || typeof p !== 'object' || typeof p.key !== 'string') return null;
+  const speed = Number(p.speed), delay = Number(p.delay);
+  return { key: p.key, move: typeof p.move === 'string' ? p.move : 'NONE', speed: Number.isFinite(speed) && speed > 0 ? speed : 0, delay: Number.isFinite(delay) && delay > 0 ? delay : 0 };
+}
+
+/** { name: shot } of normShot (the `projModes` / `talentProj` maps), or null when empty. */
+function normShots(m) {
+  if (!m || typeof m !== 'object') return null;
+  const out = {};
+  for (const [k, v] of Object.entries(m)) { const s = normShot(v); if (s) out[k] = s; }
+  return Object.keys(out).length ? out : null;
+}
+
 /** Normalise an enemy record (research 05 shape or data/enemies.json shape) into an EnemyDef. */
 export function normalizeEnemy(key, e) {
   const st = e.stats ?? e;
@@ -320,6 +339,10 @@ export function normalizeEnemy(key, e) {
     staticBody: !!e.staticBody,        // 静态刚体: pushes / pulls never move it (Battle._displaceable)
     attackAnim: normAttackAnim(e.attackAnim),   // its attack clip { dur, hit } (ai.js attackStand); null = none known
     attackMoves: !!e.attackMoves,      // 「不停止移动」: never stops to attack (ai.js attackStand)
+    // its normal attack's official projectile (data/enemies.json `proj` / `projModes`; ai.js enemyShot): a shot
+    // { key, move, speed, delay } — null = the attack has no projectile (it hits at the strike), undefined = unknown
+    proj: e.proj === null ? null : normShot(e.proj) ?? undefined,
+    projModes: normShots(e.projModes),
     tags: e.tags ?? [],
     abilities: e.abilities ?? [],
     skills: e.skills ?? [],

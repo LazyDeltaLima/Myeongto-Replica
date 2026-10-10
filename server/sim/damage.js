@@ -66,6 +66,17 @@ export function hasHp(u) {
   return !!u && u.alive && (u.bossPool ? u.bossPool.hp > 0 : u.hp > 0);
 }
 
+/**
+ * The 6th field of the 'dmg' event: the id of the unit that dealt the damage — a normal attack, a kit's skill damage
+ * (`battle.dealDamage(u, …)` in content), a DoT tick credited to its applier, a summon's own id — so the client can bind
+ * the attacker's official hit effect / sound to damage that has no 'atk' event (docs/SIM.md, docs/rules/sim.md
+ * 「공식 바인딩용 이벤트 필드」). null for 无来源 damage (element bursts, `periodicDamage`: no attacker in the client's
+ * DamageInfo either) and for damage without a source unit.
+ */
+function attackerId(source, dmg) {
+  return source && !dmg.sourceless && source.id != null ? source.id : null;
+}
+
 /** Normalise a DamageInfo descriptor. */
 export function makeDamageInfo(d = {}) {
   const type = d.type ?? 'phys';
@@ -335,7 +346,7 @@ export function applyHpLoss(battle, source, target, amount, dmg) {
   target.lastHitAt = battle.time;
   if (dmg && !dmg.silent && amount >= 0.5) {
     const shown = dmg.type === 'element' ? dmg.element : dmg.type === 'elemental' ? (dmg.element || 'true') : dmg.type;
-    battle._ev(['dmg', target.id, Math.round(amount), shown, dmg.lpNum || 0]); // local patch: 5th = number flag (local-hud.js)
+    battle._ev(['dmg', target.id, Math.round(amount), shown, dmg.lpNum || 0, attackerId(source, dmg)]); // local patch: 5th = number flag (local-hud.js)
   }
   if (battle._hooks.damaged) battle.emit('damaged', { source: hs, target, amount, type: dmg ? dmg.type : 'true', dmg, credit: source });
   if (target.side === 'ally' && target.skill && dmg && !dmg.noSp && dmg.type !== 'element') battle._skills.onDamaged(target);
@@ -418,7 +429,7 @@ export function applyElement(battle, source, target, dmg) {
   let amt = dmg.amount * dmg.mul * elementIntake(target);
   if (!(amt > 0) || !Number.isFinite(amt)) return 0;
   target.elem[el] = Math.min(max, target.elem[el] + amt);
-  battle._ev(['dmg', target.id, Math.round(amt), el]);
+  battle._ev(['dmg', target.id, Math.round(amt), el, 0, attackerId(source, dmg)]);
   if (source) source.stats.elem = (source.stats.elem ?? 0) + amt;
   if (battle._hooks.damaged) battle.emit('damaged', { source, target, amount: amt, type: 'element', dmg });
   if (target.elem[el] >= max && target.alive) elementBurst(battle, source, target, el);

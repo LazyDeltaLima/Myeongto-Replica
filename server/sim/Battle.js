@@ -142,6 +142,7 @@ export class Battle {
     this._ebUsed = [];
     this._idSeq = 0;
     this._attackSeq = 0;   // DamageInfo.attackId of normal attacks (one id per attack, all its damage instances)
+    this._castAbility = null;   // { id, ability } while an enemy skill is cast (content/enemies.js onTick; battle/events.js fx)
     this._deploySeq = 0;
     this._spawnSeq = 0;
     this._enemiesDirty = false;

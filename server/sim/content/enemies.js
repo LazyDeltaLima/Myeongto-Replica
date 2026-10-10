@@ -119,7 +119,7 @@ import { LEADER_KITS } from './enemies/leaders.js';
 import { hypot } from '../detmath.js';
 
 export {
-  EROSION, EROSION_BURST, HUSK_REBIRTH, nthOf, abOf, attach, T, silenced, canCast, unbalancedNow, elem, hurt, alliesInTiles,
+  EROSION, EROSION_BURST, HUSK_REBIRTH, nthOf, abOf, attach, T, silenced, canCast, unbalancedNow, elem, hurt, shoot, alliesInTiles,
   targetsNear, allTargets, areaAllies, areaAlliesInTiles, fieldAllies, auraAllies, targetAndArea, byPriority, zone,
   remainingRoute, stayRoute, spawnChildren, stepToward, setHits, hitCount, isHitCount, setForm, lpLoss, expose,
   expectedFinal, absorbArts,
@@ -264,7 +264,13 @@ function onTick(b, dt) {
           a.left = Math.max(TICK, a.cd);
           a.casts = (a.casts ?? 0) + 1;
           e.skillAnimUntil = b.time + 0.5;
-          safe(b, e, () => a.fire(b, e, a));
+          // the cast's events name the official ability (docs/SIM.md events; the client binds the enemy's effects and
+          // sounds by it — the prefab's `Skills/<name>`, research of the client's UnitMode.GenerateSignalId): fx
+          // 'enemySkill' { id, ability, n } as it starts, and `ability` / `caster` on every fx the cast makes now
+          if (a.name) b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts });
+          const prev = b._castAbility;
+          b._castAbility = a.name ? { id: e.id, ability: a.name } : null;
+          try { safe(b, e, () => a.fire(b, e, a)); } finally { b._castAbility = prev; }
         }
       }
     }

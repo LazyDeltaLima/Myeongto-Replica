@@ -4,7 +4,7 @@
 import { TICK, MOVE_SCALE, PROJECTILE_SPEEDS, ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import {
   num, T, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, fieldAllies, byPriority, spawnChildren,
-  stepToward, setForm, expose, unbalancedNow,
+  stepToward, setForm, expose, unbalancedNow, shoot,
 } from './helpers.js';
 import { enemyAura, allyAura, selfFear, skill, kitSelfFear } from './archetypes.js';
 import { hypot } from '../../detmath.js';
@@ -89,11 +89,14 @@ function kitBlackCloud(ab, e) {
       const hits = Math.floor(e2.mem.ab.ammo ?? 0);
       if (!(hits > 0)) return;
       e2.mem.ab.ammo = 0;
+      // each hit is the skill's official projectile (skills FireWeapon.proj — projectile_enemy_acfort_skill, TRACE 10 tiles/s;
+      // enemies/helpers.js shoot): the damage lands as it arrives (until 2026-10-10 at the cast) — every shot leaves now
+      // [추정: the 多连击's spacing between shots was not read]
       for (let i = 0; i < hits; i++) {
         const t = b.rng.pick(allTargets(b, e2));
         if (!t) break;
         b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'fireWeapon' });
-        hurt(b, e2, t, e2.s.atk * num(f.bb.atk_scale, 1), 'phys');
+        shoot(b, e2, t, f.proj, (tt) => { if (tt && tt.alive) hurt(b, e2, tt, e2.s.atk * num(f.bb.atk_scale, 1), 'phys'); });
       }
     }, { sil: true, cond: (b, e2) => (e2.mem.ab.ammo ?? 0) >= Math.max(1, num(f.sp, 1)) && allTargets(b, e2).length > 0 }),
   ];

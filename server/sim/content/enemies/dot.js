@@ -3,6 +3,7 @@
 
 import { SHELL_SPLASH_RADIUS, num, T, elem, hurt, areaAllies } from './helpers.js';
 import { splashAttack, noAirTargets, resist, immuneTo, bleed, pollution, dmgZone, kitPolluted } from './archetypes.js';
+import { hypot } from '../../detmath.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -83,7 +84,16 @@ function kitTank(ab, e) {
       a.skill = false;
       a.sp = 0;
       const t = c.targets[0];
-      if (t) pollution(b, e2, t.x, t.y, TANK_ZONE_RADIUS, s.projectile_life_time ?? 0, s.polluted_damage_low ?? 0, s.polluted_damage_high ?? 0);
+      if (!t) return;
+      // the zone comes where the skill's shell lands: its official projectile (data/enemies.json skills PollutedRangedAtk.proj
+      // — projectile_enemy_nhtank_polluted, a PARACURVE at 4 tiles/s: flight = distance / speed, client code
+      // ParacurveMovement.OnInit) to the target's spot at the attack [추정: a target moving meanwhile]; until 2026-10-10 at
+      // the attack itself
+      const x = t.x, y = t.y;
+      const zone = () => pollution(b, e2, x, y, TANK_ZONE_RADIUS, s.projectile_life_time ?? 0, s.polluted_damage_low ?? 0, s.polluted_damage_high ?? 0);
+      const v = sk?.proj?.speed > 0 ? sk.proj.speed : 0;
+      const d = hypot(x - e2.x, y - e2.y);
+      if (v > 0 && d > 0.75) b.after(d / v, zone); else zone();
     },
   }];
 }
@@ -110,7 +120,9 @@ export const DOT_KITS = Object.freeze({
       // a sourceless zone (`src` null): its ticks skip a 隐匿 / untargetable / sleeping operator (PRTS 假想敌：蚀裂: no 无视
       // 可选性 note — PRTS 作战机制's "无来源的毒雾" that reaches 隐匿 units is the stage hazard), not an airborne 起飞 one
       const cloud = (x, y) => dmgZone(b, null, x, y, T(ab, '1.projectile_range') ?? 0.8, T(ab, '1.projectile_life_time') ?? 0, T(ab, '1.interval') ?? 1, atk * (T(ab, '1.damage_atk_scale') ?? 0), 'arts', 'poison');
-      if (k) b.addProjectile({ from: e, target: k, speed: 8, visual: 'lob', source: null, hitDead: true, onHit: (h) => cloud(h.x ?? k.x, h.y ?? k.y) });
+      // the cloud flies as its talent's official projectile (data/enemies.json talentProj['1'] — projectile_enemy_actoxi, a
+      // PARACURVE at 5 tiles/s; until 2026-10-10 8)
+      if (k) b.addProjectile({ from: e, target: k, speed: e.def?.raw?.talentProj?.['1']?.speed || 5, visual: 'lob', source: null, hitDead: true, onHit: (h) => cloud(h.x ?? k.x, h.y ?? k.y) });
       else cloud(e.x, e.y);
     },
   }],

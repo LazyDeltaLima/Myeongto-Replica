@@ -382,8 +382,10 @@ test('snapshot / event wire format (DESIGN §8.2)', () => {
   assert.equal(atk.length, 4);
   const dmg = allEv.find((e) => e[0] === 'dmg');
   // local patch: a 5th field, the damage number flag (0 none / 1 critical / 2 forced — server/sim/local-hud.js)
-  assert.equal(dmg.length, 5);
+  // and a 6th, the attacker's unit id (null for 无来源 damage — server/sim/damage.js attackerId)
+  assert.equal(dmg.length, 6);
   assert.ok([0, 1, 2].includes(dmg[4]));
+  assert.ok(dmg[5] === null || h.b.units.some((u) => u.id === dmg[5]), 'the attacker is a unit of the battle');
   assert.ok(['phys', 'arts', 'true', 'burn', 'neural', 'necrosis', 'apoptosis'].includes(dmg[3]));
   const flyInSnap = h.b.units.find((u) => u.defId === 'enemy_fly');
   if (flyInSnap.alive) assert.ok(snap.units.find((u) => u[0] === flyInSnap.id)[7] & UF.FLYING);

@@ -146,7 +146,7 @@ function barrage(times) {
 function chargedTriple(mc) {
   const n = mc.bb.times ?? 1;
   return {
-    cd: mc.cd, icd: mc.icd,
+    name: mc.name, cd: mc.cd, icd: mc.icd,
     cond: (b, e) => !!e.blockedBy,
     fire(b, e, a) { a.ready = n; },
     dealt(c, b, e, a) {

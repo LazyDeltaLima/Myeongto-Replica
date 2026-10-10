@@ -399,3 +399,51 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   검우 횟수는 그대로 `duration`번. [추정]: 1Frame 단계(1프레임)는 넣지 않음, 검이 생긴 뒤 `_lifeTime` 0.1 끝(`_alwaysHitTraceTargetInTheEnd`)에 맞는지는
   안 봄(생길 때 피해로 둠), AppearSwordRain `_preDelay`가 공속 배율을 받는지 안 봄(0.6 s 고정). 첫 처치 재시전(德克萨斯传统)은 남은 배치 타·검을 지우고
   새로 시작한다. 그 전: 배치 2타 동시, 첫 검우 1 s(배치 기준), 검 동시. 테스트 `test/content/kits_t4.test.js`·`kits_alt_t4.test.js` 「缄默德克萨斯」.
+
+## 적 투사체·공식 바인딩용 이벤트 필드 (관리자 결정 (2026-10-10) 「동작 변경 모두 공식이랑 동일하게」)
+근거: EN 클라(2026-08) 적 프리팹 `battle/enm_pfb_*.ab`·투사체 `battle/prefabs/[uc]projectiles.ab`의 값과 클라 코드(디컴파일 — 레포에는 클래스·메서드 이름만,
+RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 클래스 없음. 렌더·소리(공식 이펙트·뱅크 바인딩)가 쓰는 계약이다.
+- **적 투사체 데이터**: `tools/local-extract/enemy_projectiles.py` → `tools/assets/local-enemy-projectiles.json`(커밋) → `tools/build-data.mjs enemyProjectiles` →
+  `data/enemies.json` `proj`·`projModes`·`skills[i].proj`/`projAlt`·`talentProj`(형식은 `docs/DATA.md` §enemies). 공격 능력(`Modes/<m>/Body/Attack`, 없으면
+  `Combat`; 자식 능력이면 가장 얕은 것 — 假想敌：管 `Body/Attack/AttackEnemy`)의 `_projectileKey`·`_mountPointType`(Entity.MountPointType), 스킬은
+  `Skills/<이름>`(gamedata prefabKey와 대소문자만 다름), 특성은 `Talents/<이름>`의 버프 블랙보드가 부르는 키. 투사체의 이동 behaviour는 직렬화 필드로 가림:
+  AdvancedMovement(`_moveType`), ParacurveMovement(`_raiseHeight` → PARACURVE), HarpoonMovement(`_extendLenth` → HARPOON), AttachToTarget(`_immediatelyReach` →
+  ATTACH). 적이 쓰는 83개 중 PARACURVE 14, HARPOON 6, ATTACH 12, 이동 behaviour 없음 2(`Talents/Boom`의 `projectile_bslime`·`projectile_snslime`), 나머지
+  AdvancedMovement.
+- **비행 시간**: TRACE_TARGET_WITH_SPEED는 대상을 쫓아 `_speed`(타일/초). PARACURVE는 클라 코드 `ParacurveMovement.Init`(0x9A6840: `m_speed = _speed`)·
+  `OnInit`(0x9A6970: 시간 = 수평 거리 ÷ `m_speed`, 높이는 중력 계산에만)·`_CalculateNextPosition`(0x9A6FB0: 매 틱 대상 현재 위치로 목표 갱신) → 우리 2D 추적
+  투사체와 같은 시간. HARPOON은 대상까지 `_speed`로 뻗음(`_acceleration` 0). 그래서 sim은 셋 다 `speed`로 날린다(`server/sim/ai.js enemyShot`·`shotSpeed`).
+  공격 능력에 투사체가 없으면(`proj: null`: 妖怪MKII, 萨卡兹百夫长, “邪魔的利刃”, 盐风主教昆图斯 …; 프리팹은 대상에 `hitEffects`만) 피해는 타격 순간 — 远程途径
+  아님(`isProjectile` false), 'atk' kind `none`. 데이터에 없는 적(테스트 유닛 등)은 예전 `PROJECTILE_SPEEDS.enemy` 10.
+  이전: 원거리 적 모두 10 — 바뀐 적(PARACURVE): 萨卡兹枯朽战车 ×2·高准度伦蒂尼姆城防自行炮·“帝国的甲胄”·集团军重型火炮 4, 烹泉·沏虹·灼热源石虫·炽焰源石虫·碎骨·W·
+  “墓碑” 5, “庞贝” 6, 自制投石机 8; (TRACE) 法术大师A1·A2·陷落雪祀 15, “灵幛” 18; (HARPOON) “独轮车玩具” 30; 투사체 없는 원거리 적 40종은 즉시.
+  모드별: 守墓石像 Fly 모드(`setForm` 'fly' ↔ `_modes` `Fly`).
+- **콘텐츠 스킬 투사체**: 重弩突袭者 直击 12 → 5(`projectile_enemy_msnip`, FIXED_DIRECTION — 겨눈 대상을 향해 날림 [추정: 직선 고정 이동의 첫 충돌 판정은
+  안 봄]), 迷路的巨像 StunAttack 8 → 10, 假想敌：蚀裂 사망 독구름 8 → 5(PARACURVE), 萨卡兹枯朽战车 秽蚀轰击 구역은 공격 순간 → 포탄 착지(공격 때 대상 위치,
+  `projectile_enemy_nhtank_polluted` 4 타일/초; 착지 뒤 머무는 시간 `_delayTime` 20은 블랙보드 `projectile_delay_time`이 덮음 — 클라 코드 `ParacurveMovement.OnInit`이
+  그 키를 읽음). 帝国炮火先兆者의 3초는 `projectile_enemy_emppnt` = AttachToTarget `_delayToStart` 3으로 확인(콘텐츠 그대로).
+- [추정] 남은 차이: 두 이동 behaviour가 함께 켜진 투사체(萨米의 의지 冰凌 `projectile_enemy_smdeer`: AttachToTarget + FIXED_DIRECTION)는 움직이는 쪽으로 기록,
+  `stay`(AdvancedMovement `_delayAfterReached`: 닿은 뒤 남아 있음 — `AdvancedMovement.DoCheckReached` 0x97D0A0 → `Projectile.EnsureLifeTime`) 동안 피해가
+  다시 나는지는 안 봄(닿을 때 피해로 둠). 萨米의 의지 冰凌은 그대로 열 전체 즉시 — 이동 둘이 함께 켜진 투사체를 클라가 어떻게 돌리는지와 FIXED_DIRECTION의
+  첫 충돌·관통 규칙(`_hitNumType`·`_stopAfterMaxHit`와 하위 투사체 `projectile_enemy_smdeer_2`)을 디컴파일하지 않아 열의 유닛마다 언제 맞는지 정할 수 없음.
+  투사체의 `moveScale`(속도 배율 버프)은 안 씀.
+- **콘텐츠 스킬 투사체 2차** (`enemies/helpers.js shoot(b, from, t, shot, onHit)`: 위와 같은 비행 시간으로 `addProjectile`, 날지 않는 shot은 즉시; fx
+  `enemyShot` { id, from?, tgt, key, move, speed, t }를 냄 — `kinds.js` 'none'): 데이터 `skills[i].proj`대로, 효과는 투사체가 닿을 때(이전: 시전 순간).
+  - 假想敌：黑云 FireWeapon(`projectile_enemy_acfort_skill` 10): 연타마다 한 발, 닿을 때 피해. [추정] 연타 사이 간격은 안 읽음 — 모두 시전 때 출발.
+  - 凋零骑士 TripleAttack(`projectile_enemy_dekght_s` 10): 화살이 닿은 대상의 칸에 표시, `interval` 뒤 십자 폭발. [추정] 지연은 착지부터 셈(`dekght_2[aoe]` 버프가
+    맞은 대상에 붙는다고 봄).
+  - 陷落雪祀 ChainBuff(`projectile_enemy_smsha_s` 15): 적마다 닿을 때 버프, 다음 도약은 거기서 그때 고름. [추정] 도약도 같은 투사체·속도.
+  - 杰斯顿·威廉姆斯 IronSandStorm(`projectile_enemy_jakill_s1` 10): 대상마다 한 발, 닿을 때 기절(본 공격 피해는 엔진의 일반 공격 투사체 10).
+  - “碎铳之簧” `1`: 元素护盾 탄(`projectile_enemy_actrpb` 15)은 닿을 때 침식, 튕김은 맞은 대상에서 출발 [추정: 같은 투사체]; 频次护盾 10연타
+    (`projectile_enemy_actrpc` 10)는 닿을 때 10타 [추정: 10타 사이 간격은 안 읽음].
+  - 假想敌：管 `1`(`projectile_enemy_acduml` 10): 0.4 s 간격 세 발이 余音에 닿을 때 폭발·余音 피격. 假想敌：弦 `1`(`projectile_enemy_acdumm` 10): 金 余音에
+    닿을 때 폭발·暗 전환. 둘의 일반 공격(余音 타격)도 공식 `proj`(같은 키, 10)로 날아 닿을 때 余音 피격.
+- **'dmg' 이벤트 6번째 = 공격자 unit id** (`server/sim/damage.js attackerId`): 일반 공격, 키트가 `battle.dealDamage`로 넣는 스킬 피해('atk' 없음 — 키트
+  약 60개), DoT(건 유닛), 소환물(자기 id). 无来源(원소 폭발, `periodicDamage`)·출처 없는 피해는 null. 원소 게이지
+  채움도 같은 자리(5번째는 0). 기존 원소 위치·뜻은 그대로.
+- **적 스킬 이벤트에 공식 능력 이름**: 콘텐츠의 쿨다운 스킬이 시전되면(`content/enemies.js onTick`) fx `enemySkill` `{ id, ability, n }`을 먼저 내고, 그 시전
+  호출 안에서 나는 fx에는 `ability`·`caster`가 붙는다(`battle/events.js fx`; 나중 예약(`battle.after`)된 fx에는 없음). `ability` = gamedata 스킬
+  `prefabKey`(`enemies/helpers.js abOf`의 `sk[*].name`; 보스 키트의 수동 능력 객체도 `name`). 렌더(`kinds.js` `enemySkill` 'none' — 그리지 않음)·소리가
+  `enemy-bindings`의 `Skills/<이름>`·`ON_ABILITY_*.<신호>`를 대소문자 무시로 찾는다. 이름 없는 콘텐츠 능력(특성 반응, 일반 공격 변형)은 표시 없음.
+- 테스트 `test/sim/official-event-fields.test.js`(`shoot` 포함), `enemies_bosses.test.js`의 黑云·凋零骑士·陷落雪祀·杰斯顿·碎铳之簧·管·弦 시각을 비행 시간만큼 늦춤. 투사체 속도로 적 원거리 피해 시각이 바뀌어 golden이 움직인다(roster 44·bonds 6·fields 20·matches 6·
+  standins 5·diy 2 사례 — 갱신은 메인 세션), `enemies_bosses.test.js`의 重弩突袭者·集团军重型火炮 시각을 공식 속도로 고침.

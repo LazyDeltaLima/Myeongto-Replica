@@ -604,9 +604,12 @@ function dmgZone(b, src, x, y, r, life, iv, amount, type = 'arts', kind = 'zone'
   } });
 }
 
-/** A cooldown skill ability (`id` labels it for tests / other abilities). */
+/**
+ * A cooldown skill ability (`id` labels it for tests / other abilities; `name` = the official ability name of its data
+ * skill `s` — content/enemies.js onTick puts it on the cast's events).
+ */
 const skill = (s, fire, { cond = null, sil = false, cd = null, icd = null, id = null } = {}) => (s || cd != null) && fire ? ({
-  id: id ?? null, sil, cd: cd ?? s.cd, icd: icd ?? s.icd, cond, fire,
+  id: id ?? null, name: s?.name ?? null, sil, cd: cd ?? s.cd, icd: icd ?? s.icd, cond, fire,
 }) : null;
 
 /** Blink past the blocker along the path (弑君者 / 卢西恩). Returns the start position. */

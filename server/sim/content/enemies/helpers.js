@@ -7,6 +7,7 @@ import { ELEMENT } from '../../constants.js';
 import { canTargetAlly, sortAllyTargets, areaSelectable, auraSelectable } from '../../targeting.js';
 import { mitigate } from '../../damage.js';
 import { hypot } from '../../detmath.js';
+import { normShot } from '../../simdata.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -90,7 +91,10 @@ export function abOf(b, e) {
   const sk = {};
   for (const s of (ov && Array.isArray(ov.skills) ? ov.skills : (e.def && e.def.skills) || [])) {
     if (!s || s.prefabKey == null) continue;
-    sk[s.prefabKey] = { cd: num(s.cooldown, 0), icd: num(s.initCooldown, 0), sp: num(s.spCost, 0), bb: s.bb || {}, bs: s.bbStr || {} };
+    // `name`: the official ability name (the gamedata prefabKey — the prefab's `Skills/<name>`, case aside), carried by the
+    // cast's events (content/enemies.js onTick: fx 'enemySkill' and the `ability` of the fx made by the cast); `proj`: its
+    // official projectile (data/enemies.json skills[i].proj, simdata.js normShot), null when it has none
+    sk[s.prefabKey] = { name: s.prefabKey, cd: num(s.cooldown, 0), icd: num(s.initCooldown, 0), sp: num(s.spCost, 0), bb: s.bb || {}, bs: s.bbStr || {}, proj: normShot(s.proj) };
   }
   e.mem.ab = { key, t, tS, sk, list: [], times: null, hitShield: 0, atkType: null, immune: null, origMaxHp: e.base.maxHp };
   return e.mem.ab;
@@ -343,6 +347,29 @@ export const isHitCount = (e) => !!e.findBuff(HIT_COUNT_KEY);
  * client never drops it, not in a catch-up frame nor while its tab is hidden. Barrier / charge 'phase' kinds are no
  * forms: they go through b.fx directly, without `form`.
  */
+/**
+ * Fire an enemy ability's official projectile `shot` (data/enemies.json `skills[i].proj` …, simdata.js normShot) from
+ * `from` (a unit, or a point with the shooter as `opts.source`) at unit `t`; `onHit(target)` runs as it arrives —
+ * `target` null when it fizzled on a dead target with `opts.hitDead`. Timing as the engine's normal attacks (ai.js
+ * shotSpeed, docs/rules/sim.md 「적 투사체」): TRACE_TARGET_WITH_SPEED / PARACURVE / HARPOON / FIXED_DIRECTION home at
+ * `speed`; ATTACH / NONE / no shot land now. An fx 'enemyShot' { id (shooter), from (the unit it leaves, when not the
+ * shooter), tgt, key, move, speed, t (flight s) } lets the client draw the official projectile (docs/SIM.md events).
+ * Returns the flight time in seconds.
+ */
+export function shoot(b, from, t, shot, onHit, opts = {}) {
+  const src = opts.source ?? (from && from.id != null ? from : null);
+  const v = shot && shot.speed > 0 && shot.move !== 'ATTACH' && shot.move !== 'NONE' ? shot.speed : 0;
+  const d = hypot(t.x - from.x, t.y - from.y);
+  const flight = v > 0 ? d / v : 0;
+  if (shot) {
+    b.fx('enemyShot', { x: from.x, y: from.y, id: src ? src.id : null, ...(from.id != null && from !== src ? { from: from.id } : {}),
+      tgt: t.id, key: shot.key, move: shot.move, speed: v, t: Math.round(flight * 1000) / 1000 });
+  }
+  if (!(v > 0) || !(d > 1e-9)) { onHit(t); return 0; }
+  b.addProjectile({ from, target: t, speed: v, visual: opts.visual ?? 'enemy', source: src, hitDead: !!opts.hitDead, onHit: (c) => onHit(c.target) });
+  return flight;
+}
+
 export function setForm(b, e, form, fxKind = 'phase', params = null) {
   e.form = form;
   b.fx(fxKind, fxKind === 'phase' ? { ...params, x: e.x, y: e.y, id: e.id, kind: form, form } : { ...params, x: e.x, y: e.y, id: e.id, form });

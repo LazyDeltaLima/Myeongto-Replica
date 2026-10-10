@@ -77,6 +77,12 @@ export const FX_KINDS = Object.freeze({
   // 限伤 (sim/damage.js leaderHitCancelled): a leader's hit of ≥ 300000 dealt nothing — the official shows no number and
   // no effect [ASSUMED], so nothing is drawn (`a: 'none'`)
   hitCap: { a: 'none', c: 0xffffff },
+  // an enemy skill's cast marker (sim content/enemies.js: { id, ability, n } — the official ability name for the
+  // official effect / sound bindings); nothing procedural is drawn for it
+  enemySkill: { a: 'none', c: 0xffffff },
+  // an enemy ability's official projectile leaving (sim enemies/helpers.js shoot: { id, from?, tgt, key, move, speed, t }) —
+  // drawn by the official-effect layer when it knows `key`; nothing procedural (the kit's own fx stay)
+  enemyShot: { a: 'none', c: 0xffffff },
   // 自选 operator kits (0.2.0): 逻各斯, 真言, 维伊 (O3); 早露, 提丰, 娜仁图亚 (O7); 嵯峨's 重伤 (O8)
   bulletClear: { a: 'wave', c: 0xd8b0ff }, logosLexicon: { a: 'mark', c: 0xc9a2ff }, logosExecute: { a: 'strike', c: 0xb07dff },
   mantraArc: { a: 'bolt', c: 0xc77dff }, mantraGrant: { a: 'mark', c: 0xc77dff }, mantraGate: { a: 'reticle', c: 0xc77dff },
