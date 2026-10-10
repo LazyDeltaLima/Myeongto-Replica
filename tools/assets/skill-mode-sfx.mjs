@@ -659,6 +659,28 @@ export function enemySkillCues(audio, owner, entry, soundLeaf) {
 }
 
 /**
+ * 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: a summon's attack sound sets by prefab mode name (`_modes`,
+ * local-char-audio.json `modes`) for the modes other than its Default whose set differs from it — 뮤엘시스's 流形 switches
+ * to Melee / Range on its copy and to Melee_S3 / Range_S2 while her S3 / S2 runs (buff templates mlyss_wtrman_switch_melee /
+ * _range: SwitchMode 5 / 4 when its owner holds mlyss_s_3[buff] / mlyss_s_2[buff], else 2 / 3). { [name]: { cues, sel? } } or
+ * null (public/js/audio.js: the sim names the mode — fx 'copy' `mode`, docs/SIM.md).
+ */
+export function tokenModeSets(audio, owner, entry, soundLeaf, base = null) {
+  const names = Array.isArray(entry?.modes) ? entry.modes : [];
+  if (names.length < 2) return null;
+  const d = Math.max(0, names.indexOf('Default'));
+  const same = JSON.stringify(base ?? soundSet(audio, owner, entry, d, soundLeaf));
+  const out = {};
+  names.forEach((name, i) => {
+    if (i === d || typeof name !== 'string') return;
+    const set = soundSet(audio, owner, entry, i, soundLeaf);
+    if (!set.cues.length || JSON.stringify(set) === same) return;
+    out[name] = set.sel ? { cues: set.cues, sel: set.sel } : { cues: set.cues };
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+/**
  * An enemy's attack sound sets of its prefab modes after mode 0 (`_modes` order, local-char-audio.json `modes`): { [n]: { cues,
  * sel? } } for the modes whose set differs from mode 0's (`cues: []` = that mode attacks in silence — its signal has no bank,
  * as for an operator's skill mode), null when none differs. The client switches modes in `Unit.SwitchMode` (RVA 0x76E1D0:

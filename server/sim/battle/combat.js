@@ -45,16 +45,17 @@ export class BattleCombat {
   /**
    * Perform an immediate attack with a unit's current profile (content: "立即攻击", extra attacks, counters). It is an
    * attack in every respect (hooks, attack SP, a running ammo skill's bullet) — except with `noAmmo: true`: an extra
-   * attack that spends no ammo (no `ammoUsed`, the skill never ends on it; 圣约送葬人 "不额外消耗弹药").
+   * attack that spends no ammo (no `ammoUsed`, the skill never ends on it; 圣约送葬人 "不额外消耗弹药"). `signal`: the client
+   * ability the attack is (a talent's own attack, 'T.1') — its 'atk' events carry it for the sound (docs/SIM.md).
    * Returns true when an attack was made.
    */
-  forceAttack(u, targets = null, { noAmmo = false } = {}) {
+  forceAttack(u, targets = null, { noAmmo = false, signal = null } = {}) {
     if (!u || !u.alive || !u.profile) return false;
     const prof = effectiveProfile(u);
     const t = targets ?? acquireTargets(this, u, prof);
     if (!t || !t.length) return false;
     const n0 = u.stats.attacks;
-    performAttack(this, u, prof, t, noAmmo ? { noAmmo: true } : null);
+    performAttack(this, u, prof, t, noAmmo || signal ? { noAmmo, ...(signal ? { signal } : {}) } : null);
     return u.stats.attacks > n0;
   }
 }

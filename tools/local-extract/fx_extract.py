@@ -580,6 +580,9 @@ class Extractor:
         face = self.root_face(self.root_effect(root))
         if face:
             out_def['face'] = face
+        finish = self.delay_to_finish(root)
+        if finish:
+            out_def['finish'] = finish
         right = self.right_effect(root)
         if right:
             out_def['right'] = right
@@ -825,6 +828,71 @@ class Extractor:
             f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
             changed += 1
         print(f'[fx] {bundle}: {found} prefab(s) with a root effect component, {changed} file(s) changed')
+        return found, changed
+
+    def delay_to_finish(self, root):
+        """(2026-10-11, decompile check — client `Effect.FinishMe` RVA 0xC88FE0: an effect being finished (a buff ending,
+        `Entity.RemoveBuffEffect` RVA 0x36001C0) stops its parts and is recycled `delayToRecycle` s later, which a
+        ParticleEffect returns as its `_delayToFinish` — `ParticleEffect.get_delayToRecycle` RVA 0xCB3470): the root effect
+        component's raw float #5, read as spawn_location reads #13 (the field order of the client's ParticleEffect: #4
+        _delayToPlay, #5 _delayToFinish, #6 _maxLifetime). buff_stun 0, buff_slowdown 0.5, buff_cold 0.06. None when the
+        component is not found."""
+        try:
+            d = root.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            raw = comp.get_raw_data()
+            off = 12 + 4 + 12
+            if len(raw) < off + 4:
+                continue
+            n = struct.unpack_from('<i', raw, off)[0]
+            off = (off + 4 + n + 3) & ~3
+            if len(raw) < off + 14 * 4:
+                continue
+            ints = struct.unpack_from('<14i', raw, off)
+            if ints[6] == -1082130432 and ints[10] == 1073741824 and 0 <= ints[13] < 64:
+                v = struct.unpack_from('<f', raw, off + 5 * 4)[0]
+                return r4(v) if math.isfinite(v) and 0 <= v <= 60 else None
+        return None
+
+    def finish_only(self, bundle, pack=None):
+        """2026-10-11: write only the `finish` (delay_to_finish) of the bundle's already extracted prefabs, like
+        height_only. Returns (prefabs with one, files changed)."""
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
+        p = bundle_path(self.game, rel)
+        if not p:
+            print(f'[fx] {bundle}: bundle not found, skipped')
+            return 0, 0
+        env = self.UnityPy.load(str(p))
+        found = changed = 0
+        for o in env.objects:
+            if o.type.name != 'Transform':
+                continue
+            t = o.read_typetree()
+            if t['m_Father']['m_PathID'] != 0:
+                continue
+            go = self.resolve(t['m_GameObject'], o)
+            if go is None:
+                continue
+            f = OUT / bundle / f"{go.read_typetree()['m_Name']}.json"
+            if not f.exists():
+                continue
+            v = self.delay_to_finish(go) or None
+            d = json.loads(f.read_text())
+            found += v is not None
+            if d.get('finish') == v:
+                continue
+            if v is None:
+                d.pop('finish', None)
+            else:
+                d['finish'] = v
+            f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+            changed += 1
+        print(f'[fx] {bundle}: {found} prefab(s) with a finish delay, {changed} file(s) changed')
         return found, changed
 
     def height_only(self, bundle, pack=None):
@@ -1109,6 +1177,8 @@ def main():
                     'of the already extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-11)')
     ap.add_argument('--height-only', action='store_true', help='only write the `_overwriteHeight` `height` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-10)')
+    ap.add_argument('--finish-only', action='store_true', help='only write the `_delayToFinish` `finish` into the already '
+                    'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-11)')
     a = ap.parse_args()
     if a.build_cab_index:
         build_cab_index(a.game, a.build_cab_index)
@@ -1123,6 +1193,11 @@ def main():
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
         tot = [ex.height_only(b, pack=a.pack) for b in bundles]
         print(f'[fx] height: {sum(x[0] for x in tot)} prefab(s) with an overwritten height, {sum(x[1] for x in tot)} file(s) changed')
+        return
+    if a.finish_only:
+        bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
+        tot = [ex.finish_only(b, pack=a.pack) for b in bundles]
+        print(f'[fx] finish: {sum(x[0] for x in tot)} prefab(s) with a finish delay, {sum(x[1] for x in tot)} file(s) changed')
         return
     if a.back_only:
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])

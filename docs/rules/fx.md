@@ -626,6 +626,10 @@
   - 쏜즈 더 로드스타 S1 `thorn2_skill_01_range`의 `_overwriteHeight`(풀에서 유일, offset 0.0 — 원시 필드 #18·#19, `fx_extract.py overwrite_height`): 프리팹 `height`,
     `fxgame.js overHeight`가 높이 = 그 유닛의 바닥(점이면 그 칸의 높이) + offset [추정: 엔티티 = 착지한 S1 투사체, 그 칸 위]. `_spawnLocation` 7이 0에 놓은 것을 높은 칸이면
     그 칸 위로 올린다. **`fx_extract.py --game <클라> --bundle thorn2 --height-only` 실행 전에는 `height`가 없어** 화면 변화 없음.
+  - `_delayToFinish`(2026-10-11, 원시 float #5 — ParticleEffect 필드 순서 #4 `_delayToPlay`·#5 `_delayToFinish`·#6 `_maxLifetime`, `fx_extract.py delay_to_finish`):
+    0보다 크면 프리팹 `finish`. `Effect.FinishMe`(RVA 0xC88FE0)가 끝내는 이펙트를 그만큼 뒤에 회수한다(`ParticleEffect.get_delayToRecycle` RVA 0xCB3470).
+    지금 쓰는 곳은 상태 이펙트 끝(`ui.md` ⑤ 「끝내는 시점」, `fxgame.js statusOff`). **`fx_extract.py --game <클라> --finish-only` 실행 전에는 `finish`가 없어**
+    예전처럼 바로 제거. 연결선 이펙트(`stepLines`)의 0.5초는 그대로 상수.
 
 ### 입력 대상·루프 타격·클립별 이펙트·배치 이펙트 — 디컴파일 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 근거: 클라 코드(`dump.cs` + 역어셈, 아래 메서드는 켜진 Lua 핫픽스 목록에 없음)와 charpack·`[uc]skills.ab`·이펙트 번들 프리팹 값. 조사 기록은 관리자 노트(디컴파일 2라운드 fx).

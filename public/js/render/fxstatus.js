@@ -112,7 +112,8 @@ export function syncStatusFx(views, fxGame, battle) {
       if (fxGame.statusReady(bundle, name)) fxGame.statusOn(v, bundle, name, k, frac, hold);
     }
     // local patch: not the prep 'golden' glow (fxgolden.js); local patch (maintainer report 2026-10-08): `now` — an ended
-    // status takes its effect's particles with it (buff_stun's mark lives 10 s: it hung on beside the next stun's)
+    // status takes its effect's particles with it (buff_stun's mark lives 10 s: it hung on beside the next stun's), after
+    // the prefab's `_delayToFinish` as the client's Effect.FinishMe does (2026-10-11, fxgame.js statusOff; buff_stun 0)
     if (on) for (const k of [...on]) if (!want.has(k) && STATUS_FX[k]) fxGame.statusOff(v, k, true);
   }
 }

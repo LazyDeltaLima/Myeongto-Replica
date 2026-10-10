@@ -69,6 +69,22 @@ export const KIT_HIT_BANKS = Object.freeze({
   'titi:awake': 'battle.ON_CUSTOM_TRIGGER.titi_s_3[awake]',
   // 아스카론 S2 — an enemy carrying ascln_s_2[enemy] killed (ON_OWNER_KILLED → PlayAudio ASCLN_S_2_BOMB at her)
   'ascln:s2bomb': 'battle.ON_CUSTOM_TRIGGER.ASCLN_S_2_BOMB',
+  // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: talent abilities (`<charId>.T.<n>`, UnitMode signal rules) —
+  // 크루스 더 킨 글린트's 中的 shot (its own attack ability T.1: START + ON), 이그제큐터 디 엑스 포에데레's 受选之人 extra shot
+  // (T.1 START), 노시스's 殊途同归 going off 10 s after deployment (T.2 START)
+  'kroos2:t1s': 'battle.ON_ABILITY_START.char_1021_kroos2.T.1',
+  'kroos2:t1': 'battle.ON_ABILITY_ON.char_1021_kroos2.T.1',
+  'excu2:t1': 'battle.ON_ABILITY_START.char_1032_excu2.T.1',
+  'gnosis:t2': 'battle.ON_ABILITY_START.char_206_gnosis.T.2',
+  // 실버애쉬 더 레인프로스트: S2's slash (its ability skchr_svash2_2's ON — the kit's slash has no attack event), S3's attacks
+  // fire projectile_chr_svash2_s3 (its BORN at each strike)
+  'svash2:s2': 'battle.ON_ABILITY_ON.skchr_svash2_2',
+  'svash2:s3born': 'battle.ON_PROJECTILE_BORN.projectile_chr_svash2_s3',
+  // 뮤엘시스's 流形 (token_10030_mlyss_wtrman): the copy turning melee / ranged (mlyss_wtrman_s_begin's audio buffs), S3's
+  // pull pulse of a melee copy (mlyss_s_3[token_melee_holder] audio buff, ON_BUFF_TRIGGER every pulse)
+  'mlyss:melee': 'battle.ON_BUFF_START.mlyss_wtrman_s_melee_audio',
+  'mlyss:range': 'battle.ON_BUFF_START.mlyss_wtrman_s_range_audio',
+  'mlyss:pull': 'battle.ON_BUFF_TRIGGER.mlyss_s_3[melee_audio]',
 });
 
 /**

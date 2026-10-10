@@ -2279,17 +2279,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       playStatus(view, bundle, name, key, frac, hold, under);
     },
     /**
-     * local patch (⑤): end the status effect `key` on `view`; `now`: its particles go at once (render/fxstatus.js) instead
-     * of living out their lifetimes.
+     * local patch (⑤): end the status effect `key` on `view`; `now` (render/fxstatus.js): as the client finishes a buff's
+     * effect (Entity.OnBuffFinish → RemoveBuffEffect RVA 0x36001C0 → Effect.FinishMe RVA 0xC88FE0) — emission stops and the
+     * effect is removed its prefab's `_delayToFinish` later (ParticleEffect.get_delayToRecycle RVA 0xCB3470; def.finish),
+     * at once when that is 0 (buff_stun) — instead of its particles living out their lifetimes.
      * local patch (maintainer report 2026-10-08: the stun marks stacked over a re-stunned enemy): an ended effect never
      * restarts (`again` was still set — the stopped one, done, saw the status on again and started a copy beside the new
-     * one, one more per re-stun), and fxstatus.js ends a status `now`: buff_stun's mark is one 10 s particle, so a
-     * stopped one hung over the head for up to 10 s beside the next stun's [추정: the client drops a buff's effect with it].
+     * one, one more per re-stun); buff_stun's mark is one 10 s particle, which hung over the head beside the next stun's.
      */
     statusOff(view, key, now = false) {
       if (!view._fxStatusOn?.delete(key)) return;
       const id = ownerOf(view);
-      for (const l of live) if (l.status === key && l.owner === id) { l.again = null; l.inst.stop(now); }
+      for (const l of live) {
+        if (l.status !== key || l.owner !== id) continue;
+        l.again = null;
+        // 2026-10-11 (docs/rules/ui.md ⑤): `now` = the client's Effect.FinishMe — emission stops, the effect goes its prefab's
+        // `_delayToFinish` later (def.finish, fx_extract.py); none / 0: at once
+        const fin = now ? Number(l.inst.def?.finish) : 0;
+        if (fin > 0) { l.inst.stop(false); l.finishAt = clockS + fin; } else l.inst.stop(now);
+      }
     },
     /**
      * `bundle`/`name` on the board point `at` ({ x, y, z }, followed every frame: the caller moves it), over the units,
@@ -2554,6 +2562,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           l.inst.object.quaternion.setFromUnitVectors(SKY_Y, skyUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize());
         }
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
+        if (l.finishAt != null && clockS >= l.finishAt) { l.finishAt = null; l.inst.stop(true); } // 2026-10-11: statusOff's delay
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // 2026-10-10: a back copy ends with its front
         if ((!l.view?.paused && !l.hidden) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops

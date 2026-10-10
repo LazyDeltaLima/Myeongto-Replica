@@ -94,7 +94,7 @@
   = `clamp(.0135rem, .0105rem + .3px, .015rem)`. hud-art `--u`, shop-art `--u`(기존 폭 상한 `min(…)` 유지), phase-art `--pu`(세로 상한 유지)가 모두 이것을 쓴다.
   - 데이터 확인: EN(PC) 클라이언트 `global-metadata.dat` — `StandaloneCanvasScaleHelper`(`NotifySettingChange`, `_SetAllCanvasScale`)의 상수
     `MIN_SCALE_FACTOR` 0.9 · `MAX_SCALE_FACTOR` 1.0 · `DEFAULT_SCALE_FACTOR` 1.0(필드 기본값 표에서 직접 읽음), 설정 키 `UI_SCALER`(SettingManager, SLIDER).
-    즉 PC판은 1280×720 캔버스 단위에 **플레이어가 설정하는 UI 배율 0.9~1.0(기본 1.0)**을 곱한다. 적용 방식(모든 캔버스 배율 곱)은 메서드 이름으로 본 [추정](로직은 네이티브).
+    즉 PC판은 1280×720 캔버스 단위에 **플레이어가 설정하는 UI 배율 0.9~1.0(기본 1.0)**을 곱한다. 적용 방식(2026-10-11 클라 코드): `StandaloneCanvasScaleHelper._SetAllCanvasScale`(RVA 0xDEC3B0)이 설정값을 `UICanvasScalerHandlerSingleton.SetCanvasScaler`(RVA 0x552B5C0)로 넘기고, 캔버스마다 `UICanvasScalerAspects.CalcFactorFloat`(RVA 0x553F260)가 기본 배율 × 그 값 — **모든 캔버스에 같은 배율을 곱한다**(예전 [추정]과 같음). 예외: `OverrideStandaloneCanvasScalerInfo`가 붙은 캔버스는 자기 기준값에 곱한다(어느 캔버스인지는 프리팹, 미확인). `Reset`(RVA 0xDEC330)은 1.0.
   - KR 캡처(3838×2158, PC)는 🔍 버튼 간격 1649px = 610단위 × 2.70px = 0.9 × 3838/1280 → 그 플레이어는 최소 0.9로 둔 것. 해상도별 공식 표는 못 찾았다.
   - 곡선 [추정]: 1280×720 프레임(rem 66.7px) 이하는 1.0(=지금 크기 — 폰·작은 창은 그대로, 줄이지 않음), 1920×1080(rem 100px)에서 0.9, 그 사이 직선,
     그 위는 0.9. 1단위 = 1280 이하 `.015rem`, 1920×1080 1.35px, 2560×1440 1.8px, 3840×2160 2.7px.
@@ -451,8 +451,15 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - **중첩 수정**(관리자 제보 2026-10-08, 26108991): `statusOff`가 멈춘
   인스턴스의 `again`(다시 시작)을 남겨 두어, 파티클이 다 죽은 뒤 상태가 다시 켜져 있으면(다음 기절) 새 인스턴스 옆에 복사본을 하나 더
   틀었다 — 다시 걸릴 때마다 하나씩 늘었다(아레나 1 2 3 4…, 실제 솔로 판 최대 8). 또 방출만 멈춰서 `buff_stun`의 표시(수명 10초 파티클 1개)가
-  상태가 끝난 뒤 최대 10초 머리 위에 남았다. → `statusOff`가 `again`을 지우고, `fxstatus.js`는 `now`로 끝낸다(파티클 즉시 제거
-  [추정: 클라는 버프가 빠질 때 그 이펙트를 같이 없앤다고 봄]; 정비 금빛은 예전처럼 서서히). `playStatus`는 같은 유닛·같은 키의 살아 있는
+  상태가 끝난 뒤 최대 10초 머리 위에 남았다. → `statusOff`가 `again`을 지우고, `fxstatus.js`는 `now`로 끝낸다(정비 금빛은 예전처럼 서서히).
+  **끝내는 시점**(2026-10-11 클라 코드): `Entity.OnBuffFinish`(RVA 0x35FCC10) → `RemoveBuffEffect`(RVA 0x36001C0) → `Effect.FinishMe`(RVA 0xC88FE0) —
+  구성 요소마다 `OnFinish`(방출 정지) 뒤 `delayToRecycle`이 0보다 크고 즉시 끝내기가 아니면 그만큼 뒤에 회수, 아니면 바로 회수. 파티클 이펙트의
+  `delayToRecycle`은 프리팹 `_delayToFinish`(`ParticleEffect.get_delayToRecycle` RVA 0xCB3470). 그래서 `now`는 「방출을 멈추고 프리팹 `_delayToFinish` 뒤
+  제거」(`fxgame.js statusOff`, 프레임마다 `finishAt`)이고, 값이 0이거나 없으면 예전처럼 바로 제거. 값은 `fx_extract.py delay_to_finish`가 프리팹 JSON의
+  `finish`로 뽑는다(루트 이펙트 구성 요소의 raw float #5): buff_stun·buff_autochess_frozen·buff_sleep·buff_silence·buff_sluggish·common_buff_fear·
+  common_buff_thrill·common_disarm_icon·common_levitate_01 0, buff_cold 0.06, buff_attack_speed_reduction_01 0.3, buff_slowdown·buff_weak·buff_defdown·
+  buff_magic_resistance_down·buff_ fragile_01·common_invisible·common_buff_micai_01·lemuen_talent_buff_01 0.5 — 기절 표시는 공식도 바로 사라진다.
+  `immediately`(즉시 끝내기)를 고르는 쪽(버프가 끝난 이유)은 안 봄 [추정: 시간이 다 된 상태는 즉시 아님]. `playStatus`는 같은 유닛·같은 키의 살아 있는
   인스턴스가 있으면 새로 만들지 않는다(로드 중 꺼졌다 켜지면 로드가 둘 걸리던 것). 같은 경로라 목록 전체에 적용 — 수정 전 아레나에서
   18종 중 13종이 겹쳤다(기절·冻结·寒冷·沉睡·减速·攻速下降·虚弱·防御下降·法抗下降·脆弱·浮空·隐匿·迷彩; 沉默·恐惧·战栗·缴械·迟缓은 파티클 수명이
   짧아 거의 안 보였음), 수정 후 18종 모두 최대 1개·상태가 끝나면 0개. 테스트 `test/local-patch-status-boomerang.test.js`.

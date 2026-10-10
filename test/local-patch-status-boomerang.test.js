@@ -40,7 +40,8 @@ describe('status effects: one per unit and status, gone with the status', () => 
   test('fxgame.js: statusOff clears `again` and stops with `now`; playStatus refuses a second live copy', () => {
     const s = src('../public/js/render/fxgame.js');
     const off = s.slice(s.indexOf('statusOff(view, key, now = false) {'), s.indexOf('ownsFx(e)'));
-    assert.match(off, /l\.again = null; l\.inst\.stop\(now\);/, 'an ended status effect must never restart (the stacked stun marks)');
+    assert.match(off, /l\.again = null;/, 'an ended status effect must never restart (the stacked stun marks)');
+    assert.match(off, /else l\.inst\.stop\(now\);/, 'without a finish delay it stops with `now` (test/render/status-finish.test.js)');
     const play = s.slice(s.indexOf('async function playStatus('), s.indexOf('function stoneFx('));
     assert.match(play, /live\.some\(\(l\) => l\.status === key && l\.unit === view && !l\.inst\.stopping && !l\.inst\.done\)\) return;/,
       'one live effect per unit and status (off → on while the file loaded started two)');

@@ -292,7 +292,7 @@ function targetCount(u, prof) {
   return Math.max(1, Math.floor(base + u.s.maxTargets));
 }
 
-/** Perform an attack/heal with profile `prof` against `targets`. opts: { noAmmo } (Battle.forceAttack). */
+/** Perform an attack/heal with profile `prof` against `targets`. opts: { noAmmo, signal } (Battle.forceAttack). */
 export function performAttack(b, u, prof, targets, opts = null) {
   const isSkill = !!prof.isSkill;
   if (b._hooks.beforeAttack) {
@@ -317,7 +317,8 @@ export function performAttack(b, u, prof, targets, opts = null) {
   const energy = !isHeal && prof.releaseEnergy ? prof.releaseEnergy(b, u) : 0;
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
-    b._ev(['atk', u.id, t.id, vis]);
+    // opts.signal (Battle.forceAttack): the client's ability this attack is — a talent's own attack ('T.1'), for its sound
+    b._ev(opts?.signal ? ['atk', u.id, t.id, vis, opts.signal] : ['atk', u.id, t.id, vis]);
     if (isHeal) { doHeal(b, u, prof, t); continue; }
     const info = { isSkill, index: i, attackId, energy: i === 0 ? energy : 0 };
     const foe = t.side === 'enemy' || b.isAllyTarget(t);

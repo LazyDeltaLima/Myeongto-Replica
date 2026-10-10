@@ -121,6 +121,10 @@ export function kitHitKey(fx, ex, unitOf) {
       const u = unitOf(ex.id);
       return u?.def === 'char_1038_whitw2' && Number.isInteger(u.skillIndex) ? `whitw2:s${u.skillIndex + 1}` : null;
     }
+    // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: 실버애쉬 더 레인프로스트 S2's slash — its ability's ON (no attack event);
+    // 크루스 더 킨 글린트's 中的 shot — her talent ability's ON (the START: kitStartKey)
+    case 'aoe': return ex.skill === 'svash2' && def(ex.id) === 'char_1045_svash2' ? 'svash2:s2' : null;
+    case 'crit': return ex.by != null && def(ex.by) === 'char_1021_kroos2' ? 'kroos2:t1' : null;
     default: return null;
   }
 }
@@ -129,13 +133,41 @@ export function kitHitKey(fx, ex, unitOf) {
  * (kitHitKey) — 望's stone pop: a placed stone's sktok_wang_<n> ON_ABILITY_START (p_atk_stwctp_d / _h / _s); a 跟子 (a
  * projectile of hers) sounds the same file through its projectile_chr_wang_stone<n> bank, but for S2
  * (ON_PROJECTILE_BEHAVIOUR_TRIGGER, p_atk_stwctps_h). A 跟子 landing (summon fx `follower`): ON_PROJECTILE_BORN.
+ * 2026-10-11: 크루스 더 킨 글린트's 中的 shot (fx 'crit' `by` her) — her talent ability T.1's START [추정: the sim rolls the talent
+ * as the shot lands, so START sounds with its ON there, not at the swing].
+ * @param {(id: any) => ({ def?: string }|undefined)} [unitOf] the tracked unit of an id
  * @returns {string|null} sfx.kit key
  */
-export function kitStartKey(fx, ex) {
+export function kitStartKey(fx, ex, unitOf = () => undefined) {
   if (!ex || typeof ex !== 'object') return null;
   if (fx === 'zone' && ex.token === 'token_10064_wang_stone1' && [1, 2, 3].includes(ex.skill)) return ex.follower && ex.skill === 2 ? 'wang:2fs' : `wang:${ex.skill}s`;
   if (fx === 'summon' && ex.follower) return 'wang:thrown';
+  if (fx === 'crit' && ex.by != null && unitOf(ex.by)?.def === 'char_1021_kroos2') return 'kroos2:t1s';
   return null;
+}
+/**
+ * 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: the sfx.kit keys of a talent's own attack — sim 'atk' 5th field `signal`
+ * (Battle.forceAttack, docs/SIM.md) — of unit model `def`, played instead of its normal attack's cues, or null. 이그제큐터 디 엑스
+ * 포에데레's 受选之人 extra shot: ON_ABILITY_START.char_1032_excu2.T.1 (the ability has no ON / HIT bank).
+ */
+export function talentAttackKeys(def, signal) {
+  if (typeof signal !== 'string' || !signal) return null;
+  return TALENT_ATTACK_KEYS[def]?.[signal] ?? null;
+}
+const TALENT_ATTACK_KEYS = Object.freeze({ char_1032_excu2: Object.freeze({ 'T.1': Object.freeze(['excu2:t1']) }) });
+/**
+ * 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: the prefab mode a summon attacks in (`sfx.units[def].tm[name]`) — 뮤엘시스's
+ * 流形 after its copy (sim fx 'copy' `mode` Melee / Range, its owner `by`): Melee_S3 while her S3 runs, Range_S2 while her S2 runs
+ * (buff templates mlyss_wtrman_switch_melee / _range: SwitchMode 5 / 4 when the owner holds mlyss_s_3[buff] / mlyss_s_2[buff];
+ * mlyss_s_3[token_buff_melee_finish] / mlyss_s_2[token_buff_range_finish] switch back as it ends). null = its Default.
+ * @param {{ tmode?: string|null }} su the tracked summon @param {{ skillOn?: boolean, skillIndex?: number|null }|undefined} owner
+ */
+export function tokenModeName(su, owner) {
+  const m = su?.tmode;
+  if (m !== 'Melee' && m !== 'Range') return null;
+  if (owner?.skillOn && m === 'Range' && owner.skillIndex === 1) return 'Range_S2';
+  if (owner?.skillOn && m === 'Melee' && owner.skillIndex === 2) return 'Melee_S3';
+  return m;
 }
 /**
  * 2026-10-10, docs/rules/audio.md 「버프·커스텀 트리거 소리」: the buff sound of tracked unit `su`'s attack moment `at` ('s' swing,
@@ -150,6 +182,8 @@ export function signalAttackKey(su, at, melee) {
     return `horn:${su.skillIndex + 1}:${su.over ? 'overload' : 'normal'}:${melee ? 'melee' : 'ranged'}`;
   }
   if (su.def === 'char_4040_rockr' && su.skillIndex === 1 && (at === 's' || at === 'd')) return `rockr:${at === 's' ? 'atk' : 'hit'}${su.over ? 'o' : ''}`;
+  // 2026-10-11: 실버애쉬 더 레인프로스트 S3 — every strike fires projectile_chr_svash2_s3 (skill prefab projectile): its BORN
+  if (su.def === 'char_1045_svash2' && su.skillIndex === 2 && at === 'a') return 'svash2:s3born';
   return null;
 }
 /**
@@ -165,6 +199,12 @@ export function signalFxKey(fx, ex, unitOf) {
     if (u?.def === 'char_4040_rockr') return 'rockr:ovs';
   }
   if (fx === 'wake' && u?.side === 'enemy') return 'titi:awake';
+  // 2026-10-11: 뮤엘시스's 流形 — turning melee / ranged on its copy (mlyss_wtrman_s_begin's audio buffs), S3's pull pulse of a
+  // melee copy (mlyss_s_3[melee_audio], ON_BUFF_TRIGGER)
+  if (u?.def === 'token_10030_mlyss_wtrman') {
+    if (fx === 'copy' && (ex.mode === 'Melee' || ex.mode === 'Range')) return ex.mode === 'Melee' ? 'mlyss:melee' : 'mlyss:range';
+    if (fx === 'pulse') return 'mlyss:pull';
+  }
   return null;
 }
 /** A 'dmg' later than this (real ms) after the attack aimed at the target is not that attack's impact. */
@@ -1023,11 +1063,15 @@ export class AudioManager {
     const mode = su.skillOn ? su.skillIndex : null;
     // an enemy in another prefab mode (enemyMode): that mode's attack signals
     const em = Number.isInteger(su.emode) && su.emode > 0 ? ue?.em?.[su.emode] : null;
-    const set = em && Array.isArray(em.cues) ? { cues: em.cues, sel: em.sel, mode: true } : cueSetOf(ue, mode);
+    // 2026-10-11: a summon in a named prefab mode (tokenModeName: 뮤엘시스's 流形 after its copy)
+    const tn = !em && su.tmode ? tokenModeName(su, this.units.get(su.tby)) : null;
+    const tm = tn ? ue?.tm?.[tn] : null;
+    const set = em && Array.isArray(em.cues) ? { cues: em.cues, sel: em.sel, mode: true }
+      : tm && Array.isArray(tm.cues) ? { cues: tm.cues, sel: tm.sel, mode: false } : cueSetOf(ue, mode);
     if (!set) return null;
     const melee = kind === 'none' || kind == null;
     const ab = cueAbility(set, melee);
-    const key = `${em ? `e${su.emode}` : set.mode ? mode : 'd'}:${ab ?? ''}`;
+    const key = `${em ? `e${su.emode}` : tm ? `t${tn}` : set.mode ? mode : 'd'}:${ab ?? ''}`;
     const mem = ((su.vm ||= new Map()).get(key)) || {};
     su.vm.set(key, mem);
     const k = pickVariant(set.sel, ab, { melee, mem, random: this.random });
@@ -1428,6 +1472,15 @@ export class AudioManager {
           // only a hostile attack authors the target's next impact (a heal — an ally aiming at an ally — never does)
           const tgt = this.units.get(e[2]);
           const mode = src.skillOn ? src.skillIndex : null; // local patch: the running skill's mode sounds (audioOfficial.js)
+          // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: a talent's own attack (sim 'atk' 5th field, docs/SIM.md) — its
+          // T.<n> banks once per moment instead of the normal attack's cues; its impact is no normal attack's (`talent`)
+          const tk = e.length > 4 ? talentAttackKeys(src.def, e[4]) : null;
+          if (tk) {
+            if (src.lastTalentAt !== now) for (const k of tk) this._kitSound(k);
+            src.lastTalentAt = now;
+            if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now, mode, id: e[1], talent: true });
+            continue;
+          }
           src.startHeld = false; // local patch
           // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the strike of the open swing (else a swing of its own
           // now: a kit's attack without one) — its ON banks and its projectiles' BORN; the spell index for a multi-hit attack
@@ -1470,6 +1523,7 @@ export class AudioManager {
             if (!au) continue;
             const own = by && by.id === aid && now - by.at <= IMPACT_WINDOW_MS ? by : null;
             if (own) this.lastAttacker.delete(e[1]);
+            if (own?.talent) continue; // 2026-10-11: a talent attack's impact (its ability has no HIT bank)
             const splash = !own && au.sw && (now - (au.lastAtkAt ?? -Infinity) <= 100 || now - (au.lastImpactAt ?? -Infinity) <= 100);
             if (own || splash) {
               const sw = own ? own.sw : au.sw;
@@ -1482,7 +1536,7 @@ export class AudioManager {
           }
           if (!by) continue;
           this.lastAttacker.delete(e[1]); // one impact per attack
-          if (now - by.at > IMPACT_WINDOW_MS) continue;
+          if (now - by.at > IMPACT_WINDOW_MS || by.talent) continue;
           if (by.sw) { const au = this.units.get(by.id); if (au) this._swingCues(au, by.sw, 'd', by.sw.h++); }
           else this.unit(by.def, 'hit', `h${e[1]}`, undefined, by.mode); // local patch: by.mode
         } else if (kind === 'heal') {
@@ -1593,7 +1647,14 @@ export class AudioManager {
           const unitOf = (id) => this.units.get(id);
           // 2026-10-10: a 过载 starts — the running skill's attacks sound its overloaded buff banks from now (signalAttackKey)
           if (e[1] === 'overload' && e[4]?.id != null) { const ou = unitOf(e[4].id); if (ou) ou.over = true; }
-          for (const hk of [kitStartKey(e[1], e[4]), kitHitKey(e[1], e[4], unitOf), signalFxKey(e[1], e[4], unitOf)]) this._kitSound(hk);
+          // 2026-10-11: a summon's prefab mode from now on (tokenModeName) — 流形's copy names it, a split copy keeps its origin's
+          if ((e[1] === 'copy' || e[1] === 'split') && e[4]?.id != null) {
+            const tu = unitOf(e[4].id);
+            const from = e[1] === 'split' ? unitOf(e[4].src) : null;
+            const tmode = e[1] === 'copy' ? e[4].mode : from?.tmode;
+            if (tu && (tmode === 'Melee' || tmode === 'Range')) { tu.tmode = tmode; tu.tby = e[1] === 'copy' ? e[4].by ?? null : from.tby; tu.sw = null; tu.vm = null; }
+          }
+          for (const hk of [kitStartKey(e[1], e[4], unitOf), kitHitKey(e[1], e[4], unitOf), signalFxKey(e[1], e[4], unitOf)]) this._kitSound(hk);
           // a summon used up by its own effect (香槟炸弹 exploding: `consumed`): its impact sound now, no death sound
           const ex = e[4];
           if (!ex || typeof ex !== 'object' || !ex.consumed || ex.id == null) continue;

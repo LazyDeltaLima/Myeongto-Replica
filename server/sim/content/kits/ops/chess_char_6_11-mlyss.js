@@ -84,7 +84,9 @@ function mlyss(bb, chess, def) {
       return;
     }
     copyInto(battle, t, src, num(tokTal(t, 'scale').scale, 1), isRanged(src));
-    battle.fx('copy', { x: t.x, y: t.y, id: t.id, src: src.id });
+    // `mode`: the 流形's prefab mode from now on (Melee / Range — the client's mlyss_wtrman_switch_melee / _range; the S3 / S2
+    // variants follow her running skill, public/js/audio.js), `by` her id (docs/SIM.md)
+    battle.fx('copy', { x: t.x, y: t.y, id: t.id, src: src.id, mode: isRanged(src) ? 'Range' : 'Melee', by: unit.id });
     if (rhineSp > 0 && RHINE.has(src.def?.charId) && unit.skill) unit.skill.gainSp(rhineSp, 'talent');
   };
   const mineLive = (battle, unit) => battle.allyUnits.filter((x) => isTok(x, tokId, unit) && live(x));

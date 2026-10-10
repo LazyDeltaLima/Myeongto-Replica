@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -496,6 +496,9 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       const set = soundSet(audio, id, ta, Math.max(0, (ta.modes || []).indexOf('Default')), soundLeaf);
       if (set.cues.length) u.cues = set.cues;
       if (set.sel) u.sel = set.sel;
+      // 2026-10-11: its other modes by name (`tm`, 유동체's Melee / Range / Range_S2 / Melee_S3 — public/js/audio.js)
+      const tm = tokenModeSets(audio, id, ta, soundLeaf, set);
+      if (tm) u.tm = tm;
     }
     const tsk = (tokenSkills && tokenSkills[id]) || null;
     const tss = tsk ? skillStartSounds(audio, tsk) : null;

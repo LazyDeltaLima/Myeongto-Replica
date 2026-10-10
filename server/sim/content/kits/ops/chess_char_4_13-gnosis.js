@@ -103,6 +103,11 @@ export default withDefaults({
           const value = Math.min(1, Math.max(0, -num(t1.one_minus_status_resistance, -0.5)));
           whileDeployed(battle, unit, AURA, () => {
             if (battle.time - unit.deployedAt < num(t1.interval, 10) - 1e-9 || !(value > 0)) return;
+            // the talent ability goes off once per deployment (official sound ON_ABILITY_START.char_206_gnosis.T.2: kitHit, docs/SIM.md)
+            if (unit.mem.gnosisT2 !== unit.deployedAt) {
+              unit.mem.gnosisT2 = unit.deployedAt;
+              battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'gnosis:t2' });
+            }
             for (const a of battle.allies(unit.ownerId)) if (a.kind === 'op' && nationOf(a) === 'kjerag') battle.applyStatus(a, 'resist', { duration: AURA_DUR, value, source: unit });
           });
         } },
