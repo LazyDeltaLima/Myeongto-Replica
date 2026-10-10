@@ -31,7 +31,9 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  * The official card's connect_status mask (player_status_item, css/hud-art.css `has-hud-card`): 'dead' (mask_dead, the
  * eliminated), 'quit' (mask_quit, left the match — status 'left'), 'reconnect' (mask_reconnect, disconnected for now);
  * null otherwise. And its action_status: 'done' (complete_part ✓ — ready, done) or 'doing' (moving_part, three dots —
- * still deciding, acting or fighting); null for the dead and the departed.
+ * a battle still running: fighting, or helping in a 联防); null otherwise — the dead, the departed, and a player still
+ * deciding or not yet ready shows nothing (maintainer report 2026-10-10: the dots are the battle phase's, for the
+ * players whose battle has not ended).
  * @param {any} p m.public players[] entry
  * @returns {{ mask: 'dead'|'quit'|'reconnect'|null, action: 'done'|'doing'|null }}
  */
@@ -41,7 +43,7 @@ export function cardState(p) {
   if (status === 'dead') return { mask: 'dead', action: null };
   const mask = p?.connected === false && !p?.isBot ? 'reconnect' : null;
   if (status === 'ready' || status === 'done') return { mask, action: 'done' };
-  if (status === 'acting' || status === 'deciding' || status === 'combat' || status === 'helping') return { mask, action: 'doing' };
+  if (status === 'combat' || status === 'helping') return { mask, action: 'doing' };
   return { mask, action: null };
 }
 
@@ -140,7 +142,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
               tip=${rowLpTip(lp, cap)} />
             ${lp.left != null ? html`<${MissTag} n=${lp.left} name=${self ? null : p.name || t('博士')} />` : null}
             <${Tooltip} text=${offline ? t('连接已断开') : t(meta.text)} placement="right">
-              <span class=${cx('team__status', `is-${meta.tone}`, offline && 'is-offline', card.action && `is-act-${card.action}`, (offline || STATUS_SPRITE[status]) && localAsset('ui/battle', offline ? 'icon_reconnect' : STATUS_SPRITE[status]) && 'has-sprite')} aria-label=${t(meta.text)}>
+              <span class=${cx('team__status', `is-${meta.tone}`, offline && 'is-offline', `is-act-${card.action || 'none'}`, (offline || STATUS_SPRITE[status]) && localAsset('ui/battle', offline ? 'icon_reconnect' : STATUS_SPRITE[status]) && 'has-sprite')} aria-label=${t(meta.text)}>
                 ${offline ? html`<${LocalSprite} name="icon_reconnect" fallback=${html`<${Icon} name="wifiOff" />`} />`
                   : STATUS_SPRITE[status] ? html`<${LocalSprite} name=${STATUS_SPRITE[status]} fallback=${html`<${GIcon} name=${meta.glyph} />`} />`
                   : html`<${GIcon} name=${meta.glyph} />`}

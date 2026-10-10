@@ -1312,5 +1312,6 @@
   "模拟中断": "Simulation interrupted",
   "继续观战": "Keep watching",
   "退出模拟": "Leave the simulation",
-  "剩余 {n} 回合": "{n} rounds left"
+  "剩余 {n} 回合": "{n} rounds left",
+  "本局不再提示": "Don't ask again this match"
 }

@@ -60,7 +60,9 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
     // no 休整期 band: the official game opens the rest with the round-start dialog alone (回合 NN · 获得 +N, ui/phaseArt.js
     // RoundStartBanner at ROUND_START) — maintainer decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」
     case PHASE.PREP: return null;
-    case PHASE.COMBAT: return { title: t('作战开始'), micro: 'COMBAT', tone: 'orange', sub: t('各自行动阶段') };
+    // no 作战开始 band either: the official battle starts with the round bar's trans_battle (开始作战) alone — maintainer
+    // report 2026-10-10 「공식은 전투 시작 시 배너가 없음」 (docs/rules/ui.md 「공식 위수협약 UI」)
+    case PHASE.COMBAT: return null;
     case PHASE.UNITE: {
       const names = new Map(sortedPlayers(pub).map((p) => [p.playerId, p.name || t('博士')]));
       const helpers = Array.isArray(pub?.unite?.helpers) ? pub.unite.helpers.map((id) => names.get(id)).filter(Boolean) : [];

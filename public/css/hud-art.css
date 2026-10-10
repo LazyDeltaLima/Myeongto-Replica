@@ -352,6 +352,10 @@
   background: var(--ha-watch) center / 100% 100% no-repeat; pointer-events: none; }
 .gm.has-hud-art.has-hud-card .team__eye { display: none; }
 .gm.has-hud-art.has-hud-card .team__status.is-act-doing > :not(.team__dots) { display: none; }
+/* (maintainer report 2026-10-10) the dots stand alone — no box or outline of upstream's status chip — and a card with no
+   action_status (deciding, not ready yet, out) shows nothing there */
+.gm.has-hud-art.has-hud-card .team__status.is-act-doing { border: 0; background: none; box-shadow: none; animation: none; }
+.gm.has-hud-art.has-hud-card .team__status.is-act-none:not(.is-offline) { display: none; }
 .team__dots { display: none; }
 .gm.has-hud-art.has-hud-card .team__status.is-act-doing { width: calc(var(--u) * 50); height: calc(var(--u) * 12); top: calc(var(--u) * 68); left: calc(var(--u) * 89); }
 .gm.has-hud-art.has-hud-card .team__status.is-act-doing .team__dots { display: flex; gap: calc(var(--u) * 1); }

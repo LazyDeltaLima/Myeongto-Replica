@@ -673,19 +673,26 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   때)에 맹약 줄 가운데. upstream의 툴팁 「层数叠加已禁用」은 그대로.
 - 왼쪽 플레이어 카드 상태(`player_status_item`, `has-hud-card`): 탈락 = `mask_dead`(#565656 80 % + `icon_dead`), 나감(`status` 'left') = `mask_quit`(#303030 80 % +
   `icon_lost_connect`), 연결 끊김(`connected` false) = `mask_reconnect`(#303030 80 % + `icon_reconnect` — 예전에는 끊김에 `icon_lost_connect`를 잘못 씀), 내가 보고 있는 팀원
-  카드 오른쪽 위 `icon_observing`(upstream 눈 표시 대신), 카드 오른쪽 아래 밖 `icon_complete`(준비·완료 — 준비도 공식처럼 체크) 또는 `icon_doing` 점 셋(결정·행동·전투 중,
-  깜빡임 [추정]), 「前往查看」 / 「返回战场」은 초상 위 공식 사각 버튼(`btn_ob_other` / `btn_return_self` 98×98).
+  카드 오른쪽 위 `icon_observing`(upstream 눈 표시 대신), 카드 오른쪽 아래 밖 `icon_complete`(준비·완료 — 준비도 공식처럼 체크) 또는 `icon_doing` 점 셋(깜빡임
+  [추정]), 「前往查看」 / 「返回战场」은 초상 위 공식 사각 버튼(`btn_ob_other` / `btn_return_self` 98×98). 점 셋은 전투(联防 포함)가 아직 진행 중인 플레이어에게만
+  (`status` combat / helping), 휴식·机变 중 아직 준비 안 한 플레이어(결정·행동 중)는 아무것도 없음, 점에는 테두리·받침 없음 — 관리자 제보 2026-10-10(공식 카드의
+  `ActionState`도 IDLE/MOVING/COMPLETE 셋뿐). 처음 넣을 때(29f65de4)는 결정·행동 중에도 점을 띄우고 upstream 상태 칸의 테두리가 남았다.
 - 방송(`broadcast_panel`, 클라 코드 `AutoChessBattleBroadcastPanel`): 로컬 그림이 있으면 upstream 띠 대신 화면 위에서 165 아래, 9분할 `broadcast_bkg`(l/r 20, t 14, b 11)
   + `broadcast_icon` + 18 흰 글, `auto_chess_broadcast`대로 34 아래에서 떠오르고 2.0초부터 사라져 한 줄 2.33초(upstream 5.2초). 문구·우선순위·대기열은 그대로(`ui/ticker.js`).
-- 보스 라운드 시작 창(혼자 `single_boss_prepare_dialog` / 협동 `multi_boss_prepare_dialog` / 숨은 라운드 `hidden_boss_prepare_dialog`): FINAL_ASSAULT·HIDDEN_CORE에
-  upstream 띠 대신. 공통 판 `team_boss_start_bg`(숨은 라운드 `bg_type_01`)는 `bg_mask`(RectMask2D 패딩)대로 잘라 띠로 보인다. 혼자: 리더 표시(`icon_boss_normal_white`
+- 보스 라운드 시작 창(혼자 `single_boss_prepare_dialog` / 협동 `multi_boss_prepare_dialog` / 숨은 라운드 `hidden_boss_prepare_dialog`): 보스 라운드(숨은 라운드)의
+  **ROUND_START**, 즉 그 라운드의 휴식 전에(관리자 제보 2026-10-10 「보스 라운드의 휴식시간에 들어가기 전」; 클라 코드 `AutoChessGameStateType.BOSS_PREPARE_WAITING`(101)
+  상태의 `AutoChessBattleUIController.PendingBossPrepareWaitingTask.CalcTabId`가 `tab_single/multi/hide_boss_prepare`를 고름 — 보스 전투가 아니라 그 앞의 대기),
+  BOSSROUND 소리와 함께, 라운드 시작 배너는 창이 끝난 뒤(시작 배너와 같은 순서, 공식이 보스 라운드에도 라운드 시작 배너를 띄우는지는 [추정]). 보스 전투
+  (FINAL_ASSAULT·HIDDEN_CORE)가 시작될 때는 띠·창 없이 라운드 띠 전환만(`ui/battleArt.js bossOpening`). 처음 넣을 때(8527a6d7)는 보스 전투 시작에 띄웠다.
+  그림이 없으면 upstream 띠가 전투 시작에 그대로. 공통 판 `team_boss_start_bg`(숨은 라운드 `bg_type_01`)는 `bg_mask`(RectMask2D 패딩)대로 잘라 띠로 보인다. 혼자: 리더 표시(`icon_boss_normal_white`
   #e6612c) + 열리는 괄호 + 리더 초상(`boss_bg_normal`, 그림은 `bosses.json` 적 아이콘), 「决战回合」(18) / 「迎击首领敌人」(32 #ec6b38) — KR 「최종 공세 / 리더 적 섬멸!」.
   협동(관리자 설명: 남은 팀원 HP를 합산해 보여 주고 같은 배너가 바뀌며 보스가 나옴): `in_01`(1.27초) 살아 있는 플레이어 줄(아바타, 내 표시 `team_boss_player_mine`,
   LP)과 가운데 원(합산 LP), 선이 깜빡이며 들어옴 → `in_02`(1.17초) 팀이 왼쪽(−96)으로, 오른쪽에 리더, 「决战回合」 / 「合力迎击领袖！」(#22e8bd) — KR 「최종 공세 /
   힘을 합쳐 리더 적 섬멸!」. 플레이어 2·3명일 때 줄 자리는 4명 자리에서 [추정]. 숨은 라운드: 경고 표시, `boss_sp_icon`, 「隐藏回合已解锁」(34 #09d7e3) / 「挑战失败不影响
   胜利结算」(19 #a0b2b3) — KR 「히든 코어 개방 / 실패해도 정산에 지장 없음」. 고리(ext 스프라이트)와 선 모양은 [추정].
 - 판 끝 연출(`settle_ending_dialog`, 클라 코드 `AutoChessSettleDataModel.EndingStatus` + `_PlayAudio`): `m.result`가 진행 중인 판에 도착하면 결과 화면 전에(필드는 그대로
-  두고) — 승리·숨은 라운드 없음 = NORM_BOSS_WIN(`panel_win_first_boss`, 소리 `killBossNormal`), 승리·숨은 라운드 실패 = HIDE_BOSS_FAIL(`panel_lose_break_one_boss`,
+  두고; 서버는 RESULT 단계의 m.public을 m.result보다 먼저 보내므로 그 사이에도 필드를 둔다 — 전에는 결과 없는 결과 화면이 「模拟失败」를 잠깐 띄우고(숨은 라운드까지 깨도),
+  연출 때문에 필드가 다시 마운트되며 로딩 화면(`AC-n`)이 떴다: 관리자 제보 2026-10-10, `screens/game.js GameScreen` `onField`) — 승리·숨은 라운드 없음 = NORM_BOSS_WIN(`panel_win_first_boss`, 소리 `killBossNormal`), 승리·숨은 라운드 실패 = HIDE_BOSS_FAIL(`panel_lose_break_one_boss`,
   `killBoss`), 둘 다 = HIDE_BOSS_WIN(`panel_win_all_boss`, `killBossAll`), 패배·전멸 = GAME_OVER(`panel_lose_all_out`, `disconnect`); 중도 포기·오류는 없음. 글:
   「已击败首个领袖！」 KR 「위수 성공!」(관리자 KR 캡처; 숨은 라운드 실패도 클라 CN 원문이 같아 같은 문구 [추정]), 모두 처치는 클라에선 그림 글자 `img_text_win_all`(EN
   「All Leader Enemies Defeated!」) — 번역하려고 글자로 그림, 우리 CN 「已击败全部领袖！」, KR 「모든 리더 적 처치 완료!」(관리자 KR 캡처), 중단 「模拟中断」 KR 「시뮬레이션
@@ -695,5 +702,17 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   「시뮬레이션 나가기」(나가기 확인 창) — 클라 문구표가 없어 우리 번역.
 - 라운드 시작 배너의 보스 예고 줄(`round_countdown`, 클라 코드 `CheckIfNeedRoundRemainTip`): 보스 라운드 − 현재 라운드가 1~`constants.bossTrailerStartRound`(3)일 때
   배너 위 91.6에 「剩余 N 回合」(20 #a6a6a6, 숫자 #ff682d) — KR 「남은 라운드 N」(우리 번역). 예전에 일부러 뺐던 것(위 「휴식 진입…」 절)을 2026-10-10 관리자 요청으로 넣음.
+- 로딩 화면은 판 시작(BATTLE_CHECK, 3D 화면 처음 로딩)에만 — RESULT 단계에는 띄우지 않는다(위 판 끝 연출의 제보).
+- 전투 시작 띠 없음: COMBAT의 upstream 「作战开始 / 各自行动阶段」 띠를 뺐다(관리자 제보 2026-10-10 「공식은 전투 시작 시 배너가 없음」) — 전투 시작은 라운드 띠의
+  `trans_battle`(「전투 시작」)과 소리뿐. 휴식(PREP) 띠를 뺀 2026-10-08 결정과 같은 꼴.
+- 남은 자금으로 준비할 때 묻는 창(관리자 제보 2026-10-10 「공식 UI로」): 클라 코드 `AutoChessBattleUIController._GetPreReadyTipGoldDialogTabInput` = 공식 확인 창
+  `AutoChessConfirmDialogInPage`(`[uc]autochesscommon.ab` `auto_chess_confirm_with_cancel_view`) — 뒤 화면 흐림, 화면 너비 어두운 띠 `img_confirm_dialog_bg`(9분할
+  40/40/42/42, 257 높이, y +39), 글 26 흰색, 그 아래 체크 줄(`img_confirm_dialog_check_box` / `_check_small` 21 + 22 #dcdcdc 「本局不再提示」), 띠 아래(y −140) 화면 반씩
+  두 버튼(103 높이): 취소 = 회색 `img_confirm_dialog_btn_gray_bg`(9분할 20/20) + `img_confirm_dialog_cancel`, 확인 = 초록 `img_confirm_dialog_btn_green_bg`(22/322) +
+  검게 칠한 `img_confirm_dialog_check` + #051511 글(뷰의 `_colGreenBtnText`/`_colGreenBtnIcon`). 조건은 그대로(클라 `IsNeedToShowPreReadyTipGold` = 자금 > 0, 전략이
+  `noMoneyTipsBand` 밖). 체크하고 확인하면 이번 판에는 다시 묻지 않는다(클라 `AutoChessLocalCache.DataInScene.isPrevReadyGoldTipDisable` — 장면(판) 단위). 공식 문구
+  (`AUTO_CHESS_BATTLE_PREP_READY_TIP_2` / `…_NOMORE`)는 클라 문구표가 없어 본문은 예전 우리 문장 [추정], 체크 글 「本局不再提示」 KR 「이번 판에는 다시 묻지 않기」는 우리 번역.
+  흐림 세기·어둡게 하는 정도 [추정]. 그림(`ui/common`)이 없으면 예전 확인 창. 클라에는 정비 구역 넘침으로 준비할 때의 짝 창(`…TIP_1`,
+  `_GetPreReadyTipHandOverflowDialogTabInput`)도 있으나 아직 없음.
 - 아직 안 넣은 것: 재접속 대기 마스크(`auto_chess_reconnect_mask`)·서버 끊김·혼자 판 이어하기 창, 핑 판(`panel_ping`), 위수협약 토스트, 결산 화면 좋아요(서버 기능 필요)·
   「战斗中...」 — `research/2026-10-10-autochess-ui-gap/README.md`.

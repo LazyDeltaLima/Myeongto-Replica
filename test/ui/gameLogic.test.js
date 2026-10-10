@@ -69,7 +69,7 @@ describe('phases', () => {
     assert.equal(phaseBanner(PHASE.UNITE, {}).title, '联防阶段');
     assert.equal(phaseBanner(PHASE.FINAL_ASSAULT, {}).title, '最终攻势');
     assert.equal(phaseBanner(PHASE.HIDDEN_CORE, {}).title, '隐秘核心');
-    assert.equal(phaseBanner(PHASE.COMBAT, {}).title, '作战开始');
+    assert.equal(phaseBanner(PHASE.COMBAT, {}), null, 'no battle-start band (maintainer report 2026-10-10: the official game has none)');
     assert.match(phaseBanner(PHASE.ROUND_START, { round: 7 }).title, /7/);
     assert.equal(phaseBanner(PHASE.SETTLE, {}), null);
     assert.equal(prepCapsuleLabel(PHASE.PREP), '休息一下');

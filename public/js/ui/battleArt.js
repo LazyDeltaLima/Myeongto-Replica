@@ -63,11 +63,18 @@ const ART = Object.freeze({
     '--sd-sp': 'dec_stronghold_protocol', '--sd-i1': 'icon_01', '--sd-i2': 'icon_02', '--sd-i3': 'icon_03', '--sd-i4': 'icon_04',
     '--sd-itext': 'icon_text', '--sd-cont': 'btn_continue', '--sd-end': 'btn_end', '--sd-screen': 'img_screen_line',
   },
+  confirm: {
+    '--cd-bg': 'img_confirm_dialog_bg', '--cd-gray': 'img_confirm_dialog_btn_gray_bg', '--cd-green': 'img_confirm_dialog_btn_green_bg',
+    '--cd-check': 'img_confirm_dialog_check', '--cd-cancel': 'img_confirm_dialog_cancel', '--cd-box': 'img_confirm_dialog_check_box',
+    '--cd-tick': 'img_confirm_dialog_check_small',
+  },
   ob: {
     '--ob-other': 'bg_ob_other', '--ob-self': 'bg_ob_self', '--ob-icon-other': 'icon_ob_other', '--ob-icon-self': 'icon_ob_self',
     '--ob-arrow': 'left_arrow_active', '--ob-lost': 'bg_ob_player_quit', '--ob-lost-icon': 'icon_ob_player_quit',
   },
 });
+/** The local extraction folder of a dialog's sprites (ui/battle unless named here). */
+const FOLDER = Object.freeze({ confirm: 'ui/common' });
 const NONE = Object.freeze({ cls: '', style: '' });
 const cache = new Map();
 
@@ -81,7 +88,7 @@ export function battleArt(kind) {
   const vars = [];
   let ok = !!m;
   for (const [name, key] of Object.entries(map)) {
-    const u = localAsset('ui/battle', key);
+    const u = localAsset(FOLDER[kind] || 'ui/battle', key);
     if (!u) { ok = false; break; }
     vars.push(`${name}:url("${u}")`);
   }
@@ -515,6 +522,25 @@ export function CapsuleTransHost({ phase }) {
 export const BOSS_PREP_MS = Object.freeze({ single: 3500, hidden: 3500, multi: 3300 });
 
 /**
+ * Which boss opening a phase change starts, or null. The client opens these dialogs from the BOSS_PREPARE_WAITING state
+ * (AutoChessGameStateType 101: client code AutoChessBattleUIController.PendingBossPrepareWaitingTask.CalcTabId picks
+ * tab_single / tab_multi / tab_hide_boss_prepare from the boss-round model) — the wait between the round before and the
+ * boss round's own prep, not the boss battle (maintainer report 2026-10-10: 「보스 라운드의 휴식시간에 들어가기 전」).
+ * Here that is the boss round's ROUND_START (m.public bossRound / hiddenRound): 'hidden' for the hidden round, else
+ * 'single' alone and 'multi' in co-op.
+ * @param {string|null|undefined} phase @param {any} pub m.public @param {boolean} solo
+ * @returns {'single'|'multi'|'hidden'|null}
+ */
+export function bossOpening(phase, pub, solo) {
+  if (phase !== 'ROUND_START' || !pub || typeof pub !== 'object') return null;
+  const r = Number(pub.round);
+  if (!Number.isFinite(r) || r <= 0) return null;
+  if (Number(pub.hiddenRound) === r && Number(pub.bossRound) !== r) return 'hidden';
+  if (Number(pub.bossRound) === r) return solo ? 'single' : 'multi';
+  return null;
+}
+
+/**
  * The opening of a boss round. Shared frame: the dark screen (50 %), the map plate team_boss_start_bg (1041 × 418), the
  * read-out decorations, the scan lines img_screen_line (16 %). `single` (最终攻势 alone): the leader mark
  * icon_boss_normal_white (#e6612c, 220 at ×1.09) between team_boss_frame brackets that open, the doc lines at its sides,
@@ -720,6 +746,59 @@ export function SelfDead({ onWatch, onExit }) {
         <i class="bsd__btnbg" style=${box(0, -5, 218, 62)}></i><span class="bsd__btntext" style=${box(16, 0, 160, 45)}>${t('退出模拟')}</span>
       </button>
       <i class="bse__screen" style=${box(0, 0, 1000, 520 - 273)} aria-hidden="true"></i>
+    </div>
+  </div>`;
+}
+
+// ---- 准备 with funds left (AutoChessConfirmDialogInPage) ---------------------------------------------------------
+
+/**
+ * The 准备 question with funds left, in the client's own confirm dialog (client code
+ * AutoChessBattleUIController._GetPreReadyTipGoldDialogTabInput: AutoChessConfirmDialogInPage with the text
+ * AUTO_CHESS_BATTLE_PREP_READY_TIP_2, the check box AUTO_CHESS_BATTLE_PREP_READY_TIP_NOMORE, 取消 / 确认; shown when
+ * AutoChessBattleUIViewModel.IsNeedToShowPreReadyTipGold — funds > 0 and the strategy not in noMoneyTipsBand; the box
+ * ticked sets AutoChessLocalCache DataInScene.isPrevReadyGoldTipDisable — no more for this match). Prefab
+ * auto_chess_confirm_with_cancel_view: the screen behind blurred (blur, a UIRenderTextureImage), the dark band
+ * img_confirm_dialog_bg (sliced 40 / 40 / 42 / 42) across the screen, 257 tall at y +39; the text (26 white, 1080 × 162 at
+ * y +10 in the band) and the check line under it (y −82: the 21 box img_confirm_dialog_check_box, ticked
+ * img_confirm_dialog_check_small, the caption 22 #dcdcdc, 4.2 apart); under the band (y −140) the two buttons, half the
+ * width each, 103 tall: 取消 on img_confirm_dialog_btn_gray_bg (sliced 20 / 20; icon img_confirm_dialog_cancel 43, white)
+ * and 确认 on img_confirm_dialog_btn_green_bg (sliced 22 / 322; icon img_confirm_dialog_check 45 black, text #051511),
+ * the icon and its caption 15 apart, 14.5 above the middle. The client's TIP_2 / TIP_NOMORE texts are not in our
+ * tables: the question is the remake's own wording [ASSUMED], 「本局不再提示」 ours too.
+ * @param {{ text: string, onAnswer: (ok: boolean, noMore: boolean) => void }} props
+ */
+export function ReadyTipDialog({ text, onAnswer }) {
+  const [noMore, setNoMore] = useState(false);
+  const okRef = useRef(null);
+  const live = useRef({ noMore, onAnswer });
+  live.current = { noMore, onAnswer };
+  useEffect(() => {
+    try { okRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+    // Esc cancels, Enter confirms (capture: the match's own Space / Enter shortcuts must not see them)
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); live.current.onAnswer(false, false); }
+      else if (e.key === 'Enter' && e.target?.tagName !== 'BUTTON') { e.preventDefault(); e.stopImmediatePropagation(); live.current.onAnswer(true, live.current.noMore); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
+  const art = battleArt('confirm');
+  return html`<div class=${['bart', 'bcd', art.cls].join(' ')} style=${art.style} role="dialog" aria-modal="true" aria-label=${text}>
+    <i class="bcd__blur" aria-hidden="true"></i>
+    <div class="bcd__band" style=${'top:calc(50% - var(--pu) * (39.05 + 257.09 / 2));height:calc(var(--pu) * 257.09)'}>
+      <i class="bcd__bg" aria-hidden="true"></i>
+      <p class="bcd__text">${text}</p>
+      <button type="button" class=${noMore ? 'bcd__check is-on' : 'bcd__check'} role="checkbox" aria-checked=${String(noMore)}
+        onClick=${() => setNoMore((v) => !v)}><i class="bcd__box" aria-hidden="true"></i><span>${t('本局不再提示')}</span></button>
+    </div>
+    <div class="bcd__btns" style=${'top:calc(50% - var(--pu) * (-140 + 103 / 2));height:calc(var(--pu) * 103)'}>
+      <button type="button" class="bcd__btn is-cancel" onClick=${() => onAnswer(false, false)}>
+        <i class="bcd__btnbg" aria-hidden="true"></i><span class="bcd__group"><i class="bcd__icon" aria-hidden="true"></i><span>${t('取消')}</span></span>
+      </button>
+      <button type="button" class="bcd__btn is-ok" ref=${okRef} onClick=${() => onAnswer(true, noMore)}>
+        <i class="bcd__btnbg" aria-hidden="true"></i><span class="bcd__group"><i class="bcd__icon" aria-hidden="true"></i><span>${t('确认')}</span></span>
+      </button>
     </div>
   </div>`;
 }

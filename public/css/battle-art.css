@@ -383,4 +383,37 @@
 .bsd__btntext { display: flex !important; align-items: center; justify-content: center; white-space: nowrap; font-family: var(--font-cjk); font-weight: 700;
   font-size: calc(var(--pu) * 22); color: #1e1e1e; line-height: 1; }
 
+/* ---- 准备 with funds left (auto_chess_confirm_with_cancel_view; js/ui/battleArt.js ReadyTipDialog) ------------------
+   The screen behind blurred (the prefab's blur render texture; its strength and the dim are [추정]), the sliced dark band
+   img_confirm_dialog_bg across the screen (its bg 62 wider and 60 taller than the band: the soft shadow), the two
+   buttons under it — each half the width, 103 tall, their sliced backgrounds 91 tall standing on the button's top. */
+.bcd { pointer-events: auto; z-index: calc(var(--z-banner) + 1); }
+.bcd__blur { inset: 0; background: rgba(0, 0, 0, .35); -webkit-backdrop-filter: blur(calc(var(--pu) * 6)); backdrop-filter: blur(calc(var(--pu) * 6)); }
+.bcd__band { left: 0; right: 0; }
+.bcd__bg { left: calc(var(--pu) * -31); right: calc(var(--pu) * -31); top: calc(var(--pu) * -30); bottom: calc(var(--pu) * -30); box-sizing: border-box;
+  border-style: solid; border-color: transparent; border-width: calc(var(--pu) * 42) calc(var(--pu) * 42) calc(var(--pu) * 40) calc(var(--pu) * 40);
+  border-image: var(--cd-bg) 42 42 40 40 fill / calc(var(--pu) * 42) calc(var(--pu) * 42) calc(var(--pu) * 40) calc(var(--pu) * 40); }
+.bcd .bcd__text { position: absolute; left: 50%; width: calc(var(--pu) * 1080); margin: 0 0 0 calc(var(--pu) * -540); top: calc(var(--pu) * 37.55);
+  height: calc(var(--pu) * 162); display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--font-cjk);
+  font-size: calc(var(--pu) * 26); line-height: 1.35; color: #fff; }
+.bcd .bcd__check { position: absolute; left: 50%; top: calc(var(--pu) * 197.55); height: calc(var(--pu) * 26); transform: translateX(-50%);
+  display: flex; align-items: center; gap: calc(var(--pu) * 4.2); margin: 0; padding: 0; border: 0; background: none; cursor: pointer;
+  font-family: var(--font-cjk); font-size: calc(var(--pu) * 22); color: #dcdcdc; white-space: nowrap; }
+.bcd .bcd__check span { position: static; }
+.bcd .bcd__box { position: relative; flex: none; width: calc(var(--pu) * 21); height: calc(var(--pu) * 21); background: var(--cd-box) center / 100% 100% no-repeat; }
+.bcd .bcd__check.is-on .bcd__box { background-image: var(--cd-tick); }
+.bcd__btns { left: 0; right: 0; display: flex !important; }
+.bcd .bcd__btn { position: relative; flex: 1 1 0; height: 100%; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; color: #fff; }
+.bcd .bcd__btnbg { left: calc(var(--pu) * -9.37); right: calc(var(--pu) * -9.17); top: 0; bottom: calc(var(--pu) * 11.3); box-sizing: border-box;
+  border-style: solid; border-color: transparent; border-width: 0 calc(var(--pu) * 20); border-image: var(--cd-gray) 0 20 fill / 0 calc(var(--pu) * 20); }
+.bcd .bcd__btn.is-ok .bcd__btnbg { left: calc(var(--pu) * -8.68); right: calc(var(--pu) * -8.68); bottom: calc(var(--pu) * 10.06);
+  border-width: 0 calc(var(--pu) * 322) 0 calc(var(--pu) * 22); border-image: var(--cd-green) 0 322 0 22 fill / 0 calc(var(--pu) * 322) 0 calc(var(--pu) * 22); }
+.bcd .bcd__group { position: absolute; left: 50%; top: 50%; height: calc(var(--pu) * 60); transform: translate(-50%, calc(-50% - var(--pu) * 14.5));
+  display: flex; align-items: center; gap: calc(var(--pu) * 15); font-family: var(--font-cjk); font-size: calc(var(--pu) * 26); line-height: 1; white-space: nowrap; }
+.bcd .bcd__group span { position: static; }
+.bcd .bcd__btn.is-ok .bcd__group { transform: translate(calc(-50% - var(--pu) * 18), calc(-50% - var(--pu) * 14.5)); color: #051511; }
+.bcd .bcd__icon { position: relative; flex: none; width: calc(var(--pu) * 43); height: calc(var(--pu) * 43); background: var(--cd-cancel) center / 100% 100% no-repeat; }
+.bcd .bcd__btn.is-ok .bcd__icon { width: calc(var(--pu) * 45); height: calc(var(--pu) * 45); background-image: var(--cd-check); filter: brightness(0); }
+.bcd .bcd__btn:focus-visible { outline: 2px solid rgba(255, 255, 255, .6); outline-offset: calc(var(--pu) * -14); }
+
 @media (prefers-reduced-motion: reduce) { .bart, .bart *, .bload, .bload *, .btip, .ctrans, .ctrans * { animation: none !important; } }
