@@ -33,11 +33,12 @@ function ProgressList({ list }) {
 /**
  * @param {{ pub:any, myId:string, watching:string|null, hud:any, myDone:boolean, onWatch:(fieldId:string)=>void, spectating?: boolean,
  *   client?: null | { progress?: any[]|null, observing?: { name: string }|null, onBack?: () => void,
- *                     layers?: Array<{ key: string, label: string, self: boolean, watch: boolean }>, layer?: string, onLayer?: (k: string) => void } }} props
+ *                     layers?: Array<{ key: string, label: string, self: boolean, watch: boolean }>, layer?: string, onLayer?: (k: string) => void },
+ *   waitBand?: boolean }} props `waitBand`: the official bottom band (ui/battleArt.js BottomTips) says the wait instead
  */
-export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectating = false, spectator = false, client = null }) {
+export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectating = false, spectator = false, client = null, waitBand = false }) {
   // `spectator`: a spectator seat (community report #26) watches like an eliminated player, under its own caption
-  if (client) return ClientHud({ hud, myDone, spectating, spectator, client });
+  if (client) return ClientHud({ hud, myDone, spectating, spectator, client, waitBand });
   const fields = (Array.isArray(pub?.fields) ? pub.fields : []).filter((f) => f && f.live !== false);
   // the watched field may already have finished (not live): still name it
   const label = switcherLabel(pub, watching, myId, spectating);
@@ -45,7 +46,7 @@ export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectatin
   return html`<div class="chud">
     <${DpCounter} dp=${hud?.dp} />
     <div class="chud__bottom">
-      ${myDone ? html`<div class="chud__msg" role="status"><${Icon} name="hourglass" /><span>${t('作战结束，等待队友完成作战')}</span></div>` : null}
+      ${myDone && !waitBand ? html`<div class="chud__msg" role="status"><${Icon} name="hourglass" /><span>${t('作战结束，等待队友完成作战')}</span></div>` : null}
       ${spectating ? (spectator ? html`<div class="chud__msg" role="status"><${GIcon} name="eye" /><span>${t('观战中')}</span></div>`
         : html`<div class="chud__msg chud__msg--dead" role="status"><${Icon} name="close" /><span>${t('你已被淘汰，正在观战')}</span></div>`) : null}
       ${fields.length ? html`<div class=${cx('vswitch', !canCycle && 'is-single')}>
@@ -59,7 +60,7 @@ export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectatin
   </div>`;
 }
 
-function ClientHud({ hud, myDone, spectating, spectator = false, client }) {
+function ClientHud({ hud, myDone, spectating, spectator = false, client, waitBand = false }) {
   const layers = Array.isArray(client.layers) ? client.layers : [];
   const idx = Math.max(0, layers.findIndex((l) => l.key === (client.layer || 'ALL')));
   const cur = layers[idx] || null;
@@ -73,7 +74,7 @@ function ClientHud({ hud, myDone, spectating, spectator = false, client }) {
   return html`<div class="chud">
     <${DpCounter} dp=${hud?.dp} />
     <div class="chud__bottom">
-      ${myDone && !observing ? html`<div class="chud__msg chud__wait" role="status"><${Icon} name="hourglass" /><span>${t('作战结束，等待队友完成作战')}</span></div>
+      ${myDone && !observing ? html`${waitBand ? null : html`<div class="chud__msg chud__wait" role="status"><${Icon} name="hourglass" /><span>${t('作战结束，等待队友完成作战')}</span></div>`}
         <${ProgressList} list=${client.progress} />` : null}
       ${spectating && !observing ? (spectator ? html`<div class="chud__msg" role="status"><${GIcon} name="eye" /><span>${t('观战中，可点击左侧成员头像前往查看')}</span></div>`
         : html`<div class="chud__msg chud__msg--dead" role="status"><${Icon} name="close" /><span>${t('你已被淘汰，可点击队友头像前往查看')}</span></div>`) : null}

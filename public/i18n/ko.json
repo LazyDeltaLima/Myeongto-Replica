@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1063 of 1277 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1069 of 1283 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1294,5 +1294,11 @@
   "「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设": "「프리셋 없음」과 진영마다 편성이 따로 저장됩니다. 채팅이나 전략 선택에서 진영을 고르면 그 진영 프리셋이 적용됩니다",
   "全局作战目标": "전역 작전 목표",
   "通过14回合，消灭领袖": "리더 적 섬멸!",
-  "入门协议": "입문 협의"
+  "入门协议": "입문 협의",
+  "整备区已满，无法购买": "정비 구역이 가득 차 구매할 수 없습니다",
+  "整备区溢出，溢出的资源将在下一回合销毁": "정비 구역 초과, 넘친 자원은 다음 라운드에 파기됩니다",
+  "战斗结束，等待队友的战斗": "전투 종료, 팀원의 전투 대기 중",
+  "准备完成，等待模拟": "준비 완료, 시뮬레이션 대기 중",
+  "模拟即将继续": "시뮬레이션이 곧 계속됩니다",
+  "正在等待当前阶段结束……": "현재 단계가 끝나기를 기다리는 중……"
 }

@@ -182,6 +182,23 @@
 .gm.has-hud-art .gm__bonds { left: 50%; right: auto; transform: translateX(-50%); max-width: calc(100% - 3.2rem); top: calc(var(--u) * 55); }
 /* the ready count goes under the key hint */
 .gm.has-hud-art .readywrap { gap: calc(var(--u) * 30); }
+/* once ready, the players' bars replace the count (panel_prep_ready panel_player under 取消准备: player_bg 163×41 9-sliced
+   33 | 33, the player_frame brackets 7×29, one panel_prep_ready_player per player 19.5 apart — player_ready 13×33, white
+   15 % until that player is ready, then #00ffc4 72 %; the count of ready players lights the first bars, as the client) */
+.readywrap__bars { display: none; }
+.gm.has-hud-art.has-hud-ready .readywrap:has(.readybtn.is-on) .readywrap__count { display: none; }
+.gm.has-hud-art.has-hud-ready .readywrap:has(.readybtn.is-on) .readywrap__bars {
+  position: relative; display: flex; align-items: center; justify-content: center; align-self: center; width: calc(var(--u) * 163); height: calc(var(--u) * 41);
+  margin-top: calc(var(--u) * -14); box-sizing: border-box; border-style: solid; border-color: transparent; border-width: 0 calc(var(--u) * 33);
+  border-image: var(--ha-pr-bg) 0 33 fill / 0 calc(var(--u) * 33); }
+.gm.has-hud-art.has-hud-ready .readywrap__bars::before, .gm.has-hud-art.has-hud-ready .readywrap__bars::after { content: ''; position: absolute; top: 50%;
+  width: calc(var(--u) * 7); height: calc(var(--u) * 29); margin-top: calc(var(--u) * (-14.5 - 2.2)); background: var(--ha-pr-frame) center / 100% 100% no-repeat; }
+.gm.has-hud-art.has-hud-ready .readywrap__bars::before { left: calc(50% + var(--u) * (-42.1 - 2.8 - 3.5)); }
+.gm.has-hud-art.has-hud-ready .readywrap__bars::after { left: calc(50% + var(--u) * (53.2 - 2.8 - 3.5)); transform: scaleX(-1); }
+.gm.has-hud-art.has-hud-ready .readywrap__bars i { width: calc(var(--u) * 19.5); height: calc(var(--u) * 33); margin-top: calc(var(--u) * -2.84);
+  background: rgba(255, 255, 255, .15); -webkit-mask: var(--ha-pr-bar) center / calc(var(--u) * 13) calc(var(--u) * 33) no-repeat;
+  mask: var(--ha-pr-bar) center / calc(var(--u) * 13) calc(var(--u) * 33) no-repeat; transition: background-color .33s; }
+.gm.has-hud-art.has-hud-ready .readywrap__bars i.is-ready { background: rgba(0, 255, 196, .72); }
 /* (2026-10-06 2nd pass) the effects list starts under that count: upstream's fixed 2.4rem put its EFFECTS label / first
    icon over 「준비 완료 n/4」 (and the Space hint at 1280×720). The column's bottom measures 1.21rem + 113.3 units at
    every size (countdown .7rem + gaps in rem, the ready button / hint / count in units) → .1rem under it; the

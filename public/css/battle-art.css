@@ -54,4 +54,39 @@
 .bgs__goal { font-family: var(--font-cjk); font-weight: 500; font-size: calc(var(--pu) * 35); color: #fefefe; animation-delay: .65s; }
 @keyframes bgs-type { from { transform: translateX(-104%); } to { transform: none; } }
 
-@media (prefers-reduced-motion: reduce) { .bart, .bart *, .bload, .bload * { animation: none !important; } }
+/* ---- bottom tip band (panel_bottom_tips) ---------------------------------------------------------------------------- */
+.btip { --pu: var(--ui-u, .015rem); position: fixed; left: 0; right: 0; bottom: calc(var(--pu) * 47.7 + var(--sa-b, 0px)); z-index: 4; height: 0;
+  display: flex; justify-content: center; pointer-events: none; transition: bottom .08s linear; animation: bart-in .25s ease-out both; }
+.btip.is-up { bottom: calc(var(--pu) * (47.7 + 172) + var(--sa-b, 0px)); }
+.btip.is-leaving { animation: bart-out .25s ease-in both; }
+/* img_bg (104 × 54, 9-sliced 26 | 30) tinted per type; the icon 32, the text 18 white, padding 30, gap 9.27, 410…690 wide */
+.btip__pill { position: absolute; top: calc(var(--pu) * -27); height: calc(var(--pu) * 54); min-width: calc(var(--pu) * 410); max-width: calc(var(--pu) * 690);
+  box-sizing: border-box; padding: 0 calc(var(--pu) * 30); display: flex; align-items: center; justify-content: center; gap: calc(var(--pu) * 9.27);
+  background: var(--tip); border-radius: calc(var(--pu) * 27);
+  box-shadow: 0 calc(var(--pu) * 4) calc(var(--pu) * 14) rgba(0, 0, 0, .35); }
+.btip__icon { flex: none; width: calc(var(--pu) * 32); height: calc(var(--pu) * 32); background: center / contain no-repeat; }
+.btip__text { font-family: var(--font-cjk); font-weight: 500; font-size: calc(var(--pu) * 18); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1; }
+
+/* ---- waiting for the stage (battle_waiting_dialog) ------------------------------------------------------------------ */
+/* banner_back 355², 9-sliced 169 / 170 (l b r t: 169 170 170 169): the borders are larger than the 284-tall box and shrink to fit */
+.bwait__back { box-sizing: border-box; border-style: solid; border-color: transparent; border-width: calc(var(--pu) * 142) calc(var(--pu) * 170) calc(var(--pu) * 142) calc(var(--pu) * 169);
+  border-image: var(--ba-back) 169 170 170 169 fill / calc(var(--pu) * 142) calc(var(--pu) * 170) calc(var(--pu) * 142) calc(var(--pu) * 169); }
+.bwait__lower { background: var(--ba-lower) center / 100% 100% no-repeat; }
+.bwait__screen { background: var(--ba-screen) center / 100% 100% no-repeat; }
+.bwait__main { background: var(--ba-glass) center / 100% 100% no-repeat; }
+/* the sand: the top bulb empties (fill 1 → 0, 1–3 s), the bottom one fills (0.1 → 1), the drop runs between (1.13–2.83 s) */
+.bwait__sand { background: var(--ba-sand) center / 100% 100% no-repeat; }
+.bwait__sand.is-top { clip-path: inset(0 0 0 0); animation: bwait-top 3s linear infinite; }
+.bwait__sand.is-bottom { transform: scaleY(-1); animation: bwait-bottom 3s linear infinite; }
+@keyframes bwait-top { 0%, 33% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(100% 0 0 0); } }
+@keyframes bwait-bottom { 0%, 33% { opacity: 0; clip-path: inset(90% 0 0 0); } 39% { opacity: 1; } 100% { opacity: 1; clip-path: inset(0 0 0 0); } }
+.bwait__drop { background: var(--ba-drop) center / 100% 100% no-repeat; animation: bwait-drop 3s linear infinite; }
+@keyframes bwait-drop { 0%, 37% { opacity: 0; } 51%, 78% { opacity: 1; } 94%, 100% { opacity: 0; } }
+.bwait__face { background: var(--ba-face) center / 100% 100% no-repeat; animation: bwait-face 3s ease-in-out infinite; }
+@keyframes bwait-face { 0% { transform: none; } 4% { transform: translateX(calc(var(--pu) * -3.5)); } 8% { transform: translateX(calc(var(--pu) * -4.6)); }
+  16% { transform: translateX(calc(var(--pu) * 1)); } 29%, 100% { transform: none; } }
+.bwait__title, .bwait__sub { display: flex !important; align-items: center; white-space: nowrap; line-height: 1.1; font-family: var(--font-cjk); }
+.bwait__title { font-weight: 900; font-size: calc(var(--pu) * 33); color: #e4e5e8; }
+.bwait__sub { align-items: flex-start; font-weight: 500; font-size: calc(var(--pu) * 19); color: #71ccb7; }
+
+@media (prefers-reduced-motion: reduce) { .bart, .bart *, .bload, .bload *, .btip { animation: none !important; } }

@@ -1290,5 +1290,11 @@
   "「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设": "No preset and each faction keep their own picks; picking a faction in the chat or the strategy draft applies its preset",
   "全局作战目标": "Global Operation Objective",
   "通过14回合，消灭领袖": "Survive 14 rounds and defeat the Leader",
-  "入门协议": "Entry Protocol"
+  "入门协议": "Entry Protocol",
+  "整备区已满，无法购买": "Bench is full — cannot buy",
+  "整备区溢出，溢出的资源将在下一回合销毁": "Bench overflowing — the overflow is destroyed next round",
+  "战斗结束，等待队友的战斗": "Battle over, waiting for teammates' battles",
+  "准备完成，等待模拟": "Ready, waiting for the simulation",
+  "模拟即将继续": "The simulation will continue shortly",
+  "正在等待当前阶段结束……": "Waiting for the current stage to end……"
 }

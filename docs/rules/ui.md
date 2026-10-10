@@ -640,3 +640,15 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 시작 배너(`game_start_dialog`, 3.42초, 소리 `target` = ON_ACT1AUTOCHESS_TARGET): BATTLE_CHECK에서 1라운드 ROUND_START로 넘어갈 때 한 번(재접속은 다시 안 띄움),
   라운드 시작 배너는 그 뒤에. 「全局作战目标」(27, #1bf0b1) / 「通过14回合，消灭领袖」(35, 흰색) — KR 「전역 작전 목표」 / 「리더 적 섬멸!」(관리자 KR 캡처).
   라운드 1 배너가 ROUND_START(2초) 뒤에 뜨므로 그 라운드의 「획득」 값을 라운드 단위로 기억해 넘긴다(`roundGoldRef`).
+- 아래 안내 띠(`panel_bottom_tips`, 클라 코드 `AutoChessBattleUIBottomTipsViewModel.UpdateData`): 정비 중(남의 판을 보는 중이 아님) — 내가 준비함 →
+  PREP_READY(#18a486, `icon_ready`, 「준비 완료, 시뮬레이션 대기 중」), 아니면 임시 정비 구역에 단위 → HAND_OVERFLOW(#d22e2e, `icon_red`, 「정비 구역 초과,
+  넘친 자원은 다음 라운드에 파기됩니다」 — 우리 번역), 아니면 정비 구역 가득 → HAND_FULL(#ff9000, `icon_yellow`, 「정비 구역이 가득 차 구매할 수 없습니다」);
+  그 밖(전투·联防·관전)에는 내 전투가 끝났고 탈락 전이면 → WAIT_FINISH(#171717, `icon_waiting`, 「전투 종료, 팀원의 전투 대기 중」 — 이때 upstream의
+  「作战结束，等待队友完成作战」 글은 숨기고 진행 목록만 둔다). 54 높이 알약(`img_bg` 색 입힘, 안쪽 여백 30, 아이콘 32 + 글 18, 폭 410~690), 화면 아래에서 47.7,
+  상점이 펼쳐져 있으면 172 위(`battle_bottom_tips_shop_show`). KR 문구는 관리자 KR 캡처(넘침만 우리 번역).
+- 대기 창(`battle_waiting_dialog`, 클라 코드 `AutoChessBattleUIViewModel.IsWaitingPanelShow` = 정비·전투 상태의 END 단계, 즉 내 몫은 끝났는데 단계가 안 넘어감):
+  우리는 정비·机变·라운드 시작·SETTLE의 마감이 0.8초 넘게 지났는데 단계가 그대로일 때(서버·팀원 대기, 재접속 직후). 부드러운 판 `banner_back`(9분할 169/170),
+  모래시계 얼굴(`face_main` + `shallow_main`, 모래가 3초 주기로 위 → 아래, `battle_waiting_loop_anim` 키 값대로), 「시뮬레이션이 곧 계속됩니다」(33, #e4e5e8) /
+  「현재 단계가 끝나기를 기다리는 중……」(19, #71ccb7) — 둘 다 우리 번역.
+- 준비 막대(`panel_prep_ready` → `panel_player`): 내가 준비한 뒤(취소 버튼일 때) 「준비 완료 n/4」 글자 대신 `player_bg` 판 + `player_frame` 괄호 + 사람마다
+  `player_ready`(흰색 15 % → 준비한 수만큼 앞에서부터 #00ffc4 72 %, 클라처럼 사람별이 아니라 수로 켬). 그림은 로컬 추출(`has-hud-ready`).

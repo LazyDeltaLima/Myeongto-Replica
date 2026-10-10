@@ -228,7 +228,8 @@ export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {
     ${why ? html`<span class="readywrap__why" id="readywrap-why" role="status" data-testid="ready-why">
       <${Icon} name="warn" />${choice ? html`<span>${reason}</span>`
         : html`<span>${tParts('临时整备区 {n} 个单位待处理', { n: html`<b class="num">${temp.count}</b>`, count: temp.count })}</span>`}</span>` : null}
-    ${Number.isFinite(total) && total > 1 ? html`<span class="readywrap__count">${t('已就绪')} <b class="num">${readyCount}</b>/<span class="num">${total}</span></span>` : null}
+    ${Number.isFinite(total) && total > 1 ? html`<span class="readywrap__count">${t('已就绪')} <b class="num">${readyCount}</b>/<span class="num">${total}</span></span>
+      <span class="readywrap__bars" aria-hidden="true">${Array.from({ length: Math.min(4, total) }, (_, k) => html`<i key=${k} class=${k < readyCount ? 'is-ready' : ''}></i>`)}</span>` : null}
   </div>`;
 }
 

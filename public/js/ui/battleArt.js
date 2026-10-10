@@ -24,6 +24,10 @@ const ART = Object.freeze({
     '--ba-t0': 'goal_text_00', '--ba-t1': 'goal_text_01', '--ba-t2': 'goal_text_02', '--ba-t3': 'goal_text_03', '--ba-t4': 'goal_text_04',
     '--ba-frame': 'common_frame', '--ba-tile': 'tile_line',
   },
+  waiting: {
+    '--ba-back': 'banner_back', '--ba-lower': 'face_lower_dec', '--ba-face': 'face_main', '--ba-glass': 'shallow_main',
+    '--ba-sand': 'shallow_sand', '--ba-drop': 'shadow_drop_sand', '--ba-screen': 'shallow_dec_tex',
+  },
 });
 const NONE = Object.freeze({ cls: '', style: '' });
 const cache = new Map();
@@ -186,4 +190,106 @@ export function GameStartBanner({ onDone }) {
  */
 export function opensGame(phase, prev, round) {
   return phase === 'ROUND_START' && prev === 'BATTLE_CHECK' && Number(round) === 1;
+}
+
+// ---- the bottom tip band (panel_bottom_tips) -----------------------------------------------------------------------
+
+/**
+ * The band's four looks (_tipConfigs of panel_bottom_tips: showType, the img_bg tint, the icon, the text key).
+ * KR: PREP_READY / WAIT_FINISH / HAND_FULL are the maintainer's KR captures (2026-10-10), HAND_OVERFLOW ours.
+ */
+export const TIPS = Object.freeze({
+  HAND_FULL: { color: '#ff9000', icon: 'icon_yellow', text: N_('整备区已满，无法购买') },
+  HAND_OVERFLOW: { color: '#d22e2e', icon: 'icon_red', text: N_('整备区溢出，溢出的资源将在下一回合销毁') },
+  WAIT_FINISH: { color: '#171717', icon: 'icon_waiting', text: N_('战斗结束，等待队友的战斗') },
+  PREP_READY: { color: '#18a486', icon: 'icon_ready', text: N_('准备完成，等待模拟') },
+});
+
+/**
+ * Which band shows (client code AutoChessBattleUIBottomTipsViewModel.UpdateData, 2026-10-10): in the prep (not watching
+ * another board) the own ready → PREP_READY, else the temp overflow row holding pieces → HAND_OVERFLOW, else a full hand
+ * → HAND_FULL; anywhere else (battle, 联防, watching) the own battle over while alive → WAIT_FINISH; else none.
+ * @param {{ prep: boolean, watching: boolean, ready: boolean, overflow: boolean, full: boolean, ownDone: boolean, alive: boolean }} s
+ * @returns {keyof typeof TIPS | null}
+ */
+export function bottomTipType({ prep, watching, ready, overflow, full, ownDone, alive }) {
+  if (prep && !watching) {
+    if (!alive) return null;
+    if (ready) return 'PREP_READY';
+    if (overflow) return 'HAND_OVERFLOW';
+    if (full) return 'HAND_FULL';
+    return null;
+  }
+  return ownDone && alive ? 'WAIT_FINISH' : null;
+}
+
+/**
+ * The band (panel_bottom_tips): a 54-tall pill (img_bg tinted per type, padding 30, the icon 32 and the text 18 white
+ * 9.27 apart, 410…690 wide) centred 47.7 above the screen's bottom; with the shop open it rides 172 higher
+ * (battle_bottom_tips_shop_show). Fades between types.
+ * @param {{ type: keyof typeof TIPS | null, shopOpen?: boolean }} props
+ */
+export function BottomTips({ type, shopOpen = false }) {
+  const [shown, setShown] = useState(type);
+  useEffect(() => { if (type) setShown(type); }, [type]);
+  const [mounted, leaving] = useLinger(!!type, 250);
+  const cfg = TIPS[type || shown];
+  if (!mounted || !cfg) return null;
+  const icon = localAsset('ui/battle', cfg.icon);
+  return html`<div class=${['btip', shopOpen && 'is-up', leaving && 'is-leaving'].filter(Boolean).join(' ')} role="status" aria-live="polite"
+      data-tip=${type || shown}>
+    <span class="btip__pill" style=${`--tip:${cfg.color}`}>
+      ${icon ? html`<i class="btip__icon" style=${`background-image:url("${icon}")`} aria-hidden="true"></i>` : null}
+      <span class="btip__text">${t(cfg.text)}</span>
+    </span>
+  </div>`;
+}
+
+// ---- waiting for the stage to end (battle_waiting_dialog) ----------------------------------------------------------
+
+/**
+ * Whether the waiting dialog shows: a timed stage whose deadline is over by more than `graceMs` and has not moved on
+ * (client code AutoChessBattleUIViewModel.IsWaitingPanelShow: a prep or battle state at its END sub-state — the own part
+ * done, the stage not yet over).
+ * @param {{ phase: string|null|undefined, deadline: number|null|undefined, now: number, graceMs?: number }} s
+ */
+export function waitsForStage({ phase, deadline, now, graceMs = 800 }) {
+  if (!['PREP', 'SP_DRAFT', 'ROUND_START', 'SETTLE'].includes(String(phase))) return false;
+  return Number.isFinite(deadline) && deadline > 0 && now > deadline + graceMs;
+}
+
+/**
+ * The waiting dialog (battle_waiting_dialog): the soft dark plate banner_back (584 × 284), the pixel face face_main with
+ * its hourglass (shallow_main; the sand shallow_sand runs from the top bulb to the bottom one over battle_waiting_loop_anim's
+ * 3 s, the drop shadow_drop_sand between), 模拟即将继续 (33, #e4e5e8) / 正在等待当前阶段结束…… (19, #71ccb7).
+ * Checks the stage's deadline four times a second.
+ * @param {{ phase: string|null|undefined, deadline: number|null|undefined, paused?: boolean, now?: () => number }} props
+ */
+export function WaitingDialog({ phase, deadline, paused = false, now = Date.now }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((x) => (x + 1) % 1e6), 250);
+    return () => clearInterval(id);
+  }, []);
+  const show = !paused && waitsForStage({ phase, deadline, now: now() });
+  const [mounted, leaving] = useLinger(show, 300);
+  const art = battleArt('waiting');
+  if (!mounted || !art.cls) return null;
+  return html`<div class=${['bart', 'bwait', art.cls, leaving && 'is-leaving'].filter(Boolean).join(' ')} style=${art.style} role="status" aria-live="polite">
+    <div class="bart__c" style=${box(0, 0, 1280, 720)}>
+      ${i('bwait__back', box(3.53, 12.2, 584, 284))}
+      ${i('bwait__lower', box(-109.6, -33.84, 78, 13))}
+      <i class="bwait__loop" style=${box(-115.6, 8.47, 200, 200)} aria-hidden="true">
+        ${i('bwait__screen', box(32.93, -11.6, 56, 56))}
+        <i class="bwait__glass" style=${box(33.62, -11.35, 37.7, 53.75)}>
+          ${i('bwait__main', box(0, 0, 26, 44))}
+          ${i('bwait__sand is-top', box(-0.4, 8.8, 13.33, 11.33))}${i('bwait__sand is-bottom', box(-0.2, -9.4, 13.33, 11.33))}
+          ${i('bwait__drop', box(0, -2.2 - 5.67, 4.67, 11.33))}
+        </i>
+        ${i('bwait__face', box(-2.13, -32.47 + 0.55 * 74.67, 74, 74.67))}
+      </i>
+      <span class="bwait__title" style=${box(80.6, 25.5, 264.75, 43.8)}>${t('模拟即将继续')}</span>
+      <span class="bwait__sub" style=${box(78.35, -20.17, 260.25, 40.34)}>${t('正在等待当前阶段结束……')}</span>
+    </div>
+  </div>`;
 }

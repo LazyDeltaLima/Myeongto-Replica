@@ -104,6 +104,10 @@ const LOCAL = Object.freeze({
   '--ha-border': ['ui/battle', 'bg_team_border'],
   '--ha-php': ['ui/battle', 'bg_hp'],
   '--ha-self': ['ui/battle', 'icon_self'],
+  // the players' ready bars under 取消准备 (panel_prep_ready panel_player / panel_prep_ready_player)
+  '--ha-pr-bg': ['ui/battle', 'player_bg'],
+  '--ha-pr-frame': ['ui/battle', 'player_frame'],
+  '--ha-pr-bar': ['ui/battle', 'player_ready'],
   // the bond popup (autochess_hud_bond_detail_dialog / autochess_hud_bond_char_item), optional: CSS without them
   '--ha-detail-bg': ['ui/battle', 'detail_bg'],
   '--ha-bd-off': ['ui/battle', 'bond_inactive_bg'],
@@ -118,6 +122,7 @@ const LOCAL = Object.freeze({
 });
 const CD = ['--ha-cd-label', '--ha-cd-shadow', '--ha-cd-solid'];
 const TEAM = ['--ha-plist', '--ha-border', '--ha-php', '--ha-self'];
+const READY = ['--ha-pr-bg', '--ha-pr-frame', '--ha-pr-bar'];
 
 let cache = { m: null, l: null, v: null };
 
@@ -140,7 +145,8 @@ export function hudArt() {
   const cls = ['has-hud-art',
     uiUrl(m, 'hudPanel/btn_open') && uiUrl(m, 'hudPanel/btn_open_arrow') && uiUrl(m, 'hudPanel/btn_close') && 'has-hud-fold',
     CD.every((k) => have.has(k)) && 'has-hud-cd',
-    TEAM.every((k) => have.has(k)) && 'has-hud-team'].filter(Boolean).join(' ');
+    TEAM.every((k) => have.has(k)) && 'has-hud-team',
+    READY.every((k) => have.has(k)) && 'has-hud-ready'].filter(Boolean).join(' ');
   const v = ok ? { cls, style: vars.join(';') } : { cls: '', style: '' };
   cache = { m, l, v };
   return v;

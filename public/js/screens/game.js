@@ -103,7 +103,7 @@ import {
   terrainInfo,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, foldCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn,
+  mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { BriefingScreen } from './briefing.js';
@@ -118,7 +118,7 @@ import { data, localAsset, getMode } from '../data.js';
 import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRoutePreview } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept, 行动开始 on a battle-start route preview cursor
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
-import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
+import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame, BottomTips, bottomTipType, WaitingDialog } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { battleOverOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
@@ -1414,6 +1414,11 @@ function MatchScreen() {
   const tempNotice = temp.count > 0 && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;
   // the ready button shows why it is refused under it (ui/hud.js ReadyToggle): the effects column moves down a line
   const readyWhy = phase === PHASE.PREP && alive && !priv?.ready && (hasPersonalChoice || temp.count > 0);
+  // the official bottom band (panel_bottom_tips): ready / overflow / full hand in the prep, the own battle over in a battle
+  const tipType = spectator || !battleArt('waiting').cls ? null : bottomTipType({
+    prep: phase === PHASE.PREP, watching: watchingOther, ready: !!priv?.ready, overflow: temp.count > 0, full: !!priv && handFull(priv),
+    ownDone: !!myDone && (phase === PHASE.COMBAT || phase === PHASE.UNITE), alive,
+  });
   // the frame the panels are laid out in: the HUD layer (client px; inside the safe-area insets of a notched phone),
   // and the root font size (1rem)
   const panelFrame = () => {
@@ -1541,7 +1546,7 @@ function MatchScreen() {
       ${phase === PHASE.PREP && priv?.shop?.rewardOffer ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || collapsed}
         onMinimize=${(m) => { setRewardMin(m); if (!m) setCollapsed(false); }} />` : null}
 
-      ${combat || mode === 'settle' ? html`<${CombatHud} pub=${pub} myId=${myId} watching=${watchingNow} hud=${hud} myDone=${!!myDone && alive}
+      ${combat || mode === 'settle' ? html`<${CombatHud} pub=${pub} myId=${myId} watching=${watchingNow} hud=${hud} myDone=${!!myDone && alive} waitBand=${tipType === 'WAIT_FINISH'}
         spectating=${!alive} spectator=${spectator} onWatch=${watchField}
         client=${cc ? { progress, observing: observingName ? { name: observingName } : null, onBack: alive ? backHome : null, layers, layer, onLayer: setLayer } : null} />` : null}
 
@@ -1594,6 +1599,8 @@ function MatchScreen() {
     </div>
 
     ${loadArt ? html`<${LoadingScreen} show=${phase === PHASE.BATTLE_CHECK || viewKind === 'loading'} art=${loadArt} tips=${gd.config?.tips} />` : null}
+    <${BottomTips} type=${tipType} shopOpen=${shopOpen} />
+    <${WaitingDialog} phase=${phase} deadline=${pub?.deadline} paused=${paused} now=${serverNow} />
     ${opening ? html`<${GameStartBanner} onDone=${() => { setOpening(false); audio.sfx('roundStart'); }} />` : null}
     ${opening ? null : banner?.result ? html`<${BattleEndBanner} key=${banner.key} perfect=${banner.result.perfect} lost=${banner.result.lost} onDone=${() => setBanner(null)} />`
       : banner && String(banner.key).startsWith(`${PHASE.ROUND_START}:`) && phaseArt('round').cls
