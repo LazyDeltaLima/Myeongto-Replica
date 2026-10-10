@@ -3683,6 +3683,8 @@ function buildConfig(ctx, waves, stages, bands) {
       modeId, name: m.name, code: m.code, sortId: m.sortId, type, difficulty: m.modeDifficulty,
       inScope: type === 'SINGLE' || type === 'MULTI',
       color: `#${String(m.modeColor || '').replace(/^#/, '')}`, iconId: m.modeIconId, backgroundId: m.backgroundId || null,
+      // the battle loading screen's picture (UIBattleLoading: AC-1 yellow … AC-4 red), the web manifest's ui `loading/<id>`
+      loadingPic: m.loadingPicId ? String(m.loadingPicId).toLowerCase() : null,
       desc: m.desc, effectDescList: m.effectDescList || [], unlockText: m.unlockText || null,
       specialPhaseTime: m.specialPhaseTime,
       activeBondIds: m.activeBondIdList || [], inactiveBondIds: m.inactiveBondIdList || [], inactiveEnemyKeys: m.inactiveEnemyKey || [],

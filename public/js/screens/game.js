@@ -118,6 +118,7 @@ import { data, localAsset, getMode } from '../data.js';
 import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRoutePreview } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept, 行动开始 on a battle-start route preview cursor
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
+import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { battleOverOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
@@ -199,6 +200,7 @@ function MatchScreen() {
   const [holdSeq, setHoldSeq] = useState(0);             // bumped when a held piece is released (re-apply the prep state)
   const [hud, setHud] = useState(null);
   const [banner, setBanner] = useState(null);
+  const [opening, setOpening] = useState(false);         // game_start_dialog before round 1's round-start banner
   const [resultBox, setResultBox] = useState(null);      // the round's result box (ResultDialog), shown at SETTLE
   const [readyBusy, setReadyBusy] = useState(false);
   const [spBusy, setSpBusy] = useState(null);
@@ -214,7 +216,11 @@ function MatchScreen() {
   const battleState = useStore((s) => s.match.battle, shallowEqual); // local battle runner (client-side combat)
 
   const phase = pub?.phase;
-  const roundGold = useRoundGold(phase, priv?.funds, priv?.roundGold, pub?.round); // local patch: the round-start banner's 获得 (ui/phaseArt.js)
+  const roundGoldNow = useRoundGold(phase, priv?.funds, priv?.roundGold, pub?.round); // local patch: the round-start banner's 获得 (ui/phaseArt.js)
+  // kept for the round: round 1's banner mounts after game_start_dialog, when ROUND_START (and useRoundGold) is over
+  const roundGoldRef = useRef(null);
+  if (Number.isFinite(roundGoldNow)) roundGoldRef.current = { round: pub?.round, gold: roundGoldNow };
+  const roundGold = roundGoldNow ?? (roundGoldRef.current?.round === pub?.round ? roundGoldRef.current.gold : null);
   const mode = phaseMode(phase);
   const combat = isCombatPhase(phase);
   const solo = roomSolo || String(pub?.modeId || '').includes('single');
@@ -659,8 +665,12 @@ function MatchScreen() {
     prevPhase.current = phase;
     if (prev === phase) return;
     const b = phaseBanner(phase, pub, { alive, spectator });
-    if (b) setBanner({ ...b, key: phaseKey });
-    if (phase === PHASE.ROUND_START) audio.sfx('roundStart');
+    // BATTLE_CHECK: the official loading screen replaces upstream's 协议启动 band when the mode's picture is there
+    if (b && !(phase === PHASE.BATTLE_CHECK && loadingArt(getMode(pub?.modeId)))) setBanner({ ...b, key: phaseKey });
+    // round 1 opens with game_start_dialog (and its ON_ACT1AUTOCHESS_TARGET), the round-start banner after it
+    const opens = opensGame(phase, prev, pub?.round) && !!battleArt('start').cls;
+    if (opens) { setOpening(true); audio.sfx('target'); }
+    if (phase === PHASE.ROUND_START && !opens) audio.sfx('roundStart');
     else if (phase === PHASE.PREP) audio.sfx('rest', { volume: 0.7 });
     else if (phase === PHASE.COMBAT) audio.sfx('battleStart');
     else if (phase === PHASE.UNITE) audio.sfx('defenceUnite');
@@ -1470,6 +1480,7 @@ function MatchScreen() {
   const detailBonds = detailOwner === strip.ownerId ? stripBonds : playerBonds({ pub, priv, myId, ownerId: detailOwner, live: liveLayers });
   // bonds this mode never activates (标准: 10 of 23, 奥术 among them) — shown 本局禁用 on cards, chips and the popup
   const offBonds = modeOffBonds(getMode(pub?.modeId));
+  const loadArt = loadingArt(getMode(pub?.modeId)); // the battle loading screen's picture, code and short name
 
   const hudLook = hudArt(); // local patch
   return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', collapsed && 'is-collapsed', (sp || hasPersonalChoice) && 'has-sp', pen && 'is-pen', readyWhy && 'has-readywhy', hudLook.cls)}
@@ -1582,7 +1593,9 @@ function MatchScreen() {
       <${FullscreenButton} class="gm__gear gm__fs" />
     </div>
 
-    ${banner?.result ? html`<${BattleEndBanner} key=${banner.key} perfect=${banner.result.perfect} lost=${banner.result.lost} onDone=${() => setBanner(null)} />`
+    ${loadArt ? html`<${LoadingScreen} show=${phase === PHASE.BATTLE_CHECK || viewKind === 'loading'} art=${loadArt} tips=${gd.config?.tips} />` : null}
+    ${opening ? html`<${GameStartBanner} onDone=${() => { setOpening(false); audio.sfx('roundStart'); }} />` : null}
+    ${opening ? null : banner?.result ? html`<${BattleEndBanner} key=${banner.key} perfect=${banner.result.perfect} lost=${banner.result.lost} onDone=${() => setBanner(null)} />`
       : banner && String(banner.key).startsWith(`${PHASE.ROUND_START}:`) && phaseArt('round').cls
         ? html`<${RoundStartBanner} key=${banner.key} round=${pub?.round} gold=${roundGold} watching=${spectator || !alive} onDone=${() => setBanner(null)} />` /* local patch: ui/phaseArt.js */
         : banner && !(String(banner.key).startsWith(`${PHASE.SP_DRAFT}:`) && phaseArt('choose').cls) ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}

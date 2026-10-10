@@ -1,0 +1,57 @@
+/* Official 卫戍协议 battle dialogs (js/ui/battleArt.js; docs/rules/ui.md 「공식 위수협약 UI」). Sizes and places are the
+   client prefabs' in the 1280×720 canvas unit --pu (1 unit = 1.5 px at 1920 wide, as css/hud-art.css); sprites are the
+   local-client extraction's, handed in as --ba-* variables. Motion follows the prefabs' clips where their lengths are
+   known; the curves themselves are [추정] (eased in / out, not keyed). */
+
+.bart { --pu: var(--ui-u, .015rem); position: fixed; inset: 0; z-index: var(--z-banner); pointer-events: none; overflow: hidden;
+  animation: bart-in .3s var(--ease-out) both; }
+.bart.is-leaving { animation: bart-out .3s var(--ease-in) both; }
+@keyframes bart-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bart-out { from { opacity: 1; } to { opacity: 0; } }
+.bart i, .bart span, .bart div, .bart b { position: absolute; display: block; }
+
+/* ---- battle loading screen (UIBattleLoading) ----------------------------------------------------------------------- */
+.bload { --pu: var(--ui-u, .015rem); position: fixed; inset: 0; z-index: calc(var(--z-banner) + 2); overflow: hidden; background: #000;
+  pointer-events: auto; animation: bart-in .25s ease-out both; }
+.bload.is-leaving { animation: bart-out .4s ease-in both; pointer-events: none; }
+.bload i, .bload span, .bload div { position: absolute; display: block; }
+.bload__pic { inset: 0; background: var(--bl-pic) center / 100% 100% no-repeat; }
+/* image_shadow_corner: the dark corners over the picture ([추정] its sprite: a vignette) */
+.bload__shade { inset: 0; background: radial-gradient(ellipse 75% 70% at 50% 48%, transparent 55%, rgba(0, 0, 0, .55)); }
+.bload__op, .bload__code, .bload__name { display: flex !important; align-items: center; justify-content: center; white-space: nowrap; color: #fff; line-height: 1; }
+.bload__op { font-family: 'Novecento Wide', var(--font-display); font-size: calc(var(--pu) * 30); text-transform: uppercase; letter-spacing: .08em; }
+.bload__code { font-family: 'Novecento Wide', var(--font-display); font-size: calc(var(--pu) * 90); letter-spacing: .02em; }
+.bload__name { font-family: var(--font-cjk); font-weight: 500; font-size: calc(var(--pu) * 60); }
+.bload__tip { position: absolute; left: calc(var(--pu) * 300); right: calc(var(--pu) * 300); bottom: calc(var(--pu) * 23.6); height: calc(var(--pu) * 213.6);
+  margin: 0; display: flex; align-items: flex-end; justify-content: center; text-align: center;
+  font-size: calc(var(--pu) * 22); line-height: 1.5; color: rgba(255, 255, 255, .85); padding-bottom: calc(var(--pu) * 30); }
+.bload__loading { right: calc(var(--pu) * 0); bottom: calc(var(--pu) * 0); width: calc(var(--pu) * 154); height: calc(var(--pu) * 67);
+  display: flex !important; align-items: center; justify-content: flex-start; padding-left: calc(var(--pu) * 20);
+  font-family: 'Novecento Wide', var(--font-display); font-size: calc(var(--pu) * 22); color: rgba(255, 255, 255, .85); letter-spacing: .04em; }
+.bload__loading b { position: static !important; display: inline !important; font-weight: 400; }
+
+/* ---- game opening (game_start_dialog, 3.42 s) ---------------------------------------------------------------------- */
+.bgs__bg { background: var(--ba-bg) center / 100% 100% no-repeat; animation: bgs-open .45s var(--ease-out) both; }
+@keyframes bgs-open { from { transform: scaleY(0); opacity: 0; } to { transform: none; opacity: 1; } }
+.bgs__tile { background: var(--ba-tile) 0 0 / calc(var(--pu) * 31) calc(var(--pu) * 31) repeat; opacity: .12; filter: brightness(0); }
+.bgs__doc { background-position: center; background-size: 100% 100%; background-repeat: no-repeat; opacity: 0; animation: bart-in .2s ease-out calc(.5s + var(--k) * .06s) both; }
+.bgs__doc.is-0 { background-image: var(--ba-t0); } .bgs__doc.is-1 { background-image: var(--ba-t1); } .bgs__doc.is-2 { background-image: var(--ba-t2); }
+.bgs__doc.is-3 { background-image: var(--ba-t3); } .bgs__doc.is-4 { background-image: var(--ba-t4); }
+.bgs__blank { background: #279481; opacity: var(--a); animation: bgs-blink 1.2s steps(2, jump-none) calc(var(--k) * .17s) infinite; }
+@keyframes bgs-blink { 50% { opacity: calc(var(--a) * .35); } }
+.bgs__cross { background: var(--ba-cross) center / 100% 100% no-repeat; animation: bgs-pop .35s var(--ease-out) .3s both; }
+.bgs__rtile { background: var(--ba-rtile) center / 100% 100% no-repeat; border-radius: 50%; animation: bgs-pop .4s var(--ease-out) .35s both; }
+.bgs__round { background: var(--ba-round) center / 100% 100% no-repeat; animation: bgs-ring .6s var(--ease-out) .2s both; }
+.bgs__round.is-2 { animation-delay: .4s; }
+@keyframes bgs-pop { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes bgs-ring { from { transform: scale(1.6); opacity: 0; } to { transform: none; opacity: 1; } }
+.bgs__frame { border-style: solid; border-color: transparent; border-width: calc(var(--pu) * 4) 0; box-sizing: border-box;
+  border-image: var(--ba-frame) 4 0 fill / calc(var(--pu) * 4) 0; animation: bart-in .2s ease-out .25s both; }
+.bgs__frame.is-r { transform: scaleX(-1); }
+.bgs__mask { overflow: hidden; }
+.bgs__head, .bgs__goal { white-space: nowrap; line-height: 1; letter-spacing: .02em; animation: bgs-type .5s var(--ease-out) both; }
+.bgs__head { font-family: var(--font-cjk); font-weight: 900; font-size: calc(var(--pu) * 27); color: #1bf0b1; animation-delay: .45s; }
+.bgs__goal { font-family: var(--font-cjk); font-weight: 500; font-size: calc(var(--pu) * 35); color: #fefefe; animation-delay: .65s; }
+@keyframes bgs-type { from { transform: translateX(-104%); } to { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) { .bart, .bart *, .bload, .bload * { animation: none !important; } }

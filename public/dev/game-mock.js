@@ -313,6 +313,8 @@ function setPhase(phase, variant) {
       break;
     case PHASE.BATTLE_CHECK:
       pub.round = 0; pub.deadline = Date.now() + 3000;
+      // ?variant=auto: on to round 1's ROUND_START in place after the 3 s (the loading screen, then game_start_dialog)
+      if (VARIANTS.has('auto')) setTimeout(() => { S.pub.phase = PHASE.ROUND_START; S.pub.round = 1; S.pub.deadline = Date.now() + 2000; pushPublic(); }, 3000);
       break;
     case PHASE.ROUND_START: // local patch: the round-start banner (ui/phaseArt.js) — round 3, the round's income credited
       pub.round = 3; pub.deadline = Date.now() + 2000;

@@ -1287,5 +1287,8 @@
   "撤销": "Undo",
   "本局生效": "Takes effect in this match",
   "选择阵营后套用该阵营的自选预设": "Picking a faction applies its self-select preset",
-  "「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设": "No preset and each faction keep their own picks; picking a faction in the chat or the strategy draft applies its preset"
+  "「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设": "No preset and each faction keep their own picks; picking a faction in the chat or the strategy draft applies its preset",
+  "全局作战目标": "Global Operation Objective",
+  "通过14回合，消灭领袖": "Survive 14 rounds and defeat the Leader",
+  "入门协议": "Entry Protocol"
 }

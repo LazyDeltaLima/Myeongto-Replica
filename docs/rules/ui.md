@@ -625,3 +625,18 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     본문의 `<!-- FB-… -->`를 찾아 정리하고, 3분이 지나도 없으면 안 만들어진 것으로 보고 다시 올린다. 기록 파일은 보관함과 같이 90일.
   - 확인: `test/feedback-relay.test.js`(가짜 GitHub API: JWT 서명, 본문 가림, 공개분만·한 번만, 재시도 대기, 응답 없는 요청 정리). 배포 서버에서 App 설치·relay 가동은
     2026-10-09에 했고, 실제 저장소에 첫 issue가 등록되는지는 [미확인].
+
+## 공식 위수협약 UI (2026-10-10, 관리자 요청 「제안대로 진행」)
+공식 클라 위수협약 UI 중 빠져 있던 것을 공식 프리팹대로 넣는다. 근거: EN 클라 `ui/autochess/[uc]autochessbattle.ab` 프리팹(`tools/local-extract/ui_inspect.py`,
+커스텀 Text의 `m_InputText` = 중국어 원문, `m_TextId` = 번역 키), 프리팹 애니메이션 클립의 마지막 키프레임(표시 길이), 클라 코드(il2cpp 덤프의 메서드 이름 —
+아래 「클라 코드」). 한국어는 관리자가 본 공식 KR 문구, 나머지는 관리자 「적절하게 번역」 지시로 우리가 정함(KR 번역 표는 클라에 없음).
+그림은 로컬 추출(`data/local-assets.json` ui/battle)에 있어야 뜨고, 없으면 upstream 배너가 그대로 남는다(`ui/battleArt.js battleArt`).
+코드: `public/js/ui/battleArt.js`, `public/css/battle-art.css`, 연결은 `screens/game.js`. 동작 곡선(크기·투명도 변화)은 클립을 키 단위로 옮기지 않은 [추정].
+- 로딩 화면(BATTLE_CHECK, 3D 화면 로딩 중): 공식 일반 전투 로딩 `UIBattleLoading` + `UIStageInfo`(클라 코드 `UIStageInfo.SetData`: 「Operation」 + 코드 + 이름).
+  그림 = 모드의 `loadingPicId`(`data/config.json modes[].loadingPic`, 웹 소재 `loading/loading_ac_*` — AC-1 노랑 … AC-4 빨강, 1024² 그림을 16:9로 늘려 그림),
+  글자 배치는 `act2autochess_battle_ui_plugin`의 `panel_battlestart`(Operation 30 · 코드 90 · 이름 60, Novecento wide / Noto), 아래 팁 = 공식 `gameTipsList`
+  무작위 하나, 오른쪽 아래 「Loading」 + 점. 이름은 짧은 이름 — 관리자 KR 캡처 「AC-3 극한」 「AC-4 초월」(모드 이름에서 「시뮬레이션」을 뺀 꼴; AC-1 표준 ·
+  AC-2 험지는 같은 꼴로 [추정] — 클라가 시작 매개변수로 넘겨 출처를 끝까지 못 따라감). upstream의 BATTLE_CHECK 「协议启动」 띠는 그림이 있으면 띄우지 않는다.
+- 시작 배너(`game_start_dialog`, 3.42초, 소리 `target` = ON_ACT1AUTOCHESS_TARGET): BATTLE_CHECK에서 1라운드 ROUND_START로 넘어갈 때 한 번(재접속은 다시 안 띄움),
+  라운드 시작 배너는 그 뒤에. 「全局作战目标」(27, #1bf0b1) / 「通过14回合，消灭领袖」(35, 흰색) — KR 「전역 작전 목표」 / 「리더 적 섬멸!」(관리자 KR 캡처).
+  라운드 1 배너가 ROUND_START(2초) 뒤에 뜨므로 그 라운드의 「획득」 값을 라운드 단위로 기억해 넘긴다(`roundGoldRef`).
