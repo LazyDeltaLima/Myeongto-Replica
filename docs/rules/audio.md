@@ -105,7 +105,7 @@
     오퍼레이터 공격 0.348·타격 0.336, 스킬 공격 0.428·타격 0.348, 적 공격 0.163·타격 0.205, 보스 0.343·0.327, 스킬 시작 0.67, 배치·사망·이탈 0.614,
     대사 채널 0.978, sfx 채널의 ×0.9 제거(그룹이 SFX 버스를 포함). 그룹 없는 뱅크(치유)는 SFX_Battle 0.696 [추정]. 이전(오퍼레이터·적 모두 0.55,
     1 초과 잘림)보다 적 소리가 약 9 dB 작다. UI 효과음·BGM은 그대로.
-  - **효과음 재생: 피치·동시 재생 상한** (2026-10-10, 클라 코드; 관리자 결정 「공식이랑 동일하게」 — 피치는 사용자가 들어 보고 판단):
+  - **효과음 재생: 피치·동시 재생 상한** (2026-10-10, 클라 코드; 관리자 결정 「공식이랑 동일하게」 — 피치는 관리자가 들어 보고 그대로 두기로 함 2026-10-10):
     - 공식: `SoundFXBank.Play`(RVA 0x34B22A0) — 뱅크의 소리 수가 `maxSoundAllowed`(> 0)에 차면 `popOldest`일 때 가장 오래된 것을 즉시 끊고 새 소리,
       아니면 새 소리를 버린다(0 = 상한 없음). 상한은 **뱅크 단위**(파일 단위 아님). 재생마다 `SoundFXBank.SoundFX._SetAudioChannel`(RVA 0x34B3500)이
       `pitch = RandomUtil.Range(minPitch, maxPitch)` — 소리별 데이터 범위에서 무작위(zh_CN `audio_data.json` `battle.*` 소리 12,543개 중 0.8–1.2가 8,875개,
@@ -120,7 +120,7 @@
       [추정: 유니티 기본 real voice 수 32 — 클라 설정값은 데이터에 없음]. 사운드 항목의 `delay`(예: 텍사스 START 0.27초)는 2026-10-10부터 쓴다 —
       `delay / Time.timeScale`(전투 소리 = 배속, UI = 1)만큼 늦게 시작(아래 「공격 소리 신호」).
     - 확인: `test/local-patch-audio.test.js` 「every bank plays like the official SoundFXBank.Play」(3명이 한 뱅크 → 셋째가 가장 오래된 것을 끊음, popOldest
-      false는 버림, 피치 범위·무작위), `test/ui/audio.test.js` 「SfxLimiter」. [브라우저 미확인 — 피치는 사용자가 들어 볼 것]
+      false는 버림, 피치 범위·무작위), `test/ui/audio.test.js` 「SfxLimiter」. [피치: 관리자 청취 확인 2026-10-10]
   - **스킬 종료음** (2026-10-10, 클라 코드): `BasicSkill.OnSkillEnd`(RVA 0x63A110)가 `PlayAudioAtPos('ON_SKILL_FINISH', _GenerateSignalId)` — 신호 id는
     스킬 id(스킬 데이터가 자체 신호 id를 주면 그것). 그 밖에 `OnOwnerFinish`·`_OnReceiveAttackFinishEvent`·`ToggleSkill.DoCast`도 같은 신호를 낸다;
     `ON_ABILITY_END`는 `AbilityStandard.OnCastEnd`(RVA 0x34EFE40). 데이터의 두 이름 뱅크 100개 중 우리 로스터 스킬은: 银灰 S2 b_char_tactboost,
