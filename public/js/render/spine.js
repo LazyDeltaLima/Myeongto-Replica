@@ -37,6 +37,8 @@
 //                                         closing clip timed to end `in` s from now (a 重生's last clip ends with the
 //                                         重生), landing in `roles`
 //   update(dt)                            advances the skeleton (autoUpdate is off: one clock for everything)
+// A 要塞 (fortressClips, render/units.js FORTRESS_CLIPS) plays the melee or the ranged clip of its attack role by its latest
+// attack's kind (atkRanged: the 'swing' / 'atk' projectile, 'none' while it blocks).
 // Attack mode lasts until ~1.4 attack intervals without a new attack (a `once` cast and every attack of a
 // `clipPerAttack` actor: to the end of its clip), then the end clip (if any) and base — except the attacks of a skill
 // with its own idle clip, which go straight back to that idle: the skill's end clip closes the skill, not each spell of
@@ -182,6 +184,8 @@ export class SpineActor {
     this.clipPerAttack = false;
     this.wound = false;           // clipPerAttack: wound up for the coming attack (windUp → attack)
     this.swingUntil = null;       // the end of a swing's clip (swing): attacks meanwhile leave it alone
+    this.fortressClips = null;    // a 要塞's [melee, ranged] clip pairs (render/units.js FORTRESS_CLIPS)
+    this.atkRanged = null;        // …and whether its latest attack was ranged (null: not known yet — the role's clip)
     this._play(this._idleName(), true);
   }
 
@@ -269,15 +273,16 @@ export class SpineActor {
       const track = this.spine.state.tracks[0];
       const clip = this._attackClip();
       if (!track || !clip) return;
-      const dur = this.dur(clip.loop);
+      const name = this._loopOf(clip);
+      const dur = this.dur(name);
       const oldHit = this._hitTime(this.current, this.dur(this.current));
-      const hit = this._hitTime(clip.loop, dur);
+      const hit = this._hitTime(name, dur);
       const start = clampN(track.trackTime + hit - oldHit, 0, dur);
       const lead = this.wound && this.windUntil != null
         ? Math.max(0, this.windUntil - this.clock) : 0;
       const ts = lead > 0 ? Math.max(0, hit - start) / lead : track.timeScale;
       const tailTs = lead > 0 ? this.windTs : ts;
-      this._play(clip.loop, track.loop, { start, timeScale: ts, mix: 0 });
+      this._play(name, track.loop, { start, timeScale: ts, mix: 0 });
       this.attackUntil = this.clock + lead +
         Math.max(0, dur - (lead > 0 ? hit : start)) / tailTs;
     } else if (this.mode === 'stun') {
@@ -387,18 +392,19 @@ export class SpineActor {
     const per = this.clipPerAttack || !!clip.strike; // local patch: a strike skill clip plays once per attack
     const single = once || per;
     // in rhythm: attack() re-phases; a clip-per-attack actor starts each attack's clip anew unless already wound up for it
-    if (this.mode === 'attack' && this.current === clip.loop && (!per || once || this.wound)) return false;
-    const loopDur = this.dur(clip.loop);
+    const name = this._loopOf(clip);
+    if (this.mode === 'attack' && this.current === name && (!per || once || this.wound)) return false;
+    const loopDur = this.dur(name);
     // a one-off cast plays at the clip's own speed (one loop per clip length), whatever the attack rhythm
     const iv = once ? loopDur : clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
-    const hit = this._hitTime(clip.loop, loopDur);
+    const hit = this._hitTime(name, loopDur);
     // clip per attack: its own speed, sped up only when the attacks come quicker than the clip
     const plan = windUpPlan(loopDur, hit, per && !once ? Math.min(iv, loopDur) : iv, lead);
     if (!(hit > 0) || lead * plan.ts > hit + 1e-6) return false;
     if (!once) this.interval = iv;
     this.mode = 'attack';
     this.attackUntil = this.clock + lead + (single ? Math.max(0, loopDur - hit) / plan.ts : Math.max(0.45, iv * 1.4));
-    this._play(clip.loop, !single, { timeScale: plan.tsWind, start: plan.start, mix: 0.06 });
+    this._play(name, !single, { timeScale: plan.tsWind, start: plan.start, mix: 0.06 });
     this.windTs = plan.ts;
     this.windUntil = this.clock + lead;
     this.wound = true;
@@ -417,8 +423,9 @@ export class SpineActor {
     if (this._endPlaying()) return false; // local patch
     const clip = this._attackClip();
     if (!clip) return false;
-    const loopDur = this.dur(clip.loop);
-    const hits = this.entry.hits && this.entry.hits[clip.loop];
+    const name = this._loopOf(clip);
+    const loopDur = this.dur(name);
+    const hits = this.entry.hits && this.entry.hits[name];
     // the strike frame; a clip with no OnAttack event strikes as the swing ends (the sim's attackTiming)
     const hit = Array.isArray(hits) && hits.length && Number.isFinite(hits[0]) ? clampN(hits[0], 0, loopDur) : loopDur;
     if (!(hit > 0)) return false;
@@ -428,7 +435,7 @@ export class SpineActor {
     this.swingUntil = this.attackUntil;
     this.windUntil = null;
     this.wound = false;
-    this._play(clip.loop, false, { timeScale: ts, mix: 0.06 });
+    this._play(name, false, { timeScale: ts, mix: 0.06 });
     return true;
   }
 
@@ -454,14 +461,15 @@ export class SpineActor {
     if (this._swinging()) return;   // the strike of a swing already playing at the official speed
     const clip = this._attackClip();
     if (!clip) return;
-    const loopDur = this.dur(clip.loop);
+    const name = this._loopOf(clip);
+    const loopDur = this.dur(name);
     const per = (this.clipPerAttack || !!clip.strike) && !once; // local patch: a strike skill clip
     const single = once || per;
     // clip per attack: its own speed (ts 1), faster only when the attacks come quicker than the clip
     const ts = once ? 1 : per ? clampN(loopDur / Math.min(this.interval, loopDur), 1, 4) : clampN(loopDur / this.interval, 0.35, 4);
-    const hit = this._hitTime(clip.loop, loopDur);
+    const hit = this._hitTime(name, loopDur);
     // (a clip-per-attack actor still playing the previous attack's clip was not wound up for this one)
-    const wasAttacking = this.mode === 'attack' && this.current === clip.loop && (!per || this.wound);
+    const wasAttacking = this.mode === 'attack' && this.current === name && (!per || this.wound);
     this.mode = 'attack';
     this.attackUntil = this.clock + (single ? Math.max(0, loopDur - hit) / ts : Math.max(0.45, this.interval * 1.4));
     this.windUntil = null;
@@ -474,7 +482,7 @@ export class SpineActor {
       // actors (enemies), not our strike skill clips (`clip.strike`), which keep their strike-frame start
       const whole = this.clipPerAttack && per && this.interval >= loopDur;
       if (whole) this.attackUntil = this.clock + loopDur / ts;
-      this._play(clip.loop, !single, { timeScale: ts, start: whole ? 0 : hit, mix: 0.06 });
+      this._play(name, !single, { timeScale: ts, start: whole ? 0 : hit, mix: 0.06 });
     } else if (single) {
       const e = this.spine.state.tracks[0];
       if (e) e.timeScale = ts;
@@ -497,6 +505,18 @@ export class SpineActor {
     const a = this.roles.attack;
     if (a && this.has(a.loop)) return a;
     return null;
+  }
+
+  /**
+   * The clip an attack of role `clip` plays: its loop, or for a 要塞 (fortressClips) the pair's melee or ranged clip by its
+   * latest attack's kind (atkRanged) — the client's MeleeAttack / BlockedMeleeAttack / BlockedRangedAttack vs RangedAttack.
+   */
+  _loopOf(clip) {
+    const name = clip.loop;
+    if (this.atkRanged == null || !this.fortressClips) return name;
+    const pair = this.fortressClips.find((p) => p[0] === name || p[1] === name);
+    const want = pair ? pair[this.atkRanged ? 1 : 0] : name;
+    return this.has(want) ? want : name;
   }
 
   // Skill loops that are pure stances (no OnAttack in the loop) are still valid attack visuals during a skill;

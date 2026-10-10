@@ -322,7 +322,19 @@ export const EL_BAR = Object.freeze({ icon: 0.15, min: 8, max: 15, enemy: 0.8, g
  * clips while it is on. Switched at once (UnitView.sync, and for a model loaded later the load callback).
  */
 export const STEALTH_FORMS = Object.freeze({ enemy_9008_acbunn: 'revealed' });
-const loop = (name, via = null) => Object.freeze(via ? { begin: null, loop: name, end: null, via } : { begin: null, loop: name, end: null });
+
+/**
+ * 要塞 (fortress) operators whose blocked and unblocked attacks are two clips of one role, per Spine id: [melee, ranged]
+ * pairs (SpineActor.fortressClips; the latest attack's kind picks — the sim's 'swing' / 'atk' projectile 'none' while it
+ * blocks). Client prefabs `<id>/Modes/<mode>/Body/Attack/`: MeleeAttack / BlockedMeleeAttack / BlockedRangedAttack play
+ * the first, RangedAttack the second (maintainer report 2026-10-10: 号角 played Attack_A for her ranged attacks too, and
+ * 灰毫 played her ranged Attack01 while blocking). 号角's Skill_1_A / _B have no ability of their own [추정: same split].
+ */
+export const FORTRESS_CLIPS = Object.freeze({
+  char_4039_horn: Object.freeze([['Attack_A', 'Attack_B'], ['Skill_1_A', 'Skill_1_B'], ['Skill_2_A_Loop', 'Skill_2_B_Loop'], ['Skill_3_A_Loop', 'Skill_3_B_Loop']]),
+  char_431_ashlok: Object.freeze([['Attack02', 'Attack01']]),
+});
+const loop =(name, via = null) => Object.freeze(via ? { begin: null, loop: name, end: null, via } : { begin: null, loop: name, end: null });
 const clipSet = (idle, move, die, attack = null) => Object.freeze({
   idle, deploy: idle, die, move: loop(move),
   attack: attack ? loop(attack, 'attackAny') : null,
@@ -669,6 +681,7 @@ export class UnitView {
         actor.setRunMode(this.moveFast);
         // enemies play their attack clip once per attack, then walk on (GitHub #58: the sim stands them for that clip)
         actor.clipPerAttack = this.isEnemy;
+        actor.fortressClips = FORTRESS_CLIPS[id] || null;
       } catch (err) {
         console.warn('[render] spine build failed', id, err?.message || err);
         this._releaseEntry(entry);
@@ -1022,6 +1035,7 @@ export class UnitView {
       this.lungeDir.x = dx / len; this.lungeDir.y = dy / len;
     }
     this.lunge = 1;
+    this._atkKind(kind);
     if (this.actor) this.actor.attack(this.atkInterval, once); // game seconds: the actor's clock runs in game time
     if (this.imp) this.imp.dirty = true;
   }
@@ -1029,9 +1043,11 @@ export class UnitView {
   /**
    * This unit starts a normal attack's swing now (b.ev 'swing'); its strike comes `windup` game seconds later: the Spine
    * attack clip plays from its start at the official speed (render/spine.js swing). True when the clip was started.
+   * `kind` = the swing's projectile kind (its 4th field).
    */
-  onSwing(windup) {
+  onSwing(windup, kind) {
     if (!this.alive || !this.actor || !this.spineReady) return false;
+    this._atkKind(kind);
     const ok = this.actor.swing(windup);
     if (ok && this.imp) this.imp.dirty = true;
     return ok;
@@ -1044,9 +1060,15 @@ export class UnitView {
    */
   windUp(lead, kind) {
     if (!this.alive || !this.actor || !this.spineReady) return false;
+    this._atkKind(kind);
     const ok = this.actor.windUp(this.atkInterval, lead, !!PROJ[kind]?.once);
     if (ok && this.imp) this.imp.dirty = true;
     return ok;
+  }
+
+  /** The coming attack's projectile kind ('none' = melee): a 要塞's clip of it (FORTRESS_CLIPS). */
+  _atkKind(kind) {
+    if (this.actor?.fortressClips && typeof kind === 'string' && kind) this.actor.atkRanged = kind !== 'none';
   }
 
   onHit() { this.flash = 1; }

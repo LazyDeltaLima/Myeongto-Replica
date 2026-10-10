@@ -219,6 +219,12 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   공격(클립 모르는 유닛, 강제 공격, 적 치유)에만 남는다 — `app.js windUpAttacks`는 'swing'이 예고한 타격의 'atk'를 미리보기에서 뺀다(`swingStrikes`).
 - 'swing'은 `interp.js COSMETIC_EVENTS`(늦으면 버림), `shared/protocol.js EV.SWING`.
 - 테스트: `test/render/attack-swing.test.js`(가짜 PIXI). [화면 미확인] — 메인 세션의 Windows Chrome 확인 대기.
+- **요새 근접·원거리 클립** (관리자 제보 2026-10-10: 号角이 원거리 공격에도 저지 시 모션을 씀): 클라 프리팹 `<id>/Modes/<mode>/Body/Attack/`의
+  MeleeAttack·BlockedMeleeAttack·BlockedRangedAttack과 RangedAttack은 다른 클립 — 号角 Default `Attack_A`/`Attack_B`, S2 `Skill_2_A_Loop`/`Skill_2_B_Loop`,
+  S3 `Skill_3_A_Loop`/`Skill_3_B_Loop`(S3 아래 방향 원거리 `Skill_Down_3_Loop`은 우리가 아래 방향 클립을 안 써서 제외), 灰毫 Default `Attack02`/`Attack01`
+  (반대로 저지 중에도 원거리 Attack01이었음). 역할 추출(`anim-roles.mjs`)은 첫 클립 하나만 고르므로 `units.js FORTRESS_CLIPS`([근접, 원거리] 쌍)를
+  두고, 'swing'·'atk'의 kind(sim `ai.js`: 저지 중이면 'none')로 `spine.js _loopOf`가 고른다. 号角 `Skill_1_A`/`_B`는 쓰는 능력이 프리팹에 없음 [추정: 같은 나눔].
+  테스트 `test/render/fortress-clips.test.js`. [화면 미확인]
 
 ## 모바일 3D 보드 복구 (2026-10-10, 관리자 제보 「모바일에서 간헐적으로 3D 렌더링이 안 된다」 → 관리자 요청 「진단 정보에 3D 상태를 넣고 1·2번부터」)
 - 진단(코드): 한 번의 실패가 그 판(또는 페이지) 끝까지 2D로 남겼다 — ① 판을 띄울 때 GPU 검사(`webgl2Available`)를 한 번만 하고, 실패하면 three.js를
