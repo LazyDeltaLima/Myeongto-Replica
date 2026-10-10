@@ -224,8 +224,8 @@
       ],
       "enemies": {"enemy_1019_jshoot_2":[57,0,57,2864,49680],"enemy_1299_ymkilr_2":[27,0,27,0,16200],"enemy_1422_lrsldr_2":[39,39,0,0,205920]},
       "hooks": [1,135,6715,500,500,2397,2205,75,39,123,29,29,0,18900,62,0,123,84,1,39,0,0,168],
-      "events": {"atk":538,"deploy":12,"die":39,"dmg":2205,"engage":4,"fx":192,"heal":38,"leak":84,"skill":58,"spawn":135,"status":111,"swing":517},
-      "fx": {"dodge":192},
+      "events": {"atk":538,"deploy":12,"die":39,"dmg":2205,"engage":4,"fx":202,"heal":38,"leak":84,"skill":58,"spawn":135,"status":111,"swing":517},
+      "fx": {"dodge":192,"kitHit":10},
       "snaps": "06924d04 0e79fba0 37be0b0e 1f4d3af3 687b7b6e fbe50422 7b7a969c 667fd314 a2a60be4 184f8d56 01704b37 d682f99b ac0fcc8c 94ad0859 0e5c54c7 8f4cc85d 0a257dc5 743f08ee e31f9a1a e43a6f93 c363e0b5 e68c9262 af5f4fd6"
     },
     "diy-006": {
