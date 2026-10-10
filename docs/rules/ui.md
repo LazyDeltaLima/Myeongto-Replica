@@ -484,6 +484,17 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 「复制链接」이 클립보드에 넣는 문구(`room.js copy`)는 DOM 번역을 거치지 않아 중국어로 나갔다 → `tr()`로 감싸고 ko `patterns.json`에
   「{0}邀请你加入卫戍协议：盟约【{1}】」→「{0} 님이 위수 협의: 맹약【{1}】에 초대했습니다」(난이도 이름은 data.json 번역).
 
+## 링크 미리보기(OG 태그) (2026-10-10, 관리자 결정)
+- 증상: 링크를 붙여넣으면 미리보기가 중국어(`index.html`의 `<title>`·`description`, OG 태그 없음). 미리보기 봇은 JS를 돌리지 않아
+  `ui/lang.js`의 한국어 전환이 닿지 않는다.
+- 처리(관리자 결정 「공개 레포는 기본이 한국어, 배포 url은 노출하지 말고 상대경로」): `index.html` 머리를 한국어로(`<html lang="ko">`,
+  title·description·`apple-mobile-web-app-title`, 첫 방문 언어와 같은 문구 — ko 팩의 「卫戍协议：盟约 · STRONGHOLD PROTOCOL」 번역) +
+  `og:type/site_name/locale/title/description/image`, `twitter:card`. `og:url`은 넣지 않는다(절대 주소여야 해서). `og:image`는 상대 경로
+  `/assets/ui/loading/loading_ac_core.png`(공식 위수 협의 로딩 그림, 에셋 파이프라인 `data/assets.json`; 에셋 없는 체크아웃은 그림 없음).
+  탭 제목·`lang`은 지금도 부팅 뒤 `ui/lang.js`가 고른 언어로 바꾼다.
+- `[ASSUMED]` OG 규격은 `og:image`를 절대 URL로 요구한다. 카카오톡·디스코드 등이 상대 경로를 페이지 주소 기준으로 풀어 주는지는 미확인 —
+  그림이 안 뜨면 서버가 요청 Host로 절대 주소를 채우는 방식이 대안(저장소에는 여전히 주소가 남지 않음).
+
 ## 휴대폰 화면 조정 (2026-10-06, 관리자 요청)
 - 맹약 줄 「︽」 접기 탭: 터치 화면(`pointer: coarse` 또는 높이 ≤540)에서는 터치 영역 = 그림(`btn_close` 37×17단위, 최소 폭 24px).
   예전 102×26단위 상자(844×390에서 61×16px)가 12번째 줄 4–6칸 끝을 덮어 그 칸의 오퍼를 누르면 줄이 접혔다 → 24×10px. 접힌 `btn_open`은 그대로. (hud-art.css)

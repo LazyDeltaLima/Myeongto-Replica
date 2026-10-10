@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="ko">
 <head>
   <meta charset="utf-8" />
   <!-- A landscape game: no page zoom (iOS additionally needs the gesture handling of js/ui/device.js), full-bleed behind
@@ -12,9 +12,23 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="卫戍协议" />
-  <meta name="description" content="卫戍协议：盟约 · 网页联机复刻（非官方同人作品）" />
-  <title>卫戍协议：盟约 · STRONGHOLD PROTOCOL</title>
+  <meta name="apple-mobile-web-app-title" content="위수 협의" />
+  <!-- What a pasted link shows (crawlers do not run ui/lang.js, so the static head is the Korean first-visit language).
+       URLs stay relative so the page never names the host it is served from (no og:url); the image is the official
+       卫戍协议 loading art of the asset pipeline (data/assets.json), so a checkout without assets shows no picture. -->
+  <meta name="description" content="명일방주 「위수 협의: 맹약」(명토체스)을 브라우저에서 혼자 또는 1–4인 협동으로 플레이하는 비공식 팬 재현작" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="명토 레플리카" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta property="og:title" content="위수 협의: 맹약 · STRONGHOLD PROTOCOL" />
+  <meta property="og:description" content="명일방주 「위수 협의: 맹약」(명토체스)을 브라우저에서 혼자 또는 1–4인 협동으로 플레이하는 비공식 팬 재현작" />
+  <meta property="og:image" content="/assets/ui/loading/loading_ac_core.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1024" />
+  <meta property="og:image:height" content="1024" />
+  <meta property="og:image:alt" content="위수 협의: 맹약" />
+  <meta name="twitter:card" content="summary" />
+  <title>위수 협의: 맹약 · STRONGHOLD PROTOCOL</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' fill='%230c0f0e'/%3E%3Cpath fill='%234ed8af' d='M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v7l2 2v2H5v-2l2-2v-7L5 8z'/%3E%3C/svg%3E" />
 
   <!-- Web fonts: never render-blocking (LAN/offline play must still start); system fallbacks in theme.css. -->
