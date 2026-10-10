@@ -110,6 +110,21 @@ describe('赤刃明霄陈 kit — research 2026-10-07 §2 fixes', () => {
     assert.ok(first >= 13 / 30 - 1e-9 && first <= 13 / 30 + 2 * h.TICK + 1e-9, `the 剑气 left ${first.toFixed(3)} s after the cast (want 0.433)`);
   });
 
+  test('S3: the 剑气 turns at most once per tick (client ChangeStateWithHighlandBehaviour.OnTick: one _CheckHit → _ChangeDirection a tick)', async () => {
+    const { chen3QiAdvance } = await import('../server/sim/content/kits/ops/op-chen3.js');
+    const LOW = { height: 'LOW', pass: 'ALL' }, HIGH = { height: 'HIGH', pass: 'NONE' };
+    // a dead end: the tile ahead (UP = +row) and the one to its right both highland, the wave 0.25 short of both
+    const grid = { inRect: (r, c) => r >= 0 && r <= 9 && c >= 0 && c <= 9, tile: (r, c) => ((r === 6 && c === 5) || (r === 5 && c === 6) ? HIGH : LOW) };
+    const st = { x: 5.25, y: 5.25, d: 'UP' };
+    assert.equal(chen3QiAdvance(grid, st, 1.5 / 30), 1, 'one turn in the first tick (was 2: UP → RIGHT → DOWN at once)');
+    assert.equal(st.d, 'RIGHT');
+    assert.ok(Math.abs(st.x - 5.25) < 1e-9 && Math.abs(st.y - 5.25) < 1e-9, 'held in front of the wall it now faces');
+    assert.equal(chen3QiAdvance(grid, st, 1.5 / 30), 1, 'the next tick turns again');
+    assert.equal(st.d, 'DOWN');
+    assert.ok(Math.abs(st.y - (5.25 - 1.5 / 30)) < 1e-9, 'and moves off down');
+    assert.equal(chen3QiAdvance(grid, st, 1.5 / 30), 0, 'a free way: no turn');
+  });
+
   test('C8: 寒暑觉知\'s held dodge cancels any dodgeable physical / arts damage — a skill hit too, not attacks only (Evade PHYSICAL_AND_MAGICAL)', () => {
     const { h, u, src } = armed();
     const hp = u.hp;
@@ -158,6 +173,58 @@ describe('赤刃明霄陈 through the real match path (seats[].diy → Match boa
     assert.ok(slashes >= 1, `slashes (${slashes}) — round 3's enemies fall fast: the slashing ends with nobody to pass on to`);
     assert.ok(sawState, 'the S2 state while slashing');
     assert.ok(landedAt != null && endedAt != null && Math.abs(endedAt - landedAt - u.skill.duration) < 0.15, `the full ${u.skill.duration} s after landing (${landedAt} → ${endedAt})`);
+    assert.equal(b.errors.length, 0, b.errors[0]?.error?.message);
+    m.dispose?.();
+  });
+
+  test('S3 on m04: the 剑气 turns one 90° clockwise step at a time — on the field\'s own corner too (one turn per tick)', async () => {
+    const T6 = 'chess_char_6_diy1_a';
+    const { makeMatch } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const { chen3QiAdvance } = await import('../server/sim/content/kits/ops/op-chen3.js');
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T6]: pickOf(false, 2) } }];
+    const mh = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+    mh.toPrep(3);
+    mh.setStage('act2autochess_m04');
+    const m = mh.m, ps = mh.ps('p_0');
+    ps.initDiyStock?.(new Set());
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    const w = ps.acquireChess(T6, { source: 'buy' });
+    assert.ok(w, 'her piece');
+    assert.ok(m.handle('p_0', { t: 'g.move', uid: w.uid, to: { area: 'board', row: 10, col: 7 }, dir: 'RIGHT' }).ok);
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    // the m04 field's top-right corner: above (12, 9) is the field edge, right of it the 侵入点 (12, 10) — 0.25 short of
+    // both, the client turns UP → RIGHT this tick and RIGHT → DOWN the next (the old 4-turn loop did both at once)
+    const corner = { x: 9.25, y: 12.25, d: 'UP' };
+    assert.equal(b.grid.tile(12, 10).special, 'start', 'a 侵入点 right of the corner');
+    assert.equal(chen3QiAdvance(b.grid, corner, 1.5 / 30), 1);
+    assert.equal(corner.d, 'RIGHT');
+    assert.equal(chen3QiAdvance(b.grid, corner, 1.5 / 30), 1);
+    assert.equal(corner.d, 'DOWN');
+    b.start();
+    const u = b.allyUnits.find((x) => x.kind === 'op');
+    assert.equal(u.def.charId, CHAR);
+    const qi = [];
+    let ticks = 0;
+    let casts = 0, on = false;
+    while (!b.finished && b.time < 90) {
+      b.step();
+      ticks++;
+      const now = !!(u.skill?.active && u.skill.id === 'skchr_chen3_3');
+      if (now && !on) casts++;
+      on = now;
+      for (const e of b.drainEvents()) if (e[0] === 'fx' && e[1] === 'chen3Qi' && e[4].id === u.id) qi.push({ cast: casts, tick: ticks, dir: e[4].dir });
+    }
+    assert.ok(casts >= 1, 'S3 cast');
+    assert.ok(qi.length > 20, `the 剑气 flies (${qi.length} fx)`);
+    const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
+    for (let i = 1; i < qi.length; i++) {
+      if (qi[i].cast !== qi[i - 1].cast) continue;   // a new cast: a new 剑气 from her facing
+      assert.ok(qi[i].tick > qi[i - 1].tick, 'one 剑气 fx a tick at most');
+      if (qi[i].dir !== qi[i - 1].dir) assert.equal(qi[i].dir, DIRS[(DIRS.indexOf(qi[i - 1].dir) + 1) % 4], `one clockwise step (tick ${qi[i].tick})`);
+    }
     assert.equal(b.errors.length, 0, b.errors[0]?.error?.message);
     m.dispose?.();
   });

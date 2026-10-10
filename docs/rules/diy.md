@@ -5,7 +5,9 @@
 ## 선발 오퍼레이터 (2026-10-05, 0.2.0부터 upstream 自选 틀)
 - 원본 甄选 규칙(공식 데이터 + bilibili wiki 盟约): V·VI단계 2칸씩, 경기 전 오퍼레이터 구성 화면에서 고른다. 고른 오퍼레이터는 그
   플레이어 상점에만 나오고(공식 문구 「只出现在自己的商店里」), 일반 E2 Lv1·스킬 4 / 정예 E2 Lv60·스킬 7·모듈 1(V) 또는 3(VI), 가격 4·판매 1·3장 합성. 특질 없음.
-  맹약은 진영으로(위키 규칙, 叙拉古·卡西米尔 확장은 [추정]), 없으면 협방(emptyShip): 왕·첸 → 염, 나머지 → 협방.
+  맹약은 진영으로(위키 규칙), 없으면 협방(emptyShip, `constData.fallbackBondId`): 왕·첸 → 염, 나머지 → 협방. 叙拉古·卡西米尔도 공식 표의
+  정규 맹약이다 — `activity_table` `autoChessData.bondInfoDict`의 `isPower` 맹약 8개의 `powerIdList`에 叙拉古 [siracusa, chiave]·卡西米尔
+  [kazimierz, pinus]가 있다(2026-10-10 대조, 그 전엔 「확장은 [추정]」; `tools/build-data.mjs buildBackups`가 이 표로 정함).
 - 지금 구현(0.2.0부터): upstream 「自选」 틀이 선발 칸·재고·상점·보상·밴을 맡는다(`server/match/player/diy.js initDiyStock`, `shared/diy.js`, 데이터
   `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 직접 구현·대조한 5명으로 줄인다:
   `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고,
@@ -28,7 +30,9 @@
       테스트: 대각선으로만 길에 닿는 돌(10,1)이 S3에서 발동(십자로는 실패하는 것 확인).
     - 발동하면 돌은 **소모**된다(陷阱师 함정 공통 「踩上去的第一个敌人会触发其效果」, 토큰에 ON_UNIT_DEAD 소리가 있음; 2026-10-10 클라 프리팹으로
       확인: `sktok_wang_1`·`_2`(ExplodeRow/Col/Cross)·`_3` 모두 `_runActionOnEvent` 5 = ON_SPELL_END에 `Withdraw {_withdrawSource: true,
-      _switchToDeadState: false}` — 폭발이 끝나면 돌이 스스로 철수). 놓았던 돌은 모드의 재배치와 같은 방식(`Battle.redeploy`, `tokens.js enableRespawn`)으로 돌아온다:
+      _switchToDeadState: false}` — 폭발이 끝나면 돌이 스스로 철수). 철수(손 철수·발동 소모 모두)에 DP 반환은 없다 — 클라 코드
+      `Token.get_allowWithdrawGainCost`(RVA 0x762E20)가 늘 false라 `Character.Withdraw`(0x6FF3F0)의 반환 분기를 타지 않는다(돌 프리팹
+      `token_10064_wang_stone1`의 `_withdrawCostRecoverRatio` 0.5는 Token이라 쓰이지 않는 값; 2026-10-10 확인). 놓았던 돌은 모드의 재배치와 같은 방식(`Battle.redeploy`, `tokens.js enableRespawn`)으로 돌아온다:
       재배치 시간(E2 2초) 뒤, 자기 칸에, DP(토큰 cost 3, VI 정예는 모듈로 2)만 내고, 그 칸에 적이 없을 때. 망이 필드에 없으면 기다린다 [추정].
       **돌아올 때 재고를 쓰지 않는다** — 놓은 돌은 전투 내내 소모 → DP 내고 복귀를 되풀이한다(2026-10-08 관리자 결정, `op-wang.js
       RETURN_USES_STOCK`(false)). 근거: PRTS 卫戍协议/帮助 「若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个」(재고 언급 없음), 관리자의 플레이 기억
@@ -90,8 +94,11 @@
       놓을 수 없는 칸(2026-10-06 관리자 제보): 클라이언트 跟子 선택기 `exceptTileTypes` + tileTypesMask 14. 비트는 클라 enum
       `Torappu.Battle.TileTypesMask`([Flags]: NONE 0, DEFAULT 1, HOLE 2, END 4, START 8, FAKE_HIGHLAND 16; 2026-10-10 확인 — 그 전엔 tileTypeDict
       순서로 END 2·START 4·HOLE 8이라 [추정]했다) → 14 = HOLE·END·START = `tile_end`·`tile_end_cooperate`·`tile_allygoal`(방어 지점),
-      `tile_start`·`tile_start_cooperate`·`tile_enemygoal`(적 침입 지점), `tile_hole`(타일 키 → 마스크는 `BattleMiscDB.GetTileTypesMask`; 이 키 목록이
-      tileTypeDict 값과 맞는지는 다시 대조하지 않음). 배치 불가 고지대도 불가(재능·재배치·S3 시작 초과분·S3 배치 모두 같은 `followerClass`). 비행 적 출현
+      `tile_start`·`tile_start_cooperate`·`tile_enemygoal`(적 침입 지점), `tile_hole`(타일 키 → 마스크는 `BattleMiscDB.GetTileTypesMask`; 2026-10-10
+      battle_misc_table `tileTypeDict`와 대조: END = tile_end·tile_end_cooperate·tile_allygoal, START = tile_start·tile_start_cooperate·tile_enemygoal,
+      HOLE = tile_hole — `op-wang.js FOLLOWER_EXCEPT_TILES` 7키와 같다). 필드 밖 칸은 grid가 거른다 — 클라 `WangTileSelector._CheckMapTileValid`
+      (0x7193C0)도 위수협약 전투 중에는 지금 전투 맵 영역(`AutoChessGameMode.FetchValidMapGrids` → `AutoChessMapAreaManager.FetchBattleValidMapGrids`)
+      안만 허용한다(联防·보스 필드에서 그 영역이 자기 절반인지 필드 전체인지는 미확인 — 우리는 필드 전체). 배치 불가 고지대도 불가(재능·재배치·S3 시작 초과분·S3 배치 모두 같은 `followerClass`). 비행 적 출현
       칸(`tile_flystart`)은 이 목록에 없다. **깊은 심해(`tile_deepsea`)도 불가** (관리자 제보·결정 2026-10-08 — 공식 마스크 14에는 없음):
       `grid.js DEPLOY_REFUSED_TILES`가 깊은 심해를 「배치 불가 지면」(`build 'NONE'`)으로 만드는데, PRTS 비고의 순서가 그 지면을 跟子 1순위로 두어
       act2 m04 물길(6·14열 10–12행)에 跟子가 먼저 들어갔다(실제 매치 경로 6판 중 5판, 19개). 공식 맵에서는 그 물길에 발판 기물(수상 플랫폼)이 있어야 놓을 수 있는데(관리자 설명), 시뮬레이션은 그 플랫폼이 없으므로(`grid.js` [ASSUMED]) 깊은 심해 전체를 막는다(`op-wang.js FOLLOWER_REFUSED_TILES`).
@@ -106,7 +113,10 @@
       적이 선 칸을 방어 지점까지 남은 경로가 짧은 적 순으로 먼저 `goalFirst`, 2026-10-06 관리자 결정 [추정]이었으나 클라에 그런 순서가 없어 사용자
       결정으로 뺌), 기존 돌과 붙을 필요 없음. 탄약 20발: S3 중 돌 1개를
       배치하면 **재능 跟子 1개(무료) + S3 跟子 최대 3개(1개당 1발)** — 배치 1번에 최대 3발(PRTS 「第一天赋额外至多部署3枚棋子并消耗等量弹药」,
-      나무위키 「최대 3개의 바둑돌은 배치될 때 탄약을 1발씩 소모」; 2026-10-07 관리자 결정, 같은 날 인게임에서 확인). 이전(2026-10-06):
+      나무위키 「최대 3개의 바둑돌은 배치될 때 탄약을 1발씩 소모」; 2026-10-07 관리자 결정, 같은 날 인게임에서 확인; 2026-10-10 클라 코드로 확인 —
+      `WangStoneTriggerManager.AddBuildStoneSequence`(0x561A80)가 요청을 `isFreeBuild` true로 만들고 `OnTick`(0x5625A0)이 첫 BuildStone 뒤 false로
+      내린다, `WangVisualStoneCtrlAbility.BuildStone`(0xAD61F0)은 무료면 탄약 카운터에 `NotCountTimes`(세지 않음, 여분 탄 소리도 없음) — 첫 개만
+      무료, 추가분은 1발씩). 이전(2026-10-06):
       跟子 최대 4개 전부 1발씩(클라이언트 SpawnTokenS3InSkill BuildStone 카운터 `_countEvent 4, _expendPerTrigger 1`).
       끝나는 조건은 재고 소진·탄약 소진·수동 종료뿐이고(클라 코드 `WangS3CastSkillWithLimitTimes.OnTick`: 손패 0 + 지을 跟子 없음
       `!hasRemainingBuildCnt` — 손패가 0이어도 이어 짓는 跟子가 남았으면 그것까지 기다린다, 2026-10-10 `followAround`), 남은 탄약은 돌로 돌아온다(엔진 `end()`가 onEnd 전에 `ammoLeft`를 0으로 만들어 이전엔
@@ -134,7 +144,10 @@
       (onStoneTriggered → `wang_stone_triggered` 버프 → 토큰 `SkillTrigger` `_checkContainBuffs`). 그 사이 적이 지나가도 발동하지 않는다. 프레임: 클라
       고정 스텝 1/30 s(`globalgamemanagers` TimeManager `Fixed Timestep` 0.0333333, `GlobalConsts.TIME_ROUGH_LOGIC_RATE` 30) = 시뮬레이션 1틱 →
       이어진 틱 + 31틱(≈1.03 s)에 무장(`op-wang.js STONE_ARM_FRAMES`). 그 전엔 이어진 틱에 바로 무장. 「onStoneTriggered → wang_stone_triggered」
-      연결은 토큰 프리팹 쪽이라 이름으로 추론. 테스트 `test/local-patch-diy-wang.test.js` 「W2」(0.95 s엔 아직, 1.1 s엔 발동).
+      연결은 환경 시스템 프리팹 `[uc]envsystems.ab` `env_043_stone_trigger` 자체에 있다(2026-10-10 확인, 그 전엔 이름으로 추론): 같은 GameObject의
+      env 상태 수신 컴포넌트가 `"onStoneTriggered"`를 받으면 `Nodes.CreateBuffAllowAll`로 버프 `wang_stone_triggered`(INFINITY, maxStack 1)를
+      건다(`"onTriggerEffectShow"`는 이어진 순간의 표시용 `wang_stone_triggered[effect]`). 토큰 프리팹에는 이 문자열이 없다. 버프가 INFINITY라 한 번
+      무장되면 돌이 있는 동안 유지된다(위 「이어진 돌이 사라져도 활성」과 같음). 테스트 `test/local-patch-diy-wang.test.js` 「W2」(0.95 s엔 아직, 1.1 s엔 발동).
     - 跟子를 진짜 바둑돌이 아닌 투사체로 둔 근거: PRTS 「通过天赋'额外部署的棋子'实为望自身发射的弹道 由此其不具有单位相关的性质（例如占据空位等）」.
       화면에는 바둑돌 모델로 보이고 연결·발동·피해는 같다. 손패를 쓰지 않고 배치 한도 6에 들지 않아 정비 때 놓은 돌을 퇴각시키지 않는다.
     - **跟子 칸에 배치하면 그 跟子가 사라진다 (PRTS 铸子 备注, 관리자 결정 2026-10-09, upstream `5a045731`의 이 부분만 손 이식)**: PRTS 望 铸子
@@ -155,6 +168,11 @@
     S3 검기 회전(2026-10-06, EN 클라이언트 `[uc]projectiles.ab`의 `projectile_chr_chen3_s3` → `ChangeStateWithHighlandBehaviour`):
     앞 칸이 고지대·侵入点(빨간 문)·保护目标(파란 문)·필드 밖이고 그 칸 가장자리까지 0.25 이하(+0.02)이면 시계 방향 90°
     (`_hitDistance` 0.25, `_checkHitHighland`·`_checkTileStart`·`_checkTileEnd`·`_checkHitMapEdge`). 꺾이면 맞은 적 목록을 비운다.
+    벽 판정은 클라 코드 `_CheckHitConditions`(0x96C610)와 같다(2026-10-10): 맵 밖, `heightType` 1(고지대), `TileTypesMask` START 8·END 4 —
+    저지대 통행 불가·장애물 칸에서는 꺾지 않는다(START/END 마스크의 `tile_start_cooperate`·`tile_enemygoal`·`tile_end_cooperate`·`tile_allygoal`은
+    우리 맵 데이터에 없다). **한 틱에 한 번만 꺾는다** (2026-10-11, 클라 코드 `ChangeStateWithHighlandBehaviour.OnTick` 0x96C200: 틱마다
+    `_CheckHit` → `_ChangeDirection` 한 번) — 앞과 그 오른쪽이 모두 막힌 막다른 곳에서는 틱마다 90°씩 돈다. 그 전엔 한 틱에 최대 4번 꺾은 뒤
+    움직여 한 틱에 180°도 돌았다. 테스트 `test/local-patch-diy-chen3.test.js` 「S3: the 剑气 turns at most once per tick」.
     시계 방향은 클라 코드 상수다(2026-10-10 정정 — 예전 「방향 값은 클라이언트에 없다」는 틀림): `ChangeStateWithHighlandBehaviour._ChangeDirection`이
     이동 방향을 상수와 비교해 위 → 오른쪽 → 아래 → 왼쪽 → 위로 바꾼다(PRTS 「顺时针旋转90°」과 같음). 꺾는 조건은 클라 `_CheckHit`
     `_hitDistance >= d && d > _hitEps`(0.02 < d ≤ 0.25 — `_hitEps`는 여유가 아니라 하한; 우리는 ≤ 0.27로 둠, 벽 앞 0.25에 멈추므로 실제 궤적 차이는
@@ -171,7 +189,10 @@
     S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 1-1 안의 적, `DEFAULT`) — 평타로 칠 수 없는 비행 적만 있으면 켜지지 않는다.
     한때 3-12 안의 적(비행 포함)으로 켜지는 `SKILL_RANGE` 예외였으나 관리자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다. 예외가 다시 필요하면
     `tools/build-data.mjs TRIGGER_DEVIATIONS`(관리자 결정으로만).
-  - 위셔델: 여진·잔영 폭발(재능1), 혼령의 그림자 소환과 근처 위장(재능2), S2 과부하([추정] 지속시간 후반부), S3 그림자 2개 추가(최대 3).
+  - 위셔델: 여진·잔영 폭발(재능1), 혼령의 그림자 소환과 근처 위장(재능2), S2 과부하(지속시간 후반부), S3 그림자 2개 추가(최대 3).
+    S2 과부하 근거(2026-10-10, 그 전엔 [추정]): 스킬 프리팹 `skchr_wisdel_2`가 `_isOverloadSkill` 1이고, 클라 코드 `BasicSkill.get_overloadRatio`
+    (0x63DAC0)가 그런 스킬에 0.5 → `OverloadIfNecessary`(0x63ADC0)가 진행도가 0.5를 넘으면 과부하(ON_OVERLOAD → 버프 `wisdel_s_2[overload_start]`,
+    `mode 2`) — 25초 중 12.5초부터 끝까지(`op-wisdel.js overload`) [추론: 진행도 = 경과 비율, 보조 함수 하나는 해석 안 함].
     S2 수정(2026-10-06): 과부하 본탄의 `attack@atk_scale_ol`(0.7)이 적용되지 않았다(사키코 S2와 같은 원인: `beforeAttack`의 `ctx.profile`
     교체를 엔진이 다시 읽지 않음). 과부하 동안 위셔델 자신의 `unit.profile` 복사본에 `atkScale`을 넣고 끝나면 되돌린다.
   - 사키코: 음표 수만큼 방어·저항 무시, Fever(450, 20초, 스킬 재시전·S2 2연타·S3 퇴각 안 함), S2는 시전마다 피아노↔오르간 전환(클라 프리팹
@@ -199,11 +220,14 @@
     | `_s2_slow`·`_s2_slow_t` | S2 오르간 | 사인 0.7(0.15) | 0.4 | 1.0 · 2.5 | 0.4 · 1.0 |
     | `_s3_phy`·`_s3_mag` | S3 피아노·오르간 | 사인 0.8(0.5) | 0.8 | 1.3 · 7.5 | 0.4 · 1.0 |
     (지속 공격 = charpack `RangedAlways`: 스킬 없음 `_talent`, S2 `_s2_t`·`_s2_slow_t`, S3 `_s3_phy`·`_s3_mag`. 탐색 반경은 PRTS 跟踪范围半径,
-    회전은 PRTS 「转向速度7/30每帧」 = 30fps에서 7/초.)
+    회전은 PRTS 「转向速度7/30每帧」 = 30fps에서 7/초. 추적 속도는 고정이다: 클라 코드 `AdvancedMovement.OnTick`(0x97DDC0)은 `_useDynamicSpeed`일
+    때만 `_deltaSpeedPerSec`·`_finalSpeed`로 가속하는데 음표의 추적 이동(`ToTraceTarget`)은 모두 `_useDynamicSpeed` 0 — 프리팹의 0.4·4.0은 쓰이지
+    않는 값, 2026-10-10 확인.)
     규칙: 자유 비행 방향은 사키코 방향 ±20°(PRTS 「自身朝向左20°至右20°范围内，随机一个角度」; 2026-10-10 클라 코드로 확인 —
     `BasicMovement._InitDirectionByStart`, `_useSourceDirection` + `_useSourceDirectionRandomArcAngleStart`: 전투 난수 `Range(−angle, +angle)`,
     angle = 블랙보드 `angle` = 재능1 `attack@angle` 20. 일반·재능 음표는 확인, S2·S3 음표는 같은 플래그이고 스킬 블랙보드에 `angle`이 없어 재능 값을
-    쓴다 [추론: 블랙보드 합치는 경로는 안 봄]). **S1 부채꼴** (2026-10-10, 관리자 결정 「공식이랑 동일하게」): 같은 메서드의
+    쓴다 — 공격 능력이 쏜 투사체의 블랙보드에 `attack@` 키가 접두사 없이 들어간다: 피아노 음표의 `MovementSwitchControllerOblvns.Init`이
+    `projectile.blackboard`에서 `"passby_delay"`(S2 `attack@passby_delay` 0.5)를 읽는다, 2026-10-10 [추론: 합치는 함수 자체는 안 읽음]). **S1 부채꼴** (2026-10-10, 관리자 결정 「공식이랑 동일하게」): 같은 메서드의
     `_useSourceDirectionArcAngleWithRatio` — a = angle × (2·ratio − 1), ratio = `_sourceDirectionArcAngleRatio` (2i+1)/16, angle = S1 블랙보드
     `angle` 15 → 정면 ±13.125°(3.75° 간격, 30° 부채꼴) 8개. 그 전엔 비율을 360°에 곱해 한 바퀴로 뿌렸다 [추정이었음]. 회전 축이 (0,0,−1)이라 1번
     음표가 화면의 어느 쪽인지는 확인 안 함 [추정: ±20°와 같은 부호]. 테스트 `test/local-patch-diy.test.js` 「丰川祥子 S1」. 공격 대상이 있으면 그 적을, 없으면 음표 반경 안에서 음표에
@@ -215,9 +239,17 @@
     음표(클라이언트: 투사체 생성 이벤트에서 `oblvns_t_1[cnt]` +1, 도착·소멸 이벤트에서 −1; `oblvns_t_1`이 cnt × 비율을 max_cnt까지).
     시간 수명은 두지 않는다: 프리팹 `_lifeTime` 10은 `_lifeTimeType` 2 = 클라 enum `LifeType` INFINITY(IMMEDIATELY 0, LIMITED 1, INFINITY 2,
     CUSTOM 3 — 2026-10-10 확인; 그 전엔 `_lifeTime` 0인 같은 유형 투사체 57개로 [추론]). `NOTE_SAFETY`(60초)는 끝없이 쫓는 음표를 막는 시뮬레이션 안전장치일 뿐.
-    [추정] 엔진에서 넘겨받은 일반 공격 음표는 도착 때의 공격력으로 맞힌다(엔진 `resolveHit`; PRTS는 캐시한 공격력). S2 피아노의 관통은
+    엔진에서 넘겨받은 일반 공격 음표도 **쏠 때의** 공격력·공격 배율로 맞힌다(2026-10-11; 그 전엔 [추정]으로 도착 때 값): charpack
+    `char_4182_oblvns.ab`의 공격 능력 24개(Default `Combat`·`RangedMulti`·`RangedAlways`, S2·S3의 공격들) 모두 `RangedAttack._useCachedAtkOnly` 1 —
+    `BattleFormula.CalculateCachedAtkDamageFromProjectile`이 투사체의 캐시 공격력으로 피해를 낸다(PRTS 「所有音符强制使用缓存攻击力与攻击倍率」과 같음).
+    키트가 엔진 투사체를 넘겨받을 때 `projectile.cachedAtk`(공격력·攻击倍率 배수)를 적고 엔진 `resolveHit`이 그 값을 쓴다. 트레잇의 원거리 감소(80%)와
+    LOR-Y의 「스킬 중 감소 없음」은 지금처럼 도착 때 판정 [추론: 공식은 감소도 캐시에 들어갈 수 있음]. 테스트 `test/local-patch-diy-oblvns.test.js`
+    (버프 없이·쏜 직후 공격력 2배 두 판의 같은 음표 피해가 같음, 실제 매치 경로 포함). S2 피아노의 관통은
     그림만(피해는 1명: `_maxHitNum` 1). 사인 비행은 그림만, 시뮬레이션은 직선. 한 음표가 2타(S2 Fever, S3 피아노)면 `w: 2`로 세고 그림도 2개.
-    도착 판정 거리는 피아노 0.8(PRTS 「激活0.8半径的碰撞」), 나머지 **0.1** — 추적 이동 `AdvancedMovement.DoCheckReachedInternal`이 대상 위치
+    도착 판정 거리는 피아노 0.8(PRTS 「激活0.8半径的碰撞」; 클라 `projectile_chr_oblvns_s2`·`_s2_t` 루트 `CircleCollider2D` m_Radius 0.8 + `_maxHitNum` 1,
+    도착하면 `MovementSwitchControllerOblvns`가 3.0칸/s로 `passby_delay` 0.5초 미끄러진 뒤 멈춤 — 2026-10-10 확인. 클라 히트 검사는 0.1초 주기이고
+    이동 상태와 무관(`_onlyCheckHitWhenReachTarget` 0)이라 자유 비행 중에도 0.8 안이면 맞을 수 있는데, 우리는 추적 중에만 매 틱 본다 [추론: 히트
+    검사 동작 내부는 안 읽음 — 차이는 작음]), 나머지 **0.1** — 추적 이동 `AdvancedMovement.DoCheckReachedInternal`이 대상 위치
     0.1 안이면 도착(2026-10-10, 관리자 결정; 그 전 0.2 [추정], `op-oblvns.js NOTE` `hit`). 화면: `fx.md`의 사키코 음표.
   - 아스카론: 사망 구금 중첩(이동 −18%/중첩, 현재 공격력 10%/초), S2 둔화·처치 시 확산, S3 범위 내 적 명중률 −30%(회피 시 회복).
   - 대미지 감사(2026-10-06): 범위 대상은 모두 선택 가능 규칙(`foesInRadius`/`enemiesInKeys`/`canTargetEnemy`: 미노출 은신·선택 불가 제외).

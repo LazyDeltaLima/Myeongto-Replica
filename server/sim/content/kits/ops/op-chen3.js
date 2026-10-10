@@ -31,8 +31,9 @@
 //   turning (ChangeStateWithHighlandBehaviour): _hitDistance 0.25, _hitEps 0.02, checks _checkHitHighland, _checkHitMapEdge,
 //     _checkTileStart (侵入点), _checkTileEnd (保护目标) on the NEXT tile ahead (_CheckNextTile*, _GetDistanceToNextTile) →
 //     _ChangeDirection, _clearTargetsAlreadyHitListWhenHit. Nothing else is an obstacle: lowland impassable tiles and
-//     things standing on a tile (roadblocks) are not ([inferred] from the flag list). It has no direction field; clockwise
-//     is a client code constant (ChangeStateWithHighlandBehaviour._ChangeDirection: up → right → down → left, 2026-10-10;
+//     things standing on a tile (roadblocks) are not (client code _CheckHitConditions, RVA 0x96C610, 2026-10-10: outside
+//     the map, heightType 1 (highland), TileTypesMask START 8 / END 4; every flag set in the prefab). It has no direction
+//     field; clockwise is a client code constant (ChangeStateWithHighlandBehaviour._ChangeDirection: up → right → down → left, 2026-10-10;
 //     PRTS "顺时针"). The distance is to the next tile's near edge ([inferred] from "_GetDistanceToNextTile" and PRTS), so it turns
 //     0.25 past the centre of the last free tile — before 2026-10-06 we looked 0.75 ahead and turned 0.5 too early, counted
 //     lowland impassable / blocked tiles and ignored 侵入点.
@@ -68,8 +69,11 @@ const S3_BEGIN = 13 / 30;
 
 /**
  * One tick of the S3 剑气 (exported for tests). `st` = { x, y, d } (x = col, y = row, d ∈ UP/RIGHT/DOWN/LEFT) is updated in
- * place: turn 90° clockwise while the next tile ahead is an obstacle within QI_LOOK (+ QI_EPS), then move `dist`, stopping
- * on the QI_LOOK mark in front of an obstacle. Returns the number of turns. `grid` needs inRect(r, c) and tile(r, c).
+ * place: turn 90° clockwise if the next tile ahead is an obstacle within QI_LOOK (+ QI_EPS), then move `dist`, stopping
+ * on the QI_LOOK mark in front of an obstacle. At most one turn per tick: client code ChangeStateWithHighlandBehaviour.OnTick
+ * (RVA 0x96C200) runs `_CheckHit` → `_ChangeDirection` once per tick, so a dead end (the tile ahead and the one to its
+ * right both blocked) takes one 90° turn per tick. Returns the number of turns (0 or 1). `grid` needs inRect(r, c) and
+ * tile(r, c).
  */
 export function chen3QiAdvance(grid, st, dist) {
   const wall = (r, c) => {
@@ -83,11 +87,8 @@ export function chen3QiAdvance(grid, st, dist) {
     return { gap: 0.5 - past, wall: wall(r0 + dr, c0 + dc) };
   };
   let turns = 0;
-  for (; turns < 4; turns++) {
-    const a = ahead(st.d);
-    if (!a.wall || a.gap > QI_LOOK + QI_EPS) break;
-    st.d = DIRS[(DIRS.indexOf(st.d) + 1) % 4];
-  }
+  const front = ahead(st.d);
+  if (front.wall && front.gap <= QI_LOOK + QI_EPS) { st.d = DIRS[(DIRS.indexOf(st.d) + 1) % 4]; turns = 1; }
   const a = ahead(st.d);
   const move = a.wall ? Math.max(0, Math.min(dist, a.gap - QI_LOOK)) : dist;
   const [dr, dc] = dirVec(st.d);

@@ -327,7 +327,7 @@ export function performAttack(b, u, prof, targets, opts = null) {
       const speed = PROJECTILE_SPEEDS[prof.projectile] ?? PROJECTILE_SPEED;
       // projectiles land even if the shooter died meanwhile (damage is credited to it)
       b.addProjectile({ from: u, target: t, speed, visual: prof.projectile, source: u, hitDead: prof.splashRadius > 0,
-        onHit: (c) => resolveHit(b, u, prof, c.target, info, c.x, c.y) });
+        onHit: (c) => resolveHit(b, u, prof, c.target, c.projectile?.cachedAtk ? { ...info, cachedAtk: c.projectile.cachedAtk } : info, c.x, c.y) });
     } else {
       resolveHit(b, u, prof, t, info, t.x, t.y);
     }
@@ -380,10 +380,15 @@ export function throwBoomerang(b, u, prof, t, info) {
     } });
 }
 
-/** Apply one attack hit (called on impact for projectiles). `target` may be null (splash on a dead target's spot). */
+/**
+ * Apply one attack hit (called on impact for projectiles). `target` may be null (splash on a dead target's spot).
+ * `info.cachedAtk` { atk, atkScaleMul } — the attacker's ATK and 攻击倍率 multiplier when it fired, used instead of the
+ * values at impact (client RangedAttack `_useCachedAtkOnly`); content sets it on the projectile (`projectile.cachedAtk`).
+ */
 export function resolveHit(b, u, prof, target, info, x, y) {
-  const atk = u.s.atk;
-  const scale = (prof.atkScale ?? 1) * u.s.atkScaleMul;
+  const cached = info.cachedAtk;
+  const atk = cached?.atk ?? u.s.atk;
+  const scale = (prof.atkScale ?? 1) * (cached?.atkScaleMul ?? u.s.atkScaleMul);
   let dealtTotal = 0;
   const baseType = prof.dmgType === 'heal' || prof.dmgType === 'none' ? 'phys' : prof.dmgType;
   const skillMul = prof.skillDmgMul ?? 1;

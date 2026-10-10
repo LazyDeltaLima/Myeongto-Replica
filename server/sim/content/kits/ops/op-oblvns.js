@@ -11,7 +11,7 @@
 // Ave Mujica member on a remake field) def_penetrate_ratio DEF / magic_resist_penetrate_ratio RES ignore, ≤ max_cnt.
 // Notes (local patch 2026-10-06, EN client [uc]projectiles.ab projectile_chr_oblvns* + PRTS 备注; NOTE below): every
 // note is simulated here (noteStep) — the engine projectile of a normal attack is taken over (its own onHit = the
-// engine's resolveHit lands when the note arrives), skill / blank notes are the kit's. A note flies free (her facing ±20°,
+// engine's resolveHit lands when the note arrives, with the ATK cached at the shot), skill / blank notes are the kit's. A note flies free (her facing ±20°,
 // S1: a ±angle fan) for ≥ `switch` s, then traces its target (the attack's target; else the nearest selectable enemy within
 // `seek` tiles of the NOTE, searched every `tick` s — PRTS "选择自身一定范围内距离音符自身最近的可选目标"); a target that
 // dies sends it back to free flight. It ends on a hit, after `delay` (talent bb, client passby_delay 1 s) continuous s
@@ -73,7 +73,12 @@ const NOTE = Object.freeze({
   s3: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5, switch: 0.8, tick: 0.4, seek: 1.0, hit: 0.1 },
   s3m: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5, switch: 0.8, tick: 0.4, seek: 1.0, hit: 0.1 },
 });
-/** Free-flight spread around her facing (PRTS: "自身朝向左20°至右20°范围内，随机一个角度"; [ASSUMED] for skill notes too). */
+/**
+ * Free-flight spread around her facing (PRTS: "自身朝向左20°至右20°范围内，随机一个角度"). Skill notes too: the S2 / S3
+ * blackboards carry no `angle`, and an attack's `attack@` keys reach its projectile's blackboard unprefixed (the piano
+ * note's MovementSwitchControllerOblvns.Init reads `passby_delay` from projectile.blackboard — S2 `attack@passby_delay`),
+ * so they read talent 1's `attack@angle` 20 (2026-10-10 client check; the merge itself not read).
+ */
 const NOTE_ARC = 20;
 let noteSeq = 0;
 /** The note flight table (render/fxmap.js NOTE_FLIGHT draws with a copy; test/local-patch-diy.test.js compares them). */
@@ -239,7 +244,10 @@ function sakiko(bb, chess, def) {
         // local patch 2026-10-06: her attack's engine projectile becomes a note — taken off the projectile list the moment
         // it is fired (ai.js performAttack emits 'attack' right after adding it) and flown by noteStep; its own onHit
         // (resolveHit: profile damage type, hits, ranged cut, attackId) lands when the note arrives, on the note's target
-        // then. [ASSUMED] the hit reads her ATK at arrival (the engine's resolveHit), not the cached ATK of PRTS.
+        // then, with her ATK and 攻击倍率 multiplier at the shot (`projectile.cachedAtk`): every attack ability of her
+        // charpack (all 24: Default Combat / RangedMulti / RangedAlways, the S2 and S3 attacks) has RangedAttack
+        // `_useCachedAtkOnly` 1 — damage from the ATK cached when the projectile is fired (2026-10-10 client check; until
+        // then [ASSUMED] her ATK at arrival).
         battle.on('attack', (c) => {
           if (c.attacker !== unit) return;
           const P = battle.projectiles;
@@ -247,7 +255,9 @@ function sakiko(bb, chess, def) {
           if (!mine.length) return;
           P.list = P.list.filter((p) => !mine.includes(p));
           const mode = modeOf(unit), w = Math.max(1, num(battle.effectiveProfile(unit)?.hits, 1)); // S3's hits: 2 is a skill override
+          const cachedAtk = { atk: unit.s.atk, atkScaleMul: unit.s.atkScaleMul };
           for (const p of mine) {
+            p.cachedAtk = cachedAtk;
             spawnNote(battle, unit, { mode, target: p.target, w, hit: (t, n) => p.onHit({ battle, projectile: p, target: t, x: n.x, y: n.y }) });
           }
         }, { owner: unit });
