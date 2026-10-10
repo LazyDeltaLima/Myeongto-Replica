@@ -1265,7 +1265,15 @@ export class FxInstance {
       for (const t of this.trails) put(t.batch.mesh, (t.tr.order || 0) > 0);
       for (const t of this.lines) put(t.batch.mesh, (t.tr.order || 0) > 0); // local patch
     } else this.layerN[0] = 1;
-    this.clipTracks = this.clips.flatMap((c) => c.tracks.map((tr) => this.bindTrack(tr, c.len || 0)).filter(Boolean));
+    // (2026-10-10, user report: buff effects that vanish) a clip with Unity's loop flag (fx_extract.py `loop` = the clip's
+    // m_LoopTime) repeats — it was held on its last frame, and an effect whose only motion was such a clip ended with it
+    this.clipTracks = this.clips.flatMap((c) => c.tracks.map((tr) => this.bindTrack(tr, c.len || 0)).filter(Boolean)
+      .map((b) => (c.loop && c.len > 0 ? Object.assign(b, { loop: true }) : b)));
+    this.clipLoops = this.clips.some((c) => c.loop && c.len > 0);
+    // …and a mesh renderer is drawn while its effect lives (Unity keeps a MeshRenderer on until the effect object goes): a
+    // prefab with meshes ends only when it is stopped (a buff with its owner, a one-shot at its caller's `until`) — the skill
+    // buffs (浊心斯卡蒂 S2, 寒芒克洛丝 S2, 号角 S3 …: meshes only, no clip, no particles) were done on their first frame
+    this.holdMeshes = this.meshMatList.length > 0;
     // local patch (m_IsActive, maintainer's decision 2026-10-08 「공식과 동일하게」 — report: 缄默德克萨斯 S3's falling blades are
     // switched off as they land): the particle systems / trails under a node a clip switches on and off follow it (meshes and
     // lines follow by their node's visibility). And those under a node inactive from the start (maintainer 2026-10-08 「일단 꺼봐」):
@@ -1319,9 +1327,10 @@ export class FxInstance {
 
   get done() {
     if (this.empty || this.disposed) return true;
-    const clipDone = !this.clips.length || this.time >= this.clipLen || this.stopping;
+    const clipDone = !this.clips.length || this.stopping || (this.time >= this.clipLen && !this.clipLoops);
     return clipDone && this.systems.every((s) => !s.alive) && this.trails.every((t) => !t.alive || this.time > this.clipLen + t.tr.time)
-      && (!this.lines.length || !!this.stopping); // local patch: a line stays until its effect is ended
+      && (!this.lines.length || !!this.stopping) // local patch: a line stays until its effect is ended
+      && (!this.holdMeshes || !!this.stopping);
   }
 
   update(dt) {
@@ -1368,7 +1377,7 @@ export class FxInstance {
   applyClip(t) {
     const v = this.clipV;
     for (const b of this.clipTracks) {
-      const curves = b.tr.curves, tc = Math.min(t, b.len);
+      const curves = b.tr.curves, tc = b.loop ? t % b.len : Math.min(t, b.len);
       v.length = curves.length;
       for (let i = 0; i < curves.length; i++) v[i] = evalClipCurve(curves[i], tc);
       const o = b.o;
