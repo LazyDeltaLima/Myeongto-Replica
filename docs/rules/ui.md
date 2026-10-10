@@ -414,6 +414,12 @@
   (예전 1.5배 팝은 없음). 피해 쪽은 2026-10-07 사용자 영상 측정(처음 0.87배, 마지막 0.13초에 줄며 떨어짐 — `fx.md` 「데미지 숫자」)과 같은 모양이고
   그때 「최종 크기」로 잰 것이 최고 크기(30 × 1.5)다 — 크기가 예전보다 1.5배. 핫픽스(DefinedFix.lua) 없음. Bitmap 글꼴(Novecento Wide, 이미
   `public/fonts`에 있음).
+- 뜨는 높이(관리자 「좀 높아 보임」, 2026-10-10 클라 코드로 확인 — 바꾸지 않음): `UIUnitHUD.Attach`(RVA 0xD7AF90)가 `hud_unit`을 `UIFollower.Follow(unit.uiPoint,
+  unit.hudOffset)`로 붙이고, `uiPoint` = 유닛 `_uiMountPoint`(프리팹에서 비어 있으면 `Unit.OnAwake`가 유닛 자신의 transform으로 채움 — 아미야·적 예시 모두 비어
+  있음), `hudOffset` 기본 0, 위치는 전투 카메라 뷰포트 → UI 카메라(`UIFollower._GetTargetPosition`). 숫자는 `_ShowDamageText` → `UIController.ShowModifierText` →
+  `ShowNumericText`(0xD41E90)가 UI 글자 층에 붙이고 `UIPopup.InitPosition`(0xD7A140)이 `popup`(`hud_unit` 중심 위 150, 크기·배율 1)의 위치 + 흩어짐으로 **한 번** 놓는다.
+  → HP 바(중심 아래 54.5)와 숫자(위 150)의 거리 204.5단위는 우리와 같다. 우리 쪽 추정은 `hud_unit` 중심 = 발 위 24.5(`HUD_ANCHOR`, 바 캡처로 맞춤)뿐이다.
+  달랐던 것 하나: 우리 숫자는 유닛을 따라 움직였다 — 공식은 생긴 자리에 남는다(2026-10-10 고침).
 - 설정 「伤害数字样式 / 대미지 숫자 방식」: 공식(기본) / 전부 표시(예전 숫자 — 유형별 색·합산·줄 배치), `sp.pref.dmgNumberStyle`(`render/number-style.js`);
   「대미지 숫자 표시」를 켰을 때만 보인다. 2D 대체 화면(`ui/fallbackField.js`)의 숫자는 그대로.
 - 디버그 아레나·mock: 회복 `+180`만 뜨고 일반 피해는 숫자 없음; 테스트: 蕾缪안 S3 강제 표시, 같은 전투에 脆弱 ×1.6을 걸면 빨간 숫자가 생김.

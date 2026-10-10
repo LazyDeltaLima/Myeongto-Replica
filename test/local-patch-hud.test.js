@@ -300,7 +300,10 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
     nums.update(0.25);
     assert.ok(Math.abs(d.text.scale.x - 30 * 1.5 * 1.1 / 60) < 1e-9, 'crit: 30 × 1.1, at the peak 1.5× (_fontSizeScale)');
     assert.ok(d.text.position.y < 600 - (HB.HUD_ANCHOR + 150 - 5) , 'over the popup');
-    nums.update(0.35);
+    const x0 = d.text.position.x;
+    v.screen = { x: 700, y: 400 }; nums.update(0.01);
+    assert.equal(d.text.position.x, x0, 'stays where it spawned (UIPopup.InitPosition sets it once) — the unit walking on does not move it');
+    nums.update(0.34);
     assert.equal(nums.live.length, 0, 'gone after 0.5 s');
   });
   test('blocked: a forced / crit hit stopped by a shield → \'blk\' (1 blue for the client\'s showing shields, 0 BLOCK); ordinary hits nothing', () => {

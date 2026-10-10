@@ -102,8 +102,9 @@ export class OfficialNumbers {
   _place(t) {
     const O = OFFICIAL_NUM, o = O[t.kind];
     const u = hudUnit(this.ctx.viewport?.());
-    // follows its unit while it lives (the popup is a child of the unit's HUD); keeps the last place once it is gone
-    if (t.view && !t.view.destroyed && t.view.screen) { t.x = t.view.screen.x; t.y = t.view.screen.y; }
+    // stays where it spawned: the client parents the text to the battle UI's text layer and sets its position once from the
+    // unit HUD's `popup` (UIController.ShowNumericText RVA 0xD41E90 → UIPopup.InitPosition 0xD7A140), so it does not follow
+    // a moving unit (2026-10-10; it used to)
     if (t.kind !== 'heal') { // UIDamageText.SetTweens: up and grow, then down below the start and shrink to nothing
       const half = O.life / 2;
       let y, grow;
