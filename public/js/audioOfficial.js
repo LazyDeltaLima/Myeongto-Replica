@@ -244,3 +244,79 @@ export function battleOverOf(pp, cap = 10) {
   if (pp?.perfect) return { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' };
   return { kind: 'done', lost: 0, sfx: 'battleOverNormal' };
 }
+
+// ---- attack sound signals (2026-10-10, docs/rules/audio.md 「공격 소리 신호」) -----------------------------------
+// sfx.units[id].cues / .sel (the Default mode) and modes[i].cues / .sel (a skill's mode or its own ability), written by
+// tools/assets/skill-mode-sfx.mjs soundSet: cue = { at: 's' swing | 'a' strike | 'd' impact, u, g?, v?, p?, or?, ab?, k?, sp? }.
+
+/**
+ * The cue set an attack of unit entry `entry` sounds while skill `mode` (its index, null = none) runs: the mode's own
+ * (`modes[mode].cues`, [] = it attacks in silence), else the Default's; null when the manifest has no cues (the role path).
+ * @returns {{ cues: any[], sel?: any, mode: boolean }|null}
+ */
+export function cueSetOf(entry, mode) {
+  const m = Number.isInteger(mode) ? entry?.modes?.[mode] : null;
+  if (m && Array.isArray(m.cues)) return { cues: m.cues, sel: m.sel, mode: true };
+  return Array.isArray(entry?.cues) ? { cues: entry.cues, sel: entry.sel, mode: false } : null;
+}
+
+/** The ability of a strike: 'combat' for a melee one when the set has both, 'attack' for a ranged one; null with one kind. */
+export function cueAbility(set, melee) {
+  const kinds = new Set((set?.cues || []).map((c) => c?.ab).filter(Boolean));
+  if (kinds.size < 2) return kinds.size ? [...kinds][0] : null;
+  return melee ? 'combat' : 'attack';
+}
+
+/**
+ * The group child an attack sounds (1-based) — the client's AbilityRandomGroup (Random: uniform, `diff` never the last one
+ * twice, `once` each before any repeats; Loop: in turn) or a conditional group (`cond`: the melee / ranged child, `first` on
+ * the mode's first attack); null without a group.
+ * @param {any} sel the set's sel (by ability) @param {string|null} ab @param {{ melee: boolean, mem: any, random: () => number }} o
+ *   `mem` = this unit's memory for the set ({ last, bag, loop, first })
+ */
+export function pickVariant(sel, ab, o) {
+  const s = sel ? (ab && sel[ab]) || (!ab ? Object.values(sel)[0] : null) : null;
+  if (!s || !(s.n > 0)) return null;
+  const mem = o.mem;
+  const first = !mem.used;
+  mem.used = true;
+  let k;
+  if (s.how === 'loop') k = (mem.loop ?? 0) % s.n + 1;
+  else if (s.how === 'cond') k = first && s.first ? s.first : o.melee ? (s.melee ?? s.ranged ?? 1) : (s.ranged ?? 1);
+  else if (s.how === 'rand') {
+    if (s.once) {
+      if (!mem.bag?.length) mem.bag = Array.from({ length: s.n }, (_, i) => i + 1);
+      k = mem.bag.splice(Math.min(mem.bag.length - 1, Math.floor(o.random() * mem.bag.length)), 1)[0];
+    } else {
+      k = Math.min(s.n, Math.floor(o.random() * s.n) + 1);
+      if (s.diff && s.n > 1 && k === mem.last) k = ((k - 1 + 1 + Math.floor(o.random() * (s.n - 1))) % s.n) + 1;
+    }
+  } else k = 1;
+  mem.loop = k;
+  mem.last = k;
+  return k;
+}
+
+/** The cues of one moment of an attack: `at` of the chosen ability / child / spell (a cue without one belongs to every). */
+export function cuesAt(set, at, ab, k, sp) {
+  const hasK = (set?.cues || []).some((c) => c?.k != null && (c.ab == null || c.ab === ab));
+  const kk = k ?? (hasK ? 1 : null);
+  return (set?.cues || []).filter((c) => c && c.at === at && (c.ab == null || ab == null || c.ab === ab) && (c.k == null || c.k === kk)
+    && (c.sp == null || c.sp === sp));
+}
+
+/**
+ * The file one play of a cue sounds, its bank volume and its delay (s): one of `or` drawn by weight
+ * (SoundFXBank._GenerateWeightedRandomSound), else `u`. null when the cue has none.
+ */
+export function cueFile(c, random = Math.random) {
+  const or = Array.isArray(c?.or) ? c.or.filter((x) => typeof x?.u === 'string') : [];
+  if (or.length) {
+    const tot = or.reduce((a, x) => a + (x.w > 0 ? x.w : 0), 0);
+    let r = random() * (tot || or.length);
+    let x = or[or.length - 1];
+    for (const y of or) { r -= tot ? (y.w > 0 ? y.w : 0) : 1; if (r < 0) { x = y; break; } }
+    return { url: x.u, vol: Number.isFinite(x.v) ? x.v : (Number.isFinite(c.v) ? c.v : 1), delay: Number(x.dl) > 0 ? Number(x.dl) : 0 };
+  }
+  return typeof c?.u === 'string' ? { url: c.u, vol: Number.isFinite(c.v) ? c.v : 1, delay: Number(c.dl) > 0 ? Number(c.dl) : 0 } : null;
+}

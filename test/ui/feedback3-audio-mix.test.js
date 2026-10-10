@@ -67,8 +67,12 @@ test('a dog barks only on its chance and never falls back to the generic enemy s
   const a = manager([0.5, 0.9, 0.1, 0.3, 0.05]);
   a.setFieldUnits([{ id: 1, side: 'enemy', kind: 'enemy', spine: 'enemy_1000_gopro_2' }, { id: 2, side: 'ally', kind: 'op', spine: 'char_002_amiya' }]);
   for (let i = 0; i < 5; i++) { a.limiter = new a.limiter.constructor(); a.handleBattleEvents([['atk', 1, 2, 'none']]); }
-  const barks = a.played.filter((p) => p.url === UNITS.enemy_1000_gopro_2.attack);
+  // 2026-10-10 (docs/rules/audio.md 「공격 소리 신호」): the bank's two files are drawn by weight (cues `or`)
+  const files = new Set([UNITS.enemy_1000_gopro_2.attack, ...(UNITS.enemy_1000_gopro_2.cues || []).flatMap((c) => (c.or || []).map((o) => o.u))]);
+  assert.equal(files.size, 2, 'e_atk_gopro_1 / _2');
+  const barks = a.played.filter((p) => files.has(p.url));
   assert.equal(barks.length, 2, 'rolls 0.1 and 0.05 of 0.5 / 0.9 / 0.1 / 0.3 / 0.05');
+  assert.deepEqual(new Set(barks.map((b) => b.url)), files, 'one roll draws both the chance and the file: 0.1 → _2, 0.05 → _1');
   const want = officialGain('enemy_1000_gopro_2', 'attack', UNITS.enemy_1000_gopro_2, UNITS.enemy_1000_gopro_2.mix?.attack);
   assert.ok(Math.abs(want - 0.163) < 0.01, `the enemy attack group (${want})`);
   for (const b of barks) assert.ok(Math.abs(b.volume - want) < 1e-9, 'official volume 1: the group gain');

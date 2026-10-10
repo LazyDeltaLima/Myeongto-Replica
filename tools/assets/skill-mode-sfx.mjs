@@ -127,14 +127,20 @@ export function abilitySounds(audio, skillId) {
  * @param {(paths: string[]) => any} soundLeaf plan.mjs leaf builder
  * @param {(skillId: string) => boolean} startIsFallback the skill's start sound is not its own ON_SKILL_START
  */
-export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallback = () => false) {
+export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallback = () => false, ca = null) {
   const out = {};
   for (const s of Array.isArray(skills) ? skills : []) {
     if (!s || !Number.isInteger(s.index)) continue;
     const n = info ? skillModeIndex(info.modes, s.index, info.skillMode) : -1;
     const found = n > 0 ? modeSounds(audio, charId, n, info.proj?.[n]) : s.skillId ? abilitySounds(audio, s.skillId) : {};
-    if (!found.attack && !found.hit) continue;
+    // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the mode's attack signals as cues (soundSet) — a skill mode
+    // whose signal has no bank and fires no sounding projectile attacks in silence (`cues: []`, the client's middleware has no
+    // fallback; 안젤리나 S2 / S3, 사리아 S3 … used to sound the Default); a skill without a mode: its own ability's banks, every
+    // sub-key (abilityCues — 혼 S1 skchr_horn_1.2.1, 데겐블레허 S3 .1.1 / .2 / .extra.0)
+    const set = ca && n > 0 ? soundSet(audio, charId, ca, n, soundLeaf) : ca && s.skillId ? { cues: abilityCues(audio, s.skillId, soundLeaf) } : null;
+    if (!found.attack && !found.hit && !(set && (n > 0 || set.cues.length))) continue;
     const e = {};
+    if (set && (n > 0 || set.cues.length)) { e.cues = set.cues; if (set.sel) e.sel = set.sel; }
     const mix = {}, grp = {};
     for (const r of ['attack', 'on', 'hit']) { // 2026-10-10: + on
       if (!found[r]) continue;
@@ -387,4 +393,267 @@ export function bankPlayTable(audio, leafPaths, sfx) {
   };
   walk(sfx);
   return Object.keys(out).length ? Object.fromEntries(Object.entries(out).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : null;
+}
+
+// ---- attack sound signals (2026-10-10, docs/rules/audio.md 「공격 소리 신호」) -----------------------------------
+//
+// The client sounds an attack through its ability's signal id (클라 코드 UnitMode.GenerateSignalId RVA 0x787E80): the mode's
+// `attack` / `combat` + `.<mode index>` when the mode sets `_addIndexToSignalId` (index 0 only with `_includeIndexZero`;
+// 텍사스 디 오메르토사 S1 / S3 use the Default's `.attack`); a child of a random / loop / conditional group adds `.<i + 1>`
+// (AbilityRandomGroup.DoSetData RVA 0xA68600 — Random picks one per attack, Loop in turn); a multi-hit attack adds its spell
+// count to ON / HIT (MultiMeleeAttack.DoEmitAudioSignalForSpellOn / ForHit RVA 0xA26DF0 / 0xA26BE0). START sounds as the swing
+// starts (AbilityStandard.OnCastStart RVA 0x34F0A90), ON at the strike, HIT on each target hit, a projectile's BORN as it is fired
+// and HIT / REACH as it lands; the middleware plays every bank of the name (TorappuAudioMiddleware.PlayEvent RVA 0x34B4D10).
+// tools/local-extract/char_audio.py → tools/assets/local-char-audio.json has the prefab facts (flags, groups, projectiles).
+//
+//   set = { cues: [{ at: 's' | 'a' | 'd', u, g?, v?, p?, dl?, or?, ab?, k?, sp? }], sel?: { attack?|combat?: { n, how, … } } }
+//   at: 's' the swing (b.ev 'swing'), 'a' the strike ('atk'), 'd' an impact ('dmg'); u = the sound, g its mixer group, v its bank
+//   volume, p its play chance (empty assets), dl its delay (s), or = [{ u, w, v?, dl? }] a bank of several files (one drawn by
+//   weight); ab 'attack' |
+//   'combat' when the mode has both (combat = a melee strike); k = the group child it belongs to (1-based); sp = the spell index.
+//   sel[ab] = { n, how: 'rand' | 'loop' | 'all' | 'cond' | 'spell', diff?, once?, melee?, ranged?, first?, def? } (public/js/audio.js).
+
+export const LOCAL_CHAR_AUDIO_FILE = 'tools/assets/local-char-audio.json';
+
+/** tools/assets/local-char-audio.json → { [unitId]: { modes, sig, ab, proj, skillProj, talentProj, skills? } } ({} when absent). */
+export function loadCharAudio(root = process.cwd()) {
+  const f = join(root, LOCAL_CHAR_AUDIO_FILE);
+  if (!existsSync(f)) return {};
+  try {
+    const doc = JSON.parse(readFileSync(f, 'utf8'));
+    delete doc.$comment;
+    return doc;
+  } catch { return {}; }
+}
+
+/**
+ * The signal id of mode `n`'s `ab` ability (UnitMode.GenerateSignalId): `ab.<n>` when the mode adds its index (and n > 0
+ * or it includes index 0), else `ab`.
+ * @param {'attack'|'combat'} ab @param {number} n @param {number[][]} [sig] [[add, zero]] per mode
+ */
+export function signalBase(ab, n, sig) {
+  const f = Array.isArray(sig?.[n]) ? sig[n] : [n > 0 ? 1 : 0, 0];
+  return f[0] && (n > 0 || f[1]) ? `${ab}.${n}` : ab;
+}
+
+const EV_AT = Object.freeze({ ON_ABILITY_START: 's', ON_ABILITY_ON: 'a', ON_ABILITY_HIT: 'd' });
+const PROJ_AT = Object.freeze({ ON_PROJECTILE_BORN: 'a', ON_PROJECTILE_HIT: 'd', ON_PROJECTILE_REACH: 'd' });
+
+/**
+ * One cue of bank `name` (null without a sound): its leaf, mixer group, bank volume and chance; a bank of several files
+ * lists them with their weights (`or`) — SoundFXBank._GenerateWeightedRandomSound draws one per play.
+ */
+export function bankCue(audio, name, at, soundLeaf, extra = {}) {
+  const paths = audio.bank(name);
+  if (!paths?.length) return null;
+  const c = { at, u: soundLeaf(paths) };
+  const g = typeof audio.groupOf === 'function' ? audio.groupOf(paths) : null;
+  if (g) c.g = g;
+  const m = typeof audio.mixOf === 'function' ? audio.mixOf(paths) : null;
+  if (m && Number.isFinite(m.vol)) c.v = m.vol;
+  if (m && Number.isFinite(m.p)) c.p = m.p;
+  const snd = typeof audio.soundsOf === 'function' ? audio.soundsOf(name).filter((x) => x.path) : [];
+  const files = [...new Set(snd.map((x) => x.path))];
+  // the sound's own delay (s; SoundFXBank.Play waits delay / timeScale — 텍사스 디 오메르토사's START 0.27 s): this bank's, not
+  // the first bank that shares the file (sfx.bank)
+  const d0 = snd.find((x) => x.path === paths[0])?.delay;
+  if (d0 > 0) c.dl = d0;
+  if (files.length > 1) {
+    c.or = files.map((p) => {
+      const xs = snd.filter((x) => x.path === p);
+      const o = { u: soundLeaf([p]), w: Math.round(xs.reduce((a, x) => a + x.w, 0) * 1000) / 1000 };
+      if (xs[0].vol !== 1) o.v = xs[0].vol;
+      if (xs[0].delay > 0) o.dl = xs[0].delay;
+      return o;
+    });
+  }
+  return Object.assign(c, extra);
+}
+
+/** The pick rule of a conditional group's children by name (public/js/audio.js: melee strike / ranged / the mode's first attack). */
+function condPick(names) {
+  const at = (re, not = null) => { const i = names.findIndex((x) => re.test(x) && !(not && not.test(x))); return i >= 0 ? i + 1 : null; };
+  const SPECIAL = /blocked|self|special|first|reload|token|fire_?to/i;
+  const out = {};
+  const melee = at(/melee/i, /blocked/i) ?? at(/melee/i);
+  if (melee) out.melee = melee;
+  out.ranged = at(/^common$/i) ?? at(/ranged/i, SPECIAL) ?? (names.findIndex((x) => !SPECIAL.test(x) && !/melee/i.test(x)) + 1 || 1);
+  const first = at(/^first/i);
+  if (first) out.first = first;
+  return out;
+}
+
+/**
+ * The attack sound set of mode `n` of a unit (see above), from its bank table and its local-char-audio.json entry.
+ * @param {ReturnType<import('./audio.mjs').indexAudio>} audio
+ * @param {string} owner the id its banks are named after (an enemy's sound owner)
+ * @param {any} entry local-char-audio.json entry
+ * @param {number} n mode index
+ * @param {(paths: string[]) => any} soundLeaf
+ * @returns {{ cues: any[], sel?: Record<string, any> }}
+ */
+export function soundSet(audio, owner, entry, n, soundLeaf) {
+  const ab = entry?.ab?.[n] || {};
+  const hasFacts = Object.keys(ab).length > 0;
+  const kinds = Object.keys(ab).filter((k) => k === 'attack' || k === 'combat');
+  if (!kinds.length) kinds.push('attack', 'combat');
+  const per = {};
+  const sel = {};
+  const projCues = (keys, extra) => {
+    const out = [];
+    for (const key of keys || []) for (const [ev, at] of Object.entries(PROJ_AT)) {
+      const c = bankCue(audio, `battle.${ev}.${key}`, at, soundLeaf, extra);
+      if (c) out.push(c);
+    }
+    return out;
+  };
+  for (const kind of kinds) {
+    const info = ab[kind] || {};
+    const base = signalBase(kind, n, entry?.sig);
+    const cues = [];
+    const abilityCues = (sig, extra) => {
+      for (const [ev, at] of Object.entries(EV_AT)) {
+        const c = bankCue(audio, `battle.${ev}.${owner}.${sig}`, at, soundLeaf, extra);
+        if (c) cues.push(c);
+      }
+    };
+    abilityCues(base, {});
+    const kids = Number.isInteger(info.n) && info.n > 0 && ['rand', 'loop', 'all', 'cond'].includes(info.g) ? info.n : 0;
+    if (kids) {
+      for (let j = 1; j <= kids; j++) {
+        abilityCues(`${base}.${j}`, info.g === 'all' ? {} : { k: j });
+        const kp = Array.isArray(info.kidProj) ? info.kidProj[j - 1] : null;
+        if (kp) cues.push(...projCues(kp, info.g === 'all' ? {} : { k: j }));
+      }
+      if (!Array.isArray(info.kidProj)) cues.push(...projCues(info.proj, {}));
+      if (info.g !== 'all') {
+        const s = { n: kids, how: info.g };
+        if (info.diff) s.diff = 1;
+        if (info.once) s.once = 1;
+        if (info.g === 'cond') Object.assign(s, condPick(info.names || []));
+        if (info.seq) s.how = 'loop';
+        sel[kind] = s;
+      }
+    } else {
+      // numbered sub-banks of the signal: a multi-hit attack's spell counts (`spell` / `hitSpell`), else (no prefab facts,
+      // only for a signal that carries a mode index — `attack.<k>` of an index-less Default is another mode's) taken in turn
+      const subs = new Set();
+      for (const ev of Object.keys(EV_AT)) {
+        for (const name of typeof audio.namesWithPrefix === 'function' ? audio.namesWithPrefix(`battle.${ev}.${owner}.${base}.`) : []) {
+          const rest = name.slice(`battle.${ev}.${owner}.${base}.`.length);
+          if (/^\d+$/.test(rest)) subs.add(Number(rest));
+        }
+      }
+      const spell = info.spell || info.hitSpell;
+      if (subs.size && (spell || /\.\d+$/.test(base))) {
+        for (const k of [...subs].sort((a, b) => a - b)) {
+          for (const [ev, at] of Object.entries(EV_AT)) {
+            if (spell && at === 's') continue;
+            const c = bankCue(audio, `battle.${ev}.${owner}.${base}.${k}`, at, soundLeaf, spell ? { sp: k } : { k: k - Math.min(...subs) + 1 });
+            if (c) cues.push(c);
+          }
+        }
+        if (!spell) sel[kind] = { n: subs.size, how: 'loop' };
+      }
+      // its own shots; without prefab facts for the mode, the mode's main shot by name (projectile_chr_<name>[_default|_s<n>])
+      const main = new RegExp(`^projectile_chr_${String(owner).replace(/^char_\d+_/, '')}(_default|_s\d+)?$`);
+      cues.push(...projCues(hasFacts ? info.proj : kind === 'attack' ? (entry?.proj?.[n] || []).filter((k) => main.test(k)) : null, {}));
+    }
+    per[kind] = cues;
+  }
+  const sounding = Object.keys(per).filter((k) => per[k].length);
+  const both = sounding.length > 1;
+  const cues = [];
+  for (const k of sounding) for (const c of per[k]) cues.push(both ? { ...c, ab: k } : c);
+  const out = { cues };
+  const s = Object.fromEntries(Object.entries(sel).filter(([k]) => sounding.includes(k)));
+  if (Object.keys(s).length) out.sel = s;
+  return out;
+}
+
+/**
+ * The cues of a skill's own attack ability (a skill that switches no mode, `ON_ABILITY_*.<skillId>[.<sub>…]` — every sub-key,
+ * not a fixed list): START on an attack group at the swing, ON on an attack / impact group at the strike, HIT on an impact
+ * group on the hit. Banks on a skill / UI group are its start sounds (skill-sfx.mjs), not these.
+ */
+export function abilityCues(audio, skillId, soundLeaf) {
+  if (!skillId || typeof audio.namesWithPrefix !== 'function') return [];
+  const out = [];
+  for (const [ev, at] of Object.entries(EV_AT)) {
+    const names = [`battle.${ev}.${skillId}`, ...audio.namesWithPrefix(`battle.${ev}.${skillId}.`)].filter((nm) => !nm.includes('@'));
+    const ok = at === 's' ? ATTACK_GROUPS : at === 'a' ? new Set([...ATTACK_GROUPS, ...IMPACT_GROUPS]) : IMPACT_GROUPS;
+    for (const name of names) {
+      const p = audio.bank(name);
+      if (!p?.length || !ok.has(audio.groupOf?.(p))) continue;
+      const c = bankCue(audio, name, at, soundLeaf);
+      if (c) out.push(c);
+    }
+  }
+  return out;
+}
+
+/**
+ * The impact sounds of a skill's own damage — damage a kit deals with no attack of its own ('dmg' carrying its attacker,
+ * docs/SIM.md): the HIT / REACH banks of the skill prefab's projectiles (local-char-audio.json skillProj), then its ability's
+ * HIT banks. [cue] in that order (public/js/audio.js plays the first).
+ */
+export function skillHitCues(audio, skillId, projKeys, soundLeaf) {
+  const out = [];
+  for (const key of projKeys || []) for (const ev of ['ON_PROJECTILE_HIT', 'ON_PROJECTILE_REACH']) {
+    const c = bankCue(audio, `battle.${ev}.${key}`, 'd', soundLeaf);
+    if (c) out.push(c);
+  }
+  if (skillId) out.push(...abilityCues(audio, skillId, soundLeaf).filter((c) => c.at === 'd'));
+  return out;
+}
+
+/**
+ * A unit's spine-event sounds (`battle.ON_SPINE_EVENT_TRIGGER.<id>.<event>`, played when its Spine clip reaches that
+ * event — 마운틴 S2 / S3 punches, 파투스 reload): { [event]: cue } or null.
+ */
+export function spineCues(audio, owner, soundLeaf) {
+  const banks = audio.unitBanks?.get(owner);
+  if (!banks) return null;
+  const out = {};
+  for (const k of banks.keys()) {
+    if (!k.startsWith('ON_SPINE_EVENT_TRIGGER.') || k.includes('@')) continue;
+    const ev = k.slice('ON_SPINE_EVENT_TRIGGER.'.length);
+    const c = bankCue(audio, `battle.ON_SPINE_EVENT_TRIGGER.${owner}.${ev}`, 'a', soundLeaf);
+    if (c) { delete c.at; out[ev] = c; }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** data/tokens.json → { [tokenId]: its skill id } ({} when absent): a summon's skill start sound (plan.mjs tokens). */
+export function loadTokenSkills(root = process.cwd()) {
+  const f = join(root, 'data/tokens.json');
+  if (!existsSync(f)) return {};
+  try {
+    const doc = JSON.parse(readFileSync(f, 'utf8'));
+    const out = {};
+    for (const [id, t] of Object.entries(doc.tokens || doc)) if (typeof t?.skill?.skillId === 'string') out[id] = t.skill.skillId;
+    return out;
+  } catch { return {}; }
+}
+
+/**
+ * An enemy's skill sounds by ability name (lower case: data/enemies.json `skills[].prefabKey` names the prefab's `Skills/<Name>`
+ * — 'boomb' ↔ Boomb): its `battle.ON_ABILITY_START|ON|HIT.<owner>.<Name>[.<sub>…]` banks (any mixer group) and its projectiles'
+ * BORN / HIT / REACH, as cues (public/js/audio.js plays them when the sim names the skill — docs/SIM.md). null without any.
+ */
+export function enemySkillCues(audio, owner, entry, soundLeaf) {
+  const out = {};
+  for (const [name, proj] of Object.entries(entry?.skills || {})) {
+    const cues = [];
+    for (const [ev, at] of Object.entries(EV_AT)) {
+      const names = [`battle.${ev}.${owner}.${name}`, ...(typeof audio.namesWithPrefix === 'function' ? audio.namesWithPrefix(`battle.${ev}.${owner}.${name}.`) : [])];
+      for (const nm of names) { const c = bankCue(audio, nm, at, soundLeaf); if (c) cues.push(c); }
+    }
+    for (const key of proj || []) for (const [ev, at] of Object.entries(PROJ_AT)) {
+      const c = bankCue(audio, `battle.${ev}.${key}`, at, soundLeaf);
+      if (c) cues.push(c);
+    }
+    if (cues.length) out[name.toLowerCase()] = cues;
+  }
+  return Object.keys(out).length ? out : null;
 }

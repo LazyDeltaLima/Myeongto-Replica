@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, skillEnds, bankPlayTable } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -332,7 +332,7 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
 export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, charword = null, voiceLang = 'cn',
   voiceSlots = VOICE_BATTLE_SLOTS,
   extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, extraOperators = {},
-  moduleTypes = [], charModes = loadCharModes() }) { // local patch: charModes
+  moduleTypes = [], charModes = loadCharModes(), charAudio = loadCharAudio(), tokenSkills = loadTokenSkills() }) { // local patch: charModes, charAudio (2026-10-10)
   const notes = [];
   /** @type {Map<string, any>} */
   const models = new Map();
@@ -419,8 +419,24 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     if (Object.keys(skillSfx).length > 1 || (!primarySkill && Object.keys(skillSfx).length)) u.skills = skillSfx;
     if (mix) u.mix = mix;
     // local patch: skill-mode attack / impact sounds and the mixer groups (tools/assets/skill-mode-sfx.mjs)
-    const modes = skillModes(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), charModes[id], soundLeaf, (sid) => skillStartIsFallback(audio, sid));
+    const modes = skillModes(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), charModes[id], soundLeaf, (sid) => skillStartIsFallback(audio, sid), charAudio[id]);
     if (modes) u.modes = modes;
+    // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the Default mode's attack signals (START at the swing, ON
+    // and the projectiles' BORN at the strike, HIT / REACH on the hit — variants, melee / ranged), the skills' own damage, the
+    // spine events (skill-mode-sfx.mjs soundSet / skillHitCues / spineCues)
+    if (charAudio[id]) {
+      const set = soundSet(audio, id, charAudio[id], 0, soundLeaf);
+      if (set.cues.length) u.cues = set.cues;
+      if (set.sel) u.sel = set.sel;
+      const kd = {};
+      for (const k of (o.skills || []).filter((x) => idx.includes(x.index))) {
+        const c = skillHitCues(audio, k.skillId, charAudio[id].skillProj?.[k.index], soundLeaf);
+        if (c.length) kd[String(k.index)] = c;
+      }
+      if (Object.keys(kd).length) u.kd = kd;
+    }
+    const spine = spineCues(audio, id, soundLeaf);
+    if (spine) u.spine = spine;
     const grp = unitGroups(audio, sfx, skillPaths);
     if (grp) u.grp = grp;
     if (Object.keys(skillMix).length) u.skillMix = skillMix;
@@ -473,6 +489,19 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     const { roles: u, mix } = unitSounds(audio, tokenSfx);
     if (mix) u.mix = mix;
     const tokenGrp = unitGroups(audio, tokenSfx); if (tokenGrp) u.grp = tokenGrp; // local patch
+    // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: a summon's attack signals from its own Default mode (유동체's
+    // modes start with Recharge) and its skill's start sound
+    const ta = charAudio[id];
+    if (ta) {
+      const set = soundSet(audio, id, ta, Math.max(0, (ta.modes || []).indexOf('Default')), soundLeaf);
+      if (set.cues.length) u.cues = set.cues;
+      if (set.sel) u.sel = set.sel;
+    }
+    const tsk = (tokenSkills && tokenSkills[id]) || null;
+    const tss = tsk ? skillStartSounds(audio, tsk) : null;
+    if (tss?.length) u.skill = soundLeaf(tss);
+    const tsp = spineCues(audio, id, soundLeaf);
+    if (tsp) u.spine = tsp;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 
@@ -546,6 +575,17 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     const { roles: u, mix } = unitSounds(audio, enemySfx);
     if (mix) u.mix = mix;
     const enemyGrp = unitGroups(audio, enemySfx); if (enemyGrp) u.grp = enemyGrp; // local patch
+    // 2026-10-10, docs/rules/audio.md 「적 소리」: the Default mode's attack signals (+ its projectile's HIT — 25
+    // ranged enemies had no impact sound) and each skill ability's banks by its name (the sim names it: docs/SIM.md)
+    const owner = [id, handbookOf.get(id), e.spineAliasOf, baseIdOf(id)].find((x) => x && audio.unitBanks.get(x)?.size) || id;
+    const ea = charAudio[id] || charAudio[baseIdOf(id)];
+    if (ea) {
+      const set = soundSet(audio, owner, ea, 0, soundLeaf);
+      if (set.cues.length) u.cues = set.cues;
+      if (set.sel) u.sel = set.sel;
+      const sk = enemySkillCues(audio, owner, ea, soundLeaf);
+      if (sk) u.sk = sk;
+    }
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 

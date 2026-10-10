@@ -67,14 +67,19 @@ export function bankMix(sounds, path) {
  * oldest sounds for the new one when `popOldest`, else drops the new one.
  * @param {{ sounds?: any[], maxSoundAllowed?: number, popOldest?: boolean }} b the bank
  * @param {string} path the played file (assetToPath form)
- * @returns {[number, number, number, 0|1]} [minPitch, maxPitch, maxSoundAllowed (0 = no cap), popOldest]
+ * @returns {number[]} [minPitch, maxPitch, maxSoundAllowed (0 = no cap), popOldest (0|1), delay (s, only when > 0)]
  */
 export function bankPlay(b, path) {
   const s = (Array.isArray(b?.sounds) ? b.sounds : []).find((x) => assetToPath(x?.asset) === path);
   const lo = Number(s?.minPitch), hi = Number(s?.maxPitch);
   const ok = Number.isFinite(lo) && Number.isFinite(hi) && lo > 0 && hi >= lo;
   const max = Number.isInteger(b?.maxSoundAllowed) && b.maxSoundAllowed > 0 ? b.maxSoundAllowed : 0;
-  return [ok ? round3(lo) : 1, ok ? round3(hi) : 1, max, b?.popOldest === true ? 1 : 0];
+  const out = [ok ? round3(lo) : 1, ok ? round3(hi) : 1, max, b?.popOldest === true ? 1 : 0];
+  // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the sound's own `delay` (s) — SoundFXBank.Play hands
+  // `delay / Time.timeScale` to AudioPlayOption.SetCommonAudioParam (텍사스 START 0.27 s); only when there is one
+  const d = Number(s?.delay);
+  if (Number.isFinite(d) && d > 0) out.push(round3(d));
+  return out;
 }
 
 /**
@@ -92,8 +97,17 @@ export function indexAudio(audioData) {
   const loopBanks = []; // local patch: [{ name, paths }] of the looping banks (skill-mode-sfx.mjs skillLoops)
   const plays = new WeakMap(); // the same list → its bank's play values (bankPlay: pitch range, maxSoundAllowed, popOldest)
   const pathPlays = new Map(); // a path → the play values of the first bank (battle.* first) that sounds it
+  const rawSounds = new Map(); // 2026-10-10: bank name → its sounds [{ path, w, vol }] (a bank of several files)
   for (const b of Array.isArray(audioData?.soundFXBanks) ? audioData.soundFXBanks : []) {
     if (!b || typeof b.name !== 'string') continue;
+    if (!rawSounds.has(b.name)) {
+      rawSounds.set(b.name, (Array.isArray(b.sounds) ? b.sounds : []).map((x) => {
+        const lo = Number(x?.minVolume), hi = Number(x?.maxVolume), w = Number(x?.weight);
+        const dl = Number(x?.delay);
+        return { path: assetToPath(x?.asset), w: Number.isFinite(w) && w > 0 ? w : 0, vol: Number.isFinite(lo) && Number.isFinite(hi) ? round3((lo + hi) / 2) : 1,
+          delay: Number.isFinite(dl) && dl > 0 ? round3(dl) : 0 };
+      }));
+    }
     const paths = (Array.isArray(b.sounds) ? b.sounds : []).map((s) => assetToPath(s?.asset)).filter(Boolean);
     if (!banks.has(b.name)) banks.set(b.name, []);
     const list = banks.get(b.name);
@@ -168,7 +182,18 @@ export function indexAudio(audioData) {
     if (!s || typeof s.hookSoundFxBank !== 'string' || typeof s.targetSnapshot !== 'string' || s.hookSoundFxBank.includes('@')) continue;
     snapshots.push({ hook: s.hookSoundFxBank, snap: s.targetSnapshot, delay: Math.max(0, Number(s.delay) || 0), dur: Math.max(0, Number(s.duration) || 0) });
   }
-  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf, limitOf, loopBanks, stopOf, isLoop, ctrlStops, snapshots, playOf };
+  // 2026-10-10: every bank name (sorted) and a bank's own sounds — skill-mode-sfx.mjs soundSet / abilityCues
+  const names = [...new Set([...banks.keys(), ...Object.keys(alias)])].sort();
+  const soundsOf = (name, depth = 0) => (rawSounds.has(name) && rawSounds.get(name).some((x) => x.path) ? rawSounds.get(name)
+    : depth < 4 && typeof alias[name] === 'string' ? soundsOf(alias[name], depth + 1) : []);
+  const namesWithPrefix = (prefix) => {
+    let lo = 0, hi = names.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (names[mid] < prefix) lo = mid + 1; else hi = mid; }
+    const out = [];
+    for (let i = lo; i < names.length && names[i].startsWith(prefix); i++) out.push(names[i]);
+    return out;
+  };
+  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf, limitOf, loopBanks, stopOf, isLoop, ctrlStops, snapshots, playOf, soundsOf, namesWithPrefix };
 }
 
 /** Sort key for ability sub-keys: plain first, then numeric suffixes ascending. */

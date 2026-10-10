@@ -113,8 +113,8 @@
       뱅크 키 = 유닛 모델 + 역할(+ 스킬 번호·모드) — 같은 모델의 유닛 모두가 한 뱅크를 공유(공식 `battle.<EVENT>.<id>.<ability>`), 이름 있는 전투 소리는
       `b:<이름>`, kit 소리는 `kit:<키>`. 표에 없는 파일은 (2, popOldest), 피치 1. 스킬 루프·끊을 수 있는 한 번 재생(`startSkillLoop`)도 피치만 같은 규칙.
     - 뺀 것(공식 근거 없음): 유닛별 160 ms 간격, 같은 URL 45 ms 간격, 「URL당 2개, 넘으면 새 것을 버림」. 전체 동시 재생은 8 → 32
-      [추정: 유니티 기본 real voice 수 32 — 클라 설정값은 데이터에 없음]. 사운드 항목의 `delay`(예: 텍사스 START 0.27초)는 아직 안 씀 — 우리는 START를
-      휘두름 시작이 아니라 타격 순간('atk')에 내서, 지연을 더하면 늦어진다(휘두름 시작 이벤트 'swing'이 생기면 START를 그때 + delay/배속으로 옮길 수 있다).
+      [추정: 유니티 기본 real voice 수 32 — 클라 설정값은 데이터에 없음]. 사운드 항목의 `delay`(예: 텍사스 START 0.27초)는 2026-10-10부터 쓴다 —
+      `delay / Time.timeScale`(전투 소리 = 배속, UI = 1)만큼 늦게 시작(아래 「공격 소리 신호」).
     - 확인: `test/local-patch-audio.test.js` 「every bank plays like the official SoundFXBank.Play」(3명이 한 뱅크 → 셋째가 가장 오래된 것을 끊음, popOldest
       false는 버림, 피치 범위·무작위), `test/ui/audio.test.js` 「SfxLimiter」. [브라우저 미확인 — 피치는 사용자가 들어 볼 것]
   - **스킬 종료음** (2026-10-10, 클라 코드): `BasicSkill.OnSkillEnd`(RVA 0x63A110)가 `PlayAudioAtPos('ON_SKILL_FINISH', _GenerateSignalId)` — 신호 id는
@@ -205,6 +205,61 @@
     - 확인: `test/local-patch-skill-music.test.js` 6개(수정 전 6개 모두 실패 확인 — 실제 경로 Match → buildBattleSpec → createBattleFromSpec 이벤트를 AudioManager에),
       Chrome Web Audio 계측(AudioBufferSourceNode start/stop을 파일 이름으로): 디버그 아레나 nearl2 S3·cello S3·ghost2 S2·texas2 S2,
       실제 솔로 판(로드아웃 + 재화 고정 + 상점 리롤로 구매) texas2 S2·ghost2 S2. cello·nearl2(6성)는 상점에 안 나와 실제 판 확인 못 함. 새 sfx 21개.
+
+## 공격 소리 신호 (2026-10-10, 클라 코드 + 프리팹 값; 관리자 결정 (2026-10-10) 「공식이랑 동일하게」)
+- 공식: 공격 소리는 그 능력의 **신호 id** 이름의 뱅크다 — `battle.ON_ABILITY_START|ON|HIT.<유닛 id>.<신호>`. 신호 = 모드의 `attack`(Body/Attack, 다른
+  이름의 Body 능력 하나뿐이면 그것)·`combat`(Body/Combat) + 모드가 `_addIndexToSignalId`면 `.<모드 순번>`(0번은 `_includeIndexZero`일 때만;
+  클라 코드 `UnitMode.GenerateSignalId` RVA 0x787E80). 그래서 텍사스 디 오메르토사 S1·S3, 마운틴 S3 등은 Default와 같은 `.attack` 뱅크를 쓴다.
+  - 묶음 능력의 자식은 `.<i+1>`(`AbilityRandomGroup.DoSetData` RVA 0xA68600): **Random**(`_selectMethod` 0)은 공격마다 하나를 고르고
+    (`_diffFromLastOneIfNotFirst` = 직전과 다르게, `_selectAllAtLeastOnce` = 한 바퀴 다 돈 뒤 반복), **Loop**(1)는 차례로, 조건 묶음(`_abilityConfigs`)은 조건이
+    맞는 첫 자식(우리: 이름으로 — 근접 타격이면 `Melee…`, 원거리면 `Common`/`Ranged…`, 모드 첫 공격이면 `First…` [추정: 조건 자체는 안 읽음]),
+    `_mainAbility` 묶음은 자식 모두. 실버애쉬 더 레인프로스트·위셔델 평타 `attack.0.1–0.3`, 아스카론 `.0.1/.0.2`, 혼·애쉬락 근접/원거리 자식,
+    마운틴 평타 `attack.1–3`(자식 1은 뱅크 없음 → 그 공격은 무음), 플레임테일 `attack.2/3`(조사 때 「모드 번호와 안 맞는 뱅크」였던 것) 등.
+  - 연타 공격(`MultiMeleeAttack`)은 ON/HIT 신호 끝에 회차(`_addSpellCntToAllSignalId`/`…LastSignalId`/`…AllHitSignalId`, RVA 0xA26DF0·0xA26BE0, 0부터):
+    첸 더 던스트릭 S1 HIT `attack.1.0`/`.1.1`.
+  - 시점: START = 휘두름 시작(`AbilityStandard.OnCastStart` RVA 0x34F0A90), ON = 공격 판정 순간(주문마다 한 번, 대상마다가 아님), HIT = 대상마다,
+    투사체는 BORN = 발사(판정 순간), HIT·REACH = 착탄. 미들웨어는 이름이 맞는 뱅크를 모두 낸다(위 「START·ON·HIT」). 뱅크에 파일이 여럿이면
+    가중 무작위 하나(`SoundFXBank._GenerateWeightedRandomSound` — 빈 에셋 몫은 무음), 소리마다 `delay / Time.timeScale` 뒤에 시작(`SoundFXBank.Play`
+    RVA 0x34B22A0).
+- 추출: `tools/local-extract/char_audio.py` → `tools/assets/local-char-audio.json`(커밋, 오퍼레이터·소환물·적 396종: 모드별 `sig`, 공격 능력 묶음 `ab`,
+  능력·자식별 투사체, 스킬 프리팹 투사체 `skillProj`, 적 `Skills/<이름>`의 투사체). 클라 업데이트 때 다시 실행(약 20초, PersistentData 먼저).
+- 생성: `tools/assets/skill-mode-sfx.mjs soundSet` → 매니페스트 `sfx.units[id].cues`/`sel`(Default)과 `modes[스킬].cues`/`sel`:
+  큐 = `{ at: 's'|'a'|'d', u, g?, v?, p?, dl?, or?, ab?, k?, sp? }`(휘두름/타격/착탄, 소리, 믹서 그룹, 뱅크 볼륨, 재생 확률, 지연, 여러 파일, 능력, 자식, 회차).
+  - 모드가 있는 스킬은 그 모드의 신호 — 뱅크도 소리 나는 투사체도 없으면 `cues: []` = **그 스킬 중 공격은 무음**(관리자 결정 (2026-10-10); 미들웨어에 대체 경로 없음 —
+    사리아 S3, 마운틴 S2·S3, 첸 더 던스트릭 S2, 캐서린 S2, 스카디 더 커럽팅 하트 S1–S3 등 20개. 예전에는 Default 소리가 났다).
+  - 모드 없는 스킬은 자기 능력 `ON_ABILITY_*.<skillId>`의 **모든** 하위 키(예전 고정 목록 `'' .0 .1 .2 .0.1 .1.0` 대신; 혼 S1 `.2.1`, 데겐블레허 S3
+    `.1.1`/`.2`/`.extra.0`; 공격·타격 믹서 그룹만 — `abilityCues`).
+  - 파일 이름 거름(`_d/_h/_s` = 스킬 모드 파일)은 큐에는 안 쓴다(신호로 Default를 정확히 알므로: 라플란드 더 데카덴차 평타 착탄 `p_imp_whtolfdrksl_d`,
+    토가와 사키코 ON `_h`). 큐가 없는 유닛(추출본 없음)만 예전 역할(`attack`/`on`/`hit`)과 거름 — 그 필드는 디버그 화면·이전 경로용으로 남김.
+  - 스킬 피해 착탄 `kd[스킬]`(`skillHitCues`): 스킬 프리팹 투사체의 HIT·REACH, 그다음 스킬 능력 HIT.
+  - 스파인 이벤트 `spine[이벤트]`(`ON_SPINE_EVENT_TRIGGER.<id>.<이벤트>`: 마운틴 S2·S3 주먹, 파투스 `Attact_1`·`Skill_1`, 필라에 `philae_shield`).
+  - 소환물: 자기 `Default` 모드(유동체는 모드 1)의 큐 + `data/tokens.json` 스킬의 시작음. 새 효과음 194개(2.4 MB, `fetch-assets --add-only`).
+- 재생(`public/js/audio.js`, `audioOfficial.js cueSetOf/pickVariant/cuesAt/cueFile`): sim `'swing'`에서 자식을 고르고 START, 그 휘두름의 `'atk'`에서
+  ON·BORN(같은 순간의 여러 대상 `'atk'`은 한 번), `'dmg'`에서 HIT·REACH(회차는 휘두름마다 0부터). 휘두름 없는 `'atk'`(kit 공격)은 그때 START도.
+  근접(`'none'`)이면 `combat`, 원거리면 `attack`(둘 다 있을 때 — 이네스·치우바이·라플란드). 큐가 있으면 예전 역할 경로(`unit()`)는 안 탄다.
+  - `'dmg'`의 공격자(sim 계약: 튜플 6번째, `docs/SIM.md`): 그 공격자가 이 대상에 낸 평타면 그 착탄, 같은 순간(0.1초)의 다른 대상은 스플래시로 착탄,
+    아니면 **스킬 자체 피해**(kit `dealDamage`) — 스킬 중이면 `kd[스킬]` 첫 소리(없으면 모드 착탄). `sfx.kit`으로 이미 소리 내는 kit(望·첸 더 던스트릭·
+    위셔델·토가와 사키코·라플란드 더 데카덴차·르무엔·스펙터 디 언체인드)은 빼고, 공격자마다 0.12초에 한 번 [추정: 지속 피해 틱은 공식 착탄 신호가 아님].
+    공격자가 없는 `'dmg'`(옛 sim)는 예전처럼 「2.5초 안에 그 대상을 겨눈 'atk'」.
+  - 지연 ÷ 배속: `audio.setGameSpeed(x)`가 있으면 그 값, 없으면 휘두름 → 첫 타격의 실제 간격으로 잰 값, 그것도 없으면 2 [추정].
+  - 스파인 이벤트: 렌더가 `audio.spineEvent(unitId, 이벤트)`를 부르면 그 소리. 부르기 전에는 스킬 k 중 타격마다 `Skill_<k>_<n>`을 차례로, 평소엔
+    `Attack_<n>`/`Attact_<n>`을 대신 낸다 [추정: 이벤트는 공격 클립 안이라 타격 근처].
+- 안 한 것(시점을 정확히 못 정함): 버프 소리(`ON_BUFF_START/TRIGGER/SHOW_EFFECT/FINISH` — 혼 과부하 공격음 등), 커스텀 트리거(티티·시빌라이트 에테르나·
+  아스카론 S2 폭발), 재능 능력·재능 투사체, 스킬 투사체의 BORN, 소환물의 스킬 모드, 혼 S2 `Full Burst`(`.Burst.n`), 스노우헌터 장전(`Reload` 자식 —
+  sim에 탄수 없음). `ON_SKILL_SPECIAL_POINT`는 수동으로 스킬을 끊을 때(`CastSkillWithLimitTimes.DiscardRemainingCountInternal` RVA 0x642560 —
+  `_canDiscardRemainingCount`, 그 밖에 `CastSkillWithSuspendable.TriggerSpecialAudioSignal`·`ToggleSkillWithEndAnimation.PlayBeginEffectAndAudio`)라
+  卫戍协议에는 그 순간이 없다 — 안 낸다. 우리 sim의 영주(치우바이·라플란드 등)는 항상 원거리로 쏴서 근접 `combat` 소리는 실제로는 거의 안 난다(sim 쪽).
+- 확인: `test/local-patch-attack-signals.test.js` 13개(추출값, 공식 audio_data 위 `soundSet`, 매니페스트, 재생: 휘두름/타격/착탄·지연·근접·원거리·무음 모드·
+  스파인·공격자 계약·적 스킬, 실제 매치 경로 애쉬락 START가 타격보다 먼저). [브라우저 미확인]
+
+## 적 소리 (2026-10-10, 위 「공격 소리 신호」와 같은 규칙)
+- 평타: 적 프리팹 모드 0의 신호(`battle/enm_pfb_*.ab`, `_2` 변형은 기본 id 프리팹) — 예전 `pickUnitSfx`가 다른 모드·능력 뱅크를 먼저 집던 3종이
+  공식대로: 무덤지기 석상 `e_imp_rockhit`(모드 0 Walk의 combat), 최첨단 살카즈 부패의 전차 근접 `e_atk_shotgun_n`(원거리는 `e_atk_cannonrot`),
+  보스 제셀톤 윌리엄스 `e_atk_magic_ice`. 원거리 적은 자기 투사체의 HIT가 착탄음 — 착탄음이 새로 생긴 적 44종(가상적: 총·갑주, 알리스테어,
+  '염의 가호' 등). '염의 가호'의 모드 0은 START 뱅크가 없어 휘두름이 무음이다(공식).
+- 스킬: `sfx.units[id].sk[능력 이름 소문자]` = 그 능력(`Skills/<이름>`) 뱅크 + 투사체 소리. sim이 적 스킬 시전에 `fx 'enemySkill' { id, ability }`를 내면
+  START·ON·BORN을 내고, 3초 안의 그 적의 공격 없는 피해에 HIT·REACH(`_skillImpact`).
+- 안 한 것: 적 모드 전환(`phase` — 우리 sim의 형태가 공식 모드 번호와 이어지지 않음), 적 버프·커스텀 트리거·스파인 이벤트 소리, `ON_BOSS_ENTER`(우리 보스엔 뱅크 없음).
 
 ## 작전 종료 효과음 (2026-10-07)
 - 관리자 제보: 공식 효과음 3개는 이미 웹 매니페스트에 있었다(`sfx.ui.battleOverReduce` / `battleOverNoReduce` /

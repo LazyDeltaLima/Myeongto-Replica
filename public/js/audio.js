@@ -49,7 +49,7 @@
 
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
-import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
+import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn, roleGroup, cueSetOf, cueAbility, pickVariant, cuesAt, cueFile } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
 import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // local patch: mixer snapshots (归溟幽灵鲨's 替身 switch)
 
 /**
@@ -134,6 +134,19 @@ export function kitStartKey(fx, ex) {
 }
 /** A 'dmg' later than this (real ms) after the attack aimed at the target is not that attack's impact. */
 const IMPACT_WINDOW_MS = 2500;
+/**
+ * 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the operators whose kit damage already sounds through
+ * sfx.kit (kitHitKey / kitStartKey, tools/assets/kit-sfx.mjs) — their 'dmg' without an attack gets no skill impact cue too.
+ */
+const KIT_SOUND_DEF = /^(char_\d+_(wang|chen3|wisdel|oblvns|whitw2|lemuen|ghost2)|token_\d+_(wang|wisdel|oblvns|whitw2|lemuen|ghost2)\w*)$/;
+/**
+ * 2026-10-10: a skill-damage impact (a 'dmg' carrying its attacker with no attack of its own, docs/SIM.md) of one
+ * attacker at most this often (real ms) — a DoT credited to its applier is no impact [추정: the client sounds a skill's own
+ * impacts through its projectiles / abilities, not per damage tick].
+ */
+const SKILL_HIT_GAP_MS = 120;
+/** 2026-10-10: the game speed assumed before a swing → strike pair measured it (render/app.js local feed: 2). */
+const DEFAULT_GAME_SPEED = 2;
 /** Official operator sound files of a skill mode: `…_d` / `…_h` / `…_s` (+ digits) — the normal attack's end in `_n`. */
 const SKILL_MODE_FILE = /_(d|h|s)\d*\.mp3$/i;
 
@@ -829,10 +842,14 @@ export class AudioManager {
    * `limited` (battle) sound its bank's cap: `bank` names the bank (default: the URL), `pop` = a kit key's { max, pop }
    * when the table has no values for the file.
    */
-  _play(url, { volume = 1, rate = null, limited = false, bank = null, unitKey = null, pop = null } = {}) {
+  _play(url, { volume = 1, rate = null, limited = false, bank = null, unitKey = null, pop = null, delay: ownDelay = null } = {}) {
     if (!this.ctx || !url || this.volumes.muted || this.volumes.sfx <= 0) return;
     const info = bankPlayOf(this.getManifest(), url) ?? (pop && Number.isInteger(pop.max) ? [1, 1, pop.max, pop.pop ? 1 : 0] : DEFAULT_BANK);
     const pitch = Number.isFinite(rate) && rate > 0 ? rate : playPitch(info, Math.random);
+    // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the sound's own delay — SoundFXBank.Play (RVA 0x34B22A0)
+    // waits `delay / Time.timeScale` (a battle sound: the game speed; a UI one plays at time scale 1)
+    const d0 = Number.isFinite(ownDelay) ? ownDelay : info.length > 4 ? info[4] : 0; // a cue's own bank delay first (_playCue)
+    const delay = d0 > 0 ? d0 / (limited ? this.gameSpeed() : 1) : 0;
     let slot = null;
     if (limited) { slot = this.limiter.acquire(String(bank ?? unitKey ?? url), info[2], !!info[3]); if (!slot) return; }
     else if (this.uiVoices >= 12) return;
@@ -857,8 +874,8 @@ export class AudioManager {
         g.gain.value = Math.max(0, Math.min(1.5, volume));
         s.connect(g); g.connect(sfxOut(this, url, !limited)); // local patch: outside the snapshot bus (audioSnapshot.js)
         s.onended = end;
-        setTimeout(end, (buf.duration / pitch) * 1000 + 250); // safety if onended never fires
-        s.start();
+        setTimeout(end, (buf.duration / pitch + delay) * 1000 + 250); // safety if onended never fires
+        if (delay > 0) s.start(this.ctx.currentTime + delay); else s.start();
         const hook = snapshotHookOf(this, url); // local patch: 归溟幽灵鲨's switch sinks the rest of the mix (audioSnapshot.js)
         if (hook) unsnap = holdSnapshot(this, hook);
       } catch { end(); }
@@ -926,6 +943,121 @@ export class AudioManager {
     const m = u.modes[mode];
     this._play(url, { volume: officialGain(defId, 'on', u, m.mix?.on, { grp: m.grp, mode: true }), limited: true, bank: `${defId}:on:m${mode}` });
     return true;
+  }
+
+  // ---- attack sound signals (2026-10-10, docs/rules/audio.md 「공격 소리 신호」) ---------------------------------
+
+  /**
+   * The battle's game speed (game seconds per real second) for a sound's delay (SoundFXBank.Play: `delay / Time.timeScale`):
+   * the one set (setGameSpeed: the field's speed), else the one measured from swings (`swing` windup → its strike), else 2.
+   */
+  gameSpeed() {
+    const v = Number.isFinite(this._speed) && this._speed > 0 ? this._speed : Number.isFinite(this._speedEst) && this._speedEst > 0 ? this._speedEst : DEFAULT_GAME_SPEED;
+    return Math.max(0.25, Math.min(16, v));
+  }
+
+  /** Set the battle's game speed (null = measure it from the swings). */
+  setGameSpeed(v) { this._speed = Number.isFinite(v) && v > 0 ? v : null; }
+
+  /**
+   * Play one cue of unit model `def` (audioOfficial.js cueFile: one file of the bank, drawn by weight): its chance, its mixer
+   * group × bank volume, its bank's cap (`def:at:url`). Returns whether a cue was there.
+   */
+  _playCue(def, c, mode) {
+    if (!c) return false;
+    // one draw per play, like SoundFXBank._GenerateWeightedRandomSound: the empty assets' share is silence (`p`), the rest
+    // picks the file by weight
+    const r = this.random();
+    const p = Number.isFinite(c.p) ? c.p : 1;
+    if (!unitSoundPlays(Number.isFinite(c.p) ? { p } : null, r)) return true;
+    const f = cueFile(c, () => Math.min(0.999999, p > 0 ? r / p : r));
+    if (!f) return false;
+    const role = c.at === 'd' ? 'hit' : 'attack';
+    const volume = groupGain(typeof c.g === 'string' ? c.g : roleGroup(def, role, mode)) * (f.vol > 0 ? f.vol : 1);
+    this._play(f.url, { volume, limited: true, bank: `${def}:${c.at}:${f.url}`, delay: f.delay });
+    return true;
+  }
+
+  /**
+   * The swing of tracked unit `su` (id `id`) as it starts — its mode's cue set, the ability (melee 'combat' / ranged
+   * 'attack') and the group child it sounds (audioOfficial.js pickVariant) — or null without cues (the role path).
+   * `kind` = the swing / strike's projectile kind ('none' = a melee strike).
+   */
+  _swingOf(su, kind, now, windup = 0) {
+    const ue = this.getManifest()?.audio?.sfx?.units?.[su.def];
+    const mode = su.skillOn ? su.skillIndex : null;
+    const set = cueSetOf(ue, mode);
+    if (!set) return null;
+    const melee = kind === 'none' || kind == null;
+    const ab = cueAbility(set, melee);
+    const key = `${set.mode ? mode : 'd'}:${ab ?? ''}`;
+    const mem = ((su.vm ||= new Map()).get(key)) || {};
+    su.vm.set(key, mem);
+    const k = pickVariant(set.sel, ab, { melee, mem, random: this.random });
+    return { set, mode, ab, k, at: now, windup: Number(windup) > 0 ? Number(windup) : 0, n: 0, h: 0 };
+  }
+
+  /**
+   * 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the impact of damage unit `au` deals with no attack of its own
+   * (a kit's skill damage, an enemy skill's): its running skill's impact sound — the skill prefab's projectile HIT / REACH or
+   * its ability's HIT (`kd[skill]`), else its mode's impact; an enemy's from the skill it cast last (3 s). Not for the kits
+   * whose damage sounds through sfx.kit, nor more often than SKILL_HIT_GAP_MS.
+   */
+  _skillImpact(au, now) {
+    if (KIT_SOUND_DEF.test(String(au.def)) || now - (au.kdAt ?? -Infinity) < SKILL_HIT_GAP_MS) return false;
+    const ue = this.getManifest()?.audio?.sfx?.units?.[au.def];
+    let c = null;
+    if (au.side === 'enemy') {
+      if (au.eskill && now - au.eskill.at <= 3000) c = (ue?.sk?.[au.eskill.name] || []).find((x) => x.at === 'd') ?? null;
+    } else if (au.skillOn && Number.isInteger(au.skillIndex)) {
+      const kd = ue?.kd?.[au.skillIndex];
+      c = Array.isArray(kd) && kd.length ? kd[0] : null;
+      if (!c) {
+        const set = cueSetOf(ue, au.skillIndex);
+        if (set?.mode) c = cuesAt(set, 'd', cueAbility(set, false), null, undefined)[0] ?? null;
+      }
+    }
+    if (!c) return false;
+    au.kdAt = now;
+    return this._playCue(au.def, c, true);
+  }
+
+  /**
+   * Until the renderer reports the Spine clip events (spineEvent), a strike stands in for them [추정: the event sits in the attack
+   * clip, so it sounds near the strike]: during skill k the unit's `Skill_<k>_<n>` events in turn (마운틴 S2 / S3 punches — their
+   * mode signals have no bank), otherwise its `Attack_<n>` / `Attact_<n>` ones (파투스's reload).
+   */
+  _spineStrike(su) {
+    if (this._spineWired) return;
+    const sp = this.getManifest()?.audio?.sfx?.units?.[su.def]?.spine;
+    if (!sp || typeof sp !== 'object') return;
+    const re = su.skillOn && Number.isInteger(su.skillIndex) ? new RegExp(`^Skill_${su.skillIndex + 1}_\\d+$`) : /^Atta(c|ck)?t?_\d+$/i;
+    const names = Object.keys(sp).filter((n) => re.test(n)).sort();
+    if (!names.length) return;
+    const key = su.skillOn ? `s${su.skillIndex}` : 'd';
+    const mem = (su.spineLoop ||= {});
+    const i = (mem[key] = ((mem[key] ?? -1) + 1) % names.length);
+    this._playCue(su.def, { ...sp[names[i]], at: 'a' }, !!su.skillOn);
+  }
+
+  /** Play the cues at moment `at` of swing `sw` (spell index `sp`). */
+  _swingCues(su, sw, at, sp) {
+    let any = false;
+    for (const c of cuesAt(sw.set, at, sw.ab, sw.k, sp)) any = this._playCue(su.def, c, sw.set.mode) || any;
+    return any;
+  }
+
+  /**
+   * A unit's spine-event sound (`sfx.units[def].spine[event]`, battle.ON_SPINE_EVENT_TRIGGER.<id>.<event> — 마운틴 S2 / S3
+   * punches, 파투스 reload): the renderer calls this when the unit's Spine clip reaches that event. Returns whether one played.
+   */
+  spineEvent(unitId, event) {
+    try {
+      this._spineWired = true; // the renderer drives them: no strike stand-in (_spineStrike)
+      const su = this.units.get(unitId);
+      const c = su ? this.getManifest()?.audio?.sfx?.units?.[su.def]?.spine?.[event] : null;
+      return c ? this._playCue(su.def, { ...c, at: 'a' }, false) : false;
+    } catch { return false; }
   }
 
   // ---- operator battle voice ----------------------------------------------------------------------------------
@@ -1151,6 +1283,7 @@ export class AudioManager {
           const su = this.units.get(e[1]);
           if (su) {
             su.skillOn = !!e[2];
+            su.sw = null; su.vm = null; // 2026-10-10: a new mode run — its groups start over (a conditional group's first attack)
             const ue = this.getManifest()?.audio?.sfx?.units?.[su.def];
             const loop = skillLoopOf(ue, su.skillIndex); // its looping bank (music, field)
             if (loop && e[2]) startSkillLoop(this, e[1], loop.url, loopGain(loop));
@@ -1172,6 +1305,15 @@ export class AudioManager {
             if (fin) this._play(fin.url, { volume: loopGain(fin), limited: true, bank: `${su.def}:end:${su.skillIndex}` });
           }
         }
+        if (kind === 'swing') {
+          // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: a normal attack's swing starts — its START banks now
+          // (AbilityStandard.OnCastStart RVA 0x34F0A90), its group child chosen for the whole attack (sim ai.js 'swing')
+          const su = this.units.get(e[1]);
+          if (!su) continue;
+          su.sw = this._swingOf(su, e[3], now, e[2]);
+          if (su.sw) this._swingCues(su, su.sw, 's');
+          continue;
+        }
         if (kind === 'atk') {
           // a chain bounce: its first id is the previous target, whose attack sound this is not (see header)
           if (CHAIN_KINDS.has(e[3])) { this.lastAttacker.delete(e[2]); continue; }
@@ -1180,15 +1322,61 @@ export class AudioManager {
           // only a hostile attack authors the target's next impact (a heal — an ally aiming at an ally — never does)
           const tgt = this.units.get(e[2]);
           const mode = src.skillOn ? src.skillIndex : null; // local patch: the running skill's mode sounds (audioOfficial.js)
-          if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now, mode });
           src.startHeld = false; // local patch
+          // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the strike of the open swing (else a swing of its own
+          // now: a kit's attack without one) — its ON banks and its projectiles' BORN; the spell index for a multi-hit attack
+          let sw = src.sw;
+          const open = sw && sw.mode === mode && now - sw.at <= (sw.windup / this.gameSpeed()) * 1000 + 600;
+          if (open && sw.n === 0 && sw.windup >= 0.15 && now - sw.at > 20) {
+            const est = (sw.windup * 1000) / (now - sw.at); // the game speed, measured (gameSpeed)
+            if (est >= 0.25 && est <= 16) this._speedEst = Number.isFinite(this._speedEst) ? this._speedEst * 0.7 + est * 0.3 : est;
+          }
+          if (!open) {
+            sw = this._swingOf(src, e[3], now);
+            src.sw = sw;
+            if (sw) this._swingCues(src, sw, 's');
+          }
+          if (sw) {
+            // one strike per moment: the client emits ON once per spell (AbilityStandard.DoEmitAudioSignalForSpellOn), not once
+            // per target — the sim's 'atk' of each target of the same strike shares its time
+            if (!(open && src.lastAtkAt === now && sw.n > 0)) {
+              this._swingCues(src, sw, 'a', sw.n++);
+              this._spineStrike(src);
+            }
+            src.lastAtkAt = now;
+            if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now, mode, sw, id: e[1] });
+            if (src.side === 'enemy' && !sw.set.cues.some((c) => c.at === 's' || c.at === 'a')) this.battle('enemyHit', { volume: 0.35 });
+            continue;
+          }
+          if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now, mode, id: e[1] });
           if (!this.unit(src.def, 'attack', e[1], undefined, mode) && src.side === 'enemy') this.battle('enemyHit', { volume: 0.35 });
           this.unit(src.def, 'on', e[1], undefined, mode); // 2026-10-10: its ON bank too (START and ON both sound)
         } else if (kind === 'dmg') {
+          if (!IMPACT_TYPES.has(e[3])) continue;
           const by = this.lastAttacker.get(e[1]);
-          if (!by || !IMPACT_TYPES.has(e[3])) continue;
+          // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the attacker the sim names (6th field, docs/SIM.md) —
+          // the impact of its normal attack aimed at this target, or a splash of it (the same moment as its strike / impact), else
+          // its skill's own damage (a kit's dealDamage: no attack of its own) → the skill's impact sound
+          const aid = e.length > 5 ? e[5] : undefined;
+          if (aid != null) {
+            const au = this.units.get(aid);
+            if (!au) continue;
+            const own = by && by.id === aid && now - by.at <= IMPACT_WINDOW_MS ? by : null;
+            if (own) this.lastAttacker.delete(e[1]);
+            const splash = !own && au.sw && (now - (au.lastAtkAt ?? -Infinity) <= 100 || now - (au.lastImpactAt ?? -Infinity) <= 100);
+            if (own || splash) {
+              const sw = own ? own.sw : au.sw;
+              au.lastImpactAt = now;
+              if (sw) this._swingCues(au, sw, 'd', sw.h++);
+              else this.unit(au.def, 'hit', `h${e[1]}`, undefined, own.mode);
+            } else this._skillImpact(au, now);
+            continue;
+          }
+          if (!by) continue;
           this.lastAttacker.delete(e[1]); // one impact per attack
-          if (now - by.at <= IMPACT_WINDOW_MS) this.unit(by.def, 'hit', `h${e[1]}`, undefined, by.mode); // local patch: by.mode
+          if (now - by.at > IMPACT_WINDOW_MS) continue;
+          if (by.sw) { const au = this.units.get(by.id); if (au) this._swingCues(au, by.sw, 'd', by.sw.h++); }
+          else this.unit(by.def, 'hit', `h${e[1]}`, undefined, by.mode); // local patch: by.mode
         } else if (kind === 'heal') {
           this.battle('heal', { volume: 0.35 });
         } else if (kind === 'skill' && e[2]) {
@@ -1293,6 +1481,16 @@ export class AudioManager {
           if (e.lpFollower || ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
           this.playDeploySfx(u, e[1]);
         } else if (kind === 'fx') {
+          // 2026-10-10, docs/rules/audio.md 「적 소리」: an enemy skill's cast (sim fx 'enemySkill' { id, ability }) —
+          // its ability's START / ON banks and projectiles' BORN now, its impacts on the damage it deals (_skillImpact)
+          if (e[1] === 'enemySkill' && e[4]?.id != null && typeof e[4].ability === 'string') {
+            const eu = this.units.get(e[4].id);
+            const cues = eu ? this.getManifest()?.audio?.sfx?.units?.[eu.def]?.sk?.[e[4].ability.toLowerCase()] : null;
+            if (eu && Array.isArray(cues)) {
+              for (const c of cues) if (c.at !== 'd') this._playCue(eu.def, c, true);
+              eu.eskill = { name: e[4].ability.toLowerCase(), at: now };
+            }
+          }
           // local patch (maintainer report): a dollkeeper's form switch (归溟幽灵鲨: to the 替身 and back, audioOfficial.js)
           const ds = e[4]?.id != null ? dollSwitchSfx(this.units.get(e[4].id)?.def, e[1]) : null;
           if (ds) this._dollSwitch(e[4].id, ds);
