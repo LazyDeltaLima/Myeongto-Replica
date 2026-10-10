@@ -335,27 +335,42 @@ describe('deploy sounds on every placement (maintainer report 2026-10-07, audio.
     assert.deepEqual(c.played.map((p) => file(p.url)), ['p_imp_stwctptkin.mp3', 'p_imp_stwctptkpa.mp3']);
   });
 
-  test('battle start: the opening deployment sounds one by one with its drops (2-4, render/units.js BORN_STAGGER_S)', async () => {
+  test('battle start: each opening deploy sounds with its own event (the sim deploys one by one); the battle start\'s 部署 one interval after the last', async () => {
     const src = readFileSync(path.join(ROOT, 'public', 'js', 'audio.js'), 'utf8');
-    assert.match(src, /const OPENING_DEPLOY_STAGGER_MS = 120;/, '= BORN_STAGGER_S 0.12 s');
+    assert.doesNotMatch(src, /OPENING_DEPLOY_STAGGER_MS/, 'no audio-side stagger on top of the sim\'s (it would double the delay)');
+    const { OfficialVoiceGate, createVoicePolicy } = await import('../public/js/voicePolicy.js');
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const a = manager();
+    a.setGameSpeed(2);                                   // PREBUILT_INTERVAL 0.2 game s = 100 ms, + OPENING_SLACK_MS 80
+    const said = [];
+    a.voice = (def, slot) => { said.push([def, slot]); return true; };
+    a.voiceGate = new OfficialVoiceGate();
+    a.voicePolicy = createVoicePolicy({ random: () => 0 });
     const ops = ['char_2027_wang', 'char_2026_yu', 'char_263_skadi'];
-    a.handleBattleEvents(ops.flatMap((spine, i) => [['spawn', { id: i + 1, spine, defId: 'x', kind: 'op', side: 'ally' }], ['deploy', i + 1]]));
-    assert.deepEqual(a.played.map((p) => file(p.url)), ['b_char_stwctpbn.mp3'], 'the first at once');
-    await new Promise((r) => setTimeout(r, 160));
-    assert.deepEqual(a.played.map((p) => file(p.url)), ['b_char_stwctpbn.mp3', 'p_skill_frbytrtn_bn.mp3'], 'the second 0.12 s later');
-    await new Promise((r) => setTimeout(r, 120));
-    assert.equal(a.played.length, 3, 'the third 0.24 s later');
-    // a later deploy (a redeploy) is not part of it; a new field forgets the last one's pending turns
+    for (const [i, spine] of ops.entries()) {
+      a.handleBattleEvents([['spawn', { id: i + 1, spine, defId: 'x', kind: 'op', side: 'ally' }], ['deploy', i + 1]]);
+      assert.equal(a.played.length, i + 1, 'its deploy sound at once');
+      assert.deepEqual(said, [], 'no line while the opening comes in');
+      await wait(100);                                   // the sim's next group
+    }
+    await wait(120);
+    assert.deepEqual(said, [['char_2027_wang', 'place']], 'one 部署 line after the last piece + one interval');
+    // a later deploy (a redeploy) is not part of it and says its own 部署 after the start burst
     a.handleBattleEvents([['spawn', { id: 9, spine: 'char_263_skadi', defId: 'x', kind: 'op', side: 'ally' }]]);
-    a._opening.at -= 5000;
+    a.voicePolicy.reset();
     a.handleBattleEvents([['deploy', 9]]);
     assert.equal(a.played.length, 4, 'a redeploy sounds at once');
+    assert.deepEqual(said.map((x) => x[1]), ['place', 'place']);
     const b = manager();
+    b.setGameSpeed(2);
+    const bs = [];
+    b.voice = (def, slot) => { bs.push(slot); return true; };
+    b.voicePolicy = createVoicePolicy({ random: () => 0 });
     b.handleBattleEvents(ops.flatMap((spine, i) => [['spawn', { id: i + 1, spine, defId: 'x', kind: 'op', side: 'ally' }], ['deploy', i + 1]]));
+    assert.equal(b.played.length, 3, 'a batch fed at once sounds at once');
     b.setFieldUnits([]);
-    await new Promise((r) => setTimeout(r, 300));
-    assert.equal(b.played.length, 1, 'cancelled with the field');
+    await wait(300);
+    assert.deepEqual(bs, [], 'the pending line is cancelled with the field');
   });
 
   test('a 复活 (M3茧甲 / 埃芒加德: die + deploy + \'revive\' fx in one tick) keeps the deploy sound but says no 部署 line', () => {

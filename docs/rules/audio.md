@@ -50,10 +50,14 @@
     (`battleChessInsts`) 중 **무작위 하나의 部署**(PLACE_CHAR). 나머지 첫 배치는 조용(훅 `HookPlayVoice` RVA 0xD67830: PLACE_CHAR는 MAIN 하위 상태에서만 —
     라운드 시작 배치 폭주를 막음). **시점**(2026-10-10 클라 코드): `MainGameInBattle._StartBattle`(MoveNext RVA 0x872B60)이 먼저 `_Prebuilt`(MoveNext
     RVA 0x8726E0 — 말을 하나씩 `Deck.SpawnCharacterOrToken`, 하나마다 `WaitForFixedSeconds(0.2)`, 상수 .rdata 0x185D65004)를 끝까지 돌린 **뒤에**
-    1211을 쏘고 곧바로 웨이브 스케줄러(`Scheduler.Init`·`DoSchedule`)를 시작한다 — 部署 대사는 첫 배치가 다 떨어진 뒤. 우리: 필드의 첫 배치 묶음
-    (`audio.js` opening)이 렌더 차례 낙하(`OPENING_DEPLOY_STAGGER_MS` 120 ms × 낙하 수)를 마친 한 칸 뒤에 `voicePolicy.battleStart`가 자기 오퍼레이터
-    (`ownerId`, 협동 필드의 남의 말 제외) 중 하나를 고름(새 필드가 오면 취소); 그 뒤 2초 안의 배치는 조용, 그 뒤 재배치는 部署(`_OnUnitBorn`의 비-predefined 경로).
-    예전(2026-10-10 오전): 첫 배치 순간에 바로 말함. 웨이브 시계가 차례 배치 뒤에 시작하는 것은 시뮬레이션 쪽 열린 일(우리 시뮬은 모두 0초 배치·웨이브 0초 시작).
+    1211을 쏘고 곧바로 웨이브 스케줄러(`Scheduler.Init`·`DoSchedule`)를 시작한다 — 部署 대사는 첫 배치가 다 떨어진 뒤(관리자가 공식 영상으로 확인
+    2026-10-10: 라운드 시작에 部署 한 줄, 말은 하나씩). 2026-10-10 저녁부터 시뮬레이션이 그대로 한다(`sim.md` 「작전 시작 차례 배치」: 0.2게임초마다
+    한 묶음, 마지막 뒤 한 간격에 웨이브 시계·`battleStart` 훅 — 클라이언트로 오는 전용 이벤트는 없음). 우리: 필드의 첫 배치 묶음(`audio.js` opening —
+    앞 배치에서 `PREBUILT_INTERVAL`/배속 + `OPENING_SLACK_MS` 80 ms 안에 온 아군 deploy들, 장치 제외)의 배치 효과음은 각 'deploy' 이벤트 때 바로 나고,
+    마지막 deploy 뒤 그만큼 더 오지 않으면(`_armBattleStartLine`, 배치마다 다시 검) `voicePolicy.battleStart`가 자기 오퍼레이터(`ownerId`, 협동 필드의
+    남의 말 제외) 중 하나를 골라 部署 — 공식 1211보다 최대 80 ms 늦음(전달 흔들림 여유). 새 필드가 오면 취소, 그 대사 전까지와 그 뒤 2초 안의 배치는
+    조용, 그 뒤 재배치는 部署(`_OnUnitBorn`의 비-predefined 경로). 예전: 첫 배치 순간(2026-10-10 오전), 렌더 차례 낙하 120 ms × 낙하 수 뒤
+    (`OPENING_DEPLOY_STAGGER_MS`, 2026-10-10 낮 — 시뮬레이션 차례 배치와 겹쳐 지연이 두 번이 되므로 뺌).
   - **행동출발**(BATTLE_START)·**행동개시**(ENCOUNTER_ENEMY)는 **卫戍协议에서 나지 않는다**(2026-10-10 클라 코드, 사용자 제보 「작전 시작과 적 조우 대사가 겹침」):
     행동출발은 `VoicePlayer.OnGameStart`(RVA 0xD7EEC0)만 내는데 `_CheckDisableBattleStartVoice`(RVA 0xD7F1F0)가 `UIController.HasFunction(CARD_LIST)`
     거짓이면 끄고, 행동개시 `VoicePlayer._OnPreviewCursorSpawn`(RVA 0xD7FA40)은 맨 앞에서 같은 `HasFunction(CARD_LIST)`가 거짓이면 바로 돌아간다.

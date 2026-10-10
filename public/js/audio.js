@@ -48,6 +48,7 @@
 // which follows the store).
 
 import { PHASE } from '../../shared/constants.js';
+import { PREBUILT_INTERVAL } from '../../server/sim/constants.js';
 import { mediaUrl } from './media.js';
 import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn, roleGroup, cueSetOf, cueAbility, pickVariant, cuesAt, cueFile } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
 import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // local patch: mixer snapshots (归溟幽灵鲨's 替身 switch)
@@ -61,11 +62,16 @@ const MAX_VOICES = 32;
 const DEFAULT_BANK = Object.freeze([1, 1, 2, 1]);
 /** local patch: a battle 'deploy' this soon (real ms) after a prep drop-in of the same model stays silent (round start). */
 const PREP_DEPLOY_OVERLAP_MS = 1500;
-/** The opening deployment one by one (LOCAL-PATCH.md 「배치 낙하」) — its step (= render/units.js BORN_STAGGER_S) and the burst window. */
-const OPENING_DEPLOY_STAGGER_MS = 120;
-const OPENING_DEPLOY_WINDOW_MS = 400;
+/**
+ * The battle-start deployment (docs/rules/audio.md 「오퍼레이터 음성」): the sim deploys one piece group every PREBUILT_INTERVAL
+ * game s (server/sim/battle/lifecycle.js _prebuiltStep, client `_Prebuilt`) and starts the wave clock one interval after the
+ * last — the client's ON_BATTLE_STARTED, which has no event of its own. A field's opening = its first deploys while each
+ * comes within one interval (+ OPENING_SLACK_MS of delivery jitter) of the one before; the battle start's line plays
+ * when that much time passed after the last.
+ */
+const OPENING_SLACK_MS = 80;
 /** The first of these events in a field ends its opening deployment (the fighting began). */
-const OPENING_ENDS = new Set(['atk', 'dmg', 'heal', 'die', 'leak']);
+const OPENING_ENDS = new Set(['atk', 'dmg', 'die', 'leak']);
 /**
  * 漏怪: the original Arknights exit alarm (`sfx.battle.leak`, `battle/b_ui/b_ui_alarmenter`) runs **1.44 s**, and the
  * official bank is a one-shot: `battle.ON_ENEMY_REACHED_EXIT` carries `maxSoundAllowed: 1` with `popOldest: true` on the
@@ -1212,6 +1218,30 @@ export class AudioManager {
 
   // ---- battle events ------------------------------------------------------------------------------------------
 
+  /**
+   * (Re)arm the battle start's line `ms` from now (audio.js deploy: one PREBUILT_INTERVAL after the opening's last deploy +
+   * OPENING_SLACK_MS): when no further opening deploy came by then, the opening is over and voicePolicy.battleStart picks
+   * one of its own operators to say 部署.
+   */
+  _armBattleStartLine(ms) {
+    const op = this._opening;
+    if (!op || this.startVoiceDone) return;
+    if (op.pending) { clearTimeout(op.pending); this._openingTimers?.delete(op.pending); }
+    const timer = setTimeout(() => {
+      this._openingTimers?.delete(timer);
+      if (this._opening !== op) return;
+      op.pending = null; op.over = true;
+      this.startVoiceDone = true;
+      const ops = op.ids.map((id) => ({ id, u: this.units.get(id) }))
+        .filter(({ u: o }) => o && o.side !== 'enemy' && o.kind !== 'token' && o.kind !== 'device' && unitSoundClass(o) === 'char')
+        .map(({ id, u: o }) => ({ id, def: o.def, ownerId: o.ownerId }));
+      const t = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      for (const l of this.voicePolicy?.battleStart(t, ops) || []) this.voice(l.def, l.slot, { unitKey: l.id, type: l.type });
+    }, ms);
+    op.pending = timer;
+    (this._openingTimers ||= new Set()).add(timer);
+  }
+
   /** Reset the unit map for a new field (m.field.units = UnitInfo[]). */
   setFieldUnits(units) {
     this.units.clear();
@@ -1219,7 +1249,7 @@ export class AudioManager {
     this.consumed.clear();
     // a new field is a new battle: the first operator deployed says 行动出发 again and no cooldown carries over
     this.startVoiceDone = false;
-    this._opening = null; // a new field's opening deployment (OPENING_DEPLOY_STAGGER_MS); none of the last one's turns
+    this._opening = null; // a new field's opening deployment (OPENING_SLACK_MS); none of the last one's pending line
     for (const timer of this._openingTimers || []) clearTimeout(timer);
     this._openingTimers?.clear();
     try { this.voiceGate.reset(); this._stopVoice(); this.voicePolicy?.reset(); } catch { /* ignore */ } // local patch: voicePolicy
@@ -1506,23 +1536,15 @@ export class AudioManager {
         } else if (kind === 'deploy') {
           const u = this.units.get(e[1]);
           if (!u || u.side === 'enemy') continue;
-          // LOCAL-PATCH.md 「배치 낙하」: the opening deployment drops in one by one (render/units.js
-          // BORN_STAGGER_S) — the n-th allied piece of the field's first burst sounds (and speaks) with its own drop
-          let opening = !!e.lpTurn; // 2026-10-10: part of the opening deployment (the battle start's voice)
-          if (!e.lpTurn && unitSoundClass(u) !== 'device') {
-            // the opening = the field's first burst of deploys, before any fighting (a catch-up batch that also carries
-            // later summons, or a whole battle fed at once, staggers only those)
-            const op = this._opening && !this._opening.over && now - this._opening.at <= OPENING_DEPLOY_WINDOW_MS ? this._opening : null;
-            // 2026-10-10: + the batch's deploys (the battle start's candidates — battleStart below)
-            if (!this._opening) { this._opening = { at: now, n: 0, ids: ev.filter((x) => Array.isArray(x) && x[0] === 'deploy').map((x) => x[1]) }; opening = true; }
-            if (op) opening = true;
-            const n = op ? ++op.n : 0;
-            if (n > 0) {
-              const held = Object.assign(e.slice(), { lpTurn: true, lpFollower: ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1]) });
-              const timer = setTimeout(() => { this._openingTimers?.delete(timer); this.handleBattleEvents([held]); }, n * OPENING_DEPLOY_STAGGER_MS);
-              (this._openingTimers ||= new Set()).add(timer);
-              continue;
-            }
+          // the opening deployment (OPENING_SLACK_MS): the sim brings it in one piece group per PREBUILT_INTERVAL, each
+          // piece sounds with its own 'deploy'
+          let opening = false;
+          const step = (PREBUILT_INTERVAL * 1000) / this.gameSpeed() + OPENING_SLACK_MS;
+          if (unitSoundClass(u) !== 'device') {
+            const op = this._opening;
+            if (!op) { this._opening = { at: now, ids: [e[1]], over: false }; opening = true; }
+            else if (!op.over && now - op.at <= step) { op.at = now; op.ids.push(e[1]); opening = true; }
+            if (opening && this.voicePolicy) this._armBattleStartLine(step); // summons come last: they move it on too
           }
           if (this._skillEarly?.has(e[1])) this._flushSkillEarly(e[1]); // local patch: its deploy-time skill (see 'spawn')
           const m = this.getManifest();
@@ -1534,24 +1556,11 @@ export class AudioManager {
           // knock-out's tick, its 'revive' fx in the same batch) keeps the drop and b_char_set but says no 部署 line
           const revived = ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'revive' && x[4]?.id === e[1]);
           if (unitSoundClass(u) === 'char' && !revived && this.voicePolicy) {
-            // 2026-10-10, docs/rules/audio.md 「오퍼레이터 음성」: the battle start (the opening deployment) — one random
-            // own piece's 部署 (voicePolicy.js battleStart; no 行动出发 in 卫戍协议) once the opening has dropped in (the
-            // client's ON_BATTLE_STARTED follows _Prebuilt: every piece spawned, a wait after each) — one stagger step
-            // after the last drop; the rest of the opening stays silent, a later deployment (a redeploy) says its 部署
-            if (opening && !this.startVoiceDone) {
-              this.startVoiceDone = true;
-              const ids = Array.isArray(this._opening?.ids) ? this._opening.ids : [e[1]];
-              const ops = ids.map((id) => ({ id, u: this.units.get(id) }))
-                .filter(({ u: o }) => o && o.side !== 'enemy' && o.kind !== 'token' && o.kind !== 'device' && unitSoundClass(o) === 'char')
-                .map(({ id, u: o }) => ({ id, def: o.def, ownerId: o.ownerId }));
-              const drops = ids.filter((id) => { const o = this.units.get(id); return o && o.side !== 'enemy' && unitSoundClass(o) !== 'device'; }).length;
-              const say = () => {
-                const t = typeof performance !== 'undefined' ? performance.now() : Date.now();
-                for (const l of this.voicePolicy.battleStart(t, ops)) this.voice(l.def, l.slot, { unitKey: l.id, type: l.type });
-              };
-              const timer = setTimeout(() => { this._openingTimers?.delete(timer); say(); }, Math.max(1, drops) * OPENING_DEPLOY_STAGGER_MS);
-              (this._openingTimers ||= new Set()).add(timer);
-            } else if (!opening && this.voicePolicy.place(now)) this.voice(u.def, 'place', { unitKey: e[1], type: 'PLACE_CHAR' });
+            // 2026-10-10, docs/rules/audio.md 「오퍼레이터 음성」: the battle start — one random own piece's 部署
+            // (voicePolicy.js battleStart; no 行动出发 in 卫戍协议) at the client's ON_BATTLE_STARTED: one PREBUILT_INTERVAL
+            // after the opening's last deploy (each opening deploy moves it on); the rest of the opening stays silent, a
+            // later deployment (a redeploy) says its 部署
+            if (!opening && !this._opening?.pending && this.voicePolicy.place(now)) this.voice(u.def, 'place', { unitKey: e[1], type: 'PLACE_CHAR' });
           } else if (unitSoundClass(u) === 'char' && !revived) { // upstream's own rule (no voicePolicy installed)
             if (!this.startVoiceDone) {
               this.startVoiceDone = true;
@@ -1564,7 +1573,7 @@ export class AudioManager {
           if (prep != null && now - prep < PREP_DEPLOY_OVERLAP_MS) continue;
           // local patch (maintainer report 2026-10-07): 望's 跟子 is a projectile of hers (PRTS) — it lands with
           // ON_PROJECTILE_BORN (kitStartKey 'wang:thrown', its summon fx `follower` in the same tick), not as a stone's birth
-          if (e.lpFollower || ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
+          if (ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
           this.playDeploySfx(u, e[1]);
         } else if (kind === 'fx') {
           // 2026-10-10, docs/rules/audio.md 「적 소리」: an enemy skill's cast (sim fx 'enemySkill' { id, ability }) —

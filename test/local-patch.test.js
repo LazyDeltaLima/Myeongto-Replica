@@ -1358,7 +1358,7 @@ describe('operator voice: the official scheduling (public/js/voicePolicy.js over
     a.setFieldUnits([...ops, mate]);
     a.handleBattleEvents([['deploy', 1], ['deploy', 2], ['deploy', 3], ['deploy', 4]]);
     assert.deepEqual(said, [], 'nothing while the opening drops in (ON_BATTLE_STARTED follows _Prebuilt)');
-    await wait(600);                                   // 4 drops × 120 ms: the line one step after the last drop
+    await wait(600);                                   // one PREBUILT_INTERVAL (+ slack) after the last deploy
     assert.deepEqual(said.map((x) => [x[1], x[2]]), [['place', 'PLACE_CHAR']], 'the plugin\'s 部署 only — no 行动出发 (no card list)');
     assert.ok(said.every((x) => x[0] !== 'char_4'), 'never a teammate\'s piece');
     assert.equal(said[0][0], 'char_3', 'a random own piece (0.9 → the last)');
