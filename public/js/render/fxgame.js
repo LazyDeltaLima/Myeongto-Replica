@@ -1956,6 +1956,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         case 'die': {
           stopOwned(e[1]); endWolves(e[1]); for (const l of live) if (l.on === e[1]) l.inst.stop(true); // local patch: marks on it
+          // 蕾缪安 knocked out / withdrawn mid-S3: no shells follow (kit onEnd 'death'), so her locks' marks end with her
+          // (they are owned by their targets)
+          const lm = lemMarks.get(e[1]);
+          if (lm) { lemMarks.delete(e[1]); for (const mark of lm) { mark.done = true; for (const l of mark) l.inst.stop(true); } }
           const v = views.get(e[1]);
           if (v?.info?.side === 'enemy' && e[2] !== 'forcedExit') edeathFx(v); // 2026-10-10: its dead effect
           return;
