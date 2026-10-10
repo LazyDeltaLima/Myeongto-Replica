@@ -137,9 +137,13 @@ export function attackRangeGrid(rec) {
   let g = Array.isArray(rec.rangeGrid) ? rec.rangeGrid : null;
   const sk = rec.skill;
   const m = rec.module;
-  if (sk && Array.isArray(sk.rangeGrid) && sk.rangeGrid.length && /被动效果：攻击范围扩大/.test(String(sk.desc ?? ''))) {
+  // the data's flags first (tools/build-data.mjs `passiveRange` / `rangeUp`): a client in another language reads a
+  // translated `desc` / `moduleDesc` (data/i18n overlays) — the Chinese words are the fallback for records without them
+  const passive = typeof sk?.passiveRange === 'boolean' ? sk.passiveRange : /被动效果：攻击范围扩大/.test(String(sk?.desc ?? ''));
+  const rangeUp = typeof rec.trait?.rangeUp === 'boolean' ? rec.trait.rangeUp : /攻击范围扩大/.test(String(rec.trait?.moduleDesc ?? ''));
+  if (sk && Array.isArray(sk.rangeGrid) && sk.rangeGrid.length && passive) {
     g = sk.rangeGrid;
-  } else if (rec.isGolden && m && m.active && m.id && /攻击范围扩大/.test(String(rec.trait?.moduleDesc ?? ''))) {
+  } else if (rec.isGolden && m && m.active && m.id && rangeUp) {
     const mod = (Array.isArray(rec.modules) ? rec.modules : []).find((x) => x && x.uniEquipId === m.id);
     const mg = (mod?.talentChanges || []).find((t) => t && t.talentIndex === -1 && Array.isArray(t.rangeGrid) && t.rangeGrid.length)?.rangeGrid;
     if (mg) g = mg;
@@ -156,7 +160,7 @@ export function attackRangeGrid(rec) {
  */
 export function traitRangeExtend(rec) {
   const t = rec && typeof rec === 'object' ? rec.trait : null;
-  if (!t || typeof t !== 'object' || /集成战略/.test(String(t.moduleDesc ?? ''))) return 0;
+  if (!t || typeof t !== 'object' || (typeof t.otherMode === 'boolean' ? t.otherMode : /集成战略/.test(String(t.moduleDesc ?? '')))) return 0;
   const n = Math.floor(Number(t.bb?.ability_range_forward_extend) || 0);
   return n > 0 ? n : 0;
 }

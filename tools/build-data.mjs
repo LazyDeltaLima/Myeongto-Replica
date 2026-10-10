@@ -687,6 +687,8 @@ function buildSkill(ctx, skillId, level, trigger, label) {
     rangeGrid: rangeGrid(ctx, lv.rangeId),
     prefabId: lv.prefabId || skillId,
     trigger: trigger || { rule: 'DEFAULT', rawRule: 'DEFAULT', customRangeGrid: null },
+    // "被动效果：攻击范围扩大" as a flag (shared/loadoutRecord.js attackRangeGrid; the overlays translate `desc`)
+    ...(/被动效果：攻击范围扩大/.test(desc) ? { passiveRange: true } : {}),
   };
 }
 
@@ -749,6 +751,10 @@ function traitRecord(ctx, char, phase, level, opParts, chessId, potRank = 0) {
     const mp = textPair(traitMod.moduleText, traitBB.bb, traitBB.bbStr, `${chessId} module trait`);
     trait.moduleDesc = mp.desc;
     trait.moduleDescRaw = mp.descRaw;
+    // the rules shared/loadoutRecord.js reads from this text, as flags: the game-text overlays (data/i18n) translate
+    // moduleDesc, so a client in another language could not match the Chinese words
+    if (/攻击范围扩大/.test(mp.desc)) trait.rangeUp = true;
+    if (/集成战略/.test(mp.desc)) trait.otherMode = true;
   }
   return { trait, classify: classifyAttack(char, tp.desc) };
 }

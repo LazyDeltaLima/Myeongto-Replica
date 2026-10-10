@@ -295,6 +295,11 @@
   깊이 쓰기 없음, `_Color.a` 0.749, `_AnimationSpeed` 0.5)대로 `sprite_attack_range`(대각선 흰 줄 3개/칸) × 주황 255,140,0([추정] 실행 중 색 —
   캡처 225,148,20 = 0.75·주황 + 0.25·초록과 맞음), 흐르는 방향 [추정]. 그림이 없으면 같은 모양의 절차 텍스처. 이전의 Pixi 주황 칠·SVG 줄무늬는 3D에서 안 그린다.
 - 배치 중인 기물(드래그 중·방향 선택 중) 반투명 `GHOST_ALPHA` 0.6 [추정](관리자 제보: 배치 중에는 더 투명하다).
+- 모듈로 늘어나는 공격 범위(관리자 제보 2026-10-10: 정예 「시」 SPC-X가 방향 선택 줄무늬·배치 중 카드에서 3×3으로 보임): `shared/loadoutRecord.js
+  attackRangeGrid`가 중국어 문구(`trait.moduleDesc` 「攻击范围扩大」, 스킬 「被动效果：攻击范围扩大」, `traitRangeExtend`의 「集成战略」)로 판단했는데 클라는
+  한국어 등 게임 문구 덮어쓰기(`data/i18n`)를 입힌 기록을 쓰므로 한국어에서 늘 실패. 이제 `tools/build-data.mjs`가 같은 판단을 언어와 상관없는 표시
+  (`trait.rangeUp` / `otherMode`, 스킬 `passiveRange`)로 데이터에 넣고 그것을 먼저 읽는다(없으면 예전처럼 문구). 서버·전투는 중국어 데이터라 원래 맞았다
+  (배치 뒤 클릭이 맞게 보인 이유: 전투·서버 값). 테스트 `test/ui/range-i18n.test.js`(ko/en/ja/zh-TW 모든 기물·모듈·스킬이 중국어와 같은 범위).
 - 방향 선택(`ui/placeArt.js`, 공식 그림이 있을 때만 — 없으면 원본 휠): 클라이언트 `panel_direction_selector` 구성대로
   - 마름모(`offset` 426 회전 −45°, 반대각 301단위)의 네 꼭짓점 쪽 L자 테두리(흰색, 고른 방향은 `_highlightColor` 255,226,176) + 고른 꼭짓점에
     `sprite_direction_arrow`(빛나는 V). 마름모 밖은 검정 39 %(`mask_*`, HUD까지 — 캡처에서 밖이 0.61배).
