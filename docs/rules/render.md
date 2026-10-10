@@ -244,3 +244,13 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   → 재시도로 3D. `[ASSUMED]` 실제 휴대폰(iOS·Android)에서의 효과는 미확인 — 다음 제보의 진단 정보로 원인(소실·받기 실패·GPU 검사·간이 보기)을 가른다.
 - 안 한 것(진단 3·4번, 관리자 결정 대기): 휴대폰 GPU 메모리 상한(무대 텍스처 ~90 MB·품질 기본 high), `fxgame.js destroy`의 `forceContextLoss` 없음,
   `ui/fieldHost.js` 12초 시간 초과 → 간이 보기(재시도 없음).
+
+## 이펙트 렌더러 정리 (2026-10-10, 관리자 요청 「측정 후 고치기」)
+- 측정(Windows Chrome render-demo, 공속 +0/+100/+200 녹화, WebGL 호출 집계 — 자세한 표는 관리자 노트): 판 끝 `view.destroy()` 뒤 이펙트 컨텍스트 2개가
+  끊기지 않고 텍스처를 쥔 채 남았다 — 후반 R13 약 45 MB(156~167장), 보스 135~171 MB(362~461장), 강제 GC 3번에도 그대로(옛 view → fxGame의
+  `lib` → THREE.Texture 'dispose' 리스너 → 렌더러 → 컨텍스트). 보드(`scene.js destroy` `forceContextLoss`)·Pixi(`releaseGl` + `loseContext`)는 바로 끊김.
+  공격속도는 양을 거의 안 바꿈(텍스처는 프리팹 이름별 캐시, 동시 이펙트 24개 상한).
+- 처리: `fxgame.js destroy` — `lib.dispose()`(`fxplayer.js FxLibrary.dispose`: 텍스처·메시 dispose, 캐시 비움; `lib` 자체는 남겨 늦게 끝난 로드가
+  오류를 내지 않음), 가림 메시(occluder) geometry·material dispose, 그다음 렌더러 2개 `dispose()` + `forceContextLoss()`. 기기 구분 없음(데스크탑 포함).
+- 확인: 같은 측정으로 destroy 직후 이펙트 컨텍스트 2개 모두 lost, 남은 텍스처 0(보스·후반 × 공속 3단계, 페이지 오류 없음). `test/render/board3d-retry.test.js`
+  FxLibrary.dispose.

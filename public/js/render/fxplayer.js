@@ -495,6 +495,20 @@ export class FxLibrary {
     }
     return this.defs.get(key);
   }
+
+  /**
+   * Free what this library uploaded (its view is gone: render/fxgame.js destroy): every texture and mesh geometry is
+   * disposed — the renderers drop their GL copies and their 'dispose' listeners, which otherwise kept the renderer and its
+   * WebGL context reachable through the library — and the caches are emptied. A load still in flight may fill them again
+   * (nothing draws it any more).
+   */
+  dispose() {
+    for (const tx of this.textures.values()) { try { tx.dispose(); } catch { /* ignore */ } }
+    for (const p of this.meshes.values()) Promise.resolve(p).then((g) => g?.dispose(), () => {});
+    this.textures.clear();
+    this.meshes.clear();
+    this.defs.clear();
+  }
 }
 
 const QUAD = (() => {

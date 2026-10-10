@@ -2,12 +2,14 @@
 // 3D 렌더링이 안 된다」): the retry schedule (render/app/retry3d.js: delays, a try due while hidden waits, used-up tries
 // start over when the page is shown), a failed load of the board art or of the local-art manifest is loaded again on
 // `retry` (render/board3d/load.js, assets.js image/local) instead of being kept for the page, and the bug report shows
-// the board's 3D state and what it did (diag.js render lines).
+// the board's 3D state and what it did (diag.js render lines); the effect renderers' library frees its textures and
+// meshes when the view goes (fxplayer.js FxLibrary.dispose).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRetry3d } from '../../public/js/render/app/retry3d.js';
 import { loadBoardPack, resetBoardPack, boardArtState, loadBoard3d, PACK_IMAGES } from '../../public/js/render/board3d/load.js';
 import { createAssets } from '../../public/js/assets.js';
+import { FxLibrary } from '../../public/js/render/fxplayer.js';
 import { buildDiagnostics, noteRender, renderEvents, clearRenderEvents, renderStatus, RENDER_MAX } from '../../public/js/diag.js';
 
 function fakeTimers() {
@@ -166,5 +168,21 @@ describe('diag.js: the board in the bug report', () => {
     const g = { __SP_VIEW__: { kind: 'engine', raw: { stats: () => ({ board3d: { on: true } }) } } };
     assert.deepEqual(renderStatus(g), { kind: 'engine', board3d: { on: true } });
     assert.deepEqual(renderStatus({ __SP_VIEW__: { kind: 'fallback', raw: {} } }), { kind: 'fallback', board3d: null });
+  });
+});
+
+describe('render/fxplayer.js FxLibrary.dispose (the effect renderers end with their view, render/fxgame.js destroy)', () => {
+  test('every texture and mesh geometry is disposed and the caches are emptied', async () => {
+    const lib = new FxLibrary('/x/');
+    const freed = [];
+    lib.textures.set('a', { dispose: () => freed.push('tex a') });
+    lib.textures.set('b', { dispose: () => freed.push('tex b') });
+    lib.meshes.set('m', Promise.resolve({ dispose: () => freed.push('mesh m') }));
+    lib.meshes.set('missing', Promise.resolve(null));
+    lib.defs.set('k', Promise.resolve({}));
+    lib.dispose();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(freed.sort(), ['mesh m', 'tex a', 'tex b']);
+    assert.equal(lib.textures.size + lib.meshes.size + lib.defs.size, 0);
   });
 });

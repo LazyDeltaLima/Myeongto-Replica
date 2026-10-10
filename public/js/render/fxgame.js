@@ -2048,8 +2048,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
     destroy() {
       this.clear();
+      // local patch (maintainer request 2026-10-10, docs/rules/render.md 「이펙트 렌더러 정리」): free the textures, meshes
+      // and occluders while the contexts still live, then end both contexts at once like the 3D board (scene.js destroy) —
+      // renderer.dispose() alone left them, 45–170 MB of textures each match, to a GC that never came while anything held
+      // the old view
+      try { lib?.dispose(); } catch { /* ignore */ }
+      try { occ?.geo.dispose(); occ?.meshes[0]?.material.dispose(); } catch { /* ignore */ }
       for (const L of [layers.under, layers.over]) {
         try { L?.renderer.dispose(); } catch { /* ignore */ }
+        try { L?.renderer.forceContextLoss(); } catch { /* ignore */ }
         L?.canvas.remove();
       }
       layers.under = layers.over = layers.split = null;
