@@ -264,3 +264,12 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 고친 것: `units.js STANCE_SKILLS`(Spine id → 스킬 번호, 지금 烛煌 S3만) → `spine.js _stance()`: 스킬이 켜져 있으면 쉬는 클립 = 스킬 루프, 공격 클립 없음
   (swing / windUp / attack이 클립을 안 건드림). 시작 Skill_3_Begin, 끝 Skill_3_End는 그대로. 테스트 `test/render/stance-skill.test.js`. [화면 미확인]
 - 같은 꼴(모드 공격 `_animKey ""`)은 `local-attack-timing.json`에 23개 더 있으나 대부분 여러 능력 묶음의 빈 부모라 제보된 烛煌만 넣음 — 다른 오퍼레이터는 제보 때 확인.
+
+## 가상적: 관(假想敌：管) 숨겨진 핵심 모델 위치 (2026-10-10, 사용자 제보 「일반 관은 맞는데 숨겨진 핵심의 관은 왼쪽으로 치우쳐 보인다」, 공식 캡처 없음)
+- 찾은 것: 숨겨진 핵심 레벨(act1autochess_h08_03 / _s)은 관(`enemy_9021_acduml_2`)과 가상적: 현을 둘 다 (행 3, 열 9)에 세운다 — 일반 관(h07_03)은 열 10(필드 가운데).
+  숨겨진 관 프리팹(enm_pfb_29)은 피격 상자 BoxCollider2D `m_Offset` x 1(일반 0)과 보스 HP 바 `_bossHudOffset` x 1.4(일반 0)만 다르고, Spine 데이터
+  (같은 skeletonDataAsset), Graphic 노드(0, −0.2, −0.06 / 0.27), 루트 EnemyGiantBoss의 나머지 값, 레벨 지도(19×21)·카메라 플러그인(없음)은 같다.
+  클라에서 모델을 옮기는 장치는 못 찾음(EnemyGiantBoss `_bossHudOffset`은 HUD만).
+- [ASSUMED] 사용자 관찰대로 숨겨진 관의 몸·그림자를 한 열 오른쪽(피격 상자 자리, 열 10)에 그린다 — `units.js MODEL_SHIFT`(적 키 → 열 수, 지금 이 하나).
+  유닛 위치·HP 바(자기 1.4 오프셋)·선택 영역은 그대로. 현은 같은 경우가 아님(오프셋 없음) — 그대로. 이 적에게 붙는 적 이펙트(마운트 점)는 아직 유닛
+  위치 기준(fx 담당에 알림). 테스트 `test/render/model-shift.test.js`. [화면 미확인]

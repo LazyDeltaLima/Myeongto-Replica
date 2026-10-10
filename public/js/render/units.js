@@ -342,6 +342,17 @@ export const FORTRESS_CLIPS = Object.freeze({
  * first S3 attack she stood in Idle, the loop replayed from its start at each attack).
  */
 export const STANCE_SKILLS = Object.freeze({ char_1040_blaze2: Object.freeze([2]) });
+
+/**
+ * Enemy models drawn this many columns right of their unit (body and shadow; the HP bar keeps its own giant offset), by
+ * enemy key. [ASSUMED] 假想敌：管's hidden-core copy (enemy_9021_acduml_2, boss_10): its level stands it on (row 3, col 9) —
+ * one column left of the normal 管 (act1autochess_h07_03, col 10) — while its prefab moves the hit box one column right
+ * (BoxCollider2D m_Offset x 1; the normal one 0) and the boss HP bar 1.4 right (`_bossHudOffset`); the Spine data, the
+ * Graphic node, the level's map and camera are the same as the normal copy's, so nothing found in the client moves the
+ * model. User report 2026-10-10: the hidden-core 管 looks shifted left while the normal one is right → drawn over its hit
+ * box (col 10). 假想敌：弦 (its partner on the same tile) has no such offsets and stays.
+ */
+export const MODEL_SHIFT = Object.freeze({ enemy_9021_acduml_2: 1 });
 const loop =(name, via = null) => Object.freeze(via ? { begin: null, loop: name, end: null, via } : { begin: null, loop: name, end: null });
 const clipSet = (idle, move, die, attack = null) => Object.freeze({
   idle, deploy: idle, die, move: loop(move),
@@ -505,6 +516,7 @@ export class UnitView {
     // PR #211): a vertical stretch (its Graphic scale's sy / sx, the two 帝国炮火先兆者 at 1.263) and a mirrored X scale
     // (the Graphic's sx is negative, so the official draws the authored model flipped: 木制瑞印)
     this.modelKY = this.isEnemy ? enemyModelScaleY(def) : 1;
+    this.modelDX = this.isEnemy ? MODEL_SHIFT[info.defId] || 0 : 0; // MODEL_SHIFT [ASSUMED]
     this.mirrorX = this.isEnemy && !!(def && def.mirrorX);
     this.isToken = info.kind === 'token';
     this.golden = !!info.golden;
@@ -1290,7 +1302,7 @@ export class UnitView {
     this.lunge = Math.max(0, this.lunge - dt * 5);
     const lx = this.lungeDir.x * lungeK, ly = this.lungeDir.y * lungeK;
     let bx = p.x, by = p.y;
-    if (lungeK) { const q = cam.project(this.x + lx, this.y + ly, this.z + this.hover + this.lift, LG_P); bx = q.x; by = q.y; }
+    if (lungeK || this.modelDX) { const q = cam.project(this.x + this.modelDX + lx, this.y + ly, this.z + this.hover + this.lift, LG_P); bx = q.x; by = q.y; }
     this.root.position.set(bx, by);
     this.root.alpha = alpha;
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
@@ -1302,7 +1314,7 @@ export class UnitView {
     // flyer's lies on the tile under it while its body hovers from the road (shadowZ, GitHub #277)
     const shz = this.shadowZ ?? this.z;
     placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, shz);
-    const sh = cam.project(this.x, this.y, shz, SH_P);
+    const sh = cam.project(this.x + this.modelDX, this.y, shz, SH_P);
     this.shadow.position.set(sh.x, sh.y);
     const shw = s * (this.isBoss ? 1.6 : 0.95) / this.shadow.texture.width;
     this.shadow.scale.set(shw, shw * (this.shadow.texture === shadowTexture() ? 1 : 1.05));
