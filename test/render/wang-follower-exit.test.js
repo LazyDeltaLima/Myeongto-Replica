@@ -22,6 +22,6 @@ test('app.js: a 跟子\'s die removes its view on the next frame, without death 
   assert.match(APP, /if \(e\[1\] === 'summon' && e\[4\] && typeof e\[4\] === 'object' && e\[4\]\.follower && e\[4\]\.id != null\) \{\n\s+followerIds\.add\(e\[4\]\.id\);/);
   assert.match(APP, /const follower = followerIds\.delete\(e\[1\]\);/);
   assert.match(APP, /if \(follower\) \{ v\.dying = 1e-3; v\.dieDur = 1e-3; \}/);
-  assert.match(APP, /else if \(showsDeathFx\(v\.info, used, e\[2\]\)\) fx\.death\(v\);/);
+  assert.match(APP, /else if \(showsDeathFx\(v\.info, used, e\[2\]\)(?: && !fxGame\.ownsDeath\?\.\(v\))?\) fx\.death\(v\);/);
   assert.equal((APP.match(/followerIds\.clear\(\);/g) || []).length, 2, 'cleared with the battle like consumedIds');
 });
