@@ -12,7 +12,7 @@ import { hasGeneratedData } from '../server/sim/simdata.js';
 const REAL = { skip: !hasGeneratedData() };
 const OPS = ['chess_char_1_01_a', 'chess_char_1_02_a', 'chess_char_1_07_a', 'chess_char_2_01_a'];
 
-test('one piece every 0.2 s in the scanning order, then battleStart and the wave clock (spawns, time limit)', REAL, () => {
+test('one piece every 0.2 s in the scanning order, then battleStart and the wave clock (spawns); the time limit from the battle start', REAL, () => {
   assert.equal(PREBUILT_INTERVAL, 0.2);
   const h = makeBattle({
     flags: { prebuiltInterval: PREBUILT_INTERVAL }, timeLimit: 5, seed: 1,
@@ -32,7 +32,9 @@ test('one piece every 0.2 s in the scanning order, then battleStart and the wave
   assert.ok(Math.abs(spawned - 0.8) < 1e-6, `the t = 0 spawn on the wave clock (${spawned})`);
   h.b.runToEnd(30);
   assert.equal(h.b.reason, 'timeout');
-  assert.ok(Math.abs(h.b.time - 5.8) < 0.05, `the time limit from the wave clock (${h.b.time})`);
+  // the time limit from the battle start, the deployment included (maintainer confirmation 2026-10-10: the official
+  // countdown runs while the pieces come in)
+  assert.ok(Math.abs(h.b.time - 5) < 0.05, `the time limit from the battle start (${h.b.time})`);
   assert.ok(Math.abs(prebuiltSeconds([{ units: OPS.map(() => ({ kind: 'chess' })) }]) - 0.8) < 1e-9);
   assert.ok(Math.abs(prebuiltSeconds([{ units: [{ kind: 'chess' }, { kind: 'token' }] }, { units: [{ kind: 'chess' }, { kind: 'chess' }] }]) - 0.6) < 1e-9, '2 operator groups + 1 summon group');
 });

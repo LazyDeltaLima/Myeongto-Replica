@@ -1406,8 +1406,8 @@
       "round": 7,
       "seed": 2621626757,
       "waveId": "act1autochess_escaped_single",
-      "time": 171.8,
-      "ticks": 5154,
+      "time": 170,
+      "ticks": 5100,
       "reason": "timeout",
       "killed": 10,
       "total": 10,
@@ -1415,14 +1415,14 @@
       "bossHpLeft": null,
       "rngDraws": 22,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":10,"total":10,"perfect":true,"leaks":0,"leaksUncounted":1,"coins":3,"dmg":70502,"bossDmg":0,"heal":8352,"deaths":0,"layerGains":{}}},
+      "players": {"p1":{"killed":10,"total":10,"perfect":true,"leaks":0,"leaksUncounted":1,"coins":3,"dmg":70502,"bossDmg":0,"heal":8220,"deaths":0,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_6_03_b",2,"uniequip_002_yu",4070,1,2,0,0,0,0,0,0],
         ["p1",2,"op","chess_char_6_06_b",2,"uniequip_002_pepe",1778.1,1,1,0,0,0,0,0,0],
         ["p1",3,"op","chess_char_6_07_b",2,"uniequip_002_siege2",3411.1,1,23,0,0,0,0,0,0],
         ["p1",4,"op","chess_char_6_01_b",2,"uniequip_002_lemuen",2587.2,1,4,4,26634,0,1811,4,1],
         ["p1",5,"op","chess_char_6_02_b",2,"uniequip_002_sbell2",2126.3,1,7,0,3922,0,425,0,1],
-        ["p1",6,"op","chess_char_6_04_b",2,"uniequip_002_skadi2",133,1,5,0,476,6680,5402,0,4],
+        ["p1",6,"op","chess_char_6_04_b",2,"uniequip_002_skadi2",1,1,5,0,476,6680,5270,0,4],
         ["p1",7,"op","chess_char_6_05_b",2,"uniequip_002_pasngr",1586.2,1,8,5,26160,0,714,0,1],
         ["p1",8,"op","chess_char_6_08_b",2,"uniequip_002_reed2",1834.8,1,6,1,13311,0,0,6,1],
         ["p1",9,"token","token_10017_skadi2_dedant",null,null,100,0,9,0,0,0,0,0,null],
@@ -1431,10 +1431,10 @@
         ["p1","~3","token","token_10017_skadi2_dedant",null,null,100,1,25,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_10028_vtswd":[1,0,0,0,0],"enemy_1158_divman":[4,4,0,0,15206],"enemy_1160_hvyslr":[3,3,0,0,34560],"enemy_1161_tidmag":[3,3,0,0,20736]},
-      "hooks": [1,24,5154,10,10,38,122,3592,10,14,8,8,7,11738,15,0,11,0,1,10,0,0,0],
-      "events": {"atk":11,"bounty":1,"deploy":13,"die":14,"dmg":46,"engage":2,"fx":54,"skill":16,"spawn":23,"status":60,"swing":13},
+      "hooks": [1,24,5100,10,10,38,122,3536,10,14,8,8,7,11684,15,0,11,0,1,10,0,0,0],
+      "events": {"atk":11,"bounty":1,"deploy":13,"die":14,"dmg":46,"engage":2,"fx":54,"skill":16,"spawn":23,"status":54,"swing":13},
       "fx": {"bombard":7,"bombardShell":7,"lightning":13,"lock":7,"lure":1,"scorchBurst":3,"snow":10,"storm":1,"talent":1,"tide":4},
-      "snaps": "8df9a564 f1a98080 32bbc888 c5f56051 cef053ae 79857399 7e929c09 f41dd9a3 e13215bf 343a6d89 3c0a26db c5827ce2 ea096bea aa4a5128 ef4c6639 9297bec8 166840ec 9ba1051a"
+      "snaps": "8df9a564 f1a98080 32bbc888 c5f56051 cef053ae 79857399 7e929c09 f41dd9a3 e13215bf 343a6d89 3c0a26db c5827ce2 ea096bea aa4a5128 ef4c6639 9297bec8 166840ec"
     },
     "unite-2": {
       "about": "联防 2 helper(s), 11 leaked: chess_char_6_15_b chess_char_6_17_b chess_char_6_09_b chess_char_6_11_b chess_char_6_12_b chess_char_6_13_b chess_char_6_14_b chess_char_6_16_b token_10030_mlyss_wtrman | chess_char_6_19_b chess_char_5_01_b chess_char_5_05_b chess_char_5_06_b chess_char_6_18_b chess_char_6_20_b chess_char_5_02_b chess_char_5_03_b",
@@ -1445,8 +1445,8 @@
       "round": 11,
       "seed": 1995382690,
       "waveId": "act1autochess_escaped_multi",
-      "time": 231.8,
-      "ticks": 6954,
+      "time": 230,
+      "ticks": 6900,
       "reason": "timeout",
       "killed": 10,
       "total": 10,
@@ -1455,7 +1455,7 @@
       "rngDraws": 136,
       "errors": {"count":0,"kinds":[]},
       "players": {
-        "p1": {"killed":10,"total":10,"perfect":true,"leaks":0,"leaksUncounted":1,"coins":3,"dmg":164598,"bossDmg":0,"heal":5779,"deaths":0,"layerGains":{}},
+        "p1": {"killed":10,"total":10,"perfect":true,"leaks":0,"leaksUncounted":1,"coins":3,"dmg":164598,"bossDmg":0,"heal":5706,"deaths":0,"layerGains":{}},
         "p2": {"killed":0,"total":0,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":11575,"bossDmg":0,"heal":11826,"deaths":0,"layerGains":{}}
       },
       "units": [
@@ -1464,8 +1464,8 @@
         ["p1",3,"op","chess_char_6_09_b",0,"uniequip_002_cello",1454.2,1,37,0,0,0,0,0,0],
         ["p1",4,"op","chess_char_6_11_b",2,"uniequip_002_mlyss",2082.3,1,13,0,0,0,0,0,0],
         ["p1",5,"op","chess_char_6_12_b",1,"uniequip_002_rosmon",3238.99,1,16,5,63110,0,0,14,1],
-        ["p1",6,"op","chess_char_6_13_b",1,"uniequip_002_angel2",2436.5,1,18,0,0,6530,0,0,0],
-        ["p1",7,"op","chess_char_6_14_b",2,"uniequip_002_lumen",3655.58,1,20,0,0,0,5779,87,1],
+        ["p1",6,"op","chess_char_6_13_b",1,"uniequip_002_angel2",2412.14,1,18,0,0,6481,0,0,0],
+        ["p1",7,"op","chess_char_6_14_b",2,"uniequip_002_lumen",3655.58,1,20,0,0,0,5706,86,1],
         ["p1",8,"op","chess_char_6_16_b",2,"uniequip_002_halo2",1582.9,1,11,1,11635,0,0,11,1],
         ["p1",9,"token","token_10030_mlyss_wtrman",null,null,3593,1,14,0,0,0,0,0,1],
         ["p2",10,"op","chess_char_6_19_b",2,"uniequip_002_blkkgt",3043.7,1,6,0,0,0,0,0,0],
@@ -1483,10 +1483,10 @@
         ["p1","~1","token","token_10019_nearl2_sword",null,null,4227.03,0,35,0,29620,3300,0,15,null]
       ],
       "enemies": {"enemy_10029_vtshld":[1,0,0,0,0],"enemy_1249_lysdb_2":[3,3,0,1657,53748],"enemy_1251_lysyta":[4,4,0,0,32846],"enemy_1329_cbshld":[3,3,0,5167,89580]},
-      "hooks": [1,37,6954,194,194,255,482,531,10,15,9,7,0,19955,447,7,11,0,1,10,0,0,0],
-      "events": {"atk":296,"bounty":1,"deploy":22,"die":15,"dmg":252,"engage":5,"fx":416,"heal":200,"skill":16,"spawn":33,"status":52,"swing":233},
+      "hooks": [1,37,6900,193,193,255,480,528,10,15,9,7,0,19901,444,7,11,0,1,10,0,0,0],
+      "events": {"atk":295,"bounty":1,"deploy":22,"die":15,"dmg":252,"engage":5,"fx":416,"heal":199,"skill":16,"spawn":33,"status":52,"swing":232},
       "fx": {"blink":2,"copy":1,"drone":153,"droneLock":6,"drones":2,"garrisonGrant":1,"link":2,"radiantSword":1,"shieldBreak":3,"summon":1,"sunBurst":1,"talent":3,"whitw2Drones":240},
-      "snaps": "51f116b6 9dc1cfb4 cec35dc5 413852c7 8aaf8fd0 cc60ce06 cd1effd8 571a33c6 87dc3480 35875e55 53922aef 4a93dd86 cc73b3e5 205e6748 8ac46291 9b39f3fb 9d8512d1 fbd6d10f f9e53846 0eeaf545 c9ce2b37 6b307942 2f97e040 abea6f48"
+      "snaps": "51f116b6 9dc1cfb4 cec35dc5 413852c7 8aaf8fd0 cc60ce06 cd1effd8 571a33c6 87dc3480 35875e55 53922aef 4a93dd86 cc73b3e5 205e6748 8ac46291 9b39f3fb 9d8512d1 fbd6d10f f9e53846 0eeaf545 c9ce2b37 6b307942 2f97e040"
     }
   }
 }

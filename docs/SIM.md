@@ -78,8 +78,8 @@ scan down each column — the 阿戈尔 devour's "更靠左和靠上"; row-major
 summon piece content flags `deferDeploy` (one its owner's loadout does not make, e.g. 赫默 on S1; with
 `SKILL_SUMMON_START_DEPLOY` off also a skill's summon, which then waits on its reserved tile until the skill gives
 one) — firing `deploy {initial:true}` for
-each; one interval after the last group the **wave clock** starts (`battle.waveT0`: the stage's spawn times and the time
-limit count from it — no spawn before), it forces out the operators that enter knocked out (`carryState.down`, 联防 —
+each; one interval after the last group the **wave clock** starts (`battle.waveT0`: the stage's spawn times count from it —
+no spawn before; the time limit counts from the battle start, the deployment included), it forces out the operators that enter knocked out (`carryState.down`, 联防 —
 §1.1), then fires `battleStart`. Every
 summon that came in during the initial deployment (also one an operator's deploy brought along) then ranks after all
 the operators in the aggro order (`unit.aggroSeq`, §1.2). On a shared field (联防, the boss field)

@@ -486,11 +486,15 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   (`Scheduler.Init`·`DoSchedule`)를 시작한다.
 - 지금(`battle/lifecycle.js start`·`_prebuiltStep`·`_beginWave`): 배치 순서(열마다 위→아래, 왼쪽 열부터, 오퍼레이터 다음 소환물; 공유 필드는 플레이어마다
   i번째끼리 한 묶음 [ASSUMED])대로 **0.2게임초마다 한 묶음**, 첫 묶음은 0초. 마지막 묶음 뒤 0.2초에 웨이브 시계(`battle.waveT0`)가 시작하고, 그때
-  联防 강제 퇴장 → `battleStart`. 스테이지 출현 시각과 제한 시간은 `waveT0`부터 센다(그 전엔 출현 없음). 먼저 내려온 유닛은 그동안 SP가 차고
+  联防 강제 퇴장 → `battleStart`. 스테이지 출현 시각은 `waveT0`부터 센다(그 전엔 출현 없음). **제한 시간은 전투 시작(첫 배치)부터** 센다 —
+  관리자 확인 2026-10-10, 공식 영상: 100초 카운트다운이 배치와 함께 시작하고 오퍼레이터 8명이 다 놓였을 때 약 98초가 남아 있다(처음 넣은
+  판(47694f78)은 제한 시간도 `waveT0`부터 셌다). 먼저 내려온 유닛은 그동안 SP가 차고
   오라도 켜진다(적은 아직 없음). 상수 `constants.js PREBUILT_INTERVAL`, 전투 플래그 `prebuiltInterval`; 테스트 하네스(`battleHarness`)는 0을
   넘겨 예전처럼 한꺼번에(단위 테스트용) — 실제 매치 경로(spec → `createBattleFromSpec`)는 0.2.
-- 매치 쪽: 화면 제한 시간(`m.public.deadline`, 일반·联防)과 클라 필드 시계 한도(`clientCombat.js _fieldElapsed`·`_armDeadline`), 결과 검증
-  (`fields.js specBounds maxTime`)에 `spec.js prebuiltSeconds`(묶음 수 × 0.2)를 더한다. 보스 라운드 초과 시간은 실시간 시계라 그대로 [ASSUMED].
+- 매치 쪽: 화면 제한 시간(`m.public.deadline`)과 클라 필드 시계 한도는 그대로 전투 시작부터(위 관리자 확인). 결과 검증(`fields.js specBounds
+  maxTime`)·봇 리허설 상한에만 배치 시간 여유(`spec.js prebuiltSeconds`, 묶음 수 × 0.2)를 더해 둔다.
+- **[열림] 배치에 걸리는 시간**: 위 영상에서 8명 배치에 약 2초(100 → 약 98)가 지났는데, 0.2게임초 × 8 = 1.6게임초 = 배속 2에서 약 0.8실시간초다.
+  영상의 2초에는 낙하 연출이나 첫 웨이브 앞부분이 들어 있을 수 있다 — 고치지 않았다(근거 없는 보정 금지).
 - 예전(2026-10-10 저녁 전): 모두 0초 배치·웨이브 0초 시작, 화면만 0.12초 간격 차례 낙하(`render.md` 「배치 낙하」 — 지움).
 - 테스트 `test/prebuilt-deploy.test.js`(0.2초 간격·`battleStart`·첫 출현·제한 시간, 실제 매치 경로).
 

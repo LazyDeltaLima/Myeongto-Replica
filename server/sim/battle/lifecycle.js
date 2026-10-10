@@ -64,8 +64,8 @@ export class BattleLifecycle {
   }
 
   /**
-   * The wave clock starts (client ON_BATTLE_STARTED, then `Scheduler.Init` / `DoSchedule`): the stage's spawn times and
-   * the time limit count from now (`waveT0`), the start-of-battle summons rank in aggro, 联防 forced exits, `battleStart`.
+   * The wave clock starts (client ON_BATTLE_STARTED, then `Scheduler.Init` / `DoSchedule`): the stage's spawn times count
+   * from now (`waveT0`; the time limit from the battle start), the start-of-battle summons rank in aggro, 联防 forced exits, `battleStart`.
    */
   _beginWave(seq0) {
     this.waveT0 = this.time;
@@ -180,12 +180,14 @@ export class BattleLifecycle {
     // §5.5) — never merely because it emptied: the h07_04 pair leader (official route: no wait) can walk into the
     // objective, and the field then idles while another field may still empty the pool or the overtime drain ends it.
     const poolHolds = !!this.sharedBoss && (this.kind === 'boss' || this.kind === 'hidden');
+    // the time limit counts from the battle start, the deployment included (maintainer confirmation 2026-10-10: the
+    // official countdown runs while the pieces come in — docs/rules/sim.md 「작전 시작 차례 배치」); only the spawns wait
+    // for the wave clock
+    if (this.time >= this.timeLimit - 1e-9) { this._timeout(); return; }
     if (this.waveT0 == null) { if (this.time >= MAX_BATTLE_TIME) this._timeout(); return; } // the battle-start deployment runs
     if (this.autoFinish && !poolHolds && !this._pending.length && !this.enemies.some((e) => e.alive) && this.started) {
       if (!this._hasPendingEnemySchedules()) { this._finish('cleared'); return; }
     }
-    // the time limit counts from the wave clock (the client's scheduler starts after the battle-start deployment)
-    if (this.time - this.waveT0 >= this.timeLimit - 1e-9) { this._timeout(); return; }
     if (this.time >= MAX_BATTLE_TIME) { this._timeout(); return; }
   }
 

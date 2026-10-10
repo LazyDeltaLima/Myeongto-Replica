@@ -9,7 +9,6 @@ import { withBounties } from '../waves.js';
 import { planUnite } from '../unite.js';
 import { FieldRunner, DeadBattle } from '../fields.js';
 import { DELAYS } from './common.js';
-import { prebuiltSeconds } from '../../sim/spec.js';
 
 export class MatchCombat {
   /** Construct a battle; a constructor failure yields a finished stand-in (clean result) and is logged. */
@@ -75,8 +74,7 @@ export class MatchCombat {
     const alive = this.alivePlayers();
     this.lastResults = new Map();
     this.fields = alive.map((ps) => ({ fieldId: `n:${ps.playerId}`, kind: 'normal', players: [ps.playerId], battle: this._normalBattle(ps), live: true }));
-    // the time limit runs on the wave clock, after the battle-start deployment (sim/spec.js prebuiltSeconds)
-    const limit = (this.wave ? this.wave.timeLimit : 60) + Math.max(0, ...this.fields.map((f) => prebuiltSeconds(f.battle?.opts?.players)));
+    const limit = this.wave ? this.wave.timeLimit : 60;
     this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round((limit / this.gameSpeed) * 1000);
     this._defaultWatch();
     this.markPublic();
@@ -90,7 +88,7 @@ export class MatchCombat {
     this.lastResults = new Map();
     this.watchers.clear();
     const fields = alive.map((ps) => this._ccField({ fieldId: `n:${ps.playerId}`, kind: 'normal', players: [ps.playerId], opts: this._normalOpts(ps) }));
-    const limit = (this.wave ? this.wave.timeLimit : 60) + Math.max(0, ...fields.map((f) => prebuiltSeconds(f.spec?.players)));
+    const limit = this.wave ? this.wave.timeLimit : 60;
     this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round((limit / this.gameSpeed) * 1000);
     this._launch(fields);
     // every fighting human runs its own field; eliminated humans (and spectator seats) keep watching (research 09 §3.1

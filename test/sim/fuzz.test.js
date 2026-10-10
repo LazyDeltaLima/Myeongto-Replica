@@ -6,7 +6,6 @@ import { Battle } from '../../server/sim/Battle.js';
 import { createRng } from '../../server/sim/rng.js';
 import { getDefaultSource, spawnsFromTemplate } from '../../server/sim/simdata.js';
 import { checkInvariants } from '../helpers/battleHarness.js';
-import { prebuiltSeconds } from '../../server/sim/spec.js';
 
 const ds = getDefaultSource();
 const quiet = { error() {}, warn() {}, info() {} };
@@ -89,9 +88,7 @@ test('fuzz: 200 random battles on real data run to completion with invariants', 
     });
     const t0 = performance.now();
     let n = 0;
-    // the time limit runs on the wave clock, after the battle-start deployment (one piece every 0.2 s: prebuiltSeconds)
-    const pre = prebuiltSeconds(players);
-    const hardCap = bossLike ? 180 : timeLimit + pre + 1;
+    const hardCap = bossLike ? 180 : timeLimit + 1;
     while (!b.finished) {
       b.step();
       n++;
@@ -102,7 +99,7 @@ test('fuzz: 200 random battles on real data run to completion with invariants', 
     stats.ms += performance.now() - t0;
     stats.ticks += n;
     assert.ok(b.finished, `battle ${i} (${kind} ${stageId} ${waveId} seed ${seed}) terminated`);
-    if (!bossLike) assert.ok(b.time <= timeLimit + pre + 1, `battle ${i} ended in time (${b.time})`);
+    if (!bossLike) assert.ok(b.time <= timeLimit + 1, `battle ${i} ended in time (${b.time})`);
     checkInvariants(b);
     assert.equal(b.internalErrorCount ?? 0, 0, `battle ${i} internal errors: ${JSON.stringify(b.errors.slice(0, 2))}`);
     assert.equal(b.errors.length, 0, `battle ${i} errors: ${JSON.stringify(b.errors.slice(0, 2))}`);

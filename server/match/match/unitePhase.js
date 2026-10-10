@@ -7,7 +7,7 @@ import { PHASE, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { uniteBattleOpts, uniteSurvivors } from '../unite.js';
 import { FieldRunner, timelineAt, uniteBillBounds } from '../fields.js';
-import { uniteLeft, prebuiltSeconds } from '../../sim/spec.js';
+import { uniteLeft } from '../../sim/spec.js';
 import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
 import { msg } from '../../../shared/i18n.js';
 
@@ -19,8 +19,7 @@ export class MatchUnite {
     const limit = this.wave ? this.wave.timeLimit : 60;
     const battle = this.newBattle(this._uniteOpts(plan, limit));
     this.fields = [{ fieldId: 'u', kind: 'unite', players: plan.helpers.map((p) => p.playerId), battle, live: true }];
-    // the time limit runs on the wave clock, after the battle-start deployment (sim/spec.js prebuiltSeconds)
-    this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round(((limit + prebuiltSeconds(battle?.opts?.players)) / this.gameSpeed) * 1000);
+    this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round((limit / this.gameSpeed) * 1000);
     this._defaultWatch();
     this.markPublic();
     this.tickerText(msg('联防阶段：{names} 迎战突破防线的敌人', { names: plan.helpers.map((p) => p.name) }), FLOW_TICKER_PRIORITY);
@@ -73,7 +72,7 @@ export class MatchUnite {
     this.unitePlan = plan;
     const limit = this.wave ? this.wave.timeLimit : 60;
     const f = this._ccField({ fieldId: 'u', kind: 'unite', players: plan.helpers.map((p) => p.playerId), opts: this._uniteOpts(plan, limit) });
-    this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round(((limit + prebuiltSeconds(f.spec?.players)) / this.gameSpeed) * 1000);
+    this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round((limit / this.gameSpeed) * 1000);
     this.watchers.clear();
     this._launch([f]);
     // helpers and everyone else (as observers, spectator seats included) simulate the same 联防 spec locally

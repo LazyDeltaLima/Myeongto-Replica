@@ -227,7 +227,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 0,
           "reward": 400,
-          "stats": {"activatedLayers":260,"bossDamage":97500,"dmgDealt":2265562,"gold":140,"itemsEquipped":13,"kills":269,"leaks":4,"lpLost":4,"merges":5,"perfectRounds":12,"refreshes":18},
+          "stats": {"activatedLayers":260,"bossDamage":97500,"dmgDealt":2264844,"gold":140,"itemsEquipped":13,"kills":269,"leaks":4,"lpLost":4,"merges":5,"perfectRounds":12,"refreshes":18},
           "lineup": ["1_17_b@12,5","4_14_b@11,4","3_11_a@11,5[1_05_e_a+3_08_e_a]","5_07_a@11,6[4_02_e_a+4_05_e_a]","4_10_a@10,3","1_02_b@10,4[4_12_e_a+4_06_e_a]","5_14_a@10,5[1_05_e_b+1_05_e_b]","4_04_a@10,6"],
           "bonds": ["arcaneShip 2/40","kazimierzShip 0/2","kjeragShip 1/13","lateranoShip 0/3","preciShip 2/58","raidShip 1/76","sargonShip 0/2","steadShip 0/8","suntShip 1/0","swiftShip 1/53","visiShip 1/20"]
         }
@@ -503,7 +503,7 @@
           "title": {"id":"comment_4","name":"精英云集","picId":"comment_icon_4","text":"晋升精锐次数最多"},
           "trophies": 0,
           "reward": 213,
-          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":1776648,"gold":102,"itemsEquipped":7,"kills":176,"leaks":33,"lpLost":32,"merges":3,"perfectRounds":5,"refreshes":12},
+          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":1776441,"gold":102,"itemsEquipped":7,"kills":176,"leaks":33,"lpLost":32,"merges":3,"perfectRounds":5,"refreshes":12},
           "lineup": [],
           "bonds": ["arcaneShip 0/30","kazimierzShip 0/8","kjeragShip 0/19","lateranoShip 0/3","preciShip 0/22","sargonShip 0/2","steadShip 0/8","swiftShip 0/10"]
         }
@@ -614,7 +614,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":212,"bossDamage":893202,"dmgDealt":3686967,"gold":137,"itemsEquipped":18,"kills":321,"leaks":8,"lpLost":5,"merges":5,"perfectRounds":10,"refreshes":13},
+          "stats": {"activatedLayers":212,"bossDamage":893202,"dmgDealt":3685335,"gold":137,"itemsEquipped":18,"kills":321,"leaks":8,"lpLost":5,"merges":5,"perfectRounds":10,"refreshes":13},
           "lineup": ["4_20_a@12,8[3_06_e_a]","1_17_b@11,7[3_08_e_a]","4_02_b@11,8[3_02_e_a+4_03_e_b]","4_01_b@10,7[4_04_e_a+1_02_e_a]","6_17_a@10,8[4_06_e_a+4_08_e_a]","6_19_a@9,7[1_05_e_a+1_01_e_a]","4_14_a@9,8","5_07_a@9,9"],
           "bonds": ["arcaneShip 2/28","kazimierzShip 1/49","kjeragShip 0/8","lateranoShip 0/8","preciShip 2/55","raidShip 1/0","sargonShip 0/10","suntShip 1/0","swiftShip 1/80"]
         }
@@ -829,7 +829,7 @@
           "title": {"id":"comment_6","name":"挥金如土","picId":"comment_icon_6","text":"消耗资金最多"},
           "trophies": 2,
           "reward": 191,
-          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":1462430,"gold":87,"itemsEquipped":4,"kills":243,"leaks":32,"lpLost":30,"merges":1,"perfectRounds":7,"refreshes":17},
+          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":1462232,"gold":87,"itemsEquipped":4,"kills":243,"leaks":32,"lpLost":30,"merges":1,"perfectRounds":7,"refreshes":17},
           "lineup": [],
           "bonds": ["deputShip 0/33","kazimierzShip 0/4","lateranoShip 0/16","miraShip 0/6","siracusaShip 0/10","skillfulShip 0/45","soloShip 0/12","swiftShip 0/28"]
         },
@@ -1700,7 +1700,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":376,"bossDamage":829758,"dmgDealt":4814147,"gold":130,"itemsEquipped":20,"kills":338,"leaks":2,"lpLost":2,"merges":1,"perfectRounds":12,"refreshes":30},
+          "stats": {"activatedLayers":376,"bossDamage":829758,"dmgDealt":4814130,"gold":130,"itemsEquipped":20,"kills":338,"leaks":2,"lpLost":2,"merges":1,"perfectRounds":12,"refreshes":30},
           "lineup": ["5_02_a@10,3[4_03_e_a+5_02_e_a]","6_05_a@10,4[2_04_e_a]","4_14_a@10,5[6_01_e_a+1_02_e_a]","6_08_a@10,6[3_11_e_a+6_07_e_a]","2_08_a@9,4[4_04_e_a+2_01_e_a]","3_16_b@9,5[3_07_e_a+4_11_e_a]","2_17_a@9,6","6_06_a@9,9[1_05_e_a+1_01_e_a]"],
           "bonds": ["indomShip 1/18","preciShip 2/107","sargonShip 1/126","soloShip 1/0","steadShip 2/67","swiftShip 1/58","yanShip 0/18"]
         },
