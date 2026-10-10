@@ -738,7 +738,7 @@ class Extractor:
                 continue
             if not (0 <= i(s + 8) <= 8 and 0 <= i(s + 9) < 64 and i(s + 3) in (0, 1) and i(s + 5) in (0, 1) and i(s + 14) in (0, 1)):
                 continue
-            pe = {'delayToPlay': f(s), 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8),
+            pe = {'delayToPlay': f(s), 'delayToFinish': f(s + 1), 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8),
                   'spawn': i(s + 9), 'leftIsDefault': i(s + 10), 'mainDir': i(s + 12), 'overwrite': i(s + 14), 'heightOffset': f(s + 15)}
         if pe is None:
             return None
@@ -834,30 +834,11 @@ class Extractor:
         """(2026-10-11, decompile check — client `Effect.FinishMe` RVA 0xC88FE0: an effect being finished (a buff ending,
         `Entity.RemoveBuffEffect` RVA 0x36001C0) stops its parts and is recycled `delayToRecycle` s later, which a
         ParticleEffect returns as its `_delayToFinish` — `ParticleEffect.get_delayToRecycle` RVA 0xCB3470): the root effect
-        component's raw float #5, read as spawn_location reads #13 (the field order of the client's ParticleEffect: #4
-        _delayToPlay, #5 _delayToFinish, #6 _maxLifetime). buff_stun 0, buff_slowdown 0.5, buff_cold 0.06. None when the
+        component's `_delayToFinish` (root_effect). buff_stun 0, buff_slowdown 0.5, buff_cold 0.06. None when the
         component is not found."""
-        try:
-            d = root.read_typetree()
-        except Exception:
-            return None
-        for c in d['m_Component']:
-            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
-            if comp is None or comp.type.name != 'MonoBehaviour':
-                continue
-            raw = comp.get_raw_data()
-            off = 12 + 4 + 12
-            if len(raw) < off + 4:
-                continue
-            n = struct.unpack_from('<i', raw, off)[0]
-            off = (off + 4 + n + 3) & ~3
-            if len(raw) < off + 14 * 4:
-                continue
-            ints = struct.unpack_from('<14i', raw, off)
-            if ints[6] == -1082130432 and ints[10] == 1073741824 and 0 <= ints[13] < 64:
-                v = struct.unpack_from('<f', raw, off + 5 * 4)[0]
-                return r4(v) if math.isfinite(v) and 0 <= v <= 60 else None
-        return None
+        pe = self.root_effect(root)
+        v = pe['delayToFinish'] if pe else None
+        return r4(v) if v is not None and math.isfinite(v) and 0 <= v <= 60 else None
 
     def finish_only(self, bundle, pack=None):
         """2026-10-11: write only the `finish` (delay_to_finish) of the bundle's already extracted prefabs, like

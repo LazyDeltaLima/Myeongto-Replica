@@ -20,12 +20,12 @@ test('fxgame.js statusOff: `now` stops the emission and removes the effect its p
   assert.match(src('../../public/js/render/fxstatus.js'), /fxGame\.statusOff\(v, k, true\)/);
 });
 
-test('fx_extract.py: `finish` = the root ParticleEffect\'s raw float #5 (_delayToFinish), --finish-only rewrites only it', () => {
+test('fx_extract.py: `finish` = the root ParticleEffect\'s _delayToFinish, --finish-only rewrites only it', () => {
   const py = src('../../tools/local-extract/fx_extract.py');
   const fn = py.slice(py.indexOf('def delay_to_finish('), py.indexOf('def finish_only('));
-  // recognised like spawn_location (#6 _maxLifetime −1.0, #10 _limitedPlaybackSpeed 2.0, #13 _spawnLocation), then float #5
-  assert.match(fn, /ints\[6\] == -1082130432 and ints\[10\] == 1073741824/);
-  assert.match(fn, /struct\.unpack_from\('<f', raw, off \+ 5 \* 4\)/);
+  // the root effect component recognised by its shape (root_effect, like spawn_location), its field s+1
+  assert.match(fn, /pe = self\.root_effect\(root\)/);
+  assert.match(py, /'delayToFinish': f\(s \+ 1\)/);
   assert.match(py, /out_def\['finish'\] = finish/);
   assert.match(py, /'--finish-only'/);
 });
