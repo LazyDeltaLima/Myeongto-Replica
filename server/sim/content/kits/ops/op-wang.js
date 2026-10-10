@@ -34,16 +34,18 @@
 //   battle start (it used to add one per stone, and those, counted under the deploy limit, withdrew the oldest placed
 //   stones: the layout changed when the battle began).
 // - 跟子 (铸子, E1+): PRTS "通过天赋'额外部署的棋子'实为望自身发射的弹道 由此其不具有单位相关的性质（例如占据空位等）" — not a unit: it never counts under the stone deploy limit
-//   (maxDeployCount) and occupies no tile; ≤ attack@max_spawn_cnt of them. Tile: one of the 4 neighbours, enemy tiles
-//   first, then undeployable ground > deployable ground > deployable high ground (never undeployable high ground), ties
+//   (maxDeployCount) and occupies no tile; ≤ attack@max_spawn_cnt of them. Tile: one of the 4 neighbours in the client's
+//   WangTileSelector order (followerOrder, 2026-10-10): ground first, then an enemy on it, then undeployable, then
 //   up > right > down > left as the board is drawn (PRTS 「相同优先级时按棋子上>右>下>左」, left / right swapped on a mirrored
-//   field; user decision 2026-10-07, W8 — it replaced the seeded random of the client's _alwaysRandomInTheEnd 1; the
-//   priority confirmed in game by the user 2026-10-07); only where no character unit stands and no knocked-out operator
-//   lies (downOn, as upstream; user decision 2026-10-07). It needs no stock and is drawn as a stone. It links like a stone; its damage comes from 望.
+//   field; user decision 2026-10-07, W8; until 2026-10-10 enemy tiles came first, as PRTS words it) — never undeployable
+//   high ground; only where no character unit stands and no knocked-out operator lies (downOn, as upstream; user
+//   decision 2026-10-07). Several in a row are built one per 4 frames. It needs no stock and is drawn as a stone. It
+//   links like a stone (armed 30 frames after the link, as a stone); its damage comes from 望.
 // - Stock (手牌): at the battle start the stones not placed (deploy limit − placed: 6, 7 with her module
 //   uniequip_002_wang — stoneLimits; user decision 2026-10-07), ≤ maxDeckStackCnt.
 //   S1 / S2: "立即获得两枚棋子", 阻回 while the stock is full (PRTS 备注). S3: gains cnt, the stones above the stock limit
-//   go out as 跟子 on the enemies of her range (PRTS: "技能开启时自动部署的为第一天赋的跟子"); manual deployments in her
+//   go out as 跟子 on tiles of her range (PRTS: "技能开启时自动部署的为第一天赋的跟子"; the client's InstantSpawn order:
+//   ground, enemy tiles, undeployable first, otherwise random — followerOrder); manual deployments in her
 //   range may go on enemy tiles and bring the talent's 跟子 (free) + up to 3 extra 跟子, one ammo each — ≤ 3 ammo a deployment
 //   (「第一天赋额外至多部署3枚棋子并消耗等量弹药」: one manual stone = the talent's 1 + S3's ≤ 3 — confirmed in game by the
 //   user 2026-10-07, W12); it ends when stopped or out of stones,
@@ -62,7 +64,7 @@
 //   per_magic_resist_penetrate_fixed flat RES ignore (≤ max_trigger_cnt); latched per stone at the longest line it
 //   has seen (namu: 3 linked, one leaves → the others keep 3).
 
-import { COLS } from '../../../constants.js';
+import { COLS, TICK } from '../../../constants.js';
 import { bodyOnTile } from '../../../body.js';
 import { enemyStealthed } from '../../../targeting.js';
 import { DEPLOY_REFUSED_TILES } from '../../../grid.js';
@@ -91,9 +93,11 @@ const WANG_S3_PACE = 1; // [ASSUMED] one automatic deployment a second while S3 
 const RETURN_USES_STOCK = false;
 /**
  * Tiles no 跟子 may take (local patch 2026-10-06, user: "적 공격 포인트"): the client 跟子 selector has `exceptTileTypes`
- * with tileTypesMask 14. Torappu TileTypesMask bits, in the order of battle_misc_table tileTypeDict (DEFAULT 1 assumed
- * first, then END 2, START 4, HOLE 8, FAKE_HIGHLAND 16, RESPAWN_ABNORMAL 32) → 14 = END | START | HOLE:
- * tile_end / tile_end_cooperate / tile_allygoal, tile_start / tile_start_cooperate / tile_enemygoal, tile_hole.
+ * with tileTypesMask 14. Client enum Torappu.Battle.TileTypesMask ([Flags]): NONE 0, DEFAULT 1, HOLE 2, END 4, START 8,
+ * FAKE_HIGHLAND 16 (2026-10-10; until then guessed from the tileTypeDict order) → 14 = HOLE | END | START (the tile key
+ * → mask map is BattleMiscDB.GetTileTypesMask over battle_misc tileTypeDict): tile_end / tile_end_cooperate /
+ * tile_allygoal, tile_start / tile_start_cooperate / tile_enemygoal, tile_hole [the key list not re-checked against
+ * tileTypeDict].
  */
 const FOLLOWER_EXCEPT_TILES = new Set(['tile_end', 'tile_end_cooperate', 'tile_allygoal', 'tile_start', 'tile_start_cooperate', 'tile_enemygoal', 'tile_hole']);
 /**
@@ -104,6 +108,15 @@ const FOLLOWER_EXCEPT_TILES = new Set(['tile_end', 'tile_end_cooperate', 'tile_a
  */
 const FOLLOWER_REFUSED_TILES = DEPLOY_REFUSED_TILES;
 const WANG_S3_EXTRA = 3; // "第一天赋额外至多部署3枚棋子"
+/**
+ * Official battle frames (local patch 2026-10-10): the client's fixed step is 1/30 s — globalgamemanagers TimeManager
+ * 'Fixed Timestep' 0.0333333 (EN client 2026-08; GlobalConsts.TIME_ROUGH_LOGIC_RATE 30) — one sim tick (constants.js TICK).
+ * env_043_stone_trigger (WangStoneTriggerManager): a stone / 跟子 linked at frame F arms (its onStoneTriggered →
+ * wang_stone_triggered, the trigger condition) once `fixedFrameCnt > F + _tokenStoneExplodeDelay` (`_projectileStoneExplodeDelay`
+ * for a 跟子; both 30) — client code WangStoneTriggerManager._TryTriggerStones / OnTick → _DoStoneExplode; the link shows
+ * at once. Queued 跟子 are built one per `_stoneBuildDelay` 4 frames (WangStoneTriggerManager.OnTick buildStoneRequests).
+ */
+const STONE_ARM_FRAMES = 30, STONE_BUILD_FRAMES = 4;
 
 function stonesOf(battle, owner) {
   return battle.allies(owner.ownerId).filter((a) => a.kind === 'token' && a.defId === STONE_ID && a.ownerUnit === owner && a.alive);
@@ -132,11 +145,13 @@ const walkersOnTile = (battle, r, c) => enemiesOnTile(battle, r, c).filter((e) =
  */
 const stoneSelectable = (e) => e.alive && !e.hidden && !e.s.flags.untargetable && !(e.s.flags.stealth && enemyStealthed(e));
 /**
- * S3 enemy tiles, most urgent first: the official text only says "优先部署在范围内敌人所在位置" (client WangTileSelector
- * SKILL_3_INSTANT sorts natively, no distance sort in its data; PRTS orders by enemy / tile class only) — local patch
- * (user decision 2026-10-06) [추정]: the enemy closest to its goal first (default targeting: remaining path, then spawn order).
+ * The client's 跟子 tile order (WangTileSelector._SortCandidates comparator, ascending keys; local patch 2026-10-10 — it
+ * replaced PRTS's enemy-first order): ground before high ground (`!tile.isLowland`), then a tile with an enemy on it (any
+ * valid enemy, _CheckContainsEnemies), then an undeployable one (`buildableType != NONE` sorts after), then — the
+ * talent's 跟子 only (TALENT), not S3's InstantSpawn (SKILL_3_INSTANT: equal) — the direction from the centre stone
+ * (_GetDirectionPriority: row+ 0, col+ 1, row− 2, col− 3 = up > right > down > left). `x` = { cls (followerClass), foe, dir }.
  */
-const goalFirst = (battle, list) => list.sort((a, b) => battle.remainingDistance(a) - battle.remainingDistance(b) || a.spawnSeq - b.spawnSeq);
+const followerOrder = (a, b) => ((a.cls === 2) - (b.cls === 2)) || ((b.foe ? 1 : 0) - (a.foe ? 1 : 0)) || ((a.cls !== 0) - (b.cls !== 0)) || ((a.dir ?? 0) - (b.dir ?? 0));
 const wangSkill = (owner) => owner?.skill?.id ?? owner?.def?.skill?.id ?? null;
 
 function wang(bb, chess, def) {
@@ -194,12 +209,10 @@ function wang(bb, chess, def) {
    * every one paid, no free one.
    */
   const s3Followers = (ammo) => 1 + Math.min(WANG_S3_EXTRA, ammo);
-  const s3Paid = (built) => Math.max(0, built - 1);
-  /** Spend the S3 ammo of a deployment that built `built` 跟子 (`ammo` = the count before it); the last ammo ends S3. */
-  const spendS3 = (unit, ammo, built) => {
-    const paid = s3Paid(built);
-    if (!(paid > 0)) return false;
-    unit.skill.ammoLeft = st(unit).ammo = Math.max(0, ammo - paid);
+  const s3Running = (unit) => !!unit.skill?.active && unit.skill.id === 'skchr_wang_3';
+  /** One S3 ammo for a paid 跟子 just built; the last ammo ends S3. */
+  const spendS3 = (unit) => {
+    unit.skill.ammoLeft = st(unit).ammo = Math.max(0, Math.floor(num(unit.skill.ammoLeft, 0)) - 1);
     if (unit.skill.ammoLeft <= 0) { unit.skill.end('ammo'); return true; }
     return false;
   };
@@ -223,7 +236,7 @@ function wang(bb, chess, def) {
       if (RETURN_USES_STOCK && st(unit).stock <= 0) break; // (the former stock rule, off) the stock is out: wait for S1 / S2
       if (!battle.redeploy(t, { free: false })) continue;
       if (RETURN_USES_STOCK) st(unit).stock--;
-      Object.assign(t.mem, { wangUsed: false, active: false, line: 0, axes: new Set() });
+      Object.assign(t.mem, { wangUsed: false, active: false, armAt: 0, line: 0, axes: new Set() });
       battle.fx('summon', { x: t.x, y: t.y, id: t.id });
       // every stone birth brings its 跟子 (client wang_stone1_t_1[trigger] ON_OWNER_BORN) — the battle-start deployment
       // of the prep stones aside (user decision)
@@ -232,8 +245,7 @@ function wang(bb, chess, def) {
       // S3 stand-in found no free slot and spent nothing) — it builds the S3 跟子 around it (s3Followers: the talent's
       // one free + ≤ 3 extra, one ammo each)
       const ammo = s3 ? Math.max(0, Math.floor(num(unit.skill.ammoLeft, 0))) : 0;
-      const built = followAround(battle, unit, t, s3 ? s3Followers(ammo) : 1);
-      if (s3) spendS3(unit, ammo, built);
+      followAround(battle, unit, t, s3 ? s3Followers(ammo) : 1, s3);
       syncSpLock(battle, unit);
     }
   };
@@ -271,29 +283,59 @@ function wang(bb, chess, def) {
     if (t.build === 'NONE') return t.pass === 'ALL' && t.height === 'LOW' ? 0 : null;
     return t.height === 'LOW' ? 1 : 2;
   };
-  /** 铸子 跟子 around `s`; returns the count placed (≤ n). */
-  const followAround = (battle, unit, s, n = 1) => {
-    let k = 0;
-    // ties: PRTS 铸子 备注 「相同优先级时按棋子上>右>下>左」 as the board is drawn — the mirrored field (boss / hidden right
-    // side, drawn with col → 20 − col) swaps right and left (as upstream's SIDES_MIRRORED). User decision 2026-10-07 (W8):
-    // replaces the seeded random tie-break (client _alwaysRandomInTheEnd 1 — the sources disagree, the user chose PRTS)
+  /**
+   * One 铸子 跟子 next to the tile (r0, c0) — the client's BuildStone selector (`_maxNum` 1) with WangTileSelector TALENT:
+   * the 4 neighbours a 跟子 may take (followerClass), the best by followerOrder when there is more than one. Ties are
+   * impossible (the direction key differs); the board's up / right / down / left as drawn — the mirrored field (boss /
+   * hidden right side, drawn with col → 20 − col) swaps right and left (as upstream's SIDES_MIRRORED; user decision
+   * 2026-10-07, W8 — the client orders by grid column [미확정 on a mirrored field]).
+   */
+  const buildOne = (battle, unit, r0, c0) => {
+    if (followers(battle, unit).length >= followerCap) return null;
     const sides = battle.getPlayer(unit.ownerId)?.mirror ? ORTHO_MIRRORED : ORTHO;
-    while (k < n && followers(battle, unit).length < followerCap) {
-      const stones = stonesOf(battle, unit);
-      const cand = [];
-      sides.forEach(([dr, dc], idx) => {
-        const r = s.tileR + dr, c = s.tileC + dc;
-        const cls = followerClass(battle, r, c, stones);
-        if (cls != null) cand.push([r, c, enemiesOnTile(battle, r, c).length ? 0 : 1, cls, idx]);
-      });
-      cand.sort((a, b) => a[2] - b[2] || a[3] - b[3] || a[4] - b[4]);
-      if (!cand.length || !placeFollower(battle, unit, cand[0][0], cand[0][1])) break;
-      k++;
-    }
-    return k;
+    const stones = stonesOf(battle, unit);
+    const cand = [];
+    sides.forEach(([dr, dc], dir) => {
+      const r = r0 + dr, c = c0 + dc;
+      const cls = followerClass(battle, r, c, stones);
+      if (cls != null) cand.push({ r, c, cls, foe: enemiesOnTile(battle, r, c).length > 0, dir });
+    });
+    if (cand.length > 1) cand.sort(followerOrder);
+    return cand.length ? placeFollower(battle, unit, cand[0].r, cand[0].c) : null;
+  };
+  /**
+   * 铸子 跟子 around `s`: `n` of them, the first at once, then one per STONE_BUILD_FRAMES (the client queues them —
+   * WangStoneTriggerManager buildStoneRequests, `_stoneBuildDelay` 4; local patch 2026-10-10, until then all at once
+   * [ASSUMED: the first one at the stone's birth]). `s3`: the S3 deployment's — the first is the talent's (free), every
+   * later one built takes one ammo (spendS3; the last ammo ends S3). A build finding no tile is skipped (the client counts
+   * the request down either way). While builds are pending S3 does not end for want of stones (the client's
+   * WangS3CastSkillWithLimitTimes: hand 0 and `!hasRemainingBuildCnt`).
+   */
+  const followAround = (battle, unit, s, n = 1, s3 = false) => {
+    if (!(n > 0)) return;
+    const w = st(unit), seq = unit.deploySeq, r0 = s.tileR, c0 = s.tileC;
+    let i = 0, open = true;
+    w.building = (w.building || 0) + 1;
+    const done = () => {
+      if (!open) return;
+      open = false;
+      w.building = Math.max(0, (w.building || 0) - 1);
+      if (s3 && s3Running(unit) && w.stock <= 0 && !w.building) unit.skill.end('stones');
+    };
+    const step = () => {
+      if (unit.deploySeq !== seq || !live(unit)) { done(); return; }
+      const paid = s3 && i > 0;
+      if (paid && !s3Running(unit)) { done(); return; }
+      const f = buildOne(battle, unit, r0, c0);
+      i++;
+      if (f && paid && spendS3(unit)) { done(); return; }
+      if (i >= n) { done(); return; }
+      battle.after(STONE_BUILD_FRAMES * TICK, step, { owner: unit });
+    };
+    step();
   };
   /** A stone from the stock on (r, c) ("manual" deployment), then its 跟子 (`extra` of them). */
-  const deployStone = (battle, unit, r, c, extra = 1) => {
+  const deployStone = (battle, unit, r, c, extra = 1, s3 = false) => {
     // a deployment from the stock pays the stone's DP cost (卫戍协议 has in-battle DP: 10, +1/s — the same pool the
     // automatic operator redeploys use)
     const ps = battle.getPlayer(unit.ownerId);
@@ -305,7 +347,7 @@ function wang(bb, chess, def) {
     ps.dp = Math.max(0, ps.dp - num(s.base.cost, cost)); // the deployed stone's own cost (TRP-X module: −1), as Battle.redeploy
     battle.fx('summon', { x: s.x, y: s.y, id: s.id });
     st(unit).stock--;
-    s.mem.wangExtra = followAround(battle, unit, s, extra);
+    followAround(battle, unit, s, extra, s3);
     return s;
   };
   /** S1 / S2 automatic deployment tile: free deployable, no enemy (trait), next to her stones (or her), route first. */
@@ -366,26 +408,24 @@ function wang(bb, chess, def) {
           // of the real game, 2026-10-06 — no deployment ever spends ammo or stones)
           if (!s.prepPlaced) return;
           // client: ChargeToken (min(max − remaining, cnt) cards), then InstantSpawn of the rest as 跟子, ≤ max_spawn_cnt
-          // alive, on tiles of her range, no adjacency. Order: PRTS 技能3 备注 "触发第一天赋时，按照有敌人的>没有敌人的；不可部署地块>
-          // 可部署地面地块>可部署高台地块的优先级生成" — enemy tiles first, each group by tile class (followerClass); among enemy
-          // tiles of one class the enemy closest to its goal first (goalFirst, [추정] user decision 2026-10-06), the rest
-          // random [ASSUMED: the client InstantSpawn selector (WangTileSelector SKILL_3_INSTANT, _alwaysRandomInTheEnd 0)
-          // sorts natively — review 2026-10-06: the empty tiles were plain random, no class order]
+          // alive, on tiles of her range, no adjacency. Tile order (local patch 2026-10-10, client code WangTileSelector
+          // SKILL_3_INSTANT `_DoFilter`): the candidates (_FilterWangNormal ≈ followerClass) shuffled with the battle rng,
+          // then — only when there are more than it places — sorted by followerOrder without the direction key: ground
+          // first, then enemy tiles, then undeployable ones; equal tiles stay in the shuffled order, i.e. at random.
+          // Until 2026-10-10: enemy tiles first, the enemy closest to its goal first (goalFirst, user decision 2026-10-06
+          // [추정]) — no such order in the client. [ASSUMED] all at once: the client's InstantSpawn (`_preDelay` /
+          // `_cooldown` 0.25, one tile a cast) may spread them out — not traced.
           let over = addOwned(unit, Math.max(1, num(bb.cnt, 8)));
           const stones0 = stonesOf(battle, unit);
           const cand = [];
-          goalFirst(battle, inRange(battle, unit).filter(stoneSelectable)).forEach((e, i) => {
-            const r = Math.round(e.y), c = Math.round(e.x), cls = followerClass(battle, r, c, stones0);
-            if (cls != null) cand.push([r, c, 0, cls, i]);
-          });
           for (const k of unit.rangeKeys || []) {
             const r = Math.floor(k / COLS), c = k % COLS, cls = followerClass(battle, r, c, stones0);
-            const foe = enemiesOnTile(battle, r, c).some(stoneSelectable);   // (already listed above, by goal) : random
-            if (cls != null) cand.push([r, c, foe ? 0 : 1, cls, foe ? 1e6 : battle.rng()]);
+            if (cls != null) cand.push({ r, c, cls, foe: enemiesOnTile(battle, r, c).length > 0 });
           }
-          cand.sort((a, b) => a[2] - b[2] || a[3] - b[3] || a[4] - b[4]);
-          const tiles = cand.map(([r, c]) => [r, c]);
-          for (const [r, c] of tiles) {
+          battle.rng.shuffle(cand);
+          const room = Math.min(over, Math.max(0, followerCap - followers(battle, unit).length));
+          if (cand.length > room) cand.sort(followerOrder);
+          for (const { r, c } of cand) {
             if (over <= 0 || followers(battle, unit).length >= followerCap) break;
             if (followerClass(battle, r, c, stonesOf(battle, unit)) == null) continue;
             if (placeFollower(battle, unit, r, c)) over--;
@@ -395,15 +435,18 @@ function wang(bb, chess, def) {
           // no self-stop while the field is full (it waits).
           const drop = () => {
             if (!running()) return false;
-            if (s.stock <= 0) { unit.skill.end('stones'); return false; }
+            // out of stones: ends once no 跟子 build is pending (the client waits for them: hasRemainingBuildCnt)
+            if (s.stock <= 0) { if (!s.building) unit.skill.end('stones'); return false; }
             // her used stones waiting to come back hold their slots (as in autoDeploy): a new stone beyond them would make
             // the comeback exceed the deploy limit, and tokens.js would withdraw a prep stone for good (review 2026-10-06)
             if (placed(battle, unit).length + waitingOf(battle, unit).length >= s.fieldCap) return false;
             const stones = stonesOf(battle, unit);
-            // where she would put it by hand: an enemy tile of her range (closest to its goal first) — else (local patch 2026-10-06,
-            // user report "S3 spends no ammo": enemies walking just outside her range never gave the stand-in a tile)
-            // a free tile of her range on the ground routes, nearest to a living enemy, no walking enemy on it (trait)
-            const tiles = goalFirst(battle, inRange(battle, unit).filter(stoneSelectable)).map((e) => [Math.round(e.y), Math.round(e.x)]);
+            // where she would put it by hand [ASSUMED stand-in, no client rule: a player places it]: an enemy tile of her range,
+            // in random order (local patch 2026-10-10: was the enemy closest to its goal first — goalFirst, dropped with the
+            // InstantSpawn order above) — else (local patch 2026-10-06, user report "S3 spends no ammo": enemies walking just
+            // outside her range never gave the stand-in a tile) a free tile of her range on the ground routes, nearest to a
+            // living enemy, no walking enemy on it (trait)
+            const tiles = battle.rng.shuffle(inRange(battle, unit).filter(stoneSelectable)).map((e) => [Math.round(e.y), Math.round(e.x)]);
             const alive = battle.enemies.filter((e) => e.alive && !e.hidden);
             if (alive.length) {
               const near = (r, c) => alive.reduce((m, e) => Math.min(m, hypot(e.x - c, e.y - r)), 99);
@@ -426,11 +469,10 @@ function wang(bb, chess, def) {
               if (t.build === 'NONE' || battle.unitAt(r, c) || reservedForOthers(battle, unit, r, c)) continue;
               const ammo = Math.max(0, Math.floor(num(unit.skill.ammoLeft, 0)));
               // the talent's 跟子 free + ≤ 3 extra for one ammo each (s3Followers / spendS3, user decision 2026-10-07,
-              // W12 [ASSUMED reading]; formerly ≤ 4, every one paid — client SpawnTokenS3InSkill `_countEvent 4`)
-              const stone = deployStone(battle, unit, r, c, s3Followers(ammo));
+              // W12 [ASSUMED reading]; formerly ≤ 4, every one paid — client SpawnTokenS3InSkill `_countEvent 4`), built
+              // one per 4 frames (followAround: it ends S3 for the last ammo, or once out of stones with no build pending)
+              const stone = deployStone(battle, unit, r, c, s3Followers(ammo), true);
               if (!stone) continue;
-              if (spendS3(unit, ammo, Math.max(0, stone.mem.wangExtra))) return true;
-              if (s.stock <= 0 && unit.skill?.active) unit.skill.end('stones');
               return true;
             }
             return false;
@@ -517,12 +559,15 @@ function wangStone(bb, raw, def) {
         // link fx (official ON_CUSTOM_TRIGGER wang_stone1_line_up): on activation and on each new link direction
         if (axes.size > nAxes) battle.fx('wangLink', { x: unit.x, y: unit.y, id: unit.id, axes: [...axes], first: !unit.mem.active, follower: isFollower(unit) });
         // 激活 and 料敌机先 stacks are latched (PRTS / namu): once linked a stone stays active, and keeps the longest
-        // straight line it has seen (≤ max_trigger_cnt) after a linked stone leaves
+        // straight line it has seen (≤ max_trigger_cnt) after a linked stone leaves. It arms (may trigger) only
+        // STONE_ARM_FRAMES after the link, on the frame after that (the client's `fixedFrameCnt > finishFrame`; local
+        // patch 2026-10-10 — it armed at once before); the link and its line stack count at once
         if (links.length) {
+          if (!unit.mem.active) unit.mem.armAt = battle.time + (STONE_ARM_FRAMES + 1) * TICK - 1e-9;
           unit.mem.active = true;
           unit.mem.line = Math.max(unit.mem.line ?? 0, lineCount(stones, unit));
         }
-        if (!unit.mem.active) return;
+        if (!unit.mem.active || battle.time < unit.mem.armAt) return;
         const wide = wangSkill(owner) === 'skchr_wang_3'; // S3 equipped: x-1 trigger / damage area
         // presence, checked every tick (user decision 2026-10-07, W2): an activated stone goes off whenever a selectable
         // enemy IS on its trigger area — one already standing there when it activates too, not only one entering it

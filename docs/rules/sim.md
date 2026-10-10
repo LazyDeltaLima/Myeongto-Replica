@@ -378,3 +378,24 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   없어 휘두름 시작에 바로 타격.
 - 테스트: `test/sim/attack-timing.test.js`(오퍼레이터·데이터), `test/sim/feedback5-enemy-swing.test.js`(적: 끊김·헛휘두름·재선택·麻痹), `test/render/attack-swing.test.js`.
   일반 공격 시각이 바뀌어 golden 전부가 움직이고, 첫 공격·스킬 공격 시각을 같은 틱으로 보던 키트 테스트를 「타격까지 기다림」으로 고쳤다.
+
+## 오퍼레이터 키트 — 클라 코드·프리팹대로 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
+근거: EN 클라(2026-08) 프리팹 값과 클라 코드(디컴파일 — 레포에는 클래스·메서드 이름만). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 메서드 없음.
+- **跃跃(케이퍼, `char_4100_caper`) S2 乐趣加倍** (`chess_char_1_09-caper.js`): 공격마다 부메랑 `cnt`개 — 공격의 것(`projectile_chr_caper_s2`) 하나와,
+  0.1 s 간격으로 같은 대상에 `cnt − 1`개 더(charpack `Modes/S2/Body/Attack` `_additionalTimes` 1, `_triggerDelta` 0.1, `_additionalProjectile`
+  `projectile_chr_caper_s2_1` = `_inverseParacurve` 반대쪽 호). 각 1타(`_hitNumType` LIMITED, `_maxHitNum` 1), 각자 돌아오고, 다 돌아와야 다음 공격.
+  추가 부메랑은 같은 시전의 다음 spell이라 같은 대상(`_selectTargetTiming` 0)이고, 그때 죽은 대상에는 안 던짐(클라 코드 `AbilityStandard._DoCast`
+  → `CheckAnotherSpell` → `OnWaitForTriggerDelta` → `OnSpellStart` → `DoCastOnTargets`는 살아 있는 대상만). 기절·퇴장 중이면 안 던짐 [추정: 상태 전환이 능력을 끊음].
+  같은 공격(attackId)이다. 그 전(~2026-10-10): 부메랑 하나가 `cnt`타를 싣고 함께 날았다. 엔진은 `ai.js throwBoomerang`을 export만 했다(키트가 부름).
+  화면: 두 번째 부메랑은 fx `caperBoomerang2` { id, tgt, n } — 아직 그리지 않음(`kinds.js` 'none'; 공격 'atk'의 부메랑만 보임). 풀의 回环射手는 跃跃뿐
+  (`data/chess.json` loopshooter). 테스트 `test/content/kits_t1t2.test.js` 「1_09」.
+- **缄默德克萨斯(텍사스 디 오메르토사, `char_1028_texas2`) S3 剑雨滂沱** (`chess_char_4_16-texas2.js`): 프리팹 `skchr_texas2_3`은 `AbilitySequenceGroup`
+  (1Frame → AppearSwordRain → ModeWithSwordRain; 앞 능력이 끝나야 다음 — 클라 코드 `AbilitySequenceGroup._OnSubAbilityFinished` → `_MoveToNextActiveAbility`).
+  배치 폭발 AppearSwordRain: `_preDelay` 0.6 s 뒤, 0.2 s 간격 2타(`_additionalTimes` 1, `_triggerDelta` 0.2), 타마다 대상 다시 고름(`_selectTargetTiming` 1)·
+  기절(`_activeBuffs` stun). 그다음 ModeWithSwordRain이 검우 버프 `texas2_s_3[sword]`(`triggerability_tick_trigger`, `firstTriggerInterval` 0.4,
+  `triggerInterval` 1, 수명 `duration`)를 붙인다 → 첫 검우는 둘째 타 0.4 s 뒤(배치 1.2 s), 그 뒤 1 s마다. 검우 대상은 그 순간 고르고(EmitSword
+  `_selectTargetTiming` 1, `max_target`), 검마다 `_randomDelayToBorn` 0–0.3 s(전투 난수 `battle.rng`) 뒤 피해·기절(`projectile_chr_texas2_s3_sword_rain`).
+  패시브 길이: 검우 버프부터 `duration` → 스킬 지속 = `duration` + 0.8 s [추론: `texas2_s_3`·`[sword]` 버프(수명 `duration`)를 마지막 단계가 붙임] —
+  검우 횟수는 그대로 `duration`번. [추정]: 1Frame 단계(1프레임)는 넣지 않음, 검이 생긴 뒤 `_lifeTime` 0.1 끝(`_alwaysHitTraceTargetInTheEnd`)에 맞는지는
+  안 봄(생길 때 피해로 둠), AppearSwordRain `_preDelay`가 공속 배율을 받는지 안 봄(0.6 s 고정). 첫 처치 재시전(德克萨斯传统)은 남은 배치 타·검을 지우고
+  새로 시작한다. 그 전: 배치 2타 동시, 첫 검우 1 s(배치 기준), 검 동시. 테스트 `test/content/kits_t4.test.js`·`kits_alt_t4.test.js` 「缄默德克萨斯」.

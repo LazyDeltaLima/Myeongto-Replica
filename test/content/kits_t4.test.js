@@ -649,7 +649,7 @@ test('录武官 / 华法琳 elite trait: heals on allies below 50 % are ×1.15',
   }
 });
 
-test('缄默德克萨斯 S3 (passive): deploy burst 2 × 115 % arts + 1.5 s stun, sword rain ≤ 2 targets/s for 6 s; talents', () => {
+test('缄默德克萨斯 S3 (passive): deploy burst 2 × 115 % arts + 1.5 s stun (0.6 s, 0.2 s apart), sword rain ≤ 2 targets/s for 6 s (first 0.4 s after, swords 0–0.3 s late); talents', () => {
   const id = 'chess_char_4_16_a', bb = D(id).skill.bb, t0 = D(id).talents[0].bb, t1 = D(id).talents[1].bb;
   const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [{ chessId: id, row: 10, col: 5 }], timeLimit: 120, hooks: ['damaged', 'statusApplied'], captureNoisy: true });
   h.step();
@@ -659,17 +659,30 @@ test('缄默德克萨斯 S3 (passive): deploy burst 2 × 115 % arts + 1.5 s stun
   const es = [h.spawn('enemy_dummy', { pos: [9, 4] }), h.spawn('enemy_dummy', { pos: [11, 6] }), h.spawn('enemy_dummy', { pos: [10, 4] })];
   h.b.retreat(u);
   assert.ok(h.b.redeploy(u));
+  const t0d = h.b.time;
   approx(u.s.atk, u.base.atk * (1 + t0.atk), 1e-9, 'ATK +20 % during the passive');
+  assert.equal(dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst')).length, 0, 'the burst waits for its 0.6 s pre-delay');
+  h.run(1);
   const burst = dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst'));
   assert.equal(burst.length, 6, 'two hits on each of the 3 surrounding enemies');
+  const bt = [...new Set(burst.map((c) => +(c.t - t0d).toFixed(3)))];
+  assert.equal(bt.length, 2);
+  assert.ok(Math.abs(bt[0] - 0.6) <= h.TICK + 1e-9 && Math.abs(bt[1] - bt[0] - 0.2) <= h.TICK + 1e-9, `burst at ${bt}`);
   approx(burst[0].amount, u.s.atk * bb['appear.atk_scale'], 1e-6);
-  assert.equal(noisy(h, 'statusApplied').filter((c) => c.source === u && c.status === 'stun' && c.duration === bb['appear.stun']).length, 3);
+  assert.equal(noisy(h, 'statusApplied').filter((c) => c.source === u && c.status === 'stun' && c.duration === bb['appear.stun']).length, 6, 'each hit stuns');
   h.run(D(id).skill.duration + 1.5);
   const rain = dmgBy(h, u, (c) => c.dmg?.tags?.includes('swordRain'));
+  // waves: the first 0.4 s after the second burst hit, then every second; each sword 0–0.3 s after its wave
+  const first = bt[1] + 0.4;
   const waves = new Map();
-  for (const c of rain) waves.set(c.t, (waves.get(c.t) ?? 0) + 1);
+  for (const c of rain) {
+    const k = Math.floor(c.t - t0d - first + 1e-6);
+    assert.ok(c.t - t0d - first - k <= 0.3 + h.TICK + 1e-9, `sword at ${(c.t - t0d).toFixed(3)} s`);
+    waves.set(k, (waves.get(k) ?? 0) + 1);
+  }
   assert.equal(waves.size, D(id).skill.duration, 'one rain per second while the passive lasts');
   assert.ok([...waves.values()].every((n) => n === bb.max_target), '≤ 2 distinct targets');
+  assert.ok(new Set(rain.map((c) => c.t)).size > waves.size, 'the swords of a wave do not all land together');
   approx(rain[0].amount, u.base.atk * (1 + t0.atk) * bb.atk_scale, 1e-6);
   assert.equal(u.skill.active, false, 'ATK bonus ends with the skill');
   approx(u.s.atk, u.base.atk);
@@ -1012,10 +1025,12 @@ test('缄默德克萨斯: a kill by the deploy burst itself (redeploy) ⇒ full 
   const heals0 = noisy(h, 'heal').filter((c) => c.source === u && c.target === u).length;
   const bursts0 = dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst')).length;
   assert.ok(h.b.redeploy(u));
+  h.runUntil(() => u.mem.texasKilled, 1); // S3's burst lands after its 0.6 s pre-delay
   assert.equal(u.mem.texasKilled, true, 'the deploy burst scored the kill');
   assert.equal(u.findBuff('texas2:swordplay'), null, '剑术 is not granted after the kill');
   assert.equal(noisy(h, 'heal').filter((c) => c.source === u && c.target === u).length, heals0 + 1, 'full-heal attempt');
-  // burst (2 hits × 2 enemies, the weak one dies on the first) + recast burst (2 hits on the survivor)
+  // first burst hit (2 enemies, the weak one dies: its second hit is dropped by the recast) + recast burst (2 hits on the survivor)
+  h.run(1);
   assert.ok(dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst')).length - bursts0 >= 4, 'passive re-released');
   checkInvariants(h.b);
 });
@@ -1173,9 +1188,11 @@ test('elite (精锐) kits read the Lv7 blackboard: skill magnitudes differ from 
     const [h, u, bb] = mk('chess_char_4_16_b', { units: [{ chessId: 'chess_char_4_16_b', row: 10, col: 5 }] });
     for (const p of [[9, 4], [11, 6], [10, 4], [9, 6]]) h.spawn('enemy_dummy', { pos: p });
     h.b.retreat(u); h.b.redeploy(u);
+    const t0 = h.b.time;
     h.run(D('chess_char_4_16_b').skill.duration + 1.5);
+    // waves: 1.2 s after the deployment, then every second; each sword 0–0.3 s after its wave (client skchr_texas2_3)
     const waves = new Map();
-    for (const c of dmgBy(h, u, (c) => c.dmg?.tags?.includes('swordRain'))) waves.set(c.t, (waves.get(c.t) ?? 0) + 1);
+    for (const c of dmgBy(h, u, (c) => c.dmg?.tags?.includes('swordRain'))) { const k = Math.floor(c.t - t0 - 1.2 + 1e-6); waves.set(k, (waves.get(k) ?? 0) + 1); }
     assert.equal(waves.size, D('chess_char_4_16_b').skill.duration);
     assert.ok([...waves.values()].every((n) => n === bb.max_target));
   }

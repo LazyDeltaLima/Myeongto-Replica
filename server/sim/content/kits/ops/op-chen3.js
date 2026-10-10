@@ -32,7 +32,8 @@
 //     _checkTileStart (侵入点), _checkTileEnd (保护目标) on the NEXT tile ahead (_CheckNextTile*, _GetDistanceToNextTile) →
 //     _ChangeDirection, _clearTargetsAlreadyHitListWhenHit. Nothing else is an obstacle: lowland impassable tiles and
 //     things standing on a tile (roadblocks) are not ([inferred] from the flag list). It has no direction field; clockwise
-//     is PRTS. The distance is to the next tile's near edge ([inferred] from "_GetDistanceToNextTile" and PRTS), so it turns
+//     is a client code constant (ChangeStateWithHighlandBehaviour._ChangeDirection: up → right → down → left, 2026-10-10;
+//     PRTS "顺时针"). The distance is to the next tile's near edge ([inferred] from "_GetDistanceToNextTile" and PRTS), so it turns
 //     0.25 past the centre of the last free tile — before 2026-10-06 we looked 0.75 ahead and turned 0.5 too early, counted
 //     lowland impassable / blocked tiles and ignored 侵入点.
 //   hits: CircleCollider2D radius 1.3 (_ignoreRangeScale), _hitPasserby every 0.03 s (_interval; the sim ticks 1/30 s),
@@ -55,6 +56,15 @@ const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], uni
 const dist = (a, b) => hypot(a.x - b.x, a.y - b.y);
 
 const QI_SPEED = 1.5, QI_RADIUS = 1.3, QI_LOOK = 0.25, QI_EPS = 0.02, S2_INTERVAL = 0.4, S2_PASS_RADIUS = 1.7;
+/**
+ * S3: when the 剑气 leaves (s after the cast). EN client skchr_chen3_3: `_playSkillBeginAnim` 1, `_beginAnim`
+ * Skill_3_Begin; its abilities start only once the begin clip has played (client code BasicSkill.PlayBeginAnimation:
+ * WaitForFixedSeconds(clip) → DoStartSkill), the first being EmitProjectile projectile_chr_chen3_s3 with
+ * `_waitForAttackEvent` 1. Her skeleton's Skill_3_Begin is 13 frames (0.433 s) and carries no OnAttack event (front and
+ * back), so the wave leaves at the clip's end [ASSUMED: no further wait — the attack event it waits for after that
+ * (ActiveBuffAbility: up to its buffs' `duration`) would come from whatever clip plays next; not traced].
+ */
+const S3_BEGIN = 13 / 30;
 
 /**
  * One tick of the S3 剑气 (exported for tests). `st` = { x, y, d } (x = col, y = row, d ∈ UP/RIGHT/DOWN/LEFT) is updated in
@@ -216,7 +226,14 @@ function chen3(bb, chess, def) {
         kind: 'duration',
         targeting: { rangeGrid: skillGridOf(def), maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), showOwnRange: true },
         attack: { atkScale: num(bb['attack@atk_scale'], 1.8), hits: 3, maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), groundOnly: true, canHitFly: false },
-        onStart({ battle, unit }) { releaseQi(battle, unit); },
+        // the 剑气 leaves after her Skill_3_Begin clip (see S3_BEGIN), not as the skill turns on
+        onStart({ battle, unit, skill }) {
+          const seq = unit.deploySeq, n = skill.activations;
+          battle.after(S3_BEGIN, () => {
+            if (unit.deploySeq !== seq || !unit.alive || !unit.skill?.active || unit.skill !== skill || skill.activations !== n) return;
+            releaseQi(battle, unit);
+          }, { owner: unit });
+        },
       },
     },
     talents: [

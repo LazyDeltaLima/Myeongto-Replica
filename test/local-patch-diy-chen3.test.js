@@ -94,6 +94,22 @@ describe('赤刃明霄陈 kit — research 2026-10-07 §2 fixes', () => {
     return { h, u, src, T, heals };
   };
 
+  test('S3: the 剑气 leaves when her Skill_3_Begin clip (13 frames, no OnAttack) has played — client BasicSkill.PlayBeginAnimation → EmitProjectile', () => {
+    const h = arena(2);
+    const u = h.unit(1);
+    h.spawn('enemy_post', { pos: [10, 6] });
+    u.skill.activate('manual', { free: true });
+    const t0 = h.b.time;
+    let first = null;
+    for (let i = 0; i < 30 && first == null; i++) {
+      h.step();
+      if (h.eventsOf('fx').some((e) => e[1] === 'chen3Qi' && e[4].id === u.id)) first = h.b.time - t0;
+    }
+    assert.ok(first != null, 'the 剑气 left');
+    // (its first step — and fx — is one sim step after it leaves, as before the change at the cast)
+    assert.ok(first >= 13 / 30 - 1e-9 && first <= 13 / 30 + 2 * h.TICK + 1e-9, `the 剑气 left ${first.toFixed(3)} s after the cast (want 0.433)`);
+  });
+
   test('C8: 寒暑觉知\'s held dodge cancels any dodgeable physical / arts damage — a skill hit too, not attacks only (Evade PHYSICAL_AND_MAGICAL)', () => {
     const { h, u, src } = armed();
     const hp = u.hp;

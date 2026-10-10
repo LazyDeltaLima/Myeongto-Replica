@@ -756,16 +756,18 @@ test('缄默德克萨斯 S1/S2/S3: first kill reopens a full window, including a
     weak.hp = 1;
     assert.ok(h.b.redeploy(u, { free: true }));
     if (index === 0) h.b.kill(weak, u); // S1 has no deployment burst
+    // S3's deployment burst lands after its 0.6 s pre-delay (client AppearSwordRain `_preDelay`)
+    if (index === 2) { assert.equal(u.mem.texasKilled, false, 'S3 burst not landed yet'); h.runUntil(() => u.mem.texasKilled, 1); }
     assert.equal(u.mem.texasKilled, true);
     assert.equal(sk.activations, 4, 'new deployment and first-kill recast, including synchronous burst reentry');
     assert.deepEqual(life.slice(lifeAt), [['skillStart', 'deploy'], ['skillEnd', 'recast'], ['skillStart', 'kill']]);
     assert.equal(u.findBuff('texas2:swordplay'), null);
-    approx(sk.timeLeft, sk.duration);
+    assert.ok(Math.abs(sk.timeLeft - sk.duration) <= h.TICK + 1e-9, `${sk.timeLeft} ≈ ${sk.duration}`);
     if (index === 2) {
       const target = h.spawn('enemy_dummy', { pos: [10, 5] });
       h.run(sk.duration + 0.1);
       const waves = new Set(dmgBy(h, u, tagged('swordRain')).filter((c) => c.target === target).map((c) => c.t));
-      assert.equal(waves.size, sk.duration, 'reentrant deployment keeps a full set of rain waves');
+      assert.equal(waves.size, D(id, 2).skill.duration, 'reentrant deployment keeps a full set of rain waves');
       const n = dmgBy(h, u, tagged('swordRain')).length;
       h.run(2);
       assert.equal(dmgBy(h, u, tagged('swordRain')).length, n, 'rain stops at skill end');

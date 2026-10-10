@@ -315,7 +315,8 @@ test('1_09 跃跃: 乐趣加倍 throws cnt boomerangs per attack, ATK +atk; 戏�
   approx(u.s.atk, u.base.atk * (1 + bb.atk));
   const atks = h.hooksOf('attack').filter((c) => c.attacker === u && c.t < 5).length;
   const hits = dealt(h, u, (c) => c.t < 5);
-  assert.equal(hits.length, atks * bb.cnt, 'cnt hits per attack');
+  const late = dealt(h, u, (c) => c.t < 5.2).length - hits.length; // the last attack's second boomerang may land after 5 s
+  assert.ok(hits.length + late >= atks * bb.cnt && hits.length <= atks * bb.cnt, `cnt hits per attack: ${hits.length}+${late} / ${atks}`);
   h.runUntil(() => !u.skill.active, 30);
   const all = dealt(h, u, (c) => c.dmg.isSkill);
   assert.ok(all.every((c) => Math.abs(c.amount - u.base.atk * (1 + bb.atk)) < 1e-6 || Math.abs(c.amount - u.base.atk * (1 + bb.atk) * t.atk_scale) < 1e-6));
@@ -332,7 +333,7 @@ test('1_09 跃跃: 乐趣加倍 throws cnt boomerangs per attack, ATK +atk; 戏�
   done(h2);
 });
 
-test('1_09 跃跃 回环射手: each attack is a boomerang (out 15, back 3.75 tiles/s); faster than its flight she waits for the catch; 乐趣加倍 hits land together', () => {
+test('1_09 跃跃 回环射手: each attack is a boomerang (out 15, back 3.75 tiles/s); faster than its flight she waits for the catch; 乐趣加倍 throws a second one 0.1 s later', () => {
   const id = 'chess_char_1_09_a', bb = bbOf(id);
   const flight = (d) => d / PROJECTILE_SPEEDS.boomerang + d / BOOMERANG_RETURN_SPEED;
   // ASPD +200 (interval 0.333 s) at 3 tiles: the out-and-back flight (1.0 s) sets the pace
@@ -350,14 +351,25 @@ test('1_09 跃跃 回环射手: each attack is a boomerang (out 15, back 3.75 ti
   for (let i = 1; i < at.length; i++) assert.ok(Math.abs(at[i] - at[i - 1] - flight(3) - wind) <= 2 * h.TICK, `gap ${(at[i] - at[i - 1]).toFixed(3)} ≈ ${flight(3)} + ${wind}`);
   assert.ok(h.eventsOf('atk').filter((e) => e[1] === u.id).every((e) => e[3] === 'boomerang'));
   done(h);
-  // 乐趣加倍: cnt boomerangs on the same path — cnt hits at the same moment, then one catch
+  // 乐趣加倍 (client char_4100_caper S2 Attack `_additionalTimes` 1, `_triggerDelta` 0.1): a second boomerang 0.1 s after
+  // the first, one hit each; she throws again only once both are back
   const h2 = run({ defs: { enemies: { e: dummy('e') }, chess: noGarrison(id) }, units: [{ chessId: id, row: 10, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [10, 7] }] });
   const u2 = h2.unit(id);
   h2.run(5);
   assert.ok(u2.skill.active);
-  const byT = new Map();
-  for (const c of dealt(h2, u2, (x) => x.dmg.isSkill)) byT.set(c.t, (byT.get(c.t) ?? 0) + 1);
-  assert.ok(byT.size >= 3 && [...byT.values()].every((n) => n === bb.cnt), `hits per landing ${[...byT.values()]}`);
+  const sk = h2.hooksOf('attack').filter((c) => c.attacker === u2 && c.isSkill).map((c) => c.t);
+  const hitT = dealt(h2, u2, (x) => x.dmg.isSkill).map((c) => c.t);
+  assert.ok(sk.length >= 2, `${sk.length} skill attacks`);
+  for (let i = 0; i + 1 < sk.length; i++) {
+    const hs = hitT.filter((t) => t > sk[i] && t <= sk[i + 1]);
+    assert.equal(hs.length, bb.cnt, `one hit per boomerang (attack ${i})`);
+    assert.ok(Math.abs(hs[1] - hs[0] - 0.1) <= h2.TICK + 1e-9, `0.1 s apart: ${hs}`);
+    // the next attack waits for the second boomerang's catch: its throw + flight out and back
+    assert.ok(sk[i + 1] - sk[i] >= 0.1 + flight(3) - 2 * h2.TICK, `gap ${(sk[i + 1] - sk[i]).toFixed(3)}`);
+  }
+  // one second throw per skill attack — the last one may fall after the 5 s run (it follows the strike by 0.1 s)
+  const second = h2.eventsOf('fx').filter((e) => e[1] === 'caperBoomerang2' && e[4].id === u2.id).length;
+  assert.ok(second === sk.length || (second === sk.length - 1 && sk[sk.length - 1] > 5 - 0.1 - h2.TICK), `${second} second throws for ${sk.length} attacks`);
   done(h2);
 });
 

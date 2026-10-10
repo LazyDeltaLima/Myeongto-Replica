@@ -12,7 +12,7 @@
 // Notes (local patch 2026-10-06, EN client [uc]projectiles.ab projectile_chr_oblvns* + PRTS 备注; NOTE below): every
 // note is simulated here (noteStep) — the engine projectile of a normal attack is taken over (its own onHit = the
 // engine's resolveHit lands when the note arrives), skill / blank notes are the kit's. A note flies free (her facing ±20°,
-// S1 fanned) for ≥ `switch` s, then traces its target (the attack's target; else the nearest selectable enemy within
+// S1: a ±angle fan) for ≥ `switch` s, then traces its target (the attack's target; else the nearest selectable enemy within
 // `seek` tiles of the NOTE, searched every `tick` s — PRTS "选择自身一定范围内距离音符自身最近的可选目标"); a target that
 // dies sends it back to free flight. It ends on a hit, after `delay` (talent bb, client passby_delay 1 s) continuous s
 // outside her attack range without a target (PRTS "音符位于自身攻击范围外时，若连续1s以上不存在跟踪目标则消失" — so notes
@@ -59,18 +59,19 @@ const FEVER_NEED = 450, FEVER_TIME = 20, NOTE_SAFETY = 60;
  * Note flight per client projectile prefab (tiles/s, s): `free` the free-flight speed (`sine`: its 扩张正弦 amplitude,
  * drawn by the client only — the sim flies straight), tracing at `track` turning `turn`/s (direction lerp; PRTS "转向速度
  * 7/30每帧" = 7 at 30 fps), free for ≥ `switch` s, target search every `tick` s within `seek` tiles of the note (PRTS
- * 跟踪范围半径), hit within `hit` tiles (piano: its 0.8 collision; others [ASSUMED] contact), `fx` the client trail.
+ * 跟踪范围半径), hit within `hit` tiles (piano: its 0.8 collision; others 0.1 — the client's tracing movement
+ * AdvancedMovement.DoCheckReachedInternal reaches its target within 0.1; until 2026-10-10 0.2 [ASSUMED]), `fx` the client trail.
  * base = projectile_chr_oblvns (an attack with a target), talent = _talent (持续攻击 without a skill), s1 = _s1_1…8,
  * piano = _s2 / _s2_t, organ = _s2_slow / _s2_slow_t, s3 = _s3_phy (piano), s3m = _s3_mag (organ, the same movement).
  */
 const NOTE = Object.freeze({
-  base: { free: 2.0, track: 2.0, turn: 5, switch: 0.1, tick: 0.4, seek: 1.0, hit: 0.2 },
-  talent: { free: 1.3, sine: 0.3, track: 2.0, turn: 7, switch: 0.1, tick: 0.4, seek: 1.0, hit: 0.2 },
-  s1: { free: 1.7, track: 2.2, turn: 5, switch: 0.6, tick: 0.2, seek: 1.0, hit: 0.2 },
+  base: { free: 2.0, track: 2.0, turn: 5, switch: 0.1, tick: 0.4, seek: 1.0, hit: 0.1 },
+  talent: { free: 1.3, sine: 0.3, track: 2.0, turn: 7, switch: 0.1, tick: 0.4, seek: 1.0, hit: 0.1 },
+  s1: { free: 1.7, track: 2.2, turn: 5, switch: 0.6, tick: 0.2, seek: 1.0, hit: 0.1 },
   piano: { free: 1.9, sine: 0.4, track: 3.5, turn: 15, switch: 0.4, tick: 0.2, seek: 0.8, hit: 0.8 },
-  organ: { free: 0.7, sine: 0.15, track: 1.0, turn: 2.5, switch: 0.4, tick: 0.4, seek: 1.0, hit: 0.2 },
-  s3: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5, switch: 0.8, tick: 0.4, seek: 1.0, hit: 0.2 },
-  s3m: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5, switch: 0.8, tick: 0.4, seek: 1.0, hit: 0.2 },
+  organ: { free: 0.7, sine: 0.15, track: 1.0, turn: 2.5, switch: 0.4, tick: 0.4, seek: 1.0, hit: 0.1 },
+  s3: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5, switch: 0.8, tick: 0.4, seek: 1.0, hit: 0.1 },
+  s3m: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5, switch: 0.8, tick: 0.4, seek: 1.0, hit: 0.1 },
 });
 /** Free-flight spread around her facing (PRTS: "自身朝向左20°至右20°范围内，随机一个角度"; [ASSUMED] for skill notes too). */
 const NOTE_ARC = 20;
@@ -192,16 +193,19 @@ function sakiko(bb, chess, def) {
         onStart({ battle, unit }) {
           startFeverIfFull(battle, unit);
           const scales = [bb.atk_scale, bb.atk_scale_2, bb.atk_scale_3, bb.atk_scale_4, bb.atk_scale_5, bb.atk_scale_6, bb.atk_scale_7, bb.atk_scale_8].map((v) => num(v));
-          const seq = unit.deploySeq;
-          // local patch 2026-10-06: 8 notes (client projectile_chr_oblvns_s1_1…8), fanned around her facing by
-          // _sourceDirectionArcAngleRatio (2i+1)/16 [ASSUMED: of a full turn], each at an enemy of her range, the damage
-          // (ATK cached at the cast) when it arrives
+          const seq = unit.deploySeq, fanAngle = num(bb.angle, 15);
+          // local patch 2026-10-06: 8 notes (client projectile_chr_oblvns_s1_1…8), each at an enemy of her range, the
+          // damage (ATK cached at the cast) when it arrives. Their free flight fans around her facing (2026-10-10, client
+          // code BasicMovement._InitDirectionByStart with `_useSourceDirectionArcAngleWithRatio`): angle × (2·ratio − 1),
+          // ratio = `_sourceDirectionArcAngleRatio` (2i+1)/16, angle = the skill blackboard `angle` (15) → ±13.125° in
+          // 3.75° steps (until then (2i+1)/16 of a full turn [ASSUMED]). Which side note 1 takes (the client turns about
+          // (0,0,−1)) is not checked on screen [ASSUMED: the same sign as the ±20° spread].
           scales.forEach((s, i) => battle.after(0.06 * i, () => {
             if (unit.deploySeq !== seq || !live(unit)) return;
             const pool = inRange(battle, unit);
             if (pool.length) sortEnemyTargets(battle, unit, pool, null);
             const amount = unit.s.atk * s;
-            spawnNote(battle, unit, { mode: 's1', target: pool.length ? pool[i % pool.length] : null, deg: ((2 * i + 1) / 16) * 360, fan: i + 1,
+            spawnNote(battle, unit, { mode: 's1', target: pool.length ? pool[i % pool.length] : null, deg: fanAngle * (2 * ((2 * i + 1) / 16) - 1), fan: i + 1,
               hit: (t) => {
                 battle.fx('burst', { x: t.x, y: t.y, id: unit.id });
                 battle.dealDamage(unit, t, { amount, type: 'arts', isSkill: true, tags: ['skill', 'note'] });

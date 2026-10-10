@@ -44,22 +44,31 @@ const holdEnemy = (h, r, c, key = BIG) => {
 /**
  * The 跟子 of each of her deployments, in order: a deployment (a stone from the stock through spawnToken with a placed
  * stone's kit, or a used stone's Battle.redeploy) opens a group, each 跟子 spawned after it (spawnToken with a 跟子 kit)
- * joins it. `on()` gates the counting. Returns the group list (each { r, c, fol: [{ r, c }…] }: its tile, its 跟子).
+ * joins the latest group next to it (they are built one per 4 frames, so another deployment may come in between).
+ * `on()` gates the counting. Returns the group list (each { r, c, t, fol: [{ r, c, t }…] }: its tile and time, its 跟子).
+ * `paidOf(g)`: the 跟子 built after the deployment's own tick — the S3 extras, one ammo each (the talent's free one comes
+ * with the stone, or not at all when it finds no tile).
  */
+/** `o` with a non-enumerable time `t` (deepEqual on the groups stays about tiles). */
+const stamp = (o, t) => Object.defineProperty(o, 't', { value: t, enumerable: false });
 const trackDeployments = (b, on = () => true) => {
   const groups = [];
   const spawn = b.spawnToken.bind(b), redeploy = b.redeploy.bind(b);
   b.spawnToken = (...a) => {
     const u = spawn(...a);
     if (u && u.defId === STONE && on()) {
-      if (a[4]?.kit?.fromTokens) groups.push({ r: u.tileR, c: u.tileC, fol: [] });
-      else if (a[4]?.kit && groups.length) groups[groups.length - 1].fol.push({ r: u.tileR, c: u.tileC });
+      if (a[4]?.kit?.fromTokens) groups.push(stamp({ r: u.tileR, c: u.tileC, fol: [] }, b.time));
+      else if (a[4]?.kit && groups.length) {
+        const g = groups.findLast((x) => Math.abs(x.r - u.tileR) + Math.abs(x.c - u.tileC) === 1) ?? groups[groups.length - 1];
+        g.fol.push(stamp({ r: u.tileR, c: u.tileC }, b.time));
+      }
     }
     return u;
   };
-  b.redeploy = (u, o) => { const ok = redeploy(u, o); if (ok && u.defId === STONE && on()) groups.push({ r: u.tileR, c: u.tileC, fol: [] }); return ok; };
+  b.redeploy = (u, o) => { const ok = redeploy(u, o); if (ok && u.defId === STONE && on()) groups.push(stamp({ r: u.tileR, c: u.tileC, fol: [] }, b.time)); return ok; };
   return groups;
 };
+const paidOf = (g) => g.fol.filter((f) => f.t > g.t + 1e-9).length;
 const trapHitsFrom = (h, r, c) => h.hooksOf('damaged').filter((d) => d.dmg?.tags?.includes('trap') && d.source?.tileR === r && d.source?.tileC === c).length;
 
 describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
@@ -77,8 +86,13 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
     assert.equal(trapHitsFrom(h, 9, 6), 0, 'an inactive stone never goes off');
     h.b.players[0].dp = 99;
     w.skill.activate('manual', { free: true }); // S1 「立即获得两枚棋子」 → automatic deployment next to her stone
-    h.run(0.5);
+    h.step(1);
     assert.ok(h.allies().some((u) => u.kind === 'token' && !u.mem.wangFollower && !(u.tileR === 9 && u.tileC === 6)), 'a stone was deployed');
+    assert.equal(a.mem.active, true, 'linked at once');
+    // armed 30 frames after the link, on the frame after (client WangStoneTriggerManager `_tokenStoneExplodeDelay` 30)
+    h.run(0.95);
+    assert.equal(trapHitsFrom(h, 9, 6), 0, 'not armed yet 0.95 s after the link');
+    h.run(0.15);
     assert.equal(a.mem.wangUsed, true, 'the stone at 9,6 went off on the enemy already standing on it (and was used up)');
     assert.ok(h.hooksOf('statusApplied').some((x) => x.status === 'sluggish'), '取势: 停顿 on that enemy');
     assert.equal(h.b.errors.length, 0);
@@ -131,7 +145,8 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
         if (Math.abs(b.mods.moveMul - Math.max(0, 1 + b.data.list.reduce((n, x) => n + x.v, 0))) > 1e-9) okMul = false;
       }
     });
-    for (let i = 0; i < 10 / 0.05; i++) { h.b.players[0].dp = 99; h.step(1); }
+    // (each return re-arms 30 frames after its link: client `_tokenStoneExplodeDelay`)
+    for (let i = 0; i < 15 * 30; i++) { h.b.players[0].dp = 99; h.step(1); }
     assert.ok(trapHitsFrom(h, 9, 6) >= 6, `the 9,6 stone went off again and again (${trapHitsFrom(h, 9, 6)})`);
     assert.ok(most >= 2, `an enemy carried ≥ 2 stacks at once (${most})`);
     assert.ok(okMul, 'stage = max(0, 1 + Σ move_speed)');
@@ -155,6 +170,26 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
       // up taken by a stone: right
       assert.deepEqual(firstFollower(seed, [stone(12, 5, 51)]), { r: 11, c: 6 }, `seed ${seed}: right when up is taken`);
     }
+  });
+
+  test('跟子 tile order = the client\'s WangTileSelector (TALENT): ground before high ground, then an enemy on it, then undeployable, then up > right > down > left', () => {
+    // flat stage: column 2 rows 10–12 deployable high ground, column 10 undeployable ground
+    const firstFollower = (at, enemies = []) => {
+      const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false, units: [op(0, 9, 6), stone(at[0], at[1], 50)] });
+      h.step(2);
+      h.b.players[0].dp = 99;
+      for (const [r, c] of enemies) holdEnemy(h, r, c);
+      const groups = trackDeployments(h.b);
+      useUp(h, stoneOn(h, at[0], at[1]));
+      h.runUntil(() => groups.length && groups[0].fol.length, 5);
+      return groups[0]?.fol[0] ?? null;
+    };
+    // an enemy on the high-ground neighbour (11,2): ground first — up 12,3 (PRTS's order put the enemy tile first)
+    assert.deepEqual(firstFollower([11, 3], [[11, 2]]), { r: 12, c: 3 });
+    // an enemy on a ground neighbour: that one before the plain ground ones
+    assert.deepEqual(firstFollower([11, 3], [[10, 3]]), { r: 10, c: 3 });
+    // undeployable ground (11,10) before deployable ground
+    assert.deepEqual(firstFollower([11, 9]), { r: 11, c: 10 });
   });
 
   test('module (uniequip_002_wang): deploy limit 8 — eight prep stones all stand, stock 0; without it 7 (full potential)', () => {
@@ -273,12 +308,16 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
     for (const [r, c] of [[10, 5], [9, 3]]) {
       const a0 = w.skill.ammoLeft, g0 = groups.length;
       const e = holdEnemy(h, r, c);
-      h.run(1.2);
+      h.run(1.6);   // the next stand-in drop (1 s pace) + its 跟子, one per 4 frames
       const mine = groups.slice(g0).filter((g) => g.r === r && g.c === c);
       assert.equal(mine.length, 1, `one deployment on ${r},${c} (${JSON.stringify(groups.slice(g0))})`);
       // (a used stone coming back elsewhere in the window is a deployment of its own: count only this one's ammo)
-      const others = groups.slice(g0).filter((g) => g !== mine[0]).reduce((n, g) => n + Math.max(0, g.fol.length - 1), 0);
+      const others = groups.slice(g0).filter((g) => g !== mine[0]).reduce((n, g) => n + paidOf(g), 0);
       seen.push([a0 - w.skill.ammoLeft - others, mine[0].fol.length]);
+      // one per 4 frames (client WangStoneTriggerManager `_stoneBuildDelay` 4), the first with the stone
+      const ts = mine[0].fol.map((f) => f.t);
+      assert.ok(Math.abs(ts[0] - mine[0].t) < 1e-6, 'the talent\'s 跟子 with the stone');
+      for (let i = 1; i < ts.length; i++) assert.ok(Math.abs(ts[i] - ts[i - 1] - 4 * h.TICK) < 1e-6, `4 frames apart (${ts.map((t) => t.toFixed(3))})`);
       h.b.kill(e);
       for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
     }
@@ -286,33 +325,35 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
     assert.deepEqual(seen[1], [1, 2], '9,3: up 10,3 + right 9,4 only (down off the field, left the goal) → 2 跟子, 1 ammo');
   });
 
-  test('W12: S3 returns of used stones — every deployment spends exactly (跟子 built − 1) ammo, never more than 3', () => {
+  test('W12: S3 returns of used stones — every deployment spends one ammo per S3 跟子 built after its stone (≤ 3)', () => {
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
       units: [op(2, 11, 3), ...[4, 5, 6, 7, 8, 9].map((c, i) => stone(9, c, 50 + i))],
       enemies: [{ key: ENEMY, time: 0, route: 0, count: 8, interval: 2 }] });
     h.step(2);
     const w = h.unit(1);
+    const groups = trackDeployments(h.b, () => w.skill.active);   // before the cast: its first deployment's 跟子 come over 4-frame steps
     w.skill.activate('manual', { free: true });
-    h.step(1);
-    const groups = trackDeployments(h.b, () => w.skill.active);
-    let spent = 0, want = 0;
+    let spent = 0, a0 = 0;
     for (let i = 0; i < 30 / 0.05 && w.skill.active; i++) {
       h.b.players[0].dp = 99;
-      const a0 = w.skill.ammoLeft, g0 = groups.length;
+      a0 = w.skill.ammoLeft;
       h.step(1);
-      // (the step S3 ends in is left out: the ammo left then returns as stones, it is not spent)
+      // (the step S3 ends in is left out: the ammo left then returns as stones, it is not spent — unless the last ammo ended it)
       if (!w.skill.active) break;
       spent += a0 - w.skill.ammoLeft;
-      for (const g of groups.slice(g0)) { assert.ok(g.fol.length <= 4, `≤ 4 跟子 a deployment (${g.fol.length})`); want += Math.max(0, g.fol.length - 1); }
     }
+    if (!w.skill.active && h.hooksOf('skillEnd').filter((c) => c.unit === w).at(-1)?.reason === 'ammo') spent += a0;
+    // (the 跟子 of a deployment are built one per 4 frames: counted once the battle has moved on)
     const sizes = groups.map((g) => g.fol.length);
+    for (const n of sizes) assert.ok(n <= 4, `≤ 4 跟子 a deployment (${n})`);
+    const want = groups.reduce((t, g) => t + paidOf(g), 0);
     assert.ok(sizes.some((n) => n >= 2), `deployments with paid 跟子 happened (${sizes})`);
-    assert.equal(spent, want, `ammo spent = Σ(跟子 − 1) (${sizes})`);
+    assert.equal(spent, want, `ammo spent = Σ paid 跟子 (${sizes})`);
   });
 });
 
 describe('望 S3 through the real match path (seats[].diy → Match board → buildBattleSpec → createBattleFromSpec)', () => {
-  test('m04 round 4, six prep stones: each deployment during S3 spends (跟子 built − 1) ≤ 3 ammo', async () => {
+  test('m04 round 4, six prep stones: each deployment during S3 spends one ammo per S3 跟子 built after its stone (≤ 3)', async () => {
     const T6 = 'chess_char_6_diy1_a';
     const { makeMatch } = await import('./match/harness.js');
     const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
@@ -337,21 +378,24 @@ describe('望 S3 through the real match path (seats[].diy → Match board → bu
     const wu = b.allyUnits.find((u) => u.kind === 'op');
     assert.equal(wu.def.charId, CHAR);
     while (b.time < 8) b.step();
+    const groups = trackDeployments(b, () => wu.skill.active);   // before the cast: 跟子 come one per 4 frames
+    let ended = null;
+    b.on('skillEnd', (c) => { if (c.unit === wu) ended = c.reason; });
     wu.skill.activate('manual', { free: true });
-    b.step();
-    const groups = trackDeployments(b, () => wu.skill.active);
-    let spent = 0, want = 0;
+    let spent = 0, a0 = 0;
     while (!b.finished && b.time < 30 && wu.skill.active) {
-      const a0 = wu.skill.ammoLeft, g0 = groups.length;
+      a0 = wu.skill.ammoLeft;
       b.step();
-      if (!wu.skill.active) break; // the ending step: the ammo left returns as stones (not spent)
+      if (!wu.skill.active) break; // the ending step: the ammo left returns as stones (not spent) — unless the last ammo ended it
       spent += a0 - wu.skill.ammoLeft;
-      for (const g of groups.slice(g0)) { assert.ok(g.fol.length <= 4); want += Math.max(0, g.fol.length - 1); }
     }
+    if (ended === 'ammo') spent += a0;
     const sizes = groups.map((g) => g.fol.length);
+    for (const n of sizes) assert.ok(n <= 4);
+    const want = groups.reduce((t, g) => t + paidOf(g), 0);
     assert.ok(groups.length > 0, 'deployments during S3');
     assert.ok(spent > 0, `ammo spent (${sizes})`);
-    assert.equal(spent, want, `ammo = Σ(跟子 − 1) over the deployments (${sizes})`);
+    assert.equal(spent, want, `ammo = Σ paid 跟子 over the deployments (${sizes})`);
     assert.equal(wu.mem.wang.ammo, wu.skill.active ? wu.skill.ammoLeft : wu.mem.wang.ammo, 'the kit count = the engine count');
     assert.equal(b.errors.length, 0);
     m.dispose?.();
@@ -437,7 +481,9 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
     // next to m04's 深水区 column 6 (rows 10–12): a stone's 跟子 would take the water first (「不可部署地块」, class 0)
     side: [[11, 5], [12, 5], [10, 7], [11, 7], [12, 7], [9, 6]],
   };
-  for (const [sk, layout, seed] of [[0, 'far', 1], [1, 'one', 2], [2, 'near', 1], [2, 'one', 1]]) {
+  // (seeds re-picked 2026-10-10 when 跟子 took the client's tile order, came one per 4 frames and stones armed after 30
+  // frames: the former S2 one seed 2 / S3 one seed 1 no longer had a return land on a 跟子)
+  for (const [sk, layout, seed] of [[0, 'far', 1], [1, 'one', 1], [2, 'near', 1], [2, 'one', 2]]) {
     test(`S${sk + 1} ${layout} seed ${seed}: no two placed stones / 跟子 on a tile — a return onto a 跟子 removes it`, async () => {
       const r = await runWang({ sk, stones: LAYOUTS[layout], seed, until: 60 });
       assert.equal(r.errors.length, 0);

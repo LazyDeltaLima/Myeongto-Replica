@@ -6,12 +6,24 @@ import {
   AURA, num, tbb, grid, targetsInGrid, whileDeployed, toggleBuff, resCut, isSel, alt, lonely, withDefaults,
 } from '../shared/tier4.js';
 
+// S3 剑雨滂沱 timings (EN client prefab skchr_texas2_3, see the kit note): AppearSwordRain `_preDelay` / `_triggerDelta`,
+// the rain buff's `firstTriggerInterval`, the rain sword's `_randomDelayToBorn` (s)
+const S3_APPEAR_PRE = 0.6, S3_APPEAR_DELTA = 0.2, S3_RAIN_FIRST = 0.4, S3_SWORD_DELAY = 0.3;
+
 export default withDefaults({
   // ===== 缄默德克萨斯 (executor) S3 剑雨滂沱 (passive) — deploy burst 2×115 % + 1.5 s stun, sword rain 1/s; talents
   //       S1 细雨无声 (passive, for the skill duration: ATK up; hits silence the target 5 s/8 s — 失去特殊能力 — with
   //       260/320 arts per s meanwhile); S2 阵雨连绵 (passive: deploy burst 150 %/180 % arts + RES −15 %/−20 % around her;
   //       for the skill duration ATK up and attacks become arts double hits). Talent 德克萨斯传统 applies to every passive.
   //       The S3 rain hits air units (PRTS 备注 "效果可对空"); so does the S2 deploy burst [ASSUMED: no note].
+  //       S3 timing (EN client prefab skchr_texas2_3, an AbilitySequenceGroup 1Frame → AppearSwordRain → ModeWithSwordRain,
+  //       each sub-ability starting when the one before finished — client code AbilitySequenceGroup._OnSubAbilityFinished):
+  //       the deploy burst AppearSwordRain hits after `_preDelay` 0.6 s, twice 0.2 s apart (`_additionalTimes` 1,
+  //       `_triggerDelta` 0.2), re-selecting its targets each time (`_selectTargetTiming` 1) and stunning with each hit;
+  //       then ModeWithSwordRain attaches the rain buff texas2_s_3[sword] (`firstTriggerInterval` 0.4, `triggerInterval`
+  //       1, life `duration`): the first rain 0.4 s later, then every second, and the passive lasts `duration` from there.
+  //       Each rain sword (projectile_chr_texas2_s3_sword_rain) lands after its own `_randomDelayToBorn` (0–0.3 s, the
+  //       battle rng) on the target chosen at the rain (EmitSword `_selectTargetTiming` 1).
   chess_char_4_16_a: (bb, chess, def) => {
     const t0 = tbb(def, 0), t1 = tbb(def, 1);
     const tb = def.traitBb || {};
@@ -32,30 +44,53 @@ export default withDefaults({
       }
       battle.fx('swordStorm', { x: unit.x, y: unit.y, id: unit.id });
     };
+    // S3: every pending hit / sword of the current release (cancelled when it ends: recast, retreat, death)
+    const stopS3 = (unit) => {
+      for (const t of unit.mem.texasS3 || []) t.cancel();
+      unit.mem.texasS3 = null;
+    };
     const castS3 = (battle, unit) => {
       if (!unit.alive || !unit.deployed) return;
-      for (const e of targetsInGrid(battle, unit, g)) {
-        for (let i = 0; i < 2 && e.alive; i++) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb['appear.atk_scale'], 1.15), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
-        if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb['appear.stun'], 1.5), source: unit });
-      }
       battle.fx('swordStorm', { x: unit.x, y: unit.y, id: unit.id });
-      unit.mem.rainTimer?.cancel();
-      unit.mem.rainTimer = battle.every(Math.max(0.1, num(bb['texas2_s_3[sword].interval'], 1)), (b, sched) => {
-        if (!unit.alive || !unit.deployed || !unit.skill?.active) { sched.cancel(); return; }
+      stopS3(unit);
+      const timers = unit.mem.texasS3 = [];
+      const seq = unit.deploySeq;
+      const live = () => unit.alive && unit.deployed && unit.deploySeq === seq && unit.mem.texasS3 === timers;
+      const appear = (b) => {
+        for (const e of targetsInGrid(b, unit, g)) {
+          b.dealDamage(unit, e, { amount: unit.s.atk * num(bb['appear.atk_scale'], 1.15), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
+          if (e.alive) b.applyStatus(e, 'stun', { duration: num(bb['appear.stun'], 1.5), source: unit });
+        }
+      };
+      const sword = (b, e) => {
+        if (!live() || !e.alive) return;
+        b.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 0.85), type: 'arts', isSkill: true, tags: ['skill', 'swordRain'] });
+        if (e.alive) b.applyStatus(e, 'stun', { duration: num(bb.stun, 0.2), source: unit });
+        b.fx('swordRain', { x: e.x, y: e.y, id: e.id, src: unit.id }); // local patch: src — the client draws her rain prefab
+      };
+      const rain = (b, sched) => {
+        if (!live() || !unit.skill?.active) { sched.cancel(); return; }
         const list = targetsInGrid(b, unit, g);
         sortEnemyTargets(b, unit, list, null);
         for (const e of list.slice(0, Math.max(1, Math.floor(num(bb.max_target, 2))))) {
-          b.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 0.85), type: 'arts', isSkill: true, tags: ['skill', 'swordRain'] });
-          if (e.alive) b.applyStatus(e, 'stun', { duration: num(bb.stun, 0.2), source: unit });
-          b.fx('swordRain', { x: e.x, y: e.y, id: e.id, src: unit.id }); // local patch: src — the client draws her rain prefab
+          timers.push(b.after(b.rng.range(0, S3_SWORD_DELAY), () => sword(b, e), { owner: unit }));
         }
-      }, { owner: unit });
-      // Duration advances by dt in the ally phase; align the rain with that clock so the final wave lands before end.
-      unit.mem.rainTimer.due -= battle.dt;
+      };
+      timers.push(battle.after(S3_APPEAR_PRE, (b) => { if (live()) appear(b); }, { owner: unit }));
+      timers.push(battle.after(S3_APPEAR_PRE + S3_APPEAR_DELTA, (b) => {
+        if (!live()) return;
+        appear(b);
+        if (!live()) return; // a kill by this hit recast the passive (德克萨斯传统): the new release owns the rain
+        const r = b.every(Math.max(0.1, num(bb['texas2_s_3[sword].interval'], 1)), rain, { owner: unit });
+        r.due = b.time + S3_RAIN_FIRST;
+        timers.push(r);
+      }, { owner: unit }));
     };
     const cast = S1 ? castS1 : S2 ? castS2 : castS3;
     const skill = {
-      kind: 'duration', activateOnDeploy: true, duration: dur, spCost: 0, spType: 'none', trigger: 'NEVER',
+      // S3: the passive lasts `duration` from the rain buff, which starts after the two deploy hits [inferred: the
+      // client's texas2_s_3 / texas2_s_3[sword] buffs (life `duration`) are attached by ModeWithSwordRain, the last step]
+      kind: 'duration', activateOnDeploy: true, duration: S1 || S2 ? dur : dur + S3_APPEAR_PRE + S3_APPEAR_DELTA, spCost: 0, spType: 'none', trigger: 'NEVER',
       mods: { atkPct: num(t0.atk, 0.2) + (S1 || S2 ? num(bb.atk) : 0) },
       onStart({ battle, unit, reason }) {
         if (reason === 'kill' && unit.mem.texasRecastPending) {
@@ -68,7 +103,7 @@ export default withDefaults({
       },
       onEnd({ unit, reason }) {
         if (reason === 'recast' && unit.mem.texasRecastPending) return;
-        unit.mem.rainTimer?.cancel();
+        stopS3(unit);
       },
     };
     return {

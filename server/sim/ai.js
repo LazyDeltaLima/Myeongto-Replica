@@ -350,7 +350,7 @@ export function performAttack(b, u, prof, targets, opts = null) {
  * home(), hit(target, x, y) (resolveHit with this attack's profile), comeBack(x, y) (sends it back from there, once;
  * returns the return projectile or null) } — and a content error there sends it back from the hit point.
  */
-function throwBoomerang(b, u, prof, t, info) {
+export function throwBoomerang(b, u, prof, t, info) {
   const seq = u.deploySeq;
   u.trait.boomerangsOut = (u.trait.boomerangsOut || 0) + 1;
   const home = () => u.alive && u.deployed && u.deploySeq === seq;

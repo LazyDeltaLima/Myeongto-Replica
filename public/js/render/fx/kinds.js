@@ -37,6 +37,9 @@ export const FX_KINDS = Object.freeze({
   // a dollkeeper knocked out as its <替身> (sim professions.js): only its model form goes back to the 本体 for the
   // redeploy — the 替身's death clip already shows the knock-out, nothing is drawn
   dollEnd: { a: 'none', c: 0xd8b0ff },
+  // 跃跃 S2's later boomerang (sim kit chess_char_1_09-caper.js; the client's projectile_chr_caper_s2_1 on the opposite
+  // arc, 0.1 s after the attack's own boomerang) — not drawn yet (the attack's 'atk' boomerang is)
+  caperBoomerang2: { a: 'none', c: 0x9ff0dc },
   ulpiaReturn: { a: 'blink', c: 0x9ff0dc }, manifoldSplit: { a: 'blink', c: 0xd8b0ff },
   // displacement
   pull: { a: 'move', c: 0x9fd4ff }, push: { a: 'move', c: 0xffd9a0 }, displace: { a: 'move', c: 0xd0c0a0 }, lure: { a: 'move', c: 0xffb3ec },

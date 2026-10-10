@@ -233,6 +233,26 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     assert.equal(h.unit(1).mem.timbre, casts % 2 ? 'organ' : 'piano');
   });
 
+  test('丰川祥子 S1: the 8 notes fan ±angle·(2·ratio − 1) around her facing (client BasicMovement._InitDirectionByStart, angle 15 → ±13.125°)', async () => {
+    const { dirVec } = await import('../server/sim/dir.js');
+    const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true,
+      units: [op('oblvns', { sk: 0, row: 10, col: 4, carryState: { sp: 999 } })],
+      enemies: [{ key: ENEMY, time: 0, route: 0, count: 8, interval: 1.2 }, { key: ENEMY, time: 1, route: 1, count: 6, interval: 1.6 }] });
+    for (let i = 0; i < 16 * 30; i++) h.step();   // drained every tick (the battle's event buffer is bounded)
+    const u = h.unit(1);
+    const angle = recOf('oblvns', { sk: 0 }).skill.bb.angle;
+    assert.equal(angle, 15);
+    const born = h.eventsOf('fx').filter((e) => e[1] === 'oblvnsNote' && e[4].id === u.id && e[4].e === 'born' && e[4].m === 's1');
+    assert.ok(born.length >= 8, `${born.length} S1 notes`);
+    const [dr, dc] = dirVec(u.dir);   // she does not turn (a 领主 on the ground)
+    const base = (Math.atan2(dr, dc) * 180) / Math.PI;
+    const wrap = (d) => ((d + 540) % 360) - 180;
+    for (const e of born) {
+      const i = e[4].i - 1, want = angle * (2 * ((2 * i + 1) / 16) - 1);
+      assert.ok(Math.abs(wrap(e[4].a - base) - want) <= 0.5 + 1e-9, `note ${i + 1}: ${wrap(e[4].a - base)}° ≈ ${want}°`);
+    }
+  });
+
   // 丰川祥子 talents (namu 4.6 + PRTS 备注, 2026-10-05): 持续攻击 with no enemy, notes, ASPD aura incl. herself, LOR-Y
   describe('丰川祥子 talents', () => {
     const solo = (form, sk, { flat, enemies = [], kits, secs = 6 } = {}) => {
@@ -635,18 +655,24 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     h.b.players[0].dp = 99;
     const built = countFollowers(h.b);
     const seen = [];
-    let redeploys = 0;
-    h.b.on('deploy', (c) => { if (c.unit.kind === 'token' && c.unit.mem?.wangUsed === true && w.skill.active) redeploys++; });
+    let redeploys = 0, deploys = 0, total = 0;
+    h.b.on('deploy', (c) => {
+      if (c.unit.kind !== 'token' || c.unit.mem?.wangFollower || !w.skill.active) return;
+      deploys++;
+      if (c.unit.mem?.wangUsed === true) redeploys++;
+    });
     const a0 = w.skill.ammoLeft;
     for (let i = 0; i < 25 / 0.05 && w.skill.active; i++) {
       const am = w.skill.ammoLeft, b0 = built();
       h.step(1);
-      if (w.skill.active && built() > b0) seen.push([am - w.skill.ammoLeft, built() - b0]);
+      if (w.skill.active && am > w.skill.ammoLeft) { seen.push([am - w.skill.ammoLeft, built() - b0]); total += am - w.skill.ammoLeft; }
     }
     assert.ok(redeploys > 0, 'used stones came back during S3');
     assert.ok(a0 - (w.skill.active ? w.skill.ammoLeft : 0) > 0, 'ammo spent');
-    // user decision 2026-10-07 (W12): the talent's 跟子 free + ≤ 3 extra, one ammo each (formerly one ammo per 跟子 built)
-    for (const [spent, n] of seen) assert.ok(spent <= 3 && spent <= Math.max(0, n - 1), `≤ 3 ammo, the first 跟子 free (${spent} for ${n})`);
+    // user decision 2026-10-07 (W12): the talent's 跟子 free + ≤ 3 extra, one ammo each (formerly one ammo per 跟子 built);
+    // the extras come one per 4 frames (client _stoneBuildDelay), each paid as it is built
+    for (const [spent, n] of seen) assert.ok(spent <= n, `one ammo per 跟子 built (${spent} for ${n})`);
+    assert.ok(total <= 3 * deploys, `≤ 3 ammo a deployment (${total} for ${deploys})`);
   });
 
   test('望 S3: ammo per deployment = 跟子 actually built − the talent\'s free one: 4 free neighbours → 4 跟子 / 3 ammo, fewer → fewer', () => {
@@ -668,7 +694,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
       const a0 = w.skill.ammoLeft;
       base = built();
       const e = put(r, c);
-      h.run(1.2);
+      h.run(1.6);   // the next stand-in drop (1 s pace) + its 跟子, one per 4 frames
       seen.push([a0 - w.skill.ammoLeft, built() - base]);
       h.b.kill(e);
     }
@@ -677,22 +703,56 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     assert.ok(seen[1][0] === seen[1][1] - 1 && seen[1][1] < 4 && seen[1][1] > 0, `11,4: fewer neighbours → fewer 跟子, one free (${seen[1]})`);
   });
 
-  test('望 S3: among enemy tiles of her range the enemy closest to its goal comes first, not the one closest to her (user decision 2026-10-06)', () => {
-    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
-      units: [op('wang', { sk: 2, row: 11, col: 3 }), ...[5, 6, 7, 8, 9].map((c, i) => stone(12, c, 50 + i))] });
-    h.step(2);
-    const w = h.unit(1);
-    w.skill.activate('manual', { free: true });
-    h.step(1);
-    assert.ok(w.skill.active);
-    const put = (r, c) => { const e = h.spawn('enemy_1001_bigbo', { pos: [r, c], route: 0 }); h.b.applyStatus(e, 'stun', { duration: 99 }); return e; };
-    const near = put(11, 4), goal = put(9, 4);
-    assert.ok(h.b.remainingDistance(goal) < h.b.remainingDistance(near));
-    const spawned = [];
-    const orig = h.b.spawnToken.bind(h.b);
-    h.b.spawnToken = (...a) => { const u = orig(...a); if (u) spawned.push([u.tileR, u.tileC]); return u; };
-    h.run(1.2);
-    assert.deepEqual(spawned[0], [9, 4], `the first stone went on the enemy nearest its goal (${JSON.stringify(spawned)})`);
+  test('望 S3: the stand-in puts its stone on an enemy tile of her range in random order (goalFirst dropped 2026-10-10: no such order in the client)', () => {
+    const firsts = new Set();
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const h = makeBattle({ seed, captureNoisy: true, timeLimit: 120, autoFinish: false,
+        units: [op('wang', { sk: 2, row: 11, col: 3 }), ...[5, 6, 7, 8, 9].map((c, i) => stone(12, c, 50 + i))] });
+      h.step(2);
+      const w = h.unit(1);
+      w.skill.activate('manual', { free: true });
+      h.step(1);
+      assert.ok(w.skill.active);
+      const put = (r, c) => { const e = h.spawn('enemy_1001_bigbo', { pos: [r, c], route: 0 }); h.b.applyStatus(e, 'stun', { duration: 99 }); return e; };
+      put(11, 4); put(9, 4);
+      const spawned = [];
+      const orig = h.b.spawnToken.bind(h.b);
+      h.b.spawnToken = (...a) => { const u = orig(...a); if (u && a[4]?.kit?.fromTokens) spawned.push(`${u.tileR},${u.tileC}`); return u; };
+      h.run(1.2);
+      assert.ok(['11,4', '9,4'].includes(spawned[0]), `seed ${seed}: the first stone on an enemy tile (${JSON.stringify(spawned)})`);
+      firsts.add(spawned[0]);
+    }
+    assert.equal(firsts.size, 2, `either enemy tile may come first (${[...firsts]})`);
+  });
+
+  test('望 S3 start: the 跟子 over the hand cap take the client\'s InstantSpawn order — ground before high ground, enemy tiles first, then undeployable (WangTileSelector)', async () => {
+    const { COLS: W } = await import('../server/sim/constants.js');
+    // flat stage: column 2 rows 10–12 deployable high ground, column 10 undeployable ground, the rest deployable ground
+    for (const seed of [1, 2, 3]) {
+      const h = makeBattle({ seed, captureNoisy: true, timeLimit: 120, autoFinish: false,
+        units: [op('wang', { sk: 2, row: 11, col: 6, dir: 'LEFT' }), stone(12, 9, 50)] });   // S3 range: columns 2–6
+      h.step(2);
+      const w = h.unit(1);
+      const put = (r, c) => { const e = h.spawn('enemy_1001_bigbo', { pos: [r, c], route: 0 }); h.b.applyStatus(e, 'stun', { duration: 99 }); return e; };
+      put(11, 2); put(10, 4);   // an enemy on high ground, one on ground
+      h.step(1);
+      const spawned = [];
+      const orig = h.b.spawnToken.bind(h.b);
+      // the InstantSpawn ones only: they come before the stand-in's first stone (drop) in the same cast
+      let drop = false;
+      h.b.spawnToken = (...a) => { const u = orig(...a); if (u && a[4]?.kit?.fromTokens) drop = true; if (u && !drop && a[4]?.kit?.follower) spawned.push([u.tileR, u.tileC]); return u; };
+      w.skill.activate('manual', { free: true });
+      const keys = new Set(w.rangeKeys);
+      assert.ok(keys.has(11 * W + 2) && keys.has(10 * W + 4), 'both enemy tiles in her range');
+      assert.ok(spawned.length >= 2, `seed ${seed}: InstantSpawn 跟子 built (${JSON.stringify(spawned)})`);
+      assert.deepEqual(spawned[0], [10, 4], `seed ${seed}: the enemy ground tile first (${JSON.stringify(spawned)})`);
+      const hi = spawned.findIndex(([r, c]) => h.b.grid.tile(r, c).height === 'HIGH');
+      if (hi >= 0) assert.ok(spawned.slice(hi).every(([r, c]) => h.b.grid.tile(r, c).height === 'HIGH'), `seed ${seed}: high ground (its enemy too) only after every ground tile (${JSON.stringify(spawned)})`);
+      // among the ground tiles without an enemy: undeployable (column 10) before deployable
+      const plain = spawned.slice(1).filter(([r, c]) => h.b.grid.tile(r, c).height !== 'HIGH');
+      const firstDeployable = plain.findIndex(([r, c]) => h.b.grid.tile(r, c).build !== 'NONE');
+      if (firstDeployable >= 0) assert.ok(plain.slice(firstDeployable).every(([r, c]) => h.b.grid.tile(r, c).build !== 'NONE'), `seed ${seed}: undeployable ground first (${JSON.stringify(spawned)})`);
+    }
   });
 
   test('望 S3: her used stones waiting to come back hold their slots — no prep stone is ever withdrawn by the deploy limit', () => {
