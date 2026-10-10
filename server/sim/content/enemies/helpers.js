@@ -3,7 +3,7 @@
 // attach / dispatch, T, canCast …) and the selection and damage helpers (elem, hurt, areaAllies & friends, zone,
 // spawnChildren, setForm, lpLoss, expose …).
 
-import { ELEMENT } from '../../constants.js';
+import { ELEMENT, ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { canTargetAlly, sortAllyTargets, areaSelectable, auraSelectable } from '../../targeting.js';
 import { mitigate } from '../../damage.js';
 import { hypot } from '../../detmath.js';
@@ -93,8 +93,11 @@ export function abOf(b, e) {
     if (!s || s.prefabKey == null) continue;
     // `name`: the official ability name (the gamedata prefabKey — the prefab's `Skills/<name>`, case aside), carried by the
     // cast's events (content/enemies.js onTick: fx 'enemySkill' and the `ability` of the fx made by the cast); `proj`: its
-    // official projectile (data/enemies.json skills[i].proj, simdata.js normShot), null when it has none
-    sk[s.prefabKey] = { name: s.prefabKey, cd: num(s.cooldown, 0), icd: num(s.initCooldown, 0), sp: num(s.spCost, 0), bb: s.bb || {}, bs: s.bbStr || {}, proj: normShot(s.proj) };
+    // official projectile (data/enemies.json skills[i].proj, simdata.js normShot — plus its `life`, SimpleProjectile
+    // `_lifeTime`: a FIXED_DIRECTION shot's flight, lineShot), null when it has none
+    const proj = normShot(s.proj);
+    if (proj && s.proj.life > 0) proj.life = s.proj.life;
+    sk[s.prefabKey] = { name: s.prefabKey, cd: num(s.cooldown, 0), icd: num(s.initCooldown, 0), sp: num(s.spCost, 0), bb: s.bb || {}, bs: s.bbStr || {}, proj };
   }
   e.mem.ab = { key, t, tS, sk, list: [], times: null, hitShield: 0, atkType: null, immune: null, origMaxHp: e.base.maxHp };
   return e.mem.ab;
@@ -351,8 +354,8 @@ export const isHitCount = (e) => !!e.findBuff(HIT_COUNT_KEY);
  * Fire an enemy ability's official projectile `shot` (data/enemies.json `skills[i].proj` …, simdata.js normShot) from
  * `from` (a unit, or a point with the shooter as `opts.source`) at unit `t`; `onHit(target)` runs as it arrives —
  * `target` null when it fizzled on a dead target with `opts.hitDead`. Timing as the engine's normal attacks (ai.js
- * shotSpeed, docs/rules/sim.md 「적 투사체」): TRACE_TARGET_WITH_SPEED / PARACURVE / HARPOON / FIXED_DIRECTION home at
- * `speed`; ATTACH / NONE / no shot land now. An fx 'enemyShot' { id (shooter), from (the unit it leaves, when not the
+ * shotSpeed, docs/rules/sim.md 「적 투사체」): TRACE_TARGET_WITH_SPEED / PARACURVE / HARPOON home at `speed` (a FIXED_DIRECTION
+ * one that should fly straight goes through lineShot); ATTACH / NONE / no shot land now. An fx 'enemyShot' { id (shooter), from (the unit it leaves, when not the
  * shooter), tgt, key, move, speed, t (flight s) } lets the client draw the official projectile (docs/SIM.md events).
  * Returns the flight time in seconds.
  */
@@ -368,6 +371,55 @@ export function shoot(b, from, t, shot, onHit, opts = {}) {
   if (!(v > 0) || !(d > 1e-9)) { onHit(t); return 0; }
   b.addProjectile({ from, target: t, speed: v, visual: opts.visual ?? 'enemy', source: src, hitDead: !!opts.hitDead, onHit: (c) => onHit(c.target) });
   return flight;
+}
+
+/**
+ * Fire an official FIXED_DIRECTION projectile (`shot`: data/enemies.json `skills[i].proj`, move FIXED_DIRECTION — 重弩突袭者
+ * 直击's projectile_enemy_msnip) from `from` the way of `aim` (a unit or point): it flies straight along the nearest of the
+ * four map axes and ends on the first ally it touches — `onHit(target)` then — or, touching none, after `shot.life` s
+ * (`onExpire()`). Client code (EN, docs/rules/sim.md 「FIXED_DIRECTION 투사체」): FarthestPointMovement._SetTargetPosAndDirection
+ * (`_useDirToTarget` → MapUtil.NormalizeDirectionToFourWays) and AdvancedMovement.OnInit (no reach point for FIXED_DIRECTION:
+ * it never "arrives"); its SelectorHitBehaviour (`_hitPasserby`, every `_interval` 0.03 s) takes the allies whose collider
+ * meets the projectile's circle (`opts.radius`, prefab CircleCollider2D 0.3), at most one, and SimpleProjectile (LIMITED
+ * `_maxHitNum` 1, `_stopAfterMaxHit`) stops it there; `_lifeTime` ends it otherwise. `opts.canHit(u)` filters the allies
+ * (default areaSelectable — a projectile's collision ignores 迷彩). An fx 'enemyShot' { id, tgt, key, move, speed, t, dir,
+ * range } announces it with the hit the field as it stands predicts: `tgt` that ally (null: none), `t` the flight to it,
+ * `dir` [dx, dy] the axis (stage grid: +x = right, +y = up a row), `range` the tiles it covers (to that hit, else speed ×
+ * life). Returns the projectile.
+ */
+export function lineShot(b, from, aim, shot, onHit, opts = {}) {
+  const src = opts.source ?? (from && from.id != null ? from : null);
+  const ax = aim.x - from.x, ay = aim.y - from.y;
+  const dir = Math.abs(ax) >= Math.abs(ay) ? [Math.sign(ax) || 1, 0] : [0, Math.sign(ay)];
+  const speed = shot && shot.speed > 0 ? shot.speed : 5;
+  const life = shot && shot.life > 0 ? shot.life : 10;
+  const reach = (opts.radius ?? 0.3) + ALLY_COLLIDER_RADIUS;
+  const canHit = opts.canHit ?? ((u) => areaSelectable(src, u));
+  const touching = (x, y) => {
+    let best = null, bd = Infinity;
+    for (const u of b.allies()) {
+      if (!u.alive || !u.deployed || !canHit(u)) continue;
+      const d = hypot(u.x - x, u.y - y);
+      if (d <= reach + 1e-9 && (d < bd || (d === bd && best && u.id < best.id))) { best = u; bd = d; }
+    }
+    return best;
+  };
+  // the hit the field as it stands predicts (the client's draw; the sim sweeps every step)
+  let first = null, at = speed * life;
+  for (const u of b.allies()) {
+    if (!u.alive || !u.deployed || !canHit(u)) continue;
+    const along = (u.x - from.x) * dir[0] + (u.y - from.y) * dir[1];
+    const perp = Math.abs((u.x - from.x) * dir[1] - (u.y - from.y) * dir[0]);
+    if (perp > reach || along < 0) continue;
+    const d = Math.max(0, along - Math.sqrt(reach * reach - perp * perp));
+    if (d < at || (d === at && first && u.id < first.id)) { first = u; at = d; }
+  }
+  if (shot) {
+    b.fx('enemyShot', { x: from.x, y: from.y, id: src ? src.id : null, tgt: first ? first.id : null, key: shot.key, move: shot.move, speed,
+      t: Math.round((at / speed) * 1000) / 1000, dir, range: Math.round(at * 1000) / 1000 });
+  }
+  return b.addProjectile({ from, dir: { x: dir[0], y: dir[1] }, speed, maxAge: life, visual: opts.visual ?? 'enemy', source: src,
+    sweep: (p) => touching(p.x, p.y), onHit: (c) => onHit(c.target), onExpire: () => opts.onExpire?.() });
 }
 
 export function setForm(b, e, form, fxKind = 'phase', params = null) {

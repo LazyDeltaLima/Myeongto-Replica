@@ -122,7 +122,8 @@ def projectiles(C):
             if m:
                 moves.append(m)
         # a root with an AttachToTarget beside a moving behaviour (萨米的意志's 冰凌 projectile_enemy_smdeer): the moving
-        # one is taken [추정: which of two enabled movements the client runs was not decompiled]
+        # one is recorded — the client runs both: the AttachToTarget (`_immediatelyReach`) puts it on its target tile, the
+        # FIXED_DIRECTION one moves it on from there (docs/rules/sim.md 「萨米的意志 冰凌」)
         moves.sort(key=lambda m: m['move'] == 'ATTACH')
         if moves:
             r.update(moves[0])

@@ -3,7 +3,7 @@
 
 import { canTargetAlly, enemyStealthed } from '../../targeting.js';
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
-import { T, elem, hurt, targetsNear, byPriority, auraBuff } from './helpers.js';
+import { T, elem, hurt, targetsNear, byPriority, auraBuff, lineShot } from './helpers.js';
 import { stealth, onHitStatus, skill, kitStealth } from './archetypes.js';
 import { hypot } from '../../detmath.js';
 
@@ -27,28 +27,27 @@ function kitCrossbow(ab) {
   const aligned = (b, e) => b.allies().filter((u) => canTargetAlly(e, u, true) && (Math.abs(u.y - e.y) < 0.5 || Math.abs(u.x - e.x) < 0.5) && hypot(u.x - e.x, u.y - e.y) <= CROSS_REACH);
   const nearest = (b, e, l) => l.sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y))[0];
   // PRTS 重弩突袭者: 天赋 "隐匿（被阻挡，主动攻击期间均可解除）"; 直击 "蓄力1.4s后向目标方向发射1支弩箭，对击中的首个目标造成攻击力100%
-  // 的法术伤害与5s晕眩 ※技能持续2.5s": revealed for the whole skill, the bolt leaves CROSS_CHARGE s in — at the nearest unit still
-  // in line in the aimed direction; it stands meanwhile [ASSUMED], and a stun / silence or its death before the release
-  // cancels the shot [ASSUMED]. The blackboard's duration (2) is not the skill's length PRTS gives. Until 0.1.3: revealed
-  // 2 s, the bolt at once.
+  // 的法术伤害与5s晕眩 ※技能持续2.5s": revealed for the whole skill, the bolt leaves CROSS_CHARGE s in the way of the unit it
+  // aimed at; it stands meanwhile [ASSUMED], and a stun / silence or its death before the release cancels the shot
+  // [ASSUMED]. The blackboard's duration (2) is not the skill's length PRTS gives. Until 0.1.3: revealed 2 s, the bolt at once.
   return [stealth(), skill(s, (b, e) => {
     const t = nearest(b, e, aligned(b, e));
     if (!t) return;
     const bb = s.bb;
-    const dx = Math.sign(Math.round(t.x - e.x)), dy = Math.sign(Math.round(t.y - e.y));
+    const aim = { x: t.x, y: t.y };
     b.addBuff(e, { key: 'ab:revealed', duration: CROSS_SKILL, flags: { reveal: true } });
     b.addBuff(e, { key: 'ab:aim', duration: CROSS_SKILL, flags: { noMove: true, disarm: true } });
     b.after(CROSS_CHARGE, () => {
       if (!e.alive || e.hidden || e.s.flags.stun || e.s.flags.silence) return;
-      const tt = nearest(b, e, aligned(b, e).filter((u) => Math.sign(Math.round(u.x - e.x)) === dx && Math.sign(Math.round(u.y - e.y)) === dy));
-      if (!tt) return;
-      // the bolt: its official projectile (data/enemies.json skills CrossAttack.proj — projectile_enemy_msnip, a
-      // FIXED_DIRECTION AdvancedMovement at 5 tiles/s; until 2026-10-10 12), flown at the unit it was aimed at
-      b.addProjectile({ from: e, target: tt, speed: s.proj?.speed || CROSS_BOLT_SPEED, visual: 'enemy', source: e, onHit: (c) => {
-        if (!c.target || !c.target.alive) return;
-        hurt(b, e, c.target, e.s.atk * (bb.atk_scale ?? 1), 'arts');
-        if (bb.stun > 0 && c.target.alive) b.applyStatus(c.target, 'stun', { duration: bb.stun, source: e });
-      } });
+      // the bolt: its official projectile (data/enemies.json skills CrossAttack.proj — projectile_enemy_msnip, FIXED_DIRECTION
+      // at 5 tiles/s; until 2026-10-10 12) flies straight along the axis towards the aimed spot and stops on the first ally
+      // it touches — the aimed unit or one in front of it, or one behind when the aimed unit is gone; nobody: it flies on
+      // for its 10 s life (helpers.js lineShot; until 2026-10-10 it homed on the nearest unit still in line)
+      lineShot(b, e, aim, s.proj || { key: 'projectile_enemy_msnip', move: 'FIXED_DIRECTION', speed: CROSS_BOLT_SPEED, life: 10 }, (u) => {
+        if (!u || !u.alive) return;
+        hurt(b, e, u, e.s.atk * (bb.atk_scale ?? 1), 'arts');
+        if (bb.stun > 0 && u.alive) b.applyStatus(u, 'stun', { duration: bb.stun, source: e });
+      }, { source: e });
     }, { owner: e });
   }, { sil: true, cond: (b, e) => aligned(b, e).length > 0 })];
 }

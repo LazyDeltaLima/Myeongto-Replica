@@ -163,6 +163,45 @@ test(`${nm('enemy_1404_msnip')}: 直击 — 1.4 s after the cast a unit in line 
   assert.equal(h2.unit('t_wall').stats.taken, 0, 'a stun during the charge cancels the shot');
 });
 
+// client code (docs/rules/sim.md 「FIXED_DIRECTION 투사체」): projectile_enemy_msnip flies straight along the axis towards the
+// aimed unit (FarthestPointMovement `_useDirToTarget` → four ways) and stops on the first ally its 0.3 circle touches
+// (SelectorHitBehaviour `_hitPasserby`, `_maxHitNum` 1, `_stopAfterMaxHit`) — no homing
+test(`${nm('enemy_1404_msnip')}: 直击's bolt flies straight — the aimed unit gone, it hits the one behind; the fx carries its axis`, () => {
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 6 }, { chessId: 't_wall2', row: 9, col: 3 }] });
+  h.step();
+  const e = put(h, 'enemy_1404_msnip', [9, 8]);
+  const s = skb('enemy_1404_msnip', 'CrossAttack');
+  h.run(s.initCooldown + 0.1);
+  assert.ok(e.findBuff('ab:aim'), 'cast at the nearest unit in line (t_wall, 2 tiles)');
+  const front = h.unit('t_wall'), back = h.unit('t_wall2');
+  h.b.kill(front, null);                                    // the aimed unit dies during the charge
+  let shotAt = null, hitAt = null;
+  for (let i = 0; i < 120 && hitAt == null; i++) {
+    h.run(1 / 30);
+    if (shotAt == null && h.eventsOf('fx').some((f) => f[1] === 'enemyShot' && f[4].key === 'projectile_enemy_msnip')) shotAt = h.b.time;
+    if (back.stats.taken > 0) hitAt = h.b.time;
+  }
+  const fx = h.eventsOf('fx').find((f) => f[1] === 'enemyShot' && f[4].key === 'projectile_enemy_msnip')[4];
+  assert.equal(fx.move, 'FIXED_DIRECTION');
+  assert.deepEqual(fx.dir, [-1, 0], 'left along the row');
+  assert.equal(fx.tgt, back.id, 'the predicted first touch: the unit behind');
+  const reach = 0.3 + 0.25, d = (back.x < e.x ? e.x - back.x : back.x - e.x) - reach;
+  approx(fx.range, d, 1e-3);
+  approx(fx.t, d / s.proj.speed, 1e-3);
+  approx(hitAt - shotAt, d / s.proj.speed, 0.05, 'straight flight to the first touch');
+  approx(back.stats.taken, e.s.atk * s.bb.atk_scale);
+  assert.equal(statuses(h, back.id, 'stun').length, 1, 'stunned');
+  // nobody on the axis: the bolt flies its 10 s life and hits nothing
+  const h2 = arena({ units: [{ chessId: 't_wall', row: 9, col: 6 }, { chessId: 't_wall2', row: 10, col: 3 }] });
+  h2.step();
+  const e2 = put(h2, 'enemy_1404_msnip', [9, 8]);
+  h2.run(s.initCooldown + 0.1);
+  h2.b.kill(h2.unit('t_wall'), null);
+  h2.run(12);
+  assert.equal(h2.unit('t_wall2').stats.taken, 0, 'one row off: the 0.3 circle and the 0.25 collider do not meet');
+  assert.ok(e2.alive);
+});
+
 test(`${nm('enemy_10034_cnvsax')}: never attacks while stealthed; once blocked it counter-attacks and burns its locked target`, () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 5 }] });
   h.step();
@@ -3039,12 +3078,44 @@ test('“萨米的意志”: 冰凌 hits a whole column; 自然涌动 stun + art
   assert.equal(h.hooksOf('lpLoss')[0].amount, Math.abs(skb('enemy_9033_acdeer', 'Doom').bb.value));
 });
 
+// client code (docs/rules/sim.md 「萨米的意志 冰凌」): SmdeerTileSelector puts the 冰凌 on the stage's top tile of the column,
+// projectile_enemy_smdeer runs DOWN at 5 tiles/s leaving a projectile_enemy_smdeer_2 on every tile, which hits the one
+// ally there 1 s later (`_lifeTime` 1, `_onlyCheckHitWhenStop`); the swing strikes on its clip's OnAttack frame
+test('“萨米的意志”: 冰凌 runs down the column from the top row — each tile hit 1 s after the ice reaches it', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 6 }, { chessId: 't_wall2', row: 9, col: 6 }] });
+  h.step();
+  const e = put(h, 'enemy_9033_acdeer', [3, 10], { tag: 'boss' });
+  const w = attackWindup(e);
+  assert.ok(w > 0, 'the Attack clip has its OnAttack frame');
+  const top = 18, speed = E.enemy_9033_acdeer.proj.speed;
+  const at = (r) => w + (top - r) / speed + 1;            // the strike, the ice reaching row r, the sub-projectile's 1 s
+  const hitAt = {};
+  let sw0 = null;
+  for (let i = 0; i < 300 && Object.keys(hitAt).length < 2; i++) {
+    h.run(1 / 30);
+    if (sw0 == null && h.eventsOf('swing').some((x) => x[1] === e.id)) sw0 = h.b.time;
+    for (const id of ['t_wall', 't_wall2']) if (hitAt[id] == null && h.unit(id).stats.taken > 0) hitAt[id] = h.b.time;
+  }
+  const sw = h.eventsOf('swing').find((x) => x[1] === e.id);
+  approx(sw ? sw[2] : -1, Math.round(w * 1000) / 1000, 1e-9, 'swing event: windup');
+  const col = h.eventsOf('fx').find((f) => f[1] === 'column');
+  assert.equal(col[4].c, 6);
+  assert.equal(col[4].r0, top);
+  assert.deepEqual(col[4].dir, [0, -1]);
+  assert.equal(col[4].key, 'projectile_enemy_smdeer');
+  // (the boss field is the stage rows 2–5: board row 12 stands on stage row 5, row 9 on row 2)
+  approx(hitAt.t_wall - sw0, at(h.unit('t_wall').y), 0.05, 'stage row 5');
+  approx(hitAt.t_wall2 - sw0, at(h.unit('t_wall2').y), 0.05, 'stage row 2, later');
+  assert.ok(hitAt.t_wall2 > hitAt.t_wall + 0.5);
+  approx(h.unit('t_wall').stats.taken, h.unit('t_wall2').stats.taken, 1e-9, 'ATK × 1 each');
+});
+
 test('“萨米的意志” on a two-player field: 冰凌 columns alternate between the players (both deploy at t = 0)', () => {
   const players = ['p1', 'p2'].map((pid, i) => ({ playerId: pid, seat: i, side: i ? 'R' : 'L', colOffset: 0, units: [{ chessId: 't_wall', row: 10, col: 5 }], bonds: {}, playerEffects: [] }));
   const h = arena({ kind: 'boss', sharedBoss: pool(1e6), players });
   h.step();
   const e = put(h, 'enemy_9033_acdeer', [3, 10], { tag: 'boss' });
-  h.run(e.s.interval * 3 + 0.2);
+  h.run(e.s.interval * 3 + attackWindup(e) + 0.2);   // four swings, each 冰凌 leaving at its strike
   const cols = h.eventsOf('fx').filter((f) => f[1] === 'column').map((f) => f[4].c);
   assert.equal(cols.length, 4);
   assert.deepEqual(new Set(cols), new Set([5, 15]));

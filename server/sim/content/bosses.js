@@ -49,7 +49,8 @@
 //   boss_6 阿利斯泰尔        王权号令 (SP 1/s, plus-shaped 200 % strike + random equipment drop); 莫非王土 animates the
 //                            latest equipment on the field (2 s after it appears, then once per 王权号令 cycle) (sword strike / directional vest + barrier / wand disarm); ≤50 %: DEF +100 %,
 //                            RES +45, animates 2; 斥退 at 999 s.
-//   boss_7 “萨米的意志”      冰凌 (its normal attack) hits a whole column; 自然涌动 stun + arts DoT; <50 %: damage taken
+//   boss_7 “萨米的意志”      冰凌 (its normal attack) runs down a whole column from the stage's top row, tile by tile
+//                            (each tile's ally hit 1 s after the ice reaches it); 自然涌动 stun + arts DoT; <50 %: damage taken
 //                            ×(1−0.6), 2 targets; Doom at 600 s (LP −30). Targets via fairOrder (two players alternate).
 // The huge leaders (SELF_BOUND: 胄 ×2, 管 ×2, 昆图斯, 阿利斯泰尔, 萨米的意志 — the 巨型单位 with a data `hitArea`) are
 // 自缚 + 无法被阻挡 (PRTS 天赋): a persistent noMove + unblockable buff from spawn, so they never walk their route.
@@ -67,9 +68,9 @@
 // fx kinds: 'beam' 'shell' 'explode' 'telegraph' 'charge' 'link' 'dash' 'column' 'tide' 'rockfall' 'tentacle' 'equip'
 //   'sword' 'vest' 'blink' 'summon' 'grow' 'phase' 'lpLoss' (x, y + extra {id, r, tiles, kind, tx, ty …}).
 
-import { MOVE_SCALE } from '../constants.js';
+import { MOVE_SCALE, ROWS, ALLY_COLLIDER_RADIUS } from '../constants.js';
 import { aggroCmp, areaSelectable } from '../targeting.js';
-import { compileRoute } from '../ai.js';
+import { compileRoute, attackWindup } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
 import {
   ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies,
@@ -1133,11 +1134,55 @@ function kitEquip() {
 // ---------------------------------------------------------------------------------------------------------------
 // “萨米的意志” (boss_7)
 
+/**
+ * 【冰凌】 (its normal attack, the client's ProjectileToTileAbility — docs/rules/sim.md 「萨米的意志 冰凌」): the swing takes
+ * up to 1 (2 below half HP) targets again at its strike (`_selectTargetTiming` 1) and drops one 冰凌 per distinct column on
+ * the stage's TOP tile of the column (SmdeerTileSelector._TryGetTile: row Map.height − 1). projectile_enemy_smdeer then
+ * runs DOWN (FarthestPointMovement FIXED_DIRECTION, `_constDirection` DOWN) at its `speed` and, every DEER_DIST tiles from
+ * that top tile (SmdeerAttackHitBehaviour._CheckDistanceToEmitProjectile: `dist`, absent from the blackboard → 1),
+ * leaves a projectile_enemy_smdeer_2 on the tile — off the stage it stops. Each of those hits, as it ends DEER_SUB_LIFE s
+ * later (`_lifeTime` 1; HitBehaviour `_onlyCheckHitWhenStop`), at most one ally within DEER_SUB_RADIUS of the tile centre
+ * (CircleCollider2D 0.25, `_maxHitNum` 1) for ATK × `atk_scale_2` (absent → 1) physical — the ally standing there THEN.
+ */
+const DEER_DIST = 1, DEER_SUB_LIFE = 1, DEER_SUB_RADIUS = 0.25;
+
 function kitDeer(ab, e) {
   const dr = T(ab, 'Madness.damage_resistance') ?? 0;
   const atkN = T(ab, 'Madness.enemy_smdeer_mad[attack].max_cnt') ?? 1, skN = T(ab, 'Madness.enemy_smdeer_mad[skill].max_target') ?? 1;
   const lasso = ab.sk.Lasso, doom = ab.sk.Doom;
-  const P = { low: false, acc: Infinity };   // like engine attacks, the first 冰凌 comes as soon as it has a target
+  const shot = e.def?.proj || null;                    // projectile_enemy_smdeer (data/enemies.json proj)
+  const ATK2 = T(ab, 'atk_scale_2') ?? 1;
+  const speed = shot && shot.speed > 0 ? shot.speed : 5;
+  const P = { low: false, acc: Infinity, swing: null };   // like engine attacks, the first 冰凌 comes as soon as it has a target
+  // the ice of one column: tile k (k tiles below the top row) gets its 冰凌 k·DEER_DIST / speed s after the strike, which
+  // hits DEER_SUB_LIFE s after that
+  const icicle = (b, e2, c) => {
+    const top = ROWS - 1;
+    b.fx('column', { x: c, y: e2.y, c, id: e2.id, key: shot ? shot.key : 'projectile_enemy_smdeer', sub: 'projectile_enemy_smdeer_2', r0: top, dir: [0, -1], speed, dist: DEER_DIST, life: DEER_SUB_LIFE });
+    for (let k = 0; top - k * DEER_DIST >= 0; k++) {
+      const r = top - k * DEER_DIST;
+      b.after(k * DEER_DIST / speed + DEER_SUB_LIFE, () => {
+        let best = null, bd = Infinity;
+        for (const u of b.allies()) {
+          if (!u.alive || !u.deployed || !areaSelectable(e2, u)) continue;   // an area selection: no unblocking 隐匿 operator
+          const d = hypot(u.x - c, u.y - r);
+          if (d <= DEER_SUB_RADIUS + ALLY_COLLIDER_RADIUS + 1e-9 && (d < bd || (d === bd && best && u.id < best.id))) { best = u; bd = d; }
+        }
+        // ATK × `atk_scale_2` (ProjectileToTileAbility.CreateAndReplaceDamageNode; no level blackboard names it → 1)
+        if (best) b.dealDamage(e2, best, { amount: e2.s.atk * ATK2, type: 'phys', isAttack: true });
+      });
+    }
+  };
+  const strike = (b, e2) => {
+    P.swing = null;
+    const cands = fairOrder(b, e2, allTargets(b, e2), P);
+    if (!cands.length) { P.acc = Infinity; return; }   // nobody at the strike: the cooldown comes back (ai.js, the engine's whiff rule)
+    const cols = [];
+    for (const t of cands) { if (!cols.includes(t.tileC)) cols.push(t.tileC); if (cols.length >= (P.low ? atkN : 1)) break; }
+    for (const c of cols) icicle(b, e2, c);
+    e2.lastAttackAt = b.time;
+    e2.stats.attacks++;
+  };
   return [
     {
       spawn(b, e2) { e2.profile.noAttack = true; },
@@ -1147,21 +1192,21 @@ function kitDeer(ab, e) {
           b.addBuff(e2, { key: 'boss:madness', persist: true, visible: true, mods: { physTakenMul: 1 - dr, artsTakenMul: 1 - dr } }); // 物理和法术伤害降低
           b.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'deerMadness' });
         }
+        if (P.swing) { // the swing runs to its strike (the Attack clip's OnAttack frame, `_waitForAttackEvent`); the cooldown runs on
+          P.acc += dt;
+          P.swing.left -= dt;
+          if (P.swing.left <= 1e-9) strike(b, e2);
+          return;
+        }
         if (!canCast(e2, false, b)) return;
         P.acc += dt;
         if (P.acc < e2.s.interval) return;
-        const cands = fairOrder(b, e2, allTargets(b, e2), P);
-        if (!cands.length) return;
-        P.acc = 0;
-        const cols = [];
-        for (const t of cands) { if (!cols.includes(t.tileC)) cols.push(t.tileC); if (cols.length >= (P.low ? atkN : 1)) break; }
-        for (const c of cols) { // 【冰凌】 its normal attack: the whole column (an area selection: no unblocking 隐匿 operator)
-          const hit = b.allies().filter((u) => u.tileC === c && areaSelectable(e2, u));
-          b.fx('column', { x: c, y: e2.y, c, id: e2.id });
-          for (const u of hit) b.dealDamage(e2, u, { amount: e2.s.atk, type: 'phys', isAttack: true });
-        }
-        e2.lastAttackAt = b.time;
-        e2.stats.attacks++;
+        if (!allTargets(b, e2).length) return;
+        P.acc = 0;   // the cooldown restarts as the swing starts (AbilityStandard.CastToTarget)
+        const w = attackWindup(e2);
+        b._ev(['swing', e2.id, Math.round(w * 1000) / 1000, 'none']);
+        P.swing = { left: w };
+        if (!(w > 1e-9)) strike(b, e2);
       },
     },
     lasso && {
