@@ -57,6 +57,9 @@ MOUNT_SCRIPT = 0x7b5c342088cfcad4
 # 2026-10-10, decompile check: the MonoScript PathID of SwitchableBackEffect (switch_back) — 62 default-skin
 # prefabs of the extracted bundles carry one (비르투오사 S3 cello_skill_03_buff_front_02 → _back_02, 로즈몬티스, 휴머스 …)
 BACK_SCRIPT = 7599136815520768295
+# 2026-10-11, decompile check round 2: the MonoScript PathID of Torappu.Fx.FxDelay (root_effect `fxDelay`; 38 of the roots of
+# texas2 / dusk / siege2, a component of one float `_delayTime`)
+FXDELAY_SCRIPT = 4526430437831129839
 
 
 def r4(v):
@@ -574,6 +577,9 @@ class Extractor:
         height = self.overwrite_height(root)
         if height is not None:
             out_def['height'] = height
+        face = self.root_face(self.root_effect(root))
+        if face:
+            out_def['face'] = face
         right = self.right_effect(root)
         if right:
             out_def['right'] = right
@@ -682,59 +688,144 @@ class Extractor:
                 return s
         return None
 
-    def spawn_location(self, root):
-        """local patch: the effect component's `_spawnLocation` on the root (1 feet, 2 body / HIT point, 4 head, 5 ground
-        centre — docs/rules/fx.md 「관리자 제보 재수정 (2026-10-07 저녁)」). Its script's type tree is not in the bundle, so the raw fields are
-        read: after the MonoBehaviour header and name, int #13 (verified on buff_stun 4 / buff_slowdown 1 / buff_sleep 2);
-        the component is recognised by its float −1 at #6 and 2.0 at #10. None when not found. Any SpawnLocation value
-        (local patch: 9–15 = MP_SPECIAL_1…6 — the cap at 8 left 66 prefabs without one)."""
+    def root_effect(self, root):
+        """The raw fields of the root's effect component (the client's ParticleEffect, `Torappu.Fx`; its script's type tree
+        is not in the bundle) and of its FxDelay, or None without an effect component. After the MonoBehaviour header and
+        name: ints #0–#2, #3 = the length n of `_subFXDelayConfigs` (4 ints an entry), then from s = 4 + 4n the fields in
+        the order of the client's dump — s `_delayToPlay`, s+1 `_delayToFinish`, s+2 `_maxLifetime`, s+3 `_randomPlayDelay`,
+        s+4 `_autoReuse`, s+5 `_usePlaybackSpeed`, s+6 `_limitedPlaybackSpeed`, s+8 `_rotateType`, s+9 `_spawnLocation`,
+        s+10 `_leftIsDefault`, s+11 `_useBodyRotation`, s+12 `_mainDir`, s+13 `_holdByOwner`, s+14 `_overwriteHeight`,
+        s+15 `_heightOffset`. (2026-10-11, decompile check round 2: the component used to be recognised by
+        `_limitedPlaybackSpeed` == 2.0 — 51 bound prefabs with another limit (−1, 4, 0: 텍사스 디 오메르토사 S2
+        texas2_skill_02_start) lost their `spawn`, and a non-empty `_subFXDelayConfigs` shifted every field.) Recognised by
+        its shape: n ≤ 64, `_maxLifetime` −1 or in (0, 100), the bools 0 / 1, `_rotateType` ≤ 8, `_spawnLocation` < 64.
+        FxDelay (`Torappu.Fx.FxDelay`, one float `_delayTime`: the GameObject starts `_delayTime` ÷ the playback speed later —
+        `FxDelay.OnEnable`, RVA 0x34C1650) by its MonoScript (FXDELAY_SCRIPT)."""
         try:
             d = root.read_typetree()
         except Exception:
             return None
+        pe, delay = None, None
         for c in d['m_Component']:
             comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
             if comp is None or comp.type.name != 'MonoBehaviour':
                 continue
             raw = comp.get_raw_data()
-            off = 12 + 4 + 12
-            if len(raw) < off + 4:
+            if len(raw) < 32:
                 continue
-            n = struct.unpack_from('<i', raw, off)[0]
-            off = (off + 4 + n + 3) & ~3
-            if len(raw) < off + 14 * 4:
+            n = struct.unpack_from('<i', raw, 28)[0]
+            if not 0 <= n <= 256:
                 continue
-            ints = struct.unpack_from('<14i', raw, off)
-            if ints[6] == -1082130432 and ints[10] == 1073741824 and 0 <= ints[13] < 64:
-                return ints[13]
-        return None
+            b = raw[(32 + n + 3) & ~3:]
+            if len(b) == 4 and struct.unpack_from('<q', raw, 20)[0] == FXDELAY_SCRIPT:
+                delay = struct.unpack_from('<f', b, 0)[0]
+                continue
+            if pe is not None or len(b) < 24 * 4:
+                continue
+            i = lambda k: struct.unpack_from('<i', b, 4 * k)[0]  # noqa: E731
+            f = lambda k: struct.unpack_from('<f', b, 4 * k)[0]  # noqa: E731
+            subs = i(3)
+            if not 0 <= subs <= 64:
+                continue
+            s = 4 + 4 * subs
+            if len(b) < (s + 16) * 4:
+                continue
+            life = f(s + 2)
+            if life != -1.0 and not 0 < life < 100:
+                continue
+            if not (0 <= i(s + 8) <= 8 and 0 <= i(s + 9) < 64 and i(s + 3) in (0, 1) and i(s + 5) in (0, 1) and i(s + 14) in (0, 1)):
+                continue
+            pe = {'delayToPlay': f(s), 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8),
+                  'spawn': i(s + 9), 'leftIsDefault': i(s + 10), 'mainDir': i(s + 12), 'overwrite': i(s + 14), 'heightOffset': f(s + 15)}
+        if pe is None:
+            return None
+        pe['fxDelay'] = delay
+        return pe
+
+    def spawn_location(self, root):
+        """local patch: the effect component's `_spawnLocation` on the root (1 feet, 2 body / HIT point, 4 head, 5 ground
+        centre — docs/rules/fx.md 「관리자 제보 재수정 (2026-10-07 저녁)」; verified on buff_stun 4 / buff_slowdown 1 / buff_sleep 2)
+        — root_effect. None when not found. Any SpawnLocation value (local patch: 9–15 = MP_SPECIAL_1…6 — the cap at 8 left
+        66 prefabs without one)."""
+        pe = self.root_effect(root)
+        return pe['spawn'] if pe else None
 
     def overwrite_height(self, root):
         """(2026-10-10, decompile check — client `Effect._InitLocationFromEntity`, RVA 0xC8B0xx: with
-        `_overwriteHeight` the effect's height becomes the entity's height + `_heightOffset`): the root effect component's raw
-        int #18 (`_overwriteHeight`) and float #19 (`_heightOffset`), read as spawn_location reads #13 (the field order of the
-        client's ParticleEffect: #13 _spawnLocation, #17 _holdByOwner, #18 _overwriteHeight, #19 _heightOffset). The offset
-        when it is on (쏜즈 더 로드스타 S1 thorn2_skill_01_range: 0.0), else None."""
-        try:
-            d = root.read_typetree()
-        except Exception:
+        `_overwriteHeight` the effect's height becomes the entity's height + `_heightOffset`): the root effect component's
+        `_overwriteHeight` / `_heightOffset` (root_effect). The offset when it is on (쏜즈 더 로드스타 S1
+        thorn2_skill_01_range: 0.0), else None."""
+        pe = self.root_effect(root)
+        return r4(pe['heightOffset']) if pe and pe['overwrite'] == 1 else None
+
+    @staticmethod
+    def root_face(pe):
+        """(2026-10-11, decompile check round 2) the root effect's playback fields, recorded for a maintainer decision and not
+        drawn yet (docs/rules/fx.md 「좌우 거울·재생 속도·루트 지연 (보류)」): `ParticleEffect.FaceTo` (RVA 0xCB1DC0) turns by
+        `_rotateType` (0 NONE: never mirrored, 1 FLIP_TWO_SIDE: 'rotation_y' / 'rotation_z' 180° when facing left — right with
+        `_leftIsDefault`, 2 FOUR_DIRECTION from `_mainDir`, 3 FIXED_DIRECTION, 4 ANY_DIR); `Effect._PlayInternal` (0xC8C4F0)
+        uses the playback speed only with `_usePlaybackSpeed`, caps it at `_limitedPlaybackSpeed` ÷ the time scale (≥ 0) and
+        waits `_delayToPlay` (random up to it with `_randomPlayDelay`); FxDelay starts the whole effect `_delayTime` ÷ the speed
+        later. { rot, left?, dir?, speed? (0 = ignores the playback speed), limit? (≠ 2), delay?, rnd?, fxDelay? } or None."""
+        if not pe:
             return None
-        for c in d['m_Component']:
-            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
-            if comp is None or comp.type.name != 'MonoBehaviour':
+        o = {'rot': pe['rotate']}
+        if pe['leftIsDefault']:
+            o['left'] = 1
+        if pe['rotate'] in (2, 3):
+            o['dir'] = pe['mainDir']
+        if not pe['useSpeed']:
+            o['speed'] = 0
+        if abs(pe['limited'] - 2.0) > 1e-6:
+            o['limit'] = r4(pe['limited'])
+        if pe['delayToPlay'] > 0:
+            o['delay'] = r4(pe['delayToPlay'])
+            if pe['randomDelay']:
+                o['rnd'] = 1
+        if pe['fxDelay'] and pe['fxDelay'] > 0:
+            o['fxDelay'] = r4(pe['fxDelay'])
+        return o
+
+    def root_only(self, bundle, pack=None):
+        """2026-10-11: rewrite only the root effect fields — `spawn`, `height` and `face` (root_effect / root_face) — of the
+        bundle's already extracted prefabs, like back_only (the spawn recognition fix: 51 bound prefabs gain a `spawn`).
+        Returns (prefabs with an effect component, files changed)."""
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
+        p = bundle_path(self.game, rel)
+        if not p:
+            print(f'[fx] {bundle}: bundle not found, skipped')
+            return 0, 0
+        env = self.UnityPy.load(str(p))
+        found = changed = 0
+        for o in env.objects:
+            if o.type.name != 'Transform':
                 continue
-            raw = comp.get_raw_data()
-            off = 12 + 4 + 12
-            if len(raw) < off + 4:
+            t = o.read_typetree()
+            if t['m_Father']['m_PathID'] != 0:
                 continue
-            n = struct.unpack_from('<i', raw, off)[0]
-            off = (off + 4 + n + 3) & ~3
-            if len(raw) < off + 20 * 4:
+            go = self.resolve(t['m_GameObject'], o)
+            if go is None:
                 continue
-            ints = struct.unpack_from('<20i', raw, off)
-            if ints[6] == -1082130432 and ints[10] == 1073741824 and 0 <= ints[13] < 64:
-                return r4(struct.unpack_from('<f', raw, off + 19 * 4)[0]) if ints[18] == 1 else None
-        return None
+            f = OUT / bundle / f"{go.read_typetree()['m_Name']}.json"
+            if not f.exists():
+                continue
+            pe = self.root_effect(go)
+            found += pe is not None
+            d = json.loads(f.read_text())
+            want = {'spawn': pe['spawn'] if pe else None,
+                    'height': r4(pe['heightOffset']) if pe and pe['overwrite'] == 1 else None,
+                    'face': self.root_face(pe)}
+            if all(d.get(k) == v for k, v in want.items()):
+                continue
+            for k, v in want.items():
+                if v is None:
+                    d.pop(k, None)
+                else:
+                    d[k] = v
+            f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+            changed += 1
+        print(f'[fx] {bundle}: {found} prefab(s) with a root effect component, {changed} file(s) changed')
+        return found, changed
 
     def height_only(self, bundle, pack=None):
         """2026-10-10: write only the `height` (overwrite_height) of the bundle's already extracted prefabs, like
@@ -1014,6 +1105,8 @@ def main():
                     'to (enemy_bindings.py writes enemy-index.json)')
     ap.add_argument('--pack', metavar='REL', help='read the prefabs from this bundle (relative to the bundle folders, e.g. '
                     'pkgrps/btl_pfb_fx_token_3.ab) and write them as --bundle (local patch: 望\'s 棋子 effects → wang_token)')
+    ap.add_argument('--root-only', action='store_true', help='only rewrite the root effect fields `spawn` / `height` / `face` '
+                    'of the already extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-11)')
     ap.add_argument('--height-only', action='store_true', help='only write the `_overwriteHeight` `height` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-10)')
     a = ap.parse_args()
@@ -1021,6 +1114,11 @@ def main():
         build_cab_index(a.game, a.build_cab_index)
         return
     ex = Extractor(a.game, a.cab_index, png=a.png)
+    if a.root_only:
+        bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
+        tot = [ex.root_only(b, pack=a.pack) for b in bundles]
+        print(f'[fx] root: {sum(x[0] for x in tot)} prefab(s) with a root effect component, {sum(x[1] for x in tot)} file(s) changed')
+        return
     if a.height_only:
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
         tot = [ex.height_only(b, pack=a.pack) for b in bundles]

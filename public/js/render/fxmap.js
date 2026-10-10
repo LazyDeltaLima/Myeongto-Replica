@@ -195,6 +195,60 @@ export function castTiming(bind, n, name) {
  */
 export const castPhase = (opt) => (opt && opt.s === CAST_EVENT.CAST_START ? 'swing' : 'strike');
 
+// ---- input targets, looping hits, clip variants, deploy effects (2026-10-11, decompile check round 2) ------------------
+// modes.json (char_modes.py): `input[mode]` — InputTargetEffectOptions, a CastEffectOptions created on the ability's main
+// target (`InputTargetEffectOptions.CreateEffect`, RVA 0xB1B5F0), timed by castOpt (t: 1; p: 1 = `_useInputPos`, on the
+// target's last place once it died); `hitLoop` { name: _endEvent } — the `_oneshot` 0 hits (HitEffectOptions.OnEvent /
+// OnCastFinish, 0xAE5C60 / 0xAE5490: ended at that event or the cast's finish); `castTgt` — CastTargetEffectOptions hits,
+// played at the ability's speed (`PlayEffect`, 0xB18810); `clipFx[mode]` { src, loop, groups: [{ anim, cast, hit }] } — an
+// UberAnimationEffectEmitter's `_replaceGroup` (`OnCastStart`, 0xAED700: the group of the cast's clip adds its options);
+// `start` / `startOnce` / `modeStart` / `dead` — the deploy and dead effects (`Character.get_startEffect`, 0x7085E0).
+
+/**
+ * The clip group of one cast (modes.json clipFx[mode]): the group whose `anim` is the clip the model plays (the
+ * remake's attack clip), else by the emitter's `_loopType` (`_CalculatePlayIndex`, RVA 0xAEDDB0) — 0 LOOP the next group
+ * after `last`, 1 RANDOM one at random (`rnd` in [0, 1)). null without groups.
+ * @param {{ loop?: number, groups?: Array<{ anim: string, cast?: string[], hit?: string[] }> }|null|undefined} cf
+ * @param {string|null|undefined} clip
+ * @param {number} last the index the previous cast used (-1: none)
+ * @param {number} rnd
+ */
+export function clipGroup(cf, clip, last = -1, rnd = 0) {
+  const g = Array.isArray(cf?.groups) ? cf.groups : null;
+  if (!g || !g.length) return null;
+  const c = typeof clip === 'string' ? clip.toLowerCase() : null;
+  let i = c ? g.findIndex((x) => String(x?.anim || '').toLowerCase() === c) : -1;
+  if (i < 0) i = cf.loop === 1 ? Math.min(g.length - 1, Math.floor(Math.max(0, rnd) * g.length)) : (last + 1) % g.length;
+  return { index: i, ...g[i] };
+}
+
+/** The end event of a looping hit effect (modes.json hitLoop), or null for a one-shot. */
+export const hitLoopEnd = (bind, name) => (Number.isInteger(bind?.hitLoop?.[name]) ? bind.hitLoop[name] : null);
+
+/** Default deploy effects (client `DefaultEffects.CHARACTER_BORN` / `TOKEN_BORN`) and dead effect (`common_char_die_01`). */
+export const DEPLOY_FX = Object.freeze({ op: 'common_char_birth_01', token: 'common_call_start_01', dead: 'common_char_die_01' });
+/**
+ * The deploy effect of an operator / token: the `_overrideStartEffect` of its mode now, the prefab root's `_startEffect`, else
+ * the default for its kind (`Character.get_startEffect` / `GetStartEffect`, RVA 0x7085E0 / 0x6F74B0). With a skill mode on, a
+ * `<mode>_…` mode with an override counts as that mode's (乌尔比安 S3 → S3_Respawn_A ulpia_skill_03_bith_01: the client
+ * switches to it as she redeploys) [추정: by the name]. `{ name, override }`.
+ * @param {any} bind modes.json entry (null for a token or an unlisted operator)
+ * @param {boolean} token
+ * @param {number} [mode] the mode index now (0 Default)
+ */
+export function deployEffect(bind, token, mode = 0) {
+  const ms = Array.isArray(bind?.modeStart) ? bind.modeStart : [];
+  let o = Number.isInteger(mode) && mode >= 0 ? ms[mode] : null;
+  if (!o && mode > 0 && Array.isArray(bind?.modes)) {
+    const pre = `${bind.modes[mode]}_`;
+    o = ms.find((x, i) => x && String(bind.modes[i] || '').startsWith(pre)) || null;
+  }
+  if (o) return { name: o, override: true };
+  return { name: bind?.start || (token ? DEPLOY_FX.token : DEPLOY_FX.op), override: false };
+}
+/** The dead effect of an operator / token: the root's `_deadEffect`, else common_char_die_01. */
+export const deadEffect = (bind) => bind?.dead || DEPLOY_FX.dead;
+
 // ---- a skill activation's effects (local patch, maintainer report 2026-10-07, 11 items) ------------------------------------------
 // modes.json[charId].skills[i] = { cast, castLoop, buff, target, targetBuff, end?: { cast, hit }, zone?: { fx, aura, onProj } } — the skill's own effects
 // (char_modes.py from battle/prefabs/[uc]skills.ab); turn = the prefabs the client turns to the unit's facing.
@@ -218,7 +272,7 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
   const n = attackMode(bind, true, skillIndex) ?? -1;
   const sk = bind?.skills?.[skillIndex] || null;
   const has = (list) => (Array.isArray(list) ? list.filter((x) => pre.includes(x)) : []);
-  const modeOwn = new Set(['cast', 'hit', 'trail'].flatMap((r) => (bind?.[r] || []).flat()));
+  const modeOwn = new Set(['cast', 'hit', 'trail', 'input'].flatMap((r) => (bind?.[r] || []).flat()));
   // (2026-10-10) the effects of its projectile's lasting reach / aura (`zone`: 쏜즈 더 로드스타's token / range) sit at that
   // projectile — render/fxgame.js zoneFx; 85d83c89's `_range` name rule put thorn2_skill_02_range on her for the whole battle
   const notCaster = new Set([...(sk?.target || []), ...(sk?.targetBuff || []), ...(sk?.end?.cast || []), ...(sk?.end?.hit || []),

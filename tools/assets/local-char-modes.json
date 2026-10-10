@@ -37,6 +37,7 @@
    [],
    []
   ],
+  "start": "skadi2_birth_01_start",
   "skillMode": [
    null,
    2,
@@ -279,6 +280,7 @@
    },
    {}
   ],
+  "start": "agoat2_birth_01",
   "skillMode": [
    1,
    null,
@@ -364,7 +366,18 @@
    []
   ],
   "castOpt": [
-   {},
+   {
+    "siege2_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "siege2_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
    {
     "siege2_skill_02_start_01": {
      "s": 2,
@@ -379,6 +392,30 @@
      "o": 0
     }
    }
+  ],
+  "clipFx": [
+   {
+    "src": "Attack_1",
+    "loop": 1,
+    "groups": [
+     {
+      "anim": "Attack_1",
+      "cast": [
+       "siege2_attack_start_01"
+      ],
+      "hit": []
+     },
+     {
+      "anim": "Attack_2",
+      "cast": [
+       "siege2_attack_start_02"
+      ],
+      "hit": []
+     }
+    ]
+   },
+   null,
+   null
   ],
   "skillMode": [
    null,
@@ -776,6 +813,7 @@
     }
    }
   ],
+  "start": "ghost2_birth_01_start",
   "dirs": [
    {
     "t": 3,
@@ -1650,7 +1688,6 @@
     "wisdel_skill_02_hit"
    ],
    [
-    "wisdel_skill_03_hit_03",
     "wisdel_skill_03_hit"
    ]
   ],
@@ -1698,6 +1735,12 @@
     }
    },
    {
+    "wisdel_skill_03_hit_03": {
+     "s": 2,
+     "e": 3,
+     "o": 1,
+     "t": 1
+    },
     "wisdel_skill_03_start": {
      "s": 2,
      "e": 3,
@@ -1710,6 +1753,15 @@
     }
    }
   ],
+  "input": [
+   [],
+   [],
+   [],
+   [
+    "wisdel_skill_03_hit_03"
+   ]
+  ],
+  "start": "wisdel_birth_01_start",
   "dirs": [
    {
     "t": 3,
@@ -1920,6 +1972,7 @@
     }
    }
   ],
+  "start": "whitw2_birth_01",
   "skillMode": [
    null,
    2,
@@ -2119,6 +2172,10 @@
     }
    }
   ],
+  "hitLoop": {
+   "angle_attack_01_hit": 6,
+   "angle_attack_02_hit": 6
+  },
   "skillMode": [
    null,
    1,
@@ -2488,6 +2545,7 @@
     }
    }
   ],
+  "start": "angel2_birth_01",
   "dirs": [
    {
     "t": 0,
@@ -2633,6 +2691,10 @@
     }
    }
   ],
+  "castTgt": [
+   "svash2_attack_hit_01"
+  ],
+  "start": "svash2_birth_01",
   "skillMode": [
    null,
    null,
@@ -2733,6 +2795,7 @@
     }
    }
   ],
+  "start": "sbell2_birth_01",
   "skillMode": [
    null,
    null,
@@ -2856,6 +2919,7 @@
     }
    }
   ],
+  "start": "halo2_brith_01",
   "attachFoe": [
    [],
    [],
@@ -4198,17 +4262,11 @@
    ]
   ],
   "hit": [
-   [
-    "dusk_attack_01_hit",
-    "dusk_attack_01_hit_02"
-   ],
+   [],
    [
     "dusk_skill_02_hit"
    ],
-   [
-    "dusk_skill_03_hit",
-    "dusk_skill_03_hit_02"
-   ]
+   []
   ],
   "trail": [
    [],
@@ -4231,6 +4289,20 @@
      "s": 2,
      "e": 3,
      "o": 1
+    },
+    "dusk_attack_01_hit": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "t": 1,
+     "p": 1
+    },
+    "dusk_attack_01_hit_02": {
+     "s": 2,
+     "e": 4,
+     "o": 0,
+     "t": 1,
+     "p": 1
     }
    },
    {
@@ -4260,9 +4332,35 @@
      "s": 2,
      "e": 3,
      "o": 1
+    },
+    "dusk_skill_03_hit": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "t": 1,
+     "p": 1
+    },
+    "dusk_skill_03_hit_02": {
+     "s": 2,
+     "e": 4,
+     "o": 0,
+     "t": 1,
+     "p": 1
     }
    }
   ],
+  "input": [
+   [
+    "dusk_attack_01_hit",
+    "dusk_attack_01_hit_02"
+   ],
+   [],
+   [
+    "dusk_skill_03_hit",
+    "dusk_skill_03_hit_02"
+   ]
+  ],
+  "start": "dusk_birth_01_start",
   "skillMode": [
    null,
    1,
@@ -4387,6 +4485,7 @@
     }
    }
   ],
+  "start": "yu_birth_01",
   "skillMode": [
    1,
    2,
@@ -4726,9 +4825,7 @@
    ]
   ],
   "hit": [
-   [
-    "mostma_attack_01_hit"
-   ],
+   [],
    [
     "mostma_skill_03_hit"
    ]
@@ -4752,6 +4849,13 @@
      "s": 2,
      "e": 3,
      "o": 1
+    },
+    "mostma_attack_01_hit": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "t": 1,
+     "p": 1
     }
    },
    {
@@ -4771,6 +4875,12 @@
      "o": 1
     }
    }
+  ],
+  "input": [
+   [
+    "mostma_attack_01_hit"
+   ],
+   []
   ],
   "skillMode": [
    null,
@@ -5057,6 +5167,7 @@
    },
    {}
   ],
+  "start": "cello_birth_01",
   "skillMode": [
    null,
    1,
@@ -5189,6 +5300,7 @@
     }
    }
   ],
+  "start": "mlyss_birth_01",
   "skills": [
    {
     "cast": [],
@@ -6372,6 +6484,7 @@
     }
    }
   ],
+  "start": "mudrok_birth_01_start",
   "skills": [
    {
     "cast": [],
@@ -6656,8 +6769,7 @@
   ],
   "hit": [
    [
-    "sntlla_attack_hit_02",
-    "sntlla_attack_hit_01"
+    "sntlla_attack_hit_02"
    ],
    [
     "sntlla_attack_hit_02",
@@ -6683,9 +6795,22 @@
      "s": 2,
      "e": 3,
      "o": 0
+    },
+    "sntlla_attack_hit_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "t": 1,
+     "p": 1
     }
    },
    {}
+  ],
+  "input": [
+   [
+    "sntlla_attack_hit_01"
+   ],
+   []
   ],
   "skillMode": [
    null,
@@ -7023,9 +7148,7 @@
    ]
   ],
   "hit": [
-   [
-    "lionhd_attack_01_hit"
-   ]
+   []
   ],
   "trail": [
    []
@@ -7039,8 +7162,21 @@
      "s": 2,
      "e": 3,
      "o": 1
+    },
+    "lionhd_attack_01_hit": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "once": 1,
+     "t": 1,
+     "p": 1
     }
    }
+  ],
+  "input": [
+   [
+    "lionhd_attack_01_hit"
+   ]
   ],
   "skills": [
    {
@@ -7285,6 +7421,7 @@
     }
    }
   ],
+  "start": "rosmon_birth_01_start",
   "shotFrom": [
    null,
    7,
@@ -7403,6 +7540,8 @@
     }
    }
   ],
+  "start": "etlchi_birth_01",
+  "startOnce": 1,
   "skillMode": [
    null,
    1,
@@ -8574,8 +8713,7 @@
   "hit": [
    [],
    [
-    "pepe_skill_02_hit_02",
-    "pepe_skill_02_hit_01"
+    "pepe_skill_02_hit_02"
    ],
    [
     "pepe_skill_03_hit_02"
@@ -8609,6 +8747,13 @@
      "s": 2,
      "e": 3,
      "o": 0
+    },
+    "pepe_skill_02_hit_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "t": 1,
+     "p": 1
     }
    },
    {
@@ -8619,6 +8764,14 @@
     }
    }
   ],
+  "input": [
+   [],
+   [
+    "pepe_skill_02_hit_01"
+   ],
+   []
+  ],
+  "start": "pepe_birth_01",
   "skillMode": [
    null,
    1,
@@ -10024,6 +10177,14 @@
    },
    {}
   ],
+  "startOnce": 1,
+  "modeStart": [
+   null,
+   null,
+   null,
+   "ulpia_skill_03_bith_01",
+   "ulpia_skill_03_bith_01"
+  ],
   "skillMode": [
    null,
    1,
@@ -11182,6 +11343,7 @@
     }
    }
   ],
+  "start": "rmixer_birth_01",
   "turn": [
    "rmixer_skill_03_range_01"
   ],
@@ -11975,6 +12137,7 @@
     }
    }
   ],
+  "dead": "vigil_token_die",
   "dirs": [
    {
     "t": 3,

@@ -126,6 +126,10 @@ DIRECTIONAL = re.compile(r'_(up|down|left|back)(_|$)', re.I)
 # sibling attack abilities the Selector picks one of per attack (wisdel Attack_A/B/C, siege2 Attack_1/2): the first stands for all
 ALTERNATIVE = re.compile(r'^(attack|combat)_?([a-z]|\d+)$', re.I)
 HIT_KEYS = ('_hitEffects', '_inputTargetEffects', '_castTargetEffects')
+# 2026-10-11, decompile check round 2: an attack mode's hits on its targets — `_inputTargetEffects` (InputTargetEffectOptions,
+# a CastEffectOptions: on the ability's main target at its `_startEvent`, client `InputTargetEffectOptions.CreateEffect`, RVA
+# 0xB1B5F0) are the mode's `input`, not hits
+MODE_HIT_KEYS = ('_hitEffects', '_castTargetEffects')
 # a 要塞's attack abilities (charpack `Modes/<mode>/Body/Attack/`): the melee ones while it blocks, the ranged ones otherwise
 MELEE_ABILITY = re.compile(r'^(Blocked)?MeleeAttack$')
 RANGED_ABILITY = re.compile(r'^(Blocked|Self)?RangedAttack$')
@@ -344,6 +348,21 @@ def skill_effects(tree, projectiles=None):
     return out
 
 
+def cast_timing(c):
+    """{ s, e, o, d?, once?, t?, p? } of a CastEffectOptions entry (castOpt): t = an InputTargetEffectOptions (on the main
+    target), p = its `_useInputPos`."""
+    opt = {'s': c.get('_startEvent', 2), 'e': c.get('_endEvent', 3), 'o': c.get('_oneshot', 1)}
+    if isinstance(c.get('_delayIfFirstAttack'), (int, float)) and c['_delayIfFirstAttack'] > 0:
+        opt['d'] = round(float(c['_delayIfFirstAttack']), 4)
+    if c.get('_onlyOnce') == 1:
+        opt['once'] = 1
+    if '_useInputPos' in c:
+        opt['t'] = 1
+        if c.get('_useInputPos') == 1:
+            opt['p'] = 1
+    return opt
+
+
 def modes_of(path, projectiles=None):
     """{ modes, proj, cast, hit, trail } of a charpack (per mode, in `_modes` order), or None:
     modes = the mode GameObject names; proj = the projectile keys under each mode; cast = the effects its attacks cast on
@@ -387,6 +406,18 @@ def modes_of(path, projectiles=None):
         # how many enemies at once (`_limitTargetNum` → `_maxNum`), 0 = no limit
         return int(sd.get('_maxNum') or 0) if sd.get('_limitTargetNum') == 1 else 0
     attach_foe = [[] for _ in range(n)]
+    # 2026-10-11, decompile check round 2 (docs/rules/fx.md 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」):
+    #  input   — per mode, the `_inputTargetEffects` (their timing in castOpt with t: 1, p: 1 for `_useInputPos`: on the
+    #            target's last place when it died);
+    #  hitLoop — { name: _endEvent } of the hit entries with `_oneshot` 0 (HitEffectOptions.OnEvent / OnCastFinish, RVA
+    #            0xAE5C60 / 0xAE5490: ended at that event or the cast's finish — 엑시아 angle_attack_01_hit, end 6);
+    #  castTgt — the `_castTargetEffects` names (CastTargetEffectOptions.PlayEffect, 0xB18810: at the ability's playback speed);
+    #  clipFx  — per mode, an UberAnimationEffectEmitter's `_replaceGroup` (OnCastStart 0xAED700: the group of the attack's
+    #            clip adds its cast / hit options to that cast — 비나 빅토리아 Attack_1 / Attack_2): { src, loop, groups:
+    #            [{ anim, cast, hit }] }
+    inputs = [[] for _ in range(n)]
+    hit_loop, cast_tgt = {}, []
+    clip_fx = [None] * n
     foe_max = {}   # effect → the selector's target limit (attachFoeMax; without one: every enemy the ability hits)
     # 2026-10-10, decompile check — client `CastEffectOptions.OnEvent` / `OnCastStart` / `OnCastFinish`: when
     # each cast effect starts and ends: { name: { s: _startEvent, e: _endEvent, o: _oneshot, d?: _delayIfFirstAttack, once?:
@@ -452,23 +483,43 @@ def modes_of(path, projectiles=None):
             part = split[i][kind]
             part['seen'] = True
             add(part['cast'], effect_names(d.get('_castEffects') or []))
-            for k in HIT_KEYS:
+            for k in MODE_HIT_KEYS:
                 add(part['hit'], effect_names(d.get(k) or []))
             if kind == 'ranged' and projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
                 add(part['hit'], projectiles.effects(d['_projectileKey'])['hit'])
         add(cast[i], effect_names(d.get('_castEffects') or []))
-        for c in d.get('_castEffects') or []:
+        add(inputs[i], effect_names(d.get('_inputTargetEffects') or []))
+        add(cast_tgt, effect_names(d.get('_castTargetEffects') or []))
+        for c in [*(d.get('_castEffects') or []), *(d.get('_inputTargetEffects') or [])]:
             if not isinstance(c, dict):
                 continue
-            opt = {'s': c.get('_startEvent', 2), 'e': c.get('_endEvent', 3), 'o': c.get('_oneshot', 1)}
-            if isinstance(c.get('_delayIfFirstAttack'), (int, float)) and c['_delayIfFirstAttack'] > 0:
-                opt['d'] = round(float(c['_delayIfFirstAttack']), 4)
-            if c.get('_onlyOnce') == 1:
-                opt['once'] = 1
+            opt = cast_timing(c)
             for x in c.get('_effects') or []:
                 if isinstance(x, str) and x:
                     cast_opt[i].setdefault(x, opt)
-        for k in HIT_KEYS:
+        for k in MODE_HIT_KEYS:
+            for c in d.get(k) or []:
+                if isinstance(c, dict) and c.get('_oneshot', 1) == 0:
+                    for x in c.get('_effects') or []:
+                        if isinstance(x, str) and x:
+                            hit_loop.setdefault(x, int(c.get('_endEvent', 3)))
+        if isinstance(d.get('_replaceGroup'), list) and d['_replaceGroup'] and clip_fx[i] is None:
+            groups = []
+            for g in d['_replaceGroup']:
+                if not isinstance(g, dict) or not isinstance(g.get('anim'), str):
+                    continue
+                gc, gh = [], []
+                add(gc, effect_names(g.get('effectOptions') or []))
+                add(gh, effect_names(g.get('hitEffectOptions') or []))
+                for c in g.get('effectOptions') or []:
+                    if isinstance(c, dict):
+                        for x in c.get('_effects') or []:
+                            if isinstance(x, str) and x:
+                                cast_opt[i].setdefault(x, cast_timing(c))
+                groups.append({'anim': g['anim'], 'cast': gc, 'hit': gh})
+            if any(g['cast'] or g['hit'] for g in groups):
+                clip_fx[i] = {'src': d.get('_sourceAnimKey') or '', 'loop': int(d.get('_loopType') or 0), 'groups': groups}
+        for k in MODE_HIT_KEYS:
             add(hit[i], effect_names(d.get(k) or []))
             # 2026-10-10, decompile check — client `HitEffectOptions.OnCastOnTarget`, RVA 0xAE54D0: a hit effect
             # whose entry has `_useOwnerToTargetDirection` is turned along the attacker → target line (언더플로우 S2
@@ -509,6 +560,31 @@ def modes_of(path, projectiles=None):
     res = {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail, 'attach': attach}
     if any(cast_opt):
         res['castOpt'] = cast_opt
+    if any(inputs):
+        res['input'] = inputs
+    if hit_loop:
+        res['hitLoop'] = hit_loop
+    if cast_tgt:
+        res['castTgt'] = cast_tgt
+    if any(clip_fx):
+        res['clipFx'] = clip_fx
+    # 2026-10-11, decompile check round 2 — client `Character.get_startEffect` (RVA 0x7085E0): the deploy effect is the
+    # prefab root's `_startEffect`, else common_char_birth_01 (a token: common_call_start_01); a mode's
+    # `_overrideStartEffect` comes first (`Character.GetStartEffect`, 0x6F74B0). The dead effect: `_deadEffect`, else
+    # common_char_die_01. `startOnce` = `_onlyPlayStartEffectOnce`.
+    if isinstance(root.get('_startEffect'), str) and root['_startEffect']:
+        res['start'] = root['_startEffect']
+    if root.get('_onlyPlayStartEffectOnce') == 1:
+        res['startOnce'] = 1
+    if isinstance(root.get('_deadEffect'), str) and root['_deadEffect']:
+        res['dead'] = root['_deadEffect']
+    mode_start = []
+    for mp in mode_paths:
+        md = next((x for gp, x, _ in tree if gp == mp and '_overrideStartEffect' in x), None)
+        v = md.get('_overrideStartEffect') if md else None
+        mode_start.append(v if isinstance(v, str) and v else None)
+    if any(mode_start):
+        res['modeStart'] = mode_start
     if any(x is not None and x != 2 for x in shot_from):
         res['shotFrom'] = [None if x == 2 else x for x in shot_from]
     if turn:
@@ -579,7 +655,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'hit', 'trail', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'skills', 'turn', 'dirs') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitLoop', 'castTgt', 'clipFx', 'trail', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

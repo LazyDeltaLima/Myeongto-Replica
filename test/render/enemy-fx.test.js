@@ -64,9 +64,10 @@ test('fxgame: enemy events take their own branch (swing / atk / dmg attacker / s
 });
 
 test('fxgame: cast effects at their ability\'s speed, hits at 1.0; a hit with _useOwnerToTargetDirection aims along attacker → target', () => {
-  assert.match(SRC, /until: end, speed: c\.speed \}\)/);
+  assert.match(SRC, /until: end, speed: c\.speed, cast: c \}\)/);
   assert.match(SRC, /l\.inst\.update\(dt \* rate2 \* \(l\.speed > 0 \? l\.speed : 1\)\)/);
-  assert.match(SRC, /play\(a\.src, 'attackHit', 0, \{ at: tgt, names: hits, aim: a\.src \}\)/);
+  assert.match(SRC, /if \(hits\.length\) \{ hitFx\(a\.src, tgt, hits, c\); return; \}/);
+  assert.match(SRC, /if \(plain\.length\) play\(src, 'attackHit', 0, \{ at: tgt, names: plain, aim: src \}\);/);
   assert.match(SRC, /const aimSet = \(v\) => new Set\(bindOf\(v\)\?\.hitAim \|\| \[\]\);/);
 });
 

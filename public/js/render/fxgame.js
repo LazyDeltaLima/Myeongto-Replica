@@ -26,6 +26,8 @@
 //   'atk'        → its ON_SPELL_ON cast effects (strikeFx); the swing's own when no 'swing' came before it
 //   'dmg'        → <op>_attack_hit_01 / <op>_skill_0N_hit_01 on the target of that attacker's last attack (≤ HIT_GAP_S; local
 //                  patch: once per attack — the first damage after it)
+//   'deploy'     → (2026-10-11) the operator's / token's deploy effect (flushDeploys); 'die' 'killed' → its dead effect
+//   fx 'palsy'   → (2026-10-11) the enemy's cast cut by 麻痹 ends its effects (cutCast)
 // Effects follow their unit's rendered position and facing.
 //
 // Cost: nothing is loaded (three.js, the player, the files) until an operator with an extracted bundle acts; the layer
@@ -50,6 +52,7 @@ import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects, fortressEffects } from './fxmap.js'; // local patch: the mode bindings (modes.json)
 import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
+import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
@@ -319,11 +322,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // 'die' would never be stopped — a 棋子 placed and used up in the same tick kept its looping cross for good
   const gone = new Set();
   function addLive(inst, entry, layer) {
-    if (entry.owner != null && gone.has(entry.owner) && (entry.buff || entry.onCaster)) { inst.dispose(); return; }
+    if (entry.owner != null && gone.has(entry.owner) && (entry.buff || entry.onCaster)) { inst.dispose(); return null; }
+    if (entry.cast?.cut) { inst.dispose(); return null; } // 2026-10-11: its cast was cut (cutCast) while the file loaded
     recent.push({ n: inst.def?.name ?? inst.name ?? '?', t: clockS, seq: ++recentSeq }); if (recent.length > 24) recent.shift(); // local patch
     layer.scene.add(inst.object);
     layer.n++;
-    live.push({ inst, ...entry, layer });
+    const l = { inst, ...entry, layer };
+    live.push(l);
+    return l;
   }
   function dropLive(l) { l.inst.dispose(); l.layer.n--; }
   /** End the oldest effects past their kind's cap (liveOverCap). */
@@ -350,8 +356,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // ended by its cast — castFx); one whose end has passed while its file loaded is not started
   // `speed` (2026-10-10, decompile check): the playback speed — a cast effect plays at its ability's (the attack's
   // anim scale), a hit effect at 1.0 (client `HitEffectOptions.OnCastOnTarget`, RVA 0xAE54D0: CreateEffect(…, 1.0));
-  // `aim`: the hit's attacker (an entry with `_useOwnerToTargetDirection`, modes.json `hitAim`)
-  async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null, tag = null, until: endAt = null, speed = 1, aim = null } = {}) {
+  // `aim`: the hit's attacker (an entry with `_useOwnerToTargetDirection`, modes.json `hitAim`); `cast` (2026-10-11): the
+  // cast record it belongs to (beginCast — cutCast ends them)
+  async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null, tag = null, until: endAt = null, speed = 1, aim = null, cast = null } = {}) {
     const b = bundleOf(view);
     if (!b) return;
     // local patch (maintainer report): a directional emitter entry plays the copy for the facing (dirPick)
@@ -394,7 +401,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // local patch (maintainer 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
       // skill start as well as its buff loops — goes under the units; the hits on a target stay over
       // (local patch, maintainer report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
-      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, speed, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
+      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, speed, cast, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
       trimLive();
     }
   }
@@ -421,8 +428,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (sw.unit.visFacing ?? sw.unit.facing ?? 1) < 0 ? -1 : 1, split: l.layer === layers.split, floor: sw.unit.z || 0 });
     const at = lifted(sw.unit, def); // created on the owner at its own _spawnLocation / mount point
     inst.object.position.set(at.x, at.y, at.z || 0);
-    addLive(inst, { view: at, owner: l.owner, buff: l.buff, onCaster: l.onCaster, until: l.until, tag: l.tag, backOf: l }, l.layer);
-    sw.entry = live[live.length - 1];
+    sw.entry = addLive(inst, { view: at, owner: l.owner, buff: l.buff, onCaster: l.onCaster, until: l.until, tag: l.tag, backOf: l }, l.layer);
     trimLive();
   }
   /** Swap the switchable effects whose owner turned to / from its back (each frame, before the players run). */
@@ -512,9 +518,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function stopBuffs(ownerId, now = false) {
     for (const l of live) if (l.buff && l.owner === ownerId) l.inst.stop(now);
   }
-  /** The unit left the field (knocked out / withdrawn): its buffs and the one-shots on it end; hits it made on targets play on. */
+  /**
+   * The unit left the field (knocked out / withdrawn): its buffs and the one-shots on it end; hits it made on targets play
+   * on — except its cast's looping ones (2026-10-11: `OnCastFinish` clears the `_oneshot` 0 effects, OWNER_DEAD too).
+   */
   function stopOwned(ownerId) {
-    for (const l of live) if (l.owner === ownerId && (l.buff || l.onCaster)) l.inst.stop(true);
+    for (const l of live) if (l.owner === ownerId && (l.buff || l.onCaster || l.tag === 'castLoop')) l.inst.stop(true);
   }
 
   // the trail's 'rotation_z' node is the client's heading pivot: the dragon's head points along +x at 0° (the prefab's
@@ -1156,9 +1165,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const e = { view: at, ...entry, backSw: backSwitch(def, unit, bundle) };
     if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5;
     if (drop) { drop.inst = inst; placeTrail(drop); }
-    addLive(inst, e, over ? layers.over : split ? layers.split : layers.under);
+    const l = addLive(inst, e, over ? layers.over : split ? layers.split : layers.under);
     trimLive();
-    return live[live.length - 1];
+    return l;
   }
   /**
    * A 'dmg' of this moment on `tid` that waiting skill effects claim (expect(); each plays its effect on the target once —
@@ -1440,10 +1449,99 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const loop = opt && opt.o === 0;
       const end = !loop ? null : opt.e === CAST_EVENT.SPELL_ON || opt.e === CAST_EVENT.SPELL_END ? Math.max(c.hitAt, clockS) : c.end;
       // (2026-10-10, decompile check) at the ability's playback speed — only the cast effects (CastEffectOptions), the hits at 1.0
-      const go = () => { if (v._fxCast === c && v.alive !== false) play(v, 'attackStart', 0, { names: [n], tag: loop ? 'castLoop' : 'cast', until: end, speed: c.speed }); };
+      const go = () => { if (v._fxCast === c && v.alive !== false) play(v, 'attackStart', 0, { names: [n], tag: loop ? 'castLoop' : 'cast', until: end, speed: c.speed, cast: c }); };
       const delay = c.first && opt?.d > 0 ? opt.d / c.speed : 0;
       if (delay > 0) castsDelayed.push({ t: clockS + delay, run: go }); else go();
     }
+  }
+
+  // ---- input targets, clip variants, looping hits, 麻痹 (2026-10-11, decompile check round 2) -------------------
+  // InputTargetEffectOptions (modes.json `input`, char_modes.py) is a CastEffectOptions created on the ability's main target
+  // instead of the caster (client `InputTargetEffectOptions.CreateEffect`, RVA 0xB1B5F0): at its `_startEvent` (4 the
+  // strike, 2 the swing start — 시's dusk_attack_01_hit_02 loops on the target from the swing to the strike), at the
+  // ability's playback speed, and — `_useInputPos` (castOpt p) — at the target's last place once it died. The main target is
+  // the strike's first 'atk' target; a swing names none, so a swing-start one goes on its last attack's target while that
+  // one lives [추정: the sim's 'swing' carries no target], else it starts at the strike.
+  /** The main target of `v`'s last strike, while it is on the field. */
+  function lastTarget(v) {
+    const t = v._fxTgt != null ? lastViews?.get(v._fxTgt) : null;
+    return t && t.alive !== false && !t.remove ? t : null;
+  }
+  /** The input-target effects of phase `phase` ('swing' / 'strike') of cast `c` (mode `mode`), on its main target. */
+  function inputFx(v, c, mode, phase, tgt = null) {
+    let names = bound(v, mode, 'input');
+    if (!names.length || c.skip) return;
+    names = names.filter((n) => phaseOf(v, mode, n) === phase);
+    if (phase === 'swing') {
+      c.inTgt = tgt || lastTarget(v);
+      if (!c.inTgt) { c.inputLate = names; return; }
+    } else {
+      c.inTgt ||= tgt;
+      if (c.inputLate) { names = [...c.inputLate, ...names]; c.inputLate = null; }
+    }
+    const tg = c.inTgt;
+    if (!tg) return;
+    for (const n of names) {
+      const opt = castTiming(bindOf(v), c.mode, n);
+      if (opt?.once && c.fired.has(n)) continue;
+      c.fired.add(n);
+      const loop = !!opt && opt.o === 0;
+      const end = !loop ? null : opt.e === CAST_EVENT.SPELL_ON || opt.e === CAST_EVENT.SPELL_END ? Math.max(c.hitAt, clockS) : c.end;
+      const go = () => {
+        if (v._fxCast !== c || v.alive === false) return;
+        const dead = tg.alive === false || !!tg.remove;
+        if (dead && !opt?.p) return;   // CreateEffect on a dead target: nothing
+        const at = dead ? { x: tg.x, y: tg.y, z: tg.z || 0 } : tg;
+        play(v, 'attackHit', 0, { at, names: [n], tag: loop ? 'castLoop' : 'cast', until: end, speed: c.speed, cast: c });
+      };
+      const delay = c.first && opt?.d > 0 ? opt.d / c.speed : 0;
+      if (delay > 0) castsDelayed.push({ t: clockS + delay, run: go }); else go();
+    }
+  }
+  /**
+   * The clip group of a new cast of `v` (modes.json clipFx[mode], fxmap.js clipGroup — 비나 빅토리아's Attack_1 / Attack_2
+   * cast siege2_attack_start_01 / _02): the group of the attack clip its model plays; its extracted cast / hit names.
+   */
+  function castGroup(v, mode) {
+    const cf = Number.isInteger(mode) && mode >= 0 ? bindOf(v)?.clipFx?.[mode] : null;
+    if (!cf) return null;
+    let clip = null;
+    try { const a = v.actor, ac = a?._attackClip?.(); clip = ac ? (a._loopOf ? a._loopOf(ac) : ac.loop) : null; } catch { /* none */ }
+    const g = clipGroup(cf, clip, v._fxClipLast ?? -1, Math.random());
+    if (!g) return null;
+    v._fxClipLast = g.index;
+    return { cast: extracted(v, g.cast), hit: extracted(v, g.hit) };
+  }
+  const withGroup = (names, more) => (more?.length ? [...new Set([...names, ...more])] : names);
+  /**
+   * An attack's hits on `tgt` (its mode's hit list): a looping one (modes.json hitLoop) ends at its `_endEvent` — the cast's
+   * end for ON_CAST_END / ON_ATTACK_FINISH (엑시아 angle_attack_01_hit, `_convertCastEndToAttachFinish`), at once for
+   * ON_SPELL_ON / _END — or with the next cast, a 麻痹 cut or its owner's death; a CastTargetEffectOptions one (castTgt:
+   * 실버애쉬 더 레인프로스트 svash2_attack_hit_01) plays at the ability's speed, the others at 1.0.
+   */
+  function hitFx(src, tgt, names, c) {
+    const bind = bindOf(src), fast = new Set(bind?.castTgt || []);
+    const plain = [], quick = [];
+    for (const n of names) {
+      const e = hitLoopEnd(bind, n);
+      if (e == null) { (fast.has(n) ? quick : plain).push(n); continue; }
+      const until = e === CAST_EVENT.SPELL_ON || e === CAST_EVENT.SPELL_END ? clockS : c?.end != null && c.end > clockS ? c.end : undefined;
+      play(src, 'attackHit', 0, { at: tgt, names: [n], aim: src, tag: 'castLoop', until, cast: c });
+    }
+    if (plain.length) play(src, 'attackHit', 0, { at: tgt, names: plain, aim: src });
+    if (quick.length) play(src, 'attackHit', 0, { at: tgt, names: quick, aim: src, speed: c?.speed || 1 });
+  }
+  /**
+   * 麻痹 interrupted `v`'s cast (sim fx 'palsy' { id } — client `Enemy.CanDoAbilitySpellOn` → `FinishIfNot(PALSY)`):
+   * `EffectOptions.OnCastFinish` (RVA 0xAE1ED0) with reason PALSY ends every effect that cast's options made, the one-shots
+   * too (`_ClearAllEffects`), and the delayed ones never start.
+   */
+  function cutCast(v) {
+    const c = v?._fxCast;
+    if (!c) return;
+    c.cut = true;
+    for (const l of live) if (l.cast === c && !l.inst.stopping) l.inst.stop();
+    v._fxCast = null;
   }
   function stepCasts() {
     for (let i = castsDelayed.length - 1; i >= 0; i--) if (clockS >= castsDelayed[i].t) castsDelayed.splice(i, 1)[0].run();
@@ -1465,27 +1563,39 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     skillByFlag(src, views);
     const mode = modeNow(src);
     const c = beginCast(src, windup, mode);
+    c.group = castGroup(src, mode);
     if (c.skip) return;
-    const { names: cast, split } = boundFor(src, mode, 'cast', kind);
+    const { names: own, split } = boundFor(src, mode, 'cast', kind);
+    const cast = withGroup(own, c.group?.cast);
+    inputFx(src, c, mode, 'swing');
     if (cast.length || split) { playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing')); return; }
     // no mode binding: the name mapping's attack start, at the swing like the client's ON_CAST_START majority [추정]
     if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
   }
-  /** The strike ('atk'): the cast effects of ON_SPELL_ON / ON_SPELL_END; the swing's own when no swing was announced. */
-  function strikeFx(src, mode, kind = null) {
+  /**
+   * The strike ('atk' on `tgt`): the cast effects of ON_SPELL_ON / ON_SPELL_END; the swing's own when no swing was
+   * announced. Its first target is the cast's main target (input-target effects, lastTarget).
+   */
+  function strikeFx(src, mode, kind = null, tgt = null) {
     let c = src._fxCast;
     const same = c && c.mode === mode && clockS <= c.hitAt + SWING_SLACK && (c.struckAt == null || clockS - c.struckAt < 0.03);
-    const { names: cast, split } = boundFor(src, mode, 'cast', kind);
+    const { names: own, split } = boundFor(src, mode, 'cast', kind);
     if (!same) {   // no 'swing' for this attack: its swing effects now (the moment they had before)
       c = beginCast(src, 0, mode);
+      c.group = castGroup(src, mode);
       if (!c.skip) {
+        const cast = withGroup(own, c.group?.cast);
         if (cast.length || split) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing'));
         else if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
+        inputFx(src, c, mode, 'swing', tgt);
       }
     }
     if (c.struckAt != null && clockS - c.struckAt < 0.03) return;   // another target of the same strike
     c.struckAt = clockS;
+    if (tgt) src._fxTgt = ownerOf(tgt);
+    const cast = withGroup(own, c.group?.cast);
     if (!c.skip && cast.length) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'strike'));
+    inputFx(src, c, mode, 'strike', tgt);
   }
 
   // ---- a mode buff on enemies (2026-10-10, decompile check: 아스트젠 더 라이트체이서 S3) -----------------------
@@ -1614,11 +1724,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * Effects `names` of enemy `v`: on it (its cast / born effects: under the units, split at 'high'), or `at` a unit / point
    * (its hits: over them). `until` / `buff` / `tag` / `owner` / `on` / `speed` as spawn()'s entry; `aim`: turned along it → `at`.
    */
-  function eplay(v, names, { at = null, over = !!at, buff = false, tag = null, until, owner, on, speed = 1, aim = null } = {}) {
+  function eplay(v, names, { at = null, over = !!at, buff = false, tag = null, until, owner, on, speed = 1, aim = null, cast = null } = {}) {
     for (const n of names || []) {
       const r = efx(n);
       if (!r) continue;
-      const entry = { owner: owner !== undefined ? owner : at ? null : ownerOf(v), buff, onCaster: !at, tag, speed };
+      const entry = { owner: owner !== undefined ? owner : at ? null : ownerOf(v), buff, onCaster: !at, tag, speed, cast };
       if (buff) entry.until = until ?? null; else if (until != null) entry.until = until;
       if (on !== undefined) entry.on = on;
       spawn(r[0], r[1], at || v, entry, { over, facing: efacing(v), aim });
@@ -1633,7 +1743,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       c.fired.add(n);
       const loop = !!opt && opt.o === 0;
       const end = !loop ? null : opt.e === CAST_EVENT.SPELL_ON || opt.e === CAST_EVENT.SPELL_END ? Math.max(c.hitAt, clockS) : c.end;
-      const go = () => { if (v._fxCast === c && v.alive !== false) eplay(v, [n], { tag: loop ? 'castLoop' : 'cast', until: end, speed: c.speed }); };
+      const go = () => { if (v._fxCast === c && v.alive !== false) eplay(v, [n], { tag: loop ? 'castLoop' : 'cast', until: end, speed: c.speed, cast: c }); };
       const delay = c.first && opt?.d > 0 ? opt.d / c.speed : 0;
       if (delay > 0) castsDelayed.push({ t: clockS + delay, run: go }); else go();
     }
@@ -1847,8 +1957,39 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (plain.length) eplay(src, plain, { at: tgt });
     const aimed = names.filter((n) => aim.has(n));
     if (aimed.length) eplay(src, aimed, { at: tgt, aim: src });
-    // a buff it puts on the target: its own effect, played once [추정: held while the buff lasts — its life is not known here]
-    if (Array.isArray(part.hitBuff) && part.hitBuff.length) eplay(src, part.hitBuff.slice(0, 1), { at: tgt });
+    if (Array.isArray(part.hitBuff) && part.hitBuff.length) eholdBuff(src, part, tgt);
+  }
+  // 2026-10-11, decompile check round 2 — a buff an enemy's attack puts on its target shows its own effect on that target
+  // while the buff lasts, one per name per unit: client `Entity.AddBuffEffect` (RVA 0x35F3CA0) keeps it with a ref count
+  // (`BuffEffectHolder.refCounter`) and `RemoveBuffEffect` (0x36001C0) finishes it as the last buff of that name ends.
+  // enemy-modes.json `hitBuffLife` { name: life } (enemy_bindings.py): a LIMITED buff — held `life` s, a hit while it stands
+  // renews it [추정: maxStackCnt 1, the life restarts]; IMMEDIATELY (0) — the prefab's own run; a buff whose end the tables
+  // do not give (INFINITY / CUSTOM: a stun's, a status's — its end is the sim's) — the prefab's own run as before, but one at
+  // a time per name on the unit (no second copy while one plays) [추정].
+  const ebuffs = new Map();   // `${target id}:${prefab}` → { l: live entry | null while it loads, until }
+  function eholdBuff(src, part, tgt) {
+    const tid = ownerOf(tgt);
+    for (const n of part.hitBuff.slice(0, 2)) {
+      const r = efx(n);
+      if (!r) continue;
+      const life = part.hitBuffLife?.[n];
+      if (life === 0) { eplay(src, [n], { at: tgt }); continue; }
+      const until = life > 0 ? clockS + life : undefined;
+      const key = `${tid}:${n}`;
+      const rec = ebuffs.get(key);
+      if (rec && (!rec.l || (!rec.l.stopped && !rec.l.inst.stopping && live.includes(rec.l)))) {
+        if (until !== undefined) { rec.until = until; if (rec.l) rec.l.until = until; }
+        continue;
+      }
+      const nr = { l: null, until };
+      ebuffs.set(key, nr);
+      spawn(r[0], r[1], tgt, { owner: null, buff: false, on: tid, until, tag: 'debuff' }, { over: true, facing: efacing(src) }).then((l) => {
+        if (!l) { if (ebuffs.get(key) === nr) ebuffs.delete(key); return; }
+        nr.l = l;
+        if (nr.until !== undefined) l.until = nr.until;
+        if (gone.has(tid)) l.inst.stop(true);
+      });
+    }
   }
   // 2026-10-10: a buff's line effect (its template's `Nodes.CreateLineEffect` on ON_BUFF_START — client `Execute`, RVA
   // 0xB91190: the effect is made on the buff's owner and its LineEffectEmitterDynamic gets start owner = the buff's source,
@@ -2002,6 +2143,46 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     Object.defineProperty(b, '_animSkill', { value: map, enumerable: false });
     return map;
   }
+  // ---- deploy / dead effects of operators and tokens (2026-10-11, decompile check round 2) ------------------------
+  // Client `Character.get_startEffect` (RVA 0x7085E0): a character's deploy plays its prefab root's `_startEffect` (a mode's
+  // `_overrideStartEffect` first — `GetStartEffect`, 0x6F74B0), else common_char_birth_01 — a token common_call_start_01
+  // (`DefaultEffects.CHARACTER_BORN` / `TOKEN_BORN`); `_onlyPlayStartEffectOnce` keeps it to the first deploy. Its death
+  // plays `_deadEffect`, else common_char_die_01. Here on each 'deploy' (a 【移动】 too — the client redeploys) of an
+  // operator / token whose prefab is extracted (its own bundle, else the shared `common` one), and on its 'die' when knocked
+  // out ('killed'; a retreat / expiry plays none [추정]). 望's stones keep their own (stoneFx).
+  const deployed = new Map();   // unit id → battle clock of its 'deploy' (its view may be built right after the event)
+  const startedOnce = new Set();
+  const opDead = new Set();     // units whose dead effect played (ownsDeath)
+  const isAlly = (v) => !!(v?.info && v.info.side !== 'enemy' && (v.info.kind === 'op' || v.info.kind === 'token') && !isStone(v));
+  /** [bundle, prefab] of a deploy / dead effect of `v`: its own bundle's, else the shared common one; null when not extracted. */
+  function allyFx(v, name) {
+    const b = bundleOf(v);
+    if (b?.prefabs.includes(name)) return [b.bundle, name];
+    return index?.bundles?.common?.includes(name) ? ['common', name] : null;
+  }
+  function flushDeploys(views) {
+    if (!deployed.size || !views) return;
+    for (const [id, t] of deployed) {
+      const v = views.get(id);
+      if (!v) { if (clockS - t > 2) deployed.delete(id); continue; }
+      deployed.delete(id);
+      if (!isAlly(v) || v.alive === false || failed || q() === 'low') continue;
+      const bind = bindOf(v);
+      const fx = deployEffect(bind, v.info.kind === 'token', v._fxSkillOn ? modeNow(v) ?? 0 : 0);
+      // `_onlyPlayStartEffectOnce`: the root's effect on the first deploy only [추정: a mode's override still plays]
+      if (bind?.startOnce && !fx.override) { if (startedOnce.has(id)) continue; startedOnce.add(id); }
+      const r = allyFx(v, fx.name);
+      if (r) spawn(r[0], r[1], v, { owner: id, buff: false, onCaster: true, tag: 'born' }, { over: false, facing: efacing(v) });
+    }
+  }
+  function allyDeathFx(v, reason) {
+    if (reason !== 'killed' || !isAlly(v) || failed || q() === 'low') return;
+    const r = allyFx(v, deadEffect(bindOf(v)));
+    if (!r) return;
+    opDead.add(ownerOf(v));
+    spawn(r[0], r[1], { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false, tag: 'dead' }, { over: false, facing: efacing(v) });
+  }
+
   const eborn = new Map();   // enemy id → battle clock of its 'spawn' (its view is built right after the event)
   /**
    * The enemies spawned since the last frame: their start effect and auras. The start effect is the prefab root's
@@ -2130,7 +2311,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * 2026-10-10: whether an enemy's death is drawn here with its official dead effect (edeathFx) — render/app.js then skips
      * render/fx.js's procedural death puff (the client plays only the dead effect: `DeadState._PlayAnimation`).
      */
-    ownsDeath(v) { return !!(v?.info?.side === 'enemy' && eOn(v) && efx(edeadOf(v))); },
+    ownsDeath(v) { return !!(v?.info?.side === 'enemy' ? eOn(v) && efx(edeadOf(v)) : v && opDead.has(ownerOf(v))); }, // 2026-10-11: operators / tokens too (allyDeathFx)
     /** Whether a 'fx' event is drawn here with its official effect (render/fx.js then skips its 2D stand-in). */
     ownsFx(e) { return ownFx.has(e); },
     /**
@@ -2143,7 +2324,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastViews = views;
       if (Array.isArray(e)) {
         if (e[0] === 'die') gone.add(e[1]);
-        else if (e[0] === 'deploy') { gone.delete(e[1]); const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; } } // 2026-10-10: its first attack again
+        else if (e[0] === 'deploy') { gone.delete(e[1]); opDead.delete(e[1]); deployed.set(e[1], clockS); const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; } } // 2026-10-10: its first attack again; 2026-10-11: its deploy effect (flushDeploys)
         else if (e[0] === 'spawn') { gone.delete(e[1]?.id ?? e[1]); if (e[1]?.side === 'enemy' && e[1].id != null) eborn.set(e[1].id, clockS); } // 2026-10-10: its start effect (flushEnemyBirths)
         else if (e[0] === 'fx' && e[1] === 'summon' && e[4]) gone.delete(e[4].id);
         // local patch: a stone spawned (its 'summon' fx of the same moment, if any, takes it off — stoneFx)
@@ -2206,7 +2387,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // local patch: the mode's own cast effects (a skill's on each of its attacks) — since 2026-10-10 on the attack's own
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
           // throttle (ATTACK_GAP_S) and load level 3 skip them as before (beginCast)
-          strikeFx(src, mode, e[3]);
+          strikeFx(src, mode, e[3], tgt);
           return;
         }
         // (2026-10-10, decompile check): the sim's swing start ['swing', unit, windup, kind] — an attack's
@@ -2246,13 +2427,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           lastAtk.delete(tid); // local patch: one impact per attack (a mark's / DoT's later ticks are no attack's hit; audio.js does the same)
           // the mode's hit effects (a 要塞's of the attack it made: boundFor)
           const { names: hitList, split } = boundFor(a.src, a.mode, 'hit', a.kind);
-          const hits = hitList.slice(0, MAX_HIT_FX);
-          if (hits.length) { play(a.src, 'attackHit', 0, { at: tgt, names: hits, aim: a.src }); return; }
-          if (split) return;
+          const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
+          const hits = withGroup(hitList, c?.group?.hit).slice(0, MAX_HIT_FX);
+          if (hits.length) { hitFx(a.src, tgt, hits, c); return; }
+          if (split || bound(a.src, a.mode, 'input').length) return; // its hits are its input-target effects (inputFx), not a name-mapped one
           play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
           return;
         }
         case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/ops/op-chen3.js) carries her official trail along its path
+          if (e[1] === 'palsy' && e[4]?.id != null) { const v = views.get(e[4].id); if (v) cutCast(v); } // 2026-10-11: 麻痹 cut its cast
           if (stoneFx(e, views)) return;
           if (e[1] === 'caperBoomerang2' && e[4]) { caperSecond(e, views); return; } // 2026-10-10: 跃跃 S2's second boomerang
           // 2026-10-10: an enemy content skill's official projectile (eshotFx), and no stand-in beam for a shot drawn so
@@ -2315,6 +2498,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (lm) { lemMarks.delete(e[1]); for (const mark of lm) { mark.done = true; for (const l of mark) l.inst.stop(true); } }
           const v = views.get(e[1]);
           if (v?.info?.side === 'enemy' && e[2] !== 'forcedExit') edeathFx(v); // 2026-10-10: its dead effect
+          else if (v) allyDeathFx(v, e[2]); // 2026-10-11: an operator's / token's dead effect
+          for (const k of ebuffs.keys()) if (k.startsWith(`${e[1]}:`)) ebuffs.delete(k);
           return;
         }
         case 'leak': stopOwned(e[1]); return; // 2026-10-10: an enemy that got through — its auras end
@@ -2333,6 +2518,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stepWolves(dt);
       flushStoneBirths(lastViews); // local patch
       flushEnemyBirths(lastViews); stepEnemies(lastViews); // 2026-10-10: the enemies' born effects, modes, skill clips
+      if (index) flushDeploys(lastViews); // 2026-10-11: the operators' / tokens' deploy effects
       stepLines(); // 2026-10-10: buff line effects follow their units
       if (!mod) return;
       if (!live.length) { showLayers(); return; }
@@ -2397,6 +2583,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); eshotLand.clear();
+      deployed.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       if (mod) showLayers();
     },
 

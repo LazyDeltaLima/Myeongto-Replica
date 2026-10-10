@@ -488,6 +488,7 @@ def uniq(lst):
 def emit_part(abilities, projs):
     """{cast, opt, hit, aim?, dirs?, proj?, hitBuff?, attach?} of the abilities of one attack (or one skill)."""
     cast, opt, hit, aim, dirs, attach, hit_buff, lines = [], {}, [], [], [], [], [], []
+    buff_life = {}
     proj = None
     for a in abilities:
         for em in a.get('castEffects') or []:
@@ -509,7 +510,14 @@ def emit_part(abilities, projs):
         # a buff the attack / skill puts on its targets: its own effect (overrideEffectKey, else the template's effectKey) —
         # not the effects its nodes create later (a shield's break, a trap's end)
         for b in a.get('activeBuffs') or []:
-            hit_buff += strs(b.get('fx')) or ((b.get('template') or {}).get('key') or [])
+            names = strs(b.get('fx')) or ((b.get('template') or {}).get('key') or [])
+            hit_buff += names
+            # 2026-10-11, decompile check round 2 — client `Entity.AddBuffEffect` / `RemoveBuffEffect` (RVA 0x35F3CA0 /
+            # 0x36001C0): the buff's effect stays on its owner while the buff lasts, one per name (`BuffEffectHolder.refCounter`):
+            # `hitBuffLife` { name: the buff's life } (LIMITED `lifeTime` s, IMMEDIATELY 0; none = no limit)
+            for n in names:
+                if 'life' in b:
+                    buff_life.setdefault(n, b['life'])
             # 2026-10-10: its template's CreateLineEffect lines (from the buff's source to its owner, while the buff lasts —
             # the line prefab's LineEffectEmitterDynamic `_buffKeyForFinish`): { fx, life? (the buff's lifeTime) }
             for n in (b.get('template') or {}).get('line') or []:
@@ -549,6 +557,9 @@ def emit_part(abilities, projs):
         part['attach'] = uniq(attach)
     if hit_buff:
         part['hitBuff'] = uniq(hit_buff)
+        life = {n: buff_life[n] for n in part['hitBuff'] if n in buff_life}
+        if life:
+            part['hitBuffLife'] = life
     if lines:
         part['line'] = lines
     if proj:
