@@ -751,7 +751,7 @@ function MatchScreen() {
     placedRef.current.delete(e.uid);
     if (Date.now() - at <= PLACE_VOICE_MS) voiceForPlace(e.unit, e.uid);
   }) : undefined), [view]);
-  // local patch (2026-10-10, docs/rules/audio.md 「오퍼레이터 음성」): an enemy route preview cursor appeared (render/fxroute.js,
+  // 2026-10-10, docs/rules/audio.md 「오퍼레이터 음성」: an enemy route preview cursor appeared (render/fxroute.js,
   // the boss rounds' prep) → 行动开始 by an operator of the own board (voice.js voiceForRoutePreview)
   useEffect(() => (view ? view.on('routePreview', () => {
     const board = Array.isArray(live.current.priv?.board) ? live.current.priv.board : [];

@@ -66,7 +66,7 @@ export default withDefaults({
         if (!live() || !e.alive) return;
         b.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 0.85), type: 'arts', isSkill: true, tags: ['skill', 'swordRain'] });
         if (e.alive) b.applyStatus(e, 'stun', { duration: num(bb.stun, 0.2), source: unit });
-        b.fx('swordRain', { x: e.x, y: e.y, id: e.id, src: unit.id }); // local patch: src — the client draws her rain prefab
+        b.fx('swordRain', { x: e.x, y: e.y, id: e.id, src: unit.id }); // src — the client draws her rain prefab
       };
       const rain = (b, sched) => {
         if (!live() || !unit.skill?.active) { sched.cancel(); return; }

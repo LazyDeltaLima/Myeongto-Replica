@@ -54,7 +54,7 @@ BUILTIN_MESHES = {10209: 'Plane', 10210: 'Quad'}
 # local patch: the MonoScript PathID of the effects' FollowMountPoint component (mount_point); 1205
 # default-skin prefabs of the EN client carry one (maintainer's notes 2026-10-08)
 MOUNT_SCRIPT = 0x7b5c342088cfcad4
-# local patch (2026-10-10, decompile check): the MonoScript PathID of SwitchableBackEffect (switch_back) — 62 default-skin
+# 2026-10-10, decompile check: the MonoScript PathID of SwitchableBackEffect (switch_back) — 62 default-skin
 # prefabs of the extracted bundles carry one (비르투오사 S3 cello_skill_03_buff_front_02 → _back_02, 로즈몬티스, 휴머스 …)
 BACK_SCRIPT = 7599136815520768295
 
@@ -579,7 +579,7 @@ class Extractor:
         return out_def
 
     def switch_back(self, root):
-        """local patch (2026-10-10, decompile check — client `SwitchableBackEffect._UpdateFace`): the root's
+        """2026-10-10, decompile check — client `SwitchableBackEffect._UpdateFace`: the root's
         SwitchableBackEffect — while the owner faces back (its back model) the client pauses this effect and plays
         `_backEffect` instead, and the other way round when it turns to the front (render/fxgame.js backSwap). Read by its
         type tree (the bundle carries it): { effect: _backEffect ('common_empty' = nothing while back), predict:
@@ -755,7 +755,7 @@ class Extractor:
         return None
 
     def back_only(self, bundle, pack=None):
-        """local patch (2026-10-10): write only the SwitchableBackEffect `back` of the bundle's already extracted prefabs
+        """2026-10-10: write only the SwitchableBackEffect `back` of the bundle's already extracted prefabs
         (switch_back), like mount_only. Returns (prefabs with one, files changed)."""
         rel = pack or f'battle/prefabs/effects/{bundle}.ab'
         p = bundle_path(self.game, rel)

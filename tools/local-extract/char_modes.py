@@ -234,7 +234,7 @@ class Projectiles:
             add(out['trail'], effect_names(d.get('_mainEffect')))
             # on the target as the projectile starts (德克萨斯 S2's falling swords: projectile_sword_rain)
             add(out['start'], effect_names(d.get('_effectsToTargetWhenStart')))
-            # local patch (2026-10-10, decompile check: 쏜즈 더 로드스타's token / range lasted the whole battle): the reach
+            # 2026-10-10, decompile check: 쏜즈 더 로드스타's token / range lasted the whole battle: the reach
             # effects that end with the projectile, and its scalable aura
             if d.get('_clearReachedEffectWhenStop') == 1:
                 add(out['zone'], effect_names(d.get('_effectsWhenReached')))
@@ -346,7 +346,7 @@ def modes_of(path, projectiles=None):
     modes = the mode GameObject names; proj = the projectile keys under each mode; cast = the effects its attacks cast on
     the attacker; hit = those on the target (the emitters' hit lists + its own projectile's WhenHit / WhenReached); trail =
     that projectile's main effect (shotFrom: the MountPointType it leaves from when not MUZZLE; castOpt: each cast effect's
-    start / end events — local patch 2026-10-10); attach = the effects of the mode's own (Talents) buffs and the effects its abilities
+    start / end events — 2026-10-10); attach = the effects of the mode's own (Talents) buffs and the effects its abilities
     attach (`_attachEffects`, an ability's `_effects`), shown on the operator while it lasts. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
     only the first counts."""
     tree, go_name = load_tree(path)
@@ -369,7 +369,7 @@ def modes_of(path, projectiles=None):
     mb = {pid: d for _, d, pid in tree}
 
     def selects_foes(d):
-        """local patch (2026-10-10, decompile check: 아스트젠 더 라이트체이서 S3): whether an ability's `_selector`
+        """2026-10-10, decompile check: 아스트젠 더 라이트체이서 S3: whether an ability's `_selector`
         (`Ability._selector`) picks enemies — every range selector of its `_rangeSelectorsList` (or the selector itself)
         with a `_targetSide` says 2. halo2's S3 LinkEnemy: HasBuff / NewBuff, `_targetSide 2`, `_maxNum 1` — its buff's
         effect `halo2_skill_03_buff_02` sits on that one enemy (a buff effect's owner is the unit holding the buff)."""
@@ -385,13 +385,13 @@ def modes_of(path, projectiles=None):
         return int(sd.get('_maxNum') or 0) if sd.get('_limitTargetNum') == 1 else 0
     attach_foe = [[] for _ in range(n)]
     foe_max = {}   # effect → the selector's target limit (attachFoeMax; without one: every enemy the ability hits)
-    # local patch (2026-10-10, decompile check — client `CastEffectOptions.OnEvent` / `OnCastStart` / `OnCastFinish`): when
+    # 2026-10-10, decompile check — client `CastEffectOptions.OnEvent` / `OnCastStart` / `OnCastFinish`: when
     # each cast effect starts and ends: { name: { s: _startEvent, e: _endEvent, o: _oneshot, d?: _delayIfFirstAttack, once?:
     # _onlyOnce } } per mode (every slot name of the entry, so a directional copy finds its timing). AbilityStandard.Event:
     # 0 ON_ATTACHED, 1 ON_DETACHED, 2 ON_CAST_START (the swing start), 3 ON_CAST_END, 4 ON_SPELL_ON (the strike), 5
     # ON_SPELL_END, 6 ON_ATTACK_FINISH, 7 ON_ATTACK_CHECK_POINT, 8 ON_OVERLOAD (render/fxgame.js onSwing)
     cast_opt = [{} for _ in range(n)]
-    # local patch (2026-10-10, decompile check — client `RangedAttack._GetMountPoint`): the shooter's point a mode's shot
+    # 2026-10-10, decompile check — client `RangedAttack._GetMountPoint`: the shooter's point a mode's shot
     # leaves from, its `_mountPointType` (MountPointType; MUZZLE 2 is the default and left out)
     shot_mp = {}
     doll_born = []

@@ -61,7 +61,7 @@ export function bankMix(sounds, path) {
 }
 
 /**
- * local patch (2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」): how the client plays a bank's sound
+ * 2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」: how the client plays a bank's sound
  * (클라 코드 `SoundFXBank.Play` RVA 0x34B22A0, `SoundFXBank.SoundFX._SetAudioChannel` RVA 0x34B3500): every play picks a
  * pitch in [minPitch, maxPitch] of the sound (most battle sounds 0.8–1.2), and a bank at `maxSoundAllowed` (> 0) stops its
  * oldest sounds for the new one when `popOldest`, else drops the new one.
@@ -90,8 +90,8 @@ export function indexAudio(audioData) {
   const groups = new WeakMap(); // local patch: the same list → its bank's customMixerGroup (tools/assets/skill-mode-sfx.mjs)
   const limits = new WeakMap(); // local patch: the same list → { max: maxSoundAllowed, pop: popOldest } (tools/assets/kit-sfx.mjs)
   const loopBanks = []; // local patch: [{ name, paths }] of the looping banks (skill-mode-sfx.mjs skillLoops)
-  const plays = new WeakMap(); // local patch: the same list → its bank's play values (bankPlay: pitch range, maxSoundAllowed, popOldest)
-  const pathPlays = new Map(); // local patch: a path → the play values of the first bank (battle.* first) that sounds it
+  const plays = new WeakMap(); // the same list → its bank's play values (bankPlay: pitch range, maxSoundAllowed, popOldest)
+  const pathPlays = new Map(); // a path → the play values of the first bank (battle.* first) that sounds it
   for (const b of Array.isArray(audioData?.soundFXBanks) ? audioData.soundFXBanks : []) {
     if (!b || typeof b.name !== 'string') continue;
     const paths = (Array.isArray(b.sounds) ? b.sounds : []).map((s) => assetToPath(s?.asset)).filter(Boolean);
@@ -102,8 +102,8 @@ export function indexAudio(audioData) {
     if (list.length && !groups.has(list) && typeof b.customMixerGroup === 'string' && b.customMixerGroup) groups.set(list, b.customMixerGroup); // local patch
     if (list.length && !limits.has(list) && Number.isInteger(b.maxSoundAllowed) && b.maxSoundAllowed > 0) limits.set(list, { max: b.maxSoundAllowed, pop: b.popOldest === true }); // local patch
     if (b.loop === true && list.length) loopBanks.push({ name: b.name, paths: list }); // local patch
-    if (list.length && !plays.has(list)) plays.set(list, bankPlay(b, list[0])); // local patch (2026-10-10, docs/rules/audio.md)
-    for (const s of Array.isArray(b.sounds) ? b.sounds : []) { // local patch: path-only specs (BATTLE_SFX / UI_SFX `path`)
+    if (list.length && !plays.has(list)) plays.set(list, bankPlay(b, list[0])); // (2026-10-10, docs/rules/audio.md) 
+    for (const s of Array.isArray(b.sounds) ? b.sounds : []) { // path-only specs (BATTLE_SFX / UI_SFX `path`)
       const p = assetToPath(s?.asset);
       if (p && (!pathPlays.has(p) || (b.name.startsWith('battle.') && !pathPlays.get(p).battle))) pathPlays.set(p, { battle: b.name.startsWith('battle.'), v: bankPlay(b, p) });
     }
@@ -222,7 +222,7 @@ export function pickUnitSfx(banks, opts = {}) {
   };
   const exact = (event) => ['attack', 'combat'].map((ab) => banks.get(`${event}.${ab}`)).find((p) => p?.length && ok(p)) ?? null;
   const own = (p) => (p?.length && ok(p) ? p : null);
-  // local patch (2026-10-10, docs/rules/audio.md 「START·ON·HIT」): the ON bank of the ability whose START bank sounds the
+  // 2026-10-10, docs/rules/audio.md 「START·ON·HIT」: the ON bank of the ability whose START bank sounds the
   // attack — the client emits START, ON (클라 코드 AbilityStandard.DoEmitAudioSignalForSpellOn RVA 0x34EEDC0) and HIT
   // (DoEmitAudioSignalForHit RVA 0x34EEC20) each on its own, and the middleware plays every bank of the name, so an
   // ability with both START and ON banks sounds both (`on`, played with the attack); ON is no stand-in for a missing START
@@ -259,7 +259,7 @@ export function pickUnitSfx(banks, opts = {}) {
     ?? firstMatching(banks, 'ON_ABILITY_ON', ['attack', 'combat'], okKey)
     ?? own(proj.born) ?? attackLike('ON_ABILITY_START') ?? attackLike('ON_ABILITY_ON');
   const hit = firstMatching(banks, 'ON_ABILITY_HIT', ['attack', 'combat'], okKey) ?? own(proj.hit) ?? attackLike('ON_ABILITY_HIT');
-  const on = onBeside(attack); // local patch (2026-10-10): its ON bank beside a START swing
+  const on = onBeside(attack); // 2026-10-10: its ON bank beside a START swing
   if (attack) out.attack = attack;
   if (on) out.on = on;
   if (hit) out.hit = hit;

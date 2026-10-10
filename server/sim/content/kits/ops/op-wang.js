@@ -109,7 +109,7 @@ const FOLLOWER_EXCEPT_TILES = new Set(['tile_end', 'tile_end_cooperate', 'tile_a
 const FOLLOWER_REFUSED_TILES = DEPLOY_REFUSED_TILES;
 const WANG_S3_EXTRA = 3; // "第一天赋额外至多部署3枚棋子"
 /**
- * Official battle frames (local patch 2026-10-10): the client's fixed step is 1/30 s — globalgamemanagers TimeManager
+ * Official battle frames (2026-10-10): the client's fixed step is 1/30 s — globalgamemanagers TimeManager
  * 'Fixed Timestep' 0.0333333 (EN client 2026-08; GlobalConsts.TIME_ROUGH_LOGIC_RATE 30) — one sim tick (constants.js TICK).
  * env_043_stone_trigger (WangStoneTriggerManager): a stone / 跟子 linked at frame F arms (its onStoneTriggered →
  * wang_stone_triggered, the trigger condition) once `fixedFrameCnt > F + _tokenStoneExplodeDelay` (`_projectileStoneExplodeDelay`
@@ -305,7 +305,7 @@ function wang(bb, chess, def) {
   };
   /**
    * 铸子 跟子 around `s`: `n` of them, the first at once, then one per STONE_BUILD_FRAMES (the client queues them —
-   * WangStoneTriggerManager buildStoneRequests, `_stoneBuildDelay` 4; local patch 2026-10-10, until then all at once
+   * WangStoneTriggerManager buildStoneRequests, `_stoneBuildDelay` 4; 2026-10-10, until then all at once
    * [ASSUMED: the first one at the stone's birth]). `s3`: the S3 deployment's — the first is the talent's (free), every
    * later one built takes one ammo (spendS3; the last ammo ends S3). A build finding no tile is skipped (the client counts
    * the request down either way). While builds are pending S3 does not end for want of stones (the client's
@@ -408,7 +408,7 @@ function wang(bb, chess, def) {
           // of the real game, 2026-10-06 — no deployment ever spends ammo or stones)
           if (!s.prepPlaced) return;
           // client: ChargeToken (min(max − remaining, cnt) cards), then InstantSpawn of the rest as 跟子, ≤ max_spawn_cnt
-          // alive, on tiles of her range, no adjacency. Tile order (local patch 2026-10-10, client code WangTileSelector
+          // alive, on tiles of her range, no adjacency. Tile order (2026-10-10, client code WangTileSelector
           // SKILL_3_INSTANT `_DoFilter`): the candidates (_FilterWangNormal ≈ followerClass) shuffled with the battle rng,
           // then — only when there are more than it places — sorted by followerOrder without the direction key: ground
           // first, then enemy tiles, then undeployable ones; equal tiles stay in the shuffled order, i.e. at random.

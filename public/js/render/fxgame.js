@@ -19,7 +19,7 @@
 // scaled time), not only the notes.
 // Event → effect (render/fxmap.js effectsFor, by the client's prefab names):
 //   'skill' on   → <op>_skill_0N_start_* on the caster, <op>_skill_0N_buff_* looping on it until 'skill' off / death
-//   'swing'      → (local patch 2026-10-10) the attack's cast effects of ON_CAST_START on the attacker, as its swing starts
+//   'swing'      → (2026-10-10) the attack's cast effects of ON_CAST_START on the attacker, as its swing starts
 //                  (swingFx; modes.json castOpt) — or <op>_attack_start_* by name without bindings
 //   'atk'        → its ON_SPELL_ON cast effects (strikeFx); the swing's own when no 'swing' came before it
 //   'dmg'        → <op>_attack_hit_01 / <op>_skill_0N_hit_01 on the target of that attacker's last attack (≤ HIT_GAP_S; local
@@ -46,7 +46,7 @@ import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects } from './fxmap.js'; // local patch: the mode bindings (modes.json)
 import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
-import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // local patch (2026-10-10): enemy-held mode buffs, cast timings
+import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
@@ -243,7 +243,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
-  // `until` (local patch 2026-10-10): a one-shot's end on the battle clock instead of its prefab's duration (a cast effect
+  // `until` (2026-10-10): a one-shot's end on the battle clock instead of its prefab's duration (a cast effect
   // ended by its cast — castFx); one whose end has passed while its file loaded is not started
   async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null, tag = null, until: endAt = null } = {}) {
     const b = bundleOf(view);
@@ -963,7 +963,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!index?.bundles?.[bundle]?.includes(name) || !(await ensure())) return null;
     const def = await lib.load(bundle, name);
     if (!mod || !def) return null;
-    if (entry.until != null && entry.until <= clockS) return null; // local patch (2026-10-10): its end passed while it loaded
+    if (entry.until != null && entry.until <= clockS) return null; // 2026-10-10: its end passed while it loaded
     const unit = at && at.info ? at : null;
     const split = !over && splitOn();   // an effect on the ground / a unit splits by sorting at 'high'
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, split, floor: drop ? null : at.z && !over ? at.z : 0 });
@@ -1181,7 +1181,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const PENDING_REACH = 4.5;   // tiles: farther targets are not this skill's (its ranges reach ≤ 4)
   function expect(src, names, buff = false) { if (names.length) pending.push({ src, names, buff, t: clockS }); }
 
-  // ---- cast effects on the attack's own clock (local patch 2026-10-10, decompile check; fxmap.js castTiming) ---------------
+  // ---- cast effects on the attack's own clock (2026-10-10, decompile check; fxmap.js castTiming) ---------------
   // The client starts 87 % of the attacks' `_castEffects` (399 of 466) on ON_CAST_START, raised in AbilityStandard._DoCast
   // before it waits out the pre-delay — as the swing starts, the OnAttack frame × the ability's anim scale before the strike
   // — and the rest on ON_SPELL_ON (the strike). The sim announces each swing (state event ['swing', unit, windup, kind]:
@@ -1280,7 +1280,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!c.skip && cast.length) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'strike'));
   }
 
-  // ---- a mode buff on enemies (local patch 2026-10-10, decompile check: 아스트젠 더 라이트체이서 S3) -----------------------
+  // ---- a mode buff on enemies (2026-10-10, decompile check: 아스트젠 더 라이트체이서 S3) -----------------------
   // modes.json `attachFoe` of the running skill's mode — the buff's ability selects enemies (halo2 S3 LinkEnemy: its
   // `_selector`'s range selectors `_targetSide 2`, `_maxNum 1`, the enemy already holding `halo2_s_3_link` first) — sits on
   // that enemy: here the enemy her attacks hit, kept on it while it lives and the skill lasts, then the next one she hits;
@@ -1302,7 +1302,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (put) f.on.add(tid);
   }
 
-  // ---- a skill projectile's lasting reach effects (local patch 2026-10-10, decompile check: 쏜즈 더 로드스타) -------------
+  // ---- a skill projectile's lasting reach effects (2026-10-10, decompile check: 쏜즈 더 로드스타) -------------
   // modes.json skills[i].zone (char_modes.py): the client's `EffectBehaviour.OnProjectileReached` (RVA 0x970110) creates
   // the projectile's `_effectsWhenReached` where it lands — parented to its body with `_setReachEffectOnProjectile` (S2's
   // drifting alchemy unit), fixed there otherwise (S1, S3) — and, with `_clearReachedEffectWhenStop`, ends them at
@@ -1416,7 +1416,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     /** Whether a 'fx' event is drawn here with its official effect (render/fx.js then skips its 2D stand-in). */
     ownsFx(e) { return ownFx.has(e); },
     /**
-     * local patch (2026-10-10): a unit's attack swing starts, `windup` game seconds before its strike ('atk') — the cast
+     * 2026-10-10: a unit's attack swing starts, `windup` game seconds before its strike ('atk') — the cast
      * effects of ON_CAST_START. onEvent already does this for the sim's 'swing' state event; for a caller with its own.
      */
     onSwing(view, windup, kind) { if (view && index && q() !== 'low') swingFx(view, Number(windup) || 0, lastViews || new Map()); void kind; },
@@ -1425,7 +1425,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastViews = views;
       if (Array.isArray(e)) {
         if (e[0] === 'die') gone.add(e[1]);
-        else if (e[0] === 'deploy') { gone.delete(e[1]); const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; } } // local patch (2026-10-10): its first attack again
+        else if (e[0] === 'deploy') { gone.delete(e[1]); const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; } } // 2026-10-10: its first attack again
         else if (e[0] === 'spawn') gone.delete(e[1]?.id ?? e[1]);
         else if (e[0] === 'fx' && e[1] === 'summon' && e[4]) gone.delete(e[4].id);
         // local patch: a stone spawned (its 'summon' fx of the same moment, if any, takes it off — stoneFx)
@@ -1439,13 +1439,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[2] && e[3] !== 'flag') v._fxSkillByEvent = true; // local patch: skillByFlag leaves it alone
           if (!e[2] && e[3] !== 'flag') v._fxSkillOffT = clockS;
           if (e[2] && v._fxSkillFlag && e[3] !== 'flag') { v._fxSkillFlag = false; return; } // already started from its flag (skillByFlag)
-          // local patch (2026-10-10): the mode switch detaches the old mode's abilities (ON_DETACHED ends their loop cast
+          // 2026-10-10: the mode switch detaches the old mode's abilities (ON_DETACHED ends their loop cast
           // effects) and attaches the new one's (its first attack again: `_delayIfFirstAttack`)
           endCast(v); v._fxFirstDone = null; v._fxFoe = null;
           if (e[2]) {
             v._fxSkillOn = true;
             v._fxMarked = null;   // local patch: the targets its marks sit on (pendingHit)
-            const fm = attackMode(bindOf(v), true, skillIdx(v)) ?? -1; // local patch (2026-10-10): its mode's enemy-held buff effects
+            const fm = attackMode(bindOf(v), true, skillIdx(v)) ?? -1; // 2026-10-10: its mode's enemy-held buff effects
             const foe = foeEffects(bindOf(v), bundleOf(v).prefabs, fm);
             if (foe.length) v._fxFoe = { mode: fm, names: foe, on: new Set() };
             // local patch: the activation's effects (activation(): name mapping + the skill's own, minus the attacks' / targets')
@@ -1504,7 +1504,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/ops/op-chen3.js) carries her official trail along its path
           if (stoneFx(e, views)) return;
-          if (e[1] === 'zone' && zoneFx(e, views)) return; // local patch (2026-10-10): a skill projectile's reach effects
+          if (e[1] === 'zone' && zoneFx(e, views)) return; // 2026-10-10: a skill projectile's reach effects
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
@@ -1547,8 +1547,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       camRef = cam; // local patch: status effects' heights (playStatus)
       clockS += dt * gameRate(); // local patch: the battle clock (gaps, ends) — the official effects use scaled time
       stepTrails(dt * gameRate()); // local patch
-      stepCasts(); // local patch (2026-10-10): delayed first-attack cast effects
-      stepZones(dt * gameRate()); // local patch (2026-10-10): moving projectile reach effects
+      stepCasts(); // 2026-10-10: delayed first-attack cast effects
+      stepZones(dt * gameRate()); // 2026-10-10: moving projectile reach effects
       if (lastViews && index) for (const v of lastViews.values()) if (isOp(v) && (v._fxSkillOn || ((v.flags | 0) & UF.SKILL)) && bundleOf(v)) skillByFlag(v, lastViews); // local patch
       stepNotes(dt, lastViews);   // the notes fly on while their trails load
       stepWolves(dt);
@@ -1572,7 +1572,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (m.inst.done || clockS - m.t > 0.4) { m.inst.stop(); movers.delete(id); } else if (m.inst.time > 1.5) m.inst.time = 0.4; // keep the trail running
       }
       const rate2 = gameRate();
-      stepBackSwitches(); // local patch (2026-10-10)
+      stepBackSwitches();
       for (let i = live.length - 1; i >= 0; i--) {
         const l = live[i];
         if (l.view && l.view.alive !== false && !l.view.remove) {
@@ -1615,7 +1615,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastAtk.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
-      castsDelayed.length = 0; zones.clear(); // local patch (2026-10-10)
+      castsDelayed.length = 0; zones.clear();
       if (mod) showLayers();
     },
 

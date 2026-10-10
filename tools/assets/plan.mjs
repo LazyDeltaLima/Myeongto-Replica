@@ -160,11 +160,11 @@ function firstBank(audio, names) {
   return [];
 }
 
-/** local patch (2026-10-10): sound leaf → the path list it was built from (skill-mode-sfx.mjs bankPlayTable: sfx.bank). */
+/** 2026-10-10: sound leaf → the path list it was built from (skill-mode-sfx.mjs bankPlayTable: sfx.bank). */
 const leafPaths = new WeakMap();
 function soundLeaf(paths, sub = 'sfx', max = 4) {
   const l = leaf((paths || []).slice(0, max).map((p) => soundAlt(p, sub)));
-  if (l && typeof l === 'object' && Array.isArray(paths)) leafPaths.set(l, paths); // local patch
+  if (l && typeof l === 'object' && Array.isArray(paths)) leafPaths.set(l, paths);
   return l;
 }
 
@@ -176,7 +176,7 @@ function soundLeaf(paths, sub = 'sfx', max = 4) {
 function unitSounds(audio, sfx) {
   const roles = {};
   let mix = null;
-  for (const r of ['attack', 'on', 'hit', 'die', 'born']) { // local patch (2026-10-10): + on (START and ON both sound)
+  for (const r of ['attack', 'on', 'hit', 'die', 'born']) { // 2026-10-10: + on (START and ON both sound)
     if (!sfx[r]) continue;
     roles[r] = soundLeaf(sfx[r]);
     const m = typeof audio.mixOf === 'function' ? audio.mixOf(sfx[r]) : null;
@@ -428,7 +428,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     if (loops) u.loops = loops;
     const extras = skillExtras(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf, skillPaths); // local patch
     if (extras) u.extras = extras;
-    const ends = skillEnds(audio, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf); // local patch (2026-10-10): skill-end banks
+    const ends = skillEnds(audio, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf); // 2026-10-10: skill-end banks
     if (ends) u.ends = ends;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
@@ -696,7 +696,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   template.audio.sfx.kitLimit = kitHitLimits(audio); // local patch: their banks' popOldest / maxSoundAllowed (audio.js)
   const snap = snapshotSfx(audio, soundLeaf, template.audio.sfx); // local patch: mixer snapshots (audioOfficial.js)
   if (snap) template.audio.sfx.snap = snap;
-  const bank = bankPlayTable(audio, leafPaths, template.audio.sfx); // local patch (2026-10-10): pitch range + per-bank cap (audio.js _play)
+  const bank = bankPlayTable(audio, leafPaths, template.audio.sfx); // 2026-10-10: pitch range + per-bank cap (audio.js _play)
   if (bank) template.audio.sfx.bank = bank;
   return { template, models, notes };
 }

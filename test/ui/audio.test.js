@@ -138,7 +138,7 @@ describe('bgm selection', () => {
   });
 });
 
-describe('SfxLimiter (the official SoundFXBank.Play per bank, local patch 2026-10-10)', () => {
+describe('SfxLimiter (the official SoundFXBank.Play per bank, 2026-10-10)', () => {
   test('caps concurrent sounds', () => {
     const l = new SfxLimiter({ maxVoices: 3 });
     const a = l.acquire('a'), b = l.acquire('b'), c = l.acquire('c');
