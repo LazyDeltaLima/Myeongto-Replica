@@ -114,6 +114,9 @@
   - `enemy_9014_acstma` / `enemy_9015_acstmb`: 바깥 공격 선택자 1(안쪽 3) → 제외. 2026-10-09: upstream `977215e1`(PRTS 「不可对空」)이 `canTarget`과
     키트의 `before` 대상까지 막아 `NO_AIR_KEYS`에서 뺌(골극도 같음, `c250ff66`) — 테스트 「now upstream's own rule」.
   - `enemy_1404_msnip` 강화 석궁 기습자: 일반 공격 필터 없음, 십자 사격 3 → 그대로.
+  - `enemy_1305_mhslim` 작열 원석충 / `_2` 폭염 원석충 (2026-10-10 재확인, 관리자 제보 「공중을 못 칠 텐데 염의 가호를 친다」): 일반 공격
+    `Modes/Default/Body/Attack/Selector` `_targetMotion 3`(dump.cs `MotionMask` WALK_ONLY 1·FLY_ONLY 2·ALL 3), 능력 문구도 灼燃损伤뿐 → 비행을 치는 것이 맞다, 그대로
+    (본편의 근접 원석충과 다른 원거리 변종).
   - 직접 공격 대상을 고르는 키트(`before`에서 `c.targets`를 바꿈: '영장'은 범위 안 전원, 갑주 칼날은 범위 안 전원)는 엔진 후보 필터를 거치지 않아,
     내용 처리(우선도 50) 뒤 우선도 49 `beforeAttack`에서 대상 목록을 한 번 더 거른다(비면 공격 안 함).
 - 테스트: `test/local-patch.test.js` 「sweep」 2개(원본은 모두 공중 허용, 로컬은 지상만), 「client-only」(8종 + 자로 형태별; 갑주 칼날 2종은 2026-10-09부터 「now upstream's own rule」), '영장' 직접 대상 선택 재필터, 실제 대전 경로 2개(굴절 II 캐스터, 은신 I 석궁병 + 炎佑).
