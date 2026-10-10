@@ -139,10 +139,12 @@ export function cameraLayers(field, pub, myId) {
   const left = at('L');
   const right = at('R');
   if ((field.kind === 'boss' || field.kind === 'hidden') && (!left || !right)) return [];
+  // `kind` / `pid`: the official panel_ob_info part (ui/battleArt.js ObInfo) — ob_self / ob_other / ob_empty / ob_overview
+  const kind = (pid) => (!pid ? 'empty' : pid === myId ? 'self' : 'other');
   return [
-    { key: 'L', label: label(left), self: left === myId, watch: !!left && left !== myId },
-    { key: 'ALL', label: t('全景'), self: false, watch: false },
-    { key: 'R', label: label(right), self: right === myId, watch: !!right && right !== myId },
+    { key: 'L', label: label(left), self: left === myId, watch: !!left && left !== myId, kind: kind(left), pid: left },
+    { key: 'ALL', label: t('全景'), self: false, watch: false, kind: 'all', pid: null },
+    { key: 'R', label: label(right), self: right === myId, watch: !!right && right !== myId, kind: kind(right), pid: right },
   ];
 }
 

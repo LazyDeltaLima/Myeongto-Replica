@@ -14,6 +14,7 @@ import { DpCounter } from './hud.js';
 import { GIcon } from './gameComponents.js';
 import { switcherLabel, cycleField } from './gameLogic.js';
 import { t } from '../../../shared/i18n.js';
+import { battleArt, ObInfo } from './battleArt.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -38,7 +39,7 @@ function ProgressList({ list }) {
  */
 export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectating = false, spectator = false, client = null, waitBand = false }) {
   // `spectator`: a spectator seat (community report #26) watches like an eliminated player, under its own caption
-  if (client) return ClientHud({ hud, myDone, spectating, spectator, client, waitBand });
+  if (client) return ClientHud({ pub, hud, myDone, spectating, spectator, client, waitBand });
   const fields = (Array.isArray(pub?.fields) ? pub.fields : []).filter((f) => f && f.live !== false);
   // the watched field may already have finished (not live): still name it
   const label = switcherLabel(pub, watching, myId, spectating);
@@ -60,7 +61,7 @@ export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectatin
   </div>`;
 }
 
-function ClientHud({ hud, myDone, spectating, spectator = false, client, waitBand = false }) {
+function ClientHud({ pub = null, hud, myDone, spectating, spectator = false, client, waitBand = false }) {
   const layers = Array.isArray(client.layers) ? client.layers : [];
   const idx = Math.max(0, layers.findIndex((l) => l.key === (client.layer || 'ALL')));
   const cur = layers[idx] || null;
@@ -71,6 +72,11 @@ function ClientHud({ hud, myDone, spectating, spectator = false, client, waitBan
   };
   const observing = client.observing;
   const halves = layers.length > 0;
+  // the official caption (panel_ob_info, ui/battleArt.js ObInfo) in place of the ‹ › pill when its art is there
+  const ob = battleArt('ob').cls;
+  const back = observing && client.onBack ? html`<button type="button" class="btn btn--secondary btn--sm chud__back" onClick=${() => client.onBack()}>
+    <span class="btn__label">${t('返回战场')}</span></button>` : null;
+  const curPlayer = cur && cur.pid && Array.isArray(pub?.players) ? pub.players.find((p) => p && p.playerId === cur.pid) : null;
   return html`<div class="chud">
     <${DpCounter} dp=${hud?.dp} />
     <div class="chud__bottom">
@@ -78,12 +84,15 @@ function ClientHud({ hud, myDone, spectating, spectator = false, client, waitBan
         <${ProgressList} list=${client.progress} />` : null}
       ${spectating && !observing ? (spectator ? html`<div class="chud__msg" role="status"><${GIcon} name="eye" /><span>${t('观战中，可点击左侧成员头像前往查看')}</span></div>`
         : html`<div class="chud__msg chud__msg--dead" role="status"><${Icon} name="close" /><span>${t('你已被淘汰，可点击队友头像前往查看')}</span></div>`) : null}
-      ${observing && !halves ? html`<div class="vswitch chud__observe is-single" role="status">
+      ${ob && halves ? html`<${ObInfo} cur=${cur} arrows=${true} prev=${idx > 0 ? () => step(-1) : null} next=${idx < layers.length - 1 ? () => step(1) : null}
+        lost=${curPlayer?.status === 'left'}>${back}<//>` : null}
+      ${ob && observing && !halves ? html`<${ObInfo} cur=${{ kind: 'other', label: observing.name }}>${back}<//>` : null}
+      ${!ob && observing && !halves ? html`<div class="vswitch chud__observe is-single" role="status">
         <span class="vswitch__label"><${GIcon} name="eye" /><span>${observing.name}</span></span>
         ${client.onBack ? html`<button type="button" class="btn btn--secondary btn--sm chud__back" onClick=${() => client.onBack()}>
           <span class="btn__label">${t('返回战场')}</span></button>` : null}
       </div>` : null}
-      ${halves ? html`<div class=${cx('vswitch', 'chud__layers', observing && 'is-observing')}>
+      ${!ob && halves ? html`<div class=${cx('vswitch', 'chud__layers', observing && 'is-observing')}>
         <button type="button" class="vswitch__arrow" disabled=${idx <= 0} aria-label=${t('左侧战场')} onClick=${() => step(-1)}><${Icon} name="chevronLeft" /></button>
         <span class="vswitch__label">
           ${cur && cur.watch ? html`<${GIcon} name="eye" />` : null}<span>${cur ? cur.label : t('全景')}</span></span>

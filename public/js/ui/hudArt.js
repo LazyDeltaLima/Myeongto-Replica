@@ -108,6 +108,16 @@ const LOCAL = Object.freeze({
   '--ha-pr-bg': ['ui/battle', 'player_bg'],
   '--ha-pr-frame': ['ui/battle', 'player_frame'],
   '--ha-pr-bar': ['ui/battle', 'player_ready'],
+  // player_status_item's states: connect_status masks, icon_watch_other, action_status, the 前往查看 / 返回战场 buttons
+  '--ha-m-dead': ['ui/battle', 'icon_dead'],
+  '--ha-m-rec': ['ui/battle', 'icon_reconnect'],
+  '--ha-m-quit': ['ui/battle', 'icon_lost_connect'],
+  '--ha-watch': ['ui/battle', 'icon_observing'],
+  '--ha-done': ['ui/battle', 'icon_complete'],
+  '--ha-doing': ['ui/battle', 'icon_doing'],
+  '--ha-ob-btn': ['ui/battle', 'btn_ob_other'],
+  '--ha-ob-back': ['ui/battle', 'btn_return_self'],
+  '--ha-pause': ['ui/battle', 'matte_pause'], // bond_list_info_view root_pause (暂停叠层 in 联防 / boss rounds)
   // the bond popup (autochess_hud_bond_detail_dialog / autochess_hud_bond_char_item), optional: CSS without them
   '--ha-detail-bg': ['ui/battle', 'detail_bg'],
   '--ha-bd-off': ['ui/battle', 'bond_inactive_bg'],
@@ -123,6 +133,7 @@ const LOCAL = Object.freeze({
 const CD = ['--ha-cd-label', '--ha-cd-shadow', '--ha-cd-solid'];
 const TEAM = ['--ha-plist', '--ha-border', '--ha-php', '--ha-self'];
 const READY = ['--ha-pr-bg', '--ha-pr-frame', '--ha-pr-bar'];
+const CARD = ['--ha-m-dead', '--ha-m-rec', '--ha-m-quit', '--ha-watch', '--ha-done', '--ha-doing', '--ha-ob-btn', '--ha-ob-back'];
 
 let cache = { m: null, l: null, v: null };
 
@@ -146,7 +157,8 @@ export function hudArt() {
     uiUrl(m, 'hudPanel/btn_open') && uiUrl(m, 'hudPanel/btn_open_arrow') && uiUrl(m, 'hudPanel/btn_close') && 'has-hud-fold',
     CD.every((k) => have.has(k)) && 'has-hud-cd',
     TEAM.every((k) => have.has(k)) && 'has-hud-team',
-    READY.every((k) => have.has(k)) && 'has-hud-ready'].filter(Boolean).join(' ');
+    READY.every((k) => have.has(k)) && 'has-hud-ready',
+    CARD.every((k) => have.has(k)) && 'has-hud-card'].filter(Boolean).join(' ');
   const v = ok ? { cls, style: vars.join(';') } : { cls: '', style: '' };
   cache = { m, l, v };
   return v;

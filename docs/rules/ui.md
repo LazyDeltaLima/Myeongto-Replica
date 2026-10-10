@@ -658,3 +658,20 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   「현재 단계가 끝나기를 기다리는 중……」(19, #71ccb7) — 둘 다 우리 번역.
 - 준비 막대(`panel_prep_ready` → `panel_player`): 내가 준비한 뒤(취소 버튼일 때) 「준비 완료 n/4」 글자 대신 `player_bg` 판 + `player_frame` 괄호 + 사람마다
   `player_ready`(흰색 15 % → 준비한 수만큼 앞에서부터 #00ffc4 72 %, 클라처럼 사람별이 아니라 수로 켬). 그림은 로컬 추출(`has-hud-ready`).
+- 연합 방어 배너(`help_battle_dialog`, 3.0초): UNITE에 upstream 띠 대신. `round_result_dialog` 틀의 주황판 — `round_bg` + 등고선 #6c5e48, 왼쪽 괄호·모서리 #ffa421 안에
+  픽셀 둘 `assist_emoji_01/02`, 오른쪽으로 가는 화살표 `arrow` 4개(알파 .4/1/.4/.2), 점 #ffb134 · SIGNAL #ffb135, 「联防阶段」(40, #ffaa24) — KR 「연합 방어」(관리자 KR
+  캡처; 같은 msgid라 단계 이름 「联防阶段」도 「연합 방어」로 바뀜).
+- 보는 판 표시(`panel_ob_info`, 클라 코드 `AutoChessBattleObInfoPanel`): 联防·보스 판의 ‹ › 전환기(클라 전투 모드 `ClientHud`)와 팀원 관전 표시를 공식 모양으로 — 화면
+  아래 가운데 84 위 318×40, `bg_ob_self` + `icon_ob_self` + 「你自己」(KR 「자신」, 관리자 KR 캡처 — 팀원 목록 내 칸 툴팁도 같은 msgid) / `bg_ob_other` +
+  `icon_ob_other` + 이름(클라의 `#번호`는 우리에게 없음) / 「无人在家」(#cfcfcf 70 %) / 「全景」(공식 「全屏」 자리, 우리 단어 유지), 좌우 `left_arrow_active`(48×68, ±207).
+  보는 반쪽의 플레이어가 나갔으면(`status` 'left') `ob_player_lost` 판(589×356) + 「当前玩家已离开」/「可自行切换查看其他玩家」(우리 번역). 「返回战场」은 upstream 버튼을 오른쪽에 둔다.
+- 라운드 띠 전환(`player_info_view` `trans_rest/battle/coop/boss`, 4.23/2.67/3.27/4.37초): 단계가 휴식·전투·联防·보스로 바뀔 때 띠 안에서 1단계(전투: 픽셀 전사가 뛰어들고
+  벌레가 기어 옴, 칼을 휘두름 / 联防: 전사가 겁먹고 칼을 떨어뜨리면 동료가 뛰어듦 / 보스: 경고 표시 둘이 리더 표시 옆으로 벌어짐 / 휴식: 컵 셋이 통통) → 2단계(칼 아이콘 → 왼쪽,
+  글이 주황 받침 위로 오른쪽으로: 「开始作战」 KR 「전투 시작」, 「联防开始」 KR 「연합 방어」 — 관리자 KR 캡처) → 위로 빠지고 띠 원래 내용이 아래에서 올라옴. 키 시각은
+  클립 값, 움직임 곡선은 [추정]. 보스 띠의 넓어지는 HP 바 부분(`group_normal`)은 우리 보스 띠가 공식 모양이 아니라 넣지 않았다.
+- 맹약 줄 「暂停叠层」(`bond_list_info_view root_pause`: `matte_pause` 157×47, 15 #d7fff3) — KR 「중첩수 사용제한」(관리자 KR 캡처): 联防·보스 라운드(맹약 층이 쌓이지 않는
+  때)에 맹약 줄 가운데. upstream의 툴팁 「层数叠加已禁用」은 그대로.
+- 왼쪽 플레이어 카드 상태(`player_status_item`, `has-hud-card`): 탈락 = `mask_dead`(#565656 80 % + `icon_dead`), 나감(`status` 'left') = `mask_quit`(#303030 80 % +
+  `icon_lost_connect`), 연결 끊김(`connected` false) = `mask_reconnect`(#303030 80 % + `icon_reconnect` — 예전에는 끊김에 `icon_lost_connect`를 잘못 씀), 내가 보고 있는 팀원
+  카드 오른쪽 위 `icon_observing`(upstream 눈 표시 대신), 카드 오른쪽 아래 밖 `icon_complete`(준비·완료 — 준비도 공식처럼 체크) 또는 `icon_doing` 점 셋(결정·행동·전투 중,
+  깜빡임 [추정]), 「前往查看」 / 「返回战场」은 초상 위 공식 사각 버튼(`btn_ob_other` / `btn_return_self` 98×98).

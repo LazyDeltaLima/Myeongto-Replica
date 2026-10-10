@@ -11,7 +11,7 @@
 //   loadingArt(mode)       { pic, code, name } of the loading screen, or null without the picture
 //   battleArt(kind)        { cls, style } — the sprite variables of a dialog when the local art has all of them
 
-import { useEffect, useMemo, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html } from './components.js';
 import { uiUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
@@ -27,6 +27,21 @@ const ART = Object.freeze({
   waiting: {
     '--ba-back': 'banner_back', '--ba-lower': 'face_lower_dec', '--ba-face': 'face_main', '--ba-glass': 'shallow_main',
     '--ba-sand': 'shallow_sand', '--ba-drop': 'shadow_drop_sand', '--ba-screen': 'shallow_dec_tex',
+  },
+  help: {
+    '--ba-bg': 'round_bg', '--ba-line': 'round_bg_line', '--ba-dot': 'dot_blank', '--ba-doc': 'doc_01', '--ba-arrow': 'arrow',
+    '--ba-cross': 'left_cross', '--ba-frame': 'left_frame', '--ba-text1': 'doc_text_01', '--ba-text2': 'doc_text_02',
+    '--ba-emoji1': 'assist_emoji_01', '--ba-emoji2': 'assist_emoji_02', '--ba-tile': 'tile_line',
+  },
+  trans: {
+    '--ct-glow': 'trans_glow', '--ct-b1': 'trans_batte1', '--ct-b2': 'trans_batte2', '--ct-w1': 'trans_worm1', '--ct-w2': 'trans_worm2',
+    '--ct-c1': 'trans_coop1', '--ct-c2': 'trans_coop2', '--ct-c3': 'trans_coop3', '--ct-c4': 'trans_coop4', '--ct-cup': 'trans_cup',
+    '--ct-sword': 'icon_sword_yellow', '--ct-sword-red': 'icon_sword_red', '--ct-matte': 'text_matte', '--ct-warn': 'icon_warn',
+    '--ct-boss': 'icon_trans_boss',
+  },
+  ob: {
+    '--ob-other': 'bg_ob_other', '--ob-self': 'bg_ob_self', '--ob-icon-other': 'icon_ob_other', '--ob-icon-self': 'icon_ob_self',
+    '--ob-arrow': 'left_arrow_active', '--ob-lost': 'bg_ob_player_quit', '--ob-lost-icon': 'icon_ob_player_quit',
   },
 });
 const NONE = Object.freeze({ cls: '', style: '' });
@@ -292,4 +307,167 @@ export function WaitingDialog({ phase, deadline, paused = false, now = Date.now 
       <span class="bwait__sub" style=${box(78.35, -20.17, 260.25, 40.34)}>${t('正在等待当前阶段结束……')}</span>
     </div>
   </div>`;
+}
+
+// ---- 联防 (help_battle_dialog) -------------------------------------------------------------------------------------
+
+/** help_battle_dialog (3.0 s; the dialog's MAX_SHOW_TIME is 4). */
+export const HELP_BATTLE_MS = 3000;
+
+/**
+ * The 联防 banner (help_battle_dialog): the round_result_dialog frame in orange — the dark plate round_bg with its
+ * contour lines (#6c5e48), the two pixel figures assist_emoji_01 / 02 (the helper and the one helped) in the left
+ * brackets (#ffa421), four arrows running right (alpha .4 / 1 / .4 / .2), the dots (#ffb134) and SIGNAL doc_01 (#ffb135)
+ * at the plate's right, 联防阶段 (40, #ffaa24; KR 「연합 방어」, the maintainer's capture).
+ * @param {{ onDone?: () => void }} props
+ */
+export function HelpBattleBanner({ onDone }) {
+  const [gone, leaving] = usePlay(HELP_BATTLE_MS - 300, 300, onDone);
+  if (gone) return null;
+  const art = battleArt('help');
+  const W = 631.78, H = 298.59;
+  const rb = (x, y, w, h) => box(W / 2 + x, -H / 2 + y, w, h);
+  const rt = (x, y, w, h) => box(W / 2 + x, H / 2 + y, w, h);
+  const ALPHA = [0.6, 1, 0.2, 0.6, 0.4, 1];
+  const ARROWS = [[190.6, 0.4], [147.3, 1], [103.7, 0.4], [60.1, 0.2]];
+  return html`<div class=${['bart', 'bhelp', art.cls, leaving && 'is-leaving'].filter(Boolean).join(' ')} style=${art.style}
+      role="status" aria-live="polite" aria-label=${t('联防阶段')}>
+    <div class="bart__c" style=${box(0, 0, 1280, 720)}>
+      <i class="bhelp__bg" style=${box(2.29, 2.8, W, H)} aria-hidden="true">
+        <i class="bhelp__line" style=${box(-2, -0.58, 496, 169.16)}></i>
+        <i class="bhelp__blanks" style=${rb(-127.18, 115.6, 100, 100)}>
+          ${[[21.03, 4.28], [30, 4.28], [39.2, 4.28], [21.03, -4.9], [30, -4.9], [39.2, -4.9]].map(([x, y], k) => html`<i key=${k} class="bhelp__dot" style=${`${box(x, y, 7.2, 8)};opacity:${ALPHA[k]}`}></i>`)}
+        </i>
+        <i class="bhelp__doc" style=${rb(-120.1, 87.3, 75, 18)}></i>
+        <i class="bhelp__dot is-r" style=${rt(-90.1, -82.79, 9.51, 10.34)}></i>
+        <i class="bhelp__arrows" style=${box(-2.29, -1.03, 495.46, H - 129.41)}>
+          ${ARROWS.map(([x, a], k) => html`<i key=${k} class="bhelp__arrow" style=${`${box(x, 0, 87, 169)};--a:${a};--k:${k}`}></i>`)}
+        </i>
+      </i>
+      <i class="bhelp__tile" style=${box(0, 0, 583.4, 222.2)} aria-hidden="true"></i>
+      <div class="bhelp__left" style=${box(-136.97, 1.77, 221.46, 168.59)} aria-hidden="true">
+        ${i('bhelp__cross', box(-86.22, 61.67, 16.13, 16.26))}${i('bhelp__cross', box(-86.22, -63.9, 16.13, 16.26))}
+        ${i('bhelp__cross', box(85.8, -63.9, 16.13, 16.26))}${i('bhelp__cross', box(85.8, 61.67, 16.13, 16.26))}
+        ${i('bhelp__frame', box(-86.71, 1.35, 9.29, 78.1))}${i('bhelp__frame is-r', box(86.3, 1.35, 9.29, 78.1))}
+        <i class="bhelp__emoji" style=${box(0, 0, 146.3, 127.1)}>
+          ${i('bhelp__fig is-1', box(-38.6, -30.1 + 35.5, 64, 71))}${i('bhelp__fig is-2', box(32, -30.1 + 35.5, 64, 71))}
+        </i>
+        ${i('bhelp__text1', box(-5.59, -60.88, 56.2, 7.19))}${i('bhelp__text2', box(-6.22, -67.81, 43.18, 4.11))}
+      </div>
+      <div class="bhelp__right" style=${box(105.43, 1.77, 284.66, 168.59)}>
+        <span class="bhelp__title" style=${box(-4.43, 1.2, 249.7, 50)}>${t('联防阶段')}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---- the round bar's stage changes (autochess_hud_panel player_info_view trans_*) ----------------------------------
+
+/** trans_rest / trans_battle / trans_coop / trans_boss lengths (s → ms). */
+export const TRANS_MS = Object.freeze({ rest: 4230, battle: 2670, coop: 3270, boss: 4370 });
+
+/** The round bar's stage for a phase: 'rest' | 'battle' | 'coop' | 'boss' | null. */
+export function transKind(phase) {
+  if (phase === 'PREP') return 'rest';
+  if (phase === 'COMBAT') return 'battle';
+  if (phase === 'UNITE') return 'coop';
+  if (phase === 'FINAL_ASSAULT' || phase === 'HIDDEN_CORE') return 'boss';
+  return null;
+}
+
+/**
+ * The transition playing in the round bar: set when the phase enters a new stage, cleared after its clip. Only with
+ * the local art (battleArt('trans')).
+ * @param {string|null|undefined} phase
+ * @returns {{ kind: string, key: number } | null}
+ */
+export function useCapsuleTrans(phase) {
+  const [cur, setCur] = useState(null);
+  const prev = useRef(phase);
+  useEffect(() => {
+    const was = prev.current;
+    prev.current = phase;
+    const kind = transKind(phase);
+    if (!kind || transKind(was) === kind || !battleArt('trans').cls) return undefined;
+    const key = Date.now();
+    setCur({ kind, key });
+    const id = setTimeout(() => setCur((c) => (c && c.key === key ? null : c)), TRANS_MS[kind]);
+    return () => clearTimeout(id);
+  }, [phase]);
+  return cur;
+}
+
+/**
+ * The transition over the round bar's pill (157 × 45, root_mask 144 × 35): stage 1 — 战斗 / 联防: the pixel fighter hops
+ * in, the worm crawls at it from the right (联防: the fighter turns scared and a teammate jumps in), 最终攻势: two warning
+ * signs slide apart around the leader mark, 休整: three cups bounce; stage 2 — the sword icon pops and slides left, the
+ * caption slides right over its matte: 开始作战 (KR 「전투 시작」) / 联防开始 (KR 「연합 방어」) in #ffcd3a on #d37700 · 60 %
+ * (boss: #ff6d6d on #981200 · 66 %); then the transition slides up and the pill's own content comes back.
+ * @param {{ kind: 'rest'|'battle'|'coop'|'boss' }} props
+ */
+export function CapsuleTrans({ kind }) {
+  const art = battleArt('trans');
+  if (!art.cls) return null;
+  const u = (x, y, w, h) => `left:calc(50% + var(--u) * ${x - w / 2});top:calc(50% - var(--u) * ${y + h / 2});width:calc(var(--u) * ${w});height:calc(var(--u) * ${h})`;
+  const caption = kind === 'coop' ? t('联防开始') : t('开始作战');
+  return html`<span class=${`ctrans is-${kind}`} style=${art.style} aria-hidden="true">
+    <i class="ctrans__glow"></i>
+    ${kind === 'rest' ? html`<span class="ctrans__s1">
+        <i class="ctrans__cup is-1" style=${u(-34, 1, 31, 29)}></i><i class="ctrans__cup is-2" style=${u(0, 1, 31, 29)}></i><i class="ctrans__cup is-3" style=${u(33, 1, 31, 29)}></i>
+      </span>`
+      : kind === 'boss' ? html`<span class="ctrans__s1">
+        <i class="ctrans__warn is-l" style=${u(-40, 0.5, 29, 26)}></i><i class="ctrans__warn is-r" style=${u(40, 0.5, 29, 26)}></i>
+        <i class="ctrans__lead" style=${u(0, 0.5, 31, 36)}></i>
+      </span>`
+      : html`<span class="ctrans__s1">
+        <i class="ctrans__char" style=${u(-18, 0, 31, 33)}>
+          <i class="ctrans__sword" style=${u(-11.24, -10.87, 20, 34)}></i><i class="ctrans__fig"></i>
+        </i>
+        ${kind === 'coop' ? html`<i class="ctrans__mate" style=${u(-37, 0, 31, 33)}></i>` : null}
+        <i class="ctrans__worm" style=${kind === 'coop' ? u(33, -3, 57, 25) : u(23, 0, 46, 31)}></i>
+      </span>`}
+    ${kind === 'rest' ? null : html`<span class="ctrans__s2">
+      <i class="ctrans__icon" style=${u(-42.5, 0.5, 40, 39)}></i>
+      <i class="ctrans__matte" style=${u(18, 1, 116, 35)}></i>
+      <b class="ctrans__text" style=${u(18, 1, 116, 34.45)}>${caption}</b>
+    </span>`}
+  </span>`;
+}
+
+// ---- whose field is on screen (panel_ob_info) ----------------------------------------------------------------------
+
+/**
+ * The official 观战 caption (panel_ob_info ob_info, bottom-centre 84 up, 318 × 40): ob_self (bg_ob_self + icon_ob_self +
+ * 你自己 — KR 「자신」, the maintainer's capture), ob_other (bg_ob_other + icon_ob_other + the player's name; the client adds
+ * `#number`, which this remake has not), ob_empty (无人在家, #cfcfcf · 70 %), ob_overview (全屏 — ours reads 全景), and the
+ * arrows left_arrow_active (48 × 68, 207 either side; the right one mirrored) that step through the halves. `lost`: the
+ * player of the half on screen left the match — ob_player_lost (bg_ob_player_quit 589 × 356 + icon_ob_player_quit,
+ * 当前玩家已离开 32 / 可自行切换查看其他玩家 18; our translations) over the middle of the screen.
+ * @param {{ cur: { kind?: string, label: string } | null, arrows?: boolean, prev?: (() => void) | null, next?: (() => void) | null, lost?: boolean, children?: any }} props
+ *   `arrows`: the halves of a 联防 / boss field (`prev` / `next` null at either end)
+ */
+export function ObInfo({ cur, arrows = false, prev = null, next = null, lost = false, children = null }) {
+  const art = battleArt('ob');
+  if (!art.cls || !cur) return null;
+  const kind = cur.kind || 'other';
+  return html`<div class="obinfo" style=${art.style}>
+    <div class=${`obinfo__bar is-${kind}`} role="status">
+      ${kind === 'self' || kind === 'other' ? html`<i class="obinfo__icon" aria-hidden="true"></i>` : null}
+      <span class="obinfo__text">${kind === 'self' ? t('你自己') : cur.label}</span>
+      ${arrows ? html`<button type="button" class="obinfo__arrow is-l" disabled=${!prev} aria-label=${t('左侧战场')} onClick=${() => prev?.()}></button>
+        <button type="button" class="obinfo__arrow is-r" disabled=${!next} aria-label=${t('右侧战场')} onClick=${() => next?.()}></button>` : null}
+      ${children}
+    </div>
+    ${lost ? html`<div class="obinfo__lost" role="status">
+      <i class="obinfo__lost-icon" aria-hidden="true"></i>
+      <b class="obinfo__lost-1">${t('当前玩家已离开')}</b>
+      <span class="obinfo__lost-2">${t('可自行切换查看其他玩家')}</span>
+    </div>` : null}
+  </div>`;
+}
+
+/** The round bar's transition as a component of its own (PhaseCapsule stays hook-free). @param {{ phase: string|null|undefined }} props */
+export function CapsuleTransHost({ phase }) {
+  const trans = useCapsuleTrans(phase);
+  return trans ? html`<${CapsuleTrans} key=${trans.key} kind=${trans.kind} />` : null;
 }

@@ -333,6 +333,37 @@
   position: absolute; left: calc(var(--u) * 91); top: calc(var(--u) * 59); width: calc(var(--u) * 21); height: calc(var(--u) * 21);
 }
 .gm.has-hud-art.has-hud-team .team__status.has-sprite .lsprite { width: 100%; height: 100%; }
+/* (2026-10-10, the official card's states — player_status_item, `has-hud-card`) connect_status: the eliminated
+   (#565656 · 80 % + icon_dead 57, 6 below the middle), a departed seat (#303030 · 80 % + icon_lost_connect 58 × 57,
+   4 below), a dropped connection (#303030 · 80 % + icon_reconnect 49 × 55); icon_watch_other (40 × 35) at the top-right
+   of the card shown; action_status at the card's bottom-right outside: icon_complete 21 (ready / done) or three
+   icon_doing dots 12 apart 13 (deciding, acting, fighting) [추정: their blink — moving_part has an Animation]; the
+   前往查看 / 返回战场 buttons as the official squares over the portrait (btn_ob_other / btn_return_self 98 × 98, the
+   caption in their lower third, white / #4f4f4f) */
+.gm.has-hud-art.has-hud-card .team__btn { position: relative; }
+.gm.has-hud-art.has-hud-card .team__mask { position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 80); height: calc(var(--u) * 80); transform: translate(-50%, -50%);
+  z-index: 1; background: rgba(48, 48, 48, .8); pointer-events: none; }
+.gm.has-hud-art.has-hud-card .team__mask.is-dead { background: rgba(86, 86, 86, .8); }
+.gm.has-hud-art.has-hud-card .team__mask i { position: absolute; left: 50%; top: 50%; display: block; transform: translate(-50%, -50%); background: center / 100% 100% no-repeat; }
+.gm.has-hud-art.has-hud-card .team__mask.is-dead i { width: calc(var(--u) * 57); height: calc(var(--u) * 57); margin-top: calc(var(--u) * 6); background-image: var(--ha-m-dead); }
+.gm.has-hud-art.has-hud-card .team__mask.is-quit i { width: calc(var(--u) * 58); height: calc(var(--u) * 57); margin-top: calc(var(--u) * 4); background-image: var(--ha-m-quit); }
+.gm.has-hud-art.has-hud-card .team__mask.is-reconnect i { width: calc(var(--u) * 49); height: calc(var(--u) * 55); background-image: var(--ha-m-rec); }
+.gm.has-hud-art.has-hud-card .team__watch { position: absolute; right: 0; top: 0; z-index: 2; width: calc(var(--u) * 40); height: calc(var(--u) * 35);
+  background: var(--ha-watch) center / 100% 100% no-repeat; pointer-events: none; }
+.gm.has-hud-art.has-hud-card .team__eye { display: none; }
+.gm.has-hud-art.has-hud-card .team__status.is-act-doing > :not(.team__dots) { display: none; }
+.team__dots { display: none; }
+.gm.has-hud-art.has-hud-card .team__status.is-act-doing { width: calc(var(--u) * 50); height: calc(var(--u) * 12); top: calc(var(--u) * 68); left: calc(var(--u) * 89); }
+.gm.has-hud-art.has-hud-card .team__status.is-act-doing .team__dots { display: flex; gap: calc(var(--u) * 1); }
+.gm.has-hud-art.has-hud-card .team__dots i { width: calc(var(--u) * 12); height: calc(var(--u) * 12); background: var(--ha-doing) center / 100% 100% no-repeat;
+  animation: team-doing 1.2s steps(1) infinite; }
+.gm.has-hud-art.has-hud-card .team__dots i:nth-child(2) { animation-delay: .4s; } .gm.has-hud-art.has-hud-card .team__dots i:nth-child(3) { animation-delay: .8s; }
+@keyframes team-doing { 0% { opacity: 1; } 33% { opacity: .35; } }
+.gm.has-hud-art.has-hud-card .team__ob, .gm.has-hud-art.has-hud-card .team__back { position: absolute; z-index: 3; margin: 0; padding: 0 0 calc(var(--u) * 12); min-width: 0;
+  left: calc(var(--u) * -9); top: calc(var(--u) * -9); width: calc(var(--u) * 98); height: calc(var(--u) * 98); align-items: flex-end; justify-content: center;
+  border: 0; border-radius: 0; box-shadow: none; background: var(--ha-ob-btn) center / 100% 100% no-repeat; color: #fff; font-size: calc(var(--u) * 15); }
+.gm.has-hud-art.has-hud-card .team__back { background-image: var(--ha-ob-back); color: #4f4f4f; }
+.gm.has-hud-art.has-hud-card .team__ob .btn__label, .gm.has-hud-art.has-hud-card .team__back .btn__label { letter-spacing: .04em; }
 
 /* ---- bond popup (ui/bondStrip.js BondPopup) = the client's autochess_hud_bond_detail_dialog (KR captures 2026-10-06:
    the panel measures 602×391 units there, the prefab 584×379). detail_view_root top-centre anchored, its centre 322 under
@@ -629,3 +660,11 @@
 .gm.has-hud-art .shopbar.has-shop-art .scard__confirm small { font-size: calc(var(--u) * 10); opacity: .7; }
 .gm.has-hud-art .shopbar.has-shop-art .scard__confirm.is-no { background: var(--ha-dc2, none) center / 100% 100% no-repeat, rgba(90, 90, 90, .85); color: #e4e4e4; }
 .gm.has-hud-art .shopbar.has-shop-art .scard__confirm.is-no small { color: #f0c8c2; }
+
+/* (2026-10-10) 联防 / boss rounds: the bond list's pause tip (bond_list_info_view root_pause: matte_pause 157 × 47, 暂停叠层
+   15 #d7fff3 — KR 「중첩수 사용제한」, the maintainer's capture), centred on the list 17 above its middle */
+.bpause { display: none; }
+.gm.has-hud-art .gm__bond-list { position: relative; }
+.gm.has-hud-art .bpause { position: absolute; left: 50%; top: calc(50% - var(--u) * 17); z-index: 2; display: flex; align-items: center; justify-content: center;
+  width: calc(var(--u) * 157); height: calc(var(--u) * 47); transform: translate(-50%, -50%); pointer-events: none; white-space: nowrap;
+  background: var(--ha-pause, rgba(0, 0, 0, .6)) center / 100% 100% no-repeat; font-size: calc(var(--u) * 15); font-weight: 700; color: #d7fff3; letter-spacing: .04em; }

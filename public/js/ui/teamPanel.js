@@ -27,8 +27,26 @@ import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
+/**
+ * The official card's connect_status mask (player_status_item, css/hud-art.css `has-hud-card`): 'dead' (mask_dead, the
+ * eliminated), 'quit' (mask_quit, left the match — status 'left'), 'reconnect' (mask_reconnect, disconnected for now);
+ * null otherwise. And its action_status: 'done' (complete_part ✓ — ready, done) or 'doing' (moving_part, three dots —
+ * still deciding, acting or fighting); null for the dead and the departed.
+ * @param {any} p m.public players[] entry
+ * @returns {{ mask: 'dead'|'quit'|'reconnect'|null, action: 'done'|'doing'|null }}
+ */
+export function cardState(p) {
+  const status = p?.alive === false ? 'dead' : p?.status;
+  if (status === 'left') return { mask: 'quit', action: null };
+  if (status === 'dead') return { mask: 'dead', action: null };
+  const mask = p?.connected === false && !p?.isBot ? 'reconnect' : null;
+  if (status === 'ready' || status === 'done') return { mask, action: 'done' };
+  if (status === 'acting' || status === 'deciding' || status === 'combat' || status === 'helping') return { mask, action: 'doing' };
+  return { mask, action: null };
+}
+
 /** Official status glyphs (ui/battle) per m.public players[].status; CSS glyph fallback. */
-const STATUS_SPRITE = { ready: 'icon_ready', deciding: 'icon_waiting', done: 'icon_complete', dead: 'icon_dead' };
+const STATUS_SPRITE = { ready: 'icon_complete', deciding: 'icon_waiting', done: 'icon_complete', dead: 'icon_dead' }; // ready = done: the card's complete_part
 
 /**
  * A row's LP tower: the settled LP and the pending loss of the round's battle (0 outside COMBAT / UNITE). The own row
@@ -98,12 +116,13 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
       const meta = STATUS_META[status] || STATUS_META.acting;
       const watched = watching && (watching === p.fieldId || watching === `n:${p.playerId}`);
       const bubble = bubbles?.get(p.playerId);
-      const offline = p.connected === false && !p.isBot;
+      const offline = p.connected === false && !p.isBot && status !== 'left';
       const open = !!observe && openPid === p.playerId && !self;
       const back = !!observe && self && observe.observing;
       const title = observe ? (self ? (observe.observing ? t('返回战场') : t('你自己')) : t('查看 {name} 的战场', { name: p.name })) : (self ? t('查看自己的阵地') : t('查看 {name} 的阵地', { name: p.name }));
       const lp = rowLp(p, pub, self ? selfLive : null, { uniteLocal, cap });
       const inTeam = team.has(p.playerId);
+      const card = cardState(p);
       return html`<div key=${p.playerId} class=${cx('team__row', self && 'is-self', inTeam && 'is-team', watched && 'is-watched', p.alive === false && 'is-dead', open && 'is-open')}>
         <button type="button" class="team__btn" onClick=${() => click(p, self)} title=${inTeam && !self ? `${title} · ${t('与你在同一战场')}` : title} aria-expanded=${observe && !self ? String(open) : undefined}>
           <${PlayerAvatar} player=${p} self=${self} />
@@ -111,6 +130,8 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
           <span class="team__seat num">P${(p.seat ?? 0) + 1}</span>
           ${p.isBot ? html`<span class="team__ai">AI</span>` : null}
           ${self ? html`<span class="team__you"><${Icon} name="user" /></span>` : null}
+          ${card.mask ? html`<span class=${`team__mask is-${card.mask}`} aria-hidden="true"><i></i></span>` : null}
+          ${watched && !self ? html`<span class="team__watch" aria-hidden="true"></span>` : null}
         </button>
         <div class="team__info">
           <span class="team__name">${p.name || t('博士')}</span>
@@ -119,10 +140,11 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
               tip=${rowLpTip(lp, cap)} />
             ${lp.left != null ? html`<${MissTag} n=${lp.left} name=${self ? null : p.name || t('博士')} />` : null}
             <${Tooltip} text=${offline ? t('连接已断开') : t(meta.text)} placement="right">
-              <span class=${cx('team__status', `is-${meta.tone}`, offline && 'is-offline', (offline || STATUS_SPRITE[status]) && localAsset('ui/battle', offline ? 'icon_lost_connect' : STATUS_SPRITE[status]) && 'has-sprite')} aria-label=${t(meta.text)}>
-                ${offline ? html`<${LocalSprite} name="icon_lost_connect" fallback=${html`<${Icon} name="wifiOff" />`} />`
+              <span class=${cx('team__status', `is-${meta.tone}`, offline && 'is-offline', card.action && `is-act-${card.action}`, (offline || STATUS_SPRITE[status]) && localAsset('ui/battle', offline ? 'icon_reconnect' : STATUS_SPRITE[status]) && 'has-sprite')} aria-label=${t(meta.text)}>
+                ${offline ? html`<${LocalSprite} name="icon_reconnect" fallback=${html`<${Icon} name="wifiOff" />`} />`
                   : STATUS_SPRITE[status] ? html`<${LocalSprite} name=${STATUS_SPRITE[status]} fallback=${html`<${GIcon} name=${meta.glyph} />`} />`
                   : html`<${GIcon} name=${meta.glyph} />`}
+                ${card.action === 'doing' ? html`<i class="team__dots" aria-hidden="true"><i></i><i></i><i></i></i>` : null}
               </span>
             <//>
             ${watched && !self ? html`<span class="team__eye" title=${t('正在查看')}><${GIcon} name="eye" /></span>` : null}

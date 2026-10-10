@@ -1296,5 +1296,10 @@
   "战斗结束，等待队友的战斗": "Battle over, waiting for teammates' battles",
   "准备完成，等待模拟": "Ready, waiting for the simulation",
   "模拟即将继续": "The simulation will continue shortly",
-  "正在等待当前阶段结束……": "Waiting for the current stage to end……"
+  "正在等待当前阶段结束……": "Waiting for the current stage to end……",
+  "开始作战": "Battle start",
+  "联防开始": "Joint defense",
+  "暂停叠层": "Stacking paused",
+  "当前玩家已离开": "This player has left",
+  "可自行切换查看其他玩家": "Switch to another player's field"
 }

@@ -24,6 +24,7 @@
 // (user playtest #3 item 3; the row's own label is ui/underframe.js TempRowNotice).
 
 import { useRef } from '../../vendor/hooks.module.js';
+import { CapsuleTransHost } from './battleArt.js';
 import { PHASE } from '../../../shared/constants.js';
 import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, useTicker } from './components.js';
 import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
@@ -42,12 +43,14 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  */
 export function PhaseCapsule({ pub, hud, miss = null }) {
   const phase = pub?.phase;
+  // the official stage change of the round bar (player_info_view trans_*, ui/battleArt.js), over the pill
+  const tr = html`<${CapsuleTransHost} phase=${phase} />`;
   if (isBossPhase(phase)) {
     // the battle on screen first: its snapshot carries the live pool (the local simulation's own damage on top of the
     // server's b.pool, or the server's 20 Hz stream); m.public.bossHp refreshes at ~1 Hz and lags the leader's death
     const boss = hud?.boss || pub.bossHp || null;
     const frac = bossFrac(boss);
-    return html`<div class="capsule capsule--boss" role="status">
+    return html`<div class=${cx('capsule', 'capsule--boss')} role="status">${tr}
       <${Sprite} k="hudPanel/icon_boss" class="capsule__icon" fallback=${html`<${GIcon} name="skull" class="capsule__icon" />`} />
       ${hud?.total != null ? html`<span class="capsule__kills num"><b>${hud.resolved ?? hud.killed ?? 0}</b>/${hud.total}</span>` : null}
       <div class="bossbar" title=${boss ? `${fmtNum(boss.hp)} / ${fmtNum(boss.max)}` : t('敌方领袖')}>
@@ -57,7 +60,7 @@ export function PhaseCapsule({ pub, hud, miss = null }) {
     </div>`;
   }
   if (isCombatPhase(phase) || (phase === PHASE.SETTLE && hud?.total != null)) {
-    return html`<div class=${cx('capsule', 'capsule--combat', phase === PHASE.UNITE && 'capsule--unite')} role="status">
+    return html`<div class=${cx('capsule', 'capsule--combat', phase === PHASE.UNITE && 'capsule--unite')} role="status">${tr}
       <${Sprite} k=${phase === PHASE.UNITE ? 'hudPanel/icon_coop' : 'hudPanel/icon_battle'} class="capsule__icon"
         fallback=${html`<${Icon} name="sword" class="capsule__icon" />`} />
       <span class="capsule__kills num"><b>${hud?.resolved ?? hud?.killed ?? 0}</b>/${hud?.total ?? '--'}</span>
@@ -65,7 +68,7 @@ export function PhaseCapsule({ pub, hud, miss = null }) {
       ${phase === PHASE.UNITE && Number.isFinite(miss) ? html`<${MissTag} n=${miss} />` : null}
     </div>`;
   }
-  return html`<div class="capsule capsule--prep" role="status">
+  return html`<div class=${cx('capsule', 'capsule--prep')} role="status">${tr}
     <${Sprite} k="hudPanel/icon_rest" class="capsule__icon" fallback=${html`<${Icon} name="rook" class="capsule__icon" />`} />
     <span class="capsule__label">${prepCapsuleLabel(phase)}</span>
   </div>`;

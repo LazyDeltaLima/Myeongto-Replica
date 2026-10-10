@@ -118,7 +118,7 @@ import { data, localAsset, getMode } from '../data.js';
 import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRoutePreview } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept, 行动开始 on a battle-start route preview cursor
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
-import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame, BottomTips, bottomTipType, WaitingDialog } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
+import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame, BottomTips, bottomTipType, WaitingDialog, HelpBattleBanner } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { battleOverOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
@@ -1519,6 +1519,7 @@ function MatchScreen() {
         <div id="match-bond-strip" class="gm__bond-list" hidden=${bondsCollapsed}>
           <${BondStrip} bonds=${stripBonds} layersDisabled=${layersDisabled} openId=${bondPop && bondPop.ownerId === strip.ownerId ? bondPop.bondId : null}
             owner=${strip.name} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />
+          ${layersDisabled && hudLook.cls ? html`<span class="bpause" role="status">${t('暂停叠层')}</span>` : null}
         </div>
       </div>
 
@@ -1605,6 +1606,8 @@ function MatchScreen() {
     ${opening ? null : banner?.result ? html`<${BattleEndBanner} key=${banner.key} perfect=${banner.result.perfect} lost=${banner.result.lost} onDone=${() => setBanner(null)} />`
       : banner && String(banner.key).startsWith(`${PHASE.ROUND_START}:`) && phaseArt('round').cls
         ? html`<${RoundStartBanner} key=${banner.key} round=${pub?.round} gold=${roundGold} watching=${spectator || !alive} onDone=${() => setBanner(null)} />` /* local patch: ui/phaseArt.js */
+      : banner && String(banner.key).startsWith(`${PHASE.UNITE}:`) && battleArt('help').cls
+        ? html`<${HelpBattleBanner} key=${banner.key} onDone=${() => setBanner(null)} />`
         : banner && !(String(banner.key).startsWith(`${PHASE.SP_DRAFT}:`) && phaseArt('choose').cls) ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}
       tone=${banner.tone} duration=${banner.duration || 1500} onDone=${() => setBanner(null)} />` : null}
 
