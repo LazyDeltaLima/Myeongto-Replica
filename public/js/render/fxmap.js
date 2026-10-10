@@ -133,7 +133,7 @@ export function boundEffects(bind, prefabs, n, role) {
 }
 
 /**
- * local patch (2026-10-10, decompile check): the effects of mode `n`'s own buffs that sit on enemies (modes.json `attachFoe`:
+ * (2026-10-10, decompile check): the effects of mode `n`'s own buffs that sit on enemies (modes.json `attachFoe`:
  * the buff's ability targets enemies — `_targetOptions.targetSide` 2 or a `_selector` whose range selectors pick side 2), in
  * order, extracted only. A buff effect's owner is the unit holding the buff (client `Effect.Behaviour.owner`).
  * @param {any} bind modes.json entry
@@ -146,7 +146,7 @@ export function foeEffects(bind, prefabs, n) {
   return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
 }
 
-// ---- cast effect timing (local patch 2026-10-10, decompile check) ----------------------------------------------------------
+// ---- cast effect timing (2026-10-10, decompile check) ----------------------------------------------------------
 // The client starts an attack's cast effect on its `_startEvent` and ends a loop one (`_oneshot` 0) on its `_endEvent`
 // (`CastEffectOptions.OnEvent`, RVA 0xB17C80), on the ability's detach, or at the cast's finish (`OnCastFinish` 0xB17BD0).
 // AbilityStandard.Event: 0 ON_ATTACHED, 1 ON_DETACHED, 2 ON_CAST_START — raised in `_DoCast` (0x3505E70) before the pre-delay

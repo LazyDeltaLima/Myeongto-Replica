@@ -210,7 +210,7 @@ export async function createFieldView(host, options = {}) {
     try { app.destroy(true, { children: true, texture: false, baseTexture: false }); }
     finally { canvas.remove(); }
   });
-  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null), grid: () => tiles.grid }); // local patch
+  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null), grid: () => tiles.grid, enemyDef: (id) => data.enemy(id) }); // local patch
   setupCleanup.push(() => fxGame.destroy());
   canvas.style.display = 'block';
   canvas.style.width = '100%';

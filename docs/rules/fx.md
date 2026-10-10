@@ -358,10 +358,11 @@
   프레임 루프가 프리팹 루트(`nodes[0]`)를 Unity 프레임 z(보드 법선; +x 열·+y 행 — `aimMover`와 같은 축)로 그만큼 돌린다(뒤집기 안쪽이라 왼쪽은 거울).
   축: 깊이 축(y)으로 돌리면 부채꼴이 얇아질 뿐 세로 그대로였고, z로 돌리면 부채꼴이 눕고 고리(`huan`)가 발사 방향에 수직으로 선다 — 단독 렌더(루트 0 / −90 / +90)로
   비교. **부호 정정**(관리자 제보 2026-10-08): 런타임 각도는 y 아래 좌표라 Unity(y 위) 회전은 그 반대 — +90°, 부채꼴은 오퍼레이터 뒤로 열리고 가시·고리가 적 쪽.
-  **시작 때 한 번** — 공식과 다름(디컴파일 2026-10-10: `FollowMountPoint._FollowMountPoint` RVA 0xC9E2E0은 `_keepOriginRotation` 0이면 **매 LateUpdate**
-  점의 회전을 받는다; 니어 문제는 「매 프레임」이 아니라 그 점의 회전값·우리 각도 부호/축에서 찾을 일, 고치지 않음) (관리자 제보): 니어 더 래디언트 나이트 S3 `nearl2_skill_03_start`의 빛의 창(`qiang`,
-  sp0 = `F_Weapon`, 루트 0°에서 앞으로 찌름)은 시작 때 본 −0.4°인데 0.5초 안에 창이 ~160°로 돌아가, 매 프레임 따라가면 찌르기가 뒤를 향했다 → 회전은 첫 프레임 값을
-  두고 위치만 매 프레임 따라감(`lifted` `turn0`). 아레나: 아르케토 오른쪽·아래(모델 오른쪽) 모두 부채꼴이 왼쪽으로, 니어의 노란 창이 적 쪽으로.
+  **2026-10-10부터 매 프레임**(디컴파일: `FollowMountPoint._FollowMountPoint` RVA 0xC9E2E0은 `_keepOriginRotation` 0이면 **매 LateUpdate** 점의 회전을 받는다;
+  관리자 결정 (2026-10-10)) — `lifted` `rot`가 매 프레임 `pointTurn`. 그 전(2026-10-08 관리자 제보)에는 첫 프레임 값을 두었다: 니어 더 래디언트 나이트 S3
+  `nearl2_skill_03_start`의 빛의 창(`qiang`, sp0 = `F_Weapon`, 루트 0°에서 앞으로 찌름)은 시작 때 본 −0.4°인데 0.5초 안에 창이 ~160°로 돌아가, 매 프레임 따라가면
+  찌르기가 뒤를 향했다. 공식도 매 프레임이므로 그 차이는 점의 각도·돌리는 축에 있다 [추정: 클라는 스켈레톤의 기울어진 평면(`Graphic` X축 −30°) 안에서 돌리고 우리는 판의
+  법선으로 돌림] — **화면 확인 필요**(니어 S3, 아르케토 S3). 아레나(2026-10-08, 첫 프레임 방식): 아르케토 오른쪽·아래(모델 오른쪽) 모두 부채꼴이 왼쪽으로, 니어의 노란 창이 적 쪽으로.
   범위: 마운트 359개 중 `keepOriginRotation` 0이 358개, 그중 점이 본 회전을 따르는 **337개(88명)**가 돈다(각도는 애니메이션마다 — 0°에 가까운 것은 안 바뀜).
 - 확인: 단위 `test/render/fx-direction.test.js`(7개: dirs 기록, U_OR_D·FOUR_DIR·L_OR_R·NONE 고르기, pointTurn, 소스 고정, 추출물 mount). **아레나**(아르케토 S3 네 방향, 수정 전 세로 기둥 → 후 활에서 적 쪽으로 가로 부채꼴, 고리가 서 있음; 스펙터 디 언체인드 S2·엑시아 더 뉴 커버넌트 S1·니어 더
   래디언트 나이트 S3 이상한 모습 없음, 니어는 수정 전 세로 기둥 → 눕힌 호/빔). 실제 판·공식 녹화 대조는 안 함(아르케토 공식 녹화 없음). 나머지 85명 [화면 미확인].
@@ -492,6 +493,11 @@
       공식 녹화에서 검기가 상자에서 꺾이는 것이 보이면 다시 연다. 참고: 공식 PC 캡처(사막 맵)에서 전투 중 상자(HP 바 있음)는 칸 위 장치로 보인다.
 
 ### 回环射手 부메랑 (2026-10-08, 관리자 제보, 377e50bd)
+- **두 번째 부메랑**(2026-10-10): sim이 S2 乐趣加倍의 추가 투척(`_additionalTimes` 1, 0.1초 뒤)을 fx `caperBoomerang2` { id, tgt, n }로 낸다('atk' 없음). 클라
+  `projectile_chr_caper_s2_1`은 `projectile_chr_caper_s2`와 같은 꼬리(`caper_skill_02_trail`)·속도 15·돌아옴 0.25에 `_inverseParacurve` 1. ParacurveMovement
+  `_raiseHeight` 0.3·`_noRaiseHeightThreshold` 1.3(EN `[uc]projectiles.ab`) → `fxgame.js caperSecond`가 S2 모드 꼬리로 대상까지 갔다 돌아오는 두 번째 비행을 띄우고
+  (S2 첫 투척 +0.3, 두 번째 −0.3 높이의 호, 1.3칸 미만은 직선 [추정: 반대 호 = 같은 높이만큼 아래]), 꼬리가 아직 안 읽혔거나 공식 이펙트가 꺼져 있으면 `fx/simfx.js`가
+  절차 부메랑을 반대쪽으로 휘게(`attack(…, { inverse })`) 그린다. 손의 바퀴는 날아간 비행 수를 센다(`boomerang.js`, 둘 다 돌아와야 다시 손에).
 回环射手는 풀에 跃跃(케이퍼 `char_4100_caper`, `chess_char_1_09`)뿐이다(`data/chess.json` loopshooter). 시뮬레이션(`ai.js throwBoomerang`)은 이미 한 개를
 던지고 받은 뒤 다시 공격한다 — 화면만 고쳤다.
 - 근거(EN 클라이언트, 2026-10-08 UnityPy): `projectile_chr_caper`(`battle/prefabs/[uc]projectiles.ab`) `_speed` 15, `_comeBack` 1,
@@ -594,5 +600,43 @@
 - **⑥ DirectionType 4 UD_OR_LR** — 위 「이펙트 방향」 참고(0번/2번, 비면 좌우). 지금 바인딩에 그 묶음 0개라 화면 변화 없음.
 - 확인: 단위 `test/render/fx-cast-timing.test.js`(추출 결과·`castTiming`/`castPhase`·`activationEffects`·UD_OR_LR·소스 고정). 화면 확인은 안 함(브라우저 확인은 메인 세션).
   `modes.json`(공유 `public/assets/local/fx/`)은 `char_modes.py` 재실행으로 다시 씀; 프리팹의 `back`은 `fx_extract.py --game <클라> --back-only` 실행 전에는 없어 ④는 그 뒤에 보인다.
-- 안 한 것(같은 조사의 다른 점): FollowMountPoint 회전을 매 프레임 따르기(위 「이펙트 방향」), 타격 이펙트 1.0배속·언더플로우 S2 `_useOwnerToTargetDirection`,
-  `_spawnLocation` 2(HIT)를 hit 마운트 점으로, 쏜즈 S1 `_overwriteHeight`.
+- **2026-10-10에 마저 한 것**(같은 조사의 다른 점, 관리자 결정 (2026-10-10)):
+  - FollowMountPoint 회전을 매 프레임 따르기 — 위 「이펙트 방향」.
+  - 재생 속도: 클라 `HitEffectOptions.OnCastOnTarget`(0xAE54D0)은 타격 이펙트를 `CreateEffect(…, 1.0)`로 만든다 — 공속과 상관없이 1.0배. 시전 이펙트(`CastEffectOptions`)만
+    능력 재생 속도로 → `fxgame.js` `play`/`spawn`의 `speed`(살아 있는 항목 `l.speed`, 프레임마다 `dt × 게임 속도 × speed`): 시전 이펙트 = 그 공격의 `castSpan` 재생 속도
+    (OnAttack 프레임 ÷ windup), 타격·그 밖 = 1.0(전과 같음).
+  - 언더플로우 S2 `udflow_skill_02_hit_01`의 `_useOwnerToTargetDirection`: `char_modes.py`가 `hitAim`(그 항목이 켜진 타격 이펙트 이름)을 쓰고, `fxgame.js`가 그 이펙트를
+    공격자 → 대상 선으로 돌린다(`rotation_z` 축이 있으면 그 각도, 없으면 그 선의 좌우로 거울 [추정: Effect가 `dir`로 도는 방식은 안 읽음]). **`modes.json` 재생성이 필요**
+    (`char_modes.py`; 공유 파일이라 이 작업에서 다시 쓰지 않음) — 그 전에는 예전처럼 공격자의 좌우.
+  - `_spawnLocation` 2 HIT_POINT·4 HEAD_POINT: `Effect._InitLocationFromEntity`가 엔티티의 hit / head 마운트 점에 놓는다 → `fxpoints.js pointKey` 2 → `hit`, 4 → `head`
+    (오퍼 `points.json`, 적 `enemy-modes.json points`), 표가 없는 유닛은 예전 높이(키의 0.5 / 1.1).
+  - 쏜즈 더 로드스타 S1 `thorn2_skill_01_range`의 `_overwriteHeight`(풀에서 유일, offset 0.0 — 원시 필드 #18·#19, `fx_extract.py overwrite_height`): 프리팹 `height`,
+    `fxgame.js overHeight`가 높이 = 그 유닛의 바닥(점이면 그 칸의 높이) + offset [추정: 엔티티 = 착지한 S1 투사체, 그 칸 위]. `_spawnLocation` 7이 0에 놓은 것을 높은 칸이면
+    그 칸 위로 올린다. **`fx_extract.py --game <클라> --bundle thorn2 --height-only` 실행 전에는 `height`가 없어** 화면 변화 없음.
+
+### 적 이펙트 바인딩 (2026-10-10, 관리자 결정 (2026-10-10))
+근거: EN 클라 적 프리팹 `battle/enm_pfb_*.ab`, `[uc]projectiles.ab`, `config/buff_template_holder.ab`(버프 템플릿), 이펙트 번들 `pkgrps/btl_pfb_fx_enemy_*.ab`·
+`battle/prefabs/effects/*.ab`(비공개 조사 기록 2026-10-10 「적 에셋」). 오퍼와 같은 형식: 루트 `_startEffect`/`_deadEffect`, UnitMode `_overrideStartEffect`/`_overrideDeadEffect`,
+능력의 이미터(`_castEffects` + `_startEvent`/`_endEvent`/`_oneshot`, `_hitEffects`·`_inputTargetEffects`·`_castTargetEffects`, `_attachEffects`), `_projectileKey` +
+`_mountPointType`, 버프 `overrideEffectKey`/템플릿 `effectKey`, 모델 점(Graphic `_muzzleTransform`·`_hitTransform`·`_headTransform`·`_specialPointN`).
+- 추출: `tools/local-extract/enemy_bindings.py` → `tools/assets/local-enemy-bindings.json`(검토용, 적 249종·투사체 93개) + `public/assets/local/fx/enemy-modes.json`(렌더 표,
+  git 제외) + `--extract`면 나오는 적(웨이브·보스·랜덤 편성 자리·소환, 167종)의 이펙트 프리팹 365개를 `fx_extract.py`로(번들 `pfx_enemy_N`·`common`·`lazerd` …, 목록은
+  `enemy-index.json` — 오퍼 `index.json`은 그대로; `fxgame.js mergeIndex`가 합침). 이름은 대소문자 무시(적 프리팹은 `…_B_hit_01`, 번들 컨테이너는 소문자 [추정: 클라도
+  소문자로 찾음]) — `enemy-modes.json $fx`(소문자 → [번들, 프리팹]). 적 점의 `at`은 스케일 0.01 가정 [추정: SkeletonDataAsset이 다른 번들], 뼈 이름은 그대로.
+- 렌더(`fxgame.js` 「the enemies' official effects」): 모드 = 지금 클립 세트의 공격 클립이 그 모드 능력의 `_animKey`인 것(폼 전환이 바꿈), 없으면 0. sim 'swing' →
+  공격의 ON_CAST_START 시전 이펙트(근접 타격 kind 'none' = `Combat` 능력, 사격 'enemy' = `Attack`), 'atk' → ON_SPELL_ON 것 + 투사체 `_mainEffect` 꼬리(마운트 점 →
+  대상 hit 점, 비행 시간 = 거리 ÷ `data/enemies.json proj.speed`(폼별 `projModes`, sim이 그 속도로 날림; `proj` 없으면 sim 적 속도 10, `proj: null`·링크·즉발은 비행 없음), `_raiseHeight`면 호; 꼬리 없는 것·레이/링크형은 절차 구슬), 'dmg' →
+  능력 hit 이펙트 + 투사체 `_effectsWhenHit`/`_effectsWhenReached`(≤ 2, `_useOwnerToTargetDirection`은 공격자 → 대상)와 대상에 거는 버프의 자기 이펙트 한 번 [추정: 버프
+  지속 동안 유지가 공식], 'spawn' → 시작 이펙트(모드 override 우선) + 「이펙트만 있는 버프」(템플릿 `empty`, 특성·CommonAbilities: 가상적: 갑주 `enemy_acstmk_buff_1` 등)
+  루프 [추정: 태어날 때 붙음], 'die' → 사망 이펙트(그 자리), 'leak' → 루프 끝. 시전 이펙트는 능력 재생 속도, 타격은 1.0(위). 모드가 바뀌면 이전 모드의 루프 시전
+  이펙트를 끈다(ON_DETACHED).
+- 'dmg'의 공격자: sim의 'dmg' 튜플 6번째 = 공격자 unit id(无来源이면 null, docs/SIM.md)를 읽는다 — 공격자가 있으면 마지막 공격의 주인이 다를 때 그 공격의 타격으로 치지 않고, 그 적의 능력이
+  3초 안에 쓰였으면 그 능력의 hit 이펙트를 그린다. 없으면(예전 sim) 예전처럼 대상에 대한 마지막 공격.
+- 적 스킬·특수 행동: sim fx `enemySkill` { id, ability, n }(콘텐츠 스킬 시전 때 먼저)과 그 시전의 fx마다 실린 `ability`·`caster`(docs/SIM.md; `prefabKey`, 문자열 `skill`, 'skill' [id, on, prefabKey]도 받음) → 그 이름의 능력(`skills[소문자 이름]`: `Skills/<이름>`·
+  하위 경로·마지막 이름) 시전 이펙트, 자기 버프/attach 이펙트('skill'이면 끌 때까지 — 끝 이벤트가 없으면 20초 [추정]; 'fx'면 한 번), `target`이 있으면 투사체 꼬리
+  (공식 속도, 6초 넘는 비행은 안 그림)와 `_effectsToTargetWhenStart`. 그 능력을 바인딩한 적의 'fx'면 `standInOff`와 같은 종류(blast·zone·…)의 절차 대체물을 안
+  그린다(`ownsFx`), `ownsSkill`은 스킬이 바인딩된 적의 금빛 기둥을 끈다(클라엔 없음). 또 모델이 바인딩된 스킬의 클립(`_animKey`: 'Revive', 'Skill_2' …, 공격 클립 제외)을
+  시작하면 그 능력을 튼다(sim이 이름을 안 실어도 렌더가 보여 주는 그 순간; 같은 능력은 1초에 한 번).
+- 안 한 것: 버프 노드의 다른 이펙트(방패 깨짐·끝 이펙트), `CreateLineEffect`(가상적: 갑주 `enemy_acstmk_attack_line` — 출처 → 주인 선), 모드 전환 때의 `_overrideStartEffect`
+  (클라가 언제 쓰는지 안 읽음 — 태어날 때만 씀), 나오지 않는 적 82종의 이펙트(`--extract --all`), 소리(audio 담당). 화면 확인 없음.
+- 확인: `test/local-patch-fxspawn.test.js`(적이 바인딩한 muzzle/특수점 이펙트가 그 적의 점을 찾음 — 클라 데이터의 빈 곳 2개 목록), `test/render/enemy-fx.test.js`.

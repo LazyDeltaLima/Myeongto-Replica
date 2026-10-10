@@ -415,7 +415,8 @@ class Extractor:
             data['col'] = col
         p = out / 'mesh' / (key + '.json')
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data, separators=(',', ':')))
+        if not p.exists():   # 2026-10-10: the same key is the same mesh — a shared file is never rewritten
+            p.write_text(json.dumps(data, separators=(',', ':')))
         self.meshes[key] = key
         return key
 
@@ -570,6 +571,9 @@ class Extractor:
         mount = self.mount_point(root)
         if mount is not None:
             out_def['mount'] = mount
+        height = self.overwrite_height(root)
+        if height is not None:
+            out_def['height'] = height
         right = self.right_effect(root)
         if right:
             out_def['right'] = right
@@ -664,6 +668,69 @@ class Extractor:
             if ints[6] == -1082130432 and ints[10] == 1073741824 and 0 <= ints[13] < 64:
                 return ints[13]
         return None
+
+    def overwrite_height(self, root):
+        """(2026-10-10, decompile check — client `Effect._InitLocationFromEntity`, RVA 0xC8B0xx: with
+        `_overwriteHeight` the effect's height becomes the entity's height + `_heightOffset`): the root effect component's raw
+        int #18 (`_overwriteHeight`) and float #19 (`_heightOffset`), read as spawn_location reads #13 (the field order of the
+        client's ParticleEffect: #13 _spawnLocation, #17 _holdByOwner, #18 _overwriteHeight, #19 _heightOffset). The offset
+        when it is on (쏜즈 더 로드스타 S1 thorn2_skill_01_range: 0.0), else None."""
+        try:
+            d = root.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            raw = comp.get_raw_data()
+            off = 12 + 4 + 12
+            if len(raw) < off + 4:
+                continue
+            n = struct.unpack_from('<i', raw, off)[0]
+            off = (off + 4 + n + 3) & ~3
+            if len(raw) < off + 20 * 4:
+                continue
+            ints = struct.unpack_from('<20i', raw, off)
+            if ints[6] == -1082130432 and ints[10] == 1073741824 and 0 <= ints[13] < 64:
+                return r4(struct.unpack_from('<f', raw, off + 19 * 4)[0]) if ints[18] == 1 else None
+        return None
+
+    def height_only(self, bundle, pack=None):
+        """2026-10-10: write only the `height` (overwrite_height) of the bundle's already extracted prefabs, like
+        back_only. Returns (prefabs with one, files changed)."""
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
+        p = bundle_path(self.game, rel)
+        if not p:
+            print(f'[fx] {bundle}: bundle not found, skipped')
+            return 0, 0
+        env = self.UnityPy.load(str(p))
+        found = changed = 0
+        for o in env.objects:
+            if o.type.name != 'Transform':
+                continue
+            t = o.read_typetree()
+            if t['m_Father']['m_PathID'] != 0:
+                continue
+            go = self.resolve(t['m_GameObject'], o)
+            if go is None:
+                continue
+            f = OUT / bundle / f"{go.read_typetree()['m_Name']}.json"
+            if not f.exists():
+                continue
+            h = self.overwrite_height(go)
+            d = json.loads(f.read_text())
+            found += h is not None
+            if d.get('height') == h:
+                continue
+            if h is None:
+                d.pop('height', None)
+            else:
+                d['height'] = h
+            f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+            changed += 1
+        print(f'[fx] {bundle}: {found} overwrite-height prefab(s), {changed} file(s) changed')
+        return found, changed
 
     def mount_point(self, root):
         """local patch (maintainer report): the root's FollowMountPoint component — the effect follows
@@ -827,9 +894,12 @@ class Extractor:
         print(f'[fx] {bundle}: {found} mount prefab(s), {changed} file(s) changed')
         return found, changed
 
-    def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False, pack=None):
+    def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False, pack=None, index='index.json'):
         # pack: a shared battle pack instead (e.g. pkgrps/btl_pfb_fx_token_3.ab, the summons' effects), its roots written
-        # as `bundle` — pick them with --match / --prefab
+        # as `bundle` — pick them with --match / --prefab. `prefabs` match without case (the enemy
+        # prefabs name `…_B_hit_01`, the bundles' roots / containers may differ in case). `index`: the index file the bundle's
+        # list goes to (enemy_bindings.py: enemy-index.json — the operators' index.json stays as it is)
+        want = {p.lower() for p in prefabs} if prefabs else None
         rel = pack or f'battle/prefabs/effects/{bundle}.ab'
         env = self.load(rel)
         out = OUT
@@ -854,7 +924,7 @@ class Extractor:
             (out / bundle).mkdir(parents=True, exist_ok=True)
         for go in roots:
             name = go.read_typetree()['m_Name']
-            if prefabs and name not in prefabs:
+            if want is not None and name.lower() not in want:
                 continue
             if name in DISCARD:
                 continue
@@ -868,7 +938,7 @@ class Extractor:
             data = self.prefab(go, out)
             (out / bundle / f'{name}.json').write_text(json.dumps(data, separators=(',', ':'), ensure_ascii=False))
             written.append(name)
-        index_p = out / 'index.json'
+        index_p = out / index
         index = json.loads(index_p.read_text()) if index_p.exists() else {'bundles': {}}
         if list_only:
             print(f'[fx] {bundle}: ' + ' '.join(sorted(written)))
@@ -899,14 +969,23 @@ def main():
     ap.add_argument('--mount-only', action='store_true', help='only write the FollowMountPoint `mount` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch)')
     ap.add_argument('--back-only', action='store_true', help='only write the SwitchableBackEffect `back` into the already '
-                    'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch 2026-10-10)')
+                    'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-10)')
+    ap.add_argument('--index', default='index.json', help='the index file under public/assets/local/fx the bundles\' lists go '
+                    'to (enemy_bindings.py writes enemy-index.json)')
     ap.add_argument('--pack', metavar='REL', help='read the prefabs from this bundle (relative to the bundle folders, e.g. '
                     'pkgrps/btl_pfb_fx_token_3.ab) and write them as --bundle (local patch: 望\'s 棋子 effects → wang_token)')
+    ap.add_argument('--height-only', action='store_true', help='only write the `_overwriteHeight` `height` into the already '
+                    'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-10)')
     a = ap.parse_args()
     if a.build_cab_index:
         build_cab_index(a.game, a.build_cab_index)
         return
     ex = Extractor(a.game, a.cab_index, png=a.png)
+    if a.height_only:
+        bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
+        tot = [ex.height_only(b, pack=a.pack) for b in bundles]
+        print(f'[fx] height: {sum(x[0] for x in tot)} prefab(s) with an overwritten height, {sum(x[1] for x in tot)} file(s) changed')
+        return
     if a.back_only:
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
         tot = [ex.back_only(b, pack=a.pack) for b in bundles]
@@ -918,7 +997,7 @@ def main():
         print(f'[fx] mount: {sum(x[0] for x in tot)} prefab(s) with a mount, {sum(x[1] for x in tot)} file(s) changed')
         return
     for b in a.bundle:
-        ex.run(b, set(a.prefab) or None, all_skins=a.all_skins, match=re.compile(a.match) if a.match else None, list_only=a.list, pack=a.pack)
+        ex.run(b, set(a.prefab) or None, all_skins=a.all_skins, match=re.compile(a.match) if a.match else None, list_only=a.list, pack=a.pack, index=a.index)
     if a.prune:
         prune(OUT)
 

@@ -53,7 +53,7 @@ function unitBank(banks, key) {
 const firstNonEmpty = (lists) => lists.find((p) => Array.isArray(p) && p.length) || null;
 
 /**
- * local patch (2026-10-10, docs/rules/audio.md 「START·ON·HIT」): the ON bank of an ability that also has a START bank —
+ * (2026-10-10, docs/rules/audio.md 「START·ON·HIT」): the ON bank of an ability that also has a START bank —
  * the client emits START, ON (클라 코드 AbilityStandard.DoEmitAudioSignalForSpellOn RVA 0x34EEDC0) and HIT
  * (DoEmitAudioSignalForHit RVA 0x34EEC20) each on its own and the middleware (TorappuAudioMiddleware.PlayEvent RVA
  * 0x34B4D10) plays every bank of the name: both sound, whatever the ON bank's mixer group (耀骑士临光 S3 attack.3

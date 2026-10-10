@@ -36,3 +36,34 @@ export function projSpeed(kind) {
   const f = PROJ[kind]?.speed;
   return f > 0 ? f : kind === 'boomerang' ? 15 : 12;
 }
+
+/**
+ * 2026-10-10: an enemy's normal-attack shot record — data/enemies.json `proj` ({ key, mount, move, speed, … },
+ * the client's projectile prefab), `projModes[<mode>]` for a later mode (its name = the sim form, matched without case).
+ * `null` = a ranged attack with no projectile (instant hit), undefined = not read (the old orb).
+ * @param {any} def data/enemies.json record
+ * @param {string|null} [form] the unit's current form (UnitInfo `form`)
+ */
+export function enemyShot(def, form = null) {
+  if (!def || typeof def !== 'object') return undefined;
+  const pm = def.projModes;
+  if (form != null && pm && typeof pm === 'object') {
+    const f = String(form).toLowerCase();
+    const k = Object.keys(pm).find((x) => x.toLowerCase() === f);
+    if (k && pm[k] && typeof pm[k] === 'object') return pm[k];
+  }
+  return def.proj;
+}
+
+/**
+ * 2026-10-10: the speed of an enemy's shot (tiles per game second; a PARACURVE's over the horizontal distance)
+ * the sim flies it at — enemyShot's `speed` — or null (none read, a link / instant one: the sim's PROJECTILE_SPEEDS.enemy).
+ * @param {any} def data/enemies.json record
+ * @param {string|null} [form]
+ * @returns {number|null}
+ */
+export function enemyProjSpeed(def, form = null) {
+  const p = enemyShot(def, form);
+  const v = p && typeof p === 'object' ? Number(p.speed) : NaN;
+  return v > 0 ? v : null;
+}

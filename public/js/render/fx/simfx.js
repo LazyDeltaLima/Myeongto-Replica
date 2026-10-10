@@ -54,6 +54,14 @@ export class FxSim {
    */
   simFx(kind, x, y, extra) {
     const ex = extra && typeof extra === 'object' ? extra : {};
+    // 2026-10-10: 跃跃 S2's later boomerang (sim kit chess_char_1_09-caper.js, no 'atk' event of its own) — a
+    // second boomerang from her to its target, bowing to the other side (client projectile_chr_caper_s2_1 `_inverseParacurve`);
+    // render/fxgame.js flies the official trail instead when it can (ownsFx)
+    if (kind === 'caperBoomerang2') {
+      const s = this._viewOf(ex.id), t = this._viewOf(ex.tgt);
+      if (s && t) this.attack(s, t, 'boomerang', { inverse: true });
+      return;
+    }
     const spec = fxSpec(kind, ex);
     if (spec.a === 'none') return; // an event the screen does not show (hitCap)
     const at = spec.pt ? this._point(Number(x), Number(y)) : this._where(Number(x), Number(y), ex);

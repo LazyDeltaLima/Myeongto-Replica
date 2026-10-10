@@ -145,7 +145,7 @@ const walkersOnTile = (battle, r, c) => enemiesOnTile(battle, r, c).filter((e) =
  */
 const stoneSelectable = (e) => e.alive && !e.hidden && !e.s.flags.untargetable && !(e.s.flags.stealth && enemyStealthed(e));
 /**
- * The client's 跟子 tile order (WangTileSelector._SortCandidates comparator, ascending keys; local patch 2026-10-10 — it
+ * The client's 跟子 tile order (WangTileSelector._SortCandidates comparator, ascending keys; 2026-10-10 — it
  * replaced PRTS's enemy-first order): ground before high ground (`!tile.isLowland`), then a tile with an enemy on it (any
  * valid enemy, _CheckContainsEnemies), then an undeployable one (`buildableType != NONE` sorts after), then — the
  * talent's 跟子 only (TALENT), not S3's InstantSpawn (SKILL_3_INSTANT: equal) — the direction from the centre stone
@@ -442,7 +442,7 @@ function wang(bb, chess, def) {
             if (placed(battle, unit).length + waitingOf(battle, unit).length >= s.fieldCap) return false;
             const stones = stonesOf(battle, unit);
             // where she would put it by hand [ASSUMED stand-in, no client rule: a player places it]: an enemy tile of her range,
-            // in random order (local patch 2026-10-10: was the enemy closest to its goal first — goalFirst, dropped with the
+            // in random order (2026-10-10: was the enemy closest to its goal first — goalFirst, dropped with the
             // InstantSpawn order above) — else (local patch 2026-10-06, maintainer report "S3 spends no ammo": enemies walking just
             // outside her range never gave the stand-in a tile) a free tile of her range on the ground routes, nearest to a
             // living enemy, no walking enemy on it (trait)

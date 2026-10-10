@@ -157,7 +157,7 @@ describe('回环射手: the wheel in her hand while no boomerang of hers flies',
   test('fxgame.js: an official boomerang trail turns back at the hit and is cleared at once when caught', () => {
     const s = src('../public/js/render/fxgame.js');
     const shot = s.slice(s.indexOf('function trailShot('), s.indexOf('function shotFrom('));
-    assert.match(shot, /if \(e\[3\] === 'boomerang'\) \{ rec\.src = src; rec\.back = Math\.max\(0\.04, dist \/ projSpeed\('boomerangReturn'\)\); boomerangThrown\(src\); \}/);
+    assert.match(shot, /if \(e\[3\] === 'boomerang'\) \{\n\s+rec\.src = src; rec\.back = Math\.max\(0\.04, dist \/ projSpeed\('boomerangReturn'\)\); boomerangThrown\(src\);/);
     const step = s.slice(s.indexOf('function stepTrails('), s.indexOf("// ---- 荒芜拉普兰德 S3's wolves"));
     assert.match(step, /if \(rec\.k >= 1 && rec\.back\) \{ rec\.phase = 1; rec\.k = 1; rec\.tgt = null; continue; \}/, 'turns back at the hit point');
     assert.match(step, /rec\.inst\?\.stop\(true\); trails\.splice\(i, 1\); boomerangCaught\(rec\.src\);/, 'caught: the wheel (a 5 s particle) goes at once');

@@ -71,8 +71,9 @@ test('pointTurn: the bone\'s world rotation (radians, y up) when the point turns
 
 test('a mounted effect with _keepOriginRotation 0 turns its root about the board normal every frame', () => {
   assert.match(SRC, /const turns = def\?\.mount && def\.mount\.keepOriginRotation === 0;/);
-  // taken once as it starts (니어 더 래디언트 나이트 S3's lance thrust), then kept
-  assert.match(SRC, /get rot\(\) \{ return turns \? \(turn0 \?\?= pointTurn\(/);
+  // every frame (2026-10-10, decompile check: client FollowMountPoint._FollowMountPoint each LateUpdate) — no first-frame copy
+  assert.match(SRC, /get rot\(\) \{ return turns \? pointTurn\(ptsOf\(v\)\?\.\[key\]/);
+  assert.doesNotMatch(SRC, /turn0 \?\?=/);
   assert.match(SRC, /if \(r != null && l\.inst\.nodes\?\.\[0\]\) l\.inst\.nodes\[0\]\.rotation\.set\(0, 0, r\);/);
   // the directional pick runs on every play()
   assert.match(SRC, /const \{ names, unflip \} = dirPick\(view, given \|\| effectsFor\(b\.prefabs, kind, skillIndex\)\);/);

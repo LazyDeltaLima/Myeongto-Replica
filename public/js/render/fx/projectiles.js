@@ -4,7 +4,7 @@
 import { PROJ } from '../style.js';
 import { SHOT_HEIGHT, bodyZ, feetZ } from './camera.js';
 import { clamp } from './limits.js';
-import { projSpeed } from './speeds.js';
+import { projSpeed, enemyProjSpeed } from './speeds.js';
 import { boomerangThrown, boomerangCaught } from '../boomerang.js'; // local patch: the 回环射手's held boomerang
 
 const MAX_PROJ = 260;
@@ -50,8 +50,11 @@ export class FxProjectiles {
 
   // ---- projectiles -----------------------------------------------------------------------------------------
 
-  /** b.ev 'atk' visual. src/tgt are views (tgt may be null). */
-  attack(src, tgt, kind) {
+  /**
+   * b.ev 'atk' visual. src/tgt are views (tgt may be null). `opts.inverse` (2026-10-10): a boomerang bowing to
+   * the other side — 跃跃 S2's second boomerang (sim fx 'caperBoomerang2', client projectile_chr_caper_s2_1 `_inverseParacurve`).
+   */
+  attack(src, tgt, kind, opts = null) {
     if (!src) return;
     // chain: the source is the previous target of the bounce (sim ai.js), so the arc hops unit to unit
     if (kind === 'chain' || kind === 'chainHeal') { if (tgt && tgt !== src) this._beam(src, tgt, kind === 'chainHeal' ? 0x7dffa8 : 0xc9a2ff, 0.22, 1, true); return; }
@@ -72,13 +75,17 @@ export class FxProjectiles {
     pr.x0 = src.x + ux * hand; pr.y0 = src.y + uy * hand; pr.z0 = bodyZ(cam, src, SHOT_HEIGHT.launch);
     pr.tx = tgt.x; pr.ty = tgt.y; pr.tz = look === 'shell' ? feetZ(tgt) : bodyZ(cam, tgt, SHOT_HEIGHT.aim);
     pr.t = 0; pr.fade = 0; pr.hit = false; pr.emit = Math.random(); pr.ang = Math.atan2(-uy, ux);   // ≈ on screen (rows run up)
-    pr.dur = clamp(dist / projSpeed(kind) / this._ts(), 0.04, 1.5);
+    // 2026-10-10: an enemy's shot at its official speed (data/enemies.json `proj`, the sim's flight time)
+    let speed = projSpeed(kind);
+    if (kind === 'enemy' && src.isEnemy) { try { speed = enemyProjSpeed(this.ctx.lookupDef?.(src.info), src.info?.form) || speed; } catch { /* keep */ } }
+    pr.dur = clamp(dist / speed / this._ts(), 0.04, 1.5);
     pr.arc = spec.arc ? spec.arc * clamp(0.45 + dist * 0.18, 0.6, 1.8) : 0;
     pr.glow = spec.glow;
     pr.trailTint = spec.trail ?? spec.glow;
     // boomerang legs: kinematic, from (bx, by, bz) at constant speed towards the target, then back to the thrower
     pr.phase = 0; pr.bx = pr.x0; pr.by = pr.y0; pr.bz = pr.z0; pr.trav = 0; pr.d0 = Math.max(0.1, dist); pr.ux = ux; pr.uy = uy;
     pr.spin = Math.random() * 6;
+    pr.bowSign = opts && opts.inverse ? -1 : 1;
     this._dressProj(pr);
     this.projs.push(pr);
     // local patch (maintainer report): the boomerang leaves her hand until this flight ends (_releaseProj; render/boomerang.js)
@@ -260,7 +267,7 @@ export class FxProjectiles {
       pr.trav += step;
     }
     const arcK = Math.sin(clamp(pr.trav / pr.d0, 0, 1) * Math.PI);
-    const bow = arcK * BOOM_BOW * Math.min(1, pr.d0 / 2);
+    const bow = arcK * BOOM_BOW * Math.min(1, pr.d0 / 2) * (pr.bowSign || 1);
     const x = pr.bx - pr.uy * bow, y = pr.by + pr.ux * bow, z = pr.bz + arcK * 0.12;
     const p = cam.project(x, y, z, this._p);
     const px = p.x, py = p.y, hs = spec.head * p.s;

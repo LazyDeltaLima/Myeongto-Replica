@@ -36,13 +36,16 @@ function ourSkeleton(charId, side, anim = 'Idle') {
   return sk;
 }
 
-test('pointKey: _spawnLocation 3 / 6 → muzzle, MP_SPECIAL_0–15 → sp0–sp15 by the enum order, the rest keep their own heights', () => {
+test('pointKey: _spawnLocation 2 / 4 → hit / head, 3 / 6 → muzzle, MP_SPECIAL_0–15 → sp0–sp15 by the enum order, the rest keep their own heights', () => {
+  // 2026-10-10 (decompile check: client Effect._InitLocationFromEntity puts HIT_POINT / HEAD_POINT at the hit / head mount points)
+  assert.equal(pointKey(2), 'hit');
+  assert.equal(pointKey(4), 'head');
   assert.equal(pointKey(3), 'muzzle');
   assert.equal(pointKey(6), 'muzzle');
   assert.deepEqual([8, 9, 10, 11].map(pointKey), ['sp0', 'sp1', 'sp2', 'sp3']);
   assert.deepEqual([13, 14, 15, 16].map(pointKey), ['sp4', 'sp5', 'sp6', 'sp7'], '12 is CAMERA');
   assert.deepEqual([18, 25].map(pointKey), ['sp8', 'sp15'], '17 is TILE_CENTER');
-  for (const s of [undefined, null, 0, 1, 2, 4, 5, 7, 12, 17, 26]) assert.equal(pointKey(s), null, `spawn ${s}`);
+  for (const s of [undefined, null, 0, 1, 5, 7, 12, 17, 26]) assert.equal(pointKey(s), null, `spawn ${s}`);
 });
 
 test('pointOn: the drawn side\'s bone, else the other side\'s, else that side\'s fixed spot (y up → the runtime\'s y down)', () => {
@@ -99,6 +102,9 @@ test('every extracted muzzle / special-point prefab finds its point on our model
     const missing = [];
     for (const [b, n, spawn] of pointPrefabs()) {
       if (GAPS.has(`${b}/${n}`)) continue;
+      // an operator's own bundle only — the shared / enemy bundles (common, pfx_enemy_N …: 2026-10-10) take the points of
+      // the unit they play on (enemy-modes.json points for an enemy)
+      if (!byCode[b]) continue;
       const cid = byCode[b], entry = cid && TABLE[cid][pointKey(spawn)];
       if (!entry) { missing.push(`${b}/${n}: no point`); continue; }
       for (const side of ['F', 'B']) {
@@ -109,6 +115,44 @@ test('every extracted muzzle / special-point prefab finds its point on our model
       }
     }
     assert.deepEqual(missing, []);
+  });
+
+// 2026-10-10: the enemies' effects (tools/local-extract/enemy_bindings.py → enemy-modes.json, bundles pfx_enemy_N,
+// common, lazerd …) take the points of the enemy they play on — its enemy-modes.json `points` (the battle prefab's Graphic
+// mount transforms), not a bundle's operator
+const ENEMY_MODES = new URL('enemy-modes.json', FX);
+test('every effect an enemy binds with a muzzle / special-point spawn finds that point in its enemy-modes.json points (known gaps listed)',
+  { skip: !existsSync(ENEMY_MODES) && 'no extracted enemy effects' }, () => {
+    const em = JSON.parse(readFileSync(ENEMY_MODES, 'utf8'));
+    // the client's own data: 숙주 중기갑병's laxe_attack_01_start (sp0) and 가상적: 재생's borrowed enemy_duskls_idle_2 (sp0) name a
+    // SpecialPoint0 those prefabs have none of (the client logs it and leaves the effect where it was made — here: the ground)
+    const GAPS = new Set(['enemy_1061_zomshd laxe/laxe_attack_01_start', 'enemy_9010_acpupp pfx_enemy_4/enemy_duskls_idle_2']);
+    const names = (e) => {
+      const out = [e.start, e.dead, ...(e.aura || [])];
+      for (const m of e.modes || []) {
+        out.push(m.start, m.dead, ...(m.attach || []));
+        for (const p of [m.melee, m.ranged]) if (p) out.push(...(p.cast || []), ...(p.hit || []), ...(p.hitBuff || []));
+      }
+      for (const p of Object.values(e.skills || {})) out.push(...(p.cast || []), ...(p.buff || []), ...(p.attach || []));
+      return out.filter(Boolean);
+    };
+    const missing = new Set();
+    let checked = 0;
+    for (const [id, e] of Object.entries(em)) {
+      if (id.startsWith('$')) continue;
+      for (const n of names(e)) {
+        const r = em.$fx?.[n.toLowerCase()];
+        const f = r && new URL(`${r[0]}/${r[1]}.json`, FX);
+        if (!f || !existsSync(f)) continue;
+        const d = JSON.parse(readFileSync(f, 'utf8'));
+        const k = pointKey(mountSpawn(d?.mount) ?? d?.spawn);
+        if (!k || k === 'hit' || k === 'head') continue; // hit / head: the prefab's own height without a point
+        checked++;
+        if (!e.points?.[k] && !GAPS.has(`${id} ${r[0]}/${r[1]}`)) missing.add(`${id} ${r[0]}/${r[1]}: no ${k}`);
+      }
+    }
+    assert.ok(checked > 0);
+    assert.deepEqual([...missing], []);
   });
 
 test('the extracted 비르투오사 S3 glow is a _spawnLocation 8 prefab', { skip: !existsSync(CELLO_FX) && 'no extracted effects' }, () => {

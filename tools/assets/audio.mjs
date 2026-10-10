@@ -172,7 +172,7 @@ export function indexAudio(audioData) {
   const stopOf = (name) => stops.get(name) || null; // local patch
   const ctrlStops = [...stops].map(([name, v]) => ({ name, ...v })); // local patch
   const isLoop = (name) => loopNames.has(name); // local patch
-  // local patch (2026-10-10): the play values of the bank a picked path list came from, else of the bank that sounds its
+  // 2026-10-10: the play values of the bank a picked path list came from, else of the bank that sounds its
   // first path (a path-only spec) — skill-mode-sfx.mjs bankPlayTable
   const playOf = (paths) => (paths && typeof paths === 'object' && plays.get(paths)) || (Array.isArray(paths) && pathPlays.get(paths[0])?.v) || null;
   // local patch (maintainer report follow-up): the mixer snapshots a bank turns on while it plays (snapshotBanks: 归溟幽灵鲨's
@@ -269,7 +269,7 @@ export function pickUnitSfx(banks, opts = {}) {
   if (opts.operator && ['ON_ABILITY_START', 'ON_ABILITY_ON', 'ON_ABILITY_HIT'].some((e) => exact(e))) {
     const swing = exact('ON_ABILITY_START') ?? exact('ON_ABILITY_ON') ?? own(proj.born);
     const impact = exact('ON_ABILITY_HIT') ?? own(proj.hit);
-    const on = onBeside(swing); // local patch (2026-10-10): its ON bank beside a START swing
+    const on = onBeside(swing); // 2026-10-10: its ON bank beside a START swing
     if (swing) out.attack = swing;
     if (on) out.on = on;
     if (impact) out.hit = impact;

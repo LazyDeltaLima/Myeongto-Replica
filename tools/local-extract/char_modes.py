@@ -394,6 +394,7 @@ def modes_of(path, projectiles=None):
     # 2026-10-10, decompile check — client `RangedAttack._GetMountPoint`: the shooter's point a mode's shot
     # leaves from, its `_mountPointType` (MountPointType; MUZZLE 2 is the default and left out)
     shot_mp = {}
+    hit_aim = []
     doll_born = []
     for gp, d, _ in tree:
         if '[switch2stand]/StandBorn' in gp:
@@ -452,6 +453,12 @@ def modes_of(path, projectiles=None):
                     cast_opt[i].setdefault(x, opt)
         for k in HIT_KEYS:
             add(hit[i], effect_names(d.get(k) or []))
+            # 2026-10-10, decompile check — client `HitEffectOptions.OnCastOnTarget`, RVA 0xAE54D0: a hit effect
+            # whose entry has `_useOwnerToTargetDirection` is turned along the attacker → target line (언더플로우 S2
+            # udflow_skill_02_hit_01), the others take the attacker's facing (render/fxgame.js `hitAim`)
+            for c in d.get(k) or []:
+                if isinstance(c, dict) and c.get('_useOwnerToTargetDirection') == 1:
+                    add(hit_aim, [x for x in c.get('_effects') or [] if isinstance(x, str) and x])
         # the mode's own buffs (its Talents abilities: 丰川祥子 S3's oblvns_s_3[eff] → the range effect) show their effect on
         # the operator while the mode lasts; buffs an attack puts on its target (_activeBuffs) are not these. So do the
         # buffs of the mode's GeneralAbilities (local patch, maintainer report: 스펙터 디 언체인드 S2's
@@ -497,6 +504,8 @@ def modes_of(path, projectiles=None):
         res['attachFoeMax'] = foe_max
     if doll_born:
         res['dollBorn'] = doll_born
+    if hit_aim:
+        res['hitAim'] = hit_aim
     return res
 
 
@@ -549,7 +558,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'hit', 'trail', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'skills', 'turn', 'dirs') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'hit', 'trail', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'skills', 'turn', 'dirs') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')
