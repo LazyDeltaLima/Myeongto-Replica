@@ -3,11 +3,13 @@
 // with the shared sim (server/sim, served at /sim/) passed in.
 //
 //   arenaStage(terrain, stages)          a 19×21 stage: a 7×7 island of tiles (ARENA, rows 7–13 × cols 2–8), '#' elsewhere
-//   sandbagRecord(raw, bag)              an enemies.json record turned into a sandbag (HP 1e9, never moves, no abilities)
+//   sandbagRecord(raw, bag)              an enemies.json record turned into a sandbag (HP 1e9, never moves, no abilities;
+//                                        `bag.attack`: it attacks the allies anywhere on the island)
 //   createSandbagBattle(sim, ds, cfg)    a normal-kind Battle: one operator + the sandbags, no time limit, never ends
 //   keepSandbags(battle) / reviveSandbags(battle, ev)   called by the page after each step / drain: a sandbag never dies
 //   defaultBags(op, dir, rangeGrid)      the sandbag tile for an operator: the tile in front, or its own tile (blocked)
 //   hurtOp(battle)                       the "injured ally" option: a heal target for medics (true damage to the operator)
+//   keepOp(battle)                       the "operator stands" option: below KEEP_OP of its max HP it is healed to full
 //   ownTokens(chessId, tokens) / autoTokens(…)   the operator's hand-placed pieces (望's 棋子, 赫默's 医疗探机 …) and a default
 //                                        placement of them; createSandbagBattle places cfg.tokens like a board's token pieces
 //   fillSp(unit) / castNow(unit)         the operator's skill charged / cast at once (the debug buttons)
@@ -31,6 +33,10 @@ export const DEFAULT_BAGS = Object.freeze([Object.freeze({ row: 10, col: 5 })]);
 export const BLOCK_OFFSET = 0.35;
 /** The "injured ally" option: every `every` s of game time, `frac` of the operator's max HP as true damage while it has more than `floor`. */
 export const HURT = Object.freeze({ every: 1.5, frac: 0.2, floor: 0.35 });
+/** The "operator stands" option: below this share of its max HP after a step, the operator is healed to full (under HURT.floor). */
+export const KEEP_OP = 0.25;
+/** An attacking sandbag's reach (tiles): the island's diagonal (6√2 ≈ 8.5) and more — every island tile is in range. */
+export const ISLAND_REACH = 9;
 const FRONT = Object.freeze({ RIGHT: [0, 1], LEFT: [0, -1], UP: [1, 0], DOWN: [-1, 0] });
 /** Data files the sim reads — a copy of battle/runner.js SIM_DATA_FILES (the test keeps them equal; importing
  *  runner.js would create the app's battle runner wired to the socket). */
@@ -69,20 +75,28 @@ export function arenaStage(terrain = 'flat', stages = null) {
  * still (move speed 0), no abilities / skills / talents, attacking only with `bag.atk` > 0 (else damage type NONE: it
  * never attacks), a static body (pushes / pulls never move it) unless `bag.fixed === false`. Model, motion, size (hit
  * area) and immunities stay the enemy's own.
+ * `bag.attack`: it attacks the allies wherever they stand on the island — a ranged attacker (applyWay RANGED, so not only
+ * its blocker: sim/ai.js enemyAttack) with ISLAND_REACH, at `bag.atk` or, with 0 there, its own ATK; a melee enemy's
+ * blow (no projectile) lands on its target at the strike, a ranged one's own shot flies.
  * @param {any} raw data/enemies.json record
- * @param {{ hp?: number, def?: number, res?: number, atk?: number, fixed?: boolean }} [bag]
+ * @param {{ hp?: number, def?: number, res?: number, atk?: number, fixed?: boolean, attack?: boolean }} [bag]
  */
 export function sandbagRecord(raw, bag = {}) {
   const st = (raw && raw.stats) || {};
   const n = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v != null ? Math.max(0, Number(v)) : d);
-  const atk = n(bag.atk, 0);
+  const attack = !!bag.attack;
+  const atk = n(bag.atk, 0) || (attack ? n(st.atk, 0) || 1 : 0);
+  const own = String(st.dmgType ?? 'phys').toLowerCase();
   return {
     ...raw,
     stats: {
       ...st, maxHp: Math.max(1, n(bag.hp, SANDBAG_HP)), atk, def: n(bag.def, 0), res: n(bag.res, 0), moveSpeed: 0, hpRecoveryPerSec: 0,
-      dmgType: atk > 0 ? (st.dmgType ?? 'phys') : 'NONE',
+      dmgType: atk > 0 ? (attack && (own === 'none' || own === 'heal') ? 'phys' : (st.dmgType ?? 'phys')) : 'NONE',
+      ...(attack ? { rangeRadius: Math.max(n(st.rangeRadius, 0), ISLAND_REACH) } : {}),
     },
-    applyWay: atk > 0 && raw && raw.applyWay === 'NONE' ? 'MELEE' : raw && raw.applyWay,
+    applyWay: attack ? 'RANGED' : atk > 0 && raw && raw.applyWay === 'NONE' ? 'MELEE' : raw && raw.applyWay,
+    // a melee enemy's record names no shot (undefined = the old default shot, sim/ai.js enemyShot): its blow has none
+    ...(attack && raw && raw.proj === undefined && raw.applyWay !== 'RANGED' ? { proj: null } : {}),
     abilities: [], skills: [], talents: { bb: {} }, summons: [],
     staticBody: bag.fixed === false ? !!(raw && raw.staticBody) : true,
     notCountInTotal: true,
@@ -158,6 +172,14 @@ export function hurtOp(battle) {
   const u = arenaOp(battle);
   if (!u || !u.alive || !u.deployed || u.hp <= u.s.maxHp * HURT.floor) return 0;
   return battle.dealDamage(null, u, { amount: u.s.maxHp * HURT.frac, type: 'true', canDodge: false, sourceless: true, tags: ['debug'] });
+}
+
+/** The "operator stands" option, after a step: an operator below KEEP_OP of its max HP is healed to full (true). */
+export function keepOp(battle) {
+  const u = arenaOp(battle);
+  if (!u || !u.alive || u.hp >= u.s.maxHp * KEEP_OP) return false;
+  u.hp = u.s.maxHp;
+  return true;
 }
 
 /** The operator of the arena (its first deployed ally op), or null. */

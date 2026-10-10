@@ -4,9 +4,10 @@
 // and heard through the game's audio manager (audio.js handleBattleEvents: attack / impact / skill / kit-hit sounds and
 // the voice lines). Same event path as a match: what plays here is what plays in a battle.
 //
-//   const arena = await createArena(host, { onEvents(ev, gt), onRestart(battle) })
+//   const arena = await createArena(host, { onEvents(ev, gt), onRestart(battle), onKeepOp(gt) })
 //   arena.start(cfg)        a new battle (cfg: js/debug/sandbag.js createSandbagBattle + `terrain`, `hurt()` = the
-//                           injured-ally option, hurtOp every HURT.every s); the camera frames the island; a new terrain
+//                           injured-ally option, hurtOp every HURT.every s; `keepOp()` = the operator-stands option,
+//                           keepOp after every step); the camera frames the island; a new terrain
 //                           rebuilds the board
 //   arena.setPaused(bool) · arena.setSpeed(x) (game speed: 1 = 30 ticks per second) · arena.stepOnce(seconds)
 //   arena.op() / arena.bags() / arena.battle()     the live sim units (read-only use)
@@ -17,7 +18,7 @@ import { createFieldView } from '../render/app.js';
 import { data } from '../data.js';
 import { assets } from '../assets.js';
 import { audio, installAudio } from '../audio.js';
-import { ARENA, SIM_DATA_FILES, HURT, arenaStage, createSandbagBattle, arenaOp, arenaBags, keepSandbags, reviveSandbags, hurtOp, fillSp, castNow, rangeTiles } from './sandbag.js';
+import { ARENA, SIM_DATA_FILES, HURT, arenaStage, createSandbagBattle, arenaOp, arenaBags, keepSandbags, reviveSandbags, hurtOp, keepOp, fillSp, castNow, rangeTiles } from './sandbag.js';
 
 const TICK = 1 / 30;
 /** Data files the view reads (unit models / names, the board art manifest). */
@@ -58,6 +59,7 @@ export async function createArena(host, hooks = {}) {
   // heard: the audio manager knows this battle's units — it drops every event (spawns too) until the first gesture
   // unlocks it, so the units on the field are handed over then (audio.setFieldUnits)
   let battle = null, cfg = null, stageId = null, runs = 0, nextHurt = 0, heard = false;
+  let kept = false;   // keepOp healed the operator in the steps since the last emit
   let paused = false, speed = 1, acc = 0, last = 0, raf = 0, destroyed = false, range = false, rangeKey = '';
   const errors = [];
   const logger = makeLogger(errors);
@@ -75,6 +77,8 @@ export async function createArena(host, hooks = {}) {
       view.pushEvents({ t: 'b.ev', fieldId: battle.fieldId, gt, ev });
       audio.handleBattleEvents(ev);
     }
+    // logged after the blow that took the operator under KEEP_OP
+    if (kept) { kept = false; try { hooks.onKeepOp?.(gt); } catch (err) { console.warn('[arena] onKeepOp', err); } }
     view.pushSnapshot({ ...snap, t: 'b.snap', fieldId: battle.fieldId, gt });
     if (range) syncRange();
   }
@@ -84,6 +88,7 @@ export async function createArena(host, hooks = {}) {
     for (let i = 0; i < n; i++) {
       battle.step();
       keepSandbags(battle);
+      if (cfg.keepOp?.() && keepOp(battle)) kept = true;
       if (battle.time >= nextHurt && cfg.hurt?.()) { hurtOp(battle); nextHurt = battle.time + HURT.every; }
     }
     perf.ticks += n;

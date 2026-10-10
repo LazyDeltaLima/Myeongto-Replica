@@ -13,7 +13,7 @@ import { SIM_DATA_FILES as RUNNER_FILES } from '../public/js/battle/runner.js';
 import {
   ARENA, inArena, arenaStage, sandbagRecord, createSandbagBattle, arenaOp, arenaBags, keepSandbags, reviveSandbags,
   fillSp, castNow, rangeTiles, defaultBags, hurtOp, ownTokens, autoTokens, rangeOf, SIM_DATA_FILES, SANDBAG_DEFAULT, SANDBAG_HP, DEFAULT_OP,
-  BLOCK_OFFSET, HURT,
+  BLOCK_OFFSET, HURT, KEEP_OP, ISLAND_REACH, keepOp,
 } from '../public/js/debug/sandbag.js';
 
 const stages = JSON.parse(readFileSync(new URL('../data/stages.json', import.meta.url), 'utf8'));
@@ -142,6 +142,44 @@ describe('debug page sandbag arena (public/js/debug/sandbag.js)', () => {
     assert.equal(bag.blockedBy, arenaOp(b), 'blocked by the operator');
     assert.ok(ev.some((e) => e[0] === 'dmg' && e[1] === bag.id), 'hit');
     assert.deepEqual(b.errors, []);
+  });
+
+  test('attack option: the sandbag hits the operator from the next tile (unblocked), at its own ATK by default', () => {
+    const raw = ds.rawEnemy(SANDBAG_DEFAULT);
+    const r = sandbagRecord(raw, { attack: true });
+    assert.equal(r.applyWay, 'RANGED');
+    assert.equal(r.stats.atk, raw.stats.atk);
+    assert.equal(r.stats.rangeRadius, ISLAND_REACH);
+    assert.equal(r.proj, null, 'a melee enemy\'s blow flies no shot');
+    assert.equal(sandbagRecord(raw, { attack: true, atk: 50 }).stats.atk, 50);
+    const b = make({ bag: { attack: true } });
+    const ev = run(b, 8);
+    const op = arenaOp(b), bag = arenaBags(b)[0];
+    assert.equal(bag.blockedBy ?? null, null, 'nobody blocks it');
+    assert.ok(ev.some((e) => e[0] === 'atk' && e[1] === bag.id && e[2] === op.id), 'it attacks the operator');
+    assert.ok(ev.some((e) => e[0] === 'dmg' && e[1] === op.id && e[2] > 0), 'damage on the operator');
+    assert.deepEqual(b.errors, []);
+  });
+
+  test('attack option at a far corner: in reach anywhere on the island; keepOp heals the operator below KEEP_OP', () => {
+    // a blow of about 40% of the guard's HP (DEF 0 → ATK minus its DEF): the third one takes it under KEEP_OP
+    const probe = make();
+    probe.step();
+    const g = arenaOp(probe).s;
+    const b = make({ bag: { attack: true, atk: Math.round(g.maxHp * 0.4 + g.def) }, bags: [{ row: ARENA.r0, col: ARENA.c1 }], op: { row: ARENA.r1, col: ARENA.c0 } });
+    let kept = 0, hit = 0;
+    for (let i = 0; i < 30 * 15; i++) {
+      b.step();
+      keepSandbags(b);
+      if (keepOp(b)) kept++;
+      for (const e of b.drainEvents()) if (e[0] === 'dmg' && e[1] === arenaOp(b)?.id) hit++;
+    }
+    const op = arenaOp(b);
+    assert.ok(hit >= 2, 'hit across the island');
+    assert.ok(kept >= 1, 'kept standing');
+    assert.ok(op.alive);
+    op.hp = op.s.maxHp * KEEP_OP;
+    assert.equal(keepOp(b), false, 'not at the threshold');
   });
 
   test('hurtOp: a medic heals the injured operator; its HP stays above the floor before each blow', () => {

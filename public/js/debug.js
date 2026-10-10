@@ -6,7 +6,7 @@
 // back by the limiter / voice gate) and the data that is missing. The side panel keeps the per-operator sound / voice
 // files and every extracted official effect (played on the operator, hits on the sandbag).
 // URL: ?op=<charId>&elite=1&skill=<1-based>&module=<uniEquipId|none>&dir=<UP|RIGHT|DOWN|LEFT>&enemy=<key>&terrain=<flat|high>
-// &fx=<bundle>/<prefab> (played on the operator once it stands).
+// &attack=1 (the sandbags attack the operator) &fx=<bundle>/<prefab> (played on the operator once it stands).
 
 import { data } from './data.js';
 import { audio, kitHitKey, kitStartKey, normalAttackSfx } from './audio.js';
@@ -18,7 +18,7 @@ import { loadoutOptions } from '../../shared/protocol.js';
 import { diyRecord, diyTokenOwner } from '../../shared/diy.js';
 import { localDiyPool } from '../../shared/local-diy.js';
 import { createArena } from './debug/arena.js';
-import { TERRAINS, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, inArena, defaultBags, ownTokens, autoTokens, rangeOf } from './debug/sandbag.js';
+import { TERRAINS, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, KEEP_OP, inArena, defaultBags, ownTokens, autoTokens, rangeOf } from './debug/sandbag.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
@@ -80,10 +80,11 @@ const st = {
   // bags: the sandbag tiles; autoBags = still the operator's default placement (defaultBags: follows its range / direction)
   opTile: { ...DEFAULT_OP }, bags: [], autoBags: true,
   enemyKey: enemies.some((e) => e.key === params.get('enemy')) ? params.get('enemy') : SANDBAG_DEFAULT,
-  bag: { def: 0, res: 0, atk: 0, fixed: true }, terrain: TERRAINS[params.get('terrain')] ? params.get('terrain') : 'flat',
+  // bag.attack: the sandbags attack the allies anywhere on the island (sandbag.js sandbagRecord)
+  bag: { def: 0, res: 0, atk: 0, fixed: true, attack: params.get('attack') === '1' }, terrain: TERRAINS[params.get('terrain')] ? params.get('terrain') : 'flat',
   // tokens: the operator's hand-placed pieces on the island ({ tokenId, row, col }); autoTokens = still the default placement
   tokens: [], autoTokens: true,
-  spAuto: true, hurt: false, place: 'op',
+  spAuto: true, hurt: false, keepOp: true, place: 'op',
 };
 let pendingFx = params.get('fx');
 
@@ -116,7 +117,7 @@ function battleConfig() {
   return {
     chessId, skillIndex: Number.isInteger(skill) ? skill : null, moduleId: module, diy,
     dir: st.dir, op: st.opTile, bags: st.bags, enemyKey: st.enemyKey, bag: { ...st.bag, hp: SANDBAG_HP }, terrain: st.terrain,
-    tokens: st.tokens, spAuto: () => st.spAuto, hurt: () => st.hurt,
+    tokens: st.tokens, spAuto: () => st.spAuto, hurt: () => st.hurt, keepOp: () => st.bag.attack && st.keepOp,
   };
 }
 function syncUrl() {
@@ -128,6 +129,7 @@ function syncUrl() {
   if (st.dir !== 'RIGHT') q.set('dir', st.dir);
   if (st.enemyKey !== SANDBAG_DEFAULT) q.set('enemy', st.enemyKey);
   if (st.terrain !== 'flat') q.set('terrain', st.terrain);
+  if (st.bag.attack) q.set('attack', '1');
   history.replaceState(null, '', `?${q}`);
 }
 
@@ -138,7 +140,7 @@ const infos = new Map();   // battle unit id → UnitInfo (spawn tuples)
 const told = new Set();    // missing-data notes already logged in this run
 let dmgTotal = 0, dmgHits = 0, dmgWin = [], t0 = null, lastGt = 0;
 try {
-  arena = await createArena($('field'), { onEvents, onRestart });
+  arena = await createArena($('field'), { onEvents, onRestart, onKeepOp: (gt) => log('dmg', 'skill', `♥ 오퍼레이터 버티기: 체력 ${Math.round(KEEP_OP * 100)}% 아래 → 가득 회복`, gt) });
 } catch (err) {
   arenaError = err;
   console.error('[debug] arena unavailable', err);
@@ -154,7 +156,7 @@ function onRestart(battle) {
   infos.clear(); told.clear();
   dmgTotal = 0; dmgHits = 0; dmgWin = []; t0 = null;
   const c = arena.config();
-  log('other', 'skill', `── 전투 시작: ${ko(st.op?.name)} ${c.chessId}${c.skillIndex != null ? ` S${c.skillIndex + 1}` : ''}${c.moduleId ? ` · ${c.moduleId}` : ''} · ${DIR_LABEL[c.dir]} · 샌드백 ${c.bags.length}× ${c.enemyKey} (${battle.fieldId})`);
+  log('other', 'skill', `── 전투 시작: ${ko(st.op?.name)} ${c.chessId}${c.skillIndex != null ? ` S${c.skillIndex + 1}` : ''}${c.moduleId ? ` · ${c.moduleId}` : ''} · ${DIR_LABEL[c.dir]} · 샌드백 ${c.bags.length}× ${c.enemyKey}${c.bag.attack ? ' (아군 공격)' : ''} (${battle.fieldId})`);
 }
 
 // ---- log ----------------------------------------------------------------------------------------------------------
@@ -242,6 +244,7 @@ function onEvents(ev, gt) {
         }
         break;
       }
+      case 'swing': log('atk', '', `↻ 휘두름 ${nm(e[1])} · 타격까지 ${(Number(e[2]) || 0).toFixed(2)}s${e[3] && e[3] !== 'none' ? ` [${e[3]}]` : ''}`); break;
       case 'dmg': {
         const t = info(e[1]);
         if (t && t.side === 'enemy') { dmgTotal += Number(e[2]) || 0; dmgHits++; dmgWin.push([gt, Number(e[2]) || 0]); }
@@ -272,33 +275,44 @@ function onEvents(ev, gt) {
 }
 
 // every sound and voice line the audio manager starts — or the limiter / voice gate holds back — goes to the log
-function soundLabel(key) {
-  const s = String(key ?? '');
-  let m;
-  if ((m = /^(\d+):attack$/.exec(s))) return `공격음 ${nm(+m[1])}`;
-  if ((m = /^h(\d+):hit$/.exec(s))) return `타격음 → ${nm(+m[1])}`;
-  if ((m = /^(\d+):boom:hit$/.exec(s))) return `소모 폭발음 ${nm(+m[1])}`;
-  if ((m = /^(\d+):skill$/.exec(s))) return `스킬음 ${nm(+m[1])}`;
-  if ((m = /^kit:(.+)$/.exec(s))) return `키트 타격음 ${m[1]}`;
-  if ((m = /^(\d+):die$/.exec(s)) || (m = /^die:(\d+)$/.exec(s))) return `퇴장음 ${nm(+m[1])}`;
-  if ((m = /^(\d+):born$/.exec(s))) return `배치음 ${nm(+m[1])}`;
-  if ((m = /^(\d+):atk$/.exec(s))) return `적 공격음(공용) ${nm(+m[1])}`;
-  if ((m = /^heal:(\d+)$/.exec(s))) return `치유음 ${nm(+m[1])}`;
-  if (s === 'deploy') return '배치음(공용)';
-  if (s.startsWith('b:')) return `전투음 ${s.slice(2)}`;
-  return s || '소리';
+/** A model's name from the units seen this run (a bank names the model — audio.js `_play` `bank`), else the model id. */
+function defName(def) {
+  for (const u of infos.values()) if (u.spine === def || u.defId === def) return ko(u.name);
+  return def;
 }
+/** The log label of a battle sound by its bank (audio.js: `${def}:attack|on|hit|die|born[:m<mode>]`, `${def}:skill:<n>`,
+ *  `${def}:a|s|d:<url>` cues, `${def}:x<n>:<k>` skill extras, `${def}:end:<n>`, `kit:<k>`, `b:<name>`). */
+function soundLabel(bank) {
+  const s = String(bank ?? '');
+  let m;
+  if ((m = /^kit:(.+)$/.exec(s))) return `키트 소리 ${m[1]}`;
+  if ((m = /^b:(born|die):(.+)$/.exec(s))) return `${m[1] === 'born' ? '배치음' : '퇴장음'}(공용 ${m[2]})`;
+  if (s.startsWith('b:')) return `전투음 ${s.slice(2)}`;
+  if (!(m = /^([^:]+):(.+)$/.exec(s))) return s || '소리';
+  const who = defName(m[1]), rest = m[2];
+  const mode = (x) => (x ? ` (모드 ${x})` : '');
+  let k;
+  if ((k = /^(attack|on|hit)(?::m(\d+))?$/.exec(rest))) return `${{ attack: '공격음', on: '공격 ON음', hit: '타격음' }[k[1]]} ${who}${mode(k[2])}`;
+  if ((k = /^skill:(\d*)$/.exec(rest))) return `스킬음 ${who}${k[1] ? ` S${+k[1] + 1}` : ''}`;
+  if ((k = /^([asd]):/.exec(rest))) return `${{ s: '휘두름음', a: '공격음', d: '타격음' }[k[1]]}(신호) ${who}`;
+  if ((k = /^x(\d+):(.+)$/.exec(rest))) return `S${+k[1] + 1} 추가음 ${k[2]} ${who}`;
+  if ((k = /^end:(\d+)$/.exec(rest))) return `S${+k[1] + 1} 종료음 ${who}`;
+  if (rest === 'die') return `퇴장음 ${who}`;
+  if (rest === 'born') return `배치음 ${who}`;
+  return `${who} ${rest}`;
+}
+// a limited sound plays only when its bank gives it a slot (audio.js SfxLimiter.acquire: null = at the cap, not popOldest)
 const rawPlay = audio._play.bind(audio);
-const rawTry = audio.limiter.tryAcquire.bind(audio.limiter);
+const rawAcquire = audio.limiter.acquire.bind(audio.limiter);
 let verdict = true;
-audio.limiter.tryAcquire = (...a) => (verdict = rawTry(...a));
+audio.limiter.acquire = (...a) => { const slot = rawAcquire(...a); verdict = !!slot; return slot; };
 audio._play = (url, o = {}) => {
   verdict = true;
   const r = rawPlay(url, o);
   if (o.limited || o.unitKey != null) {
     const ok = o.limited ? verdict : true;
     const vol = Number.isFinite(o.volume) ? ` · 볼륨 ${o.volume.toFixed(2)}` : '';
-    log('snd', ok ? 'snd' : 'blocked', `♪ ${soundLabel(o.unitKey)} ${file(url)}${vol}${ok ? '' : ' — 동시 재생 제한으로 생략'}`);
+    log('snd', ok ? 'snd' : 'blocked', `♪ ${soundLabel(o.bank ?? o.unitKey)} ${file(url)}${vol}${ok ? '' : ' — 동시 재생 제한으로 생략'}`);
   }
   return r;
 };
@@ -414,7 +428,12 @@ function renderDetail() {
   const numIn = (k, label, title) => el('label', { class: 'f', title }, label, el('input', { type: 'number', min: '0', step: '50', value: String(st.bag[k]),
     onchange: (ev) => { st.bag[k] = Math.max(0, Number(ev.target.value) || 0); restart(); } }));
   d.append(el('div', { class: 'row' },
-    numIn('def', '방어', `원래 ${raw?.stats?.def ?? '?'}`), numIn('res', '저항', `원래 ${raw?.stats?.res ?? '?'}`), numIn('atk', '공격', '0 = 공격하지 않음')));
+    numIn('def', '방어', `원래 ${raw?.stats?.def ?? '?'}`), numIn('res', '저항', `원래 ${raw?.stats?.res ?? '?'}`), numIn('atk', '공격', `0 = 공격하지 않음 (아군 공격을 켜면 원래 ${raw?.stats?.atk ?? '?'})`)));
+  d.append(el('div', { class: 'row' },
+    el('label', { class: 'f', title: '샌드백이 섬 어디에 있는 아군이든 공격합니다 (사거리 = 섬 전체). 끄면 공격력이 있어도 자기를 저지한 아군만 칩니다.' },
+      el('input', { type: 'checkbox', checked: st.bag.attack, onchange: (ev) => { st.bag.attack = ev.target.checked; restart(); } }), '아군 공격'),
+    el('label', { class: 'f', title: `체력이 ${Math.round(KEEP_OP * 100)}% 아래로 내려가면 가득 회복 (한 번에 그보다 큰 피해면 쓰러짐)` },
+      el('input', { type: 'checkbox', checked: st.keepOp, onchange: (ev) => { st.keepOp = ev.target.checked; } }), '오퍼레이터 버티기')));
   d.append(el('div', { class: 'row' },
     el('label', { class: 'f' }, el('input', { type: 'checkbox', checked: st.bag.fixed, onchange: (ev) => { st.bag.fixed = ev.target.checked; restart(); } }), '밀려나지 않음'),
     el('span', { class: 'muted' }, `체력 ${SANDBAG_HP.toExponential(0)} · 절반 아래면 회복 · 쓰러지면 재생성`)));
