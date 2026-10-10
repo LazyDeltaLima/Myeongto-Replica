@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Guidance for Claude Code (and other coding agents) working in this repository.
+Guidance for coding agents working in this repository (the human version is `CONTRIBUTING.md`).
 
 ## What this is
 
-**Myeongto-Replica**: a Korean-localised hard fork of **Stronghold Protocol**, an unofficial browser remake of Arknights 卫戍协议 (1–4 player co-op: Node ≥ 22 server + browser client, no bundler). Development branch `nas-local`; the public repo `LazyDeltaLima/Myeongto-Replica` receives it as `main`.
+**Myeongto-Replica**: a Korean-localised hard fork of **Stronghold Protocol**, an unofficial browser remake of Arknights 卫戍协议 (1–4 player co-op: Node ≥ 22 server + browser client, no bundler).
 
 Read first:
 - `docs/rules/`: our rules and their evidence, one file per domain (`sim`, `diy`, `ui`, `render`, `fx`, `audio`, `upstream`; guide in `README.md`; `docs/LOCAL-PATCH.md` is only an index for old 「LOCAL-PATCH.md 「section」」 references). Read `diy.md` **"새 선발 오퍼레이터 키트 체크리스트"** before touching a 선발(自选) operator kit and `README.md` **"테스트"** for the test baseline (0 failures).
@@ -53,9 +53,8 @@ Env vars: `SP_MAX_BOTS` (AI seats per room), `SP_DEBUG_PAGE=1` (`/debug.html` fx
 
 ## Working rules that bit us before
 
-- Unit tests passing via `battleHarness` is not enough: reproduce on the **real match path** (`test/match/harness.js` → `buildBattleSpec` → `createBattleFromSpec`) and in a browser for screen issues. State in a report whether something was verified by data or inferred.
-- `node --watch` misses changes under WSL and does not watch `data/`: after editing server/data files compare the server's start time with the file mtime and restart (`touch server/index.js` or manual) before testing.
-- Several agent sessions may work in this checkout at once: claim files with the other sessions first, `git add` only your own files, never rewrite a shared file whole (exact replacements only).
+- Unit tests passing via `battleHarness` is not enough: reproduce on the **real match path** (`test/match/harness.js` → `buildBattleSpec` → `createBattleFromSpec`) and in a browser for screen issues. Say in the pull request whether something was verified against data or inferred.
+- `node --watch` does not watch `data/`: restart the server after rebuilding data files before testing.
 - Effects (`fxgame.js`): loads are async (guard units that already died, `gone`), looping prefabs must be bound to an owner or cut by `until`, world-space trails must not follow a moving root (`followWorld`).
 - Before adding/editing a 선발 operator kit, walk the checklist in `docs/rules/diy.md` (targetable-only AoE via `canTargetEnemy`, `dealDamage` options, no invented stop conditions).
 - Before any rule change, read the owning `docs/design/` section and the official source; after a rule change update `docs/design/`, `docs/history/`, SIM/META/DATA as relevant (`test/docs-consistency.test.js` pins doc sentences), and record the rule or deviation with its evidence in the matching `docs/rules/<domain>.md`.
