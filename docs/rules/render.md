@@ -112,6 +112,39 @@
   공식 이펙트(월드 단위)는 바뀌지 않으므로 모델 대비 이펙트 크기도 공식에 가까워진다(첸 S3 용 머리가 몸에 가리던 것).
 - 확인: Chrome 디버그 아레나(m03)·game-mock 정비 화면 캡처, `unitview.test.js` 머리 높이 기대값 1.02.
 
+## 적 경로 미리보기 (2026-10-10, 관리자 결정 「공식 卫戍协议에서는 라운드 작전이 시작될 때 적 경로가 실제로 표시됐다」 → 공식대로)
+- 공식(클라 코드, EN 클라 il2cpp — 레벨 데이터 액션이 아니라 SPAWN 액션의 플래그):
+  - `Scheduler._DealAction`(RVA 0x629EE0): SPAWN 액션에 `autoPreviewRoute`(ActionData +0x35)가 있으면 PREVIEW_CURSOR(ActionType 1) 액션을 새로 만들어
+    같은 경로(`routeIndex`, `useExtraRoute` = 분기에서 왔는지)에 건다 — 시각 = SPAWN 시각(조각 preDelay + 액션 preDelay − 적 `delayToBorn`, 0 미만이면 0)
+    − 3초(.rdata 0x185D65030 = 3.0, `PREVIEW_CURSOR_PRE_DELAY`), `count` 2 · `interval` 0.3초(`PREVIEW_CURSOR_COUNT`·`_INTERVAL`) → 아이템 하나 = 커서 하나.
+  - 조각의 액션 큐는 시각순 정렬(`_DealFragment` MoveNext RVA 0x630740, `LegacySort`)되고 `DefaultWaveHandler.ExecuteActionQueue`(MoveNext RVA 0x62E0A0)가
+    「지금까지 지난 시각보다 늦으면 그만큼 기다렸다가」 실행 → 0 이하인 커서는 전투 시작에 바로(두 커서가 겹침).
+  - 실행: `Scheduler._DoPreviewCursor`(MoveNext RVA 0x632000, 커서를 만들고 바로 끝남 — 큐를 막지 않음) → `BattleController.CreatePreviewCursor`(RVA 0x3544C60):
+    경로의 이동 방식으로 `BattleFactory.CreatePreviewCursor`(WalkPreviewCursor/FlyPreviewCursor 프리팹) → `PreviewCursor.Spawn` → 이벤트 `ON_PREVIEW_CURSOR_SPAWND`(24).
+    커서는 한 번 달리고 끝(프리팹 `_times` 1) — 반복 없음.
+  - 卫戍协议: 라운드 액션은 서버가 보낸 적 목록으로 클라가 만든다(`AutoChessLevelEnemyManager.GenerateSelfBattleEnemyData` RVA 0x82F740,
+    `_GenerateActionFromEnemyInfo` RVA 0x8313F0, 보스전 `GenerateBossBattleEnemyData` RVA 0x82EAC0, 联防 `GenerateHelpBattleEnemyData` RVA 0x82EFC0):
+    적 한 마리 = 액션 하나(count 1), 레벨 액션(같은 actionIndex)마다 **처음 만든 액션만** 원래 액션의 `autoPreviewRoute`를 복사 → 표시된 레벨 액션마다
+    미리보기 한 번, 그 액션의 첫 유닛 3초 전. 플래그가 있는 레벨: 일반 라운드 `act1autochess_01·03–07·h01–h06`(액션 1–4개), `tr01`, 联防 2인 `escaped_multi`(7개);
+    `02`, 1인 `escaped_single`, 보스·숨겨진 핵심 템플릿(h07·h08, act2)은 없음 → 그 전투에는 커서가 없다. 웨이브 액션 종류는 51개 레벨 모두 SPAWN뿐이라
+    PREVIEW_CURSOR 액션·`ROUTE_SHOWN_INTERVAL`(1.2초, 다른 모드 `GameCityModeConsts`)은 卫戍协议과 무관.
+  - 핫픽스: en_US·zh_CN `DefinedFix.lua`에 `Scheduler`·`AutoChessLevelEnemyManager`·`BattleController.CreatePreviewCursor` 없음
+    (zh_CN `SchedulerHotfixer.lua`는 목록에 없는 꺼진 패치, DIALOG만).
+- 우리: `tools/build-data.mjs`가 `autoPreviewRoute`를 `data/waves.json spawns[i].previewRoute`로 옮기고, 스폰 명세는 레벨 액션을 `actionIndex`로 가리킨다
+  (`server/match/waves.js` — 현상금 유닛도 붙는 액션의 번호). `server/sim/routePreview.js routePreviewPlan(battle, spec)`: 표시된 액션마다 가장 이른 유닛의
+  시각 t·경로로 커서 `max(0, t − 3)`·`max(0, t − 2.7)`, 선은 그 경로를 이 전투의 격자에서 적이 걷는 길(`ai.js planLeg`와 같은 흐름장 사슬, 비행은 체크포인트 직선).
+  전투 상태를 읽기만 해서(흐름장은 격자 버전별 캐시·순수) 결정성·golden은 그대로 — 서버·프로토콜 변경 없음. 브라우저 `battle/runner.js`가 전투를 만든 직후
+  (첫 스텝 전) 한 번 계산해 m.field `routeCursors`로 넘기고 `render/fxroute.js createBattleCursors`가 전투 시계(게임 시간 — 배속이 커서도 빠르게)로 각 커서를
+  한 번 달린다(속도 8칸/초, 높이 0.3/1.2, 끝나면 트레일이 사라짐). 중간에 들어온 화면(관전·다시 그린 화면)은 이미 끝난 커서를 건너뛰고 달리는 중인 것은 그 자리부터.
+- 행동개시: 커서가 생길 때마다 `onSpawn` → `'routePreview'` → `screens/game.js`(자기가 낀 필드일 때만) → `voice.js voiceForRoutePreview` — `audio.md` 「오퍼레이터 음성」.
+- [추정] 남김: ① 플레이스홀더가 다른 이동 방식이라 유닛이 하나도 안 나오는 표시된 액션은 미리보기도 없음(클라가 그 액션을 안 만듦 — 클라 쪽 미리보기 계산
+  `_DoReplaceLevelDataClient` RVA 0x839FC0가 같은 LevelData의 isValid를 끄는 경우까지는 안 봄). ② 적 `delayToBorn`(프리팹 `_delayToBorn`, 0이 아닌 적 5종)은
+  우리 스폰 시각에 없으므로 커서도 SPAWN 시각 기준. ③ DISAPPEAR/APPEAR가 있는 경로에서 커서가 어떻게 가는지(보스 경로뿐이라 卫戍协议 일반 라운드엔 없음) —
+  선을 거기서 끊는다. ④ 전투의 0초 = 공식 웨이브·조각 시작(둘 다 preDelay 0).
+- 확인: `test/match/route-preview.test.js` — 데이터 표시, 커서 시각, 실제 매치 경로(4라운드 `act1autochess_04`: 액션 3 → 0·0.3초, 액션 0 → 9·9.3초)에서 적의 매 틱
+  위치가 미리보기 선에서 0.02칸 안, 계획을 읽은 전투와 안 읽은 전투가 매 틱 같음; 联防 1인/2인; 브라우저 커서(한 번씩, 늦게 들어온 화면).
+  화면 확인은 아직(메인 세션).
+
 ## 보스 경로 미리보기 (2026-10-08, 관리자 제보 → 관리자 요청 「실제 루트를 알 수 없으니 준비기간에 경로를 표시」)
 - 조사(공식 데이터): 걷는 보스는 가상적: 총(boss_2·9)과 루시안(boss_5)뿐(나머지는 自缚). 경로는 보스 레벨 파일의 체크포인트뿐이고
   (`level_act1autochess_h07_02`·`h08_02` route 6/0, `act2autochess_h07_05` route 8: 출발 (4,10) → 순찰 (3,9) → (2,3) → (5,9), 2인 복제본 (3,11) → (2,17) → (5,11);
@@ -130,7 +163,8 @@
   + 가는 가산 트레일(0.5초, 폭 0.1) + 불티(`lizi`); `weiyi` 노드의 파티클은 방출·렌더러가 꺼진 운반 노드(데이터). 보스 구역 준비 카메라에서 지도자가 보일 때만
   경로마다 커서를 달리고, 끝나면 0.5초 + `ROUTE_GAP_S` 1.5초 뒤 다시 — **공식에 없는 관리자 편의 기능**(관리자 말 2026-10-10: 보스 준비 화면의 경로 표시는
   공식이 아니라 관리자가 원한 기능)이라 간격은 우리 값이고 맞출 공식 값이 없다(디컴파일 2026-10-10: `ROUTE_SHOWN_INTERVAL` 1.2는 다른 게임 모드
-  `GameCityModeConsts`의 C# 상수, 일반 스테이지의 커서는 `Scheduler` `PREVIEW_CURSOR_COUNT` 2·`_INTERVAL` 0.3초 — 참고값). 커서 프리팹·속도·높이만 공식 것. 공식 이펙트를 못 쓰면(품질 낮음·미추출·WebP 없음)
+  `GameCityModeConsts`의 C# 상수, 공식 전투 시작 커서는 위 「적 경로 미리보기」 — 보스 템플릿에는 표시된 액션이 없다). 커서 프리팹·속도·높이만 공식 것.
+  행동개시 대사는 붙이지 않는다(관리자 결정 (2026-10-10): 「보스 경로 미리보기에는 행동개시 음성을 넣지 마」 — 공식 대사는 전투 시작 커서에만). 공식 이펙트를 못 쓰면(품질 낮음·미추출·WebP 없음)
   `render/fx.js`의 빨간 입자 꼬리로 같은 길을 달린다. `fxgame.js playFree` = 호출자가 움직이는 점에 붙는 자유 인스턴스(`alive()`로 clear·개수 상한 탈락 확인).
 - `fx_extract.py --pack` 버그: 의존 번들 중 같은 이름(`[pack]common.ab`)이 있으면 마지막 것을 본 번들로 잡아 루트 0개 → 이름이 맞는 **첫** 파일.
 - 경로 지도: `node tools/boss-route-map.mjs` → `.cache/boss-routes-<날짜>/index.html`(인자로 바꿀 수 있음; 전장 11개 × 총(최종 공세·숨겨진 핵심)·루시안, 2인 두 복제본,

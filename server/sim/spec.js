@@ -126,6 +126,10 @@ export function sanitizeUnitLoadout(u) {
 // installContent applies it to every Battle, however constructed); re-exported here for spec users.
 export { withUnitLoadouts };
 
+// routePreviewPlan(battle, spec) — the official route preview cursors of a battle's start (display only; the browser
+// runner reads it once per battle): server/sim/routePreview.js.
+export { routePreviewPlan } from './routePreview.js';
+
 /**
  * Construct the Battle a spec describes. The spec is deep-copied (one spec may build several battles: a display
  * replica, a takeover re-simulation, a verification run).

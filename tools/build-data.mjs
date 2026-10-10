@@ -2647,6 +2647,8 @@ function expandActions(groups, slots, bossKeys, label) {
       if (a.hiddenGroup) { e.hidden = true; e.hiddenGroup = a.hiddenGroup; }
       if (a.randomSpawnGroupKey) { e.group = a.randomSpawnGroupKey; e.pack = a.randomSpawnGroupPackKey; e.weight = a.weight; }
       if (a.isUnharmfulAndAlwaysCountAsKilled) e.unharmful = true;
+      // the client's route preview before the action's first unit (Scheduler._DealAction; docs/rules/render.md 「적 경로 미리보기」)
+      if (a.autoPreviewRoute) e.previewRoute = true;
       if (a.randomType && a.randomType !== 'ALWAYS') e.randomType = a.randomType;
       spawns.push(e);
       end = Math.max(end, time + Math.max(0, count - 1) * interval);

@@ -115,7 +115,7 @@ import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, cameraLayers, layerCamera, sidesOf, resumedWatch, followedScout } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
 import { data, localAsset, getMode } from '../data.js';
-import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRoutePreview } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept, 行动开始 on a route preview
+import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRoutePreview } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept, 行动开始 on a battle-start route preview cursor
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
@@ -752,9 +752,13 @@ function MatchScreen() {
     placedRef.current.delete(e.uid);
     if (Date.now() - at <= PLACE_VOICE_MS) voiceForPlace(e.unit, e.uid);
   }) : undefined), [view]);
-  // 2026-10-10, docs/rules/audio.md 「오퍼레이터 음성」: an enemy route preview cursor appeared (render/fxroute.js,
-  // the boss rounds' prep) → 行动开始 by an operator of the own board (voice.js voiceForRoutePreview)
-  useEffect(() => (view ? view.on('routePreview', () => {
+  // 2026-10-10, docs/rules/audio.md 「오퍼레이터 음성」: an official route preview cursor of the battle's start appeared
+  // (render/fxroute.js createBattleCursors) on a field of the player's own → 行动开始 by an operator of the own board
+  // (voice.js voiceForRoutePreview); a watched teammate's field stays silent. The boss-prep route preview (our feature)
+  // says nothing (관리자 결정 (2026-10-10)).
+  useEffect(() => (view ? view.on('routePreview', (e) => {
+    const f = live.current.field;
+    if (!f || (e?.fieldId != null && f.fieldId !== e.fieldId) || !Array.isArray(f.players) || !f.players.includes(live.current.myId)) return;
     const board = Array.isArray(live.current.priv?.board) ? live.current.priv.board : [];
     const ids = board.filter((p) => p && p.kind === 'chess').map((p) => { const r = ownShown(p.id); return r?.assets?.spine || r?.charId || null; });
     voiceForRoutePreview(ids);

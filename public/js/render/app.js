@@ -17,7 +17,8 @@
 //                                               promotion cue instead (render/promote.js, fx.promote)
 //   view.enterBattle(fieldMeta)                 m.field { fieldId, kind, rect, stageId, units: [UnitInfo] } — each
 //                                               unit through renderInfo(UnitInfo) (an enemy's `form`: a view built
-//                                               mid-battle starts in the current model form)
+//                                               mid-battle starts in the current model form); `routeCursors` (a local
+//                                               battle's official route preview, render/fxroute.js createBattleCursors)
 //   view.pushSnapshot(snap); view.pushEvents(ev | { ev, gt })  b.snap / b.ev wire frames as received (game time in
 //                                               `gt`; a numeric `t` is accepted for raw Battle snapshots / recordings)
 //                                               — 100 ms interpolation buffer; b.snap `down` keeps knocked-out
@@ -147,7 +148,7 @@ import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { t } from '../../../shared/i18n.js';
 import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
-import { createRouteCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」)
+import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」); the battle start's official one (render.md 「적 경로 미리보기」)
 
 export { ensurePixi } from './app/pixi.js';
 export { PEN_CAMERA_MS, LEADER_HIT_STYLE, DRAG_HOLD_TILES } from './app/tune.js';
@@ -360,10 +361,16 @@ export async function createFieldView(host, options = {}) {
   });
   setupCleanup.push(() => fx.destroy());
   ctx.fx = fx;
-  // the walking leader's route preview cursor in the boss-field prep (render/fxroute.js); without the official effect a
+  // the walking leader's route preview cursor in the boss-field prep (render/fxroute.js; our feature, not official — no voice
+  // line, 관리자 결정 (2026-10-10)); without the official effect a
   // trail of red motes
-  const routeCursors = createRouteCursors({ fxGame, heightAt, fallback: (x, y, z) => { const p = fx._proj(x, y, z); fx._mote(p.x, p.y, p.s, 0xff3a24, 0.45); }, onShow: () => emit('routePreview', {}) });
+  const routeMote = (x, y, z) => { const p = fx._proj(x, y, z); fx._mote(p.x, p.y, p.s, 0xff3a24, 0.45); };
+  const routeCursors = createRouteCursors({ fxGame, heightAt, fallback: routeMote });
   setupCleanup.push(() => routeCursors.clear());
+  // 관리자 결정 (2026-10-10): the official route preview cursors of a battle's start (m.field routeCursors, render/fxroute.js
+  // createBattleCursors); each spawn is the client's ON_PREVIEW_CURSOR_SPAWND → 'routePreview' (行动开始, screens/game.js)
+  const battleCursors = createBattleCursors({ fxGame, heightAt, fallback: routeMote, onSpawn: () => emit('routePreview', { fieldId: battleMeta?.fieldId ?? null }) });
+  setupCleanup.push(() => battleCursors.clear());
   // battle devices (crates / turrets as sim units): the official crate mesh in the 3D scene, else a Pixi box
   ctx.createBox = () => switchableBox({ board: () => board3d, pixi: () => tiles.createBox() });
   const impostors = new ImpostorAtlas(app.renderer);
@@ -970,6 +977,7 @@ export async function createFieldView(host, options = {}) {
     battleMeta = null;
     interp.reset();
     fx.clear(); fxGame.clear(); // local patch
+    battleCursors.clear();
     meleePending.clear();
     swingStrikes.clear();
     consumedIds.clear();
@@ -1459,6 +1467,7 @@ export async function createFieldView(host, options = {}) {
     // own preview, bounties excluded); a real battle empties the pen (the enemies are about to spawn)
     if (battleMeta.prep) setPenList(Array.isArray(meta.nextEnemies) ? meta.nextEnemies : (ownPen || []).filter((x) => x && x.source !== 'bounty' && x.source !== 'effect'));
     else setPenList(null);
+    battleCursors.load(battleMeta.prep ? null : meta.routeCursors);
     if (meta.stageId && (!stageRec || stageRec.id !== meta.stageId)) {
       const st = data.stage(meta.stageId);
       if (st) setStage(st);
@@ -1864,6 +1873,7 @@ export async function createFieldView(host, options = {}) {
           processEvents(renderT);
           syncBattle(renderT);
           windUpAttacks(renderT);
+          battleCursors.update(renderT);
         }
       } else if (mode === 'prep') {
         for (const [key, pd] of pending) {
@@ -2135,6 +2145,7 @@ export async function createFieldView(host, options = {}) {
       holdScene(false); // no scene any more: the quiet budget may free the skeletons (lobby / room / result)
       try { fx.destroy(); } catch { /* ignore */ }
       try { routeCursors.clear(); } catch { /* ignore */ }
+      try { battleCursors.clear(); } catch { /* ignore */ }
       try { fxGame.destroy(); } catch { /* ignore */ } // local patch
       try { tiles.destroy(); } catch { /* ignore */ }
       try { impostors.destroy(); } catch { /* ignore */ }

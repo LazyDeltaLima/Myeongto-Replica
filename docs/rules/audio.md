@@ -57,10 +57,13 @@
   - **행동개시**(ENCOUNTER_ENEMY): `VoicePlayer._OnPreviewCursorSpawn`(RVA 0xD7FA40) — **적 경로 미리보기 커서가 생길 때**: 처음은 바로, 그 뒤로는
     `BattleController.timeDeltaNoEnemy` ≥ `minTimeDeltaForEnemyEncounter`(3초)일 때만(`m_encounterFirstEnemyFlag`는 「이미 한 번 말함」 표시이고
     `OnGameReset`에서만 지워짐 — 게임당 1번이 아니다); 말하는 카드 = 무작위(직전 화자 `m_lastVocalCharData` 제외, `RandomUtil.UniformExceptIndex`),
-    실패하면 음성 질의 없이 한 번 더(무작위 카드). 우리: 경로 미리보기는 보스 라운드 정비에만 있다(`render/fxroute.js`) — 새 경로 미리보기가 시작될 때
-    (`onShow` → `render/app.js` 'routePreview' → `screens/game.js` → `voice.js voiceForRoutePreview`, 카드 = 자기 보드의 오퍼레이터 [추정: `m_cardDataList`는
-    덱 카드]), 적 없는 시간 = `audio.noEnemyMs`(적 처치·누수로 필드가 빈 뒤). 우리 커서는 1.5초마다 다시 달리지만(그 간격은 근거 없음, `render.md`) 행동개시는
-    새 미리보기의 첫 달리기에만 [추정]. 첫 교전(`engage`)에서는 더 이상 말하지 않는다(예전 2026-10-06 규칙 폐기).
+    실패하면 음성 질의 없이 한 번 더(무작위 카드). 우리(관리자 결정 (2026-10-10)): 전투 시작의 공식 경로 미리보기 커서(`render.md` 「적 경로 미리보기」 —
+    표시된 레벨 액션마다 2개, 첫 유닛 3초 전)가 생길 때마다(`render/fxroute.js createBattleCursors` `onSpawn` → `render/app.js` 'routePreview' →
+    `screens/game.js`, 자기가 낀 필드만 — 관전 중인 남의 필드는 조용 → `voice.js voiceForRoutePreview`, 카드 = 자기 보드의 오퍼레이터 [추정: `m_cardDataList`는
+    덱 카드]), 적 없는 시간 = `audio.noEnemyMs`(적 처치·누수로 필드가 빈 뒤 — 정비 동안 필드가 비어 있으므로 라운드 시작 커서는 보통 통과). 한 미리보기의 두 번째
+    커서(0.3초 뒤)는 첫 대사가 아직 나오는 중이라 같은 우선순위·겹침 불가로 게이트에서 버려진다. 라운드 시작 순간의 部署(20)는 행동개시(90)에 밀리고, 첫 전투의
+    行动出发(100)은 행동개시를 이긴다(요청 순서와 관계없이 우선순위대로). 보스 준비 화면의 경로 미리보기(우리 편의 기능)에는 대사가 없다(관리자 결정 (2026-10-10)).
+    첫 교전(`engage`)에서는 더 이상 말하지 않는다(예전 2026-10-06 규칙 폐기).
   - 작전중 대사는 1~4 중 무작위(`SKILL_CHARWORD_TYPES`, `_PlayVoice` 점프표). 스킬 대사 유형: `VoicePlayer._OnSkillCasted`(RVA 0xD7FF30) — 스킬 플래그
     `playCharWordWithPassiveType`이면 SP ≥ 10 → IMP, 아니면 NOR, 그 밖은 ACTIVE(우리 `skillVoiceType`는 skillType AUTO로 가름 — 보통 같음).
     `playCharWordVoice`가 거짓인 스킬은 무음(플래그 출처 미확인). 데이터의 `NORMAL_ATTACK`(5, 쿨다운 36000초, `_OnCharacterAtkOrCbt`)은 卫戍协议 연결이

@@ -23,7 +23,8 @@
 //     no card is fielded, so we say it at the match's first battle start (it outranks that battle's 部署).
 //   * 行动开始 (ENCOUNTER_ENEMY): VoicePlayer._OnPreviewCursorSpawn (RVA 0xD7FA40) — when an enemy route preview cursor
 //     appears: the first time at once, later only after ≥ minTimeDeltaForEnemyEncounter (3 s) without an enemy on the field;
-//     a random card (not the last one who said it). We have the cursor in the boss rounds' prep (render/fxroute.js).
+//     a random card (not the last one who said it). The cursors: the official preview of each battle's start
+//     (render/fxroute.js createBattleCursors, 2 per marked level action, 3 s before its first unit — Scheduler._DealAction).
 //   * 作战中: a random line of the operator's 作战中1-4 (SKILL_CHARWORD_TYPES), not the equipped skill's number.
 
 /** Official battle voice types (audio_data.json battleVoice.voiceTypeOptions); `cd` in ms. */

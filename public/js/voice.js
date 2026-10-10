@@ -11,13 +11,13 @@
 //   * The official scheduling (voicePolicy.js, owner 2026-10-06; client code 2026-10-10): no global gap, priority /
 //     same-priority overlap / cooldown per official voice type (shared by every operator, from the line's end), a random
 //     作战中; at each battle start a random own piece's 部署 (行动出发 once, at the match's first battle); 行动开始 when an
-//     enemy route preview cursor appears (voiceForRoutePreview).
+//     official route preview cursor of the battle's start appears (voiceForRoutePreview).
 //
 //   <VoiceSetting />           the settings row (ui/settings.js): language
 //   voiceForPiece(piece, shown) screens/game.js: a tapped board / bench piece (shown = the record it shows: 自选 / 补位)
 //   voiceForPlace(unit, uid)   screens/game.js: an operator the player placed from the bench on the board (部署)
 //   voiceForUnit(info, id)     screens/game.js: a tapped battle unit
-//   voiceForRoutePreview(ids)  screens/game.js: an enemy route preview cursor appeared (render/fxroute.js) → 行动开始
+//   voiceForRoutePreview(ids)  screens/game.js: a battle-start route preview cursor appeared (render/fxroute.js) → 行动开始
 //   holdResultVoice(line)      screens/game.js onResult: the own battle's 结算 line, kept instead of played
 //   playMatchEndVoice(res, me) screens/result.js: the kept line on a won settlement, if the player was not knocked out
 //
@@ -149,12 +149,13 @@ export function voiceForUnit(info, unitId = null) {
 }
 
 /**
- * An enemy route preview cursor appeared on the own prep board (render/fxroute.js onShow → screens/game.js): 行动开始 — the
- * client's VoicePlayer._OnPreviewCursorSpawn (RVA 0xD7FA40): the first time at once, later only after 3 s without an enemy
- * on the field (audio.noEnemyMs), said by a random card but the last one who said it; when that line cannot play, once
- * more by a random card (its retry without a voice query). [추정] the cards (m_cardDataList, the battle deck) = the
- * operators on the own board; the cursor = the first run of a new route preview (our cursor repeats its run, the client's
- * repeat interval is unknown — render.md 「보스 경로 미리보기」).
+ * An official route preview cursor of the battle's start appeared on a field of the player's own (render/fxroute.js
+ * createBattleCursors onSpawn → render/app.js 'routePreview' → screens/game.js): 行动开始 — the client's
+ * VoicePlayer._OnPreviewCursorSpawn (RVA 0xD7FA40), once per cursor spawn: the first time at once, later only after 3 s
+ * without an enemy on the field (audio.noEnemyMs), said by a random card but the last one who said it; when that line
+ * cannot play, once more by a random card (its retry without a voice query). [추정] the cards (m_cardDataList, the battle
+ * deck) = the operators on the own board. The boss-prep route preview (our feature) never calls this (관리자 결정
+ * (2026-10-10)).
  * @param {string[]} cards charIds of the own board's operators
  */
 export function voiceForRoutePreview(cards) {

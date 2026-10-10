@@ -599,6 +599,8 @@ export function createBattleRunner(deps) {
       effects: spectateEffects(e.spec, e.members),
       // which half each player holds (联防: the first helper takes the right half; boss pairs: L / R)
       sides: Object.fromEntries((e.spec.players || []).filter((p) => p && p.playerId).map((p) => [p.playerId, p.side === 'R' || Number(p.colOffset) >= 8 ? 'R' : 'L'])),
+      // the route preview cursors [{ t, motion, pts }] (render/fxroute.js createBattleCursors)
+      routeCursors: Array.isArray(e.cursors) ? e.cursors : [],
     };
     emit('field', field);
     try { store.patch('match', { field }); } catch { /* ignore */ }
@@ -657,7 +659,7 @@ export function createBattleRunner(deps) {
       battleId: msg.battleId, fieldId: msg.fieldId || msg.spec.fieldId, kind: msg.kind || msg.spec.kind, spec: msg.spec,
       // built by prepare(); `seq` = its latest b.start, `elapsed` = the field clock to start from, `endReason` = the first
       // forced / timeout b.end (applied once the Battle exists), `ready` = the preparation (a promise)
-      sim: null, battle: null, meter: null, seq, elapsed: Number(msg.elapsed) || 0, endReason: null, ready: null,
+      sim: null, battle: null, meter: null, cursors: null, seq, elapsed: Number(msg.elapsed) || 0, endReason: null, ready: null,
       authoritative: !!msg.authoritative, watch: !!msg.watch, own: !msg.watch, speed,
       members: (msg.spec.players || []).map((p) => p && p.playerId).filter(Boolean),
       t0: null, lastProgressAt: -Infinity, done: false, resultSent: false,
@@ -707,6 +709,9 @@ export function createBattleRunner(deps) {
       stats.battles++;
       e.sim = sim;
       e.battle = battle;
+      // the official route preview cursors of the battle's start (display only, read before the first step: the lines
+      // follow the grid as it stands then — /sim/routePreview.js, docs/rules/render.md 「적 경로 미리보기」)
+      try { e.cursors = typeof sim.spec.routePreviewPlan === 'function' ? sim.spec.routePreviewPlan(battle, e.spec) : null; } catch { e.cursors = null; }
       e.meter = sim.spec.attachLpMeter(battle);
       e.t0 = clock() - (e.elapsed / e.speed) * 1000;
       if (lastPool && battle.sharedBoss && typeof battle.sharedBoss.sync === 'function') {
