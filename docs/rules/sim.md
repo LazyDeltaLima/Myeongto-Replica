@@ -35,7 +35,9 @@
   서버가 보스전을 끝낸다(관리자 결정의 감소 시작과도 맞음). 로컬: `gamedata.js bossOvertimeWindowReal(r)`(`rounds[r].bossOvertimeAfter`, 150) ·
   `bossOvertimeDue(gt, start, window)`가 감소를 150초분(최대 150 LP)에서 멈추고, `match/bossRounds.js _applyOvertime`이 그때 `overtimeOver`를 세워
   보스 필드를 팀 생명 0 때처럼 강제 종료(`_bossTick` / `_checkFinalEnd` → 'forced') — 리더가 서 있으니 패배(隐秘核心이면 그 판은 「미격파」). 강제 종료 때
-  공식 서버가 무엇으로 셈하는지는 서버 로직이라 클라에 없다 [추정: 패배]. 팀 생명이 150 이하이면 전과 차이 없음. 핫픽스 없음.
+  공식 서버가 무엇으로 셈하는지는 서버 로직이라 클라에 없다 — 패배로 둔다(**관리자 결정 2026-10-10**: 어떤 전략으로도 팀 생명 합이 150을 넘을
+  수 없어 실제 판에서는 강제 종료 전에 생명이 먼저 0이 된다; 상한은 생명 부스트 같은 디버그·테스트 판에서만 닿는다). 팀 생명이 150 이하이면 전과 차이
+  없음. 핫픽스 없음.
 - 테스트: `test/match/finalAssault.test.js` 「overtime」, `test/match/clientCombat.test.js` 「Final Assault: leaks…」, `test/docs-consistency.test.js`.
   골든 `matches` 3개(보스전 생명) 갱신. 문서: design/geometry-time·match, META, DATA, SIM, PLAYING, BALANCE.
 - 미반영 (정리만, 관리자 2026-10-09): 공식은 보스전 진입 후 처음 약 6초를 오퍼레이터 배치 모션과 보스 등장 모션이 차지해 체감 전투 시간이 약 114초다.

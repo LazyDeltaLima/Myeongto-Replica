@@ -482,7 +482,8 @@ export class MatchBoss {
    * countdown (gamedata.js bossOvertimeStartReal / bossOvertimeDue), for the round's overtime window (bossTurnHpReduceTime
    * 150 real s, bossOvertimeWindowReal) — then `overtimeOver`: the boss fields are force-ended like at team LP 0 (client
    * code AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo: the countdown ends that long before the server's
-   * forced end of the state; what the official server scores then is server logic — here the leader stands, a defeat).
+   * forced end of the state; what the official server scores then is server logic — here the leader stands, a defeat,
+   * maintainer decision 2026-10-10: no strategy's team LP can exceed 150, so a real game's LP runs out first).
    */
   _applyOvertime(gt) {
     const start = this.overtimeStartReal ?? this.gd.bossOvertimeStartReal(this.round);
