@@ -657,3 +657,22 @@ export function enemySkillCues(audio, owner, entry, soundLeaf) {
   }
   return Object.keys(out).length ? out : null;
 }
+
+/**
+ * An enemy's attack sound sets of its prefab modes after mode 0 (`_modes` order, local-char-audio.json `modes`): { [n]: { cues,
+ * sel? } } for the modes whose set differs from mode 0's (`cues: []` = that mode attacks in silence — its signal has no bank,
+ * as for an operator's skill mode), null when none differs. The client switches modes in `Unit.SwitchMode` (RVA 0x76E1D0:
+ * InactiveMode → ActivateMode, no sound of its own); the mode's abilities then signal `<ability>.<n>` (UnitMode.GenerateSignalId).
+ */
+export function enemyModeSets(audio, owner, entry, soundLeaf, base = null) {
+  const n = Array.isArray(entry?.modes) ? entry.modes.length : 0;
+  if (n < 2) return null;
+  const same = JSON.stringify(base ?? soundSet(audio, owner, entry, 0, soundLeaf));
+  const out = {};
+  for (let i = 1; i < n; i++) {
+    const set = soundSet(audio, owner, entry, i, soundLeaf);
+    if (JSON.stringify(set) === same) continue;
+    out[String(i)] = set.sel ? { cues: set.cues, sel: set.sel } : { cues: set.cues };
+  }
+  return Object.keys(out).length ? out : null;
+}

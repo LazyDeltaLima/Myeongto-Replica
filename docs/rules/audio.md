@@ -248,15 +248,44 @@
     위셔델·토가와 사키코·라플란드 더 데카덴차·르무엔·스펙터 디 언체인드)은 빼고, 공격자마다 0.12초에 한 번 [추정: 지속 피해 틱은 공식 착탄 신호가 아님].
     공격자가 없는 `'dmg'`(옛 sim)는 예전처럼 「2.5초 안에 그 대상을 겨눈 'atk'」.
   - 지연 ÷ 배속: `audio.setGameSpeed(x)`가 있으면 그 값, 없으면 휘두름 → 첫 타격의 실제 간격으로 잰 값, 그것도 없으면 2 [추정].
-  - 스파인 이벤트: 렌더가 `audio.spineEvent(unitId, 이벤트)`를 부르면 그 소리. 부르기 전에는 스킬 k 중 타격마다 `Skill_<k>_<n>`을 차례로, 평소엔
-    `Attack_<n>`/`Attact_<n>`을 대신 낸다 [추정: 이벤트는 공격 클립 안이라 타격 근처].
-- 안 한 것(시점을 정확히 못 정함): 버프 소리(`ON_BUFF_START/TRIGGER/SHOW_EFFECT/FINISH` — 혼 과부하 공격음 등), 커스텀 트리거(티티·시빌라이트 에테르나·
-  아스카론 S2 폭발), 재능 능력·재능 투사체, 스킬 투사체의 BORN, 소환물의 스킬 모드, 혼 S2 `Full Burst`(`.Burst.n`), 스노우헌터 장전(`Reload` 자식 —
-  sim에 탄수 없음). `ON_SKILL_SPECIAL_POINT`는 수동으로 스킬을 끊을 때(`CastSkillWithLimitTimes.DiscardRemainingCountInternal` RVA 0x642560 —
+  - 스파인 이벤트 (2026-10-10 저녁): 공식은 `SpineAnimator._PlayBattleAudio`(RVA 0x3520A10)가 클립의 **모든** 이벤트에 신호 `<엔티티 id>.<이벤트 이름>`으로
+    `ON_SPINE_EVENT_TRIGGER`를 낸다(뱅크가 있는 것만 소리). 우리: `render/spine.js`의 AnimationState 리스너(`SpineActor.onEvent`) →
+    `render/units.js`(모델이 만들어지면 `spineEvent(id, null)`로 「이 유닛은 이벤트를 보고함」을 먼저 알림) → `render/app.js` ctx `spineEvent`(전투 화면만,
+    정탐 보드·적 미리보기 제외) → `audio.spineEvent(unitId, 이벤트)`. 이벤트를 보고하는 유닛은 대체음이 없고, 모델이 없는 유닛(마름모·혼잡한 저품질 필드)만
+    스킬 k 중 타격마다 `Skill_<k>_<n>`을 차례로, 평소엔 `Attack_<n>`/`Attact_<n>`을 대신 낸다(유닛마다 — 예전에는 아무 이벤트 하나로 전체가 꺼졌다)
+    [추정: 대체음 시점 = 타격]. 적도 `spine`(신호 `battle.ON_SPINE_EVENT_TRIGGER.<적 id>.<이벤트>`, 변형 `_2`는 자기 id 먼저 — 14종).
+- 혼 S2 `Full Burst`(`attack.1.Burst.1–3`)는 **수동으로 끌 때** 남은 탄을 모두 쏘는 능력이다(skill_table skchr_horn_2: 「主动关闭时发射剩余全部弹药」) —
+  卫戍协议 자동 전투에는 수동 종료가 없어(`ON_SKILL_SPECIAL_POINT`와 같은 이유) 안 낸다.
+- 안 한 것: 재능 능력(크루스 더 킨 글린트·이그제큐터 디 엑스 포에데레 `T.1`, 노시스 `T.2` — 이그제큐터 디 엑스 포에데레의 추가 사격은 sim이 보통 공격
+  (`forceAttack`)으로 쏘아 평타 큐가 이미 나므로, 공식처럼 T.1 능력 소리로 바꾸려면 그 공격을 따로 알려야 함)·재능 투사체, 스킬 투사체의 BORN(kit 스킬 피해는
+  발사 순간 이벤트가 없음), 소환물의 스킬 모드(유동체 모드는 Recharge/Default/Melee/Range/Range_S2/Melee_S3 — 복제 형태와 뮤엘시스 스킬로 정해져 sim 형태와
+  잇지 않음), 스노우헌터 장전(`Reload` 자식 — sim에 탄수 없음), 아래 「버프·커스텀 트리거 소리」의 「안 한 것」. `ON_SKILL_SPECIAL_POINT`는 수동으로 스킬을 끊을 때(`CastSkillWithLimitTimes.DiscardRemainingCountInternal` RVA 0x642560 —
   `_canDiscardRemainingCount`, 그 밖에 `CastSkillWithSuspendable.TriggerSpecialAudioSignal`·`ToggleSkillWithEndAnimation.PlayBeginEffectAndAudio`)라
   卫戍协议에는 그 순간이 없다 — 안 낸다. 우리 sim의 영주(치우바이·라플란드 등)는 항상 원거리로 쏴서 근접 `combat` 소리는 실제로는 거의 안 난다(sim 쪽).
 - 확인: `test/local-patch-attack-signals.test.js` 13개(추출값, 공식 audio_data 위 `soundSet`, 매니페스트, 재생: 휘두름/타격/착탄·지연·근접·원거리·무음 모드·
-  스파인·공격자 계약·적 스킬, 실제 매치 경로 애쉬락 START가 타격보다 먼저). [브라우저 미확인]
+  스파인·공격자 계약·적 스킬, 실제 매치 경로 애쉬락 START가 타격보다 먼저) + 2026-10-10 저녁 10개(유닛별 스파인 대체음·렌더 연결(소스)·적 스파인,
+  적 모드, 버프·커스텀 트리거). [브라우저 미확인 — 마운틴 S2·S3 주먹, 파투스 평타 장전음이 실제 클립 이벤트에서 나는지 들어 볼 것]
+
+## 버프·커스텀 트리거 소리 (2026-10-10 저녁, 클라 코드 + EN 클라 버프 템플릿)
+- 공식: 버프가 붙을 때 `Entity.OnBuffStart`(RVA 0x35FCED0)가 그 버프의 `audioSignal`(빈 값이면 없음)로 `ON_BUFF_START`를 낸다(`OnBuffTrigger`·
+  `OnBuffShowEffect`/`AddBuffEffect`·`ON_BUFF_FINISH`도 같은 방식). `ON_CUSTOM_TRIGGER`는 버프 그래프의 `Action.Nodes.PlayAudio.Execute`(RVA 0xC500A0)와
+  투사체 동작(`CoolDownAfterHitBehaviour.OnTick` 등)이 낸다. 그래서 「언제」는 버프 템플릿(EN 클라 `buff_template_holder.ab`, 연구 메모
+  「공식 버프 템플릿 추출」)의 이벤트가 정한다. 소리는 `sfx.kit` 키(`tools/assets/kit-sfx.mjs`), 재생은 `public/js/audio.js signalAttackKey`/`signalFxKey`.
+  - 혼 S2·S3: `horn_s_<n>[signal_melee|signal_ranged]`의 `ON_ABILITY_SPELL_ON`(= 공격 판정 순간)마다 `[overload_mark]`가 있으면
+    `horn_s_<n>[overload][melee|ranged].attack`, 없으면 `[normal]…`(audioSignal을 가진 즉시 버프) → 우리 'atk'(근접 = `none`)마다. 과부하 시작
+    `horn_s_<n>[overload_start]`은 sim fx `overload`(S3 = 지속시간 절반, S2 = 탄 절반 [ASSUMED, kit]); 과부하는 스킬 끝에 풀림.
+  - 락락 S2: 과부하 시작 `rockr_overload_start`(fx `overload`), 끝 `rockr_overload_finish`(`rockr_s_2[overload]`의 ON_BUFF_FINISH → 과부하 중 스킬이 끝날 때),
+    자기 공격 `rockr_s2_common_attack_start`/`_hit`(+`_overload`) → 'swing'/자기 대상 착탄 [추정: 버프 이름의 start/hit = 휘두름/착탄].
+  - 티티 S3: `titi_s_3[dmg_ticker]`가 깨어난 적에 PlayAudio `titi_s_3[awake]` → sim fx `wake`(적 id; 글래디아 등 아군이 자기 id로 내는 `wake`는 아님).
+  - 아스카론 S2: `ascln_s_2[enemy]`의 `ON_OWNER_KILLED`(그 효과를 단 적이 처치됨) → PlayAudio `ASCLN_S_2_BOMB`(그녀 위치) → **새 sim 이벤트**
+    `['fx', 'kitHit', x, y, { id: 아스카론, k: 'ascln:s2bomb' }]`(`op-ascln.js`, 처치된 적이 그녀 범위 안일 때 — 기존 확산 조건과 같음; `docs/SIM.md`).
+- 안 한 것 [시점·조건을 sim에서 못 얻음]: 티티 `titi_s_3[spread_from]`(연쇄 수면 선 — sim 이벤트 없음)·재능 `titi_t_1`(잠든 적 틱), 시빌라이트 에테르나
+  재능 미진 재생성 `projectile_chr_cetsyr_talent[_s1|_s2]_cooldown_ready`(재생성 순간 이벤트가 없음 — 로스터 kit라 이벤트를 넣으면 golden이 넓게 바뀜),
+  위셔델 `WISDEL_S_OVERLOAD`·`WISDEL_S3_MARK`, 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트
+  S2·S3, 쏜즈 더 로드스타·틴맨·프라마닉스 더 프레리타·페페·아코르트·엔텔레키아·르무엔(`lemuen_attack_end_audio`·`s3_audio_triggered`) 등
+  (관리자 메모 「오퍼레이터 효과음」 조사의 H·I 묶음), 적 버프·커스텀 트리거(적 91·122개 뱅크 — 적 스킬처럼 sim이 그 순간을 알려야 함).
+- 확인: `test/local-patch-attack-signals.test.js` 「buff and custom-trigger sounds」(표·혼 S3·락락 S2·티티·실제 매치 경로 아스카론 S2).
+  [브라우저 미확인 — 혼 S3 과부하 후 공격음이 바뀌는지 들어 볼 것]
 
 ## 적 소리 (2026-10-10, 위 「공격 소리 신호」와 같은 규칙)
 - 평타: 적 프리팹 모드 0의 신호(`battle/enm_pfb_*.ab`, `_2` 변형은 기본 id 프리팹) — 예전 `pickUnitSfx`가 다른 모드·능력 뱅크를 먼저 집던 3종이
@@ -265,7 +294,12 @@
   '염의 가호' 등). '염의 가호'의 모드 0은 START 뱅크가 없어 휘두름이 무음이다(공식).
 - 스킬: `sfx.units[id].sk[능력 이름 소문자]` = 그 능력(`Skills/<이름>`) 뱅크 + 투사체 소리. sim이 적 스킬 시전에 `fx 'enemySkill' { id, ability }`를 내면
   START·ON·BORN을 내고, 3초 안의 그 적의 공격 없는 피해에 HIT·REACH(`_skillImpact`).
-- 안 한 것: 적 모드 전환(`phase` — 우리 sim의 형태가 공식 모드 번호와 이어지지 않음), 적 버프·커스텀 트리거·스파인 이벤트 소리, `ON_BOSS_ENTER`(우리 보스엔 뱅크 없음).
+- 모드 전환 (2026-10-10 저녁): 공식 `Unit.SwitchMode`(RVA 0x76E1D0)는 이전 모드 `InactiveMode`·새 모드 `ActivateMode`(능력 Detach/Attach)뿐 자기 소리가
+  없다(적 뱅크에 모드 전환 이벤트도 없음). 바뀌는 것은 그 모드 능력의 신호(`<능력>.<모드 번호>`, `UnitMode.GenerateSignalId`)와 전환 클립의 스파인 이벤트다.
+  → plan이 적의 모드 1 이후 공격 신호를 `sfx.units[id].em[n] = { cues, sel? }`로(모드 0과 같으면 생략, 뱅크 없으면 `cues: []` = 그 모드 공격은 무음 — 37종),
+  렌더가 공식 모드가 바뀐 것을 보면 `audio.enemyMode(unitId, defId, 모드 번호, 이전 번호)`(fx 담당 계약) → 그 뒤 공격은 그 모드의 큐. 모드 번호 = 프리팹
+  `_modes` 순서(local-char-audio.json `modes`) [추정: 렌더의 모드 판정이 같은 번호를 준다]. 확인: `test/local-patch-attack-signals.test.js` 「enemy modes」(직접 호출).
+- 안 한 것: 적 버프·커스텀 트리거 소리(위 「버프·커스텀 트리거 소리」), `ON_BOSS_ENTER`(우리 보스엔 뱅크 없음). 적 스파인 이벤트는 위 「공격 소리 신호」의 스파인 이벤트로 남.
 
 ## 작전 종료 효과음 (2026-10-07)
 - 관리자 제보: 공식 효과음 3개는 이미 웹 매니페스트에 있었다(`sfx.ui.battleOverReduce` / `battleOverNoReduce` /

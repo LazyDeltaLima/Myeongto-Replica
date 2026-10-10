@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -583,9 +583,15 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       const set = soundSet(audio, owner, ea, 0, soundLeaf);
       if (set.cues.length) u.cues = set.cues;
       if (set.sel) u.sel = set.sel;
+      // its other modes' attack signals (`em[n]`, public/js/audio.js enemyMode: the renderer reports the official mode)
+      const em = enemyModeSets(audio, owner, ea, soundLeaf, set);
+      if (em) u.em = em;
       const sk = enemySkillCues(audio, owner, ea, soundLeaf);
       if (sk) u.sk = sk;
     }
+    // its Spine clip events' sounds (battle.ON_SPINE_EVENT_TRIGGER.<entity id>.<event>: the variant's own id first)
+    const esp = spineCues(audio, id, soundLeaf) || (owner !== id ? spineCues(audio, owner, soundLeaf) : null);
+    if (esp) u.spine = esp;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 

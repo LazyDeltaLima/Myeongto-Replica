@@ -691,6 +691,13 @@ export class UnitView {
         actor.clipPerAttack = this.isEnemy;
         actor.fortressClips = FORTRESS_CLIPS[id] || null;
         actor.stanceSkills = STANCE_SKILLS[id] || null;
+        // its clip events go to the audio (render/app.js ctx.spineEvent); `null` first = this unit now has a model that
+        // reports them (the audio drops its stand-in for it)
+        if (this.ctx.spineEvent) {
+          const uid = this.info.id;
+          actor.onEvent = (name) => { if (!this.destroyed && actor === this.actor) this.ctx.spineEvent(uid, name); };
+          this.ctx.spineEvent(uid, null);
+        }
       } catch (err) {
         console.warn('[render] spine build failed', id, err?.message || err);
         this._releaseEntry(entry);

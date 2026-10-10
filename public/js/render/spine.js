@@ -159,6 +159,15 @@ export class SpineActor {
       if (orig) sp.createGraphics = (slot, att) => { const g = orig(slot, att); if (!this.clipOn && slot.clippingContainer) { slot.clippingContainer.mask = null; g.renderable = false; } return g; };
     }
     try { this.spine.stateData.defaultMix = 0.12; } catch { /* ignore */ }
+    /**
+     * Called with each Spine clip event's name as the clip reaches it (render/units.js → the audio's spineEvent: the
+     * client's SpineAnimator._PlayBattleAudio sounds battle.ON_SPINE_EVENT_TRIGGER.<id>.<event>, docs/rules/audio.md).
+     * @type {((name: string) => void)|null}
+     */
+    this.onEvent = null;
+    try {
+      this.spine.state.addListener({ event: (_entry, ev) => { const n = ev?.data?.name; if (n && this.onEvent) this.onEvent(n); } });
+    } catch { /* a runtime without listeners: no clip events */ }
     this.base = 'idle';
     this.mode = 'base';           // base | attack | skillBegin | deploy | die | stun | change
     this.endClip = null;          // setForm's closing clip, played as a change clip once the clock reaches endAt,

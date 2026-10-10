@@ -132,6 +132,36 @@ export function kitStartKey(fx, ex) {
   if (fx === 'summon' && ex.follower) return 'wang:thrown';
   return null;
 }
+/**
+ * 2026-10-10, docs/rules/audio.md 「버프·커스텀 트리거 소리」: the buff sound of tracked unit `su`'s attack moment `at` ('s' swing,
+ * 'a' strike, 'd' its impact; `melee` = a melee strike) — an sfx.kit key (tools/assets/kit-sfx.mjs) or null. 혼 S2 / S3: every
+ * strike sounds horn_s_<n>[overload|normal][melee|ranged].attack (buff template horn_s_<n>[signal_melee|signal_ranged], event
+ * ON_ABILITY_SPELL_ON); 락락 S2: rockr_s2_common_attack_start / _hit (+ _overload) at the swing / impact. `su.over` = the
+ * running skill's 过载 (sim fx 'overload', signalFxKey).
+ */
+export function signalAttackKey(su, at, melee) {
+  if (!su || !su.skillOn) return null;
+  if (su.def === 'char_4039_horn' && at === 'a' && (su.skillIndex === 1 || su.skillIndex === 2)) {
+    return `horn:${su.skillIndex + 1}:${su.over ? 'overload' : 'normal'}:${melee ? 'melee' : 'ranged'}`;
+  }
+  if (su.def === 'char_4040_rockr' && su.skillIndex === 1 && (at === 's' || at === 'd')) return `rockr:${at === 's' ? 'atk' : 'hit'}${su.over ? 'o' : ''}`;
+  return null;
+}
+/**
+ * 2026-10-10, docs/rules/audio.md 「버프·커스텀 트리거 소리」: the buff / custom-trigger sound a kit's fx stands for (an sfx.kit
+ * key) — the 过载 start of 혼 S2 / S3 (horn_s_<n>[overload_start]) and 락락 S2 (rockr_overload_start), 티티 S3's wake-up burst on
+ * an enemy (titi_s_3[awake]; 歌蕾蒂娅's own 'wake' names herself, no enemy).
+ */
+export function signalFxKey(fx, ex, unitOf) {
+  if (!ex || typeof ex !== 'object' || ex.id == null) return null;
+  const u = unitOf(ex.id);
+  if (fx === 'overload') {
+    if (u?.def === 'char_4039_horn' && (u.skillIndex === 1 || u.skillIndex === 2)) return `horn:${u.skillIndex + 1}:ovs`;
+    if (u?.def === 'char_4040_rockr') return 'rockr:ovs';
+  }
+  if (fx === 'wake' && u?.side === 'enemy') return 'titi:awake';
+  return null;
+}
 /** A 'dmg' later than this (real ms) after the attack aimed at the target is not that attack's impact. */
 const IMPACT_WINDOW_MS = 2500;
 /**
@@ -986,11 +1016,13 @@ export class AudioManager {
   _swingOf(su, kind, now, windup = 0) {
     const ue = this.getManifest()?.audio?.sfx?.units?.[su.def];
     const mode = su.skillOn ? su.skillIndex : null;
-    const set = cueSetOf(ue, mode);
+    // an enemy in another prefab mode (enemyMode): that mode's attack signals
+    const em = Number.isInteger(su.emode) && su.emode > 0 ? ue?.em?.[su.emode] : null;
+    const set = em && Array.isArray(em.cues) ? { cues: em.cues, sel: em.sel, mode: true } : cueSetOf(ue, mode);
     if (!set) return null;
     const melee = kind === 'none' || kind == null;
     const ab = cueAbility(set, melee);
-    const key = `${set.mode ? mode : 'd'}:${ab ?? ''}`;
+    const key = `${em ? `e${su.emode}` : set.mode ? mode : 'd'}:${ab ?? ''}`;
     const mem = ((su.vm ||= new Map()).get(key)) || {};
     su.vm.set(key, mem);
     const k = pickVariant(set.sel, ab, { melee, mem, random: this.random });
@@ -1023,12 +1055,13 @@ export class AudioManager {
   }
 
   /**
-   * Until the renderer reports the Spine clip events (spineEvent), a strike stands in for them [추정: the event sits in the attack
-   * clip, so it sounds near the strike]: during skill k the unit's `Skill_<k>_<n>` events in turn (마운틴 S2 / S3 punches — their
-   * mode signals have no bank), otherwise its `Attack_<n>` / `Attact_<n>` ones (파투스's reload).
+   * A unit whose model reports no Spine clip events (spineEvent: no model drawn — the fallback diamond, a crowded low-quality
+   * field, a renderer that does not report them) gets a strike in their place [추정: the event sits in the attack clip, so it
+   * sounds near the strike]: during skill k the unit's `Skill_<k>_<n>` events in turn (마운틴 S2 / S3 punches — their mode
+   * signals have no bank), otherwise its `Attack_<n>` / `Attact_<n>` ones (파투스's reload).
    */
   _spineStrike(su) {
-    if (this._spineWired) return;
+    if (su.spineLive) return;
     const sp = this.getManifest()?.audio?.sfx?.units?.[su.def]?.spine;
     if (!sp || typeof sp !== 'object') return;
     const re = su.skillOn && Number.isInteger(su.skillIndex) ? new RegExp(`^Skill_${su.skillIndex + 1}_\\d+$`) : /^Atta(c|ck)?t?_\d+$/i;
@@ -1049,14 +1082,40 @@ export class AudioManager {
 
   /**
    * A unit's spine-event sound (`sfx.units[def].spine[event]`, battle.ON_SPINE_EVENT_TRIGGER.<id>.<event> — 마운틴 S2 / S3
-   * punches, 파투스 reload): the renderer calls this when the unit's Spine clip reaches that event. Returns whether one played.
+   * punches, 파투스 reload, 필라에's shield): the renderer calls this when the unit's Spine clip reaches that event (render/spine.js
+   * onEvent; the client's SpineAnimator._PlayBattleAudio RVA 0x3520A10 sounds `<entity id>.<event name>` for every event of
+   * the clip). `event` null = the unit's model is up and reports its events from now on (no strike stand-in, _spineStrike).
+   * Returns whether one played.
    */
   spineEvent(unitId, event) {
     try {
-      this._spineWired = true; // the renderer drives them: no strike stand-in (_spineStrike)
       const su = this.units.get(unitId);
-      const c = su ? this.getManifest()?.audio?.sfx?.units?.[su.def]?.spine?.[event] : null;
-      return c ? this._playCue(su.def, { ...c, at: 'a' }, false) : false;
+      if (!su) return false;
+      su.spineLive = true;
+      if (typeof event !== 'string' || !event) return false;
+      const c = this.getManifest()?.audio?.sfx?.units?.[su.def]?.spine?.[event];
+      return c ? this._playCue(su.def, { ...c, at: 'a' }, !!su.skillOn) : false;
+    } catch { return false; }
+  }
+
+  /**
+   * docs/rules/audio.md 「적 소리」: the renderer saw enemy `unitId` (model `defId`) switch to prefab mode `modeIndex` (the
+   * `_modes` order of its prefab, from `prevModeIndex`; render/fxgame.js — IMPL contract 「적 모드 전환」). Its attacks sound
+   * that mode's signals from now on (`sfx.units[def].em[mode]`, mode 0 = its Default cues). The client's switch
+   * (`Unit.SwitchMode` RVA 0x76E1D0 → InactiveMode / ActivateMode) sounds nothing of its own: the change clip's spine events
+   * (spineEvent) and the mode's abilities do. Returns whether the unit's attack sounds changed.
+   */
+  enemyMode(unitId, defId, modeIndex, prevModeIndex) {
+    try {
+      const su = this.units.get(unitId);
+      if (!su || su.side !== 'enemy' || !Number.isInteger(modeIndex) || modeIndex < 0) return false;
+      if (typeof defId === 'string' && defId && su.def !== defId && su.defId !== defId) return false;
+      const prev = Number.isInteger(su.emode) ? su.emode : Number.isInteger(prevModeIndex) ? prevModeIndex : 0;
+      su.emode = modeIndex;
+      if (prev === modeIndex) return false;
+      su.sw = null; su.vm = null; // a new mode run: its groups start over (a conditional group's first attack)
+      const em = this.getManifest()?.audio?.sfx?.units?.[su.def]?.em;
+      return !!(em?.[modeIndex] || em?.[prev]);
     } catch { return false; }
   }
 
@@ -1190,8 +1249,10 @@ export class AudioManager {
     if (!u || typeof u !== 'object' || u.id == null) return;
     // UnitInfo.spine is the model id (charId / tokenId / enemyId) — the key of sfx.units; kind/defId pick the
     // official class sounds (operator vs summon vs device)
+    const prev = this.units.get(u.id);
     this.units.set(u.id, { def: u.spine || u.defId, defId: u.defId ?? null, kind: u.kind ?? null, side: u.side, boss: !!u.boss,
-      skillIndex: Number.isInteger(u.skillIndex) ? u.skillIndex : null, ownerId: u.ownerId ?? null }); // ownerId (the battle start's own pieces)
+      skillIndex: Number.isInteger(u.skillIndex) ? u.skillIndex : null, ownerId: u.ownerId ?? null, // ownerId (the battle start's own pieces)
+      spineLive: !!prev?.spineLive && prev.def === (u.spine || u.defId) }); // its model still reports its clip events (spineEvent)
     if (u.side === 'enemy') this._enemyIn(u.id); // 2026-10-10: the time without an enemy (noEnemyMs)
   }
 
@@ -1246,6 +1307,18 @@ export class AudioManager {
     if (held?.length) this.handleBattleEvents(held);
   }
 
+  /**
+   * Play sfx.kit key `hk` (null = nothing) — its mixer group (sfx.kitGrp), its bank's popOldest (sfx.kitLimit), one bank per key.
+   * Returns whether the key has a sound.
+   */
+  _kitSound(hk) {
+    const sfx = hk ? this.getManifest()?.audio?.sfx : null;
+    const url = sfx?.kit?.[hk];
+    if (typeof url !== 'string') return false;
+    this._play(url, { volume: groupGain(sfx.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, bank: `kit:${hk}`, pop: sfx.kitLimit?.[hk] ?? null });
+    return true;
+  }
+
   /** local patch (maintainer report): play a dollkeeper switch's sounds (audioOfficial.js dollSwitchSfx) as sfx.kit keys. */
   _dollSwitch(id, ds) {
     const sfx = this.getManifest()?.audio?.sfx;
@@ -1284,6 +1357,9 @@ export class AudioManager {
           if (su) {
             su.skillOn = !!e[2];
             su.sw = null; su.vm = null; // 2026-10-10: a new mode run — its groups start over (a conditional group's first attack)
+            // 2026-10-10: its 过载 ends with the skill (락락: rockr_s_2[overload] ON_BUFF_FINISH → rockr_overload_finish)
+            if (su.over && su.def === 'char_4040_rockr') this._kitSound('rockr:ovf');
+            su.over = false;
             const ue = this.getManifest()?.audio?.sfx?.units?.[su.def];
             const loop = skillLoopOf(ue, su.skillIndex); // its looping bank (music, field)
             if (loop && e[2]) startSkillLoop(this, e[1], loop.url, loopGain(loop));
@@ -1312,6 +1388,7 @@ export class AudioManager {
           if (!su) continue;
           su.sw = this._swingOf(su, e[3], now, e[2]);
           if (su.sw) this._swingCues(su, su.sw, 's');
+          this._kitSound(signalAttackKey(su, 's', e[3] === 'none' || e[3] == null)); // 2026-10-10: its buff's swing sound
           continue;
         }
         if (kind === 'atk') {
@@ -1342,6 +1419,7 @@ export class AudioManager {
             if (!(open && src.lastAtkAt === now && sw.n > 0)) {
               this._swingCues(src, sw, 'a', sw.n++);
               this._spineStrike(src);
+              this._kitSound(signalAttackKey(src, 'a', e[3] === 'none' || e[3] == null)); // 2026-10-10: its buff's strike sound
             }
             src.lastAtkAt = now;
             if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now, mode, sw, id: e[1] });
@@ -1369,6 +1447,7 @@ export class AudioManager {
               au.lastImpactAt = now;
               if (sw) this._swingCues(au, sw, 'd', sw.h++);
               else this.unit(au.def, 'hit', `h${e[1]}`, undefined, own.mode);
+              if (own) this._kitSound(signalAttackKey(au, 'd', false)); // 2026-10-10: its buff's impact sound (its own target)
             } else this._skillImpact(au, now);
             continue;
           }
@@ -1503,11 +1582,10 @@ export class AudioManager {
           if (ds) this._dollSwitch(e[4].id, ds);
           // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
           // local patch (maintainer report 2026-10-07): the skill's going-off sound first (kitStartKey), then its impact
-          for (const hk of [kitStartKey(e[1], e[4]), kitHitKey(e[1], e[4], (id) => this.units.get(id))]) {
-            const hurl = hk ? this.getManifest()?.audio?.sfx?.kit?.[hk] : null;
-            if (typeof hurl === 'string') this._play(hurl, { volume: groupGain(this.getManifest()?.audio?.sfx?.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, bank: `kit:${hk}`,
-              pop: this.getManifest()?.audio?.sfx?.kitLimit?.[hk] ?? null }); // local patch: its mixer group; its bank's popOldest (sfx.kitLimit)
-          }
+          const unitOf = (id) => this.units.get(id);
+          // 2026-10-10: a 过载 starts — the running skill's attacks sound its overloaded buff banks from now (signalAttackKey)
+          if (e[1] === 'overload' && e[4]?.id != null) { const ou = unitOf(e[4].id); if (ou) ou.over = true; }
+          for (const hk of [kitStartKey(e[1], e[4]), kitHitKey(e[1], e[4], unitOf), signalFxKey(e[1], e[4], unitOf)]) this._kitSound(hk);
           // a summon used up by its own effect (香槟炸弹 exploding: `consumed`): its impact sound now, no death sound
           const ex = e[4];
           if (!ex || typeof ex !== 'object' || !ex.consumed || ex.id == null) continue;

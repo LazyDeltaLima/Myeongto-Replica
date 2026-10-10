@@ -1394,6 +1394,8 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `['heal', tgt, amount]`, `['skill', id, 1|0]`, `['engage', id]` (an ally's first attack that hits an enemy — upstream's
   行动开始 voice, DESIGN §21.30; the fork plays no 行动开始 / 行动出发 line at all — the official client has none in this mode, docs/rules/audio.md), `['die', id, reason]`, `['leak', id]`, `['status', id, key, 1|0]`,
   `['fx', kind, x, y, extra]` (`hitCap` `{ id, n }`: a leader's hit cancelled by 限伤 — the renderer draws nothing;
+  `kitHit` `{ id, k }`: a sound-only moment of a kit — `k` names the official bank (`sfx.kit[k]`, tools/assets/kit-sfx.mjs:
+  望 S1's DoT tick `wang:1`, 赤刃明霄陈 S3's 剑气 `chen3:s3`, 阿斯卡纶 S2's 死亡拘审 kill `ascln:s2bomb` — `id` = the operator);
   `enemySkill` `{ id, ability, n }`: an enemy's content skill is cast (`content/enemies.js onTick`, before its effects) — `ability` = the official
   ability name, the data skill's `prefabKey` (the client prefab's `Skills/<name>` — compare case-insensitively: `boomb` ↔ `Boomb`), `n` the cast count;
   nothing procedural is drawn; every fx the cast makes in the same call carries `extra.ability` (the same name) and `extra.caster` (the enemy's id)

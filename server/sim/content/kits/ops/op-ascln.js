@@ -145,6 +145,8 @@ function ascalon(bb, chess, def) {
           // (audit 2026-10-06) rangeKeys is an array — `.has?.` was undefined, so the spread never ran
           const inR = unit.rangeKeySet || new Set(unit.rangeKeys || []);
           if (!inR.has(Math.round(e.y) * COLS + Math.round(e.x))) return;
+          // its sound (docs/rules/audio.md 「버프·커스텀 트리거 소리」: the template's PlayAudio ASCLN_S_2_BOMB at her)
+          battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'ascln:s2bomb' });
           for (const v of battle.foesInRadius(e.x, e.y, num(bb.range_radius, 1.3), true)) {
             if (v !== e && !v.isFlying && canTargetEnemy(unit, v, ANY)) judge(battle, unit, v);
           }

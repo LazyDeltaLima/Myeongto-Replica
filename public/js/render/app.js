@@ -346,6 +346,9 @@ export async function createFieldView(host, options = {}) {
     viewport: () => vp,
     loadLevel: () => loadLevel,
     surfaceLayer: (row) => tiles.surfaceLayer(row),
+    // a battle unit's Spine clip event (render/spine.js onEvent; null = its model is up) → its official sound
+    // (audio.js spineEvent, docs/rules/audio.md 「공격 소리 신호」); not on a scouted prep board or the pen
+    spineEvent: (id, name) => { if (mode === 'battle' && !battleMeta?.prep) opts.audio?.spineEvent?.(id, name); },
   };
   const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim });
   setupCleanup.push(() => tiles.destroy());

@@ -9,9 +9,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { AudioManager } from '../public/js/audio.js';
+import { AudioManager, signalAttackKey, signalFxKey } from '../public/js/audio.js';
 import { pickVariant, cuesAt, cueFile, cueSetOf, cueAbility } from '../public/js/audioOfficial.js';
-import { signalBase, loadCharAudio, soundSet } from '../tools/assets/skill-mode-sfx.mjs';
+import { signalBase, loadCharAudio, soundSet, enemyModeSets, spineCues } from '../tools/assets/skill-mode-sfx.mjs';
+import { KIT_HIT_BANKS } from '../tools/assets/kit-sfx.mjs';
 import { indexAudio } from '../tools/assets/audio.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -224,5 +225,166 @@ describe('playing them (audio.js)', () => {
     while (b.time < 20 && !log.some((x) => x.f === 'p_imp_heavygun_n.mp3')) { b.step(); a.handleBattleEvents(b.drainEvents()); }
     const cast = log.find((x) => x.f === 'p_atk_heavygun_n_cast.mp3'), fire = log.find((x) => x.f === 'p_atk_heavygun_n.mp3');
     assert.ok(cast && fire && cast.t < fire.t, `애쉬락: START (cast) at the swing ${cast?.t}, ON at the strike ${fire?.t}`);
+  });
+});
+
+describe('spine events from the renderer (render/spine.js onEvent → audio.spineEvent, per unit)', () => {
+  test('a unit whose model reports its events loses the strike stand-in; another unit keeps it', () => {
+    const a = manager();
+    a.setFieldUnits([
+      { id: 1, kind: 'op', side: 'ally', spine: 'char_264_f12yin', defId: 'chess_x', skillIndex: 2 },
+      { id: 4, kind: 'op', side: 'ally', spine: 'char_264_f12yin', defId: 'chess_x', skillIndex: 2 },
+      { id: 2, kind: 'enemy', side: 'enemy', spine: 'enemy_1006_shield' },
+    ]);
+    a.handleBattleEvents([['skill', 1, 1], ['skill', 4, 1]]);
+    assert.equal(a.spineEvent(1, null), false, 'null = the model is up, nothing to play');
+    a.played.length = 0;
+    a.handleBattleEvents([['swing', 1, 0.3, 'none'], ['atk', 1, 2, 'none'], ['swing', 4, 0.3, 'none'], ['atk', 4, 2, 'none']]);
+    assert.deepEqual(a.played.map((p) => p.f), ['p_imp_tigerpunch_d_1.mp3'], 'only unit 4 (no model) gets the stand-in');
+    assert.equal(a.spineEvent(1, 'Skill_3_1'), true);
+    assert.equal(a.played.at(-1).f, 'p_imp_tigerpunch_d_1.mp3');
+    assert.equal(a.spineEvent(1, 'OnAttack'), false, 'an event without a bank is silent');
+    assert.equal(a.spineEvent(99, 'Skill_3_1'), false, 'an unknown unit');
+    // a redeploy's spawn of the same model keeps the flag (its view keeps reporting)
+    a.handleBattleEvents([['spawn', { id: 1, kind: 'op', side: 'ally', spine: 'char_264_f12yin', defId: 'chess_x', skillIndex: 2 }]]);
+    assert.equal(a.units.get(1).spineLive, true);
+  });
+
+  test('파투스 reload and 필라에 shield are spine events; enemies get theirs from the plan', () => {
+    for (const [id, ev] of [['char_430_fartth', 'Attact_1'], ['char_430_fartth', 'Skill_1'], ['char_4148_philae', 'philae_shield']]) assert.ok(UNITS[id].spine?.[ev]?.u, `${id} ${ev}`);
+    const en = Object.entries(UNITS).filter(([k, v]) => k.startsWith('enemy_') && v.spine);
+    assert.ok(en.length >= 10, `enemies with spine-event sounds: ${en.length}`);
+    const a = manager();
+    const [eid, ue] = en[0];
+    const ev = Object.keys(ue.spine)[0];
+    a.setFieldUnits([{ id: 7, kind: 'enemy', side: 'enemy', spine: eid }]);
+    assert.equal(a.spineEvent(7, ev), true);
+    assert.equal(a.played.at(-1).f, file(ue.spine[ev].u));
+  });
+
+  test('the renderer wiring (source): the Spine listener, the unit view, the field view context', () => {
+    const src = (f) => readFileSync(path.join(ROOT, 'public', 'js', 'render', f), 'utf8');
+    assert.match(src('spine.js'), /state\.addListener\(\{ event:/);
+    assert.match(src('units.js'), /actor\.onEvent = \(name\) =>/);
+    assert.match(src('units.js'), /this\.ctx\.spineEvent\(uid, null\)/);
+    assert.match(src('app.js'), /spineEvent: \(id, name\) => \{ if \(mode === 'battle' && !battleMeta\?\.prep\) opts\.audio\?\.spineEvent\?\.\(id, name\)/);
+  });
+});
+
+describe('enemy modes (audio.enemyMode — the renderer reports the official prefab mode)', () => {
+  const CA = loadCharAudio(ROOT);
+  test('the plan: the other modes\' attack signals (em), a silent mode as cues []', { skip: !existsSync(OFFICIAL) && 'no .cache/gamedata' }, () => {
+    const audio = indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8')));
+    const leaf = (p) => `/x/${file(p[0])}`;
+    const n = Object.entries(UNITS).filter(([k, v]) => k.startsWith('enemy_') && v.em).length;
+    assert.ok(n >= 20, `enemies with mode sets: ${n}`);
+    assert.equal(enemyModeSets(audio, 'enemy_1006_shield', CA.enemy_1006_shield, leaf), null, 'one mode: none');
+    // every em set is a mode index of its prefab
+    for (const [k, v] of Object.entries(UNITS)) if (v.em) for (const i of Object.keys(v.em)) assert.ok(Number(i) > 0 && Number(i) < (CA[k] || CA[k.replace(/_\d+$/, '')]).modes.length, `${k} mode ${i}`);
+    assert.equal(spineCues(audio, 'enemy_1006_shield', leaf), null);
+  });
+
+  test('its attacks sound the reported mode; back to mode 0; an ally or an unknown unit is ignored', () => {
+    const [eid, ue] = Object.entries(UNITS).find(([k, v]) => k.startsWith('enemy_') && v.cues?.length && v.em && Object.values(v.em).some((m) => m.cues.length));
+    const [mi, mset] = Object.entries(ue.em).find(([, m]) => m.cues.length);
+    const a = manager();
+    a.setFieldUnits([{ id: 9, kind: 'enemy', side: 'enemy', spine: eid }, { id: 1, kind: 'op', side: 'ally', spine: 'char_102_texas' }]);
+    const strike = () => { a.played.length = 0; a.lastAttacker.clear(); a.handleBattleEvents([['swing', 9, 0.3, 'none'], ['atk', 9, 1, 'none'], ['dmg', 1, 10, 'phys', 0, 9]]); return a.played.map((p) => p.f); };
+    const base = strike();
+    assert.equal(a.enemyMode(9, eid, Number(mi), 0), true);
+    const moded = strike();
+    const want = mset.cues.filter((c) => !c.k || c.k === 1).map((c) => file(c.u));
+    for (const f of moded) assert.ok(want.includes(f) || mset.cues.some((c) => file(c.u) === f), `${eid} mode ${mi}: ${f}`);
+    assert.notDeepEqual(moded, base, `${eid}: mode ${mi} sounds its own set`);
+    assert.equal(a.enemyMode(9, eid, 0, Number(mi)), true);
+    assert.deepEqual(strike(), base, 'mode 0 again');
+    assert.equal(a.enemyMode(1, 'char_102_texas', 1, 0), false, 'an ally');
+    assert.equal(a.enemyMode(42, eid, 1, 0), false, 'an unknown unit');
+    assert.equal(a.enemyMode(9, 'enemy_other', 1, 0), false, 'another model');
+  });
+});
+
+describe('buff and custom-trigger sounds (EN client buff templates → sfx.kit)', () => {
+  test('the table: banks of the templates\' audio signals, each with a sound in the manifest', () => {
+    assert.equal(KIT_HIT_BANKS['horn:2:overload:melee'], 'battle.ON_BUFF_START.horn_s_2[overload][melee].attack');
+    assert.equal(KIT_HIT_BANKS['ascln:s2bomb'], 'battle.ON_CUSTOM_TRIGGER.ASCLN_S_2_BOMB');
+    for (const k of Object.keys(KIT_HIT_BANKS).filter((x) => /^(horn|rockr|titi|ascln):/.test(x))) assert.equal(typeof manifest.audio.sfx.kit[k], 'string', k);
+  });
+
+  test('혼 S3: every strike its normal / overload × melee / ranged buff sound; the overload start', () => {
+    assert.equal(signalAttackKey({ def: 'char_4039_horn', skillOn: false, skillIndex: 2 }, 'a', true), null, 'no skill: none');
+    assert.equal(signalAttackKey({ def: 'char_4039_horn', skillOn: true, skillIndex: 0 }, 'a', true), null, 'S1: none');
+    const a = manager();
+    field(a, 'char_4039_horn', 2);
+    a.handleBattleEvents([['skill', 1, 1]]);
+    a.played.length = 0;
+    a.handleBattleEvents([['swing', 1, 0.3, 'arrow'], ['atk', 1, 2, 'arrow']]);
+    assert.ok(a.played.some((p) => p.f === 'p_atk_blackcannon_s.mp3'), 'normal ranged');
+    a.played.length = 0;
+    a.handleBattleEvents([['fx', 'overload', 0, 0, { id: 1 }]]);
+    assert.deepEqual(a.played.map((p) => p.f), ['p_skill_blackcannonboost.mp3'], 'overload start');
+    a.played.length = 0;
+    a.handleBattleEvents([['swing', 1, 0.3, 'none'], ['atk', 1, 2, 'none']]);
+    assert.ok(a.played.some((p) => p.f === 'p_imp_blackshieldoverload_s.mp3'), 'overloaded melee');
+    a.handleBattleEvents([['skill', 1, 0]]);
+    assert.equal(a.units.get(1).over, false, 'the overload ends with the skill');
+  });
+
+  test('락락 S2: overload start / finish, her attack\'s start and hit (normal → overloaded)', () => {
+    const a = manager();
+    field(a, 'char_4040_rockr', 1);
+    a.handleBattleEvents([['skill', 1, 1]]);
+    a.played.length = 0;
+    a.handleBattleEvents([['swing', 1, 0.3, 'bolt'], ['atk', 1, 2, 'bolt'], ['dmg', 2, 50, 'arts', 0, 1]]);
+    for (const f of ['p_atk_elecwand_h.mp3', 'p_imp_elecwand_h.mp3']) assert.ok(a.played.some((p) => p.f === f), f);
+    a.handleBattleEvents([['fx', 'overload', 0, 0, { id: 1 }]]);
+    assert.ok(a.played.some((p) => p.f === 'p_skill_elecwandoverload.mp3'));
+    a.played.length = 0; a.lastAttacker.clear();
+    a.handleBattleEvents([['swing', 1, 0.3, 'bolt'], ['atk', 1, 2, 'bolt'], ['dmg', 2, 50, 'arts', 0, 1]]);
+    for (const f of ['p_atk_elecwand_s.mp3', 'p_imp_elecwand_s.mp3']) assert.ok(a.played.some((p) => p.f === f), f);
+    a.played.length = 0;
+    a.handleBattleEvents([['skill', 1, 0]]);
+    assert.ok(a.played.some((p) => p.f === 'p_skill_elecwanddizzy.mp3'), 'overload finish');
+  });
+
+  test('티티 S3 wake-up on an enemy; 글래디아\'s own wake is none', () => {
+    const units = new Map([[2, { def: 'enemy_1006_shield', side: 'enemy' }], [1, { def: 'char_4056_titi', side: 'ally' }]]);
+    assert.equal(signalFxKey('wake', { id: 2 }, (id) => units.get(id)), 'titi:awake');
+    assert.equal(signalFxKey('wake', { id: 1 }, (id) => units.get(id)), null);
+    const a = manager();
+    field(a, 'char_4056_titi', 2);
+    a.handleBattleEvents([['fx', 'wake', 0, 0, { id: 2, scale: 1.5 }]]);
+    assert.deepEqual(a.played.map((p) => p.f), ['p_imp_sdycrtlswk.mp3']);
+  });
+
+  test('real match path: 아스카론 S2 — an enemy killed in her range sends kitHit ascln:s2bomb (its sound)', async () => {
+    const { makeMatch } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const T6 = 'chess_char_6_diy1_a';
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T6]: { charId: 'char_4132_ascln', skillIndex: 1, uniEquipId: null } } }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+    h.toPrep(4);
+    const m = h.m, ps = h.ps('p_0');
+    ps.initDiyStock?.(new Set());
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    const w = ps.acquireChess(T6, { source: 'buy' });
+    const { legalTileFor } = await import('./match/harness.js');
+    const tile = legalTileFor(m, ps, T6);
+    assert.ok(m.handle('p_0', { t: 'g.move', uid: w.uid, to: { area: 'board', row: tile[0], col: tile[1] }, dir: 'RIGHT' }).ok);
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    b.start();
+    m.dispose?.();
+    const a = manager();
+    const ev = [];
+    while (!b.finished && b.time < 120 && !ev.some((e) => e[0] === 'fx' && e[1] === 'kitHit' && e[4]?.k === 'ascln:s2bomb')) { b.step(); const d = b.drainEvents(); ev.push(...d); }
+    const hit = ev.find((e) => e[0] === 'fx' && e[1] === 'kitHit' && e[4]?.k === 'ascln:s2bomb');
+    assert.ok(hit, 'a kill under her S2');
+    const u = b.allyUnits.find((x) => x.kind === 'op');
+    assert.equal(hit[4].id, u.id, 'at her');
+    a.setFieldUnits([]);
+    a.handleBattleEvents([hit]);
+    assert.deepEqual(a.played.map((p) => p.f), ['p_imp_smksndrtbf.mp3']);
   });
 });

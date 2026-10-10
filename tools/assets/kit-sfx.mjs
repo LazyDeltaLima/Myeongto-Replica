@@ -49,6 +49,26 @@ export const KIT_HIT_BANKS = Object.freeze({
   'ghost2:stand': 'battle.ON_BUFF_START.ghost2_switch2stand',
   'ghost2:standin': 'battle.ON_BUFF_SHOW_EFFECT.ghost2_standin[switch]',
   'ghost2:normal': 'battle.ON_BUFF_START.ghost2_switch2normal',
+  // 2026-10-10, docs/rules/audio.md 「버프·커스텀 트리거 소리」 (EN client buff templates; public/js/audio.js signalKeys):
+  // 혼 S2 / S3 — every strike (ON_ABILITY_SPELL_ON of horn_s_<n>[signal_melee|signal_ranged]) creates an IMMEDIATELY buff
+  // whose audioSignal is `horn_s_<n>[overload|normal][melee|ranged].attack` (overload = horn_s_<n>[overload_mark] on her);
+  // the overload's own start buff
+  ...Object.fromEntries([2, 3].flatMap((n) => ['normal', 'overload'].flatMap((o) => ['melee', 'ranged'].map((r) =>
+    [`horn:${n}:${o}:${r}`, `battle.ON_BUFF_START.horn_s_${n}[${o}][${r}].attack`])))),
+  'horn:2:ovs': 'battle.ON_BUFF_START.horn_s_2[overload_start]',
+  'horn:3:ovs': 'battle.ON_BUFF_START.horn_s_3[overload_start]',
+  // 락락 S2 — the overload's start / finish (rockr_s_2[overload] ON_BUFF_FINISH), her own attack's start and hit, normal or
+  // overloaded (rockr_s_2[attack_start_audio] / [attack_hit_audio] → rockr_s2_common_attack_*[_overload])
+  'rockr:ovs': 'battle.ON_BUFF_START.rockr_overload_start',
+  'rockr:ovf': 'battle.ON_BUFF_START.rockr_overload_finish',
+  'rockr:atk': 'battle.ON_BUFF_START.rockr_s2_common_attack_start',
+  'rockr:atko': 'battle.ON_BUFF_START.rockr_s2_common_attack_start_overload',
+  'rockr:hit': 'battle.ON_BUFF_START.rockr_s2_common_attack_hit',
+  'rockr:hito': 'battle.ON_BUFF_START.rockr_s2_common_attack_hit_overload',
+  // 티티 S3 — an enemy waking up (titi_s_3[dmg_ticker] → PlayAudio titi_s_3[awake] on it)
+  'titi:awake': 'battle.ON_CUSTOM_TRIGGER.titi_s_3[awake]',
+  // 아스카론 S2 — an enemy carrying ascln_s_2[enemy] killed (ON_OWNER_KILLED → PlayAudio ASCLN_S_2_BOMB at her)
+  'ascln:s2bomb': 'battle.ON_CUSTOM_TRIGGER.ASCLN_S_2_BOMB',
 });
 
 /**
