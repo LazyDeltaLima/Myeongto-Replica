@@ -211,7 +211,7 @@ export async function createFieldView(host, options = {}) {
     try { app.destroy(true, { children: true, texture: false, baseTexture: false }); }
     finally { canvas.remove(); }
   });
-  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null), grid: () => tiles.grid, enemyDef: (id) => data.enemy(id) }); // local patch
+  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null), grid: () => tiles.grid, enemyDef: (id) => data.enemy(id), audio: () => opts.audio || null, standIn: (k, x, y, ex) => fx.simFx(k, x, y, ex) }); // local patch; 2026-10-10: audio.enemyMode, staggered stand-ins
   setupCleanup.push(() => fxGame.destroy());
   canvas.style.display = 'block';
   canvas.style.width = '100%';
@@ -1649,7 +1649,8 @@ export async function createFieldView(host, options = {}) {
         if (v && v.alive) {
           v.die(e[2] === FORCED_EXIT || follower);
           if (follower) { v.dying = 1e-3; v.dieDur = 1e-3; }   // gone on the next frame
-          else if (showsDeathFx(v.info, used, e[2])) fx.death(v);
+          // 2026-10-10: an enemy whose official dead effect plays (fxgame.js ownsDeath) gets no procedural puff
+          else if (showsDeathFx(v.info, used, e[2]) && !fxGame.ownsDeath?.(v)) fx.death(v);
         }
         break;
       }

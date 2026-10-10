@@ -273,6 +273,12 @@ def buff(b):
         r['fx'] = b['overrideEffectKey']
     if b.get('audioSignal'):
         r['audio'] = b['audioSignal']
+    # its life (2026-10-10 — how long a buff's line effect stays): BuffData.lifeTimeType LIMITED = 1 → `lifeTime` s,
+    # IMMEDIATELY = 0 → 0 (it ends as it starts); INFINITY / CUSTOM: none
+    if b.get('lifeTimeType') == 1 and (b.get('lifeTime') or 0) > 0:
+        r['life'] = round(b['lifeTime'], 3)
+    elif b.get('lifeTimeType') == 0:
+        r['life'] = 0
     return r
 
 
@@ -481,7 +487,7 @@ def uniq(lst):
 
 def emit_part(abilities, projs):
     """{cast, opt, hit, aim?, dirs?, proj?, hitBuff?, attach?} of the abilities of one attack (or one skill)."""
-    cast, opt, hit, aim, dirs, attach, hit_buff = [], {}, [], [], [], [], []
+    cast, opt, hit, aim, dirs, attach, hit_buff, lines = [], {}, [], [], [], [], [], []
     proj = None
     for a in abilities:
         for em in a.get('castEffects') or []:
@@ -504,6 +510,11 @@ def emit_part(abilities, projs):
         # not the effects its nodes create later (a shield's break, a trap's end)
         for b in a.get('activeBuffs') or []:
             hit_buff += strs(b.get('fx')) or ((b.get('template') or {}).get('key') or [])
+            # 2026-10-10: its template's CreateLineEffect lines (from the buff's source to its owner, while the buff lasts —
+            # the line prefab's LineEffectEmitterDynamic `_buffKeyForFinish`): { fx, life? (the buff's lifeTime) }
+            for n in (b.get('template') or {}).get('line') or []:
+                if all(x['fx'] != n for x in lines):
+                    lines.append({'fx': n, **({'life': b['life']} if 'life' in b else {})})
         for p in a.get('projectiles') or []:
             if proj is None and p['key'] in projs:
                 pr = projs[p['key']]
@@ -514,6 +525,21 @@ def emit_part(abilities, projs):
                 for f in ('move', 'speed', 'raise', 'link', 'fallingTime'):
                     if f in pr:
                         proj[f] = pr[f]
+                # 2026-10-10: the sub-projectiles it places (`_subProjectileKey` …: 萨米的意志's 冰凌 projectile_enemy_smdeer leaves a
+                # projectile_enemy_smdeer_2 on each tile it passes) with their own effects and life
+                subs = []
+                for sk in pr.get('sub') or []:
+                    sp = projs.get(sk) or {}
+                    rec = {'key': sk}
+                    for f in ('trail', 'hit', 'reached', 'targetStart', 'start'):
+                        if sp.get(f):
+                            rec[f] = sp[f]
+                    if sp.get('lifeTime'):
+                        rec['life'] = sp['lifeTime']
+                    if all(x['key'] != sk for x in subs):
+                        subs.append(rec)
+                if subs:
+                    proj['sub'] = subs
     part = {'cast': uniq(cast), 'opt': opt, 'hit': uniq(hit)}
     if aim:
         part['aim'] = uniq(aim)
@@ -523,6 +549,8 @@ def emit_part(abilities, projs):
         part['attach'] = uniq(attach)
     if hit_buff:
         part['hitBuff'] = uniq(hit_buff)
+    if lines:
+        part['line'] = lines
     if proj:
         part['proj'] = proj
     return part
@@ -530,9 +558,13 @@ def emit_part(abilities, projs):
 
 def names_of_part(p):
     out = list(p.get('cast', [])) + list(p.get('hit', [])) + list(p.get('attach', [])) + list(p.get('hitBuff', []))
+    out += [x['fx'] for x in p.get('line', [])]
     pr = p.get('proj') or {}
     for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart'):
         out += pr.get(f, [])
+    for sp in pr.get('sub', []):
+        for f in ('trail', 'hit', 'reached', 'targetStart', 'start'):
+            out += sp.get(f, [])
     for d in p.get('dirs', []):
         out += [x for x in d['s'] if x]
     return out
@@ -577,6 +609,9 @@ def render_entry(r, projs):
     for k in ('startEffect', 'deadEffect'):
         if r.get(k):
             out['start' if k == 'startEffect' else 'dead'] = r[k]
+    # 2026-10-10, decompile check — client `Enemy.get_deadEffect` (RVA 0x730300, played by `DeadState._PlayAnimation`): the
+    # current mode's `_overrideDeadEffect`, else the root's `_deadEffect`, else common_enemy_die_01
+    out.setdefault('dead', 'common_enemy_die_01')
     skills = {}
     groups = defaultdict(list)
     for a in r['abilities']:
@@ -588,7 +623,7 @@ def render_entry(r, projs):
                      for x in (strs(b.get('fx')) or ((b.get('template') or {}).get('key') or [])))
         if buffs:
             part['buff'] = buffs
-        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj')):
+        if any(part.get(f) for f in ('cast', 'hit', 'attach', 'hitBuff', 'buff', 'proj', 'line')):
             part['anim'] = next((a['anim'] for a in lst if a.get('anim')), None)
             if part['anim'] is None:
                 del part['anim']

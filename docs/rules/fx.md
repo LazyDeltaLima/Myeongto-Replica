@@ -672,8 +672,8 @@
   공격의 ON_CAST_START 시전 이펙트(근접 타격 kind 'none' = `Combat` 능력, 사격 'enemy' = `Attack`), 'atk' → ON_SPELL_ON 것 + 투사체 `_mainEffect` 꼬리(마운트 점 →
   대상 hit 점, 비행 시간 = 거리 ÷ `data/enemies.json proj.speed`(폼별 `projModes`, sim이 그 속도로 날림; `proj` 없으면 sim 적 속도 10, `proj: null`·링크·즉발은 비행 없음), `_raiseHeight`면 호; 꼬리 없는 것·레이/링크형은 절차 구슬), 'dmg' →
   능력 hit 이펙트 + 투사체 `_effectsWhenHit`/`_effectsWhenReached`(≤ 2, `_useOwnerToTargetDirection`은 공격자 → 대상)와 대상에 거는 버프의 자기 이펙트 한 번 [추정: 버프
-  지속 동안 유지가 공식], 'spawn' → 시작 이펙트(모드 override 우선) + 「이펙트만 있는 버프」(템플릿 `empty`, 특성·CommonAbilities: 가상적: 갑주 `enemy_acstmk_buff_1` 등)
-  루프 [추정: 태어날 때 붙음], 'die' → 사망 이펙트(그 자리), 'leak' → 루프 끝. 시전 이펙트는 능력 재생 속도, 타격은 1.0(위). 모드가 바뀌면 이전 모드의 루프 시전
+  지속 동안 유지가 공식], 'spawn' → 시작 이펙트(루트 `_startEffect`만 — 아래 「모드 전환」) + 「이펙트만 있는 버프」(템플릿 `empty`, 특성·CommonAbilities: 가상적: 갑주 `enemy_acstmk_buff_1` 등)
+  루프 [추정: 태어날 때 붙음], 'die' → 사망 이펙트(그 자리; 아래 「사망 이펙트」), 'leak' → 루프 끝. 시전 이펙트는 능력 재생 속도, 타격은 1.0(위). 모드가 바뀌면 이전 모드의 루프 시전
   이펙트를 끈다(ON_DETACHED).
 - 'dmg'의 공격자: sim의 'dmg' 튜플 6번째 = 공격자 unit id(无来源이면 null, docs/SIM.md)를 읽는다 — 공격자가 있으면 마지막 공격의 주인이 다를 때 그 공격의 타격으로 치지 않고, 그 적의 능력이
   3초 안에 쓰였으면 그 능력의 hit 이펙트를 그린다. 없으면(예전 sim) 예전처럼 대상에 대한 마지막 공격.
@@ -682,6 +682,53 @@
   (공식 속도, 6초 넘는 비행은 안 그림)와 `_effectsToTargetWhenStart`. 그 능력을 바인딩한 적의 'fx'면 `standInOff`와 같은 종류(blast·zone·…)의 절차 대체물을 안
   그린다(`ownsFx`), `ownsSkill`은 스킬이 바인딩된 적의 금빛 기둥을 끈다(클라엔 없음). 또 모델이 바인딩된 스킬의 클립(`_animKey`: 'Revive', 'Skill_2' …, 공격 클립 제외)을
   시작하면 그 능력을 튼다(sim이 이름을 안 실어도 렌더가 보여 주는 그 순간; 같은 능력은 1초에 한 번).
-- 안 한 것: 버프 노드의 다른 이펙트(방패 깨짐·끝 이펙트), `CreateLineEffect`(가상적: 갑주 `enemy_acstmk_attack_line` — 출처 → 주인 선), 모드 전환 때의 `_overrideStartEffect`
-  (클라가 언제 쓰는지 안 읽음 — 태어날 때만 씀), 나오지 않는 적 82종의 이펙트(`--extract --all`), 소리(audio 담당). 화면 확인 없음.
-- 확인: `test/local-patch-fxspawn.test.js`(적이 바인딩한 muzzle/특수점 이펙트가 그 적의 점을 찾음 — 클라 데이터의 빈 곳 2개 목록), `test/render/enemy-fx.test.js`.
+- **콘텐츠 스킬 투사체** (2026-10-10 저녁): sim fx `enemyShot` { id, from?, tgt, key, move, speed, t }(`enemies/helpers.js shoot`, docs/SIM.md —
+  `kinds.js` 'none')을 `fxgame.js eshotFx`가 그린다: 투사체 `key`의 `_mainEffect` 꼬리를 쏜 적의 `_mountPointType` 점에서(연쇄·튕김처럼 다른 유닛에서
+  떠나는 홉은 그 유닛의 hit 점 [추정]) 대상 hit 점까지 sim의 비행 시간 `t` 동안(PARACURVE는 `_raiseHeight` 호, TRACE·FIXED_DIRECTION·HARPOON은 직선
+  [추정: HARPOON의 늘어나는 선은 꼬리로 그림]), 떠날 때 `_effectsToTargetWhenStart`, 닿을 때 `_effectsWhenHit`/`_effectsWhenReached`(한 번). 투사체
+  기록은 쏜 적의 바인딩에서, 없으면 모든 적의 바인딩에서 키로 찾는다. 닿는 순간(±0.6초)의 그 적 → 그 대상 'dmg'는 능력 자신의 hit만 그린다(투사체 것은
+  닿을 때 이미 — 겹침 방지). `t` 0(ATTACH·속도 없음)은 비행 없이 바로 닿음. 꼬리가 뽑혀 있으면 sim이 그 사격 직전에 내는 절차 대체 'beam'
+  (`SHOT_BEAMS`: 黑云 fireWeapon, 碎铳之簧 springBullet·springCombo, 管·弦 acdumlStrike·acdummStrike, 陷落雪祀 chainBuff)은 그리지 않는다
+  [추정: 꼬리가 MAX_TRAILS로 밀린 사격은 대체 beam도 없이 착탄 이펙트만].
+  지금 꼬리가 뽑혀 있는 것: 黑云 FireWeapon·碎铳之簧·管·弦. 凋零骑士·陷落雪祀·杰斯顿·迷路的巨像는 웨이브에 없어 안 뽑혀 있음(`--extract --all`이면 그려짐).
+  `shoot`을 안 거치는 콘텐츠 투사체(迷路的巨像 StunAttack·蚀裂 사망 구름·枯朽战车 秽蚀轰击)는 `enemyShot`이 없어 안 그림 — sim이 `shoot`으로 바꾸면
+  그대로 그려진다.
+  - 직선(FIXED_DIRECTION) 사격 — 重弩突袭者 直击(`enemies/helpers.js lineShot`, docs/rules/sim.md 「FIXED_DIRECTION 투사체」): `enemyShot`에 `dir` [dx, dy]
+    (보드 축: +x 오른쪽 열, +y 위 행)·`range`(타일)가 붙고 `tgt`/`t`는 예측한 첫 충돌(아무도 없으면 `tgt` null, `range` = 속도 × 수명). 꼬리는 쏜 점에서
+    `dir`로 `range`만큼 `t` 동안 직진(높이는 출발 높이 그대로 [추정]); 맞음 이펙트는 착탄 시각에 미리 그리지 않고 sim의 실제 'dmg'(그 능력의 hit + 투사체
+    hit, eskillHit)로.
+- **萨米的意志 冰凌** (2026-10-10 저녁, sim fx `column` { x, y, c, id, key, sub, r0, dir, speed, dist, life } — 타격 때 한 번, docs/rules/sim.md
+  「萨米的意志 冰凌」): `fxgame.js ecolumnFx`가 칸마다 그린다. 본 투사체 `projectile_enemy_smdeer`(`_mainEffect` 없음 — 있으면 열을 따라 그 꼬리)가 행 `r0`에서
+  `dir`로 `speed`에 내려가며 k·`dist` 칸에 하위 투사체 `projectile_enemy_smdeer_2`를 k·dist/speed 초에 놓는다 → 그 칸에 하위 투사체의 `_mainEffect`·
+  `_effectsWhenReached`(`enemy_smdeer_attack_01_hit`; AttachToTarget `_immediatelyReach`라 놓일 때 [추정: 닿음 이펙트가 놓이는 순간 남]). `_effectsWhenHit`은
+  그 칸 아군의 'dmg' 몫(지금 하위 투사체엔 없음). 하위 투사체 기록은 `enemy_bindings.py`가 렌더 표 `proj.sub` [{ key, trail?, hit?, reached?, life }]로 싣고
+  추출 대상에 넣는다. 공식 이펙트가 하나도 안 뽑혀 있으면 fx.js 절차 기둥을 칸마다 그 칸이 맞는 시각(k·dist/speed + `life`)에(`createFxLayer({ standIn })`
+  — 예전: 열 하나에 기둥 하나를 바로), 품질 'low'에서도. 그린 필드(`fieldRect`) 밖 칸은 건너뛰고 시각은 그대로. `r0` 없는 예전 모양의 `column`은 fx.js 그대로.
+  보스의 'swing'(kind `none`, 'atk' 없음)은 그 모드 원거리 부분의 ON_CAST_START 시전 이펙트(`enemy_smdeer_attack_01_range`·`_start`)를 그대로 튼다.
+- **버프의 선 이펙트(`CreateLineEffect`)** (2026-10-10 저녁): 클라 코드 `Nodes.CreateLineEffect.Execute`(RVA 0xB91190) — 이펙트를 `_targetType`(버프 주인)에
+  만들고 그 안의 `LineEffectEmitterDynamic`에 시작 주인 = `_sourceType`(버프 출처), 끝 주인 = 대상을 넣음; `LineEffectEmitterDynamic.Update`(0xCA0600) →
+  `_UpdateMountPoint`(0xCA26C0): 매 프레임 각 LineRenderer의 점 0 = 시작 주인의 `_startMountPointType` 점 + `_startPosOffset`, 점 1 = 끝 주인의
+  `_endMountPointType` 점 + `_endPosOffset`(`_tweenEndPosition`이면 `_tweenDuration` 동안 시작에서 보간), `_TryUpdateEffects`(0xCA1830)가 `_startEffect`/
+  `_endEffect`를 두 끝에 둠. 프리팹 값(`fx_extract.py line_dynamic` → 이펙트 JSON `lineDyn`): 가상적: 갑주 `enemy_acstmk_attack_line` = 시작 SPECIAL_0(눈),
+  끝 HIT, 시작 이펙트 `enemy_acstmk_attack_start`, `_finishIfBuffNotExists` + `_buffKeyForFinish` `acstmk_line_effect`, `Effect._delayToFinish` 0.5.
+  버프 `acstmk_line_effect`는 그 적의 `_activeBuffs`: 원거리 Attack = lifeTimeType LIMITED `lifeTime` 5, 근접 Combat = IMMEDIATELY(시작하자마자 끝 → 선이
+  번쩍하고 0.5초에 사라짐) — `enemy_bindings.py` 버프 기록 `life`(LIMITED 초, IMMEDIATELY 0), 렌더 표 `part.line` [{ fx, life? }]. 렌더(`fxgame.js
+  elineFx`/`stepLines`, `fxplayer.js FxInstance.setLine`): 그 공격이 대상을 맞히면('dmg') 선을 대상에 만들고 매 프레임 두 점을 다시 놓음; 버프 끝(마지막
+  타격 + `life`) → 0.5초 더 그린 뒤 멈춤(`_delayToFinish`), 대상 사망·출처가 사라짐 → 바로 끝; `life` 없음(무한) → 프리팹 길이 [추정]. [추정: 버프는 공격의 타격 때 붙음(`_activeBuffs`
+  적용 시점 코드는 안 읽음); 버프가 있을 때 다시 맞으면 연장(maxStackCnt 1); 오프셋 y는 높이로]. 炎佑 `enemy_acloon_skill_loop_1_line`(模式甲 Skill)은 우리가
+  模式乙만 써서 안 나옴. 선 프리팹은 아직 안 뽑혀 있다 — `enemy_bindings.py --extract`를 다시 돌려야 보임.
+- **모드 전환** (2026-10-10 저녁, 디컴파일): 적에게는 UnitMode `_overrideStartEffect`가 쓰이지 않는다. 태어날 때 `Enemy.States.BornState._PlayAnimation`
+  (0x73C6F0)이 `Enemy.get_startEffect`(0x733ED0 = 루트 `_startEffect` 필드 그대로)를 만들고, 그 override를 읽는 코드는 `Character.GetStartEffect`(0x6F74B0,
+  오퍼·토큰)뿐(`Unit.get_currentMode` 호출처 18곳 확인). 모드 전환 `Unit.SwitchMode`(0x76E1D0) → `InactiveMode` → `ActivateMode`(0x766E20: 새 모드
+  GameObject 켜고 능력 Attach) → `OnSwitchMode`(`Enemy.OnSwitchMode` 0x727200: 스킬 Detach/Attach, `Unit.OnSwitchMode` 0x76C810: 상태 기계 재시작 +
+  `BuffContainer.OnUnitSwitchMode`)에도 이펙트 생성이 없다. 그래서 렌더는 태어날 때 루트 시작 이펙트만(이전: 모드 override 우선 — 우리 표에 override를 가진
+  적은 없어 화면 차이 없음), 모드 전환 때는 이전 모드 루프 시전 이펙트 끄기만. 그 순간 `audio.enemyMode?.(unitId, defId, mode, prevMode)`를 부른다(3차 계약
+  1; `app.js`가 `opts.audio`를 `createFxLayer({ audio })`로 넘김; 모드 판정은 품질 'low'에서도).
+- **사망 이펙트** (2026-10-10 저녁, 디컴파일): `Enemy.get_deadEffect`(0x730300; `DeadState._PlayAnimation` 0x73F3D0이 조건 없이 만듦) = 지금 모드의
+  `_overrideDeadEffect`, 없으면 루트 `_deadEffect`, 그것도 없으면 `common_enemy_die_01`. 렌더 표 `dead`의 기본값이 `common_enemy_die_01`(`enemy_bindings.py`,
+  적 210종), 렌더도 같은 순서. 공식 사망 이펙트가 그려지면(`fxgame.js ownsDeath`) `app.js`가 fx.js의 절차 사망 퍼프를 안 그린다(`common_empty` 19종은
+  아무것도 안 보임 — 공식대로). `common_enemy_die_01`은 아직 안 뽑혀 있음 — 그 전에는 절차 퍼프 그대로.
+- 위 클래스·메서드는 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 없음.
+- 안 한 것: 버프 노드의 다른 이펙트(방패 깨짐·끝 이펙트 — 클라 코드에서 언제 나는지 안 읽음), 炎佑 선(우리가 안 쓰는 模式甲), 나오지 않는 적 82종의
+  이펙트(`--extract --all`), 소리(audio 담당). 화면 확인 없음.
+- 확인: `test/local-patch-fxspawn.test.js`(적이 바인딩한 muzzle/특수점 이펙트가 그 적의 점을 찾음 — 클라 데이터의 빈 곳 2개 목록), `test/render/enemy-fx.test.js`, `test/render/enemy-fx-layer.test.js`(모드 전환 → audio.enemyMode, 사망 이펙트 대체, 대체 beam, 冰凌 칸별 시각, 직선 사격).

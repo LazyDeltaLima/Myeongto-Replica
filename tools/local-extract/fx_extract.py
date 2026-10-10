@@ -580,7 +580,47 @@ class Extractor:
         back = self.switch_back(root)
         if back:
             out_def['back'] = back
+        line = self.line_dynamic(root)
+        if line:
+            out_def['lineDyn'] = line
         return out_def
+
+    def line_dynamic(self, root):
+        """2026-10-10, decompile check — client `LineEffectEmitterDynamic` (`Update` RVA 0xCA0600 → `_UpdateMountPoint`
+        0xCA26C0, `_TryUpdateEffects` 0xCA1830): every frame each LineRenderer of the effect gets position 0 = its start
+        owner's `_startMountPointType` point + `_startPosOffset` and position 1 = its end owner's `_endMountPointType` point +
+        `_endPosOffset` (`_tweenEndPosition`: lerped from the start over `_tweenDuration`), and `_startEffect` / `_endEffect`
+        follow those two ends; the owners come from the node that made it (`Nodes.CreateLineEffect.Execute` 0xB91190: start =
+        its source, end = its target). Read by the root component's type tree: { sMount, eMount, start?, end?, mid?, sOff?,
+        eOff?, tween?, finishBuff? } (Entity.MountPointType numbers), None without one."""
+        try:
+            d = root.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            try:
+                t = comp.read_typetree()
+            except Exception:
+                continue
+            if '_startMountPointType' not in t or '_endMountPointType' not in t:
+                continue
+            out = {'sMount': int(t['_startMountPointType']), 'eMount': int(t['_endMountPointType'])}
+            for k, name in (('_startEffect', 'start'), ('_endEffect', 'end'), ('_midEffect', 'mid')):
+                if isinstance(t.get(k), str) and t[k]:
+                    out[name] = t[k]
+            for k, name in (('_startPosOffset', 'sOff'), ('_endPosOffset', 'eOff')):
+                v = t.get(k) or {}
+                if any(abs(float(v.get(a, 0) or 0)) > 1e-6 for a in 'xyz'):
+                    out[name] = [r4(v.get('x', 0)), r4(v.get('y', 0)), r4(v.get('z', 0))]
+            if t.get('_tweenEndPosition'):
+                out['tween'] = r4(t.get('_tweenDuration') or 0)
+            if t.get('_finishIfBuffNotExists') and isinstance(t.get('_buffKeyForFinish'), str) and t['_buffKeyForFinish']:
+                out['finishBuff'] = t['_buffKeyForFinish']
+            return out
+        return None
 
     def switch_back(self, root):
         """2026-10-10, decompile check — client `SwitchableBackEffect._UpdateFace`: the root's

@@ -675,6 +675,7 @@ class TrailRenderer {
 class LineRenderer {
   constructor(ln, node, root, def) {
     this.tr = ln; this.node = node; this.root = root;
+    this.ends = null;   // 2026-10-10: FxInstance.setLine
     this.w = ln.width;
     const n = ln.pts.length + (ln.loop ? 1 : 0);
     this.n = Math.min(n, TRAIL_PTS);
@@ -693,10 +694,17 @@ class LineRenderer {
       this.node.updateWorldMatrix(true, false);
       this.root.updateWorldMatrix(true, false);
       if (ln.world) tmpM.identity(); else tmpM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
+      // 2026-10-10: a LineEffectEmitterDynamic line (FxInstance.setLine) — its first / last point at two scene points
+      // (client _UpdateMountPoint: SetPosition(0, start) / SetPosition(1, end) each frame), the ones between spread evenly
+      const ends = this.ends;
+      if (ends) tmpM2.copy(this.root.matrixWorld).invert();
       let total = 0;
       for (let k = 0; k < n; k++) {
         const q = ln.pts[k % ln.pts.length];
-        const p = tmpV.set(q[0], q[1], q[2]).applyMatrix4(tmpM);
+        const f = n > 1 ? k / (n - 1) : 0;
+        const p = ends
+          ? tmpV.set(ends[0].x + (ends[1].x - ends[0].x) * f, ends[0].y + (ends[1].y - ends[0].y) * f, ends[0].z + (ends[1].z - ends[0].z) * f).applyMatrix4(tmpM2)
+          : tmpV.set(q[0], q[1], q[2]).applyMatrix4(tmpM);
         trailPts[k * 3] = p.x; trailPts[k * 3 + 1] = p.y; trailPts[k * 3 + 2] = p.z;
         if (k) total += Math.hypot(p.x - trailPts[k * 3 - 3], p.y - trailPts[k * 3 - 2], p.z - trailPts[k * 3 - 1]);
         trailU[k] = total;   // the distance so far (u below)
@@ -718,7 +726,7 @@ class LineRenderer {
 
 // ---------------------------------------------------------------- particle system
 
-const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpM = new THREE.Matrix4();
+const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpM = new THREE.Matrix4(), tmpM2 = new THREE.Matrix4();
 const emitM = new THREE.Matrix4();   // ParticleSystem.emit: node → root for a world-space system
 // one particle's instance data = 28 floats in one buffer (one upload per system and frame, was eight):
 // iPos 3, iSize 3, iRot 3, iColor 4, iC1 4, iC2 4, iUV 4, iVel 3
@@ -1292,6 +1300,15 @@ export class FxInstance {
 
   /** local patch: whether layer k (0, or FX_BACK / FX_FRONT of a split instance) has a renderer of this effect. */
   hasLayer(k) { return !this.empty && (this.layerN?.[k] || 0) > 0; }
+
+  /**
+   * 2026-10-10: a line effect's two ends (client LineEffectEmitterDynamic, fx_extract.py `lineDyn`): every LineRenderer of it
+   * runs from point `a` to `b` ({x, y, z} in the coordinates the effect's object sits in) from now on; null = its authored points.
+   */
+  setLine(a, b) {
+    const ends = a && b ? [{ x: +a.x || 0, y: +a.y || 0, z: +a.z || 0 }, { x: +b.x || 0, y: +b.y || 0, z: +b.z || 0 }] : null;
+    for (const t of this.lines) t.ends = ends;
+  }
 
   /** End emission (looping buffs); `now` also removes the live particles. */
   stop(now = false) {
