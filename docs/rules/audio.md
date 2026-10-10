@@ -48,22 +48,23 @@
     2026-10-08, 실제 게임과 같음). 테스트 `test/local-patch.test.js` 「official scheduling」.
   - **전투 시작**(라운드마다): `AutoChessGameModeVoicePlugin._OnBattleStarted`(RVA 0xD67B80, 이벤트 `ON_BATTLE_STARTED` 1211) — 전투에 든 자기 말
     (`battleChessInsts`) 중 **무작위 하나의 部署**(PLACE_CHAR). 나머지 첫 배치는 조용(훅 `HookPlayVoice` RVA 0xD67830: PLACE_CHAR는 MAIN 하위 상태에서만 —
-    라운드 시작 배치 폭주를 막음). 우리: 필드의 첫 배치 묶음(`audio.js` opening)에서 `voicePolicy.battleStart`가 자기 오퍼레이터(`ownerId`, 협동 필드의
-    남의 말 제외) 중 하나를 고름; 그 뒤 2초 안의 배치는 조용, 그 뒤 재배치는 部署(`_OnUnitBorn`의 비-predefined 경로).
-  - **행동출발**(BATTLE_START)은 `VoicePlayer.OnGameStart`(RVA 0xD7EEC0)만 낸다 — 게임이 시작될 때 한 번, 무작위 카드. 우리: **매치의 첫 전투 시작에 한 번**
-    (무작위 자기 오퍼레이터; 같은 순간의 部署는 우선순위로 버려짐). 매치에 들어가거나 나가면(`voice.js` store 구독) 다시. [추정] 卫戍协议은 매치 전체가
-    한 게임(정비도 전투 장면 안: `AutoChessDummyManager`, `AutoChessGameStatus` 하위 상태)이고, 첫 전투 전에는 카드가 없어 첫 전투 시작으로 옮겼다.
-    `_CheckDisableBattleStartVoice`(RVA 0xD7F1F0)는 `UIController.HasFunction(CARD_LIST)`가 거짓이면 행동출발을 끈다 — 卫戍协议 UI의 값은 미확인.
-  - **행동개시**(ENCOUNTER_ENEMY): `VoicePlayer._OnPreviewCursorSpawn`(RVA 0xD7FA40) — **적 경로 미리보기 커서가 생길 때**: 처음은 바로, 그 뒤로는
-    `BattleController.timeDeltaNoEnemy` ≥ `minTimeDeltaForEnemyEncounter`(3초)일 때만(`m_encounterFirstEnemyFlag`는 「이미 한 번 말함」 표시이고
-    `OnGameReset`에서만 지워짐 — 게임당 1번이 아니다); 말하는 카드 = 무작위(직전 화자 `m_lastVocalCharData` 제외, `RandomUtil.UniformExceptIndex`),
-    실패하면 음성 질의 없이 한 번 더(무작위 카드). 우리(관리자 결정 (2026-10-10)): 전투 시작의 공식 경로 미리보기 커서(`render.md` 「적 경로 미리보기」 —
-    표시된 레벨 액션마다 2개, 첫 유닛 3초 전)가 생길 때마다(`render/fxroute.js createBattleCursors` `onSpawn` → `render/app.js` 'routePreview' →
-    `screens/game.js`, 자기가 낀 필드만 — 관전 중인 남의 필드는 조용 → `voice.js voiceForRoutePreview`, 카드 = 자기 보드의 오퍼레이터 [추정: `m_cardDataList`는
-    덱 카드]), 적 없는 시간 = `audio.noEnemyMs`(적 처치·누수로 필드가 빈 뒤 — 정비 동안 필드가 비어 있으므로 라운드 시작 커서는 보통 통과). 한 미리보기의 두 번째
-    커서(0.3초 뒤)는 첫 대사가 아직 나오는 중이라 같은 우선순위·겹침 불가로 게이트에서 버려진다. 라운드 시작 순간의 部署(20)는 행동개시(90)에 밀리고, 첫 전투의
-    行动出发(100)은 행동개시를 이긴다(요청 순서와 관계없이 우선순위대로). 보스 준비 화면의 경로 미리보기(우리 편의 기능)에는 대사가 없다(관리자 결정 (2026-10-10)).
-    첫 교전(`engage`)에서는 더 이상 말하지 않는다(예전 2026-10-06 규칙 폐기).
+    라운드 시작 배치 폭주를 막음). **시점**(2026-10-10 클라 코드): `MainGameInBattle._StartBattle`(MoveNext RVA 0x872B60)이 먼저 `_Prebuilt`(MoveNext
+    RVA 0x8726E0 — 말을 하나씩 `Deck.SpawnCharacterOrToken`, 하나마다 `WaitForFixedSeconds(0.2)`, 상수 .rdata 0x185D65004)를 끝까지 돌린 **뒤에**
+    1211을 쏘고 곧바로 웨이브 스케줄러(`Scheduler.Init`·`DoSchedule`)를 시작한다 — 部署 대사는 첫 배치가 다 떨어진 뒤. 우리: 필드의 첫 배치 묶음
+    (`audio.js` opening)이 렌더 차례 낙하(`OPENING_DEPLOY_STAGGER_MS` 120 ms × 낙하 수)를 마친 한 칸 뒤에 `voicePolicy.battleStart`가 자기 오퍼레이터
+    (`ownerId`, 협동 필드의 남의 말 제외) 중 하나를 고름(새 필드가 오면 취소); 그 뒤 2초 안의 배치는 조용, 그 뒤 재배치는 部署(`_OnUnitBorn`의 비-predefined 경로).
+    예전(2026-10-10 오전): 첫 배치 순간에 바로 말함. 웨이브 시계가 차례 배치 뒤에 시작하는 것은 시뮬레이션 쪽 열린 일(우리 시뮬은 모두 0초 배치·웨이브 0초 시작).
+  - **행동출발**(BATTLE_START)·**행동개시**(ENCOUNTER_ENEMY)는 **卫戍协议에서 나지 않는다**(2026-10-10 클라 코드, 사용자 제보 「작전 시작과 적 조우 대사가 겹침」):
+    행동출발은 `VoicePlayer.OnGameStart`(RVA 0xD7EEC0)만 내는데 `_CheckDisableBattleStartVoice`(RVA 0xD7F1F0)가 `UIController.HasFunction(CARD_LIST)`
+    거짓이면 끄고, 행동개시 `VoicePlayer._OnPreviewCursorSpawn`(RVA 0xD7FA40)은 맨 앞에서 같은 `HasFunction(CARD_LIST)`가 거짓이면 바로 돌아간다.
+    卫戍协议의 `AutoChessUIPlugin.OnGameInit`(RVA 0xD51480)이 `DisableFunction(0xF07B)` — CARD_LIST(1)·CHARACTER_MENU·SYSTEM_MENU·PAUSE_BUTTON·
+    SPEED_SWITCHER·BATTLE_STATUS 등 — 를 부르고(`UIController.OnGameInit`이 첫 마스크 뒤 플러그인 초기화를 부름), 이 플러그인의 `EnableFunction`은 0x80·
+    0x4000·0x8000뿐이라 CARD_LIST는 다시 켜지지 않는다. 마스크를 쓰는 곳은 `_UpdateDisableMask`뿐(Enable/Disable/OnGameInit에서). 켜진 Lua 핫픽스
+    (`DefinedFix.lua` zh_CN·en_US)에 관련 항목 없음. 우리: `voicePolicy.js CARD_LIST_ON = false` — `battleStart`는 部署만, `encounter`는 늘 null
+    (`voice.js voiceForRoutePreview`·`screens/game.js` 'routePreview' 연결은 그대로 둠, 카드 목록이 켜진 모드라면 `cardList: true`로 예전 규칙).
+    예전(2026-10-10 오전, 관리자 결정 (2026-10-10)): 매치 첫 전투 시작에 행동출발, 경로 미리보기 커서마다 행동개시 — 이 검사를 놓쳤던 것. 2026-10-06 규칙(전투마다
+    행동출발, 첫 교전에 행동개시)도 같은 이유로 공식과 다름. 경로 미리보기 커서 자체(`render.md` 「적 경로 미리보기」)는 그대로.
+    확인 필요: 공식 녹화에서 라운드 시작에 部署 한 줄만 나는지(MAIN 하위 상태 훅이 그것마저 막는지는 미확정).
   - 작전중 대사는 1~4 중 무작위(`SKILL_CHARWORD_TYPES`, `_PlayVoice` 점프표). 스킬 대사 유형: `VoicePlayer._OnSkillCasted`(RVA 0xD7FF30) — 스킬 플래그
     `playCharWordWithPassiveType`이면 SP ≥ 10 → IMP, 아니면 NOR, 그 밖은 ACTIVE(우리 `skillVoiceType`는 skillType AUTO로 가름 — 보통 같음).
     `playCharWordVoice`가 거짓인 스킬은 무음(플래그 출처 미확인). 데이터의 `NORMAL_ATTACK`(5, 쿨다운 36000초, `_OnCharacterAtkOrCbt`)은 卫戍协议 연결이

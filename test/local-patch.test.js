@@ -1337,9 +1337,10 @@ describe('operator voice: the official scheduling (public/js/voicePolicy.js over
     assert.equal(h.request('skill1', 'a', 30000, 'SKILL_PASSIVE_NOR'), 'play');
   });
 
-  test('battle events: 行动出发 once per game, then each battle start one random own piece\'s 部署; no 行动开始 on an engagement; a random 作战中', async () => {
+  test('battle events: each battle start one random own piece\'s 部署 after the opening drop-in, no 行动出发 (卫戍协议: no card list); no 行动开始 on an engagement; a random 作战中', async () => {
     const { AudioManager } = await import('../public/js/audio.js');
-    const { OfficialVoiceGate, createVoicePolicy } = await import('../public/js/voicePolicy.js');
+    const { OfficialVoiceGate, createVoicePolicy, CARD_LIST_ON } = await import('../public/js/voicePolicy.js');
+    assert.equal(CARD_LIST_ON, false, 'AutoChessUIPlugin.OnGameInit disables CARD_LIST');
     const a = new AudioManager({ getManifest: () => ({ audio: { sfx: { units: {}, battle: {} } } }), win: null });
     a.ctx = {};                                        // handleBattleEvents only needs a context to run
     const said = [];
@@ -1351,16 +1352,18 @@ describe('operator voice: the official scheduling (public/js/voicePolicy.js over
       own: (u) => u.ownerId === 'p1',
       random: () => [0.9, 0.1][r++ % 2],
     });
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms));
     const ops = [1, 2, 3].map((id) => ({ id, spine: `char_${id}`, defId: `chess_${id}`, kind: 'op', side: 'ally', skillIndex: 0, ownerId: 'p1' }));
     const mate = { id: 4, spine: 'char_4', defId: 'chess_4', kind: 'op', side: 'ally', skillIndex: 0, ownerId: 'p2' };
     a.setFieldUnits([...ops, mate]);
     a.handleBattleEvents([['deploy', 1], ['deploy', 2], ['deploy', 3], ['deploy', 4]]);
-    await new Promise((res) => setTimeout(res, 500));   // the opening's staggered deploys stay silent
-    assert.deepEqual(said.map((x) => [x[1], x[2]]), [['start', 'BATTLE_START'], ['place', 'PLACE_CHAR']], 'the game\'s first battle: 行动出发, then the plugin\'s 部署');
+    assert.deepEqual(said, [], 'nothing while the opening drops in (ON_BATTLE_STARTED follows _Prebuilt)');
+    await wait(600);                                   // 4 drops × 120 ms: the line one step after the last drop
+    assert.deepEqual(said.map((x) => [x[1], x[2]]), [['place', 'PLACE_CHAR']], 'the plugin\'s 部署 only — no 行动出发 (no card list)');
     assert.ok(said.every((x) => x[0] !== 'char_4'), 'never a teammate\'s piece');
     assert.equal(said[0][0], 'char_3', 'a random own piece (0.9 → the last)');
     a.handleBattleEvents([['engage', 2], ['engage', 3]]);
-    assert.equal(said.filter((x) => x[1] === 'faceEnemy').length, 0, '行动开始 comes from the route preview cursor, not an engagement');
+    assert.equal(said.filter((x) => x[1] === 'faceEnemy').length, 0, 'no 行动开始 on an engagement');
     a.handleBattleEvents([['skill', 1, true], ['skill', 2, true]]);
     const skills = said.filter((x) => /^skill/.test(x[1]));
     assert.equal(skills.length, 2);
@@ -1368,21 +1371,31 @@ describe('operator voice: the official scheduling (public/js/voicePolicy.js over
     said.length = 0;
     a.setFieldUnits(ops);
     a.handleBattleEvents([['deploy', 1], ['deploy', 2], ['deploy', 3]]);
-    assert.deepEqual(said.map((x) => x[1]), ['place'], 'a later round: 部署 only (行动出发 is the game start\'s)');
+    await wait(500);
+    assert.deepEqual(said.map((x) => x[1]), ['place'], 'a later round: 部署 only');
     a._opening.at -= 5000; a._opening.over = true;
     a.voicePolicy.reset();
     a.handleBattleEvents([['deploy', 2]]);
-    assert.deepEqual(said.map((x) => x[1]), ['place', 'place'], 'a redeploy says its 部署');
+    assert.deepEqual(said.map((x) => x[1]), ['place', 'place'], 'a redeploy says its 部署 at once');
     said.length = 0;
-    a.voicePolicy.newGame();
     a.setFieldUnits(ops);
     a.handleBattleEvents([['deploy', 1], ['deploy', 2], ['deploy', 3]]);
-    assert.deepEqual(said.map((x) => x[1]), ['start', 'place'], 'a new game: 行动出发 again');
+    a.setFieldUnits(ops);                              // the field left before its opening is over: no line from it
+    await wait(500);
+    assert.deepEqual(said, [], 'a new field cancels the pending battle-start line');
+    // where the card list is on (not 卫戍协议), 行动出发 once per game before the 部署
+    const b = createVoicePolicy({ cardList: true, random: () => 0 });
+    const us = [{ id: 1, def: 'char_1' }];
+    assert.deepEqual(b.battleStart(0, us).map((l) => l.slot), ['start', 'place']);
+    assert.deepEqual(b.battleStart(1, us).map((l) => l.slot), ['place']);
+    b.newGame();
+    assert.deepEqual(b.battleStart(2, us).map((l) => l.slot), ['start', 'place'], 'a new game: 行动出发 again');
   });
 
-  test('行动开始 (VoicePlayer._OnPreviewCursorSpawn): the first cursor at once, later ones after 3 s without an enemy, not the last speaker', async () => {
+  test('行动开始 (VoicePlayer._OnPreviewCursorSpawn): never in 卫戍协议; with a card list the first cursor at once, later ones after 3 s without an enemy, not the last speaker', async () => {
     const { createVoicePolicy } = await import('../public/js/voicePolicy.js');
-    const p = createVoicePolicy({ random: () => 0 });
+    assert.equal(createVoicePolicy({ random: () => 0 }).encounter(['char_a'], Infinity), null, '卫戍协议 (no card list): never');
+    const p = createVoicePolicy({ random: () => 0, cardList: true });
     assert.equal(p.encounter([], Infinity), null, 'no card, no line');
     assert.equal(p.encounter(['char_a', 'char_b'], 0), 'char_a', 'the first time even with enemies on the field');
     p.encountered('char_a');

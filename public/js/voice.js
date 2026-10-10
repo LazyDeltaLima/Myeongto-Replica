@@ -10,14 +10,15 @@
 //     2026-10-08. The 部署 line when the player places one from the bench on the board (voiceForPlace, 2-5 2026-10-08). They go through the same gate as the battle lines (a 选中 line never cuts a skill line: priority).
 //   * The official scheduling (voicePolicy.js, owner 2026-10-06; client code 2026-10-10): no global gap, priority /
 //     same-priority overlap / cooldown per official voice type (shared by every operator, from the line's end), a random
-//     作战中; at each battle start a random own piece's 部署 (行动出发 once, at the match's first battle); 行动开始 when an
-//     official route preview cursor of the battle's start appears (voiceForRoutePreview).
+//     作战中; at each battle start (after the opening drop-in) a random own piece's 部署. 行动出发 / 行动开始 never: 卫戍协议
+//     disables the client's card list, which both need (voicePolicy.js CARD_LIST_ON; voiceForRoutePreview stays the hook).
 //
 //   <VoiceSetting />           the settings row (ui/settings.js): language
 //   voiceForPiece(piece, shown) screens/game.js: a tapped board / bench piece (shown = the record it shows: 自选 / 补位)
 //   voiceForPlace(unit, uid)   screens/game.js: an operator the player placed from the bench on the board (部署)
 //   voiceForUnit(info, id)     screens/game.js: a tapped battle unit
 //   voiceForRoutePreview(ids)  screens/game.js: a battle-start route preview cursor appeared (render/fxroute.js) → 行动开始
+//                              where the card list is on (never in 卫戍协议)
 //   holdResultVoice(line)      screens/game.js onResult: the own battle's 结算 line, kept instead of played
 //   playMatchEndVoice(res, me) screens/result.js: the kept line on a won settlement, if the player was not knocked out
 //
@@ -68,7 +69,7 @@ audio.voicePolicy = createVoicePolicy({
   // own battleChessInsts) — a teammate's operator on a shared field never says it
   own: (u) => { const me = store.get()?.me?.playerId; return u?.ownerId == null || !me || u.ownerId === me; },
 });
-// a match entered or left is a new game (VoicePlayer.OnGameReset): 行动出发 and the first 行动开始 come again
+// a match entered or left is a new game (VoicePlayer.OnGameReset): 行动出发 and the first 行动开始 come again (card list on)
 store.subscribe((s, prev) => { if (!!s.match?.public !== !!prev?.match?.public) audio.voicePolicy?.newGame?.(); });
 
 /**
@@ -153,7 +154,9 @@ export function voiceForUnit(info, unitId = null) {
  * createBattleCursors onSpawn → render/app.js 'routePreview' → screens/game.js): 行动开始 — the client's
  * VoicePlayer._OnPreviewCursorSpawn (RVA 0xD7FA40), once per cursor spawn: the first time at once, later only after 3 s
  * without an enemy on the field (audio.noEnemyMs), said by a random card but the last one who said it; when that line
- * cannot play, once more by a random card (its retry without a voice query). [추정] the cards (m_cardDataList, the battle
+ * cannot play, once more by a random card (its retry without a voice query). The handler first checks
+ * UIController.HasFunction(CARD_LIST), which 卫戍协议 turns off (AutoChessUIPlugin.OnGameInit) — so it says nothing here
+ * (voicePolicy.js encounter → null). [추정] the cards (m_cardDataList, the battle
  * deck) = the operators on the own board. The boss-prep route preview (our feature) never calls this (관리자 결정
  * (2026-10-10)).
  * @param {string[]} cards charIds of the own board's operators

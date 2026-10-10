@@ -17,14 +17,17 @@
 //     line: next[type] = now + the line's length + cooldown; when a new line plays, the last line's type gets
 //     max(next, now + its cooldown) again. (VOICE_TYPES_TO_SHARE_CD_WITH_ALL_OTHERS = [NORMAL_ATTACK], a type we never play.)
 //   * 卫戍协议's round battle start (AutoChessGameModeVoicePlugin._OnBattleStarted RVA 0xD67B80, event ON_BATTLE_STARTED
-//     1211): one random piece of the battle (battleChessInsts) says its 部署 (PLACE_CHAR) line. 行动出发 (BATTLE_START) is
-//     VoicePlayer.OnGameStart (RVA 0xD7EEC0): a random card, once when the game starts — [추정] the whole match is one game
-//     (the prep runs in the battle scene: AutoChessDummyManager, AutoChessGameStatus sub states), and before the first battle
-//     no card is fielded, so we say it at the match's first battle start (it outranks that battle's 部署).
-//   * 行动开始 (ENCOUNTER_ENEMY): VoicePlayer._OnPreviewCursorSpawn (RVA 0xD7FA40) — when an enemy route preview cursor
-//     appears: the first time at once, later only after ≥ minTimeDeltaForEnemyEncounter (3 s) without an enemy on the field;
-//     a random card (not the last one who said it). The cursors: the official preview of each battle's start
-//     (render/fxroute.js createBattleCursors, 2 per marked level action, 3 s before its first unit — Scheduler._DealAction).
+//     1211): one random piece of the battle (battleChessInsts) says its 部署 (PLACE_CHAR) line. The event comes after the
+//     opening deployment: MainGameInBattle._StartBattle (MoveNext RVA 0x872B60) first runs _Prebuilt (MoveNext RVA
+//     0x8726E0 — each battle piece spawned in turn, WaitForFixedSeconds(0.2) after each), then emits 1211 and starts the
+//     wave scheduler (Scheduler.Init / DoSchedule) — audio.js says the line when its opening drop-in is over.
+//   * 行动出发 (BATTLE_START, VoicePlayer.OnGameStart RVA 0xD7EEC0) and 行动开始 (ENCOUNTER_ENEMY,
+//     VoicePlayer._OnPreviewCursorSpawn RVA 0xD7FA40 — on an enemy route preview cursor) are both gated on
+//     UIController.HasFunction(CARD_LIST): OnGameStart skips the line when _CheckDisableBattleStartVoice (RVA 0xD7F1F0)
+//     finds the card list disabled, the cursor handler returns at once. 卫戍协议's AutoChessUIPlugin.OnGameInit (RVA
+//     0xD51480) calls DisableFunction(0xF07B) — CARD_LIST (1) among them — and the plugin never enables it again (its
+//     EnableFunction calls are 0x80 / 0x4000 / 0x8000; no active Lua hotfix touches these): 卫戍协议 says neither line
+//     (`CARD_LIST_ON` false). Until 2026-10-10 we said 行动出发 at the match's first battle and 行动开始 on each cursor.
 //   * 作战中: a random line of the operator's 作战中1-4 (SKILL_CHARWORD_TYPES), not the equipped skill's number.
 
 /** Official battle voice types (audio_data.json battleVoice.voiceTypeOptions); `cd` in ms. */
@@ -43,6 +46,8 @@ export const OFFICIAL_VOICE_TYPES = Object.freeze({
 export const MIN_SP_IMPORTANT_PASSIVE = 10;   // battleVoice.minSpCostForImportantPassiveSkill
 export const ENCOUNTER_MIN_DELTA_MS = 3000;   // battleVoice.minTimeDeltaForEnemyEncounter
 export const START_BURST_MS = 2000;           // the opening deployment (all pieces enter at once) after the battle start
+/** UIController.HasFunction(CARD_LIST) in 卫戍协议: false (AutoChessUIPlugin.OnGameInit disables it) — no 行动出发 / 行动开始. */
+export const CARD_LIST_ON = false;
 
 /** The official type of a manifest slot (a skill slot defaults to SKILL_ACTIVE; the caller passes the real type). */
 export function slotVoiceType(slot) {
@@ -114,13 +119,15 @@ export class OfficialVoiceGate {
 /**
  * The battle-level rules (audio.js handleBattleEvents hooks, voice.js voiceForRoutePreview).
  * @param {{ skillOf?: (u: any) => any, slotsOf?: (charId: string) => string[], own?: (u: any) => boolean,
- *   random?: () => number }} deps
+ *   random?: () => number, cardList?: boolean }} deps
  *   skillOf: the unit's equipped skill record ({ skillType, spCost }); slotsOf: the 作战中 slots an operator has;
- *   own: whether a tracked battle unit is the player's own piece (default: every allied one).
+ *   own: whether a tracked battle unit is the player's own piece (default: every allied one);
+ *   cardList: UIController.HasFunction(CARD_LIST) (default CARD_LIST_ON — off in 卫戍协议: no 行动出发 / 行动开始).
  */
 export function createVoicePolicy(deps = {}) {
   const random = typeof deps.random === 'function' ? deps.random : Math.random;
   const own = typeof deps.own === 'function' ? deps.own : () => true;
+  const cardList = typeof deps.cardList === 'boolean' ? deps.cardList : CARD_LIST_ON;
   const pick = (list) => list[Math.min(list.length - 1, Math.floor(random() * list.length))];
   const st = { gameStarted: false, encountered: false, lastEncounter: null, startAt: -Infinity };
   return {
@@ -135,9 +142,9 @@ export function createVoicePolicy(deps = {}) {
       return { slot, type: skillVoiceType(deps.skillOf ? deps.skillOf(u) : null) };
     },
     /**
-     * The battle starts (the field's opening deployment, `units` = its allied operators): the lines to request in order —
-     * 行动出发 by a random own one at the game's first battle, then 部署 by a random own one (dropped behind 行动出发 by
-     * its priority). The rest of the opening deployment stays silent (place()).
+     * The battle starts (the field's opening deployment is over, `units` = its allied operators): the lines to request in
+     * order — 部署 by a random own one (ON_BATTLE_STARTED), after 行动出发 at the game's first battle only where the card
+     * list is on (`cardList`; never in 卫戍协议). The rest of the opening deployment stays silent (place()).
      * @param {number} now @param {Array<{ id: any, def: string }>} units
      * @returns {Array<{ id: any, def: string, slot: string, type: string }>}
      */
@@ -146,7 +153,7 @@ export function createVoicePolicy(deps = {}) {
       const mine = (Array.isArray(units) ? units : []).filter((u) => u && typeof u.def === 'string' && own(u));
       if (!mine.length) return [];
       const lines = [];
-      if (!st.gameStarted) {
+      if (cardList && !st.gameStarted) {
         st.gameStarted = true;
         const u = pick(mine);
         lines.push({ id: u.id, def: u.def, slot: 'start', type: 'BATTLE_START' });
@@ -159,10 +166,12 @@ export function createVoicePolicy(deps = {}) {
     place(now) { return now - st.startAt >= START_BURST_MS; },
     /**
      * An enemy route preview cursor appeared (VoicePlayer._OnPreviewCursorSpawn): the operator to say 行动开始, or null —
-     * the first time at once, later after ≥ 3 s without an enemy; a random card but the last one who said it.
+     * the first time at once, later after ≥ 3 s without an enemy; a random card but the last one who said it. Never
+     * without the card list (`cardList` — 卫戍协议: the handler's HasFunction(CARD_LIST) check returns at once).
      * @param {string[]} cards the own operators (charIds) @param {number} noEnemyMs time without an enemy on the field
      */
     encounter(cards, noEnemyMs) {
+      if (!cardList) return null;
       if (st.encountered && !(noEnemyMs >= ENCOUNTER_MIN_DELTA_MS)) return null;
       const list = (Array.isArray(cards) ? cards : []).filter((c) => typeof c === 'string');
       if (!list.length) return null;

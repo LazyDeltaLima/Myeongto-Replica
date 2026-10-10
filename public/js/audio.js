@@ -1395,8 +1395,8 @@ export class AudioManager {
           }
         } else if (kind === 'engage') {
           // 行动开始: the first attack a unit makes on an enemy (the sim's ENGAGE, official ENCOUNTER_ENEMY, 3 s apart)
-          // 2026-10-10: with the official rules (voicePolicy.js) 行动开始 comes from the enemy route preview
-          // cursor instead (voice.js voiceForRoutePreview), never from an engagement
+          // 2026-10-10: with the official rules (voicePolicy.js) never from an engagement — the client says it on an
+          // enemy route preview cursor, and not at all in 卫戍协议 (voice.js voiceForRoutePreview)
           const u = this.units.get(e[1]);
           if (u && unitSoundClass(u) === 'char' && !this.voicePolicy) this.voice(u.def, 'faceEnemy', { unitKey: e[1] });
         } else if (kind === 'die') {
@@ -1448,23 +1448,30 @@ export class AudioManager {
           if (this._skillEarly?.has(e[1])) this._flushSkillEarly(e[1]); // local patch: its deploy-time skill (see 'spawn')
           const m = this.getManifest();
           const url = deploySfxUrl(m, u);
-          // 行动出发 / 部署: the first operator of the battle says the battle-start line, the others their deploy line
+          // the battle start's line (the opening deployment, below) and the 部署 line of a later deployment
           // (a knocked-out operator redeploying in the same battle is one of the others; a summon says nothing).
           // Kept ahead of the deploy-SFX guards below: the voice channel is independent of the unit sound's roll.
           // local patch (maintainer's decision 2026-10-08 「C」): a 复活 (M3茧甲 / 埃芒加德 reviveNow — a redeploy in the
           // knock-out's tick, its 'revive' fx in the same batch) keeps the drop and b_char_set but says no 部署 line
           const revived = ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'revive' && x[4]?.id === e[1]);
           if (unitSoundClass(u) === 'char' && !revived && this.voicePolicy) {
-            // 2026-10-10, docs/rules/audio.md 「오퍼레이터 음성」: the battle start (the opening deployment) —
-            // 行动出发 once per game, then one random own piece's 部署 (voicePolicy.js battleStart); the rest of the opening
-            // stays silent, a later deployment (a redeploy) says its 部署
+            // 2026-10-10, docs/rules/audio.md 「오퍼레이터 음성」: the battle start (the opening deployment) — one random
+            // own piece's 部署 (voicePolicy.js battleStart; no 行动出发 in 卫戍协议) once the opening has dropped in (the
+            // client's ON_BATTLE_STARTED follows _Prebuilt: every piece spawned, a wait after each) — one stagger step
+            // after the last drop; the rest of the opening stays silent, a later deployment (a redeploy) says its 部署
             if (opening && !this.startVoiceDone) {
               this.startVoiceDone = true;
               const ids = Array.isArray(this._opening?.ids) ? this._opening.ids : [e[1]];
               const ops = ids.map((id) => ({ id, u: this.units.get(id) }))
                 .filter(({ u: o }) => o && o.side !== 'enemy' && o.kind !== 'token' && o.kind !== 'device' && unitSoundClass(o) === 'char')
                 .map(({ id, u: o }) => ({ id, def: o.def, ownerId: o.ownerId }));
-              for (const l of this.voicePolicy.battleStart(now, ops)) this.voice(l.def, l.slot, { unitKey: l.id, type: l.type });
+              const drops = ids.filter((id) => { const o = this.units.get(id); return o && o.side !== 'enemy' && unitSoundClass(o) !== 'device'; }).length;
+              const say = () => {
+                const t = typeof performance !== 'undefined' ? performance.now() : Date.now();
+                for (const l of this.voicePolicy.battleStart(t, ops)) this.voice(l.def, l.slot, { unitKey: l.id, type: l.type });
+              };
+              const timer = setTimeout(() => { this._openingTimers?.delete(timer); say(); }, Math.max(1, drops) * OPENING_DEPLOY_STAGGER_MS);
+              (this._openingTimers ||= new Set()).add(timer);
             } else if (!opening && this.voicePolicy.place(now)) this.voice(u.def, 'place', { unitKey: e[1], type: 'PLACE_CHAR' });
           } else if (unitSoundClass(u) === 'char' && !revived) { // upstream's own rule (no voicePolicy installed)
             if (!this.startVoiceDone) {
