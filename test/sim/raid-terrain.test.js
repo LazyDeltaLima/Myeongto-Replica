@@ -11,11 +11,14 @@ const BONDS = { raidShip: { count: 2, active: true, tier: 1, layers: 0 } };
 function scenario(ready, noLanding = false) {
   const stage = flatStage();
   const put = (r, c, glyph) => { stage.rows[r] = stage.rows[r].slice(0, c) + glyph + stage.rows[r].slice(c + 1); };
-  // Every tile in the landing search area is high ground or water except the one dry shore tile.
+  // The official landing box (AutoChessRebuildCharacterOnTile, range "1-1" turned against the member's facing): the
+  // enemy's tile, then the tile behind it as seen from the member — here (10, 8) and (10, 7) for a RIGHT-facing one.
+  // Everything around is high ground; the enemy wades in water; (10, 7) is the one dry shore tile.
   for (let r = 9; r <= 12; r++) for (let c = 6; c <= 10; c++) put(r, c, 'h');
   put(...ENEMY, 'd');
   put(10, 9, 'r'); // A shooting platform: low ground in the legend, but unavailable to melee.
-  if (!noLanding) put(9, 8, 'r');
+  put(9, 8, 'r');  // dry ground next to the enemy, but outside the landing box
+  if (!noLanding) put(10, 7, 'r');
   const h = makeBattle({
     stage, bonds: BONDS,
     defs: {
@@ -32,7 +35,8 @@ function scenario(ready, noLanding = false) {
   });
   h.step();
   assert.equal(h.unit('raider').alive, true);
-  assert.equal(h.b.grid.canStand(10, 7), false, 'high ground is not a melee landing tile');
+  assert.equal(h.b.grid.canStand(10, 6), false, 'high ground is not a melee landing tile');
+  assert.equal(h.b.grid.canStand(10, 7), !noLanding, 'the shore tile behind the enemy');
   assert.equal(h.b.grid.canStand(...ENEMY), false, 'water is not a landing tile');
   assert.equal(h.b.grid.canStand(10, 9), false, 'shooting platform is not a melee landing tile');
   return h;
@@ -44,7 +48,7 @@ for (const ready of [false, true]) {
     const h = scenario(ready);
     const u = h.unit('raider');
     h.run(ready ? 0.6 : 11);
-    assert.deepEqual([u.tileR, u.tileC], [9, 8], 'the only legal shore tile');
+    assert.deepEqual([u.tileR, u.tileC], [10, 7], 'the only legal tile of the landing box');
     assert.ok(u.alive && u.deployed && u.ground);
     assert.ok(inRange(u, h.enemy('enemy_wader')), 'the enemy is in range after the jump');
     const landings = h.hooksOf('deploy').filter((c) => c.unit === u && !c.initial);
@@ -52,7 +56,7 @@ for (const ready of [false, true]) {
     checkInvariants(h.b);
   });
 
-  test(`突袭 (${trigger}): stays deployed when only high ground, water and platforms surround the enemy`, () => {
+  test(`突袭 (${trigger}): stays deployed when the landing box holds only water and high ground (a dry tile beside it does not count)`, () => {
     const h = scenario(ready, true);
     const u = h.unit('raider');
     h.run(12);

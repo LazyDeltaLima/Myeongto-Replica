@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants, flatStage } from '../helpers/battleHarness.js';
 import { gainLayers, inRange } from '../../server/sim/content/support/index.js';
-import { bondBb, procChance } from '../../server/sim/content/bonds/addon/battle.js';
+import { bondBb, procChance, prdBase, dicePRD } from '../../server/sim/content/bonds/addon/battle.js';
 import { registerMeta } from '../../server/sim/content/bonds/addon.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { makeMatch, give, legalTileFor } from '../match/harness.js';
@@ -370,7 +370,7 @@ test('坚守: all operators HP ×(1.25+0.012·L); tier 2 redirect 40% to members
   close(e.hp, e0, 'redirected damage never thorns');
   const thorn = bb.base_damage_value + bb.damage_value_per_stack * 10;
   h.b.dealDamage(e, d1, { amount: 100, type: 'true' });
-  close(e0 - e.hp, thorn, 'thorns');
+  close(e0 - e.hp, thorn * bb.damage_scale, 'thorns, after the 脆弱 they bring (stead[ex]: weak[limit] before FixedValueDamage)');
   close(e.s.dmgTakenMul, bb.damage_scale, 'fragile');
   const e1 = e.hp;
   h.b.dealDamage(e, d1, { amount: 100, type: 'true' });
@@ -399,13 +399,13 @@ test('坚守 thorns: 无来源 (no attacker bonus, hooks see no source) but cred
   const p0 = pool.hp, dmg0 = d1.stats.dmg;
   h.b.dealDamage(e, d1, { amount: 100, type: 'true' });
   const thorn = bb.base_damage_value + bb.damage_value_per_stack * 10;
-  close(p0 - pool.hp, thorn, 'thorns hit the pool, the member\'s ×2 does not apply');
+  close(p0 - pool.hp, thorn * bb.damage_scale, 'thorns hit the pool (×the 脆弱 applied first), the member\'s ×2 does not apply');
   const ev = h.hooksOf('damaged').filter((c) => c.target === e);
   assert.equal(ev.length, 1);
   assert.equal(ev[0].source, null, '无来源: hooks see no source');
   assert.equal(ev[0].credit, d1, 'credited to the member');
-  close(d1.stats.dmg - dmg0, thorn, 'member stats');
-  close(h.result().perPlayer.p1.bossDamage, thorn, 'its player\'s shared-pool tally');
+  close(d1.stats.dmg - dmg0, thorn * bb.damage_scale, 'member stats');
+  close(h.result().perPlayer.p1.bossDamage, thorn * bb.damage_scale, 'its player\'s shared-pool tally');
 });
 
 test('坚守 tier 2: the redirected 40 % is the already-scaled damage — the attacker’s damage bonus is not applied twice', () => {
@@ -436,7 +436,7 @@ test('助力: all operators DEF ×(1.15+0.012·L) and redeploy time ×0.7', () =
   checkInvariants(h.b);
 });
 
-test('突袭: idle member relocates next to a ground enemy (SP kept) with ATK/HP ×(1.25+0.01·L); ≥50 layers all ASPD +50', () => {
+test('突袭: idle member relocates next to a ground enemy (SP kept); ATK/HP ×(1.25+0.01·L) only while its skill runs; ≥50 layers all ASPD +50', () => {
   const bb = bondBb('raidShip');
   const defs = { chess: { r_m: op('r_m', ['raidShip']), r_x: op('r_x', []) }, enemies: DUMMY };
   const h = makeBattle({
@@ -452,8 +452,9 @@ test('突袭: idle member relocates next to a ground enemy (SP kept) with ATK/HP
   assert.notDeepEqual([u.tileR, u.tileC], [12, 3], 'relocated');
   assert.ok(Math.max(Math.abs(u.tileR - 9), Math.abs(u.tileC - 8)) <= 2, 'next to the enemy');
   assert.ok(inRange(u, e), 'enemy in range after the jump');
-  close(u.s.atk, 500 * (1 + bb.base_atk + bb.atk_per_stack * 10), 'ATK');
-  close(u.s.maxHp, 2000 * (1 + bb.base_max_hp + bb.max_hp_per_stack * 10), 'HP');
+  // raid[skill] (client buff graph): the bonus comes with a running skill (CheckCharSkillAffecting), not with the jump
+  close(u.s.atk, 500, 'no skill: no ATK bonus');
+  close(u.s.maxHp, 2000, 'no skill: no HP bonus');
   assert.deepEqual([h.unit('r_x').tileR, h.unit('r_x').tileC], [11, 3], 'non-member stays');
   checkInvariants(h.b);
 
@@ -490,8 +491,17 @@ test('突袭: the jump is a redeployment — deploy fires (部署时 effects), f
   assert.ok(h.hooksOf('death').some((c) => c.unit === u && c.reason === 'raid'), 'left the field as a retreat, not a knock-out');
   close(u.skill.sp, sp, `SP kept (${u.skill.sp} vs ${sp})`, 0.1);
   close(u.hp, u.s.maxHp, 'fresh deployment: full HP');
-  close(u.s.maxHp, 2000 * (1 + bb.base_max_hp), 'raid HP bonus');
+  close(u.s.maxHp, 2000, 'skill not running: no raid HP bonus');
   assert.equal(h.result?.().perPlayer?.p1?.deaths ?? 0, 0, 'not counted as a death');
+  // while its skill runs: ATK / max HP +(base + per·L) (raid[skill]); gone at the skill's end
+  u.skill.gainSp(999, 'test');
+  assert.ok(u.skill.active || u.skill.activate('test'), 'skill cast');
+  close(u.s.maxHp, 2000 * (1 + bb.base_max_hp), 'raid HP bonus during the skill');
+  close(u.s.atk, 500 * (1 + bb.base_atk), 'raid ATK bonus during the skill');
+  u.skill.end('duration');
+  close(u.s.maxHp, 2000, 'bonus gone with the skill');
+  u.skill.gainSp(999, 'test');
+  assert.ok(u.skill.active || u.skill.activate('test'), 'skill cast again');
   // knocked out later: it lies on its landing tile and comes back there ("原地留下一个“倒地干员”…满足再部署条件时…
   // 自动部署至该位置", PRTS 卫戍协议/帮助 — player report F5 after 0.1.0), without the raid bonus; its home stays the
   // board tile
@@ -597,7 +607,7 @@ test('突袭 #49: a passive skill that is on, or a deploy-timed skill while it r
   checkInvariants(h.b);
 });
 
-test('突袭 #49 with #109: a deploy-timed skill counts only while its window runs — once it has ended, only the idle trigger is left', () => {
+test('突袭 #49 with #109: a PASSIVE skill (缄默德克萨斯\'s deploy-timed ones are PASSIVE) jumps once per deployment, window or not — then only the idle trigger', () => {
   const tex = 'chess_char_4_16_a';
   const idle = bondBb('raidShip').no_attack_duration;
   const h = makeBattle({
@@ -608,11 +618,17 @@ test('突袭 #49 with #109: a deploy-timed skill counts only while its window ru
   const u = h.unit(tex);
   u.skill.end('duration'); // her window over before the first poll, as after its duration
   assert.deepEqual([u.skill.active, u.skill.ready], [false, false], 'ended: no charge until the next deployment');
+  h.run(0.3);
+  assert.equal(raidJumps(h).length, 1, 'the PASSIVE way: no [spawn] mark yet → a jump at the first trigger');
+  const t1 = h.b.time;
+  u.skill.end('duration');
   h.run(3);
-  assert.equal(raidJumps(h).length, 0, 'no 技能就绪 jump once the window has ended');
-  assert.ok(h.runUntil(() => raidJumps(h).length > 0, idle + 1), 'the idle trigger');
-  assert.ok(h.b.time >= idle - 1e-6, `at ${h.b.time.toFixed(2)} s`);
-  assert.ok(u.skill.active, 'the landing is a new deployment: a new window');
+  assert.equal(raidJumps(h).length, 1, 'the [spawn] mark: no second PASSIVE jump in this deployment');
+  // the enemy moved out of reach of her landing, so only the idle trigger (no attack for 10 s) is left
+  h.b.kill(h.enemy('enemy_addon_dummy'), null);
+  h.spawn('enemy_addon_dummy', { pos: [12, 8] });
+  assert.ok(h.runUntil(() => raidJumps(h).length > 1, idle + 1), 'the idle trigger');
+  assert.ok(h.b.time - t1 >= idle - 0.3, `at ${(h.b.time - t1).toFixed(2)} s after the first jump`);
   checkInvariants(h.b);
 });
 
@@ -975,4 +991,24 @@ test('调和 (match side): +1 to core bonds that already have a real member', ()
   assert.equal(ps.bonds.yanShip.count, 3);
   assert.equal(ps.bonds.yanShip.active, true, '1 调和 + 2 炎 activates 炎');
   m.dispose();
+});
+
+test('不屈 rolls DicePRD (client code Nodes.DicePRD): C = prdBaseProbs[round(p·100)], the N-th roll since a hit succeeds with N·C', () => {
+  assert.equal(prdBase(0.2), 0.0557, 'the Dota-style PRD constant for 20 %');
+  assert.equal(prdBase(0.18), 0.04562);
+  assert.equal(prdBase(0.184), 0.04562, 'p·100 rounded to the table index');
+  assert.equal(prdBase(1.5), 1, 'past the end: the last entry');
+  assert.equal(prdBase(0), 0);
+  const rolls = (r, p, k) => { const b = { rng: () => r }; const st = { n: 0 }; return Array.from({ length: k }, () => dicePRD(b, st, p)); };
+  // a constant draw of 0.5 against C = 0.04562: misses until 11·C = 0.502, then the count starts again
+  const out = rolls(0.5, 0.18, 22);
+  assert.deepEqual(out.map((x, i) => (x ? i + 1 : 0)).filter(Boolean), [11, 22]);
+  assert.deepEqual(rolls(0, 0, 3), [false, false, false], 'p 0 never hits');
+  // the long-run rate stays the nominal chance (seeded draws)
+  let seed = 7;
+  const rng = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const st = { n: 0 };
+  let hits = 0;
+  for (let i = 0; i < 20000; i++) if (dicePRD({ rng }, st, 0.2)) hits++;
+  assert.ok(Math.abs(hits / 20000 - 0.2) < 0.01, `rate ${hits / 20000}`);
 });

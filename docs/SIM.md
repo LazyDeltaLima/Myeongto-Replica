@@ -158,9 +158,10 @@ passage must follow; test/ui/playtest6_summons.test.js checks).
 directions (same ⇒ `equal`, reverse ⇒ `opposite`, perpendicular ⇒ `vertical`); board-position rules ("更靠左", "最右边",
 "同一行最右边") stay board positions in the player's own frame (mirrored FA side: counted from the field's other end),
 independent of the units' directions. Enemies keep their own horizontal facing logic (content/enemies/archetypes.js frontGuard).
-"First tile" tie-breaks relative to a unit (tactical points `findTacticalPoint`, summon tiles `findSummonTile`, the 突袭
-landing tile) compare offsets in the unit's facing-RIGHT frame (`localOrder` / `localBefore`; for a RIGHT unit exactly
-the old tile-key order), so a rotated layout plays the same (test/sim/facing-invariance.test.js: every chess × 4
+"First tile" tie-breaks relative to a unit (tactical points `findTacticalPoint`, summon tiles `findSummonTile`) compare
+offsets in the unit's facing-RIGHT frame (`localOrder` / `localBefore`; for a RIGHT unit exactly the old tile-key
+order); the 突袭 landing box (the enemy's tile, then the one behind it as seen from the member — range "1-1" turned
+against its direction, docs/rules/sim.md) turns with the member too, so a rotated layout plays the same (test/sim/facing-invariance.test.js: every chess × 4
 directions on an open field). 余 S3's fire wall runs through his tile perpendicular to his direction (his column facing
 RIGHT / LEFT, his row facing UP / DOWN; fx `firewall.axis` = `'col'|'row'`).
 `carryState: { hpPct, sp }` restores unite helpers' operators (HP ratio, and the SP = the official 技力, stored charges

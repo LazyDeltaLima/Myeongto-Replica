@@ -311,9 +311,14 @@ export function stepToward(u, tx, ty, dist) {
   return false;
 }
 
-/** Set a 频次 unit's hits (maxHp := hits, full): `n` rounded to a whole count, at least 1. */
+/**
+ * Set a 频次 unit's hits (maxHp := hits, full): the whole number of hits a max HP of `n` takes, at least 1 — client code
+ * `PropLikeEnemy.DoApplyModifier` (RVA 0x75C4B0) takes exactly 1 HP per damage instance and the max HP stays a
+ * fixed-point fraction (`Attributes._CalculateAttributeValue`, no rounding), so 2 × 1.08 = 2.16 HP falls on the 3rd hit:
+ * ceil(n). (The bar shows whole hits here, the client 1/2.16 steps — display only.)
+ */
 export function setHits(e, n) {
-  const h = Math.max(1, Math.round(n));
+  const h = Math.max(1, Math.ceil(n - 1e-9));
   e.base.maxHp = h;
   e.markDirty();
   void e.s;

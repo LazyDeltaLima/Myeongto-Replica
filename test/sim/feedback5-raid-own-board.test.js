@@ -8,8 +8,11 @@
 // 0.2.0 let raidTile take only tiles of the member's own board (Battle.onOwnBoard: the board region, rows 9–12 / cols
 // 2–10, mapped onto the field). The owner's decision of 2026-10-07 (0.2.1) opens a teammate's half when both halves are
 // taken — the two-helper 联防 field and a Final Assault / Hidden Core pair field: raidTile takes the tiles of
-// Battle.onFieldBoard (the board of any player of the field). The lone helper's empty half, a solo boss field's other
-// half and the hand rows stay closed; 乌尔比安's S3 【移动】 keeps his own board.
+// Battle.onFieldBoard (the board of any player of the field). 2026-10-10 (client code): the landing is the enemy's tile
+// or the one behind it (AutoChessRebuildCharacterOnTile, range "1-1"), on a BATTLE_FIELD tile — every map tile but
+// tile_achand, narrowed per game state by AutoChessMapAreaManager.ResetTileIndexer: the whole boss map in a boss battle
+// (a solo boss field's other half included), both 联防 halves only with several helpers. The lone helper's empty half
+// and the hand rows stay closed; 乌尔比安's S3 【移动】 keeps his own board.
 // Run: node --test test/sim/feedback5-raid-own-board.test.js
 
 import { test } from 'node:test';
@@ -42,12 +45,18 @@ const unitAt = (row, col, uid = 1, chessId = ID) => ({ uid, kind: 'chess', chess
 /** A teammate with one 角峰 and no 突袭 (its half is taken). */
 const mate = (playerId, s, o = {}) => seat(playerId, s, { ...o, bonds: {}, units: [unitAt(12, 8, 9, TANK)] });
 
-test('boss field (solo 最终攻势): a ranged 突袭 member never lands on the hand row 0 or the 临时整备区 row 1', () => {
-  // 战场#01: the enemy on the telin (1,3); before the fix the member landed on the hand tile (0,3)
-  const { h, mine } = jump({ kind: 'boss', stageId: 'act1autochess_m01', players: [seat('p1', 0, { units: [unitAt(12, 3)] })], enemyPos: [1, 3] });
+test('boss field (solo 最终攻势): a ranged 突袭 member never lands on the hand row 0 or the 临时整备区 row 1; the other half is battlefield', () => {
+  // 战场#01: the enemy on the telin (1,3) — its box (1,3) / (1,2) holds no buildable tile: the member stays (before 0.2.0
+  // it landed on the hand tile (0,3))
+  const { h, mine, homes } = jump({ kind: 'boss', stageId: 'act1autochess_m01', players: [seat('p1', 0, { units: [unitAt(12, 3)] })], enemyPos: [1, 3] });
   const u = mine[0];
-  assert.deepEqual([u.tileR, u.tileC], [2, 3], 'the board tile next to it, not (0,3)');
-  assert.ok(h.b.onOwnBoard(u.player, u.tileR, u.tileC));
+  assert.deepEqual([u.tileR, u.tileC], homes[0], 'no landing tile in the box: it stays');
+  // the enemy on the road (2,3): the member lands on the enemy's own tile
+  const road = jump({ kind: 'boss', stageId: 'act1autochess_m01', players: [seat('p1', 0, { units: [unitAt(12, 3)] })], enemyPos: [2, 3] });
+  assert.deepEqual([road.mine[0].tileR, road.mine[0].tileC], [2, 3]);
+  // BOSS_BATTLE opens the whole boss map (ResetTileIndexer → IsBossMap): the enemy on the right half's road (2,17)
+  const other = jump({ kind: 'boss', stageId: 'act1autochess_m01', players: [seat('p1', 0, { units: [unitAt(12, 3)] })], enemyPos: [2, 17] });
+  assert.deepEqual([other.mine[0].tileR, other.mine[0].tileC], [2, 17], 'the solo boss field\'s other half');
   // every row-0 / row-1 tile is off the board, every board tile (rows 2–5, cols 2–10) is on it
   for (let c = 0; c <= 20; c++) for (const r of [0, 1]) assert.equal(h.b.onOwnBoard(u.player, r, c), false, `(${r},${c})`);
   for (let r = 2; r <= 5; r++) for (let c = 2; c <= 10; c++) assert.equal(h.b.onOwnBoard(u.player, r, c), true, `(${r},${c})`);
@@ -60,20 +69,20 @@ test('boss field (solo 最终攻势): a ranged 突袭 member never lands on the 
 });
 
 test('boss field pair: a member lands on its partner\'s half — the right player\'s on the left, the left player\'s on the mirrored right (the owner\'s decision of 2026-10-07) — never on the hand rows', () => {
-  // the enemy on the left telin (1,3): the right player's member (board (12,3) → field (5,17)) takes the partner's board
-  // tile next to it (until 0.2.1 it stayed home: no tile of its own half reaches the telin)
-  const { h, mine, homes } = jump({ kind: 'boss', stageId: 'act1autochess_m01', players: [mate('p1', 0), seat('p2', 1, { side: 'R', units: [unitAt(12, 3)] })], enemyPos: [1, 3] });
+  // the enemy on the left road (2,3): the right player's member (board (12,3) → field (5,17)) lands on it, the partner's
+  // half (until 0.2.1 it stayed home)
+  const { h, mine, homes } = jump({ kind: 'boss', stageId: 'act1autochess_m01', players: [mate('p1', 0), seat('p2', 1, { side: 'R', units: [unitAt(12, 3)] })], enemyPos: [2, 3] });
   const u = mine[0];
   assert.equal(u.ownerId, 'p2');
   assert.deepEqual(homes[0], [5, 17]);
-  assert.deepEqual([u.tileR, u.tileC], [2, 3], 'the partner\'s board tile next to the telin');
+  assert.deepEqual([u.tileR, u.tileC], [2, 3], 'the partner\'s board tile under the enemy');
   const partner = h.b.getPlayer('p1');
   assert.ok(!h.b.onOwnBoard(u.player, 2, 3) && h.b.onOwnBoard(partner, 2, 3) && h.b.onFieldBoard(2, 3));
   // both halves are the field's boards, the hand / 临时整备区 rows of either side never
   for (let c = 0; c <= 20; c++) for (const r of [0, 1]) assert.equal(h.b.onFieldBoard(r, c), false, `(${r},${c})`);
   for (let r = 2; r <= 5; r++) for (let c = 2; c <= 18; c++) assert.equal(h.b.onFieldBoard(r, c), true, `(${r},${c})`);
-  // the mirror: the left player's member (field (5,3)) lands on the right player's half, next to the right telin
-  const left = jump({ kind: 'boss', stageId: 'act1autochess_m01', players: [seat('p1', 0, { units: [unitAt(12, 3)] }), mate('p2', 1, { side: 'R' })], enemyPos: [1, 17] });
+  // the mirror: the left player's member (field (5,3)) lands on the right player's half
+  const left = jump({ kind: 'boss', stageId: 'act1autochess_m01', players: [seat('p1', 0, { units: [unitAt(12, 3)] }), mate('p2', 1, { side: 'R' })], enemyPos: [2, 17] });
   assert.deepEqual([left.mine[0].tileR, left.mine[0].tileC], [2, 17], 'the mirrored right half');
   assert.ok(!left.h.b.onOwnBoard(left.mine[0].player, 2, 17) && left.h.b.onOwnBoard(left.h.b.getPlayer('p2'), 2, 17));
   // an enemy only the partner's hand row could reach: it stays home and does not hop

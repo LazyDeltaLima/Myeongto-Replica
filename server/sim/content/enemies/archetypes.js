@@ -44,8 +44,8 @@ const runWhenHit = (v) => ({ taken(c, b, e, a) { if (a.on || !(v > 0)) return; a
  * these units like any enemy (攻坚装备 / II / III leave out only 炎佑), but not 补给线 / 补给线II, whose `enemy_exclude` lists
  * exactly these 14 keys (activity_table aceffect_enemy_2 / 2_2, data/effects.json): that share (`mods.supplyHpMul`, co-op
  * 终极 R5–R15) comes out again — a 频次 enemy's death spawn inherits the parent's mods, so it travels with them. Whole hits:
- * setHits rounds [ASSUMED: no source says how a fractional count rounds]. Until 0.2.1 the count was the data's whatever
- * the difficulty (PR #272).
+ * setHits takes the ceiling (client code PropLikeEnemy.DoApplyModifier: 1 HP per instance off an unrounded max HP —
+ * 2.16 HP takes 3 hits; the 0.2.1 port rounded). Until 0.2.1 the count was the data's whatever the difficulty (PR #272).
  */
 const times = (artsOnly = false) => ({
   spawn(b, e) {

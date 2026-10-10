@@ -314,22 +314,22 @@ test('频次 器物 vs the round effects: the 14 kitTimes keys are exactly 补�
   for (const id of ['aceffect_enemy_1', 'aceffect_enemy_3', 'aceffect_enemy_4', 'aceffect_enemy_5']) assert.deepEqual([...excludeOf(id)], ['enemy_9012_acloon'], id);
 });
 
-test('频次 器物: hits = data × hpMul / supplyHpMul (补给线\'s share out, 攻坚装备 kept), rounded [ASSUMED]; a 频次 enemy\'s death spawn inherits that', () => {
+test('频次 器物: hits = data × hpMul / supplyHpMul (补给线\'s share out, 攻坚装备 kept), the ceiling (PropLikeEnemy: 1 HP per hit off an unrounded max HP); a 频次 enemy\'s death spawn inherits that', () => {
   const h = arena();
   h.step();
-  // co-op 终极 R6: hp 1.2⁴ × 1.08 (补给线) — the mirror takes 1.2⁴ only: 30 × 2.0736 = 62.2 → 62
+  // co-op 终极 R6: hp 1.2⁴ × 1.08 (补给线) — the mirror takes 1.2⁴ only: 30 × 2.0736 = 62.2 → 63 hits
   const mods = { hpMul: 2.239488, atkMul: 1.4641, speedMul: 0, supplyHpMul: 1.08 };
   const jin = put(h, 'enemy_1200_msfjin', [10, 7], { mods });
-  assert.equal(jin.s.maxHp, 62);
+  assert.equal(jin.s.maxHp, 63);
   const parent = put(h, 'enemy_1199_sfjin', [10, 9], { mods });
   approx(parent.s.maxHp, E.enemy_1199_sfjin.stats.maxHp * 2.239488, 1e-9, '身观 itself takes 补给线');
   h.b.kill(parent, null);
   h.step();
   const child = h.enemies().find((e) => e.defId === 'enemy_1200_msfjin' && e !== jin);
   assert.ok(child, '身观 leaves its 青铜镜');
-  assert.equal(child.s.maxHp, 62);
-  // solo 标准 (攻坚装备III, HP ×0.75): fewer hits — 2 → 1.5 → 2, 3 → 2.25 → 2, 30 → 22.5 → 23
-  for (const [key, n] of [['enemy_1196_msfyin', 2], ['enemy_1196_msfyin_2', 2], ['enemy_1200_msfjin', 23]]) assert.equal(put(h, key, [11, 7], { mods: { hpMul: 0.75 } }).s.maxHp, n, key);
+  assert.equal(child.s.maxHp, 63);
+  // solo 标准 (攻坚装备III, HP ×0.75): fewer hits — 2 → 1.5 → 2, 3 → 2.25 → 3, 30 → 22.5 → 23
+  for (const [key, n] of [['enemy_1196_msfyin', 2], ['enemy_1196_msfyin_2', 3], ['enemy_1200_msfjin', 23]]) assert.equal(put(h, key, [11, 7], { mods: { hpMul: 0.75 } }).s.maxHp, n, key);
   assert.equal(put(h, 'enemy_1196_msfyin', [11, 8]).s.maxHp, 2, 'no mods: the data\'s count');
 });
 

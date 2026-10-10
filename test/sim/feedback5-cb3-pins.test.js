@@ -3,9 +3,9 @@
 //   item 2 「敌人在干员铃兰技能范围内没有开技能，在攻击范围才开」 — 铃兰's default S3 狐火渺然 ("攻击范围扩大") was on the basic
 //     strategy up to 0.1.4 (DEFAULT: an enemy in her own 2-tile range); 0.2.0's ACTIVE_RANGE (the owner's rule of 2026-10-05,
 //     tools/build-data.mjs resolveTrigger) casts it with an enemy inside its running range y-8 (3 tiles ahead).
-//   item 16.1 「突袭转职玛恩纳…攻击范围里有怪的时候即使长时间没攻击也不会突袭」 — the bond text itself: "干员10秒内未进行攻击或技能
-//     就绪时，若范围内没有敌人，则…再部署": a 解放者 never attacks with his skill off, so his 10 s are always met, and an enemy in
-//     his range is the one thing that holds the jump — as for every member.
+//   item 16.1 「突袭转职玛恩纳…攻击范围里有怪的时候即使长时间没攻击也不会突袭」 — 2026-10-10, the client buff graph
+//     act1autochess_bond_eff_raid[attack]: the 10 s no-attack jump has no range condition (only the skill-ready way checks
+//     the own / front tile), so a 解放者 — no attack with his skill off — jumps every 10 s whatever is in his range.
 //   item 16.4 「归鲨被吃的时候不是变替身而是进了再部署」 — an 阿戈尔 devour mark on 归溟幽灵鲨 switches her to her 替身 (normal, 联防,
 //     boss fields); never a knock-out (a sweep of 400 random chains on this tree and v0.1.2–v0.1.4: 0).
 //   item 46 「荒芜拉普兰德开技能之后好像没有普攻了…叙拉古恐惧概率不高」 — during her default S3 every drone is out chasing (PRTS
@@ -43,7 +43,7 @@ test('item 2 — 铃兰 S3 狐火渺然: ACTIVE_RANGE on its y-8; casts with an 
   }
 });
 
-test('item 16.1 — a 突袭 玛恩纳 (变形同构体 + 突袭手雷): no jump while an enemy stays in his range ("若范围内没有敌人"); at once when none is', () => {
+test('item 16.1 — a 突袭 玛恩纳 (变形同构体 + 突袭手雷): 10 s without an attack → he jumps, an enemy in his range or not ([attack] graph)', () => {
   const h = makeBattle({
     seed: 5, autoFinish: false, timeLimit: 120, hooks: ['deploy'], bonds: { raidShip: { count: 3, active: true, tier: 1, layers: 1 } },
     defs: { enemies: { enemy_pin: dummy('enemy_pin') } },
@@ -54,11 +54,11 @@ test('item 16.1 — a 突袭 玛恩纳 (变形同构体 + 突袭手雷): no jump
   const near = h.spawn('enemy_pin', { pos: [10, 5] });
   h.spawn('enemy_pin', { pos: [12, 8] });
   const jumps = () => h.hooksOf('deploy').filter((c) => c.unit === u && !c.initial).length;
-  h.run(20);
+  assert.ok(near.alive);
+  h.run(9.5);
   assert.equal(u.lastAttackAt, -Infinity, 'a 解放者 makes no attack with his skill off (his 10 s are met)');
-  assert.equal(jumps(), 0, 'an enemy in his range: no jump');
-  h.b.kill(near, null);
-  assert.ok(h.runUntil(() => jumps() > 0, 1), 'none in range: he jumps at once');
+  assert.equal(jumps(), 0, 'not before 10 s');
+  assert.ok(h.runUntil(() => jumps() > 0, 1.5), 'the 10 s no-attack jump, though an enemy stands in his range');
   checkInvariants(h.b);
 });
 

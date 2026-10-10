@@ -115,27 +115,30 @@ test('战术家 援军 (伺夜): the tactical point is the tile in FRONT along t
   }
 });
 
-test('突袭 (raidShip): the landing tile beside the enemy turns with the member direction (equal candidates)', () => {
-  // a diagonal-only range: two equally near landing tiles cover the enemy — the tie resolves in the member's frame. The
-  // enemy stands inside the player's own board (rows 9–12, cols 2–10): a member lands only on a board of its field since
-  // 0.2.0 (Battle.onFieldBoard — on a one-player field its own; DESIGN §25.18, docs/rules/sim.md sim-4), so all four diagonal tiles around
-  // (10, 6) are candidates in every direction
+test('突袭 (raidShip): the landing box turns with the member direction (the enemy tile, then the one behind it)', () => {
+  // client code AutoChessRebuildCharacterOnTile: LitePhysicsUtil.FindTilesInBox("1-1", enemy tile, the opposite of the
+  // member's direction) in the range's grid order — the enemy's own tile first, then the tile behind it as seen from the
+  // member (local (0, −1)); no attack-range condition. The enemy stands inside the player's own board (rows 9–12,
+  // cols 2–10, Battle.onFieldBoard on a one-player field).
   const ER = 10, EC = 6;
   const rec = chessRec({ id: 'r_diag', bonds: ['raidShip'], profession: 'WARRIOR', skill: null, rangeGrid: [[1, 1], [-1, 1]] });
-  const land = (dir) => {
+  const land = (dir, water) => {
+    const rows = ROWS.slice();
+    if (water) rows[ER] = rows[ER].slice(0, EC) + 'd' + rows[ER].slice(EC + 1);
     const h = makeBattle({
-      stage: OPEN, rect: RECT, routes: FAR_ROUTE, defs: { chess: { r_diag: rec }, enemies: { e_d: enemyRec({ key: 'e_d', hp: 1e6, speed: 0 }) } },
+      stage: { ...OPEN, rows }, rect: RECT, routes: FAR_ROUTE, defs: { chess: { r_diag: rec }, enemies: { e_d: enemyRec({ key: 'e_d', hp: 1e6, speed: 0 }) } },
       bonds: { raidShip: { count: 1, active: true, tier: 1, layers: 0 } },
       units: [{ chessId: 'r_diag', row: 15, col: 3, dir, abs: true }],
       enemies: [{ key: 'e_d', pos: [ER, EC], route: walkRoute([ER, EC]) }], autoFinish: false, timeLimit: 60,
     });
     const u = h.unit('r_diag');
-    assert.ok(h.runUntil(() => u.alive && u.deployed && Math.max(Math.abs(u.tileR - ER), Math.abs(u.tileC - EC)) <= 2, 30), `${dir}: jumped next to the enemy`);
+    assert.ok(h.runUntil(() => u.alive && u.deployed && Math.max(Math.abs(u.tileR - ER), Math.abs(u.tileC - EC)) <= 1, 30), `${dir}: jumped next to the enemy`);
     return toLocal(u.tileR - ER, u.tileC - EC, dir);
   };
-  const right = land('RIGHT');
-  assert.deepEqual(right, [-1, -1], 'RIGHT: the lower of the two diagonal tiles behind the enemy (tile-key order, as before)');
-  for (const d of ['UP', 'LEFT', 'DOWN']) assert.deepEqual(land(d), right, d);
+  for (const d of ['RIGHT', 'UP', 'LEFT', 'DOWN']) {
+    assert.deepEqual(land(d, false), [0, 0], `${d}: on the enemy's own tile`);
+    assert.deepEqual(land(d, true), [0, -1], `${d}: the enemy in water — the tile behind it, so the enemy is in front`);
+  }
 });
 
 test('findSummonTile: equal candidates resolve in the owner\'s facing-RIGHT frame (RIGHT: the tile-key order, as before)', async () => {

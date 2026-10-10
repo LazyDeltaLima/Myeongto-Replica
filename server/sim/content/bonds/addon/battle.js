@@ -8,8 +8,9 @@
 //
 //   精准 preciShip     members ATK +(base_atk + atk_per_stack·L); tier 2 (3 distinct): members + RANGED operators,
 //                      which also ignore power_def_penetrate DEF / power_magic_resist_penetrate RES (defIgnorePct / resIgnorePct)
-//   迅捷 swiftShip     member skill end → p = min(1, base_prob + prob_per_stack·L): +normal_sp SP; L ≥ power_bond_stack_cnt:
-//                      every operator's skill end rolls p again for +power_sp (members roll both, research [ASSUMED])
+//   迅捷 swiftShip     an operator's skill end → one roll p = min(1, base_prob + prob_per_stack·L): a hit gives a member
+//                      +normal_sp SP and, at L ≥ power_bond_stack_cnt, every operator +power_sp (a member both, on the same
+//                      roll — client buff graph act1autochess_bond_eff_swift: Dice → member? → AlwaysNext → layers?)
 //   灵巧 skillfulShip  aura: members + operators on their 4 (L ≥ 40: 8) adjacent tiles ASPD +(base + per·L), once per unit;
 //                      killed members keep providing it from their body tile until redeploy; retreat / forcedExit do not
 //   奥术 arcaneShip    member arts damage → target arts taken ×(base + per·L) for weak_duration s; tier 2: ×power_weak_scale
@@ -29,32 +30,22 @@
 //                      the members on the field (split evenly, sourceless true damage — already mitigated), members’ thorns
 //                      (base + per·L arts, sourceless but credited to the member hit, ≤ 1 per cd_duration per member;
 //                      无来源 damage uses the chance and hits nobody, a 流失 never does — PRTS 备注 / 作战机制)
-//                      + 脆弱 ×damage_scale for weak[limit] s
+//                      + 脆弱 ×damage_scale for weak[limit] s, applied before the thorn (client buff graph stead[ex])
 //   助力 deputShip     all operators DEF +(base + per·L), redeploy time ×(1 + respawn_time)
-//   突袭 raidShip      member idle ≥ no_attack_duration s (or skill ready — a passive skill that is on counts, GitHub
-//                      #49, and so does a deploy-timed skill while it runs, #109) with no enemy in range → "保留技力立即再部署"
-//                      next to the most advanced ground enemy it can reach — a 隐匿 (unrevealed) ground enemy too, and one
-//                      in its range counts for 「范围内没有敌人」 (the owner's decision of 2026-10-08 from the official game,
-//                      GitHub #316; asleep, untargetable and flying ones stay out: raidGroundEnemy): on a free tile of a board of its field
-//                      (Battle.onFieldBoard: its own or a teammate's on the same field — the two-helper 联防 field and a
-//                      pair field open both halves, the owner's decision of 2026-10-07; never a boss field's hand /
-//                      临时整备区 rows, never the empty other half of a lone 联防 helper or a solo boss field — community
-//                      reports of 2026-10-06, items 40 and 16.3) its position may be deployed
-//                      on from which its range covers that enemy (GitHub issue #51 [ASSUMED]: the first of the 8 most
-//                      advanced that has such a tile; none → it stays and the next poll looks again, never a jump that
-//                      hits nothing) — for a melee member that blocks, a tile where its block applies first (ground
-//                      units pass it, an enemy path runs through it: not a 围墙 — the owner's decision of 2026-10-06,
-//                      GitHub #148); grid.canStand: never the 深水区 (player report #3 after 0.1.0, members dropped
-//                      into 战场#08's pool after an enemy wading in it); Battle.isReservedTile: never a tile a knocked-out
-//                      operator lies on (player report F5, members landed on a fallen teammate). A real redeployment
-//                      (retreat + free redeploy on the landing tile, full HP, `deploy` fires — 部署时 traits such as
-//                      史尔特尔, 突袭手雷, 卡西米尔, 叙拉古) with its SP / charges kept (engine redeploy tile + keepSp);
-//                      ATK/HP +(base + per·L) until it leaves the field; knocked out after a jump it lies where it fell
-//                      and comes back there (the engine's rest tile, Battle._layBody — PRTS 卫戍协议/帮助 "原地留下一个
-//                      “倒地干员”…自动部署至该位置"; its own home when it fell on another board piece's home);
-//                      L ≥ power_bond_stack_cnt: every operator ASPD +power_attack_speed
+//   突袭 raidShip      a member jumps — retreat + free redeploy next to a ground enemy (a 隐匿, asleep or untargetable one
+//                      too), the highest 嘲讽 then the most advanced first — on: its passive skill (once per battle), its
+//                      ready MANUAL skill with no enemy on its own / front tile, its AUTO skill's start (not blocking),
+//                      or no_attack_duration s without an attack (SP kept; the skill ways land with full SP). Landing:
+//                      the enemy's tile or the one behind it as seen from the member, on a battlefield tile of this
+//                      field (both halves of a boss field and of a two-helper 联防 field, never the hand rows) it may
+//                      stand on (never the 深水区, never a fallen operator's tile). While its skill runs a member has
+//                      ATK / max HP +(base + per·L). Details and sources: the 突袭 section below (client buff graph
+//                      act1autochess_bond_eff_raid). A real redeployment (full HP, `deploy` fires — 部署时 traits) with
+//                      its SP / charges kept; knocked out after a jump it lies where it fell and comes back there (the
+//                      engine's rest tile, Battle._layBody); L ≥ power_bond_stack_cnt: every operator ASPD +power_attack_speed
 //   不屈 indomShip     ground operator knocked out → p = min(1, base + per·L) immediate free redeploy where it lies
-//                      (the engine's rest tile); tier 2: every operator on the field +sp SP
+//                      (the engine's rest tile), rolled as a pseudo-random distribution (dicePRD: the N-th roll since the
+//                      last hit succeeds with N × C(p), one count per battle); tier 2: every operator on the field +sp SP
 //   协防 emptyShip     all operators phys/arts taken ×(1 − damage_resistance); members dealt ×damage_scale_normal
 //                      (elite ×damage_scale_extra)
 //   独行 soloShip      the member(s) ATK +atk, HP +max_hp, +sp SP on every deploy
@@ -64,9 +55,8 @@
 // Hooks registered only when a bond needs them. Priorities: `hit` −20 (坚守 redirect, after other modifiers had their
 // say), `death` 10 (不屈, the bond slot of the revive/redeploy convention); everything else 0.
 
-import { canTargetEnemy, enemyStealthed, extendedGrid } from '../../../targeting.js';
-import { normDir, rotateOffset, localOrder, localBefore } from '../../../dir.js';
-import { bodyKeys, bodyInKeys } from '../../../body.js';
+import { normDir, rotateOffset } from '../../../dir.js';
+import { bodyKeys, bodyOnTile } from '../../../body.js';
 import { isHpLoss } from '../../../damage.js';
 import {
   num, bondRecord, buffParams, bondTier, bondLayers, isMember, isElite, isGroundOp, onField, playerOps, passiveBuff,
@@ -87,8 +77,39 @@ const LAYERED = new Set([ID.preci, ID.swift, ID.skillful, ID.arcane, ID.stead, I
 const STEAD_CD = 'bond:steadShip:cd';
 const AURA_POLL = 0.25;
 const RAID_POLL = 0.25;
-const RAID_SEARCH = 2; // landing tiles within this Chebyshev distance of the target enemy
-const RAID_TARGETS = 8; // candidate enemies a poll tries per member, the most advanced first (raidTargets)
+const RAID_SPAWN = 'bond:raidShip:spawn';  // u.mem: the [spawn] mark (any jump; kept until the member leaves the field)
+const RAID_TRIG_KEY = 'bond:raidShip:trig'; // u.mem: the running AUTO-skill [trig] (token)
+
+/**
+ * PRD base chances C for a nominal chance p = i / 100 (battle_misc_table miscConfig.prdBaseProbs, 101 entries): client
+ * code `Nodes.DicePRD.Execute` (RVA 0xC163B0) takes C = prdBaseProbs[RoundToInt(p × 100)] (past the end: the last), and
+ * the N-th roll since the last success hits with N × C (`RandomExtensions.Dice`); the count N lives on the battle's global
+ * blackboard under "prd#" + the node's key, so every unit rolling that key shares it.
+ */
+const PRD_BASE = Object.freeze([
+  0, 0.00016, 0.00062, 0.00139, 0.00245, 0.0038, 0.00544, 0.00736, 0.00955, 0.01202, 0.01475, 0.01774, 0.02098, 0.02448,
+  0.02823, 0.03222, 0.03645, 0.04092, 0.04562, 0.05055, 0.0557, 0.06108, 0.06668, 0.07249, 0.07851, 0.08474, 0.09118,
+  0.09783, 0.10467, 0.11171, 0.11895, 0.12638, 0.134, 0.14181, 0.14981, 0.15798, 0.16633, 0.17491, 0.18362, 0.19249,
+  0.20155, 0.21092, 0.22037, 0.2299, 0.23954, 0.24931, 0.25987, 0.27045, 0.28101, 0.29155, 0.3021, 0.31268, 0.32329,
+  0.33412, 0.34737, 0.3604, 0.37322, 0.38584, 0.39828, 0.41054, 0.42265, 0.4346, 0.44642, 0.4581, 0.46967, 0.48113,
+  0.49248, 0.50746, 0.52941, 0.55072, 0.57143, 0.59155, 0.61111, 0.63014, 0.64865, 0.66667, 0.68421, 0.7013, 0.71795,
+  0.73418, 0.75, 0.76543, 0.78049, 0.79518, 0.80952, 0.82353, 0.83721, 0.85058, 0.86364, 0.8764, 0.88889, 0.9011,
+  0.91304, 0.92473, 0.93617, 0.94737, 0.95833, 0.96907, 0.97959, 0.9899, 1,
+]);
+/** PRD base chance C of a nominal chance `p` (PRD_BASE). */
+export const prdBase = (p) => (p > 0 ? PRD_BASE[Math.min(PRD_BASE.length - 1, Math.round(p * 100))] : 0);
+/**
+ * One DicePRD roll on `state` ({ n }: the shared count of failures since the last success): hit with (n + 1) × C.
+ * A hit resets the count, a miss stores it.
+ */
+export function dicePRD(battle, state, p) {
+  const c = prdBase(p);
+  if (!(c > 0)) return false;
+  const n = (state.n || 0) + 1;
+  const hit = battle.rng() < n * c;
+  state.n = hit ? 0 : n;
+  return hit;
+}
 
 /** 奥术 vulnerability mods for a multiplier (battle.applyStrongest). */
 const arcaneMods = (v) => ({ artsTakenMul: v });
@@ -252,154 +273,177 @@ function updateAura(battle, st) {
 }
 
 // =====================================================================================================================
-// 突袭 relocation
+// 突袭 relocation — the official buff graph act1autochess_bond_eff_raid (+ [attack] / [trig] / [skill] / [all]) and its
+// node AutoChessRebuildCharacterOnTile (client code `Nodes.AutoChessRebuildCharacterOnTile.Execute`, RVA 0xB4FF20).
 //
-// Either trigger (技能就绪, or no attack for no_attack_duration s) jumps only to a landing tile from which the member's
-// attack range covers the enemy it jumps to: the first candidate (raidTargets order, the RAID_TARGETS most advanced)
-// that has one; when none has, the member stays where it is and the next poll looks again (its idle time keeps
-// counting, so it jumps as soon as one can be reached). The official text only says "再部署至一名地面敌人周围" —
-// "never a useless landing" is [ASSUMED] after GitHub issue #51 (up to 0.1.1 the idle trigger landed where nothing was
-// in range, hopped between such tiles every 10 s and ignored a second enemy it could have reached; DESIGN §22.2).
+// Four ways to jump, all the same landing (raidJump):
+//   PASSIVE skill  — while the member carries no [spawn] mark (any jump sets it; a durable buff, so it survives the jump
+//                    itself — kept here until the member leaves the field otherwise [ASSUMED: knocked out / withdrawn,
+//                    the character's buffs go; community report of 2026-10-06 item 44: a revived passive member jumps
+//                    at once]), whatever is in its range: one jump per deployment, as soon as a candidate enemy exists
+//                    (缄默德克萨斯's ON_DEPLOY skills are PASSIVE in the client tables).
+//   MANUAL skill   — the skill is ready (CheckCharSkillAvailable), not running (CheckCharSkillAffecting) and no enemy
+//                    stands on the member's own tile or the tile in front of it (CheckHasEnemyInRange, range "1-1",
+//                    _useAttackRange false: client code `Nodes.CheckHasEnemyInRange.Execute` RVA 0xB8C7F0 reads the
+//                    blackboard / node range id, not the attack range, and counts every valid enemy whose body overlaps it).
+//   AUTO skill     — on its skill start, when the member carries no [spawn] mark and blocks nothing (CheckBlocked): the
+//                    derived [trig] jumps RAID_TRIG s later (triggerInterval 0.3, waitFirstTriggerInterval) and again
+//                    every RAID_TRIG s while the skill runs (the retreat ends the skill, so once) [ASSUMED: the jump ends
+//                    the skill as our retreat does].
+//   no attack      — [attack]: no_attack_duration s without an attack ([attacked] is re-made on every ON_AFTER_ATTACK
+//                    and when the buff is enabled) — no range or skill condition; the SP ratio is kept
+//                    (AssignCurSpToBB → modify_sp[ratio]). The idle time starts again at the landing [ASSUMED: the
+//                    [attacked] mark is re-made by the re-enable after the move].
+// The three skill ways land with full SP ([spawn] = modify_sp[ratio] sp 1.0: client code `Nodes.ModifySp.Execute`
+// RVA 0xB80BC0 sets RoundToInt(maxSp × ratio)); a passive skill has none.
 
-/**
- * The member's attack range as offsets from its tile: its own grid + rangeExtend (targeting.js extendedGrid, the
- * relative form of absoluteRangeKeys) turned by its direction — flat [dRow, dCol, dRow, dCol, …].
- */
-function raidReach(u) {
-  const d = normDir(u.dir);
-  const out = [];
-  for (const [dr, dc] of extendedGrid(u.rangeGrid || [[0, 0]], num(u.s.rangeExtend))) out.push(...rotateOffset(dr, dc, d));
-  return out;
+/** [trig] trigger interval (s) of the AUTO-skill jump. */
+const RAID_TRIG = 0.3;
+/** At most this many candidates (FilterUtil.Filter(cands, null, 128, HATRED_DES)). */
+const RAID_MAX_TARGETS = 128;
+/** Range "1-1" (range_table: grids (0,0), (0,1), direction RIGHT): the landing box and the "enemy in range" box. */
+const RANGE_1_1 = Object.freeze([[0, 0], [0, 1]]);
+const OPPOSITE_DIR = Object.freeze({ UP: 'DOWN', DOWN: 'UP', RIGHT: 'LEFT', LEFT: 'RIGHT' });
+
+/** The member's official skill type: 'PASSIVE' | 'AUTO' | 'MANUAL' (def.skillType; our passive kits count as PASSIVE). */
+function raidSkillType(sk) {
+  if (!sk || sk.noSkill) return null;
+  const t = String(sk.def?.skillType ?? '').toUpperCase();
+  if (sk.kind === 'passive' || t === 'PASSIVE') return 'PASSIVE';
+  return sk.manual ? 'MANUAL' : 'AUTO';
 }
 
 /**
- * Landing tile [row, col] of a jump to enemy `e`, or null: a tile from which the member's range (`reach`, raidReach)
- * covers the enemy's body (a huge enemy: any tile it occupies — body.js), within RAID_SEARCH tiles (Chebyshev) of the
- * enemy, inside the field rect and on a board of its field (Battle.onFieldBoard — "再部署" goes where a player of the
- * field deploys: its own board or a teammate's half when both halves are taken, the two-helper 联防 field and a pair
- * field — the owner's decision of 2026-10-07, docs/rules/sim.md sim-4; never a boss field's hand row 0 or 临时整备区 row 1, both
- * inside BOSS_RECT and buildable high ground, nor the empty other half of the one-helper 联防 map or a solo boss field;
- * community reports of 2026-10-06, items 40 and 16.3: a ranged member landed on the 临时整备区 row of a solo leader
- * round, and on the right half of the one-helper 联防 map), that the member's
- * position may be deployed on (grid.canStand: never the 深水区 —
- * player report #3 after 0.1.0 —, and for a melee member low ground only, never a 高台: GitHub #148) and that is free
- * (Battle.isReservedTile: no living unit, no knocked-out operator's body — player report F5 —, no waiting piece's tile).
- * A melee member that blocks takes a tile where its block applies first — ground units pass it (not a 围墙 / 围栏 tile,
- * where a unit blocks no ground enemy: Battle._blockerFor) and an enemy ground path runs through it
- * (Battle.groundPathTiles) or its enemy stands on it — over one where it would block nothing (the owner's decision of
- * 2026-10-06 after GitHub
- * #148: a member landed on a 围墙 tile, drawn raised, while a road tile covered its enemy too [ASSUMED: the official
- * landing picks among the legal tiles at random]); then the nearest (Chebyshev, then 0.01·Manhattan); last tie-break
- * the offset in the member's facing-RIGHT frame (sim/dir.js localOrder; for a RIGHT-facing unit the plain tile-key
- * order), so the landing tile turns with its direction. Only the tiles a range offset leads back to from a body tile
- * are looked at, so a search that finds nothing stays cheap.
+ * A jump candidate: TargetOptions { ENEMY, WALK_ONLY, category NONE|DEFAULT, advanced options off } — client code
+ * `TargetOptions.VerifyTarget` (RVA 0x6DEC00) returns from `_VerifyAdvanced` at once when `enableAdvancedOptions` is
+ * false, so a 隐匿, asleep, untargetable or stunned ground enemy is one too (the template's STUNNED / SLEEPING flags
+ * are never read); only the motion mask leaves flying enemies out. On the map: alive, deployed and shown.
  */
-function raidTile(battle, u, e, reach) {
-  const er = Math.round(e.y), ec = Math.round(e.x);
+function raidCandidate(e) {
+  return !!(e && e.alive && e.deployed && !e.hidden && !e.isFlying);
+}
+
+/**
+ * The candidates in FilterUtil HATRED_DES order, at most RAID_MAX_TARGETS: client code `Enemy.get_hatred` (RVA
+ * 0x731300) = tauntLevel × a large constant − the remaining route — so the highest 嘲讽 level first, then the most
+ * advanced (least remaining distance); the spawn order breaks ties [ASSUMED: FilterUtil's order among equal hatred].
+ * Every enemy of the battle — a pair field's other half included —, no own-field preference.
+ */
+function raidTargets(battle) {
+  const list = [];
+  for (const e of battle.enemies) if (raidCandidate(e)) list.push(e);
+  const key = new Map(list.map((e) => [e, { t: -(e.s.taunt || 0), d: num(battle.remainingDistance ? battle.remainingDistance(e) : 0) }]));
+  list.sort((a, b) => key.get(a).t - key.get(b).t || key.get(a).d - key.get(b).d || (a.spawnSeq ?? a.id) - (b.spawnSeq ?? b.id));
+  if (list.length > RAID_MAX_TARGETS) list.length = RAID_MAX_TARGETS;
+  return list;
+}
+
+/**
+ * Whether (r, c) is a battlefield tile of this battle (AutoChessBattleUtil.IsBattleField: the tile indexer's BATTLE_FIELD
+ * set = every map tile but tile_achand, narrowed by the extra validator `AutoChessMapAreaManager.ResetTileIndexer`
+ * (RVA 0x8334E0) sets per game state: BATTLE → the left (own) normal area; HELP_BATTLE → both normal halves when
+ * several players help (isMultiPlayerHelp), else the own one; BOSS_BATTLE → the whole boss map). So: a boss / hidden-core
+ * field opens both halves of rows 2–5 even for a lone player (never its hand / 临时整备区 rows 0–1, tile_achand); a 联防
+ * field both halves with two helpers and the own half for one (Battle.onFieldBoard); a normal field its own board.
+ */
+function raidBattlefield(battle, r, c) {
+  if (battle.kind === 'boss' || battle.kind === 'hidden') return battle.grid.inRect(r, c) && battle.grid.tile(r, c).key !== 'tile_achand';
+  return battle.onFieldBoard(r, c);
+}
+
+/**
+ * Landing tile [row, col] of member `u` next to enemy `e`, or null — client code AutoChessRebuildCharacterOnTile: for
+ * each tile of the enemy (its root tile; a huge enemy's body tiles), LitePhysicsUtil.FindTilesInBox("1-1", tile,
+ * opposite of the member's direction) in the range's grid order — the enemy's own tile first, then the tile behind
+ * it as seen from the member, so the enemy ends up on the member's own or front tile — and the first that passes
+ * BuildCondition.CheckBuildable + Tile.CheckBuildable for the card (the battlefield, grid.canStand: its position's
+ * buildable tiles, never the 深水区; free of another piece: Battle.isReservedTile — no living ally, no knocked-out
+ * operator's body). No range check: a ranged member lands next to the enemy too. Enemies stand anywhere (a melee
+ * member may land on the enemy's tile and block it).
+ */
+function raidTile(battle, u, e) {
+  const back = OPPOSITE_DIR[normDir(u.dir)];
   const ranged = u.def?.position === 'RANGED';
-  const body = bodyKeys(e);
-  const path = !ranged && u.s.blockCnt > 0 ? battle.groundPathTiles() : null;
-  let best = null, bp = 2, bd = Infinity, bo = null;
-  for (const k of body) {
+  for (const k of bodyKeys(e)) {
     const br = Math.floor(k / COLS), bc = k - br * COLS;
-    for (let i = 0; i < reach.length; i += 2) {
-      const r = br - reach[i], c = bc - reach[i + 1], dr = r - er, dc = c - ec;
-      if (Math.abs(dr) > RAID_SEARCH || Math.abs(dc) > RAID_SEARCH) continue;
-      if (!battle.grid.inRect(r, c) || !battle.onFieldBoard(r, c) || !battle.grid.canStand(r, c, { ranged }) || battle.isReservedTile(r, c)) continue;
-      const t = r * COLS + c;
-      const p = path && battle.grid.tile(r, c).pass === 'ALL' && (path.has(t) || body.includes(t)) ? 0 : 1;   // its block applies
-      const d = Math.max(Math.abs(dr), Math.abs(dc)) + 0.01 * (Math.abs(dr) + Math.abs(dc));
-      const o = localOrder(dr, dc, u.dir);
-      if (p < bp || (p === bp && (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && localBefore(o, bo))))) { best = [r, c]; bp = p; bd = d; bo = o; }
+    for (const [gr, gc] of RANGE_1_1) {
+      const [dr, dc] = rotateOffset(gr, gc, back);
+      const r = br + dr, c = bc + dc;
+      if (!battle.grid.inRect(r, c) || !raidBattlefield(battle, r, c) || !battle.grid.canStand(r, c, { ranged }) || battle.isReservedTile(r, c)) continue;
+      return [r, c];
     }
   }
-  return best;
+  return null;
 }
 
-/**
- * A ground enemy 突袭 jumps toward, and that counts for 「范围内没有敌人」 while it stands in a member's range: one an
- * operator may target (canTargetEnemy, ground), or a 隐匿 one that only its 隐匿 keeps out — the owner's decision of
- * 2026-10-08 from the official game (GitHub #316 "Raid operator doesn't deploy to invisible enemy units, it does in
- * official"; the bond text says 敌人 / 地面敌人). Asleep, untargetable and flying enemies stay out, as before.
- */
-function raidGroundEnemy(u, e) {
-  if (!e || e.isFlying) return false;
-  if (canTargetEnemy(u, e, { canHitFly: false })) return true;
-  if (!e.alive || e.hidden || !e.deployed || !enemyStealthed(e)) return false;
-  const f = e.s.flags;
-  if (f.untargetable || f.sleep) return false;
-  const skip = u.profile && u.profile.skipEnemy;
-  return !(typeof skip === 'function' && skip(e));
-}
-
-/** A 隐匿 ground enemy (raidGroundEnemy) on `u`'s range: enemiesInKeys leaves 隐匿 out, so the poll checks this too. */
-function raidStealthInRange(battle, u) {
-  const keys = u.rangeKeySet || u.rangeKeys;
-  if (!keys) return false;
-  for (const e of battle.enemies) if (e.alive && enemyStealthed(e) && raidGroundEnemy(u, e) && bodyInKeys(e, keys)) return true;
+/** An enemy on the member's own tile or the one in front of it (range "1-1" in its direction): any enemy on the map. */
+function raidEnemyClose(battle, u) {
+  const d = normDir(u.dir);
+  const tiles = RANGE_1_1.map(([gr, gc]) => { const [dr, dc] = rotateOffset(gr, gc, d); return [u.tileR + dr, u.tileC + dc]; });
+  for (const e of battle.enemies) {
+    if (!e.alive || !e.deployed || e.hidden) continue;
+    for (const [r, c] of tiles) if (bodyOnTile(e, r, c)) return true;
+  }
   return false;
 }
 
 /**
- * Jump candidates of player `pid`, in priority order: the ground enemies of raidGroundEnemy (visible, or 隐匿; not
- * flying, asleep or untargetable) — those of the player's own field (`ownerId`), the others only when it has none —,
- * the most advanced first (least remaining path distance, then the earliest spawned) [ASSUMED, research 02 §3.18].
- * The same list for every member of the player (the checks read the enemy, not the attacker).
+ * One jump of member `u` (raidTargets → raidTile): the first candidate with a landing tile; none → nothing happens and
+ * the next trigger looks again. `fullSp`: the skill ways ([spawn] sp 1.0); else the SP is kept. Returns true when it
+ * jumped.
  */
-function raidTargets(battle, u, pid) {
-  const own = [], other = [];
-  for (const e of battle.enemies) {
-    if (!raidGroundEnemy(u, e)) continue;
-    (e.ownerId === pid ? own : other).push(e);
+function raidJump(battle, st, u, fullSp) {
+  for (const e of raidTargets(battle)) {
+    const tile = raidTile(battle, u, e);
+    if (!tile) continue;
+    const res = raidRedeploy(battle, u, tile[0], tile[1]);
+    if (!res) return false;
+    u.mem[KEY.raid] = battle.time; // with deployedAt: the idle time starts again from the landing
+    u.mem[RAID_SPAWN] = true;
+    if (fullSp && u.skill && !u.skill.noSkill) u.skill.setSpTotal(u.skill.maxCharges * u.skill.spCost);
+    raidSkillBuff(battle, st, u);
+    if (res === 'raid') fxOn(battle, 'blink', u, KEY.raid, 'relocate', { target: e.id });
+    return true;
   }
-  const list = own.length ? own : other;
-  const dist = new Map(list.map((e) => [e, num(battle.remainingDistance ? battle.remainingDistance(e) : 0)]));
-  list.sort((a, b) => dist.get(a) - dist.get(b) || a.id - b.id);
-  return list;
+  return false;
+}
+
+/**
+ * raid[skill]: while a member's skill runs (CheckCharSkillAffecting), ATK / max HP +(base + per·L) (MULTIPLIER, our
+ * additive percentages) and ASPD +(base_attack_speed + per·L), removed at the skill's end — every member, jumped or not.
+ * A passive skill counts while it is on [ASSUMED: our engine keeps a passive on for the whole deployment; the client
+ * reads Ability.isAffecting].
+ */
+function raidSkillBuff(battle, st, u) {
+  const on = onField(u) && !!(u.skill && !u.skill.noSkill && u.skill.active);
+  const b = u.findBuff(KEY.raid);
+  if (on && !b) battle.addBuff(u, { key: KEY.raid, mods: st.raidMods });
+  else if (!on && b) battle.removeBuff(u, KEY.raid);
 }
 
 function raidPoll(battle, st) {
-  const bb = st.bb[ID.raid];
-  const idle = num(bb.no_attack_duration, 10);
-  let targets = null; // the player's candidates (raidTargets), shared by its members until a jump changes the field
+  const idle = num(st.bb[ID.raid].no_attack_duration, 10);
   for (const u of st.members[ID.raid]) {
-    if (!onField(u) || !u.canAct) continue;
-    const since = Math.max(u.lastAttackAt ?? -Infinity, u.deployedAt ?? -Infinity, u.mem[KEY.raid] ?? -Infinity);
-    // 技能就绪: a charged skill, or a passive skill that is on (GitHub #49: skills.js `ready` is false for every passive,
-    // so 缄默德克萨斯 / 宴 … only ever jumped on the idle trigger; the reporter's footage of the official game shows
-    // 缄默德克萨斯 jumping within her passive's 10 s with no enemy in range). The engine keeps a passive on for the whole
-    // deployment, so such a member may jump whenever nothing is in its range [ASSUMED: "技能就绪" of a passive = the
-    // skill being on]; the landing rule below keeps it from hopping. Here only — the global `ready` stays as it is.
-    // A deploy-timed skill (#109: kind 'duration' with no SP — spType 'none' — run from the deployment: 宴 S2, 斯卡蒂 S2,
-    // 伊内丝 S3, 缄默德克萨斯 S1–S3, 耀骑士临光 S2, the generic "部署后…N秒内" passives) counts the same way while its
-    // window runs — the 10 s of the reporter's footage; once it has ended only the idle trigger is left.
+    if (!onField(u)) continue;
+    raidSkillBuff(battle, st, u);
     const sk = u.skill;
-    const deploySkillOn = !!(sk && sk.active && (sk.kind === 'passive' || sk.spType === 'none'));
-    const ready = !!(sk && !sk.noSkill && ((sk.ready && !(sk.active && sk.isTimed)) || deploySkillOn));
-    const idleOk = battle.time - since >= idle - 1e-9;
-    if (!(ready || idleOk)) continue;
-    // 「若范围内没有敌人」: a targetable enemy, or a 隐匿 ground one (the owner's decision of 2026-10-08, raidGroundEnemy)
-    if (battle.enemiesInKeys(u.rangeKeys || [], u, u.profile).length || raidStealthInRange(battle, u)) continue;
-    const list = (targets ??= raidTargets(battle, u, st.pid));
-    if (!list.length) continue;
-    // either trigger: raidTile only offers tiles with the target in range (without that a ready skill that finds no
-    // target would redeploy — firing every 部署时 effect — at every poll; the idle trigger, which lacked it up to
-    // 0.1.1, hopped every 10 s: issue #51)
-    const reach = raidReach(u);
-    for (let i = 0; i < list.length && i < RAID_TARGETS; i++) {
-      const tile = raidTile(battle, u, list[i], reach);
-      if (!tile) continue;
-      targets = null; // the retreat / redeploy handlers (部署时 effects) may change the enemies: the next member re-sorts
-      const res = raidRedeploy(battle, u, tile[0], tile[1]);
-      if (!res) continue;
-      u.mem[KEY.raid] = battle.time; // with deployedAt: the idle time starts again from the landing
-      if (res === 'raid') {
-        battle.addBuff(u, { key: KEY.raid, mods: st.raidMods });
-        fxOn(battle, 'blink', u, KEY.raid, 'relocate', { target: list[i].id });
-      }
-      break;
-    }
+    const type = raidSkillType(sk);
+    if (type === 'PASSIVE' && !u.mem[RAID_SPAWN] && raidJump(battle, st, u, true)) continue;
+    if (type === 'MANUAL' && sk.ready && !sk.active && !raidEnemyClose(battle, u) && raidJump(battle, st, u, true)) continue;
+    const since = Math.max(u.lastAttackAt ?? -Infinity, u.deployedAt ?? -Infinity, u.mem[KEY.raid] ?? -Infinity);
+    if (battle.time - since >= idle - 1e-9) raidJump(battle, st, u, false);
   }
+}
+
+/** AUTO skill start → [trig]: a jump RAID_TRIG s later, again every RAID_TRIG s while that skill runs. */
+function raidAutoTrig(battle, st, u) {
+  if (raidSkillType(u.skill) !== 'AUTO' || u.mem[RAID_SPAWN] || (u.blocking && u.blocking.length)) return;
+  const token = (u.mem[RAID_TRIG_KEY] = (u.mem[RAID_TRIG_KEY] ?? 0) + 1);
+  const tick = () => {
+    if (u.mem[RAID_TRIG_KEY] !== token || !onField(u) || !u.skill || !u.skill.active) return;
+    if (!raidJump(battle, st, u, true)) battle.after(RAID_TRIG, tick);
+  };
+  battle.after(RAID_TRIG, tick);
 }
 
 /**
@@ -460,6 +504,25 @@ export function install(battle) {
     const raid = states.filter((st) => st.tiers[ID.raid] && st.members[ID.raid].size);
     if (raid.length) {
       battle.every(RAID_POLL, () => { for (const st of raid) raidPoll(battle, st); });
+      const member = (u) => { const st = u && byPid[u.ownerId]; return st && st.tiers[ID.raid] && st.members[ID.raid].has(u) ? st : null; };
+      battle.on('skillStart', ({ unit: u }) => {
+        const st = member(u);
+        if (!st) return;
+        raidSkillBuff(battle, st, u);
+        raidAutoTrig(battle, st, u);
+      });
+      battle.on('skillEnd', ({ unit: u }) => {
+        const st = member(u);
+        if (!st) return;
+        u.mem[RAID_TRIG_KEY] = (u.mem[RAID_TRIG_KEY] ?? 0) + 1; // FinishDerivedBuffById [trig]
+        raidSkillBuff(battle, st, u);
+      });
+      // [spawn] is a durable buff: it survives the jump itself (MoveLikeRespawnSelf), not the member leaving the field
+      battle.on('death', ({ unit: u, reason }) => {
+        if (reason === 'raid' || !member(u)) return;
+        delete u.mem[RAID_SPAWN];
+        u.mem[RAID_TRIG_KEY] = (u.mem[RAID_TRIG_KEY] ?? 0) + 1;
+      });
     }
   }
 
@@ -473,9 +536,13 @@ export function install(battle) {
       const bb = st.bb[ID.swift];
       const lv = L(battle, st, ID.swift);
       const p = prob(bb, lv);
+      // one Dice for both lines (act1autochess_bond_eff_swift ON_SKILL_FINISH: Dice → member? +normal_sp → AlwaysNext →
+      // L ≥ power_bond_stack_cnt? +power_sp)
+      const member = st.members[ID.swift].has(u), power = lv >= num(bb.power_bond_stack_cnt, Infinity);
+      if (!(member || power) || !(battle.rng() < p)) return;
       let gained = 0;
-      if (st.members[ID.swift].has(u) && battle.rng() < p) gained += u.skill.gainSp(num(bb.normal_sp), 'bond');
-      if (lv >= num(bb.power_bond_stack_cnt, Infinity) && battle.rng() < p) gained += u.skill.gainSp(num(bb.power_sp), 'bond');
+      if (member) gained += u.skill.gainSp(num(bb.normal_sp), 'bond');
+      if (power) gained += u.skill.gainSp(num(bb.power_sp), 'bond');
       if (gained > 0) fxOn(battle, 'sp', u, 'bond:swiftShip', 'proc', { n: gained });
     });
   }
@@ -510,6 +577,9 @@ export function install(battle) {
   // ranged operator on a melee tile does not — community report 「不屈盟约效果高台干员也错误的吃到了」, 0.1.3).
   if (has(ID.indom)) {
     const INDOM_EXITS = new Set(['killed', 'retreat', 'merchant']);
+    // the official roll is DicePRD (act1autochess_bond_eff_indom[lowland], key "prd#act1autochess_bond_eff_indom[lowland]"
+    // on the battle's global blackboard): one count for the whole battle — every player's ground operators share it
+    const prd = { n: 0 };
     const stOf = (u) => { const st = isGroundOp(u) ? byPid[u.ownerId] : null; return st && st.tiers[ID.indom] ? st : null; };
     battle.on('death', (c) => {
       const u = c.unit;
@@ -522,7 +592,7 @@ export function install(battle) {
         if (sp > 0) for (const o of st.ops) if (onField(o) && o.skill) o.skill.gainSp(sp, 'bond');
       }
       if (u.alive || u.removed || u.mem[ID.indom] === battle.time) return;
-      if (banked || (st && battle.rng() < prob(bb, L(battle, st, ID.indom)))) {
+      if (banked || (st && dicePRD(battle, prd, prob(bb, L(battle, st, ID.indom))))) {
         u.mem[ID.indom] = battle.time;
         if (battle.redeploy(u, { free: true })) fxOn(battle, 'revive', u, 'bond:indomShip', 'redeploy');
       }
@@ -530,7 +600,7 @@ export function install(battle) {
     battle.on('dollSwap', ({ unit: u }) => {
       const st = stOf(u);
       if (!st || !u.alive || u.mem.indomFreeDeploy) return;
-      if (battle.rng() < prob(st.bb[ID.indom], L(battle, st, ID.indom))) u.mem.indomFreeDeploy = true;
+      if (dicePRD(battle, prd, prob(st.bb[ID.indom], L(battle, st, ID.indom)))) u.mem.indomFreeDeploy = true;
     });
     // the zeroed deployment is the next one, whatever brings it (this redeploy, the 阿戈尔 revive, the 突袭 jump …)
     battle.on('deploy', ({ unit: u }) => { if (u && u.mem && u.mem.indomFreeDeploy) u.mem.indomFreeDeploy = false; });
@@ -590,10 +660,12 @@ export function install(battle) {
         // "伤害来源受到(850+10×L)点法术伤害": 无来源 (no attacker multipliers, hooks see no source) but credited to the
         // member hit — its player's stats and shared-pool tally count it, like an element burst (v2.5: no credit at all,
         // up to 19 % of a co-op leader's pool and 88 % of a solo one went unattributed, DESIGN §20.10)
+        // the 脆弱 first, then the damage (act1autochess_bond_eff_stead[ex] ON_TAKE_DAMAGE: [cd] → CreateBuffById weak[limit]
+        // → FixedValueDamage), so the thorn itself already takes the 脆弱
+        battle.applyStatus(src, 'fragile', { duration: num(bb['weak[limit]'], 5), value: num(bb.damage_scale, 1) - 1, source: t });
         const d = battle.makeDamage({ amount: num(bb.base_damage_value) + num(bb.damage_value_per_stack) * L(battle, st, ID.stead), type: 'arts', canDodge: false, sourceless: true });
         d.steadThorn = true;
         battle.dealDamage(t, src, d);
-        if (src.alive) battle.applyStatus(src, 'fragile', { duration: num(bb['weak[limit]'], 5), value: num(bb.damage_scale, 1) - 1, source: t });
         return;
       }
       if (!arcane || c.type !== 'arts' || t.side !== 'enemy' || !t.alive) return;
