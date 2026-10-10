@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { skillSpecSource } from '../../server/sim/content/index.js';
-import { effectiveProfile } from '../../server/sim/ai.js';
+import { effectiveProfile, attackTiming } from '../../server/sim/ai.js';
 import { kitCoverage } from '../../tools/kit-coverage.mjs';
 import { wolfShadows, wolfTacticalPoint } from '../../server/sim/content/tokens.js';
 import { TIER_KITS } from '../../server/sim/content/kits/index.js';
@@ -160,6 +160,8 @@ test('3_02 断崖 S1 多导向散射弹丸: next attack hits max_target enemies 
       units: [U(id, 'skchr_ayer_1', 10, 4)], enemies: [{ key: 'enemy_e1', pos: [10, 5] }, { key: 'enemy_e2', pos: [9, 5] }, { key: 'enemy_e3', pos: [11, 5] }, { key: 'enemy_e4', pos: [10, 6] }] });
     const u = h.unit(id);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 40));
+    // (cast as the swing starts; the attack strikes at the clip's damage frame — ai.js attackTiming)
+    assert.ok(h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u && c.isSkill), 5));
     h.run(0.5);
     const atk = h.hooksOf('attack').find((c) => c.attacker === u && c.isSkill);
     assert.equal(atk.targets.length, b.max_target);
@@ -514,9 +516,14 @@ test('3_10 松果 S1 RMA长钉 (charges): an immediate extra shot ×atk_scale ig
     const n0 = h.hooksOf('attack').length;
     fill(u);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 5));
+    // the skill shot as it is cast — at the start of the swing it was cast for —, the normal attack at that swing's
+    // damage frame (ai.js attackTiming; until 2026-10-10 both in the same tick)
+    const wind = attackTiming(u).strike;
+    assert.ok(h.runUntil(() => h.hooksOf('attack').slice(n0).some((c) => c.attacker === u && !c.isSkill), wind + 0.2));
     const at = h.hooksOf('attack').slice(n0).filter((c) => c.attacker === u);
     assert.ok(at.some((c) => c.isSkill) && at.some((c) => !c.isSkill), 'skill shot + the normal attack');
-    assert.equal(new Set(at.map((c) => c.t)).size, 1, 'at the same moment');
+    const castT = at.find((c) => c.isSkill).t;
+    assert.ok(Math.abs(at.find((c) => !c.isSkill).t - castT - wind) <= 2 * h.TICK + 1e-9, 'the normal attack at its damage frame');
     h.run(0.5);
     const sk = atkHits(h, u, true);
     const main = sk.find((c) => c.target.defId === 'enemy_d');
@@ -706,6 +713,7 @@ test('3_17 流星 S1 碎甲击: next attack ×atk_scale and the target DEF − f
       units: [U(id, 'skchr_shotst_1', 10, 4)], enemies: [{ key: 'enemy_d', pos: [10, 6] }] });
     const u = h.unit(id);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 30));
+    assert.ok(h.runUntil(() => atkHits(h, u, true).length > 0, 5));
     h.run(0.3);
     const e = h.enemy('enemy_d');
     const sk = atkHits(h, u, true);

@@ -36,6 +36,11 @@ const statuses = (h, key, f = () => true) => h.hooksOf('statusApplied').filter((
 const heals = (h, u, f = () => true) => h.hooksOf('heal').filter((c) => c.source === u && f(c));
 const tagged = (tag) => (c) => (c.dmg?.tags || c.opts?.tags || []).includes(tag);
 const started = (h, u) => h.hooksOf('skillStart').filter((c) => c.unit === u);
+/** The unit's first attack (its strike lands at the clip's damage frame after the swing starts: ai.js attackTiming). */
+const firstAttack = (h, u, within = 5) => {
+  h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u), within);
+  return h.hooksOf('attack').find((c) => c.attacker === u);
+};
 const done = (h) => { checkInvariants(h.b); assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0])); };
 /** The selected skill is the alternative one, authored by the kit (not the generic fallback). */
 function usesAlt(u, id) {
@@ -96,6 +101,8 @@ test('2_01 送葬人 S1 铳口收束: ATK +atk; the trait multiplier hits every 
     approx(u.s.atk, u.base.atk * (1 + bb.atk), 'ATK');
     approx(u.s.interval, u.base.bat * 100 / u.s.aspd, 'attack interval unchanged (最终旅程 only)');
     const [front, off] = h.enemies();
+    // (every shot fired has landed — the strikes come at the clip's damage frame, ai.js attackTiming)
+    assert.ok(h.runUntil(() => !h.b.projectiles.list.some((p) => p.source === u), 2));
     const hits = dealt(h, u, (x) => x.dmg.isAttack);
     const atks = h.hooksOf('attack').filter((x) => x.attacker === u).length;
     assert.equal(hits.length, 2 * atks, 'one hit per enemy and attack');
@@ -162,7 +169,7 @@ test('2_05 哈洛德 S1 治疗强化·γ型: ATK +atk; the 重症优先 target o
     h.step();
     assert.ok(u.skill.active);
     approx(u.s.atk, u.base.atk * (1 + bb.atk));
-    const first = h.hooksOf('attack').find((c) => c.attacker === u);
+    const first = firstAttack(h, u);
     assert.equal(first.targets[0], low, 'lowest HP ratio first, not the element-damaged ally');
     done(h);
   }
@@ -207,7 +214,7 @@ test('2_06 莎草 S2 临考发挥: "无法可选单位时无法开启技能" —
     h.step();
     h.b.retreat(a, { reason: 'retreat', permanent: true });
     const hurt = () => { if (u.hp > u.s.maxHp * 0.6) u.hp = u.s.maxHp * 0.3; };
-    for (let i = 0; i < 30; i++) { hurt(); h.run(0.2); }
+    for (let i = 0; i < 40; i++) { hurt(); h.run(0.2); }
     assert.ok(heals(h, u, (c) => c.target === u).length >= 3, `${id} heals herself`);
     assert.equal(started(h, u).length, 0, 'never started (a phantom start would fire 特质 / 萨尔贡 skillStart gains)');
     assert.equal(h.hooksOf('skillEnd').filter((c) => c.unit === u).length, 0);
@@ -274,7 +281,7 @@ test('2_09 休谟斯 S1 固废切割: next attack atk_scale × ATK on every enem
     const u = h.unit(id);
     usesAlt(u, id);
     h.step();
-    const first = h.hooksOf('attack').find((c) => c.attacker === u);
+    const first = firstAttack(h, u);
     assert.ok(first && first.isSkill && first.targets.length === 2);
     const hits = dealt(h, u, (c) => c.t === first.t && c.dmg.isAttack);
     assert.equal(hits.length, 2);
@@ -284,6 +291,8 @@ test('2_09 休谟斯 S1 固废切割: next attack atk_scale × ATK on every enem
     assert.equal(sh[0].amount, bb.value);
     assert.ok(!u.findBuff('humus:peak'), 'no 精力充沛 (S2)');
     h.runUntil(() => started(h, u).length >= 2, 30);
+    // (cast as the swing starts; its attack strikes at the clip's damage frame)
+    h.runUntil(() => h.hooksOf('attack').filter((c) => c.attacker === u && c.isSkill).length >= 2, 5);
     const atks = h.hooksOf('attack').filter((c) => c.attacker === u);
     const i2 = atks.findIndex((c, i) => i > 0 && c.isSkill);
     assert.equal(i2, alt(id).spCost + 1, 'the next cast after spCost normal attacks');
@@ -317,7 +326,7 @@ test('2_11 风丸 S1 纸艺·迅击: next attack atk_scale × ATK, loses hp_rati
     const u = h.unit(id);
     usesAlt(u, id);
     h.step();
-    const first = h.hooksOf('attack').find((c) => c.attacker === u);
+    const first = firstAttack(h, u);
     assert.ok(first && first.isSkill);
     approx(dealt(h, u, (c) => c.dmg.isAttack)[0].amount, u.s.atk * bb.atk_scale, `${id} ×${bb.atk_scale}`);
     const loss = h.hooksOf('damaged').filter((c) => c.target === u && tagged('hpLoss')(c));
@@ -327,7 +336,8 @@ test('2_11 风丸 S1 纸艺·迅击: next attack atk_scale × ATK, loses hp_rati
     // a cast at low HP is fatal ⇒ the dollkeeper substitution
     u.hp = u.s.maxHp * bb.hp_ratio * 0.5;
     assert.ok(h.runUntil(() => started(h, u).length >= 2, 15));
-    h.step();
+    // (the HP loss comes with the attack, at the clip's damage frame after the swing starts)
+    assert.ok(h.runUntil(() => !!u.findBuff('trait:substitute'), 5));
     assert.ok(u.alive && u.findBuff('trait:substitute'), 'switched to the <替身>');
     done(h);
   }

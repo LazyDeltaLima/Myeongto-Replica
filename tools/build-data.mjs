@@ -43,6 +43,7 @@ import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared
 import { extendedGrid } from '../shared/loadoutRecord.js';
 import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
+import { skillModeIndex } from '../shared/skill-modes.js';
 
 // ===== CLI & IO ==================================================================================
 
@@ -394,7 +395,16 @@ async function loadContext() {
     act, ac, charTable, skillTable, rangeTable, uniequip, battleEquip, handbook, enemyDb,
     levels, templateIds: [...templateIds].sort(naturalCmp), stageIds, enemyDataLevelId, research,
     manifest: await loadManifest(),
+    attackTiming: await loadLocalJson('tools/assets/local-attack-timing.json', 'attack timings (tools/local-extract/attack_timing.py): no `_maxAnimScale` …'),
+    charModes: await loadLocalJson('tools/assets/local-char-modes.json', 'operator modes (tools/local-extract/char_modes.py)'),
   };
+}
+
+/** A committed tools/assets/local-*.json written by a tools/local-extract script, or null (with a warning) when absent. */
+async function loadLocalJson(rel, what) {
+  const abs = join(ROOT, rel);
+  if (!existsSync(abs)) { warn(`${rel} not found; ${what}`); return null; }
+  try { return JSON.parse(await readFile(abs, 'utf8')); } catch (e) { warn(`${rel} unreadable: ${e.message}`); return null; }
 }
 
 /**
@@ -941,7 +951,7 @@ function buildChess(ctx) {
       stats: null, immunities: null, rangeId: null, rangeGrid: null,
       dmgType: null, attackKind: null, projectile: null, canHitFly: false, targetPriority: null,
       trait: null, skill: null, talents: [], tokens: [], module: null,
-      assets: null,
+      assets: null, attackAnim: null,
     };
     if (isDiy) {
       rec.name = '甄选干员';
@@ -1135,6 +1145,8 @@ function buildChess(ctx) {
       skillIcon: rec.skill?.iconId || null,
       subProfIcon: `sub_${char.subProfessionId}_icon`,
     };
+    // the attack clip of each attack mode and its timing (opAttackAnim; server/sim/ai.js attackTiming)
+    rec.attackAnim = opAttackAnim(ctx, shop.charId, (char.skills || []).length);
     out[chessId] = rec;
   }
 
@@ -1182,6 +1194,7 @@ function buildUnitHead(ctx, charId) {
       spine: charId, subProfIcon: `sub_${char.subProfessionId}_icon`,
     },
     moduleNames,
+    attackAnim: opAttackAnim(ctx, charId, (char.skills || []).length),
   };
 }
 
@@ -2339,7 +2352,7 @@ const MIRRORED_PREFABS = new Set(['enemy_1196_msfyin']);
  * committed data/assets.json (written by tools/fetch-assets.mjs from the Spine skeletons; docs/ASSETS.md), so the sim
  * never reads client files; an enemy whose model the manifest lacks gets none (the sim falls back to ATTACK_PAUSE).
  */
-function enemyAttackAnim(manifest, spineId) {
+function enemyAttackAnim(manifest, spineId, timing = null) {
   const sp = manifest?.enemies?.[spineId]?.spine;
   const a = sp?.anims?.attack;
   if (!a || typeof a.loop !== 'string' || a.via === 'idle') return null;
@@ -2347,7 +2360,64 @@ function enemyAttackAnim(manifest, spineId) {
   if (!(typeof dur === 'number' && dur > 0)) return null;
   const h = sp.hits?.[a.loop];
   const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
-  return hit != null ? { clip: a.loop, dur, hit } : { clip: a.loop, dur };
+  return { clip: a.loop, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(timing) };
+}
+
+/**
+ * The timing fields of an attack ability (tools/assets/local-attack-timing.json, tools/local-extract/attack_timing.py) as
+ * `attackAnim` carries them: `max` = `_maxAnimScale` (−1 = no bound), `pre` = `_preDelay` (only when not 0), `wait: 0`
+ * when `_waitForAttackEvent` is off, `sel` = `_selectTargetTiming` (only when not 0) — server/sim/ai.js attackTiming.
+ */
+function abilityTiming(t) {
+  if (!t || typeof t !== 'object') return {};
+  return {
+    ...(Number.isFinite(t.max) ? { max: t.max } : {}),
+    ...(t.pre > 0 ? { pre: t.pre } : {}),
+    ...(t.wait === 0 ? { wait: 0 } : {}),
+    ...(Number.isInteger(t.sel) && t.sel !== 0 ? { sel: t.sel } : {}),
+  };
+}
+
+/** An enemy's attack ability (local-attack-timing.json `enemies`): the blocked one (Combat) for a melee enemy, else Attack. */
+function enemyAbility(ctx, spineId, key, applyWay) {
+  const e = ctx.attackTiming?.enemies?.[spineId] ?? ctx.attackTiming?.enemies?.[key];
+  if (!e) return null;
+  return applyWay === 'MELEE' ? (e.combat ?? e.attack ?? null) : (e.attack ?? e.combat ?? null);
+}
+
+/**
+ * An operator's attack clips → chess.json / backups.json `attackAnim` { base, skills }: per attack mode (`base` = its
+ * Default mode, `skills[i]` = the mode skill i switches to — shared/skill-modes.js skillModeIndex over the prefab's
+ * `_modes`, null when the skill keeps the Default one) the clip its attack ability plays (`_animKey`, renamed by the
+ * mode's `_replaceAnimPairs`; tools/assets/local-attack-timing.json), its length and first OnAttack frame from the Front
+ * skeleton (data/assets.json `animations` / `hits`; a key the skeleton lacks under that name, also as `<key>_Loop`, falls
+ * back to the clip the renderer plays for that mode — `anims.attack` / `anims.skills[i]`), and the ability's timing
+ * (abilityTiming). null when the client timing or the model is unknown (the sim then strikes as the swing starts).
+ */
+function opAttackAnim(ctx, charId, skillCount) {
+  const t = ctx.attackTiming?.ops?.[charId];
+  const sp = ctx.manifest?.chars?.[charId]?.spine?.front;
+  if (!t || !sp?.animations) return null;
+  const clipOf = (ab, fallback) => {
+    for (const n of [ab?.anim, ab?.anim ? `${ab.anim}_Loop` : null, fallback]) {
+      const dur = n ? sp.animations[n] : null;
+      if (typeof dur === 'number' && dur > 0) {
+        const h = sp.hits?.[n];
+        const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
+        return { clip: n, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(ab) };
+      }
+    }
+    return null;
+  };
+  const base = t.attack?.[0] ? clipOf(t.attack[0], sp.anims?.attack?.loop) : null;
+  const skillMode = ctx.charModes?.[charId]?.skillMode ?? null;
+  const skills = [];
+  for (let i = 0; i < skillCount; i++) {
+    const m = skillModeIndex(t.modes, i, skillMode);
+    const ab = m > 0 ? t.attack?.[m] : null;
+    skills.push(ab ? clipOf(ab, sp.anims?.skills?.[String(i)]?.loop ?? sp.anims?.skill?.loop) : null);
+  }
+  return base || skills.some(Boolean) ? { base, skills } : null;
 }
 
 /** The handbook's 「不停止移动」 attack (“十字路口”量产型's 四向攻击) → enemies.json `attackMoves`: it never stops to attack. */
@@ -2444,7 +2514,7 @@ function buildEnemies(ctx) {
     const hitArea = HIT_AREAS[mv(data.prefabKey) || key] || null;
     const modelScale = MODEL_SCALE_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     const modelScaleY = MODEL_STRETCH_Y_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
-    const attackAnim = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key);
+    const attackAnim = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyAbility(ctx, mv(data.prefabKey) || key, key, applyWay));
     out[key] = {
       key, name, level: wantLevel, rank: mv(data.levelType, 'NORMAL'), handbookIndex: hb?.enemyIndex || null,
       desc: stripRich(descRaw), descRaw: richRaw(descRaw),

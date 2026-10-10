@@ -1,8 +1,10 @@
 // server/sim/ai.js — operator attack loop and enemy AI (route following, blocking, attacks) (DESIGN §5.5).
 //
-// Operators/tokens: attack cooldown counts down while able to act; when ready and a valid target exists the
-// DEFAULT skill trigger is checked ("about to attack"), then the attack is performed with the effective profile
-// (profession profile + active skill overrides). Ranged profiles fire projectiles; damage applies on impact.
+// Operators/tokens: the attack cooldown counts down while on the field (a stun included); when ready, the last swing over
+// and a valid target exists the DEFAULT skill trigger is checked ("about to attack"), then a swing starts (the cooldown
+// restarts) and strikes at its clip's damage frame with the effective profile (profession profile + active skill
+// overrides) — the client's attack ability, attackTiming (docs/rules/sim.md 「일반 공격 타이밍」). Ranged profiles fire
+// projectiles; damage applies on impact.
 // Enemies: follow compiled route legs (move / wait / disappear / appear). WALK legs follow the official flow field
 // of the leg's target (grid.js, research 08 §3.4): from the tile it stands on the enemy walks straight to the centre
 // of `next[tile]`, then on to `next[next[tile]]` … (tile centre to tile centre, so the Bresenham line-of-sight check
@@ -20,9 +22,9 @@
 // its unit blocks (PRTS 卫戍协议/帮助 "对于医疗干员（咒愈师分支除外），攻击目标为需要治疗的单位"). An ally target
 // (Battle.setAllyTarget: 白铁's 铁钳号·原型机, an enemy-camp summon our operators attack, 嘲讽等级 −2) on the range comes after
 // every enemy (acquireTargets) and a ranged attack flies to it like to an enemy.
-// Every enemy attack strikes at its clip's damage frame after its swing starts (attackWindup; a stun before the frame
-// cuts the swing — enemyAttack, GitHub #187). Unblocked ranged enemies attack allies within their radius and stand for
-// each attack's clip — through its wind-up and until the clip ends — then walk on (attackStand, GitHub #58;
+// Every enemy attack strikes at its clip's damage frame after its swing starts, as an operator's (attackTiming /
+// attackWindup; a stun before the frame cuts the swing — enemyAttack, GitHub #187). Unblocked ranged enemies attack allies
+// within their radius and stand for each attack's swing — through its wind-up and until it ends — then walk on (attackStand, GitHub #58;
 // ATTACK_PAUSE after the strike when no clip is known; 「不停止移动」 attackers never stop); every enemy whose block ends
 // after its strike (its blocker stunned by that strike, knocked out, retreated) stands for the rest of the clip too
 // (PRTS 状态机: an enemy's COMBAT state ends with its attack, not with its blocker); the candidates pass the
@@ -34,7 +36,7 @@
 // moveFeared; a self-inflicted fear flutters inside its own tile); an `attract` (诱导) status walks it to the status
 // point instead (moveAttracted); both re-plan the route when released (恐惧 outranks 诱导).
 
-import { ATTACK_PAUSE, ALLY_COLLIDER_RADIUS, MOVE_SCALE, PROJECTILE_SPEEDS, PROJECTILE_SPEED, BOOMERANG_RETURN_SPEED, COLS, CHAIN_RADIUS } from './constants.js';
+import { ATTACK_PAUSE, MIN_ANIM_SCALE, ALLY_COLLIDER_RADIUS, MOVE_SCALE, PROJECTILE_SPEEDS, PROJECTILE_SPEED, BOOMERANG_RETURN_SPEED, COLS, CHAIN_RADIUS } from './constants.js';
 import { sortEnemyTargets, sortAllyTargets, canTargetEnemy, canTargetAlly, tileKeyOf } from './targeting.js';
 import { reduceElement } from './damage.js';
 import { straightClear } from './grid.js';
@@ -86,18 +88,36 @@ export function attackCountdown(cd, dt) {
   return left > 1e-9 ? left : 0;
 }
 
+/**
+ * One tick of an operator's / summon's normal attack — the official attack ability (client code `AbilityStandard` /
+ * `EasyToStartAbility`, docs/rules/sim.md 「일반 공격 타이밍」): when its cooldown is over and its last swing has ended, a
+ * unit with a target starts a swing (startSwing: the targets are taken now, the cooldown restarts from the full interval
+ * now — `AbilityStandard.CastToTarget` → `m_cooldownTimer.Reset(true)`); the strike lands `attackTiming().strike` later
+ * (its clip's OnAttack frame × the clip scale) and the whole swing (`castLeft`, from its start: `get_postDelay` = the swing
+ * length − the time since it started) plays out before the next one. The
+ * cooldown runs whenever the unit is on the field, stunned / frozen / asleep too (`Entity.OnTick` ticks every ability of
+ * a living entity, `Ability.OnTick` → `m_cooldownTimer.Update`). A stun / freeze / sleep, 缴械, leaving the field or an
+ * attack the profile no longer allows cuts the swing (`InterruptIfNot`): no strike, and the cooldown is left as it is —
+ * the next swing waits a whole interval from the cut swing's start.
+ */
 export function updateAlly(b, u, dt) {
-  if (u.atkCd > 0 && u.canAct) u.atkCd = attackCountdown(u.atkCd, dt);
+  if (u.alive && u.deployed && !u.hidden) {
+    if (u.atkCd > 0) u.atkCd = attackCountdown(u.atkCd, dt);
+    if (u.castLeft > 0) u.castLeft = attackCountdown(u.castLeft, dt);
+  }
   if (u.blocking.length) enforceBlockCapacity(b, u);
-  if (!u.canAct || !u.profile) return;
+  if (!u.canAct || !u.profile) { cutSwing(u); return; }
   // a rangeExtend change (buff added / expired) rebuilds the range — also for units that never attack (auras)
   if (b.rangeChanged(u)) b._refreshRange(u);
   const sk = u.skill;
   let prof = effectiveProfile(u);
-  if (prof.noAttack) return;
-  if (prof.noAttackUnlessSkill && !(sk && sk.active)) return;
-  if (u.s.flags.disarm) return;
-  if (u.atkCd > 0) return;
+  if (prof.noAttack || (prof.noAttackUnlessSkill && !(sk && sk.active)) || u.s.flags.disarm) { cutSwing(u); return; }
+  if (u.swing) {
+    u.swing.left = attackCountdown(u.swing.left, dt);
+    if (!(u.swing.left > 0)) allyStrike(b, u, prof);
+    return;
+  }
+  if (u.atkCd > 0 || u.castLeft > 0) return;
   // (a 秘术师's `canAttack` is its own target rule: false = no valid target — 深靛's bound enemies, 维伊's marked ones)
   if (prof.canAttack && !prof.canAttack(b, u)) { if (prof.storeEnergy) { u.trait.hadTarget = false; storeEnergy(b, u, prof); } return; }
   let targets = acquireTargets(b, u, prof);
@@ -109,8 +129,89 @@ export function updateAlly(b, u, dt) {
     targets = acquireTargets(b, u, prof);
     if (!targets.length) { storeEnergy(b, u, prof); return; }   // the cast left none (a range change): still this check
   }
-  performAttack(b, u, prof, targets);
+  const t = attackTiming(u, TIMING);
   u.atkCd = Math.max(u.atkCd, u.s.interval);
+  b._ev(['swing', u.id, roundMs(t.strike), prof._fortressMelee ? 'none' : (prof.projectile || 'none')]);
+  u.castLeft = t.action;
+  u.swing = { left: t.strike, targets, sel: t.sel, isSkill: !!prof.isSkill };
+  if (!(t.strike > 1e-9)) allyStrike(b, u, prof);
+}
+
+/** A swing in progress or its recovery is cut (`Ability.InterruptIfNot`): the cooldown is left as it is. */
+function cutSwing(u) {
+  u.swing = null;
+  u.castLeft = 0;
+}
+
+/** Game seconds rounded to the millisecond (event payloads). */
+const roundMs = (t) => Math.round(t * 1000) / 1000;
+
+/**
+ * Whether a target taken at the swing start can still be struck (client code `AbilityStandard.DoCastOnTargets`: only the
+ * cast targets that are `ValidAndAlive`): alive and on the field — an enemy in a portal, an operator withdrawn are not.
+ */
+const strikable = (t) => !!t && t.alive && !t.hidden && (t.side !== 'ally' || t.deployed);
+
+/**
+ * The strike of a swing (its OnAttack frame): the targets taken at the swing start that are still alive are hit — none
+ * left is a whiff: no damage, the swing plays out, no cooldown back (`_selectTargetTiming` 0, AT_BEGINING: 480 of the 481
+ * operator attack abilities never cut a swing for a dead target). An ability that takes its targets at the strike
+ * (`_selectTargetTiming` 1 BEFORE_SPELL_START / 3 BEFORE_FIRST_SPELL_START, or 2 RESELECT_IF_TARGET_DEAD with its main
+ * target dead) selects again and, finding nobody, ends with its cooldown refunded (`FinishIfNot(TARGET_DEAD)` before the
+ * first spell → `m_cooldownTimer.Reset(false)`): it may swing again at once. A skill started or ended during the swing
+ * (its attack profile is not the one the targets were taken with) takes them again too [추정: the client switches the
+ * operator's mode, whose own attack ability picks its targets].
+ */
+function allyStrike(b, u, prof) {
+  const sw = u.swing;
+  u.swing = null;
+  let targets = sw.targets;
+  if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(targets[0])) || sw.isSkill !== !!prof.isSkill) {
+    targets = acquireTargets(b, u, prof);
+    if (!targets.length) { u.atkCd = 0; u.castLeft = 0; return; }
+  } else {
+    targets = targets.filter(strikable);
+    if (!targets.length) return;
+  }
+  performAttack(b, u, prof, targets);
+}
+
+const TIMING = { strike: 0, action: 0, sel: 0 };
+
+/** The clip timing record of `u`'s next swing: an enemy's one clip, an operator's Default mode or its active skill's. */
+function attackClipOf(u) {
+  const a = u.def?.attackAnim;
+  if (!a) return null;
+  if (!('base' in a)) return a;
+  const i = u.def.skill?.index;
+  if (u.skill && u.skill.active && Number.isInteger(i) && a.skills[i]) return a.skills[i];
+  return a.base;
+}
+
+/**
+ * The timing of a unit's next normal attack (client code `AbstractAnimatedAbility.UpdatePlaybackSpeed`, docs/rules/
+ * sim.md 「일반 공격 타이밍」): the attack clip (simdata.js normAttackAnim — data/chess.json / enemies.json `attackAnim`) is
+ * scaled to the attack interval, scale = clamp(interval ÷ clip, MIN_ANIM_SCALE 0.1, the ability's `_maxAnimScale`) — −1 =
+ * no upper bound; 1, the common value, never stretches the clip: a slow attacker swings at the clip's own speed and idles
+ * for the rest of the interval —, the swing lasts scale × clip (`action`) and plays at 1 / scale; the strike lands at the
+ * clip's OnAttack frame × scale (`_waitForAttackEvent` 1; a clip with no OnAttack event: at the end of the swing —
+ * `EasyToStartAbility.WaitForNextEvent` waits up to the whole swing), else `_preDelay` × scale (at most the swing).
+ * No clip known (a summon, a device, a model the manifest lacks): strike and action 0 — the strike as the swing starts.
+ * @returns {{ strike: number, action: number, sel: number }} game seconds into `out`; `sel` = `_selectTargetTiming`
+ */
+export function attackTiming(u, out = { strike: 0, action: 0, sel: 0 }) {
+  const a = attackClipOf(u);
+  if (!a) { out.strike = 0; out.action = 0; out.sel = 0; return out; }
+  // (a raw record — content, tests — may leave the ability fields out: no bound beyond 1, the strike on the OnAttack frame)
+  const iv = u.s.interval, max = a.max == null ? 1 : a.max < 0 ? Infinity : a.max;
+  let scale = iv > 0 ? iv / a.dur : MIN_ANIM_SCALE;
+  if (scale < MIN_ANIM_SCALE) scale = MIN_ANIM_SCALE;
+  if (scale > max) scale = max;
+  out.action = scale * a.dur;
+  out.strike = a.wait !== false && a.wait !== 0 ? (Number.isFinite(a.hit) ? Math.min(a.hit, a.dur) * scale : out.action)
+    : Math.min(out.action, (a.pre > 0 ? a.pre : 0) * scale);
+  out.sel = Number.isInteger(a.sel) ? a.sel : 0;
+  return out;
 }
 
 /**
@@ -552,13 +653,17 @@ export function updateEnemy(b, e, dt) {
   // 「触发浮空时清除受到的推/拉力…无法陷入失衡」); while it lasts the enemy neither walks nor starts a normal attack
   if (e.s.flags.levitate && e.unbalanceUntil > b.time) e.unbalanceUntil = -Infinity;
   const unbalanced = b.time < e.unbalanceUntil - 1e-9;   // (the 1e-9: a float-summed end such as 35/30 s keeps its frame)
-  const prevCd = e.atkCd;
-  if (e.atkCd > 0 && !stunned && !e.hidden) e.atkCd = attackCountdown(e.atkCd, dt);
+  // the cooldown runs from the swing start, through a stun / freeze / sleep too (client code `Entity.OnTick` →
+  // `Ability.OnTick`; docs/rules/sim.md 「일반 공격 타이밍」) — not while the enemy is off the field (a DISAPPEAR leg)
+  if (!e.hidden) {
+    if (e.atkCd > 0) e.atkCd = attackCountdown(e.atkCd, dt);
+    if (e.castLeft > 0) e.castLeft = attackCountdown(e.castLeft, dt);
+  }
   // a stun / freeze / sleep / 浮空 / 失衡 — or leaving the field — takes the enemy out of its attack: a swing short of its
-  // damage frame does not land, and the attack starts again from its wind-up afterwards (enemyAttack)
-  if (e.swing && (stunned || e.hidden || unbalanced)) e.swing = false;
-  // true: an unblocked ranged enemy in the wind-up of its next attack with a target in range (it stands)
-  const winding = !e.hidden && !stunned && !unbalanced && enemyAttack(b, e, prevCd);
+  // damage frame does not land, and its cooldown runs on from the cut swing's start (enemyAttack)
+  if (stunned || e.hidden || unbalanced) cutSwing(e);
+  // true: an enemy in a swing (it stands; a 「不停止移动」 one walks on)
+  const winding = !e.hidden && !stunned && !unbalanced && enemyAttack(b, e, dt);
   if (!e.alive) return;
   // a stun / freeze / sleep cuts the attack clip short: no stand left once it ends [ASSUMED]. 沉睡 also holds 不可阻挡
   // (PRTS 异常效果 SLEEPING = 无法行动+无敌+不可阻挡): a sleeper's blocker lets go — its swing was cut above; Battle.applyStatus
@@ -749,19 +854,17 @@ function portalPickup(b, e) {
 }
 
 /**
- * How long an enemy stands for one attack: an unblocked ranged enemy for its whole clip (GitHub #58 — the owner's
+ * How long an enemy stands for one attack: an unblocked ranged enemy for its whole swing (GitHub #58 — the owner's
  * decision of 2026-10-04 from first-hand memory of the official game: a ranged enemy stops for each attack's animation
  * and walks on between attacks; the handbook names attacking on the move as a special ability, “十字路口”量产型's
  * 「不停止移动的四向攻击」), and any enemy for the rest of it after the strike once its block ends meanwhile (enemyAttack;
- * PRTS 状态机 ATTACK / COMBAT "攻击结束后回退到MOVE状态", 0.2.0).
- * [ASSUMED] the stand lasts exactly its attack clip — data/enemies.json `attackAnim` { dur, hit }: the clip the client
- * plays for its attacks and its strike frame (tools/build-data.mjs, from the asset manifest) —, `hit` of it before
- * the strike (the wind-up, while a target is in range) and the rest after it, both shortened when the attacks come
- * quicker than the clip (it then plays faster: render/spine.js, the same rule) — no source gives a length. An enemy in
- * another form (掠海漂移体's crawl, 转译基底's forms, 杰斯顿's second form) stands for its base clip [ASSUMED]; known
- * mismatches: 扎罗's second form stands 1.433 s (A_Attack) though its B_Attack lasts 2.0 s (2.5 s interval: ~0.4 s of
- * walking during the recovery), 转译基底's 特战术师 stands 2.0 s (B_Attack) though its D_Attack lasts 1.667 s — a per-form
- * clip needs the client's FORMS mapping (render/units.js) in shared data.
+ * PRTS 状态机 ATTACK / COMBAT "攻击结束后回退到MOVE状态", 0.2.0). The swing is the official one (attackTiming: the attack
+ * clip — data/enemies.json `attackAnim` { dur, hit, max … }, tools/build-data.mjs, from the asset manifest and the client's
+ * attack ability — scaled to the attack interval within [0.1, `_maxAnimScale`]): `wind` before the strike, `rest` after
+ * it. An enemy in another form (掠海漂移体's crawl, 转译基底's forms, 杰斯顿's second form) stands for its base clip
+ * [ASSUMED]; known mismatches: 扎罗's second form stands 1.433 s (A_Attack) though its B_Attack lasts 2.0 s (2.5 s interval:
+ * ~0.4 s of walking during the recovery), 转译基底's 特战术师 stands 2.0 s (B_Attack) though its D_Attack lasts 1.667 s — a
+ * per-form clip needs the client's FORMS mapping (render/units.js) in shared data.
  * Returns the wind-up and rest (s) into `out`: an enemy with no attack clip known stands ATTACK_PAUSE after the strike
  * (the old rule), a 「不停止移动」 one (`attackMoves`: data or content) never stops.
  */
@@ -770,27 +873,25 @@ export function attackStand(e, out = { wind: 0, rest: 0 }) {
   if (e.profile?.attackMoves ?? e.def?.attackMoves) return out;
   const a = e.def?.attackAnim;
   if (!a || !(a.dur > 0)) { out.rest = ATTACK_PAUSE; return out; }
-  const speed = clipSpeed(e, a);
-  const hit = clipHit(a);
-  out.wind = hit / speed;
-  out.rest = (a.dur - hit) / speed;
+  const t = attackTiming(e, STAND_T);
+  out.wind = t.strike;
+  out.rest = t.action - t.strike;
   return out;
 }
 const STAND = { wind: 0, rest: 0 };
-/** The attack clip's strike frame (s into the clip); half the clip when the manifest names none. */
-const clipHit = (a) => (Number.isFinite(a.hit) ? Math.min(a.dur, Math.max(0, a.hit)) : a.dur / 2);
-/** The clip plays faster when the attacks come quicker than it. */
-const clipSpeed = (e, a) => { const iv = e.s.interval; return iv > 0 && iv < a.dur ? a.dur / iv : 1; };
+/** How long an enemy stands after its strike: the rest of its swing (`castLeft`), else attackStand's (no clip: ATTACK_PAUSE). */
+function standRest(e) {
+  const r = attackStand(e, STAND).rest;
+  return r > 0 && e.def?.attackAnim?.dur > 0 ? e.castLeft : r;
+}
+const STAND_T = { strike: 0, action: 0, sel: 0 };
 
 /**
- * The damage frame of an enemy's normal attack: seconds from the start of its swing to the strike — its attack clip's
- * strike frame (data/enemies.json `attackAnim.hit`, half the clip when the manifest names none), shortened with the clip
- * when the attacks come quicker than it (as attackStand; a 「不停止移动」 attacker swings on the move); 0 with no clip known
- * (the strike as the swing starts — the rule before 0.2.0).
+ * The damage frame of an enemy's normal attack: seconds from the start of its swing to the strike (attackTiming — a
+ * 「不停止移动」 attacker swings on the move); 0 with no clip known (the strike as the swing starts — the rule before 0.2.0).
  */
 export function attackWindup(e) {
-  const a = e.def?.attackAnim;
-  return a && a.dur > 0 ? clipHit(a) / clipSpeed(e, a) : 0;
+  return attackTiming(e, STAND_T).strike;
 }
 
 /**
@@ -813,27 +914,26 @@ function attackTargets(b, e, radius, reach, own) {
 }
 
 /**
- * One tick of an enemy's attack. Its cooldown (`atkCd`) counts down to the damage frame of its next attack: the swing
- * starts `attackWindup` before it — the cooldown down to the wind-up with a target in reach (attackTargets) — and lasts
- * while a target stays in reach; at the frame the attack is made on the targets in reach then. An enemy whose cooldown
- * ran out before it had a target (walking, a swing cut short) swings from the start: the whole wind-up from that tick.
- * A swing short of its frame is cut by a stun / freeze / sleep / 浮空 / leaving the field (updateEnemy), 缴械, 恐惧, 战栗
- * while blocked, or losing every target: no damage, and the next swing starts from its wind-up again — PRTS 状态机
- * (ATTACK / COMBAT "每帧检查异常状态，若有则切换到异常状态的状态") and 异常效果 (STUNNED, DISARMED "正在进行的普通攻击将被
- * 中断"); GitHub #187 / #170 (a 0.1 s 卡西米尔 pulse, 忍冬 S3's 0.2 s stun). A strike already made stays made (a shot in
- * flight lands). An enemy with no attack clip known has no wind-up: it strikes as the swing starts (the old rule).
- * [ASSUMED] the targets are taken at the frame (the swing needs one in reach every tick; the official selection happens
- * as the swing starts); an enemy healer's heal has no wind-up.
- * Returns true while an unblocked ranged enemy swings (its wind-up): it stands (updateEnemy). `prevCd`: the cooldown
- * before this tick's countdown.
+ * One tick of an enemy's attack — the official attack ability as for the operators (updateAlly; docs/rules/sim.md
+ * 「일반 공격 타이밍」). With its cooldown over, its last swing ended and a target in reach (attackTargets) the enemy starts
+ * a swing: the targets are taken and ordered now (blocker → taunt → latest deployed, its target count), the cooldown
+ * restarts from the full interval now, and the strike lands `attackWindup` later (attackTiming). Once started the swing
+ * goes on whether or not a target stays in reach (the client's ATTACK / COMBAT state checks no range); at the strike the
+ * targets still alive are hit — none is a whiff: no damage, no cooldown back (sel 1/3: the targets are taken again then,
+ * nobody = the cooldown refunded, as allyStrike). A stun / freeze / sleep / 浮空 / leaving the field (updateEnemy), 缴械,
+ * 恐惧 or 战栗 while blocked cuts a swing short of its strike: no damage, and the cooldown runs on from the cut swing's
+ * start (`InterruptIfNot`: PRTS 状态机 "每帧检查异常状态"; 异常效果 STUNNED, DISARMED "正在进行的普通攻击将被中断"; GitHub #187
+ * / #170: a 0.1 s 卡西米尔 pulse, 忍冬 S3's 0.2 s stun). A strike already made stays made (a shot in flight lands). An
+ * enemy with no attack clip known has no wind-up: it strikes as the swing starts. An enemy healer's heal has no wind-up.
+ * Returns true while the enemy swings (it stands: updateEnemy; a 「不停止移动」 attacker walks on).
  */
-function enemyAttack(b, e, prevCd) {
+function enemyAttack(b, e, dt) {
   const def = e.def;
-  if (e.profile && e.profile.noAttack) { e.swing = false; return false; }
+  if (e.profile && e.profile.noAttack) return cutSwing(e), false;
   const dmgType = (e.profile && e.profile.dmgType) || def.dmgType;
-  if (dmgType === 'none' || e.s.atk <= 0) { e.swing = false; return false; }
+  if (dmgType === 'none' || e.s.atk <= 0) return cutSwing(e), false;
   // 恐惧 / 缴械 / 战栗 (被阻挡后无法进行普通攻击): no normal attack, and the one swung is interrupted
-  if (e.s.flags.fear || e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy)) { e.swing = false; return false; }
+  if (e.s.flags.fear || e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy)) return cutSwing(e), false;
   if (dmgType === 'heal') { if (e.atkCd <= 0) enemyHeal(b, e, e.base.rangeRadius); return false; }
   // applyWay MELEE enemies only ever hit their blocker, even when their data carries a rangeRadius (粉碎攻坚手 2.5,
   // 宿主士兵 2.5, 深池伙友卫队 1.4 … — that radius belongs to their abilities/splash, handled by content).
@@ -845,56 +945,98 @@ function enemyAttack(b, e, prevCd) {
   // `e.profile.canTarget(ally)`: the enemy's own target rule (只攻击地面单位, 不会攻击飞行单位 …; content/enemies/*.js),
   // applied to the candidates before the priority sort and the target count
   const own = e.profile && typeof e.profile.canTarget === 'function' ? e.profile.canTarget : null;
-  const wind = attackWindup(e);
-  if (e.atkCd > wind + 1e-9) { e.swing = false; return false; }   // the cooldown runs
-  let targets = attackTargets(b, e, radius, reach, own);
-  if (!targets.length) { e.swing = false; return false; }          // ready, nobody in reach: no swing (or it is cut)
-  if (!e.swing) {
-    e.swing = true;
-    // ready before this tick (it walked with its cooldown over, or its swing was cut): the whole wind-up from now
-    if (prevCd < wind) e.atkCd = wind;
+  const moves = !!(e.profile?.attackMoves ?? def.attackMoves);
+  if (e.swing) {
+    e.swing.left = attackCountdown(e.swing.left, dt);
+    if (e.swing.left > 0) return !moves;   // the wind-up (GitHub #58): the enemy stands through it
+    enemyStrike(b, e, radius, reach, own);
+    return false;
   }
-  // the wind-up (GitHub #58): an unblocked ranged enemy stands through it (a 「不停止移动」 one walks on)
-  if (e.atkCd > 0) return !e.blockedBy && radius > 0 && !(e.profile?.attackMoves ?? def.attackMoves);
-  e.swing = false;
+  if (e.atkCd > 0 || e.castLeft > 0) return false;   // the cooldown runs, or the last swing still plays out
+  const targets = enemyTargets(e, attackTargets(b, e, radius, reach, own));
+  if (!targets.length) return false;                  // ready, nobody in reach: no swing
+  const t = attackTiming(e, TIMING);
+  e.atkCd = e.s.interval;
+  e.castLeft = t.action;
+  b._ev(['swing', e.id, roundMs(t.strike), shotKind(e, radius, targets)]);
+  e.swing = { left: t.strike, targets, sel: t.sel };
+  if (t.strike > 1e-9) return !moves;
+  enemyStrike(b, e, radius, reach, own);
+  return false;
+}
+
+/** The candidates of one enemy attack, ordered (targeting.js sortAllyTargets) and cut to its target count. */
+function enemyTargets(e, targets) {
   if (targets.length > 1) sortAllyTargets(e, targets);
+  const n = Math.max(1, Math.floor(e.profile?.maxTargets ?? 1) + Math.floor(e.s.maxTargets));
+  return targets.length > n ? targets.slice(0, n) : targets;
+}
+
+/** Whether an enemy's shot at `target` flies (a ranged enemy, unless it hits its own blocker from under 1 tile). */
+const rangedShotAt = (e, radius, target) => radius > 0 && !(e.blockedBy && target === e.blockedBy && radius < 1);
+
+/** The 'atk' / 'swing' kind of an enemy's attack on `targets`. */
+function shotKind(e, radius, targets) {
+  if (e.profile && e.profile.deferHit) return e.profile.shot || 'none';
+  return rangedShotAt(e, radius, targets[0]) ? 'enemy' : 'none';
+}
+
+/** The strike of an enemy's swing (enemyAttack): its damage, or a whiff / 麻痹 / a refund. */
+function enemyStrike(b, e, radius, reach, own) {
+  const def = e.def;
+  const sw = e.swing;
+  e.swing = null;
+  let targets;
+  if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(sw.targets[0]))) {
+    targets = enemyTargets(e, attackTargets(b, e, radius, reach, own));
+    if (!targets.length) { e.atkCd = 0; e.castLeft = 0; return; }   // nobody at the strike: the cooldown is refunded
+  } else targets = sw.targets.filter(strikable);
+  // it stands for the rest of its swing (attackStand; the wind-up was stood before the strike) — every enemy, blocked or
+  // not, a whiff too: PRTS 状态机, an enemy's ATTACK / COMBAT state "攻击结束后回退到MOVE状态" and checks only 异常状态 every
+  // frame (only a character's COMBAT "检测到不存在阻挡对象时强行切回IDLE状态"), so an enemy whose block ends after its strike —
+  // the strike stunned its blocker (流泪小子: 晕眩 "无法…阻挡"), knocked it out, or the blocker retreated — finishes its clip
+  // before it walks on (until 0.2.0 it walked on at once; community report of 2026-10-07 「哭狗瞬间隐匿没有后摇」). A
+  // blocked enemy never walks, so the stand matters only once it is free; a stun / freeze / sleep / 浮空, hiding or a
+  // displacement (失衡) ends it (updateEnemy, advanceRoute, Battle.displace)
+  e.atkStandUntil = b.time + standRest(e);
+  if (!targets.length) return;   // a whiff: every target died or left the field during the swing
   // `enemyAttackStart` { enemy, targets }: the enemy starts a normal attack, before 麻痹 may interrupt it (the client's
   // ON_BEFORE_ABILITY_SPELL_ON of an attack that 麻痹 can interrupt — 酒神 堕梦 "攻击范围内的敌人普通攻击时受到70点神经损伤",
   // PRTS 备注 "于敌人成功普通攻击前之前触发（意味着触发的元素爆发可打断当次普攻…）": a burst it causes interrupts this attack)
   if (b._hooks.enemyAttackStart) {
     b.emit('enemyAttackStart', { enemy: e, targets });
-    if (!e.alive || e.s.flags.stun) return false;
+    if (!e.alive || e.s.flags.stun) { cutSwing(e); return; }
   }
-  // 麻痹 (ba.palsy): each stack interrupts one normal attack. The `palsyTrigger` hook { enemy, buff, keep } fires as it
-  // does (PRTS 真言 备注: "触发麻痹时" = the attack interrupted by 麻痹, not a stack gained): a handler may set `keep` — the
-  // stack is not consumed (真言 噤声限域 "触发麻痹时有N%概率不消耗麻痹层数") — or deal damage (the enemy may die there)
+  // 麻痹 (ba.palsy): each stack interrupts one normal attack at its strike (client code `Enemy.CanDoAbilitySpellOn` →
+  // `FinishIfNot(PALSY)`: the cooldown runs on from the swing start). The `palsyTrigger` hook { enemy, buff, keep } fires
+  // as it does (PRTS 真言 备注: "触发麻痹时" = the attack interrupted by 麻痹, not a stack gained): a handler may set `keep` —
+  // the stack is not consumed (真言 噤声限域 "触发麻痹时有N%概率不消耗麻痹层数") — or deal damage (the enemy may die there)
   const palsy = e.buffs.length ? e.findBuff('palsy') : null;
   if (palsy) {
     let keep = false;
     if (b._hooks.palsyTrigger) {
       keep = !!b.emit('palsyTrigger', { enemy: e, buff: palsy, keep: false }).keep;
-      if (!e.alive) return false;
+      if (!e.alive) return;
     }
     if (!keep) { if (--palsy.stacks <= 0) b.removeBuff(e, palsy); else e.markDirty(); }
-    e.atkCd = e.s.interval;
+    e.castLeft = 0;
     // the interrupted attack ends its clip: the old short stand after it (PRTS 异常效果 麻痹: 0.5 s 麻痹震颤 — not modelled)
-    if (!e.blockedBy && radius > 0 && !(e.profile?.attackMoves ?? def.attackMoves)) e.atkStandUntil = b.time + ATTACK_PAUSE;
+    e.atkStandUntil = !e.blockedBy && radius > 0 && !(e.profile?.attackMoves ?? def.attackMoves) ? b.time + ATTACK_PAUSE : -Infinity;
     b.fx('palsy', { x: e.x, y: e.y, id: e.id });
-    return false;
+    return;
   }
-  const n = Math.max(1, Math.floor(e.profile?.maxTargets ?? 1) + Math.floor(e.s.maxTargets));
-  if (targets.length > n) targets = targets.slice(0, n);
   if (b._hooks.beforeAttack) {
     const ctx = { attacker: e, targets, isSkill: false, profile: e.profile };
     b.emit('beforeAttack', ctx);
     targets = (ctx.targets || []).filter((t) => t && t.alive);
-    if (!targets.length || !e.alive) return false;
+    if (!targets.length || !e.alive) return;
   }
   e.lastAttackAt = b.time;
   e.stats.attacks++;
   const attackId = ++b._attackSeq;
+  const dmgType = (e.profile && e.profile.dmgType) || def.dmgType;
   const type = dmgType === 'heal' ? 'arts' : dmgType;
-  const rangedShot = radius > 0 && !(e.blockedBy && targets[0] === e.blockedBy && radius < 1);
+  const rangedShot = rangedShotAt(e, radius, targets[0]);
   // content-resolved attacks (`e.profile.deferHit`: 帝国炮火先兆者's shell landing 3 s later): the attack itself happens
   // — the 'atk' event (kind `e.profile.shot`, drawn by the content's own fx), cooldown, pause, the 'attack' hook — and
   // the content's 'attack' handler deals its damage
@@ -913,16 +1055,6 @@ function enemyAttack(b, e, prevCd) {
     } else hit(t);
   }
   if (b._hooks.attack) b.emit('attack', { attacker: e, targets, isSkill: false });
-  e.atkCd = e.s.interval;
-  // stands for the rest of its attack clip (attackStand; the wind-up was stood before the strike) — every enemy, blocked
-  // or not: PRTS 状态机, an enemy's ATTACK / COMBAT state "攻击结束后回退到MOVE状态" and checks only 异常状态 every frame
-  // (only a character's COMBAT "检测到不存在阻挡对象时强行切回IDLE状态"), so an enemy whose block ends after its strike — the
-  // strike stunned its blocker (流泪小子: 晕眩 "无法…阻挡"), knocked it out, or the blocker retreated — finishes its clip
-  // before it walks on (until 0.2.0 it walked on at once; community report of 2026-10-07 「哭狗瞬间隐匿没有后摇」). A
-  // blocked enemy never walks, so the stand matters only once it is free; a stun / freeze / sleep / 浮空, hiding or a
-  // displacement (失衡) ends it (updateEnemy, advanceRoute, Battle.displace)
-  e.atkStandUntil = b.time + attackStand(e, STAND).rest;
-  return false;
 }
 
 /** Enemy healers (dmgType 'heal'): heal the lowest-HP% other enemy within their radius. */

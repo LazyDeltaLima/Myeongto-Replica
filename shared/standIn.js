@@ -93,6 +93,8 @@ export function composeUnitRecord(identity, unit, form, { skillIndex, moduleId =
       avatar: golden ? a.avatarGolden : a.avatar, portrait: golden ? a.portraitGolden : a.portrait, spine: a.spine,
       skillIcon: skill?.iconId || null, subProfIcon: a.subProfIcon,
     },
+    // the character's attack clips and their timing (tools/build-data.mjs opAttackAnim; server/sim/ai.js attackTiming)
+    attackAnim: unit.attackAnim ?? null,
     skills: skills.map((s) => ({ ...s, isDefault: s.index === skillIndex })),
   });
   if (golden && equipLevel > 0) {

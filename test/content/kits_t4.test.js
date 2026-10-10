@@ -1142,7 +1142,10 @@ test('elite (精锐) kits read the Lv7 blackboard: skill magnitudes differ from 
     const [h, u, bb] = mk('chess_char_4_13_b');
     const e = h.spawn('enemy_dummy', { pos: [10, 4] });
     assert.ok(h.runUntil(() => u.skill.activations >= 1, 20));
-    approx(dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst'))[0].amount, u.s.atk * bb.atk_scale);
+    // (cast as a swing starts — her earlier strike may have chilled the enemy: 坚冰 ×damage_scale_cold on a cold one)
+    const t0b = D('chess_char_4_13_b').talents[0].bb;
+    const k = dmgBy(h, u, (c) => c.dmg?.tags?.includes('burst'))[0].amount / (u.s.atk * bb.atk_scale);
+    assert.ok([1, t0b.damage_scale_cold, t0b.damage_scale_freeze].some((m) => Math.abs(k - m) < 1e-6), `burst ×${k}`);
     assert.ok(noisy(h, 'statusApplied').some((c) => c.target === e && c.status === 'cold' && c.duration === bb.cold));
   }
   // 莱恩哈特: 200 % and RES −12 %

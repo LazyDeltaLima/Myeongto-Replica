@@ -22,7 +22,7 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 ## 4. Time model
 
 - Simulation time is **game seconds**. Fixed step `TICK = 1/30 s`.
-- Timers count in ticks and take what is within 1e-9 as reached — attack cooldowns and enemy wind-ups (`ai.js
+- Timers count in ticks and take what is within 1e-9 as reached — attack cooldowns and swing wind-ups (`ai.js
   attackCountdown`), time SP against its cost (`skills.js gainSp`), skill durations, buff intervals, `every()` /
   `after()`, enemy abilities, the 失衡 end —, so a whole number of ticks takes exactly that many: 1 s = 30 ticks (PRTS
   作战机制/sandbox 「帧对齐机制对攻速的影响」: one frame = 1/30 s). Floating point alone held 1 s attacks and 10-SP charges a

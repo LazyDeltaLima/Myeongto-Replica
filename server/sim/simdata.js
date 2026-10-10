@@ -212,6 +212,8 @@ export function normalizeChess(rec) {
     tokens: rec.tokens ?? [],
     spine: rec.assets?.spine ?? rec.spine ?? rec.charId ?? null,
     avatar: rec.assets?.avatar ?? rec.avatar ?? rec.charId ?? null,
+    // the attack clip of each attack mode (Default, the selected skill's) and its ability's timing (ai.js attackTiming)
+    attackAnim: normOpAttackAnim(rec.attackAnim),
     // a 补位 stand-in (shared/standIn.js): the replaced operator's charId — `charId` is the stand-in's (absent otherwise)
     ...(rec.standInFor ? { standInFor: rec.standInFor } : null),
     // a 自选 piece (shared/diy.js): the slot's base id — `charId` is the operator's (absent otherwise)
@@ -248,12 +250,35 @@ export function immuneSet(v, extra = null) {
   return out;
 }
 
-/** data/enemies.json `attackAnim` → { dur, hit } (hit null = none: half the clip), or null when malformed / absent. */
-function normAttackAnim(a) {
+/**
+ * An attack clip and its attack ability's timing (data/enemies.json `attackAnim`, data/chess.json `attackAnim.base` /
+ * `.skills[i]`) → { dur, hit, max, pre, wait, sel }, or null when malformed / absent: the clip length and its first
+ * OnAttack frame (null = none: the strike lands as the swing ends), the ability's `_maxAnimScale` (−1 → Infinity: no
+ * bound; absent → 1, the rule before the client values were read), `_preDelay`, `_waitForAttackEvent` (absent → true)
+ * and `_selectTargetTiming` (ai.js attackTiming).
+ */
+export function normAttackAnim(a) {
   const dur = Number(a?.dur);
   if (!(Number.isFinite(dur) && dur > 0)) return null;
   const hit = Number(a.hit);
-  return { dur, hit: a.hit != null && Number.isFinite(hit) ? Math.min(dur, Math.max(0, hit)) : null };
+  const max = Number(a.max);
+  const pre = Number(a.pre);
+  return {
+    dur,
+    hit: a.hit != null && Number.isFinite(hit) ? Math.min(dur, Math.max(0, hit)) : null,
+    max: a.max == null || !Number.isFinite(max) ? 1 : max < 0 ? Infinity : Math.max(0.1, max),
+    pre: Number.isFinite(pre) && pre > 0 ? pre : 0,
+    wait: a.wait !== 0 && a.wait !== false,
+    sel: Number.isInteger(a.sel) ? a.sel : 0,
+  };
+}
+
+/** data/chess.json `attackAnim` { base, skills } → { base, skills } of normAttackAnim (a skill without a mode of its own: null), or null. */
+function normOpAttackAnim(a) {
+  if (!a || typeof a !== 'object') return null;
+  const base = normAttackAnim(a.base);
+  const skills = Array.isArray(a.skills) ? a.skills.map((s) => normAttackAnim(s)) : [];
+  return base || skills.some(Boolean) ? { base, skills } : null;
 }
 
 /** Normalise an enemy record (research 05 shape or data/enemies.json shape) into an EnemyDef. */

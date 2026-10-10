@@ -56,9 +56,23 @@ test('data: every enemy with a real attack clip carries it as attackAnim (the cl
     assert.equal(e.attackMoves, undefined, `${k}: no enemy of the mode attacks on the move`);
   }
   assert.ok(n > 200, `${n} enemies`);
-  // the ranged attackers of the report
-  assert.deepEqual(enemies.enemy_1019_jshoot.attackAnim, { clip: 'Attack', dur: 1, hit: 0.533 });
-  assert.deepEqual(enemies.enemy_1168_dumage.attackAnim, { clip: 'Attack', dur: 1.2, hit: 0.633 });
+  // the ranged attackers of the report; `max` = their attack ability's _maxAnimScale (tools/assets/local-attack-timing.json)
+  assert.deepEqual(enemies.enemy_1019_jshoot.attackAnim, { clip: 'Attack', dur: 1, hit: 0.533, max: 1 });
+  assert.deepEqual(enemies.enemy_1168_dumage.attackAnim, { clip: 'Attack', dur: 1.2, hit: 0.633, max: 1 });
+  // the timing fields follow the client's attack ability (the blocked one, Combat, for a melee enemy)
+  const timing = readJson('tools/assets/local-attack-timing.json').enemies;
+  let withTiming = 0;
+  for (const [k, e] of Object.entries(enemies)) {
+    const t = timing[e.spine || k] ?? timing[k];
+    if (!e.attackAnim || !t) continue;
+    const ab = e.applyWay === 'MELEE' ? (t.combat ?? t.attack) : (t.attack ?? t.combat);
+    if (!ab) continue;
+    withTiming++;
+    assert.equal(e.attackAnim.max, ab.max, `${k} _maxAnimScale`);
+    assert.equal(e.attackAnim.wait ?? 1, ab.wait ?? 1, `${k} _waitForAttackEvent`);
+    assert.equal(e.attackAnim.sel ?? 0, ab.sel ?? 0, `${k} _selectTargetTiming`);
+  }
+  assert.ok(withTiming > 190, `${withTiming} enemies with the client's attack timing`);
 });
 
 test('隐形弩手 with an operator in range stands for its 1.0 s Attack clip at every attack (0.533 s wind-up + 0.467 s), then walks', () => {

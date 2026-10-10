@@ -311,7 +311,8 @@ test('#32.6 review: the 斩胄之剑 / 破胄之锤 hover attack skips 隐匿 an
     const blade = h.spawn(key, { pos: [3, 8], routeIndex: 0, mods: { speedMul: 0 }, tag: 'part' });
     const hit = [];
     h.b.on('damaged', (c) => { if (c.source === blade) hit.push(c.target); }, { priority: 1000 });
-    h.run(3);
+    // (斩胄之剑's attack ability has no _maxAnimScale bound: its first strike comes 3.35 s into the swing — ai.js attackTiming)
+    h.run(5);
     assert.ok(hit.includes(h.unit(JF)), `${key}: hits the plain operator`);
     assert.ok(!hit.includes(h.unit(GM)) && !hit.includes(h.unit(HD)), `${key}: not the 隐匿 or the 迷彩 one (in 0.1.1 it hit all three)`);
     done(h);

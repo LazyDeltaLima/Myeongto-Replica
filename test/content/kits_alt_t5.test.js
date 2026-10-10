@@ -1480,6 +1480,8 @@ test('号角 S1 / 塞雷娅 S1 (自动触发, elite: 2 charges): hits never arm 
     for (let i = 0; i < 3; i++) h.b.dealDamage(e, u, { amount: 10, type: 'phys' });
     assert.equal(starts().length, 0, 'hits do not arm it');
     assert.ok(h.runUntil(() => starts().length >= 2, 15), 'both charges are cast');
+    // (cast as a swing starts; its attack strikes at the clip's damage frame)
+    assert.ok(h.runUntil(() => h.hooksOf('attack').filter((c) => c.attacker === u && c.isSkill).length >= 2, 5));
     const shots = h.hooksOf('attack').filter((c) => c.attacker === u && c.isSkill);
     assert.equal(new Set(shots.slice(0, 2).map((c) => c.t)).size, 2, 'one charge per attack');
     done(h);
@@ -1503,9 +1505,12 @@ test('号角 S1 / 塞雷娅 S1 (自动触发, elite: 2 charges): hits never arm 
     h.run(1);
     assert.equal(starts(), 0, 'hits do not arm it, nor does the injured ally alone: it waits for her attack');
     assert.ok(h.runUntil(() => starts() === 1, 2), 'her attack casts one charge');
+    // (cast as the swing starts; the heal lands at the clip's damage frame)
+    assert.ok(h.runUntil(() => heals(h, u).length >= 1, 3));
     assert.ok(!u.skill.pending, 'and is the heal');
     assert.equal(u.skill.charges, 1, 'the second charge stays stored');
     assert.ok(h.runUntil(() => starts() === 2, 5), 'her next attack heals the other one');
+    assert.ok(h.runUntil(() => heals(h, u).length >= 2, 3));
     assert.equal(heals(h, u).length, 2);
     assert.notEqual(heals(h, u)[0].target, heals(h, u)[1].target);
     assert.ok(!u.skill.pending);

@@ -208,8 +208,10 @@ test('S2 宛如天启: cast with an injured ally inside the 3-10 only; 30 s on t
     close(tank.s.atk, tank.base.atk, `${id}: not a non-medic`);
     h.b.loseHp(tank2, tank2.hp * 0.3);
     const n0 = h.heals.length;
-    h.runUntil(() => h.heals.length > n0, 5);
-    assert.deepEqual(new Set(h.heals.slice(n0).map((x) => x.uid)), new Set([2, 4]), `${id}: 2 targets`);
+    // (a swing started before tank2 was hurt heals the targets it took then: the next one takes both)
+    h.runUntil(() => h.heals.slice(n0).some((x) => x.uid === 4), 6);
+    const t4 = h.heals.slice(n0).find((x) => x.uid === 4).t;
+    assert.deepEqual(new Set(h.heals.slice(n0).filter((x) => x.t === t4).map((x) => x.uid)), new Set([2, 4]), `${id}: 2 targets`);
     h.runUntil(() => !u.skill.active, 35);
     h.step();
     assert.equal(u.rangeKeys.length, 12);

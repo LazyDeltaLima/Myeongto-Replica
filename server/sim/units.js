@@ -71,6 +71,8 @@ export class Unit {
     this.skill = null;          // SkillRuntime
     this.kit = null;
     this.atkCd = 0;
+    this.swing = null;          // a normal attack swung, its strike not reached yet (ai.js startSwing)
+    this.castLeft = 0;          // the rest of the swing after its strike (ai.js: the next swing waits for it)
     this.lastAttackAt = -Infinity;
     this.lastHitAt = -Infinity;
     this.deployedAt = -Infinity;

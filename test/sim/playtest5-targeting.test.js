@@ -82,6 +82,11 @@ test('#220 (the owner\'s decision of 2026-10-08): a 速射手 blocking a ground 
     const o = h.spawn(other, { pos: [10, 6], routeIndex: 0, route: { motion: other === 'e_bat' ? 'FLY' : 'WALK', start: [10, 6], end: [10, 6], checkpoints: [] } });
     h.step();
     assert.ok(h.b.enemiesInKeys(u.rangeKeys, u, u.profile).includes(o), `${other} in range`);
+    // (a swing started before `o` came strikes the targets it took then — ai.js updateAlly: count once it struck and its
+    // shot landed)
+    const sw0 = u.swing;
+    if (sw0) assert.ok(h.runUntil(() => u.swing !== sw0, 2));
+    h.runUntil(() => !h.b.projectiles.list.some((p) => p.source === u), 1);
     const n0 = h.hooksOf('damaged').length;
     h.run(4);
     const hits = (t) => h.hooksOf('damaged').slice(n0).filter((c) => c.source === u && c.target === t).length;

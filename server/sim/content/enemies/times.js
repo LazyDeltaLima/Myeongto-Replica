@@ -22,8 +22,9 @@ const TEA_BOOM_RADIUS = 1.25;
  * 切换为无断刃模式并失去攻击力加成」 (popup: the switch 「清空当次攻击间隔」, so it attacks again at once) / 「因坠落以外的原因死亡后…
  * 召唤自身剩余【断刃】数量的铜矛头 / 铁矛头（至少召唤1个）」. ONE layer of Atkup.atk / AtkUp.atk (沉沙 0.7 — its PRTS page repeats
  * 新硎's 80 %, the blackboard says 0.7 — / 新硎 0.8) from the spawn while it holds a blade (DeadSpawn.cnt = 4), removed when
- * an attack spends the last one; that attack's cooldown is then cleared (ai.js sets it after the 'attack' hook, so this
- * tick's 'tick' clears it and the next attack comes on the next tick). Unspent blades (cnt + cnt_add × spent, ≥ 1)
+ * an attack spends the last one; that attack's cooldown is then cleared (this tick's 'tick', after the strike: ai.js
+ * restarted it as the swing started) — the next swing starts once that swing has played out (its `castLeft`: the client's
+ * attack ability is ready only after its cast ends). Unspent blades (cnt + cnt_add × spent, ≥ 1)
  * become 矛头 when it is killed (a leak is no death; the mode has no 坠落), at once and side by side (spawnChildren — the
  * 0.7 s random delay and the 1.0 square of the text are not modelled). Until 0.2.0 each attack stacked one more layer
  * and none was ever removed (GitHub #107: 新硎 1350 → 3510 ATK after two hits).

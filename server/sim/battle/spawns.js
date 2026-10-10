@@ -139,7 +139,8 @@ export class BattleSpawns {
     e.atkStandUntil = -Infinity;   // standing for its attack clip (ai.js attackStand)
     e.atkStandCutAt = -Infinity;   // display metadata: when its stand was last cut or ignored (snapshot standCut)
     e.unbalanceUntil = -Infinity;  // 失衡 (UNBALANCE) after a push / pull (battle/displacement.js _unbalance, ai.js)
-    e.swing = false;               // a normal attack swung, its damage frame not reached yet (ai.js enemyAttack)
+    e.swing = null;                // a normal attack swung, its damage frame not reached yet (ai.js enemyAttack)
+    e.castLeft = 0;                // the rest of that swing after its strike (ai.js)
     // every enemy profile starts with the same fields (stable object shapes keep the hot loop's property reads fast);
     // `dmgType` null = the data's (content may arm a data-unarmed enemy: ai.js enemyAttack); `blockFree` = its 索敌不受阻挡
     // 影响 (content: 自制投石机 — targeting.js canTargetAlly / sortAllyTargets, ai.js attackTargets)

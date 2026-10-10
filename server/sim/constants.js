@@ -20,6 +20,11 @@ export const MOVE_SCALE = 0.5;
  */
 export const ATTACK_PAUSE = 0.35;
 /**
+ * The shortest clip scale of a normal attack (a swing never plays its clip faster than 10×): client constant
+ * `AbstractAnimatedAbility.MIN_ANIM_SCALE` 0.1, read by `AbstractAnimatedAbility.UpdatePlaybackSpeed` (ai.js attackTiming).
+ */
+export const MIN_ANIM_SCALE = 0.1;
+/**
  * Collider radius of an allied unit (PRTS 作战机制 §碰撞体积与位置识别: "我方干员碰撞体积基本均为以0.25格为半径的圆形" —
  * "关于碰撞体积与远程索敌，碰撞箱碰撞是为最常用的方式，索敌抬手等均使用碰撞箱"; the Ifrit 0.1 collider example). A ranged enemy's
  * normal attack takes an ally whose collider touches its range circle: centre distance ≤ rangeRadius + this

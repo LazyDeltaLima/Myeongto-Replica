@@ -43,6 +43,8 @@ export class BattleDeploy {
     u.aggroSeq = u.deploySeq;
     u.deployedAt = this.time;
     u.atkCd = 0;
+    u.swing = null;     // a new deployment swings anew (ai.js updateAlly)
+    u.castLeft = 0;
     u.lastAttackAt = -Infinity;
     u.elem.burn = u.elem.neural = u.elem.necrosis = u.elem.apoptosis = u.elem.erosion = 0;
     u.ground = !fly && this.grid.isLow(R0, C0) && !this._elevated?.has(k); // a flyer is an air unit, on no ground at all

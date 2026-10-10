@@ -969,7 +969,10 @@ test('6_16 溯光星源 S1 星图闪烁: ATK +; every attack bounces 3 more time
     const ch = dealt(h, u, tagged('chain')).slice(0, bb['attack@chain.max_target']);
     for (let i = 1; i < ch.length; i++) assert.notEqual(ch[i].target, ch[i - 1].target, 'never twice in a row');
     assert.equal(ch[0].target, ch[2].target, 'back and forth');
-    for (const x of ch) approx(x.amount, u.s.atk, 'full hits');
+    // (能源解析 marks an enemy in her range 脆弱 after 0.25 s — the strike lands at the clip's damage frame since the attack
+    // timing of 2026-10-10, so the nearer enemy is already marked)
+    const frag = (e) => 1 + (e.findBuff('fragile')?.data?.value ?? 0);
+    for (const x of ch) approx(x.amount / frag(x.target), u.s.atk, 'full hits');
     done(h);
   }
 });
@@ -988,11 +991,11 @@ test('6_16 溯光星源 S2 星束引力: the target farthest from its goal, atk_
     const x0 = 5;
     h.run(1);
     const hit = dealt(h, u, (c) => c.target === main && c.dmg.isAttack && c.dmg.isSkill)[0];
-    approx(hit.amount, u.s.atk * bb.atk_scale, 'atk_scale');
+    approx(hit.amount / (1 + (main.findBuff('fragile')?.data?.value ?? 0)), u.s.atk * bb.atk_scale, 'atk_scale');
     assert.ok(statuses(h, 'sluggish', (c) => c.source === u && c.target === main && Math.abs(c.duration - bb.sluggish) < 1e-9).length === 1, '3 s 停顿');
     const link = dealt(h, u, (c) => c.target === side && (c.dmg.tags || []).includes('link'));
     assert.equal(link.length, 1, 'linked neighbour hit');
-    approx(link[0].amount, u.s.atk * bb.atk_scale_link, 'link');
+    approx(link[0].amount / (1 + (side.findBuff('fragile')?.data?.value ?? 0)), u.s.atk * bb.atk_scale_link, 'link');
     assert.ok(side.x > x0 + 0.05 || main.x < side.x, `pulled toward the target (${x0} → ${side.x})`);
     done(h);
   }

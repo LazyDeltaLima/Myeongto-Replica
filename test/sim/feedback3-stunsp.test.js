@@ -44,7 +44,10 @@ test('洛洛 S2 自负此轭: the data matches skill_table (lv 4 / 7), the stun 
   // ready 45 s after the skill end (not 45 s after the stun): cast again then
   const casts = () => h.hooksOf('skillStart').filter((c) => c.unit === u).length;
   assert.equal(casts(), 1);
-  h.run(25);
+  h.run(24);
+  assert.equal(casts(), 1, 'not before its SP is full again');
+  // (cast at her first attack check — a swing start — once the SP is full: within one attack interval)
+  h.run(1 + u.s.interval);
   assert.equal(casts(), 2, 'recast 45 s after the end of the skill');
 });
 

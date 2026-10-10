@@ -1027,6 +1027,17 @@ export class UnitView {
   }
 
   /**
+   * This unit starts a normal attack's swing now (b.ev 'swing'); its strike comes `windup` game seconds later: the Spine
+   * attack clip plays from its start at the official speed (render/spine.js swing). True when the clip was started.
+   */
+  onSwing(windup) {
+    if (!this.alive || !this.actor || !this.spineReady) return false;
+    const ok = this.actor.swing(windup);
+    if (ok && this.imp) this.imp.dirty = true;
+    return ok;
+  }
+
+  /**
    * An attack by this unit is `lead` game seconds ahead in the snapshot buffer: start the Spine attack wind-up now
    * so the strike frame lines up with the attack. True once started (then stop calling for that attack). `kind` = the
    * 'atk' projKind (a one-off cast winds up at the clip's own speed).

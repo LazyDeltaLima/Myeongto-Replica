@@ -217,6 +217,7 @@ test('#16 古米 备用军粮 with an enemy blocked: the cast turns her next att
   h.step();
   assert.equal(u.skill.maxCharges, 2);
   u.atkCd = 1.5; // the heal waits for her next attack
+  u.swing = null; // (and the swing she started in the first tick is cut: ai.js updateAlly)
   fill(u);
   m.hp = 3000;
   h.run(1);
@@ -262,6 +263,8 @@ test('#16 塞雷娅 S1 急救 (audit): checked at her attack — an ally of her 
   const hits0 = hits();
   assert.ok(h.runUntil(() => u.skill.activations === 1, 2));
   assert.equal(starts(h, u)[0].reason, 'DEFAULT');
+  // (cast as her swing starts; the heal lands at that swing's damage frame — ai.js attackTiming)
+  assert.ok(h.runUntil(() => h.hooksOf('heal').some((c) => c.source === u && c.target === m), 2));
   const heal = h.hooksOf('heal').find((c) => c.source === u && c.target === m);
   assert.ok(heal, 'healed at once, in place of that attack');
   approx(heal.amount, u.s.atk * s.bb.heal_scale);

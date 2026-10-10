@@ -291,6 +291,7 @@ export async function createFieldView(host, options = {}) {
   // dead units for DIE_ANIM_TIME), which must not bring the view back; a spawn / deploy / live sample clears it
   const gone = new Set();
   const woundUp = new WeakSet(); // atk event tuples whose attack wind-up already started
+  const swingStrikes = new Map(); // unit id → game time of the strike of its latest 'swing' (windUpAttacks)
   const interp = new SnapshotBuffer({ delay: 0.1, rate: 2 });
   const sample = new Map();
   const meleePending = new Map(); // target id → { src, t }
@@ -940,6 +941,7 @@ export async function createFieldView(host, options = {}) {
     interp.reset();
     fx.clear(); fxGame.clear(); // local patch
     meleePending.clear();
+    swingStrikes.clear();
     consumedIds.clear();
     tiles.setBattleRect(null);
     board3d?.setBattleRect(null);
@@ -1410,6 +1412,7 @@ export async function createFieldView(host, options = {}) {
     interp.reset();
     fx.clear(); fxGame.clear(); // local patch
     meleePending.clear();
+    swingStrikes.clear();
     consumedIds.clear();
     clearHl();
     renderT0Battle = null;
@@ -1508,14 +1511,19 @@ export async function createFieldView(host, options = {}) {
   }
 
   // attack wind-ups: an 'atk' still queued in the buffer starts its Spine clip early enough for the strike frame to
-  // land when the event is rendered (the look-ahead is the interpolation delay, ~0.2 game s)
+  // land when the event is rendered (the look-ahead is the interpolation delay, ~0.2 game s) — unless a 'swing' event
+  // (the sim's swing start: handleEvent) drives that clip at the official speed: its strike time is noted here when the
+  // look-ahead sees it first, and the 'atk' of that strike is left to it
   function windUpAttacks(renderT) {
     upcomingT = renderT;
     interp.forEachUpcoming(renderT, renderT + 1.5, onUpcoming);
   }
   let upcomingT = 0;
   function onUpcoming(e, t) {
+    if (e[0] === 'swing') { if (Number(e[2]) > 0) swingStrikes.set(e[1], t + Number(e[2])); return; }
     if (e[0] !== 'atk' || woundUp.has(e) || CHAIN_KINDS.has(e[3])) return;
+    const at = swingStrikes.get(e[1]);
+    if (at != null && Math.abs(at - t) < 0.1) { woundUp.add(e); return; }
     const v = views.get(e[1]);
     if (!v || !v.windUp) return;
     if (v.windUp(t - upcomingT, e[3])) woundUp.add(e);
@@ -1551,6 +1559,17 @@ export async function createFieldView(host, options = {}) {
         // by one like the official round start — the n-th allied piece deployed in its first game second waits its turn
         const order = v && !battleMeta?.prep && v.info?.side === 'ally' && v.info.kind !== 'device' && now <= OPENING_DROP_GT ? openingDrops++ : 0;
         if (v) { v.onDeploy?.({ order }); if (v.info?.kind !== 'device') fx.deploy(v); }
+        break;
+      }
+      case 'swing': {
+        // a normal attack's swing starts (sim ai.js attackTiming): the Spine clip from its start at the official speed,
+        // the strike — this unit's next 'atk' events — `e[2]` game s later (docs/rules/render.md 「공격 모션」)
+        const w = Number(e[2]);
+        if (w > 0) {
+          const seen = swingStrikes.get(e[1]);   // (the look-ahead's note carries the event's own time)
+          if (!(seen != null && Math.abs(seen - now - w) < 0.2)) swingStrikes.set(e[1], now + w);
+          views.get(e[1])?.onSwing?.(w);
+        }
         break;
       }
       case 'atk': {

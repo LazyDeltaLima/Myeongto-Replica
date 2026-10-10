@@ -6,7 +6,13 @@
 //
 // Driving (units.js calls these; the sim is authoritative, the actor only visualises):
 //   setBase('idle'|'move'|'stun')        the resting state from the snapshot anim code
-//   attack(interval, once)                one attack happened now (b.ev 'atk'): plays begin→loop, re-phases the loop
+//   swing(windup)                         a normal attack's swing starts now (b.ev 'swing', operators and enemies): the
+//                                         attack clip plays once from its start at the official speed — 1 / the clip
+//                                         scale of the sim's attackTiming, read back as the clip's OnAttack frame ÷
+//                                         `windup` — so its strike frame lands with the attack's 'atk' events; a capped
+//                                         clip (_maxAnimScale 1) plays at its own speed and the actor rests for the rest
+//                                         of the interval; the 'atk' events of that strike leave the clip alone
+//   attack(interval, once)                one attack happened now (b.ev 'atk') without a swing driving it: plays begin→loop, re-phases the loop
 //                                         so its OnAttack frame lands now, timeScale = loopDuration / interval;
 //                                         `once` (a one-off cast, style.js PROJ[kind].once — 暴鸰's bomb drop): the
 //                                         clip plays once at its own speed, then base; `clipPerAttack` (enemies,
@@ -40,6 +46,21 @@ const clampN = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /** Longest wind-up compression (× the rhythm speed) when the look-ahead is shorter than the natural wind-up. */
 export const MAX_WIND_SPEEDUP = 2.5;
+
+/**
+ * Game seconds a swing's attack mode outlasts its clip (swing): the last frame holds that long before the resting state,
+ * so a next swing due on the frame the clip ends (HALF_FRAME: the sim starts it on that frame) never blends through idle.
+ */
+const SWING_HOLD = 0.1;
+
+/**
+ * Playback speed of a swing (pure): the clip reaches its strike frame `hit` (clip seconds; no OnAttack event → the clip
+ * end) `windup` game seconds after it starts — 1 / the sim's clip scale (server/sim/ai.js attackTiming), within its
+ * [0.1, 10] bounds (MIN_ANIM_SCALE).
+ */
+export function swingSpeed(hit, windup) {
+  return clampN(hit / windup, 0.1, 10);
+}
 
 /** Floor for the one-shot window of a skill clip with no Begin / own Idle (a very short clip still gets frames). */
 const SKILL_CLIP_MIN = 0.2;
@@ -160,6 +181,7 @@ export class SpineActor {
      */
     this.clipPerAttack = false;
     this.wound = false;           // clipPerAttack: wound up for the coming attack (windUp → attack)
+    this.swingUntil = null;       // the end of a swing's clip (swing): attacks meanwhile leave it alone
     this._play(this._idleName(), true);
   }
 
@@ -359,6 +381,7 @@ export class SpineActor {
   windUp(interval, lead, once = false) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || !(lead >= 0)) return false;
     if (this._endPlaying()) return false; // local patch
+    if (this._swinging()) return false;   // a swing (b.ev 'swing') drives the clip
     const clip = this._attackClip();
     if (!clip) return false;
     const per = this.clipPerAttack || !!clip.strike; // local patch: a strike skill clip plays once per attack
@@ -383,6 +406,38 @@ export class SpineActor {
   }
 
   /**
+   * A normal attack's swing starts now (b.ev 'swing'; docs/rules/render.md 「공격 모션」): its strike — the 'atk' events —
+   * comes `windup` game seconds later. The attack clip plays once from its first frame at swingSpeed (the official
+   * speed: its OnAttack frame meets the strike), then holds and rests; the 'atk' events of that strike leave it alone
+   * (attack). Returns false when nothing was started (stunned, dying, a change clip, no attack clip, no wind-up — the
+   * 'atk' path then shows the strike as before).
+   */
+  swing(windup) {
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || !(windup > 0)) return false;
+    if (this._endPlaying()) return false; // local patch
+    const clip = this._attackClip();
+    if (!clip) return false;
+    const loopDur = this.dur(clip.loop);
+    const hits = this.entry.hits && this.entry.hits[clip.loop];
+    // the strike frame; a clip with no OnAttack event strikes as the swing ends (the sim's attackTiming)
+    const hit = Array.isArray(hits) && hits.length && Number.isFinite(hits[0]) ? clampN(hits[0], 0, loopDur) : loopDur;
+    if (!(hit > 0)) return false;
+    const ts = swingSpeed(hit, windup);
+    this.mode = 'attack';
+    this.attackUntil = this.clock + loopDur / ts + SWING_HOLD;
+    this.swingUntil = this.attackUntil;
+    this.windUntil = null;
+    this.wound = false;
+    this._play(clip.loop, false, { timeScale: ts, mix: 0.06 });
+    return true;
+  }
+
+  /** A swing's clip is playing (swing): the 'atk' events of its strike, and any other attack meanwhile, leave it alone. */
+  _swinging() {
+    return this.mode === 'attack' && this.swingUntil != null && this.clock <= this.swingUntil;
+  }
+
+  /**
    * local patch (user report 2026-10-07, video: 锏 S3's finisher is her Skill_3_End): a skill's End clip plays out — the
    * next normal attack does not cut it (it cut it at once: she struck with the plain Attack)
    */
@@ -396,6 +451,7 @@ export class SpineActor {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change') return;   // a form change plays out
     if (this._endPlaying()) return; // local patch
     if (!once) this.interval = clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
+    if (this._swinging()) return;   // the strike of a swing already playing at the official speed
     const clip = this._attackClip();
     if (!clip) return;
     const loopDur = this.dur(clip.loop);
@@ -592,6 +648,7 @@ export class SpineActor {
         if (this.clock > this.attackUntil) {
           this.mode = 'base';
           this.wound = false;
+          this.swingUntil = null;
           const clip = this._attackClip() || this.roles.attack;
           // a skill with its own idle: back to that idle (its end clip is for the end of the skill, setSkill(false))
           const toSkillIdle = clip === this.roles.skill && !!this._skillIdle();

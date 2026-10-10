@@ -173,3 +173,15 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   공식 이펙트 층(`fxGame`)·보스 준비 경로 커서(`routeCursors`)도 중단 정리(`setupCleanup`)에 등록. 보드 아트·3D 보드 대기는 view 객체 뒤로 옮겨졌지만
   여전히 `return` 전이라 호출자(공식 씬 `setStage`, 개시 낙하)가 보는 순서는 같다 [코드 읽기로 확인, 화면 미확인].
 - 위 항목들은 [화면 미확인]. 브라우저 테스트 `RENDER_E2E=1 test/render/initialization.browser.test.js`·`SP_E2E=1 test/e2e/coop.e2e.mjs`(联防 필드가 경기 맵을 그림)로 확인한다.
+
+## 공격 모션 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
+근거: 클라 코드 `AbstractAnimatedAbility.UpdatePlaybackSpeed`(재생 속도 = 1 / 클립 배율, 배율 ∈ [0.1, `_maxAnimScale`]) — 규칙과 sim 쪽은 `sim.md` 「일반 공격 타이밍」.
+- sim이 휘두름을 시작하는 틱에 `['swing', id, windup, kind]`를 낸다. `render/app.js`가 받으면 `units.js onSwing` → `spine.js swing(windup)`: 공격 클립을
+  **첫 프레임부터 한 번** 재생하고, 속도 = 클립의 OnAttack 프레임 ÷ windup(`swingSpeed`, OnAttack이 없는 클립은 클립 끝 ÷ windup) — 곧 공식 1/배율이라 타격
+  프레임이 'atk' 이벤트와 같은 때 온다. 그 타격의 'atk'(대상이 여럿이면 여러 개)와 휘두름 중의 다른 공격은 클립을 건드리지 않는다(`_swinging`). 클립이 끝나면 0.1
+  게임 초(`SWING_HOLD`) 마지막 프레임을 쥐고 쉬는 상태로 — 상한 1인 클립은 제 속도로 휘두르고 간격의 나머지는 대기(이전: 오퍼레이터는 클립을 간격에 맞춰 0.35×까지
+  늘려 반복 재생 — 그레이·레온하르트·와파린·미즈키 등이 느린 동작으로 보였다).
+- 이전 방식(보간 지연 ≈0.2 게임 초 앞을 보는 'atk' 미리보기 → `windUpPlan`, 전딜을 `MAX_WIND_SPEEDUP` 2.5배속까지 감음)은 'swing'이 없거나 windup이 0인
+  공격(클립 모르는 유닛, 강제 공격, 적 치유)에만 남는다 — `app.js windUpAttacks`는 'swing'이 예고한 타격의 'atk'를 미리보기에서 뺀다(`swingStrikes`).
+- 'swing'은 `interp.js COSMETIC_EVENTS`(늦으면 버림), `shared/protocol.js EV.SWING`.
+- 테스트: `test/render/attack-swing.test.js`(가짜 PIXI). [화면 미확인] — 메인 세션의 Windows Chrome 확인 대기.

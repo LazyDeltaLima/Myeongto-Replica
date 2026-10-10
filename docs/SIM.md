@@ -339,14 +339,14 @@ not [ASSUMED, §21.22]. Until 0.1.2 they took every ally in the area (GitHub iss
 every ally there: the "无视无法选择 / 无视可选性" abilities above (and 远眺's death 暴露, 圆仔's facing count), 寒霜's aura
 (PRTS names its 攻速下降 Debuff among the effects that "无视隐匿状态起作用") and map / tile / terrain effects (“墓碑”'s
 halving — PRTS: a map effect —, 【国度】, a chimera's 源石污染区 aura [ASSUMED for the last two])
-and, unblocked, stand for each attack's clip — `attackStand`: data/enemies.json `attackAnim`, through its wind-up
-(cooldown ≤ the strike frame, a target in range) and the rest of the clip after the strike, shortened when the attacks
-come quicker than the clip; `ATTACK_PAUSE` (0.35 s) after the strike when no clip is known; an `attackMoves`
+and, unblocked, stand for each attack's swing — `attackStand`: data/enemies.json `attackAnim`, through its wind-up
+and the rest of the swing after the strike, the clip scaled to the interval within [0.1, `_maxAnimScale`]
+(`attackTiming`); `ATTACK_PAUSE` (0.35 s) after the strike when no clip is known; an `attackMoves`
 (「不停止移动」) enemy never stops; a stun or a displacement (失衡, 0.2.0) ends the stand; only the walking waits — a route WAIT keeps running and
 DISAPPEAR / APPEAR legs still happen, hiding ends the stand; GitHub #58 — then walk on. Any enemy whose block ends after
 its strike — its blocker stunned by that strike (流泪小子), knocked out or retreated — stands for the rest of that clip
 before it walks on (PRTS 状态机: an enemy's ATTACK / COMBAT state "攻击结束后回退到MOVE状态"; only a character's COMBAT
-drops when its blocker is gone; 0.2.0 — until then it walked on at once). Every normal attack strikes at its clip's damage frame (`attackWindup`: `attackAnim.hit`, shortened like the clip; 0 with no clip known — the strike as the swing starts): the cooldown runs down to the frame and the swing (`enemy.swing`) starts when it reaches the wind-up with a target in reach — the whole wind-up from that tick when the cooldown ran out before (it walked ready, its swing was cut); a stun / freeze / sleep / 浮空, hiding, 缴械, 恐惧, 战栗 while blocked or losing every target before the frame cuts the swing — no strike, the next one starts from its wind-up (PRTS 状态机 ATTACK / COMBAT "每帧检查异常状态", 异常效果 STUNNED / DISARMED "正在进行的普通攻击将被中断"; GitHub #187 / #170, 0.2.0) —, a strike already made stays made (its shot lands); the targets are taken at the frame [ASSUMED]; `fear`/`disarm` stop attacks; `dmgType 'none'` enemies
+drops when its blocker is gone; 0.2.0 — until then it walked on at once). Every normal attack strikes at its clip's damage frame (`attackWindup` = `attackTiming().strike`: `attackAnim.hit` × the clip scale; no OnAttack frame: as the swing ends; 0 with no clip known — the strike as the swing starts): with the cooldown over, the last swing ended (`castLeft`) and a target in reach the swing (`enemy.swing`) starts — the targets are taken and the cooldown restarts from the full interval then (client code `AbilityStandard.CastToTarget`, 2026-10-10; it used to run down to the frame) —, and it goes on whether or not a target stays in reach; at the strike the targets still alive are hit, none is a whiff (no damage, no cooldown back; `_selectTargetTiming` 1 takes them again then, nobody = the cooldown refunded); a stun / freeze / sleep / 浮空, hiding, 缴械, 恐惧 or 战栗 while blocked before the frame cuts the swing — no strike, and the cooldown, which runs through a stun (`Entity.OnTick` → `Ability.OnTick`), brings the next swing a whole interval after the cut one started (PRTS 状态机 ATTACK / COMBAT "每帧检查异常状态", 异常效果 STUNNED / DISARMED "正在进行的普通攻击将被中断"; GitHub #187 / #170, 0.2.0) —, a strike already made stays made (its shot lands); `fear`/`disarm` stop attacks; `dmgType 'none'` enemies
 never attack — unless content arms them through `enemy.profile` (`noAttack: false`, `melee`, `dmgType`, `maxTargets`:
 转译基底·α's 寻仇者 / 特战术师 forms, which then attack like any enemy); `dmgType 'heal'` enemies heal the lowest-HP% enemy in their radius instead. A `noMove` enemy stands (not `moving`, drawn idle). Content can take over an
 enemy's attack: `enemy.profile.deferHit` = the engine makes the attack (target, timing, the `'atk'` event) but deals no
@@ -566,7 +566,9 @@ Aggregation: `ATK/DEF/maxHp = (base + Σflat) × (1 + Σpct) × Πmul`, for ATK 
 percentages: `ATK = ((base + ΣatkFlat) × (1 + ΣatkPct) + ΣatkFinal) × ΠatkMul`; `res = clamp((base + ΣresFlat) × ΠresMul, 0, 100)`;
 `aspd = clamp(base + Σaspd, 20, 600)` (floor 20: PRTS 数值范围 ATTACK_SPEED 默认下限; user playtest #6); `interval = bat × (1 + ΣbatPct) × 100 / aspd`; `moveSpeed = (base + ΣmoveFlat) × ΠmoveMul`;
 tiles/s = `moveSpeed × MOVE_SCALE (0.5)`. A maxHp change keeps the HP ratio. Elite stats (module included) come from data.
-The attack cooldown `atkCd` starts at `interval` and counts down by `TICK`; what is left within 1e-9 of 0 is 0
+The attack cooldown `atkCd` restarts at `interval` as a swing starts (operators and enemies alike: `ai.js updateAlly` /
+`enemyAttack`, the strike `attackTiming().strike` later; it runs while the unit is on the field, a stun included —
+docs/rules/sim.md 「일반 공격 타이밍」) and counts down by `TICK`; what is left within 1e-9 of 0 is 0
 (`ai.js attackCountdown`, the tolerance of skill `timeLeft`, buff intervals and `every()`; PR #402 by @Cloudnyco, 0.2.2),
 so an interval of a whole number of ticks takes exactly that many: 1 s = 30 ticks, 3 s = 90 (floating point alone left
 2.1e-16 after thirty steps of 1/30, and every such attack came a tick late — 31, 91). The same countdown runs the 双眼皮
@@ -1385,7 +1387,7 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `units` (the 0.8 s death window included), never a hidden or unlisted one. The newest snapshot showing a death, a stun
   (freeze, sleep, 浮空 included) or a block is not extrapolated until a later snapshot shows it moving again; the
   extrapolated velocity uses the same moving span as the interpolation (the stand is not in its denominator).
-- `drainEvents()` tuples: `['spawn', UnitInfo]` (first appearance), `['deploy', id]` (every (re)deploy and 【移动】 — the client plays the deploy and its interpolation snaps instead of sliding), `['atk', src, tgt, projKind]`
+- `drainEvents()` tuples: `['spawn', UnitInfo]` (first appearance), `['deploy', id]` (every (re)deploy and 【移动】 — the client plays the deploy and its interpolation snaps instead of sliding), `['swing', id, windup, projKind]` (a normal attack's swing starts — operators and enemies, `ai.js updateAlly` / `enemyAttack`: its strike, the `atk` events of the same `projKind`, comes `windup` game seconds later, `ai.js attackTiming`; the renderer starts the Spine attack clip at the official speed from it), `['atk', src, tgt, projKind]`
   (`none|arrow|bolt|bomb|lob|orb|drone|enemy|boomerang|droneBomb|chain|chainHeal`; a boomerang's way back has no event — the
   renderer flies it back to the thrower at `BOOMERANG_RETURN_SPEED`; an enemy's `profile.shot` may name another kind,
   e.g. `mortar` for 帝国炮火先兆者, which the renderer does not draw — its fx `bombardShell` is the shell), `['dmg', tgt, amount, type]` (`phys|arts|true|burn|neural|necrosis|apoptosis`),

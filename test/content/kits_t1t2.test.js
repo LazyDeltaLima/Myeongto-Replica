@@ -7,6 +7,7 @@ import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/batt
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { ELEMENT_GAUGE_MAX, PROJECTILE_SPEEDS, BOOMERANG_RETURN_SPEED } from '../../server/sim/constants.js';
 import { sortEnemyTargets } from '../../server/sim/targeting.js';
+import { attackTiming } from '../../server/sim/ai.js';
 
 const ds = getDefaultSource();
 const raw = (id) => ds.rawChess(id);
@@ -27,6 +28,11 @@ function run(o) {
 const dealt = (h, u, f = () => true) => h.hooksOf('damaged').filter((c) => c.source === u && f(c));
 const statuses = (h, key, f = () => true) => h.hooksOf('statusApplied').filter((c) => c.status === key && f(c));
 const heals = (h, u, f = () => true) => h.hooksOf('heal').filter((c) => c.source === u && f(c));
+/** The unit's first attack (its strike lands at the clip's damage frame after the swing starts: ai.js attackTiming). */
+const firstAttack = (h, u, within = 5) => {
+  h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u), within);
+  return h.hooksOf('attack').find((c) => c.attacker === u);
+};
 const tagged = (tag) => (c) => (c.dmg?.tags || []).includes(tag);
 /** defs.chess override: the chess without its 特质 (garrisons have their own tests) — isolates kit damage numbers/types. */
 const noGarrison = (id) => ({ [id]: { ...raw(id), garrisonIds: [] } });
@@ -339,7 +345,9 @@ test('1_09 跃跃 回环射手: each attack is a boomerang (out 15, back 3.75 ti
   assert.ok(u.s.interval < flight(3) / 2);
   const at = h.hooksOf('attack').filter((c) => c.attacker === u).map((c) => c.t);
   assert.ok(at.length >= 4 && at.length <= 7, `${at.length} attacks in 6 s`);
-  for (let i = 1; i < at.length; i++) assert.ok(Math.abs(at[i] - at[i - 1] - flight(3)) <= 2 * h.TICK, `gap ${(at[i] - at[i - 1]).toFixed(3)} ≈ ${flight(3)}`);
+  // the next swing starts at the catch and strikes at its clip's damage frame (ai.js attackTiming)
+  const wind = attackTiming(u).strike;
+  for (let i = 1; i < at.length; i++) assert.ok(Math.abs(at[i] - at[i - 1] - flight(3) - wind) <= 2 * h.TICK, `gap ${(at[i] - at[i - 1]).toFixed(3)} ≈ ${flight(3)} + ${wind}`);
   assert.ok(h.eventsOf('atk').filter((e) => e[1] === u.id).every((e) => e[3] === 'boomerang'));
   done(h);
   // 乐趣加倍: cnt boomerangs on the same path — cnt hits at the same moment, then one catch
@@ -562,7 +570,9 @@ test('1_17 深靛: 光影迷宫 interval ×0.7, bound enemies take 12 % ATK ever
   const t0 = h.b.time;
   h.run(6);
   const dot = dealt(h, u, (c) => c.t > t0 && (c.dmg.tags || []).includes('dot'));
-  assert.ok(dot.length >= 10 && dot.every((c) => c.target === a || c.target.s.flags.bind));
+  // (a talent bind of hers on b may come and go within the 6 s: a tick on b falls inside one)
+  const boundAt = (e, t) => statuses(h, 'bind', (c) => c.target === e && c.t <= t + 1e-9 && t <= c.t + c.duration + 1e-9).length > 0;
+  assert.ok(dot.length >= 10 && dot.every((c) => c.target === a || boundAt(c.target, c.t)));
   for (const c of dot.filter((c) => c.target === a)) approx(c.amount, u.s.atk * bb['indigo_s_2[damage].atk_scale']);
   const atks = h.hooksOf('attack').filter((c) => c.attacker === u && c.t > t0);
   assert.ok(atks.length > 0 && atks.every((c) => !c.targets.includes(a)), 'bound enemy never targeted');
@@ -774,7 +784,7 @@ test('2_05 哈洛德: 重症优先 heals the heaviest element load first with ×
   low.hp = low.s.maxHp * 0.3;
   elem.elem.neural = 900;
   h.step();
-  const first = h.hooksOf('attack').find((c) => c.attacker === u);
+  const first = firstAttack(h, u);
   assert.equal(first.targets[0], elem, 'element-damaged ally first');
   approx(elem.elem.neural, 900 - u.s.atk * tbOf(id).ep_heal_ratio * bb.trait_scale, 'recovery ×1.6');
   h.run(0.3);
@@ -799,7 +809,7 @@ test('2_05 哈洛德 (user playtest #5 #3): 侵蚀 counts as element damage for 
   low.hp = low.s.maxHp * 0.3;
   eroded.elem.erosion = 900;
   h.step();
-  const first = h.hooksOf('attack').find((c) => c.attacker === u);
+  const first = firstAttack(h, u);
   assert.equal(first.targets[0], eroded, 'the eroded ally is the heaviest element load');
   const e0 = eroded.elem.erosion;
   h.b.dealDamage(null, eroded, { type: 'element', element: 'erosion', amount: 100 });
@@ -813,7 +823,7 @@ test('2_06 莎草: 巧思乍现 next heal heal_scale × ATK; 博览古卷 barrie
   const u = h.unit(id), yak = h.unit('chess_char_1_02_a');
   h.step();
   yak.hp = yak.s.maxHp * 0.2;
-  h.step();
+  h.runUntil(() => heals(h, u).length > 0, 5);
   const hh = heals(h, u)[0];
   approx(hh.amount, u.s.atk * bb.heal_scale, 'skill heal');
   approx(yak.findBuff('papyrs:shield').shield, u.s.atk * t['attack@scale'] * bb.shield_scale_skill, 'skill barrier');
@@ -822,7 +832,7 @@ test('2_06 莎草: 巧思乍现 next heal heal_scale × ATK; 博览古卷 barrie
   const u2 = h2.unit(id), y2 = h2.unit('chess_char_1_02_a');
   h2.step();
   y2.hp = y2.s.maxHp * 0.2;
-  h2.step();
+  h2.runUntil(() => heals(h2, u2).length > 0, 5);
   approx(heals(h2, u2)[0].amount, u2.s.atk);
   approx(y2.findBuff('papyrs:shield').shield, u2.s.atk * t['attack@scale'], 'talent barrier');
   assert.equal(y2.findBuff('papyrs:shield').timeLeft <= t['attack@shield_duration'], true);

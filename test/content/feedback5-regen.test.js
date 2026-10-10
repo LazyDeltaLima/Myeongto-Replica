@@ -79,7 +79,9 @@ test('治疗加成 does not scale 生命回复速度: a healing-received multipl
   h.b.addBuff(t, { key: 'test:healUp', mods: { healingTakenMul: 1.5 } });
   t.hp = 4000;
   gv.hp = gv.s.maxHp * 0.3; // 医学背景: healing received ×1.4 below half HP
-  h.run(0.6);
+  // (her first heal lands at its clip's damage frame, 0.95 s in — ai.js attackTiming —, the next one 2.85 s later: the
+  // 2 s below fall between them)
+  h.run(1.2);
   const v = p.s.atk * p.def.talents[0].bb.atk_to_hp_recovery_ratio;
   for (const x of [t, gv]) {
     assert.ok(Math.abs(x.s.hpRegen - x.base.hpRecoveryPerSec - v) < 1e-6, `${x.defId}: 生命回复速度 +ATK × ratio, unscaled`);

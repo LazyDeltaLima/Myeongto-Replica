@@ -44,7 +44,7 @@ test('流泪小子 numbers (enemy_database / its Spine clip): 0.8 move speed, 2.
   assert.equal(d.stats.bat, 2);
   assert.equal(d.applyWay, 'MELEE');
   assert.equal(d.talents.bb['Combat.attack@stun'], 3.5);
-  assert.deepEqual(d.attackAnim, { clip: 'Attack', dur: 1.567, hit: 0.767 });
+  assert.deepEqual(d.attackAnim, { clip: 'Attack', dur: 1.567, hit: 0.767, max: 1 });
   const h = arena([]);
   h.step();
   const e = h.spawn(DOG, { routeIndex: 0 });
