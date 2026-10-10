@@ -226,7 +226,7 @@ export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {
     <span class="readybtn__label">${ready ? t('取消准备') : t('准备就绪')}</span>
     <kbd class="readybtn__key">${hotkeyLabelOf('ready')}</kbd>
   </button>`;
-  return html`<div class="readywrap">
+  return html`<div class=${cx('readywrap', ready && 'is-ready')}>
     ${reason ? html`<${Tooltip} text=${reason} placement="bottom">${btn}<//>` : btn}
     ${why ? html`<span class="readywrap__why" id="readywrap-why" role="status" data-testid="ready-why">
       <${Icon} name="warn" />${choice ? html`<span>${reason}</span>`

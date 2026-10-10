@@ -117,22 +117,19 @@
 .bhelp__right { overflow: hidden; }
 
 /* ---- the round bar's stage changes (player_info_view trans_*), in the HUD unit --u ------------------------------------- */
-.capsule:has(> .ctrans) { position: relative; }
+.gm .capsule { position: relative; } /* the round bar's transition sits over the pill */
 .ctrans { position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 157); height: calc(var(--u) * 45); transform: translate(-50%, -50%);
   z-index: 2; pointer-events: none; overflow: hidden; border-radius: calc(var(--u) * 6); }
 .ctrans i, .ctrans b, .ctrans span { position: absolute; display: block; }
 .ctrans__s1, .ctrans__s2 { inset: 0; }
-.ctrans__glow { inset: calc(var(--u) * 3.5); border-radius: calc(var(--u) * 6); }
+.ctrans__glow { inset: calc(var(--u) * 2); border-radius: calc(var(--u) * 6); }
 .ctrans.is-battle .ctrans__glow { background: #4a2c0c; } .ctrans.is-coop .ctrans__glow { background: #51210a; }
-.ctrans.is-boss .ctrans__glow { background: #3a0606; } .ctrans.is-rest .ctrans__glow { background: #00694b; opacity: .6; }
+.ctrans.is-boss .ctrans__glow { background: #3a0606; } .ctrans.is-rest .ctrans__glow { background: #0d3a2d; }
 /* lengths: battle 2.67 s (stage 2 from 1.03, slides up 2.07–2.4), coop 3.27 (stage 2 from 1.5 / caption 2.03, up 2.67–3.0),
    boss 4.37 (stage 2 from 1.83, out 3.07–3.37), rest 4.23 (cups 0–2.6) */
 .ctrans.is-battle { --len: 2.67s; } .ctrans.is-coop { --len: 3.27s; } .ctrans.is-boss { --len: 3.37s; } .ctrans.is-rest { --len: 2.6s; }
 .ctrans { animation: ctrans-out var(--len) linear both; }
 @keyframes ctrans-out { 0%, 86% { opacity: 1; transform: translate(-50%, -50%); } 100% { opacity: 0; transform: translate(-50%, calc(-50% - var(--u) * 31)); } }
-.capsule:has(> .ctrans) > :not(.ctrans) { animation: ctrans-normal var(--len, 2.67s) linear both; }
-.capsule:has(> .ctrans.is-battle) > :not(.ctrans) { --len: 2.67s; } .capsule:has(> .ctrans.is-coop) > :not(.ctrans) { --len: 3.27s; }
-.capsule:has(> .ctrans.is-boss) > :not(.ctrans) { --len: 3.7s; } .capsule:has(> .ctrans.is-rest) > :not(.ctrans) { --len: 3.03s; }
 @keyframes ctrans-normal { 0%, 87% { opacity: 0; transform: translateY(calc(var(--u) * 30)); } 100% { opacity: 1; transform: none; } }
 /* stage 1 */
 .ctrans.is-battle .ctrans__s1 { animation: ctrans-s1-b 2.67s linear both; } .ctrans.is-coop .ctrans__s1 { animation: ctrans-s1-c 3.27s linear both; }
@@ -386,4 +383,4 @@
 .bsd__btntext { display: flex !important; align-items: center; justify-content: center; white-space: nowrap; font-family: var(--font-cjk); font-weight: 700;
   font-size: calc(var(--pu) * 22); color: #1e1e1e; line-height: 1; }
 
-@media (prefers-reduced-motion: reduce) { .bart, .bart *, .bload, .bload *, .btip, .ctrans, .ctrans *, .capsule:has(> .ctrans) > * { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .bart, .bart *, .bload, .bload *, .btip, .ctrans, .ctrans * { animation: none !important; } }
