@@ -651,6 +651,13 @@
   24개와 오래 가는 것(버프, 끝이 없거나 5초 넘게 남은 것: `isLasting`) 48개(`MAX_LASTING`)를 따로 세어 각자 자기 종류의 가장 오래된 것을 끝냄
   (`liveOverCap`); 플레이어 자체 상한은 둘을 넘는 안전선(`PLAYER_CAP` 80). 위 S3 벽은 칸마다 2개 + 끝 2개(보스 필드 한 줄 44개)라 48. 테스트
   `test/render/fx-live-cap.test.js`. 성능(휴대폰)은 상한 숫자로 조정 가능 — 사용자 질문으로 남김. [화면 미확인]
+- **望 바둑돌이 겹쳐 보임** (제보; sim 확인: 실제 매치 경로 m01–m04 × S1/S2/S3 × 배치 4 × 시드 4, 매 틱 두 돌이 한 칸에 없음): 돌이 跟子 칸으로
+  돌아오면 sim이 같은 틱에 그 跟子를 `retreat`하는데(PRTS 铸子 备注, 2026-10-09 결정), 렌더는 跟子 뷰에 보통 죽음(쓰러짐 클립 ≥0.35초 + 페이드 0.55초)을
+  틀어 돌아온 돌과 한 칸에서 겹쳤다. 클라에서 跟子는 투사체(`projectile_chr_wang_stone1/2/3`: `_mainEffect` 없음, 멈출 때 칸 이펙트를 지움
+  `_clearEffectsOnTileOnStop` 1) — 쓰러짐·페이드가 없다. 고친 것: `app.js followerIds`('summon' fx `follower`)의 'die'는 다음 프레임에 뷰를 지우고 죽음
+  입자도 없음. 날아가는 跟子와 칸 위 돌을 함께 그리는 경로는 없음(우리는 跟子 비행을 안 그림 — 공식도 `_mainEffect`가 없어 날아가는 그림이 없음).
+  [추정·남김] 공식 跟子의 돌 그림은 `wang_passive_01_buff`의 `qizi (1)` 노드(클립으로 움직이는 렌더러 — 추출기가 못 옮김, 아마 스프라이트)이고 우리는 대신
+  돌 토큰 모델을 그린다. 테스트 `test/render/wang-follower-exit.test.js`. [화면 미확인]
 
 ### 적 이펙트 바인딩 (2026-10-10, 관리자 결정 (2026-10-10))
 근거: EN 클라 적 프리팹 `battle/enm_pfb_*.ab`, `[uc]projectiles.ab`, `config/buff_template_holder.ab`(버프 템플릿), 이펙트 번들 `pkgrps/btl_pfb_fx_enemy_*.ab`·

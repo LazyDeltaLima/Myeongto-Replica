@@ -298,6 +298,10 @@ export async function createFieldView(host, options = {}) {
   const sample = new Map();
   const meleePending = new Map(); // target id → { src, t }
   const consumedIds = new Set();  // battle ids used up by their own effect (fx `consumed`): no death particles
+  // 望's 跟子 (fx 'summon' `follower`): a projectile in the client (projectile_chr_wang_stone1/2/3 — no `_mainEffect`, its
+  // tile effects cleared at its stop: `_clearEffectsOnTileOnStop` 1), so it leaves at once, with no fall or fade: a stone
+  // coming back onto its tile (the sim removes the 跟子 in the same tick) was drawn over it while it faded (2026-10-10)
+  const followerIds = new Set();
   let canPlaceFn = null;
   let editable = false;
   let dragState = null;       // { uid, key, view, from, home: {x,y,z} }
@@ -981,6 +985,7 @@ export async function createFieldView(host, options = {}) {
     meleePending.clear();
     swingStrikes.clear();
     consumedIds.clear();
+    followerIds.clear();
     tiles.setBattleRect(null);
     board3d?.setBattleRect(null);
     clearHl();
@@ -1452,6 +1457,7 @@ export async function createFieldView(host, options = {}) {
     meleePending.clear();
     swingStrikes.clear();
     consumedIds.clear();
+    followerIds.clear();
     clearHl();
     renderT0Battle = null;
     openingDrops = 0;
@@ -1636,7 +1642,12 @@ export async function createFieldView(host, options = {}) {
       case 'die': {
         const v = views.get(e[1]);
         const used = consumedIds.delete(e[1]);
-        if (v && v.alive) { v.die(e[2] === FORCED_EXIT); if (showsDeathFx(v.info, used, e[2])) fx.death(v); }
+        const follower = followerIds.delete(e[1]);
+        if (v && v.alive) {
+          v.die(e[2] === FORCED_EXIT || follower);
+          if (follower) { v.dying = 1e-3; v.dieDur = 1e-3; }   // gone on the next frame
+          else if (showsDeathFx(v.info, used, e[2])) fx.death(v);
+        }
         break;
       }
       case 'leak': {
@@ -1654,6 +1665,10 @@ export async function createFieldView(host, options = {}) {
         if (e[4] && typeof e[4] === 'object' && e[4].consumed && e[4].id != null) {
           consumedIds.add(e[4].id);
           if (consumedIds.size > 200) consumedIds.delete(consumedIds.values().next().value);
+        }
+        if (e[1] === 'summon' && e[4] && typeof e[4] === 'object' && e[4].follower && e[4].id != null) {
+          followerIds.add(e[4].id);
+          if (followerIds.size > 200) followerIds.delete(followerIds.values().next().value);
         }
         // 推拉: a push / pull (battle/displacement.js) moves the enemy inside one call; its `displace` fx carries the
         // destination ['fx', 'displace', x, y, { id }] and the view slides there (UnitView.slideTo, PR #380) — normally
