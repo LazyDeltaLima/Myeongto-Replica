@@ -55,8 +55,8 @@ test('castPhase / castTiming: ON_CAST_START → the swing, the rest (and an olde
 });
 
 test('fxgame: swing → ON_CAST_START effects, atk → ON_SPELL_ON ones; loops end with their cast, a mode switch or the next swing', () => {
-  assert.match(SRC, /case 'swing': \{\n\s+const src = views\.get\(e\[1\]\);\n.*eswingFx\(src, Number\(e\[2\]\) \|\| 0, e\[3\]\).*\n\s+if \(src\) swingFx\(src, Number\(e\[2\]\) \|\| 0, views\);/);
-  assert.match(SRC, /strikeFx\(src, mode\);/);
+  assert.match(SRC, /case 'swing': \{\n\s+const src = views\.get\(e\[1\]\);\n.*eswingFx\(src, Number\(e\[2\]\) \|\| 0, e\[3\]\).*\n\s+if \(src\) swingFx\(src, Number\(e\[2\]\) \|\| 0, views, e\[3\]\);/);
+  assert.match(SRC, /strikeFx\(src, mode, e\[3\]\);/);
   assert.match(SRC, /playCast\(src, c, cast\.filter\(\(n\) => phaseOf\(src, mode, n\) === 'swing'\)\)/);
   assert.match(SRC, /playCast\(src, c, cast\.filter\(\(n\) => phaseOf\(src, mode, n\) === 'strike'\)\)/);
   // the cast lasts the anim-scaled clip: windup = scale × the OnAttack frame

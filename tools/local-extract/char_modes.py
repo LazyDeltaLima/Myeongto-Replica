@@ -126,6 +126,9 @@ DIRECTIONAL = re.compile(r'_(up|down|left|back)(_|$)', re.I)
 # sibling attack abilities the Selector picks one of per attack (wisdel Attack_A/B/C, siege2 Attack_1/2): the first stands for all
 ALTERNATIVE = re.compile(r'^(attack|combat)_?([a-z]|\d+)$', re.I)
 HIT_KEYS = ('_hitEffects', '_inputTargetEffects', '_castTargetEffects')
+# a 要塞's attack abilities (charpack `Modes/<mode>/Body/Attack/`): the melee ones while it blocks, the ranged ones otherwise
+MELEE_ABILITY = re.compile(r'^(Blocked)?MeleeAttack$')
+RANGED_ABILITY = re.compile(r'^(Blocked|Self)?RangedAttack$')
 PROJ_HIT_KEYS = ('_effectsWhenHit', '_effectsWhenReached')
 PROJ_SUB_KEYS = ('_projectileKey', '_subProjectileKey', '_childProjectileKey')
 
@@ -395,6 +398,10 @@ def modes_of(path, projectiles=None):
     # leaves from, its `_mountPointType` (MountPointType; MUZZLE 2 is the default and left out)
     shot_mp = {}
     hit_aim = []
+    # 2026-10-10 (maintainer report: 号角's blocked enemies got her ranged blast): a mode with both melee and ranged
+    # attack abilities (要塞: MeleeAttack / BlockedMeleeAttack vs RangedAttack) casts and hits with the effects of the
+    # one it uses — `fortress[mode]` = { melee: { cast, hit }, ranged: { cast, hit } } (ranged: + its projectile's hit)
+    split = [{'melee': {'cast': [], 'hit': []}, 'ranged': {'cast': [], 'hit': []}} for _ in range(n)]
     doll_born = []
     for gp, d, _ in tree:
         if '[switch2stand]/StandBorn' in gp:
@@ -439,6 +446,16 @@ def modes_of(path, projectiles=None):
             shot_mp.setdefault((i, d['_projectileKey']), d['_mountPointType'])
         if skipped(gp):
             continue
+        ab = gp.rpartition('/')[2]
+        kind = 'melee' if MELEE_ABILITY.match(ab) else 'ranged' if RANGED_ABILITY.match(ab) else None
+        if kind and '/Body/Attack/' in gp[len(mode_paths[i]):] + '/':
+            part = split[i][kind]
+            part['seen'] = True
+            add(part['cast'], effect_names(d.get('_castEffects') or []))
+            for k in HIT_KEYS:
+                add(part['hit'], effect_names(d.get(k) or []))
+            if kind == 'ranged' and projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
+                add(part['hit'], projectiles.effects(d['_projectileKey'])['hit'])
         add(cast[i], effect_names(d.get('_castEffects') or []))
         for c in d.get('_castEffects') or []:
             if not isinstance(c, dict):
@@ -506,6 +523,10 @@ def modes_of(path, projectiles=None):
         res['dollBorn'] = doll_born
     if hit_aim:
         res['hitAim'] = hit_aim
+    fortress = [{k: {'cast': s[k]['cast'], 'hit': s[k]['hit']} for k in ('melee', 'ranged')}
+                if s['melee'].get('seen') and s['ranged'].get('seen') else None for s in split]
+    if any(fortress):
+        res['fortress'] = fortress
     return res
 
 
@@ -558,7 +579,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'hit', 'trail', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'skills', 'turn', 'dirs') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'hit', 'trail', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'skills', 'turn', 'dirs') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

@@ -7967,6 +7967,61 @@
     }
    }
   ],
+  "fortress": [
+   {
+    "melee": {
+     "cast": [],
+     "hit": [
+      "horn_attack_01_hit"
+     ]
+    },
+    "ranged": {
+     "cast": [
+      "horn_attack_01_start_02"
+     ],
+     "hit": [
+      "horn_attack_01_hit_02"
+     ]
+    }
+   },
+   null,
+   {
+    "melee": {
+     "cast": [
+      "horn_skill_03_start"
+     ],
+     "hit": [
+      "horn_skill_03_hit"
+     ]
+    },
+    "ranged": {
+     "cast": [
+      "horn_skill_03_start_02"
+     ],
+     "hit": [
+      "horn_skill_03_hit_02"
+     ]
+    }
+   },
+   {
+    "melee": {
+     "cast": [
+      "horn_skill_03_start"
+     ],
+     "hit": [
+      "horn_skill_03_hit"
+     ]
+    },
+    "ranged": {
+     "cast": [
+      "horn_skill_03_start_02"
+     ],
+     "hit": [
+      "horn_skill_03_hit_02"
+     ]
+    }
+   }
+  ],
   "skillMode": [
    null,
    1,
@@ -12230,6 +12285,28 @@
      "o": 0
     }
    }
+  ],
+  "fortress": [
+   {
+    "melee": {
+     "cast": [],
+     "hit": [
+      "ashlok_attack_01_hit_02"
+     ]
+    },
+    "ranged": {
+     "cast": [
+      "ashlok_attack_01_start",
+      "ashlok_attack_01_start_02"
+     ],
+     "hit": [
+      "ashlok_attack_01_hit"
+     ]
+    }
+   },
+   null,
+   null,
+   null
   ],
   "skills": [
    {

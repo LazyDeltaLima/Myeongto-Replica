@@ -161,7 +161,7 @@
     유닛 방향으로 돌린다(RIGHT 0° / UP 90° / LEFT 180° / DOWN 270°, 첸 S3 검기와 같은 `aimMover`). 좌우는 지금 그려진 방향(visFacing).
     `_directionType`의 방향별 사본(위·아래 배치)은 아직 기본 사본만 [남음].
   - **키트 이벤트** (`fxgame.js kitFx`): 余 S3 'firewall' → 벽이 지나는 줄(`fx.js wallTiles`, `app.js` `fieldRect` 옵션 1줄)의 칸마다
-    `yu_skill3_range_01` + 그의 칸에 `_root`, 스킬이 끝나면 멈춤 [추정 배치 — 좌우·끝 조각 `_R`/`_l`/`*_end`는 쓰지 않음, 공식 캡처로 확정 필요];
+    `_root` + 앞 모서리 조각(2026-10-10 디컴파일로 공식 배치 — 아래 「위 S3 화염벽 배치」), 스킬이 끝나면 멈춤;
     'firewallBlock' → `yu_skill3_annex_01`. 르무엔 S3(S3 장착일 때만 — S2 조준도 같은 'lock') 'lock' → 대상에 `crosshair_02`(그 대상의 포탄이 떨어질 때까지,
     잠금 순서 = 착탄 순서), 'bombardShell' → `trail_02`가 3칸 위에서 수직으로 비행 시간 동안 떨어짐 [추정 높이·방향], 'bombard' → `hit_01`. 셋 다
     `ownFx`라 `fx.js` 2D 대역(빨간 조준 원·주황 폭발)은 안 그린다.
@@ -207,7 +207,7 @@
   - **데미지 숫자** (`num-official.js`, 데겐블레허 영상 30fps 프레임별 측정): 피해 계열은 0.87배로 나타나 0.1초에 최종 크기·위로 30, 유지, 마지막 0.13초에
     축소하며 아래로 30(`_downOffset`), 투명해지지 않음. 회복 숫자는 예전(1.5배 팝·페이드).
   - **2차 제보 (같은 날 밤)**: ① 스킬 발동 때 도는 금색 육각형은 `fx.js _aura`(원본 절차 이펙트) — 공식 이펙트가 있는 오퍼레이터는 이제 안 그림.
-    ② 위 S3: 벽 조각은 행 벽(위·아래 배치) 기준이라 열 벽(좌·우 배치)은 조각마다 높이축으로 90° 돌림. ③ 르무엔 재능 표식: 2.5초 루프 프리팹을
+    ② 위 S3: 벽 조각은 행 벽(위·아래 배치) 기준이라 열 벽(좌·우 배치)은 조각마다 높이축으로 90° 돌림(2026-10-10 폐기: 열 벽은 공식 `_r`/`_l` 조각). ③ 르무엔 재능 표식: 2.5초 루프 프리팹을
     2.0초 시점에 멈춰 유지(`FxInstance opts.hold`, `STATUS_FX` 4번째 칸). ④ 르무엔 S3: 빔은 매 프레임 효과의 +y를 카메라 위쪽으로 돌려 어디서나 화면
     수직(`fxgame.js skyward`); 잠금 섬광 `crosshair_01`(2.65초)도 표식과 함께 포탄 때 지움(폭격 후 ~1초 남던 것); 조준 원 `ring 01/02` =
     Dissolve AB (VertexColor Major) — DXBC대로 amount = 1 − 정점 α, 색 = 2·텍스처·정점색(틴트 rgb 안 곱함). Dissolve(CustomData)의 amount는
@@ -623,6 +623,34 @@
   - 쏜즈 더 로드스타 S1 `thorn2_skill_01_range`의 `_overwriteHeight`(풀에서 유일, offset 0.0 — 원시 필드 #18·#19, `fx_extract.py overwrite_height`): 프리팹 `height`,
     `fxgame.js overHeight`가 높이 = 그 유닛의 바닥(점이면 그 칸의 높이) + offset [추정: 엔티티 = 착지한 S1 투사체, 그 칸 위]. `_spawnLocation` 7이 0에 놓은 것을 높은 칸이면
     그 칸 위로 올린다. **`fx_extract.py --game <클라> --bundle thorn2 --height-only` 실행 전에는 `height`가 없어** 화면 변화 없음.
+
+### 사용자 제보 묶음 (2026-10-10, 렌더·이펙트 담당)
+- **혼(号角) 저지 중 공격에 원거리 폭발** (제보: 저지 중인 적에게 원거리 공격용 폭발 이펙트가 나오면 안 됨): 모드 바인딩이 한 모드의 근접·원거리 능력을
+  하나로 합쳐(`hit` = `horn_attack_01_hit` + 투사체 `projectile_chr_horn`의 `horn_attack_01_hit_02`) 모든 공격에 둘 다 틀었다. 클라 charpack
+  `char_4039_horn/Modes/Default/Body/Attack/`: MeleeAttack·BlockedMeleeAttack `_hitEffects` = `horn_attack_01_hit`만(시전 없음), RangedAttack = 시전
+  `horn_attack_01_start_02` + 투사체(타격 `horn_attack_01_hit_02`); S3도 같은 나눔(근접 `horn_skill_03_start`/`_hit`, 원거리 `_start_02`/`_hit_02`);
+  S2는 저지 중에도 BlockedRangedAttack(투사체 `projectile_chr_horn_s2_melee`)이라 나눔 없음. 고친 것: `char_modes.py`가 근접·원거리 능력이 둘 다 있는
+  모드에 `fortress[mode] = { melee: {cast, hit}, ranged: {cast, hit} }`를 쓰고(号角·灰毫 2명, 다시 만든 `local-char-modes.json`·`modes.json`은 이 두 줄만
+  늘어남), `fxgame.js boundFor`(`fxmap.js fortressEffects`)가 'swing'·'atk'의 kind(sim `ai.js`: 저지 중 'none')로 고른다 — 근접은 근접 목록만, 나눔이 있으면
+  이름 규칙 대역도 없음. 테스트 `test/render/fortress-fx.test.js`. **배포 때 추출 이펙트(`modes.json`) 함께.** [화면 미확인]
+  - 참고(sim 담당): 공식 S2는 저지 중에도 원거리(BlockedRangedAttack)인데 sim은 S2 중 저지하면 근접('none')으로 친다 — 렌더는 S2에 나눔이 없어 영향 없음.
+- **위(余) S3 화염벽 배치** (제보: 불꽃이 타일 모서리에 붙어야 함 — → 보면 위의 오른쪽 모서리): 칸 가운데에 행 조각을 놓고 열 벽은 90° 돌렸었다.
+  클라(디컴파일): 스킬 버프 이펙트 `yu_skill3_range_01_source`(YuS3EffectBehaviour `_effectEachGrid`, OnPlay RVA 0xCC2100)가 그의 줄(맵 전체 높이/너비)의
+  칸마다 가운데에 `yu_skill3_range_01_root`를 만들고, root(YuS3EffectWithEdgeBehaviour `_InitPlayersIfNot` 0xCC2F70)가 조각을 칸 가운데
+  + `SharedConsts.FOUR_WAYS[방향] × _offset`(0.4)에 둔다 — 위·아래 배치는 행 조각 `yu_skill3_range_01`(HorizontalEffectPlayer.EffectNeedPlay 0xCB0BC0:
+  방향 0·2), 좌·우 배치는 화면 쪽 열 조각 `_r`/`_l`(VerticalEffectPlayer.IsWorldRight 0xCC1910: 카메라 x보다 오른쪽이면 `_r`), 줄 끝(다음 칸이
+  `Map.CheckTileValid` 실패 또는 `tile_empty`, IsTileInvalid 0xCB02D0)에는 끝 조각도(`_L_end`/`_R_end`, 열은 `_l|_r` + `_U_end`/`_D_end`; 2초마다 다시 봄).
+  고친 것: `fxgame.js yuWallPieces`(순수 함수) + `kitFx` 'firewall'(이름은 대소문자 무시 — 추출본은 `_R`). [추정] ① `FOUR_WAYS` 순서 = Direction(UP·RIGHT·
+  DOWN·LEFT, 정적 생성자 값은 안 읽음 — 이름 순서와 제보가 맞음), ② 카메라 x = 필드 가운데 열, ③ 끝 = 필드 사각형 끝(빈 칸 모름). 테스트
+  `test/render/yu-wall.test.js`. [화면 미확인]
+  - 참고(sim 담당): 공식 투사체 차단선 `skchr_yu_3/Aura/EnemyAura`는 `_horizonOffsetFront` 0.5, `_horizonSize` 0.3(그의 칸 앞 모서리)인데 sim
+    `crosses`는 그의 칸 가운데 줄로 판정한다.
+- **오래 남아야 할 이펙트가 사라지거나 안 나옴** (제보: 첸 S3 자기 버프, 위 S3 화염벽 등): `fxgame.js`가 살아 있는 이펙트를 한 목록에서 24개
+  (`fxplayer.js MAX_INSTANCES`)로 자르며 가장 오래된 것을 끝냈다 — 가장 오래된 것은 거의 늘 스킬과 함께 시작한 버프 루프·벽 조각이고, 공격자 몇 명의
+  타격·시전이 1초 안에 24개를 채운다(로컬 아레나처럼 유닛이 적으면 안 보이던 이유). 입자 예산(6000)은 원인 아님. 고친 것: 짧은 것(타격·시전·궤적)
+  24개와 오래 가는 것(버프, 끝이 없거나 5초 넘게 남은 것: `isLasting`) 48개(`MAX_LASTING`)를 따로 세어 각자 자기 종류의 가장 오래된 것을 끝냄
+  (`liveOverCap`); 플레이어 자체 상한은 둘을 넘는 안전선(`PLAYER_CAP` 80). 위 S3 벽은 칸마다 2개 + 끝 2개(보스 필드 한 줄 44개)라 48. 테스트
+  `test/render/fx-live-cap.test.js`. 성능(휴대폰)은 상한 숫자로 조정 가능 — 사용자 질문으로 남김. [화면 미확인]
 
 ### 적 이펙트 바인딩 (2026-10-10, 관리자 결정 (2026-10-10))
 근거: EN 클라 적 프리팹 `battle/enm_pfb_*.ab`, `[uc]projectiles.ab`, `config/buff_template_holder.ab`(버프 템플릿), 이펙트 번들 `pkgrps/btl_pfb_fx_enemy_*.ab`·

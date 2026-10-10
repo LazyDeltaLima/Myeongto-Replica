@@ -17,9 +17,10 @@
 // particle arrays preallocated and reused, no per-frame allocation, curves flattened to typed arrays at load, a
 // system's instance data in one interleaved buffer (one upload, by the used range), trail strips uploaded by the used
 // range, a global particle budget per quality ('high' 6000 / 'medium' 2500 / 'low' 0 = the procedural FX only),
-// emission scaled by quality, at most MAX_INSTANCES effects alive (the oldest is ended; an ended instance reports
-// done), textures and meshes shared. A speed-up must not change the picture: bench/fx/compare.mjs
-// renders every effect with the git version and the working file and compares the pixels.
+// emission scaled by quality, at most PLAYER_CAP effects alive (the oldest is ended; an ended instance reports
+// done — render/fxgame.js keeps its own caps per kind below it: MAX_INSTANCES short, MAX_LASTING lasting), textures
+// and meshes shared. A speed-up must not change the picture: bench/fx/compare.mjs renders every effect with the git
+// version and the working file and compares the pixels.
 //
 //   const lib = new FxLibrary('/assets/local/fx/');  const def = await lib.load('chen3', 'chen3_skill_01_start_01');
 //   const fx = new FxInstance(def, { quality });  scene.add(fx.object);  fx.object.position.set(col, row, 0);
@@ -32,7 +33,13 @@ export const QUALITY = Object.freeze({
   medium: { budget: 2500, emission: 0.6 },
   low: { budget: 0, emission: 0 },
 });
+/** Short effects (hits, casts, trails) alive at once — render/fxgame.js trimLive ends the oldest past it. */
 export const MAX_INSTANCES = 24;
+/** Lasting effects (buff loops, skill walls / zones: render/fxgame.js isLasting) alive at once besides them (2026-10-10:
+ * 余 S3's wall alone is 2 per tile + 2 ends — 44 across the boss field). */
+export const MAX_LASTING = 48;
+/** The player's own backstop over every instance (a caller without its own cap, or two views at once). */
+const PLAYER_CAP = MAX_INSTANCES + MAX_LASTING + 8;
 const GRAVITY = new THREE.Vector3(0, 0, 9.81); // Unity battle frame: +z is down (z = −height)
 /** Particle systems alive (registered by their constructor, removed by dispose). */
 const systems = new Set();
@@ -1261,7 +1268,7 @@ export class FxInstance {
     this.gated = [...this.systems, ...this.trails].filter((x) => under(x.node)).map((x) => ({ x, on: true }));
     this.clipV = [];
     live.push(this);
-    while (live.length > MAX_INSTANCES) live[0].dispose(); // the oldest goes (dispose removes it from `live`)
+    while (live.length > PLAYER_CAP) live[0].dispose(); // the oldest goes (dispose removes it from `live`)
   }
 
   /** What a clip track drives, resolved once (applyClip runs every frame). */
@@ -1301,7 +1308,7 @@ export class FxInstance {
   }
 
   update(dt) {
-    // disposed: ended here (MAX_INSTANCES) while its owner still holds it — it must not keep simulating unseen
+    // disposed: ended here (PLAYER_CAP) while its owner still holds it — it must not keep simulating unseen
     if (this.empty || this.disposed) return;
     if (this.hold != null && !this.stopping && this.time + dt > this.hold) dt = Math.max(0, this.hold - this.time); // local patch
     this.time += dt;

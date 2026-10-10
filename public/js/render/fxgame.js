@@ -33,8 +33,9 @@
 // start too) under the units canvas (the operator on top; above it on the 2D board, whose backdrop is opaque), the hits on
 // targets, trails and notes over it — each drawn only while one of its
 // effects is alive, at most
-// at device pixel ratio 1.5 (1 at 'medium'); quality 'low' turns the layer off. render/fxplayer.js caps particles and
-// effects (MAX_INSTANCES, the oldest ends). The view's adaptive load level (render/app.js adaptLoad, as render/fx.js
+// at device pixel ratio 1.5 (1 at 'medium'); quality 'low' turns the layer off. render/fxplayer.js caps particles; the
+// effects alive are capped here per kind (trimLive: MAX_INSTANCES short ones, MAX_LASTING lasting ones — the oldest of
+// that kind ends). The view's adaptive load level (render/app.js adaptLoad, as render/fx.js
 // drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
 // stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame).
 // 丰川祥子's notes (kits/ops/op-oblvns.js, battle.fx 'oblvnsNote' born / track / free / hit / gone): each note is her client trail
@@ -46,7 +47,7 @@
 import { syncThreeCamera } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
-import { attackMode, boundEffects } from './fxmap.js'; // local patch: the mode bindings (modes.json)
+import { attackMode, boundEffects, fortressEffects } from './fxmap.js'; // local patch: the mode bindings (modes.json)
 import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
@@ -171,6 +172,74 @@ export function areaAway(e, v) {
   return Math.hypot(Number(e[2]) - Number(v.x), Number(e[3]) - Number(v.y)) > 0.5;
 }
 
+/** Seconds left that make an effect lasting (liveOverCap) — longer than any hit / cast prefab plays. */
+export const LASTING_S = 5;
+/** Whether live entry `l` is a lasting effect at battle time `now`: a buff loop, one with no end, or one with > LASTING_S left. */
+export const isLasting = (l, now) => !!(l && (l.buff || l.keep || l.until == null || l.until - now > LASTING_S));
+/**
+ * The live effects to end (oldest first) so that at most `capShort` short ones (hits, casts, trails) and `capLasting`
+ * lasting ones (isLasting) stay — each kind ends its own oldest (2026-10-10, maintainer report: 赤刃明霄陈 S3's
+ * self-buff, 余 S3's fire wall and other lasting effects showed and vanished, or never showed, in a full battle: one list
+ * capped at 24 ended the oldest effect, nearly always a buff loop or a wall piece started with the skill — the hits and
+ * casts of a few attackers fill 24 within a second).
+ */
+export function liveOverCap(list, now, capShort, capLasting) {
+  let nLasting = 0;
+  for (const l of list) if (isLasting(l, now)) nLasting++;
+  let nShort = list.length - nLasting;
+  const out = [];
+  for (const l of list) {
+    if (nShort <= capShort && nLasting <= capLasting) break;
+    if (isLasting(l, now)) { if (nLasting > capLasting) { out.push(l); nLasting--; } }
+    else if (nShort > capShort) { out.push(l); nShort--; }
+  }
+  return out;
+}
+
+/** Forward vector [dRow, dCol] of a deploy direction (server/sim/dir.js DIR_VEC; RIGHT for anything else). */
+const DIR_FWD = Object.freeze({ UP: [1, 0], RIGHT: [0, 1], DOWN: [-1, 0], LEFT: [0, -1] });
+/** 余 S3's piece offset toward his front (yu_skill3_range_01_root `_offset`). */
+export const YU_WALL_OFFSET = 0.4;
+/**
+ * 余 S3 灶里乾坤's fire wall as the client assembles it (2026-10-10, maintainer report: the flames stand on his tile's
+ * front edge — facing right, on its right edge; decompile): his skill's buff effect yu_skill3_range_01_source
+ * (YuS3EffectBehaviour `_effectEachGrid`, OnPlay RVA 0xCC2100) creates yu_skill3_range_01_root at the centre of every
+ * tile of his line across the map; each root (YuS3EffectWithEdgeBehaviour._InitPlayersIfNot, 0xCC2F70) plays its pieces at
+ * the tile centre + SharedConsts.FOUR_WAYS[his direction] × `_offset` 0.4 — on the tile's front edge: facing UP / DOWN
+ * its row piece `_effectWhenHorizontal` yu_skill3_range_01 (HorizontalEffectPlayer.EffectNeedPlay 0xCB0BC0: direction 0 /
+ * 2); facing LEFT / RIGHT the column piece of its screen side, `_effectVerticalWhenAtWorldRight` _r or `…Left` _l
+ * (VerticalEffectPlayer.IsWorldRight 0xCC1910: its x right of the camera's); and at an end of the line (the next tile
+ * invalid) the end piece as well — _L_end / _R_end along a row, _l / _r + _U_end / _D_end along a column.
+ * @param {string} dir his direction (UP | RIGHT | DOWN | LEFT)
+ * @param {Array<[number, number]>} tiles the line's tiles [[row, col]] in order (render/fx.js wallTiles)
+ * @param {number} midX the camera's column: a column piece right of it is the _r copy
+ * @returns {Array<{ name: string, x: number, y: number }>} client names (the extracted files differ in case: _R)
+ */
+export function yuWallPieces(dir, tiles, midX) {
+  const [dr, dc] = DIR_FWD[dir] || DIR_FWD.RIGHT;
+  const col = dc !== 0;   // facing LEFT / RIGHT: the wall runs along his column
+  const out = [];
+  if (!Array.isArray(tiles) || !tiles.length) return out;
+  const ends = col
+    ? { lo: Math.min(...tiles.map((t) => t[0])), hi: Math.max(...tiles.map((t) => t[0])) }
+    : { lo: Math.min(...tiles.map((t) => t[1])), hi: Math.max(...tiles.map((t) => t[1])) };
+  for (const [r, c] of tiles) {
+    out.push({ name: 'yu_skill3_range_01_root', x: c, y: r });
+    const x = c + dc * YU_WALL_OFFSET, y = r + dr * YU_WALL_OFFSET;
+    if (col) {
+      const side = x > midX ? 'r' : 'l';
+      out.push({ name: `yu_skill3_range_01_${side}`, x, y });
+      if (r === ends.hi) out.push({ name: `yu_skill3_range_01_${side}_U_end`, x, y });   // row up = +row (dir.js)
+      if (r === ends.lo) out.push({ name: `yu_skill3_range_01_${side}_D_end`, x, y });
+    } else {
+      out.push({ name: 'yu_skill3_range_01', x, y });
+      if (c === ends.lo) out.push({ name: 'yu_skill3_range_01_L_end', x, y });
+      if (c === ends.hi) out.push({ name: 'yu_skill3_range_01_R_end', x, y });
+    }
+  }
+  return out;
+}
+
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null }) {
   let index = null, modes = null, emodes = null;
   if (typeof fetch === 'function') {
@@ -255,6 +324,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     live.push({ inst, ...entry, layer });
   }
   function dropLive(l) { l.inst.dispose(); l.layer.n--; }
+  /** End the oldest effects past their kind's cap (liveOverCap). */
+  function trimLive() {
+    if (!mod) return;
+    for (const l of liveOverCap(live, clockS, mod.fxp.MAX_INSTANCES, mod.fxp.MAX_LASTING ?? mod.fxp.MAX_INSTANCES)) {
+      live.splice(live.indexOf(l), 1);
+      dropLive(l);
+    }
+  }
   /** A layer's canvas is shown only while it has a live effect; the lower one sits above the units on the 2D board. */
   function showLayers() {
     let below = false;
@@ -316,8 +393,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // skill start as well as its buff loops — goes under the units; the hits on a target stay over
       // (local patch, maintainer report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
       addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, speed, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
-      // the player's own cap: it has already ended the oldest (done, dispose is a no-op) — the same one here
-      while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+      trimLive();
     }
   }
 
@@ -345,7 +421,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     inst.object.position.set(at.x, at.y, at.z || 0);
     addLive(inst, { view: at, owner: l.owner, buff: l.buff, onCaster: l.onCaster, until: l.until, tag: l.tag, backOf: l }, l.layer);
     sw.entry = live[live.length - 1];
-    while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+    trimLive();
   }
   /** Swap the switchable effects whose owner turned to / from its back (each frame, before the players run). */
   function stepBackSwitches() {
@@ -521,7 +597,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       inst.object.position.set(at.x, at.y, at.z || 0);
       const until = owner == null ? clockS + (def.duration || 3) + 0.5 : Infinity;
       addLive(inst, { view: owner == null ? null : at, owner, buff: owner != null, until, keep: !!keep && owner != null }, under ? layers.under : layers.over);
-      while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+      trimLive();
     }
   }
   // ---- local patch (LOCAL-PATCH.md 「전투 화면 UI」 ⑤): status effects (render/fxstatus.js decides which, when) -------------
@@ -646,7 +722,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
     addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold, under), unit: view }, split ? layers.split : under ? layers.under : layers.over);
-    while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+    trimLive();
   }
 
   function stoneFx(e, views) {
@@ -802,7 +878,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       rec.inst = inst;
       placeTrail(rec);
       addLive(inst, { view: null, owner: null, buff: false, until: clockS + rec.dur + (rec.back || 0) + (def.duration || 2) + 0.5 }, layers.over);
-      while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+      trimLive();
     }, () => {});
   }
   // client projectile_chr_caper_s2 / _s2_1 (EN [uc]projectiles.ab): ParacurveMovement `_raiseHeight` 0.3, `_noRaiseHeightThreshold`
@@ -959,7 +1035,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       inst.object.position.set(c.pos.x, c.pos.y, c.pos.z);
       c.inst = inst;
       addLive(inst, { view: c.pos, owner: rec.owner, buff: false, game: true }, layers.over);
-      while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+      trimLive();
     }
   }
   function endNote(rec) {
@@ -1003,7 +1079,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const inst = new mod.fxp.FxInstance(def, { quality: q() });
     inst.object.position.set(at.x, at.y, at.z || 0);
     addLive(inst, { view: null, owner: null, buff: false, game: true, until: clockS + (def.duration || 2) + 0.5 }, layers.over);
-    while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+    trimLive();
   }
   /** Fly the notes one frame (game time: the battle clock's rate). */
   function stepNotes(dt, views) {
@@ -1067,7 +1143,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5;
     if (drop) { drop.inst = inst; placeTrail(drop); }
     addLive(inst, e, over ? layers.over : split ? layers.split : layers.under);
-    while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+    trimLive();
     return live[live.length - 1];
   }
   /**
@@ -1111,20 +1187,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!o || typeof o !== 'object') return false;
     const x = Number(e[2]), y = Number(e[3]);
     // 余 S3 灶里乾坤: the client builds the wall from per-tile pieces along the skill's infinite line (skchr_yu_3/TileRange
-    // _isHorizontalInfinite) [ASSUMED layout: one yu_skill3_range_01 per tile, _root on his tile]; ends with the skill
+    // _isHorizontalInfinite), each on the tile's front edge (yuWallPieces — 2026-10-10, maintainer report: it stood on the
+    // tile centres, a row piece turned 90° for a column); ends with the skill
     if (e[1] === 'firewall') {
       const src = views.get(o.id), b = bundleOf(src);
       if (!b || !b.prefabs.includes('yu_skill3_range_01')) return false;
       ownFx.add(e);
       let rect = null;
       try { rect = fieldRect(); } catch { /* the ±4 fallback */ }
-      // local patch (maintainer 2026-10-07): the pieces are authored for a row wall (deployed facing up / down); a column wall
-      // (facing left / right) turns each piece 90° about the height so its flames run along the column
-      const turn = (l) => { if (l && o.axis !== 'row') l.inst.object.rotation.set(0, 0, Math.PI / 2); };
-      for (const [r, c] of wallTiles(x, y, o.axis === 'row' ? 'row' : 'col', rect)) {
-        spawn(b.bundle, r === Math.round(y) && c === Math.round(x) ? 'yu_skill3_range_01_root' : 'yu_skill3_range_01', { x: c, y: r, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false }).then(turn);
+      const dir = typeof o.dir === 'string' ? o.dir.toUpperCase() : o.axis === 'row' ? 'UP' : 'RIGHT';
+      const midX = rect && Number.isFinite(rect.c0) && Number.isFinite(rect.c1) ? (rect.c0 + rect.c1) / 2 : 10;   // the camera's column [추정: the field's middle]
+      const file = (n) => b.prefabs.find((p) => p.toLowerCase() === n.toLowerCase()) || null;   // the client looks names up without case (_r → _R)
+      for (const p of yuWallPieces(dir, wallTiles(x, y, o.axis === 'row' ? 'row' : 'col', rect), midX)) {
+        const n = file(p.name);
+        if (n) spawn(b.bundle, n, { x: p.x, y: p.y, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false });
       }
-      spawn(b.bundle, 'yu_skill3_range_01', { x, y, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false }).then(turn);
       return true;
     }
     // a blocked shot: skchr_yu_3/Aura/EnemyAura _effectOnEliminatePos
@@ -1357,27 +1434,38 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function stepCasts() {
     for (let i = castsDelayed.length - 1; i >= 0; i--) if (clockS >= castsDelayed[i].t) castsDelayed.splice(i, 1)[0].run();
   }
+  /**
+   * (2026-10-10, maintainer report: 号角's blocked enemies got her ranged blast) the bound `role` effects of mode `mode`
+   * for an attack of projectile kind `kind`: a 要塞 mode (modes.json `fortress`, char_modes.py — charpack MeleeAttack /
+   * BlockedMeleeAttack vs RangedAttack) casts and hits with its melee abilities' effects while it blocks (the sim's
+   * 'swing' / 'atk' kind 'none'), its ranged ones' (+ the projectile's hit) otherwise; any other mode its whole list.
+   * `split` tells whether the 要塞 lists answered (then no name-mapped stand-in either).
+   */
+  function boundFor(v, mode, role, kind) {
+    const f = fortressEffects(bindOf(v), bundleOf(v)?.prefabs, mode, role, kind);
+    return f ? { names: f, split: true } : { names: mode != null ? bound(v, mode, role) : [], split: false };
+  }
   /** A swing starts: the cast effects of ON_CAST_START (the mode's, or the name mapping's attack start without bindings). */
-  function swingFx(src, windup, views) {
+  function swingFx(src, windup, views, kind = null) {
     if (!isOp(src) || !bundleOf(src)) return;
     skillByFlag(src, views);
     const mode = modeNow(src);
     const c = beginCast(src, windup, mode);
     if (c.skip) return;
-    const cast = mode != null ? bound(src, mode, 'cast') : [];
-    if (cast.length) { playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing')); return; }
+    const { names: cast, split } = boundFor(src, mode, 'cast', kind);
+    if (cast.length || split) { playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing')); return; }
     // no mode binding: the name mapping's attack start, at the swing like the client's ON_CAST_START majority [추정]
     if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
   }
   /** The strike ('atk'): the cast effects of ON_SPELL_ON / ON_SPELL_END; the swing's own when no swing was announced. */
-  function strikeFx(src, mode) {
+  function strikeFx(src, mode, kind = null) {
     let c = src._fxCast;
     const same = c && c.mode === mode && clockS <= c.hitAt + SWING_SLACK && (c.struckAt == null || clockS - c.struckAt < 0.03);
-    const cast = mode != null ? bound(src, mode, 'cast') : [];
+    const { names: cast, split } = boundFor(src, mode, 'cast', kind);
     if (!same) {   // no 'swing' for this attack: its swing effects now (the moment they had before)
       c = beginCast(src, 0, mode);
       if (!c.skip) {
-        if (cast.length) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing'));
+        if (cast.length || split) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing'));
         else if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
       }
     }
@@ -1788,7 +1876,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const inst = new mod.fxp.FxInstance(def, { quality: q() });
       inst.object.position.set(at.x, at.y, at.z || 0);
       addLive(inst, { view: at, owner: null, buff: true, keep: true }, layers.over);
-      while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+      trimLive();
       return { stop: (now = false) => inst.stop(now), alive: () => live.some((l) => l.inst === inst) };
     },
     /** Whether a 'fx' event is drawn here with its official effect (render/fx.js then skips its 2D stand-in). */
@@ -1797,7 +1885,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * 2026-10-10: a unit's attack swing starts, `windup` game seconds before its strike ('atk') — the cast
      * effects of ON_CAST_START. onEvent already does this for the sim's 'swing' state event; for a caller with its own.
      */
-    onSwing(view, windup, kind) { if (view && index && q() !== 'low') swingFx(view, Number(windup) || 0, lastViews || new Map()); void kind; },
+    onSwing(view, windup, kind) { if (view && index && q() !== 'low') swingFx(view, Number(windup) || 0, lastViews || new Map(), kind); },
     /** A battle event render/app.js handled (the views map resolves unit ids). */
     onEvent(e, views) {
       lastViews = views;
@@ -1858,13 +1946,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 丰川祥子: her note (the 'oblvnsNote' born event of this attack) replaces render/fx.js's arrow
           if (tgt && fxBundleOf(src.info.spine || src.info.defId) === 'oblvns' && notesOn(src)) noteAtks.add(e);
           const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
-          if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode });
+          if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3] });
           if (!noteAtks.has(e)) trailShot(e, src, tgt, mode); // local patch: its projectile's official trail
           if (src._fxSkillOn) foeFx(src, tgt, mode); // 2026-10-10: a mode buff held by the enemy
           // local patch: the mode's own cast effects (a skill's on each of its attacks) — since 2026-10-10 on the attack's own
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
           // throttle (ATTACK_GAP_S) and load level 3 skip them as before (beginCast)
-          strikeFx(src, mode);
+          strikeFx(src, mode, e[3]);
           return;
         }
         // (2026-10-10, decompile check): the sim's swing start ['swing', unit, windup, kind] — an attack's
@@ -1872,7 +1960,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         case 'swing': {
           const src = views.get(e[1]);
           if (src?.info?.side === 'enemy') { if (eOn(src)) eswingFx(src, Number(e[2]) || 0, e[3]); return; }
-          if (src) swingFx(src, Number(e[2]) || 0, views);
+          if (src) swingFx(src, Number(e[2]) || 0, views, e[3]);
           return;
         }
         case 'dmg': {
@@ -1901,8 +1989,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return;
           lastHit.set(key, clockS);
           lastAtk.delete(tid); // local patch: one impact per attack (a mark's / DoT's later ticks are no attack's hit; audio.js does the same)
-          const hits = a.mode != null ? bound(a.src, a.mode, 'hit').slice(0, MAX_HIT_FX) : []; // local patch: the mode's hit effects
+          // the mode's hit effects (a 要塞's of the attack it made: boundFor)
+          const { names: hitList, split } = boundFor(a.src, a.mode, 'hit', a.kind);
+          const hits = hitList.slice(0, MAX_HIT_FX);
           if (hits.length) { play(a.src, 'attackHit', 0, { at: tgt, names: hits, aim: a.src }); return; }
+          if (split) return;
           play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
           return;
         }
@@ -2079,7 +2170,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: f < 0 ? -1 : 1, split, floor: at.z || 0 });
       inst.object.position.set(at.x, at.y, at.z || 0);
       addLive(inst, { view: at, owner: at.id ?? at.info?.id ?? null, buff: false, until: clockS + (def.duration || 3) + 0.5 }, onOp ? (split ? layers.split : layers.under) : layers.over);
-      while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+      trimLive();
       return true;
     },
 

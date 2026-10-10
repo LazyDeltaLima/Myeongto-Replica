@@ -133,6 +133,26 @@ export function boundEffects(bind, prefabs, n, role) {
 }
 
 /**
+ * (2026-10-10, maintainer report: 号角's blocked enemies got her ranged blast) a 要塞 mode's `role` ('cast' / 'hit')
+ * effects of one attack, extracted only: modes.json `fortress[n]` (char_modes.py: the charpack's MeleeAttack /
+ * BlockedMeleeAttack abilities vs its RangedAttack, + that one's projectile hit) — the melee list for an attack of
+ * projectile kind 'none' (the sim's 'swing' / 'atk' while the operator blocks), the ranged one for any other kind.
+ * null when mode `n` has no such split (or the kind is unknown): the caller uses the mode's whole list (boundEffects).
+ * @param {any} bind modes.json entry
+ * @param {string[]|null|undefined} prefabs
+ * @param {number|null} n
+ * @param {'cast'|'hit'} role
+ * @param {string|null|undefined} kind
+ */
+export function fortressEffects(bind, prefabs, n, role, kind) {
+  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0 || typeof kind !== 'string' || !kind) return null;
+  const f = bind.fortress?.[n];
+  if (!f) return null;
+  const list = f[kind === 'none' ? 'melee' : 'ranged']?.[role];
+  return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
+}
+
+/**
  * (2026-10-10, decompile check): the effects of mode `n`'s own buffs that sit on enemies (modes.json `attachFoe`:
  * the buff's ability targets enemies — `_targetOptions.targetSide` 2 or a `_selector` whose range selectors pick side 2), in
  * order, extracted only. A buff effect's owner is the unit holding the buff (client `Effect.Behaviour.owner`).
