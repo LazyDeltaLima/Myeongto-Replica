@@ -41,11 +41,14 @@ const validPath = (p) => Array.isArray(p) && p.length >= 2 && p.every((q) => Arr
 
 /**
  * The cursors of the shown paths.
- * @param {{ fxGame: object, heightAt: (r: number, c: number) => number, fallback?: (x: number, y: number, z: number) => void }} o
- *   fxGame = render/fxgame.js layer (playFree); fallback draws one mote of the stand-in trail at a board point
+ * @param {{ fxGame: object, heightAt: (r: number, c: number) => number, fallback?: (x: number, y: number, z: number) => void,
+ *   onShow?: () => void }} o
+ *   fxGame = render/fxgame.js layer (playFree); fallback draws one mote of the stand-in trail at a board point; onShow:
+ *   a new route preview starts (its cursors' first run) — the client's 行动开始 line hangs on the cursor's spawn
+ *   (VoicePlayer._OnPreviewCursorSpawn, public/js/voice.js voiceForRoutePreview)
  * @returns {{ sync(paths: number[][][]|null, motion: string, dt: number): void, clear(): void }}
  */
-export function createRouteCursors({ fxGame, heightAt, fallback = null }) {
+export function createRouteCursors({ fxGame, heightAt, fallback = null, onShow = null }) {
   let sig = '';
   let runs = [];   // { pts, acc, d, wait, at, handle, pending, off }
 
@@ -88,6 +91,7 @@ export function createRouteCursors({ fxGame, heightAt, fallback = null }) {
         const h = CURSOR.height[motion] ?? CURSOR.height.WALK;
         runs = list.map((pts) => ({ pts, acc: pathLengths(pts), d: 0, wait: 0, at: { x: 0, y: 0, z: 0 }, h, handle: null, pending: false, off: false, gone: false }));
         for (const r of runs) start(r, motion);
+        if (runs.length && typeof onShow === 'function') { try { onShow(); } catch { /* ignore */ } }
       }
       for (const r of runs) {
         if (r.pending) continue;

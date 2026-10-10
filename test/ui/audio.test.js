@@ -138,36 +138,29 @@ describe('bgm selection', () => {
   });
 });
 
-describe('SfxLimiter', () => {
-  test('caps concurrent voices', () => {
-    const l = new SfxLimiter({ maxVoices: 3, unitCooldownMs: 0, urlGapMs: 0 });
-    assert.ok(l.tryAcquire(0, 1, 'a'));
-    assert.ok(l.tryAcquire(0, 2, 'b'));
-    assert.ok(l.tryAcquire(0, 3, 'c'));
-    assert.equal(l.tryAcquire(0, 4, 'd'), false);
-    l.release();
-    assert.ok(l.tryAcquire(0, 4, 'd'));
-    l.release(); l.release(); l.release(); l.release(); l.release();
-    assert.equal(l.active, 0, 'never negative');
+describe('SfxLimiter (the official SoundFXBank.Play per bank, local patch 2026-10-10)', () => {
+  test('caps concurrent sounds', () => {
+    const l = new SfxLimiter({ maxVoices: 3 });
+    const a = l.acquire('a'), b = l.acquire('b'), c = l.acquire('c');
+    assert.ok(a && b && c);
+    assert.equal(l.acquire('d'), null);
+    l.release(a);
+    assert.ok(l.acquire('d'));
+    l.release(a); l.release(b); l.release(c);
+    assert.equal(l.active, 1, 'a slot is released once');
   });
-  test('per-unit cooldown and per-url gap', () => {
-    const l = new SfxLimiter({ maxVoices: 99, unitCooldownMs: 100, urlGapMs: 30 });
-    assert.ok(l.tryAcquire(0, 'u1', 'x'));
-    assert.equal(l.tryAcquire(50, 'u1', 'y'), false, 'same unit too soon');
-    assert.equal(l.tryAcquire(10, 'u2', 'x'), false, 'same url too soon');
-    assert.ok(l.tryAcquire(40, 'u2', 'x'));
-    assert.ok(l.tryAcquire(120, 'u1', 'z'));
-    assert.ok(l.tryAcquire(121, null, 'w'), 'no unit key ⇒ only url gap');
-  });
-  test('at most 2 overlapping copies of one sound (official banks: maxSoundAllowed 2)', () => {
-    const l = new SfxLimiter({ maxVoices: 99, unitCooldownMs: 0, urlGapMs: 0 });
-    assert.equal(l.maxPerUrl, 2);
-    assert.ok(l.tryAcquire(0, 'a', 'heal'));
-    assert.ok(l.tryAcquire(1, 'b', 'heal'));
-    assert.equal(l.tryAcquire(2, 'c', 'heal'), false, 'a third copy waits');
-    assert.ok(l.tryAcquire(2, 'c', 'other'), 'other sounds are not affected');
-    l.release('heal');
-    assert.ok(l.tryAcquire(3, 'c', 'heal'), 'one ended: room again');
+  test('a bank at maxSoundAllowed cuts its oldest when popOldest, else refuses; 0 = no cap; no time gaps', () => {
+    const l = new SfxLimiter({ maxVoices: 99 });
+    const cut = [];
+    const one = l.acquire('heal', 2, true); one.cut = () => cut.push(1);
+    const two = l.acquire('heal', 2, true); two.cut = () => cut.push(2);
+    assert.ok(l.acquire('heal', 2, true), 'a third copy plays at once');
+    assert.deepEqual(cut, [1], 'the oldest was cut');
+    assert.equal(l.count('heal'), 2);
+    assert.ok(l.acquire('other', 2, true), 'other banks are not affected');
+    assert.ok(l.acquire('x', 1, false));
+    assert.equal(l.acquire('x', 1, false), null, 'no popOldest: the new one is dropped');
+    for (let i = 0; i < 5; i++) assert.ok(l.acquire('free', 0, false), 'maxSoundAllowed 0: no cap');
   });
 });
 
@@ -635,7 +628,6 @@ describe('impact sounds (user playtest #4 item 6)', () => {
       a.handleBattleEvents([['dmg', 2, 200, 'phys']]);
       await settle();
       assert.equal(askedCount(urls, manifest.audio.sfx.units[enemyId].hit), 1, 'the impact');
-      a.limiter.lastByUnit.clear(); a.limiter.lastByUrl.clear();
       a.handleBattleEvents([['dmg', 2, 50, 'phys']]);
       await settle();
       assert.equal(askedCount(urls, manifest.audio.sfx.units[enemyId].hit), 1, 'a later tick is not the same attack\'s impact');

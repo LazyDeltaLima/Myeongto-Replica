@@ -360,7 +360,7 @@ export async function createFieldView(host, options = {}) {
   ctx.fx = fx;
   // the walking leader's route preview cursor in the boss-field prep (render/fxroute.js); without the official effect a
   // trail of red motes
-  const routeCursors = createRouteCursors({ fxGame, heightAt, fallback: (x, y, z) => { const p = fx._proj(x, y, z); fx._mote(p.x, p.y, p.s, 0xff3a24, 0.45); } });
+  const routeCursors = createRouteCursors({ fxGame, heightAt, fallback: (x, y, z) => { const p = fx._proj(x, y, z); fx._mote(p.x, p.y, p.s, 0xff3a24, 0.45); }, onShow: () => emit('routePreview', {}) });
   setupCleanup.push(() => routeCursors.clear());
   // battle devices (crates / turrets as sim units): the official crate mesh in the 3D scene, else a Pixi box
   ctx.createBox = () => switchableBox({ board: () => board3d, pixi: () => tiles.createBox() });

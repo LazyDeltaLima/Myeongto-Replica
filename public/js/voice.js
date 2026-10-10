@@ -8,13 +8,16 @@
 //     board / bench — again on a tap of the one already selected — and a battle unit. Not when a drag to place starts,
 //     and no 部署 `place` line when an operator is bought / rewarded (only its deploy SFX) — the owner's 卫戍协议 videos,
 //     2026-10-08. The 部署 line when the player places one from the bench on the board (voiceForPlace, 2-5 2026-10-08). They go through the same gate as the battle lines (a 选中 line never cuts a skill line: priority).
-//   * The official scheduling (voicePolicy.js, owner 2026-10-06): no global gap, priority / same-priority overlap /
-//     cooldown by the official voice type, a random 作战中, 行动开始 once per battle, no 部署 burst at the battle start.
+//   * The official scheduling (voicePolicy.js, owner 2026-10-06; client code 2026-10-10): no global gap, priority /
+//     same-priority overlap / cooldown per official voice type (shared by every operator, from the line's end), a random
+//     作战中; at each battle start a random own piece's 部署 (行动出发 once, at the match's first battle); 行动开始 when an
+//     enemy route preview cursor appears (voiceForRoutePreview).
 //
 //   <VoiceSetting />           the settings row (ui/settings.js): language
 //   voiceForPiece(piece, shown) screens/game.js: a tapped board / bench piece (shown = the record it shows: 自选 / 补位)
 //   voiceForPlace(unit, uid)   screens/game.js: an operator the player placed from the bench on the board (部署)
 //   voiceForUnit(info, id)     screens/game.js: a tapped battle unit
+//   voiceForRoutePreview(ids)  screens/game.js: an enemy route preview cursor appeared (render/fxroute.js) → 行动开始
 //   holdResultVoice(line)      screens/game.js onResult: the own battle's 结算 line, kept instead of played
 //   playMatchEndVoice(res, me) screens/result.js: the kept line on a won settlement, if the player was not knocked out
 //
@@ -61,7 +64,12 @@ audio.voiceGate = new OfficialVoiceGate();
 audio.voicePolicy = createVoicePolicy({
   skillOf: (u) => unitSkillOf(typeof u?.defId === 'string' ? data.lookup('chess', u.defId) : null, u?.def, u?.skillIndex, data.get('backups')),
   slotsOf: (charId) => Object.keys(audio.voiceTable?.()?.[charId] || {}),
+  // the battle start's speaker is one of the player's own pieces (AutoChessGameModeVoicePlugin._OnBattleStarted reads the
+  // own battleChessInsts) — a teammate's operator on a shared field never says it
+  own: (u) => { const me = store.get()?.me?.playerId; return u?.ownerId == null || !me || u.ownerId === me; },
 });
+// a match entered or left is a new game (VoicePlayer.OnGameReset): 行动出发 and the first 行动开始 come again
+store.subscribe((s, prev) => { if (!!s.match?.public !== !!prev?.match?.public) audio.voicePolicy?.newGame?.(); });
 
 /**
  * The skill record a battle unit fights with (voicePolicy `skillOf`: its official voice type — 自动 60 / 50 with the 10 s
@@ -138,6 +146,27 @@ export function voiceForUnit(info, unitId = null) {
   if (!info || info.side === 'enemy' || info.kind === 'token' || info.kind === 'device') return;
   const id = info.spine || (typeof info.defId === 'string' ? chessVoiceId(info.defId) : null);
   if (typeof id === 'string' && id.startsWith('char_')) audio.voice(id, 'select', { unitKey: `battle:${unitId ?? id}` });
+}
+
+/**
+ * An enemy route preview cursor appeared on the own prep board (render/fxroute.js onShow → screens/game.js): 行动开始 — the
+ * client's VoicePlayer._OnPreviewCursorSpawn (RVA 0xD7FA40): the first time at once, later only after 3 s without an enemy
+ * on the field (audio.noEnemyMs), said by a random card but the last one who said it; when that line cannot play, once
+ * more by a random card (its retry without a voice query). [추정] the cards (m_cardDataList, the battle deck) = the
+ * operators on the own board; the cursor = the first run of a new route preview (our cursor repeats its run, the client's
+ * repeat interval is unknown — render.md 「보스 경로 미리보기」).
+ * @param {string[]} cards charIds of the own board's operators
+ */
+export function voiceForRoutePreview(cards) {
+  const pol = audio.voicePolicy;
+  if (!pol?.encounter) return;
+  const list = (Array.isArray(cards) ? cards : []).filter((c) => typeof c === 'string' && c.startsWith('char_'));
+  const id = pol.encounter(list, audio.noEnemyMs());
+  if (!id) return;
+  const opts = { unitKey: `enc:${id}`, type: 'ENCOUNTER_ENEMY' };
+  let said = audio.voice(id, 'faceEnemy', opts) ? id : null;
+  if (!said) { const other = pol.anyCard(list); if (other && audio.voice(other, 'faceEnemy', opts)) said = other; }
+  pol.encountered(said);
 }
 
 let heldResult = null;

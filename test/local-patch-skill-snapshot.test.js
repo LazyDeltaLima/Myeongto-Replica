@@ -87,8 +87,8 @@ describe('mixer snapshot AllLowpass_Reverb (归溟幽灵鲨\'s 替身 switch)', 
   test('a hook sinks the bus (556 Hz, dry −67 dB, reverb on) over its 5 s and comes back when it ends; it plays outside', async () => {
     const a = manager();
     assert.ok(snapshotHookOf(a, STAND) && outsideBus(a, STAND));
-    a._play(STAND, { volume: 0.5, limited: true, unitKey: '1:ghost2:stand' });
-    a._play('/assets/audio/sfx/player/p_atk/p_atk_saw_n.mp3', { volume: 0.3, limited: true, unitKey: '1:attack' });
+    a._play(STAND, { volume: 0.5, limited: true, bank: 'kit:ghost2:stand' });
+    a._play('/assets/audio/sfx/player/p_atk/p_atk_saw_n.mp3', { volume: 0.3, limited: true, bank: 'char_x:attack' });
     await tick();
     const lp = lowpass(a);
     assert.ok(lp, 'the chain is built on the first hook');
@@ -135,11 +135,11 @@ describe('耀骑士临光 S2 (activateOnDeploy)', () => {
     const { b, u } = await realBattle('chess_char_6_17_b', 1);
     const a = manager();
     const played = [];
-    a._play = (url, o) => played.push({ url, unitKey: o.unitKey });
+    a._play = (url, o) => played.push({ url, bank: o.bank });
     a.handleBattleEvents(b.drainEvents());
     run(a, b, () => b.time > 1);
     assert.equal(u.skill.active, true);
-    assert.ok(played.some((p) => file(p.url) === 'p_skill_goldspearboost.mp3' && p.unitKey === `${u.id}:x0`), played.map((p) => file(p.url)).join());
+    assert.ok(played.some((p) => file(p.url) === 'p_skill_goldspearboost.mp3' && p.bank === 'char_1014_nearl2:x1:0'), played.map((p) => file(p.url)).join());
   });
 });
 

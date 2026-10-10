@@ -1294,7 +1294,7 @@ describe('kit skill hit sounds (tools/assets/kit-sfx.mjs → sfx.kit, public/js/
   });
 });
 
-describe('operator voice: the official scheduling (public/js/voicePolicy.js over audio.js VoiceGate, owner 2026-10-06)', () => {
+describe('operator voice: the official scheduling (public/js/voicePolicy.js over audio.js VoiceGate, owner 2026-10-06; client code 2026-10-10)', () => {
   test('gate: no global gap, same priority overlaps by type, AUTO skills 10 s / MANUAL 0 s, 60 / 50 by SP cost', async () => {
     const { OfficialVoiceGate, skillVoiceType } = await import('../public/js/voicePolicy.js');
     const g = new OfficialVoiceGate();
@@ -1306,12 +1306,9 @@ describe('operator voice: the official scheduling (public/js/voicePolicy.js over
     assert.equal(g.request('skill2', 'b', 30, 'SKILL_PASSIVE_IMP'), 'drop', 'a lower line is dropped');
     assert.equal(g.request('start', 'b', 30), 'preempt', 'a higher line takes over');
     g.release();
-    g.start('skill1', 'a', 100, 'SKILL_PASSIVE_IMP'); g.release();
-    assert.equal(g.request('skill3', 'a', 5000, 'SKILL_PASSIVE_IMP'), 'drop', 'AUTO skill: 10 s per operator');
-    assert.equal(g.request('skill3', 'a', 10100, 'SKILL_PASSIVE_IMP'), 'play');
     g.start('skill1', 'a', 200, 'SKILL_ACTIVE'); g.release();
     assert.equal(g.request('skill1', 'a', 201, 'SKILL_ACTIVE'), 'play', 'MANUAL skill: no cooldown');
-    g.start('faceEnemy', 'x', 300); 
+    g.start('faceEnemy', 'x', 300);
     assert.equal(g.request('faceEnemy', 'y', 301), 'drop', 'ENCOUNTER_ENEMY does not overlap');
     g.release();
     // user question 2026-10-08 (선택 대사 쿨타임?): FOCUS_CHAR is cooldown 0 + overlapIfSamePriority in audio_data.json
@@ -1325,7 +1322,22 @@ describe('operator voice: the official scheduling (public/js/voicePolicy.js over
     assert.equal(skillVoiceType({ skillType: 'AUTO', spCost: 9 }), 'SKILL_PASSIVE_NOR');
   });
 
-  test('battle events: one 行动出发 and no 部署 burst, 行动开始 once per battle, a random 作战中 typed by the skill', async () => {
+  test('gate cooldown (VoicePlayer._PlayVoice): per TYPE for every operator, from the end of the line; the last line\'s type again from a new line', async () => {
+    const { OfficialVoiceGate } = await import('../public/js/voicePolicy.js');
+    const g = new OfficialVoiceGate();
+    g.start('skill1', 'a', 1000, 'SKILL_PASSIVE_IMP'); g.lineLength(3000); g.release();
+    assert.equal(g.request('skill2', 'b', 5000, 'SKILL_PASSIVE_IMP'), 'drop', 'another operator: the same type waits too');
+    assert.equal(g.request('skill2', 'b', 13900, 'SKILL_PASSIVE_IMP'), 'drop', '3 s line + 10 s');
+    assert.equal(g.request('skill2', 'b', 14000, 'SKILL_PASSIVE_IMP'), 'play');
+    assert.equal(g.request('skill2', 'b', 5000, 'SKILL_PASSIVE_NOR'), 'play', 'another type is free');
+    const h = new OfficialVoiceGate();
+    h.start('skill1', 'a', 0, 'SKILL_PASSIVE_NOR'); h.lineLength(1000); h.release();   // next 11 s
+    h.start('select', 'c', 20000); h.release();                                        // a new line: NOR again from now
+    assert.equal(h.request('skill1', 'a', 25000, 'SKILL_PASSIVE_NOR'), 'drop', 'max(11 s, 20 s + 10 s)');
+    assert.equal(h.request('skill1', 'a', 30000, 'SKILL_PASSIVE_NOR'), 'play');
+  });
+
+  test('battle events: 行动出发 once per game, then each battle start one random own piece\'s 部署; no 行动开始 on an engagement; a random 作战中', async () => {
     const { AudioManager } = await import('../public/js/audio.js');
     const { OfficialVoiceGate, createVoicePolicy } = await import('../public/js/voicePolicy.js');
     const a = new AudioManager({ getManifest: () => ({ audio: { sfx: { units: {}, battle: {} } } }), win: null });
@@ -1336,21 +1348,56 @@ describe('operator voice: the official scheduling (public/js/voicePolicy.js over
     let r = 0;
     a.voicePolicy = createVoicePolicy({
       skillOf: () => ({ skillType: 'AUTO', spCost: 4 }), slotsOf: () => ['start', 'skill1', 'skill2', 'skill3'],
+      own: (u) => u.ownerId === 'p1',
       random: () => [0.9, 0.1][r++ % 2],
     });
-    const ops = [1, 2, 3].map((id) => ({ id, spine: `char_${id}`, defId: `chess_${id}`, kind: 'op', side: 'ally', skillIndex: 0 }));
-    a.setFieldUnits(ops);
-    a.handleBattleEvents([['deploy', 1], ['deploy', 2], ['deploy', 3]]);
-    assert.deepEqual(said.map((x) => x[1]), ['start'], 'one 行动出发, the opening deployment silent');
+    const ops = [1, 2, 3].map((id) => ({ id, spine: `char_${id}`, defId: `chess_${id}`, kind: 'op', side: 'ally', skillIndex: 0, ownerId: 'p1' }));
+    const mate = { id: 4, spine: 'char_4', defId: 'chess_4', kind: 'op', side: 'ally', skillIndex: 0, ownerId: 'p2' };
+    a.setFieldUnits([...ops, mate]);
+    a.handleBattleEvents([['deploy', 1], ['deploy', 2], ['deploy', 3], ['deploy', 4]]);
+    await new Promise((res) => setTimeout(res, 500));   // the opening's staggered deploys stay silent
+    assert.deepEqual(said.map((x) => [x[1], x[2]]), [['start', 'BATTLE_START'], ['place', 'PLACE_CHAR']], 'the game\'s first battle: 行动出发, then the plugin\'s 部署');
+    assert.ok(said.every((x) => x[0] !== 'char_4'), 'never a teammate\'s piece');
+    assert.equal(said[0][0], 'char_3', 'a random own piece (0.9 → the last)');
     a.handleBattleEvents([['engage', 2], ['engage', 3]]);
-    a.handleBattleEvents([['engage', 1]]);
-    assert.equal(said.filter((x) => x[1] === 'faceEnemy').length, 1, '行动开始 once per battle');
+    assert.equal(said.filter((x) => x[1] === 'faceEnemy').length, 0, '行动开始 comes from the route preview cursor, not an engagement');
     a.handleBattleEvents([['skill', 1, true], ['skill', 2, true]]);
     const skills = said.filter((x) => /^skill/.test(x[1]));
-    assert.deepEqual(skills.map((x) => x[1]), ['skill3', 'skill1'], 'a random 作战中, not skill N of the equipped skill');
+    assert.equal(skills.length, 2);
     assert.ok(skills.every((x) => x[2] === 'SKILL_PASSIVE_NOR'), 'typed by the equipped skill (AUTO, SP 4)');
+    said.length = 0;
     a.setFieldUnits(ops);
-    a.handleBattleEvents([['engage', 1]]);
-    assert.equal(said.filter((x) => x[1] === 'faceEnemy').length, 2, 'a new battle may say it again');
+    a.handleBattleEvents([['deploy', 1], ['deploy', 2], ['deploy', 3]]);
+    assert.deepEqual(said.map((x) => x[1]), ['place'], 'a later round: 部署 only (行动出发 is the game start\'s)');
+    a._opening.at -= 5000; a._opening.over = true;
+    a.voicePolicy.reset();
+    a.handleBattleEvents([['deploy', 2]]);
+    assert.deepEqual(said.map((x) => x[1]), ['place', 'place'], 'a redeploy says its 部署');
+    said.length = 0;
+    a.voicePolicy.newGame();
+    a.setFieldUnits(ops);
+    a.handleBattleEvents([['deploy', 1], ['deploy', 2], ['deploy', 3]]);
+    assert.deepEqual(said.map((x) => x[1]), ['start', 'place'], 'a new game: 行动出发 again');
+  });
+
+  test('行动开始 (VoicePlayer._OnPreviewCursorSpawn): the first cursor at once, later ones after 3 s without an enemy, not the last speaker', async () => {
+    const { createVoicePolicy } = await import('../public/js/voicePolicy.js');
+    const p = createVoicePolicy({ random: () => 0 });
+    assert.equal(p.encounter([], Infinity), null, 'no card, no line');
+    assert.equal(p.encounter(['char_a', 'char_b'], 0), 'char_a', 'the first time even with enemies on the field');
+    p.encountered('char_a');
+    assert.equal(p.encounter(['char_a', 'char_b'], 2999), null, 'later: 3 s without an enemy first');
+    assert.equal(p.encounter(['char_a', 'char_b'], 3000), 'char_b', 'not the last one who said it');
+    p.newGame();
+    assert.equal(p.encounter(['char_a'], 0), 'char_a', 'a new game: at once again');
+    const { AudioManager } = await import('../public/js/audio.js');
+    const a = new AudioManager({ getManifest: () => ({ audio: { sfx: { units: {}, battle: {} } } }), win: null });
+    a.ctx = {};
+    a.setFieldUnits([{ id: 9, side: 'enemy', spine: 'enemy_x' }]);
+    assert.equal(a.noEnemyMs(1000), 0);
+    a.handleBattleEvents([['die', 9, 'killed']]);
+    const t = performance.now();
+    assert.ok(a.noEnemyMs(t + 3000) >= 3000, 'the field empty since the kill');
   });
 });
+

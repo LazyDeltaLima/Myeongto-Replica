@@ -23,9 +23,10 @@
 //   operators, then fires dozens of skills, so they run on their own channel (own gain, settings 干员语音) through
 //   VoiceGate: one line at a time, a global gap, a per-unit per-slot cooldown, and a higher-priority line taking the
 //   channel over — the official scheduling of `audio_data.json battleVoice.voiceTypeOptions`.
-// - Battle SFX from `b.ev` tuples (`handleBattleEvents`): at most MAX_VOICES concurrent unit sounds, at most
-//   MAX_PER_URL overlapping copies of one sound (the official banks' maxSoundAllowed 2), a per-unit cooldown and a
-//   per-URL minimum gap (SfxLimiter), so a 60-unit fight stays listenable.
+// - Battle SFX from `b.ev` tuples (`handleBattleEvents`): local patch (2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·
+//   동시 재생 상한」) the official SoundFXBank.Play — a bank at its maxSoundAllowed cuts its oldest sound for the new one
+//   (popOldest) or drops the new one, and every play draws its pitch in the sound's [minPitch, maxPitch] (manifest
+//   `sfx.bank`); no per-unit or per-URL gap. MAX_VOICES concurrent battle sounds at most (SfxLimiter).
 // - Impact sounds (user playtest #4 item 6): a 'dmg' plays the `hit` sound of the unit whose hostile attack ('atk' on a
 //   unit of the other side) aimed at the target — once, within IMPACT_WINDOW_MS, and only for phys / arts / true damage.
 //   A heal "attack" ('atk' of a healer on an ally, chain heals) never makes the healer the author of the next damage
@@ -48,13 +49,16 @@
 
 import { PHASE } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
-import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, dollSwitchSfx } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras
+import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
 import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // local patch: mixer snapshots (归溟幽灵鲨's 替身 switch)
 
-const MAX_VOICES = 8;
-const UNIT_COOLDOWN_MS = 160;
-const URL_GAP_MS = 45;
-const MAX_PER_URL = 2;
+/**
+ * local patch (2026-10-10): concurrent battle sounds at most [추정: Unity's default real voice count 32 — the client's own
+ * setting is not in its data]; the old 8 + 160 ms per unit + 45 ms per URL + 2 per URL had no official basis.
+ */
+const MAX_VOICES = 32;
+/** A bank the manifest has no values for: the official majority (maxSoundAllowed 2, popOldest — 9,950 of 13,000 banks). */
+const DEFAULT_BANK = Object.freeze([1, 1, 2, 1]);
 /** local patch: a battle 'deploy' this soon (real ms) after a prep drop-in of the same model stays silent (round start). */
 const PREP_DEPLOY_OVERLAP_MS = 1500;
 /** The opening deployment one by one (LOCAL-PATCH.md 「배치 낙하」) — its step (= render/units.js BORN_STAGGER_S) and the burst window. */
@@ -366,55 +370,58 @@ export function resultSpeaker(pp, random = Math.random, charOf = null) {
   return pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))].id;
 }
 
-/** Concurrency + cooldown gate for battle SFX. Pure (time is passed in). */
 /** Gestures that may unlock audio: iOS Safari only accepts touchend / click / keydown; pointerdown covers the rest. */
 const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
 
+/**
+ * Concurrency of battle SFX. local patch (2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」): the official
+ * SoundFXBank.Play (클라 코드 RVA 0x34B22A0) — a bank (`key`) at its maxSoundAllowed (> 0) stops its oldest sounds for the new
+ * one when popOldest, else refuses the new one; 0 = no cap. Beside it one cap for all battle sounds (MAX_VOICES). No per-unit
+ * or per-URL gap (the client has none). Pure bookkeeping: `acquire` hands out a slot whose `cut` the caller sets (popOldest
+ * calls it), `release(slot)` when the sound ends.
+ */
 export class SfxLimiter {
-  /** @param {{ maxVoices?: number, unitCooldownMs?: number, urlGapMs?: number, maxPerUrl?: number }} [o] */
+  /** @param {{ maxVoices?: number }} [o] */
   constructor(o = {}) {
     this.maxVoices = o.maxVoices ?? MAX_VOICES;
-    this.unitCooldownMs = o.unitCooldownMs ?? UNIT_COOLDOWN_MS;
-    this.urlGapMs = o.urlGapMs ?? URL_GAP_MS;
-    // the official battle banks (attack, impact, heal, born, dead…) allow at most 2 overlapping copies of a sound
-    // (audio_data maxSoundAllowed 2): a heal / impact heard on every tick of a crowd never piles up
-    this.maxPerUrl = o.maxPerUrl ?? MAX_PER_URL;
     this.active = 0;
-    this.lastByUnit = new Map();
-    this.lastByUrl = new Map();
-    this.activeByUrl = new Map();
+    this.byBank = new Map(); // bank key → slots, oldest first
   }
 
   /**
-   * Whether a sound may start now; records it when allowed (call `release(url)` when it ends).
-   * @param {number} now ms
-   * @param {string|number|null} unitKey e.g. `${unitId}:atk`
-   * @param {string} url
+   * A slot for a new sound of bank `key`, or null when it may not play.
+   * @param {string} key the bank (a unit model + role, a named battle sound, a kit key …)
+   * @param {number} [max] maxSoundAllowed (0 = no cap)
+   * @param {boolean} [pop] popOldest
+   * @returns {{ key: string, cut: (() => void)|null, done: boolean }|null}
    */
-  tryAcquire(now, unitKey, url, maxPerUrl = this.maxPerUrl) { // local patch: a bank's own cap (kit sounds, sfx.kitLimit)
-    if (this.active >= this.maxVoices) return false;
-    if ((this.activeByUrl.get(url) || 0) >= maxPerUrl) return false;
-    if (unitKey != null) {
-      const t = this.lastByUnit.get(unitKey);
-      if (t != null && now - t < this.unitCooldownMs) return false;
+  acquire(key, max = DEFAULT_BANK[2], pop = true) {
+    const list = this.byBank.get(key);
+    if (max > 0 && list && list.length >= max) {
+      if (!pop) return null;
+      while (list.length >= max) { const old = list[0]; this.release(old); try { old.cut?.(); } catch { /* ignore */ } }
     }
-    const u = this.lastByUrl.get(url);
-    if (u != null && now - u < this.urlGapMs) return false;
-    if (unitKey != null) this.lastByUnit.set(unitKey, now);
-    this.lastByUrl.set(url, now);
-    if (this.lastByUnit.size > 600) this.lastByUnit.clear();
-    if (this.lastByUrl.size > 400) this.lastByUrl.clear();
+    if (this.active >= this.maxVoices) return null;
+    const slot = { key, cut: null, done: false };
+    if (!this.byBank.has(key)) this.byBank.set(key, []);
+    this.byBank.get(key).push(slot);
     this.active += 1;
-    this.activeByUrl.set(url, (this.activeByUrl.get(url) || 0) + 1);
-    return true;
+    return slot;
   }
 
-  /** A sound started by tryAcquire ended. */
-  release(url) {
+  /** A sound started by acquire ended (or was cut). */
+  release(slot) {
+    if (!slot || slot.done) return;
+    slot.done = true;
     this.active = Math.max(0, this.active - 1);
-    const n = this.activeByUrl.get(url) || 0;
-    if (n <= 1) this.activeByUrl.delete(url); else this.activeByUrl.set(url, n - 1);
+    const list = this.byBank.get(slot.key);
+    const i = list ? list.indexOf(slot) : -1;
+    if (i >= 0) list.splice(i, 1);
+    if (list && !list.length) this.byBank.delete(slot.key);
   }
+
+  /** Sounds of bank `key` playing now. */
+  count(key) { return this.byBank.get(key)?.length || 0; }
 }
 
 /**
@@ -815,15 +822,19 @@ export class AudioManager {
 
   // ---- SFX ------------------------------------------------------------------------------------------------
 
-  _play(url, { volume = 1, rate = 1, limited = false, unitKey = null, pop = null } = {}) {
+  /**
+   * Play one sound. local patch (2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」): its bank's values
+   * (manifest `sfx.bank[url]` = [minPitch, maxPitch, maxSoundAllowed, popOldest], audioOfficial.js bankPlayOf) — a random
+   * pitch in the range on every play (playbackRate, like Unity's AudioSource.pitch it also changes the length), and for a
+   * `limited` (battle) sound its bank's cap: `bank` names the bank (default: the URL), `pop` = a kit key's { max, pop }
+   * when the table has no values for the file.
+   */
+  _play(url, { volume = 1, rate = null, limited = false, bank = null, unitKey = null, pop = null } = {}) {
     if (!this.ctx || !url || this.volumes.muted || this.volumes.sfx <= 0) return;
-    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    // local patch (user report 2026-10-07 #10): `pop` = { max } of an official popOldest bank (kit sounds, sfx.kitLimit) —
-    // at its cap the oldest copy it started is cut for the new one (蕾缪安 S3's shells), where unit sounds drop the new one
-    const max = pop && Number.isInteger(pop.max) && pop.max > 0 ? pop.max : this.limiter.maxPerUrl;
-    const popped = pop ? (this._popped ||= new Map()) : null;
-    if (popped) { const list = popped.get(url); while (list?.length && (this.limiter.activeByUrl.get(url) || 0) >= max) list[0](); }
-    if (limited) { if (!this.limiter.tryAcquire(now, unitKey, url, max)) return; }
+    const info = bankPlayOf(this.getManifest(), url) ?? (pop && Number.isInteger(pop.max) ? [1, 1, pop.max, pop.pop ? 1 : 0] : DEFAULT_BANK);
+    const pitch = Number.isFinite(rate) && rate > 0 ? rate : playPitch(info, Math.random);
+    let slot = null;
+    if (limited) { slot = this.limiter.acquire(String(bank ?? unitKey ?? url), info[2], !!info[3]); if (!slot) return; }
     else if (this.uiVoices >= 12) return;
     else this.uiVoices += 1;
     let done = false, s = null, g = null, unsnap = null;
@@ -831,24 +842,22 @@ export class AudioManager {
       if (done) return;
       done = true;
       unsnap?.(); // local patch: a hook's mixer snapshot ends with it (audioSnapshot.js)
-      if (limited) this.limiter.release(url); else this.uiVoices = Math.max(0, this.uiVoices - 1);
-      if (popped) { const list = popped.get(url); const i = list ? list.indexOf(cut) : -1; if (i >= 0) list.splice(i, 1); if (list && !list.length) popped.delete(url); }
+      if (limited) this.limiter.release(slot); else this.uiVoices = Math.max(0, this.uiVoices - 1);
       try { g?.disconnect(); } catch { /* ignore */ }
     };
-    const cut = () => { try { s?.stop(); } catch { /* ignore */ } end(); };   // local patch: popOldest
-    if (popped) { if (!popped.has(url)) popped.set(url, []); popped.get(url).push(cut); }
+    if (slot) slot.cut = () => { try { s?.stop(); } catch { /* ignore */ } end(); };   // local patch: popOldest
     this._buffer(url).then((buf) => {
       if (done) return;   // local patch: cut while it loaded
       if (!buf || !this.ctx) { end(); return; }
       try {
         s = this.ctx.createBufferSource();
         s.buffer = buf;
-        s.playbackRate.value = rate;
+        s.playbackRate.value = pitch;
         g = this.ctx.createGain();
         g.gain.value = Math.max(0, Math.min(1.5, volume));
         s.connect(g); g.connect(sfxOut(this, url, !limited)); // local patch: outside the snapshot bus (audioSnapshot.js)
         s.onended = end;
-        setTimeout(end, (buf.duration / rate) * 1000 + 250); // safety if onended never fires
+        setTimeout(end, (buf.duration / pitch) * 1000 + 250); // safety if onended never fires
         s.start();
         const hook = snapshotHookOf(this, url); // local patch: 归溟幽灵鲨's switch sinks the rest of the mix (audioSnapshot.js)
         if (hook) unsnap = holdSnapshot(this, hook);
@@ -873,20 +882,23 @@ export class AudioManager {
     try {
       const url = this.getManifest()?.audio?.sfx?.battle?.[name];
       const volume = Object.hasOwn(BATTLE_GROUP, name) ? battleGain(name) : (o.volume ?? 0.7); // local patch: official mix
-      if (typeof url === 'string') this._play(url, { volume, limited: true, unitKey: o.unitKey ?? `b:${name}` });
+      if (typeof url === 'string') this._play(url, { volume, limited: true, bank: `b:${name}` }); // local patch: one bank per name
     } catch { /* ignore */ }
   }
 
   /**
-   * Per-unit sound (attack/hit/skill/die/born), throttled.
+   * Per-unit sound (attack/on/hit/skill/die/born) through its bank's cap.
    * @param {string} defId charId/tokenId/enemyId (or chess id — mapped via its spine/char id by the caller)
-   * @param {'attack'|'hit'|'skill'|'die'|'born'} kind
-   * @param {number|string} unitId battle unit id (cooldown key)
+   * @param {'attack'|'on'|'hit'|'skill'|'die'|'born'} kind `on`: local patch (2026-10-10) the ability's ON bank beside its
+   *   START swing (both sound, docs/rules/audio.md 「START·ON·HIT」)
+   * @param {number|string} unitId battle unit id
    * @returns {boolean} whether a unit-specific sound exists
    */
   unit(defId, kind, unitId, skillIndex, mode = null) {
     try {
       const u = this.getManifest()?.audio?.sfx?.units?.[defId];
+      // local patch (2026-10-10): a running skill mode with its own attack sounds only its own ON bank (none = none)
+      if (kind === 'on') { const mo = modeOn(u, mode); if (mo !== undefined) return this._unitOn(defId, u, mo, mode); }
       // local patch: an attack / impact made while skill `mode` (its index) runs sounds that skill's mode (audioOfficial.js)
       const m = kind === 'attack' || kind === 'hit' ? modeEntry(u, mode, kind) : null;
       // local patch (user report 4 #4-4): a mode whose ability has no impact bank sounds none (缄默德克萨斯 S2, modes[i].noHit)
@@ -901,9 +913,19 @@ export class AudioManager {
       if (!unitSoundPlays(mix, this.random())) return true;
       // local patch: the official mixer group × bank volume (audioOfficial.js) instead of unitGain(0.55 | 0.8, mix)
       const volume = officialGain(defId, kind, u, kind === 'skill' ? u?.skillMix?.[skillIndex] : mix, m ? { grp: m.grp, mode: true } : { skillIndex });
-      this._play(url, { volume, limited: true, unitKey: `${unitId}:${kind}` });
+      // local patch (2026-10-10): the bank — every unit of a model shares it (one per role / skill / mode, like the client's
+      // battle.<EVENT>.<id>.<ability>), not one per unit
+      this._play(url, { volume, limited: true, bank: `${defId}:${kind}${kind === 'skill' ? `:${skillIndex ?? ''}` : m ? `:m${mode}` : ''}` });
       return true;
     } catch { return false; }
+  }
+
+  /** local patch (2026-10-10): a running mode's own ON sound (`modes[i].on`, null = the mode has none). */
+  _unitOn(defId, u, url, mode) {
+    if (typeof url !== 'string') return false;
+    const m = u.modes[mode];
+    this._play(url, { volume: officialGain(defId, 'on', u, m.mix?.on, { grp: m.grp, mode: true }), limited: true, bank: `${defId}:on:m${mode}` });
+    return true;
   }
 
   // ---- operator battle voice ----------------------------------------------------------------------------------
@@ -973,6 +995,7 @@ export class AudioManager {
         setTimeout(end, (buf.duration + 0.3) * 1000); // safety if onended never fires
         src.start();
         this.voiceNode = node;
+        this.voiceGate.lineLength?.(buf.duration * 1000); // local patch (2026-10-10): its type's cooldown runs from its end (voicePolicy.js)
       } catch (err) {
         this._warn('voice-play', err);
         if (token === this.voiceToken) this.voiceGate.release();
@@ -1011,7 +1034,24 @@ export class AudioManager {
     try { this.voiceGate.reset(); this._stopVoice(); this.voicePolicy?.reset(); } catch { /* ignore */ } // local patch: voicePolicy
     stopSkillLoops(this); // local patch: no skill loop carries into a new field
     this._skillEarly = null; // local patch: nor a skill event held for its unit's spawn
+    const hadEnemy = !!this._enemies?.size; // local patch (2026-10-10): the new field's enemies (noEnemyMs)
+    this._enemies = new Set();
     for (const u of Array.isArray(units) ? units : []) this._track(u);
+    if (hadEnemy && !this._enemies.size) this._noEnemySince = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  }
+
+  /** local patch (2026-10-10): an enemy is on the field. */
+  _enemyIn(id) { (this._enemies ||= new Set()).add(id); }
+
+  /** local patch (2026-10-10): an enemy left the field (killed / leaked) at `now`. */
+  _enemyOut(id, now) { if (this._enemies?.delete(id) && !this._enemies.size) this._noEnemySince = now; }
+
+  /**
+   * local patch (2026-10-10): how long (ms) no enemy has been on the field (the client's BattleController.timeDeltaNoEnemy,
+   * the 行动开始 condition — voice.js voiceForRoutePreview); Infinity before any.
+   */
+  noEnemyMs(now = typeof performance !== 'undefined' ? performance.now() : Date.now()) {
+    return this._enemies?.size ? 0 : now - (this._noEnemySince ?? -Infinity);
   }
 
   _track(u) {
@@ -1019,12 +1059,13 @@ export class AudioManager {
     // UnitInfo.spine is the model id (charId / tokenId / enemyId) — the key of sfx.units; kind/defId pick the
     // official class sounds (operator vs summon vs device)
     this.units.set(u.id, { def: u.spine || u.defId, defId: u.defId ?? null, kind: u.kind ?? null, side: u.side, boss: !!u.boss,
-      skillIndex: Number.isInteger(u.skillIndex) ? u.skillIndex : null });
+      skillIndex: Number.isInteger(u.skillIndex) ? u.skillIndex : null, ownerId: u.ownerId ?? null }); // local patch: ownerId (the battle start's own pieces)
+    if (u.side === 'enemy') this._enemyIn(u.id); // local patch (2026-10-10): the time without an enemy (noEnemyMs)
   }
 
   /** Play a resolved battle sound for a unit event, limited like unit sounds. */
-  _playUnitUrl(url, unitKey, volume = 0.8) {
-    if (typeof url === 'string') this._play(url, { volume, limited: true, unitKey });
+  _playUnitUrl(url, bank, volume = 0.8) {
+    if (typeof url === 'string') this._play(url, { volume, limited: true, bank }); // local patch: `bank` (was a unit key)
   }
 
   /**
@@ -1032,10 +1073,10 @@ export class AudioManager {
    * (望 b_char_stwctpbn, 余 p_skill_frbytrtn_bn …), else b_char_set / b_char_tokenset (deploySfxUrl) — through the
    * official mix. A battle 'deploy' and a prep drop-in (screens/game.js 'pieceDeploy') both come here.
    * @param {{ def?: string, defId?: string|null, kind?: string|null, side?: string }} u tracked unit (`def` = model id)
-   * @param {number|string} key its cooldown key (battle unit id / prep piece uid)
+   * @param {number|string} [_key] the battle unit id / prep piece uid (unused since 2026-10-10: the sound's bank is the model's)
    * @returns {boolean} whether a sound was started
    */
-  playDeploySfx(u, key) {
+  playDeploySfx(u, _key) {
     const m = this.getManifest();
     const url = deploySfxUrl(m, u);
     if (!url) return false;
@@ -1043,7 +1084,7 @@ export class AudioManager {
     const mix = own ? m.audio.sfx.units[u.def].mix?.born : null;
     if (!unitSoundPlays(mix, this.random())) return false;
     // local patch: the official mix (audioOfficial.js) instead of unitGain(0.8, mix) / 0.5
-    this._playUnitUrl(url, own ? `${key}:born` : 'deploy', own ? officialGain(u.def, 'born', m.audio.sfx.units[u.def], mix) : battleGain('deploy'));
+    this._playUnitUrl(url, own ? `${u.def}:born` : `b:born:${unitSoundClass(u)}`, own ? officialGain(u.def, 'born', m.audio.sfx.units[u.def], mix) : battleGain('deploy')); // local patch: the bank
     return true;
   }
 
@@ -1078,7 +1119,7 @@ export class AudioManager {
     const sfx = this.getManifest()?.audio?.sfx;
     const gain = (k) => groupGain(sfx?.kitGrp?.[k] ?? 'Battle_Skill_Important');
     if (ds.stop) stopSkillLoop(this, `${id}:doll`);
-    for (const k of ds.play) if (typeof sfx?.kit?.[k] === 'string') this._play(sfx.kit[k], { volume: gain(k), limited: true, unitKey: `${id}:${k}` });
+    for (const k of ds.play) if (typeof sfx?.kit?.[k] === 'string') this._play(sfx.kit[k], { volume: gain(k), limited: true, bank: `kit:${k}` });
     if (ds.hold && typeof sfx?.kit?.[ds.hold.key] === 'string') startSkillLoop(this, `${id}:doll`, sfx.kit[ds.hold.key], gain(ds.hold.key), { loop: false, fade: ds.hold.fade });
   }
 
@@ -1119,13 +1160,16 @@ export class AudioManager {
               skillExtrasOf(ue, su.skillIndex).forEach((x, k) => {
                 const gain = loopGain(x);
                 if (Number.isFinite(x.stop)) startSkillLoop(this, `${e[1]}:x${k}`, x.url, gain, { loop: false, fade: x.stop });
-                else this._play(x.url, { volume: gain, limited: true, unitKey: `${e[1]}:x${k}` });
+                else this._play(x.url, { volume: gain, limited: true, bank: `${su.def}:x${su.skillIndex}:${k}` });
               });
             } else skillExtrasOf(ue, su.skillIndex).forEach((x, k) => stopSkillLoop(this, `${e[1]}:x${k}`));
             // modes[i].deferStart: a fallback start sound — it plays only for a skill that ended without an attack (its
             // attacks sound the skill's own attack sound, as the official ability signals do)
             if (!e[2] && su.startHeld) this.unit(su.def, 'skill', e[1], su.skillIndex ?? undefined);
             su.startHeld = false;
+            // local patch (2026-10-10, docs/rules/audio.md 「스킬 종료음」): its ON_SKILL_FINISH / ON_ABILITY_END bank as it ends
+            const fin = !e[2] ? skillEndOf(ue, su.skillIndex) : null;
+            if (fin) this._play(fin.url, { volume: loopGain(fin), limited: true, bank: `${su.def}:end:${su.skillIndex}` });
           }
         }
         if (kind === 'atk') {
@@ -1138,14 +1182,15 @@ export class AudioManager {
           const mode = src.skillOn ? src.skillIndex : null; // local patch: the running skill's mode sounds (audioOfficial.js)
           if (tgt && tgt.side !== src.side) this.lastAttacker.set(e[2], { def: src.def, at: now, mode });
           src.startHeld = false; // local patch
-          if (!this.unit(src.def, 'attack', e[1], undefined, mode) && src.side === 'enemy') this.battle('enemyHit', { unitKey: `${e[1]}:atk`, volume: 0.35 });
+          if (!this.unit(src.def, 'attack', e[1], undefined, mode) && src.side === 'enemy') this.battle('enemyHit', { volume: 0.35 });
+          this.unit(src.def, 'on', e[1], undefined, mode); // local patch (2026-10-10): its ON bank too (START and ON both sound)
         } else if (kind === 'dmg') {
           const by = this.lastAttacker.get(e[1]);
           if (!by || !IMPACT_TYPES.has(e[3])) continue;
           this.lastAttacker.delete(e[1]); // one impact per attack
           if (now - by.at <= IMPACT_WINDOW_MS) this.unit(by.def, 'hit', `h${e[1]}`, undefined, by.mode); // local patch: by.mode
         } else if (kind === 'heal') {
-          this.battle('heal', { unitKey: `heal:${e[1]}`, volume: 0.35 });
+          this.battle('heal', { volume: 0.35 });
         } else if (kind === 'skill' && e[2]) {
           const u = this.units.get(e[1]);
           if (u) {
@@ -1162,15 +1207,15 @@ export class AudioManager {
           }
         } else if (kind === 'engage') {
           // 行动开始: the first attack a unit makes on an enemy (the sim's ENGAGE, official ENCOUNTER_ENEMY, 3 s apart)
+          // local patch (2026-10-10): with the official rules (voicePolicy.js) 行动开始 comes from the enemy route preview
+          // cursor instead (voice.js voiceForRoutePreview), never from an engagement
           const u = this.units.get(e[1]);
-          if (u && unitSoundClass(u) === 'char') {
-            if (!this.voicePolicy) this.voice(u.def, 'faceEnemy', { unitKey: e[1] });
-            else if (this.voicePolicy.encounter(now)) this.voicePolicy.encountered(this.voice(u.def, 'faceEnemy', { unitKey: e[1] })); // local patch: once per battle
-          }
+          if (u && unitSoundClass(u) === 'char' && !this.voicePolicy) this.voice(u.def, 'faceEnemy', { unitKey: e[1] });
         } else if (kind === 'die') {
           stopUnitLoops(this, e[1]); // local patch: its loop and held one-shots
           const u = this.units.get(e[1]);
           if (!u) continue;
+          if (u.side === 'enemy') this._enemyOut(e[1], now); // local patch (2026-10-10)
           const consumed = this.consumed.delete(e[1]);
           const m = this.getManifest();
           const url = deathSfxUrl(m, u, { consumed, reason: typeof e[2] === 'string' ? e[2] : null });
@@ -1179,27 +1224,31 @@ export class AudioManager {
           const mix = own ? m.audio.sfx.units[u.def].mix?.die : null;
           if (!unitSoundPlays(mix, this.random())) continue;
           // local patch: the official mix (audioOfficial.js) instead of unitGain(0.8, mix) / 0.7
-          this._playUnitUrl(url, own ? `${e[1]}:die` : `die:${e[1]}`, own ? officialGain(u.def, 'die', m.audio.sfx.units[u.def], mix) : battleGain(u.side === 'enemy' ? 'enemyDie' : 'charDie'));
+          this._playUnitUrl(url, own ? `${u.def}:die` : `b:die:${unitSoundClass(u)}`, own ? officialGain(u.def, 'die', m.audio.sfx.units[u.def], mix) : battleGain(u.side === 'enemy' ? 'enemyDie' : 'charDie')); // local patch: the bank
         } else if (kind === 'leak') {
           // 漏怪: an enemy reached its goal (Battle.leak emits the sim's own EV.LEAK — it is NOT a `die`, so until now a
           // leak was completely silent, for the player's own field and for a 联防 the helpers could not hold alike).
           // The cue is the ORIGINAL Arknights stage alarm — the one an enemy entering the exit plays in any normal
           // stage (manifest `sfx.battle.leak`, bank battle.ON_ENEMY_REACHED_EXIT, file b_ui_alarmenter).
           // `LEAK_SFX_GAP_MS` keeps it to one alarm at a time (the official bank's own maxSoundAllowed 1).
+          this._enemyOut(e[1], now); // local patch (2026-10-10): the time without an enemy (noEnemyMs)
           if (now - (this.lastLeakSfxAt ?? -Infinity) < LEAK_SFX_GAP_MS) continue;
           if (typeof this.getManifest()?.audio?.sfx?.battle?.leak !== 'string') continue;
           this.lastLeakSfxAt = now;
-          this.battle('leak', { unitKey: 'leak', volume: 0.85 });
+          this.battle('leak', { volume: 0.85 });
         } else if (kind === 'deploy') {
           const u = this.units.get(e[1]);
           if (!u || u.side === 'enemy') continue;
           // LOCAL-PATCH.md 「배치 낙하」: the opening deployment drops in one by one (render/units.js
           // BORN_STAGGER_S) — the n-th allied piece of the field's first burst sounds (and speaks) with its own drop
+          let opening = !!e.lpTurn; // local patch (2026-10-10): part of the opening deployment (the battle start's voice)
           if (!e.lpTurn && unitSoundClass(u) !== 'device') {
             // the opening = the field's first burst of deploys, before any fighting (a catch-up batch that also carries
             // later summons, or a whole battle fed at once, staggers only those)
             const op = this._opening && !this._opening.over && now - this._opening.at <= OPENING_DEPLOY_WINDOW_MS ? this._opening : null;
-            if (!this._opening) this._opening = { at: now, n: 0 };
+            // local patch (2026-10-10): + the batch's deploys (the battle start's candidates — battleStart below)
+            if (!this._opening) { this._opening = { at: now, n: 0, ids: ev.filter((x) => Array.isArray(x) && x[0] === 'deploy').map((x) => x[1]) }; opening = true; }
+            if (op) opening = true;
             const n = op ? ++op.n : 0;
             if (n > 0) {
               const held = Object.assign(e.slice(), { lpTurn: true, lpFollower: ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1]) });
@@ -1217,14 +1266,23 @@ export class AudioManager {
           // local patch (session K-5, user's decision 2026-10-08 「C」): a 复活 (M3茧甲 / 埃芒加德 reviveNow — a redeploy in the
           // knock-out's tick, its 'revive' fx in the same batch) keeps the drop and b_char_set but says no 部署 line
           const revived = ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'revive' && x[4]?.id === e[1]);
-          if (unitSoundClass(u) === 'char' && !revived) {
+          if (unitSoundClass(u) === 'char' && !revived && this.voicePolicy) {
+            // local patch (2026-10-10, docs/rules/audio.md 「오퍼레이터 음성」): the battle start (the opening deployment) —
+            // 行动出发 once per game, then one random own piece's 部署 (voicePolicy.js battleStart); the rest of the opening
+            // stays silent, a later deployment (a redeploy) says its 部署
+            if (opening && !this.startVoiceDone) {
+              this.startVoiceDone = true;
+              const ids = Array.isArray(this._opening?.ids) ? this._opening.ids : [e[1]];
+              const ops = ids.map((id) => ({ id, u: this.units.get(id) }))
+                .filter(({ u: o }) => o && o.side !== 'enemy' && o.kind !== 'token' && o.kind !== 'device' && unitSoundClass(o) === 'char')
+                .map(({ id, u: o }) => ({ id, def: o.def, ownerId: o.ownerId }));
+              for (const l of this.voicePolicy.battleStart(now, ops)) this.voice(l.def, l.slot, { unitKey: l.id, type: l.type });
+            } else if (!opening && this.voicePolicy.place(now)) this.voice(u.def, 'place', { unitKey: e[1], type: 'PLACE_CHAR' });
+          } else if (unitSoundClass(u) === 'char' && !revived) { // upstream's own rule (no voicePolicy installed)
             if (!this.startVoiceDone) {
               this.startVoiceDone = true;
-              this.voicePolicy?.started(now); // local patch: the opening deployment stays silent after 行动出发
-              const said = this.voice(u.def, 'start');
-              if (!said && this.voicePolicy) this.startVoiceDone = false; // local patch: no 行动出发 line → the next operator says it
-              else if (!said) this.voice(u.def, 'place', { unitKey: e[1] });
-            } else if (!this.voicePolicy || this.voicePolicy.place(now)) this.voice(u.def, 'place', { unitKey: e[1] });
+              if (!this.voice(u.def, 'start')) this.voice(u.def, 'place', { unitKey: e[1] });
+            } else this.voice(u.def, 'place', { unitKey: e[1] });
           }
           if (!url) continue;
           // local patch (user report 2026-10-07 #1): a piece dropped in by the prep just before the battle began sounded there
@@ -1242,7 +1300,7 @@ export class AudioManager {
           // local patch (user report 2026-10-07 #5): the skill's going-off sound first (kitStartKey), then its impact
           for (const hk of [kitStartKey(e[1], e[4]), kitHitKey(e[1], e[4], (id) => this.units.get(id))]) {
             const hurl = hk ? this.getManifest()?.audio?.sfx?.kit?.[hk] : null;
-            if (typeof hurl === 'string') this._play(hurl, { volume: groupGain(this.getManifest()?.audio?.sfx?.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, unitKey: `kit:${hk}`,
+            if (typeof hurl === 'string') this._play(hurl, { volume: groupGain(this.getManifest()?.audio?.sfx?.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, bank: `kit:${hk}`,
               pop: this.getManifest()?.audio?.sfx?.kitLimit?.[hk] ?? null }); // local patch: its mixer group; its bank's popOldest (sfx.kitLimit)
           }
           // a summon used up by its own effect (香槟炸弹 exploding: `consumed`): its impact sound now, no death sound
@@ -1254,7 +1312,7 @@ export class AudioManager {
           if (this.consumed.size > 200) this.consumed.delete(this.consumed.values().next().value);
           this.unit(u.def, 'hit', `${ex.id}:boom`);
         } else if (kind === 'bounty') {
-          this.battle('killCoin', { unitKey: 'coin' });
+          this.battle('killCoin');
         }
       }
     } catch (err) { this._warn('events', err); }

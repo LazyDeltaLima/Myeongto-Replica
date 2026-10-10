@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, onImpact } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, skillEnds, bankPlayTable } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -160,8 +160,12 @@ function firstBank(audio, names) {
   return [];
 }
 
+/** local patch (2026-10-10): sound leaf → the path list it was built from (skill-mode-sfx.mjs bankPlayTable: sfx.bank). */
+const leafPaths = new WeakMap();
 function soundLeaf(paths, sub = 'sfx', max = 4) {
-  return leaf((paths || []).slice(0, max).map((p) => soundAlt(p, sub)));
+  const l = leaf((paths || []).slice(0, max).map((p) => soundAlt(p, sub)));
+  if (l && typeof l === 'object' && Array.isArray(paths)) leafPaths.set(l, paths); // local patch
+  return l;
 }
 
 /**
@@ -172,7 +176,7 @@ function soundLeaf(paths, sub = 'sfx', max = 4) {
 function unitSounds(audio, sfx) {
   const roles = {};
   let mix = null;
-  for (const r of ['attack', 'hit', 'die', 'born']) {
+  for (const r of ['attack', 'on', 'hit', 'die', 'born']) { // local patch (2026-10-10): + on (START and ON both sound)
     if (!sfx[r]) continue;
     roles[r] = soundLeaf(sfx[r]);
     const m = typeof audio.mixOf === 'function' ? audio.mixOf(sfx[r]) : null;
@@ -392,8 +396,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
       // local patch: a projectile named <name>_default (维什戴尔's normal shot) when there is no plain one
       hit: firstBank(audio, [...defProj.flatMap((k) => [`battle.ON_PROJECTILE_HIT.${k}`, `battle.ON_PROJECTILE_REACH.${k}`]),
         `battle.ON_PROJECTILE_HIT.projectile_chr_${short}`, `battle.ON_PROJECTILE_HIT.projectile_chr_${short}_default`]) };
-    const sfx = pickUnitSfx(defaultModeBanks(audio.unitBanks.get(id), info, { projectile: proj.born.length > 0 || proj.hit.length > 0 }),
-      { operator: true, defaultZero: !!info, projectile: proj, impactOf: (bk) => onImpact(bk, 'attack', audio.groupOf) ?? onImpact(bk, 'combat', audio.groupOf) }); // local patch: impactOf
+    const sfx = pickUnitSfx(defaultModeBanks(audio.unitBanks.get(id), info), { operator: true, defaultZero: !!info, projectile: proj });
     const { roles: u, mix } = unitSounds(audio, sfx);
     const skillSfx = {};
     const skillPaths = {}; // local patch: start sound paths per index (their mixer groups, skill-mode-sfx.mjs unitGroups)
@@ -425,6 +428,8 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     if (loops) u.loops = loops;
     const extras = skillExtras(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf, skillPaths); // local patch (report 4 #4-2)
     if (extras) u.extras = extras;
+    const ends = skillEnds(audio, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf); // local patch (2026-10-10): skill-end banks
+    if (ends) u.ends = ends;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 
@@ -691,5 +696,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   template.audio.sfx.kitLimit = kitHitLimits(audio); // local patch: their banks' popOldest / maxSoundAllowed (audio.js)
   const snap = snapshotSfx(audio, soundLeaf, template.audio.sfx); // local patch (report 4 #4-2): mixer snapshots (audioOfficial.js)
   if (snap) template.audio.sfx.snap = snap;
+  const bank = bankPlayTable(audio, leafPaths, template.audio.sfx); // local patch (2026-10-10): pitch range + per-bank cap (audio.js _play)
+  if (bank) template.audio.sfx.bank = bank;
   return { template, models, notes };
 }

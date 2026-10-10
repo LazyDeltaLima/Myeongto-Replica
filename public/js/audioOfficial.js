@@ -8,8 +8,8 @@
 // plays at the Voice group's gain; the sfx channel carries no extra factor (the groups already hold SFX_Battle's −3.15 dB).
 // A role without a group in the manifest falls back to the group its role uses in the official banks (ROLE_GROUP).
 //
-// Skill modes: sfx.units[id].modes[skillIndex] = { attack?, hit?, mix?, grp?, deferStart? } (tools/assets/skill-mode-sfx.mjs)
-// — the attack / impact sounds of the attacks an operator makes while that skill runs.
+// Skill modes: sfx.units[id].modes[skillIndex] = { attack?, on?, hit?, mix?, grp?, deferStart?, noHit? }
+// (tools/assets/skill-mode-sfx.mjs) — the attack / impact sounds of the attacks an operator makes while that skill runs.
 
 import { sfxOut } from './audioSnapshot.js'; // local patch: sounds outside the mixer snapshot bus
 
@@ -30,7 +30,7 @@ const NO_GROUP = GROUP_GAIN.SFX_Battle;
 export function roleGroup(defId, role, mode = false) {
   const enemy = typeof defId === 'string' && defId.startsWith('enemy_');
   switch (role) {
-    case 'attack': return enemy ? 'Battle_E_NAtk' : mode ? 'Battle_P_SAtk' : 'Battle_P_NAtk';
+    case 'attack': case 'on': return enemy ? 'Battle_E_NAtk' : mode ? 'Battle_P_SAtk' : 'Battle_P_NAtk'; // local patch (2026-10-10): + on
     case 'hit': return enemy ? 'Battle_E_NImp' : mode ? 'Battle_P_SImp' : 'Battle_P_NImp';
     case 'skill': return enemy ? 'Battle_E_NAtk' : 'Battle_UI_Boost';
     case 'die': case 'born': return enemy ? 'Battle_E_NImp' : 'Battle_UI_Important';
@@ -84,6 +84,49 @@ export function modeEntry(entry, skillIndex, role = null) {
   return !role || typeof m[role] === 'string' ? m : null;
 }
 
+/**
+ * local patch (2026-10-10): the ON sound of a running skill mode — `modes[i].on` (null: the mode has none) when the mode has
+ * an attack sound of its own; undefined when no such mode runs (the unit's own `on` then).
+ * @param {any} entry sfx.units[defId] @param {number|null|undefined} skillIndex
+ * @returns {string|null|undefined}
+ */
+export function modeOn(entry, skillIndex) {
+  const m = Number.isInteger(skillIndex) ? entry?.modes?.[skillIndex] : null;
+  if (!m || typeof m !== 'object' || typeof m.attack !== 'string') return undefined;
+  return typeof m.on === 'string' ? m.on : null;
+}
+
+/**
+ * local patch (2026-10-10, docs/rules/audio.md 「스킬 종료음」): the bank a unit's skill sounds as it ends
+ * (sfx.units[defId].ends[skillIndex] = { url, grp?, vol? }, tools/assets/skill-mode-sfx.mjs skillEnds) or null.
+ */
+export const skillEndOf = (entry, skillIndex) => (Number.isInteger(skillIndex) && typeof entry?.ends?.[skillIndex]?.url === 'string' ? entry.ends[skillIndex] : null);
+
+/**
+ * local patch (2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」): the play values of a sound file —
+ * manifest `sfx.bank[url]` = [minPitch, maxPitch, maxSoundAllowed (0 = no cap), popOldest] (tools/assets/skill-mode-sfx.mjs
+ * bankPlayTable; 클라 코드 SoundFXBank.Play RVA 0x34B22A0, SoundFXBank.SoundFX._SetAudioChannel RVA 0x34B3500) or null.
+ * @param {any} manifest data/assets.json @param {string} url
+ * @returns {[number, number, number, number]|null}
+ */
+export function bankPlayOf(manifest, url) {
+  const v = manifest?.audio?.sfx?.bank?.[url];
+  return Array.isArray(v) && v.length >= 4 && v.every(Number.isFinite) ? v : null;
+}
+
+/**
+ * The pitch of one play: uniform in [minPitch, maxPitch] (the client's `RandomUtil.Range(minPitch, maxPitch)` →
+ * AudioChannel.pitch; most battle sounds 0.8–1.2). 1 without values.
+ * @param {[number, number, number, number]|null|undefined} info bankPlayOf
+ * @param {() => number} [random]
+ */
+export function playPitch(info, random = Math.random) {
+  if (!info) return 1;
+  const [lo, hi] = info;
+  if (!(lo > 0) || !(hi >= lo)) return 1;
+  return hi > lo ? lo + (hi - lo) * random() : lo;
+}
+
 // ---- skill loops (sfx.units[id].loops, tools/assets/skill-mode-sfx.mjs skillLoops) ---------------------------------------
 // A skill's looping bank — 丰川祥子 S3's music (ON_BUFF_START.oblvns_s_3[loop]), the fields (ON_ABILITY_START.skchr_lisa_3 …)
 // — plays on a loop while the skill runs: started by its 'skill' on, faded out by its 'skill' off, the unit's 'die' or a
@@ -106,6 +149,7 @@ export function startSkillLoop(mgr, key, url, gain, o = {}) {
     try {
       const src = mgr.ctx.createBufferSource();
       src.buffer = buf;
+      if (src.playbackRate) src.playbackRate.value = playPitch(bankPlayOf(mgr.getManifest?.(), url)); // local patch (2026-10-10): its bank's pitch range
       src.loop = o.loop !== false;
       if (!src.loop) src.onended = () => { if (loops.get(key) === rec) loops.delete(key); };
       const g = mgr.ctx.createGain();
@@ -184,8 +228,9 @@ const DOLL_SFX = Object.freeze({
  * The own battle's end (round_result_dialog, ui/phaseArt.js BattleEndBanner) as its official state + sound
  * (`ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`, act1autochess custom SE — already in the manifest as sfx.ui.battleOver*):
  * counted leaks (LP lost) ⇒ 'miss' / BATTLEOVER_REDUCE; no leak at all ⇒ 'perfect' / BATTLEOVER_NOREDUCE; leaks that
- * cost no LP (uncounted) ⇒ 'done' / BATTLEOVER_NORMAL. The REDUCE pairing follows the bank name; NOREDUCE ↔ 完美作战 and
- * NORMAL ↔ the plain 「战斗结束」 are [추정] (the three files are 1.4 s variants of one cue; the dialog's script is native).
+ * cost no LP (uncounted) ⇒ 'done' / BATTLEOVER_NORMAL. The pairs are the client's (2026-10-10, 클라 코드
+ * AutoChessBattleUIRoundResultDialog.OnRender RVA 0x1FECE70: isAllPrefect ⇒ NOREDUCE, else lostHp ≤ 0 ⇒ NORMAL, else REDUCE);
+ * that its isAllPrefect is our `perfect` is [추정] (the caller that sets it was not read).
  * `lost` is the LP the leaks cost, min(cap, counted) as Match.settle charges them — never the raw leak count (user
  * report 2026-10-09: 17 leaks showed 目标生命值减少 17 while the LP fell by 10).
  * @param {{ perfect?: boolean, leaked?: Array<{ counted?: boolean }|null> }|null|undefined} pp that battle's perPlayer

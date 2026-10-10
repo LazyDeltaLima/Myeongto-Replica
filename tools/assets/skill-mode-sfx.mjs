@@ -53,19 +53,19 @@ function unitBank(banks, key) {
 const firstNonEmpty = (lists) => lists.find((p) => Array.isArray(p) && p.length) || null;
 
 /**
- * local patch (user report 2026-10-08 「이격 니어 S3 타격 효과음」): an ability with both a START (the swing, an attack group)
- * and an ON bank on an impact group (Battle_P_SImp / NImp) sounds the ON one as its impact — 耀骑士临光 S3 attack.3
- * p_atk_goldspear_s + p_imp_goldspear_s, 夕 / 莫斯提马 / 水月 / 野鬃 Default, 归溟幽灵鲨 S3, 夕 S2 / S3, 卡涅利安 (billro) S1–S3:
- * the client plays both (the impact was dropped as the ON bank only stood in for a missing START). Exact keys only.
+ * local patch (2026-10-10, docs/rules/audio.md 「START·ON·HIT」): the ON bank of an ability that also has a START bank —
+ * the client emits START, ON (클라 코드 AbilityStandard.DoEmitAudioSignalForSpellOn RVA 0x34EEDC0) and HIT
+ * (DoEmitAudioSignalForHit RVA 0x34EEC20) each on its own and the middleware (TorappuAudioMiddleware.PlayEvent RVA
+ * 0x34B4D10) plays every bank of the name: both sound, whatever the ON bank's mixer group (耀骑士临光 S3 attack.3
+ * p_atk_goldspear_s + p_imp_goldspear_s). Replaces the 2026-10-08 rule that played an impact-group ON bank as the impact.
  * @param {Map<string, string[]>|undefined} banks a unit's bank table
  * @param {string} ability e.g. 'attack.3' or 'attack'
- * @param {((p: string[]) => string|null)|undefined} groupOf
  * @returns {string[]|null}
  */
-export function onImpact(banks, ability, groupOf) {
-  if (!banks || typeof groupOf !== 'function' || !banks.get(`ON_ABILITY_START.${ability}`)?.length) return null;
+export function onBeside(banks, ability) {
+  if (!banks || !banks.get(`ON_ABILITY_START.${ability}`)?.length) return null;
   const on = banks.get(`ON_ABILITY_ON.${ability}`);
-  return on?.length && IMPACT_GROUPS.has(groupOf(on)) ? on : null;
+  return on?.length ? on : null;
 }
 
 /**
@@ -81,10 +81,11 @@ export function modeSounds(audio, charId, n, projKeys = []) {
   const keys = Array.isArray(projKeys) ? projKeys : [];
   const attack = unitBank(banks, `ON_ABILITY_START.attack.${n}`) ?? unitBank(banks, `ON_ABILITY_ON.attack.${n}`)
     ?? firstNonEmpty(keys.map((k) => audio.bank(`battle.ON_PROJECTILE_BORN.${k}`)));
-  const hit = unitBank(banks, `ON_ABILITY_HIT.attack.${n}`) ?? firstNonEmpty(keys.map((k) => audio.bank(`battle.ON_PROJECTILE_HIT.${k}`)))
-    ?? onImpact(banks, `attack.${n}`, audio.groupOf);
+  const hit = unitBank(banks, `ON_ABILITY_HIT.attack.${n}`) ?? firstNonEmpty(keys.map((k) => audio.bank(`battle.ON_PROJECTILE_HIT.${k}`)));
+  const on = onBeside(banks, `attack.${n}`); // local patch (2026-10-10): START and ON both sound
   const out = {};
   if (attack) out.attack = attack;
+  if (on) out.on = on;
   if (hit) out.hit = hit;
   return out;
 }
@@ -109,7 +110,10 @@ export function abilitySounds(audio, skillId) {
   const out = {};
   const attack = find(['ON_ABILITY_START', 'ON_ABILITY_ON'], ATTACK_GROUPS);
   const hit = find(['ON_ABILITY_HIT'], IMPACT_GROUPS);
+  // local patch (2026-10-10): a START swing's ON bank sounds too (onBeside), on an attack or an impact group
+  const on = attack && find(['ON_ABILITY_START'], ATTACK_GROUPS) === attack ? find(['ON_ABILITY_ON'], new Set([...ATTACK_GROUPS, ...IMPACT_GROUPS])) : null;
   if (attack) out.attack = attack;
+  if (on && on !== attack) out.on = on;
   if (hit) out.hit = hit;
   return out;
 }
@@ -132,7 +136,7 @@ export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallba
     if (!found.attack && !found.hit) continue;
     const e = {};
     const mix = {}, grp = {};
-    for (const r of ['attack', 'hit']) {
+    for (const r of ['attack', 'on', 'hit']) { // local patch (2026-10-10): + on
       if (!found[r]) continue;
       e[r] = soundLeaf(found[r]);
       const m = typeof audio.mixOf === 'function' ? audio.mixOf(found[r]) : null;
@@ -159,21 +163,19 @@ const SKILL_MODE = /^Sk?\d/i;
 /**
  * Normal attacks sound from the Default mode only (user report 2026-10-07 #7: 银灰's S3 p_atk_silver_n on every attack):
  * a unit bank table without the attack banks of its skill modes (`ON_ABILITY_*.attack|combat.<n>…`, modes[n] a skill's
- * mode). `.attack.0…` (Default with `_includeIndexZero`) and talent modes stay. Unchanged without mode info — and, [ASSUMED]
- * conservative, when the Default mode would keep no attack bank at all and has no projectile bank (`projectile`): 玛恩纳 /
- * 蜜蜡 / 薄绿 / 卡涅利安 / sbell2 keep their old pick rather than go silent until the official sound is confirmed.
+ * mode). `.attack.0…` (Default with `_includeIndexZero`) and talent modes stay. Unchanged without mode info. A Default
+ * mode with no attack bank and no projectile bank sounds nothing — 玛恩纳 / 蜜蜡 / 薄绿 / 卡涅利安 / sbell2 (2026-10-10:
+ * the client builds the signal id from the mode index, 클라 코드 UnitMode.GenerateSignalId RVA 0x787E80, and the middleware
+ * has no fallback — their old pick, a skill mode's `_n` file, is gone).
  * @param {Map<string, string[]>|undefined} banks audio.unitBanks.get(charId)
  * @param {{ modes?: string[] }|undefined} info local-char-modes.json entry
- * @param {{ projectile?: boolean }} [o] projectile: a Default projectile bank sounds the attack
  */
-export function defaultModeBanks(banks, info, { projectile = false } = {}) {
+export function defaultModeBanks(banks, info) {
   if (!banks || !Array.isArray(info?.modes) || info.modes.length < 2) return banks;
-  const out = new Map([...banks].filter(([k]) => {
+  return new Map([...banks].filter(([k]) => {
     const m = ATTACK_BANK.exec(k);
     return !m || m[1] == null || !SKILL_MODE.test(info.modes[+m[1]] || '');
   }));
-  const kept = [...out.keys()].some((k) => ATTACK_BANK.test(k) && out.get(k)?.length);
-  return kept || projectile ? out : banks;
 }
 
 /**
@@ -186,7 +188,7 @@ export function defaultModeBanks(banks, info, { projectile = false } = {}) {
 export function unitGroups(audio, roles, skillPaths = {}) {
   if (typeof audio.groupOf !== 'function') return null;
   const out = {};
-  for (const r of ['attack', 'hit', 'die', 'born']) { const g = roles?.[r] ? audio.groupOf(roles[r]) : null; if (g) out[r] = g; }
+  for (const r of ['attack', 'on', 'hit', 'die', 'born']) { const g = roles?.[r] ? audio.groupOf(roles[r]) : null; if (g) out[r] = g; } // local patch (2026-10-10): + on
   const sk = {};
   for (const [i, p] of Object.entries(skillPaths || {})) { const g = audio.groupOf(p); if (g) sk[i] = g; }
   if (Object.keys(sk).length) out.skills = sk;
@@ -307,11 +309,12 @@ export function snapshotSfx(audio, soundLeaf, sfx) {
   const add = (g, l) => { if (OUTSIDE_GROUPS.has(g)) for (const u of leafUrls(l)) outside.add(u); };
   for (const u of Object.values(sfx?.units || {})) {
     const g = u?.grp || {};
-    for (const r of ['attack', 'hit', 'die', 'born']) add(g[r], u[r]);
+    for (const r of ['attack', 'on', 'hit', 'die', 'born']) add(g[r], u[r]);
     for (const [i, gi] of Object.entries(g.skills || {})) add(gi, u.skills ? u.skills[i] : u.skill);
-    for (const m of Object.values(u?.modes || {})) for (const r of ['attack', 'hit']) add(m?.grp?.[r], m?.[r]);
+    for (const m of Object.values(u?.modes || {})) for (const r of ['attack', 'on', 'hit']) add(m?.grp?.[r], m?.[r]);
     for (const l of Object.values(u?.loops || {})) add(l?.grp, l?.url);
     for (const list of Object.values(u?.extras || {})) for (const e of list || []) add(e?.grp, e?.url);
+    for (const e of Object.values(u?.ends || {})) add(e?.grp, e?.url);
   }
   for (const [k, g] of Object.entries(sfx?.kitGrp || {})) add(g, sfx?.kit?.[k]);
   const known = new Set();
@@ -328,4 +331,60 @@ export function snapshotSfx(audio, soundLeaf, sfx) {
   }
   if (!Object.keys(hook).length) return null;
   return { hook, outside: [...outside].sort() };
+}
+
+/**
+ * local patch (2026-10-10, docs/rules/audio.md 「스킬 종료음」) sfx.units[charId].ends: per skill index, the bank the client
+ * plays as the skill ends — `battle.ON_SKILL_FINISH.<skillId>` (클라 코드 BasicSkill.OnSkillEnd RVA 0x63A110 →
+ * BattleController.PlayAudioAtPos('ON_SKILL_FINISH', _GenerateSignalId = the skillId unless the skill data names its own
+ * signal id) at the owner; also OnOwnerFinish / _OnReceiveAttackFinishEvent / ToggleSkill.DoCast) and the skill ability's
+ * own `battle.ON_ABILITY_END.<skillId>` (AbilityStandard.OnCastEnd RVA 0x34EFE40) unless that is a looping bank (烛煌 S3's
+ * field: skillLoops). { url, grp?, vol? }. 银灰 S2 b_char_tactboost, 玛恩纳 S2 / 荒芜拉普兰德 S1 b_char_boostclose, …
+ * @param {{ bank: (n: string) => string[], groupOf?: Function, mixOf?: Function, isLoop?: Function }} audio
+ * @param {{ index: number, skillId?: string }[]} skills
+ * @param {(paths: string[]) => any} soundLeaf
+ */
+export function skillEnds(audio, skills, soundLeaf) {
+  const isLoop = (n) => (typeof audio.isLoop === 'function' ? audio.isLoop(n) : false);
+  const out = {};
+  for (const s of Array.isArray(skills) ? skills : []) {
+    if (!s || !Number.isInteger(s.index) || !s.skillId) continue;
+    const name = [`battle.ON_SKILL_FINISH.${s.skillId}`, `battle.ON_ABILITY_END.${s.skillId}`].find((n) => audio.bank(n)?.length && !isLoop(n));
+    if (!name) continue;
+    const paths = audio.bank(name);
+    const e = { url: soundLeaf(paths) };
+    const g = typeof audio.groupOf === 'function' ? audio.groupOf(paths) : null;
+    if (g) e.grp = g;
+    const m = typeof audio.mixOf === 'function' ? audio.mixOf(paths) : null;
+    if (m && Number.isFinite(m.vol)) e.vol = m.vol;
+    out[String(s.index)] = e;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * local patch (2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」) sfx.bank: url → [minPitch, maxPitch,
+ * maxSoundAllowed, popOldest] of the bank each played sound file comes from (audio.mjs bankPlay; 클라 코드
+ * SoundFXBank.Play RVA 0x34B22A0, SoundFXBank.SoundFX._SetAudioChannel RVA 0x34B3500). Every sfx leaf of the built tree
+ * whose paths `leafPaths` knows (plan.mjs soundLeaf) — the bank's own list, else the bank that sounds its first path.
+ * A file two banks share keeps the first bank's values.
+ * @param {{ playOf?: (paths: string[]) => [number, number, number, number]|null }} audio
+ * @param {WeakMap<object, string[]>} leafPaths leaf → the path list it was built from
+ * @param {object} sfx the built sfx tree (template.audio.sfx)
+ * @returns {Record<string, [number, number, number, number]>|null}
+ */
+export function bankPlayTable(audio, leafPaths, sfx) {
+  if (typeof audio.playOf !== 'function') return null;
+  const out = {};
+  const walk = (o) => {
+    if (!o || typeof o !== 'object') return;
+    if (Array.isArray(o.alts)) {
+      const v = audio.playOf(leafPaths.get(o));
+      if (v) for (const u of leafUrls(o)) if (!out[u]) out[u] = v;
+      return;
+    }
+    for (const x of Object.values(o)) walk(x);
+  };
+  walk(sfx);
+  return Object.keys(out).length ? Object.fromEntries(Object.entries(out).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : null;
 }

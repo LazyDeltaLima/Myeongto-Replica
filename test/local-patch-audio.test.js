@@ -25,7 +25,7 @@ function manager() {
   const a = new AudioManager({ win: null, getManifest: () => manifest, random: () => 0 });
   a.ctx = {};
   a.played = [];
-  a._play = (url, o) => { a.played.push({ url, volume: o.volume, unitKey: o.unitKey }); };
+  a._play = (url, o) => { a.played.push({ url, volume: o.volume, bank: o.bank ?? o.unitKey }); };
   a.voice = () => false;
   return a;
 }
@@ -74,7 +74,7 @@ describe('skill-mode sounds: the data (local-char-modes.json, plan.mjs)', () => 
     assert.match(file(a.modes['1'].attack), /^p_atk_smksndrt_h\.mp3$/);
     assert.match(file(a.modes['1'].hit), /^p_imp_smksndrt_h\.mp3$/);
     assert.equal(a.modes['1'].mix.attack.vol, 1.8);
-    assert.deepEqual(a.modes['2'].grp, { attack: 'Battle_P_SAtk', hit: 'Battle_P_SImp' });
+    assert.deepEqual(a.modes['2'].grp, { attack: 'Battle_P_SAtk', on: 'Battle_P_SAtk', hit: 'Battle_P_SImp' }, 'START swing + its ON bank (2026-10-10: both sound)');
     assert.match(file(a.modes['2'].attack), /_s\.mp3$/);
     assert.equal(a.grp.attack, 'Battle_P_NAtk');
     assert.match(file(UNITS.char_1035_wisdel.modes['2'].attack), /^p_atk_dkmrcaygnfr_s\.mp3$/, 'S3 = mode 3 (attack.3.1)');
@@ -117,9 +117,12 @@ describe('the official mix and mode sounds in audio.js (audioOfficial.js)', () =
     a.handleBattleEvents([['skill', 1, 1], ['atk', 1, 2, 'none'], ['dmg', 2, 100, 'phys']]);
     a.handleBattleEvents([['skill', 1, 0], ['atk', 1, 2, 'none'], ['dmg', 2, 100, 'phys']]);
     const urls = a.played.map((p) => file(p.url));
-    assert.deepEqual(urls, [file(U.attack), file(U.hit), file(U.skills['2']), file(U.modes['2'].attack), file(U.modes['2'].hit), file(U.attack), file(U.hit)]);
+    // 2026-10-10: the ON bank beside each START swing sounds too (p_atk_smksndrtspd_*)
+    assert.deepEqual(urls, [file(U.attack), file(U.on), file(U.hit), file(U.skills['2']), file(U.modes['2'].attack), file(U.modes['2'].on), file(U.modes['2'].hit),
+      file(U.attack), file(U.on), file(U.hit)]);
+    assert.match(file(U.on), /^p_atk_smksndrtspd_n\.mp3$/);
     assert.ok(close(a.played[0].volume, 0.348 * (U.mix?.attack?.vol ?? 1)), 'normal attack: Battle_P_NAtk × its bank volume');
-    assert.ok(close(a.played[3].volume, 0.428 * 1.3), 'S3 attack: Battle_P_SAtk × 1.3');
+    assert.ok(close(a.played[4].volume, 0.428 * 1.3), 'S3 attack: Battle_P_SAtk × 1.3');
   });
 
   test('an attack-ability skill (阿斯卡纶 S1): its attack sounds the skill, no separate start sound; one without an attack plays it at its end', () => {
@@ -127,16 +130,16 @@ describe('the official mix and mode sounds in audio.js (audioOfficial.js)', () =
     const U = UNITS.char_4132_ascln;
     a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: 'char_4132_ascln', defId: 'chess_x', skillIndex: 0 }, { id: 2, kind: 'enemy', side: 'enemy', spine: 'enemy_1006_shield' }]);
     a.handleBattleEvents([['skill', 1, 1], ['atk', 1, 2, 'none'], ['dmg', 2, 100, 'phys'], ['skill', 1, 0]]);
-    assert.deepEqual(a.played.map((p) => file(p.url)), [file(U.modes['0'].attack), file(U.modes['0'].hit)]);
+    assert.deepEqual(a.played.map((p) => file(p.url)), [file(U.modes['0'].attack), file(U.modes['0'].on), file(U.modes['0'].hit)]);
     a.played.length = 0;
     a.handleBattleEvents([['skill', 1, 1]]);
     assert.equal(a.played.length, 0, 'held while the skill waits for its attack');
     a.handleBattleEvents([['atk', 1, 2, 'none']]);
-    assert.deepEqual(a.played.map((p) => file(p.url)), [file(U.modes['0'].attack)], 'the attack of a later batch: the skill\'s attack sound only');
+    assert.deepEqual(a.played.map((p) => file(p.url)), [file(U.modes['0'].attack), file(U.modes['0'].on)], 'the attack of a later batch: the skill\'s attack sounds only');
     a.handleBattleEvents([['skill', 1, 0]]);
     a.played.length = 0;
     a.handleBattleEvents([['skill', 1, 1], ['skill', 1, 0]]);
-    assert.deepEqual(a.played.map((p) => p.unitKey), ['1:skill'], 'ended without an attack: the start sound then');
+    assert.deepEqual(a.played.map((p) => p.bank), ['char_4132_ascln:skill:0'], 'ended without an attack: the start sound then');
   });
 
   test('skill loops: 丰川祥子 S3\'s music runs while the skill does, stops at its end / a new field; a looping start bank plays only as the loop', () => {
@@ -149,7 +152,7 @@ describe('the official mix and mode sounds in audio.js (audioOfficial.js)', () =
     a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: 'char_4182_oblvns', defId: 'chess_x', skillIndex: 2 }]);
     a.handleBattleEvents([['skill', 1, 1]]);
     assert.ok(a._skillLoops?.has(1), 'loop started');
-    assert.deepEqual(a.played.map((p) => p.unitKey), ['1:skill'], 'and its start sound');
+    assert.deepEqual(a.played.map((p) => p.bank), ['char_4182_oblvns:skill:2'], 'and its start sound');
     a.handleBattleEvents([['skill', 1, 0]]);
     assert.ok(!a._skillLoops.has(1), 'stopped with the skill');
     a.handleBattleEvents([['skill', 1, 1]]);
@@ -161,6 +164,21 @@ describe('the official mix and mode sounds in audio.js (audioOfficial.js)', () =
     b.handleBattleEvents([['skill', 3, 1]]);
     assert.ok(b._skillLoops.has(3));
     assert.equal(b.played.length, 0, 'the looping start bank is not also played once');
+  });
+
+  test('skill end (2026-10-10, BasicSkill.OnSkillEnd → ON_SKILL_FINISH.<skillId>): 银灰 S2 ends with b_char_tactboost, 玛恩纳 S2 / 荒芜拉普兰德 S1 b_char_boostclose', () => {
+    assert.equal(file(UNITS.char_172_svrash.ends?.['1']?.url), 'b_char_tactboost.mp3');
+    assert.equal(file(UNITS.char_4064_mlynar.ends?.['1']?.url), 'b_char_boostclose.mp3');
+    assert.equal(file(UNITS.char_1038_whitw2.ends?.['0']?.url), 'b_char_boostclose.mp3');
+    assert.equal(UNITS.char_1014_nearl2.ends, undefined, 'no end bank, no end sound');
+    const a = manager();
+    a.setFieldUnits([{ id: 1, kind: 'op', side: 'ally', spine: 'char_172_svrash', defId: 'chess_x', skillIndex: 1 }]);
+    a.handleBattleEvents([['skill', 1, 1]]);
+    assert.ok(!a.played.some((p) => file(p.url) === 'b_char_tactboost.mp3'), 'not at its start');
+    a.handleBattleEvents([['skill', 1, 0]]);
+    const end = a.played.filter((p) => p.bank === 'char_172_svrash:end:1');
+    assert.deepEqual(end.map((p) => file(p.url)), ['b_char_tactboost.mp3'], 'at its end');
+    assert.ok(close(end[0].volume, GROUP_GAIN[UNITS.char_172_svrash.ends['1'].grp]), 'its bank\'s mixer group');
   });
 
   test('enemies attack at Battle_E_NAtk or their own group (−9 dB under the old 0.55)', () => {
@@ -182,12 +200,11 @@ describe('normal attacks sound only their Default mode (user report 2026-10-07 #
     const ob = new Map([['ON_ABILITY_ON.attack.0.1', ['a_h']], ['ON_ABILITY_START.attack.4.1', ['slnt']]]);
     assert.deepEqual([...defaultModeBanks(ob, { modes: ['Default', 'S2_AttackSpeed', 'S2_Atk', 'S2_Fever', 'S3'] }).keys()], ['ON_ABILITY_ON.attack.0.1']);
     const ind = new Map([['ON_ABILITY_ON.attack.1', ['t1']], ['ON_ABILITY_ON.attack.2', ['s1']]]);
-    assert.deepEqual([...defaultModeBanks(ind, { modes: ['Default', 'Default_T1', 'S1'] }, { projectile: true }).keys()], ['ON_ABILITY_ON.attack.1'], 'Default_T1 is a talent mode');
+    assert.deepEqual([...defaultModeBanks(ind, { modes: ['Default', 'Default_T1', 'S1'] }).keys()], ['ON_ABILITY_ON.attack.1'], 'Default_T1 is a talent mode');
     assert.equal(defaultModeBanks(sv, undefined), sv, 'no mode info: unchanged');
-    // [ASSUMED] no Default attack bank at all (玛恩纳 — only S1's): the old pick stays rather than a silent attack
+    // 2026-10-10 (UnitMode.GenerateSignalId, no middleware fallback): no Default attack bank at all (玛恩纳 — only S1's) = silent
     const ml = new Map([['ON_ABILITY_HIT.attack.1', ['loyal_n']]]);
-    assert.equal(defaultModeBanks(ml, { modes: ['Default', 'S1', 'S2', 'S3'] }), ml);
-    assert.equal(defaultModeBanks(ml, { modes: ['Default', 'S1', 'S2', 'S3'] }, { projectile: true }).size, 0, 'a Default projectile bank counts');
+    assert.equal(defaultModeBanks(ml, { modes: ['Default', 'S1', 'S2', 'S3'] }).size, 0);
   });
 
   test('the manifest: 银灰 / 号角 / 丰川祥子 / 圣约送葬人 / 雷蛇 normal attacks without their skill-mode sounds', () => {
@@ -199,7 +216,10 @@ describe('normal attacks sound only their Default mode (user report 2026-10-07 #
     assert.match(file(UNITS.char_4182_oblvns.attack), /^p_atk_mjckyrdnt_h\.mp3$/, '丰川祥子: her Default ON.attack.0.1, not S3\'s slnt');
     assert.equal(UNITS.char_1032_excu2.hit, undefined, '圣约送葬人: not S3_End\'s p_imp_bngel');
     assert.equal(UNITS.char_107_liskam.hit, undefined, '雷蛇: not S2\'s lightning');
-    assert.match(file(UNITS.char_4064_mlynar.hit), /^p_imp_loyalsword_n\.mp3$/, '玛恩纳 [ASSUMED]: no Default bank — the old pick stays');
+    // 2026-10-10: the official normal attack of 玛恩纳 / 蜜蜡 / 薄绿 / 卡涅利安 / sbell2 has no bank — silent
+    for (const id of ['char_4064_mlynar', 'char_344_beewax', 'char_388_mint', 'char_426_billro', 'char_1046_sbell2']) {
+      for (const r of ['attack', 'on', 'hit']) assert.equal(UNITS[id][r], undefined, `${id}.${r}`);
+    }
     assert.match(file(UNITS.char_172_svrash.modes['2'].attack), /^p_atk_silver_n\.mp3$/, 'S3 keeps its own');
   });
 
@@ -219,7 +239,7 @@ describe('normal attacks sound only their Default mode (user report 2026-10-07 #
   });
 });
 
-describe('kit sounds cut their oldest copy like the official popOldest banks (蕾缪安 S3 shells, user report #10)', () => {
+describe('every bank plays like the official SoundFXBank.Play: popOldest / maxSoundAllowed per bank, a random pitch (2026-10-10; 蕾缪安 S3 shells, user report #10)', () => {
   /** A manager with a fake Web Audio context: every source it starts / stops is recorded. */
   function live() {
     const a = new AudioManager({ win: null, getManifest: () => manifest, random: () => 0 });
@@ -232,7 +252,6 @@ describe('kit sounds cut their oldest copy like the official popOldest banks (�
     a.sfxGain = {};
     a._buffer = async () => ({ duration: 30 });
     a.voice = () => false;
-    a.limiter.unitCooldownMs = 0; a.limiter.urlGapMs = 0;   // the gaps are not under test
     return { a, started, stopped };
   }
   const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -250,14 +269,40 @@ describe('kit sounds cut their oldest copy like the official popOldest banks (�
     const shells = started.filter((s) => s.buffer);
     assert.equal(shells.length, 5, 'every landing starts its sound');
     assert.equal(stopped.length, 2, 'the two oldest were cut');
-    assert.equal(a.limiter.activeByUrl.get(url), 3, 'three playing');
+    assert.equal(a.limiter.count('kit:lemuen:shell'), 3, 'three playing');
+    assert.deepEqual(manifest.audio.sfx.bank[url]?.slice(2), [3, 1], 'its bank values in sfx.bank');
   });
 
-  test('unit sounds keep the old cap: a third overlapping copy is dropped, nothing cut', async () => {
+  test('a unit bank (maxSoundAllowed 2, popOldest): a third copy cuts the oldest; a non-popOldest bank drops the new one; no per-unit gap', async () => {
     const { a, started, stopped } = live();
-    for (let i = 0; i < 3; i++) { a._play('/x/hit.mp3', { limited: true, unitKey: `u${i}` }); await tick(); }
-    assert.equal(started.length, 2);
-    assert.equal(stopped.length, 0);
+    const url = UNITS.char_4132_ascln.attack;
+    assert.deepEqual(manifest.audio.sfx.bank[url]?.slice(2), [2, 1]);
+    a.setFieldUnits([1, 2, 3].map((id) => ({ id, kind: 'op', side: 'ally', spine: 'char_4132_ascln', defId: 'chess_x' })));
+    for (const id of [1, 2, 3]) { a.unit('char_4132_ascln', 'attack', id); await tick(); }
+    assert.equal(started.filter((s) => s.buffer).length, 3, 'all three start — three units, one bank, no 160 ms gap');
+    assert.equal(stopped.length, 1, 'the oldest was cut');
+    assert.equal(a.limiter.count('char_4132_ascln:attack'), 2);
+    const b = live();
+    b.a.getManifest = () => ({ ...manifest, audio: { ...manifest.audio, sfx: { ...manifest.audio.sfx, bank: { '/x/hit.mp3': [1, 1, 2, 0] } } } });
+    for (let i = 0; i < 3; i++) { b.a._play('/x/hit.mp3', { limited: true, bank: 'x' }); await tick(); }
+    assert.equal(b.started.length, 2, 'popOldest false: the third is dropped');
+    assert.equal(b.stopped.length, 0);
+  });
+
+  test('pitch: a random playbackRate in the sound\'s [minPitch, maxPitch] (most battle sounds 0.8–1.2); 1 without values', async () => {
+    const { a, started } = live();
+    const url = UNITS.char_4132_ascln.attack;
+    const [lo, hi] = manifest.audio.sfx.bank[url];
+    assert.ok(lo < hi, 'a range');
+    for (let i = 0; i < 20; i++) { a._play(url, { limited: true, bank: `p${i}` }); await tick(); }
+    const rates = started.map((s) => s.playbackRate.value);
+    assert.ok(rates.every((r) => r >= lo && r <= hi), rates.join(','));
+    assert.ok(new Set(rates).size > 1, 'random per play');
+    a._play('/x/unknown.mp3', { limited: true, bank: 'u' }); await tick();
+    assert.equal(started.at(-1).playbackRate.value, 1);
+    const kinds = {};
+    for (const v of Object.values(manifest.audio.sfx.bank)) kinds[`${v[0]}-${v[1]}`] = (kinds[`${v[0]}-${v[1]}`] || 0) + 1;
+    assert.ok(kinds['0.8-1.2'] > kinds['1-1'], JSON.stringify(kinds));
   });
 });
 

@@ -115,7 +115,7 @@ import { battleRunner } from '../battle/runner.js';
 import { isClientCombat, observeTarget, teammateProgress, cameraLayers, layerCamera, sidesOf, resumedWatch, followedScout } from '../battle/observe.js';
 import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, popupView } from '../ui/watchBonds.js';
 import { data, localAsset, getMode } from '../data.js';
-import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept
+import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRoutePreview } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept, 行动开始 on a route preview
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
@@ -750,6 +750,13 @@ function MatchScreen() {
     if (at === undefined) return;
     placedRef.current.delete(e.uid);
     if (Date.now() - at <= PLACE_VOICE_MS) voiceForPlace(e.unit, e.uid);
+  }) : undefined), [view]);
+  // local patch (2026-10-10, docs/rules/audio.md 「오퍼레이터 음성」): an enemy route preview cursor appeared (render/fxroute.js,
+  // the boss rounds' prep) → 行动开始 by an operator of the own board (voice.js voiceForRoutePreview)
+  useEffect(() => (view ? view.on('routePreview', () => {
+    const board = Array.isArray(live.current.priv?.board) ? live.current.priv.board : [];
+    const ids = board.filter((p) => p && p.kind === 'chess').map((p) => { const r = ownShown(p.id); return r?.assets?.spine || r?.charId || null; });
+    voiceForRoutePreview(ids);
   }) : undefined), [view]);
   // a shop / reward card armed for a purchase that completes a merge lights the tile its elite will take (the deployed
   // copy that deploys first — PRTS 卫戍协议/帮助 "若消耗已部署至作战区的干员，则发送至作战区对应位置", gameLogic.mergeTarget)

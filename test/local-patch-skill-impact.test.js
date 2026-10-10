@@ -1,8 +1,9 @@
 // test/local-patch-skill-impact.test.js — user report 2026-10-08 「이격 니어 S3 발동 후 적을 타격할 때마다 전용 효과음… 여러 종류
-// 효과음이 같이 재생」 (docs/LOCAL-PATCH.md 「스킬 특수 음악·대역 전환·모드 타격음」 → 「휘두름 + 타격」): an ability with a START
-// bank (the swing) and an ON bank on an impact group sounds both — 耀骑士临光 S3 attack.3 p_atk_goldspear_s + p_imp_goldspear_s.
-// The generator kept the ON bank only as a stand-in for a missing START (tools/assets/skill-mode-sfx.mjs modeSounds,
-// audio.mjs pickUnitSfx); onImpact adds it as the impact.
+// 효과음이 같이 재생」 (docs/rules/audio.md 「START·ON·HIT」): an ability with a START bank (the swing) and an ON bank sounds
+// both — 耀骑士临光 S3 attack.3 p_atk_goldspear_s + p_imp_goldspear_s. 2026-10-10 (client code: START / ON / HIT are separate
+// signals and the middleware plays every bank of the name): the ON bank is its own role `on`, played with the attack ('atk',
+// AbilityStandard.DoEmitAudioSignalForSpellOn) whatever its mixer group — no longer as the impact (tools/assets/skill-mode-sfx.mjs
+// onBeside, audio.mjs pickUnitSfx).
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -17,24 +18,26 @@ const UNITS = manifest.audio.sfx.units;
 const OFFICIAL = path.join(ROOT, '.cache', 'gamedata', 'excel', 'audio_data.json');
 const file = (u) => String(u).split('/').pop();
 
-describe('swing + impact (START + ON on an impact group)', () => {
+describe('swing + its ON bank (START + ON both sound)', () => {
   test('the manifest: 耀骑士临光 S3 and the other entries the rule fills', () => {
     const s3 = UNITS.char_1014_nearl2.modes['2'];
-    assert.deepEqual([file(s3.attack), file(s3.hit), s3.noHit ?? null], ['p_atk_goldspear_s.mp3', 'p_imp_goldspear_s.mp3', null]);
-    assert.deepEqual(s3.grp, { attack: 'Battle_P_SAtk', hit: 'Battle_P_SImp' });
+    assert.deepEqual([file(s3.attack), file(s3.on), s3.hit ?? null, s3.noHit ?? null], ['p_atk_goldspear_s.mp3', 'p_imp_goldspear_s.mp3', null, true]);
+    assert.deepEqual(s3.grp, { attack: 'Battle_P_SAtk', on: 'Battle_P_SImp' });
     // 归溟幽灵鲨 S3, 夕 S2 / S3, 卡涅利安 S1–S3 (modes) and 夕 / 莫斯提马 / 水月 / 野鬃 (their normal attack)
-    const modeHits = [['char_1023_ghost2', '2', 'p_imp_sharpsaw_s.mp3'], ['char_2015_dusk', '1', 'p_imp_ancientsword_h.mp3'], ['char_2015_dusk', '2', 'p_imp_ancientsword_s.mp3'],
+    const modeOns = [['char_1023_ghost2', '2', 'p_imp_sharpsaw_s.mp3'], ['char_2015_dusk', '1', 'p_imp_ancientsword_h.mp3'], ['char_2015_dusk', '2', 'p_imp_ancientsword_s.mp3'],
       ['char_426_billro', '0', 'p_imp_goldexplo_n.mp3'], ['char_426_billro', '1', 'p_imp_goldexplo_h.mp3'], ['char_426_billro', '2', 'p_imp_goldexplo_s.mp3']];
-    for (const [id, i, f] of modeHits) assert.equal(file(UNITS[id].modes[i].hit), f, `${id} mode ${i}`);
+    for (const [id, i, f] of modeOns) assert.equal(file(UNITS[id].modes[i].on), f, `${id} mode ${i}`);
     const plain = [['char_2015_dusk', 'p_imp_ancientsword_n.mp3'], ['char_213_mostma', 'p_imp_timewand_n.mp3'], ['char_437_mizuki', 'p_imp_tentacle_n.mp3'], ['char_496_wildmn', 'p_imp_spearstab_n.mp3']];
-    for (const [id, f] of plain) assert.equal(file(UNITS[id].hit), f, id);
+    for (const [id, f] of plain) assert.equal(file(UNITS[id].on), f, id);
+    // and an ON bank on an attack group beside a START too (阿斯卡纶 p_atk_smksndrtspd_n)
+    assert.equal(file(UNITS.char_4132_ascln.on), 'p_atk_smksndrtspd_n.mp3');
   });
 
   test('generator rule on the official audio_data: exact START + ON keys only', { skip: !existsSync(OFFICIAL) && 'no .cache/gamedata' }, async () => {
     const { indexAudio } = await import('../tools/assets/audio.mjs');
-    const { onImpact } = await import('../tools/assets/skill-mode-sfx.mjs');
+    const { onBeside } = await import('../tools/assets/skill-mode-sfx.mjs');
     const audio = indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8')));
-    const at = (id, ab) => (onImpact(audio.unitBanks.get(id), ab, audio.groupOf) || []).map(file);
+    const at = (id, ab) => (onBeside(audio.unitBanks.get(id), ab) || []).map(file);
     assert.deepEqual(at('char_1014_nearl2', 'attack.3'), ['p_imp_goldspear_s.mp3']);
     // an ON bank alone is the swing itself (缄默德克萨斯 S2 attack.2 — #4-4's noHit stays)
     assert.deepEqual(at('char_1028_texas2', 'attack.2'), []);
@@ -43,7 +46,7 @@ describe('swing + impact (START + ON on an impact group)', () => {
     assert.deepEqual(at('char_4039_horn', 'attack.1'), []);
   });
 
-  test('real match path: every 耀骑士临光 S3 attack sounds its swing and its impact', async () => {
+  test('real match path: every 耀骑士临光 S3 attack sounds its swing and its ON bank', async () => {
     const { makeMatch, give, legalTileFor } = await import('./match/harness.js');
     const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
     const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
@@ -75,7 +78,7 @@ describe('swing + impact (START + ON on an impact group)', () => {
     assert.deepEqual(played.map((p) => p.f).filter((f) => /boost|goldspearset/.test(f)), ['p_skill_goldspearboost1.mp3', 'b_char_atkboost.mp3', 'p_skill_goldspearset.mp3']);
     while (u.skill.active && b.time < 40 && !b.finished) feed();
     const swings = played.filter((p) => p.f === 'p_atk_goldspear_s.mp3').length;
-    const impacts = played.filter((p) => p.f === 'p_imp_goldspear_s.mp3').length;
-    assert.ok(swings > 0 && impacts >= swings, `swings ${swings}, impacts ${impacts}`);
+    const ons = played.filter((p) => p.f === 'p_imp_goldspear_s.mp3').length;
+    assert.ok(swings > 0 && ons === swings, `swings ${swings}, ON ${ons}`);
   });
 });

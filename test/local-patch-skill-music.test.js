@@ -27,7 +27,7 @@ function manager() {
   const a = new AudioManager({ win: null, getManifest: () => manifest, random: () => 0 });
   a.played = [];
   a.held = [];
-  a._play = (url, o) => { a.played.push({ url, volume: o.volume, unitKey: o.unitKey }); };
+  a._play = (url, o) => { a.played.push({ url, volume: o.volume, bank: o.bank ?? o.unitKey }); }; // bank: the sound's bank key (2026-10-10)
   a.voice = () => false;
   a._buffer = (url) => ({ url });
   a.sfxGain = {};
@@ -119,13 +119,13 @@ describe('real match path → audio.js (user report 4 #4-2 / #4-4)', () => {
     // screens/game.js: the opening buffer's spawn / deploy / skill
     a.handleBattleEvents(early.filter((e) => e[0] === 'spawn' || e[0] === 'deploy' || e[0] === 'skill'));
     assert.equal(a.units.get(u.id)?.skillOn, true, 'S2 runs for the audio');
-    assert.ok(a.played.some((p) => p.unitKey === `${u.id}:skill` && file(p.url) === 'p_skill_reticentsword_h.mp3'), 'its start sound');
+    assert.ok(a.played.some((p) => p.bank === 'char_1028_texas2:skill:1' && file(p.url) === 'p_skill_reticentsword_h.mp3'), 'its start sound');
     a.played.length = 0;
     u.skill.timeLeft = 120; // the enemies of this field reach her after S2's 8 s: keep it running until a few attacks landed
     run(a, b, () => a.played.filter((p) => file(p.url) === 'p_imp_reticentsword_h.mp3').length >= 3, 90);
     u.skill.end('test');
     b.step(); a.handleBattleEvents(b.drainEvents());
-    const during = a.played.filter((p) => String(p.unitKey).startsWith(`${u.id}:`) || String(p.unitKey).startsWith('h')).map((p) => file(p.url));
+    const during = a.played.filter((p) => String(p.bank).startsWith('char_1028_texas2:')).map((p) => file(p.url));
     assert.ok(during.includes('p_imp_reticentsword_h.mp3'), `S2 attack sound (${during.slice(0, 6)})`);
     assert.ok(!during.includes('p_atk_reticentsword_n.mp3'), 'no Default impact while S2 runs');
     assert.equal(a.units.get(u.id).skillOn, false, 'ended');
@@ -141,7 +141,7 @@ describe('real match path → audio.js (user report 4 #4-2 / #4-4)', () => {
     run(a, b, () => b.time > 1);
     u.skill.activate('manual', { free: true });
     run(a, b, () => b.time > 2);
-    const urls = a.played.filter((p) => String(p.unitKey).startsWith(`${u.id}:`)).map((p) => file(p.url));
+    const urls = a.played.filter((p) => String(p.bank).startsWith('char_1014_nearl2:')).map((p) => file(p.url));
     assert.ok(urls.includes('b_char_atkboost.mp3') && urls.includes('p_skill_goldspearboost1.mp3'), urls.join());
   });
 
