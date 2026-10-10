@@ -724,7 +724,7 @@ def main():
                        'abilities (GameObject path; emitters castEffects/hitEffects/attachEffects/inputTargetEffects/castTargetEffects '
                        'with start/end AbilityStandard.Event, oneshot, dir / slots; buffs with overrideEffectKey (fx) and their template '
                        'effects; projectiles with _mountPointType), points (Graphic mount transforms). Written by '
-                       'tools/local-extract/enemy_bindings.py ; the render table goes to public/assets/local/fx/enemy-modes.json.',
+                       'tools/local-extract/enemy_bindings.py; the render table goes to public/assets/local/fx/enemy-modes.json.',
            '$projectiles': dict(sorted(projs.items()))}
     doc.update(res)
     lines = [f' {json.dumps(k)}: {json.dumps(v, ensure_ascii=False, separators=(",", ":"))}' for k, v in doc.items()]
