@@ -74,7 +74,8 @@ for (const clientCombat of [true, false]) {
     assert.deepEqual(inp('p_1', up1.uid).carryState, { hpPct: 0.5, sp: 3 });
     assert.deepEqual(inp('p_2', up2.uid).carryState, { hpPct: 0.5, sp: 3 });
 
-    b.step();
+    // the battle-start deployment (one piece every 0.2 s), then the forced exits as the wave clock starts
+    do b.step(); while (b.waveT0 == null);
     const unitOf = (uid, pid) => b.allyUnits.find((u) => u.uid === uid && u.ownerId === pid);
     for (const [piece, pid] of [[down1, 'p_1'], [down2, 'p_2']]) {
       const u = unitOf(piece.uid, pid);

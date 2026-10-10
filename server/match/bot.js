@@ -1105,7 +1105,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
     if (failed) break;
     yield;
   }
-  const cap = Math.ceil(((wave.timeLimit || 60) + 5) * 30);
+  const cap = Math.ceil(((wave.timeLimit || 60) + 5 + 4) * 30); // + the battle-start deployment (≤ 20 pieces × 0.2 s)
   let i = 0;
   let t = 0;
   let bestScore = -Infinity;

@@ -33,7 +33,7 @@
 //   syntheticResult(players, progress)     stand-in when a boss field's client never reported
 import { TICK, SNAPSHOT_EVERY } from '../sim/constants.js';
 import { layerGainRoom } from '../../shared/constants.js';
-import { uniteLeft } from '../sim/spec.js';
+import { uniteLeft, prebuiltSeconds } from '../sim/spec.js';
 import { diyTokenOwner } from '../../shared/diy.js';
 
 export const MAX_TICKS_PER_INTERVAL = 8;
@@ -707,7 +707,8 @@ export function specBounds(spec, gd = null) {
     // content spawns (splits, summons, boss minions) can add enemies beyond the schedule
     maxTotal,
     layerCap: 60 + 4 * round,
-    maxTime: spec && spec.timeLimit > 0 ? spec.timeLimit + 5 : HARD_CAP_SECONDS,
+    // + the battle-start deployment before the wave clock (sim/spec.js prebuiltSeconds)
+    maxTime: spec && spec.timeLimit > 0 ? spec.timeLimit + 5 + prebuiltSeconds(spec.players) : HARD_CAP_SECONDS,
   };
 }
 

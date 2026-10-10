@@ -64,6 +64,9 @@ test('D1 real path, drain alone: 信仰搅拌机 S3 fires on a 源石溶剂 tick
     const u = b.allyUnits.find(isMixer);
     const sk = ds.getChess(mixId).skill;
     assert.equal(sk.id, 'skchr_rmixer_3', 'S3 is her default loadout');
+    // her SP runs from her deployment — one piece every 0.2 s at the battle start (lifecycle.js _prebuiltStep)
+    while (b.waveT0 == null) b.step();
+    const d0 = u.deployedAt;
     const res = b.runToEnd(400);
     assert.equal(b.errorCount, 0, JSON.stringify(b.errors));
     assert.equal(b.enemies.length, 0, 'no enemy ever entered the field');
@@ -73,7 +76,7 @@ test('D1 real path, drain alone: 信仰搅拌机 S3 fires on a 源石溶剂 tick
     const first = rec.casts[0];
     assert.equal(first.reason, 'TAKE_DAMAGE');
     const ready = sk.spCost - sk.initSp;
-    assert.ok(first.t >= ready - 1e-6 && first.t <= ready + 1 + 1e-6, `${mixId}: cast at the first tick after ${ready} s (${first.t})`);
+    assert.ok(first.t >= d0 + ready - 1e-6 && first.t <= d0 + ready + 1 + 1e-6, `${mixId}: cast at the first tick after ${ready} s from her deployment at ${d0} (${first.t})`);
     // counters with nobody in range: one bullet per drain tick, every one with no enemy on the field
     assert.ok(rec.ammo.length >= 6, `${mixId}: bullets spent (${rec.ammo.length})`);
     assert.ok(rec.ammo.every((a) => a.enemies === 0));

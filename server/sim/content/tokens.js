@@ -1375,6 +1375,38 @@ function airTile(battle, playerId, taken) {
 }
 
 /**
+ * The official spawn point of the 炎佑 (docs/rules/sim.md 「炎佑 등장 위치」): the client's 炎 bond buff (`bondeffect_yan`,
+ * ON_AUTO_CHESS_MODE_CHANGED) calls `SummonEnemiesFollowBranchRoute` with `_defaultBranchId` "dragon" — the wave level's
+ * `branches.dragon` spawn, on its `extraRoutes[routeIndex]` (client code `Scheduler.SpawnSummonedEnemyWithBranchRoute` →
+ * `TryGetEnemyRouteFromBranch`): the start of that route — (11, 7) on the normal and lone-helper 联防 levels, (11, 16)
+ * ±0.5 (`spawnRandom`) on the two-helper 联防 one, (4, 10) on the boss levels ((4, 9) / (4, 8) on two solo ones). Both
+ * sides of a field take the same point (the buff only keeps one summon per side, `side_a_dragon` / `side_b_dragon`); the
+ * mirrored right half of a boss pair takes it mirrored. Returns { r, c, dx, dy } (dx / dy: the random offset drawn from
+ * the battle rng, uniform within ±spawnRandom [ASSUMED: the client's spread]) or null without a template / branch.
+ */
+function yanyouSpawnPoint(battle, ps) {
+  const o = battle.opts || {};
+  let tpl = null;
+  for (const cand of [o.waveTemplate, o.template, o.templateId, o.waveId]) {
+    if (!cand) continue;
+    const t = typeof cand === 'string' ? battle.data.getWave?.(cand) : cand;
+    if (t && typeof t === 'object') { tpl = t; break; }
+  }
+  const br = tpl?.branches?.dragon;
+  const s = Array.isArray(br) && Array.isArray(br[0]) ? br[0].find((x) => x && String(x.key ?? x.enemyKey) === TOKEN_IDS.yanyou) : null;
+  const route = s && Array.isArray(tpl.extraRoutes) ? tpl.extraRoutes[s.routeIndex] : null;
+  const st = route && Array.isArray(route.start) ? route.start : null;
+  if (!st || !Number.isFinite(st[0]) || !Number.isFinite(st[1])) return null;
+  const r = st[0], c = ps?.mirror ? COLS - 1 - st[1] : st[1];
+  const R = battle.rect;
+  if (r < R.r0 || r > R.r1 || c < R.c0 || c > R.c1) return null;
+  const sr = Array.isArray(route.spawnRandom) ? route.spawnRandom : null;
+  const dx = sr && sr[0] > 0 ? battle.rng.range(-sr[0], sr[0]) : 0;
+  const dy = sr && sr[1] > 0 ? battle.rng.range(-sr[1], sr[1]) : 0;
+  return { r, c, dx, dy };
+}
+
+/**
  * 炎 bond summon: spawn `count` “炎佑” for `playerId` (flying ally that picks its own targets; bonds.js computes the
  * numbers). atk / hp (0.3 × the 炎 sums at battle start) are ADDED to the template stats (600 / 12000): PRTS "登场时使
  * 自身攻击力、生命值增加召唤自身的玩家场地上的所有【炎】盟约干员攻击力、生命值的30%（最终加算）". atkMul (9 炎: ×1.5,
@@ -1393,11 +1425,20 @@ export function spawnYanyou(battle, playerId, { atk, hp, atkMul = 1, dmgTakenMul
   if (num(hp, 0) > 0) stats.maxHp = num(base.maxHp, 0) + num(hp, 1);
   const ps = battle.getPlayer(playerId);
   for (let i = 0; i < n; i++) {
-    const tile = airTile(battle, playerId, taken);
+    // the official point (yanyouSpawnPoint) — every 炎佑 of the bond there (9 炎: the client's two summons on the same
+    // route; the second hovers beside the first, hoverDy); without a template the old pick (airTile)
+    const pt = yanyouSpawnPoint(battle, ps);
+    const tile = pt ? [pt.r, pt.c] : airTile(battle, playerId, taken);
     if (!tile) break;
     taken.add(tile[0] * COLS + tile[1]);
     const u = battle.spawnToken(playerId, TOKEN_IDS.yanyou, tile[0], tile[1], { ...(def ? { def } : {}), stats, dir: ps ? ps.dir : 'RIGHT' });
     if (!u) continue;
+    if (pt && (pt.dx || pt.dy)) {
+      const R = battle.rect;
+      u.x = Math.max(R.c0, Math.min(R.c1, u.x + pt.dx));
+      u.y = Math.max(R.r0, Math.min(R.r1, u.y + pt.dy));
+      u.tileR = Math.round(u.y); u.tileC = Math.round(u.x);
+    }
     const mods = {};
     if (num(atkMul, 1) !== 1 && num(atkMul, 1) >= 0) mods.atkMul = num(atkMul, 1);
     if (num(dmgTakenMul, 1) !== 1 && num(dmgTakenMul, 1) >= 0) mods.dmgTakenMul = num(dmgTakenMul, 1);

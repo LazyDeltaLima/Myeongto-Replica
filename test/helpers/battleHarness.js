@@ -37,6 +37,8 @@
 //                 flags.startOpCooldown = 0 unless given: the official 3 s operation cooldown of the battle-start
 //                 deployment (Battle default AUTO_OP_COOLDOWN) would hold back every test that fills a skill's SP at
 //                 t ≈ 0 to stand for a skill that became ready mid-fight; tests of that rule pass it explicitly
+//                 — and flags.prebuiltInterval = 0: the whole battle-start deployment at t = 0, the wave clock with it
+//                 (Battle default PREBUILT_INTERVAL: 0.2 s a piece, the real match path); tests of that rule pass it
 //   autoFinish    end when all enemies are dead (default: true when any spawn is scheduled, else false so a
 //                 battle without enemies keeps running until its time limit)
 //   hooks         list of hook names to capture (default: all DESIGN events)
@@ -253,9 +255,12 @@ export function makeBattle(opts = {}) {
   const battle = new Battle({
     seed: opts.seed ?? 1, kind, modeId: opts.modeId ?? 'mode_multi_normal', round: opts.round ?? 1, stage, rect: opts.rect,
     timeLimit: timeLimit ?? (kind === 'boss' || kind === 'hidden' ? Infinity : 60), players, spawns, routes,
-    sharedBoss: opts.sharedBoss ?? null, flags: { startOpCooldown: 0, ...opts.flags }, fieldId: opts.fieldId ?? 'test', data,
+    sharedBoss: opts.sharedBoss ?? null, flags: { startOpCooldown: 0, prebuiltInterval: 0, ...opts.flags }, fieldId: opts.fieldId ?? 'test', data,
     content: opts.content ?? 'full', recordEvents: opts.recordEvents !== false, logger: opts.logger ?? quietLogger(opts.verbose),
     quiet: opts.verbose ? false : true, devices: opts.devices,
+    // the template the battle was built from, as the match passes it (spec `waveId`): content reads its branches
+    // (bosses.js templateOf, tokens.js yanyouSpawnPoint)
+    ...(opts.waveTemplate ? { waveTemplate: opts.waveTemplate } : {}),
     autoFinish: opts.autoFinish ?? spawns.length > 0, kits: opts.kits, extraContent: opts.extraContent,
     setup: (b) => {
       for (const name of hookNames) {

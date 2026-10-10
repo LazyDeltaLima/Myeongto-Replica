@@ -34,11 +34,29 @@
 import { Battle } from './Battle.js';
 import { toDataSource, withUnitLoadouts } from './simdata.js';
 import { isPotential, isCultivate } from '../../shared/potential.js';
-import { BOSS_POOL_MIN_HP } from './constants.js';
+import { BOSS_POOL_MIN_HP, PREBUILT_INTERVAL } from './constants.js';
 
 export const SPEC_VERSION = 1;
 
 /** Deep JSON round trip (exactly what a spec becomes on the wire). */
+/**
+ * Game seconds of the battle-start deployment before the wave clock starts (battle/lifecycle.js _prebuiltStep): one
+ * group every PREBUILT_INTERVAL — the i-th operator of every player together, then the summon pieces alike — and one
+ * more interval after the last. For deadlines and bounds outside the battle (a content-deferred summon piece is counted:
+ * an upper bound).
+ * @param {object[]} players PlayerBattleInput[] (`units[].kind` 'token' = a summon piece, anything else an operator)
+ */
+export function prebuiltSeconds(players, interval = PREBUILT_INTERVAL) {
+  let ops = 0, toks = 0;
+  for (const p of Array.isArray(players) ? players : []) {
+    const units = Array.isArray(p && p.units) ? p.units : [];
+    const t = units.filter((u) => u && u.kind === 'token').length;
+    ops = Math.max(ops, units.length - t);
+    toks = Math.max(toks, t);
+  }
+  return ops + toks > 0 ? (ops + toks) * interval : 0;
+}
+
 export function jsonClone(v) {
   if (v === undefined) return undefined;
   return JSON.parse(JSON.stringify(v));

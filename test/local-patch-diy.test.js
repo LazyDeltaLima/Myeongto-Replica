@@ -609,6 +609,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const used = r.b.allyUnits.find((u) => u.kind === 'token' && u.mem.wangUsed);
     r.runUntil(() => used.alive, 20);
     assert.ok(used.alive, 'redeployed');
+    r.run(0.4);   // the 跟子 lands 0.25 s after its stone (BuildStone _preDelay)
     assert.ok(r.allies().some((u) => u.kind === 'token' && u.alive && u.mem.wangFollower), '跟子 with the redeploy (ON_OWNER_BORN)');
   });
 
@@ -683,7 +684,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     h.step(2);
     const w = h.unit(1);
     w.skill.activate('manual', { free: true });
-    h.step(1);
+    h.run(2.5);   // the S3-start 跟子: one a cast, 0.25 s apart (InstantSpawn _preDelay / _cooldown)
     assert.ok(w.skill.active);
     for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
     let base = 0;
@@ -694,7 +695,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
       const a0 = w.skill.ammoLeft;
       base = built();
       const e = put(r, c);
-      h.run(1.6);   // the next stand-in drop (1 s pace) + its 跟子, one per 4 frames
+      h.run(1.9);   // the next stand-in drop (1 s pace) + its 跟子 0.25 s later, one per 4 frames
       seen.push([a0 - w.skill.ammoLeft, built() - base]);
       h.b.kill(e);
     }
@@ -711,7 +712,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
       h.step(2);
       const w = h.unit(1);
       w.skill.activate('manual', { free: true });
-      h.step(1);
+      h.run(2.5);   // the S3-start 跟子 first (one per 0.25 s) — the enemies come after them
       assert.ok(w.skill.active);
       const put = (r, c) => { const e = h.spawn('enemy_1001_bigbo', { pos: [r, c], route: 0 }); h.b.applyStatus(e, 'stun', { duration: 99 }); return e; };
       put(11, 4); put(9, 4);
@@ -729,7 +730,8 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const { COLS: W } = await import('../server/sim/constants.js');
     // flat stage: column 2 rows 10–12 deployable high ground, column 10 undeployable ground, the rest deployable ground
     for (const seed of [1, 2, 3]) {
-      const h = makeBattle({ seed, captureNoisy: true, timeLimit: 120, autoFinish: false,
+      // no DP: the stand-in's drop (a paid deployment) stays out, so every 跟子 is an InstantSpawn one
+      const h = makeBattle({ seed, captureNoisy: true, timeLimit: 120, autoFinish: false, flags: { dpPerSec: 0 },
         units: [op('wang', { sk: 2, row: 11, col: 6, dir: 'LEFT' }), stone(12, 9, 50)] });   // S3 range: columns 2–6
       h.step(2);
       const w = h.unit(1);
@@ -741,7 +743,9 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
       // the InstantSpawn ones only: they come before the stand-in's first stone (drop) in the same cast
       let drop = false;
       h.b.spawnToken = (...a) => { const u = orig(...a); if (u && a[4]?.kit?.fromTokens) drop = true; if (u && !drop && a[4]?.kit?.follower) spawned.push([u.tileR, u.tileC]); return u; };
+      h.b.players[0].dp = 0;
       w.skill.activate('manual', { free: true });
+      h.run(2.5);   // one a cast, 0.25 s apart (InstantSpawn _preDelay / _cooldown)
       const keys = new Set(w.rangeKeys);
       assert.ok(keys.has(11 * W + 2) && keys.has(10 * W + 4), 'both enemy tiles in her range');
       assert.ok(spawned.length >= 2, `seed ${seed}: InstantSpawn 跟子 built (${JSON.stringify(spawned)})`);
@@ -787,6 +791,8 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const orig = h.b.spawnToken.bind(h.b);
     h.b.spawnToken = (...a) => { const u = orig(...a); if (u) placedAt.push([u.tileR, u.tileC]); return u; };
     w.skill.activate('manual', { free: true });
+    assert.equal(placedAt.length, 0, 'none at the cast: the first lands after the 0.25 s preDelay');
+    h.run(2.5);
     assert.ok(placedAt.length > 0);
     const cls = ([r, c]) => { const t = h.b.grid.tile(r, c); return t.build === 'NONE' ? 0 : t.height === 'LOW' ? 1 : 2; };
     const seq = placedAt.map(cls);
@@ -881,6 +887,7 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
   test('seven prep stones (her deploy limit at full potential) = no stock: a used-up stone still comes back on its prep tile for DP, before any S1 (maintainer decision 2026-10-08); the client sees die → deploy', async () => {
     const { b, m } = await wangMatch(0, 1);
     b.start();
+    while (b.waveT0 == null) b.step(); // the battle-start deployment, one piece every 0.2 s (lifecycle.js _prebuiltStep)
     const wu = b.allyUnits.find((u) => u.kind === 'op');
     assert.equal(wu.def.charId, CHAR.wang);
     assert.equal(wu.mem.wang.stock, 0, 'stock = 7 − the stones placed in the prep');
@@ -889,7 +896,7 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
     let casts = 0;
     b.on('skillStart', (c) => { if (c.unit === wu) casts++; });
     // filtered at the end: a 跟子 gets mem.wangFollower only after its deploy fires
-    b.on('deploy', (c) => { if (c.unit.kind === 'token' && b.time > 0.5) back.push([c.unit, c.unit.tileR, c.unit.tileC, c.unit.homeR, c.unit.homeC, casts]); });
+    b.on('deploy', (c) => { if (c.unit.kind === 'token' && b.time > b.waveT0 + 0.5) back.push([c.unit, c.unit.tileR, c.unit.tileC, c.unit.homeR, c.unit.homeC, casts]); });
     let dp = b.getPlayer('p_0').dp, paid = 0;
     const ev = [];
     while (!b.finished && b.time < 30) {

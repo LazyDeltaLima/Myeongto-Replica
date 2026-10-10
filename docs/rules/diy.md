@@ -74,8 +74,19 @@
       그리는지에 따라 맞을 수도 있어 미확정. 쓰러진 오퍼레이터가 누운 칸(`Battle.downOn`)에도 안 놓인다(upstream과 같게,
       2026-10-07 관리자 결정). 연결에 참여하고 피해 출처는 망. 여러 개를 이어 지을 때(S3 배치의 재능 1 + 추가 ≤ 3)는 **4프레임마다 하나씩**
       (`env_043_stone_trigger` `_stoneBuildDelay` 4, 클라 코드 `WangStoneTriggerManager.OnTick`의 buildStoneRequests — 2026-10-10, 그 전엔 한꺼번에):
-      첫 개(재능, 무료)는 돌과 함께 [추정: 첫 빌드 프레임은 안 봄], 추가분은 지어질 때마다 탄약 1발, 놓을 칸이 없는 차례는 건너뛴다(클라도 요청 수를
-      줄임). S3 시작 InstantSpawn 跟子는 아직 한꺼번에 [추정: 클라 InstantSpawn은 `_preDelay`·`_cooldown` 0.25에 시전마다 1칸 — 나눠 놓는지 안 봄].
+      첫 개(재능, 무료)부터 추가분까지 각각 요청 0.25초 뒤에 내려앉고(아래 「跟子 던지기 지연」), 추가분은 지어질 때마다 탄약 1발, 놓을 칸이 없는
+      차례는 건너뛴다(클라도 요청 수를 줄임). S3 시작 InstantSpawn 跟子도 한 번에 1칸씩(아래).
+    - **跟子 던지기 지연** (2026-10-10 저녁, 관리자 결정 「클라 타이밍」 — 「S3 발동 뒤 돌이 놓이기까지가 너무 짧다」 제보): 跟子는 놓는 게 아니라
+      던진다 — 재능의 BuildStone(`skchr_wang_3/SpawnTokenS3/BuildStone`·`…InSkill/BuildStone`)과 S3 시작 InstantSpawn은 둘 다 투사체 능력
+      (`projectile_chr_wang_stone3`, `_preDelay` 0.25), InstantSpawn은 시전마다 1칸(`_maxNum` 1)·`_cooldown` 0.25(EN 클라 `[uc]skills.ab`).
+      지금: 돌의 跟子는 각 요청 0.25초 뒤(1/30초 틱이라 8번째 틱, 0.267초; 이어서 4프레임 간격), S3 시작 跟子는 0.25초 뒤 첫 개, 그 뒤 0.25초마다
+      한 개씩 — 칸은 내려앉을 때마다 새로 고른다 [ASSUMED: 클라는 시전 시작(0.25초 앞)에 고름]. 예전: 돌과 같은 틱(재능), S3 시작분은 한꺼번에.
+      `op-wang.js FOLLOWER_PRE_DELAY`·`S3_SPAWN_COOLDOWN`. 테스트 `test/local-patch-diy-wang.test.js` W12(0.25초 뒤 첫 跟子),
+      `test/local-patch-diy.test.js` 「none at the cast」.
+      - **[열림] 투사체 비행 시간**: `projectile_chr_wang_stone3`의 이동 컴포넌트(속도)를 아직 못 읽어 0.25초에 비행 시간을 더하지 않았다 —
+        조사 뒤 더할 것(관리자 결정 2026-10-10: 조사 전까지 제외).
+      - **[보류] S3 자동 배치(손 배치 대체)의 첫 돌**: 지금은 S3를 켜는 순간 한 개, 그 뒤 1초마다(아래 [추정] 규칙). 늦출지는 관리자가 보류(2026-10-10
+        「아무것도 바꾸지 말 것」).
       놓을 수 없는 칸(2026-10-06 관리자 제보): 클라이언트 跟子 선택기 `exceptTileTypes` + tileTypesMask 14. 비트는 클라 enum
       `Torappu.Battle.TileTypesMask`([Flags]: NONE 0, DEFAULT 1, HOLE 2, END 4, START 8, FAKE_HIGHLAND 16; 2026-10-10 확인 — 그 전엔 tileTypeDict
       순서로 END 2·START 4·HOLE 8이라 [추정]했다) → 14 = HOLE·END·START = `tile_end`·`tile_end_cooperate`·`tile_allygoal`(방어 지점),

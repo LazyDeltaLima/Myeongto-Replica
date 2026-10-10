@@ -44,7 +44,7 @@
 //   events.js        client events, snapshot, field meta, fx, the sim log
 //   util.js          fin / clone
 
-import { TICK, ROWS, COLS, DP_DEFAULTS, MAX_HOOK_DEPTH, AUTO_OP_COOLDOWN } from './constants.js';
+import { TICK, ROWS, COLS, DP_DEFAULTS, MAX_HOOK_DEPTH, AUTO_OP_COOLDOWN, PREBUILT_INTERVAL } from './constants.js';
 import { GEO } from '../../shared/constants.js';
 import { createRng } from './rng.js';
 import { Grid } from './grid.js';
@@ -105,6 +105,12 @@ export class Battle {
     this.flags = { layerGainsEnabled: this.kind === 'normal', ...DP_DEFAULTS, startOpCooldown: AUTO_OP_COOLDOWN, ...(opts.flags || {}) };
     const soc = Number(this.flags.startOpCooldown);
     this.flags.startOpCooldown = this.flags.startOpCooldown != null && Number.isFinite(soc) && soc >= 0 ? soc : AUTO_OP_COOLDOWN;
+    // prebuiltInterval: game seconds between two pieces of the battle-start deployment (constants.js PREBUILT_INTERVAL)
+    const pbi = Number(this.flags.prebuiltInterval);
+    this.flags.prebuiltInterval = this.flags.prebuiltInterval != null && Number.isFinite(pbi) && pbi >= 0 ? pbi : PREBUILT_INTERVAL;
+    // the wave clock (lifecycle.js _beginWave): the battle time the wave scheduler started at — the stage's spawn times
+    // and the time limit count from it; null while the battle-start deployment runs
+    this.waveT0 = null;
     // DP knobs may arrive as undefined/null/strings (e.g. a template without `dp`): never let them poison DP with NaN.
     for (const k of ['dpInit', 'dpPerSec', 'dpMax']) {
       const v = Number(this.flags[k]);

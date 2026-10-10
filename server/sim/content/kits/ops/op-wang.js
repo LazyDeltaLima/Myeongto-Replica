@@ -117,6 +117,14 @@ const WANG_S3_EXTRA = 3; // "第一天赋额外至多部署3枚棋子"
  * at once. Queued 跟子 are built one per `_stoneBuildDelay` 4 frames (WangStoneTriggerManager.OnTick buildStoneRequests).
  */
 const STONE_ARM_FRAMES = 30, STONE_BUILD_FRAMES = 4;
+/**
+ * A 跟子 is thrown, not set down (docs/rules/diy.md 「跟子 던지기 지연」, maintainer decision 2026-10-10 「클라 타이밍」): the
+ * talent's BuildStone (`skchr_wang_3/SpawnTokenS3/BuildStone`, `…InSkill/BuildStone`, the talent's own) and S3's
+ * InstantSpawn are projectile abilities (`projectile_chr_wang_stone3`) with `_preDelay` 0.25 — each 跟子 lands 0.25 s after
+ * its request; S3's InstantSpawn takes one tile a cast (`_maxNum` 1) and casts again after its `_cooldown` 0.25. The
+ * projectile's flight time is not added [open: its movement component was not read].
+ */
+const FOLLOWER_PRE_DELAY = 0.25, S3_SPAWN_COOLDOWN = 0.25;
 
 function stonesOf(battle, owner) {
   return battle.allies(owner.ownerId).filter((a) => a.kind === 'token' && a.defId === STONE_ID && a.ownerUnit === owner && a.alive);
@@ -259,11 +267,12 @@ function wang(bb, chess, def) {
     else if (!full && has) battle.removeBuff(unit, 'wang:stockFull');
   };
   /** A 跟子 on (r, c): a projectile of hers — never under the stone deploy limit, holds no tile. */
-  const placeFollower = (battle, unit, r, c) => {
+  const placeFollower = (battle, unit, r, c, from = 'build') => {
     const tdef = stoneDef(battle, unit);
     if (!tdef) return null;
     const kit = wangStone(tdef.skill?.bb ?? {}, tdef.raw ?? tdef, tdef); // no fromTokens: outside the deploy limit
     kit.follower = true;
+    kit.followerFrom = from; // 'build': around a deployed stone (BuildStone) · 'instant': S3's start (InstantSpawn)
     const f = battle.spawnToken(unit, STONE_ID, r, c, { anySource: true, force: true, kit });
     if (!f) return null;
     f.mem.wangFollower = true;
@@ -304,9 +313,10 @@ function wang(bb, chess, def) {
     return cand.length ? placeFollower(battle, unit, cand[0].r, cand[0].c) : null;
   };
   /**
-   * 铸子 跟子 around `s`: `n` of them, the first at once, then one per STONE_BUILD_FRAMES (the client queues them —
-   * WangStoneTriggerManager buildStoneRequests, `_stoneBuildDelay` 4; 2026-10-10, until then all at once
-   * [ASSUMED: the first one at the stone's birth]). `s3`: the S3 deployment's — the first is the talent's (free), every
+   * 铸子 跟子 around `s`: `n` of them, the first FOLLOWER_PRE_DELAY after the stone's birth (BuildStone `_preDelay` 0.25;
+   * until 2026-10-10 evening at the birth), then one per STONE_BUILD_FRAMES (the client queues them —
+   * WangStoneTriggerManager buildStoneRequests, `_stoneBuildDelay` 4; 2026-10-10, until then all at once). Each picks its
+   * tile when it lands [ASSUMED: the client's ability picks at its cast start, 0.25 s earlier]. `s3`: the S3 deployment's — the first is the talent's (free), every
    * later one built takes one ammo (spendS3; the last ammo ends S3). A build finding no tile is skipped (the client counts
    * the request down either way). While builds are pending S3 does not end for want of stones (the client's
    * WangS3CastSkillWithLimitTimes: hand 0 and `!hasRemainingBuildCnt`).
@@ -332,7 +342,7 @@ function wang(bb, chess, def) {
       if (i >= n) { done(); return; }
       battle.after(STONE_BUILD_FRAMES * TICK, step, { owner: unit });
     };
-    step();
+    battle.after(FOLLOWER_PRE_DELAY, step, { owner: unit });
   };
   /** A stone from the stock on (r, c) ("manual" deployment), then its 跟子 (`extra` of them). */
   const deployStone = (battle, unit, r, c, extra = 1, s3 = false) => {
@@ -414,22 +424,26 @@ function wang(bb, chess, def) {
           // first, then enemy tiles, then undeployable ones; equal tiles stay in the shuffled order, i.e. at random.
           // Until 2026-10-10: enemy tiles first, the enemy closest to its goal first (goalFirst, maintainer decision 2026-10-06
           // [추정]) — no such order in the client. [ASSUMED] all at once: the client's InstantSpawn (`_preDelay` /
-          // `_cooldown` 0.25, one tile a cast) may spread them out — not traced.
+          // `_cooldown` 0.25, one tile a cast) may spread them out — not traced. Since 2026-10-10 evening (maintainer
+          // decision 「클라 타이밍」): one a cast, the first FOLLOWER_PRE_DELAY in, then one per S3_SPAWN_COOLDOWN, each cast
+          // drawing its tile anew (`_maxNum` 1) [ASSUMED: picked when it lands, the client picks at the cast start].
           let over = addOwned(unit, Math.max(1, num(bb.cnt, 8)));
-          const stones0 = stonesOf(battle, unit);
-          const cand = [];
-          for (const k of unit.rangeKeys || []) {
-            const r = Math.floor(k / COLS), c = k % COLS, cls = followerClass(battle, r, c, stones0);
-            if (cls != null) cand.push({ r, c, cls, foe: enemiesOnTile(battle, r, c).length > 0 });
-          }
-          battle.rng.shuffle(cand);
-          const room = Math.min(over, Math.max(0, followerCap - followers(battle, unit).length));
-          if (cand.length > room) cand.sort(followerOrder);
-          for (const { r, c } of cand) {
-            if (over <= 0 || followers(battle, unit).length >= followerCap) break;
-            if (followerClass(battle, r, c, stonesOf(battle, unit)) == null) continue;
-            if (placeFollower(battle, unit, r, c)) over--;
-          }
+          const instant = () => {
+            if (!running() || over <= 0 || followers(battle, unit).length >= followerCap) return false;
+            const stones0 = stonesOf(battle, unit);
+            const cand = [];
+            for (const k of unit.rangeKeys || []) {
+              const r = Math.floor(k / COLS), c = k % COLS, cls = followerClass(battle, r, c, stones0);
+              if (cls != null) cand.push({ r, c, cls, foe: enemiesOnTile(battle, r, c).length > 0 });
+            }
+            if (!cand.length) return false;
+            battle.rng.shuffle(cand);
+            if (cand.length > 1) cand.sort(followerOrder);
+            if (placeFollower(battle, unit, cand[0].r, cand[0].c, 'instant')) over--;
+            return over > 0;
+          };
+          const cast = () => { if (instant()) battle.after(S3_SPAWN_COOLDOWN, cast, { owner: unit }); };
+          battle.after(FOLLOWER_PRE_DELAY, cast, { owner: unit });
           // automatic "manual" deployments: a stone on an enemy tile of her range and a 跟子 on each placeable neighbour (≤ 4),
           // one ammo per 跟子 built (client SpawnTokenS3InSkill). It ends only when the stones (stock) or the ammo run out —
           // no self-stop while the field is full (it waits).

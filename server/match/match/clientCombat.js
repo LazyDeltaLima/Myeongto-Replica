@@ -6,7 +6,7 @@
 
 import { PHASE } from '../../../shared/constants.js';
 import { DeadBattle, syntheticResult, RESULT_GRACE_MS, HARD_CAP_SECONDS, HeadlessJob } from '../fields.js';
-import { buildBattleSpec, createBattleFromSpec } from '../../sim/spec.js';
+import { buildBattleSpec, createBattleFromSpec, prebuiltSeconds } from '../../sim/spec.js';
 
 export class MatchClientCombat {
   /** Stop every client-combat timer and the headless pacer (phase end, finish, dispose). */
@@ -70,7 +70,8 @@ export class MatchClientCombat {
     if (f.done && f.result && Number.isFinite(f.result.time)) return f.result.time;
     const gt = Math.max(0, ((this._clockNow() - f.startAt) / 1000) * this.gameSpeed);
     if (f.endGt != null) return Math.min(gt, f.endGt);
-    const lim = f.spec && f.spec.timeLimit > 0 ? f.spec.timeLimit : HARD_CAP_SECONDS;
+    // the time limit runs on the wave clock, after the battle-start deployment (sim/spec.js prebuiltSeconds)
+    const lim = f.spec && f.spec.timeLimit > 0 ? f.spec.timeLimit + prebuiltSeconds(f.spec.players) : HARD_CAP_SECONDS;
     return Math.min(gt, lim);
   }
 
@@ -129,7 +130,7 @@ export class MatchClientCombat {
   _armDeadline(f) {
     if (f.deadlineTimer) { this.cancel(f.deadlineTimer); f.deadlineTimer = null; }
     if (f.verifyJob) return;
-    const lim = f.spec.timeLimit > 0 ? f.spec.timeLimit : 60;
+    const lim = (f.spec.timeLimit > 0 ? f.spec.timeLimit : 60) + prebuiltSeconds(f.spec.players);
     const at = f.startAt + Math.round((lim / this.gameSpeed) * 1000) + RESULT_GRACE_MS;
     f.deadlineTimer = this.later(Math.max(0, at - this.sched.now()), () => {
       f.deadlineTimer = null;

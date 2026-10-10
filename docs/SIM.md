@@ -68,7 +68,9 @@ b.fieldMeta();                     // { fieldId, kind, rect, stageId, units: Uni
 ```
 
 Construction creates every ally unit (not yet deployed) and installs content (kits, then domain modules). The first
-`step()` (or `b.start()`) spawns stage crates, deploys all board units for free — per player the **operators by column, the
+`step()` (or `b.start()`) spawns stage crates and starts the battle-start deployment: all board units for free, **one group
+every `flags.prebuiltInterval` game seconds** (0.2 — client `_Prebuilt`, constants.js `PREBUILT_INTERVAL`, docs/rules/sim.md
+「작전 시작 차례 배치」; the test harness passes 0: all at once) — per player the **operators by column, the
 left column first, top to bottom within a column** (right boss side: from its own left, the highest field column),
 **then the summon pieces** the same way (PRTS 卫戍协议/帮助 "按从上到下>从左到右的顺序部署。优先部署干员，随后为召唤物", a
 scan down each column — the 阿戈尔 devour's "更靠左和靠上"; row-major until 0.1.3; a skill's summon — 赫默's 医疗探机, 巫恋's
@@ -76,7 +78,9 @@ scan down each column — the 阿戈尔 devour's "更靠左和靠上"; row-major
 summon piece content flags `deferDeploy` (one its owner's loadout does not make, e.g. 赫默 on S1; with
 `SKILL_SUMMON_START_DEPLOY` off also a skill's summon, which then waits on its reserved tile until the skill gives
 one) — firing `deploy {initial:true}` for
-each, forces out the operators that enter knocked out (`carryState.down`, 联防 — §1.1), then fires `battleStart`. Every
+each; one interval after the last group the **wave clock** starts (`battle.waveT0`: the stage's spawn times and the time
+limit count from it — no spawn before), it forces out the operators that enter knocked out (`carryState.down`, 联防 —
+§1.1), then fires `battleStart`. Every
 summon that came in during the initial deployment (also one an operator's deploy brought along) then ranks after all
 the operators in the aggro order (`unit.aggroSeq`, §1.2). On a shared field (联防, the boss field)
 the players' fields deploy side by side: the i-th operators of all players come in together (in `players` order), then

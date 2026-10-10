@@ -48,6 +48,7 @@ export class BattleSpawns {
   }
 
   _processSpawns() {
+    if (this.waveT0 == null) return; // the battle-start deployment runs: the wave clock has not started (lifecycle.js)
     const now = this.time + 1e-9;
     while (this._pending.length && this._pending[0].time <= now) {
       const p = this._pending.shift();

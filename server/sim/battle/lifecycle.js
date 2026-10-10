@@ -1,5 +1,5 @@
 // server/sim/battle/lifecycle.js — Battle methods: lifecycle: start (the battle-start deployment: by column, operators
-// then summons; 联防 forced exits; `battleStart`), step (the tick order of the Battle.js header), the end checks, timeout
+// then summons, one piece every `prebuiltInterval`; then the wave clock: 联防 forced exits, `battleStart`), step (the tick order of the Battle.js header), the end checks, timeout
 // / forced / cleared finishes and the BattleResult.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
@@ -19,7 +19,11 @@ export class BattleLifecycle {
     // boss side from its own left, i.e. the highest field column — PRTS "部署顺序…左右镜像", research 01 §4.3), then the
     // summon pieces in the same order. Until 0.1.3 the top row came first (row-major). [ASSUMED] On a shared field (联防,
     // boss) the players' fields deploy at the same time (PRTS: one unit after another with a fixed delay, from the battle
-    // start), so the i-th operators of all players come in together (in `players` order), then the summons likewise
+    // start), so the i-th operators of all players come in together (in `players` order), then the summons likewise.
+    // One such group every `flags.prebuiltInterval` game seconds (client `_Prebuilt`: a piece, then WaitForFixedSeconds
+    // 0.2 — constants.js PREBUILT_INTERVAL, maintainer decision 2026-10-10; until then all at 0 s), the first at once; the
+    // wave clock starts one interval after the last (_beginWave). Units already down act meanwhile (SP, auras — no enemy
+    // is out yet).
     const seq0 = this._deploySeq;
     const lists = this.players.map((ps) => ps.units.filter((u) => u.kind === 'op' || u.kind === 'token').slice().sort((a, b) =>
       (ps.mirror ? b.homeC - a.homeC : a.homeC - b.homeC) || b.homeR - a.homeR || a.id - b.id));
@@ -28,13 +32,44 @@ export class BattleLifecycle {
     // dockSkillSummons) stays off the field, its tile reserved (isReservedTile), until content deploys it
     // (_startDeploying: a board piece content brings in during this deployment — a tactician's 流形 / 狼群 comes with
     // its owner's deploy — takes its 联防 carry on that first deployment too)
-    this._startDeploying = true;
+    const groups = [];
     for (const kind of ['op', 'token']) {
       const per = lists.map((l) => l.filter((u) => u.kind === kind && !u.deferDeploy));
       const n = Math.max(0, ...per.map((l) => l.length));
-      for (let i = 0; i < n; i++) for (const l of per) if (l[i]) this._safe(() => this._deploy(l[i], { initial: true }), 'initialDeploy', l[i]);
+      for (let i = 0; i < n; i++) groups.push(per.map((l) => l[i]).filter(Boolean));
     }
-    this._startDeploying = false;
+    this._prebuilt = { groups, k: 0, t0: this.time, seq0 };
+    this._prebuiltStep();
+  }
+
+  /**
+   * The battle-start deployment's next groups whose time has come (start: _prebuilt `t0` + k × prebuiltInterval), then —
+   * one interval after the last — the wave clock (_beginWave). Runs from start() and every tick until the wave began.
+   */
+  _prebuiltStep() {
+    const P = this._prebuilt;
+    if (!P) return;
+    const iv = this.flags.prebuiltInterval;
+    const now = this.time + 1e-9;
+    while (P.k < P.groups.length && P.t0 + P.k * iv <= now) {
+      const g = P.groups[P.k++];
+      this._startDeploying = true;
+      for (const u of g) this._safe(() => this._deploy(u, { initial: true }), 'initialDeploy', u);
+      this._startDeploying = false;
+    }
+    if (P.k >= P.groups.length && P.t0 + P.groups.length * iv <= now) {
+      this._prebuilt = null;
+      this._beginWave(P.seq0);
+    }
+  }
+
+  /**
+   * The wave clock starts (client ON_BATTLE_STARTED, then `Scheduler.Init` / `DoSchedule`): the stage's spawn times and
+   * the time limit count from now (`waveT0`), the start-of-battle summons rank in aggro, 联防 forced exits, `battleStart`.
+   */
+  _beginWave(seq0) {
+    this.waveT0 = this.time;
+    if (this.waveT0 > 0) for (const p of this._pending) p.time += this.waveT0;
     // 仇恨 (targeting.js sortAllyTargets: the later deployed is attacked first): every summon that came in during the
     // initial deployment — also one an operator's deploy brought along (a tactician's 援军, a start-of-battle summon)
     // — ranks after all the operators (of every player on the field [ASSUMED]), in the order it came
@@ -65,6 +100,7 @@ export class BattleLifecycle {
     this._stepping = true;
     try {
       if (!this.started) this._phase('start', () => this.start());
+      else if (this._prebuilt) this._phase('prebuilt', () => this._prebuiltStep());
       const dt = this.dt;
       this._phase('scheduled', () => this._runScheduled());
       this._phase('spawns', () => this._processSpawns());
@@ -144,10 +180,12 @@ export class BattleLifecycle {
     // §5.5) — never merely because it emptied: the h07_04 pair leader (official route: no wait) can walk into the
     // objective, and the field then idles while another field may still empty the pool or the overtime drain ends it.
     const poolHolds = !!this.sharedBoss && (this.kind === 'boss' || this.kind === 'hidden');
+    if (this.waveT0 == null) { if (this.time >= MAX_BATTLE_TIME) this._timeout(); return; } // the battle-start deployment runs
     if (this.autoFinish && !poolHolds && !this._pending.length && !this.enemies.some((e) => e.alive) && this.started) {
       if (!this._hasPendingEnemySchedules()) { this._finish('cleared'); return; }
     }
-    if (this.time >= this.timeLimit - 1e-9) { this._timeout(); return; }
+    // the time limit counts from the wave clock (the client's scheduler starts after the battle-start deployment)
+    if (this.time - this.waveT0 >= this.timeLimit - 1e-9) { this._timeout(); return; }
     if (this.time >= MAX_BATTLE_TIME) { this._timeout(); return; }
   }
 

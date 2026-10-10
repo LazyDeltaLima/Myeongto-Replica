@@ -175,6 +175,15 @@ export const DP_DEFAULTS = Object.freeze({ dpInit: 10, dpPerSec: 1, dpMax: 99 })
  * operations.
  */
 export const AUTO_OP_COOLDOWN = 3;
+
+/**
+ * The battle-start deployment, one piece at a time (docs/rules/sim.md 「작전 시작 차례 배치」, maintainer decision 2026-10-10):
+ * client code `MainGameInBattle._StartBattle` runs `_Prebuilt` first — each board piece `Deck.SpawnCharacterOrToken`, then
+ * `WaitForFixedSeconds(0.2)` (.rdata constant) — and only after the last wait fires ON_BATTLE_STARTED and starts the wave
+ * scheduler (`Scheduler.Init` / `DoSchedule`). Game seconds between two deployments (battle flag `prebuiltInterval`; the
+ * test harness passes 0: all at once, the rule before 2026-10-10).
+ */
+export const PREBUILT_INTERVAL = 0.2;
 /**
  * State of a knocked-out operator waiting to redeploy on the tile it lies on (b.snap `down` entries, Battle.snapshot):
  * its respawn timer runs (COUNTING), then it waits for the player's DP to reach its cost (WAIT_DP) or for its tile to be

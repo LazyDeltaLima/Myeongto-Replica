@@ -58,7 +58,8 @@ const trackDeployments = (b, on = () => true) => {
     const u = spawn(...a);
     if (u && u.defId === STONE && on()) {
       if (a[4]?.kit?.fromTokens) groups.push(stamp({ r: u.tileR, c: u.tileC, fol: [] }, b.time));
-      else if (a[4]?.kit && groups.length) {
+      else if (a[4]?.kit && a[4].kit.followerFrom !== 'instant' && groups.length) {
+        // a deployment's 跟子 (BuildStone) — S3's start ones (InstantSpawn, one per 0.25 s) belong to no deployment
         const g = groups.findLast((x) => Math.abs(x.r - u.tileR) + Math.abs(x.c - u.tileC) === 1) ?? groups[groups.length - 1];
         g.fol.push(stamp({ r: u.tileR, c: u.tileC }, b.time));
       }
@@ -68,7 +69,11 @@ const trackDeployments = (b, on = () => true) => {
   b.redeploy = (u, o) => { const ok = redeploy(u, o); if (ok && u.defId === STONE && on()) groups.push(stamp({ r: u.tileR, c: u.tileC, fol: [] }, b.time)); return ok; };
   return groups;
 };
-const paidOf = (g) => g.fol.filter((f) => f.t > g.t + 1e-9).length;
+/**
+ * The paid 跟子 of a deployment: all but the talent's free one, which lands FOLLOWER_PRE_DELAY (0.25 s → the 8th frame,
+ * 0.267 s) after its stone; the paid ones follow 4 frames apart (0.4 s on).
+ */
+const paidOf = (g) => g.fol.filter((f) => f.t > g.t + 0.3).length;
 const trapHitsFrom = (h, r, c) => h.hooksOf('damaged').filter((d) => d.dmg?.tags?.includes('trap') && d.source?.tileR === r && d.source?.tileC === c).length;
 
 describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
@@ -230,11 +235,12 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
     useUp(h, stoneOn(h, 11, 5));
     h.run(0.5);
     useUp(h, stoneOn(h, 12, 5)); // comes back 0.5 s after 11,5, whose 跟子 takes its empty home first (up)
-    h.runUntil(() => groups.length, 5);
+    h.runUntil(() => groups.length && groups[0].fol.length, 5);   // its 跟子 lands 0.25 s after it (BuildStone _preDelay)
     assert.deepEqual(groups[0].fol, [{ r: 12, c: 5 }], '11,5 is back, its 跟子 on the waiting stone\'s home 12,5');
     h.runUntil(() => stoneOn(h, 12, 5).alive, 5);
     assert.ok(stoneOn(h, 12, 5).alive, 'the stone came back at once — it did not wait for the 跟子');
     assert.ok(!fol().some((f) => f.tileR === 12 && f.tileC === 5), 'the 跟子 on its tile is gone');
+    h.run(0.4);   // 12,5's own 跟子 lands 0.25 s after it
     // an operator's move onto a 跟子 (乌尔比安-like moveRedeploy: "类似部署的行为")
     const f = fol()[0];
     assert.ok(f, 'a 跟子 is on the field (12,5\'s own)');
@@ -300,23 +306,24 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
     h.step(2);
     const w = h.unit(1);
     w.skill.activate('manual', { free: true });
-    h.step(1);
+    h.run(2.5);   // S3's start 跟子 land one per 0.25 s (InstantSpawn) — cleared before the drops
     assert.ok(w.skill.active);
     for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
     const groups = trackDeployments(h.b, () => w.skill.active);
     const seen = [];
     for (const [r, c] of [[10, 5], [9, 3]]) {
-      const a0 = w.skill.ammoLeft, g0 = groups.length;
+      const a0 = w.skill.ammoLeft, g0 = groups.length, ws = h.b.time;
       const e = holdEnemy(h, r, c);
-      h.run(1.6);   // the next stand-in drop (1 s pace) + its 跟子, one per 4 frames
+      h.run(1.9);   // the next stand-in drop (1 s pace) + its 跟子 0.25 s later, one per 4 frames
       const mine = groups.slice(g0).filter((g) => g.r === r && g.c === c);
       assert.equal(mine.length, 1, `one deployment on ${r},${c} (${JSON.stringify(groups.slice(g0))})`);
-      // (a used stone coming back elsewhere in the window is a deployment of its own: count only this one's ammo)
-      const others = groups.slice(g0).filter((g) => g !== mine[0]).reduce((n, g) => n + paidOf(g), 0);
+      // (another deployment's paid 跟子 built in the window — a used stone coming back, the previous or next drop — spend
+      // their own ammo: count only this one's)
+      const others = groups.filter((g) => g !== mine[0]).reduce((n, g) => n + g.fol.filter((f) => f.t > g.t + 0.3 && f.t >= ws - 1e-9 && f.t <= h.b.time + 1e-9).length, 0);
       seen.push([a0 - w.skill.ammoLeft - others, mine[0].fol.length]);
       // one per 4 frames (client WangStoneTriggerManager `_stoneBuildDelay` 4), the first with the stone
       const ts = mine[0].fol.map((f) => f.t);
-      assert.ok(Math.abs(ts[0] - mine[0].t) < 1e-6, 'the talent\'s 跟子 with the stone');
+      assert.ok(Math.abs(ts[0] - mine[0].t - 8 * h.TICK) < 1e-6, `the talent's 跟子 0.25 s (the 8th frame) after the stone (BuildStone _preDelay) (${ts[0] - mine[0].t})`);
       for (let i = 1; i < ts.length; i++) assert.ok(Math.abs(ts[i] - ts[i - 1] - 4 * h.TICK) < 1e-6, `4 frames apart (${ts.map((t) => t.toFixed(3))})`);
       h.b.kill(e);
       for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });

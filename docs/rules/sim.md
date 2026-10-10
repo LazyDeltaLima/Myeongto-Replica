@@ -479,3 +479,30 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   `enemy-bindings`의 `Skills/<이름>`·`ON_ABILITY_*.<신호>`를 대소문자 무시로 찾는다. 이름 없는 콘텐츠 능력(특성 반응, 일반 공격 변형)은 표시 없음.
 - 테스트 `test/sim/official-event-fields.test.js`(`shoot` 포함), `enemies_bosses.test.js`의 黑云·凋零骑士·陷落雪祀·杰斯顿·碎铳之簧·管·弦 시각을 비행 시간만큼 늦춤. 투사체 속도로 적 원거리 피해 시각이 바뀌어 golden이 움직인다(roster 44·bonds 6·fields 20·matches 6·
   standins 5·diy 2 사례 — 갱신은 메인 세션), `enemies_bosses.test.js`의 重弩突袭者·集团军重型火炮 시각을 공식 속도로 고침.
+
+## 작전 시작 차례 배치 (2026-10-10, 관리자 결정 「공식처럼 한 개씩, 部署 대사는 한 번」)
+- 근거(클라 코드, 오디오 담당이 찾음 — `audio.md` 「전투 시작」): `MainGameInBattle._StartBattle`이 먼저 `_Prebuilt`를 끝까지 돌린다 — 말 하나마다
+  `Deck.SpawnCharacterOrToken` 뒤 `WaitForFixedSeconds(0.2)`(.rdata 상수). 그 **뒤에** ON_BATTLE_STARTED(1211)를 쏘고 웨이브 스케줄러
+  (`Scheduler.Init`·`DoSchedule`)를 시작한다.
+- 지금(`battle/lifecycle.js start`·`_prebuiltStep`·`_beginWave`): 배치 순서(열마다 위→아래, 왼쪽 열부터, 오퍼레이터 다음 소환물; 공유 필드는 플레이어마다
+  i번째끼리 한 묶음 [ASSUMED])대로 **0.2게임초마다 한 묶음**, 첫 묶음은 0초. 마지막 묶음 뒤 0.2초에 웨이브 시계(`battle.waveT0`)가 시작하고, 그때
+  联防 강제 퇴장 → `battleStart`. 스테이지 출현 시각과 제한 시간은 `waveT0`부터 센다(그 전엔 출현 없음). 먼저 내려온 유닛은 그동안 SP가 차고
+  오라도 켜진다(적은 아직 없음). 상수 `constants.js PREBUILT_INTERVAL`, 전투 플래그 `prebuiltInterval`; 테스트 하네스(`battleHarness`)는 0을
+  넘겨 예전처럼 한꺼번에(단위 테스트용) — 실제 매치 경로(spec → `createBattleFromSpec`)는 0.2.
+- 매치 쪽: 화면 제한 시간(`m.public.deadline`, 일반·联防)과 클라 필드 시계 한도(`clientCombat.js _fieldElapsed`·`_armDeadline`), 결과 검증
+  (`fields.js specBounds maxTime`)에 `spec.js prebuiltSeconds`(묶음 수 × 0.2)를 더한다. 보스 라운드 초과 시간은 실시간 시계라 그대로 [ASSUMED].
+- 예전(2026-10-10 저녁 전): 모두 0초 배치·웨이브 0초 시작, 화면만 0.12초 간격 차례 낙하(`render.md` 「배치 낙하」 — 지움).
+- 테스트 `test/prebuilt-deploy.test.js`(0.2초 간격·`battleStart`·첫 출현·제한 시간, 실제 매치 경로).
+
+## 炎佑 등장 위치 (2026-10-10, 관리자 결정 「클라 칸대로」)
+- 관리자 제보: 「아래쪽 적 공격 지점 근처에 나와야」. 클라: 염국 맹약 버프 `bondeffect_yan`(ON_AUTO_CHESS_MODE_CHANGED)이
+  `SummonEnemiesFollowBranchRoute` `_defaultBranchId "dragon"`을 부른다(진영별 1번 — `side_a_dragon`/`side_b_dragon`, 9명이면 2번 호출) →
+  클라 코드 `Scheduler.SpawnSummonedEnemyWithBranchRoute`(`TryGetEnemyRouteFromBranch` → `Map.GetRouteOrNull`) → 웨이브 레벨의
+  `branches.dragon` 출현 = `extraRoutes[routeIndex]`의 시작점. 버프 템플릿: 비공개 조사 기록(2026-10-10 buff templates).
+- 값(`data/waves.json`): 일반·1인 联防(`escaped_single`) (행 11, 열 7) — 4줄 필드의 위에서 둘째 줄 가운데쯤; 2인 联防(`escaped_multi`) (11, 16)
+  ±0.5(`spawnRandom`); 보스·숨은 핵심 (4, 10)(솔로 `h07_01_s` (4, 9), `h08_01_s` (4, 8); `h07_03`·`h08_03`은 routeIndex 1, 같은 (4, 10)). 관리자가
+  기억한 아래 적 출입구 (9, 10)와는 다르다 — 등장 직후 위협도 높은 적을 쫓아가므로 아래 출입구로 들어오는 적 곁에 곧 가 있는 모습일 수 있다.
+- 지금(`content/tokens.js yanyouSpawnPoint`): 전투의 웨이브 템플릿(`opts.waveId` — 매치가 넘김; 하네스는 `waveTemplate`)에서 위 점을 읽어 모든 炎佑를 거기에
+  (두 번째는 옆에 떠 있음 `hoverDy`), 보스 짝의 반전된 오른쪽은 열을 뒤집음, `spawnRandom`은 전투 난수로 ±범위 균등 [ASSUMED: 클라의 분포].
+  템플릿이 없으면 예전 규칙(`airTile`: 반쪽 중앙의 배치 불가 칸, 대개 (10, 6)).
+- 테스트 `test/content/yanyou-spawn.test.js`.
