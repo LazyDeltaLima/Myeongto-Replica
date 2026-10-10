@@ -2,8 +2,9 @@
 //   * createBattleCursors — the OFFICIAL preview of a battle's start (docs/rules/render.md 「적 경로 미리보기」, 관리자 결정
 //     (2026-10-10)): the wave scheduler runs 2 cursors along an enemy route 3 s before the first unit of a level action
 //     marked `autoPreviewRoute` (/sim/routePreview.js builds the plan from the BattleSpec, public/js/battle/runner.js
-//     hands it over as m.field `routeCursors`). Each cursor spawn is the client's ON_PREVIEW_CURSOR_SPAWND, which says
-//     行动开始 (onSpawn → render/app.js 'routePreview' → screens/game.js → voice.js voiceForRoutePreview).
+//     hands it over as m.field `routeCursors`). Each cursor spawn is the client's ON_PREVIEW_CURSOR_SPAWND (onSpawn →
+//     render/app.js 'routePreview' → screens/game.js → voice.js voiceForRoutePreview — silent in 卫戍协议: its 行动开始
+//     needs the card list the mode disables, docs/rules/audio.md 「오퍼레이터 음성」).
 //   * createRouteCursors — OUR convenience feature, not in the official game (docs/rules/render.md 「보스 경로 미리보기」,
 //     maintainer request 2026-10-08): in the Final Assault / Hidden Core prep the server sends a walking leader's paths
 //     (m.private.nextEnemies boss entry `paths`: [[row, col], …] per leader copy, server/match/bossPath.js — the sim's
@@ -122,8 +123,8 @@ const JOIN_SLACK_S = 0.25;
  * arrives (a field watched mid-battle, a re-entered view) is skipped, one under way joins where it is.
  * @param {{ fxGame: object, heightAt: (r: number, c: number) => number, fallback?: (x: number, y: number, z: number) => void,
  *   onSpawn?: (c: { t: number, motion: string }) => void }} o
- *   onSpawn: a cursor appears on the battle clock (not one joined late) — the client's ON_PREVIEW_CURSOR_SPAWND, which
- *   VoicePlayer._OnPreviewCursorSpawn answers with 行动开始 (public/js/voice.js voiceForRoutePreview)
+ *   onSpawn: a cursor appears on the battle clock (not one joined late) — the client's ON_PREVIEW_CURSOR_SPAWND
+ *   (VoicePlayer._OnPreviewCursorSpawn's 行动开始 never plays in 卫戍协议: public/js/voice.js voiceForRoutePreview)
  * @returns {{ load(plan: object[]|null): void, update(renderT: number): void, clear(): void }}
  */
 export function createBattleCursors({ fxGame, heightAt, fallback = null, onSpawn = null }) {

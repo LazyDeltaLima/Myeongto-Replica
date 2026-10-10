@@ -91,7 +91,7 @@
   녹화에 같은 프레임이 최대 4장 반복돼(게임 끊김) 1.3–2.0배까지 범위가 넓어 판정 못 함 → **2배 그대로**.
   고친 것: `render/app.js` 전투 'deploy'가 전투 시계 1초 안(`OPENING_DROP_GT`)의 아군(정탐 보드·장치 제외)에 차례 번호(`openingDrops`)를 매기고,
   `units.js onDeploy({ order })`가 번호 × `BORN_STAGGER_S` 0.12초 동안 링·그림자·몸·바를 모두 숨겼다가(`_bornHold`, 긴 프레임은 한 번에 최대 0.25초)
-  보통 낙하를 시작한다. 배치 효과음(과 행동출발 다음 사람들의 대사 판단)도 같은 간격으로 미룬다(`audio.js OPENING_DEPLOY_STAGGER_MS`; 필드의 첫 deploy부터
+  보통 낙하를 시작한다. 배치 효과음도 같은 간격으로 미룬다(행동출발은 위수협약에서 나오지 않음 — `audio.md` 「오퍼레이터 음성」)(`audio.js OPENING_DEPLOY_STAGGER_MS`; 필드의 첫 deploy부터
   0.4초 안, 첫 전투 이벤트 atk·dmg·heal·die·leak 전까지 — 한 번에 들어오는 따라잡기 묶음의 나중 소환은 미루지 않음; 새 필드면 남은 차례 취소).
   시뮬레이션은 그대로라 숨어 있는 동안(최대 약 1초) 유닛이 이미 행동할 수 있다 — 시뮬레이션 차례 배치는 별도 항목. 차례 = 시뮬레이션의 배치 순서
   [추정: 공식 순서는 놓은 순서도 왼쪽→오른쪽도 아닌 것으로 보였다]. 확인: 실제 솔로 판 COMBAT:2에서
@@ -136,7 +136,8 @@
   전투 상태를 읽기만 해서(흐름장은 격자 버전별 캐시·순수) 결정성·golden은 그대로 — 서버·프로토콜 변경 없음. 브라우저 `battle/runner.js`가 전투를 만든 직후
   (첫 스텝 전) 한 번 계산해 m.field `routeCursors`로 넘기고 `render/fxroute.js createBattleCursors`가 전투 시계(게임 시간 — 배속이 커서도 빠르게)로 각 커서를
   한 번 달린다(속도 8칸/초, 높이 0.3/1.2, 끝나면 트레일이 사라짐). 중간에 들어온 화면(관전·다시 그린 화면)은 이미 끝난 커서를 건너뛰고 달리는 중인 것은 그 자리부터.
-- 행동개시: 커서가 생길 때마다 `onSpawn` → `'routePreview'` → `screens/game.js`(자기가 낀 필드일 때만) → `voice.js voiceForRoutePreview` — `audio.md` 「오퍼레이터 음성」.
+- 커서가 생길 때마다 `onSpawn` → `'routePreview'` → `screens/game.js`(자기가 낀 필드일 때만) → `voice.js voiceForRoutePreview`. 클라는 이때 행동개시를 말하지만
+  카드 목록(CARD_LIST)이 켜져 있을 때만이고 위수협약은 그것을 끄므로 나오지 않는다(2026-10-10 `6f88741e`) — `audio.md` 「오퍼레이터 음성」.
 - [추정] 남김: ① 플레이스홀더가 다른 이동 방식이라 유닛이 하나도 안 나오는 표시된 액션은 미리보기도 없음(클라가 그 액션을 안 만듦 — 클라 쪽 미리보기 계산
   `_DoReplaceLevelDataClient` RVA 0x839FC0가 같은 LevelData의 isValid를 끄는 경우까지는 안 봄). ② 적 `delayToBorn`(프리팹 `_delayToBorn`, 0이 아닌 적 5종)은
   우리 스폰 시각에 없으므로 커서도 SPAWN 시각 기준. ③ DISAPPEAR/APPEAR가 있는 경로에서 커서가 어떻게 가는지(보스 경로뿐이라 卫戍协议 일반 라운드엔 없음) —
@@ -254,3 +255,12 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   오류를 내지 않음), 가림 메시(occluder) geometry·material dispose, 그다음 렌더러 2개 `dispose()` + `forceContextLoss()`. 기기 구분 없음(데스크탑 포함).
 - 확인: 같은 측정으로 destroy 직후 이펙트 컨텍스트 2개 모두 lost, 남은 텍스처 0(보스·후반 × 공속 3단계, 페이지 오류 없음). `test/render/board3d-retry.test.js`
   FxLibrary.dispose.
+
+## 블레이즈 디 이그나이팅 스파크(烛煌) S3 자세 (2026-10-10, 사용자 제보 「S3 켜진 동안 지금의 공격 모션을 계속 유지」)
+- 원인: S3 클립 묶음(Skill_3_Begin / Skill_3_Loop / Skill_3_End, 자기 Idle 없음)에서 렌더가 Skill_3_Loop을 공격 클립으로 써서 공격마다 처음부터
+  한 번 틀고, 공격 사이(`attackUntil` 뒤)는 기본 Idle로, 클립 끝(`clip.end` = Skill_3_End)도 공격마다 틀었다 — 첫 공격 뒤 S3 자세가 사라짐.
+- 공식(클라 charpack `char_1040_blaze2/Modes/S3`): `_replaceAnimPairs` Idle → Skill_3_Loop, 공격 능력 `_animKey ""`(`local-attack-timing.json` S3 anim "",
+  wait 0) — S3 동안 Skill_3_Loop이 자세로 계속 돌고 공격은 클립을 바꾸지 않는다.
+- 고친 것: `units.js STANCE_SKILLS`(Spine id → 스킬 번호, 지금 烛煌 S3만) → `spine.js _stance()`: 스킬이 켜져 있으면 쉬는 클립 = 스킬 루프, 공격 클립 없음
+  (swing / windUp / attack이 클립을 안 건드림). 시작 Skill_3_Begin, 끝 Skill_3_End는 그대로. 테스트 `test/render/stance-skill.test.js`. [화면 미확인]
+- 같은 꼴(모드 공격 `_animKey ""`)은 `local-attack-timing.json`에 23개 더 있으나 대부분 여러 능력 묶음의 빈 부모라 제보된 烛煌만 넣음 — 다른 오퍼레이터는 제보 때 확인.

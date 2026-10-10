@@ -186,6 +186,7 @@ export class SpineActor {
     this.swingUntil = null;       // the end of a swing's clip (swing): attacks meanwhile leave it alone
     this.fortressClips = null;    // a 要塞's [melee, ranged] clip pairs (render/units.js FORTRESS_CLIPS)
     this.atkRanged = null;        // …and whether its latest attack was ranged (null: not known yet — the role's clip)
+    this.stanceSkills = null;     // skill indices whose loop is the stance while on, attacks clipless (render/units.js STANCE_SKILLS)
     this._play(this._idleName(), true);
   }
 
@@ -313,8 +314,15 @@ export class SpineActor {
     try { const a = this.spine.spineData.findAnimation(name); return a && a.duration > 0 ? a.duration : 1; } catch { return 1; }
   }
 
+  /** The running skill keeps its loop clip on as the stance (stanceSkills: 烛煌 S3) — its attacks play no clip. */
+  _stance() {
+    const sk = this.roles.skill;
+    return !!(this.skillOn && sk && this.stanceSkills && this.stanceSkills.includes(sk.index) && this.has(sk.loop));
+  }
+
   _idleName() {
     const sk = this.roles.skill;
+    if (this._stance()) return sk.loop;
     if (this.skillOn && sk && this.has(sk.idle)) return sk.idle;
     return this.has(this.roles.idle) ? this.roles.idle : (this.has('Idle') ? 'Idle' : [...this.names][0]);
   }
@@ -500,6 +508,7 @@ export class SpineActor {
   }
 
   _attackClip() {
+    if (this._stance()) return null;   // the client's attack `_animKey ""`: the stance runs on
     const sk = this.roles.skill;
     if (this.skillOn && sk && this.has(sk.loop) && sk.via !== 'attack' && !this._skillIsBuffOnly()) return sk;
     const a = this.roles.attack;

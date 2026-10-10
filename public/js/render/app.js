@@ -368,7 +368,7 @@ export async function createFieldView(host, options = {}) {
   const routeCursors = createRouteCursors({ fxGame, heightAt, fallback: routeMote });
   setupCleanup.push(() => routeCursors.clear());
   // 관리자 결정 (2026-10-10): the official route preview cursors of a battle's start (m.field routeCursors, render/fxroute.js
-  // createBattleCursors); each spawn is the client's ON_PREVIEW_CURSOR_SPAWND → 'routePreview' (行动开始, screens/game.js)
+  // createBattleCursors); each spawn is the client's ON_PREVIEW_CURSOR_SPAWND → 'routePreview' (screens/game.js; its 行动开始 is silent in 卫戍协议)
   const battleCursors = createBattleCursors({ fxGame, heightAt, fallback: routeMote, onSpawn: () => emit('routePreview', { fieldId: battleMeta?.fieldId ?? null }) });
   setupCleanup.push(() => battleCursors.clear());
   // battle devices (crates / turrets as sim units): the official crate mesh in the 3D scene, else a Pixi box
