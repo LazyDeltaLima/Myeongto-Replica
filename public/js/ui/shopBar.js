@@ -15,6 +15,7 @@
 // the 晋升奖励 cards (3 free operators, pick 1 — also two taps) until picked or put off (稍后 → rewardOverlay.js pill);
 // a special refresh (凯瑟琳 定向投放's 3 items, 娜仁图亚, 寻呼模块, 信标, 松果) takes the same place under its own name, an
 // item slot drawn as an item card (player report #6 after 0.1.0).
+// A tap anywhere else also closes the detail a card opened, armed or not (maintainer report 2026-10-10).
 // Every operator card shows the skill it will fight with — the player's 干员调配 loadout (m.private.loadout, DESIGN
 // §16): the skill icon above the name, mint-framed with 已调配 in its title when it is not the default skill (and the
 // module type of an elite card, with its official type icon when the local-client art has it). A chess the player does
@@ -224,6 +225,9 @@ export function armedSlotOf(key, slots, rewardSlots = null) {
   return s && !s.sold && s.id === m[3] ? s : null;
 }
 
+/** The taps that leave the bar's armed card and the detail it opened alone: the cards, the detail panel, a dialog. */
+const SHOP_TAP_KEEP = '.scard, .lvcard, .dpanel, .modal';
+
 /**
  * Two-tap state of the bar (first tap arms, second confirms). Disarms on a tap outside the shop / detail panel, on
  * Escape, when the armed card changes or disappears, and when the bar stops being editable.
@@ -237,7 +241,7 @@ export function useTwoTap({ editable, keys }) {
     if (armed == null) return undefined;
     const onDown = (e) => {
       const t = e.target;
-      if (t && t.closest && t.closest('.scard, .lvcard, .dpanel, .modal')) return;
+      if (t && t.closest && t.closest(SHOP_TAP_KEEP)) return;
       setArmed(null);
     };
     const onKey = (e) => { if (e.key === 'Escape') setArmed(null); };
@@ -321,6 +325,24 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
     if (showReward) reward.slots.forEach((s, i) => { if (s && !s.sold) keys.add(armKey('r', i, s)); });
   }
   const [armed, setArmed] = useTwoTap({ editable, keys });
+  // the detail a card opened (its first tap, a right click, a card of a bar that is not editable — no arming there)
+  // closes on a tap anywhere else, as the armed card disarms (maintainer report 2026-10-10: it stayed open); a bond
+  // popup opened from the detail keeps it
+  const [shown, setShown] = useState(false);
+  const closeRef = useRef(onDetailClose);
+  closeRef.current = onDetailClose;
+  useEffect(() => {
+    if (!shown) return undefined;
+    const onDown = (e) => {
+      const t = e.target;
+      if (t && t.closest && t.closest(`${SHOP_TAP_KEEP}, .bpop`)) return;
+      setShown(false);
+      closeRef.current?.();
+    };
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, [shown]);
+  const showDetail = (id, kind, hint) => { setShown(true); onDetail(id, kind, hint); };
   // the armed card's slot (game.js lights the tile a merge's elite will take — gameLogic.mergeTarget); kept before the
   // collapsed tab's early return (hook order)
   const armedSlot = armedSlotOf(armed, slots, showReward ? reward.slots : null);
@@ -349,9 +371,10 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   /** First tap arms + opens the detail; the second buys (or says why it can't). */
   const tapCard = (kind, idx, slot, detailKind, reason, buy) => {
     const key = armKey(kind, idx, slot);
-    if (armed !== key) { setArmed(key); onDetail(slot.id, detailKind, detailKind === 'chess' ? mergeHint(priv, slot.id) : null); return; }
+    if (armed !== key) { setArmed(key); showDetail(slot.id, detailKind, detailKind === 'chess' ? mergeHint(priv, slot.id) : null); return; }
     if (reason) { onRefuse?.(reason); return; }
     setArmed(null);
+    setShown(false);
     onDetailClose?.();
     buy(idx);
   };
@@ -387,7 +410,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
     </div>
     <div class="shopbar__row">
       <${LevelCard} shop=${shop} reason=${lvReason} armed=${armed === levelKey} onTap=${tapLevel} />
-      ${showReward ? html`<${RewardCards} offer=${reward} priv=${priv} editable=${editable} onPick=${onReward} onDetail=${onDetail} onLater=${onRewardLater}
+      ${showReward ? html`<${RewardCards} offer=${reward} priv=${priv} editable=${editable} onPick=${onReward} onDetail=${showDetail} onLater=${onRewardLater}
           armed=${armed} onTap=${tapCard} offBonds=${offBonds} rolled=${offerRolled} />`
         : html`<div key=${`roll${rolls}`} class=${cx('shopbar__cards', rolled && 'is-rolled')}>
         ${hasItemSlot ? null : html`<${SoldCard} key="noitem" item=${true} />`}
@@ -396,13 +419,13 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
             if (!s) return html`<${EmptyCard} key=${`ie${i}`} item=${true} />`;
             if (s.sold) return html`<${SoldCard} key=${`is${i}`} item=${true} />`;
             const reason = shopBlockReason('buy', { priv, editable, slot: s, ...LOOKUPS });
-            return html`<${ItemCard} key=${`i${i}:${s.id}`} slot=${s} idx=${i} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} reason=${reason}
+            return html`<${ItemCard} key=${`i${i}:${s.id}`} slot=${s} idx=${i} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${showDetail} reason=${reason}
               armed=${armed === armKey('i', i, s)} onTap=${editable ? (idx) => tapCard('i', idx, s, 'item', reason, onBuy) : null} />`;
           }
           if (!s) return html`<${EmptyCard} key=${`e${i}`} />`;
           if (s.sold) return html`<${SoldCard} key=${`s${i}`} />`;
           const reason = shopBlockReason('buy', { priv, editable, slot: s, ...LOOKUPS });
-          return html`<${ChessCard} key=${`c${i}:${s.id}`} slot=${s} idx=${i} priv=${priv} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} offBonds=${offBonds}
+          return html`<${ChessCard} key=${`c${i}:${s.id}`} slot=${s} idx=${i} priv=${priv} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${showDetail} offBonds=${offBonds}
               reason=${reason} armed=${armed === armKey('c', i, s)} onTap=${editable ? (idx) => tapCard('c', idx, s, 'chess', reason, onBuy) : null} />`;
         })}
       </div>`}
