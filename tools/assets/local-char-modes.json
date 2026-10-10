@@ -125,6 +125,44 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "nearl2_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "d": 0.1
+    }
+   },
+   {
+    "nearl2_skill_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "nearl2_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "d": 0.1
+    },
+    "nearl2_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "d": 0.1
+    }
+   },
+   {
+    "nearl2_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    1,
    null,
@@ -217,6 +255,30 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "agoat2_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "agoat2_skill_01_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "agoat2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {}
+  ],
   "skillMode": [
    1,
    null,
@@ -301,6 +363,23 @@
    [],
    []
   ],
+  "castOpt": [
+   {},
+   {
+    "siege2_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "siege2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    null,
    1,
@@ -381,6 +460,27 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "reed2_attack_start": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "reed2_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "reed2_skill_03_start_02": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -497,6 +597,41 @@
    ],
    []
   ],
+  "castOpt": [
+   {
+    "kroos2_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kroos2_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "kroos2_skill_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "kroos2_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "kroos2_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    1,
    2
@@ -593,6 +728,53 @@
    [
     "ghost2_skill_03_buff_02"
    ]
+  ],
+  "castOpt": [
+   {
+    "ghost2_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {},
+   {},
+   {
+    "ghost2_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ghost2_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ghost2_skill_03_start_02_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ghost2_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ghost2_skill_03_start_02_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ghost2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "dirs": [
    {
@@ -716,6 +898,66 @@
     "gvial2_chainsaw_glow_02"
    ]
   ],
+  "castOpt": [
+   {
+    "gvial2_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "gvial2_chainsaw_glow_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "gvial2_skill_1_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "gvial2_skill_2_start_01_b": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "gvial2_skill_2_start_01_f_1": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "gvial2_skill_2_start_01_f_2": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "gvial2_skill_2_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "gvial2_skill_2_start_03_up": {
+     "s": 4,
+     "e": 5,
+     "o": 1
+    },
+    "gvial2_skill_2_start_03": {
+     "s": 4,
+     "e": 5,
+     "o": 1
+    }
+   },
+   {
+    "gvial2_skill_3_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "dirs": [
    {
     "t": 3,
@@ -825,6 +1067,41 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "texas2_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "texas2_skill_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "texas2_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "texas2_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "texas2_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    1,
    2,
@@ -891,6 +1168,16 @@
   ],
   "attach": [
    []
+  ],
+  "castOpt": [
+   {
+    "texas_attack_01_start": {
+     "s": 2,
+     "e": 6,
+     "o": 0,
+     "d": 0.5
+    }
+   }
   ],
   "skills": [
    {
@@ -989,6 +1276,108 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "excu2_attack_01_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_attack_01_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_attack_01_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "excu2_attack_01_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_attack_01_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_skill_01_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "excu2_skill_02_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_skill_02_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_skill_02_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "excu2_skill_03_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_skill_03_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_skill_03_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "excu2_skill_03_end_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "excu2_skill_03_end_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "turn": [
    "excu2_skill_02_range_01",
@@ -1122,6 +1511,68 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "swire2_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "swire2_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "swire2_skill_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "swire2_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "swire2_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "swire2_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "swire2_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "swire2_skill_03_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "swire2_skill_03_start_03_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "swire2_skill_03_range": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "turn": [
    "swire2_skill_03_range"
   ],
@@ -1218,6 +1669,46 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "wisdel_attack_a_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "wisdel_attack_down_a_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "wisdel_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "wisdel_skill_02_overload_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "wisdel_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "wisdel_skill_03_down_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "dirs": [
    {
@@ -1389,6 +1880,46 @@
     "whitw2_skill_03_buff_01"
    ]
   ],
+  "castOpt": [
+   {
+    "whitw2_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "whitw2_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "whitw2_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "whitw2_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "whitw2_skill_02_start_03": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "whitw2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    null,
    2,
@@ -1461,6 +1992,22 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "thorn2_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "thorn2_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -1468,12 +2015,17 @@
      "thorn2_skill_start"
     ],
     "buff": [],
-    "target": [
-     "thorn2_token_start",
-     "thorn2_skill_01_token",
-     "thorn2_skill_01_range"
-    ],
-    "targetBuff": []
+    "target": [],
+    "targetBuff": [],
+    "zone": {
+     "fx": [
+      "thorn2_token_start",
+      "thorn2_skill_01_token",
+      "thorn2_skill_01_range"
+     ],
+     "aura": [],
+     "onProj": 0
+    }
    },
    {
     "cast": [],
@@ -1481,11 +2033,18 @@
      "thorn2_skill_start"
     ],
     "buff": [],
-    "target": [
-     "thorn2_token_start",
-     "thorn2_skill_02_token"
-    ],
-    "targetBuff": []
+    "target": [],
+    "targetBuff": [],
+    "zone": {
+     "fx": [
+      "thorn2_token_start",
+      "thorn2_skill_02_token"
+     ],
+     "aura": [
+      "thorn2_skill_02_range"
+     ],
+     "onProj": 1
+    }
    },
    {
     "cast": [],
@@ -1494,11 +2053,16 @@
      "thorn2_skill_start_02"
     ],
     "buff": [],
-    "target": [
-     "thorn2_token_start",
-     "thorn2_skill_03_token"
-    ],
-    "targetBuff": []
+    "target": [],
+    "targetBuff": [],
+    "zone": {
+     "fx": [
+      "thorn2_token_start",
+      "thorn2_skill_03_token"
+     ],
+     "aura": [],
+     "onProj": 0
+    }
    }
   ]
  },
@@ -1538,6 +2102,22 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "angle_attack_01_start": {
+     "s": 4,
+     "e": 6,
+     "o": 0
+    }
+   },
+   {
+    "angle_skill_01_start": {
+     "s": 4,
+     "e": 6,
+     "o": 0
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -1633,6 +2213,30 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "blaze2_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {},
+   {
+    "blaze2_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "blaze2_skill_03_start": {
+     "s": 5,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -1789,6 +2393,101 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "angel2_attack_loop_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "angel2_attack_down_loop_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "angel2_skill_2_loop_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "angel2_skill_2_down_loop_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "angel2_skill_2_loop_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "angel2_skill_2_down_loop_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "angel2_skill_3_loop_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "once": 1
+    },
+    "angel2_skill_3_down_loop_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "once": 1
+    }
+   },
+   {
+    "angel2_skill_3_loop_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "once": 1
+    },
+    "angel2_skill_3_down_loop_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "once": 1
+    }
+   },
+   {
+    "angel2_skill_1_close_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "angel2_skill_1_loop_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "angel2_skill_1_down_loop_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "angel2_skill_1_up_close_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "angel2_skill_1_close_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "dirs": [
    {
     "t": 0,
@@ -1903,6 +2602,37 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "svash2_attack_start_A_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "svash2_attack_start_A_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "svash2_skill_03_combat_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "svash2_skill_03_combat_start_01_2": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "svash2_skill_03_combat_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    null,
    null,
@@ -1985,6 +2715,23 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {},
+   {
+    "sbell2_skill_02_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "sbell2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -2086,6 +2833,39 @@
     "halo2_skill_03_range_01"
    ]
   ],
+  "castOpt": [
+   {
+    "halo2_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "halo2_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "halo2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "attachFoe": [
+   [],
+   [],
+   [
+    "halo2_skill_03_buff_02"
+   ]
+  ],
+  "attachFoeMax": {
+   "halo2_skill_03_buff_02": 1
+  },
   "skillMode": [
    1,
    null,
@@ -2172,6 +2952,40 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "chen3_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "chen3_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "chen3_skill_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {},
+   {
+    "chen3_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "chen3_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    1,
    null,
@@ -2245,6 +3059,27 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "liskam_attack_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "liskam_skill_02_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "liskam_skill_02_start_02": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -2437,6 +3272,16 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "common_heal_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {}
+  ],
   "skillMode": [
    null,
    1
@@ -2484,6 +3329,15 @@
   ],
   "attach": [
    []
+  ],
+  "castOpt": [
+   {
+    "hsguma_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skills": [
    {
@@ -2560,6 +3414,32 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "whitew_attack_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "whitew_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "whitew_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "whitew_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skillMode": [
    null,
    1
@@ -2607,6 +3487,15 @@
   ],
   "attach": [
    []
+  ],
+  "castOpt": [
+   {
+    "ghost_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skills": [
    {
@@ -2673,6 +3562,22 @@
     "prove_skill_02_buff_02"
    ]
   ],
+  "castOpt": [
+   {
+    "prove_attack_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "prove_attack_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skillMode": [
    null,
    1
@@ -2729,6 +3634,16 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "common_empty": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {}
+  ],
   "skillMode": [
    null,
    1
@@ -2776,6 +3691,15 @@
   ],
   "attach": [
    []
+  ],
+  "castOpt": [
+   {
+    "bldsk_attack_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skills": [
    {
@@ -2845,6 +3769,34 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "svrash_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "svrash_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "svrash_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "svrash_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "turn": [
    "svrash_attack_01_start"
@@ -3016,6 +3968,15 @@
   "attach": [
    []
   ],
+  "castOpt": [
+   {
+    "flower_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -3180,6 +4141,15 @@
   "attach": [
    []
   ],
+  "castOpt": [
+   {
+    "yak_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -3249,6 +4219,49 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "dusk_attack_01_start": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    },
+    "dusk_buff_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "dusk_skill_02_range": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    },
+    "dusk_skill_02_start": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    }
+   },
+   {
+    "dusk_skill_03_start": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    },
+    "dusk_skill_03_start_02": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    },
+    "dusk_buff_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -3344,6 +4357,36 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "yu_attack_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "yu_skill1_attack_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "yu_skill2_attack_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "yu_skill3_attack_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    1,
    2,
@@ -3432,6 +4475,23 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "wang_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "wang_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {}
   ],
   "skillMode": [
    null,
@@ -3589,6 +4649,24 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "gnosis_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {},
+   {},
+   {
+    "gnosis_skill_03_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -3662,6 +4740,37 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "mostma_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "mostma_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "mostma_skill_03_range": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "mostma_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "mostma_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -3739,6 +4848,32 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "bpipe_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "bpipe_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "bpipe_skill_03_start_02_right": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "bpipe_skill_03_start_02_left": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "dirs": [
    {
@@ -3823,6 +4958,16 @@
   "attach": [
    []
   ],
+  "castOpt": [
+   {
+    "gravel_attack_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1,
+     "once": 1
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -3894,6 +5039,23 @@
     "cello_skill_03_buff_front_02",
     "cello_skill_03_buff_range"
    ]
+  ],
+  "castOpt": [
+   {
+    "cello_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "cello_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {}
   ],
   "skillMode": [
    null,
@@ -3997,6 +5159,36 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "mlyss_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mlyss_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mlyss_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mlyss_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -4076,6 +5268,22 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "greyy_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "greyy_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skillMode": [
    null,
    1
@@ -4140,6 +5348,16 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "vodfox_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {}
+  ],
   "skills": [
    {
     "cast": [],
@@ -4200,6 +5418,26 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "podego_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "podego_skill_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "shotFrom": [
+   null,
+   5
+  ],
   "skillMode": [
    1,
    null
@@ -4220,12 +5458,17 @@
     ],
     "castLoop": [],
     "buff": [],
-    "target": [
-     "podego_skill_02_range"
-    ],
+    "target": [],
     "targetBuff": [
      "buff_silence"
-    ]
+    ],
+    "zone": {
+     "fx": [
+      "podego_skill_02_range"
+     ],
+     "aura": [],
+     "onProj": 0
+    }
    }
   ]
  },
@@ -4274,6 +5517,50 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "skadi_attack_01_start": {
+     "s": 2,
+     "e": 6,
+     "o": 1,
+     "d": 0.167
+    },
+    "skadi_attack_01_start_02": {
+     "s": 2,
+     "e": 6,
+     "o": 0,
+     "d": 0.167
+    }
+   },
+   {
+    "skadi_attack_02_start": {
+     "s": 2,
+     "e": 6,
+     "o": 1,
+     "d": 0.167
+    },
+    "skadi_attack_02_start_02": {
+     "s": 2,
+     "e": 6,
+     "o": 0,
+     "d": 0.167
+    }
+   },
+   {
+    "skadi_attack_02_start": {
+     "s": 2,
+     "e": 6,
+     "o": 1,
+     "d": 0.167
+    },
+    "skadi_attack_02_start_02": {
+     "s": 2,
+     "e": 6,
+     "o": 0,
+     "d": 0.167
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -4357,6 +5644,34 @@
    [
     "buff_weak"
    ]
+  ],
+  "castOpt": [
+   {
+    "f12yin_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "f12yin_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "f12yin_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "f12yin_skill_03_range": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -4444,6 +5759,36 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "excu_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "excu_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "excu_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1,
+     "d": 0.667
+    },
+    "excu_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1,
+     "d": 0.667
+    }
+   }
+  ],
   "skillMode": [
    1,
    2
@@ -4502,6 +5847,27 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "vigna_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "vigna_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "vigna_skill_02_buff": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skillMode": [
    1,
@@ -4607,6 +5973,31 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "aglina_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "glassb_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "aglina_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {},
+   {}
+  ],
   "skillMode": [
    2,
    3,
@@ -4685,6 +6076,32 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "ayer_attack_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "ayer_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "ayer_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "ayer_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skillMode": [
    null,
    1
@@ -4759,6 +6176,22 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "leizi_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "leizi_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skillMode": [
    null,
    1
@@ -4827,6 +6260,29 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "swire_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "swire_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "swire_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skillMode": [
    1,
    2
@@ -4889,6 +6345,32 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "mudrok_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "mudrok_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mudrok_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "mudrok_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skills": [
    {
@@ -4972,6 +6454,42 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "archet_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "archet_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "archet_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "archet_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "archet_skill_03_start_02_B": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "archet_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "dirs": [
    {
@@ -5070,6 +6588,29 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "utage_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "utage_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "utage_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skillMode": [
    1,
    2
@@ -5130,6 +6671,21 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "sntlla_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "sntlla_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {}
   ],
   "skillMode": [
    null,
@@ -5194,6 +6750,23 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {},
+   {
+    "beewax_skill_01_range": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "beewax_skill_02_range": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    1,
@@ -5265,6 +6838,44 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "surtr_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "surtr_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "surtr_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "surtr_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "surtr_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "surtr_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "turn": [
    "surtr_skill_02_start"
@@ -5349,6 +6960,23 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "lisa_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "lisa_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {}
+  ],
   "skillMode": [
    null,
    1,
@@ -5405,6 +7033,15 @@
   "attach": [
    []
   ],
+  "castOpt": [
+   {
+    "lionhd_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -5460,6 +7097,16 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "bubble_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {}
   ],
   "skillMode": [
    null,
@@ -5610,6 +7257,39 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "rosmon_attack_A_start": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    },
+    "rosmon_attack_A_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "rosmon_skill_02_start": {
+     "s": 2,
+     "e": 6,
+     "o": 0
+    }
+   },
+   {
+    "rosmon_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "shotFrom": [
+   null,
+   7,
+   null
+  ],
   "skillMode": [
    null,
    1,
@@ -5695,6 +7375,33 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "etlchi_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "etlchi_attack_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {},
+   {
+    "etlchi_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "etlchi_skill_03_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -5783,6 +7490,27 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "kjera_token_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kjera_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "kjera_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    null,
    1
@@ -5850,6 +7578,29 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "kazema_attack_01_start_a": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "kazema_attack_01_start_b": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "kazema_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "dollBorn": [
    "kazema_birth_01_start"
@@ -5920,6 +7671,54 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "vulpis_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "vulpis_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "vulpis_skill_03_start_02_up": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "vulpis_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "vulpis_skill_03_start_02_down": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "vulpis_skill_03_start_02_up": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "vulpis_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "vulpis_skill_03_start_02_down": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "dirs": [
    {
@@ -5999,6 +7798,15 @@
   ],
   "attach": [
    []
+  ],
+  "castOpt": [
+   {
+    "forcer_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skills": [
    {
@@ -6104,6 +7912,61 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "horn_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "horn_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "horn_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "horn_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "horn_skill_02_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "horn_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "horn_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "horn_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "horn_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    null,
    1,
@@ -6119,11 +7982,17 @@
     ],
     "buff": [],
     "target": [
-     "horn_skill_01_hit_02_buff",
-     "horn_skill_01_hit_02",
      "horn_skill_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "zone": {
+     "fx": [
+      "horn_skill_01_hit_02_buff",
+      "horn_skill_01_hit_02"
+     ],
+     "aura": [],
+     "onProj": 0
+    }
    },
    {
     "cast": [],
@@ -6195,6 +8064,32 @@
    ],
    []
   ],
+  "castOpt": [
+   {
+    "rockr_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "rockr_attack_start_weapon_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "rockr_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "rockr_skill_02_start_weapon_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    null,
    1
@@ -6262,6 +8157,22 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "lumen_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "lumen_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -6339,6 +8250,32 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "akkord_attack_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "akkord_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "akkord_skill_02_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "akkord_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skillMode": [
    null,
    1
@@ -6400,6 +8337,20 @@
    [
     "malist_drone"
    ]
+  ],
+  "castOpt": [
+   {
+    "malist_attack_buff_weapon": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "malist_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skills": [
    {
@@ -6485,6 +8436,30 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "titi_attack_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "titi_skill_01_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {},
+   {
+    "titi_skill_03_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    1,
    2,
@@ -6560,6 +8535,34 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "pepe_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "pepe_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "pepe_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "pepe_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -6651,6 +8654,46 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "mlynar_attack_01_buff_04": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mlynar_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mlynar_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "mlynar_skill_03_buff_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "mlynar_skill_03_range_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    },
+    "mlynar_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    1,
    null,
@@ -6726,6 +8769,16 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {},
+   {
+    "haini_skill_02_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skills": [
    {
@@ -6809,6 +8862,39 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "qiubai_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "qiubai_attack_combat_A_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "qiubai_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "qiubai_attack_combat_A_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "qiubai_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -6906,6 +8992,44 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "ines_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ines_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ines_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ines_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ines_skill_03_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ines_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -6996,6 +9120,29 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "caper_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "caper_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "caper_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -7060,6 +9207,22 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "harold_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "harold_skill_02_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -7109,6 +9272,22 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "blkkgt_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "blkkgt_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skills": [
    {
@@ -7215,6 +9394,22 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "grabds_attack_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "grabds_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [
@@ -7288,6 +9483,54 @@
    [
     "ascln_skill_03_range_01"
    ]
+  ],
+  "castOpt": [
+   {
+    "ascln_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "ascln_attack_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "ascln_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "ascln_skill_02_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "ascln_skill_02_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "ascln_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "ascln_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "ascln_skill_03_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -7437,6 +9680,69 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "udflow_attack_01_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "udflow_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "udflow_attack_01_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "udflow_skill_02_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "udflow_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "udflow_skill_02_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "udflow_skill_02_trail_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "udflow_skill_02_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "udflow_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "udflow_skill_02_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "udflow_skill_02_trail_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "turn": [
    "udflow_skill_02_trail_01"
   ],
@@ -7523,6 +9829,22 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "papyrs_attack_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "papyrs_attack_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -7612,6 +9934,37 @@
     "ulpia_skill_03_buff_01"
    ],
    []
+  ],
+  "castOpt": [
+   {
+    "ulpia_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ulpia_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ulpia_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ulpia_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {}
   ],
   "skillMode": [
    null,
@@ -7709,6 +10062,29 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "nymph_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "nymph_skill_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "nymph_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    1,
    null,
@@ -7789,6 +10165,23 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "philae_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "philae_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {}
+  ],
   "skills": [
    {
     "cast": [
@@ -7839,6 +10232,15 @@
   "attach": [
    []
   ],
+  "castOpt": [
+   {
+    "tinman_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -7846,13 +10248,18 @@
      "tinman_skill_01_start_03"
     ],
     "buff": [],
-    "target": [
-     "tinman_skill_01_range_01",
-     "tinman_skill_01_start_01",
-     "tinman_skill_01_token_01",
-     "tinman_skill_01_start_02"
-    ],
-    "targetBuff": []
+    "target": [],
+    "targetBuff": [],
+    "zone": {
+     "fx": [
+      "tinman_skill_01_range_01",
+      "tinman_skill_01_start_01",
+      "tinman_skill_01_token_01",
+      "tinman_skill_01_start_02"
+     ],
+     "aura": [],
+     "onProj": 0
+    }
    },
    {
     "cast": [],
@@ -7861,13 +10268,18 @@
      "tinman_skill_02_start_04"
     ],
     "buff": [],
-    "target": [
-     "tinman_skill_02_range_01",
-     "tinman_skill_02_start_01",
-     "tinman_skill_02_token_01",
-     "tinman_skill_02_start_02"
-    ],
-    "targetBuff": []
+    "target": [],
+    "targetBuff": [],
+    "zone": {
+     "fx": [
+      "tinman_skill_02_range_01",
+      "tinman_skill_02_start_01",
+      "tinman_skill_02_token_01",
+      "tinman_skill_02_start_02"
+     ],
+     "aura": [],
+     "onProj": 0
+    }
    }
   ]
  },
@@ -7911,6 +10323,23 @@
     "cathy_skill_01_buff"
    ],
    []
+  ],
+  "castOpt": [
+   {
+    "cathy_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "cathy_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {}
   ],
   "skillMode": [
    1,
@@ -7967,6 +10396,22 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "rosesa_attack_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "rosesa_attack_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -8108,6 +10553,63 @@
    [
     "oblvns_skill_02_buff"
    ]
+  ],
+  "castOpt": [
+   {
+    "oblvns_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "oblvns_combat_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "oblvns_skill_02_start_B": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "oblvns_skill_02_start_A": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "oblvns_skill_02_start_A": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "oblvns_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "oblvns_skill_02_start_B": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "shotFrom": [
+   9,
+   9,
+   null,
+   null,
+   null,
+   null
   ],
   "skills": [
    {
@@ -8252,6 +10754,57 @@
     "tippi_line_01_2"
    ]
   ],
+  "castOpt": [
+   {
+    "tippi_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "tippi_takeoff_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "tippi_skill_01_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "tippi_land_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "tippi_takeoff_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "tippi_skill_02_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "tippi_land_F": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -8342,6 +10895,71 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "lemuen_attack_start_01_back": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "lemuen_attack_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "lemuen_attack_start_01_down": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "lemuen_skill_01_start_01_back": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "lemuen_skill_01_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "lemuen_attack_start_01_back": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "lemuen_attack_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "lemuen_attack_start_01_down": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "lemuen_skill_02_start_02_back": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "lemuen_skill_02_start_02": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "lemuen_skill_02_start_01": {
+     "s": 2,
+     "e": 5,
+     "o": 0
+    }
+   },
+   {},
+   {}
   ],
   "dirs": [
    {
@@ -8464,6 +11082,48 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "rmixer_attack_start_01_back": {
+     "s": 2,
+     "e": 3,
+     "o": 1,
+     "d": 0.667
+    },
+    "rmixer_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1,
+     "d": 0.667
+    }
+   },
+   {
+    "rmixer_skill_02_start_01_back": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "rmixer_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "rmixer_skill_03_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "rmixer_skill_03_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "turn": [
    "rmixer_skill_03_range_01"
   ],
@@ -8570,6 +11230,22 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "reckpr_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "reckpr_skill2_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skillMode": [
    null,
    1
@@ -8631,6 +11307,32 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "branch_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "branch_skill_02_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "branch_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "branch_skill_02_attack_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skills": [
    {
@@ -8694,6 +11396,37 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "flamtl_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "flamtl_attack_01_start_02": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "flamtl_skill_03_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "flamtl_skill_03_attack_start_01_2": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "flamtl_skill_03_attack_start_02": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -8765,6 +11498,16 @@
   ],
   "attach": [
    []
+  ],
+  "castOpt": [
+   {
+    "snhunt_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "d": 0.2
+    }
+   }
   ],
   "skills": [
    {
@@ -8844,6 +11587,41 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "blemsh_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "blemsh_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "blemsh_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "blemsh_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "blemsh_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -8977,6 +11755,81 @@
    [],
    []
   ],
+  "castOpt": [
+   {},
+   {
+    "billro_skill_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "billro_skill_range": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "billro_skill_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "billro_skill_range": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "billro_skill_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "billro_skill_range": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "billro_skill_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "billro_skill_range": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "billro_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "billro_skill_03_range": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "billro_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "billro_skill_03_range": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -9042,6 +11895,27 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "vigil_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "vigil_attack_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "vigil_skill_03_A_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "dirs": [
    {
@@ -9164,6 +12038,36 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "fartth_attack_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "fartth_skill_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "fartth_skill_02_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "fartth_skill_03_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "skillMode": [
    null,
    2,
@@ -9274,6 +12178,56 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "ashlok_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ashlok_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "ashlok_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ashlok_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ashlok_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ashlok_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "ashlok_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "ashlok_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -9339,6 +12293,36 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "mizuki_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "mizuki_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "mizuki_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "mizuki_skill_03_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "turn": [
    "mizuki_skill_03_start",
@@ -9419,6 +12403,22 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "pinecn_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "pinecn_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    null,
    1
@@ -9480,6 +12480,57 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "aroma_attack_start_up_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "aroma_attack_start_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "aroma_attack_start_down_01": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "aroma_attack_start_02_up": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "aroma_attack_start_02": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    },
+    "aroma_attack_start_02_down": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "aroma_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "aroma_skill_02_range_02": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    },
+    "aroma_skill_02_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "turn": [
    "aroma_attack_start_01",
@@ -9642,6 +12693,50 @@
     "indigo_buff_01_start"
    ]
   ],
+  "castOpt": [
+   {
+    "indigo_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "indigo_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "indigo_skill_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "indigo_skill_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "indigo_skill_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "indigo_skill_01_start": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
   "attachFoe": [
    [],
    [
@@ -9718,6 +12813,22 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "pasngr_attack_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "pasngr_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
   "skillMode": [
    null,
    1,
@@ -9754,10 +12865,16 @@
     ],
     "buff": [],
     "target": [
-     "pasngr_attack_hit",
-     "pasngr_skill_03_range"
+     "pasngr_attack_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "zone": {
+     "fx": [
+      "pasngr_skill_03_range"
+     ],
+     "aura": [],
+     "onProj": 0
+    }
    }
   ]
  },
@@ -9813,6 +12930,38 @@
    [],
    []
   ],
+  "castOpt": [
+   {
+    "glady_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "glady_attack_01_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "glady_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "glady_skill_02_buff_04": {
+     "s": 4,
+     "e": 6,
+     "o": 0
+    },
+    "glady_skill_01_buff": {
+     "s": 4,
+     "e": 6,
+     "o": 0
+    }
+   },
+   {}
+  ],
   "skillMode": [
    null,
    1,
@@ -9851,14 +13000,20 @@
     "buff": [],
     "target": [
      "glady_skill_03_range_05",
-     "glady_skill_03_range",
-     "glady_skill_03_range_02",
      "glady_skill_01_hit"
     ],
     "targetBuff": [
      "glady_skill_03_buff",
      "glady_skill_03_buff_to_enemy"
-    ]
+    ],
+    "zone": {
+     "fx": [
+      "glady_skill_03_range",
+      "glady_skill_03_range_02"
+     ],
+     "aura": [],
+     "onProj": 0
+    }
    }
   ]
  },
@@ -9896,6 +13051,32 @@
   "attach": [
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "humus_attack_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "humus_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "humus_attack_range_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "humus_attack_start_03": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skillMode": [
    null,
@@ -9952,6 +13133,15 @@
   ],
   "attach": [
    []
+  ],
+  "castOpt": [
+   {
+    "vendla_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "skills": [
    {
@@ -10016,6 +13206,29 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "wildmn_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "wildmn_attack_01_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "wildmn_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
   ],
   "turn": [
    "wildmn_skill_02_start"
@@ -10099,6 +13312,29 @@
    [],
    [],
    []
+  ],
+  "castOpt": [
+   {
+    "inside_attack_01_start_front": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "inside_skill_01_start_front": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "inside_skill_02_start_front": {
+     "s": 4,
+     "e": 3,
+     "o": 1
+    }
+   }
   ],
   "skillMode": [
    1,

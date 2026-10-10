@@ -115,13 +115,17 @@ test('the extracted 비르투오사 S3 glow is a _spawnLocation 8 prefab', { ski
   assert.equal(JSON.parse(readFileSync(CELLO_FX, 'utf8')).spawn, 8);
 });
 
-test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body / head lifts unchanged; trails leave the muzzle', () => {
+test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body / head lifts unchanged; trails leave the attack\'s mount point', () => {
   const src = readFileSync(new URL('public/js/render/fxgame.js', ROOT), 'utf8');
   assert.match(src, /const spawn = mountSpawn\(def\?\.mount\) \?\? def\?\.spawn;\n    const key = pointKey\(spawn\);/);
   assert.match(src, /specialPoint\(v, p, key\)/);
   assert.match(src, /const SPAWN_FRAC = \{ 2: 0\.5, 4: 1\.1 \};/, 'the body / head lifts are unchanged');
   assert.doesNotMatch(src, /const TRAIL_Z|TRAIL_Z \+ /, 'no fixed trail height');
-  assert.match(src, /const p = specialPoint\(src, shotAt, 'muzzle'\);/);
+  // 2026-10-10 (client RangedAttack._GetMountPoint): the mode's `shotFrom` point (GROUND = the feet), else the Muzzle; the
+  // target's hit point when the table has it
+  assert.match(src, /const p = \(key && specialPoint\(src, shotAt, key\)\) \|\| specialPoint\(src, shotAt, 'muzzle'\);/);
+  assert.match(src, /if \(mp === 7\) return \{ x: src\.x, y: src\.y, z: \(src\.z \|\| 0\) \+ \(src\.hover \|\| 0\) \};/);
+  assert.match(src, /const shotTo = \(t\) => specialPoint\(t, hitAt, 'hit'\)\?\.z \?\? bodyZ\(camRef, t, SPAWN_FRAC\[2\]\);/);
   assert.match(src, /const z = rec\.z0 \+ \(rec\.tz - rec\.z0\) \* k/);
 });
 

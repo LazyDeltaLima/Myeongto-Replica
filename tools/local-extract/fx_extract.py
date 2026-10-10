@@ -54,6 +54,9 @@ BUILTIN_MESHES = {10209: 'Plane', 10210: 'Quad'}
 # local patch (session L 2026-10-08): the MonoScript PathID of the effects' FollowMountPoint component (mount_point); 1205
 # default-skin prefabs of the EN client carry one (research/2026-10-08-mount-points/)
 MOUNT_SCRIPT = 0x7b5c342088cfcad4
+# local patch (2026-10-10, decompile check): the MonoScript PathID of SwitchableBackEffect (switch_back) — 62 default-skin
+# prefabs of the extracted bundles carry one (비르투오사 S3 cello_skill_03_buff_front_02 → _back_02, 로즈몬티스, 휴머스 …)
+BACK_SCRIPT = 7599136815520768295
 
 
 def r4(v):
@@ -570,7 +573,36 @@ class Extractor:
         right = self.right_effect(root)
         if right:
             out_def['right'] = right
+        back = self.switch_back(root)
+        if back:
+            out_def['back'] = back
         return out_def
+
+    def switch_back(self, root):
+        """local patch (2026-10-10, decompile check — client `SwitchableBackEffect._UpdateFace`): the root's
+        SwitchableBackEffect — while the owner faces back (its back model) the client pauses this effect and plays
+        `_backEffect` instead, and the other way round when it turns to the front (render/fxgame.js backSwap). Read by its
+        type tree (the bundle carries it): { effect: _backEffect ('common_empty' = nothing while back), predict:
+        _predictFaceDirection, oneShot: _oneShot }. None when the root has none."""
+        try:
+            d = root.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            raw = comp.get_raw_data()
+            if len(raw) < 28 or struct.unpack_from('<q', raw, 20)[0] != BACK_SCRIPT:
+                continue
+            try:
+                t = comp.read_typetree()
+            except Exception:
+                return None
+            if not isinstance(t.get('_backEffect'), str) or not t['_backEffect']:
+                return None
+            return {'effect': t['_backEffect'], 'predict': int(t.get('_predictFaceDirection') or 0), 'oneShot': int(t.get('_oneShot') or 0)}
+        return None
 
     def right_effect(self, root):
         """local patch: the client's left / right effect pair — a second component on the root with `_rightEffect` (the
@@ -722,6 +754,42 @@ class Extractor:
                 return f'mat:{n}_ST.' + 'xyzw'[comp]
         return None
 
+    def back_only(self, bundle, pack=None):
+        """local patch (2026-10-10): write only the SwitchableBackEffect `back` of the bundle's already extracted prefabs
+        (switch_back), like mount_only. Returns (prefabs with one, files changed)."""
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
+        p = bundle_path(self.game, rel)
+        if not p:
+            print(f'[fx] {bundle}: bundle not found, skipped')
+            return 0, 0
+        env = self.UnityPy.load(str(p))
+        found = changed = 0
+        for o in env.objects:
+            if o.type.name != 'Transform':
+                continue
+            t = o.read_typetree()
+            if t['m_Father']['m_PathID'] != 0:
+                continue
+            go = self.resolve(t['m_GameObject'], o)
+            if go is None:
+                continue
+            f = OUT / bundle / f"{go.read_typetree()['m_Name']}.json"
+            if not f.exists():
+                continue
+            back = self.switch_back(go)
+            d = json.loads(f.read_text())
+            found += back is not None
+            if d.get('back') == back:
+                continue
+            if back is None:
+                d.pop('back', None)
+            else:
+                d['back'] = back
+            f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+            changed += 1
+        print(f'[fx] {bundle}: {found} back-switch prefab(s), {changed} file(s) changed')
+        return found, changed
+
     def mount_only(self, bundle, pack=None):
         """local patch (session L, user's decision 2026-10-08 「전체 적용」): write only the `mount` of the bundle's already
         extracted prefabs (mount_point), nothing else — a full re-extract would also bring every other extractor change
@@ -830,6 +898,8 @@ def main():
     ap.add_argument('--prune', action='store_true', help='delete textures / meshes no extracted effect references')
     ap.add_argument('--mount-only', action='store_true', help='only write the FollowMountPoint `mount` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch, session L)')
+    ap.add_argument('--back-only', action='store_true', help='only write the SwitchableBackEffect `back` into the already '
+                    'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch 2026-10-10)')
     ap.add_argument('--pack', metavar='REL', help='read the prefabs from this bundle (relative to the bundle folders, e.g. '
                     'pkgrps/btl_pfb_fx_token_3.ab) and write them as --bundle (local patch: 望\'s 棋子 effects → wang_token)')
     a = ap.parse_args()
@@ -837,6 +907,11 @@ def main():
         build_cab_index(a.game, a.build_cab_index)
         return
     ex = Extractor(a.game, a.cab_index, png=a.png)
+    if a.back_only:
+        bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
+        tot = [ex.back_only(b, pack=a.pack) for b in bundles]
+        print(f'[fx] back: {sum(x[0] for x in tot)} prefab(s) with a back switch, {sum(x[1] for x in tot)} file(s) changed')
+        return
     if a.mount_only:
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
         tot = [ex.mount_only(b, pack=a.pack) for b in bundles]

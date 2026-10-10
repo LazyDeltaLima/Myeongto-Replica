@@ -1155,8 +1155,9 @@ export class FxInstance {
       // root z −0.25 lifted the whole glow a quarter tile; 104 prefabs have one, mostly projectile trails, which flew 0.4–0.65
       // tile off their shot's line (空弦 archet, 丰川祥子 oblvns).
       // [ASSUMED] (the client code is native): the recording's band height matches with it dropped, not with it kept. The child
-      // static_offset stays — the client's ParticleEffect names it (CHILD_NAME_STATIC_OFFSET); what would move it is
-      // presumably its _overwriteHeight / _heightOffset, false / 0 on this prefab
+      // static_offset stays — the client's ParticleEffect names it (CHILD_NAME_STATIC_OFFSET). `_overwriteHeight` /
+      // `_heightOffset` are C# (decompile check 2026-10-10: Effect._InitLocationFromEntity sets localPosition.z =
+      // −(entity height + offset) only when the flag is on — of the pool's prefabs only thorn2_skill_01_range has it)
       if (n.pos && !(opts.atSpawn !== false && n.parent < 0)) o.position.set(n.pos[0], n.pos[1], n.pos[2]);
       if (n.rot) o.quaternion.set(n.rot[0], n.rot[1], n.rot[2], n.rot[3]);
       if (n.scale) o.scale.set(n.scale[0], n.scale[1], n.scale[2]);

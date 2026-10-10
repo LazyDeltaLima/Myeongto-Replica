@@ -19,7 +19,9 @@
 // scaled time), not only the notes.
 // Event → effect (render/fxmap.js effectsFor, by the client's prefab names):
 //   'skill' on   → <op>_skill_0N_start_* on the caster, <op>_skill_0N_buff_* looping on it until 'skill' off / death
-//   'atk'        → <op>_attack_start_* on the attacker (normal attacks; skill attacks show the skill's hit)
+//   'swing'      → (local patch 2026-10-10) the attack's cast effects of ON_CAST_START on the attacker, as its swing starts
+//                  (swingFx; modes.json castOpt) — or <op>_attack_start_* by name without bindings
+//   'atk'        → its ON_SPELL_ON cast effects (strikeFx); the swing's own when no 'swing' came before it
 //   'dmg'        → <op>_attack_hit_01 / <op>_skill_0N_hit_01 on the target of that attacker's last attack (≤ HIT_GAP_S; local
 //                  patch: once per attack — the first damage after it)
 // Effects follow their unit's rendered position and facing.
@@ -44,6 +46,7 @@ import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
 import { attackMode, boundEffects } from './fxmap.js'; // local patch: the mode bindings (modes.json)
 import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
+import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // local patch (2026-10-10): enemy-held mode buffs, cast timings
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
@@ -77,7 +80,11 @@ export function dirCopies(groups, names, d, left) {
   for (const g of groups) {
     const s = Array.isArray(g?.s) ? g.s : [];
     if (!out.some((n) => s.includes(n))) continue;
-    const slot = g.t === 0 ? 0 : g.t === 1 || g.t === 6 ? (left ? 3 : 1) : g.t === 2 ? (d === 0 ? 0 : 2) : d;
+    // (2026-10-10, decompile check: client UberEffectEmitter.EffectOptions.TryGetEffect, RVA 0xAE1FE0) 4 UD_OR_LR = slot 0
+    // facing back (up), else slot 2, and the left / right slot when that one is empty; a type outside the enum plays nothing
+    const lr = left ? 3 : 1;
+    const slot = g.t === 0 ? 0 : g.t === 1 ? lr : g.t === 2 ? (d === 0 ? 0 : 2)
+      : g.t === 4 ? (d === 0 ? (s[0] ? 0 : lr) : s[2] ? 2 : lr) : g.t === 3 || g.t === 5 ? d : -1;
     const pick = s[slot] || '';
     const at = out.findIndex((n) => s.includes(n));
     out = out.filter((n, i) => i === at || !s.includes(n));
@@ -236,7 +243,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
-  async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null, tag = null } = {}) {
+  // `until` (local patch 2026-10-10): a one-shot's end on the battle clock instead of its prefab's duration (a cast effect
+  // ended by its cast — castFx); one whose end has passed while its file loaded is not started
+  async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null, tag = null, until: endAt = null } = {}) {
     const b = bundleOf(view);
     if (!b) return;
     // local patch (user report 5 #5-2): a directional emitter entry plays the copy for the facing (dirPick)
@@ -257,6 +266,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (!mod) return;
         if (r) { n = def.right; def = r; }
       }
+      // a one-shot on the caster (not a hit on a target) ends with its prefab's duration even if a system loops —
+      // 望's S3 wang_skill_03_range_start (looping 'line1/2', the range cross) stayed on the board for good
+      const until = buff ? null : endAt ?? clockS + (def.duration || 3) + 0.5;
+      if (until != null && until <= clockS) continue;
       const ground = at || view;
       const anchor = lifted(ground, def); // local patch: its _spawnLocation
       // local patch (user report 2026-10-07: 野鬃 S2 stood upright): an effect the client turns to the unit's facing
@@ -269,15 +282,54 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn || sided || unflip.has(names[i]) ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: ground.z || 0 });
       if (turn) aimMover(inst, facingDir(view));
       inst.object.position.set(anchor.x, anchor.y, anchor.z || 0);
-      // a one-shot on the caster (not a hit on a target) ends with its prefab's duration even if a system loops —
-      // 望's S3 wang_skill_03_range_start (looping 'line1/2', the range cross) stayed on the board for good
-      const until = buff ? null : clockS + (def.duration || 3) + 0.5;
       // local patch (user 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
       // skill start as well as its buff loops — goes under the units; the hits on a target stay over
       // (local patch, user report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
-      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag }, split ? layers.split : buff || !at ? layers.under : layers.over);
+      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
       // the player's own cap: it has already ended the oldest (done, dispose is a no-op) — the same one here
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+    }
+  }
+
+  // ---- SwitchableBackEffect (local patch 2026-10-10, decompile check) -----------------------------------------------------
+  // A prefab whose root carries the client's SwitchableBackEffect (fx_extract.py `back`: 비르투오사 S3 cello_skill_03_buff_front_02
+  // → cello_skill_03_buff_back_02, and 61 more of 26 operators — 로즈몬티스 `_B` copies, 비질, 휴머스 …) is swapped while its owner faces back:
+  // `SwitchableBackEffect._UpdateFace` (RVA 0xCB7E70) pauses it and creates `_backEffect` on the owner when the owner's
+  // `faceToBack` turns true, and the other way round when it turns back to the front ('common_empty' = nothing while back).
+  // Here the owner faces back while its Back model is drawn (UnitView.entryBack; before the model loads, a deploy facing UP);
+  // the paused front is not drawn [추정: the pause hides it — a frozen copy beside the back one is not seen in captures].
+  const faceBack = (v) => !!(v && (v.entryBack ?? v.dir === 'UP'));
+  /** The back switch of `def` on its unit `unit` (an operator / enemy view), or null. */
+  function backSwitch(def, unit, bundle) {
+    const b = def?.back;
+    if (!b || typeof b.effect !== 'string' || !unit || !unit.info) return null;
+    return { name: b.effect, bundle, unit, on: false, entry: null };
+  }
+  async function startBack(l) {
+    const sw = l.backSw;
+    if (sw.name === 'common_empty' || !index?.bundles?.[sw.bundle]?.includes(sw.name)) return;
+    const def = await lib.load(sw.bundle, sw.name);
+    if (!mod || !def || !sw.on || !live.includes(l) || l.inst.stopping) return;
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (sw.unit.visFacing ?? sw.unit.facing ?? 1) < 0 ? -1 : 1, split: l.layer === layers.split, floor: sw.unit.z || 0 });
+    const at = lifted(sw.unit, def); // created on the owner at its own _spawnLocation / mount point
+    inst.object.position.set(at.x, at.y, at.z || 0);
+    addLive(inst, { view: at, owner: l.owner, buff: l.buff, onCaster: l.onCaster, until: l.until, tag: l.tag, backOf: l }, l.layer);
+    sw.entry = live[live.length - 1];
+    while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
+  }
+  /** Swap the switchable effects whose owner turned to / from its back (each frame, before the players run). */
+  function stepBackSwitches() {
+    for (const l of live) {
+      const sw = l.backSw;
+      if (!sw) continue;
+      if (l.inst.stopping || l.inst.done) { if (sw.entry && !sw.entry.inst.stopping) sw.entry.inst.stop(); continue; }
+      const back = faceBack(sw.unit);
+      if (back === sw.on) continue;
+      sw.on = back;
+      l.hidden = back;
+      l.inst.object.visible = !back;
+      if (back) startBack(l);
+      else if (sw.entry) { sw.entry.inst.stop(true); sw.entry = null; }
     }
   }
 
@@ -390,8 +442,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // and sktok_wang_N/TriggeredEffect token_wang_01_buff [추정: TriggeredEffect = 激活, the link]
   // (user re-report 2026-10-08 #2-1 「바둑알 이펙트 루프가 아직 안 됨」): the activation effect (STONE_ON) is a
   // buff's `overrideEffectKey` (sktok_wang_N/TriggeredEffect `_buffs[0]`) and both it and the 跟子's `_triggeredEffect` are
-  // loop prefabs (root effect component int #17 = 1, as every status buff; the blasts 0 — [추정] that field is `_isLoop`):
-  // their dark / gold wisps (the `line` meshes, dissolved in over 0.6 s by the clip) stay on the stone while it stands —
+  // held by their owner (root ParticleEffect raw int #17 = `_holdByOwner` 1, as every status buff; the blasts 0 — decompile
+  // check 2026-10-10: the field order of ParticleEffect, and `Effect._InitLocationFromEntity` ends with entity.HoldEffect;
+  // not `_isLoop` as first guessed): their dark / gold wisps (the `line` meshes, dissolved in over 0.6 s by the clip) stay on the stone while it stands —
   // the official capture's upper stone. We dropped them after the clip (~1 s), so they flashed once; and the stones
   // placed linked in the prep never showed them (their 'wangLink' came before the view entered the field — the early
   // buffer, screens/game/early.js keepEarly). Kept now (playAt `keep`), stopped at the stone's 'die' (used up / withdrawn).
@@ -445,7 +498,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // A shared-bundle prefab (battle/prefabs/effects/buff.ab, common.ab) looping on a unit while its status lasts, at `frac`
   // of its drawn height (the prefab's _spawnLocation: feet 0 / body .5 / head 1, through fx.js bodyZ), over the units
   // (the 冻结 block encases the model, the marks float over heads); stopped by statusOff, the unit's death or clear().
-  // The prefabs are loops by their root flag (_isLoop 1) though some systems run once (buff_silence: 1 s) — a status
+  // The prefabs are held by their owner (root `_holdByOwner` 1) though some systems run once (buff_silence: 1 s) — a status
   // effect that ends while its status is still on starts again (update).
   let camRef = null;
   // local patch (user report 2026-10-07, video: 史尔特尔's blast sits on the enemy's body): the prefab root's
@@ -669,7 +722,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (trails.length >= MAX_TRAILS) return false;
     trailAtks.add(e);
     const dx = tgt.x - src.x, dy = tgt.y - src.y, dist = Math.hypot(dx, dy);
-    const from = shotFrom(src);
+    const from = shotFrom(src, mode);
     const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: tgt.x, ty: tgt.y, tz: shotTo(tgt), k: 0,
       dur: Math.max(0.04, dist / projSpeed(e[3])), arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 };
     // local patch (user report 4 #4-6, 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
@@ -688,16 +741,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }, () => {});
     return true;
   }
-  // local patch (session F 2026-10-08, was TRAIL_Z 0.35 tile at both ends [ASSUMED] — 空弦's arrows flew at her feet): a
-  // trail leaves the shooter's Muzzle point (fxpoints.js; the client's "Unit {0} has no muzzlePoint" — its projectiles start
-  // there), where it is at the shot, and flies to the target's hit point, the height its _spawnLocation 2 hit effects take
-  // [ASSUMED: the client's HitPoint]. A shooter without one (no table, no muzzle) starts at fx.js's shot height.
-  const shotAt = { x: 0, y: 0, z: 0 };
-  function shotFrom(src) {
-    const p = specialPoint(src, shotAt, 'muzzle');
+  // local patch (session F 2026-10-08, was TRAIL_Z 0.35 tile at both ends — 空弦's arrows flew at her feet): a trail leaves
+  // the shooter's point where it is at the shot and flies to the target's hit point. Client (decompile check 2026-10-10):
+  // `RangedAttack._GetMountPoint` (RVA 0xA4B4E0) = the shooter's GetMountPoint(`_mountPointType`) — MUZZLE for 210 attacks,
+  // a special point or GROUND for 19 (modes.json `shotFrom` per mode: 로즈몬티스 S2 GROUND, 포덴코 S2 SPECIAL_0, 토가와 사키코
+  // SPECIAL_3 …) — and `GetTargetLocatable` (0xA4A190) the target's hitMountPoint. Ours: that point of the model (fxpoints.js;
+  // GROUND = its feet on the ground), the Muzzle when it has not that one; the target's hit point (points.json `hit`, the
+  // operators) or half its drawn height (enemies: no table). A shooter without a point starts at fx.js's shot height.
+  const shotAt = { x: 0, y: 0, z: 0 }, hitAt = { x: 0, y: 0, z: 0 };
+  function shotFrom(src, mode = null) {
+    const mp = Number.isInteger(mode) ? bindOf(src)?.shotFrom?.[mode] : null;
+    if (mp === 7) return { x: src.x, y: src.y, z: (src.z || 0) + (src.hover || 0) };   // MountPointType GROUND
+    const key = Number.isInteger(mp) ? pointKey(mountSpawn({ type: mp })) : null;
+    const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
     return p ? { x: p.x, y: p.y, z: p.z } : { x: src.x, y: src.y, z: bodyZ(camRef, src, SHOT_HEIGHT.launch) };
   }
-  const shotTo = (t) => bodyZ(camRef, t, SPAWN_FRAC[2]);
+  const shotTo = (t) => specialPoint(t, hitAt, 'hit')?.z ?? bodyZ(camRef, t, SPAWN_FRAC[2]);
   /** A trail at flight fraction k: on the line to the target's current spot (a lob on its arc), turned along it. */
   function placeTrail(rec) {
     const t = rec.tgt;
@@ -904,11 +963,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!index?.bundles?.[bundle]?.includes(name) || !(await ensure())) return null;
     const def = await lib.load(bundle, name);
     if (!mod || !def) return null;
+    if (entry.until != null && entry.until <= clockS) return null; // local patch (2026-10-10): its end passed while it loaded
+    const unit = at && at.info ? at : null;
     const split = !over && splitOn();   // an effect on the ground / a unit splits by sorting at 'high'
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, split, floor: drop ? null : at.z && !over ? at.z : 0 });
     if (!drop) at = lifted(at, def); // local patch: its _spawnLocation
     inst.object.position.set(at.x, at.y, at.z || 0);
-    const e = { view: at, ...entry };
+    const e = { view: at, ...entry, backSw: backSwitch(def, unit, bundle) };
     if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5;
     if (drop) { drop.inst = inst; placeTrail(drop); }
     addLive(inst, e, over ? layers.over : split ? layers.split : layers.under);
@@ -1101,9 +1162,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * local patch (user report 5 #5-2 — 아르케토 S3's `start_02` / `start_02_B` both played; user's decision 2026-10-08 「13명
    * 전체」): an emitter entry's `_effects` is a slot list 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT and its `_directionType` picks the slot
-   * for the owner's facing (char_modes.py `dirs` [{ t, s }]): 0 NONE slot 0; 1 L_OR_R / 6 L_OR_R_NOT_UD left or right (up /
-   * down by the side it is drawn facing); 2 U_OR_D UP slot 0, any other facing slot 2 [ASSUMED: the sides are the front model];
-   * 3 FOUR_DIR / 4 UD_OR_LR / 5 FOUR_DIR_FIXED the facing's own slot. An empty slot plays nothing. Every name of the entry in
+   * for the owner's facing (char_modes.py `dirs` [{ t, s }]) — client `TryGetEffect` (decompile check 2026-10-10): 0 NONE slot
+   * 0; 1 L_OR_R left or right (up / down by the side it is drawn facing); 2 U_OR_D slot 0 facing back (up), any other facing
+   * slot 2 (the sides show the front model: `faceToBack` false); 3 FOUR_DIR / 5 FOUR_DIR_FIXED the facing's own slot;
+   * 4 UD_OR_LR slot 0 / 2 like U_OR_D, the left / right slot when that one is empty. An empty slot plays nothing. Every name of the entry in
    * `names` gives way to that one copy, at the first one's place. `unflip`: a copy picked from an entry with its own RIGHT
    * and LEFT copies (백파이프 S2 / S3 `_right` / `_left`) is authored for that side — not mirrored again [ASSUMED].
    */
@@ -1118,6 +1180,181 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const PENDING_S = 0.02;
   const PENDING_REACH = 4.5;   // tiles: farther targets are not this skill's (its ranges reach ≤ 4)
   function expect(src, names, buff = false) { if (names.length) pending.push({ src, names, buff, t: clockS }); }
+
+  // ---- cast effects on the attack's own clock (local patch 2026-10-10, decompile check; fxmap.js castTiming) ---------------
+  // The client starts 87 % of the attacks' `_castEffects` (399 of 466) on ON_CAST_START, raised in AbilityStandard._DoCast
+  // before it waits out the pre-delay — as the swing starts, the OnAttack frame × the ability's anim scale before the strike
+  // — and the rest on ON_SPELL_ON (the strike). The sim announces each swing (state event ['swing', unit, windup, kind]:
+  // `windup` game seconds to its 'atk'); an effect then starts at its own event, a loop one (`_oneshot` 0) ends at its
+  // `_endEvent` — ON_CAST_END / ON_ATTACK_FINISH = the cast's end, the swing + windup × clip / OnAttack frame (the cast
+  // lasts the anim-scaled clip: AbstractAnimatedAbility.UpdatePlaybackSpeed), ON_SPELL_END ≈ the strike —, at the next
+  // swing (OnCastFinish clears it), at a mode switch (ON_DETACHED: 'skill' on / off) or its owner's death.
+  // `_delayIfFirstAttack` delays the first attack's effect by that ÷ the ability's playback speed (1 / anim scale) and
+  // `_onlyOnce` keeps it to once per cast (`OnCastStart` resets m_casted). Without a 'swing' before an attack (an older
+  // server, an attack the sim did not announce) its swing effects start at the 'atk', as before.
+  const SWING_SLACK = 0.35;   // an 'atk' this late after its swing's strike time still belongs to that swing
+  const castsDelayed = [];    // { t, run } — first-attack delays (battle clock)
+  /** The cast's length and playback speed from the unit's attack clip: windup = anim scale × its OnAttack frame. */
+  function castSpan(v, windup) {
+    try {
+      const a = v?.actor, clip = a?._attackClip?.();
+      if (!clip || !(windup > 0)) return null;
+      const dur = a.dur(clip.loop), hit = a._hitTime(clip.loop, dur);
+      if (!(dur > 0) || !(hit > 0)) return null;
+      const scale = windup / hit;
+      return { len: dur * scale, speed: 1 / scale };
+    } catch { return null; }
+  }
+  /** Whether this is the first attack of mode `mode` since it was attached (deploy / skill switch) [추정: the client's isFirstAttack]. */
+  function firstAttack(v, mode) {
+    const done = (v._fxFirstDone ||= new Set());
+    if (done.has(mode)) return false;
+    done.add(mode);
+    return true;
+  }
+  /** The unit's current cast ends: its loop cast effects stop, gracefully (`_ClearEffects` — the one-shots play out). */
+  function endCast(v) {
+    const id = ownerOf(v);
+    for (const l of live) if (l.tag === 'castLoop' && l.owner === id && !l.inst.stopping) l.inst.stop();
+    v._fxCast = null;
+  }
+  /** The phase ('swing' / 'strike') of mode `mode`'s cast effect `n`; an older modes.json without timings: the strike. */
+  const phaseOf = (v, mode, n) => (bindOf(v)?.castOpt ? castPhase(castTiming(bindOf(v), mode, n)) : 'strike');
+  /** A new cast (swing) of `v`: its record { t, hitAt, end, speed, mode, fired, skip }. */
+  function beginCast(v, windup, mode) {
+    endCast(v);
+    const w = Math.max(0, Number(windup) || 0);
+    const span = castSpan(v, w);
+    const sid = ownerOf(v);
+    const skip = clockS - (lastAttackFx.get(sid) ?? -9) < ATTACK_GAP_S || level() >= 3;
+    if (!skip) lastAttackFx.set(sid, clockS);
+    const c = { t: clockS, hitAt: clockS + w, end: span ? clockS + span.len : null, speed: span?.speed || 1, mode, fired: new Set(), struckAt: null, skip, first: firstAttack(v, mode) };
+    v._fxCast = c;
+    return c;
+  }
+  /** Play the cast effects `names` of cast `c` (its mode's timings: loop end, first-attack delay, once per cast). */
+  function playCast(v, c, names) {
+    const bind = bindOf(v);
+    // the facing's copy of each directional entry first (dirPick; play() picks it again, unchanged), so two copies of one
+    // entry in the list stay one effect and each copy finds its own timing (castOpt names every slot)
+    for (const n of dirPick(v, names).names) {
+      const opt = castTiming(bind, c.mode, n);
+      if (opt?.once && c.fired.has(n)) continue;
+      c.fired.add(n);
+      const loop = opt && opt.o === 0;
+      const end = !loop ? null : opt.e === CAST_EVENT.SPELL_ON || opt.e === CAST_EVENT.SPELL_END ? Math.max(c.hitAt, clockS) : c.end;
+      const go = () => { if (v._fxCast === c && v.alive !== false) play(v, 'attackStart', 0, { names: [n], tag: loop ? 'castLoop' : 'cast', until: end }); };
+      const delay = c.first && opt?.d > 0 ? opt.d / c.speed : 0;
+      if (delay > 0) castsDelayed.push({ t: clockS + delay, run: go }); else go();
+    }
+  }
+  function stepCasts() {
+    for (let i = castsDelayed.length - 1; i >= 0; i--) if (clockS >= castsDelayed[i].t) castsDelayed.splice(i, 1)[0].run();
+  }
+  /** A swing starts: the cast effects of ON_CAST_START (the mode's, or the name mapping's attack start without bindings). */
+  function swingFx(src, windup, views) {
+    if (!isOp(src) || !bundleOf(src)) return;
+    skillByFlag(src, views);
+    const mode = modeNow(src);
+    const c = beginCast(src, windup, mode);
+    if (c.skip) return;
+    const cast = mode != null ? bound(src, mode, 'cast') : [];
+    if (cast.length) { playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing')); return; }
+    // no mode binding: the name mapping's attack start, at the swing like the client's ON_CAST_START majority [추정]
+    if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
+  }
+  /** The strike ('atk'): the cast effects of ON_SPELL_ON / ON_SPELL_END; the swing's own when no swing was announced. */
+  function strikeFx(src, mode) {
+    let c = src._fxCast;
+    const same = c && c.mode === mode && clockS <= c.hitAt + SWING_SLACK && (c.struckAt == null || clockS - c.struckAt < 0.03);
+    const cast = mode != null ? bound(src, mode, 'cast') : [];
+    if (!same) {   // no 'swing' for this attack: its swing effects now (the moment they had before)
+      c = beginCast(src, 0, mode);
+      if (!c.skip) {
+        if (cast.length) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'swing'));
+        else if (!src._fxSkillOn) play(src, 'attackStart', 0, { tag: 'cast' });
+      }
+    }
+    if (c.struckAt != null && clockS - c.struckAt < 0.03) return;   // another target of the same strike
+    c.struckAt = clockS;
+    if (!c.skip && cast.length) playCast(src, c, cast.filter((n) => phaseOf(src, mode, n) === 'strike'));
+  }
+
+  // ---- a mode buff on enemies (local patch 2026-10-10, decompile check: 아스트젠 더 라이트체이서 S3) -----------------------
+  // modes.json `attachFoe` of the running skill's mode — the buff's ability selects enemies (halo2 S3 LinkEnemy: its
+  // `_selector`'s range selectors `_targetSide 2`, `_maxNum 1`, the enemy already holding `halo2_s_3_link` first) — sits on
+  // that enemy: here the enemy her attacks hit, kept on it while it lives and the skill lasts, then the next one she hits;
+  // `attachFoeMax` caps how many hold it at once (none: every enemy hit).
+  function foeFx(src, tgt, mode) {
+    const f = src._fxFoe;
+    if (!f || !tgt || tgt.info?.side !== 'enemy' || f.mode !== mode) return;
+    const tid = ownerOf(tgt);
+    for (const id of [...f.on]) { const u = lastViews?.get(id); if (!u || u.alive === false || u.remove) f.on.delete(id); }
+    if (f.on.has(tid)) return;
+    const b = bundleOf(src);
+    let put = false;
+    for (const n of f.names) {
+      const max = bindOf(src)?.attachFoeMax?.[n] || 0;
+      if (max > 0 && f.on.size >= max) continue;
+      spawn(b.bundle, n, tgt, { owner: ownerOf(src), buff: true, on: tid, until: null });
+      put = true;
+    }
+    if (put) f.on.add(tid);
+  }
+
+  // ---- a skill projectile's lasting reach effects (local patch 2026-10-10, decompile check: 쏜즈 더 로드스타) -------------
+  // modes.json skills[i].zone (char_modes.py): the client's `EffectBehaviour.OnProjectileReached` (RVA 0x970110) creates
+  // the projectile's `_effectsWhenReached` where it lands — parented to its body with `_setReachEffectOnProjectile` (S2's
+  // drifting alchemy unit), fixed there otherwise (S1, S3) — and, with `_clearReachedEffectWhenStop`, ends them at
+  // `OnProjectileStop` (0x970650); `ScalableAuraHitBehaviour` (0x982390) makes its `_effectKey` under the projectile's body
+  // scaled to its range and ends it at the stop (0x982620). The sim's area of that projectile is its 'zone' fx event (x, y,
+  // r / radius, duration / dur; a `key`-ed one re-sent each second as it drifts and grows): the effects play there and stop
+  // when its time is up. The aura's scale follows the radius from the first event's [추정: the prefab is drawn for the
+  // thrown radius]. 引星棘刺, 锡人, 号角 S1, 波登可 S2 have such projectiles.
+  const zones = new Map();   // `${caster}:${key}` → { at, vx, vy, st, until, r0, list: [live entries], aura: Set }
+  function zoneFx(e, views) {
+    const o = e[4];
+    if (!o || typeof o !== 'object' || failed) return false;
+    const src = views.get(o.id);
+    if (!isOp(src) || !bundleOf(src)) return false;
+    const z = skillBind(src)?.zone;
+    const fx = extracted(src, z?.fx), aura = extracted(src, z?.aura);
+    if (!fx.length && !aura.length) return false;
+    ownFx.add(e);
+    const x = Number(e[2]), y = Number(e[3]), dur = Math.max(0, Number(o.duration ?? o.dur) || 0), r = Number(o.r ?? o.radius) || 0;
+    const until = clockS + (dur > 0 ? dur : 3);
+    const k = o.key != null ? `${o.id}:${o.key}` : null;
+    const rec = k ? zones.get(k) : null;
+    if (rec) {
+      const dt = clockS - rec.st;
+      if (rec.onProj && dt > 1e-3) { rec.vx = (x - rec.sx) / dt; rec.vy = (y - rec.sy) / dt; rec.at.x = x; rec.at.y = y; }
+      rec.sx = x; rec.sy = y; rec.st = clockS; rec.until = until;
+      for (const l of rec.list) {
+        l.until = until;
+        if (rec.aura.has(l) && rec.r0 > 0 && r > 0) l.inst.object.scale.setScalar(r / rec.r0);
+      }
+      return true;
+    }
+    const at = { x, y, z: 0 };
+    const nrec = { at, onProj: !!z.onProj, vx: 0, vy: 0, sx: x, sy: y, st: clockS, until, r0: r, list: [], aura: new Set() };
+    if (k) zones.set(k, nrec);
+    const bundle = bundleOf(src).bundle;
+    for (const n of [...fx, ...aura]) {
+      spawn(bundle, n, at, { owner: null, buff: false, until }, { over: false }).then((l) => {
+        if (!l) return;
+        nrec.list.push(l);
+        l.until = nrec.until;
+        if (aura.includes(n)) nrec.aura.add(l);
+      });
+    }
+    return true;
+  }
+  function stepZones(g) {
+    for (const [k, rec] of zones) {
+      if (clockS > rec.until + 1) { zones.delete(k); continue; }
+      if (rec.onProj) { rec.at.x += rec.vx * g; rec.at.y += rec.vy * g; }
+    }
+  }
 
   const api = {
     /** The projectile kind render/fx.js should draw for an 'atk' event (her note replaces the arrow: 'oblvnsNote'). */
@@ -1178,12 +1415,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
     /** Whether a 'fx' event is drawn here with its official effect (render/fx.js then skips its 2D stand-in). */
     ownsFx(e) { return ownFx.has(e); },
+    /**
+     * local patch (2026-10-10): a unit's attack swing starts, `windup` game seconds before its strike ('atk') — the cast
+     * effects of ON_CAST_START. onEvent already does this for the sim's 'swing' state event; for a caller with its own.
+     */
+    onSwing(view, windup, kind) { if (view && index && q() !== 'low') swingFx(view, Number(windup) || 0, lastViews || new Map()); void kind; },
     /** A battle event render/app.js handled (the views map resolves unit ids). */
     onEvent(e, views) {
       lastViews = views;
       if (Array.isArray(e)) {
         if (e[0] === 'die') gone.add(e[1]);
-        else if (e[0] === 'deploy') gone.delete(e[1]);
+        else if (e[0] === 'deploy') { gone.delete(e[1]); const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; } } // local patch (2026-10-10): its first attack again
         else if (e[0] === 'spawn') gone.delete(e[1]?.id ?? e[1]);
         else if (e[0] === 'fx' && e[1] === 'summon' && e[4]) gone.delete(e[4].id);
         // local patch: a stone spawned (its 'summon' fx of the same moment, if any, takes it off — stoneFx)
@@ -1197,9 +1439,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[2] && e[3] !== 'flag') v._fxSkillByEvent = true; // local patch: skillByFlag leaves it alone
           if (!e[2] && e[3] !== 'flag') v._fxSkillOffT = clockS;
           if (e[2] && v._fxSkillFlag && e[3] !== 'flag') { v._fxSkillFlag = false; return; } // already started from its flag (skillByFlag)
+          // local patch (2026-10-10): the mode switch detaches the old mode's abilities (ON_DETACHED ends their loop cast
+          // effects) and attaches the new one's (its first attack again: `_delayIfFirstAttack`)
+          endCast(v); v._fxFirstDone = null; v._fxFoe = null;
           if (e[2]) {
             v._fxSkillOn = true;
             v._fxMarked = null;   // local patch: the targets its marks sit on (pendingHit)
+            const fm = attackMode(bindOf(v), true, skillIdx(v)) ?? -1; // local patch (2026-10-10): its mode's enemy-held buff effects
+            const foe = foeEffects(bindOf(v), bundleOf(v).prefabs, fm);
+            if (foe.length) v._fxFoe = { mode: fm, names: foe, on: new Set() };
             // local patch: the activation's effects (activation(): name mapping + the skill's own, minus the attacks' / targets')
             const { start, loops } = activation(v);
             if (start.length) play(v, 'skillStart', skillIdx(v), { names: start });
@@ -1221,14 +1469,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode });
           if (!noteAtks.has(e)) trailShot(e, src, tgt, mode); // local patch: its projectile's official trail
-          const sid = src.id ?? src.info.id;
-          if (level() >= 3) return;   // the busiest effects go first under load
-          const cast = mode != null ? bound(src, mode, 'cast') : [];
-          if (cast.length) { // local patch: the mode's own cast effects, a skill's on each of its attacks
-            if (clockS - (lastAttackFx.get(sid) ?? -9) >= ATTACK_GAP_S) { lastAttackFx.set(sid, clockS); play(src, 'attackStart', 0, { names: cast }); }
-            return;
-          }
-          if (!src._fxSkillOn && clockS - (lastAttackFx.get(sid) ?? -9) >= ATTACK_GAP_S) { lastAttackFx.set(sid, clockS); play(src, 'attackStart'); }
+          if (src._fxSkillOn) foeFx(src, tgt, mode); // local patch (2026-10-10): a mode buff held by the enemy
+          // local patch: the mode's own cast effects (a skill's on each of its attacks) — since 2026-10-10 on the attack's own
+          // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
+          // throttle (ATTACK_GAP_S) and load level 3 skip them as before (beginCast)
+          strikeFx(src, mode);
+          return;
+        }
+        // local patch (2026-10-10, decompile check): the sim's swing start ['swing', unit, windup, kind] — an attack's
+        // ON_CAST_START cast effects (swingFx). Every state event reaches onEvent, so render/app.js needs no call of its own.
+        case 'swing': {
+          const src = views.get(e[1]);
+          if (src) swingFx(src, Number(e[2]) || 0, views);
           return;
         }
         case 'dmg': {
@@ -1252,6 +1504,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/ops/op-chen3.js) carries her official trail along its path
           if (stoneFx(e, views)) return;
+          if (e[1] === 'zone' && zoneFx(e, views)) return; // local patch (2026-10-10): a skill projectile's reach effects
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
@@ -1294,6 +1547,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       camRef = cam; // local patch: status effects' heights (playStatus)
       clockS += dt * gameRate(); // local patch: the battle clock (gaps, ends) — the official effects use scaled time
       stepTrails(dt * gameRate()); // local patch
+      stepCasts(); // local patch (2026-10-10): delayed first-attack cast effects
+      stepZones(dt * gameRate()); // local patch (2026-10-10): moving projectile reach effects
       if (lastViews && index) for (const v of lastViews.values()) if (isOp(v) && (v._fxSkillOn || ((v.flags | 0) & UF.SKILL)) && bundleOf(v)) skillByFlag(v, lastViews); // local patch
       stepNotes(dt, lastViews);   // the notes fly on while their trails load
       stepWolves(dt);
@@ -1317,6 +1572,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (m.inst.done || clockS - m.t > 0.4) { m.inst.stop(); movers.delete(id); } else if (m.inst.time > 1.5) m.inst.time = 0.4; // keep the trail running
       }
       const rate2 = gameRate();
+      stepBackSwitches(); // local patch (2026-10-10)
       for (let i = live.length - 1; i >= 0; i--) {
         const l = live[i];
         if (l.view && l.view.alive !== false && !l.view.remove) {
@@ -1331,7 +1587,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           l.inst.object.quaternion.setFromUnitVectors(SKY_Y, skyUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize());
         }
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
-        if (!l.view?.paused || l.inst.stopping) l.inst.update(dt * rate2);   // local patch: every effect on the battle clock (the notes did already: trail = speed × time)
+        if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // local patch (2026-10-10): a back copy ends with its front
+        if ((!l.view?.paused && !l.hidden) || l.inst.stopping) l.inst.update(dt * rate2);   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
         // (#2-1) a kept effect (playAt `keep`: 望's stone activation) stays until its owner's 'die' stops it
         if (l.inst.done && !(l.keep && !l.inst.stopping)) { dropLive(l); live.splice(i, 1); }
@@ -1358,6 +1615,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastAtk.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch (#4-6): back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
+      castsDelayed.length = 0; zones.clear(); // local patch (2026-10-10)
       if (mod) showLayers();
     },
 

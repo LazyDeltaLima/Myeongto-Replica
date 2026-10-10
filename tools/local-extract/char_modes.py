@@ -203,7 +203,11 @@ def add(lst, names):
 
 
 class Projectiles:
-    """Projectile prefabs ([uc]projectiles.ab, PersistentData first): key → { hit: [...], trail: [...] }."""
+    """Projectile prefabs ([uc]projectiles.ab, PersistentData first): key → { hit: [...], trail: [...], start: [...],
+    zone: [...], onProj, aura: [...] } — `zone` = its `_effectsWhenReached` when `_clearReachedEffectWhenStop` is set (they
+    last until the projectile stops: client `EffectBehaviour.OnProjectileReached` / `OnProjectileStop`), `onProj` its
+    `_setReachEffectOnProjectile` (1: parented to the projectile's body, moving with it), `aura` a ScalableAuraHitBehaviour's
+    `_effectKey` (made under the projectile's body, scaled to its range, ended at its stop)."""
     def __init__(self, client):
         self.roots = {}
         for f in (Path(client) / 'PersistentData/Bundles/battle/prefabs/[uc]projectiles.ab',
@@ -220,7 +224,7 @@ class Projectiles:
 
     def effects(self, key, done=None):
         done = done if done is not None else set()
-        out = {'hit': [], 'trail': [], 'start': []}
+        out = {'hit': [], 'trail': [], 'start': [], 'zone': [], 'aura': [], 'onProj': 0}
         if key in done:
             return out
         done.add(key)
@@ -230,11 +234,21 @@ class Projectiles:
             add(out['trail'], effect_names(d.get('_mainEffect')))
             # on the target as the projectile starts (德克萨斯 S2's falling swords: projectile_sword_rain)
             add(out['start'], effect_names(d.get('_effectsToTargetWhenStart')))
+            # local patch (2026-10-10, decompile check: 쏜즈 더 로드스타's token / range lasted the whole battle): the reach
+            # effects that end with the projectile, and its scalable aura
+            if d.get('_clearReachedEffectWhenStop') == 1:
+                add(out['zone'], effect_names(d.get('_effectsWhenReached')))
+                out['onProj'] |= 1 if d.get('_setReachEffectOnProjectile') == 1 else 0
+            if '_onlyCheckHitWhenReachTarget' in d and isinstance(d.get('_effectKey'), str) and d['_effectKey']:
+                add(out['aura'], [d['_effectKey']])
             for k in PROJ_SUB_KEYS:
                 if isinstance(d.get(k), str) and d[k]:
                     sub = self.effects(d[k], done)
                     for r in out:
-                        add(out[r], sub[r])
+                        if r == 'onProj':
+                            out[r] |= sub[r]
+                        else:
+                            add(out[r], sub[r])
         return out
 
 
@@ -256,9 +270,9 @@ def turned(o, out=None):
 def dir_groups(o, out=None):
     """local patch (user report 5 #5-2, user's decision 2026-10-08 「13명 전체」): an effect emitter entry's `_effects` is a
     slot list — 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT (스펙터 디 언체인드 S3 `_up` / `_down`, 백파이프 S3 `_right` / `_left`) — and its
-    `_directionType` (global-metadata DirectionType in declaration order: 0 NONE, 1 L_OR_R, 2 U_OR_D, 3 FOUR_DIR, 4 UD_OR_LR,
-    5 FOUR_DIR_FIXED, 6 L_OR_R_NOT_UD [ASSUMED: value = order, every entry agrees]) says which slot plays for the owner's
-    facing (render/fxgame.js dirPick). `add()` drops `_up` / `_down` / `_left` / `_back` names and keeps the others side by
+    `_directionType` (UberEffectEmitter.EffectOptions.DirectionType: 0 NONE, 1 L_OR_R, 2 U_OR_D, 3 FOUR_DIR, 4 UD_OR_LR,
+    5 FOUR_DIR_FIXED — the enum's values, decompile check 2026-10-10; 6 L_OR_R_NOT_UD is another enum's) says which slot
+    plays for the owner's facing (render/fxgame.js dirPick). `add()` drops `_up` / `_down` / `_left` / `_back` names and keeps the others side by
     side, so both copies of 아르케토 S3 `start_02` (UP) / `start_02_B` played at once. The entries naming more than one
     effect: [{ t: directionType, s: [up, right, down, left] }]."""
     out = [] if out is None else out
@@ -287,7 +301,8 @@ END_ABILITY = re.compile(r'^End', re.I)
 
 def skill_effects(tree, projectiles=None):
     """{skill prefabId: { cast, castLoop, buff, target, targetBuff, end?, turn? }} from battle/prefabs/[uc]skills.ab — the
-    effects a skill binds itself (local patch, user report 2026-10-07: 德克萨斯 S2 / 戴菲恩 S3 showed the wrong ones by name):
+    effects a skill binds itself (local patch, user report 2026-10-07: 德克萨斯 S2 / 戴菲恩 S3 showed the wrong ones by name;
+    `zone` 2026-10-10: its projectile's reach effects that last until the projectile stops + its aura — Projectiles):
     cast = its abilities' `_castEffects` with `_oneshot 1` (once, on the caster), castLoop = `_oneshot 0` (while it casts),
     buff = its `_buffs`' effects (on the caster while the buff lasts), targetBuff = its `_activeBuffs`' (on each target hit),
     target = its `_hitEffects` + its projectiles' start / hit effects (on the targets). An ability named End… (戴菲恩 S3
@@ -308,7 +323,12 @@ def skill_effects(tree, projectiles=None):
         add(e['targetBuff'], own_buff_effects(d, '_activeBuffs'))
         if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
             p = projectiles.effects(d['_projectileKey'])
-            add(e['end']['hit'] if end else e['target'], p['start'] + p['hit'])
+            add(e['end']['hit'] if end else e['target'], [x for x in p['start'] + p['hit'] if x not in p['zone']])
+            if p['zone'] or p['aura']:
+                z = e.setdefault('zone', {'fx': [], 'aura': [], 'onProj': 0})
+                add(z['fx'], p['zone'])
+                add(z['aura'], p['aura'])
+                z['onProj'] |= p['onProj']
         add(e['turn'], turned(d))
         dir_groups(d, e['dirs'])
     for e in out.values():
@@ -325,7 +345,8 @@ def modes_of(path, projectiles=None):
     """{ modes, proj, cast, hit, trail } of a charpack (per mode, in `_modes` order), or None:
     modes = the mode GameObject names; proj = the projectile keys under each mode; cast = the effects its attacks cast on
     the attacker; hit = those on the target (the emitters' hit lists + its own projectile's WhenHit / WhenReached); trail =
-    that projectile's main effect; attach = the effects of the mode's own (Talents) buffs and the effects its abilities
+    that projectile's main effect (shotFrom: the MountPointType it leaves from when not MUZZLE; castOpt: each cast effect's
+    start / end events — local patch 2026-10-10); attach = the effects of the mode's own (Talents) buffs and the effects its abilities
     attach (`_attachEffects`, an ability's `_effects`), shown on the operator while it lasts. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
     only the first counts."""
     tree, go_name = load_tree(path)
@@ -345,7 +366,34 @@ def modes_of(path, projectiles=None):
     # `_castEffects`: ghost2_birth_01_start, the blue swirl)
     foe_go = {d['m_GameObject']['m_PathID'] for _, d, _ in tree
               if isinstance(d.get('_targetOptions'), dict) and d['_targetOptions'].get('targetSide') == 2}
+    mb = {pid: d for _, d, pid in tree}
+
+    def selects_foes(d):
+        """local patch (2026-10-10, decompile check: 아스트젠 더 라이트체이서 S3): whether an ability's `_selector`
+        (`Ability._selector`) picks enemies — every range selector of its `_rangeSelectorsList` (or the selector itself)
+        with a `_targetSide` says 2. halo2's S3 LinkEnemy: HasBuff / NewBuff, `_targetSide 2`, `_maxNum 1` — its buff's
+        effect `halo2_skill_03_buff_02` sits on that one enemy (a buff effect's owner is the unit holding the buff)."""
+        sel = d.get('_selector')
+        sd = mb.get(sel.get('m_PathID')) if isinstance(sel, dict) and sel.get('m_PathID') else None
+        if not isinstance(sd, dict):
+            return False
+        subs = [mb.get(r.get('m_PathID')) for r in sd.get('_rangeSelectorsList') or [] if isinstance(r, dict)]
+        sides = [x.get('_targetSide') for x in [sd, *subs] if isinstance(x, dict) and isinstance(x.get('_targetSide'), int)]
+        if not sides or any(v != 2 for v in sides):
+            return False
+        # how many enemies at once (`_limitTargetNum` → `_maxNum`), 0 = no limit
+        return int(sd.get('_maxNum') or 0) if sd.get('_limitTargetNum') == 1 else 0
     attach_foe = [[] for _ in range(n)]
+    foe_max = {}   # effect → the selector's target limit (attachFoeMax; without one: every enemy the ability hits)
+    # local patch (2026-10-10, decompile check — client `CastEffectOptions.OnEvent` / `OnCastStart` / `OnCastFinish`): when
+    # each cast effect starts and ends: { name: { s: _startEvent, e: _endEvent, o: _oneshot, d?: _delayIfFirstAttack, once?:
+    # _onlyOnce } } per mode (every slot name of the entry, so a directional copy finds its timing). AbilityStandard.Event:
+    # 0 ON_ATTACHED, 1 ON_DETACHED, 2 ON_CAST_START (the swing start), 3 ON_CAST_END, 4 ON_SPELL_ON (the strike), 5
+    # ON_SPELL_END, 6 ON_ATTACK_FINISH, 7 ON_ATTACK_CHECK_POINT, 8 ON_OVERLOAD (render/fxgame.js onSwing)
+    cast_opt = [{} for _ in range(n)]
+    # local patch (2026-10-10, decompile check — client `RangedAttack._GetMountPoint`): the shooter's point a mode's shot
+    # leaves from, its `_mountPointType` (MountPointType; MUZZLE 2 is the default and left out)
+    shot_mp = {}
     doll_born = []
     for gp, d, _ in tree:
         if '[switch2stand]/StandBorn' in gp:
@@ -386,9 +434,22 @@ def modes_of(path, projectiles=None):
         for k in found:
             if k not in proj[i]:
                 proj[i].append(k)
+        if isinstance(d.get('_projectileKey'), str) and d['_projectileKey'] and isinstance(d.get('_mountPointType'), int):
+            shot_mp.setdefault((i, d['_projectileKey']), d['_mountPointType'])
         if skipped(gp):
             continue
         add(cast[i], effect_names(d.get('_castEffects') or []))
+        for c in d.get('_castEffects') or []:
+            if not isinstance(c, dict):
+                continue
+            opt = {'s': c.get('_startEvent', 2), 'e': c.get('_endEvent', 3), 'o': c.get('_oneshot', 1)}
+            if isinstance(c.get('_delayIfFirstAttack'), (int, float)) and c['_delayIfFirstAttack'] > 0:
+                opt['d'] = round(float(c['_delayIfFirstAttack']), 4)
+            if c.get('_onlyOnce') == 1:
+                opt['once'] = 1
+            for x in c.get('_effects') or []:
+                if isinstance(x, str) and x:
+                    cast_opt[i].setdefault(x, opt)
         for k in HIT_KEYS:
             add(hit[i], effect_names(d.get(k) or []))
         # the mode's own buffs (its Talents abilities: 丰川祥子 S3's oblvns_s_3[eff] → the range effect) show their effect on
@@ -399,8 +460,12 @@ def modes_of(path, projectiles=None):
         sub = gp[len(mode_paths[i]):] + '/'
         if '/Talents/' in sub or '/GeneralAbilities/' in sub:
             add(attach[i], buff_effects(d))
-            if d.get('m_GameObject', {}).get('m_PathID') in foe_go:
+            sel = selects_foes(d)
+            if d.get('m_GameObject', {}).get('m_PathID') in foe_go or sel is not False:
                 add(attach_foe[i], buff_effects(d))
+                if sel:
+                    for x in buff_effects(d):
+                        foe_max.setdefault(x, sel)
         # effects a mode's abilities attach while they run: an emitter's `_attachEffects`, and an ability's own `_effects`
         # list (비르투오사 S3's GeneralAbilities: cello_skill_03_buff_01 / _front_02 / _range — her range)
         add(attach[i], effect_names(d.get('_attachEffects') or []))
@@ -416,13 +481,20 @@ def modes_of(path, projectiles=None):
             e = projectiles.effects(proj[i][0])
             add(hit[i], e['hit'])
             add(trail[i], e['trail'])
+    shot_from = [shot_mp.get((i, proj[i][0])) if proj[i] else None for i in range(n)]
     res = {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail, 'attach': attach}
+    if any(cast_opt):
+        res['castOpt'] = cast_opt
+    if any(x is not None and x != 2 for x in shot_from):
+        res['shotFrom'] = [None if x == 2 else x for x in shot_from]
     if turn:
         res['turn'] = turn
     if dirs:
         res['dirs'] = dirs
     if any(attach_foe):
         res['attachFoe'] = attach_foe
+    if foe_max:
+        res['attachFoeMax'] = foe_max
     if doll_born:
         res['dollBorn'] = doll_born
     return res
@@ -477,7 +549,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'hit', 'trail', 'attach', 'attachFoe', 'dollBorn', 'skills', 'turn', 'dirs') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'hit', 'trail', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'skills', 'turn', 'dirs') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

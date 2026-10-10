@@ -102,7 +102,8 @@ export function noteEffects(mode, fan = 0) {
 
 // ---- attack-mode bindings (local patch 2026-10-07, docs/LOCAL-PATCH.md 「스킬 중 공격 이펙트」) ---------------------------
 // /assets/local/fx/modes.json[charId] = { modes: [Default, S2, …], skillMode?: [mode|null per skill], cast: [[names]…], hit: [[names]…], trail: [[names]…],
-//   attach: [[names]…] }
+//   attach: [[names]…], castOpt?: [{ name: { s, e, o, d?, once? } }…] (castTiming), shotFrom?: [MountPointType|null…] (the
+//   shot's start point when not MUZZLE), attachFoe?: [[names]…] + attachFoeMax?: { name: n } (foeEffects) }
 // (tools/local-extract/char_modes.py: the character prefab's attack modes and the effects their attacks bind).
 
 /**
@@ -131,8 +132,51 @@ export function boundEffects(bind, prefabs, n, role) {
   return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
 }
 
+/**
+ * local patch (2026-10-10, decompile check): the effects of mode `n`'s own buffs that sit on enemies (modes.json `attachFoe`:
+ * the buff's ability targets enemies — `_targetOptions.targetSide` 2 or a `_selector` whose range selectors pick side 2), in
+ * order, extracted only. A buff effect's owner is the unit holding the buff (client `Effect.Behaviour.owner`).
+ * @param {any} bind modes.json entry
+ * @param {string[]|null|undefined} prefabs
+ * @param {number|null} n
+ */
+export function foeEffects(bind, prefabs, n) {
+  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0) return [];
+  const list = bind.attachFoe?.[n];
+  return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
+}
+
+// ---- cast effect timing (local patch 2026-10-10, decompile check) ----------------------------------------------------------
+// The client starts an attack's cast effect on its `_startEvent` and ends a loop one (`_oneshot` 0) on its `_endEvent`
+// (`CastEffectOptions.OnEvent`, RVA 0xB17C80), on the ability's detach, or at the cast's finish (`OnCastFinish` 0xB17BD0).
+// AbilityStandard.Event: 0 ON_ATTACHED, 1 ON_DETACHED, 2 ON_CAST_START — raised in `_DoCast` (0x3505E70) before the pre-delay
+// wait, i.e. as the swing starts —, 3 ON_CAST_END, 4 ON_SPELL_ON (the strike), 5 ON_SPELL_END, 6 ON_ATTACK_FINISH, 7
+// ON_ATTACK_CHECK_POINT, 8 ON_OVERLOAD. modes.json `castOpt[mode][name]` = { s: start, e: end, o: oneshot, d?: delay of the
+// first attack (s, ÷ the ability's playback speed), once?: once per cast }.
+export const CAST_EVENT = Object.freeze({ ATTACHED: 0, DETACHED: 1, CAST_START: 2, CAST_END: 3, SPELL_ON: 4, SPELL_END: 5, ATTACK_FINISH: 6 });
+/**
+ * The timing of cast effect `name` of mode `n` (modes.json castOpt), or null when the entry carries none (an older
+ * modes.json: every cast effect then plays at the strike, as before).
+ * @param {any} bind
+ * @param {number|null} n
+ * @param {string} name
+ * @returns {{ s: number, e: number, o: number, d?: number, once?: number }|null}
+ */
+export function castTiming(bind, n, name) {
+  const m = Number.isInteger(n) && n >= 0 ? bind?.castOpt?.[n] : null;
+  const o = m && typeof m === 'object' ? m[name] : null;
+  return o && typeof o === 'object' && Number.isInteger(o.s) ? o : null;
+}
+/**
+ * Which moment of an attack a cast effect starts at: 'swing' (ON_CAST_START: as its swing starts — the sim's 'swing'
+ * event) or 'strike' (ON_SPELL_ON / ON_SPELL_END …: the 'atk' event). Without a timing (older modes.json) 'strike'.
+ * @param {{ s: number }|null} opt
+ * @returns {'swing'|'strike'}
+ */
+export const castPhase = (opt) => (opt && opt.s === CAST_EVENT.CAST_START ? 'swing' : 'strike');
+
 // ---- a skill activation's effects (local patch, user report 2026-10-07, 11 items) ------------------------------------------
-// modes.json[charId].skills[i] = { cast, castLoop, buff, target, targetBuff, end?: { cast, hit } } — the skill's own effects
+// modes.json[charId].skills[i] = { cast, castLoop, buff, target, targetBuff, end?: { cast, hit }, zone?: { fx, aura, onProj } } — the skill's own effects
 // (char_modes.py from battle/prefabs/[uc]skills.ab); turn = the prefabs the client turns to the unit's facing.
 
 /**
@@ -155,11 +199,17 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
   const sk = bind?.skills?.[skillIndex] || null;
   const has = (list) => (Array.isArray(list) ? list.filter((x) => pre.includes(x)) : []);
   const modeOwn = new Set(['cast', 'hit', 'trail'].flatMap((r) => (bind?.[r] || []).flat()));
-  const notCaster = new Set([...(sk?.target || []), ...(sk?.targetBuff || []), ...(sk?.end?.cast || []), ...(sk?.end?.hit || [])]);
-  const keep = (x) => !modeOwn.has(x) && !notCaster.has(x) && !kitOwned.has(x);
+  // (2026-10-10) the effects of its projectile's lasting reach / aura (`zone`: 쏜즈 더 로드스타's token / range) sit at that
+  // projectile — render/fxgame.js zoneFx; 833e7a02's `_range` name rule put thorn2_skill_02_range on her for the whole battle
+  const notCaster = new Set([...(sk?.target || []), ...(sk?.targetBuff || []), ...(sk?.end?.cast || []), ...(sk?.end?.hit || []),
+    ...(sk?.zone?.fx || []), ...(sk?.zone?.aura || [])]);
+  // (2026-10-10) a mode buff whose ability selects enemies (`attachFoe`: 아스트젠 더 라이트체이서 S3's link) is on the enemy, not here
+  const foe = new Set(foeEffects(bind, pre, n));
+  const keep = (x) => !modeOwn.has(x) && !notCaster.has(x) && !kitOwned.has(x) && !foe.has(x);
   // a prefab the skill casts (`_castEffects`, ending with its cast) is not a loop for the whole skill even if named _buff / _range
   const cast = new Set([...(sk?.cast || []), ...(sk?.castLoop || [])]);
-  const loops = [...new Set([...effectsFor(pre, 'skillBuff', skillIndex).filter((x) => keep(x) && !cast.has(x)), ...has(sk?.buff), ...boundEffects(bind, pre, n, 'attach')])];
+  const loops = [...new Set([...effectsFor(pre, 'skillBuff', skillIndex).filter((x) => keep(x) && !cast.has(x)), ...has(sk?.buff),
+    ...boundEffects(bind, pre, n, 'attach').filter((x) => !foe.has(x))])];
   const modeCast = boundEffects(bind, pre, n, 'cast');
   const start = [...new Set([...(modeCast.length ? [] : effectsFor(pre, 'skillStart', skillIndex)), ...has(sk?.cast), ...has(sk?.castLoop)])]
     .filter((x) => keep(x) && !loops.includes(x));
