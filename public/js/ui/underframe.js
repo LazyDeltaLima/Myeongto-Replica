@@ -144,14 +144,15 @@ export function tempRowFrame(a, b, { labelW = 0, gap = 8, vw = Infinity } = {}) 
 /**
  * What the temp row's label says will happen to its pieces (server/match/player/basics.js tempDue): a piece is resolved
  * at the end of the first prep in which the player can act on it. Not ready (or outside PREP): at the end of this / the
- * coming prep, and 准备就绪 waits for the row to be cleared. Ready in PREP: Ready is refused while the row holds pieces,
- * so whatever lies there arrived after it — kept through the NEXT prep (cancelling Ready makes it due at this one).
+ * coming prep. Ready in PREP: what lay there when the player readied (a confirmed overflow — the official client's
+ * PREP_READY_TIP_1, 2026-10-10) goes at this prep's end; what arrived after it is kept through the NEXT prep (cancelling
+ * Ready makes it due at this one).
  * @param {boolean} ready m.private ready (during PREP)
  */
 export function tempRowRule(ready) {
   return ready
-    ? t('已准备就绪后进入的单位保留到下个休整期，届时仍在此处的将被销毁（取消准备则在本休整期结束时销毁）')
-    : t('放入整备区或战场、配发或使用后才能准备；休整期结束时仍在此处的将被销毁');
+    ? t('准备就绪前已在此处的将在本休整期结束时销毁；之后进入的保留到下个休整期，届时仍在此处的将被销毁')
+    : t('放入整备区或战场、配发或使用；休整期结束时仍在此处的将被销毁');
 }
 
 /**

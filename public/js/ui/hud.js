@@ -33,7 +33,7 @@ import { serverNow } from '../store.js';
 import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason } from './gameLogic.js';
 import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf } from './settings.js';
-import { t, tParts, N_ } from '../../../shared/i18n.js';
+import { t, tParts } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -200,25 +200,18 @@ export function tempInfo(priv) {
   return { count: list.length, items: list.filter((p) => p.kind === 'item').length };
 }
 
-/** What the temp row asks of the player (the ready button's reason, the row's label). */
-export const TEMP_RULE = N_('放入整备区或战场、配发或使用后才能准备就绪；休整期结束时仍留在临时整备区的单位将被销毁');
-
-/** Why 准备就绪 is refused while the temp row holds pieces (null when it is empty). */
-export function tempReadyReason(priv) {
-  const info = tempInfo(priv);
-  return info.count ? t('临时整备区还有 {count} 个单位：{rule}', { count: info.count, rule: t(TEMP_RULE) }) : null;
-}
-
 /**
- * Ready toggle (PREP only). Disabled while the temp row holds pieces or a personal choice (教鞭) is open — the reason shows
- * under it (not only on hover): "临时整备区 N 个单位待处理" (maintainer playtest #3 item 3), "请先完成教鞭选择".
+ * Ready toggle (PREP only). Disabled while a personal choice (教鞭) is open — the reason shows under it (not only on
+ * hover): "请先完成教鞭选择". Pieces in the temp row do not disable it (the official client asks first, then readies —
+ * screens/game.js toggleReady, gameLogic readyOverflowPrompt): "临时整备区 N 个单位待处理" still shows under it as a
+ * reminder (maintainer playtest #3 item 3).
  * @param {{ priv:any, onToggle:(ready:boolean)=>void, busy?:boolean, readyCount?:number, total?:number }} props
  */
 export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {
   const ready = !!priv?.ready;
   const temp = tempInfo(priv);
   const choice = !!priv?.personalChoice;
-  const reason = !ready ? (choice ? shopBlockReason('ready', { priv, editable: true }) : tempReadyReason(priv) || shopBlockReason('ready', { priv, editable: true })) : null;
+  const reason = !ready ? shopBlockReason('ready', { priv, editable: true }) : null;
   const why = !ready && (choice || temp.count > 0);
   const btn = html`<button type="button" class=${cx('readybtn', 'tapx', ready && 'is-on', busy && 'is-busy')} disabled=${!!reason || busy}
       aria-pressed=${ready ? 'true' : 'false'} aria-describedby=${why ? 'readywrap-why' : undefined} onClick=${() => onToggle(!ready)}>

@@ -396,6 +396,7 @@
 .bcd .bcd__text { position: absolute; left: 50%; width: calc(var(--pu) * 1080); margin: 0 0 0 calc(var(--pu) * -540); top: calc(var(--pu) * 37.55);
   height: calc(var(--pu) * 162); display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--font-cjk);
   font-size: calc(var(--pu) * 26); line-height: 1.35; color: #fff; }
+.bcd .bcd__text.is-alone { top: calc(var(--pu) * 28.55); height: calc(var(--pu) * 200); }
 .bcd .bcd__check { position: absolute; left: 50%; top: calc(var(--pu) * 197.55); height: calc(var(--pu) * 26); transform: translateX(-50%);
   display: flex; align-items: center; gap: calc(var(--pu) * 4.2); margin: 0; padding: 0; border: 0; background: none; cursor: pointer;
   font-family: var(--font-cjk); font-size: calc(var(--pu) * 22); color: #dcdcdc; white-space: nowrap; }

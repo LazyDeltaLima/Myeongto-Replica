@@ -151,7 +151,7 @@ test('merge whose copies are not deployed (temp) with a full hand overflows the 
   assert.ok(ps.acquireChess(id, { source: 'grant' }));
   assert.ok(ps.temp.some((p) => p && p.id === DATA.chess[id].goldenId), 'elite overflowed into temp');
   assert.equal(ps.board.size, 0, 'nothing was deployed');
-  assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: true }), { error: ERR.TEMP_NOT_EMPTY });
+  assert.equal(ps.privateView().canReady, true, 'the overflow does not block Ready (the official client asks first)');
   checkInvariants(m);
   m.dispose();
 });

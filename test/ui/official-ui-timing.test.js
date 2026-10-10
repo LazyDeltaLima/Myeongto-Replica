@@ -48,8 +48,10 @@ test('the three dots: only a battle still running; nothing for a player deciding
 
 test('准备 with funds left: the client confirm dialog when the art is there, muted for the match by its check box', () => {
   const src = read('public/js/screens/game.js');
-  assert.match(src, /battleArt\('confirm'\)\.cls\s*\? await new Promise\(\(resolve\) => setGoldAsk\(\{ text: ask\.text, resolve \}\)\)\s*: await confirmDialog\(ask\)/);
-  assert.match(src, /const ask = r && !goldTipOff\.current \? readyFundsPrompt/);
+  assert.match(src, /battleArt\('confirm'\)\.cls\s*\? await new Promise\(\(resolve\) => setGoldAsk\(\{ text: ask\.text, check: kind === 'gold', resolve \}\)\)\s*: await confirmDialog\(ask\)/);
+  assert.match(src, /\['gold', goldTipOff\.current \? null : readyFundsPrompt/);
+  // the client's order (_EventOnPrepReadyBtnClick): the temp overflow first (TIP_1), then the funds (TIP_2)
+  assert.ok(src.indexOf("['overflow', readyOverflowPrompt(") < src.indexOf("['gold', goldTipOff"));
   assert.match(src, /if \(ok && noMore\) goldTipOff\.current = true;/);
 });
 

@@ -202,7 +202,7 @@ test('selling: +1 (normal and elite, board or hand), items return to the hand, i
   m.dispose();
 });
 
-test('ready gating: temp must be empty (a freed hand slot pulls the temp piece in); unready allowed until everyone is ready; actions locked while ready', () => {
+test('ready gating: an overflowing temp does not block Ready (the official client asks first); a freed hand slot pulls the temp piece in; unready allowed until everyone is ready; actions locked while ready', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, seed: 10 }).start();
   h.toPrep(1);
   const m = h.m;
@@ -210,8 +210,9 @@ test('ready gating: temp must be empty (a freed hand slot pulls the temp piece i
   fillHand(a);
   const t = give(m, a, chessOfTier(1).find((x) => m.pool.has(x)), 'temp');
   assert.ok(a.temp.includes(t), 'a full hand: it waits in temp');
-  assert.equal(a.privateView().canReady, false);
-  assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: true }), { error: ERR.TEMP_NOT_EMPTY });
+  assert.equal(a.privateView().canReady, true);
+  assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: true }), { ok: true });
+  assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: false }), { ok: true });
   // destroying a hand item frees its slot: the temp piece moves in by itself (PRTS 卫戍协议/帮助 §手牌区, GitHub #82)
   const freed = a.hand[3];
   assert.deepEqual(m.handle('p_0', { t: 'g.destroy', uid: freed.uid }), { ok: true });

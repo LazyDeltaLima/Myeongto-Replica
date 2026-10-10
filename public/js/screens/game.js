@@ -71,7 +71,7 @@ import { html, Spinner, PhaseBanner, ResultDialog, Icon, Button, confirmDialog, 
 import { useGameData, GIcon, PlayerAvatar } from '../ui/gameComponents.js';
 import { enemyIconUrl } from '../ui/assetUrls.js';
 import { useFieldView } from '../ui/fieldHost.js';
-import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } from '../ui/hud.js';
+import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
@@ -104,7 +104,7 @@ import {
   terrainInfo,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, foldCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull,
+  mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { BriefingScreen } from './briefing.js';
@@ -846,24 +846,33 @@ function MatchScreen() {
     return actions.buy(i, slot && slot.kind !== 'item' ? { sfx: false } : undefined);
   }, []);
   const pickReward = useCallback((i) => actions.reward(i), []);
-  // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
-  // under AI 托管 — gameLogic.readyFundsPrompt). The button and Space both come here.
+  // 准备 asks first, as the client's _EventOnPrepReadyBtnClick: units left in the temp row (PREP_READY_TIP_1 —
+  // gameLogic.readyOverflowPrompt; they go at the prep's end), then funds left (PREP_READY_TIP_2, community report #4: the
+  // prep's end wipes them; not 坎诺特, not at 0 funds, not under AI 托管, not once muted — gameLogic.readyFundsPrompt),
+  // each confirmed before the next. The button and Space both come here.
   const askingReady = useRef(false);
   const toggleReady = useCallback(async (r) => {
     const L = live.current;
     const me = Array.isArray(L.pub?.players) ? L.pub.players.find((p) => p && p.playerId === L.myId) : null;
-    const ask = r && !goldTipOff.current ? readyFundsPrompt(L.priv, { keptBands: data.get('config')?.economy?.leftoverFundsKeptByBands, autoplay: !!me?.autoplay }) : null;
-    if (ask) {
+    const asks = r ? [
+      ['overflow', readyOverflowPrompt(L.priv, { autoplay: !!me?.autoplay })],
+      ['gold', goldTipOff.current ? null : readyFundsPrompt(L.priv, { keptBands: data.get('config')?.economy?.leftoverFundsKeptByBands, autoplay: !!me?.autoplay })],
+    ].filter(([, a]) => a) : [];
+    if (asks.length) {
       if (askingReady.current) return;
       askingReady.current = true;
-      // the client's own confirm dialog when the local art has it (ui/battleArt.js ReadyTipDialog: its 本局不再提示 box
-      // mutes the question for the rest of this match), else the generic one
-      const ok = battleArt('confirm').cls
-        ? await new Promise((resolve) => setGoldAsk({ text: ask.text, resolve }))
-        : await confirmDialog(ask);
+      let ok = true;
+      for (const [kind, ask] of asks) {
+        // the client's own confirm dialog when the local art has it (ui/battleArt.js ReadyTipDialog; the funds one has
+        // the 本局不再提示 box that mutes it for the rest of this match), else the generic one
+        ok = battleArt('confirm').cls
+          ? await new Promise((resolve) => setGoldAsk({ text: ask.text, check: kind === 'gold', resolve }))
+          : await confirmDialog(ask);
+        const now = live.current;
+        if (!ok || now.pub?.phase !== PHASE.PREP || now.priv?.ready) { ok = false; break; }
+      }
       askingReady.current = false;
-      const now = live.current;
-      if (!ok || now.pub?.phase !== PHASE.PREP || now.priv?.ready) return;
+      if (!ok) return;
     }
     setReadyBusy(true);
     await actions.ready(r);
@@ -1369,8 +1378,9 @@ function MatchScreen() {
       if (act === 'ready' && e.target instanceof HTMLElement && e.target.closest('button, [role="button"]')) e.target.blur();
       if (act === 'ready') {
         const refused = !L.priv.ready ? shopBlockReason('ready', { priv: L.priv, editable: true }) : null;
-        // the temp overflow row blocks it: say why (the button shows it too — user playtest #3 item 3)
-        if (refused) { audio.sfx('error', { volume: 0.5 }); toast(tempReadyReason(L.priv) || refused, 'warn'); return; }
+        // an open 教鞭 choice blocks it: say why (the button shows it too — user playtest #3 item 3; a temp overflow
+        // does not block it any more: toggleReady asks first)
+        if (refused) { audio.sfx('error', { volume: 0.5 }); toast(refused, 'warn'); return; }
         toggleReady(!L.priv.ready);
         return;
       }
@@ -1674,7 +1684,7 @@ function MatchScreen() {
     ${facing && view ? html`<${FacingWheel} key=${`${facing.uid}:${facing.row},${facing.col}`} view=${view} row=${facing.row} col=${facing.col}
       grid=${facing.grid} name=${facing.name} onPreview=${previewFacing} onCommit=${commitFacing} onCancel=${cancelFacing} />` : null}
 
-    ${goldAsk ? html`<${ReadyTipDialog} text=${goldAsk.text} onAnswer=${(ok, noMore) => {
+    ${goldAsk ? html`<${ReadyTipDialog} key=${goldAsk.text} text=${goldAsk.text} check=${goldAsk.check} onAnswer=${(ok, noMore) => {
       if (ok && noMore) goldTipOff.current = true;
       setGoldAsk(null);
       goldAsk.resolve(ok);

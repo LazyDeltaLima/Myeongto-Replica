@@ -717,7 +717,17 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   검게 칠한 `img_confirm_dialog_check` + #051511 글(뷰의 `_colGreenBtnText`/`_colGreenBtnIcon`). 조건은 그대로(클라 `IsNeedToShowPreReadyTipGold` = 자금 > 0, 전략이
   `noMoneyTipsBand` 밖). 체크하고 확인하면 이번 판에는 다시 묻지 않는다(클라 `AutoChessLocalCache.DataInScene.isPrevReadyGoldTipDisable` — 장면(판) 단위). 공식 문구
   (`AUTO_CHESS_BATTLE_PREP_READY_TIP_2` / `…_NOMORE`)는 클라 문구표가 없어 본문은 예전 우리 문장 [추정], 체크 글 「本局不再提示」 KR 「이번 판에는 다시 묻지 않기」는 우리 번역.
-  흐림 세기·어둡게 하는 정도 [추정]. 그림(`ui/common`)이 없으면 예전 확인 창. 클라에는 정비 구역 넘침으로 준비할 때의 짝 창(`…TIP_1`,
-  `_GetPreReadyTipHandOverflowDialogTabInput`)도 있으나 아직 없음.
+  흐림 세기·어둡게 하는 정도 [추정]. 그림(`ui/common`)이 없으면 예전 확인 창.
+- 임시 정비 구역이 넘친 채 준비(관리자 결정 2026-10-10 「공식 창을 같은 모양으로, 문구는 우리 번역」): 클라 코드
+  `AutoChessBattleUIController._EventOnPrepReadyBtnClick`은 준비를 누르면 `isHandOverflow`면 `tab_pre_ready_tip_hand_overflow`
+  (`_GetPreReadyTipHandOverflowDialogTabInput`: 같은 확인 창, `AUTO_CHESS_BATTLE_PREP_READY_TIP_1`, 체크 없음 — 글은 띠 가운데 1080×200) →
+  확인하면(`_HandleTabPrepReadyTipHandOverflow`) 이어서 남은 자금 창 조건을 보고 → `ReqPrepareReady`. 즉 공식은 **넘친 채로 준비할 수 있다**
+  (아래 띠 HAND_OVERFLOW 「넘친 자원은 다음 라운드에 파기」와 같은 뜻). 그래서 서버 규칙도 바꿨다: `server/match/player/prep.js setReady`의
+  `TEMP_NOT_EMPTY` 거절(upstream 원래 규칙, `docs/PLAYING.md` 「临时整备区有单位时不能准备就绪」)을 빼고, `m.private.canReady`도 임시 칸을 안 본다
+  (`player/views.js`). 준비할 때 이미 있던 것은 그 휴식이 끝날 때(모두 준비해 일찍 끝나도) 마감 때와 똑같이 처리 — 오퍼레이터는 카드 풀로, 장비는 파기
+  (`endPrep → resolveTemp`, 테스트 `test/match/temp.test.js` 실제 대전 경로). 준비 뒤에 들어온 것은 예전처럼 다음 휴식까지. 창 순서도 클라대로 넘침 →
+  남은 자금(`screens/game.js toggleReady`). 글 「临时整备区中仍有单位，休整期结束时将被销毁。确定准备就绪吗？」 KR 「임시 정비 구역에 유닛이 남아 있습니다.
+  휴식 기간이 끝나면 파기됩니다. 준비 완료하시겠습니까?」(우리 번역). 준비 버튼 아래 「임시 정비 구역 N개 대기」는 알림으로 남기되 버튼은 막지 않고, 판 위 줄
+  설명(`underframe.js tempRowRule`)도 새 규칙대로. 감사(`server/match/audit.js`)의 「비지 않은 임시 칸으로 준비」 검사는 뺐다. AI는 예전처럼 스스로 비운 뒤 준비.
 - 아직 안 넣은 것: 재접속 대기 마스크(`auto_chess_reconnect_mask`)·서버 끊김·혼자 판 이어하기 창, 핑 판(`panel_ping`), 위수협약 토스트, 결산 화면 좋아요(서버 기능 필요)·
   「战斗中...」 — `research/2026-10-10-autochess-ui-gap/README.md`.

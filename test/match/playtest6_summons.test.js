@@ -262,11 +262,10 @@ test('a summon stack left in temp at the prep deadline comes back next round (PR
   assert.deepEqual(move(m, card.uid, { area: 'board', row: 10, col: 3 }), { ok: true });
   assert.deepEqual(move(m, card.uid, { area: 'board', row: 11, col: 4 }, 'UP'), { ok: true });
   for (let i = 0; ps.hand.some((x) => x == null); i++) giveItem(m, ps, PLAIN[i]);
-  // moving 凯瑟琳 with a full hand: her devices go back as one card of 2, which overflows into temp and blocks Ready
+  // moving 凯瑟琳 with a full hand: her devices go back as one card of 2, which overflows into temp
   assert.deepEqual(move(m, cat.uid, { area: 'board', row: 10, col: 7 }), { ok: true });
   const inTemp = ps.temp.find((p) => p && p.kind === 'token' && p.id === DEVICE);
   assert.equal(inTemp?.count, 2);
-  assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: true }), { error: ERR.TEMP_NOT_EMPTY });
   // the player leaves it there: the prep deadline removes the temp card …
   h.drive(() => m.phase === PHASE.COMBAT && m.round === 1, { ready: false });
   assert.equal(tokensOf(ps, DEVICE).length, 0, 'removed with the temp slot at the deadline');

@@ -66,7 +66,7 @@ export class PlayerViews {
       funds: this.funds,
       bandId: this.bandId,
       ready: this.ready,
-      canReady: this.alive && this.tempEmpty && !this.personalChoice && this.m.phase === PHASE.PREP,
+      canReady: this.alive && !this.personalChoice && this.m.phase === PHASE.PREP,
       personalChoice: this.personalChoice ? {
         id: this.personalChoice.id,
         round: this.personalChoice.round,

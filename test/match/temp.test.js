@@ -5,7 +5,7 @@
 // FakeBattle; the rule auditor (server/match/audit.js) watches every match.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ERR, PHASE } from '../../shared/constants.js';
+import { PHASE } from '../../shared/constants.js';
 import { MetaRegistry } from '../../server/match/effectsMeta.js';
 import { registerBuiltins } from '../../server/match/builtinMeta.js';
 import { attachAudit } from '../../server/match/audit.js';
@@ -52,8 +52,7 @@ test('equipment granted after the battle overflows into temp, survives the round
   assert.deepEqual(kept.map((p) => p.id).sort(), GRANTS.slice(0, 2).sort(), 'not wiped at the round start');
   const view = ps.privateView();
   assert.deepEqual(view.temp.filter(Boolean).map((v) => v.uid).sort(), kept.map((p) => p.uid).sort(), 'shown in the temp row');
-  assert.equal(view.canReady, false);
-  assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: true }), { error: ERR.TEMP_NOT_EMPTY }, 'Ready is blocked until the overflow is cleared');
+  assert.equal(view.canReady, true, 'the overflow does not block Ready (the official client asks first: PREP_READY_TIP_1)');
   // usable: equip one straight from temp, destroy the other
   assert.deepEqual(m.handle('p_0', { t: 'g.equip', itemUid: kept[0].uid, targetUid: carrier.uid }), { ok: true });
   assert.ok(carrier.items.some((it) => it.uid === kept[0].uid), 'equipped from temp');
@@ -119,6 +118,33 @@ test('a chess still in temp at the next deadline is sold back: its pool copy ret
   m.dispose();
 });
 
+test('Ready with an overflowing temp (official PREP_READY_TIP_1 confirm): the prep ends at once and the overflow is resolved like at the deadline', () => {
+  let T = null;
+  const { h, m, ps, audit, arm } = setup({ seed: 1505, grants: (ctx) => { ctx.grantChess(T); ctx.grantItem(GRANTS[2]); } });
+  T = plainChess(m);
+  const cap = m.pool.cap(T);
+  arm();
+  h.toPrep(2);
+  const chess = ps.temp.find((p) => p && p.kind === 'chess');
+  const item = ps.temp.find((p) => p && p.kind === 'item');
+  assert.ok(chess && item, 'a chess and an item wait in temp');
+  assert.equal(m.pool.left(T), cap - 1);
+  const deadline = m.deadline;
+  assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: true }), { ok: true }, 'Ready is accepted with the overflow');
+  assert.ok(ps.ready);
+  assert.deepEqual(m.handle('p_1', { t: 'g.ready', ready: true }), { ok: true });
+  h.run(() => m.phase !== PHASE.PREP);
+  assert.ok(h.sched.now() < deadline, 'everyone ready: the prep ended before its deadline');
+  assert.ok(ps.tempEmpty, 'resolved at the prep end');
+  assert.ok(!ps.find(item.uid), 'the item was destroyed');
+  assert.ok(!ps.find(chess.uid), 'the chess left the player');
+  assert.equal(m.pool.left(T), cap, 'its pool copy is back');
+  checkInvariants(m);
+  h.drive(() => m.phase === PHASE.COMBAT && m.round === 2);
+  assert.deepEqual(audit.violations, [], audit.violations.join('\n'));
+  m.dispose();
+});
+
 test('<休整期结束时> grants after Ready overflow into temp and are kept for the next prep (never wiped unseen)', () => {
   const { h, m, ps, audit, arm } = setup({ seed: 1503, hook: 'onPrepEnd' });
   arm();
@@ -131,7 +157,7 @@ test('<休整期结束时> grants after Ready overflow into temp and are kept fo
   assert.ok(ps.temp.filter(Boolean).every((p) => ps.tempDue(p) === ps.prepsEnded), 'due at the next prep');
   h.toPrep(2);
   assert.deepEqual(ps.temp.filter(Boolean).map((p) => p.uid).sort(), uids, 'kept through COMBAT, SETTLE and the round start');
-  assert.equal(ps.privateView().canReady, false);
+  assert.equal(ps.privateView().canReady, true);
   // left alone they expire at this prep's deadline
   m.handle('p_1', { t: 'g.ready', ready: true });
   h.sched.advance(m.deadline - h.sched.now() + 1);

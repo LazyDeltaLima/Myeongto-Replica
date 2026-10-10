@@ -766,9 +766,11 @@ export function SelfDead({ onWatch, onExit }) {
  * and 确认 on img_confirm_dialog_btn_green_bg (sliced 22 / 322; icon img_confirm_dialog_check 45 black, text #051511),
  * the icon and its caption 15 apart, 14.5 above the middle. The client's TIP_2 / TIP_NOMORE texts are not in our
  * tables: the question is the remake's own wording [ASSUMED], 「本局不再提示」 ours too.
- * @param {{ text: string, onAnswer: (ok: boolean, noMore: boolean) => void }} props
+ * `check` false: the temp-overflow question (_GetPreReadyTipHandOverflowDialogTabInput: AUTO_CHESS_BATTLE_PREP_READY_TIP_1,
+ * the same view without the check box — content_without_check: the text 1080 × 200 in the middle of the band; our wording).
+ * @param {{ text: string, check?: boolean, onAnswer: (ok: boolean, noMore: boolean) => void }} props
  */
-export function ReadyTipDialog({ text, onAnswer }) {
+export function ReadyTipDialog({ text, check = true, onAnswer }) {
   const [noMore, setNoMore] = useState(false);
   const okRef = useRef(null);
   const live = useRef({ noMore, onAnswer });
@@ -788,9 +790,9 @@ export function ReadyTipDialog({ text, onAnswer }) {
     <i class="bcd__blur" aria-hidden="true"></i>
     <div class="bcd__band" style=${'top:calc(50% - var(--pu) * (39.05 + 257.09 / 2));height:calc(var(--pu) * 257.09)'}>
       <i class="bcd__bg" aria-hidden="true"></i>
-      <p class="bcd__text">${text}</p>
-      <button type="button" class=${noMore ? 'bcd__check is-on' : 'bcd__check'} role="checkbox" aria-checked=${String(noMore)}
-        onClick=${() => setNoMore((v) => !v)}><i class="bcd__box" aria-hidden="true"></i><span>${t('本局不再提示')}</span></button>
+      <p class=${check ? 'bcd__text' : 'bcd__text is-alone'}>${text}</p>
+      ${check ? html`<button type="button" class=${noMore ? 'bcd__check is-on' : 'bcd__check'} role="checkbox" aria-checked=${String(noMore)}
+        onClick=${() => setNoMore((v) => !v)}><i class="bcd__box" aria-hidden="true"></i><span>${t('本局不再提示')}</span></button>` : null}
     </div>
     <div class="bcd__btns" style=${'top:calc(50% - var(--pu) * (-140 + 103 / 2));height:calc(var(--pu) * 103)'}>
       <button type="button" class="bcd__btn is-cancel" onClick=${() => onAnswer(false, false)}>

@@ -57,7 +57,9 @@ export class PlayerPrep {
     if (!this.alive) return fail(ERR.ELIMINATED);
     if (this.m.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
     if (on && this.personalChoice) return fail(ERR.BAD_TARGET, '请先完成教鞭选择'); // i18n-ignore: developer error detail
-    if (on && !this.tempEmpty) return fail(ERR.TEMP_NOT_EMPTY);
+    // a non-empty temp row no longer blocks Ready: the official client asks first (AutoChessBattleUIController
+    // _EventOnPrepReadyBtnClick → tab_pre_ready_tip_hand_overflow, AUTO_CHESS_BATTLE_PREP_READY_TIP_1) and readies on
+    // confirm; what is due at this prep is resolved at its end (endPrep → resolveTemp), as for a player who never readied
     if (this.ready === !!on) return OK;
     this.ready = !!on;
     // un-ready: the player can act again, so what overflowed while it was ready is due at this prep's deadline

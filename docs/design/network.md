@@ -41,7 +41,7 @@ S→C:
 
 `m.private`:
 ```js
-{ playerId, seat, alive, lp, funds, bandId, ready, canReady /* false while a personal choice or temp overflow is pending */,
+{ playerId, seat, alive, lp, funds, bandId, ready, canReady /* false while a personal choice is pending (temp overflow no longer blocks Ready, 2026-10-10) */,
   personalChoice: null | { id, round, sourceItemId, cards: [ { kind: 'bounty', id, name, desc, descRaw, ... } ] }, // recipient only, including reconnect; absent from public / scout views
   shop: { level, maxLevel: 6, upgradePrice, refreshPrice /* effective (0 when a free refresh is available) */, freeRefreshes,
           frozen, slots: [ { kind: 'chess'|'item', id, price, basePrice, sold, frozen } | null ],  // slot.frozen: the 冻结 toggle copies onto every unsold slot, and 梓兰's 猎头顾问 freezes ONE card of an active refresh with the toggle off — every card draws its own flag (GitHub #354)

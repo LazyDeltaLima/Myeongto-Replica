@@ -79,13 +79,11 @@ test('selling / destroying from a full hand pulls the temp pieces in, rightmost 
   const first = give(m, ps, ids[0], 'temp', 4); // the first overflow takes the rightmost temp slot (stow → freeSlot)
   const second = give(m, ps, ids[1], 'temp', 3);
   assert.ok(ps.temp.includes(first) && ps.temp.includes(second), 'a full hand: both wait in temp');
-  assert.equal(ps.privateView().canReady, false);
   checkInvariants(m);
   assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: sold.uid }), { ok: true });
   assert.equal(ps.hand[4], first, 'the rightmost temp piece moves into the freed slot');
   assert.ok(ps.temp.includes(second) && !ps.temp.includes(first));
   assert.equal(ps._tempDue.has(first.uid), false, 'no longer due at the prep deadline');
-  assert.equal(ps.privateView().canReady, false, 'one left in temp');
   checkInvariants(m);
   const item = ps.hand[7];
   assert.equal(item.kind, 'item');

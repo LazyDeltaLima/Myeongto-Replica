@@ -248,7 +248,7 @@ test('temp overflow (user playtest #3 item 3): kept through the round start, res
   h.toPrep(2);
   assert.ok(ps.temp.includes(late), 'not wiped at the round start');
   assert.equal(ps.tempDue(late), ps.prepsEnded, 'due at the end of this prep — the first one its player can act in');
-  assert.equal(ps.privateView().canReady, false, 'it blocks Ready');
+  assert.equal(ps.privateView().canReady, true, 'it does not block Ready (the official client asks first)');
   assert.ok(h.drive(() => m.phase === PHASE.COMBAT && m.round === 2, { ready: false }), 'the prep deadline passes');
   assert.ok(!ps.temp.includes(late), 'resolved at that deadline');
   m.dispose();

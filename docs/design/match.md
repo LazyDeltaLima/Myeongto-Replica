@@ -14,7 +14,7 @@ LOBBY(room) → INFO_CHECK (co-op 25 s; solo and any single-human match untimed 
      [SP_DRAFT]    (if r ∈ spRounds: 机变 draft; co-op: random order (「AI 队友最后选择」, off by default: humans first, the same partition as the strategy draft), 30 s first picker / 16 s others; solo 3 cards; solo / single human untimed;
                     a card is picked with two taps, §18.2)
      PREP          (co-op: timer from config, ends when all alive humans+bots ready; solo / single human: untimed, ends on ready)
-     PREP_END      (<休整期结束时> effects; unfrozen shop cleared; Ready is blocked while a personal choice or temp overflow is pending;
+     PREP_END      (<休整期结束时> effects; unfrozen shop cleared; Ready is blocked while a personal choice is pending — a temp overflow is not (the client confirms first, 2026-10-10);
                     at the deadline personal choices are auto-picked first, then
                     the temp pieces due at this prep are resolved (chess sold back, items destroyed, summon stacks removed — they come back at the next round start, §20.1) — pieces that arrived
                     after Ready or during the <休整期结束时> effects wait for the next prep (§6.2 tempDue))

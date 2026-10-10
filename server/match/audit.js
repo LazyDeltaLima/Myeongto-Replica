@@ -116,7 +116,6 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       const res = orig(on);
       // un-ready: the player can act on what arrived while it was ready — due at this prep again
       if (res && res.ok && was && !on) for (const p of ps.temp) if (p && (dueOf(ps).get(p.uid) ?? 0) > endedOf(ps)) dueOf(ps).set(p.uid, endedOf(ps));
-      if (res && res.ok && on) check('ready', () => { if (!ps.tempEmpty) fail(`${ps.playerId}: ready with a non-empty temp`); });
       return res;
     });
     wrap(ps, '_rollChessSlot', function (orig) {

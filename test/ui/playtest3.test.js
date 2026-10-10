@@ -32,7 +32,7 @@ globalThis.fetch = async (url) => {
   }
 };
 
-const { pendingLoss, liveLp, ownLeaks, pendingTip, tempInfo, tempReadyReason, ReadyToggle, TEMP_RULE } = await import('../../public/js/ui/hud.js');
+const { pendingLoss, liveLp, ownLeaks, pendingTip, tempInfo, ReadyToggle } = await import('../../public/js/ui/hud.js');
 const { rowLp } = await import('../../public/js/ui/teamPanel.js');
 const { LpTower, GAME_FILES } = await import('../../public/js/ui/gameComponents.js');
 const { tempRowFrame, tempRowRule } = await import('../../public/js/ui/underframe.js');
@@ -201,20 +201,17 @@ describe('2: the own LP drops live while the battle runs', () => {
 // ---- 3: the temp overflow row --------------------------------------------------------------------------------------
 
 describe('3: the temp overflow row (临时整备区)', () => {
-  const priv = (temp) => ({ alive: true, ready: false, canReady: !temp.some(Boolean), temp });
+  const priv = (temp) => ({ alive: true, ready: false, canReady: true, temp });
 
-  test('the ready button shows why it is refused, under it, not only on hover', () => {
+  test('the ready button reminds of the temp row under it, not only on hover — and stays enabled (the official client asks first)', () => {
     const p = priv([{ uid: 1, kind: 'item', id: 'x' }, { uid: 2, kind: 'chess', id: 'y' }, null, null, null]);
     assert.deepEqual(tempInfo(p), { count: 2, items: 1 });
-    assert.match(tempReadyReason(p), /^临时整备区还有 2 个单位：/);
-    assert.ok(tempReadyReason(p).includes(TEMP_RULE));
-    assert.match(TEMP_RULE, /休整期结束时.*销毁/, 'says what happens at the end of the prep');
     const v = ReadyToggle({ priv: p, onToggle() {}, readyCount: 1, total: 4 });
     const why = [...walk(v)].find((n) => hasClass(n, 'readywrap__why'));
-    assert.ok(why, 'visible reason');
+    assert.ok(why, 'visible reminder');
     assert.equal(textOf(why), '临时整备区 2 个单位待处理');
     const btn = [...walk(v)].find((n) => n.type === 'button');
-    assert.equal(btn.props.disabled, true);
+    assert.ok(!btn.props.disabled, 'a temp overflow does not block Ready (screens/game.js toggleReady confirms it)');
     // empty temp: no reason, enabled
     const ok = ReadyToggle({ priv: priv([null, null, null, null, null]), onToggle() {} });
     assert.equal([...walk(ok)].find((n) => hasClass(n, 'readywrap__why')), undefined);
@@ -252,17 +249,18 @@ describe('3: the temp overflow row (临时整备区)', () => {
   });
 
   test('the row\'s label matches the server\'s due rule (PlayerState tempDue): destroyed at this prep\'s end unless ready — then kept through the next prep', () => {
-    assert.match(tempRowRule(false), /才能准备；休整期结束时仍在此处的将被销毁$/);
-    // Ready is refused while the row holds pieces: what lies there while ready arrived after it (due at the next prep)
-    assert.match(tempRowRule(true), /保留到下个休整期/);
-    assert.match(tempRowRule(true), /取消准备则在本休整期结束时销毁/);
+    assert.match(tempRowRule(false), /休整期结束时仍在此处的将被销毁$/);
+    assert.doesNotMatch(tempRowRule(false), /才能准备/, 'Ready is not refused any more');
+    // ready: what lay there before Ready goes at this prep's end, what arrived after it is kept through the next one
+    assert.match(tempRowRule(true), /^准备就绪前已在此处的将在本休整期结束时销毁/);
+    assert.match(tempRowRule(true), /之后进入的保留到下个休整期/);
   });
 
   test('the game screen frames the row only on the own prep board while it holds pieces (source contract)', () => {
     const game = read('public/js/screens/game.js');
     assert.match(game, /const tempNotice = temp\.count > 0 && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;/);
     assert.match(game, /<\$\{TempRowNotice\} view=\$\{view\} count=\$\{temp\.count\} items=\$\{temp\.items\} label=\$\{!drag && !facing\}\s+ready=\$\{phase === PHASE\.PREP && !!priv\?\.ready\} \/>/);
-    assert.match(game, /toast\(tempReadyReason\(L\.priv\) \|\| refused, 'warn'\)/, 'Space says why');
+    assert.match(game, /if \(refused\) \{ audio\.sfx\('error', \{ volume: 0\.5 \}\); toast\(refused, 'warn'\); return; \}/, 'Space says why (an open 教鞭 choice)');
     const css = read('public/css/screens/game-panels.css');
     assert.match(css, /\.tempnote \{ position: fixed; inset: 0; z-index: 2; pointer-events: none; \}/, 'over the field, under the HUD, never takes the pointer');
   });

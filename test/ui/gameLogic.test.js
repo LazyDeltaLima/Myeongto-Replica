@@ -309,7 +309,7 @@ describe('shop', () => {
     assert.equal(shopBlockReason('levelUp', { priv: { ...priv, shop: { ...priv.shop, level: 6 } }, editable: true }), '调度中心已达最高等级');
     assert.equal(shopBlockReason('refresh', { priv: { ...priv, funds: 0 }, editable: true }), '资金不足');
     assert.equal(shopBlockReason('refresh', { priv: { ...priv, funds: 0, shop: { ...priv.shop, refreshPrice: 0 } }, editable: true }), null, 'free refresh');
-    assert.match(shopBlockReason('ready', { priv: { ...priv, canReady: false } }), /临时整备区/);
+    assert.equal(shopBlockReason('ready', { priv: { ...priv, canReady: false } }), '当前阶段无法进行该操作', 'a temp overflow no longer blocks Ready (canReady false: another reason)');
     assert.equal(shopBlockReason('ready', { priv }), null);
     assert.equal(shopBlockReason('buy', { priv: { ...priv, alive: false }, editable: true }), '你已被淘汰');
     assert.equal(shopBlockReason('buy', {}), '尚未就绪');
@@ -577,7 +577,7 @@ describe('drafts', () => {
     assert.equal(JSON.stringify({ pub, priv }), before);
     assert.equal(shopBlockReason('ready', { priv, editable: true }), '请先完成教鞭选择');
     assert.equal(shopBlockReason('ready', { priv: { ...priv, temp: [{}] }, editable: true }), '请先完成教鞭选择');
-    assert.match(shopBlockReason('ready', { priv: { ...priv, personalChoice: null }, editable: true }), /临时整备区/);
+    assert.equal(shopBlockReason('ready', { priv: { ...priv, personalChoice: null }, editable: true }), '当前阶段无法进行该操作');
     for (const phase of [PHASE.SP_DRAFT, PHASE.COMBAT, PHASE.ROUND_START]) assert.equal(normalizePersonalChoice({ ...pub, phase }, priv, 'a'), null);
     assert.equal(normalizePersonalChoice(pub, null, 'a'), null, 'spectator has no private state');
     assert.equal(normalizePersonalChoice(pub, priv, 'b'), null);

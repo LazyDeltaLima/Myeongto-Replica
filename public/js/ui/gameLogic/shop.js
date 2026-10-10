@@ -142,7 +142,8 @@ export function shopBlockReason(kind, { priv, editable, slot } = {}) {
   if (priv.alive === false) return t('你已被淘汰');
   if (kind === 'ready') {
     if (priv.personalChoice) return t('请先完成教鞭选择');
-    return priv.canReady === false ? t('临时整备区不为空，请先处理溢出的资源') : null;
+    // a temp overflow no longer blocks it (the 准备 asks first — screens/game.js toggleReady, readyOverflowPrompt)
+    return priv.canReady === false ? t('当前阶段无法进行该操作') : null;
   }
   if (!editable) {
     if (kind === 'reward') return t('当前无法选择');
@@ -185,6 +186,25 @@ export function readyFundsPrompt(priv, { ready = true, keptBands = null, autopla
   return {
     title: t('剩余资金'), micro: 'FUNDS LEFT', okText: t('准备就绪'), cancelText: t('继续整备'),
     text: t('还有 {funds} 资金未使用。休整期结束时，本回合的剩余资金将清零。确定准备就绪吗？', { funds }),
+  };
+}
+
+/**
+ * The 准备 confirmation with units left in the temp row (client code AutoChessBattleUIController._EventOnPrepReadyBtnClick:
+ * `isHandOverflow` → tab_pre_ready_tip_hand_overflow, AUTO_CHESS_BATTLE_PREP_READY_TIP_1, 取消 / 确认, no check box —
+ * asked before the funds one, which follows on confirm). What is due at this prep is resolved at its end (the server's
+ * endPrep → resolveTemp). The client's text is not in our tables: the wording is ours [ASSUMED]. Null when the temp row
+ * is empty, for an un-ready, when already ready or out, or under AI 托管.
+ * @param {any} priv m.private
+ * @param {{ ready?: boolean, autoplay?: boolean }} [opts]
+ * @returns {{ title: string, text: string, okText: string, cancelText: string, micro: string } | null}
+ */
+export function readyOverflowPrompt(priv, { ready = true, autoplay = false } = {}) {
+  if (!ready || autoplay || !isObj(priv) || priv.alive === false || priv.ready) return null;
+  if (!(Array.isArray(priv.temp) ? priv.temp : []).some((p) => isObj(p))) return null;
+  return {
+    title: t('临时整备区'), micro: 'OVERFLOW', okText: t('准备就绪'), cancelText: t('继续整备'),
+    text: t('临时整备区中仍有单位，休整期结束时将被销毁。确定准备就绪吗？'),
   };
 }
 
