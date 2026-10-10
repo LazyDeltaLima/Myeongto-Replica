@@ -185,3 +185,22 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   공격(클립 모르는 유닛, 강제 공격, 적 치유)에만 남는다 — `app.js windUpAttacks`는 'swing'이 예고한 타격의 'atk'를 미리보기에서 뺀다(`swingStrikes`).
 - 'swing'은 `interp.js COSMETIC_EVENTS`(늦으면 버림), `shared/protocol.js EV.SWING`.
 - 테스트: `test/render/attack-swing.test.js`(가짜 PIXI). [화면 미확인] — 메인 세션의 Windows Chrome 확인 대기.
+
+## 모바일 3D 보드 복구 (2026-10-10, 관리자 제보 「모바일에서 간헐적으로 3D 렌더링이 안 된다」 → 관리자 요청 「진단 정보에 3D 상태를 넣고 1·2번부터」)
+- 진단(코드): 한 번의 실패가 그 판(또는 페이지) 끝까지 2D로 남겼다 — ① 판을 띄울 때 GPU 검사(`webgl2Available`)를 한 번만 하고, 실패하면 three.js를
+  안 불러 복구 경로가 없었다 ② `loadBoardPack`·`loadThree`·`assets.image()`·`assets.local()`이 실패(null)를 페이지 끝까지 캐시 — 모바일 통신에서
+  요청 하나가 끊기면 새로고침 전까지 2D ③ 컨텍스트 소실 복구가 `[1200, 4000, 12000]` 3번 뒤 영구 포기(10초 안에 다시 잃으면 실패로 셈 — 메모리 부족
+  으로 잃은 휴대폰은 다시 만들자마자 또 잃기 쉽다). 휴대폰 공통(iPhone만이 아님): 기기 판별 없이 모든 브라우저가 같은 경로.
+- 처리: 3D를 띄우는 모든 시도(시작 GPU 검사, three.js·보드 아트 받기, 소실 뒤 재구성)가 한 일정(`render/app/retry3d.js`, `app.js try3d`)을 탄다.
+  지연은 그대로 `BOARD3D_RETRY_MS`; 다 쓰면 페이지가 다시 보일 때(`visibilitychange` → `retry3d.wake`) 처음부터 다시 — 다른 앱에 갔다 온 휴대폰이
+  그 판 끝까지 2D로 남지 않는다. 숨은 동안 돌아온 시도는 보일 때까지 기다렸다가 첫 지연 뒤에(복귀 직후 GPU가 아직 재시작 중일 수 있음).
+  다시 받기: `loadBoard3d(assets, { retry })`(`board3d/load.js`) — 실패한 것만 다시(`loadThree` 다른 URL `?retry=N`, `loadBoardPack`, `assets.image(u,
+  { retry: true })`, `assets.local({ retry: true })`); 인자 없는 호출은 실패를 그대로 캐시(없는 그림을 매 프레임 요청하지 않게). 보드 아트가 없는 서버
+  (매니페스트에 아틀라스 없음)는 `never` — 재시도 안 함.
+- 진단 정보(`diag.js`): `render:` 줄(보기 종류 engine/fallback, 3D 켜짐·꺼짐과 이유, 재시도 대기, 컨텍스트 소실 횟수)과 `render events:` 줄(최근
+  12개: `3d on`·`3d failed (이유)`·`3d lost`·`3d waits`·`3d retry`·`simplified view`) — `noteRender`, `renderStatus`(`__SP_VIEW__`).
+- 확인: `test/render/board3d-retry.test.js`(일정·다시 받기·진단 줄). Windows Chrome `dev/render-demo.html`(실제 `createFieldView`): 10초 안에
+  4번 연달아 잃음 → 3번 재구성 뒤 2D·「waits」 → `visibilitychange` → 3D 복귀; 처음 `TX_autochessi_D` 요청 하나 차단 → 「board art failed to load」 2D
+  → 재시도로 3D. `[ASSUMED]` 실제 휴대폰(iOS·Android)에서의 효과는 미확인 — 다음 제보의 진단 정보로 원인(소실·받기 실패·GPU 검사·간이 보기)을 가른다.
+- 안 한 것(진단 3·4번, 관리자 결정 대기): 휴대폰 GPU 메모리 상한(무대 텍스처 ~90 MB·품질 기본 high), `fxgame.js destroy`의 `forceContextLoss` 없음,
+  `ui/fieldHost.js` 12초 시간 초과 → 간이 보기(재시도 없음).

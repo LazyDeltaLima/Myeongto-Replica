@@ -127,7 +127,9 @@ import { backdropTextures, shadowTexture, refreshTierChips, silhouetteTexture } 
 import { TILE_H, TIER_COLORS, COLORS, tileTop } from './style.js';
 import { loadBoardArt } from './boardArt.js';
 import { ImpostorAtlas } from './impostor.js';
-import { loadThree, loadBoardPack, webgl2Available, boardArtListed } from './board3d/load.js';
+import { loadBoard3d, webgl2Available } from './board3d/load.js';
+import { createRetry3d } from './app/retry3d.js';
+import { noteRender } from '../diag.js';
 import { BoardScene } from './board3d/scene.js';
 import { loadOfficialScene } from './board3d/official.js'; // local patch
 import { unionAreas } from './board3d/layout.js';
@@ -170,13 +172,12 @@ export async function createFieldView(host, options = {}) {
   const assets = resolveAssets(opts.assets);
   const data = makeData(opts.data);
   const settings = { damageNumbers: true, quality: 'high', ...(opts.settings || {}) };
-  // the 3D board (three.js + the official art) loads in parallel with everything else
+  // the 3D board (three.js + the official art) loads in parallel with everything else; three.js (~2 MB) is fetched only
+  // when the local-art manifest lists the board atlas. A failed GPU check or load is tried again (try3d below).
   const boardPref = boardPreference(opts.board);
-  const want3d = boardPref !== '2d' && webgl2Available(boardPref === '3d');
-  // three.js (~2 MB) is fetched only when the local-art manifest lists the board atlas (in parallel with the art)
-  const artListed = want3d ? boardArtListed(assets).catch(() => false) : Promise.resolve(false);
-  const threePromise = artListed.then((ok) => (ok ? loadThree() : null)).catch(() => null);
-  const packPromise = artListed.then((ok) => (ok ? Promise.resolve(assets.ready ? assets.ready() : null).catch(() => null).then(() => loadBoardPack(assets)) : null)).catch(() => null);
+  const want3d = boardPref !== '2d';
+  const gpu3d = () => webgl2Available(boardPref === '3d');
+  let load3d = want3d && gpu3d() ? loadBoard3d(assets).catch((err) => ({ status: 'retry', why: String(err?.message || err) })) : null;
   // the manifest, and the optional local-art manifest in parallel: unit views pick an enemy's local-client model by it
   // (assets.js spineEntry, DESIGN §13 — 灼热源石虫 / 炽焰源石虫); absent or slow, they draw the web models
   await withTimeout(Promise.all([assets.ready ? assets.ready() : null, assets.local ? assets.local() : null]
@@ -380,9 +381,10 @@ export async function createFieldView(host, options = {}) {
   let board3d = null;          // BoardScene while the 3D board is on
   let board3dCanvas = null;
   let board3dError = null;
-  // lost-context recovery: the THREE module + art pack of the last 3D board, the pending retry, failures so far
-  const recover = { THREE: null, pack: null, timer: 0, tries: 0, since: 0, off: false, count: 0 };
-  setupCleanup.push(() => { clearTimeout(recover.timer); disable3d(); });
+  // the THREE module + art pack once loaded, when the board last came up, the 2D board chosen, context losses so far
+  const recover = { THREE: null, pack: null, since: 0, off: false, count: 0 };
+  const retry3d = createRetry3d({ delays: BOARD3D_RETRY_MS, hidden: () => globalThis.document?.visibilityState === 'hidden' });
+  setupCleanup.push(() => { retry3d.cancel(); disable3d(); });
   function enable3d(THREE, pack) {
     if (destroyed || board3d || !THREE || !pack) return false;
     recover.THREE = THREE; recover.pack = pack;
@@ -428,11 +430,14 @@ export async function createFieldView(host, options = {}) {
       b.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
       tiles.project(cam, true);
       recover.since = performance.now();
+      board3dError = null;
+      noteRender('3d on', recover.count ? `after ${recover.count} lost` : null);
       for (const [g, r] of hlReq) drawHighlight(r.tiles, r.style, g);
       return true;
     } catch (err) {
       board3dError = String(err?.message || err);
       console.warn('[render] 3D board unavailable, using the 2D board:', err);
+      noteRender('3d failed', board3dError);
       disable3d();
       return false;
     }
@@ -449,32 +454,57 @@ export async function createFieldView(host, options = {}) {
     }
   }
   /**
-   * The 3D board's WebGL context was lost (GPU reset, driver, too many contexts): the 2D board takes over at once and a
-   * fresh 3D board (new canvas + context) is built a moment later. A board that loses its context again within
-   * BOARD3D_STABLE_MS counts as a failed try; after BOARD3D_RETRY_MS.length failures the view stays on the 2D board.
+   * The 3D board's WebGL context was lost (GPU reset, driver, too many contexts, a phone's page in the background): the
+   * 2D board takes over at once and a fresh 3D board (new canvas + context) is built a moment later. A board that loses
+   * its context again within BOARD3D_STABLE_MS counts as a failed try; after BOARD3D_RETRY_MS.length failures the view
+   * stays on the 2D board until the page is shown again (retry3d.wake in onVisible).
    */
   function onBoard3dLost() {
     console.warn('[render] WebGL context of the 3D board lost: 2D board until it can be rebuilt');
     const quick = performance.now() - recover.since < BOARD3D_STABLE_MS;
     disable3d();
     recover.count++;
-    if (!quick) recover.tries = 0;
-    scheduleRecover();
+    board3dError = 'context lost';
+    noteRender('3d lost', quick ? 'again within 10 s' : null);
+    if (!quick) retry3d.reset();
+    again3d();
   }
-  function scheduleRecover() {
-    clearTimeout(recover.timer);
-    recover.timer = 0;
-    if (destroyed || recover.off || !recover.THREE || !recover.pack || recover.tries >= BOARD3D_RETRY_MS.length) return;
-    const delay = BOARD3D_RETRY_MS[recover.tries++];
-    recover.timer = setTimeout(() => {
-      recover.timer = 0;
-      if (destroyed || recover.off || board3d) return;
-      if (!webgl2Available(boardPref === '3d')) { scheduleRecover(); return; }
-      if (!enable3d(recover.THREE, recover.pack)) scheduleRecover();
-    }, delay);
+  function again3d() {
+    if (destroyed || recover.off || board3d) return;
+    if (!retry3d.schedule(() => { try3d(true); })) noteRender('3d waits', `${board3dError || 'failed'}; tries again when the page is shown`);
+  }
+  /**
+   * Bring up the 3D board: the GPU check, three.js + the art (once loaded, kept for the rebuilds), the board itself. Any
+   * failure but a host without board art is tried again on the retry3d schedule. `retry`: load again what failed.
+   */
+  async function try3d(retry) {
+    if (destroyed || recover.off || board3d) return !!board3d;
+    if (!recover.THREE || !recover.pack) {
+      const pending = load3d;
+      load3d = null;
+      const r = pending ? await pending
+        : gpu3d() ? await loadBoard3d(assets, { retry }).catch((err) => ({ status: 'retry', why: String(err?.message || err) }))
+          : { status: 'retry', why: 'WebGL2 unavailable' };
+      if (destroyed || recover.off || board3d) return !!board3d;
+      if (r.status !== 'ok') {
+        board3dError = r.why;
+        noteRender('3d failed', r.why);
+        if (r.status === 'retry') again3d();
+        return false;
+      }
+      recover.THREE = r.THREE; recover.pack = r.pack;
+    } else if (!gpu3d()) {
+      board3dError = 'WebGL2 unavailable';
+      noteRender('3d failed', board3dError);
+      again3d();
+      return false;
+    }
+    if (enable3d(recover.THREE, recover.pack)) return true;
+    again3d();
+    return false;
   }
   // Attach the board only after synchronous setup completes; enable3d also guards late arrivals.
-  const boardReady = Promise.all([threePromise, packPromise]).then(([THREE, pack]) => (THREE && pack ? enable3d(THREE, pack) : false), () => false);
+  const boardReady = want3d ? try3d(false).catch(() => false) : Promise.resolve(false);
   // the official soft shadow sprite replaces the procedural one once loaded (may already be cached; asked again when the
   // manifest arrives late)
   let shadowAsked = false;
@@ -1952,6 +1982,9 @@ export async function createFieldView(host, options = {}) {
   setupCleanup.push(() => offAssets?.());
   const onVisible = () => {
     if (destroyed || globalThis.document?.visibilityState !== 'visible') return;
+    // a 3D board that could not come up (or whose rebuilds were used up) tries again: phones drop the context in the
+    // background, and come back with a working GPU
+    if (want3d && !board3d && !recover.off && retry3d.wake()) noteRender('3d retry', 'page shown');
     if (assets.loaded === false && typeof assets.ready === 'function') assets.ready();
     for (const v of views.values()) v.retryAssets?.();
     for (const v of penViews.values()) v.retryAssets?.();
@@ -2074,12 +2107,14 @@ export async function createFieldView(host, options = {}) {
     /** Dev / settings: switch the board layer ('3d' loads three.js + the art when available; '2d' = atlas board). */
     async setBoardMode(m) {
       if (destroyed) return false;
-      if (m === '2d') { recover.off = true; clearTimeout(recover.timer); disable3d(); return false; }
-      recover.off = false; recover.tries = 0;
+      if (m === '2d') { recover.off = true; retry3d.cancel(); disable3d(); return false; }
+      recover.off = false; retry3d.reset();
       if (board3d) return true;
       if (!webgl2Available(true)) return false; // an explicit request: a slow GPU is the caller's choice
-      const [THREE, pack] = await Promise.all([loadThree(), loadBoardPack(assets)]);
-      return enable3d(THREE, pack);
+      const r = await loadBoard3d(assets, { retry: true }).catch(() => null);
+      if (r?.status !== 'ok') return false;
+      recover.THREE = r.THREE; recover.pack = r.pack;
+      return enable3d(r.THREE, r.pack);
     },
     destroy() {
       if (destroyed) return;
@@ -2093,7 +2128,7 @@ export async function createFieldView(host, options = {}) {
       app.ticker.remove(frame);
       app.ticker.remove(preRender);
       app.ticker.remove(postRender);
-      clearTimeout(recover.timer);
+      retry3d.cancel();
       drag.reset();
       for (const k of [...views.keys()]) dropView(k);
       clearPen();
@@ -2114,7 +2149,8 @@ export async function createFieldView(host, options = {}) {
     stats() {
       return {
         fps: Math.round(fps * 10) / 10, frameMs: Math.round(frameMs * 100) / 100, cpuMs: Math.round(cpuMs * 100) / 100, renderMs: Math.round(renderMs * 100) / 100, mode, units: views.size, impostor: impInterval, impostorAtlas: { ...impostors.stats }, boardArt: !!tiles.atlas.art,
-        board3d: board3d ? { on: true, ...board3d.stats(), losses: recover.count } : { on: false, error: board3dError, recovering: !!recover.timer, losses: recover.count },
+        board3d: board3d ? { on: true, ...board3d.stats(), losses: recover.count }
+          : { on: false, pref: boardPref, error: board3dError, recovering: retry3d.state().pending, waiting: retry3d.state().waiting || retry3d.state().spent, losses: recover.count },
         pen: penViews.size, prepField: prepXf.kind === 'bossPrep' ? prepXf.side : null, lod: loadLevel, culled: culledCount,
         ...fx.counts, spine: assets.spine?.stats ? assets.spine.stats() : null, renderT: interp.renderT, rate: interp.rate,
         buffered: interp.size, camera: cam.params(),

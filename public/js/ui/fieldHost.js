@@ -13,6 +13,7 @@ import { createFallbackView } from './fallbackField.js';
 import { data } from '../data.js';
 import { audio } from '../audio.js';
 import { settingsStore } from './settings.js';
+import { noteRender } from '../diag.js';
 
 const LOAD_TIMEOUT_MS = 12000;
 const METHODS = ['setStage', 'setCamera', 'setPrep', 'enterBattle', 'pushSnapshot', 'pushEvents', 'highlightTiles', 'on', 'resize', 'destroy'];
@@ -254,6 +255,7 @@ export async function mountFieldView(host, { signal } = {}) {
       dispose(engineView);
       checkActive(signal);
       console.warn('[field] render engine unavailable, using the simplified view:', err?.message || err);
+      noteRender('simplified view', String(err?.message || err));
     } finally {
       signal?.removeEventListener('abort', onAbort);
     }

@@ -8,7 +8,12 @@
 //
 // Everything is optional except the diffuse atlas: a missing map or mesh only drops that feature (e.g. no normal
 // map → flat shading of the atlas; no crate mesh → a procedural box). URLs come from data/local-assets.json only
-// (assets.localUrl) — nothing is guessed. Results are cached per page.
+// (assets.localUrl) — nothing is guessed. Results are cached per page; a failed load is not kept for good: `{ retry: true }`
+// loads again what failed (a dropped request on a phone, an image that could not be decoded under memory pressure).
+//
+//   const r = await loadBoard3d(assets, { retry })   // both of the above → { status: 'ok', THREE, pack }
+//                                                    // | { status: 'retry', why } (worth trying again later)
+//                                                    // | { status: 'never', why } (this host has no board art)
 
 import { resolveUvTable } from './atlas.js';
 import { parseObj } from './obj.js';
@@ -16,10 +21,19 @@ import { parseObj } from './obj.js';
 export const THREE_URL = '/vendor/three.module.js';
 
 let threePromise = null;
-/** Dynamic import of the vendored three.js ESM build (browser only); null when unavailable. */
-export function loadThree(url = THREE_URL) {
+let threeFailed = false;
+let threeTry = 0;
+/**
+ * Dynamic import of the vendored three.js ESM build (browser only); null when unavailable. `retry` imports again after a
+ * failed import (under another URL: a browser may keep the failed module record of the first one).
+ */
+export function loadThree(url = THREE_URL, { retry = false } = {}) {
+  if (threePromise && retry && threeFailed) threePromise = null;
   if (!threePromise) {
-    threePromise = import(/* @vite-ignore */ url).then((m) => (m && m.WebGLRenderer ? m : null), () => null);
+    threeFailed = false;
+    const u = threeTry++ ? `${url}?retry=${threeTry - 1}` : url;
+    threePromise = import(/* @vite-ignore */ u).then((m) => (m && m.WebGLRenderer ? m : null), () => null)
+      .then((m) => { if (!m) threeFailed = true; return m; });
   }
   return threePromise;
 }
@@ -70,16 +84,44 @@ export const GATE_NODES = Object.freeze({
 });
 
 let cached = null;
+let cachedFailed = false;
 
 /**
  * Does the local-art manifest list the board atlas? Reads the manifest only (no images): decides whether the
  * ~2 MB three.js build is worth downloading at all (most hosts have no local-client art → 2D board, no three).
  */
-export async function boardArtListed(assets) {
-  if (!assets || typeof assets.local !== 'function' || typeof assets.localUrl !== 'function') return false;
-  try { await assets.local(); } catch { return false; }
+export async function boardArtListed(assets, opts) {
+  return (await boardArtState(assets, opts)) === 'yes';
+}
+
+/**
+ * 'yes' (the manifest lists the board atlas), 'no' (a manifest without it, or no asset store: this host has no board
+ * art) or 'unknown' (the manifest could not be read — maybe a dropped request; `retry` asks for it again).
+ */
+export async function boardArtState(assets, { retry = false } = {}) {
+  if (!assets || typeof assets.local !== 'function' || typeof assets.localUrl !== 'function') return 'no';
+  let manifest;
+  try { manifest = await assets.local(retry ? { retry: true } : undefined); } catch { manifest = null; }
   const u = assets.localUrl(...PACK_IMAGES.D);
-  return typeof u === 'string' && u.length > 0;
+  if (typeof u === 'string' && u.length > 0) return 'yes';
+  return isObj(manifest) ? 'no' : 'unknown';
+}
+
+/**
+ * three.js and the board pack for the 3D board (render/app.js): `{ status: 'ok', THREE, pack }`, `{ status: 'retry', why }`
+ * when something failed to load (`retry: true` on the next call loads it again) or `{ status: 'never', why }` when this
+ * host has no board art. three.js (~2 MB) is fetched only when the manifest lists the board atlas.
+ * @param {any} assets @param {{ retry?: boolean, threeUrl?: string }} [opts]
+ */
+export async function loadBoard3d(assets, { retry = false, threeUrl = THREE_URL } = {}) {
+  const art = await boardArtState(assets, { retry });
+  if (art === 'no') return { status: 'never', why: 'no board art on this server' };
+  if (art === 'unknown') return { status: 'retry', why: 'local-art manifest unavailable' };
+  const ready = Promise.resolve(typeof assets.ready === 'function' ? assets.ready() : null).catch(() => null);
+  const [THREE, pack] = await Promise.all([loadThree(threeUrl, { retry }), ready.then(() => loadBoardPack(assets, { retry }))]);
+  if (!THREE) return { status: 'retry', why: 'three.js failed to load' };
+  if (!pack) return { status: 'retry', why: 'board art failed to load' };
+  return { status: 'ok', THREE, pack };
 }
 
 async function fetchText(url) {
@@ -90,11 +132,14 @@ async function fetchJson(url) {
 }
 
 /**
- * Load the board pack through the asset store of public/js/assets.js (needs local(), localUrl(), image()).
+ * Load the board pack through the asset store of public/js/assets.js (needs local(), localUrl(), image()). `retry`
+ * loads again after a result of null (and asks the store for the images that failed again).
  * @returns {Promise<object|null>}
  */
-export function loadBoardPack(assets) {
+export function loadBoardPack(assets, { retry = false } = {}) {
+  if (cached && retry && cachedFailed) cached = null;
   if (cached) return cached;
+  cachedFailed = false;
   cached = (async () => {
     if (!assets || typeof assets.local !== 'function' || typeof assets.localUrl !== 'function' || typeof assets.image !== 'function') return null;
     const manifest = await assets.local().catch(() => null);
@@ -106,7 +151,7 @@ export function loadBoardPack(assets) {
     await Promise.all(Object.entries(PACK_IMAGES).map(async ([k, [g, n]]) => {
       const u = url(g, n);
       if (!u) return;
-      const img = await assets.image(u).catch(() => null);
+      const img = await (retry ? assets.image(u, { retry: true }) : assets.image(u)).catch(() => null);
       if (img && (img.width || img.naturalWidth) > 0) images[k] = img;
     }));
     if (!images.D) return null;
@@ -138,9 +183,10 @@ export function loadBoardPack(assets) {
       images, meshes, tiles: isObj(tiles) ? tiles : null, uv: resolveUvTable(isObj(tiles) ? tiles : null),
       materials: { theme: isObj(theme) ? theme : null, fx: isObj(fxMats) ? fxMats : null },
     };
-  })().catch((err) => { console.warn('[board3d] art load failed', err); return null; });
+  })().catch((err) => { console.warn('[board3d] art load failed', err); return null; })
+    .then((pack) => { if (!pack) cachedFailed = true; return pack; });
   return cached;
 }
 
 /** Forget the cached pack (tests / hot reload). */
-export function resetBoardPack() { cached = null; threePromise = null; }
+export function resetBoardPack() { cached = null; cachedFailed = false; threePromise = null; threeFailed = false; threeTry = 0; }

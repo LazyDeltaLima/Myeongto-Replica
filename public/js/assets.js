@@ -718,6 +718,7 @@ export function createAssets(options) {
   const localUrl = opts.localUrl || '/data/local-assets.json';
   let localPromise = isObj(opts.localManifest) ? Promise.resolve(opts.localManifest) : null;
   let localManifest = isObj(opts.localManifest) ? opts.localManifest : null;
+  let localSettled = !!localManifest;
   const doFetch = opts.fetch || ((...a) => globalThis.fetch(...a));
   let manifest = isObj(opts.manifest) ? opts.manifest : null;
   let readyPromise = manifest ? Promise.resolve(manifest) : null;
@@ -830,11 +831,16 @@ export function createAssets(options) {
     now: opts.spineNow,
   });
 
-  /** Image element (cached; failures resolve to null). */
-  function image(u) {
+  /**
+   * Image element (cached; failures resolve to null). A failure stays cached (a missing image is not asked for on every
+   * frame) unless `retry`: then a failed image is loaded again (the 3D board's art after a dropped request,
+   * render/board3d/load.js).
+   */
+  function image(u, o) {
     const s = str(u);
     if (!s) return Promise.resolve(null);
     let e = images.get(s);
+    if (e && o?.retry && e.done && !e.value) e = null;
     if (!e) {
       e = { value: null, done: false, promise: null };
       e.promise = Promise.resolve().then(() => loadImage(s)).then(
@@ -846,16 +852,23 @@ export function createAssets(options) {
     return e.promise;
   }
 
-  /** Optional local-client art manifest (null when absent: every consumer falls back). Fetched once (or seeded). */
-  function local() {
+  /**
+   * Optional local-client art manifest (null when absent: every consumer falls back). Fetched once (or seeded); `retry`
+   * fetches again when the last fetch settled without a manifest (a dropped request — the 3D board asks again).
+   */
+  function local(o) {
+    if (localPromise && o?.retry && !localManifest && localSettled) localPromise = null;
     if (!localPromise) {
+      localSettled = false;
       localPromise = (async () => {
         try {
           const res = await doFetch(localUrl, { cache: 'no-cache' });
-          if (!res || !res.ok) return localManifest;
-          const json = await res.json();
-          if (!localManifest && isObj(json) && isObj(json.groups)) { localManifest = json; notify('local'); }
+          if (res && res.ok) {
+            const json = await res.json();
+            if (!localManifest && isObj(json) && isObj(json.groups)) { localManifest = json; notify('local'); }
+          }
         } catch { /* optional art: absent */ }
+        localSettled = true;
         return localManifest;
       })();
     }

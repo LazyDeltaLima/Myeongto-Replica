@@ -17,6 +17,9 @@
 //                                      match (another battleId prefix) starts the list again
 //   matchBattles(state)                those battles as the feedback attaches them (secrets replaced, errors counted)
 //   battleCount()                      how many there are (cheap: no copy)
+//   noteRender(event, detail?)         what the field view's board did (3D on / failed / lost / waits / retry, the
+//                                      simplified view): the last RENDER_MAX events, for the report's render lines
+//   renderEvents() / clearRenderEvents()
 //   buildDiagnostics(input)            the report text (pure: the state, the environment and the battle are passed in)
 //   diagnosticsText({ state, settings, attachBattle })  the report of this page (this browser, the battle on screen)
 //
@@ -33,6 +36,21 @@ const log = [];
 let total = 0;
 let dropped = 0;
 const pageStart = Date.now();
+
+/** @type {{ at: number, event: string, detail: string|null }[]} */
+const renderLog = [];
+export const RENDER_MAX = 12;
+/**
+ * Note what the field view's board did (render/app.js 3D board, ui/fieldHost.js simplified view). Not an error: phones
+ * lose the 3D board's context in the background — the report shows whether and how it came back.
+ * @param {string} event @param {string|null} [detail] @param {number} [at] epoch ms
+ */
+export function noteRender(event, detail = null, at = Date.now()) {
+  renderLog.push({ at, event: String(event), detail: detail == null ? null : stripHosts(String(detail)).slice(0, MESSAGE_MAX) });
+  if (renderLog.length > RENDER_MAX) renderLog.splice(0, renderLog.length - RENDER_MAX);
+}
+export const renderEvents = () => renderLog.map((e) => ({ ...e }));
+export function clearRenderEvents() { renderLog.length = 0; }
 
 /** `name: message (code)` of an Error, a NetError, a {code, msg} push, a string or anything else. */
 export function messageOf(err) {
@@ -220,8 +238,10 @@ const join = (...parts) => parts.filter((p) => p != null && p !== '' && p !== fa
  * The report text: a ```text block (version, time, browser, screen, connection, where the player is, settings, the
  * error log newest first) and, with `battle`, a ```json block of its spec. Secrets of `state` are whole tokens in the
  * prose and exact string values in the JSON.
+ * `render` is the field view on screen (`{ kind: 'engine' | 'fallback', board3d }`, render/app.js stats().board3d) and
+ * `renderEvents` what its board did (noteRender).
  * @param {{ state: any, env?: any, settings?: any, battle?: any, entries?: any[], dropped?: number, total?: number,
- *   now?: number, pageStart?: number, version?: string }} input
+ *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[] }} input
  */
 export function buildDiagnostics(input) {
   const { state = {}, env = {}, settings = null, battle = null } = input;
@@ -251,6 +271,19 @@ export function buildDiagnostics(input) {
   }
   if (settings) {
     lines.push(`settings: ${join(`quality ${settings.quality}`, settings.damageNumbers ? 'damage numbers' : null, settings.muted ? 'muted' : null)}`);
+  }
+  const rv = input.render ?? null;
+  const b3 = rv?.board3d || null;
+  if (rv) {
+    lines.push(`render: ${join(`view ${rv.kind || 'unknown'}`,
+      !b3 ? null : b3.on ? `3d on${Number.isFinite(b3.textures) ? ` (${b3.textures} textures)` : ''}`
+        : `3d off${b3.pref && b3.pref !== 'auto' ? ` (${b3.pref} chosen)` : ''}${b3.error ? `: ${b3.error}` : ''}`,
+      b3 && !b3.on && b3.recovering ? 'retry pending' : null, b3 && !b3.on && b3.waiting ? 'waiting for the page to be shown' : null,
+      b3?.losses ? `context lost ${b3.losses}x` : null)}`);
+  }
+  const rev = input.renderEvents ?? renderEvents();
+  if (rev.length) {
+    lines.push(`render events: ${rev.map((e) => `${clockOf(e.at)} ${e.event}${e.detail ? ` (${e.detail})` : ''}`).join('; ')}`);
   }
   const shown = entries.slice().reverse();
   const tot = input.total ?? total;
@@ -310,5 +343,14 @@ export function browserEnv() {
  * @param {{ state: any, settings?: any, attachBattle?: boolean }} opts
  */
 export function diagnosticsText({ state, settings = null, attachBattle = false }) {
-  return buildDiagnostics({ state, settings, env: browserEnv(), battle: attachBattle ? currentBattle() : null });
+  return buildDiagnostics({ state, settings, env: browserEnv(), battle: attachBattle ? currentBattle() : null, render: renderStatus() });
+}
+
+/** The field view on screen (ui/fieldHost.js keeps it on `__SP_VIEW__`): its kind and its board's 3D state, or null. */
+export function renderStatus(g = globalThis) {
+  const v = g.__SP_VIEW__;
+  if (!v) return null;
+  let board3d = null;
+  try { board3d = v.raw?.stats?.()?.board3d ?? null; } catch { board3d = null; }
+  return { kind: typeof v.kind === 'string' ? v.kind : null, board3d };
 }

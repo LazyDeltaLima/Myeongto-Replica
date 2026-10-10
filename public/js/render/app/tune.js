@@ -5,7 +5,10 @@ const CAMERA_MS = 750;
 /** Camera pan to / from the enemy preview pen (configBlackBoard move_time 0.25). */
 export const PEN_CAMERA_MS = 250;
 
-/** Recovery of a lost 3D board context: delays of the rebuild attempts (ms) and how soon a new loss counts as failure. */
+/**
+ * Tries to bring up the 3D board (a failed GPU check or art load at mount, a lost context): delays of the attempts (ms;
+ * used up, they start over when the page is shown again — app/retry3d.js) and how soon a new loss counts as failure.
+ */
 const BOARD3D_RETRY_MS = [1200, 4000, 12000];
 
 const BOARD3D_STABLE_MS = 10000;
