@@ -34,6 +34,8 @@
 //     snapshot without it interpolates linearly;
 //   * `standCut` [[id, at]] — the latest time that enemy's recovery was cut or ignored: an interval with a cut inside
 //     it stays linear.
+//   * `shield` [[id, amount]] — an ally's barrier HP (sim local-hud.js): handed out by sample() as `shield` (render/hud-bars.js
+//     shieldedBar).
 // Game times in all of them (`cooldownEnd`, `respawnAt`, `until`, `at`) are on the snapshots' clock, so a view compares
 // them with renderT.
 
@@ -110,6 +112,8 @@ export function normalizeSnapshot(snap) {
   // local patch (LOCAL-PATCH.md 「전투 화면 UI」): b.snap `ammo` [[id, left, max]] rides on the tuple as `.ammo` (sample `ammo`)
   // and `bsp` [[id, sp, max]] (a boss's official SP) as `.bsp`
   for (const [key, list] of [['ammo', snap.ammo], ['bsp', snap.bsp]]) if (Array.isArray(list)) for (const e of list) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[2]) > 0) tu[key] = [Math.max(0, finite(e[1])), finite(e[2])]; }
+  // b.snap `shield` [[id, amount]] (an ally's barrier HP, sim local-hud.js) rides on the tuple as `.shield`
+  if (Array.isArray(snap.shield)) for (const e of snap.shield) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[1]) > 0) tu.shield = finite(e[1]); }
   let down = null;
   if (Array.isArray(snap.down)) {
     for (const d of snap.down) {
@@ -370,6 +374,7 @@ export class SnapshotBuffer {
       o.anim = a[8];
       if (a.length > 9) { o.el = a[9]; o.elFill = a[10]; o.elUntil = a[11]; o.elDur = a[12]; } else if (o.el !== null) { o.el = null; o.elFill = 0; o.elUntil = 0; o.elDur = 0; }
       o.ammo = a.ammo || null; o.bsp = a.bsp || null; // local patch: official bullet bar, boss SP
+      o.shield = a.shield || 0; // the barrier on the official HP bar
       o.seen = stamp;
     }
     for (const id of out.keys()) if (!A.units.has(id)) out.delete(id);

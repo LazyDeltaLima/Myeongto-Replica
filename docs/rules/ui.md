@@ -338,6 +338,12 @@
 - 탄환형 스킬(관리자 제보): `char_bullet_bar` 받침 `#e56d00` α.31 위에 남은 탄환마다 칸. 칸은 코드(UIBulletBar)가 만들어
   프리팹에 색이 없다 — [추정] 캡처 측정: 색 ≈ `#ffa800`(G 168 일치), 간격 2단위(7발: 16~17px 칸 2px 간격, 19발: 약 4.5px 칸 같은 간격). 칸이 1px보다 좁아지면 남은 비율 한 줄.
   탄환 수는 시뮬레이션이 `b.snap.ammo = [[id, 남은, 최대]]`로 넘긴다(`server/sim/local-hud.js`; 시뮬레이션은 브라우저에서 돈다 — `battle/runner.js`).
+- 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 클라 코드 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를
+  읽어 HP 바를 (HP + s) / (최대 HP + s)로 채우고, 채운 부분 중 끝쪽 s / (HP + s)(`UIHpFillImage.splitValue`)를 바 머티리얼 `ui_battle_ally_hp_bar`(셰이더
+  `Torappu/UI/Hp`, DXBC: uv.x > 1.003 − split이면 `_Color2`)의 `#bcdbdf` 불투명으로 그린다 — 따로 막대가 있는 게 아니라 HP 바가 배리어만큼 늘어난다. 아군만
+  (적 HP 바에는 이 호출·머티리얼이 없다). 시뮬레이션이 `b.snap.shield = [[id, 남은 배리어]]`(버프 `shield` 합, `local-hud.js`)를 넘기고
+  `hud-bars.js shieldedBar`가 같은 계산. 예: 烛煌(블레이즈 디 이그나이팅 스파크, 프라이멀 캐스터) 绝处重燃 쓰러짐 중 배리어 6000. 횟수형 배리어(`shieldHits`)는
+  양이 없어 안 그린다. 예전 「배리어 있음」 띠(HP 바 위 가는 줄)는 이제 그 양을 그리는 아군 공식 바에서는 빼고, 적·횟수형·공식 그림 없는 바에만 남김.
   성능(관리자 요청 점검): 유닛 48개 전투에서 `ammoList` 0.5µs/스냅샷 = 스냅샷 전체(22.5µs)의 2.2 %, 칸은 `Texture.WHITE` 스프라이트라 배치가 늘지 않는다.
 - 보호막 줄(`UF.SHIELD`)은 공식 근거가 없어 HP 바 바로 위 얇은 줄로 유지. 상태 아이콘 줄은 머리 위 그대로(상태 표시 단계에서 바꿈).
 - 원소 줄은 ③ 전까지 바 받침 아래로만 옮김.

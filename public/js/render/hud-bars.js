@@ -73,7 +73,25 @@ export const ALLY_BAR = Object.freeze({
   hp: 0x49b2e3, sp: 0xcaec46, cast: 0xffa800, alpha: 0.7, ghost: 0xffffff,
   plateAlpha: 0.5,
   ammoTrack: 0xe56d00, ammoTrackAlpha: 0.31, ammo: 0xffa800, ammoAlpha: 1, ammoGap: 2,
+  shield: 0xbcdbdf, shieldAlpha: 1,
 });
+
+/**
+ * The HP bar with a barrier (屏障 / 护盾), as the client: UIHudCharHpSlider.UpdatePlugin reads the unit's
+ * shieldUIController.shieldToShow `s` and sets the slider to (hp + s) / (maxHp + s), the split (UIHpFillImage.splitValue)
+ * to s / (hp + s); the fill's material ui_battle_ally_hp_bar (shader Torappu/UI/Hp) draws the part of the fill past
+ * uv.x > 1.003 − split in `_Color2` #bcdbdf, opaque (not the fill's #49b2e3 α.7). Allies only: the enemies' HP sliders
+ * have no such material or call. Returns `{ hp, ghost, split }` (shares 0..1 of the bar; `split` of the filled part).
+ * @param {number} hp @param {number} maxHp @param {number} ghostHp the delayed-loss HP @param {number} shield
+ */
+export function shieldedBar(hp, maxHp, ghostHp, shield) {
+  const s = Number(shield) > 0 ? Number(shield) : 0;
+  const tot = Math.max(1e-9, (Number(maxHp) || 0) + s);
+  const h = clamp(Number(hp) || 0, 0, Number(maxHp) || 0);
+  const k = clamp((h + s) / tot, 0, 1);
+  const g = Math.max(k, clamp(((Number(ghostHp) || 0) + s) / tot, 0, 1));
+  return { hp: k, ghost: g, split: s > 0 && h + s > 0 ? s / (h + s) : 0 };
+}
 
 /**
  * Prep tier chip (`shop_hud` chess_level_icon), in HUD units: centre from hud_unit's centre; the dark interior's size.
@@ -176,6 +194,8 @@ export class AllyBars {
     this.plate = new Plate(P, this.root, { ...PLATE, alpha: B.plateAlpha, bare: B.plateAlpha * PLATE.core });
     this.ghost = rect(P, this.root, B.ghost, B.alpha);
     this.hp = rect(P, this.root, B.hp, B.alpha);
+    this.shield = rect(P, this.root, B.shield, B.shieldAlpha); // the barrier's end of the HP fill (shieldedBar)
+    this.shield.visible = false;
     this.sp = rect(P, this.root, B.sp, B.alpha);
     this.ammoTrack = rect(P, this.root, B.ammoTrack, B.ammoTrackAlpha);
     this.blocks = [];
@@ -186,10 +206,11 @@ export class AllyBars {
 
   /**
    * Draw for feet at (x, y) with `u` px per unit: `hp` / `ghost` (shares 0..1 of the max HP), `sp` (share 0..1 or null: no
-   * SP bar), `cast` (the skill runs: the SP bar is its remaining duration), `ammo` ([left, max] or null); `assets` for
-   * the plate sprite. Returns the bottom edge (px) of the bars.
+   * SP bar), `cast` (the skill runs: the SP bar is its remaining duration), `ammo` ([left, max] or null), `split` (the
+   * barrier's share of the HP fill's length, shieldedBar — 0: none); `assets` for the plate sprite. Returns the bottom
+   * edge (px) of the bars.
    */
-  update(x, y, u, { hp, ghost, sp = null, cast = false, ammo = null }, assets = null) {
+  update(x, y, u, { hp, ghost, sp = null, cast = false, ammo = null, split = 0 }, assets = null) {
     const B = ALLY_BAR;
     this.root.visible = true;
     const w = B.w * u, h = B.h * u, x0 = x - w / 2;
@@ -198,6 +219,9 @@ export class AllyBars {
     this.plate.update(assets, x, hy - h / 2 + (rows * h) / 2, B.w, rows * B.h, B.grow, u);
     this.ghost.position.set(x0, hy); this.ghost.width = w * clamp(ghost, 0, 1); this.ghost.height = h;
     this.hp.position.set(x0, hy); this.hp.width = w * clamp(hp, 0, 1); this.hp.height = h;
+    const sw = this.hp.width * clamp(split, 0, 1);
+    this.shield.visible = sw > 0;
+    if (sw > 0) { this.shield.position.set(x0 + this.hp.width - sw, hy); this.shield.width = sw; this.shield.height = h; }
     const sy = hy + h;
     const showAmmo = !!ammo && ammo[1] > 0;
     this.sp.visible = sp != null && !showAmmo;
