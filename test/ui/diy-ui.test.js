@@ -252,7 +252,7 @@ describe('自选编队 tab (screens/diy.js)', () => {
     const txt = textOf(first);
     assert.ok(txt.includes(DATA.backups.units[ASCLN].name) && txt.includes('S3') && txt.includes('AMB-X'), txt);
     assert.equal(slots[2].props['data-char'], WANG);
-    // every pick here is an owned 6★ (no prototypes): no 原型 / 已持有 tag on any slot (user decision 2026-10-07)
+    // every pick here is an owned 6★ (no prototypes): no 原型 / 已持有 tag on any slot (maintainer decision 2026-10-07)
     for (const v of slots) assert.ok(!textOf(v).includes('已持有') && !textOf(v).includes('原型') && ![...walk(v)].some((x) => hasClass(x, 'diy-tag')), v.props['data-slot']);
     assert.ok(hasClass(slots[1], 'is-empty') && textOf(slots[1]).includes('选择干员'));
   });
@@ -265,7 +265,7 @@ describe('自选编队 tab (screens/diy.js)', () => {
     let tree = view();
     const opts = [...walk(tree)].filter((v) => hasClass(v, 'diy-opt'));
     assert.deepEqual(opts.map((v) => v.props['data-char']).sort(), [...LOCAL_DIY_PICKS].sort());
-    // no 全部 / 原型 / 已持有 filter chips and no kind tags (user decision 2026-10-07)
+    // no 全部 / 原型 / 已持有 filter chips and no kind tags (maintainer decision 2026-10-07)
     assert.ok(![...walk(tree)].some((v) => v.props?.['data-filter'] != null || hasClass(v, 'lo-chip') || hasClass(v, 'diy-tag')), 'no filter chips, no tags');
     // the current pick is shown with its three skills and its modules (none + X + Y)
     const skills = [...walk(tree)].filter((v) => v.props?.role === 'radio' && v.props['data-skill'] != null);
@@ -315,7 +315,7 @@ describe('match UI of a 自选 piece', () => {
     assert.equal(G.piecePosition(ctx, { kind: 'chess', id: T5A }), 'MELEE');
   });
 
-  // user decision 2026-10-08: no 「自选」 badge on the card — upstream 0def7bab's removed
+  // maintainer decision 2026-10-08: no 「自选」 badge on the card — upstream 0def7bab's removed
   test('shop / reward card: the operator\'s name and bonds, the pick\'s skill, no 「自选」 badge', () => {
     const card = ChessCard({ slot: { kind: 'chess', id: T5A, price: 4, basePrice: 4 }, idx: 0, priv, onBuy() {}, onDetail() {} });
     const nodes = [...walk(card)];
@@ -347,7 +347,7 @@ describe('match UI of a 自选 piece', () => {
     assert.ok(!blocks.some((b) => b.key === 'garrison'), 'no 特质');
   });
 
-  // user report 2026-10-08: no 「自选」 tag under the own pieces of a filled slot — upstream 0def7bab's removed
+  // maintainer report 2026-10-08: no 「自选」 tag under the own pieces of a filled slot — upstream 0def7bab's removed
   test('own prep pieces of a filled slot get no tag (the 补位 「替补」 tag stays its own)', () => {
     const p = { ...priv, hand: [{ uid: 1, kind: 'chess', id: T5A }, { uid: 2, kind: 'chess', id: 'chess_char_4_22_a' }], temp: [], board: [{ uid: 4, kind: 'chess', id: 'chess_char_6_diy1_b', row: 10, col: 4 }] };
     assert.deepEqual(standInPieces(p, getChess, D.backups), []);
@@ -374,7 +374,7 @@ describe('match UI of a 自选 piece', () => {
     const pop = expand(BondPopup({ bondId: 'emptyShip', entry: { count: 1, active: false, tier: 0, layers: 0 }, priv: own, onClose() {} }));
     const mrow = [...walk(pop)].find((v) => hasClass(v, 'bpop__member') && textOf(v).includes(DATA.backups.units[ASCLN].name));
     assert.ok(mrow, 'the 自选 member row');
-    assert.ok(![...walk(mrow)].some((v) => hasClass(v, 'bpop__diy')), 'no 「自选」 badge (user decision 2026-10-08)');
+    assert.ok(![...walk(mrow)].some((v) => hasClass(v, 'bpop__diy')), 'no 「自选」 badge (maintainer decision 2026-10-08)');
   });
 
   test('the renderer draws the operator (pieceInfo reads m.private.diy; UnitInfo diy is kept)', () => {

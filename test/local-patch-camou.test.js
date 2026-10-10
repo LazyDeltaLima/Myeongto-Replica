@@ -1,4 +1,4 @@
-// 迷彩 (위장) has its own status icon, apart from 隐匿 (은신) — user decision 2026-10-06 (docs/LOCAL-PATCH.md
+// 迷彩 (위장) has its own status icon, apart from 隐匿 (은신) — maintainer decision 2026-10-06 (docs/LOCAL-PATCH.md
 // "위장 아이콘"). Snapshot flag UF_CAMOU (shared/local.js) → render/units.js icon 'camou' (textures.js atlas). Both keep
 // the see-through look (UF.STEALTH).
 

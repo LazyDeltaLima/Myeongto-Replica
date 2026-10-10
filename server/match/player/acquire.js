@@ -223,7 +223,7 @@ export class PlayerAcquire {
       const fresh = (id) => !list.includes(id);
       for (let i = 0; i < ro.count; i++) {
         let id = null;
-        for (let tt = t; tt >= 1 && !id; tt--) id = this.m.pool.roll(this.m.rngShop, { tier: tt, filter: fresh, extra: this.diyStockEntries() }); // local patch: the reward's own tier rule, no 调度中心 gate (user decision 2026-10-07: a 4 → V reward offers a tier-V 自选 pick too)
+        for (let tt = t; tt >= 1 && !id; tt--) id = this.m.pool.roll(this.m.rngShop, { tier: tt, filter: fresh, extra: this.diyStockEntries() }); // local patch: the reward's own tier rule, no 调度中心 gate (maintainer decision 2026-10-07: a 4 → V reward offers a tier-V 自选 pick too)
         if (id) list.push(id);
       }
     }

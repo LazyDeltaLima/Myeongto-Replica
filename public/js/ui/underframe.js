@@ -88,7 +88,7 @@ export function Underframe({ view, uid = null, row, col, actions, name = '', bus
   const stop = (e) => e.stopPropagation();
   const keys = { retreat: hotkeyLabelOf('retreat'), sell: hotkeyLabelOf('sell') }; // the player's keys (设置 → 快捷键)
   const box = `left:${g.x}px;top:${g.y}px;width:${half * 2}px;height:${half * 2}px`;
-  // local patch (2026-10-06, user report 14): the diamond is its own layer (.uframe--dia) so the official look can put it
+  // local patch (2026-10-06, maintainer report): the diamond is its own layer (.uframe--dia) so the official look can put it
   // under the detail card (css/hud-art.css) while the buttons stay above every panel
   return html`<div class="uframe uframe--dia" style=${box} aria-hidden="true">
     <svg class="uframe__dia" viewBox="-110 -110 220 220" aria-hidden="true">

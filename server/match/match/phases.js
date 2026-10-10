@@ -29,7 +29,7 @@ export class MatchPhases {
   }
 
   /**
-   * The briefing's vote (feat, user decision 2026-10-09 — the official briefing has 准备就绪 only): every human seat
+   * The briefing's vote (feat, maintainer decision 2026-10-09 — the official briefing has 准备就绪 only): every human seat
    * still in the match votes 准备就绪 (infoReady) or 重新抽取 (infoReroll), one or the other, and cannot change it. AI
    * seats and departed seats do not vote (an AI seat is ready at once, so with it a reroll could never be unanimous);
    * spectators hold no seat. When every voter has voted — or the co-op 25 s guard runs out (`timeout`: a seat that has not

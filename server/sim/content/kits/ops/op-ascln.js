@@ -2,7 +2,7 @@
 // kit (formerly kits/diy.js, docs/LOCAL-PATCH.md 「선발 오퍼레이터」) on upstream's 自选 framework; it replaces upstream's
 // op-ascln.js (the owner's rule: where the two differ, ours wins). 6★ 伏击客 (特种); every skill, both talents, both
 // modules. Kit contract: ../README.md ("How to add an operator (自选)"); `chess` = the composed 自选 record (shared/diy.js
-// diyRecordOf). Sources and the 2026-10-07 fixes: research/2026-10-07-diy-kit-diff.md §4.
+// diyRecordOf). Sources and the 2026-10-07 fixes: maintainer's notes 2026-10-07 §4.
 //
 // Trait (branch): hits every enemy of her range, 50 % dodge (AMB-Y 65 %: trait bb prob), less likely to be targeted —
 // taunt level −1, which her data stats already carry (表 tauntLevel −1; PRTS 伏击客 「嘲讽等级为-1」): the kit trait installs

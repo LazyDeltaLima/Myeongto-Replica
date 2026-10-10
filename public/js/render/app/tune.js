@@ -27,7 +27,7 @@ const DROP_PENDING_MS = 1300;
 
 /**
  * A dragged unit over no legal target is held with its drawn feet this many tiles below the pointer — the pointer on its
- * body, the model under the finger / mouse (user playtest #4 item 1: as in v2.1; mouse and touch alike); over a legal
+ * body, the model under the finger / mouse (maintainer playtest #4 item 1: as in v2.1; mouse and touch alike); over a legal
  * target it stands on that tile (render/drag.js dragStandTile). An item plate is centred on the pointer.
  */
 export const DRAG_HOLD_TILES = 0.45;

@@ -175,7 +175,7 @@ export function castTiming(bind, n, name) {
  */
 export const castPhase = (opt) => (opt && opt.s === CAST_EVENT.CAST_START ? 'swing' : 'strike');
 
-// ---- a skill activation's effects (local patch, user report 2026-10-07, 11 items) ------------------------------------------
+// ---- a skill activation's effects (local patch, maintainer report 2026-10-07, 11 items) ------------------------------------------
 // modes.json[charId].skills[i] = { cast, castLoop, buff, target, targetBuff, end?: { cast, hit }, zone?: { fx, aura, onProj } } — the skill's own effects
 // (char_modes.py from battle/prefabs/[uc]skills.ab); turn = the prefabs the client turns to the unit's facing.
 
@@ -183,7 +183,7 @@ export const castPhase = (opt) => (opt && opt.s === CAST_EVENT.CAST_START ? 'swi
  * What a skill activation plays on the caster: `start` once (each until its prefab ends), `loops` while the skill lasts —
  * the name mapping (effectsFor) ∪ the skill's own effects, minus
  *  - a prefab the operator's modes bind as an attack's cast / hit / trail: that attack's (수르트 S3's range is its hit on the
- *    target, 무에나 S3's range_01 the cast of each attack — 833e7a02's `_range` rule played them on the caster once more),
+ *    target, 무에나 S3's range_01 the cast of each attack — 85d83c89's `_range` rule played them on the caster once more),
  *  - a prefab the skill puts on its targets or plays at its end (德克萨斯 S2's falling sword, 戴菲恩 S3's finisher pieces),
  *  - `kitOwned`: prefabs a kit event draws instead (余 S3's wall piece);
  * a prefab the skill itself casts plays once (start), not as a loop.
@@ -200,7 +200,7 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
   const has = (list) => (Array.isArray(list) ? list.filter((x) => pre.includes(x)) : []);
   const modeOwn = new Set(['cast', 'hit', 'trail'].flatMap((r) => (bind?.[r] || []).flat()));
   // (2026-10-10) the effects of its projectile's lasting reach / aura (`zone`: 쏜즈 더 로드스타's token / range) sit at that
-  // projectile — render/fxgame.js zoneFx; 833e7a02's `_range` name rule put thorn2_skill_02_range on her for the whole battle
+  // projectile — render/fxgame.js zoneFx; 85d83c89's `_range` name rule put thorn2_skill_02_range on her for the whole battle
   const notCaster = new Set([...(sk?.target || []), ...(sk?.targetBuff || []), ...(sk?.end?.cast || []), ...(sk?.end?.hit || []),
     ...(sk?.zone?.fx || []), ...(sk?.zone?.aura || [])]);
   // (2026-10-10) a mode buff whose ability selects enemies (`attachFoe`: 아스트젠 더 라이트체이서 S3's link) is on the enemy, not here

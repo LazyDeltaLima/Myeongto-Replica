@@ -272,7 +272,7 @@ function MatchScreen() {
     const leaks = ownLeaks(localLeaks, meP?.pendingLp);
     roundLossRef.current = { round: pub?.round, leaks: same ? Math.max(prev.leaks, leaks) : leaks, cap: gd.config?.lpCapPerRound };
   }
-  // the own battle's end, once per round (docs/LOCAL-PATCH.md 「0.2.0 병합」, user decision 2026-10-08: ours only) —
+  // the own battle's end, once per round (docs/LOCAL-PATCH.md 「0.2.0 병합」, maintainer decision 2026-10-08: ours only) —
   // the official round_result_dialog (ui/phaseArt.js BattleEndBanner; without its local art the plain box) and its
   // BATTLEOVER sound. `over` = audioOfficial.js battleOverOf / settleBattleEnd { kind, lost, sfx }.
   const battleEndRound = useRef(null);                   // the round whose battle end was announced
@@ -322,7 +322,7 @@ function MatchScreen() {
   // 准备就绪 folds the shop bar, cancelling it unfolds the bar again (GitHub #138; gameLogic readyShopFold): the board is set,
   // the fight is what to look at — the board camera follows the fold like a hand-made one (the effect below). Inside the pen
   // the bar is folded for itself: the state it returns to is the one that changes. The official 접기 상자 (shop art) is the
-  // same `collapsed` state, so it folds with it (user decision 2026-10-09: the game folds the shop on ready too).
+  // same `collapsed` state, so it folds with it (maintainer decision 2026-10-09: the game folds the shop on ready too).
   const readySeen = useRef(null);
   useEffect(() => {
     const cur = phase === PHASE.PREP && priv && alive && !watchingOther ? { round: pub?.round, ready: !!priv.ready } : null;
@@ -481,9 +481,9 @@ function MatchScreen() {
       // replay state-bearing events only (a burst of stale hit sparks / damage numbers would look wrong)
       view.pushEvents(early);
       // the opening deployment of a battle that just began sits in this buffer too (the local sim runs before the view
-      // enters the field): its deploy sounds / lines play — user re-report 2026-10-08 「작전 시작할 때 배치 효과음이 안 들림」
+      // enters the field): its deploy sounds / lines play — maintainer re-report 2026-10-08 「작전 시작할 때 배치 효과음이 안 들림」
       const opening = combat && !watchingOther && !(earlySnap && Number(earlySnap.gt) > 2);
-      // + its deploy-time skills (缄默德克萨斯 S2's mode sounds, user report 4 #4-4 — audio.js holds them for the unit's deploy)
+      // + its deploy-time skills (缄默德克萨斯 S2's mode sounds, maintainer report — audio.js holds them for the unit's deploy)
       audio.handleBattleEvents(early.filter((e) => e[0] === 'spawn' || (opening && (e[0] === 'deploy' || e[0] === 'skill'))));
     }
     if (!earlySnap && (field.prep || !combat) && Array.isArray(field.units)) {
@@ -739,7 +739,7 @@ function MatchScreen() {
   // shop's refresh sound instead of the promotion cue
   const offerCue = priv?.shop?.rewardOffer ? (priv.shop.rewardOffer.source === 'special' ? 'refresh' : 'merge') : null;
   useEffect(() => { if (offerCue) audio.sfx(offerCue); }, [offerCue]);
-  // local patch (user report 2026-10-07 #1): an own operator dropped in on the prep board / bench — bought, a reward the
+  // local patch (maintainer report 2026-10-07): an own operator dropped in on the prep board / bench — bought, a reward the
   // server gave, moved to the board or back to the bench — plays its deploy sound (render/app.js prepDeployed)
   // LOCAL-PATCH.md 「오퍼레이터 음성」 (2-5, owner 2026-10-08): one the player placed from the bench (commitFacing → placedRef) says its 部署 line
   // as it lands on the board
@@ -786,7 +786,7 @@ function MatchScreen() {
   // ---- actions ----------------------------------------------------------------------------------------------
   const buy = useCallback(async (i) => {
     const slot = live.current.priv?.shop?.slots?.[i];
-    // local patch (user report 2026-10-07 #1): an operator / summon lands on the bench with its deploy sound (pieceDeploy) —
+    // local patch (maintainer report 2026-10-07): an operator / summon lands on the bench with its deploy sound (pieceDeploy) —
     // the shop's own sound (ON_ACT1AUTOCHESS_MAGIC_PLACE_HAND, b_char_tokenset) stays for equipment. No 部署 line (owner's
     // 卫戍协议 videos, 2026-10-08: a purchase / reward only sounds the deploy SFX).
     return actions.buy(i, slot && slot.kind !== 'item' ? { sfx: false } : undefined);
@@ -1380,7 +1380,7 @@ function MatchScreen() {
   const popOps = cc && battleRunner && field?.local && bondOpen && bondOpen.ownerId !== myId ? battleRunner.ownerOps(bondOpen.ownerId, field.fieldId) : null;
   const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers });
   const openBond = (id, ownerId, from) => { setBondOpen((b) => toggleBond(b, id, ownerId, from)); audio.sfx('click', { volume: 0.4 }); };
-  // local patch (user 2026-10-06): a press outside the bond popup closes it (the strip's discs, its < > and the card's
+  // local patch (maintainer 2026-10-06): a press outside the bond popup closes it (the strip's discs, its < > and the card's
   // bond cells keep their own toggles)
   useEffect(() => {
     if (!bondOpen) return undefined;
@@ -1569,7 +1569,7 @@ function MatchScreen() {
         setPersonalBusy((b) => b?.choiceId === choiceId ? null : b);
       }} />` : null}
 
-    <div class=${sp || personalChoice ? 'gm__corner is-over-choice' : 'gm__corner'}>${/* local patch (user report 13): out of .gm__hud, above the 机变 / 悬赏 screen (css/phase-art.css) */ ''}
+    <div class=${sp || personalChoice ? 'gm__corner is-over-choice' : 'gm__corner'}>${/* local patch (maintainer report): out of .gm__hud, above the 机变 / 悬赏 screen (css/phase-art.css) */ ''}
       ${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id, set) => actions.emote(id, set)} disabled=${conn.status !== 'online'} />`}
       ${solo ? null : html`<${GameChat} open=${chatOpen} onToggle=${(v) => { setChatOpen(v); if (v) setEmoteOpen(false); }} disabled=${conn.status !== 'online'} />`}
       <button type="button" class="gm__gear" aria-label=${t('设置')} title=${t('设置')} onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>

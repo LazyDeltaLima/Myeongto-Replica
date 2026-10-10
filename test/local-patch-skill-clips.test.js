@@ -1,5 +1,5 @@
-// Skill clips whose numbers are not their skill numbers (local patch, docs/LOCAL-PATCH.md 「스킬 클립 번호 교정」; user report
-// 2026-10-07 items 3–4, research/2026-10-07-user-issues/issues-anim.md): 泥岩 S2 showed S3's dormancy crouch (the model
+// Skill clips whose numbers are not their skill numbers (local patch, docs/LOCAL-PATCH.md 「스킬 클립 번호 교정」; maintainer report
+// 2026-10-07 items 3–4, maintainer's notes 2026-10-07): 泥岩 S2 showed S3's dormancy crouch (the model
 // "slid to the lower left and back"), 莫斯提马 S3 stood in S2's channel pose without an attack motion.
 // Real manifest entries (tools/assets/anim-overrides.mjs), headless fake PIXI like test/render/feedback4-texas-skill-clip.test.js.
 
@@ -82,7 +82,7 @@ test('莫斯提马 S3: every attack plays Skill_2_Loop (it stood in Skill_Loop b
   assert.ok(!a.log.includes('Skill_Loop'));
 });
 
-test('焰影苇草 S3: attacks with Skill_3_Attack and idles in Skill_3_Loop (charpack mode pairs; user report 2026-10-07)', async () => {
+test('焰影苇草 S3: attacks with Skill_3_Attack and idles in Skill_3_Loop (charpack mode pairs; maintainer report 2026-10-07)', async () => {
   const { applyAnimOverrides } = await import('../tools/assets/anim-overrides.mjs');
   const anims = { skill: { begin: 'Skill_3_Begin', loop: 'Skill_3_Loop', end: 'Skill_3_End', index: 2, idle: null }, skills: { 2: { begin: 'Skill_3_Begin', loop: 'Skill_3_Loop', end: 'Skill_3_End', index: 2, idle: null } } };
   const out = applyAnimOverrides('op:char_1020_reed2:front', anims);

@@ -81,7 +81,7 @@ export class FxProjectiles {
     pr.spin = Math.random() * 6;
     this._dressProj(pr);
     this.projs.push(pr);
-    // local patch (user report 4 #4-6): the boomerang leaves her hand until this flight ends (_releaseProj; render/boomerang.js)
+    // local patch (maintainer report): the boomerang leaves her hand until this flight ends (_releaseProj; render/boomerang.js)
     if (look === 'boomerang') { pr.held = src; boomerangThrown(src); }
     if (this.rich) this._muzzle(pr);
   }

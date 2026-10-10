@@ -14,7 +14,7 @@ describe('battle-over sound (round_result_dialog)', () => {
     assert.equal(battleOverOf(null).kind, 'done');
   });
 
-  test('the box says the LP lost, capped per round like Match.settle — not the raw leak count (user report 2026-10-09)', () => {
+  test('the box says the LP lost, capped per round like Match.settle — not the raw leak count (maintainer report 2026-10-09)', () => {
     const leaked = Array.from({ length: 17 }, () => ({ counted: true }));
     assert.deepEqual(battleOverOf({ perfect: false, leaked }), { kind: 'miss', lost: 10, sfx: 'battleOverReduce' });
     assert.equal(battleOverOf({ perfect: false, leaked }, 10).lost, 10);

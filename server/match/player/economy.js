@@ -86,7 +86,7 @@ export class PlayerEconomy {
   /**
    * Reroll the shop. keepFrozen → frozen unsold slots survive (round start); otherwise everything is rerolled
    * (manual refresh). Slot counts follow the current level. The array is the display order, left to right: after a roll
-   * the item slot(s) come first, then the operators — local patch (LOCAL-PATCH.md 「상점 칸 배치」, user 2026-10-09: in the
+   * the item slot(s) come first, then the operators — local patch (LOCAL-PATCH.md 「상점 칸 배치」, maintainer 2026-10-09: in the
    * game the item is always on the left). A frozen card keeps its place among the slots of its kind. The draws run
    * operators first, then items, as before (the shop RNG sequence is unchanged).
    */
@@ -113,7 +113,7 @@ export class PlayerEconomy {
   /**
    * The 调度中心's upgrade opens the new level's extra slots EMPTY, on the left; the cards shown keep their places until
    * the next roll (a refresh or the round start) puts the item back on the left — local patch (LOCAL-PATCH.md 「상점 칸
-   * 배치」, user 2026-10-09 from the game). Upstream 0.2.0 filled them with new cards at once (community report of
+   * 배치」, maintainer 2026-10-09 from the game). Upstream 0.2.0 filled them with new cards at once (community report of
    * 2026-10-06, item 19); 0.1.x left them empty after the operators.
    */
   _openLevelSlots() {

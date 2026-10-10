@@ -1,6 +1,6 @@
 // render/fxstatus.js — local patch (docs/LOCAL-PATCH.md 「전투 화면 UI」 ⑤): the official status effects on battle units.
 //
-// The client shows a status by an effect prefab, not an icon row (user captures 9 / 10: a snowflake over 寒冷 enemies,
+// The client shows a status by an effect prefab, not an icon row (maintainer captures 9 / 10: a snowflake over 寒冷 enemies,
 // the ice block of 冻结, a fist over 战栗; 隐匿 / 迷彩 have no icon). The prefabs live in battle/prefabs/effects/buff.ab and
 // common.ab (extracted by tools/local-extract/fx_extract.py --bundle buff / common); each is a loop ( _isLoop 1) placed at
 // its `_spawnLocation` (EN client data: 1 feet, 2 body / HIT point, 4 head, 5 ground centre). The sim status → prefab
@@ -9,13 +9,13 @@
 //   stun 晕眩 → buff_stun (head)              freeze 冻结 → buff_autochess_frozen (feet: the block around the model)
 //   cold 寒冷 → buff_cold (head)              sleep 沉睡 → buff_sleep (body)
 //   silence 沉默 → buff_silence (head)        fear 恐惧 → common_buff_fear (head)
-//   tremble 战栗 → common_buff_thrill (head, the fist — user capture 10)   disarm 缴械 → common_disarm_icon (head)
+//   tremble 战栗 → common_buff_thrill (head, the fist — maintainer capture 10)   disarm 缴械 → common_disarm_icon (head)
 //   slow 减速 → buff_slowdown (feet)          sluggish 迟缓 → buff_sluggish (feet)
 //   aspdDown → buff_attack_speed_reduction_01 (feet)   weaken 虚弱 → buff_weak (head)
 //   defDown → buff_defdown (head)             resDown → buff_magic_resistance_down (head)
 //   fragile 脆弱 (all kinds) → 'buff_ fragile_01' (feet)   levitate 浮空 → common_levitate_01 (ground)
 //   stealth 隐匿 → common_invisible on both sides (feet; its ColorModifier greys the model to α .894 — units.js) —
-//     local patch (user report 2026-10-07 #3: a big green leaf on 望's stone on an 排气格栅 tile): the leaf was
+//     local patch (maintainer report 2026-10-07: a big green leaf on 望's stone on an 排气格栅 tile): the leaf was
 //     common_stealth (texture common_leaf), which only the 生息演算 buildings use (trap_405/406/459 talents' overrideEffectKey);
 //     an operator's own 隐匿 is common_invisible (skchr_milu_1 overrideEffectKey, dynamicabilities Invisible) [추정: the
 //     tile's 隐匿 the same]       camou 迷彩 → common_buff_micai_01 (body) [추정: _01 of the three]
@@ -40,11 +40,11 @@ export const STATUS_FX = Object.freeze({
   weaken: ['buff', 'buff_weak', HEAD], defDown: ['buff', 'buff_defdown', HEAD], resDown: ['buff', 'buff_magic_resistance_down', HEAD],
   fragile: ['buff', 'buff_ fragile_01', 0], levitate: ['common', 'common_levitate_01', 0],
   stealth: ['common', 'common_invisible', 0], stealthAlly: ['common', 'common_invisible', 0], camou: ['common', 'common_buff_micai_01', 0.5],
-  // local patch (user report 2026-10-07): 蕾缪安's talent 跨境追缉许可 'lemuen:wanted' — the client's char_lemuen_range_aim[effect]
+  // local patch (maintainer report 2026-10-07): 蕾缪安's talent 跨境追缉许可 'lemuen:wanted' — the client's char_lemuen_range_aim[effect]
   // buff (overrideEffectKey lemuen_talent_buff_01, the crosshair on the wanted enemy) [추정: at the head]
-  // its systems loop in / pulse / out every 2.5 s; the user (2026-10-07): once shown it stays — held at 2.0 s (the X steady)
+  // its systems loop in / pulse / out every 2.5 s; the maintainer (2026-10-07): once shown it stays — held at 2.0 s (the X steady)
   wanted: ['lemuen', 'lemuen_talent_buff_01', HEAD, 2.0],
-  // local patch (user report 2026-10-07, video: orange X strokes on her marked enemies): 焰影苇草's 灼痕 'reed2:scorch' —
+  // local patch (maintainer report 2026-10-07, video: orange X strokes on her marked enemies): 焰影苇草's 灼痕 'reed2:scorch' —
   // buff reed2_t_1 effectKey reed2_debuff_01 [추정: on the body]
   scorch: ['reed2', 'reed2_debuff_01', 0.5],
 });
@@ -111,7 +111,7 @@ export function syncStatusFx(views, fxGame, battle) {
       const [bundle, name, frac, hold] = STATUS_FX[k];
       if (fxGame.statusReady(bundle, name)) fxGame.statusOn(v, bundle, name, k, frac, hold);
     }
-    // local patch: not the prep 'golden' glow (fxgolden.js); local patch (user report 4 #4-1, 2026-10-08): `now` — an ended
+    // local patch: not the prep 'golden' glow (fxgolden.js); local patch (maintainer report 2026-10-08): `now` — an ended
     // status takes its effect's particles with it (buff_stun's mark lives 10 s: it hung on beside the next stun's)
     if (on) for (const k of [...on]) if (!want.has(k) && STATUS_FX[k]) fxGame.statusOff(v, k, true);
   }

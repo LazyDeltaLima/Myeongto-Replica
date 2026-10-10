@@ -74,7 +74,7 @@ test('the renderer applies it: four alchemy units on one spot draw their discs a
   assert.ok(Math.abs(ratio - 0.5) < 1e-9, `÷ √4 (${ratio})`);
 });
 
-// session K 2026-10-08 (K-4): with the operator's official effects on, render/fxgame.js standInOff skips the 2D stand-in
+// with the operator's official effects on, render/fxgame.js standInOff skips the 2D stand-in
 // of its kit fx — but nothing plays the client's `…_token` / `…_range` prefab at a lasting area thrown away from her, so
 // these zones keep their 2D drawing (areaAway); a short burst or an area on the operator stays official-only.
 test('fxgame.js areaAway: a lasting zone away from its operator keeps the 2D zone (引星棘刺 S2 炼金单元, 锡人, 号角 …)', async () => {

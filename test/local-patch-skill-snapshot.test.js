@@ -1,9 +1,9 @@
-// test/local-patch-skill-snapshot.test.js — user report 4 (2026-10-08) #4-2 leftovers (docs/LOCAL-PATCH.md 「스킬 특수 음악·대역
+// test/local-patch-skill-snapshot.test.js — maintainer report (2026-10-08) leftovers (docs/LOCAL-PATCH.md 「스킬 특수 음악·대역
 // 전환·모드 타격음」 → 「믹서 스냅샷」):
 //   - 归溟幽灵鲨's switch to her 替身 turns the mixer snapshot AllLowpass_Reverb on (audio_data snapshotBanks, 5 s): the
 //     manifest's sfx.snap (tools/assets/skill-mode-sfx.mjs snapshotSfx) and public/js/audioSnapshot.js on a stub Web Audio
 //     graph, through the real match path's events;
-//   - 耀骑士临光 S2 (activateOnDeploy) sounds its p_skill_goldspearboost on deployment (session G's note 「sim sends no
+//   - 耀骑士临光 S2 (activateOnDeploy) sounds its p_skill_goldspearboost on deployment (note 「sim sends no
 //     'skill'」 was from before its own early-skill hold).
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';

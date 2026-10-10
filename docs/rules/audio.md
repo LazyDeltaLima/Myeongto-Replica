@@ -32,7 +32,7 @@
   (`data/backups.json`, 스킬 번호)으로 — 望 S1/S2·阿斯卡纶 S1은 SKILL_PASSIVE_IMP, 维什戴尔 S1은 _NOR. `voiceForPlace`는 렌더 정보의 `spine`을 써서 원래 맞음.
   확인: 실제 솔로 판(전부 补位 + 디버그 패널 선발 3명, 마우스 탭, 4라운드), 단위 `test/local-patch.test.js` 「自选 / 补位」.
 - 이전 로컬 패치에서 뺀 것: 작전 개시(무작위 한 명)·스킬 대사·자체 겹침 규칙·자체 음량 — 원본 것으로 대체.
-- 로컬 3 — 공식 재생 규칙(2026-10-06 관리자 결정, 2026-10-10 클라 코드로 다시 맞춤 — 사용자 결정 「동작 변경 모두 공식이랑 동일하게」;
+- 로컬 3 — 공식 재생 규칙(2026-10-06 관리자 결정, 2026-10-10 클라 코드로 다시 맞춤 — 관리자 결정 「동작 변경 모두 공식이랑 동일하게」;
   `public/js/voicePolicy.js`를 `voice.js`가 설치, `audio.js`에는 훅 몇 줄). 대사 로직은 관리 코드 `Torappu.Battle.UI.VoicePlayer`·
   `AutoChessGameModeVoicePlugin`이다(예전에 「네이티브」로 본 것은 틀림).
   - 게이트 `VoicePlayer._PlayVoice`(RVA 0xD808F0): 클라이언트 `audio_data.json battleVoice` 값 — 전체 간격 없음, 우선순위(행동출발 100·행동개시 90·
@@ -101,7 +101,7 @@
     오퍼레이터 공격 0.348·타격 0.336, 스킬 공격 0.428·타격 0.348, 적 공격 0.163·타격 0.205, 보스 0.343·0.327, 스킬 시작 0.67, 배치·사망·이탈 0.614,
     대사 채널 0.978, sfx 채널의 ×0.9 제거(그룹이 SFX 버스를 포함). 그룹 없는 뱅크(치유)는 SFX_Battle 0.696 [추정]. 이전(오퍼레이터·적 모두 0.55,
     1 초과 잘림)보다 적 소리가 약 9 dB 작다. UI 효과음·BGM은 그대로.
-  - **효과음 재생: 피치·동시 재생 상한** (2026-10-10, 클라 코드; 사용자 결정 「공식이랑 동일하게」 — 피치는 사용자가 들어 보고 판단):
+  - **효과음 재생: 피치·동시 재생 상한** (2026-10-10, 클라 코드; 관리자 결정 「공식이랑 동일하게」 — 피치는 사용자가 들어 보고 판단):
     - 공식: `SoundFXBank.Play`(RVA 0x34B22A0) — 뱅크의 소리 수가 `maxSoundAllowed`(> 0)에 차면 `popOldest`일 때 가장 오래된 것을 즉시 끊고 새 소리,
       아니면 새 소리를 버린다(0 = 상한 없음). 상한은 **뱅크 단위**(파일 단위 아님). 재생마다 `SoundFXBank.SoundFX._SetAudioChannel`(RVA 0x34B3500)이
       `pitch = RandomUtil.Range(minPitch, maxPitch)` — 소리별 데이터 범위에서 무작위(zh_CN `audio_data.json` `battle.*` 소리 12,543개 중 0.8–1.2가 8,875개,
@@ -267,7 +267,7 @@
   플래그로 알아보고 토큰 탄생음 대신 `wang:thrown`.
 - 안 한 것 [추정]: 다 쓴 바둑돌의 `ON_UNIT_DEAD`(b_char_tokendead) — 우리 시뮬레이션은 터진 바둑돌을 퇴장시키지만 `consumed`라 무음으로 둔다(공식이 이때 죽음 소리를
   내는지 자료로 확인 못 함 — 공식 녹화로 확인할 것). 동시에 여럿 터질 때는 공식 popOldest(최대 1~2) 그대로(2026-10-10, 키별 160ms 간격 삭제).
-- 확인: `test/local-patch.test.js` 「望 client-data rules」(틱 수 = kitHit 수, 시뮬 수정 전 실패 확인), 「望 (user report 2026-10-07 #5)」, `test/local-patch-audio.test.js`
+- 확인: `test/local-patch.test.js` 「望 client-data rules」(틱 수 = kitHit 수, 시뮬 수정 전 실패 확인), 「望 (maintainer report 2026-10-07)」, `test/local-patch-audio.test.js`
   「望 stone pop」·跟子 배치. 디버그 아레나(샌드백을 활성 바둑돌 칸으로 옮김) —
   S1 p_atk_stwctp_d + p_imp_stwctp_d, 이후 1초마다 p_imp_stwctp_d(총 7), S2 _h, S3 _s, 재배치 바둑돌 tkin, 재능 바둑돌 tkpa(tkin 없음).
 - 望 S3 발동음 (관리자 제보 2026-10-08): 공식 `battle.ON_SKILL_START.skchr_wang_3` = **p_skill_stwctp_s**

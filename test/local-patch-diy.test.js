@@ -454,7 +454,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     let dpBefore = 0;
     for (let i = 0; i < 20 / 0.05 && !used.alive; i++) { dpBefore = hc.b.players[0].dp; hc.step(1); }
     assert.ok(used.alive && used.mem.wangUsed === false, 'redeployed');
-    assert.equal(w.mem.wang.stock, stock0, 'a return takes no stone of the stock (PRTS 「原地再部署」, user decision 2026-10-08)');
+    assert.equal(w.mem.wang.stock, stock0, 'a return takes no stone of the stock (PRTS 「原地再部署」, maintainer decision 2026-10-08)');
     assert.ok(hc.b.players[0].dp < dpBefore - 1.5, 'its DP cost paid (2 for the VI elite: module −1)');
     // S1 with stones in the stock: deployed next to hers; their 跟子 do not count under the limit (nothing withdrawn)
     const s1 = battle('wang', 0, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)], 30);
@@ -597,7 +597,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const ticks = d.hooksOf('damaged').filter((x) => x.dmg?.tags?.includes('dot') && x.dmg?.tags?.includes('trap'));
     const first = ticks.filter((x) => x.dmg.sourceless);
     assert.ok(first.length >= 7 && first.length % 7 === 0, `7 ticks per trigger (${first.length})`);
-    // user report 2026-10-07 #5: every tick sends its impact sound (client wang_stone1_t[damage_audio], triggerInterval 1)
+    // maintainer report 2026-10-07: every tick sends its impact sound (client wang_stone1_t[damage_audio], triggerInterval 1)
     const snd = d.events.filter((e) => e[0] === 'fx' && e[1] === 'kitHit' && e[4]?.k === 'wang:1');
     assert.equal(snd.length, ticks.length, 'one kitHit wang:1 per DoT tick');
     const k = makeBattle({ seed: 5, captureNoisy: true, units: [op('wang', { sk: 0, row: 11, col: 3 }), stone(9, 6, 50), stone(9, 7, 51)], enemies: [{ key: ENEMY, time: 40, route: 0, count: 1 }] });
@@ -669,7 +669,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     }
     assert.ok(redeploys > 0, 'used stones came back during S3');
     assert.ok(a0 - (w.skill.active ? w.skill.ammoLeft : 0) > 0, 'ammo spent');
-    // user decision 2026-10-07 (W12): the talent's 跟子 free + ≤ 3 extra, one ammo each (formerly one ammo per 跟子 built);
+    // maintainer decision 2026-10-07 (W12): the talent's 跟子 free + ≤ 3 extra, one ammo each (formerly one ammo per 跟子 built);
     // the extras come one per 4 frames (client _stoneBuildDelay), each paid as it is built
     for (const [spent, n] of seen) assert.ok(spent <= n, `one ammo per 跟子 built (${spent} for ${n})`);
     assert.ok(total <= 3 * deploys, `≤ 3 ammo a deployment (${total} for ${deploys})`);
@@ -698,7 +698,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
       seen.push([a0 - w.skill.ammoLeft, built() - base]);
       h.b.kill(e);
     }
-    // user decision 2026-10-07 (W12): the talent's 跟子 free + ≤ 3 extra, one ammo each
+    // maintainer decision 2026-10-07 (W12): the talent's 跟子 free + ≤ 3 extra, one ammo each
     assert.deepEqual(seen[0], [3, 4], '10,5: four free neighbours → 4 跟子 (1 free + 3 extra), 3 ammo');
     assert.ok(seen[1][0] === seen[1][1] - 1 && seen[1][1] < 4 && seen[1][1] > 0, `11,4: fewer neighbours → fewer 跟子, one free (${seen[1]})`);
   });
@@ -878,7 +878,7 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
     return { h, m, ps, b };
   };
 
-  test('seven prep stones (her deploy limit at full potential) = no stock: a used-up stone still comes back on its prep tile for DP, before any S1 (user decision 2026-10-08); the client sees die → deploy', async () => {
+  test('seven prep stones (her deploy limit at full potential) = no stock: a used-up stone still comes back on its prep tile for DP, before any S1 (maintainer decision 2026-10-08); the client sees die → deploy', async () => {
     const { b, m } = await wangMatch(0, 1);
     b.start();
     const wu = b.allyUnits.find((u) => u.kind === 'op');

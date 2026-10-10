@@ -77,7 +77,7 @@ store.subscribe((s, prev) => { if (!!s.match?.public !== !!prev?.match?.public) 
  * the operator who fields it) is another character, the chess is a 自选 slot (0.2.0: `charId` null, no skills of its own)
  * or a 补位 chess (its record holds the replaced operator's skills) → the skill of that character's form at the chess's
  * status (data/backups.json — the form shared/diy.js / shared/standIn.js compose the fielded record from), by the unit's
- * skill index. Session K 2026-10-08 (K-2): 望 S1 / S2, 维什戴尔 S1, 阿斯卡纶 S1 (AUTO) were typed SKILL_ACTIVE.
+ * skill index. 2026-10-08: 望 S1 / S2, 维什戴尔 S1, 阿斯卡纶 S1 (AUTO) were typed SKILL_ACTIVE.
  * @param {any} rec data/chess.json record @param {string|null|undefined} def @param {number|null|undefined} skillIndex
  * @param {any} backups data/backups.json
  */
@@ -110,7 +110,7 @@ export function chessVoiceId(chessId) {
  * The operator of a board / bench piece the player tapped (screens/game.js pieceClick): its 选中干员 line.
  * `shown` = the record the own piece shows (screens/game.js ownShown): a filled 自选 slot's operator (0.2.0: the slot's
  * chess record has no charId / assets), a 补位 piece's stand-in (its own voice bank — the 预备干员 have none, so it is
- * silent like its battle unit, voiceForUnit) — session K 2026-10-08 (K-1); without it the chess record's operator.
+ * silent like its battle unit, voiceForUnit) — without it the chess record's operator.
  * @param {{ kind?: string, id?: string, uid?: string|number }|null|undefined} piece
  * @param {{ charId?: string|null, assets?: { spine?: string|null }|null }|null} [shown]
  */
@@ -126,7 +126,7 @@ export function voiceForPiece(piece, shown = null) {
  * 배치될 때 배치 대사가 안 나옴」, owner decision 2026-10-08: bench → board only (not a move on the board, a return to the
  * bench, the lineup dropping in again after a battle, the server's auto placement). Client: the prep's piece manager
  * AutoChessDummyManager `_OnCharacterPlaced(placeToBattle, placeToHand)` → `_PlayAudioWhenCharacterPlaced` (names only —
- * that its sound includes the line is [추정], from the user's play). Not a summon's (no voice bank).
+ * that its sound includes the line is [추정], from the maintainer's play). Not a summon's (no voice bank).
  * @param {{ kind?: string, spine?: string|null, defId?: string|null }|null|undefined} unit render piece info
  * @param {string|number|null} [uid]
  */

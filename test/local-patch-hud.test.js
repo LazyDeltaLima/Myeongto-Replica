@@ -115,7 +115,7 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
     assert.ok(!v._equipBar || !v._equipBar.root.visible, 'no items: no bar');
   });
 
-  test('every prep piece wears the equip bar: own pieces, battle-field prep units and the boss round partner (session K 2026-10-08, K-3)', async () => {
+  test('every prep piece wears the equip bar: own pieces, battle-field prep units and the boss round partner', async () => {
     const { readFileSync } = await import('node:fs');
     const src = readFileSync(new URL('../public/js/render/app.js', import.meta.url), 'utf8');
     const mates = src.slice(src.indexOf('function syncMates('), src.indexOf('function syncMates(') + 2000);
@@ -276,7 +276,7 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
     assert.ok(h.eventsOf('dmg').some((e) => e[4] === 2), 'forced numbers');
     assert.ok(h.eventsOf('dmg').some((e) => !e[4]), 'normal hits: none');
   });
-  test('real battle: 锏 S3 slashes are red (天生的武者 at 100 %: its 165 % ATK is not in the expected damage — user video)', () => {
+  test('real battle: 锏 S3 slashes are red (天生的武者 at 100 %: its 165 % ATK is not in the expected damage — maintainer video)', () => {
     const h = makeBattle({ seed: 3, timeLimit: 60, units: [{ chessId: 'chess_char_6_19_a', row: 9, col: 4, uid: 1, skillIndex: 2 }],
       enemies: [{ key: 'enemy_1001_bigbo', time: 0, route: 0, count: 20, interval: 1.5 }] });
     const u = h.battle.allyUnits.find((x) => x.kind === 'op');
@@ -373,7 +373,7 @@ describe('⑤ official status effects (fxstatus.js → fxgame.js statusOn / stat
     assert.deepEqual(F.STATUS_FX.tremble.slice(0, 2), ['common', 'common_buff_thrill']);
     assert.equal(F.statusFxKey('artsFragile'), 'fragile');
     assert.equal(F.statusFxKey('skill:haini_slow'), 'slow');
-    // local patch (user report 2026-10-07): talent marks — 蕾缪안 通缉 crosshair, 焰影苇草 灼痕 X
+    // local patch (maintainer report 2026-10-07): talent marks — 蕾缪안 通缉 crosshair, 焰影苇草 灼痕 X
     assert.equal(F.statusFxKey('lemuen:wanted'), 'wanted');
     assert.deepEqual(F.STATUS_FX.wanted.slice(0, 2), ['lemuen', 'lemuen_talent_buff_01']);
     assert.equal(F.statusFxKey('reed2:scorch'), 'scorch');

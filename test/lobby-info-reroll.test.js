@@ -1,4 +1,4 @@
-// The briefing's 重新抽取 vote through the real platform (server/lobby.js onMatchEnd, feat — user decision 2026-10-09):
+// The briefing's 重新抽取 vote through the real platform (server/lobby.js onMatchEnd, feat — maintainer decision 2026-10-09):
 // a reroll replaces the match by a new one with a new seed and the next match number while the room stays in a match
 // (room.state matchNo), a tie hands the room back to its lobby; neither leaves a replay or a [stats] line, and the chat
 // factions are cleared (they are picked after seeing the banned bonds).

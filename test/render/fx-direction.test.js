@@ -1,4 +1,4 @@
-// test/render/fx-direction.test.js — user report 5 #5-2 (LOCAL-PATCH.md 「이펙트 방향 — 방향 칸·마운트 회전」): 아르케토 S3's
+// test/render/fx-direction.test.js — maintainer report (LOCAL-PATCH.md 「이펙트 방향 — 방향 칸·마운트 회전」): 아르케토 S3's
 // cast fan stood upright whatever her facing. Two causes: the directional copies of an emitter entry (`_effects` slots
 // 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT, picked by `_directionType`) were all played or dropped by name, and a FollowMountPoint
 // with `_keepOriginRotation` 0 did not take its point's bone turn.
@@ -23,7 +23,7 @@ test('char_modes.py records the client\'s directional slots (아르케토 S3 sta
   assert.deepEqual(ARCHET, [{ t: 2, s: ['archet_skill_03_start_02', '', 'archet_skill_03_start_02_B', ''] }]);
   // the binding itself still lists both copies — the pick is the player's
   assert.ok(S3_CAST.includes('archet_skill_03_start_02') && S3_CAST.includes('archet_skill_03_start_02_B'));
-  // 14 operators carry such entries (13 of the user's list + 데겐블레허 S2 from skills.ab)
+  // 14 operators carry such entries (13 of the maintainer's list + 데겐블레허 S2 from skills.ab)
   assert.equal(Object.values(MODES).filter((m) => m && Array.isArray(m.dirs)).length, 14);
 });
 
@@ -61,7 +61,7 @@ test('L_OR_R: the side\'s own copy, not mirrored again; NONE: slot 0; an empty s
 test('pointTurn: the bone\'s world rotation (radians, y up) when the point turns with it, else null', () => {
   const sk = { findBone: (n) => (n === 'F_Muzzle' || n === 'B_Muzzle' ? { getWorldRotationX: () => -90 } : null) };
   const entry = { F: { bone: 'F_Muzzle', rot: 1, at: [168, 230] }, B: { bone: 'B_Muzzle', rot: 1, at: [169, 243] } };
-  // the runtime's y-down angle −90° is the client's +90° (her fan opens behind her — user 2026-10-08)
+  // the runtime's y-down angle −90° is the client's +90° (her fan opens behind her — maintainer 2026-10-08)
   assert.equal(pointTurn(entry, sk, false), Math.PI / 2);
   assert.equal(pointTurn(entry, sk, true), Math.PI / 2);
   assert.equal(pointTurn({ F: { bone: 'F_Muzzle', rot: 0 } }, sk, false), null, 'a point that does not turn');

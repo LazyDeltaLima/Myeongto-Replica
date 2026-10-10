@@ -1,4 +1,4 @@
-// The 调度中心's upgrade and the shop layout — local patch (docs/LOCAL-PATCH.md 「상점 칸 배치」, user 2026-10-09 from the
+// The 调度中心's upgrade and the shop layout — local patch (docs/LOCAL-PATCH.md 「상점 칸 배치」, maintainer 2026-10-09 from the
 // game): the new level's extra slot opens EMPTY on the left and the cards shown keep their places until the next roll (a
 // refresh or the round start); after a roll the item slot is on the left, then the operators. Upstream 0.2.0 filled the new
 // slot at once (community report of 2026-10-06, item 19: 「升级商店获得新的商店位时用新卡补上，而不是空着」) with the item

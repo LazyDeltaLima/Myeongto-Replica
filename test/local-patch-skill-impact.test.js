@@ -1,4 +1,4 @@
-// test/local-patch-skill-impact.test.js — user report 2026-10-08 「이격 니어 S3 발동 후 적을 타격할 때마다 전용 효과음… 여러 종류
+// test/local-patch-skill-impact.test.js — maintainer report 2026-10-08 「이격 니어 S3 발동 후 적을 타격할 때마다 전용 효과음… 여러 종류
 // 효과음이 같이 재생」 (docs/rules/audio.md 「START·ON·HIT」): an ability with a START bank (the swing) and an ON bank sounds
 // both — 耀骑士临光 S3 attack.3 p_atk_goldspear_s + p_imp_goldspear_s. 2026-10-10 (client code: START / ON / HIT are separate
 // signals and the middleware plays every bank of the name): the ON bank is its own role `on`, played with the attack ('atk',
@@ -39,7 +39,7 @@ describe('swing + its ON bank (START + ON both sound)', () => {
     const audio = indexAudio(JSON.parse(readFileSync(OFFICIAL, 'utf8')));
     const at = (id, ab) => (onBeside(audio.unitBanks.get(id), ab) || []).map(file);
     assert.deepEqual(at('char_1014_nearl2', 'attack.3'), ['p_imp_goldspear_s.mp3']);
-    // an ON bank alone is the swing itself (缄默德克萨斯 S2 attack.2 — #4-4's noHit stays)
+    // an ON bank alone is the swing itself (缄默德克萨斯 S2 attack.2 —'s noHit stays)
     assert.deepEqual(at('char_1028_texas2', 'attack.2'), []);
     assert.equal(UNITS.char_1028_texas2.modes['1'].noHit, true);
     // 号角 S2: START only under its Burst sub-abilities — not this rule's shape

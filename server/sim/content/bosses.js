@@ -154,7 +154,7 @@ export const SELF_BOUND = Object.freeze([
 const ENEMY_SP_PER_SEC = 1, ANIMATE_DELAY = 2;
 
 /**
- * Local patch (LOCAL-PATCH.md 「전투 화면 UI」, user decision 2026-10-07 「공식과 같은 a안」): the official enemy SP of a skill
+ * Local patch (LOCAL-PATCH.md 「전투 화면 UI」, maintainer decision 2026-10-07 「공식과 같은 a안」): the official enemy SP of a skill
  * with an SP cost (enemy_database spData INCREASE_WITH_TIME — 管 0/50 +1/s with 裂管之奏 spCost 50, PRTS 「技力 0/50 自动回复
  * 1.0 SP/s」; 弦 0/35 with 断弦之奏 25): the skill fires once its cooldown is over AND the SP reaches the cost [추정: both —
  * the client's logic is native], the cast spends the cost; SP is gained only while the enemy can act (as 阿利斯泰尔's

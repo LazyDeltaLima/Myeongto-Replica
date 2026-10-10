@@ -313,7 +313,7 @@ void main() {
 
 /**
  * Tunables (checked against the official screenshots; see docs/local/official-scenes.md). local patch (LOCAL-PATCH.md 「공식 맵 렌더링」,
- * 2026-10-07): the user found the board slightly brighter than the KR client — matched regions of the same stage: plain
+ * 2026-10-07): the maintainer found the board slightly brighter than the KR client — matched regions of the same stage: plain
  * sand official/ours 0.964 in luma, the lit sand tops 0.92 (ours clipped: 13.6 % of pixels R ≥ 250 vs 5.0 %), stone /
  * crate / rocks ≈ 1. [추정] the cause (the scene's AE_Survivaloasis profile — shadowTint, heightFog — is native code):
  * the direct light −10 %, the lightmap −3 %.

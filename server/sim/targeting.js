@@ -193,7 +193,7 @@ const PRIORITY_FNS = {
 };
 
 /**
- * Sort candidate enemies for an attacker (in place) and return them: the enemies it blocks first (the user's rule after
+ * Sort candidate enemies for an attacker (in place) and return them: the enemies it blocks first (the maintainer's rule after
  * playtest #6, "阻挡了就一定要能打到", for every blocker — DESIGN §20.3), then the special priority, taunt, the remaining
  * route, the spawn order. One exception, the owner's decision of 2026-10-08 (GitHub #220 by TsangAsuna, #205): the 速射手 air priority
  * (trait 优先攻击空中单位 — priority 'fly', a skill's too) comes before its own blocked enemy, so a 速狙 on a melee tile

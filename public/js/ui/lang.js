@@ -138,7 +138,7 @@ export function initialLang(search = globalThis.location?.search || '', load = l
   try { raw = load(PREF_KEY, null); } catch { /* ignore */ }
   const stored = raw == null ? null : pick(raw);
   if (stored) return { lang: stored, fromUrl: false };
-  // local patch (user decision 2026-10-07): a first visit — no `?lang=`, nothing stored — opens in Korean when the ko
+  // local patch (maintainer decision 2026-10-07): a first visit — no `?lang=`, nothing stored — opens in Korean when the ko
   // pack is listed (or, without an index, is tried by its code); a stored language whose pack is gone still opens in
   // Chinese, as upstream. The stored value is upstream's (`sp.pref.lang` 'ko' | 'zh', as our old translator kept it).
   if (raw == null) {

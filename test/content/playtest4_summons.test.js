@@ -73,7 +73,7 @@ test('#12 炎佑 stays where it is when no enemy is on the field (no fixed retur
   checkInvariants(h.b);
 });
 
-test('炎佑 is a flyer: it holds no field tile, so its spawn tile stays free for a ground unit (user playtest 2026-10-08)', REAL, () => {
+test('炎佑 is a flyer: it holds no field tile, so its spawn tile stays free for a ground unit (maintainer playtest 2026-10-08)', REAL, () => {
   const h = makeBattle({ defs: { chess: { test_guard: guard() } }, units: [{ chessId: 'test_guard', row: 10, col: 4, uid: 1 }], autoFinish: false, timeLimit: 30 });
   h.step();
   const [y] = spawnYanyou(h.b, 'p1', { atk: 1000, hp: 5000 });

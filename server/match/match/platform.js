@@ -78,7 +78,7 @@ export class MatchPlatform {
   }
 
   /**
-   * room.diy during the match (local feature, user decision 2026-10-09 — 진영별 선발 프리셋; docs/rules/diy.md): the 自选
+   * room.diy during the match (local feature, maintainer decision 2026-10-09 — 진영별 선발 프리셋; docs/rules/diy.md): the 自选
    * picks still change THIS match while the briefing or the strategy draft runs, as long as none of the player's 自选
    * stock has been drawn (the stock is first read by the prep's shop, rewards and effects, so re-making it draws no
    * randomness). Afterwards (or refused) the lobby keeps the picks for the next match.

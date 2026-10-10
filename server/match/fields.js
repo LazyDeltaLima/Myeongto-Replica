@@ -19,7 +19,7 @@
 //                                          under a real scheduler) or at once (verification, virtual time) — and keep a
 //                                          progress timeline [[gt, killed, total, resolved]] for the teammates' waiting UI
 //                                          (联防: a 5th element — left = spec.js uniteLeft, the leakers'
-//                                          enemies still standing, for their live counter; user playtest #6 item 7).
+//                                          enemies still standing, for their live counter; maintainer playtest #6 item 7).
 //                                          `resolved` = the HUD capsule's numerator (Battle.resolved), sampled on the
 //                                          field clock: a server-run / bot field has no authority reporting b.progress
 //   HeadlessPacer                          real-time pacing of a dynamic set of server-run battles without snapshots

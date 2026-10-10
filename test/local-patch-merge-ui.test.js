@@ -1,12 +1,12 @@
-// Local patch (docs/LOCAL-PATCH.md 「0.2.0 병합」, session J 2026-10-08): 0.2.0 features that landed beside ours on the screen.
+// Local patch (docs/LOCAL-PATCH.md 「0.2.0 병합」): 0.2.0 features that landed beside ours on the screen.
 // The official-look detail card (ui/detailArt.js) of a 0.2.0 补位 stand-in and of a 自选 piece — on a tap and while the
 // piece is dragged / waits for its direction:
-//   - J-8: a stand-in's card showed the chess it replaces (art, name, stats) with the stand-in's skill tab, no 「替补」.
-//   - user report 2026-10-08: dragging a 自选 piece showed the bare slot record 「自选干员」 (stats —) — placingDetail
+// - a stand-in's card showed the chess it replaces (art, name, stats) with the stand-in's skill tab, no 「替补」.
+// - maintainer report 2026-10-08: dragging a 自选 piece showed the bare slot record 「自选干员」 (stats —) — placingDetail
 //     resolved without the player's m.private.
-//   - J-9: the card's 自选 stats are the battle's (server/sim/simdata.js getDiy) — checked equal, pinned here.
-// J-6: the round-start banner of an eliminated player / spectator seat says 观战中, not 获得 +0. J-7: the boss round's pair
-// wears one frame (ours), not ours + upstream's .team__frame. (J-1 / J-2: test/ui/diy-ui.test.js; J-3 / J-4 / J-5:
+// - the card's 自选 stats are the battle's (server/sim/simdata.js getDiy) — checked equal, pinned here.
+// the round-start banner of an eliminated player / spectator seat says 观战中, not 获得 +0. The boss round's pair
+// wears one frame (ours), not ours + upstream's .team__frame. (the 「自选」 tag: test/ui/diy-ui.test.js;
 // test/ui/gameLogic.test.js, test/local-patch-battleover.test.js.)
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -65,7 +65,7 @@ describe('detail card (official look): 补位 stand-in and 自选 piece', () => 
   };
   const pieces = G.indexPieces(priv);
 
-  test('J-8: a stand-in\'s card shows the stand-in — name, 「替补」, 「X的替补」, its art and stats — the chess\'s tier stays', () => {
+  test('a stand-in\'s card shows the stand-in — name, 「替补」, 「X的替补」, its art and stats — the chess\'s tier stays', () => {
     const d = placingDetail({ uid: 1 }, pieces, { priv, backups: D.backups });
     const si = G.standInOf(DATA.chess[EXUSIAI], D.backups);
     assert.ok(si && si.standInFor, 'the stand-in record');
@@ -84,7 +84,7 @@ describe('detail card (official look): 补位 stand-in and 自选 piece', () => 
     if (img) assert.ok(!String(img.props.src).includes(DATA.chess[EXUSIAI].charId), `art ${img.props.src}`);
   });
 
-  test('drag-hold card of a 自选 piece: the operator, as on a tap (user report 2026-10-08)', () => {
+  test('drag-hold card of a 自选 piece: the operator, as on a tap (maintainer report 2026-10-08)', () => {
     const held = placingDetail({ uid: 4 }, pieces, { priv, backups: D.backups });
     const tap = G.ownDiyRecord(DATA.chess.chess_char_6_diy1_b, priv, D);
     assert.equal(held.chess.charId, WANG);
@@ -96,7 +96,7 @@ describe('detail card (official look): 补位 stand-in and 自选 piece', () => 
     assert.equal((src.match(/placingDetail\(drag \|\| facing, placeCtx\.pieces, \{ priv, backups: gd\.backups \}\)/g) || []).length, 2);
   });
 
-  test('J-9: a 自选 card\'s stats, skill and module are the battle\'s', async () => {
+  test('a 自选 card\'s stats, skill and module are the battle\'s', async () => {
     const ds = new DataSource(await loadGenerated(), null);
     for (const [slot, p] of [['chess_char_6_diy1_b', pick], ['chess_char_6_diy1_b', { charId: CHEN3, skillIndex: 2, uniEquipId: 'uniequip_002_chen3' }],
       ['chess_char_5_diy1_b', { charId: 'char_4132_ascln', skillIndex: 2, uniEquipId: 'uniequip_002_ascln' }]]) {
@@ -113,7 +113,7 @@ describe('detail card (official look): 补位 stand-in and 自选 piece', () => 
 });
 
 describe('round-start banner and the boss round\'s player list', () => {
-  test('J-6: a watcher\'s round-start banner says 观战中 instead of 获得 +0', () => {
+  test('a watcher\'s round-start banner says 观战中 instead of 获得 +0', () => {
     const watcher = [...walk(render(RoundStartBanner, { round: 4, gold: 0, watching: true }))];
     const root = watcher[0];
     assert.match(root.props['aria-label'], /观战中/);
@@ -126,7 +126,7 @@ describe('round-start banner and the boss round\'s player list', () => {
     assert.match(src, /<\$\{RoundStartBanner\} key=\$\{banner\.key\} round=\$\{pub\?\.round\} gold=\$\{roundGold\} watching=\$\{spectator \|\| !alive\}/);
   });
 
-  test('J-7: in the official HUD look the pair\'s avatars keep one frame — upstream\'s .team__frame is hidden, ours is green', () => {
+  test('in the official HUD look the pair\'s avatars keep one frame — upstream\'s .team__frame is hidden, ours is green', () => {
     const css = readFileSync(path.join(ROOT, 'public/css/hud-art.css'), 'utf8');
     assert.match(css, /\.gm\.has-hud-art\.has-hud-team \.team__frame \{ display: none; \}/);
     assert.match(css, /\.gm\.has-hud-art\.has-hud-team \.team__row\.is-team \.team__btn::after \{ background: #59ffd2; \}/);

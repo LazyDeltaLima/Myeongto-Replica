@@ -1,6 +1,6 @@
 // Local patch: the settlement screen's 피드백 보내기 (screens/result.js) — a bug report or a suggestion sent to this
 // server's feedback inbox (fb.send → server/local-feedback.js). Where the server names a repository (welcome
-// `feedbackIssues`, user decision 2026-10-09 stage 2) every report becomes a public issue there (server/feedback-relay.js):
+// `feedbackIssues`, maintainer decision 2026-10-09 stage 2) every report becomes a public issue there (server/feedback-relay.js):
 // the window says so, sends `public`, and the receipt links to the issue search; otherwise the report stays on the
 // server for the operator (stage 1) and the window says that. The player picks the kind, writes what happened and chooses the
 // attachments: the diagnostics of this page (diag.js: version, browser, the error log) and this match's battles as the

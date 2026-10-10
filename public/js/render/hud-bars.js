@@ -7,7 +7,7 @@
 // ratios: no CanvasScaler value found). Every size below is in those units, from `hud_unit`'s centre (prefab offsets).
 // That centre lies HUD_ANCHOR units above the unit's feet [캡처]: the HP bar's centre is ≈ 30 units under the deploy ring's
 // centre — where the shoes stand, in the captures and in ours alike — (CN captures 5 / 6 / 13: 27 / 29 / 33.7 units) where
-// the prefab puts it 54.5 under hud_unit (user check 2026-10-07: 54.5 under the feet drew the bars too low); the prep chip
+// the prefab puts it 54.5 under hud_unit (maintainer check 2026-10-07: 54.5 under the feet drew the bars too low); the prep chip
 // of capture 4 also stood ≈ 16 units over the prefab's place. Presumably the unit's root over the model's (prefab
 // `Graphic` −0.2 tile).
 //
@@ -21,14 +21,14 @@
 //   one block per bullet on a #e56d00 α.31 track (`char_bullet_bar`), the blocks laid out by code (UIBulletBar) —
 //   [추정] their colour #ffa800 and 2-unit gaps from the captures (7 bullets: 16–17 px blocks 2 px apart; 19 bullets: ~4.5 px
 //   blocks, the same gaps — many bullets make thin blocks, never one bar unless a block would be under 1 px). No glow when
-//   the SP is full (user decision 2026-10-07: none in the captures, the skills fire at once).
+//   the SP is full (maintainer decision 2026-10-07: none in the captures, the skills fire at once).
 // Tier chip: the official shows none in battle (CN captures) and `shop_hud`'s chess_level_icon (autochess_level_N,
 //   rect 42, scale 1.25, at (-45.5, +127.75) from the feet) over a piece in prep. That sprite is only 38 px (looked blurry
-//   at its 1.25× size, user check 2026-10-07); img_chess_level_N (45 px, the shop card's) is the same design — numeral
+//   at its 1.25× size, maintainer check 2026-10-07); img_chess_level_N (45 px, the shop card's) is the same design — numeral
 //   0.53 × 0.70 of the dark interior in both, CN capture 4: 0.51 × 0.69 — so it is drawn instead, its 39-px interior at
 //   the official's 30 × 1.25 = 37.5 units (capture 4: 39 px at 2000 wide = 37.4). Web manifest shopCard/ first, then the
 //   local client (ui/battle), then autochess_level_N; none: units.js keeps the drawn chip.
-// Equipment bar (prep, user capture 2026-10-07: 「장착된 아이템이 있을 때만, 하나만 장착되면 한 칸만」): `shop_hud`'s equip_bg
+// Equipment bar (prep, maintainer capture 2026-10-07: 「장착된 아이템이 있을 때만, 하나만 장착되면 한 칸만」): `shop_hud`'s equip_bg
 //   (74×30, at (13, 29.4) in shop_hud — right of the chip) with equip_0 / equip_1 (23×6 at ±12.8 / 13) — a white pill
 //   (equip_normal_icon) per item, [추정] the glowing gold pill (equip_gold_icon, 31×14 drawn at its own size) for a golden
 //   item; hidden without items. Sprites: local client ui/battlecommon (tools/local-extract/extract.py); none: item pips.
@@ -39,16 +39,16 @@
 //     sprite_bg plate 10 × 8 larger and the boss emblem (sprite_enemy_boss_hud_small 57×65, 7 under the bar's centre) behind
 //     the bar; its SP (`enemy_boss_sp_slider` 130×6 #ebc9ff α.7, plate 10 × 7 larger) right under it [추정 place];
 //   - the giant boss panel (`EnemyGiantBoss`, battle/[pack]common.ab panel_enemy_boss_info — the 卫戍协议 bosses whose prefab
-//     has `_bossHudScale`, user: 「위수협의 모드에서만 넓게」): HP 798×10 × the prefab's x scale (0.35 → 279, CN capture 8 of
+//     has `_bossHudScale`, maintainer: 「위수협의 모드에서만 넓게」): HP 798×10 × the prefab's x scale (0.35 → 279, CN capture 8 of
 //     假想敌：管 ≈ 281 × 9.3 units) #ff2b2b α.8 over the white α.7 loss, a black α.39 plate (800×12) and a white α.39 frame
 //     (sprite_enemy_boss_hp_bg, 9-sliced, 816×28: a grey α .76 core edged with dark lines); its SP (default_sp_slider
 //     798×8 #cab2d4 α.8, plate 800×12, frame 816×24) 16.3 under the HP bar's centre [캡처 8]; the emblem (sprite_enemy_boss_hud_large) behind its centre ≈ 39 units
-//     wide [캡처 8 / 10]; a hit flash (hit_effect: sprite_bar_glow, 9-sliced, 818×31, #ff0000 α.78 — user decision 2026-10-07)
+//     wide [캡처 8 / 10]; a hit flash (hit_effect: sprite_bar_glow, 9-sliced, 818×31, #ff0000 α.78 — maintainer decision 2026-10-07)
 //     fading over HIT_FLASH s [추정]. Its centre on the feet [추정 — the placement is native code; the captures show it at
 //     the boss's feet], moved by the prefab's `_bossHudOffset` in tiles [추정 단위] (萨米的意志 / 昆图斯 up 1.4 / 1.02, 管 II
 //     right 1.4).
 //   Boss SP: the official enemy SP (enemy_database spData INCREASE_WITH_TIME — 管 0/50 +1/s, PRTS 「技力 0/50 自动回复」;
-//   阿利斯泰尔 25), b.snap `bsp` (server/sim/local-hud.js); only the bosses with SP show the bar (user decision 2026-10-07).
+//   阿利斯泰尔 25), b.snap `bsp` (server/sim/local-hud.js); only the bosses with SP show the bar (maintainer decision 2026-10-07).
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -77,8 +77,8 @@ export const ALLY_BAR = Object.freeze({
 
 /**
  * Prep tier chip (`shop_hud` chess_level_icon), in HUD units: centre from hud_unit's centre; the dark interior's size.
- * y: the prefab's 128 lowered with the models (ce447834 drew them 0.864× — 1/320 → 0.0027) to 107.3 (user 2026-10-08
- * 「작아진 크기에 맞춰 레벨칩 높이도 낮춰줘」), then matched to the user's official video crop of 望 (research/2026-10-07-
+ * y: the prefab's 128 lowered with the models (053283a1 drew them 0.864× — 1/320 → 0.0027) to 107.3 (maintainer 2026-10-08
+ * 「작아진 크기에 맞춰 레벨칩 높이도 낮춰줘」), then matched to the maintainer's official video crop of 望 (maintainer's notes 2026-10-07
  * user-issues-3/wang-chip-10.png vs our wang-chip-9.png, measured in chip-size units): chip centre above the eyes
  * 53.7 official vs 45.8 ours → +7.7 → 115.
  */

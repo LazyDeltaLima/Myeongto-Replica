@@ -53,7 +53,7 @@ describe('宴 S2 落地斩·破门 is not drawn as S1 分神 (tools/assets/anim-
     }
   });
 
-  test('S2 does not touch her block count (official 武者 1): she blocks with S2 (user follow-up 「S2로 해놔도 적을 저지 못했었어」)', () => {
+  test('S2 does not touch her block count (official 武者 1): she blocks with S2 (maintainer follow-up 「S2로 해놔도 적을 저지 못했었어」)', () => {
     // real match path: block count 1 while S2 runs and after it; S1 分神 alone sets 0
     for (const skill of [0, 1]) {
       const { place, battle } = prep({ chess_char_1_18_a: { skill } });

@@ -1,5 +1,5 @@
 // Local patch, server side: the feedback relay — posts the settlement screen's reports (server/local-feedback.js inbox)
-// as issues of a GitHub repository (stage 2, user decision 2026-10-09: every report, automatically). A separate process
+// as issues of a GitHub repository (stage 2, maintainer decision 2026-10-09: every report, automatically). A separate process
 // so the game server itself needs no network access: it only reads SP_FEEDBACK_DIR/inbox/ and writes what it posted to
 // SP_FEEDBACK_DIR/issues/. It authenticates as a GitHub App installed on that one repository (Issues: read and write),
 // so the issues are written by the app's bot, not by a person's account.
@@ -11,7 +11,7 @@
 //   SP_GITHUB_APP_ID       the GitHub App's id
 //   SP_GITHUB_APP_KEY      path of the app's private key (PEM)
 //   SP_GITHUB_INSTALLATION optional: the installation id (else looked up from the repository)
-//   SP_RELAY_POLL_S        optional: seconds between inbox scans (default 300: 5 minutes, user decision 2026-10-09)
+//   SP_RELAY_POLL_S        optional: seconds between inbox scans (default 300: 5 minutes, maintainer decision 2026-10-09)
 //
 // What is posted: only reports stored with `public: true` (the window told the player the report becomes a public issue —
 // a report sent under the stage-1 notice stays private), and of those only the kind, the text, the versions, the receipt

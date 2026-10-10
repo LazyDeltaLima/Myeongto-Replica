@@ -17,7 +17,7 @@
 //     by enemyScale and their parts / escorts keep their own HP.
 //   * Overtime: the level's 120 s maxPlayTime counts REAL seconds and the battle goes on past it; from the moment it
 //     runs out (240 game s on the 2× field clock) the team loses bossOvertimeDrainPerSec (1) LP per real second
-//     (gamedata.js bossOvertimeStartReal / bossOvertimeDue — user decision 2026-10-09 from official footage, no grace; the
+//     (gamedata.js bossOvertimeStartReal / bossOvertimeDue — maintainer decision 2026-10-09 from official footage, no grace; the
 //     data's bossTurnHpReduceTime 150 only without a level time); m.public.deadline = the 120 s countdown,
 //     m.public.overtimeAt = the drain start (the same moment). Minion / boss leaks cost their `lpr`; team LP 0 ⇒ defeat (all fields force-ended; PRTS 卫戍协议：盟约 下半
 //     "…使目标生命值扣除至0，则无视倒计时直接失败"); pool 0 ⇒ victory. The first of the two the server registers decides

@@ -161,7 +161,7 @@ export function indexAudio(audioData) {
   // local patch (2026-10-10): the play values of the bank a picked path list came from, else of the bank that sounds its
   // first path (a path-only spec) — skill-mode-sfx.mjs bankPlayTable
   const playOf = (paths) => (paths && typeof paths === 'object' && plays.get(paths)) || (Array.isArray(paths) && pathPlays.get(paths[0])?.v) || null;
-  // local patch (user report 4 #4-2 leftover): the mixer snapshots a bank turns on while it plays (snapshotBanks: 归溟幽灵鲨's
+  // local patch (maintainer report follow-up): the mixer snapshots a bank turns on while it plays (snapshotBanks: 归溟幽灵鲨's
   // switch to her 替身 → AllLowpass_Reverb, 5 s) — skill-mode-sfx.mjs snapshotSfx. A dub's copy (`…@JP`) is the same hook.
   const snapshots = [];
   for (const s of Array.isArray(audioData?.snapshotBanks) ? audioData.snapshotBanks : []) {
@@ -208,7 +208,7 @@ export function pickUnitSfx(banks, opts = {}) {
   // skill mode, whose files end in _d / _h / _s — never the normal attack's (纯烬艾雅法拉's S3 impact rang on every hit);
   // a ranged operator's normal attack / impact is its own projectile's bank (projectile_chr_<name>)
   const ok = opts.operator ? normalModeBank : () => true;
-  // local patch (user report 2026-10-07 #7): with the skill modes' banks taken out (skill-mode-sfx.mjs defaultModeBanks,
+  // local patch (maintainer report 2026-10-07): with the skill modes' banks taken out (skill-mode-sfx.mjs defaultModeBanks,
   // opts.defaultZero) an `.attack.0…` / `.combat.0…` bank is the Default mode's own whatever its file suffix (丰川祥子 _h)
   const okKey = opts.defaultZero ? (p, k) => ok(p) || (/^ON_ABILITY_\w+\.(attack|combat)\.0(\.|$)/.test(k || '') && p?.length > 0) : ok;
   // Looser pass: abilities whose name mentions attack/combat (PowerAttack, StunCombat, CrossAttack…).

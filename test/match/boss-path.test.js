@@ -1,4 +1,4 @@
-// Boss route preview (docs/LOCAL-PATCH.md 「보스 경로 미리보기」, user request 2026-10-08): a walking leader's path on the
+// Boss route preview (docs/LOCAL-PATCH.md 「보스 경로 미리보기」, maintainer request 2026-10-08): a walking leader's path on the
 // match's boss field rides on its m.private.nextEnemies entry (`paths`, server/match/bossPath.js — the sim's walk from
 // the spawn through one patrol lap) and the prep runs the official route preview cursor along it (render/fxroute.js).
 import { test } from 'node:test';

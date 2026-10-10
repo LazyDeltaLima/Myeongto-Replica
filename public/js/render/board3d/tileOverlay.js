@@ -10,7 +10,7 @@
 //   bench    the bench slots (hand pads) while a piece is dragged: the same 2× modulate in a teal tone. The client gives
 //            valid bench tiles their own highlight + emission colour (AutoChessGameMode
 //            AUTOCHESS_VALID_HANDTILE_CUSTOM_HIGHLIGHT / _EMISSION — static readonly, set in native code: no value in the
-//            data); fitted to the user's KR capture (2026-10-07, an item dragged): the bench plank 245,198,138 (ours,
+//            data); fitted to the maintainer's KR capture (2026-10-07, an item dragged): the bench plank 245,198,138 (ours,
 //            untinted) → 140,215,177, × (0.57, 1.09, 1.28).
 //   stripes  range previews (the direction wheel's 'facing', a selected piece's 'selRange' …): the client's attack-range
 //            material (battle/[pack]common.ab `range_material`, shader Torappu/Battle/AttackRange): texture

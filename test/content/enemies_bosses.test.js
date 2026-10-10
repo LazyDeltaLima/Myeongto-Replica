@@ -44,7 +44,7 @@ const put = (h, key, pos, o = {}) => h.spawn(key, { pos, routeIndex: 0, mods: { 
 const tb = (key, k) => E[key].talents.bb[k];
 const skb = (key, p) => E[key].skills.find((s) => s.prefabKey === p);
 /**
- * local patch (LOCAL-PATCH.md 「보스 SP 바와 관·현의 공식 SP」, user decision 2026-10-07): a skill with an SP cost fires once its
+ * local patch (LOCAL-PATCH.md 「보스 SP 바와 관·현의 공식 SP」, maintainer decision 2026-10-07): a skill with an SP cost fires once its
  * initial cooldown is over AND the official SP (spData INCREASE_WITH_TIME) reaches the cost — 管 50 s, 弦 25 s.
  */
 const firstCast = (key, p) => {

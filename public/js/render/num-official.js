@@ -15,7 +15,7 @@
 //     → 0 (InExpo, half); no alpha tween. A crit's font is × 1.1. The blue / BLOCK texts move the same.
 //   heal (UIHealText.SetTweens, 0xD73E20): position p → p + `_floatOffset` (OutCubic, life); text alpha 1 → 0 (InExpo,
 //     life); no scale tween.
-// (The damage motion matches the user video of 2026-10-07 — first frame at 0.87 of the peak, shrink and drop in the last
+// (The damage motion matches the maintainer video of 2026-10-07 — first frame at 0.87 of the peak, shrink and drop in the last
 // ~0.13 s — measured then against the peak size.) Sizes in HUD units (hud-bars.js hudUnit: screen-fixed).
 
 import { hudUnit, hudAnchorY } from './hud-bars.js';

@@ -64,7 +64,7 @@
       (`_checkTargetRootTile`). S1 지속 피해: 첫 틱은 걸리는 즉시, 1초 간격, 6.5초 → 7회(`waitFirstTriggerInterval: false`); 돌 토큰의
       지속 피해만 무출처, 跟子의 것은 망이 출처.
     - 跟子(E1+)는 망이 쏜 투사체(PRTS): 배치 한도에 안 들고 칸을 차지하지 않는다, 최대 `attack@max_spawn_cnt`개. 위치 우선순위(2026-10-10,
-      클라 코드 `WangTileSelector` — 사용자 결정 「공식이랑 동일하게」): 후보(`_FilterWangNormal`: 캐릭터가 선 칸·배치 불가 고지대 제외)를 전투 난수로
+      클라 코드 `WangTileSelector` — 관리자 결정 「공식이랑 동일하게」): 후보(`_FilterWangNormal`: 캐릭터가 선 칸·배치 불가 고지대 제외)를 전투 난수로
       섞은 뒤, 놓을 수보다 많을 때만 정렬 — 비교자 `<_SortCandidates>b__14_0` 오름차순 키 ① 지상 먼저(`!isLowland`) ② 적이 있는 칸 먼저(유효한
       적 아무나, `_CheckContainsEnemies`) ③ 배치 불가 먼저(`buildableType != NONE`이 뒤) ④ 재능 跟子(TALENT)만 방향 `_GetDirectionPriority`
       (row+ 0, col+ 1, row− 2, col− 3 = 위 > 오른쪽 > 아래 > 왼쪽; 결정적), S3 시작(SKILL_3_INSTANT)은 ④ 없음 = 같은 칸끼리 무작위. 재능 跟子는
@@ -117,7 +117,7 @@
       (3개 중 1개가 사라져도 남은 돌은 3중첩). 값은 데이터: 일반·V단계 정예 10%/9, VI단계 정예(모듈 3) 13%/12. 클라 코드로 확인(2026-10-10):
       `StoneTriggerMap.UpdateStoneTriggerCnt` — 칸별 중첩·방향(행/열 수)을 최댓값으로 고정, 돌이 떠나면 `ClearExplodedStones`로 초기화;
       `WangStoneTriggerManager.OnTrigger`가 S1/S3에는 중첩을 bb `cnt`로(프리팹이 `max_trigger_cnt`로 자름), S2에는 `is_row`·`is_col`(가로·세로·십자 폭발).
-    - **무장 지연** (2026-10-10, 사용자 결정 「공식이랑 동일하게」): 돌·跟子가 이어지면 연결선은 바로 나오지만 실제로 발동할 수 있게 되는 것(무장)은
+    - **무장 지연** (2026-10-10, 관리자 결정 「공식이랑 동일하게」): 돌·跟子가 이어지면 연결선은 바로 나오지만 실제로 발동할 수 있게 되는 것(무장)은
       **30프레임 뒤**다 — `env_043_stone_trigger`(`WangStoneTriggerManager`) `_tokenStoneExplodeDelay` 30·`_projectileStoneExplodeDelay` 30, 클라 코드
       `_TryTriggerStones`가 `finishFrame = fixedFrameCnt + 30`, `OnTick`이 `fixedFrameCnt > finishFrame`인 다음 프레임에 `_DoStoneExplode`
       (onStoneTriggered → `wang_stone_triggered` 버프 → 토큰 `SkillTrigger` `_checkContainBuffs`). 그 사이 적이 지나가도 발동하지 않는다. 프레임: 클라
@@ -150,7 +150,7 @@
     거의 없음 [추론]). 이전 코드와 다른 점: 0.75 앞을 봐서 0.5칸 일찍 꺾었고,
     저지대 통행 불가 칸·장애물이 놓인 칸에서도 꺾었고, 侵入点에서는 꺾지 않았다. 판정 간격 0.03초(이전 0.1초 → 이제 매 틱),
     수명은 스킬 끝까지(`_lifeTimeType` 2 = 클라 enum `LifeType` INFINITY — 2026-10-10 확인, 스킬 종료 버프 `chen3_s3[finish_projectile]`가 지운다).
-    **검기가 나가는 때** (2026-10-10, 사용자 결정 「공식이랑 동일하게」): 스킬이 켜지는 순간이 아니라 시작 애니 `Skill_3_Begin`이 끝난 뒤 —
+    **검기가 나가는 때** (2026-10-10, 관리자 결정 「공식이랑 동일하게」): 스킬이 켜지는 순간이 아니라 시작 애니 `Skill_3_Begin`이 끝난 뒤 —
     `skchr_chen3_3` `_playSkillBeginAnim` 1·`_beginAnim` Skill_3_Begin, 클라 코드 `BasicSkill.PlayBeginAnimation`이 그 클립 길이만큼 기다린 뒤
     `DoStartSkill`(능력 시작), 첫 능력 EmitProjectile(`projectile_chr_chen3_s3`, `_waitForAttackEvent` 1). 그녀의 스켈레톤 Skill_3_Begin은 13프레임
     (0.433 s, front·back)이고 OnAttack 이벤트가 없다(`tools/assets/skel.mjs`로 확인) → 0.433 s에 발사(`op-chen3.js S3_BEGIN`). [추정]: 그 뒤 기다리는
@@ -192,7 +192,7 @@
     규칙: 자유 비행 방향은 사키코 방향 ±20°(PRTS 「自身朝向左20°至右20°范围内，随机一个角度」; 2026-10-10 클라 코드로 확인 —
     `BasicMovement._InitDirectionByStart`, `_useSourceDirection` + `_useSourceDirectionRandomArcAngleStart`: 전투 난수 `Range(−angle, +angle)`,
     angle = 블랙보드 `angle` = 재능1 `attack@angle` 20. 일반·재능 음표는 확인, S2·S3 음표는 같은 플래그이고 스킬 블랙보드에 `angle`이 없어 재능 값을
-    쓴다 [추론: 블랙보드 합치는 경로는 안 봄]). **S1 부채꼴** (2026-10-10, 사용자 결정 「공식이랑 동일하게」): 같은 메서드의
+    쓴다 [추론: 블랙보드 합치는 경로는 안 봄]). **S1 부채꼴** (2026-10-10, 관리자 결정 「공식이랑 동일하게」): 같은 메서드의
     `_useSourceDirectionArcAngleWithRatio` — a = angle × (2·ratio − 1), ratio = `_sourceDirectionArcAngleRatio` (2i+1)/16, angle = S1 블랙보드
     `angle` 15 → 정면 ±13.125°(3.75° 간격, 30° 부채꼴) 8개. 그 전엔 비율을 360°에 곱해 한 바퀴로 뿌렸다 [추정이었음]. 회전 축이 (0,0,−1)이라 1번
     음표가 화면의 어느 쪽인지는 확인 안 함 [추정: ±20°와 같은 부호]. 테스트 `test/local-patch-diy.test.js` 「丰川祥子 S1」. 공격 대상이 있으면 그 적을, 없으면 음표 반경 안에서 음표에
@@ -207,7 +207,7 @@
     [추정] 엔진에서 넘겨받은 일반 공격 음표는 도착 때의 공격력으로 맞힌다(엔진 `resolveHit`; PRTS는 캐시한 공격력). S2 피아노의 관통은
     그림만(피해는 1명: `_maxHitNum` 1). 사인 비행은 그림만, 시뮬레이션은 직선. 한 음표가 2타(S2 Fever, S3 피아노)면 `w: 2`로 세고 그림도 2개.
     도착 판정 거리는 피아노 0.8(PRTS 「激活0.8半径的碰撞」), 나머지 **0.1** — 추적 이동 `AdvancedMovement.DoCheckReachedInternal`이 대상 위치
-    0.1 안이면 도착(2026-10-10, 사용자 결정; 그 전 0.2 [추정], `op-oblvns.js NOTE` `hit`). 화면: `fx.md`의 사키코 음표.
+    0.1 안이면 도착(2026-10-10, 관리자 결정; 그 전 0.2 [추정], `op-oblvns.js NOTE` `hit`). 화면: `fx.md`의 사키코 음표.
   - 아스카론: 사망 구금 중첩(이동 −18%/중첩, 현재 공격력 10%/초), S2 둔화·처치 시 확산, S3 범위 내 적 명중률 −30%(회피 시 회복).
   - 대미지 감사(2026-10-06): 범위 대상은 모두 선택 가능 규칙(`foesInRadius`/`enemiesInKeys`/`canTargetEnemy`: 미노출 은신·선택 불가 제외).
     고친 것: 첸 S2 첫 대상(`unitsInGrid`는 필터가 없음 → 은신 적을 벰; 은신 적만 있으면 선택 가능한 적이 올 때까지 대기), 아스카론 S2 처치 확산이

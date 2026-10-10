@@ -22,7 +22,7 @@
 // fights — with the chess's bonds, tier and price and a small ice 「替补」 mark (the owner's recall of the official mode,
 // 2026-10-06; the replaced operator's name is in the mark's title and on the detail card the first tap opens). A 自选
 // piece (0.2.0, m.private.diy — a DIY slot the player filled, only ever in its own shop) shows the operator — name,
-// portrait, class, the bonds of its factions, the pick's skill and module — with no badge (user decision 2026-10-08:
+// portrait, class, the bonds of its factions, the pick's skill and module — with no badge (maintainer decision 2026-10-08:
 // upstream 0def7bab's 「自选」 badge removed, docs/LOCAL-PATCH.md 「0.2.0 병합」).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';

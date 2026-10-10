@@ -2,7 +2,7 @@
 // toasts: each server.restart `mark` above them (30 / 10) shows 「N分钟后重启」 for a few seconds, and a page that says
 // hello during a countdown (welcome `restart: { inMs }`: a new player, a reload) gets one such toast with the minutes
 // left. In the last minutes the connection banner counts down instead (ui/connBanner.js) and the server refuses new
-// matches — no toasts there (user 2026-10-09: toasts only, 「5분부터는 띠도 표시」, 「5분부터의 토스트는 제거해」).
+// matches — no toasts there (maintainer 2026-10-09: toasts only, 「5분부터는 띠도 표시」, 「5분부터의 토스트는 제거해」).
 // ui.restartAt (this page's clock) remembers that a countdown runs — a resumed page that already knew it gets no second
 // toast — drives the banner, and lets a cancellation ({ inMs: null }) say so to the pages that had heard of it.
 

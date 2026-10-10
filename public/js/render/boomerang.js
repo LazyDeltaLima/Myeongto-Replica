@@ -1,4 +1,4 @@
-// render/boomerang.js — local patch (docs/LOCAL-PATCH.md 「回环射手 부메랑」, user report 4 #4-6, 2026-10-08): the 回环射手's
+// render/boomerang.js — local patch (docs/LOCAL-PATCH.md 「回环射手 부메랑」, maintainer report 2026-10-08): the 回环射手's
 // one boomerang, in her hand while she holds it.
 //
 // The client (EN, checked 2026-10-08): 跃跃's projectile projectile_chr_caper (battle/prefabs/[uc]projectiles.ab) flies

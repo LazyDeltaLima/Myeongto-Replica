@@ -386,7 +386,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     // skill icons (+ skill SFX) of every skill index; normal-mode attack / impact sounds only (a ranged operator's own
     // projectile banks projectile_chr_<name> as fallbacks — user playtest #4 item 6, audio.mjs pickUnitSfx)
     const short = id.replace(/^char_\d+_/, '');
-    // local patch (user report 2026-10-07 #7): an operator with known modes sounds its normal attack from its Default mode
+    // local patch (maintainer report 2026-10-07): an operator with known modes sounds its normal attack from its Default mode
     // only (skill-mode-sfx.mjs defaultModeBanks: 银灰 S3's p_atk_silver_n rang on every attack), and the Default mode's own
     // projectiles (charpack _projectileKey: 银灰 projectile_svrash) come before the name guess
     const info = charModes[id];
@@ -414,7 +414,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     }
     const primarySkill = skillSfx[String(idx[0])];
     if (primarySkill) u.skill = primarySkill;
-    // local patch (user report 2026-10-08 「望 S3 전용 사운드가 안나와」): one sounding skill that is not the pool's primary
+    // local patch (maintainer report 2026-10-08 「望 S3 전용 사운드가 안나와」): one sounding skill that is not the pool's primary
     // index (望: only S3 skchr_wang_3 has ON_SKILL_START p_skill_stwctp_s) was dropped — neither `skill` nor `skills`
     if (Object.keys(skillSfx).length > 1 || (!primarySkill && Object.keys(skillSfx).length)) u.skills = skillSfx;
     if (mix) u.mix = mix;
@@ -426,7 +426,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     if (Object.keys(skillMix).length) u.skillMix = skillMix;
     const loops = skillLoops(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf, skillPaths); // local patch
     if (loops) u.loops = loops;
-    const extras = skillExtras(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf, skillPaths); // local patch (report 4 #4-2)
+    const extras = skillExtras(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf, skillPaths); // local patch
     if (extras) u.extras = extras;
     const ends = skillEnds(audio, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf); // local patch (2026-10-10): skill-end banks
     if (ends) u.ends = ends;
@@ -694,7 +694,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   template.audio.sfx.kit = kitHitSfx(audio, soundLeaf, notes); // local patch: the kits' skill hit sounds (tools/assets/kit-sfx.mjs)
   template.audio.sfx.kitGrp = kitHitGroups(audio); // local patch: their mixer groups (public/js/audioOfficial.js)
   template.audio.sfx.kitLimit = kitHitLimits(audio); // local patch: their banks' popOldest / maxSoundAllowed (audio.js)
-  const snap = snapshotSfx(audio, soundLeaf, template.audio.sfx); // local patch (report 4 #4-2): mixer snapshots (audioOfficial.js)
+  const snap = snapshotSfx(audio, soundLeaf, template.audio.sfx); // local patch: mixer snapshots (audioOfficial.js)
   if (snap) template.audio.sfx.snap = snap;
   const bank = bankPlayTable(audio, leafPaths, template.audio.sfx); // local patch (2026-10-10): pitch range + per-bank cap (audio.js _play)
   if (bank) template.audio.sfx.bank = bank;

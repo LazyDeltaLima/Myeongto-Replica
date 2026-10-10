@@ -81,7 +81,7 @@ export function detectFeatures(win = globalThis) {
 
 /**
  * Safari itself on an iPhone / iPod (not Chrome / Firefox / Edge for iOS, not an in-app browser, not iPad Safari, which
- * has element fullscreen). The one UA check here (user request 2026-10-10): the title's 「添加到主屏幕」 note names
+ * has element fullscreen). The one UA check here (maintainer request 2026-10-10): the title's 「添加到主屏幕」 note names
  * Safari's Share menu, and only Safari users should see it — no feature tells Safari from the other iOS browsers.
  * docs/rules/ui.md "iPhone 전체 화면 안내"
  * @param {any} [win]

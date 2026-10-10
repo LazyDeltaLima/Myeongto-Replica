@@ -2,7 +2,7 @@
 // 自选编队 tab of the 干员调配 overlay fills the first tier-5 slot with 赤刃明霄陈 (real clicks: the slot, the operator,
 // S3, the AFT-X module, 确认; persisted in localStorage; room.diy → session → seat → the next match's m.private.diy); the
 // picker lists our five only (shared/local-diy.js: no prototype); in the match the 调度中心 is at level 5 and the shop
-// sells the slot as 赤刃明霄陈 (no 「自选」 badge or tag since the user's decision of 2026-10-08); bought, the hand piece draws her model;
+// sells the slot as 赤刃明霄陈 (no 「自选」 badge or tag since the maintainer's decision of 2026-10-08); bought, the hand piece draws her model;
 // deployed, the detail card shows 赤刃明霄陈 with the pick's skill; and in the browser's own battle (client-side combat)
 // the unit is the operator — the b.start spec carries the pick (`diy`), the local sim fields char_1050_chen3 with her
 // operator kit, and the battle view draws her Spine model.

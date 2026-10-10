@@ -336,7 +336,7 @@ describe('operator voice: Korean / Japanese / off and the 休整期 lines on ups
     assert.ok(!/voice=\$\{combat\}/.test(game), "the detail panel's once-per-target line is replaced by the tap's");
   });
 
-  test('client: a 自选 / 补位 piece speaks and casts as the operator it fields (session K 2026-10-08, K-1 / K-2)', async () => {
+  test('client: a 自选 / 补位 piece speaks and casts as the operator it fields', async () => {
     const v = await mod('voice.js');
     const { audio } = await mod('audio.js');
     const { skillVoiceType } = await import('../public/js/voicePolicy.js');
@@ -771,7 +771,7 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
     }
   });
 
-  // user decision 「공식 클라이언트를 따라 막아」: client normal attack 1 though PRTS is silent / forms or selectors mixed
+  // maintainer decision 「공식 클라이언트를 따라 막아」: client normal attack 1 though PRTS is silent / forms or selectors mixed
   const CLIENT_ONLY = ['enemy_2010_csdcr', 'enemy_1252_lysytb_2', 'enemy_1427_lrnazg', 'enemy_1509_mousek', 'enemy_1504_cqbw', 'enemy_1516_jakill',
     'enemy_10098_crhro', 'enemy_10099_crvln'];
   // upstream 0.2.2 grounds these itself (c250ff66 假想敌：骨刺, 977215e1 斩胄之剑 / 破胄之锤 — ported 2026-10-09): out of NO_AIR_KEYS
@@ -1258,7 +1258,7 @@ describe('kit skill hit sounds (tools/assets/kit-sfx.mjs → sfx.kit, public/js/
     const { KIT_HIT_BANKS } = await import('../tools/assets/kit-sfx.mjs');
     const { readFileSync } = await import('node:fs');
     const m = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
-    // (+ p_skill: 归溟幽灵鲨's 替身 switch, user report 4 #4-2 — test/local-patch-skill-music.test.js)
+    // (+ p_skill: 归溟幽灵鲨's 替身 switch, maintainer report — test/local-patch-skill-music.test.js)
     for (const key of Object.keys(KIT_HIT_BANKS)) assert.match(m.audio.sfx.kit?.[key] || '', /\/p_(imp|atk|skill)\/.+\.mp3$/, key);
     assert.match(m.audio.sfx.units.char_1035_wisdel.hit, /p_imp_dkmrcaygn_n\.mp3$/);
   });
@@ -1281,7 +1281,7 @@ describe('kit skill hit sounds (tools/assets/kit-sfx.mjs → sfx.kit, public/js/
     for (const [fx, ex, want] of cases) assert.equal(kitHitKey(fx, ex, of), want, `${fx} ${JSON.stringify(ex)}`);
   });
 
-  test('望 (user report 2026-10-07 #5): a stone pop sounds its token ability start, a 跟子 landing its projectile birth', async () => {
+  test('望 (maintainer report 2026-10-07): a stone pop sounds its token ability start, a 跟子 landing its projectile birth', async () => {
     const { kitStartKey } = await import('../public/js/audio.js');
     const W = 'token_10064_wang_stone1';
     const cases = [
@@ -1311,7 +1311,7 @@ describe('operator voice: the official scheduling (public/js/voicePolicy.js over
     g.start('faceEnemy', 'x', 300);
     assert.equal(g.request('faceEnemy', 'y', 301), 'drop', 'ENCOUNTER_ENEMY does not overlap');
     g.release();
-    // user question 2026-10-08 (선택 대사 쿨타임?): FOCUS_CHAR is cooldown 0 + overlapIfSamePriority in audio_data.json
+    // maintainer question 2026-10-08 (선택 대사 쿨타임?): FOCUS_CHAR is cooldown 0 + overlapIfSamePriority in audio_data.json
     // battleVoice — selecting the same operator again replaces its playing 选中 line (0.1 s crossfade), no cooldown
     g.start('select', 'p:7', 400);
     assert.equal(g.request('select', 'p:7', 401), 'preempt', 'FOCUS_CHAR: the same operator again takes its own line over');

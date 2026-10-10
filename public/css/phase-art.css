@@ -68,9 +68,9 @@
 /* ---- choice screen (autochess_battle_effect_choose_panel) ---------------------------------------------------------- */
 .spov__notice { display: none; }
 .spov.has-phase-art { --pu: var(--ui-u, .015rem); --pc-tone: #35d8b4; }
-/* (2026-10-06, user report 12) the official panel covers the whole screen — upstream leaves the 2.8rem player column */
+/* (2026-10-06, maintainer report) the official panel covers the whole screen — upstream leaves the 2.8rem player column */
 .gm > .spov.has-phase-art { left: 0; right: 0; }
-/* (user report 13) the corner buttons (交流 · 聊天 · 设置 · 说明 · 全屏; screens/game.js renders them beside .gm__hud, not
+/* (maintainer report) the corner buttons (交流 · 聊天 · 设置 · 说明 · 全屏; screens/game.js renders them beside .gm__hud, not
    in it) stay above the choice screen (z 20). Otherwise just above the HUD layer (z 3), under the direction wheel (z 6). */
 .gm > .gm__corner { left: calc(.24rem + var(--sa-l, 0px)); bottom: calc(.24rem + var(--sa-b, 0px)); z-index: 3; }
 .gm > .gm__corner.is-over-choice { z-index: 21; }

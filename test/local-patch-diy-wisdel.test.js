@@ -1,5 +1,5 @@
 // test/local-patch-diy-wisdel.test.js — 维什戴尔 (char_1035_wisdel) 선발 kit (server/sim/content/kits/ops/op-wisdel.js):
-// the evidence-backed fixes of research/2026-10-07-diy-kit-diff.md §3 (user approval 2026-10-07 "all recommended items"):
+// the evidence-backed fixes of maintainer's notes 2026-10-07 §3 (maintainer approval 2026-10-07 "all recommended items"):
 // D6 the shadow's 0-2 SP go to the shadow, D1 S3 splash 2.5, D2 S3 targets / splashes / aftershocks air units, D3 the
 // aftershocks get the main-target ×main_atk_scale, D4 her 残影 leave with her, D5 迷彩 = granted when a shadow comes in with
 // her on its x-5 and kept while it lives, D7 shadows target ground only, D8 the S3 first shadow starts with `sp` SP, D11

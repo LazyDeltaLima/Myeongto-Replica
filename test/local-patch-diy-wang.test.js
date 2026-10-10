@@ -1,14 +1,14 @@
-// test/local-patch-diy-wang.test.js — 望 (char_2027_wang) kit changes of the user's decisions of 2026-10-07
-// (server/sim/content/kits/ops/op-wang.js; research/2026-10-07-diy-kit-diff.md §1 W2 / W7 / W8 / W10 / W12):
+// test/local-patch-diy-wang.test.js — 望 (char_2027_wang) kit changes of the maintainer's decisions of 2026-10-07
+// (server/sim/content/kits/ops/op-wang.js; maintainer's notes 2026-10-07 §1 W2 / W7 / W8 / W10 / W12):
 // - W2  an activated stone / 跟子 goes off whenever a selectable enemy IS on its trigger area (every tick) — one already
 //       standing there when it activates too;
 // - W7  连星's slow: independent stacks with their own timers in the 直接乘算 stage (their values add up), speed ≥ 0.1;
 // - W8  跟子 ties: up > right > down > left as drawn (PRTS), left / right swapped on a mirrored field;
 // - W10 during S3 a used stone may come back onto a walking enemy's tile inside her range (not outside it / outside S3);
-// - W12 S3: per deployment the talent's 跟子 free + ≤ 3 extra, one ammo each (user 2026-10-07: confirmed in game);
+// - W12 S3: per deployment the talent's 跟子 free + ≤ 3 extra, one ammo each (maintainer 2026-10-07: confirmed in game);
 // - 跟子 skip a knocked-out operator's tile (downOn, as upstream).
 // The S3 describe runs S3 through the real match path (Match board → buildBattleSpec → createBattleFromSpec); the last one
-// checks every tick of S1 / S2 / S3 battles on that path for two of her stones on one tile (report 3 #2-3).
+// checks every tick of S1 / S2 / S3 battles on that path for two of her stones on one tile.
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -71,7 +71,7 @@ const trackDeployments = (b, on = () => true) => {
 const paidOf = (g) => g.fol.filter((f) => f.t > g.t + 1e-9).length;
 const trapHitsFrom = (h, r, c) => h.hooksOf('damaged').filter((d) => d.dmg?.tags?.includes('trap') && d.source?.tileR === r && d.source?.tileC === c).length;
 
-describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
+describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
   test('W2: an enemy already standing on a stone when it activates sets it off (presence, checked every tick)', () => {
     // a lone stone (inactive) at 9,6 with an enemy held on it; S1's automatic deployment then puts a stone next to it
     // (autoTile: next to her stones, nearest to an enemy) — the stone activates with the enemy already there
@@ -205,7 +205,7 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
     }
   });
 
-  test('跟子 never land on a knocked-out operator (downOn, as upstream; user decision 2026-10-07)', () => {
+  test('跟子 never land on a knocked-out operator (downOn, as upstream; maintainer decision 2026-10-07)', () => {
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false,
       units: [op(0, 11, 3), stone(11, 5, 50), stone(11, 6, 51)] });
     h.step(2);
@@ -219,7 +219,7 @@ describe('望 kit — user decisions 2026-10-07 (op-wang.js)', () => {
     assert.deepEqual(groups[0]?.fol[0], { r: 10, c: 5 }, 'up holds a down body, right a stone → down');
   });
 
-  test('a deployment on a 跟子\'s tile removes it — a stone\'s return, an operator\'s move (PRTS 铸子 备注; user decision 2026-10-09 #3)', () => {
+  test('a deployment on a 跟子\'s tile removes it — a stone\'s return, an operator\'s move (PRTS 铸子 备注; maintainer decision 2026-10-09)', () => {
     // 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」: until 2026-10-09 the stone waited for the 跟子 to go off
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false,
       units: [op(0, 11, 3), stone(11, 5, 50), stone(11, 6, 51), stone(12, 5, 52)] });
@@ -403,14 +403,14 @@ describe('望 S3 through the real match path (seats[].diy → Match board → bu
 });
 
 /**
- * Report 3 #2-3 (2026-10-08, user: 望 stones suspected to stack on one tile), through the real match path. Every tick:
+ * Report 3 (2026-10-08, user: 望 stones suspected to stack on one tile), through the real match path. Every tick:
  * no tile holds two placed stones, two 跟子, or a stone / 跟子 of hers with another ally. The one overlap the sim could
- * have (research/2026-10-08-report3-status.md 2-3): a used placed stone coming back on its home tile (Battle.redeploy
+ * have (maintainer's notes 2026-10-08 2-3): a used placed stone coming back on its home tile (Battle.redeploy
  * checks `_occ` only) onto a 跟子 — a projectile that holds no tile — put there by a neighbour's deployment while the
- * stone waited. PRTS 铸子 备注 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」 (user decision 2026-10-09 #3,
+ * stone waited. PRTS 铸子 备注 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」 (maintainer decision 2026-10-09,
  * upstream 5a045731 (b)): the return removes that 跟子 (`gone` counts them); until then the stone waited for it [추정].
  */
-describe('望 stones never share a tile (real match path, report 3 #2-3)', () => {
+describe('望 stones never share a tile (real match path)', () => {
   const T6 = 'chess_char_6_diy1_a';
   const runWang = async ({ sk, stones, seed, until }) => {
     const { makeMatch } = await import('./match/harness.js');
@@ -447,7 +447,7 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
     const wu = b.allyUnits.find((u) => u.kind === 'op');
     assert.equal(wu.def.charId, CHAR);
     const pairs = new Map(); // "r,c:idA+idB" → { kind, last } at the tick the pair first shared the tile
-    const deep = new Set(); // 跟子 seen on a 深水区 tile (report 5 #5-1)
+    const deep = new Set(); // 跟子 seen on a 深水区 tile
     let s3 = 0;
     while (!b.finished && b.time < until) {
       const before = new Map([...b.allyUnits].map((u) => [u, u.alive && u.deployed]));
@@ -500,10 +500,10 @@ describe('望 stones never share a tile (real match path, report 3 #2-3)', () =>
       }
     });
   }
-  // report 5 #5-1 (user decision 2026-10-08): no 跟子 on 深水区 — the talent's around a stone, S3's on enemy tiles. Before
+  // report (maintainer decision 2026-10-08): no 跟子 on 深水区 — the talent's around a stone, S3's on enemy tiles. Before
   // the fix these runs put 1–7 跟子 each in m04's water (19 in all over the scratch check of six runs).
   for (const [sk, layout, seed] of [[1, 'side', 2], [2, 'near', 1], [2, 'side', 1], [0, 'near', 4]]) {
-    test(`S${sk + 1} ${layout} seed ${seed}: no 跟子 on a 深水区 tile (report 5 #5-1)`, async () => {
+    test(`S${sk + 1} ${layout} seed ${seed}: no 跟子 on a 深水区 tile`, async () => {
       const r = await runWang({ sk, stones: LAYOUTS[layout], seed, until: 90 });
       assert.equal(r.errors.length, 0);
       assert.ok(r.seen.follower > 0, `跟子 were built (${JSON.stringify(r.seen)})`);

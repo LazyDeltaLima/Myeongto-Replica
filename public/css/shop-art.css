@@ -75,7 +75,7 @@
 .shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex)::before,
 .shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex)::after { display: none; }
 .shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) .hex__value { color: #ffc600; font-size: calc(var(--u) * 22); line-height: 1; font-weight: 700; white-space: nowrap; }
-/* two digits (a level-up at 10+): the hexagon widens instead of wrapping (user 2026-10-06) */
+/* two digits (a level-up at 10+): the hexagon widens instead of wrapping (maintainer 2026-10-06) */
 .shopbar.has-shop-cost :is(.scard__price, .lvcard__price, .toolbtn--amber .hex) { min-width: calc(var(--u) * 44); width: auto !important; padding: 0 calc(var(--u) * 9); box-sizing: border-box; }
 .shopbar.has-shop-cost :is(.scard__price.is-poor, .lvcard__price.hex--dark, .toolbtn--amber .hex--dark) { background-image: var(--sa-cost-grey); }
 .shopbar.has-shop-cost :is(.scard__price.is-poor, .lvcard__price.hex--dark, .toolbtn--amber .hex--dark) .hex__value { color: #c0c5c3; }
@@ -121,7 +121,7 @@
 .shopbar.has-shop-art .scard__class { order: 2; position: absolute; left: calc(var(--u) * 9); bottom: calc(var(--u) * 8); z-index: 2; display: flex; }
 .shopbar.has-shop-art .scard__class > span { display: none; }
 .shopbar.has-shop-art .scard__prof { width: calc(var(--u) * 16); height: calc(var(--u) * 16); opacity: .9; filter: brightness(0) invert(1); }
-/* the loadout's skill icon (upstream, DESIGN §16): bottom-right, just above the name bar (user 2026-10-06) */
+/* the loadout's skill icon (upstream, DESIGN §16): bottom-right, just above the name bar (maintainer 2026-10-06) */
 .shopbar.has-shop-art .scard__skill { top: auto; right: calc(var(--u) * 6); bottom: calc(var(--u) * 31); width: calc(var(--u) * 28); height: calc(var(--u) * 28); z-index: 3; }
 .shopbar.has-shop-art .scard__mergetag { top: calc(var(--u) * 42); }
 /* not affordable / not editable: the prefab's disable_matte (#5b5b5b99) */

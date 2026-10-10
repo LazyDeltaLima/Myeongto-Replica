@@ -1,7 +1,7 @@
 // Briefing — INFO_CHECK "1/2 确认本局信息" (research 06 §4.1, D1): enemy leader (silhouette, name,
 // abilities), stage (+ its pool: 战场固定 / 战场随机（共N张）), 特训敌人 factions (icon, name, description), the difficulty
 // tag, the ready count x/N with person pips, the 准备就绪 button (g.infoReady) and the countdown. Next to it 重新抽取
-// (g.infoReroll, feat — user decision 2026-10-09; the official briefing has no such button): a vote instead of ready, one
+// (g.infoReroll, feat — maintainer decision 2026-10-09; the official briefing has no such button): a vote instead of ready, one
 // or the other; alone it redraws at once, in co-op more reroll votes than ready ones redraw (a new match) and a tie
 // returns to the room (server phases.js maybeEndInfo). The right column — 核心盟约
 // / 附加盟约 rows of bond discs (disabled bonds greyed with the banned-member badge), the legend and the 本局禁用干员

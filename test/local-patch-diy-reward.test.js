@@ -1,4 +1,4 @@
-// test/local-patch-diy-reward.test.js — local patch (user decision 2026-10-07): the promotion reward offers chess of
+// test/local-patch-diy-reward.test.js — local patch (maintainer decision 2026-10-07): the promotion reward offers chess of
 // tier min(调度中心 level + 1, 6), and a 自选 pick of that tier is among them like any operator of the tier — upstream
 // 0.2.0 gated the picks by the shop's level (diyRollEntries), so a tier-V pick never came at 调度中心 4 nor a tier-VI one
 // at 5. player/acquire.js pushRewardOffer draws the stock with diyStockEntries (no 调度中心 gate, the roll's tier rule).

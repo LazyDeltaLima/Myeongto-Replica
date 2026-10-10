@@ -1,7 +1,7 @@
 // Official look of an operator's detail card (local patch, docs/LOCAL-PATCH.md 「정비 화면 HUD」 — 배치 기물 정보 창): no
 // panel box — the operator's art on the left edge at full height, fading out to the right, with the client's
 // act2autochess_character_info_subpanel_status / …_subpanel_tabgroup (ui/autochess/[uc]autochessbattle.ab) laid over it,
-// matched against the user's in-game screenshots (深巡 / 乌尔比安 / 斯卡蒂 / 盟约·辅助干员, 2026-10-06): the class icon in a
+// matched against the maintainer's in-game screenshots (深巡 / 乌尔比安 / 斯卡蒂 / 盟约·辅助干员, 2026-10-06): the class icon in a
 // gold frame (cyan for a helper token), the name, the tier | elite icon LV n (chess.json `status`, the official
 // charChessDataDict status), the stat list (攻击 防御 法抗 阻挡 费用, 21 px #b2b2b2), the 攻击范围 tile and one tile per bond, the
 // blue HP bar (生命 x/y), the tabs 特质 / 技能 / 特性 / 天赋 and their text. Built from ChessDetail's own blocks
@@ -14,7 +14,7 @@
 // the client's per-art size and offset that line the faces up), placed by that frame (css/hud-art.css `--fx/--fy/--fw/
 // --fh`); else the web manifest's half-body portrait (180×360); else no art.
 //
-// 0.2.0 补位 (docs/LOCAL-PATCH.md 「0.2.0 병합」 J-8): a chess the player fields as its stand-in shows the
+// 0.2.0 补位 (docs/LOCAL-PATCH.md 「0.2.0 병합」): a chess the player fields as its stand-in shows the
 // stand-in like ChessDetail does — art, class, name, stats, range, skill, talents (its backup selection) — with ChessDetail's
 // 「替补」 tag and 「X的替补」 line; the chess's tier, elite level, bonds and 特质 stay. 0.2.0 自选: the composed record's
 // stats through the pick (the same lookup as ChessDetail; checked equal to the battle's def, 2026-10-08), at the
@@ -24,7 +24,7 @@
 //   placingDetail(p, pieces, opts) the card of the operator being placed — dragged (`drag`) or waiting for its direction
 //                           (`facing`, screens/game.js): the client shows the same card then, its art more transparent
 //                           (KR gameplay captures, 2026-10-06); resolved like a tap's card (resolveDetail with the
-//                           player's m.private: a 自选 slot's operator, a 补位 stand-in — user report 2026-10-08: the
+//                           player's m.private: a 自选 slot's operator, a 补位 stand-in — maintainer report 2026-10-08: the
 //                           drag showed the bare slot record 「自选干员」); null for an item / token or an unknown piece
 
 import { useState } from '../../vendor/hooks.module.js';

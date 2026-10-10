@@ -1,5 +1,5 @@
 // test/local-patch-diy-chen3.test.js — 赤刃明霄陈 (char_1050_chen3) 선발 kit (server/sim/content/kits/ops/op-chen3.js): the
-// evidence-backed fixes of research/2026-10-07-diy-kit-diff.md §2 (user approval 2026-10-07 "all recommended items"):
+// evidence-backed fixes of maintainer's notes 2026-10-07 §2 (maintainer approval 2026-10-07 "all recommended items"):
 // C1 S2 slashing = stun / freeze immune, blocks nothing, no SP; C2 the post-S2 buff lasts the skill's full 6 s after she
 // lands; C3 a slash +1 whenever the target leaves the field (not only on her kill); C7 a dodge does not restart 寒暑觉知's
 // clock; C8 its dodge covers every dodgeable physical / arts damage (not attacks only) — and S2 through the real match path.

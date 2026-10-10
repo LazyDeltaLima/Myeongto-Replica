@@ -160,7 +160,7 @@
 }
 .gm.has-hud-art .bslot[data-full] .bond__icon { filter: brightness(0); }
 /* the stack number on matte_num (42×25, 16 px white), on the ring's lower edge (KR captures: ≈ .75 of the radius under
-   the centre; the prefab's 8 units looked too high in play, user 2026-10-06). (2026-10-07) the CN prep capture puts the
+   the centre; the prefab's 8 units looked too high in play, maintainer 2026-10-06). (2026-10-07) the CN prep capture puts the
    digits' centre .35 of the ring (53 units across) under its centre, over its bottom edge — 15 here gave .27 → 19.5 */
 .gm.has-hud-art .bslot .bond__count {
   position: absolute; left: 50%; top: calc(50% + var(--u) * 19.5); right: auto; bottom: auto; transform: translate(-50%, -50%);
@@ -169,7 +169,7 @@
 }
 /* the name: text_name (74×22 at 31 under the item's centre, 14 px, UpperCenter, line spacing .8) — its line hangs from the
    box's top 20 under the centre, the glyphs ≈ 36 under the disc's centre (CN 联防 capture .73 of the ring; upstream-style
-   centring in that box put them 42 under, user 2026-10-07) */
+   centring in that box put them 42 under, maintainer 2026-10-07) */
 .gm.has-hud-art .bslot .bond__name {
   position: absolute; left: 50%; top: calc(50% + var(--u) * 20); transform: translateX(-50%); font-size: calc(var(--u) * 14); line-height: 1; color: #fff; font-weight: 500;
 }
@@ -269,7 +269,7 @@
    #59ffd2 on the board shown — [추정] the view / other groups of the item read as "the watched board / the rest", white
    otherwise), icon_self (32×32) at its top-left corner, the LP on bg_hp (57×24, icon_hp, 16 px #f3f3f3) at its bottom,
    the status icon (21×21) just right of its bottom corner. Upstream's 联防 tag, eye and 前往查看 stay beside it; the
-   name is hidden (the official item has none — CN 联防 capture, user 2026-10-07; the portrait's tooltip keeps it). ---- */
+   name is hidden (the official item has none — CN 联防 capture, maintainer 2026-10-07; the portrait's tooltip keeps it). ---- */
 .gm.has-hud-art.has-hud-team .team {
   left: calc(var(--u) * 23); top: calc(50% - var(--u) * 34); transform: translateY(-50%); gap: calc(var(--u) * 17); padding: calc(var(--u) * 10) 0; isolation: isolate;
 }
@@ -291,7 +291,7 @@
 .gm.has-hud-art.has-hud-team .team:not(.has-watched) .team__row.is-self .team__btn::after { background: #59ffd2; }
 .gm.has-hud-art.has-hud-team .team__row.is-open .team__btn::after { background: #59ffd2; filter: drop-shadow(0 0 .06rem rgba(89, 255, 210, .7)); }
 /* 最终攻势 / 隐秘核心: the viewer's pair (upstream ef101647 .team__frame, a second bg_team_border over this one — two frames
-   on each portrait) wears this frame alone, in the green of the board shown (docs/LOCAL-PATCH.md 「0.2.0 병합」 J-7;
+   on each portrait) wears this frame alone, in the green of the board shown (docs/LOCAL-PATCH.md 「0.2.0 병합」 
    [추정]: no capture of a boss round's player list) */
 .gm.has-hud-art.has-hud-team .team__frame { display: none; }
 .gm.has-hud-art.has-hud-team .team__row.is-team .team__btn::after { background: #59ffd2; }
@@ -438,7 +438,7 @@
 
 /* ---- operator card (ui/detailArt.js ChessDetailArt), as the client's: no box — the art on the left edge at full height,
    fading out to the right, the texts over it. The subpanels are 735 units wide on the client's 1920×1080 battle canvas
-   (1 unit = 1 px at 1080p = .01rem); measured against the user's screenshots (深巡 / 盟约·辅助干员): class icon centred
+   (1 unit = 1 px at 1080p = .01rem); measured against the maintainer's screenshots (深巡 / 盟约·辅助干员): class icon centred
    79 / 119 from the left / top, name 33 px, the tier row, the stat list (21 px, rows 24.5, labels and values #b2b2b2,
    阻挡 / 费用 white), the 攻击范围 tile (136×105) and bond tiles (112×105) right of it, the HP bar (slider_hp 555×22) with
    生命 and the value box at its end, the tabs (650 wide, 24 px #ababab, the open one white on darker), the tab text on a
@@ -450,10 +450,10 @@
 @keyframes dart-in { from { opacity: 0; transform: translateX(-.2rem); } }
 .gm.has-hud-art .dpanel--chess.brackets::before, .gm.has-hud-art .dpanel--chess.brackets::after { display: none; }
 .gm.has-hud-art .dpanel--chess .dpanel__close, .dart__head, .dart__mid, .dart__tabs, .dart__pane { pointer-events: auto; }
-/* local patch (2026-10-06, user report 10): the tab text lies over the left bench pads (bench row y ≈ the pane) — the
+/* local patch (2026-10-06, maintainer report): the tab text lies over the left bench pads (bench row y ≈ the pane) — the
    pane passes presses through to the board; only its buttons / chips / thumbnails / tooltip targets take them */
 .gm.has-hud-art .dpanel--chess .dart__pane { pointer-events: none; }
-/* local patch (2026-10-06, user report 14): the selection diamond (ui/underframe.js .uframe--dia) goes under the card
+/* local patch (2026-10-06, maintainer report): the selection diamond (ui/underframe.js .uframe--dia) goes under the card
    (z 9) — a bench pad under the card showed the dashed diamond over its text; the 撤退 / 出售 buttons stay at z 12 */
 .gm.has-hud-art .gm__hud > .uframe--dia { z-index: 8; }
 .gm.has-hud-art .dpanel--chess .dart__pane :is(button, a, [title], [role="button"], .uthumb) { pointer-events: auto; }
@@ -522,7 +522,7 @@
 .dart__tiles .dbond .dbond__tiers { display: none; }
 .dart__tiles .dbond.is-active { box-shadow: inset 0 -.03rem 0 #40b196; }
 .dart__tiles .dbond:hover { background: rgba(48, 48, 48, .9); }
-/* the bond cells read on any art: the same translucent black as the range cell (user 2026-10-06) */
+/* the bond cells read on any art: the same translucent black as the range cell (maintainer 2026-10-06) */
 .gm.has-hud-art .dpanel--chess .dart__tiles .dbond { background: rgba(20, 20, 20, .8); border: 0; }
 .gm.has-hud-art .dpanel--chess .dart__tiles .dbond:hover { background: rgba(48, 48, 48, .9); }
 /* the bar from the screen's left edge to 5.0rem, 체력 + the value box (≈ 1.25rem) after it, just below */
@@ -602,7 +602,7 @@
    "再次点击" hint and the lift stay (the hint small under the label). ---- */
 .gm.has-hud-art .shopbar.has-shop-art .scard.is-armed .scard__art { filter: brightness(.5); }
 .gm.has-hud-art .shopbar.has-shop-art .scard__confirm {
-  position: absolute; z-index: 6; left: 0; right: 0; bottom: 0; top: auto; height: calc(var(--u) * 92); transform: none; /* smaller than the prefab's 125 (user 2026-10-06: too big) */
+  position: absolute; z-index: 6; left: 0; right: 0; bottom: 0; top: auto; height: calc(var(--u) * 92); transform: none; /* smaller than the prefab's 125 (maintainer 2026-10-06: too big) */
   display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 0; padding: 0 0 calc(var(--u) * 10);
   background: var(--ha-dc1, none) center / 100% 100% no-repeat, rgba(27, 170, 140, .82); color: #dcfff7; border: 0; box-shadow: none;
   /* fades out upwards (KR captures) */

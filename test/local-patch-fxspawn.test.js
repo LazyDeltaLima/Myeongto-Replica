@@ -1,4 +1,4 @@
-// local patch (docs/LOCAL-PATCH.md 「이펙트 붙는 자리」, user report 2026-10-08 + session F): an effect whose `_spawnLocation`
+// local patch (docs/LOCAL-PATCH.md 「이펙트 붙는 자리」, maintainer report 2026-10-08 + ): an effect whose `_spawnLocation`
 // is 3 / 6 (the client's MUZZLE_POINT) or 8–11 (MP_SPECIAL_0–3) plays at the model's Muzzle / SpecialPointN — a Spine bone
 // from tools/local-extract/char_points.py's table (비르투오사's SpecialPoint0 = her cello string, F_Weapon_Chord /
 // B_Weapon_Chord); official projectile trails leave the shooter's Muzzle.
@@ -56,7 +56,7 @@ test('pointOn: the drawn side\'s bone, else the other side\'s, else that side\'s
   assert.equal(pointOn(entry, null, false), null);
 });
 
-test('비르투오사 stays on her cello: SpecialPoint0 follows F_Weapon_Chord / B_Weapon_Chord (the 58e3d56e bones)', () => {
+test('비르투오사 stays on her cello: SpecialPoint0 follows F_Weapon_Chord / B_Weapon_Chord (the a5d2e4ba bones)', () => {
   const sp0 = TABLE.char_245_cello?.sp0;
   assert.equal(sp0?.F?.bone, 'F_Weapon_Chord');
   assert.equal(sp0?.B?.bone, 'B_Weapon_Chord');
@@ -94,7 +94,7 @@ test('every extracted muzzle / special-point prefab finds its point on our model
     const byCode = Object.fromEntries(Object.keys(TABLE).filter((k) => k.startsWith('char_')).map((k) => [k.replace(/^char_\d+_/, ''), k]));
     // swire's melee model has no Muzzle (its attack start keeps the ground); 浊心斯卡蒂 has no Back model; 史尔特尔's Back
     // record follows Front face bones the Back skeleton lacks (client data — its fixed spot is used); 비즈왁스's model has
-    // no SpecialPoint0 for her S2 buff's mount (session L: the client pauses it, _pauseWhenMountPointInvalid; it keeps the ground)
+    // no SpecialPoint0 for her S2 buff's mount (the client pauses it, _pauseWhenMountPointInvalid; it keeps the ground)
     const GAPS = new Set(['swire/swire_attack_01_start', 'surtr/surtr_skill_03_buff_03 B', 'surtr/surtr_skill_03_buff_04 B', 'beewax/beewax_skill_02_buff_01']);
     const missing = [];
     for (const [b, n, spawn] of pointPrefabs()) {
@@ -129,7 +129,7 @@ test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body /
   assert.match(src, /const z = rec\.z0 \+ \(rec\.tz - rec\.z0\) \* k/);
 });
 
-// session L (user report 4 #4-7, 2026-10-08): an effect's FollowMountPoint (fx_extract.py `mount`) — 스펙터 디 언체인드 S2's red ring
+// (maintainer report 2026-10-08): an effect's FollowMountPoint (fx_extract.py `mount`) — 스펙터 디 언체인드 S2's red ring
 test('mountSpawn: MountPointType 0–3 FOOT / HIT / MUZZLE / HEAD, 5 / 6 / 8–21 SPECIAL_0 / 1 / 2–15 (4 UI, 7 GROUND) → the same point\'s _spawnLocation', () => {
   assert.deepEqual([0, 1, 2, 3].map((type) => mountSpawn({ type })), [1, 2, 3, 4]);
   assert.deepEqual([5, 6, 8, 9, 10, 13, 14, 21].map((type) => pointKey(mountSpawn({ type }))), ['sp0', 'sp1', 'sp2', 'sp3', 'sp4', 'sp7', 'sp8', 'sp15']);

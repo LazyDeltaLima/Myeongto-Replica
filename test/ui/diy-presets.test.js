@@ -1,4 +1,4 @@
-// 진영별 선발 프리셋 (local feature, user decisions 2026-10-09 8–10; public/js/ui/diyPresets.js): per-browser 自选 rosters,
+// 진영별 선발 프리셋 (local feature, maintainer decisions 2026-10-09; public/js/ui/diyPresets.js): per-browser 自选 rosters,
 // one for 不使用预设 and one per chat faction, each its own (a faction's empty until filled — then no preset); the
 // 自选编队 tab's bar switches between them, edits follow the roster shown, and a faction pick (chat / strategy draft)
 // applies that faction's preset with a 撤销 (a faction without one changes nothing).
@@ -53,7 +53,7 @@ test('stored rosters: only chat factions, clean and non-empty picks; a v1 envelo
   assert.deepEqual(P.parseStoredPresets({ v: 1, presets: { yan: { [T6A]: WANG } }, active: 'yan' }, { [T6A]: WANG }).base, {});
 });
 
-test('the bar: 不使用预设 and every faction keep their own picks — switching never copies them (user report 2026-10-09)', () => {
+test('the bar: 不使用预设 and every faction keep their own picks — switching never copies them (maintainer report 2026-10-09)', () => {
   setDiyPicks({ [T6A]: WIS }); // shown: 不使用预设
   P.selectPreset('yan');
   assert.deepEqual(loadoutStore.get().diy, {}, 'a faction without a preset starts empty, not with the picks left behind');
@@ -121,7 +121,7 @@ test('the tab draws the bar: 不使用预设 + eight factions, saved ones filled
   assert.match(panel({ presets: {}, activePreset: null, onPreset() {}, onPresetDelete() {} }), /DiyPresetBar/);
 });
 
-test('a faction pick applies its preset out of a match and in its briefing / strategy draft only (user 2026-10-09)', () => {
+test('a faction pick applies its preset out of a match and in its briefing / strategy draft only (maintainer 2026-10-09)', () => {
   assert.equal(presetPickLive({ room: { inMatch: false } }), true);
   assert.equal(presetPickLive({ room: null }), true);
   for (const phase of ['INFO_CHECK', 'BAND_DRAFT']) assert.equal(presetPickLive({ room: { inMatch: true }, match: { public: { phase } } }), true, phase);

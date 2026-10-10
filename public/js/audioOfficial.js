@@ -4,7 +4,7 @@
 // Mix: the client's AudioMixer `MainMixer` (EN sharedassets1.assets), Default snapshot: each bank plays on its
 // `customMixerGroup` (audio_data.json → manifest sfx.units[id].grp / modes[i].grp / sfx.kitGrp) whose volume, summed
 // with its parents' (dB), is the linear gain below; a sound's own bank volume (mix.vol, up to 2.0) multiplies it.
-// Research 2026-10-07 (research/2026-10-07-official-compare/compare-audio.md §2). The voice channel
+// Research 2026-10-07 (maintainer's notes 2026-10-07 §2). The voice channel
 // plays at the Voice group's gain; the sfx channel carries no extra factor (the groups already hold SFX_Battle's −3.15 dB).
 // A role without a group in the manifest falls back to the group its role uses in the official banks (ROLE_GROUP).
 //
@@ -134,7 +134,7 @@ export function playPitch(info, random = Math.random) {
 const LOOP_FADE_S = 0.25;
 
 /**
- * Start unit `key`'s loop of `url` at `gain` (a running one of that unit is replaced). local patch (report 4 #4-2):
+ * Start unit `key`'s loop of `url` at `gain` (a running one of that unit is replaced). local patch:
  * `o.loop` false = a one-shot held under that key so the skill's end can cut it (塑心 S3's melody: its ctrlStop bank),
  * `o.fade` = the fade (s) stopSkillLoop cuts it with (default LOOP_FADE_S).
  */
@@ -184,7 +184,7 @@ export function stopUnitLoops(mgr, id) {
 }
 
 /**
- * local patch (report 4 #4-2): the extra one-shots of a unit's skill (sfx.units[defId].extras[skillIndex], tools/assets/
+ * local patch: the extra one-shots of a unit's skill (sfx.units[defId].extras[skillIndex], tools/assets/
  * skill-mode-sfx.mjs skillExtras) — [{ url, grp?, vol?, stop? }], `stop` = cut with that fade when the skill ends.
  */
 export const skillExtrasOf = (entry, skillIndex) => {
@@ -203,7 +203,7 @@ export const skillLoopOf = (entry, skillIndex) => (Number.isInteger(skillIndex) 
 export const loopGain = (loop) => groupGain(loop?.grp) * (Number.isFinite(loop?.vol) && loop.vol > 0 ? loop.vol : 1);
 
 /**
- * local patch (user report 4 #4-2, 2026-10-08 「이격 스펙터 S2 종료 후 대역 전환」): the sounds of a dollkeeper's form switch (sim
+ * local patch (maintainer report 2026-10-08 「이격 스펙터 S2 종료 후 대역 전환」): the sounds of a dollkeeper's form switch (sim
  * professions.js installDollkeeper: fx 'substitute' = to the <替身>, 'swap' = back to the 本体, 'dollEnd' = the 替身 knocked
  * out) as sfx.kit keys (tools/assets/kit-sfx.mjs): `play` one-shots, `hold` a one-shot held so the switch back cuts it
  * (`fade` s: its ctrlStop bank ghost2_stand_effect_end 0.8 s), `stop` = cut the held one. [추정] the stand-in's show

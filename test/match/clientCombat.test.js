@@ -296,7 +296,7 @@ test('Final Assault: leaks and leader LP effects from b.progress drain the team 
   h.sched.advance(4000);
   assert.equal(m.teamLp, lp0 - 5, 'leak lpr 3 + leader effect 2');
   const lp1 = m.teamLp;
-  // overtime: the drain starts as the level's 120 REAL s countdown ends (no grace — user decision 2026-10-09, official
+  // overtime: the drain starts as the level's 120 REAL s countdown ends (no grace — maintainer decision 2026-10-09, official
   // footage; the data's bossTurnHpReduceTime 150 is not used), then 1 LP per real second
   const t0 = m._bossStartAt;
   const pub = () => h.bc.filter((x) => x.t === 'm.public').pop();

@@ -13,7 +13,7 @@
 // family. So S2 = the normal Attack clip (skill clip `via: 'attack'`, like resolveSkill's own fallback).
 //
 // A clip object replaces the skill's clips outright — models whose clip numbers are not their skill numbers (the S1 is a
-// common buff without clips of its own, so the numbers shift; user report 2026-10-07, research/2026-10-07-user-issues):
+// common buff without clips of its own, so the numbers shift; maintainer report 2026-10-07, maintainer's notes 2026-10-07):
 // 泥岩 (char_311_mudrok): S2 岩崩锤 strikes with `Skill_1` ([uc]skills.ab skchr_mudrok_2 attack ability `_animKey
 // "Skill_1"`, 1.6 s) — `strike: true`: the clip is that empowered attack's, played by the attack, not at the cast
 // (render/spine.js). `Skill_2_*` is S3 秽壤的血脉's (SleepAura `_default {Skill_2_Begin, Skill_2_Sleep, Skill_2_Awake}`,
@@ -33,7 +33,7 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
     2: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Attack', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
   }),
   // 焰影苇草 (char_1020_reed2): S3's charpack mode pairs Attack→Skill_3_Attack, Idle→Skill_3_Loop (EN client) — resolveSkill
-  // used the Loop stance as her attack, so she stood through S3 with no attack motion (user report 2026-10-07)
+  // used the Loop stance as her attack, so she stood through S3 with no attack motion (maintainer report 2026-10-07)
   'op:char_1020_reed2:': Object.freeze({
     2: clips({ begin: 'Skill_3_Begin', loop: 'Skill_3_Attack', end: 'Skill_3_End', idle: 'Skill_3_Loop' }),
   }),

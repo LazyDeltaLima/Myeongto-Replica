@@ -1,5 +1,5 @@
 // render/fxroute.js — the route preview of a walking leader in the Final Assault / Hidden Core prep (docs/LOCAL-PATCH.md
-// 「보스 경로 미리보기」, user request 2026-10-08).
+// 「보스 경로 미리보기」, maintainer request 2026-10-08).
 //
 // The server sends the leader's paths on its field (m.private.nextEnemies boss entry `paths`: [[row, col], …] per leader
 // copy, server/match/bossPath.js — the sim's walk from the spawn through one patrol lap). Along each one runs the

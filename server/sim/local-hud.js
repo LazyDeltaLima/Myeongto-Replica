@@ -49,7 +49,7 @@ export function damageNumberFlag(dmg, ss, expected, final) {
 
 /**
  * Blocked numbers (PRTS 作战机制 「强制红字与蓝字」: a hit that would show a red number but is stopped by a 屏障 / 护盾 shows
- * a blue number when that block allows it, else a yellow 「BLOCK」; user decision 2026-10-07 「파란 숫자랑 BLOCK 넣어줘」):
+ * a blue number when that block allows it, else a yellow 「BLOCK」; maintainer decision 2026-10-07 「파란 숫자랑 BLOCK 넣어줘」):
  * the 'blk' event [id, damage, shown] (shown 1 = blue — client battle/[pack]common.ab `block_text` #3a35d9 —, 0 = BLOCK).
  * Allowed = the client's BlockDamage `_showDamageNumber` (17 of 115 block nodes): in our roster the shields of xi
  * (enemy_xi_s2), mdrock (enemy_mdrock_s_2) and mousek (mousek_shield) — their sim keys below.

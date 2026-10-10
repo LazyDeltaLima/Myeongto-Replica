@@ -1,7 +1,7 @@
-// test/render/wang-stone-fx.test.js — 望's stone effects, user re-report 2026-10-08 (LOCAL-PATCH.md 「사용자 제보 3차」):
-// #2-1 the activation wisps flashed once (dropped after their clip; the stones linked in the prep never showed them —
-// their 'wangLink' sat in the pre-entry buffer, which dropped fx), #2-2 the birth cross sat on the ball, off its tile,
-// #2-7 the blast drew more than the client plays (token_wang_skill_03_hit_03 2 tiles off, the hit effects at the stone).
+// test/render/wang-stone-fx.test.js — 望's stone effects, maintainer re-report 2026-10-08 (docs/rules/fx.md 「관리자 제보 (2026-10-07 밤)」):
+// the activation wisps flashed once (dropped after their clip; the stones linked in the prep never showed them —
+// their 'wangLink' sat in the pre-entry buffer, which dropped fx), the birth cross sat on the ball, off its tile,
+// the blast drew more than the client plays (token_wang_skill_03_hit_03 2 tiles off, the hit effects at the stone).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,7 +17,7 @@ const FX = path.join(ROOT, 'public/assets/local/fx');
 const prefab = (bundle, name) => JSON.parse(readFileSync(path.join(FX, bundle, `${name}.json`), 'utf8'));
 const haveFx = existsSync(path.join(FX, 'wang_token', 'token_wang_01_buff.json')) && existsSync(path.join(FX, 'wang', 'wang_passive_01_buff_02.json'));
 
-test('#2-7 a stone blast plays the client\'s cast effect at the stone and its hit effect on the enemies only', () => {
+test('a stone blast plays the client\'s cast effect at the stone and its hit effect on the enemies only', () => {
   assert.deepEqual(stoneBlastFx(1), { at: ['token_wang_skill_01_hit'], target: null });
   assert.deepEqual(stoneBlastFx(2), { at: ['token_wang_skill_02_hit'], target: 'token_wang_skill_02_hit_02' });
   assert.deepEqual(stoneBlastFx(2, true), { at: ['token_wang_skill_02_hit'], target: 'token_wang_skill_02_hit_02' });
@@ -31,7 +31,7 @@ test('#2-7 a stone blast plays the client\'s cast effect at the stone and its hi
   assert.match(SRC, /if \(stoneHit\(tid, views\)\) return;[^\n]*\n\s+if \(pendingHit\(tid, views\)\) return;/);
 });
 
-test('#2-7 the blast areas match the kit (op-wang.js trigger): own tile, S2 link lines ±3, S3 x-1 diamond', () => {
+test('the blast areas match the kit (op-wang.js trigger): own tile, S2 link lines ±3, S3 x-1 diamond', () => {
   const tiles = (skill, axes) => {
     const out = [];
     for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) if (inStoneBlast(skill, axes, dx, dy)) out.push([dx, dy]);
@@ -48,22 +48,22 @@ test('#2-7 the blast areas match the kit (op-wang.js trigger): own tile, S2 link
   assert.ok(!inStoneBlast(3, null, 2.4, 0.6));
 });
 
-test('#2-1 the pre-entry buffer keeps a stone\'s wangLink (the prep-linked stones activate before the view enters)', () => {
+test('the pre-entry buffer keeps a stone\'s wangLink (the prep-linked stones activate before the view enters)', () => {
   assert.ok(keepEarly(['fx', 'wangLink', 5, 10, { id: 7, axes: ['v'], first: true }]));
   assert.ok(!keepEarly(['fx', 'zone', 5, 10, { token: 'token_10064_wang_stone1' }]), 'a blast is cosmetic: not replayed');
   assert.ok(!keepEarly(['fx', 'summon', 5, 10, { id: 7 }]));
   assert.ok(keepEarly(['spawn', { id: 7 }]));
 });
 
-test('#2-1 the activation effect is kept on the stone\'s ball until its die', () => {
+test('the activation effect is kept on the stone\'s ball until its die', () => {
   // activation (STONE_ON): bound to the stone view and kept (playAt keep) until its 'die'
   assert.match(SRC, /const on = isStone\(sv\) \? \{ at: ballOf\(sv\), owner: o\.id, keep: true \} : \{ at: onBall \};/);
   assert.match(SRC, /if \(l\.inst\.done && !\(l\.keep && !l\.inst\.stopping\)\) \{ dropLive\(l\); live\.splice\(i, 1\); \}/);
-  // the 3-second replay of the 跟子's rings (cfa42bc5, an assumption) is gone
+  // the 3-second replay of the 跟子's rings (a2bd93de, an assumption) is gone
   assert.doesNotMatch(SRC, /FOLLOWER_CYCLE|l\.cycle/);
 });
 
-test('#2-2 the birth effects (the gold cross, the 跟子\'s rings) play on the stone\'s ground, not on its ball', () => {
+test('the birth effects (the gold cross, the 跟子\'s rings) play on the stone\'s ground, not on its ball', () => {
   // births (STONE_BORN): the view itself (its ground), never the ball anchor
   assert.match(SRC, /playAt\(\[STONE_BORN\.follower\], v, \{ owner: o\.id, under: true, bundle: FOLLOWER_FX \}\)/);
   assert.match(SRC, /playAt\(\[STONE_BORN\.stone\], v, \{ owner: o\.id, under: true \}\)/);
@@ -71,7 +71,7 @@ test('#2-2 the birth effects (the gold cross, the 跟子\'s rings) play on the s
   assert.doesNotMatch(SRC, /STONE_BORN\.[a-z]+\], ballOf/);
 });
 
-test('report 5 #4: a stone gets no procedural skill burst (its passive \'skill\' on precedes the return \'deploy\')', () => {
+test('a stone gets no procedural skill burst (its passive \'skill\' on precedes the return \'deploy\')', () => {
   // the sim's order for a used stone coming back (same id, ~2 s after its 'die' in S3): ['skill', id, 1] → ['deploy', id];
   // the dying view (fade ≤ 2.15 s) was still there and render/app.js drew fx.skill's gold pillar + hex on it
   assert.match(SRC, /ownsSkill\(v\) \{[\s\S]*?if \(isStone\(v\)\) return stonesOn\(\);[\s\S]*?\n    \},/);
@@ -79,7 +79,7 @@ test('report 5 #4: a stone gets no procedural skill burst (its passive \'skill\'
   assert.match(APP, /fx\.skill\(v, !!e\[2\], \{ burst: !fxGame\.ownsSkill\(v\) \}\)/);
 });
 
-test('#2-1 the extracted activation prefabs: wisps that dissolve in and stay (skipped without public/assets)', { skip: !haveFx && 'no extracted fx' }, () => {
+test('the extracted activation prefabs: wisps that dissolve in and stay (skipped without public/assets)', { skip: !haveFx && 'no extracted fx' }, () => {
   // the activation wisps (`line` meshes) dissolve IN (_Amount 1 → ~0) and stay: nothing ends them but the effect
   for (const [b, n] of [['wang_token', 'token_wang_01_buff'], ['wang', 'wang_passive_01_buff_02']]) {
     const d = prefab(b, n);
@@ -97,21 +97,21 @@ test('#2-1 the extracted activation prefabs: wisps that dissolve in and stay (sk
   assert.ok(birth0.nodes.filter((x) => x.name === 'line' || x.name === 'line1').every((x) => x.active === false));
 });
 
-test('#2-2 the extracted birth cross: flat 1-tile looping quads at the root (skipped without public/assets)', { skip: !haveFx && 'no extracted fx' }, () => {
+test('the extracted birth cross: flat 1-tile looping quads at the root (skipped without public/assets)', { skip: !haveFx && 'no extracted fx' }, () => {
   const birth = prefab('wang_token', 'token_wang_birth_01_buff');
   // its looping cross: flat 1-tile quads at the root's ground (no height of their own)
   const sz = birth.nodes.filter((x) => x.ps && /^sz/.test(x.name));
   assert.ok(sz.length && sz.every((x) => x.ps.loop && x.ps.render.align === 2 && x.ps.size.s === 1 && x.pos.every((c) => c === 0)));
 });
 
-test('#2-7 the extracted token_wang_skill_03_hit_03 is the S3 blast again, 2 tiles off (skipped without it)', { skip: !existsSync(path.join(FX, 'wang_token', 'token_wang_skill_03_hit_03.json')) && 'no extracted fx' }, () => {
+test('the extracted token_wang_skill_03_hit_03 is the S3 blast again, 2 tiles off (skipped without it)', { skip: !existsSync(path.join(FX, 'wang_token', 'token_wang_skill_03_hit_03.json')) && 'no extracted fx' }, () => {
   // token_wang_skill_03_hit_03: every system 2 tiles off the root along its rotation_z — the S3 blast again, beside it
   const h3 = prefab('wang_token', 'token_wang_skill_03_hit_03');
   const sys = h3.nodes.filter((x) => x.ps);
   assert.ok(sys.length > 10 && sys.every((x) => x.pos[0] === 2), 'offset copy');
 });
 
-test('#2-7 a BoxShell / BoxEdge emitter spreads over its scale once, like a Box (fxplayer.js shapeSample)', async () => {
+test('a BoxShell / BoxEdge emitter spreads over its scale once, like a Box (fxplayer.js shapeSample)', async () => {
   const fxp = await import('../../public/js/render/fxplayer.js');
   const mm = (s) => ({ m: 0, s });
   const sys = (type) => ({

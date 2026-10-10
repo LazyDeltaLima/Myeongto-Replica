@@ -1,9 +1,9 @@
 // test/local-patch-status-boomerang.test.js — local patch (docs/LOCAL-PATCH.md 「전투 화면 UI」 ⑤ 상태 중첩, 「回环射手 부메랑」;
-// user report 4 #4-1 / #4-6, 2026-10-08, session I):
-//   * #4-1: a status that ends takes its official effect with it at once (fxstatus.js → statusOff(…, now)); an ended effect
+// maintainer report 2026-10-08):
+// *: a status that ends takes its official effect with it at once (fxstatus.js → statusOff(…, now)); an ended effect
 //     never restarts (fxgame.js statusOff clears `again`) and one effect per unit and status (playStatus) — re-stunning an
 //     enemy stacked one more buff_stun per stun (debug arena 2026-10-08: 1 2 3 4 … instances)
-//   * #4-6: 跃跃's wheel is in her hand (Spine skin 'Bullet') while no drawn boomerang of hers is out (render/boomerang.js,
+// *: 跃跃's wheel is in her hand (Spine skin 'Bullet') while no drawn boomerang of hers is out (render/boomerang.js,
 //     fx/projectiles.js), and the official trail of a boomerang flies back (fxgame.js stepTrails)
 
 import { test, describe, before, after } from 'node:test';
@@ -17,7 +17,7 @@ import { boomerangThrown, boomerangCaught, syncHeldWeapon, HELD_SKIN } from '../
 
 const src = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
-describe('#4-1 status effects: one per unit and status, gone with the status', () => {
+describe('status effects: one per unit and status, gone with the status', () => {
   test('syncStatusFx ends a status with `now` (its particles go at once)', async () => {
     const F = await import('../public/js/render/fxstatus.js');
     const calls = [];
@@ -49,7 +49,7 @@ describe('#4-1 status effects: one per unit and status, gone with the status', (
   });
 });
 
-describe('#4-6 回环射手: the wheel in her hand while no boomerang of hers flies', () => {
+describe('回环射手: the wheel in her hand while no boomerang of hers flies', () => {
   /** A fake SpineActor: skeleton with the default skin and `skins`. */
   function actor(withSkin = true) {
     const att = { name: 'C_Weapon_03' };

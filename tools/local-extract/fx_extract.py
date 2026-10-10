@@ -42,17 +42,17 @@ BUNDLE_DIRS = ('PersistentData/Bundles', 'StreamingAssets/AB/Windows')  # Persis
 WEBP_QUALITY = 85
 WIDTH_ATTR = zlib.crc32(b'm_Parameters.widthMultiplier')   # local patch: the clip binding of a line / trail's width
 VARIANT_RE = re.compile(r'#\d+|_sale|_iteration|_avemujica|_cn_topolect', re.I)
-# local patch: prefabs never extracted — common_stealth (texture common_leaf; only the 生息演算 buildings use it, and the user has
+# local patch: prefabs never extracted — common_stealth (texture common_leaf; only the 生息演算 buildings use it, and the maintainer has
 # never seen the leaf in the game, 2026-10-08: "그 텍스처는 폐기해")
 DISCARD = {'common_stealth'}
-# local patch (user report 4 #4-5, user's decision 2026-10-08): Unity's built-in meshes a MeshFilter / mesh particle names in
+# local patch (maintainer report, maintainer's decision 2026-10-08): Unity's built-in meshes a MeshFilter / mesh particle names in
 # `Library/unity default resources` (FileID → that external, the PathID below) — 缄默德克萨斯 S3's falling sword blade is a
 # Quad. The client ships the file (<Arknights_Data>/Resources); only Quad / Plane are read from it (Cube 10202 / Sphere 10207
 # are left out by the decision)
 BUILTIN_RES = 'unity default resources'
 BUILTIN_MESHES = {10209: 'Plane', 10210: 'Quad'}
-# local patch (session L 2026-10-08): the MonoScript PathID of the effects' FollowMountPoint component (mount_point); 1205
-# default-skin prefabs of the EN client carry one (research/2026-10-08-mount-points/)
+# local patch: the MonoScript PathID of the effects' FollowMountPoint component (mount_point); 1205
+# default-skin prefabs of the EN client carry one (maintainer's notes 2026-10-08)
 MOUNT_SCRIPT = 0x7b5c342088cfcad4
 # local patch (2026-10-10, decompile check): the MonoScript PathID of SwitchableBackEffect (switch_back) — 62 default-skin
 # prefabs of the extracted bundles carry one (비르투오사 S3 cello_skill_03_buff_front_02 → _back_02, 로즈몬티스, 휴머스 …)
@@ -494,7 +494,7 @@ class Extractor:
                                           'minDist': r4(tr_t.get('m_MinVertexDistance', 0.1)), 'emitting': bool(tr_t.get('m_Emitting', 1)),
                                           'mat': self.material(tm, out, mats), 'order': tr_t.get('m_SortingOrder', 0)}
                 elif t == 'LineRenderer':
-                    # local patch (user report 2026-10-07: 蕾缪安 S3's aiming beams were missing): a line through fixed points
+                    # local patch (maintainer report 2026-10-07: 蕾缪安 S3's aiming beams were missing): a line through fixed points
                     # (local space; world-space lines get their points from a client script — kept, drawn local [ASSUMED])
                     ln_t = comp.read_typetree()
                     lm = self.resolve(ln_t['m_Materials'][0], comp) if ln_t.get('m_Materials') else None
@@ -640,10 +640,10 @@ class Extractor:
 
     def spawn_location(self, root):
         """local patch: the effect component's `_spawnLocation` on the root (1 feet, 2 body / HIT point, 4 head, 5 ground
-        centre — LOCAL-PATCH.md 「사용자 제보 11건 재수정」). Its script's type tree is not in the bundle, so the raw fields are
+        centre — docs/rules/fx.md 「관리자 제보 재수정 (2026-10-07 저녁)」). Its script's type tree is not in the bundle, so the raw fields are
         read: after the MonoBehaviour header and name, int #13 (verified on buff_stun 4 / buff_slowdown 1 / buff_sleep 2);
         the component is recognised by its float −1 at #6 and 2.0 at #10. None when not found. Any SpawnLocation value
-        (local patch, session F 2026-10-08: 9–15 = MP_SPECIAL_1…6 — the cap at 8 left 66 prefabs without one)."""
+        (local patch: 9–15 = MP_SPECIAL_1…6 — the cap at 8 left 66 prefabs without one)."""
         try:
             d = root.read_typetree()
         except Exception:
@@ -666,7 +666,7 @@ class Extractor:
         return None
 
     def mount_point(self, root):
-        """local patch (user report 4 #4-7, session L 2026-10-08): the root's FollowMountPoint component — the effect follows
+        """local patch (maintainer report): the root's FollowMountPoint component — the effect follows
         a model point of its owner every frame (스펙터 디 언체인드 S2's red ring on her saw). Its script's type tree is not in
         the bundle; the component is recognised by its MonoScript (PathID MOUNT_SCRIPT) and read raw: after the header and
         the empty name, 7 ints in the field order of global-metadata's field table — _mountPointType (MountPointType,
@@ -791,9 +791,9 @@ class Extractor:
         return found, changed
 
     def mount_only(self, bundle, pack=None):
-        """local patch (session L, user's decision 2026-10-08 「전체 적용」): write only the `mount` of the bundle's already
+        """local patch (maintainer's decision 2026-10-08 「전체 적용」): write only the `mount` of the bundle's already
         extracted prefabs (mount_point), nothing else — a full re-extract would also bring every other extractor change
-        since (session H's built-in Quad meshes, decided for texas2 only). Returns (prefabs with a mount, files changed)."""
+        since (built-in Quad meshes, decided for texas2 only). Returns (prefabs with a mount, files changed)."""
         rel = pack or f'battle/prefabs/effects/{bundle}.ab'
         p = bundle_path(self.game, rel)
         if not p:
@@ -897,7 +897,7 @@ def main():
     ap.add_argument('--png', action='store_true', help='write PNG textures instead of WebP')
     ap.add_argument('--prune', action='store_true', help='delete textures / meshes no extracted effect references')
     ap.add_argument('--mount-only', action='store_true', help='only write the FollowMountPoint `mount` into the already '
-                    'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch, session L)')
+                    'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch)')
     ap.add_argument('--back-only', action='store_true', help='only write the SwitchableBackEffect `back` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch 2026-10-10)')
     ap.add_argument('--pack', metavar='REL', help='read the prefabs from this bundle (relative to the bundle folders, e.g. '

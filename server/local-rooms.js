@@ -7,7 +7,7 @@
 // `phase` is shared/constants.js PHASE (LOBBY between matches, round 0); `humans` counts seated humans that have not
 // left, `connected` those of them online now; `ageMin` = since the room was created, `matchMin` = since the running
 // match started (null in the lobby). Room codes are shown as they are: the path answers 404 through the reverse proxy
-// (proxiedRequest), so only someone with docker access on the host reads them (user decision 2026-10-09).
+// (proxiedRequest), so only someone with docker access on the host reads them (maintainer decision 2026-10-09).
 // Nothing is kept or logged here.
 
 import { PHASE } from '../shared/constants.js';

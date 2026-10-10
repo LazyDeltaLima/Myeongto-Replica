@@ -15,13 +15,13 @@
 //   shared/trap-tokens.js). A stone is 激活 once orthogonally connected to another stone or 跟子 of hers, and stays
 //   active after that neighbour leaves (latched; namu: "연결된 바둑돌이 사라져도 유지"); a selectable enemy (flyers too; no unrevealed 隐匿 one —
 //   stoneSelectable) on the trigger area of an activated stone — checked every tick, one already standing there when it
-//   activates too (user decision 2026-10-07, W2) — triggers it and USES IT UP (陷阱师 traps: "踩上去的
-//   第一个敌人会触发其效果"; the token has an ON_UNIT_DEAD sound; user report 2026-10-05). A used-up placed stone comes back
+//   activates too (maintainer decision 2026-10-07, W2) — triggers it and USES IT UP (陷阱师 traps: "踩上去的
+//   第一个敌人会触发其效果"; the token has an ON_UNIT_DEAD sound; maintainer report 2026-10-05). A used-up placed stone comes back
 //   on its own tile like the mode's redeploys (Battle.redeploy / tokens.js enableRespawn): after its respawnTime, for its
 //   DP cost (卫戍协议 in-battle DP: 10, +1/s), once no walking enemy stands there (during S3 on a tile of her range it may
-//   come back onto one: 「在攻击范围内手动部署棋子时可部署至敌人所在位置」, user decision 2026-10-07, W10) — and it takes
+//   come back onto one: 「在攻击范围内手动部署棋子时可部署至敌人所在位置」, maintainer decision 2026-10-07, W10) — and it takes
 //   no stone of the stock: PRTS 卫戍协议 「若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个」, so the placed stones keep
-//   coming back for DP the whole battle (user decision 2026-10-08, RETURN_USES_STOCK false — the user remembers those
+//   coming back for DP the whole battle (maintainer decision 2026-10-08, RETURN_USES_STOCK false — the maintainer remembers those
 //   DP payments draining a 行商 like 琳琅诗怀雅 off the field; the stock rule of 2026-10-07 is kept off beside it). The trigger area is the
 //   stone's own tile, with S3 equipped (its passive: "棋子的触发和伤害范围扩大") x-1, a radius-2 diamond of 13 tiles (the
 //   sktok_wang_3 prefab's SkillTrigger / Selector and PRTS 天下劫 "携带该技能时…x-1"; the table's x-6 cross is in no prefab —
@@ -37,18 +37,18 @@
 //   (maxDeployCount) and occupies no tile; ≤ attack@max_spawn_cnt of them. Tile: one of the 4 neighbours in the client's
 //   WangTileSelector order (followerOrder, 2026-10-10): ground first, then an enemy on it, then undeployable, then
 //   up > right > down > left as the board is drawn (PRTS 「相同优先级时按棋子上>右>下>左」, left / right swapped on a mirrored
-//   field; user decision 2026-10-07, W8; until 2026-10-10 enemy tiles came first, as PRTS words it) — never undeployable
+// field; maintainer decision 2026-10-07, W8; until 2026-10-10 enemy tiles came first, as PRTS words it) — never undeployable
 //   high ground; only where no character unit stands and no knocked-out operator lies (downOn, as upstream; user
 //   decision 2026-10-07). Several in a row are built one per 4 frames. It needs no stock and is drawn as a stone. It
 //   links like a stone (armed 30 frames after the link, as a stone); its damage comes from 望.
 // - Stock (手牌): at the battle start the stones not placed (deploy limit − placed: 6, 7 with her module
-//   uniequip_002_wang — stoneLimits; user decision 2026-10-07), ≤ maxDeckStackCnt.
+//   uniequip_002_wang — stoneLimits; maintainer decision 2026-10-07), ≤ maxDeckStackCnt.
 //   S1 / S2: "立即获得两枚棋子", 阻回 while the stock is full (PRTS 备注). S3: gains cnt, the stones above the stock limit
 //   go out as 跟子 on tiles of her range (PRTS: "技能开启时自动部署的为第一天赋的跟子"; the client's InstantSpawn order:
 //   ground, enemy tiles, undeployable first, otherwise random — followerOrder); manual deployments in her
 //   range may go on enemy tiles and bring the talent's 跟子 (free) + up to 3 extra 跟子, one ammo each — ≤ 3 ammo a deployment
 //   (「第一天赋额外至多部署3枚棋子并消耗等量弹药」: one manual stone = the talent's 1 + S3's ≤ 3 — confirmed in game by the
-//   user 2026-10-07, W12); it ends when stopped or out of stones,
+// maintainer 2026-10-07, W12); it ends when stopped or out of stones,
 //   the ammo left returns as stones.
 // - [ASSUMED] 卫戍协议 battles take no manual deployment: like the mode's 自动操作 of skills, stones of the stock are
 //   deployed automatically (S1 / S2: on the free deployable tile next to her stones that an enemy route crosses,
@@ -87,8 +87,8 @@ const ORTHO = [[1, 0], [0, 1], [-1, 0], [0, -1]]; // up > right > down > left (r
 const ORTHO_MIRRORED = [[1, 0], [0, -1], [-1, 0], [0, 1]];
 const WANG_S3_PACE = 1; // [ASSUMED] one automatic deployment a second while S3 runs
 /**
- * A used stone's return takes one stone of the stock (user decision 2026-10-07); false = it comes back for DP alone, as
- * PRTS 卫戍协议 「…退场，将在满足条件后立即原地再部署1个」 (user decision 2026-10-08: back to false).
+ * A used stone's return takes one stone of the stock (maintainer decision 2026-10-07); false = it comes back for DP alone, as
+ * PRTS 卫戍协议 「…退场，将在满足条件后立即原地再部署1个」 (maintainer decision 2026-10-08: back to false).
  */
 const RETURN_USES_STOCK = false;
 /**
@@ -102,7 +102,7 @@ const RETURN_USES_STOCK = false;
 const FOLLOWER_EXCEPT_TILES = new Set(['tile_end', 'tile_end_cooperate', 'tile_allygoal', 'tile_start', 'tile_start_cooperate', 'tile_enemygoal', 'tile_hole']);
 /**
  * Nor a tile whose mechanism refuses deployment (grid.js DEPLOY_REFUSED_TILES: 深水区 tile_deepsea), although the grid
- * makes it 「不可部署地块」 ground, the 跟子's first class — user decision 2026-10-08 (report 5 #5-1: 跟子 stood in
+ * makes it 「不可部署地块」 ground, the 跟子's first class — maintainer decision 2026-10-08 (report: 跟子 stood in
  * act2 m04's deep water; 「해당 타일은 발판 같은 기물이 있어야 배치가 가능한 특수 타일」, the 特制水上平台 the sim does not model)
  * [not in the client mask 14 above]. Every 跟子 tile goes through followerClass: the talent's, S3's on enemy tiles.
  */
@@ -141,7 +141,7 @@ const walkersOnTile = (battle, r, c) => enemiesOnTile(battle, r, c).filter((e) =
 /**
  * An enemy a stone can select (trigger on, hit): PRTS 作战机制 §AOE伤害判定 "AOE的判定是对攻击范围内的每个可以被选中的敌人进行
  * 判定" and 隐匿 "一般无法被敌方的索敌机制和Buff选择器选中为目标" (Battle.foesInRadius: no untargetable, no unrevealed 隐匿 one);
- * PRTS 望 备注 "棋子的索敌…" — the stones select like any summon (user report 2026-10-05: 은신 enemies took the blast).
+ * PRTS 望 备注 "棋子的索敌…" — the stones select like any summon (maintainer report 2026-10-05: 은신 enemies took the blast).
  */
 const stoneSelectable = (e) => e.alive && !e.hidden && !e.s.flags.untargetable && !(e.s.flags.stealth && enemyStealthed(e));
 /**
@@ -164,7 +164,7 @@ function wang(bb, chess, def) {
   /**
    * deployLimit / deckStack of her stone variant with her module (normalizeToken drops both from `stats`; tokens.js
    * deployLimitOf reads the raw variant the same way). local patch (2026-10-08): the module raises the deploy limit
-   * 6 → 7 (uniequip_002_wang `byModule` stats) — the kit used to fall back to 6 always (user's video: 7 stones in the prep).
+   * 6 → 7 (uniequip_002_wang `byModule` stats) — the kit used to fall back to 6 always (maintainer's video: 7 stones in the prep).
    */
   const stoneLimits = (battle, unit) => {
     const raw = stoneDef(battle, unit)?.raw;
@@ -192,9 +192,9 @@ function wang(bb, chess, def) {
    * A consumed stone comes back on its own tile like any redeploy of the mode (tokens.js enableRespawn /
    * Battle.redeploy): after its respawnTime, paying its DP cost; the tile must be free of units and enemies (trait).
    * [ASSUMED] she must be on the field (a hand piece of hers).
-   * No stock (user decision 2026-10-08, `RETURN_USES_STOCK` false): the stone comes back without spending the stock, so
+   * No stock (maintainer decision 2026-10-08, `RETURN_USES_STOCK` false): the stone comes back without spending the stock, so
    * the placed stones cycle for the whole battle and each return pays its DP (PRTS 卫戍协议 「若召唤物在战斗期间退场，将在满足
-   * 条件后立即原地再部署1个」; the user remembers those payments retreating 琳琅诗怀雅; the 「왕 S3.mp4」 DP counter fell by 2–3
+   * 条件后立即原地再部署1个」; the maintainer remembers those payments retreating 琳琅诗怀雅; the 「왕 S3.mp4」 DP counter fell by 2–3
    * every ~1.5 s after the first stones were used — LOCAL-PATCH). The same rule held 2026-10-06 – 2026-10-07.
    * Former rule (2026-10-07 – 2026-10-08, kept off): every return took one stone of her stock (the deploy limit minus the
    * stones placed in the prep); with the stock empty a used stone waited until S1 / S2 「立即获得两枚棋子」 refilled it —
@@ -202,10 +202,10 @@ function wang(bb, chess, def) {
    */
   const inHerRange = (unit, r, c) => !!(unit.rangeKeySet?.has(r * COLS + c) ?? unit.rangeKeys?.includes(r * COLS + c));
   /**
-   * S3 「第一天赋额外至多部署3枚棋子并消耗等量弹药」 (user decision 2026-10-07, W12; confirmed in game by the user the same day): a deployment during S3
+   * S3 「第一天赋额外至多部署3枚棋子并消耗等量弹药」 (maintainer decision 2026-10-07, W12; confirmed in game by the maintainer the same day): a deployment during S3
    * brings the talent's ordinary single 跟子 for free plus ≤ WANG_S3_EXTRA extra ones, one ammo each — so ≤ 3 ammo a
    * deployment (the first 跟子 built is the free one). Formerly ≤ 4 跟子 and one ammo for every one (client
-   * SpawnTokenS3InSkill BuildStone counter `_countEvent 4, _expendPerTrigger 1`, user 2026-10-06); upstream: ≤ 3 in all,
+   * SpawnTokenS3InSkill BuildStone counter `_countEvent 4, _expendPerTrigger 1`, maintainer 2026-10-06); upstream: ≤ 3 in all,
    * every one paid, no free one.
    */
   const s3Followers = (ammo) => 1 + Math.min(WANG_S3_EXTRA, ammo);
@@ -221,15 +221,15 @@ function wang(bb, chess, def) {
     for (const t of waitingOf(battle, unit).sort((a, b) => a.mem.respawnAt - b.mem.respawnAt)) {
       if (battle.time + 1e-9 < t.mem.respawnAt) continue;
       // trait 「陷阱无法放置于敌人已在的格子中」: no return while a walking enemy stands on its tile — except during S3 on a
-      // tile of her range: 天下劫 「在攻击范围内手动部署棋子时可部署至敌人所在位置」 (user decision 2026-10-07, W10: the
+      // tile of her range: 天下劫 「在攻击范围内手动部署棋子时可部署至敌人所在位置」 (maintainer decision 2026-10-07, W10: the
       // return is her deployment of the stone in the mode, as below)
       const s3 = unit.skill?.active && unit.skill.id === 'skchr_wang_3';
       const s3Here = s3 && inHerRange(unit, t.homeR, t.homeC);
       if (!s3Here && walkersOnTile(battle, t.homeR, t.homeC).length) continue;
       // nor while a placed stone of hers stands there (S3 put one on its tile). A 跟子 there does not hold it: the return
       // is a deployment on that tile, and PRTS 铸子 备注 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」 —
-      // the `deploy` hook below removes the 跟子 (user decision 2026-10-09 #3, upstream 5a045731 (b); until then [추정]
-      // report 3 #2-3, 2026-10-08: the stone waited for the 跟子 to go off)
+      // the `deploy` hook below removes the 跟子 (maintainer decision 2026-10-09, upstream 5a045731 (b); until then [추정]
+      // maintainer decision 2026-10-08: the stone waited for the 跟子 to go off)
       const occupant = stoneAt(stonesOf(battle, unit), t.homeR, t.homeC);
       if (occupant && !isFollower(occupant)) continue;
       if (placed(battle, unit).length >= st(unit).fieldCap) break; // never over the deploy limit (it would withdraw a stone)
@@ -239,7 +239,7 @@ function wang(bb, chess, def) {
       Object.assign(t.mem, { wangUsed: false, active: false, armAt: 0, line: 0, axes: new Set() });
       battle.fx('summon', { x: t.x, y: t.y, id: t.id });
       // every stone birth brings its 跟子 (client wang_stone1_t_1[trigger] ON_OWNER_BORN) — the battle-start deployment
-      // of the prep stones aside (user decision)
+      // of the prep stones aside (maintainer decision)
       // local patch (2026-10-06, user: "S3 ammo never drops"): while S3 runs, a used stone coming back IS her deployment
       // of a stone in the mode (卫戍协议 has no hand placement; the prep layout keeps the field at its cap of 6, so the
       // S3 stand-in found no free slot and spent nothing) — it builds the S3 跟子 around it (s3Followers: the talent's
@@ -275,7 +275,7 @@ function wang(bb, chess, def) {
   /** Follower tile class (PRTS 备注): 0 undeployable ground, 1 deployable ground, 2 deployable high ground, null = none. */
   const followerClass = (battle, r, c, stones) => {
     if (!battle.grid.inRect(r, c) || stoneAt(stones, r, c) || battle.grid.isObstacle(r, c)) return null;
-    if (battle.downOn(r, c)) return null; // a knocked-out operator lies there (user decision 2026-10-07, as upstream's downOn)
+    if (battle.downOn(r, c)) return null; // a knocked-out operator lies there (maintainer decision 2026-10-07, as upstream's downOn)
     const occ = battle.unitAt(r, c);
     if (occ && !isFollower(occ)) return null; // no character unit
     const t = battle.grid.tile(r, c);
@@ -287,7 +287,7 @@ function wang(bb, chess, def) {
    * One 铸子 跟子 next to the tile (r0, c0) — the client's BuildStone selector (`_maxNum` 1) with WangTileSelector TALENT:
    * the 4 neighbours a 跟子 may take (followerClass), the best by followerOrder when there is more than one. Ties are
    * impossible (the direction key differs); the board's up / right / down / left as drawn — the mirrored field (boss /
-   * hidden right side, drawn with col → 20 − col) swaps right and left (as upstream's SIDES_MIRRORED; user decision
+   * hidden right side, drawn with col → 20 − col) swaps right and left (as upstream's SIDES_MIRRORED; maintainer decision
    * 2026-10-07, W8 — the client orders by grid column [미확정 on a mirrored field]).
    */
   const buildOne = (battle, unit, r0, c0) => {
@@ -412,7 +412,7 @@ function wang(bb, chess, def) {
           // SKILL_3_INSTANT `_DoFilter`): the candidates (_FilterWangNormal ≈ followerClass) shuffled with the battle rng,
           // then — only when there are more than it places — sorted by followerOrder without the direction key: ground
           // first, then enemy tiles, then undeployable ones; equal tiles stay in the shuffled order, i.e. at random.
-          // Until 2026-10-10: enemy tiles first, the enemy closest to its goal first (goalFirst, user decision 2026-10-06
+          // Until 2026-10-10: enemy tiles first, the enemy closest to its goal first (goalFirst, maintainer decision 2026-10-06
           // [추정]) — no such order in the client. [ASSUMED] all at once: the client's InstantSpawn (`_preDelay` /
           // `_cooldown` 0.25, one tile a cast) may spread them out — not traced.
           let over = addOwned(unit, Math.max(1, num(bb.cnt, 8)));
@@ -443,7 +443,7 @@ function wang(bb, chess, def) {
             const stones = stonesOf(battle, unit);
             // where she would put it by hand [ASSUMED stand-in, no client rule: a player places it]: an enemy tile of her range,
             // in random order (local patch 2026-10-10: was the enemy closest to its goal first — goalFirst, dropped with the
-            // InstantSpawn order above) — else (local patch 2026-10-06, user report "S3 spends no ammo": enemies walking just
+            // InstantSpawn order above) — else (local patch 2026-10-06, maintainer report "S3 spends no ammo": enemies walking just
             // outside her range never gave the stand-in a tile) a free tile of her range on the ground routes, nearest to a
             // living enemy, no walking enemy on it (trait)
             const tiles = battle.rng.shuffle(inRange(battle, unit).filter(stoneSelectable)).map((e) => [Math.round(e.y), Math.round(e.x)]);
@@ -468,7 +468,7 @@ function wang(bb, chess, def) {
               // deployed and never spent ammo); that stone waits until its tile is free again
               if (t.build === 'NONE' || battle.unitAt(r, c) || reservedForOthers(battle, unit, r, c)) continue;
               const ammo = Math.max(0, Math.floor(num(unit.skill.ammoLeft, 0)));
-              // the talent's 跟子 free + ≤ 3 extra for one ammo each (s3Followers / spendS3, user decision 2026-10-07,
+              // the talent's 跟子 free + ≤ 3 extra for one ammo each (s3Followers / spendS3, maintainer decision 2026-10-07,
               // W12 [ASSUMED reading]; formerly ≤ 4, every one paid — client SpawnTokenS3InSkill `_countEvent 4`), built
               // one per 4 frames (followAround: it ends S3 for the last ammo, or once out of stones with no build pending)
               const stone = deployStone(battle, unit, r, c, s3Followers(ammo), true);
@@ -569,7 +569,7 @@ function wangStone(bb, raw, def) {
         }
         if (!unit.mem.active || battle.time < unit.mem.armAt) return;
         const wide = wangSkill(owner) === 'skchr_wang_3'; // S3 equipped: x-1 trigger / damage area
-        // presence, checked every tick (user decision 2026-10-07, W2): an activated stone goes off whenever a selectable
+        // presence, checked every tick (maintainer decision 2026-10-07, W2): an activated stone goes off whenever a selectable
         // enemy IS on its trigger area — one already standing there when it activates too, not only one entering it
         // (client sktok_wang_1/3 SkillTrigger `_minTargetNum 1`: a selector that finds ≥ 1 target [추정: polled])
         for (const e of battle.enemies) {
@@ -652,7 +652,7 @@ function wangStone(bb, raw, def) {
     battle.applyStatus(e, 'sluggish', { duration: dur, source: owner });
     // PRTS S1 备注: "由望依自身属性预计算伤害后、以无来源的形式施加给目标" — 无来源 (望 keeps the credit) for a stone's DoT; a
     // 跟子's damage keeps 望 as its source (client: the 跟子 is her projectile)
-    // local patch (user report 2026-10-07 #5): every tick sounds — the client's wang_stone1_t[damage_audio] child buff
+    // local patch (maintainer report 2026-10-07): every tick sounds — the client's wang_stone1_t[damage_audio] child buff
     // (triggerInterval 1, first at once) plays p_imp_stwctp_d on each trigger; `kitHit` is the sound-only fx (audio.js)
     const tick = (t) => {
       battle.fx('kitHit', { x: t.x, y: t.y, id: owner.id, k: 'wang:1' });
@@ -668,7 +668,7 @@ const WANG_SLOW_KEY = 'wang:slow';
 /** 连星's move speed floor (PRTS S2 备注 「移动速度存在0.1数值下限」; PRTS 数值范围 移动速度 min 0.1). */
 const WANG_SLOW_FLOOR = 0.1;
 /**
- * 连星's slow (user decision 2026-10-07, W7): client BT wang_stone2_s — MOVE_SPEED `MULTIPLIER` with `disableOverride`
+ * 连星's slow (maintainer decision 2026-10-07, W7): client BT wang_stone2_s — MOVE_SPEED `MULTIPLIER` with `disableOverride`
  * (every trigger its own modifier) — and PRTS S2 备注 「移动速度降低为直接乘算，可无限叠加，每层独立计时（但移动速度存在0.1数值
  * 下限）」: every application is its own stack with its own timer, none replaces another. 直接乘算 = PRTS 属性基本公式's
  * (1 + D_t) stage, whose percentages add up (「除最终乘算为变化数值之间相乘外，其余均为相加」; research/battle-mechanics-reference.md):

@@ -39,7 +39,7 @@ test('CHANGELOG.md opens with the release version', () => {
   assert.match(log, /^## 0\.1\.0 — 2026-10-02/m, 'the first public release stays listed');
 });
 
-test('the README shows the deployed version, with no upstream base beside it (user decisions 2026-10-09)', () => {
+test('the README shows the deployed version, with no upstream base beside it (maintainer decisions 2026-10-09)', () => {
   const readme = read('README.md');
   // shields.io escapes a '-' inside a badge field as '--'; bump the README with APP_VERSION
   assert.match(readme, new RegExp(`badge/version-${APP_VERSION.replace(/-/g, '--').replace(/\./g, '\\.')}-`), 'the README badge');
@@ -60,7 +60,7 @@ test('the release version is what players see', () => {
 test('the English title is the official one: Stronghold Protocol: Alliance (as in the reply to GitHub issue #38, which stays open)', () => {
   // EN client data, activity_table basicInfo.act2autochess.name = "Stronghold Protocol: Alliance" (CN 卫戍协议:盟约);
   // the project used to call it "Covenant". The Chinese title stays 卫戍协议：盟约. The public repository and its README are
-  // called 명토 레플리카 · Myeongto Replica (user 2026-10-09); the README names the mode by its official title.
+  // called 명토 레플리카 · Myeongto Replica (maintainer 2026-10-09); the README names the mode by its official title.
   const readme = read('README.md');
   assert.match(readme.split('\n')[0], /^# 명토 레플리카 · Myeongto Replica$/, 'README title');
   assert.match(readme, /mode [*_]Stronghold Protocol: Alliance[*_]/, 'README English summary (either emphasis mark)');

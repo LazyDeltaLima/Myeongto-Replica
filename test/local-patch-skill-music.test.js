@@ -1,4 +1,4 @@
-// test/local-patch-skill-music.test.js — user report 4 (2026-10-08) #4-2 「스킬 특수 음악이 안 나온다」 and #4-4 「이격 텍사스 S2
+// test/local-patch-skill-music.test.js — maintainer report (2026-10-08) 「스킬 특수 음악이 안 나온다」 and 「이격 텍사스 S2
 // 지속 중에는 다른 타격음」 (docs/LOCAL-PATCH.md 「스킬 모드 효과음·믹서 볼륨」 → 「스킬 특수 음악·대역 전환·모드 타격음」).
 //   - the manifest (tools/assets/skill-mode-sfx.mjs skillExtras / skillLoops / skillModes noHit, kit-sfx.mjs ghost2:*),
 //   - the generator rules on the official audio_data (skipped without .cache/gamedata),
@@ -108,7 +108,7 @@ describe('the manifest: skill extras, loops, mode impacts and the 替身 switch 
   });
 });
 
-describe('real match path → audio.js (user report 4 #4-2 / #4-4)', () => {
+describe('real match path → audio.js (maintainer report)', () => {
   test('缄默德克萨斯 S2: its deploy-time skill reaches the audio (held for its spawn); S2 hits sound p_imp_reticentsword_h only', async () => {
     const { b, u } = await realBattle('chess_char_4_16_b', 1);
     assert.equal(u.def.charId, 'char_1028_texas2');

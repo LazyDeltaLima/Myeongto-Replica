@@ -74,8 +74,8 @@ describe('attack-mode effect bindings', () => {
   });
 });
 
-// local patch (user report 2026-10-07, 11 items): a skill activation's effects — the name mapping ∪ the skill's own (skills.ab),
-// minus what the modes bind to an attack (833e7a02's `_range` rule played 수르트 S3's hit range on her) and the skill's target /
+// local patch (maintainer report 2026-10-07, 11 items): a skill activation's effects — the name mapping ∪ the skill's own (skills.ab),
+// minus what the modes bind to an attack (85d83c89's `_range` rule played 수르트 S3's hit range on her) and the skill's target /
 // end effects; the skill bindings and turned effects char_modes.py writes
 describe('skill activation effects', () => {
   test('activationEffects: no mode-bound range on the caster, the skill\'s own cast / buff, its target and end effects elsewhere', () => {
@@ -108,7 +108,7 @@ describe('skill activation effects', () => {
   });
 });
 
-// local patch (user report 2026-10-07, official videos): LineRenderer beams (蕾缪安 S3 aim) and order-0 domes in front (蛇屠箱 S2)
+// local patch (maintainer report 2026-10-07, official videos): LineRenderer beams (蕾缪安 S3 aim) and order-0 domes in front (蛇屠箱 S2)
 test('fxplayer: a LineRenderer draws its strip until the effect stops; a tall order-0 mesh splits to the front, a flat one behind', async () => {
   const THREE = await import('../public/vendor/three.module.js');
   const fxp = await import('../public/js/render/fxplayer.js');
@@ -136,7 +136,7 @@ test('fxplayer: a LineRenderer draws its strip until the effect stops; a tall or
   i2.dispose();
 });
 
-// local patch (user report 4 #4-3, user's decision 2026-10-08 「A만」): a prefab's nested sub-prefabs have their own Animator
+// local patch (maintainer report, maintainer's decision 2026-10-08 「A만」): a prefab's nested sub-prefabs have their own Animator
 // clips — every clip plays, each held on its own last frame; the effect's clip time is the longest (缄默德克萨斯 S2's
 // texas2_birth_02_start: the root + 4 slashes, the slashes stood frozen on clips[0] alone)
 test('fxplayer: every clip of a prefab plays, each to its own length; the effect lasts the longest', async () => {
@@ -160,7 +160,7 @@ test('fxplayer: every clip of a prefab plays, each to its own length; the effect
   inst.dispose();
 });
 
-// local patch (m_IsActive, user's decision 2026-10-08 「공식과 동일하게」): a clip switching a node off hides its meshes and
+// local patch (m_IsActive, maintainer's decision 2026-10-08 「공식과 동일하게」): a clip switching a node off hides its meshes and
 // clears / stops its particle systems; switched on again a system plays from its start (Unity's playOnAwake)
 test('fxplayer: a clip\'s m_IsActive track switches its node\'s meshes and particle systems off and on', async () => {
   const fxp = await import('../public/js/render/fxplayer.js');
@@ -189,7 +189,7 @@ test('fxplayer: a clip\'s m_IsActive track switches its node\'s meshes and parti
   inst.dispose();
 });
 
-// local patch (user 2026-10-08 「일단 꺼봐」): a node inactive from the start with no m_IsActive track never emits (Unity: an
+// local patch (maintainer 2026-10-08 「일단 꺼봐」): a node inactive from the start with no m_IsActive track never emits (Unity: an
 // inactive GameObject's system does not play) — 아르케토 S3's stray smoke in archet_skill_03_start
 test('fxplayer: a particle system under a node inactive from the start never emits', async () => {
   const fxp = await import('../public/js/render/fxplayer.js');

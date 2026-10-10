@@ -208,7 +208,7 @@ export function tempReadyReason(priv) {
 
 /**
  * Ready toggle (PREP only). Disabled while the temp row holds pieces or a personal choice (教鞭) is open — the reason shows
- * under it (not only on hover): "临时整备区 N 个单位待处理" (user playtest #3 item 3), "请先完成教鞭选择".
+ * under it (not only on hover): "临时整备区 N 个单位待处理" (maintainer playtest #3 item 3), "请先完成教鞭选择".
  * @param {{ priv:any, onToggle:(ready:boolean)=>void, busy?:boolean, readyCount?:number, total?:number }} props
  */
 export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {

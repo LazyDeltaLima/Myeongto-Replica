@@ -43,7 +43,7 @@ describe('skill-mode sounds: the data (local-char-modes.json, plan.mjs)', () => 
     assert.equal(skillModeIndex(['Default', 'Reborn', 'Stand'], 0), -1);
   });
 
-  test('skillModeIndex: the skills\' own prefab modes (char_modes.py skillMode) — 莫斯提马 S3 / 水月 S2·S3 (user report 2026-10-07)', () => {
+  test('skillModeIndex: the skills\' own prefab modes (char_modes.py skillMode) — 莫斯提马 S3 / 水月 S2·S3 (maintainer report 2026-10-07)', () => {
     // 莫斯提马 [Default, S2]: her S3 switches to mode 1 (skchr_mostma_3 switch_mode_restart_fsm mode 1), her S2 to none
     assert.equal(skillModeIndex(['Default', 'S2'], 2, [null, null, 1]), 1);
     assert.equal(skillModeIndex(['Default', 'S2'], 1, [null, null, 1]), -1, 'a mode another skill\'s prefab claims');
@@ -191,7 +191,7 @@ describe('the official mix and mode sounds in audio.js (audioOfficial.js)', () =
   });
 });
 
-describe('normal attacks sound only their Default mode (user report 2026-10-07 #7: 银灰 S3 on every attack)', () => {
+describe('normal attacks sound only their Default mode (maintainer report 2026-10-07: 银灰 S3 on every attack)', () => {
   test('defaultModeBanks: skill modes\' numbered attack banks leave the table; Default .0, combat, talent modes stay', async () => {
     const { defaultModeBanks } = await import('../tools/assets/skill-mode-sfx.mjs');
     const sv = new Map([['ON_ABILITY_HIT.combat', ['spear_n']], ['ON_ABILITY_START.attack.2', ['silver_n']], ['ON_ABILITY_HIT.attack.1', ['sword_n']],
@@ -223,7 +223,7 @@ describe('normal attacks sound only their Default mode (user report 2026-10-07 #
     assert.match(file(UNITS.char_172_svrash.modes['2'].attack), /^p_atk_silver_n\.mp3$/, 'S3 keeps its own');
   });
 
-  test('蕾缪安 S3: lock mark, bombardment start, each shell landing (user report #10)', async () => {
+  test('蕾缪安 S3: lock mark, bombardment start, each shell landing (maintainer report)', async () => {
     const { kitHitKey } = await import('../public/js/audio.js');
     const units = new Map([[1, { def: 'char_4193_lemuen', skillIndex: 2 }], [2, { def: 'char_4193_lemuen', skillIndex: 1 }], [3, { def: 'char_1035_wisdel' }]]);
     const of = (id) => units.get(id);
@@ -239,7 +239,7 @@ describe('normal attacks sound only their Default mode (user report 2026-10-07 #
   });
 });
 
-describe('every bank plays like the official SoundFXBank.Play: popOldest / maxSoundAllowed per bank, a random pitch (2026-10-10; 蕾缪安 S3 shells, user report #10)', () => {
+describe('every bank plays like the official SoundFXBank.Play: popOldest / maxSoundAllowed per bank, a random pitch (2026-10-10; 蕾缪安 S3 shells, maintainer report)', () => {
   /** A manager with a fake Web Audio context: every source it starts / stops is recorded. */
   function live() {
     const a = new AudioManager({ win: null, getManifest: () => manifest, random: () => 0 });
@@ -306,7 +306,7 @@ describe('every bank plays like the official SoundFXBank.Play: popOldest / maxSo
   });
 });
 
-describe('deploy sounds on every placement (user report 2026-10-07 #1 / #2, audio.js playDeploySfx / prepDeploy)', () => {
+describe('deploy sounds on every placement (maintainer report 2026-10-07, audio.js playDeploySfx / prepDeploy)', () => {
   test('a prep drop-in sounds the operator\'s own ON_UNIT_BORN (望, 余), else b_char_set; summons theirs / b_char_tokenset; items nothing', () => {
     const a = manager();
     a.prepDeploy({ kind: 'op', defId: 'chess_diy_wang_6_a', spine: 'char_2027_wang' }, 1);
@@ -358,7 +358,7 @@ describe('deploy sounds on every placement (user report 2026-10-07 #1 / #2, audi
     assert.equal(b.played.length, 1, 'cancelled with the field');
   });
 
-  test('a 复活 (M3茧甲 / 埃芒加德: die + deploy + \'revive\' fx in one tick) keeps the deploy sound but says no 部署 line (K-5 「C」)', () => {
+  test('a 复活 (M3茧甲 / 埃芒加德: die + deploy + \'revive\' fx in one tick) keeps the deploy sound but says no 部署 line', () => {
     const a = manager();
     const said = [];
     a.voice = (def, slot) => { said.push(slot); return true; };
@@ -381,7 +381,7 @@ describe('deploy sounds on every placement (user report 2026-10-07 #1 / #2, audi
   });
 });
 
-describe('a lone non-primary skill start sound is kept (user report 2026-10-08: 望 S3 had no sound, tools/assets/plan.mjs)', () => {
+describe('a lone non-primary skill start sound is kept (maintainer report 2026-10-08: 望 S3 had no sound, tools/assets/plan.mjs)', () => {
   test('望 S3 skchr_wang_3 = ON_SKILL_START p_skill_stwctp_s (Battle_UI_Boost) — her S1 / S2 have none', () => {
     assert.equal(file(UNITS.char_2027_wang.skills?.['2']), 'p_skill_stwctp_s.mp3');
     assert.equal(UNITS.char_2027_wang.skills['0'], undefined);

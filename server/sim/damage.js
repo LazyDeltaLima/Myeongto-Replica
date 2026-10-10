@@ -277,7 +277,7 @@ export function dealDamage(battle, source, target, dmgIn) {
   final *= mul;
   if (!(final > 0) || !Number.isFinite(final)) final = 0;
   // local patch: official damage numbers (local-hud.js) — a crit is ≥ 1.5 × the expected damage (no 穿透, no multipliers)
-  // (lpExpectDiv: a hit-time ATK rise a kit marks as not expected — 锏's 天生的武者 165 %, user video 2026-10-07: every S3 slash red)
+  // (lpExpectDiv: a hit-time ATK rise a kit marks as not expected — 锏's 天生的武者 165 %, maintainer video 2026-10-07: every S3 slash red)
   dmg.lpNum = damageNumberFlag(dmg, ss, mitigate(dmg.amount / (dmg.lpExpectDiv || 1), type, ts, { elementalRes: type === 'elemental' ? (target.def?.epDamageResistance ?? 0) : 0 }), final);
   // 限伤: a leader's hit of ≥ BOSS_HIT_LIMIT in a boss / hidden battle is cancelled before it reaches shields / HP — what
   // ran before it (the attack, its SP, `hit` hook effects, separate element 损伤) stays; nothing after it happens

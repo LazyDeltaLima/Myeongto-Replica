@@ -67,7 +67,7 @@ export const NO_AIR_KEYS = Object.freeze(['enemy_1168_dumage', 'enemy_1168_dumag
   'enemy_1019_jshoot', 'enemy_1019_jshoot_2', 'enemy_1023_jmage', 'enemy_1050_lslime', 'enemy_1158_divman', 'enemy_1162_magmot',
   'enemy_1183_mlasrt', 'enemy_1203_sfhu', 'enemy_1203_sfhu_2', 'enemy_1283_sgkill', 'enemy_1283_sgkill_2', 'enemy_1501_demonk', 'enemy_1517_xi',
   'enemy_2005_axetro', 'enemy_10027_vtsk',
-  // user decision 「공식 클라이언트를 따라 막아」: client normal attack 1, PRTS silent (绯红歌伶, Dor-β号复制体, “灵幛”, 鼠王, W) or
+  // maintainer decision 「공식 클라이언트를 따라 막아」: client normal attack 1, PRTS silent (绯红歌伶, Dor-β号复制体, “灵幛”, 鼠王, W) or
   // mixed — 杰斯顿 (狱警 form Attack/Trigger 1; its 杀手 form is melee, so only a blocker), 主角/反派阵营角色 (Default 1; the
   // Shooting mode is not modelled)
   'enemy_2010_csdcr', 'enemy_1252_lysytb_2', 'enemy_1427_lrnazg', 'enemy_1509_mousek', 'enemy_1504_cqbw', 'enemy_1516_jakill',

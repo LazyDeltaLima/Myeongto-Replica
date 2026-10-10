@@ -513,7 +513,7 @@ export class MatchBoss {
     if (this.phase !== (hidden ? PHASE.HIDDEN_CORE : PHASE.FINAL_ASSAULT)) return;
     this._stopClientCombat();
     // the end condition the server registered first decides (client-side combat: _endFinal — pool 0 → victory, team LP 0
-    // → defeat); a boss field's final result may never turn a defeat into a victory (user playtest #6 item 5)
+    // → defeat); a boss field's final result may never turn a defeat into a victory (maintainer playtest #6 item 5)
     const victory = this._finalEnding ? this._finalEnding === 'cleared' : this.bossPool.hp <= 0;
     for (const f of this.fields) {
       const res = resultOf(f);

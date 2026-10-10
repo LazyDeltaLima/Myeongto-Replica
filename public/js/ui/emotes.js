@@ -71,7 +71,7 @@ export function emoteArtUrls(id) {
 }
 
 /**
- * Picture URLs of an emote in a set: the user picture, or the official art (emoteArtUrls).
+ * Picture URLs of an emote in a set: the maintainer picture, or the official art (emoteArtUrls).
  * @param {string} id
  * @param {string} [set]
  */

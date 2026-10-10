@@ -141,7 +141,7 @@ describe('room.diy (lobby + real match)', () => {
   afterEach(async () => { await pool.closeAll(); });
   after(async () => { await srv?.close(); });
 
-  test('the picks the seat had at the start are the match\'s m.private.diy; a change during the briefing reaches this match (진영별 선발 프리셋, user 2026-10-09)', async () => {
+  test('the picks the seat had at the start are the match\'s m.private.diy; a change during the briefing reaches this match (진영별 선발 프리셋, maintainer 2026-10-09)', async () => {
     const a = await pool.player('Solo');
     await ok(a, { t: 'room.diy', picks: { [T5A]: WANG, [T6A]: ASCLN } });
     await createRoom(a, 'solo');

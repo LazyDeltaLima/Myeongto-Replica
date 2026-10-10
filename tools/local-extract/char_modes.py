@@ -33,7 +33,7 @@ DEFAULT_CLIENT = client_data()  # SP_CLIENT / .env / .client (client_path.py); -
 
 
 def diy_operators():
-    """{charId: [skill prefabId, …]} of the 自选 operators — local patch (2026-10-08, user's request): upstream 0.2.0 moved
+    """{charId: [skill prefabId, …]} of the 自选 operators — local patch (2026-10-08, maintainer's request): upstream 0.2.0 moved
     them from data/diy.json (gone) to data/backups.json `diy.operators` (the picks) with their forms under `units.<charId>.forms`
     (`'<phase>/<level>/<skillLevel>/<equip>'` → { skills }), so the 선발 operators (왕, 첸 더 던스트릭, 위셔델 …) were left out of
     every run since the merge and kept their pre-merge bindings. Skill order of the first form that lists skills."""
@@ -268,7 +268,7 @@ def turned(o, out=None):
 
 
 def dir_groups(o, out=None):
-    """local patch (user report 5 #5-2, user's decision 2026-10-08 「13명 전체」): an effect emitter entry's `_effects` is a
+    """local patch (maintainer report, maintainer's decision 2026-10-08 「13명 전체」): an effect emitter entry's `_effects` is a
     slot list — 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT (스펙터 디 언체인드 S3 `_up` / `_down`, 백파이프 S3 `_right` / `_left`) — and its
     `_directionType` (UberEffectEmitter.EffectOptions.DirectionType: 0 NONE, 1 L_OR_R, 2 U_OR_D, 3 FOUR_DIR, 4 UD_OR_LR,
     5 FOUR_DIR_FIXED — the enum's values, decompile check 2026-10-10; 6 L_OR_R_NOT_UD is another enum's) says which slot
@@ -301,7 +301,7 @@ END_ABILITY = re.compile(r'^End', re.I)
 
 def skill_effects(tree, projectiles=None):
     """{skill prefabId: { cast, castLoop, buff, target, targetBuff, end?, turn? }} from battle/prefabs/[uc]skills.ab — the
-    effects a skill binds itself (local patch, user report 2026-10-07: 德克萨斯 S2 / 戴菲恩 S3 showed the wrong ones by name;
+    effects a skill binds itself (local patch, maintainer report 2026-10-07: 德克萨斯 S2 / 戴菲恩 S3 showed the wrong ones by name;
     `zone` 2026-10-10: its projectile's reach effects that last until the projectile stops + its aura — Projectiles):
     cast = its abilities' `_castEffects` with `_oneshot 1` (once, on the caster), castLoop = `_oneshot 0` (while it casts),
     buff = its `_buffs`' effects (on the caster while the buff lasts), targetBuff = its `_activeBuffs`' (on each target hit),
@@ -360,7 +360,7 @@ def modes_of(path, projectiles=None):
     proj, cast, hit, trail, attach = ([[] for _ in range(n)] for _ in range(5))
     turn = []
     dirs = []
-    # local patch (session L, user report 2026-10-08: 스펙터 디 언체인드's 替身): `attachFoe` = the part of `attach` from buffs of
+    # local patch (maintainer report 2026-10-08: 스펙터 디 언체인드's 替身): `attachFoe` = the part of `attach` from buffs of
     # an ability that targets enemies (`_targetOptions.targetSide` 2 on the same GameObject — ghost2_t_1[stand]'s
     # beidong_buff_02 shows on the enemies it hits, not on her); `dollBorn` = the 替身's appearance (`[switch2stand]/StandBorn`
     # `_castEffects`: ghost2_birth_01_start, the blue swirl)
@@ -454,8 +454,8 @@ def modes_of(path, projectiles=None):
             add(hit[i], effect_names(d.get(k) or []))
         # the mode's own buffs (its Talents abilities: 丰川祥子 S3's oblvns_s_3[eff] → the range effect) show their effect on
         # the operator while the mode lasts; buffs an attack puts on its target (_activeBuffs) are not these. So do the
-        # buffs of the mode's GeneralAbilities (local patch, user report 4 #4-7, session L 2026-10-08: 스펙터 디 언체인드 S2's
-        # ghost_s_2[effect] → ghost2_skill_02_buff_02, the red ring on her saw, and buff_03; every operator by the user's
+        # buffs of the mode's GeneralAbilities (local patch, maintainer report: 스펙터 디 언체인드 S2's
+        # ghost_s_2[effect] → ghost2_skill_02_buff_02, the red ring on her saw, and buff_03; every operator by the maintainer's
         # decision 2026-10-08 「켜줘」)
         sub = gp[len(mode_paths[i]):] + '/'
         if '/Talents/' in sub or '/GeneralAbilities/' in sub:

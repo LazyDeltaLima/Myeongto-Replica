@@ -1,7 +1,7 @@
-// test/render/texas2-skill-fx.test.js — 缄默德克萨斯's skill effects, user report 4 (2026-10-08, LOCAL-PATCH.md 「사용자 제보 4차 텍사스」).
-// #4-3: her S2 activation texas2_birth_02_start stood as a frozen picture — the player played clips[0] (the root's) only,
+// test/render/texas2-skill-fx.test.js — 缄默德克萨斯's skill effects, maintainer report (2026-10-08, docs/rules/fx.md 「텍사스 디 오메르토사 S2 발동·S3 검우」).
+//: her S2 activation texas2_birth_02_start stood as a frozen picture — the player played clips[0] (the root's) only,
 // and the 4 slashes are nested sub-prefabs with their own clips (fxplayer.js FxInstance plays every clip now).
-// #4-5: her S3 剑雨滂沱's rain showed no falling sword. The sim's 'swordRain' drew texas2_skill_03_hit, a name the
+//: her S3 剑雨滂沱's rain showed no falling sword. The sim's 'swordRain' drew texas2_skill_03_hit, a name the
 // client never plays (a spark, no sword); ModeWithSwordRain's EmitSword shoots projectile_chr_texas2_s3_sword_rain, whose
 // _effectsToTargetWhenStart is texas2_skill_03_hit_02 — the skill's target effect in modes.json (char_modes.py).
 
@@ -18,11 +18,11 @@ const FX = path.join(ROOT, 'public/assets/local/fx/texas2');
 const HIT02 = path.join(FX, 'texas2_skill_03_hit_02.json');
 const BIRTH = path.join(FX, 'texas2_birth_02_start.json');
 
-test('#4-5 her S3 binding: the rain\'s target effect is the projectile\'s texas2_skill_03_hit_02', () => {
+test('her S3 binding: the rain\'s target effect is the projectile\'s texas2_skill_03_hit_02', () => {
   assert.deepEqual(MODES.char_1028_texas2.skills[2].target, ['texas2_skill_03_hit_02']);
 });
 
-test('#4-5 a swordRain draws the skill\'s bound target effect, not a name picked by hand', () => {
+test('a swordRain draws the skill\'s bound target effect, not a name picked by hand', () => {
   const at = SRC.indexOf("e[1] === 'swordRain'");
   assert.ok(at > 0);
   const branch = SRC.slice(at, SRC.indexOf('return true;', at));
@@ -30,7 +30,7 @@ test('#4-5 a swordRain draws the skill\'s bound target effect, not a name picked
   assert.doesNotMatch(SRC, /'texas2_skill_03_hit'/, 'the spark the client never plays is not drawn');
 });
 
-test('#4-5 the extracted hit_02 drops its sword from 5.5 tiles up in 0.13 s (skipped without public/assets)', { skip: !existsSync(HIT02) && 'no extracted fx' }, () => {
+test('the extracted hit_02 drops its sword from 5.5 tiles up in 0.13 s (skipped without public/assets)', { skip: !existsSync(HIT02) && 'no extracted fx' }, () => {
   const d = JSON.parse(readFileSync(HIT02, 'utf8'));
   const z = d.nodes.findIndex((n) => n.name === 'z');
   assert.equal(d.nodes[d.nodes.findIndex((n) => n.name === 'luojian') + 1].name, 'z');
@@ -41,7 +41,7 @@ test('#4-5 the extracted hit_02 drops its sword from 5.5 tiles up in 0.13 s (ski
   assert.equal(keys[1][4], -5.5);
 });
 
-test('#4-3 her S2 activation: the 4 nested slashes fade out within 1 s, the effect ends with its 2 s root clip (skipped without public/assets)', { skip: !existsSync(BIRTH) && 'no extracted fx' }, async () => {
+test('her S2 activation: the 4 nested slashes fade out within 1 s, the effect ends with its 2 s root clip (skipped without public/assets)', { skip: !existsSync(BIRTH) && 'no extracted fx' }, async () => {
   const THREE = await import('../../public/vendor/three.module.js');
   const fxp = await import('../../public/js/render/fxplayer.js');
   const def = JSON.parse(readFileSync(BIRTH, 'utf8'));
@@ -62,9 +62,9 @@ test('#4-3 her S2 activation: the 4 nested slashes fade out within 1 s, the effe
   inst.dispose();
 });
 
-// #4-5 B (user's decision 2026-10-08: the texas2 bundle re-extracted first): the blades are Unity's built-in Quad
+// (maintainer's decision 2026-10-08: the texas2 bundle re-extracted first): the blades are Unity's built-in Quad
 // (`unity default resources`, PathID 10210), read by tools/local-extract/fx_extract.py mesh_ref from the client's own file
-test('#4-5 the falling sword\'s blade nodes carry the built-in Quad mesh (skipped without public/assets)', { skip: !existsSync(HIT02) && 'no extracted fx' }, () => {
+test('the falling sword\'s blade nodes carry the built-in Quad mesh (skipped without public/assets)', { skip: !existsSync(HIT02) && 'no extracted fx' }, () => {
   const d = JSON.parse(readFileSync(HIT02, 'utf8'));
   for (const n of ['jian', 'jian1', 'add']) assert.match(d.nodes.find((x) => x.name === n)?.mesh?.mesh || '', /^Quad_000027e2$/, n);
   assert.ok(!d.clips.some((c) => c.tracks.some((t) => t.prop.startsWith('attr:'))), 'their material tracks resolve now');
@@ -74,8 +74,8 @@ test('#4-5 the falling sword\'s blade nodes carry the built-in Quad mesh (skippe
 });
 
 // the client switches the falling blades off as they land (m_IsActive 0.2 s; texas2_skill_03_start 0.37 s) — they stayed to the
-// end of the 1.53 s clip before (user's decision 2026-10-08 「공식과 동일하게」)
-test('#4-5 her S3 range start: the 4 falling blades are switched off as they land (skipped without public/assets)', { skip: !existsSync(path.join(FX, 'texas2_skill_03_range_start.json')) && 'no extracted fx' }, async () => {
+// end of the 1.53 s clip before (maintainer's decision 2026-10-08 「공식과 동일하게」)
+test('her S3 range start: the 4 falling blades are switched off as they land (skipped without public/assets)', { skip: !existsSync(path.join(FX, 'texas2_skill_03_range_start.json')) && 'no extracted fx' }, async () => {
   const THREE = await import('../../public/vendor/three.module.js');
   const fxp = await import('../../public/js/render/fxplayer.js');
   const def = JSON.parse(readFileSync(path.join(FX, 'texas2_skill_03_range_start.json'), 'utf8'));

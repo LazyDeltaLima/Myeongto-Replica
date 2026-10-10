@@ -52,7 +52,7 @@ const PH = /\{([A-Za-z0-9_$]+)((?:\|[^{}|]*){2,})?\}/g; // shared/i18n.js PLACEH
 /** msgid → reason: upstream's text stays (our only entry is from another context). */
 const KEEP_UPSTREAM = {
   返回: 'a back button; official.json (string_map, context-free) has 취소 ("cancel")',
-  // user decisions 2026-10-07
+  // maintainer decisions 2026-10-07
   上: 'a direction label (ui/facing.js DIR_LABEL): 위, beside 왼쪽 / 오른쪽; official.json has 상 (another context)',
   下: 'a direction label (ui/facing.js DIR_LABEL): 아래; official.json has 하',
   全部: 'the "all" filter chip: 전체 (official KR uses 전체 in 3 of its 4 全部 keys); official.json has 전부',
@@ -67,8 +67,8 @@ const DATA_FIXES = {
 /** msgid → our text, fixed (our dictionary has a typo or a wrong sense). */
 const FIXES = {
   敌方攻击强度到达极限的模拟训练: ['적의 공격 강도가 한계를 뛰어넘은 시뮬레이션', 'typo 강도하 in the official KR table'],
-  // user decisions 2026-10-07
-  进阶: ['강화', 'the elite-equipment tag (detailPanel / equipReplace): 강화 — user decision 2026-10-07 (승급 is the shop\'s 升级 button; official.json has 랭크업, another context)'],
+  // maintainer decisions 2026-10-07
+  进阶: ['강화', 'the elite-equipment tag (detailPanel / equipReplace): 강화 — maintainer decision 2026-10-07 (승급 is the shop\'s 升级 button; official.json has 랭크업, another context)'],
   全部显示: ['전체 표시', '全部 = 전체 (the damage-number setting; ui.json has 전부 표시)'],
   '；2 件相同装备自动合成进阶装备': [' ; 같은 장비 2개는 자동으로 강화 장비로 합성', '进阶(装备) = 강화, as the elite-equipment tag (ui.json has 상위 장비)'],
   '冻结 / 解冻商店': ['상점 동결 / 해동', '解冻 = 해동 (the official shop button of this mode); upstream 상점 동결 / 해제'],
@@ -103,7 +103,7 @@ const TERMS = [
   { zh: /晋升/, from: /(?<!정예 )승진 (횟수|보상|가능)/g, to: '정예 승진 $1', why: '晋升 (noun) = 정예 승진' },
   { zh: /阶(?!段)/, from: /(\}|\d)단계/g, to: '$1티어', why: '(N)阶 = 티어' },
   { zh: /维维美/, from: '위위메이', to: '비비미', why: '维维美 = 비비미 (emote set)' },
-  // user decisions 2026-10-07: 自选 = 선발 (our old UI's word), longest first
+  // maintainer decisions 2026-10-07: 自选 = 선발 (our old UI's word), longest first
   { zh: /自选/, from: '자유 선택 오퍼레이터', to: '선발 오퍼레이터', why: '自选干员 = 선발 오퍼레이터' },
   { zh: /自选/, from: '자유 선택 슬롯', to: '선발 칸', why: '自选名额 = 선발 칸' },
   { zh: /自选/, from: '자유 편성', to: '선발 편성', why: '自选编队 = 선발 편성' },

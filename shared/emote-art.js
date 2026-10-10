@@ -3,12 +3,12 @@
 // whitelist. A sender picks the set in the emote wheel's tabs and `g.emote { id, set }` carries it, so every player sees
 // the picture that was sent (server/match/Match.js emote, public/js/ui/emotes.js).
 //
-// Pages of the user tab: the pictures in natural filename order (c2 before c10), six per page.
+// Pages of the maintainer tab: the pictures in natural filename order (c2 before c10), six per page.
 
 import { EMOTE_CATALOG } from './constants.js';
 import { N_ } from './i18n.js';
 
-/** Emote sets a player can send from: the official pictures, or the user pictures below. */
+/** Emote sets a player can send from: the official pictures, or the maintainer pictures below. */
 export const EMOTE_SETS = Object.freeze(['official', 'user']);
 /** Wire value → set ('official' for anything unknown or missing: older clients send no set). */
 export const emoteSet = (v) => (v === 'user' ? 'user' : 'official');
@@ -55,7 +55,7 @@ const ART = new Map([
 export const userEmoteArt = (id) => (typeof id === 'string' && ART.get(id)) || null;
 
 const sorted = [...EMOTE_CATALOG].sort((a, b) => userEmoteArt(a.id).localeCompare(userEmoteArt(b.id), 'en', { numeric: true }));
-/** Pages of the user tab: { key, name, emotes } × 6. */
+/** Pages of the maintainer tab: { key, name, emotes } × 6. */
 export const USER_EMOTE_PAGES = Object.freeze(Array.from({ length: Math.ceil(sorted.length / 6) }, (_, i) => Object.freeze({
   key: `user${i + 1}`,
   name: N_('用户表情 {n}'), // shown as t(name, { n }) (ui/emotes.js)

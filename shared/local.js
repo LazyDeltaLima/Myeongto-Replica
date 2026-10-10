@@ -25,7 +25,7 @@ import { N_ } from './i18n.js';
 export const localVersion = () => APP_VERSION;
 
 // the deploy's restart countdown (server/local-restart.js, public/js/ui/restartNotice.js): in its last RESTART_FINAL_MIN
-// minutes no new match starts and the connection banner counts down (user 2026-10-09: 「재시작 직전 5분 전에 판을 막고,
+// minutes no new match starts and the connection banner counts down (maintainer 2026-10-09: 「재시작 직전 5분 전에 판을 막고,
 // 5분부터는 띠도 표시」)
 export const RESTART_FINAL_MIN = 5;
 

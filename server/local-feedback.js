@@ -2,7 +2,7 @@
 // sends a bug report or a suggestion (fb.send, shared/local.js); this server keeps it as one JSON file in
 // SP_FEEDBACK_DIR/inbox/ for the operator to pull and triage. Nothing is posted anywhere from here: with
 // SP_FEEDBACK_REPO (`owner/name`) set, server/feedback-relay.js — a separate process, the one with network access — posts
-// each report the player sent as public as an issue of that repository (stage 2, user decision 2026-10-09: every report,
+// each report the player sent as public as an issue of that repository (stage 2, maintainer decision 2026-10-09: every report,
 // automatically). Called from server/local-patch.js (onMessage, onMatchEnd, welcomeInfo — one line each).
 //
 //   fb.send { id, kind: 'bug' | 'idea' | 'other', text, diag?, battles?, match?, public? }
@@ -20,7 +20,7 @@
 // What is stored besides the player's fields: the time, the server's versions, the match's [stats] record without names
 // (server/local-stats.js — room code + match number tie it to the container log) and the sender's address as a keyed
 // hash (HMAC-SHA256 with a random key kept in the inbox directory, first 16 hex): the same sender's reports group
-// together, the address itself is never written (user decision 2026-10-09). Files older than KEEP_DAYS (90) are
+// together, the address itself is never written (maintainer decision 2026-10-09). Files older than KEEP_DAYS (90) are
 // deleted (on start and every few hours); the pull removes what it copied.
 //
 // Off (fb.send → BAD_MSG, no `feedback` in welcome, the client shows no button) unless SP_FEEDBACK_DIR is set.

@@ -1,5 +1,5 @@
 // test/local-patch-diy-ascln.test.js — 阿斯卡纶 (char_4132_ascln) 선발 kit (server/sim/content/kits/ops/op-ascln.js): the
-// evidence-backed fixes of research/2026-10-07-diy-kit-diff.md §4 (user approval 2026-10-07 "all recommended items"):
+// evidence-backed fixes of maintainer's notes 2026-10-07 §4 (maintainer approval 2026-10-07 "all recommended items"):
 // A1 AMB-X slow aura, A2 AMB-Y heal on a knock-out, A3 S2 slow on air units, A4 the S2 kill-spread on ground enemies only,
 // A5 噬光残影 counts undeployable high ground, A6 S3 hit-rate rolled once per attack, A7 taunt −1 (not −2) — and one battle
 // through the real match path.

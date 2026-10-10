@@ -1,6 +1,6 @@
 // server/match/bossPath.js — the path a walking leader (假想敌：铳 boss_2 / 9, 卢西恩 boss_5 — the other leaders are
 // 自缚) takes on this match's boss field, for the Final Assault / Hidden Core prep (render/fxroute.js runs the official
-// route preview cursor along it). docs/LOCAL-PATCH.md 「보스 경로 미리보기」 (user request 2026-10-08).
+// route preview cursor along it). docs/LOCAL-PATCH.md 「보스 경로 미리보기」 (maintainer request 2026-10-08).
 //
 // The level files only give checkpoints (the same on every stage: level_act1autochess_h07_02 / h08_02 / act2 h07_05);
 // the walked line between them is the flow field over the stage's own boss-field tiles. Rather than re-deriving it, the
@@ -8,7 +8,7 @@
 // copy of a pair field comes from its branch as in the real fight), each leader's position sampled every tick from its
 // spawn until it reaches the first checkpoint of its route a second time — the way there plus one patrol lap
 // (content/bosses.js patrolLoop; 卢西恩's list of five laps collapses to one). [추정] what the client walks: no official
-// per-stage path exists to compare with (research note in STRONGHOLD.md §11, 2026-10-08).
+// per-stage path exists to compare with (research note in the maintainer's notes, 2026-10-08).
 //
 // Deterministic (no operators, a fixed seed) and cached per stage × template × field size × device overrides.
 

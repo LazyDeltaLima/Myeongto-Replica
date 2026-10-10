@@ -323,7 +323,7 @@ test('from the prep on a match keeps its picks (the next match takes a change: t
   const before = p1.diy;
   h.toPrep(1);
   assert.equal(p1.diy, before);
-  assert.equal(h.m.setDiy('p_1', { [T6A]: { charId: CHEN, skillIndex: 1 } }).error, 'WRONG_PHASE', 'the prep refuses a change (진영별 선발 프리셋, user 2026-10-09)');
+  assert.equal(h.m.setDiy('p_1', { [T6A]: { charId: CHEN, skillIndex: 1 } }).error, 'WRONG_PHASE', 'the prep refuses a change (진영별 선발 프리셋, maintainer 2026-10-09)');
   assert.equal(p1.diy, before);
   h.m.dispose();
   // the next match: new seats, new picks

@@ -58,13 +58,13 @@ import { PROJ } from './style.js';
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 
 /**
- * (user re-report 2026-10-08 #2-7, LOCAL-PATCH.md 「사용자 제보 3차」) the official effects of a 望 stone's blast (createFxLayer stoneFx) — `at`:
+ * (maintainer re-report 2026-10-08, docs/rules/fx.md 「관리자 제보 (2026-10-07 밤)」) the official effects of a 望 stone's blast (createFxLayer stoneFx) — `at`:
  * played at the stone (S1 sktok_wang_1 / S3 sktok_wang_3 `_castEffects`, S2 ExplodeRow·Col·Cross `_effectKey` once per
  * activated axis, a 跟子's `_effectOnTrigger`); `target`: on each enemy it damages (S2 ExplodeRow `_hitEffects` / a 跟子's
  * `_effectsWhenHit`; S3 a 跟子 only). token_wang_skill_03_hit_03 is referenced by nothing in the client: never played.
  */
 /**
- * local patch (user report 5 #5-2): `names` with each directional emitter entry of `groups` (char_modes.py `dirs` [{ t, s }])
+ * local patch (maintainer report): `names` with each directional emitter entry of `groups` (char_modes.py `dirs` [{ t, s }])
  * replaced by its copy for facing `d` (0 UP, 1 RIGHT, 2 DOWN, 3 LEFT; `left` = drawn facing left) — see dirPick in
  * createFxLayer. Exported for the tests.
  * @param {Array<{t: number, s: string[]}>|null|undefined} groups
@@ -139,8 +139,8 @@ const loadModes = () => (modesPromise ||= fetch(MODES_URL).then((r) => (r.ok ? r
  * Whether a kit 'fx' zone event is a lasting ground area away from its operator's view `v` — 引星棘刺's 炼金单元 (S1 / S3
  * on allies, S2 drifting and re-sent each second under its `key`: upstream f1e462ef), 锡人's charges, 歌蕾蒂娅's 漩涡, 号角's
  * flare, 异客's storm. The client draws it with the skill's `…_token` / `…_range` prefabs at the area, which nothing here
- * plays there (the skill's effects play on the caster), so standInOff keeps its 2D zone (render/fx/zones.js) — session K
- * 2026-10-08 (K-4; before, an operator with official effects drew nothing at the area). Short bursts and areas on the
+ * plays there (the skill's effects play on the caster), so standInOff keeps its 2D zone (render/fx/zones.js) — 
+ * 2026-10-08 (before, an operator with official effects drew nothing at the area). Short bursts and areas on the
  * operator itself (莫斯提马 S2) stay official-only.
  */
 export function areaAway(e, v) {
@@ -161,7 +161,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // units canvas, so the operator stays on top of them; the hits on targets, the trails and the moving 剑气 over it.
   // Without a see-through units canvas (2D board) the lower one moves above too.
   const layers = { under: null, over: null, split: null };   // { canvas, renderer, scene, n: live count }
-  // local patch (user report 2026-10-07, items 1 / 8): `split` is a scene drawn on both canvases — each renderer of its effects
+  // local patch (maintainer report 2026-10-07): `split` is a scene drawn on both canvases — each renderer of its effects
   // on the side its Unity sorting puts it (fxplayer.js FxInstance split: sortingOrder > 0 / fudge < 0 in front of the units,
   // the rest behind; 마터호른 S2's dome has a back and a front copy). The effects on units go there at quality 'high'; at
   // 'medium' (one upload per effect, not two) they keep the old rule: the caster's under the units, the rest over.
@@ -248,10 +248,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null, tag = null, until: endAt = null } = {}) {
     const b = bundleOf(view);
     if (!b) return;
-    // local patch (user report 5 #5-2): a directional emitter entry plays the copy for the facing (dirPick)
+    // local patch (maintainer report): a directional emitter entry plays the copy for the facing (dirPick)
     const { names, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex));
     if (!names.length || !(await ensure())) return;
-    // local patch (user report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
+    // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
     // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right) is one effect —
     // the copy for the facing, not mirrored; the right copy that the name lookup listed besides is skipped
     const defs = await Promise.all(names.map((n) => lib.load(b.bundle, n)));
@@ -272,7 +272,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (until != null && until <= clockS) continue;
       const ground = at || view;
       const anchor = lifted(ground, def); // local patch: its _spawnLocation
-      // local patch (user report 2026-10-07: 野鬃 S2 stood upright): an effect the client turns to the unit's facing
+      // local patch (maintainer report 2026-10-07: 野鬃 S2 stood upright): an effect the client turns to the unit's facing
       // (charpack / skills.ab `_useFourDirectionalFace`: its 'rotation_z' pivot, stored at an editing angle) is turned, not mirrored
       const turn = turns(view).has(n) && def.nodes?.some((d) => d.name === 'rotation_z');
       // only the effects that go to the split scene (on the caster) split — a hit on a target goes to the upper canvas,
@@ -282,9 +282,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: turn || sided || unflip.has(names[i]) ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: ground.z || 0 });
       if (turn) aimMover(inst, facingDir(view));
       inst.object.position.set(anchor.x, anchor.y, anchor.z || 0);
-      // local patch (user 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
+      // local patch (maintainer 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
       // skill start as well as its buff loops — goes under the units; the hits on a target stay over
-      // (local patch, user report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
+      // (local patch, maintainer report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
       addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
       // the player's own cap: it has already ended the oldest (done, dispose is a no-op) — the same one here
       while (live.length > mod.fxp.MAX_INSTANCES) dropLive(live.shift());
@@ -333,7 +333,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
-  // local patch (user report 2026-10-08: 赤刃明霄陈's S3 dragon over the 阻隔工事 crate behind her): the client's map and its
+  // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon over the 阻隔工事 crate behind her): the client's map and its
   // devices are opaque geometry in the depth buffer, so an effect renderer that tests depth (`_ZTest` 4 — fxplayer.js
   // userData.ztest; her dragon head, most of the 剑气 trail) is hidden inside / behind a crate or a raised tile, while one
   // with `_ZTest` 0 draws over it. The board is another canvas here: its raised tiles (tile tops, `grid()`) and the battle's
@@ -424,7 +424,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // looping cross, the link line) go on the lower layer, under the stone's model; the explosions over it. [ASSUMED] which prefab is which,
   // by name; S2's line blast is turned by its 'rotation_z' pivot (h = 0°, v = 90°).
   const STONE = 'token_10064_wang_stone1', STONE_FX = 'wang_token';
-  // (user re-report 2026-10-08 #2-7 「터질 때 직선 파티클이 폭발 범위보다 넓게 나옴」): what the client plays at the
+  // (maintainer re-report 2026-10-08 「터질 때 직선 파티클이 폭발 범위보다 넓게 나옴」): what the client plays at the
   // stone is its trigger's cast effect only — sktok_wang_1 / sktok_wang_3 `_castEffects`, sktok_wang_2/ExplodeRow·Col·Cross
   // `_effectKey` (the line, turned by `rotation_z`) and the 跟子 projectiles' `_effectOnTrigger` (EN client [uc]skills.ab /
   // [uc]projectiles.ab). The `_02` prefabs are the HIT effects on each enemy hit (ExplodeRow `_hitEffects`, the S3 跟子's
@@ -435,12 +435,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // owner: a stone's id — the effect follows it as a buff and stops on its 'die' (used up / withdrawn); without an
   // owner it is a one-shot, stopped after its prefab's duration even if a system loops (token_wang_birth_01_buff's
   // looping 'sz' kept its cross on the board forever)
-  // local patch (user report 2026-10-07 #4, capture: the hand-placed stone glows yellow, the talent's 跟子 has black
+  // local patch (maintainer report 2026-10-07, capture: the hand-placed stone glows yellow, the talent's 跟子 has black
   // wisps): a 跟子 is 望's projectile (PRTS 备注; client projectile_chr_wang_stone1/2/3), whose effects are hers (bundle
   // wang): `_effectsToTileWhenStart` wang_passive_01_buff (the black / white / gold rings, andi_lne) and
   // `_triggeredEffect` wang_passive_01_buff_02; the placed token's are its prefab `_startEffect` token_wang_birth_01_buff
   // and sktok_wang_N/TriggeredEffect token_wang_01_buff [추정: TriggeredEffect = 激活, the link]
-  // (user re-report 2026-10-08 #2-1 「바둑알 이펙트 루프가 아직 안 됨」): the activation effect (STONE_ON) is a
+  // (maintainer re-report 2026-10-08 「바둑알 이펙트 루프가 아직 안 됨」): the activation effect (STONE_ON) is a
   // buff's `overrideEffectKey` (sktok_wang_N/TriggeredEffect `_buffs[0]`) and both it and the 跟子's `_triggeredEffect` are
   // held by their owner (root ParticleEffect raw int #17 = `_holdByOwner` 1, as every status buff; the blasts 0 — decompile
   // check 2026-10-10: the field order of ParticleEffect, and `Effect._InitLocationFromEntity` ends with entity.HoldEffect;
@@ -451,11 +451,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const FOLLOWER_FX = 'wang';
   const STONE_BORN = { stone: 'token_wang_birth_01_buff', follower: 'wang_passive_01_buff' };
   const STONE_ON = { stone: 'token_wang_01_buff', follower: 'wang_passive_01_buff_02' };
-  // local patch (user 2026-10-08 「수동, 재능 바둑돌 이펙트가 loop 되지 않고 한번만 나타나고 있어서 모르겠어」): official capture
-  // (research/2026-10-07-user-issues-3/cap-231814.png) — a stone's glow / cross / link line sit on its ball, 0.19 tile (on
+  // local patch (maintainer 2026-10-08 「수동, 재능 바둑돌 이펙트가 loop 되지 않고 한번만 나타나고 있어서 모르겠어」): official capture
+  // (maintainer's notes 2026-10-07) — a stone's glow / cross / link line sit on its ball, 0.19 tile (on
   // screen) above the shadow; ours drew them on the ground (_spawnLocation 5) under the ball, where the stone's own looping
   // glow (the `sz` systems) hid under its shadow and only the first burst read. The ball centre is 0.18 tile up on screen.
-  // (user re-report 2026-10-08 #2-2 「바둑알 밑의 십자가 모양 이펙트가 타일 위치와 어긋남」): the birth effects' cross
+  // (maintainer re-report 2026-10-08 「바둑알 밑의 십자가 모양 이펙트가 타일 위치와 어긋남」): the birth effects' cross
   // (`sz` / `sz1`: flat quads 1 tile long in the ground plane) is a ground mark — in the official capture its arms run edge
   // to edge of the stone's tile, about its middle (8–10 px of a ~250 px tile above it); lifted to the ball it sat 0.15 tile
   // up the tile and slid off it by the perspective, so STONE_BORN plays on the ground again (the 跟子's rings are
@@ -472,7 +472,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     get x() { return v.x; }, get y() { return v.y; }, get z() { return ballZ(v.x, v.y, (v.z || 0) + (v.hover || 0)); },
     get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
   });
-  // (2026-10-08 #2-1: the 3-second replay of a 跟子's wang_passive_01_buff (cfa42bc5, [추정]) is gone — the capture's wisps
+  // (2026-10-08: the 3-second replay of a 跟子's wang_passive_01_buff (a2bd93de, [추정]) is gone — the capture's wisps
   // are its activation effect, kept above; the birth prefab's rings are one-shot systems and its `sz1` cross loops itself)
   /** local patch: whether 望's stone effects play here (render/fx.js then skips its procedural stand-in). */
   const stonesOn = () => !!(index?.bundles?.[STONE_FX] && !failed && q() !== 'low');
@@ -501,11 +501,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // The prefabs are held by their owner (root `_holdByOwner` 1) though some systems run once (buff_silence: 1 s) — a status
   // effect that ends while its status is still on starts again (update).
   let camRef = null;
-  // local patch (user report 2026-10-07, video: 史尔特尔's blast sits on the enemy's body): the prefab root's
+  // local patch (maintainer report 2026-10-07, video: 史尔特尔's blast sits on the enemy's body): the prefab root's
   // `_spawnLocation` (fx_extract.py spawn: 2 body / HIT point, 4 head; 1 feet, 5 ground centre and the rest stay on the
   // ground) lifts an effect placed on a unit; points stay where they are
   const SPAWN_FRAC = { 2: 0.5, 4: 1.1 };
-  // local patch (user report 2026-10-08: 비르투오사's S3 effect comes out of the cello she holds; generalised by session F the
+  // local patch (maintainer report 2026-10-08: 비르투오사's S3 effect comes out of the cello she holds; generalised by the
   // same day): _spawnLocation 3 / 6 (MUZZLE_POINT) and MP_SPECIAL_N are the model's Muzzle / SpecialPointN (fxpoints.js
   // pointKey; chararts DefaultSkin, mostly Spine bone followers — 비르투오사's SpecialPoint0 follows F_Weapon_Chord /
   // B_Weapon_Chord, her cello). The table (tools/local-extract/char_points.py → points.json) covers the operators; a unit
@@ -530,7 +530,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     out.x = v.x + (g.x - v.screen.x) / v.screen.s; out.y = v.y; out.z = z0 + (Number.isFinite(dz) ? dz : 0);
     return out;
   }
-  // local patch (user report 4 #4-7, session L 2026-10-08): a prefab with a FollowMountPoint (fx_extract.py `mount`) is placed
+  // local patch (maintainer report): a prefab with a FollowMountPoint (fx_extract.py `mount`) is placed
   // at and follows its mount point instead of its _spawnLocation; with `pauseWhenInvalid` it stands still (`paused`, the
   // frame loop skips its update) while the unit's current skeleton has none of the point's bones
   function lifted(v, def) {
@@ -540,14 +540,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const p = { x: 0, y: 0, z: 0 };
       const at = () => specialPoint(v, p, key) || (camRef ? { x: v.x, y: v.y, z: bodyZ(camRef, v, 0.5) } : v);
       const pause = !!def?.mount?.pauseWhenInvalid;
-      // local patch (user report 5 #5-2 — 아르케토 S3's cast fan stood upright; user's decision 2026-10-08 「전체 적용」): a
+      // local patch (maintainer report — 아르케토 S3's cast fan stood upright; maintainer's decision 2026-10-08 「전체 적용」): a
       // FollowMountPoint with `_keepOriginRotation` 0 gives the effect its point's turn too (fxpoints.js pointTurn) — the
       // frame loop turns the prefab root about the Unity frame's z (the board's normal: +x = column, +y = row, as aimMover)
       // by it, inside the facing mirror: 아르케토's fan (authored pointing +y up the board, its ring round its axis) lies along
-      // her shot, opening behind her with its spike toward the enemy (the user's account of the client, 2026-10-08). Taken
+      // her shot, opening behind her with its spike toward the enemy (the maintainer's account of the client, 2026-10-08). Taken
       // once, as the effect starts (the first frame its bone is there), then kept [ASSUMED]: 니어 더 래디언트 나이트 S3's light
       // lance (nearl2_skill_03_start `qiang`, on F_Weapon) thrusts forward at 0° while her lance swings back to ~160° in the
-      // next 0.5 s — following every frame turned the thrust backward (user 2026-10-08 「빛으로 된 창으로 찌르는 이펙트가 허전해」)
+      // next 0.5 s — following every frame turned the thrust backward (maintainer 2026-10-08 「빛으로 된 창으로 찌르는 이펙트가 허전해」)
       const turns = def?.mount && def.mount.keepOriginRotation === 0;
       let turn0 = null;
       return {
@@ -574,7 +574,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const def = await lib.load(bundle, name);
     if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
     if (!mod || !view._fxStatusOn?.has(key)) return;   // destroyed, or turned off while it loaded
-    // local patch (user report 4 #4-1, 2026-10-08: the stun marks stacked over a re-stunned enemy): one effect per unit and
+    // local patch (maintainer report 2026-10-08: the stun marks stacked over a re-stunned enemy): one effect per unit and
     // status — a status turned off and on again while its file loaded started a second load; the first one lands here too
     if (live.some((l) => l.status === key && l.unit === view && !l.inst.stopping && !l.inst.done)) return;
     const anchor = {
@@ -584,8 +584,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     };
     // local patch: status prefabs are NOT split — their renderers are sortingOrder 0 / fudge 0 (buff_autochess_frozen's
     // block too), which the split puts behind the unit, while the client sorts them by depth and the 冻结 block covers the
-    // model (user capture 9); drawn over the units as before (the snowflake / fist over heads, capture 10)
-    // local patch (user request 2026-10-08): `under` (the prep elite glow, fxgolden.js — its glow / sparks are sortingOrder -1,
+    // model (maintainer capture 9); drawn over the units as before (the snowflake / fist over heads, capture 10)
+    // local patch (maintainer request 2026-10-08): `under` (the prep elite glow, fxgolden.js — its glow / sparks are sortingOrder -1,
     // behind the model) splits by sorting at 'high' like a caster's effect, else draws under the units
     const split = !!under && splitOn();
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold });
@@ -598,9 +598,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
-    // local patch (user 2026-10-08): the link line and the activation flash on the stones' balls (STONE_BALL)
+    // local patch (maintainer 2026-10-08): the link line and the activation flash on the stones' balls (STONE_BALL)
     const onBall = { x: at.x, y: at.y, z: ballZ(at.x, at.y, 0) };
-    // local patch (user report 2026-10-07 #7: the old yellow circle / mint hex + pillar under the stones' official effects):
+    // local patch (maintainer report 2026-10-07: the old yellow circle / mint hex + pillar under the stones' official effects):
     // render/fx.js draws nothing for a stone event handled here
     const mine = (e[1] === 'zone' && o.token === STONE) || e[1] === 'wangLink' || (e[1] === 'summon' && isStone(views.get(o.id)));
     if (mine && stonesOn()) ownFx.add(e);
@@ -615,7 +615,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (e[1] === 'wangLink') {
       if (o.first) {
         playAt(['token_wang_passive_01_line'], onBall, { under: true });
-        // local patch: the activation effect of its own kind (STONE_ON), on the ball, kept while the stone stands (#2-1)
+        // local patch: the activation effect of its own kind (STONE_ON), on the ball, kept while the stone stands
         const sv = views.get(o.id);
         const on = isStone(sv) ? { at: ballOf(sv), owner: o.id, keep: true } : { at: onBall };
         playAt([o.follower ? STONE_ON.follower : STONE_ON.stone], on.at, { owner: on.owner, keep: on.keep, bundle: o.follower ? FOLLOWER_FX : STONE_FX });
@@ -626,7 +626,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const v = views.get(o.id);
       stoneBirth.delete(o.id);
       if (isStone(v)) {
-        // local patch: a 跟子's rings (its own birth effect), a placed stone's gold cross — on the ground (#2-2)
+        // local patch: a 跟子's rings (its own birth effect), a placed stone's gold cross — on the ground
         if (o.follower) playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX });
         else playAt([STONE_BORN.stone], v, { owner: o.id, under: true });
         return true;
@@ -634,7 +634,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     return false;
   }
-  // (#2-7) a stone blast's hit effect on each enemy it damages — the 'dmg' of the same moment on its area
+  // a stone blast's hit effect on each enemy it damages — the 'dmg' of the same moment on its area
   // (S2: its activated link lines, ≤ 3 tiles each way; S3: the x-1 diamond) — and always the enemy that set it off ('zone'
   // `target`), wherever its view is drawn this frame
   const stoneHits = [];
@@ -652,7 +652,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return claimed;
   }
   const isStone = (v) => !!(v?.info && (v.info.defId === STONE || v.info.spine === STONE));
-  // local patch (user report 2026-10-07 #4, capture: the hand-placed stone keeps its gold glow): the prep's stones come in
+  // local patch (maintainer report 2026-10-07, capture: the hand-placed stone keeps its gold glow): the prep's stones come in
   // with the battle start ('spawn', no 'summon' fx — kits/diy.js), yet the token's `_startEffect` plays on every birth —
   // a stone spawned without a 'summon' fx in the same batch is a placed one: its token_wang_birth_01_buff (update)
   const stoneBirth = new Set();
@@ -660,24 +660,24 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!stoneBirth.size) return;
     for (const id of stoneBirth) {
       const v = views?.get(id);
-      if (isStone(v) && v.alive !== false && stonesOn()) playAt([STONE_BORN.stone], v, { owner: id, under: true }); // on the ground (#2-2)
+      if (isStone(v) && v.alive !== false && stonesOn()) playAt([STONE_BORN.stone], v, { owner: id, under: true }); // on the ground
     }
     stoneBirth.clear();
   }
 
-  // local patch (user report 2026-10-07 #7: "전용 이펙트가 추가된 오퍼레이터들의 스킬 효과 등에는 옛날 공용 이펙트 효과(노란 원형)도
+  // local patch (maintainer report 2026-10-07: "전용 이펙트가 추가된 오퍼레이터들의 스킬 효과 등에는 옛날 공용 이펙트 효과(노란 원형)도
   // 제거"): a kit 'fx' event of an operator whose official effects play (its bundle extracted, not 'low') draws none of
   // render/fx.js's procedural skill stand-ins — the orange zone circle, the blast rings, the mint hex + pillar, the buff
   // sparkle, the shield hex, the pulses. What the client draws for that moment is its skill / hit prefabs (played from the
   // 'skill' / 'atk' / 'dmg' events or kitFx); informational marks stay (dodge / crit text, DP, locks and marks, beams,
   // displacement arrows, heals). The event's operator: `src`, else `by`, else `id` (an ally token / device keeps them).
   const STAND_IN = new Set(['blast', 'zone', 'wall', 'summon', 'buff', 'wave', 'pillar', 'element', 'healAoe', 'shield', 'shatter', 'strike', 'volley']);
-  // local patch (user 2026-10-08, report 4 #4-7 follow-up: 스펙터 디 언체인드's blue effects after the switch to the 替身 never
+  // local patch (maintainer 2026-10-08, report follow-up: 스펙터 디 언체인드's blue effects after the switch to the 替身 never
   // showed): a 傀儡师's 替身 is its charpack mode 'Stand', whose own Talents buffs' effects (modes.json `attach` minus
   // `attachFoe`: ghost2_beidong_buff_01, the 3×3 circle of ghost2_standin[switch]) last while the form does — from sim fx
   // 'substitute' (professions.js installDollkeeper) until 'swap' (back to the 本体) or 'dollEnd' (knocked out as the 替身) —
   // and its appearance (`dollBorn`, [switch2stand]/StandBorn: ghost2_birth_01_start, the blue swirl) plays once. The
-  // enemy-targeted buff's effect (beidong_buff_02, on the enemies 拥抱自我 hits) is not on her (user 2026-10-08 with the
+  // enemy-targeted buff's effect (beidong_buff_02, on the enemies 拥抱自我 hits) is not on her (maintainer 2026-10-08 with the
   // official video: 「파란 소용돌이가 잠깐 나왔다가 사라지고, 3x3칸짜리 원형 이펙트도 따로 있어」). Started with the switch
   // [추정]; the prefabs' own end effects (beidong_buff_01_end) are not played.
   function dollFx(e, views) {
@@ -699,7 +699,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!STAND_IN.has(a)) return false;
     const v = views.get(o.src ?? o.by ?? o.id);
     const k = v?.info?.kind;
-    if (a === 'zone' && v && areaAway(e, v)) return false; // session K 2026-10-08 (K-4): see areaAway
+    if (a === 'zone' && v && areaAway(e, v)) return false; // see areaAway
     return !!(isOp(v) && k !== 'token' && k !== 'device' && k !== 'item' && bundleOf(v));
   }
 
@@ -725,7 +725,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const from = shotFrom(src, mode);
     const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: tgt.x, ty: tgt.y, tz: shotTo(tgt), k: 0,
       dur: Math.max(0.04, dist / projSpeed(e[3])), arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 };
-    // local patch (user report 4 #4-6, 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
+    // local patch (maintainer report 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
     // both ways — projectile_chr_caper `_comeBack` 1 at `_comeBackSpeedScale` .25 (the sim's BOOMERANG_RETURN_SPEED), its
     // `_mainEffect` kept (`_clearMainEffectWhenReached` 0): it turns at the hit and flies back to her (stepTrails), and the
     // wheel is out of her hand meanwhile (render/boomerang.js)
@@ -741,7 +741,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }, () => {});
     return true;
   }
-  // local patch (session F 2026-10-08, was TRAIL_Z 0.35 tile at both ends — 空弦's arrows flew at her feet): a trail leaves
+  // local patch (was TRAIL_Z 0.35 tile at both ends — 空弦's arrows flew at her feet): a trail leaves
   // the shooter's point where it is at the shot and flies to the target's hit point. Client (decompile check 2026-10-10):
   // `RangedAttack._GetMountPoint` (RVA 0xA4B4E0) = the shooter's GetMountPoint(`_mountPointType`) — MUZZLE for 210 attacks,
   // a special point or GROUND for 19 (modes.json `shotFrom` per mode: 로즈몬티스 S2 GROUND, 포덴코 S2 SPECIAL_0, 토가와 사키코
@@ -779,7 +779,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (let i = trails.length - 1; i >= 0; i--) {
       const rec = trails[i];
       if (rec.phase === 1) {
-        // local patch (#4-6): a boomerang on its way back, from the hit point to where it left her (her Muzzle) at
+        // local patch: a boomerang on its way back, from the hit point to where it left her (her Muzzle) at
         // .25 of its speed, turned to her (`_rotateToTarget`); caught there — or gone with her — it is gone at once (its
         // wheel is a 5 s particle: stopped, it hung where it ended)
         const home = !!rec.src && rec.src.alive !== false && !rec.src.remove;
@@ -791,12 +791,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
       rec.k += g / rec.dur;
       placeTrail(rec);
-      if (rec.k >= 1 && rec.back) { rec.phase = 1; rec.k = 1; rec.tgt = null; continue; } // local patch (#4-6): turns back at the hit point
+      if (rec.k >= 1 && rec.back) { rec.phase = 1; rec.k = 1; rec.tgt = null; continue; } // local patch: turns back at the hit point
       if (rec.k >= 1) { rec.inst?.stop(); trails.splice(i, 1); }
     }
   }
 
-  // ---- 荒芜拉普兰德 S3's wolves (local patch, user report 2026-10-06: no wolf effect) ----
+  // ---- 荒芜拉普兰德 S3's wolves (local patch, maintainer report 2026-10-06: no wolf effect) ----
   // The sim's drones are virtual (kits/tier6.js whitw2); a local-patch hook there sends their positions every 0.15 s
   // ('whitw2Drones' {id, d: [x, y, …]}). In the client each S3 drone is a projectile_chr_whitw2_funnel_s3_1…4 whose
   // _mainEffect is whitw2_skill_03_token_trail_01 (EN battle/prefabs/[uc]projectiles.ab) — the wolf; it glides to the
@@ -954,7 +954,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
 
-  // ---- local patch (user report 2026-10-07, items 2 / 9 / 10 / 11): skills that act through damage or kit events --------
+  // ---- local patch (maintainer report 2026-10-07): skills that act through damage or kit events --------
   /**
    * One prefab of `bundle` at `at` (a view or point, followed): entry = addLive's { owner, buff, until, on (the unit it sits
    * on: stopped at its 'die') }; `over` puts it over the units. Resolves the live entry (null if not played).
@@ -1024,7 +1024,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       ownFx.add(e);
       let rect = null;
       try { rect = fieldRect(); } catch { /* the ±4 fallback */ }
-      // local patch (user 2026-10-07): the pieces are authored for a row wall (deployed facing up / down); a column wall
+      // local patch (maintainer 2026-10-07): the pieces are authored for a row wall (deployed facing up / down); a column wall
       // (facing left / right) turns each piece 90° about the height so its flames run along the column
       const turn = (l) => { if (l && o.axis !== 'row') l.inst.object.rotation.set(0, 0, Math.PI / 2); };
       for (const [r, c] of wallTiles(x, y, o.axis === 'row' ? 'row' : 'col', rect)) {
@@ -1041,8 +1041,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       spawn(b.bundle, 'yu_skill3_annex_01', { x, y, z: 0.3 }, { owner: null, buff: false });
       return true;
     }
-    // local patch (user report 2026-10-07, video: an ink sword falls on each target every second): 缄默德克萨斯 S3 剑雨滂沱's
-    // rain — the sim's 'swordRain' on a target (src = her) draws her skill's target effect there (user report 4 #4-5,
+    // local patch (maintainer report 2026-10-07, video: an ink sword falls on each target every second): 缄默德克萨斯 S3 剑雨滂沱's
+    // rain — the sim's 'swordRain' on a target (src = her) draws her skill's target effect there (maintainer report,
     // 2026-10-08): ModeWithSwordRain's EmitSword shoots projectile_chr_texas2_s3_sword_rain, whose _effectsToTargetWhenStart
     // is texas2_skill_03_hit_02 (the sword dropping from 5.5 tiles up + its landing) — modes.json skills[2].target
     if (e[1] === 'swordRain' && o.src != null) {
@@ -1053,7 +1053,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (const n of names) spawn(b.bundle, n, views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false });
       return true;
     }
-    // local patch (user report 2026-10-07 #7: the old stand-ins go — standInOff): the kit events whose moment has an official
+    // local patch (maintainer report 2026-10-07: the old stand-ins go — standInOff): the kit events whose moment has an official
     // prefab draw it instead of nothing — 维什戴尔's 残影 bomb ('explode', by = her) wisdel_bomb_01_hit [추정: by name; no
     // prefab key found], 赤刃明霄陈 S2's strikes ('swordStorm', id = her) skchr_chen3_2 _hitGroups[0..5] in turn [추정: one
     // group a strike], 丰川祥子's fever ('sunBurst', id = her) her Combat mode's cast oblvns_combat_01_start [추정]
@@ -1083,13 +1083,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!lemuenOn(src) || skillIdx(src) !== 2) return false;
       ownFx.add(e);
       const tgt = views.get(o.id);
-      // local patch (user report 2026-10-07, video: each locked enemy keeps a red beam and a shrinking reticle until its shell
+      // local patch (maintainer report 2026-10-07, video: each locked enemy keeps a red beam and a shrinking reticle until its shell
       // lands): the aim projectile's _effectsToTargetWhenStart trail_01 (LineRenderer beams) and its _mainEffect
       // crosshair_range, on the target with the lock mark [ASSUMED: all three stay until that target's shell]
       const mark = [];
       const list = lemMarks.get(o.src) || []; list.push(mark); lemMarks.set(o.src, list);
       // the lock's flash: buff lemuen_proj_s3_effect CreateEffect crosshair_01 on the target — that buff lives with the aim
-      // projectiles (FinishManagedProjectiles at lemuen_s3_end), so it ends with the mark too (user 2026-10-07: it outlived
+      // projectiles (FinishManagedProjectiles at lemuen_s3_end), so it ends with the mark too (maintainer 2026-10-07: it outlived
       // the bombing by up to 1 s as a 2.65 s one-shot)
       for (const n of ['lemuen_skill_03_crosshair_01', 'lemuen_skill_03_trail_01', 'lemuen_skill_03_crosshair_range', 'lemuen_skill_03_crosshair_02']) {
         spawn(bundleOf(src).bundle, n, tgt || { x, y, z: 0 }, { owner: o.id, buff: true, on: o.id, until: clockS + 30, skyward: n.endsWith('trail_01') }).then((l) => {
@@ -1139,20 +1139,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const bound = (v, n, role) => boundEffects(bindOf(v), bundleOf(v)?.prefabs, n, role);
   const skillMode = (v) => attackMode(bindOf(v), true, skillIdx(v)) ?? -1;
   /**
-   * local patch (user report 2026-10-07: 缄默德克萨斯 S2 / S3 drew her normal attacks): a deploy-time passive with a duration
+   * local patch (maintainer report 2026-10-07: 缄默德克萨斯 S2 / S3 drew her normal attacks): a deploy-time passive with a duration
    * runs with no 'skill' event (server/sim/skills.js) — its view's UF.SKILL flag is the only sign. Its start / loops / mode
    * follow that flag (checked on its attacks); a skill the events started is left to them.
    */
   function skillByFlag(v, views) {
     const on = !!((v.flags | 0) & UF.SKILL);
     // a skill the events drive is theirs; and right after an 'off' event the snapshot's flag may still be set for a frame
-    // (user 2026-10-07: 缄默德克萨斯 S2's loops came back after the skill and stayed)
+    // (maintainer 2026-10-07: 缄默德克萨斯 S2's loops came back after the skill and stayed)
     if (v._fxSkillByEvent || clockS - (v._fxSkillOffT ?? -9) < 0.5) return;
     if (on && !v._fxSkillOn) { v._fxSkillFlag = true; api.onEvent(['skill', v.id ?? v.info?.id, 1, 'flag'], views); }
     else if (!on && v._fxSkillOn && v._fxSkillFlag) { v._fxSkillFlag = false; api.onEvent(['skill', v.id ?? v.info?.id, 0], views); }
   }
   const modeNow = (v) => attackMode(bindOf(v), !!v._fxSkillOn, skillIdx(v));
-  // local patch (user report 2026-10-07, 11 items): the skill's own effects (modes.json `skills[i]`, char_modes.py from
+  // local patch (maintainer report 2026-10-07, 11 items): the skill's own effects (modes.json `skills[i]`, char_modes.py from
   // [uc]skills.ab: cast / castLoop / buff on the caster, target / targetBuff on its targets, end = a finishing ability's)
   const skillBind = (v) => bindOf(v)?.skills?.[skillIdx(v)] || null;
   const extracted = (v, list) => (Array.isArray(list) ? list.filter((n) => bundleOf(v)?.prefabs.includes(n)) : []);
@@ -1160,7 +1160,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /** The unit's facing for a turned effect: its deploy direction, left / right as it is drawn now. */
   const facingDir = (v) => (v.dir === 'UP' || v.dir === 'DOWN' ? v.dir : (v.visFacing ?? v.facing ?? 1) < 0 ? 'LEFT' : 'RIGHT');
   /**
-   * local patch (user report 5 #5-2 — 아르케토 S3's `start_02` / `start_02_B` both played; user's decision 2026-10-08 「13명
+   * local patch (maintainer report — 아르케토 S3's `start_02` / `start_02_B` both played; maintainer's decision 2026-10-08 「13명
    * 전체」): an emitter entry's `_effects` is a slot list 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT and its `_directionType` picks the slot
    * for the owner's facing (char_modes.py `dirs` [{ t, s }]) — client `TryGetEffect` (decompile check 2026-10-10): 0 NONE slot
    * 0; 1 L_OR_R left or right (up / down by the side it is drawn facing); 2 U_OR_D slot 0 facing back (up), any other facing
@@ -1360,16 +1360,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     /** The projectile kind render/fx.js should draw for an 'atk' event (her note replaces the arrow: 'oblvnsNote'). */
     arrowKind(e) { return noteAtks.has(e) ? 'oblvnsNote' : trailAtks.has(e) ? 'officialTrail' : e[3]; }, // local patch: trails
     /**
-     * local patch (user 2026-10-07: effects covered the operator): whether a unit's skill activation is shown by its
+     * local patch (maintainer 2026-10-07: effects covered the operator): whether a unit's skill activation is shown by its
      * official effects here — render/fx.js then skips its procedural burst (gold pillar, flash, rings over the unit) and
      * keeps only its ground aura.
      */
     ownsSkill(v) {
-      // local patch (user report 2026-10-07 #7: "전용 이펙트가 추가된 오퍼레이터들의 스킬 효과 등에는 옛날 공용 이펙트 효과도 제거" —
+      // local patch (maintainer report 2026-10-07: "전용 이펙트가 추가된 오퍼레이터들의 스킬 효과 등에는 옛날 공용 이펙트 효과도 제거" —
       // 望 S1's gold pillar + hex): every operator with official effects, also a skill with no start / buff effect of its
       // own (望 S1 skchr_wang_1: no effect key in skills.ab) — its activation shows what the client shows, its own prefabs or none.
       // It used to keep the procedural burst for those (many S1s), so the activation was not silent on screen.
-      // A 望 stone too (report 3 B ① / report 5 #4): its token passive's 'skill' on comes BEFORE the 'deploy' of a used stone
+      // A 望 stone too (maintainer reports 2026-10-08): its token passive's 'skill' on comes BEFORE the 'deploy' of a used stone
       // coming back (same id, 2 s after its 'die' during S3) — while the dying view still fades (≤ 2.15 s), so the gold
       // pillar + hex was drawn on it. The client shows the stone's own birth / activation prefabs (stoneFx), no burst.
       if (isStone(v)) return stonesOn();
@@ -1387,7 +1387,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     /**
      * local patch (⑤): end the status effect `key` on `view`; `now`: its particles go at once (render/fxstatus.js) instead
      * of living out their lifetimes.
-     * local patch (user report 4 #4-1, 2026-10-08: the stun marks stacked over a re-stunned enemy): an ended effect never
+     * local patch (maintainer report 2026-10-08: the stun marks stacked over a re-stunned enemy): an ended effect never
      * restarts (`again` was still set — the stopped one, done, saw the status on again and started a copy beside the new
      * one, one more per re-stun), and fxstatus.js ends a status `now`: buff_stun's mark is one 10 s particle, so a
      * stopped one hung over the head for up to 10 s beside the next stun's [추정: the client drops a buff's effect with it].
@@ -1454,7 +1454,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             if (loops.length) play(v, 'skillBuff', skillIdx(v), { buff: true, names: loops });
             expect(v, extracted(v, skillBind(v)?.target));   // local patch: its damage this tick (德克萨斯 S2)
           }
-          // local patch (user 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
+          // local patch (maintainer 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
           else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id, true); endWolves(v.id ?? v.info.id); }
           return;
@@ -1485,7 +1485,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         case 'dmg': {
           const tid = e[1];
-          if (stoneHit(tid, views)) return; // a 望 stone blast's hit effect (#2-7)
+          if (stoneHit(tid, views)) return; // a 望 stone blast's hit effect
           if (pendingHit(tid, views)) return; // local patch: a skill's damage without an attack
           const a = lastAtk.get(tid);
           if (!a || clockS - a.t > 2.5) return;
@@ -1577,10 +1577,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const l = live[i];
         if (l.view && l.view.alive !== false && !l.view.remove) {
           l.inst.object.position.set(l.view.x, l.view.y, l.view.z || 0);
-          const r = l.view.rot;   // local patch (report 5 #5-2): its mount point's turn (lifted)
+          const r = l.view.rot;   // local patch: its mount point's turn (lifted)
           if (r != null && l.inst.nodes?.[0]) l.inst.nodes[0].rotation.set(0, 0, r);
         }
-        // local patch (user 2026-10-07: 蕾缪安's beams must come straight down from the sky wherever the target stands): the
+        // local patch (maintainer 2026-10-07: 蕾缪安's beams must come straight down from the sky wherever the target stands): the
         // effect's +y turned to the camera's up — a line along it projects to a screen-vertical line at any place
         if (l.skyward) {
           SKY_Y ||= new mod.THREE.Vector3(0, 1, 0); skyUp ||= new mod.THREE.Vector3();
@@ -1590,7 +1590,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // local patch (2026-10-10): a back copy ends with its front
         if ((!l.view?.paused && !l.hidden) || l.inst.stopping) l.inst.update(dt * rate2);   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
-        // (#2-1) a kept effect (playAt `keep`: 望's stone activation) stays until its owner's 'die' stops it
+        // a kept effect (playAt `keep`: 望's stone activation) stays until its owner's 'die' stops it
         if (l.inst.done && !(l.keep && !l.inst.stopping)) { dropLive(l); live.splice(i, 1); }
       }
       showLayers();
@@ -1613,7 +1613,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (const l of live) dropLive(l);
       live.length = 0;
       lastAtk.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
-      for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch (#4-6): back in hand for the next battle
+      for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); // local patch (2026-10-10)
       if (mod) showLayers();

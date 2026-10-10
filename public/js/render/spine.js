@@ -438,7 +438,7 @@ export class SpineActor {
   }
 
   /**
-   * local patch (user report 2026-10-07, video: 锏 S3's finisher is her Skill_3_End): a skill's End clip plays out — the
+   * local patch (maintainer report 2026-10-07, video: 锏 S3's finisher is her Skill_3_End): a skill's End clip plays out — the
    * next normal attack does not cut it (it cut it at once: she struck with the plain Attack)
    */
   _endPlaying() { return this.mode === 'skillEnd' && this.clock < this.skillEndUntil; }

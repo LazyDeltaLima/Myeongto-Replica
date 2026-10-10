@@ -10,7 +10,7 @@ export const KIT_HIT_BANKS = Object.freeze({
   'wang:2': 'battle.ON_ABILITY_HIT.sktok_wang_2.extra.0',
   'wang:3': 'battle.ON_ABILITY_HIT.sktok_wang_3',
   'wang:link': 'battle.ON_CUSTOM_TRIGGER.wang_stone1_line_up',
-  // local patch (user report 2026-10-07 #5): the pop itself (public/js/audio.js kitStartKey) — a placed stone's token
+  // local patch (maintainer report 2026-10-07): the pop itself (public/js/audio.js kitStartKey) — a placed stone's token
   // ability start; a 跟子's (projectile) S2 behaviour trigger; a 跟子 landing (its projectile birth, #1). 'wang:1' (the
   // impact) now sounds on every tick of S1's DoT (wang_stone1_t[damage_audio], triggerInterval 1 — kits/diy.js)
   'wang:1s': 'battle.ON_ABILITY_START.sktok_wang_1',
@@ -37,12 +37,12 @@ export const KIT_HIT_BANKS = Object.freeze({
   'whitw2:s1': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel_s1_1',
   'whitw2:s2': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel_s2',
   'whitw2:s3': 'battle.ON_PROJECTILE_HIT.projectile_chr_whitw2_funnel_s3',
-  // 蕾缪安 S3 (user report 2026-10-07 #10): the lock mark (its buff's show effect), the bombardment's start (S3_End mode
+  // 蕾缪安 S3 (maintainer report 2026-10-07): the lock mark (its buff's show effect), the bombardment's start (S3_End mode
   // ability, once: the first shell), each shell landing (projectile_chr_lemuen_s3_attack reached)
   'lemuen:mark': 'battle.ON_BUFF_SHOW_EFFECT.char_lemuen_range_aim',
   'lemuen:s3end': 'battle.ON_ABILITY_START.char_4193_lemuen.attack.4',
   'lemuen:shell': 'battle.ON_PROJECTILE_REACH.projectile_chr_lemuen_s3_attack',
-  // 归溟幽灵鲨 (user report 4 #4-2, 2026-10-08 「S2 종료 후 대역 전환」): the switch to her <替身> (sim fx 'substitute',
+  // 归溟幽灵鲨 (maintainer report 2026-10-08 「S2 종료 후 대역 전환」): the switch to her <替身> (sim fx 'substitute',
   // professions.js installDollkeeper) — its buff start p_skill_sharpstandborn and the stand-in's show effect
   // p_skill_sharpstandspell (11.6 s, cut 0.8 s by ghost2_stand_effect_end: public/js/audio.js on her switch back / death);
   // back to the 本体 (fx 'swap') ghost2_switch2normal p_skill_sharpborn
@@ -78,7 +78,7 @@ export function kitHitGroups(audio) {
 /**
  * sfx.kitLimit: key → { max, pop: true } for the keys whose bank cuts its oldest copy when full (`popOldest`, at most
  * `maxSoundAllowed` at once) — public/js/audio.js plays those so every hit sounds (蕾缪安 S3: five shells 0.3 s apart on a
- * 1.6 s file, user report 2026-10-07 #10) instead of dropping the newest at the unit sounds' 2.
+ * 1.6 s file, maintainer report 2026-10-07) instead of dropping the newest at the unit sounds' 2.
  * @param {{ bank: (name: string) => string[], limitOf?: (p: string[]) => ({ max: number, pop: boolean }|null) }} audio
  */
 export function kitHitLimits(audio) {

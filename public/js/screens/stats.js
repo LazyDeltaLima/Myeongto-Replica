@@ -158,7 +158,7 @@ function Overview({ agg, gd }) {
   <//>`;
 }
 
-/** 策略: per-band used / passed / pass rate, most used first (the user's headline ask). */
+/** 策略: per-band used / passed / pass rate, most used first (the maintainer's headline ask). */
 function Bands({ agg, gd }) {
   const rows = Object.entries(agg.bands).sort((a, b) => (b[1].games - a[1].games) || (b[1].wins - a[1].wins));
   return html`<${Section} title=${t('策略')} micro="STRATEGIES">

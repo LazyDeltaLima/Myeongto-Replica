@@ -23,7 +23,7 @@ export class BattleDeploy {
     }
     const k = R0 * COLS + C0;
     // a flying ally (炎佑: motion FLY, set by its kit install) holds no field tile — it neither needs a free one nor keeps
-    // the one it appears over from deploys / summons / redeploys (user playtest 2026-10-08)
+    // the one it appears over from deploys / summons / redeploys (maintainer playtest 2026-10-08)
     const fly = u.motion === 'FLY';
     const occ = this._occ[k];
     if (!fly && occ && occ !== u && occ.alive && occ.deployed) { this.log(`tile ${R0},${C0} occupied; ${u} not deployed`); return false; }

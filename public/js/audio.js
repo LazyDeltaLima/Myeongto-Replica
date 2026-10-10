@@ -99,12 +99,12 @@ export function kitHitKey(fx, ex, unitOf) {
   const def = (id) => unitOf(id)?.def || '';
   switch (fx) {
     case 'kitHit': return typeof ex.k === 'string' ? ex.k : null;
-    // local patch (user report 2026-10-07 #5): S1's impact is its DoT's (kitHit wang:1, every tick — client
+    // local patch (maintainer report 2026-10-07): S1's impact is its DoT's (kitHit wang:1, every tick — client
     // wang_stone1_t[damage_audio]); the pop itself sounds through kitStartKey
     case 'zone': return ex.token === 'token_10064_wang_stone1' && [2, 3].includes(ex.skill) ? `wang:${ex.skill}` : null;
     case 'wangLink': return ex.first ? 'wang:link' : null;
     case 'swordStorm': return ex.id != null && def(ex.id) === 'char_1050_chen3' ? 'chen3:s2' : null;
-    // local patch (user report 2026-10-07 #10): 蕾缪安 S3 — the bombardment's start (first shell), each landing, the lock
+    // local patch (maintainer report 2026-10-07): 蕾缪安 S3 — the bombardment's start (first shell), each landing, the lock
     // mark (S2's aim lock sends the same fx: only while her S3 is equipped)
     case 'bombardShell': return def(ex.id) === 'char_1035_wisdel' ? 'wisdel:s2' : def(ex.id) === 'char_4193_lemuen' && ex.i === 0 ? 'lemuen:s3end' : null;
     case 'bombard': return def(ex.id) === 'char_4193_lemuen' ? 'lemuen:shell' : null;
@@ -120,7 +120,7 @@ export function kitHitKey(fx, ex, unitOf) {
   }
 }
 /**
- * local patch (user report 2026-10-07 #5): the sound a kit plays as its skill goes off, before / beside its impact
+ * local patch (maintainer report 2026-10-07): the sound a kit plays as its skill goes off, before / beside its impact
  * (kitHitKey) — 望's stone pop: a placed stone's sktok_wang_<n> ON_ABILITY_START (p_atk_stwctp_d / _h / _s); a 跟子 (a
  * projectile of hers) sounds the same file through its projectile_chr_wang_stone<n> bank, but for S2
  * (ON_PROJECTILE_BEHAVIOUR_TRIGGER, p_atk_stwctps_h). A 跟子 landing (summon fx `follower`): ON_PROJECTILE_BORN.
@@ -574,7 +574,7 @@ export class AudioManager {
       this.bgmGain = this.ctx.createGain();
       this.sfxGain = this.ctx.createGain();
       this.voiceGain = this.ctx.createGain();
-      // local patch (report 4 #4-2 leftover): the channels meet on `bus` (BattleGameSound) so a mixer snapshot can filter
+      // local patch (report follow-up): the channels meet on `bus` (BattleGameSound) so a mixer snapshot can filter
       // them (audioSnapshot.js); `sfxOutside` carries the sfx outside that bus straight to the master
       this.bus = this.ctx.createGain();
       this.sfxOutside = this.ctx.createGain();
@@ -901,7 +901,7 @@ export class AudioManager {
       if (kind === 'on') { const mo = modeOn(u, mode); if (mo !== undefined) return this._unitOn(defId, u, mo, mode); }
       // local patch: an attack / impact made while skill `mode` (its index) runs sounds that skill's mode (audioOfficial.js)
       const m = kind === 'attack' || kind === 'hit' ? modeEntry(u, mode, kind) : null;
-      // local patch (user report 4 #4-4): a mode whose ability has no impact bank sounds none (缄默德克萨斯 S2, modes[i].noHit)
+      // local patch (maintainer report): a mode whose ability has no impact bank sounds none (缄默德克萨斯 S2, modes[i].noHit)
       if (kind === 'hit' && !m && Number.isInteger(mode) && u?.modes?.[mode]?.noHit) return true;
       // DESIGN §16: the equipped skill's own ON_SKILL_START sound (`skills[index]`) when the manifest has it
       const own = kind === 'skill' && Number.isInteger(skillIndex) && u?.skills ? u.skills[skillIndex] : null;
@@ -1069,7 +1069,7 @@ export class AudioManager {
   }
 
   /**
-   * local patch (user report 2026-10-07 #1 / #2): the deploy sound of an allied unit — its own ON_UNIT_BORN sound
+   * local patch (maintainer report 2026-10-07): the deploy sound of an allied unit — its own ON_UNIT_BORN sound
    * (望 b_char_stwctpbn, 余 p_skill_frbytrtn_bn …), else b_char_set / b_char_tokenset (deploySfxUrl) — through the
    * official mix. A battle 'deploy' and a prep drop-in (screens/game.js 'pieceDeploy') both come here.
    * @param {{ def?: string, defId?: string|null, kind?: string|null, side?: string }} u tracked unit (`def` = model id)
@@ -1089,7 +1089,7 @@ export class AudioManager {
   }
 
   /**
-   * local patch (user report 2026-10-07 #1): an own prep piece dropped in (bought, a reward, moved onto the board or
+   * local patch (maintainer report 2026-10-07): an own prep piece dropped in (bought, a reward, moved onto the board or
    * back to the bench — render/app.js prepDeployed): its deploy sound. `unit` is the view's piece info.
    * @param {{ kind?: string, defId?: string, spine?: string|null }} unit
    * @param {number|string} uid
@@ -1107,14 +1107,14 @@ export class AudioManager {
     } catch (err) { this._warn('prep-deploy', err); }
   }
 
-  /** local patch (user report 4 #4-4): replay the 'skill' events held for unit `id` until its spawn / deploy. */
+  /** local patch (maintainer report): replay the 'skill' events held for unit `id` until its spawn / deploy. */
   _flushSkillEarly(id) {
     const held = this._skillEarly?.get(id);
     this._skillEarly?.delete(id);
     if (held?.length) this.handleBattleEvents(held);
   }
 
-  /** local patch (user report 4 #4-2): play a dollkeeper switch's sounds (audioOfficial.js dollSwitchSfx) as sfx.kit keys. */
+  /** local patch (maintainer report): play a dollkeeper switch's sounds (audioOfficial.js dollSwitchSfx) as sfx.kit keys. */
   _dollSwitch(id, ds) {
     const sfx = this.getManifest()?.audio?.sfx;
     const gain = (k) => groupGain(sfx?.kitGrp?.[k] ?? 'Battle_Skill_Important');
@@ -1136,7 +1136,7 @@ export class AudioManager {
         const kind = e[0];
         if (kind === 'spawn') {
           this._track(e[1]);
-          // local patch (user report 4 #4-4): a skill that starts on deployment (缄默德克萨斯 S1–S3, Skill.reset activateOnDeploy)
+          // local patch (maintainer report): a skill that starts on deployment (缄默德克萨斯 S1–S3, Skill.reset activateOnDeploy)
           // sends its 'skill' before the unit's 'spawn' — held until then; with a 'deploy' in this batch, until that sounds
           const id = e[1]?.id;
           if (this._skillEarly?.has(id) && !ev.some((x) => Array.isArray(x) && x[0] === 'deploy' && x[1] === id)) this._flushSkillEarly(id);
@@ -1155,7 +1155,7 @@ export class AudioManager {
             const loop = skillLoopOf(ue, su.skillIndex); // its looping bank (music, field)
             if (loop && e[2]) startSkillLoop(this, e[1], loop.url, loopGain(loop));
             else if (!e[2]) stopSkillLoop(this, e[1]);
-            // local patch (user report 4 #4-2): its extra one-shots (耀骑士临光 S3, 塑心 S3's melody — held ones cut at its end)
+            // local patch (maintainer report): its extra one-shots (耀骑士临光 S3, 塑心 S3's melody — held ones cut at its end)
             if (e[2]) {
               skillExtrasOf(ue, su.skillIndex).forEach((x, k) => {
                 const gain = loopGain(x);
@@ -1263,7 +1263,7 @@ export class AudioManager {
           // 行动出发 / 部署: the first operator of the battle says the battle-start line, the others their deploy line
           // (a knocked-out operator redeploying in the same battle is one of the others; a summon says nothing).
           // Kept ahead of the deploy-SFX guards below: the voice channel is independent of the unit sound's roll.
-          // local patch (session K-5, user's decision 2026-10-08 「C」): a 复活 (M3茧甲 / 埃芒加德 reviveNow — a redeploy in the
+          // local patch (maintainer's decision 2026-10-08 「C」): a 复活 (M3茧甲 / 埃芒加德 reviveNow — a redeploy in the
           // knock-out's tick, its 'revive' fx in the same batch) keeps the drop and b_char_set but says no 部署 line
           const revived = ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'revive' && x[4]?.id === e[1]);
           if (unitSoundClass(u) === 'char' && !revived && this.voicePolicy) {
@@ -1285,19 +1285,19 @@ export class AudioManager {
             } else this.voice(u.def, 'place', { unitKey: e[1] });
           }
           if (!url) continue;
-          // local patch (user report 2026-10-07 #1): a piece dropped in by the prep just before the battle began sounded there
+          // local patch (maintainer report 2026-10-07): a piece dropped in by the prep just before the battle began sounded there
           const prep = this._prepDeployAt?.get(u.def);
           if (prep != null && now - prep < PREP_DEPLOY_OVERLAP_MS) continue;
-          // local patch (user report 2026-10-07 #1): 望's 跟子 is a projectile of hers (PRTS) — it lands with
+          // local patch (maintainer report 2026-10-07): 望's 跟子 is a projectile of hers (PRTS) — it lands with
           // ON_PROJECTILE_BORN (kitStartKey 'wang:thrown', its summon fx `follower` in the same tick), not as a stone's birth
           if (e.lpFollower || ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
           this.playDeploySfx(u, e[1]);
         } else if (kind === 'fx') {
-          // local patch (user report 4 #4-2): a dollkeeper's form switch (归溟幽灵鲨: to the 替身 and back, audioOfficial.js)
+          // local patch (maintainer report): a dollkeeper's form switch (归溟幽灵鲨: to the 替身 and back, audioOfficial.js)
           const ds = e[4]?.id != null ? dollSwitchSfx(this.units.get(e[4].id)?.def, e[1]) : null;
           if (ds) this._dollSwitch(e[4].id, ds);
           // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
-          // local patch (user report 2026-10-07 #5): the skill's going-off sound first (kitStartKey), then its impact
+          // local patch (maintainer report 2026-10-07): the skill's going-off sound first (kitStartKey), then its impact
           for (const hk of [kitStartKey(e[1], e[4]), kitHitKey(e[1], e[4], (id) => this.units.get(id))]) {
             const hurl = hk ? this.getManifest()?.audio?.sfx?.kit?.[hk] : null;
             if (typeof hurl === 'string') this._play(hurl, { volume: groupGain(this.getManifest()?.audio?.sfx?.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, bank: `kit:${hk}`,

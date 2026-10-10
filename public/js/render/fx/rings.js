@@ -61,7 +61,7 @@ export class FxRings {
     if (!view) return;
     if (!on) { this._aura(view, false); return; }
     // local patch: its official start effects instead (render/fxgame.js ownsSkill) — and no turning gold hex under it either
-    // (user 2026-10-07: 「정체불명의 돌아가는 육각형」 is not in the client)
+    // (maintainer 2026-10-07: 「정체불명의 돌아가는 육각형」 is not in the client)
     if (opts && opts.burst === false) return;
     const z = (view.z || 0) + (view.hover || 0);
     const g = this._proj(view.x, view.y, z, this._g);

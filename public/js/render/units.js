@@ -139,7 +139,7 @@ export function syncView(v, s, t) {
 export const DIR_STEP = Object.freeze({ UP: [0, 1], RIGHT: [1, 0], DOWN: [0, -1], LEFT: [-1, 0] });
 const nowMs = () => (globalThis.performance ? globalThis.performance.now() : Date.now());
 /**
- * local patch (official deploy, research/2026-10-07-deploy-drop): an allied unit with a Spine model
+ * local patch (official deploy, maintainer's notes 2026-10-07): an allied unit with a Spine model
  * drops in by its own Start clip (103 of 143 operator skeletons fall from 0.6–7 body heights, landing at ~0.2 s) — no
  * alpha fade-in, no mint pillar (fx.deploy skips a `bornOfficial` view), the ring and shadow before the body (BORN_LEAD_S),
  * and the body starts dark for BORN_TINT_S (the capture's first frame, client `_disableBornTweenColor`;
@@ -157,7 +157,7 @@ const BORN_TINT_K = 0.4;
 const BORN_LEAD_S = 0.1;
 const BORN_WAIT_MAX_S = 1;
 /**
- * LOCAL-PATCH.md 「배치 낙하」 (user re-report 2026-10-08 2-4 「작전 시작 낙하가 공식보다 빠름」, owner decision 2026-10-08: render only): the
+ * LOCAL-PATCH.md 「배치 낙하」 (maintainer re-report 2026-10-08 2-4 「작전 시작 낙하가 공식보다 빠름」, owner decision 2026-10-08: render only): the
  * official round start deploys its operators one by one — in 卫戍协议 「왕 S3.mp4」 (30 fps, real time: the battle countdown
  * steps every 30 frames) the rings come at frames 204 · 207 · 211 · 215 · 219 · 222 · … · 230, ~0.12 s apart, nine operators
  * over ~0.9 s, each falling ~0.2 s; ours all dropped at once. The view of the n-th allied deploy of a battle's opening
@@ -770,7 +770,7 @@ export class UnitView {
     this.lpBars = !this.isEnemy ? new AllyBars(P, h) : new EnemyBars(P, h, giant ? 'giant' : this.isBoss ? 'boss' : 'normal', giant);
     this.ammo = null;
     this.chip = null;
-    // operators only: summon tokens have no tier (hand and field alike) — local patch (user request 2026-10-08): a prep
+    // operators only: summon tokens have no tier (hand and field alike) — local patch (maintainer request 2026-10-08): a prep
     // summon wears its owner's chip (app.js pieceInfo `chip`; official: same level chip as the operator)
     if (!this.isEnemy && (!this.isToken || this.info.chip) && this.info.kind !== 'device') {
       this.chip = new P.Sprite(tierChip(this.tier, this.golden));
@@ -1238,7 +1238,7 @@ export class UnitView {
       if (this.dying <= 0) { this.dying = 0; this.remove = true; alpha = 0; }
     }
     // local patch (⑤): a 隐匿 drawn by its official effect takes the prefab's ColorModifier — grey (.5) at α .894
-    // (common_invisible; allies too since user report 2026-10-07 #3 — fxstatus.js) — instead of the 45 % ghost (迷彩, and
+    // (common_invisible; allies too since maintainer report 2026-10-07 — fxstatus.js) — instead of the 45 % ghost (迷彩, and
     // without the effect keep it)
     const lpInvis = !!(this._fxStatusOn?.has('stealth') || this._fxStatusOn?.has('stealthAlly'));
     if (this.flags & UF.STEALTH) alpha *= lpInvis ? 0.894 : 0.45;
@@ -1273,7 +1273,7 @@ export class UnitView {
     // model / fallback
     const spineShown = this.actor && this.spineReady;
     if (spineShown) {
-      syncHeldWeapon(this.actor, this); // local patch (user report 4 #4-6): the held boomerang, off while one flies
+      syncHeldWeapon(this.actor, this); // local patch (maintainer report): the held boomerang, off while one flies
       if (this.swapT < 1) this.swapT = Math.min(1, this.swapT + dt * 5);
       this.fallback.alpha = 1 - this.swapT;
       this.fallback.visible = this.swapT < 1;
@@ -1287,7 +1287,7 @@ export class UnitView {
       if (flashK > 0) tint = mixTint(tint, 0xff8a80, flashK * 0.8);
       if (this._bornT > 0) tint = mixTint(tint, 0x000000, BORN_TINT_K * (this._bornT / BORN_TINT_S)); // local patch
       let animDt = dt * (this.ctx.animRate?.() || 1);
-      // local patch (user 2026-10-08 「작전 시작할때 배치 효과음은 나오는데 배치 연출이 안나오고 있어」, not reproduced here [추정]):
+      // local patch (maintainer 2026-10-08 「작전 시작할때 배치 효과음은 나오는데 배치 연출이 안나오고 있어」, not reproduced here [추정]):
       // the drop-in (Start, landing at ~0.2 s) is never swallowed — no off-screen catch-up while it plays, and a long
       // frame (the battle switch building the field) advances it by at most DEPLOY_MAX_STEP_S
       const falling = this.actor.mode === 'deploy';
@@ -1765,7 +1765,7 @@ export class UnitView {
     else if (f & UF.STUNNED && !fx?.has('stun')) push('stun');
     if (f & UF.SLEEP && !fx?.has('sleep')) push('sleep');
     if (f & UF.COLD && !(f & UF.FROZEN) && !fx?.has('cold')) push('cold');
-    // local patch (user report 2026-10-07 #7, official capture: 望's stones carry no badge; then "소환물 위에 붙어 있는 노란 방패
+    // local patch (maintainer report 2026-10-07, official capture: 望's stones carry no badge; then "소환물 위에 붙어 있는 노란 방패
     // 모양 아이콘을 제거해줘"): no shield icon over a summon — a trap's standing invulnerability (shared/trap-tokens.js) is no
     // status, and the view cannot tell a skill's short one from it (only the UF.INVULN flag) [추정: summons show none]
     if (f & UF.INVULN && !this.isToken && !noHpBar(this.info?.defId)) push('invuln');

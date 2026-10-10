@@ -145,7 +145,7 @@ function ChatLog({ lines, myId }) {
   const newest = lines.length ? lines[lines.length - 1] : null;
   useEffect(() => {
     const el = ref.current;
-    // the player's own line always brings the log down (user report 2026-10-06: after scrolling up a little a sent
+    // the player's own line always brings the log down (maintainer report 2026-10-06: after scrolling up a little a sent
     // line stayed out of view); again a frame later for a line whose wrap / font settles after this paint
     if (!el || !(stick.current || (newest && newest.playerId === myId))) return undefined;
     stick.current = true;

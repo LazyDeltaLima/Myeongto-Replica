@@ -232,7 +232,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         const next = gd.upgradeBase(ps.shop.level) ?? 0;
         if (ps.shop.upgradePrice !== next) fail(`${ps.playerId}: upgrade price after level-up ${ps.shop.upgradePrice}, expected ${next}`);
         // the new level's extra slots open EMPTY on the left; the cards shown before keep their places (shifted right by
-        // the new slots) until the next roll (LOCAL-PATCH.md 「상점 칸 배치」, user 2026-10-09)
+        // the new slots) until the next roll (LOCAL-PATCH.md 「상점 칸 배치」, maintainer 2026-10-09)
         const { chess, item } = gd.shopSlots(ps.shop.level);
         const had = (k) => kinds0.filter((x) => x === k).length;
         const want = Math.max(chess, had('chess')) + Math.max(item, had('item'));

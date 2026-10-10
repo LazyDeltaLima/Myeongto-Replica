@@ -46,7 +46,7 @@ test('battle (not prep) or a removed view: the glow ends; nothing before the pre
 
 // the glow's place (official recording 2026-10-08): fxplayer FxInstance drops the root node's own position (opts.atSpawn)
 // and hands each quad renderer its m_Pivot (uPivot, opts.pivot) — the elite glow's bao band pivot x .95 runs behind the unit;
-// both on for every effect by the user's decision 2026-10-08, false opts out
+// both on for every effect by the maintainer's decision 2026-10-08, false opts out
 test('fxplayer: by default the root position is dropped and the quad renderers get their uPivot; false keeps the old way', async () => {
   const fxp = await import('../public/js/render/fxplayer.js');
   const mat = { shader: 'Torappu/Particles/Additive', tex: {}, floats: {}, colors: {} };
@@ -74,7 +74,7 @@ test('fxplayer: by default the root position is dropped and the quad renderers g
   flat.dispose();
 });
 
-test('fxgame: no effect opts out of the pivot / root drop / order-0 ahead split (user decisions 2026-10-08: every effect)', async () => {
+test('fxgame: no effect opts out of the pivot / root drop / order-0 ahead split (maintainer decisions 2026-10-08: every effect)', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../public/js/render/fxgame.js', import.meta.url), 'utf8');
   const calls = src.split('\n').filter((l) => /new mod\.fxp\.FxInstance\(/.test(l));
@@ -82,7 +82,7 @@ test('fxgame: no effect opts out of the pivot / root drop / order-0 ahead split 
   for (const l of calls) assert.doesNotMatch(l, /\b(atSpawn|pivot|ahead):/, l.trim());
 });
 
-// user report 2026-10-08 (「금빛 띠가 오퍼레이터 뒤에 있어. 실제 인게임에선 위에 있었어」, the recording: the band washes over the boots):
+// maintainer report 2026-10-08 (「금빛 띠가 오퍼레이터 뒤에 있어. 실제 인게임에선 위에 있었어」, the recording: the band washes over the boots):
 // with opts.ahead an order-0 system whose node lies in front of the unit is split to the front, one behind stays back
 test('fxplayer: by default (ahead) a split order-0 system in front of the unit goes to FX_FRONT; behind it, or ahead false, FX_BACK', async () => {
   const fxp = await import('../public/js/render/fxplayer.js');
@@ -98,7 +98,7 @@ test('fxplayer: by default (ahead) a split order-0 system in front of the unit g
   const layers = (opts) => { const i = new fxp.FxInstance(def, { quality: 'high', split: true, ...opts }); const m = i.systems.map((s) => s.mesh.layers.mask); i.dispose(); return m; };
   const F = 1 << fxp.FX_FRONT, B = 1 << fxp.FX_BACK;
   assert.deepEqual(layers({ ahead: true }), [F, B, B], 'the band in front of the feet over the model; the one behind and order -1 stay back');
-  assert.deepEqual(layers({}), [F, B, B], 'the default (every split effect, user decision 2026-10-08)');
+  assert.deepEqual(layers({}), [F, B, B], 'the default (every split effect, maintainer decision 2026-10-08)');
   assert.deepEqual(layers({ ahead: false }), [B, B, B], 'ahead false: order 0 behind as before');
   assert.deepEqual(layers({ ahead: true, facing: -1 }), [F, B, B], 'mirrored the same');
 });

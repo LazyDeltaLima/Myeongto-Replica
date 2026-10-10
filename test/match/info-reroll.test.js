@@ -1,4 +1,4 @@
-// The briefing's 重新抽取 vote (feat, user decision 2026-10-09; server/match/match/phases.js maybeEndInfo): every human
+// The briefing's 重新抽取 vote (feat, maintainer decision 2026-10-09; server/match/match/phases.js maybeEndInfo): every human
 // seat votes 准备就绪 or 重新抽取, one or the other; more ready votes start the strategy draft, more reroll votes end
 // the match with reason 'reroll' (the lobby starts a new one), a tie ends it with 'split' (back to the room). AI seats
 // and departed seats do not vote; the co-op 25 s guard counts a seat that has not voted as ready. No m.result either way.
@@ -62,7 +62,7 @@ test('co-op: more ready votes start the draft, more reroll votes reroll, a tie g
   assert.equal(h.m.publicView().players[0].reroll, undefined, 'the vote is not shown past the briefing');
   h.m.dispose();
 
-  // 2 reroll vs 1 ready → reroll (user 2026-10-09: the majority, not only a unanimous vote)
+  // 2 reroll vs 1 ready → reroll (maintainer 2026-10-09: the majority, not only a unanimous vote)
   h = makeMatch({ mode: 'coop', humans: 3, seed: 5 }).start();
   arm(h);
   h.m.handle('p_0', { t: 'g.infoReroll' });

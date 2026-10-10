@@ -259,7 +259,7 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       vec4 cv = modelViewMatrix * vec4(iPos, 1.0);
       vec3 vv = (modelViewMatrix * vec4(iVel, 0.0)).xyz;
       vec2 d = length(vv.xy) > 1e-5 ? normalize(vv.xy) : vec2(1.0, 0.0);
-      // local patch (user video 2026-10-07, 锏 S3: long thin slash lines): the length is the size's y × lengthScale, the
+      // local patch (maintainer video 2026-10-07, 锏 S3: long thin slash lines): the length is the size's y × lengthScale, the
       // width its x (3D start size 0.15 × 3.6 drew short fat petals the other way round); equal for a uniform size
       float len = iSize.y * uLengthScale + length(iVel) * uVelScale;
       vec2 off = d * (position.x * len) + vec2(-d.y, d.x) * (position.y * iSize.x);
@@ -307,7 +307,7 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     }
     vec4 tex = texture2D(uMain, uv);
     vec4 col = tex * uTint * vColor;
-    // local patch (user report 2026-10-07, 赤刃明霄陈 S3's range too bright): the Ram family multiplies by _RamTex sampled at
+    // local patch (maintainer report 2026-10-07, 赤刃明霄陈 S3's range too bright): the Ram family multiplies by _RamTex sampled at
     // the renderer's own uv through its tiling / offset — all of rgba (the client's DXBC: Ram/Disturb(CustomData),
     // Ram/Add, Ram/AlphaBlend) — not a ramp looked up by the dissolve edge as assumed before
     if (uHasRam) col *= texture2D(uRam, vUv * uRamST.xy + uRamST.zw);
@@ -369,7 +369,7 @@ function makeMaterial(m, lib) {
     vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, depthTest: false,
     side: THREE.DoubleSide, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
     blendSrc: BLEND[src], blendDst: BLEND[dst],
-    // local patch (user 2026-10-07: black squares on 비르투오사's hit, 望's link): the alpha channel of a see-through canvas
+    // local patch (maintainer 2026-10-07: black squares on 비르투오사's hit, 望's link): the alpha channel of a see-through canvas
     // (render/fxgame.js, premultiplied) — additive light never covers what is under it (a texture without alpha has a black
     // background: it added to the alpha before and composited as a black square), alpha blend is the premultiplied "over"
     blendSrcAlpha: additive ? THREE.ZeroFactor : THREE.OneFactor, blendDstAlpha: additive ? THREE.OneFactor : THREE.OneMinusSrcAlphaFactor,
@@ -406,7 +406,7 @@ function makeMaterial(m, lib) {
   // local patch: whether the material tests depth (`_ZTest` 4 LessEqual …; 0 Disabled / 8 Always do not) — the floor cut
   // applies only to those: the client's map hides what they draw under the ground by depth [ASSUMED: 0 = Disabled is used]
   mat.userData.ztest = !(f._ZTest === 0 || f._ZTest === 8);
-  // local patch (user report 2026-10-08): … and against the map's raised tiles / crates (render/fxgame.js occluders —
+  // local patch (maintainer report 2026-10-08): … and against the map's raised tiles / crates (render/fxgame.js occluders —
   // the only depth in an effect canvas: every effect renderer writes none, as before)
   mat.depthTest = mat.userData.ztest;
   return mat;
@@ -643,7 +643,7 @@ class TrailRenderer {
   dispose() { this.batch.dispose(); }
 }
 
-// local patch (user report 2026-10-07: 蕾缪안 S3's aiming beams were missing) ---------------- line renderer
+// local patch (maintainer report 2026-10-07: 蕾缪안 S3's aiming beams were missing) ---------------- line renderer
 /**
  * A Unity LineRenderer (fx_extract.py lineR): a view-facing strip through fixed points of its node (local space; a
  * world-space line's points come from a client script — drawn in the effect's space [ASSUMED]). Width = widthMultiplier
@@ -774,7 +774,7 @@ class ParticleSystem {
   get alive() { return this.n > 0 || (!this.stopped && (this.ps.loop || this.time < this.ps.dur)); }
 
   /**
-   * local patch (m_IsActive, user's decision 2026-10-08 「공식과 동일하게」): its GameObject switched off by a clip — Unity clears
+   * local patch (m_IsActive, maintainer's decision 2026-10-08 「공식과 동일하게」): its GameObject switched off by a clip — Unity clears
    * the system and stops it; switched on again it plays from its start (playOnAwake).
    */
   setActive(on) {
@@ -1056,7 +1056,7 @@ function shapeSample(sh, p, d) {
     default: break;
   }
   // the box family (5 Box, 15 BoxShell, 16 BoxEdge) and the rectangle took the scale as their size above — once (user
-  // decision 2026-10-08, re-report 3 #2-7: BoxShell / BoxEdge were scaled twice — 望 S3's lizi_l lines spread ±2 × ±4.5
+  // decision 2026-10-08, re-report: BoxShell / BoxEdge were scaled twice — 望 S3's lizi_l lines spread ±2 × ±4.5
   // tiles instead of ±1 × ±1.5; 58 systems of 36 prefabs)
   if (sh.type !== 5 && sh.type !== 15 && sh.type !== 16 && sh.type !== 18 && sh.scale) p.multiply(SCALE.set(sh.scale[0], sh.scale[1], sh.scale[2]));
   if (sh.rotE && (sh.rotE[0] || sh.rotE[1] || sh.rotE[2])) {
@@ -1127,9 +1127,9 @@ export class FxInstance {
    *   negative sorting fudge = in front of the units, whose Spine renderers are Default / order 0 and write no depth) —
    *   without it everything stays on layer 0; atSpawn (default on; false keeps it) = drop the root node's own position (the
    *   caller's placement replaces it); pivot (default on; false ignores it) = billboard / aligned / horizontal quads use their
-   *   renderer's pivot (uPivot) — on for every effect by the user's decision 2026-10-08 (docs/LOCAL-PATCH.md 「정예 기물 금빛」);
+   *   renderer's pivot (uPivot) — on for every effect by the maintainer's decision 2026-10-08 (docs/LOCAL-PATCH.md 「정예 기물 금빛」);
    *   ahead (default on, with split; false keeps order 0 behind) = an order-0 particle system whose node lies in front of the unit
-   *   goes to FX_FRONT — the elite glow first, every split effect by the user's decision 2026-10-08
+   *   goes to FX_FRONT — the elite glow first, every split effect by the maintainer's decision 2026-10-08
    */
   constructor(def, opts = {}) {
     this.def = def;
@@ -1150,7 +1150,7 @@ export class FxInstance {
     def.nodes.forEach((n, i) => {
       const o = new THREE.Group();
       o.name = n.name;
-      // local patch (opts.atSpawn, default on — every effect, user decision 2026-10-08): an effect the client instantiates at
+      // local patch (opts.atSpawn, default on — every effect, maintainer decision 2026-10-08): an effect the client instantiates at
       // a spawn point drops its root's own position (Unity Instantiate(prefab, position, …) overwrites it) — the elite glow's
       // root z −0.25 lifted the whole glow a quarter tile; 104 prefabs have one, mostly projectile trails, which flew 0.4–0.65
       // tile off their shot's line (空弦 archet, 丰川祥子 oblvns).
@@ -1192,7 +1192,7 @@ export class FxInstance {
         this.systems.push(new ParticleSystem(n.ps, this.nodes[i], unity, def, { q: this.q, cap: Math.ceil(this.q.budget / 8), pivot: opts.pivot !== false }));
       }
     });
-    // local patch (user report 4 #4-3, user's decision 2026-10-08): every clip of the prefab plays — a nested sub-prefab has
+    // local patch (maintainer report, maintainer's decision 2026-10-08): every clip of the prefab plays — a nested sub-prefab has
     // its own Animator (缄默德克萨斯 S2's texas2_birth_02_start: the root + 4 slashes; clips[0] alone left the slashes frozen
     // on their material defaults). The extract resolves each clip's nodes into the whole tree; together they all start at 0
     // (the sub-prefabs' _delayTime 0–0.3 s is not applied) and the effect's clip time is the longest
@@ -1217,14 +1217,14 @@ export class FxInstance {
       def.nodes.forEach((n, i) => {
         if (this.meshMats[i]) {
           const mesh = this.nodes[i].children.find((c) => c.isMesh && c.material === this.meshMats[i]);
-          // local patch (user report 2026-10-07, video: 蛇屠箱's S2 hex dome covers her): an order-0 mesh that stands up
+          // local patch (maintainer report 2026-10-07, video: 蛇屠箱's S2 hex dome covers her): an order-0 mesh that stands up
           // around the unit (a dome / shell, > WRAP_H tall) is in front — the client sorts order 0 by distance; a flat
           // ground decal stays behind
           if (mesh) put(mesh, (n.mesh.order || 0) > 0 || (!(n.mesh.order || 0) && wrapsUnit(mesh, this.object)));
         }
       });
-      // local patch (opts.ahead, user report 2026-10-08: the elite glow's gold band covers the legs in the game; every split
-      // effect by the user's decision 2026-10-08 — 19 caster / ground prefabs): an order-0 system whose node lies in front of
+      // local patch (opts.ahead, maintainer report 2026-10-08: the elite glow's gold band covers the legs in the game; every split
+      // effect by the maintainer's decision 2026-10-08 — 19 caster / ground prefabs): an order-0 system whose node lies in front of
       // the unit (nearer the camera) is drawn over it — the client sorts order 0 by distance [ASSUMED for all but the glow:
       // in front of / behind every unit at once, not sorted per unit]
       for (const s of this.systems) {
@@ -1237,10 +1237,10 @@ export class FxInstance {
       for (const t of this.lines) put(t.batch.mesh, (t.tr.order || 0) > 0); // local patch
     } else this.layerN[0] = 1;
     this.clipTracks = this.clips.flatMap((c) => c.tracks.map((tr) => this.bindTrack(tr, c.len || 0)).filter(Boolean));
-    // local patch (m_IsActive, user's decision 2026-10-08 「공식과 동일하게」 — report 4 #4-5: 缄默德克萨斯 S3's falling blades are
+    // local patch (m_IsActive, maintainer's decision 2026-10-08 「공식과 동일하게」 — report: 缄默德克萨斯 S3's falling blades are
     // switched off as they land): the particle systems / trails under a node a clip switches on and off follow it (meshes and
-    // lines follow by their node's visibility). And those under a node inactive from the start (user 2026-10-08 「일단 꺼봐」):
-    // in 164 of the 166 such prefabs nothing in the prefab switches the node on (research/2026-10-08-inactive-nodes, the
+    // lines follow by their node's visibility). And those under a node inactive from the start (maintainer 2026-10-08 「일단 꺼봐」):
+    // in 164 of the 166 such prefabs nothing in the prefab switches the node on (maintainer's notes 2026-10-08, the
     // workspace root) — 아르케토 S3's stray `smoke` lives on, switched on, in archet_skill_03_start_01
     const switched = new Set(this.clipTracks.filter((b) => b.kind === 'active').map((b) => b.o));
     const under = (o) => { for (let p = o; p && p !== unity; p = p.parent) if (switched.has(p) || !p.visible) return true; return false; };

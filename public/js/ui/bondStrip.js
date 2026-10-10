@@ -125,7 +125,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   const tier = off ? 0 : entry?.tier ?? bondTier(count, th, b.maxCount);
   const active = !off && (entry ? !!entry.active : tier > 0);
   // (自选 pieces are their operators: the own ones by m.private.diy, a watched teammate's by the pick its unit carries;
-  // their rows wear no 「自选」 badge — user decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」)
+  // their rows wear no 「自选」 badge — maintainer decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」)
   const dd = { chess: data.get('chess'), backups: data.get('backups') };
   const getChess = diyGetter((id) => data.lookup('chess', id), priv, dd);
   const pieceRecord = (p) => (p && p.diy && typeof p.diy === 'object' ? diyRecordFor(data.lookup('chess', p.id), p.diy, dd) : null) || getChess(p.id);

@@ -2,7 +2,7 @@
 // 临时整备区, board) of a chess they do not own (m.private.standIns): the model is the stand-in's everywhere
 // (render/app.js pieceInfo — the owner's recall of the official mode, 2026-10-06), the tag says it fields for another
 // chess (the detail card names it). A 自选 piece gets no tag: its model is the operator's everywhere and the official
-// game marks nothing under it (docs/LOCAL-PATCH.md 「0.2.0 병합」 — user report 2026-10-08, upstream
+// game marks nothing under it (docs/LOCAL-PATCH.md 「0.2.0 병합」 — maintainer report 2026-10-08, upstream
 // 0def7bab's 「自选」 tag removed). Anchored to each piece's drawn body (view.pieceScreenRect,
 // followed every frame like the direction wheel follows its tile); never takes the pointer, so the pieces stay
 // draggable.

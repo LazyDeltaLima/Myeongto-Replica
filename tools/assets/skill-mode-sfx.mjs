@@ -1,7 +1,7 @@
 // Skill-mode attack / impact sounds and mixer groups (local patch, docs/LOCAL-PATCH.md 「스킬 모드 효과음·믹서 볼륨」).
 //
 // The official client sounds an operator's attacks through its current attack mode (research 2026-10-07,
-// research/2026-10-07-official-compare/compare-audio.md §1–2):
+// maintainer's notes 2026-10-07 §1–2):
 //   * banks `battle.ON_ABILITY_START|ON|HIT.<charId>.attack.<n>[.<sub>]`, n = the mode's index in the character prefab's
 //     `_modes` list (tools/local-extract/char_modes.py → tools/assets/local-char-modes.json). A skill's mode is the one
 //     named `S<k>` (or `S<a>-<b>`, `Sk<k>`, `S<k>_…`) for skill k; a ranged mode's impact is its projectile's bank
@@ -147,7 +147,7 @@ export function skillModes(audio, charId, skills, info, soundLeaf, startIsFallba
     if (Object.keys(mix).length) e.mix = mix;
     if (Object.keys(grp).length) e.grp = grp;
     if (s.skillId && startIsFallback(s.skillId)) e.deferStart = true;
-    // local patch (user report 4 #4-4, 2026-10-08): a mode ability with its own attack bank and no impact bank (缄默德克萨斯 S2
+    // local patch (maintainer report 2026-10-08): a mode ability with its own attack bank and no impact bank (缄默德克萨斯 S2
     // attack.2: ON_ABILITY_ON only) — the Default ability's HIT bank does not fire while the mode runs: no impact sound
     if (n > 0 && found.attack && !found.hit) e.noHit = true;
     out[String(s.index)] = e;
@@ -161,7 +161,7 @@ const ATTACK_BANK = /^ON_ABILITY_(?:START|ON|HIT)\.(?:attack|combat)(?:\.(\d+))?
 const SKILL_MODE = /^Sk?\d/i;
 
 /**
- * Normal attacks sound from the Default mode only (user report 2026-10-07 #7: 银灰's S3 p_atk_silver_n on every attack):
+ * Normal attacks sound from the Default mode only (maintainer report 2026-10-07: 银灰's S3 p_atk_silver_n on every attack):
  * a unit bank table without the attack banks of its skill modes (`ON_ABILITY_*.attack|combat.<n>…`, modes[n] a skill's
  * mode). `.attack.0…` (Default with `_includeIndexZero`) and talent modes stay. Unchanged without mode info. A Default
  * mode with no attack bank and no projectile bank sounds nothing — 玛恩纳 / 蜜蜡 / 薄绿 / 卡涅利安 / sbell2 (2026-10-10:
@@ -196,7 +196,7 @@ export function unitGroups(audio, roles, skillPaths = {}) {
 }
 
 /** Events of a skill's looping bank (the loop runs while the skill does). */
-const LOOP_EVENTS = 'ON_SKILL_START|ON_ABILITY_START|ON_ABILITY_ON|ON_ABILITY_END|ON_BUFF_START|ON_CUSTOM_TRIGGER'; // ON_ABILITY_END: 烛煌 S3's field after its cast (report 4 #4-2)
+const LOOP_EVENTS = 'ON_SKILL_START|ON_ABILITY_START|ON_ABILITY_ON|ON_ABILITY_END|ON_BUFF_START|ON_CUSTOM_TRIGGER'; // ON_ABILITY_END: 烛煌 S3's field after its cast
 
 /**
  * sfx.units[charId].loops: per skill index, the official looping bank the skill keeps playing while it runs (丰川祥子 S3's
@@ -238,7 +238,7 @@ const EXTRA_GROUPS = new Set(['Battle_Skill_Important', 'Battle_UI_Boost', 'Batt
 const GENERIC_CUE = /^battle\/b_char\//;
 
 /**
- * local patch (user report 4 #4-2, 2026-10-08: 耀骑士临光 S3, 塑心 S3 「스킬 음악이 안 나온다」) sfx.units[charId].extras: per skill
+ * local patch (maintainer report 2026-10-08: 耀骑士临光 S3, 塑心 S3 「스킬 음악이 안 나온다」) sfx.units[charId].extras: per skill
  * index, the official one-shot banks the skill plays as it starts besides its start sound (`skills[i]`) and its loop
  * (`loops[i]`), which plan.mjs never picked:
  *   - its own ability's start `ON_ABILITY_START.<skillId>` on a skill mixer group when the skill also has its own
@@ -294,7 +294,7 @@ const leafUrls = (l) => (typeof l === 'string' ? [l] : Array.isArray(l) ? l.flat
   : Array.isArray(l?.alts) ? l.alts.map((a) => (typeof a?.rel === 'string' ? `/assets/${a.rel}` : null)).filter(Boolean) : []);
 
 /**
- * local patch (user report 4 #4-2 leftover, 归溟幽灵鲨's switch to her 替身): sfx.snap = { hook, outside } —
+ * local patch (maintainer report follow-up, 归溟幽灵鲨's switch to her 替身): sfx.snap = { hook, outside } —
  *   hook: url → { snap, dur, delay? } for the files of the banks that turn a mixer snapshot on while they play
  *     (audio_data snapshotBanks, audio.mjs indexAudio `snapshots`; only files the manifest plays: built `sfx`);
  *   outside: the urls whose bank sits on a group outside the filtered bus (Independent: the hooks themselves, 浊心斯卡蒂's

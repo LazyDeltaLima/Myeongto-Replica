@@ -20,7 +20,7 @@
 //               "<教鞭>：使用后为下场战斗添加额外敌人，若自身战斗完美作战可获得资金". onArt → ctx.offerBountyChoice
 //               (Match.offerBountyChoice): the three cards go to the owner alone, who confirms one inside the PREP
 //               (g.choice with the offer's id); the prep's deadline or an AI seat resolves it (docs/META.md §2.5). Until
-//               0.2.2 the engine took one of the three at random (user playtest #6 item 4 review; the built-in drew any
+//               0.2.2 the engine took one of the three at random (maintainer playtest #6 item 4 review; the built-in drew any
 //               tier ≤ II kill bounty, and research 04 §7 [ASSUMED] the band family `enemyeffect_b_*`).
 //   “神秘顾客”  the same trap_create_self_choice ("选择一项特殊悬赏任务"; no band grants it in act2, research 04, and PRTS
 //               lists no pool): still [ASSUMED simplification] 3 band bounties `enemyeffect_b_*` (research 04 §7 [ASSUMED]:

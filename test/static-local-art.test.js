@@ -79,7 +79,7 @@ test('docs and messages say what falls back without the local art and how a serv
   }
   for (const re of [/3D 棋盘/, /界面图标/, /源石虫/]) assert.match(LOCAL_ART_FALLBACK, re);
   assert.ok(!/表情|玩法说明/.test(LOCAL_ART_FALLBACK), 'the emotes and the 玩法说明 pages are downloaded, not local-only');
-  // no release bundles in this repository (user 2026-10-09): copy from a machine of the same code version that extracted them
+  // no release bundles in this repository (maintainer 2026-10-09): copy from a machine of the same code version that extracted them
   assert.match(LOCAL_ART_COPY_HINT, /同一版本代码、已经提取过的电脑/);
   for (const f of ['docs/DEPLOY.md']) assert.ok(!/sganggs\/Stronghold-Protocol\/releases/.test(read(f)), `${f}: no link to upstream's release bundles`);
   // setup's row is printed on every start (scripts/launch.mjs): it names the fallbacks and points to DEPLOY §6; doctor adds the hint

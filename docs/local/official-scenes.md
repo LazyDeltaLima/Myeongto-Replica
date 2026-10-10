@@ -58,7 +58,7 @@ board's atlas, the first-season look): act1 m01–m07, act2 m02 and m04 use `map
   (208/176/132), rock blocks 192/149/103 (200/153/106), open water 34/61/71 (38/61/73). `BoardScene` loads the scene per stage (`opts.loadOfficial`)
   and keeps the procedural board until it arrives; with a scene it skips the procedural tiles, background and terrain
   water but keeps devices, gates, field edges and terrain FX. `?officialBoard=0` forces the procedural board.
-- Devices (2026-10-06, user report: the 射击台 tiles of act1 m03 / m06 looked like fenced ground and undeployable marks):
+- Devices (2026-10-06, maintainer report: the 射击台 tiles of act1 m03 / m06 looked like fenced ground and undeployable marks):
   the scene holds only their sockets — the client instantiates the level's traps (`trap_1106_achplat` 射击台,
   `trap_1105_accrate` 阻隔工事) at run time from their prefabs (pkgrps/btl_pfb_tokens_*.ab
   `<key>/Graphic/Mesh/<key>`, meshes / textures in arts/maps/common/trap). With the official scene the procedural board

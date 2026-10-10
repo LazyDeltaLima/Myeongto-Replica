@@ -91,13 +91,13 @@ describe('phases', () => {
     // the title and the other phases' copy are the same for every viewer
     for (const v of [{ alive: true }, { alive: false }, { alive: false, spectator: true }]) {
       assert.equal(round(v).title, '第 2 回合');
-      assert.equal(phaseBanner(PHASE.PREP, pub, v), null, 'no 休整期 band (user decision 2026-10-08: the official game has none)');
+      assert.equal(phaseBanner(PHASE.PREP, pub, v), null, 'no 休整期 band (maintainer decision 2026-10-08: the official game has none)');
     }
     // the match screen hands the banner its viewer (screens/game.js `alive` folds a spectator seat in)
     const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
     assert.match(src, /phaseBanner\(phase, pub, \{ alive, spectator \}\)/);
   });
-  // user decision 2026-10-08 (ours only): the own battle's end is announced once per round — when its result
+  // maintainer decision 2026-10-08 (ours only): the own battle's end is announced once per round — when its result
   // comes in (audioOfficial.js battleOverOf, test/local-patch-battleover.test.js), else at SETTLE from what the round kept
   test('settleBattleEnd: the SETTLE fallback — the authority\'s 联防 charge, else min(cap, leaks); nothing without a battle', () => {
     const cost = (o) => ({ round: 3, leaks: 0, cap: 10, ...o });
@@ -115,13 +115,13 @@ describe('phases', () => {
     assert.equal(settleBattleEnd(undefined, 0), null);
     assert.equal(settleBattleEnd({ cap: 10 }), null);
   });
-  // the user's recall of the official game (2026-10-08): a leak that goes on into a 联防 shows no banner at the own
+  // the maintainer's recall of the official game (2026-10-08): a leak that goes on into a 联防 shows no banner at the own
   // battle's end; after the 联防 the LP it left (目标生命值减少 N) or, nothing charged, the success banner
   test('holdsBattleEnd: in co-op with a teammate still in, every own result waits for SETTLE (a 联防 may follow); solo does not', () => {
     const miss = { kind: 'miss', lost: 3, sfx: 'battleOverReduce' }, perfect = { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' };
     const coop = { modeId: 'act1autochess_team', players: [{ playerId: 'p_0', alive: true }, { playerId: 'p_1', alive: true }] };
     assert.equal(holdsBattleEnd(miss, coop, 'p_0'), true);
-    assert.equal(holdsBattleEnd(perfect, coop, 'p_0'), true, 'a perfect player may become a helper (user 2026-10-08)');
+    assert.equal(holdsBattleEnd(perfect, coop, 'p_0'), true, 'a perfect player may become a helper (maintainer 2026-10-08)');
     assert.equal(holdsBattleEnd(miss, { ...coop, players: [coop.players[0], { playerId: 'p_1', alive: false }] }, 'p_0'), false, 'every teammate out: no 联防');
     assert.equal(holdsBattleEnd(miss, { modeId: 'mode_x', players: [coop.players[0]] }, 'p_0'), false, 'solo');
     assert.equal(holdsBattleEnd(null, coop, 'p_0'), false);

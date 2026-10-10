@@ -1,4 +1,4 @@
-// Faction pick (local feature: chat factions + 진영별 선발 프리셋, user decisions 2026-10-09; docs/rules/diy.md): the one
+// Faction pick (local feature: chat factions + 진영별 선발 프리셋, maintainer decisions 2026-10-09; docs/rules/diy.md): the one
 // way a player picks a faction — the chat's FactionPicker (ui/chat.js) and the strategy draft's row under the draft order
 // (DraftFactionPicker, screens/bandDraft.js) — so the two stay the same pick.
 //
@@ -6,7 +6,7 @@
 //                       (ui/diyPresets.js). Solo rooms have no chat faction: the pick only applies the preset (and is
 //                       remembered for the row's highlight, `soloFaction`). The preset applies before the match and while
 //                       its briefing / strategy draft runs (the server's match.setDiy takes it for THIS match then);
-//                       from the prep on a pick only changes the tag — the picks and presets stay (user 2026-10-09).
+//                       from the prep on a pick only changes the tag — the picks and presets stay (maintainer 2026-10-09).
 //   DraftFactionPicker  the eight factions as a row of chips: the own pick lit, a saved preset dotted, a faction whose
 //                       bond is off this match dimmed with a 禁用 tag; the notice under it.
 //   PresetNotice        「炎国预设已套用到自选编队 · 撤销」 for PRESET_NOTICE_MS after a pick applied a preset — above the

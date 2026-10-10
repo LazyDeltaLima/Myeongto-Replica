@@ -22,10 +22,10 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 **upstream이 같은 것을 넣어서 뺀 local patch**
 - 미리 가져온 원본 수정 10건(아래 절) — 0.2.0에 모두 들어 있다(#199 울피안은 upstream 방식 `downAtHome`).
 - 협동 보스 HP × 생존 인원, 胄 드론 몫 限伤 통과 — upstream이 PR #209를 채택(`gamedata.js bossPoolShareOf`, `Battle.loseHp noHitLimit`).
-  upstream은 싱글 보스 HP를 bloodPoint ×1로 바꿨지만, **우리는 싱글 ×0.25로 되돌렸다**(ccf1e0d3, 관리자 결정 2026-10-07: 혼자서는
+  upstream은 싱글 보스 HP를 bloodPoint ×1로 바꿨지만, **우리는 싱글 ×0.25로 되돌렸다**(f11bdabc, 관리자 결정 2026-10-07: 혼자서는
   팀원이 없다 — `server/match/gamedata.js bossPoolShareOf`의 `solo` 기본값, `tools/build-data.mjs` → `data/config.json bossHpScale.solo`).
   협동은 upstream의 × 생존 인원 그대로.
-- 스킬 범위 발동(a2b7c16c, 관리자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(관리자 결정 2026-10-07: upstream 사용). 「미확정」 표시는 유지(`sim.md` 「스킬 범위 발동」).
+- 스킬 범위 발동(748a79fb, 관리자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(관리자 결정 2026-10-07: upstream 사용). 「미확정」 표시는 유지(`sim.md` 「스킬 범위 발동」).
   `local-skill-range.js`·관련 테스트 삭제. 赤刃明霄陈 S3를 공중 적만으로 켜던 `hitsFly`는 upstream 규칙에 없다 — 읽는 곳이 없던
   남은 플래그는 `kits/ops/op-chen3.js`에서 지웠다(2026-10-08, 동작 영향 없음: golden 전부 일치).
 - 사야 늑대(PR #225)·와파린·라플란드·페페 등은 upstream 구현으로 대체, PR #225가 바꾼 upstream 테스트는 upstream 판으로 되돌렸다.
@@ -33,14 +33,14 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 **선발 오퍼레이터 → upstream 「自选」 틀 (관리자 결정: 후보는 우리 5명만, 시제품 없음)**
 - 슬롯·재고·상점·로드아웃·로비 `room.diy`는 upstream(`shared/diy.js`, `server/match/player/diy.js`, 클라이언트 자선 편성 탭).
 - 후보 제한: `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶). `server/lobby.js` 2줄 — `room.diy` 검사와
-  welcome의 `diyKitted`(클라이언트 고르기 화면이 이것만 보여 준다)를 이 목록으로 거른다. 하드 포크 뒤(1684ef83, 2026-10-07) 데이터도 이 5명뿐이다 —
+  welcome의 `diyKitted`(클라이언트 고르기 화면이 이것만 보여 준다)를 이 목록으로 거른다. 하드 포크 뒤(1fc07616, 2026-10-07) 데이터도 이 5명뿐이다 —
   `tools/build-data.mjs`가 `data/backups.json diy.ownedPool`을 이 목록으로 만들고 `diy.prototypes`는 비어 있으며, 나머지 67명의 키트(`kits/ops/op-<code>.js`·
   `OPERATOR_KIT_FILES` 항목·`kits/shared/summoner.js`)와 그 테스트(`test/content/op_<code>.test.js`)는 지웠다. 로비 검사는 데이터 위에 한 겹 더 거르는 것이다.
   `shared/diy.js`(upstream 틀)는 그대로.
 - 丰川祥子: upstream은 콜라보를 뺀다. `tools/build-data.mjs DIY_LOCAL_INCLUDED`로 보유 풀에 넣어 `data/backups.json`에 그녀의 units/operators가 생긴다.
 - 키트: `kits/ops/op-wang.js`·`op-chen3.js`·`op-wisdel.js`·`op-ascln.js`는 우리 키트(옛 `kits/diy.js`)로 교체, `op-oblvns.js` 새로 추가.
   upstream 키트와의 동작 차이(근거 비교는 비공개 조사 기록)는 관리자 승인(2026-10-07)으로 반영했다:
-  维什戴尔 16571145, 赤刃明霄陈 7057041a, 望 ab6b6d25, 阿斯卡纶 dbe94796. 그 뒤 바뀐 望 규칙은 `diy.md`.
+  维什戴尔 16571145, 赤刃明霄陈 57f456a9, 望 dd5589d1, 阿斯卡纶 b458241e. 그 뒤 바뀐 望 규칙은 `diy.md`.
 - 정예화 보상(관리자 결정 2026-10-07): 보상 단계 = 조달 레벨 + 1(최대 6) 그대로, 그 단계의 선발 오퍼도 후보에 든다 — upstream은 상점의
   조달 레벨 조건을 보상에도 걸어 V단계 선발이 보상에 한 번도 안 나왔다. `server/match/player/acquire.js pushRewardOffer` 1줄(`diyStockEntries`),
   테스트 `test/local-patch-diy-reward.test.js`.
@@ -127,6 +127,6 @@ upstream이 같은 곳을 고치면 비교해서 정리한다.
 - 频次 적 × 隐德来希 → `server/sim/content/kits/ops/chess_char_5_06-etlchi.js`의 `// local patch` 2곳(테스트: 「频次 enemies lose exactly 1 HP per damage instance」).
 - 얼린 상점의 특수 갱신 칸 → `server/match/effectsMeta.js setShopSlot`의 `prev` 2줄.
 - 채팅·관전석 등은 원본에 같은 기능이 생기면 비교해서 정리.
-- (대체됨, 2026-10-09) 일반 박사 투영(博士投影)이 꽉 찬 오퍼레이터의 장비를 말없이 파괴하던 것(관리자 제보 2026-10-09, 우리 `2e144b64`) — upstream `8cef750e`
+- (대체됨, 2026-10-09) 일반 박사 투영(博士投影)이 꽉 찬 오퍼레이터의 장비를 말없이 파괴하던 것(관리자 제보 2026-10-09, 우리 `7cf09006`) — upstream `8cef750e`
   이식으로 대체: 꽉 찬 오퍼레이터에는 소모 아이템 전부가 교체 창을 띄운다(`sim.md` 「upstream 0.2.1·0.2.2 이식」).
 - (뺐음, 2026-10-06) 방어 지점 경보음: upstream #134(d5829258)가 같은 `ON_ENEMY_REACHED_EXIT`를 넣어 로컬 구현을 지웠다(관리자 결정: 원본 사용).

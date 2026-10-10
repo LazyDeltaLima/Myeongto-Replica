@@ -109,7 +109,7 @@ for (const n of [1, 2, 3, 4]) {
   });
 }
 
-test('overtime: −1 team LP per REAL second from the end of the 120 real s countdown (240 game s at 2×, no grace — user decision 2026-10-09); team LP 0 ends every field → defeat (13 rounds passed)', () => {
+test('overtime: −1 team LP per REAL second from the end of the 120 real s countdown (240 game s at 2×, no grace — maintainer decision 2026-10-09); team LP 0 ends every field → defeat (13 rounds passed)', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 2, seed: 50, fake: true, script: (b) => (b.kind === 'boss' ? { bossDps: 1 } : {}) }).start();
   const m = h.m;
   h.drive(() => m.phase === PHASE.PREP && m.round === 14);

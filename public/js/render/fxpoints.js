@@ -33,8 +33,8 @@ export function pointKey(spawn) {
  * The `_spawnLocation` value of the point an effect's FollowMountPoint names (fx_extract.py `mount.type`), or null (the
  * effect keeps its `_spawnLocation`). MountPointType's constants (global-metadata field default values): 0 FOOT, 1 HIT,
  * 2 MUZZLE, 3 HEAD, 4 UI, 5 SPECIAL_0, 6 SPECIAL_1, 7 GROUND, 8–21 SPECIAL_2–15 — the extracted prefabs that carry both
- * agree (spawn 8 ↔ mount 5, 10 ↔ 8, 3 ↔ 2). The effect follows that point every frame (local patch, user report 4 #4-7,
- * session L 2026-10-08: 스펙터 디 언체인드 S2's red ring, mount 5 = SPECIAL_0 = her saw's ring bone). UI / GROUND: null.
+ * agree (spawn 8 ↔ mount 5, 10 ↔ 8, 3 ↔ 2). The effect follows that point every frame (local patch, maintainer report,
+ * : 스펙터 디 언체인드 S2's red ring, mount 5 = SPECIAL_0 = her saw's ring bone). UI / GROUND: null.
  * @param {{type?: number}|null|undefined} mount
  * @returns {number|null}
  */
@@ -70,12 +70,12 @@ export function pointOn(entry, sk, back, out = { x: 0, y: 0 }) {
 }
 
 /**
- * local patch (user report 5 #5-2, user's decision 2026-10-08 「전체 적용」): the turn (radians) of point `entry` on skeleton
+ * local patch (maintainer report, maintainer's decision 2026-10-08 「전체 적용」): the turn (radians) of point `entry` on skeleton
  * `sk` now — the world rotation of the bone its side follows WITH its rotation (char_points.py `rot` 1: the point Transform
  * turns with the bone), the side picked as pointOn does — or null (no such bone, a fixed spot, a point that does not turn).
  * An effect whose FollowMountPoint has `_keepOriginRotation` 0 takes it (render/fxgame.js lifted `rot`). The Spine runtime
  * here reports angles in its y-down frame; the client's (Unity, y up) turn is the negative — 아르케토's F_Muzzle / B_Muzzle read
- * −90° in Skill_3 facing every way, i.e. +90°: her S3 fan opens behind her, its spike toward the enemy (user 2026-10-08: facing
+ * −90° in Skill_3 facing every way, i.e. +90°: her S3 fan opens behind her, its spike toward the enemy (maintainer 2026-10-08: facing
  * down with the enemy on the right, the fan opens to the left; the first take, the angle as reported, had it the other way).
  * @param {{F?: {bone?: string, rot?: number}, B?: {bone?: string, rot?: number}}|null|undefined} entry
  * @param {{findBone: (name: string) => ({getWorldRotationX: () => number}|null)}|null|undefined} sk

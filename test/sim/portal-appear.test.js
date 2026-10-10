@@ -3,7 +3,7 @@
 // (act1autochess_h07_02 route #4, act1autochess_h08_02 routes #5/#9, act2autochess_h07_05 route #6), while their twin
 // routes in the same templates write it out as DISAPPEAR → WAIT → APPEAR[exit]. Taken literally, an appear-less route
 // made the enemy walk its whole remaining route invisible and then leak unseen — the blue door takes the leak and the
-// team never sees who or how (user report: 打 boss 时小怪进传送门后被判定进蓝门,全程隐身). normalizeRoute re-inserts
+// team never sees who or how (maintainer report: 打 boss 时小怪进传送门后被判定进蓝门,全程隐身). normalizeRoute re-inserts
 // the exit APPEAR ahead of that MOVE — at the MOVE's own target, which is exactly where the twins appear.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -23,7 +23,7 @@ const STALE_MS = 10 * 60_000;
 const MAX_MINUTES = 24 * 60;
 
 /**
- * How many minutes before the restart room.start is refused (ERR.RESTARTING): RESTART_FINAL_MIN (user 2026-10-09:
+ * How many minutes before the restart room.start is refused (ERR.RESTARTING): RESTART_FINAL_MIN (maintainer 2026-10-09:
  * 「재시작 직전 5분 전에 판을 막고」), or SP_RESTART_NO_START_MIN when set (0 = never).
  */
 export function noStartMinutes(env = process.env) {

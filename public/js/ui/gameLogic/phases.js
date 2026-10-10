@@ -58,7 +58,7 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
       sub: spectator || alive === false ? t('观战中') : t('资金已到账') };
     case PHASE.SP_DRAFT: return { title: t('机变阶段'), micro: 'CONTINGENCY', tone: 'gold', sub: t('依次选择机变') };
     // no 休整期 band: the official game opens the rest with the round-start dialog alone (回合 NN · 获得 +N, ui/phaseArt.js
-    // RoundStartBanner at ROUND_START) — user decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」
+    // RoundStartBanner at ROUND_START) — maintainer decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」
     case PHASE.PREP: return null;
     case PHASE.COMBAT: return { title: t('作战开始'), micro: 'COMBAT', tone: 'orange', sub: t('各自行动阶段') };
     case PHASE.UNITE: {
@@ -74,14 +74,14 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
 }
 
 // ---- the own battle's end: banner and 战斗结束 sound ------------------------------------------------------------------
-// One announcement per round (docs/LOCAL-PATCH.md 「0.2.0 병합」 — user decision 2026-10-08: keep ours):
+// One announcement per round (docs/LOCAL-PATCH.md 「0.2.0 병합」 — maintainer decision 2026-10-08: keep ours):
 // screens/game.js shows the official round_result_dialog (ui/phaseArt.js BattleEndBanner) and plays its BATTLEOVER sound
 // (audioOfficial.js battleOverOf) when the own normal battle's result comes in — in a solo match. In co-op with a teammate
 // still in it is held until the round's battles are over (`holdsBattleEnd`): a 联防 may follow, and the official game then
 // shows no banner — neither the leaker's nor the perfect players' — until the 联防 is over, then the LP it left (目标生命值
-// 减少 N) or, nothing charged, 完美作战 (the user's recall, 2026-10-08); the client cannot tell at its own battle's end
+// 减少 N) or, nothing charged, 完美作战 (the maintainer's recall, 2026-10-08); the client cannot tell at its own battle's end
 // whether a teammate will leak — and the official game waits too: a co-op round without 联防 shows 完美作战 only once the
-// teammates' battles are over (the user, 2026-10-08), i.e. at SETTLE. Upstream's
+// teammates' battles are over (the maintainer, 2026-10-08), i.e. at SETTLE. Upstream's
 // second announcement at SETTLE
 // (GitHub #235, PR #112: ResultDialog + its own sound mapping) is gone; what is left of it here is the fallback for a
 // round whose own result never came in — server-run combat (SP_COMBAT=server), a reconnect, a battle the client did not
@@ -124,7 +124,7 @@ export function holdsBattleEnd(over, pub, selfId) {
  * The own battle's end announced at SETTLE (a held result, and the fallback above), in audioOfficial.js battleOverOf's
  * shape. A 联防 resolved (`uniteLoss` = m.public.uniteResult.losses[viewer]): its charge decides — a loss → 'miss'
  * (BATTLEOVER_REDUCE), none → 'perfect' (NOREDUCE): the leaker the helpers saved and the helpers see 完美作战 (upstream's
- * rule; the user's recall 2026-10-08). Else the result held at the own battle's end (`held`, battleOverOf as is); else
+ * rule; the maintainer's recall 2026-10-08). Else the result held at the own battle's end (`held`, battleOverOf as is); else
  * the round's kept count (`ownRoundLoss(cost)`: 0 → 'perfect' [추정: it cannot tell uncounted leaks, battleOverOf's
  * 'done', from a perfect battle]).
  * @param {{ leaks?: number, cap?: number } | null | undefined} cost

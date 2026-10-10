@@ -1,5 +1,5 @@
-// Mixer snapshots (local patch, docs/LOCAL-PATCH.md 「스킬 특수 음악·대역 전환·모드 타격음」 → 「믹서 스냅샷」, user report 4
-// #4-2 leftover: 归溟幽灵鲨's switch to her 替身). Used by public/js/audio.js (upstream) through short local-patch lines.
+// Mixer snapshots (local patch, docs/LOCAL-PATCH.md 「스킬 특수 음악·대역 전환·모드 타격음」 → 「믹서 스냅샷」, maintainer report
+// leftover: 归溟幽灵鲨's switch to her 替身). Used by public/js/audio.js (upstream) through short local-patch lines.
 //
 // The official client turns a snapshot of its AudioMixer `MainMixer` (EN sharedassets1.assets) on while certain banks play
 // (audio_data.json snapshotBanks → manifest sfx.snap.hook, tools/assets/skill-mode-sfx.mjs snapshotSfx): every hook in

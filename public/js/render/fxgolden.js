@@ -1,4 +1,4 @@
-// render/fxgolden.js — local patch (docs/LOCAL-PATCH.md 「정예 기물 금빛」, user request 2026-10-08): the official golden glow
+// render/fxgolden.js — local patch (docs/LOCAL-PATCH.md 「정예 기물 금빛」, maintainer request 2026-10-08): the official golden glow
 // of an elite (精锐 / golden) operator during the prep.
 //
 // The client's prep pieces are dummies (metadata: CreateDummyOnTile → _CreateGoldEffectIfNeed) and an elite one loops the

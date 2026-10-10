@@ -22,7 +22,7 @@
 //     included — are always delivered, and a full queue sheds only cosmetic ones.
 //
 // Snapshot tuple layout (DESIGN §8.2): [id, x, y, hp, maxHp, sp, spMax, flags, anim]. Optional lists ride along
-// (server/sim/battle/events.js snapshot; user playtest #4 items 8 / 9, PR #381):
+// (server/sim/battle/events.js snapshot; maintainer playtest #4 items 8 / 9, PR #381):
 //   * `elem` [[id, element, fill, cooldownEnd, cooldown]] — the element gauge a unit shows: appended to that unit's
 //     normalised tuple (EL…EL_DUR) and handed out by sample() as `el`, `elFill`, `elUntil`, `elDur` (from the older
 //     snapshot, like flags);

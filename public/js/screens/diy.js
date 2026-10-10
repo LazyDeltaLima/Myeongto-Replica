@@ -8,7 +8,7 @@
 // /diy.js). Out of match: the next match takes the picks. The picks live in ui/loadoutSync.js (localStorage + room.diy);
 // the model is ui/diyModel.js. Styles: css/screens/loadout.css (diy-*). An owned pick's card carries its operator's 潜能 /
 // 练度 selects (0.2.2, screens/cultivation.js — the same per-operator settings as 干员调配, `ops`); a prototype has neither.
-// Above the slots, the 阵营预设 bar (local feature, user decisions 2026-10-09; ui/diyPresets.js): 不使用预设 + the eight chat
+// Above the slots, the 阵营预设 bar (local feature, maintainer decisions 2026-10-09; ui/diyPresets.js): 不使用预设 + the eight chat
 // factions, each its own roster — a chip shows its roster (a faction without one starts empty), every change here is
 // saved into the roster shown; picking that faction in the chat or the strategy draft applies it.
 
@@ -37,7 +37,7 @@ const avatarOf = (m, unit, elite = false) => chessAvatarUrl(m, unit && { charId:
 const classLine = (u) => `${t(PROF_NAME[u?.profession] || '') || ''}${u?.subProfessionName ? ` · ${u.subProfessionName}` : ''}`;
 const bondName = (id) => data.lookup('bonds', id)?.name || id;
 
-/** The 原型 / 已持有 tag of a pick — none on this server: every pick is an owned 6★ (shared/local-diy.js; user decision
+/** The 原型 / 已持有 tag of a pick — none on this server: every pick is an owned 6★ (shared/local-diy.js; maintainer decision
  *  2026-10-07: no prototypes, so no 原型 / 已持有 tags or filter). */
 function KindTag() {
   return null;

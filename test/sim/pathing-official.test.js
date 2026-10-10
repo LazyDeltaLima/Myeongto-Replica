@@ -1,7 +1,7 @@
 // Official route shapes (community report after 0.1.0, D5: on 战场#04 活性源石 the lower-gate enemies walked two tiles
 // straight left of the red gate and then straight up, instead of crossing diagonally from the 4th row to the 3rd as in
 // the official game). grid.js keeps the official flow field (research 08 §3.1) unless the blockable-ground preference
-// route of user playtest #2 (0.1.0's) crosses strictly fewer non-blockable tiles (floor, gates) and no more 深水区
+// route of maintainer playtest #2 (0.1.0's) crosses strictly fewer non-blockable tiles (floor, gates) and no more 深水区
 // (GitHub #375) — a segment that only
 // brushes a floor tile's corner does not cross it. Audit: every stage (active or not) × gate × field against the pure
 // official algorithm; the routes that still differ are listed, each avoiding floor the official route walks over.
