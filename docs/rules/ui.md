@@ -687,7 +687,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 보스 라운드 시작 창(혼자 `single_boss_prepare_dialog` / 협동 `multi_boss_prepare_dialog` / 숨은 라운드 `hidden_boss_prepare_dialog`): 보스 라운드(숨은 라운드)의
   **ROUND_START**, 즉 그 라운드의 휴식 전에(관리자 제보 2026-10-10 「보스 라운드의 휴식시간에 들어가기 전」; 클라 코드 `AutoChessGameStateType.BOSS_PREPARE_WAITING`(101)
   상태의 `AutoChessBattleUIController.PendingBossPrepareWaitingTask.CalcTabId`가 `tab_single/multi/hide_boss_prepare`를 고름 — 보스 전투가 아니라 그 앞의 대기),
-  BOSSROUND 소리와 함께, 라운드 시작 배너는 창이 끝난 뒤(시작 배너와 같은 순서, 공식이 보스 라운드에도 라운드 시작 배너를 띄우는지는 [추정]). 보스 전투
+  BOSSROUND 소리와 함께, 라운드 시작 배너(「라운드 14 / 획득 +N」)는 창이 끝난 뒤(시작 배너와 같은 순서 — 공식도 보스 카드 다음에 라운드 시작 배너: maintainer confirmation 2026-10-10 (official play memory)). 보스 전투
   (FINAL_ASSAULT·HIDDEN_CORE)가 시작될 때는 띠·창 없이 라운드 띠 전환만(`ui/battleArt.js bossOpening`). 처음 넣을 때(8527a6d7)는 보스 전투 시작에 띄웠다.
   그림이 없으면 upstream 띠가 전투 시작에 그대로. 공통 판 `team_boss_start_bg`(숨은 라운드 `bg_type_01`)는 `bg_mask`(RectMask2D 패딩)대로 잘라 띠로 보인다. 혼자: 리더 표시(`icon_boss_normal_white`
   #e6612c) + 열리는 괄호 + 리더 초상(`boss_bg_normal`, 그림은 `bosses.json` 적 아이콘), 「决战回合」(18) / 「迎击首领敌人」(32 #ec6b38) — KR 「최종 공세 / 리더 적 섬멸!」.
