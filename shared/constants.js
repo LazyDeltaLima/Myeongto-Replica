@@ -82,6 +82,16 @@ export const PIECE_KIND = Object.freeze({ CHESS: 'chess', ITEM: 'item', TOKEN: '
 export const SKILL_SUMMON_START_DEPLOY = true;
 
 /**
+ * The battle-start deployment, one piece at a time (docs/rules/sim.md 「작전 시작 차례 배치」, maintainer decision 2026-10-10):
+ * client code `MainGameInBattle._StartBattle` runs `_Prebuilt` first — each board piece `Deck.SpawnCharacterOrToken`, then
+ * `WaitForFixedSeconds(0.2)` (.rdata constant) — and only after the last wait fires ON_BATTLE_STARTED and starts the wave
+ * scheduler (`Scheduler.Init` / `DoSchedule`). Game seconds between two deployments (battle flag `prebuiltInterval`; the
+ * test harness passes 0: all at once, the rule before 2026-10-10). Re-exported by server/sim/constants.js; the browser's
+ * audio.js times the battle start's 部署 line by it.
+ */
+export const PREBUILT_INTERVAL = 0.2;
+
+/**
  * Official per-bond layer cap (docs/research/11-limits-official.md §1): the client's
  * `Torappu.Battle.AutoChessBattleConst.MAX_GARRISON_STACK = 999`, and its bond counter (`AddBondCount`) stores
  * `min(L + n, 999)` — each bond stops at 999 on its own; the community reports bonds sitting at 999 while fed (巴哈姆特

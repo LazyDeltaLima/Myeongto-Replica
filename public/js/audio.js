@@ -47,8 +47,7 @@
 // `bgmKeyFor(route, pub)` picks the track for the current screen/phase (main.js calls `audio.install()`,
 // which follows the store).
 
-import { PHASE } from '../../shared/constants.js';
-import { PREBUILT_INTERVAL } from '../../server/sim/constants.js';
+import { PHASE, PREBUILT_INTERVAL } from '../../shared/constants.js';
 import { mediaUrl } from './media.js';
 import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn, roleGroup, cueSetOf, cueAbility, pickVariant, cuesAt, cueFile } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
 import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // local patch: mixer snapshots (归溟幽灵鲨's 替身 switch)
