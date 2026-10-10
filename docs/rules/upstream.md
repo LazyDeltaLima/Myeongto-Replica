@@ -121,6 +121,16 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   upstream 주인 결정 2026-10-08로 `4bd154e3`이 우선도 'fly'(속사 저격수 특성·스킬의 비행 우선)만 저지보다 앞에 둠 — PRTS 索敌 「阻挡（近战限定）→特殊优先级→…」,
   관리자 결정 2026-10-09), #187 #170 짧은 기절이 적 공격을 끊음, #181 비술사 충전 타이밍, #96 #137 생명 회복 속도 ≠ 치료, #214 #82 #140 — 모두 0.2.0 병합 때 함께 들어왔다.
 
+## 하드 포크 뒤 손 이식한 기능
+- **「AI 팀원은 마지막에 선택」 방 옵션** (upstream `fd791a66`, PR #368 by @anAtheist987, 관리자 요청 2026-10-10): 동맹 방에서 방장만 켜고 끄는
+  스위치(기본 꺼짐, 다른 사람은 읽기 전용). 켜면 전략 선택·결정(机变) 차례에서 사람 좌석이 모두 AI 좌석보다 앞 — 섞은 순서를 그대로 둔 채
+  나누기만 해서 난수를 더 뽑지 않는다(꺼져 있으면 순서·난수 흐름이 이전과 같다). 건너뛰기는 남은 사람 뒤·AI 앞으로 [ASSUMED, upstream 그대로].
+  AI 托管·연결 끊긴 사람도 사람으로 센다. 바꾸면 다른 사람의 준비가 풀린다(난이도 변경과 같음). 리롤로 새로 만든 판도 `startMatch`를 거쳐 같은 값을 받는다.
+  코드: `server/lobby.js setAiPicksLast`·`room.state.aiPicksLast`, `shared/protocol.js room.setAiPicksLast`, `server/match/match/phases.js humansFirst`
+  (`enterBandDraft`·`skipBand`), `spDraft.js enterSpDraft`, `public/js/screens/room.js AiLastToggle`. 우리 판과 문맥이 달라 손으로 옮김(`git apply`
+  거부 4곳), 문서는 `docs/PLAYING.md`·`docs/design/{match,client,network}.md`. #338의 봇별 진영·금지 프리셋은 upstream도 넣지 않았다.
+  테스트: `test/lobby-ai-last.test.js`, `test/match/ai-picks-last.test.js`, `test/ui/ai-picks-last.test.js`(upstream 그대로).
+
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.
 - 제국의 갑주 폭격·3연타 → `server/sim/content/local-patch.js`의 `patchVtsk`(`sim.md` 「“帝国的甲胄”」).
