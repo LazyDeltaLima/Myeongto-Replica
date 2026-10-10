@@ -14,8 +14,17 @@ import { html } from './components.js';
 import { GIcon, RichText } from './gameComponents.js';
 import { useStore } from '../store.js';
 import { audio } from '../audio.js';
+import { localAsset } from '../data.js';
 
 const TICKER_MS = 5200;
+/** auto_chess_broadcast (the official line: in over .08 s, rising 34 units by .67 s, out from 2.0 to 2.33 s). */
+const OFFICIAL_MS = 2330;
+/** The official broadcast_panel art (local extraction): broadcast_bkg + broadcast_icon, or null. */
+function officialArt() {
+  const bg = localAsset('ui/battle', 'broadcast_bkg');
+  const icon = localAsset('ui/battle', 'broadcast_icon');
+  return bg && icon ? `--bc-bg:url("${bg}");--bc-icon:url("${icon}")` : null;
+}
 const QUEUE_MAX = 4;
 
 /**
@@ -142,7 +151,7 @@ export function Ticker() {
     clearTimeout(timer.current);
     if (it) {
       audio.sfx('broadcast', { volume: 0.5 });
-      timer.current = setTimeout(next, TICKER_MS);
+      timer.current = setTimeout(next, officialArt() ? OFFICIAL_MS : TICKER_MS);
     }
   }
 
@@ -153,6 +162,14 @@ export function Ticker() {
   }
 
   if (!cur) return null;
+  // the official look (broadcast_panel msg_item, css/battle-art.css): 165 under the screen's top, the 9-sliced
+  // broadcast_bkg pill (padding 44 / 11), broadcast_icon at 25, the line 18 white
+  const art = officialArt();
+  if (art) {
+    return html`<div class="bcast" role="status" aria-live="polite" style=${art}>
+      <div key=${cur.id} class="bcast__item"><i class="bcast__icon" aria-hidden="true"></i><${RichText} text=${cur.text} class="bcast__text" /></div>
+    </div>`;
+  }
   return html`<div class="ticker" role="status" aria-live="polite">
     <div key=${cur.id} class="ticker__line"><${GIcon} name="flag" class="ticker__icon" /><${RichText} text=${cur.text} /></div>
   </div>`;

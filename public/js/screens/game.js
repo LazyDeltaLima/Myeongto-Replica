@@ -68,7 +68,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { html, Spinner, PhaseBanner, ResultDialog, Icon, Button, confirmDialog, closeAllDialogs, useTicker } from '../ui/components.js';
-import { useGameData, GIcon } from '../ui/gameComponents.js';
+import { useGameData, GIcon, PlayerAvatar } from '../ui/gameComponents.js';
+import { enemyIconUrl } from '../ui/assetUrls.js';
 import { useFieldView } from '../ui/fieldHost.js';
 import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
@@ -117,8 +118,8 @@ import { screenStrip, playerBonds, playerLayer, detailBondOwner, toggleBond, pop
 import { data, localAsset, getMode } from '../data.js';
 import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRoutePreview } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept, 行动开始 on a battle-start route preview cursor
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
-import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
-import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame, BottomTips, bottomTipType, WaitingDialog, HelpBattleBanner } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
+import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold, roundsToBoss } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
+import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame, BottomTips, bottomTipType, WaitingDialog, HelpBattleBanner, BossPrepare, SettleEnding, endingOf, ENDINGS, SelfDead } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { battleOverOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
@@ -144,6 +145,20 @@ export function GameScreen() {
   // room chat (local patch) on the briefing / draft / result screens; the match screen has its own in the corner
   const coopRoom = useStore((s) => s.room?.mode === 'coop');
   const [chatOpen, setChatOpen] = useState(false);
+  // the match's end (settle_ending_dialog, ui/battleArt.js SettleEnding): when m.result lands on a match on screen, its
+  // ending plays over the field before the result screen (a result already there when this screen mounted does not)
+  const [, setEndTick] = useState(0);
+  const endRef = useRef({ seen: hasResult, ending: null });
+  if (hasResult && !endRef.current.seen) {
+    endRef.current.seen = true;
+    const status = endingOf(store.get().match.result);
+    if (status && pub && battleArt('ending').cls) {
+      const boss = pub.bossId ? data.lookup('bosses', pub.bossId) : null;
+      endRef.current.ending = { status, portrait: boss ? enemyIconUrl(data.get('assets'), boss.enemyKey) : null };
+      audio.sfx(ENDINGS[status].sfx);
+    }
+  }
+  const ending = endRef.current.ending;
   if (!pub || !gd.ready) {
     return html`<div class="screen gload">
       <${Spinner} size="lg" label=${pub ? 'LOADING DATA' : 'ENTERING SIMULATION'} />
@@ -152,11 +167,13 @@ export function GameScreen() {
   }
   const mode = phaseMode(pub.phase);
   let body;
-  if (hasResult || mode === 'result') body = html`<${ResultScreen} />`;
+  if (ending) body = html`<${MatchScreen} />`; // the same element as before: the field stays under the ending
+  else if (hasResult || mode === 'result') body = html`<${ResultScreen} />`;
   else if (mode === 'briefing') body = html`<${BriefingScreen} />`;
   else if (mode === 'draft') body = html`<${BandDraftScreen} />`;
   else body = html`<${MatchScreen} />`;
   return html`${body}
+    ${ending ? html`<${SettleEnding} status=${ending.status} portrait=${ending.portrait} onDone=${() => { endRef.current.ending = null; setEndTick((x) => x + 1); }} />` : null}
     ${coopRoom && (hasResult || mode === 'result' || mode === 'briefing' || mode === 'draft') ? html`<div class="gchat-float"><${GameChat} open=${chatOpen} onToggle=${setChatOpen} /></div>` : null}
     ${(away || autoplay) && !hasResult && mode !== 'result' && !ended ? html`<${AwayOverlay} />` : null}
     ${ended && !hasResult && mode !== 'result' ? html`<${MatchEnded} />` : null}`;
@@ -201,6 +218,7 @@ function MatchScreen() {
   const [hud, setHud] = useState(null);
   const [banner, setBanner] = useState(null);
   const [opening, setOpening] = useState(false);         // game_start_dialog before round 1's round-start banner
+  const [outDialog, setOutDialog] = useState(false);     // self_dead_dialog: the viewer was just eliminated
   const [resultBox, setResultBox] = useState(null);      // the round's result box (ResultDialog), shown at SETTLE
   const [readyBusy, setReadyBusy] = useState(false);
   const [spBusy, setSpBusy] = useState(null);
@@ -229,6 +247,13 @@ function MatchScreen() {
   // a spectator seat watches like an eliminated player (it has no m.private and no row in m.public)
   const alive = spectator ? false : priv ? priv.alive !== false : meP?.alive !== false;
   const home = homeFieldId(pub, myId);
+  // the official elimination dialog once, when the viewer's own seat goes out during the match (not for a spectator seat,
+  // not on a reconnect that finds the seat already out)
+  const aliveRef = useRef(alive);
+  useEffect(() => {
+    if (aliveRef.current && !alive && !spectator && phase !== PHASE.RESULT && battleArt('dead').cls) setOutDialog(true);
+    aliveRef.current = alive;
+  }, [alive]);
   const watchingOther = !!watching && watching !== home && watching !== ownFieldId(myId);
   // watching a teammate's prep board: the 本局信息 drawer shows THEIR 策略 in place of one's own (user playtest #2 item 2)
   const scoutPid = watchingOther && field?.prep && typeof field.fieldId === 'string' && field.fieldId.startsWith('n:') ? field.fieldId.slice(2) : null;
@@ -1486,6 +1511,11 @@ function MatchScreen() {
   // bonds this mode never activates (标准: 10 of 23, 奥术 among them) — shown 本局禁用 on cards, chips and the popup
   const offBonds = modeOffBonds(getMode(pub?.modeId));
   const loadArt = loadingArt(getMode(pub?.modeId)); // the battle loading screen's picture, code and short name
+  // the boss round's opening (ui/battleArt.js BossPrepare): the leader's portrait, and in co-op the players alive with their LP
+  const bossRec = isBossPhase(phase) && pub?.bossId ? data.lookup('bosses', pub.bossId) : null;
+  const bossPortrait = bossRec ? enemyIconUrl(data.get('assets'), bossRec.enemyKey) : null;
+  const bossTeam = isBossPhase(phase) ? players.filter((p) => p.alive !== false && p.status !== 'left').map((p) => ({
+    id: p.playerId, avatar: html`<${PlayerAvatar} player=${p} size="sm" self=${p.playerId === myId} />`, lp: p.lp, mine: p.playerId === myId })) : [];
 
   const hudLook = hudArt(); // local patch
   return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', collapsed && 'is-collapsed', (sp || hasPersonalChoice) && 'has-sp', pen && 'is-pen', readyWhy && 'has-readywhy', hudLook.cls)}
@@ -1605,9 +1635,13 @@ function MatchScreen() {
     ${opening ? html`<${GameStartBanner} onDone=${() => { setOpening(false); audio.sfx('roundStart'); }} />` : null}
     ${opening ? null : banner?.result ? html`<${BattleEndBanner} key=${banner.key} perfect=${banner.result.perfect} lost=${banner.result.lost} onDone=${() => setBanner(null)} />`
       : banner && String(banner.key).startsWith(`${PHASE.ROUND_START}:`) && phaseArt('round').cls
-        ? html`<${RoundStartBanner} key=${banner.key} round=${pub?.round} gold=${roundGold} watching=${spectator || !alive} onDone=${() => setBanner(null)} />` /* local patch: ui/phaseArt.js */
+        ? html`<${RoundStartBanner} key=${banner.key} round=${pub?.round} gold=${roundGold} watching=${spectator || !alive}
+            remain=${roundsToBoss(pub?.round, getMode(pub?.modeId)?.bossRound, gd.config?.constants?.bossTrailerStartRound ?? 3)} onDone=${() => setBanner(null)} />` /* local patch: ui/phaseArt.js */
       : banner && String(banner.key).startsWith(`${PHASE.UNITE}:`) && battleArt('help').cls
         ? html`<${HelpBattleBanner} key=${banner.key} onDone=${() => setBanner(null)} />`
+      : banner && (String(banner.key).startsWith(`${PHASE.FINAL_ASSAULT}:`) || String(banner.key).startsWith(`${PHASE.HIDDEN_CORE}:`)) && battleArt('boss').cls
+        ? html`<${BossPrepare} key=${banner.key} kind=${String(banner.key).startsWith(`${PHASE.HIDDEN_CORE}:`) ? 'hidden' : solo ? 'single' : 'multi'}
+            portrait=${bossPortrait} team=${bossTeam} onDone=${() => setBanner(null)} />`
         : banner && !(String(banner.key).startsWith(`${PHASE.SP_DRAFT}:`) && phaseArt('choose').cls) ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}
       tone=${banner.tone} duration=${banner.duration || 1500} onDone=${() => setBanner(null)} />` : null}
 
@@ -1617,6 +1651,7 @@ function MatchScreen() {
     ${facing && view ? html`<${FacingWheel} key=${`${facing.uid}:${facing.row},${facing.col}`} view=${view} row=${facing.row} col=${facing.col}
       grid=${facing.grid} name=${facing.name} onPreview=${previewFacing} onCommit=${commitFacing} onCancel=${cancelFacing} />` : null}
 
+    ${outDialog ? html`<${SelfDead} onWatch=${() => setOutDialog(false)} onExit=${() => { setOutDialog(false); setExitOpen(true); }} />` : null}
     ${paused ? html`<${PausedOverlay} canResume=${solo} busy=${pauseBusy} onResume=${() => togglePause(false)} onExit=${() => setExitOpen(true)} />` : null}
 
     ${view ? html`<${EquipHoverPanel} view=${view} state=${eqHover} />` : null}

@@ -63,6 +63,14 @@
 @keyframes parb-glow { from { opacity: 0; } 30% { opacity: 1; } to { opacity: .4; } }
 .parb__dot { background: #ffc21a; opacity: 0; animation: parb-dot 1s ease-out var(--d) both; }
 @keyframes parb-dot { 0% { opacity: 0; transform: translateY(calc(var(--pu) * 6)); } 30% { opacity: .9; } 100% { opacity: 0; transform: translateY(calc(var(--pu) * -10)); } }
+/* the boss trailer line (round_countdown, 2026-10-10): round_countdown_bg 322 × 64 (9-sliced; dark pill without the local
+   art), 剩余 N 回合 20 #a6a6a6 with the number #ff682d, opening out from the middle (round_start_dialog_in 0.1–0.47 s) */
+.parb__remain { display: flex !important; align-items: center; justify-content: center; background: var(--pa-remain, none) center / 100% 100% no-repeat;
+  animation: parb-remain .4s var(--ease-out) .1s both; }
+.parb__remain:not([style*="--pa-remain"]) { background: radial-gradient(closest-side, rgba(20, 20, 20, .85), transparent); }
+@keyframes parb-remain { from { opacity: 0; transform: translateY(calc(var(--pu) * 80)) scaleX(.7); } to { opacity: 1; transform: none; } }
+.parb__remain-text { position: static !important; white-space: nowrap; font-size: calc(var(--pu) * 20); color: #a6a6a6; font-weight: 500; }
+.parb__remain-text b { color: #ff682d; font-weight: 700; margin: 0 .2em; }
 @media (prefers-reduced-motion: reduce) { .parb, .parb *, .pcturn, .pcturn * { animation: none !important; } }
 
 /* ---- choice screen (autochess_battle_effect_choose_panel) ---------------------------------------------------------- */

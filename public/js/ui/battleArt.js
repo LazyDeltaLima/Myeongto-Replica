@@ -39,6 +39,30 @@ const ART = Object.freeze({
     '--ct-sword': 'icon_sword_yellow', '--ct-sword-red': 'icon_sword_red', '--ct-matte': 'text_matte', '--ct-warn': 'icon_warn',
     '--ct-boss': 'icon_trans_boss',
   },
+  boss: {
+    '--bb-bg': 'team_boss_start_bg', '--bb-frame': 'team_boss_frame', '--bb-icon': 'icon_boss_normal_white', '--bb-info': 'boss_bg_normal',
+    '--bb-tiny': 'icon_boss_tiny', '--bb-line': 'doc_line', '--bb-dblank': 'doc_blank', '--bb-dframe': 'doc_frame', '--bb-doc': 'doc_icon',
+    '--bb-shadow': 'text_shadow', '--bb-screen': 'img_screen_line', '--bb-n1': 'num_text_564', '--bb-n2': 'num_text_012', '--bb-n3': 'num_text_154',
+    '--bb-upper1': 'dec_text_upper_left_01', '--bb-upper2': 'team_boss_dese_upper_02', '--bb-lower': 'dec_text_lower_corner',
+    '--bb-round': 'team_boss_blood_round', '--bb-blood': 'team_boss_blood', '--bb-bframe': 'team_boss_blood_frame', '--bb-bicon': 'team_boss_blood_icon',
+    '--bb-cross': 'team_boss_start_cross', '--bb-mine': 'team_boss_player_mine', '--bb-pblood': 'team_boss_player_blood',
+    '--bb-pshadow': 'team_boss_player_blood_shadow', '--bb-doctext': 'team_boss_doc_text',
+    '--bb-sp-bg': 'bg_type_01', '--bb-sp-line': 'sp_bg_doc_line', '--bb-sp-icon': 'boss_sp_icon', '--bb-sp-info': 'boss_bg_sp',
+    '--bb-sp-tiny': 'icon_boss_sp_tiny', '--bb-warn': 'sp_warning_icon', '--bb-warn-text': 'sp_text_warning', '--bb-warn-glow': 'sp_warning_icon_glow',
+  },
+  ending: {
+    '--se-bg1': 'bg_type_01', '--se-bg2': 'bg_type_02', '--se-fx': 'bg_type_01_effect', '--se-side': 'bg_side_effect', '--se-icon': 'icon_boss_normal_white',
+    '--se-win': 'icon_win_boss', '--se-win-sp': 'icon_win_boss_sp', '--se-back': 'icon_boss_back', '--se-sp': 'icon_boss_sp_large',
+    '--se-info': 'boss_bg_normal', '--se-info-sp': 'boss_bg_sp', '--se-tiny': 'icon_boss_tiny', '--se-tiny-sp': 'icon_boss_sp_tiny',
+    '--se-clear': 'boss_clear', '--se-clear-sp': 'boss_clear_sp', '--se-link1': 'img_link_01', '--se-link2': 'img_link_02', '--se-linkout': 'img_link_out',
+    '--se-shadow': 'img_shadow', '--se-screen': 'img_screen_line',
+  },
+  dead: {
+    '--sd-bg': 'bg_type_01', '--sd-side': 'dec_line_side', '--sd-up1': 'dec_text_upper_left_01', '--sd-up2': 'dec_text_upper_left_02',
+    '--sd-lower': 'dec_text_lower_corner', '--sd-cross': 'img_dec_cross', '--sd-shadow': 'img_shadow', '--sd-tiny': 'dec_tiny_text_01',
+    '--sd-sp': 'dec_stronghold_protocol', '--sd-i1': 'icon_01', '--sd-i2': 'icon_02', '--sd-i3': 'icon_03', '--sd-i4': 'icon_04',
+    '--sd-itext': 'icon_text', '--sd-cont': 'btn_continue', '--sd-end': 'btn_end', '--sd-screen': 'img_screen_line',
+  },
   ob: {
     '--ob-other': 'bg_ob_other', '--ob-self': 'bg_ob_self', '--ob-icon-other': 'icon_ob_other', '--ob-icon-self': 'icon_ob_self',
     '--ob-arrow': 'left_arrow_active', '--ob-lost': 'bg_ob_player_quit', '--ob-lost-icon': 'icon_ob_player_quit',
@@ -69,6 +93,16 @@ export function battleArt(kind) {
 /** Position of a prefab RectTransform inside its parent (centre anchors): x, y = anchoredPosition (y up), w, h = size. */
 const box = (x, y, w, h) => `left:calc(50% + var(--pu) * ${x - w / 2});top:calc(50% - var(--pu) * ${y + h / 2});width:calc(var(--pu) * ${w});height:calc(var(--pu) * ${h})`;
 const i = (cls, b, extra = '') => html`<i class=${cls} style=${extra ? `${b};${extra}` : b} aria-hidden="true"></i>`;
+
+/**
+ * A RectMask2D box (bg_mask / full_line_mask): the mask rect at (x, y) of size w × h trimmed by its padding (Unity's
+ * x = left, y = bottom, z = right, w = top). Returns the visible box's style and the shift its children need.
+ */
+function maskBox(x, y, w, h, [pl, pb, pr, pt]) {
+  const vw = w - pl - pr; const vh = h - pb - pt;
+  const cx = x + (pl - pr) / 2; const cy = y + (pb - pt) / 2;
+  return { style: `${box(cx, cy, vw, vh)};overflow:hidden`, dx: x - cx, dy: y - cy };
+}
 
 /** Hook: after `on` turns false the element stays `ms` longer (its fade-out); returns [mounted, leaving]. */
 function useLinger(on, ms) {
@@ -470,4 +504,222 @@ export function ObInfo({ cur, arrows = false, prev = null, next = null, lost = f
 export function CapsuleTransHost({ phase }) {
   const trans = useCapsuleTrans(phase);
   return trans ? html`<${CapsuleTrans} key=${trans.key} kind=${trans.kind} />` : null;
+}
+
+// ---- the boss rounds' openings (single / multi / hidden_boss_prepare_dialog) ---------------------------------------
+
+/**
+ * How long each opening plays (ms): panel_single_boss_start_in / panel_boss_sp_start_in 2.67 s, the co-op's in_01 1.27 +
+ * in_02 1.17 s; each then holds [추정 0.8 s] and fades.
+ */
+export const BOSS_PREP_MS = Object.freeze({ single: 3500, hidden: 3500, multi: 3300 });
+
+/**
+ * The opening of a boss round. Shared frame: the dark screen (50 %), the map plate team_boss_start_bg (1041 × 418), the
+ * read-out decorations, the scan lines img_screen_line (16 %). `single` (最终攻势 alone): the leader mark
+ * icon_boss_normal_white (#e6612c, 220 at ×1.09) between team_boss_frame brackets that open, the doc lines at its sides,
+ * the leader's portrait in boss_bg_normal under it, 决战回合 (18 white) over 迎击首领敌人 (32 #ec6b38) — KR 「최종 공세 /
+ * 리더 적 섬멸!」. `multi` (co-op): first the team in the middle (panel_team_boss_start_in_01: each player alive — their
+ * avatar, `mine` on the viewer, their LP — the lines flickering in towards the middle ring that reads the team's LP
+ * together), then (in_02) the team slides left and the leader appears on the right, 决战回合 over 合力迎击领袖！
+ * (32 #22e8bd) — KR 「최종 공세 / 힘을 합쳐 리더 적 섬멸!」. `hidden` (隐秘核心): bg_type_01 with sp_bg_doc_line, the
+ * warning signs, boss_sp_icon, the portrait in boss_bg_sp, 隐藏回合已解锁 (34 #09d7e3) over 挑战失败不影响胜利结算 (19
+ * #a0b2b3) — KR 「히든 코어 개방 / 실패해도 정산에 지장 없음」. KR: the maintainer's captures.
+ * @param {{ kind: 'single'|'multi'|'hidden', portrait?: string|null, team?: Array<{ id: string, avatar: any, lp: number, mine: boolean }>, onDone?: () => void }} props
+ */
+export function BossPrepare({ kind, portrait = null, team = [], onDone }) {
+  const [gone, leaving] = usePlay(BOSS_PREP_MS[kind] || 3500, 400, onDone);
+  if (gone) return null;
+  const art = battleArt('boss');
+  const hidden = kind === 'hidden';
+  const multi = kind === 'multi';
+  const total = team.reduce((s, m) => s + Math.max(0, Math.trunc(Number(m.lp) || 0)), 0);
+  // the member slots of group_team (panel_mumber_01…04 at x −199.5), spread over the same span for fewer players [추정]
+  const YS = { 1: [0], 2: [72, -77], 3: [110.8, -2.2, -115], 4: [110.8, 33.7, -40.2, -115] }[Math.min(4, Math.max(1, team.length))] || [];
+  const mainX = multi ? 287.9 : -1.2;
+  const mainY = multi ? -28.7 : -17.7;
+  const doc = (side) => html`<i class=${`bbp__doc is-${side}`} style=${box(side === 'l' ? -229.7 + 71.31 - 47.5 : 182 - 23.69 + 47.5, 25 - 0.2, 95, 2)}>
+    <i class="bbp__dblank"></i><i class="bbp__dframe"><i></i></i></i>`;
+  const title = multi ? t('合力迎击领袖！') : hidden ? t('挑战失败不影响胜利结算') : t('迎击首领敌人');
+  const plateMask = maskBox(-5.2, -20.1, 1000, 520, [0, 52, 0, 52]);
+  return html`<div class=${['bart', 'bbp', `is-${kind}`, art.cls, leaving && 'is-leaving'].filter(Boolean).join(' ')} style=${art.style}
+      role="status" aria-live="polite" aria-label=${hidden ? `${t('隐藏回合已解锁')} · ${title}` : `${t('决战回合')} · ${title}`}>
+    <i class="bbp__blk" aria-hidden="true"></i>
+    <div class="bart__c" style=${box(0, 0, 1280, 720)}>
+      <div style=${plateMask.style} aria-hidden="true">
+        <i class="bbp__plate" style=${box(plateMask.dx + 4.6, plateMask.dy + (hidden ? 1.5 : 0), 1041, hidden ? 571.41 * 0.95 : 418)}>
+          ${hidden ? html`<i class="bbp__spline" style=${box(35.8, 123.3, 424, 315)}></i>` : null}
+        </i>
+      </div>
+      <i class="bbp__dec" style=${box(0, 8.8, 960, 340)} aria-hidden="true">
+        ${hidden ? html`
+          <i class="bbp__warn" style=${box(-223.3, 65.9, 51, 44)}></i><i class="bbp__wtext" style=${box(-224.8, 32.7, 45, 13)}></i>
+          <i class="bbp__wtext" style=${`${box(164.3, -57.1, 45, 13)};transform:scale(.83)`}></i>
+          <i class="bbp__warn is-glow" style=${`${box(206.1, 38.5, 51, 44)};transform:scale(.72)`}></i>
+          <i class="bbp__warn is-glow" style=${`${box(-176.6, -46.4, 51, 44)};transform:scale(.49)`}></i>`
+        : html`
+          <i class="bbp__upper1" style=${box(-480 + 65.6, 170 - 42.1, 72, 13)}></i><i class="bbp__upper2" style=${box(480 - 74.9, 170 - 60.3, 80, 24)}></i>
+          <i class="bbp__lower" style=${box(-421.5 + 2.44 + 69.7, -170 + 49 - 12.3 + 7.4, 220, 60)}></i>
+          <i class="bbp__lower is-r" style=${box(426.3 + 2.44 - 85, -170 + 49 - 10.8 - 17.5, 220, 60)}></i>`}
+      </i>
+      ${multi ? null : html`<i class="bbp__rings" style=${box(-98.8 + 97.5, 12 - 1.6, 294, 294)} aria-hidden="true"></i>`}
+      ${multi ? html`<div class="bbp__team" style=${box(-96, 8.8, 585.42, 340)}>
+        <i class="bbp__rings" style=${box(97.5, -1.6, 294, 294)} aria-hidden="true"></i>
+        <svg class="bbp__lines" viewBox="-292.71 -170 585.42 340" aria-hidden="true">
+          ${YS.map((y, k) => html`<polyline key=${k} style=${`--k:${k}`} points=${`${-199.5 + 75},${-y} ${-60},${-y} ${97.5 - 50},${1.6 - (y > 0 ? 18 : y < 0 ? -18 : 0)}`} />`)}
+        </svg>
+        ${team.slice(0, 4).map((m, k) => html`<div key=${m.id} class="bbp__member" style=${`${box(-199.5, YS[k] ?? 0, 150, 70)};--k:${k}`}>
+          <span class="bbp__avatar" style=${box(-40.5, 0.7, 59, 59)}>${m.avatar}</span>
+          ${m.mine ? html`<i class="bbp__mine" style=${box(-64.7, 23.4, 28, 28)} aria-hidden="true"></i>` : null}
+          <span class="bbp__plp" style=${box(46.9, 3.3, 100, 34.6)}><i class="bbp__plpicon" aria-hidden="true"></i><b class="num">${Math.max(0, Math.trunc(Number(m.lp) || 0))}</b></span>
+        </div>`)}
+        <div class="bbp__middle" style=${box(97.5, -1.6, 100, 100)}>
+          <i class="bbp__bring" style=${box(0, 0, 72, 71)}></i><i class="bbp__bmask" style=${box(1.3, 0, 100, 100)}></i>
+          <i class="bbp__bicon" style=${box(0, 15.2, 23, 35)}></i>
+          <b class="bbp__btext num" style=${box(0, -19.9, 100, 40.8)}>${total}</b>
+        </div>
+        ${[[-66.9, 57.9], [66.8, 57.9], [-66.4, -45.9], [66.8, -45.9]].map(([x, y], k) => html`<i key=${k} class="bbp__cross" style=${box(97.3 + x, -1.6 + y, 11, 12)}></i>`)}
+      </div>` : null}
+      <div class="bbp__main" style=${`${box(mainX, mainY, 460, 380)};transform:scale(1.09)`}>
+        ${i('bbp__frame', box(-114.8, 34.41, 9, 70.97))}${i('bbp__frame is-r', box(110.8, 34.41, 9, 70.97))}
+        ${hidden ? i('bbp__spicon', box(1.33, 52.9, 331.24, 236.6)) : i('bbp__icon', box(0, 40, 220, 220))}
+        ${multi ? i('bbp__doctext', box(0, -79, 98, 10)) : html`${doc('l')}${doc('r')}`}
+      </div>
+      <div class=${hidden ? 'bbp__info is-sp' : 'bbp__info'} style=${`${box(multi ? 370.8 : hidden ? 78.8 : 83.4, multi ? -55.8 : hidden ? -29.5 : -29.9, 100, 100)};transform:scale(${hidden ? 1.15 : 1.19})`}>
+        <i class="bbp__infobg" style=${box(0, hidden ? -4 : 0, 122, 122)}></i>
+        ${portrait ? html`<i class="bbp__portrait" style=${`${box(0, 0, 60, 60)};background-image:url("${portrait}")`}></i>` : null}
+        <i class="bbp__tiny" style=${hidden ? box(0, -17.8 - 4, 80, 80) : box(0, -21.8, 52, 52)}></i>
+      </div>
+      <div class="bbp__desc" style=${box(0, multi ? -14.7 : hidden ? -86.9 : -105.3, 600, 100)}>
+        <i class="bbp__shadow" style=${box(0, multi ? -80 : hidden ? -13.8 : 8.2, 420, 212)} aria-hidden="true"></i>
+        ${hidden ? html`
+          <b class="bbp__big" style=${box(0, 0, 600, 44.41)}>${t('隐藏回合已解锁')}</b>
+          <span class="bbp__small" style=${box(0, -33.4, 600, 27.3)}>${title}</span>`
+        : html`
+          <span class="bbp__small" style=${box(0, multi ? -58.3 : 32.5, 600, 27.3)}>${t('决战回合')}</span>
+          <b class="bbp__big" style=${box(0, multi ? -106 : 0, 600, 40)}>${title}</b>`}
+      </div>
+      <i class="bbp__screen" style=${box(0, 0, 1000, 520 - 148)} aria-hidden="true"></i>
+    </div>
+  </div>`;
+}
+
+// ---- the match's end (settle_ending_dialog) ------------------------------------------------------------------------
+
+/**
+ * The ending of a match from m.result (client code AutoChessSettleDataModel.EndingStatus): 'NORM_BOSS_WIN' (the leader
+ * beaten, no hidden round), 'HIDE_BOSS_FAIL' (the leader beaten, the hidden core not), 'HIDE_BOSS_WIN' (both),
+ * 'GAME_OVER' (defeat / elimination); null for an aborted match (abandoned, error) or no result.
+ * @param {any} r m.result
+ */
+export function endingOf(r) {
+  if (!r || typeof r !== 'object') return null;
+  if (!r.victory) return r.reason === 'abandoned' || r.reason === 'error' ? null : 'GAME_OVER';
+  if (r.hiddenCleared) return 'HIDE_BOSS_WIN';
+  return r.hiddenReached ? 'HIDE_BOSS_FAIL' : 'NORM_BOSS_WIN';
+}
+
+/** Each ending's clip (battle_win_first_boss 1.97 s, battle_lose_break_one_boss 1.97, battle_win_all_boss 3.0, battle_lose_all_out
+ * 2.10) plus a hold [추정], within the dialog's MAX_SHOW_TIME 4 s; its sound (_PlayAudio). */
+export const ENDINGS = Object.freeze({
+  NORM_BOSS_WIN: { ms: 3000, sfx: 'killBossNormal' },
+  HIDE_BOSS_FAIL: { ms: 3000, sfx: 'killBoss' },
+  HIDE_BOSS_WIN: { ms: 3800, sfx: 'killBossAll' },
+  GAME_OVER: { ms: 3000, sfx: 'disconnect' },
+});
+
+/**
+ * The ending panel (settle_ending_dialog → panel_win_first_boss / panel_lose_break_one_boss / panel_win_all_boss /
+ * panel_lose_all_out). KR: 「위수 성공!」 (已击败首个领袖！ — both the leader-only win and the hidden-core loss share the
+ * client's text), 「모든 리더 적 처치 완료!」 (the client's img_text_win_all picture — drawn as text here so the pack
+ * can translate it), 「시뮬레이션 중단」 (模拟中断, our translation).
+ * @param {{ status: keyof typeof ENDINGS, portrait?: string|null, onDone?: () => void }} props
+ */
+export function SettleEnding({ status, portrait = null, onDone }) {
+  const cfg = ENDINGS[status] || ENDINGS.GAME_OVER;
+  const [gone, leaving] = usePlay(cfg.ms - 400, 400, onDone);
+  if (gone) return null;
+  const art = battleArt('ending');
+  const info = (x, y, sp, cleared) => html`<i class=${sp ? 'bse__info is-sp' : 'bse__info'} style=${box(x, y, 100, 100)}>
+    <i class="bse__infobg" style=${box(0, sp ? -4 : 0, 122, 122)}></i>
+    ${portrait && !sp ? html`<i class="bse__portrait" style=${`${box(0, 0, 60, 60)};background-image:url("${portrait}")`}></i>` : null}
+    <i class="bse__tiny" style=${sp ? box(0, -21.8, 80, 80) : box(0, -21.8, 52, 52)}></i>
+    ${cleared ? html`<i class="bse__clear" style=${box(18.7, 22.6, 47, 49)}></i>` : null}
+  </i>`;
+  let body;
+  if (status === 'GAME_OVER') {
+    const mk = maskBox(0, 0, 1000, 520, [0, 140, 0, 133]);
+    body = html`<div style=${mk.style}><i class="bse__plate is-1" style=${box(mk.dx, mk.dy - 22.5, 1008, 520)}></i></div>
+      <i class="bse__links" style=${box(-101, 8.8 - 4.2, 760, 450)}>
+        ${[-104, -52, 0, 52, 104].map((x, k) => html`<i key=${k} class="bse__link" style=${`${box(x, 0, 40, 296)};--k:${k}`}><i class="is-1"></i><i class="is-2"></i><i class="is-out"></i></i>`)}
+      </i>
+      <i class="bse__shadow" style=${box(215.7, 8.8 - 13.5, 430, 166)}></i>
+      <b class="bse__text is-fail" style=${box(163.4, 8.8, 250, 66.7)}>${t('模拟中断')}</b>`;
+  } else if (status === 'HIDE_BOSS_WIN') {
+    const mk = maskBox(0, 0, 1000, 520, [0, 72, 0, 76]);
+    body = html`<div style=${mk.style}><i class="bse__plate is-1" style=${box(mk.dx + 4.6, mk.dy, 1008, 520)}><i class="bse__fx" style=${box(-4.6, -5.1, 946, 433)}></i></i></div>
+      <i class="bse__win" style=${box(-68, 8.8 + 22.5, 240, 240)}></i><i class="bse__win is-sp" style=${box(72, 8.8 + 21.1, 240, 240)}></i>
+      ${info(-166.5, 28.8, false, true)}${info(166.5, 28.8, true, true)}
+      <b class="bse__text is-all" style=${box(0, 8.8 - 95.6, 600, 116)}>${t('已击败全部领袖！')}</b>`;
+  } else {
+    const fail = status === 'HIDE_BOSS_FAIL';
+    const mk = maskBox(0, 0, 1000, 520, [0, 52, 0, 52]);
+    body = html`<div style=${mk.style}><i class="bse__plate is-2" style=${box(mk.dx + 4.6, mk.dy, 1009, 417)}></i></div>
+      ${fail ? html`<i class="bse__back" style=${box(88, 8.8 + 36.3, 400, 391)}></i><i class="bse__sp" style=${box(88, 8.8 + 46.3, 200, 200)}></i>
+        <i class="bse__boss" style=${box(-88, 8.8 + 45.7, 155.5, 155.5)}></i>${info(-37.5, -4.3, false, true)}${info(151.6, -4.3, true, false)}`
+        : html`<i class="bse__boss" style=${box(0, 8.8 + 40, 220, 220)}></i>${info(133.5, 45, false, true)}`}
+      <b class="bse__text" style=${box(0, 8.8 - 93, 600, 68.9)}>${t('已击败首个领袖！')}</b>`;
+  }
+  return html`<div class=${['bart', 'bse', `is-${status.toLowerCase()}`, art.cls, leaving && 'is-leaving'].filter(Boolean).join(' ')} style=${art.style}
+      role="status" aria-live="polite">
+    <i class="bse__blk" aria-hidden="true"></i>
+    <div class="bart__c" style=${box(0, 0, 1280, 720)}>${body}
+      <i class="bse__screen" style=${box(0, 0, 1000, 520 - 148)} aria-hidden="true"></i>
+    </div>
+  </div>`;
+}
+
+// ---- the viewer is out (self_dead_dialog) --------------------------------------------------------------------------
+
+/**
+ * The elimination dialog (self_dead_dialog, client code AutoChessBattleUISelfDeadDialog: EventOnBtnWatchOther /
+ * EventOnBtnExit; battle_lose_you_out_show 1.85 s): the screen 80 % black, the red plate bg_type_01 with its side lines
+ * and read-outs (#a61f1f), the cross img_dec_cross (#8e280c · 70 %), the broken pixel face (icon_01…04) and its caption
+ * on the left, the line (46 #e82727) on the right, 「继续观战」 (btn_continue) and 「退出模拟」 (btn_end). The client's
+ * texts are not in our tables: 「방어선이 무너졌습니다 / 계속 관전 / 시뮬레이션 나가기」 are ours (the maintainer's
+ * 「적당히 번역」, 2026-10-10).
+ * @param {{ onWatch: () => void, onExit: () => void }} props
+ */
+export function SelfDead({ onWatch, onExit }) {
+  const art = battleArt('dead');
+  if (!art.cls) return null;
+  const deadMask = maskBox(0, 0, 1000, 520, [0, 140, 0, 133]);
+  return html`<div class=${['bart', 'bsd', art.cls].join(' ')} style=${art.style} role="dialog" aria-modal="true" aria-label=${t('防线已被突破')}>
+    <i class="bsd__blk" aria-hidden="true"></i>
+    <div class="bart__c" style=${box(0, 0, 1280, 720)}>
+      <div style=${deadMask.style} aria-hidden="true"><i class="bsd__plate" style=${box(deadMask.dx, deadMask.dy - 22.5, 1008, 520)}></i></div>
+      <i class="bsd__dec" style=${box(0, 5, 960, 250)} aria-hidden="true">
+        <i class="bsd__side" style=${box(-480 + 170 - 112.5, -1.3, 225, 25)}></i><i class="bsd__side is-r" style=${box(480 - 170 + 112.5, -1.3, 225, 25)}></i>
+        <i class="bsd__up1" style=${box(-480 + 75.84, 125 - 34.45, 72, 13)}></i><i class="bsd__up2" style=${box(-480 + 75.84, 125 - 87.6, 80, 44)}></i>
+      </i>
+      ${i('bsd__cross', box(0, 8.8, 552, 203))}
+      <div class="bsd__main" style=${box(0, 8.8, 460, 140)}>
+        ${i('bsd__shadow', box(103, -13.5, 430, 166))}${i('bsd__shadow', box(-103.8, 0.7, 150, 186))}
+        <b class="bsd__text" style=${box(-43.3 + 125, 7.9, 250, 66.7)}>${t('防线已被突破')}</b>
+        ${i('bsd__tiny', box(45.3, 49.6, 133, 8))}${i('bsd__sp', box(49.2, -36.9, 188, 20))}
+        <i class="bsd__icon" style=${box(-103.9, 12.8, 80, 80)} aria-hidden="true">
+          ${i('bsd__i2', box(0, 0, 61, 61))}${i('bsd__i3', box(0, 0, 39, 26))}
+          ${i('bsd__i1', box(0, 0, 73, 74))}${i('bsd__i4', box(0, 0, 39, 43))}
+        </i>
+        ${i('bsd__itext', box(-103.9, -40.3, 74, 21))}
+      </div>
+      <button type="button" class="bsd__btn is-cont" style=${box(-170, -188, 250, 86)} onClick=${() => onWatch?.()}>
+        <i class="bsd__btnbg" style=${box(0, -5, 216, 62)}></i><span class="bsd__btntext" style=${box(16, 0, 160, 45)}>${t('继续观战')}</span>
+      </button>
+      <button type="button" class="bsd__btn is-end" style=${box(170, -188, 250, 86)} onClick=${() => onExit?.()}>
+        <i class="bsd__btnbg" style=${box(0, -5, 218, 62)}></i><span class="bsd__btntext" style=${box(16, 0, 160, 45)}>${t('退出模拟')}</span>
+      </button>
+      <i class="bse__screen" style=${box(0, 0, 1000, 520 - 273)} aria-hidden="true"></i>
+    </div>
+  </div>`;
 }

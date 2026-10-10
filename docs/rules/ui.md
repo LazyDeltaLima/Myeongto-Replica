@@ -675,3 +675,25 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   `icon_lost_connect`), 연결 끊김(`connected` false) = `mask_reconnect`(#303030 80 % + `icon_reconnect` — 예전에는 끊김에 `icon_lost_connect`를 잘못 씀), 내가 보고 있는 팀원
   카드 오른쪽 위 `icon_observing`(upstream 눈 표시 대신), 카드 오른쪽 아래 밖 `icon_complete`(준비·완료 — 준비도 공식처럼 체크) 또는 `icon_doing` 점 셋(결정·행동·전투 중,
   깜빡임 [추정]), 「前往查看」 / 「返回战场」은 초상 위 공식 사각 버튼(`btn_ob_other` / `btn_return_self` 98×98).
+- 방송(`broadcast_panel`, 클라 코드 `AutoChessBattleBroadcastPanel`): 로컬 그림이 있으면 upstream 띠 대신 화면 위에서 165 아래, 9분할 `broadcast_bkg`(l/r 20, t 14, b 11)
+  + `broadcast_icon` + 18 흰 글, `auto_chess_broadcast`대로 34 아래에서 떠오르고 2.0초부터 사라져 한 줄 2.33초(upstream 5.2초). 문구·우선순위·대기열은 그대로(`ui/ticker.js`).
+- 보스 라운드 시작 창(혼자 `single_boss_prepare_dialog` / 협동 `multi_boss_prepare_dialog` / 숨은 라운드 `hidden_boss_prepare_dialog`): FINAL_ASSAULT·HIDDEN_CORE에
+  upstream 띠 대신. 공통 판 `team_boss_start_bg`(숨은 라운드 `bg_type_01`)는 `bg_mask`(RectMask2D 패딩)대로 잘라 띠로 보인다. 혼자: 리더 표시(`icon_boss_normal_white`
+  #e6612c) + 열리는 괄호 + 리더 초상(`boss_bg_normal`, 그림은 `bosses.json` 적 아이콘), 「决战回合」(18) / 「迎击首领敌人」(32 #ec6b38) — KR 「최종 공세 / 리더 적 섬멸!」.
+  협동(관리자 설명: 남은 팀원 HP를 합산해 보여 주고 같은 배너가 바뀌며 보스가 나옴): `in_01`(1.27초) 살아 있는 플레이어 줄(아바타, 내 표시 `team_boss_player_mine`,
+  LP)과 가운데 원(합산 LP), 선이 깜빡이며 들어옴 → `in_02`(1.17초) 팀이 왼쪽(−96)으로, 오른쪽에 리더, 「决战回合」 / 「合力迎击领袖！」(#22e8bd) — KR 「최종 공세 /
+  힘을 합쳐 리더 적 섬멸!」. 플레이어 2·3명일 때 줄 자리는 4명 자리에서 [추정]. 숨은 라운드: 경고 표시, `boss_sp_icon`, 「隐藏回合已解锁」(34 #09d7e3) / 「挑战失败不影响
+  胜利结算」(19 #a0b2b3) — KR 「히든 코어 개방 / 실패해도 정산에 지장 없음」. 고리(ext 스프라이트)와 선 모양은 [추정].
+- 판 끝 연출(`settle_ending_dialog`, 클라 코드 `AutoChessSettleDataModel.EndingStatus` + `_PlayAudio`): `m.result`가 진행 중인 판에 도착하면 결과 화면 전에(필드는 그대로
+  두고) — 승리·숨은 라운드 없음 = NORM_BOSS_WIN(`panel_win_first_boss`, 소리 `killBossNormal`), 승리·숨은 라운드 실패 = HIDE_BOSS_FAIL(`panel_lose_break_one_boss`,
+  `killBoss`), 둘 다 = HIDE_BOSS_WIN(`panel_win_all_boss`, `killBossAll`), 패배·전멸 = GAME_OVER(`panel_lose_all_out`, `disconnect`); 중도 포기·오류는 없음. 글:
+  「已击败首个领袖！」 KR 「위수 성공!」(관리자 KR 캡처; 숨은 라운드 실패도 클라 CN 원문이 같아 같은 문구 [추정]), 모두 처치는 클라에선 그림 글자 `img_text_win_all`(EN
+  「All Leader Enemies Defeated!」) — 번역하려고 글자로 그림, 우리 CN 「已击败全部领袖！」, KR 「모든 리더 적 처치 완료!」(관리자 KR 캡처), 중단 「模拟中断」 KR 「시뮬레이션
+  중단」(우리 번역). 길이는 클립(1.97 / 1.97 / 3.0 / 2.1초) + 머무름 [추정], 공식 최대 4초.
+- 탈락 창(`self_dead_dialog`, 클라 코드 `AutoChessBattleUISelfDeadDialog`): 판 도중 내 자리가 탈락하는 순간 한 번(관전석·재접속 제외) — 검정 80 %, 붉은 띠(`bg_type_01`을
+  RectMask로 자름), 깨지는 픽셀 얼굴(`icon_01`…`04`), 「防线已被突破」 KR 「방어선이 뚫렸습니다」(기존 번역 재사용), 「继续观战」 「계속 관전」(창 닫기) / 「退出模拟」
+  「시뮬레이션 나가기」(나가기 확인 창) — 클라 문구표가 없어 우리 번역.
+- 라운드 시작 배너의 보스 예고 줄(`round_countdown`, 클라 코드 `CheckIfNeedRoundRemainTip`): 보스 라운드 − 현재 라운드가 1~`constants.bossTrailerStartRound`(3)일 때
+  배너 위 91.6에 「剩余 N 回合」(20 #a6a6a6, 숫자 #ff682d) — KR 「남은 라운드 N」(우리 번역). 예전에 일부러 뺐던 것(위 「휴식 진입…」 절)을 2026-10-10 관리자 요청으로 넣음.
+- 아직 안 넣은 것: 재접속 대기 마스크(`auto_chess_reconnect_mask`)·서버 끊김·혼자 판 이어하기 창, 핑 판(`panel_ping`), 위수협약 토스트, 결산 화면 좋아요(서버 기능 필요)·
+  「战斗中...」 — `research/2026-10-10-autochess-ui-gap/README.md`.

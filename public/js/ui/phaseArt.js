@@ -28,7 +28,7 @@ import { html } from './components.js';
 import { uiUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { PHASE } from '../../../shared/constants.js';
-import { t } from '../../../shared/i18n.js';
+import { t, tParts } from '../../../shared/i18n.js';
 
 const ROUND = Object.freeze({
   '--pa-bg': 'roundStartDialog/round_bg',
@@ -112,9 +112,12 @@ const DOTS = [[-40, 4, 0], [-30, -20, 0.15], [36, 14, 0.3], [44, -8, 0.1], [-6, 
  * player or a spectator seat — the round pays it nothing (server startRound pays the seats still in), so the [获得] box
  * gives way to 「观战中」 in the [回合] box's look (upstream 7d97b80b / GitHub #236's word; [추정] look: no capture of a
  * watcher's dialog).
- * @param {{ round: number, gold?: number|null, watching?: boolean, duration?: number, onDone?: () => void }} props
+ * `remain`: rounds left before the boss round, shown in the last few (the prefab's round_countdown — client code
+ * AutoChessBattleUIViewModel.CheckIfNeedRoundRemainTip: boss round − this round, when ≤ constants.bossTrailerStartRound
+ * (3) and above 0): 剩余 N 回合 (20 #a6a6a6, the number #ff682d; KR 「남은 라운드 N」, ours) on round_countdown_bg 91.6 above.
+ * @param {{ round: number, gold?: number|null, watching?: boolean, remain?: number|null, duration?: number, onDone?: () => void }} props
  */
-export function RoundStartBanner({ round, gold = null, watching = false, duration = 1800, onDone }) {
+export function RoundStartBanner({ round, gold = null, watching = false, remain = null, duration = 1800, onDone }) {
   const [leaving, setLeaving] = useState(false);
   const [gone, setGone] = useState(false);
   // local patch: keep the credited funds once known — the banner outlives ROUND_START (the phase turns PREP / 机变 while
@@ -166,8 +169,26 @@ export function RoundStartBanner({ round, gold = null, watching = false, duratio
         <i class="parb__glow" style=${box(0, -15, 112, 32.5)} aria-hidden="true"></i>
         ${DOTS.map(([x, y, d], k) => html`<i key=${k} class="parb__dot" style=${`${box(27 + x, -13 + y, 4, 4)};--d:${d}s`} aria-hidden="true"></i>`)}
       </div>`}
+      ${Number.isFinite(remain) && remain > 0 ? html`<div class="parb__remain" style=${`${box(0, 91.6, 322, 64)};${remainBg()}`}>
+        <span class="parb__remain-text">${tParts('剩余 {n} 回合', { n: html`<b>${remain}</b>` })}</span></div>` : null}
     </div>
   </div>`;
+}
+
+/** The round_countdown plate (local extraction ui/battle round_countdown_bg) as a style, or ''. */
+function remainBg() {
+  const u = localAsset('ui/battle', 'round_countdown_bg');
+  return u ? `--pa-remain:url("${u}")` : '';
+}
+
+/**
+ * Rounds left before the boss round for the round-start banner's countdown line, or null (shown only in the last
+ * `trailer` rounds — config constants.bossTrailerStartRound).
+ * @param {number} round @param {number|null|undefined} bossRound @param {number} [trailer]
+ */
+export function roundsToBoss(round, bossRound, trailer = 3) {
+  const left = Number(bossRound) - Number(round);
+  return Number.isFinite(left) && left > 0 && left <= trailer ? left : null;
 }
 
 /**

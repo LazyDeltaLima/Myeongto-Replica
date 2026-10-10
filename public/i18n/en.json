@@ -1301,5 +1301,16 @@
   "联防开始": "Joint defense",
   "暂停叠层": "Stacking paused",
   "当前玩家已离开": "This player has left",
-  "可自行切换查看其他玩家": "Switch to another player's field"
+  "可自行切换查看其他玩家": "Switch to another player's field",
+  "决战回合": "Decisive round",
+  "迎击首领敌人": "Intercept the Leader",
+  "合力迎击领袖！": "Defeat the Leader together!",
+  "隐藏回合已解锁": "Hidden round unlocked",
+  "挑战失败不影响胜利结算": "Failing it does not affect the victory",
+  "已击败首个领袖！": "First Leader defeated!",
+  "已击败全部领袖！": "All Leader Enemies Defeated!",
+  "模拟中断": "Simulation interrupted",
+  "继续观战": "Keep watching",
+  "退出模拟": "Leave the simulation",
+  "剩余 {n} 回合": "{n} rounds left"
 }

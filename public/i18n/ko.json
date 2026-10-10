@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1074 of 1288 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1085 of 1299 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1305,5 +1305,16 @@
   "联防开始": "연합 방어",
   "暂停叠层": "중첩수 사용제한",
   "当前玩家已离开": "이 플레이어는 시뮬레이션을 떠났습니다",
-  "可自行切换查看其他玩家": "다른 플레이어의 전장으로 전환할 수 있습니다"
+  "可自行切换查看其他玩家": "다른 플레이어의 전장으로 전환할 수 있습니다",
+  "决战回合": "최종 공세",
+  "迎击首领敌人": "리더 적 섬멸!",
+  "合力迎击领袖！": "힘을 합쳐 리더 적 섬멸!",
+  "隐藏回合已解锁": "히든 코어 개방",
+  "挑战失败不影响胜利结算": "실패해도 정산에 지장 없음",
+  "已击败首个领袖！": "위수 성공!",
+  "已击败全部领袖！": "모든 리더 적 처치 완료!",
+  "模拟中断": "시뮬레이션 중단",
+  "继续观战": "계속 관전",
+  "退出模拟": "시뮬레이션 나가기",
+  "剩余 {n} 回合": "남은 라운드 {n}"
 }
