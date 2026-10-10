@@ -1,130 +1,152 @@
-# 参与贡献
+# Contributing
 
-> **이 저장소(명토 레플리카)에 기여하실 때** — 원본 [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol)의
-> 기여 안내를 그대로 옮긴 문서이고, 아래 두 가지만 다릅니다(2026-10-09).
-> - Issue, Pull Request, 새로 쓰는 문서는 **한국어**로 씁니다. 코드와 주석은 지금처럼 영어입니다.
-> - 커밋 제목은 `type(area): …`(type = `fix` `feat` `docs` `test` `refactor` `chore`, area = `docs/rules/`의 파일 이름
->   `sim` `diy` `ui` `render` `fx` `audio` `upstream` 또는 `i18n` `tools`)입니다. 원본과 다르게 정한 규칙과 근거는
->   [docs/rules/](docs/rules/README.md)에 적습니다.
+Myeongto-Replica is a Korean-localised hard fork of [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol),
+an unofficial browser remake of Arknights 卫戍协议. Issues and pull requests are welcome: bugs, rules that differ from the
+official game, operator kits, translations, documentation. Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) first (the code
+map: which rule lives in which file), then this page. This page is also the guide for coding agents working in the
+repository; there is no separate agent file.
 
-欢迎提 Issue 和 Pull Request：bug、和官方规则不一致的地方、新干员的战斗逻辑、翻译、文档都可以。动手之前先看一眼
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)（代码地图：哪个规则在哪个文件）。English summary at the end.
+Languages: code, comments and the repository documents are English; game terms are quoted in the official Chinese
+(自选, 跟子, 联防) so they can be searched in the data; player-facing strings are Chinese through `t('…')` with the English in
+`public/i18n/en.json` and the Korean built into `public/i18n/ko.json`; issues and pull requests may be written in Korean or
+English; `docs/rules/` (this fork's rules and their evidence) is written in Korean.
 
-## 1. 准备环境
+## 1. Setup
 
-需要 Node.js 22 或 24（CI 在这两个版本上跑）。
+Node.js 22 or 24 (CI runs both).
 
 ```bash
 git clone https://github.com/LazyDeltaLima/Myeongto-Replica.git
 cd Myeongto-Replica
-npm install        # postinstall 把 pixi / preact / three 复制到 public/vendor
-npm run setup      # 下载美术 / 音频（只跑测试可以不下载，缺素材的用例会自动跳过）
-npm run dev        # 启动服务器（node --watch，改了服务器代码自动重启）：http://localhost:3000
+npm install        # postinstall copies pixi / preact / three into public/vendor
+npm run setup      # art and audio (optional: tests that need them skip when they are missing)
+npm run dev        # the server with node --watch: http://localhost:3000
 ```
 
-`npm run doctor` 检查 Node 版本、素材、端口。官方数据表由 `tools/build-data.mjs` 下载到 `.cache/gamedata/`，改数据时才需要。
+`npm run doctor` checks the Node version, the assets and the port. The official tables are downloaded by
+`tools/build-data.mjs` into `.cache/gamedata/`; you only need them to change data. Environment variables the server reads:
+`SP_MAX_BOTS` (AI seats per room), `SP_DEBUG_PAGE=1` (`/debug.html`, the effect and sound arena), `SP_DEBUG_FUNDS`
+(pins the human players' funds), `SP_VERIFY`, `SP_COMBAT=server`. A deployed server leaves the debug ones unset.
 
-## 2. 运行测试
+## 2. Tests
 
-只跑和改动相关的测试，提交 PR 前再跑一次全部：
+Run the files your change touches, then everything before a pull request. The baseline is **0 failures**: a test that
+disagrees with this fork's behaviour is fixed or deleted, never listed as an intended failure.
 
 ```bash
-node --test test/content/op_wang.test.js                         # 一个文件
-node --test --test-name-pattern="S3" test/local-patch-diy.test.js   # 文件里的部分用例
-node --test                                                      # 全部（需要浏览器 / 素材的用例自动跳过）
-npm run golden                                                   # 黄金结果：整套固定种子的战斗和对局
-GOLDEN_FULL=1 node --test test/golden.test.js                    # 同上，node:test 形式
-npm run golden:update                                            # 有意改变玩法时重新生成
-npm run lint && npm run check:imports && npm run typecheck       # 代码检查、导入边界、类型
+node --test test/local-patch-diy.test.js                            # one file
+node --test --test-name-pattern="S3" test/local-patch-diy.test.js   # one case
+node --test                                                         # everything (browser / asset cases skip by themselves)
+node --test test/content/kits_layout.test.js                        # kit layout and import rules
+npm run golden                                                      # the full golden corpus: fixed-seed battles and matches
+GOLDEN_FULL=1 node --test test/golden.test.js                       # the same through node:test
+npm run golden:update                                               # ONLY for an intended gameplay change
+npm run lint && npm run check:imports && npm run typecheck          # lint, import boundaries, types
 ```
 
-浏览器测试默认不跑，需要本机 Chrome（路径不标准时设置 `CHROME_PATH`），用环境变量打开：
+Browser suites are opt-in and need a local Chrome (`CHROME_PATH` when it is not on the default path):
 
 ```bash
-SP_E2E=1 node --test test/ui/mock.e2e.test.js                    # 界面端到端（不需要素材）
-SP_REAL_E2E=1 node --test test/ui/real.e2e.test.js               # 真实对局（需要已下载的素材）
-RENDER_E2E=1 node --test 'test/render/*.browser.test.js'         # 渲染
-SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里的战斗模拟
+SP_E2E=1 node --test test/ui/mock.e2e.test.js                    # UI end to end (no assets needed)
+SP_REAL_E2E=1 node --test test/ui/real.e2e.test.js               # a real match (needs the downloaded assets)
+RENDER_E2E=1 node --test 'test/render/*.browser.test.js'         # rendering
+SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # the battle simulation in a browser
 ```
 
-**黄金结果**（[test/golden/README.md](test/golden/README.md)）：只重构、不改玩法的提交不能改变
-`test/golden/*.json`；有意改变玩法时运行 `npm run golden:update`，把新文件和改动放在同一个提交里，并在提交说明里写清
-哪些场景变了、为什么。
+**Golden results** ([test/golden/README.md](test/golden/README.md)): a refactor never changes `test/golden/*.json`. An
+intended gameplay change runs `npm run golden:update` and commits the digests with the change, naming in the message
+which scenarios moved and why.
 
-## 3. 忠实原则
+**Rebuild steps** after certain changes:
 
-这是官方玩法的复刻，规则以官方为准：
+```bash
+node tools/build-data.mjs --offline             # after changing tools/build-data.mjs: data/*.json is generated, diff the JSON
+node tools/i18n/build-ko-pack.mjs --offline     # after adding UI strings: public/i18n/ko/*.json → public/i18n/ko.json
+node tools/build-browser-resources.mjs          # after changing assets or effects (the service worker manifest)
+```
 
-- **出处**：官方数据表（`.cache/gamedata/excel/`：character_table、skill_table、uniequip_table / battle_equip_table、
-  activity_table 的 act2autochess、enemy_database、关卡文件）和 [PRTS](https://prts.wiki/)（干员页、技能和天赋的「备注」、
-  卫戍协议相关页面）。数值尽量取 blackboard，不要凭记忆写数字。官方实测的截图或录像也很有价值，请附在 Issue / PR 里。
-- **查不到出处**的细节按最简单、最接近官方的方式实现，在代码注释和 PR 描述里标 `[ASSUMED]`。维护者拍板的写成
-  “the owner's decision of YYYY-MM-DD”。有意和官方不同的规则只能由维护者决定，并写进设计文档（[docs/DESIGN.md](docs/DESIGN.md)
-  是索引：现行规则在 `docs/design/`，各版本的修订与依据在 `docs/history/`）。
-- **版权**：不要把技能描述、剧情等受版权保护的文本大段复制进代码、文档或 PR，引一小句并注明出处即可。不要提交任何游戏
-  素材文件（`public/assets/` 已被 `.gitignore` 排除）。
-- **数据**：不要手改 `data/*.json`。改 `tools/build-data.mjs`，用 `node tools/build-data.mjs --offline` 重新生成，再比较
-  JSON，确认只变了想改的部分。
+## 3. Fidelity
 
-## 4. 提交与 PR
+This is a remake of the official mode; the official game decides.
 
-- 一个 PR 只做一件事；干员的 kit 一个 PR 只放一名，便于审阅。
-- 提交信息一行写清改了什么（中文或英文都可以），相关的 Issue 写上编号，例如 `余 S2 casts with an enemy on its x-1 (#32)`。
-  只写改动本身，不加 `Co-Authored-By:`、`Generated with …` 这类署名尾行（维护者的约定）。合并的 PR 会在 CHANGELOG
-  里写明并致谢作者。
-- PR 描述写：改了什么、为什么、出处（数据表字段、PRTS 链接）、`[ASSUMED]` 的地方、跑了哪些测试、黄金结果里哪些场景变了。
-  界面改动附截图。
-- 规则改了，相关文档一起改：`docs/design/` 里对应的规则（章节号与文件见 docs/DESIGN.md 的索引）、`docs/history/` 里当前版本的
-  修订记录、docs/SIM.md、docs/META.md、docs/DATA.md 等。
-  `test/docs-consistency.test.js` 固定了文档里的一些句子，改文档后跑一下。
-- 代码和注释用英文；Issue、PR 和新写的文档用韩语（2026-10-09 起，见本文开头），原有的中文 / 英文文档可以按原语言修改。界面上的文字写中文并用 `t('…')`
-  包起来，英文放进 `public/i18n/en.json`（[docs/I18N.md](docs/I18N.md)）。
-- 翻译成新的语言：一个语言就是 `public/i18n/` 里的一个文件，不用改代码。`node tools/i18n.mjs template <语言代码>` 生成骨架，
-  翻译后用 `node tools/i18n.mjs check <语言代码>` 检查，步骤见 [docs/I18N.md](docs/I18N.md)「Adding a language」；语言包是
-  内容包的第一种，格式见 [docs/PACKS.md](docs/PACKS.md)。
-- 提交的代码以 GPL-3.0-or-later 发布。本项目坚持非商业，请不要加入广告、付费、打赏等任何变现功能。
+- **Sources, in order**: the official tables (`.cache/gamedata/excel/`: character_table, skill_table, uniequip_table /
+  battle_equip_table, activity_table's act2autochess, enemy_database, the level files), the EN client data (extracted
+  locally, `docs/ASSETS.md`), [PRTS](https://prts.wiki/) (operator pages, the 备注 notes of skills and talents, the 卫戍协议
+  pages), then community wikis, then the maintainer's memory of the game. Numbers come from the blackboards, never from
+  memory. Screenshots or recordings of the official game are valuable: attach them to the issue or pull request.
+- **What no source settles** is implemented the simplest way closest to the official game and marked `[ASSUMED]` in the
+  code and the pull request. A decision the maintainer takes is cited as "maintainer decision YYYY-MM-DD". Some decisions
+  are explicitly provisional (for example the wide skill-range auto-cast, `docs/rules/sim.md` 「스킬 범위 발동」) and are
+  never marked settled.
+- **Rules that differ from upstream or from the official game** are recorded with their evidence in
+  [docs/rules/](docs/rules/README.md), one file per domain (`sim`, `diy`, `ui`, `render`, `fx`, `audio`, `upstream`).
+  Before changing a rule read the owning section of `docs/design/` and the official source; after the change update
+  `docs/design/`, `docs/history/`, docs/SIM.md / META.md / DATA.md as relevant (`test/docs-consistency.test.js` pins
+  sentences of them) and the matching `docs/rules/<domain>.md`.
+- **Copyright**: do not paste skill descriptions, story text or other copyrighted text at length into code, documents or
+  pull requests (quote briefly and cite). Never commit game assets: `public/assets/` is git-ignored.
+- **Data**: never hand-edit `data/*.json`. Change `tools/build-data.mjs`, rebuild with `node tools/build-data.mjs --offline`
+  and compare the JSON to confirm only the intended part moved.
 
-## 5. 添加干员（自选编队）
+## 4. Fork rules
 
-本服务器的自选编队只提供五名干员（`shared/local-diy.js` 的 `LOCAL_DIY_PICKS`）；加人需要先经所有者决定，并加进该列表。每名干员都需要一个自己的战斗文件（kit），写法见
-[server/sim/content/kits/README.md](server/sim/content/kits/README.md) 的「How to add an operator (自选)」。简要步骤：
+- **Hard fork since 2026-10-07**: upstream (`sganggs/Stronghold-Protocol`, remote `upstream`) was merged for the last time
+  at v0.2.0. Upstream is never merged again; an individual upstream fix is ported with `git cherry-pick -x` or by hand
+  and recorded in `docs/rules/upstream.md`. Upstream's tests are ours to change.
+- **Commit subjects** are `type(area): …`. Type: `fix` (matches the official behaviour, or a maintainer report) · `feat`
+  (something the official game lacks) · `docs` · `test` · `refactor` · `chore`. Area: a `docs/rules/` file (`sim` `diy`
+  `ui` `render` `fx` `audio` `upstream`) or `i18n` / `tools`. Older commits read `Local patch: …`.
+- **Plain messages**: a commit message says what changed and why, with the issue number when there is one. No attribution
+  trailers (`Co-Authored-By:`, `Generated with …`, session links); merged pull requests are credited in the CHANGELOG.
+- **The repository is public**: no tracked file may name a home directory, a private folder or a machine account
+  (`test/public-repo.test.js`). Notes that are not in the repository are referred to as the maintainer's notes.
+- **`// local patch` comments** mark the fork's older changes and point at the `docs/rules/` section that justifies them.
+  Do not add new ones; keep the existing ones, and drop a marker when the line it marks is rewritten (keep the reasoning).
+- **Server-side hubs** of the fork's changes: `server/local-patch.js`, `shared/local.js`, `shared/local-diy.js`.
 
-1. 加进 `LOCAL_DIY_PICKS` 后跑 `node tools/build-data.mjs --offline`：`data/backups.json` 的 `units[charId]`（各形态的数值、技能、
-   天赋、模组）和 `tokens`（召唤物）随之生成。先对照官方数据表和 PRTS 核对。
-2. 新建 `server/sim/content/kits/ops/op-<codename>.js`（codename 是 charId 去掉 `char_<n>_`），默认导出只有一个键：charId。
-3. 把文件名加进 `server/sim/content/kits/index.js` 的 `OPERATOR_KIT_FILES`，这名干员就能在自选编队里选了。
-4. 写测试（照 `test/local-patch-diy.test.js` 的写法：每个形态、每个模组、每个技能），
-   跑 `node --test test/content/kits_layout.test.js`，再 `npm run golden:update`（只应新增 `test/golden/diy.json` 的场景）。
-5. PR 里逐项勾选 README 里的「Fidelity checklist」。
+## 5. Pull requests
 
-五名干员都已经有 kit；改进现有的 kit 也按同样的清单来。
+- One change per pull request; one operator per kit pull request.
+- Describe what changed and why, the sources (table fields, PRTS links), the `[ASSUMED]` items, which tests ran, and
+  which golden scenarios moved. Screenshots for UI changes. Say whether a behaviour was verified against data or
+  inferred.
+- A rule change updates the documents it makes wrong (section 3).
+- Player-facing text is Chinese wrapped in `t('…')`, with the English in `public/i18n/en.json` and the Korean in
+  `public/i18n/ko/*.json` (then rebuild the pack, section 2); server messages travel as ids ([docs/I18N.md](docs/I18N.md)).
+  A new language is one file in `public/i18n/` and no code: `node tools/i18n.mjs template <code>`, translate,
+  `node tools/i18n.mjs check <code>` (docs/I18N.md "Adding a language"; packs in general: [docs/PACKS.md](docs/PACKS.md)).
+- The code is GPL-3.0-or-later. The project stays non-commercial: no advertising, payment or donation features.
 
----
+## 6. Pitfalls that cost us before
 
-## English summary
+- A unit test through `battleHarness` is not enough: reproduce on the **real match path**
+  (`test/match/harness.js` → `buildBattleSpec` → `createBattleFromSpec`) and, for screen issues, in a browser.
+- `node --watch` does not watch `data/`: restart the server after rebuilding data files before testing.
+- The sim (`server/sim/`) is deterministic and shared with the browser: pure ESM, no Node APIs, no wall clock, no
+  `Math.random` (the seeded `rng.js`); `npm run check:imports` enforces the boundary. Split classes (`Battle.js` /
+  `battle/`, `Match.js` / `match/match/`, `PlayerState.js` / `match/player/`) install their methods on the prototype,
+  and a method defined twice throws.
+- A new client message is a validator in `shared/protocol.js` (`C2S`) plus a handler in `server/match/match/intents.js`
+  (or `server/lobby.js` for `room.*`).
+- Effects (`public/js/render/fxgame.js`): prefab loads are async, so guard units that died meanwhile (`gone`); a looping
+  prefab is bound to an owner or cut by `until`; a world-space trail must not follow a moving root (`followWorld`).
+- Before adding or editing a 自选 operator kit, walk the checklist in `docs/rules/diy.md`
+  (「새 선발 오퍼레이터 키트 체크리스트」): targetable-only AoE through `canTargetEnemy`, the `dealDamage` options, no invented
+  stop conditions.
 
-- **Setup**: Node.js 22 or 24; `npm install`, `npm run setup` (art and audio — optional for tests), `npm run dev`.
-  The code map is [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-- **Tests**: run the targeted files (`node --test <file>`, `--test-name-pattern`), then `node --test` and
-  `npm run golden` before a pull request; `npm run lint`, `npm run check:imports`, `npm run typecheck`. Browser suites
-  are opt-in: `SP_E2E=1`, `SP_REAL_E2E=1` (needs downloaded art), `RENDER_E2E=1`, `SIM_E2E=1` (a local Chrome,
-  `CHROME_PATH`). A refactor never changes `test/golden/*.json`; an intended gameplay change runs
-  `npm run golden:update` and commits the digests with the change, naming the scenarios that moved.
-- **Fidelity**: the official tables (`.cache/gamedata/excel/`) and PRTS (including the 备注 notes) are the sources;
-  numbers come from the blackboards. Anything no source settles is marked `[ASSUMED]` in the code and the pull
-  request; owner decisions are cited with their date; deliberate deviations are the owner's call and go into the design
-  document (docs/DESIGN.md is its index: the rules in `docs/design/`, the per-release revisions in `docs/history/`).
-  Do not paste copyrighted game text at length (quote briefly, cite) and never commit game assets.
-  Never hand-edit `data/*.json`: change `tools/build-data.mjs`, rebuild with `--offline`, compare the JSON.
-- **Commits and pull requests**: one change per pull request, one operator per kit pull request. A one-line commit
-  message saying what changed, with the issue number; no attribution trailers such as `Co-Authored-By:` or
-  `Generated with …` (the maintainers' convention) — merged pull requests are credited in the CHANGELOG. Describe the
-  sources, the `[ASSUMED]` items, the tests and the golden scenarios that moved; update the docs a rule change makes
-  wrong. Code and comments in English; player-facing text in Chinese through `t('…')` with the English in
-  `public/i18n/en.json`. A new language is one file in `public/i18n/` and no code: `node tools/i18n.mjs template <code>`,
-  translate, `node tools/i18n.mjs check <code>` (docs/I18N.md "Adding a language"; packs in general: docs/PACKS.md).
-  Code is GPL-3.0-or-later; no monetisation features.
-- **Adding an operator (自选)**: follow "How to add an operator (自选)" in
-  [server/sim/content/kits/README.md](server/sim/content/kits/README.md): `op-<codename>.js` keyed by the charId,
-  registered in `OPERATOR_KIT_FILES`, the charId in `shared/local-diy.js LOCAL_DIY_PICKS` (the owner's decision), a test,
-  the fidelity checklist. This server offers five operators, all with kits; improvements follow the same checklist.
+## 7. Adding an operator (自选)
+
+This server offers the operators listed in `shared/local-diy.js` (`LOCAL_DIY_PICKS`); adding one is the maintainer's
+decision. Every operator needs a kit file; the full guide is "How to add an operator (自选)" in
+[server/sim/content/kits/README.md](server/sim/content/kits/README.md). In short:
+
+1. Add the charId to `LOCAL_DIY_PICKS` and run `node tools/build-data.mjs --offline`: `data/backups.json` gains the
+   operator's `units[charId]` (the numbers, skills, talents and modules of every form) and its `tokens` (summons). Check
+   them against the official tables and PRTS.
+2. Create `server/sim/content/kits/ops/op-<codename>.js` (codename = the charId without `char_<n>_`); the default export
+   has one key, the charId.
+3. Add the file name to `OPERATOR_KIT_FILES` in `server/sim/content/kits/index.js`.
+4. Write tests the way `test/local-patch-diy.test.js` does (every form, every module, every skill, one case through the
+   real match path), run `node --test test/content/kits_layout.test.js`, then `npm run golden:update` (only
+   `test/golden/diy.json` should gain scenarios).
+5. Tick the fidelity checklist of the kits README and the `docs/rules/diy.md` checklist in the pull request.
