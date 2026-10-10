@@ -51,6 +51,21 @@ export function nextThreshold(count, thresholds) {
 }
 
 /**
+ * The m of a bond's 「n/m」: the member count it needs to activate — one value per bond, whatever its tiers (client code
+ * AutoChessBondItemModel.LoadData, RVA 0x1FEE850: requireCount = ActAutoChessBondInfo.activeCount; the detail dialog's
+ * AutoChessBattleUIBondDetailView._RenderTitleInfo, 0x1FE32B0, prints String.Format(fmt, charCnt, requireCount) active or
+ * not — 炎 with 4 operators reads 4/3, not 4/6). bonds.json `activeCount`, else the first threshold (the same number).
+ * @param {any} rec the bonds.json record
+ * @param {number[]} [thresholds]
+ * @returns {number|null}
+ */
+export function bondRequireCount(rec, thresholds) {
+  if (rec && Number.isInteger(rec.activeCount) && rec.activeCount > 0) return rec.activeCount;
+  const th = Array.isArray(thresholds) && thresholds.length ? thresholds : Array.isArray(rec?.thresholds) ? rec.thresholds : [];
+  return th.length ? th[0] : null;
+}
+
+/**
  * Bonds granted by 变形同构体: an item with `canGiveBond` worn together with an item that has a `giveBondId` makes the
  * wearer a member of that other item's bond (band 变形者集群 "与特定装备一同装备时装备者将视为特定盟约成员"; the item's
  * talent, character_table trap_1073_acarm073, lists the 14 pairings). The same rule as the server's count

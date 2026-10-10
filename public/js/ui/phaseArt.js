@@ -175,7 +175,10 @@ export function RoundStartBanner({ round, gold = null, watching = false, duratio
  * animations on two panels: _allPrefectAnim (panel_perfect) and _perfectAnim / _missAnim (both panel_miss, "done" and
  * "miss"). Mapped: a perfect battle → panel_perfect (战斗结束 / 完美作战！); counted leaks → panel_miss with 目标生命值减少
  * and the LP they cost (the counted leaks — Match.settle charges min(cap, counted) unless a 联防 reassigns them);
- * leaks that cost nothing (uncounted) → panel_miss "done", the title alone [추정: the done line is not in any capture].
+ * leaks that cost nothing (uncounted) → panel_miss "done", the title alone — client code
+ * AutoChessBattleUIRoundResultDialog.OnRender (RVA 0x1FECE70): panel_perfect = isAllPrefect, panel_miss = !isAllPrefect,
+ * the LP text set only when lostHp > 0; the anim / sound by isAllPrefect → _allPrefectAnim + BATTLEOVER_NOREDUCE,
+ * lostHp ≤ 0 → _perfectAnim + _NORMAL, else _missAnim + _REDUCE (audioOfficial.js battleOverOf).
  * @param {{ perfect: boolean, lost?: number, duration?: number, onDone?: () => void }} props
  */
 export function BattleEndBanner({ perfect, lost = 0, duration = 1800, onDone }) {

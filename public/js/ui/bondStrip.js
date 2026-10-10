@@ -1,13 +1,14 @@
 // Bond strip (active-bond discs under the top bar) and the bond detail popup: the key facts first (user playtest #2
-// item 9: name, members in play / next threshold, layers, reached tier and its threshold row, the current effect with
-// layer-resolved numbers), then the full description and the member list with owned / on-board state — operators that
-// are members through 变形同构体 included (tagged 同构, gameLogic bondMembers; such a row opens the wearer's card with its
-// items: the pair and the granted chip), so the list's count agrees with 在场 (a bond the mode never activates says
-// 本局禁用 — gameLogic modeOffBonds). A core bond whose count holds 调和's +1 (the view entry's `harmony`, sent by the
-// server — server/match/bondsMeta.js; never re-derived here) says so: 在场 n（含调和 +1）, and a 调和 row heads the member
-// list naming the 调和 operators on that board (gameLogic harmonyMembers: 缪尔赛思 …; a tap opens the first one's card) —
-// the +1 used to read as a miscount (GitHub issue #1, DESIGN §21.26). Opened from the detail panel's bond chips it docks
-// beside that panel (`beside`: the panel's side).
+// item 9: name, members in play / the members it needs (the bond's one activeCount, as the client — bondRequireCount),
+// layers, reached tier and its threshold row, the current effect with layer-resolved numbers), then the full
+// description and the member list with owned / on-board state — operators that are members through 变形同构体 included
+// (tagged 同构, gameLogic bondMembers; such a row opens the wearer's card with its items: the pair and the granted chip),
+// so the list's count agrees with 在场 (a bond the mode never activates says 本局禁用 — gameLogic modeOffBonds). A core bond
+// whose count holds 调和's +1 (the view entry's `harmony`, sent by the server — server/match/bondsMeta.js; never
+// re-derived here) says so: 在场 n（含调和 +1）, and a 调和 row heads the member list naming the 调和 operators on that board
+// (gameLogic harmonyMembers: 缪尔赛思 …; a tap opens the first one's card) — the +1 used to read as a miscount (GitHub
+// issue #1, DESIGN §21.26). Opened from the detail panel's bond chips it docks beside that panel (`beside`: the panel's
+// side).
 // Research 06 §11.1: round mint discs, stack count over the disc, name below, sorted by stacks; grey =
 // present but inactive; in 联防 / boss rounds the strip is dimmed ("层数叠加已禁用"). A bond the mode never activates
 // that the player has members of (the server's `off` entry — server/match/bondsMeta.js offBondCounts: 标准's 投资人 奇迹
@@ -31,7 +32,7 @@
 
 import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, UnitThumb, BondGlyph, GIcon } from './gameComponents.js';
-import { sortBonds, bondMembers, nextThreshold, bondTier, harmonyMembers, HARMONY_BOND, memberHeadCount, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
+import { sortBonds, bondMembers, nextThreshold, bondRequireCount, bondTier, harmonyMembers, HARMONY_BOND, memberHeadCount, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { formatBondEffect } from './richText.js';
 import { bondIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
@@ -85,14 +86,15 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
         </div>`;
       }
       const next = nextThreshold(b.count ?? 0, th);
+      const need = bondRequireCount(rec, th); // the client's m: the bond's one activeCount (gameLogic bondRequireCount)
       const board = bondBoardOf(th, b.count ?? 0, !!b.active); // local patch: the official disc board (hudArt.js)
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null} style=${board.style} data-full=${board.full ? '1' : null}
           class=${cx('bslot', b.active && 'is-active', openId === b.bondId && 'is-open')}>
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : b.layers ?? 0}
           tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
-          title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
-        <span class=${cx('bslot__count', 'num', next == null && 'is-max')}>${b.count ?? 0}<small>/${next ?? th[th.length - 1] ?? '-'}</small></span>
+          title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${need ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
+        <span class=${cx('bslot__count', 'num', next == null && 'is-max')}>${b.count ?? 0}<small>/${need ?? '-'}</small></span>
       </div>`;
     })}
     ${sorted.length > shown.length ? html`<span class="bstrip__more num">+${sorted.length - shown.length}</span>` : null}
@@ -132,7 +134,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   const rawChess = (id) => data.lookup('chess', id);
   const siOf = (mb) => (mb.diy ? null : memberStandIn(priv, rawChess(mb.id), data.get('backups'), rawChess));
   const countsHand = entry?.countsHand ?? b.countsHand;
-  const next = nextThreshold(count, th);
+  const need = bondRequireCount(b, th); // the client's m (bondRequireCount): 炎 ×4 reads 4/3
   const hasNow = !off && !!(b.effectDescRaw || b.effectDesc);
   const at = place || (beside === 'left' ? 'beside' : 'left');
   // 调和's +1 in this count (the server's word), and the 调和 operators on that board who give it
@@ -154,10 +156,10 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
         <${MicroLabel} tone="mint">${b.isCore ? t('CORE BOND // 核心盟约') : t('ADD-ON BOND // 附加盟约')}</${MicroLabel}>
         ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
         <h3 class="bpop__name">${b.name}</h3>
-        ${th.length && !off ? html`<span class=${cx('bpop__need', active && 'is-active')}><i class="bpop__needicon"></i><b class="num">${count}/${next ?? th[th.length - 1]}</b>${active ? html`<i class="bpop__needok"></i>` : html`<em>${t('尚未激活')}</em>`}</span>` : null}
+        ${th.length && !off ? html`<span class=${cx('bpop__need', active && 'is-active')}><i class="bpop__needicon"></i><b class="num"><span class="bpop__needn">${count}</span><span class="bpop__needm">/${need ?? '-'}</span></b>${active ? html`<i class="bpop__needok"></i>` : html`<em>${t('尚未激活')}</em>`}</span>` : null}
         ${b.noStack ? null : html`<span class="bpop__stack">${t('层数')} <b class="num">${layers}</b></span>`}${/* local patch: the client's count pill and 层数 (autochess_hud_bond_detail_dialog; css/hud-art.css) */ ''}
         <div class="bpop__facts">
-          ${off ? null : html`<span>${t('在场')} <b class="num">${count}</b>${next != null ? html`<small class="num">/${next}</small>` : null}${countsHand ? html`<small>${t('（含整备区）')}</small>` : null}${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>${t('（含{harmonyName} +{harmony}）', { harmonyName, harmony })}</small>` : null}</span>`}
+          ${off ? null : html`<span>${t('在场')} <b class="num">${count}</b>${need != null ? html`<small class="num">/${need}</small>` : null}${countsHand ? html`<small>${t('（含整备区）')}</small>` : null}${harmony ? html`<small class="bpop__hnote" data-harmony=${harmony}>${t('（含{harmonyName} +{harmony}）', { harmonyName, harmony })}</small>` : null}</span>`}
           ${b.noStack ? html`<span>${t('层数不显示')}</span>` : html`<span>${t('层数')} <b class="num t-mint">${layers}</b></span>`}
           <span class=${active ? 't-mint' : 't-lo'}>${active ? (th.length > 1 ? t('已激活 · {tier} 阶', { tier }) : t('已激活')) : off ? t('本局禁用') : t('未激活')}</span>
         </div>

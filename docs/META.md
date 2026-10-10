@@ -85,7 +85,7 @@ legal from R14 into R15. The client mirrors it
 | 机变 first / other pickers | `spFirst` 30 / `spTurn` 16 (co-op; solo / single human untimed) |
 | PREP | `modes[m].rounds[r].prepTime` (co-op; solo / single human untimed) |
 | COMBAT / 联防 | `modes[m].rounds[r].combatTimeLimit` (= the level's `maxPlayTime`) real seconds = 2× that in game seconds |
-| 最终攻势 / 隐秘核心 | no hard stop: countdown `rounds[r].levelMaxPlayTime` 120 real s; overtime drain from the countdown's end (120 real s), 1 team LP per real s (§3) |
+| 最终攻势 / 隐秘核心 | countdown `rounds[r].levelMaxPlayTime` 120 real s, the battle goes on; overtime drain from the countdown's end (120 real s), 1 team LP per real s, until the server ends the battle `rounds[r].bossOvertimeAfter` (bossTurnHpReduceTime 150) real s later (§3) |
 | ROUND_START / after combat / SETTLE | 2 / 1.5 / 3 (presentation delays, `Match.DELAYS`) |
 | bot action delay | 0.9 s (+0.35 s per seat) |
 
@@ -682,7 +682,9 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   keep their own HP. The merged team LP loses leaks (`lpr`), the overtime drain
   (1 LP per REAL second from the end of the boss level's 120 s maxPlayTime countdown — the battle goes on — = 240 game s
   on the 2× field clock; `gd.bossOvertimeStartReal` / `gd.bossOvertimeDue`; local patch, user decision 2026-10-09 from
-  official footage — the data's `bossTurnHpReduceTime` 150 left a 30 s grace the game does not have)
+  official footage) for the data's `bossTurnHpReduceTime` (150 real s, `gd.bossOvertimeWindowReal`): then the server
+  force-ends the boss fields like at team LP 0 — a defeat — so the drain takes at most 150 LP (client code
+  `AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo`: the countdown ends at the server's forced end − 150)
   and leader "扣除目标生命" effects (the sim's `lpLoss` hook: boss_7 Doom, 斥退 …); after every change it is written back
   to the alive players as shares of the LP each brought in (`lpAtFinal`, largest remainder), so `lp` in m.public /
   m.private / m.result is what is left (Σ = team LP).
@@ -702,7 +704,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   reads anything below 1 as 0), so a pool shown at 0 is a dead leader on every field and the round ends at once. Before,
   crediting a report per player could leave float dust (3.6e-12) that no browser hit could remove and the leader fought
   on until the overtime drain. The first end condition the server registers decides (`Match._finalEnding`): pool 0 →
-  victory, team LP 0 → defeat (PRTS 卫戍协议：盟约 下半 "…使目标生命值扣除至0，则无视倒计时直接失败"); after a forced end
+  victory, team LP 0 or the overtime window over → defeat (PRTS 卫戍协议：盟约 下半 "…使目标生命值扣除至0，则无视倒计时直接失败"); after a forced end
   no report (an in-flight `b.progress`, the final `b.result` with its rounded per-player damage) credits the pool.
   **限伤** (research 11 §2; client `AutoChessStepModeManager._OnBossEnemyTakeDamage`): in both boss rounds a single hit
   on a leader with ceil(damage) ≥ `BOSS_HIT_LIMIT` = 300000 (shared/constants.js; 0 / Infinity = off) is cancelled in the

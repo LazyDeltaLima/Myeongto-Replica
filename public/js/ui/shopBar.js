@@ -255,8 +255,9 @@ export function useTwoTap({ editable, keys }) {
  * 其中1件". Each slot is drawn by its kind: an item slot is an item card (icon, name, tier, description, FREE) — player
  * report #6 after 0.1.0, the items used to be drawn as nameless operator cards — and the header names the offer
  * (gameLogic.offerHeader: 晋升奖励 / the strategy's effect name …; "之后还有 N 项" while more offers wait behind it).
+ * `rolled`: a new offer just took the row — the client's card_whole_refresh_special plays over its cards (ShopBar).
  */
-export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, armed, onTap, offBonds = null }) {
+export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, armed, onTap, offBonds = null, rolled = false }) {
   const head = offerHeader(offer);
   return html`<div class=${cx('shopbar__reward', head.items && 'is-items')} role="group" aria-label=${head.title}>
     <div class="rwtag">
@@ -267,7 +268,7 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
       ${head.more ? html`<span class="rwtag__sub rwtag__more">${head.more}</span>` : null}
       <button type="button" class="rwtag__later" onClick=${onLater} title=${t('稍后选择（回合结束后消失）')}><${Icon} name="minus" />${t('稍后')}</button>
     </div>
-    <div class="shopbar__rwcards">
+    <div key=${`rwroll${Number(offer.seq) || 0}`} class=${cx('shopbar__rwcards', rolled && 'is-rolled is-special')}>
       ${offer.slots.map((s, i) => {
         if (!s || s.sold) return html`<div key=${`rw${i}`} class=${cx('scard', 'scard--sold', s && s.kind === 'item' && 'scard--item')}><span class="scard__soldtxt"><span>${t('已选择')}</span></span></div>`;
         const kind = s.kind === 'item' ? 'item' : 'chess';
@@ -276,6 +277,7 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
           onTap: (idx) => onTap('r', idx, s, kind, reason, onPick) };
         return kind === 'item' ? html`<${ItemCard} key=${`rw${i}:${s.id}`} ...${props} />` : html`<${ChessCard} key=${`rw${i}:${s.id}`} priv=${priv} offBonds=${offBonds} ...${props} />`;
       })}
+      ${rolled ? html`<${RollFx} key="rollfx" />` : null}
     </div>
   </div>`;
 }
@@ -325,18 +327,25 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   const armedSig = armedSlot ? `${armedSlot.kind}:${armedSlot.id}` : '';
   useEffect(() => { onArm?.(armedSlot ? { kind: armedSlot.kind === 'item' ? 'item' : 'chess', id: armedSlot.id } : null); }, [armedSig]);
   useEffect(() => () => onArm?.(null), []);
-  // 刷新 plays the official card_item_refresh (every card rises from below) + card_whole_refresh_normal (the card row
-  // fades in) — game-shop.css .shopbar__cards.is-rolled. Driven by the server's refresh count (button and R key alike);
-  // a round start's reroll and the bar's first draw do not play it. The class stays for the clip's length only, so a
-  // later remount of the row (a promotion reward picked) does not replay it. A 特殊刷新 of the strategy (杜遥夜, 梓兰,
-  // 佩佩 — server/local-patch.js specialRefresh, shop.specialRefreshAt = that refresh's count) plays
-  // card_whole_refresh_special instead: the same plus the orange sweep and stars over the row (shopRollFx.js).
+  // The shop row's refresh clips (client code AutoChessBattleShopMainView._RenderUnfoldView, RVA 0x201B500: when the
+  // server's refreshSeq changes, every card plays card_item_refresh at once and the row plays card_whole_refresh_special
+  // if the goods are special — isSpecialGoods COMB / BUFF —, else _normal). 刷新 (button and R key alike, the server's
+  // refresh count; a strategy's 「特殊刷新」 too — its goods are normal ones): every card rises from below and the row fades
+  // in (game-shop.css .shopbar__cards.is-rolled). A new pick-one offer taking the row (晋升奖励 = COMB, a strategy's /
+  // item's offer = BUFF; shop.rewardOffer.seq — server/local-patch.js) plays the special clip: the same plus the orange
+  // sweep and stars (shopRollFx.js) — once per offer, not again when it is reopened after 稍后. A round start's reroll and
+  // the bar's first draw do not play either (whether the official server moves refreshSeq there is server logic, not
+  // in the client). The class stays for the clip's length only, so a later remount of the row does not replay it.
   const rolls = Number(shop.refreshes) || 0;
-  const special = rolls > 0 && Number(shop.specialRefreshAt) === rolls;
   const roll = useRef(null);
   if (!roll.current) roll.current = { n: rolls, until: 0 };
-  else if (roll.current.n !== rolls) roll.current = { n: rolls, until: rolls > roll.current.n ? performance.now() + (special ? SPECIAL_ROLL_MS : ROLL_MS) : 0 };
+  else if (roll.current.n !== rolls) roll.current = { n: rolls, until: rolls > roll.current.n ? performance.now() + ROLL_MS : 0 };
   const rolled = performance.now() < roll.current.until;
+  const offerSeq = showReward ? Number(reward.seq) || 0 : null;
+  const offerRoll = useRef(null);
+  if (!offerRoll.current) offerRoll.current = { seq: offerSeq ?? 0, until: 0 };
+  else if (offerSeq != null && offerSeq > offerRoll.current.seq) offerRoll.current = { seq: offerSeq, until: performance.now() + SPECIAL_ROLL_MS };
+  const offerRolled = showReward && performance.now() < offerRoll.current.until;
   /** First tap arms + opens the detail; the second buys (or says why it can't). */
   const tapCard = (kind, idx, slot, detailKind, reason, buy) => {
     const key = armKey(kind, idx, slot);
@@ -379,8 +388,8 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
     <div class="shopbar__row">
       <${LevelCard} shop=${shop} reason=${lvReason} armed=${armed === levelKey} onTap=${tapLevel} />
       ${showReward ? html`<${RewardCards} offer=${reward} priv=${priv} editable=${editable} onPick=${onReward} onDetail=${onDetail} onLater=${onRewardLater}
-          armed=${armed} onTap=${tapCard} offBonds=${offBonds} />`
-        : html`<div key=${`roll${rolls}`} class=${cx('shopbar__cards', rolled && 'is-rolled', rolled && special && 'is-special')}>
+          armed=${armed} onTap=${tapCard} offBonds=${offBonds} rolled=${offerRolled} />`
+        : html`<div key=${`roll${rolls}`} class=${cx('shopbar__cards', rolled && 'is-rolled')}>
         ${hasItemSlot ? null : html`<${SoldCard} key="noitem" item=${true} />`}
         ${ordered.map(({ s, i, kind }) => {
           if (kind === 'item') {
@@ -396,7 +405,6 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
           return html`<${ChessCard} key=${`c${i}:${s.id}`} slot=${s} idx=${i} priv=${priv} frozen=${slotFrozen(s, frozen)} onBuy=${onBuy} onDetail=${onDetail} offBonds=${offBonds}
               reason=${reason} armed=${armed === armKey('c', i, s)} onTap=${editable ? (idx) => tapCard('c', idx, s, 'chess', reason, onBuy) : null} />`;
         })}
-        ${rolled && special ? html`<${RollFx} key="rollfx" />` : null}
       </div>`}
       <div class="funds">
         <div class="funds__hex">

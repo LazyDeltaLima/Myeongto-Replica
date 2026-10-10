@@ -297,10 +297,10 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
     const [d, hl] = nums.live;
     assert.equal(d.text.text, '1600'); assert.equal(hl.text.text, '+37');
     assert.ok(d.crit && !hl.crit);
-    nums.update(0.3);
-    assert.ok(Math.abs(d.text.scale.x - 30 * 1.1 / 60) < 1e-9, 'crit: 30 × 1.1 after the pop');
+    nums.update(0.25);
+    assert.ok(Math.abs(d.text.scale.x - 30 * 1.5 * 1.1 / 60) < 1e-9, 'crit: 30 × 1.1, at the peak 1.5× (_fontSizeScale)');
     assert.ok(d.text.position.y < 600 - (HB.HUD_ANCHOR + 150 - 5) , 'over the popup');
-    nums.update(0.3);
+    nums.update(0.35);
     assert.equal(nums.live.length, 0, 'gone after 0.5 s');
   });
   test('blocked: a forced / crit hit stopped by a shield → \'blk\' (1 blue for the client\'s showing shields, 0 BLOCK); ordinary hits nothing', () => {
@@ -327,23 +327,29 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
     nums.blocked(v, 1234, true); nums.blocked(v, 1234, false);
     assert.deepEqual(nums.live.map((t) => [t.kind, t.text.text]), [['blue', '1234'], ['block', 'BLOCK']]);
   });
-  test('damage numbers move as the user video measured: grow from 0.87, hold, shrink and drop at the end (no fade); heals keep the pop', async () => {
+  test('numbers move as the client code tweens them (UIDamageText / UIHealText.SetTweens)', async () => {
     const N = await import('../public/js/render/num-official.js');
     const nums = new N.OfficialNumbers(fakeViewCtx(fake.P, { viewport: () => ({ width: 1920, height: 1080 }) }));
     const v = { screen: { x: 0, y: 600 } };
     nums.damage(v, 2322, 2); nums.heal(v, 10);
     const [d, hl] = nums.live;
-    nums.update(0.02);
-    const full = 30 / 60;
-    assert.ok(d.text.scale.x < full && d.text.scale.x > 0.85 * full, 'no 1.5× pop: a little under its size');
-    assert.ok(hl.text.scale.x > full, 'the heal still pops');
-    nums.update(0.28);
-    assert.ok(Math.abs(d.text.scale.x - full) < 1e-9);
-    const y = d.text.position.y;
-    nums.update(0.15);
-    assert.ok(d.text.scale.x < 0.8 * full, 'shrinking at the end');
-    assert.ok(d.text.position.y > y, 'dropping');
-    assert.equal(d.text.alpha, 1);
+    const base = 30 / 60;
+    const y0 = d.text.position.y;
+    assert.ok(Math.abs(d.text.scale.x - base) < 1e-9, 'damage starts at scale 1');
+    nums.update(1 / 30);
+    assert.ok(Math.abs(d.text.scale.x / (1.5 * base) - (1 + 0.5 * N.outExpo(2 / 15)) / 1.5) < 1e-9, 'OutExpo to 1.5: 0.87 of the peak on the first frame');
+    assert.ok(Math.abs(hl.text.scale.x - base) < 1e-9, 'the heal has no scale tween');
+    nums.update(0.25 - 1 / 30);
+    assert.ok(Math.abs(d.text.scale.x - 1.5 * base) < 1e-9, 'peak at half the life');
+    const yTop = d.text.position.y;
+    assert.ok(yTop < y0, 'risen');
+    nums.update(0.2);
+    assert.ok(d.text.scale.x < 0.8 * 1.5 * base, 'InExpo shrink at the end');
+    assert.ok(d.text.position.y > yTop && d.text.position.y < y0, 'dropping, still above the start at 0.45 s');
+    nums.update(0.04);
+    assert.ok(d.text.position.y > y0, 'below the start at 0.49 s (_downOffset from the start point)');
+    assert.equal(d.text.alpha, 1, 'no fade');
+    assert.ok(hl.text.alpha < 0.8 && hl.text.alpha > 0, 'the heal fades (InExpo)');
   });
   test('style setting: official by default, classic kept in localStorage', async () => {
     const store = new Map();

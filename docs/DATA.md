@@ -93,7 +93,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `prepTime` | `65` | multi/training prep timer (real seconds); **`null` for solo** (untimed in 下半) |
 | `prepTimeData` | `300` | official `normalPhaseTime` (optional "timed solo") |
 | `isSpPrepare`, `isBoss`, `isHidden` | | 机变 before prep / leader round / 隐秘核心 |
-| `bossOvertimeAfter` | `150` | boss rounds: team LP −1 per **real** second after this many real seconds (= 300 game s on the 2× field clock; `m.public.overtimeAt`) |
+| `bossOvertimeAfter` | `150` | boss rounds: official `bossTurnHpReduceTime` — the overtime's length in **real** seconds: team LP −1 per real second from the end of the `levelMaxPlayTime` countdown for this long, then the server ends the battle (`gamedata.js bossOvertimeWindowReal`; client code `AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo`); the drain's start only without a level time |
 
 ### 1.2 `economy`
 
@@ -121,7 +121,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | Key | Example | Meaning |
 |---|---|---|
 | `lpCapPerRound` | `10` | max LP lost per player per normal round |
-| `bossOvertimeAfter`, `bossOvertimeDrainPerSec` | `150`, `1` | official `bossTurnHpReduceTime` (150 **real** s) — **not used** while the boss round has a `levelMaxPlayTime`: the merged team LP loses 1 per whole real second from the end of that countdown (120 s; `gamedata.js bossOvertimeStartReal` / `bossOvertimeDue`; first point at 121 s — local patch, user decision 2026-10-09) |
+| `bossOvertimeAfter`, `bossOvertimeDrainPerSec` | `150`, `1` | official `bossTurnHpReduceTime` (150 **real** s): the overtime's length (fallback for `rounds[r].bossOvertimeAfter`) — the merged team LP loses 1 per whole real second from the end of the `levelMaxPlayTime` countdown (120 s; `gamedata.js bossOvertimeStartReal` / `bossOvertimeDue`; first point at 121 s — local patch, user decision 2026-10-09) for at most 150 s, when the server ends the battle |
 | `bossHpScale` | `{"formula":"one pool for every boss field …","perPlayer":true,"coop":1,"solo":1,"aliveFull":4,"aliveScaling":false,"aliveAssumed":true,…}` | the leader pool (one for every boss field) = `bosses[id].bloodPoint[difficulty]` × share: `perPlayer` true (the owner's decision of 2026-10-06, adopting PR #209 — it replaces the fixed pool of 「保持固定血量」) — co-op share = `coop` × the players alive when the fight starts (bots and AI 托管 seats count, eliminated and departed seats do not; at most `aliveFull`), solo share = `solo` (1). `perPlayer: false` with `solo: 0.25` restores the fixed pool of 0.1.x (co-op × `coop` whatever the count; `aliveScaling: true` would make it × alive / `aliveFull`, the proportion [ASSUMED, flagged `aliveAssumed`]). `GameData.bossPoolHp(bossId, aliveCount)` / `bossPoolShare` implement it (DESIGN §20.10, §25.13.4) |
 | `hiddenCore` | `{"single":350,"multi":1200,"minTeamLpExclusive":1,"difficulties":["NORMAL","HARD","ABYSS"],"checkedAfterRound":14}` | Σ activated layers must be **>** threshold and LP **>** 1 |
 | `dp` | `{"init":10,"perSec":1,"max":99}` | |

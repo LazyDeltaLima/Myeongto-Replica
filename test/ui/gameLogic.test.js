@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold,
+  phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold, bondRequireCount,
   holdsBattleEnd, settleBattleEnd, ownRoundLoss, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
@@ -219,6 +219,14 @@ describe('bonds', () => {
     assert.equal(bondTier(2, [1], 1), 0, '独行 inactive above maxCount');
     assert.equal(nextThreshold(4, [3, 6, 9]), 6);
     assert.equal(nextThreshold(9, [3, 6, 9]), null);
+  });
+  test('bondRequireCount: the m of 「n/m」 is the bond\'s one activeCount (client AutoChessBondItemModel.LoadData)', () => {
+    assert.deepEqual(bonds.yanShip.thresholds, [3, 6, 9]);
+    assert.equal(bondRequireCount(bonds.yanShip, bonds.yanShip.thresholds), 3, '炎 with 4 reads 4/3, not 4/6');
+    assert.equal(bondRequireCount(bonds.soloShip), 1, '独行');
+    assert.equal(bondRequireCount({ thresholds: [2, 3] }), 2, 'no activeCount: the first threshold');
+    assert.equal(bondRequireCount(null, []), null);
+    for (const b of Object.values(bonds)) assert.equal(b.activeCount, b.thresholds[0], `${b.name}: activeCount = first threshold`);
   });
   test('bondMembers marks on-board / owned / banned', () => {
     const b = bonds.deputShip;

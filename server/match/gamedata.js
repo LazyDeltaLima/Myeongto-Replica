@@ -443,15 +443,30 @@ export class GameData {
    * REAL second of boss round `r` at which the overtime drain starts: the boss level's countdown (levelMaxPlayTime, 120)
    * — local patch (LOCAL-PATCH.md 「보스전 초과 시간」, user decision 2026-10-09 from official footage: the countdown runs
    * from 120 and the team LP drops as soon as it ends, no grace; PRTS 「计时结束后…每超时1秒扣除1目标生命值」). The data's
-   * bossTurnHpReduceTime (150, bossOvertimeAfterReal) is kept only for a round without a level time.
+   * bossTurnHpReduceTime (150) is the overtime's length (bossOvertimeWindowReal, client code); as a start it is used only
+   * for a round without a level time.
    */
   bossOvertimeStartReal(r) { return this.bossLevelTime(r) ?? this.bossOvertimeAfterReal; }
   /**
-   * Team LP the overtime drain has taken when a boss field clock reads `gt` game seconds: bossOvertimeDrainReal per
-   * whole REAL second past `startReal` (bossOvertimeStartReal; the first point 1 real s after it).
+   * Length in REAL seconds of boss round `r`'s overtime: the round's bossTurnHpReduceTime (config rounds[r].bossOvertimeAfter,
+   * 150; else bossOvertimeAfterReal). Client code AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo (RVA 0x1FE75C0):
+   * the countdown ends at the server's forced end of the boss state − bossTurnHpReduceTime — so the server ends the boss
+   * battle that long after the countdown runs out, and the drain takes at most this many seconds' worth.
    */
-  bossOvertimeDue(gt, startReal = this.bossOvertimeAfterReal) {
-    const over = (Number(gt) || 0) / this.combatTimeScale - startReal;
+  bossOvertimeWindowReal(r) {
+    const rc = this.roundCfg(r);
+    const v = rc ? rc.bossOvertimeAfter : undefined;
+    return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : this.bossOvertimeAfterReal;
+  }
+  /** REAL second of boss round `r` at which the boss battle is force-ended: the drain start + the overtime window. */
+  bossForcedEndReal(r) { return this.bossOvertimeStartReal(r) + this.bossOvertimeWindowReal(r); }
+  /**
+   * Team LP the overtime drain has taken when a boss field clock reads `gt` game seconds: bossOvertimeDrainReal per
+   * whole REAL second past `startReal` (bossOvertimeStartReal; the first point 1 real s after it), counting at most
+   * `windowReal` seconds (bossOvertimeWindowReal: the battle is force-ended then).
+   */
+  bossOvertimeDue(gt, startReal = this.bossOvertimeAfterReal, windowReal = Infinity) {
+    const over = Math.min((Number(gt) || 0) / this.combatTimeScale - startReal, windowReal);
     return over >= 1 ? Math.floor(over) * this.bossOvertimeDrainReal : 0;
   }
   get dp() {

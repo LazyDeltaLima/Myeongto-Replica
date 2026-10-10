@@ -125,6 +125,23 @@ test('overtime: −1 team LP per REAL second from the end of the 120 real s coun
   m.dispose();
 });
 
+test('overtime window: the server ends the boss battle bossTurnHpReduceTime (150) real s after the countdown — at most 150 LP drained, a defeat with LP left (client code _GetBossBattleTimeInfo)', () => {
+  const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 2, seed: 50, fake: true, script: (b) => (b.kind === 'boss' ? { bossDps: 1 } : {}) }).start();
+  const m = h.m;
+  assert.equal(m.gd.bossOvertimeWindowReal(14), 150);
+  assert.equal(m.gd.bossForcedEndReal(14), 270);
+  h.drive(() => m.phase === PHASE.PREP && m.round === 14);
+  for (const p of m.players.values()) p.lp = 100;
+  h.drive(() => m.phase === PHASE.FINAL_ASSAULT);
+  assert.equal(m.teamLp, 200);
+  const f = bossFields()[0];
+  const end = h.runToEnd();
+  assert.equal(end.victory, false);
+  assert.ok(Math.abs(f.time - 540) < 2.5, `ended ≈ 2 × (120 + 150) game s (${f.time})`);
+  assert.equal(m.teamLp, 50, '150 drained, no more');
+  m.dispose();
+});
+
 test('Final Assault leaks cost their lpr from the merged LP', () => {
   const h = makeMatch({ mode: 'solo', difficulty: 'FUNNY', seed: 51, fake: true, instant: false, script: (b) => (b.kind === 'boss' ? { bossDps: 1, leakEvents: [{ at: 5, lpr: 1 }, { at: 10, lpr: 30, boss: true }] } : {}) }).start();
   const m = h.m;

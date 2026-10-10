@@ -192,30 +192,27 @@ function buffBoosts(ps, b) {
   }
 }
 
-// 특수 갱신 연출: the manual refreshes the strategy text calls 特殊刷新 (杜遥夜 【广交豪杰】 the round's first 2, 梓兰
-// 【猎头顾问】 every one, 佩佩 【博学多通】 the one owed after a listed level-up — 贾维's coin count is not one) play the
-// client's card_whole_refresh_special instead of _normal (ui/shopBar.js, docs/rules/ui.md 「상점 화면」). The refresh
-// records its stats.refreshes count in shop.specialAt; the view sends it as shop.specialRefreshAt.
-const SPECIAL_REFRESH_KEYS = new Set(['band_first_self_refresh_present_char', 'band_shop_refresh_copy_max_lv_char', 'up_shop_next_refresh_must_present_bond_char']);
-export function specialRefresh(ps) {
-  return bandBuffs(ps).some((b) => SPECIAL_REFRESH_KEYS.has(b?.key) && buffBoosts(ps, b));
+// 특수 상품 연출: the client plays card_whole_refresh_special instead of _normal when the shop's goods it is showing are
+// special — a pick-one reward offer (client code AutoChessBattleShopMainView._RenderUnfoldView, RVA 0x201B500: on a
+// refreshSeq change, isSpecialRecruit = the server's isSpecialGoods != NORMAL — COMB / BUFF; the same flag refuses 刷新 /
+// 冻结 with 「请选择奖励」, AutoChessBattleUIController._OnShopRefresh 0x1FD0930). Our offers (晋升奖励 = COMB, a strategy's /
+// item's / 特质's offer = BUFF) take the shop row in the same way, so each queued offer gets a number the view sends as
+// shop.rewardOffer.seq: a new one plays the special clip once (ui/shopBar.js, docs/rules/ui.md 「상점 화면」). A strategy's
+// 「特殊刷新」 refresh (杜遥夜 / 梓兰 / 佩佩) leaves normal goods and plays the normal clip.
+for (const k of ['pushRewardOffer', 'pushItemOffer']) {
+  const upstream = PlayerState.prototype[k];
+  PlayerState.prototype[k] = function pushOffer(...args) {
+    const offer = upstream.apply(this, args);
+    if (offer) offer.seq = this.offerSeq = (Number(this.offerSeq) || 0) + 1;
+    return offer;
+  };
 }
-
-const upstreamRefresh = PlayerState.prototype.refresh;
-PlayerState.prototype.refresh = function refresh() {
-  let special = false;
-  try { special = specialRefresh(this); } catch { /* display only */ }
-  const before = this.stats.refreshes;
-  const r = upstreamRefresh.call(this);
-  if (special && this.stats.refreshes > before) this.shop.specialAt = this.stats.refreshes;
-  return r;
-};
 
 const upstreamPrivateView = PlayerState.prototype.privateView;
 PlayerState.prototype.privateView = function privateView() {
   const v = upstreamPrivateView.call(this);
   try { if (v && v.shop) v.shop.refreshBoost = refreshBoost(this); } catch { /* display only */ }
-  if (v && v.shop) v.shop.specialRefreshAt = this.shop.specialAt ?? 0;
+  if (v && v.shop && v.shop.rewardOffer) v.shop.rewardOffer.seq = Number(this.offers?.[0]?.seq) || 0;
   return v;
 };
 

@@ -7,26 +7,34 @@
 //   heal_text (UIHealText): the same font, #00ff95, "+n", `_randomRange` (10, 5), `_lifeTime` 0.5, `_floatOffset` (0, 40).
 // When: a damage number only for a critical hit (PRTS 「伤害红字（暴击）」: ≥ 1.5 × the hit's expected damage — Modifier.
 // isCritical, BattleConsts.MODIFIER_CRIT_THRESHOLD 1.5) or one forced (强制红字: 蕾缪安 S3) — the sim marks them
-// (server/sim/local-hud.js damageNumberFlag, 'dmg' 5th field); heals always (no flag in the data; PRTS / 나무위키 silent). The motion is native code [추정]: a random start within ±(10, 5), popped in at
-// `_fontSizeScale` and settling to 1 (× 1.1 for a crit) over the first fifth, rising `_upOffset` (heals `_floatOffset`)
-// with an ease-out over the life, fading over its last 30 % — the heals; the damage family measured from a user video
-// (OFFICIAL_NUM inT / outT: no pop, a shrink-and-drop exit, local patch 2026-10-07). Sizes in HUD units (hud-bars.js hudUnit: screen-fixed).
+// (server/sim/local-hud.js damageNumberFlag, 'dmg' 5th field); heals always (no flag in the data; PRTS / 나무위키 silent).
+// The motion is the client code's (DOTween, 2026-10-10; docs/rules/ui.md 「전투 화면 UI」 ④), from a random start within
+// ±`_randomRange` (UIPopup.Init), over `_lifeTime`:
+//   damage (UIDamageText.SetTweens, RVA 0xD6F6C0): half = life × 0.5; position p → p + `_upOffset` (OutExpo, half) then
+//     → p − `_downOffset` (InExpo, half; both targets from the start p); scale 1 → `_fontSizeScale` (OutExpo, half) then
+//     → 0 (InExpo, half); no alpha tween. A crit's font is × 1.1. The blue / BLOCK texts move the same.
+//   heal (UIHealText.SetTweens, 0xD73E20): position p → p + `_floatOffset` (OutCubic, life); text alpha 1 → 0 (InExpo,
+//     life); no scale tween.
+// (The damage motion matches the user video of 2026-10-07 — first frame at 0.87 of the peak, shrink and drop in the last
+// ~0.13 s — measured then against the peak size.) Sizes in HUD units (hud-bars.js hudUnit: screen-fixed).
 
 import { hudUnit, hudAnchorY } from './hud-bars.js';
 
 export const OFFICIAL_NUM = Object.freeze({
-  popup: 150, size: 30, life: 0.5, spread: Object.freeze([10, 5]), pop: 1.5, crit: 1.1, popT: 0.2, fadeFrom: 0.7,
-  // local patch (user video 2026-10-07, 锏 S3 red numbers measured frame by frame at 30 fps): a damage-family number shows at
-  // 0.87 of its size, reaches it with its rise (_upOffset) within `inT`, holds, and over its last `outT` shrinks to nothing
-  // while dropping `_downOffset` — no fade, no 1.5× pop (that motion stays for the heals)
-  inT: 0.1, outT: 0.13, from: 0.87, drop: 30,
-  dmg: Object.freeze({ color: '#ff3a00', rise: 30, font: 'sp-num-off-dmg' }),
+  // prefab values: life `_lifeTime`, spread `_randomRange`, up / down `_upOffset` / `_downOffset` (y), pop `_fontSizeScale`;
+  // crit UIDamageText.CRITICAL_FONT_SIZE_SCALE; heal rise `_floatOffset` (y)
+  popup: 150, size: 30, life: 0.5, spread: Object.freeze([10, 5]), pop: 1.5, crit: 1.1, up: 30, down: 30,
+  dmg: Object.freeze({ color: '#ff3a00', font: 'sp-num-off-dmg' }),
   heal: Object.freeze({ color: '#00ff95', rise: 40, font: 'sp-num-off-heal' }),
   // a red number stopped by a 屏障 / 护盾 (PRTS 「强制红字与蓝字」, sim 'blk' event): blue (block_text #3a35d9, else as
   // damage_text) where the block allows it, else a yellow 「BLOCK」 (PRTS #ff9000 [추정 look: no client sprite found])
-  blue: Object.freeze({ color: '#3a35d9', rise: 30, font: 'sp-num-off-blue' }),
-  block: Object.freeze({ color: '#ff9000', rise: 30, font: 'sp-num-off-block', chars: 'BLOCK' }),
+  blue: Object.freeze({ color: '#3a35d9', font: 'sp-num-off-blue' }),
+  block: Object.freeze({ color: '#ff9000', font: 'sp-num-off-block', chars: 'BLOCK' }),
 });
+/** DOTween's eases (DG.Tweening.Ease OutExpo 18 / InExpo 17 / OutCubic 9) on 0..1. */
+export const outExpo = (k) => (k >= 1 ? 1 : 1 - 2 ** (-10 * k));
+export const inExpo = (k) => (k <= 0 ? 0 : 2 ** (10 * (k - 1)));
+const outCubic = (k) => 1 - (1 - k) ** 3;
 /** Bitmap font size (px) the glyphs are rendered at; drawn scaled to the HUD size. */
 const GLYPH = 60;
 const MAX = 80;
@@ -96,22 +104,20 @@ export class OfficialNumbers {
     const u = hudUnit(this.ctx.viewport?.());
     // follows its unit while it lives (the popup is a child of the unit's HUD); keeps the last place once it is gone
     if (t.view && !t.view.destroyed && t.view.screen) { t.x = t.view.screen.x; t.y = t.view.screen.y; }
-    if (t.kind !== 'heal') { // local patch: the damage text's measured motion (OFFICIAL_NUM inT / outT)
-      const a = Math.min(1, t.age / O.inT), e = Math.max(0, (t.age - (O.life - O.outT)) / O.outT);
-      const grow = (O.from + (1 - O.from) * a) * (1 - e * e);
-      const y = o.rise * (1 - (1 - a) * (1 - a)) - O.drop * e;
+    if (t.kind !== 'heal') { // UIDamageText.SetTweens: up and grow, then down below the start and shrink to nothing
+      const half = O.life / 2;
+      let y, grow;
+      if (t.age < half) { const k = outExpo(t.age / half); y = O.up * k; grow = 1 + (O.pop - 1) * k; }
+      else { const k = inExpo(Math.min(1, (t.age - half) / half)); y = O.up - (O.up + O.down) * k; grow = O.pop * (1 - k); }
       t.text.scale.set((O.size * u * grow * (t.crit ? O.crit : 1)) / GLYPH);
       t.text.position.set(t.x + t.dx * u, hudAnchorY(t.y, u) - (O.popup + t.dy + y) * u);
       t.text.alpha = 1;
       return;
     }
-    const k = Math.min(1, t.age / O.life);
-    const rise = o.rise * (1 - (1 - k) * (1 - k));
-    const pop = t.age < O.popT ? O.pop + (1 - O.pop) * (t.age / O.popT) : 1;
-    const sc = (O.size * u * pop * (t.crit ? O.crit : 1)) / GLYPH;
-    t.text.scale.set(sc);
-    t.text.position.set(t.x + t.dx * u, hudAnchorY(t.y, u) - (O.popup + t.dy + rise) * u);
-    t.text.alpha = k <= O.fadeFrom ? 1 : Math.max(0, 1 - (k - O.fadeFrom) / (1 - O.fadeFrom));
+    const k = Math.min(1, t.age / O.life); // UIHealText.SetTweens: float up, fade out
+    t.text.scale.set((O.size * u) / GLYPH);
+    t.text.position.set(t.x + t.dx * u, hudAnchorY(t.y, u) - (O.popup + t.dy + o.rise * outCubic(k)) * u);
+    t.text.alpha = 1 - inExpo(k);
   }
 
   /** Advance by `dt` real seconds. */

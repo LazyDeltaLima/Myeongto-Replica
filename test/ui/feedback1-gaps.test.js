@@ -253,7 +253,7 @@ describe('§21.26 2 — 调和\'s +1 in the bond popup', () => {
     assert.equal(view.entry.count, 3);
     const calls = [];
     const v = BondPopup({ bondId: 'yanShip', entry: view.entry, priv: view.priv, onClose() {}, onMember: (...a) => calls.push(a) });
-    assert.match(textOf(byClass(v, 'bpop__facts')[0]).replace(/\s+/g, ''), /在场3\/6（含调和\+1）/);
+    assert.match(textOf(byClass(v, 'bpop__facts')[0]).replace(/\s+/g, ''), /在场3\/3（含调和\+1）/);
     const row = byClass(v, 'bpop__harmony');
     assert.equal(row.length, 1);
     assert.equal(row[0].type, 'button');
@@ -304,12 +304,12 @@ describe('§21.26 2 — 调和\'s +1 in the bond popup', () => {
     const slot = [...walk(strip)].find((x) => x.props?.['data-bond'] === 'yanShip');
     assert.equal(slot.props['data-harmony'], 1);
     const disc = [...walk(slot)].find((x) => typeof x.props?.title === 'string' && x.props.title.startsWith('炎'));
-    assert.equal(disc.props.title, '炎 3/6（含调和 +1）');
+    assert.equal(disc.props.title, '炎 3/3（含调和 +1）');
     const chips = BondChips({ bondIds: ['yanShip'], bonds: [entry], onBond() {} });
     const chip = [...walk(chips)].find((x) => x.props?.['data-bond'] === 'yanShip');
-    assert.equal(chip.props.title, '炎：在场 3/6（含调和 +1），已激活 1 阶');
+    assert.equal(chip.props.title, '炎：在场 3/3（含调和 +1），已激活 1 阶');
     const noPlus = [...walk(BondChips({ bondIds: ['yanShip'], bonds: [{ ...entry, harmony: undefined }] }))].find((x) => x.props?.['data-bond'] === 'yanShip');
-    assert.equal(noPlus.props.title, '炎：在场 3/6，已激活 1 阶');
+    assert.equal(noPlus.props.title, '炎：在场 3/3，已激活 1 阶');
   });
 });
 

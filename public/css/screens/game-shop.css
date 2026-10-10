@@ -13,22 +13,22 @@
 /* 刷新 (ui/shopBar.js `is-rolled`): the EN client's clips (ui/autochess/[uc]autochessbattle.ab). Each card's
    card_item_refresh moves the card root y −135 → −25.92 (4/60 s) → 0 (14/60 s), and the row's card_whole_refresh_normal
    fades group_slots (the cards, not the LEVEL box) α 0 → 1 in 0.1 s. Keys are 60 fps Hermite with weight 1/3 = one cubic
-   Bézier per segment (tangents 0 → 444.3 → 0 units/s; α 0 → 10/s). 1 unit = --u (css/shop-art.css). The orange sweep of
-   card_whole_refresh_special is not drawn. */
-.shopbar__cards.is-rolled { animation: shop-cards-fade .1s cubic-bezier(.333, 0, .667, .667); }
-.shopbar__cards.is-rolled > * { animation: shop-card-rise .2333s; }
+   Bézier per segment (tangents 0 → 444.3 → 0 units/s; α 0 → 10/s). 1 unit = --u (css/shop-art.css). A new pick-one
+   offer's cards (.shopbar__rwcards, special goods) play the same with card_whole_refresh_special below. */
+.shopbar__cards.is-rolled, .shopbar__rwcards.is-rolled { animation: shop-cards-fade .1s cubic-bezier(.333, 0, .667, .667); }
+.shopbar__cards.is-rolled > *, .shopbar__rwcards.is-rolled > :not(.shopbar__rollfx) { animation: shop-card-rise .2333s; }
 @keyframes shop-cards-fade { from { opacity: 0; } }
 @keyframes shop-card-rise {
   0% { transform: translateY(calc(var(--u, .015rem) * 135)); animation-timing-function: cubic-bezier(.333, 0, .667, .91); }
   28.571% { transform: translateY(calc(var(--u, .015rem) * 25.92)); animation-timing-function: cubic-bezier(.333, .952, .667, 1); }
   100% { transform: none; }
 }
-/* 특수 갱신 (strategy 特殊刷新, `is-special`): card_whole_refresh_special = the above + root_fx (the row's rect, RectMask2D,
+/* 특수 상품 (`is-special`: a new pick-one offer — the client's isSpecialGoods COMB / BUFF): card_whole_refresh_special = the above + root_fx (the row's rect, RectMask2D,
    rising like a card) with grad — img_uifx_sweep_03 rotated 180°, 982 × 721.83, × #ffb500, additive (m_colordodge2
    One One) — shown 2/60 → 34/60 s while its y goes −473 → −143.61 (0.1 s) → 76.67 (0.2 s) → 457.5 (0.567 s), tangents
    3945.8 / 2748.3 / 1334.8 / 0. The gradient is the sprite's column (rows every 8 px, brightness = alpha) top to bottom
    after the turn. Stars: ui/shopRollFx.js. */
-.shopbar__cards.is-special { position: relative; }
+.shopbar__cards.is-special, .shopbar__rwcards.is-special { position: relative; }
 .shopbar__rollfx { position: absolute; inset: 0; z-index: 5; overflow: hidden; pointer-events: none; mix-blend-mode: plus-lighter; }
 .shopbar__rollunit { position: absolute; width: calc(var(--u, .015rem) * 100); height: 0; visibility: hidden; }
 .shopbar__sweep {
@@ -54,7 +54,10 @@
 @keyframes shop-stars-off { to { visibility: hidden; } }
 .shopbar__star { position: absolute; opacity: 0; mix-blend-mode: plus-lighter;
   -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
-@media (prefers-reduced-motion: reduce) { .shopbar__cards.is-rolled, .shopbar__cards.is-rolled > * { animation: none; } .shopbar__rollfx { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .shopbar__cards.is-rolled, .shopbar__cards.is-rolled > *, .shopbar__rwcards.is-rolled, .shopbar__rwcards.is-rolled > * { animation: none; }
+  .shopbar__rollfx { display: none; }
+}
 /* Official layout (research 06 §11.2 / D3): "剩余可放置角色: N" on its own line, right-aligned ABOVE [冻结] [刷新]. On one
    line the block reached over the bench's last pads (整备区 slot 9 at 16:9 under the official shop camera). Only the
    bar's parts take the pointer: its box spans the empty space left of the tools, which used to swallow drags and taps

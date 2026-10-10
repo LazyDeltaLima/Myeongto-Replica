@@ -1002,30 +1002,27 @@ test('frozen shop: a slot a special refresh replaces stays frozen (佩佩 / 杜�
   assert.ok(ps.shop.slots.every((s) => !s || !s.frozen), 'an unfrozen shop stays unfrozen');
 });
 
-test('특수 갱신 연출: the strategies\' 特殊刷新 refreshes set shop.specialRefreshAt to their refresh count — not 贾维\'s (server/local-patch.js specialRefresh)', async () => {
+test('특수 상품 연출: each pick-one offer the shop row shows carries a new shop.rewardOffer.seq; a 特殊刷新 refresh sends no special mark (server/local-patch.js)', async () => {
   await import('../server/local-patch.js');
   const { makeMatch } = await import('./match/harness.js');
-  const run = (bandId, n, before = null) => {
-    const h = makeMatch({ mode: 'solo', humans: 1, seed: 1 }).start();
-    h.toPrep(1);
-    const m = h.m, ps = h.ps('p_0');
-    ps.bandId = bandId; ps.funds = 99; ps.shop.upgradePrice = 0;
-    if (before) before(m);
-    const out = [];
-    for (let i = 0; i < n; i++) {
-      assert.equal(m.handle('p_0', { t: 'g.refresh' }).ok, true);
-      const v = ps.privateView().shop;
-      out.push(v.specialRefreshAt === v.refreshes);
-    }
-    m.dispose();
-    return out;
-  };
-  assert.deepEqual(run('band_duyaoy', 3), [true, true, false], '杜遥夜: the round\'s first 2 manual refreshes');
-  assert.deepEqual(run('band_orchid', 3), [true, true, true], '梓兰: every manual refresh');
-  assert.deepEqual(run('band_pepe', 2), [false, false], '佩佩: none before a listed level-up');
-  assert.deepEqual(run('band_pepe', 2, (m) => assert.equal(m.handle('p_0', { t: 'g.levelUp' }).ok, true)), [true, false], '佩佩: the one owed after Lv2');
-  assert.deepEqual(run('band_chiave', 4), [false, false, false, false], '贾维: its coin count is no 特殊刷新');
-  assert.deepEqual(run('band_cannot', 2), [false, false]);
+  const h = makeMatch({ mode: 'solo', humans: 1, seed: 1 }).start();
+  h.toPrep(1);
+  const m = h.m, ps = h.ps('p_0');
+  ps.bandId = 'band_orchid'; ps.funds = 99; // 梓兰: every manual refresh is a 「特殊刷新」 — normal goods all the same
+  assert.equal(m.handle('p_0', { t: 'g.refresh' }).ok, true);
+  let v = ps.privateView().shop;
+  assert.equal(v.rewardOffer, null);
+  assert.equal('specialRefreshAt' in v, false, 'no refresh is marked special');
+  assert.ok(ps.pushRewardOffer('merge'), 'a 晋升奖励 (COMB)');
+  const items = Object.keys(m.gd._items).slice(0, 3);
+  assert.ok(ps.pushItemOffer(items, { label: 'test' }), 'an item offer (BUFF)');
+  v = ps.privateView().shop;
+  assert.equal(v.rewardOffer.seq, 1);
+  assert.equal(v.rewardOffer.queued, 1);
+  assert.equal(ps.privateView().shop.rewardOffer.seq, 1, 'the same offer keeps its number');
+  ps.offers.shift();
+  assert.equal(ps.privateView().shop.rewardOffer.seq, 2, 'the next offer is a new one');
+  m.dispose();
 });
 
 test('SP_DEBUG_FUNDS: parsed only as an integer 0..999, unset on deployed servers (server/local-patch.js debugFunds)', async () => {

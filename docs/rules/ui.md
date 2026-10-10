@@ -138,8 +138,15 @@
   패널 602×391단위(프리팹 584×379), 위 ≈135(프리팹 132.5).
   - 패널: 위 가운데 고정, 중심이 화면 위에서 322 → 윗변 132.5, 584×379, `detail_bg`. 머리 104 높이(스크롤해도 고정): 맹약 원판(80×80, `bondBoardIcon` +
     아이콘 36, 중심 왼쪽 위에서 43.4 / 49.2), 이름(24, x 80부터), 인원 알약(중심 61.9 아래, x 81.3: 비활성 = `bond_inactive_bg` 빨강 + `title_char_icon`
-    #b6b6b6 + 「n/m」 Novecento 18 + 「비활성화」 #fd6969 16, 활성 = `bond_active_bg` + 아이콘 #00f0b4 + `active_icon` ✓ — m은 다음 단계 인원 [추정]),
+    #b6b6b6 + 「n/m」 Novecento 18 + 「비활성화」 #fd6969 16, 활성 = `bond_active_bg` + 아이콘 #00f0b4 + `active_icon` ✓),
     오른쪽 위 「중첩 수 n」(25 왼쪽, 34.5 아래, #d0d0d0 / 흰색).
+  - 「n/m」(2026-10-10 클라 코드로 확인): n = 그 맹약 인원(`GarrisonBond.charCnt`), m = **맹약마다 하나뿐인 발동 인원** `activeCount`
+    (`AutoChessBondItemModel.LoadData` RVA 0x1FEE850: requireCount = `ActAutoChessBondInfo.activeCount`) — 단계가 여럿인 맹약도 같다(炎 4명 = 「4/3」,
+    예전 우리 「4/6」). `AutoChessBattleUIBondDetailView._RenderTitleInfo`(0x1FE32B0)가 활성이면 `AUTO_CHESS_BATTLE_BOND_ACTIVE_CHAR_COUNT_FORMAT`, 아니면
+    `…INACTIVE_…`을 `String.Format(fmt, n, m)`로 채움; 문자열(CN `main_text`): 활성 `<color=#25FFCD>{0}</color><color=#B0B0B0>/{1}</color>`, 비활성
+    `<color=#F0F0F0>{0}</color><color=#A3A3A3>/{1}</color>` — 두 경우 모두 m을 찍는다(색은 hud-art.css `.bpop__needn`/`.bpop__needm`). 공식 HUD 맹약 줄
+    (`AutoChessBattleUIBondItemView`)에는 인원 숫자가 없다(중첩 수·이름만 — 공식 모양에서 `.bslot__count`를 숨기는 것과 같음). 같은 m을 upstream 모양의
+    줄·팝업 사실 줄·기물 카드 맹약 칩에도 씀(`gameLogic bondRequireCount`); 단계 진행은 단계 칸·점으로 본다.
   - 스크롤 내용(여백 24 / 20 / 30, 간격 19): 맹약 설명(18, 공식 rich text 색 ba.vup #0098DC, ba.vdown #FF6237, ba.rem #F49800, ba.kw #00B0FF,
     ba.acrem #727272, autochess.gray #777777, autochess.dgreen #40B196 — Kengxxiao zh_CN `gamedata_const`), 원본의 단계 칸·当前效果, 구성원 격자
     (`autochess_hud_bond_char_item`: 칸 88, 한 줄 5, 간격 25.5 × 38, 아바타 76 + `avatar_border` 83, 필드에 있는 구성원은 `avatar_active_border` 92×90,
@@ -200,18 +207,24 @@
 - 갱신 애니메이션(2026-10-09, 관리자 요청 「갱신하면 카드가 아래에서 위로」): 같은 번들의 클립. 카드 프리팹 `autochess_shop_card_item`의 Animation
   `card_item_refresh` = root y −135 → −25.92(4/60초) → 0(14/60초), 접선 0 → 444.3 → 0, `root_layout`의 `card_whole_refresh_normal` =
   `group_slots`(카드 줄, 승급 상자 제외) alpha 0 → 1(0.1초). 60fps Hermite(가중치 1/3)를 구간마다 cubic-bezier로 옮겨 그대로 씀(game-shop.css
-  `shop-card-rise`). 계기는 서버의 갱신 횟수(`m.private.shop.refreshes` = `stats.refreshes`, 버튼·R 키 모두): 라운드 시작의 다시 뽑기와 상점이
-  처음 그려질 때는 재생하지 않음 [추정 — 언제 재생하는지는 네이티브 코드라 확인 못 함]. 카드 사이 시차 없음(클립에 없음 [추정]).
-  - 특수 갱신(2026-10-09, 관리자 제보): 전략 문구가 「特殊刷新」라고 부르는 수동 갱신 — 두요야
-    【인재 교류】(라운드 첫 2회), 梓兰 【猎头顾问】(매번), 佩佩 【博学多通】(2·4·6레벨 업그레이드 뒤 1회) — 에는 `card_whole_refresh_special`
-    (贾维의 갱신 횟수 보상은 문구에 特殊刷新이 없어 제외). 서버 `server/local-patch.js specialRefresh`가 그 갱신의 횟수를
-    `shop.specialRefreshAt`로 보냄. 클립 = normal + `root_fx`(카드 줄 영역, RectMask2D, 카드처럼 −135 → 0)의 ① `grad`:
+  `shop-card-rise`). 공식 계기(클라 코드 `AutoChessBattleShopMainView._RenderUnfoldView`, RVA 0x201B500, 2026-10-10 확인): 서버가 보낸
+  `refreshSeq`가 바뀌면 카드마다 `card_item_refresh`를 **동시에**(`AutoChessBattleShopCardView.PlayRefreshAnim` 0x2018760, 지연 없음) 틀고, 줄은
+  상품이 특수(`isSpecialRecruit` = 서버 `isSpecialGoods` ≠ NORMAL — `AutoChessBattleShopGoodsType` COMB 1 / BUFF 2)면 `card_whole_refresh_special`,
+  아니면 `_normal`. 같은 플래그가 켜져 있으면 刷新·冻结은 「请选择奖励」로 거절된다(`AutoChessBattleUIController._OnShopRefresh` 0x1FD0930) —
+  즉 특수 상품 = 골라야 하는 보상 상품. 우리: 수동 갱신(`m.private.shop.refreshes` = `stats.refreshes`, 버튼·R 키 모두 — 전략의 「特殊刷新」
+  갱신도 상품은 보통이라 normal) → normal, 보상 제안(`shop.rewardOffer`: 晋升奖励 = COMB, 전략·아이템·특질이 여는 제안 = BUFF)이 새로 상점 줄을
+  차지하면 → special(서버 `server/local-patch.js`가 제안마다 번호를 매겨 `shop.rewardOffer.seq`로 보냄; 「稍后」 뒤 다시 펼 때는 같은 번호라 재생
+  안 함 — 공식도 접힌 동안 바뀐 것만 펼칠 때 재생). 라운드 시작의 다시 뽑기·상점이 처음 그려질 때는 재생하지 않음: 공식에서 그때 `refreshSeq`가
+  바뀌는지는 서버 로직이라 클라에 없다(클라만 보면 첫 펼침에 seq ≠ 0이면 재생하는 쪽) — 우리 동작 유지. 보상 제안 중의 刷新·冻结 거절은 아직 안
+  옮김(우리는 「稍后」로 미뤄 두고 상점을 쓸 수 있다).
+  - 특수 상품 클립(2026-10-09 관리자 제보로 처음 넣음 — 그때는 전략 「特殊刷新」 수동 갱신에 걸었으나 2026-10-10 위 클라 코드대로 보상 제안으로 옮김):
+    클립 = normal + `root_fx`(카드 줄 영역, RectMask2D, 카드처럼 −135 → 0)의 ① `grad`:
     `img_uifx_sweep_03`(arts/ui/[uc]fxcommon.ab)을 180° 돌려 982 × 721.83, × #ffb500, 가산(`m_colordodge2` One One), 2/60 → 34/60초에 켜지고
     y −473 → −143.61(0.1초) → 76.67(0.2초) → 457.5(0.567초) — 그림 세로 단면을 CSS 그라데이션으로 옮겨 그림이 필요 없음(game-shop.css
     `.shopbar__sweep`). ② `particle_ctrl`(UIParticle, 1/60 → 80/60초) 별 3개 시스템, 텍스처 `img_uifx_star_4`(로컬 추출 `ui/fxcommon`, 없으면
     둥근 점): star1 상자 6.64 × 1.25에서 3개씩 5번, star2·star3 줄 왼쪽·오른쪽 끝에 큰 별 1개씩 — 값은 `public/js/ui/shopRollFx.js` 머리말.
-    [추정] 파티클 1단위 = 프리팹 100단위(Local 크기 + 0.01 캔버스로 봄), 크기·알파 곡선은 키 사이를 직선으로(접선 안 읽음), 아이템이 여는
-    특수 갱신(寻呼模块 등, 보상 카드 자리)에도 쓰는지는 모름 — 지금은 수동 갱신만.
+    [추정] 파티클 1단위 = 프리팹 100단위(Local 크기 + 0.01 캔버스로 봄), 크기·알파 곡선은 키 사이를 직선으로(접선 안 읽음). 보상 카드 줄
+    (`.shopbar__rwcards`)에 그린다.
 - 동결 버튼 (2026-10-06 프리팹으로 확인): `btn_frozen`의 3상태 스위치가 `_unselect` = `group_disable`(`bg_lock` + `frozen_icon_lock`),
   `_firstSelect` = `group_lock`(`frozen_bg_normal` 파랑 + `frozen_icon` 눈송이), `_secondSelect` = `group_unlock`(`frozen_bg_unselect` 흰 파랑 + `frozen_icon2`
   빗금 친 눈송이)이다. 그룹 이름은 상태가 아니라 누르면 하는 동작(잠그기·풀기)이고, 원본도 동결 중에 `frozen_icon2`를 쓴다 → 평소 파랑 + 눈송이,
@@ -246,7 +259,11 @@
   「战斗结束」/「完美作战！」 #2ce3b8), 셈하는 누수가 있으면 → panel_miss(어두운 판, 해골 큐브 `miss_emoji_head` + 몸 + 내린 검 #1aad88,
   「目标生命值减少」 #f24549 + `blood_icon` + 잃을 LP #ff3b3b — `Match.settle`처럼 `counted !== false`인 누수 수를 라운드 상한(`lpCapPerRound` 10)으로 자른 값, 联防이 다시 배분하기 전 값;
   2026-10-09 관리자 제보 전까지 상한 없이 누수 수를 그대로 띄워 실제 LP −10인데 배너만 17로 보였다),
-  셈하지 않는 누수만 있으면 → panel_miss 제목만([추정], 캡처 없음). 공통: 모서리 `left_cross`, `left_frame` 괄호, `doc_text_01/02`(#18e6b8),
+  셈하지 않는 누수만 있으면 → panel_miss 제목만 — 클라 코드 `AutoChessBattleUIRoundResultDialog.OnRender`(RVA 0x1FECE70, 2026-10-10 확인):
+  `_panelPerfect` = `isAllPrefect`, `_panelMiss` = 그 반대, 잃은 HP 글자는 `lostHp > 0`일 때만; 애니·소리는 완벽 → `_allPrefectAnim` + NOREDUCE,
+  완벽 아님·`lostHp ≤ 0` → `_perfectAnim`(panel_miss) + NORMAL, 그 밖 → `_missAnim` + REDUCE(우리 소리 짝 `audioOfficial.js`와 같음). 갈림은 누수
+  「셈」이 아니라 잃은 HP — 우리는 잃을 LP = 셈하는 누수 수(상한 적용)라 같은 결과. 공식 결과 창 최대 표시 `MAX_SHOW_TIME` 4초(우리 배너 1.8초 — 애니
+  길이 미확인이라 그대로). 공통: 모서리 `left_cross`, `left_frame` 괄호, `doc_text_01/02`(#18e6b8),
   오른쪽 SIGNAL `doc_01` · 점 2×3 `dot_blank`(#28c79f, 알파 .6/1/.2/.6/.4/1) · 오른쪽 위 점(#279481). 보스전(최종 공세·隐秘核心)은 공식에 다른 프리팹
   (`panel_win_*`, `panel_lose_*`)이 있어 이 배너를 띄우지 않는다. **이 그림들은 웹 소재에 없어 로컬 추출(ui/battle)이 있을 때만 배너가 뜬다**(없으면 upstream의
   「作战结束」 상자). 내 전투 결과가 오지 않은 라운드(서버 전투 모드·재접속)는 SETTLE에 띄우고, 라운드마다 한 번만 — `upstream.md` 「0.2.0 병합」.
@@ -390,8 +407,13 @@
   PRTS·나무위키 언급 없음]. 전투 공식 정리는 비공개 조사 기록(`research/battle-mechanics-reference.md`).
 - 시뮬레이션: `server/sim/local-hud.js damageNumberFlag(dmg, ss, 예상, 실제)` → `damage.js`(피해 배율까지 계산한 뒤)가 'dmg' 이벤트 5번째 칸(0 / 1 치명타 / 2 강제).
   지속 피해('dot')·무来源은 치명타 아님.
-- 렌더: `render/num-official.js` — 피해는 플래그 있을 때만, 회복은 늘. 30단위(화면 고정 hudUnit), 치명타 ×1.1, 0.5초, 흩어짐 ±(10, 5), 위로 30(회복 40,
-  ease-out), 처음 0.2초에 1.5배에서 줄어듦·마지막 30 % 사라짐 [추정 — 애니 코드는 네이티브]. Bitmap 글꼴(Novecento Wide, 이미 `public/fonts`에 있음).
+- 렌더: `render/num-official.js` — 피해는 플래그 있을 때만, 회복은 늘. 30단위(화면 고정 hudUnit), 치명타 글자 ×1.1, 흩어짐 ±(10, 5), 0.5초.
+  움직임은 클라 코드(DOTween, 2026-10-10 확인): 피해(`UIDamageText.SetTweens` RVA 0xD6F6C0) = 앞 절반(0.25초) OutExpo로 위로 `_upOffset` 30·크기
+  1 → `_fontSizeScale` 1.5, 뒤 절반 InExpo로 시작점보다 `_downOffset` 30 아래(두 목표 모두 시작 위치 기준)·크기 1.5 → 0, 투명도 트윈 없음(파란 숫자·
+  BLOCK도 같은 움직임). 회복(`UIHealText.SetTweens` 0xD73E20) = 0.5초 OutCubic로 위로 `_floatOffset` 40, 글자 알파 1 → 0 InExpo, 크기 트윈 없음
+  (예전 1.5배 팝은 없음). 피해 쪽은 2026-10-07 사용자 영상 측정(처음 0.87배, 마지막 0.13초에 줄며 떨어짐 — `fx.md` 「데미지 숫자」)과 같은 모양이고
+  그때 「최종 크기」로 잰 것이 최고 크기(30 × 1.5)다 — 크기가 예전보다 1.5배. 핫픽스(DefinedFix.lua) 없음. Bitmap 글꼴(Novecento Wide, 이미
+  `public/fonts`에 있음).
 - 설정 「伤害数字样式 / 대미지 숫자 방식」: 공식(기본) / 전부 표시(예전 숫자 — 유형별 색·합산·줄 배치), `sp.pref.dmgNumberStyle`(`render/number-style.js`);
   「대미지 숫자 표시」를 켰을 때만 보인다. 2D 대체 화면(`ui/fallbackField.js`)의 숫자는 그대로.
 - 디버그 아레나·mock: 회복 `+180`만 뜨고 일반 피해는 숫자 없음; 테스트: 蕾缪안 S3 강제 표시, 같은 전투에 脆弱 ×1.6을 걸면 빨간 숫자가 생김.

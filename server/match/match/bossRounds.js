@@ -116,6 +116,7 @@ export class MatchBoss {
       return { fieldId, kind: hidden ? 'hidden' : 'boss', players: g.map((p) => p.playerId), battle, live: true };
     });
     this.overtimeApplied = 0;
+    this.overtimeOver = false; // the overtime window ran out: the boss fields are force-ended (_applyOvertime)
     // HUD: the boss level's countdown (maxPlayTime, 120 real s — the battle goes on past it) and the moment the
     // overtime drain starts — the same moment (gamedata.js bossOvertimeStartReal), both on the field clock
     const onClock = (realS) => this.sched.now() + Math.round(((realS * this.gd.combatTimeScale) / this.gameSpeed) * 1000);
@@ -333,12 +334,12 @@ export class MatchBoss {
     else this._bossClockOn = false;
   }
 
-  /** Pool depleted → victory; team LP 0 → defeat: every boss field is ended. */
+  /** Pool depleted → victory; team LP 0 or the overtime window over → defeat: every boss field is ended. */
   _checkFinalEnd() {
     if (this._finalEnding || !this.bossPool || !this.fields.some((f) => f.cc)) return;
     if (this.phase !== PHASE.FINAL_ASSAULT && this.phase !== PHASE.HIDDEN_CORE) return;
     if (this.bossPool.hp <= 0) this._endFinal('cleared');
-    else if (this.teamLp != null && this.teamLp <= 0) this._endFinal('forced');
+    else if ((this.teamLp != null && this.teamLp <= 0) || this.overtimeOver) this._endFinal('forced');
   }
 
   _endFinal(reason) {
@@ -478,20 +479,26 @@ export class MatchBoss {
 
   /**
    * Overtime drain on the boss field clock (`gt` game seconds): 1 team LP per real second from the end of the level's
-   * countdown (gamedata.js bossOvertimeStartReal / bossOvertimeDue).
+   * countdown (gamedata.js bossOvertimeStartReal / bossOvertimeDue), for the round's overtime window (bossTurnHpReduceTime
+   * 150 real s, bossOvertimeWindowReal) — then `overtimeOver`: the boss fields are force-ended like at team LP 0 (client
+   * code AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo: the countdown ends that long before the server's
+   * forced end of the state; what the official server scores then is server logic — here the leader stands, a defeat).
    */
   _applyOvertime(gt) {
-    const due = this.gd.bossOvertimeDue(gt, this.overtimeStartReal ?? this.gd.bossOvertimeStartReal(this.round));
+    const start = this.overtimeStartReal ?? this.gd.bossOvertimeStartReal(this.round);
+    const windowReal = this.gd.bossOvertimeWindowReal(this.round);
+    const due = this.gd.bossOvertimeDue(gt, start, windowReal);
     if (due > this.overtimeApplied) {
       const loss = due - this.overtimeApplied;
       this.overtimeApplied = due;
       this._teamLpLoss(loss);
     }
+    if ((Number(gt) || 0) / this.gd.combatTimeScale >= start + windowReal) this.overtimeOver = true;
   }
 
   _bossTick(runner) {
     this._applyOvertime(runner.time);
-    if (this.teamLp <= 0 && this.bossPool.hp > 0) runner.forceAll('forced');
+    if ((this.teamLp <= 0 || this.overtimeOver) && this.bossPool.hp > 0) runner.forceAll('forced');
     // client-side combat with every boss field on the server: humans that reconnect / watch run display replicas
     // whose LocalBossPool follows b.pool
     if (this.fields.some((f) => f.cc)) { this._broadcastPool(false); this._bossPublic(); }

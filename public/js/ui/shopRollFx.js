@@ -1,5 +1,5 @@
-// Local patch: the shop's special refresh (docs/rules/ui.md 「상점 화면」 갱신 애니메이션). The EN client's
-// card_whole_refresh_special (ui/autochess/[uc]autochessbattle.ab, Animation on autochess_shop root_layout) plays, over
+// Local patch: the shop's special-goods refresh — a new pick-one offer (docs/rules/ui.md 「상점 화면」 갱신
+// 애니메이션). The EN client's card_whole_refresh_special (ui/autochess/[uc]autochessbattle.ab, Animation on autochess_shop root_layout) plays, over
 // the card row (root_fx: the slots' rect, RectMask2D), an additive orange sweep (grad: img_uifx_sweep_03 × #ffb500,
 // game-shop.css .shopbar__sweep) and the UIParticle stars of particle_ctrl (active 1/60 s → 80/60 s), drawn here:
 //   particle_star1  at (40, 17) from the centre, box 6.64 × 1.25; burst 3 × 5 every 0.01 s from 4/60 s; life 0.7–1.3;

@@ -366,6 +366,12 @@
 }
 .gm.has-hud-art .bpop__need.is-active { background: var(--ha-bd-on, none) center / 100% 100% no-repeat, rgba(70, 70, 70, .8); }
 .gm.has-hud-art .bpop__need b { font-family: 'Novecento Wide', var(--font-num); font-size: calc(var(--u) * 18); font-weight: 400; }
+/* the count's colours: CN main_text AUTO_CHESS_BATTLE_BOND_INACTIVE_CHAR_COUNT_FORMAT <color=#F0F0F0>{0}</color><color=#A3A3A3>/{1}</color>,
+   …_ACTIVE_… <color=#25FFCD>{0}</color><color=#B0B0B0>/{1}</color> ({1} = the bond's one activeCount) */
+.gm.has-hud-art .bpop__needn { color: #f0f0f0; }
+.gm.has-hud-art .bpop__needm { color: #a3a3a3; }
+.gm.has-hud-art .bpop__need.is-active .bpop__needn { color: #25ffcd; }
+.gm.has-hud-art .bpop__need.is-active .bpop__needm { color: #b0b0b0; }
 .gm.has-hud-art .bpop__need em { font-style: normal; color: #fd6969; }
 .gm.has-hud-art .bpop__needicon { width: calc(var(--u) * 15); height: calc(var(--u) * 17); background: #b6b6b6;
   -webkit-mask: var(--ha-bd-people) center / contain no-repeat; mask: var(--ha-bd-people) center / contain no-repeat; }

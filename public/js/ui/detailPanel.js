@@ -37,7 +37,7 @@
 import { useEffect } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, MicroLabel, Button, confirmDialog, useTicker } from './components.js';
 import { Img, RichText, UnitThumb, BondGlyph, GIcon, diyToken } from './gameComponents.js';
-import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondTier, briefingBondTip, pieceBondIds, grantedBonds, morphPairings, ownStandIn, standInOf, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, ownDiyPick, diyRecordFor, pickGetter, unitPick, unitCultivation } from './gameLogic.js';
+import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondRequireCount, bondTier, briefingBondTip, pieceBondIds, grantedBonds, morphPairings, ownStandIn, standInOf, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, ownDiyPick, diyRecordFor, pickGetter, unitPick, unitCultivation } from './gameLogic.js';
 import { chessPortraitUrl, skillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { abilityRows } from './abilityLines.js';
 import { data } from '../data.js';
@@ -257,7 +257,7 @@ export function BondChips({ bondIds, bonds = [], onBond = null, off = null, gran
       const tier = isOff ? 0 : Number.isFinite(e?.tier) ? e.tier : bondTier(count, th, rec?.maxCount ?? null);
       const active = !isOff && (e ? !!e.active : tier > 0);
       const next = nextThreshold(count, th);
-      const cap = next ?? th[th.length - 1] ?? null;
+      const cap = bondRequireCount(rec, th); // the client's m: the bond's one activeCount (gameLogic bondRequireCount)
       const isoTag = iso.has(id) ? t('（变形同构体）') : '';
       // the count holds 调和's +1 (the server's bond entry says so, DESIGN §21.26)
       const harmonyTag = !isOff && Number.isInteger(e?.harmony) && e.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: e.harmony }) : '';
