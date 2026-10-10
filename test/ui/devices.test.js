@@ -6,7 +6,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { installCompat } from '../../public/js/ui/compat.js';
-import { detectFeatures, featureClasses, fullscreen, installDeviceSupport, LONG_PRESS_MS, screenLandscape } from '../../public/js/ui/device.js';
+import { detectFeatures, featureClasses, fullscreen, installDeviceSupport, isIosSafari, LONG_PRESS_MS, screenLandscape } from '../../public/js/ui/device.js';
 import { checkButtons } from '../../public/js/ui/hud.js';
 import { penPlacement, penZoneTiles, previewEnemyKey, PEN } from '../../public/js/ui/gameLogic.js';
 import { bannerVisible } from '../../public/js/ui/connBanner.js';
@@ -127,6 +127,21 @@ describe('ui/device.js feature detection', () => {
     const none = fakeWindow({ fs: false });
     assert.equal(fullscreen.supported(none.win), false);
     assert.equal(await fullscreen.enter(none.win), false);
+  });
+  test('isIosSafari: iPhone Safari only — not the other iOS browsers, in-app browsers, iPad, Android or desktop Safari', () => {
+    const ua = (userAgent) => isIosSafari({ navigator: { userAgent } });
+    const IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)';
+    assert.equal(ua(`${IOS} Version/18.5 Mobile/15E148 Safari/604.1`), true);
+    assert.equal(ua('Mozilla/5.0 (iPod touch; CPU iPhone OS 15_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1'), true);
+    assert.equal(ua(`${IOS} CriOS/138.0.7204.119 Mobile/15E148 Safari/604.1`), false, 'Chrome for iOS');
+    assert.equal(ua(`${IOS} FxiOS/141.0 Mobile/15E148 Safari/605.1.15`), false, 'Firefox for iOS');
+    assert.equal(ua(`${IOS} Mobile/15E148 KAKAOTALK 25.6.0`), false, 'KakaoTalk in-app');
+    assert.equal(ua(`${IOS} Version/18.5 Mobile/15E148 Safari/604.1 NAVER(inapp; search; 2000; 12.10.3)`), false, 'NAVER in-app');
+    assert.equal(ua(`${IOS} Mobile/15E148`), false, 'a WKWebView without the Safari token');
+    assert.equal(ua('Mozilla/5.0 (iPad; CPU OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1'), false, 'iPad: has fullscreen');
+    assert.equal(ua('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15'), false);
+    assert.equal(ua('Mozilla/5.0 (Linux; Android 14; SM-S921N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36'), false);
+    assert.equal(isIosSafari({}), false);
   });
 });
 

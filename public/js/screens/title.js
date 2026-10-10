@@ -17,9 +17,9 @@ import { GuideButton } from '../ui/guide.js';
 import { openStats } from './stats.js';
 import { toast } from '../ui/toasts.js';
 import { net, identity } from '../net.js';
-import { store, useStore, shallowEqual } from '../store.js';
+import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { data, useData } from '../data.js';
-import { FullscreenButton, detectFeatures } from '../ui/device.js';
+import { FullscreenButton, detectFeatures, isIosSafari } from '../ui/device.js';
 import { LangToggle, useLang } from '../ui/lang.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
@@ -218,6 +218,12 @@ export function TitleScreen() {
 
   // touch screens: no autofocus (it would pop the on-screen keyboard over a landscape phone's whole view)
   const touchUi = useMemo(() => detectFeatures().coarse, []);
+  // local patch: iPhone Safari outside the home screen (no Fullscreen API, and the game page never scrolls, so its
+  // address / tab bars never fold away) gets a note: Add to Home Screen opens it standalone (index.html
+  // apple-mobile-web-app-capable). Closable, remembered. docs/rules/ui.md "iPhone 전체 화면 안내"
+  const fsNote = useMemo(() => isIosSafari() && !detectFeatures().standalone, []);
+  const [fsNoteClosed, setFsNoteClosed] = useState(() => loadPref('fsNoteClosed', false) === true);
+  const closeFsNote = () => { savePref('fsNoteClosed', true); setFsNoteClosed(true); };
   // a title in an alphabetic script (English, French …) is the big one in the display face and the wordmark above it
   // hides; a CJK / kana / Hangul title keeps the Chinese layout (shared/i18nPacks.js scriptOf — a pack needs no flag)
   const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
@@ -285,6 +291,12 @@ export function TitleScreen() {
     </main>
 
     <${SettingsModal} open=${settingsOpen} onClose=${() => setSettingsOpen(false)} />
+
+    ${fsNote && !fsNoteClosed ? html`<div class="title-fsnote" role="note">
+      <${Icon} name="expand" />
+      <span>${t('全屏游玩：在 Safari 点「分享」→「添加到主屏幕」，然后从主屏幕图标打开。')}</span>
+      <button type="button" class="title-fsnote__close tapx" aria-label=${t('关闭')} title=${t('关闭')} onClick=${closeFsNote}><${Icon} name="close" /></button>
+    </div>` : null}
 
     <footer class="title-foot">
       <span>${t('非官方同人复刻 · 游戏素材版权归 上海鹰角网络 / Yostar 所有')}</span>

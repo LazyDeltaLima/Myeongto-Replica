@@ -253,6 +253,13 @@
 .title-lang.lang-select select { height: .3rem; font-size: .14rem; }
 html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .title-conn .ping { height: .26rem; font-size: .15rem; }
+/* iPhone Safari's 「添加到主屏幕」 note (title.js fsNote): the free bottom-right corner beside the login box, above the
+   footer — under the login box it ran off a landscape phone's screen */
+.title-fsnote { position: absolute; z-index: 2; right: .44rem; bottom: .62rem; width: min(260px, calc(50% - 2.45rem - .44rem - .16rem)); display: flex; align-items: flex-start; gap: .08rem; padding: .08rem .1rem .08rem .12rem; background: rgba(8, 11, 10, .72); border: 1px solid var(--line-2); border-left: 2px solid var(--mint-700); color: var(--text-md); font-size: max(.13rem, 12px); line-height: 1.45; text-align: left; }
+.title-fsnote > .icon { flex: none; width: max(.18rem, 14px); height: max(.18rem, 14px); margin-top: .02rem; color: var(--mint-400); }
+.title-fsnote > span { flex: 1; }
+.title-fsnote__close { flex: none; display: grid; place-items: center; width: max(.24rem, 20px); height: max(.24rem, 20px); padding: 0; background: none; border: 0; color: var(--text-lo); cursor: pointer; }
+.title-fsnote__close .icon { width: max(.14rem, 12px); height: max(.14rem, 12px); }
 
 .title-foot {
   position: absolute;

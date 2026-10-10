@@ -454,6 +454,18 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   28px + 간격 14px. (devices.css)
 - 확인: Chrome(GPU) 844×390·740×360·932·430·1920×1080 — 설정 버튼 중심이 자기 버튼, 접기 탭 24×10.
 
+## iPhone 전체 화면 안내 (2026-10-10, 관리자 요청)
+- 증상: iOS Safari 가로 모드에서 주소창·탭 막대가 사라지지 않는다. 원인: iPhone Safari에는 요소 전체 화면 API가 없고(전체 화면 버튼은
+  `device.js`가 숨김), Safari는 사용자가 문서를 아래로 스크롤할 때만 막대를 접는데 우리 페이지는 스크롤이 없다(`theme.css` html·body
+  `height: 100%`, body `overflow: hidden`, `.screen` absolute). 페이지 코드로 막대를 숨길 방법은 없다(`scrollTo`로는 안 접힘).
+- 처리(관리자 결정 2026-10-10 「홈 화면에 추가하라고만, iOS 사파리 유저에게만」): 타이틀 로그인 상자 아래 안내 한 줄 「전체 화면으로 즐기려면
+  Safari에서 「공유」 → 「홈 화면에 추가」…」(`index.html` `apple-mobile-web-app-capable`로 홈 화면 아이콘은 막대 없이 열림). iPhone·iPod의
+  Safari 자체일 때만(`device.js isIosSafari` — 이 파일의 유일한 UA 판별: 다른 iOS 브라우저와 Safari를 가를 기능 감지가 없다), 홈 화면
+  실행(standalone)에서는 안 뜸. Chrome·Firefox·Edge for iOS, 카카오톡·네이버 등 앱 내 브라우저, iPad(전체 화면 버튼 있음)는 제외.
+  ✕로 닫으면 `sp.pref.fsNoteClosed`에 기억. (title.js·title.css, test/ui/devices.test.js)
+- `[ASSUMED]` 홈 화면 실행에서 막대가 실제로 사라지는지, 안내 위치가 실기기 가로에서 가리는 것이 없는지는 iPhone 실기기 미확인.
+- 남은 일: rem 배율이 `100svh` 기준이라 막대가 접혀도 UI가 커지지 않는다(`theme.css` html font-size) — 별건.
+
 ## 서버 재시작 예고 (2026-10-09, 관리자 결정)
 - 관리자 결정(2026-10-09): 배포 때 바로 재시작하지 않고 30분 뒤에 재시작하며, 그동안 진행 중인 판·대기실에 30·10·5·3·1분 전 예고를 보낸다. 카운트가 끝나면 배포한다.
   공식 게임에는 없는 기능(우리 서버 운영용)이다.

@@ -79,6 +79,22 @@ export function detectFeatures(win = globalThis) {
   };
 }
 
+/**
+ * Safari itself on an iPhone / iPod (not Chrome / Firefox / Edge for iOS, not an in-app browser, not iPad Safari, which
+ * has element fullscreen). The one UA check here (user request 2026-10-10): the title's 「添加到主屏幕」 note names
+ * Safari's Share menu, and only Safari users should see it — no feature tells Safari from the other iOS browsers.
+ * docs/rules/ui.md "iPhone 전체 화면 안내"
+ * @param {any} [win]
+ */
+export function isIosSafari(win = globalThis) {
+  const ua = String(win.navigator?.userAgent || '');
+  if (!/\b(iPhone|iPod)\b/.test(ua)) return false;
+  // Safari's own UA ends "Version/x Mobile/y Safari/z"; a WKWebView in an app has no Safari/ token, the other
+  // browsers and in-app browsers add their own
+  if (!/Version\/[\d.]+.*Safari\//.test(ua)) return false;
+  return !/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|YaBrowser|DuckDuckGo|Whale|SamsungBrowser|KAKAOTALK|NAVER|DaumApps|Line\/|Instagram|FBAN|FBAV|Twitter/i.test(ua);
+}
+
 /** The classes installDeviceSupport puts on <html> for a feature set (pure; tested). */
 export function featureClasses(f) {
   return {
