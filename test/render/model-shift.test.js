@@ -35,3 +35,13 @@ test('MODEL_SHIFT moves the hidden 管\'s body and shadow, not its unit', async 
   assert.match(SRC, /cam\.project\(this\.x \+ this\.modelDX \+ lx, this\.y \+ ly,/);
   assert.match(SRC, /const sh = cam\.project\(this\.x \+ this\.modelDX, this\.y, shz, SH_P\);/);
 });
+
+test('fxgame places effects, shots and line ends of a shifted model at its drawn column (mx)', () => {
+  const FX = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
+  assert.match(FX, /const mx = \(v\) => Number\(v\.x\) \+ \(Number\(v\.modelDX\) \|\| 0\);/);
+  assert.match(FX, /if \(!v \|\| !v\.modelDX\) return v;/);
+  assert.equal((FX.match(/tx: mx\(t(gt|arget)\)/g) || []).length, 5, 'every trail aims at the drawn model');
+  assert.match(FX, /rec\.tx = mx\(t\);/);
+  assert.match(FX, /if \(mount === 7\) return \{ x: mx\(src\),/);
+  assert.match(FX, /if \(!p\) \{ out\.x = mx\(v\);/);
+});

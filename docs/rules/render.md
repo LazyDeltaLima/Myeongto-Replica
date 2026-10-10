@@ -271,5 +271,5 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   (같은 skeletonDataAsset), Graphic 노드(0, −0.2, −0.06 / 0.27), 루트 EnemyGiantBoss의 나머지 값, 레벨 지도(19×21)·카메라 플러그인(없음)은 같다.
   클라에서 모델을 옮기는 장치는 못 찾음(EnemyGiantBoss `_bossHudOffset`은 HUD만).
 - [ASSUMED] 사용자 관찰대로 숨겨진 관의 몸·그림자를 한 열 오른쪽(피격 상자 자리, 열 10)에 그린다 — `units.js MODEL_SHIFT`(적 키 → 열 수, 지금 이 하나).
-  유닛 위치·HP 바(자기 1.4 오프셋)·선택 영역은 그대로. 현은 같은 경우가 아님(오프셋 없음) — 그대로. 이 적에게 붙는 적 이펙트(마운트 점)는 아직 유닛
-  위치 기준(fx 담당에 알림). 테스트 `test/render/model-shift.test.js`. [화면 미확인]
+  유닛 위치·HP 바(자기 1.4 오프셋)·선택 영역은 그대로. 현은 같은 경우가 아님(오프셋 없음) — 그대로. 이 모델에 붙는 이펙트·그 모델에서 나가고
+  들어오는 궤적·버프 선 끝도 그린 열을 따른다(`fxgame.js mx`; 모델 점 `specialPoint`는 원래 그린 몸을 따름). 테스트 `test/render/model-shift.test.js`. [화면 미확인]

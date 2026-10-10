@@ -624,6 +624,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const ptsOf = (v) => (!v?.info ? null : v.info.side === 'enemy' ? ebindOf(v)?.points || null : (points && points[v.info.spine || v.info.defId]) || null);
   loadPoints().then((p) => { points = p; });
   const boneAt = { x: 0, y: 0 };
+  /**
+   * The column a unit's model stands on: its x + its view's `modelDX` (render/units.js MODEL_SHIFT — 2026-10-10, [ASSUMED]:
+   * 假想敌：管's hidden-core copy is drawn one column right of its tile). Effects placed on a model, shots from / to it and
+   * line ends use it; a model point (specialPoint) already follows the drawn body.
+   */
+  const mx = (v) => Number(v.x) + (Number(v.modelDX) || 0);
   /** The world point of a unit's model point `key` (muzzle, sp0…; its current skeleton's, front or back), or null. */
   function specialPoint(v, out, key = 'sp0') {
     const entry = ptsOf(v)?.[key] || null;
@@ -648,7 +654,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const key = pointKey(spawn);
     if (key && v && ptsOf(v)?.[key]) {
       const p = { x: 0, y: 0, z: 0 };
-      const at = () => specialPoint(v, p, key) || (camRef ? { x: v.x, y: v.y, z: bodyZ(camRef, v, 0.5) } : v);
+      const at = () => specialPoint(v, p, key) || (camRef ? { x: mx(v), y: v.y, z: bodyZ(camRef, v, 0.5) } : v);
       const pause = !!def?.mount?.pauseWhenInvalid;
       // local patch (maintainer report — 아르케토 S3's cast fan stood upright; maintainer's decision 2026-10-08 「전체 적용」): a
       // FollowMountPoint with `_keepOriginRotation` 0 gives the effect its point's turn too (fxpoints.js pointTurn) — the
@@ -672,9 +678,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       };
     }
     const frac = SPAWN_FRAC[spawn];
-    if (!frac || !v || !(v.info || v.screen)) return v;
+    if (!frac || !v || !(v.info || v.screen)) {
+      if (!v || !v.modelDX) return v;
+      return {   // its feet under the drawn model (MODEL_SHIFT)
+        get x() { return mx(v); }, get y() { return v.y; }, get z() { return v.z; }, get hover() { return v.hover; },
+        get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
+      };
+    }
     return {
-      get x() { return v.x; }, get y() { return v.y; },
+      get x() { return mx(v); }, get y() { return v.y; },
       get z() { return camRef ? bodyZ(camRef, v, frac) : (v.z || 0) + (v.hover || 0) + (v._headTiles || 1.2) * frac; },
       get alive() { return v.alive; }, get remove() { return v.remove; },
       id: v.id, info: v.info,
@@ -856,7 +868,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     trailAtks.add(e);
     const dx = tgt.x - src.x, dy = tgt.y - src.y, dist = Math.hypot(dx, dy);
     const from = shotFrom(src, mode);
-    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: tgt.x, ty: tgt.y, tz: shotTo(tgt), k: 0,
+    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0,
       dur: Math.max(0.04, dist / projSpeed(e[3])), arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 };
     // local patch (maintainer report 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
     // both ways — projectile_chr_caper `_comeBack` 1 at `_comeBackSpeedScale` .25 (the sim's BOOMERANG_RETURN_SPEED), its
@@ -902,7 +914,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!name || !trailReady.has(`${b.bundle}/${name}`)) return false;
     const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
     const from = shotFrom(src, mode);
-    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: tgt.x, ty: tgt.y, tz: shotTo(tgt), k: 0,
+    const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0,
       dur: Math.max(0.04, dist / projSpeed('boomerang')), arc: caperArc(dist, true), src, back: Math.max(0.04, dist / projSpeed('boomerangReturn')) };
     boomerangThrown(src);
     launchTrail(rec, b.bundle, name);
@@ -919,16 +931,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const shotAt = { x: 0, y: 0, z: 0 }, hitAt = { x: 0, y: 0, z: 0 };
   function shotFrom(src, mode = null) {
     const mp = Number.isInteger(mode) ? bindOf(src)?.shotFrom?.[mode] : null;
-    if (mp === 7) return { x: src.x, y: src.y, z: (src.z || 0) + (src.hover || 0) };   // MountPointType GROUND
+    if (mp === 7) return { x: mx(src), y: src.y, z: (src.z || 0) + (src.hover || 0) };   // MountPointType GROUND
     const key = Number.isInteger(mp) ? pointKey(mountSpawn({ type: mp })) : null;
     const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
-    return p ? { x: p.x, y: p.y, z: p.z } : { x: src.x, y: src.y, z: bodyZ(camRef, src, SHOT_HEIGHT.launch) };
+    return p ? { x: p.x, y: p.y, z: p.z } : { x: mx(src), y: src.y, z: bodyZ(camRef, src, SHOT_HEIGHT.launch) };
   }
   const shotTo = (t) => specialPoint(t, hitAt, 'hit')?.z ?? bodyZ(camRef, t, SPAWN_FRAC[2]);
   /** A trail at flight fraction k: on the line to the target's current spot (a lob on its arc), turned along it. */
   function placeTrail(rec) {
     const t = rec.tgt;
-    if (t && t.alive !== false && !t.remove && Number.isFinite(t.x)) { rec.tx = t.x; rec.ty = t.y; rec.tz = shotTo(t); }
+    if (t && t.alive !== false && !t.remove && Number.isFinite(t.x)) { rec.tx = mx(t); rec.ty = t.y; rec.tz = shotTo(t); }
     const k = Math.min(1, rec.k);
     if (rec.dropZ) {   // local patch: a shell falling straight down (蕾缪안 S3), the trail's +x turned to −z
       if (!rec.inst) return;
@@ -1651,10 +1663,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /** Where an enemy's shot leaves: its `_mountPointType` point (enemy-modes.json points; GROUND = its feet), its muzzle. */
   function eshotFrom(src, mount) {
-    if (mount === 7) return { x: src.x, y: src.y, z: (src.z || 0) + (src.hover || 0) };
+    if (mount === 7) return { x: mx(src), y: src.y, z: (src.z || 0) + (src.hover || 0) };
     const key = Number.isInteger(mount) ? pointKey(mountSpawn({ type: mount })) : null;
     const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
-    return p ? { x: p.x, y: p.y, z: p.z } : { x: src.x, y: src.y, z: bodyZ(camRef, src, SHOT_HEIGHT.launch) };
+    return p ? { x: p.x, y: p.y, z: p.z } : { x: mx(src), y: src.y, z: bodyZ(camRef, src, SHOT_HEIGHT.launch) };
   }
   /** Tiles per game second of `src`'s shot: data/enemies.json `proj` (what the sim flies it at), else the sim's enemy speed. */
   function eshotSpeed(src) {
@@ -1683,7 +1695,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     trailAtks.add(e);
     const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
     const from = eshotFrom(src, pr.mount);
-    launchTrail({ inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: tgt.x, ty: tgt.y, tz: shotTo(tgt), k: 0,
+    launchTrail({ inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0,
       dur: Math.max(0.04, dist / eshotSpeed(src)), arc: Number(shot?.height ?? pr.raise) > 0 && (shot?.move ?? 'PARACURVE') === 'PARACURVE' ? Number(shot?.height ?? pr.raise) : 0 }, r[0], r[1]);
     return true;
   }
@@ -1741,7 +1753,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
     if (r && camRef && t > 0 && t <= (dir ? 12 : 6) && !pr.link && level() < 3 && trails.length < MAX_TRAILS) {
       const p0 = from === shooter ? eshotFrom(from, pr.mount)
-        : { x: from.x, y: from.y, z: specialPoint(from, shotAt, 'hit')?.z ?? bodyZ(camRef, from, SPAWN_FRAC[2]) };
+        : { x: mx(from), y: from.y, z: specialPoint(from, shotAt, 'hit')?.z ?? bodyZ(camRef, from, SPAWN_FRAC[2]) };
       let rec;
       if (dir) {
         // straight along `dir` (board axes: +x the next column, +y the next row up) to the predicted first hit, `range` tiles
@@ -1750,7 +1762,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         rec = { inst: null, tgt: null, x0: p0.x, y0: p0.y, z0: p0.z, tx: p0.x + dir[0] * range, ty: p0.y + dir[1] * range, tz: p0.z, k: 0, dur: Math.max(0.04, t), arc: 0 };
       } else {
         const arc = (o.move ?? pr.move) === 'PARACURVE' || (o.move == null && Number(pr.raise) > 0) ? Math.max(0, Number(pr.raise) || 0) : 0;
-        rec = { inst: null, tgt, x0: p0.x, y0: p0.y, z0: p0.z, tx: tgt.x, ty: tgt.y, tz: shotTo(tgt), k: 0, dur: Math.max(0.04, t), arc };
+        rec = { inst: null, tgt, x0: p0.x, y0: p0.y, z0: p0.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0, dur: Math.max(0.04, t), arc };
       }
       ensure().then((ok) => { if (ok && lib) launchTrail(rec, r[0], r[1]); }, () => {});
     }
@@ -1852,7 +1864,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function elinePoint(v, type, out, off) {
     const key = type === 7 ? null : pointKey(mountSpawn({ type }));
     const p = key ? specialPoint(v, out, key) : null;
-    if (!p) { out.x = v.x; out.y = v.y; out.z = type === 7 ? (v.z || 0) : bodyZ(camRef, v, SPAWN_FRAC[2]); }
+    if (!p) { out.x = mx(v); out.y = v.y; out.z = type === 7 ? (v.z || 0) : bodyZ(camRef, v, SPAWN_FRAC[2]); }
     if (Array.isArray(off)) { out.x += Number(off[0]) || 0; out.z += Number(off[1]) || 0; }   // Unity +y = up [추정]
     return out;
   }
@@ -1953,7 +1965,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const dist = Math.hypot(target.x - v.x, target.y - v.y);
         if (dist / speed <= 6) {
           const from = eshotFrom(v, pr.mount);
-          launchTrail({ inst: null, tgt: target, x0: from.x, y0: from.y, z0: from.z, tx: target.x, ty: target.y, tz: shotTo(target), k: 0,
+          launchTrail({ inst: null, tgt: target, x0: from.x, y0: from.y, z0: from.z, tx: mx(target), ty: target.y, tz: shotTo(target), k: 0,
             dur: Math.max(0.04, dist / speed), arc: Number(pr.raise) > 0 ? Number(pr.raise) : 0 }, r[0], r[1]);
         }
       }
