@@ -137,6 +137,8 @@
     새 필드에서 0.25초 페이드아웃. `start`(시작 뱅크 자체가 루프: 铃兰·角峰 등)면 한 번짜리 시작음은 내지 않는다. 같은 제보로: 丰川祥子 S3의
     시작음(`ON_CUSTOM_TRIGGER.skchr_oblvns_3[start]`)이 `deferStart`(공격 능력 소리만 해당)에 잘못 걸려 거의 안 나던 것 수정
     (`skill-sfx.mjs skillStartIsFallback`: 커스텀 시작 트리거는 진짜 시작음). `/debug.html` 일시정지는 AudioContext도 멈춘다(루프가 계속 울리지 않게).
+    전투가 끝날 때 켜져 있던 스킬은 'skill' 꺼짐·'die'가 안 오므로, 국면이 전투(COMBAT·UNITE·FINAL_ASSAULT·HIDDEN_CORE) 밖으로 나가면(结算 = 클라
+    전투 정지) 잡아 둔 소리를 전부 끊는다(`installAudio`; 관리자 제보 2026-10-10: 薄绿 장판 루프 `p_field_magloop`가 휴식 페이즈에도 계속 남).
 
   - **평타는 Default 모드 소리만** (관리자 제보 2026-10-07): `tools/assets/skill-mode-sfx.mjs defaultModeBanks` — 모드 정보가 있는
     오퍼레이터는 스킬 모드 번호의 `ON_ABILITY_*.attack|combat.<n>` 뱅크를 평타 후보에서 뺀다(银灰 S3 `p_atk_silver_n`, 号角 S2 포격 시전음, 丰川祥子 S3,

@@ -1517,6 +1517,9 @@ export class AudioManager {
   }
 }
 
+/** The phases a battle runs in (its skills' loops may play); 结算 stops the client's combat (match/settle.js). */
+const BATTLE_PHASES = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
+
 let manifestGetter = () => null;
 /** App-wide audio manager. */
 export const audio = new AudioManager({ getManifest: () => manifestGetter() });
@@ -1539,6 +1542,9 @@ export function installAudio(deps) {
           // so every client of a room hears the same one, a mid-fight re-render (or a teammate view) never switches,
           // and the next round moves on by the table. 联防 shares its round ⇒ same key ⇒ the loop keeps playing.
           audio.playBgm(bgmKeyFor(deps.selectRoute(s), pub, combatTrackFor(pub?.round)));
+          // a skill's held sounds never outlive its battle: a battle that ends sends no skill off / 'die' for the units
+          // still on the field, so 薄绿's field loop played on through the 休整期 (maintainer report 2026-10-10)
+          if (!pub?.phase || !BATTLE_PHASES.has(pub.phase)) stopSkillLoops(audio);
         } catch { /* ignore */ }
       };
       sync(deps.getState());

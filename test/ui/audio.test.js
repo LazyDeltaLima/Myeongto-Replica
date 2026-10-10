@@ -136,6 +136,29 @@ describe('bgm selection', () => {
       fire(state, {}); assert.equal(calls.at(-1), 'boss:boss_4');
     } finally { audio.playBgm = origPlay; }
   });
+
+  test('installAudio: a skill loop still on when its battle ends stops with the battle (薄绿\'s field loop)', () => {
+    const origPlay = audio.playBgm;
+    audio.playBgm = () => {};
+    const held = () => ({ stopped: false, src: null });
+    try {
+      const state = { route: 'game', match: { public: { phase: PHASE.COMBAT, round: 2 } } };
+      let fire = null;
+      installAudio({ getManifest: () => manifest, getState: () => state, selectRoute: (s) => s.route, subscribe: (fn) => { fire = fn; return () => {}; } });
+      audio._skillLoops = new Map([[7, held()], ['7:x0', held()]]);
+      state.match.public = { phase: PHASE.UNITE, round: 2 };
+      fire(state, {});
+      assert.equal(audio._skillLoops.size, 2, 'a 联防 battle keeps them (its new field decides)');
+      for (const phase of [PHASE.SETTLE, PHASE.PREP]) {
+        const recs = [held(), held()];
+        audio._skillLoops = new Map([[7, recs[0]], ['7:x0', recs[1]]]);
+        state.match.public = { phase, round: 2 };
+        fire(state, { match: { public: { phase: PHASE.COMBAT } } });
+        assert.equal(audio._skillLoops.size, 0, phase);
+        assert.ok(recs.every((r) => r.stopped), phase);
+      }
+    } finally { audio.playBgm = origPlay; audio._skillLoops?.clear(); }
+  });
 });
 
 describe('SfxLimiter (the official SoundFXBank.Play per bank, 2026-10-10)', () => {
