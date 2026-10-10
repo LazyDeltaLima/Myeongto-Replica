@@ -13,7 +13,8 @@
 //                        prep: every `layer` layers → `count` item(s) from `pool` (bond_layer_added_reward_equip)
 //   谢拉格 kjeragShip    members deal ×base_damage_scale, vs cold / frozen enemies ×(base_ex_damage_scale +
 //                        ex_damage_scale_per_stack·L) instead; 6: cold wind (devices.js kjeragColdWind)
-//   拉特兰 lateranoShip  member ammo skills start with floor(ammo × (1 + base_ammo_percent + ammo_percent_per_stack·L));
+//   拉特兰 lateranoShip  member ammo skills start with round(ammo × (base_ammo_percent + ammo_percent_per_stack·L)) more
+//                        bullets (the original count × the ratio, half to even — lateranoAmmo);
 //                        6: every ammo used by a member → all members ATK +atk_per_consume (≤ max_atk_for_consume)
 //   阿戈尔 egirShip      members max HP +(base_max_hp + max_hp_per_stack·L) (直接乘算); battle start devour (see devour():
 //                        the marker's gained base ATK is a 最终加算, `atkFinal`, not scaled by its ATK +%);
@@ -33,7 +34,8 @@
 // Live layers: effects that read L at a moment (stack duration, ammo, deploy buffs, proc damage, cold multiplier) read
 // the live value; standing buffs (炎 ATK, 维多利亚, 阿戈尔 HP, 卡西米尔 cap) are refreshed one tick after a `layerGain`.
 // Two players in one field: everything is per player (own members, own deployments); the 谢拉格 wind and 炎佑 act on
-// every enemy of the field (debuffs on shared enemies help both, research 06 §8.6).
+// every enemy of the field (debuffs on shared enemies help both, research 06 §8.6). The wind is one per field (either
+// player at 6; duration from the higher 谢拉格 layers — devices.js kjeragColdWind).
 // Hook priorities: 拉特兰 skillStart −10 (after kits' own ammo changes), 阿戈尔 death 11 (5-tier revive, before 不屈's
 // death 10; every `fatal` saver runs before any death hook), layerGain −100 (after 魔王-style modifiers).
 
@@ -304,19 +306,34 @@ function installKjerag(battle, pid, bb, members) {
     if (base > 0 && target > 0) c.dmg.mul *= target / base;
   };
   for (const u of members) onUnitHit(battle, u, onHit);
-  if (reached(battle, pid, 'kjeragShip', bb.power_bond_char_cnt)) kjeragColdWind(battle, pid, bb);
+  // the wind is the field's: one [storm] on the map controller whoever reaches 6 (AutoChessAssignBondCharCntToBB
+  // _filterAllSides = the most members over the players, client code RVA 0xB49840), its duration from the most
+  // 谢拉格 layers over the players (AutoChessAssignBondStackCntToBB _assignAllPlayerIndex, RVA 0xB49C80)
+  const wind = S.battleStore(battle, 'bond:kjerag:wind', () => ({ handle: null }));
+  if (!wind.handle && reached(battle, pid, 'kjeragShip', bb.power_bond_char_cnt)) wind.handle = kjeragColdWind(battle, pid, bb);
 }
 
 // =====================================================================================================================
 // 拉特兰
 
+/**
+ * Bullets 拉特兰 adds to an ammo skill whose original count is `orig`: RoundToInt(orig × ratio) on top of the maximum
+ * (client code `CastSkillWithLimitTimes._UpdateMaxAdditionCount`, RVA 0x644190: float32 product → FP →
+ * `MathUtil.RoundToInt` → `FP.Round`, RVA 0x54E1D20, which rounds a half to even).
+ */
+export function lateranoAmmo(orig, ratio) {
+  const x = Math.fround(Math.fround(num(orig, 0)) * Math.fround(num(ratio, 0)));
+  if (!(x > 0)) return 0;
+  const f = Math.floor(x), d = x - f;
+  return d > 0.5 || (d === 0.5 && f % 2 === 1) ? f + 1 : f;
+}
+
 function installLaterano(battle, pid, bb, members) {
   const memberSet = new Set(members);
   battle.on('skillStart', ({ unit, skill }) => {
     if (!memberSet.has(unit) || !skill || skill.kind !== 'ammo' || !(skill.ammoLeft > 0)) return;
-    const mul = 1 + num(bb.base_ammo_percent, 0) + num(bb.ammo_percent_per_stack, 0) * S.bondLayers(battle, pid, 'lateranoShip');
-    const n = Math.floor(skill.ammoLeft * mul + 1e-9);
-    if (Number.isFinite(n) && n > skill.ammoLeft) skill.ammoLeft = n;
+    const add = lateranoAmmo(skill.ammo || skill.ammoLeft, num(bb.base_ammo_percent, 0) + num(bb.ammo_percent_per_stack, 0) * S.bondLayers(battle, pid, 'lateranoShip'));
+    if (add > 0) skill.ammoLeft += add;
   }, { priority: -10 });
   if (!reached(battle, pid, 'lateranoShip', bb.power_bond_char_cnt)) return;
   const per = num(bb.atk_per_consume, 0), cap = num(bb.max_atk_for_consume, Infinity);

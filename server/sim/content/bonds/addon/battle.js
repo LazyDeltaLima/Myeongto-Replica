@@ -11,8 +11,9 @@
 //   迅捷 swiftShip     an operator's skill end → one roll p = min(1, base_prob + prob_per_stack·L): a hit gives a member
 //                      +normal_sp SP and, at L ≥ power_bond_stack_cnt, every operator +power_sp (a member both, on the same
 //                      roll — client buff graph act1autochess_bond_eff_swift: Dice → member? → AlwaysNext → layers?)
-//   灵巧 skillfulShip  aura: members + operators on their 4 (L ≥ 40: 8) adjacent tiles ASPD +(base + per·L), once per unit;
-//                      killed members keep providing it from their body tile until redeploy; retreat / forcedExit do not
+//   灵巧 skillfulShip  ASPD +(base + per·L) for an operator that, when it deploys, has a member piece on its own or one of
+//                      its 4 adjacent tiles (L ≥ power_bond_stack_cnt: its 8 surrounding tiles) — members themselves
+//                      always; judged once per deployment and kept while it stays (client buff graph, see 灵巧 aura below)
 //   奥术 arcaneShip    member arts damage → target arts taken ×(base + per·L) for weak_duration s; tier 2: ×power_weak_scale
 //                      when the target is below hp_ratio at application. ONE instance per target whatever applies it — the
 //                      two players of a pair field compete for it, the strongest wins (battle.applyStrongest, 同名效果取最高:
@@ -75,7 +76,7 @@ export const KEY = Object.freeze({
 /** Bonds whose battle values depend on layers (recomputed on in-battle gains). */
 const LAYERED = new Set([ID.preci, ID.swift, ID.skillful, ID.arcane, ID.stead, ID.deput, ID.raid, ID.indom]);
 const STEAD_CD = 'bond:steadShip:cd';
-const AURA_POLL = 0.25;
+const AURA_JUDGE = 'bond:skillfulShip:judge'; // u.mem: { near, cross } judged on the receiver's deployment
 const RAID_POLL = 0.25;
 const RAID_SPAWN = 'bond:raidShip:spawn';  // u.mem: the [spawn] mark (any jump; kept until the member leaves the field)
 const RAID_TRIG_KEY = 'bond:raidShip:trig'; // u.mem: the running AUTO-skill [trig] (token)
@@ -241,35 +242,44 @@ function suntSpCost(u, bb) {
 }
 
 // =====================================================================================================================
-// 灵巧 aura
+// 灵巧 aura — client buff graph act1autochess_bond_eff_skillful. ON_BUFF_START (the receiver's deployment) judges ONCE:
+// AutoChessFilterCharacterBondIds `_checkTargetInRangeId "x-4"` (client code RVA 0xB4E810: LitePhysicsUtil.FindTilesInBox
+// around the receiver's tile, then the board piece on each tile, AutoChessBattleUtil.GetChessInstByPos, and its bonds) —
+// no member piece on the 3×3 → the buff ends; else "x-5" (the cross, own tile included) sets in_normal_range.
+// ON_BUFF_TRIGGER (live layers): ASPD when L ≥ power_bond_stack_cnt, else only when in_normal_range. The judgment is
+// kept for the receiver's stay on the field: a member that leaves, falls or moves later changes nothing.
 
-function updateAura(battle, st) {
-  const mods = st.auraMods;
-  if (!mods) return;
-  const next = st.auraNext ?? (st.auraNext = new Set());
-  next.clear();
-  const offs = st.auraWide ? N8 : N4;
+/** Board tile of a member's piece: where it stands, else where it waits (its body tile when down, else its home). */
+function auraPieceTile(battle, m) {
+  if (!m || m.removed) return null;
+  if (m.alive && m.deployed) return [m.tileR, m.tileC];
+  return battle.restTile(m);
+}
+
+/** Judge the receiver `u` on its deployment (u.mem[AURA_JUDGE] = { near, cross }) and apply the buff. */
+function judgeAura(battle, st, u) {
+  let near = false, cross = false;
   for (const m of st.members[ID.skillful]) {
-    const active = onField(m);
-    // isDown also covers voluntary / forced exits since v0.1.2. Only a kill keeps the aura.
-    if (!active && (m.removeReason !== 'killed' || !battle.isDown(m))) continue;
-    if (active) next.add(m);
-    // A knocked-out member still covers neighbours around the tile where it waits to redeploy.
-    const [r, c] = active ? [m.tileR, m.tileC] : battle.restTile(m);
-    for (const [dr, dc] of offs) {
-      const a = battle.unitAt(r + dr, c + dc);
-      if (a && a.kind === 'op' && a.ownerId === st.pid && onField(a)) next.add(a);
-    }
+    const t = auraPieceTile(battle, m);
+    if (!t) continue;
+    const dr = Math.abs(t[0] - u.tileR), dc = Math.abs(t[1] - u.tileC);
+    if (dr > 1 || dc > 1) continue;
+    near = true;
+    if (dr + dc <= 1) { cross = true; break; }
   }
-  const cur = st.aura ?? (st.aura = new Set());
-  for (const u of cur) if (!next.has(u)) battle.removeBuff(u, KEY.skillful);
-  for (const u of next) {
-    const b = u.findBuff(KEY.skillful);
-    if (!b) battle.addBuff(u, { key: KEY.skillful, mods });
-    else if (b.mods !== mods) { b.mods = mods; u.markDirty(); }
-  }
-  st.aura = next;
-  st.auraNext = cur;
+  u.mem[AURA_JUDGE] = { near, cross };
+  applyAura(battle, st, u);
+}
+
+/** Add / refresh / remove the 灵巧 buff of `u` from its stored judgment and the live layers (st.auraMods / auraWide). */
+function applyAura(battle, st, u) {
+  const j = u.mem[AURA_JUDGE];
+  const mods = st.auraMods;
+  const on = !!(j && j.near && (st.auraWide || j.cross) && mods && onField(u));
+  const b = u.findBuff(KEY.skillful);
+  if (!on) { if (b) battle.removeBuff(u, KEY.skillful); return; }
+  if (!b) battle.addBuff(u, { key: KEY.skillful, mods });
+  else if (b.mods !== mods) { b.mods = mods; u.markDirty(); }
 }
 
 // =====================================================================================================================
@@ -484,19 +494,19 @@ export function install(battle) {
       battle.after(0, () => {
         st.pending = false;
         applyPassives(battle, st);
-        if (st.tiers[ID.skillful]) updateAura(battle, st);
+        if (st.tiers[ID.skillful]) for (const u of battle.allies(st.pid)) if (u.kind === 'op' && u.mem[AURA_JUDGE]) applyAura(battle, st, u);
       });
     });
   }
 
-  // 灵巧 aura (deploy / death immediately, relocations through a cheap poll)
+  // 灵巧 aura: judged on every deployment of one of the player's operators (the initial ones included); a relocation
+  // (`deploy` with move: true) keeps the judgment [추정: the client re-runs ON_BUFF_START only on a real (re)spawn]
   if (has(ID.skillful)) {
-    const aura = states.filter((st) => st.tiers[ID.skillful]);
-    const refresh = (pid) => { for (const st of aura) if (pid == null || st.pid === pid) updateAura(battle, st); };
-    battle.on('battleStart', () => refresh(null));
-    battle.on('deploy', (c) => { if (c.unit && c.unit.kind === 'op' && byPid[c.unit.ownerId]?.tiers[ID.skillful]) refresh(c.unit.ownerId); });
-    battle.on('death', (c) => { if (c.unit && c.unit.kind === 'op' && byPid[c.unit.ownerId]?.tiers[ID.skillful]) refresh(c.unit.ownerId); });
-    battle.every(AURA_POLL, () => refresh(null));
+    battle.on('deploy', (c) => {
+      const u = c.unit, st = u && byPid[u.ownerId];
+      if (!st || !st.tiers[ID.skillful] || u.kind !== 'op' || c.move) return;
+      judgeAura(battle, st, u);
+    });
   }
 
   // 突袭

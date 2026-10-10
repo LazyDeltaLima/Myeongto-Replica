@@ -13,6 +13,7 @@ import { hasGeneratedData } from '../../server/sim/simdata.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import { canCast } from '../../server/sim/content/enemies/helpers.js';
 import { blinkForward } from '../../server/sim/content/enemies/archetypes.js';
+import { wallHold } from '../../server/sim/battle/displacement.js';
 
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
 const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e7, blockCnt: 0 }, rangeGrid: [[0, 0]], skill: null });
@@ -79,7 +80,7 @@ test('the −2 angle correction picks the row: a directional push off by more th
   assert.ok(near(e.unbalanceUntil - t0, PUSH_UNBALANCE[-2]));
 });
 
-test('the row time stays when the 特效 column or a wall shortens the slide; a wall at the first step gives the 0.1 s floor', () => {
+test('the row time stays when the 特效 column shortens the slide; a wall ends 失衡 when it stops the body (client UnbalanceState physics), floor 0.1 s', () => {
   const eff = field({ mass: 0 });
   const t0 = eff.h.b.time;
   const m = eff.h.b.push(eff.e, 0, { from: { x: eff.e.x - 1, y: eff.e.y }, effect: true });
@@ -90,17 +91,22 @@ test('the row time stays when the 特效 column or a wall shortens the slide; a 
   const t1 = wall.h.b.time;
   const m1 = wall.h.b.push(wall.e, 0, { from: { x: wall.e.x - 1, y: wall.e.y } });
   assert.ok(m1 > 0 && m1 < PUSH_TILES[0], `stopped by the edge after ${m1}`);
-  assert.ok(near(wall.e.unbalanceUntil - t1, PUSH_UNBALANCE[0]), 'still the row time [ASSUMED]');
+  // the time to slide m1 of 1.7 tiles under the uniform deceleration of the 0.8 s open slide
+  const hit = PUSH_UNBALANCE[0] * (1 - Math.sqrt(1 - m1 / PUSH_TILES[0]));
+  assert.ok(near(wallHold(PUSH_UNBALANCE[0], m1, PUSH_TILES[0]), hit));
+  assert.ok(hit < PUSH_UNBALANCE[0]);
+  assert.ok(near(wall.e.unbalanceUntil - t1, Math.max(UNBALANCE_MIN, hit)), `ends at the wall: ${wall.e.unbalanceUntil - t1} s`);
   const m2 = wall.h.b.push(wall.e, 0, { from: { x: wall.e.x - 1, y: wall.e.y } });
   assert.equal(m2, 0, 'no room left');
-  assert.ok(near(wall.e.unbalanceUntil - t1, PUSH_UNBALANCE[0]), 'a running longer state is kept');
+  assert.ok(near(wall.e.unbalanceUntil - t1, Math.max(UNBALANCE_MIN, hit)), 'a running longer state is kept');
   const w2 = field({ mass: 0 });
   w2.e.x = 9.6;
   w2.h.b.push(w2.e, 0, { from: { x: w2.e.x - 1, y: w2.e.y } });
   w2.h.run(1);
+  w2.e.x = wall.e.x; // back at the edge (it walks again once the shorter 失衡 is over)
   const t2 = w2.h.b.time;
   assert.equal(w2.h.b.push(w2.e, 0, { from: { x: w2.e.x - 1, y: w2.e.y } }), 0);
-  assert.ok(near(w2.e.unbalanceUntil - t2, UNBALANCE_MIN), 'stopped at once: the 0.1 s floor [ASSUMED]');
+  assert.ok(near(w2.e.unbalanceUntil - t2, UNBALANCE_MIN), 'stopped at once: the 0.1 s floor (PRTS 失衡硬直)');
 });
 
 test('a pull holds for its force window (推与拉): 1 s, 0.5 s below 受力等级 −1, to the end after the 急停; ≤ −3 nothing', () => {
@@ -201,10 +207,11 @@ test('弧光锋卫 bleeds 400 true damage every 0.066 s for as long as the state
     const hits = h.hooksOf('damaged').filter((c) => c.target === e && c.dmg.tags?.includes('unbalanced'));
     return { lost: hp0 - e.hp, hits: hits.length };
   };
-  // weight 1: 力度 1 → 受力等级 0, 0.8 s → 12 × 400; a 急停 pull (no movement) 1 s → 15 × 400; the wall keeps the 0.8 s row
+  // weight 1: 力度 1 → 受力等级 0, 0.8 s → 12 × 400; a 急停 pull (no movement) 1 s → 15 × 400; the wall ends the state
+  // when it stops the slide (0.8 × (1 − √(1 − moved / 1.7)) s ≈ 0.27 s → 4 × 400)
   assert.deepEqual(bleed((h, e) => h.b.push(e, 1, { from: { x: e.x + 1, y: e.y } })), { lost: 4800, hits: 12 });
   assert.deepEqual(bleed((h, e) => h.b.pull(e, 2, { to: { x: e.x - 0.3, y: e.y }, center: { x: e.x - 0.3, y: e.y } })), { lost: 6000, hits: 15 });
-  assert.deepEqual(bleed((h, e) => { e.x = 9.6; h.b.push(e, 1, { from: { x: e.x - 1, y: e.y } }); }), { lost: 4800, hits: 12 });
+  assert.deepEqual(bleed((h, e) => { e.x = 9.6; h.b.push(e, 1, { from: { x: e.x - 1, y: e.y } }); }), { lost: 1600, hits: 4 });
 });
 
 test('no skill, blink or scripted move while it lasts (失衡免疫 「失衡期间无法自主移动、发动攻击、使用技能」)', REAL, () => {

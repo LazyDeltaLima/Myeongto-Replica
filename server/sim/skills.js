@@ -502,7 +502,7 @@ export class SkillRuntime {
     u.skillAnimUntil = b.time + SKILL_ANIM_WINDOW;
     this._call('onStart', { reason });
     if (b._hooks.skillStart) b.emit('skillStart', { unit: u, skill: this, reason });
-    // bullets added in skillStart (拉特兰's ×(1.05 + 0.015 × layers), 逃犯引渡手续, talents): the bar's full mark
+    // bullets added in skillStart (拉特兰's round(ammo × (0.05 + 0.015 × layers)), 逃犯引渡手续, talents): the bar's full mark
     // (community report #35: the extra bullets sat above a full bar until fewer than the base count were left)
     if (this.active && this.ammoLeft > this.ammoMax) this.ammoMax = this.ammoLeft;
     if (!this.isTimed && !this.pending) {

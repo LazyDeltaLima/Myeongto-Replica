@@ -25,6 +25,16 @@ export function pushUnbalance(level) {
   return l <= -3 ? 0 : PUSH_UNBALANCE[Math.min(3, l)];
 }
 
+/**
+ * Time a push slide that a wall stops after `moved` of its `dist` tiles takes, when the open slide of `dist` lasts `T`
+ * under a uniform deceleration: s(t) = dist·(1 − (1 − t/T)²) ⇒ t = T·(1 − √(1 − moved/dist)).
+ */
+export function wallHold(T, moved, dist) {
+  if (!(T > 0) || !(dist > 0) || !(moved > 0)) return 0;
+  const f = Math.min(1, moved / dist);
+  return T * (1 - Math.sqrt(1 - f));
+}
+
 /** 失衡 of a pull of 受力等级 `level`: its force window (PULL_UNBALANCE, 0.5 s below −1), none at ≤ −3 (force 0). */
 export function pullUnbalance(level) {
   const l = Math.round(fin(level, -99));
@@ -73,11 +83,16 @@ export class BattleDisplacement {
     else return 0;
     let dist = pushTiles(level, effect);
     if (inward && !(dl > 0)) { ux = -ux; uy = -uy; dist = Math.min(dist, Math.max(0, d - PULL_STOP_RADIUS)); }
-    // 失衡 for the row's 位移时间 — also when the 特效 column or a wall shortens the slide [ASSUMED for the wall]; a slide a
-    // wall stops at the first step gets the 0.1 s floor, like a body that cannot move [ASSUMED: 碰撞、停止 is 待补充]
+    // 失衡 for the row's 位移时间 (also when the 特效 column shortens the slide). A wall that stops the slide ends it there:
+    // the client's UnbalanceState is physics, not a timer (`Enemy.States.UnbalanceState.OnTick` RVA 0x752380 →
+    // `_UpdateFriction` 0x752C60: friction slows the body every frame and the state ends once its speed is ≤ 0.1), so a
+    // blocked body leaves 失衡 when it hits the wall — the time to slide `moved` of `dist` under a uniform deceleration
+    // that would stop it after the row's time [ASSUMED: uniform], never below the 0.1 s floor (also a slide blocked at
+    // the first step)
     const hold = pushUnbalance(level);
-    const moved = this.displace(e, { x: ux, y: uy }, dist, { dur: hold });
-    if (hold > 0) this._unbalance(e, moved > 0 ? hold : UNBALANCE_MIN);
+    const holdOf = (moved) => (moved + 1e-6 >= dist ? hold : Math.max(UNBALANCE_MIN, wallHold(hold, moved, dist)));
+    const moved = this.displace(e, { x: ux, y: uy }, dist, { dur: hold > 0 ? holdOf : 0 });
+    if (hold > 0) this._unbalance(e, holdOf(moved));
     return moved;
   }
 
@@ -177,7 +192,7 @@ export class BattleDisplacement {
    * ⇒ no movement (_displaceable). The tiles it may cross follow its movement (`motion`): a hovering enemy walks the
    * ground, so it stays on ground-passable tiles.
    */
-  displace(e, dir, distance, { dur = 0 } = {}) {
+  displace(e, dir, distance, { dur: durOpt = 0 } = {}) {
     if (!this._displaceable(e) || !dir) return 0;
     const dxv = fin(dir.x, 0), dyv = fin(dir.y, 0);
     const len = hypot(dxv, dyv);
@@ -196,6 +211,7 @@ export class BattleDisplacement {
       e.x = nx; e.y = ny; moved += s;
     }
     if (moved > 0) {
+      const dur = typeof durOpt === 'function' ? durOpt(moved) : durOpt;
       this._unblock(e);
       // 失衡 ends the attack clip it stood for (PRTS 状态机: the states are exclusive — UNBALANCE, then DEFAULT → MOVE)
       this._cutAttackStand(e);

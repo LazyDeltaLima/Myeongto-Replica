@@ -13,14 +13,18 @@
 //     stays hidden)
 //   * picks: for every round 1..15, generated now (so the preview and every battle agree): half = r ≤ 7; a weighted
 //     (entry.weight) special entry of the round's type and half whose SPECIAL key is not in the mode's
-//     inactiveEnemyKeys (attached keys are never filtered); normal / elite = a random attached key
+//     inactiveEnemyKeys (attached keys are never filtered); normal / elite = a random attached key; no candidate → no
+//     pick for that round (client `_GenerateRandomEnemyData`: no retry with another type)
 //   * boss: weighted mode.bossWeights; hidden boss: weighted mode.hiddenBossWeights (independent)
 // Per round (buildNormalWave / buildBossWave; one composition shared by every player):
 //   * every template SPAWN action whose key is a placeholder (N/E/S walk, NF/EF/SF fly) becomes the pick's
 //     normal / elite / special key — or is SKIPPED (not spawned, not previewed) when the new key's movement class differs
-//     from the placeholder's (ground rounds drop NF/EF/SF, FLY rounds drop N/E/S);
+//     from the placeholder's (ground rounds drop NF/EF/SF, FLY rounds drop N/E/S), and likewise when the round has no
+//     pick or the picked key has no enemy data (client `_DoReplaceActionDataClient`: a template enemy left over is
+//     isValid = false — never spawned as the placeholder itself);
 //     n' = clamp(roundHalfEven(f32(f32(n·P(tpl))/f(tpl)) / f32(P(new)/f(new))), 1, 5) per ACTION (P = enemies.json
-//     attrPower, f = beFactor), unit i spawning at time + i·max(n·interval/n', 0.05·n·interval) (same window);
+//     attrPower, f = beFactor; P(new) = 0 → 0 units, skipped), unit i spawning at time + i·max(n·interval/n',
+//     0.05·n·interval) (same window);
 //     literal keys (R1 源石虫, leader escorts) and T/TF tokens are kept; 炎佑 (enemy_9012_acloon) is never an enemy
 //   * leader / hidden rounds use the pick of their own slot (14, 15; solo 标准 9), so only E or EF escorts spawn
 //   * stat scaling: mods = config.modes[m].enemyScale[r] (the PRTS table = the ENEMY effects 攻坚装备 / 补给线 / 急行军,
@@ -107,7 +111,7 @@ export function replacedCount(gd, tplKey, n, newKey) {
   const f = Math.fround;
   const origin = f(f(n * attrPower(gd, tplKey)) / beFactor(gd, tplKey));
   const unit = f(attrPower(gd, newKey) / beFactor(gd, newKey));
-  if (!(unit > 0)) return min;
+  if (!(unit > 0)) return 0; // the client's `unit == 0` branch: 0 units, no clamp
   const ratio = f(origin / unit);
   return Math.max(min, Math.min(max, roundHalfEven(ratio)));
 }
@@ -139,7 +143,8 @@ export function pickRoundEntry(gd, rng, type, round) {
   const half = round <= firstHalfMax(gd);
   const ok = (e) => e.type === type && !!e.firstHalf === half && e.key !== ACLOON && !!gd.enemy(e.key) && !gd.inactiveEnemies.has(e.key);
   let cands = entryList(gd).filter(ok);
-  if (!cands.length && type !== 'SPECIAL') return pickRoundEntry(gd, rng, 'SPECIAL', round);
+  // no candidate: no pick for the round — its placeholder actions are not spawned (templateSpawns); the client logs
+  // "No template enemy for {type} in {round}" (_GenerateRandomEnemyData) and draws nothing else
   if (!cands.length) return null;
   const idx = weightedPick(rng, cands.map((e, i) => [i, e.weight ?? 1]));
   const e = cands[Number(idx) || 0];
@@ -311,18 +316,19 @@ function templateSpawns(gd, tpl, round, pick) {
     let count = n;
     let step = interval;
     const p = !isBoss && !isPart ? ph[key0] : null;
-    if (p && pick) {
-      const newKey = p.cls === 'special' ? pick.key : p.cls === 'elite' ? pick.elite : pick.normal;
-      if (typeof newKey === 'string' && gd.enemy(newKey)) {
-        if (isFlyKey(gd, newKey) !== !!p.fly) {
-          // the other movement class: not spawned, not sent, not previewed (isValid = false)
-          actions.push({ index: i, key: null, tplKey: key0, slot: p.slot ?? s.slot ?? null, time, count: 0, tplCount: n, window, routeIndex, valid: false, server: false });
-          continue;
-        }
-        count = replacedCount(gd, key0, n, newKey);
-        step = Math.max(window / count, MIN_ACTION_INTERVAL_RATIO * window);
-        key = newKey;
+    if (p) {
+      // client _DoReplaceActionDataClient: a placeholder whose replacement fails is a template enemy left over →
+      // isValid = false (not spawned, not sent, not previewed): no pick for the round, a picked key with no enemy data
+      // (LogError), the other movement class, or 0 units (a picked key of power 0)
+      const newKey = !pick ? null : p.cls === 'special' ? pick.key : p.cls === 'elite' ? pick.elite : pick.normal;
+      const ok = typeof newKey === 'string' && !!gd.enemy(newKey) && isFlyKey(gd, newKey) === !!p.fly;
+      count = ok ? replacedCount(gd, key0, n, newKey) : 0;
+      if (!(count > 0)) {
+        actions.push({ index: i, key: null, tplKey: key0, slot: p.slot ?? s.slot ?? null, time, count: 0, tplCount: n, window, routeIndex, valid: false, server: false });
+        continue;
       }
+      step = Math.max(window / count, MIN_ACTION_INTERVAL_RATIO * window);
+      key = newKey;
     }
     if (!gd.enemy(key)) continue;
     const slot = s.slot || classOf(gd, key);

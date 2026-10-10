@@ -151,7 +151,7 @@ The server draws a disabled bond set **D**: **3 core + 4 add-on** in NORMAL/HARD
 | 9 | Per-turn band-draft timer | 12 s, with the 50 s step cap |
 | 10 | Unit of `maxPlayTime` | Game seconds (the sim runs 2× real-time) |
 | 11 | Do summons use deploy slots? | No |
-| 12 | Special-enemy replacement counts and faction pick | 05 §3.2 algorithm (`k = clamp(round(be_t/be_new), 1, 5)`) |
+| 12 | Special-enemy replacement counts and faction pick | 08 §2 (the client generator: one entry per round, per-action counts; 05 §3.2 is superseded) |
 | 13 | Do A3 multipliers apply to bounty and special enemies? | Yes, the current round's k |
 | 14 | Title (评语) criteria | 06 §10.5 mapping; one title per player, each title used once |
 | 15 | 炎佑 spawn, AI and model; token Spines | 02 §3.1 assumptions; 07 §5.6 fallbacks |

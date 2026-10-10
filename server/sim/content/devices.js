@@ -151,13 +151,19 @@ export function startColdWind(battle, { playerId = null, interval, duration, fir
 
 /**
  * 谢拉格 6-member wind from the bond effect blackboard (effects.json bondeffect_kjerag `env_gbuff_new` bb):
- * interval `bond_eff_kjerag[storm].interval`, duration `base_time + time_per_stack × layers` (live 谢拉格 layers).
+ * interval `bond_eff_kjerag[storm].interval`, duration `base_time + time_per_stack × layers` — the live 谢拉格 layers
+ * of the field's player with the most (client `AutoChessAssignBondStackCntToBB` `_assignAllPlayerIndex`, RVA
+ * 0xB49C80); one wind per field (bonds/core.js installKjerag). `playerId` tags the fx.
  */
 export function kjeragColdWind(battle, playerId, bb = {}, { bondId = 'kjeragShip' } = {}) {
   const interval = num(bb['bond_eff_kjerag[storm].interval'], 0);
   const base = num(bb['bond_eff_kjerag[storm].base_time'], 0);
   const per = num(bb['bond_eff_kjerag[storm].time_per_stack'], 0);
-  const layers = () => num(battle.getPlayer(playerId)?.bonds?.[bondId]?.layers, 0);
+  const layers = () => {
+    let L = num(battle.getPlayer(playerId)?.bonds?.[bondId]?.layers, 0);
+    for (const p of battle.players ?? []) L = Math.max(L, num(battle.getPlayer(p.playerId)?.bonds?.[bondId]?.layers, 0));
+    return L;
+  };
   return startColdWind(battle, { playerId, interval, duration: () => base + per * layers() });
 }
 

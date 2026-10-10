@@ -247,6 +247,24 @@ test('突袭手雷: within 10 s / 15 s after each deploy, attacks stun the targe
   }
 });
 
+test('突袭手雷 / 催泪瓦斯 / 战栗维式重锤: every damage instance procs — skill and area damage too, not 元素损伤 (client ON_OUTPUT_DAMAGE graphs)', () => {
+  for (const [id, status] of [[A('3_11'), 'stun'], [A('5_01'), 'palsy'], [A('2_03'), 'tremble']]) {
+    // three enemies out of the carrier's attack range
+    const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }], foes: [[12, 9], [11, 9], [9, 9]] });
+    h.step(1);
+    forceRng(h, 0);
+    const u = h.unit('t_op');
+    assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u).length, 0, 'no normal attack');
+    const [e1, e2, near] = h.b.enemies;
+    // an area skill hit on two of them: two damage instances
+    for (const e of [e1, e2]) h.b.dealDamage(u, e, { amount: 100, type: 'phys', canDodge: false, tags: ['skill'] });
+    for (const e of [e1, e2]) assert.ok(e.findBuff(status), `${id}: ${status} from skill damage`);
+    h.b.dealDamage(u, near, { amount: 100, type: 'element', element: 'burn' });
+    assert.equal(near.findBuff(status), null, `${id}: 元素损伤 is no damage`);
+    cover(id);
+  }
+});
+
 test('有限加速器: every attack ASPD +1 / +2 for the battle, at most 60 stacks', () => {
   for (const [id, per] of [[A('4_03'), 1], [B('4_03'), 2]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }], foes: [[10, 5]] });
@@ -326,9 +344,10 @@ test('卡西米尔竞技旗: damage ×1.35 / ×1.6 for 15 s after deploying, the
   }
 });
 
-test('拉特兰桥夹: an ammo skill down to 1 bullet regains ceil(40 % / 60 %) of its ammo (prob), ≤ 3 times per deploy', () => {
+test('拉特兰桥夹: ≤ 1 bullet left rolls once per cast (client acarm057 graph) ⇒ +ceil(40 % / 60 % of the full count), ≤ 3 times per deploy', () => {
   const kits = { t_op: () => ({ skill: { kind: 'ammo', ammo: 10, duration: 0, initSp: 60 } }) };
-  for (const [id, add, rngV, shots] of [[A('4_08'), 4, 0, 10 + 3 * 4], [B('4_08'), 6, 0, 10 + 3 * 6], [A('4_08'), 4, 0.99, 10]]) {
+  // one roll per cast: the refill does not roll again when the cast is down to 1 bullet a second time
+  for (const [id, add, rngV, shots] of [[A('4_08'), 4, 0, 10 + 4], [B('4_08'), 6, 0, 10 + 6], [A('4_08'), 4, 0.99, 10]]) {
     const h = fight({ kits, units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }], foes: [[10, 5]] });
     forceRng(h, rngV);
     const u = h.unit('t_op');
@@ -350,12 +369,13 @@ test('灼燃维式重锤: arts damage also deals 10 % of it as 灼燃损伤 (phy
   }
 });
 
-test('浓缩嗅盐: above 70 % / 40 % HP immune to stun, freeze, sleep, levitate (寒冷 still applies)', () => {
+test('浓缩嗅盐: above 70 % / 40 % HP immune to stun, freeze, silence, levitate, sleep (client acarm059; 麻痹 and 寒冷 still apply)', () => {
   for (const [id, thr] of [[A('4_10'), 0.7], [B('4_10'), 0.4]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }] });
     h.step(1);
     const u = h.unit('t_op');
-    for (const k of ['stun', 'freeze', 'sleep', 'levitate']) assert.equal(h.b.applyStatus(u, k, { duration: 1 }), false, `${id} ${k}`);
+    for (const k of ['stun', 'freeze', 'silence', 'levitate', 'sleep']) assert.equal(h.b.applyStatus(u, k, { duration: 1 }), false, `${id} ${k}`);
+    assert.ok(h.b.applyStatus(u, 'palsy', { value: 1 }) !== false, `${id}: 麻痹 is not on the client list`);
     assert.equal(h.b.applyStatus(u, 'cold', { duration: 1 }), true, `${id}: 寒冷 is not a control state (regression)`);
     assert.equal(h.b.applyStatus(u, 'cold', { duration: 1 }), true);
     assert.equal(u.findBuff('freeze'), null, 'the freeze of a second 寒冷 is cancelled');

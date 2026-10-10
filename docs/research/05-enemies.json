@@ -210,6 +210,7 @@
    }
   },
   "recommendedAlgorithm": {
+   "supersededBy": "08-waves-official.md §2 (the client generator decoded 2026-10-10: one type and one entry per round, per-ACTION counts, other-movement placeholders not spawned, no 1.5× cap; stat scaling is not part of the generator)",
    "status": "Official data gives the ingredients (templates, special entries, weights, halves, factors, min/max replaced count); the exact server algorithm is not public. Steps marked [ASSUMED] are a reconstruction consistent with every field.",
    "1_matchSetup": "Pick stage map by stageDatasDict weight for the mode (05-maps.json stageSelection). Pick specialEnemyNum=3 distinct factions from FLY/TIMES/ELEMENT/DOT/INVISIBLE/REFLECTION with weight 3 each (training: constData.trSpecialEnemyTypes = FLY,TIMES,ELEMENT). SPECIAL (count -1) is always in the pool. Drop entries listed in modeDataDict[mode].inactiveEnemyKey. Pick the boss for round 14 among battleDataDict candidates by bossInfoDict.weight (boss_5 weight 10, others 5-6); round 15 (hidden core) among boss_8/9/10 (weights 50/40/40).",
    "2_perRoundEntry": "[ASSUMED] For each non-boss round r: half = firstHalf if r<=7 (templates 01-07) else secondHalf (h01-h06). Ground entry G = weighted pick (randomWeight) among specialEntries whose type is a chosen non-FLY faction or SPECIAL and whose firstHalf matches. Fly entry F = weighted pick among FLY entries of that half if FLY was chosen, else none.",

@@ -125,6 +125,18 @@ test('selfkillenemy (送葬人 / 休谟斯 / 斯卡蒂 / 海霓 / 伺夜 / 风�
   };
   assert.deepEqual(run('garrison_38_a', 5, { egirShip: B(0), steadShip: B(0), raidShip: B(0) }), { egirShip: 2, steadShip: 2, raidShip: 2 }, '斯卡蒂: every 2 kills +1');
   assert.deepEqual(run('garrison_38_b', 4, { egirShip: B(0), steadShip: B(0), raidShip: B(0) }), { egirShip: 4, steadShip: 4, raidShip: 4 });
+  {
+    // the kill count restarts at 0 on every deployment (client graph: current_cnt = 0 on ON_BUFF_START)
+    const h = battle({ units: [{ id: 'op', g: ['garrison_38_a'], row: 10, col: 4 }], bonds: { egirShip: B(0), steadShip: B(0), raidShip: B(0) }, enemies: [{ key: 'e_dummy', pos: [9, 9] }] });
+    const u = h.unit('op'), kill = () => h.b.emit('kill', { killer: u, victim: h.enemies()[0] });
+    kill();
+    h.b.kill(u);
+    assert.ok(h.b.redeploy(u, { free: true }));
+    kill();
+    assert.deepEqual(gains(h), {}, '斯卡蒂: 1 kill, redeploy, 1 kill → no gain');
+    kill();
+    assert.deepEqual(gains(h), { egirShip: 1, steadShip: 1, raidShip: 1 }, 'the 2nd kill since the redeploy');
+  }
   assert.deepEqual(run('garrison_50_a', 5, { victoriaShip: B(0), visiShip: B(0), indomShip: B(0) }), { victoriaShip: 6, visiShip: 6, indomShip: 6 }, '风笛: first 3 kills');
   assert.deepEqual(run('garrison_50_b', 5, { victoriaShip: B(0), visiShip: B(0), indomShip: B(0) }), { victoriaShip: 12, visiShip: 12, indomShip: 12 });
   assert.deepEqual(run('garrison_152_a', 5, { siracusaShip: B(0) }), { siracusaShip: 6 }, '伺夜 叙拉古 +2 × 3');

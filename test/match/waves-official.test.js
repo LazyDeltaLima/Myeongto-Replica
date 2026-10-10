@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { GameData } from '../../server/match/gamedata.js';
-import { setupMatchWaves, buildNormalWave, replacedCount, roundHalfEven, previewOf } from '../../server/match/waves.js';
+import { setupMatchWaves, buildNormalWave, replacedCount, roundHalfEven, previewOf, pickRoundEntry } from '../../server/match/waves.js';
 import { createRng } from '../../server/sim/rng.js';
 import { DATA } from './harness.js';
 
@@ -47,6 +47,25 @@ test('the .5 tie: an elite action of 2 × “灵幛” becomes 隐形弩手组�
   assert.equal(replacedCount(gd, 'enemy_1427_lrnazg', 1, 'enemy_1019_jshoot_2'), 2);
   assert.equal(replacedCount(gd, 'enemy_1422_lrsldr', 10, 'enemy_1005_yokai'), 5, 'cap 5 per action');
   assert.equal(replacedCount(gd, 'enemy_1425_lrcmra', 1, 'enemy_1439_dslntf'), 1, 'floor 1');
+});
+
+test('the client generator\'s exceptions (_GenerateRandomEnemyData / _DoReplaceActionDataClient): placeholders are never spawned as themselves', () => {
+  const gd = new GameData(DATA, 'mode_multi_normal');
+  // no pick for the round (no candidate): every placeholder action invalid, the literal keys (R1 源石虫) stay
+  const none = buildNormalWave(gd, createRng(1), { picks: [] }, 1);
+  assert.ok(none.spawns.length >= 1 && none.spawns.every((s) => s.enemyKey === 'enemy_1007_slime'), 'only the literal 源石虫');
+  assert.ok(none.actions.some((a) => !a.valid && a.count === 0), 'placeholder actions invalid');
+  // a picked key with no enemy data: that action invalid (was: the placeholder spawned)
+  const picks = [];
+  picks[1] = { round: 1, type: 'SPECIAL', key: 'enemy_missing_x', normal: 'enemy_missing_y', elite: null, fly: false, firstHalf: true };
+  const miss = buildNormalWave(gd, createRng(1), { picks }, 1);
+  assert.ok(miss.spawns.every((s) => s.enemyKey === 'enemy_1007_slime'), 'no placeholder (lrsldr …) spawned');
+  // no candidate of a type: no pick (no retry as SPECIAL)
+  const empty = new GameData({ ...DATA, factions: { ...DATA.factions, entries: {} } }, 'mode_multi_normal');
+  assert.equal(pickRoundEntry(empty, createRng(1), 'FLY', 3), null);
+  // P(new) / f(new) = 0 → 0 units (the client's unit == 0 branch, no clamp to 1)
+  const zero = new GameData({ ...DATA, enemies: { ...DATA.enemies, enemy_zero_p: { ...DATA.enemies.enemy_1007_slime, key: 'enemy_zero_p', attrPower: 0 } } }, 'mode_multi_normal');
+  assert.equal(replacedCount(zero, 'enemy_1422_lrsldr', 3, 'enemy_zero_p'), 0);
 });
 
 test('every special entry × round matches the official per-action composition (429 fixtures: kind, count, gate)', () => {

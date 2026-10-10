@@ -201,7 +201,8 @@
 | 부패의 전차 `nhtank` 일반 공격·秽蚀轰击 | Trigger `_targetMotion 1` + `_heightType 0` | 「只攻击位于低地的我方单位，且不会攻击飞行单位」 | 대상 아님 | `canTarget` `ground && !isFlying` — 맞음 |
 
     일반 규칙: 선택자는 공중(`targetMotion`)과 칸 높이(`heightType`)를 따로 거르고, 높이를 거르는 선택자는 전부 `targetMotion 1`이라 비행은 늘 빠진다.
-    버프 템플릿은 자기 칸 높이만 본다(비행 여부 무관) — 비행 아군은 아래 칸으로 판정 [추정: 런타임의 「root tile」 = 지금 아래 칸].
+    버프 템플릿은 자기 칸 높이만 본다(비행 여부 무관) — 비행 아군은 아래 칸으로 판정 — 클라 코드 `Enemy.get_rootTile`(0x733920) = `m_currentTile`(지금 서 있는 칸), 炎佑는 Enemy 클래스
+    (`Character.get_rootTile` 0x708030은 배치 칸; `Nodes.CheckHeightTypeOfCharacterRootTile.Execute` 0xBA48F0가 rootTile의 `heightType`을 읽음).
     아군 쪽 `ground` 사용처(隐德来希 S2, 赫默 재능 치료 배율, 焰影苇草 S2 순서)는 炎佑를 원래 고르지 않는다(孤立·禁疗·오퍼레이터만).
     테스트: `playtest4_summons.test.js` 「炎佑 is an air unit」(ground false, 칸이 위치를 따라감, 격자 범위), 「【污染秽蚀】 on 炎佑」(m02, 저지대 50).
 - **비행 유닛 높이 (2026-10-08 관리자 제보)**: 0.2.0 병합 전에는
@@ -269,8 +270,8 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
 - **失衡** (`6824d528` ← `cdf2bd5c`, `36470218` ← `1db84d79`, PR #392 아이디어; PRTS 失衡位移机制·失衡免疫·推力-位移近似对应表·推与拉·特殊机制 静态刚体):
   밀린 적은 受力等级별 位移时间(−2 0.2 s … 3 35/30 s), 당긴 적은 1 s(−2 이하 0.5 s) 동안 걷지 않고(恐惧·诱导 포함) 평타를 시작하지 않으며
   스킬·순간이동·스크립트 이동도 멈춘다. 静态刚体는 밀기 0.1 s·당기기 그 창 전체, 이동 0. 浮空·重生·逐火 余烬·경로 APPEAR가 끝낸다.
-  弧光锋卫 출혈은 失衡 동안 0.066 s마다 400. 기절이 아님(상태 없음, SP·쿨다운 흐름). [ASSUMED]: 벽에 막힌 밀기도 그 행의 시간, 첫 칸에서
-  막히면 0.1 s; 적 능력의 전역 잠금 범위. `_unbalance`의 `_cutAttackStand`(upstream 문맥, `8a64edc9`)는
+  弧光锋卫 출혈은 失衡 동안 0.066 s마다 400. 기절이 아님(상태 없음, SP·쿨다운 흐름). 벽에 막힌 밀기는 막힌 곳에서 끝남(아래 「盟约·특질·장비·생성기 2라운드」 失衡 항목,
+  최소 0.1 s). [ASSUMED]: 적 능력의 전역 잠금 범위. `_unbalance`의 `_cutAttackStand`(upstream 문맥, `8a64edc9`)는
   `511b9db6`에서 다시 넣음. 클라이언트 슬라이드는 displace fx의 `dur`(`f989dc29`, `render.md` 「upstream 0.2.1·0.2.2 이식 — 렌더」).
 - **정수 프레임** (`7813ef43` ← `227ab9e7` + `6de5dec3`, PR #402; PRTS 作战机制/sandbox 「帧对齐机制对攻速的影响」 1프레임 = 1/30 s):
   `ai.js attackCountdown`(0에서 1e-9 이내 = 0) — 오퍼레이터·적 공격 간격, 双眼皮 포탑, 寒檀 S2 고드름; `SkillRuntime.gainSp`가 코스트에서
@@ -334,13 +335,54 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   - 전장 칸: `AutoChessBattleUtil.IsBattleField` = TileIndexer의 BATTLE_FIELD(`tile_achand` 아닌 모든 칸)를 `AutoChessMapAreaManager.ResetTileIndexer`(0x8334E0)가 상태별로 좁힘 — BATTLE: 왼쪽(자기) 일반 구역, HELP_BATTLE: 여러 명이 도우면(isMultiPlayerHelp) 일반 두 절반·아니면 한쪽, BOSS_BATTLE: 보스 맵 전체.
     그래서 **혼자인 연합방어의 빈 절반은 막힘(확인)**, **솔로 보스 필드의 다른 절반은 열림(바뀜)**, 손패/임시 정비 줄(tile_achand)은 막힘(확인). 우르피안 S3 【移动】은 그대로 `onOwnBoard`.
   - 공격력·최대 HP +(0.25+0.01·층)(`[skill]`, MULTIPLIER = 우리 가산 %)은 **스킬이 켜져 있는 동안 모든 멤버**(점프와 무관, 이전: 점프 뒤 필드를 떠날 때까지). 패시브는 켜진 것으로 봄 **[ASSUMED]**(클라는 `Ability.isAffecting`).
-- **频次 器物**(14종) — `PropLikeEnemy.DoApplyModifier`(0x75C4B0): 피해 한 번에 HP 1, 최대 HP는 반올림 없는 고정소수점(`Attributes._CalculateAttributeValue`) → 필요 타수 = **올림**(2×1.08 = 2.16 → 3타; 이전 반올림 [ASSUMED]). `enemies/helpers.js setHits`. 막대는 정수 타수로 그림(공식은 1/2.16 단위 — 표시만 다름). 사망 판정 hp ≤ 0은 엔진 일반 규칙으로 봄.
+- **频次 器物**(14종) — `PropLikeEnemy.DoApplyModifier`(0x75C4B0): 피해 한 번에 HP 1, 최대 HP는 반올림 없는 고정소수점(`Attributes._CalculateAttributeValue`) → 필요 타수 = **올림**(2×1.08 = 2.16 → 3타; 이전 반올림 [ASSUMED]). `enemies/helpers.js setHits`. 막대는 정수 타수로 그림(공식은 1/2.16 단위 — 표시만 다름). 사망 판정 hp ≤ 0은 엔진 일반 규칙으로 봄. 2라운드 재확인: `Modifier.finalDelta < 0`이면 피해량과 무관하게 `hp −= 1`(FP 1) — 「频次」 여부는 적 프리팹의 `PropLikeEnemy` 컴포넌트.
 - **불굴(不屈 `indomShip`)** — `[lowland]` 그래프의 `DicePRD`(`Nodes.DicePRD.Execute` 0xC163B0): C = battle_misc_table `miscConfig.prdBaseProbs[RoundToInt(p×100)]`(101개, 끝을 넘으면 마지막), 마지막 성공 뒤 N번째 굴림은 N×C로 성공, 성공하면 N을 0으로.
   N은 전투 전역 블랙보드 `prd#act1autochess_bond_eff_indom[lowland]` 하나 — 그 전투의 모든 지상 오퍼레이터(두 플레이어 필드면 둘 다)가 함께 씀. `dicePRD` / `prdBase`. 이전: 매번 독립 확률.
 - **迅捷(`swiftShip`)** — `act1autochess_bond_eff_swift` ON_SKILL_FINISH: `Dice` 한 번 → 멤버면 +normal_sp → AlwaysNext → 층 ≥ 40이면 +power_sp. 이전 「멤버는 두 번 따로 굴림」 [ASSUMED]를 한 번 굴림으로.
 - **坚守(`steadShip`) 반격** — `[ex]` ON_TAKE_DAMAGE 순서가 쿨다운 → `weak[limit]`(취약) → `FixedValueDamage`라 반격 피해 자체가 방금 건 취약(×1.4)을 받음(이전: 피해 뒤 취약).
-- 대조 안 함(템플릿 목록은 `autochess_templates_summary.tsv`, 조사 노트): 萨尔贡·娴熟(구조는 x-4/x-5 = 우리 N8/N4와 같음)·炎·阿戈尔·谢拉格·拉特兰·维多利亚·精准·助力·支援 그래프 세부, 주둔 이벤트(`gar_event_*`), 乐队(`band*_buff`), 장비 트랩(`acarm*_buff`), 적 디버프(`act1autochess_debuff_*`), 不屈 3명 SP(`AutochessCreateBuffToSpecifiedChar _filterByMinSp`·`_excludeOwner` — 자기 빼고 SP 가장 낮은 한 명일 수 있음, 미확정).
+- 2라운드(아래 「盟约·특질·장비·생성기 2라운드」)에서 炎·萨尔贡·维多利亚·谢拉格·拉特兰·阿戈尔·精准·灵巧·助力·协防, 주둔 이벤트, 乐队, 장비 일부를 대조했다.
+  아직 대조 안 함(템플릿 목록은 `autochess_templates_summary.tsv`, 조사 노트): act2 맹약(叙拉古·卡西米尔·奥术·独行·绝技) 그래프, 적 디버프(`act1autochess_debuff_*` 일부), 不屈 3명 SP(`AutochessCreateBuffToSpecifiedChar _filterByMinSp`·`_excludeOwner` — 자기 빼고 SP 가장 낮은 한 명일 수 있음, 미확정).
 
+
+## 盟约·특질·장비·생성기 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
+출처: EN 클라(2026-08) 버프 템플릿 그래프와 클라 코드(디컴파일, RVA는 EN 판; 레포에는 클래스·메서드 이름만). 핫픽스(DefinedFix.lua en/zh)에 아래 클래스 없음.
+관리자 결정이 필요한 것(阿戈尔 吞噬가 팀원 오퍼를 먹는가, 특질 `attrByBond`의 배치 때 고정, 桑葚 미러 판 「가장 오른쪽」)은 바꾸지 않았다(관리자 결정 대기).
+- **谢拉格 6명 寒风 = 필드당 하나**: 그래프 `act1autochess_bond_eff_kjerag`의 `[env]`는 맵 컨트롤러에 붙는 하나 — `AutoChessAssignBondCharCntToBB(_filterAllSides)`
+  = 플레이어별 인원의 최대(0xB49840) ≥ 6이면 `[storm]` 하나, 지속 20 + 0.1 × 층의 층은 `AutoChessAssignBondStackCntToBB(_assignAllPlayerIndex)` = 플레이어별 층의
+  최대(0xB49C80). 그래서 공동 필드(联防·보스)에서 둘 다 6명이어도 바람은 25초마다 한 번(이전: 플레이어마다 하나 → 寒冷 두 번 = 冻结), 6명이 아닌 팀원의 층이 더 높으면
+  그 층. `bonds/core.js installKjerag`(전투 저장소에 하나), `devices.js kjeragColdWind`. 테스트 `test/content/bonds_core.test.js` 「谢拉格 6 on a shared field」.
+- **拉特兰 탄약**: `AmmoSkillCountModifier`(`_modifyMaxCount`·`_addCountUsePercent`) → `CastSkillWithLimitTimes.SetMaxAdditionCountPercent`(0x643030) →
+  `_UpdateMaxAdditionCount`(0x644190): 더하는 탄 = `MathUtil.RoundToInt(f32(원래 최대 탄) × f32(Σ비율))`, `FP.Round`(0x54E1D20)는 .5에서 짝수로. 즉 원래 최대 탄 기준·반올림·
+  최대 탄에 더함(이전: floor(남은 탄 × (1.05 + 0.015·층))). 8발·10층: +2(이전 +1), 10발·0층: 0.5 → +0. `bonds/core.js lateranoAmmo`.
+  모델 안 함: 공식은 층이 바뀔 때마다(`_checkDiffWithOldStoreCnt`) 최대 탄을 다시 정함 — 우리는 스킬 시작 순간의 층.
+- **灵巧 오라 = 배치 때 한 번 판정**: 그래프 `act1autochess_bond_eff_skillful` ON_BUFF_START의 `AutoChessFilterCharacterBondIds(_checkTargetInRangeId "x-4")`(0xB4E810:
+  `LitePhysicsUtil.FindTilesInBox`로 받는 쪽 칸 둘레 3×3, 칸마다 `AutoChessBattleUtil.GetChessInstByPos`의 말 → 맹약) — 멤버 말이 없으면 버프 끝, 있으면 `x-5`(십자, 자기 칸
+  포함)로 `in_normal_range`. ON_BUFF_TRIGGER(층 변화)는 층 ≥ 40이면 공속, 아니면 `in_normal_range`일 때만. 그래서 받는 쪽이 **배치될 때** 판정하고 필드에 있는 동안
+  유지 — 멤버가 물러나거나 쓰러지거나 옮겨도 이미 받은 쪽은 그대로, 값은 지금 층. 멤버 말 위치 = 서 있는 칸, 아니면 기다리는 칸(쓰러졌으면 몸 칸, 아니면 집 칸) —
+  작전 시작 차례 배치에서 먼저 나온 오퍼도 아직 안 나온 멤버의 말을 봄. 이전: 0.25초마다 다시 계산(쓰러진 멤버만 몸 칸에서 계속, 물러난 멤버는 끔).
+  **[추정]**: 물러난(쓰러짐 아닌) 멤버의 말도 집 칸에 있는 것으로 셈; 재배치·기습 착지는 새 배치라 다시 판정, `relocate`(deploy move)는 판정 유지; 받는 쪽은 오퍼레이터만.
+  `bonds/addon/battle.js judgeAura`. 테스트 `test/content/bonds_addon.test.js` 「灵巧」.
+- **特质 `gar_event_selfkillenemy` 처치 수**: 그래프가 `current_cnt`를 ON_BUFF_START(배치마다)에 0으로 — 재배치하면 처음부터 셈(이전: 전투 내내 이어짐).
+  `garrisons/battle.js`(`deploy`, move 제외). 테스트 `garrisons_battle.test.js` 「selfkillenemy」.
+- **特质 `respawnTimeByBond`(耀骑士临光 garrison_144)**: EN 템플릿에 이 키가 없고 비슷한 `act1autochess_gar_eff_respawnByBond`(퇴장 때 카드 버프, 층/divide **floor 없음**)만
+  있다. CN의 새 템플릿일 수 있어 그대로(floor 단계 + 상시 재배치 배율).
+- **炎 9명 炎佑 ATK ×1.5 = 전체 ATK**: `bond_eff_yan[long]`이 ATK FINAL_SCALER(`content/tokens.js spawnYanyou`의 [ASSUMED] 삭제).
+- **突袭手雷·催泪瓦斯·战栗维式重锤 = 모든 피해 출력**: `acarm064[core]` ON_OUTPUT_DAMAGE, `acarm058` ON_OUTPUT_MODIFIER `IsDamage` → Dice, `acarm045` ON_OUTPUT_DAMAGE `IsDamage`
+  + `CheckBuildableType MELEE` → Dice — 스킬 피해·광역의 각 대상·지속 피해도(이전: 일반 공격 대상만). 원소 손상(게이지)·장비 발동 피해·막타는 뺌 [추정: 원소 손상은
+  `IsDamage` 아님]. `items/battle.js onDamageEnemies`. 테스트 `test/content/items.test.js` 「every damage instance procs」.
+- **浓缩嗅盐 면역 목록**: `acarm059` `abnormalImmunes` FROZEN·SILENCED·STUNNED·LEVITATE + `abnormalComboImmunes` SLEEPING → 冻结·沉默·晕眩·浮空·睡眠(麻痹 빼고 沉默 넣음).
+  모델 안 함 [추정]: 공식 면역은 버프라 HP가 70 % 위인 동안 이미 걸린 기절도 눌릴 수 있음(우리는 새로 걸리는 것만 막음).
+- **拉特兰桥夹**: `acarm057` ON_SKILL_START에 `triggered = 0`, ON_AFTER_ATTACK에서 스킬 중·`triggered == 0`·남은 탄 ≤ 1이면 먼저 `triggered = 1` 후 Dice → 성공 시
+  `AmmoSkillCountModifier.Execute`(0xC29580) = `RecoverEventCount(MathUtil.CeilToInt(f32(maxCount) × 0.4))`(maxCount = 拉特兰 탄 포함 그 시전의 최대), 배치당 최대 3회.
+  즉 **스킬 한 번에 한 번만 굴림**(이전: 1발이 될 때마다).
+- **失衡 — 벽에 막힌 밀기**: `Enemy.States.UnbalanceState`는 시간표가 아니라 물리 — `OnTick`(0x752380) → `_UpdateFriction`(0x752C60)이 매 프레임 마찰로 속도를 줄이고
+  속력 ≤ 0.1이면 끝. 벽(고지대·맵 끝)이 막으면 그 자리에서 멈춰 끝난다 → 우리 길이 = 막히기까지 걸린 시간(행의 位移时间 T 동안 균등 감속으로 멈추는 운동에서
+  `T·(1 − √(1 − 간 거리/거리))` [ASSUMED: 균등 감속]), 최소 0.1 s(PRTS 失衡硬直; 클라의 최소 시간 출처는 다 읽지 못함). `displacement.js wallHold`. 이전 [ASSUMED]
+  「벽에 막혀도 그 행의 시간」 삭제. 테스트 `test/sim/unbalance.test.js`.
+- **적 생성기 예외** (`server/match/waves.js`, 지금 데이터에서는 안 일어남): 클라 `_GenerateRandomEnemyData`(0x83A2B0) — 그 유형 후보가 없으면 그 라운드는 뽑기 없음(이전:
+  SPECIAL로 다시 뽑기); `_DoReplaceActionDataClient`(0x839A30) — 뽑기가 없거나 뽑힌 키에 적 데이터가 없으면(`LogError` 후 false) 자리표시 액션은 `isValid = false`
+  (이전: 자리표시 적 그대로 소환); 새 키의 P/f = 0이면 0마리(이전: 1마리, 우리는 무효 처리). 테스트 `test/match/waves-official.test.js` 「the client generator's exceptions」.
+  `docs/research/05-enemies-levels.md` §3.2·§6 `k` 열·§7, `05-enemies.json generation.recommendedAlgorithm`, `00-INDEX.md` #12에 「08이 대체」 표시.
 
 ## 일반 공격 타이밍 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 오퍼레이터·적의 일반 공격을 EN 클라 코드(Il2CppDumper → 역어셈, 비공개 조사 기록)대로 맞췄다. 코드 `server/sim/ai.js` `attackTiming`·`updateAlly`·`enemyAttack`,
@@ -363,7 +405,7 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   `FinishIfNot(INTERRUPTED, false)`, 쿨다운 그대로 → 끊긴 휘두름 시작부터 간격 한 번 뒤 다음 휘두름. 이전: 적은 기절이 풀리면 곧바로 새 휘두름.
 - **쿨다운은 기절 중에도 흐른다(확정)**: `Entity.OnTick`(0x35FF650)은 `get_alive`(슬롯 38: 상태기계 동작 중 + HP > 0)일 때 능력마다(첫 캐스트 프레임만 빼고) 가상
   `OnTick`(슬롯 54)을 부르고, `AbilityStandard.OnTick`(0x34F1DD0) → `Ability.OnTick`(0x34F5660) → `PeriodicTimer.Update`(0x1AF6CD0)는 조건 없이 남은 시간을 줄인다
-  (decompile-verify sim.md가 못 읽은 `Attributes.GetValue` 분기는 원소(EP) 트윈 쪽). 오퍼레이터·적 모두 필드에 있으면(적은 숨지 않았으면) 기절 중에도 센다.
+  (`Attributes.GetValue` 분기는 `m_epController` 트윈 속도 ← `EP_BREAK_RECOVER_SPEED`(0x23)만 정함 — 원소 막대 회복, 능력 틱을 막지 않음, 2라운드 확인). 오퍼레이터·적 모두 필드에 있으면(적은 숨지 않았으면) 기절 중에도 센다.
   이전: 오퍼레이터는 `canAct`일 때만, 적은 기절 중엔 멈춤.
 - **대상이 휘두름 중 죽으면 헛휘두름**: 대상은 휘두름 시작에 정해지고(`CastToTarget`의 `m_inputTarget`), 타격 때 `AbilityStandard.DoCastOnTargets`(0x34EE9D0)가
   `ValidAndAlive`인 대상만 친다 → 아무도 없으면 피해 없음, 휘두름·후딜은 끝까지, 쿨다운 환불 없음(`_interuptIfTargetDead` 0 = 오퍼 480/481, 적 513/519).
@@ -379,7 +421,9 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   렌더가 그 모드에 쓰는 클립(`anims.attack`/`anims.skills[i]`) — 왕 Default, 마운틴 S2·S3, 시·수르트·민트·플레임테일·파투스 스킬 모드 등 10개 능력. 적은 Default 모드의 능력 하나(형태별 클립은 기존 [ASSUMED]).
 - 아직 공식과 다른 것: 공속이 바뀔 때 쿨다운 진행 비율 유지(`OnAttackTimeChanged` → `ResetButKeepProgress`) — 우리 `atkCd`는 남은 초 그대로. 모드·능력마다 따로인
   쿨다운(적 Combat/Attack, 스킬 모드) — 우리는 유닛당 하나. 저지가 생기면 오퍼레이터의 Attack 상태가 COMBAT으로 바뀌며 휘두름이 끊기는 것(`AttackState.OnTick`)과
-  르무엔 S2의 `_interuptIfTargetDead` 1 — 모델 안 함. `_timeMode` 1·2(오퍼 9개, 적 7개)도 공격 간격으로 계산. `_escapeTime`은 쓰임새 미확인. 소환물(token)은 데이터가
+  르무엔 S2의 `_interuptIfTargetDead` 1 — 모델 안 함. `_timeMode` 1·2(오퍼 9개, 적 7개)도 공격 간격으로 계산. `_escapeTime` = 대상이 없어진 뒤 공격 자세(Attack 상태)에 머무는 시간 — `AttackState.<_StartAttack>b__5_0`(0x71ADA0)이 `fixedPlayTime + escapeTime`을
+  적고 `_NextAttackOrExit`(0x71B210)는 대상이 없으면 그 뒤에야 IDLE로; 다음 공격 조건(대상·쿨다운)은 같아 시뮬 영향 없음(렌더 대기 자세 후보), 스킬 쪽
+  `BasicSkill.get_escapeTime`(0x63CF80)은 `_useEscapeTime`이 1인 스킬만 — 우리 풀 296개에 없음. 소환물(token)은 데이터가
   없어 휘두름 시작에 바로 타격.
 - 테스트: `test/sim/attack-timing.test.js`(오퍼레이터·데이터), `test/sim/feedback5-enemy-swing.test.js`(적: 끊김·헛휘두름·재선택·麻痹), `test/render/attack-swing.test.js`.
   일반 공격 시각이 바뀌어 golden 전부가 움직이고, 첫 공격·스킬 공격 시각을 같은 틱으로 보던 키트 테스트를 「타격까지 기다림」으로 고쳤다.
@@ -389,6 +433,7 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
 - **跃跃(케이퍼, `char_4100_caper`) S2 乐趣加倍** (`chess_char_1_09-caper.js`): 공격마다 부메랑 `cnt`개 — 공격의 것(`projectile_chr_caper_s2`) 하나와,
   0.1 s 간격으로 같은 대상에 `cnt − 1`개 더(charpack `Modes/S2/Body/Attack` `_additionalTimes` 1, `_triggerDelta` 0.1, `_additionalProjectile`
   `projectile_chr_caper_s2_1` = `_inverseParacurve` 반대쪽 호). 각 1타(`_hitNumType` LIMITED, `_maxHitNum` 1), 각자 돌아오고, 다 돌아와야 다음 공격.
+  총 spell 수 = 1 + `_additionalTimes`, 사이 `_triggerDelta`(클라 코드 `MultiRangedAttack.CheckAnotherSpell` 0xA43920: `spellCnt > _additionalTimes`면 끝).
   추가 부메랑은 같은 시전의 다음 spell이라 같은 대상(`_selectTargetTiming` 0)이고, 그때 죽은 대상에는 안 던짐(클라 코드 `AbilityStandard._DoCast`
   → `CheckAnotherSpell` → `OnWaitForTriggerDelta` → `OnSpellStart` → `DoCastOnTargets`는 살아 있는 대상만). 기절·퇴장 중이면 안 던짐 [추정: 상태 전환이 능력을 끊음].
   같은 공격(attackId)이다. 그 전(~2026-10-10): 부메랑 하나가 `cnt`타를 싣고 함께 날았다. 엔진은 `ai.js throwBoomerang`을 export만 했다(키트가 부름).
@@ -399,7 +444,8 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   배치 폭발 AppearSwordRain: `_preDelay` 0.6 s 뒤, 0.2 s 간격 2타(`_additionalTimes` 1, `_triggerDelta` 0.2), 타마다 대상 다시 고름(`_selectTargetTiming` 1)·
   기절(`_activeBuffs` stun). 그다음 ModeWithSwordRain이 검우 버프 `texas2_s_3[sword]`(`triggerability_tick_trigger`, `firstTriggerInterval` 0.4,
   `triggerInterval` 1, 수명 `duration`)를 붙인다 → 첫 검우는 둘째 타 0.4 s 뒤(배치 1.2 s), 그 뒤 1 s마다. 검우 대상은 그 순간 고르고(EmitSword
-  `_selectTargetTiming` 1, `max_target`), 검마다 `_randomDelayToBorn` 0–0.3 s(전투 난수 `battle.rng`) 뒤 피해·기절(`projectile_chr_texas2_s3_sword_rain`).
+  `_selectTargetTiming` 1, `max_target`), 검마다 `_randomDelayToBorn` 0–0.3 s(전투 난수 `battle.rng`; 클라 `Projectile._InitInline` 0x5FE450은 0–최댓값 균등 지연 뒤 투사체를 탄생시킴, 난수는
+  `randomTrivial`) 뒤 피해·기절(`projectile_chr_texas2_s3_sword_rain`).
   패시브 길이: 검우 버프부터 `duration` → 스킬 지속 = `duration` + 0.8 s [추론: `texas2_s_3`·`[sword]` 버프(수명 `duration`)를 마지막 단계가 붙임] —
   검우 횟수는 그대로 `duration`번. [추정]: 1Frame 단계(1프레임)는 넣지 않음, 검이 생긴 뒤 `_lifeTime` 0.1 끝(`_alwaysHitTraceTargetInTheEnd`)에 맞는지는
   안 봄(생길 때 피해로 둠), AppearSwordRain `_preDelay`가 공속 배율을 받는지 안 봄(0.6 s 고정). 첫 처치 재시전(德克萨斯传统)은 남은 배치 타·검을 지우고

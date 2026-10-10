@@ -325,17 +325,16 @@ function hammerAcquire(battle, rt, u) {
     const m = hammerMul(battle, rt, u, hs, 'burn');
     if (m > 0) battle.dealDamage(u, c.target, { type: 'element', element: 'burn', amount: c.amount * num(p.damage_scale) * m, tags: procTags('hammer_burn') });
   });
-  // 战栗: 地面干员 carrier (melee position, any tile — support isGroundOp), on attack prob × m ⇒ 战栗 disarmed_duration s
-  S.on('attack', (c) => {
-    if (c.attacker !== u || !isGroundOp(u)) return;
+  // 战栗: 地面干员 carrier (melee position, any tile — support isGroundOp), every damage instance it deals (client graph
+  // act1autochess_equip_acarm045 ON_OUTPUT_DAMAGE IsDamage + CheckBuildableType MELEE → Dice) prob × m ⇒ 战栗
+  // disarmed_duration s
+  onDamageEnemies(S, u, (t) => {
+    if (!isGroundOp(u)) return;
     const p = hammerParams(hs, 'tremble');
     if (!p) return;
     const m = hammerMul(battle, rt, u, hs, 'tremble');
     if (!(m > 0)) return;
-    const pr = Math.min(1, num(p.prob) * m);
-    for (const t of c.targets) {
-      if (t && t.side === 'enemy' && t.alive && chance(battle, pr)) battle.applyStatus(t, 'tremble', { duration: num(p.disarmed_duration, 2), source: u });
-    }
+    if (chance(battle, Math.min(1, num(p.prob) * m))) battle.applyStatus(t, 'tremble', { duration: num(p.disarmed_duration, 2), source: u });
   });
   // 坚固: the first lethal hit of each deployment (deploymentOf) ⇒ HP never below 1 for undeadable_duration × m s — the
   // window, held by the battle-level hook above. A new deployment re-arms the lock and leaves a window still running
@@ -386,6 +385,19 @@ function onAttackEnemies(S, u, fn) {
     if (c.attacker !== u) return;
     const ts = c.targets;
     for (let i = 0; i < ts.length; i++) { const t = ts[i]; if (t && t.side === 'enemy' && t.alive) fn(t, c); }
+  });
+}
+
+/**
+ * Per damage instance `u` deals to a living enemy — the client's ON_OUTPUT_DAMAGE / ON_OUTPUT_MODIFIER `IsDamage` graphs:
+ * normal attacks, skills, every target of an area hit and damage over time alike; not 元素损伤 (a gauge, no damage), not
+ * item procs (they never re-trigger items), not a killing blow (no HP left to act on).
+ */
+function onDamageEnemies(S, u, fn) {
+  S.on('damaged', (c) => {
+    const t = c.target;
+    if (c.source !== u || c.type === 'element' || isProc(c.dmg) || !t || t.side !== 'enemy' || !hasHp(t)) return;
+    fn(t, c);
   });
 }
 
@@ -522,13 +534,14 @@ const BY_ITEM = {
     S.on('deploy', (c) => { if (c.unit === u) check(!!c.initial); });
     if (onField(u)) check(false);
   },
-  // 突袭手雷: within `duration` s after each deploy, attacks stun the target `stun` s
+  // 突袭手雷: within `duration` s after each deploy, every damage the carrier deals stuns the target `stun` s (client buff
+  // graph act1autochess_equip_acarm064 [core] ON_OUTPUT_DAMAGE: skills and area hits too)
   chess_item_3_11_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm064_global_buff');
     if (!p) return;
     const win = num(p.duration), st = num(p.stun);
     if (!(win > 0 && st > 0)) return;
-    onAttackEnemies(S, u, (t) => { if (battle.time - u.deployedAt <= win + 1e-9) battle.applyStatus(t, 'stun', { duration: st, source: u }); });
+    onDamageEnemies(S, u, (t) => { if (battle.time - u.deployedAt <= win + 1e-9) battle.applyStatus(t, 'stun', { duration: st, source: u }); });
   },
   // 有限加速器: every attack or heal ⇒ ASPD +attack_speed (≤ max_buff_cnt stacks, whole battle)
   chess_item_4_03_e(battle, u, rec, S) {
@@ -588,18 +601,24 @@ const BY_ITEM = {
       if (m !== 1) c.dmg.mul *= m;
     });
   },
-  // 拉特兰桥夹: ammo skill down to 1 bullet ⇒ prob: +ceil(ammo_percent × ammo) bullets (≤ max_trigger_cnt per deploy)
+  // 拉特兰桥夹 (client buff graph act1autochess_equip_acarm057): the first attack of a skill cast that leaves ≤ 1 bullet
+  // rolls prob ONCE for that cast (the graph marks `triggered` before the Dice; ON_SKILL_START clears it) ⇒
+  // +CeilToInt(maxCount × ammo_percent) bullets (node AmmoSkillCountModifier.Execute, RVA 0xC29580: float32 product,
+  // MathUtil.CeilToInt; maxCount = the cast's full count, 拉特兰 bullets included), ≤ max_trigger_cnt per deployment
   chess_item_4_08_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm057_global_buff');
     if (!p) return;
     const cap = Math.floor(num(p.max_trigger_cnt, 3));
-    let seq = -1, n = 0;
+    let seq = -1, n = 0, rolled = -1;
     S.on('ammoUsed', (c) => {
-      if (c.unit !== u || c.left !== 1 || !c.skill) return;
+      if (c.unit !== u || !(c.left <= 1) || !c.skill || rolled === c.skill.activations) return;
       if (u.deploySeq !== seq) { seq = u.deploySeq; n = 0; }
-      if (n >= cap || !chance(battle, num(p.prob))) return;
+      if (n >= cap) return;
+      rolled = c.skill.activations;
+      if (!chance(battle, num(p.prob))) return;
       n++;
-      c.skill.addAmmo(Math.max(1, Math.ceil(num(p.ammo_percent) * c.skill.ammo - 1e-9)));
+      const max = Math.max(c.skill.ammoMax || 0, c.skill.ammo || 0);
+      c.skill.addAmmo(Math.max(1, Math.ceil(Math.fround(Math.fround(max) * Math.fround(num(p.ammo_percent))))));
       fxOn(battle, 'buff', u, 'item:chess_item_4_08_e', rec.id);
     });
   },
@@ -636,11 +655,12 @@ const BY_ITEM = {
       fxOn(battle, 'revive', u, 'item:chess_item_4_12_e', rec.id, { left: max - used });
     }, PRIO_RESPAWN); // a knock-out: after every 不死 (the hammer's lock), whatever the equip order (header)
   },
-  // 催泪瓦斯: on attack prob ⇒ 1 麻痹 stack
+  // 催泪瓦斯: every damage instance (client graph act1autochess_equip_acarm058 ON_OUTPUT_MODIFIER IsDamage → Dice) prob
+  // ⇒ 1 麻痹 stack
   chess_item_5_01_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm058_global_buff');
     const pr = p ? num(p.prob) : 0;
-    if (pr > 0) onAttackEnemies(S, u, (t) => { if (chance(battle, pr)) battle.applyStatus(t, 'palsy', { value: 1, source: u }); });
+    if (pr > 0) onDamageEnemies(S, u, (t) => { if (chance(battle, pr)) battle.applyStatus(t, 'palsy', { value: 1, source: u }); });
   },
   // 谢拉格不融冰: on attack prob ⇒ 寒冷 `cold` s
   chess_item_5_02_e(battle, u, rec, S) {
@@ -837,9 +857,10 @@ const BY_ITEM = {
   },
 };
 
-/** 浓缩嗅盐 "免疫晕眩、冻结等特殊状态" — research 04 §4 list (stun/freeze/sleep/levitate/palsy). 寒冷 is a debuff, not a
- * control state: it still applies, but the freeze of a second 寒冷 is itself a `freeze` status and is cancelled. */
-const CC = new Set(['stun', 'freeze', 'sleep', 'levitate', 'palsy']);
+/** 浓缩嗅盐 "免疫晕眩、冻结等特殊状态" — the client buff graph act1autochess_equip_acarm059: abnormalImmunes FROZEN,
+ * SILENCED, STUNNED, LEVITATE + abnormalComboImmunes SLEEPING (no 麻痹). 寒冷 is a debuff, not a control state: it still
+ * applies, but the freeze of a second 寒冷 is itself a `freeze` status and is cancelled. */
+const CC = new Set(['stun', 'freeze', 'silence', 'levitate', 'sleep']);
 const SHIELD_KEY = 'item:shield_drone';
 
 /**

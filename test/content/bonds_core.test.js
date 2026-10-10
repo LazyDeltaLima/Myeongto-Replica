@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
-import { bondBb, deps, prdConstant, reached, yanyouShare, registerMeta as coreRegisterMeta } from '../../server/sim/content/bonds/core.js';
+import { bondBb, deps, prdConstant, reached, yanyouShare, lateranoAmmo, registerMeta as coreRegisterMeta } from '../../server/sim/content/bonds/core.js';
 import * as items from '../../server/sim/content/items.js';
 import { TOKEN_IDS } from '../../server/sim/content/tokens.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
@@ -268,10 +268,43 @@ test('谢拉格: ×1.25, vs cold / frozen ×(1.35+0.01L); 6: a cold wind every 2
   }
 });
 
+test('谢拉格 6 on a shared field: one wind for the field (not one per player), duration from the higher layers', () => {
+  // client: one [storm] on the map controller; AutoChessAssignBondCharCntToBB _filterAllSides = the most members over the
+  // players (0xB49840), AutoChessAssignBondStackCntToBB _assignAllPlayerIndex = the most layers (0xB49C80)
+  const list = [];
+  for (let i = 0; i < 6; i++) list.push([`k${i}_a`, ['kjeragShip']], [`q${i}_a`, ['kjeragShip']]);
+  const side = (pid, prefix, n, layers, seat) => ({
+    playerId: pid, seat, side: seat ? 'R' : 'L', colOffset: 0, bandId: null, playerEffects: [],
+    units: Array.from({ length: n }, (_, i) => ({ uid: seat * 10 + i + 1, kind: 'chess', chessId: `${prefix}${i}_a`, row: 9 + seat * 3, col: 3 + i })),
+    bonds: { kjeragShip: bondOn(n, layers, null, [3, 6]) },
+  });
+  for (const [n2, L2] of [[6, 40], [3, 60]]) {
+    const h = makeBattle({
+      defs: defsOf(list), players: [side('p1', 'k', 6, 10, 0), side('p2', 'q', n2, L2, 1)],
+      enemies: [{ key: 'e_dummy', pos: [10, 9] }], autoFinish: false, timeLimit: 200,
+    });
+    h.run(25.2);
+    const [e] = h.enemies();
+    assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'coldWind').length, 1, `one gust (${n2})`);
+    assert.ok(e.s.flags.cold && !e.s.flags.freeze, 'cold, not frozen by a second wind');
+    close(e.findBuff('cold').duration, 20 + 0.1 * Math.max(10, L2), 1e-9, 'the higher layers');
+    checkInvariants(h.b);
+  }
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // 拉特兰
 
-test('拉特兰: ammo ×(1.05+0.015L) floored; 6: every ammo used → all members ATK +4 %, ≤ +200 %', () => {
+test('拉特兰: added bullets = RoundToInt(original × ratio), half to even (client _UpdateMaxAdditionCount / FP.Round)', () => {
+  assert.equal(lateranoAmmo(8, 0.05), 0, '0.4');
+  assert.equal(lateranoAmmo(8, 0.2), 2, '1.6 → 2 (floor(8 × 1.2) = 9 added 1)');
+  assert.equal(lateranoAmmo(10, 0.05), 0, '0.5 → 0 (even)');
+  assert.equal(lateranoAmmo(30, 0.05), 2, '1.5 → 2 (even)');
+  assert.equal(lateranoAmmo(14, 0.05 + 0.015 * 10), 3, '2.8');
+  assert.equal(lateranoAmmo(0, 1), 0);
+});
+
+test('拉特兰: ammo + round(original × (0.05+0.015L)); 6: every ammo used → all members ATK +4 %, ≤ +200 %', () => {
   const list = [];
   for (let i = 0; i < 6; i++) list.push([`l${i}_a`, ['lateranoShip'], { profession: 'SNIPER' }]);
   list.push(['none_a', ['preciShip'], { profession: 'SNIPER' }]);
@@ -285,7 +318,7 @@ test('拉特兰: ammo ×(1.05+0.015L) floored; 6: every ammo used → all member
     const a = h.unit('l0_a'), b = h.unit('l1_a'), x = h.unit('none_a');
     a.skill.activate('test', { free: true });
     x.skill.activate('test', { free: true });
-    assert.equal(a.skill.ammoLeft, Math.floor(14 * (1 + 0.05 + 0.015 * L)));
+    assert.equal(a.skill.ammoLeft, 14 + 3, '14 × 0.2 = 2.8 → +3 (the old floor(14 × 1.2) = 16)');
     assert.equal(x.skill.ammoLeft, 14, 'non-member unchanged');
     for (let i = 0; i < 3; i++) a.skill.onAttackPerformed([], null);
     if (n === 3) {

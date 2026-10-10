@@ -1409,8 +1409,9 @@ function yanyouSpawnPoint(battle, ps) {
 /**
  * 炎 bond summon: spawn `count` “炎佑” for `playerId` (flying ally that picks its own targets; bonds.js computes the
  * numbers). atk / hp (0.3 × the 炎 sums at battle start) are ADDED to the template stats (600 / 12000): PRTS "登场时使
- * 自身攻击力、生命值增加召唤自身的玩家场地上的所有【炎】盟约干员攻击力、生命值的30%（最终加算）". atkMul (9 炎: ×1.5,
- * [ASSUMED] on the whole ATK) and dmgTakenMul (9 炎: 0.1) are applied as a persistent buff. Returns the spawned units.
+ * 自身攻击力、生命值增加召唤自身的玩家场地上的所有【炎】盟约干员攻击力、生命值的30%（最终加算）". atkMul (9 炎: ×1.5 on the
+ * whole ATK — the client buff graph act1autochess_bond_eff_yan `[long]` is an ATK FINAL_SCALER) and dmgTakenMul (9 炎: 0.1)
+ * are applied as a persistent buff. Returns the spawned units.
  */
 export function spawnYanyou(battle, playerId, { atk, hp, atkMul = 1, dmgTakenMul = 1, count = 1 } = {}) {
   const rec = battle.data.rawToken?.(TOKEN_IDS.yanyou) ?? battle.data.rawEnemy?.(TOKEN_IDS.yanyou) ?? null;

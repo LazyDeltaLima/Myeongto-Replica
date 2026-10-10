@@ -28,6 +28,7 @@ turnInfoDataDict[mode][round] ─► rest-phase time, isBossTurn, boss overtime 
 ## 2. Maps
 
 ### 2.1 Coordinate convention (verified)
+> Pathing statements marked [ASSUMED] in §1–§2 are superseded by 08-waves-official.md.
 - Position `[row, col]`: row 0 is the **bottom** row and col 0 is the left column.
 - The tile at (row, col) is `tiles[ mapData.map[H-1-row][col] ]`. `map[0]` in the raw file is the **top** row. This was verified because route start/end points fall on `tile_start` / `tile_end` only under this convention.
 - In `05-maps.json`, `stage.rows[i]` is row i (bottom first). `rowsTopDown` holds the same grid printed top-first for human reading.
@@ -177,6 +178,11 @@ Official ingredients:
 - `modeDataDict.inactiveEnemyKey` bans 18 strong keys in FUNNY/NORMAL.
 - wiki.gg: "Starting from Alliance there can be up to 3 enemy factions per Protocol, along with a boss chosen from a separate pool… enemies do not get strategies and only get generic stat buffs as rounds escalate."
 
+> **Superseded by 08-waves-official.md §2** (client code decoded 2026-10-10): one type and one entry per round; the
+> count is per ACTION, `clamp(roundHalfEven(n·P/f ÷ P'/f'), 1, 5)`; placeholders of the other movement class are not
+> spawned; no 1.5× cap. Step 7 (stat scaling) is not part of the client generator (current code: PRTS
+> `config.modes[*].enemyScale`); step 8's bounty insertion = 08 §2 / `_InsertSpActionToNormal`. Kept below as history.
+
 **Recommended generation [ASSUMED reconstruction]** (also in `05-enemies.json → generation.recommendedAlgorithm`):
 1. **Match start:** pick 3 of the 6 typed factions (uniform). Training uses FLY, TIMES and ELEMENT.
 2. **Round r ≤ 7** uses entries with `firstHalf`=true. **Rounds 8–13** use `firstHalf`=false; these are the upgraded "_2" enemies.
@@ -279,6 +285,8 @@ Both come from `level_autochess_enemy_data`.
 | 1041_lazerd | 法术大师A1 | N | 2700 | 220 | 100 | 65 | 1.5 | 2.15 | 1.8 | 1 | F | MAGI | TokenFly be=4772 |
 
 ### Special (特训) entries: S-slot enemy, with attached N / E (k = copies per replaced template enemy)
+> The `kS`, `N(k)` and `E(k)` columns are the old per-copy model, superseded by 08 §2 (counts are per action). The stats are valid.
+
 | key | name | rk | hp | atk | def | res | spd | bat | range | lpr | mv | dmg | type,half,w · kS · N(k) · E(k) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1041_lazerd | 法术大师A1 | N | 2700 | 220 | 100 | 65 | 1.5 | 2.15 | 1.8 | 1 | F | MAGI | FLY,1st,w10 · k2 · “萨科塔之翼”×1 · 妖怪MKII×2 |
@@ -415,8 +423,8 @@ Both come from `level_autochess_enemy_data`.
 | 1010_demon_2 | 萨卡兹大剑组长 | E | 15000 | 750 | 250 | 50 | 0.85 | 2 | 0 | 1 | W | PHYS |  |
 
 ## 7. Open questions / assumptions to confirm
-1. **Replacement algorithm.** Is there one special entry per round or one per spawn action? Is the k-copies formula right? It is inferred from `min/maxReplacedEnemyCount` and the BE factors, and is not documented anywhere.
-2. **Enemy stat scaling.** It is unknown how `aceffect_enemy_*` map to modes and rounds. `difficultyFactorInfo` (1.0/1.6/1.7/1.7) and `modeFactorInfo` (1.25) look like **reward** coefficients: PRTS notes "获取卫戍认证系数提升至×1.25".
+1. **Replacement algorithm.** Answered by 08 §2 (client code): one entry per round, counts per action. Is there one special entry per round or one per spawn action? Is the k-copies formula right? It is inferred from `min/maxReplacedEnemyCount` and the BE factors, and is not documented anywhere.
+2. **Enemy stat scaling.** Not part of the client generator (server / buff data; current code: PRTS `config.modes[*].enemyScale`). It is unknown how `aceffect_enemy_*` map to modes and rounds. `difficultyFactorInfo` (1.0/1.6/1.7/1.7) and `modeFactorInfo` (1.25) look like **reward** coefficients: PRTS notes "获取卫戍认证系数提升至×1.25".
 3. **Boss HP in single mode.** It may be the same bloodPoint or a scaled one. The multi pool is shared by 4 players across 2 battlefields.
 4. **Leak weighting.** The rule is by count; whether `lpr` ever matters outside boss rounds is unknown.
 5. **Row 8 / row 1 non-bench hand tiles:** exact use is unknown (temporary staging for 临时整备区?).

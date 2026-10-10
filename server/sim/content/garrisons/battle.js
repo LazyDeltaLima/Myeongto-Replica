@@ -8,7 +8,8 @@
 //                       at most once (耀骑士临光 already carries the 144/159 it grants to itself). A granted trait keeps
 //                       its data cap like a native one: 华法琳's garrison_95 stops at 7 / 14 layers per battle (PRTS 下半
 //                       3月27日更新#2: 「从 初始12/精锐24 降低至 初始7/精锐14」; GitHub #175, PR #192 by @kukiC).
-//   layer events        act1autochess_gar_event_useskill (skillStart) · _selfkillenemy (kill, every check_cnt) ·
+//   layer events        act1autochess_gar_event_useskill (skillStart) · _selfkillenemy (kill, every check_cnt
+//                       kills since its last deployment) ·
 //                       _selfdead (death 'killed'; texts with 替身 also on every substitute ⇄ body swap, read from the
 //                       dollkeeper flag unit.trait.doll) · _consume_ammo (ammoUsed; range_id 0-1 self, 1-1 front tile,
 //                       x-5 self + 4 adjacent, pooled counter) · _enemy_abflag_inrange (an enemy in range ENTERS
@@ -252,6 +253,12 @@ const INSTALLERS = {
   act1autochess_gar_event_selfkillenemy(battle, list) {
     const m = byUnit(list);
     for (const it of list) it.allies = /我方干员/.test(it.g.desc || '');
+    // the kill count (current_cnt) starts again at 0 on every deployment: the client's buff graph zeroes it on
+    // ON_BUFF_START; a relocation (`deploy` with move) keeps it
+    battle.on('deploy', ({ unit, move }) => {
+      const arr = !move && m.get(unit);
+      if (arr) for (const it of arr) it.cnt = 0;
+    });
     battle.on('kill', ({ killer, victim }) => {
       const arr = killer ? m.get(killer) : null;
       if (!arr || !victim) return;
@@ -402,7 +409,9 @@ function applyReader(battle, it) {
     case 'act1autochess_gar_eff_respawnTimeByBond':
       // 耀骑士临光's 144: −1.5 % / −3 % per 3 卡西米尔 layers with no minimum in the blackboard (divide_num, respawn_time
       // only) — clamped at 0 like every other redeploy multiplier, so a knock-out timer can reach 0 s (GitHub #370;
-      // until 0.2.1 a 0.05 floor kept it at 5 % of the base time from 192 layers, 96 for the elite)
+      // until 0.2.1 a 0.05 floor kept it at 5 % of the base time from 192 layers, 96 for the elite). The EN client's buff
+      // templates have no graph under this key, only act1autochess_gar_eff_respawnByBond (a card buff on the owner's exit,
+      // layers / divide_num NOT floored, until its next spawn) — possibly a newer CN template; kept as it is.
       if (k > 0) S.passiveBuff(battle, u, key, { redeployMul: Math.max(0, 1 + S.num(it.bb.respawn_time, 0) * k) });
       else battle.removeBuff(u, key);
       break;

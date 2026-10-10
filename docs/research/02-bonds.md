@@ -324,7 +324,7 @@ Members (12 chess, 10 in current shop pool; by tier in shop: {'1': 1, '2': 1, '3
 
 - **[3 distinct]** When a 拉特兰 member activates a skill that grants ammo, ammo gained x(1 + 0.05 + 0.015*L), rounded down.
 - **[6 distinct]** Every ammo consumed by any 拉特兰 member: all 拉特兰 members ATK +4% (until battle end), max +200% (= 50 ammo).
-- Formulas: `ammoMultiplier = floor(baseAmmo * (1.05 + 0.015*L))`; `atkPerAmmo(6) = 0.04`; `atkCap(6) = 2.0`
+- Formulas (superseded 2026-10-11 by the client code — the added bullets are `RoundToInt(baseAmmo × (0.05 + 0.015·L))`, half to even; docs/rules/sim.md): `ammoMultiplier = floor(baseAmmo * (1.05 + 0.015*L))`; `atkPerAmmo(6) = 0.04`; `atkCap(6) = 2.0`
 - Caps: +200% ATK from the 6-member effect
 - How layers are gained: Ammo consumption in battle: 圣约送葬人 each 7 bullets +7 拉特兰 (7 triggers => 49/battle) and +3 远见 (<=21/battle); 莫斯提马 ops in its 4 adjacent tiles each 6 ammo +1; 蕾缪安 each 10 bullets with 3 ops in its row +2 拉特兰/精准; 送葬人 first kill +3 精准/拉特兰. Prep: 空弦 进入休整期 +3 to self and front tile operator's active bonds. 机变 "莫斯提马的盟誓" +10. Strategy 潘格尼尼: after spending 55 gold gain a random elite T4+ 拉特兰.
 - How it plays: Only ammo-skill operators benefit from the 3-tier; the bond is weak until 6 (巴哈姆特: "3人效果較差").
