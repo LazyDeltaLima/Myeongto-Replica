@@ -1124,6 +1124,8 @@ function enemyStrike(b, e, radius, reach, own) {
   // — the 'atk' event (kind `e.profile.shot`, drawn by the content's own fx), cooldown, pause, the 'attack' hook — and
   // the content's 'attack' handler deals its damage
   const deferred = !!(e.profile && e.profile.deferHit);
+  // a lethal strike may redeploy its target at once (不屈, M3茧甲): the after-attack effects belong to the struck deployment
+  const targetDeployments = new Map(targets.map((t) => [t, t.deploySeq]));
   for (const t of targets) {
     b._ev(['atk', e.id, t.id, deferred ? (e.profile.shot || 'none') : rangedShot ? 'enemy' : 'none']);
     if (deferred) continue;
@@ -1137,7 +1139,7 @@ function enemyStrike(b, e, radius, reach, own) {
       b.addProjectile({ from: e, target: t, speed: shotSpeed(enemyShot(e)), visual: 'enemy', source: e, onHit: (c) => hit(c.target, true) });
     } else hit(t);
   }
-  if (b._hooks.attack) b.emit('attack', { attacker: e, targets, isSkill: false });
+  if (b._hooks.attack) b.emit('attack', { attacker: e, targets, targetDeployments, isSkill: false });
 }
 
 /** Enemy healers (dmgType 'heal'): heal the lowest-HP% other enemy within their radius. */

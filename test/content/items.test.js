@@ -637,7 +637,7 @@ test('黄沙罗盘: initial SP +30 / +50; (萨尔贡) first skill end +30 SP; + 
   u.skill.sp = 0;
   u.skill.activate('test', { free: true });
   u.skill.end('test');
-  close(u.skill.sp, 0, 'only the first skill end');
+  close(u.skill.sp, 3, 'only the first skill end gives 30; this cast still gives its own 3 through the lock');
   // client acarm103 resets has_used_skill on ON_BUFF_START: a redeployment gets the first-skill-end SP again
   h.b.retreat(u);
   u.respawnAt = 0;
@@ -645,11 +645,11 @@ test('黄沙罗盘: initial SP +30 / +50; (萨尔贡) first skill end +30 SP; + 
   u.skill.sp = 0;
   u.skill.activate('test', { free: true });
   u.skill.end('test');
-  close(u.skill.sp, 30, 'first skill end of the new deployment +30');
+  close(u.skill.sp, 33, 'first skill end of the new deployment +30 (and the cast\'s own 3 through the lock)');
   u.skill.sp = 0;
   u.skill.activate('test', { free: true });
   u.skill.end('test');
-  close(u.skill.sp, 0, 'once per deployment');
+  close(u.skill.sp, 3, 'the 30 once per deployment; the cast\'s own 3 again');
   cover(A('6_07'), B('6_07'), A('2_04'), B('2_04'));
 });
 

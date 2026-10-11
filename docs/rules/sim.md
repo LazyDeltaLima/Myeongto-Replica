@@ -337,6 +337,21 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
 - 서버·도구: 빌드 태그에 server/sim·shared·data `53379078` ← `8597b66d` · b.start를 sim 로드 전 pending `d1319c71` ← `d84b961c`(우리 진단 `recordError` 줄 유지) ·
   build-data --refresh 실패 시 옛 캐시 안 씀 `fdb7a109` ← `063408e4` · SP_VERIFY 8 ms 조각 `683d7b71` ← `a2a3f524`.
 
+## upstream 0.2.3 이식 (2026-10-11)
+upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그가 있고 공식 근거와 어긋나지 않는 것(비공개 비교 기록 — 클라 디컴파일 대조와 디컴파일
+5차 구현과의 중복 점검 포함). 커밋 메시지에 upstream 해시를 적는다. 5차가 이미 고친 것(赤刃明霄陈 S3 공중 발동, 赫德雷 S2 원소 손상, 克莱门莎 전략의
+켜진 맹약 조건)과 사용자 결정 대기(전략 차례 50 s 등)는 뺐다.
+- **`708caf7d` 중 전투 4건 + 문구** (PRTS 근거, upstream 설계 기록 28.25):
+  - 「N번째 공격마다 기절」 적(粉碎攻坚手·码头水手, `archetypes.js nthAttackStatus`)이 그 타격으로 쓰러져 곧바로 다시 배치된 오퍼레이터(不屈·M3茧甲)에는 기절을 걸지 않는다 —
+    `ai.js enemyAttack`이 `attack` 훅에 `targetDeployments`(타격 순간의 `deploySeq`)를 넘김.
+  - 음유시인 지속 회복(`professions.js installBard`, 浊心斯卡蒂 키트의 특성 전환)은 기절 중에도 계속된다(오라). 클라 근거: 회복은 프리팹 능력
+    `AuraAbility`가 붙이는 버프이고, `Entity.OnTick`·`AuraAbility.OnTick`에 기절 검사가 없다(비공개 디컴파일 기록, 가상 호출 2개는 이름 미확인).
+  - 黄沙罗盘(+萨尔贡浓茶)의 SP는 阻回(`noSp`)와 지속 스킬 중 잠금을 무시한다 — `skills.js gainSp(…, { ignoreLock })`. 클라: 템플릿
+    `act1autochess_acarm103_buff`의 `ModifySp` 셋 모두 `_forceFlag` → `SpController`가 `spRecoverStopped` 검사를 건너뜀. `init_sp`는 원래 `'init'`이라 같음.
+  - 가상적 铳 【未尽的告解】: 다른 铳이나 碎铳之簧 중 하나라도 있으면 감쇠, 없으면 바로 해제, 피격 때도 다시 판정(첫 타격·동료가 사라진 직후).
+  - 렌더러를 못 불러온 토스트: 「기기가 3D 불가」 → 「잠시 못 불러옴, 새로고침」(en·ja·zh-TW·ko).
+  - golden: `fields` boss-boss_4-solo(음유시인 회복이 기절 중에도). 테스트 `test/content/community-round26.test.js`(upstream), `enemies_bosses` 铳 감쇠.
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).

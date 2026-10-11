@@ -766,6 +766,8 @@ const BY_ITEM = {
     });
   },
   // 黄沙罗盘: 初始技力 +init_sp each deploy; (萨尔贡) first skill end of each deployment +sp; + 萨尔贡浓茶: each cast all 萨尔贡 +addition_sp
+  //   every SP of it ignores 阻回 and the running-skill lock (PRTS; client buff template act1autochess_acarm103_buff: its three
+  //   ModifySp nodes have _forceFlag, which skips the SpController's spRecoverStopped check — init_sp is 'init' already)
   chess_item_6_07_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm103_global_buff');
     if (!p) return;
@@ -781,7 +783,7 @@ const BY_ITEM = {
     S.on('skillEnd', (c) => {
       if (c.unit !== u || doneSeq === u.deploySeq || c.reason === 'death' || !memberOf(battle, u, 'sargonShip')) return;
       doneSeq = u.deploySeq;
-      if (u.skill && u.alive) u.skill.gainSp(num(p.sp), 'item');
+      if (u.skill && u.alive) u.skill.gainSp(num(p.sp), 'item', false, { ignoreLock: true });
       tplFx(battle, u, 'bond_charge_battle_01', u); // act1autochess_acarm103_buff ON_SKILL_FINISH, after ModifySp
     });
     S.on('skillStart', (c) => {
@@ -789,7 +791,7 @@ const BY_ITEM = {
       const n = num(p.addition_sp);
       if (!(n > 0)) return;
       for (const a of battle.allyUnits) {
-        if (a.kind === 'op' && a.ownerId === u.ownerId && onField(a) && a.skill && memberOf(battle, a, 'sargonShip')) a.skill.gainSp(n, 'item');
+        if (a.kind === 'op' && a.ownerId === u.ownerId && onField(a) && a.skill && memberOf(battle, a, 'sargonShip')) a.skill.gainSp(n, 'item', false, { ignoreLock: true });
       }
     });
   },
