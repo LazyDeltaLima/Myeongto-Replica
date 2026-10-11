@@ -250,7 +250,7 @@ test('#16 古米 备用军粮 with an enemy blocked: the cast turns her next att
   done(h);
 });
 
-test('#16 塞雷娅 S1 急救 (audit): checked at her attack — an ally of her area at ≤ half HP turns that attack into the heal; healed back meanwhile ⇒ she just attacks', () => {
+test('#16 塞雷娅 S1 急救 (audit): checked at her attack cadence, enemy or not — an ally of her area at ≤ half HP turns that attack into the heal; healed back meanwhile ⇒ she just attacks', () => {
   // PRTS 备注 "此技能仅在周围有符合血量条件的友方单位时可触发，触发时会替换当次攻击"; text corrected to "血量小于等于一半"
   const id = 'chess_char_5_11_a';
   const s = skillOf(id, 'skchr_demkni_1');
@@ -266,8 +266,9 @@ test('#16 塞雷娅 S1 急救 (audit): checked at her attack — an ally of her 
   assert.equal(u.skill.rule, 'DEFAULT');
   fill(u);
   m.hp = 4000;
-  h.run(2);
-  assert.equal(u.skill.activations, 0, 'no enemy, no attack: no cast');
+  // no enemy: still cast at her attack cadence and the attack heals the ally (upstream e86c7c83, GitHub #406)
+  assert.ok(h.runUntil(() => u.skill.activations === 1, 2), 'no enemy: the ally at 40 % still gets the heal');
+  assert.ok(h.runUntil(() => m.hp > 4000, 2), 'and is healed');
   done(h);
   [h, u, m] = setup(true);
   const e = h.enemies()[0];
