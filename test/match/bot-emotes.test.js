@@ -97,16 +97,13 @@ test('real beacon delivery from a human makes the receiving bot thank the correc
   assert.equal(h.m.errorCount, 0);
 });
 
-test('fork: an AI teammate answers only official pictures, not a user-set picture sent under the same id', (t) => {
+test('fork: an AI teammate answers a user-set picture by its id, with an official picture', (t) => {
   const h = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed: 1, fake: true }).start().toPrep();
   t.after(() => h.m.dispose());
   const [human, ai] = h.m.order;
   human.lastEmoteAt = ai.lastEmoteAt = -Infinity;
   const botReplies = () => h.bc.filter((e) => e.t === 'm.emote' && e.playerId === ai.playerId);
   assert.equal(h.m.emote(human, E('thanks'), 'user').ok, true);
-  assert.equal(botReplies().length, 0, 'user pictures do not have to mean what their id names');
-  human.lastEmoteAt = -Infinity;
-  assert.equal(h.m.emote(human, E('thanks')).ok, true);
   assert.deepEqual(botReplies().map((e) => e.id), [E('noproblem')]);
   assert.equal(botReplies()[0].set, undefined, 'the reply is an official picture');
 });

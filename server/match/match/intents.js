@@ -60,9 +60,9 @@ export class MatchIntents {
     if (now - ps.lastEmoteAt < EMOTE_COOLDOWN_MS) return fail(ERR.RATE);
     ps.lastEmoteAt = now;
     this.broadcast({ t: 'm.emote', playerId: ps.playerId, id, ...(emoteSet(set) === 'user' ? { set: 'user' } : {}) }); // local patch: user pictures
-    // an AI teammate can react to a human's emote (server/match/botEmotes.js, SP_BOT_EMOTES=0 silences it); only to the
-    // official pictures — a user-set picture does not have to mean what its id names
-    if (emoteSet(set) !== 'user') onHumanEmote(this, ps.playerId, id);
+    // an AI teammate can react to a human's emote (server/match/botEmotes.js, SP_BOT_EMOTES=0 silences it), a user-set
+    // picture too, by the id it was sent under
+    onHumanEmote(this, ps.playerId, id);
     return OK;
   }
 
