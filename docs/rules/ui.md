@@ -814,4 +814,10 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 창은 이제 데스크톱에서도 본문이 스크롤된다(공식도 스크롤 뷰). 테스트: `test/ui/match-info.test.js`, 브라우저 `test/ui/match-info.e2e.test.js`.
 - 맵 미리보기(관리자 요청 「맵 이름 아래에 어떤 맵인지」): 공식 일반 스테이지는 `arts/ui/stage_mappreview_*.ab`
   (`dyn/arts/ui/stage/mappreviews/<stage>.png`, 512 × 512, 실제 3D 장면을 위에서 약간 기울여 찍은 그림 + 빨강 침입·파랑 보호 지점 상자)를 쓰는데, EN·CN 클라 모두
-  위수협약 전장(`act1autochess_m01`…`act2autochess_m04`)의 그림이 없다(2026-10-11 전수 확인). 표시 방식은 관리자 결정 대기(관리자 메모의 할 일).
+  위수협약 전장(`act1autochess_m01`…`act2autochess_m04`)의 그림이 없다(2026-10-11 전수 확인). 관리자 결정(2026-10-11 「도구로 한 번 캡처」):
+  `tools/map-previews.mjs`가 실제 Chrome(GPU)로 우리 3D 보드(`render/board3d` + 공식 장면 추출물)를 공식 미리보기처럼 그린다 — 왼쪽 일반 전장
+  (프레임 r7–12 c0–10, 조명 영역 `AREAS.normal[0]`, 그 밖은 게임처럼 어둡게), 피치 30°(클라 전투 카메라), 512 × 512 WebP, 빨강 침입·파랑 보호 상자 포함.
+  결과는 로컬 추출물과 같이 `public/assets/local/stage/preview/<stageId>.webp` + `data/local-assets.json` `stage/preview`(git 밖, deploy.sh가 내용 비교로 복사),
+  다시 만든 뒤 `tools/build-browser-resources.mjs`. 공식 미리보기의 정확한 카메라·범위는 일반 스테이지 그림을 눈으로 맞춘 것 [추정].
+- 브리핑 왼쪽: 그림이 있으면 전장 카드(라벨·이름·그 아래 정사각 그림)와 특훈 적 목록을 나란히(1080p·844×390에서 스크롤 없음), 없으면 예전 한 줄.
+  테스트 `test/map-previews.test.js`(도구 상수·연결만 — 그림은 Chrome과 추출물이 있어야 함).

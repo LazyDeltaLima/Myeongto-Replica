@@ -1,5 +1,6 @@
 // Briefing — INFO_CHECK "1/2 确认本局信息" (research 06 §4.1, D1): enemy leader (silhouette, name,
-// abilities), stage (+ its pool: 战场固定 / 战场随机（共N张）), 特训敌人 factions (icon, name, description), the difficulty
+// abilities), stage (+ its pool: 战场固定 / 战场随机（共N张）, and under its name the battlefield's preview picture —
+// maintainer request 2026-10-11, tools/map-previews.mjs; the card then sits beside the factions), 特训敌人 factions (icon, name, description), the difficulty
 // tag, the ready count x/N with person pips, the 准备就绪 button (g.infoReady) and the countdown. Next to it 重新抽取
 // (g.infoReroll, feat — maintainer decision 2026-10-09; the official briefing has no such button): a vote instead of ready, one
 // or the other; alone it redraws at once, in co-op more reroll votes than ready ones redraw (a new match) and a tie
@@ -18,7 +19,7 @@ import { actions } from '../ui/gameActions.js';
 import { factionTypes, sortedPlayers, phaseTotalSeconds } from '../ui/gameLogic.js';
 import { enemyIconUrl, factionIconUrl } from '../ui/assetUrls.js';
 import { useStore } from '../store.js';
-import { data } from '../data.js';
+import { data, localAsset } from '../data.js';
 import { t, tParts } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -59,6 +60,10 @@ export function BriefingScreen() {
   // the mode's battlefield pool (config.json modes[].stages): 标准 is always 战场#01, 险境+ draw one at random
   const poolN = Array.isArray(mode?.stages) ? mode.stages.length : 0;
   const pool = poolN > 1 ? t('战场随机（共{poolN}张）', { poolN }) : poolN === 1 ? t('战场固定') : '';
+  const stageName = stage?.name || pub.stageId || '—';
+  // the battlefield's preview picture under its name (tools/map-previews.mjs: our 3D board drawn like the client's
+  // stage_mappreview shots, which the autochess stages lack) — the local-client art; without it the plain row
+  const mapUrl = pub.stageId ? localAsset('stage/preview', pub.stageId) : null;
   const types = factionTypes(pub.factions);
   const factions = gd.factions?.types || {};
   const m = gd.m;
@@ -93,16 +98,19 @@ export function BriefingScreen() {
             </ul>` : null}
           </div>
         </div>
-        <div class="brief-stage">
-          <span class="brief-stage__k"><${MicroLabel}>BATTLEFIELD</${MicroLabel}>${pool ? html`<span class="brief-stage__pool">${pool}</span>` : null}</span>
-          <span class="brief-stage__name"><${Icon} name="rook" />${stage?.name || pub.stageId || '—'}</span>
-        </div>
-        <div class="brief-factions">
-          <h3 class="brief-h"><span>${t('特训敌人')}</span><${MicroLabel}>SPECIAL ENEMIES</${MicroLabel}></h3>
-          ${types.length ? types.map((t) => html`<div key=${t} class="brief-faction">
-            <span class="brief-faction__icon"><${Img} src=${factionIconUrl(m, factions[t]?.icon)} /></span>
-            <span class="brief-faction__text"><b>${factions[t]?.name || t}</b><span>${factions[t]?.desc || ''}</span></span>
-          </div>`) : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
+        <div class=${cx('brief-lower', mapUrl && 'has-map')}>
+          <div class="brief-stage">
+            <span class="brief-stage__k"><${MicroLabel}>BATTLEFIELD</${MicroLabel}>${pool ? html`<span class="brief-stage__pool">${pool}</span>` : null}</span>
+            <span class="brief-stage__name"><${Icon} name="rook" />${stageName}</span>
+            ${mapUrl ? html`<${Img} src=${mapUrl} class="brief-stage__map" alt=${stageName} />` : null}
+          </div>
+          <div class="brief-factions">
+            <h3 class="brief-h"><span>${t('特训敌人')}</span><${MicroLabel}>SPECIAL ENEMIES</${MicroLabel}></h3>
+            ${types.length ? types.map((t) => html`<div key=${t} class="brief-faction">
+              <span class="brief-faction__icon"><${Img} src=${factionIconUrl(m, factions[t]?.icon)} /></span>
+              <span class="brief-faction__text"><b>${factions[t]?.name || t}</b><span>${factions[t]?.desc || ''}</span></span>
+            </div>`) : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
+          </div>
         </div>
       </section>
       <section class="brief__right">
