@@ -312,3 +312,11 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 코드: 스냅숏 비트 `shared/local.js UF_LIFTOFF`(2048, `server/sim/snapshot.js flagsOf`), `render/units.js` `liftoff` → `hover`, `render/fxgame.js lifted()`의
   발밑 기준점이 이륙한 오퍼레이터면 그 높이를 탄다(비행 적의 발밑 이펙트는 그대로 — 클라의 FOOT·NONE도 비행 높이를 포함하지만 이번에 바꾸지 않음).
 - golden: 결과는 그대로, 이륙 유닛이 있는 시나리오의 스냅숏 해시만(roster-004·006·025, diy-009·011).
+
+## upstream 0.2.4 이식 — 렌더 (2026-10-11)
+- **샴페인 폭탄(香槟炸弹, 琳琅诗怀雅의 소환물) 원래 스킨 모델** (upstream `6bfc0827`; 관리자 결정 2026-10-11 「받음」): 웹 덤프에는 스킨
+  `ambienceSynesthesia_4`뿐이라 그동안 그 스킨으로 그렸다. 로컬 클라의 전투 소환물 팩(`pkgrps/btl_pfb_tokens_0.ab`, Front 렌더러)에서 원래 모델을 뽑아
+  `tools/local-extract/extract.py TOKEN_SPINES`에 더하고(`--only spine/token/token_10031_swire2_gdtrap`, EN 클라), `fetch-assets --local-spines`로
+  `tools/assets/local-token-spines.json`·`data/assets.json tokens[id].spineLocal`에 실음(메타데이터는 upstream 것과 같음). 웹 스킨은 그대로 두어
+  `spineEntry`의 `fallback` — 로컬 그림이 없거나 못 읽으면 지금처럼 웹 스킨. 크기는 전과 같이 `TOKEN_MODEL_K` 0.25/0.27. 테스트
+  `test/local-token-models.test.js`·`test/local-extract.test.js`(8개). **[화면 미확인]** 설치·공격·소멸 클립과 크기.

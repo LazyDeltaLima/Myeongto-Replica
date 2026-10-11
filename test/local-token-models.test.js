@@ -1,7 +1,9 @@
 // test/local-token-models.test.js — the token (summon) models only the local client has (0.2.0): 7 summons — our 自选
 // picks' (data/backups.json `tokens`: 望's 棋子, 维什戴尔's 魂灵之影, 凯尔希·思衡托's 战术锚点 — extracted from the CN client, which
 // alone has her), 凯瑟琳's 爬行号·防护单元 and 凛御银灰's 风雪之眼 — have no battle Spine in
-// any community dump (fetch-assets reported "missing skel"), so the client drew their avatar diamond. Their official
+// any community dump (fetch-assets reported "missing skel"), so the client drew their avatar diamond. An 8th, 香槟炸弹
+// (琳琅诗怀雅's bomb, upstream 6bfc0827), has a web model that is only a skin variant (ambienceSynesthesia_4): its
+// original model is the overlay and the web skin stays as the fallback. Their official
 // skeletons come from the battle token packs of the local client (tools/local-extract/extract.py TOKEN_SPINES →
 // public/assets/local/spine/token/<id>/, optional and git-ignored) and are an OVERLAY like the enemy models of
 // test/feedback1d-models.test.js: data/assets.json tokens[id].spineLocal names the files of the data/local-assets.json
@@ -42,6 +44,7 @@ const TOKEN_SPINES = (() => {
   return r.status === 0 ? JSON.parse(r.stdout).tokenSpines.ids : null;
 })();
 const IDS = Object.keys(COMMITTED).sort();
+const CHAMPAGNE = 'token_10031_swire2_gdtrap';
 
 /** A data/local-assets.json listing the extracted files of `ids` (extract.py's group layout), minus `drop`. */
 function localManifest(ids, drop = null) {
@@ -56,7 +59,7 @@ function localManifest(ids, drop = null) {
 
 describe('the 自选 summon models from the local client are an optional overlay', () => {
   test('the committed metadata: the TOKEN_SPINES of extract.py, each a skeleton + same-stem atlas + pages, its roles on its own clips', () => {
-    assert.equal(IDS.length, 7);
+    assert.equal(IDS.length, 8);
     if (TOKEN_SPINES) assert.deepEqual(IDS, [...TOKEN_SPINES].sort(), 'one entry per extract.py TOKEN_SPINES id');
     for (const id of IDS) {
       const m = COMMITTED[id];
@@ -111,11 +114,13 @@ describe('the 自选 summon models from the local client are an optional overlay
     assert.deepEqual(withLocal, IDS);
     for (const id of IDS) {
       assert.deepEqual(MANIFEST.tokens[id].spineLocal, { group: `spine/token/${id}`, ...COMMITTED[id] }, `${id}: the committed metadata`);
-      assert.equal(MANIFEST.tokens[id].spine, undefined, `${id}: no web model (it was the avatar diamond)`);
-      assert.equal(spineEntry(MANIFEST, id), null, `${id}: without the local art the client keeps the diamond`);
+      const web = MANIFEST.tokens[id].spine;
+      if (id === CHAMPAGNE) assert.ok(validSpine(web), '香槟炸弹 keeps its web skin as the fallback');
+      else assert.equal(web, undefined, `${id}: no web model (it was the avatar diamond)`);
+      assert.equal(spineEntry(MANIFEST, id), web || null, `${id}: without the local art the client keeps the web skin / the diamond`);
     }
-    // the tokens that always had a web model keep it, without an overlay
-    for (const [id, t] of Object.entries(MANIFEST.tokens)) if (t.spine) { assert.ok(validSpine(t.spine), id); assert.equal(t.spineLocal, undefined, id); }
+    // the tokens that always had a web model keep it, without an overlay (香槟炸弹: its web skin beside the overlay)
+    for (const [id, t] of Object.entries(MANIFEST.tokens)) if (t.spine) { assert.ok(validSpine(t.spine), id); if (id !== CHAMPAGNE) assert.equal(t.spineLocal, undefined, id); }
   });
 
   test('the committed metadata is what the extracted models parse to', { skip: !IDS.every((id) => existsSync(path.join(ASSETS, 'local/spine/token', id))) && 'token models not extracted (tools/local-extract)' }, async () => {
@@ -161,10 +166,11 @@ describe('client: the official summon model only when data/local-assets.json lis
       assert.equal(e.pma, true);
       assert.deepEqual(e.anims, m.anims);
       assert.equal(e.local, true);
-      assert.equal(e.fallback, null, 'no web model to fall back to');
+      const web = MANIFEST.tokens[id].spine || null;
+      assert.equal(e.fallback, web, 'the web model (香槟炸弹\'s skin) to fall back to, else none');
       assert.equal(spineEntry(MANIFEST, id, { local }), e, 'one entry object per manifest pair');
-      assert.equal(spineEntry(MANIFEST, id, { local: localManifest([]) }), null, 'not extracted → no model');
-      assert.equal(spineEntry(MANIFEST, id, { local: localManifest([id], m.textures[0]) }), null, 'a page missing → no model');
+      assert.equal(spineEntry(MANIFEST, id, { local: localManifest([]) }), web, 'not extracted → the web skin / no model');
+      assert.equal(spineEntry(MANIFEST, id, { local: localManifest([id], m.textures[0]) }), web, 'a page missing → the web skin / no model');
     }
     assert.equal(spineEntry(MANIFEST, 'token_10028_vigil_wolf', { local }), MANIFEST.tokens.token_10028_vigil_wolf.spine, 'a web token unchanged');
     const store = createAssets({ manifest: MANIFEST, localManifest: local });
