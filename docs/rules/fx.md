@@ -907,3 +907,21 @@
   --bundle <b>`(`pfx_enemy_N`은 `--pack pkgrps/btl_pfb_fx_enemy_N.ab`). 2026-10-11 실행: 204개 파일, `finish`·`offFinish` 말고 바뀐 것 없음(JSON 비교).
   적 번들은 처음 돌려 ParticleEffect `finish`도 새로 들어갔다(상태 이펙트 끝 `statusOff`에만 쓰임). **배포 `--fx`(또는 `--assets`) 필요**.
 - 확인: `test/render/projectile-finish.test.js`(소스 계약, 추출 값, FxInstance: 애쉬락 포탄이 꺼지고 다른 가지 불꽃은 돎, 언더플로우 탄 시스템 정지). [화면 미확인]
+
+### 횟수형 护盾 이펙트 (2026-10-11, 사용자 제보 「켈시 에스페란타 실드가 HP 바 위 가는 흰 줄 — 아르케토 재능 실드와 같은 유형, 인게임대로」)
+
+- 클라 데이터: 아르케토(空弦) T2 铁弦 버프 `archet_t_2`는 EN charpack `char_332_archet` Talents/2에서 `overrideEffectKey` **`archet_buff_01_start`**
+  (archet 번들, 고리 메시가 도는 루프 클립 4.73 s, `_spawnLocation` 1 = 발밑)를 갖는다 → 층이 남아 있는 동안 그 이펙트. 켈시 에스페란타 T2 医者丰碑의
+  `kalts2_t_2[shield]`(CN `config/buff_template_holder.ab`, `kalts2_t_2` / `kalts2_t_2[s2]`의 CreateBuff)는 템플릿 `effectKey` ""·`overrideEffectKey` null
+  → **버프 이펙트 없음**. 켈시 번들의 `kalts2_talent_01`은 땅의 고리(재능 범위 쪽)이고 어디서도 이름으로 참조되지 않아 붙이지 않음.
+- 막을 때(둘 다 같은 노드): `Nodes.BlockDamage.Execute`(RVA 0xBB6960) — `_showDamageNumber` false면 타격을 취소(`Modifier.Cancel`)하고, 블랙보드
+  `effect`(=`_specifyBlockEffect`)가 비어 있으면 **`common_buff_parry_01`**을 맞은 유닛에 만든다(`BattleController.CreateEffect`), 소리 신호 `ON_DAMAGE_BLOCK`.
+  `_specifyBlockEffect`는 archet_t_2 null, kalts2_t_2[shield] ""(머드락·니어 더 래디언트 나이트 층도 비어 있음).
+- 구현: 시뮬 `damage.js absorbShields`가 횟수형 층이 막을 때 fx `'parry'` {id, buff}를 낸다(모든 `shieldHits` 버프) → `fxgame.js parryFx`가
+  common/common_buff_parry_01을 그 유닛에(따라감, `_spawnLocation`대로); 추출이 없으면 아무것도 안 그림(`kinds.js` parry `none`). 아르케토 루프는
+  `fxstatus.js STATUS_FX.archet_shield`(상태 키 `talent:archet_shield`, 층이 다하면 꺼짐). 켈시 진입 fx 'shield'는 `src`를 켈시로 달아
+  옛 육각형 대역을 안 그림(`standInOff`). HP 바 띠 제거는 `docs/rules/ui.md` 「횟수형 护盾」.
+- golden: 층이 막는 전투마다 `events.fx`·`fx.parry`만 늘었다(roster 13·bonds 6·fields 5·diy 1 시나리오, 상태 변화 없음).
+- 추출: `fx_extract.py --game <EN> --cab-index .cache/fx-cab-index.json --bundle archet --prefab archet_buff_01_start`, `--bundle common --prefab
+  common_buff_parry_01`. **배포 `--fx`(또는 `--assets`) 필요**.
+- [미구현] 막을 때 소리 `battle.ON_DAMAGE_BLOCK` = `Enemy/e_atk/e_atk_soldiershield`(audio_data) — sfx 항목·에셋 받기가 필요. [화면 미확인] 루프 높이·크기, parry 위치.

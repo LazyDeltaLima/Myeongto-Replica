@@ -384,8 +384,8 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[27,25,2,19500,264353],"enemy_1270_nhstlk_2":[36,21,15,0,745294],"enemy_9006_actoxi":[39,32,7,0,989023]},
       "hooks": [1,116,6320,614,614,1269,1269,2112,78,102,33,27,111,39778,532,0,102,24,1,78,0,0,0],
-      "events": {"atk":669,"deploy":12,"die":78,"dmg":1256,"engage":4,"fx":369,"heal":367,"leak":24,"skill":60,"spawn":116,"status":211,"swing":615},
-      "fx": {"aoe":109,"healAoe":109,"shield":82,"takeoff":12,"zone":57},
+      "events": {"atk":669,"deploy":12,"die":78,"dmg":1256,"engage":4,"fx":382,"heal":367,"leak":24,"skill":60,"spawn":116,"status":211,"swing":615},
+      "fx": {"aoe":109,"healAoe":109,"parry":13,"shield":82,"takeoff":12,"zone":57},
       "snaps": "3c5bee66 df1e1361 5f69775a 3a5bc0f0 9eab9bbf 01f2ade5 38926cab 1caab956 e5d9d072 5614abe3 b2cccb54 42bc65da 73dba30e 6c008e0d ed1d9c9d b5f362ec d50ac078 a15976ed f997214c ac0537d5 b4d2647d"
     },
     "diy-010": {

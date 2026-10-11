@@ -21,6 +21,7 @@
 //     tile's 隐匿 the same]       camou 迷彩 → common_buff_micai_01 (body) [추정: _01 of the three]
 //   lemuen:wanted 通缉 (蕾缪安's talent) → lemuen/lemuen_talent_buff_01 (head) [추정 height]
 //   reed2:scorch 灼痕 (焰影苇草's talent) → reed2/reed2_debuff_01 (body) [추정 height]
+//   talent:archet_shield 铁弦 (空弦's 护盾 layer) → archet/archet_buff_01_start (feet: its _spawnLocation 1)
 // A status the client draws (in this table, its prefab extracted, the effect layer on — not quality 'low', WebP) loses its
 // icon (units.js reads `view._fxStatusOn`); the rest keep the drawn icons (bind, taunt, invulnerable, shield, palsy, the
 // element bursts, 禁疗, 折射, 替身 …: no client prefab matched by name). Synced once per frame from the views' flags and
@@ -47,6 +48,10 @@ export const STATUS_FX = Object.freeze({
   // local patch (maintainer report 2026-10-07, video: orange X strokes on her marked enemies): 焰影苇草's 灼痕 'reed2:scorch' —
   // buff reed2_t_1 effectKey reed2_debuff_01 [추정: on the body]
   scorch: ['reed2', 'reed2_debuff_01', 0.5],
+  // 空弦's 铁弦 'talent:archet_shield' — its buff archet_t_2 carries overrideEffectKey archet_buff_01_start (EN charpack
+  // char_332_archet Talents/2), a looping mesh at the feet (_spawnLocation 1) while the layer holds. Other 护盾 layers have
+  // no buff effect (凯尔希·思衡托's kalts2_t_2[shield]: effectKey "", overrideEffectKey null — CN client)
+  archet_shield: ['archet', 'archet_buff_01_start', 0],
 });
 const ALIAS = Object.freeze({ artsFragile: 'fragile', physFragile: 'fragile', elemFragile: 'fragile' });
 

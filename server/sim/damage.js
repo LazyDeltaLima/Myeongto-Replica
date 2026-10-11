@@ -219,6 +219,9 @@ export function absorbShields(battle, target, amount, type = null, info = null) 
       b.shieldHits--;
       rest = 0;
       if (info) info.key = b.key; // local patch
+      // the client's block effect: BlockDamage.Execute (RVA 0xBB6960) cancels the hit, then plays the blackboard `effect`
+      // (_specifyBlockEffect) or else common_buff_parry_01 on the holder (render/fxgame.js 'parry')
+      battle.fx('parry', { x: target.x, y: target.y, id: target.id, buff: b.key });
       if (b.shieldHits <= 0 && !(b.shield > 0) && !b.mods && !b.flags) { battle._removeBuffAt(target, i); i--; }
       changed = true;
       break;

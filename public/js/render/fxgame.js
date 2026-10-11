@@ -1259,6 +1259,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // node's direction options are not in the event]
     spawn(r[0], r[1], tgt, { owner: null, buff: false, on: tgt.id ?? e[1], tag: 'tplfx' }, { over: true, facing: efacing(tgt) });
   }
+  // A 护盾 layer blocking a hit (sim damage.js absorbShields → fx 'parry' {id}): the client's BlockDamage.Execute (RVA
+  // 0xBB6960) plays common_buff_parry_01 on the holder when the node names no effect of its own (_specifyBlockEffect /
+  // blackboard `effect`; empty in archet_t_2, kalts2_t_2[shield], mudrok_t_1, nearl2_s_2[shield])
+  const PARRY = 'common_buff_parry_01';
+  function parryFx(e, views) {
+    const tgt = views?.get?.(e[4]?.id);
+    if (!tgt || failed || q() === 'low' || !index?.bundles?.common?.includes(PARRY)) return;
+    spawn('common', PARRY, tgt, { owner: null, buff: false, on: tgt.id ?? e[4].id, tag: 'parry' }, { over: true, facing: efacing(tgt) });
+  }
 
   /**
    * A 'dmg' of this moment on `tid` that waiting skill effects claim (expect(); each plays its effect on the target once —
@@ -2725,6 +2734,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           if (e[1] === 'zone' && zoneFx(e, views)) return; // 2026-10-10: a skill projectile's reach effects
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
+          if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
           if ((e[1] === 'substitute' || e[1] === 'swap' || e[1] === 'dollEnd') && e[4]) dollFx(e, views); // local patch: the 替身's own effects

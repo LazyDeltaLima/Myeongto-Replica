@@ -1510,9 +1510,11 @@ export class UnitView {
       this.hpFill.position.set(x0, cy); this.hpFill.width = bw * k; this.hpFill.height = bh;
       if (!this.isEnemy) this.hpFill.tint = k < 0.3 ? COLORS.hpAllyLow : COLORS.hpAlly;
     } else if (lp) this.lpBars.hide();
-    // the official bars draw an ally's barrier amount inside the HP bar (hud-bars.js shieldedBar); the presence strip stays
-    // for what they do not show — an enemy's barrier, a hit-count barrier, the plain bars
-    const shielded = showHp && (this.flags & UF.SHIELD) && !(lp && !this.isEnemy && this.barrier > 0);
+    // the official bars draw an ally's barrier amount inside the HP bar (hud-bars.js shieldedBar) and nothing for a hit-count
+    // 护盾 layer (BlockDamage `_showShieldUI` false in archet_t_2, kalts2_t_2[shield], mudrok_t_1, nearl2_s_2[shield]: its
+    // effects are the buff's own and the block's parry, fxgame.js) — no strip on an ally's official bars; it stays for an
+    // enemy's barrier and the plain bars
+    const shielded = showHp && (this.flags & UF.SHIELD) && !(lp && !this.isEnemy);
     this.shieldBar.visible = !!shielded;
     if (shielded && lp) { const u = hudUnit(this.ctx.viewport?.()), b = this.lpBars.box; this.shieldBar.position.set(b.x0, b.top - 1.5 * u); this.shieldBar.width = b.w; this.shieldBar.height = Math.max(1.5, 2.5 * u); } // local patch: a strip over the official HP bar
     else if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }

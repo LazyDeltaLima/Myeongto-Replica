@@ -152,8 +152,11 @@ test('T2 医者丰碑: an operator entering her range gets 1 护盾 layer (one d
     assert.ok(!tx.findBuff('talent:kalts2:regen'), `${label(f)}: 德克萨斯 outside her range`);
     // the 护盾 blocks one damage instance whole
     const hp0 = yak.hp;
+    h.b.recordEvents = true; h.b.drainEvents();
     assert.equal(h.b.dealDamage(null, yak, { amount: 500, type: 'true', sourceless: true }), 0, `${label(f)}: blocked`);
     assert.equal(yak.hp, hp0);
+    // the block plays the client's BlockDamage parry (render/fxgame.js parryFx) — no other effect of its own
+    assert.deepEqual(h.b.drainEvents().filter((e) => e[0] === 'fx' && e[1] === 'parry').map((e) => [e[4].id, e[4].buff]), [[yak.id, 'talent:kalts2:shield']], `${label(f)}: parry`);
     assert.equal(yak.findBuff('talent:kalts2:shield'), null, `${label(f)}: used up`);
     assert.ok(h.b.dealDamage(null, yak, { amount: 500, type: 'true', sourceless: true }) > 0, `${label(f)}: the next one lands`);
     // still inside: no new entry; out and back in: a new layer and a fresh 30 s

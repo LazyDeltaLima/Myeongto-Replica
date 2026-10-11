@@ -139,7 +139,7 @@ function enterT2(battle, unit, a, t1) {
   const v = num(t1.hp_recovery_per_sec) * (isRhodes(a) ? num(t1.rhodes_bonus, 1) : 1);
   const d = num(t1.buff_duration);
   if (v > 0 && d > 0) battle.applyStrongest(a, T2_REGEN, { duration: d, value: v, mods: (x) => ({ hpRegen: x }), source: unit });
-  battle.fx('shield', { x: a.x, y: a.y, id: a.id });
+  battle.fx('shield', { x: a.x, y: a.y, id: a.id, src: unit.id }); // hers: no stand-in hex (kalts2_t_2[shield] has no effect)
 }
 
 /**
