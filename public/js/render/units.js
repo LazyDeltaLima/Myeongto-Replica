@@ -228,6 +228,9 @@ const LIFTOFF_HEIGHT = Object.freeze({
   // 凯尔希·思衡托: no ModifyGraphicHolderHeight in her charpack or any kalts2_* buff template, `_motionMode` 0 — her 起飞
   // (kalts2_t_1) only changes her block mode, so the client draws her on her tile (maintainer request 2026-10-12)
   char_1052_kalts2: { lift: 0 },
+  // 蒂比: her skills' `attack@height_offset` 0.8 (skill_table), which tippi_height_ctrl[tween] moves her graphic holder to
+  // (no high-ground variant) (maintainer decision 2026-10-12)
+  char_4191_tippi: { lift: 0.8 },
 });
 /**
  * A push / pull slide (推拉, PR #380 by @xcdoge). The sim displaces at once — server/sim/battle/displacement.js walks its
