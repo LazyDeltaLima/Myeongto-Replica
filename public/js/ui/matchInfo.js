@@ -91,14 +91,14 @@ export function DiyBannedLine({ model, class: cls = 'brief-banned__diy' }) {
 const outerArt = (name) => localAsset('ui/outer', name);
 
 /**
- * The section title bar of the stage-info view (perm_bond_title / temp_bond_title / chess_banned_title): the bar sprite,
+ * The section title bar of the stage-info view (perm_bond_title / temp_bond_title / chess_banned_title / enemy_title): the bar sprite,
  * its icon, the title (+ `extra` right after it, e.g. the banned count — the bar sprite's logos sit on the right) and the
  * micro label.
- * @param {{ kind: 'perm'|'temp'|'chess', title: string, micro: string, extra?: any }} props
+ * @param {{ kind: 'perm'|'temp'|'chess'|'enemy', title: string, micro: string, extra?: any }} props
  */
 export function InfoTitle({ kind, title, micro, extra = null }) {
   const bar = outerArt(kind === 'perm' ? 'img_group_title_perm_bond' : 'img_group_title');
-  const icon = outerArt(kind === 'perm' ? 'img_title_icon_perm_bond' : kind === 'temp' ? 'img_title_icon_temp_bond' : 'img_title_icon_chess');
+  const icon = outerArt({ perm: 'img_title_icon_perm_bond', temp: 'img_title_icon_temp_bond', enemy: 'img_title_icon_enemy' }[kind] || 'img_title_icon_chess');
   return html`<h3 class=${cx('brief-h', 'brief-h--art', `brief-h--${kind}`, icon && 'has-icon')} style=${bar ? `--bar:url("${bar}")` : null}>
     ${icon ? html`<img class="brief-h__icon" src=${icon} alt="" draggable=${false} />` : null}<span>${title}</span>${extra}<${MicroLabel}>${micro}</${MicroLabel}>
   </h3>`;

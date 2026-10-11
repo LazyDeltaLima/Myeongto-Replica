@@ -113,7 +113,7 @@ async function main() {
     if (!s.official) { console.warn(`${s.id}: no official scene on this server — skipped`); continue; }
     const file = `${s.id}.webp`;
     fs.writeFileSync(path.join(outDir, file), Buffer.from(s.url.split(',')[1], 'base64'));
-    group[s.id] = { path: `/assets/local/${GROUP}/${file}`, w: size, h: size, kind: 'Image' };
+    group[s.id] = { path: `/assets/local/${GROUP}/${file}`, w: size, h: size, kind: 'Image', webp: 'lossy' }; // WebP only, no PNG beside it
     console.log(`${s.id} → ${path.relative(ROOT, path.join(outDir, file))}`);
   }
   const manPath = path.join(ROOT, 'data/local-assets.json');

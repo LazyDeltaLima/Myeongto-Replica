@@ -1,6 +1,7 @@
 // Briefing — INFO_CHECK "1/2 确认本局信息" (research 06 §4.1, D1): enemy leader (silhouette, name,
-// abilities), stage (+ its pool: 战场固定 / 战场随机（共N张）, and under its name the battlefield's preview picture —
-// maintainer request 2026-10-11, tools/map-previews.mjs; the card then sits beside the factions), 特训敌人 factions (icon, name, description), the difficulty
+// abilities — the client's stage-info enemy block, maintainer request 2026-10-11), stage (+ its pool: 战场固定 /
+// 战场随机（共N张）, and under its name the battlefield's preview picture — maintainer request 2026-10-11,
+// tools/map-previews.mjs; the card then sits beside the factions, both as tall as the taller one), 特训敌人 factions (icon, name, description), the difficulty
 // tag, the ready count x/N with person pips, the 准备就绪 button (g.infoReady) and the countdown. Next to it 重新抽取
 // (g.infoReroll, feat — maintainer decision 2026-10-09; the official briefing has no such button): a vote instead of ready, one
 // or the other; alone it redraws at once, in co-op more reroll votes than ready ones redraw (a new match) and a tie
@@ -10,10 +11,10 @@
 // blocks the strategy draft's 本局信息 dialog shows (screens/bandDraft.js).
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
-import { html, Button, Icon, MicroLabel } from '../ui/components.js';
+import { html, Button, Icon, MicroLabel, Tooltip } from '../ui/components.js';
 import { useGameData, Img, RichText } from '../ui/gameComponents.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
-import { MatchInfo, matchInfoModel } from '../ui/matchInfo.js';
+import { MatchInfo, matchInfoModel, InfoTitle } from '../ui/matchInfo.js';
 import { LoadoutButton } from './loadout.js';
 import { actions } from '../ui/gameActions.js';
 import { factionTypes, sortedPlayers, phaseTotalSeconds } from '../ui/gameLogic.js';
@@ -64,6 +65,12 @@ export function BriefingScreen() {
   // the battlefield's preview picture under its name (tools/map-previews.mjs: our 3D board drawn like the client's
   // stage_mappreview shots, which the autochess stages lack) — the local-client art; without it the plain row
   const mapUrl = pub.stageId ? localAsset('stage/preview', pub.stageId) : null;
+  // the enemy block as the client's stage-info view draws it (prefab_auto_chess_stage_info_enemy_group): the boss in
+  // img_boss_bkg with the img_boss_name_bkg tag under it, then its name and abilities; the 特训敌人 types as icon + name
+  // items on img_normal_enemy_bkg (their description in the tooltip) — sprites of the local-client extraction ui/outer
+  const bossFrame = localAsset('ui/outer', 'img_boss_bkg');
+  const bossTag = localAsset('ui/outer', 'img_boss_name_bkg');
+  const enemyBg = localAsset('ui/outer', 'img_normal_enemy_bkg');
   const types = factionTypes(pub.factions);
   const factions = gd.factions?.types || {};
   const m = gd.m;
@@ -83,19 +90,20 @@ export function BriefingScreen() {
       total=${phaseTotalSeconds(pub, gd.config)} onExit=${() => setExit(true)} />
     <main class="brief__main">
       <section class="brief__left">
-        <div class="brief-boss brackets">
-          <${MicroLabel} tone="gold">${t('ENEMY LEADER // 敌方领袖')}</${MicroLabel}>
-          <div class="brief-boss__art">
-            <div class="brief-boss__ring" aria-hidden="true"></div>
-            ${bossEnemy ? html`<${Img} src=${enemyIconUrl(m, boss.enemyKey)} class="brief-boss__sil" fallback=${html`<span class="brief-boss__q">?</span>`} />`
-              : html`<span class="brief-boss__q">?</span>`}
-          </div>
-          <div class="brief-boss__text">
-            <h2 class="brief-boss__name">${boss?.name || bossEnemy?.name || t('未知领袖')}</h2>
-            <span class="brief-boss__when">${tParts('第 {r} 回合 · 最终攻势', { r: html`<b class="num">${mode?.bossRound ?? pub.lastRound ?? 14}</b>` })}</span>
-            ${Array.isArray(boss?.abilities) && boss.abilities.length ? html`<ul class="brief-boss__abil">
-              ${boss.abilities.slice(0, 3).map((a, i) => html`<li key=${i}><${RichText} text=${a} /></li>`)}
-            </ul>` : null}
+        <div class="brief-enemy">
+          <${InfoTitle} kind="enemy" title=${t('敌方情报')} micro="ENEMY INTEL" />
+          <div class="brief-eboss">
+            <span class=${cx('brief-eboss__frame', !bossFrame && 'no-art')} style=${bossFrame ? `--frame:url("${bossFrame}")` : null}>
+              ${bossEnemy ? html`<${Img} src=${enemyIconUrl(m, boss.enemyKey)} class="brief-eboss__icon" fallback=${html`<span class="brief-eboss__q">?</span>`} />`
+                : html`<span class="brief-eboss__q">?</span>`}
+            </span>
+            <span class=${cx('brief-eboss__tag', !bossTag && 'no-art')} style=${bossTag ? `--tag:url("${bossTag}")` : null}>${tParts('第 {r} 回合 · 最终攻势', { r: html`<b class="num">${mode?.bossRound ?? pub.lastRound ?? 14}</b>` })}</span>
+            <div class="brief-eboss__text">
+              <h2 class="brief-eboss__name">${boss?.name || bossEnemy?.name || t('未知领袖')}</h2>
+              ${Array.isArray(boss?.abilities) && boss.abilities.length ? html`<ul class="brief-eboss__desc">
+                ${boss.abilities.slice(0, 3).map((a, i) => html`<li key=${i}><${RichText} text=${a} /></li>`)}
+              </ul>` : null}
+            </div>
           </div>
         </div>
         <div class=${cx('brief-lower', mapUrl && 'has-map')}>
@@ -104,12 +112,13 @@ export function BriefingScreen() {
             <span class="brief-stage__name"><${Icon} name="rook" />${stageName}</span>
             ${mapUrl ? html`<${Img} src=${mapUrl} class="brief-stage__map" alt=${stageName} />` : null}
           </div>
-          <div class="brief-factions">
-            <h3 class="brief-h"><span>${t('特训敌人')}</span><${MicroLabel}>SPECIAL ENEMIES</${MicroLabel}></h3>
-            ${types.length ? types.map((t) => html`<div key=${t} class="brief-faction">
-              <span class="brief-faction__icon"><${Img} src=${factionIconUrl(m, factions[t]?.icon)} /></span>
-              <span class="brief-faction__text"><b>${factions[t]?.name || t}</b><span>${factions[t]?.desc || ''}</span></span>
-            </div>`) : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
+          <div class="brief-etypes" style=${enemyBg ? `--panel:url("${enemyBg}")` : null} aria-label=${t('特训敌人')}>
+            ${types.length ? types.map((ty) => html`<${Tooltip} key=${ty} text=${factions[ty]?.desc || ''}>
+              <div class="brief-etype" data-type=${ty}>
+                <span class="brief-etype__icon"><${Img} src=${factionIconUrl(m, factions[ty]?.icon)} /></span>
+                <span class="brief-etype__name">${factions[ty]?.name || ty}</span>
+              </div>
+            <//>`) : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
           </div>
         </div>
       </section>

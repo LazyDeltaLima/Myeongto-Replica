@@ -34,34 +34,37 @@
 
 /* ---- briefing layout ---- */
 .brief__main { position: relative; z-index: 1; flex: 1; min-height: 0; display: grid; grid-template-columns: 6.2rem 1fr; gap: .36rem; padding: .3rem .5rem .1rem; }
-.brief__left { display: flex; flex-direction: column; gap: .2rem; min-height: 0; }
+.brief__left { display: flex; flex-direction: column; gap: .2rem; min-height: 0; overflow: auto; }
 .brief__right { display: flex; flex-direction: column; gap: .2rem; min-height: 0; overflow: auto; padding-right: .06rem; }
 
-.brief-boss {
-  --bk-c: var(--orange-hi);
-  position: relative; display: grid; grid-template-columns: 2rem 1fr; gap: .2rem; padding: .22rem .24rem;
-  background: linear-gradient(135deg, rgba(60, 18, 8, .55), rgba(12, 14, 13, .85) 60%); border: 1px solid rgba(255, 110, 40, .3);
-}
-.brief-boss > .micro { position: absolute; left: .24rem; top: .1rem; }
-.brief-boss__art { position: relative; width: 2rem; height: 2rem; display: grid; place-items: center; margin-top: .12rem; }
-.brief-boss__ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(255, 110, 40, .5);
-  background: radial-gradient(circle, rgba(255, 60, 20, .25), transparent 65%); box-shadow: 0 0 .4rem rgba(255, 80, 30, .25), inset 0 0 .3rem rgba(255, 80, 30, .3); }
-.brief-boss__ring::after { content: ''; position: absolute; inset: .14rem; border-radius: 50%; border: 1px dashed rgba(255, 110, 40, .45); animation: spin 18s linear infinite; }
-.brief-boss__sil { position: relative; width: 74%; height: 74%; object-fit: cover; border-radius: 50%;
-  filter: grayscale(1) sepia(1) hue-rotate(-28deg) saturate(3.2) brightness(.62) contrast(1.35);
-  box-shadow: 0 0 0 2px rgba(255, 110, 40, .7), 0 0 .3rem rgba(255, 80, 30, .5); }
-.brief-boss__art::after { content: ''; position: absolute; inset: 13%; border-radius: 50%; pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .22) 0 2px, transparent 2px 4px), radial-gradient(circle, transparent 45%, rgba(40, 8, 2, .75) 100%); }
-.brief-boss__q { font-size: 1rem; font-weight: 900; color: rgba(255, 110, 40, .6); }
-.brief-boss__text { display: flex; flex-direction: column; gap: .08rem; padding-top: .2rem; min-width: 0; }
-.brief-boss__name { font-size: .34rem; font-weight: 900; letter-spacing: .04em; line-height: 1.25; }
-.brief-boss__when { font-size: .15rem; color: var(--orange-hi); }
-.brief-boss__abil { margin: .04rem 0 0; padding-left: .18rem; display: flex; flex-direction: column; gap: .04rem; font-size: .14rem; line-height: 1.6; color: var(--text-md); }
+/* ---- the enemy block as the client's stage-info view (js/screens/briefing.js; prefab_auto_chess_stage_info_enemy_title /
+   _enemy_group, one prefab unit = --ou): the boss panel (670 × 228) stacked over the battlefield card and the 特训敌人
+   panel. Sprites: ui/outer of the local-client extraction (--frame / --tag / --panel); without them the plain boxes. ---- */
+.brief-enemy { --ou: .00925rem; flex: none; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
+/* (no px floor on these texts: like the briefing before them, they scale with the screen so a phone fits the column)
+   panel_boss: img_boss_bkg 213 × 208 left (its middle 215 left of the panel's), the 165-unit icon in it, the name tag
+   img_boss_name_bkg 136 × 27 96 under the icon's middle (over the frame's lower edge), text_name 27 / text_desc from 230 */
+.brief-eboss { position: relative; min-height: calc(var(--ou) * 228); padding: calc(var(--ou) * 22) calc(var(--ou) * 24) calc(var(--ou) * 18) calc(var(--ou) * 236); }
+.brief-eboss__frame { position: absolute; left: calc(var(--ou) * 13.5); top: calc(var(--ou) * 6); width: calc(var(--ou) * 213); height: calc(var(--ou) * 208);
+  display: grid; place-items: center; background: var(--frame, none) center / 100% 100% no-repeat; }
+.brief-eboss__frame.no-art { border: 2px solid rgba(255, 255, 255, .3); }
+.brief-eboss__icon { width: calc(var(--ou) * 165); height: calc(var(--ou) * 165); object-fit: contain; transform: translate(calc(var(--ou) * -1), calc(var(--ou) * -1)); }
+.brief-eboss__q { font-size: calc(var(--ou) * 100); font-weight: 900; color: rgba(255, 174, 19, .55); }
+.brief-eboss__tag { position: absolute; left: calc(var(--ou) * 52); top: calc(var(--ou) * 192.5); width: calc(var(--ou) * 136); height: calc(var(--ou) * 27);
+  display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; background: var(--tag, none) center / 100% 100% no-repeat;
+  font-size: calc(var(--ou) * 15); color: #ffae13; }
+.brief-eboss__tag.no-art { background: rgba(110, 72, 12, .75); }
+.brief-eboss__tag b { margin: 0 .02em; }
+.brief-eboss__text { display: flex; flex-direction: column; gap: calc(var(--ou) * 10); min-width: 0; }
+.brief-eboss__name { margin: 0; font-size: calc(var(--ou) * 27); font-weight: 700; line-height: 1.2; color: #f4f4f4; }
+.brief-eboss__desc { margin: 0; padding-left: calc(var(--ou) * 18); display: flex; flex-direction: column; gap: calc(var(--ou) * 4);
+  font-size: calc(var(--ou) * 15); line-height: 1.45; color: rgba(244, 244, 244, .72); }
 
 /* the stage card and the factions: one under the other; with the battlefield preview (.has-map) side by side, the card
    a column — label, name, the square picture under the name */
-.brief-lower { display: flex; flex-direction: column; gap: .2rem; min-height: 0; }
-.brief-lower.has-map { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); align-items: start; gap: .2rem; }
+.brief-lower { flex: none; display: flex; flex-direction: column; gap: .2rem; }
+/* side by side: both cells as tall as the taller one (the picture card; the 特训敌人 items sit centred in theirs) */
+.brief-lower.has-map { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); align-items: stretch; gap: .2rem; }
 .brief-stage { display: flex; align-items: center; justify-content: space-between; gap: .2rem; padding: .12rem .18rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
 .has-map > .brief-stage { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: .08rem; padding: .12rem; }
 .has-map > .brief-stage .brief-stage__k { flex-wrap: wrap; }
@@ -73,13 +76,16 @@
 .brief-stage__name { display: flex; align-items: center; gap: .08rem; font-size: .19rem; font-weight: 700; }
 .brief-stage__name .icon { width: .2rem; height: .2rem; color: var(--mint-500); }
 
-.brief-factions { display: flex; flex-direction: column; gap: .1rem; min-height: 0; }
-.brief-faction { display: flex; gap: .14rem; align-items: center; padding: .12rem .16rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); border-left: 3px solid var(--amber); }
-.brief-faction__icon { width: .72rem; height: .72rem; flex: none; display: grid; place-items: center; background: radial-gradient(circle, rgba(246, 163, 41, .16), transparent 70%); }
-.brief-faction__icon img { width: 100%; height: 100%; object-fit: contain; }
-.brief-faction__text { display: flex; flex-direction: column; gap: .03rem; }
-.brief-faction__text b { font-size: .2rem; color: var(--amber); }
-.brief-faction__text span { font-size: .15rem; color: var(--text-lo); }
+/* panel_enemy: img_normal_enemy_bkg (stretched), items 140 × 195 (11 apart, from 23): the 128-unit icon 16 over the
+   middle, the name (21, 90 %) 72 under it — a smaller unit so three fit beside the battlefield card */
+.brief-etypes { --ou: .0066rem; display: flex; align-items: center; gap: calc(var(--ou) * 11); min-width: 0; min-height: calc(var(--ou) * 195);
+  padding: 0 calc(var(--ou) * 12) 0 calc(var(--ou) * 23); background: var(--panel, none) center / 100% 100% no-repeat, rgba(12, 15, 14, .8); border: 1px solid var(--line); }
+.brief-etype { position: relative; flex: none; width: calc(var(--ou) * 140); height: calc(var(--ou) * 195); }
+.brief-etype__icon { position: absolute; left: calc(var(--ou) * 6); top: calc(var(--ou) * 17.5); width: calc(var(--ou) * 128); height: calc(var(--ou) * 128); display: grid; place-items: center; }
+.brief-etype__icon img { width: 100%; height: 100%; object-fit: contain; }
+.brief-etype__name { position: absolute; left: 50%; top: calc(var(--ou) * 149.5); width: calc(var(--ou) * 135); min-height: calc(var(--ou) * 40); transform: translateX(-50%);
+  display: grid; place-items: center; text-align: center; font-size: calc(var(--ou) * 21); line-height: 1.1; color: rgba(244, 244, 244, .9); }
+.brief-etypes > .t-dim { margin: 0; }
 
 /* ---- bonds and banned operators as the client's stage-info view draws them (js/ui/matchInfo.js; ui/autochess/
    [uc]autochessouter.ab prefab_auto_chess_stage_info_*, 1280-unit canvas). --ou = one prefab unit (the right column is

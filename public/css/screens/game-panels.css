@@ -507,7 +507,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 
 /* Grid image boxes: definite 100% tracks so `height: 100%` images resolve against the box (an auto track would
    let non-square art overflow its frame). */
-.uthumb__art, .bandicon, .dhead__icon, .spcard__icon, .effect, .pavatar__img, .brief-faction__icon, .scard__itemart, .bglyph {
+.uthumb__art, .bandicon, .dhead__icon, .spcard__icon, .effect, .pavatar__img, .brief-etype__icon, .scard__itemart, .bglyph {
   grid-template-rows: 100%;
   grid-template-columns: 100%;
 }

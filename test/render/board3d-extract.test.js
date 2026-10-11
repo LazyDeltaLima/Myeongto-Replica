@@ -197,6 +197,8 @@ describe('extracted board files (when a local client was extracted)', { skip: !m
         // local patch: the 立绘 of tools/local-extract/chararts_extract.py are WebP only (no PNG, no `webp` mode —
         // LOCAL-PATCH.md 「立绘 추출」)
         if (g === 'chararts') continue;
+        // nor are the battlefield previews of tools/map-previews.mjs (drawn in the browser, WebP from the canvas)
+        if (g === 'stage/preview') { assert.equal(e.webp, 'lossy', `${g}/${n}: mode`); continue; }
         assert.ok(existsSync(onDisk(pngOf(e.path))), `${g}/${n}: PNG`);
         assert.ok(e.webp === 'lossy' || e.webp === 'lossless', `${g}/${n}: mode ${e.webp}`);
       }

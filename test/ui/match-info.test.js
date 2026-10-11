@@ -215,7 +215,8 @@ test('draftInfoStatus: the dialog repeats the turn and its seconds (warning at �
 
 test('the briefing, the strategy draft and the in-game 本局信息 tab all read ui/matchInfo.js (no second copy to drift)', () => {
   const brief = read('public/js/screens/briefing.js');
-  assert.match(brief, /import \{ MatchInfo, matchInfoModel \} from '\.\.\/ui\/matchInfo\.js';/);
+  // (+ InfoTitle: the enemy block's title bar is the same stage-info bar)
+  assert.match(brief, /import \{ MatchInfo, matchInfoModel, InfoTitle \} from '\.\.\/ui\/matchInfo\.js';/);
   assert.match(brief, /<section class="brief__right">\s*<\$\{MatchInfo\} model=\$\{info\} \/>\s*<\/section>/);
   // (+ the viewer's 自选 pieces out of the shop: priv / diyData, 0.2.0 WE2)
   assert.match(brief, /const info = matchInfoModel\(pub, \{ bonds: gd\.list\('bonds'\), chess: gd\.chess, mode, priv, diyData: \{ chess: data\.get\('chess'\), backups: data\.get\('backups'\) \} \}\);/);
