@@ -533,6 +533,18 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
   결과의 보드 유닛 이름은 이것을 쓰고, 클라가 보낸 이름은 여전히 믿지 않는다. 표시만이고 전투 규칙과 무관.
 - 테스트 `test/match/clientCombat-review.test.js`(선발 克莱门莎·보충 하나, 위조 이름 무시 — upstream 그대로).
 
+### 洛洛의 定制品·焰尾의 오퍼레이터 풀은 영상 실측 가중치 (관리자 결정 2026-10-11, upstream PR #497 `b612487b`)
+- 근거: 영상 「卡池相关机制」 6번 — 洛洛(오퍼레이터) 〈获得时〉 「洛洛的定制品」 = 维式重锤 10 · 战栗/坚固/加速/灼燃维式重锤 각 2 · 有限加速器 1 · 护盾无人机 4 ·
+  激光发射器 4, 焰尾(오퍼레이터) 〈获得时〉 오퍼레이터 = 野鬃 10 · 灰毫 10 · 远牙 3. 풀 내용은 서버 규칙이라 공식 표·클라에는 없다(`SERVER_POOL_EQUIP`·`SERVER_POOL_CHAR`).
+- 전: `pool_equip_rockr` = 특수 维式重锤 넷 균등(플레이테스트 #4 「특수 维式重锤는 洛洛나 维多利亚에서 얻는다」의 읽기), `pool_char_pinus` = 45/45/10 추정.
+- 동작(PR 그대로): `tools/build-data.mjs buildChoices`의 두 풀만 `weighted`로 바꿈(`data/choices.json`에서 이 두 풀만 움직임). 특수 维式重锤 넷은 여전히 상점에서
+  안 팔고(`SHOP_EXCLUDED_ITEMS`) 이 풀과 `pool_equip_vict`(维多利亚 25층, 넷 균등 그대로)에만 있다 — 플레이테스트 #4의 말은 그대로 맞고, 洛洛 풀이 그 넷만은 아닐 뿐.
+  상점에서 파는 넷(维式重锤·有限加速器·护盾无人机·激光发射器)은 `rollItemId`의 `weighted` 길에서 공용 장비 재고(`itemPool.canGain`)에 걸리고, 焰尾 풀은 공용 오퍼레이터
+  재고에 남은 복사본이 있는 것만 뽑는다(둘 다 전과 같음; 위 「특질이 직접 주는 장비」의 면제 대상이 아님).
+- 영상은 가중치(상대 빈도)만 준다 — 표에는 `assumed: true`를 남김(PR 그대로).
+- 테스트 `test/match/pool.test.js`(维多利亚 풀 넷 균등 / 洛洛 8종 가중 표·모두 나옴·维式重锤가 특수 해머보다 확실히 많음 / 焰尾 10·10·3). golden은 洛洛·焰尾를 얻는
+  매치가 움직임(커밋 메시지에 사례 목록).
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).
