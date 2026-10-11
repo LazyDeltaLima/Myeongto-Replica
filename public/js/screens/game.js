@@ -122,7 +122,7 @@ import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold, roundsToBoss
 import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame, BottomTips, bottomTipType, WaitingDialog, HelpBattleBanner, BossPrepare, bossOpening, SettleEnding, endingOf, ENDINGS, SelfDead, ReadyTipDialog } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
-import { battleOverOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
+import { battleOverOf, battleLossOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
 import { useDocClass, FullscreenButton } from '../ui/device.js';
 // MatchEnded, PausedOverlay, the highlight styles and keepEarly live in ./game/*.js.
 import { HUD_HZ_MS, MERGE_HL, SEL_RANGE, cx } from './game/marks.js';
@@ -610,7 +610,9 @@ function MatchScreen() {
         // audioOfficial.js battleOverOf), once per round (announceBattleEnd); in co-op it waits for SETTLE, after the 联防
         // that may follow (ui/gameLogic/phases.js holdsBattleEnd)
         const round = st.match?.public?.round;
-        const over = mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT && battleEndRound.current !== round ? battleOverOf(mine, live.current.cap) : null;
+        // (a solo result holds the viewer alone: its own loss decides; a held co-op one is replaced at SETTLE by every
+        // player's charge, m.public.roundLosses)
+        const over = mine && msg.own !== false && st.match?.public?.phase === PHASE.COMBAT && battleEndRound.current !== round ? battleOverOf({ [pid]: battleLossOf(mine, live.current.cap) }, pid) : null;
         if (over && holdsBattleEnd(over, st.match?.public, pid)) heldEndRef.current = { round, over };
         else if (over) announceBattleEnd(over, round);
         const charId = resultSpeaker(mine, Math.random, (id) => ownShown(id)?.charId ?? null);
@@ -718,15 +720,15 @@ function MatchScreen() {
     else if (phase === PHASE.SP_DRAFT) audio.sfx('draft');
     else if (phase === PHASE.SETTLE) {
       // the own battle's end held for SETTLE (co-op — holdsBattleEnd) or whose result never came in (server-run combat, a
-      // reconnect, a battle this client did not run): after a 联防 the authority's own charge (m.public.uniteResult.losses:
-      // a leaker pays for the survivors, not for its own battle's leaks), else the held result, else what the round kept
-      // (ui/gameLogic/phases.js settleBattleEnd)
+      // reconnect, a battle this client did not run): every alive player's charge of the round (m.public.roundLosses — after
+      // a 联防 a leaker pays for the survivors, not for its own battle's leaks; a teammate's loss alone makes it NORMAL),
+      // else the held result, else what the round kept (ui/gameLogic/phases.js settleBattleEnd)
       const kept = roundLossRef.current;
       roundLossRef.current = null;
       const cost = kept && kept.round === pub?.round ? kept : null;
       const held = heldEndRef.current && heldEndRef.current.round === pub?.round ? heldEndRef.current.over : null;
       heldEndRef.current = null;
-      const over = battleEndRound.current === pub?.round ? null : settleBattleEnd(cost, pub?.uniteResult?.losses?.[myId], held);
+      const over = battleEndRound.current === pub?.round ? null : settleBattleEnd(cost, pub?.roundLosses || pub?.uniteResult?.losses, myId, held);
       if (over) announceBattleEnd(over, pub?.round);
     }
     // the server resets every watcher to its own field on phase changes — but an eliminated player / spectator seat

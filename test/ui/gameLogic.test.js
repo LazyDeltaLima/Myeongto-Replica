@@ -98,22 +98,33 @@ describe('phases', () => {
     assert.match(src, /phaseBanner\(phase, pub, \{ alive, spectator \}\)/);
   });
   // maintainer decision 2026-10-08 (ours only): the own battle's end is announced once per round — when its result
-  // comes in (audioOfficial.js battleOverOf, test/local-patch-battleover.test.js), else at SETTLE from what the round kept
-  test('settleBattleEnd: the SETTLE fallback — the authority\'s 联防 charge, else min(cap, leaks); nothing without a battle', () => {
+  // comes in (audioOfficial.js battleOverOf, test/local-patch-battleover.test.js), else at SETTLE from the server's figures
+  test('settleBattleEnd: the server\'s per-player charge (m.public.roundLosses), else the held result, else min(cap, leaks); nothing without a battle', () => {
     const cost = (o) => ({ round: 3, leaks: 0, cap: 10, ...o });
+    // no server figure for the viewer: the round's kept count as its only loss
     assert.deepEqual(settleBattleEnd(cost({ leaks: 3 })), { kind: 'miss', lost: 3, sfx: 'battleOverReduce' });
     assert.deepEqual(settleBattleEnd(cost({})), { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' });
     assert.equal(settleBattleEnd(cost({ leaks: 14, cap: 10 })).lost, 10, 'the per-round cap');
     assert.equal(settleBattleEnd(cost({ leaks: 14, cap: undefined })).lost, 10, 'no cap known → the official 10');
-    // a 联防 resolved: the authority's charge, not the own battle's leaks (a leaker the helpers saved paid 0)
-    assert.deepEqual(settleBattleEnd(cost({ leaks: 3 }), 0), { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' });
-    assert.equal(settleBattleEnd(cost({ leaks: 0 }), 2).lost, 2);
-    assert.equal(settleBattleEnd(cost({ leaks: 2 }), null).lost, 2, 'no 联防 figure → the own battle decides');
-    assert.equal(settleBattleEnd(cost({ leaks: 2 }), undefined).lost, 2);
+    assert.equal(settleBattleEnd(cost({ leaks: 2 }), { p_1: 0 }, 'p_0').lost, 2, 'the viewer not in the figures → the own battle decides');
+    assert.equal(settleBattleEnd(cost({ leaks: 2 }), { p_0: null }, 'p_0').lost, 2);
+    assert.equal(settleBattleEnd(cost({ leaks: 2 }), null, 'p_0').lost, 2);
+    // the server's figures: the charge, not the own battle's leaks (a 联防 leaker the helpers saved paid 0)
+    assert.deepEqual(settleBattleEnd(cost({ leaks: 3 }), { p_0: 0, p_1: 0 }, 'p_0'), { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' });
+    assert.equal(settleBattleEnd(cost({ leaks: 0 }), { p_0: 2, p_1: 0 }, 'p_0').lost, 2);
     // this round's battle never seen (a spectator seat, an eliminated player, a reconnect landing on SETTLE)
     assert.equal(settleBattleEnd(null), null);
-    assert.equal(settleBattleEnd(undefined, 0), null);
+    assert.equal(settleBattleEnd(undefined, { p_0: 0 }, 'p_0'), null);
     assert.equal(settleBattleEnd({ cap: 10 }), null);
+  });
+  // maintainer decision 2026-10-11 (client code AutoChessBattleUIViewModel.GetBattleResultStatus, RVA 0x1FD2350): co-op
+  // reads every player's charge — a teammate's loss alone turns the viewer's 完美作战 into the plain NORMAL end
+  test('settleBattleEnd co-op: all 0 → perfect, only a teammate charged → done (NORMAL), the viewer charged → miss', () => {
+    const cost = { round: 3, leaks: 0, cap: 10 };
+    const perfect = { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' };
+    assert.deepEqual(settleBattleEnd(cost, { p_0: 0, p_1: 0, p_2: 0 }, 'p_0', perfect), perfect);
+    assert.deepEqual(settleBattleEnd(cost, { p_0: 0, p_1: 6, p_2: 0 }, 'p_0', perfect), { kind: 'done', lost: 0, sfx: 'battleOverNormal' }, 'the held own 完美作战 gives way');
+    assert.deepEqual(settleBattleEnd({ ...cost, leaks: 3 }, { p_0: 6, p_1: 0 }, 'p_0'), { kind: 'miss', lost: 6, sfx: 'battleOverReduce' });
   });
   // the maintainer's recall of the official game (2026-10-08): a leak that goes on into a 联防 shows no banner at the own
   // battle's end; after the 联防 the LP it left (目标生命值减少 N) or, nothing charged, the success banner
@@ -125,20 +136,22 @@ describe('phases', () => {
     assert.equal(holdsBattleEnd(miss, { ...coop, players: [coop.players[0], { playerId: 'p_1', alive: false }] }, 'p_0'), false, 'every teammate out: no 联防');
     assert.equal(holdsBattleEnd(miss, { modeId: 'mode_x', players: [coop.players[0]] }, 'p_0'), false, 'solo');
     assert.equal(holdsBattleEnd(null, coop, 'p_0'), false);
-    // at SETTLE: a 联防's charge decides (charged → 目标生命值减少, spared / a helper → 完美作战), else the held result
-    assert.deepEqual(settleBattleEnd({ leaks: 3, cap: 10 }, 2, miss), { kind: 'miss', lost: 2, sfx: 'battleOverReduce' });
-    assert.equal(settleBattleEnd({ leaks: 3, cap: 10 }, 0, miss).kind, 'perfect');
-    assert.equal(settleBattleEnd({ leaks: 0, cap: 10 }, 0, perfect).kind, 'perfect');
-    assert.equal(settleBattleEnd({ leaks: 3, cap: 10 }, null, miss), miss, 'no 联防: the held result as is');
+    // at SETTLE: the server's figures decide (charged → 目标生命值减少, nobody → 完美作战), else the held result
+    assert.deepEqual(settleBattleEnd({ leaks: 3, cap: 10 }, { p_0: 2, p_1: 0 }, 'p_0', miss), { kind: 'miss', lost: 2, sfx: 'battleOverReduce' });
+    assert.equal(settleBattleEnd({ leaks: 3, cap: 10 }, { p_0: 0, p_1: 0 }, 'p_0', miss).kind, 'perfect');
+    assert.equal(settleBattleEnd({ leaks: 0, cap: 10 }, { p_0: 0, p_1: 0 }, 'p_0', perfect).kind, 'perfect');
+    assert.equal(settleBattleEnd({ leaks: 3, cap: 10 }, null, 'p_0', miss), miss, 'no figures: the held result as is');
     const done = { kind: 'done', lost: 0, sfx: 'battleOverNormal' };
-    assert.equal(settleBattleEnd(null, null, done), done);
+    assert.equal(settleBattleEnd(null, null, null, done), done);
   });
   test('the match screen announces the own battle\'s end once per round, and no upstream SETTLE box beside it', () => {
     const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
     assert.equal((src.match(/const announceBattleEnd = /g) || []).length, 1);
     assert.equal((src.match(/announceBattleEnd\(/g) || []).length, 2, 'called from the own result and from SETTLE only');
     assert.match(src, /if \(over && holdsBattleEnd\(over, st\.match\?\.public, pid\)\) heldEndRef\.current = \{ round, over \};\n\s+else if \(over\) announceBattleEnd\(over, round\);/);
-    assert.match(src, /battleEndRound\.current === pub\?\.round \? null : settleBattleEnd\(cost, pub\?\.uniteResult\?\.losses\?\.\[myId\], held\)/);
+    assert.match(src, /battleEndRound\.current === pub\?\.round \? null : settleBattleEnd\(cost, pub\?\.roundLosses \|\| pub\?\.uniteResult\?\.losses, myId, held\)/);
+    // the own result in solo: the viewer's own LP loss alone (audioOfficial.js battleLossOf)
+    assert.match(src, /battleOverOf\(\{ \[pid\]: battleLossOf\(mine, live\.current\.cap\) \}, pid\)/);
     assert.doesNotMatch(src, /uniteResultBox|battleResultBox|battleOverSfx/);
   });
   test('ownRoundLoss: min(cap, leaks) — what settlement charges outside a 联防', () => {

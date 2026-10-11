@@ -26,7 +26,8 @@ LOBBY(room) → INFO_CHECK (co-op 25 s; solo and any single-human match untimed 
                     a helper's operator knocked out at the end of its own combat enters down — carryState { down: true },
                     PRTS "上一阶段为退场状态的干员强制退场", its full redeploy timer — confirmed by the user (§19.3))
      SETTLE        (LP −min(leaks,10) per player (unite survivors to their source); eliminations; layer gains applied; coins; broadcast;
-                    after a 联防 the outcome and every player's charge ride the SETTLE m.public as `uniteResult`, GitHub #235)
+                    every alive player's charge rides the SETTLE m.public as `roundLosses` (the battle-end banner), after a
+                    联防 its outcome too as `uniteResult`, GitHub #235)
    R14 FINAL_ASSAULT (merged team LP; pairs by seat; shared boss pool; 120 real s countdown, the battle goes on; overtime −1 team LP per
                     real s from the countdown's end, 120 real s (§4, m.public.overtimeAt), for bossTurnHpReduceTime 150 real s, then the server
                     ends the battle (≤ 150 LP; client code AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo) as a defeat; no layer

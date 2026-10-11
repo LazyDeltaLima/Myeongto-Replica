@@ -194,9 +194,11 @@ export function roundsToBoss(round, bossRound, trailer = 3) {
 /**
  * The own battle's end (round_result_dialog, the KR captures 「완벽한 작전!」 / 「목표 HP 감소 ♜2」). Its script has three
  * animations on two panels: _allPrefectAnim (panel_perfect) and _perfectAnim / _missAnim (both panel_miss, "done" and
- * "miss"). Mapped: a perfect battle → panel_perfect (战斗结束 / 完美作战！); counted leaks → panel_miss with 目标生命值减少
- * and the LP they cost (the counted leaks — Match.settle charges min(cap, counted) unless a 联防 reassigns them);
- * leaks that cost nothing (uncounted) → panel_miss "done", the title alone — client code
+ * "miss"). The state is audioOfficial.js battleOverOf's, from every player's LP loss in the result (maintainer decision
+ * 2026-10-11 — client code AutoChessBattleUIViewModel.GetBattleResultStatus, RVA 0x1FD2350): nobody lost LP → `perfect`,
+ * panel_perfect (战斗结束 / 完美作战！); the viewer lost LP → panel_miss with 目标生命值减少 and `lost` (the LP settlement
+ * charges: min(cap, counted leaks) unless a 联防 reassigns them); the viewer lost none but another player did (co-op) →
+ * panel_miss "done", the title alone — client code
  * AutoChessBattleUIRoundResultDialog.OnRender (RVA 0x1FECE70): panel_perfect = isAllPrefect, panel_miss = !isAllPrefect,
  * the LP text set only when lostHp > 0; the anim / sound by isAllPrefect → _allPrefectAnim + BATTLEOVER_NOREDUCE,
  * lostHp ≤ 0 → _perfectAnim + _NORMAL, else _missAnim + _REDUCE (audioOfficial.js battleOverOf).

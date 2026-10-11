@@ -259,10 +259,14 @@
   「战斗结束」/「完美作战！」 #2ce3b8), 셈하는 누수가 있으면 → panel_miss(어두운 판, 해골 큐브 `miss_emoji_head` + 몸 + 내린 검 #1aad88,
   「目标生命值减少」 #f24549 + `blood_icon` + 잃을 LP #ff3b3b — `Match.settle`처럼 `counted !== false`인 누수 수를 라운드 상한(`lpCapPerRound` 10)으로 자른 값, 联防이 다시 배분하기 전 값;
   2026-10-09 관리자 제보 전까지 상한 없이 누수 수를 그대로 띄워 실제 LP −10인데 배너만 17로 보였다),
-  셈하지 않는 누수만 있으면 → panel_miss 제목만 — 클라 코드 `AutoChessBattleUIRoundResultDialog.OnRender`(RVA 0x1FECE70, 2026-10-10 확인):
+  잃은 LP 없이 완벽 아님 → panel_miss 제목만 — 클라 코드 `AutoChessBattleUIRoundResultDialog.OnRender`(RVA 0x1FECE70, 2026-10-10 확인):
   `_panelPerfect` = `isAllPrefect`, `_panelMiss` = 그 반대, 잃은 HP 글자는 `lostHp > 0`일 때만; 애니·소리는 완벽 → `_allPrefectAnim` + NOREDUCE,
   완벽 아님·`lostHp ≤ 0` → `_perfectAnim`(panel_miss) + NORMAL, 그 밖 → `_missAnim` + REDUCE(우리 소리 짝 `audioOfficial.js`와 같음). 갈림은 누수
-  「셈」이 아니라 잃은 HP — 우리는 잃을 LP = 셈하는 누수 수(상한 적용)라 같은 결과. 공식 결과 창 최대 표시 `MAX_SHOW_TIME` 4초(우리 배너 1.8초 — 애니
+  「셈」이 아니라 잃은 HP — **관리자 결정 2026-10-11: 클라대로 「이번 결과에 든 플레이어별 LP 손실」**(클라 코드
+  `AutoChessBattleUIViewModel.GetBattleResultStatus` RVA 0x1FD2350: `isAllPrefect` = 모든 플레이어 `hpCost ≤ 0`, `lostHp` = 보고 있는 플레이어의 것).
+  그래서 panel_perfect는 모두 0일 때만, 셈하지 않는 누수만 있는 솔로 판은 손실 0이라 panel_perfect, **협동에서 나는 0인데 팀원이 잃으면 panel_miss
+  제목만 + NORMAL**(옛 동작은 완벽한 작전). 협동 값은 SETTLE의 `m.public.roundLosses`(살아 있는 모든 플레이어의 이번 라운드 차감 [추정: 「결과에 든」
+  범위]) — `audio.md` 「작전 종료 효과음」(되돌리기 포함). 공식 결과 창 최대 표시 `MAX_SHOW_TIME` 4초(우리 배너 1.8초 — 애니
   길이 미확인이라 그대로). 공통: 모서리 `left_cross`, `left_frame` 괄호, `doc_text_01/02`(#18e6b8),
   오른쪽 SIGNAL `doc_01` · 점 2×3 `dot_blank`(#28c79f, 알파 .6/1/.2/.6/.4/1) · 오른쪽 위 점(#279481). 보스전(최종 공세·隐秘核心)은 공식에 다른 프리팹
   (`panel_win_*`, `panel_lose_*`)이 있어 이 배너를 띄우지 않는다. **이 그림들은 웹 소재에 없어 로컬 추출(ui/battle)이 있을 때만 배너가 뜬다**(없으면 upstream의
@@ -387,7 +391,7 @@
 
 **③ 원소 원형 바** (관리자 제보; `hud-bars.js ElementRing`): 클라이언트 `char_ep_slider`·`enemy_ep_slider`. 그 스크립트
 (UIHudUnitEpSlider)의 `_elementDatas`가 시뮬레이션 `ELEMENT_ORDER`(neural, erosion, burn, apoptosis) 순서로 원소별 색·아이콘을 갖는다 —
-아군: `#00ffd8` + `sprite_ep_icon` / `#3da1ff` + 물 / `#ff4901` + 불 / `#474747` + 어둠, 적: `#149882` / `#266ad0` / `#e3531a` / `#7c7c7c`(폭발 색 `#1c1c1c`), 'necrosis'는 凋亡 것 [추정].
+아군: `#00ffd8` + `sprite_ep_icon` / `#3da1ff` + 물 / `#ff4901` + 불 / `#474747` + 어둠, 적: `#149882` / `#266ad0` / `#e3531a` / `#7c7c7c`(폭발 색 `#1c1c1c`).
 - 아군: 전체 ×1.2, `hud_unit` 아래 25.9(= 발 근처; 캡처 8에서 링이 HP 바 29단위 위). 아래부터 ep_hit_spread(76×78, 원소 색 — 맞을 때 퍼짐 [추정 애니]),
   ep_center_color(28 원판, 원소 색), ep_back(54, α.784 어두운 고리+그림자), 뒤 슬라이더(slider_ep_fill 28, 흰 α.3 — HP 바 잔상처럼 늦게 따라옴),
   채움(slider_ep_fill 28, 흰색), 아이콘(14×14). 채움은 Image Filled **Radial360, 시작 위(FillOrigin 2), 시계 방향** — 빈 부분이 12시 왼쪽(캡처 8·10과 같음).

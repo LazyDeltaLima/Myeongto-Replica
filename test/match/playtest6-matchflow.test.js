@@ -13,6 +13,7 @@ import { createRng } from '../../server/sim/rng.js';
 import { Battle } from '../../server/sim/Battle.js';
 import { uniteLeft, battleProgress } from '../../server/sim/spec.js';
 import { uniteSurvivors } from '../../server/match/unite.js';
+import { settleBattleEnd } from '../../public/js/ui/gameLogic/phases.js';
 import { attachSimClients } from './simClient.js';
 
 // =====================================================================================================================
@@ -477,10 +478,24 @@ test('#235 联防 outcome: the SETTLE view carries every player\'s own charge (=
     assert.ok(view.uniteResult.helpers.length > 0 && !view.uniteResult.helpers.includes('p_0'), 'the helpers are the perfect players');
     // the box's number is the LP settlement really charged — never the leaker's own battle leaks (3)
     for (const ps of m.players.values()) assert.equal(lpBefore[ps.playerId] - ps.lp, view.uniteResult.losses[ps.playerId], `${ps.playerId}: losses = the LP settled`);
+    // every alive player's charge rides the view as roundLosses too (the battle-end banner, maintainer decision 2026-10-11):
+    // a helper whose leaker still paid sees the plain end (NORMAL), not 完美作战; the leaker its own charge
+    assert.deepEqual(view.roundLosses, losses, 'roundLosses = every alive player\'s charge');
+    const held = { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' };
+    const helperEnd = settleBattleEnd({ round: m.round, leaks: 0, cap: 10 }, view.roundLosses, view.uniteResult.helpers[0], held);
+    const leakerEnd = settleBattleEnd({ round: m.round, leaks: 3, cap: 10 }, view.roundLosses, 'p_0', { kind: 'miss', lost: 3, sfx: 'battleOverReduce' });
+    if (through > 0) {
+      assert.equal(helperEnd.kind, 'done', 'a helper: only the leaker lost LP → NORMAL');
+      assert.deepEqual(leakerEnd, { kind: 'miss', lost: losses.p_0, sfx: 'battleOverReduce' });
+    } else {
+      assert.equal(helperEnd.kind, 'perfect', 'the 联防 saved everything → 完美作战 for all');
+      assert.equal(leakerEnd.kind, 'perfect');
+    }
     checkInvariants(m);
     // the next phase carries no stale outcome
     h.run(() => m.phase !== PHASE.SETTLE || h.ended != null, { maxSteps: 5e6 });
     assert.equal(m.publicView().uniteResult, undefined, `no uniteResult in ${m.phase}`);
+    assert.equal(m.publicView().roundLosses, undefined, `no roundLosses in ${m.phase}`);
     m.dispose();
     return tickers;
   };
@@ -503,6 +518,25 @@ test('#235 no 联防 this round: the SETTLE view carries no uniteResult (the cli
   h.run(() => m.phase === PHASE.SETTLE || h.ended != null, { maxSteps: 5e6 });
   assert.equal(m.phase, PHASE.SETTLE);
   assert.equal(m.publicView().uniteResult, undefined);
+  // the round's charges still ride it: nobody leaked → every alive player 0 → 完美作战 for each
+  const losses = m.publicView().roundLosses;
+  assert.deepEqual(losses, Object.fromEntries(m.alivePlayers().map((ps) => [ps.playerId, 0])));
+  for (const id of Object.keys(losses)) assert.equal(settleBattleEnd({ round: m.round, leaks: 0, cap: 10 }, losses, id).kind, 'perfect');
+  checkInvariants(m);
+  m.dispose();
+});
+
+// maintainer decision 2026-10-11 (client code AutoChessBattleUIViewModel.GetBattleResultStatus): the battle end reads the
+// settled charges; in solo the result holds the viewer alone
+test('solo round: SETTLE carries the viewer\'s own charge in roundLosses (counted leaks → REDUCE)', () => {
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 6062, fake: true, script: () => ({ duration: 3, leaks: { p_0: 2 } }) }).start();
+  const m = h.m;
+  h.drive(() => m.phase === PHASE.SETTLE);
+  assert.equal(m.phase, PHASE.SETTLE);
+  const losses = m.publicView().roundLosses;
+  assert.deepEqual(Object.keys(losses), ['p_0']);
+  assert.equal(losses.p_0, 2);
+  assert.deepEqual(settleBattleEnd({ round: m.round, leaks: 2, cap: 10 }, losses, 'p_0'), { kind: 'miss', lost: 2, sfx: 'battleOverReduce' });
   checkInvariants(m);
   m.dispose();
 });

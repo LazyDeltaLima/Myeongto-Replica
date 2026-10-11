@@ -145,12 +145,18 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     // maintainer 2026-10-08: a board → bench return drops in silently; the board sounds again when the prep returns after a battle
     assert.match(app, /prevBoard\.has\(e\.uid\) && v\.onDeploy\) dropped = v\.onDeploy\(\);/);
     assert.match(app, /const backFromBattle = !prepPieces\.length && promoBase\.length > 0;/);
-    // maintainer 2026-10-08: back from a battle / a scouted board the lineup drops in again (board pieces with their sound)
-    assert.match(app, /else if \(backFromBattle\) \{ v\.onDeploy\?\.\(\); fx\.deploy\(v\); if \(e\.area === 'board'\) prepDeployed\(e, info\); \}/);
+    // maintainer 2026-10-08: back from a battle / a scouted board the lineup drops in again; the board pieces sound only
+    // after a real battle (maintainer decision 2026-10-11: a camera switch between boards is no SetCharacter)
+    assert.match(app, /else if \(backFromBattle\) \{ v\.onDeploy\?\.\(\); fx\.deploy\(v\); if \(e\.area === 'board' && backSounds\) prepDeployed\(e, info\); \}/);
+    assert.match(app, /const backSounds = backFromBattle && \(battleSincePrep \|\| SCOUT_DEPLOY_SFX\);\n\s+battleSincePrep = false;/);
+    assert.match(app, /if \(prepPieces\.length\) promoBase = prepPieces;\n\s+prepPieces = \[\];\n\s+if \(meta\.prep !== true\) battleSincePrep = true;/);
     // a bench → board move the direction wheel held on its tile drops in when the state shows it on the board
     assert.match(app, /pending\.has\(key\) && !moved && !splitLanded\(e, pending\.get\(key\)\.board, list\) && !\(e\.area === 'board' && !prevBoard\.has\(e\.uid\)\)/);
-    // a scouted prep board drops in (scoutSeen: only new / moved pieces on a re-entry), board pieces with their sound
-    assert.match(app, /if \(scoutSeen\.prev\?\.get\(id\) !== k\) \{\n\s+v\.onDeploy\?\.\(\); fx\.deploy\(v\);\n\s+if \(info\.y !== GEO\.HAND_ROW && info\.y !== GEO\.TEMP_ROW\) emit\('pieceDeploy'/);
+    // a scouted prep board drops in (scoutSeen: only new / moved pieces on a re-entry), silently — its deploy sound is
+    // behind SCOUT_DEPLOY_SFX, off (maintainer decision 2026-10-11, reverses 2026-10-08 「남의 보드도 소리 남」;
+    // docs/rules/audio.md 「배치 효과음」 되돌리기: set it true and change the assertion below)
+    assert.match(app, /if \(scoutSeen\.prev\?\.get\(id\) !== k\) \{\n\s+v\.onDeploy\?\.\(\); fx\.deploy\(v\);\n\s+if \(SCOUT_DEPLOY_SFX && info\.y !== GEO\.HAND_ROW && info\.y !== GEO\.TEMP_ROW\) emit\('pieceDeploy'/);
+    assert.match(app, /export const SCOUT_DEPLOY_SFX = false;/);
     // maintainer report 2026-10-07: round 1's first piece (nothing before it, a sync already ran) drops in — with its sound
     assert.match(app, /\(before\.length \|\| prepSynced\) && \(e\.area === 'hand'/);
     assert.match(app, /if \(prepPieces\.length === seen\.size\) prepSynced = true;/);

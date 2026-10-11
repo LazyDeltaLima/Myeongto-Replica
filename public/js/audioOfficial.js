@@ -225,23 +225,40 @@ const DOLL_SFX = Object.freeze({
 });
 
 /**
- * The own battle's end (round_result_dialog, ui/phaseArt.js BattleEndBanner) as its official state + sound
- * (`ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`, act1autochess custom SE — already in the manifest as sfx.ui.battleOver*):
- * counted leaks (LP lost) ⇒ 'miss' / BATTLEOVER_REDUCE; no leak at all ⇒ 'perfect' / BATTLEOVER_NOREDUCE; leaks that
- * cost no LP (uncounted) ⇒ 'done' / BATTLEOVER_NORMAL. The pairs are the client's (2026-10-10, 클라 코드
- * AutoChessBattleUIRoundResultDialog.OnRender RVA 0x1FECE70: isAllPrefect ⇒ NOREDUCE, else lostHp ≤ 0 ⇒ NORMAL, else REDUCE);
- * that its isAllPrefect is our `perfect` is [추정] (the caller that sets it was not read).
- * `lost` is the LP the leaks cost, min(cap, counted) as Match.settle charges them — never the raw leak count (user
- * report 2026-10-09: 17 leaks showed 目标生命值减少 17 while the LP fell by 10).
- * @param {{ perfect?: boolean, leaked?: Array<{ counted?: boolean }|null> }|null|undefined} pp that battle's perPlayer
+ * What one player's own normal battle costs at settlement outside a 联防: its counted leaks cut to the round's cap,
+ * min(cap, counted) as Match.settle charges them — never the raw leak count (user report 2026-10-09: 17 leaks showed
+ * 目标生命值减少 17 while the LP fell by 10). Uncounted leaks cost nothing.
+ * @param {{ leaked?: Array<{ counted?: boolean }|null> }|null|undefined} pp that battle's perPlayer
  * @param {number} [cap] lpCapPerRound (no cap known → the official 10)
+ * @returns {number}
+ */
+export function battleLossOf(pp, cap = 10) {
+  const counted = (Array.isArray(pp?.leaked) ? pp.leaked : []).filter((l) => l && l.counted !== false).length;
+  return Math.min(Number.isFinite(cap) && cap > 0 ? Math.trunc(cap) : 10, counted);
+}
+
+/**
+ * The own battle's end (round_result_dialog, ui/phaseArt.js BattleEndBanner) as its official state + sound
+ * (`ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`, act1autochess custom SE — already in the manifest as sfx.ui.battleOver*), from
+ * every player's LP loss in this result — the client's AutoChessBattleUIViewModel.GetBattleResultStatus (RVA 0x1FD2350)
+ * over the server's per-player hpCost list (maintainer decision 2026-10-11: match the client): every player lost 0 ⇒
+ * 'perfect' / BATTLEOVER_NOREDUCE (panel_perfect); the viewer lost 0 but another player lost LP ⇒ 'done' /
+ * BATTLEOVER_NORMAL (panel_miss, no number); the viewer lost LP ⇒ 'miss' / BATTLEOVER_REDUCE. The pairs are the
+ * client's AutoChessBattleUIRoundResultDialog.OnRender (RVA 0x1FECE70). Leak counts and `perfect` play no part: a solo
+ * battle with uncounted leaks only costs 0 ⇒ 'perfect'.
+ * Who is in the result: the viewer alone when its own battle ends in a solo match (`{ [me]: battleLossOf(pp) }`), every
+ * alive player's settlement charge at SETTLE (m.public.roundLosses) [추정: the client reads the dict from the server
+ * packet; ours holds every alive player of the match].
+ * @param {Record<string, number>|null|undefined} losses playerId → LP lost in this result
+ * @param {string|null|undefined} selfId the viewer's playerId
  * @returns {{ kind: 'perfect'|'miss'|'done', lost: number, sfx: 'battleOverNoReduce'|'battleOverReduce'|'battleOverNormal' }}
  */
-export function battleOverOf(pp, cap = 10) {
-  const counted = (Array.isArray(pp?.leaked) ? pp.leaked : []).filter((l) => l && l.counted !== false).length;
-  const lost = Math.min(Number.isFinite(cap) && cap > 0 ? Math.trunc(cap) : 10, counted);
+export function battleOverOf(losses, selfId) {
+  const n = (v) => Math.max(0, Math.trunc(Number(v) || 0));
+  const all = losses && typeof losses === 'object' ? Object.values(losses) : [];
+  const lost = selfId != null && losses && typeof losses === 'object' ? n(losses[selfId]) : 0;
   if (lost > 0) return { kind: 'miss', lost, sfx: 'battleOverReduce' };
-  if (pp?.perfect) return { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' };
+  if (all.every((v) => n(v) === 0)) return { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' };
   return { kind: 'done', lost: 0, sfx: 'battleOverNormal' };
 }
 

@@ -147,6 +147,9 @@ export class MatchViews {
       const ur = this.uniteResultView;
       v.uniteResult = { through: ur.through, helpers: ur.helpers.slice(), leakers: ur.leakers.slice(), losses: { ...ur.losses } };
     }
+    // SETTLE: every alive player's LP charge of this round, { playerId: n } (settle.js roundLossesView) — the battle-end
+    // banner and sound (ui/gameLogic/phases.js settleBattleEnd)
+    if (this.phase === PHASE.SETTLE && this.roundLossesView) v.roundLosses = { ...this.roundLossesView };
     return v;
   }
 

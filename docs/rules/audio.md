@@ -350,12 +350,22 @@
   곳이 없었다.
 - 재생: 내 일반 전투(COMBAT)의 결과가 오면(`screens/game.js onResult`, 전투 종료 배너와 같은 자리), 배너 그림(로컬 추출)이 없어도 소리는 낸다.
   결과가 안 온 라운드는 SETTLE에(`settleBattleEnd`), 라운드마다 한 번 — upstream SETTLE 효과음(`battleOverSfx`)은 지움(`upstream.md` 「0.2.0 병합」).
-- 어느 소리인지(`audioOfficial.js battleOverOf`): 셈하는 누수(LP 감소) → REDUCE, 누수 없음(완벽한 작전) → NOREDUCE, 셈하지 않는 누수만 → NORMAL.
-  짝은 클라 코드로 확인(2026-10-10): `AutoChessBattleUIRoundResultDialog.OnRender`(RVA 0x1FECE70) — `isAllPrefect`면 allPerfect 애니 + BATTLEOVER_NOREDUCE,
-  아니고 `lostHp ≤ 0`이면 perfect 애니 + NORMAL, `lostHp > 0`이면 miss 애니 + REDUCE(결과 창 최대 4초). `isAllPrefect`를 누가 어떻게 정하는지(누수 0인지,
-  아군 사망도 보는지)는 호출 쪽 미확인 [추정: 우리 `perfect`].
+- 어느 소리인지(`audioOfficial.js battleOverOf(losses, 나)`) — **관리자 결정 2026-10-11: 클라대로**. 입력은 「이번 결과에 든 플레이어별 LP 손실」:
+  모두 0 → NOREDUCE(완벽한 작전), 나는 0인데 다른 플레이어가 잃음 → NORMAL, 내가 잃음 → REDUCE. 누수 수·`perfect`는 보지 않는다.
+  근거: 클라 코드 `AutoChessBattleUIViewModel.GetBattleResultStatus`(RVA 0x1FD2350) — 서버 패킷의 플레이어별 `hpCost` 목록(`lastBattleResult`)을 돌며
+  `isAllPrefect` = 모두 `hpCost ≤ 0`, `lostHp` = 보고 있는 플레이어의 `hpCost`; 짝은 `AutoChessBattleUIRoundResultDialog.OnRender`(RVA 0x1FECE70) —
+  `isAllPrefect`면 allPerfect 애니 + BATTLEOVER_NOREDUCE, 아니고 `lostHp ≤ 0`이면 perfect 애니 + NORMAL, `lostHp > 0`이면 miss 애니 + REDUCE(결과 창 최대 4초).
+  - 솔로: 결과에 나만 — 내 손실 = `battleLossOf(내 perPlayer)` = min(라운드 상한, 셈하는 누수). 셈하지 않는 누수만이면 손실 0 → NOREDUCE(옛 규칙은 NORMAL
+    [추정]이었지만 sim이 `perfect`를 「셈하는 누수 없음」으로 다시 계산해 실제로는 이미 NOREDUCE였다).
+  - 협동: SETTLE에 서버가 `m.public.roundLosses` = 살아 있는 모든 플레이어의 이번 라운드 LP 차감(联防 재배분 포함, `settle.js`)을 보내고, 클라
+    `settleBattleEnd`가 그것으로 정한다 — 팀원만 잃으면 내 화면도 NORMAL(panel_miss 숫자 없음). 「결과에 든 플레이어」 = 살아 있는 모든 플레이어
+    [추정: 클라는 dict를 서버 패킷에서 받기만 해 범위를 알 수 없다 — 우리 매치에서 가장 단순한 읽기. 같은 판(联防)·짝 단위일 수도 있음].
+  - 되돌리기(옛 규칙, 2026-10-07~10-10): 셈하는 누수 > 0 → REDUCE, `pp.perfect` → NOREDUCE, 나머지 → NORMAL, 협동 SETTLE은 `uniteResult.losses[나]`만
+    (0이면 돕는 쪽도 완벽한 작전 — 관리자 기억 2026-10-08). 되돌리려면 `battleOverOf`를 내 값만 보게(`{ [나]: n }`만 넘김) — `screens/game.js`
+    SETTLE 호출에서 `pub.roundLosses` 대신 `{ [myId]: pub.uniteResult?.losses?.[myId] }`, 테스트 `test/ui/gameLogic.test.js` 「settleBattleEnd co-op」.
 - 联防·보스 라운드에는 내지 않는다(공식 결과 창이 다른 프리팹). `killBoss*`·`defenceStart`도 아직 연결 안 됨.
-- 테스트: `test/local-patch-battleover.test.js`.
+- 테스트: `test/local-patch-battleover.test.js`(세 상태·솔로), `test/ui/gameLogic.test.js` 「settleBattleEnd」, 실제 매치 경로
+  `test/match/playtest6-matchflow.test.js` 「#235」·「solo round」(联防 뒤 돕는 쪽 NORMAL, 联防 없음 모두 0, 솔로 내 손실).
 
 ## 배치 효과음 — 어떤 경로로 놓이든 (관리자 제보 2026-10-07)
 - 관리자 제보: 정비 단계 배치·구매·보상에서 배치음이 나지 않았다. 소환물도 배치음이 있고, 望 바둑돌은 수동 배치·재능 배치 모두 소리가 난다(관리자 확인).
@@ -371,14 +381,21 @@
   `pieceDeploy` 이벤트(`prepDeployed`) → `screens/game.js` → `audio.prepDeploy` → `playDeploySfx`(전투 'deploy'와 같은 함수: 전용 소리 → 공용, 공식 믹스).
   서버가 넣어 주는 보상(정예화 보상·결산 보상)도 상태 비교라 잡힌다. 경우별:
   - 소리 남: 구매·보상으로 벤치 도착, 벤치→보드, 소환물(전용 또는 b_char_tokenset), **전투 뒤 정비로 돌아올 때 보드의 말**(`backFromBattle` — 관리자 결정
-    2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」), **협동 정비에서 남의 보드를 보러 갈 때 그 보드의 말**(관리자 결정 2026-10-08:
-    남의 보드도 소리 남)과 내 보드로 돌아올 때 [추정: 돌아올 때도 같은 규칙]. 벤치 말은 낙하만.
+    2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」). 벤치 말은 낙하만.
   - 소리 없음: 보드→벤치 복귀(낙하는 함 — 관리자 제보 2026-10-08), 판매, 페이지 로드·재접속
-    첫 동기화, 전투 뒤 벤치 복원, 3장 합성 엘리트(합성 연출·`merge` 소리), 장비, 남의 보드(정탐은 전투 화면).
+    첫 동기화, 전투 뒤 벤치 복원, 3장 합성 엘리트(합성 연출·`merge` 소리), 장비, **협동 정비에서 남의 보드를 보러 갈 때 그 보드의 말과 내 보드로 돌아올 때**
+    (낙하는 함) — **관리자 결정 2026-10-11 「코드대로」(확인 항목)**: 클라는 배치음을 `SetCharacter`(말이 만들어지거나 옮겨질 때)에서만 낸다
+    (클라 코드 `AutoChessDummyManager._PlayAudioWhenCharacterPlaced` RVA 0x829E40, 호출자는 만들기 대기열·`_DoCreateOnTile`·`CreateDeadLikeDummy`뿐) —
+    카메라가 보드를 바꾸는 쪽은 `SetCharacter`를 부르지 않는다. 관리자가 공식 협동 영상(보드 전환 순간에 배치음이 나는지)으로 나중에 확정한다.
+    구현: `render/app.js SCOUT_DEPLOY_SFX = false` — 정탐 보드 말의 `pieceDeploy`를 내지 않고, 정탐 뒤 내 정비로 돌아올 때는 `battleSincePrep`
+    (그 사이 실제 전투에 들어갔는지)가 거짓이면 낙하만.
+  - 되돌리기(옛 관리자 결정 2026-10-08 「남의 보드도 소리 남」, 돌아올 때 [추정: 같은 규칙]): `render/app.js`의 `SCOUT_DEPLOY_SFX`를 `true`로 —
+    정탐 보드의 보드 말(벤치 제외)이 처음 보일 때·옮겨졌을 때와 정탐 뒤 복귀 때 다시 소리. 테스트 `test/render/local-deploy-drop.test.js`의
+    `SCOUT_DEPLOY_SFX = false` 단언을 같이 바꾼다.
   - 낙하(관리자 제보 2026-10-08): 전투 뒤·정탐 뒤 내 정비로
     돌아올 때 말 전부(벤치 포함 [추정: 클라이언트 정비 말은 칸·슬롯에 새로 만드는 더미]), 정탐한 보드(`enterBattle({prep})` → `battleView`)의 말 전부가
     떨어진다. 같은 보드에 다시 들어오면(팀원이 말을 옮겨 m.field가 새로 옴, `scoutSeen`) 새로 왔거나 옮긴 말만. 실제 협동 판(봇 3, 2라운드 — 팀원 줄 클릭 →
-    「보러 가기」 → 내 줄)에서 ROUND_START:2·정탐·복귀 모두 onDeploy + b_char_set, 낙하 확인.
+    「보러 가기」 → 내 줄)에서 ROUND_START:2·정탐·복귀 모두 onDeploy + b_char_set, 낙하 확인(2026-10-08 기준 — 2026-10-11부터 정탐·복귀는 낙하만, 위).
   - 벤치→보드를 실제 UI로(끌어 놓기 → 방향 휠 → 확정) 하면 소리·낙하가 없었다(관리자 제보 2026-10-08):
     휠의 `holdPiece`가 그 칸을 뷰의 집(`_home`)으로 만들어 `moved`가 false라, 놓은 지 1.3초(`DROP_PENDING_MS`) 안에 온 상태는 「서버 적용 전」 분기로
     빠졌다(`actions.move`를 직접 부르는 확인은 이 경로를 타지 않는다). 상태에 보드로 새로 나타난 말은 그 분기에서 뺀다. 확인: 실제 마우스 끌기 + 방향키로

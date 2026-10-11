@@ -311,6 +311,7 @@ export class MatchPhases {
     this.watchers.clear();
     this.unitePlan = null;
     this.uniteResultView = null;
+    this.roundLossesView = null;
     this.sp = null;
     this.wave = null;
     this.bossWaves = null;

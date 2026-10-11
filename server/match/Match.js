@@ -394,6 +394,8 @@ export class Match {
     this.unitePlan = null;
     /** 联防 outcome for the SETTLE view: { through, helpers, leakers, losses } (settle()), null when no 联防 resolved */
     this.uniteResultView = null;
+    /** every alive player's LP charge of the round for the SETTLE view: { playerId: n } (settle()), null outside it */
+    this.roundLossesView = null;
     /** server-run 联防: the leakers' counts last published (_uniteTick) */
     this._uniteLeftKey = null;
     /** 联防: { plan, bounds } — per leaker the most survivors settlement can bill (_uniteLeft's clamp) */

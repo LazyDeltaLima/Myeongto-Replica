@@ -6,6 +6,7 @@ import { bossLevelSeconds } from '../matchStatus.js';
 import { clamp, int, isObj, sortedPlayers } from './shared.js';
 import { normalizeSp } from './draft.js';
 import { t } from '../../../../shared/i18n.js';
+import { battleOverOf } from '../../audioOfficial.js';
 
 
 // ---- phases ----------------------------------------------------------------------------------------
@@ -80,11 +81,12 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
 // screens/game.js shows the official round_result_dialog (ui/phaseArt.js BattleEndBanner) and plays its BATTLEOVER sound
 // (audioOfficial.js battleOverOf) when the own normal battle's result comes in — in a solo match. In co-op with a teammate
 // still in it is held until the round's battles are over (`holdsBattleEnd`): a 联防 may follow, and the official game then
-// shows no banner — neither the leaker's nor the perfect players' — until the 联防 is over, then the LP it left (目标生命值
-// 减少 N) or, nothing charged, 完美作战 (the maintainer's recall, 2026-10-08); the client cannot tell at its own battle's end
-// whether a teammate will leak — and the official game waits too: a co-op round without 联防 shows 完美作战 only once the
-// teammates' battles are over (the maintainer, 2026-10-08), i.e. at SETTLE. Upstream's
-// second announcement at SETTLE
+// shows no banner — neither the leaker's nor the perfect players' — until the 联防 is over (the maintainer's recall,
+// 2026-10-08); the client cannot tell at its own battle's end whether a teammate will leak — and the official game waits
+// too: a co-op round without 联防 announces only once the teammates' battles are over (the maintainer, 2026-10-08), i.e.
+// at SETTLE. What it shows is every player's LP charge of the round (m.public.roundLosses, maintainer decision 2026-10-11:
+// the client's GetBattleResultStatus): the viewer charged → 目标生命值减少 N, nobody charged → 完美作战, only a teammate
+// charged → panel_miss without a number (BATTLEOVER_NORMAL). Upstream's second announcement at SETTLE
 // (GitHub #235, PR #112: ResultDialog + its own sound mapping) is gone; what is left of it here is the fallback for a
 // round whose own result never came in — server-run combat (SP_COMBAT=server), a reconnect, a battle the client did not
 // run — announced at SETTLE from what the round kept (`settleBattleEnd`), and the plain box (`roundResultBox`) a client
@@ -124,24 +126,25 @@ export function holdsBattleEnd(over, pub, selfId) {
 
 /**
  * The own battle's end announced at SETTLE (a held result, and the fallback above), in audioOfficial.js battleOverOf's
- * shape. A 联防 resolved (`uniteLoss` = m.public.uniteResult.losses[viewer]): its charge decides — a loss → 'miss'
- * (BATTLEOVER_REDUCE), none → 'perfect' (NOREDUCE): the leaker the helpers saved and the helpers see 完美作战 (upstream's
- * rule; the maintainer's recall 2026-10-08). Else the result held at the own battle's end (`held`, battleOverOf as is); else
- * the round's kept count (`ownRoundLoss(cost)`: 0 → 'perfect' [추정: it cannot tell uncounted leaks, battleOverOf's
- * 'done', from a perfect battle]).
+ * shape. The server's charge of this round (`losses` = m.public.roundLosses, every alive player's LP charge — a 联防's
+ * redistribution included) decides when it holds the viewer: battleOverOf over all of them — the viewer charged →
+ * 'miss' (REDUCE), nobody charged → 'perfect' (NOREDUCE), only another player charged → 'done' (NORMAL; maintainer
+ * decision 2026-10-11, the client's GetBattleResultStatus). Else the result held at the own battle's end (`held`, as
+ * is); else the round's kept count (`ownRoundLoss(cost)`) as the viewer's only loss.
  * @param {{ leaks?: number, cap?: number } | null | undefined} cost
- * @param {number|null} [uniteLoss]
+ * @param {Record<string, number> | null} [losses] m.public.roundLosses
+ * @param {string | null} [selfId] the viewer's playerId
  * @param {{ kind: string, lost: number, sfx: string } | null} [held]
  * @returns {{ kind: string, lost: number, sfx: string } | null} null: no battle seen
  */
-export function settleBattleEnd(cost, uniteLoss = null, held = null) {
+export function settleBattleEnd(cost, losses = null, selfId = null, held = null) {
   if (!cost && !held) return null; // this round's battle never seen (not in the round, a reconnect landing on SETTLE)
-  // `uniteLoss == null` means "no 联防 figure" (Number(null) would read as 0)
-  const authority = uniteLoss == null ? NaN : Number(uniteLoss);
-  if (!Number.isFinite(authority) && held) return held;
-  const lost = Number.isFinite(authority) ? Math.max(0, Math.trunc(authority)) : ownRoundLoss(cost);
+  // the server's figures only when they name the viewer (`losses[me] == null` = no figure: Number(null) would read as 0)
+  if (isObj(losses) && selfId != null && losses[selfId] != null && Number.isFinite(Number(losses[selfId]))) return battleOverOf(losses, selfId);
+  if (held) return held;
+  const lost = ownRoundLoss(cost);
   if (lost == null) return null;
-  return lost > 0 ? { kind: 'miss', lost, sfx: 'battleOverReduce' } : { kind: 'perfect', lost: 0, sfx: 'battleOverNoReduce' };
+  return battleOverOf({ self: lost }, 'self');
 }
 
 /**
