@@ -668,10 +668,8 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 
 ## 누수 때 위 HP 숫자 (2026-10-11, upstream #479, 관리자 결정 「위 방향대로 고쳐」)
 - 전에는 적이 파란 문에 들어가면 위 HP 숫자가 바로 `lp − 대기 손실`(빨간 글자)로 내려가고 옆에 「−N」이 붙었다(user playtest #3 item 2).
-  공식 클라는 숫자를 깎지 않는다 → 숫자는 정산된 LP 그대로, 정산된 `m.private`가 오면 새 LP(`ui/hud.js liveLp` `shown` = lp,
+  공식 클라는 숫자를 깎지 않는다 → 숫자는 정산된 LP 그대로, 「−N」만 늘어나고, 정산된 `m.private`가 오면 새 LP(`ui/hud.js liveLp` `shown` = lp,
   `LpTower`는 `value`를 그대로, 빨간 숫자 CSS 삭제). 팀 칸(`teamPanel.js`)도 같은 `LpTower`라 같이 바뀐다.
-- 「−N」은 联防(누수한 플레이어, `min(10, 남은 적)`, 「联防中」)과 보스전에만. **자기 전투 중에는 없음**(관리자 결정 2026-10-11 「공식대로」,
-  playtest #3 item 2의 실시간 「−N」을 대체): `liveLp`의 `LEAK_PHASES` = UNITE만, `rowLp`도 UNITE만. 서버 `pendingLp`는 그대로 보낸다(联防 값·자료).
 - 근거(EN 클라 역어셈, `research/2026-10-11-upstream-023/decompile-render-ui.md` 「#479」 + 이번 확인):
   `AutoChessHUDStageInfoModel.UpdateData`(0x2024B50)는 큰 숫자에 `ScenePlayerData.hp`(보스전은 `bossRoundModel.playerTotalHp`)를,
   「−x」에 `AutoChessBattleStatusDataModel.lostHpDisplay`(0x84AB10 = 지금 라운드 상태의 값)를 넣고, 보스전이 아니면 `actData.<+0xF0>.<+0x2C>`
@@ -679,9 +677,9 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 보스전(최종 공세·은밀한 핵심): 큰 숫자는 그 보스 단계를 처음 본 때의 합산 LP로 고정, 「−N」 = 그 뒤로 줄어든 팀 LP(누수·초과 시간 감소 모두,
   상한 없음 — 클라 `BossBattleRoundStatus.lostHpDisplay`(0x850590) = `playerTotalHp − battleTeamHp`, 보스전은 상한 분기를 건너뜀). `ui/hud.js bossLp`.
   전투 중 재접속하면 그때 본 값부터 [ASSUMED]. 툴팁 「全队目标生命值 {lp}：本场战斗已损失 {pending} 点，战斗结束后扣除」.
-- 자기 전투 근거: 클라 `SelfBattleRoundStatus.lostHpDisplay`(0x8576B0)는 늘 0이라 공식은 자기 전투 동안 「−x」를 띄우지 않고,
-  联防(`HelpBattleRoundStatus.lostHpDisplay`(0x856860) = `selfEnemyEscapedCntInHelpBattleState`, 상한 적용)과 보스전에서만 띄운다.
-  우리 联防 「−N」의 셈(남은 적 `uniteLeft`)은 전과 같다 — 공식 셈(联防에서 다시 샌 수)과의 차이는 `sim.md`의 联防 정산 규칙을 따른다.
+- **공식과 다르게 남긴 것(관리자 결정 2026-10-11, 「공식대로」 삭제를 되돌림)**: 자기 전투(일반 라운드 COMBAT) 중 「−N」. 클라 `SelfBattleRoundStatus.lostHpDisplay`(0x8576B0)는
+  늘 0이라 공식은 자기 전투 동안 「−x」를 아예 띄우지 않고, 联防(`HelpBattleRoundStatus.lostHpDisplay`(0x856860) =
+  `selfEnemyEscapedCntInHelpBattleState`, 상한 적용)과 보스전에서만 띄운다. 우리 「−N」은 user playtest #3 item 2 요청이라 그대로 둠(한때 공식대로 지웠다가 관리자 요청으로 복원).
 - 확인: `test/ui/playtest3.test.js`(liveLp·LpTower·bossLp), `test/ui/playtest6-unite.test.js` [화면 미확인].
 
 ## upstream 0.2.4 이식 — UI (2026-10-11)

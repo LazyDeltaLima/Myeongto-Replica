@@ -77,12 +77,12 @@ describe('#7 the 联防 leak counter (HUD)', () => {
     assert.equal(rowLpTip({ lp: 30, pending: 0, unite: true, left: 0 }), null);
   });
 
-  test('team rows: a teammate\'s m.public players[].uniteLeft (uncapped) next to the −pendingLp tick; the own row the top bar\'s value', () => {
+  test('team rows: a teammate\'s m.public players[].uniteLeft (uncapped) next to lp − pendingLp; the own row the top bar\'s value', () => {
     const pub = { phase: PHASE.UNITE };
     assert.deepEqual(rowLp({ lp: 30, pendingLp: 10, uniteLeft: 13 }, pub), { lp: 30, pending: 10, unite: true, left: 13 });
     assert.deepEqual(rowLp({ lp: 30, uniteLeft: 0 }, pub), { lp: 30, pending: 0, unite: true, left: 0 }, 'all struck down: ×0');
     assert.deepEqual(rowLp({ lp: 30 }, pub), { lp: 30, pending: 0, unite: false, left: null }, 'a helper');
-    assert.deepEqual(rowLp({ lp: 30, pendingLp: 2, uniteLeft: 2 }, { phase: PHASE.COMBAT }), { lp: 30, pending: 0, unite: false, left: null }, 'COMBAT: no tag, no −N');
+    assert.deepEqual(rowLp({ lp: 30, pendingLp: 2, uniteLeft: 2 }, { phase: PHASE.COMBAT }), { lp: 30, pending: 2, unite: false, left: null }, 'COMBAT: no tag');
     assert.deepEqual(rowLp({ lp: 30, uniteLeft: 12 }, pub, { lp: 30, pending: 10, unite: true, left: 11 }), { lp: 30, pending: 10, unite: true, left: 11 });
   });
 
@@ -98,7 +98,7 @@ describe('#7 the 联防 leak counter (HUD)', () => {
     assert.deepEqual(rowLp(b, pub, null, { uniteLocal: {} }), { lp: 30, pending: 0, unite: true, left: 0 }, 'absent from the replica = all struck down');
     assert.deepEqual(rowLp(b, pub, null, { uniteLocal: null }), { lp: 30, pending: 10, unite: true, left: 13 }, 'no replica on screen: m.public');
     assert.deepEqual(rowLp({ playerId: 'me', lp: 30 }, pub, null, { uniteLocal: local }), { lp: 30, pending: 0, unite: false, left: null }, 'a helper row gets no tag');
-    assert.deepEqual(rowLp(b, { ...pub, phase: PHASE.COMBAT }, null, { uniteLocal: local }), { lp: 30, pending: 0, unite: false, left: null }, 'COMBAT ignores it');
+    assert.deepEqual(rowLp(b, { ...pub, phase: PHASE.COMBAT }, null, { uniteLocal: local }), { lp: 30, pending: 10, unite: false, left: null }, 'COMBAT ignores it');
     const own = { lp: 30, pending: 10, unite: true, left: 11 };
     assert.deepEqual(rowLp(b, pub, own, { uniteLocal: { b: 2 } }), own, 'the own row keeps the top bar\'s value');
     // wiring: the game screen hands the runner's per-leaker counts to the team panel, which passes them to rowLp
