@@ -387,6 +387,18 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   전에는 해제 직후 첫 타가 다음 주기 전에 들어가면 추가 진피해가 빠졌다. 연속 타격이 같은 처리에 다시 들어오기 전에 보너스를 먼저 소모한다.
   golden 변화 없음. 테스트 `test/content/family-crest-timing.test.js`(PR), `items.test.js`.
 
+### 관리자 결정 2026-10-11 (D1 공식 데이터 갱신 · D2 전략 차례 50 s · D8 공용 카드 풀)
+- **공식 표 갱신 + 乌尔比安 모듈 「前路」 CRU-Y** (upstream `2e122873`의 乌尔比安 키트 부분, 손 이식): `node tools/build-data.mjs --refresh`로 zh_CN 표를
+  2026-10-05 판에서 2026-10-11 판(Kengxxiao/ArknightsGameData master)으로 바꿨다. `data/*.json`에서 바뀐 것은 `chess_char_5_05_b` 모듈 `uniequip_003_ulpia`와
+  그 모듈의 从不混淆的方向(소환물) 변형뿐이다. battle_equip_table: 단계 1 = 최대 HP +360·공격력 +100, 특성 `damage_scale` 1.1(「对被阻挡的敌人伤害提升至110%」).
+  키트: 그의 모든 피해(스킬·닻 포함)가 **어느 아군에게든** 저지된 적에게 ×1.1(`hit` 훅 `dmg.mul`). 단계 2·3의 재능 변경(다른 深海猎人의 처치도 층,
+  9층에서 저지 +1, `add_block_cnt_stack_cnt`·`block_cnt`)도 키트에 넣었지만, 모드의 5단계 정예는 모듈 단계 1이라 재능 판이 그대로여서 작동하지 않는다
+  (upstream과 같음). 클레멘티아(오퍼레이터)는 `LOCAL_DIY_PICKS`에 없어 `data/backups.json`에 들어가지 않았다(선발 추가는 관리자 결정 대기).
+  표의 다른 변화(새 오퍼레이터·적·이벤트, 阿兰娜 재배치 80→70, 行箸 특성 문구, `sortIndex`·`sortId`)는 우리 데이터에 닿지 않는다. 모듈 이름 한국어는
+  KR 클라에 아직 없어 우리 번역 「'앞길'」(`public/i18n/ko/data.json`), 모듈 아이콘 `cru-y`는 `data/assets.json`에 추가.
+  golden: roster-019(로스터 변형 순서상 그 판의 乌尔比安이 CRU-Y)·roster-038(같은 오퍼레이터의 모듈 변형이 한 칸씩 밀림) — upstream과 같은 두 사례.
+  테스트 `test/content/ulpia-cruy-023.test.js`.
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).

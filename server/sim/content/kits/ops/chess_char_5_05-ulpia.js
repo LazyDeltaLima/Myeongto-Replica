@@ -19,7 +19,7 @@ export default {
   // Knocked out while moved, he lies and redeploys on his deployment tile (Unit.downAtHome — the owner's decision of
   // 2026-10-07, a deliberate deviation from PRTS's "where it fell", DESIGN §25.17.3).
   // T1 本性的坚守: heal 100 (160 below 50 %) on every hit taken. T2 血脉的哺养: per kill +120 max HP / +30 ATK (×9),
-  // other Abyssal Hunters +50 %. Module (elite): healing received ×1.2.
+  // other Abyssal Hunters +50 %. Modules (elite): CRU-X healing received ×1.2; CRU-Y damage to a blocked enemy ×1.1.
   // S1 必须促成的接触 (instant): the anchor lands on the best enemy of the skill range (beyond his own range, unblocked
   // first) and drags up to max_target enemies around it (RING1) in front of him (中等力度), atk_scale × ATK phys each;
   // a 捕网 — ground enemies only ([ASSUMED] like 雪雉's "不对空" net). S3's anchor blast has no such note: it hits air
@@ -144,8 +144,16 @@ export default {
         } },
         { install(battle, unit) { // 血脉的哺养
           battle.on('kill', (c) => {
-            if (c.killer !== unit || c.victim.side !== 'enemy' || !on(unit)) return;
+            // CRU-Y stages 2/3 (battle_equip_table uniequip_003_ulpia TALENT_DATA_ONLY: add_block_cnt_stack_cnt 9,
+            // block_cnt 1): kills credited to any 深海猎人 count while he is on the field, and the 9th stack gives block +1.
+            // The mode's tier-5 elite uses module stage 1, whose talent is unchanged — inert unless the blackboard has it
+            const threshold = num(t1.add_block_cnt_stack_cnt);
+            const hunterKill = threshold > 0 && isOp(c.killer) && isAbyssal(c.killer);
+            if ((c.killer !== unit && !hunterKill) || c.victim.side !== 'enemy' || !on(unit)) return;
             battle.addBuff(unit, { key: 'ulpia:blood', refresh: 'stack', maxStacks: Math.max(1, num(t1.max_stack_cnt, 9)), mods: mods({ hpFlat: num(t1.max_hp), atkFlat: num(t1.atk) }) });
+            if (threshold > 0 && unit.findBuff('ulpia:blood')?.stacks >= threshold) {
+              battle.addBuff(unit, { key: 'ulpia:bloodBlock', mods: { blockCnt: num(t1.block_cnt) }, tags: ['talent'] });
+            }
             const share = mods({ hpFlat: num(t1['ulpia_t_1[abyssal].max_hp']), atkFlat: num(t1['ulpia_t_1[abyssal].atk']) });
             if (!Object.keys(share).length) return;
             for (const a of battle.allies()) {
@@ -155,6 +163,12 @@ export default {
         } },
       ],
       install(battle, unit) {
+        // CRU-Y 「前路」 (uniequip_003_ulpia trait damage_scale 1.1, "对被阻挡的敌人伤害提升至110%"): every hit of his on an enemy
+        // blocked by any ally — skill and anchor hits too (upstream 2e122873)
+        const blockedScale = num(tb.damage_scale, 1);
+        if (blockedScale !== 1) battle.on('hit', (c) => {
+          if (c.source === unit && c.target?.side === 'enemy' && c.target.blockedBy) c.dmg.mul *= blockedScale;
+        }, { owner: unit });
         if (num(tb.heal_scale) > 0) permBuff(battle, unit, 'ulpia:module', { healingTakenMul: num(tb.heal_scale) });
       },
     };
