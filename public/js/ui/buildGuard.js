@@ -24,6 +24,9 @@ export const BUILD_CHECK_MS = 60_000;
 export const BUILD_FETCH_TIMEOUT_MS = 5_000;
 /** How many checks in a row must report the same NEW build before the page acts on it. */
 export const BUILD_CONFIRMATIONS = 2;
+/** burst(): the extra checks right after a known restart, this far apart — the new server is already up when it says welcome. */
+export const BURST_CHECK_MS = 3_000;
+export const BURST_CHECKS = 4;
 
 /**
  * Fetch `/healthz` and return its `build` tag (null when unavailable, not reported, or too slow). Never throws.
@@ -69,7 +72,7 @@ export async function checkBuildOnce(o = {}) {
  * @param {{ fetchFn?: Function, reload?: Function, inMatch?: () => boolean, intervalMs?: number, timeoutMs?: number,
  *           setInterval?: Function, clearInterval?: Function, setTimeout?: Function, clearTimeout?: Function,
  *           onStale?: (info: { build: string, known: string|null, waiting: boolean }) => void }} [o]
- * @returns {{ stop: () => void, check: () => Promise<object>, stale: () => boolean, known: () => string|null }}
+ * @returns {{ stop: () => void, check: () => Promise<object>, burst: (n?: number) => Promise<void>, stale: () => boolean, known: () => string|null }}
  */
 export function startBuildGuard(o = {}) {
   const fetchFn = o.fetchFn || ((url, init) => globalThis.fetch(url, init));
@@ -115,9 +118,20 @@ export function startBuildGuard(o = {}) {
   const tick = () => { check().catch(() => {}); };
   check().catch(() => {});
   timer = setIv(tick, intervalMs);
+  // A restart the page heard of (ui/restartNotice.js onRestarted) is over: check now and a few times BURST_CHECK_MS apart
+  // instead of waiting up to two intervals. The same rules hold — two agreeing checks, never on 'unknown', a match waits.
+  const setT = o.setTimeout || ((fn, ms) => globalThis.setTimeout(fn, ms));
+  const burst = async (n = BURST_CHECKS) => {
+    for (let i = 0; i < n && !stopped && !stale; i++) {
+      if (i > 0) await new Promise((r) => setT(r, BURST_CHECK_MS));
+      if (stopped || stale) break;
+      await check().catch(() => {});
+    }
+  };
   return {
     stop: () => { stopped = true; stopTimer(); },
     check,
+    burst,
     stale: () => stale,
     known: () => known,
   };

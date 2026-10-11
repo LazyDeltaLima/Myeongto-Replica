@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1118 of 1333 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1119 of 1334 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1208,6 +1208,7 @@
   "服务器重启倒计时": "서버 재시작까지",
   "进行中的对局将会结束": "진행 중인 판은 종료됩니다",
   "服务器正在重启": "서버를 재시작하는 중입니다",
+  "重启完成后页面将自动刷新": "재시작이 끝나면 페이지가 자동으로 새로고침됩니다",
   "统计数据": "통계",
   "统计": "통계",
   "总览": "개요",

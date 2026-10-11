@@ -94,6 +94,8 @@ let matchAt = 0;
 let restoreTimer = null;
 let joinTimer = null;
 let joinInFlight = false;
+/** @type {ReturnType<typeof startBuildGuard> | null} ui/buildGuard.js, started once the page is up */
+let buildGuard = null;
 
 function clearPendingJoin() {
   store.patch('ui', { pendingJoin: null });
@@ -383,7 +385,7 @@ async function boot() {
   installStatsRecorder(store); // follows the match on screen, so a 放弃模拟 can be recorded (ui/stats.js)
   installLoadoutSync({ net });
   installChat();
-  installRestartNotice({ net });
+  installRestartNotice({ net, onRestarted: () => { buildGuard?.burst().catch(() => {}); } });
   installFeedback({ net });
   installResources();
   installOwnershipSync({ net });
@@ -418,8 +420,9 @@ async function boot() {
   // (ui/buildGuard.js): watch `/healthz.build`. Outside a match the page reloads itself; during a match the guard says
   // so instead (the connection banner offers 刷新页面) and reloads once the match — settlement screen included — is over,
   // so a running game is never thrown away.
+  // A restart the page heard of is over (ui/restartNotice.js onRestarted): the guard checks at once, not within two minutes.
   try {
-    startBuildGuard({
+    buildGuard = startBuildGuard({
       inMatch: () => selectRoute(store.get()) === 'game',
       onStale: ({ waiting }) => { if (waiting) store.patch('ui', { buildStale: true }); },
     });

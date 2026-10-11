@@ -6,7 +6,7 @@
 // in a row agree, and a match on screen is never thrown away — the guard waits for it (and its settlement) to end.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkBuildOnce, startBuildGuard, fetchBuild, BUILD_CHECK_MS, BUILD_FETCH_TIMEOUT_MS } from '../../public/js/ui/buildGuard.js';
+import { checkBuildOnce, startBuildGuard, fetchBuild, BUILD_CHECK_MS, BUILD_FETCH_TIMEOUT_MS, BURST_CHECK_MS, BURST_CHECKS } from '../../public/js/ui/buildGuard.js';
 
 /** A fake fetch answering /healthz with `build` (null → the frame carries none). */
 const fetchOf = (build) => async (url, init) => {
@@ -135,4 +135,54 @@ test('startBuildGuard: stop() ends the watch', async () => {
   assert.equal(m.calls.reload, 0);
   assert.equal(m.guard.stale(), false);
   assert.equal(BUILD_CHECK_MS, 60_000);
+});
+
+/** A guard whose interval never fires by itself and whose burst waits are recorded and run at once. */
+function bursty(o = {}) {
+  const calls = { reload: 0, fetches: 0, waits: [] };
+  let build = 'aaa';
+  let busy = !!o.inMatch;
+  const guard = startBuildGuard({
+    fetchFn: async () => { calls.fetches++; return build ? { ok: true, status: 200, json: async () => ({ build }) } : { ok: false, status: 502 }; },
+    reload: () => { calls.reload++; },
+    inMatch: () => busy,
+    setInterval: () => 1,
+    clearInterval: () => {},
+    // the burst's BURST_CHECK_MS waits run at once; the fetch timeout stays a real (cleared) timer
+    setTimeout: (fn, ms) => (ms === BURST_CHECK_MS ? (calls.waits.push(ms), globalThis.setTimeout(fn, 0)) : globalThis.setTimeout(fn, ms)),
+    clearTimeout: (h) => globalThis.clearTimeout(h),
+  });
+  return { calls, guard, setBuild: (b) => { build = b; }, setInMatch: (b) => { busy = b; } };
+}
+
+test('startBuildGuard: burst() after a known restart reloads within two quick checks, not two intervals', async () => {
+  const m = bursty();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(m.guard.known(), 'aaa');
+  m.setBuild('bbb');
+  await m.guard.burst();
+  assert.equal(m.calls.reload, 1, 'the same new build twice in the burst → reload');
+  assert.deepEqual(m.calls.waits, [BURST_CHECK_MS], 'stopped after the second check');
+  assert.equal(BURST_CHECK_MS, 3_000);
+});
+
+test('startBuildGuard: burst() keeps the guard\'s rules — the same build or an unreadable /healthz never reloads, a match waits', async () => {
+  const same = bursty();
+  await new Promise((r) => setTimeout(r, 0));
+  await same.guard.burst();
+  assert.equal(same.calls.reload, 0, 'a restart into the same build: nothing to do');
+  assert.equal(same.calls.waits.length, BURST_CHECKS - 1, 'it gives up after BURST_CHECKS checks');
+
+  const down = bursty();
+  await new Promise((r) => setTimeout(r, 0));
+  down.setBuild(null);
+  await down.guard.burst();
+  assert.equal(down.calls.reload, 0, 'unknown is never a reload');
+
+  const playing = bursty({ inMatch: true });
+  await new Promise((r) => setTimeout(r, 0));
+  playing.setBuild('bbb');
+  await playing.guard.burst();
+  assert.equal(playing.calls.reload, 0, 'a match on screen waits');
+  assert.equal(playing.guard.stale(), true);
 });

@@ -94,6 +94,27 @@ describe('restart countdown: pieces', () => {
     welcome({});
   });
 
+  test('the client: a welcome without the countdown a page knew of means the restart is over (onRestarted, once)', () => {
+    const on = new Map();
+    let restarted = 0;
+    installRestartNotice({ net: { on: (type, fn) => on.set(type, fn) }, notify: () => {}, onRestarted: () => { restarted++; } });
+    const welcome = (m) => on.get('welcome')(m);
+    const push = (m) => on.get('server.restart')(m);
+    welcome({});
+    assert.equal(restarted, 0, 'no countdown known');
+    push({ inMs: 60_000, mark: 1 });
+    welcome({ restart: { inMs: 30_000 } });
+    assert.equal(restarted, 0, 'a reconnect to the old server mid-countdown');
+    welcome({});
+    assert.equal(restarted, 1, 'the new server: restart over');
+    welcome({});
+    assert.equal(restarted, 1, 'only once');
+    push({ inMs: 60_000 });
+    push({ inMs: null });
+    welcome({});
+    assert.equal(restarted, 1, 'a cancelled countdown is no restart');
+  });
+
   test('room.start refusal: the last 5 minutes by default, SP_RESTART_NO_START_MIN overrides (0 = never)', () => {
     const network = { conns: new Map(), reply: () => true };
     assert.equal(RESTART_FINAL_MIN, 5);

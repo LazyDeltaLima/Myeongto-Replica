@@ -1203,6 +1203,7 @@
   "服务器重启倒计时": "Server restart in",
   "进行中的对局将会结束": "Matches in progress will end",
   "服务器正在重启": "The server is restarting",
+  "重启完成后页面将自动刷新": "The page reloads by itself once the server is back",
   "统计数据": "Statistics",
   "统计": "Stats",
   "总览": "Overview",

@@ -5,6 +5,8 @@
 // matches — no toasts there (maintainer 2026-10-09: toasts only, 「5분부터는 띠도 표시」, 「5분부터의 토스트는 제거해」).
 // ui.restartAt (this page's clock) remembers that a countdown runs — a resumed page that already knew it gets no second
 // toast — drives the banner, and lets a cancellation ({ inMs: null }) say so to the pages that had heard of it.
+// A page that knew of a countdown and then gets a welcome without one is talking to the new server: the restart is over,
+// and onRestarted (main.js: the build guard's burst) checks for the new build at once instead of within two minutes.
 
 import { store } from '../store.js';
 import { toast } from './toasts.js';
@@ -23,8 +25,11 @@ export function restartClock(restartAt, now = Date.now()) {
 
 const restartAtOf = (inMs) => (Number.isFinite(inMs) && inMs >= 0 ? Date.now() + inMs : null);
 
-/** @param {{ net: { on: Function }, notify?: typeof toast }} deps notify: the toast (tests pass their own) */
-export function installRestartNotice({ net, notify = toast }) {
+/**
+ * @param {{ net: { on: Function }, notify?: typeof toast, onRestarted?: () => void }} deps notify: the toast (tests pass
+ *   their own); onRestarted: the restart this page knew of is over (a welcome without `restart` after one with it)
+ */
+export function installRestartNotice({ net, notify = toast, onRestarted }) {
   const warn = (minutes) => notify(t('服务器将在 {minutes} 分钟后重启，进行中的对局将会结束', { minutes }), 'warn', { ttl: TOAST_MS });
   net.on('welcome', (msg) => {
     const restartAt = restartAtOf(msg?.restart?.inMs);
@@ -32,6 +37,7 @@ export function installRestartNotice({ net, notify = toast }) {
     store.patch('ui', { restartAt });
     // a welcome without `restart` (none planned, or the new server after the restart) just forgets it
     if (restartAt != null && !had && !restartBannerDue(restartAt)) warn(Math.ceil(msg.restart.inMs / 60_000));
+    if (restartAt == null && had) { try { onRestarted?.(); } catch { /* ignore */ } }
   });
   net.on('server.restart', (msg) => {
     const restartAt = restartAtOf(msg.inMs);

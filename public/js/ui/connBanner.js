@@ -5,6 +5,8 @@
 // top bar so it never covers the combat view switcher or the shop bar. While it shows, html.sp-conn moves the toasts
 // below it (classes instead of CSS :has(), which Firefox ESR / Safari < 15.4 lack).
 // The deploy's restart countdown (ui/restartNotice.js, ui.restartAt) shows here in its last 5 minutes, ahead of 服务器已更新.
+// Once it is due, and while the page reconnects to the restarted server, the banner says the page reloads by itself
+// (ui/buildGuard.js reloads it as soon as the new build answers) instead of reporting a lost connection.
 
 import { html, Button, Icon, useTicker } from './components.js';
 import { net, CLIENT_ERR_TEXT } from '../net.js';
@@ -36,12 +38,19 @@ export function ConnectionBanner() {
   if (conn.status === 'online' && restoring) {
     return html`<div class="conn-banner" role="status"><${Icon} name="refresh" /><span>${t('正在同步同盟状态…')}</span></div>`;
   }
-  if (conn.status === 'online' && restartDue) {
-    const due = restartAt <= Date.now();
+  const restarting = restartAt != null && restartAt <= Date.now();
+  if (restarting && (conn.status === 'online' || conn.status === 'reconnecting')) {
     return html`<div class="conn-banner" role="status">
       <${Icon} name="refresh" />
-      <span>${due ? t('服务器正在重启') : t('服务器重启倒计时')}</span>
-      ${due ? null : html`<span class="conn-banner__sub">${restartClock(restartAt)}</span>`}
+      <span>${t('服务器正在重启')}</span>
+      <span class="conn-banner__sub">${t('重启完成后页面将自动刷新')}</span>
+    </div>`;
+  }
+  if (conn.status === 'online' && restartDue) {
+    return html`<div class="conn-banner" role="status">
+      <${Icon} name="refresh" />
+      <span>${t('服务器重启倒计时')}</span>
+      <span class="conn-banner__sub">${restartClock(restartAt)}</span>
       <span class="conn-banner__sub">${t('进行中的对局将会结束')}</span>
     </div>`;
   }
