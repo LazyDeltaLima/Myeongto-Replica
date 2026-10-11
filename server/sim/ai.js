@@ -127,6 +127,14 @@ export function updateAlly(b, u, dt) {
   // (a 秘术师's `canAttack` is its own target rule: false = no valid target — 深靛's bound enemies, 维伊's marked ones)
   if (prof.canAttack && !prof.canAttack(b, u)) { if (prof.storeEnergy) { u.trait.hadTarget = false; storeEnergy(b, u, prof); } return; }
   let targets = acquireTargets(b, u, prof);
+  // a charged heal of the ally rule (塞雷娅 S1 急救: trigger.allies) casts at her attack cadence with no enemy too and that
+  // attack heals the ally (PRTS; client: an AUTO NextAttackOrCombatSkill whose trigger searches allies only). After the
+  // cooldown / control checks above, so silence, disarm and the attack cadence still hold (upstream e86c7c83, GitHub #406)
+  if (!targets.length && sk?.triggerAllies && sk.onAboutToAttack()) {
+    prof = effectiveProfile(u);
+    if (prof.noAttack || !u.alive) return;
+    targets = acquireTargets(b, u, prof);
+  }
   if (!targets.length) { u.trait.hadTarget = false; storeEnergy(b, u, prof); return; }
   u.trait.hadTarget = true;
   if (sk && sk.onAboutToAttack()) {

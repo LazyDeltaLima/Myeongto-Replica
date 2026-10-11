@@ -360,6 +360,11 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   돌아올 때(`dollSwap`)도 층을 얻는다(부여량·배치당 상한·켜진 맹약 확인은 그대로). **[추정 — 미확인]** 비공개 디컴파일 기록: 공식에는 「远牙가 준 것만」이라는
   구분이 없고, 배치 때 발동하는 특질 템플릿 `act2autochess_gar_event_onstart`(ON_BUFF_START)는 몸 바꿈 때 버프가 다시 시작되면 다른 배치 때 특질(106·107·124·143·155)도
   다시 발동할 수 있다. 버프 재시작 여부는 C#에서 못 읽어 upstream 범위대로 둠. golden 변화 없음. 테스트 `test/content/fartooth-doll-swap.test.js`(upstream).
+- **塞雷娅 S1 急救는 적이 없어도** (`e86c7c83`, GitHub #406, PRTS): 스킬 범위의 HP ≤ 절반 아군이 있으면 적이 없어도 그녀의 공격 간격에 시전하고 그 공격이 치료가 된다
+  (`ai.js updateAlly`가 대상이 없을 때 `trigger.allies` 스킬을 먼저 시도, `skills.js onAboutToAttack`은 아군 규칙이면 적 조건을 보지 않음). 침묵·무장해제·공격 간격은 그대로.
+  클라: AUTO 스킬이라 모드 자동 발동을 타지 않고 `NextAttackOrCombatSkill`이 아군만 찾는다(적·공격 상태 조건 없음). 다른 점 하나 **[ASSUMED]**: 공식은 조건이
+  맞는 순간 SP를 쓰고 우리는 공격 때 시전한다(치료는 같고 SP 시점이 공격 한 번 안쪽으로 다름). upstream의 黍·凯尔希·思衡托 부분(`triggerEnemies`)은 우리 풀에 없어 뺐다.
+  golden 변화 없음. 테스트 `test/content/heal-triggers-023.test.js`(upstream의 塞雷娅 케이스).
 
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.

@@ -523,8 +523,8 @@ export class SkillRuntime {
     if (this.autoOp || this.pending) return false;   // (a MANUAL skill: the automatic operations — autoTrigger)
     // (a skill read from the client: its skill ability's cooldown and action hold the next cast — _paceInstant)
     if (this.cast && !this.isTimed && !this.spec.attack && this.battle.time < this.nextCastAt - 1e-9) return false;
-    if (!this._defaultCondition()) return false;
-    if (this.triggerAllies && !this._allyTriggerSatisfied()) return false;
+    // an ally-rule heal (trigger.allies) brings its own attack target: no enemy needed (upstream e86c7c83, GitHub #406)
+    if (this.triggerAllies ? !this._allyTriggerSatisfied() : !this._defaultCondition()) return false;
     this._beforeAttack = true;   // the attack follows this cast in the same check (ai.js updateAlly): attacks pace it
     try { return this.activate('DEFAULT'); } finally { this._beforeAttack = false; }
   }
