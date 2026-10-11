@@ -351,6 +351,11 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   - 가상적 铳 【未尽的告解】: 다른 铳이나 碎铳之簧 중 하나라도 있으면 감쇠, 없으면 바로 해제, 피격 때도 다시 판정(첫 타격·동료가 사라진 직후).
   - 렌더러를 못 불러온 토스트: 「기기가 3D 불가」 → 「잠시 못 불러옴, 새로고침」(en·ja·zh-TW·ko).
   - golden: `fields` boss-boss_4-solo(음유시인 회복이 기절 중에도). 테스트 `test/content/community-round26.test.js`(upstream), `enemies_bosses` 铳 감쇠.
+- **蕾缪安 수배** (`85b694f2`, GitHub #428, PRTS): 수배 타이머는 이 오퍼레이터마다(출처별) 따로 돌고, 처음 셀 때만 선택 가능해야 하며, 붙은 뒤에는 이어서
+  라테란 범위 안에 있는지만 본다. 그녀가 퇴각·쓰러지면 그녀의 타이머·표식만 지운다. 수배 칸은 공격 범위(엔진 추가 사거리)와 함께 스킬 발동 범위
+  (`addTriggerRange`)에도 들어간다. 스킬 자동 발동(위 절)은 초기 사거리만 보므로, 이 줄이 없으면 수배 대상만 있을 때 공격 중이어도 스킬이 켜지지 않는다.
+  upstream이 뒤에 붙인 `attackOnly`(다음 평타 때만 확인, `f3658a0d`)는 공식 「0.2 s마다 곧바로」와 반대라 받지 않았다.
+  golden: roster 016·018·035·036·045, fields boss_1·5·7-pair·hidden-boss_9-pair(모두 蕾缪安이 있는 판). 테스트 `test/content/lemuen-wanted-023.test.js`(upstream).
 
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
