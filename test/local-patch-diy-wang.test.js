@@ -3,7 +3,10 @@
 // - W2  an activated stone / 跟子 goes off whenever a selectable enemy IS on its trigger area (every tick) — one already
 //       standing there when it activates too;
 // - W7  连星's slow: independent stacks with their own timers in the 直接乘算 stage (their values add up), speed ≥ 0.1;
-// - W8  跟子 ties: up > right > down > left as drawn (PRTS), left / right swapped on a mirrored field;
+// - W8  跟子 ties: up > right > down > left (PRTS); since 2026-10-11 in field coordinates on a mirrored field too (client
+//       code WangTileSelector._GetDirectionPriority — the W8 left / right swap reverted, maintainer decision 2026-10-11);
+// - 2026-10-11: the battle-start deployment brings each placed stone's 跟子 (client `spawnManually: true`); no stone of
+//   the hand goes on a new tile (no S1 / S2 / S3 stand-in deployment): S3's deployments are the used stones' returns;
 // - W10 during S3 a used stone may come back onto a walking enemy's tile inside her range (not outside it / outside S3);
 // - W12 S3: per deployment the talent's 跟子 free + ≤ 3 extra, one ammo each (maintainer 2026-10-07: confirmed in game);
 // - 跟子 skip a knocked-out operator's tile (downOn, as upstream).
@@ -74,26 +77,30 @@ const trackDeployments = (b, on = () => true) => {
  * 0.267 s) after its stone; the paid ones follow 4 frames apart (0.4 s on).
  */
 const paidOf = (g) => g.fol.filter((f) => f.t > g.t + 0.3).length;
+/**
+ * Past the battle-start deployment's 跟子 (each placed stone brings one 0.25 s after its birth since 2026-10-11 — client
+ * `spawnManually: true`) and without them: the tile-order checks below look at the 跟子 of a return alone.
+ */
+const clearStartFollowers = (h) => {
+  h.run(0.5);
+  for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
+};
 const trapHitsFrom = (h, r, c) => h.hooksOf('damaged').filter((d) => d.dmg?.tags?.includes('trap') && d.source?.tileR === r && d.source?.tileC === c).length;
 
 describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
   test('W2: an enemy already standing on a stone when it activates sets it off (presence, checked every tick)', () => {
-    // a lone stone (inactive) at 9,6 with an enemy held on it; S1's automatic deployment then puts a stone next to it
-    // (autoTile: next to her stones, nearest to an enemy) — the stone activates with the enemy already there
+    // a lone prep stone at 9,6 with an enemy held on it before its battle-start 跟子 lands (0.25 s after the stone,
+    // maintainer decision 2026-10-11): the 跟子 links it — it activates with the enemy already there
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
       units: [op(0, 11, 3), stone(9, 6, 50)] });
     h.step(2);
-    const w = h.unit(1);
     holdEnemy(h, 9, 6);
-    h.run(1.5);
     const a = stoneOn(h, 9, 6);
-    assert.equal(a.mem.active, undefined, 'the lone stone is not activated');
-    assert.equal(trapHitsFrom(h, 9, 6), 0, 'an inactive stone never goes off');
-    h.b.players[0].dp = 99;
-    w.skill.activate('manual', { free: true }); // S1 「立即获得两枚棋子」 → automatic deployment next to her stone
-    h.step(1);
-    assert.ok(h.allies().some((u) => u.kind === 'token' && !u.mem.wangFollower && !(u.tileR === 9 && u.tileC === 6)), 'a stone was deployed');
-    assert.equal(a.mem.active, true, 'linked at once');
+    assert.equal(a.mem.active, undefined, 'the lone stone is not activated before its 跟子');
+    h.runUntil(() => a.mem.active, 2);
+    assert.equal(a.mem.active, true, 'linked by its battle-start 跟子');
+    const f = h.allies().find((u) => u.kind === 'token' && u.alive && u.mem.wangFollower);
+    assert.ok(f && Math.abs(f.tileR - 9) + Math.abs(f.tileC - 6) === 1, 'its 跟子 next to it');
     // armed 30 frames after the link, on the frame after (client WangStoneTriggerManager `_tokenStoneExplodeDelay` 30)
     h.run(0.95);
     assert.equal(trapHitsFrom(h, 9, 6), 0, 'not armed yet 0.95 s after the link');
@@ -162,7 +169,7 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
     const firstFollower = (seed, extra) => {
       const h = makeBattle({ seed, captureNoisy: true, timeLimit: 60, autoFinish: false,
         units: [op(0, 11, 3), stone(11, 5, 50), ...extra] });
-      h.step(2);
+      clearStartFollowers(h);
       h.b.players[0].dp = 99;
       const groups = trackDeployments(h.b);
       useUp(h, stoneOn(h, 11, 5));
@@ -181,7 +188,7 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
     // flat stage: column 2 rows 10–12 deployable high ground, column 10 undeployable ground
     const firstFollower = (at, enemies = []) => {
       const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false, units: [op(0, 9, 6), stone(at[0], at[1], 50)] });
-      h.step(2);
+      clearStartFollowers(h);
       h.b.players[0].dp = 99;
       for (const [r, c] of enemies) holdEnemy(h, r, c);
       const groups = trackDeployments(h.b);
@@ -213,7 +220,7 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
   test('跟子 never land on a knocked-out operator (downOn, as upstream; maintainer decision 2026-10-07)', () => {
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false,
       units: [op(0, 11, 3), stone(11, 5, 50), stone(11, 6, 51)] });
-    h.step(2);
+    clearStartFollowers(h);
     h.b.players[0].dp = 99;
     // a down body on 12,5 (up — the first in the PRTS order): the battle's own downOn answers for that tile
     const down = h.b.downOn.bind(h.b);
@@ -248,7 +255,10 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
     assert.ok(!f.alive, 'removed by the move');
   });
 
-  test('W8: on a mirrored field (boss right side, drawn col → 20 − col) right and left swap', () => {
+  test('on a mirrored field (boss right side) the 跟子 order stays the field\'s up > col+ > down > col− (W8 swap reverted 2026-10-11)', () => {
+    // client code WangTileSelector._GetDirectionPriority (0x7199D0) on grid offsets; the right player's pieces are only
+    // placed at mirrored positions (AutoChessMapAreaManager.ConvertChessPositionInfoToRightMap, 0x832BC0) — the map is not
+    // flipped. 2026-10-07 – 2026-10-11 (W8, ORTHO_MIRRORED) this test wanted field col − 1.
     const slots = BACKUPS.diy.slots;
     const base = Object.keys(slots).find((id) => slots[id].tier === 6);
     const players = [{ playerId: 'p1', seat: 0, side: 'R', colOffset: 0, bonds: {}, bandId: null, playerEffects: [],
@@ -256,7 +266,7 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
         { uid: 50, kind: 'token', tokenId: STONE, ownerUid: 1, row: 11, col: 5 }, { uid: 51, kind: 'token', tokenId: STONE, ownerUid: 1, row: 12, col: 5 }] }];
     for (const seed of [1, 5, 7, 11, 13, 17]) {
       const h = makeBattle({ seed, kind: 'boss', captureNoisy: true, timeLimit: 60, autoFinish: false, players });
-      h.step(2);
+      clearStartFollowers(h);
       const ps = h.b.getPlayer('p1');
       assert.equal(ps.mirror, true, 'the mirrored side');
       const stones = h.allies().filter((u) => u.kind === 'token' && u.defId === STONE);
@@ -266,8 +276,8 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
       const groups = trackDeployments(h.b);
       useUp(h, low);
       h.runUntil(() => groups.length && groups[0].fol.length, 5);
-      // up is taken; "right" as drawn on the mirrored field is −col on the field
-      assert.deepEqual(groups[0]?.fol[0], { r: low.homeR, c: low.homeC - 1 }, `seed ${seed}: right as drawn = field col − 1 (${JSON.stringify(groups)})`);
+      // up is taken; then the field's col+ (the screen right — the map is drawn unflipped)
+      assert.deepEqual(groups[0]?.fol[0], { r: low.homeR, c: low.homeC + 1 }, `seed ${seed}: field col + 1 (${JSON.stringify(groups)})`);
     }
   });
 
@@ -281,7 +291,7 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
       h.step(2);
       const w = h.unit(1);
       if (cast) { w.skill.activate('manual', { free: true }); h.step(1); assert.ok(w.skill.active); }
-      else w.skill.opReadyAt = Infinity;
+      else w.skill.blockTicks = Infinity; // (automatic operations blocked: never cast)
       assert.equal(!!w.rangeKeySet.has(12 * 21 + 4), true, '12,4 is in her range');
       assert.equal(!!w.rangeKeySet.has(home[0] * 21 + home[1]), home[1] <= 7);
       const s = stoneOn(h, home[0], home[1]);
@@ -298,38 +308,70 @@ describe('望 kit — maintainer decisions 2026-10-07 (op-wang.js)', () => {
     assert.equal(run(false, [12, 4]), false, 'no S3: waits (trait)');
   });
 
-  test('W12: S3 deployment = the talent\'s 跟子 free + ≤ 3 extra, one ammo each (stand-in drop and returns alike)', () => {
-    // stand-in drop: a stone on a held enemy's tile with four free neighbours → 4 跟子, 3 ammo; 2 free → 2 跟子, 1 ammo
-    // (four prep stones: the field keeps room for the second drop while the first stone waits to come back)
+  test('W12: S3 deployment (a used stone coming back) = the talent\'s 跟子 free + ≤ 3 extra, one ammo each', () => {
+    // 10,5 has four free neighbours → 4 跟子, 3 ammo; 9,3 two (down off the field, left the goal) → 2 跟子, 1 ammo. No stone
+    // of the hand goes on a new tile (maintainer decision 2026-10-11): the returns are her S3 deployments.
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
-      units: [op(2, 11, 3), ...[6, 7, 8, 9].map((c, i) => stone(12, c, 50 + i))] });
+      units: [op(2, 11, 3), stone(10, 5, 50), stone(9, 3, 51)] });
     h.step(2);
     const w = h.unit(1);
     w.skill.activate('manual', { free: true });
-    h.run(2.5);   // S3's start 跟子 land one per 0.25 s (InstantSpawn) — cleared before the drops
+    h.run(2.5);   // S3's start 跟子 land one per 0.25 s (InstantSpawn), the battle-start ones 0.25 s after their stones — cleared
     assert.ok(w.skill.active);
     for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
     const groups = trackDeployments(h.b, () => w.skill.active);
     const seen = [];
     for (const [r, c] of [[10, 5], [9, 3]]) {
-      const a0 = w.skill.ammoLeft, g0 = groups.length, ws = h.b.time;
-      const e = holdEnemy(h, r, c);
-      h.run(1.9);   // the next stand-in drop (1 s pace) + its 跟子 0.25 s later, one per 4 frames
-      const mine = groups.slice(g0).filter((g) => g.r === r && g.c === c);
-      assert.equal(mine.length, 1, `one deployment on ${r},${c} (${JSON.stringify(groups.slice(g0))})`);
-      // (another deployment's paid 跟子 built in the window — a used stone coming back, the previous or next drop — spend
-      // their own ammo: count only this one's)
-      const others = groups.filter((g) => g !== mine[0]).reduce((n, g) => n + g.fol.filter((f) => f.t > g.t + 0.3 && f.t >= ws - 1e-9 && f.t <= h.b.time + 1e-9).length, 0);
-      seen.push([a0 - w.skill.ammoLeft - others, mine[0].fol.length]);
-      // one per 4 frames (client WangStoneTriggerManager `_stoneBuildDelay` 4), the first with the stone
+      h.b.players[0].dp = 99;
+      const a0 = w.skill.ammoLeft, g0 = groups.length;
+      useUp(h, stoneOn(h, r, c));
+      h.runUntil(() => groups.length > g0 && h.b.time > groups[g0].t + 1, 6);
+      const mine = groups.slice(g0);
+      assert.equal(mine.length, 1, `one deployment: ${r},${c} back (${JSON.stringify(mine)})`);
+      assert.deepEqual([mine[0].r, mine[0].c], [r, c], 'on its own tile');
+      seen.push([a0 - w.skill.ammoLeft, mine[0].fol.length]);
+      // one per 4 frames (client WangStoneTriggerManager `_stoneBuildDelay` 4), the first 0.25 s after the stone
       const ts = mine[0].fol.map((f) => f.t);
       assert.ok(Math.abs(ts[0] - mine[0].t - 8 * h.TICK) < 1e-6, `the talent's 跟子 0.25 s (the 8th frame) after the stone (BuildStone _preDelay) (${ts[0] - mine[0].t})`);
       for (let i = 1; i < ts.length; i++) assert.ok(Math.abs(ts[i] - ts[i - 1] - 4 * h.TICK) < 1e-6, `4 frames apart (${ts.map((t) => t.toFixed(3))})`);
-      h.b.kill(e);
       for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
     }
     assert.deepEqual(seen[0], [3, 4], '10,5: 4 跟子 (1 free + 3 extra), 3 ammo');
     assert.deepEqual(seen[1], [1, 2], '9,3: up 10,3 + right 9,4 only (down off the field, left the goal) → 2 跟子, 1 ammo');
+  });
+
+  test('2026-10-11: no stone of the hand goes on a new tile — S1 / S2 only add cards, S3 deploys nothing new (client _TryDeployAvailableCharacter)', () => {
+    // until 2026-10-11 [추정]: S1 / S2 put the two new stones next to hers, S3 one a second on an enemy (or empty) tile of her range
+    for (const sk of [0, 1, 2]) {
+      const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
+        units: [op(sk, 11, 3), stone(10, 5, 50)], enemies: [{ key: ENEMY, time: 0, route: 0, count: 8, interval: 1.5 }] });
+      h.step(2);
+      const w = h.unit(1);
+      const spawn = h.b.spawnToken.bind(h.b);
+      let fresh = 0;
+      h.b.spawnToken = (...a) => { const u = spawn(...a); if (u?.defId === STONE && a[4]?.kit?.fromTokens) fresh++; return u; };
+      const stock0 = w.mem.wang.stock;
+      w.skill.activate('manual', { free: true });
+      for (let i = 0; i < 12 * 30; i++) { h.b.players[0].dp = 99; h.step(1); }
+      assert.equal(fresh, 0, `S${sk + 1}: no new placed stone`);
+      const placed = h.b.allyUnits.filter((u) => u.kind === 'token' && u.defId === STONE && !u.mem?.wangFollower);
+      assert.deepEqual(placed.map((u) => `${u.homeR},${u.homeC}`), ['10,5'], `S${sk + 1}: only the prep stone`);
+      if (sk < 2) assert.equal(w.mem.wang.stock, Math.min(w.mem.wang.deckCap, stock0 + 2), `S${sk + 1}: 「立即获得两枚棋子」 = two cards`);
+      assert.equal(h.b.errors.length, 0);
+    }
+  });
+
+  test('used stones due together come back one per 0.2 s (client AutoChessBattleTrigger: one deployment per 0.2 s pass)', () => {
+    const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 60, autoFinish: false,
+      units: [op(0, 11, 3), stone(9, 4, 50), stone(9, 6, 51), stone(9, 8, 52)] });
+    clearStartFollowers(h);
+    h.b.players[0].dp = 99;
+    const back = [];
+    h.b.on('deploy', (c) => { if (c.unit.defId === STONE && !c.unit.kit?.follower) back.push(h.b.time); });   // (a 跟子 is flagged after its deploy)
+    for (const [r, c] of [[9, 4], [9, 6], [9, 8]]) useUp(h, stoneOn(h, r, c));
+    h.runUntil(() => back.length >= 3, 6);
+    assert.equal(back.length, 3, 'all three back');
+    for (let i = 1; i < 3; i++) assert.ok(Math.abs(back[i] - back[i - 1] - 0.2) < 0.02, `0.2 s apart (${back.map((t) => t.toFixed(3))})`);
   });
 
   test('W12: S3 returns of used stones — every deployment spends one ammo per S3 跟子 built after its stone (≤ 3)', () => {
@@ -489,16 +531,19 @@ describe('望 stones never share a tile (real match path)', () => {
     side: [[11, 5], [12, 5], [10, 7], [11, 7], [12, 7], [9, 6]],
   };
   // (seeds re-picked 2026-10-10 when 跟子 took the client's tile order, came one per 4 frames and stones armed after 30
-  // frames: the former S2 one seed 2 / S3 one seed 1 no longer had a return land on a 跟子)
-  for (const [sk, layout, seed] of [[0, 'far', 1], [1, 'one', 1], [2, 'near', 1], [2, 'one', 2]]) {
+  // frames: the former S2 one seed 2 / S3 one seed 1 no longer had a return land on a 跟子; 2026-10-11, with no stone of
+  // the hand deployed on a new tile and the battle-start 跟子: S2 far instead of S2 one — a lone stone's 跟子 never take its
+  // own home, and only the stand-in stones had put one there)
+  for (const [sk, layout, seed] of [[0, 'far', 1], [1, 'far', 2], [2, 'near', 1], [2, 'one', 2]]) {
     test(`S${sk + 1} ${layout} seed ${seed}: no two placed stones / 跟子 on a tile — a return onto a 跟子 removes it`, async () => {
       const r = await runWang({ sk, stones: LAYOUTS[layout], seed, until: 60 });
       assert.equal(r.errors.length, 0);
       assert.ok(r.seen.redeploy > 0 && r.seen.follower > 0, `returns and 跟子 happened (${JSON.stringify(r.seen)})`);
-      // (seen: far 0, one 1, near 3, S3 one 3) — fails on the former rule, where the stone waited and `gone` stayed 0
-      if (layout !== 'far') assert.ok(r.seen.gone > 0, `a deployment removed a 跟子 on its tile (${JSON.stringify(r.seen)})`);
+      // (seen 2026-10-11: S1 far 2, S2 far 3, S3 near 3) — fails on the former rule, where the stone waited and `gone` stayed 0
+      if (layout !== 'one') assert.ok(r.seen.gone > 0, `a deployment removed a 跟子 on its tile (${JSON.stringify(r.seen)})`);
       if (sk === 2) assert.ok(r.s3 > 0, 'S3 ran');
-      if (layout === 'one') assert.ok(r.seen.stock > 0, 'stones deployed from the stock');
+      // no stone of the hand goes on a new tile (maintainer decision 2026-10-11; until then S1 / S2 / S3 stand-in deployments)
+      assert.equal(r.seen.stock, 0, 'no stone deployed from the stock');
       assert.deepEqual(r.pairs, [], 'nothing of hers ever shares a tile (a deployment on a 跟子 removes it)');
       for (const p of r.pairs) {
         assert.equal(p.kind, 'F+S', `only a stone with a 跟子 ever shares a tile (${JSON.stringify(p)})`);

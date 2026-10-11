@@ -24,6 +24,7 @@
 // +respawn_buff.atk and respawn_buff.prob phys / arts dodge.
 // S3 剑气 (PRTS 备注): "剑气可对空，碰撞半径1.3，移动速度1.5，每次转向前对每个敌人仅判定一次伤害"; "在距离前进方向上的
 // 侵入点/保护目标/高度类型为高地的地块的距离不低于0.25时，顺时针旋转90°". Current-HP hp_ratio arts (≥ projectile_min_atk_scale × ATK).
+// It leaves on the strike of her first attack after Skill_3_Begin, a Default-mode one; the S3 mode from the next (s3Spec).
 // (2026-10-06) — EN client battle/prefabs/[uc]projectiles.ab `projectile_chr_chen3_s3`:
 //   movement: straight (_moveType 4) from her facing (_useSourceDirection), _speed 1.5; untimed (_lifeTimeType 2 — [inferred]:
 //     other type-2 projectiles carry _lifeTime 0) and finished at the skill end by chen3_s3[finish_projectile]
@@ -58,14 +59,14 @@ const dist = (a, b) => hypot(a.x - b.x, a.y - b.y);
 
 const QI_SPEED = 1.5, QI_RADIUS = 1.3, QI_LOOK = 0.25, QI_EPS = 0.02, S2_INTERVAL = 0.4, S2_PASS_RADIUS = 1.7;
 /**
- * S3: when the 剑气 leaves (s after the cast). EN client skchr_chen3_3: `_playSkillBeginAnim` 1, `_beginAnim`
- * Skill_3_Begin; its abilities start only once the begin clip has played (client code BasicSkill.PlayBeginAnimation:
- * WaitForFixedSeconds(clip) → DoStartSkill), the first being EmitProjectile projectile_chr_chen3_s3 with
- * `_waitForAttackEvent` 1. Her skeleton's Skill_3_Begin is 13 frames (0.433 s) and carries no OnAttack event (front and
- * back), so the wave leaves at the clip's end [ASSUMED: no further wait — the attack event it waits for after that
- * (ActiveBuffAbility: up to its buffs' `duration`) would come from whatever clip plays next; not traced].
+ * S3: the begin clip (s after the cast). EN client skchr_chen3_3: `_playSkillBeginAnim` 1, `_beginAnim` Skill_3_Begin;
+ * its abilities start only once the begin clip has played (client code BasicSkill.PlayBeginAnimation:
+ * WaitForFixedSeconds(clip) → DoStartSkill). Her skeleton's Skill_3_Begin is 13 frames (0.433 s), no OnAttack event.
+ * She does not attack meanwhile (S3_HOLD).
  */
 const S3_BEGIN = 13 / 30;
+/** S3's attack profile while the begin clip plays: no attack. */
+const S3_HOLD = Object.freeze({ noAttack: true });
 
 /**
  * One tick of the S3 剑气 (exported for tests). `st` = { x, y, d } (x = col, y = row, d ∈ UP/RIGHT/DOWN/LEFT) is updated in
@@ -191,6 +192,57 @@ function chen3(bb, chess, def) {
     step();
   };
 
+  /**
+   * S3 (maintainer decision 2026-10-11: the client's timing). skchr_chen3_3 is a sequence (`_alwaysNext` 1) of two
+   * ActiveBuffAbility, both `_waitForAttackEvent` 1: EmitProjectile projectile_chr_chen3_s3, then SwitchMode (`mode` 3 →
+   * Modes/S3: Body/Attack Skill_3_Loop, the S3 attack blackboard `_attackBlackboardModeIndex` 3, the S3 range
+   * `_rangeIdModeIndex` 3). Each waits for her next ON_ATTACK_EVENT up to the skill's duration (client code
+   * EasyToStartAbility.OnWaitForPreDelay RVA 0xA729C0 → WaitForNextEvent(ON_ATTACK_EVENT, m_cachedDuration); GetDuration
+   * 0xA4C960 = the buffs' `duration`). So: Skill_3_Begin (S3_BEGIN, no attack) → her Default mode (Attack clip, OnAttack
+   * 13f × its scale; Default range and profile) until her first attack strikes → the 剑气 leaves on that strike, facing
+   * her direction then → from her next attack the S3 mode (atk_scale 1.8, 3 hits, Skill_3_Loop, range 3-12). No target:
+   * the wave waits (to the skill's end at most — then it never leaves). Until 2026-10-11 the wave left at S3_BEGIN and
+   * the S3 mode ran from the cast. [ASSUMED: the mode applies from the attack after the wave's — the SwitchMode ability
+   * subscribes after the wave's event; if the client handed it the second attack's own event before that attack's
+   * damage, the second attack would be a Default one too.] The spec object is this unit's own (the kit is built per
+   * unit): `attack` / `targeting` / `baseClip` (ai.js attackClipOf: the Default clip) change with the phase and are
+   * put back when the skill ends.
+   */
+  function s3Spec() {
+    const S3_ATTACK = { atkScale: num(bb['attack@atk_scale'], 1.8), hits: 3, maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), groundOnly: true, canHitFly: false };
+    const S3_TARGETING = { rangeGrid: skillGridOf(def), maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), showOwnRange: true };
+    const mode = (battle, unit, spec, phase) => {
+      unit.mem.chen3S3 = phase;
+      const s3 = phase === 'mode' || phase === null;   // null = off: the static values (static tools, the next cast)
+      spec.attack = phase === 'begin' ? S3_HOLD : s3 ? S3_ATTACK : null;
+      spec.targeting = s3 ? S3_TARGETING : null;
+      spec.baseClip = !s3;
+      if (phase !== null) battle._refreshRange(unit);   // (the skill end's own range reset follows onEnd)
+    };
+    return {
+      kind: 'duration',
+      targeting: S3_TARGETING,
+      attack: S3_ATTACK,
+      baseClip: false,
+      onStart({ battle, unit, skill }) {
+        const seq = unit.deploySeq, n = skill.activations;
+        mode(battle, unit, skill.spec, 'begin');
+        battle.after(S3_BEGIN, () => {
+          if (unit.deploySeq !== seq || !unit.alive || !unit.skill?.active || unit.skill !== skill || skill.activations !== n) return;
+          mode(battle, unit, skill.spec, 'wave');
+        }, { owner: unit });
+      },
+      // every attack of hers while S3 runs (SkillRuntime.onAttackPerformed — at the strike): the first one in the
+      // Default mode sends the wave and switches to the S3 mode for the next
+      onAttack({ battle, unit, skill }) {
+        if (unit.mem.chen3S3 !== 'wave') return;
+        releaseQi(battle, unit);
+        mode(battle, unit, skill.spec, 'mode');
+      },
+      onEnd({ unit, skill }) { mode(null, unit, skill.spec, null); },
+    };
+  }
+
   return {
     install(battle, unit) {
       // S2: 眩晕 / 冻结 immunity while she slashes (PF chen3_s2[invincible] abnormalImmunes [0, 16] [ASSUMED: 0 = stun,
@@ -222,20 +274,8 @@ function chen3(bb, chess, def) {
           battle.removeBuff?.(unit, 'chen3:s2:after');
         },
       },
-      // 赤霄·天喟: the 剑气 + range 3-12, each attack ≤ max_target ground enemies × 3 hits at attack@atk_scale
-      skchr_chen3_3: {
-        kind: 'duration',
-        targeting: { rangeGrid: skillGridOf(def), maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), showOwnRange: true },
-        attack: { atkScale: num(bb['attack@atk_scale'], 1.8), hits: 3, maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), groundOnly: true, canHitFly: false },
-        // the 剑气 leaves after her Skill_3_Begin clip (see S3_BEGIN), not as the skill turns on
-        onStart({ battle, unit, skill }) {
-          const seq = unit.deploySeq, n = skill.activations;
-          battle.after(S3_BEGIN, () => {
-            if (unit.deploySeq !== seq || !unit.alive || !unit.skill?.active || unit.skill !== skill || skill.activations !== n) return;
-            releaseQi(battle, unit);
-          }, { owner: unit });
-        },
-      },
+      // 赤霄·天喟: the 剑气 + range 3-12, each attack ≤ max_target ground enemies × 3 hits at attack@atk_scale (the S3 mode)
+      skchr_chen3_3: s3Spec(),
     },
     talents: [
       { install(battle, unit) { // 形意洞照

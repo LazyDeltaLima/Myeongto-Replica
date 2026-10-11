@@ -218,7 +218,8 @@ describe('debug page sandbag arena (public/js/debug/sandbag.js)', () => {
     assert.ok(!stones.some((t) => (t.row === 10 && t.col === 4) || (t.row === 10 && t.col === 5)), 'not on the operator or a sandbag');
     const b = make({ chessId: 'chess_char_6_diy1_a', diy: { charId: 'char_2027_wang', skillIndex: 0, uniEquipId: null }, bags, tokens: stones });
     run(b, 2);
-    const units = b.allyUnits.filter((u) => u.kind === 'token');
+    // (each placed stone also brings a 跟子 at the battle start since 2026-10-11 — her projectile, not a hand piece)
+    const units = b.allyUnits.filter((u) => u.kind === 'token' && !u.mem?.wangFollower);
     assert.equal(units.length, 7);
     assert.ok(units.every((u) => u.deployed && u.ownerUnit === arenaOp(b)), 'deployed, owned by the operator');
     assert.deepEqual(b.errors, []);

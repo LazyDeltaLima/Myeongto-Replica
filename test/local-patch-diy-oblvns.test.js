@@ -118,3 +118,43 @@ describe('丰川祥子 through the real match path (seats[].diy → Match board 
     m.dispose?.();
   });
 });
+
+describe('丰川祥子 S1 through the real match path: note 1 leaves counter-clockwise of her facing', () => {
+  // client code LitePhysicsUtil.Rotate (0x6ABC70) about (0,0,−1): the first, 1.0× note (a = −13.125°) turns to the left of
+  // her facing (maintainer decision 2026-10-11, [추정: battle world y = screen up]; until then the fan was mirrored)
+  test('m04, facing RIGHT: the S1 notes 1…8 go from +13.125° (up, her left) to −13.125° in 3.75° steps', async () => {
+    const T6 = 'chess_char_6_diy1_a';
+    const { makeMatch } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T6]: pickOf(false, 0) } }];
+    const mh = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+    mh.toPrep(3);
+    mh.setStage('act2autochess_m04');
+    const m = mh.m, ps = mh.ps('p_0');
+    ps.initDiyStock?.(new Set());
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    const w = ps.acquireChess(T6, { source: 'buy' });
+    assert.ok(w, 'her piece');
+    assert.ok(m.handle('p_0', { t: 'g.move', uid: w.uid, to: { area: 'board', row: 10, col: 7 }, dir: 'RIGHT' }).ok);
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    b.start();
+    const u = b.allyUnits.find((x) => x.kind === 'op');
+    assert.equal(u.def.charId, CHAR);
+    assert.equal(u.dir, 'RIGHT');
+    const born = [];
+    while (!b.finished && b.time < 90 && born.length < 8) {
+      b.step();
+      for (const e of b.drainEvents()) if (e[0] === 'fx' && e[1] === 'oblvnsNote' && e[4]?.id === u.id && e[4].e === 'born' && e[4].m === 's1') born.push(e[4]);
+    }
+    assert.equal(b.errors.length, 0, b.errors[0]?.error?.message);
+    assert.ok(born.length >= 8, `her S1 cast (${born.length} notes)`);
+    for (const n of born.slice(0, 8)) {
+      const want = 15 * (1 - 2 * ((2 * (n.i - 1) + 1) / 16));   // facing RIGHT = 0°, + = counter-clockwise (up on screen)
+      assert.ok(Math.abs(n.a - want) <= 0.5 + 1e-9, `note ${n.i}: ${n.a}° ≈ ${want}°`);
+    }
+    assert.ok(born[0].i === 1 && born[0].a > 12, `note 1 first, to her left (${born[0].a}°)`);
+    m.dispose?.();
+  });
+});

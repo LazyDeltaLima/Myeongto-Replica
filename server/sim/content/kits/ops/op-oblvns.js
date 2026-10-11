@@ -107,9 +107,21 @@ function sakiko(bb, chess, def) {
       battle.fx('sunBurst', { x: unit.x, y: unit.y, id: unit.id });
     }
   };
+  // Fever "持续释放当前技能": the skill is cast again, SP-free, as soon as its skill ability is available again (client
+  // `CastSkill.IsAvailable` → `Ability.isReady`: S1's cooldown of one attack interval and its Skill_1 action — the engine's
+  // `skill.nextCastAt`, set right after this onEnd), not on a fixed short delay (that recast S1 every 0.05 s, cutting
+  // every swing in its skill state and doubling the casts)
   const recastInFever = { onEnd({ battle, unit, reason }) {
     if (reason === 'stopped' || !inFever(battle, unit) || !live(unit)) return;
-    battle.after(0.05, () => { if (live(unit) && unit.skill && !unit.skill.active && inFever(battle, unit)) { unit.skill.gainSp(999, 'fever'); unit.skill.activate?.('fever'); } }, { owner: unit });
+    const seq = unit.deploySeq;
+    const tryCast = () => {
+      if (unit.deploySeq !== seq || !live(unit) || !unit.skill || unit.skill.active || !inFever(battle, unit)) return;
+      const wait = (unit.skill.nextCastAt ?? 0) - battle.time;
+      if (wait > 1e-9) { battle.after(wait, tryCast, { owner: unit }); return; }
+      unit.skill.gainSp(999, 'fever');
+      unit.skill.activate?.('fever');
+    };
+    battle.after(0.05, tryCast, { owner: unit });
   } };
   // ---- notes (local patch 2026-10-06): see the header. A note: { id, mode, x, y, dx, dy, age, state 'free'|'track',
   // target, seekT, outT, w (count: 2 = a two-hit note), hit(target) }
@@ -203,14 +215,17 @@ function sakiko(bb, chess, def) {
           // damage (ATK cached at the cast) when it arrives. Their free flight fans around her facing (2026-10-10, client
           // code BasicMovement._InitDirectionByStart with `_useSourceDirectionArcAngleWithRatio`): angle × (2·ratio − 1),
           // ratio = `_sourceDirectionArcAngleRatio` (2i+1)/16, angle = the skill blackboard `angle` (15) → ±13.125° in
-          // 3.75° steps (until then (2i+1)/16 of a full turn [ASSUMED]). Which side note 1 takes (the client turns about
-          // (0,0,−1)) is not checked on screen [ASSUMED: the same sign as the ±20° spread].
+          // 3.75° steps (until then (2i+1)/16 of a full turn [ASSUMED]). The side: client code LitePhysicsUtil.Rotate
+          // (RVA 0x6ABC70) = Quaternion.AngleAxis(a, up) · dir with up (0,0,−1), so a negative a turns counter-clockwise —
+          // note 1 (a = −13.125°, the 1.0× one) leaves to the LEFT of her facing, note 8 to the right (maintainer decision
+          // 2026-10-11: the official sign; until then the mirror image). [ASSUMED: battle world x = column, y = row (screen
+          // up), height −z — the premise of that sign, not checked on screen.] Here + = counter-clockwise (spawnNote).
           scales.forEach((s, i) => battle.after(0.06 * i, () => {
             if (unit.deploySeq !== seq || !live(unit)) return;
             const pool = inRange(battle, unit);
             if (pool.length) sortEnemyTargets(battle, unit, pool, null);
             const amount = unit.s.atk * s;
-            spawnNote(battle, unit, { mode: 's1', target: pool.length ? pool[i % pool.length] : null, deg: fanAngle * (2 * ((2 * i + 1) / 16) - 1), fan: i + 1,
+            spawnNote(battle, unit, { mode: 's1', target: pool.length ? pool[i % pool.length] : null, deg: -fanAngle * (2 * ((2 * i + 1) / 16) - 1), fan: i + 1,
               hit: (t) => {
                 battle.fx('burst', { x: t.x, y: t.y, id: unit.id });
                 battle.dealDamage(unit, t, { amount, type: 'arts', isSkill: true, tags: ['skill', 'note'] });

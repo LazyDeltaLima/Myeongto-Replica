@@ -33,12 +33,20 @@
       _switchToDeadState: false}` — 폭발이 끝나면 돌이 스스로 철수). 철수(손 철수·발동 소모 모두)에 DP 반환은 없다 — 클라 코드
       `Token.get_allowWithdrawGainCost`(RVA 0x762E20)가 늘 false라 `Character.Withdraw`(0x6FF3F0)의 반환 분기를 타지 않는다(돌 프리팹
       `token_10064_wang_stone1`의 `_withdrawCostRecoverRatio` 0.5는 Token이라 쓰이지 않는 값; 2026-10-10 확인). 놓았던 돌은 모드의 재배치와 같은 방식(`Battle.redeploy`, `tokens.js enableRespawn`)으로 돌아온다:
-      재배치 시간(E2 2초) 뒤, 자기 칸에, DP(토큰 cost 3, VI 정예는 모듈로 2)만 내고, 그 칸에 적이 없을 때. 망이 필드에 없으면 기다린다 [추정].
+      재배치 시간(E2 2초) 뒤, 자기 칸에, DP(토큰 cost 3, VI 정예는 모듈로 2)만 내고, 그 칸에 적이 없을 때. 망이 필드에 없으면 기다린다
+      (구조상 맞음 — 클라 코드 `AutoChessBattleUtil.DestroyEntityToDummy`(RVA 0x7F1460)가 퇴장한 말을 정비 위치의 더미로 남기고,
+      `AutoChessBattleTrigger._TryDeployAvailableCharacter`(0x7D6C90)가 0.2초 루프마다 다시 놓아 본다; 호스트 검사 내부는 안 읽음 [추론]).
+      **한 번에 하나씩, 0.2초 간격** (2026-10-11): 같은 루프는 한 번 돌 때 하나만 놓고 그 회차를 끝낸다(`AUTO_TRIGGER_INTERVAL` 0.2초) — 그래서
+      같은 때 돌아올 돌이 여럿이면 0.2초에 하나씩 차례로 돌아온다(`op-wang.js AUTO_TRIGGER_INTERVAL`, `redeployUsed`가 한 번에 하나). 그 전엔
+      0.25초마다 돌아올 수 있는 돌을 한꺼번에 돌려보냈다. [남은 차이: 클라 루프는 그 플레이어의 오퍼레이터 재배치와 같은 루프라 둘이 한 회차를
+      나눠 쓰는데, 오퍼레이터 재배치는 엔진 `Battle._checkRedeploys`가 매 틱 따로 한다.] 테스트 `test/local-patch-diy-wang.test.js` 「one per 0.2 s」.
       **돌아올 때 재고를 쓰지 않는다** — 놓은 돌은 전투 내내 소모 → DP 내고 복귀를 되풀이한다(2026-10-08 관리자 결정, `op-wang.js
       RETURN_USES_STOCK`(false)). 근거: PRTS 卫戍协议/帮助 「若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个」(재고 언급 없음), 관리자의 플레이 기억
       (DP를 쓰며 다시 놓이는 바둑돌 때문에 다른 오퍼레이터가 퇴각했다), 아래 영상의 DP 감소. 실제 경기 경로 확인: m04 3·4라운드에서 望(돌 6개) +
-      琳琅诗怀雅면 돌 복귀 DP 때문에 行商 지불이 막혀 琳琅诗怀雅가 퇴각한다. 전투 시작 재고 = 배치 한도 − 정비 때 놓은 수(다 놓으면 0) — 이제
-      S1/S2 「즉시 2개 획득」의 새 돌 자동 배치에만 쓰인다. 배치 한도는 6, 모듈(`uniequip_002_wang`, VI 정예)이면 7
+      琳琅诗怀雅면 돌 복귀 DP 때문에 行商 지불이 막혀 琳琅诗怀雅가 퇴각한다. 전투 시작 재고 = 배치 한도 − 정비 때 놓은 수(다 놓으면 0) — 손패는
+      새 칸에 놓이지 않고(아래 「손패 돌은 새 칸에 놓지 않는다」) 阻回(손패가 가득 차면 S1/S2 SP 정지)·S3 충전·S3 종료 조건에만 쓰인다
+      (공식은 복귀도 같은 토큰 카드 1장으로 하고 철수 때 1장이 돌아와 순증감이 없다 — 아래 「돌아올 때 재고를 쓰지 않는다」와 같은 결과 [추론: 카드 반환 코드는 안 읽음]).
+      배치 한도는 6, 모듈(`uniequip_002_wang`, VI 정예)이면 7
       (토큰 `byModule` stats — 키트가 정규화된 `stats`에서 읽어 늘 6이던 버그를 2026-10-08 `stoneLimits`로 고침; 정비 손패는 이미 7장이었다).
       **2026-10-09 잠재 이식 뒤**: 배치 한도·보유 상한은 플레이어의 潜能을 따른다 — 潜能3 이상(기본 6) 7 / 8, 모듈이면 배치 한도 8(보유 8); 潜能1–2면
       6 / 7, 모듈 7 / 7 (望 潜能3 「第一天赋效果增强」: 棋子 토큰 재능 후보 requiredPotentialRank 2; upstream 806a0477·ec0a2fc6, `stoneLimits`가
@@ -59,9 +67,22 @@
         S3(24.3초~): 보스 쪽에 마름모 테두리(`x-1`)의 초록 폭발이 0.5–1초 간격으로 반복된다. 이 영상은 S3 판이라 S1/S2 보충은 확인할 수 없다. 실제 경기 경로 테스트: `test/local-patch-diy.test.js` 「six prep stones = no stock」.
     - 은신(隐匿) 적: 선택할 수 없는 적(隐匿 미노출, untargetable)은 돌을 발동시키지도 않고 폭발에도 맞지 않는다(PRTS 작전 메커니즘
       「AOE的判定是对攻击范围内的每个可以被选中的敌人进行判定」, 엔진의 `Battle.foesInRadius`와 같은 규칙).
-    - 정비 단계에 놓은 자리 그대로 전투를 시작한다. 전투 시작 자동 배치에는 跟子가 없다(관리자 결정 — 예전엔 돌마다 跟子를 만들었고 그게 배치
-      한도 6에 걸려 먼저 놓은 돌을 퇴각시켜 배치가 바뀌었다). 그 외 모든 돌 등장(소모된 돌의 재배치, 재고 배치)에는 跟子 1개
-      (클라이언트 `wang_stone1_t_1[trigger]` ON_OWNER_BORN, 수동 한정 필터 없음).
+    - 정비 단계에 놓은 자리 그대로 전투를 시작한다. **전투 시작 자동 배치에도 돌마다 跟子 1개** (관리자 결정 2026-10-11 「공식대로」): 클라
+      전투 자동 배치는 「수동 배치」로 태어난다 — 클라 코드 `AutoChessBattleTrigger._AutoDeploy`(RVA 0x7D5A60)가 `deck.SpawnCharacterOrToken(…,
+      spawnManually: true, freely: false, …)`로 놓고, 재능 `wang_stone1_t_1[trigger]`(ON_OWNER_BORN)에는 수동 한정 필터가 없다. 그래서 모든 돌
+      등장(전투 시작 배치, 소모된 돌의 재배치)에 跟子 1개가 붙는다: 돌이 태어나고 0.25초 뒤(아래 「跟子 던지기 지연」), 돌 하나 주변 4칸 중 1칸.
+      跟子는 배치 한도에 들지 않아 정비 돌을 퇴각시키지 않는다(그 문제는 跟子를 투사체로 바꾸기 전 일). 전투 시작 배치는 0.2초에 한 말씩
+      (`sim.md` 「작전 시작 차례 배치」)이라, 먼저 나온 돌의 跟子가 나중 돌의 정비 칸에 떨어지면 그 돌이 나올 때 그 跟子가 사라진다(아래 「跟子 칸에
+      배치하면…」). `op-wang.js` 재능 install의 `deploy` 훅(`ctx.initial`인 그녀의 놓은 돌 → `followAround`). 테스트
+      `test/local-patch-diy-wang.test.js` 「W2」(跟子가 이어 주어 활성화), `test/local-patch-diy.test.js` 「battle start = prep layout + each stone's
+      跟子」·실제 경기 경로 「seven prep stones」(전투 시작 跟子 > 0, 정비 돌 7개 그대로).
+      - **되돌리기** (옛 결정: 「전투 시작 자동 배치에는 跟子 없음」, 관리자 결정 2026-10-07, upstream 0.2.0 이식 때 2026-10-09 유지 — 그때 upstream
+        `5a045731`의 전투 시작 跟子 부분을 안 받음; 2026-10-11까지): 옛 동작은 정비 돌이 跟子 없이 서고, 소모된 돌의 재배치와 재고 배치에만 跟子가
+        붙었다(근거는 PRTS 铸子 「手动部署棋子时」를 위수협약 자동 배치에 적용하지 않는다는 해석). 되돌리려면 `op-wang.js` 재능 install의 `deploy`
+        훅에서 `if (ctx.initial && a.kind === 'token' && a.defId === STONE_ID && a.ownerUnit === unit) followAround(battle, unit, a, 1);` 한 줄을
+        지우고, 테스트를 옛 기대로: `local-patch-diy-wang.test.js` 「W2」(옛 판: 외딴 돌 + S1 자동 배치로 활성화 — 아래 손패 되돌리기와 같이),
+        `local-patch-diy.test.js` 「battle start = prep layout」(전투 시작에 跟子 0개), 실제 경기 경로 「seven prep stones」의 「battle-start 跟子」 줄,
+        그리고 여러 테스트의 `clearStartFollowers`·「battle-start ones cleared」 줄(지워도 통과).
     - 클라이언트 데이터 반영(2026-10-06): 망이 필드를 떠나면(퇴각·쓰러짐) 돌과 跟子가 모두 죽는다(`die_to_kill_token` ON_OWNER_FINISH →
       KillTokens; 놓았던 돌은 망이 다시 서면 제자리로 돌아온다 [추정]). 배치·재배치는 걷는 적만 막는다(`_excludeOccupiedByWalkEnemy`, 비행 적은
       안 막음). 跟子 위치는 아래 「跟子」 줄(클라 `WangTileSelector`). 跟子 발동은 적의 기준 칸으로 판정
@@ -73,9 +94,21 @@
       적 아무나, `_CheckContainsEnemies`) ③ 배치 불가 먼저(`buildableType != NONE`이 뒤) ④ 재능 跟子(TALENT)만 방향 `_GetDirectionPriority`
       (row+ 0, col+ 1, row− 2, col− 3 = 위 > 오른쪽 > 아래 > 왼쪽; 결정적), S3 시작(SKILL_3_INSTANT)은 ④ 없음 = 같은 칸끼리 무작위. 재능 跟子는
       돌 하나 주변 4칸 중 1칸(`_maxNum` 1)이라 늘 ④까지 정렬된다. 코드 `op-wang.js followerOrder`. 이전(2026-10-07 ~ 10-10, PRTS 비고 순서):
-      적이 있는 칸 > 배치 불가 지상 > 배치 가능 지상 > 배치 가능 고지대 — 적이 있는 고지대 칸(비행 적)이 적 없는 지상보다 앞이었다. 좌우 반전된
-      필드에서 좌우를 바꾸는 것(`ORTHO_MIRRORED`, 2026-10-07 관리자 결정 W8)은 그대로 — 공식은 격자 열(col+) 기준이라 반전 필드를 격자째 뒤집어
-      그리는지에 따라 맞을 수도 있어 미확정. 쓰러진 오퍼레이터가 누운 칸(`Battle.downOn`)에도 안 놓인다(upstream과 같게,
+      적이 있는 칸 > 배치 불가 지상 > 배치 가능 지상 > 배치 가능 고지대 — 적이 있는 고지대 칸(비행 적)이 적 없는 지상보다 앞이었다.
+      **좌우 반전된 필드(보스·히든 필드의 오른쪽 플레이어)에서도 필드 좌표 그대로** 위 > col+ > 아래 > col− (관리자 결정 2026-10-11 「공식대로」):
+      클라는 맵을 뒤집지 않고 오른쪽 플레이어의 말 위치만 거울로 옮긴다 — 클라 코드 `AutoChessMapAreaManager.ConvertChessPositionInfoToRightMap`
+      (RVA 0x832BC0): 왼쪽 일반 맵이면 평행 이동, 보스 맵이면 `dir = OppositeLR(dir)`, `col' = 2·m_mapLRBoundaryCol − col` — 그리고
+      `WangTileSelector._GetDirectionPriority`(0x7199D0)는 실제 격자의 오프셋(`tile.pos − m_targetPos`)으로 순서를 매긴다. 시뮬레이션도 같은 모델이다:
+      반전 플레이어의 유닛은 필드 좌표(20 − c)에 서고, `buildOne`이 받는 칸은 이미 필드 좌표, 필드 col+ = 화면 오른쪽. 그래서 2순위는 늘 화면
+      오른쪽(필드 col+)이다. 테스트 `test/local-patch-diy-wang.test.js` 「on a mirrored field (boss right side) the 跟子 order stays the field's up >
+      col+ > down > col−」.
+      - **되돌리기** (옛 결정 W8, 관리자 결정 2026-10-07 — 「반전 필드면 그려진 대로 좌우를 바꿈」, upstream `SIDES_MIRRORED`와 같은 생각; 2026-10-10
+        클라 순서로 바꿀 때도 「미확정」으로 유지; 2026-10-11까지): 옛 동작은 `battle.getPlayer(owner).mirror`인 플레이어(보스·히든 필드 오른쪽)의
+        跟子가 필드 좌표 (+row, **−col**, −row, +col) 순서였다 — 화면 왼쪽이 2순위. 되돌리려면 `op-wang.js`에 상수
+        `const ORTHO_MIRRORED = [[1, 0], [0, -1], [-1, 0], [0, 1]];`를 다시 두고 `buildOne`에서 `ORTHO.forEach` 대신
+        `(battle.getPlayer(unit.ownerId)?.mirror ? ORTHO_MIRRORED : ORTHO).forEach`로, 테스트 「on a mirrored field…」의 기대를
+        `{ r: low.homeR, c: low.homeC - 1 }`(옛 이름 「W8: on a mirrored field (boss right side, drawn col → 20 − col) right and left swap」)로.
+      쓰러진 오퍼레이터가 누운 칸(`Battle.downOn`)에도 안 놓인다(upstream과 같게,
       2026-10-07 관리자 결정). 연결에 참여하고 피해 출처는 망. 여러 개를 이어 지을 때(S3 배치의 재능 1 + 추가 ≤ 3)는 **4프레임마다 하나씩**
       (`env_043_stone_trigger` `_stoneBuildDelay` 4, 클라 코드 `WangStoneTriggerManager.OnTick`의 buildStoneRequests — 2026-10-10, 그 전엔 한꺼번에):
       첫 개(재능, 무료)부터 추가분까지 각각 요청 0.25초 뒤에 내려앉고(아래 「跟子 던지기 지연」), 추가분은 지어질 때마다 탄약 1발, 놓을 칸이 없는
@@ -89,8 +122,6 @@
       `test/local-patch-diy.test.js` 「none at the cast」.
       - **[열림] 투사체 비행 시간**: `projectile_chr_wang_stone3`의 이동 컴포넌트(속도)를 아직 못 읽어 0.25초에 비행 시간을 더하지 않았다 —
         조사 뒤 더할 것(관리자 결정 2026-10-10: 조사 전까지 제외).
-      - **[보류] S3 자동 배치(손 배치 대체)의 첫 돌**: 지금은 S3를 켜는 순간 한 개, 그 뒤 1초마다(아래 [추정] 규칙). 늦출지는 관리자가 보류(2026-10-10
-        「아무것도 바꾸지 말 것」).
       놓을 수 없는 칸(2026-10-06 관리자 제보): 클라이언트 跟子 선택기 `exceptTileTypes` + tileTypesMask 14. 비트는 클라 enum
       `Torappu.Battle.TileTypesMask`([Flags]: NONE 0, DEFAULT 1, HOLE 2, END 4, START 8, FAKE_HIGHLAND 16; 2026-10-10 확인 — 그 전엔 tileTypeDict
       순서로 END 2·START 4·HOLE 8이라 [추정]했다) → 14 = HOLE·END·START = `tile_end`·`tile_end_cooperate`·`tile_allygoal`(방어 지점),
@@ -102,17 +133,17 @@
       칸(`tile_flystart`)은 이 목록에 없다. **깊은 심해(`tile_deepsea`)도 불가** (관리자 제보·결정 2026-10-08 — 공식 마스크 14에는 없음):
       `grid.js DEPLOY_REFUSED_TILES`가 깊은 심해를 「배치 불가 지면」(`build 'NONE'`)으로 만드는데, PRTS 비고의 순서가 그 지면을 跟子 1순위로 두어
       act2 m04 물길(6·14열 10–12행)에 跟子가 먼저 들어갔다(실제 매치 경로 6판 중 5판, 19개). 공식 맵에서는 그 물길에 발판 기물(수상 플랫폼)이 있어야 놓을 수 있는데(관리자 설명), 시뮬레이션은 그 플랫폼이 없으므로(`grid.js` [ASSUMED]) 깊은 심해 전체를 막는다(`op-wang.js FOLLOWER_REFUSED_TILES`).
-      재능·S3 「적이 있는 칸」 모두 `followerClass`라 같이 막히고, S3 손패 배치·S1/S2 자동 배치는 이미 `build 'NONE'`을 건너뛴다. 플랫폼을 모델링하면
+      재능·S3 「적이 있는 칸」 모두 `followerClass`라 같이 막힌다(손패 돌은 새 칸에 놓이지 않는다 — 아래). 플랫폼을 모델링하면
       그 칸만 다시 열 것. 테스트 `test/local-patch-diy-wang.test.js` 「no 跟子 on a 深水区 tile」. 망 S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 3-3 안의 적, `DEFAULT`). 한때 스킬 범위 4-12에 적이 들어오면
       켜지는 `SKILL_RANGE` 예외였으나 관리자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다(트리거 예외 없음).
     - 손패(재고) 상한 maxDeckStackCnt(7)는 **손패만** 센다(클라이언트 `wang_s3_charge_token` max_cnt/remaining_cnt =
       AssignTokenCardCntToBB 카드 수, `_stopSpWhenTokenIsFull`도 카드 수). 전투 시작 때 위수협약이 나눠 준 배치 한도 6장(PRTS
       「根据召唤物部署数量上限…发送等量召唤物至手牌区」) 중 놓지 않은 것이 손패. S1/S2 「즉시 2개 획득」 = min(7 − 손패, 2)장, 손패 7장이면 阻回.
-      S3(탄약형): 시작 때 ChargeToken min(7 − 손패, 8)장, 나머지는 InstantSpawn 跟子(살아 있는 跟子 ≤ max_spawn_cnt) — 사거리 안 칸,
+      S3(탄약형): 시작 때 ChargeToken min(7 − 손패, 8)장, 나머지는 InstantSpawn 跟子(살아 있는 跟子 ≤ max_spawn_cnt — 전투 시작 跟子도 센다) — 사거리 안 칸,
       클라 `WangTileSelector` SKILL_3_INSTANT 순서(위 「跟子」 줄: 섞은 뒤 지상 > 적이 선 칸 > 배치 불가, 같은 칸끼리 무작위; 2026-10-10 — 그 전엔
       적이 선 칸을 방어 지점까지 남은 경로가 짧은 적 순으로 먼저 `goalFirst`, 2026-10-06 관리자 결정 [추정]이었으나 클라에 그런 순서가 없어 사용자
-      결정으로 뺌), 기존 돌과 붙을 필요 없음. 탄약 20발: S3 중 돌 1개를
-      배치하면 **재능 跟子 1개(무료) + S3 跟子 최대 3개(1개당 1발)** — 배치 1번에 최대 3발(PRTS 「第一天赋额外至多部署3枚棋子并消耗等量弹药」,
+      결정으로 뺌), 기존 돌과 붙을 필요 없음. 탄약 20발: S3 중 돌 1개가
+      배치되면(= 소모된 돌의 복귀, 아래) **재능 跟子 1개(무료) + S3 跟子 최대 3개(1개당 1발)** — 배치 1번에 최대 3발(PRTS 「第一天赋额外至多部署3枚棋子并消耗等量弹药」,
       나무위키 「최대 3개의 바둑돌은 배치될 때 탄약을 1발씩 소모」; 2026-10-07 관리자 결정, 같은 날 인게임에서 확인; 2026-10-10 클라 코드로 확인 —
       `WangStoneTriggerManager.AddBuildStoneSequence`(0x561A80)가 요청을 `isFreeBuild` true로 만들고 `OnTick`(0x5625A0)이 첫 BuildStone 뒤 false로
       내린다, `WangVisualStoneCtrlAbility.BuildStone`(0xAD61F0)은 무료면 탄약 카운터에 `NotCountTimes`(세지 않음, 여분 탄 소리도 없음) — 첫 개만
@@ -121,18 +152,37 @@
       끝나는 조건은 재고 소진·탄약 소진·수동 종료뿐이고(클라 코드 `WangS3CastSkillWithLimitTimes.OnTick`: 손패 0 + 지을 跟子 없음
       `!hasRemainingBuildCnt` — 손패가 0이어도 이어 짓는 跟子가 남았으면 그것까지 기다린다, 2026-10-10 `followAround`), 남은 탄약은 돌로 돌아온다(엔진 `end()`가 onEnd 전에 `ammoLeft`를 0으로 만들어 이전엔
       반환이 늘 0이었음 → 킷이 따로 기억, 손패 7장까지). **정비 단계에 돌을 하나도 놓지 않았으면** 아무것도 충전·배치하지 않고 끝나지 않는다
-      (관리자의 실제 게임 관찰 2026-10-06; 자료에는 직접 문장 없음). 소모된 돌의 재배치도 재고를 쓴다(위) — S3 중 재고가 0이면 기다린다.
-    - [추정] 위수협약 전투에는 수동 배치가 없어서, 재고의 돌은 자동으로 배치한다(필드의 돌이 maxDeployCount 6 미만일 때만): S1/S2는
-      기존 돌 옆, 적 경로 위, 적이 없는 칸(특성), 적에 가까운 칸; S3는 1초에 1개 — 사거리 안 적이 선 배치 가능 칸(적끼리는 무작위 순서, 전투
-      난수 — 2026-10-10: 클라 코드에 이 대체 규칙은 없고(손으로 놓는 것; `WangTileSelector.SKILL_3`은 어느 프리팹도 안 씀), 그 전의 「방어 지점까지
-      남은 경로가 짧은 적 순」(`goalFirst`, 2026-10-06 관리자 결정 [추정])은 S3 시작 순서와 함께 뺐다. 더 전엔 왕에게 가까운 순), 그런
-      칸이 없고 필드에 적이 있으면 사거리 안 빈 칸(지상 경로 우선, 적에 가까운 순, 걷는 적이 없는 칸), 주변 跟子 1개당 탄약 1발.
-      (2026-10-06 관리자 제보: 적이 사거리 밖으로만 지나가는 배치에서는 놓을 칸이 없었고, 적이 선 칸은 소모된 돌의
-      제자리라 `isReservedTile`에 막혔다 → 그녀의 대기 중인 돌 자리는 막지 않음. UI의 탄약 막대는 엔진 `ammoLeft`를 그대로 쓰고 킷이 같이 갱신한다.)
-      S3 중 소모된 돌이 제자리로 돌아오는 것도 그녀의 배치로 친다: 재능 跟子 1개 + S3 跟子 최대 3개(1개당 탄약 1발), 그녀의 사거리 안이면
-      적이 선 칸에도 돌아온다(2026-10-06 브라우저 재현 — 정비 때
-      6개를 놓으면 필드가 늘 가득 차 S3 대체 배치가 한 번도 일어나지 않아 탄약 막대가 가득 찬 채였고, S3 시작 때 InstantSpawn 跟子 1개만 주변 없이
-      보였다. 수정 후 브라우저에서 라운드 5 S3: 탄약 16 → 12 → 9 → 5 → 2, 막대 45.6 → 5.7/57). 필드가 가득 차면 S3는 멈추지 않고 기다린다(이전의 자체 종료는 근거 없어 삭제 — 일찍 끝나던 원인). 소모돼 재배치를 기다리는 돌이 먼저이고, 새 칸은 그다음이다. 재고에서 놓는 돌도 DP를 낸다.
+      (관리자의 실제 게임 관찰 2026-10-06; 자료에는 직접 문장 없음). 손패가 새 칸에 나가지 않으니 손패는 S3 중 줄지 않고(복귀는 재고를 안 씀, 위),
+      S3는 사실상 탄약 소진(복귀한 돌의 S3 跟子)·수동 종료로 끝난다 — 2026-10-11 전보다 훨씬 오래 간다(실제 경기 경로 m04에서 수십 초).
+    - **손패 돌은 새 칸에 놓지 않는다** (관리자 결정 2026-10-11 「공식대로(빼기)」): 클라의 전투 중 배치 경로는
+      `AutoChessBattleTrigger._TryDeployAvailableCharacter`(RVA 0x7D6C90) 하나뿐이고, 이것은 `battleChessInsts`(정비 때 필드에 놓인 말)를
+      **정비 위치에만** 놓는다(`_AutoDeploy` 0x7D5A60: 대기 더미 칸 또는 `chessInst.pos`). 손패에만 있는 돌(정비 때 안 놓은 것, S1/S2 「즉시 2개
+      획득」, S3 ChargeToken)을 새 칸에 놓는 코드는 없다(`AutoChessBattleTrigger` 메서드 전수 — 스킬 발동 판정과 이 둘뿐; 손 드래그 핸들러는 정비·보스
+      화면 조작용 [추론]). 그래서 손패는 소모된 돌이 돌아올 재료일 뿐이다: S1/S2는 카드 2장만 받고(가득 차면 阻回), S3의 배치는 소모된 돌이 정비
+      위치로 돌아오는 것뿐 — 그녀의 사거리 안이면 적이 선 칸에도 돌아오고(W10) 그때 재능 跟子 1개(무료) + S3 跟子 ≤ 3개(1발씩). S3 시작
+      InstantSpawn 跟子는 그대로. 복귀를 그녀의 S3 배치로 세는 근거(2026-10-06 브라우저 재현): 정비 때 다 놓으면 필드가 늘 가득 차 대체 배치가
+      한 번도 없어 탄약 막대가 가득 찬 채였다 — 복귀를 배치로 센 뒤 라운드 5 S3 탄약 16 → 12 → 9 → 5 → 2. 필드가 가득 차도 S3는 스스로 끝나지
+      않는다(예전의 자체 종료는 근거 없어 삭제 — 일찍 끝나던 원인). 2026-10-08 영상의 「S3 중 0.5–1초 간격 초록 폭발」은 돌아온 돌·그 跟子·InstantSpawn 跟子로 설명된다(모순 없음).
+      **남은 가능성** (관리자 요청 2026-10-11로 기록): 위 결론은 「클라에 그런 배치 코드가 없다」는 데서 나온 추론이다. 위수협약 전투는
+      서버 스텝(`AutoChessStepModeManager`: 적 등장·퇴장·보스 HP 동기화)과 함께 도는데, 서버가 손패 돌을 새 칸에 놓으라는 배치 명령을 보내고
+      클라가 그대로 따르는 경로가 있다면 공식도 손패 돌을 새 칸에 놓을 수 있다. 덤프에서 그런 명령(서버→클라 배치 패킷과 그 처리기)은 찾지
+      못했지만, 서버 코드는 볼 수 없으므로 배제하지 않는다. 판별법: 공식 영상에서 S1/S2를 켠 순간 정비 때 없던 칸에 돌이 생기는지, S3 중
+      소모된 돌의 정비 위치가 아닌 칸에 돌이 놓이는지. 생기면 아래 「되돌리기」로 옛 자동 배치를 되살린다(배치 칸 규칙은 옛 [추정] 그대로).
+      `op-wang.js`: `gain`이 카드만 더함, S3 `onStart`에 대체 배치 없음. 테스트 `test/local-patch-diy-wang.test.js` 「no stone of the hand goes on
+      a new tile」(S1/S2/S3, 새 돌 0개·S1/S2 손패 +2), 「W12: S3 deployment (a used stone coming back)」, `test/local-patch-diy.test.js` 「ammo per
+      deployment」(복귀로), 「望 stones never share a tile」(실제 경기 경로, 재고 배치 0회).
+      - **되돌리기** (옛 규칙 [추정], 2026-10-06 「S3 탄약이 줄지 않는다」 관리자 제보로 생김 — 2026-10-06 ~ 2026-10-11; 그 사이 관리자 결정:
+        2026-10-06 빈 칸 대체·`isReservedTile` 예외, 2026-10-06 적 칸 `goalFirst` 순서(2026-10-10에 무작위로), 2026-10-07 W12 跟子 탄약, 2026-10-10
+        「S3 첫 돌을 늦출지」 보류): 위수협약 전투에는 수동 배치가 없으니 재고의 돌을 자동으로 놓았다(필드의 놓은 돌 + 복귀 대기 돌이 배치 한도
+        미만일 때만, 복귀 대기 돌이 먼저). S1/S2는 「즉시 2개 획득」 직후 기존 돌 옆(적 경로 위, 적이 없는 칸 — 특성, 적에 가까운 칸; `autoTile`),
+        S3는 켜는 순간 하나, 그 뒤 1초마다 하나(`WANG_S3_PACE` 1) — 사거리 안 적이 선 배치 가능 칸(전투 난수 순서), 없고 필드에 적이 있으면 사거리 안
+        빈 칸(지상 경로 우선, 적에 가까운 순, 걷는 적이 없는 칸), 그녀의 복귀 대기 돌 자리는 막지 않음(`reservedForOthers`). 재고 배치도 돌 DP를
+        냈고 재능 跟子 + S3 跟子(탄약)를 붙였다; 손패 0 + 지을 跟子 없음이면 S3 종료. 되돌리려면 `op-wang.js`(2026-10-11 이 결정 바로 앞 판)에서 `deployStone`·`autoTile`·`autoDeploy`(그리고 `gain`의 `autoDeploy` 호출), S3 `onStart`의 `drop`과
+        `battle.every(WANG_S3_PACE, …)`, 상수 `WANG_S3_PACE`, `reservedForOthers`, `inRange`·`stoneStats`, `hypot` import를 되살리고, 테스트를 옛
+        판으로: `local-patch-diy-wang.test.js` 「W2」(S1 자동 배치로 활성화), 「W12: S3 deployment = … (stand-in drop and returns alike)」,
+        `local-patch-diy.test.js` 「望 S3: the stand-in puts its stone on an enemy tile of her range in random order」, 「ammo per deployment」(대체 배치로),
+        「hand cap 7 counts the hand only」(손패 2), 「望: only connected 棋子 trigger…」의 S1 자동 배치 줄, 「望 stones never share a tile」의
+        `stock > 0`·S2 `one` 사례. 새 「no stone of the hand goes on a new tile」 테스트는 지운다.
     - 취세: 정지 + 망 공격력 × atk_scale 마법/초(발동마다 독립). 연성: 연결 방향(상하 → 세로, 좌우 → 가로, 한번 켜지면 유지) 양쪽 3칸 적에게
       마법 피해 + 감속. 料敌机先: 직선 위 돌 수만큼 피해 +%, 마법 저항 고정 수치 무시(최대 3). 중첩은 돌마다 본 최장 직선으로 고정
       (3개 중 1개가 사라져도 남은 돌은 3중첩). 값은 데이터: 일반·V단계 정예 10%/9, VI단계 정예(모듈 3) 13%/12. 클라 코드로 확인(2026-10-10):
@@ -155,8 +205,9 @@
       (`_occ` 비움, PRTS 「不占据空位」) 소모돼 기다리던 놓은 돌이 제자리로 돌아올 때(`Battle.redeploy`는 `_occ`만 본다) 이웃 돌의 등장 때 그
       빈 제자리에 놓인 跟子 위로 돌아올 수 있다(관리자 제보 2026-10-08; 실제 매치 경로 990판 중 292판, 한 칸에 돌 둘). 이제 그 복귀가 그 칸의 배치라서
       跟子가 사라진다: `op-wang.js` 재능 install의 `deploy` 훅이 아군 누구든(돌의 복귀, 재고 돌, 오퍼레이터의 재배치·`moveRedeploy` 이동) 배치된
-      칸의 그녀 跟子를 `retreat`로 지운다. 놓은 돌(跟子 아님)이 제자리에 있으면(S3가 놓은 돌) 여전히 기다린다. 전투 시작 자동 배치에는
-      跟子가 없으므로(위, 관리자 결정 유지 2026-10-09 — upstream `5a045731`의 전투 시작 跟子 부분은 안 받음) 그때 지울 跟子도 없다.
+      칸의 그녀 跟子를 `retreat`로 지운다. 놓은 돌(跟子 아님)이 제자리에 있으면 여전히 기다린다(2026-10-11부터 새 칸 배치가 없어 실제로는 생기지
+      않음). 전투 시작 자동 배치에도 跟子가 붙으므로(위, 관리자 결정 2026-10-11 — 그 전엔 2026-10-09에 upstream `5a045731`의 전투 시작 跟子 부분을
+      안 받아 없었다) 0.2초 간격의 다음 말이 앞 돌의 跟子 칸에 나오면 그 跟子가 사라진다.
       이전 규칙(2026-10-08 – 2026-10-09, [추정] 공식 근거 없음): 제자리에 跟子가 있으면 돌이 기다리고 跟子가 사라진 뒤 돌아왔다. 잠정 —
       관리자 메모(2026-10-09): 테스트 뒤 되돌릴 수 있음. 클라 코드로 확인(2026-10-10, 되돌릴 근거 없음): `StoneTriggerMap.UpdateStoneMap`을
       `_OnUnitBorn`이 태어난 모든 캐릭터에 부르고, 그 칸에 살아 있는 돌이 아닌 표시(跟子)가 있으면 `RemoveStoneMark(pos, isOverlapped: true)`로 지운다 —
@@ -179,12 +230,23 @@
     거의 없음 [추론]). 이전 코드와 다른 점: 0.75 앞을 봐서 0.5칸 일찍 꺾었고,
     저지대 통행 불가 칸·장애물이 놓인 칸에서도 꺾었고, 侵入点에서는 꺾지 않았다. 판정 간격 0.03초(이전 0.1초 → 이제 매 틱),
     수명은 스킬 끝까지(`_lifeTimeType` 2 = 클라 enum `LifeType` INFINITY — 2026-10-10 확인, 스킬 종료 버프 `chen3_s3[finish_projectile]`가 지운다).
-    **검기가 나가는 때** (2026-10-10, 관리자 결정 「공식이랑 동일하게」): 스킬이 켜지는 순간이 아니라 시작 애니 `Skill_3_Begin`이 끝난 뒤 —
-    `skchr_chen3_3` `_playSkillBeginAnim` 1·`_beginAnim` Skill_3_Begin, 클라 코드 `BasicSkill.PlayBeginAnimation`이 그 클립 길이만큼 기다린 뒤
-    `DoStartSkill`(능력 시작), 첫 능력 EmitProjectile(`projectile_chr_chen3_s3`, `_waitForAttackEvent` 1). 그녀의 스켈레톤 Skill_3_Begin은 13프레임
-    (0.433 s, front·back)이고 OnAttack 이벤트가 없다(`tools/assets/skel.mjs`로 확인) → 0.433 s에 발사(`op-chen3.js S3_BEGIN`). [추정]: 그 뒤 기다리는
-    공격 이벤트(`ActiveBuffAbility`는 최대 버프 `duration`까지 기다림)는 다음에 재생되는 클립에서 올 텐데, 어느 클립인지 추적하지 않아 더 기다리지 않음.
-    테스트 `test/local-patch-diy-chen3.test.js` 「S3: the 剑气 leaves」.
+    **검기가 나가는 때** (관리자 결정 2026-10-11 「공식대로」, 2026-10-10 결정을 마저 맞춤): 시작 애니 `Skill_3_Begin`(13프레임 0.433 s, OnAttack
+    없음 — `skchr_chen3_3` `_playSkillBeginAnim` 1, 클라 코드 `BasicSkill.PlayBeginAnimation`이 그 길이만큼 기다린 뒤 `DoStartSkill`) 동안은 공격하지
+    않고, 그 뒤 **Default 모드의 첫 일반 공격(Attack 클립, OnAttack 13f × 클립 배율 — 공격 속도 적용)이 맞는 순간**에 검기가 그때 그녀가 보는 방향으로
+    나간다. S3 공격(atk_scale 1.8·3타·Skill_3_Loop·사거리 3-12)은 **그다음 공격부터**다. 근거: `skchr_chen3_3`은 능력 두 개의 순서(`_alwaysNext` 1)
+    — EmitProjectile(`projectile_chr_chen3_s3`) → SwitchMode(`mode` 3 = `Modes/S3`: `Body/Attack` `_animKey` Skill_3_Loop, `_attackBlackboardModeIndex`
+    3, `_rangeIdModeIndex` 3) — 이고 둘 다 `ActiveBuffAbility` `_waitForAttackEvent` 1: 클라 코드 `EasyToStartAbility.OnWaitForPreDelay`(RVA 0xA729C0)
+    → `WaitForNextEvent(ON_ATTACK_EVENT, m_cachedDuration)`(0xA7A580), `m_cachedDuration` = `GetDuration`(0xA4C960) = 버프 `duration` 최댓값 = 스킬
+    지속시간. 그래서 사거리(그녀 자신의 범위)에 대상이 없으면 대상이 생겨 첫 공격을 할 때까지(최대 스킬 끝까지 — 그러면 검기 없음) 기다린다.
+    기본 공속에서 시전부터 약 0.87 s(0.433 + 0.433/공속 배율). 구현: `op-chen3.js s3Spec` — 단계 `begin`(공격 없음 `S3_HOLD`) → `wave`(스킬
+    `attack`·`targeting` 없음 = Default 프로필·범위, `baseClip` = Default 클립) → 첫 공격의 `onAttack`에서 `releaseQi` + `mode`(S3 프로필·범위);
+    스킬이 끝나면 스펙을 되돌림. 엔진 한 줄: `ai.js attackClipOf`가 스킬 스펙의 `baseClip`이면 Default 클립 타이밍을 쓴다. 그 전(2026-10-10 ~ 10-11):
+    시전 0.433 s 뒤 바로 발사, S3 공격·범위는 시전 순간부터 [추정이었음]. [추정]: S3 모드가 「검기를 낸 공격의 다음 공격」부터인지 — SwitchMode는
+    검기 이벤트 뒤에 구독하므로 두 번째 공격의 OnAttack에 모드가 바뀐다; 그 이벤트가 두 번째 공격의 피해보다 먼저 처리되면 두 번째도 Default일 수
+    있다(이벤트 처리 순서는 안 읽음). 렌더: 그 공격의 `'swing'` 이벤트 다섯째 값 1(`ai.js`, `baseClip`)을 받아 스킬이 켜져 있어도 Default `Attack` 클립으로 그린다
+    (`render/units.js onSwing` → `spine.js baseClip`, 스킬이 켜지고 꺼질 때 지움). 테스트 `test/local-patch-diy-chen3.test.js` 「S3: the 剑气 leaves on the strike of her first attack after Skill_3_Begin」
+    (첫 스윙이 0.433 s 뒤·Default 클립 타격, 검기 = 그 타격, 그 공격 1타·비스킬, 다음 공격 3타·스킬), 「with nobody in her own range the 剑气 waits」,
+    실제 경기 경로 「S3 on m04」(첫 스윙의 타격 때 검기; 그녀 자리 10,5 — 10,7에서는 시전 뒤 그녀 범위에 적이 안 와 검기가 안 나감).
     `op-chen3.js chen3QiAdvance`(테스트용 export). `fx` 'chen3Qi'는 0.1초마다 + 꺾일 때 바로.
     S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 1-1 안의 적, `DEFAULT`) — 평타로 칠 수 없는 비행 적만 있으면 켜지지 않는다.
     한때 3-12 안의 적(비행 포함)으로 켜지는 `SKILL_RANGE` 예외였으나 관리자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다. 예외가 다시 필요하면
@@ -229,8 +291,13 @@
     쓴다 — 공격 능력이 쏜 투사체의 블랙보드에 `attack@` 키가 접두사 없이 들어간다: 피아노 음표의 `MovementSwitchControllerOblvns.Init`이
     `projectile.blackboard`에서 `"passby_delay"`(S2 `attack@passby_delay` 0.5)를 읽는다, 2026-10-10 [추론: 합치는 함수 자체는 안 읽음]). **S1 부채꼴** (2026-10-10, 관리자 결정 「공식이랑 동일하게」): 같은 메서드의
     `_useSourceDirectionArcAngleWithRatio` — a = angle × (2·ratio − 1), ratio = `_sourceDirectionArcAngleRatio` (2i+1)/16, angle = S1 블랙보드
-    `angle` 15 → 정면 ±13.125°(3.75° 간격, 30° 부채꼴) 8개. 그 전엔 비율을 360°에 곱해 한 바퀴로 뿌렸다 [추정이었음]. 회전 축이 (0,0,−1)이라 1번
-    음표가 화면의 어느 쪽인지는 확인 안 함 [추정: ±20°와 같은 부호]. 테스트 `test/local-patch-diy.test.js` 「丰川祥子 S1」. 공격 대상이 있으면 그 적을, 없으면 음표 반경 안에서 음표에
+    `angle` 15 → 정면 ±13.125°(3.75° 간격, 30° 부채꼴) 8개. 그 전엔 비율을 360°에 곱해 한 바퀴로 뿌렸다 [추정이었음]. **1번 음표(가장 센 1.0배)는
+    보는 방향의 왼쪽(반시계)** (관리자 결정 2026-10-11 「공식 부호」): 클라 코드 `LitePhysicsUtil.Rotate`(RVA 0x6ABC70) = `Quaternion.AngleAxis(a, up)
+    · dir`, 축 `up` (0,0,−1) — 축이 −z면 +a가 시계 방향이라 1번(a = −13.125°)은 반시계, 8번(+13.125°)이 시계 쪽. 오른쪽을 보면 1번이 화면 위쪽,
+    0.06초마다 아래로. 그 전(2026-10-10 ~ 10-11)엔 거울상(1번이 시계 쪽). **[추정]**: 이 부호는 전투 월드 좌표가 x = 열, y = 행(화면 위), 높이 = −z라는
+    전제에서만 맞다 — 그 전제는 화면으로 확인 안 함(관리자는 S1을 거의 안 쓰고 이 가정을 받아들임, 2026-10-11). ±20° 무작위는 대칭이라 영향 없음.
+    `op-oblvns.js` S1 `deg` 부호. 테스트 `test/local-patch-diy.test.js` 「丰川祥子 S1」, 실제 경기 경로 `test/local-patch-diy-oblvns.test.js`
+    「丰川祥子 S1 through the real match path」(오른쪽을 볼 때 1번 +13.125° … 8번 −13.125°). 공격 대상이 있으면 그 적을, 없으면 음표 반경 안에서 음표에
     가장 가까운 선택 가능한 적을 주기마다 찾는다(PRTS 「选择自身一定范围内距离音符自身最近的可选目标」). 최소 자유 시간이 지나고 대상이 있으면
     추적, 대상이 사라지면 현재 방향으로 다시 자유 비행(PRTS 「以当前运动方向重新进入至【自由移动】状态」). 사키코의 공격 범위 밖에서 대상 없이
     연속 `delay`(재능 bb 1초, 클라이언트 `passby_delay` 1.0)초 있으면 사라진다(PRTS 「音符位于自身攻击范围外时，若连续1s以上不存在跟踪目标则消失」)
@@ -271,7 +338,7 @@
 ### 처음 5명 키트에서 고친 버그 (2026-10-06)
 코드 리뷰에서 나온 9개를 공식 자료와 대조해 고쳤다. 각 항목은 회귀 테스트가 고치기 전 코드에서 실패하는 것을 확인했다.
 - 望: S3 자동 배치(`drop`)가 재배치를 기다리는 돌을 세지 않아, 그 돌이 돌아올 때 배치 한도(tokens.js)가 정비 돌을 영구 퇴장시켰다(시드 4개 모두 2~3개).
-  → 기다리는 돌도 자리를 차지(`autoDeploy`와 같음), `redeployUsed`는 한도가 차 있으면 기다린다.
+  → 기다리는 돌도 자리를 차지(`autoDeploy`와 같음), `redeployUsed`는 한도가 차 있으면 기다린다. (2026-10-11: `drop`·`autoDeploy` 자체를 뺐다 — 위 「손패 돌은 새 칸에 놓지 않는다」.)
 - 望 S3 시작 넘침 跟子: PRTS 技能3 备注 「触发第一天赋时，按照有敌人的>没有敌人的；不可部署地块>可部署地面地块>可部署高台地块的优先级生成」대로
   적 칸 → 지형 등급 순(같으면 적 칸은 방어 지점 가까운 순, 빈 칸은 무작위). 이전엔 빈 칸이 등급 없이 무작위였다.
 - 望 돌 피해: `battle.enemies`를 직접 돌던 S3 십자·S2 직선을 `Battle.enemiesInKeys`(canTargetEnemy) 칸 선택으로(체크리스트). 거대 적은 몸이 걸친 칸 기준.
@@ -295,8 +362,9 @@
     `battle.enemies` 순회는 거리·칸 계산 같은 판단에만 쓴다.
   - 실제 사례: 첸 S3 검기·S2 첫 대상, 왕 바둑돌 발동·폭발이 은신 적을 때렸다.
 - 이미 걸린 디버프의 틱 피해는 `ignoreSelect`(선택 규칙을 다시 보지 않음).
-- 스킬 범위 발동 규칙(`SKILL_RANGE`)은 선택 가능 여부를 무시하고 켜진다(공식). 범위에 은신 적만 있을 때 스킬이 헛돌지 않게 한다
-  (첸 S2: 선택 가능한 적이 올 때까지 대기).
+- 기본 전략의 rangeId 상자(데이터 `DEFAULT` + `customRangeGrid`, 관리자 결정 2026-10-11)는 **선택 가능한** 적만 센다(클라
+  `m_findEnemyTargetOptions`, 지상·공중) — 범위에 은신 적만 있으면 켜지지 않는다(첸 S2: 선택 가능한 적이 올 때까지 대기). 엔진 규칙
+  `SKILL_RANGE`(지금 데이터에서는 余 S2 예외만)는 선택 가능 여부를 무시하고 켜진다.
 
 **피해 설정** (`battle.dealDamage` 옵션 — 공식 계산은 `damage.js`가 한다. 방어·저항·배율을 키트에서 직접 계산하지 않는다)
 - `type`(phys/arts/true), `isSkill`, `isAttack`, `isSplash`, `tags`를 비슷한 원본 키트(tier*.js, professions.js)와 맞춘다.
@@ -314,8 +382,9 @@
   빼서 키트가 날리고 도착 때 그 `onHit`을 부른다(사키코 음표).
 - `fromTokens`로 만든 토큰은 소유자별 배치 한도(tokens.js)에 걸려 먼저 놓은 토큰을 퇴각시킨다. 한도에 들면 안 되는 것(투사체 성격)은 `fromTokens` 없이.
 - 새 `battle.fx` 종류를 추가하면 `public/js/render/fx/kinds.js FX_KINDS`에 한 줄을 넣는다(테스트 "sim fx coverage").
-- 스킬 자동 발동 규칙은 `tools/build-data.mjs resolveTrigger`가 정한다: 공식 표에 없으면 MANUAL + 자기 스킬 범위 → `SKILL_RANGE`,
-  「攻击范围扩大」 같은 공격 범위 변경 → `DEFAULT`. 다르게 하려면 `TRIGGER_DEVIATIONS`(의도적 예외, 관리자 결정으로만).
+- 스킬 자동 발동 규칙은 `tools/build-data.mjs resolveTrigger`가 정한다: 공식 표에 없으면 MANUAL + rangeId(공격 범위 변경 포함) →
+  `DEFAULT` + `customRangeGrid`(그 상자 안의 적, 치유 스킬도 적), rangeId 없으면 `DEFAULT`(공격 중) — `sim.md` 「스킬 범위 발동」.
+  다르게 하려면 `TRIGGER_DEVIATIONS`(의도적 예외, 관리자 결정으로만).
 
 **동작 근거**
 - 출처 순서: 공식 테이블(skill_table blackboard, character_table 재능, battle_equip_table 모듈) → PRTS 비고 → 나무위키 평가.

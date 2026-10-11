@@ -29,15 +29,17 @@
 //   and every enemy in it is hit — a high-ground stone thus catches ground enemies with S3; with S2 only a flyer
 //   on its tile triggers it, and the line blast then hits ground enemies too.
 // - Stones are hand pieces placed in the prep (any deployable tile, ground or high ground — owner's decision 2026-10-05,
-//   tools/build-diy.mjs makes the token position ALL). They stay exactly where they were placed: the battle-start
-//   deployment is automatic, and 铸子's 跟子 comes only with a MANUAL deployment ("手动部署棋子时") — so none at the
-//   battle start (it used to add one per stone, and those, counted under the deploy limit, withdrew the oldest placed
-//   stones: the layout changed when the battle began).
+//   tools/build-diy.mjs makes the token position ALL). They stay exactly where they were placed. Every birth of a placed
+//   stone brings 铸子's 跟子 — the battle-start deployment too (maintainer decision 2026-10-11: the client's automatic
+//   deployment spawns with `spawnManually: true`, client code AutoChessBattleTrigger._AutoDeploy (RVA 0x7D5A60), and
+//   wang_stone1_t_1[trigger] ON_OWNER_BORN has no manual-only filter; 2026-10-07 – 2026-10-11 there was none at the battle
+//   start — docs/rules/diy.md 「되돌리기」). A 跟子 counts under no deploy limit, so it withdraws no placed stone.
 // - 跟子 (铸子, E1+): PRTS "通过天赋'额外部署的棋子'实为望自身发射的弹道 由此其不具有单位相关的性质（例如占据空位等）" — not a unit: it never counts under the stone deploy limit
 //   (maxDeployCount) and occupies no tile; ≤ attack@max_spawn_cnt of them. Tile: one of the 4 neighbours in the client's
 //   WangTileSelector order (followerOrder, 2026-10-10): ground first, then an enemy on it, then undeployable, then
-//   up > right > down > left as the board is drawn (PRTS 「相同优先级时按棋子上>右>下>左」, left / right swapped on a mirrored
-// field; maintainer decision 2026-10-07, W8; until 2026-10-10 enemy tiles came first, as PRTS words it) — never undeployable
+//   up > right > down > left in field coordinates (client code WangTileSelector._GetDirectionPriority, RVA 0x7199D0 — on a
+//   mirrored field too: maintainer decision 2026-10-11, the W8 swap of 2026-10-07 reverted; until 2026-10-10 enemy tiles
+//   came first, as PRTS words it) — never undeployable
 //   high ground; only where no character unit stands and no knocked-out operator lies (downOn, as upstream; user
 //   decision 2026-10-07). Several in a row are built one per 4 frames. It needs no stock and is drawn as a stone. It
 //   links like a stone (armed 30 frames after the link, as a stone); its damage comes from 望.
@@ -45,16 +47,15 @@
 //   uniequip_002_wang — stoneLimits; maintainer decision 2026-10-07), ≤ maxDeckStackCnt.
 //   S1 / S2: "立即获得两枚棋子", 阻回 while the stock is full (PRTS 备注). S3: gains cnt, the stones above the stock limit
 //   go out as 跟子 on tiles of her range (PRTS: "技能开启时自动部署的为第一天赋的跟子"; the client's InstantSpawn order:
-//   ground, enemy tiles, undeployable first, otherwise random — followerOrder); manual deployments in her
-//   range may go on enemy tiles and bring the talent's 跟子 (free) + up to 3 extra 跟子, one ammo each — ≤ 3 ammo a deployment
-//   (「第一天赋额外至多部署3枚棋子并消耗等量弹药」: one manual stone = the talent's 1 + S3's ≤ 3 — confirmed in game by the
-// maintainer 2026-10-07, W12); it ends when stopped or out of stones,
-//   the ammo left returns as stones.
-// - [ASSUMED] 卫戍协议 battles take no manual deployment: like the mode's 自动操作 of skills, stones of the stock are
-//   deployed automatically (S1 / S2: on the free deployable tile next to her stones that an enemy route crosses,
-//   nearest to an enemy, no enemy on it — trait; S3: on an enemy tile of her range, one a second) while fewer than
-//   maxDeployCount stones stand; S3 stops itself once it can deploy no more. The used-up stones waiting for a redeploy
-//   come first: new tiles only beyond them. A deployment from the stock pays the stone's DP cost too.
+//   ground, enemy tiles, undeployable first, otherwise random — followerOrder); a stone of hers deployed in her range
+//   during S3 may go on an enemy tile and brings the talent's 跟子 (free) + up to 3 extra 跟子, one ammo each — ≤ 3 ammo a
+//   deployment (「第一天赋额外至多部署3枚棋子并消耗等量弹药」: one manual stone = the talent's 1 + S3's ≤ 3 — confirmed in game by
+//   the maintainer 2026-10-07, W12); it ends when stopped, out of ammo or out of stones, the ammo left returns as stones.
+// - The stock is only what the used-up placed stones come back from: no stone of the hand is ever put on a new tile
+//   (maintainer decision 2026-10-11 — the client's only in-battle deployment, AutoChessBattleTrigger.
+//   _TryDeployAvailableCharacter (RVA 0x7D6C90), deploys the pieces placed in the prep on their prep tiles). The
+//   [ASSUMED] stand-in of 2026-10-06 – 2026-10-11 (S1 / S2 put new stones next to hers, S3 one a second on an enemy tile
+//   of her range or an empty one) is gone — docs/rules/diy.md 「되돌리기」.
 // - 取势: 停顿 + atk_scale × 望's ATK arts per second for `sluggish` s (independent per trigger, from 望).
 //   连星: arts atk_scale × 望's ATK to the enemies within 3 tiles on both sides along the link direction (vertical
 //   when linked up / down, horizontal when left / right; once activated a direction stays, PRTS 备注) + slow: independent
@@ -69,7 +70,7 @@ import { bodyOnTile } from '../../../body.js';
 import { enemyStealthed } from '../../../targeting.js';
 import { DEPLOY_REFUSED_TILES } from '../../../grid.js';
 import { talentBb } from '../shared/tier1.js';
-import { hypot, powi } from '../../../detmath.js';
+import { powi } from '../../../detmath.js';
 import { atPotential } from '../../../../../shared/potential.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -77,15 +78,17 @@ const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
 const selectedSkill = (chess, def) => chess?.skill?.skillId ?? def?.skill?.id ?? null;
 const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null);
 const ANY = Object.freeze({ canHitFly: true });
-const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], unit, ANY);
 
 const STONE_ID = 'token_10064_wang_stone1';
 /** Her summon 棋子 (named as upstream's tests import it). */
 export const STONE = STONE_ID;
-const ORTHO = [[1, 0], [0, 1], [-1, 0], [0, -1]]; // up > right > down > left (row 0 = bottom)
-/** The same order on a mirrored field (drawn with col → 20 − col): 上 > 右 > 下 > 左 as drawn = +row, −col, −row, +col. */
-const ORTHO_MIRRORED = [[1, 0], [0, -1], [-1, 0], [0, 1]];
-const WANG_S3_PACE = 1; // [ASSUMED] one automatic deployment a second while S3 runs
+const ORTHO = [[1, 0], [0, 1], [-1, 0], [0, -1]]; // up > right > down > left (row 0 = bottom), field coordinates
+/**
+ * Her used stones come back one per AUTO_TRIGGER_INTERVAL (client code AutoChessBattleTrigger.AutoTrigger, the
+ * AUTO_TRIGGER_INTERVAL 0.2 s loop → _TryDeployAvailableCharacter (RVA 0x7D6C90): one successful deployment per pass;
+ * 2026-10-11 — until then all those due in a 0.25 s pass at once).
+ */
+const AUTO_TRIGGER_INTERVAL = 0.2;
 /**
  * A used stone's return takes one stone of the stock (maintainer decision 2026-10-07); false = it comes back for DP alone, as
  * PRTS 卫戍协议 「…退场，将在满足条件后立即原地再部署1个」 (maintainer decision 2026-10-08: back to false).
@@ -168,7 +171,6 @@ function wang(bb, chess, def) {
   const followerCap = Math.max(0, num(t0['attack@max_spawn_cnt'], 0));
   // the 棋子 variant of her form / skill / module (a 自选 piece's token variants are keyed by its owner form)
   const stoneDef = (battle, unit) => battle.tokenDef(STONE_ID, unit);
-  const stoneStats = (battle, unit) => stoneDef(battle, unit)?.stats ?? {};
   /**
    * deployLimit / deckStack of her stone variant with her module (normalizeToken drops both from `stats`; tokens.js
    * deployLimitOf reads the raw variant the same way). local patch (2026-10-08): the module raises the deploy limit
@@ -193,9 +195,6 @@ function wang(bb, chess, def) {
   /** Placed stones used up by a trigger, waiting to be redeployed on their own tile. */
   const waitingOf = (battle, unit) => battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === STONE_ID && t.ownerUnit === unit
     && !t.alive && !t.removed && t.mem.wangUsed);
-  /** Battle.isReservedTile without the home tiles of her own used stones waiting to be redeployed. */
-  const reservedForOthers = (battle, unit, r, c) =>
-    battle.isReservedTile(r, c, (a) => a.kind === 'token' && a.defId === STONE_ID && a.ownerUnit === unit && a.mem.wangUsed);
   /**
    * A consumed stone comes back on its own tile like any redeploy of the mode (tokens.js enableRespawn /
    * Battle.redeploy): after its respawnTime, paying its DP cost; the tile must be free of units and enemies (trait).
@@ -224,6 +223,7 @@ function wang(bb, chess, def) {
     if (unit.skill.ammoLeft <= 0) { unit.skill.end('ammo'); return true; }
     return false;
   };
+  /** One used stone back on its tile per call (AUTO_TRIGGER_INTERVAL: the client deploys one piece per 0.2 s pass). */
   const redeployUsed = (battle, unit) => {
     if (!live(unit)) return;
     for (const t of waitingOf(battle, unit).sort((a, b) => a.mem.respawnAt - b.mem.respawnAt)) {
@@ -246,15 +246,14 @@ function wang(bb, chess, def) {
       if (RETURN_USES_STOCK) st(unit).stock--;
       Object.assign(t.mem, { wangUsed: false, active: false, armAt: 0, line: 0, axes: new Set() });
       battle.fx('summon', { x: t.x, y: t.y, id: t.id });
-      // every stone birth brings its 跟子 (client wang_stone1_t_1[trigger] ON_OWNER_BORN) — the battle-start deployment
-      // of the prep stones aside (maintainer decision)
+      // every stone birth brings its 跟子 (client wang_stone1_t_1[trigger] ON_OWNER_BORN)
       // local patch (2026-10-06, user: "S3 ammo never drops"): while S3 runs, a used stone coming back IS her deployment
-      // of a stone in the mode (卫戍协议 has no hand placement; the prep layout keeps the field at its cap of 6, so the
-      // S3 stand-in found no free slot and spent nothing) — it builds the S3 跟子 around it (s3Followers: the talent's
-      // one free + ≤ 3 extra, one ammo each)
+      // of a stone in the mode (the client's only in-battle deployment) — it builds the S3 跟子 around it (s3Followers:
+      // the talent's one free + ≤ 3 extra, one ammo each)
       const ammo = s3 ? Math.max(0, Math.floor(num(unit.skill.ammoLeft, 0))) : 0;
       followAround(battle, unit, t, s3 ? s3Followers(ammo) : 1, s3);
       syncSpLock(battle, unit);
+      return; // one a pass
     }
   };
   /** 阻回 while the stock is full (S1 / S2). */
@@ -295,16 +294,17 @@ function wang(bb, chess, def) {
   /**
    * One 铸子 跟子 next to the tile (r0, c0) — the client's BuildStone selector (`_maxNum` 1) with WangTileSelector TALENT:
    * the 4 neighbours a 跟子 may take (followerClass), the best by followerOrder when there is more than one. Ties are
-   * impossible (the direction key differs); the board's up / right / down / left as drawn — the mirrored field (boss /
-   * hidden right side, drawn with col → 20 − col) swaps right and left (as upstream's SIDES_MIRRORED; maintainer decision
-   * 2026-10-07, W8 — the client orders by grid column [미확정 on a mirrored field]).
+   * impossible (the direction key differs). The direction is the field's up / col+ / down / col− on a mirrored field too
+   * (maintainer decision 2026-10-11): the client mirrors only the positions of the right player's pieces on a boss map
+   * (client code AutoChessMapAreaManager.ConvertChessPositionInfoToRightMap, RVA 0x832BC0: col' = 2·boundary − col), not
+   * the map, and _GetDirectionPriority (RVA 0x7199D0) compares grid offsets. 2026-10-07 – 2026-10-11 (W8) a mirrored
+   * field swapped col+ and col− (ORTHO_MIRRORED) — docs/rules/diy.md 「되돌리기」.
    */
   const buildOne = (battle, unit, r0, c0) => {
     if (followers(battle, unit).length >= followerCap) return null;
-    const sides = battle.getPlayer(unit.ownerId)?.mirror ? ORTHO_MIRRORED : ORTHO;
     const stones = stonesOf(battle, unit);
     const cand = [];
-    sides.forEach(([dr, dc], dir) => {
+    ORTHO.forEach(([dr, dc], dir) => {
       const r = r0 + dr, c = c0 + dc;
       const cls = followerClass(battle, r, c, stones);
       if (cls != null) cand.push({ r, c, cls, foe: enemiesOnTile(battle, r, c).length > 0, dir });
@@ -344,49 +344,6 @@ function wang(bb, chess, def) {
     };
     battle.after(FOLLOWER_PRE_DELAY, step, { owner: unit });
   };
-  /** A stone from the stock on (r, c) ("manual" deployment), then its 跟子 (`extra` of them). */
-  const deployStone = (battle, unit, r, c, extra = 1, s3 = false) => {
-    // a deployment from the stock pays the stone's DP cost (卫戍协议 has in-battle DP: 10, +1/s — the same pool the
-    // automatic operator redeploys use)
-    const ps = battle.getPlayer(unit.ownerId);
-    const cost = num(stoneStats(battle, unit).cost, 3);
-    if (!ps || ps.dp + 1e-9 < cost) return null;
-    const tdef = stoneDef(battle, unit);
-    const s = tdef ? battle.spawnToken(unit, STONE_ID, r, c, { anySource: true, kit: placedStoneKit(tdef) }) : null;
-    if (!s) return null;
-    ps.dp = Math.max(0, ps.dp - num(s.base.cost, cost)); // the deployed stone's own cost (TRP-X module: −1), as Battle.redeploy
-    battle.fx('summon', { x: s.x, y: s.y, id: s.id });
-    st(unit).stock--;
-    followAround(battle, unit, s, extra, s3);
-    return s;
-  };
-  /** S1 / S2 automatic deployment tile: free deployable, no enemy (trait), next to her stones (or her), route first. */
-  const autoTile = (battle, unit) => {
-    const stones = stonesOf(battle, unit);
-    const seeds = stones.length ? stones : [unit];
-    const cand = [];
-    for (const s of seeds) {
-      for (const [dr, dc] of ORTHO) {
-        const r = s.tileR + dr, c = s.tileC + dc;
-        if (!battle.grid.inRect(r, c) || stoneAt(stones, r, c) || cand.some((x) => x[0] === r && x[1] === c)) continue;
-        const t = battle.grid.tile(r, c);
-        if (t.build === 'NONE' || battle.grid.isObstacle(r, c) || battle.unitAt(r, c) || battle.isReservedTile(r, c)) continue;
-        if (walkersOnTile(battle, r, c).length) continue; // trait: only walking enemies block (_excludeOccupiedByWalkEnemy)
-        const near = battle.enemies.filter((e) => e.alive).reduce((m, e) => Math.min(m, hypot(e.x - c, e.y - r)), 99);
-        cand.push([r, c, t.pass === 'ALL' && t.height === 'LOW' ? 0 : 1, near]);
-      }
-    }
-    cand.sort((a, b) => a[2] - b[2] || a[3] - b[3]);
-    return cand[0] || null;
-  };
-  const autoDeploy = (battle, unit) => {
-    const s = st(unit);
-    // consumed stones waiting to come back on their tiles go first (the player's layout), new ones only beyond them
-    while (s.stock > 0 && !waitingOf(battle, unit).length && placed(battle, unit).length < s.fieldCap) {
-      const t = autoTile(battle, unit);
-      if (!t || !deployStone(battle, unit, t[0], t[1], 1)) break;
-    }
-  };
   /** "获得N枚棋子" (ChargeToken): charge = min(deckCap − hand, n) cards; returns the count above it. */
   const addOwned = (unit, n) => {
     const s = st(unit);
@@ -394,10 +351,9 @@ function wang(bb, chess, def) {
     s.stock += add;
     return n - add;
   };
+  /** S1 / S2 「立即获得两枚棋子」: cards in her hand only — no stone goes on a new tile (maintainer decision 2026-10-11). */
   const gain = (battle, unit, n) => {
-    const s = st(unit);
     addOwned(unit, n);
-    autoDeploy(battle, unit);
     syncSpLock(battle, unit);
   };
   return {
@@ -444,55 +400,10 @@ function wang(bb, chess, def) {
           };
           const cast = () => { if (instant()) battle.after(S3_SPAWN_COOLDOWN, cast, { owner: unit }); };
           battle.after(FOLLOWER_PRE_DELAY, cast, { owner: unit });
-          // automatic "manual" deployments: a stone on an enemy tile of her range and a 跟子 on each placeable neighbour (≤ 4),
-          // one ammo per 跟子 built (client SpawnTokenS3InSkill). It ends only when the stones (stock) or the ammo run out —
-          // no self-stop while the field is full (it waits).
-          const drop = () => {
-            if (!running()) return false;
-            // out of stones: ends once no 跟子 build is pending (the client waits for them: hasRemainingBuildCnt)
-            if (s.stock <= 0) { if (!s.building) unit.skill.end('stones'); return false; }
-            // her used stones waiting to come back hold their slots (as in autoDeploy): a new stone beyond them would make
-            // the comeback exceed the deploy limit, and tokens.js would withdraw a prep stone for good (review 2026-10-06)
-            if (placed(battle, unit).length + waitingOf(battle, unit).length >= s.fieldCap) return false;
-            const stones = stonesOf(battle, unit);
-            // where she would put it by hand [ASSUMED stand-in, no client rule: a player places it]: an enemy tile of her range,
-            // in random order (2026-10-10: was the enemy closest to its goal first — goalFirst, dropped with the
-            // InstantSpawn order above) — else (local patch 2026-10-06, maintainer report "S3 spends no ammo": enemies walking just
-            // outside her range never gave the stand-in a tile) a free tile of her range on the ground routes, nearest to a
-            // living enemy, no walking enemy on it (trait)
-            const tiles = battle.rng.shuffle(inRange(battle, unit).filter(stoneSelectable)).map((e) => [Math.round(e.y), Math.round(e.x)]);
-            const alive = battle.enemies.filter((e) => e.alive && !e.hidden);
-            if (alive.length) {
-              const near = (r, c) => alive.reduce((m, e) => Math.min(m, hypot(e.x - c, e.y - r)), 99);
-              const extra = [];
-              for (const k of unit.rangeKeys || []) {
-                const r = Math.floor(k / COLS), c = k % COLS;
-                if (!battle.grid.inRect(r, c) || walkersOnTile(battle, r, c).length) continue;
-                const t = battle.grid.tile(r, c);
-                extra.push([r, c, t.pass === 'ALL' && t.height === 'LOW' ? 0 : 1, near(r, c)]);
-              }
-              extra.sort((x, y) => x[2] - y[2] || x[3] - y[3]);
-              tiles.push(...extra.map(([r, c]) => [r, c]));
-            }
-            for (const [r, c] of tiles) {
-              if (!battle.grid.inRect(r, c) || stoneAt(stones, r, c) || battle.grid.isObstacle(r, c)) continue;
-              const t = battle.grid.tile(r, c);
-              // local patch (2026-10-06): the home tile of one of HER used stones waiting to come back does not hold the
-              // deployment off (isReservedTile did: on a lane of prep stones every enemy tile was such a home, so S3 never
-              // deployed and never spent ammo); that stone waits until its tile is free again
-              if (t.build === 'NONE' || battle.unitAt(r, c) || reservedForOthers(battle, unit, r, c)) continue;
-              const ammo = Math.max(0, Math.floor(num(unit.skill.ammoLeft, 0)));
-              // the talent's 跟子 free + ≤ 3 extra for one ammo each (s3Followers / spendS3, maintainer decision 2026-10-07,
-              // W12 [ASSUMED reading]; formerly ≤ 4, every one paid — client SpawnTokenS3InSkill `_countEvent 4`), built
-              // one per 4 frames (followAround: it ends S3 for the last ammo, or once out of stones with no build pending)
-              const stone = deployStone(battle, unit, r, c, s3Followers(ammo), true);
-              if (!stone) continue;
-              return true;
-            }
-            return false;
-          };
-          drop();
-          const job = battle.every(WANG_S3_PACE, () => { if (!running()) { job.cancel(); return; } drop(); }, { owner: unit });
+          // no stone of the hand goes on a new tile (maintainer decision 2026-10-11, client code AutoChessBattleTrigger.
+          // _TryDeployAvailableCharacter: the prep pieces only): her deployments during S3 are the used stones coming back
+          // (redeployUsed — on an enemy tile of her range too, with the S3 跟子 for ammo). It ends when stopped, out of
+          // ammo, or out of stones with no 跟子 build pending (followAround — the client's WangS3CastSkillWithLimitTimes).
         },
         onEnd({ unit }) {
           // the ammo left returns as stones (ammoLeft is already 0 here: the mirrored count)
@@ -503,7 +414,7 @@ function wang(bb, chess, def) {
       },
     },
     talents: [
-      { install(battle, unit) { // 铸子: the stock at the battle start (the placed stones stay as they are — no 跟子)
+      { install(battle, unit) { // 铸子: the stock at the battle start; a 跟子 with every placed stone's birth
         // her placed 棋子 (hand pieces from the prep) run the stone kit: set up here, before the battle starts (formerly
         // content/index.js resolved kits/diy.js tokenKits; upstream's op-wang.js does the same as this)
         for (const t of battle.allyUnits) {
@@ -522,7 +433,7 @@ function wang(bb, chess, def) {
           s.prepPlaced = n;
           s.stock = Math.min(s.deckCap, Math.max(0, s.fieldCap - n));
           syncSpLock(battle, unit);
-          battle.every(0.25, () => redeployUsed(battle, unit), { owner: unit }); // new stones only come with a skill (gain)
+          battle.every(AUTO_TRIGGER_INTERVAL, () => redeployUsed(battle, unit), { owner: unit }); // the used stones' returns
         }, { owner: unit });
         // 望 leaves the field (retreat / knock-out): every stone and 跟子 of hers dies (client die_to_kill_token,
         // ON_OWNER_FINISH → KillTokens). [ASSUMED] the placed stones are cards again and come back on their tiles,
@@ -535,14 +446,20 @@ function wang(bb, chess, def) {
           }
         }, { owner: unit, priority: -20 });
         // PRTS 铸子 备注 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」: any ally deploying on the tile of a
-        // 跟子 of hers — a placed stone coming back, a stone from the stock, an operator's redeploy or move — removes it (user
-        // decision 2026-10-09 #3, upstream 5a045731 (b); the battle-start deployment drops no 跟子 at all, so none is there then)
+        // 跟子 of hers — a placed stone coming back, a later piece of the battle-start deployment, an operator's redeploy or
+        // move — removes it (user decision 2026-10-09 #3, upstream 5a045731 (b); client code StoneTriggerMap.UpdateStoneMap
+        // on every born unit)
         battle.on('deploy', (ctx) => {
           const a = ctx.unit;
           if (!a || a.side !== 'ally' || isFollower(a)) return;
           for (const f of followers(battle, unit)) {
             if (f !== a && f.tileR === a.tileR && f.tileC === a.tileC) battle.retreat(f, { reason: 'expired', permanent: true });
           }
+          // the battle-start deployment of a placed stone is a birth like any other: its 跟子 (maintainer decision
+          // 2026-10-11 — the client's automatic deployment spawns with `spawnManually: true`, AutoChessBattleTrigger.
+          // _AutoDeploy RVA 0x7D5A60; until then [decision 2026-10-07] none at the battle start). The returns build
+          // theirs in redeployUsed.
+          if (ctx.initial && a.kind === 'token' && a.defId === STONE_ID && a.ownerUnit === unit) followAround(battle, unit, a, 1);
         }, { owner: unit, priority: 50 });
         // a placed stone used up by its trigger waits for its redeploy (a 跟子 — a projectile — is simply gone)
         battle.on('death', (ctx) => {

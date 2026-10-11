@@ -233,7 +233,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     assert.equal(h.unit(1).mem.timbre, casts % 2 ? 'organ' : 'piano');
   });
 
-  test('丰川祥子 S1: the 8 notes fan ±angle·(2·ratio − 1) around her facing (client BasicMovement._InitDirectionByStart, angle 15 → ±13.125°)', async () => {
+  test('丰川祥子 S1: the 8 notes fan ±angle·(2·ratio − 1) around her facing (client BasicMovement._InitDirectionByStart, angle 15 → ±13.125°), note 1 to the left (counter-clockwise)', async () => {
     const { dirVec } = await import('../server/sim/dir.js');
     const h = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true,
       units: [op('oblvns', { sk: 0, row: 10, col: 4, carryState: { sp: 999 } })],
@@ -247,10 +247,15 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const [dr, dc] = dirVec(u.dir);   // she does not turn (a 领主 on the ground)
     const base = (Math.atan2(dr, dc) * 180) / Math.PI;
     const wrap = (d) => ((d + 540) % 360) - 180;
+    // client code LitePhysicsUtil.Rotate (0x6ABC70) about (0,0,−1): the client's a = angle·(2·ratio − 1) turns clockwise
+    // when positive, so note 1 (a −13.125°, the 1.0× note) goes counter-clockwise = + in the sim's x = col, y = row
+    // (maintainer decision 2026-10-11 [추정: world y = screen up]; until then note 1 went clockwise)
     for (const e of born) {
-      const i = e[4].i - 1, want = angle * (2 * ((2 * i + 1) / 16) - 1);
+      const i = e[4].i - 1, want = -angle * (2 * ((2 * i + 1) / 16) - 1);
       assert.ok(Math.abs(wrap(e[4].a - base) - want) <= 0.5 + 1e-9, `note ${i + 1}: ${wrap(e[4].a - base)}° ≈ ${want}°`);
     }
+    const first = born.find((e) => e[4].i === 1);
+    assert.ok(first && wrap(first[4].a - base) > 12, `note 1 counter-clockwise of her facing (${first && wrap(first[4].a - base)}°)`);
   });
 
   // 丰川祥子 talents (namu 4.6 + PRTS 备注, 2026-10-05): 持续攻击 with no enemy, notes, ASPD aura incl. herself, LOR-Y
@@ -419,25 +424,34 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     });
   });
 
-  test('望: only connected 棋子 trigger; battle start = prep layout (no 跟子); traps take no hits; used up on a trigger, back on their tile for DP (no stock spent); S3 x-1 area', () => {
-    const noSp = (extra) => { // S1 not cast yet: only the placed stones
+  test('望: only connected 棋子 trigger; battle start = prep layout + each stone\'s 跟子; traps take no hits; used up on a trigger, back on their tile for DP (no stock spent); S3 x-1 area', () => {
+    const noSp = (extra, noFollower = false) => { // S1 not cast yet: only the placed stones
       const b = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true, units: [op('wang', { sk: 0, row: 11, col: 3 }), ...extra],
         enemies: [{ key: ENEMY, time: 0, route: 0, count: 8, interval: 1.2 }, { key: ENEMY, time: 1, route: 1, count: 6, interval: 1.6 }] });
+      // (a lone stone links with its own battle-start 跟子 since 2026-10-11: refused here to see the stone alone)
+      if (noFollower) { const spawn = b.b.spawnToken.bind(b.b); b.b.spawnToken = (...a) => (a[4]?.kit?.follower ? null : spawn(...a)); }
       b.run(12);
       return b;
     };
-    assert.equal(tagged(noSp([stone(9, 6, 50)]), 'trap'), 0, 'a lone stone is not activated');
-    assert.ok(tagged(noSp([stone(9, 6, 50), stone(9, 7, 51)]), 'trap') > 0, 'connected stones trigger');
+    assert.equal(tagged(noSp([stone(9, 6, 50)], true), 'trap'), 0, 'a lone stone (no 跟子) is not activated');
+    assert.ok(tagged(noSp([stone(9, 6, 50)]), 'trap') > 0, 'a lone stone linked by its battle-start 跟子 triggers (maintainer decision 2026-10-11)');
+    assert.ok(tagged(noSp([stone(9, 6, 50), stone(9, 7, 51)], true), 'trap') > 0, 'connected stones trigger');
     // six placed stones (the deploy limit): the layout at the battle start is the prep layout, also later on
     const placed = [[10, 5], [10, 6], [10, 7], [11, 5], [11, 7], [12, 6]];
     const h6 = makeBattle({ seed: 5, timeLimit: 60, captureNoisy: true,
       units: [op('wang', { sk: 0, row: 11, col: 3 }), ...placed.map(([r, c], i) => stone(r, c, 60 + i))],
       enemies: [{ key: ENEMY, time: 0, route: 0, count: 6, interval: 1.2 }, { key: 'enemy_1019_jshoot', time: 0, route: 1, count: 4, interval: 2 }] });
-    const layout = () => h6.allies().filter((u) => u.kind === 'token' && u.alive).map((u) => `${u.tileR},${u.tileC}`).sort();
+    const layout = () => h6.allies().filter((u) => u.kind === 'token' && u.alive && !u.mem.wangFollower).map((u) => `${u.tileR},${u.tileC}`).sort();
     const want = placed.map(([r, c]) => `${r},${c}`).sort();
     h6.step(1);
     assert.deepEqual(layout(), want, 'battle start = prep layout');
     for (const t of h6.allies().filter((u) => u.kind === 'token')) assert.ok(t.kit && t.kit.fromTokens && !t.kit.generic, 'the placed stones run the stone kit');
+    // every placed stone's battle-start birth brings its 跟子 (client `spawnManually: true`, maintainer decision 2026-10-11;
+    // until then none): 0.25 s after it (BuildStone `_preDelay`), never under the deploy limit (no prep stone withdrawn)
+    h6.run(0.5);
+    const startF = h6.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower);
+    assert.ok(startF.length > 0, `battle-start 跟子 (${startF.length})`);
+    assert.deepEqual(layout(), want, 'the 跟子 withdrew no prep stone');
     h6.run(30);
     for (const k of layout()) assert.ok(want.includes(k), `${k}: stones only come back on their own tiles`);
     for (const t of h6.allies().filter((u) => u.kind === 'token')) assert.ok(t.s.flags.untargetable && t.s.flags.invulnerable, 'stones are traps');
@@ -456,13 +470,14 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     assert.ok(used.alive && used.mem.wangUsed === false, 'redeployed');
     assert.equal(w.mem.wang.stock, stock0, 'a return takes no stone of the stock (PRTS 「原地再部署」, maintainer decision 2026-10-08)');
     assert.ok(hc.b.players[0].dp < dpBefore - 1.5, 'its DP cost paid (2 for the VI elite: module −1)');
-    // S1 with stones in the stock: deployed next to hers; their 跟子 do not count under the limit (nothing withdrawn)
+    // S1 with stones in the stock: 「立即获得两枚棋子」 adds cards only — no stone goes on a new tile (maintainer decision
+    // 2026-10-11: the client deploys only the prep pieces; until then the two went next to hers)
     const s1 = battle('wang', 0, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)], 30);
-    const all = s1.allies().filter((u) => u.kind === 'token' && u.alive);
-    assert.ok(all.some((u) => u.mem.wangFollower), '跟子 with an automatic deployment');
+    assert.ok(s1.hooksOf('skillStart').some((x) => x.unit === s1.unit(1)), 'S1 cast');
+    const homes = s1.b.allyUnits.filter((u) => u.kind === 'token' && u.defId === STONE && !u.mem?.wangFollower).map((u) => `${u.homeR},${u.homeC}`).sort();
+    assert.deepEqual(homes, ['10,6', '10,7'], 'only the prep stones');
     const cap = s1.unit(1).mem.wang.fieldCap;
     assert.equal(cap, 8, 'the VI elite carries her module: deploy limit 8 (7 at full potential + 1)');
-    assert.ok(all.filter((u) => !u.mem.wangFollower).length <= cap, 'stones ≤ the deploy limit');
     // S3 equipped: the x-1 diamond triggers and hits (passive), flyers included
     assert.ok(tagged(battle('wang', 2, 11, 3, [stone(10, 6, 50), stone(10, 7, 51)], 20), 'trap') > 0);
   });
@@ -496,7 +511,7 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
       units: [op('wang', { sk: 2, row: 11, col: 3 }), stone(10, 1, 50), stone(11, 1, 51)],
       enemies: [{ key: ENEMY, time: 0, route: 0, count: 3, interval: 1.2 }] });
     diag.step();
-    diag.unit(1).skill.opReadyAt = Infinity; // S3 equipped for its stone area, never cast here
+    diag.unit(1).skill.blockTicks = Infinity; // S3 equipped for its stone area, never cast here (automatic operations blocked)
     const fromCorner = () => diag.hooksOf('damaged').some((d) => d.dmg?.tags?.includes('trap') && d.source?.tileR === 10 && d.source?.tileC === 1);
     diag.runUntil(fromCorner, 60);
     assert.ok(fromCorner(), 'S3: the stone triggers through its x-1 diagonal');
@@ -589,7 +604,9 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const w = h.unit(1);
     assert.equal(w.mem.wang.prepPlaced, 6);
     assert.ok(h.hooksOf('skillStart').some((x) => x.unit === w), 'S1 cast');
-    assert.equal(w.mem.wang.stock, 2, '0 + 2 cards: the 6 on the field are not counted');
+    // the start hand (deploy limit − 6 placed) + S1's 2 cards, which stay in the hand (no stone of the hand goes on a new
+    // tile — maintainer decision 2026-10-11; until then S1 put both next to hers and the hand stayed at its start count)
+    assert.equal(w.mem.wang.stock, Math.min(w.mem.wang.deckCap, w.mem.wang.fieldCap - 6 + 2), 'start hand + 2 cards: the 6 on the field are not counted');
     const d = makeBattle({ seed: 5, captureNoisy: true, units: [op('wang', { sk: 0, row: 11, col: 3 }), stone(9, 6, 50), stone(9, 7, 51)],
       enemies: [{ key: 'enemy_1001_bigbo', time: 0, route: 0, count: 1 }] });
     d.runUntil(() => d.hooksOf('damaged').some((x) => x.dmg?.tags?.includes('dot')), 30);
@@ -650,7 +667,10 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
       units: [op('wang', { sk: 2, row: 11, col: 3 }), ...[4, 5, 6, 7, 8, 9].map((c, i) => stone(9, c, 50 + i))],
       enemies: [{ key: ENEMY, time: 0, route: 0, count: 6, interval: 2 }] });
-    h.step(2);
+    // the battle-start 跟子 (one per stone since 2026-10-11) cleared: they would hold max_spawn_cnt and leave the
+    // returns no 跟子 to build
+    h.run(0.5);
+    for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
     const w = h.unit(1);
     w.skill.activate('manual', { free: true });
     h.b.players[0].dp = 99;
@@ -677,72 +697,52 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
   });
 
   test('望 S3: ammo per deployment = 跟子 actually built − the talent\'s free one: 4 free neighbours → 4 跟子 / 3 ammo, fewer → fewer', () => {
+    // her deployments during S3 are the used stones coming back (no stone of the hand goes on a new tile — maintainer
+    // decision 2026-10-11; until then the S3 stand-in's drops on enemy tiles were measured here); the non-module form
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false,
-      // the non-module form: deploy limit 7 at full potential, six stones (the module's 8 leaves room for one more
-      // stand-in drop — module case: local-patch-diy-wang.test.js)
-      units: [op('wang', { sk: 2, row: 11, col: 3, elite: false }), ...[5, 6, 7, 8, 9, 10].map((c, i) => stone(12, c, 50 + i))] });
+      units: [op('wang', { sk: 2, row: 11, col: 3, elite: false }), stone(10, 5, 50), stone(11, 4, 51)] });
     h.step(2);
     const w = h.unit(1);
     w.skill.activate('manual', { free: true });
-    h.run(2.5);   // the S3-start 跟子: one a cast, 0.25 s apart (InstantSpawn _preDelay / _cooldown)
+    h.run(2.5);   // the S3-start 跟子 (one a cast, 0.25 s apart) and the battle-start ones, cleared
     assert.ok(w.skill.active);
-    for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
-    let base = 0;
+    const clear = () => { for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true }); };
+    clear();
     const built = countFollowers(h.b);
-    const put = (r, c) => { const e = h.spawn('enemy_1001_bigbo', { pos: [r, c], route: 0 }); h.b.applyStatus(e, 'stun', { duration: 99 }); return e; };
     const seen = [];
     for (const [r, c] of [[10, 5], [11, 4]]) {
-      const a0 = w.skill.ammoLeft;
-      base = built();
-      const e = put(r, c);
-      h.run(1.9);   // the next stand-in drop (1 s pace) + its 跟子 0.25 s later, one per 4 frames
+      const s = h.b.allyUnits.find((u) => u.kind === 'token' && u.defId === STONE && !u.mem?.wangFollower && u.homeR === r && u.homeC === c);
+      const a0 = w.skill.ammoLeft, base = built();
+      s.mem.wangUsed = true;
+      h.b.retreat(s, { reason: 'expired', permanent: true });   // as its trigger does: it waits for its return
+      h.b.players[0].dp = 99;
+      h.runUntil(() => s.alive, 5);
+      assert.ok(s.alive, `${r},${c} came back`);
+      h.run(1);   // its 跟子: 0.25 s after it, then one per 4 frames
       seen.push([a0 - w.skill.ammoLeft, built() - base]);
-      h.b.kill(e);
+      clear();
     }
     // maintainer decision 2026-10-07 (W12): the talent's 跟子 free + ≤ 3 extra, one ammo each
     assert.deepEqual(seen[0], [3, 4], '10,5: four free neighbours → 4 跟子 (1 free + 3 extra), 3 ammo');
-    assert.ok(seen[1][0] === seen[1][1] - 1 && seen[1][1] < 4 && seen[1][1] > 0, `11,4: fewer neighbours → fewer 跟子, one free (${seen[1]})`);
-  });
-
-  test('望 S3: the stand-in puts its stone on an enemy tile of her range in random order (goalFirst dropped 2026-10-10: no such order in the client)', () => {
-    const firsts = new Set();
-    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
-      const h = makeBattle({ seed, captureNoisy: true, timeLimit: 120, autoFinish: false,
-        units: [op('wang', { sk: 2, row: 11, col: 3 }), ...[5, 6, 7, 8, 9].map((c, i) => stone(12, c, 50 + i))] });
-      h.step(2);
-      const w = h.unit(1);
-      w.skill.activate('manual', { free: true });
-      h.run(2.5);   // the S3-start 跟子 first (one per 0.25 s) — the enemies come after them
-      assert.ok(w.skill.active);
-      const put = (r, c) => { const e = h.spawn('enemy_1001_bigbo', { pos: [r, c], route: 0 }); h.b.applyStatus(e, 'stun', { duration: 99 }); return e; };
-      put(11, 4); put(9, 4);
-      const spawned = [];
-      const orig = h.b.spawnToken.bind(h.b);
-      h.b.spawnToken = (...a) => { const u = orig(...a); if (u && a[4]?.kit?.fromTokens) spawned.push(`${u.tileR},${u.tileC}`); return u; };
-      h.run(1.2);
-      assert.ok(['11,4', '9,4'].includes(spawned[0]), `seed ${seed}: the first stone on an enemy tile (${JSON.stringify(spawned)})`);
-      firsts.add(spawned[0]);
-    }
-    assert.equal(firsts.size, 2, `either enemy tile may come first (${[...firsts]})`);
+    assert.deepEqual(seen[1], [2, 3], '11,4: 望 on 11,3 → 3 跟子 (one free), 2 ammo');
   });
 
   test('望 S3 start: the 跟子 over the hand cap take the client\'s InstantSpawn order — ground before high ground, enemy tiles first, then undeployable (WangTileSelector)', async () => {
     const { COLS: W } = await import('../server/sim/constants.js');
     // flat stage: column 2 rows 10–12 deployable high ground, column 10 undeployable ground, the rest deployable ground
     for (const seed of [1, 2, 3]) {
-      // no DP: the stand-in's drop (a paid deployment) stays out, so every 跟子 is an InstantSpawn one
+      // no DP: no stone comes back, so every 跟子 is an InstantSpawn one (the battle-start one of 12,9 cleared first)
       const h = makeBattle({ seed, captureNoisy: true, timeLimit: 120, autoFinish: false, flags: { dpPerSec: 0 },
         units: [op('wang', { sk: 2, row: 11, col: 6, dir: 'LEFT' }), stone(12, 9, 50)] });   // S3 range: columns 2–6
-      h.step(2);
+      h.run(0.5);
+      for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
       const w = h.unit(1);
       const put = (r, c) => { const e = h.spawn('enemy_1001_bigbo', { pos: [r, c], route: 0 }); h.b.applyStatus(e, 'stun', { duration: 99 }); return e; };
       put(11, 2); put(10, 4);   // an enemy on high ground, one on ground
       h.step(1);
       const spawned = [];
       const orig = h.b.spawnToken.bind(h.b);
-      // the InstantSpawn ones only: they come before the stand-in's first stone (drop) in the same cast
-      let drop = false;
-      h.b.spawnToken = (...a) => { const u = orig(...a); if (u && a[4]?.kit?.fromTokens) drop = true; if (u && !drop && a[4]?.kit?.follower) spawned.push([u.tileR, u.tileC]); return u; };
+      h.b.spawnToken = (...a) => { const u = orig(...a); if (u && a[4]?.kit?.follower) spawned.push([u.tileR, u.tileC]); return u; };
       h.b.players[0].dp = 0;
       w.skill.activate('manual', { free: true });
       h.run(2.5);   // one a cast, 0.25 s apart (InstantSpawn _preDelay / _cooldown)
@@ -784,7 +784,8 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const rows = { 10: base[10].slice(0, 6) + 'ff' + base[10].slice(8), 11: base[11].slice(0, 6) + 'ff' + base[11].slice(8) };
     const h = makeBattle({ seed: 5, captureNoisy: true, timeLimit: 120, autoFinish: false, flat: { rows },
       units: [op('wang', { sk: 2, row: 11, col: 3 }), stone(9, 9, 50)] });
-    h.step(2);
+    h.run(0.5);   // past 9,9's battle-start 跟子 (2026-10-11), cleared
+    for (const f of h.allies().filter((u) => u.kind === 'token' && u.alive && u.mem.wangFollower)) h.b.retreat(f, { reason: 'expired', permanent: true });
     const w = h.unit(1);
     w.mem.wang.stock = w.mem.wang.deckCap; // a full hand: all 8 go out as 跟子
     const placedAt = [];
@@ -891,7 +892,14 @@ describe('望 棋子 through the real match path (seats[].diy → Match board �
     const wu = b.allyUnits.find((u) => u.kind === 'op');
     assert.equal(wu.def.charId, CHAR.wang);
     assert.equal(wu.mem.wang.stock, 0, 'stock = 7 − the stones placed in the prep');
-    for (const t of b.allyUnits.filter((u) => u.kind === 'token')) assert.ok(t.kit?.fromTokens && !t.kit.generic, 'placed stones run the stone kit');
+    for (const t of b.allyUnits.filter((u) => u.kind === 'token' && !u.kit?.follower)) assert.ok(t.kit?.fromTokens && !t.kit.generic, 'placed stones run the stone kit');
+    // every placed stone's battle-start birth brings its 跟子, 0.25 s after it (maintainer decision 2026-10-11: the
+    // client's automatic deployment is `spawnManually: true`; until then none at the battle start)
+    const t0 = b.time;
+    while (b.time < t0 + 0.5) b.step();
+    const startF = b.allyUnits.filter((u) => u.kind === 'token' && u.alive && u.mem?.wangFollower);
+    assert.ok(startF.length > 0, `battle-start 跟子 (${startF.length})`);
+    assert.equal(b.allyUnits.filter((u) => u.kind === 'token' && u.alive && !u.mem?.wangFollower).length, 7, 'no prep stone withdrawn by them');
     const back = [];
     let casts = 0;
     b.on('skillStart', (c) => { if (c.unit === wu) casts++; });

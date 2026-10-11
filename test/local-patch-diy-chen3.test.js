@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import { makeBattle, enemyRec } from './helpers/battleHarness.js';
 import { diyRecord } from '../shared/diy.js';
+import { attackTiming } from '../server/sim/ai.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = { chess: JSON.parse(readFileSync(path.join(ROOT, 'data/chess.json'), 'utf8')), backups: JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8')) };
@@ -94,20 +95,63 @@ describe('赤刃明霄陈 kit — research 2026-10-07 §2 fixes', () => {
     return { h, u, src, T, heals };
   };
 
-  test('S3: the 剑气 leaves when her Skill_3_Begin clip (13 frames, no OnAttack) has played — client BasicSkill.PlayBeginAnimation → EmitProjectile', () => {
+  test('S3: the 剑气 leaves on the strike of her first attack after Skill_3_Begin, in the Default mode; the S3 mode from the next attack (client EasyToStartAbility.OnWaitForPreDelay)', () => {
+    // maintainer decision 2026-10-11 (the client's timing): Skill_3_Begin 13 frames (0.433 s, no attack) → a Default attack
+    // (Attack clip, OnAttack 13f × its scale; her own range, 1 hit, not a skill attack) whose strike sends the wave → then
+    // the S3 attacks (atk_scale 1.8, 3 hits, Skill_3_Loop). Until then the wave left at 0.433 s and the S3 mode ran from the cast.
     const h = arena(2);
     const u = h.unit(1);
-    h.spawn('enemy_post', { pos: [10, 6] });
-    u.skill.activate('manual', { free: true });
+    h.spawn('enemy_post', { pos: [10, 5] });   // in front of her: her own range
     const t0 = h.b.time;
-    let first = null;
-    for (let i = 0; i < 30 && first == null; i++) {
+    u.skill.activate('manual', { free: true });
+    const swings = [], dmg = [];
+    h.b.on('damaged', (c) => { if (c.source === u && c.dmg?.attackId) dmg.push({ id: c.dmg.attackId, t: h.b.time, skill: !!c.dmg.isSkill, tags: c.dmg.tags ?? [] }); });
+    let qi = null;
+    for (let i = 0; i < 4 * 30; i++) {
       h.step();
-      if (h.eventsOf('fx').some((e) => e[1] === 'chen3Qi' && e[4].id === u.id)) first = h.b.time - t0;
+      for (const e of h.eventsOf('swing')) if (e[1] === u.id && !swings.some((x) => x.e === e)) swings.push({ e, t: h.b.time });
+      if (qi == null && h.eventsOf('fx').some((e) => e[1] === 'chen3Qi' && e[4].id === u.id)) qi = h.b.time - t0;
     }
-    assert.ok(first != null, 'the 剑气 left');
-    // (its first step — and fx — is one sim step after it leaves, as before the change at the cast)
-    assert.ok(first >= 13 / 30 - 1e-9 && first <= 13 / 30 + 2 * h.TICK + 1e-9, `the 剑气 left ${first.toFixed(3)} s after the cast (want 0.433)`);
+    assert.ok(swings.length >= 2, `she attacked (${swings.length})`);
+    const w0 = swings[0].t - t0;
+    assert.ok(w0 >= 13 / 30 - 1e-9 && w0 <= 13 / 30 + 2 * h.TICK + 1e-9, `no swing during Skill_3_Begin; the first ${w0.toFixed(3)} s after the cast`);
+    const strike = Number(swings[0].e[2]);
+    // the Default clip's OnAttack (base 0.433 s × her clip scale), not Skill_3_Loop's (0.533 s)
+    const base = attackTiming({ def: u.def, s: u.s, skill: null });
+    assert.ok(Math.abs(strike - base.strike) < 2e-3, `the Default Attack clip's strike (${strike} vs ${base.strike})`);
+    // the swing tells the renderer to draw that attack with the Default clip (5th field 1), the S3 ones without it
+    assert.equal(swings[0].e[4], 1, 'the wave attack\'s swing: Default clip');
+    assert.equal(swings[1].e[4], undefined, 'the S3 attacks: the skill clip');
+    assert.ok(qi != null, 'the 剑气 left');
+    // (its first fx is one sim step after it leaves)
+    assert.ok(qi >= w0 + strike - 1e-9 && qi <= w0 + strike + 2 * h.TICK + 1e-9, `the 剑气 left ${qi.toFixed(3)} s after the cast, on the strike (${(w0 + strike).toFixed(3)})`);
+    const ids = [...new Set(dmg.filter((d) => !d.tags.includes('chen3Qi')).map((d) => d.id))];
+    const first = dmg.filter((d) => d.id === ids[0]), second = dmg.filter((d) => d.id === ids[1]);
+    assert.ok(first.length === 1 && !first[0].skill, `the wave's attack: a Default one (1 hit, not a skill attack) (${JSON.stringify(first)})`);
+    assert.ok(second.length === 3 && second.every((d) => d.skill), `the next: the S3 mode (3 hits) (${second.length})`);
+    assert.equal(h.b.errors.length, 0);
+  });
+
+  test('S3: with nobody in her own range the 剑气 waits — it leaves with her first attack, up to the skill\'s duration', () => {
+    const h = arena(2);
+    const u = h.unit(1);
+    h.spawn('enemy_post', { pos: [10, 6] });   // in the S3 range (3-12), outside her own (Default mode)
+    h.step();
+    u.skill.activate('manual', { free: true });
+    const qi = () => h.eventsOf('fx').some((e) => e[1] === 'chen3Qi' && e[4].id === u.id);
+    h.run(3);
+    assert.ok(u.skill.active, 'S3 runs');
+    assert.ok(!qi(), 'no 剑气 without an attack');
+    assert.equal(u.skill.spec.attack, null, 'the Default mode: no S3 profile yet');
+    assert.ok(!u.rangeKeySet.has(10 * 21 + 6), 'her own range (not 3-12)');
+    h.spawn('enemy_post', { pos: [10, 5] });
+    h.run(1.5);
+    assert.ok(qi(), 'the 剑气 left with her first attack');
+    assert.ok(u.rangeKeySet.has(10 * 21 + 6), 'then the S3 range');
+    h.runUntil(() => !u.skill.active, 40);
+    assert.ok(!u.skill.active && u.skill.spec.attack?.hits === 3 && u.skill.spec.targeting?.rangeGrid, 'the spec is put back at the end');
+    assert.ok(!u.rangeKeySet.has(10 * 21 + 6), 'her own range again');
+    assert.equal(h.b.errors.length, 0);
   });
 
   test('S3: the 剑气 turns at most once per tick (client ChangeStateWithHighlandBehaviour.OnTick: one _CheckHit → _ChangeDirection a tick)', async () => {
@@ -192,7 +236,8 @@ describe('赤刃明霄陈 through the real match path (seats[].diy → Match boa
     ps.board.clear(); ps.hand.fill(null); ps.recompute();
     const w = ps.acquireChess(T6, { source: 'buy' });
     assert.ok(w, 'her piece');
-    assert.ok(m.handle('p_0', { t: 'g.move', uid: w.uid, to: { area: 'board', row: 10, col: 7 }, dir: 'RIGHT' }).ok);
+    // (10,5, 2026-10-11: on 10,7 no enemy came into her own range after the cast — the wave waits for her first attack)
+    assert.ok(m.handle('p_0', { t: 'g.move', uid: w.uid, to: { area: 'board', row: 10, col: 5 }, dir: 'RIGHT' }).ok);
     const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
     const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
     // the m04 field's top-right corner: above (12, 9) is the field edge, right of it the 侵入点 (12, 10) — 0.25 short of
@@ -209,15 +254,24 @@ describe('赤刃明霄陈 through the real match path (seats[].diy → Match boa
     const qi = [];
     let ticks = 0;
     let casts = 0, on = false;
+    const swing1 = new Map();
     while (!b.finished && b.time < 90) {
       b.step();
       ticks++;
       const now = !!(u.skill?.active && u.skill.id === 'skchr_chen3_3');
       if (now && !on) casts++;
       on = now;
-      for (const e of b.drainEvents()) if (e[0] === 'fx' && e[1] === 'chen3Qi' && e[4].id === u.id) qi.push({ cast: casts, tick: ticks, dir: e[4].dir });
+      for (const e of b.drainEvents()) {
+        if (e[0] === 'fx' && e[1] === 'chen3Qi' && e[4].id === u.id) qi.push({ cast: casts, tick: ticks, dir: e[4].dir });
+        // the first swing after each cast: Default (the wave's attack) — its strike sends the wave (maintainer decision 2026-10-11)
+        if (e[0] === 'swing' && e[1] === u.id && on && !swing1.has(casts)) swing1.set(casts, { tick: ticks, strike: Number(e[2]) });
+      }
     }
     assert.ok(casts >= 1, 'S3 cast');
+    const q1 = qi.find((q) => q.cast === 1), s1 = swing1.get(1);
+    assert.ok(q1 && s1, 'a swing and a 剑气 in the first cast');
+    const at = s1.tick + s1.strike * 30;
+    assert.ok(q1.tick >= at - 1e-6 && q1.tick <= at + 2.01, `the 剑气 on the strike of her first attack (tick ${q1.tick}, strike ≈ ${at.toFixed(1)})`);
     assert.ok(qi.length > 20, `the 剑气 flies (${qi.length} fx)`);
     const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
     for (let i = 1; i < qi.length; i++) {
@@ -228,4 +282,20 @@ describe('赤刃明霄陈 through the real match path (seats[].diy → Match boa
     assert.equal(b.errors.length, 0, b.errors[0]?.error?.message);
     m.dispose?.();
   });
+});
+
+test('S3 automatic cast (maintainer decision 2026-10-11, AutoChessBattleTrigger._DefaultTriggerSkill): a selectable enemy on the rangeId 3-12 box — an air one alone too — and none beyond it (no 攻击距离 added)', () => {
+  const FLY = enemyRec({ key: 'enemy_fly', hp: 1e9, speed: 0, mass: 0, motion: 'FLY' });
+  for (const [key, pos, casts] of [['enemy_fly', [10, 6], true], ['enemy_post', [10, 8], false]]) {
+    const h = makeBattle({ seed: 5, timeLimit: 900, autoFinish: false, captureNoisy: true, defs: { enemies: { enemy_post: POST, enemy_fly: FLY } },
+      flags: { dpPerSec: 0, dpMax: 999 }, units: [op({ sk: 2 })], enemies: [{ key, pos }] });
+    h.step();
+    const u = h.unit(1);
+    assert.equal(u.skill.rule, 'DEFAULT');
+    assert.equal(u.skill.triggerGrid?.length, 8, 'the 3-12 box');
+    u.skill.gainSp(999);
+    const cast = h.runUntil(() => u.skill.activations > 0, 1);
+    assert.equal(cast, casts, `${key} at ${pos}`);
+    assert.equal(h.b.errors.length, 0);
+  }
 });
