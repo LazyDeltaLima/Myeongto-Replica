@@ -398,6 +398,7 @@ async function loadContext() {
     charModes: await loadLocalJson('tools/assets/local-char-modes.json', 'operator modes (tools/local-extract/char_modes.py)'),
     enemyProjectiles: await loadLocalJson('tools/assets/local-enemy-projectiles.json', 'enemy projectiles (tools/local-extract/enemy_projectiles.py): no `proj` …'),
     skillCast: await loadLocalJson('tools/assets/local-skill-cast.json', 'skill classes (tools/local-extract/skill_cast.py): no skill `cast` …'),
+    skillHud: await loadLocalJson('tools/assets/local-skill-hud.json', 'skill HUD rows (tools/local-extract/skill_hud.py): no skill `bulletMode` …'),
   };
 }
 
@@ -994,6 +995,8 @@ function buildChess(ctx) {
       s.index = i;
       const cast = skillCast(ctx, shop.charId, s);
       if (cast) s.cast = cast;
+      const bullets = skillBulletMode(ctx, s);
+      if (bullets != null) s.bulletMode = bullets;
       s.overrideTokenKey = se.overrideTokenKey || null;
       skillRecs.push(s);
     });
@@ -1194,6 +1197,8 @@ function buildUnitForm(ctx, charId, status, { chessId = null, skillIndex = null 
     s.index = i;
     const cast = skillCast(ctx, charId, s);
     if (cast) s.cast = cast;
+    const bullets = skillBulletMode(ctx, s);
+    if (bullets != null) s.bulletMode = bullets;
     s.overrideTokenKey = se.overrideTokenKey || null;
     skills.push(s);
   });
@@ -2463,6 +2468,18 @@ function skillCast(ctx, charId, s) {
     break;
   }
   return Object.assign(out, abilityTiming({ max: a.max, pre: a.pre, wait: a.wait }));
+}
+
+/**
+ * The client's `_showSpAsBulletMode` of a skill (tools/assets/local-skill-hud.json, tools/local-extract/skill_hud.py) → the
+ * skill record's `bulletMode`: 1 = while the skill is affecting (a passive one always) the unit's HUD shows the bullet bar
+ * in place of the SP cast slider — an ammo skill's bullets left, any other skill's SP as blocks (client code
+ * `Character.get_hudPluginMask`, UIHudCharBulletBar; docs/rules/ui.md 「탄환형 스킬」); 0 = never. null when not read
+ * (server/sim/local-hud.js then shows an ammo skill's bullets, as before the flag was read).
+ */
+function skillBulletMode(ctx, s) {
+  const v = ctx.skillHud?.skills?.[s.prefabId] ?? ctx.skillHud?.skills?.[s.skillId];
+  return v === 0 || v === 1 ? v : null;
 }
 
 /** The handbook's 「不停止移动」 attack (“十字路口”量产型's 四向攻击) → enemies.json `attackMoves`: it never stops to attack. */
