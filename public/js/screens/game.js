@@ -101,7 +101,7 @@ import {
   phaseMode, phaseBanner, isCombatPhase, showDeadPill, isBossPhase, placementContext, canPlace, boardTargets, dropIntent,
   holdsBattleEnd, settleBattleEnd, roundResultBox,
   snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
-  terrainInfo,
+  terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, foldCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
   mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull,
@@ -185,6 +185,9 @@ export function GameScreen() {
 }
 
 // ---- match screen ----------------------------------------------------------------------------------------
+
+/** A card of a unit of the battle on screen: a unit's, or a crate's / turret's (a device card with its `unitId`, #228). */
+const inBattleCard = (d) => d?.kind === 'unit' || (d?.kind === 'device' && d.device?.unitId != null);
 
 function MatchScreen() {
   useDocClass('sp-in-match');
@@ -420,6 +423,9 @@ function MatchScreen() {
   const lastFieldRef = useRef(null);
   const viewModeRef = useRef(null);
   const snapUnitsRef = useRef(new Map());
+  // the shown battle's device units (crates / “双眼皮” turrets: UnitInfo by id) — the meta's `units` plus the 'spawn' events,
+  // for the tap on a device (gameLogic.deviceTipAt); the renderer's pick skips devices, a tap on one lands in tileClick
+  const deviceUnitsRef = useRef(new Map());
   const hudRef = useRef(null);
   // b.ev / b.snap that arrive before the UI entered their field (the battle's first ticks race the m.public /
   // m.field re-render): kept per fieldId and replayed on enter so no unit's 'spawn' UnitInfo is ever lost.
@@ -457,10 +463,17 @@ function MatchScreen() {
   live.current.terrainTile = showPrep && (deployField === 'bossL' || deployField === 'bossR')
     ? (row, col) => fieldTile(deployField, row, col)
     : (row, col) => [row, col];
+  // a battle on screen (not the prep board, not a scouted prep board): its crates and turrets are device UNITS, found by
+  // unit; everything else answers by the stage's own device entries (gameLogic.deviceTipAt / deviceInfo, #228)
+  live.current.deviceBattle = !!shownField && !shownField.prep;
   const staleFieldRef = useRef(null);
   const enteredFieldRef = useRef(null);
   const pressSel = useRef(null);                         // the selected piece when the current field press began
   useEffect(() => {
+    // Read before the entry below replaces them. A later refresh of this same field (g.watch / reshow replaces the
+    // field object) must still know which battle the device units already noted belong to.
+    const previousFieldId = lastFieldRef.current;
+    const previousDevices = deviceUnitsRef.current;
     if (!view) return;
     if (showPrep) {
       if (field?.prep) staleFieldRef.current = field; // a prep scouting board is never a battle to enter
@@ -487,15 +500,24 @@ function MatchScreen() {
     const wanted = combat || mode === 'settle' || watchingOther;
     if (!wanted || !field || !field.fieldId || field === staleFieldRef.current || field === enteredFieldRef.current) return;
     if (watchingOther && !combat && field.fieldId !== watching) return; // an older push while switching
-    if (lastFieldRef.current && lastFieldRef.current !== field.fieldId) setDetail((d) => (d?.kind === 'unit' ? null : d));
+    if (lastFieldRef.current && lastFieldRef.current !== field.fieldId) setDetail((d) => (inBattleCard(d) ? null : d));
     enteredFieldRef.current = field;
     lastFieldRef.current = field.fieldId;
     reentryRef.current = null;
     viewModeRef.current = 'battle';
     snapUnitsRef.current = new Map();
-    view.enterBattle(field);
     const early = evBufRef.current.get(field.fieldId);
     evBufRef.current.delete(field.fieldId);
+    // Crates and turrets are absent from a start-of-battle meta and arrive once, as spawn events. Re-entering the
+    // same field from a refresh that repeats that meta (the subscription below asks for one) must not drop them.
+    const noted = noteDeviceUnits(new Map(), { units: field.units, events: early });
+    deviceUnitsRef.current = deviceUnitsForEntry(previousDevices, noted, previousFieldId != null && previousFieldId === field.fieldId);
+    // The renderer clears its unit metadata on entry too. Restore known devices there as well as in the card lookup;
+    // otherwise their next HP tuple becomes an unknown enemy whose pieceClick consumes the device's tileClick.
+    const units = Array.isArray(field.units) ? [...field.units] : [];
+    const ids = new Set(units.map((u) => u?.id));
+    for (const [id, info] of deviceUnitsRef.current) if (!ids.has(id)) units.push(info);
+    view.enterBattle({ ...field, units });
     const earlySnap = snapBufRef.current.get(field.fieldId);
     snapBufRef.current.delete(field.fieldId);
     // a scouted prep board frames like the own prep with the shop folded (the bench row included, app.js camRect);
@@ -591,6 +613,7 @@ function MatchScreen() {
         return;
       }
       view?.pushEvents(msg);
+      noteDeviceUnits(deviceUnitsRef.current, { events: msg.ev });
       audio.handleBattleEvents(msg.ev);
     };
     // 干员语音 (结算): the own battle's result just came in — the operator's line depends on how it went
@@ -743,7 +766,7 @@ function MatchScreen() {
     // the pen is a 休整期 view: leaving prep returns the camera (the next setCam would, too)
     if (phase !== PHASE.PREP && penRef.current.on) togglePenRef.current(false);
     // a battle unit's panel (live HP of a unit of the fight that just ended) never outlives its battle
-    if (!isCombatPhase(phase) && phase !== PHASE.SETTLE) setDetail((d) => (d?.kind === 'unit' ? null : d));
+    if (!isCombatPhase(phase) && phase !== PHASE.SETTLE) setDetail((d) => (inBattleCard(d) ? null : d));
     if (isCombatPhase(phase)) { setCollapsed(false); setDrag(null); view?.highlightTiles(null, null); }
     setSel(null);
     if (phase !== PHASE.PREP) setRewardMin(false);
@@ -1130,13 +1153,24 @@ function MatchScreen() {
         voiceForPiece(tapped, tapped && tapped.kind !== 'item' && tapped.kind !== 'token' ? ownShown(tapped.id) : null);
         if (wasSel) setDetail((d) => (d?.kind === 'piece' && d.uid === e.uid ? null : d));
       }),
-      // a tap on the ground itself: a special terrain tile explains itself (GitHub issue #184 「建议加入对于特殊地形的单击
-      // 信息提示」) — 活性源石 / 沼泽 / 排气格栅 / 深水区 / 红蓝门 / 传送, with the numbers of the stage behind the board.
-      // An ordinary tile (road / floor / wall) says nothing, so the press keeps its other meanings (deselect, close).
+      // a tap on the ground itself: a stage device on the tile (阻隔工事 / “双眼皮” / 射击台 / 源石流发生装置: GitHub #228, PR
+      // #229) explains itself first — the renderer's pick skips devices, so the tap lands here —, then a special terrain
+      // tile (GitHub issue #184 「建议加入对于特殊地形的单击信息提示」) — 活性源石 / 沼泽 / 排气格栅 / 深水区 / 红蓝门 /
+      // 传送, with the numbers of the stage behind the board. An ordinary tile (road / floor / wall) says nothing, so the
+      // press keeps its other meanings (deselect, close).
       view.on('tileClick', (t) => {
         if (!t || !Number.isInteger(t.row) || !Number.isInteger(t.col)) return;
         const L = live.current;
         const [row, col] = L.terrainTile(t.row, t.col);
+        const device = L.deviceBattle
+          ? deviceTipAt(L.terrainStage, row, col, { units: [...deviceUnitsRef.current.values()], snap: snapUnitsRef.current })
+          : deviceInfo(L.terrainStage, row, col);
+        if (device) {
+          audio.sfx('click', { volume: 0.4 });
+          setSel(null);
+          setDetail({ kind: 'device', device });
+          return;
+        }
         const info = terrainInfo(L.terrainStage, row, col);
         if (!info) return;
         audio.sfx('click', { volume: 0.4 });
@@ -1303,6 +1337,13 @@ function MatchScreen() {
     const t = id != null ? snapUnitsRef.current.get(id) : null;
     return t ? { hp: t[3], max: t[4] } : null;
   })();
+  // a crate's / turret's card closes with it: destroyed (HP gone, or its tuple left the snapshots once the die animation
+  // is over — before the first snapshot of a battle nothing is judged)
+  useEffect(() => {
+    const id = detail?.kind === 'device' ? detail.device?.unitId : null;
+    const snap = snapUnitsRef.current;
+    if (id != null && snap.size > 0 && !(snap.get(id)?.[3] > 0)) setDetail(null);
+  }, [hud, detail]);
 
   // ---- live stats of the detail card (user playtest #4 item 7) ------------------------------------------------------
   // battle: the local sim's unit (battle/runner.js unitStats — a getter the panel re-reads 4× a second; any unit of the

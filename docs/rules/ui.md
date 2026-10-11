@@ -666,6 +666,21 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   `selfEnemyEscapedCntInHelpBattleState`, 상한 적용)과 보스전에서만 띄운다. 우리 「−N」은 user playtest #3 item 2 요청이라 그대로 둠.
 - 확인: `test/ui/playtest3.test.js`(liveLp·LpTower·bossLp), `test/ui/playtest6-unite.test.js` [화면 미확인].
 
+## upstream 0.2.4 이식 — UI (2026-10-11)
+- **장치 탭 설명** (upstream `df540b62`, GitHub #228·PR #229 by @rickylxw, + `6bfc0827` §29.14 「같은 전투 재입장 때 장치 카드」, 사용자 결정 2026-10-11):
+  阻隔工事·“双眼皮”·射击台·源石流发生装置를 누르면 지형 카드(#184)와 같은 자리에 장치 카드(`gameLogic/terrain.js deviceInfo`·`deviceTipAt`,
+  `detailPanel.js DeviceDetail`). 정비·정찰 판은 관 데이터의 장치 위치로, 전투 중에는 상자·포탑이 장치 **유닛**이라 그 유닛이 선 칸으로 찾고(관 밖 포탑은
+  다른 칸에 섬), 카드에 실시간 HP, 부서지면 카드가 닫힌다. 같은 전장의 메타가 다시 와도(관전 `g.watch`·`reshow`) 이미 받은 장치 유닛을 렌더러와 카드
+  양쪽에 되돌린다(`deviceUnitsForEntry` — 안 그러면 다음 HP 묶음이 모르는 적이 되어 탭을 가로챔). 숨은 포탑(机械援助·机变 전)·机变으로 치운 상자는 안 그려지므로 말하지 않는다.
+  - 공식 근거: EN 클라 `btl_pfb_tokens_4.ab`·`_0.ab`의 이 넷 프리팹은 `Character._disableClickCharacterInfo`·`_disableCharInfoPanel`이 0(盟约寒风
+    `trap_1112_acblzd`은 `_disableClickCharacterInfo` 1) — 공식 전투에서 누르면 유닛과 같은 정보 패널(`UICharacterInfoPanel`: 이름·HP·공격/방어/
+    마법 저항/저지·공격 범위·스킬 탭)이 열린다. 그래서 우리 카드는 upstream 글 위에 **장치 자신의 공식 스킬 글**(관 데이터 `devices[].skill`, 한국어는 데이터
+    오버레이의 공식 KR 문구)과 포탑의 **공격 범위**(관 데이터 `rangeGrid`)를 더했다. 모양은 우리 적·소환물 카드와 같은 일반 카드(공식 모양 `ChessDetailArt`는
+    오퍼레이터 전용). `[ASSUMED]` 공식 패널의 실제 배치·정비 단계에서 누를 수 있는지(공식 정비 화면 캡처 없음), upstream의 「装置机制」 설명 글(우리 sim 수치)은 upstream 것.
+  - 문구: `en.json`·`ko/ui.json` 16개(ja·zh-TW 팩은 이번에 안 넣음 — 영어로 떨어짐). 한국어 「스테이지 장치」·「장치 효과」(지형 카드의 「지형 효과」에 맞춤).
+  - 확인: `test/ui/device-tip.test.js`(upstream v0.2.4 판, 언어는 zh/en/ko + 공식 스킬 글·범위 사례), `test/ui/device-tip.e2e.test.js`(SP_E2E, upstream 그대로 + 공식 글 한 줄),
+    dev mock `?variant=devices&stage=act1autochess_m01`·`__MOCK__.hurtDevice(i, dmg)` [화면 미확인].
+
 ## 본판 정보 다시 뽑기 (2026-10-09, 관리자 결정)
 - 공식에 없는 기능(`feat`). 싱글에서 결석 맹약·리더 적을 보고 나갔다가 새로 시작하는 일이 많아서 넣었다(관리자 2026-10-09).
   INFO_CHECK(「确认本局信息」, `screens/briefing.js`) 아래쪽, 준비 완료 버튼 왼쪽에 「다시 뽑기」(`重新抽取`, `g.infoReroll`).
