@@ -137,12 +137,16 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   凯尔希·思衡托·予愿安洁莉娜는 `1fc07616`에서 지운 것을 되살리고(upstream `0451860c`·`5029b646`과 그 뒤 수정), 克莱门莎는 upstream `2e122873`·`ba5b998a`·
   `708caf7d`·`6bfc0827`. 우리 「스킬 범위 발동」에 맞춰 凯尔希·思衡托 S2의 키트 발동 규칙과 克莱门莎 S2의 #467 공중 발동 범위는 받지 않음. 관련 upstream
   테스트 묶음(`heal-triggers-023`의 S2 발동, `feedback5-we2-placement` #26, `feedback5-we2-summon-hand` #24, `community-round27`의 予愿 2개)도 옮김.
-  #469(결과 화면 선발 이름, `server/match/fields.js`)는 안 받음 — 별개 버그. 자세한 것은 `diy.md` 「선발 추가 3명 (2026-10-11)」.
+  #469(결과 화면 선발 이름, `server/match/fields.js`)는 이때 안 받고 0.2.4 이식에서 받음(`sim.md` 「upstream 0.2.4 이식」). 자세한 것은 `diy.md` 「선발 추가 3명 (2026-10-11)」.
 
 - **멈춘 Spine 자세·재배치 링 글자 텍스처 재사용** (upstream `2fdc565c`, PR #434 by @Cloudnyco, `git cherry-pick -x` + 브라우저 테스트 후속 `584cedc1`·`6036e6a4`,
   관리자 결정 2026-10-11): 충돌 4곳(`app.js` import, `spine.js` 머리 주석·생성자 필드, `units.js` 생성자 주석·impostor 분기)은 양쪽 다 넣고, impostor 분기는 우리
   낙하 조건(`a8277c09`)에 upstream `held`를 더함. upstream의 `docs/history/0.2.3.md`는 우리에게 없어 건너뜀, `docs/design/client.md`는 한 절 덧붙임. 우리 보강
   2개(跃跃 부메랑 스킨 변경 시 다시 그림, 멈춘 자세도 240프레임마다 다시 그림)와 자세한 것은 `render.md` 「upstream 0.2.3 이식 — 렌더」.
+
+- **upstream 0.2.4 이식 — sim** (관리자 결정 2026-10-11): PR #496 `1d1ff3b1`(`git cherry-pick -x`, 특질 고정 장비는 공용 장비 재고 밖, #488·#491·#495),
+  `6bfc0827`의 #473(白面鸮 복사 증정의 줄 조건)·#469(클라 전투 결과의 선발·보충 이름) 부분(손 이식), 그리고 upstream에 없는 우리 수정 둘 — 이미 뜬 오퍼레이터 카드는
+  재고 0이어도 구매(#498, 路标月报#2 ~2:55), 谢拉格不融冰은 피해 출력마다(#489, 클라 템플릿). 자세한 것은 `sim.md` 「upstream 0.2.4 이식」.
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.
