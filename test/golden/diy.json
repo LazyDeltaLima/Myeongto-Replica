@@ -386,7 +386,7 @@
       "hooks": [1,116,6320,614,614,1269,1269,2112,78,102,33,27,111,39778,532,0,102,24,1,78,0,0,0],
       "events": {"atk":669,"deploy":12,"die":78,"dmg":1256,"engage":4,"fx":369,"heal":367,"leak":24,"skill":60,"spawn":116,"status":211,"swing":615},
       "fx": {"aoe":109,"healAoe":109,"shield":82,"takeoff":12,"zone":57},
-      "snaps": "52f240ab 07df82fa 49beeda5 30c3a648 03b5ffa7 e4ad2f20 e1908087 0aad8789 458fbf3d 75f91180 2e1ec3e8 8de78efa 596d400d c8fba8d0 2bb3727f bbead235 9e079e53 f4ddfb26 51c38597 6eeee8e6 3a6b0dbe"
+      "snaps": "3c5bee66 df1e1361 5f69775a 3a5bc0f0 9eab9bbf 01f2ade5 38926cab 1caab956 e5d9d072 5614abe3 b2cccb54 42bc65da 73dba30e 6c008e0d ed1d9c9d b5f362ec d50ac078 a15976ed f997214c ac0537d5 b4d2647d"
     },
     "diy-010": {
       "about": "5_diy1_a=clemnt/S1 5_diy2_a=clemnt/S2 5_diy1_a=clemnt/S3 5_diy2_b=clemnt/S1 5_diy1_b=clemnt/S2 5_diy2_b=clemnt/S3 6_diy1_a=clemnt/S1 6_diy2_a=clemnt/S2 6_diy1_a=clemnt/S3 6_diy2_b=clemnt/S1 6_diy1_b=clemnt/S2 6_diy2_b=clemnt/S3",
@@ -469,7 +469,7 @@
       "hooks": [1,161,5866,483,483,1262,1334,0,148,148,24,21,122,16916,52,28,144,0,1,148,0,10,0],
       "events": {"atk":729,"deploy":15,"die":148,"dmg":1334,"engage":10,"fx":58,"skill":45,"spawn":158,"status":401,"swing":522},
       "fx": {"burst":10,"dash":12,"phase":12,"takeoff":24},
-      "snaps": "0854d2f4 210841ab 41358565 0e21cb0c 2b9ccd7b c809d0b2 82fd876a 4d8e021e ca3252b5 13bbf489 eb3a9714 020e644b 31caccfc f34f06f2 863a3f30 1909db13 83a58edc 9360cc87 18b591b5 9035b10b"
+      "snaps": "fd87f950 29a9bcf9 764763f9 c30eba49 a2d1d75d 11973c22 4afe8d77 79195eda a7a77934 e525ed08 1c123d96 02eb58ce bec8e309 f3e816b5 0659d9f9 2125f946 524e11ef 997b47c4 c4b35013 3e3b3908"
     }
   }
 }

@@ -71,7 +71,7 @@ import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTe
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
 import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local patch
-import { UF_CAMOU } from '../../../shared/local.js'; // local patch: 迷彩 icon
+import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch: 迷彩 icon; 起飞
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
 import { iconShownAsFx } from './fxstatus.js'; // local patch: statuses drawn as official effects
 import { syncHeldWeapon } from './boomerang.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
@@ -528,6 +528,7 @@ export class UnitView {
     this.shadowZTarget = null;
     this.flying = info.motion === 'FLY';
     this.hover = 0;               // flying: body height above the road / the ground under it
+    this.liftoff = false;         // an airborne (起飞) operator: drawn at the flyers' height too (shared/local.js UF_LIFTOFF)
     this.dir = this.isEnemy ? null : unitDir(info);
     // whether the direction is known (UnitInfo / piece `dir`), not just the legacy ±1: battle and scouting views show
     // the ground wedge only then (a derived RIGHT would mislabel an UP / DOWN operator)
@@ -882,6 +883,7 @@ export class UnitView {
     this.elFill = this.el ? s.elFill || 0 : 0; this.elUntil = this.el ? s.elUntil || 0 : 0; this.elDur = this.el ? s.elDur || 0 : 0;
     this.followSample(s, t);
     this.flying = !!(s.flags & UF.FLYING) || this.info.motion === 'FLY';
+    this.liftoff = !!(s.flags & UF_LIFTOFF);
     // enemies keep to the road plane: ground enemies only ever walk low tiles (a rounding step onto a block edge must not
     // pop them up), and a flyer hovers FLY_HOVER above the road whatever tile it crosses — the official lift is one
     // constant over the route (docs/research/12), so a block under it is no step (GitHub #277: a flyer passing over one
@@ -1255,8 +1257,10 @@ export class UnitView {
       this.shadowZ = Math.abs(d) < 1e-3 ? this.shadowZTarget : this.shadowZ + d * Math.min(1, dt * 12);
     }
     // a flyer keeps its lift through the Die clip and drops only as it fades out: the client removes the fly offset in
-    // CharacterAnimator.OnFinish, when the finish state ends; a knocked-down flyer lies on the ground
-    const hoverTo = this.flying && (this.alive || (this.dying > DIE_FADE_TAIL && !this.down)) ? FLY_HOVER : 0;
+    // CharacterAnimator.OnFinish, when the finish state ends; a knocked-down flyer lies on the ground. An airborne (起飞)
+    // operator rises to the same height and comes down when it lands (maintainer decision 2026-10-11, docs/rules/render.md
+    // 「이륙 높이」); its shadow stays on its tile
+    const hoverTo = (this.flying || this.liftoff) && (this.alive || (this.dying > DIE_FADE_TAIL && !this.down)) ? FLY_HOVER : 0;
     if (this.hover !== hoverTo) this.hover = Math.abs(hoverTo - this.hover) < 1e-3 ? hoverTo : this.hover + (hoverTo - this.hover) * Math.min(1, dt * 6);
     const p = cam.project(this.x, this.y, this.z + this.hover + this.lift, this.screen);
     const s = p.s;

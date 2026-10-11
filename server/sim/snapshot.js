@@ -17,7 +17,7 @@
 import { UF, ANIM } from '../../shared/constants.js';
 import { DIE_ANIM_TIME, ATTACK_ANIM_TIME, DEPLOY_ANIM_TIME } from './constants.js';
 import { enemyStealthed } from './targeting.js';
-import { UF_CAMOU } from '../../shared/local.js'; // local patch
+import { UF_CAMOU, UF_LIFTOFF } from '../../shared/local.js'; // local patch
 
 const r2 = (v) => Math.round(v * 100) / 100;
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -86,6 +86,7 @@ export function flagsOf(u) {
   if (f.cold) bits |= UF.COLD;
   if (f.sleep) bits |= UF.SLEEP;
   if (u.motion === 'FLY') bits |= UF.FLYING;
+  if (f.liftoff) bits |= UF_LIFTOFF;   // 起飞: drawn at the flyers' height (shared/local.js)
   return bits;
 }
 

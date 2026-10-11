@@ -45,6 +45,11 @@ export const FEEDBACK_BATTLES_MAX = 38000;
 // b.snap unit flag bit beside shared/constants.js UF: the see-through state (UF.STEALTH) is 迷彩 (위장, buffs.js camou),
 // not 隐匿 — render/units.js shows its own icon (docs/LOCAL-PATCH.md "위장 아이콘"). Set only when no 隐匿 is in effect.
 export const UF_CAMOU = 1024;
+// …and 起飞 (an airborne operator, buffs.js `liftoff`: 予愿安洁莉娜's skills, 凯尔希·思衡托's talent, 蒂比 …): render/units.js draws it at the
+// flyers' height (FLY_HOVER) — the client lifts it as it does a flying unit (maintainer decision 2026-10-11; evidence: 予愿安洁莉娜 S3's
+// range ring is authored 0.666 below / 0.414 in front of her feet, which puts it on her tile only from that height — docs/rules/render.md
+// 「이륙 높이」)
+export const UF_LIFTOFF = 2048;
 
 // chat faction: a colored tag a player may pick for their chat lines and avatar, cleared when the match ends;
 // `bond` is the nation bond whose icon (data/assets.json bonds) shows it

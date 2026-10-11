@@ -243,7 +243,7 @@
       "hooks": [1,56,3300,421,421,1490,1520,2054,25,49,18,18,0,10952,34,28,36,24,1,32,0,3,0],
       "events": {"atk":509,"deploy":17,"die":25,"dmg":1415,"engage":10,"fx":31,"heal":89,"leak":24,"skill":36,"spawn":52,"status":143,"swing":442},
       "fx": {"aoe":4,"burst":3,"camouflage":2,"counter":6,"dodge":3,"dollEnd":1,"enemySkill":1,"explode":1,"liberate":1,"overload":1,"phase":1,"shield":2,"shieldBreak":1,"substitute":1,"summon":1,"takeoff":1,"telegraph":1},
-      "snaps": "b14832f2 9d2d55fc c4ad0b5f 2fa31c36 ee9f8830 b737cbf4 d9216145 fb947cfe 190b7c6b e6580b51 f327dc3a"
+      "snaps": "b14832f2 9e134f13 2a3c67fc 7ff618e8 119d30e2 e5500f36 f33a3ae7 5930d328 1ee1ceb1 58f1ae43 c8adefd4"
     },
     "roster-005": {
       "about": "pass 0 band 3: chess_char_2_07_b chess_char_2_08_b chess_char_2_09_b chess_char_2_11_b chess_char_2_12_b chess_char_2_19_a chess_char_2_01_b chess_char_2_02_b chess_char_2_04_b chess_char_2_05_b chess_char_2_06_b chess_char_2_10_b token_10000_silent_healrb",
@@ -371,7 +371,7 @@
       "hooks": [1,108,4200,321,321,580,573,1174,77,93,22,22,0,20202,52,37,78,0,1,77,0,0,3],
       "events": {"atk":324,"bounty":5,"deploy":30,"die":93,"dmg":573,"engage":7,"fx":91,"heal":5,"skill":46,"spawn":108,"status":45,"swing":349,"tplfx":1},
       "fx": {"aoe":2,"buff":1,"coin":21,"dodge":8,"enemyShot":2,"enemySkill":6,"explode":18,"phase":2,"shieldBreak":2,"sp":1,"summon":18,"takeoff":3,"zone":7},
-      "snaps": "212fe24e 09b65d8d f13fc533 7232ba67 a1e74847 a9656185 8f90cde6 d9818d71 7d3eec55 441053e3 9ef3ebfb bbe634ff 80410e75 cba9e810"
+      "snaps": "212fe24e fda57b41 2c80aa5a 416030c8 c0f3fddf b0bea54b a43966a5 97492959 6b90da9d aafc0e5b 6755d703 f680bd87 63cfcfcd 54e351a8"
     },
     "roster-007": {
       "about": "pass 0 band 3: chess_char_3_12_a chess_char_3_16_a chess_char_3_18_a chess_char_3_08_a chess_char_3_09_a chess_char_3_10_a chess_char_3_11_a chess_char_3_13_a chess_char_3_14_a chess_char_3_17_a chess_char_3_19_a chess_char_3_20_a token_10028_vigil_wolf",
@@ -1573,7 +1573,7 @@
       "hooks": [1,81,4200,821,821,1131,1134,7477,65,65,116,115,0,8791,153,101,66,0,1,122,3,0,0],
       "events": {"atk":861,"bounty":3,"deploy":12,"die":65,"dmg":1134,"engage":8,"fx":145,"heal":188,"layer":3,"skill":233,"spawn":81,"status":188,"swing":880,"tplfx":76},
       "fx": {"buff":1,"coin":2,"ember":57,"garrison":3,"sp":70,"summon":1,"takeoff":1,"zone":10},
-      "snaps": "2f734bf5 8198e9a3 392af440 21448c2f 5d1b41db d8c11636 e87e04d5 aa6be8e0 ef1d1624 1c79d6ea eee13eb0 c5a07d70 397c90d4 19c3efa6"
+      "snaps": "2f734bf5 8198e9a3 392af440 21448c2f 5d1b41db d8c11636 fe78bf45 cf388b57 1a4b402b 8b18ad44 1c1f2edb 4ae3b7b3 8f0d1acf d1370509"
     },
     "roster-026": {
       "about": "pass 1 band 3: chess_char_3_12_a chess_char_3_16_a chess_char_3_18_a chess_char_3_08_a chess_char_3_09_a chess_char_3_10_a chess_char_3_11_a chess_char_3_13_a chess_char_3_14_a chess_char_3_17_a chess_char_3_19_a chess_char_3_20_a token_10028_vigil_wolf",
