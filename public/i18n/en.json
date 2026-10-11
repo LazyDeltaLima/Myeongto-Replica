@@ -1157,6 +1157,7 @@
   "加入整备区": "Add to Bench",
   "全部阶级": "All Tiers",
   "隐藏": "Hidden",
+  "{tier}阶的两个自选栏位已被持有棋子的干员占用（{names}），请先出售": "Both Tier {tier} Custom slots are held by Operators with pieces ({names}): sell them first",
   "下一场作战开始时的数值": "Values at the start of the next battle",
   "法抗": "RES",
   "阻挡": "Block",

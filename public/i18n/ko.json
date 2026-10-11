@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1117 of 1332 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1118 of 1333 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1162,6 +1162,7 @@
   "加入整备区": "정비 구역에 추가",
   "全部阶级": "모든 티어",
   "隐藏": "숨김",
+  "{tier}阶的两个自选栏位已被持有棋子的干员占用（{names}），请先出售": "{tier}티어 선발 칸 2개를 이미 기물이 있는 오퍼레이터({names})가 쓰고 있습니다. 먼저 판매하세요",
   "下一场作战开始时的数值": "다음 작전 시작 시의 수치",
   "法抗": "마항",
   "阻挡": "저지",

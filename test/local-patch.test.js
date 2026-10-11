@@ -1156,7 +1156,11 @@ describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.addChess / dbg.finis
     assert.equal(ps.diy.chess_char_6_diy1_a.charId, 'char_4132_ascln', 'the first slot without a piece');
     assert.equal(ps.diy.chess_char_6_diy2_a.charId, 'char_1050_chen3');
     assert.deepEqual(add({ charId: 'char_2027_wang', tier: 6 }), { ok: true }, 'the other slot had no piece either');
-    assert.equal(add({ charId: 'char_1050_chen3', tier: 6 }).error, ERR.BAD_TARGET, 'both slots now hold pieces');
+    const full = add({ charId: 'char_1050_chen3', tier: 6 });
+    assert.equal(full.error, ERR.BAD_TARGET, 'both slots now hold pieces');
+    const { diySlotsFullOf } = await import('../public/js/ui/debugPanel.js');
+    assert.deepEqual(diySlotsFullOf(full.detail), { tier: 6, names: ['阿斯卡纶', '望'] }, 'the panel toasts this refusal with the names (its detail)');
+    assert.equal(diySlotsFullOf('not a DIY candidate'), null);
     assert.deepEqual(ps.hand.filter(Boolean).map((p) => ps.gd.chess(p.id).charId).sort(), ['char_2027_wang', 'char_4132_ascln']);
   });
 

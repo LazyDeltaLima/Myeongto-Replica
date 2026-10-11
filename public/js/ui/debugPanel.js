@@ -16,7 +16,7 @@
 import { useMemo, useState } from '../../vendor/hooks.module.js';
 import { html, roman } from './components.js';
 import { act } from './gameActions.js';
-import { toastError } from './toasts.js';
+import { toast, toastError } from './toasts.js';
 import { net } from '../net.js';
 import { audio } from '../audio.js';
 import { data } from '../data.js';
@@ -52,6 +52,17 @@ export function debugEntries(chessList, candidates, rawChess = () => null, getBo
   return out.sort((a, b) => a.tiers[0] - b.tiers[0] || a.sort - b.sort || (a.key < b.key ? -1 : 1));
 }
 
+/**
+ * The tier and operator names of a dbg.addDiy refused because both 自选 slots of the tier hold operators with pieces
+ * (server/local-patch.js debugIntent: its NetError.detail, pinned by test/local-patch.test.js), else null.
+ * @param {any} detail
+ * @returns {{ tier: number, names: string[] } | null}
+ */
+export function diySlotsFullOf(detail) {
+  const m = /^both 自选 slots of tier (\d) hold operators with pieces \(([^)]*)\)/.exec(typeof detail === 'string' ? detail : '');
+  return m ? { tier: Number(m[1]), names: m[2] ? m[2].split(', ') : [] } : null;
+}
+
 /** The entries passing the filters: `bond` '' | DIY | a bond id, `tier` 0 (all) | 1–6, `query` a name fragment. */
 export function filterDebugEntries(entries, { bond = '', tier = 0, query = '' } = {}) {
   const q = String(query || '').trim().toLowerCase();
@@ -77,7 +88,6 @@ export function DebugPanel({ debug, prep, diy }) {
   const [skillSel, setSkillSel] = useState(null);   // null = the current loadout / default
   const [moduleSel, setModuleSel] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState('');              // the server's reason for the last refused add (NetError.detail)
   const candidates = debug?.candidates;
   const chessReady = data.status('chess');
   const entries = useMemo(() => debugEntries(data.list('chess'), candidates, (id) => data.lookupRaw('chess', id), (id) => data.lookup('bonds', id)),
@@ -99,10 +109,15 @@ export function DebugPanel({ debug, prep, diy }) {
   const reset = () => { setSkillSel(null); setModuleSel(null); };
   const finish = async (victory) => { setBusy(true); await act('dbg.finish', { victory }, { sfx: false }); setBusy(false); };
   const toggle = async (e) => { setBusy(true); await act('dbg.funds', { on: !!e.currentTarget.checked }, { sfx: false }); setBusy(false); };
-  // like act(), plus the refusal's detail under the button (the toast names only the error code: BAD_TARGET says nothing
-  // of why — a tier's two 自选 slots taken by operators with pieces, say)
+  // like act(), but a tier's two 自选 slots held by operators with pieces toast that reason with their names (the code's
+  // own text, BAD_TARGET 「잘못된 대상」, says nothing of why)
   const send = async (type, fields) => {
-    try { await net.request(type, fields); audio.sfx('pick'); setNote(''); } catch (err) { toastError(err); audio.sfx('error', { volume: 0.6 }); setNote(err?.detail || ''); }
+    try { await net.request(type, fields); audio.sfx('pick'); } catch (err) {
+      const full = diySlotsFullOf(err?.detail);
+      if (full) toast(t('{tier}阶的两个自选栏位已被持有棋子的干员占用（{names}），请先出售', { tier: roman(full.tier), names: full.names.map((n) => tName(n)).join(', ') }), 'error');
+      else toastError(err);
+      audio.sfx('error', { volume: 0.6 });
+    }
   };
   const add = async () => {
     if (!sel || (cand && !tierRec)) return;
@@ -173,7 +188,6 @@ export function DebugPanel({ debug, prep, diy }) {
         </select>
       </div>` : null}
       <button type="button" class="dbgp__add" disabled=${busy || !prep || !sel} onClick=${add}>${t('加入整备区')}</button>
-      ${note ? html`<div class="dbgp__note">${note.replace(/\(([^)]*)\)/, (_, names) => `(${names.split(', ').map((n) => tName(n)).join(', ')})`)}</div>` : null}
       <div class="dbgp__row">
         <span class="dbgp__label">${t('结算')}</span>
         <button type="button" class="dbgp__end" disabled=${busy} onClick=${() => finish(true)}>${t('胜利')}</button>
