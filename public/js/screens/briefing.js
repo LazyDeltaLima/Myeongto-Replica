@@ -11,7 +11,7 @@
 // blocks the strategy draft's 本局信息 dialog shows (screens/bandDraft.js).
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
-import { html, Button, Icon, MicroLabel, Tooltip } from '../ui/components.js';
+import { html, Button, Icon, MicroLabel } from '../ui/components.js';
 import { useGameData, Img, RichText } from '../ui/gameComponents.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfo, matchInfoModel, InfoTitle } from '../ui/matchInfo.js';
@@ -66,11 +66,13 @@ export function BriefingScreen() {
   // stage_mappreview shots, which the autochess stages lack) — the local-client art; without it the plain row
   const mapUrl = pub.stageId ? localAsset('stage/preview', pub.stageId) : null;
   // the enemy block as the client's stage-info view draws it (prefab_auto_chess_stage_info_enemy_group): the boss in
-  // img_boss_bkg with the img_boss_name_bkg tag under it, then its name and abilities; the 特训敌人 types as icon + name
-  // items on img_normal_enemy_bkg (their description in the tooltip) — sprites of the local-client extraction ui/outer
+  // img_boss_bkg with the img_boss_name_bkg tag under it, then its name and abilities; the 特训敌人 types one under the
+  // other on img_normal_enemy_bkg — icon in the same frame, name, description (maintainer 2026-10-11: the client's
+  // icon + name items alone read too bare) — sprites of the local-client extraction ui/outer
   const bossFrame = localAsset('ui/outer', 'img_boss_bkg');
   const bossTag = localAsset('ui/outer', 'img_boss_name_bkg');
   const enemyBg = localAsset('ui/outer', 'img_normal_enemy_bkg');
+  const rowBg = localAsset('ui/outer', 'img_content_bkg');
   const types = factionTypes(pub.factions);
   const factions = gd.factions?.types || {};
   const m = gd.m;
@@ -112,13 +114,12 @@ export function BriefingScreen() {
             <span class="brief-stage__name"><${Icon} name="rook" />${stageName}</span>
             ${mapUrl ? html`<${Img} src=${mapUrl} class="brief-stage__map" alt=${stageName} />` : null}
           </div>
-          <div class="brief-etypes" style=${enemyBg ? `--panel:url("${enemyBg}")` : null} aria-label=${t('特训敌人')}>
-            ${types.length ? types.map((ty) => html`<${Tooltip} key=${ty} text=${factions[ty]?.desc || ''}>
-              <div class="brief-etype" data-type=${ty}>
-                <span class="brief-etype__icon"><${Img} src=${factionIconUrl(m, factions[ty]?.icon)} /></span>
-                <span class="brief-etype__name">${factions[ty]?.name || ty}</span>
-              </div>
-            <//>`) : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
+          <div class="brief-etypes" style=${enemyBg ? `--panel:url("${enemyBg}")` : null}>
+            <span class="brief-etypes__k"><${MicroLabel}>SPECIAL ENEMIES</${MicroLabel}><span>${t('特训敌人')}</span></span>
+            ${types.length ? types.map((ty) => html`<div key=${ty} class="brief-etype" data-type=${ty} style=${rowBg ? `--row:url("${rowBg}")` : null}>
+              <span class=${cx('brief-etype__icon', !bossFrame && 'no-art')} style=${bossFrame ? `--frame:url("${bossFrame}")` : null}><${Img} src=${factionIconUrl(m, factions[ty]?.icon)} /></span>
+              <span class="brief-etype__text"><b>${factions[ty]?.name || ty}</b><span>${factions[ty]?.desc || ''}</span></span>
+            </div>`) : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
           </div>
         </div>
       </section>
