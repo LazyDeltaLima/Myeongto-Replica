@@ -91,6 +91,12 @@ Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weigh
 
 ### 6.6 AI players (bot.js)
 
+[ASSUMED] Cooperative buying (upstream 0.2.3, PR #407): bot purchasing applies one soft 18-point penalty to non-elite,
+non-DIY tier V/VI shared-pool cards whose active bonds overlap another living teammate's opening strategy
+(`gd.bandBondIds`, bonds the mode switches off excluded). Human and AI teammates count equally and several teammates do
+not stack the penalty; it neither reserves stock nor prevents a stronger purchase or an immediate own merge. Not an
+official rule: an AI heuristic only.
+
 Pending Pointing Stick offers use the existing bounty scorer at bot prep entry, immediately after a successful cast,
 and before Ready. The timer / disconnected-seat finalizer randomly resolves any remaining offer before temp and Ready.
 

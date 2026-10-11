@@ -911,3 +911,6 @@ round was over. The official 1 s `broadcastBeginDelay` is not modelled.
 * A merge completed after the prep (SETTLE effects) keeps its reward offer for the next prep; its elite goes where a prep
   merge's would — onto the tile of a consumed deployed copy (PRTS 卫戍协议/帮助 "若消耗已部署至作战区的干员，则发送至作战区
   对应位置"), else to the hand, overflowing into temp (temp pieces that arrive after the prep wait through the next prep).
+* [ASSUMED] Cooperative buying (upstream 0.2.3, PR #407): `bot.js buyScore` lowers a non-elite, non-自选 tier V/VI
+  shared-pool card by 18 when its bonds include an active bond of another living teammate's opening strategy (one
+  penalty however many teammates match; humans and AI alike). An AI heuristic, not a game rule (DESIGN §6.6).
