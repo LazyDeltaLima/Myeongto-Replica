@@ -217,13 +217,18 @@ const RAISED_Z = 0.12;
  */
 export const FLY_HOVER = 1.3;
 /**
- * An airborne (起飞) operator whose character data names its own lift (tiles), instead of FLY_HOVER: the trait blackboard's
+ * An airborne (起飞) operator whose client data sets its own lift (tiles), instead of FLY_HOVER: the trait blackboard's
  * `height_offset` (character_table), which her mode buffs move the model's graphic holder to (ModifyGraphicHolderHeight:
  * aglna2_s_2[chant_end], aglna2_s_3[mode] — the latter 0.4 on a high-ground tile, `high`). 予愿安洁莉娜 0.8 (maintainer
  * report 2026-10-12 「제자리에 돌아왔을 때 이륙 고도가 지금보다 낮다」: she flew at 1.3) [ASSUMED: the offset is in tiles —
  * world space, not the 0.27 character space of the flyers' 0.35].
  */
-const LIFTOFF_HEIGHT = Object.freeze({ char_1015_aglna2: { lift: 0.8, high: 0.4, highSkill: 2 } });
+const LIFTOFF_HEIGHT = Object.freeze({
+  char_1015_aglna2: { lift: 0.8, high: 0.4, highSkill: 2 },
+  // 凯尔希·思衡托: no ModifyGraphicHolderHeight in her charpack or any kalts2_* buff template, `_motionMode` 0 — her 起飞
+  // (kalts2_t_1) only changes her block mode, so the client draws her on her tile (maintainer request 2026-10-12)
+  char_1052_kalts2: { lift: 0 },
+});
 /**
  * A push / pull slide (推拉, PR #380 by @xcdoge). The sim displaces at once — server/sim/battle/displacement.js walks its
  * 0.1-tile steps inside one call — and then holds the enemy in its 失衡 (UNBALANCE) state (PR #392's idea): a push for the

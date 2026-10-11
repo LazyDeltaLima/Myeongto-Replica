@@ -108,3 +108,17 @@ test('UnitView.glide: the model goes out at the sweep speed, holds at the end fo
   assert.equal(v.hover, 0.8, 'her trait height_offset, not the flyers\' height');
   assert.ok(0.8 < FLY_HOVER);
 });
+
+// Follow-up (maintainer 2026-10-12 「켈시 이격도 이륙 높이가 인게임 데이터와 같은지」): the lift of an airborne (起飞) operator is the
+// client's — 予愿安洁莉娜 0.8 (her trait height_offset), 凯尔希·思衡托 none (no height node in her data, her 起飞 is a block mode
+// only), anyone else the flyers' FLY_HOVER.
+test('airborne lift: 予愿安洁莉娜 0.8, 凯尔希·思衡托 stays on her tile, other 起飞 operators FLY_HOVER', () => {
+  const cam = presetCamera('prep', { width: 1280, height: 720 });
+  const st = { picture: () => null, image: async () => null, spineEntry: () => null, spine: { acquire: async () => null, release() {} } };
+  for (const [defId, want] of [[AGL, 0.8], ['char_1052_kalts2', 0], ['char_4191_tippi', FLY_HOVER]]) {
+    const v = new UnitView(fakeViewCtx(fake.P, { assets: st, cam: () => cam }), { id: 1, side: 'ally', kind: 'chess', defId, x: 4, y: 10, maxHp: 1000 }, {});
+    v.sync({ x: 4, y: 10, hp: 1000, maxHp: 1000, sp: 0, spMax: 0, flags: UF_LIFTOFF, anim: 0 });
+    for (let i = 0; i < 120; i++) v.update(1 / 60, cam, 0);
+    assert.ok(Math.abs(v.hover - want) < 1e-3, `${defId}: ${v.hover} vs ${want}`);
+  }
+});
