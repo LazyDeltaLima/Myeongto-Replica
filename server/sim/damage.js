@@ -76,6 +76,14 @@ function attackerId(source, dmg) {
   return source && !dmg.sourceless && source.id != null ? source.id : null;
 }
 
+/**
+ * The 7th field of the 'dmg' event (2026-10-11, user report: 아스카론's 死亡拘审 ticks sounded as her attack): 1 = a damage-over-time
+ * tick (tags 'dot': 持续伤害, the client's attackType BUFF — a buff's ON_BUFF_TRIGGER damage node such as `ascln_t_1[debuff]`
+ * DamageViaAttr, which plays no sound and is no ability's HIT), else 0. The client plays no impact sound for it
+ * (public/js/audio.js, docs/rules/audio.md 「지속 피해 틱」).
+ */
+const dotFlag = (dmg) => (Array.isArray(dmg?.tags) && dmg.tags.includes('dot') ? 1 : 0);
+
 /** Normalise a DamageInfo descriptor. */
 export function makeDamageInfo(d = {}) {
   const type = d.type ?? 'phys';
@@ -345,7 +353,7 @@ export function applyHpLoss(battle, source, target, amount, dmg) {
   target.lastHitAt = battle.time;
   if (dmg && !dmg.silent && amount >= 0.5) {
     const shown = dmg.type === 'element' ? dmg.element : dmg.type === 'elemental' ? (dmg.element || 'true') : dmg.type;
-    battle._ev(['dmg', target.id, Math.round(amount), shown, dmg.lpNum || 0, attackerId(source, dmg)]); // local patch: 5th = number flag (local-hud.js)
+    battle._ev(['dmg', target.id, Math.round(amount), shown, dmg.lpNum || 0, attackerId(source, dmg), dotFlag(dmg)]); // local patch: 5th = number flag (local-hud.js)
   }
   if (battle._hooks.damaged) battle.emit('damaged', { source: hs, target, amount, type: dmg ? dmg.type : 'true', dmg, credit: source });
   if (target.side === 'ally' && target.skill && dmg && !dmg.noSp && dmg.type !== 'element') battle._skills.onDamaged(target);
@@ -428,7 +436,7 @@ export function applyElement(battle, source, target, dmg) {
   let amt = dmg.amount * dmg.mul * elementIntake(target);
   if (!(amt > 0) || !Number.isFinite(amt)) return 0;
   target.elem[el] = Math.min(max, target.elem[el] + amt);
-  battle._ev(['dmg', target.id, Math.round(amt), el, 0, attackerId(source, dmg)]);
+  battle._ev(['dmg', target.id, Math.round(amt), el, 0, attackerId(source, dmg), dotFlag(dmg)]);
   if (source) source.stats.elem = (source.stats.elem ?? 0) + amt;
   if (battle._hooks.damaged) battle.emit('damaged', { source, target, amount: amt, type: 'element', dmg });
   if (target.elem[el] >= max && target.alive) elementBurst(battle, source, target, el);

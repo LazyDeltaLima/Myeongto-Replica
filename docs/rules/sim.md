@@ -776,6 +776,9 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **'dmg' 이벤트 6번째 = 공격자 unit id** (`server/sim/damage.js attackerId`): 일반 공격, 키트가 `battle.dealDamage`로 넣는 스킬 피해('atk' 없음 — 키트
   약 60개), DoT(건 유닛), 소환물(자기 id). 无来源(원소 폭발, `periodicDamage`)·출처 없는 피해는 null. 원소 게이지
   채움도 같은 자리(5번째는 0). 기존 원소 위치·뜻은 그대로.
+- **'dmg' 이벤트 7번째 = 지속 피해 틱 1 / 아니면 0** (2026-10-11, `server/sim/damage.js dotFlag`, 사용자 제보 「아스카론 S2 지속 피해 소리가 공격 소리」):
+  태그 `'dot'`(持续伤害 = 공식 attackType BUFF, 버프 그래프의 피해 노드)인 피해. 소리가 그 틱을 착탄으로 치지 않게 한다(`docs/rules/audio.md` 「지속 피해 틱」).
+  이벤트 개수·전투 결과는 그대로(golden 무변화).
 - **적 스킬 이벤트에 공식 능력 이름**: 콘텐츠의 쿨다운 스킬이 시전되면(`content/enemies.js onTick`) fx `enemySkill` `{ id, ability, n }`을 먼저 내고, 그 시전
   호출 안에서 나는 fx에는 `ability`·`caster`가 붙는다(`battle/events.js fx`; 나중 예약(`battle.after`)된 fx에는 없음). `ability` = gamedata 스킬
   `prefabKey`(`enemies/helpers.js abOf`의 `sk[*].name`; 보스 키트의 수동 능력 객체도 `name`). 렌더(`kinds.js` `enemySkill` 'none' — 그리지 않음)·소리가

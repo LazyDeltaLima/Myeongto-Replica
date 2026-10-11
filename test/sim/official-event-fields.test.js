@@ -99,8 +99,9 @@ test("'dmg' [5]: the attacker — a normal attack, a kit's direct dealDamage; nu
   const e = put(h, 'enemy_1019_jshoot', [9, 5]);
   assert.ok(h.runUntil(() => h.eventsOf('dmg').some((x) => x[1] === w.id), 20));
   const ev0 = h.eventsOf('dmg').find((x) => x[1] === w.id);
-  assert.equal(ev0.length, 6);
+  assert.equal(ev0.length, 7);
   assert.equal(ev0[5], e.id, 'the enemy that shot');
+  assert.equal(ev0[6], 0, 'an attack is no DoT tick');
   h.events.length = 0;
   h.b.dealDamage(w, e, { amount: 100, type: 'true', isSkill: true });   // what a kit's skill damage does
   const d = h.eventsOf('dmg').find((x) => x[1] === e.id);
@@ -109,9 +110,14 @@ test("'dmg' [5]: the attacker — a normal attack, a kit's direct dealDamage; nu
   h.b.dealDamage(w, e, { amount: 100, type: 'true', sourceless: true });
   assert.equal(h.eventsOf('dmg').find((x) => x[1] === e.id)[5], null, '无来源: none');
   h.events.length = 0;
+  h.b.dealDamage(w, e, { amount: 100, type: 'arts', tags: ['dot'] });   // a DoT tick credited to its applier
+  const t = h.eventsOf('dmg').find((x) => x[1] === e.id);
+  assert.equal(t[5], w.id);
+  assert.equal(t[6], 1, "the 7th field: a DoT tick (tags 'dot')");
+  h.events.length = 0;
   h.b.dealDamage(w, e, { amount: 50, type: 'element', element: 'burn' });
   const g = h.eventsOf('dmg').find((x) => x[1] === e.id && x[3] === 'burn');
-  assert.deepEqual([g.length, g[4], g[5]], [6, 0, w.id], 'an element fill: [4] 0, [5] the attacker');
+  assert.deepEqual([g.length, g[4], g[5], g[6]], [7, 0, w.id, 0], 'an element fill: [4] 0, [5] the attacker, [6] no DoT');
 });
 
 test("an enemy skill's cast: fx 'enemySkill' { id, ability, n } and `ability` / `caster` on the fx it makes", () => {

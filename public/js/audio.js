@@ -216,8 +216,8 @@ const IMPACT_WINDOW_MS = 2500;
 const KIT_SOUND_DEF = /^(char_\d+_(wang|chen3|wisdel|oblvns|whitw2|lemuen|ghost2)|token_\d+_(wang|wisdel|oblvns|whitw2|lemuen|ghost2)\w*)$/;
 /**
  * 2026-10-10: a skill-damage impact (a 'dmg' carrying its attacker with no attack of its own, docs/SIM.md) of one
- * attacker at most this often (real ms) — a DoT credited to its applier is no impact [추정: the client sounds a skill's own
- * impacts through its projectiles / abilities, not per damage tick].
+ * attacker at most this often (real ms) [추정: the client sounds a skill's own impacts through its projectiles / abilities,
+ * not per damage tick]. A DoT tick credited to its applier never gets here (2026-10-11: the 'dmg' 7th field, skipped first).
  */
 const SKILL_HIT_GAP_MS = 120;
 /** 2026-10-10: the game speed assumed before a swing → strike pair measured it (render/app.js local feed: 2). */
@@ -1513,6 +1513,10 @@ export class AudioManager {
           this.unit(src.def, 'on', e[1], undefined, mode); // 2026-10-10: its ON bank too (START and ON both sound)
         } else if (kind === 'dmg') {
           if (!IMPACT_TYPES.has(e[3])) continue;
+          // 2026-10-11 (user report: 아스카론's 死亡拘审 ticks sounded as her attack, docs/rules/audio.md 「지속 피해 틱」): a damage-over-time
+          // tick (the sim's 7th field, damage.js dotFlag) is a buff's damage in the client — no ability HIT, no sound — and
+          // neither an attack's impact (it must not take the one lastAttacker keeps for the real hit) nor a skill impact
+          if (e[6] === 1) continue;
           const by = this.lastAttacker.get(e[1]);
           // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the attacker the sim names (6th field, docs/SIM.md) —
           // the impact of its normal attack aimed at this target, or a splash of it (the same moment as its strike / impact), else

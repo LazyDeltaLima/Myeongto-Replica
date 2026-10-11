@@ -388,3 +388,64 @@ describe('buff and custom-trigger sounds (EN client buff templates → sfx.kit)'
     assert.deepEqual(a.played.map((p) => p.f), ['p_imp_smksndrtbf.mp3']);
   });
 });
+
+// 2026-10-11 user report (docs/rules/audio.md 「지속 피해 틱」): during 아스카론's S2 the ticks of her 死亡拘审 (talent DoT,
+// client buff ascln_t_1[debuff]: DamageViaAttr on ON_BUFF_TRIGGER — no PlayAudio, no audioSignal) sounded her S2 attack impact
+// p_imp_smksndrt_h as a skill impact. A DoT tick is flagged by the sim ('dmg' 7th field) and plays nothing.
+describe('damage-over-time ticks (the \'dmg\' 7th field)', () => {
+  test('a DoT tick credited to its applier plays no impact; the same damage without the flag still does', () => {
+    const a = manager();
+    field(a, 'char_4132_ascln', 1);
+    a.handleBattleEvents([['skill', 1, 1]]);
+    a.played.length = 0;
+    a.handleBattleEvents([['dmg', 2, 80, 'arts', 0, 1, 1]]);
+    assert.deepEqual(a.played, [], 'her 死亡拘审 tick under S2: silent');
+    a.handleBattleEvents([['dmg', 2, 300, 'arts', 0, 1, 0]]);
+    assert.deepEqual(a.played.map((p) => p.f), ['p_imp_smksndrt_h.mp3'], 'a skill\'s own damage (no attack) keeps its impact');
+  });
+
+  test('a DoT tick does not take the impact of the attack aimed at that target', () => {
+    const a = manager();
+    field(a, 'char_4132_ascln', 0);
+    a.handleBattleEvents([['swing', 1, 0.3, 'none'], ['atk', 1, 2, 'none']]);
+    a.played.length = 0;
+    a.handleBattleEvents([['dmg', 2, 80, 'arts', 0, 1, 1]]);
+    assert.deepEqual(a.played, [], 'the tick');
+    a.handleBattleEvents([['dmg', 2, 300, 'arts', 0, 1, 0]]);
+    assert.deepEqual(a.played.map((p) => p.f), ['p_imp_smksndrt_n.mp3'], 'the attack\'s own impact still sounds');
+  });
+
+  test('real match path: 아스카론 S2 — her 死亡拘审 ticks carry the flag, her attacks do not, the ticks play nothing', async () => {
+    const { makeMatch, legalTileFor } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const T6 = 'chess_char_6_diy1_a';
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T6]: { charId: 'char_4132_ascln', skillIndex: 1, uniEquipId: null } } }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+    h.toPrep(4);
+    const m = h.m, ps = h.ps('p_0');
+    ps.initDiyStock?.(new Set());
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    const w = ps.acquireChess(T6, { source: 'buy' });
+    const tile = legalTileFor(m, ps, T6);
+    assert.ok(m.handle('p_0', { t: 'g.move', uid: w.uid, to: { area: 'board', row: tile[0], col: tile[1] }, dir: 'RIGHT' }).ok);
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'lp', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    b.start();
+    m.dispose?.();
+    const u = b.allyUnits.find((x) => x.kind === 'op');
+    const ticks = [], hits = [];
+    b.on('damaged', (c) => { if (c.source === u) (c.dmg?.tags?.includes('dot') ? ticks : hits).push(c); });
+    const ev = [];
+    while (!b.finished && b.time < 120 && !(ticks.length >= 3 && u.skill?.active)) { b.step(); ev.push(...b.drainEvents()); }
+    assert.ok(ticks.length >= 3 && hits.length > 0, 'her attacks and 死亡拘审 ticks');
+    const mine = ev.filter((e) => e[0] === 'dmg' && e[5] === u.id);
+    assert.ok(mine.some((e) => e[6] === 1) && mine.some((e) => e[6] === 0), 'ticks flagged 1, attacks 0');
+    const a = manager();
+    a.setFieldUnits([{ id: u.id, kind: 'op', side: 'ally', spine: 'char_4132_ascln', defId: u.def?.id, skillIndex: 1 }]);
+    a.handleBattleEvents([['skill', u.id, 1]]);
+    a.played.length = 0;
+    a.handleBattleEvents(mine.filter((e) => e[6] === 1));
+    assert.deepEqual(a.played, [], 'no tick sounds');
+  });
+});

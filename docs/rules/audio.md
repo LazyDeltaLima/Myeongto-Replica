@@ -344,6 +344,24 @@
   `_modes` 순서(local-char-audio.json `modes`) [추정: 렌더의 모드 판정이 같은 번호를 준다]. 확인: `test/local-patch-attack-signals.test.js` 「enemy modes」(직접 호출).
 - 안 한 것: 적 버프·커스텀 트리거 소리(위 「버프·커스텀 트리거 소리」), `ON_BOSS_ENTER`(우리 보스엔 뱅크 없음). 적 스파인 이벤트는 위 「공격 소리 신호」의 스파인 이벤트로 남.
 
+## 지속 피해 틱 (2026-10-11, 사용자 제보 「아스카론 S2 지속 피해 소리가 공격 소리와 같음」)
+- 원인: 아스카론 재능 「死亡拘审」의 틱(`op-ascln.js` `battle.dealDamage(unit, t, { tags: ['dot', …] })`)은 'dmg'에 공격자(그녀 id)가 실리고 'atk'가 없어,
+  위 「공격 소리 신호」의 「스킬 자체 피해」로 처리됐다 — S2 중이면 `_skillImpact`가 S2 모드 착탄음 p_imp_smksndrt_h(= 그녀의 S2 공격 착탄)를 틱마다 냈다.
+  그 [추정](「지속 피해 틱은 공식 착탄 신호가 아님」)은 0.12초 간격 제한으로만 구현돼 있었다. 또 그 틱이 그녀가 막 공격한 대상에 오면 그 공격의 착탄 자리를
+  가져갈 수 있었다(`lastAttacker`).
+- 공식(EN 클라 버프 템플릿 + 디컴파일): 틱은 버프 `ascln_t_1[debuff]`의 ON_BUFF_TRIGGER `Nodes.DamageViaAttr`(attackType BUFF) — 그 템플릿에 PlayAudio 노드도
+  `audioSignal`도 없고, `DamageViaAttr.Execute`(RVA 0xBBE9B0)는 피해 계산·`ApplyModifier`뿐 소리를 내지 않는다. 능력의 HIT 신호도 아니다 → **틱은 무음**.
+  같은 꼴(버프 트리거 피해 노드, 소리 없음): 인디고 S2 `indigo_s_2[damage]`(DamageViaAttr), 이네스 S1 출혈 `ines_s_1[damage]`, 텍사스 디 오메르토사 S1
+  `texas2_s_1[dot]`(FixedValueDamage), 언더플로우 재능 `udflow_t_1`, 엔텔레키아 재능 `etlchi_t_1[magic_dot]`.
+- 고친 것: sim 'dmg' 이벤트에 7번째 필드 = 지속 피해 틱 1(태그 `'dot'` — 우리 sim에서 持续伤害 = attackType BUFF, `professions.js`), 아니면 0
+  (`server/sim/damage.js dotFlag`, `docs/rules/sim.md`·`docs/SIM.md`; 이벤트 수·전투 결과 그대로라 golden 무변화). `public/js/audio.js`는 그 틱을 착탄으로 치지 않는다
+  (공격 착탄·스플래시·스킬 착탄 모두 아님, `lastAttacker`도 안 건드림).
+- 같은 경로로 함께 무음이 된 것(예전에는 그 스킬 중 틱마다 스킬 착탄음): 위 다섯 + 포덴코 S2 포자 구역·틴맨 구역(`'dot', 'zone'`)·클레멘티아 S2 소용돌이.
+  [추정] 이 셋은 버프 템플릿이 아니라 확인 못 함 — 틴맨 `tinman_s_2[buff]`는 ON_BUFF_TRIGGER에 자기 PlayAudio가 있어(구역 맥동음) 공식은 틱마다 그 소리를
+  낸다(안 한 것: 그 소리 연결). 라플란드 더 데카덴차 드론·望 바둑돌은 원래 `sfx.kit`로 따로 내서 변화 없음. 无来源 틱(深水区·원소 등)은 원래 착탄음 없음.
+- 확인: `test/local-patch-attack-signals.test.js` 「damage-over-time ticks」(틱 무음·같은 피해 플래그 없으면 착탄음, 틱이 공격 착탄을 가져가지 않음, 실제 매치 경로
+  아스카론 S2: 틱 7번째 = 1·공격 = 0·틱 무음). [브라우저 미확인]
+
 ## 작전 종료 효과음 (2026-10-07)
 - 관리자 제보: 공식 효과음 3개는 이미 웹 매니페스트에 있었다(`sfx.ui.battleOverReduce` / `battleOverNoReduce` /
   `battleOverNormal` = `act1autochess_b_ui_battleover_reduce|noreduce|normal.mp3`, 뱅크 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`, 각 1.4초) — 받기만 하고 재생하는
