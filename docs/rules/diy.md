@@ -487,3 +487,8 @@
   우리 CSS에 없어 그 hunk는 받지 않음.
 - 테스트: `test/ui/diy-ui.test.js` 「the picker detail (upstream 0.2.4)」(일반/정예화 전환마다 S1 수치·SP가 sim def와 같음, Lv 표기, 잠재·육성도 줄),
   `test/ui/loadout-stats.test.js`(upstream: `LoadoutStats`가 `ui/loadoutStats.js`에서 옴). 화면 확인은 메인 세션.
+
+## 아스카론 死亡拘审 틱 간격 (2026-10-11 확인)
+- 키트 `op-ascln.js`의 `interval: 1`(1초마다)은 공식과 같다. 클라 버프 템플릿 `ascln_t_1[debuff]`의 `triggerInterval` 2.0은 기본값일 뿐이다:
+  클라 코드 `Buff.Reset`이 틱 타이머 주기를 버프 블랙보드의 `interval`로 읽고(없을 때만 템플릿 값), 재능 블랙보드에 `interval` 1.0이 있다
+  (설명 「每秒受到…」과 같음). 이 메서드는 en_US·zh_CN Lua 핫픽스 목록 밖. 다른 키트에서 템플릿 `triggerInterval`을 볼 때도 블랙보드 `interval`을 먼저 확인할 것.
