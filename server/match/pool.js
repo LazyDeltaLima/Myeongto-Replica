@@ -16,7 +16,8 @@
 //
 // Rolls: each chess slot draws ONE copy uniformly from all remaining copies of eligible chess with tier ≤ shop level
 // ("copy-weighted"; duplicates within a roll allowed). The item slot picks a tier with the same tier shares, then a
-// uniform shop-eligible item of that tier (falling back to lower tiers). A roll may add entries outside the pool
+// uniform shop-eligible item of that tier that the shared equipment stock (SharedItemPool, below) still covers (falling
+// back to lower tiers). A roll may add entries outside the pool
 // (`extra`, after its own): one player's 自选 stock (0.2.0, player/diy.js diyRollEntries) — weighted by its copies like
 // any chess, drawn by that player's shop only.
 
@@ -151,9 +152,10 @@ export class SharedPool {
 
   /**
    * Item roll for the shop's item slot: tier by the chess tier shares at this level, uniform item within the tier,
-   * falling back to lower tiers when a tier has no item. Returns an item id or null.
+   * falling back to lower tiers when a tier has no item. With `stock` (SharedItemPool) an item the shared equipment
+   * stock cannot cover is left out of its tier first. Returns an item id or null.
    */
-  rollItem(rng, maxTier) {
+  rollItem(rng, maxTier, stock = null) {
     const shares = this.tierShares(maxTier);
     const tiers = Object.keys(shares).map(Number).sort((a, b) => a - b);
     let tier = null;
@@ -165,12 +167,12 @@ export class SharedPool {
       tier = 1 + Math.floor(rng() * Math.max(1, maxTier));
     }
     for (let t = tier; t >= 1; t--) {
-      const list = this.gd.shopItemsByTier[t];
-      if (list && list.length) return list[Math.floor(rng() * list.length)];
+      const list = (this.gd.shopItemsByTier[t] || []).filter((id) => !stock || stock.canGain(id));
+      if (list.length) return stock ? stock.pick(rng, list) : list[Math.floor(rng() * list.length)];
     }
     for (let t = tier + 1; t <= 6; t++) {
-      const list = this.gd.shopItemsByTier[t];
-      if (list && list.length) return list[Math.floor(rng() * list.length)];
+      const list = (this.gd.shopItemsByTier[t] || []).filter((id) => !stock || stock.canGain(id));
+      if (list.length) return stock ? stock.pick(rng, list) : list[Math.floor(rng() * list.length)];
     }
     return null;
   }
@@ -186,5 +188,54 @@ export class SharedPool {
     let n = 0;
     for (const e of this.entries.values()) n += Math.max(0, e.left);
     return n;
+  }
+}
+
+/**
+ * Shared shop-equipment stock (upstream 6bfc0827, GitHub #466): every shop item has a match-wide cap, counted live from
+ * what every player owns — hand, temp area and the items equipped on board pieces (the bench's pieces carry theirs
+ * too). A normal item occupies 1, an advanced (golden) one 2. Shop / choice displays reserve nothing. Caps
+ * (config.economy.itemPoolCopies by tier 4/6/7/8/7/3 + itemPoolCopiesOverrides, e.g. 商业包装方案 2) are the 路标月报#2
+ * measurements (路标档案馆, bilibili BV1eLXXBqEgF, 2026-03-29, ~1:30) and are the same in solo and co-op. Items that
+ * are not shop items (effect-only special equipment) have no cap. [ASSUMED] An item that is consumed, destroyed or
+ * removed by an elimination no longer occupies stock (the video shows the ownership model, not every removal path):
+ * this is a concurrent cap, never a limit on appearances or purchases per match.
+ */
+export class SharedItemPool {
+  /** @param {any} gd @param {() => Iterable<any>} players every seat of the match (eliminated ones hold nothing) */
+  constructor(gd, players) { this.gd = gd; this.players = players; }
+  /** The cap of an item's base, or null (uncapped). */
+  cap(id) { return this.gd.itemPoolCopies(id); }
+  /** Copies one piece of `id` occupies: an advanced (golden) item is the merge of two. */
+  need(id) { return this.gd.isGolden(id) ? 2 : 1; }
+  held(id) {
+    const base = this.gd.baseIdOf(id);
+    let count = 0;
+    const see = (p) => {
+      if (!p) return;
+      if (p.kind === 'item' && this.gd.baseIdOf(p.id) === base) count += this.need(p.id);
+      for (const item of p.items || []) if (this.gd.baseIdOf(item.id) === base) count += this.need(item.id);
+    };
+    for (const ps of this.players()) {
+      for (const p of ps.hand) see(p);
+      for (const p of ps.temp) see(p);
+      for (const p of ps.board.values()) see(p);
+    }
+    return count;
+  }
+  left(id) { const cap = this.cap(id); return cap == null ? Infinity : Math.max(0, cap - this.held(id)); }
+  canGain(id) { return this.left(id) >= this.need(id); }
+  /**
+   * One id of `ids` the stock can cover: uniform, or by `weights` (Map id → weight). The stock gates eligibility, not
+   * probability — the measured table alone does not give shop odds.
+   */
+  pick(rng, ids, weights = null) {
+    const list = [...new Set(ids)].filter((id) => this.canGain(id));
+    const pairs = list.map((id) => [id, weights ? Math.max(0, Number(weights.get(id)) || 0) : 1]);
+    const total = pairs.reduce((n, p) => n + p[1], 0);
+    if (!(total > 0)) return null;
+    let r = rng() * total;
+    for (const [id, weight] of pairs) if ((r -= weight) < 0) return id;
+    return pairs.at(-1)?.[0] || null;
   }
 }

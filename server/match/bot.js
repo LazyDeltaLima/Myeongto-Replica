@@ -1313,11 +1313,15 @@ function takeOffers(m, ps) {
     let best = -1;
     let bestS = -Infinity;
     offer.slots.forEach((s, i) => {
-      if (s.sold) return;
+      if (s.sold || (s.kind === 'item' && !m.itemPool.canGain(s.id))) return; // an item the shared stock no longer covers
       const sc = s.kind === 'item' ? (canUseItem(m, ps, s) ? 10 : 1) + gd.tierOf(s.id) * 3 : buyScore(m, ps, s.id, ctx);
       if (sc > bestS) { bestS = sc; best = i; }
     });
-    if (best < 0) break;
+    if (best < 0) {
+      // every unsold slot is an item the shared stock no longer covers: drop the offer like a failed pick below
+      if (offer.slots.some((s) => !s.sold)) { ps.offers.shift(); ps.dirty(); continue; }
+      break;
+    }
     if (freeSlot(ps.hand) < 0) sellWeakestHand(m, ps, { keepPairs: false });
     if (!tryDo(() => ps.pickReward(best))) {
       // could not take it (sold out / no room): drop the offer
@@ -1520,6 +1524,7 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
         if (!boardFull) sc += 8;
       } else {
         if (fillOnly) return;
+        if (!m.itemPool.canGain(s.id)) return; // the shared equipment stock ran out since the roll (buy would fail SOLD_OUT)
         if (!canUseItem(m, ps, { id: s.id })) return;
         if (freeSlot(ps.hand) < 0) return;
         if (ps.funds - price < reserve && !ps.completesItemMerge(s.id)) return;

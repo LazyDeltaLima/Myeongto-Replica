@@ -288,7 +288,8 @@ const EFFECT_HANDLERS = {
       to.giftTicker(ctx.name, p.chessId, ctx.playerId);
     },
   },
-  // 整备: the next purchased item becomes advanced (golden)
+  // 整备: the next purchased item becomes advanced (golden). upgradeItem leaves it normal, and this charge unspent, when
+  // the shared equipment stock has no room for the golden's second copy (upstream 6bfc0827).
   builtin_next_buy_golden_item: {
     onBuy(ctx, ev) {
       const ref = ctx.source.ref;

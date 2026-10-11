@@ -3633,7 +3633,7 @@ function enemyScaleFor(table, type, difficulty, round, isHidden) {
  * Build data/config.json: modes (rounds, timers, shop, enemy scaling), economy, bans, timers,
  * titles, tips, broadcasts, trophies and other global tunables.
  */
-function buildConfig(ctx, waves, stages, bands, chess) {
+function buildConfig(ctx, waves, stages, bands, chess, items) {
   const { act, ac } = ctx;
   // Shared-pool copies (路标月报#2, 路标档案馆, bilibili BV1eLXXBqEgF, 2026-03-29; GitHub #430, upstream PR #477 / 6bfc0827):
   // the 独立模拟 (solo) table per base chess, by tier 12/14/18/16/8/5, with the per-operator exceptions below; a 同盟模拟
@@ -3645,6 +3645,15 @@ function buildConfig(ctx, waves, stages, bands, chess) {
     const rec = Object.values(chess).find((c) => !c.isGolden && c.visible && c.name === name);
     if (!rec) throw new Error(`pool stock: no visible normal chess named ${name}`);
     return [rec.chessId, n];
+  }));
+  // Shared shop-equipment stock (the same video, ~1:30; GitHub #466; upstream 6bfc0827): per normal item by tier
+  // 4/6/7/8/7/3 with the exceptions below, the same in solo and co-op (server/match/pool.js SharedItemPool). 商业包装方案
+  // at 2 is the #466 "at most 2 per match" report: two owned at once, a third after one leaves ownership.
+  const itemStock = Object.fromEntries(Object.entries({ 简易通讯机: 5, 蜂鸣器: 6, 防暴盾: 6, 浓缩嗅盐: 6,
+    寻呼模块: 7, 伪装服: 7, 拉特兰桥夹: 7, 商业包装方案: 2 }).map(([name, n]) => {
+    const rec = Object.values(items).find((it) => !it.isGolden && it.itemType === 'EQUIP' && it.name === name);
+    if (!rec) throw new Error(`item stock: no normal equipment named ${name}`);
+    return [rec.id, n];
   }));
   const addendum = ctx.research.core?._criticAddendum || {};
   const multipliers = addendum.enemyStatMultipliers || DEFAULT_ENEMY_MULTIPLIERS;
@@ -3755,6 +3764,8 @@ function buildConfig(ctx, waves, stages, bands, chess) {
       poolCopies: { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 },
       poolCopiesOverrides: poolStock,
       coopPoolMultiplier: 2,
+      itemPoolCopies: { 1: 4, 2: 6, 3: 7, 4: 8, 5: 7, 6: 3 },
+      itemPoolCopiesOverrides: itemStock,
       goldenCopies: 3,
       mergeCount: 3,
       mergeCountOverrides: Object.fromEntries(Object.entries(act.charChessDataDict).filter(([, c]) => !c.isGolden && c.upgradeNum && c.upgradeNum !== 3).map(([id, c]) => [id, c.upgradeNum])),
@@ -4165,7 +4176,7 @@ async function main() {
   // the bonds each strategy is built around (DESIGN §21.26): the bot skips, and the strategy draft marks 本局禁用, a band
   // whose bond the mode switches off
   for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
-  const config = buildConfig(ctx, waves, stages, bands, chess);
+  const config = buildConfig(ctx, waves, stages, bands, chess, items);
   const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };
 
   // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)

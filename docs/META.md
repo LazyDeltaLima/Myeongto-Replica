@@ -556,6 +556,15 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   and the rolls clamp it at 0); 拟态物质 draws among the eligible identities (`rollChess` `ignoreCounts`) and grants past the
   stock; displays never reserve copies; selling, temp resolution and elimination return exactly what a piece holds
   (`left + held = cap` always).
+* **Equipment stock** (upstream 6bfc0827, GitHub #466; the same 路标月报#2 video, ~1:30): every shop item has a match-wide
+  stock, the same in solo and co-op — by tier 4/6/7/8/7/3, 简易通讯机 5, 蜂鸣器/防暴盾/浓缩嗅盐 6, 寻呼模块/伪装服/拉特兰桥夹 7,
+  商业包装方案 2 (`economy.itemPoolCopies` / `itemPoolCopiesOverrides`, `GameData.itemPoolCopies`). `pool.js SharedItemPool`
+  counts it live from every player's hand, temp area and equipped items (normal 1, advanced 2); displays reserve nothing.
+  A gain the stock cannot cover is not made: the shop's item slot and every item roll / offer / 机变 card leave such an
+  item out, a buy or reward pick fails `SOLD_OUT` before any charge, a 机变 item card a previous pick exhausted shows
+  库存不足 and cannot be picked (the turn timer and bots skip it), a grant toasts 装备库存不足 and gives nothing, and 整备
+  leaves the bought item normal with its charge unspent when the golden's second copy is not free. Consumed, destroyed or
+  eliminated items stop counting [ASSUMED]; non-shop effect-only equipment is uncapped. Item odds are unchanged.
 * **自选编队 (0.2.0, `player/diy.js`; research 0.2.0 §2, the owner's decisions of 2026-10-05)**: a human's `seat.diy`
   picks (room.diy, checked again against the match's data and kits) are fixed for the match once its strategy draft ends
   (local: during the briefing / draft `match.setDiy` re-makes them while the player's 自选 stock is untouched — 진영별 선발

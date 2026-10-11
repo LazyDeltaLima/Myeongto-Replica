@@ -309,6 +309,18 @@ export class GameData {
     return base * multiplier;
   }
 
+  /**
+   * Shared stock of a shop item (pool.js SharedItemPool, upstream 6bfc0827): `economy.itemPoolCopiesOverrides[base]`,
+   * else `economy.itemPoolCopies[tier]` — the 路标月报#2 table (bilibili BV1eLXXBqEgF, ~1:30), the same in solo and co-op.
+   * Null (uncapped) for an item that is not a shop item (effect-only special equipment) or a config without the table.
+   */
+  itemPoolCopies(id) {
+    const base = this.baseIdOf(id), rec = this.item(base);
+    if (!rec || !isShopItem(rec)) return null;
+    const count = this.economy.itemPoolCopiesOverrides?.[base] ?? this.economy.itemPoolCopies?.[rec.tier];
+    return Number.isInteger(count) && count >= 0 ? count : null;
+  }
+
   /** Copies needed to merge (0 = never merges: golden chess). */
   mergeCount(id) {
     const c = this.chess(id);

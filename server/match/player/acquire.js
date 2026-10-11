@@ -198,12 +198,17 @@ export class PlayerAcquire {
     return np;
   }
 
-  /** Normal item → golden version in place (整备). */
+  /**
+   * Normal item → golden version in place (整备). A golden occupies two copies of the shared equipment stock and this
+   * piece already occupies one, so the upgrade fails (the caller keeps its charge) when no second copy is free
+   * (upstream 6bfc0827).
+   */
   upgradeItem(piece) {
     const rec = this.gd.item(piece.id);
     if (!rec || rec.isGolden) return false;
     const gid = rec.upgradeChessId || rec.goldenId;
     if (!gid || !this.gd.item(gid)) return false;
+    if (this.m.itemPool.left(piece.id) < 1) return false;
     piece.id = gid;
     this.recompute();
     return true;
@@ -243,7 +248,7 @@ export class PlayerAcquire {
    * 'item' under its `label` (the effect's name; player report #6 after 0.1.0).
    */
   pushItemOffer(ids, { source = 'effect', tier = null, label = null } = {}) {
-    const list = [...new Set(Array.isArray(ids) ? ids : [])].filter((id) => this.gd.item(id)).slice(0, MAX_OFFER_SLOTS);
+    const list = [...new Set(Array.isArray(ids) ? ids : [])].filter((id) => this.gd.item(id) && this.m.itemPool.canGain(id)).slice(0, MAX_OFFER_SLOTS);
     if (!list.length) return null;
     const offer = { tier: Number.isInteger(tier) ? tier : null, source, label: typeof label === 'string' && label ? label : null, slots: list.map((id) => ({ kind: 'item', id, price: 0, sold: false })) };
     this.offers.push(offer);
@@ -287,6 +292,11 @@ export class PlayerAcquire {
   acquireItem(itemId, { source = 'grant', toTemp = false, silent = false, deferMerge = false } = {}) {
     const rec = this.gd.item(itemId);
     if (!rec) return null;
+    // the shared equipment stock (pool.js SharedItemPool): a gain it cannot cover is not made
+    if (!this.m.itemPool.canGain(itemId)) {
+      this.m.toast(this, 'warn', '装备库存不足，未获得该装备');
+      return null;
+    }
     let piece = this.newPiece('item', itemId);
     // A prep-end grant may sit beside an identical copy until the next prep. The invariant counts only copies
     // without this mark, so the fight that is about to start is not reported as a missed merge.

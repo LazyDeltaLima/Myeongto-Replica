@@ -135,7 +135,9 @@ export class MatchViews {
     if (this.phase === PHASE.SP_DRAFT && this.sp) {
       const s = this.sp;
       v.sp = {
-        family: s.family, name: s.name, desc: s.desc, eventId: s.eventId, cards: s.cards.map(cardView), order: s.order.slice(),
+        family: s.family, name: s.name, desc: s.desc, eventId: s.eventId,
+        // an item card the shared equipment stock cannot cover any more shows 库存不足 (pool.js SharedItemPool)
+        cards: s.cards.map((c) => ({ ...cardView(c), soldOut: c.kind === 'item' && !this.itemPool.canGain(c.id) })), order: s.order.slice(),
         turn: this.spTurn(), picks: { ...s.picks }, taken: { ...s.taken }, untimed: !!s.untimed,
       };
     }
