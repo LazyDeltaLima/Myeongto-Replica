@@ -259,6 +259,52 @@
         ]
       },
       "bounds": null
+    },
+    "token_10068_kalts2_mtship": {
+      "skel": "token_10068_kalts2_mtship.skel",
+      "atlas": "token_10068_kalts2_mtship.atlas",
+      "textures": [
+        "token_10068_kalts2_mtship.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Default",
+        "deploy": "Default",
+        "attack": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "idle"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Default",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": null,
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Default": 0,
+        "Die": 1,
+        "Idle": 1,
+        "Start": 1
+      },
+      "events": [
+        "OnStart"
+      ],
+      "hits": {},
+      "bounds": {
+        "x": -218.217,
+        "y": -160.033,
+        "width": 398,
+        "height": 410
+      }
     }
   }
 }

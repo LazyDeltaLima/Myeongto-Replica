@@ -841,3 +841,22 @@
 - 안 한 것: 버프 노드의 다른 이펙트(방패 깨짐·끝 이펙트 — 2026-10-11 디컴파일 2라운드: 전용 코드는 없고 템플릿 노드 `Nodes.CreateEffect`(RVA 0xB90880)가 그 노드의 이벤트(ON_BUFF_FINISH·ON_TAKE_DAMAGE …) 때 한 번 만든다; 2026-10-11: 추출기가 이벤트별로 나눠 기록 — 아래 「위수 협의 템플릿 이펙트」; 버프 끝·피격 이벤트를 렌더에 알리는 sim 이벤트는 아직 없음), 炎佑 선(우리가 안 쓰는 模式甲), 나오지 않는 적 82종의
   이펙트(`--extract --all`), 소리(audio 담당). 화면 확인 없음.
 - 확인: `test/local-patch-fxspawn.test.js`(적이 바인딩한 muzzle/특수점 이펙트가 그 적의 점을 찾음 — 클라 데이터의 빈 곳 2개 목록), `test/render/enemy-fx.test.js`, `test/render/enemy-fx-layer.test.js`(모드 전환 → audio.enemyMode, 사망 이펙트 대체, 대체 beam, 冰凌 칸별 시각, 직선 사격).
+
+### 선발 추가 3명 — CN 클라이언트 (2026-10-11)
+- 켈시 에스페란타(凯尔希·思衡托)·클레멘티아(克莱门莎)·안젤리나 더 멜로우 위시(予愿安洁莉娜)는 EN 클라이언트에 없어 CN 클라이언트(운영 노트 「CN 클라이언트」)에서
+  뽑았다. 도구·형식은 EN과 같고(번들 이름·Unity 버전·LZ4AK 같음), 세 명만 골라 기존 EN 추출물은 건드리지 않았다:
+  - 이펙트 번들: `fx_extract.py --game <CN> --cab-index .cache/fx-cab-index-cn.json --bundle kalts2 --bundle clemnt --bundle aglna2`
+    (33·27·43개). CAB 색인은 CN 전용 파일(EN 색인은 절대 경로라 따로, 만드는 데 약 17분). 「이따 봐!」 표식 이펙트 `token_aglna2_agairp_01`은
+    공용 토큰 팩에서 `--bundle aglna2_token --pack pkgrps/btl_pfb_fx_token_3.ab --match '^token_aglna2_'`.
+  - 모드·붙는 자리·소리 신호: `char_modes.py`·`char_points.py`·`char_audio.py --client <CN> --id <세 명>` — 세 파일 모두 세 명만 추가(다른 항목 그대로, JSON 비교).
+  - 공격 타이밍: `attack_timing.py`는 `--id`가 없어 CN 전체를 임시 파일(`--out`)로 뽑고 세 명만 `tools/assets/local-attack-timing.json`에 합쳤다
+    (CN 값은 EN에서 뽑은 기존 143명과 전부 같았다).
+  - 战术锚点 모델: `extract.py TOKEN_SPINES`에 추가, `--only spine/token/<id>`로 그것만 뽑음. `fetch-assets --local-spines`가 디스크에 있는 모델로
+    메타데이터를 다시 쓰므로, 이 컴퓨터에 없던 4개(爬行号·风雪之眼 3개)도 CN에서 뽑아 기존 6개 항목이 그대로임을 확인했다. 클립 역할은 upstream 고침
+    (`tools/assets/spine.mjs LOCAL_SPINE_ROLES`: Start/Idle/Die가 그림을 숨겨 0초 Default 자세에 머묾 [추정]).
+  - 정비 카드 일러스트: `chararts_extract.py --game <CN>/StreamingAssets/AB/Windows --id …`(CN은 새 설치라 번들이 `StreamingAssets`에 있다).
+- 자동으로 붙는 것: 공격·스킬 시전·타격·투사체 꼬리·스킬 버프(`modes.json`). 방향별 사본이 있는 오퍼레이터가 14 → 16명(클레멘티아·안젤리나 더 멜로우 위시).
+- 아직 안 붙인 것(키트 사건, `fxgame.js kitFx`에 연결이 필요): 클레멘티아 S2 방축선(`clemnt_skill_02_bullet_*`)·소용돌이(`_mark_*`)·S3 포격(지금 `blast`
+  자리표시), 켈시 에스페란타 S3 비행(`kalts2_skill_03_teleport_*`), 안젤리나 더 멜로우 위시 S2 활공(`aglna2_skill_02_fly_*`)·「이따 봐!」 표식
+  (`token_aglna2_agairp_01`; 표식 유닛은 그림이 없어 지금은 대체 마름모). 어느 프리팹이 어느 순간인지는 프리팹 이름만 보고 정하지 않는다 —
+  charpack 능력 그래프에서 확인한 뒤 화면 확인과 함께.

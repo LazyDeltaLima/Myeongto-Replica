@@ -8,7 +8,7 @@
 export const FX_KINDS = Object.freeze({
   // blasts
   // [ASSUMED] 克莱门莎's S3 bombardment (kits/ops/op-clemnt.js) uses the shared blast placeholder until her official effect
-  // is extracted (upstream's entry)
+  // is bound (upstream's entry; her clemnt bundle is extracted from the CN client, the bombardment's prefab not yet identified)
   blast: { a: 'blast', c: 0xffb35c },
   aoe: { a: 'blast', c: 0xffb35c }, explode: { a: 'blast', c: 0xff7a33 }, explosion: { a: 'blast', c: 0xff7a33 },
   // `pt`: always at the event's (x, y) (its `id` is the shooter); `heavy`: debris + scorch

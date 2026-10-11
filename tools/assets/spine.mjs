@@ -82,10 +82,18 @@ const clipOf = (loop, via) => (via ? { begin: null, loop, end: null, via } : { b
  * Role fixes of local models whose clip names the resolver (tools/assets/anim-roles.mjs, by name) cannot read: model id →
  * roles replacing the resolved ones (the others are kept); localSpineMeta applies them, so the committed metadata carries
  * them. A fix naming a clip the skeleton lacks is dropped and reported.
- * None is needed for the local models of this server (upstream's fixes served the summons of 自选 operators it no longer
- * offers: 电弧's 戴乌, 酒神's 本能的召唤, 白铁's platforms, 凯尔希·思衡托's 战术锚点).
+ * Upstream's other fixes served the summons of 自选 operators this server does not offer (电弧's 戴乌, 酒神's 本能的召唤,
+ * 白铁's platforms); the one kept:
+ * - 凯尔希·思衡托's 战术锚点 (token_10068_kalts2_mtship): its Start / Idle / Die clips hide its one attachment (the official
+ *   battle shows the anchor through other means), so it would be an empty tile; it stays on the 0 s Default pose, the
+ *   skeleton's own white anchor mark, and fades out as it goes [ASSUMED] (upstream's fix).
  */
-export const LOCAL_SPINE_ROLES = Object.freeze({});
+export const LOCAL_SPINE_ROLES = Object.freeze({
+  token_10068_kalts2_mtship: {
+    idle: 'Default', deploy: 'Default', attack: clipOf('Default', 'idle'), skill: { ...clipOf('Default', 'attack'), index: 0, idle: null },
+    die: null,
+  },
+});
 
 /** The confined clips of 普通囚犯 / 老练囚犯: their grey *3 set (PREFAB_SPINE_ROLES). */
 const PRISONER_GREY_3 = Object.freeze({

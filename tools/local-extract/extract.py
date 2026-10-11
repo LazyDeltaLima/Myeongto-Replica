@@ -16,7 +16,7 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     enemies); the client draws them instead of the web alias once this manifest lists them (data/assets.json
     enemies[id].spineLocal, docs/ASSETS.md "Enemy aliases")
   - the token (summon) battle Spine models no community dump carries (TOKEN_SPINES: our 自选 picks' summons — 望's 棋子,
-    维什戴尔's 魂灵之影 —, 凯瑟琳's 爬行号·防护单元, 凛御银灰's 风雪之眼), from the battle token prefabs (pkgrps/btl_pfb_tokens_*.ab: the skeleton
+    维什戴尔's 魂灵之影, 凯尔希·思衡托's 战术锚点 —, 凯瑟琳's 爬行号·防护单元, 凛御银灰's 风雪之眼), from the battle token prefabs (pkgrps/btl_pfb_tokens_*.ab: the skeleton
     the prefab's Front / only Spine renderer draws) → spine/token/<tokenId>/<stem>.skel|.atlas + merged page PNGs, the
     same format; drawn instead of the avatar diamond once this manifest lists them (data/assets.json
     tokens[id].spineLocal)
@@ -152,7 +152,7 @@ ENEMY_SPINE_SUB = 'spine/enemy'
 # protection point, 酒神's 迷狂牢笼, 贝洛内's 牵绊, 予愿安洁莉娜's “一会儿见！” (token_10039 / 10058 / 10055 / 10065 / 10071).
 TOKEN_SPINES = [
     'token_10035_wisdel_wward', 'token_10041_cathy_catsld', 'token_10057_svash2_eagle1', 'token_10057_svash2_eagle2',
-    'token_10057_svash2_eagle3', 'token_10064_wang_stone1',
+    'token_10057_svash2_eagle3', 'token_10064_wang_stone1', 'token_10068_kalts2_mtship',
 ]
 TOKEN_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 TOKEN_SPINE_SUB = 'spine/token'

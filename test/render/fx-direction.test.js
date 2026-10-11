@@ -23,8 +23,8 @@ test('char_modes.py records the client\'s directional slots (아르케토 S3 sta
   assert.deepEqual(ARCHET, [{ t: 2, s: ['archet_skill_03_start_02', '', 'archet_skill_03_start_02_B', ''] }]);
   // the binding itself still lists both copies — the pick is the player's
   assert.ok(S3_CAST.includes('archet_skill_03_start_02') && S3_CAST.includes('archet_skill_03_start_02_B'));
-  // 14 operators carry such entries (13 of the maintainer's list + 데겐블레허 S2 from skills.ab)
-  assert.equal(Object.values(MODES).filter((m) => m && Array.isArray(m.dirs)).length, 14);
+  // 16 operators carry such entries (13 of the maintainer's list + 데겐블레허 S2 from skills.ab + 克莱门莎 and 予愿安洁莉娜, CN client)
+  assert.equal(Object.values(MODES).filter((m) => m && Array.isArray(m.dirs)).length, 16);
 });
 
 test('U_OR_D: facing up plays the UP copy, every other facing the DOWN one — never both', () => {

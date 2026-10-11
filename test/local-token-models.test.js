@@ -1,5 +1,6 @@
-// test/local-token-models.test.js — the token (summon) models only the local client has (0.2.0): 6 summons — our 自选
-// picks' (data/backups.json `tokens`: 望's 棋子, 维什戴尔's 魂灵之影), 凯瑟琳's 爬行号·防护单元 and 凛御银灰's 风雪之眼 — have no battle Spine in
+// test/local-token-models.test.js — the token (summon) models only the local client has (0.2.0): 7 summons — our 自选
+// picks' (data/backups.json `tokens`: 望's 棋子, 维什戴尔's 魂灵之影, 凯尔希·思衡托's 战术锚点 — extracted from the CN client, which
+// alone has her), 凯瑟琳's 爬行号·防护单元 and 凛御银灰's 风雪之眼 — have no battle Spine in
 // any community dump (fetch-assets reported "missing skel"), so the client drew their avatar diamond. Their official
 // skeletons come from the battle token packs of the local client (tools/local-extract/extract.py TOKEN_SPINES →
 // public/assets/local/spine/token/<id>/, optional and git-ignored) and are an OVERLAY like the enemy models of
@@ -55,7 +56,7 @@ function localManifest(ids, drop = null) {
 
 describe('the 自选 summon models from the local client are an optional overlay', () => {
   test('the committed metadata: the TOKEN_SPINES of extract.py, each a skeleton + same-stem atlas + pages, its roles on its own clips', () => {
-    assert.equal(IDS.length, 6);
+    assert.equal(IDS.length, 7);
     if (TOKEN_SPINES) assert.deepEqual(IDS, [...TOKEN_SPINES].sort(), 'one entry per extract.py TOKEN_SPINES id');
     for (const id of IDS) {
       const m = COMMITTED[id];
@@ -72,7 +73,7 @@ describe('the 自选 summon models from the local client are an optional overlay
     assert.deepEqual([...new Set(['1', '2', '3'].map((n) => COMMITTED[`token_10057_svash2_eagle${n}`].skel))], ['token_10057_svash2_eagle.skel']);
   });
 
-  test('role fixes: every fix names a local model and is in its metadata (none needed here); applyRoleFix', () => {
+  test('role fixes: every fix names a local model and is in its metadata (战术锚点\'s Default pose); applyRoleFix', () => {
     for (const [id, fix] of Object.entries(LOCAL_SPINE_ROLES)) {
       assert.ok(COMMITTED[id], `${id} is a local model`);
       for (const [role, v] of Object.entries(fix)) assert.deepEqual(COMMITTED[id].anims[role], v, `${id} ${role}`);

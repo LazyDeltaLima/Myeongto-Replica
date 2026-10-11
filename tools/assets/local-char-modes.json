@@ -199,6 +199,258 @@
    }
   ]
  },
+ "char_1015_aglna2": {
+  "modes": [
+   "Default",
+   "S1",
+   "S2",
+   "S3",
+   "S3Move",
+   "S1_TakeOff",
+   "S1_Landing",
+   "S2_Landing",
+   "S3_TakeOff",
+   "S3_Landing",
+   "S2_Chant"
+  ],
+  "proj": [
+   [
+    "projectile_chr_aglna2"
+   ],
+   [
+    "projectile_chr_aglna2_s1"
+   ],
+   [
+    "projectile_chr_aglna2_s2"
+   ],
+   [
+    "projectile_chr_aglna2_s3"
+   ],
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "aglna2_attack_start_01"
+   ],
+   [
+    "aglna2_skill_01_start_01"
+   ],
+   [
+    "aglna2_skill_02_start_01"
+   ],
+   [
+    "aglna2_skill_03_start_01",
+    "aglna2_skill_03_start_02",
+    "aglna2_skill_03_combat_start_01"
+   ],
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "hit": [
+   [
+    "aglna2_attack_hit_01"
+   ],
+   [
+    "aglna2_skill_01_hit_01"
+   ],
+   [
+    "aglna2_skill_02_hit_01"
+   ],
+   [
+    "aglna2_skill_03_hit_01"
+   ],
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "trail": [
+   [
+    "aglna2_attack_trail_01"
+   ],
+   [
+    "aglna2_skill_01_trail_01"
+   ],
+   [
+    "aglna2_skill_02_trail_01"
+   ],
+   [
+    "aglna2_skill_03_trail_01"
+   ],
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   [],
+   [
+    "aglna2_skill_03_fly_trail_01"
+   ],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "aglna2_attack_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   },
+   {
+    "aglna2_skill_01_start_01_up_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "aglna2_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "aglna2_skill_01_start_01_down_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "aglna2_skill_02_start_01_up_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "aglna2_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "aglna2_skill_02_start_01_down_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "aglna2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "aglna2_skill_03_start_02": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "aglna2_skill_03_combat_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {},
+   {},
+   {},
+   {},
+   {},
+   {},
+   {}
+  ],
+  "start": "common_empty",
+  "modeStart": [
+   "aglna2_birth_type_01_02",
+   null,
+   null,
+   null,
+   null,
+   "aglna2_birth_type_02_01",
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "dirs": [
+   {
+    "t": 5,
+    "s": [
+     "aglna2_skill_02_start_01_up_01",
+     "aglna2_skill_02_start_01",
+     "aglna2_skill_02_start_01_down_01",
+     "aglna2_skill_02_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "aglna2_skill_01_start_01_up_01",
+     "aglna2_skill_01_start_01",
+     "aglna2_skill_01_start_01_down_01",
+     "aglna2_skill_01_start_01"
+    ]
+   }
+  ],
+  "skillMode": [
+   6,
+   null,
+   null
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "aglna2_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "aglna2_skill_02_buff_weapon_02",
+     "aglna2_skill_02_buff_weapon_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "aglna2_skill_03_range_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   }
+  ]
+ },
  "char_1016_agoat2": {
   "modes": [
    "Default",
@@ -3086,6 +3338,162 @@
     "target": [
      "chen3_skill_03_hit_04"
     ],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_1052_kalts2": {
+  "modes": [
+   "default",
+   "s3",
+   "s3_transporting",
+   "s1",
+   "s2"
+  ],
+  "proj": [
+   [
+    "projectile_chr_kalts2"
+   ],
+   [
+    "projectile_chr_kalts2_s3_1"
+   ],
+   [
+    "projectile_chr_kalts"
+   ],
+   [
+    "projectile_chr_kalts2_s1"
+   ],
+   [
+    "projectile_chr_kalts2_s2_heal",
+    "projectile_chr_kalts2_s2_dmg"
+   ]
+  ],
+  "cast": [
+   [
+    "kalts2_skill_01_start_01"
+   ],
+   [
+    "kalts2_skill_03_start_01"
+   ],
+   [],
+   [
+    "kalts2_skill_01_start_01"
+   ],
+   [
+    "kalts2_skill_02_start_damage_01",
+    "kalts2_skill_02_start_heal_01",
+    "folnic_skill_02_start"
+   ]
+  ],
+  "hit": [
+   [
+    "kalts2_skill_01_hit_01"
+   ],
+   [
+    "kalts2_skill_03_hit_01"
+   ],
+   [
+    "kalts_attack_01_hit"
+   ],
+   [
+    "kalts2_skill_01_hit_01"
+   ],
+   [
+    "kalts2_skill_02_range_heal_01"
+   ]
+  ],
+  "trail": [
+   [
+    "kalts2_skill_01_trail_01"
+   ],
+   [
+    "kalts2_skill_03_trail_01"
+   ],
+   [
+    "kalts_attack_01_trail"
+   ],
+   [
+    "kalts2_skill_01_trail_01"
+   ],
+   [
+    "kalts2_skill_02_trail_heal_01"
+   ]
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "castOpt": [
+   {
+    "kalts2_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "d": 0.333
+    }
+   },
+   {
+    "kalts2_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {},
+   {
+    "kalts2_skill_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0,
+     "d": 0.333
+    }
+   },
+   {
+    "kalts2_skill_02_start_damage_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "kalts2_skill_02_start_heal_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "folnic_skill_02_start": {
+     "s": 2,
+     "e": 3,
+     "o": 1
+    }
+   }
+  ],
+  "start": "common_empty",
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "kalts2_skill_01_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "kalts2_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
     "targetBuff": []
    }
   ]
@@ -11750,6 +12158,218 @@
     "target": [
      "snhunt_skill_02_hit"
     ],
+    "targetBuff": []
+   }
+  ]
+ },
+ "char_4231_clemnt": {
+  "modes": [
+   "Default",
+   "S2",
+   "S2[Down]",
+   "S3",
+   "S3[Down]"
+  ],
+  "proj": [
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "cast": [
+   [
+    "clemnt_attack_01_start_01"
+   ],
+   [
+    "clemnt_skill_02_start_01"
+   ],
+   [
+    "clemnt_skill_02_start_01"
+   ],
+   [
+    "clemnt_skill_03_start_01"
+   ],
+   [
+    "clemnt_skill_03_start_01"
+   ]
+  ],
+  "hit": [
+   [
+    "clemnt_attack_01_hit_01"
+   ],
+   [
+    "clemnt_skill_02_hit_01"
+   ],
+   [
+    "clemnt_skill_02_hit_01"
+   ],
+   [
+    "clemnt_skill_03_hit_01"
+   ],
+   [
+    "clemnt_skill_03_hit_01"
+   ]
+  ],
+  "trail": [
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "attach": [
+   [],
+   [],
+   [],
+   [
+    "clemnt_skill_03_buff_01_L",
+    "clemnt_skill_03_buff_02",
+    "clemnt_skill_03_range"
+   ],
+   [
+    "clemnt_skill_03_buff_01_L",
+    "clemnt_skill_03_buff_02",
+    "clemnt_skill_03_range"
+   ]
+  ],
+  "castOpt": [
+   {
+    "clemnt_attack_01_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "clemnt_attack_01_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "clemnt_skill_02_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "clemnt_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "clemnt_skill_02_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "clemnt_skill_02_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "clemnt_skill_02_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "clemnt_skill_02_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "clemnt_skill_03_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "clemnt_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "clemnt_skill_03_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   },
+   {
+    "clemnt_skill_03_start_01_up": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "clemnt_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
+    "clemnt_skill_03_start_01_down": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    }
+   }
+  ],
+  "dirs": [
+   {
+    "t": 5,
+    "s": [
+     "clemnt_skill_02_start_01_up",
+     "clemnt_skill_02_start_01",
+     "clemnt_skill_02_start_01_down",
+     "clemnt_skill_02_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "clemnt_skill_03_start_01_up",
+     "clemnt_skill_03_start_01",
+     "clemnt_skill_03_start_01_down",
+     "clemnt_skill_03_start_01"
+    ]
+   },
+   {
+    "t": 5,
+    "s": [
+     "clemnt_attack_01_start_01",
+     "clemnt_attack_01_start_01",
+     "clemnt_attack_01_start_01_down",
+     "clemnt_attack_01_start_01"
+    ]
+   }
+  ],
+  "skills": [
+   {
+    "cast": [],
+    "castLoop": [
+     "clemnt_skill_01_start_01"
+    ],
+    "buff": [],
+    "target": [
+     "clemnt_skill_01_hit_01"
+    ],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [
+     "clemnt_skill_02_buff_01"
+    ],
+    "target": [],
+    "targetBuff": []
+   },
+   {
+    "cast": [],
+    "castLoop": [],
+    "buff": [],
+    "target": [],
     "targetBuff": []
    }
   ]
