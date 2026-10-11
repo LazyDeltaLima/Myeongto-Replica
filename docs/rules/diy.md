@@ -469,3 +469,21 @@
 - 자선 편성 칸에서 오퍼레이터를 새로 고르면 시작 스킬은 마지막 스킬(S3)이다(`public/js/ui/diyModel.js defaultPick`). 관리자 결정(2026-10-11): 위셔델(维什戴尔)·
   아스카론(阿斯卡纶)·켈시 에스페란타(凯尔希·思衡托)는 **S2**에서 시작한다(`shared/local-diy.js LOCAL_DIY_DEFAULT_SKILL`). 시작 선택만 바뀌고 다른 스킬은 그대로 고를 수 있다.
   이미 저장된 편성(`sp.pref.diy`·프리셋)의 스킬은 바꾸지 않는다. 테스트 `test/ui/diy-ui.test.js` 「defaultPick」.
+
+## upstream 0.2.4 이식 — 선발 선택 창 상세 (2026-10-11, 관리자 결정 W3)
+- 선발 칸 선택 창의 오른쪽 상세를 upstream `6bfc0827`(0.2.4-dev §29.6)처럼 바꿨다: 고른 오퍼레이터 아래에 「잠재와 육성도」 선택(`screens/cultivation.js
+  CultivationSelects`, 슬롯 카드와 같은 설정), 오퍼레이터 구성 화면과 같은 「인게임 능력치」(`public/js/ui/loadoutStats.js LoadoutStats` — 구성 화면에서
+  이 파일로 옮김: 능력치 표·공격 범위·특성·재능, 일반/정예화 전환, 정예화가 기본), 스킬 줄마다 SP 줄(회복 방식·초기·소모·지속). 선발 기록은
+  `ui/diyModel.js slotRecord(…, { potential })`(그 오퍼레이터의 잠재)로 만들고, 육성도 배수는 `chessLoadout`이 붙인다 — 경기 상세 카드와 같은 길.
+- **스킬 수치 = 그 말이 실제로 싸우는 스킬 레벨**: 이전 상세는 스킬 설명을 늘 일반 기록(`s.normal`)으로 보여 줘서 첸 더 던스트릭 S1이 공격력 +65%로만
+  나왔다(upstream 0.2.4 화면은 +80%). 둘 다 맞는 값이고 말에 따라 다르다 — 칸의 `_a`(일반) 말은 `status` `2/1/4/0`(스킬 4), `_b`(정예) 말은
+  `2/60/7/1`(V단계)·`2/60/7/3`(VI단계)(스킬 7)이고(`data/chess.json` `chess_char_{5,6}_diy{1,2}_{a,b}.status`, `activity_table` diyChessDict),
+  sim은 `simdata.getDiy` → `shared/diy.js diyRecordOf` → `unitForm(backups, charId, slot.status)`로 그 칸 형태의 스킬을 쓴다. 赤霄·奔夜:
+  `_a` atk 0.65·SP 6/27, `_b` atk 0.8·SP 7/24. 잠재(`atPotential`: 비용·공격력·재배치·재능)와 육성도(`char_attribute_mul`: ATK/DEF/HP 배수)는
+  스킬 레벨을 바꾸지 않는다(`shared/potential.js`). 그래서 스킬 줄은 「인게임 능력치」 전환을 따른다 — 일반 = 스킬 4, 정예화 = 스킬 7 — 그리고
+  「스킬」 제목 옆에 그 레벨(「정예화 Lv.7」)을 적는다(우리 추가, upstream엔 없음; 구성 화면 스킬 전환의 「일반 Lv.4 / 정예화 Lv.7」과 같은 표기).
+- 우리 것 유지: 진영 프리셋 줄, 선발 드래그 카드, 슬롯 카드의 잠재·육성도 선택, 필터 칩 없음(원형 없음, 관리자 결정 2026-10-07), 목록은 카드 격자
+  그대로(upstream은 같은 커밋에서 목록을 구성 화면처럼 한 줄씩 늘어놓는 표로 바꿨다 — 우리 선발은 8명이라 받지 않음), 글자 크기 변수(`--t`)는
+  우리 CSS에 없어 그 hunk는 받지 않음.
+- 테스트: `test/ui/diy-ui.test.js` 「the picker detail (upstream 0.2.4)」(일반/정예화 전환마다 S1 수치·SP가 sim def와 같음, Lv 표기, 잠재·육성도 줄),
+  `test/ui/loadout-stats.test.js`(upstream: `LoadoutStats`가 `ui/loadoutStats.js`에서 옴). 화면 확인은 메인 세션.

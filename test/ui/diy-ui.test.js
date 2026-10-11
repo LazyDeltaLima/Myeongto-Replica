@@ -290,6 +290,38 @@ describe('自选编队 tab (screens/diy.js)', () => {
     [...walk(tree)].find((v) => v.props?.['data-testid'] === 'diy-confirm').props.onClick();
     assert.deepEqual(done.at(-1), { charId: WANG, skillIndex: 2, uniEquipId: 'uniequip_002_wang' });
   });
+
+  test('the picker detail (upstream 0.2.4): 潜能与练度, 局内数值, and skill numbers at the rank each slot piece fights at', async () => {
+    const { getDefaultSource } = await import('../../server/sim/simdata.js');
+    const ds = getDefaultSource();
+    const pick = { charId: CHEN3, skillIndex: 0, uniEquipId: null };
+    const ops = { [CHEN3]: { potential: 6, cultivate: 3 } };
+    const view = (previewLevel, o = {}) => expand(DiyPickerView({ m: null, slot: { slotId: T5A, tier: 5, shopLevel: 5 }, picks: {}, kitted: KIT, onDone() {}, onClose() {},
+      filter: 'all', query: '', draft: pick, onFilter() {}, onQuery() {}, onDraft() {}, ops, onOps() {}, previewLevel, onPreviewLevel() {}, ...o }), 8);
+    const s1 = (tree) => [...walk(tree)].find((v) => v.props?.role === 'radio' && v.props['data-skill'] === 0);
+    // the sim's def of each piece: the slot's `_a` form is skill rank 4, the `_b` (精锐) rank 7 — 潜能 / 练度 never change it
+    const simA = ds.getChess(T5A, { diy: pick, potential: 6 });
+    const simB = ds.getChess('chess_char_5_diy1_b', { diy: pick, potential: 6 });
+    assert.deepEqual([simA.skill.bb.atk, simA.skill.spCost, simA.skill.initSp], [0.65, 27, 6]);
+    assert.deepEqual([simB.skill.bb.atk, simB.skill.spCost, simB.skill.initSp], [0.8, 24, 7]);
+    for (const [level, sim, lv] of [['elite', simB, 7], ['normal', simA, 4]]) {
+      const tree = view(level);
+      const stats = [...walk(tree)].find((v) => hasClass(v, 'lo-sec--stats'));
+      assert.ok(stats, `${level}: 局内数值 is drawn`);
+      assert.equal(stats.props['data-variant'], level);
+      const lvTag = [...walk(tree)].find((v) => hasClass(v, 'diy-pick__lv'));
+      assert.equal(lvTag.props['data-variant'], level);
+      assert.ok(textOf(lvTag).includes(`Lv.${lv}`), `${level}: the skill heading names rank ${lv}`);
+      const row = textOf(s1(tree));
+      const desc = [...walk(s1(tree))].find((v) => hasClass(v, 'diy-choice__desc'))?.props.text || '';
+      assert.ok(desc.includes(`+${Math.round(sim.skill.bb.atk * 100)}%`), `${level}: S1 shows the sim's ATK +${sim.skill.bb.atk * 100}% (${desc})`);
+      assert.ok(row.includes(String(sim.skill.spCost)) && row.includes(String(sim.skill.initSp)), `${level}: S1 shows the sim's SP ${sim.skill.initSp} / ${sim.skill.spCost}`);
+    }
+    // the 潜能与练度 selects of the pick (an owned operator)
+    const cult = (tree) => [...walk(tree)].some((v) => v.type === 'h3' && textOf(v).includes('潜能与练度'));
+    assert.ok(cult(view('elite')), 'the cultivation selects');
+    assert.ok(!cult(view('elite', { onOps: null })), 'none without a setter');
+  });
 });
 
 // ---- match UI -------------------------------------------------------------------------------------------------------------

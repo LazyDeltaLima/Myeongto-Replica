@@ -655,3 +655,10 @@
 .lo-io__text:focus { border-color: var(--mint-700); }
 .lo-io__text::placeholder { color: var(--text-lo); }
 .lo-io__file { display: none; }
+
+/* upstream 0.2.4: the 自选 picker's detail uses 干员调配's sections (潜能与练度, 局内数值 — ui/loadoutStats.js) and each
+   skill row carries its SP line at the level the 局内数值 toggle shows (普通 = the `_a` piece, 精锐 = the `_b` piece) */
+.diy-pick__detail > .lo-sec { flex: none; }
+.diy-pick__detail > .lo-sec + .lo-sec { margin-top: .06rem; }
+.diy-pick__sec .diy-pick__lv { color: var(--mint-400); font-weight: 700; }
+.diy-choice__tags { display: flex; flex-wrap: wrap; gap: .08rem; color: var(--text-lo); font-size: max(.12rem, 10px); }
