@@ -1310,6 +1310,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return { get x() { return x0 + (x1 - x0) * k(); }, get y() { return y0 + (y1 - y0) * k(); }, z, alive: true };
   }
   const cabinEnd = new Map();   // 克莱门莎 id → the clock her S2 carriage stops (its passengers' marks end then)
+  const aglFlights = new Map(); // 予愿安洁莉娜 id → her S3 flight's effects { off, lives } (ended by the 'aglnaFlight' off)
   function pickFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
@@ -1397,7 +1398,31 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         return true;
       }
-      // 予愿安洁莉娜 S2 (`chant` > 0; S3's move dash has no effect — projectile_chr_aglna2_s3_fly has none): aglna2_s_2[flying] on her for the
+      // 予愿安洁莉娜 S3's flight ('aglnaFlight' on / off — the sim moves her body; projectile_chr_aglna2_s3_fly has no `_mainEffect`):
+      // the S3Move mode's aglna2_s_3[fly_passive] trail aglna2_skill_03_fly_trail_01 and aglna2_s_3[move_mode]'s
+      // [move_eff_r] / [move_eff_l] (aglna2_skill_03_buff_right_01 / _left_01, by the side she flies to: CheckFaceLOrR) on her
+      // until the flight ends [ASSUMED: the side taken once, at take-off]
+      case 'aglnaFlight': {
+        const src = views.get(o.id), b = pickOf(src, 'aglna2');
+        const prev = aglFlights.get(o.id);
+        if (prev) { prev.off = true; for (const l of prev.lives) l.until = clockS; aglFlights.delete(o.id); }
+        // landed: her deployment direction after the move (the sim turns her toward her travel, home: her own)
+        if (!Number(o.on) && typeof o.dir === 'string') src?.setDir?.(o.dir);
+        if (!b) return false;
+        ownFx.add(e);
+        if (!Number(o.on)) return true;
+        const rec = { off: false, lives: [] };
+        aglFlights.set(o.id, rec);
+        const side = Number(o.tx) < x ? 'left' : 'right';
+        for (const n of ['aglna2_skill_03_fly_trail_01', `aglna2_skill_03_buff_${side}_01`].map((k) => pickName(b, k)).filter(Boolean)) {
+          spawn(b.bundle, n, src, { owner: o.id, buff: true, until: null }).then((l) => {
+            if (!l) return;
+            if (rec.off) l.until = clockS; else rec.lives.push(l);
+          });
+        }
+        return true;
+      }
+      // 予愿安洁莉娜 S2 (`chant` > 0): aglna2_s_2[flying] on her for the
       // 吟唱 — the glide trail of her direction (rightAndLeft / up / down _01) and fly_range_01 —, then [chant_end] fly_end_01–03
       case 'dash': {
         const src = views.get(o.id), b = pickOf(src, 'aglna2'), chant = Number(o.chant);
@@ -1608,7 +1633,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'clemnt_skill_03_Mark_all_01', 'kalts2_skill_02_range_damage_01', 'kalts2_skill_02_range_heal_01', 'kalts2_skill_03_teleport_01',
     'kalts2_skill_03_teleport_trail_01', 'kalts2_skill_03_teleport_end_01', 'aglna2_skill_02_fly_trail_rightAndLeft_01',
     'aglna2_skill_02_fly_trail_up_01', 'aglna2_skill_02_fly_trail_down_01', 'aglna2_skill_02_fly_range_01', 'aglna2_skill_02_fly_end_01',
-    'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03']);
+    'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03', 'aglna2_skill_03_fly_trail_01', 'aglna2_skill_03_buff_right_01',
+    'aglna2_skill_03_buff_left_01']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => activationEffects(bindOf(v), bundleOf(v).prefabs, skillIdx(v), KIT_OWNED);
   // effects waiting for the damage of this tick: a skill that hits without an attack event (德克萨斯 S2's sword rain on
@@ -2564,7 +2590,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastViews = views;
       if (Array.isArray(e)) {
         if (e[0] === 'die') gone.add(e[1]);
-        else if (e[0] === 'deploy') { gone.delete(e[1]); opDead.delete(e[1]); deployed.set(e[1], clockS); const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; } } // 2026-10-10: its first attack again; 2026-10-11: its deploy effect (flushDeploys)
+        else if (e[0] === 'deploy') { gone.delete(e[1]); opDead.delete(e[1]); if (e[2] !== 1) deployed.set(e[1], clockS);   // (e[2] 1: a flight's landing, no deploy effect)
+          const v = views?.get?.(e[1]); if (v) { v._fxFirstDone = null; v._fxCast = null; } } // 2026-10-10: its first attack again; 2026-10-11: its deploy effect (flushDeploys)
         else if (e[0] === 'spawn') { gone.delete(e[1]?.id ?? e[1]); if (e[1]?.side === 'enemy' && e[1].id != null) eborn.set(e[1].id, clockS); } // 2026-10-10: its start effect (flushEnemyBirths)
         else if (e[0] === 'fx' && e[1] === 'summon' && e[4]) gone.delete(e[4].id);
         // local patch: a stone spawned (its 'summon' fx of the same moment, if any, takes it off — stoneFx)

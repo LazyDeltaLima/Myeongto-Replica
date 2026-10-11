@@ -438,6 +438,41 @@
 - 테스트: `test/content/op_{kalts2,clemnt,aglna2}.test.js`(체크리스트의 은신 적 범위 피해 3개 포함), `test/content/heal-triggers-023.test.js`(S2 발동),
   `test/match/feedback5-we2-placement.test.js`(#26 战术锚点), `test/content/feedback5-we2-summon-hand.test.js`(#24 표식), golden `diy-009`…`diy-011`(새 시나리오, 다른 가족 변화 없음).
 
+## 안젤리나 더 멜로우 위시 S3 이동 · 「이따 봐!」 표식 (2026-10-11, 관리자 제보)
+- 제보 2건: ① S3로 공중 적에게 갈 때 처음 칸에 남는 「이따 봐!」(“一会儿见！”)가 대체 마름모로 보임, ② 공식은 공중 적에게 **직접 날아가는데** 우리는 그 칸에
+  **배치**(낙하)됨.
+- 근거(CN 클라 데이터, 2026-10-11 설치본 — 이 클래스들은 EN 디컴파일에 없어 데이터 필드만 읽음):
+  - 표식 프리팹(`pkgrps/btl_pfb_tokens_5.ab` `token_10071_aglna2_agairp`): 그림이 `EmptyAnimator`(Spine 없음), 그림자 없음, `_alwaysHideHp`·`_alwaysHideSp` 1.
+    보이는 것은 이펙트 `token_aglna2_agairp_01`(오렌지 스프라이트 + 바닥 메시, 이미 추출·연결됨)뿐 → **뽑을 모델이 없다**. 대신 마름모·그림자·HP 바·방향 표시를
+    그리지 않는다(`shared/trap-tokens.js BODYLESS_TOKENS`, `render/units.js`).
+  - 이동(`[uc]skills.ab skchr_aglna2_3`의 재생성 컴포넌트 `_projectileKey projectile_chr_aglna2_s3_fly`, `_tileSelectorAbilityName TileSelectAbility`,
+    `_placeholderTokenKey`, `_respawnTargetRow/ColBBKey`): 그녀가 투사체에 실려 날아가고(투사체의 follower 컴포넌트 `_faceToMoveDirection` 1), 도착한 칸에서
+    재생성된다. 투사체 컨트롤러가 `_selectorRefreshInterval` 0.1초마다 목표 칸을 다시 고른다(움직이는 공중 적을 따라감). 이동 3종: StrightForward·TurnTarget
+    `_speed` 2.4, Comback(복귀) 2.0(`_useDynamicSpeed` 0), 각자 속도 곡선(≈0.8–1.06)과 옆·높이 호(최대 ≈0.3·0.14칸). 비행 중
+    `aglna2_s_3[move_mode]`(FORCE_DISARMED, 0.1초 트리거) → 모드 S3Move(`Skill_3_Move` 클립, `aglna2_s_3[fly_passive]` 꼬리 `aglna2_skill_03_fly_trail_01`)
+    + 좌우 `aglna2_skill_03_buff_right_01`/`_left_01`(CheckFaceLOrR). 재생성 뒤 `[mode]`는 `aglna2_respawn` > 0이면 이륙 클립 없이 S3 모드로 바로 감.
+- 고친 것(`kits/ops/op-aglna2.js`): 비행 중 몸이 매 틱 목표 칸으로 움직이고(2.4칸/초) 0.1초마다 목표 칸을 다시 고른다. 도착하면 【移动】
+  (`Battle.moveRedeploy` 새 옵션 `inPlace`: 'deploy' 이벤트에 1, 스냅샷 배치 클립 없음 → 낙하·배치 링·배치음 없음). 스킬이 끝나면 날아서 돌아온다(2.0칸/초,
+  그동안 이륙·무적·무장해제, 표식은 착지 때 사라짐). 비행 중 스냅샷 anim = MOVE(플래그 `kitMove`) → 렌더가 `Skill_3_Move`를 틀고 이동 방향을 본다.
+  비행 중 0.1초 재선택에서 조건 맞는 칸이 없으면 지금 서 있는 칸으로 되돌아간다(备注 「若已不存在满足条件的目标格，会转而选择当前实际所在位置为目标」).
+  착지하면 배치 방향이 마지막 이동 방향에 가까운 쪽(상하좌우)으로 바뀌고(备注 「改变部署方向为与最近一次移动方向接近一致，不影响攻击范围」 — 원래 3-9는
+  처음 방향 그대로), 처음 칸으로 돌아오면 처음 방향(`aglna2_located_dir`). 렌더는 fx `aglnaFlight` 끄기의 `dir`로 방향을 맞춘다.
+- 실기 제보(2026-10-11, 관리자 「공중 적이 많으면 계속 이동하느라 공격을 안 할 때가 있다 — 공식 의도인지, 이동에 쿨타임은 없는지」): 공식 이동 조건은
+  「원래 스킬 범위에 저지되지 않은 저지 가능한 공중 적 + 자신이 아무것도 저지하지 않음」뿐이고(PRTS 备注, `TileSelectAbility` `_cooldown` 0, `_checkOwnerCanBlockEnemy`·
+  `_excludeInCombat`), 이동 쿨타임은 없다. 비행 중에는 공식도 무장해제(`[move_mode]` FORCE_DISARMED)라 그동안 공격이 없는 것은 의도. 다만 이동 스킬
+  컴포넌트(그녀만 가진 CN 전용 클래스)의 `_availableValidator` 바로 뒤에 `_attackCooldownProgress` 0.85가 있다 → 「공격 쿨다운이 85% 이상 찼을 때만
+  이동 시작」으로 읽고 넣었다(`MOVE_ATTACK_PROGRESS`; 그 전엔 0.1초마다 바로 떠서 시작된 공격 동작을 끊고 쿨다운도 처음부터 다시 기다렸다).
+  [추정] 이 필드의 뜻(CN `GameAssembly.dll`은 보호돼 Il2CppDumper가 메타데이터 등록부를 못 찾음 — 디컴파일 못 함; 「착지 뒤 공격 쿨다운을 85%로 둠」일
+  가능성도 있음).
+  렌더 fx `aglnaFlight`(켜기/끄기)가 공식 꼬리·좌우 이펙트를 붙이고, `KIT_OWNED`에 S3 세 이펙트를 넣어 `_buff_` 이름 규칙이 좌우 이펙트를 스킬 내내 틀던 것을 막음.
+- [추정] 속도 곡선·옆/높이 호 미구현(직선·일정 속도), 착지 직전에 그 칸이 막히면 다음 공중 적 칸, 없으면 제자리로 되돌아감, 좌우 이펙트는 이륙 때 방향 한 번,
+  `_attackCooldownProgress`의 뜻(위),
+  복귀 비행 중 새 S3 시전이면 그 자리에서 바로 착지.
+- 테스트: `test/content/op_aglna2.test.js`(공격 쿨다운 85% 뒤 이륙·비행 중간 위치·2.4/2.0칸/초·'deploy' 1·움직이는 적 추적·착지 방향·목표 소실 시 복귀·
+  비행 중 퇴각·표식 'summon' fx). golden 변화 없음(S3 이동 시나리오 없음).
+- 표식 이펙트가 그동안 한 번도 안 나왔던 이유: 렌더 연결(`fxgame.js` 'summon' + `token`)은 있었지만 표식은 `spawnToken`으로 나오고 이 경로는 'summon' fx를
+  내지 않는다 → 키트가 표식을 둘 때 직접 낸다.
+
 ## 진영별 선발 프리셋 (2026-10-09, 관리자 결정)
 - 공식에 없는 기능(`feat`). 채팅 진영(`shared/local.js CHAT_FACTIONS`, 8개 국가 맹약)마다 브라우저에 자선 편성 프리셋을 하나씩 둔다(`public/js/ui/diyPresets.js`).
   저장 `localStorage sp.pref.diyPresets = { v: 2, presets: { [진영]: picks }, base, active }`(각 편성은 선발 편성과 같은 `cleanPicks`, 빈 진영 편성은 저장하지 않음;

@@ -1629,7 +1629,8 @@ export async function createFieldView(host, options = {}) {
         const v = battleView(e[1]);
         // the battle's opening deployment drops in one by one as the sim deploys it (lifecycle.js _prebuiltStep: a piece
         // every 0.2 game s, docs/rules/render.md 「배치 낙하」) — each 'deploy' event drops its piece at once
-        if (v) { v.onDeploy?.(); if (v.info?.kind !== 'device') fx.deploy(v); }
+        // `e[2]` 1: a unit that flew there itself only lands (sim Battle.moveRedeploy inPlace — 予愿安洁莉娜 S3): no drop-in
+        if (v && e[2] !== 1) { v.onDeploy?.(); if (v.info?.kind !== 'device') fx.deploy(v); }
         break;
       }
       case 'swing': {

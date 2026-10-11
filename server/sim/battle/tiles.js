@@ -42,18 +42,22 @@ export class BattleTiles {
    * stay: officially nothing carries over but what the mover's skill names (乌尔比安 S3: 技能进度 and the second talent's
    * stacks); the remake keeps the rest too (owner's deviation, DESIGN §22.3). `clearSp`: the 技力 is emptied before the
    * deploy handlers run ("部署时将清空技力"; 乌尔比安's 【返回】 "将清空技力，但仍可以享受后续由其他效果提供的技力").
+   * `inPlace`: the unit flew there itself and only lands — the 'deploy' event carries a 1 and the snapshot no deploy
+   * animation (quietDeployAt), so the client shows no drop-in, ring or deploy sound (予愿安洁莉娜 S3: the client respawns
+   * her where her flight projectile ends, kits/ops/op-aglna2.js); the deployment itself is the same.
    */
-  moveRedeploy(unit, r, c, { clearSp = false } = {}) {
+  moveRedeploy(unit, r, c, { clearSp = false, inPlace = false } = {}) {
     if (!this.relocate(unit, r, c)) return false;
     unit.deploySeq = ++this._deploySeq;
     unit.aggroSeq = unit.deploySeq;
     unit.deployedAt = this.time;
+    unit.quietDeployAt = inPlace ? this.time : null;
     const sk = unit.skill;
     if (clearSp && sk && !sk.noSkill && sk.kind !== 'passive' && !(sk.active && sk.isTimed)) {
       sk.sp = 0;
       sk.charges = sk.spCost <= 0 ? sk.maxCharges : 0; // (a free skill is available once per deployment: skills.js reset)
     }
-    this._ev(['deploy', unit.id]);
+    this._ev(inPlace ? ['deploy', unit.id, 1] : ['deploy', unit.id]);
     if (this._hooks.deploy) this.emit('deploy', { unit, initial: false, move: true });
     return true;
   }

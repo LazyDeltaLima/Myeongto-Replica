@@ -1592,7 +1592,7 @@ export class AudioManager {
           this.battle('leak', { volume: 0.85 });
         } else if (kind === 'deploy') {
           const u = this.units.get(e[1]);
-          if (!u || u.side === 'enemy') continue;
+          if (!u || u.side === 'enemy' || e[2] === 1) continue;   // (e[2] 1: a flight's landing, sim moveRedeploy inPlace — silent)
           // the opening deployment (OPENING_SLACK_MS): the sim brings it in one piece group per PREBUILT_INTERVAL, each
           // piece sounds with its own 'deploy'
           let opening = false;

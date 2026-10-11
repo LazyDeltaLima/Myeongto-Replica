@@ -45,13 +45,17 @@
 //   × ATK physical; every flyer of her range moves ×(1 − move_speed) (备注 "对飞行单位的减速效果无视其可选性"). The move (备注;
 //   aglna2_s_3[mode], every 0.1 s): blocking nothing, with an unblocked flyer she can block inside the ORIGINAL 3-9 — of
 //   her deployment tile and direction —, she flies to its tile (not a start / end tile, any deploy type but not
-//   impassable, empty or holding her marker) at 2 tiles/s ([ASSUMED]: the client's movement `_finalSpeed`), meanwhile
-//   无敌, 禁疗, disarmed, blocking nothing and refusing control statuses (aglna2_s_3[fly_passive]), and lands there by a
-//   【移动】 (Battle.moveRedeploy: a new deployment, the skill and its bullets kept), re-picking the best target on arrival
-//   [ASSUMED: the client re-selects every 0.1 s in flight]; her attack range stays the original 3-9 — anchored on her
+//   impassable, empty or holding her marker): the client carries her body on projectile_chr_aglna2_s3_fly (a follower
+//   facing its travel; [move_mode] puts her in the S3Move mode — Move clip, fly trail), which re-selects its tile every
+//   0.1 s (`_selectorRefreshInterval`, TileSelectAbility) — so it follows a moving flyer — at 2.4 tiles/s (StrightForward
+//   `_speed` [ASSUMED constant]), meanwhile 无敌, 禁疗, disarmed, blocking nothing and refusing control statuses
+//   (aglna2_s_3[fly_passive]), and lands there by a 【移动】 with no drop-in (the client respawns her where it ends:
+//   Battle.moveRedeploy inPlace — a new deployment, the skill and its bullets kept); a tile taken meanwhile sends her to
+//   the next flyer's, else back to her own [ASSUMED]; her attack range stays the original 3-9 — anchored on her
 //   deployment tile (extra range keys) — plus the 8 tiles around her (备注 "不影响攻击范围"; the client's located-range
 //   abilities). Off her deployment tile, “一会儿见！” marks it (备注 "每次移动后若不位于初始位置且初始位置不存在标志物…部署一个").
-//   When the skill ends she goes back there by a 【移动】 (the marker leaves) unless she is knocked out.
+//   When the skill ends she flies back there (the flight's Comback movement, 2 tiles/s, airborne and 无敌 on the way) and
+//   lands by a 【移动】 (the marker leaves then) unless she is knocked out.
 // - “一会儿见！” (its kit below): 无敌, 孤立, 不可选中 by enemies, blocks nothing, no attack (PRTS 备注; token_aglna2_passive).
 //   It is the skill's placeholder (skchr_aglna2_3 `_placeholderTokenKey`), not a player's summon: no owner shows it, so the
 //   data does not mark it placeable (tools/build-data.mjs summonRecord, 0.2.0 WE2 — until then the prep handed a piece out
@@ -77,10 +81,20 @@ const X4 = Object.freeze([[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1,
 const ANY = Object.freeze({ canHitFly: true });
 /** S2's sweep (PRTS 备注; projectile_chr_aglna2_s2_fly `_speed` 6, `_distanceMax` 4). */
 const GLIDE_SPEED = 6, GLIDE_DIST = 4, GLIDE_HALF_WIDTH = 1.5, GLIDE_HALF_THICK = 0.65;
-/** S3's flight speed (projectile_chr_aglna2_s3_fly `_finalSpeed` 2) [ASSUMED constant]. */
-const MOVE_SPEED = 2;
-/** S3's move check (aglna2_s_3[mode] / the flight's `_selectorRefreshInterval`). */
+/** S3's flight speed out to a flyer (projectile_chr_aglna2_s3_fly movements StrightForward / TurnTarget: `_speed` 2.4,
+ *  `_useDynamicSpeed` off) and back home (Comback: `_speed` 2.0) [ASSUMED: constant — the movements' speed curves
+ *  (≈0.8–1.06) and the sideways / height arcs are not modelled]. */
+const MOVE_SPEED = 2.4, RETURN_SPEED = 2;
+/** S3's move check and the flight's re-selection of its tile (aglna2_s_3[move_mode] `triggerInterval` / the flight's
+ *  `_selectorRefreshInterval`, both 0.1). */
 const MOVE_CHECK = 0.1;
+/** The move starts only once her attack cooldown is this far along (skchr_aglna2_3's respawn cast skill
+ *  `_attackCooldownProgress` 0.85, next to its `_availableValidator`) [ASSUMED: a gate on `Ability.cooldownProgress` — the
+ *  class is CN-only and not decompiled]: a swing is never cut by a take-off. */
+const MOVE_ATTACK_PROGRESS = 0.85;
+/** In flight (aglna2_s_3[move_mode] FORCE_DISARMED + the S3Move mode's aglna2_s_3[fly_passive]): 无敌, disarmed, 禁疗,
+ *  blocking nothing, airborne (also on the way home after the skill), drawn on her Move clip (snapshot animOf). */
+const FLIGHT_FLAGS = Object.freeze({ disarm: true, invulnerable: true, noHeal: true, noBlock: true, liftoff: true, kitMove: true });
 /** T2's refresh (the client ability `_interval` 0.2). */
 const DANCE_IV = 0.2;
 const CHANT_KEY = 'aglna2:chant';
@@ -146,8 +160,10 @@ export default {
     // S3's running range: the original 3-9 with the eight tiles around her; once she has moved, the eight around her and
     // the 3-9 of her deployment tile (extra range keys) — a per-unit object Battle._refreshRange reads
     const s3Targeting = { rangeGrid: g39x4, maxTargets: maxT3 };
-    // S3's per-activation state: her deployment tile / direction, the flight under way, the marker
+    // S3's per-activation state: her deployment tile / direction, the marker
     let st = null;
+    // the flight under way — out to a flyer's tile (S3) or back home (after it): { r, c, speed, home, next }
+    let flight = null;
 
     /** The original 3-9 of her deployment tile (S3 "原技能范围"), grown by her permanent rangeExtend. */
     const keys39 = (unit) => absoluteRangeKeys(g39, st.r0, st.c0, st.dir0, unit.s.baseRangeExtend || 0);
@@ -177,6 +193,8 @@ export default {
     function placeMarker(battle, unit) {
       if (!st || (st.marker && st.marker.alive)) return;
       st.marker = battle.spawnToken(unit, MARKER, st.r0, st.c0, { kit: markerKit() });
+      // its look is its effect alone (render/fxgame.js 'summon' → token_aglna2_agairp_01; spawnToken itself announces nothing)
+      if (st.marker) battle.fx('summon', { x: st.marker.x, y: st.marker.y, id: st.marker.id, token: MARKER });
     }
     function dropMarker(battle) {
       const m = st && st.marker;
@@ -193,16 +211,76 @@ export default {
         battle.setExtraRange(unit, keys39(unit));
       }
     }
-    /** A 【移动】 of S3 onto (r, c); the marker follows the rules of the 备注. */
+    /** A 【移动】 of S3 onto (r, c) where her flight ended (no drop-in: she lands there); the marker follows the 备注. */
     function moveTo(battle, unit, r, c) {
       const home = r === st.r0 && c === st.c0;
       if (home) dropMarker(battle);
-      const from = { x: unit.x, y: unit.y };
-      if (!battle.moveRedeploy(unit, r, c)) return false;
-      battle.fx('blink', { x: unit.x, y: unit.y, id: unit.id, fx: from.x, fy: from.y });
+      if (!battle.moveRedeploy(unit, r, c, { inPlace: true })) return false;
       if (!home) placeMarker(battle, unit);
       anchorRange(battle, unit);
       return true;
+    }
+    /** Her body takes off along the flight (the client carries her on projectile_chr_aglna2_s3_fly: `_faceToMoveDirection`). */
+    function fly(battle, unit, r, c, home) {
+      battle.releaseBlocked(unit);
+      if (!unit.findBuff(MOVE_KEY)) battle.addBuff(unit, { key: MOVE_KEY, flags: FLIGHT_FLAGS, tags: ['skill'] });
+      const was = !!flight;
+      flight = { r, c, speed: home ? RETURN_SPEED : MOVE_SPEED, home, next: battle.time + MOVE_CHECK, vx: c - unit.x, vy: r - unit.y };
+      // the render's official flight effects (S3Move's aglna2_skill_03_fly_trail_01, [move_eff_l / _r]) while it lasts
+      if (!was) battle.fx('aglnaFlight', { x: unit.x, y: unit.y, id: unit.id, on: 1, tx: c, ty: r });
+    }
+    function stopFlight(battle, unit) {
+      flight = null;
+      battle.removeBuff(unit, MOVE_KEY);
+      battle.fx('aglnaFlight', { x: unit.x, y: unit.y, id: unit.id, on: 0, dir: unit.dir });
+    }
+    /** The deployment direction after a move (备注 "改变部署方向为与最近一次移动方向接近一致，不影响攻击范围"). */
+    const travelDir = (f) => (Math.abs(f.vy) > Math.abs(f.vx) ? (f.vy > 0 ? 'UP' : 'DOWN') : (f.vx < 0 ? 'LEFT' : 'RIGHT'));
+    /** Back onto her tile without a 【移动】 (a flight that found nowhere to land, a knock-out, a withdrawal). */
+    function snapBack(unit) { unit.x = unit.tileC; unit.y = unit.tileR; }
+    /** The flight reached (flight.r, flight.c). */
+    function arrive(battle, unit) {
+      const f = flight;
+      if (f.home) {
+        if (f.r !== unit.tileR || f.c !== unit.tileC) {
+          dropMarker(battle);
+          const dir0 = unit.dir;
+          unit.dir = st ? st.dir0 : dir0;   // home in her deployment direction (the skill's located dir)
+          if (!battle.moveRedeploy(unit, f.r, f.c, { inPlace: true })) { unit.dir = dir0; snapBack(unit); }
+        }
+        stopFlight(battle, unit);
+        st = null;
+        return;
+      }
+      if (f.r === unit.tileR && f.c === unit.tileC) { stopFlight(battle, unit); return; }   // turned back to her own tile
+      if (tileOk(battle, unit, f.r, f.c)) {
+        const dir0 = unit.dir;
+        unit.dir = f.r === st.r0 && f.c === st.c0 ? st.dir0 : travelDir(f);
+        if (!moveTo(battle, unit, f.r, f.c)) { unit.dir = dir0; snapBack(unit); }
+        stopFlight(battle, unit);
+        return;
+      }
+      // the tile was taken meanwhile: the next flyer's, else back to her own (备注 "若已不存在满足条件的目标格，会转而选择当前
+      // 实际所在位置为目标")
+      const now = moveTarget(battle, unit);
+      if (now) { f.r = now.r; f.c = now.c; } else { f.r = unit.tileR; f.c = unit.tileC; }
+    }
+    /** One tick of the flight: the tile re-selected every MOVE_CHECK s (out only), her body moved toward it. */
+    function stepFlight(battle, unit) {
+      const f = flight;
+      if (!f) return;
+      if (!unit.alive || !unit.deployed) { flight = null; return; }
+      if (!f.home && battle.time + 1e-9 >= f.next) {
+        f.next += MOVE_CHECK;
+        // no tile left that meets the move's conditions: back to the tile she stands on (备注)
+        const now = moveTarget(battle, unit);
+        if (now) { f.r = now.r; f.c = now.c; } else { f.r = unit.tileR; f.c = unit.tileC; }
+      }
+      const dx = f.c - unit.x, dy = f.r - unit.y, d = hypot(dx, dy), step = f.speed * TICK;
+      if (d > 1e-9) { f.vx = dx; f.vy = dy; }
+      if (d > step + 1e-9) { unit.x += dx / d * step; unit.y += dy / d * step; return; }
+      unit.x = f.c; unit.y = f.r;
+      arrive(battle, unit);
     }
 
     return {
@@ -236,22 +314,25 @@ export default {
           attack: { atkScale: num(b3['attack@atk_scale'], 1) },
           onStart({ battle, unit, skill }) {
             takeOff(battle, unit);
-            st = { r0: unit.tileR, c0: unit.tileC, dir0: unit.dir, act: skill.activations, flight: null, marker: null };
+            // (a return flight still under way: she is put down where it was going at once)
+            if (flight) { unit.x = flight.c; unit.y = flight.r; if (flight.home) arrive(battle, unit); else { stopFlight(battle, unit); snapBack(unit); } }
+            st = { r0: unit.tileR, c0: unit.tileC, dir0: unit.dir, act: skill.activations, marker: null };
             s3Targeting.rangeGrid = g39x4;
           },
           onEnd({ battle, unit, reason }) {
-            if (st) st.flight = null;
-            battle.removeBuff(unit, MOVE_KEY);
-            dropMarker(battle);
-            // back to her deployment tile by a 【移动】 (备注 "技能结束时若位于初始位置则降落；否则执行一次以初始位置为目标的返回移动")
-            if (reason !== 'death' && st && !atHome(unit) && unit.alive && unit.deployed) {
-              const from = { x: unit.x, y: unit.y };
-              if (battle.moveRedeploy(unit, st.r0, st.c0)) battle.fx('blink', { x: unit.x, y: unit.y, id: unit.id, fx: from.x, fy: from.y });
-            }
-            st = null;
             s3Targeting.rangeGrid = g39x4;
             battle.setExtraRange(unit, null);
             land(battle, unit);
+            // back to her deployment tile (备注 "技能结束时若位于初始位置则降落；否则执行一次以初始位置为目标的返回移动"): a flight
+            // home (the client's Comback movement, 2 tiles/s) and a 【移动】 there; the marker leaves as she lands
+            const away = !!st && (!atHome(unit) || !!flight);
+            if (reason !== 'death' && away && unit.alive && unit.deployed) {
+              fly(battle, unit, st.r0, st.c0, true);
+              return;
+            }
+            if (flight) { stopFlight(battle, unit); snapBack(unit); }
+            dropMarker(battle);
+            st = null;
           },
         },
       },
@@ -339,30 +420,22 @@ export default {
             }
           }
         }, { owner: unit });
-        // the move (every MOVE_CHECK s): fly to a blockable flyer of the original 3-9 while she blocks nothing
+        // the move (every MOVE_CHECK s): fly to a blockable flyer of the original 3-9 while she blocks nothing — her body
+        // flies there (projectile_chr_aglna2_s3_fly carries her), following the flyer's tile, and lands on it
         battle.every(MOVE_CHECK, () => {
-          if (!st || !skillOn(unit, S3) || !up(unit) || st.flight || !unit.canAct || unit.blocking.length) return;
+          if (!st || !skillOn(unit, S3) || !up(unit) || flight || !unit.canAct || unit.blocking.length) return;
+          if (unit.swing || unit.atkCd > (1 - MOVE_ATTACK_PROGRESS) * unit.s.interval + 1e-9) return;   // her attack first
           const tgt = moveTarget(battle, unit);
-          if (!tgt) return;
-          const dur = hypot(tgt.r - unit.tileR, tgt.c - unit.tileC) / MOVE_SPEED;
-          const act = unit.skill.activations;
-          st.flight = tgt;
-          battle.releaseBlocked(unit);
-          battle.addBuff(unit, { key: MOVE_KEY, duration: dur + 1, flags: { disarm: true, invulnerable: true, noHeal: true, noBlock: true }, tags: ['skill'] });
-          battle.fx('dash', { x: unit.x, y: unit.y, id: unit.id, tx: tgt.c, ty: tgt.r, t: dur });
-          battle.after(dur, () => {
-            battle.removeBuff(unit, MOVE_KEY);
-            if (!st || !skillOn(unit, S3) || unit.skill.activations !== act || !up(unit)) return;
-            st.flight = null;
-            const now = moveTarget(battle, unit);
-            if (now) moveTo(battle, unit, now.r, now.c);
-          }, { owner: unit });
+          if (tgt) fly(battle, unit, tgt.r, tgt.c, false);
         }, { owner: unit });
-        // knocked out / withdrawn: the marker leaves and the anchored range is dropped (S3's onEnd runs before the
-        // removal finishes; this covers a removal with no skill end)
+        battle.on('tick', () => stepFlight(battle, unit), { owner: unit });
+        // knocked out / withdrawn: the flight stops, the marker leaves and the anchored range is dropped (S3's onEnd runs
+        // before the removal finishes; this covers a removal with no skill end)
         battle.on('death', (ctx) => {
           if (ctx.unit !== unit) return;
+          if (flight) { stopFlight(battle, unit); snapBack(unit); }
           dropMarker(battle);
+          st = null;
           battle.setExtraRange(unit, null);
         }, { owner: unit });
       },

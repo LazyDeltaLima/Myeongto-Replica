@@ -32,6 +32,7 @@ const ENEMIES = {
   enemy_flyheavy: dummy('enemy_flyheavy', { motion: 'FLY', mass: 4 }),
   enemy_walk: enemyRec({ key: 'enemy_walk', hp: 1e9, speed: 0.6, mass: 0, atk: 100 }),
   enemy_flywalk: enemyRec({ key: 'enemy_flywalk', hp: 1e9, speed: 0.6, mass: 0, motion: 'FLY', atk: 100 }),
+  enemy_flyfast: enemyRec({ key: 'enemy_flyfast', hp: 1e9, speed: 2.4, mass: 0, motion: 'FLY', atk: 0 }),
 };
 const FORMS_ALL = [[5, false], [6, false], [5, true], [6, true]];
 const label = ([tier, elite]) => `T${tier} ${elite ? 'elite' : 'normal'}`;
@@ -319,7 +320,7 @@ test('S3 酸橙的心事 (MANUAL, data DEFAULT on 3-9): 30 / 31 bullets, ATK +20
   }
 });
 
-test('S3 move: blocking nothing, she flies (2 tiles/s, 无敌, disarmed) to the tile of an unblocked flyer she can block inside the original 3-9, lands there by a 【移动】 (the skill and its bullets kept) and blocks it; “一会儿见！” marks her deployment tile; her range stays that 3-9 + the 8 around her; at the end she goes back and the marker leaves', () => {
+test('S3 move: blocking nothing, she flies (2.4 tiles/s, 无敌, disarmed, her body carried along: projectile_chr_aglna2_s3_fly) to the tile of an unblocked flyer she can block inside the original 3-9, lands there by a 【移动】 with no drop-in (the skill and its bullets kept) and blocks it; “一会儿见！” marks her deployment tile; her range stays that 3-9 + the 8 around her; at the end she flies back (2 tiles/s) and the marker leaves', () => {
   for (const f of [[5, false], [6, true]]) {
     const [tier, elite] = f;
     const { h, u } = field({ tier, elite, skill: 2 });
@@ -327,16 +328,31 @@ test('S3 move: blocking nothing, she flies (2 tiles/s, 无敌, disarmed) to the 
     const fl = h.spawn('enemy_fly', { pos: [11, 7] });
     assert.ok(h.runUntil(() => u.skill.active, 1), `${label(f)}: cast`);
     const ammo0 = u.skill.ammoLeft;
-    assert.ok(h.runUntil(() => !!u.findBuff('aglna2:move'), 0.5), `${label(f)}: the flight starts`);
-    assert.ok(u.s.flags.invulnerable && u.s.flags.disarm, `${label(f)}: 无敌, disarmed in flight`);
+    // her attack first: the take-off waits for 85 % of the attack cooldown (_attackCooldownProgress 0.85) and cuts no swing
+    let cdAtStart = null;
+    assert.ok(h.runUntil(() => { if (u.findBuff('aglna2:move')) return true; return false; }, 3), `${label(f)}: the flight starts`);
+    cdAtStart = u.atkCd;
+    assert.ok(cdAtStart <= 0.15 * u.s.interval + 1e-6 && !u.swing, `${label(f)}: off only near the end of the cooldown (${cdAtStart.toFixed(3)} / ${u.s.interval.toFixed(3)})`);
+    assert.ok(ANY_ATK(h, u).some((c) => c.target === fl), `${label(f)}: it was hit before she flew`);
+    assert.ok(u.s.flags.invulnerable && u.s.flags.disarm && u.s.flags.liftoff && u.s.flags.kitMove, `${label(f)}: 无敌, disarmed, airborne in flight`);
+    assert.ok(h.eventsOf('fx').some((e) => e[1] === 'aglnaFlight' && e[4].on === 1 && e[4].tx === 7 && e[4].ty === 11), `${label(f)}: the flight fx`);
     const t0 = h.b.time;
+    // her body is on the way: between her tile and the flyer's, still holding her own tile
+    h.run(0.6);
+    assert.ok(u.x > 4.5 && u.x < 6.6 && u.y > 10 && u.y < 11, `${label(f)}: mid-flight at ${u.x.toFixed(2)},${u.y.toFixed(2)}`);
+    assert.deepEqual([u.tileR, u.tileC], [10, 4], `${label(f)}: her tile until she lands`);
     assert.ok(h.runUntil(() => u.tileR === 11 && u.tileC === 7, 5), `${label(f)}: on the flyer's tile`);
-    approx(h.b.time - t0, Math.hypot(1, 3) / 2, `${label(f)}: at 2 tiles/s`, 0.05);
+    approx(h.b.time - t0, Math.hypot(1, 3) / 2.4, `${label(f)}: at 2.4 tiles/s`, 0.05);
+    assert.deepEqual([u.x, u.y], [7, 11]);
+    assert.ok(!u.findBuff('aglna2:move') && !u.s.flags.kitMove, `${label(f)}: landed`);
+    const dep = h.events.filter((e) => e[0] === 'deploy' && e[1] === u.id);
+    assert.deepEqual(dep[dep.length - 1], ['deploy', u.id, 1], `${label(f)}: a landing, not a drop-in`);
     assert.ok(u.skill.active && u.skill.ammoLeft <= ammo0, `${label(f)}: the skill kept`);
     assert.ok(h.runUntil(() => fl.blockedBy === u, 1), `${label(f)}: she blocks it`);
     const m = h.b.allyUnits.find((t) => t.kind === 'token' && t.defId === MARKER && t.alive);
     assert.ok(m, `${label(f)}: the marker`);
     assert.deepEqual([m.tileR, m.tileC], [10, 4], `${label(f)}: on her deployment tile`);
+    assert.ok(h.eventsOf('fx').some((e) => e[1] === 'summon' && e[4].id === m.id && e[4].token === MARKER), `${label(f)}: announced for its effect`);
     assert.ok(m.s.flags.invulnerable && m.s.flags.untargetable && m.s.flags.isolated && m.s.flags.noBlock, `${label(f)}: 无敌, 孤立, unselectable, blocks nothing`);
     // her range: the 3-9 of (10, 4) facing RIGHT + the 8 around her new tile (11, 7)
     const keys = new Set(u.rangeKeys);
@@ -344,10 +360,16 @@ test('S3 move: blocking nothing, she flies (2 tiles/s, 无敌, disarmed) to the 
     assert.ok(keys.has(12 * 21 + 8) && keys.has(11 * 21 + 8), `${label(f)}: the 8 around her ((12, 8), (11, 8))`);
     assert.ok(!keys.has(11 * 21 + 10), `${label(f)}: no 3-9 around her new tile ((11, 10))`);
     u.skill.end('test');
-    assert.deepEqual([u.tileR, u.tileC], [10, 4], `${label(f)}: back home at the end`);
-    assert.ok(!m.alive, `${label(f)}: the marker left`);
     assert.deepEqual(u.liveRangeGrid, formOf(tier, elite).rangeGrid, `${label(f)}: 2-2`);
     assert.equal(u.extraRangeKeys, null);
+    // the way home is a flight too (the client's Comback movement), the marker kept until she lands
+    assert.ok(u.findBuff('aglna2:move') && m.alive, `${label(f)}: flying home`);
+    const t1 = h.b.time;
+    assert.ok(h.runUntil(() => u.tileR === 10 && u.tileC === 4, 5), `${label(f)}: back home`);
+    approx(h.b.time - t1, Math.hypot(1, 3) / 2, `${label(f)}: at 2 tiles/s`, 0.05);
+    assert.deepEqual([u.x, u.y], [4, 10]);
+    assert.ok(!m.alive, `${label(f)}: the marker left`);
+    assert.ok(!u.findBuff('aglna2:move') && !u.s.flags.liftoff, `${label(f)}: landed at home`);
     done(h);
   }
   // blocking something, she stays
@@ -362,6 +384,50 @@ test('S3 move: blocking nothing, she flies (2 tiles/s, 无敌, disarmed) to the 
     assert.deepEqual([u.tileR, u.tileC], at, 'no move while blocking');
     done(h);
   }
+});
+
+test('S3 move: the flight follows a moving flyer — its tile is chosen again every 0.1 s — and lands where the flyer is', () => {
+  const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+  u.skill.gainSp(999);
+  const fl = h.spawn('enemy_flyfast', { route: { motion: 'FLY', start: [11, 4], end: [11, 12], checkpoints: [] } });   // flying away from her
+  assert.ok(h.runUntil(() => u.skill.active && !!u.findBuff('aglna2:move'), 8), 'the flight starts');
+  const from = h.eventsOf('fx').filter((e) => e[1] === 'aglnaFlight' && e[4].on === 1).pop()[4].tx;
+  const tiles = new Set();
+  assert.ok(h.runUntil(() => { tiles.add(`${Math.round(fl.y)},${Math.round(fl.x)}`); return !u.findBuff('aglna2:move'); }, 6), 'it lands');
+  assert.equal(Math.round(fl.y), u.tileR);
+  assert.ok(Math.abs(Math.round(fl.x) - u.tileC) <= 1, `on (or next to) the flyer: she ${u.tileC}, it ${fl.x.toFixed(2)}`);
+  assert.ok(u.tileC > from, `the tile she lands on moved with the flyer (${from} → ${u.tileC})`);
+  assert.equal(u.dir, 'RIGHT', 'deployed facing her travel (备注: 部署方向与最近一次移动方向接近一致)');
+  done(h);
+});
+
+test('S3 move: the flyer gone mid-flight, she turns back to the tile she stands on (备注) — no 【移动】, no marker', () => {
+  const { h, u } = field({ tier: 5, skill: 2 });
+  u.skill.gainSp(999);
+  const fl = h.spawn('enemy_fly', { pos: [11, 7] });
+  assert.ok(h.runUntil(() => !!u.findBuff('aglna2:move'), 3), 'the flight starts');
+  h.run(0.3);
+  const away = u.x;
+  assert.ok(away > 4.2, 'on her way');
+  h.b.dealDamage(null, fl, { amount: 1e12, type: 'true', canDodge: false, sourceless: true });
+  assert.ok(!fl.alive);
+  assert.ok(h.runUntil(() => !u.findBuff('aglna2:move'), 3), 'the flight ends');
+  assert.deepEqual([u.tileR, u.tileC, u.x, u.y], [10, 4, 4, 10], 'back on her tile');
+  assert.ok(!h.b.allyUnits.some((t) => t.defId === MARKER && t.alive), 'no marker');
+  done(h);
+});
+
+test('S3 move: knocked out in flight, she lies on her own tile; the marker never appeared', () => {
+  const { h, u } = field({ tier: 5, skill: 2 });
+  u.skill.gainSp(999);
+  h.spawn('enemy_fly', { pos: [11, 7] });
+  assert.ok(h.runUntil(() => !!u.findBuff('aglna2:move'), 2), 'the flight starts');
+  h.run(0.3);
+  h.b.retreat(u, { reason: 'retreat' });
+  h.run(1);
+  assert.ok(!h.b.allyUnits.some((t) => t.defId === MARKER && t.alive), 'no marker');
+  assert.deepEqual([u.x, u.y], [u.tileC, u.tileR], 'her body on her tile');
+  done(h);
 });
 
 // upstream 0.2.3 community round 27 (test/content/community-round27.test.js there): while airborne she is no target of

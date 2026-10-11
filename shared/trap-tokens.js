@@ -9,10 +9,18 @@
 // dd23572b, maintainer decision 2026-10-09: the bar only — it still takes damage and healing, upstream's invulnerability
 // 5f98baec is not taken).
 
-/** Summons drawn without an HP bar (untargetable, invulnerable traps; 香槟炸弹). */
-export const NO_HP_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1', 'token_10031_swire2_gdtrap']));
+// 予愿安洁莉娜's S3 marker “一会儿见！” has no body at all: its client prefab (pkgrps/btl_pfb_tokens_5.ab
+// token_10071_aglna2_agairp) holds an EmptyAnimator and no Spine, no shadow, and hides its HP / SP bars (`_alwaysHideHp` /
+// `_alwaysHideSp`); what shows is its effect token_aglna2_agairp_01 (render/fxgame.js) — so the client draws no avatar
+// diamond, shadow, bar or facing for it (2026-10-11, maintainer report).
+
+/** Summons drawn without an HP bar (untargetable, invulnerable traps; 香槟炸弹; the bodiless markers below). */
+export const NO_HP_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1', 'token_10031_swire2_gdtrap', 'token_10071_aglna2_agairp']));
+/** Summons with no body of their own: only their effect is drawn. */
+export const BODYLESS_TOKENS = Object.freeze(new Set(['token_10071_aglna2_agairp']));
 /** Summons placed without the direction step. */
 export const FACINGLESS_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1', 'token_10000_silent_healrb']));
 
 export const noHpBar = (id) => typeof id === 'string' && NO_HP_TOKENS.has(id);
 export const facingless = (id) => typeof id === 'string' && FACINGLESS_TOKENS.has(id);
+export const bodyless = (id) => typeof id === 'string' && BODYLESS_TOKENS.has(id);

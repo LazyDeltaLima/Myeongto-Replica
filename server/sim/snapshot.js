@@ -94,7 +94,8 @@ export function flagsOf(u) {
 export function animOf(u, t) {
   if (!u.alive) return ANIM.DIE;
   if (u.s.flags.stun) return ANIM.STUN;
-  if (t - u.deployedAt < DEPLOY_ANIM_TIME && u.side === 'ally') return ANIM.DEPLOY;
+  if (t - u.deployedAt < DEPLOY_ANIM_TIME && u.side === 'ally' && u.quietDeployAt !== u.deployedAt) return ANIM.DEPLOY;
+  if (u.side === 'ally' && u.s.flags.kitMove) return ANIM.MOVE;   // a kit's flight (予愿安洁莉娜 S3: her Move clip)
   if (t < (u.skillAnimUntil ?? -1)) return ANIM.SKILL;
   if (t - u.lastAttackAt < ATTACK_ANIM_TIME) return u.skill && u.skill.active && u.skill.kind !== 'passive' ? ANIM.SKILL : ANIM.ATTACK;
   if (u.side === 'enemy' && u.moving && !u.blockedBy) return ANIM.MOVE;

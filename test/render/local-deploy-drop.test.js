@@ -132,7 +132,7 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     assert.ok(v.shadow.alpha > 0.4);
     const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
     assert.doesNotMatch(app, /openingDrops|OPENING_DROP_GT/, 'app.js numbers no opening drops');
-    assert.match(app, /if \(v\) \{ v\.onDeploy\?\.\(\); if \(v\.info\?\.kind !== 'device'\) fx\.deploy\(v\); \}/);
+    assert.match(app, /if \(v && e\[2\] !== 1\) \{ v\.onDeploy\?\.\(\); if \(v\.info\?\.kind !== 'device'\) fx\.deploy\(v\); \}/);
     const lc = readFileSync(path.join(ROOT, 'server/sim/battle/lifecycle.js'), 'utf8');
     assert.match(lc, /_prebuiltStep\(\) \{/, 'the sim staggers the battle-start deployment');
   });

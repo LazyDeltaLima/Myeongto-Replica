@@ -70,7 +70,7 @@ import { SpineActor } from './spine.js';
 import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
-import { noHpBar, facingless } from '../../../shared/trap-tokens.js'; // local patch
+import { noHpBar, facingless, bodyless } from '../../../shared/trap-tokens.js'; // local patch; 2026-10-11 bodyless markers
 import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch: 迷彩 icon; 起飞
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
 import { iconShownAsFx } from './fxstatus.js'; // local patch: statuses drawn as official effects
@@ -529,6 +529,7 @@ export class UnitView {
     this.flying = info.motion === 'FLY';
     this.hover = 0;               // flying: body height above the road / the ground under it
     this.liftoff = false;         // an airborne (起飞) operator: drawn at the flyers' height too (shared/local.js UF_LIFTOFF)
+    this.bodyless = bodyless(info.defId);   // a summon drawn by its effect only (shared/trap-tokens.js BODYLESS_TOKENS)
     this.dir = this.isEnemy ? null : unitDir(info);
     // whether the direction is known (UnitInfo / piece `dir`), not just the legacy ±1: battle and scouting views show
     // the ground wedge only then (a derived RIGHT would mislabel an UP / DOWN operator)
@@ -920,6 +921,10 @@ export class UnitView {
       }
     }
     if (this.isEnemy && !this.slide?.face && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
+    // an operator on a kit's flight (snapshot anim MOVE: 予愿安洁莉娜 S3, whose flight `_faceToMoveDirection`) faces its
+    // travel, and its own direction again once it stands
+    else if (!this.isEnemy && (s.anim | 0) === ANIM.MOVE && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
+    else if (!this.isEnemy && (this.anim | 0) === ANIM.MOVE && (s.anim | 0) !== ANIM.MOVE) this.visFacing = this.facing;
     if ((prevFlags ^ this.flags) & UF.SKILL) this.setSkill(!!(this.flags & UF.SKILL));
     if (this.anim === ANIM.DIE && this.alive) this.die();
     if (this.actor && this.alive) this.actor.setBase(this._baseFromAnim());
@@ -1316,7 +1321,7 @@ export class UnitView {
     this.shadow.position.set(sh.x, sh.y);
     const shw = s * (this.isBoss ? 1.6 : 0.95) / this.shadow.texture.width;
     this.shadow.scale.set(shw, shw * (this.shadow.texture === shadowTexture() ? 1 : 1.05));
-    this.shadow.alpha = 0.5 * alpha * (this.lift > 0 ? 0.6 : 1);
+    this.shadow.alpha = this.bodyless ? 0 : 0.5 * alpha * (this.lift > 0 ? 0.6 : 1);
 
     // model / fallback
     const spineShown = this.actor && this.spineReady;
@@ -1372,8 +1377,10 @@ export class UnitView {
         if (this._tint !== tint) { this._tint = tint; this.actor.spine.tint = tint; }
       }
     }
-    // the diamond is only needed while no model shows (a cross-fade keeps whatever diamond was already up)
-    if (!spineShown) this._ensurePicture();
+    // the diamond is only needed while no model shows (a cross-fade keeps whatever diamond was already up); a bodiless
+    // marker (shared/trap-tokens.js) shows none — only its effect
+    if (this.bodyless) this.fallback.visible = false;
+    else if (!spineShown) this._ensurePicture();
     if (!spineShown || this.swapT < 1) {
       const size = s * UNIT.diamond * (this.isBoss ? 1.5 : 1);
       const bob = this.alive ? Math.sin(t * 2.4 + this.bob) * s * 0.03 : 0;
@@ -1387,7 +1394,7 @@ export class UnitView {
     // facing chevron on the ground, like the original's orange › (research 09 §1.2: prep and combat): own prep pieces
     // on the board (app.js sets _showFacing; bench pieces have none); battle / scouting allies whose dir is known
     let wedge = this._showFacing !== undefined ? this._showFacing && this.prep : this.hasDir && this.info.kind !== 'device';
-    if (wedge && facingless(this.info.defId)) wedge = false; // local patch: summons placed without a facing
+    if (wedge && (facingless(this.info.defId) || this.bodyless)) wedge = false; // local patch: summons placed without a facing
     if (wedge && this.flying) wedge = false; // a flying ally (炎佑) has no deploy tile nor facing
     // local patch (LOCAL-PATCH.md 「전투 화면 UI」): the official ring + arrow on the ground when the art is there (facing.js)
     const facingTex = wedge && this.alive ? facingTextures(P, this.ctx.assets) : null;
