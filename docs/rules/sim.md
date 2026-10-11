@@ -304,7 +304,7 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   DEF 중첩 `95dea8a0` ← `1a67ecc3`, 동률 = 마지막 배치 `e8cc138c` ← `03688c82`(#388; 사이의 白铁 `69d791f9` 줄은 안 받음) · 공격 없는 즉발 스킬은
   공격 간격마다 한 번 `a71bb1e8` ← `4128965a` + `db29acf9`(#298 — 2026-10-11 관리자 결정으로 클라 스킬 클래스대로 바뀜: 아래 「즉발 스킬의 시전」) · 外勤医疗 Touch ACTIVE_RANGE
   `a254e00e` ← `c623550f`(sim만, 카드 UI는 UI 쪽 이식; 「스킬 범위 발동」은 당시 미확정 — 2026-10-11 확정) · 香槟炸弹 은신·수면 적에 안 터짐 `c59e05a7` ← `e733171b`
-  (손 이식, `5f98baec` 무적·禁疗은 안 받음 — 관리자 결정).
+  (손 이식, `5f98baec` 무적·禁疗은 그때 안 받음 — 관리자 결정, 2026-10-11에 뒤집혀 받음: 아래 「upstream 0.2.3 이식」).
 - 望 跟子: `d0031e33` ← `5a045731` 중 跟子 칸 배치 부분만(관리자 결정) — `diy.md` 「跟子 칸에 배치하면 그 跟子가 사라진다」. 전투 시작 跟子는 안 받음(관리자 결정 — 2026-10-11에 뒤집힘: 클라대로 전투 시작에도 붙음, `diy.md` 「되돌리기」), 나머지 하나는 이미 PRTS대로.
 - 엔진: 同名效果取最高 3개 이상 `f17d705c` ← `3356b340`(#342; upstream content 테스트는 우리에게 없는 선발 3명이라 버림, sim 단위 테스트가 대신) ·
   帝国炮火先兆者 포탄 3×3 `4e463805` ← `895653fc`(#364, **[ASSUMED]** 충돌 반경 0.25 더함) · 假想敌：骨刺 대상 `e55366ad` ← `c250ff66`(#365 —
@@ -314,7 +314,7 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   `NO_AIR_KEYS`에서 뺌, 골극과 함께 따로 커밋) · 刷新时 특질 시점 `ea8f8790` ← `ce2bd75b` · 속사 저격수 비행 우선 `d2522a11` ← `4bd154e3`(#205, 관리자 결정,
   `upstream.md` 「일부러 안 가져온 것」 줄 고침) · 频次 器物·보스 소환물에 라운드 적 효과 `b27cebc2` ← `e33ee3db`(PR #272, 반올림은 2026-10-10 올림으로 바뀜 — 아래 「卫戍协议 버프 그래프」,
   `data/config.json`은 build-data로 재생성 — supplyHp 키만; golden roster 36·bonds 1·fields 11·matches 15).
-- 안 받음(관리자 결정): `5f98baec`(香槟炸弹 무적) · `38d4c3e4`(余 文火慢炖 층 없는 맹약 — PRTS 「仍然对其生效」대로) · `5a50f7b5`(REA-Y 공속 엔진화, 보류).
+- 안 받음(관리자 결정): `5f98baec`(香槟炸弹 무적 — 2026-10-11 관리자 결정으로 받음, 「upstream 0.2.3 이식」) · `38d4c3e4`(余 文火慢炖 층 없는 맹약 — PRTS 「仍然对其生效」대로) · `5a50f7b5`(REA-Y 공속 엔진화, 보류).
 
 ### 기습 · 아이템 · 진행 · 서버 도구
 커밋마다 하나.
@@ -401,6 +401,17 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   은신 표시가 켜져 있다(공식은 그때 아직 전사 모드라 불투명). RebornData의 시간 값은 못 읽었다.
   golden: roster 001·003·025·034·048, bonds bond-maniShip-high, matches solo-ABYSS-1·coop4-FUNNY-6·solo-HARD-9-boosted. 테스트
   `test/sim/ember-initial-stealth.test.js`(PR), `test/sim/feedback2-surtr-stealth.test.js`(PR로 갱신), `test/match/ember-stealth-real.test.js`(실제 대전 경로).
+- **香槟炸弹: 무적(HP 손실 없음)·禁疗·아군 선택 제외** (upstream `5f98baec` + PR #476 by @Siornya, v0.2.4 `6bfc0827`이 받은 판; **관리자 결정 2026-10-11**
+  「무적도 넣고 적용」 — 2026-10-09 「공식대로 HP 손실·禁疗 있음」 결정을 뒤집음): `tokens.js champagneHold`를 토큰 키트와 琳琅诗怀雅 자신의 폭탄(`chess_char_3_04-swire2.js`)
+  둘 다 건다. 禁疗(치료가 안 닿고 치료사가 안 고름), 모든 피해 취소(活性源石 틱·원소 피해 포함) + 流失는 쓰러짐 판정 전에 되돌림 → HP 때문에 사라지지 않고
+  「见面礼」을 쓸 때만 사라짐. 무적 깃발은 안 씀(배지가 뜨므로 — upstream 그대로). 그리고 내부 `isolated` 깃발로 아군 선택(`Battle.allySelectable`: 安洁莉娜 오라,
+  浊心斯卡蒂 鼓舞, 치료)에서 빠진다 — PRTS 香槟炸弹 「装置」. 일반 禁疗 소환물은 그대로 선택된다. PR #476 원본과 v0.2.4 판은 코드가 같고(깃발 한 개),
+  v0.2.4는 테스트를 더함 → v0.2.4 테스트를 가져옴. PR의 원래 스킨 모델 부분(`7ecc80d5`)은 범위 밖(우리는 로컬 클라 추출).
+  **공식과 다른 점**: PRTS는 HP 1000에 「即使自身生命值未满，模型下方也不会显示生命值槽」 — 공식은 HP를 잃을 수 있다(upstream의 일부러 다른 결정을 관리자가 받음).
+  装置 분류의 클라 근거는 반쯤: 卫戍协议 아군 대상 노드는 보통 `targetCategory "NONE,DEFAULT"`이고 엔진 `EntityCategory`는 DEFAULT 1 / TRAP_OR_ITEM 2이다.
+  폭탄 전투 프리팹의 category 값은 못 봄(비공개 디컴파일 기록 — **[추정]** TRAP_OR_ITEM).
+  sim-3 이식 「은신·수면 적 위에서 안 터짐」(`CHAMPAGNE_TRIGGER`)은 그대로다(`test/content/feedback7-champagne-stealth.test.js` 통과).
+  golden: bonds bond-yanShip-high(活性源石 위 폭탄에 치료사가 치료를 쓰던 판). 테스트 `test/content/feedback7-champagne-hold.test.js`(upstream v0.2.4 판 + 실제 대전 경로 1건).
 
 ### 관리자 결정 2026-10-11 (D1 공식 데이터 갱신 · D2 전략 차례 50 s · D8 공용 카드 풀)
 - **공식 표 갱신 + 乌尔比安 모듈 「前路」 CRU-Y** (upstream `2e122873`의 乌尔比安 키트 부분, 손 이식): `node tools/build-data.mjs --refresh`로 zh_CN 표를

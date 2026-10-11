@@ -192,7 +192,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   「스킬 클립·스킬 모드 번호 교정」)도 포함하므로 `this.clipPerAttack &&`로 좁혔다 — 적만 전체 클립, strike 스킬 클립은 타격 프레임부터(`test/local-patch-skill-clips.test.js`).
 - 샴페인 폭탄(스와이어 디 엘리건트 위트의 소환물) HP 바 숨김(`c5672804` ← `dd23572b`, **관리자 결정 2026-10-09**): PRTS 香槟炸弹 备注
   「即使自身生命值未满，模型下方也不会显示生命值槽」. `shared/trap-tokens.js NO_HP_TOKENS`에 한 줄 — HP 바만 숨기고 피해·치유는 그대로.
-  upstream의 무적 `5f98baec`은 받지 않는다(우리는 공식대로 HP 손실·禁疗 있음).
+  upstream의 무적 `5f98baec`은 그때 받지 않았다가 2026-10-11 관리자 결정으로 받았다(`sim.md` 「upstream 0.2.3 이식」 — HP 손실 없음·禁疗·아군 선택 제외).
 - 드래그 중 놓을 수 있는 칸에 서기(`18c6fa79` ← `9405aae6`, **관리자 결정 2026-10-09**): 끄는 오퍼레이터는 놓을 수 있는 칸(보드·대기석) 위에서는 그 칸에
   서고(`render/drag.js dragStandTile` → `boardWorld`, 드롭 트윈과 같은 점), 그 밖(놓을 수 없는 칸·상점 띠)에서는 포인터 아래 `DRAG_HOLD_TILES`.
   근거는 upstream 주인의 공식 녹화(2026-10-09, upstream PR #403 제보). 픽·강조·`tileHover`·방향 선택·드롭은 여전히 포인터 칸.
