@@ -11,8 +11,8 @@
 //   ours   public/i18n/ko/{official,data,manual,diy,ui,patterns}.json — the dictionaries of our display-only translator
 //          (keyed by the Chinese text, later files win, `{0}` patterns). --ours <dir>, else the working tree's
 //          public/i18n/ko/, else `git show <--ours-ref, default nas-local>:public/i18n/ko/<file>.json`.
-//   base   upstream's machine-translated pack: `git show <--base-ref>:public/i18n/ko.json` (default: the newest v* tag
-//          merged into HEAD) or --base <file>. It gives the msgid list (with public/i18n/en.json, the complete pack) and
+//   base   upstream's machine-translated pack: `git show <--base-ref>:public/i18n/ko.json` (default: the newest v0.* tag
+//          merged into HEAD — upstream's; this fork's release tags v1.x carry this script's own output) or --base <file>. It gives the msgid list (with public/i18n/en.json, the complete pack) and
 //          the text of every msgid our dictionaries do not have.
 //
 // Per msgid, the first that applies:
@@ -177,8 +177,8 @@ function loadOurs(o) {
 
 function loadBase(o) {
   if (o.base) return { json: readJson(o.base), where: path.relative(ROOT, o.base) };
-  const ref = o.baseRef || git('tag', '--merged', 'HEAD', '--list', 'v*', '--sort=-v:refname').split('\n')[0].trim();
-  if (!ref) throw new Error('no v* tag in HEAD: pass --base-ref <upstream ref> or --base <file>');
+  const ref = o.baseRef || git('tag', '--merged', 'HEAD', '--list', 'v0.*', '--sort=-v:refname').split('\n')[0].trim();
+  if (!ref) throw new Error('no v0.* tag in HEAD: pass --base-ref <upstream ref> or --base <file>');
   return { json: JSON.parse(git('show', `${ref}:public/i18n/ko.json`)), where: `${ref}:public/i18n/ko.json` };
 }
 
