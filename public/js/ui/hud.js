@@ -12,11 +12,11 @@
 // overtimeState): "NN 秒后全队生命值开始流失" once the level time ran out, then a live "生命值 −1/秒" indicator while the
 // merged team LP drains (the LP tower turns red). Solo battles: a pause / resume button beside the countdown (g.pause);
 // while m.public.paused every clock here is frozen at the pause moment (`frozenAt`).
-// Normal rounds (user playtest #3 item 2): the LP tower's −N tick grows as the own battle's enemies enter the blue
-// gate — min(lpCapPerRound, counted leaks), 联防中 while a 联防 may still save part of it (liveLp; the leaks come from the
-// local battle runner, else m.public players[].pendingLp); the number keeps the settled LP until the settlement lands,
-// like the client (upstream #479: `AutoChessHUDStageInfoModel` draws the synced player HP and the battle's
-// `lostHpDisplay` beside it, never their difference). Boss rounds: the merged team LP as it stood when the boss phase
+// Normal rounds: the number keeps the settled LP until the settlement lands, like the client (upstream #479:
+// `AutoChessHUDStageInfoModel` draws the synced player HP and the battle's `lostHpDisplay` beside it, never their
+// difference). The own battle shows no tick — the client's `SelfBattleRoundStatus.lostHpDisplay` is always 0 (maintainer
+// decision 2026-10-11, replacing user playtest #3 item 2's live −N); 联防 shows the −N tick of a leaker,
+// min(lpCapPerRound, its enemies still standing), tagged 联防中 (liveLp; the client's `HelpBattleRoundStatus`). Boss rounds: the merged team LP as it stood when the boss phase
 // began, the tick the team LP lost since (bossLp; the client's `BossBattleRoundStatus.lostHpDisplay` = playerTotalHp −
 // battleTeamHp, no round cap). 联防 (user playtest #6 item 7; PRTS
 // 卫戍协议/帮助 "防卫失败的玩家可通过上方信息栏确认自身所属敌人的剩余数量"): a leaker's phase capsule carries the official
@@ -105,10 +105,14 @@ export function MissTag({ n, name = null }) {
   </span>`;
 }
 
-// ---- live LP of the own battle (user playtest #3 item 2) --------------------------------------------------------
+// ---- live LP of a 联防 (user playtest #3 item 2, #6 item 7) ---------------------------------------------------
 
-/** Phases whose leaks are still to be charged at settlement (normal rounds: the own battle, then 联防). */
-const LEAK_PHASES = new Set([PHASE.COMBAT, PHASE.UNITE]);
+/**
+ * Phases whose pending loss the LP tower shows: 联防 only — the client's HUD has a `lostHpDisplay` in the help battle
+ * (`HelpBattleRoundStatus`, capped) and none in the own battle (`SelfBattleRoundStatus` returns 0; maintainer decision
+ * 2026-10-11 「공식대로」, the own battle's live −N removed).
+ */
+const LEAK_PHASES = new Set([PHASE.UNITE]);
 
 /**
  * LP a round's leaks cost at settlement — the server rule (server/match/match/settle.js): min(lpCapPerRound, counted
@@ -151,15 +155,15 @@ export function uniteRemaining(local, server) {
 }
 
 /**
- * The own LP while a normal round's battle runs: the loss its counted leaks will cost is shown at once (red, −N)
- * instead of only at settlement. `base` — kept by the caller between renders — is the settled m.private state the
- * pending loss applies to: { round, lp, statsLeaks } as first seen in the round's COMBAT / 联防. The pending part is
- * dropped as soon as the settlement lands — m.private lp or stats.leaks changed (Match.flush sends m.private before the
- * SETTLE m.public) — or the phase leaves COMBAT / UNITE or the round changes, so the loss is never subtracted twice.
+ * The own LP during a 联防: the loss still to be charged is shown as a −N tick before the settlement. The own battle
+ * (COMBAT) shows none, like the client (LEAK_PHASES). `base` — kept by the caller between renders — is the settled
+ * m.private state the pending loss applies to: { round, lp, statsLeaks } as first seen in the round's 联防. The pending
+ * part is dropped as soon as the settlement lands — m.private lp or stats.leaks changed (Match.flush sends m.private
+ * before the SETTLE m.public) — or the phase leaves UNITE or the round changes.
  * 联防 (UNITE): a leaker finally loses min(cap, the survivors of the 联防 battle that came from them); `uniteLeft` (its
  * enemies still standing, uniteRemaining — user playtest #6 item 7) replaces the own battle's count, so the loss falls
  * live as the helpers kill them, marked `unite` (联防中) with `left` = that uncapped number for the ×N tag. Without
- * `uniteLeft` (not a leaker, or no count yet) the own battle's count stays on show. The pending part goes when the
+ * `uniteLeft` (not a leaker, or no count yet) the own battle's count stands in. The pending part goes when the
  * settlement lands. `shown` stays the settled lp (upstream #479: the client never draws lp − pending). Boss rounds are
  * bossLp's.
  * @param {{ round: any, lp: number, statsLeaks: number|null } | null} base
@@ -333,7 +337,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *   pause?: { show: boolean, paused: boolean, busy?: boolean, onToggle: () => void } | null,
  *   live?: { pending: number, unite: boolean, left?: number|null } | null }} props
  *   frozenAt: the server time every clock shows while the solo match is paused (null = live)
- *   live: the own battle's pending LP loss (liveLp): the tower shows lp with a −N tick, 联防中 during 联防;
+ *   live: the pending LP loss of a 联防 (liveLp): the tower shows lp with a −N tick, 联防中;
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
 export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},

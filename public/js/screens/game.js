@@ -41,10 +41,9 @@
 // Solo battles (ui/matchStatus.js pauseAvailable): the top bar's pause button / Space send g.pause {on}; m.public.paused
 // shows the paused overlay (继续作战 / 放弃模拟) and freezes the HUD clocks. Boss rounds: the top bar shows the level's
 // 120 s countdown and the red DOT overtime warning (m.public.overtimeAt).
-// User playtest #3: the own LP's −N tick grows while the own battle's enemies enter the blue gate (item 2: the runner's
-// state().leaks → ui/hud.js liveLp → top bar + own team row; teammates' rows from m.public players[].pendingLp; in 联防 a
-// leaker's enemies still standing — runner state().uniteLeft / m.public players[].uniteLeft, the ×N tag — user
-// playtest #6 item 7); while the temp overflow row (临时整备区) holds pieces it is framed and labelled on the board
+// User playtest #3: in 联防 the LP tower's −N tick shows a leaker's pending loss (item 2 / user playtest #6 item 7: its
+// enemies still standing — runner state().uniteLeft / m.public players[].uniteLeft, the ×N tag — → ui/hud.js liveLp →
+// top bar + own team row; teammates' rows from m.public; none during the own battle, like the client); while the temp overflow row (临时整备区) holds pieces it is framed and labelled on the board
 // (ui/underframe.js TempRowNotice) and 准备就绪 / Space say why they are refused (item 3).
 // User playtest #4: the detail card shows live stats (item 7) — in battle the local sim's unit (battle/runner.js
 // unitStats), in prep an own board unit's start-of-battle stats (g.unitStats → m.unitStats); 机变 cards take two taps
@@ -286,8 +285,8 @@ function MatchScreen() {
   // live LP (user playtest #3 item 2): the own normal battle's counted leaks — the local runner's count (authoritative
   // or display replica) and the server's m.public players[].pendingLp, whichever is further (both only grow during a
   // round; a display replica stands still while the player watches a teammate's field, the server's count then moves
-  // on) — cost min(lpCapPerRound, n) at settlement; shown at once as the −N tick until the settled m.private lands (ui/hud.js liveLp
-  // keeps the base between renders); 联防 (user playtest #6 item 7): a leaker's enemies still standing on the 联防 field —
+  // on) — cost min(lpCapPerRound, n) at settlement; shown as the −N tick only in 联防 (none in the own battle, like the
+  // client), until the settled m.private lands (ui/hud.js liveLp keeps the base between renders); 联防 (user playtest #6 item 7): a leaker's enemies still standing on the 联防 field —
   // the local replica's count while it runs, else m.public players[].uniteLeft (ui/hud.js uniteRemaining) — replace it;
   // the teammates' rows take the same local counts (`uniteLocal`, ui/teamPanel.js rowLp)
   const lpBaseRef = useRef(null);

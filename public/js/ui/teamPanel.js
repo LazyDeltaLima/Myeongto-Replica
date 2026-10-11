@@ -6,10 +6,9 @@
 // "前往查看" button under the row (when that teammate can be observed now; otherwise the reason is toasted through
 // onWatch); while observing, the own row shows a "返回战场" button. Without `observe` (server-run combat) a click
 // watches that player's field at once.
-// Live LP (user playtest #3 item 2): during a normal round's battle each row's tower shows lp and, as a −N tick, the
-// loss that player's leaks so far will cost (the number keeps the settled LP, upstream #479): the own row the top bar's
-// live value (`self`, ui/hud.js liveLp), a teammate's row
-// m.public players[].pendingLp (server/match/match/views.js, ~1 Hz). 联防 (user playtest #6 item 7): a leaker's row adds the
+// Live LP: each row's number keeps the settled LP (upstream #479); the own battle shows no pending loss, like the
+// client's HUD (maintainer decision 2026-10-11, replacing user playtest #3 item 2's live −N). 联防 (user playtest #6
+// item 7): a leaker's row adds the
 // runner tag ×N — its enemies still standing on the 联防 field, uncapped and live (falling as the helpers kill them,
 // rising when one splits) — next to the −min(lpCapPerRound, N) tick: the own row the top bar's value, a teammate's row the
 // local 联防 replica's count while it is on screen (`uniteLocal`: the battle runner's state().uniteLeft, the same battle
@@ -52,7 +51,7 @@ export function cardState(p) {
 const STATUS_SPRITE = { ready: 'icon_complete', deciding: 'icon_waiting', done: 'icon_complete', dead: 'icon_dead' }; // ready = done: the card's complete_part
 
 /**
- * A row's LP tower: the settled LP and the pending loss of the round's battle (0 outside COMBAT / UNITE). The own row
+ * A row's LP tower: the settled LP and the pending loss of the round's 联防 (0 outside UNITE: the own battle shows none). The own row
  * takes the top bar's live value when there is one (its m.private lp: the same number as the top bar). `left`: during
  * 联防 a leaker's enemies still standing (the ×N tag), else null — for a teammate the local 联防 replica's count when
  * one is given (`uniteLocal`, the runner's state().uniteLeft: { [playerId]: n }, absent = none left; the pending loss
@@ -64,7 +63,7 @@ const STATUS_SPRITE = { ready: 'icon_complete', deciding: 'icon_waiting', done: 
  */
 export function rowLp(p, pub, self = null, { uniteLocal = null, cap = 10 } = {}) {
   const pubLp = Number.isFinite(p?.lp) ? p.lp : null;
-  if ((pub?.phase !== PHASE.COMBAT && pub?.phase !== PHASE.UNITE) || p?.alive === false) return { lp: pubLp, pending: 0, unite: false, left: null };
+  if (pub?.phase !== PHASE.UNITE || p?.alive === false) return { lp: pubLp, pending: 0, unite: false, left: null };
   const lp = self && Number.isFinite(self.lp) ? self.lp : pubLp;
   const leaker = pub.phase === PHASE.UNITE && Array.isArray(pub.unite?.leakers) && pub.unite.leakers.includes(p.playerId);
   const local = !self && leaker && uniteLocal && typeof uniteLocal === 'object' ? uniteRemaining(uniteLocal[p.playerId] ?? 0, null) : null;

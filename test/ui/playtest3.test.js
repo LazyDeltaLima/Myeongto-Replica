@@ -1,5 +1,5 @@
 // Regression tests (Node) of user playtest #3, HUD / UI items:
-//   2  the own LP drops live while the own battle's enemies enter the blue gate — pendingLoss / liveLp (the settle
+//   2  the LP tower's pending −N (since upstream #479 only in 联防 and boss rounds, the number stays put) — pendingLoss / liveLp (the settle
 //      rule min(lpCapPerRound, counted leaks), reset when the settled m.private lands, 联防中 during 联防), the team
 //      panel rows (rowLp: own live value, teammates' m.public players[].pendingLp), the LP tower's −N tick, and the
 //      server's pendingLp (server/match/match/views.js _pendingLpView)
@@ -59,7 +59,7 @@ const hasClass = (v, c) => typeof v?.props?.class === 'string' && v.props.class.
 
 // ---- 2: live LP ----------------------------------------------------------------------------------------------------
 
-describe('2: the own LP drops live while the battle runs', () => {
+describe('2: the pending LP loss beside the LP tower', () => {
   test('pendingLoss is the settle rule: min(lpCapPerRound, counted leaks), never negative', () => {
     assert.equal(pendingLoss(0), 0);
     assert.equal(pendingLoss(3), 3);
@@ -87,7 +87,7 @@ describe('2: the own LP drops live while the battle runs', () => {
     return steps.map((s) => { const r = liveLp(base, s); base = r.base; return r; });
   };
 
-  test('COMBAT: the settled lp with a growing pending part as leaks come in (upstream #479); the settled m.private (sent before the SETTLE m.public) drops the pending part — never subtracted twice', () => {
+  test('COMBAT: no pending part — the own battle shows no −N, like the client (SelfBattleRoundStatus.lostHpDisplay = 0); the number is the settled lp', () => {
     const at = (o) => ({ phase: PHASE.COMBAT, round: 5, lp: 30, statsLeaks: 7, leaks: 0, cap: 10, ...o });
     const out = run([
       at({}),
@@ -103,8 +103,8 @@ describe('2: the own LP drops live while the battle runs', () => {
       { phase: PHASE.COMBAT, round: 6, lp: 27, statsLeaks: 10, leaks: 2, cap: 10 },
     ]);
     assert.deepEqual(out.map((r) => r.shown), [30, 30, 30, 27, 27, 27, 27, 27]);
-    assert.deepEqual(out.map((r) => r.pending), [0, 1, 3, 0, 0, 0, 0, 2]);
-    assert.ok(out.every((r) => r.unite === false));
+    assert.deepEqual(out.map((r) => r.pending), [0, 0, 0, 0, 0, 0, 0, 0]);
+    assert.ok(out.every((r) => r.unite === false && r.base === null));
   });
 
   test('a settlement that charged nothing (a 联防 saved everything) is seen through stats.leaks; the SETTLE phase alone drops it too', () => {
@@ -116,22 +116,22 @@ describe('2: the own LP drops live while the battle runs', () => {
       { phase: PHASE.SETTLE, round: 8, lp: 20, statsLeaks: 9, leaks: 5, cap: 10 },
     ]);
     assert.deepEqual(out.map((r) => r.shown), [20, 20, 20, 20]);
-    assert.deepEqual(out.map((r) => r.pending), [5, 5, 0, 0]);
+    assert.deepEqual(out.map((r) => r.pending), [0, 5, 0, 0], 'none in the own battle, the −N in 联防');
     assert.deepEqual(out.map((r) => r.unite), [false, true, false, false], '联防中 while the 联防 may still save part of it');
     // without stats (older view): the SETTLE phase ends it
     const bare = run([{ phase: PHASE.UNITE, round: 8, lp: 20, leaks: 5 }, { phase: PHASE.SETTLE, round: 8, lp: 20, leaks: 5 }]);
     assert.deepEqual(bare.map((r) => r.pending), [5, 0]);
   });
 
-  test('the pending part never exceeds the LP left; nothing pending for the eliminated, in prep, in boss rounds or without an LP', () => {
-    assert.equal(liveLp(null, { phase: PHASE.COMBAT, round: 3, lp: 4, leaks: 9 }).shown, 4);
-    assert.equal(liveLp(null, { phase: PHASE.COMBAT, round: 3, lp: 4, leaks: 9 }).pending, 4, 'never more than the LP left');
-    assert.equal(liveLp(null, { phase: PHASE.COMBAT, round: 3, lp: 40, leaks: 9, alive: false }).pending, 0);
-    for (const phase of [PHASE.PREP, PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.SETTLE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE, PHASE.RESULT]) {
+  test('the pending part never exceeds the LP left; nothing pending for the eliminated, in the own battle, in prep, in boss rounds or without an LP', () => {
+    assert.equal(liveLp(null, { phase: PHASE.UNITE, round: 3, lp: 4, leaks: 9 }).shown, 4);
+    assert.equal(liveLp(null, { phase: PHASE.UNITE, round: 3, lp: 4, leaks: 9 }).pending, 4, 'never more than the LP left');
+    assert.equal(liveLp(null, { phase: PHASE.UNITE, round: 3, lp: 40, leaks: 9, alive: false }).pending, 0);
+    for (const phase of [PHASE.COMBAT, PHASE.PREP, PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.SETTLE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE, PHASE.RESULT]) {
       const r = liveLp(null, { phase, round: 3, lp: 40, leaks: 9 });
       assert.deepEqual([r.pending, r.shown, r.base], [0, 40, null], phase);
     }
-    assert.deepEqual(liveLp(null, { phase: PHASE.COMBAT, round: 3, lp: undefined, leaks: 2 }), { base: null, pending: 0, shown: null, unite: false, left: null });
+    assert.deepEqual(liveLp(null, { phase: PHASE.UNITE, round: 3, lp: undefined, leaks: 2 }), { base: null, pending: 0, shown: null, unite: false, left: null });
     assert.match(pendingTip(30, 3), /结算时扣除 3 点/);
     assert.match(pendingTip(30, 10, { unite: true }), /联防中/);
     assert.equal(pendingTip(30, 0), null);
@@ -151,16 +151,16 @@ describe('2: the own LP drops live while the battle runs', () => {
     assert.match(pendingTip(60, 16, { boss: true }), /本场战斗已损失 16 点/);
   });
 
-  test('team panel rows: the own row takes the top bar\'s live value, a teammate\'s m.public players[].pendingLp; only in COMBAT / 联防', () => {
-    const pub = { phase: PHASE.COMBAT };
-    assert.deepEqual(rowLp({ lp: 30, pendingLp: 3 }, pub), { lp: 30, pending: 3, unite: false, left: null });
-    assert.deepEqual(rowLp({ lp: 2, pendingLp: 3 }, pub), { lp: 2, pending: 2, unite: false, left: null }, 'clamped at the LP left');
+  test('team panel rows: the own row takes the top bar\'s live value, a teammate\'s m.public players[].pendingLp; only in 联防', () => {
+    const pub = { phase: PHASE.UNITE };
+    assert.deepEqual(rowLp({ lp: 30, pendingLp: 3 }, { phase: PHASE.COMBAT }), { lp: 30, pending: 0, unite: false, left: null }, 'the own battle: no −N');
+    assert.deepEqual(rowLp({ lp: 2, pendingLp: 3 }, pub), { lp: 2, pending: 2, unite: true, left: null }, 'clamped at the LP left');
     assert.deepEqual(rowLp({ lp: 30 }, pub), { lp: 30, pending: 0, unite: false, left: null });
-    assert.deepEqual(rowLp({ lp: 30, pendingLp: 4 }, { phase: PHASE.UNITE }), { lp: 30, pending: 4, unite: true, left: null });
+    assert.deepEqual(rowLp({ lp: 30, pendingLp: 4 }, pub), { lp: 30, pending: 4, unite: true, left: null });
     assert.deepEqual(rowLp({ lp: 30, pendingLp: 4 }, { phase: PHASE.SETTLE }), { lp: 30, pending: 0, unite: false, left: null });
     assert.deepEqual(rowLp({ lp: 30, pendingLp: 4, alive: false }, pub), { lp: 30, pending: 0, unite: false, left: null });
     // the own row: the top bar's numbers (m.private lp — m.public may lag behind it by a throttle interval)
-    assert.deepEqual(rowLp({ lp: 30, pendingLp: 1 }, pub, { lp: 30, pending: 5, unite: false }), { lp: 30, pending: 5, unite: false, left: null });
+    assert.deepEqual(rowLp({ lp: 30, pendingLp: 1 }, pub, { lp: 30, pending: 5, unite: true }), { lp: 30, pending: 5, unite: true, left: null });
     assert.deepEqual(rowLp({ lp: 30 }, pub, { lp: 25, pending: 0, unite: false }), { lp: 25, pending: 0, unite: false, left: null }, 'settled m.private first');
     assert.deepEqual(rowLp({ lp: 30 }, { phase: PHASE.FINAL_ASSAULT }, { lp: 99, pending: 5 }), { lp: 30, pending: 0, unite: false, left: null }, 'boss rounds: the row keeps its own share');
   });
