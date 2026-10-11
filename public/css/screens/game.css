@@ -149,9 +149,8 @@
 .lp--danger { color: var(--red-premium); }
 .lp--danger .lp__icon { filter: hue-rotate(-140deg) saturate(2.4) brightness(.95); }
 .lp--team { color: var(--mint-glow); }
-/* the running battle's pending loss (LpTower `pending`, user playtest #3 item 2): the number turns red, a −N plate
-   pops again on every new leak (keyed), 联防中 while teammates may still save part of it */
-.lp.is-pending .lp__val { color: var(--red-premium); text-shadow: 0 0 .08rem rgba(255, 60, 60, .45); }
+/* the running battle's pending loss (LpTower `pending`, user playtest #3 item 2): a −N plate beside the unchanged
+   number pops again on every new leak (keyed), 联防中 while teammates may still save part of it */
 .lp__pend {
   align-self: center; margin-left: .02em; padding: .06em .24em; font-size: .56em; font-weight: 700; line-height: 1.1;
   color: #fff; background: #d8262a; box-shadow: 0 0 .1rem rgba(255, 50, 50, .55);

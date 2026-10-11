@@ -52,7 +52,7 @@ describe('#7 the 联防 leak counter (HUD)', () => {
     const seq = [15, 14, 12, 10, 9, 4, 0].map((n) => step({ uniteLeft: n }));
     assert.deepEqual(seq.map((r) => r.left), [15, 14, 12, 10, 9, 4, 0]);
     assert.deepEqual(seq.map((r) => r.pending), [10, 10, 10, 10, 9, 4, 0], 'min(10, left)');
-    assert.deepEqual(seq.map((r) => r.shown), [20, 20, 20, 20, 21, 26, 30]);
+    assert.deepEqual(seq.map((r) => r.shown), [30, 30, 30, 30, 30, 30, 30], 'the number keeps the settled LP (upstream #479)');
     assert.ok(seq.every((r) => r.unite), '联防中 while the player is a leaker (also at 0: the tag shows ×0)');
     // the settlement lands (m.private lp 26): nothing pending any more, no tag
     const settled = step({ uniteLeft: 4, lp: 26, statsLeaks: 16 });

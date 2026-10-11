@@ -1063,6 +1063,7 @@
   "你漏过的敌人已全部被击倒": "Every enemy that got past you has been defeated",
   "目标生命值 {lp}：本回合已有 {cap} 个以上敌人进入蓝门，结算时扣除 {pending} 点（每回合至多 {cap} 点）": "LP {lp}: {cap}+ enemies reached the blue gate this round; settlement costs {pending} LP (max {cap} per round)",
   "目标生命值 {lp}：本回合已有 {pending} 个敌人进入蓝门，结算时扣除 {pending} 点（每回合至多 {cap} 点）": "LP {lp}: {pending} {pending|enemy|enemies} reached the blue gate this round; settlement costs {pending} LP (max {cap} per round)",
+  "全队目标生命值 {lp}：本场战斗已损失 {pending} 点，战斗结束后扣除": "Team LP {lp}: {pending} lost in this battle so far, deducted when it ends",
   "临时整备区还有 {count} 个单位：{rule}": "{count} {count|unit is|units are} still on the Temporary Bench: {rule}",
   "临时整备区 {n} 个单位待处理": "Temporary Bench: {n} {count|unit|units} pending",
   "{n} 秒后全队生命值开始流失": "Team LP starts draining in {n} {count|second|seconds}",

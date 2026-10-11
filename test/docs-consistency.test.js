@@ -293,7 +293,7 @@ test('lost models, live LP, detail card order, static game data (user playtest #
   assert.match(DESIGN, /official `eventTypeIcon` \(`detailPanel\.js garrisonTypeIconKey`/);
   assert.match(DESIGN, /pendingLp\? \/\* COMBAT \/ 联防 of a normal round/);
   assert.match(DESIGN, /`ownLeaks\(local, server\)`/);
-  assert.match(PLAYING, /顶栏的目标生命值会\*\*立即\*\*显示扣除后的数值/);
+  assert.match(PLAYING, /顶栏的目标生命值旁会\*\*立即\*\*显示待扣的「−N」/);
 });
 
 test('user playtest #4 (DESIGN §18): picking by tile, timers, 机变 two taps, down / element state, content — code and every doc agree', () => {

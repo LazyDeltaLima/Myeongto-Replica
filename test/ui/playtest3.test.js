@@ -32,7 +32,7 @@ globalThis.fetch = async (url) => {
   }
 };
 
-const { pendingLoss, liveLp, ownLeaks, pendingTip, tempInfo, ReadyToggle } = await import('../../public/js/ui/hud.js');
+const { pendingLoss, liveLp, bossLp, ownLeaks, pendingTip, tempInfo, ReadyToggle } = await import('../../public/js/ui/hud.js');
 const { rowLp } = await import('../../public/js/ui/teamPanel.js');
 const { LpTower, GAME_FILES } = await import('../../public/js/ui/gameComponents.js');
 const { tempRowFrame, tempRowRule } = await import('../../public/js/ui/underframe.js');
@@ -87,7 +87,7 @@ describe('2: the own LP drops live while the battle runs', () => {
     return steps.map((s) => { const r = liveLp(base, s); base = r.base; return r; });
   };
 
-  test('COMBAT: lp − pending as leaks come in; the settled m.private (sent before the SETTLE m.public) drops the pending part — never subtracted twice', () => {
+  test('COMBAT: the settled lp with a growing pending part as leaks come in (upstream #479); the settled m.private (sent before the SETTLE m.public) drops the pending part — never subtracted twice', () => {
     const at = (o) => ({ phase: PHASE.COMBAT, round: 5, lp: 30, statsLeaks: 7, leaks: 0, cap: 10, ...o });
     const out = run([
       at({}),
@@ -102,7 +102,7 @@ describe('2: the own LP drops live while the battle runs', () => {
       { phase: PHASE.COMBAT, round: 6, lp: 27, statsLeaks: 10, leaks: 0, cap: 10 },
       { phase: PHASE.COMBAT, round: 6, lp: 27, statsLeaks: 10, leaks: 2, cap: 10 },
     ]);
-    assert.deepEqual(out.map((r) => r.shown), [30, 29, 27, 27, 27, 27, 27, 25]);
+    assert.deepEqual(out.map((r) => r.shown), [30, 30, 30, 27, 27, 27, 27, 27]);
     assert.deepEqual(out.map((r) => r.pending), [0, 1, 3, 0, 0, 0, 0, 2]);
     assert.ok(out.every((r) => r.unite === false));
   });
@@ -115,15 +115,16 @@ describe('2: the own LP drops live while the battle runs', () => {
       at({ statsLeaks: 9 }), // settled: lp unchanged (0 lost), the counted leaks recorded
       { phase: PHASE.SETTLE, round: 8, lp: 20, statsLeaks: 9, leaks: 5, cap: 10 },
     ]);
-    assert.deepEqual(out.map((r) => r.shown), [15, 15, 20, 20]);
+    assert.deepEqual(out.map((r) => r.shown), [20, 20, 20, 20]);
+    assert.deepEqual(out.map((r) => r.pending), [5, 5, 0, 0]);
     assert.deepEqual(out.map((r) => r.unite), [false, true, false, false], '联防中 while the 联防 may still save part of it');
     // without stats (older view): the SETTLE phase ends it
     const bare = run([{ phase: PHASE.UNITE, round: 8, lp: 20, leaks: 5 }, { phase: PHASE.SETTLE, round: 8, lp: 20, leaks: 5 }]);
-    assert.deepEqual(bare.map((r) => r.shown), [15, 20]);
+    assert.deepEqual(bare.map((r) => r.pending), [5, 0]);
   });
 
-  test('clamped at 0; nothing pending for the eliminated, in prep, in boss rounds or without an LP', () => {
-    assert.equal(liveLp(null, { phase: PHASE.COMBAT, round: 3, lp: 4, leaks: 9 }).shown, 0);
+  test('the pending part never exceeds the LP left; nothing pending for the eliminated, in prep, in boss rounds or without an LP', () => {
+    assert.equal(liveLp(null, { phase: PHASE.COMBAT, round: 3, lp: 4, leaks: 9 }).shown, 4);
     assert.equal(liveLp(null, { phase: PHASE.COMBAT, round: 3, lp: 4, leaks: 9 }).pending, 4, 'never more than the LP left');
     assert.equal(liveLp(null, { phase: PHASE.COMBAT, round: 3, lp: 40, leaks: 9, alive: false }).pending, 0);
     for (const phase of [PHASE.PREP, PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.SETTLE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE, PHASE.RESULT]) {
@@ -134,6 +135,20 @@ describe('2: the own LP drops live while the battle runs', () => {
     assert.match(pendingTip(30, 3), /结算时扣除 3 点/);
     assert.match(pendingTip(30, 10, { unite: true }), /联防中/);
     assert.equal(pendingTip(30, 0), null);
+  });
+
+  test('boss rounds (upstream #479): the team LP as the boss phase began, the loss since as the tick — no round cap', () => {
+    let base = null;
+    const step = (o) => { const r = bossLp(base, { phase: PHASE.FINAL_ASSAULT, round: 15, teamLp: 60, ...o }); base = r.base; return r; };
+    const out = [step({}), step({ teamLp: 57 }), step({ teamLp: 44 }), step({ teamLp: 30 })];
+    assert.deepEqual(out.map((r) => r.lp), [60, 60, 60, 60], 'the number stays put while leaks and the overtime drain lower the team LP');
+    assert.deepEqual(out.map((r) => r.pending), [0, 3, 16, 30], 'uncapped (BossBattleRoundStatus.lostHpDisplay)');
+    // the 隐秘核心 is a new boss phase: it starts from the team LP the 最终攻势 left
+    assert.deepEqual(step({ phase: PHASE.HIDDEN_CORE, round: 16, teamLp: 30 }), { base: { key: 'HIDDEN_CORE:16', lp: 30 }, lp: 30, pending: 0 });
+    // outside the boss phases the live value shows
+    assert.deepEqual(bossLp(base, { phase: PHASE.RESULT, round: 16, teamLp: 21 }), { base: null, lp: 21, pending: 0 });
+    assert.deepEqual(bossLp(null, { phase: PHASE.FINAL_ASSAULT, round: 15 }), { base: null, lp: null, pending: 0 });
+    assert.match(pendingTip(60, 16, { boss: true }), /本场战斗已损失 16 点/);
   });
 
   test('team panel rows: the own row takes the top bar\'s live value, a teammate\'s m.public players[].pendingLp; only in COMBAT / 联防', () => {
@@ -150,7 +165,7 @@ describe('2: the own LP drops live while the battle runs', () => {
     assert.deepEqual(rowLp({ lp: 30 }, { phase: PHASE.FINAL_ASSAULT }, { lp: 99, pending: 5 }), { lp: 30, pending: 0, unite: false, left: null }, 'boss rounds: the row keeps its own share');
   });
 
-  test('LP tower: lp − pending in red with a −N tick keyed by the pending value (it pops again on every leak), the 联防中 tag', () => {
+  test('LP tower: the settled lp with a −N tick keyed by the pending value (it pops again on every leak), the 联防中 tag (upstream #479)', () => {
     const plain = LpTower({ value: 24, size: 'lg' });
     assert.ok(!hasClass(plain, 'is-pending'));
     assert.equal(textOf(plain), '24');
@@ -160,10 +175,10 @@ describe('2: the own LP drops live while the battle runs', () => {
     assert.equal(pend.key, 3, 'keyed: a new count re-mounts the tick (its pop animation plays again)');
     assert.equal(textOf(pend), '−3');
     const val = [...walk(v)].find((n) => hasClass(n, 'lp__val'));
-    assert.equal(textOf(val), '21');
+    assert.equal(textOf(val), '24', 'the number stays the settled LP until the settlement lands');
     assert.equal(v.props.title, 'x');
     const unite = LpTower({ value: 5, pending: 9, note: '联防中' });
-    assert.equal(textOf([...walk(unite)].find((n) => hasClass(n, 'lp__val'))), '0', 'clamped');
+    assert.equal(textOf([...walk(unite)].find((n) => hasClass(n, 'lp__val'))), '5');
     assert.equal(textOf([...walk(unite)].find((n) => hasClass(n, 'lp__pend'))), '−5');
     assert.equal(textOf([...walk(unite)].find((n) => hasClass(n, 'lp__note'))), '联防中');
     assert.equal(textOf(LpTower({ value: null, pending: 3 })), '--');

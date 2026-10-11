@@ -12,13 +12,17 @@
 // overtimeState): "NN 秒后全队生命值开始流失" once the level time ran out, then a live "生命值 −1/秒" indicator while the
 // merged team LP drains (the LP tower turns red). Solo battles: a pause / resume button beside the countdown (g.pause);
 // while m.public.paused every clock here is frozen at the pause moment (`frozenAt`).
-// Normal rounds (user playtest #3 item 2): the LP tower drops live as the own battle's enemies enter the blue gate —
-// lp − min(lpCapPerRound, counted leaks) in red with a −N tick, 联防中 while a 联防 may still save part of it (liveLp;
-// the leaks come from the local battle runner, else m.public players[].pendingLp). 联防 (user playtest #6 item 7; PRTS
+// Normal rounds (user playtest #3 item 2): the LP tower's −N tick grows as the own battle's enemies enter the blue
+// gate — min(lpCapPerRound, counted leaks), 联防中 while a 联防 may still save part of it (liveLp; the leaks come from the
+// local battle runner, else m.public players[].pendingLp); the number keeps the settled LP until the settlement lands,
+// like the client (upstream #479: `AutoChessHUDStageInfoModel` draws the synced player HP and the battle's
+// `lostHpDisplay` beside it, never their difference). Boss rounds: the merged team LP as it stood when the boss phase
+// began, the tick the team LP lost since (bossLp; the client's `BossBattleRoundStatus.lostHpDisplay` = playerTotalHp −
+// battleTeamHp, no round cap). 联防 (user playtest #6 item 7; PRTS
 // 卫戍协议/帮助 "防卫失败的玩家可通过上方信息栏确认自身所属敌人的剩余数量"): a leaker's phase capsule carries the official
 // runner tag ×N (research 09 `tag_miss`; art ui/battle bg_miss_enemy [ASSUMED]) = its enemies still standing on the 联防
 // field, uncapped and live — falling as the helpers kill them, rising when one splits or summons (the local 联防
-// replica's runner state().uniteLeft, else m.public players[].uniteLeft); the LP tower shows lp − min(lpCapPerRound, N).
+// replica's runner state().uniteLeft, else m.public players[].uniteLeft); the LP tower's tick is min(lpCapPerRound, N).
 // The same MissTag sits in the leakers' team rows (ui/teamPanel.js), its tooltip naming the teammate there (missTip).
 // 准备就绪 is refused while the temp overflow row (临时整备区) holds pieces: the reason shows under the button
 // (user playtest #3 item 3; the row's own label is ui/underframe.js TempRowNotice).
@@ -156,7 +160,8 @@ export function uniteRemaining(local, server) {
  * enemies still standing, uniteRemaining — user playtest #6 item 7) replaces the own battle's count, so the loss falls
  * live as the helpers kill them, marked `unite` (联防中) with `left` = that uncapped number for the ×N tag. Without
  * `uniteLeft` (not a leaker, or no count yet) the own battle's count stays on show. The pending part goes when the
- * settlement lands. Boss rounds are not handled here (the merged team LP moves live through b.pool / m.public.teamLp).
+ * settlement lands. `shown` stays the settled lp (upstream #479: the client never draws lp − pending). Boss rounds are
+ * bossLp's.
  * @param {{ round: any, lp: number, statsLeaks: number|null } | null} base
  * @param {{ phase: string, round: any, lp: any, statsLeaks?: any, leaks?: any, cap?: number, alive?: boolean, uniteLeft?: number|null }} s
  * @returns {{ base: { round: any, lp: number, statsLeaks: number|null } | null, pending: number, shown: number|null, unite: boolean, left: number|null }}
@@ -169,15 +174,35 @@ export function liveLp(base, { phase, round, lp, statsLeaks = null, leaks = 0, c
   const landed = lp !== b.lp || (sl != null && b.statsLeaks != null && sl !== b.statsLeaks);
   const left = phase === PHASE.UNITE && Number.isFinite(uniteLeft) && uniteLeft >= 0 && !landed ? Math.trunc(uniteLeft) : null;
   const pending = landed ? 0 : Math.min(lp, pendingLoss(left != null ? left : leaks, cap));
-  return { base: b, pending, shown: lp - pending, unite: phase === PHASE.UNITE && (pending > 0 || left != null), left };
+  return { base: b, pending, shown: lp, unite: phase === PHASE.UNITE && (pending > 0 || left != null), left };
+}
+
+/**
+ * The merged team LP of a boss round (最终攻势 / 隐秘核心) as the top bar shows it: the number the team had when the
+ * boss phase was first seen, and the loss since — the client's HUD keeps `bossRoundModel.playerTotalHp` and puts the
+ * battle's `lostHpDisplay` = `playerTotalHp − battleTeamHp` beside it, without the normal rounds' cap (upstream #479).
+ * m.public.teamLp moves live (leaks, the overtime drain); `base` — kept by the caller between renders — is
+ * { key: phase:round, lp }. A team LP above the base (never in a fight) restarts it; a reconnect mid-fight starts from
+ * the value it sees [ASSUMED]. Outside the boss phases the live value shows.
+ * @param {{ key: string, lp: number } | null} base
+ * @param {{ phase: string, round: any, teamLp: any }} s
+ * @returns {{ base: { key: string, lp: number } | null, lp: number|null, pending: number }}
+ */
+export function bossLp(base, { phase, round, teamLp }) {
+  if (!Number.isFinite(teamLp)) return { base: null, lp: null, pending: 0 };
+  if (!isBossPhase(phase)) return { base: null, lp: teamLp, pending: 0 };
+  const key = `${phase}:${round}`;
+  const b = base && base.key === key && teamLp <= base.lp ? base : { key, lp: teamLp };
+  return { base: b, lp: b.lp, pending: Math.max(0, Math.trunc(b.lp - teamLp)) };
 }
 
 /**
  * Tooltip of an LP tower with a pending loss (null without one).
  * @param {number} lp settled LP @param {number} pending @param {{ unite?: boolean, cap?: number }} [opts]
  */
-export function pendingTip(lp, pending, { unite = false, cap = 10, left = null } = {}) {
+export function pendingTip(lp, pending, { unite = false, cap = 10, left = null, boss = false } = {}) {
   if (!(pending > 0)) return null;
+  if (boss) return t('全队目标生命值 {lp}：本场战斗已损失 {pending} 点，战斗结束后扣除', { lp, pending });
   if (unite && Number.isFinite(left)) {
     const each = left > cap ? t('剩余不足 {cap} 个后，队友每击倒一个少扣 1 点', { cap }) : t('队友每击倒一个就少扣 1 点');
     return t('目标生命值 {lp}：联防中，你漏过的敌人还剩 {left} 个，{each}；按现在结算扣除 {pending} 点（每回合至多 {cap} 点）', { lp, left, each, pending, cap });
@@ -308,16 +333,21 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *   pause?: { show: boolean, paused: boolean, busy?: boolean, onToggle: () => void } | null,
  *   live?: { pending: number, unite: boolean, left?: number|null } | null }} props
  *   frozenAt: the server time every clock shows while the solo match is paused (null = live)
- *   live: the own battle's pending LP loss (liveLp): the tower shows lp − pending in red with a −N tick, 联防中 during 联防;
+ *   live: the own battle's pending LP loss (liveLp): the tower shows lp with a −N tick, 联防中 during 联防;
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
 export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
   config = null, frozenAt = null, pause = null, live = null, spectator = false }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
-  const lp = boss && Number.isFinite(pub?.teamLp) ? pub.teamLp : Number.isFinite(priv?.lp) ? priv.lp : null;
-  // normal rounds: the leaks of the own battle so far (boss rounds: the team LP above already moves live)
-  const pending = !boss && Number.isFinite(lp) && live && live.pending > 0 ? Math.min(lp, live.pending) : 0;
+  // boss rounds: the team LP as the phase began and what it lost since (bossLp); normal rounds: the settled LP and the
+  // own battle's leaks so far (liveLp)
+  const bossBaseRef = useRef(null);
+  const team = bossLp(bossBaseRef.current, { phase, round: pub?.round, teamLp: pub?.teamLp });
+  bossBaseRef.current = team.base;
+  const lp = boss && team.lp != null ? team.lp : Number.isFinite(priv?.lp) ? priv.lp : null;
+  const pending = !Number.isFinite(lp) ? 0 : boss ? (team.lp != null ? team.pending : 0)
+    : live && live.pending > 0 ? Math.min(lp, live.pending) : 0;
   const hidden = phase === PHASE.HIDDEN_CORE || (Number.isFinite(pub?.lastRound) && pub.round > pub.lastRound);
   const roundText = hidden ? '??' : pub?.round > 0 ? String(pub.round) : '--';
   // a spectator seat (no m.private, community report #26) never readies
@@ -354,7 +384,7 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
       </div>
       <${PhaseCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
       <${LpTower} value=${lp} size="lg" tone=${lowLp ? 'danger' : boss ? 'team' : null} pending=${pending}
-        note=${pending > 0 && live?.unite ? t('联防中') : null} tip=${pendingTip(lp, pending, { unite: !!live?.unite, cap, left: live?.left ?? null })} />
+        note=${pending > 0 && !boss && live?.unite ? t('联防中') : null} tip=${pendingTip(lp, pending, { unite: !boss && !!live?.unite, cap, left: live?.left ?? null, boss })} />
       <${Tooltip} text=${btn.right.tip} placement="bottom">
         <${CheckBtn} sprite=${btn.right.sprite} cls=${cx('enemybtn', btn.right.grey && 'is-grey')} label=${btn.right.label}
           chev=${btn.right.grey ? null : '▶▶'} disabled=${btn.right.grey && !pen} onClick=${onRight} testid="check-enemy" />

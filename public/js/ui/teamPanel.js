@@ -6,11 +6,12 @@
 // "前往查看" button under the row (when that teammate can be observed now; otherwise the reason is toasted through
 // onWatch); while observing, the own row shows a "返回战场" button. Without `observe` (server-run combat) a click
 // watches that player's field at once.
-// Live LP (user playtest #3 item 2): during a normal round's battle each row's tower shows lp − the loss that player's
-// leaks so far will cost (red, −N): the own row the top bar's live value (`self`, ui/hud.js liveLp), a teammate's row
+// Live LP (user playtest #3 item 2): during a normal round's battle each row's tower shows lp and, as a −N tick, the
+// loss that player's leaks so far will cost (the number keeps the settled LP, upstream #479): the own row the top bar's
+// live value (`self`, ui/hud.js liveLp), a teammate's row
 // m.public players[].pendingLp (server/match/match/views.js, ~1 Hz). 联防 (user playtest #6 item 7): a leaker's row adds the
 // runner tag ×N — its enemies still standing on the 联防 field, uncapped and live (falling as the helpers kill them,
-// rising when one splits) — next to lp − min(lpCapPerRound, N): the own row the top bar's value, a teammate's row the
+// rising when one splits) — next to the −min(lpCapPerRound, N) tick: the own row the top bar's value, a teammate's row the
 // local 联防 replica's count while it is on screen (`uniteLocal`: the battle runner's state().uniteLeft, the same battle
 // the player watches, so the number moves with the kills on screen), else m.public players[].uniteLeft (the authority's
 // report, ~1 Hz).

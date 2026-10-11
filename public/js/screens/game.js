@@ -41,7 +41,7 @@
 // Solo battles (ui/matchStatus.js pauseAvailable): the top bar's pause button / Space send g.pause {on}; m.public.paused
 // shows the paused overlay (继续作战 / 放弃模拟) and freezes the HUD clocks. Boss rounds: the top bar shows the level's
 // 120 s countdown and the red DOT overtime warning (m.public.overtimeAt).
-// User playtest #3: the own LP drops live while the own battle's enemies enter the blue gate (item 2: the runner's
+// User playtest #3: the own LP's −N tick grows while the own battle's enemies enter the blue gate (item 2: the runner's
 // state().leaks → ui/hud.js liveLp → top bar + own team row; teammates' rows from m.public players[].pendingLp; in 联防 a
 // leaker's enemies still standing — runner state().uniteLeft / m.public players[].uniteLeft, the ×N tag — user
 // playtest #6 item 7); while the temp overflow row (临时整备区) holds pieces it is framed and labelled on the board
@@ -283,7 +283,7 @@ function MatchScreen() {
   // live LP (user playtest #3 item 2): the own normal battle's counted leaks — the local runner's count (authoritative
   // or display replica) and the server's m.public players[].pendingLp, whichever is further (both only grow during a
   // round; a display replica stands still while the player watches a teammate's field, the server's count then moves
-  // on) — cost min(lpCapPerRound, n) at settlement; shown at once until the settled m.private lands (ui/hud.js liveLp
+  // on) — cost min(lpCapPerRound, n) at settlement; shown at once as the −N tick until the settled m.private lands (ui/hud.js liveLp
   // keeps the base between renders); 联防 (user playtest #6 item 7): a leaker's enemies still standing on the 联防 field —
   // the local replica's count while it runs, else m.public players[].uniteLeft (ui/hud.js uniteRemaining) — replace it;
   // the teammates' rows take the same local counts (`uniteLocal`, ui/teamPanel.js rowLp)
