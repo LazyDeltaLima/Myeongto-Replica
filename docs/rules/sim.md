@@ -475,6 +475,25 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   golden: matches 18개 전부(솔로 8 — Ⅰ/Ⅱ 예외·缪尔赛思 5 / 협동 10 — ×2). 테스트 `test/match/pool.test.js`(수·overdraw·선발 재고·风丸), `test/content/items.test.js`(拟态物质),
   `test/data.test.js`.
 
+## upstream 0.2.4 이식 (2026-10-11)
+
+upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-10-11)으로 받은 sim 쪽. 영상 근거는 路标档案馆 「路标月报 #2」(bilibili BV1eLXXBqEgF, 2026-03-29).
+
+### 특질이 직접 주는 장비는 공용 장비 재고 밖 (upstream PR #496 `1d1ff3b1`, GitHub #488·#491·#495)
+- 회귀: 장비 공용 재고(위 D8 「장비 공용 재고」)가 효과 지급도 모두 `itemPool.canGain`으로 막아, 缪尔赛思(오퍼레이터)의 〈获得时〉 变形同构体(6단계, 재고 3)가
+  네 번째부터, '变形者集群'(전략)의 5·10·15라운드 지급도 재고가 차면 「装备库存不足」 알림만 띄우고 안 줬다.
+- 근거: 영상 「卡池相关机制」 7번 — 诗怀雅·卡涅利安·耶拉·缪尔赛思가 얻는 장비 수에는 상한이 없다. 공식 표·클라 코드에는 재고가 없다(서버 규칙, 위 D8).
+- 동작(PR 그대로): 표의 `SERVER_GAIN_EQUIP` 특질이 주는 장비 — 盟约之币(诗怀雅, 특질 133) · 迅捷作战粮(卡涅利安·蜜蜡, 같은 특질 49) · 谢拉格不融冰(耶拉, 92) ·
+  变形同构体(缪尔赛思, 76)와 그 고급 — 를 `GameData.isTraitFixedItem`으로 알아보고, 그 특질의 지급과 같은 장비를 주는 전략 지급
+  (`preparation_start_gain_chess_from_round`, 곧 变形者集群)은 재고 검사를 건너뛰고 말에 `noPool`을 달아 재고를 차지하지 않는다(`SharedItemPool.held()`가 건너뜀).
+  상점 구매·다른 효과 지급은 같은 장비라도 그대로 재고에 묶인다. 전략의 `requirePool: false`를 장비에 그대로 넘기지 않는 것도 PR 그대로 — 그러면
+  马克维茨(전략)의 商业包装方案 세 번째가 풀린다(#466).
+- 蜜蜡(오퍼레이터)는 卡涅利安과 같은 특질(`garrison_49`)이라 같이 면제된다. 영상 7번 목록에는 蜜蜡가 없다 — PR은 특질 정체로 정해 넷 + 蜜蜡가 된다 **[ASSUMED]**
+  (영상 목록이 卡涅利安만 든 것은 같은 특질의 대표로 읽음).
+- **[ASSUMED]**(PR): 면제 장비끼리만 합친 고급이 면제를 이어받고, 산 것과 섞어 합치면 재고를 센다(2칸). 면제 장비의 整备는 두 번째 재고 칸을 기다리지 않는다.
+- 풀에서 뽑는 특질(洛洛 91 `SERVER_POOL_EQUIP`, 焰尾 149 `SERVER_POOL_CHAR`)과 R11 상점 이벤트의 盟约之币 칸 등 다른 경로는 그대로 재고에 묶인다(PR 그대로).
+- 테스트 `test/match/shared-stock.test.js`(PR의 셋 + 다섯 오퍼레이터가 바닥난 재고에서 각자 장비를 받음). golden 변화 없음.
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).

@@ -200,6 +200,9 @@ export class SharedPool {
  * are not shop items (effect-only special equipment) have no cap. [ASSUMED] An item that is consumed, destroyed or
  * removed by an elimination no longer occupies stock (the video shows the ownership model, not every removal path):
  * this is a concurrent cap, never a limit on appearances or purchases per match.
+ * The four uncapped 〈获得时〉 fixed-equipment traits (SERVER_GAIN_EQUIP: 诗怀雅 / 卡涅利安 and 蜜蜡 (shared garrison 49) /
+ * 耶拉 / 缪尔赛思 — 路标月报#2 item 7) carry `noPool` and hold no stock (acquireItem marks them; held() skips them),
+ * upstream PR #496 (GitHub #488). Pool-draw traits (洛洛 / 焰尾, SERVER_POOL_*) stay pool-bound like any acquisition.
  */
 export class SharedItemPool {
   /** @param {any} gd @param {() => Iterable<any>} players every seat of the match (eliminated ones hold nothing) */
@@ -213,8 +216,8 @@ export class SharedItemPool {
     let count = 0;
     const see = (p) => {
       if (!p) return;
-      if (p.kind === 'item' && this.gd.baseIdOf(p.id) === base) count += this.need(p.id);
-      for (const item of p.items || []) if (this.gd.baseIdOf(item.id) === base) count += this.need(item.id);
+      if (p.kind === 'item' && !p.noPool && this.gd.baseIdOf(p.id) === base) count += this.need(p.id);
+      for (const item of p.items || []) if (!item.noPool && this.gd.baseIdOf(item.id) === base) count += this.need(item.id);
     };
     for (const ps of this.players()) {
       for (const p of ps.hand) see(p);
