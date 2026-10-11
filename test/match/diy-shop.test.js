@@ -1,7 +1,7 @@
 // test/match/diy-shop.test.js — 0.2.0 自选编队 on the server (research 0.2.0 §2; the owner's decisions of 2026-10-05),
 // with this server's five picks (shared/local-diy.js; no prototype since the hard fork from 0.2.0, 2026-10-07): the picks (room.diy → seats[].diy) are checked leniently, fixed for the match and applied to that player only — the
 // player's data view makes a slotted slot the operator (name, class, bonds from its factions, no 特质, the pick's skill
-// and module; the slot's tier, price and merge), each slotted piece has its own stock (8 at tier 5, 5 at tier 6), never
+// and module; the slot's tier, price and merge), each slotted piece has its own stock (8 at tier 5, 5 at tier 6 solo, ×2 in co-op), never
 // enters the shared pool, joins only its player's shop once the 调度中心 reaches the slot's level, leaves the shop when
 // every bond of it is banned, merges 3 → elite, and fields its operator in battle (PlayerBattleInput `diy`), client-run
 // and server-run identical; prep scouting and the result name the operator; a placeable summon (望's 棋子) comes to the
@@ -126,14 +126,14 @@ test('seats[].diy → PlayerState.diy (re-checked, frozen; bots none); the playe
   h.m.dispose();
 });
 
-test('per-player stock: 8 at tier 5, 5 at tier 6, never in the shared pool; only its player\'s shop, from the slot\'s 调度中心 level', REAL, () => {
+test('per-player stock: 16 at tier 5, 10 at tier 6 in co-op (solo 8 / 5 ×2), never in the shared pool; only its player\'s shop, from the slot\'s 调度中心 level', REAL, () => {
   const h = diyMatch().start();
   const m = h.m;
   h.toPrep(1);
   const p0 = h.ps('p_0');
   const p1 = h.ps('p_1');
-  assert.deepEqual(p0.diyStock.snapshot(), { [T5A]: 8, [T5B]: 8, [T6A]: 5 });
-  assert.deepEqual(p1.diyStock.snapshot(), { [T5A]: 8 }, 'a stock of its own for the same slot');
+  assert.deepEqual(p0.diyStock.snapshot(), { [T5A]: 16, [T5B]: 16, [T6A]: 10 });
+  assert.deepEqual(p1.diyStock.snapshot(), { [T5A]: 16 }, 'a stock of its own for the same slot');
   for (const id of [T5A, T5B, T6A, T6B]) assert.ok(!m.pool.has(id), 'never in the shared pool');
   const seen = (ps, level, n = 300) => {
     ps.shop.level = level;
@@ -169,7 +169,7 @@ test('buy → 3 copies merge into the elite (the stock pays the copies); sell / 
   assert.ok(elite, 'the elite');
   assert.equal(p0.allChess().filter((p) => p.id === T5A).length, 0);
   assert.equal(elite.poolCopies, 3);
-  assert.equal(p0.diyStock.left(T5A), 5);
+  assert.equal(p0.diyStock.left(T5A), 13);
   assert.ok(p0.offers.length >= 1, 'the merge queued a reward offer');
   assert.equal(p0.gd.chess(elite.id).module.id, 'uniequip_002_chen3');
   // a slot the player has not filled is no piece: another player's slot cannot be bought or granted
@@ -179,10 +179,10 @@ test('buy → 3 copies merge into the elite (the stock pays the copies); sell / 
   p0.shop.slots[1] = null;
   // sell returns the copies to the player's stock
   assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: elite.uid }), { ok: true });
-  assert.equal(p0.diyStock.left(T5A), 8);
+  assert.equal(p0.diyStock.left(T5A), 16);
   // the stock runs out like a pool entry: it no longer rolls, but a slot already shown is bought past it (pool.js,
   // GitHub #498 [ASSUMED] for the 自选 stock) — the copy is overdrawn
-  for (let i = 0; i < 8; i++) gain(p0, T5A);
+  for (let i = 0; i < 16; i++) gain(p0, T5A);
   assert.equal(p0.diyStock.left(T5A), 0);
   p0.shop.slots[0] = { kind: 'chess', id: T5A, basePrice: 4, frozen: false, sold: false };
   assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 0 }), { ok: true });
@@ -199,7 +199,7 @@ test('buy → 3 copies merge into the elite (the stock pays the copies); sell / 
   // elimination returns everything
   gain(p0, T6A);
   p0.eliminate(m.round);
-  assert.deepEqual(p0.diyStock.snapshot(), { [T5A]: 8, [T5B]: 8, [T6A]: 5 });
+  assert.deepEqual(p0.diyStock.snapshot(), { [T5A]: 16, [T5B]: 16, [T6A]: 10 });
   m.dispose();
 });
 

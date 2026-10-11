@@ -109,7 +109,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `itemSellable`, `itemDestroyRefund` | `false`, `0` | items can only be destroyed |
 | `benchSize`, `tempSize`, `deployCap`, `storeCntMax` | `10`, `5`, `8`, `6` | |
 | `equipPerChess`, `maxArtsPerRound` | `2`, `2` | |
-| `poolCopies[tier]` + `poolCopiesOverrides` + `coopPoolMultiplier` | `{"1":12,"2":14,"3":18,"4":16,"5":8,"6":5}`; overrides `{"chess_char_1_07_a":10,…}` (Ⅰ 普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10, Ⅱ 风丸 8, Ⅱ 赫默/休谟斯/砾/蒂比/调香师 12); `2` | shared pool copies per base chess: the 独立模拟 (solo) table; a 同盟模拟 (co-op) match has `coopPoolMultiplier` × it, exceptions included (路标月报#2, bilibili BV1eLXXBqEgF; `GameData.poolCopies`); a 自选 slot's private stock keeps the solo count |
+| `poolCopies[tier]` + `poolCopiesOverrides` + `coopPoolMultiplier` | `{"1":12,"2":14,"3":18,"4":16,"5":8,"6":5}`; overrides `{"chess_char_1_07_a":10,…}` (Ⅰ 普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10, Ⅱ 风丸 8, Ⅱ 赫默/休谟斯/砾/蒂比/调香师 12); `2` | shared pool copies per base chess: the 独立模拟 (solo) table; a 同盟模拟 (co-op) match has `coopPoolMultiplier` × it, exceptions included (路标月报#2, bilibili BV1eLXXBqEgF; `GameData.poolCopies`); a 自选 slot's private stock doubles with it [ASSUMED] |
 | `itemPoolCopies[tier]` + `itemPoolCopiesOverrides` | `{"1":4,"2":6,"3":7,"4":8,"5":7,"6":3}`; overrides `{"chess_item_2_06_e_a":5,…,"chess_item_5_07_e_a":2}` (简易通讯机 5, 蜂鸣器/防暴盾/浓缩嗅盐 6, 寻呼模块/伪装服/拉特兰桥夹 7, 商业包装方案 2) | shared shop-equipment stock per normal item, the same in solo and co-op (路标月报#2, bilibili BV1eLXXBqEgF; GitHub #466; upstream 6bfc0827; `GameData.itemPoolCopies`, `pool.js SharedItemPool`): owned copies across all players, normal 1, advanced 2; the equipment a 〈获得时〉 trait gives outright (SERVER_GAIN_EQUIP: 盟约之币 / 迅捷作战粮 / 谢拉格不融冰 / 变形同构体, also when a strategy grants the same item — `GameData.isTraitFixedItem`, upstream PR #496) holds none and is never refused; non-shop effect-only equipment uncapped |
 | `goldenCopies`, `mergeCount`, `mergeCountOverrides`, `itemMergeCount` | `3`, `3`, `{"chess_char_2_11_a":2}` (风丸), `2` | |
 | `rewardOffer` | `{"count":3,"tierOffset":1,"maxTier":6,"price":0,…}` | merge reward: 3 **different** free chess of tier `min(shopLevel+1,6)` (a short tier tops up from the tier below; `PlayerState.pushRewardOffer`, user playtest #6 item 19) |
@@ -642,7 +642,7 @@ prototype. Built by `tools/build-data.mjs buildBackups`; `shared/standIn.js` com
 `shared/diy.js` adds the 自选 rules on top. The sim fields both (docs/SIM.md §12). Played since 0.2.0: the player fills
 the four slots on the 自选编队 tab (`room.diy { picks }`, docs/PLAYING.md §3; shared/protocol.js checkDiyPicks keeps the
 legal picks), the match takes the picks the seat had at its start (`PlayerState.diy`), and each slotted piece is sold in
-that player's shop only — its own stock (the tier's pool copies, 8 / 5 [ASSUMED]), from the 调度中心 level `shopLevel`,
+that player's shop only — its own stock (the tier's pool copies, 8 / 5 solo, 16 / 10 co-op [ASSUMED]), from the 调度中心 level `shopLevel`,
 none when every bond of it is banned this match — and is the operator for every rule of that player (its data view:
 server/match/player/diy.js, docs/META.md §3). The rules in the data (activity_table act2autochess `charShopChessDatas`; PRTS 卫戍协议, 卫戍协议：盟约
 下半/PRTS盟约记录):
@@ -733,7 +733,7 @@ trait and talents (`tools/build-data.mjs buildDiyTokens`); simdata `getToken` me
 loadout. No id is also a tokens.json record.
 
 Not in this data: a player's ownership roster and 自选 picks (browser settings sent with `room.ownership` / `room.diy`),
-the DIY stock (per player in the match, `PlayerState.diyStock`: `config.economy.poolCopies` of the slot's tier, the solo count in co-op too — no excel
+the DIY stock (per player in the match, `PlayerState.diyStock`: `config.economy.poolCopies` of the slot's tier, ×`coopPoolMultiplier` in co-op like the shared pool — no excel
 field), 助战 borrows (`borrowCount` 20), and a player's potential / 练度 per operator (the 干员调配 settings sent with
 `room.loadout`; the forms are built at full potential and carry the lower ranks, §2.3; 练度 = effects.json
 `aceffect_char_1…4`).

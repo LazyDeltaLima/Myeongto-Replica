@@ -58,9 +58,12 @@ test('take/give never go below 0 or above the cap (overdraw: an owned piece occu
   assert.equal(pool.left(id), 1);
 });
 
-test('a 自选 slot\'s private stock keeps the solo count in co-op; 风丸\'s elite occupies 3 copies like any elite', () => {
+test('a 自选 slot\'s private stock doubles in co-op like the shared pool (16 / 10); 风丸\'s elite occupies 3 copies like any elite', () => {
   const solo = gdOf('mode_single_normal'), coop = gdOf();
-  for (const slot of Object.keys(DATA.backups.diy.slots)) assert.equal(coop.poolCopies(slot), solo.poolCopies(slot), slot);
+  for (const slot of Object.keys(DATA.backups.diy.slots)) {
+    assert.equal(solo.poolCopies(slot), DATA.backups.diy.slots[slot].tier === 5 ? 8 : 5, slot);
+    assert.equal(coop.poolCopies(slot), 2 * solo.poolCopies(slot), slot);
+  }
   const h = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed: 5 }).start();
   h.toPrep(1);
   const m = h.m, ps = h.ps('p_0');

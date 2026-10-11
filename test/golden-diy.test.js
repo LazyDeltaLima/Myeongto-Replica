@@ -28,6 +28,6 @@ test('matches: the 自选 match\'s human seat draws its 自选 pieces in its sho
       assert.equal(dg.diy.picks[`chess_char_${slot}`].charId, charId, `round ${r}: ${x} fights as its pick`);
     }
   }
-  // the stock: never above its cap (8 at tier 5, 5 at tier 6)
-  for (const [slot, left] of Object.entries(dg.diy.stock)) assert.ok(left >= 0 && left <= (BACKUPS.diy.slots[slot].tier === 5 ? 8 : 5), slot);
+  // the stock: never above its cap (a co-op match: 16 at tier 5, 10 at tier 6 — solo 8 / 5, ×2 like the shared pool)
+  for (const [slot, left] of Object.entries(dg.diy.stock)) assert.ok(left >= 0 && left <= (BACKUPS.diy.slots[slot].tier === 5 ? 16 : 10), slot);
 });

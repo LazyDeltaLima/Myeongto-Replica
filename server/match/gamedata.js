@@ -296,7 +296,8 @@ export class GameData {
    * Copies of a base chess in the shared pool: the 独立模拟 (solo) table `economy.poolCopies[tier]` with its per-operator
    * `poolCopiesOverrides`; a 同盟模拟 (co-op) match has `coopPoolMultiplier` (2) × that, the exceptions included,
    * whatever the team size (路标月报#2, bilibili BV1eLXXBqEgF; GitHub #430, upstream PR #477 / 6bfc0827). A 自选 slot's
-   * private stock (player/diy.js) keeps the solo value [ASSUMED: the measured doubling is the shared pool's]. A config
+   * private stock (player/diy.js) doubles with it (16 / 10), so a 自选 piece keeps its solo share of a co-op roll
+   * [ASSUMED: the measured table has no 自选 row; maintainer decision 2026-10-11, as upstream PR #477]. A config
    * without the multiplier keeps the solo table.
    */
   poolCopies(baseId) {
@@ -305,7 +306,7 @@ export class GameData {
     const pc = this.economy.poolCopies;
     const v = ov && typeof ov === 'object' && Number.isInteger(ov[baseId]) && ov[baseId] >= 0 ? ov[baseId] : (pc && typeof pc === 'object' ? pc[tier] : undefined);
     const base = Number.isInteger(v) && v >= 0 ? v : (DEFAULTS.poolCopies[tier] ?? 10);
-    const multiplier = this.isSolo || this.chess(baseId)?.isDiy ? 1 : posIntOr(this.economy.coopPoolMultiplier, 1);
+    const multiplier = this.isSolo ? 1 : posIntOr(this.economy.coopPoolMultiplier, 1);
     return base * multiplier;
   }
 

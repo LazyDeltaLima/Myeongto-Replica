@@ -575,7 +575,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   (bondsMeta: BOARD / BOARD_AND_DECK distinct pieces, 煌's 炎 + 维多利亚, 绝技 elites), 特质 / meta effects (`makeCtx`
   hands handlers the player's view), placement and summon ranges, the AI 托管 evaluation (bot.js), names in toasts and
   tickers — sees the operator; a player without picks keeps the match's GameData itself. Each slotted piece has its own
-  stock (`ps.diyStock`: `poolCopies` of the slot's tier, 8 / 5 in every mode [ASSUMED]; none — `diyBanned` — when every bond of it is
+  stock (`ps.diyStock`: `poolCopies` of the slot's tier, 8 / 5 solo and 16 / 10 in co-op like the shared pool [ASSUMED]; none — `diyBanned` — when every bond of it is
   off this match; `initDiyStock` once the bans are drawn); `poolOf(baseId)` routes its copy accounting (buy, reward
   picks, merges, promotions, sells, temp, elimination; `invariants.js` checks `left + held = cap` per player). The
   shop's chess slots and the reward offers' temporary refreshes roll it with the shared pool (`pool.roll({ extra })`,
