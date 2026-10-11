@@ -987,7 +987,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     rec.inst.object.position.set(x, y, z);
     rec.inst.object.rotation.set(0, 0, Math.atan2(rec.ty - rec.y0, rec.tx - rec.x0));
   }
-  /** Fly the trails one frame (game time); a trail that arrived stops emitting and fades out. */
+  /**
+   * 2026-10-11 (user report: 언더플로우's and 애쉬락's projectiles disappear late): a projectile's `_mainEffect` ends as its
+   * projectile stops, the client's way (`Effect.FinishMe` RVA 0xC88FE0 on a ProjectileEffect): its first particle system
+   * stops and its `_inactiveOnFinish` nodes go off at once (FxInstance.finishMain), and the whole effect is gone `_delayToFinish`
+   * s later (`delayToRecycle`, the prefab's `finish`; none = at once) — it used to stop emitting and stay until its last
+   * particle died: 언더플로우's bullet (a 5 s particle) sat on the target for up to 5 s, 애쉬락's shell for 1.5 s.
+   */
+  function finishShot(inst, l = live.find((x) => x.inst === inst)) {
+    if (!inst) return;
+    const fin = Number(inst.def?.finish);
+    inst.finishMain?.();
+    if (l && fin > 0) { if (!(l.finishAt <= clockS + fin)) l.finishAt = clockS + fin; } else inst.stop(true);
+  }
+  /** Fly the trails one frame (game time); a trail that arrived ends as its projectile's main effect (finishShot). */
   function stepTrails(g) {
     for (let i = trails.length - 1; i >= 0; i--) {
       const rec = trails[i];
@@ -1005,7 +1018,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       rec.k += g / rec.dur;
       placeTrail(rec);
       if (rec.k >= 1 && rec.back) { rec.phase = 1; rec.k = 1; rec.tgt = null; continue; } // local patch: turns back at the hit point
-      if (rec.k >= 1) { rec.inst?.stop(); trails.splice(i, 1); }
+      if (rec.k >= 1) { finishShot(rec.inst); trails.splice(i, 1); }
     }
   }
 
@@ -1087,7 +1100,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   function endNote(rec) {
     rec.ended = true;
-    for (const c of rec.copies) c.inst?.stop();
+    for (const c of rec.copies) finishShot(c.inst); // 2026-10-11: her note is the projectile's `_mainEffect` (finishShot)
     notes.delete(rec.id);
   }
   function noteFx(e, views) {
@@ -1379,7 +1392,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const z = src && camRef ? bodyZ(camRef, src, SPAWN_FRAC[2]) - (src.z || 0) : 0.5;
         // turned along its flight, as every projectile's `_mainEffect` (placeTrail)
         if (trail) {
-          spawn(b.bundle, trail, glider(x, y, tx, ty, dur, (src?.z || 0) + z), { owner: null, buff: false, until: clockS + dur })
+          spawn(b.bundle, trail, glider(x, y, tx, ty, dur, (src?.z || 0) + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
             .then((l) => { if (l) l.inst.object.rotation.set(0, 0, Math.atan2(ty - y, tx - x)); });
         }
         return true;
@@ -2782,6 +2795,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           l.inst.object.quaternion.setFromUnitVectors(SKY_Y, skyUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize());
         }
         if (l.until != null && clockS > l.until && !l.stopped) { l.stopped = true; l.inst.stop(); }
+        if (l.shotEnd != null && clockS >= l.shotEnd) { l.shotEnd = null; finishShot(l.inst, l); } // 2026-10-11: a flown main effect arrives
         if (l.finishAt != null && clockS >= l.finishAt) { l.finishAt = null; l.inst.stop(true); } // 2026-10-11: statusOff's delay
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // 2026-10-10: a back copy ends with its front
         if ((!l.view?.paused && !l.hidden) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits

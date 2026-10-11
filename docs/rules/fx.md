@@ -873,3 +873,35 @@
   (클레멘티아 S3 포격은 침식 폭발이 필요해 화면 확인 못 함).
 - 안 붙인 것: 켈시 S3 待投放 오퍼레이터의 `teleport_02`(`kalts2_s_3[withdraw]` — 시뮬에 그 순간의 fx가 없음), 머리 위 표시(`[indicator_fx]`), 클레멘티아 `mark_01`/`mark_02`
   (어느 유닛 버프인지 불명).
+
+### 투사체 꼬리 끝내기 — 착탄 뒤 늦게 사라짐 (2026-10-11, 사용자 제보 「언더플로우·애쉬락 투사체가 적에 닿은 뒤 늦게 사라짐」)
+- 원인: 날아가는 공식 꼬리(투사체의 `_mainEffect`, 위 「투사체 꼬리」)가 도착하면 `fxgame.js stepTrails`가 `stop()`(방출만 멈춤)만 하고, 인스턴스는 남은 입자가
+  다 죽을 때까지 그 자리에 남았다. 언더플로우 평타 `udflow_attack_01_trail_01`의 탄 `bullet`은 수명 5초·반복·1개짜리 입자라 대상 위에 최대 5초,
+  애쉬락 `ashlok_attack_01_trail`/`ashlok_skill_02_trail`은 포탄 메시 `gonggaoban`이 불꽃(`xindian`, 수명 ≤ 1.5초)이 다 죽을 때까지 남았다.
+- 공식(EN 클라 디컴파일, 아래 메서드는 켜진 Lua 핫픽스 목록에 없음): 투사체가 멈추면 `Projectile.OnProjectileStop`(RVA 0x5FC1A0) → `ClearMainEffectIfNot`(0x5F9550)
+  → `Effect.FinishMe`(0xC88FE0). 꼬리의 루트 컴포넌트는 `ProjectileEffect`(추출 프리팹 202개, CN 11개 — `fx_extract.py PROJECTILE_EFFECT_SCRIPT`)이고
+  `OnFinish`(0xCB42B0)가 ① `Awake`(0xCB3A00)에서 잡은 첫 파티클 시스템(`GetComponentInChildren<ParticleSystem>` — 활성인 것 중 깊이 우선 첫 번째)을
+  자식째 `Stop(true)`(방출만 멈춤), ② `_inactiveOnFinish` 노드를 모두 `SetActive(false)`(탄두·포탄·화살촉 등 — 그 아래 입자도 같이 사라짐). 그리고 풀이
+  `delayToRecycle` = `_delayToFinish`(`get_delayToRecycle` 0xCB4E40)초 뒤 이펙트 전체를 거둔다(0이면 바로). 나머지 꼬리·입자는 그동안 계속 돈다.
+  `_clearMainEffectWhenReached`가 꺼져 있어도 멈출 때 같은 경로다.
+- 값(직렬 필드 순서 — 이름 뒤 `_bodyTransofrm` PPtr, `_subFXDelayConfigs`, 그다음 `_resetMainDir`·`_mainDir`·`_rotate180Y`·`_randomAngle`·`_delayToFinish`·
+  `_allowAutoReuse`·`_preloadCnt`·`_flipIfLeft`·`_inactiveOnFinish`·`_inactiveOnHit`; EN·CN 같음): 202개 중 `_delayToFinish` 0.5초 154개, 0초 23개, 1.0초 19개,
+  그 밖 1.2·0.35·0.2·0.1(언더플로우)·0.8·3.0초 하나씩. `_inactiveOnFinish`가 있는 것 108개. `_inactiveOnHit`은 0개.
+- 고친 것: `fx_extract.py projectile_effect`/`off_on_finish` → 프리팹 `finish`(기존 ParticleEffect `_delayToFinish`와 같은 키)·`offFinish`(노드 번호),
+  `--finish-only`가 이미 뽑은 프리팹에 둘 다 쓴다(`--index`도 받음). `fxplayer.js FxInstance.finishMain`(첫 시스템 정지 + `offFinish` 노드 끔·그 입자 제거, 다시 켜지지 않음),
+  `fxgame.js finishShot`(finishMain 뒤 `finish`초 뒤 `stop(true)`, 없으면 바로) — 도착한 꼬리(`stepTrails`: 오퍼레이터·적·르무엔 S3 포탄), 토가와 사키코 음표(`endNote`),
+  켈시 에스페란타 S3 비행(`shotEnd`). 케이퍼 부메랑(돌아오면 바로 끝, `_delayToFinish` 0)·라플란드 더 데카덴차 늑대(버프로 붙음)는 그대로.
+- 영향(바인딩된 꼬리가 예전에 공식보다 늦게 사라지던 것 — 남은 입자 수명 기준 추정 ≤, 공식): 오퍼레이터 50명 — 틴맨·언더플로우·아스트젠 더 라이트체이서·인디고 ≤ 5초,
+  파투스 4초, 굼 3초, 비르투오사·패신저·라플란드 더 데카덴차·크루스 더 킨 글린트·스즈란·루멘 2초, 치우바이·르무엔·위셔델·레이즈·혼·님프·티피·애쉬락·토가와 사키코 1.5초,
+  왕·포덴코·티티·라플란드·락락·해럴드 1.2–1.3초, 리드 더 플레임 섀도우·인사이더·블레이즈 디 이그나이팅 스파크·아르케토·에이야퍄들라 더 크비트 아스카·사일런스·
+  프로방스·노시스·뮤엘시스·샤마르·쉐라·이네스·글래디아·벤델라·비질 0.9–1초, 프라마닉스·에이어스카르페·산크타 믹사파라토·안젤리나·그레이·스노우헌터·
+  클리프하트·어스스피릿 0.55–0.8초(대부분 공식 0.5초, 탄두 노드는 공식이 바로 끔). 적 41종 — 웨이브 캐스터·웨이브 리더(반복 입자, 꼬리 상한 시간까지),
+  가상적: 흑운 10초, 방문단 공격수 챔피언·살카즈 부패의 전차·최첨단 살카즈 부패의 전차 5초, '염의 가호' 2초, 가상적: 골극·관·현, 제국 아틸러리 타게티어 ×2 1.5초,
+  '총을 부수는 리드'·가상적: 총 1.2초, 은신 캐스터·Dor-β호 복제품·아츠 마스터 A1/A2·부유의 표류체·군단 중형 화포·가상적: 갑주·살카즈 왕정군 정예 캐스터·'영장' 1초,
+  패밀리 멸살자 ×2·'산크타의 눈'·폭탄새·작열/폭염 원석충·더블린 그림자 캐스터 ×2·무덤지기 석상 ×2·알리스테어·스칼릿 싱어·잠수부(탄두 노드만) 0.15–0.8초.
+- [추정] 추출기가 버린 파티클 시스템(재질 없음)은 「첫 시스템」으로 세지 않음. ParticleEffect 루트 꼬리(그레인버즈 등 몇 개)도 같은 규칙(첫 시스템 정지 + `finish`)으로 끝냄 —
+  `ParticleEffect.OnFinish`(0xCB2AB0)도 시스템 하나를 멈추고 목록을 끄지만 그 목록은 안 읽음.
+- 재추출: `fx_extract.py --game <EN> --finish-only`(index.json 번들, CN 번들 aglna2·kalts2·clemnt는 `--game <CN>`), 적 번들은 `--index enemy-index.json
+  --bundle <b>`(`pfx_enemy_N`은 `--pack pkgrps/btl_pfb_fx_enemy_N.ab`). 2026-10-11 실행: 204개 파일, `finish`·`offFinish` 말고 바뀐 것 없음(JSON 비교).
+  적 번들은 처음 돌려 ParticleEffect `finish`도 새로 들어갔다(상태 이펙트 끝 `statusOff`에만 쓰임). **배포 `--fx`(또는 `--assets`) 필요**.
+- 확인: `test/render/projectile-finish.test.js`(소스 계약, 추출 값, FxInstance: 애쉬락 포탄이 꺼지고 다른 가지 불꽃은 돎, 언더플로우 탄 시스템 정지). [화면 미확인]

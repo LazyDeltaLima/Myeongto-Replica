@@ -1383,6 +1383,29 @@ export class FxInstance {
     if (now) this.time = Infinity;
   }
 
+  /**
+   * 2026-10-11 (user report: projectiles that vanish late — 언더플로우, 애쉬락): a projectile's `_mainEffect` as its projectile
+   * stops (`Projectile.OnProjectileStop` RVA 0x5FC1A0 → `ClearMainEffectIfNot` 0x5F9550 → `Effect.FinishMe` 0xC88FE0):
+   * `ProjectileEffect.OnFinish` (0xCB42B0) stops the effect's first particle system with its children (`Awake` 0xCB3A00:
+   * GetComponentInChildren<ParticleSystem> — the active ones, depth first: the extract's node order) and switches off its
+   * `_inactiveOnFinish` nodes (fx_extract.py `offFinish`: the bullet, shell, arrow head …), whose particles go with them. The
+   * rest keeps running until the caller ends it `finish` s later (the pool's recycle). [ASSUMED: a system the extract
+   * dropped (no material) is not counted as the first one]
+   */
+  finishMain() {
+    if (this.empty || this.disposed || this.offFinish) return;
+    const nodes = this.def.nodes;
+    const activeIn = (i) => { for (let k = i; k >= 0; k = nodes[k].parent) if (nodes[k].active === false) return false; return true; };
+    const within = (o, top) => { for (let p = o; p && p !== this.unity; p = p.parent) if (p === top) return true; return false; };
+    const first = nodes.findIndex((n, i) => n.ps && activeIn(i));
+    if (first >= 0) for (const s of this.systems) if (within(s.node, this.nodes[first])) s.stop();
+    this.offFinish = (this.def.offFinish || []).map((i) => this.nodes[i]).filter(Boolean);
+    for (const o of this.offFinish) {
+      o.visible = false;
+      for (const s of this.systems) if (within(s.node, o)) { s.stop(); while (s.n) s.kill(s.n - 1); }
+    }
+  }
+
   get done() {
     if (this.empty || this.disposed) return true;
     // ended while it waited for its FxDelay: it never shows (the client's FinishMe recycles it hidden)
@@ -1412,6 +1435,7 @@ export class FxInstance {
       if (this.time < b.at) b.o.visible = false;
       else if (!b.on) { b.on = true; b.o.visible = true; }
     }
+    if (this.offFinish) for (const o of this.offFinish) o.visible = false;   // finishMain: off for good
     for (const g of this.gated) { // local patch: m_IsActive — on only while every node above it is
       let on = true;
       for (let p = g.x.node; p && p !== this.unity; p = p.parent) if (!p.visible) { on = false; break; }

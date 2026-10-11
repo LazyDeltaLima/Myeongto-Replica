@@ -60,6 +60,9 @@ BACK_SCRIPT = 7599136815520768295
 # 2026-10-11, decompile check round 2: the MonoScript PathID of Torappu.Fx.FxDelay (root_effect `fxDelay`; 38 of the roots of
 # texas2 / dusk / siege2, a component of one float `_delayTime`)
 FXDELAY_SCRIPT = 4526430437831129839
+# 2026-10-11, decompile check: the MonoScript PathID of Torappu.Battle.Effects.ProjectileEffect (projectile_effect; the root
+# of a projectile's `_mainEffect`: 202 of the extracted prefabs of the EN client, the same id in the CN client)
+PROJECTILE_EFFECT_SCRIPT = 4524653206994915020
 
 
 def r4(v):
@@ -593,6 +596,9 @@ class Extractor:
         finish = self.delay_to_finish(root)
         if finish:
             out_def['finish'] = finish
+        off = self.off_on_finish(root, gos)
+        if off:
+            out_def['offFinish'] = off
         right = self.right_effect(root)
         if right:
             out_def['right'] = right
@@ -957,14 +963,92 @@ class Extractor:
         `Entity.RemoveBuffEffect` RVA 0x36001C0) stops its parts and is recycled `delayToRecycle` s later, which a
         ParticleEffect returns as its `_delayToFinish` — `ParticleEffect.get_delayToRecycle` RVA 0xCB3470): the root effect
         component's `_delayToFinish` (root_effect). buff_stun 0, buff_slowdown 0.5, buff_cold 0.06. None when the
-        component is not found."""
+        component is not found. (2026-10-11) A projectile's `_mainEffect` has a ProjectileEffect root instead
+        (projectile_effect): its `_delayToFinish` too — `ProjectileEffect.get_delayToRecycle` RVA 0xCB4E40."""
         pe = self.root_effect(root)
         v = pe['delayToFinish'] if pe else None
+        if pe is None:
+            pj = self.projectile_effect(root)
+            v = pj['delayToFinish'] if pj else None
         return r4(v) if v is not None and math.isfinite(v) and 0 <= v <= 60 else None
 
+    def projectile_effect(self, root):
+        """(2026-10-11, decompile check — the user report 「투사체가 늦게 사라짐」) the root's ProjectileEffect component
+        (PROJECTILE_EFFECT_SCRIPT; `Torappu.Battle.Effects.ProjectileEffect`, the root of a projectile's `_mainEffect`) as
+        { delayToFinish, off: [Transform PathID …] }, or None. The client finishes that effect when its projectile stops
+        (`Projectile.OnProjectileStop` RVA 0x5FC1A0 → `ClearMainEffectIfNot` 0x5F9550 → `Effect.FinishMe` 0xC88FE0):
+        `ProjectileEffect.OnFinish` (0xCB42B0) stops its first particle system with its children (`Awake` 0xCB3A00:
+        GetComponentInChildren<ParticleSystem>, `Stop(true)`) and switches off every `_inactiveOnFinish` Transform, and the
+        pool takes the whole effect back `_delayToFinish` s later (at once when 0). The raw fields after the MonoBehaviour
+        name (dump order): the Effect base `_bodyTransofrm` (PPtr, 3 words) and `_subFXDelayConfigs` (count n + 4 words
+        each), then from s = 4 + 4n: s `_resetMainDir`, s+1 `_mainDir`, s+2 `_rotate180Y`, s+3 `_randomAngle`, s+4
+        `_delayToFinish`, s+5 `_allowAutoReuse`, s+6 `_preloadCnt`, s+7 `_flipIfLeft`, s+8 `_inactiveOnFinish` (count + 3
+        words each), then `_inactiveOnHit` (count + 3 words each) — the same in the EN and CN clients (202 + 11 compared)."""
+        try:
+            d = root.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], root)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            raw = comp.get_raw_data()
+            if len(raw) < 32 or struct.unpack_from('<q', raw, 20)[0] != PROJECTILE_EFFECT_SCRIPT:
+                continue
+            n = struct.unpack_from('<i', raw, 28)[0]
+            if not 0 <= n <= 256:
+                continue
+            b = raw[(32 + n + 3) & ~3:]
+            words = len(b) // 4
+            i = lambda k: struct.unpack_from('<i', b, 4 * k)[0]  # noqa: E731
+            if words < 4 or not 0 <= i(3) <= 64:
+                continue
+            s = 4 + 4 * i(3)
+            if words < s + 10:
+                continue
+            a = i(s + 8)
+            h = s + 9 + 3 * a
+            if not 0 <= a <= 256 or words < h + 1 or words != h + 1 + 3 * i(h):
+                continue   # not the layout above
+            return {'delayToFinish': struct.unpack_from('<f', b, 4 * (s + 4))[0],
+                    'off': [struct.unpack_from('<q', b, 4 * (s + 10 + 3 * k))[0] for k in range(a) if i(s + 9 + 3 * k) == 0]}
+        return None
+
+    def off_on_finish(self, root, gos):
+        """(2026-10-11) the node indices of the ProjectileEffect's `_inactiveOnFinish` (projectile_effect; `gos`: GameObject /
+        Transform PathID → node index), sorted, or None: switched off the moment its projectile stops."""
+        pj = self.projectile_effect(root)
+        off = sorted({gos[p] for p in (pj or {}).get('off') or [] if p in gos})
+        return off or None
+
+    def tree_ids(self, go):
+        """(2026-10-11) the node names of the prefab under `go` in the extractor's walk order and its GameObject / Transform
+        PathID → node index map (prefab()'s `gos`), for the *_only rewrites."""
+        names, gos = [], {}
+
+        def walk(g):
+            dd = g.read_typetree()
+            idx = len(names)
+            gos[g.path_id] = idx
+            names.append(dd['m_Name'])
+            tr = None
+            for c in dd['m_Component']:
+                comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], g)
+                if comp is not None and comp.type.name == 'Transform':
+                    tr = comp.read_typetree()
+                    gos[comp.path_id] = idx
+            for ch in (tr or {}).get('m_Children') or []:
+                cto = self.resolve(ch, g)
+                cgo = self.resolve(cto.read_typetree()['m_GameObject'], cto) if cto is not None else None
+                if cgo is not None:
+                    walk(cgo)
+        walk(go)
+        return names, gos
+
     def finish_only(self, bundle, pack=None):
-        """2026-10-11: write only the `finish` (delay_to_finish) of the bundle's already extracted prefabs, like
-        height_only. Returns (prefabs with one, files changed)."""
+        """2026-10-11: write only the `finish` (delay_to_finish) and the `offFinish` (off_on_finish; a file whose node names do
+        not line up with the bundle's keeps its own) of the bundle's already extracted prefabs, like height_only. Returns
+        (prefabs with a finish delay, files changed)."""
         rel = pack or f'battle/prefabs/effects/{bundle}.ab'
         p = bundle_path(self.game, rel)
         if not p:
@@ -987,12 +1071,21 @@ class Extractor:
             v = self.delay_to_finish(go) or None
             d = json.loads(f.read_text())
             found += v is not None
-            if d.get('finish') == v:
+            want = {'finish': v}
+            if self.projectile_effect(go) is not None:
+                names, gos = self.tree_ids(go)
+                nodes = d.get('nodes') or []
+                if len(nodes) == len(names) and all(n.get('name') == names[k] for k, n in enumerate(nodes)):
+                    want['offFinish'] = self.off_on_finish(go, gos)
+                else:
+                    print(f'[fx] {bundle}/{f.stem}: node tree differs from the bundle, offFinish skipped')
+            if all(d.get(k) == x for k, x in want.items()):
                 continue
-            if v is None:
-                d.pop('finish', None)
-            else:
-                d['finish'] = v
+            for k, x in want.items():
+                if x is None:
+                    d.pop(k, None)
+                else:
+                    d[k] = x
             f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
             changed += 1
         print(f'[fx] {bundle}: {found} prefab(s) with a finish delay, {changed} file(s) changed')
@@ -1288,8 +1381,9 @@ def main():
                     'index.json without --bundle; 2026-10-11)')
     ap.add_argument('--height-only', action='store_true', help='only write the `_overwriteHeight` `height` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-10)')
-    ap.add_argument('--finish-only', action='store_true', help='only write the `_delayToFinish` `finish` into the already '
-                    'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-11)')
+    ap.add_argument('--finish-only', action='store_true', help='only write the `_delayToFinish` `finish` (and a projectile '
+                    'effect\'s `_inactiveOnFinish` `offFinish`) into the already extracted prefabs of the bundles (every bundle '
+                    'of --index without --bundle; 2026-10-11)')
     a = ap.parse_args()
     if a.build_cab_index:
         build_cab_index(a.game, a.build_cab_index)
@@ -1311,7 +1405,7 @@ def main():
         print(f'[fx] height: {sum(x[0] for x in tot)} prefab(s) with an overwritten height, {sum(x[1] for x in tot)} file(s) changed')
         return
     if a.finish_only:
-        bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
+        bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
         tot = [ex.finish_only(b, pack=a.pack) for b in bundles]
         print(f'[fx] finish: {sum(x[0] for x in tot)} prefab(s) with a finish delay, {sum(x[1] for x in tot)} file(s) changed')
         return
