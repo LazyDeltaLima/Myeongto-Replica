@@ -8,6 +8,7 @@ import { unitStatsEntry } from '../../../shared/protocol.js';
 import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { OK, fail } from './common.js';
+import { onHumanEmote } from '../botEmotes.js';
 import { emoteSet } from '../../../shared/emote-art.js'; // local patch: user emote pictures
 
 export class MatchIntents {
@@ -59,6 +60,9 @@ export class MatchIntents {
     if (now - ps.lastEmoteAt < EMOTE_COOLDOWN_MS) return fail(ERR.RATE);
     ps.lastEmoteAt = now;
     this.broadcast({ t: 'm.emote', playerId: ps.playerId, id, ...(emoteSet(set) === 'user' ? { set: 'user' } : {}) }); // local patch: user pictures
+    // an AI teammate can react to a human's emote (server/match/botEmotes.js, SP_BOT_EMOTES=0 silences it); only to the
+    // official pictures — a user-set picture does not have to mean what its id names
+    if (emoteSet(set) !== 'user') onHumanEmote(this, ps.playerId, id);
     return OK;
   }
 

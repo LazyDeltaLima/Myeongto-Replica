@@ -914,3 +914,6 @@ round was over. The official 1 s `broadcastBeginDelay` is not modelled.
 * [ASSUMED] Cooperative buying (upstream 0.2.3, PR #407): `bot.js buyScore` lowers a non-elite, non-自选 tier V/VI
   shared-pool card by 18 when its bonds include an active bond of another living teammate's opening strategy (one
   penalty however many teammates match; humans and AI alike). An AI heuristic, not a game rule (DESIGN §6.6).
+* [ASSUMED] AI teammate emotes (upstream 0.2.3, PR #444): `botEmotes.js` is isolated from bot decisions and RNG and sends
+  the existing `m.emote` only in mixed human/AI matches, under the normal whitelist / cooldown; `SP_BOT_EMOTES=0`
+  disables it (DESIGN §6.6).

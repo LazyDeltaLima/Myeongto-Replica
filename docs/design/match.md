@@ -97,6 +97,14 @@ non-DIY tier V/VI shared-pool cards whose active bonds overlap another living te
 not stack the penalty; it neither reserves stock nor prevents a stronger purchase or an immediate own merge. Not an
 official rule: an AI heuristic only.
 
+[ASSUMED] AI teammate emotes (upstream 0.2.3, PR #444; `server/match/botEmotes.js`): cosmetic social reactions, on by
+default and silenced by `SP_BOT_EMOTES=0`. Only mixed human/AI matches emit them, as the existing `m.emote` under the
+whitelist and the 1 s cooldown. A human's official-set emote gets at most one eligible bot reply (a user-set picture
+gets none: it need not mean what its id names); a bot takes a 悬赏 card with 思考, a 联防 helper opens it with 合作愉快
+(server or client combat), settlement reacts once per round from that round's results (kills then damage), the third
+chess merge of a round says 害怕 once, and a bot thanks the real player whose CHAR_GIFT reached it (by source playerId).
+No RNG, timers or game decisions.
+
 Pending Pointing Stick offers use the existing bounty scorer at bot prep entry, immediately after a successful cast,
 and before Ready. The timer / disconnected-seat finalizer randomly resolves any remaining offer before temp and Ready.
 
