@@ -342,6 +342,26 @@
 - 탄환형 스킬(관리자 제보): `char_bullet_bar` 받침 `#e56d00` α.31 위에 남은 탄환마다 칸. 칸은 코드(UIBulletBar)가 만들어
   프리팹에 색이 없다 — [추정] 캡처 측정: 색 ≈ `#ffa800`(G 168 일치), 간격 2단위(7발: 16~17px 칸 2px 간격, 19발: 약 4.5px 칸 같은 간격). 칸이 1px보다 좁아지면 남은 비율 한 줄.
   탄환 수는 시뮬레이션이 `b.snap.ammo = [[id, 남은, 최대]]`로 넘긴다(`server/sim/local-hud.js`; 시뮬레이션은 브라우저에서 돈다 — `battle/runner.js`).
+  - **언제 탄환 칸인가 = 스킬 프리팹의 `_showSpAsBulletMode`** (upstream 0.2.4 이식 2차, 관리자 결정 2026-10-11 「공식대로」): 클라 코드
+    `Character.get_hudPluginMask`(RVA 0x7068B0)가 HUD 줄을 고른다 — 스킬이 효과 중(`BasicSkill.isAffecting`, 가상 슬롯 25)이면 플래그
+    (`BasicSkill._showSpAsBulletMode` 0x20, `get_showSpAsBulletMode` 가상 슬롯 15)가 켜졌을 때 `BULLET`(16, `char_bullet_bar`), 아니면 `SP_CAST`(8,
+    남은 시간·탄환 비율 막대), 효과 중이 아니면 `SP`(4)·영창 `CHANT`(32). 탄환 칸(`UIHudCharBulletBar.UpdatePlugin` 0xD5AD60)은 스킬이 탄환형
+    (`CastSkillWithLimitTimes`)이면 남은 탄환 / 전체, **아니면 유닛의 SP / 최대 SP**(`UIBulletBar.ShowBulletCount(maxSp, sp)`)를 한 칸씩.
+    플래그는 클라에서 뽑아 추적 파일로: `tools/local-extract/skill_hud.py`(EN 클라 먼저, EN에 없는 선발 오퍼레이터는 CN 클라 `--client` 두 번) →
+    `tools/assets/local-skill-hud.json`(풀 스킬 305개 전부 읽힘, 켜진 것 21개) → `tools/build-data.mjs`가 스킬 기록에 `bulletMode` 0/1 →
+    `local-hud.js bulletView`. 패시브 스킬은 배치된 동안 늘 효과 중(PASSIVE·ON_DEPLOY, 지속 무한).
+  - 그래서 **琳琅诗怀雅(스와이어 디 엘리건트 위트) 금화 = 탄환 칸**: 금화는 그녀의 SP(버프 템플릿 `swire2_tr` `ModifySp` `swire2_add_coin`, `swire2_t_1`
+    `ON_SKILL_CAST_SUCCEED` `ClearCharacterSp`), 세 스킬 모두 플래그 켜짐. 칸 수 = 고른 스킬의 블랙보드 `sp`(「携带此技能时金币上限为N」; 표 spCost는 0),
+    찬 칸 = 지금 금화(키트 `mem.coins`, 첫 금화 전 0). S1·S2(패시브)는 배치된 내내, S3(千金一掷)는 켜져 있는 동안만 탄환 칸이고 충전 중에는 보통 SP 막대
+    (0/5). 칸 수는 표의 스킬 레벨을 따른다: 우리 기물은 스킬 레벨 4(S1 2·S2 3·S3 10)와 7(2·4·10)을 쓰고, 표 마지막 레벨 10은 3·5·10. 1차 이식의 금색
+    숫자 줄(`CoinPurse`, `[ASSUMED]`)은 걷어냄(`docs/rules/render.md` 「upstream 0.2.4 이식 — 렌더」).
+  - 탄환형인데 플래그가 꺼진 스킬은 탄환 칸이 아니라 남은 비율 막대(`#ffa800`, 스냅숏 SP 그대로): 新约能天使(엑시아 더 뉴 커버넌트) S2 开火成瘾症·S3
+    使命必达！, 予愿安洁莉娜(안젤리나 더 멜로우 위시) S3. 전에는 칸으로 그렸다. 플래그를 못 읽은 스킬(`bulletMode` 없음)은 예전처럼 탄환형이면 칸.
+  - 칸 그리기(`UIBulletBar.ShowBulletCount` 0xD6E800): 40발부터(`IGNORE_GAP_COUNT`) 간격 없음 → 남은 비율 한 줄(`hud-bars.js BULLET_NO_GAP`; 우리 풀에서는
+    信仰搅拌机(산크타 믹사파라토) S2 八臂电锯侠 42·45발 — 30발인 S3는 칸). 간격 값은 `(최대/5 + 1) × _gapFactor`를 셰이더에 넘기는 방식이라 우리 2단위 [추정]은 그대로, 10~39발의
+    「부드러운 칸」(`USE_SMOOTH_COUNT`, 셰이더) 차이도 안 옮김.
+  - 테스트 `test/render/sp-bullets.test.js`. **[화면 미확인]** 스와이어 디 엘리건트 위트 S1 2칸·S2 3칸(정예 4칸)·S3 켜진 뒤 10칸과 금화 증감, S3 충전 중 SP 막대,
+    엑시아 더 뉴 커버넌트 S2·S3 비율 막대.
 - 배리어(屏障·护盾, 관리자 요청 2026-10-10 「배리어도 HP 바처럼」): 클라 코드 `UIHudCharHpSlider.UpdatePlugin`이 유닛의 `shieldUIController.shieldToShow`(s)를
   읽어 HP 바를 (HP + s) / (최대 HP + s)로 채우고, 채운 부분 중 끝쪽 s / (HP + s)(`UIHpFillImage.splitValue`)를 바 머티리얼 `ui_battle_ally_hp_bar`(셰이더
   `Torappu/UI/Hp`, DXBC: uv.x > 1.003 − split이면 `_Color2`)의 `#bcdbdf` 불투명으로 그린다 — 따로 막대가 있는 게 아니라 HP 바가 배리어만큼 늘어난다. 아군만

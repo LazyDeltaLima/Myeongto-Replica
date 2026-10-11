@@ -4,7 +4,7 @@
 
 import { EVENT_BUFFER_CAP } from '../constants.js';
 import { elementView } from '../damage.js';
-import { unitInfo, snapshotUnits, coinView } from '../snapshot.js';
+import { unitInfo, snapshotUnits } from '../snapshot.js';
 import { hudLists } from '../local-hud.js'; // local patch
 
 export class BattleEvents {
@@ -57,7 +57,6 @@ export class BattleEvents {
    *         feared or stunned) — display metadata (render/interp.js holds the position until then);
    *   standCut: [[id, at]] — the latest time each listed enemy's recovery was cut or ignored (_cutAttackStand), the
    *         dying ones in their death window included.
-   *   coins: [[id, balance, cap]] — 琳琅诗怀雅's skill purse (snapshot.js coinView), display only.
    */
   snapshot() {
     const snap = {
@@ -97,8 +96,6 @@ export class BattleEvents {
       }
       const v = elementView(u, this.time);
       if (v) (elem || (elem = [])).push([u.id, v[0], v[1], v[2], v[3]]);
-      const purse = coinView(u);
-      if (purse) (snap.coins || (snap.coins = [])).push([u.id, purse[0], purse[1]]);
     }
     if (elem) snap.elem = elem;
     if (stand) snap.stand = stand;

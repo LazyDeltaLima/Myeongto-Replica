@@ -1,8 +1,17 @@
 // Local patch (docs/LOCAL-PATCH.md 「전투 화면 UI」): extra b.snap lists for the official battle HUD.
 //
-//   ammo: [[id, left, max]] — an allied unit whose ammo skill runs (skills.js kind 'ammo'): the bullets left out of the
-//         activation's real total (ammoMax: base + bullets added — 拉特兰, 逃犯引渡手续, refills), for the official
-//         bullet bar (one block per bullet, render/hud-bars.js). The unit tuple's SP keeps its draining share (upstream).
+//   ammo: [[id, left, max]] — an allied unit whose HUD shows the official bullet bar (`char_bullet_bar`, one block per
+//         bullet, render/hud-bars.js) — the client's rule (code `Character.get_hudPluginMask`): the skill's
+//         `_showSpAsBulletMode` (data `bulletMode`, tools/local-extract/skill_hud.py) while the skill is affecting — a
+//         passive one always, any other while it runs (else the SP / SP cast slider) —, and the bar shows (UIHudCharBulletBar
+//         .UpdatePlugin):
+//           * an ammo skill (skills.js kind 'ammo'; client CastSkillWithLimitTimes): the bullets left out of the
+//             activation's real total (ammoMax: base + bullets added — 拉特兰, 逃犯引渡手续, refills). The unit tuple's SP
+//             keeps its draining share (upstream), which is what the cast slider of an ammo skill without the flag shows
+//             (新约能天使 S2 / S3, 予愿安洁莉娜 S3). A skill whose flag was not read (null) shows its bullets as before;
+//           * any other skill: its SP out of its max SP (UIBulletBar.ShowBulletCount(maxSp, sp)) — 琳琅诗怀雅's coins
+//             are her SP: her kit keeps them in `mem.coins` (0 before the first one), out of the selected skill's
+//             blackboard `sp` (「携带此技能时金币上限为N」; skill table spCost 0) — spBullets().
 //   shield: [[id, amount]] — an allied unit's barrier HP (屏障 / 护盾: the buffs' `shield` left, damage.js absorbs them), for
 //         the official HP bar's barrier part (client UIHudCharHpSlider + shieldUIController.shieldToShow; render/hud-bars.js
 //         shieldedBar). Allies only, as the client (its enemy HP sliders show none). A hit-count barrier (`shieldHits`) has
@@ -25,16 +34,42 @@ export function hudLists(units) {
       let sh = 0;
       for (const b of u.buffs || []) if (b && b.shield > 0) sh += b.shield;
       if (sh >= 0.5) (out.shield || (out.shield = [])).push([u.id, Math.round(sh)]);
-      const sk = u.skill;
-      if (!sk || sk.noSkill || sk.kind !== 'ammo' || !sk.active) continue;
-      const max = Math.max(1, sk.ammoMax || sk.ammo || 0, sk.ammoLeft);
-      (out.ammo || (out.ammo = [])).push([u.id, Math.max(0, sk.ammoLeft | 0), max | 0]);
+      const bar = bulletView(u.skill, u);
+      if (bar) (out.ammo || (out.ammo = [])).push([u.id, bar[0], bar[1]]);
     } else {
       const v = u.mem && u.mem.lpSp;
       if (v && v[1] > 0) (out.bsp || (out.bsp = [])).push([u.id, Math.round(v[0] * 10) / 10, v[1]]);
     }
   }
   return out;
+}
+
+/**
+ * `[left, max]` of the bullet bar a unit's skill `sk` shows now (see the header), or null: an ammo skill while it runs
+ * (unless the client gives it the cast slider: `bulletMode` 0), a skill with `bulletMode` 1 while it is affecting.
+ */
+export function bulletView(sk, u) {
+  if (!sk || sk.noSkill) return null;
+  const mode = sk.def?.bulletMode ?? null;
+  if (sk.kind === 'ammo') {
+    if (!sk.active || mode === 0) return null;
+    const max = Math.max(1, sk.ammoMax || sk.ammo || 0, sk.ammoLeft);
+    return [Math.max(0, sk.ammoLeft | 0), max | 0];
+  }
+  if (mode !== 1 || !(sk.kind === 'passive' || sk.active)) return null;
+  return spBullets(sk, u);
+}
+
+/**
+ * The SP of a non-ammo bullet-mode skill as `[sp, maxSp]` (whole numbers, sp ≤ maxSp), or null when it has no max: 琳琅诗怀雅's
+ * purse (her kit's `mem.coins`, out of the skill's blackboard `sp`), else the skill's own SP out of its cost.
+ */
+function spBullets(sk, u) {
+  const purse = typeof sk.id === 'string' && sk.id.startsWith('skchr_swire2_');
+  const max = Math.floor(Number(purse ? sk.bb?.sp : sk.spCost));
+  if (!(max >= 1)) return null;
+  const v = Math.floor(Number(purse ? (u?.mem?.coins ?? 0) : sk.sp));
+  return [Math.min(max, Math.max(0, Number.isFinite(v) ? v : 0)), max];
 }
 
 /**

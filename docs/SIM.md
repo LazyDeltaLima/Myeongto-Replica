@@ -1385,7 +1385,7 @@ Unknown subprofessions fall back to the profession default (test `professions.te
 
 ## 9. Wire format (snapshot.js, DESIGN §8.2)
 
-- `snapshot()` → `{ fieldId, t, units: [[id, x, y, hp, maxHp, sp, spMax, flags, anim]], dp, killed, total, resolved, dps?, boss?, down?, elem?, stand?, standCut?, coins? }`.
+- `snapshot()` → `{ fieldId, t, units: [[id, x, y, hp, maxHp, sp, spMax, flags, anim]], dp, killed, total, resolved, dps?, boss?, down?, elem?, stand?, standCut? }`.
   `killed` counts every `counted` knock-out (§1.3) and `total` only the enemies this field scheduled (`inTotal`), so it may
   exceed it; `resolved = min(total, killedInTotal + leakedInTotal)` is the HUD capsule's numerator (DESIGN §14 顶栏胶囊).
   `sp/spMax` show remaining duration/ammo as a draining bar while a timed skill is active (ammo: `ammoLeft / ammoMax`, the
@@ -1413,8 +1413,6 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `units` (the 0.8 s death window included), never a hidden or unlisted one. The newest snapshot showing a death, a stun
   (freeze, sleep, 浮空 included) or a block is not extrapolated until a later snapshot shows it moving again; the
   extrapolated velocity uses the same moving span as the interpolation (the stand is not in its denominator).
-  `coins: [[id, balance, cap]]` (only when non-empty; upstream 0.2.4, PR #450) = `coinView` of 琳琅诗怀雅: her skill purse
-  (`mem.coins`, 0 before her first coin) and the selected skill's cap (`skill.bb.sp`) — display only, the battle never reads it.
 - `drainEvents()` tuples: `['spawn', UnitInfo]` (first appearance), `['deploy', id]` (every (re)deploy and 【移动】 — the client plays the deploy and its interpolation snaps instead of sliding), `['swing', id, windup, projKind, base?]` (a normal attack's swing starts; `base` 1 = it plays the Default attack clip although the skill is on — 赤刃明霄陈 S3 before its mode switch, `ai.js attackClipOf` — operators and enemies, `ai.js updateAlly` / `enemyAttack`, and “萨米的意志”'s 冰凌 (`content/bosses.js kitDeer`, kind `none`, no 'atk': its strike is the fx `column`): its strike, the `atk` events of the same `projKind`, comes `windup` game seconds later, `ai.js attackTiming`; the renderer starts the Spine attack clip at the official speed from it), `['atk', src, tgt, projKind, signal?]`
   (`signal`: only when the attack is a talent's own ability in the client — `Battle.forceAttack(u, t, { signal })`, 圣约送葬人's 受选之人
   extra shot `'T.1'`; the client sounds its `ON_ABILITY_*.<charId>.T.1` banks instead of the normal attack's, docs/rules/audio.md) (`none|arrow|bolt|bomb|lob|orb|drone|enemy|boomerang|droneBomb|chain|chainHeal`; a boomerang's way back has no event — the

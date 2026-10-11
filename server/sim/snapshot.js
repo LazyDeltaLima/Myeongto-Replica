@@ -126,22 +126,6 @@ export function unitTuple(u, t) {
   return [u.id, r2(u.x), r2(u.y), hp, maxHp, r1(sp), spMax, flagsOf(u), animOf(u, t)];
 }
 
-/**
- * `coinView(u)` = `[balance, cap]` of 琳琅诗怀雅's skill purse, or null (display only; upstream 0.2.4, PR #450). Her kit
- * (content/kits/ops/chess_char_3_04-swire2.js) keeps the balance in `mem.coins` — unset until her first coin, which reads
- * as 0 — and caps it at the selected skill's `sp` (「携带此技能时金币上限为N」: 2 / 3 / 10). Zero is a balance; a unit without
- * the purse (no `mem.coins` and not one of her skills) is null.
- */
-export function coinView(u) {
-  if (!u || u.side !== 'ally') return null;
-  const sk = u.skill, has = Number.isSafeInteger(u.mem?.coins);
-  if (!has && !(typeof sk?.id === 'string' && sk.id.startsWith('skchr_swire2_'))) return null;
-  const max = Math.floor(Number(sk?.bb?.sp));
-  if (!Number.isSafeInteger(max) || max < 1) return null;
-  const n = has ? u.mem.coins : 0;
-  return n < 0 ? null : [Math.min(n, max), max];
-}
-
 /** Units included in a snapshot: deployed & visible, plus recently dead ones (DIE animation). */
 export function snapshotUnits(units, t) {
   const out = [];

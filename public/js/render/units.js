@@ -75,7 +75,7 @@ import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch:
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
 import { iconShownAsFx } from './fxstatus.js'; // local patch: statuses drawn as official effects
 import { syncHeldWeapon } from './boomerang.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
-import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar, CoinPurse } from './hud-bars.js'; // local patch: official battle HUD
+import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -809,8 +809,6 @@ export class UnitView {
     this.lpBars = !this.isEnemy ? new AllyBars(P, h) : new EnemyBars(P, h, giant ? 'giant' : this.isBoss ? 'boss' : 'normal', giant);
     this.ammo = null;
     this.barrier = 0;
-    this.coins = null;     // [balance, cap] of 琳琅诗怀雅's skill purse, zero included (sync; b.snap `coins`)
-    this.coinPurse = null; // its row under the bars (hud-bars.js CoinPurse), made on first use
     this.chip = null;
     // operators only: summon tokens have no tier (hand and field alike) — local patch (maintainer request 2026-10-08): a prep
     // summon wears its owner's chip (app.js pieceInfo `chip`; official: same level chip as the operator)
@@ -907,7 +905,6 @@ export class UnitView {
     this.ammo = s.ammo || null; // local patch: official bullet bar (b.snap `ammo`)
     this.barrier = Number(s.shield) > 0 ? Number(s.shield) : 0; // the barrier on the HP bar (b.snap `shield`, hud-bars.js shieldedBar)
     this.bsp = s.bsp || null;   // local patch: a boss's official SP (b.snap `bsp`)
-    this.coins = s.coins || null; // 琳琅诗怀雅's purse (b.snap `coins`): a missing entry clears the readout
     const prevFlags = this.flags;
     this.flags = s.flags | 0;
     this.anim = s.anim | 0;
@@ -1494,22 +1491,18 @@ export class UnitView {
         lpBottom = this.lpBars.update(this.screen.x, this.screen.y, hudUnit(this.ctx.viewport?.()), s, dt,
           { hp: k, ghost: g, ammo: this.spMax > 0 ? [this.sp, this.spMax] : null, sp: this.bsp ? clamp(this.bsp[0] / this.bsp[1], 0, 1) : null }, this.ctx.assets);
       } else if (lp) {
+        // the bullet bar whenever the sim lists it (b.snap `ammo`, sim local-hud.js bulletView): a running ammo skill, or a
+        // bullet-mode skill while it is affecting — a passive one (琳琅诗怀雅's coins) carries no UF.SKILL
         const u = hudUnit(this.ctx.viewport?.()), active = !!(this.flags & UF.SKILL);
         const sp = this.spMax > 0 ? clamp(this.sp / this.spMax, 0, 1) : null;
         const bar = shieldedBar(this.hp, this.maxHp, this.ghostHp, this.barrier);
-        lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: bar.hp, ghost: bar.ghost, split: bar.split, sp, cast: active, ammo: active ? this.ammo : null }, this.ctx.assets);
+        lpBottom = this.lpBars.update(this.screen.x + sx, this.screen.y, u, { hp: bar.hp, ghost: bar.ghost, split: bar.split, sp, cast: active, ammo: this.ammo }, this.ctx.assets);
       }
       this.hpBg.position.set(x0 - 1, cy); this.hpBg.width = bw + 2; this.hpBg.height = bh + 2;
       this.hpGhost.position.set(x0, cy); this.hpGhost.width = bw * g; this.hpGhost.height = bh;
       this.hpFill.position.set(x0, cy); this.hpFill.width = bw * k; this.hpFill.height = bh;
       if (!this.isEnemy) this.hpFill.tint = k < 0.3 ? COLORS.hpAllyLow : COLORS.hpAlly;
     } else if (lp) this.lpBars.hide();
-    // 琳琅诗怀雅's skill purse: a row under the official bars (b.snap `coins`, hud-bars.js CoinPurse)
-    const purse = showHp && lpBottom > 0 && !this.isEnemy && !!this.coins;
-    if (purse) {
-      if (!this.coinPurse) this.coinPurse = new CoinPurse(this.P, this.hud, fxAtlas().tex.coin);
-      lpBottom = this.coinPurse.update(this.coins, this.lpBars.box.x0, lpBottom, hudUnit(this.ctx.viewport?.()));
-    } else if (this.coinPurse) this.coinPurse.hide();
     // the official bars draw an ally's barrier amount inside the HP bar (hud-bars.js shieldedBar); the presence strip stays
     // for what they do not show — an enemy's barrier, a hit-count barrier, the plain bars
     const shielded = showHp && (this.flags & UF.SHIELD) && !(lp && !this.isEnemy && this.barrier > 0);

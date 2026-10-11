@@ -17,10 +17,12 @@
 //   borders 4 / 5): a black α .70 core with a 4–5 px feathered shadow, laid out 8.6 × 10.32 units larger than the bars (the
 //   prefab's 133.6 × (14 + 10.32) around 125 × 14) — i.e. the core (α .35 with the tint) under the bars and only the soft
 //   shadow outside: 「불투명도가 들어간 바 위에 색 바」 (user, capture 14; a hard 1-unit margin read as an outline). Without
-//   the sprite (local client art): a plain α .35 rect under the bars. An ammo skill (b.snap `ammo`, server/sim/local-hud.js) shows its bullets left instead:
-//   one block per bullet on a #e56d00 α.31 track (`char_bullet_bar`), the blocks laid out by code (UIBulletBar) —
+//   the sprite (local client art): a plain α .35 rect under the bars. The bullet bar (b.snap `ammo`, server/sim/local-hud.js
+//   bulletView — a running ammo skill's bullets left, or a bullet-mode skill's SP such as 琳琅诗怀雅's coins) replaces the SP
+//   row: one block per bullet on a #e56d00 α.31 track (`char_bullet_bar`), the blocks laid out by code (UIBulletBar) —
 //   [추정] their colour #ffa800 and 2-unit gaps from the captures (7 bullets: 16–17 px blocks 2 px apart; 19 bullets: ~4.5 px
-//   blocks, the same gaps — many bullets make thin blocks, never one bar unless a block would be under 1 px). No glow when
+//   blocks, the same gaps — many bullets make thin blocks). From BULLET_NO_GAP (40) bullets the client draws no gaps
+//   (UIBulletBar.ShowBulletCount: IGNORE_GAP_COUNT), i.e. one bar of the share left; so does a block under 1 px. No glow when
 //   the SP is full (maintainer decision 2026-10-07: none in the captures, the skills fire at once).
 // Tier chip: the official shows none in battle (CN captures) and `shop_hud`'s chess_level_icon (autochess_level_N,
 //   rect 42, scale 1.25, at (-45.5, +127.75) from the feet) over a piece in prep. That sprite is only 38 px (looked blurry
@@ -137,6 +139,8 @@ export const giantBossOf = (info) => (info && (GIANT_BOSS[info.spine] || GIANT_B
 
 /** Narrowest bullet block drawn (px): with more bullets than fit, the bullets left share the track as one bar. */
 const AMMO_BLOCK_MIN = 1;
+/** From this many bullets the client's bullet bar has no gaps (UIBulletBar IGNORE_GAP_COUNT): one bar of the share left. */
+export const BULLET_NO_GAP = 40;
 
 function rect(P, parent, color, alpha) {
   const s = new P.Sprite(P.Texture.WHITE);
@@ -248,7 +252,7 @@ function drawBullets(o, ammo, x0, y, w, h, u) {
     const max = Math.round(ammo[1]), left = clamp(Math.round(ammo[0]), 0, max);
     const gap = B.ammoGap * u, bw = (w - gap * (max - 1)) / max;
     const block = (i) => { let b = o.blocks[i]; if (!b) b = o.blocks[i] = rect(o.P, o.root, B.ammo, B.ammoAlpha); b.visible = true; return b; };
-    if (bw >= AMMO_BLOCK_MIN) {
+    if (bw >= AMMO_BLOCK_MIN && max < BULLET_NO_GAP) {
       for (let i = 0; i < left; i++) { const b = block(i); b.position.set(x0 + i * (bw + gap), y); b.width = bw; b.height = h; }
       used = left;
     } else if (left > 0) {
@@ -257,49 +261,6 @@ function drawBullets(o, ammo, x0, y, w, h, u) {
     }
   }
   for (let i = used; i < o.blocks.length; i++) o.blocks[i].visible = false;
-}
-
-/**
- * 琳琅诗怀雅's skill purse (b.snap `coins`, server/sim/snapshot.js coinView; upstream 0.2.4, PR #450): a coin icon and
- * 「balance/cap」 on one row under her bars, left-aligned with them, in HUD units like the bars. [ASSUMED] look: no readout of
- * the kind was found in the client (her charpack char_1033_swire2.ab holds no HUD object), so this is the PR's readout
- * restyled to the official bars: gold (#ffc600, the bullet bar's warm family), the official numbers' font and a dark
- * outline. `y` = the gap under the bars (their plate's shadow); `icon` / `font` = sizes; all in HUD units.
- */
-export const COIN_PURSE = Object.freeze({ y: 5, icon: 17, font: 16, gap: 3, fill: '#ffc600', stroke: '#1a1206' });
-/** Font size (px) the purse's text is rasterised at; it is scaled to `COIN_PURSE.font × u`, so a resize never re-rasterises. */
-const COIN_RASTER = 32;
-
-/** The purse row of one view, drawn into `parent` (the view's HUD container); `tex` = the coin icon (textures.js fxAtlas `coin`). */
-export class CoinPurse {
-  constructor(P, parent, tex) {
-    const C = COIN_PURSE;
-    this.root = new P.Container();
-    this.icon = new P.Sprite(tex);
-    this.icon.anchor.set(0, 0.5);
-    this.text = new P.Text('', { fontFamily: 'Novecento Wide, Bender, Oxanium, sans-serif', fontSize: COIN_RASTER, fontWeight: '700', fill: C.fill, stroke: C.stroke, strokeThickness: 7 });
-    this.text.anchor.set(0, 0.5);
-    this.root.addChild(this.icon, this.text);
-    parent.addChild(this.root);
-    this.label = '';
-    this.root.visible = false;
-  }
-
-  hide() { this.root.visible = false; }
-
-  /** Show `coins` ([balance, cap]) under bars whose left edge is `x0` and bottom edge `bottom` (px), `u` px per unit; returns the row's bottom (px). */
-  update(coins, x0, bottom, u) {
-    const C = COIN_PURSE;
-    const label = `${coins[0]}/${coins[1]}`;
-    if (this.label !== label) { this.label = label; this.text.text = label; }
-    const cy = bottom + (C.y + C.icon / 2) * u;
-    this.icon.width = this.icon.height = C.icon * u;
-    this.icon.position.set(x0, cy);
-    this.text.scale.set((C.font * u) / COIN_RASTER);
-    this.text.position.set(x0 + (C.icon + C.gap) * u, cy);
-    this.root.visible = true;
-    return bottom + (C.y + C.icon) * u;
-  }
 }
 
 /**
