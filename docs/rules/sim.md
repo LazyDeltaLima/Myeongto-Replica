@@ -365,6 +365,9 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   클라: AUTO 스킬이라 모드 자동 발동을 타지 않고 `NextAttackOrCombatSkill`이 아군만 찾는다(적·공격 상태 조건 없음). 다른 점 하나 **[ASSUMED]**: 공식은 조건이
   맞는 순간 SP를 쓰고 우리는 공격 때 시전한다(치료는 같고 SP 시점이 공격 한 번 안쪽으로 다름). upstream의 黍·凯尔希·思衡托 부분(`triggerEnemies`)은 우리 풀에 없어 뺐다.
   golden 변화 없음. 테스트 `test/content/heal-triggers-023.test.js`(upstream의 塞雷娅 케이스).
+- **假想敌：管의 “余音” 펄스 큐** (`f3658a0d` 중 `bosses.js echoHit`): 피격 펄스 ↔ 반격(벤델라 등)이 서로 동기로 불러 훅 깊이 32 제한에 걸리던 것 → 펄스를 쌓아
+  지금 펄스 뒤에 FIFO로 처리(치명타가 만든 펄스도 유지, 타이머·난수 추가 없음). **[ASSUMED]** 순서(upstream도 [ASSUMED]). golden: `fields` hidden-boss_10-solo.
+  테스트 `test/content/echo-counter-023.test.js`(upstream).
 
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
