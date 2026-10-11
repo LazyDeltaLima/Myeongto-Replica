@@ -1,7 +1,7 @@
 // test/lobby-diy.test.js — room.diy end to end over WebSocket (0.2.0 自选编队): lenient validation (only malformed picks
 // are refused; illegal ones are dropped), storage on the session (follows the player into rooms, survives a resume) and
 // on the seat, seats[].diy handed to the Match when it starts (bots: none), never to a running match (ROOM_STARTED:
-// stored for the next one — the next match takes it), every `welcome` carrying `diyKitted` (our five: shared/local-diy.js),
+// stored for the next one — the next match takes it), every `welcome` carrying `diyKitted` (our picks: shared/local-diy.js),
 // and the real match exposing the picks as m.private.diy.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -66,7 +66,7 @@ describe('room.diy (lobby, stub match)', () => {
   afterEach(async () => { RecordingStub.instances = []; await pool.closeAll(); });
   after(async () => { await srv?.close(); });
 
-  test('welcome lists the operators a 自选 slot may field (the kit registry ∩ our five)', async () => {
+  test('welcome lists the operators a 自选 slot may field (the kit registry ∩ our picks)', async () => {
     const c = await pool.player('Kit');
     assert.deepEqual(c.welcome.diyKitted, KITTED_CHARS.filter(isLocalDiyPick));
     assert.deepEqual([...c.welcome.diyKitted].sort(), [...LOCAL_DIY_PICKS].sort());

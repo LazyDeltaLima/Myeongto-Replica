@@ -12,7 +12,7 @@
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
 //   dbg.funds / dbg.addDiy / dbg.finish  (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
 //
-// 선발 오퍼레이터: since 0.2.0 upstream's 自选 framework (shared/diy.js, server/match/player/diy.js) with our five
+// 선발 오퍼레이터: since 0.2.0 upstream's 自选 framework (shared/diy.js, server/match/player/diy.js) with our
 // operators as its only candidates (tools/build-data.mjs local patch); nothing of it is wrapped here.
 //
 // Room chat (co-op rooms only): one line from a human of the room — a player, or a spectator (`spectator: true`) — in the
@@ -332,7 +332,7 @@ const formKey = (tier, elite) => (elite ? `2/60/7/${tier === 6 ? 3 : 1}` : '2/1/
  */
 export function debugCandidates(gd) {
   const b = gd?.raw?.backups;
-  const pool = Array.isArray(b?.diy?.ownedPool) ? localDiyPool(b.diy.ownedPool) : []; // the five offered, in the picker's order (shared/local-diy.js)
+  const pool = Array.isArray(b?.diy?.ownedPool) ? localDiyPool(b.diy.ownedPool) : []; // the picks offered, in the picker's order (shared/local-diy.js)
   return pool.map((charId) => {
     const u = b.units?.[charId];
     if (!u || !u.forms) return null;

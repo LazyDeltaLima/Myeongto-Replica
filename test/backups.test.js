@@ -1,7 +1,7 @@
 // test/backups.test.js — the data of 补位 (stand-ins) and 自选 (DIY slots): chess.json `backup` and data/backups.json
 // (docs/DATA.md §18; tools/build-data.mjs buildBackups; shared/standIn.js, shared/diy.js). These tests pin the data the
 // gameplay reads: the 133 base chess and their types, the 17 stand-in characters and their forms, every NORMAL chess
-// resolving to its stand-in, the 4 DIY slots, the legal picks (this server's five owned 6★ — shared/local-diy.js — with
+// resolving to its stand-in, the 4 DIY slots, the legal picks (this server's eight owned 6★ — shared/local-diy.js — with
 // their forms and summons; no prototype pick since the hard fork from 0.2.0) and the faction bonds.
 // With the official-data cache (.cache/gamedata) the backup fields, the stand-in numbers and the bond derivation are
 // re-derived from the raw tables.
@@ -229,11 +229,11 @@ test('DIY: no prototype picks on this server — prototypes / locked empty at bo
   assert.equal(diyRecordOf(chess.chess_char_5_01_a, { charId: 'char_2027_wang', skillIndex: 0 }, data), null, 'not a DIY slot');
 });
 
-test('DIY: the 5 owned 6★ picks (shared/local-diy.js) — a form at every slot status with all three skills, every module at stage 1 and 3, their summons', () => {
+test('DIY: the 8 owned 6★ picks (shared/local-diy.js) — a form at every slot status with all three skills, every module at stage 1 and 3, their summons', () => {
   const { ownedPool } = backups.diy;
-  assert.deepEqual(ownedPool, [...LOCAL_DIY_PICKS], 'exactly our five, in the picker\'s order');
+  assert.deepEqual(ownedPool, [...LOCAL_DIY_PICKS], 'exactly our eight, in the picker\'s order');
   assert.deepEqual(Object.keys(backups.units), [...ELITES.concat(RESERVES).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), ...LOCAL_DIY_PICKS],
-    'the 17 stand-ins, then our five — no unit for anyone else');
+    'the 17 stand-ins, then our eight — no unit for anyone else');
   let summoners = 0;
   for (const id of ownedPool) {
     const u = backups.units[id];
@@ -265,8 +265,8 @@ test('DIY: the 5 owned 6★ picks (shared/local-diy.js) — a form at every slot
     }
     if (summons) summoners++;
   }
-  assert.equal(summoners, 2, 'owned picks with summons: 望 (棋子), 维什戴尔 (魂灵之影)');
-  assert.deepEqual(Object.keys(backups.tokens).sort(), ['token_10035_wisdel_wward', 'token_10064_wang_stone1']);
+  assert.equal(summoners, 4, 'owned picks with summons: 望 (棋子), 维什戴尔 (魂灵之影), 凯尔希·思衡托 (战术锚点), 予愿安洁莉娜 (“一会儿见！”)');
+  assert.deepEqual(Object.keys(backups.tokens).sort(), ['token_10035_wisdel_wward', 'token_10064_wang_stone1', 'token_10068_kalts2_mtship', 'token_10071_aglna2_agairp']);
   for (const [id, rec] of Object.entries(backups.tokens)) {
     assert.deepEqual(Object.keys(rec.variants), rec.owners, `${id}: owners = variant keys`);
     for (const o of rec.owners) assert.ok(/^char_\w+@\d+\/\d+\/\d+\/\d+$/.test(o) && ownedPool.includes(o.split('@')[0]), `${id}: owner ${o}`);
@@ -280,18 +280,22 @@ test('DIY: the 5 owned 6★ picks (shared/local-diy.js) — a form at every slot
   assert.deepEqual([stone.placeable, stone.variants['char_2027_wang@2/60/7/3'].sources], [true, ['talent', 'skill', 'display']]);
   const shade = backups.tokens.token_10035_wisdel_wward;
   assert.deepEqual([shade.placeable, shade.variants['char_1035_wisdel@2/60/7/3'].sources], [false, ['talent', 'display']]);
+  // 凯尔希·思衡托's 战术锚点 a hand piece (S3's overrideTokenKey, displayed); 予愿安洁莉娜's “一会儿见！” S3's own marker, never a hand piece
+  const anchor = backups.tokens.token_10068_kalts2_mtship;
+  assert.deepEqual([anchor.placeable, anchor.rangedTilesOnly, anchor.ownerRangeOutside, anchor.variants['char_1052_kalts2@2/60/7/3'].sources], [true, true, true, ['display']]);
+  assert.equal(backups.tokens.token_10071_aglna2_agairp.placeable, false);
 });
 
 test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every subPower vs powerIdList, else 协防干员)', () => {
   const { ownedPool, operators } = backups.diy;
   const roster = new Set(base.map((c) => c.charId).filter(Boolean));
-  assert.equal(ownedPool.length, 5);
+  assert.equal(ownedPool.length, 8);
   for (const id of ownedPool) {
     assert.ok(!roster.has(id), `${id}: a roster operator is never a pick`);
     assert.deepEqual([operators[id].rarity, operators[id].obtainable], [6, true], id);
   }
   assert.deepEqual(Object.keys(operators), ownedPool, 'an operators entry for every pick and no one else');
-  assert.equal(backups.diy.excluded, undefined, 'no collab exclusion list: the pool is our five');
+  assert.equal(backups.diy.excluded, undefined, 'no collab exclusion list: the pool is our eight');
   const core = Object.values(bonds).filter((b) => b.isCore && b.powerIdList.length);
   assert.equal(core.length, 8);
   for (const [id, o] of Object.entries(operators)) {
@@ -300,14 +304,15 @@ test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every 
   }
   assert.deepEqual(Object.fromEntries(ownedPool.map((id) => [id, operators[id].bonds])), {
     char_2027_wang: ['yanShip'], char_1050_chen3: ['yanShip'], char_1035_wisdel: ['emptyShip'], char_4182_oblvns: ['emptyShip'], char_4132_ascln: ['emptyShip'],
-  }, '望 / 赤刃明霄陈 炎, the others 协防干员');
+    char_1052_kalts2: ['emptyShip'], char_4231_clemnt: ['egirShip'], char_1015_aglna2: ['siracusaShip'],
+  }, '望 / 赤刃明霄陈 炎, 克莱门莎 阿戈尔, 予愿安洁莉娜 叙拉古, the others 协防干员');
 });
 
 test('DIY: powers and the owned pool re-derived from character_table', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {
   const CT = raw('character_table');
   const act = raw('activity_table').activity.AUTOCHESS_SEASON.act2autochess;
   const roster = new Set(Object.values(act.charShopChessDatas).map((r) => r.charId).filter(Boolean));
-  // each of our five is a legal pick of the excel: an obtainable 6★ outside the chess pool
+  // each of our picks is a legal pick of the excel: an obtainable 6★ outside the chess pool
   for (const id of backups.diy.ownedPool) {
     const c = CT[id];
     assert.ok(c && c.rarity === 'TIER_6' && !['TOKEN', 'TRAP'].includes(c.profession) && !c.isNotObtainable && !roster.has(id), `${id}: legal`);

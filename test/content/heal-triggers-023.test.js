@@ -1,8 +1,8 @@
-// 塞雷娅 S1 急救 heals at her attack cadence with no enemy (upstream e86c7c83, GitHub #406; its 黍 and 凯尔希·思衡托 cases are
-// not in this fork's pool).
+// 塞雷娅 S1 急救 heals at her attack cadence with no enemy (upstream e86c7c83, GitHub #406; its 黍 case is not in this fork's
+// pool), and 凯尔希·思衡托 S2 casts for an enemy of its y-11, never for an injured ally alone.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeBattle, chessRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 const GUARDIANS = [
   { chessId: 'chess_char_5_11_b', skillIndex: 0 },
 ];
@@ -56,5 +56,18 @@ for (const entry of GUARDIANS) {
     assert.ok(u.skill.activate('test'));p.hp = p.s.maxHp;h.step();
     assert.equal(u.skill.pending, false);assert.equal(u.skill.charges, charges);
     checkInvariants(h.b);assert.deepEqual(h.b.errors, []);
+  });
+}
+for (const motion of ['WALK', 'FLY']) {
+  test(`凯尔希·思衡托 S2 opens for a selectable ${motion} enemy only in the expanded range, without an injured ally`, () => {
+    const h = makeBattle({ autoFinish: false,
+      defs: { enemies: { target: enemyRec({ key: 'target', motion, hp: 1e8, atk: 0, speed: 0 }) } },
+      units: [{ uid: 1, diy: { slot: 6, charId: 'char_1052_kalts2', skillIndex: 1 }, elite: true, row: 10, col: 4 }] });
+    h.step();const u = h.unit(1);u.skill.gainSp(999);h.run(0.5);assert.equal(u.skill.activations, 0);
+    const e = h.spawn('target', { pos: [10, 7] });h.b.applyStatus(e, 'sleep', { duration: 1 });
+    assert.equal(h.b.enemiesInKeys(u.baseRangeKeys, u, { canHitFly: true }).length, 0);
+    h.run(0.5);assert.equal(u.skill.activations, 0, 'sleep cannot open the mixed skill');
+    assert.ok(h.runUntil(() => u.skill.active, 3));
+    assert.equal(u.skill.activations, 1);checkInvariants(h.b);assert.deepEqual(h.b.errors, []);
   });
 }

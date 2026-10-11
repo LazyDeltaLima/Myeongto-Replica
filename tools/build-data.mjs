@@ -1128,7 +1128,7 @@ function buildChess(ctx) {
 // ===== backups (补位 stand-ins, 自选 DIY slots) ===================================================
 
 /**
- * The 自选 picks this server offers (shared/local-diy.js LOCAL_DIY_PICKS, the owner's five 선발 operators — 丰川祥子 a
+ * The 自选 picks this server offers (shared/local-diy.js LOCAL_DIY_PICKS, the owner's 선발 operators — 丰川祥子 a
  * collab upstream leaves out): the whole owned-6★ pool of data/backups.json, built in that order. Upstream's 72-operator
  * pool and its prototype picks (原型干员 / 预备干员 at tier 5 and 6) are gone with the hard fork from 0.2.0
  * (2026-10-07): `diy.prototypes` is empty at every slot tier, while the prototypes stay units as 补位 stand-ins.

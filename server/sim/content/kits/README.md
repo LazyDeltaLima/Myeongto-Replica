@@ -138,9 +138,10 @@ every active backup skill is cast).
 ## How to add an operator (自选)
 
 The 自选 (self-select) slots — two at tier 5, two at tier 6 — field a 6★ the player owns that is not in the chess pool
-(DATA.md §18, `shared/diy.js`; upstream also offers prototypes, this server none). This server offers the owner's five
-(`shared/local-diy.js LOCAL_DIY_PICKS`: 望, 赤刃明霄陈, 维什戴尔, 丰川祥子, 阿斯卡纶); upstream's other owned-6★ picks and
-their kits are gone with the hard fork from 0.2.0 (2026-10-07). Another operator needs the owner's decision, then:
+(DATA.md §18, `shared/diy.js`; upstream also offers prototypes, this server none). This server offers the owner's picks
+(`shared/local-diy.js LOCAL_DIY_PICKS`: 望, 赤刃明霄陈, 维什戴尔, 丰川祥子, 阿斯卡纶, and since 2026-10-11 凯尔希·思衡托, 克莱门莎,
+予愿安洁莉娜 — upstream's kits brought back, `docs/rules/diy.md`); upstream's other owned-6★ picks and their kits are gone
+with the hard fork from 0.2.0 (2026-10-07). Another operator needs the owner's decision, then:
 `LOCAL_DIY_PICKS` (`tools/build-data.mjs` builds `diy.ownedPool` from it), the data rebuild and a kit of its own — one
 file per operator, the same rules as every kit above.
 
@@ -200,7 +201,7 @@ module at stages 1 and 3 (trait override, talent changes, stats), the range whil
 targetability, damage typing, summons, statuses. Mark what no source settles `[ASSUMED]` in the comment and the pull
 request.
 
-**Tests** — `test/local-patch-diy.test.js` (our five):
+**Tests** — `test/local-patch-diy.test.js` (the first five) and `test/content/op_<codename>.test.js` (the three of 2026-10-11):
 - field the operator the production way: `makeBattle({ units: [{ diy: { slot: 6, charId: 'char_2027_wang',
   skillIndex: 2, uniEquipId: 'uniequip_002_wang' }, elite: true, row: 10, col: 5 }] })` — `slot` = a DIY slot id or its
   tier (5 / 6 ⇒ that tier's first slot), `elite` = the `_b` form, `uniEquipId` null / omitted = no module;

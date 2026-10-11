@@ -37,7 +37,7 @@ test('slots: two per tier (5, 6), each with its elite twin', () => {
   assert.equal(diyTokenOwner(WANG, chess.chess_char_6_diy1_b.status), 'char_2027_wang@2/60/7/3');
 });
 
-test('diyPool: both tiers = our five owned 6★ (shared/local-diy.js), no prototype, no preset; with the kit registry only kitted operators', () => {
+test('diyPool: both tiers = our owned 6★ picks (shared/local-diy.js), no prototype, no preset; with the kit registry only kitted operators', () => {
   assert.deepEqual(prototypes, { 5: [], 6: [] });
   const p5 = diyPool(5, { data: DATA }), p6 = diyPool(6, { data: DATA });
   assert.deepEqual(p5, [...LOCAL_DIY_PICKS]);
@@ -84,7 +84,7 @@ test('checkDiyPick: an owned 6★ chooses any of its 3 skills and any module of 
 });
 
 test('validateDiyPicks: a roster never carries a module of another game mode — 集成战略 ISW-A / SO-A / SO-B, 生息演算 RA-A [ASSUMED, the owner\'s decision of 2026-10-05 for ISW-A]; the record still composes it', () => {
-  // our five have none: every module of theirs is a legal roster pick
+  // our picks have none: every module of theirs is a legal roster pick
   for (const charId of ownedPool) {
     for (const [slot, key] of [[T5, '2/60/7/1'], [T6, '2/60/7/3']]) {
       for (const mod of backups.units[charId].forms[key]?.modules ?? []) {

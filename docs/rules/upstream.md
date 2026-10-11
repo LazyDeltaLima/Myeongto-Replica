@@ -30,10 +30,10 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   남은 플래그는 `kits/ops/op-chen3.js`에서 지웠다(2026-10-08, 동작 영향 없음: golden 전부 일치).
 - 사야 늑대(PR #225)·와파린·라플란드·페페 등은 upstream 구현으로 대체, PR #225가 바꾼 upstream 테스트는 upstream 판으로 되돌렸다.
 
-**선발 오퍼레이터 → upstream 「自选」 틀 (관리자 결정: 후보는 우리 5명만, 시제품 없음)**
+**선발 오퍼레이터 → upstream 「自选」 틀 (관리자 결정: 후보는 우리가 고른 오퍼레이터만 — 처음 5명, 2026-10-11부터 8명 — 시제품 없음)**
 - 슬롯·재고·상점·로드아웃·로비 `room.diy`는 upstream(`shared/diy.js`, `server/match/player/diy.js`, 클라이언트 자선 편성 탭).
-- 후보 제한: `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶). `server/lobby.js` 2줄 — `room.diy` 검사와
-  welcome의 `diyKitted`(클라이언트 고르기 화면이 이것만 보여 준다)를 이 목록으로 거른다. 하드 포크 뒤(1fc07616, 2026-10-07) 데이터도 이 5명뿐이다 —
+- 후보 제한: `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶, 2026-10-11부터 凯尔希·思衡托·克莱门莎·予愿安洁莉娜). `server/lobby.js` 2줄 — `room.diy` 검사와
+  welcome의 `diyKitted`(클라이언트 고르기 화면이 이것만 보여 준다)를 이 목록으로 거른다. 하드 포크 뒤(1fc07616, 2026-10-07) 데이터도 이 목록뿐이다 —
   `tools/build-data.mjs`가 `data/backups.json diy.ownedPool`을 이 목록으로 만들고 `diy.prototypes`는 비어 있으며, 나머지 67명의 키트(`kits/ops/op-<code>.js`·
   `OPERATOR_KIT_FILES` 항목·`kits/shared/summoner.js`)와 그 테스트(`test/content/op_<code>.test.js`)는 지웠다. 로비 검사는 데이터 위에 한 겹 더 거르는 것이다.
   `shared/diy.js`(upstream 틀)는 그대로.
@@ -132,6 +132,12 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   (`enterBandDraft`·`skipBand`), `spDraft.js enterSpDraft`, `public/js/screens/room.js AiLastToggle`. 우리 판과 문맥이 달라 손으로 옮김(`git apply`
   거부 4곳), 문서는 `docs/PLAYING.md`·`docs/design/{match,client,network}.md`. #338의 봇별 진영·금지 프리셋은 upstream도 넣지 않았다.
   테스트: `test/lobby-ai-last.test.js`, `test/match/ai-picks-last.test.js`, `test/ui/ai-picks-last.test.js`(upstream 그대로).
+
+- **선발 키트 3개** (upstream `master` 0.2.4-dev `6bfc0827` 시점의 `kits/ops/op-{kalts2,clemnt,aglna2}.js`와 테스트, 관리자 결정 2026-10-11):
+  凯尔希·思衡托·予愿安洁莉娜는 `1fc07616`에서 지운 것을 되살리고(upstream `0451860c`·`5029b646`과 그 뒤 수정), 克莱门莎는 upstream `2e122873`·`ba5b998a`·
+  `708caf7d`·`6bfc0827`. 우리 「스킬 범위 발동」에 맞춰 凯尔希·思衡托 S2의 키트 발동 규칙과 克莱门莎 S2의 #467 공중 발동 범위는 받지 않음. 관련 upstream
+  테스트 묶음(`heal-triggers-023`의 S2 발동, `feedback5-we2-placement` #26, `feedback5-we2-summon-hand` #24, `community-round27`의 予愿 2개)도 옮김.
+  #469(결과 화면 선발 이름, `server/match/fields.js`)는 안 받음 — 별개 버그. 자세한 것은 `diy.md` 「선발 추가 3명 (2026-10-11)」.
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.

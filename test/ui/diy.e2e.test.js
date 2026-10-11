@@ -1,7 +1,7 @@
 // Real-server browser E2E of 0.2.0 自选编队 end to end (research 0.2.0 §2; the owner's decisions of 2026-10-05): the
 // 自选编队 tab of the 干员调配 overlay fills the first tier-5 slot with 赤刃明霄陈 (real clicks: the slot, the operator,
 // S3, the AFT-X module, 确认; persisted in localStorage; room.diy → session → seat → the next match's m.private.diy); the
-// picker lists our five only (shared/local-diy.js: no prototype); in the match the 调度中心 is at level 5 and the shop
+// picker lists our picks only (shared/local-diy.js: no prototype); in the match the 调度中心 is at level 5 and the shop
 // sells the slot as 赤刃明霄陈 (no 「自选」 badge or tag since the maintainer's decision of 2026-10-08); bought, the hand piece draws her model;
 // deployed, the detail card shows 赤刃明霄陈 with the pick's skill; and in the browser's own battle (client-side combat)
 // the unit is the operator — the b.start spec carries the pick (`diy`), the local sim fields char_1050_chen3 with her
@@ -24,7 +24,8 @@ const SLOT = 'chess_char_5_diy1_a';
 const CHEN3 = 'char_1050_chen3';
 const ASCLN = 'char_4132_ascln'; // 阿斯卡纶: two advanced modules, legal in the 5阶 and 6阶 slots
 const PICK = { charId: CHEN3, skillIndex: 2, uniEquipId: 'uniequip_002_chen3' };
-const LOCAL_FIVE = ['char_2027_wang', 'char_1050_chen3', 'char_1035_wisdel', 'char_4182_oblvns', 'char_4132_ascln'];
+const LOCAL_PICKS = ['char_2027_wang', 'char_1050_chen3', 'char_1035_wisdel', 'char_4182_oblvns', 'char_4132_ascln',
+  'char_1052_kalts2', 'char_4231_clemnt', 'char_1015_aglna2'];
 
 describe('自选编队 picker: reselecting retains the draft (real server, no art needed)', { skip: !UI_ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
   for (const slot of [SLOT, 'chess_char_6_diy1_a']) {
@@ -180,7 +181,7 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
       await c.click(`.diy-slot[data-slot="${SLOT}"] .diy-slot__fill`);
       await c.page.waitForSelector(`[data-testid="diy-picker"] .diy-opt[data-char="${CHEN3}"]`, { visible: true, timeout: 8000 });
       const listed = await c.page.evaluate(() => [...document.querySelectorAll('[data-testid="diy-picker"] .diy-opt')].map((el) => el.dataset.char));
-      assert.deepEqual([...listed].sort(), [...LOCAL_FIVE].sort(), 'our five, no prototype');
+      assert.deepEqual([...listed].sort(), [...LOCAL_PICKS].sort(), 'our picks, no prototype');
       await c.click(`[data-testid="diy-picker"] .diy-opt[data-char="${CHEN3}"]`);
       await c.page.waitForSelector('[data-testid="diy-picker"] .diy-choice[data-skill="2"]', { visible: true, timeout: 5000 });
       await c.click('[data-testid="diy-picker"] .diy-choice[data-skill="2"]');

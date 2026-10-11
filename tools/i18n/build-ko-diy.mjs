@@ -1,4 +1,4 @@
-// tools/i18n/build-ko-diy.mjs — 선발 오퍼레이터(data/backups.json의 선발 5명) 한국어 사전 (local patch, docs/rules/diy.md)
+// tools/i18n/build-ko-diy.mjs — 선발 오퍼레이터(data/backups.json의 선발 오퍼레이터) 한국어 사전 (local patch, docs/rules/diy.md)
 // build-ko-data-dict.mjs와 같은 생각: data/backups.json(중국어)은 그대로 두고, 같은 빌더(tools/build-data.mjs buildBackups)를
 // 한국어 문자열을 넣은 테이블로 한 번 더 돌려 같은 경로의 문자열끼리 짝지어 public/i18n/ko/diy.json ({ "중국어": "한국어" })을
 // 만든다. 대상은 선발 오퍼레이터(shared/local-diy.js LOCAL_DIY_PICKS)의 unit·소환물·operators 항목이고, 잠재 1–6 전부를 짝짓는다
@@ -7,7 +7,7 @@
 // 한국어 원천 (원천 문자열마다, 같은 JSON 경로로):
 //   1. KR 공식 테이블 (Kengxxiao/ArknightsGameData_YoStar ko_KR: character / skill / uniequip / battle_equip) — 한국 서버에 있는
 //      오퍼레이터(위셔델, 아스카론)와 공통 문구
-//   2. tools/i18n/diy-ko-manual.json { "중국어 원천 문자열": "한국어" } — 한국 서버에 없는 오퍼레이터(望, 赤刃明霄陈, 丰川祥子).
+//   2. tools/i18n/diy-ko-manual.json { "중국어 원천 문자열": "한국어" } — 한국 서버에 없는 오퍼레이터(望, 赤刃明霄陈, 丰川祥子, 凯尔希·思衡托, 克莱门莎, 予愿安洁莉娜).
 //      자리표시자({atk:0%} 등)와 <@ba.vup> 태그는 원문 그대로 둔다. 번역은 KR 공식 문체에 맞춘 수동 번역 [비공식].
 //
 // 사용:

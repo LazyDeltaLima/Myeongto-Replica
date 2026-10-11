@@ -28,14 +28,14 @@
 //            险境 / 绝境 / 终极 ×2 seeds, co-op 2 / 3 / 4, one server-run combat match, two with LP and layers raised at the
 //            first prep so they reach the Hidden Core), one co-op match whose human seat (AI 托管, offline: its
 //            battles run on the server) does not own a few NORMAL chess — they fight as their 补位 stand-ins (0.2.0) — and
-//            one whose human seat slots 自选 picks (four of our five; its 调度中心 at level 5 from the first prep):
+//            one whose human seat slots 自选 picks (four of our picks; its 调度中心 at level 5 from the first prep):
 //            its shop sells them and its AI fields them (0.2.0 自选编队, the digest's `diy`)
 //   standins 10 battles: every NORMAL chess record (normal + elite, 110) fielded as its 补位 stand-in (PlayerBattleInput
 //            standIn: true — DATA.md §18: the stand-in's body, its backup skill / module, its kit by charId; all 17
 //            stand-ins and every skill a chess names for them), 12 per battle by strength band, laid out by the stand-in's
 //            position on a real stage, against the round's real wave three times over, an item each, bonds from the board
 //   diy      自选 pieces (PlayerBattleInput `diy`, shared/diy.js): every owned 6★ with an operator kit (kits/index.js
-//            OPERATOR_KITS: our five) in each form of tiers 5 and 6 — normal, elite with no module and with each module —
+//            OPERATOR_KITS: our picks) in each form of tiers 5 and 6 — normal, elite with no module and with each module —
 //            under each of its skills, then every prototype pick with a kit at its locked selection (none on this server:
 //            data/backups.json diy.prototypes is empty), both forms of each tier;
 //            12 pieces per battle on a real stage against the round's real wave three times over (diyScenarios)
@@ -719,7 +719,7 @@ export function matchScenarios() {
   out.push({ id: 'coop2-ABYSS-10-boosted', mode: 'coop', difficulty: 'ABYSS', bots: 2, seed: 10, boost: { lp: 400, layers: 300 } });
   // 0.2.0 补位: a human seat (AI 托管, offline: its battles run on the server) that does not own a few NORMAL chess
   out.push({ id: 'coop2-NORMAL-14-standins', mode: 'coop', difficulty: 'NORMAL', bots: 1, seed: 14, human: { notOwned: MATCH_NOT_OWNED } });
-  // 0.2.0 自选编队: a human seat (AI 托管, offline) that slots four of our five 自选 picks into the four DIY slots
+  // 0.2.0 自选编队: a human seat (AI 托管, offline) that slots four of our 自选 picks into the four DIY slots
   // (its 调度中心 starts at level 5, like the boosted runs' raised LP: the 自选 pieces are sold from level 5 / 6, which the
   // AI otherwise reaches only with a full board, where a single new operator rarely improves its lineup)
   out.push({ id: `coop2-NORMAL-${MATCH_DIY_SEED}-diy`, mode: 'coop', difficulty: 'NORMAL', bots: 1, seed: MATCH_DIY_SEED, human: { diy: MATCH_DIY, shopLevel: 5 } });

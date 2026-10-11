@@ -1,11 +1,12 @@
 // test/content/feedback5-we2-summon-hand.test.js — 0.2.0 WE2 #21: the hand count of every 自选 summoner's placeable summon
 // is its deploy limit (PRTS 卫戍协议/帮助 §战斗部署 "根据召唤物部署数量上限（非初始持有量），发送等量召唤物至手牌区"), and the
 // data's deploy limit / holding carry the tokens' own talent additions (tools/build-data.mjs tokenTalentDeckBonus: the
-// hidden "TOKEN数" talent max_deploy_count / max_deck_stack_cnt on top of the attribute frame). On this server the only
-// 自选 summoner with a placeable summon is 望 ("可以使用6枚棋子" — 7 at full potential (望's 潜能 3 「第一天赋效果增强」, the
-// owner's decision of 2026-10-07, upstream 806a0477) —, TRP-X +1); upstream's other summoners are gone.
+// hidden "TOKEN数" talent max_deploy_count / max_deck_stack_cnt on top of the attribute frame). On this server the 自选
+// summoners with a placeable summon are 望 ("可以使用6枚棋子" — 7 at full potential (望's 潜能 3 「第一天赋效果增强」, the
+// owner's decision of 2026-10-07, upstream 806a0477) —, TRP-X +1) and 凯尔希·思衡托 (S3's one 战术锚点); upstream's other
+// summoners are gone.
 // #24: a summon no owner shows (displayTokenDict: the variants' `display` source) is its skill's own object, never a hand
-// card.
+// card — 予愿安洁莉娜 S3's “一会儿见！” (PRTS 予愿安洁莉娜 S3 备注: the skill deploys it at her initial tile).
 // Run: node --test test/content/feedback5-we2-summon-hand.test.js
 
 import { test } from 'node:test';
@@ -44,7 +45,7 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
       owners.get(cid).add(tid);
     }
   }
-  assert.deepEqual([...owners.keys()], ['char_2027_wang']);
+  assert.deepEqual([...owners.keys()].sort(), ['char_1052_kalts2', 'char_2027_wang']);
   let checked = 0;
   for (const [charId] of owners) {
     if (!BACKUPS.diy.ownedPool.includes(charId)) continue;
@@ -68,7 +69,7 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
       }
     }
   }
-  assert.equal(checked, 18, "2 tiers × (3 normal + 3 skills × (no module, TRP-X) elite)");
+  assert.equal(checked, 22, "望: 2 tiers × (3 normal + 3 skills × (no module, TRP-X) elite); 凯尔希·思衡托: 2 tiers × S3 (normal, elite)");
 });
 
 test('the data: deploy limit / holding = the attribute frame + the token talents\' max_deploy_count / max_deck_stack_cnt (a module token part of the same talent replaces it)', () => {
@@ -82,11 +83,25 @@ test('the data: deploy limit / holding = the attribute frame + the token talents
   assert.equal(tokens.token_10000_silent_healrb.variants.chess_char_2_02_a.stats.deployLimit, 1);
 });
 
-test('#24 a summon no owner shows is never a hand card: every placeable summon is displayed, every undisplayed one HIDDEN', () => {
+test('#24 a summon no owner shows is never a hand card: 予愿安洁莉娜 S3\'s “一会儿见！” is not placeable, every placeable summon is displayed', () => {
+  const MARKER = 'token_10071_aglna2_agairp';
+  const AGLNA2 = 'char_1015_aglna2';
+  assert.equal(BACKUPS.tokens[MARKER].placeable, false);
   const shows = (v) => (v.sources ?? []).includes('display') || Object.values(v.bySkill ?? {}).some((a) => (a.sources ?? []).includes('display'));
   for (const t of [...Object.values(load('tokens')), ...Object.values(BACKUPS.tokens)]) {
     if (t.kind !== 'summon') continue;
     if (t.placeable) assert.ok(Object.values(t.variants).some(shows), `${t.tokenId} ${t.name}: placeable and displayed`);
-    else if (!Object.values(t.variants).some(shows)) assert.equal(t.displayType, 'HIDDEN', `${t.tokenId} ${t.name}: undisplayed ⇒ HIDDEN`);
+    else if (!Object.values(t.variants).some(shows)) assert.ok(t.displayType === 'HIDDEN' || t.tokenId === MARKER, `${t.tokenId} ${t.name}: undisplayed ⇒ HIDDEN (or the marker)`);
+  }
+  for (const tier of [5, 6]) {
+    for (const elite of [false, true]) {
+      const slot = diySlot(SLOT[tier], DATA);
+      const id = elite ? slot.goldenId : slot.baseId;
+      for (const skillIndex of [0, 1, 2]) {
+        const rec = diyRecord(SLOT[tier], { charId: AGLNA2, skillIndex, uniEquipId: null }, { elite, data: DATA });
+        const view = diyGameData(gd, new Map([[id, rec]]));
+        assert.deepEqual(view.placeableTokens(id, { skillIndex, moduleId: null }), [], `T${tier} ${elite ? 'elite' : 'normal'} S${skillIndex + 1}: no hand piece`);
+      }
+    }
   }
 });

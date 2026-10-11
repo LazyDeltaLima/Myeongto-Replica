@@ -1109,7 +1109,8 @@ describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.finish, local debug 
     assert.equal(ps.funds, 99, 'unpinned: starts from the pinned value');
     assert.ok(ps.spend(4)); assert.equal(ps.funds, 95);
     assert.equal(debugView(ps).fundsPin, false);
-    assert.deepEqual(debugView(ps).candidates.map((c) => c.charId), ['char_2027_wang', 'char_1050_chen3', 'char_1035_wisdel', 'char_4182_oblvns', 'char_4132_ascln'], 'the five offered 自选 picks (shared/local-diy.js)');
+    assert.deepEqual(debugView(ps).candidates.map((c) => c.charId), ['char_2027_wang', 'char_1050_chen3', 'char_1035_wisdel', 'char_4182_oblvns', 'char_4132_ascln',
+      'char_1052_kalts2', 'char_4231_clemnt', 'char_1015_aglna2'], 'the eight offered 自选 picks (shared/local-diy.js)');
   });
 
   test('dbg.addDiy sets a 自选 pick on a slot of the tier and puts its chess into the hand (merges), refuses a full hand and non-candidates', async () => {

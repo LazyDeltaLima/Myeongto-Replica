@@ -17,7 +17,7 @@ const VENDLA_CHAR = chess(VENDLA).charId;
 const GRANI = Object.values(DATA.chess).find((c) => c.chessType === 'NORMAL' && !c.isGolden && c.visible && c.backup?.charId && c.backup.charId !== c.charId);
 const T6A = 'chess_char_6_diy1_a';
 const T5A = 'chess_char_5_diy1_a';
-const CHEN3 = 'char_1050_chen3';   // an owned 自选 pick (one of our five)
+const CHEN3 = 'char_1050_chen3';   // an owned 自选 pick (one of our picks)
 const ASCLN = 'char_4132_ascln';
 const WANG = 'char_2027_wang';
 const SHARP = 'char_609_acguad';
@@ -41,7 +41,7 @@ test('room.loadout ops: structure (≤ 256 charIds → { potential 1–6?, culti
     { [VENDLA_CHAR]: { potential: 1, trust: 100 } }]) assert.ok(!ok(bad), JSON.stringify(bad));
   const many = Object.fromEntries(Array.from({ length: LOADOUT_LIMITS.ops + 1 }, (_, i) => [`char_${i}`, { potential: 1 }]));
   assert.ok(!isLoadoutOps(many));
-  // the operators one may set: the 112-chess roster's charIds (hidden twins share them) and the owned 自选 picks (our five)
+  // the operators one may set: the 112-chess roster's charIds (hidden twins share them) and the owned 自选 picks (shared/local-diy.js)
   assert.ok(IDS.has(VENDLA_CHAR) && IDS.has(CHEN3) && IDS.has(WANG));
   assert.ok(!IDS.has(SHARP) && !IDS.has(GRANI.backup.charId), 'a prototype / stand-in character is no setting');
   assert.ok(IDS.size >= 110 && IDS.size <= 125, `${IDS.size}`);

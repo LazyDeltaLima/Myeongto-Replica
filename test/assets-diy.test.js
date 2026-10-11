@@ -20,7 +20,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const load = (f) => JSON.parse(readFileSync(join(ROOT, 'data', `${f}.json`), 'utf8'));
 const BACKUPS = load('backups');
 const CHESS = load('chess');
-// since the hard fork (2026-10-07) backups.json holds only the 补位 stand-ins and our five picks (shared/local-diy.js):
+// since the hard fork (2026-10-07) backups.json holds only the 补位 stand-ins and our eight picks (shared/local-diy.js):
 // every unit is planned
 const PLANNED = Object.keys(BACKUPS.units);
 /** Operators no 自选 slot offers here, spot checks: upstream's collab exclusions (焰狐龙梓兰 MH05 among them) and owned picks it offers. */
@@ -32,10 +32,10 @@ const FEXLI = 'https://raw.githubusercontent.com/fexli/ArknightsResource/main/';
 test('dataExtras: every backups.json unit (skills by index, once), the 自选 summons, the type icon of every module of chess.json and backups.json', () => {
   const x = dataExtras(BACKUPS, CHESS);
   assert.deepEqual(Object.keys(x.extraOperators), PLANNED, 'the stand-ins and the offered picks');
-  assert.deepEqual(PLANNED.filter((id) => !BACKUPS.units[id].standsIn.length), [...LOCAL_DIY_PICKS], 'the picks: our five');
+  assert.deepEqual(PLANNED.filter((id) => !BACKUPS.units[id].standsIn.length), [...LOCAL_DIY_PICKS], 'the picks: our eight');
   assert.equal(x.extraOperators.char_112_siege, undefined, '推进之王 is not offered here');
   assert.deepEqual(x.extraOperators.char_2027_wang.skills.map((s) => s.skillId), ['skchr_wang_1', 'skchr_wang_2', 'skchr_wang_3']);
-  assert.deepEqual(x.tokenIds, ['token_10035_wisdel_wward', 'token_10064_wang_stone1'], 'the summons of our picks');
+  assert.deepEqual(x.tokenIds, ['token_10035_wisdel_wward', 'token_10064_wang_stone1', 'token_10068_kalts2_mtship', 'token_10071_aglna2_agairp'], 'the summons of our picks');
   const types = new Set();
   for (const c of Object.values(CHESS)) for (const m of c.modules || []) types.add(m.typeIcon);
   for (const id of PLANNED) for (const f of Object.values(BACKUPS.units[id].forms)) for (const m of f.modules || []) types.add(m.typeIcon);

@@ -1,9 +1,10 @@
 // test/local-patch-diy.test.js — the nas-local 선발 (自选) picks on upstream 0.2.0's 自选 framework (local patch,
-// docs/LOCAL-PATCH.md 「선발 오퍼레이터」): only the owner's five picks are offered and accepted (shared/local-diy.js: the
+// docs/LOCAL-PATCH.md 「선발 오퍼레이터」): only the owner's eight picks are offered and accepted (shared/local-diy.js: the
 // server's welcome `diyKitted` and its room.diy check — server/lobby.js), they are the whole 自选 data of
-// data/backups.json (tools/build-data.mjs builds it from LOCAL_DIY_PICKS, 丰川祥子 included; no prototype), and the five
-// kits (server/sim/content/kits/ops/op-wang.js, op-chen3.js, op-wisdel.js, op-oblvns.js, op-ascln.js — the former
-// kits/diy.js) keep the behaviour the owner decided. Every operator is fielded the production
+// data/backups.json (tools/build-data.mjs builds it from LOCAL_DIY_PICKS, 丰川祥子 included; no prototype), and the first
+// five kits (server/sim/content/kits/ops/op-wang.js, op-chen3.js, op-wisdel.js, op-oblvns.js, op-ascln.js — the former
+// kits/diy.js) keep the behaviour the owner decided (the three added 2026-10-11 — 凯尔希·思衡托, 克莱门莎, 予愿安洁莉娜 — have
+// their own test/content/op_<code>.test.js). Every operator is fielded the production
 // way: a DIY slot + its `diy` pick (test/helpers/battleHarness.js `diy`), the elite with its X module (the module our
 // former 선발 records carried by default), and the 望 stone tests also through the real match path (Match board →
 // battleInput → BattleSpec → createBattleFromSpec).
@@ -29,6 +30,8 @@ const DATA = { chess: CHESS, backups: BACKUPS };
 
 const ENEMY = 'enemy_1422_lrsldr';
 const CHAR = { wang: 'char_2027_wang', chen3: 'char_1050_chen3', wisdel: 'char_1035_wisdel', oblvns: 'char_4182_oblvns', ascln: 'char_4132_ascln' };
+/** Every pick offered, in the picker's order: the first five (CHAR, tested here) and the three of 2026-10-11. */
+const PICKS = [...Object.values(CHAR), 'char_1052_kalts2', 'char_4231_clemnt', 'char_1015_aglna2'];
 const STONE = 'token_10064_wang_stone1';
 const SHADE = 'token_10035_wisdel_wward';
 const MOD = (key) => `uniequip_002_${key}`;
@@ -51,19 +54,19 @@ const battle = (key, sk, r, c, extra = [], secs = 25) => {
 const POS = { wang: [11, 3], chen3: [10, 4], wisdel: [11, 4], oblvns: [10, 4], ascln: [10, 4] };
 
 describe('선발 picks on upstream 自选 (shared/local-diy.js, server/lobby.js welcome / room.diy, tools/build-data.mjs)', () => {
-  test('offered: the welcome\'s diyKitted is exactly the owner\'s five in his order — the client picker (diyPool kitted) shows them only', async () => {
+  test('offered: the welcome\'s diyKitted is exactly the owner\'s eight in his order — the client picker (diyPool kitted) shows them only', async () => {
     const { Lobby } = await import('../server/lobby.js');
-    assert.deepEqual([...LOCAL_DIY_PICKS], Object.values(CHAR));
+    assert.deepEqual([...LOCAL_DIY_PICKS], PICKS);
     const kitted = Lobby.prototype.welcomeInfo.call({}).diyKitted;
-    assert.deepEqual([...kitted].sort(), Object.values(CHAR).sort());
-    for (const tier of [5, 6]) assert.deepEqual(diyPool(tier, { data: DATA, kitted }).sort(), Object.values(CHAR).sort(), `tier ${tier}`);
-    // the data is our five (hard fork 2026-10-07, tools/build-data.mjs): upstream's other owned picks and the prototypes are gone
+    assert.deepEqual([...kitted].sort(), [...PICKS].sort());
+    for (const tier of [5, 6]) assert.deepEqual(diyPool(tier, { data: DATA, kitted }).sort(), [...PICKS].sort(), `tier ${tier}`);
+    // the data is our eight (hard fork 2026-10-07, tools/build-data.mjs): upstream's other owned picks and the prototypes are gone
     assert.deepEqual(BACKUPS.diy.ownedPool, [...LOCAL_DIY_PICKS]);
     assert.deepEqual(BACKUPS.diy.prototypes, { 5: [], 6: [] });
     assert.equal(isPrototypePick(DATA, 6, 'char_609_acguad'), false, 'a stand-in is no 自选 prototype here');
-    assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), [...LOCAL_DIY_PICKS], 'diyPool with the whole kit list: still the five');
+    assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), [...LOCAL_DIY_PICKS], 'diyPool with the whole kit list: still the eight');
     assert.equal(isLocalDiyPick('char_112_siege'), false);
-    assert.deepEqual(Object.keys(OPERATOR_KITS).sort(), Object.values(CHAR).sort(), 'a kit (ops/op-<codename>.js) for each of the five, no other');
+    assert.deepEqual(Object.keys(OPERATOR_KITS).sort(), [...PICKS].sort(), 'a kit (ops/op-<codename>.js) for each of the eight, no other');
   });
 
   test('accepted: room.diy keeps the five and drops anyone else (another owned 6★, a prototype, a reserve) — the seat never holds one', async () => {

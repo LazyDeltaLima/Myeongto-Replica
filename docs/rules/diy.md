@@ -9,9 +9,10 @@
   정규 맹약이다 — `activity_table` `autoChessData.bondInfoDict`의 `isPower` 맹약 8개의 `powerIdList`에 叙拉古 [siracusa, chiave]·卡西米尔
   [kazimierz, pinus]가 있다(2026-10-10 대조, 그 전엔 「확장은 [추정]」; `tools/build-data.mjs buildBackups`가 이 표로 정함).
 - 지금 구현(0.2.0부터): upstream 「自选」 틀이 선발 칸·재고·상점·보상·밴을 맡는다(`server/match/player/diy.js initDiyStock`, `shared/diy.js`, 데이터
-  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 직접 구현·대조한 5명으로 줄인다:
-  `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고,
-  `server/lobby.js`가 다른 픽을 거부한다. 키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
+  `data/backups.json` `diy`). 맹약이 전부 꺼진 픽은 그 판 재고가 없다(`m.private.diyBanned`). 이 포크는 후보를 구현·대조한 8명으로 줄인다:
+  `shared/local-diy.js LOCAL_DIY_PICKS`(望·赤刃明霄陈·维什戴尔·丰川祥子·阿斯卡纶, 2026-10-11부터 凯尔希·思衡托·克莱门莎·予愿安洁莉娜 — 아래
+  「선발 추가 3명 (2026-10-11)」) — `tools/build-data.mjs`가 이것으로 `diy.ownedPool`을 만들고, `server/lobby.js`가 다른 픽을 거부한다.
+  키트는 `server/sim/content/kits/ops/op-{wang,chen3,wisdel,oblvns,ascln,kalts2,clemnt,aglna2}.js`(등록 `kits/index.js OPERATOR_KIT_FILES`).
   틀의 자세한 규칙은 `server/sim/content/kits/README.md`, 병합 경위는 `upstream.md` 「0.2.0 병합」.
 - 0.2.0 전(2026-10-05 ~ 10-07)에는 전용 데이터·풀·UI를 직접 만들었다. 그 구현은 지웠고, 그때 정한 키트 동작과 관리자 결정은 `op-*.js`로 옮겨져 아래에 남는다.
 - 키트:
@@ -403,6 +404,34 @@
 - 범위 피해가 있는 스킬마다 은신 적(예: 隐形弩手)을 맞히지 않는 테스트.
 - 함정 소환물은 공격 대상이 안 되는지, 정비 때 놓은 자리가 전투 시작 후에도 같은지.
 - 탄약·지속 스킬은 종료 조건과 종료 후 반환값.
+
+## 선발 추가 3명 (2026-10-11, 관리자 결정)
+- 관리자 결정 2026-10-11: 선발에 凯尔希·思衡托(`char_1052_kalts2`, 6성 메딕 守望者), 克莱门莎(`char_4231_clemnt`, 6성 가드 本源近卫),
+  予愿安洁莉娜(`char_1015_aglna2`, 6성 스페셜리스트 巡空者)를 넣는다(`shared/local-diy.js LOCAL_DIY_PICKS` 끝에 이 순서). 셋 다 한국 서버 출시 전이라
+  한국어 이름·문구는 비공식 수동 번역이다(`tools/i18n/diy-ko-manual.json`): 켈시 에스페란타 · 클레멘티아 · 안젤리나 더 멜로우 위시(글로벌 이격
+  이름 규칙 「○○ 더 △△」을 따름), 소환물 전술 앵커 · 「이따 봐!」, 직군 守望者 = 파수꾼, 용어 缚地 = 지면 속박 · 对空庇护 = 대공 가호(KR 표에
+  없는 용어. 나머지 용어는 KR `gamedata_const` 그대로: 이륙·정지·실드·공중 부양·무중력·이동·침식 손상·[바다 괴물]).
+- 데이터: CN 표 그대로(`tools/build-data.mjs`, 克莱门莎는 2026-10-11 온라인 갱신 `c01e2531`부터 표에 있음). 셋 다 모듈 없음. 맹약: 凯尔希·思衡托 협방,
+  克莱门莎 에기르, 予愿安洁莉娜 시라쿠사. 소환물: 战术锚点(S3, 손패 1개, 「攻击范围外的远程位」만 — 서버·클라이언트 배치 규칙은 upstream 그대로 남아 있었음),
+  “一会儿见！”(S3가 처음 배치 칸에 두는 표식, 손패 아님).
+- 키트: upstream `master`(0.2.4-dev `6bfc0827`)의 `op-kalts2.js`·`op-clemnt.js`·`op-aglna2.js`와 그 테스트를 가져왔다(앞의 둘은 하드 포크 때
+  `1fc07616`에서 지운 것). 엔진 쪽(缚地, 起飞 범위 피해 제외, 战术锚点 배치 칸)은 우리에게 이미 있었다. 우리 규칙에 맞춘 것:
+  - 자동 발동은 `sim.md` 「스킬 범위 발동」(관리자 결정 2026-10-11 확정) 그대로: 데이터 `DEFAULT` + 스킬 rangeId 상자 안의 **선택 가능한 적**.
+    upstream 테스트의 `ACTIVE_RANGE` 단언은 `DEFAULT` + `triggerGrid`로 고쳤다. 凯尔希·思衡托 S2: upstream 키트의 `trigger: ACTIVE_RANGE` +
+    `enemies`(upstream 주인 규칙 「치유 스킬은 범위 안 다친 아군」)를 뺐다 — 다친 아군만 있으면 켜지지 않는다(치유 스킬도 적을 센다).
+    upstream도 #406 뒤로는 「적으로만 켜짐」을 테스트한다(`heal-triggers-023`). 克莱门莎 S2: upstream #467의 공중 적 추가 발동 범위(사거리 연장 포함
+    `addTriggerRange`)는 받지 않았다 — 기본 전략 상자가 이미 공중 적을 세고, 연장은 더하지 않는다.
+  - 받은 upstream 0.2.4-dev 수정: 克莱门莎 S2 확산 반경 1.1·공격력 100%(PRTS 2026-10-10).
+  - 凯尔希·思衡托 특성 「Mon3tr(凯尔希의 소환물)는 禁疗를 무시하고 치료」: 키트에 그대로 있지만 이 서버에 凯尔希가 없어 쓰일 일이 없다(테스트는 키트 함수만 확인).
+  - 소환·스킬 시전이 기본 전략 패스를 타서, 스킬 직전에 한 공격이 먼저 나올 수 있다 — upstream 테스트 중 「시전과 같은 틱의 공격」을 세던 두 곳
+    (凯尔希·思衡托 S3 2인 치료, 予愿安洁莉娜 S3 탄약 수)을 시전 뒤부터 세게 고쳤다.
+- [추정] 각 키트 머리 주석의 `[ASSUMED]`(upstream 것 그대로): 凯尔希·思衡托 5(S1 오라 전장 전체, S2 의료 유닛 속도·적 사망 시 소멸, S3 待投放 자동
+  재배치 등), 克莱门莎 5(S2 放逐 조합·운반 여유 0.4·틱마다 갱신·소용돌이 스킬과 함께 끝, S3 첫 포격 0.5 s 뒤 1 s 간격 2회, 확산 대상 동률 순서),
+  予愿安洁莉娜 4(S3 비행 이동 속도·0.1 s 재선택 등). 克莱门莎 S3 포격 화면은 upstream 공용 폭발 자리표시 `blast`(`public/js/render/fx/kinds.js`) [추정].
+- 이번에 하지 않은 것: 공식 이펙트·소리·공격 타이밍·소환물 모델(EN 클라이언트에 없음 → CN 클라이언트에서 추출, 운영 노트 「CN 클라이언트」),
+  화면 확인. 결과 화면 이름(upstream #469 — 클라이언트 전투 결과에서 선발이 「甄选干员」으로 나옴, `server/match/fields.js`)은 기존 선발에도 있는 별개 버그라 따로.
+- 테스트: `test/content/op_{kalts2,clemnt,aglna2}.test.js`(체크리스트의 은신 적 범위 피해 3개 포함), `test/content/heal-triggers-023.test.js`(S2 발동),
+  `test/match/feedback5-we2-placement.test.js`(#26 战术锚点), `test/content/feedback5-we2-summon-hand.test.js`(#24 표식), golden `diy-009`…`diy-011`(새 시나리오, 다른 가족 변화 없음).
 
 ## 진영별 선발 프리셋 (2026-10-09, 관리자 결정)
 - 공식에 없는 기능(`feat`). 채팅 진영(`shared/local.js CHAT_FACTIONS`, 8개 국가 맹약)마다 브라우저에 자선 편성 프리셋을 하나씩 둔다(`public/js/ui/diyPresets.js`).

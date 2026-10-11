@@ -1,5 +1,5 @@
 // The 自选 golden match covers what it claims (test/golden/README.md, tools/golden.mjs — 0.2.0 自选编队): reads the stored
-// digest only (test/golden.test.js recomputes it). Its human seat (AI 托管) slots four of our five picks (望, 赤刃明霄陈,
+// digest only (test/golden.test.js recomputes it). Its human seat (AI 托管) slots four of our picks (望, 赤刃明霄陈,
 // 维什戴尔, 阿斯卡纶 — shared/local-diy.js); its shop draws its 自选 pieces (and only from the slots' 调度中心 levels), its
 // AI fields 望 — the operator kit — in battle, the stock ends where the held copies leave it, and the match ends without
 // errors.

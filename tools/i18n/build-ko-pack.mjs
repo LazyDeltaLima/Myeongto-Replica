@@ -73,7 +73,7 @@ const FIXES = {
   '；2 件相同装备自动合成进阶装备': [' ; 같은 장비 2개는 자동으로 강화 장비로 합성', '进阶(装备) = 강화, as the elite-equipment tag (ui.json has 상위 장비)'],
   '冻结 / 解冻商店': ['상점 동결 / 해동', '解冻 = 해동 (the official shop button of this mode); upstream 상점 동결 / 해제'],
   助战及自选编队: ['지원과 선발 편성', '自选编队 = 선발 편성 (ui.json has 자유 편성)'],
-  // 自选 on this server: only the five 선발 operators (shared/local-diy.js), no prototypes — the Korean promises none
+  // 自选 on this server: only the 선발 operators (shared/local-diy.js), no prototypes — the Korean promises none
   '5阶与6阶各有两个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。': [
     '5티어와 6티어에는 각각 선발 칸이 2개 있습니다. 보유한 6★ 오퍼레이터를 고르고 스킬과 모듈을 정하세요. 선발 오퍼레이터는 자신의 상점에만 등장하며, 보급센터가 해당 티어 레벨에 도달해야 갱신되고, 가격은 같은 티어의 오퍼레이터와 같습니다. 맹약은 오퍼레이터의 실제 소속 진영에 따라 배정되며 특질은 없습니다.',
     '自选 = 선발; no prototypes on this server (upstream: 보유한 6★ 오퍼레이터 … 또는 프로토타입 오퍼레이터(스킬 고정))'],

@@ -1,5 +1,5 @@
 // 0.2.0 自选编队 — client side (research 0.2.0 §2; the owner's decisions of 2026-10-05): the 自选编队 tab's model (storage,
-// the slots, the picker's operators with the kit list — our five, shared/local-diy.js, no prototype —, skill / module
+// the slots, the picker's operators with the kit list — our picks, shared/local-diy.js, no prototype —, skill / module
 // choices without 集成战略 modules, export / import)
 // and its server sync (room.diy; welcome.diyKitted), the tab's components (four slots, the picker, 确认), and the match
 // UI of a 自选 piece — the shop / reward card and the detail card show the operator (name, art, class, derived bonds,
@@ -86,10 +86,10 @@ describe('自选编队 model (ui/diyModel.js)', () => {
     assert.deepEqual(M.diySlotList(D).map((s) => [s.slotId, s.tier, s.shopLevel]), [[T5A, 5, 5], [T5B, 5, 5], [T6A, 6, 6], [T6B, 6, 6]]);
   });
 
-  test('the picker lists only kitted operators — our five, no prototype —, marks one another slot holds', () => {
+  test('the picker lists only kitted operators — our picks, no prototype —, marks one another slot holds', () => {
     const opts = M.pickOptions(T5A, {}, D, KIT);
     const ids = opts.map((o) => o.charId);
-    assert.deepEqual([...ids].sort(), [...LOCAL_DIY_PICKS].sort(), 'our five');
+    assert.deepEqual([...ids].sort(), [...LOCAL_DIY_PICKS].sort(), 'our picks');
     assert.ok(ids.every((id) => KIT.includes(id)), 'no operator without a kit');
     assert.ok(opts.every((o) => !o.proto), 'no prototype');
     assert.ok(!ids.includes('char_609_acguad') && !ids.includes('char_601_cguard'), 'the stand-ins (in the kit list) are no picks');
@@ -112,7 +112,7 @@ describe('自选编队 model (ui/diyModel.js)', () => {
     assert.equal(ch.stage, 3);
     assert.equal(ch.proto, false);
     assert.equal(M.pickChoices(ASCLN, T5A, D).stage, 1);
-    // none of our five has a mode-only module: the rule on synthetic data (阿斯卡纶's AMB-Y relabelled ISW-A)
+    // none of our picks has a mode-only module: the rule on synthetic data (阿斯卡纶's AMB-Y relabelled ISW-A)
     const b2 = structuredClone(D.backups);
     for (const f of Object.values(b2.units[ASCLN].forms)) for (const m of f.modules ?? []) if (m.uniEquipId === 'uniequip_003_ascln') m.typeName = 'ISW-A';
     const isw = M.pickChoices(ASCLN, T6A, { ...D, backups: b2 });

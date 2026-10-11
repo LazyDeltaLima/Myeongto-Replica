@@ -113,7 +113,7 @@ describe('room.loadout (lobby, stub match)', () => {
 
   test('潜能 / 练度 (ops, 0.2.2): strict validation, defaults dropped, stored per session and seat beside the loadout; a message without ops sets none', async () => {
     const VENDLA = C('chess_char_1_06_a').charId;   // a 特许 operator of the roster
-    const CHEN3 = 'char_1050_chen3';                  // an owned-6★ 自选 pick (one of our five)
+    const CHEN3 = 'char_1050_chen3';                  // an owned-6★ 自选 pick (one of our picks)
     const a = await pool.player('Ops');
     await err(a, { t: 'room.loadout', entries: {}, ops: [] }, ERR.BAD_MSG);
     await err(a, { t: 'room.loadout', entries: {}, ops: { [VENDLA]: {} } }, ERR.BAD_MSG);

@@ -1055,7 +1055,7 @@ by the chess id, which names the replaced operator's kit. A stand-in has no defa
 `skills` (`skill` is ignored); without a kit it gets the generic kit plus `genericTalents(def)` (§7.4).
 自选 pieces (DATA.md §18; a PlayerBattleInput entry of a DIY slot with `diy: { charId, skillIndex, uniEquipId }` ⇒ the def
 of `getChess(slotId, { diy })`, §12) take their kit the same way, `KITS[def.charId]` only (`content/index.js isDiyDef`): an
-owned 6★'s `kits/ops/op-<codename>.js` (kits/index.js `OPERATOR_KIT_FILES`: this server's five, shared/local-diy.js;
+owned 6★'s `kits/ops/op-<codename>.js` (kits/index.js `OPERATOR_KIT_FILES`: this server's eight, shared/local-diy.js;
 kits/README.md "How to add an operator (自选)"), a prototype's stand-in kit, a 预备干员's generic kit (none offered here); no default skill either (the pick chooses any of the
 three). `KITTED_CHARS` lists who has one — shared/diy.js offers no other pick.
 Operator loadouts (DESIGN §16): the unit's def is `getChess(chessId, { skillIndex, moduleId })` of its PlayerBattleInput
