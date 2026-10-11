@@ -74,6 +74,7 @@ import { noHpBar, facingless, bodyless } from '../../../shared/trap-tokens.js'; 
 import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch: 迷彩 icon; 起飞
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
 import { iconShownAsFx } from './fxstatus.js'; // local patch: statuses drawn as official effects
+import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './boomerang.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar } from './hud-bars.js'; // local patch: official battle HUD
 
@@ -215,6 +216,14 @@ const RAISED_Z = 0.12;
  * ride the body (`hover`); range highlights are tiles.
  */
 export const FLY_HOVER = 1.3;
+/**
+ * An airborne (起飞) operator whose character data names its own lift (tiles), instead of FLY_HOVER: the trait blackboard's
+ * `height_offset` (character_table), which her mode buffs move the model's graphic holder to (ModifyGraphicHolderHeight:
+ * aglna2_s_2[chant_end], aglna2_s_3[mode] — the latter 0.4 on a high-ground tile, `high`). 予愿安洁莉娜 0.8 (maintainer
+ * report 2026-10-12 「제자리에 돌아왔을 때 이륙 고도가 지금보다 낮다」: she flew at 1.3) [ASSUMED: the offset is in tiles —
+ * world space, not the 0.27 character space of the flyers' 0.35].
+ */
+const LIFTOFF_HEIGHT = Object.freeze({ char_1015_aglna2: { lift: 0.8, high: 0.4, highSkill: 2 } });
 /**
  * A push / pull slide (推拉, PR #380 by @xcdoge). The sim displaces at once — server/sim/battle/displacement.js walks its
  * 0.1-tile steps inside one call — and then holds the enemy in its 失衡 (UNBALANCE) state (PR #392's idea): a push for the
@@ -523,7 +532,7 @@ export class UnitView {
     this.zTarget = null;          // battle: standing height the feet ease towards (tile top under the unit; 0 for enemies)
     this.slide = null;            // a push / pull slide (slideTo): held, then easing into the sim's position (update)
     this.glideS = null;           // a model glide away from its tile and back (glide): it owns the drawn position meanwhile
-    this.riseRate = 0;            // after a glide: the lift comes up at this many tiles per game s (0 = the usual ease)
+    this.riseDur = 0;             // after a glide: the lift comes up linearly over this many game s (0 = the usual ease)
     /** @type {number|null} */
     this.shadowZ = null;          // an enemy flyer's shadow height (the tile top under it), else null: the shadow is at z
     /** @type {number|null} */
@@ -990,21 +999,30 @@ export class UnitView {
    * carries it on projectile_chr_aglna2_s2_fly (follower `_restoreOnEnd` 1) — from her tile to (tx, ty) in `travel` game s,
    * stays there and is back on her tile as the `chant` game s end; her tile and the sim's position never move (PRTS 备注
    * "期间模型向前方移动（不改变所在地块及中心坐标）"). Clips: Skill_2_Takeoff_Begin / _Loop / _End over the 吟唱 (the
-   * skill's ChantBeforeSkill `_animation`), then Skill_2_Begin back home (`_afterEndAnim`, SpineActor.chant). She glides
-   * low and rises to the airborne height over `rise` game s after it (aglna2_s_2[chant_end]: ModifyGraphicHolderHeight
-   * over `height_duration` 1). [ASSUMED: constant speed (the movement's speed curve ≈0.95–1.13 not modelled); the
-   * Takeoff_End clip closes the 吟唱 at the far end.]
+   * skill's ChantBeforeSkill `_animation`; the End clip — her take-off upward — as she reaches the end), then back home
+   * as it ends (fx/kinds.js aglGlideBack) on Skill_2_Begin (`_afterEndAnim`, SpineActor.chant). She glides low and rises
+   * to her airborne height over `rise` game s once home (aglna2_s_2[chant_end]: ModifyGraphicHolderHeight over
+   * `height_duration` 1). [ASSUMED: constant speed (the movement's speed curve ≈0.95–1.13 not modelled).]
    */
   glide(tx, ty, { travel, chant, rise = 1 } = {}) {
     if (!Number.isFinite(tx) || !Number.isFinite(ty) || !(chant > 0) || !this.alive || this.down) return;
     const g = this.glideS;
     const lx = g ? g.lx : this.x, ly = g ? g.ly : this.y;
     this.slide = null;
-    this.glideS = { lx, ly, dx: tx - lx, dy: ty - ly, t: 0, travel: Math.max(1e-3, Number(travel) || 0), chant, rise };
-    this.riseRate = 0;
+    const fly = Math.max(1e-3, Number(travel) || 0), back = aglGlideBack(fly, chant);
+    this.glideS = { lx, ly, dx: tx - lx, dy: ty - ly, t: 0, travel: fly, back, rise };
+    this.riseDur = 0;
     if (this.actor && this.spineReady) {
-      this.actor.chant({ begin: 'Skill_2_Takeoff_Begin', loop: 'Skill_2_Takeoff_Loop', end: 'Skill_2_Takeoff_End', total: chant, after: 'Skill_2_Begin' });
+      this.actor.chant({ begin: 'Skill_2_Takeoff_Begin', loop: 'Skill_2_Takeoff_Loop', end: 'Skill_2_Takeoff_End', endAt: fly, total: back, after: 'Skill_2_Begin' });
     }
+  }
+
+  /** How high this unit hovers when it flies or is airborne: FLY_HOVER, or its own take-off height (LIFTOFF_HEIGHT). */
+  _liftHeight() {
+    const h = !this.flying && this.liftoff ? LIFTOFF_HEIGHT[this.info.spine || this.info.defId] : null;
+    if (!h) return FLY_HOVER;
+    const highSkill = h.high != null && this.info.skillIndex === h.highSkill && (this.flags & UF.SKILL) && (this.zTarget ?? this.z) > RAISED_Z;
+    return highSkill ? h.high : h.lift;
   }
 
   setFacing(f) {
@@ -1272,10 +1290,10 @@ export class UnitView {
     if (this.glideS) {
       const g = this.glideS;
       g.t += dt * (this.ctx.animRate?.() || 1);
-      if (g.t >= g.chant || !this.alive || this.down) {
+      if (g.t >= g.back || !this.alive || this.down) {
         this.glideS = null;
         this.x = g.lx; this.y = g.ly;
-        this.riseRate = g.rise > 0 ? FLY_HOVER / g.rise : 0;
+        this.riseDur = g.rise > 0 ? g.rise : 0;
       } else {
         const k = Math.min(1, g.t / g.travel);
         this.x = g.lx + g.dx * k; this.y = g.ly + g.dy * k;
@@ -1303,10 +1321,10 @@ export class UnitView {
     // CharacterAnimator.OnFinish, when the finish state ends; a knocked-down flyer lies on the ground. An airborne (起飞)
     // operator rises to the same height and comes down when it lands (maintainer decision 2026-10-11, docs/rules/render.md
     // 「이륙 높이」); its shadow stays on its tile
-    const hoverTo = (this.flying || this.liftoff) && !this.glideS && (this.alive || (this.dying > DIE_FADE_TAIL && !this.down)) ? FLY_HOVER : 0;
-    if (this.riseRate > 0 && hoverTo > this.hover) this.hover = Math.min(hoverTo, this.hover + this.riseRate * dt * (this.ctx.animRate?.() || 1));
-    else if (this.hover !== hoverTo) { this.riseRate = 0; this.hover = Math.abs(hoverTo - this.hover) < 1e-3 ? hoverTo : this.hover + (hoverTo - this.hover) * Math.min(1, dt * 6); }
-    if (this.riseRate > 0 && this.hover >= hoverTo) this.riseRate = 0;
+    const hoverTo = (this.flying || this.liftoff) && !this.glideS && (this.alive || (this.dying > DIE_FADE_TAIL && !this.down)) ? this._liftHeight() : 0;
+    if (this.riseDur > 0 && hoverTo > this.hover) this.hover = Math.min(hoverTo, this.hover + hoverTo / this.riseDur * dt * (this.ctx.animRate?.() || 1));
+    else if (this.hover !== hoverTo) { this.riseDur = 0; this.hover = Math.abs(hoverTo - this.hover) < 1e-3 ? hoverTo : this.hover + (hoverTo - this.hover) * Math.min(1, dt * 6); }
+    if (this.riseDur > 0 && this.hover >= hoverTo) this.riseDur = 0;
     const p = cam.project(this.x, this.y, this.z + this.hover + this.lift, this.screen);
     const s = p.s;
     // fades

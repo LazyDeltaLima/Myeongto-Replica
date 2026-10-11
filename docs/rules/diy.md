@@ -534,14 +534,19 @@
     （不包括本格），弹道终点位于最后可通过的地块的中心」.
 - 고친 것: 시뮬은 그녀의 칸·좌표를 그대로 둔다(공식과 같음). `op-aglna2.js glide`가 끝점을 비행 통과 가능 칸(`grid.flyPassable`)을 따라 최대 4칸으로
   계산해 쓸기 길이와 fx `dash`(`tx`/`ty`/`t`)에 같이 쓴다(전에는 맵 끝이어도 4칸). 렌더: `app.js`가 `dash`(`chant` > 0)에서 `UnitView.glide`를 부르고,
-  뷰가 모델을 6칸/초로 끝점까지 보냈다가 그 자리에 두고, 吟唱 2.5초가 끝나면 원래 칸으로 되돌린다(뷰 위치를 바꾸므로 HP 바·그림자·붙은 이펙트도 따라감).
-  그동안 높이 0, 끝난 뒤 이륙 높이까지 1초에 걸쳐 일정하게 오른다. 클립은 `SpineActor.chant`: Takeoff_Begin → Takeoff_Loop → (2.5초를 닫는) Takeoff_End →
-  돌아와서 `Skill_2_Begin` → 스킬 Idle/Loop. 吟唱 동안 공격 클립은 기다린다(시뮬도 무장해제). 활공 꼬리·`fly_range_01`은 도착까지만(`fx.md`).
-- [추정] Takeoff_End가 2.5초 吟唱의 마지막 1초(끝점에서)를 차지함(CN 클래스 디컴파일 불가 — `_interruptProjectileOnEndAnim`을 「끝 클립이 끝날 때 복귀」로 읽음),
-  속도 일정(이동 컴포넌트의 속도 곡선 ≈0.95–1.13·`_speed` 4.8은 안 씀, PRTS 6.0), 복귀는 순간 이동(`_restoreOnEnd`), 활공 중 바닥 높이는 그녀 칸 기준,
+  뷰가 모델을 6칸/초로 끝점까지 보내고, 닿자마자 Takeoff_End(1초, 위로 이륙)를 그 자리에서 튼 뒤 그 클립이 끝나면 원래 칸으로 되돌린다
+  (`fx/kinds.js aglGlideBack` = 도착 + 1초, 吟唱 2.5초를 넘지 않음; 뷰 위치를 바꾸므로 HP 바·그림자·붙은 이펙트도 따라감). 그동안 높이 0, 돌아온 뒤 그녀의
+  이륙 높이(아래)까지 1초에 걸쳐 일정하게 오른다. 클립은 `SpineActor.chant`: Takeoff_Begin → Takeoff_Loop → 도착 때 Takeoff_End → 돌아와서 `Skill_2_Begin`
+  → 스킬 Idle/Loop. 吟唱 동안 공격 클립은 기다린다(시뮬도 무장해제). 활공 꼬리·`fly_range_01`은 도착까지만, `fly_end_01–03`은 돌아올 때(`fx.md`).
+- 실기 후속(2026-10-12 관리자: 「끝점에 닿자마자 이륙」, 「제자리에 돌아왔을 때 이륙 고도가 지금보다 낮다」): 처음 판(`777f8df6`)은 Takeoff_End가 2.5초의 마지막
+  1초였고(끝점에서 약 0.8초 머묾) 복귀도 2.5초였다 → 위처럼 도착 즉시·도착 + 1초로. 높이: 그녀의 특성 블랙보드 `height_offset` 0.8(character_table, `[chant_end]`가
+  `aglna2_tr`에서 가져와 그 높이로 올림; S3 `[mode]`는 고지대 칸이면 0.4)을 칸 단위로 써서, 비행 적 높이 `FLY_HOVER` 1.3 대신 0.8(S3 고지대 0.4)로 그린다 —
+  `render/units.js LIFTOFF_HEIGHT`, S1·S3 이륙에도 적용(`render.md` 「이륙 높이」). 아레나에서 S3 범위 원이 여전히 그녀 칸에 있음을 확인.
+- [추정] 복귀 = 끝 클립이 끝날 때(`_interruptProjectileOnEndAnim` + `_afterEndAnim`; CN 클래스 디컴파일 불가 — 도착 0.67 + 1 + `Skill_2_Begin` 1 ≈ 吟唱 2.5초와 맞음),
+  `height_offset`이 칸(월드) 단위(비행 적의 0.35는 0.27 캐릭터 공간), 속도 일정(이동 컴포넌트의 속도 곡선 ≈0.95–1.13·`_speed` 4.8은 안 씀, PRTS 6.0), 복귀는 순간 이동(`_restoreOnEnd`), 활공 중 바닥 높이는 그녀 칸 기준,
   `Skill_2_Begin`(1초) 동안 시뮬은 이미 공격할 수 있음(첫 공격이 그 클립을 끊을 수 있음).
 - 테스트: `test/content/op_aglna2.test.js`(맵 끝에서 2칸·열린 곳 4칸, 위치 불변), `test/render/aglna2-s2-glide.test.js`(클립 순서·공격 대기·스킬 끝 처리,
-  뷰 이동·고정·복귀·1초 상승).
+  뷰 이동·도착 즉시 끝 클립·도착 + 1초 복귀·0.8까지 1초 상승).
 
 ## 진영별 선발 프리셋 (2026-10-09, 관리자 결정)
 - 공식에 없는 기능(`feat`). 채팅 진영(`shared/local.js CHAT_FACTIONS`, 8개 국가 맹약)마다 브라우저에 자선 편성 프리셋을 하나씩 둔다(`public/js/ui/diyPresets.js`).

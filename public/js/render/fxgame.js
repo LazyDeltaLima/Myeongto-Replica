@@ -62,6 +62,7 @@ import { boneMissing, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } fro
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { boomerangThrown, boomerangCaught } from './boomerang.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
+import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
 import { playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 
@@ -1433,7 +1434,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
       // 予愿安洁莉娜 S2 (`chant` > 0): aglna2_s_2[flying] on her model while it glides out (projectile_chr_aglna2_s2_fly
       // creates it as it leaves and finishes it as it reaches: `t`; render/units.js glide moves the model) — the glide trail
-      // of her direction (rightAndLeft / up / down _01) and fly_range_01 —, then [chant_end] fly_end_01–03 back home
+      // of her direction (rightAndLeft / up / down _01) and fly_range_01 —, then [chant_end] fly_end_01–03 back home (aglGlideBack)
       case 'dash': {
         const src = views.get(o.id), b = pickOf(src, 'aglna2'), chant = Number(o.chant);
         if (!b || !(chant > 0)) return false;
@@ -1445,7 +1446,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             spawn(b.bundle, n, src, { owner: o.id, buff: true, until: clockS + fly });
           }
         }
-        castsDelayed.push({ t: clockS + chant, run: () => {
+        castsDelayed.push({ t: clockS + aglGlideBack(fly, chant), run: () => {
           if (!src || src.alive === false || src.remove || gone.has(o.id)) return;
           for (const n of ['aglna2_skill_02_fly_end_01', 'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03'].map((k) => pickName(b, k)).filter(Boolean)) {
             spawn(b.bundle, n, src, { owner: o.id, buff: false });

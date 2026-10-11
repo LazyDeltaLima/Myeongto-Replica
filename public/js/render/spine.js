@@ -628,18 +628,18 @@ export class SpineActor {
 
   /**
    * A skill's 吟唱 with clips of its own (the client's ChantBeforeSkill `_animation` begin / loop / end, then its
-   * `_afterEndAnim`): `begin` once, `loop` until the `end` clip, which closes the `total` game seconds; then `after` plays as
-   * the skill's begin clip (mode skillBegin: the skill's idle / loop follow). Attacks wait for the 吟唱 (mode 'chant'), a
-   * 'skill' on meanwhile only sets the flag. 予愿安洁莉娜 S2 (render/units.js glide) [ASSUMED: the end clip closes the
-   * 2.5 s 吟唱 — the CN-only skill class is not decompiled].
+   * `_afterEndAnim`): `begin` once, `loop` until the `end` clip — from `endAt` game seconds (after `begin`), else so that it
+   * closes the `total` —, and at `total` `after` plays as the skill's begin clip (mode skillBegin: the skill's idle / loop
+   * follow). Attacks wait meanwhile (mode 'chant'), a 'skill' on only sets the flag. 予愿安洁莉娜 S2 (render/units.js glide).
    */
-  chant({ begin, loop, end, total, after }) {
+  chant({ begin, loop, end, endAt, total, after }) {
     if (this.dead || !(total > 0) || !this.has(loop)) return false;
     this.mode = 'chant';
     this.frozen = false;
     if (this.has(begin)) { this._play(begin, false, { mix: 0.08 }); this._queue(loop, true); } else this._play(loop, true, { mix: 0.08 });
     this.chantEnd = this.has(end) ? end : null;
-    this.chantEndAt = this.clock + Math.max(this.has(begin) ? this.dur(begin) : 0, total - (this.chantEnd ? this.dur(end) : 0));
+    const at = Number.isFinite(endAt) ? endAt : total - (this.chantEnd ? this.dur(end) : 0);
+    this.chantEndAt = this.clock + Math.max(this.has(begin) ? this.dur(begin) : 0, at);
     this.chantUntil = this.clock + total;
     this.chantAfter = this.has(after) ? after : null;
     return true;
