@@ -33,7 +33,8 @@
 // - S2 重力自定义 (MANUAL, 22 s, data DEFAULT on its 3-10 — docs/rules/sim.md 「스킬 범위 발동」): she takes off at once; for chant_duration (2.5) s she glides
 //   (吟唱: no attack, 无敌, the control statuses refused — 备注 "持有无敌、不可阻挡、晕眩/冻结/小睡/沉睡免疫，一减状态抵抗率×0")
 //   while a sweep released from her tile along her direction (备注 "宽3.0×厚1.3、飞行速度6.0的弹道…终点位于前方至多4.0格"; it
-//   goes through walls) hits each selectable enemy once: an air unit 缚地 buff_duration_ground_bound s, any other 浮空
+//   goes through walls and stops at the last tile a flyer can cross) hits each selectable enemy once — her model rides it out
+//   and is back as the 吟唱 ends, her tile and position unchanged (备注 "期间模型向前方移动（不改变所在地块及中心坐标）"): an air unit 缚地 buff_duration_ground_bound s, any other 浮空
 //   buff_duration_levitate s (aglna2_s_2[enemy]: CheckMotionMode FLY; halved on weight > 3 by both terms). The 22 s,
 //   ATK +atk and the attack interval change (a flat base_attack_time s) run from the cast (the client's
 //   `_buffsWhenStartChant` carries them); range 3-10, attacks turn arts and hit attack@max_target targets. `mass_level`
@@ -122,13 +123,23 @@ function markerKit() {
   };
 }
 
+/** How far S2's sweep goes: along the tiles a flyer can cross, at most GLIDE_DIST ahead (not her own), to the centre of
+ *  the last one (PRTS 备注; projectile_chr_aglna2_s2_fly reach component `_distanceMax` 4, `_ignoreInitialTile`). */
+function glideDist(battle, unit) {
+  const [fr, fc] = unit.fwd;
+  let n = 0;
+  while (n < GLIDE_DIST && battle.grid.flyPassable(unit.tileR + fr * (n + 1), unit.tileC + fc * (n + 1))) n++;
+  return n;
+}
+
 /** S2's sweep from (x0, y0) along `fwd`: each selectable enemy once — an air unit 缚地 `gb` s, any other 浮空 `lev` s. */
 function glide(battle, unit, lev, gb, chant = 0) {
   const [fr, fc] = unit.fwd;
   const x0 = unit.x, y0 = unit.y, t0 = battle.time;
+  const dist = glideDist(battle, unit);
   const hit = new Set();
   const sweep = () => {
-    const lead = Math.min(GLIDE_DIST, (battle.time - t0) * GLIDE_SPEED);
+    const lead = Math.min(dist, (battle.time - t0) * GLIDE_SPEED);
     for (const e of battle.enemies) {
       if (hit.has(e) || !canTargetEnemy(unit, e, ANY)) continue;
       const dx = e.x - x0, dy = e.y - y0;
@@ -138,10 +149,12 @@ function glide(battle, unit, lev, gb, chant = 0) {
       if (e.isFlying) battle.applyStatus(e, 'groundbind', { duration: gb, source: unit });
       else battle.applyStatus(e, 'levitate', { duration: lev, source: unit });
     }
-    return lead >= GLIDE_DIST;
+    return lead >= dist;
   };
-  // `chant`: how long her glide (the S2 吟唱) lasts — the render's official glide trail and its end (aglna2_s_2[flying] / [chant_end])
-  battle.fx('dash', { x: x0, y: y0, id: unit.id, tx: x0 + fc * GLIDE_DIST, ty: y0 + fr * GLIDE_DIST, t: GLIDE_DIST / GLIDE_SPEED, chant });
+  // `chant`: how long her glide (the S2 吟唱) lasts. Her model rides the sweep out to (tx, ty) and is back on her tile as the
+  // 吟唱 ends — her tile and position stay (备注 "期间模型向前方移动（不改变所在地块及中心坐标）"): render/units.js glide plays
+  // it, render/fxgame.js the official glide trail and its end (aglna2_s_2[flying] / [chant_end])
+  battle.fx('dash', { x: x0, y: y0, id: unit.id, tx: x0 + fc * dist, ty: y0 + fr * dist, t: dist / GLIDE_SPEED, chant });
   if (sweep()) return;
   battle.every(TICK, (b, sched) => { if (sweep()) sched.cancel(); });
 }

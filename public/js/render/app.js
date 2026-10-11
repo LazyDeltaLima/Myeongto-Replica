@@ -1707,6 +1707,11 @@ export async function createFieldView(host, options = {}) {
           const v = d && d.id != null ? views.get(d.id) : null;
           if (v && v.slideTo) v.slideTo(Number(e[2]), Number(e[3]), { ...(Number(d.dur) > 0 ? { dur: Number(d.dur) } : {}), face: d.face });
         }
+        // 予愿安洁莉娜 S2's 吟唱: her model glides out along the sweep and back (UnitView.glide; the sim keeps her on her tile)
+        if (e[1] === 'dash' && e[4] && typeof e[4] === 'object' && Number(e[4].chant) > 0) {
+          const v = e[4].id != null ? views.get(e[4].id) : null;
+          if (v && v.glide) v.glide(Number(e[4].tx), Number(e[4].ty), { travel: Number(e[4].t), chant: Number(e[4].chant) });
+        }
         // an enemy's mode change — the `form` of a sim setForm fx (shared/protocol.js fxForm: 掠海漂移体 → 爬行模式, user
         // playtest #5 item 1; 转译基底's forms, a 逐火 ember and its revival, the leaders' 重生, 守墓石像 — user report after
         // 0.1.0) — switches the view's clip set (UnitView.setForm; a kind without a clip set of that skeleton changes

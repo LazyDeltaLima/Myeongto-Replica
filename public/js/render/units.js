@@ -522,6 +522,8 @@ export class UnitView {
     this.x = Number(info.x) || 0; this.y = Number(info.y) || 0; this.z = 0;
     this.zTarget = null;          // battle: standing height the feet ease towards (tile top under the unit; 0 for enemies)
     this.slide = null;            // a push / pull slide (slideTo): held, then easing into the sim's position (update)
+    this.glideS = null;           // a model glide away from its tile and back (glide): it owns the drawn position meanwhile
+    this.riseRate = 0;            // after a glide: the lift comes up at this many tiles per game s (0 = the usual ease)
     /** @type {number|null} */
     this.shadowZ = null;          // an enemy flyer's shadow height (the tile top under it), else null: the shadow is at z
     /** @type {number|null} */
@@ -939,6 +941,7 @@ export class UnitView {
    * so a unit killed on the step of its push still lands where the sim put the body (Grok's review of fb7-render).
    */
   followSample(s, t) {
+    if (this.glideS) { this.glideS.lx = s.x; this.glideS.ly = s.y; return; }
     const sl = this.slide;
     if (!sl) { this.x = s.x; this.y = s.y; }
     else if (!(t < sl.at)) { sl.lx = s.x; sl.ly = s.y; sl.live = true; }
@@ -980,6 +983,28 @@ export class UnitView {
       x1: x, y1: y, sx: this.x, sy: this.y, ux: dx / D, uy: dy / D, D, done: 0, v: v0, a: v0 / T, t: 0, dur: T,
       at, live: at === -Infinity, lx: x, ly: y, ox: 0, oy: 0, run: false, wait: 0, face,
     };
+  }
+
+  /**
+   * 予愿安洁莉娜 S2's 吟唱 (the 'dash' fx with `chant`, server kit op-aglna2.js): her model rides the sweep — the client
+   * carries it on projectile_chr_aglna2_s2_fly (follower `_restoreOnEnd` 1) — from her tile to (tx, ty) in `travel` game s,
+   * stays there and is back on her tile as the `chant` game s end; her tile and the sim's position never move (PRTS 备注
+   * "期间模型向前方移动（不改变所在地块及中心坐标）"). Clips: Skill_2_Takeoff_Begin / _Loop / _End over the 吟唱 (the
+   * skill's ChantBeforeSkill `_animation`), then Skill_2_Begin back home (`_afterEndAnim`, SpineActor.chant). She glides
+   * low and rises to the airborne height over `rise` game s after it (aglna2_s_2[chant_end]: ModifyGraphicHolderHeight
+   * over `height_duration` 1). [ASSUMED: constant speed (the movement's speed curve ≈0.95–1.13 not modelled); the
+   * Takeoff_End clip closes the 吟唱 at the far end.]
+   */
+  glide(tx, ty, { travel, chant, rise = 1 } = {}) {
+    if (!Number.isFinite(tx) || !Number.isFinite(ty) || !(chant > 0) || !this.alive || this.down) return;
+    const g = this.glideS;
+    const lx = g ? g.lx : this.x, ly = g ? g.ly : this.y;
+    this.slide = null;
+    this.glideS = { lx, ly, dx: tx - lx, dy: ty - ly, t: 0, travel: Math.max(1e-3, Number(travel) || 0), chant, rise };
+    this.riseRate = 0;
+    if (this.actor && this.spineReady) {
+      this.actor.chant({ begin: 'Skill_2_Takeoff_Begin', loop: 'Skill_2_Takeoff_Loop', end: 'Skill_2_Takeoff_End', total: chant, after: 'Skill_2_Begin' });
+    }
   }
 
   setFacing(f) {
@@ -1243,6 +1268,19 @@ export class UnitView {
         if (sl.t >= sl.dur - 1e-9 || sl.done >= sl.D - 1e-9 || sl.v <= 1e-9) { this.x = sl.lx; this.y = sl.ly; this.slide = null; }
       }
     }
+    // a glide (glide): out along its way, held at its end, back on the tile as it ends — the lift then rises
+    if (this.glideS) {
+      const g = this.glideS;
+      g.t += dt * (this.ctx.animRate?.() || 1);
+      if (g.t >= g.chant || !this.alive || this.down) {
+        this.glideS = null;
+        this.x = g.lx; this.y = g.ly;
+        this.riseRate = g.rise > 0 ? FLY_HOVER / g.rise : 0;
+      } else {
+        const k = Math.min(1, g.t / g.travel);
+        this.x = g.lx + g.dx * k; this.y = g.ly + g.dy * k;
+      }
+    }
     const P = this.P;
     // the model for the state the frame's events and snapshot left (Front ⇄ Back when it went down / stood up: die, revive)
     if (this._modelDirty) { this._modelDirty = false; this._syncModel(); }
@@ -1265,8 +1303,10 @@ export class UnitView {
     // CharacterAnimator.OnFinish, when the finish state ends; a knocked-down flyer lies on the ground. An airborne (起飞)
     // operator rises to the same height and comes down when it lands (maintainer decision 2026-10-11, docs/rules/render.md
     // 「이륙 높이」); its shadow stays on its tile
-    const hoverTo = (this.flying || this.liftoff) && (this.alive || (this.dying > DIE_FADE_TAIL && !this.down)) ? FLY_HOVER : 0;
-    if (this.hover !== hoverTo) this.hover = Math.abs(hoverTo - this.hover) < 1e-3 ? hoverTo : this.hover + (hoverTo - this.hover) * Math.min(1, dt * 6);
+    const hoverTo = (this.flying || this.liftoff) && !this.glideS && (this.alive || (this.dying > DIE_FADE_TAIL && !this.down)) ? FLY_HOVER : 0;
+    if (this.riseRate > 0 && hoverTo > this.hover) this.hover = Math.min(hoverTo, this.hover + this.riseRate * dt * (this.ctx.animRate?.() || 1));
+    else if (this.hover !== hoverTo) { this.riseRate = 0; this.hover = Math.abs(hoverTo - this.hover) < 1e-3 ? hoverTo : this.hover + (hoverTo - this.hover) * Math.min(1, dt * 6); }
+    if (this.riseRate > 0 && this.hover >= hoverTo) this.riseRate = 0;
     const p = cam.project(this.x, this.y, this.z + this.hover + this.lift, this.screen);
     const s = p.s;
     // fades

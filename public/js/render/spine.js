@@ -171,7 +171,7 @@ export class SpineActor {
       this.spine.state.addListener({ event: (_entry, ev) => { const n = ev?.data?.name; if (n && this.onEvent) this.onEvent(n); } });
     } catch { /* a runtime without listeners: no clip events */ }
     this.base = 'idle';
-    this.mode = 'base';           // base | attack | skillBegin | deploy | die | stun | change
+    this.mode = 'base';           // base | attack | skillBegin | skillEnd | chant | deploy | die | stun | change
     this.endClip = null;          // setForm's closing clip, played as a change clip once the clock reaches endAt,
     this.endAt = 0;               // landing in endRoles (the next form's) when given
     this.endRoles = null;
@@ -408,7 +408,7 @@ export class SpineActor {
    * false when it is still too early (call again next frame) or there is nothing to wind up.
    */
   windUp(interval, lead, once = false) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || !(lead >= 0)) return false;
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'chant' || !(lead >= 0)) return false;
     if (this._endPlaying()) return false; // local patch
     if (this._swinging()) return false;   // a swing (b.ev 'swing') drives the clip
     const clip = this._attackClip();
@@ -443,7 +443,7 @@ export class SpineActor {
    * 'atk' path then shows the strike as before).
    */
   swing(windup) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || !(windup > 0)) return false;
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'chant' || !(windup > 0)) return false;
     if (this._endPlaying()) return false; // local patch
     const clip = this._attackClip();
     if (!clip) return false;
@@ -479,7 +479,7 @@ export class SpineActor {
    * cast (no rhythm): the clip plays once at its own speed from its strike frame, then the resting state.
    */
   attack(interval, once = false) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change') return;   // a form change plays out
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'chant') return;   // a form change / 吟唱 plays out
     if (this._endPlaying()) return; // local patch
     if (!once) this.interval = clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
     if (this._swinging()) return;   // the strike of a swing already playing at the official speed
@@ -576,6 +576,7 @@ export class SpineActor {
     this.baseClip = false;
     const sk = this.roles.skill;
     if (this.mode === 'stun' || this.mode === 'die') return;
+    if (on && this.mode === 'chant') return;   // the 吟唱's clips run on (chant); its after clip begins the skill
     // a skill that ends as the unit (re)deploys — 乌尔比安's 【返回】 is a 【移动】 (sim Battle.moveRedeploy) right before
     // his S3's 'skill' off event — lets the deploy clip play out (then the plain idle) instead of cutting it with the End
     if (!on && this.mode === 'deploy') return;
@@ -622,6 +623,42 @@ export class SpineActor {
         this.mode = 'base';
         this._play(this._baseName(), true);
       }
+    }
+  }
+
+  /**
+   * A skill's 吟唱 with clips of its own (the client's ChantBeforeSkill `_animation` begin / loop / end, then its
+   * `_afterEndAnim`): `begin` once, `loop` until the `end` clip, which closes the `total` game seconds; then `after` plays as
+   * the skill's begin clip (mode skillBegin: the skill's idle / loop follow). Attacks wait for the 吟唱 (mode 'chant'), a
+   * 'skill' on meanwhile only sets the flag. 予愿安洁莉娜 S2 (render/units.js glide) [ASSUMED: the end clip closes the
+   * 2.5 s 吟唱 — the CN-only skill class is not decompiled].
+   */
+  chant({ begin, loop, end, total, after }) {
+    if (this.dead || !(total > 0) || !this.has(loop)) return false;
+    this.mode = 'chant';
+    this.frozen = false;
+    if (this.has(begin)) { this._play(begin, false, { mix: 0.08 }); this._queue(loop, true); } else this._play(loop, true, { mix: 0.08 });
+    this.chantEnd = this.has(end) ? end : null;
+    this.chantEndAt = this.clock + Math.max(this.has(begin) ? this.dur(begin) : 0, total - (this.chantEnd ? this.dur(end) : 0));
+    this.chantUntil = this.clock + total;
+    this.chantAfter = this.has(after) ? after : null;
+    return true;
+  }
+
+  /** The 吟唱 is over: its after clip as the skill's begin (setSkill), or the resting state. */
+  _chantDone() {
+    const sk = this.roles.skill;
+    if (this.skillOn && this.chantAfter) {
+      this.mode = 'skillBegin';
+      this.skillClipOnce = false;
+      this.skillEndPending = false;
+      this._play(this.chantAfter, false, { mix: 0.08 });
+      this.skillBeginUntil = this.clock + this.dur(this.chantAfter);
+      const next = this._skillIdle() || (this.has(sk?.loop) ? sk.loop : null);
+      if (next) this._queue(next, true);
+    } else {
+      this.mode = 'base';
+      this._play(this._baseName(), true);
     }
   }
 
@@ -742,6 +779,10 @@ export class SpineActor {
         break;
       case 'skillEnd':
         if (this.clock >= this.skillEndUntil) { this.mode = 'base'; this._play(this._baseName(), true); }
+        break;
+      case 'chant':
+        if (this.clock >= this.chantUntil) this._chantDone();
+        else if (this.chantEnd && this.clock >= this.chantEndAt) { this._play(this.chantEnd, false, { mix: 0.08 }); this.chantEnd = null; }
         break;
       case 'deploy':
         if (this.clock >= this.deployUntil) { this.mode = 'base'; this._play(this._baseName(), true); }

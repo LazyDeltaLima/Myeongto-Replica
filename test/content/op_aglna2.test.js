@@ -482,3 +482,25 @@ test('S2 重力自定义: the sweep never lifts or hits an unrevealed 隐匿 ene
   assert.equal(h.hooksOf('damaged').filter((c) => c.source === u && c.target === hid).length, 0, 'nor hit');
   done(h);
 });
+
+// User report 2026-10-12: officially her model glides forward along the sweep on her staff and comes back; the sim keeps
+// her tile and position (PRTS 备注 "期间模型向前方移动（不改变所在地块及中心坐标）") and tells the render where the glide ends —
+// the last tile a flyer can cross, at most 4 ahead (备注: "该弹道会沿对于飞行单位可通行的地块至多向前飞行4格（不包括本格），
+// 弹道终点位于最后可通过的地块的中心").
+test('S2 重力自定义: her position stays while the dash fx sends the model to the last flyer-passable tile ≤ 4 ahead (the sweep stops there too)', () => {
+  const R = field().h.b.grid.rect;
+  for (const [ahead, want] of [[9, 4], [2, 2]]) {
+    const { h, u } = field({ skill: 1, col: R.c1 - ahead });
+    u.skill.gainSp(999);
+    const x0 = u.x, y0 = u.y;
+    h.spawn('enemy_dummy', { pos: [10, x0 + 1] });
+    assert.ok(h.runUntil(() => u.skill.active, 1), `${ahead}: cast`);
+    const dash = h.eventsOf('fx').find((e) => e[1] === 'dash' && e[4].id === u.id);
+    assert.ok(dash, `${ahead}: the glide announced`);
+    assert.deepEqual([dash[4].tx, dash[4].ty, dash[4].chant], [x0 + want, y0, 2.5], `${ahead}: to ${want} ahead, for the 2.5 s 吟唱`);
+    approx(dash[4].t, want / 6, `${ahead}: at 6 tiles/s`);
+    h.run(1);
+    assert.deepEqual([u.x, u.y, u.tileC, u.tileR], [x0, y0, x0, y0], `${ahead}: her tile and position never move`);
+    done(h);
+  }
+});

@@ -1431,16 +1431,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         }
         return true;
       }
-      // 予愿安洁莉娜 S2 (`chant` > 0): aglna2_s_2[flying] on her for the
-      // 吟唱 — the glide trail of her direction (rightAndLeft / up / down _01) and fly_range_01 —, then [chant_end] fly_end_01–03
+      // 予愿安洁莉娜 S2 (`chant` > 0): aglna2_s_2[flying] on her model while it glides out (projectile_chr_aglna2_s2_fly
+      // creates it as it leaves and finishes it as it reaches: `t`; render/units.js glide moves the model) — the glide trail
+      // of her direction (rightAndLeft / up / down _01) and fly_range_01 —, then [chant_end] fly_end_01–03 back home
       case 'dash': {
         const src = views.get(o.id), b = pickOf(src, 'aglna2'), chant = Number(o.chant);
         if (!b || !(chant > 0)) return false;
-        const dx = Number(o.tx) - x, dy = Number(o.ty) - y;
+        const dx = Number(o.tx) - x, dy = Number(o.ty) - y, fly = Math.min(chant, Number(o.t) || 0);
         const way = Math.abs(dx) >= Math.abs(dy) ? 'rightAndLeft' : dy > 0 ? 'up' : 'down';
         ownFx.add(e);
-        for (const n of [`aglna2_skill_02_fly_trail_${way}_01`, 'aglna2_skill_02_fly_range_01'].map((k) => pickName(b, k)).filter(Boolean)) {
-          spawn(b.bundle, n, src, { owner: o.id, buff: true, until: clockS + chant });
+        if (fly > 0) {
+          for (const n of [`aglna2_skill_02_fly_trail_${way}_01`, 'aglna2_skill_02_fly_range_01'].map((k) => pickName(b, k)).filter(Boolean)) {
+            spawn(b.bundle, n, src, { owner: o.id, buff: true, until: clockS + fly });
+          }
         }
         castsDelayed.push({ t: clockS + chant, run: () => {
           if (!src || src.alive === false || src.remove || gone.has(o.id)) return;

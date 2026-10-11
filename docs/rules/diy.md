@@ -492,6 +492,29 @@
 - 표식 이펙트가 그동안 한 번도 안 나왔던 이유: 렌더 연결(`fxgame.js` 'summon' + `token`)은 있었지만 표식은 `spawnToken`으로 나오고 이 경로는 'summon' fx를
   내지 않는다 → 키트가 표식을 둘 때 직접 낸다.
 
+## 안젤리나 더 멜로우 위시 S2 활공 모션 (2026-10-12, 관리자 제보)
+- 제보: 우리는 S2를 쓰면 제자리에서 이륙한 뒤 공격한다. 공식은 스킬 범위만큼 앞으로 지팡이를 타고 날아가고, 범위 끝에서 위로 이륙한 뒤 원래 자리로 돌아와 공격을 시작한다.
+- 근거(CN 클라 데이터, `[uc]skills.ab skchr_aglna2_2`·`[uc]projectiles.ab projectile_chr_aglna2_s2_fly`·CN 버프 템플릿 — 스킬 클래스는 CN 전용이라 필드만 읽음):
+  - 스킬의 吟唱 컴포넌트(EN의 `ChantBeforeSkill`을 이은 CN 클래스): `_animation` = `Skill_2_Takeoff_Begin`(0.333초)·`_Loop`(0.5초)·`_End`(1초),
+    `_projectileKey projectile_chr_aglna2_s2_fly`, `_finishWhenProjectileInvalid` 1, `_afterEndAnim Skill_2_Begin`, `_interruptProjectileOnEndAnim` 1,
+    `_buffOnAfterEndAnim` = `aglna2_s_2[chant_end]`(`height_duration` 1).
+  - 투사체: follower 컴포넌트 `_follower` 0·`_policy` 2·**`_restoreOnEnd` 1**·`_faceToMoveDirection` 0 — S3 비행 투사체와 같은 컴포넌트(그쪽은
+    `_restoreOnEnd` 0)로 몸을 싣고 가서, 끝나면 **원래 자리로 되돌린다**. 수명 INFINITY(`_lifeTimeType` 2), 속도 6, 도달 거리 4(`_distanceMax` Q32 4.0,
+    `_ignoreInitialTile`), 꼬리 `[flying]`은 출발 때 만들고 도착 때 끝냄.
+  - `[chant_end]`: 그녀의 그림 높이를 `height_offset`(이륙 높이)까지 `height_duration` 1초에 올리고 `fly_end_01–03`. 즉 활공 동안은 낮게, 돌아와서 1초에 걸쳐 뜬다.
+  - PRTS 备注: 「触发技能后进入持续2.5s的吟唱（滑翔）：期间模型向前方移动（**不改变所在地块及中心坐标**）」, 숨은 주석 「该弹道会沿对于飞行单位可通行的地块至多向前飞行4格
+    （不包括本格），弹道终点位于最后可通过的地块的中心」.
+- 고친 것: 시뮬은 그녀의 칸·좌표를 그대로 둔다(공식과 같음). `op-aglna2.js glide`가 끝점을 비행 통과 가능 칸(`grid.flyPassable`)을 따라 최대 4칸으로
+  계산해 쓸기 길이와 fx `dash`(`tx`/`ty`/`t`)에 같이 쓴다(전에는 맵 끝이어도 4칸). 렌더: `app.js`가 `dash`(`chant` > 0)에서 `UnitView.glide`를 부르고,
+  뷰가 모델을 6칸/초로 끝점까지 보냈다가 그 자리에 두고, 吟唱 2.5초가 끝나면 원래 칸으로 되돌린다(뷰 위치를 바꾸므로 HP 바·그림자·붙은 이펙트도 따라감).
+  그동안 높이 0, 끝난 뒤 이륙 높이까지 1초에 걸쳐 일정하게 오른다. 클립은 `SpineActor.chant`: Takeoff_Begin → Takeoff_Loop → (2.5초를 닫는) Takeoff_End →
+  돌아와서 `Skill_2_Begin` → 스킬 Idle/Loop. 吟唱 동안 공격 클립은 기다린다(시뮬도 무장해제). 활공 꼬리·`fly_range_01`은 도착까지만(`fx.md`).
+- [추정] Takeoff_End가 2.5초 吟唱의 마지막 1초(끝점에서)를 차지함(CN 클래스 디컴파일 불가 — `_interruptProjectileOnEndAnim`을 「끝 클립이 끝날 때 복귀」로 읽음),
+  속도 일정(이동 컴포넌트의 속도 곡선 ≈0.95–1.13·`_speed` 4.8은 안 씀, PRTS 6.0), 복귀는 순간 이동(`_restoreOnEnd`), 활공 중 바닥 높이는 그녀 칸 기준,
+  `Skill_2_Begin`(1초) 동안 시뮬은 이미 공격할 수 있음(첫 공격이 그 클립을 끊을 수 있음).
+- 테스트: `test/content/op_aglna2.test.js`(맵 끝에서 2칸·열린 곳 4칸, 위치 불변), `test/render/aglna2-s2-glide.test.js`(클립 순서·공격 대기·스킬 끝 처리,
+  뷰 이동·고정·복귀·1초 상승).
+
 ## 진영별 선발 프리셋 (2026-10-09, 관리자 결정)
 - 공식에 없는 기능(`feat`). 채팅 진영(`shared/local.js CHAT_FACTIONS`, 8개 국가 맹약)마다 브라우저에 자선 편성 프리셋을 하나씩 둔다(`public/js/ui/diyPresets.js`).
   저장 `localStorage sp.pref.diyPresets = { v: 2, presets: { [진영]: picks }, base, active }`(각 편성은 선발 편성과 같은 `cleanPicks`, 빈 진영 편성은 저장하지 않음;
