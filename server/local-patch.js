@@ -427,7 +427,7 @@ export function debugIntent(m, playerId, msg, env = process.env) {
     if (!slotId) {
       const held = Object.entries(ps.diy || {}).filter(([id]) => m.gd.raw.backups.diy.slots?.[id]?.tier === tier)
         .map(([, p]) => m.gd.raw.backups.units?.[p.charId]?.name || p.charId);
-      return fail(ERR.BAD_TARGET, `both 自选 slots of tier ${tier} hold operators with pieces (${held.join(', ')}): sell them first`);
+      return fail(ERR.BAD_TARGET, `both 自选 slots of tier ${tier} hold operators with pieces (${held.join(', ')}): sell them first`); // i18n-ignore: parsed by debugPanel.js diySlotsFullOf, which toasts the translated sentence
     }
     const prev = ps.diy?.[slotId]?.charId === msg.charId ? ps.diy[slotId] : null;
     const skillIndex = msg.skill ?? prev?.skillIndex ?? 0;
