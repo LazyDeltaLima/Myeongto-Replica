@@ -10,7 +10,7 @@
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
 //   fb.send                          (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
-//   dbg.funds / dbg.addDiy / dbg.finish  (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
+//   dbg.funds / dbg.addDiy / dbg.addChess / dbg.finish  (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
 //
 // 선발 오퍼레이터: since 0.2.0 upstream's 自选 framework (shared/diy.js, server/match/player/diy.js) with our
 // operators as its only candidates (tools/build-data.mjs local patch); nothing of it is wrapped here.
@@ -80,7 +80,7 @@ const factionsMsg = (c) => ({ t: 'room.factions', factions: Object.fromEntries(c
 export function onMessage(lobby, session, msg) {
   if (msg.t === 'room.chat') return chat(lobby, session, msg);
   if (msg.t === 'room.chatFaction') return pickFaction(lobby, session, msg);
-  if (msg.t === 'dbg.funds' || msg.t === 'dbg.addDiy' || msg.t === 'dbg.finish') return debugMessage(lobby, session, msg); // local debug mode only
+  if (msg.t === 'dbg.funds' || msg.t === 'dbg.addDiy' || msg.t === 'dbg.addChess' || msg.t === 'dbg.finish') return debugMessage(lobby, session, msg); // local debug mode only
   if (msg.t === 'fb.send') return feedbackOf(lobby).submit(session, msg);
   return null;
 }
@@ -311,6 +311,11 @@ export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-f
 //                           rule dropped the new slot and the gain failed as HAND_FULL), then gains the slot's chess (normal, or the elite with
 //                           `golden`) through PlayerState.acquireChess (merges, onGain, m.private), prep only, refused with
 //                           a full hand unless it completes a merge; no stock copies are taken (the shop is unchanged).
+//   dbg.addChess { chessId, golden? }
+//                           any preset / normal chess of data/chess.json (a normal id; hidden ones too, not the 自选 slots)
+//                           into the sender's hand through PlayerState.acquireChess like dbg.addDiy: normal, or its elite
+//                           with `golden`, prep only, refused with a full hand unless it completes a merge, no pool copies
+//                           taken (a merge it completes still tops the elite up, _mergeChess). The panel lists them from the client's own chess table (no list in m.private.debug).
 //   dbg.finish { victory }  the match ends now as won / lost (Match.finish, reason victory / defeat): the settlement screen,
 //                           its [stats] line and its feedback (local-feedback.js) without playing to the end — any phase
 // Outside debug mode these messages are refused as BAD_MSG (the server never trusts the client's panel).
@@ -327,8 +332,9 @@ const MODULE_NONE = 'none';
 const formKey = (tier, elite) => (elite ? `2/60/7/${tier === 6 ? 3 : 1}` : '2/1/4/0');
 
 /**
- * The 自选 candidates offered by the panel: [{ charId, name, tiers: { 5|6: { skills: [{ index, name }], modules: [{ id,
- * name, type }] } } }] — skills of the normal form, modules of the tier's elite form (plus 'none', isDiyModule only).
+ * The 自选 candidates offered by the panel: [{ charId, name, bonds, tiers: { 5|6: { skills: [{ index, name }], modules: [{ id,
+ * name, type }] } } }] — skills of the normal form, modules of the tier's elite form (plus 'none', isDiyModule only);
+ * `bonds` = the pick's bond ids (diy.operators, the panel's bond filter).
  */
 export function debugCandidates(gd) {
   const b = gd?.raw?.backups;
@@ -345,7 +351,8 @@ export function debugCandidates(gd) {
         modules: [{ id: MODULE_NONE, name: '', type: '' }, ...(ef?.modules || []).filter(isDiyModule).map((m) => ({ id: m.uniEquipId, name: m.name || m.uniEquipId, type: m.typeName || '' }))],
       };
     }
-    return { charId, name: u.name || charId, tiers };
+    const bonds = b.diy.operators?.[charId]?.bonds;
+    return { charId, name: u.name || charId, bonds: Array.isArray(bonds) ? bonds : [], tiers };
   }).filter(Boolean);
 }
 
@@ -417,7 +424,11 @@ export function debugIntent(m, playerId, msg, env = process.env) {
     if (!cand || !cand.tiers[tier]) return fail(ERR.BAD_TARGET, 'not a DIY candidate');
     const g = ps._gate({ allowWhenReady: true }); if (g) return g;
     const slotId = debugDiySlot(ps, msg.charId, tier);
-    if (!slotId) return fail(ERR.BAD_TARGET, `both DIY slots of tier ${tier} hold other operators with pieces`);
+    if (!slotId) {
+      const held = Object.entries(ps.diy || {}).filter(([id]) => m.gd.raw.backups.diy.slots?.[id]?.tier === tier)
+        .map(([, p]) => m.gd.raw.backups.units?.[p.charId]?.name || p.charId);
+      return fail(ERR.BAD_TARGET, `both 自选 slots of tier ${tier} hold operators with pieces (${held.join(', ')}): sell them first`);
+    }
     const prev = ps.diy?.[slotId]?.charId === msg.charId ? ps.diy[slotId] : null;
     const skillIndex = msg.skill ?? prev?.skillIndex ?? 0;
     if (!cand.tiers[tier].skills.some((x) => x.index === skillIndex)) return fail(ERR.BAD_TARGET, `skill ${skillIndex} not available`);
@@ -430,6 +441,17 @@ export function debugIntent(m, playerId, msg, env = process.env) {
     if (!restore) return fail(ERR.BAD_TARGET, 'pick refused');
     const piece = ps.acquireChess(chessId, { source: 'grant', fromPool: false });
     if (!piece) { restore(); return fail(ERR.HAND_FULL); }
+    ps.dirty();
+    return OK;
+  }
+  if (msg.t === 'dbg.addChess') {
+    const rec = ps.gd.chess(msg.chessId);
+    if (!rec || rec.isGolden || rec.isDiy || !Number.isInteger(rec.tier)) return fail(ERR.BAD_TARGET, 'not a normal chess id');
+    const g = ps._gate({ allowWhenReady: true }); if (g) return g;
+    const chessId = msg.golden ? ps.gd.goldenIdOf(msg.chessId) : msg.chessId;
+    if (!chessId || !ps.gd.chess(chessId)) return fail(ERR.BAD_TARGET, 'no elite form');
+    if (!ps.hand.includes(null) && !ps.completesChessMerge(chessId)) return fail(ERR.HAND_FULL);
+    if (!ps.acquireChess(chessId, { source: 'grant', fromPool: false })) return fail(ERR.HAND_FULL);
     ps.dirty();
     return OK;
   }
@@ -447,7 +469,7 @@ function debugMessage(lobby, session, msg) {
 }
 
 if (debugMode()) {
-  console.warn('[local-patch] local debug mode: in-game debug panel on (dbg.funds / dbg.addDiy / dbg.finish)');
+  console.warn('[local-patch] local debug mode: in-game debug panel on (dbg.funds / dbg.addDiy / dbg.addChess / dbg.finish)');
   const upstreamView = PlayerState.prototype.privateView;
   PlayerState.prototype.privateView = function privateView() {
     const v = upstreamView.call(this);

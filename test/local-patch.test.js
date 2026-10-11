@@ -1035,7 +1035,7 @@ test('SP_DEBUG_FUNDS: parsed only as an integer 0..999, unset on deployed server
   assert.equal(debugFunds({ SP_DEBUG_FUNDS: '5000' }), null);
 });
 
-describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.finish, local debug mode only (server/local-patch.js debugIntent)', () => {
+describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.addChess / dbg.finish, local debug mode only (server/local-patch.js debugIntent)', () => {
   const DEBUG_ENV = { SP_DEBUG_PAGE: '1' };
   const humans = () => [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }, { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true }];
   const prep = () => { const h = makeMatch({ mode: 'coop', seats: humans(), seed: 3 }); h.start(); h.toPrep(1); return h; };
@@ -1182,6 +1182,53 @@ describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.finish, local debug 
     assert.deepEqual(wang.tiers[6].skills.map((s) => s.index), [0, 1, 2]);
     assert.equal(wang.tiers[6].skills[0].name, '取势');
     assert.deepEqual(wang.tiers[6].modules.map((x) => x.id), ['none', 'uniequip_002_wang']);
+  });
+
+  test('dbg.addChess puts any normal chess (hidden ones too) into the hand without pool copies, merges, refuses 自选 slots / elite ids / a full hand', async () => {
+    const { debugIntent } = await import('../server/local-patch.js');
+    assert.equal(validateC2S({ t: 'dbg.addChess', chessId: 'chess_char_1_01_a', golden: true }), null);
+    assert.equal(validateC2S({ t: 'dbg.addChess', chessId: 'chess_char_1_01_a' }), null);
+    assert.ok(validateC2S({ t: 'dbg.addChess', chessId: 'char_498_inside' }));
+    const h = prep(), m = h.m, ps = h.ps('p_0');
+    ps.hand.fill(null);
+    const add = (f, env = DEBUG_ENV) => debugIntent(m, 'p_0', { t: 'dbg.addChess', ...f }, env);
+    assert.equal(add({ chessId: 'chess_char_1_01_a' }, {}).error, ERR.BAD_MSG, 'off outside debug mode');
+    const pool = JSON.stringify([...m.pool.entries]);
+    const hidden = Object.keys(m.gd.raw.chess).find((id) => { const c = m.gd.chess(id); return c.isHidden && !c.isGolden && !c.isDiy; });
+    assert.ok(hidden, 'data/chess.json has a hidden normal chess');
+    assert.deepEqual(add({ chessId: hidden }), { ok: true }, 'a hidden chess too');
+    assert.deepEqual(add({ chessId: 'chess_char_6_01_a', golden: true }), { ok: true });
+    assert.deepEqual(ps.hand.filter(Boolean).map((p) => p.id).sort(), [hidden, 'chess_char_6_01_b'].sort());
+    assert.equal(JSON.stringify([...m.pool.entries]), pool, 'no pool copies taken');
+    // (a merge still tops its elite up to goldenCopies from the pool: PlayerState._mergeChess, as for any gain)
+    for (let i = 0; i < 3; i++) assert.deepEqual(add({ chessId: 'chess_char_1_01_a' }), { ok: true });
+    assert.deepEqual(ps.hand.filter(Boolean).map((p) => p.id).sort(), [hidden, 'chess_char_1_01_b', 'chess_char_6_01_b'].sort(), 'three normal copies merge');
+    assert.equal(add({ chessId: 'chess_char_1_01_b' }).error, ERR.BAD_TARGET, 'an elite id: golden instead');
+    assert.equal(add({ chessId: 'chess_char_6_diy1_a' }).error, ERR.BAD_TARGET, 'a 自选 slot: dbg.addDiy');
+    assert.equal(add({ chessId: 'chess_char_9_99_a' }).error, ERR.BAD_TARGET);
+    while (ps.hand.includes(null)) assert.deepEqual(add({ chessId: 'chess_char_2_01_a', golden: true }), { ok: true });
+    assert.equal(add({ chessId: 'chess_char_3_01_a' }).error, ERR.HAND_FULL);
+    assert.equal(ps.temp.filter(Boolean).length, 0, 'nothing spilled into temp');
+  });
+
+  test('the panel lists every normal chess and the 自选 picks, filtered by bond / tier / name (public/js/ui/debugPanel.js)', async () => {
+    const { debugEntries, filterDebugEntries } = await import('../public/js/ui/debugPanel.js');
+    const { debugView } = await import('../server/local-patch.js');
+    const h = prep(), ps = h.ps('p_0'), gd = h.m.gd;
+    const cands = debugView(ps).candidates;
+    assert.ok(cands.every((c) => Array.isArray(c.bonds) && c.bonds.length), 'every 自选 pick has its bonds');
+    const chess = Object.values(gd.raw.chess);
+    const all = debugEntries(chess, cands, () => null, (id) => gd.bond(id));
+    const normal = chess.filter((c) => !c.isGolden && !c.isDiy);
+    assert.equal(all.length, normal.length + cands.length, 'every normal chess (hidden too) plus the picks');
+    assert.ok(all.some((e) => e.hidden));
+    assert.deepEqual(filterDebugEntries(all, { bond: 'diy' }).map((e) => e.cand.charId), cands.map((c) => c.charId).sort((a, b) => all.findIndex((e) => e.key === `diy:${a}`) - all.findIndex((e) => e.key === `diy:${b}`)));
+    const yan6 = filterDebugEntries(all, { bond: 'yanShip', tier: 6 });
+    assert.ok(yan6.length && yan6.every((e) => e.tiers.includes(6) && e.bonds.includes('yanShip')));
+    assert.ok(yan6.some((e) => e.kind === 'diy' && e.cand.charId === 'char_2027_wang'), '望 is a 炎 pick of tier VI');
+    assert.deepEqual(filterDebugEntries(all, { query: 'Insider' }).map((e) => e.key), ['chess_char_1_01_a'], 'the English appellation');
+    assert.deepEqual(filterDebugEntries(all, { query: '隐现' }).map((e) => e.key), ['chess_char_1_01_a'], 'the Chinese name');
+    assert.equal(filterDebugEntries(all, { tier: 1, bond: 'diy' }).length, 0);
   });
 });
 

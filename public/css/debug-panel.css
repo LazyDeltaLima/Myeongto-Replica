@@ -16,14 +16,18 @@
 .dbgp__pin input { width: .18rem; height: .18rem; margin: 0; accent-color: #ff9a5c; }
 .dbgp__row { display: flex; align-items: center; gap: .06rem; }
 .dbgp__label { flex: none; min-width: .34rem; color: var(--text-lo, #9aa8a2); }
-.dbgp select {
+.dbgp select, .dbgp__search {
   flex: 1; min-width: 0; height: .26rem; font: inherit; color: inherit;
   background: rgba(0, 0, 0, .55); border: 1px solid var(--line-2, #2c3833);
 }
+.dbgp__search { flex: none; box-sizing: border-box; width: 100%; padding: 0 .05rem; }
+.dbgp__none { flex: 1; min-width: 0; color: var(--text-lo, #9aa8a2); }
+.dbgp__count { flex: none; min-width: .2rem; text-align: right; color: var(--text-lo, #9aa8a2); font-variant-numeric: tabular-nums; }
 .dbgp__add {
   height: .28rem; font: inherit; font-weight: 700; color: #1d1400; background: #ff9a5c; border: 0; cursor: pointer;
 }
 .dbgp__add:disabled { opacity: .45; cursor: default; }
+.dbgp__note { color: #ffb38a; font-size: .11rem; line-height: 1.3; overflow-wrap: anywhere; }
 .dbgp__end {
   flex: 1; height: .26rem; font: inherit; color: #ffcfae; background: rgba(0, 0, 0, .55); border: 1px solid #ff9a5c; cursor: pointer;
 }
