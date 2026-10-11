@@ -231,27 +231,26 @@
     거의 없음 [추론]). 이전 코드와 다른 점: 0.75 앞을 봐서 0.5칸 일찍 꺾었고,
     저지대 통행 불가 칸·장애물이 놓인 칸에서도 꺾었고, 侵入点에서는 꺾지 않았다. 판정 간격 0.03초(이전 0.1초 → 이제 매 틱),
     수명은 스킬 끝까지(`_lifeTimeType` 2 = 클라 enum `LifeType` INFINITY — 2026-10-10 확인, 스킬 종료 버프 `chen3_s3[finish_projectile]`가 지운다).
-    **검기가 나가는 때** (공식대로 — 2026-10-11 밤 다시 확인해 고침): 시작 애니 `Skill_3_Begin`(13프레임 0.433 s, OnAttack 없음 — `skchr_chen3_3`
-    `_playSkillBeginAnim` 1, 클라 코드 `BasicSkill.PlayBeginAnimation`이 그 길이만큼 기다린 뒤 `DoStartSkill`) 동안은 공격하지 않고, 끝나고 **한 틱(1/30 s)
-    뒤 공격과 상관없이** 검기가 그때 그녀가 보는 방향으로 나간다(시전부터 약 0.467 s, 사거리에 적이 없어도). 그 뒤 Default 모드의 첫 일반 공격(Attack 클립,
-    OnAttack 13f × 클립 배율)이 맞으면 S3 공격(atk_scale 1.8·3타·Skill_3_Loop·사거리 3-12)은 **그다음 공격부터**다. 근거: `skchr_chen3_3`은 능력 두 개의
-    순서(`_alwaysNext` 1) — EmitProjectile(`projectile_chr_chen3_s3`) → SwitchMode(`mode` 3 = `Modes/S3`: `Body/Attack` `_animKey` Skill_3_Loop,
-    `_attackBlackboardModeIndex` 3, `_rangeIdModeIndex` 3) — 이고 둘 다 `ActiveBuffAbility` `_waitForAttackEvent` 1: 클라 코드
-    `EasyToStartAbility.OnWaitForPreDelay` → `WaitForNextEvent(ON_ATTACK_EVENT, m_cachedDuration)` → `AsyncUtil.WaitWhileForFixedSeconds`(프레임 수
-    max(1, round(시간 ÷ 틱))). `m_cachedDuration`(`OnCastStart`) = `GetDuration` = `m_lifeTime`(`SetLifeTime`: `_enableUpdateCooldown` 0이면 0에서 시작해
-    버프마다 `Buff.FetchDuration` 최댓값)이고 **`FetchDuration`의 마지막 `Misc.GetLifeValue`가 `lifeTimeType` IMMEDIATELY(0)에 0, LIMITED(1)에 `duration`,
-    INFINITY(2)에 무한**을 준다. EmitProjectile의 버프 `chen3_s3[projectile_audio]`는 IMMEDIATELY → 최대 대기 0 → 한 틱; SwitchMode의
-    `chen3_s3[switch_mode]`는 LIMITED → 스킬 20 s까지 첫 공격을 기다림. 공식 설명 「技能开启时向前释放一道可转向的剑气」과 맞다. 핫픽스 목록에 관련 메서드
-    없음. 구현: `op-chen3.js s3Spec` — 단계 `begin`(공격 없음 `S3_HOLD`) → `S3_BEGIN`에 `default`(스킬 `attack`·`targeting` 없음 = Default
-    프로필·범위, `baseClip` = Default 클립), `S3_BEGIN + TICK`에 `releaseQi` → 첫 공격의 `onAttack`에서 `mode`(S3 프로필·범위); 스킬이 끝나면 스펙을
-    되돌림. 엔진 한 줄: `ai.js attackClipOf`가 스킬 스펙의 `baseClip`이면 Default 클립 타이밍을 쓴다. 지난 동작: 2026-10-10 ~ 10-11 시전 0.433 s 뒤
-    발사·S3 공격은 시전부터; 10-11(`49eb223e`) ~ 10-11 밤 검기가 첫 평타 타격까지 기다림(0.87 s, 그녀 범위에 적이 없으면 안 나감) — 결정 13의 조사가
-    `GetLifeValue` 단계를 빠뜨리고 두 능력 모두 스킬 지속시간까지 기다린다고 봤다. [추정]: S3 모드가 「첫 공격의 다음 공격」부터인지 — 그 첫 공격의
-    OnAttack에 모드가 바뀌는데 그 이벤트가 그 공격의 피해보다 먼저 처리되면 첫 공격부터 S3일 수 있다(이벤트 처리 순서는 안 읽음). 렌더: 그 공격의
-    `'swing'` 이벤트 다섯째 값 1(`ai.js`, `baseClip`)을 받아 스킬이 켜져 있어도 Default `Attack` 클립으로 그린다(`render/units.js onSwing` →
-    `spine.js baseClip`, 스킬이 켜지고 꺼질 때 지움). 테스트 `test/local-patch-diy-chen3.test.js` 「S3: the 剑气 leaves one tick after Skill_3_Begin」
-    (검기 0.467 s·첫 타격보다 먼저, 첫 스윙 Default 클립 1타·비스킬, 다음 공격 3타·스킬), 「with nobody in her own range the 剑气 still leaves」,
-    실제 경기 경로 「S3 on m04」(시전 틱 + 13 + 1에 검기; 그녀 자리 10,5 — S3 모드의 첫 공격에 그녀 범위의 적이 필요).
+    **검기가 나가는 때·S3 모드** (공식대로 — 2026-10-11 밤 두 번 다시 확인해 고침): 시작 애니 `Skill_3_Begin`(13프레임 0.433 s, OnAttack 없음 —
+    `skchr_chen3_3` `_playSkillBeginAnim` 1, 클라 코드 `BasicSkill.PlayBeginAnimation`이 그 길이만큼 기다린 뒤 `DoStartSkill` → `SkillState` →
+    `BasicSkill.Cast`) 동안은 공격하지 않고, 끝나는 순간 **공격과 상관없이** 검기가 그때 그녀가 보는 방향으로 나간다(사거리에 적이 없어도). 그 3틱 뒤
+    (시전부터 약 0.533 s) S3 모드가 켜져 **첫 공격부터** S3 공격(atk_scale 1.8·3타·Skill_3_Loop·사거리 3-12)이다. 근거: `skchr_chen3_3`은
+    `AbilitySequenceGroup`(`_alwaysNext` 1 — `CastToTarget`이 첫 하위 능력을 곧바로, `_OnSubAbilityFinished`가 하나가 끝나는 즉시 다음 것을 시전,
+    그룹은 마지막 것이 끝나야 끝남)이고 하위 능력은 EmitProjectile → SwitchMode(`mode` 3 = `Modes/S3`: `Body/Attack` `_animKey` Skill_3_Loop,
+    `_attackBlackboardModeIndex` 3, `_rangeIdModeIndex` 3), 둘 다 `ActiveBuffAbility` `_waitForCasting` 0. EmitProjectile의 투사체는
+    `SimpleProjectileEmitter` `_emitEvent` 2 = ON_CAST_START(`AbilityStandard._DoCast`가 전딜 전에 냄, `OnEvent`가 그 이벤트에만 발사).
+    `ActiveBuffAbility`는 전딜·후딜을 스스로 덮어써(`<OnWaitForPreDelay>d__33`·`<OnWaitForPostDelay>d__34`) `_waitForCasting` 0이면 각각 고정 틱 하나만
+    기다리고 `_waitForAttackEvent` 1은 읽지 않는다 → EmitProjectile 전딜·후딜 2틱 + SwitchMode 전딜 1틱 = 3틱 뒤 `chen3_s3[switch_mode]`. 그동안
+    `SkillState`(`_StartSkill`의 끝 콜백 = 그룹 끝)가 공격을 막는다. 공식 설명 「技能开启时向前释放一道可转向的剑气」과 맞다. 핫픽스 목록에 관련 메서드 없음.
+    구현: `op-chen3.js s3Spec` — 단계 `begin`(공격 없음 `S3_HOLD`) → `S3_BEGIN`에 `releaseQi` → `S3_BEGIN + 3틱`에 `mode`(S3 프로필·범위); 스킬이 끝나면
+    스펙을 되돌림. [추정]: `DoStartSkill`(대리자 호출)이 같은 틱에 `SkillState`로 들어가는지 안 따라감 — 아니면 모두 한 틱 늦다.
+    지난 동작: 2026-10-10 ~ 10-11 시전 0.433 s 뒤 발사·S3 공격은 시전부터(공격 막음 없음); 10-11(`49eb223e`, 결정 13) ~ 10-11 밤 검기가 첫 평타 타격까지
+    기다리고 S3 모드는 그다음 공격부터(그녀 범위에 적이 없으면 둘 다 안 나옴); 10-11 밤 `cdc84e33` 검기만 시작 동작 + 1틱, S3 모드는 여전히 Default 첫 평타
+    뒤(S3 범위에만 적이 있으면 20 s 내내 평타 없음 — 시뮬 측정). 두 번 다 틀린 원인은 기반 클래스 `EasyToStartAbility.OnWaitForPreDelay`만 읽고 실제
+    클래스 `ActiveBuffAbility`가 그 슬롯을 덮어쓰는지 안 본 것(비공개 조사 기록 「남은 의문 조사」). Default 클립 엔진 줄(`ai.js attackClipOf`의 스킬 스펙
+    `baseClip`, `'swing'` 다섯째 값 1 → `render/units.js onSwing` → `spine.js baseClip`)은 `49eb223e` ~ `cdc84e33`의 첸 S3 Default 첫 평타용이었고 지금은 쓰는 키트가 없다.
+    테스트 `test/local-patch-diy-chen3.test.js` 「S3: the 剑气 leaves as Skill_3_Begin ends」(검기 0.433 s, 첫 스윙 0.533 s 이후·스킬 클립, 첫 공격 3타·스킬),
+    「with enemies only in the S3 range」(10,6에만 적: 검기·S3 범위·S3 공격), 실제 경기 경로 「S3 on m04」(시전 틱 + 13에 검기; 그녀 자리 10,7로 되돌림).
     `op-chen3.js chen3QiAdvance`(테스트용 export). `fx` 'chen3Qi'는 0.1초마다 + 꺾일 때 바로.
     S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 1-1 안의 적, `DEFAULT`) — 평타로 칠 수 없는 비행 적만 있으면 켜지지 않는다.
     한때 3-12 안의 적(비행 포함)으로 켜지는 `SKILL_RANGE` 예외였으나 관리자 결정(2026-10-06)으로 공식 규칙으로 되돌렸다. 예외가 다시 필요하면

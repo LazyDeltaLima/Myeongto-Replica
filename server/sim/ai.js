@@ -214,8 +214,8 @@ const TIMING = { strike: 0, action: 0, sel: 0 };
 
 /**
  * The clip timing record of `u`'s next swing: an enemy's one clip, an operator's Default mode or its active skill's —
- * the Default one while the running skill's spec says `baseClip` (a kit whose skill keeps the Default mode for a while:
- * 赤刃明霄陈 S3 until its mode switch, kits/ops/op-chen3.js).
+ * the Default one while the running skill's spec says `baseClip` (a kit whose skill keeps the Default mode for a while;
+ * none does now — 赤刃明霄陈 S3 did until its mode switch moved before her first attack).
  */
 function attackClipOf(u) {
   const a = u.def?.attackAnim;

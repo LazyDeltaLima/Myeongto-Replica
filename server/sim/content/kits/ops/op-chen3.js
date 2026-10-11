@@ -24,7 +24,7 @@
 // +respawn_buff.atk and respawn_buff.prob phys / arts dodge.
 // S3 剑气 (PRTS 备注): "剑气可对空，碰撞半径1.3，移动速度1.5，每次转向前对每个敌人仅判定一次伤害"; "在距离前进方向上的
 // 侵入点/保护目标/高度类型为高地的地块的距离不低于0.25时，顺时针旋转90°". Current-HP hp_ratio arts (≥ projectile_min_atk_scale × ATK).
-// It leaves one tick after Skill_3_Begin, whether she attacks or not; the S3 mode from her second attack after that (s3Spec).
+// It leaves as Skill_3_Begin ends, whether she attacks or not; the S3 mode three ticks later, before her first attack (s3Spec).
 // (2026-10-06) — EN client battle/prefabs/[uc]projectiles.ab `projectile_chr_chen3_s3`:
 //   movement: straight (_moveType 4) from her facing (_useSourceDirection), _speed 1.5; untimed (_lifeTimeType 2 — [inferred]:
 //     other type-2 projectiles carry _lifeTime 0) and finished at the skill end by chen3_s3[finish_projectile]
@@ -194,52 +194,44 @@ function chen3(bb, chess, def) {
   };
 
   /**
-   * S3 (the client's timing). skchr_chen3_3 is a sequence (`_alwaysNext` 1) of two ActiveBuffAbility, both
-   * `_waitForAttackEvent` 1: EmitProjectile projectile_chr_chen3_s3, then SwitchMode (`mode` 3 → Modes/S3: Body/Attack
-   * Skill_3_Loop, the S3 attack blackboard `_attackBlackboardModeIndex` 3, the S3 range `_rangeIdModeIndex` 3). Each waits
-   * for her next ON_ATTACK_EVENT for at most its own buffs' lifetime (client code EasyToStartAbility.OnCastStart →
-   * m_cachedDuration = GetDuration = ActiveBuffAbility.m_lifeTime from SetLifeTime = max of Buff.FetchDuration, which ends
-   * in Misc.GetLifeValue: lifeTimeType IMMEDIATELY → 0, LIMITED → `duration`; OnWaitForPreDelay → WaitForNextEvent →
-   * AsyncUtil.WaitWhileForFixedSeconds, max(1, round(t / dt)) frames). EmitProjectile's only buff
-   * chen3_s3[projectile_audio] is IMMEDIATELY, so it waits one tick; SwitchMode's chen3_s3[switch_mode] is LIMITED, so it
-   * waits up to the skill's 20 s. So: Skill_3_Begin (S3_BEGIN, no attack) → one tick later the 剑气 leaves, facing her
-   * direction then, with or without a target → her Default mode (Attack clip, OnAttack 13f × its scale; Default range and
-   * profile) until her first attack strikes → from her next attack the S3 mode (atk_scale 1.8, 3 hits, Skill_3_Loop,
-   * range 3-12). Official text 「技能开启时向前释放一道可转向的剑气」. Between 49eb223e and 2026-10-11 night the wave waited for
-   * that first strike (the IMMEDIATELY → 0 step was missed); before that it left at S3_BEGIN with the S3 mode from the
-   * cast. [ASSUMED: the mode applies from the attack after the first strike — the SwitchMode ability takes that strike's
-   * event; if the client applied the mode to that same attack's damage, the first attack would be an S3 one.] The spec
-   * object is this unit's own (the kit is built per unit): `attack` / `targeting` / `baseClip` (ai.js attackClipOf: the
-   * Default clip) change with the phase and are put back when the skill ends.
+   * S3 (the client's timing). skchr_chen3_3 is an AbilitySequenceGroup (`_alwaysNext` 1: CastToTarget casts the first
+   * sub-ability at once, _OnSubAbilityFinished casts the next as soon as one ends; the group ends after the last) of two
+   * ActiveBuffAbility: EmitProjectile (+ SimpleProjectileEmitter projectile_chr_chen3_s3, `_emitEvent` 2 = ON_CAST_START,
+   * which AbilityStandard._DoCast raises before the pre-delay), then SwitchMode (`mode` 3 → Modes/S3: Body/Attack
+   * Skill_3_Loop, the S3 attack blackboard `_attackBlackboardModeIndex` 3, the S3 range `_rangeIdModeIndex` 3). Both have
+   * `_waitForCasting` 0, so ActiveBuffAbility's own OnWaitForPreDelay / OnWaitForPostDelay wait one fixed tick each and
+   * never read their `_waitForAttackEvent` 1. The group starts when Skill_3_Begin has played (BasicSkill.PlayBeginAnimation
+   * → DoStartSkill → SkillState → BasicSkill.Cast), and SkillState holds her out of attacking until the group ends. So:
+   * Skill_3_Begin (S3_BEGIN, no attack) → the 剑气 leaves, facing her direction then, with or without a target → the S3
+   * mode three ticks later (EmitProjectile's pre- and post-delay ticks, SwitchMode's pre-delay tick) → her attacks are S3
+   * ones from the first (atk_scale 1.8, 3 hits, Skill_3_Loop, range 3-12). Official text 「技能开启时向前释放一道可转向的剑气」.
+   * [ASSUMED: DoStartSkill enters SkillState in the same tick — it goes through a delegate not traced; if not, all of it
+   * is one tick later.] History: 49eb223e made both wait for her attacks (the wave for her first strike, the mode for
+   * the one after); cdc84e33 sent the wave one tick after S3_BEGIN but kept the mode waiting for a Default attack, which
+   * never came with enemies only in the S3 range; before 49eb223e the wave left at S3_BEGIN with the S3 mode from the
+   * cast. The spec object is this unit's own (the kit is built per unit): `attack` / `targeting` change with the phase
+   * and are put back when the skill ends.
    */
   function s3Spec() {
     const S3_ATTACK = { atkScale: num(bb['attack@atk_scale'], 1.8), hits: 3, maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), groundOnly: true, canHitFly: false };
     const S3_TARGETING = { rangeGrid: skillGridOf(def), maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), showOwnRange: true };
     const mode = (battle, unit, spec, phase) => {
       unit.mem.chen3S3 = phase;
-      const s3 = phase === 'mode' || phase === null;   // null = off: the static values (static tools, the next cast)
-      spec.attack = phase === 'begin' ? S3_HOLD : s3 ? S3_ATTACK : null;
-      spec.targeting = s3 ? S3_TARGETING : null;
-      spec.baseClip = !s3;
+      // null = off: the static values (static tools, the next cast)
+      spec.attack = phase === 'begin' ? S3_HOLD : S3_ATTACK;
+      spec.targeting = S3_TARGETING;
       if (phase !== null) battle._refreshRange(unit);   // (the skill end's own range reset follows onEnd)
     };
     return {
       kind: 'duration',
       targeting: S3_TARGETING,
       attack: S3_ATTACK,
-      baseClip: false,
       onStart({ battle, unit, skill }) {
         const seq = unit.deploySeq, n = skill.activations;
         mode(battle, unit, skill.spec, 'begin');
         const same = () => unit.deploySeq === seq && unit.alive && unit.skill?.active && unit.skill === skill && skill.activations === n;
-        battle.after(S3_BEGIN, () => { if (same()) mode(battle, unit, skill.spec, 'default'); }, { owner: unit });
-        battle.after(S3_BEGIN + TICK, () => { if (same()) releaseQi(battle, unit); }, { owner: unit });
-      },
-      // every attack of hers while S3 runs (SkillRuntime.onAttackPerformed — at the strike): the first one, in the
-      // Default mode, switches to the S3 mode for the next
-      onAttack({ battle, unit, skill }) {
-        if (unit.mem.chen3S3 !== 'default') return;
-        mode(battle, unit, skill.spec, 'mode');
+        battle.after(S3_BEGIN, () => { if (same()) releaseQi(battle, unit); }, { owner: unit });
+        battle.after(S3_BEGIN + 3 * TICK, () => { if (same()) mode(battle, unit, skill.spec, 'mode'); }, { owner: unit });
       },
       onEnd({ unit, skill }) { mode(null, unit, skill.spec, null); },
     };
