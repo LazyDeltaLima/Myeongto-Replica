@@ -856,7 +856,20 @@
     (`tools/assets/spine.mjs LOCAL_SPINE_ROLES`: Start/Idle/Die가 그림을 숨겨 0초 Default 자세에 머묾 [추정]).
   - 정비 카드 일러스트: `chararts_extract.py --game <CN>/StreamingAssets/AB/Windows --id …`(CN은 새 설치라 번들이 `StreamingAssets`에 있다).
 - 자동으로 붙는 것: 공격·스킬 시전·타격·투사체 꼬리·스킬 버프(`modes.json`). 방향별 사본이 있는 오퍼레이터가 14 → 16명(클레멘티아·안젤리나 더 멜로우 위시).
-- 아직 안 붙인 것(키트 사건, `fxgame.js kitFx`에 연결이 필요): 클레멘티아 S2 방축선(`clemnt_skill_02_bullet_*`)·소용돌이(`_mark_*`)·S3 포격(지금 `blast`
-  자리표시), 켈시 에스페란타 S3 비행(`kalts2_skill_03_teleport_*`), 안젤리나 더 멜로우 위시 S2 활공(`aglna2_skill_02_fly_*`)·「이따 봐!」 표식
-  (`token_aglna2_agairp_01`; 표식 유닛은 그림이 없어 지금은 대체 마름모). 어느 프리팹이 어느 순간인지는 프리팹 이름만 보고 정하지 않는다 —
-  charpack 능력 그래프에서 확인한 뒤 화면 확인과 함께.
+- **CN 클라이언트의 이펙트 컴포넌트는 구조가 다르다**(2026-10-11, 관리자 제보 2건의 원인): 루트 이펙트 컴포넌트(`_spawnLocation` 등, `fx_extract.py root_effect`)는
+  EN이 `_subFXDelayConfigs` 뒤 28칸, CN이 30칸 — `_rotateType` 앞에 한 칸(int, 비교한 것 전부 0)과 끝에 한 칸이 더 있어 `_rotateType`부터 한 칸씩 밀린다.
+  FollowMountPoint(`mount_point`)는 EN 7칸, CN 9칸 — `_followScale` 뒤에 float 1.0과 int 0. 같은 프리팹을 두 클라이언트에서 읽어 맞춰 봄(이펙트 158개:
+  texas2·etlchi·chen3·swire 전부 일치, 마운트: swire·texas2·horn·svash2·etlchi). 그 전엔 CN 추출물의 `spawn`이 `_rotateType` 값이었다(클레멘티아 S3 범위 7 → 2로 읽혀
+  몸 높이로 떠 보임 — 제보 「S3 직사각형이 본인 칸과 앞 3칸에 딱 맞아야」). 고친 뒤 CN에서 다시 뽑은 첸 더 던스트릭·스와이어·엔텔레키아·텍사스 디 오메르토사 125개 중
+  123개가 EN 추출물과 같다(나머지 2개는 CN 쪽에만 `lineDyn`이 있음 — EN 추출물이 그 필드보다 오래됨). 세 명의 번들을 다시 뽑았다.
+- 키트 사건 연결(`fxgame.js pickFx`, 근거 = CN `[uc]projectiles.ab`의 `_mainEffect`·`_effectsWhenReached`와 버프 템플릿(`battle/buff_template_data`)의
+  `overrideEffectKey`·`_effectKey`): 클레멘티아 S2 방축선 = `projectile_chr_clemnt_s2_lr`/`_ud`의 `bullet_01`(가로)/`bullet_02`(세로)가 멈출 자리까지 이동,
+  소용돌이 = `_s2_range`의 `bullet_range_01` [추정: 그 투사체가 소용돌이], 운반 중인 적 머리 위 `mark_enemy`(`clemnt_s2[projectile_hit]`); S3 포격 = `_s3`의
+  `Mark_all_01`(3번 파동이 프리팹 안에 있어 포격 하나에 한 번, 시뮬 `lock`), 시뮬 `blast` 3번은 대체 그림 없음. 켈시 에스페란타 S2 착탄 = `_s2_dmg`/`_s2_heal`의
+  `range_damage_01`/`range_heal_01`(적/아군 — 시뮬 `aoe`의 `ally`); S3 비행 = `teleport_01`(떠남, [추정: 이름]) + `_s3_2`의 `teleport_trail_01`(날아가는 방향으로
+  돌림) + `teleport_end_01`(착지, [추정: 이름]). 안젤리나 더 멜로우 위시 S2 = `aglna2_s_2[flying]`의 방향별 활공 꼬리·`fly_range_01`(吟唱 동안), `[chant_end]`의
+  `fly_end_01–03`; 「이따 봐!」 표식 = `token_aglna2_agairp_01`. 이 프리팹들은 `KIT_OWNED` — 이름 규칙(`_range` 루프)이 시전자에게 또 틀던 것을 막는다.
+  시뮬 쪽은 fx 내용만 늘었다(`aoe.ally`, `disappear.tx/ty/t`, `dash.chant`; golden 그대로). 디버그 아레나에서 확인: S2 방축선·적 표시, 켈시 S2·S3, 안젤리나 S2
+  (클레멘티아 S3 포격은 침식 폭발이 필요해 화면 확인 못 함).
+- 안 붙인 것: 켈시 S3 待投放 오퍼레이터의 `teleport_02`(`kalts2_s_3[withdraw]` — 시뮬에 그 순간의 fx가 없음), 머리 위 표시(`[indicator_fx]`), 클레멘티아 `mark_01`/`mark_02`
+  (어느 유닛 버프인지 불명).

@@ -432,8 +432,9 @@
   공격 타이밍(`tools/assets/local-attack-timing.json`)이 들어가며 세 명의 타격 시점이 공식대로 바뀌었다(golden `diy-009`…`diy-011`만 움직임).
   클레멘티아 일본어 음성: 우리 음성 색인(`charword_table`, 10-06)이 그녀보다 오래돼 계획에 없었다 → `fetch-assets --refresh-index`로 12칸 모두 들어옴
   (한국어 음성은 셋 다 없음 — 한국 서버 출시 전).
-- 아직 안 한 것: 키트 사건에 붙는 이펙트(클레멘티아 S2 방축선·소용돌이·S3 포격, 켈시 에스페란타 S3 비행, 안젤리나 더 멜로우 위시 S2 활공·「이따 봐!」 표식)의
-  `fxgame.js` 연결, 화면 확인. 결과 화면 이름(upstream #469 — 클라이언트 전투 결과에서 선발이 「甄选干员」으로 나옴, `server/match/fields.js`)은 기존 선발에도 있는 별개 버그라 따로.
+- 키트 사건 이펙트는 2026-10-11 연결(`fx.md` 「선발 추가 3명 — CN 클라이언트」). 그때 CN 추출기 버그(이펙트 컴포넌트 구조 차이)를 고쳐 클레멘티아 S3 범위가
+  제자리에 놓였다. 안젤리나 더 멜로우 위시 S3 원(`aglna2_skill_03_range_01`)이 한 칸 아래에 보이는 것은 이륙(起飞) 오퍼레이터를 공중 높이로 그리지 않아서다
+  (관리자 결정 대기, 운영 노트 §11). 결과 화면 이름(upstream #469 — 클라이언트 전투 결과에서 선발이 「甄选干员」으로 나옴, `server/match/fields.js`)은 기존 선발에도 있는 별개 버그라 따로.
 - 테스트: `test/content/op_{kalts2,clemnt,aglna2}.test.js`(체크리스트의 은신 적 범위 피해 3개 포함), `test/content/heal-triggers-023.test.js`(S2 발동),
   `test/match/feedback5-we2-placement.test.js`(#26 战术锚点), `test/content/feedback5-we2-summon-hand.test.js`(#24 표식), golden `diy-009`…`diy-011`(새 시나리오, 다른 가족 변화 없음).
 

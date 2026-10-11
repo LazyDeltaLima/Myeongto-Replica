@@ -712,6 +712,10 @@ class Extractor:
         `_limitedPlaybackSpeed` == 2.0 — 51 bound prefabs with another limit (−1, 4, 0: 텍사스 디 오메르토사 S2
         texas2_skill_02_start) lost their `spawn`, and a non-empty `_subFXDelayConfigs` shifted every field.) Recognised by
         its shape: n ≤ 64, `_maxLifetime` −1 or in (0, 100), the bools 0 / 1, `_rotateType` ≤ 8, `_spawnLocation` < 64.
+        Two layouts (2026-10-11): the EN client's has 28 words from s; the CN client's (newer) 30 — one int before
+        `_rotateType` (s+8) and one at the end, both 0 in every component compared, so `_rotateType` and everything after it
+        sit one word later (checked on the same prefabs of both clients: 158 components of texas2 / etlchi / chen3 / swire,
+        every field equal under this mapping). Without it a CN prefab read `_spawnLocation` from `_rotateType`.
         FxDelay (`Torappu.Fx.FxDelay`, one float `_delayTime`: the GameObject starts `_delayTime` ÷ the playback speed later —
         `FxDelay.OnEnable`, RVA 0x34C1650) by its MonoScript (FXDELAY_SCRIPT)."""
         try:
@@ -743,13 +747,15 @@ class Extractor:
             s = 4 + 4 * subs
             if len(b) < (s + 16) * 4:
                 continue
+            x = 1 if len(b) // 4 - s == 30 else 0   # the CN layout: one more word before `_rotateType`
             life = f(s + 2)
             if life != -1.0 and not 0 < life < 100:
                 continue
-            if not (0 <= i(s + 8) <= 8 and 0 <= i(s + 9) < 64 and i(s + 3) in (0, 1) and i(s + 5) in (0, 1) and i(s + 14) in (0, 1)):
+            if not (0 <= i(s + 8 + x) <= 8 and 0 <= i(s + 9 + x) < 64 and i(s + 3) in (0, 1) and i(s + 5) in (0, 1) and i(s + 14 + x) in (0, 1)):
                 continue
-            pe = {'delayToPlay': f(s), 'delayToFinish': f(s + 1), 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8),
-                  'spawn': i(s + 9), 'leftIsDefault': i(s + 10), 'body': i(s + 11), 'mainDir': i(s + 12), 'overwrite': i(s + 14), 'heightOffset': f(s + 15),
+            pe = {'delayToPlay': f(s), 'delayToFinish': f(s + 1), 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8 + x),
+                  'spawn': i(s + 9 + x), 'leftIsDefault': i(s + 10 + x), 'body': i(s + 11 + x), 'mainDir': i(s + 12 + x), 'overwrite': i(s + 14 + x),
+                  'heightOffset': f(s + 15 + x),
                   # `_subFXDelayConfigs` (2026-10-11): { GameObject PPtr (m_FileID int, m_PathID int64), delayTime float } each
                   'subs': [(i(4 + 4 * k), struct.unpack_from('<q', b, 4 * (5 + 4 * k))[0], f(7 + 4 * k)) for k in range(subs)]}
         if pe is None:
@@ -1036,7 +1042,9 @@ class Extractor:
         its constants: 0 FOOT, 1 HIT, 2 MUZZLE, 3 HEAD, 4 UI, 5 SPECIAL_0, 6 SPECIAL_1, 7 GROUND, 8–21 SPECIAL_2–15;
         render/fxpoints.js mountSpawn), _followScaleSign, _followScale,
         _pauseWhenMountPointInvalid, _onlyPauseWhenMountPointInvalid, _keepOriginRotation, _useBehaviourPause (bools as
-        ints). None when the root has none."""
+        ints). The CN client's (newer) component has 9 words: a float (1.0) and an int (0) after `_followScale` (checked on
+        the same prefabs of both clients — swire, texas2, horn, svash2, etlchi —, the four bools in the same order after
+        them); without it a CN prefab read the float's bits as `_pauseWhenMountPointInvalid`. None when the root has none."""
         try:
             d = root.read_typetree()
         except Exception:
@@ -1053,6 +1061,9 @@ class Extractor:
             if len(raw) < off + 7 * 4:
                 return None
             v = struct.unpack_from('<7i', raw, off)
+            if (len(raw) - off) // 4 == 9:   # the CN layout: skip its two extra words
+                w = struct.unpack_from('<9i', raw, off)
+                v = w[:3] + w[5:]
             return {'type': v[0], 'followScaleSign': v[1], 'followScale': v[2], 'pauseWhenInvalid': v[3],
                     'onlyPauseWhenInvalid': v[4], 'keepOriginRotation': v[5], 'useBehaviourPause': v[6]}
         return None

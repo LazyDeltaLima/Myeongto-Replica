@@ -1273,10 +1273,144 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   let SKY_Y = null, skyUp = null; // local patch: skyward beams (update; three.js loads lazily)
   const lemMarks = new Map();   // 蕾缪安 id → [[live entries of one lock's beam / reticle / mark]], in lock order (its shells land in that order)
   const LEM_DROP_Z = 3;         // the shell falls from this height (tiles) [ASSUMED: straight down]
+  // ---- 2026-10-11: the 선발 picks only the CN client has — 凯尔希·思衡托 (kalts2), 克莱门莎 (clemnt), 予愿安洁莉娜 (aglna2): their kit
+  // events drawn with their official prefabs. Which prefab plays at which moment is read from the CN client's
+  // battle/prefabs/[uc]projectiles.ab (`_mainEffect` / `_effectsWhenReached` / `_effectsToTargetWhenStart`) and its buff templates
+  // (gamedata battle/buff_template_data `overrideEffectKey` / `_effectKey`) — docs/rules/fx.md 「선발 추가 3명 — 키트 이펙트」.
+  /** The extracted bundle of `v` when it is `bundle`'s operator, else null. */
+  const pickOf = (v, bundle) => (!failed && v && bundleOf(v)?.bundle === bundle ? bundleOf(v) : null);
+  /** The extracted name of `n` in `b` (the templates' keys differ in case from the bundle's: fly_trail_rightAndLeft_01), or null. */
+  const pickName = (b, n) => (b ? b.prefabs.find((p) => p.toLowerCase() === n.toLowerCase()) || null : null);
+  /** An anchor moving from (x0, y0) to (x1, y1) over `dur` battle seconds from now (a projectile's `_mainEffect`), at height z. */
+  function glider(x0, y0, x1, y1, dur, z = 0) {
+    const t0 = clockS, d = Math.max(0.04, dur);
+    const k = () => Math.min(1, (clockS - t0) / d);
+    return { get x() { return x0 + (x1 - x0) * k(); }, get y() { return y0 + (y1 - y0) * k(); }, z, alive: true };
+  }
+  const cabinEnd = new Map();   // 克莱门莎 id → the clock her S2 carriage stops (its passengers' marks end then)
+  function pickFx(e, views) {
+    const o = e[4];
+    if (!o || typeof o !== 'object') return false;
+    const x = Number(e[2]), y = Number(e[3]);
+    switch (e[1]) {
+      // 克莱门莎 S2 浮游放逐舱: projectile_chr_clemnt_s2_lr / _s2_ud (`_mainEffect` bullet_01 along a row, bullet_02 along a column)
+      // runs from her tile to where the sim stops it, in the sim's time
+      case 'anchor': {
+        const b = pickOf(views.get(o.id), 'clemnt');
+        const x0 = Number(o.fromX), y0 = Number(o.fromY), dx = x - x0, dy = y - y0, dur = Math.max(0, Number(o.dur) || 0);
+        const n = pickName(b, Math.abs(dx) >= Math.abs(dy) ? 'clemnt_skill_02_bullet_01' : 'clemnt_skill_02_bullet_02');
+        if (!n || !Number.isFinite(x0) || !Number.isFinite(y0)) return false;
+        ownFx.add(e);
+        cabinEnd.set(o.id, clockS + dur);
+        if (dur > 0) spawn(b.bundle, n, glider(x0, y0, x, y, dur), { owner: o.id, buff: false, until: clockS + dur }, { over: false, facing: dx < 0 ? -1 : 1, dir: { x: Math.sign(dx), y: Math.sign(dy) } });
+        return true;
+      }
+      // …and its vortex where it stopped: projectile_chr_clemnt_s2_range (`_mainEffect` bullet_range_01, on the ground) for the
+      // rest of the skill [추정: that projectile is the vortex — no other S2 prefab is a ground ring of water]
+      case 'tide': {
+        const b = pickOf(views.get(o.id), 'clemnt'), n = pickName(b, 'clemnt_skill_02_bullet_range_01');
+        if (!n) return false;
+        ownFx.add(e);
+        spawn(b.bundle, n, { x, y, z: 0 }, { owner: o.id, buff: true, until: clockS + Math.max(0.5, Number(o.dur) || 0) }, { over: false });
+        return true;
+      }
+      case 'teleport': {
+        // a passenger of the carriage (src = 克莱门莎): clemnt_s2[projectile_hit] puts mark_enemy over its head while it is carried
+        if (o.src != null) {
+          const b = pickOf(views.get(o.src), 'clemnt'), n = pickName(b, 'clemnt_skill_02_mark_enemy'), v = views.get(o.id);
+          if (!n || !v) return false;
+          ownFx.add(e);
+          if (!(v._clemntMark > clockS)) {
+            v._clemntMark = Math.max(clockS + 0.2, cabinEnd.get(o.src) || 0);
+            spawn(b.bundle, n, v, { owner: o.id, buff: true, until: v._clemntMark });
+          }
+          return true;
+        }
+        // 凯尔希·思衡托 S3 lands on her anchor's tile: teleport_end_01 [추정: by its name — no template names it]
+        const b = pickOf(views.get(o.id), 'kalts2'), n = pickName(b, 'kalts2_skill_03_teleport_end_01');
+        if (!n) return false;
+        ownFx.add(e);
+        spawn(b.bundle, n, views.get(o.id) || { x, y, z: 0 }, { owner: null, buff: false });
+        return true;
+      }
+      // 克莱门莎 S3: projectile_chr_clemnt_s3 flies with no effect (its fall is a sound) and `_effectsWhenReached` Mark_all_01, which
+      // holds its own three waves (5.25 s) — once a bombardment (the sim's 'lock'); its three 'blast's draw no stand-in
+      case 'lock': {
+        const b = pickOf(views.get(o.src), 'clemnt'), n = pickName(b, 'clemnt_skill_03_Mark_all_01');
+        if (!n) return false;
+        ownFx.add(e);
+        spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
+        return true;
+      }
+      case 'blast': {
+        if (!pickName(pickOf(views.get(o.id), 'clemnt'), 'clemnt_skill_03_Mark_all_01')) return false;
+        ownFx.add(e);
+        return true;
+      }
+      // 凯尔希·思衡托 S2: the 医疗单元 lands — projectile_chr_kalts2_s2_dmg / _s2_heal `_effectsWhenReached` range_damage_01 at an enemy,
+      // range_heal_01 at an ally (the sim's `ally`); its 'healAoe' of the same moment draws nothing more
+      case 'aoe': case 'healAoe': {
+        const b = pickOf(views.get(o.id), 'kalts2');
+        if (!b || (e[1] === 'aoe' && o.skill !== 'kalts2:s2')) return false;
+        const n = pickName(b, o.ally || e[1] === 'healAoe' ? 'kalts2_skill_02_range_heal_01' : 'kalts2_skill_02_range_damage_01');
+        if (!n) return false;
+        ownFx.add(e);
+        if (e[1] === 'aoe') spawn(b.bundle, n, { x, y, z: 0 }, { owner: null, buff: false }, { over: false });
+        return true;
+      }
+      // 凯尔希·思衡托 S3 takes off for her anchor: teleport_01 where she leaves [추정: by its name], and projectile_chr_kalts2_s3_2's
+      // `_mainEffect` teleport_trail_01 flying to the anchor in the sim's time (at her hit-point height [추정])
+      case 'disappear': {
+        const src = views.get(o.id), b = pickOf(src, 'kalts2');
+        const tx = Number(o.tx), ty = Number(o.ty), dur = Math.max(0.05, Number(o.t) || 0);
+        if (!b || !Number.isFinite(tx) || !Number.isFinite(ty)) return false;
+        ownFx.add(e);
+        const start = pickName(b, 'kalts2_skill_03_teleport_01'), trail = pickName(b, 'kalts2_skill_03_teleport_trail_01');
+        if (start) spawn(b.bundle, start, { x, y, z: 0 }, { owner: null, buff: false });
+        const z = src && camRef ? bodyZ(camRef, src, SPAWN_FRAC[2]) - (src.z || 0) : 0.5;
+        // turned along its flight, as every projectile's `_mainEffect` (placeTrail)
+        if (trail) {
+          spawn(b.bundle, trail, glider(x, y, tx, ty, dur, (src?.z || 0) + z), { owner: null, buff: false, until: clockS + dur })
+            .then((l) => { if (l) l.inst.object.rotation.set(0, 0, Math.atan2(ty - y, tx - x)); });
+        }
+        return true;
+      }
+      // 予愿安洁莉娜 S2 (`chant` > 0; S3's move dash has no effect — projectile_chr_aglna2_s3_fly has none): aglna2_s_2[flying] on her for the
+      // 吟唱 — the glide trail of her direction (rightAndLeft / up / down _01) and fly_range_01 —, then [chant_end] fly_end_01–03
+      case 'dash': {
+        const src = views.get(o.id), b = pickOf(src, 'aglna2'), chant = Number(o.chant);
+        if (!b || !(chant > 0)) return false;
+        const dx = Number(o.tx) - x, dy = Number(o.ty) - y;
+        const way = Math.abs(dx) >= Math.abs(dy) ? 'rightAndLeft' : dy > 0 ? 'up' : 'down';
+        ownFx.add(e);
+        for (const n of [`aglna2_skill_02_fly_trail_${way}_01`, 'aglna2_skill_02_fly_range_01'].map((k) => pickName(b, k)).filter(Boolean)) {
+          spawn(b.bundle, n, src, { owner: o.id, buff: true, until: clockS + chant });
+        }
+        castsDelayed.push({ t: clockS + chant, run: () => {
+          if (!src || src.alive === false || src.remove || gone.has(o.id)) return;
+          for (const n of ['aglna2_skill_02_fly_end_01', 'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03'].map((k) => pickName(b, k)).filter(Boolean)) {
+            spawn(b.bundle, n, src, { owner: o.id, buff: false });
+          }
+        } });
+        return true;
+      }
+      // 予愿安洁莉娜 S3's “一会儿见！” (on her deployment tile while she is away): its own effect (pkgrps/btl_pfb_fx_token_3.ab
+      // token_aglna2_agairp_01 → bundle aglna2_token) on it while it stands
+      case 'summon': {
+        if (o.token !== 'token_10071_aglna2_agairp' || failed || !index?.bundles?.aglna2_token?.includes('token_aglna2_agairp_01')) return false;
+        const v = views.get(o.id);
+        ownFx.add(e);
+        spawn('aglna2_token', 'token_aglna2_agairp_01', v || { x, y, z: 0 }, { owner: o.id, buff: true, until: null }, { over: false });
+        return true;
+      }
+      default: return false;
+    }
+  }
   /** Kit 'fx' events drawn with official prefabs; true = handled here (ownFx: render/fx.js skips its stand-in). */
   function kitFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
+    if (pickFx(e, views)) return true;
     const x = Number(e[2]), y = Number(e[3]);
     // 余 S3 灶里乾坤: the client builds the wall from per-tile pieces along the skill's infinite line (skchr_yu_3/TileRange
     // _isHorizontalInfinite), each on the tile's front edge (yuWallPieces — 2026-10-10, maintainer report: it stood on the
@@ -1445,7 +1579,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   const dirPick = (v, names) => dirCopies(bindOf(v)?.dirs, names, ['UP', 'RIGHT', 'DOWN', 'LEFT'].indexOf(facingDir(v)), (v.visFacing ?? v.facing ?? 1) < 0);
   // prefabs a kit event here draws instead (余 S3's wall piece: one per tile along the wall, not one on him)
-  const KIT_OWNED = new Set(['yu_skill3_range_01']);
+  const KIT_OWNED = new Set(['yu_skill3_range_01',
+    // 2026-10-11 (pickFx): the 선발 picks' kit-event prefabs — the `_range` name rule played 克莱门莎's vortex and 予愿安洁莉娜's glide
+    // range on the caster for the whole skill besides
+    'clemnt_skill_02_bullet_01', 'clemnt_skill_02_bullet_02', 'clemnt_skill_02_bullet_range_01', 'clemnt_skill_02_mark_enemy',
+    'clemnt_skill_03_Mark_all_01', 'kalts2_skill_02_range_damage_01', 'kalts2_skill_02_range_heal_01', 'kalts2_skill_03_teleport_01',
+    'kalts2_skill_03_teleport_trail_01', 'kalts2_skill_03_teleport_end_01', 'aglna2_skill_02_fly_trail_rightAndLeft_01',
+    'aglna2_skill_02_fly_trail_up_01', 'aglna2_skill_02_fly_trail_down_01', 'aglna2_skill_02_fly_range_01', 'aglna2_skill_02_fly_end_01',
+    'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => activationEffects(bindOf(v), bundleOf(v).prefabs, skillIdx(v), KIT_OWNED);
   // effects waiting for the damage of this tick: a skill that hits without an attack event (德克萨斯 S2's sword rain on

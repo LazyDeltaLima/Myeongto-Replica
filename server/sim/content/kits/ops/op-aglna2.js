@@ -109,7 +109,7 @@ function markerKit() {
 }
 
 /** S2's sweep from (x0, y0) along `fwd`: each selectable enemy once — an air unit 缚地 `gb` s, any other 浮空 `lev` s. */
-function glide(battle, unit, lev, gb) {
+function glide(battle, unit, lev, gb, chant = 0) {
   const [fr, fc] = unit.fwd;
   const x0 = unit.x, y0 = unit.y, t0 = battle.time;
   const hit = new Set();
@@ -126,7 +126,8 @@ function glide(battle, unit, lev, gb) {
     }
     return lead >= GLIDE_DIST;
   };
-  battle.fx('dash', { x: x0, y: y0, id: unit.id, tx: x0 + fc * GLIDE_DIST, ty: y0 + fr * GLIDE_DIST, t: GLIDE_DIST / GLIDE_SPEED });
+  // `chant`: how long her glide (the S2 吟唱) lasts — the render's official glide trail and its end (aglna2_s_2[flying] / [chant_end])
+  battle.fx('dash', { x: x0, y: y0, id: unit.id, tx: x0 + fc * GLIDE_DIST, ty: y0 + fr * GLIDE_DIST, t: GLIDE_DIST / GLIDE_SPEED, chant });
   if (sweep()) return;
   battle.every(TICK, (b, sched) => { if (sweep()) sched.cancel(); });
 }
@@ -223,7 +224,7 @@ export default {
             takeOff(battle, unit);
             const chant = num(b2.chant_duration);
             if (chant > 0) battle.addBuff(unit, { key: CHANT_KEY, duration: chant, flags: { disarm: true, invulnerable: true }, tags: ['skill'] });
-            glide(battle, unit, num(b2.buff_duration_levitate), num(b2.buff_duration_ground_bound));
+            glide(battle, unit, num(b2.buff_duration_levitate), num(b2.buff_duration_ground_bound), chant);
           },
           onEnd({ battle, unit }) { battle.removeBuff(unit, CHANT_KEY); land(battle, unit); },
         },

@@ -163,7 +163,7 @@ function s2Burst(battle, unit, target, attackId, b2) {
   const mend = () => {
     for (const a of battle.alliesInRadius(x, y, S2_RADIUS)) if (battle.allySelectable(a, unit)) battle.heal(unit, a, healAmt, { ignoreHealFree: true });
   };
-  battle.fx('aoe', { x, y, radius: S2_RADIUS, id: unit.id, skill: TAG_S2 });
+  battle.fx('aoe', { x, y, radius: S2_RADIUS, id: unit.id, skill: TAG_S2, ally: !onEnemy });   // `ally`: the shot's kind (render: its official burst)
   battle.fx('healAoe', { x, y, radius: S2_RADIUS, id: unit.id });
   if (onEnemy) { hurt(); mend(); } else { mend(); hurt(); }
 }
@@ -243,7 +243,7 @@ function startTransport(battle, unit, anchor) {
   unit.mem.k2flight = f;
   battle.releaseBlocked(unit);
   unit.hidden = true;
-  battle.fx('disappear', { x: unit.x, y: unit.y, id: unit.id });
+  battle.fx('disappear', { x: unit.x, y: unit.y, id: unit.id, tx: to.x, ty: to.y, t: T });   // render: the flight's official trail
   collide(battle, unit, f);
   battle.after(T, () => land(battle, unit), { owner: unit });
 }
