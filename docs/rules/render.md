@@ -249,8 +249,14 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 확인: `test/render/board3d-retry.test.js`(일정·다시 받기·진단 줄). Windows Chrome `dev/render-demo.html`(실제 `createFieldView`): 10초 안에
   4번 연달아 잃음 → 3번 재구성 뒤 2D·「waits」 → `visibilitychange` → 3D 복귀; 처음 `TX_autochessi_D` 요청 하나 차단 → 「board art failed to load」 2D
   → 재시도로 3D. `[ASSUMED]` 실제 휴대폰(iOS·Android)에서의 효과는 미확인 — 다음 제보의 진단 정보로 원인(소실·받기 실패·GPU 검사·간이 보기)을 가른다.
-- 안 한 것(진단 3·4번, 관리자 결정 대기): 휴대폰 GPU 메모리 상한(무대 텍스처 ~90 MB·품질 기본 high), `fxgame.js destroy`의 `forceContextLoss` 없음,
-  `ui/fieldHost.js` 12초 시간 초과 → 간이 보기(재시도 없음).
+- 안 한 것(관리자 결정 대기): 휴대폰 GPU 메모리 상한(무대 텍스처 ~90 MB·품질 기본 high). (`fxgame.js destroy`의 `forceContextLoss`는
+  아래 「이펙트 렌더러 정리」에서 넣음.)
+- 간이 보기 재시도(upstream 0.2.4 `6bfc0827`, 사용자 결정 2026-10-11): `ui/fieldHost.js`가 12초 시간 초과·엔진 오류로 간이 보기(DOM)에 떨어진 뒤,
+  `online`·`visibilitychange`(페이지가 다시 보일 때)에 엔진을 처음부터 다시 띄운다 — 연달아 최대 2번(엔진이 뜨면 횟수 0으로), 오프라인·숨김·
+  `?render=fallback`이면 안 함. 위 3D 재시도(`retry3d`)는 **엔진 안에서** 보드만 다시 시도하는 것이라 겹치지 않는다(이쪽은 엔진 자체가 실패했을 때).
+  새 엔진은 새 view 객체라 `screens/game.js`가 그 view에서 정비 카메라·전투를 다시 들어간다(`enteredViewRef` — 판을 다시 시작하지 않음: 로컬 전투는
+  `battleRunner.reshow()`, 서버 전투·관전은 `g.watch`로 새 메타를 받아 버퍼된 재진입 경로로). 진단 `render events:`에 `engine retry n/2`.
+  [화면 미확인] 실제 휴대폰에서 간이 보기 → 복귀.
 
 ## 이펙트 렌더러 정리 (2026-10-10, 관리자 요청 「측정 후 고치기」)
 - 측정(Windows Chrome render-demo, 공속 +0/+100/+200 녹화, WebGL 호출 집계 — 자세한 표는 관리자 노트): 판 끝 `view.destroy()` 뒤 이펙트 컨텍스트 2개가

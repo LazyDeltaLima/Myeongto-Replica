@@ -468,12 +468,23 @@ function MatchScreen() {
   live.current.deviceBattle = !!shownField && !shownField.prep;
   const staleFieldRef = useRef(null);
   const enteredFieldRef = useRef(null);
+  const enteredViewRef = useRef(null);
   const pressSel = useRef(null);                         // the selected piece when the current field press began
   useEffect(() => {
-    // Read before the entry below replaces them. A later refresh of this same field (g.watch / reshow replaces the
+    // Read before a view change clears the refs. A later refresh of this same field (g.watch / reshow replaces the
     // field object) must still know which battle the device units already noted belong to.
     const previousFieldId = lastFieldRef.current;
     const previousDevices = deviceUnitsRef.current;
+    if (enteredViewRef.current !== view) {
+      // A replacement engine (ui/fieldHost.js retries a fallback view) has no field, even when the match's m.field
+      // object did not change: the prep camera and the battle are entered again on it. While it loads, frames are
+      // buffered instead of sent to a null / destroyed view; its subscription below asks for fresh meta.
+      enteredViewRef.current = view;
+      enteredFieldRef.current = null;
+      lastFieldRef.current = null;
+      viewModeRef.current = null;
+      reentryRef.current = null;
+    }
     if (!view) return;
     if (showPrep) {
       if (field?.prep) staleFieldRef.current = field; // a prep scouting board is never a battle to enter
@@ -653,6 +664,16 @@ function MatchScreen() {
     };
     const offs = [net.on('m.field', onFieldMeta), net.on('b.snap', onSnap), net.on('b.ev', onEv)];
     if (battleRunner) offs.push(battleRunner.on('field', onFieldMeta), battleRunner.on('snap', onSnap), battleRunner.on('ev', onEv), battleRunner.on('result', onResult));
+    // A replacement view (ui/fieldHost.js retry) needs metadata that includes the enemies / tokens spawned before it
+    // existed, not only the events buffered while it loaded. Subscribe first so the reshow's metadata and snapshot take
+    // the ordinary buffered re-entry path.
+    if (view && !showPrep && field?.fieldId) {
+      if (field.local) battleRunner?.reshow();
+      else if (combat || watchingOther) {
+        const who = watchWho?.fieldId === field.fieldId ? watchWho.playerId : null;
+        net.request('g.watch', { fieldId: field.fieldId, ...(who ? { playerId: who } : {}) }).catch(() => {});
+      }
+    }
     return () => { for (const off of offs) { try { off(); } catch { /* ignore */ } } clearTimeout(pending); };
   }, [view]);
 
