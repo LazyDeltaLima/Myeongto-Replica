@@ -139,6 +139,11 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   테스트 묶음(`heal-triggers-023`의 S2 발동, `feedback5-we2-placement` #26, `feedback5-we2-summon-hand` #24, `community-round27`의 予愿 2개)도 옮김.
   #469(결과 화면 선발 이름, `server/match/fields.js`)는 안 받음 — 별개 버그. 자세한 것은 `diy.md` 「선발 추가 3명 (2026-10-11)」.
 
+- **멈춘 Spine 자세·재배치 링 글자 텍스처 재사용** (upstream `2fdc565c`, PR #434 by @Cloudnyco, `git cherry-pick -x` + 브라우저 테스트 후속 `584cedc1`·`6036e6a4`,
+  관리자 결정 2026-10-11): 충돌 4곳(`app.js` import, `spine.js` 머리 주석·생성자 필드, `units.js` 생성자 주석·impostor 분기)은 양쪽 다 넣고, impostor 분기는 우리
+  낙하 조건(`a8277c09`)에 upstream `held`를 더함. upstream의 `docs/history/0.2.3.md`는 우리에게 없어 건너뜀, `docs/design/client.md`는 한 절 덧붙임. 우리 보강
+  2개(跃跃 부메랑 스킨 변경 시 다시 그림, 멈춘 자세도 240프레임마다 다시 그림)와 자세한 것은 `render.md` 「upstream 0.2.3 이식 — 렌더」.
+
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.
 - 제국의 갑주 폭격·3연타 → `server/sim/content/local-patch.js`의 `patchVtsk`(`sim.md` 「“帝国的甲胄”」).

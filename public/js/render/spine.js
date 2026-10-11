@@ -37,6 +37,8 @@
 //                                         closing clip timed to end `in` s from now (a 重生's last clip ends with the
 //                                         重生), landing in `roles`
 //   update(dt)                            advances the skeleton (autoUpdate is off: one clock for everything)
+//   poseHeld()                            true while the pose cannot change (render/units.js then neither re-poses nor
+//                                         redraws the model, only advances `clock`)
 // A 要塞 (fortressClips, render/units.js FORTRESS_CLIPS) plays the melee or the ranged clip of its attack role by its latest
 // attack's kind (atkRanged: the 'swing' / 'atk' projectile, 'none' while it blocks).
 // Attack mode lasts until ~1.4 attack intervals without a new attack (a `once` cast and every attack of a
@@ -197,6 +199,8 @@ export class SpineActor {
     this.fortressClips = null;    // a 要塞's [melee, ranged] clip pairs (render/units.js FORTRESS_CLIPS)
     this.atkRanged = null;        // …and whether its latest attack was ranged (null: not known yet — the role's clip)
     this.stanceSkills = null;     // skill indices whose loop is the stance while on, attacks clipless (render/units.js STANCE_SKILLS)
+    this._applied = false;        // an update has posed the skeleton since its clip last changed (poseHeld)
+    this._appliedTint = undefined; // the tint that update put on the slots (pixi-spine applies `tint` in update)
     this._play(this._idleName(), true);
   }
 
@@ -355,6 +359,7 @@ export class SpineActor {
       if (start) e.trackTime = start;
     }
     this.current = name;
+    this._applied = false;
     return true;
   }
 
@@ -362,6 +367,7 @@ export class SpineActor {
     if (!this.has(name)) return false;
     const e = this.spine.state.addAnimation(0, name, loop, 0);
     if (e) e.timeScale = timeScale;
+    this._applied = false;
     return true;
   }
 
@@ -660,6 +666,24 @@ export class SpineActor {
     return 0;
   }
 
+  /**
+   * True while an update would draw the same pixels: a frozen model, or a dead one whose only clip — track 0, not
+   * looping, not mixing — has played out (the held end of a death clip; a skeleton without one holds its idle at
+   * timeScale 0). Only once an update has posed the current clip and put the current tint on the slots (pixi-spine applies
+   * `tint` in update: the grey of a knocked-out operator, a hit flash). Never while a form's closing clip or a wind-up is
+   * pending: those act on the clock.
+   */
+  poseHeld() {
+    if (!this._applied || this.spine.tint !== this._appliedTint || this.endClip || this.windUntil != null) return false;
+    if (this.frozen) return true;
+    if (this.mode !== 'die') return false;
+    const tracks = this.spine.state.tracks;
+    for (let i = 1; i < tracks.length; i++) if (tracks[i]) return false;
+    const e = tracks[0];
+    if (!e || e.loop || e.mixingFrom) return false;
+    return e.timeScale === 0 || e.trackTime >= e.animationEnd - e.animationStart;
+  }
+
   /** Revive (redeploy after death). */
   revive() {
     this.dead = false;
@@ -734,6 +758,8 @@ export class SpineActor {
       try { this.spine.update(dt); } catch { /* a broken skeleton must not stop the frame */ }
     }
     if (this.clipped && !this.clipOn) this._eyeMaskFallback();
+    this._applied = true;
+    this._appliedTint = this.spine.tint;
   }
 
   /**

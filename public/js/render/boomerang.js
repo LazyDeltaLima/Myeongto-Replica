@@ -49,6 +49,9 @@ export function syncHeldWeapon(actor, view) {
     const slot = sk.slots[e.slotIndex];
     if (slot) slot.setAttachment(held ? e.attachment : null);
   }
+  // the skin change shows only after an update: a held pose (SpineActor.poseHeld — lying in the end of its Die clip when
+  // the last flight lands) is updated and redrawn once more
+  actor._applied = false;
 }
 
 const tracked = new Set();   // the views with a held-projectile skin (heldStats)

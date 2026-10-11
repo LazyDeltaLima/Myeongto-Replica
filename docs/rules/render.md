@@ -289,3 +289,16 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   캐릭터(predefine)를 켜고 끄고, `AutoChessBattleDataModel.PrepareForPrepareState`(0x843AC0)가 말 목록을 비운 뒤 효과를 적용하므로 준비 화면은 늘 예비 메딕,
   `_PrepareForBattleState`(0x847B30)가 실제 출전 말로 다시 센다(비공개 디컴파일 기록). 어그로 순서는 `sim.md` 「upstream 0.2.3 이식」. 테스트
   `test/match/touch-prep.test.js`(PR). **[화면 미확인]** 준비·보스전 준비(오른쪽 플레이어 거울)·정찰·대체 화면에서 예비 메딕 위치·방향.
+- **멈춘 자세는 다시 계산·다시 그리지 않음 + 재배치 링 글자 공유** (upstream PR #434 by @Cloudnyco, `2fdc565c` cherry-pick, 브라우저 테스트 후속 `584cedc1`·
+  `6036e6a4`; 관리자 결정 2026-10-11 전부 이식): `SpineActor.poseHeld()`(render/spine.js)는 얼어붙은 모델(`frozen`)이나 죽은 모델의 track 0 하나가 반복·믹스
+  없이 끝까지 재생됐을 때(Die 마지막 프레임, Die 없는 골격은 timeScale 0의 Idle) 참 — 단 `update()`가 현재 클립·현재 tint를 한 번 반영한 뒤에만, 폼 마무리 클립·
+  윈드업 대기 중엔 거짓. 그동안 `render/units.js`는 골격을 다시 계산하지 않고(`clock`만 감) impostor 슬롯도 다시 그리지 않는다(새 클립·재배치·눈꺼풀 마스크
+  켜짐↔꺼짐·12% 넘는 확대·축소면 다시). 링 숫자·`DP`·`!`는 링마다 `PIXI.Text` 대신 (글자·색·해상도)별 공유 텍스처(`render/textures.js downLabel`, 웹 폰트가 늦게
+  오면 `refreshDownLabels`). 공식 동작과는 무관한 성능 변경(같은 픽셀). 충돌 해결: 우리 「낙하 중 클리핑 없는 모델은 impostor 안 씀」(`a8277c09`, 위 「배치 낙하」)
+  조건을 그대로 두고 upstream `held`를 더함 — 낙하 중엔 `mode 'deploy'`라 `poseHeld()`가 어차피 거짓. upstream의 `_wolfPips`·`ammoCuts`(R22-HUD, 우리 미이식)는
+  넣지 않음. 우리 쪽 보강 2개(upstream에 없음): ① 跃跃(回环射手, 오퍼레이터)의 손 부메랑(`render/boomerang.js syncHeldWeapon`)이 스킨을 바꾸면
+  `_applied = false` — 쓰러져 Die가 끝난 뒤 날던 부메랑이 돌아와도 손의 바퀴가 다시 그려진다(pixi-spine은 스킨 변경을 update에서 반영; 얼어붙은 모델은
+  `update()`가 골격을 안 움직이므로 전과 같이 안 보임). ② 멈춘 자세의 impostor 슬롯도 `HELD_REDRAW_FRAMES`(240프레임, 60 fps에서 ~4초)마다 한 번은 다시 그림 —
+  슬롯 픽셀은 RenderTexture에 있어 WebGL 컨텍스트를 잃었다 되찾으면(휴대폰 메모리 부족·탭 전환) 비어 돌아오는데, 우리 Pixi 쪽엔 복구 처리가 없어 쓰러진
+  오퍼가 재배치까지 빈 칸으로 남을 수 있었다. 테스트 `test/render/held-pose.test.js`(upstream 9건 + 보강 2건), `test/render/downring.test.js`,
+  `test/render/held-pose.browser.test.js`(RENDER_E2E). **[화면 미확인]** 쓰러짐·재배치·빙결·확대·마스크 전환·跃跃 부메랑·DPR 변경·컨텍스트 소실 복구.
