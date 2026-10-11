@@ -260,6 +260,49 @@ function drawBullets(o, ammo, x0, y, w, h, u) {
 }
 
 /**
+ * 琳琅诗怀雅's skill purse (b.snap `coins`, server/sim/snapshot.js coinView; upstream 0.2.4, PR #450): a coin icon and
+ * 「balance/cap」 on one row under her bars, left-aligned with them, in HUD units like the bars. [ASSUMED] look: no readout of
+ * the kind was found in the client (her charpack char_1033_swire2.ab holds no HUD object), so this is the PR's readout
+ * restyled to the official bars: gold (#ffc600, the bullet bar's warm family), the official numbers' font and a dark
+ * outline. `y` = the gap under the bars (their plate's shadow); `icon` / `font` = sizes; all in HUD units.
+ */
+export const COIN_PURSE = Object.freeze({ y: 5, icon: 17, font: 16, gap: 3, fill: '#ffc600', stroke: '#1a1206' });
+/** Font size (px) the purse's text is rasterised at; it is scaled to `COIN_PURSE.font × u`, so a resize never re-rasterises. */
+const COIN_RASTER = 32;
+
+/** The purse row of one view, drawn into `parent` (the view's HUD container); `tex` = the coin icon (textures.js fxAtlas `coin`). */
+export class CoinPurse {
+  constructor(P, parent, tex) {
+    const C = COIN_PURSE;
+    this.root = new P.Container();
+    this.icon = new P.Sprite(tex);
+    this.icon.anchor.set(0, 0.5);
+    this.text = new P.Text('', { fontFamily: 'Novecento Wide, Bender, Oxanium, sans-serif', fontSize: COIN_RASTER, fontWeight: '700', fill: C.fill, stroke: C.stroke, strokeThickness: 7 });
+    this.text.anchor.set(0, 0.5);
+    this.root.addChild(this.icon, this.text);
+    parent.addChild(this.root);
+    this.label = '';
+    this.root.visible = false;
+  }
+
+  hide() { this.root.visible = false; }
+
+  /** Show `coins` ([balance, cap]) under bars whose left edge is `x0` and bottom edge `bottom` (px), `u` px per unit; returns the row's bottom (px). */
+  update(coins, x0, bottom, u) {
+    const C = COIN_PURSE;
+    const label = `${coins[0]}/${coins[1]}`;
+    if (this.label !== label) { this.label = label; this.text.text = label; }
+    const cy = bottom + (C.y + C.icon / 2) * u;
+    this.icon.width = this.icon.height = C.icon * u;
+    this.icon.position.set(x0, cy);
+    this.text.scale.set((C.font * u) / COIN_RASTER);
+    this.text.position.set(x0 + (C.icon + C.gap) * u, cy);
+    this.root.visible = true;
+    return bottom + (C.y + C.icon) * u;
+  }
+}
+
+/**
  * The HP bar of an enemy (see header): `kind` 'normal' | 'boss' | 'giant' (`giant` = its GIANT_BOSS entry). `hit()`
  * flashes a giant's bar; textures of the emblem / frame / glow come from `assets` once loaded (none: plain bars).
  */

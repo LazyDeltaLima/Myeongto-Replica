@@ -314,6 +314,16 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - golden: 결과는 그대로, 이륙 유닛이 있는 시나리오의 스냅숏 해시만(roster-004·006·025, diy-009·011).
 
 ## upstream 0.2.4 이식 — 렌더 (2026-10-11)
+- **琳琅诗怀雅(오퍼레이터) 스킬 금화 잔액/상한을 HP바 아래에** (upstream PR #450 by @IceCodeNew, `6bfc0827`; 관리자 결정 2026-10-11 「표시」): sim이
+  `b.snap coins` `[[id, 잔액, 상한]]`을 싣고(`server/sim/snapshot.js coinView` — 키트의 `mem.coins`, 첫 금화 전엔 0, 상한은 고른 스킬의 `sp` 2·3·10
+  「携带此技能时金币上限为N」; 표시 전용, 전투는 읽지 않음, golden 다이제스트에도 안 들어감 `tools/golden.mjs`), `render/interp.js`가 샘플 `coins`로 넘기고
+  (0은 잔액, 정수가 아니거나 음수인 항목은 버림, 항목이 사라지면 지움), `render/units.js`가 공식 바 아래에 `hud-bars.js CoinPurse` 한 줄(금화 아이콘 +
+  「잔액/상한」)을 그린다. upstream과 다른 점: ① 우리 공식 HUD에 맞춰 바의 왼쪽 끝에 붙이고 크기를 HUD 단위(`hudUnit`, 1920×1080 기준)로 잡음 — 카메라 확대와
+  무관하게 바와 같이 커지고 작아짐, 글자는 32px로 한 번 그린 뒤 축소(창 크기 변경에 다시 그리지 않음). ② upstream은 `mem.coins`가 정수일 때만 보였으나 우리
+  키트는 첫 금화 전 `mem.coins`가 비어 있어 그녀의 스킬(`skchr_swire2_*`)이면 0으로 봄. ③ 원소 게이지 대체 줄(링 그림이 없을 때)은 금화 줄 아래로 내려감.
+  `[ASSUMED]` 모양: 클라에서 이런 표시를 찾지 못함(EN 클라 `charpack/char_1033_swire2.ab`에 HUD 오브젝트 없음 — `RandomGold`는 S3 이펙트) — 금색 #ffc600,
+  공식 숫자 글꼴(Novecento Wide), 어두운 외곽선은 우리 선택. 테스트 `test/render/swire2-coins.test.js`. **[화면 미확인]** 세 스킬별 0/2·0/3·0/10 시작,
+  금화 증감, 쓰러짐·철수 뒤 사라짐, 원소 게이지와 겹치지 않음, 모바일 크기.
 - **샴페인 폭탄(香槟炸弹, 琳琅诗怀雅의 소환물) 원래 스킨 모델** (upstream `6bfc0827`; 관리자 결정 2026-10-11 「받음」): 웹 덤프에는 스킨
   `ambienceSynesthesia_4`뿐이라 그동안 그 스킨으로 그렸다. 로컬 클라의 전투 소환물 팩(`pkgrps/btl_pfb_tokens_0.ab`, Front 렌더러)에서 원래 모델을 뽑아
   `tools/local-extract/extract.py TOKEN_SPINES`에 더하고(`--only spine/token/token_10031_swire2_gdtrap`, EN 클라), `fetch-assets --local-spines`로

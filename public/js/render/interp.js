@@ -36,6 +36,9 @@
 //     it stays linear.
 //   * `shield` [[id, amount]] — an ally's barrier HP (sim local-hud.js): handed out by sample() as `shield` (render/hud-bars.js
 //     shieldedBar).
+//   * `coins` [[id, balance, cap]] — 琳琅诗怀雅's skill purse (sim snapshot.js coinView; upstream 0.2.4, PR #450): handed out
+//     by sample() as `coins` [balance, cap] from the older snapshot, like flags; zero is a balance, and an entry that is not
+//     two whole numbers 0 ≤ balance, 1 ≤ cap is dropped (render/hud-bars.js CoinPurse).
 // Game times in all of them (`cooldownEnd`, `respawnAt`, `until`, `at`) are on the snapshots' clock, so a view compares
 // them with renderT.
 
@@ -114,6 +117,13 @@ export function normalizeSnapshot(snap) {
   for (const [key, list] of [['ammo', snap.ammo], ['bsp', snap.bsp]]) if (Array.isArray(list)) for (const e of list) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[2]) > 0) tu[key] = [Math.max(0, finite(e[1])), finite(e[2])]; }
   // b.snap `shield` [[id, amount]] (an ally's barrier HP, sim local-hud.js) rides on the tuple as `.shield`
   if (Array.isArray(snap.shield)) for (const e of snap.shield) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[1]) > 0) tu.shield = finite(e[1]); }
+  // b.snap `coins` [[id, balance, cap]] (琳琅诗怀雅's purse) rides on the tuple as `.coins` [balance, cap]
+  if (Array.isArray(snap.coins)) {
+    for (const e of snap.coins) {
+      const tu = Array.isArray(e) && units.get(e[0]);
+      if (tu && Number.isSafeInteger(e[1]) && e[1] >= 0 && Number.isSafeInteger(e[2]) && e[2] >= 1) tu.coins = [Math.min(e[1], e[2]), e[2]];
+    }
+  }
   let down = null;
   if (Array.isArray(snap.down)) {
     for (const d of snap.down) {
@@ -375,6 +385,7 @@ export class SnapshotBuffer {
       if (a.length > 9) { o.el = a[9]; o.elFill = a[10]; o.elUntil = a[11]; o.elDur = a[12]; } else if (o.el !== null) { o.el = null; o.elFill = 0; o.elUntil = 0; o.elDur = 0; }
       o.ammo = a.ammo || null; o.bsp = a.bsp || null; // local patch: official bullet bar, boss SP
       o.shield = a.shield || 0; // the barrier on the official HP bar
+      o.coins = a.coins || null; // 琳琅诗怀雅's purse
       o.seen = stamp;
     }
     for (const id of out.keys()) if (!A.units.has(id)) out.delete(id);
