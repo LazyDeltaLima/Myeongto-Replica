@@ -279,3 +279,13 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - [ASSUMED] 사용자 관찰대로 숨겨진 관의 몸·그림자를 한 열 오른쪽(피격 상자 자리, 열 10)에 그린다 — `units.js MODEL_SHIFT`(적 키 → 열 수, 지금 이 하나).
   유닛 위치·HP 바(자기 1.4 오프셋)·선택 영역은 그대로. 현은 같은 경우가 아님(오프셋 없음) — 그대로. 이 모델에 붙는 이펙트·그 모델에서 나가고
   들어오는 궤적·버프 선 끝도 그린 열을 따른다(`fxgame.js mx`; 모델 점 `specialPoint`는 원래 그린 몸을 따름). 테스트 `test/render/model-shift.test.js`. [화면 미확인]
+
+## upstream 0.2.3 이식 — 렌더 (2026-10-11)
+- **외근 의료(外勤医疗, 전략)의 예비 오퍼레이터-메딕(预备干员-医疗)을 준비 단계에 표시** (upstream PR #451 by @YinqiMargatroid, `9db9f3ce`·`996fede8`; v0.2.4
+  `6bfc0827`도 같은 코드): 살아 있는 플레이어 누구든 외근 의료를 가지면 모든 살아 있는 플레이어의 준비 화면·보스전 짝 화면·정찰 화면에 스테이지 자리의
+  예비 메딕을 읽기 전용으로 그린다(`m.private.prepMapChars` — `server/match/match/views.js prepMapChars`, `_prepBoardUnits`; 끌기·판매 불가인 `m:<uid>` 뷰,
+  `render/app.js`는 그 목록을 보스전 짝 말과 함께 `syncMates`로 넘기기만 함 — app.js 변경 최소, DOM 대체 화면은 `ui/fallbackField.js`). Touch로 바뀌는 것은 전투
+  시작 때뿐. 클라 근거: `aceffect_band_61` = `auto_chess_change_map` 두 개(정예 ≤1 → `char_605_cmedic#*` 켬, ≥2 → `char_613_acmedc#*`)가 스테이지의 미리 놓인
+  캐릭터(predefine)를 켜고 끄고, `AutoChessBattleDataModel.PrepareForPrepareState`(0x843AC0)가 말 목록을 비운 뒤 효과를 적용하므로 준비 화면은 늘 예비 메딕,
+  `_PrepareForBattleState`(0x847B30)가 실제 출전 말로 다시 센다(비공개 디컴파일 기록). 어그로 순서는 `sim.md` 「upstream 0.2.3 이식」. 테스트
+  `test/match/touch-prep.test.js`(PR). **[화면 미확인]** 준비·보스전 준비(오른쪽 플레이어 거울)·정찰·대체 화면에서 예비 메딕 위치·방향.

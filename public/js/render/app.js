@@ -937,8 +937,15 @@ export async function createFieldView(host, options = {}) {
       if (e.area === 'board' && info.dir && !held.has(e.uid) && typeof v.setDir === 'function') v.setDir(info.dir);
     }
     for (const k of [...views.keys()]) if (String(k).startsWith('p:') && !seen.has(Number(String(k).slice(2)))) dropView(k);
-    // the boss round's prep: the pair partner's board on its half of the boss field (item 51; display only)
-    syncMates(prepXf.kind === 'bossPrep' && src.bossMate && Array.isArray(src.bossMate.units) ? src.bossMate.units : []);
+    // the 外勤医疗 reserve medic stands on the field in prep but is no board piece (upstream PR #451): its board-space
+    // slot goes to the displayed half like the own pieces; the boss round's pair partner's board on its half of the boss
+    // field (item 51) is already in field coordinates — both display only
+    const mapChars = Array.isArray(src.prepMapChars) ? src.prepMapChars.map((u) => {
+      if (!u || !Number.isInteger(u.x) || !Number.isInteger(u.y)) return null;
+      const p = prepXf.toDisp(u.y, u.x), dir = prepXf.dirToDisp(u.dir);
+      return { ...u, x: p.col, y: p.row, dir, facing: dir === 'LEFT' ? -1 : 1 };
+    }).filter(Boolean) : [];
+    syncMates([...mapChars, ...(prepXf.kind === 'bossPrep' && src.bossMate && Array.isArray(src.bossMate.units) ? src.bossMate.units : [])]);
     prepPieces = list.filter((e) => e.key && views.has(e.key));
     if (prepPieces.length === seen.size) prepSynced = true; // local patch: every piece found its slot (the scene is up)
     if (dragState && !views.has(dragState.key)) { drag.reset(); endDragVisual(false); }
@@ -947,9 +954,10 @@ export async function createFieldView(host, options = {}) {
   }
 
   /**
-   * The pair partner's pieces in the Final Assault / Hidden Core prep (m.private bossMate units: UnitInfo in boss-field
-   * coordinates, facing as the battle will place them): read-only 'm:<uid>' views — not prep pieces, so they are never
-   * picked, dragged or swept with the own ones; a view is rebuilt when its body, tile or facing changes.
+   * The 外勤医疗 reserve medic (m.private prepMapChars) and the pair partner's pieces in the Final Assault / Hidden Core
+   * prep (m.private bossMate units: UnitInfo in boss-field coordinates, facing as the battle will place them): read-only
+   * 'm:<uid>' views — not prep pieces, so they are never picked, dragged or swept with the own ones; a view is rebuilt
+   * when its body, tile or facing changes.
    */
   function syncMates(units) {
     const keep = new Set();

@@ -272,7 +272,10 @@ function installMapChars(battle) {
     for (const ps of holders) {
       const elites = deployedOps(battle, ps.playerId).filter(isElite).length;
       for (const id of amedicCharsFor(elites, variants)) {
-        const u = spawnMapChar(battle, ps.playerId, id);
+        // The map character stands on the field in preparation (client AutoChessBattleDataModel.PrepareForPrepareState
+        // applies auto_chess_change_map with no pieces counted: always 预备干员-医疗); Touch replaces it here once the
+        // elite count is known, keeping the predefine's early aggro rank (Battle.spawnToken preBattleAggro; upstream PR #451).
+        const u = spawnMapChar(battle, ps.playerId, id, { preBattle: true });
         if (u) fxOn(battle, 'summon', u, keyOf(AMEDIC_BAND), AMEDIC_BAND);
       }
     }

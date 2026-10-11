@@ -412,6 +412,16 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   폭탄 전투 프리팹의 category 값은 못 봄(비공개 디컴파일 기록 — **[추정]** TRAP_OR_ITEM).
   sim-3 이식 「은신·수면 적 위에서 안 터짐」(`CHAMPAGNE_TRIGGER`)은 그대로다(`test/content/feedback7-champagne-stealth.test.js` 통과).
   golden: bonds bond-yanShip-high(活性源石 위 폭탄에 치료사가 치료를 쓰던 판). 테스트 `test/content/feedback7-champagne-hold.test.js`(upstream v0.2.4 판 + 실제 대전 경로 1건).
+- **외근 의료(外勤医疗, 전략)의 맵 캐릭터는 어그로 순서가 오퍼레이터보다 앞** (upstream PR #451 by @YinqiMargatroid, `3b57f727`): 예비 오퍼레이터-메딕(预备干员-医疗)
+  또는 Touch(정예 2명 이상)는 우리 sim에서 `battleStart` 때(정예 수를 센 뒤) 만들어지지만 `aggroSeq`를 맨 앞(−1)으로 둔다(`Battle.spawnToken preBattleAggro`,
+  `tokens.js spawnMapChar`, `bands/battle.js installMapChars`) → 같은 도발 단계면 적이 오퍼레이터를 먼저 고른다. 배치 이벤트·`deploySeq`는 그대로.
+  upstream v0.2.4는 표시 부분만 받고 「어그로 순서는 그대로」였다 — 사용자 결정 D10으로 PR 원본을 받음. 클라 근거(EN 클라, 레포에는 이름만): 이 둘은 레벨
+  predefine이고 `BattleController._CreatePredefinedCharacter` → `Character.BuildAsPredefined` → `Character._BuildAtInternal`(0x700A50)이 `m_createdTime =
+  fixedPlayTime`을 찍은 뒤 `Character.UpdateHatred`(0x6FEFA0, 아군 위협도 = 생성 시각 기반 + 도발 단계)를 부른다. predefine은 레벨을 불러올 때
+  (`_LoadPredefinedData`) 지어지고 오퍼레이터는 그 뒤 자동 배치로 들어오므로 생성 시각이 앞 = 위협도가 낮음 = 나중에 맞음. **[추정]** Touch 교체본이 언제
+  지어지는지(`auto_chess_change_map`이 불러올 predefine 목록을 바꾸는지)는 추적 못 함 — 정확한 순위는 [ASSUMED]. 공용 필드에서 두 플레이어의 맵 캐릭터끼리는 동률.
+  golden 변화 없음. 테스트 `test/content/bands.test.js`(PR: 두 변형의 우선순위, “萨米的意志” 冰凌 선택), `test/match/touch-aggro-real.test.js`(실제 대전 경로).
+  표시 부분은 `render.md` 「upstream 0.2.3 이식 — 렌더」.
 
 ### 관리자 결정 2026-10-11 (D1 공식 데이터 갱신 · D2 전략 차례 50 s · D8 공용 카드 풀)
 - **공식 표 갱신 + 乌尔比安 모듈 「前路」 CRU-Y** (upstream `2e122873`의 乌尔比安 키트 부분, 손 이식): `node tools/build-data.mjs --refresh`로 zh_CN 표를
