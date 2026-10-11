@@ -356,6 +356,10 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   (`addTriggerRange`)에도 들어간다. 스킬 자동 발동(위 절)은 초기 사거리만 보므로, 이 줄이 없으면 수배 대상만 있을 때 공격 중이어도 스킬이 켜지지 않는다.
   upstream이 뒤에 붙인 `attackOnly`(다음 평타 때만 확인, `f3658a0d`)는 공식 「0.2 s마다 곧바로」와 반대라 받지 않았다.
   golden: roster 016·018·035·036·045, fields boss_1·5·7-pair·hidden-boss_9-pair(모두 蕾缪安이 있는 판). 테스트 `test/content/lemuen-wanted-023.test.js`(upstream).
+- **远牙가 준 특질의 傀儡师 몸 바꿈** (`3f19b598`, GitHub #415·#429, 플레이어 확인): 远牙가 준 `garrison_108_a/b`는 傀儡师가 <替身>으로 바뀔 때·<本体>로
+  돌아올 때(`dollSwap`)도 층을 얻는다(부여량·배치당 상한·켜진 맹약 확인은 그대로). **[추정 — 미확인]** 비공개 디컴파일 기록: 공식에는 「远牙가 준 것만」이라는
+  구분이 없고, 배치 때 발동하는 특질 템플릿 `act2autochess_gar_event_onstart`(ON_BUFF_START)는 몸 바꿈 때 버프가 다시 시작되면 다른 배치 때 특질(106·107·124·143·155)도
+  다시 발동할 수 있다. 버프 재시작 여부는 C#에서 못 읽어 upstream 범위대로 둠. golden 변화 없음. 테스트 `test/content/fartooth-doll-swap.test.js`(upstream).
 
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
