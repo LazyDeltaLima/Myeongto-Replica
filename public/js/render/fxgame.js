@@ -62,6 +62,7 @@ import { boneMissing, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } fro
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { boomerangThrown, boomerangCaught } from './boomerang.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
+import { playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 
 /**
@@ -358,6 +359,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // anim scale), a hit effect at 1.0 (client `HitEffectOptions.OnCastOnTarget`, RVA 0xAE54D0: CreateEffect(…, 1.0));
   // `aim`: the hit's attacker (an entry with `_useOwnerToTargetDirection`, modes.json `hitAim`); `cast` (2026-10-11): the
   // cast record it belongs to (beginCast — cutCast ends them)
+  // Facing (2026-10-11, maintainer decision 「공식대로」 — client `Effect.Play` RVA 0xC8A5D0 / `ParticleEffect.FaceTo` 0xCB1DC0):
+  // the effect is played with a direction — the caster's drawn side (faceVector, ±x), its four-way facing for an entry with
+  // `_useFourDirectionalFace` (modes.json `turn`), attacker → target for `_useOwnerToTargetDirection` (`hitAim`) — and the
+  // prefab's `_rotateType` decides what that does (fxplayer.js FxInstance / fx/face.js faceTurn: only FLIP_TWO_SIDE flips,
+  // FOUR_DIRECTION turns, NONE does neither). This replaces 「every effect mirrored when facing left」 and its exceptions (the
+  // left / right copies of a directional entry, the `right` twins, the turned entries): those prefabs are NONE /
+  // FOUR_DIRECTION. A prefab without the record (no ParticleEffect root) keeps the old mirror / turn.
   async function play(view, kind, skillIndex = 0, { at = null, buff = false, names: given = null, tag = null, until: endAt = null, speed = 1, aim = null, cast = null } = {}) {
     const b = bundleOf(view);
     if (!b) return;
@@ -366,7 +374,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!names.length || !(await ensure())) return;
     // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
     // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right) is one effect —
-    // the copy for the facing, not mirrored; the right copy that the name lookup listed besides is skipped
+    // the copy for the facing (all five pairs are `_rotateType` 0: never mirrored); the right copy that the name lookup
+    // listed besides is skipped
     const defs = await Promise.all(names.map((n) => lib.load(b.bundle, n)));
     const twins = new Set(defs.map((d) => d?.right).filter(Boolean));
     for (let i = 0; i < names.length; i++) {
@@ -381,27 +390,32 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
       // a one-shot on the caster (not a hit on a target) ends with its prefab's duration even if a system loops —
       // 望's S3 wang_skill_03_range_start (looping 'line1/2', the range cross) stayed on the board for good
-      const until = buff ? null : endAt ?? clockS + (def.duration || 3) + 0.5;
-      if (until != null && until <= clockS) continue;
+      if (!buff && endAt != null && endAt <= clockS) continue;
       const ground = at || view;
       const anchor = lifted(ground, def); // local patch: its _spawnLocation
-      // local patch (maintainer report 2026-10-07: 野鬃 S2 stood upright): an effect the client turns to the unit's facing
-      // (charpack / skills.ab `_useFourDirectionalFace`: its 'rotation_z' pivot, stored at an editing angle) is turned, not mirrored
-      const turn = turns(view).has(n) && def.nodes?.some((d) => d.name === 'rotation_z');
-      const aimed = !!(aim && at && aimSet(view).has(names[i])); // 2026-10-10: turned along attacker → target
+      const fourWay = turns(view).has(n); // `_useFourDirectionalFace` (local patch, maintainer report 2026-10-07: 野鬃 S2 stood upright)
+      const aimed = !!(aim && at && aimSet(view).has(names[i])); // 2026-10-10: attacker → target
       // only the effects that go to the split scene (on the caster) split — a hit on a target goes to the upper canvas,
       // which draws layer 0 only (split, every blast on a target was invisible at 'high' on the 3D board: 烛煌 S3)
       const split = (buff || !at) && splitOn();
+      const side = (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1;
+      const dir = aimed ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : fourWay ? WAY4[facingDir(view)] : { x: side, y: 0 };
+      // no face record (an old extract / no ParticleEffect root): the old rule — mirrored when facing left, except the turned
+      // entries, the `right` twins and the left / right copies of a directional entry
+      const turnOld = !def.face && fourWay && def.nodes?.some((d) => d.name === 'rotation_z');
+      const facing = def.face ? side : aimed ? aimFacing(null, def, aim, at) : turnOld || sided || unflip.has(names[i]) ? 1 : side;
+      const sp = playSpeed(def.face, speed, gameRate()); // `_usePlaybackSpeed` 0 → 1.0; ≤ `_limitedPlaybackSpeed` ÷ the battle speed
       // local patch: cut at the ground the unit stands on (fxplayer.js floor — a tile's height, not a flyer's hover)
-      const facing = aimed ? aimFacing(null, def, aim, at) : turn || sided || unflip.has(names[i]) ? 1 : (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1;
-      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, split, floor: ground.z || 0 });
-      if (turn) aimMover(inst, facingDir(view));
-      if (aimed) aimAlong(inst, aim, at);
+      const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir, body: facingDir(at && at.info ? at : view), speed: sp, split, floor: ground.z || 0 });
+      if (turnOld) aimMover(inst, facingDir(view));
+      if (aimed && !def.face) aimAlong(inst, aim, at);
+      // its FxDelay / branch delays (inst.lead, effect seconds) come before its prefab's duration
+      const until = buff ? null : endAt ?? clockS + (def.duration || 3) + 0.5 + inst.lead / sp;
       inst.object.position.set(anchor.x, anchor.y, anchor.z || 0);
       // local patch (maintainer 2026-10-07: the skill effects covered the operator): every effect on the caster — its cast /
       // skill start as well as its buff loops — goes under the units; the hits on a target stay over
       // (local patch, maintainer report 2026-10-07: 마터호른 S2's dome must cover her) at 'high' the caster's effects split by their renderers' sorting
-      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, speed, cast, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
+      addLive(inst, { view: anchor, owner: view.id ?? view.info?.id, buff, onCaster: !at, until, tag, speed: sp, cast, backSw: backSwitch(def, at || view, b.bundle) }, split ? layers.split : buff || !at ? layers.under : layers.over);
       trimLive();
     }
   }
@@ -529,6 +543,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // the trail's 'rotation_z' node is the client's heading pivot: the dragon's head points along +x at 0° (the prefab's
   // own 90° = UP); board x = column, y = row (UP = +row). Re-aimed on every 'fx' step, so it turns with the 剑气 at walls
   const MOVER_DEG = { RIGHT: 0, UP: 90, LEFT: 180, DOWN: 270 };
+  const WAY4 = { UP: { x: 0, y: 1 }, RIGHT: { x: 1, y: 0 }, DOWN: { x: 0, y: -1 }, LEFT: { x: -1, y: 0 } }; // SharedConsts.FOUR_WAYS
   function aimMover(inst, dir) {
     const deg = MOVER_DEG[dir];
     const pivot = deg != null && inst.nodes?.find((o) => o && o.name === 'rotation_z');
@@ -1148,7 +1163,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * One prefab of `bundle` at `at` (a view or point, followed): entry = addLive's { owner, buff, until, on (the unit it sits
    * on: stopped at its 'die') }; `over` puts it over the units. Resolves the live entry (null if not played).
    */
-  async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null } = {}) {
+  async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null } = {}) {
     if (!index?.bundles?.[bundle]?.includes(name) || !(await ensure())) return null;
     const def = await lib.load(bundle, name);
     if (!mod || !def) return null;
@@ -1156,19 +1171,73 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (entry.owner != null && gone.has(entry.owner) && (entry.buff || entry.onCaster)) return null;
     const unit = at && at.info ? at : null;
     const split = !over && splitOn();   // an effect on the ground / a unit splits by sorting at 'high'
-    if (aim) facing = aimFacing(null, def, aim, at); // 2026-10-10: turned along its attacker → target line
-    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, split, floor: drop ? null : at.z && !over ? at.z : 0 });
-    if (aim) aimAlong(inst, aim, at);
+    // 2026-10-10: turned along its attacker → target line; 2026-10-11 (maintainer decision 「공식대로」): played with that
+    // direction (else `dir`, else ±x by `facing`) and turned as its prefab's `_rotateType` says (play())
+    const official = !!def.face;
+    if (aim && !official) facing = aimFacing(null, def, aim, at);
+    const d = aim ? { x: Number(at.x) - Number(aim.x), y: Number(at.y) - Number(aim.y) } : dir;
+    const sp = playSpeed(def.face, entry.speed ?? 1, gameRate());
+    const inst = new mod.fxp.FxInstance(def, { quality: q(), facing, dir: d, body: unit ? facingDir(unit) : null, speed: sp, split, floor: drop ? null : at.z && !over ? at.z : 0 });
+    if (aim && !official) aimAlong(inst, aim, at);
     if (!drop) at = lifted(at, def); // local patch: its _spawnLocation
     if (!drop && Number.isFinite(def.height)) at = overHeight(at, def.height); // 2026-10-10: `_overwriteHeight`
     inst.object.position.set(at.x, at.y, at.z || 0);
-    const e = { view: at, ...entry, backSw: backSwitch(def, unit, bundle) };
-    if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5;
+    const e = { view: at, ...entry, speed: sp, backSw: backSwitch(def, unit, bundle) };
+    if (e.until === undefined) e.until = clockS + (def.duration || 3) + 0.5 + inst.lead / sp;
     if (drop) { drop.inst = inst; placeTrail(drop); }
     const l = addLive(inst, e, over ? layers.over : split ? layers.split : layers.under);
     trimLive();
     return l;
   }
+  // ---- 卫戍协议 template effects (2026-10-11, maintainer decision 17 「넣음」) --------------------------------------------
+  // The mode's bond / equipment / band buff templates create effects from their graph nodes (`Nodes.CreateEffect`
+  // RVA 0xB90880 on a unit, `CreateEffectAtScreenPos` on the screen) once when the node runs — 라테라노 클립 bond_laterano_reload_01,
+  // 신속 맹약·사막 나침반 bond_charge_battle_01, 에기르 맹약 bond_aegir_eat_01, 증원 map_act1autochess_reinforce_02, 쉐라그 맹약 map_snow_left_2_right
+  // (docs/rules/fx.md 「위수 협의 템플릿 이펙트」). The sim names each in the status event ['tplfx', target | null, key,
+  // source | null] (docs/SIM.md); a missing prefab or target plays nothing.
+  const TPL_BUNDLES = ['bond', 'map', 'common', 'buff'];   // looked in first (the template effects' own bundles)
+  let tplIdx = null, tplIdxOf = null;
+  /** [bundle, prefab] of an extracted effect named `key` (without case; the template bundles first), or null. */
+  function tplPrefab(key) {
+    if (typeof key !== 'string' || !key || !index?.bundles) return null;
+    if (tplIdxOf !== index) {
+      tplIdxOf = index; tplIdx = new Map();
+      const all = Object.keys(index.bundles);
+      for (const b of [...TPL_BUNDLES.filter((x) => all.includes(x)), ...all.filter((x) => !TPL_BUNDLES.includes(x))]) {
+        for (const n of index.bundles[b] || []) if (!tplIdx.has(String(n).toLowerCase())) tplIdx.set(String(n).toLowerCase(), [b, n]);
+      }
+    }
+    return tplIdx.get(key.toLowerCase()) || null;
+  }
+  /** The middle of the battle field (a screen-position effect) [추정: the client's screen position is the screen centre]. */
+  function fieldMiddle() {
+    let rect = null;
+    try { rect = fieldRect(); } catch { /* none */ }
+    if (rect && [rect.r0, rect.r1, rect.c0, rect.c1].every(Number.isFinite)) return { x: (rect.c0 + rect.c1) / 2, y: (rect.r0 + rect.r1) / 2, z: 0 };
+    let g = null;
+    try { g = grid(); } catch { /* none */ }
+    return Array.isArray(g) && g.length && Array.isArray(g[0]) ? { x: (g[0].length - 1) / 2, y: (g.length - 1) / 2, z: 0 } : null;
+  }
+  function tplFx(e, views) {
+    const r = tplPrefab(e[2]);
+    if (!r) return;
+    if (e[1] == null) { // on the screen: over the field
+      const at = fieldMiddle();
+      if (at) spawn(r[0], r[1], at, { owner: null, buff: false, tag: 'tplfx' }, { over: true });
+      return;
+    }
+    const tgt = views?.get?.(e[1]);
+    if (!tgt) return;
+    // a unit leaving in the same moment (에기르 맹약's devoured operator): where it stood, not followed
+    if (tgt.alive === false || tgt.remove) {
+      spawn(r[0], r[1], { x: Number(tgt.x), y: Number(tgt.y), z: Number(tgt.z) || 0 }, { owner: null, buff: false, tag: 'tplfx' }, { over: true, facing: efacing(tgt) });
+      return;
+    }
+    // on its target (followed, at its prefab's _spawnLocation), ended with it; played with the target's facing [추정: the
+    // node's direction options are not in the event]
+    spawn(r[0], r[1], tgt, { owner: null, buff: false, on: tgt.id ?? e[1], tag: 'tplfx' }, { over: true, facing: efacing(tgt) });
+  }
+
   /**
    * A 'dmg' of this moment on `tid` that waiting skill effects claim (expect(); each plays its effect on the target once —
    * 戴菲恩's finisher hit and its last slash's mark come together).
@@ -2511,6 +2580,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           return;
         }
         case 'leak': stopOwned(e[1]); return; // 2026-10-10: an enemy that got through — its auras end
+        case 'tplfx': tplFx(e, views); return; // 2026-10-11: a 卫戍协议 template effect
         default:
       }
     },

@@ -27,6 +27,7 @@
 //   each frame: fx.update(dtSeconds, camera);  if (fx.done) { scene.remove(fx.object); fx.dispose(); }
 
 import * as THREE from '../../vendor/three.module.js';
+import { faceTurn } from './fx/face.js';
 
 export const QUALITY = Object.freeze({
   high: { budget: 6000, emission: 1 },
@@ -1150,7 +1151,16 @@ const clipE = new THREE.Euler();
 export class FxInstance {
   /**
    * @param {any} def FxLibrary.load result
-   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, scale?: number, floor?: number|null, split?: boolean, atSpawn?: boolean, pivot?: boolean }} [opts]
+   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean, atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean }} [opts]
+   *   facing / dir / body (maintainer decision 2026-10-11 「공식대로」): the effect turns as the client's `ParticleEffect.FaceTo`
+   *   (RVA 0xCB1DC0) does by its root `face` record (render/fx/face.js faceTurn) — `dir` = the direction it is played with
+   *   (default ±x by `facing`, the owner's drawn side), `body` = the four-way facing of the unit it is created on (for
+   *   `_useBodyRotation`); it is mirrored only by a FollowMountPoint with `_followScaleSign` (the Spine flip, `facing`). A
+   *   prefab without the record (no ParticleEffect root: trails, lines) keeps the old mirror by `facing`.
+   *   speed / delays (maintainer decision 2026-10-11): nothing is drawn until the root FxDelay `_delayTime` (effect time)
+   *   plus `_delayToPlay` (game time × `speed`, the playback speed it runs at) have passed, and a branch with its own FxDelay
+   *   (node `delay`, game time) or a `_subFXDelayConfigs` entry (node `sdelay`, effect time) starts that much later
+   *   (`FxDelay.OnEnable` RVA 0x34C1650 / `Effect._DelayToActiveGameObject`); `delays: false` plays everything at once.
    *   local patch: floor = the board height of the ground under it (default 0): what lies more than 0.05 below is not drawn
    *   (null: no cut); split = each renderer on layer FX_FRONT or FX_BACK by its Unity sorting (sortingOrder > 0, or 0 with a
    *   negative sorting fudge = in front of the units, whose Spine renderers are Default / order 0 and write no depth) —
@@ -1167,7 +1177,13 @@ export class FxInstance {
     this.time = 0;
     this.object = new THREE.Group();            // placed in board coordinates by the caller
     const unity = new THREE.Group();            // Unity battle frame: mirror z (z = −height)
-    unity.scale.set((opts.facing || 1) * (opts.scale || 1), opts.scale || 1, -(opts.scale || 1));
+    const facing = opts.facing || 1;
+    const turn = faceTurn(def?.face, opts.dir || { x: facing, y: 0 }, opts.body ?? null);
+    this.turn = turn;
+    // the mirror: by FollowMountPoint `_followScaleSign` (its point's scale sign = the Spine flip) when the prefab has its
+    // face record, else (no ParticleEffect root) the old rule — mirrored when its owner faces left
+    const mirror = turn ? (def?.mount?.followScaleSign ? facing : 1) : facing;
+    unity.scale.set(mirror * (opts.scale || 1), opts.scale || 1, -(opts.scale || 1));
     this.object.add(unity);
     this.unity = unity;
     this.nodes = [];
@@ -1176,6 +1192,16 @@ export class FxInstance {
     this.trails = [];
     this.lines = [];   // local patch: LineRenderers
     if (!def || !this.q.budget) { this.empty = true; return; }
+    const speed = Number(opts.speed) > 0 ? Number(opts.speed) : 1;
+    const delays = opts.delays !== false;
+    const f = def.face || {};
+    // the root's wait (effect seconds): FxDelay `_delayTime` ÷ the speed in game time = `_delayTime` here; `_delayToPlay`
+    // is game time (`_randomPlayDelay`: a random part of it)
+    this.wait = delays ? (Number(f.fxDelay) > 0 ? Number(f.fxDelay) : 0)
+      + (Number(f.delay) > 0 ? (f.rnd ? Math.random() : 1) * Number(f.delay) * speed : 0) : 0;
+    if (this.wait > 0) unity.visible = false;
+    const t0 = [];   // each node's start (effect seconds after the root shows): its own and its parents' branch delays
+    this.branches = [];
     def.nodes.forEach((n, i) => {
       const o = new THREE.Group();
       o.name = n.name;
@@ -1193,6 +1219,10 @@ export class FxInstance {
       o.visible = n.active !== false;
       (n.parent >= 0 ? this.nodes[n.parent] : unity).add(o);
       this.nodes[i] = o;
+      const own = !delays || n.parent < 0 ? 0 : (Number(n.delay) > 0 ? Number(n.delay) * speed : 0) + (Number(n.sdelay) > 0 ? Number(n.sdelay) : 0);
+      t0[i] = (n.parent >= 0 ? t0[n.parent] || 0 : 0) + own;
+      o.userData.t0 = t0[i];
+      if (own > 0 && o.visible) { o.visible = false; this.branches.push({ o, at: t0[i], on: false }); }
       if (n.mesh && def.geoms[n.mesh.mesh]) {
         const mat = makeMaterial(def.materials[n.mesh.mat], def.lib);
         mat.uniforms.uMode.value = 4;
@@ -1211,8 +1241,10 @@ export class FxInstance {
         mesh.renderOrder = n.mesh.order || 0;
         o.add(mesh);
         this.meshMats[i] = mat;
+        mat.userData.t0 = t0[i];
       }
     });
+    if (turn) this.applyTurn(turn);
     def.nodes.forEach((n, i) => {
       if (n.trailR) this.trails.push(new TrailRenderer(n.trailR, this.nodes[i], unity, def));
       if (n.lineR && def.materials[n.lineR.mat]) this.lines.push(new LineRenderer(n.lineR, this.nodes[i], unity, def)); // local patch
@@ -1223,8 +1255,8 @@ export class FxInstance {
     });
     // local patch (maintainer report, maintainer's decision 2026-10-08): every clip of the prefab plays — a nested sub-prefab has
     // its own Animator (缄默德克萨斯 S2's texas2_birth_02_start: the root + 4 slashes; clips[0] alone left the slashes frozen
-    // on their material defaults). The extract resolves each clip's nodes into the whole tree; together they all start at 0
-    // (the sub-prefabs' _delayTime 0–0.3 s is not applied) and the effect's clip time is the longest
+    // on their material defaults). The extract resolves each clip's nodes into the whole tree; each starts when its branch shows
+    // (2026-10-11: the sub-prefabs' own FxDelay 0–0.3 s, node `delay` — bindTrack `off`) and the effect's clip time is the longest
     this.clips = def.clips || [];
     this.clipLen = this.clips.reduce((m, c) => Math.max(m, c.len || 0), 0);
     this.meshMatList = this.meshMats.filter(Boolean);
@@ -1270,6 +1302,7 @@ export class FxInstance {
     this.clipTracks = this.clips.flatMap((c) => c.tracks.map((tr) => this.bindTrack(tr, c.len || 0)).filter(Boolean)
       .map((b) => (c.loop && c.len > 0 ? Object.assign(b, { loop: true }) : b)));
     this.clipLoops = this.clips.some((c) => c.loop && c.len > 0);
+    for (const b of this.clipTracks) if (b.off > 0) this.clipLen = Math.max(this.clipLen, b.off + (b.len || 0)); // a delayed branch's clip ends later
     // …and a mesh renderer is drawn while its effect lives (Unity keeps a MeshRenderer on until the effect object goes): a
     // prefab with meshes ends only when it is stopped (a buff with its owner, a one-shot at its caller's `until`) — the skill
     // buffs (浊心斯卡蒂 S2, 寒芒克洛丝 S2, 号角 S3 …: meshes only, no clip, no particles) were done on their first frame
@@ -1287,10 +1320,32 @@ export class FxInstance {
     while (live.length > PLAYER_CAP) live[0].dispose(); // the oldest goes (dispose removes it from `live`)
   }
 
+  /**
+   * ParticleEffect.FaceTo on the prefab's named children (faceTurn): 'rotation_y' / 'rotation_z' 180° (FLIP_TWO_SIDE; unflipped:
+   * identity, as the client sets it), 'rotation_z' by `z` degrees (FOUR_DIRECTION / FIXED_DIRECTION), 'body' by `any`
+   * degrees about z (ANY_DIR). The first node of the name anywhere in the tree (the prefabs keep them under static_offset).
+   */
+  applyTurn(turn) {
+    const named = (name) => this.nodes.find((o) => o && o.name === name);
+    const ry = named('rotation_y'), rz = named('rotation_z');
+    if (turn.flip != null) {
+      if (ry) ry.rotation.set(0, turn.flip ? Math.PI : 0, 0);
+      if (rz) rz.rotation.set(0, 0, turn.flip ? Math.PI : 0);
+    }
+    if (turn.z != null && rz) rz.rotation.set(0, 0, (turn.z * Math.PI) / 180);
+    if (turn.any != null) { const b = named('body'); if (b) b.rotation.set(0, 0, (turn.any * Math.PI) / 180); }
+  }
+
   /** What a clip track drives, resolved once (applyClip runs every frame). */
   bindTrack(tr, len) {
     const o = this.nodes[tr.node];
     if (!o) return null;
+    const r = this.bindTrack0(tr, len, o);
+    if (r) r.off = o.userData.t0 || 0;   // its branch's start (a nested sub-prefab's Animator starts when it shows)
+    return r;
+  }
+
+  bindTrack0(tr, len, o) {
     if (tr.prop === 'pos' || tr.prop === 'scale' || tr.prop === 'quat' || tr.prop === 'euler') return { tr, o, kind: tr.prop, len };
     if (tr.prop === 'width') { const ln = this.lines.find((t) => t.node === o); return ln ? { tr, o, kind: 'width', ln, len } : null; } // local patch
     if (tr.prop === ACTIVE_PROP && tr.type === 1) return { tr, o, kind: 'active', len }; // local patch: m_IsActive
@@ -1318,6 +1373,9 @@ export class FxInstance {
     for (const t of this.lines) t.ends = ends;
   }
 
+  /** Game seconds × speed (effect seconds) before the effect and its last delayed branch start (0 when nothing waits). */
+  get lead() { return (this.wait || 0) + (this.branches || []).reduce((m, b) => Math.max(m, b.at), 0); }
+
   /** End emission (looping buffs); `now` also removes the live particles. */
   stop(now = false) {
     this.stopping = true;
@@ -1327,6 +1385,9 @@ export class FxInstance {
 
   get done() {
     if (this.empty || this.disposed) return true;
+    // ended while it waited for its FxDelay: it never shows (the client's FinishMe recycles it hidden)
+    if (this.wait > 0) return !!this.stopping;
+    if (!this.stopping && this.branches.some((b) => !b.on)) return false;
     const clipDone = !this.clips.length || this.stopping || (this.time >= this.clipLen && !this.clipLoops);
     return clipDone && this.systems.every((s) => !s.alive) && this.trails.every((t) => !t.alive || this.time > this.clipLen + t.tr.time)
       && (!this.lines.length || !!this.stopping) // local patch: a line stays until its effect is ended
@@ -1336,9 +1397,21 @@ export class FxInstance {
   update(dt) {
     // disposed: ended here (PLAYER_CAP) while its owner still holds it — it must not keep simulating unseen
     if (this.empty || this.disposed) return;
+    if (this.wait > 0) { // its root FxDelay / _delayToPlay: nothing drawn or run yet
+      if (this.stopping) return;
+      const w = Math.min(this.wait, dt);
+      this.wait -= w; dt -= w;
+      if (this.wait > 1e-9) return;
+      this.wait = 0;
+      this.unity.visible = true;
+    }
     if (this.hold != null && !this.stopping && this.time + dt > this.hold) dt = Math.max(0, this.hold - this.time); // local patch
     this.time += dt;
     if (this.clipTracks.length) this.applyClip(this.time);
+    for (const b of this.branches) { // a delayed branch shows at its start (its systems start then — the gate below)
+      if (this.time < b.at) b.o.visible = false;
+      else if (!b.on) { b.on = true; b.o.visible = true; }
+    }
     for (const g of this.gated) { // local patch: m_IsActive — on only while every node above it is
       let on = true;
       for (let p = g.x.node; p && p !== this.unity; p = p.parent) if (!p.visible) { on = false; break; }
@@ -1347,10 +1420,10 @@ export class FxInstance {
       if (g.x instanceof ParticleSystem) { if (!on || !this.stopping) g.x.setActive(on); } else g.x.off = !on;
     }
     this.followWorld();
-    for (const s of this.systems) s.update(dt, this.time);
-    for (const t of this.trails) t.update(dt, this.time);
-    for (const t of this.lines) t.update(dt, this.time); // local patch
-    for (const m of this.meshMatList) m.uniforms.uTime.value = this.time;
+    for (const s of this.systems) s.update(dt, this.time - (s.node.userData.t0 || 0));
+    for (const t of this.trails) t.update(dt, this.time - (t.node.userData.t0 || 0));
+    for (const t of this.lines) t.update(dt, this.time - (t.node.userData.t0 || 0)); // local patch
+    for (const m of this.meshMatList) m.uniforms.uTime.value = this.time - (m.userData.t0 || 0);
   }
 
   /**
@@ -1377,7 +1450,8 @@ export class FxInstance {
   applyClip(t) {
     const v = this.clipV;
     for (const b of this.clipTracks) {
-      const curves = b.tr.curves, tc = b.loop ? t % b.len : Math.min(t, b.len);
+      const tb = Math.max(0, t - (b.off || 0));
+      const curves = b.tr.curves, tc = b.loop ? tb % b.len : Math.min(tb, b.len);
       v.length = curves.length;
       for (let i = 0; i < curves.length; i++) v[i] = evalClipCurve(curves[i], tc);
       const o = b.o;

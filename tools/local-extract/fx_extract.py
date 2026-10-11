@@ -459,12 +459,19 @@ class Extractor:
         nodes, mats, paths = [], {}, {}
         animators = []
 
+        gos = {}
+
         def walk(go, parent, path):
             d = go.read_typetree()
             node = {'name': d['m_Name'], 'parent': parent, 'active': bool(d.get('m_IsActive', 1))}
             idx = len(nodes)
             nodes.append(node)
             paths[idx] = path
+            gos[go.path_id] = idx
+            if parent >= 0:
+                dl = self.fx_delay(go)
+                if dl:
+                    node['delay'] = dl
             tr = None
             for c in d['m_Component']:
                 comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
@@ -473,6 +480,7 @@ class Extractor:
                 t = comp.type.name
                 if t == 'Transform':
                     tr = comp.read_typetree()
+                    gos[comp.path_id] = idx
                     node['pos'] = vec3(tr['m_LocalPosition'])
                     q = tr['m_LocalRotation']
                     node['rot'] = [r4(q['x']), r4(q['y']), r4(q['z']), r4(q['w'])]
@@ -554,6 +562,8 @@ class Extractor:
                         walk(cgo, idx, f'{path}/{cname}' if path else cname)
 
         walk(root, -1, '')
+        for k, t in self.sub_delays(root, gos).items():
+            nodes[k]['sdelay'] = t
         spawn = self.spawn_location(root)
         clips = []
         for aidx, anim in animators:
@@ -739,11 +749,113 @@ class Extractor:
             if not (0 <= i(s + 8) <= 8 and 0 <= i(s + 9) < 64 and i(s + 3) in (0, 1) and i(s + 5) in (0, 1) and i(s + 14) in (0, 1)):
                 continue
             pe = {'delayToPlay': f(s), 'delayToFinish': f(s + 1), 'randomDelay': i(s + 3), 'useSpeed': i(s + 5), 'limited': f(s + 6), 'rotate': i(s + 8),
-                  'spawn': i(s + 9), 'leftIsDefault': i(s + 10), 'mainDir': i(s + 12), 'overwrite': i(s + 14), 'heightOffset': f(s + 15)}
+                  'spawn': i(s + 9), 'leftIsDefault': i(s + 10), 'body': i(s + 11), 'mainDir': i(s + 12), 'overwrite': i(s + 14), 'heightOffset': f(s + 15),
+                  # `_subFXDelayConfigs` (2026-10-11): { GameObject PPtr (m_FileID int, m_PathID int64), delayTime float } each
+                  'subs': [(i(4 + 4 * k), struct.unpack_from('<q', b, 4 * (5 + 4 * k))[0], f(7 + 4 * k)) for k in range(subs)]}
         if pe is None:
             return None
         pe['fxDelay'] = delay
         return pe
+
+    def fx_delay(self, go):
+        """(2026-10-11, maintainer decision 16) the `_delayTime` of a FxDelay component on this GameObject (MonoScript
+        FXDELAY_SCRIPT; `FxDelay.OnEnable` RVA 0x34C1650 hides the GameObject and shows it `_delayTime` ÷ its playback speed
+        later — a child's own FxDelay keeps the default speed 1.0 [추정: only the root's is set by `Effect.UpdatePlaybackSpeed`
+        0xC8AE50]), rounded; None without one or ≤ 0. 텍사스 디 오메르토사 S2 texas2_birth_02_start: its four slashes 0 / 0.1 / 0.15 / 0.3."""
+        try:
+            d = go.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            raw = comp.get_raw_data()
+            if len(raw) < 32 or struct.unpack_from('<q', raw, 20)[0] != FXDELAY_SCRIPT:
+                continue
+            n = struct.unpack_from('<i', raw, 28)[0]
+            b = raw[(32 + n + 3) & ~3:] if 0 <= n <= 256 else b''
+            if len(b) == 4:
+                v = struct.unpack_from('<f', b, 0)[0]
+                return r4(v) if v > 0 else None
+        return None
+
+    def sub_delays(self, root, gos):
+        """(2026-10-11) the root effect's `_subFXDelayConfigs` as { node index: delayTime } (`gos`: GameObject / Transform
+        PathID → node index): `Effect._DelayToActiveGameObject` hides that GameObject and shows it `delayTime` ÷ the playback
+        speed later (`Effect.UpdatePlaybackSpeed` RVA 0xC8AE50 sets `delayRuntime`). 티티 S3 titi_skill_03_hit_02, 왕 wang_birth_01 / _02."""
+        pe = self.root_effect(root)
+        out = {}
+        for _fid, pid, t in (pe or {}).get('subs') or []:
+            if pid in gos and t > 0 and gos[pid] > 0:
+                out[gos[pid]] = r4(t)
+        return out
+
+    def delay_only(self, bundle, pack=None):
+        """2026-10-11: write only the branch delays — node `delay` (a child's FxDelay) and `sdelay` (the root's
+        `_subFXDelayConfigs`) — into the bundle's already extracted prefabs (the nodes in the extractor's own walk order;
+        a file whose node names do not line up is left alone). Returns (prefabs with a branch delay, files changed)."""
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
+        p = bundle_path(self.game, rel)
+        if not p:
+            print(f'[fx] {bundle}: bundle not found, skipped')
+            return 0, 0
+        env = self.UnityPy.load(str(p))
+        found = changed = 0
+        for o in env.objects:
+            if o.type.name != 'Transform':
+                continue
+            t = o.read_typetree()
+            if t['m_Father']['m_PathID'] != 0:
+                continue
+            go = self.resolve(t['m_GameObject'], o)
+            if go is None:
+                continue
+            f = OUT / bundle / f"{go.read_typetree()['m_Name']}.json"
+            if not f.exists():
+                continue
+            order, gos = [], {}
+
+            def walk(g, parent):
+                dd = g.read_typetree()
+                idx = len(order)
+                gos[g.path_id] = idx
+                order.append((dd['m_Name'], self.fx_delay(g) if parent >= 0 else None))
+                tr = None
+                for c in dd['m_Component']:
+                    comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], g)
+                    if comp is not None and comp.type.name == 'Transform':
+                        tr = comp.read_typetree()
+                        gos[comp.path_id] = idx
+                for ch in (tr or {}).get('m_Children') or []:
+                    cto = self.resolve(ch, g)
+                    cgo = self.resolve(cto.read_typetree()['m_GameObject'], cto) if cto is not None else None
+                    if cgo is not None:
+                        walk(cgo, idx)
+            walk(go, -1)
+            subs = self.sub_delays(go, gos)
+            d = json.loads(f.read_text())
+            nodes = d.get('nodes') or []
+            if len(nodes) != len(order) or any(n.get('name') != order[k][0] for k, n in enumerate(nodes)):
+                print(f'[fx] {bundle}/{f.stem}: node tree differs from the bundle, skipped')
+                continue
+            dirty = False
+            for k, n in enumerate(nodes):
+                want = {'delay': order[k][1], 'sdelay': subs.get(k)}
+                for key, v in want.items():
+                    if n.get(key) == v:
+                        continue
+                    dirty = True
+                    if v is None:
+                        n.pop(key, None)
+                    else:
+                        n[key] = v
+            found += any(x[1] for x in order) or bool(subs)
+            if dirty:
+                f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+                changed += 1
+        print(f'[fx] {bundle}: {found} prefab(s) with a branch delay, {changed} file(s) changed')
+        return found, changed
 
     def spawn_location(self, root):
         """local patch: the effect component's `_spawnLocation` on the root (1 feet, 2 body / HIT point, 4 head, 5 ground
@@ -763,18 +875,22 @@ class Extractor:
 
     @staticmethod
     def root_face(pe):
-        """(2026-10-11, decompile check round 2) the root effect's playback fields, recorded for a maintainer decision and not
-        drawn yet (docs/rules/fx.md 「좌우 거울·재생 속도·루트 지연 (보류)」): `ParticleEffect.FaceTo` (RVA 0xCB1DC0) turns by
+        """(2026-10-11, decompile check round 2) the root effect's playback fields: `ParticleEffect.FaceTo` (RVA 0xCB1DC0) turns by
         `_rotateType` (0 NONE: never mirrored, 1 FLIP_TWO_SIDE: 'rotation_y' / 'rotation_z' 180° when facing left — right with
-        `_leftIsDefault`, 2 FOUR_DIRECTION from `_mainDir`, 3 FIXED_DIRECTION, 4 ANY_DIR); `Effect._PlayInternal` (0xC8C4F0)
-        uses the playback speed only with `_usePlaybackSpeed`, caps it at `_limitedPlaybackSpeed` ÷ the time scale (≥ 0) and
-        waits `_delayToPlay` (random up to it with `_randomPlayDelay`); FxDelay starts the whole effect `_delayTime` ÷ the speed
-        later. { rot, left?, dir?, speed? (0 = ignores the playback speed), limit? (≠ 2), delay?, rnd?, fxDelay? } or None."""
+        `_leftIsDefault`, 2 FOUR_DIRECTION from `_mainDir`, 3 FIXED_DIRECTION, 4 ANY_DIR); `Effect.Play` (0xC8A5D0) turns it to
+        its entity's own four-way direction instead of the given one with `_useBodyRotation` (`body`); `Effect._PlayInternal`
+        (0xC8C4F0) uses the playback speed only with `_usePlaybackSpeed`, caps it at `_limitedPlaybackSpeed` ÷ the time scale
+        (≥ 0) and waits `_delayToPlay` (random up to it with `_randomPlayDelay`); FxDelay starts the whole effect `_delayTime` ÷
+        the speed later. Drawn by render/fxplayer.js FxInstance (maintainer decisions 2026-10-11, docs/rules/fx.md 「좌우 거울·재생
+        속도·루트 지연」). { rot, left?, body?, dir?, speed? (0 = ignores the playback speed), limit? (≠ 2), delay?, rnd?,
+        fxDelay? } or None."""
         if not pe:
             return None
         o = {'rot': pe['rotate']}
         if pe['leftIsDefault']:
             o['left'] = 1
+        if pe.get('body'):
+            o['body'] = 1
         if pe['rotate'] in (2, 3):
             o['dir'] = pe['mainDir']
         if not pe['useSpeed']:
@@ -1156,6 +1272,9 @@ def main():
                     'pkgrps/btl_pfb_fx_token_3.ab) and write them as --bundle (local patch: 望\'s 棋子 effects → wang_token)')
     ap.add_argument('--root-only', action='store_true', help='only rewrite the root effect fields `spawn` / `height` / `face` '
                     'of the already extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-11)')
+    ap.add_argument('--delay-only', action='store_true', help='only write the branch delays (node `delay` / `sdelay`: a child\'s '
+                    'FxDelay, the root\'s _subFXDelayConfigs) into the already extracted prefabs of the bundles (every bundle of '
+                    'index.json without --bundle; 2026-10-11)')
     ap.add_argument('--height-only', action='store_true', help='only write the `_overwriteHeight` `height` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-10)')
     ap.add_argument('--finish-only', action='store_true', help='only write the `_delayToFinish` `finish` into the already '
@@ -1169,6 +1288,11 @@ def main():
         bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
         tot = [ex.root_only(b, pack=a.pack) for b in bundles]
         print(f'[fx] root: {sum(x[0] for x in tot)} prefab(s) with a root effect component, {sum(x[1] for x in tot)} file(s) changed')
+        return
+    if a.delay_only:
+        bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
+        tot = [ex.delay_only(b, pack=a.pack) for b in bundles]
+        print(f'[fx] delay: {sum(x[0] for x in tot)} prefab(s) with a branch delay, {sum(x[1] for x in tot)} file(s) changed')
         return
     if a.height_only:
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])

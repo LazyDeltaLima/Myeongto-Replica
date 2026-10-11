@@ -50,7 +50,8 @@ test('her S2 activation: the 4 nested slashes fade out within 1 s, the effect en
   const tri = () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3)); g.setIndex([0, 1, 2]); return g; };
   def.geoms = new Proxy({}, { get: () => tri() });
   def.lib = { texture: () => new THREE.Texture() };
-  const inst = new fxp.FxInstance(def, { quality: 'high' });
+  // every clip at once here (its FxDelays — the root 0.15 s, the slashes' own — are fx-face-delay.test.js's)
+  const inst = new fxp.FxInstance(def, { quality: 'high', delays: false });
   const slashes = def.clips.slice(1).map((c) => inst.clipTracks.filter((b) => c.tracks.includes(b.tr)));
   assert.ok(slashes.every((b) => b.length > 0), 'every slash clip drives its nodes');
   const alpha = (b) => b.filter((x) => x.kind === 'matComp' && x.axis === 'w').map((x) => x.u.value.w);
@@ -86,6 +87,9 @@ test('her S3 range start: the 4 falling blades are switched off as they land (sk
   const blades = def.nodes.map((n, i) => (n.name === 'jian' && n.mesh ? inst.nodes[i] : null)).filter(Boolean);
   const switched = blades.filter((o) => inst.clipTracks.some((b) => b.kind === 'active' && b.o === o));
   assert.equal(switched.length, 4, 'the 4 falling blades carry a switch');
+  // 2026-10-11 (maintainer decision 16): its root FxDelay (`face.fxDelay`, 0.5 s) first — nothing drawn meanwhile
+  const wait = def.face?.fxDelay || 0;
+  if (wait) { inst.update(wait / 2); assert.equal(inst.unity.visible, false, 'not shown during its FxDelay'); inst.update(wait / 2); }
   inst.update(0.1);
   assert.ok(switched.every((o) => o.visible), 'falling');
   inst.update(0.15);

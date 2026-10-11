@@ -367,8 +367,13 @@ def enemy_record(root, tree, fx_index, proj_keys):
 
 
 def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
-    """A buff template's effects: `fx` (effectKey + CreateEffect-like nodes), `line` (CreateLineEffect: from the buff's source
-    to its owner — not drawn here), projectiles; nested templates followed to depth 3."""
+    """A buff template's effects: `fx` (its effectKey + the CreateEffect-like nodes of ON_BUFF_START), `line`
+    (CreateLineEffect of ON_BUFF_START: from the buff's source to its owner — not drawn here), `onEvent` { Buff.Event
+    number: [effects] } (the nodes of the other events — ON_BUFF_FINISH 1, ON_BUFF_TRIGGER 2, ON_OWNER_KILLED 3,
+    ON_TAKE_DAMAGE 10 …: played once when that event runs, `Nodes.CreateEffect.Execute` RVA 0xB90880 — not the buff's own
+    effect; decompile check round 2, 2026-10-11: they used to be mixed into `fx`, 머드락's shield heal common_heal_hit_01
+    (ON_TAKE_DAMAGE) and 티티's sleeping hit titi_attack_hit_01 (ON_BUFF_TRIGGER) among them), projectiles; nested templates
+    followed to depth 3 (a nested template's start effects count for the event that adds it)."""
     seen = seen if seen is not None else set()
     if not key or key in seen or key not in BT or depth > 3:
         return None
@@ -376,36 +381,45 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
     t = BT[key]
     out = {}
 
-    def add(f, v):
-        out.setdefault(f, [])
-        if v not in out[f]:
-            out[f].append(v)
+    def add(f, v, ev='0'):
+        if ev != '0' and f in ('fx', 'line'):
+            lst = out.setdefault('onEvent', {}).setdefault(ev, [])
+        else:
+            lst = out.setdefault(f, [])
+        if v not in lst:
+            lst.append(v)
     if t.get('effectKey'):
         add('fx', t['effectKey'])
         if depth == 0:
-            add('key', t['effectKey'])   # the buff's own effect (held with it); `fx` also lists its nodes' effects
+            add('key', t['effectKey'])   # the buff's own effect (held with it); `fx` also lists its start nodes' effects
 
-    def walk(o):
+    def walk(o, ev):
         if isinstance(o, dict):
             typ = str(o.get('$type') or '')
             for k, v in o.items():
                 if isinstance(v, str) and v:
                     if v.lower() in FX:
-                        add('line' if 'LineEffect' in typ else 'fx', v)
+                        add('line' if 'LineEffect' in typ else 'fx', v, ev)
                     elif v in proj_keys:
                         add('projectiles', v)
                     elif v in BT and v != key:
                         sub = template_info(v, BT, FX, proj_keys, depth + 1, seen)
                         for f, lst in (sub or {}).items():
+                            if f == 'onEvent':
+                                for e2, l2 in lst.items():
+                                    for x in l2:
+                                        add('fx', x, e2)
+                                continue
                             for x in lst:
                                 if f != 'key':
-                                    add(f, x)
+                                    add(f, x, ev)
                 else:
-                    walk(v)
+                    walk(v, ev)
         elif isinstance(o, list):
             for v in o:
-                walk(v)
-    walk(t.get('eventToActions') or {})
+                walk(v, ev)
+    for ev, acts in (t.get('eventToActions') or {}).items():
+        walk(acts, str(ev))
     return out or None
 
 

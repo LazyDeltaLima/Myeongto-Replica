@@ -357,7 +357,7 @@
   → `char_modes.py dir_groups`가 칸이 둘 이상 다른 항목을 `dirs: [{ t, s: [위, 오른쪽, 아래, 왼쪽] }]`로 기록(바인딩 목록은 그대로), `fxgame.js dirCopies`/`dirPick`이
   `play()`마다 그 묶음의 이름을 보는 방향의 사본 하나로 바꾼다: NONE 0번, L_OR_R 좌우(위·아래를 볼 때는 그려진 좌우), U_OR_D 위(뒷모습)면 0번·그 밖 2번
   (옆은 앞모습 — 클라 `TryGetEffect` RVA 0xAE1FE0, `faceToBack`), FOUR_DIR·FOUR_DIR_FIXED 보는 방향의 칸, UD_OR_LR은 U_OR_D처럼 고르고 그 칸이 비면 좌우
-  (2026-10-10 고침 — 전에는 보는 방향의 칸; 지금 그 묶음은 0개). 빈 칸·enum 밖 값은 안 틂. 좌우 사본이 따로 있는 묶음에서 고른 사본은 다시 뒤집지 않음 — 2026-10-11 디컴파일 2라운드로 확정: 그 사본 3쌍(백파이프 S2/S3 `_left`/`_right`, 불피스폴리아 S2 `_left`/`_right_folder`)의 프리팹은 모두 `_rotateType 0`이고 클라 `ParticleEffect.FaceTo`(RVA 0xCB1DC0)는 0을 뒤집지 않는다. 근거는 「사본이라서」가 아니라 프리팹의 `_rotateType`(전체 규칙은 아래 「좌우 거울·재생 속도·루트 지연 (보류)」). 사본 프리팹은 이미 전부 추출돼 있었다(재추출 없음).
+  (2026-10-10 고침 — 전에는 보는 방향의 칸; 지금 그 묶음은 0개). 빈 칸·enum 밖 값은 안 틂. 좌우 사본이 따로 있는 묶음에서 고른 사본은 다시 뒤집지 않음 — 2026-10-11 디컴파일 2라운드로 확정: 그 사본 3쌍(백파이프 S2/S3 `_left`/`_right`, 불피스폴리아 S2 `_left`/`_right_folder`)의 프리팹은 모두 `_rotateType 0`이고 클라 `ParticleEffect.FaceTo`(RVA 0xCB1DC0)는 0을 뒤집지 않는다. 근거는 「사본이라서」가 아니라 프리팹의 `_rotateType` — 2026-10-11부터 이 예외는 따로 두지 않고 공식 규칙으로 흡수(아래 「좌우 거울·재생 속도·루트 지연」; `unflip`은 `face` 기록이 없는 옛 추출물에만 남음). 사본 프리팹은 이미 전부 추출돼 있었다(재추출 없음).
   대상 14명: 스펙터 디 언체인드, 가비알 디 인빈서블, 이그제큐터 디 엑스 포에데레, 위셔델, 엑시아 더 뉴 커버넌트, 백파이프, 아르케토, 불피스폴리아, 언더플로우,
   르무엔, 산크타 믹사파라토, 비질, 아로마 + 데겐블레허(S2 `start_04_v`/`_h`, skills.ab).
   **선발 오퍼레이터 항목** (a52571b2, 관리자 요청 2026-10-08): 0.2.0 병합 뒤 `data/diy.json`이 없어져 `char_modes.py`가 선발 5명을 다시 만들지 못했다(전체 실행에서
@@ -539,7 +539,7 @@
 - **재생기 다중 클립** (6f3ff734): 프리팹 안의 중첩 서브프리팹은 자기 Animator·클립을 가진다. `FxInstance`가 `clips[0]`(루트 것)만 틀어 S2 발동
   `texas2_birth_02_start`의 베기 4개(메시 16개)가 머티리얼 기본값으로 약 2초 굳어 있었다. 이제 모든 클립의 트랙을 묶어 각 클립 길이까지 재생(끝 프레임 유지),
   `done`·꼬리는 가장 긴 클립 기준. 추출기는 이미 클립 노드를 전체 트리 번호로 풀어 둠 → 재추출 없음. 적용 안 한 것(관리자 결정): 중첩 서브프리팹 `_delayTime` 0~0.3초(지금은 동시 시작),
-  루트 `_delayTime`(약 310 이펙트) 보류 — 2026-10-11 디컴파일 2라운드: 정체는 `Torappu.Fx.FxDelay`(그 GameObject를 끄고 `_delayTime ÷ 재생 속도` 뒤 켬, `OnEnable` RVA 0x34C1650), 묶인 시전 이펙트 383개 중 233개에 있다. 추출기는 이제 `face.fxDelay`로 기록만 한다(아래 「좌우 거울·재생 속도·루트 지연 (보류)」, 관리자 결정 대기). `m_IsActive`는 아래 「착지한 낙하 검」에서 나중 결정으로 적용.
+  루트 `_delayTime`(약 310 이펙트) 보류 — 2026-10-11 디컴파일 2라운드: 정체는 `Torappu.Fx.FxDelay`(그 GameObject를 끄고 `_delayTime ÷ 재생 속도` 뒤 켬, `OnEnable` RVA 0x34C1650), 묶인 시전 이펙트 383개 중 233개에 있다. 2026-10-11 관리자 결정으로 적용(루트·중첩 서브프리팹 모두, 아래 「좌우 거울·재생 속도·루트 지연」). `m_IsActive`는 아래 「착지한 낙하 검」에서 나중 결정으로 적용.
   픽셀 비교(HEAD 대비 1983 이펙트 × 4프레임): 바뀐 것은 클립 2개 이상인 11 프리팹뿐(바인딩된 6: 텍사스 디 오메르토사 S2 발동·S3 범위 시작, 무에나 S2,
   위셔델 S2 2종, 불피스폴리아 S2 / 바인딩 안 된 svash2 방패·불피스폴리아 방향별 4), 나머지 1972는 픽셀 동일.
 - **내장 Quad/Plane 메시** (e62c0551): 검날 노드(jian / jian1 / add)는 Unity 내장 Quad(FileID → `Library/unity default resources`, PathID 10210)
@@ -561,7 +561,7 @@
   아레나·실제 솔로 판 S3 재확인(오류 없음, 범위 시작 착지 검 9 → 5).
 - **처음부터 꺼진 노드** (65bf7da3, 관리자 제보 2026-10-08 — 시험 적용): 트랙 없이 처음부터 꺼진 노드 아래 파티클·꼬리(166 프리팹 51 번들, 파티클 455·꼬리 61)를
   이제 재생하지 않는다(메시는 원래 숨김). 근거: EN 클라이언트 번들 검사(비공개 조사 기록) — 164 프리팹은 그 노드를 켜는 트랙도
-  가리키는 컴포넌트도 없음, 1개는 `_inactiveOnFinish`(끝날 때 끄는 목록)만, 1개는 트랙(위). (2026-10-11 디컴파일 2라운드: Effect/ParticleEffect가 이름으로 찾는 자식은 상수 `body`·`rotation_y`·`rotation_z`·`static_offset`·`flip_x`뿐 — 이름으로 켜는 코드는 없다. 늦게 켜는 것은 `FxDelay`(보류 안건), `FxLODSetting._disableObjects`는 저사양에서 끈다. 처음부터 꺼진 노드 가운데 FxDelay가 붙은 것은 대조 안 함 [확인 필요].)
+  가리키는 컴포넌트도 없음, 1개는 `_inactiveOnFinish`(끝날 때 끄는 목록)만, 1개는 트랙(위). (2026-10-11 디컴파일 2라운드: Effect/ParticleEffect가 이름으로 찾는 자식은 상수 `body`·`rotation_y`·`rotation_z`·`static_offset`·`flip_x`뿐 — 이름으로 켜는 코드는 없다. 늦게 켜는 것은 `FxDelay`(2026-10-11 적용 — 그 가지만 늦게 켬), `FxLODSetting._disableObjects`는 저사양에서 끈다. 처음부터 꺼진 노드 가운데 FxDelay가 붙은 것은 대조 안 함 [확인 필요].)
   표본 아르케토 S3: `archet_skill_03_start`의 꺼진 `smoke`가 대상 위에 큰 연기를 그렸다 — 같은 시스템이 `archet_skill_03_start_01`에 켜진 채 뒤쪽(0.65, 0.63)에
   있고 관리자가 본 연기가 그것(그대로 남음). 픽셀 비교 117/1983 변화(일부는 난수 순서만), 아레나 아르케토 S3 전후.
 - 알려진 차이(범위 밖):
@@ -617,9 +617,9 @@
   - FollowMountPoint 회전을 매 프레임 따르기 — 위 「이펙트 방향」.
   - 재생 속도: 클라 `HitEffectOptions.OnCastOnTarget`(0xAE54D0)은 타격 이펙트를 `CreateEffect(…, 1.0)`로 만든다 — 공속과 상관없이 1.0배. 시전 이펙트(`CastEffectOptions`)만
     능력 재생 속도로 → `fxgame.js` `play`/`spawn`의 `speed`(살아 있는 항목 `l.speed`, 프레임마다 `dt × 게임 속도 × speed`): 시전 이펙트 = 그 공격의 `castSpan` 재생 속도
-    (OnAttack 프레임 ÷ windup), 타격·그 밖 = 1.0(전과 같음).
+    (OnAttack 프레임 ÷ windup), 타격·그 밖 = 1.0(전과 같음). 2026-10-11부터 프리팹의 `_usePlaybackSpeed`·`_limitedPlaybackSpeed`를 따른다(아래 「좌우 거울·재생 속도·루트 지연」).
   - 언더플로우 S2 `udflow_skill_02_hit_01`의 `_useOwnerToTargetDirection`: `char_modes.py`가 `hitAim`(그 항목이 켜진 타격 이펙트 이름)을 쓰고, `fxgame.js`가 그 이펙트를
-    공격자 → 대상 선으로 돌린다(`rotation_z` 축이 있으면 그 각도, 없으면 그 선의 좌우로 거울. 2026-10-11 디컴파일 2라운드: 공식은 `ParticleEffect.FaceTo`가 프리팹의 `_rotateType`대로 돌린다 — `udflow_skill_02_hit_01`은 1(FLIP_TWO_SIDE)이라 대상 쪽 x 부호로 뒤집기만 하고 각도로 돌리지 않음 → 우리 각도 회전은 다름(작음). 좌우 거울 규칙 전체와 함께 관리자 결정 대기). **`modes.json` 재생성이 필요**
+    공격자 → 대상 선으로 돌린다(`rotation_z` 축이 있으면 그 각도, 없으면 그 선의 좌우로 거울. 2026-10-11 디컴파일 2라운드: 공식은 `ParticleEffect.FaceTo`가 프리팹의 `_rotateType`대로 돌린다 — `udflow_skill_02_hit_01`은 1(FLIP_TWO_SIDE)이라 대상 쪽 x 부호로 뒤집기만 하고 각도로 돌리지 않음 → 2026-10-11 관리자 결정으로 공식대로: 방향 = 대상 − 공격자, 뒤집기만(아래 「좌우 거울·재생 속도·루트 지연」)). **`modes.json` 재생성이 필요**
     (`char_modes.py`; 공유 파일이라 이 작업에서 다시 쓰지 않음) — 그 전에는 예전처럼 공격자의 좌우.
   - `_spawnLocation` 2 HIT_POINT·4 HEAD_POINT: `Effect._InitLocationFromEntity`가 엔티티의 hit / head 마운트 점에 놓는다 → `fxpoints.js pointKey` 2 → `hit`, 4 → `head`
     (오퍼 `points.json`, 적 `enemy-modes.json points`), 표가 없는 유닛은 예전 높이(키의 0.5 / 1.1).
@@ -671,13 +671,59 @@
   13,204개 판독과 6개 번들 전수 일치). `--root-only`가 이미 뽑은 프리팹의 `spawn`·`height`·`face`만 다시 쓴다.
 - 확인: 단위 `test/render/fx-round2.test.js`(추출 결과·`clipGroup`/`deployEffect`·소스 고정·스텁 표로 쓰러짐 이펙트 판정). 화면 확인은 안 함(메인 세션).
 
-### 좌우 거울·재생 속도·루트 지연 (보류, 2026-10-11 디컴파일 2라운드 — 관리자 결정 대기)
-- `ParticleEffect.FaceTo`(RVA 0xCB1DC0)는 프리팹의 `_rotateType`대로만 돈다: 0 NONE 안 뒤집음, 1 FLIP_TWO_SIDE 왼쪽(`_leftIsDefault`면 오른쪽)을 볼 때 자식 `rotation_y`·
-  `rotation_z`를 180°, 2 FOUR_DIRECTION `_mainDir` 기준 90° 단위, 3 FIXED_DIRECTION, 4 ANY_DIR. 우리는 왼쪽을 볼 때 전부 거울(묶인 프리팹 중 rotate 0이 579개).
-  `Effect._PlayInternal`(0xC8C4F0)은 `_usePlaybackSpeed`가 참일 때만 재생 속도를 쓰고(묶인 시전 이펙트 383개 중 75개는 1.0 고정), `_limitedPlaybackSpeed`(≥ 0)로
-  「속도 × 배속」 상한, `_delayToPlay` 뒤 재생. 루트 `FxDelay`는 이펙트 전체를 `_delayTime ÷ 속도` 늦게 켠다(위 「텍사스 디 오메르토사 S2」).
-- 렌더는 바꾸지 않았다. 추출기만 프리팹 JSON에 `face: { rot, left?, dir?, speed? (0 = 속도 무시), limit? (≠ 2), delay?, rnd?, fxDelay? }`를 기록한다(`fx_extract.py
-  root_face`; `--root-only`로 기존 프리팹에 씀) — 결정이 나면 `fxgame.js play()`의 `facing`·`speed`와 `FxInstance` 시작 지연이 이 값을 읽으면 된다.
+### 좌우 거울·재생 속도·루트 지연 (관리자 결정 2026-10-11 「공식대로」, 디컴파일 2라운드)
+근거: 클라 코드 `Effect.Play`(RVA 0xC8A5D0)·`Effect._PlayInternal`(0xC8C4F0)·`ParticleEffect.FaceTo`(0xCB1DC0)·`FxDelay.OnEnable`(0x34C1650)·`Effect.UpdatePlaybackSpeed`(0xC8AE50)과
+이펙트 번들 프리팹 값(루트 ParticleEffect 직렬 필드; 이 메서드들은 켜진 Lua 핫픽스 목록에 없음). 조사 기록은 관리자 노트(디컴파일 2라운드 fx).
+- **방향**: 이펙트는 「방향」 하나를 받아 재생된다 — 시전·대상·타격 이펙트 = 시전자의 그려진 좌우(`faceVector`, 위·아래를 볼 때도 ±x), `_useFourDirectionalFace`
+  항목(`modes.json turn`) = 네 방향, `_useOwnerToTargetDirection`(`hitAim`) = 대상 − 공격자, 프리팹의 `_useBodyRotation`(`face.body`) = 그 이펙트가 붙는 유닛의 네 방향.
+  그다음 프리팹 루트의 `_rotateType`(`face.rot`)이 정한다: **1 FLIP_TWO_SIDE** 방향이 왼쪽(`_leftIsDefault`면 오른쪽)이면 자식 `rotation_y`를 y축 180°·`rotation_z`를
+  z축 180°(아니면 둘 다 0), **2 FOUR_DIRECTION** `rotation_z`를 `_mainDir`에서 그 방향까지 90° 단위, **3 FIXED_DIRECTION** RIGHT에서 `_mainDir`까지, **4 ANY_DIR**
+  `body` 자식을 그 방향으로, **0 NONE**(그 밖의 값) 뒤집지도 돌리지도 않음. 거울(스케일 −1)은 FollowMountPoint `_followScaleSign`(스파인 좌우 반전의 부호)일 때만.
+  → `render/fx/face.js faceTurn`·`fxplayer.js FxInstance`(`dir`·`body` 옵션, `applyTurn`), `fxgame.js play()`/`spawn()`이 방향을 넘긴다. 예전 예외(방향 칸 좌우 사본
+  `unflip`, `right` 짝, `turn` 항목의 `aimMover`, `hitAim`의 `aimAlong`)는 이 규칙으로 흡수 — 좌우 사본 3쌍·`right` 짝 5개는 모두 rotate 0, `turn` 항목 20개 중 18개는
+  rotate 2(`_mainDir` RIGHT = 예전 `aimMover`와 같은 각), 언더플로우 S2 `udflow_skill_02_hit_01`은 rotate 1(대상 쪽 x 부호로 뒤집기만). `rotation_y` 축은 추출 JSON의
+  부모 회전을 곱해 보면 744개 중 741개가 전투 좌표 y(판의 행 축)라 y축 180° = 좌우 거울 + 높이 부호 반전(판 위 평면 내용은 거울과 같음).
+- 범위(추출된 이펙트 2,356개 중 `face`가 있는 2,122개): rotate 0 = 1,244, 1 = 788(`rotation_y`·`rotation_z`가 없는 43개는 공식도 아무것도 안 함), 2 = 87, 4 = 3.
+  풀 바인딩(`modes.json`) 1,095개 중 rotate 0이 549개 — 이것들이 **왼쪽을 볼 때 더는 거울이 아니다**(대칭이면 차이 없음). rotate 2인데 `turn`이 아닌 것은 왼쪽을 볼 때
+  거울 대신 z축 180° 회전. `face`가 없는 프리팹(루트에 ParticleEffect가 없음: 투사체 꼬리·선 234개)은 예전처럼 거울 [추정: 다른 Effect 하위 클래스의 FaceTo는 안 읽음].
+- **재생 속도**: `_usePlaybackSpeed`(`face.speed` 0 = 끔)일 때만 받은 속도를 쓰고, 끄면 1.0(풀 바인딩 시전 이펙트 383개 중 75개 — 르무엔 `lemuen_attack_start_01`,
+  첸 더 던스트릭 용 등). `_limitedPlaybackSpeed`(`face.limit`, 없으면 2.0; 음수 = 상한 없음)가 0 이상이면 속도 ≤ 상한 ÷ 전투 배속 → `fx/face.js playSpeed`, `play`/`spawn`의
+  살아 있는 항목 `speed`. 타격 이펙트(1.0)는 2배속에서도 1.0이라 변화 없고, 공속이 빨라진 시전 이펙트가 2배속에서 ×1로 묶인다.
+- **시작 지연**: 루트 FxDelay `_delayTime`(`face.fxDelay`)은 이펙트 전체를 끄고 `_delayTime ÷ 재생 속도`(게임 시간) 뒤 켠다(`UpdatePlaybackSpeed`가 속도를 넣는 것은
+  `_usePlaybackSpeed`일 때뿐), `_delayToPlay`(`face.delay`, `_randomPlayDelay`면 0~그 값)는 게임 시간으로 그만큼 뒤 재생. 중첩 서브프리팹의 FxDelay(노드 `delay`, 그
+  컴포넌트의 속도는 기본 1.0이라 게임 시간 [추정: 루트 것만 속도를 받음])와 루트 `_subFXDelayConfigs`(노드 `sdelay`, ÷ 속도)는 그 가지만 늦게 켠다 — 켜질 때 파티클·클립이
+  처음부터. → `FxInstance`가 지연 동안 아무것도 그리지·돌리지 않고(`wait`), 가지는 노드를 숨겼다가 켠다(`branches`, 그 가지 클립은 켜진 때부터 `off`). `done`은 지연이 남은 동안
+  거짓, 지연 중에 `stop()`(시전 끝 `until`·주인 사망)이면 **보이지 않고 끝남**(클라 `FinishMe`가 이긴다). 한 번형의 기본 끝(`until`)은 프리팹 길이 + 지연(`inst.lead`).
+  묶인 시전 이펙트 383개 중 233개에 루트 지연이 있다(로즈몬티스 `rosmon_attack_A_start_02` 1.5초, 페페 S3 `pepe_skill_03_start_01` 1.05, 아스카론 `ascln_*_start_*` 0.75~1.1,
+  시 `dusk_attack_01_start` 0.9, 스카디 `skadi_attack_0N_start` 0.8, 텍사스 디 오메르토사 S2 `texas2_skill_02_start` 0.17 / `_start_02` 0.30). 가지 지연: 텍사스 디 오메르토사 S2
+  발동 `texas2_birth_02_start` 베기 0 / 0.1 / 0.15 / 0.3초, 티티 S3 `titi_skill_03_hit_02` 0.23초 3개, 왕 `wang_birth_01`/`_02` 0.2초.
+- 추출: `fx_extract.py root_face`가 `face: { rot, left?, body?, dir?, speed?, limit?, delay?, rnd?, fxDelay? }`, `prefab()`이 노드 `delay`·`sdelay`를 쓴다. 이미 뽑은 프리팹에는
+  `--root-only`(`body`가 새로 생김)와 `--delay-only`(노드 지연; 노드 이름 순서가 번들과 다르면 건너뜀). 그 전에는 `body`·가지 지연이 없어 `_useBodyRotation` 이펙트는 ±x로,
+  가지는 동시에 켜진다(루트 `face`는 이미 기록돼 있음).
+- **되돌리기**(예전 동작: 2026-10-05~2026-10-11 「왼쪽을 볼 때 모든 이펙트를 거울」 + 위 예외, 시전 이펙트 = 능력 재생 속도 그대로, 지연 없음): `FxInstance`의 `mirror`를
+  `facing`으로, `faceTurn` 호출을 null로 하면 거울만 남고(`fxgame.js play()`의 `turnOld`·`aimAlong` 분기가 예전 돌림), `playSpeed`를 받은 속도 그대로, `FxInstance` 옵션
+  `delays: false`면 지연이 없다.
+- 확인: 단위 `test/render/fx-face-delay.test.js`(`faceTurn`·`playSpeed`·`startLead`, 거울/회전, 루트·가지 지연, 지연 중 끝, 텍사스 디 오메르토사 S2 0.17/0.30초 ÷ 속도, 소스 고정),
+  `test/render/texas2-skill-fx.test.js`(S3 범위 시작의 루트 지연 0.5초 뒤 낙하 검). [화면 미확인] — 왼쪽을 보는 비대칭 이펙트(크루스 더 킨 글린트·실버애쉬 더 레인프로스트·
+  스카디·아스카론 일반 공격 시작 등 rotate 0), 지연이 긴 시전 이펙트(로즈몬티스·페페·아스카론·시).
+
+### 위수 협의 템플릿 이펙트 (관리자 결정 2026-10-11 「넣음」, 디컴파일 2라운드)
+- 공식: 맹약·장비·밴드 버프 템플릿(`act1autochess_*`·`act2autochess_*`)의 그래프 노드 `Nodes.CreateEffect`(RVA 0xB90880, 유닛에)·`CreateEffectAtScreenPos`(화면 위치)가 그
+  노드가 실행될 때 한 번 만든다(전용 엔진 코드 없음). 라테라노 클립 `bond_laterano_reload_01`(ON_AFTER_ATTACK), 신속 맹약·사막 나침반 `bond_charge_battle_01`(ON_SKILL_FINISH),
+  에기르 맹약 `bond_aegir_eat_01`, 증원·M3 고치 갑옷·골리앗 투구·증기의 마음 `map_act1autochess_reinforce_02`, 쉐라그 맹약 `map_snow_left_2_right`(화면 위치), 시라쿠사 맹약
+  `common_071_bond_siracusa_hit_01`(ON_OUTPUT_DAMAGE, 적에게).
+- sim이 그 순간 상태 이벤트 `['tplfx', 대상 id | null, 프리팹 키, 출처 id | null]`을 낸다(`docs/SIM.md` 이벤트 표). → `fxgame.js tplFx`: 추출 목록에서 이름으로 찾고(대소문자 무시,
+  `bond`·`map`·`common`·`buff` 번들 먼저), 대상이 있으면 그 유닛에 붙여 따라가고(프리팹 `_spawnLocation`, 대상 사망 때 끔; 같은 순간 사라지는 유닛 — 에기르 맹약에 먹힌
+  오퍼레이터 — 은 그 자리에), 대상이 null이면 전투 필드 가운데에 [추정: 클라의 화면 위치 = 화면 가운데]. 방향은 대상의 좌우 [추정: 노드의 방향 옵션은 이벤트에 없음].
+  프리팹이 안 뽑혔거나 대상이 없으면 아무것도 안 함. `render/app.js`는 그대로(모든 상태 이벤트가 이미 `fxGame.onEvent`로 온다).
+- 추출: `fx_extract.py --bundle bond --bundle map --match '^(bond_|map_act1autochess_|map_act1vautochess_|map_snow_)'`(bond 8개·map 18개) +
+  `--bundle common --prefab common_071_bond_siracusa_hit_01` — 그 전에는 안 보인다.
+- 템플릿 노드 이펙트를 이벤트별로: `enemy_bindings.py template_info`가 버프 템플릿의 `fx`에 시작(ON_BUFF_START 0) 노드만 남기고 그 밖은 `onEvent { 이벤트 번호: [이펙트] }`
+  (전에는 모든 이벤트를 `fx` 하나로 섞음 — 머드락 방패의 `common_heal_hit_01`(ON_TAKE_DAMAGE)·티티 재우기의 `titi_attack_hit_01`(ON_BUFF_TRIGGER) 같은 것). 렌더는 버프의 자기
+  이펙트(`overrideEffectKey` / 템플릿 `effectKey` = `key`)만 틀고 노드 이펙트는 틀지 않았으므로 화면 변화는 없다(`enemy-modes.json` 결과 동일, 검토용
+  `tools/assets/local-enemy-bindings.json`의 템플릿 72개만 바뀜). `char_modes.py`는 템플릿을 읽지 않는다(오퍼레이터 쪽은 `overrideEffectKey`만). 버프 끝·피격 같은 다른 이벤트를
+  렌더에 알리는 sim 이벤트는 없어 `onEvent`는 아직 쓰지 않는다.
+- 확인: `test/render/fx-face-delay.test.js`(`tplfx` 처리·번들 순서·`onEvent` 분리 소스 고정). [화면 미확인] — 쉐라그 눈바람 위치·크기, 에기르 맹약 삼킴.
 
 ### 사용자 제보 묶음 (2026-10-10, 렌더·이펙트 담당)
 - **혼(号角) 저지 중 공격에 원거리 폭발** (제보: 저지 중인 적에게 원거리 공격용 폭발 이펙트가 나오면 안 됨): 모드 바인딩이 한 모드의 근접·원거리 능력을
@@ -792,6 +838,6 @@
   적 210종), 렌더도 같은 순서. 공식 사망 이펙트가 그려지면(`fxgame.js ownsDeath`) `app.js`가 fx.js의 절차 사망 퍼프를 안 그린다(`common_empty` 19종은
   아무것도 안 보임 — 공식대로). `common_enemy_die_01`은 아직 안 뽑혀 있음 — 그 전에는 절차 퍼프 그대로.
 - 위 클래스·메서드는 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 없음.
-- 안 한 것: 버프 노드의 다른 이펙트(방패 깨짐·끝 이펙트 — 2026-10-11 디컴파일 2라운드: 전용 코드는 없고 템플릿 노드 `Nodes.CreateEffect`(RVA 0xB90880)가 그 노드의 이벤트(ON_BUFF_FINISH·ON_TAKE_DAMAGE …) 때 한 번 만든다; 추출기가 이벤트를 안 나눠 기록하고, 卫戍协议 맹약·장비 이펙트와 함께 관리자 결정 대기), 炎佑 선(우리가 안 쓰는 模式甲), 나오지 않는 적 82종의
+- 안 한 것: 버프 노드의 다른 이펙트(방패 깨짐·끝 이펙트 — 2026-10-11 디컴파일 2라운드: 전용 코드는 없고 템플릿 노드 `Nodes.CreateEffect`(RVA 0xB90880)가 그 노드의 이벤트(ON_BUFF_FINISH·ON_TAKE_DAMAGE …) 때 한 번 만든다; 2026-10-11: 추출기가 이벤트별로 나눠 기록 — 아래 「위수 협의 템플릿 이펙트」; 버프 끝·피격 이벤트를 렌더에 알리는 sim 이벤트는 아직 없음), 炎佑 선(우리가 안 쓰는 模式甲), 나오지 않는 적 82종의
   이펙트(`--extract --all`), 소리(audio 담당). 화면 확인 없음.
 - 확인: `test/local-patch-fxspawn.test.js`(적이 바인딩한 muzzle/특수점 이펙트가 그 적의 점을 찾음 — 클라 데이터의 빈 곳 2개 목록), `test/render/enemy-fx.test.js`, `test/render/enemy-fx-layer.test.js`(모드 전환 → audio.enemyMode, 사망 이펙트 대체, 대체 beam, 冰凌 칸별 시각, 직선 사격).
