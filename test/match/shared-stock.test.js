@@ -227,3 +227,26 @@ test('every SERVER_GAIN_EQUIP operator (诗怀雅 / 蜜蜡 / 卡涅利安 / 耶�
     m.dispose();
   }
 });
+
+test('an operator card already shown stays buyable after the stock ran out (路标月报#2 ~2:55, GitHub #498)', () => {
+  const h = makeMatch({ mode: 'coop', humans: 2, seed: 11, fake: true }).start().toPrep();
+  const m = h.m, a = h.ps('p_0'), b = h.ps('p_1');
+  const id = [...m.pool.entries.keys()].find((x) => m.gd.tierOf(x) === 6);
+  // both shops show the same card while one copy is left (the others are owned: three elites)
+  while (m.pool.left(id) > 1) assert.ok(b.acquireChess(id, { source: 'test' }));
+  assert.equal(m.pool.left(id), 1);
+  for (const ps of [a, b]) { ps.shop.slots[1] = { kind: 'chess', id, basePrice: 4, frozen: false, sold: false }; ps.funds = 20; }
+  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 1 }), { ok: true });
+  assert.equal(m.pool.left(id), 0);
+  assert.deepEqual(m.handle('p_1', { t: 'g.buy', slot: 1 }), { ok: true }, 'the second buyer is not refused');
+  assert.equal(m.pool.left(id), 0);
+  assert.equal(m.pool.entries.get(id).left, -1, 'ownership past the stock: the raw balance is negative');
+  checkInvariants(m);
+  // the stock still decides what is drawn: the card no longer rolls
+  for (let i = 0; i < 30; i++) { a.rollShop(); assert.ok(!a.shop.slots.some((s) => s && s.kind === 'chess' && s.id === id)); }
+  // a reward offer's pick is unchanged: it still fails when the stock is out
+  a.offers = [{ kind: 'merge', slots: [{ kind: 'chess', id, price: 0, sold: false }] }];
+  assert.equal(a.pickReward(0).error, 'SOLD_OUT');
+  checkInvariants(m);
+  m.dispose();
+});

@@ -7,10 +7,13 @@
 //     poolCopiesOverrides, × coopPoolMultiplier in a 同盟模拟 co-op match). `left[baseId]` = the signed capacity minus
 //     the copies owned; the public left() and the rolls clamp a deficit to zero.
 //   * Owning a piece takes copies: a normal piece holds 1, an elite holds 3 (merge of 3 normals). Shop displays
-//     do NOT reserve copies; buying fails (SOLD_OUT) when left = 0.
+//     do NOT reserve copies, and an operator card already shown stays buyable when left = 0 (the stock only gates what
+//     the shop draws: 路标月报#2 ~2:55, GitHub #498 — the purchase overdraws like a grant). A reward offer's pick still
+//     fails (SOLD_OUT) when left = 0.
 //   * Pieces remember how many copies they hold (`piece.poolCopies`), so selling / elimination / temp wipes return
 //     exactly what was taken — hidden/banned chess hold 0. An acquired piece takes its full copies even past the cap
-//     (`take(…, { overdraw: true })`: a grant, a merge's or promotion's elite, 拟态物质's copy beyond the stock), so the
+//     (`take(…, { overdraw: true })`: a grant, a shop purchase of a card shown before the stock ran out, a merge's or
+//     promotion's elite, 拟态物质's copy beyond the stock), so the
 //     raw balance can go negative and selling one copy does not reopen the stock while ownership stays above the cap.
 //   * Invariant (tests): left ≤ cap and left + Σ held copies == cap for every base chess.
 //

@@ -155,10 +155,10 @@ export class PlayerEconomy {
       const rec = this.gd.chess(slot.id);
       // a DIY slot sells only as this player's own 自选 piece (a slotted slot's record carries `diyFor`)
       if (!rec || (rec.isDiy && !rec.diyFor)) return fail(ERR.BAD_TARGET);
-      const base = this.gd.baseIdOf(slot.id);
-      const need = rec.isGolden ? this.gd.goldenCopies : 1;
-      const pool = this.poolOf(base);
-      if (pool.has(base) && pool.left(base) < need) return fail(ERR.SOLD_OUT);
+      // An operator card the shop already shows stays buyable when the stock has run out since the roll: the stock only
+      // decides what the shop draws (路标月报#2, bilibili BV1eLXXBqEgF ~2:55 — nine 星源 shown at once, all bought, the
+      // team owning 13+; GitHub #498). acquireChess takes the copies with overdraw, so the raw balance goes negative
+      // and `left + held == cap` still holds (pool.js). [ASSUMED] the same for a 自选 slot and this player's 自选 stock.
       if (handFull) return fail(ERR.HAND_FULL);
       this.spend(price);
       slot.sold = true;

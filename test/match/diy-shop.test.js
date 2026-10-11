@@ -180,11 +180,13 @@ test('buy → 3 copies merge into the elite (the stock pays the copies); sell / 
   // sell returns the copies to the player's stock
   assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: elite.uid }), { ok: true });
   assert.equal(p0.diyStock.left(T5A), 8);
-  // the stock runs out like a pool entry
+  // the stock runs out like a pool entry: it no longer rolls, but a slot already shown is bought past it (pool.js,
+  // GitHub #498 [ASSUMED] for the 自选 stock) — the copy is overdrawn
   for (let i = 0; i < 8; i++) gain(p0, T5A);
   assert.equal(p0.diyStock.left(T5A), 0);
   p0.shop.slots[0] = { kind: 'chess', id: T5A, basePrice: 4, frozen: false, sold: false };
-  assert.equal(m.handle('p_0', { t: 'g.buy', slot: 0 }).error, 'SOLD_OUT');
+  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 0 }), { ok: true });
+  assert.equal(p0.diyStock.left(T5A), 0);
   h.invariants();
   // reward offers (the temporary refresh) draw it too — the promotion reward's tier is the 调度中心 level + 1, its 自选
   // pick included (the owner's decision of 2026-10-07; levels 4 / 5: test/local-patch-diy-reward.test.js)

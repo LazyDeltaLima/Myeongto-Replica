@@ -554,7 +554,8 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   缪尔赛思 4 was a season-1 measurement); a normal piece holds 1 copy, an elite 3 (风丸's two-copy merge too) by every gain
   route, past the stock when it is short (`take(…, { overdraw: true })`: the raw balance goes negative, the public `left()`
   and the rolls clamp it at 0); 拟态物质 draws among the eligible identities (`rollChess` `ignoreCounts`) and grants past the
-  stock; displays never reserve copies; selling, temp resolution and elimination return exactly what a piece holds
+  stock; displays never reserve copies, and an operator card the shop already shows is bought past the stock (the
+  stock only gates what is drawn: 路标月报#2 ~2:55, GitHub #498; a reward offer's pick still needs a copy left); selling, temp resolution and elimination return exactly what a piece holds
   (`left + held = cap` always).
 * **Equipment stock** (upstream 6bfc0827, GitHub #466; the same 路标月报#2 video, ~1:30): every shop item has a match-wide
   stock, the same in solo and co-op — by tier 4/6/7/8/7/3, 简易通讯机 5, 蜂鸣器/防暴盾/浓缩嗅盐 6, 寻呼模块/伪装服/拉特兰桥夹 7,

@@ -71,7 +71,7 @@ test('upgrade price: base per mode, −1 per round start (floor 0), resets to th
   m.dispose();
 });
 
-test('shop slots per level (+ the item slot), buy prices by tier, SOLD_OUT, NO_FUNDS, HAND_FULL', () => {
+test('shop slots per level (+ the item slot), buy prices by tier, SOLD_OUT, a shown card past the stock, NO_FUNDS, HAND_FULL', () => {
   const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 6 }).start();
   h.toPrep(1);
   const m = h.m;
@@ -107,11 +107,20 @@ test('shop slots per level (+ the item slot), buy prices by tier, SOLD_OUT, NO_F
   assert.equal(ps.hand[9].id, slot0.id, 'hand fills right→left');
   assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: c0 }), { error: ERR.SOLD_OUT });
   assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: 15 }).error, ERR.BAD_TARGET);
-  // a display is not a reservation: an empty pool makes the buy fail
+  // a display is not a reservation, and the stock only gates what the shop draws: a card already shown is bought even
+  // when the pool ran out since the roll (路标月报#2 ~2:55, GitHub #498) — the copy is overdrawn, left() stays 0
   const s1 = ps.shop.slots[c1];
   const taken = m.pool.take(s1.id, 100);
-  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: c1 }), { error: ERR.SOLD_OUT });
+  assert.equal(m.pool.left(s1.id), 0);
+  assert.deepEqual(m.handle('p_0', { t: 'g.buy', slot: c1 }), { ok: true });
+  assert.equal(m.pool.left(s1.id), 0);
+  assert.equal(m.pool.entries.get(m.gd.baseIdOf(s1.id)).left, -1, 'the raw balance goes negative');
+  const bought = ps.allChess().filter((p) => p.id === s1.id).sort((a, b) => b.uid - a.uid)[0];
+  assert.equal(bought.poolCopies, 1, 'the bought piece holds its copy');
+  assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: bought.uid }), { ok: true });
+  assert.equal(m.pool.left(s1.id), 0, 'selling the overdrawn copy does not reopen the stock');
   m.pool.give(s1.id, taken);
+  s1.sold = false;
   // full hand blocks buys
   const fillers = chessOfTier(3).filter((x) => m.pool.has(x) && x !== s1.id);
   for (let i = 0; ps.hand.some((x) => x == null); i++) give(m, ps, fillers[i]);
