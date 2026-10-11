@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" translate="no">
 <head>
   <meta charset="utf-8" />
+  <!-- Browser page translation (Chrome) rewrites the UI: it glues Korean words together and spells numbers out
+       (an LP of 21 became "twenty one"). The UI is already translated by its own packs. -->
+  <meta name="google" content="notranslate" />
   <!-- A landscape game: no page zoom (iOS additionally needs the gesture handling of js/ui/device.js), full-bleed behind
        notches (viewport-fit=cover; css/devices.css keeps the HUD inside the safe area). -->
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
