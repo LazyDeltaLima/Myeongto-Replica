@@ -241,21 +241,28 @@
     `SimpleProjectileEmitter` `_emitEvent` 2 = ON_CAST_START(`AbilityStandard._DoCast`가 전딜 전에 냄, `OnEvent`가 그 이벤트에만 발사).
     `ActiveBuffAbility`는 전딜·후딜을 스스로 덮어써(`<OnWaitForPreDelay>d__33`·`<OnWaitForPostDelay>d__34`) `_waitForCasting` 0이면 각각 고정 틱 하나만
     기다리고 `_waitForAttackEvent` 1은 읽지 않는다 → EmitProjectile 전딜·후딜 2틱 + SwitchMode 전딜 1틱 = 3틱 뒤 `chen3_s3[switch_mode]`. 그동안
-    `SkillState`(`_StartSkill`의 끝 콜백 = 그룹 끝)가 공격을 막는다. 공식 설명 「技能开启时向前释放一道可转向的剑气」과 맞다. 핫픽스 목록에 관련 메서드 없음.
-    구현: `op-chen3.js s3Spec` — 단계 `begin`(공격 없음 `S3_HOLD`) → `S3_BEGIN`에 `releaseQi` → `S3_BEGIN + 3틱`에 `mode`(S3 프로필·범위); 스킬이 끝나면
-    스펙을 되돌림. 틱 수(클라 코드로 확인): 자동 시전 `AutoChessBattleTrigger`는 코루틴이라 `BattleController.OnTick`에서 유닛 갱신 뒤
+    `SkillState`가 공격을 막는다. 그 버프의 템플릿 `switch_mode_restart_fsm`(`Nodes.SwitchMode` `_restartFSM` 1, 버프 시작·끝 둘 다)이 모드를 바꾸며
+    상태 기계를 재시작한다: `Unit.SwitchMode` → `ActivateMode`가 S3 모드의 공격 능력을 붙이고(`Ability.DoAttach` → `Reset` →
+    `PeriodicTimer.Reset(쿨다운, waitFirstPeriod=false)` = **바로 준비**, 모드마다 공격 능력이 따로라 시전 전 평타 쿨다운을 안 이어받음) →
+    `Unit.OnSwitchMode`가 `StateMachine.Stop`(`SkillState.OnExit` → 스킬 `InterruptIfNot`로 시전 끊음) → `Start`(기본 상태 IDLE) → 다음 틱
+    `IdleState.OnTick`이 대상을 찾아 ATTACK → `AttackState.OnEnter`가 바로 휘두름. 스킬 끝(버프 끝)에도 같은 재시작 — 진행 중 S3 휘두름은 끊기고 Default
+    공격 능력이 새로 붙어 바로 준비. 공식 설명 「技能开启时向前释放一道可转向的剑气」과 맞다. 핫픽스 목록에 관련 메서드 없음.
+    구현: `op-chen3.js s3Spec` — 단계 `begin`(공격 없음 `S3_HOLD`) → `S3_BEGIN`에 `releaseQi` → `S3_BEGIN + 3틱`에 `mode`(S3 범위, 아직 공격 없음,
+    `restart`: 휘두름 없앰·`atkCd` 0) → `S3_BEGIN + 4틱`에 `attack`(S3 프로필); 스킬이 끝나면(`onEnd`, S3 모드였으면) `restart` 뒤 스펙을 되돌림. 틱 수(클라 코드로 확인): 자동 시전 `AutoChessBattleTrigger`는 코루틴이라 `BattleController.OnTick`에서 유닛 갱신 뒤
     `CoroutineSimulator.SimulateTick` 때 시전한다 → `CastSkill.UseSkill` → `Character.SwitchToSkillState` → `SkillState.OnEnter` →
     `BasicSkill.OnBeforeSkillStart`가 `PlayBeginAnimation`을 띄움(`StartBattleCoroutine`은 첫 단계를 바로 돌리지만 `SimulateTick` 중에 띄운 코루틴은
     다음 틱부터 재개) → `AsyncUtil.WaitForFixedSeconds`가 round(0.433×30)=13번 양보 → 13번째 틱에 `DoStartSkill`이 `m_startSkill`
     (= `SkillState._DoStartSkill`)을 그 자리에서 부르고 같은 호출 안에서 검기 → 14·15틱 EmitProjectile 전딜·후딜 → 16틱 SwitchMode 전딜 끝에 S3 모드.
-    우리 `S3_BEGIN`(13틱)·`S3_BEGIN + 3틱`(16틱)과 같다. 남은 차이: 공식은 그룹이 17틱 이후 끝나야 `SkillState`를 벗어나므로 첫 휘두름이 우리보다
-    1틱 정도 늦을 수 있다(안 맞춤).
+    16틱에 상태 기계 재시작으로 `SkillState`를 벗어나고 17틱에 첫 휘두름(그룹 끝을 기다리지 않음). 우리 `S3_BEGIN`(13틱)·`+ 3틱`(16틱)·`+ 4틱`(17틱)과 같다.
+    (`c858c112`의 「그룹이 17틱 이후 끝나야 벗어남」은 틀렸다 — `restartFSM`을 안 봄. 그 전 우리는 16틱에 휘둘렀고, 시전 직전 평타가 있었으면 그 쿨다운을
+    이어 써서 32틱이었다.)
     지난 동작: 2026-10-10 ~ 10-11 시전 0.433 s 뒤 발사·S3 공격은 시전부터(공격 막음 없음); 10-11(`49eb223e`, 결정 13) ~ 10-11 밤 검기가 첫 평타 타격까지
     기다리고 S3 모드는 그다음 공격부터(그녀 범위에 적이 없으면 둘 다 안 나옴); 10-11 밤 `cdc84e33` 검기만 시작 동작 + 1틱, S3 모드는 여전히 Default 첫 평타
     뒤(S3 범위에만 적이 있으면 20 s 내내 평타 없음 — 시뮬 측정). 두 번 다 틀린 원인은 기반 클래스 `EasyToStartAbility.OnWaitForPreDelay`만 읽고 실제
     클래스 `ActiveBuffAbility`가 그 슬롯을 덮어쓰는지 안 본 것(비공개 조사 기록 「남은 의문 조사」). Default 클립 엔진 줄(`ai.js attackClipOf`의 스킬 스펙
     `baseClip`, `'swing'` 다섯째 값 1 → `render/units.js onSwing` → `spine.js baseClip`)은 `49eb223e` ~ `cdc84e33`의 첸 S3 Default 첫 평타용이었고 지금은 쓰는 키트가 없다.
-    테스트 `test/local-patch-diy-chen3.test.js` 「S3: the 剑气 leaves as Skill_3_Begin ends」(검기 0.433 s, 첫 스윙 0.533 s 이후·스킬 클립, 첫 공격 3타·스킬),
+    테스트 `test/local-patch-diy-chen3.test.js` 「S3: the 剑气 leaves as Skill_3_Begin ends」(검기 0.433 s, 첫 스윙 17틱·스킬 클립, 첫 공격 3타·스킬), 「the S3 mode's attack is ready at once」(시전 직전 평타 뒤에도 17틱),
+    「S3 end: the switch back restarts」(끝날 때 휘두름 끊김·`atkCd` 0),
     「with enemies only in the S3 range」(10,6에만 적: 검기·S3 범위·S3 공격), 실제 경기 경로 「S3 on m04」(시전 틱 + 13에 검기; 그녀 자리 10,7로 되돌림).
     `op-chen3.js chen3QiAdvance`(테스트용 export). `fx` 'chen3Qi'는 0.1초마다 + 꺾일 때 바로.
     S3 자동 발동: 공식 규칙 「攻击范围扩大」 → 기본 전략(평타 직전 + 1-1 안의 적, `DEFAULT`) — 평타로 칠 수 없는 비행 적만 있으면 켜지지 않는다.

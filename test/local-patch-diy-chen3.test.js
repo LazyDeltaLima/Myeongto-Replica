@@ -113,7 +113,8 @@ describe('赤刃明霄陈 kit — research 2026-10-07 §2 fixes', () => {
     }
     assert.ok(swings.length >= 2, `she attacked (${swings.length})`);
     const w0 = swings[0].t - t0;
-    assert.ok(w0 >= 13 / 30 + 3 * h.TICK - 1e-9 && w0 <= 13 / 30 + 5 * h.TICK + 1e-9, `no swing before the S3 mode; the first ${w0.toFixed(3)} s after the cast`);
+    // the S3 mode at Skill_3_Begin + 3 ticks restarts her state machine (switch_mode_restart_fsm); IDLE → ATTACK the next tick
+    assert.ok(w0 >= 13 / 30 + 4 * h.TICK - 1e-9 && w0 <= 13 / 30 + 5 * h.TICK + 1e-9, `the first swing one tick after the S3 mode (${w0.toFixed(3)} s after the cast)`);
     assert.equal(swings[0].e[4], undefined, 'the first attack\'s swing: the skill clip (Skill_3_Loop)');
     assert.ok(qi != null, 'the 剑气 left');
     // Skill_3_Begin (its first fx comes with the mover's first steps, up to two sim steps after it leaves)
@@ -122,6 +123,41 @@ describe('赤刃明霄陈 kit — research 2026-10-07 §2 fixes', () => {
     const ids = [...new Set(dmg.filter((d) => !d.tags.includes('chen3Qi')).map((d) => d.id))];
     const first = dmg.filter((d) => d.id === ids[0]);
     assert.ok(first.length === 3 && first.every((d) => d.skill), `her first attack: the S3 mode (3 skill hits) (${JSON.stringify(first)})`);
+    assert.equal(h.b.errors.length, 0);
+  });
+
+  test('S3: the S3 mode\'s attack is ready at once — a Default attack just before the cast leaves no cooldown (the S3 mode\'s own attack ability, Ability.Reset on attach)', () => {
+    const h = arena(2);
+    const u = h.unit(1);
+    h.spawn('enemy_post', { pos: [10, 5] });
+    const swings = [];
+    let t0 = null;
+    for (let i = 0; i < 6 * 30; i++) {
+      h.step();
+      for (const e of h.eventsOf('swing')) if (e[1] === u.id && !swings.some((x) => x.e === e)) swings.push({ e, t: h.b.time });
+      if (t0 == null && swings.length) { u.skill.activate('manual', { free: true }); t0 = h.b.time; }   // right after a Default swing starts
+    }
+    const after = swings.filter((w) => w.t > t0 + 1e-9);
+    assert.ok(after.length, 'she attacked in S3');
+    const w = after[0].t - t0;
+    assert.ok(w <= 13 / 30 + 5 * h.TICK + 1e-9, `the first S3 swing ${w.toFixed(3)} s after the cast, not after the Default attack's interval`);
+    assert.equal(h.b.errors.length, 0);
+  });
+
+  test('S3 end: the switch back restarts her state machine — a swing in progress is cut and her Default attack is ready at once', () => {
+    const h = arena(2);
+    const u = h.unit(1);
+    h.spawn('enemy_post', { pos: [10, 5] });
+    u.skill.activate('manual', { free: true });
+    h.runUntil(() => u.skill.active && u.swing, 5);
+    h.runUntil(() => !u.skill.active || (u.swing == null && u.atkCd > 0.3), 30);
+    // end it in the middle of an S3 swing
+    h.runUntil(() => u.swing && u.swing.left > 2 * h.TICK, 5);
+    assert.ok(u.skill.active && u.swing, 'an S3 swing in progress');
+    u.skill.end('test');
+    assert.ok(!u.skill.active, 'the skill ended');
+    assert.equal(u.swing, null, 'the swing was cut');
+    assert.equal(u.atkCd, 0, 'her Default attack is ready');
     assert.equal(h.b.errors.length, 0);
   });
 

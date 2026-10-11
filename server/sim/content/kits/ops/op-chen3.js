@@ -201,17 +201,24 @@ function chen3(bb, chess, def) {
    * Skill_3_Loop, the S3 attack blackboard `_attackBlackboardModeIndex` 3, the S3 range `_rangeIdModeIndex` 3). Both have
    * `_waitForCasting` 0, so ActiveBuffAbility's own OnWaitForPreDelay / OnWaitForPostDelay wait one fixed tick each and
    * never read their `_waitForAttackEvent` 1. The group starts when Skill_3_Begin has played (BasicSkill.PlayBeginAnimation
-   * → DoStartSkill → SkillState → BasicSkill.Cast), and SkillState holds her out of attacking until the group ends. So:
-   * Skill_3_Begin (S3_BEGIN, no attack) → the 剑气 leaves, facing her direction then, with or without a target → the S3
-   * mode three ticks later (EmitProjectile's pre- and post-delay ticks, SwitchMode's pre-delay tick) → her attacks are S3
-   * ones from the first (atk_scale 1.8, 3 hits, Skill_3_Loop, range 3-12). Official text 「技能开启时向前释放一道可转向的剑气」.
+   * → DoStartSkill → SkillState → BasicSkill.Cast); SkillState keeps her from attacking until the mode switch.
+   * chen3_s3[switch_mode]'s template is switch_mode_restart_fsm (Nodes.SwitchMode `_restartFSM` 1 at the buff's start and
+   * end): Unit.SwitchMode attaches the S3 mode's own attack ability (Ability.DoAttach → Reset → its cooldown timer reset
+   * without a first period: ready at once, whatever her Default attack's cooldown was) and Unit.OnSwitchMode restarts the
+   * state machine — SkillState.OnExit interrupts the skill's cast and the machine starts in IDLE, its default state; the
+   * next tick IdleState.OnTick finds a target and AttackState.OnEnter starts the swing. So: Skill_3_Begin (S3_BEGIN, no
+   * attack) → the 剑气 leaves, facing her direction then, with or without a target → the S3 mode three ticks later
+   * (EmitProjectile's pre- and post-delay ticks, SwitchMode's pre-delay tick), her attack cooldown cleared → her first
+   * swing one tick after that, an S3 one (atk_scale 1.8, 3 hits, Skill_3_Loop, range 3-12). At the skill's end the same
+   * template switches back with another restart: a swing in progress is cut and the Default attack is ready at once.
+   * Official text 「技能开启时向前释放一道可转向的剑气」.
    * Ticks from the cast (client code): AutoChessBattleTrigger casts from its own coroutine, which the CoroutineSimulator
    * runs after the entities in BattleController.OnTick (SimulateTick); UseSkill → Character.SwitchToSkillState → SkillState.
    * OnEnter → BasicSkill.OnBeforeSkillStart starts PlayBeginAnimation (StartBattleCoroutine runs its first step at once,
    * but a coroutine started during SimulateTick is first resumed on the next tick); AsyncUtil.WaitForFixedSeconds yields
    * round(0.433 × 30) = 13 times → DoStartSkill calls SkillState._DoStartSkill on the 13th tick, and the 剑气 leaves in
    * that same call; EmitProjectile's pre-delay tick (14), post-delay tick (15), SwitchMode's pre-delay tick (16) → the S3
-   * mode at tick 16 = S3_BEGIN + 3 ticks, as here. History: 49eb223e made both wait for her attacks (the wave for her first strike, the mode for
+   * mode at tick 16 = S3_BEGIN + 3 ticks, the first swing at tick 17, as here. History: 49eb223e made both wait for her attacks (the wave for her first strike, the mode for
    * the one after); cdc84e33 sent the wave one tick after S3_BEGIN but kept the mode waiting for a Default attack, which
    * never came with enemies only in the S3 range; before 49eb223e the wave left at S3_BEGIN with the S3 mode from the
    * cast. The spec object is this unit's own (the kit is built per unit): `attack` / `targeting` change with the phase
@@ -220,11 +227,15 @@ function chen3(bb, chess, def) {
   function s3Spec() {
     const S3_ATTACK = { atkScale: num(bb['attack@atk_scale'], 1.8), hits: 3, maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), groundOnly: true, canHitFly: false };
     const S3_TARGETING = { rangeGrid: skillGridOf(def), maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), showOwnRange: true };
+    // the state machine restart of switch_mode_restart_fsm: no swing in progress, the newly attached attack ready
+    const restart = (unit) => { unit.swing = null; unit.castLeft = 0; unit.atkCd = 0; };
+    // phases: 'begin' (Skill_3_Begin and the abilities after it: no attack) → 'mode' (the S3 mode, still no swing this
+    // tick) → 'attack'; null = off: the static values (static tools, the next cast)
     const mode = (battle, unit, spec, phase) => {
       unit.mem.chen3S3 = phase;
-      // null = off: the static values (static tools, the next cast)
-      spec.attack = phase === 'begin' ? S3_HOLD : S3_ATTACK;
+      spec.attack = phase === 'begin' || phase === 'mode' ? S3_HOLD : S3_ATTACK;
       spec.targeting = S3_TARGETING;
+      if (phase === 'mode') restart(unit);
       if (phase !== null) battle._refreshRange(unit);   // (the skill end's own range reset follows onEnd)
     };
     return {
@@ -237,8 +248,12 @@ function chen3(bb, chess, def) {
         const same = () => unit.deploySeq === seq && unit.alive && unit.skill?.active && unit.skill === skill && skill.activations === n;
         battle.after(S3_BEGIN, () => { if (same()) releaseQi(battle, unit); }, { owner: unit });
         battle.after(S3_BEGIN + 3 * TICK, () => { if (same()) mode(battle, unit, skill.spec, 'mode'); }, { owner: unit });
+        battle.after(S3_BEGIN + 4 * TICK, () => { if (same()) mode(battle, unit, skill.spec, 'attack'); }, { owner: unit });
       },
-      onEnd({ unit, skill }) { mode(null, unit, skill.spec, null); },
+      onEnd({ unit, skill }) {
+        if (unit.mem.chen3S3 === 'mode' || unit.mem.chen3S3 === 'attack') restart(unit);   // the switch back restarts too
+        mode(null, unit, skill.spec, null);
+      },
     };
   }
 
