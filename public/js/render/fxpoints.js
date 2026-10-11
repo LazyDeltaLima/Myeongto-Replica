@@ -107,3 +107,23 @@ export function boneMissing(entry, sk) {
   const bones = [entry?.F?.bone, entry?.B?.bone].filter(Boolean);
   return !!sk && bones.length > 0 && bones.every((b) => !sk.findBone(b));
 }
+
+/**
+ * The world point (column, row, height) of a model point drawn at screen (gx, gy) on a unit whose model stands at world
+ * (x, y, z) — its root, which projects to screen y `rootY`. A unit's model is an upright screen billboard, so the point is
+ * at the row of the unit, at the height whose projection is gy (Camera.liftFor), and at the column whose projection at
+ * THAT height is gx. The camera is a perspective one: a point lifted toward it drifts away from the screen centre, so the
+ * screen offset is converted at the lifted point's own projection and scale, not at the root's (maintainer report
+ * 2026-10-12: 안젤리나 더 멜로우 위시's S2 weapon glow sat on her face near the screen edge in a match, on her staff in the
+ * arena's centre). Exact for render/projection.js Camera: at a fixed row and height the screen x is linear in the column.
+ * @param {{liftFor: Function, project: Function}} cam
+ * @param {{x: number, y: number, z: number}} out
+ * @param {{x: number, y: number, s: number, depth: number}} [tmp]
+ */
+export function liftedPoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
+  const dz = cam.liftFor(x, y, z, rootY - gy);
+  out.y = y; out.z = z + (Number.isFinite(dz) ? dz : 0);
+  const at = cam.project(x, y, out.z, tmp);
+  out.x = x + (gx - at.x) / at.s;
+  return out;
+}

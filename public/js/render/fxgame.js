@@ -58,7 +58,7 @@ import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
 import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a kit fx event (standInOff)
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
-import { boneMissing, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
+import { boneMissing, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { boomerangThrown, boomerangCaught } from './boomerang.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
@@ -649,6 +649,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const ptsOf = (v) => (!v?.info ? null : v.info.side === 'enemy' ? ebindOf(v)?.points || null : (points && points[v.info.spine || v.info.defId]) || null);
   loadPoints().then((p) => { points = p; });
   const boneAt = { x: 0, y: 0 };
+  const SP_P = { x: 0, y: 0, s: 0, depth: 0 };
   /**
    * The column a unit's model stands on: its x + its view's `modelDX` (render/units.js MODEL_SHIFT — 2026-10-10, [ASSUMED]:
    * 假想敌：管's hidden-core copy is drawn one column right of its tile). Effects placed on a model, shots from / to it and
@@ -663,13 +664,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const bone = pointOn(entry, sk, !!v.entryBack, boneAt);
     if (!bone) return null;
     // the bone in the skeleton's own frame times the model's display scale, from the unit's root + body (not through the
-    // display tree: an impostor-drawn model renders its skeleton elsewhere, units.js _updateImpostor)
+    // display tree: an impostor-drawn model renders its skeleton elsewhere, units.js _updateImpostor). The scale is the
+    // view's own (units.js `modelSX` / `modelSY`, facing mirror included): an impostor's skeleton is scaled for its atlas
+    // slot without the mirror, or not at all (render/impostor.js draw)
+    const kx = Number.isFinite(v.modelSX) ? v.modelSX : sp.scale.x, ky = Number.isFinite(v.modelSY) ? v.modelSY : sp.scale.y;
     const ox = (v.root?.x ?? v.screen.x) + (v.body?.x || 0), oy = (v.root?.y ?? v.screen.y) + (v.body?.y || 0);
-    const g = { x: ox + bone.x * sp.scale.x, y: oy + bone.y * sp.scale.y };
-    const z0 = (v.z || 0) + (v.hover || 0);
-    const dz = camRef.liftFor(v.x, v.y, z0, v.screen.y - g.y);
-    out.x = v.x + (g.x - v.screen.x) / v.screen.s; out.y = v.y; out.z = z0 + (Number.isFinite(dz) ? dz : 0);
-    return out;
+    const g = { x: ox + bone.x * kx, y: oy + bone.y * ky };
+    // the world point under it at the unit's row (fxpoints.js liftedPoint: the camera's perspective taken into account)
+    return liftedPoint(camRef, v.x, v.y, (v.z || 0) + (v.hover || 0), v.screen.y, g.x, g.y, out, SP_P);
   }
   // local patch (maintainer report): a prefab with a FollowMountPoint (fx_extract.py `mount`) is placed
   // at and follows its mount point instead of its _spawnLocation; with `pauseWhenInvalid` it stands still (`paused`, the

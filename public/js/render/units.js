@@ -551,6 +551,8 @@ export class UnitView {
     this.flying = info.motion === 'FLY';
     this.hover = 0;               // flying: body height above the road / the ground under it
     this.liftoff = false;         // an airborne (起飞) operator: drawn at the flyers' height too (shared/local.js UF_LIFTOFF)
+    this.modelSX = NaN;           // the Spine model's display scale (x with the facing mirror) — render/fxgame.js specialPoint
+    this.modelSY = NaN;
     this.bodyless = bodyless(info.defId);   // a summon drawn by its effect only (shared/trap-tokens.js BODYLESS_TOKENS)
     this.dir = this.isEnemy ? null : unitDir(info);
     // whether the direction is known (UnitInfo / piece `dir`), not just the legacy ±1: battle and scouting views show
@@ -1141,7 +1143,7 @@ export class UnitView {
       try { if (this.imp.slot) this.ctx.impostors?.free(this.imp.slot); this.imp.sprite.destroy(); if (this.imp.rt) this.imp.rt.destroy(true); } catch { /* ignore */ }
       this.imp = null;
     }
-    this._box = null;
+    this._box = null; this._boxExt = null; this._boxClips = null;
     this._tint = undefined;   // the next model gets the current tint on its first frame (a knocked-down one its grey)
     const old = this.actor;
     this.actor = null;
@@ -1449,6 +1451,8 @@ export class UnitView {
       this.fallback.alpha = 1 - this.swapT;
       this.fallback.visible = this.swapT < 1;
       const sc = s * UNIT.modelScale * this.modelK;
+      // what the skeleton is drawn at, whether directly or through an impostor (whose skeleton is scaled for its slot)
+      this.modelSX = sc * flip; this.modelSY = sc * this.modelKY;
       const flashK = this.flash > 0 ? this.flash : 0;
       let tint = this.baseTint;
       if (this.down) tint = DOWN_LOOK.tint;
@@ -1833,14 +1837,29 @@ export class UnitView {
   // slot the unit keeps a private RenderTexture (same visuals, one extra framebuffer switch).
 
   _impBox() {
-    if (this._box) return this._box;
-    let b = null;
-    try { b = this.actor.spine.getLocalBounds(); } catch { b = null; }
+    // the box holds every pose seen so far: each clip's local bounds are watched through its first play and a pose
+    // reaching past the box grows it (maintainer report 2026-10-12: the box was the first pose's only, so 안젤리나 더 멜로우
+    // 위시's S2 staff and take-off were cut off at its edge — a straight cut that read as a raised tile drawn over her; any
+    // skill pose reaching farther than the idle one was cut the same way). The falling-in Start is not watched (its
+    // height is the deploy room of _renderImpostor)
+    const a = this.actor, clip = a.current || '';
+    const seen = this._boxClips || (this._boxClips = new Map());
+    let until = seen.get(clip);
+    if (until === undefined) { until = clip ? a.clock + Math.min(6, a.dur(clip) || 0) : -Infinity; seen.set(clip, until); }
+    if (this._box && (a.mode === 'deploy' || !(a.clock <= until))) return this._box;
+    let b;
+    try { b = a.spine.getLocalBounds(); } catch { b = null; }
+    const ok = b && Number.isFinite(b.width) && b.width > 10 && b.height > 10;
+    const e = this._boxExt;
+    if (this._box && (!ok || (e && b.x >= e.x0 && b.y >= e.y0 && b.x + b.width <= e.x1 && b.y + b.height <= e.y1))) return this._box;
     let x0 = -220, y0 = -420, x1 = 220, y1 = 40;
-    if (b && Number.isFinite(b.width) && b.width > 10 && b.height > 10) {
-      const padX = Math.max(60, b.width * 0.3), padY = Math.max(50, b.height * 0.22);
-      x0 = Math.min(b.x - padX, -140); x1 = Math.max(b.x + b.width + padX, 140);
-      y0 = Math.min(b.y - padY, -260); y1 = Math.max(b.y + b.height + padY * 0.4, 30);
+    if (ok) {
+      const u = this._boxExt = e ? { x0: Math.min(e.x0, b.x), y0: Math.min(e.y0, b.y), x1: Math.max(e.x1, b.x + b.width), y1: Math.max(e.y1, b.y + b.height) }
+        : { x0: b.x, y0: b.y, x1: b.x + b.width, y1: b.y + b.height };
+      const w = u.x1 - u.x0, h = u.y1 - u.y0;
+      const padX = Math.max(60, w * 0.3), padY = Math.max(50, h * 0.22);
+      x0 = Math.min(u.x0 - padX, -140); x1 = Math.max(u.x1 + padX, 140);
+      y0 = Math.min(u.y0 - padY, -260); y1 = Math.max(u.y1 + padY * 0.4, 30);
     }
     this._box = { x0, y0, w: x1 - x0, h: y1 - y0 };
     return this._box;
