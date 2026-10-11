@@ -359,6 +359,9 @@ test('S3 move: blocking nothing, she flies (2.4 tiles/s, 无敌, disarmed, her b
     assert.ok(keys.has(12 * 21 + 4) && keys.has(9 * 21 + 5), `${label(f)}: the anchored 3-9 ((12, 4), (9, 5))`);
     assert.ok(keys.has(12 * 21 + 8) && keys.has(11 * 21 + 8), `${label(f)}: the 8 around her ((12, 8), (11, 8))`);
     assert.ok(!keys.has(11 * 21 + 10), `${label(f)}: no 3-9 around her new tile ((11, 10))`);
+    // the detail card's 攻击范围 (liveRangeGrid, relative to where she stands, facing RIGHT) is that whole range, not 3×3
+    const shown = new Set(u.liveRangeGrid.map(([dr, dc]) => (u.tileR + dr) * 21 + u.tileC + dc));
+    assert.deepEqual([...shown].sort((a, b) => a - b), [...keys].sort((a, b) => a - b), `${label(f)}: the card shows the whole range`);
     u.skill.end('test');
     assert.deepEqual(u.liveRangeGrid, formOf(tier, elite).rangeGrid, `${label(f)}: 2-2`);
     assert.equal(u.extraRangeKeys, null);

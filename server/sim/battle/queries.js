@@ -4,6 +4,7 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 import { ROWS, COLS } from '../constants.js';
+import { toLocal } from '../dir.js';
 import { absoluteRangeKeys, canTargetEnemy, extendedGrid, enemyStealthed } from '../targeting.js';
 import { bodyKeys, bodyInKeys, bodyInRadius } from '../body.js';
 
@@ -249,6 +250,18 @@ export class BattleQueries {
     const own = !!(tg && tg.showOwnRange);
     const lg = own ? u.rangeGrid || [[0, 0]] : grid, le = own ? u.s.rangeExtend : ext;
     u.liveRangeGrid = le > 0 ? extendedGrid(lg, le) : lg;
+    // extra keys that are part of the 攻击范围 (setExtraRange `show`: 予愿安洁莉娜 S3's anchored 3-9) join the card's grid,
+    // as offsets from where the unit stands in its facing-RIGHT frame
+    if (extra && u.extraRangeShown) {
+      const seen = new Set(u.liveRangeGrid.map((p) => `${p[0]},${p[1]}`));
+      const add = [];
+      for (const k of extra) {
+        const p = toLocal(Math.floor(k / COLS) - u.tileR, (k % COLS) - u.tileC, u.dir);
+        const id = `${p[0]},${p[1]}`;
+        if (!seen.has(id)) { seen.add(id); add.push(p); }
+      }
+      if (add.length) u.liveRangeGrid = [...u.liveRangeGrid, ...add];
+    }
     if (u.kind !== 'device') u.baseRangeKeys = absoluteRangeKeys(u.rangeGrid || [[0, 0]], u.tileR, u.tileC, u.dir, u.s.baseRangeExtend);
     if (u.skill) u.skill._trigKeys = null; // CUSTOM_RANGE trigger grid is relative to the tile
   }
@@ -268,14 +281,16 @@ export class BattleQueries {
   /**
    * Extra targetable tiles merged into the unit's range (蕾缪安 wanted targets, 维娜 S3, …): absolute tile keys
    * (row × COLS + col), kept across every later range rebuild until content sets them again (null / [] clears).
-   * Not part of `baseRangeKeys` (the DEFAULT trigger range) — see SkillRuntime.addTriggerRange for that.
+   * Not part of `baseRangeKeys` (the DEFAULT trigger range) — see SkillRuntime.addTriggerRange for that. `show`: they are
+   * its 攻击范围 and join the detail card's grid too (`liveRangeGrid`); otherwise they only add targets.
    */
-  setExtraRange(unit, keys) {
+  setExtraRange(unit, keys, { show = false } = {}) {
     if (!unit || unit.side !== 'ally') return false;
     const out = [];
     const seen = new Set();
     for (const k of keys || []) if (Number.isInteger(k) && k >= 0 && k < ROWS * COLS && !seen.has(k)) { seen.add(k); out.push(k); }
     unit.extraRangeKeys = out.length ? out : null;
+    unit.extraRangeShown = !!(show && out.length);
     if (unit.alive && unit.deployed) this._refreshRange(unit);
     return true;
   }

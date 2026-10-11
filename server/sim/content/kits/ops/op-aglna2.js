@@ -208,7 +208,7 @@ export default {
         battle.setExtraRange(unit, null);
       } else {
         s3Targeting.rangeGrid = X4;
-        battle.setExtraRange(unit, keys39(unit));
+        battle.setExtraRange(unit, keys39(unit), { show: true });   // (the detail card shows it too)
       }
     }
     /** A 【移动】 of S3 onto (r, c) where her flight ended (no drop-in: she lands there); the marker follows the 备注. */
