@@ -107,20 +107,21 @@ export function BriefingScreen() {
               </ul>` : null}
             </div>
           </div>
-        </div>
-        <div class=${cx('brief-lower', mapUrl && 'has-map')}>
-          <div class="brief-stage">
-            <span class="brief-stage__k"><${MicroLabel}>BATTLEFIELD</${MicroLabel}>${pool ? html`<span class="brief-stage__pool">${pool}</span>` : null}</span>
-            <span class="brief-stage__name"><${Icon} name="rook" />${stageName}</span>
-            ${mapUrl ? html`<${Img} src=${mapUrl} class="brief-stage__map" alt=${stageName} />` : null}
-          </div>
           <div class="brief-etypes" style=${enemyBg ? `--panel:url("${enemyBg}")` : null}>
             <span class="brief-etypes__k"><${MicroLabel}>SPECIAL ENEMIES</${MicroLabel}><span>${t('特训敌人')}</span></span>
-            ${types.length ? types.map((ty) => html`<div key=${ty} class="brief-etype" data-type=${ty} style=${rowBg ? `--row:url("${rowBg}")` : null}>
+            ${types.length ? html`<div class="brief-etypes__row">${types.map((ty) => html`<div key=${ty} class="brief-etype" data-type=${ty} style=${rowBg ? `--row:url("${rowBg}")` : null}>
               <span class=${cx('brief-etype__icon', !bossFrame && 'no-art')} style=${bossFrame ? `--frame:url("${bossFrame}")` : null}><${Img} src=${factionIconUrl(m, factions[ty]?.icon)} /></span>
-              <span class="brief-etype__text"><b>${factions[ty]?.name || ty}</b><span>${factions[ty]?.desc || ''}</span></span>
-            </div>`) : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
+              <b class="brief-etype__name" title=${factions[ty]?.name || ty}>${(factions[ty]?.name || ty).replace(t('特训敌人·'), '')}</b>
+              <span class="brief-etype__desc">${factions[ty]?.desc || ''}</span>
+            </div>`)}</div>` : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
           </div>
+        </div>
+        <div class=${cx('brief-stage', mapUrl && 'has-map')}>
+          <div class="brief-stage__head">
+            <span class="brief-stage__k"><${MicroLabel}>BATTLEFIELD</${MicroLabel}>${pool ? html`<span class="brief-stage__pool">${pool}</span>` : null}</span>
+            <span class="brief-stage__name"><${Icon} name="rook" />${stageName}</span>
+          </div>
+          ${mapUrl ? html`<${Img} src=${mapUrl} class="brief-stage__map" alt=${stageName} />` : null}
         </div>
       </section>
       <section class="brief__right">

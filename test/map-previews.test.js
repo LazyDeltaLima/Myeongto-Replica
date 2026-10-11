@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
-const { GROUP, FRAME, FOCUS, isBattlefield } = await import('../tools/map-previews.mjs');
+const { GROUP, FRAME, FOCUS, PICTURE, BAND, isBattlefield } = await import('../tools/map-previews.mjs');
 const { AREAS } = await import('../public/js/render/board3d/layout.js');
 
 test('map-previews: every battlefield of the modes, not the 联防 positions; the frame inside the lit normal field', () => {
@@ -24,11 +24,13 @@ test('map-previews: every battlefield of the modes, not the 联防 positions; th
   assert.equal(GROUP, 'stage/preview');
   assert.deepEqual(FOCUS, { ...AREAS.normal[0] });
   assert.ok(FRAME.r0 >= FOCUS.r0 && FRAME.r1 <= FOCUS.r1 && FRAME.c0 >= FOCUS.c0 && FRAME.c1 <= FOCUS.c1);
+  // wide pictures whose field band is wider than the card can get (css min-height ≈ inner width / 3.2)
+  assert.ok(PICTURE.w > PICTURE.h && BAND >= 3.2);
 });
 
-test('the briefing shows the preview under the stage name when the local art has it, else the plain row', () => {
+test('the briefing shows the wide preview under the stage line when the local art has it, else the plain card', () => {
   const brief = read('public/js/screens/briefing.js');
   assert.match(brief, /const mapUrl = pub\.stageId \? localAsset\('stage\/preview', pub\.stageId\) : null;/);
-  assert.match(brief, /<div class=\$\{cx\('brief-lower', mapUrl && 'has-map'\)\}>/);
-  assert.match(brief, /<span class="brief-stage__name">[\s\S]*?<\/span>\s*\$\{mapUrl \? html`<\$\{Img\} src=\$\{mapUrl\} class="brief-stage__map"/);
+  assert.match(brief, /<div class=\$\{cx\('brief-stage', mapUrl && 'has-map'\)\}>/);
+  assert.match(brief, /<span class="brief-stage__name">[\s\S]*?<\/span>\s*<\/div>\s*\$\{mapUrl \? html`<\$\{Img\} src=\$\{mapUrl\} class="brief-stage__map"/);
 });

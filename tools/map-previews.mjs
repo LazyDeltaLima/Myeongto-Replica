@@ -4,11 +4,13 @@
 // the real 3D scene from above at a slight tilt, red entry and blue objective boxes on it) but none for the autochess
 // stages, so this draws them the same way with our own board (render/board3d BoardScene + the official scenes of the
 // local-client extraction, docs/local/official-scenes.md): the left normal field with its bench and the enemy pen's
-// gates, 30° pitch (the client's battle camera), 512 × 512, WebP.
+// gates, 30° pitch (the client's battle camera), WebP. Wide 1024 × 448 (16:7, maintainer 2026-10-11: the briefing's map
+// card is a wide strip across the column, not the client's square): the field fitted to the height, the island's
+// surroundings around it (the field inside the middle BAND) — the card may crop those to its own shape.
 //
 // It drives a real Chrome (GPU) against a running server that has the local-client extraction (assets/local scene/*):
 //
-//   node tools/map-previews.mjs --base http://localhost:3011 [--chrome <path>] [--only id,id] [--size 512]
+//   node tools/map-previews.mjs --base http://localhost:3011 [--chrome <path>] [--only id,id] [--width 1024] [--height 448]
 //
 // Writes public/assets/local/stage/preview/<stageId>.webp (git-ignored, like every local-client asset) and the
 // `stage/preview` group of data/local-assets.json (other groups kept). Run tools/build-browser-resources.mjs after it.
@@ -30,8 +32,14 @@ for (let i = 0; i < args.length; i++) {
 }
 
 export const GROUP = 'stage/preview';
-/** What a preview frames (inclusive tiles): the left normal field, its bench row and the pen's gates behind it. */
-export const FRAME = Object.freeze({ r0: 7, r1: 12, c0: 0, c1: 10 });
+/** What a preview frames (inclusive tiles): the left normal field and the gate row behind it (row 13: the red entry boxes). */
+export const FRAME = Object.freeze({ r0: 7, r1: 13, c0: 0, c1: 10 });
+/** Picture size (wide, see the header) and the margin (tiles) around FRAME. */
+export const PICTURE = Object.freeze({ w: 1024, h: 448 });
+export const MARGIN = 0.3;
+/** The field is fitted into a band of this width : height ratio in the middle of the picture (the rest is surroundings
+ *  above and below), so a briefing card up to that wide crops only surroundings (css/screens/briefing.css). */
+export const BAND = 3.6;
 /** The lit area (render/board3d/layout.js AREAS.normal[0]): the rest of the island is dimmed as in play. */
 export const FOCUS = Object.freeze({ r0: 6, r1: 13, c0: 0, c1: 10 });
 /** The battlefields: every stage the modes draw (data/stages.json ids ending in _mNN; the 联防 positions are not). */
@@ -45,7 +53,8 @@ const CHROMES = [
 
 async function main() {
   const base = String(opt.base || 'http://localhost:3011').replace(/\/$/, '');
-  const size = Math.max(64, Math.min(2048, Number(opt.size) || 512));
+  const W = Math.max(64, Math.min(2048, Number(opt.width) || PICTURE.w));
+  const H = Math.max(64, Math.min(2048, Number(opt.height) || PICTURE.h));
   const chrome = typeof opt.chrome === 'string' ? opt.chrome : process.env.CHROME_PATH || CHROMES.find((p) => fs.existsSync(p));
   if (!chrome) throw new Error('no Chrome: pass --chrome or set CHROME_PATH');
   const stages = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/stages.json'), 'utf8'));
@@ -67,7 +76,7 @@ async function main() {
     const page = await browser.newPage();
     page.on('pageerror', (e) => problems.push(e.message));
     await page.goto(`${base}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    shots = await page.evaluate(async ({ ids, size, frame, focus }) => {
+    shots = await page.evaluate(async ({ ids, W, H, frame, focus, margin, band }) => {
       const { assets } = await import('/js/assets.js');
       const { data } = await import('/js/data.js');
       const { loadBoard3d } = await import('/js/render/board3d/load.js');
@@ -81,11 +90,12 @@ async function main() {
       if (b3.status !== 'ok') throw new Error(`3D board unavailable: ${b3.why}`);
       const doc = globalThis.document;
       const canvas = doc.createElement('canvas');
-      Object.assign(canvas.style, { position: 'fixed', left: '0', top: '0', width: `${size}px`, height: `${size}px`, zIndex: '99999' });
+      Object.assign(canvas.style, { position: 'fixed', left: '0', top: '0', width: `${W}px`, height: `${H}px`, zIndex: '99999' });
       doc.body.appendChild(canvas);
       const board = new BoardScene(b3.THREE, b3.pack, { canvas, antialias: true, shadows: true, loadOfficial: (id) => loadOfficialScene(assets, id), official: true });
-      board.resize(size, size, 1);
-      const cam = fitCamera(frame, { width: size, height: size }, { tilt: CAMERA_PRESETS.normal.tilt, dist: 16, margin: 0.3, headroom: 0.6, maxTilePx: 999 });
+      board.resize(W, H, 1);
+      const padY = Math.max(0, (H - W / band) / 2);
+      const cam = fitCamera(frame, { width: W, height: H, padding: { top: padY, bottom: padY } }, { tilt: CAMERA_PRESETS.normal.tilt, dist: 16, margin, headroom: 0.6, maxTilePx: 999 });
       const out = [];
       for (const id of ids) {
         const stage = data.lookup('stages', id);
@@ -101,7 +111,7 @@ async function main() {
       }
       board.destroy();
       return out;
-    }, { ids, size, frame: FRAME, focus: FOCUS });
+    }, { ids, W, H, frame: FRAME, focus: FOCUS, margin: MARGIN, band: BAND });
   } finally {
     clearTimeout(hard);
     await browser.close().catch(() => {});
@@ -113,7 +123,7 @@ async function main() {
     if (!s.official) { console.warn(`${s.id}: no official scene on this server — skipped`); continue; }
     const file = `${s.id}.webp`;
     fs.writeFileSync(path.join(outDir, file), Buffer.from(s.url.split(',')[1], 'base64'));
-    group[s.id] = { path: `/assets/local/${GROUP}/${file}`, w: size, h: size, kind: 'Image', webp: 'lossy' }; // WebP only, no PNG beside it
+    group[s.id] = { path: `/assets/local/${GROUP}/${file}`, w: W, h: H, kind: 'Image', webp: 'lossy' }; // WebP only, no PNG beside it
     console.log(`${s.id} → ${path.relative(ROOT, path.join(outDir, file))}`);
   }
   const manPath = path.join(ROOT, 'data/local-assets.json');
