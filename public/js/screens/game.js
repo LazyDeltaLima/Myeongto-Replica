@@ -1605,7 +1605,7 @@ function MatchScreen() {
   const detailBonds = detailOwner === strip.ownerId ? stripBonds : playerBonds({ pub, priv, myId, ownerId: detailOwner, live: liveLayers });
   // bonds this mode never activates (标准: 10 of 23, 奥术 among them) — shown 本局禁用 on cards, chips and the popup
   const offBonds = modeOffBonds(getMode(pub?.modeId));
-  const loadArt = loadingArt(getMode(pub?.modeId)); // the battle loading screen's picture, code and short name
+  const loadArt = loadingArt(getMode(pub?.modeId)); // the battle loading screen's picture, code and mode name
   // the boss round's opening (ui/battleArt.js BossPrepare): the leader's portrait, and in co-op the players alive with their LP
   const bossNow = bossOpen || isBossPhase(phase);
   const bossKey = bossOpen === 'hidden' || phase === PHASE.HIDDEN_CORE ? pub?.hiddenBossId || pub?.bossId : pub?.bossId;

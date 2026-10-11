@@ -3,8 +3,8 @@
 // extraction (data/local-assets.json ui/battle; without it a dialog is not shown and upstream's banner stays), the
 // lengths from the prefabs' legacy animation clips (their last keyframe):
 //   UIBattleLoading (battle scene)  LoadingScreen     the battle loading screen: the mode's loading picture (web manifest
-//                                                     ui `loading/<loadingPic>`), "OPERATION", the mode code, its short
-//                                                     name (KR capture 「AC-3 극한」), an official tip, "Loading"
+//                                                     ui `loading/<loadingPic>`), "OPERATION", the mode code, its mode
+//                                                     name (「AC-3 극한 시뮬레이션」), an official tip, "Loading"
 //   game_start_dialog               GameStartBanner   全局作战目标 / 通过14回合，消灭领袖 (KR 「전역 작전 목표 / 리더 적
 //                                                     섬멸!」), game_start_dialog_show 3.42 s
 //
@@ -137,15 +137,9 @@ function usePlay(ms, outMs, onDone) {
 // ---- the battle loading screen (UIBattleLoading) -------------------------------------------------------------------
 
 /**
- * The short name under the mode code (KR captures, maintainer 2026-10-10: 「AC-3 극한」, 「AC-4 초월」 — the mode name
- * without its 模拟 / 시뮬레이션; the client fills UIStageInfo from a start parameter we could not follow, so [추정] for
- * AC-1 / AC-2 by the same pattern).
- */
-const SHORT = Object.freeze({ FUNNY: N_('标准'), NORMAL: N_('险境'), HARD: N_('绝境'), ABYSS: N_('终极'), TRAINING: N_('入门协议') });
-
-/**
  * What the loading screen shows for a mode record (config.json modes[modeId]): its picture (the web manifest's
- * `loading/<loadingPic>`), code and short name; null when the picture is not in the manifest.
+ * `loading/<loadingPic>`), code and full mode name (「AC-4 초월 시뮬레이션」, maintainer decision 2026-10-11 — the
+ * 模拟 / 시뮬레이션 stays); null when the picture is not in the manifest.
  * @param {any} mode
  * @returns {{ pic: string, code: string, name: string } | null}
  */
@@ -153,8 +147,7 @@ export function loadingArt(mode) {
   if (!mode || typeof mode !== 'object' || !mode.loadingPic) return null;
   const pic = uiUrl(data.get('assets'), `loading/${mode.loadingPic}`);
   if (!pic) return null;
-  const short = SHORT[mode.difficulty];
-  return { pic, code: String(mode.code || ''), name: short ? t(short) : String(mode.name || '') };
+  return { pic, code: String(mode.code || ''), name: t(String(mode.name || '')) };
 }
 
 /** A random official tip (config.json `tips`, weighted), or ''. */
@@ -170,7 +163,7 @@ function pickTip(tips) {
 /**
  * The battle loading screen (UIBattleLoading + UIStageInfo): the picture stretched over the screen (the 1024² loading
  * illustrations are drawn squeezed — every official loading picture fills the 16:9 screen), the corner shadow, the
- * stage info in the middle — "OPERATION" (Novecento wide 30, y +60), the code (90, y −20), the short name (60, y −120) —
+ * stage info in the middle — "OPERATION" (Novecento wide 30, y +60), the code (90, y −20), the mode name (60, y −120) —
  * a tip along the bottom (panel_tips 250 tall, the text 300 in from either side) and "Loading" with its three dots at
  * the bottom right (text_loading, 154 × 67 at −77 / 33.5). Shown while `show` (BATTLE_CHECK, the field view loading),
  * then fades out ([추정] the length: _fadeTime is not in the scene typetree).
