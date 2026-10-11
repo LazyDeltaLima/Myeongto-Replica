@@ -279,10 +279,10 @@ export function immuneSet(v, extra = null) {
 
 /**
  * An attack clip and its attack ability's timing (data/enemies.json `attackAnim`, data/chess.json `attackAnim.base` /
- * `.skills[i]`) → { dur, hit, max, pre, wait, sel }, or null when malformed / absent: the clip length and its first
+ * `.skills[i]`) → { dur, hit, max, pre, wait, sel, face }, or null when malformed / absent: the clip length and its first
  * OnAttack frame (null = none: the strike lands as the swing ends), the ability's `_maxAnimScale` (−1 → Infinity: no
  * bound; absent → 1, the rule before the client values were read), `_preDelay`, `_waitForAttackEvent` (absent → true)
- * and `_selectTargetTiming` (ai.js attackTiming).
+ * and `_selectTargetTiming` (ai.js attackTiming), and where the swing turns its unit (`face`, ai.js swingFace).
  */
 export function normAttackAnim(a) {
   const dur = Number(a?.dur);
@@ -297,6 +297,9 @@ export function normAttackAnim(a) {
     pre: Number.isFinite(pre) && pre > 0 ? pre : 0,
     wait: a.wait !== 0 && a.wait !== false,
     sel: Number.isInteger(a.sel) ? a.sel : 0,
+    // where the swing turns its unit (ai.js swingFace): 1 its main target (absent: the common case), 0 nowhere, 2 its
+    // deploy direction, 3 its front, 4 its first cast target
+    face: Number.isInteger(a.face) && a.face >= 0 && a.face <= 4 ? a.face : 1,
   };
 }
 

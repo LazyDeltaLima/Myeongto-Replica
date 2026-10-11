@@ -142,6 +142,7 @@ import { createFxLayer } from './fxgame.js'; // local patch: official battle eff
 import { syncStatusFx } from './fxstatus.js'; // local patch: official status effects
 import { ensurePixi } from './app/pixi.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
+import { dirVector } from './face-turn.js'; // an operator's front (render.md 「공격 방향」)
 import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
 import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
@@ -1610,9 +1611,39 @@ export async function createFieldView(host, options = {}) {
     LATE.clear();
     interp.takeEvents(renderT, EVS, renderT - 1.5, LATE);
     for (const e of EVS) {
+      try { faceEvent(e, renderT); } catch { /* the facing never breaks the view */ }
       try { fxGame.onEvent(e, views); } catch { /* local patch: official effects never break the view */ }
       try { handleEvent(e, renderT); } catch (err) { if (!handleEvent.warned) { handleEvent.warned = true; console.warn('[render] event failed', e, err); } }
     }
+  }
+
+  /**
+   * An operator turns as its attack starts (docs/rules/render.md 「공격 방향」, render/face-turn.js) — before the event's
+   * effects, which take its facing: the sim's swing ['swing', unit, windup, kind, base, face] with `face` its main
+   * target's id, 'D' its deploy direction or 'F' its front (no 6th field: the attack turns it nowhere); ['face', unit]
+   * no target left → its deploy direction. An 'atk' with no swing before it (a skill cast that replaces an attack, a
+   * kit's own attack) turns it to that target at the strike [추정: the client turns at the cast's start].
+   */
+  function faceEvent(e, now) {
+    const k = e[0];
+    if (k !== 'swing' && k !== 'face' && k !== 'atk') return;
+    const v = views.get(e[1]);
+    if (!v || !v.face) return;
+    if (k === 'face') { v.faceDeploy(true); return; }
+    if (k === 'swing') {
+      v._swingTurn = true;
+      const f = e[5];
+      if (f === 'D') v.faceDeploy(false);
+      else if (f === 'F') { const [dx, dy] = dirVector(v.dir); v.turnTo(dx * 0.5, dy * 0.5 - 1); }   // Entity.FaceToFront
+      else if (f != null) { const t = views.get(f); if (t) v.turnToward(t.x, t.y); }
+      return;
+    }
+    if (CHAIN_KINDS.has(e[3]) || e.length > 4) return;   // a bounce's "source" is its previous target; a talent's own attack
+    if (v._swingTurn) { v._swingTurn = false; v._atkTurnAt = now; return; }   // the strike of a swing that turned it already
+    if (v._atkTurnAt === now) return;   // the other targets of the same attack
+    v._atkTurnAt = now;
+    const t = views.get(e[2]);
+    if (t && t !== v) v.turnToward(t.x, t.y);
   }
 
   function handleEvent(e, now) {

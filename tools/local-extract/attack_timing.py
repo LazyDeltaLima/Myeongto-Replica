@@ -6,7 +6,11 @@ MonoBehaviour on `<id>/Modes/<mode>/Body/Attack` or `…/Combat`): its clip `_an
 attack time — scale = clamp(attack time / clip length, 0.1, `_maxAnimScale`) (−1 = no upper bound), speed = 1 / scale,
 the swing lasts scale × clip (client code `AbstractAnimatedAbility.UpdatePlaybackSpeed`) —, the damage lands on the
 clip's OnAttack event when `_waitForAttackEvent` is 1 (else `_preDelay` × scale after the swing starts), and
-`_selectTargetTiming` says whether the targets are taken again at the strike (docs/rules/sim.md 「일반 공격 타이밍」).
+`_selectTargetTiming` says whether the targets are taken again at the strike (docs/rules/sim.md 「일반 공격 타이밍」),
+and the ability's facing flags say where the unit turns as the swing starts (`AbstractAnimatedAbility.DealWithFaceDirection`,
+the first flag set wins: `_faceToTarget` → `face` 1 its main target, `_faceToDefault` 2 its deploy direction,
+`_faceToFront` 3 front, `_faceToFirstCastTarget` 4 its first cast target; 0 none: it keeps its facing — docs/rules/render.md
+「공격 방향」).
 The sim (server/sim/ai.js) and the renderer need those per operator mode and per enemy; the clip lengths and OnAttack
 frames themselves come from the Spine skeletons (data/assets.json). This script writes
 tools/assets/local-attack-timing.json, which tools/build-data.mjs folds into data/chess.json / data/backups.json
@@ -14,7 +18,7 @@ tools/assets/local-attack-timing.json, which tools/build-data.mjs folds into dat
 
   { "ops": { "char_4100_caper": { "modes": ["Default", "S2", "S2[Down]"],
                                   "attack": [ { "anim": "Attack", "max": 1, "pre": 0, "wait": 1, "sel": 0, "dead": 0,
-                                                "time": 0 }, … ] } },
+                                                "time": 0, "face": 1 }, … ] } },
     "enemies": { "enemy_1001_bigbo": { "combat": { … }, "attack": { … } } } }
 
 `attack[i]` = the attack ability of mode i (null when the mode has none), its clip renamed by the mode's
@@ -50,6 +54,8 @@ DIRECT = ('Body/Attack', 'Body/Combat', 'Attack', 'Combat', 'Body/Heal')
 NESTED = ('Body/Attack/', 'Body/Combat/', 'Attack/')
 # abilities that are no normal attack (talents, skill-triggered and general abilities)
 NOT_ATTACK = re.compile(r'(^|/)(GeneralAbilities|Talents|Trigger|Skills|CommonAbilities)(/|$)')
+# the facing flags in the order DealWithFaceDirection tests them → `face` 1..4 (0: none set)
+FACE_FLAGS = ('_faceToTarget', '_faceToDefault', '_faceToFront', '_faceToFirstCastTarget')
 
 
 def num(v):
@@ -68,6 +74,8 @@ def ability(d):
             out[o] = v if isinstance(v, str) else ''
         elif isinstance(v, (int, float)):
             out[o] = num(v)
+    if any(f in d for f in FACE_FLAGS):
+        out['face'] = next((i + 1 for i, f in enumerate(FACE_FLAGS) if d.get(f)), 0)
     return out
 
 

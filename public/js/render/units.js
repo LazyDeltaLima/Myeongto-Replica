@@ -20,7 +20,9 @@
 // (research 09 §1.2, DESIGN §3: UP|RIGHT|DOWN|LEFT, chosen with the direction wheel; UnitInfo / piece `dir`, else
 // the legacy `facing` ±1): the Back model for UP (when one exists, research 07 §5.5), the Front model for RIGHT and
 // DOWN, mirrored for LEFT; the orange ground wedge "›" of prep board pieces points along `dir` (rotated on the ground
-// plane). `setDir(dir)` re-orients a live view (swapping Front ⇄ Back without a fallback flash). Enemies flip by the
+// plane). `setDir(dir)` re-orients a live view (swapping Front ⇄ Back without a fallback flash). In battle an attack turns
+// an operator to its target and it faces `dir` again with no target left (`face`, turnTo — render/face-turn.js,
+// docs/rules/render.md 「공격 방향」): mirrored toward a target behind it, the Back model for one above it. Enemies flip by the
 // sign of their horizontal velocity (with hysteresis). A dead or knocked-out operator facing UP falls and lies with its
 // Front model — 131 of the 135 Back skeletons have no Die clip (GitHub issue #25: the Back model went on with its
 // attack loop under the redeploy ring) — and stands up again with the Back model (`_wantsBack`, `_syncModel`).
@@ -73,6 +75,7 @@ import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tile
 import { noHpBar, facingless, bodyless } from '../../../shared/trap-tokens.js'; // local patch; 2026-10-11 bodyless markers
 import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch: 迷彩 icon; 起飞
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
+import { faceOf, turnFace, dirVector, NEAR_SQ } from './face-turn.js'; // an operator turns to its target (「공격 방향」)
 import { iconShownAsFx } from './fxstatus.js'; // local patch: statuses drawn as official effects
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './boomerang.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
@@ -555,6 +558,9 @@ export class UnitView {
     this.hasDir = !this.isEnemy && typeof info.dir === 'string' && DIRS.includes(info.dir.toUpperCase());
     this.facing = this.dir === 'LEFT' ? -1 : 1;
     this.visFacing = this.isEnemy ? -1 : this.facing;
+    // an operator's / summon's facing while it fights (render/face-turn.js): the mirror `lr`, Back / Front `ud`, `dir4`;
+    // its deploy direction until an attack turns it (turnTo)
+    this.face = this.isEnemy ? null : faceOf(this.dir);
     this.hp = Number(info.maxHp) || 1; this.maxHp = Number(info.maxHp) || 1; this.ghostHp = this.hp;
     this.sp = 0; this.spMax = 0;
     this.flags = 0; this.anim = ANIM.IDLE;
@@ -733,11 +739,12 @@ export class UnitView {
         this._releaseEntry(entry);
         return;
       }
-      // a Front ⇄ Back swap (setDir, or knocked out / standing again: _syncModel) replaces the previous model in place:
+      // a Front ⇄ Back swap (setDir, an attack's turn — turnTo —, or knocked out / standing again: _syncModel) replaces the previous model in place:
       // no fallback diamond in between; a deploy clip it was playing goes on on the new model (an operator facing UP
       // redeployed: its Back model takes over from the Front model it lay down with)
       const swap = !!this.actor;
       const deployed = swap && this.alive ? this.actor.deployElapsed() : null;
+      const swung = swap && this.alive ? this.actor.swingElapsed?.() ?? null : null;   // and a swing it had begun
       // local patch: deployed before its model loaded (a battle start) — shown at once, no cross-fade from the diamond;
       // update() starts its Start clip (BORN_LEAD_S)
       const late = !swap && this._bornWait >= 0 && this.alive;
@@ -763,6 +770,7 @@ export class UnitView {
         if (this.flags & UF.SKILL) this.actor.setSkill(true);
         this.actor.setBase(this._baseFromAnim());
         if (deployed != null) { this.actor.deploy(); if (deployed > 0) this.actor.update(deployed); }
+        else if (swung && this.actor.swing(swung.windup) && swung.elapsed > 0) this.actor.update(swung.elapsed);
         // a stealth-driven form (STEALTH_FORMS): the pose of the clip set in force now, even under a frozen stun
         if (STEALTH_FORMS[id]) this.actor.syncFormPose();
       }
@@ -943,7 +951,7 @@ export class UnitView {
     // an operator on a kit's flight (snapshot anim MOVE: 予愿安洁莉娜 S3, whose flight `_faceToMoveDirection`) faces its
     // travel, and its own direction again once it stands
     else if (!this.isEnemy && (s.anim | 0) === ANIM.MOVE && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
-    else if (!this.isEnemy && (this.anim | 0) === ANIM.MOVE && (s.anim | 0) !== ANIM.MOVE) this.visFacing = this.facing;
+    else if (!this.isEnemy && (this.anim | 0) === ANIM.MOVE && (s.anim | 0) !== ANIM.MOVE) this.visFacing = this.face ? this.face.lr : this.facing;
     if ((prevFlags ^ this.flags) & UF.SKILL) this.setSkill(!!(this.flags & UF.SKILL));
     if (this.anim === ANIM.DIE && this.alive) this.die();
     if (this.actor && this.alive) this.actor.setBase(this._baseFromAnim());
@@ -1050,7 +1058,7 @@ export class UnitView {
   _wantsBack() {
     const a = this.ctx.assets;
     const id = this.info.spine || this.info.defId;
-    if (this.isEnemy || this.dir !== 'UP' || !id || !a || typeof a.hasBack !== 'function' || !a.hasBack(id)) return false;
+    if (this.isEnemy || (this.face ? this.face.ud : this.dir) !== 'UP' || !id || !a || typeof a.hasBack !== 'function' || !a.hasBack(id)) return false;
     return this.alive || dieClipDur(typeof a.spineEntry === 'function' ? a.spineEntry(id, { back: true }) : null) > 0;
   }
 
@@ -1075,9 +1083,52 @@ export class UnitView {
     this.info.dir = d;
     this.hasDir = true;
     this.facing = d === 'LEFT' ? -1 : 1;
-    this.visFacing = this.facing;
+    this.face = faceOf(d);
+    this.visFacing = this.face.lr;
     if (this.imp) this.imp.dirty = true;
     this._syncModel();
+  }
+
+  /**
+   * An attack turns this operator / summon toward world point (x, y) as its swing starts (sim 'swing' with its main
+   * target, render/app.js; client code `Entity.FaceToTarget`: nothing within 0.2 tiles; `Entity.FaceTo`: not while
+   * stunned, frozen or asleep). Mirrors it toward a target behind it, takes the Back model for one above it
+   * (render/face-turn.js). docs/rules/render.md 「공격 방향」.
+   */
+  turnToward(x, y) {
+    const dx = x - this.x, dy = y - this.y;
+    if (!(dx * dx + dy * dy > NEAR_SQ)) return;
+    this.turnTo(dx, dy);
+  }
+
+  /** Turn toward the vector (dx, dy) (`idle`: the way back to the deploy direction, FaceToDirection(idle)). */
+  turnTo(dx, dy, idle = false) {
+    if (!this.face || !this.alive || this.down || this.destroyed) return;
+    if (this.flags & (UF.STUNNED | UF.FROZEN | UF.SLEEP)) return;
+    const ch = turnFace(this.face, dx, dy, idle);
+    if (!ch) return;
+    if ((this.anim | 0) !== ANIM.MOVE) this.visFacing = this.face.lr;   // a kit's flight faces its travel until it lands
+    if (this.imp) this.imp.dirty = true;
+    if (ch === 2) this._syncModel();
+  }
+
+  /**
+   * Face the deploy direction again (sim 'face': no target left, blocking nobody — client code `TryFaceToIdleDirection`
+   * → `FaceToDirection(idle)`; `idle` false: an attack whose ability faces its default direction, `_faceToDefault`).
+   */
+  faceDeploy(idle = true) {
+    const [dx, dy] = dirVector(this.dir);
+    this.turnTo(dx, dy, idle);
+  }
+
+  /** Stand in the deploy direction outright (a (re)deployment: Character.OnBorn → FaceTo(direction)). */
+  _resetFace() {
+    if (!this.face) return;
+    const was = this.face.ud;
+    this.face = faceOf(this.dir);
+    this.visFacing = this.face.lr;
+    if (this.imp) this.imp.dirty = true;
+    if (was !== this.face.ud) this._syncModel();
   }
 
   _releaseEntry(entry) {
@@ -1113,7 +1164,7 @@ export class UnitView {
       this.lastAtk = now;
     }
     if (target && !this.isEnemy && this.info.kind !== 'device') {
-      // operators keep their deploy direction (research 09 §1.2); enemies may turn towards their target
+      // operators turn at their swing's start instead (turnTo; render/app.js), not at the strike; enemies turn here
     } else if (target && this.isEnemy) {
       const dx = target.x - this.x;
       if (Math.abs(dx) > 0.1) this.visFacing = dx < 0 ? -1 : 1;
@@ -1173,6 +1224,7 @@ export class UnitView {
     this.bornOfficial = official;
     this.fadeIn = official ? 1 : 0;
     if (!this.alive) this.revive();
+    this._resetFace();
     this._bornStart(official);
     return official;
   }

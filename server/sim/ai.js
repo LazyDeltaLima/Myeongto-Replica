@@ -121,11 +121,12 @@ export function updateAlly(b, u, dt) {
   // the Skill state of a skill cast (skills.js _paceInstant, 'state'): no attack until its skill ability ends — the
   // attack cooldown keeps running meanwhile
   if (u.skillStateUntil > b.time + 1e-9) return;
+  if (u.faceTgt) holdFaceTarget(b, u, prof);
   if (u.atkCd > 0 || u.castLeft > 0) return;
   // a 'replace' cast (skills.js): this attack goes out as the skill, with or without a target of the attack's own
   if (sk && sk.replacing) { startReplacement(b, u, sk); return; }
   // (a 秘术师's `canAttack` is its own target rule: false = no valid target — 深靛's bound enemies, 维伊's marked ones)
-  if (prof.canAttack && !prof.canAttack(b, u)) { if (prof.storeEnergy) { u.trait.hadTarget = false; storeEnergy(b, u, prof); } return; }
+  if (prof.canAttack && !prof.canAttack(b, u)) { faceIdle(b, u); if (prof.storeEnergy) { u.trait.hadTarget = false; storeEnergy(b, u, prof); } return; }
   let targets = acquireTargets(b, u, prof);
   // a charged heal of the ally rule (塞雷娅 S1 急救: trigger.allies) casts at her attack cadence with no enemy too and that
   // attack heals the ally (PRTS; client: an AUTO NextAttackOrCombatSkill whose trigger searches allies only). After the
@@ -135,7 +136,7 @@ export function updateAlly(b, u, dt) {
     if (prof.noAttack || !u.alive) return;
     targets = acquireTargets(b, u, prof);
   }
-  if (!targets.length) { u.trait.hadTarget = false; storeEnergy(b, u, prof); return; }
+  if (!targets.length) { faceIdle(b, u); u.trait.hadTarget = false; storeEnergy(b, u, prof); return; }
   u.trait.hadTarget = true;
   if (sk && sk.onAboutToAttack()) {
     if (sk.replacing) { startReplacement(b, u, sk); return; }
@@ -148,7 +149,9 @@ export function updateAlly(b, u, dt) {
   const t = attackTiming(u, TIMING);
   u.atkCd = Math.max(u.atkCd, u.s.interval);
   const swingEv = ['swing', u.id, roundMs(t.strike), prof._fortressMelee ? 'none' : (prof.projectile || 'none')];
-  if (sk && sk.active && sk.spec?.baseClip) swingEv.push(1);   // the Default clip while the skill is on (attackClipOf)
+  const base = sk && sk.active && sk.spec?.baseClip ? 1 : 0;   // the Default clip while the skill is on (attackClipOf)
+  const face = swingFace(u, targets);
+  if (face != null) { swingEv.push(base, face); u.faced = true; u.faceTgt = targets[0]; } else if (base) swingEv.push(1);
   b._ev(swingEv);
   u.castLeft = t.action;
   u.swing = { left: t.strike, targets, sel: t.sel, isSkill: !!prof.isSkill };
@@ -168,6 +171,44 @@ function startReplacement(b, u, sk) {
   u.swing = { left: t.strike, targets: null, sel: 0, isSkill: true, replace: sk };
   sk.beginReplacement(t.action);
   if (!(t.strike > 1e-9)) allyStrike(b, u, effectiveProfile(u));
+}
+
+/**
+ * Where a swing turns its unit as it starts (client code `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`,
+ * the attack ability's flags — data `attackAnim.face`, tools/local-extract/attack_timing.py): its main target's id
+ * (`_faceToTarget`, `_faceToFirstCastTarget`; also when the ability was not read [추정]), 'D' its deploy direction
+ * (`_faceToDefault`), 'F' its front (`_faceToFront`), null none (an attack on everything in range: 莫斯提马, 白面鸮). The
+ * renderer turns the model (render/face-turn.js, docs/rules/render.md 「공격 방향」); the sim's targeting never depends on it.
+ */
+function swingFace(u, targets) {
+  const f = attackClipOf(u)?.face ?? 1;
+  if (f === 1 || f === 4) return targets[0]?.id ?? null;
+  return f === 2 ? 'D' : f === 3 ? 'F' : null;
+}
+
+/**
+ * The target a swing turned its unit to, checked while the unit waits for its next attack (client code
+ * `Character.States.CombatState`: it stays in combat — and faced that way — while it has a target): gone (dead, off the
+ * field, out of its range and not blocked by it) → another target in range takes its place, none → faceIdle.
+ */
+function holdFaceTarget(b, u, prof) {
+  const t = u.faceTgt;
+  if (strikable(t) && (u.blocking.includes(t) || !u.rangeKeySet || u.rangeKeySet.has(tileKeyOf(t)))) return;
+  const next = acquireTargets(b, u, prof);
+  if (next.length) u.faceTgt = next[0];
+  else faceIdle(b, u);
+}
+
+/**
+ * No target left: the unit turns back to its deploy direction (event ['face', unit]) — client code
+ * `Character.States.IdleState.OnEnter` → `TryFaceToIdleDirection`: only when it blocks no enemy (and has an Idle clip),
+ * `FaceToDirection(idle)`.
+ */
+function faceIdle(b, u) {
+  u.faceTgt = null;
+  if (!u.faced || u.blocking.length) return;
+  u.faced = false;
+  b._ev(['face', u.id]);
 }
 
 /** A swing in progress or its recovery is cut (`Ability.InterruptIfNot`): the cooldown is left as it is. */

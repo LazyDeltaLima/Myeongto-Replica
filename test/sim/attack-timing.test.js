@@ -83,7 +83,10 @@ test('an operator swings as its cooldown ends and strikes at the damage frame: a
   h.run(4.5);
   const sw = h.eventsOf('swing').filter((e) => e[1] === u.id);
   assert.ok(sw.length >= 3, `${sw.length} swings`);
-  assert.deepEqual(sw[0].slice(2), [HIT, 'none'], 'windup and the strike\'s projKind');
+  assert.deepEqual(sw[0].slice(2, 4), [HIT, 'none'], 'windup and the strike\'s projKind');
+  // its 6th field: the main target it turns to (docs/rules/render.md 「공격 방향」), the 5th the Default-clip flag 0
+  assert.equal(sw[0][4], 0, 'no Default clip under a skill');
+  assert.ok(h.b.units.some((e) => e.id === sw[0][5] && e.side === 'enemy'), 'it turns to its target');
   const s = strikes(h, u);
   near(s[0], TICK + HIT, 'the first strike: its wind-up after the first tick');
   near(s[1] - s[0], BAT, 'then one per interval', 1);
@@ -124,6 +127,45 @@ test('_maxAnimScale: a bound of 1 leaves a slow attacker\'s swing at the clip le
     assert.ok(Math.abs(t.strike - strike) < 1e-9 && Math.abs(t.action - action) < 1e-9, `max ${max}: ${JSON.stringify(t)}`);
     h.run(BAT + 1);
     near(strikes(h, u)[0], TICK + strike, `max ${max}: the strike`);
+    done(h);
+  }
+});
+
+// docs/rules/render.md 「공격 방향」: the swing names the target its unit turns to (client code `DealWithFaceDirection`);
+// with no target left and blocking nobody, ['face', unit] turns it back (`IdleState.OnEnter` → `TryFaceToIdleDirection`)
+test('the swing names its main target — an enemy it blocks behind it too; no target left → a face event back to its deploy direction', () => {
+  const op = { ...chessRec({ id: 't_op', stats: { atk: 100, bat: BAT }, skill: null, rangeGrid: [[0, 0], [0, 1], [0, 2]] }),
+    attackAnim: { base: { clip: 'Attack', dur: 1, hit: HIT, max: 1 }, skills: [] } };
+  const h = makeBattle({
+    defs: { chess: { t_op: op }, enemies: { e: enemyRec({ key: 'e', hp: 250, def: 0, speed: 0 }) } },
+    units: [{ chessId: 't_op', row: 10, col: 4 }], enemies: [{ key: 'e', pos: [10, 3.6] }],   // behind it (it faces RIGHT)
+    content: 'none', autoFinish: false, timeLimit: 60, captureNoisy: true,
+  });
+  const u = h.unit('t_op');
+  h.run(BAT * 3 + 1);
+  const foe = h.b.units.find((e) => e.side === 'enemy');
+  const sw = h.eventsOf('swing').filter((e) => e[1] === u.id);
+  assert.ok(sw.length >= 1 && sw[0][5] === foe.id, `it turns to the enemy it blocks behind it: ${JSON.stringify(sw[0])}`);
+  assert.ok(!foe.alive, 'the enemy died');
+  const face = h.eventsOf('face').filter((e) => e[1] === u.id);
+  assert.equal(face.length, 1, 'then one turn back');
+  assert.equal(u.faced, false);
+  done(h);
+});
+
+test('an ability that faces its deploy direction (_faceToDefault) swings with \'D\', one that turns nowhere with no 6th field', () => {
+  for (const [face, want] of [[2, 'D'], [0, undefined]]) {
+    const op = { ...chessRec({ id: 't_op', stats: { atk: 100, bat: BAT }, skill: null, rangeGrid: [[0, 0], [0, 1], [0, 2]] }),
+      attackAnim: { base: { clip: 'Attack', dur: 1, hit: HIT, max: 1, face }, skills: [] } };
+    const h = makeBattle({
+      defs: { chess: { t_op: op }, enemies: { e: enemyRec({ key: 'e', hp: 1e9, speed: 0 }) } },
+      units: [{ chessId: 't_op', row: 10, col: 4 }], enemies: [{ key: 'e', pos: [10, 5] }],
+      content: 'none', autoFinish: false, timeLimit: 60, captureNoisy: true,
+    });
+    const u = h.unit('t_op');
+    h.run(0.5);
+    const sw = h.eventsOf('swing').filter((e) => e[1] === u.id);
+    assert.equal(sw[0][5], want, `face ${face}`);
     done(h);
   }
 });

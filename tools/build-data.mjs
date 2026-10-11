@@ -2353,6 +2353,16 @@ function abilityTiming(t) {
 }
 
 /**
+ * Where an operator's attack ability turns the unit as its swing starts (local-attack-timing.json `face`, client code
+ * `AbstractAnimatedAbility.DealWithFaceDirection`) as `attackAnim` carries it: `face` only when it is not 1 (its main
+ * target, the common case) — 0 keeps its facing (an attack on all in range: 莫斯提马, 白面鸮's heal), 2 turns it to its
+ * deploy direction, 3 to its front, 4 to its first cast target — server/sim/ai.js 'swing', docs/rules/render.md 「공격 방향」.
+ */
+function abilityFace(t) {
+  return t && Number.isInteger(t.face) && t.face !== 1 ? { face: t.face } : {};
+}
+
+/**
  * The official projectiles of an enemy (tools/assets/local-enemy-projectiles.json, tools/local-extract/enemy_projectiles.py)
  * → enemies.json `proj` (its normal attack's shot: the unblocked one, Attack, else the blocked one, Combat), `projModes`
  * ({mode name: shot} — a later mode that shoots another one), `skills[i].proj` (+ `projAlt`: the skill's other shots;
@@ -2410,8 +2420,8 @@ function enemyAbility(ctx, spineId, key, applyWay) {
  * `_modes`, null when the skill keeps the Default one) the clip its attack ability plays (`_animKey`, renamed by the
  * mode's `_replaceAnimPairs`; tools/assets/local-attack-timing.json), its length and first OnAttack frame from the Front
  * skeleton (data/assets.json `animations` / `hits`; a key the skeleton lacks under that name, also as `<key>_Loop`, falls
- * back to the clip the renderer plays for that mode — `anims.attack` / `anims.skills[i]`), and the ability's timing
- * (abilityTiming). null when the client timing or the model is unknown (the sim then strikes as the swing starts).
+ * back to the clip the renderer plays for that mode — `anims.attack` / `anims.skills[i]`), the ability's timing
+ * (abilityTiming) and facing (abilityFace). null when the client timing or the model is unknown (the sim then strikes as the swing starts).
  */
 function opAttackAnim(ctx, charId, skillCount) {
   const t = ctx.attackTiming?.ops?.[charId];
@@ -2423,7 +2433,7 @@ function opAttackAnim(ctx, charId, skillCount) {
       if (typeof dur === 'number' && dur > 0) {
         const h = sp.hits?.[n];
         const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
-        return { clip: n, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(ab) };
+        return { clip: n, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(ab), ...abilityFace(ab) };
       }
     }
     return null;

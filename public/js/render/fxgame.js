@@ -1625,8 +1625,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const pivot = inst.nodes?.find((o) => o && o.name === 'rotation_z');
     if (pivot) pivot.rotation.set(0, 0, Math.atan2(Number(tgt.y) - Number(src.y), Number(tgt.x) - Number(src.x)));
   }
-  /** The unit's facing for a turned effect: its deploy direction, left / right as it is drawn now. */
-  const facingDir = (v) => (v.dir === 'UP' || v.dir === 'DOWN' ? v.dir : (v.visFacing ?? v.facing ?? 1) < 0 ? 'LEFT' : 'RIGHT');
+  /**
+   * The unit's facing for a turned effect: an operator's 4-way face direction now (`Entity.faceDirection` — an attack
+   * turns it to its target, render/face-turn.js), else its deploy direction, left / right as it is drawn now.
+   */
+  const facingDir = (v) => (v.face?.dir4 ? v.face.dir4 : v.dir === 'UP' || v.dir === 'DOWN' ? v.dir : (v.visFacing ?? v.facing ?? 1) < 0 ? 'LEFT' : 'RIGHT');
   /**
    * local patch (maintainer report — 아르케토 S3's `start_02` / `start_02_B` both played; maintainer's decision 2026-10-08 「13명
    * 전체」): an emitter entry's `_effects` is a slot list 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT and its `_directionType` picks the slot

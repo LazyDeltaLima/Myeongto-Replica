@@ -506,7 +506,7 @@ export function validateC2S(msg) {
 export const EV = Object.freeze({
   SPAWN: 'spawn', ATK: 'atk', DMG: 'dmg', HEAL: 'heal', SKILL: 'skill', ENGAGE: 'engage', DIE: 'die', LEAK: 'leak',
   STATUS: 'status', FX: 'fx', LAYER: 'layer', BOUNTY: 'bounty', DEPLOY: 'deploy', SWING: 'swing',
-  TPLFX: 'tplfx',
+  TPLFX: 'tplfx', FACE: 'face',
 });
 
 /**

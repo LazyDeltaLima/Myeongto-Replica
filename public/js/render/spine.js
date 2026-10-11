@@ -457,10 +457,20 @@ export class SpineActor {
     this.mode = 'attack';
     this.attackUntil = this.clock + loopDur / ts + SWING_HOLD;
     this.swingUntil = this.attackUntil;
+    this.swingAt = this.clock;
+    this.swingWindup = windup;
     this.windUntil = null;
     this.wound = false;
     this._play(name, false, { timeScale: ts, mix: 0.06 });
     return true;
+  }
+
+  /**
+   * The swing playing now as { windup, elapsed } (game s), else null — a model swapped mid-swing carries it over
+   * (units.js: an operator turned Front ⇄ Back as its attack starts, render/face-turn.js).
+   */
+  swingElapsed() {
+    return this._swinging() && this.swingAt != null ? { windup: this.swingWindup, elapsed: Math.max(0, this.clock - this.swingAt) } : null;
   }
 
   /** A swing's clip is playing (swing): the 'atk' events of its strike, and any other attack meanwhile, leave it alone. */

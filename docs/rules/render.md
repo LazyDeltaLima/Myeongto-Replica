@@ -369,3 +369,34 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 첫 목록(2026-10-12): 46명·105개 `todo`. 힌트는 10-07 EN 클라 추출(스킬 프리팹 anim 컴포넌트·`_animKey`, charpack 모드별 클립 — 관리자 노트)로 붙였다:
   `official <스킬 id | 모드>` 58개(공식이 그 클립을 가리킴 — 누락 가능성 높음, 먼저 볼 것), `no official reference` 38개(버프 템플릿·디컴파일로 찾을 것),
   `CN only` 9개(EN에 없는 오퍼레이터 — CN 필드만, [추정]). 처음부터 `none`으로 확정한 것은 없다.
+
+## 공격 방향 (2026-10-12, 관리자 요청 「공격·스킬 범위 안의 적을 향해 돌아서 공격, 최대 저지 수를 넘겨 뒤에 걸린 적은 뒤를 보며 공격 — 공식 로직대로」)
+- 이전: 오퍼레이터는 배치 방향만 봤다(`units.js onAttack` 「operators keep their deploy direction」, research 09 §1.2의 배치 모습을 전투 내내 적용).
+  뒤에 걸려 저지된 적도 등을 진 채 쳤고, 이펙트도 배치 방향으로 나갔다.
+- 공식(EN 클라 디컴파일, 관리자 노트 `research/decompile`):
+  - 공격 능력이 시전을 시작할 때 `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`: 능력 프리팹의 플래그를 이 순서로 본다 —
+    `_faceToTarget` 주 대상(`Entity.FaceToTarget` → `FaceTo(대상 − 자기 위치)`, 0.2칸 안이면 안 돎), `_faceToDefault` 배치 방향(`FaceToDirection`),
+    `_faceToFront` 앞(배치 방향×0.5 + 아래), `_faceToFirstCastTarget` 첫 시전 대상. 넷 다 0이면 돌지 않는다. `Entity.FaceTo`는 기절·빙결·부유 중엔 안 돎.
+  - 모델: `CharacterAnimator.OnFaceChanged` → `FaceSwitcher.StartSwitch(lOrR, fourDir)` — 좌우 반전은 `MapUtil.ParseDirection(방향, 0)`이 좌/우면 그쪽,
+    아니면 x가 ±0.2(`TOLERANCE_L_OR_R_DIRECTION`)를 넘는 쪽, 아니면 그대로. 앞/뒤 모델은 fourDir = `ParseDirection(방향, 0.25)`(좌우에 +0.25,
+    `ADDON_TO_L_OR_R_DIRECTION`)로 `_TryUpdateDirection`: 위면 Back, 공격이 아래면 Front, 좌우면 그대로(돌아갈 때 idle은 위가 아니면 Front).
+  - 대상이 없어지면 `CombatState`(대상이 있는 동안 유지) → `IdleState.OnEnter` → `Character.TryFaceToIdleDirection`: **저지 중인 적이 없을 때만**
+    `FaceToDirection(idle)`로 배치 방향. 저지 중이면 돈 채로 둔다.
+  - 이펙트가 쓰는 4방향 = `Entity.faceDirection` = `ParseDirection(faceTo, 0)`.
+- 데이터: `tools/local-extract/attack_timing.py`가 공격 능력의 네 플래그를 `face`(1 대상·2 배치 방향·3 앞·4 첫 시전 대상·0 없음)로 읽고
+  (EN 143명 + CN 3명 — 켈시 에스페란타·클레멘티아·안젤리나 더 멜로우 위시는 CN 실행에서 합침), `build-data.mjs abilityFace`가 1이 아닐 때만
+  `attackAnim.base/skills[i].face`로 싣는다(chess 128·backups 7). 대상(1): 대부분. 없음(0): 범위 전체를 치는 공격 — 莫斯提马·诗怀雅·白面鸮 등 43모드.
+  배치 방향(2): 赤刃明霄陈 S3, 丰川祥子 전 모드, 史尔特尔 S2 등 43모드. 첫 시전 대상(4): 焰尾·凯尔希·思衡托 5모드.
+- 구현:
+  - sim `ai.js updateAlly`: 'swing'에 여섯째 값 — 주 대상 id(`face` 1·4, 값이 없는 능력도 [추정] 대상), `'D'`(2), `'F'`(3), 없음(0). 다섯째 값은 기본 클립
+    플래그(0/1). 대상이 사라지면(죽음·이탈·범위 밖이고 저지 안 함) 다른 대상이 있으면 그것으로, 없고 저지 중이 아니면 `['face', id]`(`faceIdle`).
+    다음 공격이 준비됐는데 대상이 없을 때도 같다. 전투 결과에는 영향 없음(골든은 이벤트 수만 바뀜).
+  - 렌더 `render/face-turn.js`(위 규칙 그대로), `units.js turnToward/turnTo/faceDeploy`, 상태 `view.face {lr, ud, dir4}`: 반전 = `lr`,
+    Back 모델 = `ud === 'UP'`(`_wantsBack`), 재배치 때 배치 방향으로 초기화. `app.js faceEvent`가 이벤트의 **이펙트보다 먼저** 돌린다(시전 이펙트가 돈
+    방향을 씀 — `fxgame.js facingDir`이 `face.dir4`). 'swing' 없이 온 'atk'(공격을 대신하는 스킬 시전, 키트의 공격)는 타격 때 그 대상으로 돈다
+    [추정: 공식은 시전 시작 때]. 앞/뒤 모델 교체는 비동기라 휘두르던 클립을 새 모델이 이어 받는다(`spine.js swingElapsed`).
+- [추정] 남은 차이: `FaceSwitcher._switchTime` 돌아서는 트윈 없음(즉시), 부유·이상 플래그 13/22 검사 없음, 반전 방향 이펙트 `U_OR_D`는 `faceToBack`이
+  아니라 4방향으로 고름(뒤 모델로 옆을 칠 때만 다름), 스킬 능력(`skill_cast.py`)의 플래그는 안 읽음(대상으로 돈다고 봄).
+- 연결된 일: 아래 방향 클립(`DOWN_FAMILY`) — 공격 능력에 `_downAnimKey`·`_upAnimKey`가 있어 공식은 **돈 방향**으로 아래/위 클립을 고르는 것으로 보인다
+  [추정]. 이제 `view.face`가 있으니 그 판정을 디컴파일로 확인하면 붙일 수 있다.
+- 테스트: `test/render/face-turn.test.js`, `test/sim/attack-timing.test.js`(대상 id·뒤에 저지된 적·`face` 이벤트·'D'/없음). **[화면 미확인]**

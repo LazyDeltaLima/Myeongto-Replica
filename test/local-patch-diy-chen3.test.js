@@ -115,7 +115,7 @@ describe('赤刃明霄陈 kit — research 2026-10-07 §2 fixes', () => {
     const w0 = swings[0].t - t0;
     // the S3 mode at Skill_3_Begin + 3 ticks restarts her state machine (switch_mode_restart_fsm); IDLE → ATTACK the next tick
     assert.ok(w0 >= 13 / 30 + 4 * h.TICK - 1e-9 && w0 <= 13 / 30 + 5 * h.TICK + 1e-9, `the first swing one tick after the S3 mode (${w0.toFixed(3)} s after the cast)`);
-    assert.equal(swings[0].e[4], undefined, 'the first attack\'s swing: the skill clip (Skill_3_Loop)');
+    assert.ok(!swings[0].e[4], 'the first attack\'s swing: the skill clip (Skill_3_Loop)');
     assert.ok(qi != null, 'the 剑气 left');
     // Skill_3_Begin (its first fx comes with the mover's first steps, up to two sim steps after it leaves)
     const leave = 13 / 30;

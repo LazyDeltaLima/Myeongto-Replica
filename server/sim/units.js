@@ -73,6 +73,8 @@ export class Unit {
     this.atkCd = 0;
     this.swing = null;          // a normal attack swung, its strike not reached yet (ai.js startSwing)
     this.castLeft = 0;          // the rest of the swing after its strike (ai.js: the next swing waits for it)
+    this.faceTgt = null;        // the main target its latest swing turned it to (ai.js holdFaceTarget)
+    this.faced = false;         // a swing turned it from its deploy direction; 'face' turns it back (ai.js faceIdle)
     this.lastAttackAt = -Infinity;
     this.lastHitAt = -Infinity;
     this.deployedAt = -Infinity;
