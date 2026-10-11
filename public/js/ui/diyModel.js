@@ -17,6 +17,7 @@ import { DIY_LIMITS, checkDiyPicks } from '../../../shared/protocol.js';
 import { diySlotIds, diySlot, diyPool, isPrototypePick, lockedSelection, isDiyModule, diyRecord } from '../../../shared/diy.js';
 import { unitForm } from '../../../shared/standIn.js';
 import { N_ } from '../../../shared/i18n.js';
+import { LOCAL_DIY_DEFAULT_SKILL } from '../../../shared/local-diy.js';
 
 /** localStorage key (store.js loadPref/savePref prefix `sp.pref.`) and format version. */
 export const DIY_PREF = 'diy';
@@ -105,15 +106,18 @@ export function pickChoices(charId, slotId, data) {
 
 /**
  * The pick a newly chosen operator starts with: a prototype's locked selection (`{ charId }` — the server completes it),
- * an owned operator's third skill (its last) and the first module it may carry (none when it has none).
+ * an owned operator's skill from shared/local-diy.js LOCAL_DIY_DEFAULT_SKILL (when it has that skill), else its third
+ * (its last), and the first module it may carry (none when it has none).
  * @param {string} charId @param {string} slotId @param {any} data
  */
 export function defaultPick(charId, slotId, data) {
   const ch = pickChoices(charId, slotId, data);
   if (!ch) return { charId };
   if (ch.proto) return { charId };
+  const want = LOCAL_DIY_DEFAULT_SKILL[charId];
   const last = ch.skills.length ? ch.skills[ch.skills.length - 1].index : 0;
-  return { charId, skillIndex: last, uniEquipId: ch.modules[0]?.uniEquipId ?? null };
+  const skillIndex = ch.skills.some((s) => s.index === want) ? want : last;
+  return { charId, skillIndex, uniEquipId: ch.modules[0]?.uniEquipId ?? null };
 }
 
 /**

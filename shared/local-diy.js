@@ -21,3 +21,10 @@ export function localDiyPool(pool) {
   const have = new Set(pool);
   return LOCAL_DIY_PICKS.filter((id) => have.has(id));
 }
+
+/**
+ * The skill a newly chosen pick starts with in the 自选编队 picker (ui/diyModel.js defaultPick), by charId: 0-based
+ * skill index. Unlisted picks start with their last skill. The owner's decision (2026-10-11): 维什戴尔, 阿斯卡纶 and
+ * 凯尔希·思衡托 start with S2. Only the starting choice; the player may still pick any skill.
+ */
+export const LOCAL_DIY_DEFAULT_SKILL = Object.freeze({ char_1035_wisdel: 1, char_4132_ascln: 1, char_1052_kalts2: 1 });

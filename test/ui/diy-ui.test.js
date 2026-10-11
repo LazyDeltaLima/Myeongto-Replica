@@ -118,7 +118,10 @@ describe('自选编队 model (ui/diyModel.js)', () => {
     const isw = M.pickChoices(ASCLN, T6A, { ...D, backups: b2 });
     assert.ok(isw.elite.modules.some((x) => x.typeName === 'ISW-A'), 'the form has one');
     assert.ok(!isw.modules.some((x) => x.rec.typeName === 'ISW-A'), 'never offered');
-    assert.deepEqual(M.defaultPick(ASCLN, T5A, D), { charId: ASCLN, skillIndex: 2, uniEquipId: 'uniequip_002_ascln' }, 'S3 and the first module');
+    assert.deepEqual(M.defaultPick(ASCLN, T5A, D), { charId: ASCLN, skillIndex: 1, uniEquipId: 'uniequip_002_ascln' }, 'S2 (LOCAL_DIY_DEFAULT_SKILL) and the first module');
+    assert.equal(M.defaultPick('char_1035_wisdel', T5A, D).skillIndex, 1, '维什戴尔 starts with S2');
+    assert.equal(M.defaultPick('char_1052_kalts2', T5A, D).skillIndex, 1, '凯尔希·思衡托 starts with S2');
+    assert.equal(M.defaultPick(WANG, T5A, D).skillIndex, 2, 'an unlisted pick starts with its last skill');
   });
 
   test('sanitize keeps what the server keeps; export / import envelopes', () => {
