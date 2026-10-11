@@ -272,7 +272,12 @@ test('config: modes, rounds and templates', () => {
   assert.equal(config.economy.benchSize, 10);
   assert.equal(config.economy.deployCap, 8);
   assert.equal(config.economy.mergeCountOverrides.chess_char_2_11_a, 2);
-  assert.equal(config.economy.poolCopiesOverrides.chess_char_6_11_a, 4);
+  // shared pool (路标月报#2): the solo table's Ⅰ/Ⅱ exceptions, co-op ×2, no 缪尔赛思 exception any more
+  assert.deepEqual(config.economy.poolCopiesOverrides, {
+    chess_char_1_07_a: 10, chess_char_1_08_a: 10, chess_char_1_09_a: 10, chess_char_1_10_a: 10, chess_char_1_14_a: 10,
+    chess_char_2_11_a: 8, chess_char_2_02_a: 12, chess_char_2_09_a: 12, chess_char_2_12_a: 12, chess_char_2_13_a: 12, chess_char_2_14_a: 12,
+  });
+  assert.equal(config.economy.coopPoolMultiplier, 2);
   assert.deepEqual(config.hiddenCore.single, 350);
   assert.deepEqual(config.hiddenCore.multi, 1200);
   assert.equal(config.titles.length, 6);

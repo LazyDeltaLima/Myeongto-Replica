@@ -8,14 +8,16 @@ import { DATA, makeMatch, give, checkInvariants, chessOfTier } from './harness.j
 
 const gdOf = (modeId = 'mode_multi_normal') => new GameData(DATA, modeId);
 
-test('pool caps follow config (12/14/18/16/8/5, 缪尔赛思 4) and only visible, unbanned chess enter', () => {
+test('pool caps: the solo table 12/14/18/16/8/5 with its Ⅰ/Ⅱ exceptions, co-op ×2 of it; only visible, unbanned chess enter', () => {
+  const caps = { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 };
+  const solo = new SharedPool(gdOf('mode_single_normal'), { banned: [] });
+  for (const [id, e] of solo.entries) assert.equal(e.cap, DATA.config.economy.poolCopiesOverrides[id] ?? caps[e.tier], id);
   const gd = gdOf();
   const pool = new SharedPool(gd, { banned: [] });
-  const caps = { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 };
   assert.equal(pool.entries.size, gd.visibleChess.length);
   assert.equal(pool.entries.size, 112);
   for (const [id, e] of pool.entries) {
-    const expect = id === 'chess_char_6_11_a' ? 4 : caps[e.tier];
+    const expect = 2 * (DATA.config.economy.poolCopiesOverrides[id] ?? caps[e.tier]);
     assert.equal(e.cap, expect, id);
     assert.equal(e.left, e.cap);
     assert.ok(DATA.chess[id].visible && !DATA.chess[id].isGolden);
@@ -26,7 +28,7 @@ test('pool caps follow config (12/14/18/16/8/5, 缪尔赛思 4) and only visible
   assert.ok(!p2.has(banned[0]) && p2.left(banned[0]) === 0 && p2.take(banned[0]) === 0);
 });
 
-test('take/give never go below 0 or above the cap', () => {
+test('take/give never go below 0 or above the cap (overdraw: an owned piece occupies its copies past the stock)', () => {
   const pool = new SharedPool(gdOf());
   const id = chessOfTier(6)[0];
   const cap = pool.cap(id);
@@ -42,6 +44,36 @@ test('take/give never go below 0 or above the cap', () => {
   assert.equal(pool.give('nope', 1), 0);
   assert.equal(pool.take(id, -1), 0);
   assert.equal(pool.take(id, NaN), 0);
+  // overdraw: the raw balance goes negative, the public stock stays 0 until enough ownership returns
+  assert.equal(pool.take(id, cap), cap);
+  assert.equal(pool.take(id, 2, { overdraw: true }), 2);
+  assert.equal(pool.entries.get(id).left, -2);
+  assert.equal(pool.left(id), 0);
+  assert.equal(pool.snapshot()[id], 0);
+  assert.equal(pool.roll(createRng(1), { tier: 6, filter: (x) => x === id }), null, 'an overdrawn chess never rolls');
+  assert.equal(pool.roll(createRng(1), { tier: 6, filter: (x) => x === id, ignoreCounts: true }), id, '…except by identity (拟态物质)');
+  assert.equal(pool.give(id, 1), 1);
+  assert.equal(pool.left(id), 0, 'one copy back does not reopen the stock while ownership stays above the cap');
+  assert.equal(pool.give(id, 2), 2);
+  assert.equal(pool.left(id), 1);
+});
+
+test('a 自选 slot\'s private stock keeps the solo count in co-op; 风丸\'s elite occupies 3 copies like any elite', () => {
+  const solo = gdOf('mode_single_normal'), coop = gdOf();
+  for (const slot of Object.keys(DATA.backups.diy.slots)) assert.equal(coop.poolCopies(slot), solo.poolCopies(slot), slot);
+  const h = makeMatch({ mode: 'coop', humans: 1, bots: 1, seed: 5 }).start();
+  h.toPrep(1);
+  const m = h.m, ps = h.ps('p_0');
+  const kaze = 'chess_char_2_11_a';
+  assert.equal(m.pool.cap(kaze), 16, '风丸: solo 8, co-op ×2');
+  give(m, ps, kaze);
+  ps.acquireChess(kaze);
+  const elite = ps.allChess().find((p) => p.id === DATA.chess[kaze].goldenId);
+  assert.ok(elite, '风丸 merges two');
+  assert.equal(elite.poolCopies, 3);
+  assert.equal(m.pool.left(kaze), 13);
+  checkInvariants(m);
+  m.dispose();
 });
 
 test('odds sanity: level L rolls only tiers ≤ L; level 1 only tier 1; shares ≈ research table', () => {

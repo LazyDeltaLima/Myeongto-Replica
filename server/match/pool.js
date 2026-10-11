@@ -3,12 +3,16 @@
 //
 // Model:
 //   * Every visible (non-hidden, non-DIY) base chess that is not banned this match has `cap` copies
-//     (config.economy.poolCopies[tier], overrides e.g. 缪尔赛思 4). `left[baseId]` = copies not owned by anyone.
+//     (GameData.poolCopies: the 独立模拟 (solo) table config.economy.poolCopies[tier] with its per-operator
+//     poolCopiesOverrides, × coopPoolMultiplier in a 同盟模拟 co-op match). `left[baseId]` = the signed capacity minus
+//     the copies owned; the public left() and the rolls clamp a deficit to zero.
 //   * Owning a piece takes copies: a normal piece holds 1, an elite holds 3 (merge of 3 normals). Shop displays
 //     do NOT reserve copies; buying fails (SOLD_OUT) when left = 0.
 //   * Pieces remember how many copies they hold (`piece.poolCopies`), so selling / elimination / temp wipes return
-//     exactly what was taken — chess granted by effects while the pool is empty (or hidden/banned chess) hold 0.
-//   * Invariant (tests): 0 ≤ left ≤ cap and left + Σ held copies == cap for every base chess.
+//     exactly what was taken — hidden/banned chess hold 0. An acquired piece takes its full copies even past the cap
+//     (`take(…, { overdraw: true })`: a grant, a merge's or promotion's elite, 拟态物质's copy beyond the stock), so the
+//     raw balance can go negative and selling one copy does not reopen the stock while ownership stays above the cap.
+//   * Invariant (tests): left ≤ cap and left + Σ held copies == cap for every base chess.
 //
 // Rolls: each chess slot draws ONE copy uniformly from all remaining copies of eligible chess with tier ≤ shop level
 // ("copy-weighted"; duplicates within a roll allowed). The item slot picks a tier with the same tier shares, then a
@@ -72,13 +76,16 @@ export class SharedPool {
   /** Whether a base chess is part of this match's pool (visible, not banned). */
   has(baseId) { return this.entries.has(baseId); }
   cap(baseId) { return this.entries.get(baseId)?.cap ?? 0; }
-  left(baseId) { return this.entries.get(baseId)?.left ?? 0; }
+  left(baseId) { return Math.max(0, this.entries.get(baseId)?.left ?? 0); }
 
-  /** Take up to n copies; returns the number actually taken (0 when not in the pool / empty). */
-  take(baseId, n = 1) {
+  /**
+   * Take up to n copies; returns the number actually taken (0 when not in the pool / empty). `overdraw`: take all n
+   * even past the stock (an owned piece always occupies its copies).
+   */
+  take(baseId, n = 1, { overdraw = false } = {}) {
     const e = this.entries.get(baseId);
     if (!e || !(n > 0)) return 0;
-    const k = Math.min(e.left, Math.floor(n));
+    const k = overdraw ? Math.floor(n) : Math.min(Math.max(0, e.left), Math.floor(n));
     e.left -= k;
     return k;
   }
@@ -94,16 +101,17 @@ export class SharedPool {
 
   /**
    * Remaining copies of eligible chess (tier ≤ maxTier, or exactly `tier`): the pool's entries, then `extra` ([id, entry]
-   * pairs of the same shape — a player's 自选 stock) under the same filters.
+   * pairs of the same shape — a player's 自选 stock) under the same filters. `ignoreCounts`: every eligible identity
+   * once, whatever its copies left (拟态物质's draw).
    */
-  _eligible({ maxTier = 6, tier = null, filter = null, extra = null } = {}) {
+  _eligible({ maxTier = 6, tier = null, filter = null, extra = null, ignoreCounts = false } = {}) {
     const out = [];
     const scan = (list) => {
       for (const [id, e] of list) {
-        if (e.left <= 0) continue;
+        if (!ignoreCounts && e.left <= 0) continue;
         if (tier != null ? e.tier !== tier : e.tier > maxTier) continue;
         if (filter && !filter(id, e)) continue;
-        out.push([id, e.left]);
+        out.push([id, ignoreCounts ? 1 : e.left]);
       }
     };
     scan(this.entries);
@@ -115,7 +123,7 @@ export class SharedPool {
    * Copy-weighted roll: one copy uniformly among remaining copies of eligible chess. Returns a base id or null.
    * @param {Function} rng
    * @param {{ maxTier?: number, tier?: number|null, filter?: (id: string, e: object) => boolean,
-   *   extra?: Iterable<[string, { left: number, tier: number }]>|null }} [opts]
+   *   extra?: Iterable<[string, { left: number, tier: number }]>|null, ignoreCounts?: boolean }} [opts]
    */
   roll(rng, opts = {}) {
     const el = this._eligible(opts);
@@ -170,13 +178,13 @@ export class SharedPool {
   /** { baseId: left } snapshot (tests / diagnostics). */
   snapshot() {
     const o = {};
-    for (const [id, e] of this.entries) o[id] = e.left;
+    for (const [id, e] of this.entries) o[id] = Math.max(0, e.left);
     return o;
   }
 
   totalLeft() {
     let n = 0;
-    for (const e of this.entries.values()) n += e.left;
+    for (const e of this.entries.values()) n += Math.max(0, e.left);
     return n;
   }
 }

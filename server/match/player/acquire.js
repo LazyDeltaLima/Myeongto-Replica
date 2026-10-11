@@ -29,8 +29,8 @@ export class PlayerAcquire {
   }
 
   /**
-   * Acquire a chess (buy, reward, effect grant). Takes pool copies (normal 1, elite goldenCopies) when available,
-   * merges immediately when it completes a set, otherwise stows it (hand, overflow temp). Fires onGain (for the
+   * Acquire a chess (buy, reward, effect grant). Takes its pool copies (normal 1, elite goldenCopies), past the stock
+   * when the pool is short (an owned piece always occupies its copies: pool.js overdraw), merges immediately when it completes a set, otherwise stows it (hand, overflow temp). Fires onGain (for the
    * elite when a merge happened, research 01 §7 "1+1+2"). Returns the owned piece (the elite after a merge) or null.
    * @param {string} chessId
    * @param {{ source?: string, toTemp?: boolean, fromPool?: boolean, silent?: boolean }} [opts]
@@ -42,7 +42,7 @@ export class PlayerAcquire {
     const base = this.gd.baseIdOf(chessId);
     const need = rec.isGolden ? this.gd.goldenCopies : 1;
     // the shared pool, or this player's stock of a slotted 自选 piece (player/diy.js poolOf)
-    const taken = fromPool ? this.poolOf(base).take(base, need) : 0;
+    const taken = fromPool ? this.poolOf(base).take(base, need, { overdraw: true }) : 0;
     const piece = this.newPiece('chess', chessId, { poolCopies: taken });
     this.round.gainedChess++;
     let owned = piece;
@@ -100,7 +100,9 @@ export class PlayerAcquire {
     }
     // a new piece: this round's per-piece counters start at 0, none is carried over from the copies — a newly merged
     // elite 拉普兰德 is a new 拉普兰德 and fires +8 on its own first manual refresh this round (GitHub #169; the owner's
-    // decision of 2026-10-06; pieceRoundCount)
+    // decision of 2026-10-06; pieceRoundCount). The elite occupies goldenCopies whatever its copies held (风丸 merges
+    // two; a copy granted while the stock was short)
+    copies += this.poolOf(baseId).take(baseId, Math.max(0, this.gd.goldenCopies - copies), { overdraw: true });
     const elite = this.newPiece('chess', goldenId, { poolCopies: copies });
     const deployed = consumed.filter((l) => l.key && !this.board.has(l.key)).map((l) => ({ key: l.key, dir: pieceDir(l.piece) }));
     const toTile = (t) => { elite.dir = parseDir(t.dir) || 'RIGHT'; this.board.set(t.key, elite); return 'board'; };
@@ -137,14 +139,14 @@ export class PlayerAcquire {
     return elite;
   }
 
-  /** Promote a normal chess piece to its elite in place (升华, 博士投影). Takes extra pool copies when available. */
+  /** Promote a normal chess piece to its elite in place (升华, 博士投影). Takes the elite's extra pool copies, past the stock. */
   promote(piece) {
     if (!piece || piece.kind !== 'chess' || this.gd.isGolden(piece.id)) return false;
     const goldenId = this.gd.goldenIdOf(piece.id);
     if (!goldenId) return false;
     const base = this.gd.baseIdOf(piece.id);
     const extra = Math.max(0, this.gd.goldenCopies - (piece.poolCopies || 0));
-    piece.poolCopies = (piece.poolCopies || 0) + this.poolOf(base).take(base, extra);
+    piece.poolCopies = (piece.poolCopies || 0) + this.poolOf(base).take(base, extra, { overdraw: true });
     piece.id = goldenId;
     this.recompute();
     // an elite on the board tops its summon stacks up to the elite's deploy limit, like an elite merged onto a tile

@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
-import { makeMatch, give, giveItem, DATA, legalTileFor } from '../match/harness.js';
+import { makeMatch, give, giveItem, DATA, legalTileFor, checkInvariants as checkMatch } from '../match/harness.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { lendItemEffects, itemGrants, PRIO_REVIVE } from '../../server/sim/content/items/battle.js';
 import { unitBonds } from '../../server/sim/content/support/index.js';
@@ -986,41 +986,32 @@ test('拟态物质: owning 2 copies gives the 3rd (→ elite); otherwise a rando
   cover(A('5_05'), B('5_05'));
 });
 
-test('拟态物质 with 2 copies owned and none left in the pool gives nothing — never a same-bond operator; with copies left the 3rd still merges (GitHub #207)', () => {
-  // the report: an elite 溯光星源 (3 of the Ⅵ阶's 5 copies) and 2 normal ones — the pool is empty, the item text's 否则
-  // (a random same-bond operator) is only for fewer than 2 owned
+test('拟态物质 with 2 copies owned grants the 3rd even with none left in the pool — never a same-bond operator; the copies still occupy the pool (GitHub #207 / #430 / #485)', () => {
+  // the report: an elite 溯光星源 (3 of the Ⅵ阶's 5 copies) and 2 normal ones — the pool is empty; the item text's 否则
+  // (a random same-bond operator) is only for fewer than 2 owned. 路标月报#2 (upstream 6bfc0827): 拟态物质 grants past the
+  // stock, and what it grants occupies the pool (a deficit, never a negative shop stock)
   const cid = 'chess_char_6_16_a';
   const elite = DATA.chess[cid].goldenId;
   const chessIn = (ps) => [...ps.board.values(), ...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'chess').map((p) => p.id).sort();
   for (const item of [A('5_05'), B('5_05')]) {
     const { m, ps, equip } = setup({ seed: 9 });
-    give(m, ps, elite, 'hand');
+    const first = give(m, ps, elite, 'hand');
     const t = give(m, ps, cid, 'hand');
     give(m, ps, cid, 'hand');
-    assert.equal(m.pool.left(cid), 0, 'elite 3 + 2 normal = the pool cap 5');
-    const before = chessIn(ps);
-    const got = spyGrants(ps);
+    assert.equal(m.pool.left(cid), 0, 'elite 3 + 2 normal = the solo pool cap 5');
     const warns = spyWarns(m);
     const it = giveItem(m, ps, item);
     assert.deepEqual(equip(it, t), OK, item);
-    assert.deepEqual(got, [], `${item}: nothing granted`);
-    assert.deepEqual(chessIn(ps), before, `${item}: no other operator, no second elite`);
+    assert.deepEqual(chessIn(ps), [elite, elite], `${item}: the 3rd copy merges into a second elite`);
     assert.ok(!ps.find(it.uid), `${item}: consumed`);
-    // …and says why (GitHub #401, the owner's OK of 2026-10-09)
-    assert.deepEqual(warns, [{ msgid: '{who}：卡池中已没有{name}', who: '拟态物质', name: '溯光星源' }], `${item}: the toast`);
-  }
-  // 2 normal copies, no elite, the pool drained by other players: nothing either
-  {
-    const { m, ps, equip } = setup({ seed: 9 });
-    const t = give(m, ps, cid, 'hand');
-    give(m, ps, cid, 'hand');
-    m.pool.take(cid, m.pool.left(cid));
-    const got = spyGrants(ps);
-    const warns = spyWarns(m);
-    assert.deepEqual(equip(giveItem(m, ps, A('5_05')), t), OK);
-    assert.deepEqual(got, []);
-    assert.deepEqual(chessIn(ps), [cid, cid]);
-    assert.deepEqual(warns.map((w) => w.msgid), ['{who}：卡池中已没有{name}']);
+    assert.deepEqual(warns, [], `${item}: no warn toast`);
+    assert.equal(m.pool.entries.get(cid).left, -1, 'two elites hold 6 of the 5 copies');
+    assert.equal(m.pool.left(cid), 0);
+    checkMatch(m);
+    // selling the first elite returns its 3 copies: 2 open again
+    assert.deepEqual(m.handle(ps.playerId, { t: 'g.sell', uid: first.uid }), OK);
+    assert.equal(m.pool.left(cid), 2);
+    checkMatch(m);
   }
   // 2 normal copies with copies left: the 3rd merges into the elite
   {
@@ -1036,17 +1027,36 @@ test('拟态物质 with 2 copies owned and none left in the pool gives nothing �
   }
 });
 
-test('拟态物质 with fewer than 2 copies and no same-bond operator left gives nothing and says so (GitHub #401)', () => {
-  // 缪尔赛思's only bond is 调和 and she is its only member: one copy owned, the rest of her pool taken by others
+test('拟态物质 with fewer than 2 copies draws among the same-bond identities, copies left or not; nothing only without one (GitHub #401 / #485)', () => {
+  // 缪尔赛思's only bond is 调和 and she is its only member: one copy owned, the rest of her pool taken by others — she
+  // is still the draw (an identity, not a copy-weighted roll)
   const cid = 'chess_char_6_11_a';
-  const { m, ps, equip } = setup({ seed: 9 });
-  const t = give(m, ps, cid, 'hand');
-  m.pool.take(cid, m.pool.left(cid));
-  const got = spyGrants(ps);
-  const warns = spyWarns(m);
-  assert.deepEqual(equip(giveItem(m, ps, A('5_05')), t), OK);
-  assert.deepEqual(got, [], 'nothing granted');
-  assert.deepEqual(warns, [{ msgid: '{who}：没有可获得的同盟约干员', who: '拟态物质', name: null }]);
+  {
+    const { m, ps, equip } = setup({ seed: 9 });
+    const t = give(m, ps, cid, 'hand');
+    m.pool.take(cid, m.pool.left(cid));
+    const got = spyGrants(ps);
+    const warns = spyWarns(m);
+    assert.deepEqual(equip(giveItem(m, ps, A('5_05')), t), OK);
+    assert.deepEqual(got, [cid], 'her again, past the stock');
+    assert.deepEqual(warns, []);
+    assert.equal(m.pool.entries.get(cid).left, -1, 'the copy she brings occupies the pool (the others\' copies are taken by hand here)');
+    assert.equal(m.pool.left(cid), 0);
+  }
+  // no same-bond identity in this match's pool at all (here: removed by hand): nothing, and it says so
+  {
+    const { m, ps, equip } = setup({ seed: 9 });
+    const t = give(m, ps, cid, 'hand');
+    const held = m.pool.cap(cid) - m.pool.entries.get(cid).left;
+    m.pool.entries.delete(cid);
+    t.poolCopies = 0;
+    assert.equal(held, 1);
+    const got = spyGrants(ps);
+    const warns = spyWarns(m);
+    assert.deepEqual(equip(giveItem(m, ps, A('5_05')), t), OK);
+    assert.deepEqual(got, [], 'nothing granted');
+    assert.deepEqual(warns, [{ msgid: '{who}：没有可获得的同盟约干员', who: '拟态物质', name: null }]);
+  }
 });
 
 test('博士投影: golden promotes at once; normal stays equipped and promotes at the next round start', () => {

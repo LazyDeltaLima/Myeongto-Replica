@@ -109,7 +109,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `itemSellable`, `itemDestroyRefund` | `false`, `0` | items can only be destroyed |
 | `benchSize`, `tempSize`, `deployCap`, `storeCntMax` | `10`, `5`, `8`, `6` | |
 | `equipPerChess`, `maxArtsPerRound` | `2`, `2` | |
-| `poolCopies[tier]` + `poolCopiesOverrides` | `{"1":12,"2":14,"3":18,"4":16,"5":8,"6":5}`, `{"chess_char_6_11_a":4}` (缪尔赛思) | shared pool copies per base chess |
+| `poolCopies[tier]` + `poolCopiesOverrides` + `coopPoolMultiplier` | `{"1":12,"2":14,"3":18,"4":16,"5":8,"6":5}`; overrides `{"chess_char_1_07_a":10,…}` (Ⅰ 普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10, Ⅱ 风丸 8, Ⅱ 赫默/休谟斯/砾/蒂比/调香师 12); `2` | shared pool copies per base chess: the 独立模拟 (solo) table; a 同盟模拟 (co-op) match has `coopPoolMultiplier` × it, exceptions included (路标月报#2, bilibili BV1eLXXBqEgF; `GameData.poolCopies`); a 自选 slot's private stock keeps the solo count |
 | `goldenCopies`, `mergeCount`, `mergeCountOverrides`, `itemMergeCount` | `3`, `3`, `{"chess_char_2_11_a":2}` (风丸), `2` | |
 | `rewardOffer` | `{"count":3,"tierOffset":1,"maxTier":6,"price":0,…}` | merge reward: 3 **different** free chess of tier `min(shopLevel+1,6)` (a short tier tops up from the tier below; `PlayerState.pushRewardOffer`, user playtest #6 item 19) |
 | `handFillOrder` | `"rightToLeft"` | |
@@ -732,7 +732,7 @@ trait and talents (`tools/build-data.mjs buildDiyTokens`); simdata `getToken` me
 loadout. No id is also a tokens.json record.
 
 Not in this data: a player's ownership roster and 自选 picks (browser settings sent with `room.ownership` / `room.diy`),
-the DIY stock (per player in the match, `PlayerState.diyStock`: `config.economy.poolCopies` of the slot's tier — no excel
+the DIY stock (per player in the match, `PlayerState.diyStock`: `config.economy.poolCopies` of the slot's tier, the solo count in co-op too — no excel
 field), 助战 borrows (`borrowCount` 20), and a player's potential / 练度 per operator (the 干员调配 settings sent with
 `room.loadout`; the forms are built at full potential and carry the lower ranks, §2.3; 练度 = effects.json
 `aceffect_char_1…4`).

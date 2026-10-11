@@ -43,9 +43,9 @@ const paramsOf = (ctx, item) => {
  * The item gave nothing — the copies are all owned (the shared pool, research 06 §7) or no operator shares the bond — but
  * it is still destroyed ("装备时销毁"): say why instead of swallowing it (GitHub #401, the owner's OK of 2026-10-09).
  */
-function toastNothing(ctx, ev, chessName = null) {
+function toastNothing(ctx, ev) {
   const who = ctx.gd.item(ev.item?.id)?.name || '';
-  ctx.toast(chessName ? msg('{who}：卡池中已没有{name}', { who: dn(who), name: dn(chessName) }) : msg('{who}：没有可获得的同盟约干员', { who: dn(who) }), 'warn');
+  ctx.toast(msg('{who}：没有可获得的同盟约干员', { who: dn(who) }), 'warn');
 }
 
 /** random chess sharing at least one bond with `bonds`, tier ≤ maxTier */
@@ -143,19 +143,22 @@ const ITEM_HANDLERS = {
     },
   },
   // 拟态物质 「若已拥有至少2名该初始干员，则再获得1名该初始干员；否则随机获得1名同盟约初始干员」: the 否则 is the owned < 2
-  // case only. With 2 copies owned and none left in the pool (an elite holds 3 of a Ⅵ阶's 5) the grant fails and the
-  // item gives nothing (research 06 §7: some effects fail at the copy cap) — it never falls back to a same-bond operator
-  // (GitHub #207).
+  // case only — it never falls back to a same-bond operator (GitHub #207). Unlike the pool-weighted grants it draws among
+  // the eligible operator identities (any tier, a bond of the target's) and grants past the stock (upstream 6bfc0827:
+  // 路标月报#2, bilibili BV1eLXXBqEgF ~3:00; GitHub #430 / #485); the copies it grants still occupy the pool.
   use_equip_reward_char_chess: {
     onEquip(ctx, ev) {
       const base = ctx.gd.baseIdOf(ev.target.id);
       const owned = [...ctx.board(), ...ctx.hand(), ...ctx.temp()].filter((p) => p && p.kind === 'chess' && !p.golden && ctx.gd.baseIdOf(p.id) === base).length;
       if (owned >= 2) {
-        if (!ctx.grantChess(base)) toastNothing(ctx, ev, ctx.gd.chess(base)?.name || null);
+        // (a full hand and temp area is the only way it fails now: acquireChess says so)
+        ctx.grantChess(base, { requirePool: false });
         return;
       }
-      const id = rollSameBond(ctx, ctx.pieceBonds(ev.target.uid), 6);
-      if (!id || !ctx.grantChess(id)) toastNothing(ctx, ev);
+      const bonds = new Set(ctx.pieceBonds(ev.target.uid));
+      const id = ctx.rollChess({ maxTier: 6, ignoreCounts: true, filter: (cid) => !!ctx.gd.chess(cid)?.bonds?.some((b) => bonds.has(b)) });
+      if (!id) toastNothing(ctx, ev);
+      else ctx.grantChess(id, { requirePool: false });
     },
   },
   use_equip_reward_special_goods_char_chess: {

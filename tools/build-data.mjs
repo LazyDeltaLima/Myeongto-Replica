@@ -3633,8 +3633,19 @@ function enemyScaleFor(table, type, difficulty, round, isHidden) {
  * Build data/config.json: modes (rounds, timers, shop, enemy scaling), economy, bans, timers,
  * titles, tips, broadcasts, trophies and other global tunables.
  */
-function buildConfig(ctx, waves, stages, bands) {
+function buildConfig(ctx, waves, stages, bands, chess) {
   const { act, ac } = ctx;
+  // Shared-pool copies (路标月报#2, 路标档案馆, bilibili BV1eLXXBqEgF, 2026-03-29; GitHub #430, upstream PR #477 / 6bfc0827):
+  // the 独立模拟 (solo) table per base chess, by tier 12/14/18/16/8/5, with the per-operator exceptions below; a 同盟模拟
+  // (co-op) match has coopPoolMultiplier × the solo value, every tier and exception (Ⅰ 20/24, Ⅱ 16/24/28, Ⅲ 36, Ⅳ 32,
+  // Ⅴ 16, Ⅵ 10). The former 缪尔赛思 4 came from a season-1 (盟约 上半) video and is gone: this season's table lists
+  // every Ⅵ at 5. Concurrent stock, not a limit on appearances or purchases. Names → the normal chess of that name.
+  const poolStock = Object.fromEntries(Object.entries({ 普罗旺斯: 10, 德克萨斯: 10, 跃跃: 10, 古米: 10, 格雷伊: 10,
+    风丸: 8, 赫默: 12, 休谟斯: 12, 砾: 12, 蒂比: 12, 调香师: 12 }).map(([name, n]) => {
+    const rec = Object.values(chess).find((c) => !c.isGolden && c.visible && c.name === name);
+    if (!rec) throw new Error(`pool stock: no visible normal chess named ${name}`);
+    return [rec.chessId, n];
+  }));
   const addendum = ctx.research.core?._criticAddendum || {};
   const multipliers = addendum.enemyStatMultipliers || DEFAULT_ENEMY_MULTIPLIERS;
   if (!addendum.enemyStatMultipliers) warn('config: using built-in enemy multiplier table (research 01 _criticAddendum missing)');
@@ -3742,7 +3753,8 @@ function buildConfig(ctx, waves, stages, bands) {
       storeCntMax: act.constData.storeCntMax,
       equipPerChess: 2, maxArtsPerRound: 2,
       poolCopies: { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 },
-      poolCopiesOverrides: { chess_char_6_11_a: 4 },
+      poolCopiesOverrides: poolStock,
+      coopPoolMultiplier: 2,
       goldenCopies: 3,
       mergeCount: 3,
       mergeCountOverrides: Object.fromEntries(Object.entries(act.charChessDataDict).filter(([, c]) => !c.isGolden && c.upgradeNum && c.upgradeNum !== 3).map(([id, c]) => [id, c.upgradeNum])),
@@ -4153,7 +4165,7 @@ async function main() {
   // the bonds each strategy is built around (DESIGN §21.26): the bot skips, and the strategy draft marks 本局禁用, a band
   // whose bond the mode switches off
   for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
-  const config = buildConfig(ctx, waves, stages, bands);
+  const config = buildConfig(ctx, waves, stages, bands, chess);
   const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };
 
   // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)

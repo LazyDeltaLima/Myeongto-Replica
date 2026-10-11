@@ -451,7 +451,7 @@ a promotion or `ctx.destroyPiece` returns) ends with the auto-merge (`acquireIte
 
 Built-ins (builtinMeta.js, overridable): 盟约之币 / 骑士储蓄罐 (random funds), 随身身份牌 (layers of the target's bonds),
 紧急调度券 (take shop chess), 精打细算玩偶 (+funds each round), 简易通讯机 (same-bond chess), 拟态物质 (with 2 copies
-owned the 3rd — nothing when the pool has none left, GitHub #207 —, else a same-bond chess), 见钱眼开玩偶
+owned the 3rd, else a same-bond chess drawn by identity — both past the stock, GitHub #207 / #430 / #485), 见钱眼开玩偶
 (+funds next round), 人事部文档 (cap 9), 博士投影 (elite now / at the next round start), 寻呼模块 / 信标 (pick-one
 offers; 信标 gifts the original chess — an elite stays an elite — to the teammate with the most members of its bonds next
 round, also when the sender was eliminated meanwhile; a failed grant waits for the next round start), 商业包装方案 (every
@@ -543,8 +543,14 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   the kind of every slot, empty ones included). One freeze
   toggle freezes every unsold slot until the next round start; a manual refresh rerolls everything (new slots stay
   frozen). Unfrozen slots are cleared at combat start. A frozen card keeps its place among the slots of its kind.
-* **Pool**: copies 12/14/18/16/8/5 (缪尔赛思 4); a normal piece holds 1 copy, an elite 3; displays never reserve copies;
-  selling, temp resolution and elimination return exactly what a piece holds (`left + held = cap` always).
+* **Pool**: copies 12/14/18/16/8/5 in 独立模拟 (solo; Ⅰ 普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10, Ⅱ 风丸 8 and
+  赫默/休谟斯/砾/蒂比/调香师 12); a 同盟模拟 (co-op) match has ×2 of that, every tier and exception, whatever the team size
+  (路标月报#2, bilibili BV1eLXXBqEgF; GitHub #430; `economy.coopPoolMultiplier`, `GameData.poolCopies`; the former
+  缪尔赛思 4 was a season-1 measurement); a normal piece holds 1 copy, an elite 3 (风丸's two-copy merge too) by every gain
+  route, past the stock when it is short (`take(…, { overdraw: true })`: the raw balance goes negative, the public `left()`
+  and the rolls clamp it at 0); 拟态物质 draws among the eligible identities (`rollChess` `ignoreCounts`) and grants past the
+  stock; displays never reserve copies; selling, temp resolution and elimination return exactly what a piece holds
+  (`left + held = cap` always).
 * **自选编队 (0.2.0, `player/diy.js`; research 0.2.0 §2, the owner's decisions of 2026-10-05)**: a human's `seat.diy`
   picks (room.diy, checked again against the match's data and kits) are fixed for the match once its strategy draft ends
   (local: during the briefing / draft `match.setDiy` re-makes them while the player's 自选 stock is untouched — 진영별 선발
@@ -554,7 +560,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   (bondsMeta: BOARD / BOARD_AND_DECK distinct pieces, 煌's 炎 + 维多利亚, 绝技 elites), 特质 / meta effects (`makeCtx`
   hands handlers the player's view), placement and summon ranges, the AI 托管 evaluation (bot.js), names in toasts and
   tickers — sees the operator; a player without picks keeps the match's GameData itself. Each slotted piece has its own
-  stock (`ps.diyStock`: `poolCopies` of the slot's tier, 8 / 5 [ASSUMED]; none — `diyBanned` — when every bond of it is
+  stock (`ps.diyStock`: `poolCopies` of the slot's tier, 8 / 5 in every mode [ASSUMED]; none — `diyBanned` — when every bond of it is
   off this match; `initDiyStock` once the bans are drawn); `poolOf(baseId)` routes its copy accounting (buy, reward
   picks, merges, promotions, sells, temp, elimination; `invariants.js` checks `left + held = cap` per player). The
   shop's chess slots and the reward offers' temporary refreshes roll it with the shared pool (`pool.roll({ extra })`,
