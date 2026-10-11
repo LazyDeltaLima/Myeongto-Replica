@@ -424,7 +424,8 @@ export async function createFieldView(host, options = {}) {
       const b = new BoardScene(THREE, pack, {
         canvas: c3, antialias: settings.quality !== 'low' && (globalThis.devicePixelRatio || 1) < 2, shadows: settings.quality !== 'low',
         // local patch: the official per-stage scenes (docs/local/official-scenes.md); ?officialBoard=0 keeps the procedural board
-        loadOfficial: (id) => loadOfficialScene(assets, id),
+        loadOfficial: (id, o) => loadOfficialScene(assets, id, o),
+        onOfficialMissing: (id, why, n) => noteRender('3d scene retry', `${id} try ${n}: ${why}`),
         // the official scene's tile heights (style.js tileTop): the units, picking and highlights follow them
         onOfficial: (info) => {
           const h = info?.highland ?? null;

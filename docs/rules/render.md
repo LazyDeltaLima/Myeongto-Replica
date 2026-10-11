@@ -258,6 +258,20 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   `battleRunner.reshow()`, 서버 전투·관전은 `g.watch`로 새 메타를 받아 버퍼된 재진입 경로로). 진단 `render events:`에 `engine retry n/2`.
   [화면 미확인] 실제 휴대폰에서 간이 보기 → 복귀.
 
+## 공식 스테이지 씬 텍스처 받기 실패 (2026-10-11, 관리자 제보 「일부 유저가 게임 중 3D 렌더링이 제대로 안 된다」)
+- 원인(코드): `board3d/official.js loadOfficialScene`이 스테이지마다 이미지 약 21장(텍스처 17 + 라이트맵 4, act1autochess_m01)을 받는데,
+  한 장이 실패해도 씬을 성공으로 페이지 끝까지 캐시했고(`assets.image`도 실패를 캐시), 그 재질의 텍스처 자리는 three.js의 빈 텍스처
+  (0,0,0,0)를 읽었다 — 불투명 부분은 검게, 알파 테스트·반투명 부분은 사라지고, 라이트맵이 빠지면 구운 조명 없이 그려진다. 컨텍스트 소실 뒤
+  보드를 다시 만들어도 같은 캐시라 그대로. 휴대폰 통신에서 요청 하나만 끊겨도 생긴다.
+- 처리: `loadOfficialScene(assets, id, { retry, partial })`은 하나라도 빠지면(scene.json·geom.bin·이미지·`scene/devices`) reject하고
+  `retry`면 실패한 것만 다시 받는다(받은 이미지는 캐시 그대로). `scene.js _loadOfficial`은 그동안 절차형 보드를 그리고
+  `OFFICIAL_RETRY_MS`(2·6·15·30초) 뒤 다시 시도, 마지막 시도는 `partial`(매니페스트에는 있는데 서버에 없는 파일은 영영 안 오므로 예전처럼
+  받은 것만으로 그림). 진단 `render events:`에 `3d scene retry`(스테이지·몇 번째·빠진 것).
+- 확인: `test/render/board3d-official-retry.test.js`. [화면 미확인] 실제 휴대폰에서 요청 차단 → 절차형 보드 → 공식 씬 복귀.
+- 관리자 제보의 「2D 판으로 뜬다」는 이 결함이 아니다(이건 3D 보드 안에서 섬 일부가 검게·빠지게 그려짐). 2D 판이 되는 경로는 위
+  「모바일 3D 보드 복구」의 GPU 검사(`failIfMajorPerformanceCaveat`: 하드웨어 가속 꺼짐·소프트웨어 GPU면 의도대로 2D)·보드 아트 받기 실패·
+  컨텍스트 연속 소실(휴대폰 메모리 — 상한은 보류) — 진단 정보 `render:` 줄로 가른다.
+
 ## 이펙트 렌더러 정리 (2026-10-10, 관리자 요청 「측정 후 고치기」)
 - 측정(Windows Chrome render-demo, 공속 +0/+100/+200 녹화, WebGL 호출 집계 — 자세한 표는 관리자 노트): 판 끝 `view.destroy()` 뒤 이펙트 컨텍스트 2개가
   끊기지 않고 텍스처를 쥔 채 남았다 — 후반 R13 약 45 MB(156~167장), 보스 135~171 MB(362~461장), 강제 GC 3번에도 그대로(옛 view → fxGame의

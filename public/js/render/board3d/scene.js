@@ -11,7 +11,8 @@
 //                                      (render/units.js DeviceView boxes, drawn as the official crate mesh)
 //   board.flashObjective(r, c)       leak flash of a blue objective box
 //   board.render(cam, timeSec)       sync the camera, animate, draw
-//   opts.loadOfficial(stageId)       → Promise<official scene | null> (official.js loadOfficialScene): when a stage has
+//   opts.loadOfficial(stageId, { retry, partial }) → Promise<official scene | null> (official.js loadOfficialScene; rejects
+//                                      while incomplete: tried again after OFFICIAL_RETRY_MS, opts.onOfficialMissing): when a stage has
 //                                      an extracted official scene (docs/local/official-scenes.md) it replaces the procedural tiles,
 //                                      background and shadows; gates, field edges, devices and terrain FX stay
 //   board.resize(w, h, dpr) · board.stats() · board.destroy()
@@ -49,6 +50,12 @@ export const LIGHTING = Object.freeze({
   // (21:9, 4:3, portrait fit, camera flights) sees past its edge
   bg: { z: -8, size: 43.16, color: 0.713, dim: 0.8, tiles: 3 },
 });
+
+/**
+ * Delays (ms) before the official stage scene is loaded again after a load that missed something (a dropped request on a
+ * phone); after the last one the scene is drawn with what loaded (official.js loadOfficialScene `partial`).
+ */
+export const OFFICIAL_RETRY_MS = Object.freeze([2000, 6000, 15000, 30000]);
 
 /** Additive gain of the gate boxes at the curve's mean (tuned against the official screenshots). */
 export const GATE_GAIN = 0.6;
@@ -228,6 +235,7 @@ export class BoardScene {
     this._crateGeom = null;
     this.officialData = new Map();   // stageId → loaded official scene (null: none / failed)
     this.officialPending = new Set();
+    this._officialTimers = new Set(); // pending retries of an official scene that was not loaded whole
     this.officialBuilt = null;
     this.overlay = new TileOverlay(T, this.scene); // local patch
     this.infectionFx = new InfectionFx(T, this.scene); // local patch
@@ -355,15 +363,31 @@ export class BoardScene {
     const load = this.opts.loadOfficial;
     if (!id || typeof load !== 'function' || this.opts.official === false) return null;
     if (this.officialData.has(id)) return this.officialData.get(id);
-    if (!this.officialPending.has(id)) {
-      this.officialPending.add(id);
-      Promise.resolve(load(id)).catch(() => null).then((data) => {
-        this.officialPending.delete(id);
-        this.officialData.set(id, data || null);
-        if (data && !this.destroyed && this.stage?.id === id) { this.stageKey = null; this.setStage(this.stage); }
-      });
-    }
+    if (!this.officialPending.has(id)) this._loadOfficial(id, 0);
     return null;
+  }
+
+  /**
+   * Load the official scene of stage `id`. A scene that could not be loaded whole (official.js rejects: a texture
+   * missing would draw black) leaves the procedural board meanwhile and is tried again after OFFICIAL_RETRY_MS
+   * (`retry`: only what failed); the last try settles for what loaded (`partial`: a file the server lacks never comes).
+   */
+  _loadOfficial(id, tries) {
+    this.officialPending.add(id);
+    const delays = this.opts.officialRetryMs || OFFICIAL_RETRY_MS;
+    const last = tries >= delays.length;
+    Promise.resolve().then(() => this.opts.loadOfficial(id, { retry: tries > 0, partial: last })).then((data) => ({ data }), (err) => ({ err })).then(({ data, err }) => {
+      if (this.destroyed) return;
+      if (err && !last) {
+        this.opts.onOfficialMissing?.(id, String(err?.message || err), tries + 1);
+        const t = setTimeout(() => { this._officialTimers.delete(t); if (!this.destroyed) this._loadOfficial(id, tries + 1); }, delays[tries]);
+        this._officialTimers.add(t);
+        return;
+      }
+      this.officialPending.delete(id);
+      this.officialData.set(id, data || null);
+      if (data && this.stage?.id === id) { this.stageKey = null; this.setStage(this.stage); }
+    });
   }
 
   /** The official scene's HIGH tile height for stage `id` (null: not drawn from an official scene). */
@@ -762,6 +786,8 @@ export class BoardScene {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    for (const t of this._officialTimers) clearTimeout(t);
+    this._officialTimers.clear();
     for (const d of [...this.devices]) d.destroy();
     this._clear();
     this._dropOfficial();

@@ -2,7 +2,8 @@
 // of each autochess stage, exported by tools/local-extract/scene_extract.py into scene/<stageId>/ (merged draw groups
 // in board space + baked lightmaps / shadowmasks) and scene/tex/ (theme textures: map_autochesssand, map_kxmr, …).
 //
-//   const data = await loadOfficialScene(assets, stageId)   // null when the stage has no extracted scene
+//   const data = await loadOfficialScene(assets, stageId, { retry, partial })   // null when the stage has no extracted
+//                                                           // scene; rejects while it could not be loaded whole
 //   const built = buildOfficialScene(THREE, data, focus)    // → { meshes: [Mesh], materials, dispose() }
 //   built.setArea(rects)                                    // show the hidden sets of the field(s) in play
 //   built.update(t)                                         // animated materials (water)
@@ -38,6 +39,8 @@ async function fetchBin(url) {
   try { const r = await fetch(url); return r.ok ? await r.arrayBuffer() : null; } catch { return null; }
 }
 
+// stageId → Promise<{ data, missing }>: `data` null = no scene listed for the stage (kept for good); `missing` = what
+// failed to load (scene.json / geom.bin / images / the device models) — such a result is loaded again on `retry`
 const cache = new Map();
 
 /** Group key of a stage scene in data/local-assets.json. */
@@ -57,20 +60,49 @@ export function officialSceneListed(assets, stageId) {
 /**
  * Load scene.json + geom.bin + every texture the scene uses (cached per stage). Textures come from the manifest
  * (scene/tex/<name>, scene/<stage>/lm*), images through assets.image (the browser resource cache).
- * @returns {Promise<object|null>}
+ *
+ * A scene that could not be loaded whole — a dropped request on a phone, an image the browser could not decode — is
+ * not drawn: a material whose texture is missing samples black (opaque parts turn black, cut-out ones vanish, a missing
+ * lightmap drops the baked light), so the promise rejects and the caller keeps the procedural board meanwhile.
+ * `retry` loads again only what failed (assets.image retry; loaded images stay cached). `partial` (the caller's last
+ * try: a file the manifest lists but the server lacks never comes) settles for the scene without what is missing.
+ * @param {{ retry?: boolean, partial?: boolean }} [opts]
+ * @returns {Promise<object|null>} null when the stage has no extracted scene
  */
-export function loadOfficialScene(assets, stageId) {
+export function loadOfficialScene(assets, stageId, { retry = false, partial = false } = {}) {
   if (!stageId) return Promise.resolve(null);
-  if (cache.has(stageId)) return cache.get(stageId);
-  const p = (async () => {
-    if (!assets || typeof assets.localUrl !== 'function' || typeof assets.image !== 'function') return null;
-    try { await assets.local?.(); } catch { return null; }
+  return loadScene(assets, stageId, retry).then(({ data, missing }) => {
+    if (missing.length && !(partial && data)) throw new Error(`official scene ${stageId} incomplete: ${missing.length} missing (${missing[0]})`);
+    return data;
+  });
+}
+
+/** The cached load of a stage scene → { data, missing: [what failed] }; a result with something missing is loaded again on `retry`. */
+function loadScene(assets, stageId, retry) {
+  const prev = cache.get(stageId);
+  if (prev && !retry) return prev;
+  const p = (prev || Promise.resolve(null)).then((r) => {
+    if (r && !r.missing.length) return r;
+    return loadSceneOnce(assets, stageId, retry);
+  });
+  cache.set(stageId, p);
+  return p;
+}
+
+async function loadSceneOnce(assets, stageId, retry) {
+  try {
+    if (!assets || typeof assets.localUrl !== 'function' || typeof assets.image !== 'function') return { data: null, missing: [] };
+    let manifest = null;
+    try { manifest = await assets.local?.(retry ? { retry: true } : undefined); } catch { manifest = null; }
     const url = (g, n) => { const u = assets.localUrl(g, n); return typeof u === 'string' && u ? encodeURI(u) : null; };
     const g = sceneGroup(stageId);
     const sUrl = url(g, 'scene'), bUrl = url(g, 'geom');
-    if (!sUrl || !bUrl) return null;
+    // not listed: no scene on this host — unless the manifest itself could not be read (then try again)
+    if (!sUrl || !bUrl) return { data: null, missing: isObj(manifest) || typeof assets.local !== 'function' ? [] : ['local-art manifest'] };
     const [doc, buf] = await Promise.all([fetchJson(sUrl), fetchBin(bUrl)]);
-    if (!isObj(doc) || !buf || !Array.isArray(doc.groups)) return null;
+    if (!isObj(doc) || !Array.isArray(doc.groups)) return { data: null, missing: [sUrl] };
+    if (!buf) return { data: null, missing: [bUrl] };
+    const missing = [];
     const wanted = new Map();  // url → [slot setters]
     const want = (u, set) => { if (!u) return; if (!wanted.has(u)) wanted.set(u, []); wanted.get(u).push(set); };
     const textures = {};
@@ -89,15 +121,22 @@ export function loadOfficialScene(assets, stageId) {
       }
     });
     await Promise.all([...wanted.entries()].map(async ([u, sets]) => {
-      const img = await assets.image(u).catch(() => null);
+      const img = await (retry ? assets.image(u, { retry: true }) : assets.image(u)).catch(() => null);
       if (img && (img.width || img.naturalWidth) > 0) for (const s of sets) s(img);
+      else missing.push(u);
     }));
     // the runtime device models (scene/devices), shared by every stage; null on an older extract (none listed)
-    const devices = stageId === DEVICES_ID ? null : await loadOfficialScene(assets, DEVICES_ID);
-    return { stageId, doc, buffer: buf, textures, lightmaps, devices };
-  })().catch((err) => { console.warn('[board3d] official scene load failed', stageId, err); return null; });
-  cache.set(stageId, p);
-  return p;
+    let devices = null;
+    if (stageId !== DEVICES_ID) {
+      const d = await loadScene(assets, DEVICES_ID, retry);
+      devices = d.data;
+      missing.push(...d.missing);
+    }
+    return { data: { stageId, doc, buffer: buf, textures, lightmaps, devices }, missing };
+  } catch (err) {
+    console.warn('[board3d] official scene load failed', stageId, err);
+    return { data: null, missing: [String(err?.message || err)] };
+  }
 }
 
 /**
