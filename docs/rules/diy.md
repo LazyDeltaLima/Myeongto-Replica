@@ -416,6 +416,34 @@
 - 공식 이펙트: 오퍼레이터 번들은 `fx_extract.py --bundle <key>`, 소환물 이펙트는 공용 팩에서 `--pack pkgrps/btl_pfb_fx_token_N.ab --match`.
   게임 이벤트 연결은 `fxgame.js`(왕 `stoneFx` 참고).
 
+**연출 대조** (2026-10-12, 안젤리나 더 멜로우 위시 S2 — 아래 「S2 활공 모션」)
+판정 규칙은 테이블·PRTS로 맞춰도 연출은 클라 프리팹에만 있다. 렌더가 스킬마다 begin/loop/end/idle 한 벌만 알아 `Skill_2_Takeoff_*`를 한 번도
+틀지 않았고, 몸이 투사체에 실려 가는 것(`_restoreOnEnd`)과 높이 변화(ModifyGraphicHolderHeight)도 빠졌다. 키트를 넣거나 고칠 때 아래를 하나씩 본다.
+- **Spine 클립 전수 대조**: `data/assets.json` `chars[<charId>].spine.front`·`.back`의 `animations`(클립 이름 → 길이) 전체를, 렌더가 트는 클립과 맞춘다.
+  트는 클립 = `anims`(`tools/assets/anim-roles.mjs` 역할: idle·deploy·attack·attackDown·skill·`skills[i]`·die·move·stun, 다형 모델의 `<form>` 클립)
+  + `tools/assets/anim-overrides.mjs SKILL_CLIP_OVERRIDES` + 렌더에 이름으로 박힌 클립(`public/js/render/units.js`·`spine.js`·`fxgame.js`를 클립 이름으로 grep).
+  남는 클립(`*_Begin` 외 특수 클립, `*_Move`, `*_Combat`, `*_Restart_*`, `*_Takeoff_*`, `*_Overload_*`, `*_A`/`*_B` 짝, `Start_2`, `*_Die` 등)은 하나씩
+  「공식에서 언제 트는지」를 찾아 연결하거나, 안 쓰는 이유를 이 문서의 그 오퍼레이터 절에 적는다. 찾는 곳: 스킬 프리팹(아래), charpack `char_<id>.ab`의
+  `_modes`(`Modes/<이름>/` 아래 능력의 `_animKey`·`_endAnimKey`, 모드의 `_replaceAnimPairs` — `tools/local-extract/attack_timing.py`·`char_modes.py`가 읽는
+  자리), 버프 템플릿(아래). 앞·뒤 모델 클립 목록이 다를 수 있으니 둘 다 본다.
+- **스킬 프리팹**(`battle/prefabs/[uc]skills.ab` `skchr_<code>_<n>`, `skill_cast.py`가 같은 번들을 읽음)의 연출 필드: `_playSkillBeginAnim`·`_beginAnim`(시작
+  클립과 그동안의 대기 — 첸 더 던스트릭 S3), `_switchToState`, 吟唱(ChantBeforeSkill 계열) `_animation`의 begin/loop/end와 `_afterEndAnim`·
+  `_buffOnAfterEndAnim`·`_interruptProjectileOnEndAnim`, 클립 컴포넌트 `_default {beginAnim, loopAnim, endAnim}`, `switch_mode` 버프 → 그 모드의
+  클립(`char_modes.py` `skillMode`, charpack `_replaceAnimPairs`). 기본값이 아닌 필드는 렌더가 그것을 하는지 하나씩 확인한다.
+- **투사체**(`battle/prefabs/[uc]projectiles.ab`, 스킬 프리팹의 `_projectileKey`): follower 컴포넌트(`_follower`·`_policy`·`_restoreOnEnd`·
+  `_faceToMoveDirection`)가 있으면 시전자의 **몸이 투사체에 실려 간다**. `_restoreOnEnd` 1 = 끝나면 원래 자리로(S2 활공), 0 = 도착한 자리에 남음(S3 비행).
+  속도·도달 거리(`_speed`, `_distanceMax` Q32)·수명(`_lifeTimeType`)도 함께 읽는다.
+- **버프 템플릿**(`config/buff_template_holder.ab`의 `_templates[]`, `SerializedState`가 `$type` JSON — `tools/local-extract/enemy_bindings.py
+  read_buff_templates`가 읽는 방식; EN 전체 덤프는 관리자 노트): 그 오퍼레이터 버프(`<code>_s_<n>[…]`, `<code>_t_<n>`)의 ModifyGraphicHolderHeight(그림
+  높이·시간), SwitchMode(모드 → 클립), CreateEffect(이펙트 키) 노드. 노드가 거는 블랙보드 값(`height_duration` 등)은 skill_table에서 찾는다.
+- **PRTS 备注의 연출 문구**: 「模型」「不改变所在地块」「中心坐标」 같은 말은 모델만 움직이고 판정은 그대로라는 뜻이다. 판정(칸·좌표·사거리)은 시뮬, 모델 위치·높이·
+  클립은 렌더로 나눈다(시뮬이 칸을 옮기면 공식과 달라진다). 숨은 주석도 본다(S2 활공의 끝점 규칙이 거기 있었다).
+- **어느 클라로 확인했는지**: EN에 있는 클래스는 디컴파일로 「언제 트는지」(어느 메서드가 그 필드를 읽는지)까지 확인한다. CN 전용 클래스(CN
+  `GameAssembly.dll`은 덤프 불가)는 필드만 읽고 해석을 [추정]으로 표시한다(이 문서의 근거 줄에 「CN 전용, 필드만」이라고 쓴다).
+- **렌더 테스트**: 실제 매니페스트(`data/assets.json`)의 그 항목으로 `SpineActor`를 만들고 클립 순서(`setAnimation`/`addAnimation` 기록), 공격 클립 대기,
+  스킬 끝 처리, 뷰 위치·높이를 고정한다(`test/render/aglna2-s2-glide.test.js` 형식, 가짜 PIXI `test/render/fakepixi.js`). 화면 확인(Windows Chrome 디버그
+  아레나)은 관리자 노트의 열린 항목 목록에 한 줄로 남긴다.
+
 **테스트** (`test/local-patch.test.js`)
 - 범위 피해가 있는 스킬마다 은신 적(예: 隐形弩手)을 맞히지 않는 테스트.
 - 함정 소환물은 공격 대상이 안 되는지, 정비 때 놓은 자리가 전투 시작 후에도 같은지.

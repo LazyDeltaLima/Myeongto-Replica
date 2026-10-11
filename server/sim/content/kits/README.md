@@ -198,7 +198,7 @@ ranks, DATA.md §2.3). A new kit makes the operator a legal pick only with `LOCA
 **The fidelity rule and the checklist** above apply item by item: every skill at rank 4 and 7, every talent, every
 module at stages 1 and 3 (trait override, talent changes, stats), the range while a skill runs, the auto-cast trigger
 (the data's; the owner's rules of checklist item 5 — an AUTO skill acting on nobody fires at full SP), anti-air and
-targetability, damage typing, summons, statuses. Mark what no source settles `[ASSUMED]` in the comment and the pull
+targetability, damage typing, summons, statuses, presentation (item 12). Mark what no source settles `[ASSUMED]` in the comment and the pull
 request.
 
 **Tests** — `test/local-patch-diy.test.js` (the first five) and `test/content/op_<codename>.test.js` (the three of 2026-10-11):
@@ -325,6 +325,30 @@ Each item is a mistake this project already made once. Tick every one for every 
   `battle.heal`: 禁疗 and 无法被友方治疗 (`noHeal`) do not stop it and no 治疗加成 scales it (damage.js heal `regen`).
   Examples: 安洁莉娜 兼职工作, the 吟游者 trait (professions.js `bardRegen`), 调香师, 瑕光 S2, 铃兰 S3, 锡人;
   `test/content/feedback5-regen.test.js` (GitHub #96 / #137). A per-second 「恢复…生命」 without such a note stays a heal.
+- [ ] **12. Presentation (clips, body movement, height)** — the rules come from the tables and PRTS, the motion only
+  from the client prefabs; the renderer knows one begin / loop / end / idle set per skill and plays nothing else unless
+  told (予愿安洁莉娜 S2 glided nowhere: `Skill_2_Takeoff_*` never played — docs/rules/diy.md 「안젤리나 더 멜로우 위시 S2 활공
+  모션」, the full list in its 「연출 대조」 checklist). Check, for the front and the back model:
+  - **every Spine clip**: `data/assets.json` `chars[<charId>].spine.<front|back>.animations` against what the renderer
+    plays — the `anims` roles (`tools/assets/anim-roles.mjs`, the `<form>` clips of multi-form models),
+    `tools/assets/anim-overrides.mjs SKILL_CLIP_OVERRIDES` and clip names written in `public/js/render/units.js` /
+    `spine.js` / `fxgame.js`. Each clip left over (`*_Move`, `*_Combat`, `*_Restart_*`, `*_Takeoff_*`, `*_Overload_*`,
+    `Start_2` …) is wired to where the client plays it, or the reason it is not is written down;
+  - **the skill prefab** (`battle/prefabs/[uc]skills.ab` `skchr_<code>_<n>`, the bundle `tools/local-extract/skill_cast.py`
+    reads): `_playSkillBeginAnim` / `_beginAnim`, `_switchToState`, a chant's `_animation` begin / loop / end,
+    `_afterEndAnim`, `_buffOnAfterEndAnim`, an anim component `_default`, a `switch_mode` buff → that mode's clips
+    (charpack `_modes` / `_replaceAnimPairs`, `char_modes.py`, `attack_timing.py`);
+  - **the projectile** (`battle/prefabs/[uc]projectiles.ab`): a follower component (`_follower`, `_restoreOnEnd`,
+    `_faceToMoveDirection`) means the caster's body rides it (`_restoreOnEnd` 1 = back to its tile at the end);
+  - **the buff templates** (`config/buff_template_holder.ab`, read as `enemy_bindings.py read_buff_templates` does):
+    ModifyGraphicHolderHeight (model height), SwitchMode (mode → clips), CreateEffect (effects) nodes of the operator's
+    buffs;
+  - **PRTS 备注 wording** such as 「模型」 / 「不改变所在地块」: the model moves, the rules do not — the tile, position and
+    range stay in the sim, the model's position, height and clips go to the renderer;
+  - **the client the reading came from**: a class the EN client has is checked in the decompiled code (which method
+    reads the field, so when the clip plays); a CN-only class is read field by field and its reading is `[ASSUMED]`;
+  - **a render test** that pins the clip order on the real manifest entry (`test/render/aglna2-s2-glide.test.js`, headless
+    `test/render/fakepixi.js`), with the screen check left as an open item for the maintainer.
 
 ## Old references
 
