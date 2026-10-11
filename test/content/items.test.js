@@ -247,8 +247,8 @@ test('突袭手雷: within 10 s / 15 s after each deploy, attacks stun the targe
   }
 });
 
-test('突袭手雷 / 催泪瓦斯 / 战栗维式重锤: every damage instance procs — skill and area damage too, not 元素损伤 (client ON_OUTPUT_DAMAGE graphs)', () => {
-  for (const [id, status] of [[A('3_11'), 'stun'], [A('5_01'), 'palsy'], [A('2_03'), 'tremble']]) {
+test('突袭手雷 / 催泪瓦斯 / 战栗维式重锤 / 谢拉格不融冰: every damage instance procs — skill and area damage too, not 元素损伤 (client ON_OUTPUT_DAMAGE graphs; 谢拉格不融冰 GitHub #489)', () => {
+  for (const [id, status] of [[A('3_11'), 'stun'], [A('5_01'), 'palsy'], [A('2_03'), 'tremble'], [A('5_02'), 'cold'], [B('5_02'), 'cold']]) {
     // three enemies out of the carrier's attack range
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [id] }], foes: [[12, 9], [11, 9], [9, 9]] });
     h.step(1);

@@ -667,12 +667,13 @@ const BY_ITEM = {
     const pr = p ? num(p.prob) : 0;
     if (pr > 0) onDamageEnemies(S, u, (t) => { if (chance(battle, pr)) battle.applyStatus(t, 'palsy', { value: 1, source: u }); });
   },
-  // 谢拉格不融冰: on attack prob ⇒ 寒冷 `cold` s
+  // 谢拉格不融冰: every damage instance (client graph act1vautochess_acarm003_buff ON_OUTPUT_DAMAGE → Dice) prob ⇒ 寒冷
+  // `cold` s — skills and damage over time too, not only normal attacks (GitHub #489: 阿斯卡纶's talent ticks)
   chess_item_5_02_e(battle, u, rec, S) {
     const p = bp(rec, 'act1vautochess_equip_acarm003_global_buff');
     if (!p) return;
     const pr = num(p.prob), d = num(p.cold);
-    if (pr > 0 && d > 0) onAttackEnemies(S, u, (t) => { if (chance(battle, pr)) battle.applyStatus(t, 'cold', { duration: d, source: u }); });
+    if (pr > 0 && d > 0) onDamageEnemies(S, u, (t) => { if (chance(battle, pr)) battle.applyStatus(t, 'cold', { duration: d, source: u }); });
   },
   // 双模机械臂: physical/arts damage becomes 弱点伤害 (whichever type the target resists less)
   chess_item_5_03_e(battle, u, rec, S) {

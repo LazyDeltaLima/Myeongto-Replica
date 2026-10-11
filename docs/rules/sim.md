@@ -507,6 +507,16 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
 - 테스트 `test/match/shared-stock.test.js`(협동 둘이 같은 카드를 마지막 한 장에서 둘 다 삼, 내부 잔고 −1, 그 카드는 더 안 뜸, 보상 제시는 그대로 `SOLD_OUT`),
   `test/match/economy.test.js`(재고 0에서 구매 → 잔고 −1, 팔아도 다시 안 열림)·`test/match/diy-shop.test.js`(선발 재고 0에서 구매)는 맞는 쪽으로 고침. golden 변화 없음.
 
+### 谢拉格不融冰(쉐라그 만년빙)은 모든 피해 출력에서 굴림 (GitHub #489)
+- 근거: 클라 버프 템플릿 `act1vautochess_acarm003_buff` = `ON_OUTPUT_DAMAGE` → `Dice(prob)` → `c2e_cold`(대상에게). 평타 이벤트가 아니라 피해 출력마다다.
+  제보는 阿斯卡纶(선발 오퍼레이터) 재능의 초당 피해에 안 걸린다는 것. upstream은 아직 안 고침.
+- 동작: `items/battle.js chess_item_5_02_e`가 `onAttackEnemies`(평타 대상마다) 대신 `onDamageEnemies`(피해 한 번마다 — 평타·스킬·범위 피해의 대상마다·지속 피해,
+  元素损伤·아이템 발동 피해·처치타는 빼는 우리 공용 도우미, 催泪瓦斯·突袭手雷와 같음)로 굴린다. 확률·寒冷 시간(일반 12 % / 1.5 s, 고급 20 %)은 그대로.
+  회피된 평타는 피해가 없으니 이제 안 굴림.
+- 테스트 `test/content/items.test.js`(「every damage instance procs」에 일반·고급 추가 — 평타 없이 스킬 범위 피해 두 번에 寒冷). golden은 이 장비를 든 전투가 움직임
+  (커밋 메시지·보고에 사례 목록). 그중 roster-047(仇白이 일반·고급 둘 다 듦)은 초반 37 s의 동결 한 번에서 갈라져 판이 뒤집힌다(처치 140 → 77) — 장비 동작의
+  오류가 아니라 같은 시드의 연쇄 차이로 확인(寒冷 적용 10 → 23회, 동결 적 시간 0.4 s → 7 s).
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).
