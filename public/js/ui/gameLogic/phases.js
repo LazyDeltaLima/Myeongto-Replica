@@ -204,7 +204,7 @@ export function phaseTotalSeconds(pub, config, myId = null) {
   switch (pub.phase) {
     case PHASE.INFO_CHECK: return num(timers.infoCheck) ?? 25;
     // one countdown: the current turn's (m.public.draft.turnSeconds = Match.BAND_TURN_SECONDS; user playtest #4 item 4)
-    case PHASE.BAND_DRAFT: return num(pub.draft?.turnSeconds) ?? num(timers.bandTurn) ?? 30;
+    case PHASE.BAND_DRAFT: return num(pub.draft?.turnSeconds) ?? num(timers.bandTurn) ?? 50;
     case PHASE.BATTLE_CHECK: return num(timers.battleCheck) ?? 3;
     case PHASE.SP_DRAFT: {
       const sp = normalizeSp(pub.sp, pub.players);

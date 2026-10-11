@@ -398,6 +398,11 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   KR 클라에 아직 없어 우리 번역 「'앞길'」(`public/i18n/ko/data.json`), 모듈 아이콘 `cru-y`는 `data/assets.json`에 추가.
   golden: roster-019(로스터 변형 순서상 그 판의 乌尔比安이 CRU-Y)·roster-038(같은 오퍼레이터의 모듈 변형이 한 칸씩 밀림) — upstream과 같은 두 사례.
   테스트 `test/content/ulpia-cruy-023.test.js`.
+- **협동 전략(분대장) 선택 차례 30 s → 50 s** (upstream `708caf7d`의 `common.js`·`build-data` 부분): `BAND_TURN_SECONDS` 50 = `data/config.json timers.bandTurn`.
+  근거: upstream 관리자의 공식 협동 플레이 보고(2026-10-10, upstream 설계 기록 28.25) — 차례마다 50 s. 클라 근거는 간접: 차례 마감 시각은 서버 값(stepTs)이라
+  클라에 없고, 클라 막대는 표 `autoChessData.enterStepList` `BAND_CHECK` `time` 50 / `hintTime` 15로 그린다(비공개 디컴파일 대조 기록). 그전 30 s는 플레이 제보
+  #4로 정한 [ASSUMED]였다. 클라 카운트다운은 서버의 `m.public.draft.turnSeconds`를 쓰고, 그 값이 없을 때의 기본값(`gameLogic/phases.js`·`server/match/gamedata.js`)도 50.
+  golden 변화 없음(협동 golden 매치의 차례는 AI 좌석이라 곧바로 고름). 테스트 `test/match/draft.test.js`·`test/ui/bandDraft.test.js`·`test/docs-consistency.test.js`.
 
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
