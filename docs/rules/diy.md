@@ -419,13 +419,16 @@
 **연출 대조** (2026-10-12, 안젤리나 더 멜로우 위시 S2 — 아래 「S2 활공 모션」)
 판정 규칙은 테이블·PRTS로 맞춰도 연출은 클라 프리팹에만 있다. 렌더가 스킬마다 begin/loop/end/idle 한 벌만 알아 `Skill_2_Takeoff_*`를 한 번도
 틀지 않았고, 몸이 투사체에 실려 가는 것(`_restoreOnEnd`)과 높이 변화(ModifyGraphicHolderHeight)도 빠졌다. 키트를 넣거나 고칠 때 아래를 하나씩 본다.
-- **Spine 클립 전수 대조**: `data/assets.json` `chars[<charId>].spine.front`·`.back`의 `animations`(클립 이름 → 길이) 전체를, 렌더가 트는 클립과 맞춘다.
-  트는 클립 = `anims`(`tools/assets/anim-roles.mjs` 역할: idle·deploy·attack·attackDown·skill·`skills[i]`·die·move·stun, 다형 모델의 `<form>` 클립)
-  + `tools/assets/anim-overrides.mjs SKILL_CLIP_OVERRIDES` + 렌더에 이름으로 박힌 클립(`public/js/render/units.js`·`spine.js`·`fxgame.js`를 클립 이름으로 grep).
-  남는 클립(`*_Begin` 외 특수 클립, `*_Move`, `*_Combat`, `*_Restart_*`, `*_Takeoff_*`, `*_Overload_*`, `*_A`/`*_B` 짝, `Start_2`, `*_Die` 등)은 하나씩
-  「공식에서 언제 트는지」를 찾아 연결하거나, 안 쓰는 이유를 이 문서의 그 오퍼레이터 절에 적는다. 찾는 곳: 스킬 프리팹(아래), charpack `char_<id>.ab`의
-  `_modes`(`Modes/<이름>/` 아래 능력의 `_animKey`·`_endAnimKey`, 모드의 `_replaceAnimPairs` — `tools/local-extract/attack_timing.py`·`char_modes.py`가 읽는
-  자리), 버프 템플릿(아래). 앞·뒤 모델 클립 목록이 다를 수 있으니 둘 다 본다.
+**선발만이 아니다**(관리자 결정 2026-10-12): 상점 기물·예비 오퍼레이터의 키트·모델·클립을 고칠 때, 그 오퍼레이터의 모션 제보를 볼 때도 같은 항목을 본다.
+클립 누락은 모든 오퍼레이터를 테스트가 전수로 잡는다(`render.md` 「Spine 클립 커버리지」).
+- **Spine 클립 전수 대조**: `node --test test/render/clip-coverage.test.js`가 `data/assets.json` 모든 오퍼레이터의 앞·뒤 모델 클립을 렌더가 트는 클립
+  (역할 `idle`·`deploy`·`die`·`attack`·`move`·`stun`·`run`·`skill`/`skills[i]` — `tools/assets/anim-roles.mjs` + `anim-overrides.mjs SKILL_CLIP_OVERRIDES`,
+  `render/units.js FORMS`·`FORTRESS_CLIPS`)과 맞추고, 남는 클립은 `test/render/clip-coverage-list.js`에 상태(`render`/`none`/`todo`)가 있어야 통과한다.
+  매니페스트의 `attackDown` 역할과 이름에 `Down`이 든 클립은 렌더가 **안 튼다**(전역 공백, 같은 절). 그 오퍼레이터의 `todo` 항목(`*_Move`, `*_Combat`,
+  `*_Restart_*`, `*_Overload_*`, `*_A`/`*_B` 짝, `Start_2`, `Skill_n_Die` 등)은 하나씩 「공식에서 언제 트는지」를 찾아 연결하거나 근거를 붙여 `none`으로
+  바꾼다(새로 생긴 클립은 테스트가 실패로 알려 줌). 찾는 곳: 스킬 프리팹(아래), charpack `char_<id>.ab`의 `_modes`(`Modes/<이름>/` 아래 능력의
+  `_animKey`·`_endAnimKey`, 모드의 `_replaceAnimPairs` — `tools/local-extract/attack_timing.py`·`char_modes.py`가 읽는 자리), 버프 템플릿(아래).
+  앞·뒤 모델 클립 목록이 다를 수 있으니 둘 다 본다.
 - **스킬 프리팹**(`battle/prefabs/[uc]skills.ab` `skchr_<code>_<n>`, `skill_cast.py`가 같은 번들을 읽음)의 연출 필드: `_playSkillBeginAnim`·`_beginAnim`(시작
   클립과 그동안의 대기 — 첸 더 던스트릭 S3), `_switchToState`, 吟唱(ChantBeforeSkill 계열) `_animation`의 begin/loop/end와 `_afterEndAnim`·
   `_buffOnAfterEndAnim`·`_interruptProjectileOnEndAnim`, 클립 컴포넌트 `_default {beginAnim, loopAnim, endAnim}`, `switch_mode` 버프 → 그 모드의

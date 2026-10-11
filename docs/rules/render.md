@@ -350,3 +350,22 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   `tools/assets/local-token-spines.json`·`data/assets.json tokens[id].spineLocal`에 실음(메타데이터는 upstream 것과 같음). 웹 스킨은 그대로 두어
   `spineEntry`의 `fallback` — 로컬 그림이 없거나 못 읽으면 지금처럼 웹 스킨. 크기는 전과 같이 `TOKEN_MODEL_K` 0.25/0.27. 테스트
   `test/local-token-models.test.js`·`test/local-extract.test.js`(8개). **[화면 미확인]** 설치·공격·소멸 클립과 크기.
+
+## Spine 클립 커버리지 (2026-10-12, 관리자 결정 「선발뿐 아니라 기존 오퍼레이터의 누락도 잡게」)
+- 배경: 안젤리나 더 멜로우 위시 S2의 `Skill_2_Takeoff_*`가 한 번도 안 틀렸다(`diy.md` 「S2 활공 모션」). 렌더는 모델의 역할(`anims`)과 아래 표에 이름으로
+  적힌 클립만 틀고, 그 밖의 클립은 누가 코드에 적기 전에는 영영 안 나온다. 키트 체크리스트(`diy.md` 「연출 대조」, kits README 12번)는 키트를 만지는
+  사람만 보므로, 모든 오퍼레이터 모델을 테스트로 전수 대조한다.
+- 테스트 `test/render/clip-coverage.test.js`: `data/assets.json chars`의 **모든 오퍼레이터**(상점 기물·예비 오퍼레이터·선발, 146명) 앞·뒤 모델의 클립마다
+  렌더가 트는지 본다. 트는 것 = 역할 `idle`·`deploy`·`die`·`attack`·`move`·`stun`·`run`·`skill`/`skills[i]`의 begin·loop·end·idle(`tools/assets/anim-roles.mjs`
+  + `anim-overrides.mjs`, 대체 `Idle`·`Die`) + `render/units.js`의 `FORMS[charId]`(형태 전환·替身)·`FORTRESS_CLIPS[charId]`(要塞 근접/원거리 짝).
+  나머지는 `test/render/clip-coverage-list.js UNPLAYED`에 상태와 함께 있어야 통과하고, 목록에 있는데 이제 틀거나 없어진 클립도 실패한다(지울 것).
+  - 상태: `render: <public/js 아래 파일> <방법>`(역할 밖에서 이름으로 틂 — 그 파일에 클립 이름이 있어야 함, 예: 안젤리나 S2 `UnitView.glide`),
+    `none: <근거>`(공식이 이 모드에서 안 틂 / 그릴 필요 없음 — 프리팹 필드·디컴파일 메서드·녹화를 적음), `todo: <힌트>`(아직 안 봄).
+  - 새 모델·새 키트·매니페스트 재생성(`fetch-assets`)으로 새 클립이 생기면 실패한다 → 공식에서 언제 트는지 찾아 연결하거나(역할·`anim-overrides.mjs`·
+    `FORMS`·키트 연출), 근거와 함께 `none`으로 적는다. 찾는 곳과 필드는 `diy.md` 「새 선발 오퍼레이터 키트 체크리스트」 **연출 대조**(선발이 아니어도 같음).
+  - 아래 방향 클립(이름에 `Down`: `Attack_Down`, `Skill_Down_2_Loop`, `Skill_1_Loop_Down` …, 129개)은 렌더가 하나도 안 그리는 **전역 공백** 하나로 묶어
+    목록에서 뺐다(`DOWN_FAMILY`). 공식은 쓴다(혼 charpack 모드 `S3(D)` = `Skill_Down_3_*`, 울피아누스 `skchr_ulpia_1` `Skill_1_Down_*`; 위 「요새 근접·원거리 클립」 줄의
+    「아래 방향 클립을 안 써서 제외」). 언제 트는지(배치 방향 아래일 때로 보임 — [추정]) 확인하고 구현하면 `DOWN_FAMILY`를 지우고 남는 클립을 목록에 올린다.
+- 첫 목록(2026-10-12): 46명·105개 `todo`. 힌트는 10-07 EN 클라 추출(스킬 프리팹 anim 컴포넌트·`_animKey`, charpack 모드별 클립 — 관리자 노트)로 붙였다:
+  `official <스킬 id | 모드>` 58개(공식이 그 클립을 가리킴 — 누락 가능성 높음, 먼저 볼 것), `no official reference` 38개(버프 템플릿·디컴파일로 찾을 것),
+  `CN only` 9개(EN에 없는 오퍼레이터 — CN 필드만, [추정]). 처음부터 `none`으로 확정한 것은 없다.

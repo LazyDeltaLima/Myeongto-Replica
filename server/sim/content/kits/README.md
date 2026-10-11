@@ -325,15 +325,19 @@ Each item is a mistake this project already made once. Tick every one for every 
   `battle.heal`: 禁疗 and 无法被友方治疗 (`noHeal`) do not stop it and no 治疗加成 scales it (damage.js heal `regen`).
   Examples: 安洁莉娜 兼职工作, the 吟游者 trait (professions.js `bardRegen`), 调香师, 瑕光 S2, 铃兰 S3, 锡人;
   `test/content/feedback5-regen.test.js` (GitHub #96 / #137). A per-second 「恢复…生命」 without such a note stays a heal.
-- [ ] **12. Presentation (clips, body movement, height)** — the rules come from the tables and PRTS, the motion only
+- [ ] **12. Presentation (clips, body movement, height)** — for every operator, not only 自选 (maintainer decision
+  2026-10-12): also when a pool chess's kit, model or clips change. The rules come from the tables and PRTS, the motion only
   from the client prefabs; the renderer knows one begin / loop / end / idle set per skill and plays nothing else unless
   told (予愿安洁莉娜 S2 glided nowhere: `Skill_2_Takeoff_*` never played — docs/rules/diy.md 「안젤리나 더 멜로우 위시 S2 활공
   모션」, the full list in its 「연출 대조」 checklist). Check, for the front and the back model:
-  - **every Spine clip**: `data/assets.json` `chars[<charId>].spine.<front|back>.animations` against what the renderer
-    plays — the `anims` roles (`tools/assets/anim-roles.mjs`, the `<form>` clips of multi-form models),
-    `tools/assets/anim-overrides.mjs SKILL_CLIP_OVERRIDES` and clip names written in `public/js/render/units.js` /
-    `spine.js` / `fxgame.js`. Each clip left over (`*_Move`, `*_Combat`, `*_Restart_*`, `*_Takeoff_*`, `*_Overload_*`,
-    `Start_2` …) is wired to where the client plays it, or the reason it is not is written down;
+  - **every Spine clip**: `node --test test/render/clip-coverage.test.js` checks every clip of every operator model —
+    pool chess, stand-ins and 自选 alike — against what the renderer plays (the `anims` roles of
+    `tools/assets/anim-roles.mjs` with `anim-overrides.mjs SKILL_CLIP_OVERRIDES`, `render/units.js FORMS` /
+    `FORTRESS_CLIPS`); every other clip is listed in `test/render/clip-coverage-list.js` as `render` (played by name),
+    `none` (with the evidence that the client does not play it) or `todo`. Settle the operator's `todo` entries
+    (`*_Move`, `*_Combat`, `*_Restart_*`, `*_Overload_*`, `*_A` / `*_B` pairs, `Start_2`, `Skill_<n>_Die` …) by wiring
+    the clip where the client plays it or by citing why not; a clip new to the manifest fails the test. The `attackDown`
+    role and every clip named `*Down*` are not drawn at all (one gap, docs/rules/render.md 「Spine 클립 커버리지」);
   - **the skill prefab** (`battle/prefabs/[uc]skills.ab` `skchr_<code>_<n>`, the bundle `tools/local-extract/skill_cast.py`
     reads): `_playSkillBeginAnim` / `_beginAnim`, `_switchToState`, a chant's `_animation` begin / loop / end,
     `_afterEndAnim`, `_buffOnAfterEndAnim`, an anim component `_default`, a `switch_mode` buff → that mode's clips
