@@ -139,21 +139,12 @@
 .minfo-dlg__turn.is-warn { color: var(--orange-hi); }
 .minfo-dlg__turn.is-mint { color: var(--mint-400); }
 .minfo-dlg__turn.is-dim { color: var(--text-lo); }
-.minfo-dlg .brief-bonds, .minfo-dlg .brief-banned { padding: max(.16rem, 6px) max(.2rem, 8px) max(.2rem, 8px); }
-.minfo-dlg .brief-h { font-size: max(.21rem, 12px); margin-bottom: max(.12rem, 5px); }
+/* the stage-info items (css/screens/briefing.css, one prefab unit = --ou) at least ~50 px wide on a small screen */
+.minfo-dlg .brief-bonds, .minfo-dlg .brief-banned { --ou: max(.0095rem, .46px); }
+.minfo-dlg .brief-h { font-size: max(.21rem, 12px); }
 .minfo-dlg .brief-h::before { width: max(.06rem, 3px); height: max(.2rem, 11px); }
-.minfo-dlg .brief-bonds__row { gap: max(.16rem, 6px) max(.1rem, 4px); }
-.minfo-dlg .brief-bond { width: max(1rem, 50px); }
-.minfo-dlg .brief-bond .bond { --disc: max(.66rem, 32px); }
-.minfo-dlg .brief-bond .bond__name { font-size: max(.16rem, 10px); }
-.minfo-dlg .brief-bond__ban { font-size: max(.12rem, 9px); padding: 0 max(.05rem, 2px); }
-.minfo-dlg .brief-bond__ban .icon { width: max(.12rem, 9px); height: max(.12rem, 9px); }
 .minfo-dlg .brief-legend { margin-top: 0; font-size: max(.14rem, 10px); }
 .minfo-dlg .brief-legend__off { width: max(.16rem, 9px); height: max(.16rem, 9px); }
-.minfo-dlg .brief-legend__ban { width: max(.2rem, 12px); height: max(.18rem, 11px); }
-.minfo-dlg .brief-legend__ban .icon { width: max(.12rem, 8px); height: max(.12rem, 8px); }
 .minfo-dlg .brief-banned__n { font-size: max(.22rem, 13px); }
-.minfo-dlg .brief-banned__grid { grid-template-columns: repeat(auto-fill, minmax(max(.6rem, 34px), 1fr)); gap: max(.08rem, 3px); }
-.minfo-dlg .brief-banned__grid .uthumb { --ut: max(.6rem, 34px); }
 .minfo-dlg .brief-banned__diy { font-size: max(.14rem, 12px); }
 .minfo-dlg .t-dim { font-size: max(.16rem, 10px); }

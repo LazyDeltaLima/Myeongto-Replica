@@ -789,3 +789,29 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   설명(`underframe.js tempRowRule`)도 새 규칙대로. 감사(`server/match/audit.js`)의 「비지 않은 임시 칸으로 준비」 검사는 뺐다. AI는 예전처럼 스스로 비운 뒤 준비.
 - 아직 안 넣은 것: 재접속 대기 마스크(`auto_chess_reconnect_mask`)·서버 끊김·혼자 판 이어하기 창, 핑 판(`panel_ping`), 위수협약 토스트, 결산 화면 좋아요(서버 기능 필요)·
   「战斗中...」 — `research/2026-10-10-autochess-ui-gap/README.md`.
+
+## 본판 정보의 맹약·결장 오퍼레이터를 공식 정보 화면 모양으로 (2026-10-11, 관리자 요청)
+
+브리핑(「1/2 确认本局信息」) 오른쪽 열과 전략 선택의 「本局信息」 창(둘 다 `public/js/ui/matchInfo.js`)을 클라의 정보 화면
+(`ui/autochess/[uc]autochessouter.ab` `auto_chess_stage_info_dialog` / `_state` → `prefab_auto_chess_stage_info_view`)대로 그린다. 2단 배치는 그대로
+(관리자 결정 2026-10-11 「지금 2단 배치 유지」 — 공식은 적 → 결장 → 핵심 → 부가 세로 한 줄).
+
+- 맹약 칸(`prefab_auto_chess_stage_info_bond_item` 110 × 160): 켜진 맹약은 민트 원판 `img_bond_bkg`(131 × 130, 가운데에서 15 위) 위에 어두운 문양
+  (60 칸, 색 #031712), 꺼진 맹약(뽑힌 집합 D·모드가 끄는 맹약)은 회색 `img_bond_banned_bkg` + 회색 문양(#c9c9c9) + 금지 표시 `img_bond_banned`(38, 원판 가운데에서
+  (29, 32)), 이름은 가운데 50 아래 19 크기 #f4f4f4 60 %. 예전 upstream 원판(SVG 단계 고리·✕·빨간 결장 인원 배지)은 뺐다 — 인원은 툴팁(`briefingBondTip`)과
+  아래 맹약별 목록에 있다. 그림은 로컬 클라 추출물 `ui/outer`, 없으면 CSS 원.
+- 제목 줄(`perm_bond_title` / `temp_bond_title` / `chess_banned_title`): 바 그림 `img_group_title_perm_bond` / `img_group_title`(가로 반복)과 아이콘
+  `img_title_icon_perm_bond` / `_temp_bond` / `_chess`. 결장 수는 제목 바로 뒤(바 그림 오른쪽 로고와 겹치지 않게).
+- 결장 오퍼레이터는 **맹약별**(`prefab_auto_chess_stage_info_chess_banned_group`): 왼쪽 꺼진 맹약(110 × 130, 문양 45), 구분선 `img_bond_banned_split`, 그 맹약의
+  결장 오퍼레이터(130 칸, 7 간격, 어둡게 + 오른쪽 위 `img_chess_banned`). 클라 코드 근거: `AutoChessStageInfoGroupViewModel._LoadBondDataFromIdRange`가
+  `bannedBondList`의 맹약마다 `AutoChessStageInfoChessGroupModel`을 만들고, `LoadData`가 그 맹약 멤버 중 `CalculateBannedChessIdList`에 든 것을 넣는다 →
+  두 맹약이 다 꺼진 오퍼레이터는 두 묶음에 다 나온다. `_RefreshChess`는 멤버 수가 0이어도 묶음을 넣고, 6명마다 줄을 나눈다(두 번째 줄부터 맹약 칸 없음 — 우리는
+  가로 폭에 맞춰 감싼다). 묶음 순서는 핵심 줄 → 부가 줄 순(클라 `CompareTo`의 정확한 키는 안 읽음 [추정]).
+- 모드가 끄는 맹약(표준의 10개)은 결장 오퍼레이터가 있을 때만 묶음을 만든다 [추정]: 클라 `bannedBondList`에 모드 비활성 맹약이 들어가는지 안 읽었다.
+  뽑힌 맹약(D)은 비어도 묶음을 만든다(위 `_RefreshChess`).
+- 공식 제목·안내 문구는 프리팹에 없고(실행 중 문구표 키로 채움) 클라 문구표도 없어 예전 우리 문구(核心盟约 / 附加盟约 / 本局禁用干员)를 그대로 쓴다.
+  `perm/temp_bond_title`의 `text_tip`(`hasBondBanned`일 때 뜨는 안내) 내용은 모른다 — 대신 범례 한 줄.
+- 창은 이제 데스크톱에서도 본문이 스크롤된다(공식도 스크롤 뷰). 테스트: `test/ui/match-info.test.js`, 브라우저 `test/ui/match-info.e2e.test.js`.
+- 맵 미리보기(관리자 요청 「맵 이름 아래에 어떤 맵인지」): 공식 일반 스테이지는 `arts/ui/stage_mappreview_*.ab`
+  (`dyn/arts/ui/stage/mappreviews/<stage>.png`, 512 × 512, 실제 3D 장면을 위에서 약간 기울여 찍은 그림 + 빨강 침입·파랑 보호 지점 상자)를 쓰는데, EN·CN 클라 모두
+  위수협약 전장(`act1autochess_m01`…`act2autochess_m04`)의 그림이 없다(2026-10-11 전수 확인). 표시 방식은 관리자 결정 대기(관리자 메모의 할 일).

@@ -72,23 +72,64 @@
 .brief-faction__text b { font-size: .2rem; color: var(--amber); }
 .brief-faction__text span { font-size: .15rem; color: var(--text-lo); }
 
-.brief-bonds { padding: .16rem .2rem .2rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
-.brief-bonds__row { display: flex; flex-wrap: wrap; gap: .16rem .1rem; }
-.brief-bond { position: relative; width: 1rem; display: flex; justify-content: center; }
-.brief-bond .bond { --disc: .66rem; }
-.brief-bond .bond__name { font-size: .16rem; }
-.brief-bond__ban { position: absolute; top: -.04rem; right: .08rem; display: inline-flex; align-items: center; gap: .01rem; font-size: .12rem; font-weight: 700; padding: 0 .05rem; background: var(--red); color: #fff; line-height: 1.5; box-shadow: 0 0 0 1px #000; }
-.brief-bond__ban .icon { width: .12rem; height: .12rem; }
-.brief-bond.is-partial .bond__core { box-shadow: 0 0 0 2px rgba(255, 84, 84, .5); }
+/* ---- bonds and banned operators as the client's stage-info view draws them (js/ui/matchInfo.js; ui/autochess/
+   [uc]autochessouter.ab prefab_auto_chess_stage_info_*, 1280-unit canvas). --ou = one prefab unit (the right column is
+   ~780 units wide at 1920 px against the client's 1186-unit groups). Sprites: ui/outer of the local-client extraction,
+   passed as --bar / --disc; without them the CSS circles below. ---- */
+.brief-bonds, .brief-banned { --ou: .0095rem; padding: 0 0 calc(var(--ou) * 12); background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
+/* title_bar (perm_bond_title / temp_bond_title / chess_banned_title): 45 units, tiled bar sprite, 40-unit icon */
+.brief-h--art { align-items: center; min-height: calc(var(--ou) * 45); margin: 0; padding: 0 calc(var(--ou) * 16) 0 calc(var(--ou) * 12);
+  background: var(--bar, none) left center / auto 100% repeat-x, rgba(255, 255, 255, .04); }
+.brief-h--art.has-icon::before { display: none; }
+.brief-h__icon { flex: none; width: calc(var(--ou) * 40); height: calc(var(--ou) * 40); object-fit: contain; align-self: center; }
+.brief-h--chess .brief-h__icon { width: calc(var(--ou) * 26); height: calc(var(--ou) * 37); margin: 0 calc(var(--ou) * 7); }
+.brief-bonds__row { display: flex; flex-wrap: wrap; gap: 0 calc(var(--ou) * 3); padding: calc(var(--ou) * 8) calc(var(--ou) * 12) 0; }
+.brief-bond { position: relative; display: block; }
+/* bond_item 110 × 160: the 131 × 130 disc 15 above the middle, the 60-unit glyph box, the name 50 under the middle */
+.ibd { position: relative; display: block; width: calc(var(--ou) * 110); height: calc(var(--ou) * 160); }
+.ibd__disc { position: absolute; left: 50%; top: calc(var(--ou) * 65); width: calc(var(--ou) * 131); height: calc(var(--ou) * 130);
+  transform: translate(-50%, -50%); display: grid; place-items: center; background: var(--disc, none) center / 100% 100% no-repeat; }
+.ibd__disc.no-art { width: calc(var(--ou) * 92); height: calc(var(--ou) * 92); border-radius: 50%; background: var(--mint-500); box-shadow: 0 0 calc(var(--ou) * 12) rgba(0, 0, 0, .6); }
+.ibd.is-off .ibd__disc.no-art { background: #262b29; box-shadow: inset 0 0 0 calc(var(--ou) * 5) #5b625f, 0 0 calc(var(--ou) * 12) rgba(0, 0, 0, .6); }
+/* the glyph sprites are 128-unit rects with ~100 px tight-packed textures (css/hud-art.css .bslot .bond__icon) */
+.ibd__icon { width: calc(var(--ou) * 60 / 128 * var(--nw, 100)); height: calc(var(--ou) * 60 / 128 * var(--nh, 100)); max-width: none; max-height: none;
+  object-fit: fill; filter: brightness(0); opacity: .92; }
+.ibd.is-off .ibd__icon { filter: brightness(0) invert(.79); opacity: 1; }
+.ibd__glyph { font-size: calc(var(--ou) * 40); font-weight: 700; color: #031712; }
+.ibd.is-off .ibd__glyph { color: #c9c9c9; }
+/* img_bond_banned 38 × 38 at (29, 32) from the disc's middle */
+.ibd__mark, .ibd__x { position: absolute; left: calc(50% + var(--ou) * 10); top: calc(50% - var(--ou) * 51); width: calc(var(--ou) * 38); height: calc(var(--ou) * 38); }
+.ibd__x { display: grid; place-items: center; border-radius: 50%; background: var(--red); color: #fff; }
+.ibd__x .icon { width: 70%; height: 70%; }
+.ibd__name { position: absolute; left: 50%; top: calc(var(--ou) * 115); width: calc(var(--ou) * 140); transform: translateX(-50%);
+  text-align: center; white-space: nowrap; font-size: max(calc(var(--ou) * 19), 10px); line-height: 1.1; color: rgba(244, 244, 244, .6); }
+.ibd:not(.is-off) .ibd__name { color: rgba(244, 244, 244, .85); }
+/* the bond panel of a banned group: 110 × 130, disc 12 above the middle, 45-unit glyph box, mark at (30, 28), name 52 under */
+.ibd--sm { height: calc(var(--ou) * 130); }
+.ibd--sm .ibd__disc { top: calc(var(--ou) * 53); }
+.ibd--sm .ibd__icon { width: calc(var(--ou) * 45 / 128 * var(--nw, 100)); height: calc(var(--ou) * 45 / 128 * var(--nh, 100)); }
+.ibd--sm .ibd__mark, .ibd--sm .ibd__x { left: calc(50% + var(--ou) * 11); top: calc(50% - var(--ou) * 46.65); }
+.ibd--sm .ibd__name { top: calc(var(--ou) * 105); width: calc(var(--ou) * 145); font-size: max(calc(var(--ou) * 21), 10px); }
 .brief-legend { display: flex; align-items: center; gap: .08rem; flex-wrap: wrap; font-size: .14rem; color: var(--text-dim); margin-top: -.06rem; }
-.brief-legend__off { width: .16rem; height: .16rem; border-radius: 50%; background: #3a403d; border: 2px solid #555; }
-.brief-legend__ban { display: inline-grid; place-items: center; width: .2rem; height: .18rem; background: var(--red); color: #fff; }
-.brief-legend__ban .icon { width: .12rem; height: .12rem; }
+.brief-legend__off { width: .16rem; height: .16rem; border-radius: 50%; background: #262b29; border: 2px solid #5b625f; }
 
-.brief-banned { padding: .16rem .2rem .2rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
 .brief-banned__n { margin-left: auto; font-size: .22rem; color: var(--red-premium); }
-.brief-banned__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(.6rem, 1fr)); gap: .08rem; }
-.brief-banned__grid .uthumb { --ut: .6rem; }
+.brief-h--art .brief-banned__n { margin-left: 0; }
+/* chess_banned_group: the bond panel, the 3 × 94 divider, the operators (130-unit items, 7 apart) */
+.brief-bgroups { display: flex; flex-direction: column; }
+.brief-bgroup { display: flex; align-items: center; min-height: calc(var(--ou) * 142); padding: calc(var(--ou) * 6) calc(var(--ou) * 12) 0; }
+.brief-bgroup + .brief-bgroup { border-top: 1px solid rgba(255, 255, 255, .05); }
+.brief-bgroup__bond { flex: none; }
+.brief-bgroup__split { flex: none; align-self: center; width: calc(var(--ou) * 3); height: calc(var(--ou) * 94); margin: 0 calc(var(--ou) * 18) 0 calc(var(--ou) * 28);
+  background: rgba(255, 255, 255, .16) center / 100% 100% no-repeat; }
+.brief-bgroup__split[style] { background-color: transparent; }
+.brief-bgroup__chess { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: calc(var(--ou) * 7); }
+/* chess_banned_item 130 × 130: the avatar (dimmed = img_chess_banned_mask), img_chess_banned 73 × 73 on its top-right */
+.brief-bchess { position: relative; width: calc(var(--ou) * 130); height: calc(var(--ou) * 130); display: grid; place-items: center; }
+.brief-bchess .uthumb { --ut: calc(var(--ou) * 104); }
+.brief-bchess__ban { position: absolute; right: calc(var(--ou) * -2); top: calc(var(--ou) * 2); width: calc(var(--ou) * 73); height: calc(var(--ou) * 73); pointer-events: none; }
+.brief-banned > .t-dim { margin: calc(var(--ou) * 12) calc(var(--ou) * 16) 0; }
+.brief-banned > .brief-banned__diy { margin: calc(var(--ou) * 10) calc(var(--ou) * 16) 0; }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine; m.private.diyBanned) */
 .brief-banned__diy { margin: .1rem 0 0; font-size: .14rem; line-height: 1.5; color: var(--text-dim, #b8c2bf); }
 .diybanned__tag { display: inline-block; margin-right: .06rem; padding: .01rem .06rem; font-size: .12rem; font-weight: 700;

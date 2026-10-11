@@ -4,7 +4,7 @@
 //
 //   SP_E2E=1 node --test test/ui/match-info.e2e.test.js
 //
-// 1. Solo 标准模拟 (the mode that switches 10 bonds off), desktop 1920×1080: the briefing's greyed bonds, badges, legend
+// 1. Solo 标准模拟 (the mode that switches 10 bonds off), desktop 1920×1080: the briefing's greyed bonds, legend
 //    and banned operators are read; in the draft 查看禁用盟约与干员 opens the dialog with exactly the same (and the 本局禁用
 //    tooltip); Esc, a click outside — right over 确认选择 — and 关闭 close it without touching the highlighted band or
 //    sending an intent; a strategy is then confirmed; in the first prep the in-game 本局信息 tab lists the same.
@@ -136,14 +136,16 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     if (!scope) return null;
     return {
       bonds: [...scope.querySelectorAll('.brief-bond')].map((el) => ({
-        id: el.dataset.bond, name: el.querySelector('.bond__name')?.textContent || '',
-        off: el.classList.contains('is-off'), incomplete: el.classList.contains('is-incomplete'), partial: el.classList.contains('is-partial'),
-        x: !!el.querySelector('.bond.is-disabled .bond__ban'), ban: el.querySelector('.brief-bond__ban')?.textContent.trim() || '',
+        id: el.dataset.bond, name: el.querySelector('.ibd__name')?.textContent || '',
+        off: el.classList.contains('is-off'), incomplete: el.classList.contains('is-incomplete'),
+        x: !!el.querySelector('.ibd.is-off .ibd__mark, .ibd.is-off .ibd__x'),
       })),
       rows: [...scope.querySelectorAll('.brief-bonds .brief-h > span:first-child')].map((el) => el.textContent),
       legend: scope.querySelector('.brief-legend')?.textContent.trim() || '',
       count: scope.querySelector('.brief-banned__n')?.textContent.trim() || '',
-      banned: [...scope.querySelectorAll('.brief-banned__grid .uthumb')].map((el) => el.getAttribute('title')),
+      // 本局禁用干员 by greyed bond (an operator whose bonds are all off is under each of them)
+      groups: [...scope.querySelectorAll('.brief-bgroup')].map((el) => ({ bond: el.dataset.bond, names: [...el.querySelectorAll('.uthumb')].map((u) => u.getAttribute('title')) })),
+      banned: [...new Set([...scope.querySelectorAll('.brief-bgroup .uthumb')].map((el) => el.getAttribute('title')))].sort(),
     };
   }, root);
   /** What the server says: greyed = the drawn set ∪ the mode's inactive bonds; banned names by tier. */
@@ -153,7 +155,8 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     const mode = data.get('config')?.modes?.[pub.modeId];
     const greyed = [...new Set([...(pub.drawnDisabledBonds || []), ...(mode?.inactiveBondIds || [])])].sort();
     const chess = pub.bannedChess.map((id) => data.lookup('chess', id)).filter(Boolean);
-    return { greyed, off: (mode?.inactiveBondIds || []).slice().sort(), tiers: chess.map((c) => c.tier), names: chess.slice().sort((a, b) => a.tier - b.tier).map((c) => c.name) };
+    return { greyed, off: (mode?.inactiveBondIds || []).slice().sort(), tiers: chess.map((c) => c.tier), names: chess.slice().sort((a, b) => a.tier - b.tier).map((c) => c.name),
+      bondsOf: Object.fromEntries(chess.map((c) => [c.name, [...c.bonds].sort()])) };
   });
   const greyedOf = (info) => info.bonds.filter((b) => b.off).map((b) => b.id).sort();
   const selBand = (page) => page.evaluate(() => document.querySelector('.dband.is-sel .dband__name')?.textContent || null);
@@ -178,7 +181,10 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     const want = await truth(page);
     assert.deepEqual(want.off, [...OFF_FUNNY].sort(), '标准模拟 switches the official 10 bonds off');
     assert.deepEqual(greyedOf(brief), want.greyed, 'the briefing greys D ∪ the mode\'s inactive bonds');
-    assert.deepEqual(brief.banned, want.names, 'the briefing\'s banned operators, by tier');
+    assert.deepEqual(brief.banned, [...want.names].sort(), 'the briefing\'s banned operators');
+    for (const [name, bonds] of Object.entries(want.bondsOf)) {
+      assert.deepEqual(brief.groups.filter((g) => g.names.includes(name)).map((g) => g.bond).sort(), bonds, `${name}: under each of its bonds`);
+    }
     assert.equal(brief.count, String(want.names.length));
     assert.match(brief.legend, /或本模式禁用/);
     await shot(page, 'solo-briefing');
@@ -196,8 +202,9 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     const dlg = await readInfo(page, '.minfo-dlg');
     assert.deepEqual(dlg, brief, 'the dialog shows exactly the briefing\'s bonds, badges, legend and banned operators');
     assert.deepEqual(dlg.rows, ['核心盟约', '附加盟约']);
-    assert.ok(dlg.bonds.filter((b) => b.off).every((b) => b.x), 'every greyed disc carries the ✕');
-    const arcane = await centre(page, '.minfo-dlg .brief-bond[data-bond="arcaneShip"] .bond__disc');
+    assert.ok(dlg.bonds.filter((b) => b.off).every((b) => b.x), 'every greyed item carries the banned mark');
+    assert.ok(dlg.bonds.filter((b) => !b.off).every((b) => !b.x));
+    const arcane = await centre(page, '.minfo-dlg .brief-bond[data-bond="arcaneShip"] .ibd__disc');
     await page.mouse.move(arcane.x, arcane.y);
     await page.waitForSelector('.tooltip.is-shown', { visible: true, timeout: 3000 });
     assert.equal(await page.$eval('.tooltip.is-shown', (el) => el.textContent), '奥术：本局禁用（该盟约不会激活）');
@@ -205,8 +212,9 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.equal(status, '轮到你决策', 'solo: untimed — no seconds');
     const box = await page.$eval('.minfo-dlg', (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; });
     assert.ok(box.top >= 0 && box.bottom <= 1080 && box.left >= 0 && box.right <= 1920, `inside the screen ${JSON.stringify(box)}`);
-    const fits = await page.$eval('.minfo-dlg .modal__body', (el) => el.scrollHeight <= el.clientHeight + 1);
-    assert.ok(fits, 'desktop: everything visible without scrolling');
+    // the banned operators are grouped by bond as the client's stage-info view (a scroll view there too): the body scrolls
+    const scrolls = await page.$eval('.minfo-dlg .modal__body', (el) => getComputedStyle(el).overflowY === 'auto' && el.scrollHeight > el.clientHeight);
+    assert.ok(scrolls, 'desktop: the body scrolls to the banned groups');
     await shot(page, 'solo-dialog');
 
     // Esc
@@ -248,8 +256,12 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
       count: document.querySelector('.edrawer .ihead small')?.textContent.trim() || '',
     }));
     assert.deepEqual(tab.off.sort(), brief.bonds.filter((b) => b.off).map((b) => b.name).sort(), 'the same greyed bonds');
-    for (const b of brief.bonds) if (b.ban) assert.equal(tab.ban[b.name], b.ban, `${b.name}: the same badge`);
-    assert.deepEqual(tab.banned, brief.banned, 'the same banned operators, in the same (tier) order');
+    for (const b of brief.bonds) {
+      const n = brief.groups.find((g) => g.bond === b.id)?.names.length || 0;
+      if (n) assert.equal(tab.ban[b.name], String(n), `${b.name}: the tab's badge = the briefing group's operators`);
+    }
+    assert.deepEqual([...tab.banned].sort(), brief.banned, 'the same banned operators');
+    assert.deepEqual(tab.banned, want.names, 'the tab lists them by tier');
     assert.equal(tab.count, brief.count);
     await shot(page, 'solo-ingame-tab');
     assert.deepEqual(p.problems, []);
@@ -278,7 +290,7 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     assert.equal(want.greyed.length, 7, '3 core + 4 add-on bonds drawn');
     for (const [p, info] of briefs) {
       assert.deepEqual(greyedOf(info), want.greyed, `${p.name}: briefing greyed`);
-      assert.deepEqual(info.banned, want.names, `${p.name}: briefing banned`);
+      assert.deepEqual(info.banned, [...want.names].sort(), `${p.name}: briefing banned`);
       assert.doesNotMatch(info.legend, /本模式禁用/);
     }
     assert.deepEqual(briefs.get(b), briefs.get(a), 'both players see the same briefing');
@@ -346,12 +358,12 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
         const vis = (sel) => { const e = boxEl.querySelector(sel).getBoundingClientRect(); return e.top >= r.top - 1 && e.bottom <= r.bottom + 1 && e.left >= r.left - 1 && e.right <= r.right + 1; };
         return {
           box: [r.left, r.top, r.right, r.bottom], vw: innerWidth, vh: innerHeight, scrolls: body.scrollHeight > body.clientHeight + 4,
-          overflow: getComputedStyle(body).overflowY, name: px('.bond__name'), legend: px('.brief-legend'), title: px('.modal__title'),
-          badge: px('.brief-bond__ban'), status: vis('[data-testid="match-info-status"]'), close: vis('[data-testid="match-info-close"]'),
+          overflow: getComputedStyle(body).overflowY, name: px('.ibd__name'), legend: px('.brief-legend'), title: px('.modal__title'),
+          status: vis('[data-testid="match-info-status"]'), close: vis('[data-testid="match-info-close"]'),
         };
       });
       assert.ok(lay.box[0] >= 0 && lay.box[1] >= 0 && lay.box[2] <= lay.vw && lay.box[3] <= lay.vh, `${w}×${h}: the dialog inside the screen ${JSON.stringify(lay.box)}`);
-      assert.ok(lay.name >= 9 && lay.legend >= 9 && lay.badge >= 9 && lay.title >= 14, `${w}×${h}: readable text ${JSON.stringify(lay)}`);
+      assert.ok(lay.name >= 9 && lay.legend >= 9 && lay.title >= 14, `${w}×${h}: readable text ${JSON.stringify(lay)}`);
       assert.ok(lay.status && lay.close, `${w}×${h}: the status line and 关闭 stay in view`);
       assert.ok(lay.scrolls && lay.overflow === 'auto', `${w}×${h}: the body scrolls`);
       assert.deepEqual(await readInfo(ph.page, '.minfo-dlg'), briefs.get(ph), `${w}×${h}: the dialog = the briefing`);
@@ -372,7 +384,7 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
       await sleep(200);
       const bannedVisible = await ph.page.evaluate(() => {
         const body = document.querySelector('.minfo-dlg .modal__body').getBoundingClientRect();
-        const g = document.querySelector('.minfo-dlg .brief-banned__grid').getBoundingClientRect();
+        const g = document.querySelector('.minfo-dlg .brief-bgroups').getBoundingClientRect();
         return g.top >= body.top - 1 && g.bottom <= body.bottom + 1;
       });
       assert.ok(bannedVisible, `${w}×${h}: the banned operators scrolled into view`);
