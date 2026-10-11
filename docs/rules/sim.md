@@ -368,6 +368,10 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
 - **假想敌：管의 “余音” 펄스 큐** (`f3658a0d` 중 `bosses.js echoHit`): 피격 펄스 ↔ 반격(벤델라 등)이 서로 동기로 불러 훅 깊이 32 제한에 걸리던 것 → 펄스를 쌓아
   지금 펄스 뒤에 FIFO로 처리(치명타가 만든 펄스도 유지, 타이머·난수 추가 없음). **[ASSUMED]** 순서(upstream도 [ASSUMED]). golden: `fields` hidden-boss_10-solo.
   테스트 `test/content/echo-counter-023.test.js`(upstream).
+- **浊心斯卡蒂 S1 × 坚守 2단계 되넘김 금지** (upstream PR #464 by @HappyTanuki, 원본 커밋 `e9a2e27c`): 한쪽이 옮긴 피해는 다른 쪽이 다시 옮기지 않는다(전에는 둘이
+  서로 넘겨 훅 깊이 제한까지 갈라져 전투가 멈춤). 클라 근거: 두 분담(`DamageSplit` 0xBBE1B0, `AutoChessDamageSplit`)이 옮긴 몫에 `SharedFlag 7 SKIP_MODIFIER_EVENT`를
+  붙여 어느 ON_TAKE_DAMAGE 그래프도 다시 보지 않는다. upstream v0.2.4가 손본 판(`6bfc0827`: 분담 효과마다 첫 적용은 허용, 몫 보존)은 이 점에서 공식과
+  달라 원본 PR을 가져왔다. golden 변화 없음. 테스트 `test/content/skadi2-stead-loop.test.js`(PR).
 
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.

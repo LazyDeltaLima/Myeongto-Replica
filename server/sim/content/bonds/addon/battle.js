@@ -624,7 +624,10 @@ export function install(battle) {
   if (stead) {
     battle.on('hit', (c) => {
       const t = c.target, dmg = c.dmg;
-      if (!t || t.side !== 'ally' || t.kind !== 'op' || !dmg || dmg.cancel || dmg.steadShare || dmg.steadCut || dmg.type === 'element') return;
+      // redirected damage (浊心斯卡蒂 S1 transfer) is not cut and re-shared again (see chess_char_6_04-skadi2.js)
+      // (client: the moved part carries SharedFlag 7 SKIP_MODIFIER_EVENT — DamageSplit / AutoChessDamageSplit — so no
+      // ON_TAKE_DAMAGE graph, 坚守's or 浊心斯卡蒂's, sees it again)
+      if (!t || t.side !== 'ally' || t.kind !== 'op' || !dmg || dmg.cancel || dmg.steadShare || dmg.steadCut || dmg.type === 'element' || dmg.tags?.includes('transfer')) return;
       const st = byPid[t.ownerId];
       if (!st || (st.tiers[ID.stead] ?? 0) < 2 || st.members[ID.stead].has(t)) return;
       let any = false;
