@@ -205,8 +205,13 @@ function chen3(bb, chess, def) {
    * Skill_3_Begin (S3_BEGIN, no attack) → the 剑气 leaves, facing her direction then, with or without a target → the S3
    * mode three ticks later (EmitProjectile's pre- and post-delay ticks, SwitchMode's pre-delay tick) → her attacks are S3
    * ones from the first (atk_scale 1.8, 3 hits, Skill_3_Loop, range 3-12). Official text 「技能开启时向前释放一道可转向的剑气」.
-   * [ASSUMED: DoStartSkill enters SkillState in the same tick — it goes through a delegate not traced; if not, all of it
-   * is one tick later.] History: 49eb223e made both wait for her attacks (the wave for her first strike, the mode for
+   * Ticks from the cast (client code): AutoChessBattleTrigger casts from its own coroutine, which the CoroutineSimulator
+   * runs after the entities in BattleController.OnTick (SimulateTick); UseSkill → Character.SwitchToSkillState → SkillState.
+   * OnEnter → BasicSkill.OnBeforeSkillStart starts PlayBeginAnimation (StartBattleCoroutine runs its first step at once,
+   * but a coroutine started during SimulateTick is first resumed on the next tick); AsyncUtil.WaitForFixedSeconds yields
+   * round(0.433 × 30) = 13 times → DoStartSkill calls SkillState._DoStartSkill on the 13th tick, and the 剑气 leaves in
+   * that same call; EmitProjectile's pre-delay tick (14), post-delay tick (15), SwitchMode's pre-delay tick (16) → the S3
+   * mode at tick 16 = S3_BEGIN + 3 ticks, as here. History: 49eb223e made both wait for her attacks (the wave for her first strike, the mode for
    * the one after); cdc84e33 sent the wave one tick after S3_BEGIN but kept the mode waiting for a Default attack, which
    * never came with enemies only in the S3 range; before 49eb223e the wave left at S3_BEGIN with the S3 mode from the
    * cast. The spec object is this unit's own (the kit is built per unit): `attack` / `targeting` change with the phase

@@ -243,7 +243,13 @@
     기다리고 `_waitForAttackEvent` 1은 읽지 않는다 → EmitProjectile 전딜·후딜 2틱 + SwitchMode 전딜 1틱 = 3틱 뒤 `chen3_s3[switch_mode]`. 그동안
     `SkillState`(`_StartSkill`의 끝 콜백 = 그룹 끝)가 공격을 막는다. 공식 설명 「技能开启时向前释放一道可转向的剑气」과 맞다. 핫픽스 목록에 관련 메서드 없음.
     구현: `op-chen3.js s3Spec` — 단계 `begin`(공격 없음 `S3_HOLD`) → `S3_BEGIN`에 `releaseQi` → `S3_BEGIN + 3틱`에 `mode`(S3 프로필·범위); 스킬이 끝나면
-    스펙을 되돌림. [추정]: `DoStartSkill`(대리자 호출)이 같은 틱에 `SkillState`로 들어가는지 안 따라감 — 아니면 모두 한 틱 늦다.
+    스펙을 되돌림. 틱 수(클라 코드로 확인): 자동 시전 `AutoChessBattleTrigger`는 코루틴이라 `BattleController.OnTick`에서 유닛 갱신 뒤
+    `CoroutineSimulator.SimulateTick` 때 시전한다 → `CastSkill.UseSkill` → `Character.SwitchToSkillState` → `SkillState.OnEnter` →
+    `BasicSkill.OnBeforeSkillStart`가 `PlayBeginAnimation`을 띄움(`StartBattleCoroutine`은 첫 단계를 바로 돌리지만 `SimulateTick` 중에 띄운 코루틴은
+    다음 틱부터 재개) → `AsyncUtil.WaitForFixedSeconds`가 round(0.433×30)=13번 양보 → 13번째 틱에 `DoStartSkill`이 `m_startSkill`
+    (= `SkillState._DoStartSkill`)을 그 자리에서 부르고 같은 호출 안에서 검기 → 14·15틱 EmitProjectile 전딜·후딜 → 16틱 SwitchMode 전딜 끝에 S3 모드.
+    우리 `S3_BEGIN`(13틱)·`S3_BEGIN + 3틱`(16틱)과 같다. 남은 차이: 공식은 그룹이 17틱 이후 끝나야 `SkillState`를 벗어나므로 첫 휘두름이 우리보다
+    1틱 정도 늦을 수 있다(안 맞춤).
     지난 동작: 2026-10-10 ~ 10-11 시전 0.433 s 뒤 발사·S3 공격은 시전부터(공격 막음 없음); 10-11(`49eb223e`, 결정 13) ~ 10-11 밤 검기가 첫 평타 타격까지
     기다리고 S3 모드는 그다음 공격부터(그녀 범위에 적이 없으면 둘 다 안 나옴); 10-11 밤 `cdc84e33` 검기만 시작 동작 + 1틱, S3 모드는 여전히 Default 첫 평타
     뒤(S3 범위에만 적이 있으면 20 s 내내 평타 없음 — 시뮬 측정). 두 번 다 틀린 원인은 기반 클래스 `EasyToStartAbility.OnWaitForPreDelay`만 읽고 실제
