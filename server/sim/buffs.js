@@ -126,18 +126,20 @@ export const STATUS = Object.freeze({
   // element burst states (engine-managed; listed for immunity/visibility)
   burnBurst: { flags: { burstLock: true } },
   neuralBurst: { flags: { burstLock: true } },
-  necrosisBurst: { flags: { burstLock: true } },
   apoptosisBurst: { flags: { burstLock: true } },
   erosionBurst: { flags: { burstLock: true } },
 });
 
 /**
- * Control statuses (异常状态) shortened by 抵抗: 晕眩 冻结 寒冷 沉睡 恐惧 战栗 诱导 浮空 束缚 沉默 缴械 停顿 减速 缚地. The
- * official term lists 晕眩/寒冷/冻结/恐惧/诱导…; the rest follow the operator kits that grant 抵抗 [ASSUMED]. 麻痹 is
- * stack-based: it decays instead (RESIST_PALSY_DECAY).
+ * The statuses 抵抗 shortens: 晕眩 冻结 寒冷 恐惧 诱导 (maintainer decision 2026-10-11, docs/rules/sim.md 「저항 대상」). The
+ * client decides it per buff, not per status (client code `Buff._InitIsStatusResistable`): `statusResistable` NO / YES,
+ * or AUTOMATIC (every buff of the pool's skill prefabs) = resisted when its abnormal flags hold STUNNED, FROZEN, DOZE or
+ * ATTRACTED. 寒冷 and 恐惧 come from the client's buff table, which the client files we read do not hold: they rest on
+ * PRTS 可抵抗状态 (寒冷 both sides, 恐惧), as does leaving out 沉睡 (sleep — not DOZE), 停顿 (sluggish) and 战栗 (tremble);
+ * 浮空 束缚 沉默 缴械 减速 缚地 are AUTOMATIC buffs without those flags (data). Until 2026-10-11 all fourteen were resisted.
+ * 麻痹 is stack-based: it decays instead (RESIST_PALSY_DECAY).
  */
-export const RESIST_STATUSES = Object.freeze(new Set(['stun', 'freeze', 'cold', 'sleep', 'fear', 'tremble', 'attract', 'levitate',
-  'bind', 'silence', 'disarm', 'sluggish', 'slow', 'groundbind']));
+export const RESIST_STATUSES = Object.freeze(new Set(['stun', 'freeze', 'cold', 'fear', 'attract']));
 
 /** Statuses that should be reported to clients as `['status', id, key, on]`. */
 export const VISIBLE_STATUS = new Set(Object.keys(STATUS));

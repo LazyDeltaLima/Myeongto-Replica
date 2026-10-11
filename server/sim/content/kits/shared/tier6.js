@@ -183,7 +183,7 @@ const instantKind = (def) => ((def?.skill?.maxCharges ?? 1) > 1 ? 'charges' : 'i
 const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null);
 /**
  * 异常状态 (ba.debuff "包括晕眩、寒冷、冻结等") — the control statuses cleansed by 流明 (抵抗 itself is the engine `resist`
- * status: RESIST_STATUSES). Stat debuffs (虚弱/脆弱/…) are not 异常状态.
+ * status, which shortens only some of them: RESIST_STATUSES). Stat debuffs (虚弱/脆弱/…) are not 异常状态.
  */
 const ABNORMAL = new Set(['stun', 'freeze', 'cold', 'sleep', 'silence', 'fear', 'attract', 'tremble', 'bind', 'levitate',
   'disarm', 'palsy', 'sluggish', 'slow']);

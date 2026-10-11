@@ -38,14 +38,15 @@ const fill = (u) => u.skill.gainSp(u.skill.spCost * u.skill.maxCharges + 1, 'tes
 // =================================================================================================================
 // #15 skill ranges
 
-test('#15 德克萨斯 S2 剑雨 (skill range 13 tiles, attack range 2): an enemy entering the skill range casts it — no attack, stealthed ones count', () => {
+test('#15 德克萨斯 S2 剑雨 (skill range 13 tiles, attack range 2): an enemy entering the skill range casts it — no attack; a stealthed one does not count (client _DefaultTriggerSkill: selectable enemies; maintainer decision 2026-10-11)', () => {
   const id = 'chess_char_1_08_a';
   const stealthy = dummy('enemy_sneak');
   for (const sneak of [false, true]) {
     const h = run({ defs: { enemies: { enemy_d: dummy('enemy_d'), enemy_sneak: stealthy }, chess: noGarrison(id) }, units: [{ chessId: id, row: 10, col: 4 }] });
     const u = h.unit(id);
     assert.equal(u.skill.id, 'skchr_texas_2');
-    assert.equal(u.skill.rule, 'SKILL_RANGE');
+    assert.equal(u.skill.rule, 'DEFAULT');
+    assert.ok(u.skill.triggerGrid?.length, 'on its rangeId');
     h.step();
     fill(u);
     h.run(1);
@@ -55,28 +56,28 @@ test('#15 德克萨斯 S2 剑雨 (skill range 13 tiles, attack range 2): an enem
     assert.ok(keys.has(10 * COLS + 6) && !u.rangeKeySet.has(10 * COLS + 6));
     const e = h.spawn(sneak ? 'enemy_sneak' : 'enemy_d', { pos: [10, 6] });
     if (sneak) h.b.addBuff(e, { key: 'ab:stealth', flags: { stealth: true }, persist: true });
-    h.step(2);
-    assert.equal(u.skill.activations, 1, `cast at once${sneak ? ' (无视其不可选中: a stealthed enemy counts)' : ''}`);
+    h.run(0.25);
+    assert.equal(u.skill.activations, sneak ? 0 : 1, sneak ? 'a stealthed enemy is no selectable target' : 'cast on the next 0.2 s pass');
     assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u).length, 0, 'without attacking');
     done(h);
   }
 });
 
-test('#15 audit: every MANUAL chess skill with its own 技能范围 casts with an enemy only on a skill-range tile (normal + elite)', () => {
+test('#15 audit: every MANUAL chess skill with a rangeId (DEFAULT on that grid — client _DefaultTriggerSkill) casts with an enemy only on a skill-range tile (normal + elite)', () => {
   const pool = ds.chessIds().filter((id) => (raw(id).skills || []).length); // hidden chess too (effects bring them)
   let n = 0;
   for (const id of pool) {
     for (const s of raw(id).skills || []) {
-      if (s.trigger?.rule !== 'SKILL_RANGE') continue;
+      if (s.skillType !== 'MANUAL' || !['SKILL_RANGE', 'DEFAULT'].includes(s.trigger?.rule) || !s.trigger.customRangeGrid?.length || s.trigger.allies) continue;
       const h = run({ defs: { enemies: { enemy_d: dummy('enemy_d') }, chess: noGarrison(id) }, units: [{ chessId: id, row: 10, col: 5, skillIndex: s.index }] });
       const u = h.unit(id);
       assert.equal(u.skill.id, s.skillId);
-      assert.equal(u.skill.rule, 'SKILL_RANGE', `${id} ${s.skillId}`);
+      if (u.skill.rule !== s.trigger.rule || !u.skill.triggerGrid) { done(h); continue; }   // (a kit with a rule of its own)
       h.step();
       const skill = absoluteRangeKeys(s.rangeGrid, 10, 5, u.dir, 0).filter((k) => { const r = Math.floor(k / COLS), c = k % COLS; return r >= 9 && r <= 12 && c >= 2 && c <= 10 && k !== 10 * COLS + 5; });
       const outside = skill.filter((k) => !u.rangeKeySet.has(k));
       const k = (outside.length ? outside : skill)[0];
-      assert.ok(k != null, `${id} ${s.skillId}: a field tile in the skill range`);
+      if (k == null) { done(h); continue; }   // (a grid of her own tile only: 山 S2 0-1)
       fill(u);
       h.spawn('enemy_d', { pos: [Math.floor(k / COLS), k % COLS] });
       h.run(0.5);
@@ -85,16 +86,16 @@ test('#15 audit: every MANUAL chess skill with its own 技能范围 casts with a
       n++;
     }
   }
-  assert.ok(n >= 20, `${n} SKILL_RANGE skills`);
+  assert.ok(n >= 40, `${n} skills with a trigger grid`);
 });
 
-test('#15 an attack-range change ("攻击范围扩大") is officially the basic strategy; by the owner\'s rule of 2026-10-05 银灰 S3 (3-7 strictly containing his 3-12) casts on an enemy inside the expanded range (ACTIVE_RANGE)', () => {
+test('#15 an attack-range change ("攻击范围扩大") is the basic strategy on its rangeId (client _DefaultTriggerSkill, maintainer decision 2026-10-11): 银灰 S3 casts on an enemy inside the 3-7', () => {
   const id = 'chess_char_4_22_a';
   const h = run({ defs: { enemies: { enemy_d: dummy('enemy_d') }, chess: noGarrison(id) }, units: [{ chessId: id, row: 10, col: 3 }] });
   const u = h.unit(id);
   assert.equal(u.skill.id, 'skchr_svrash_3');
-  assert.equal(u.skill.rule, 'ACTIVE_RANGE');
-  assert.equal(skillOf(id, 'skchr_svrash_3').trigger.rawRule, 'DEFAULT', 'the official strategy: the basic one (PRTS "非攻击距离增加")');
+  assert.equal(u.skill.rule, 'DEFAULT');
+  assert.equal(skillOf(id, 'skchr_svrash_3').trigger.rawRule, 'DEFAULT', 'the official strategy: the basic one');
   h.step();
   fill(u);
   // a field tile of the expanded range outside his own (his row has none: 3-7 and 3-12 share it)
@@ -102,11 +103,14 @@ test('#15 an attack-range change ("攻击范围扩大") is officially the basic 
   assert.ok(far != null);
   h.spawn('enemy_d', { pos: [Math.floor(far / COLS), far % COLS] });
   assert.ok(h.runUntil(() => u.skill.activations === 1, 3), 'an enemy only in the expanded range: cast, no attack needed');
-  assert.equal(starts(h, u)[0].reason, 'ACTIVE_RANGE');
+  assert.equal(starts(h, u)[0].reason, 'DEFAULT');
   done(h);
 });
 
-test('#15 重装 "不受技能范围影响，受到伤害时释放技能": 瑕光 S3 ignores enemies in its skill range until she is hit', () => {
+// TAKE_DAMAGE (client `AutoChessBattleTrigger`): the hit casts it at once, and the 0.2 s pass sends type 12 down SEARCH's
+// branch (`_TrySearchTarget`: the unit's attack trigger) — an enemy in her attack range casts it too, none only in the
+// skill range
+test('#15 重装 "不受技能范围影响，受到伤害时释放技能": 瑕光 S3 ignores enemies only in its skill range; an enemy she attacks or a hit casts it', () => {
   const id = 'chess_char_3_12_a';
   const h = run({ defs: { enemies: { enemy_d: dummy('enemy_d'), enemy_hit: dummy('enemy_hit', { atk: 200, bat: 1 }) }, chess: noGarrison(id) }, units: [{ chessId: id, row: 10, col: 4 }] });
   const u = h.unit(id);
@@ -114,16 +118,31 @@ test('#15 重装 "不受技能范围影响，受到伤害时释放技能": 瑕�
   assert.equal(u.skill.rule, 'TAKE_DAMAGE');
   h.step();
   fill(u);
-  h.spawn('enemy_d', { pos: [10, 5] });
+  // (10,6): in her skill range, outside her attack range — no cast
+  const far = absoluteRangeKeys(u.def.skill.rangeGrid, 10, 4, u.dir, 0).find((k) => !u.rangeKeySet.has(k) && Math.floor(k / COLS) === 10);
+  assert.ok(far != null, 'a skill-range tile beyond her attack range');
+  h.spawn('enemy_d', { pos: [10, far % COLS] });
   h.run(2);
-  assert.equal(u.skill.activations, 0, 'enemies in range, attacked by her, but she is not hit');
-  h.spawn('enemy_hit', { pos: [10, 4] });
-  assert.ok(h.runUntil(() => u.skill.activations === 1, 3), 'the first hit casts it');
+  assert.equal(u.skill.activations, 0, 'an enemy only in the skill range, she is not hit');
+  // an enemy she attacks (on her tile): the pass's SEARCH branch casts it, no hit needed
+  h.spawn('enemy_d', { pos: [10, 4] });
+  assert.ok(h.runUntil(() => u.skill.activations === 1, 3), 'a target of her attack casts it');
   assert.equal(starts(h, u)[0].reason, 'TAKE_DAMAGE');
+  assert.equal(h.hooksOf('damaged').filter((d) => d.target === u).length, 0, 'before any hit');
   done(h);
+  // and a hit casts it at once with nothing in her range (a ranged hitter beyond it)
+  const g = run({ defs: { enemies: { enemy_arc: dummy('enemy_arc', { atk: 200, bat: 1, range: 9 }) }, chess: noGarrison(id) }, units: [{ chessId: id, row: 10, col: 4 }] });
+  const v = g.unit(id);
+  g.step();
+  fill(v);
+  g.spawn('enemy_arc', { pos: [10, 9] });
+  assert.ok(g.runUntil(() => v.skill.activations === 1, 5), 'the first hit casts it');
+  assert.equal(starts(g, v)[0].reason, 'TAKE_DAMAGE');
+  assert.ok(g.hooksOf('damaged').some((d) => d.target === v), 'after a hit');
+  done(g);
 });
 
-test('#15 the automatic operations cool down 3 s: 锏 S2 (2 charges, skill range) spends its charges 3 s apart', () => {
+test('#15 the automatic operations block the caster 10 passes (client BLOCK_SKILL_TICK, 2026-10-11 — 3 s before): 锏 S2 (2 charges, skill range) spends its charges 2.2 s apart', () => {
   const id = 'chess_char_6_19_b';
   const s = skillOf(id, 'skchr_blkkgt_2');
   const h = run({ defs: { enemies: { enemy_d: dummy('enemy_d') }, chess: noGarrison(id) }, units: [{ chessId: id, row: 10, col: 4, skillIndex: s.index }], enemies: [{ key: 'enemy_d', pos: [10, 5] }] });
@@ -140,7 +159,7 @@ test('#15 the automatic operations cool down 3 s: 锏 S2 (2 charges, skill range
   done(h);
 });
 
-test('#15 "作战开始时部署的单位将进入冷却": a MANUAL skill ready at the battle start waits 3 s after the initial deployment (the engine default); an AUTO one does not', () => {
+test('#15 "作战开始时部署的单位将进入冷却": a MANUAL skill ready at the battle start sits out 10 passes (2 s, the engine default) after the initial deployment; an AUTO one does not', () => {
   const rec = (id, skillType) => chessRec({ id, profession: 'SUPPORT', subProfessionId: 'bard', stats: { atk: 0 }, skill: { skillType, spCost: 10, initSp: 10, durationType: 'NONE', duration: 5, trigger: { rule: 'SP_FULL' } } });
   // flags.startOpCooldown undefined = the Battle default the matches use (the harness otherwise turns it off)
   const h = run({ flags: { startOpCooldown: undefined }, defs: { chess: { t_man: rec('t_man', 'MANUAL'), t_auto: rec('t_auto', 'AUTO') } },
@@ -166,7 +185,7 @@ test('#15 GDGLOW_SKILL_2 "全场存在可选目标时释放技能": 荒芜拉普
   assert.equal(u.skill.activations, 0, 'no enemy');
   h.spawn('enemy_d', { pos: [9, 10] }); // far outside her range
   assert.ok(!u.rangeKeySet.has(9 * COLS + 10));
-  h.step(2);
+  h.run(0.25);   // (the next 0.2 s pass)
   assert.equal(u.skill.activations, 1, 'an enemy anywhere');
   done(h);
   const a = 'chess_char_6_20_a';
@@ -179,7 +198,7 @@ test('#15 GDGLOW_SKILL_2 "全场存在可选目标时释放技能": 荒芜拉普
   h.run(1);
   assert.equal(u.skill.activations, 0, 'nobody to heal');
   h.unit('t_mate').hp = 5000;
-  h.step(2);
+  h.run(0.25);
   assert.equal(u.skill.activations, 1, 'an injured ally anywhere');
   done(h);
 });

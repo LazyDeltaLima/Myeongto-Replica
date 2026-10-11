@@ -603,7 +603,7 @@ test('侵蚀 burst: 1000 erosion permanently lowers DEF by 100 and deals 800 phy
   const hp = w.hp;
   enemiesMod.elem(h.b, src, w, 'erosion', 1000);
   h.step(2);
-  assert.ok(!w.findBuff('necrosisBurst'));
+  assert.ok(!w.findBuff('apoptosisBurst'));
   assert.equal(w.s.def, 300 - EROSION_BURST.defDown);
   approx(hp - w.hp, EROSION_BURST.physDamage - (300 - EROSION_BURST.defDown), 1e-6);
 });

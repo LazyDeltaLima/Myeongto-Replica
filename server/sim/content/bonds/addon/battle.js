@@ -61,7 +61,7 @@ import { bodyKeys, bodyOnTile } from '../../../body.js';
 import { isHpLoss } from '../../../damage.js';
 import {
   num, bondRecord, buffParams, bondTier, bondLayers, isMember, isElite, isGroundOp, onField, playerOps, passiveBuff,
-  fxOn, N4, N8, directMods, COLS,
+  fxOn, tplFx, N4, N8, directMods, COLS,
 } from '../../support/index.js';
 
 export const ID = Object.freeze({
@@ -551,8 +551,10 @@ export function install(battle) {
       const member = st.members[ID.swift].has(u), power = lv >= num(bb.power_bond_stack_cnt, Infinity);
       if (!(member || power) || !(battle.rng() < p)) return;
       let gained = 0;
-      if (member) gained += u.skill.gainSp(num(bb.normal_sp), 'bond');
-      if (power) gained += u.skill.gainSp(num(bb.power_sp), 'bond');
+      // each line's ModifySp is followed by its own CreateEffect bond_charge_battle_01 on the operator (two on a member at
+      // L ≥ power_bond_stack_cnt; the buff's source is no unit — display only)
+      if (member) { gained += u.skill.gainSp(num(bb.normal_sp), 'bond'); tplFx(battle, u, 'bond_charge_battle_01', null); }
+      if (power) { gained += u.skill.gainSp(num(bb.power_sp), 'bond'); tplFx(battle, u, 'bond_charge_battle_01', null); }
       if (gained > 0) fxOn(battle, 'sp', u, 'bond:swiftShip', 'proc', { n: gained });
     });
   }

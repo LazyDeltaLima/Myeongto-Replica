@@ -10,10 +10,10 @@ export default {
   // 技能策略 (DESIGN §21.29, PR #12): the official 下半 class row hands every MANUAL 重装 skill TAKE_DAMAGE, which makes a
   // 2-2 ranged 哨戒铁卫 wait until something hits her — in practice until she blocks (GitHub issue #4). By the owner's
   // deliberate deviation from that row (2026-10-03, community feedback) this offensive ranged skill takes the basic
-  // strategy (tools/build-data.mjs TRIGGER_DEVIATIONS: DEFAULT, rawRule keeps the official TAKE_DAMAGE), and since 0.2.0
-  // the owner's ACTIVE_RANGE rule on top of it (2026-10-05): its running range 3-2 strictly contains her 2-2, so it casts
-  // as soon as an enemy is inside the 3-2 — the data rule (rule ACTIVE_RANGE, customRangeGrid the 3-2), which this spec
-  // reads (PR #12's DEFAULT line is gone: it would have kept the 2-2).
+  // strategy (tools/build-data.mjs TRIGGER_DEVIATIONS: DEFAULT, rawRule keeps the official TAKE_DAMAGE), and the basic
+  // strategy of a skill with a rangeId checks that box (client AutoChessBattleTrigger, maintainer decision 2026-10-11): it
+  // casts as soon as an enemy is inside the 3-2 — the data rule (rule DEFAULT, customRangeGrid the 3-2), nothing set here
+  // (PR #12's DEFAULT line is gone).
   // 细胞活性抑制剂: attacks inflict `damage` arts per `interval` s for `duration` s (damage_seamonster vs 【海怪】).
   // Elite module (SPT-X): stealth of enemies inside the range is cancelled.
   // Alternate S1 侵袭破坏应对 (重装 ⇒ TAKE_DAMAGE trigger from data): ATK +atk, DEF +def.

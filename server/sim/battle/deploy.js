@@ -3,7 +3,7 @@
 // automatic redeploys, leaks.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { COLS } from '../constants.js';
+import { AUTO_TRIGGER_INTERVAL, COLS } from '../constants.js';
 import { unitInfo } from '../snapshot.js';
 import { fin } from './util.js';
 
@@ -46,7 +46,7 @@ export class BattleDeploy {
     u.swing = null;     // a new deployment swings anew (ai.js updateAlly)
     u.castLeft = 0;
     u.lastAttackAt = -Infinity;
-    u.elem.burn = u.elem.neural = u.elem.necrosis = u.elem.apoptosis = u.elem.erosion = 0;
+    u.elem.burn = u.elem.neural = u.elem.apoptosis = u.elem.erosion = 0;
     u.ground = !fly && this.grid.isLow(R0, C0) && !this._elevated?.has(k); // a flyer is an air unit, on no ground at all
     u.markDirty();
     u.hp = u.s.maxHp;
@@ -59,8 +59,9 @@ export class BattleDeploy {
     if (!u.skill) this._setupUnit(u);
     u.skill.reset(cs);
     const sk = u.skill;
-    // "自动操作具有3s冷却，在完成一次操作或作战开始时部署的单位将进入冷却" (PRTS 卫戍协议/帮助; skills.js)
-    if (initial) sk.opReadyAt = this.time + this.flags.startOpCooldown;
+    // "…作战开始时部署的单位将进入冷却" (PRTS 卫戍协议/帮助): the battle-start deployment sits out the automatic operations
+    // for `startOpCooldown` s of passes (constants.js AUTO_OP_COOLDOWN = BLOCK_SKILL_TICK passes; skills.js)
+    if (initial) sk.blockTicks = Math.ceil(this.flags.startOpCooldown / AUTO_TRIGGER_INTERVAL - 1e-9);
     // keepSp (突袭 "保留技力"): the SP / charges before the jump — not for a skill that costs no SP (spCost 0, the
     // deploy-timed skills), which reset() just re-armed as at every deployment: the retreat ended it, so its snapshot
     // holds 0 charges, and writing that back took the charge 伊内丝 S3's deploy hook casts with (community report:

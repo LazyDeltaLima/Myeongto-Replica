@@ -1067,11 +1067,13 @@ export class UnitView {
   /**
    * This unit starts a normal attack's swing now (b.ev 'swing'); its strike comes `windup` game seconds later: the Spine
    * attack clip plays from its start at the official speed (render/spine.js swing). True when the clip was started.
-   * `kind` = the swing's projectile kind (its 4th field).
+   * `kind` = the swing's projectile kind (its 4th field); `base` = its 5th field: the attack plays the Default attack clip
+   * although a skill is on (赤刃明霄陈 S3 before its mode switch, kits/ops/op-chen3.js s3Spec).
    */
-  onSwing(windup, kind) {
+  onSwing(windup, kind, base = false) {
     if (!this.alive || !this.actor || !this.spineReady) return false;
     this._atkKind(kind);
+    this.actor.baseClip = !!base;
     const ok = this.actor.swing(windup);
     if (ok && this.imp) this.imp.dirty = true;
     return ok;

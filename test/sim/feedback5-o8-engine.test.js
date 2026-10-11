@@ -79,6 +79,6 @@ test('profile skipEnemy: the unit never selects such an enemy — no attack, no 
   const o = h.spawn('enemy_dummy', { pos: [10, 6] });
   assert.ok(h.runUntil(() => h.hooksOf('damaged').some((c) => c.source === u && c.target === o), 3), 'attacks the other one');
   assert.ok(h.hooksOf('damaged').filter((c) => c.source === u).every((c) => c.target === o), 'only that one');
-  assert.ok(u.skill.activations >= 1, 'DEFAULT fires for it');
+  assert.ok(h.runUntil(() => u.skill.activations >= 1, 0.25), 'DEFAULT fires for it (the next 0.2 s pass)');
   checkInvariants(h.b);
 });

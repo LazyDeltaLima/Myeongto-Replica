@@ -177,9 +177,11 @@ export class BattleStatus {
       else if (Number.isFinite(d) && d <= 0) return false;
       value = c.value;
     }
+    // (the client shortens the buff as it runs — client code `Buff._PreprocessDeltaTime`: dt ÷ max(0.001, 1 − 抵抗) —,
+    // the same length as this × (1 − 抵抗) while the 抵抗 stays as it was at the application)
     if (RESIST_STATUSES.has(key) && !opts.resistApplied) {
       const rv = this.resistOf(target);
-      if (rv > 0) duration *= 1 - rv;
+      if (rv > 0) duration *= Math.max(0.001, 1 - rv);
     }
     // 浮空 / 缚地 (ba.levitate, ba.groundbind): "对重量大于3的单位持续时间减半"
     if ((key === 'levitate' || key === 'groundbind') && target.s.massLevel > LEVITATE_HALF_WEIGHT) duration /= 2;

@@ -23,6 +23,8 @@ const TB = (id, i) => ds.getChess(id).talents[i].bb;
 const approx = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg} ${a} ≈ ${b}`);
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e7, speed: 0, def: 0, res: 0, ...o });
 const fill = (u) => u.skill.gainSp(u.skill.spCost * u.skill.maxCharges + 1, 'test');
+/** A ReplacementSkill cast (伺夜 S1 / S2, data `cast.mode` 'replace') goes out as the unit's next attack: run to its strike. */
+const out = (h, u, t = 3) => assert.ok(h.runUntil(() => !u.skill.replacing, t), 'the cast went out as his next attack');
 const tagged = (h, tag, src = null) => h.hooksOf('damaged').filter((c) => c.dmg?.tags?.includes(tag) && (!src || c.source === src));
 const done = (h) => { assert.deepEqual(h.b.errors.map((e) => `${e.label} ${e.message}`), []); checkInvariants(h.b); };
 /** Chess record without its 特质 (garrisons re-type damage; they have their own tests). */
@@ -452,13 +454,13 @@ test('3_06 菲莱 S1 灵河护佑 (TAKE_DAMAGE): HP +, clears her element gauges
   }
 });
 
-test('3_08 薄绿 S1 风语 (阵法术师 row SEARCH "在初始攻击范围内存在敌人时", widened to its running x-2 by the owner\'s ACTIVE_RANGE rule of 2026-10-05): wider range, attacks at attack@atk_scale; guard/taunt rules kept', () => {
+test('3_08 薄绿 S1 风语 (阵法术师 row SEARCH "在初始攻击范围内存在敌人时": an enemy in her initial x-1, not the S1 x-2): wider range, attacks at attack@atk_scale; guard/taunt rules kept', () => {
   for (const id of BOTH('chess_char_3_08_a')) {
     const b = SB(id, 'skchr_mint_1'), t0 = TB(id, 0);
     const sk = LD(id, 'skchr_mint_1').skill;
-    assert.equal(sk.trigger?.rule, 'ACTIVE_RANGE', 'data: the phalanx row (rawRule SEARCH) on the x-2 she attacks with');
-    assert.deepEqual(sk.trigger.grid, sk.rangeGrid, 'trigger grid = the S1 x-2');
-    const h = makeBattle({ defs: { enemies: { enemy_d: dummy('enemy_d'), enemy_far: dummy('enemy_far') } }, timeLimit: 60, hooks: ['damaged'], captureNoisy: true,
+    // (the owner's ACTIVE_RANGE rule of 2026-10-05 widened it to the running x-2 until maintainer decision 2026-10-11)
+    assert.equal(sk.trigger?.rule, 'SEARCH', 'data: the phalanx row (skillTriggerDataList SEARCH)');
+    const h = makeBattle({ defs: { enemies: { enemy_d: dummy('enemy_d'), enemy_n: dummy('enemy_n'), enemy_far: dummy('enemy_far') } }, timeLimit: 60, hooks: ['damaged'], captureNoisy: true,
       units: [U(id, 'skchr_mint_1', 10, 4)], enemies: [{ key: 'enemy_far', pos: [10, 7] }] }); // [0,3]: outside the x-2 too
     const u = h.unit(id);
     h.run(1);
@@ -467,7 +469,10 @@ test('3_08 薄绿 S1 风语 (阵法术师 row SEARCH "在初始攻击范围内�
     h.run(2);
     assert.equal(u.skill.activations, 0, 'an enemy outside the x-2 does not open it (not a whole-field search)');
     h.spawn('enemy_d', { pos: [11, 6] }); // [1,2]: the x-2 only, outside her initial x-1
-    assert.ok(h.runUntil(() => u.skill.active, 1), 'an enemy inside the S1 x-2 opens it at once (she never attacks before)');
+    h.run(1);
+    assert.equal(u.skill.activations, 0, 'an enemy in the S1 x-2 only does not open it (SEARCH: the initial range)');
+    h.spawn('enemy_n', { pos: [10, 5] }); // [0,1]: her initial x-1
+    assert.ok(h.runUntil(() => u.skill.active, 1), 'an enemy inside her initial range opens it by the next 0.2 s pass (she never attacks before)');
     assert.ok(u.findBuff('talent:mint_taunt'));
     approx(u.s.taunt, (u.base.tauntLevel ?? 0) + t0.taunt_level);
     h.run(3);
@@ -516,14 +521,12 @@ test('3_10 松果 S1 RMA长钉 (charges): an immediate extra shot ×atk_scale ig
     const n0 = h.hooksOf('attack').length;
     fill(u);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 5));
-    // the skill shot as it is cast — at the start of the swing it was cast for —, the normal attack at that swing's
-    // damage frame (ai.js attackTiming; until 2026-10-10 both in the same tick)
-    const wind = attackTiming(u).strike;
-    assert.ok(h.runUntil(() => h.hooksOf('attack').slice(n0).some((c) => c.attacker === u && !c.isSkill), wind + 0.2));
+    // the skill shot goes out as the 0.2 s automatic operation casts it (kit forceAttack), her normal attacks go on.
+    // [ASSUMED] the data's cast.mode 'state' (CastSkill _switchToState 1: the Skill_1 clip would hold her attacks) is not
+    // applied: the kit's shot is an attack override (spec.attack), which SkillRuntime._paceInstant leaves to the kit
+    assert.ok(h.runUntil(() => h.hooksOf('attack').slice(n0).some((c) => c.attacker === u && !c.isSkill), u.s.interval + 0.5));
     const at = h.hooksOf('attack').slice(n0).filter((c) => c.attacker === u);
     assert.ok(at.some((c) => c.isSkill) && at.some((c) => !c.isSkill), 'skill shot + the normal attack');
-    const castT = at.find((c) => c.isSkill).t;
-    assert.ok(Math.abs(at.find((c) => !c.isSkill).t - castT - wind) <= 2 * h.TICK + 1e-9, 'the normal attack at its damage frame');
     h.run(0.5);
     const sk = atkHits(h, u, true);
     const main = sk.find((c) => c.target.defId === 'enemy_d');
@@ -531,10 +534,11 @@ test('3_10 松果 S1 RMA长钉 (charges): an immediate extra shot ×atk_scale ig
     assert.ok(sk.some((c) => c.target.defId === 'enemy_s'), 'every enemy in range');
     const plain = atkHits(h, u, false).find((c) => c.target.defId === 'enemy_d');
     approx(plain.amount, u.s.atk * front - 300, 1e-6, 'the ignore is for the skill shot only');
-    // every stored charge is used, one per attack — at least AUTO_OP_COOLDOWN (3 s) apart ("自动操作具有3s冷却")
+    // every stored charge is used — at least the automatic operations' block apart (BLOCK_SKILL_TICK: 10 passes skipped,
+    // the 11th 0.2 s pass ≈ 2.2 s later; AutoChessBattleTrigger._TryTriggerAvailableSkills)
     assert.ok(h.runUntil(() => u.skill.activations >= d.skill.maxCharges, 15), 'every stored charge is used');
     const casts = h.hooksOf('attack').filter((c) => c.attacker === u && c.isSkill).map((c) => c.t);
-    for (let i = 1; i < casts.length; i++) assert.ok(casts[i] - casts[i - 1] >= 3 - 1e-6, `casts ${casts[i - 1]} → ${casts[i]}`);
+    for (let i = 1; i < casts.length; i++) assert.ok(casts[i] - casts[i - 1] >= 2.2 - 1e-6, `casts ${casts[i - 1]} → ${casts[i]}`);
     done(h);
   }
 });
@@ -648,7 +652,7 @@ test('3_12 瑕光 精锐 module GUA-X: heals on allies under 50 % HP ×1.15 (not
   done(h);
 });
 
-test('3_13 至简 S1 / 3_16 蛇屠箱 S1 / 3_20 耶拉 S1: timed stat skills from their own blackboards (蛇屠箱 on TAKE_DAMAGE, keeps attacking)', () => {
+test('3_13 至简 S1 / 3_16 蛇屠箱 S1 / 3_20 耶拉 S1: timed stat skills from their own blackboards (蛇屠箱 on TAKE_DAMAGE — a hit or the enemy she blocks (the pass\'s SEARCH branch); keeps attacking)', () => {
   for (const [base, sid, check] of [
     ['chess_char_3_13_a', 'skcom_quickattack[3]', (u, b) => { approx(u.s.aspd, u.base.aspd + b.attack_speed); assert.ok(u.s.atk >= u.base.atk * (1 + b.atk) - 1e-6); }],
     // (精锐 PRO-X: + trait DEF while blocking — the enemy stands on her tile)
@@ -665,11 +669,8 @@ test('3_13 至简 S1 / 3_16 蛇屠箱 S1 / 3_20 耶拉 S1: timed stat skills fro
       h.run(1);
       const atk0 = u.s.atk;
       fill(u);
-      if (d.skill.trigger.rule === 'TAKE_DAMAGE') {
-        h.run(0.5);
-        assert.equal(u.skill.activations, 0, `${id}: waits for a hit`);
-        h.b.dealDamage(h.enemy('enemy_d'), u, { type: 'phys', amount: 1 });
-      }
+      // (TAKE_DAMAGE: the hit casts it, and the client's 0.2 s pass sends type 12 down SEARCH's branch — `_TrySearchTarget`,
+      // the unit's attack trigger — so the enemy on her tile casts it too)
       assert.ok(h.runUntil(() => u.skill.active, 5), id);
       h.step();
       check(u, b);
@@ -756,8 +757,8 @@ test('3_18 忍冬 S1 小施惩戒: next attack + extra arts and +DP; S2 坠刃�
     assert.equal(atkHits(g, v).length, 0, 'nothing in her own range');
     const gdp = gp.dp;
     v.skill.gainSp(v.skill.spCost - v.skill.sp + 0.01, 'test'); // one charge
-    assert.equal(v.skill.rule, 'SKILL_RANGE');
-    assert.ok(g.runUntil(() => v.skill.activations === 1, 1), 'SKILL_RANGE: an enemy on the skill range');
+    assert.equal(v.skill.rule, 'DEFAULT');
+    assert.ok(g.runUntil(() => v.skill.activations === 1, 1), 'rangeId 3-12: an enemy on the skill range (_DefaultTriggerSkill)');
     const first = g.b.time;
     approx(gp.dp, gdp + b2.cost);
     const e1 = g.enemy('enemy_e1');
@@ -769,7 +770,7 @@ test('3_18 忍冬 S1 小施惩戒: next attack + extra arts and +DP; S2 坠刃�
     for (const [i, k] of keys.slice(1).entries()) g.spawn(k, { pos: [[9, 5], [11, 5], [10, 5], [10, 6], [11, 4], [9, 4]][i] });
     v.skill.gainSp(v.skill.spCost + 0.01, 'test');
     assert.ok(g.runUntil(() => v.skill.activations === 2, 4));
-    assert.ok(g.b.time - first >= 3 - 1e-6, 'the next automatic cast waits the 3 s operation cooldown');
+    assert.ok(g.b.time - first >= 2.2 - 1e-6, 'the next automatic cast waits the 10-pass block (≈ 2.2 s)');
     const second = tagged(g, 'vulpisTorture', v).slice(1);
     assert.equal(second.length, b2.max_target, '≤ max_target enemies');
     if (second.some((c) => c.target === e1)) assert.ok(e1.s.flags.stun, 'already 停顿 ⇒ stunned');
@@ -791,11 +792,13 @@ test('3_19 伺夜 S1 领袖的呼唤 (自动触发, the pack on the field): +DP 
     fill(u);
     h.step();
     assert.equal(u.skill.activations, 1, 'no enemy needed');
+    out(h, u);
     approx(p.dp, dp0 + b.cost);
     assert.equal(w.mem.wolves, 3);
     assert.equal(w.s.blockCnt, 3);
     fill(u);
     h.step();
+    out(h, u);
     assert.equal(w.mem.wolves, 3, 'capped');
     approx(p.dp, dp0 + 2 * b.cost);
     done(h);
@@ -810,6 +813,7 @@ test('3_19 伺夜 S1 领袖的呼唤 (自动触发, the pack on the field): +DP 
   const n0 = piece.mem.shadows, blk = piece.s.blockCnt;
   fill(u);
   g.step();
+  out(g, u);
   assert.equal(piece.mem.shadows, n0 + 1);
   assert.equal(piece.s.blockCnt, blk + 1);
   done(g);
@@ -912,6 +916,7 @@ test('3_19 伺夜 S1 领袖的呼唤 by the pack\'s state (PRTS 备注 ①②③
       silence(h, u, false);
       fill(u);
       h.step();
+      out(h, u);
       silence(h, u, true);
       assert.equal(u.skill.activations, n0 + 1, `${tag}: cast`);
       approx(p.dp, dp0 + b.cost, 1e-9, `${tag}: +cost DP`);
@@ -1012,6 +1017,7 @@ test('3_19 伺夜 S2 领袖的馈赠: +DP, the pack recovers HP, its next attack
     const dp0 = p.dp;
     fill(u);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 3));
+    out(h, u);
     approx(p.dp, dp0 + b.cost);
     approx(w.hp, w.s.maxHp * (0.5 + b['vigil_wolf_s_2.hp_ratio']));
     h.b.addBuff(u, { key: 'test:disarm', flags: { disarm: true } });
@@ -1031,10 +1037,10 @@ test('3_19 伺夜 S2 领袖的馈赠: +DP, the pack recovers HP, its next attack
       units: [U(id, 'skchr_vigil_2', 10, 3)], enemies: [{ key: 'enemy_d', pos: [9, 3], time: 0.5 }] });
     const v = g.unit(id), gp = g.b.getPlayer('p1');
     g.run(2);
-    g.b.addBuff(v, { key: 'test:disarm', flags: { disarm: true } }); // (his own shots must not take the kill)
-    g.run(1);
     fill(v);
     assert.ok(v.skill.activate('test'));
+    out(g, v);   // (缴械 would hold the cast: it goes out as his attack)
+    g.b.addBuff(v, { key: 'test:disarm', flags: { disarm: true } }); // (his own shots must not take the kill)
     const gdp = gp.dp;
     const ge = g.enemy('enemy_d');
     ge.hp = 1;
@@ -1055,7 +1061,8 @@ test('3_19 伺夜 S2 领袖的馈赠 (自动触发): no enemy needed — cast at
     const dp0 = p.dp;
     fill(u);
     assert.ok(h.runUntil(() => u.skill.activations === 1, 1), `${tag}: cast with nobody on the field`);
-    approx(p.dp, dp0 + b.cost, 1e-6, '+cost DP at once');
+    out(h, u);
+    approx(p.dp, dp0 + b.cost, 1e-6, '+cost DP with his next attack');
     assert.ok(w.mem.vigilGift, 'the pack holds the gift for its next attack');
     fill(u);
     h.run(3);
@@ -1067,7 +1074,8 @@ test('3_19 伺夜 S2 领袖的馈赠 (自动触发): no enemy needed — cast at
     assert.ok(wolfTacticalPoint(w), `${tag}: 战术点形态`);
     const dp1 = p.dp;
     assert.ok(h.runUntil(() => u.skill.activations === 2, 0.5), `${tag}: cast while the pack is in its 战术点形态`);
-    approx(p.dp, dp1 + b.cost, 1e-6, `${tag}: +cost DP at once`);
+    out(h, u);
+    approx(p.dp, dp1 + b.cost, 1e-6, `${tag}: +cost DP with his next attack`);
     assert.ok(w.mem.vigilGift && !w.alive, `${tag}: the gift waits on the pack`);
     fill(u);
     h.run(3);

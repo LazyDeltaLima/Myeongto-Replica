@@ -19,7 +19,7 @@ const ds = getDefaultSource();
 const done = (h) => { checkInvariants(h.b); assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0])); };
 const dummy = (key) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0 });
 
-test('忍冬: S3 casts with an enemy in its 2-2 running range (not only in her attack range), S2 on its 3-12, S1 on her attack', () => {
+test('忍冬: S3 casts with an enemy on its rangeId 2-2 (not only in her attack range), S2 on its 3-12, S1 on her attack', () => {
   const casts = (id, skillId, pos) => {
     const index = ds.rawChess(id).skills.find((s) => s.skillId === skillId).index;
     const h = makeBattle({ seed: 3, autoFinish: false, timeLimit: 60, defs: { enemies: { e: dummy('e') } }, units: [{ chessId: id, row: 10, col: 4, skillIndex: index }] });
@@ -35,7 +35,8 @@ test('忍冬: S3 casts with an enemy in its 2-2 running range (not only in her a
     assert.deepEqual(ds.rawChess(id).rangeGrid, [[0, 0], [0, 1]], `${id}: her own range is 1 tile ahead`);
     assert.ok(casts(id, 'skchr_vulpis_3', [10, 6]) >= 1, `${id} S3: an enemy 2 tiles ahead`);
     assert.equal(casts(id, 'skchr_vulpis_3', [10, 7]), 0, `${id} S3: not 3 tiles ahead`);
-    for (const pos of [[10, 6], [10, 7], [9, 5]]) assert.equal(casts(id, 'skchr_vulpis_2', pos), 1, `${id} S2 (3-12): ${pos}`);
+    // (its charges: a second one 11 passes — 2.2 s — later, the automatic-operation block)
+    for (const pos of [[10, 6], [10, 7], [9, 5]]) assert.ok(casts(id, 'skchr_vulpis_2', pos) >= 1, `${id} S2 (3-12): ${pos}`);
     assert.equal(casts(id, 'skchr_vulpis_1', [10, 6]), 0, `${id} S1: not out of her attack range`);
     assert.ok(casts(id, 'skchr_vulpis_1', [10, 5]) >= 1, `${id} S1: on her attack`);
   }

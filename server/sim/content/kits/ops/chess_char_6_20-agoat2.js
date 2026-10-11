@@ -11,7 +11,7 @@ function agoat2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const hs = num(bb['attack@heal_scale'], 1);
   const shots = Math.max(1, parseN(def?.skill?.description, /(\d+)连发/, 1));
-  const elemLoad = (a) => (a.elem ? a.elem.burn + a.elem.neural + a.elem.necrosis + a.elem.apoptosis + a.elem.erosion : 0);
+  const elemLoad = (a) => (a.elem ? a.elem.burn + a.elem.neural + a.elem.apoptosis + a.elem.erosion : 0);
   const skills = {
     // S1 无声润物 (toggle, heal): ATK +atk, one extra heal target, every ally of her range recovers ep_heal_ratio × ATK
     // 元素损伤 per second. 自动触发 with effects on allies only (nothing to target): on as soon as its SP is full (SP_FULL,

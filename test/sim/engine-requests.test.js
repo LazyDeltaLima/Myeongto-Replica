@@ -513,3 +513,17 @@ test('layerGain ctx.tile: the source\'s tile — or where it was knocked out thi
   h.b.addLayers('p1', 'test', 1, 'x');
   assert.equal(h.hooksOf('layerGain').at(-1).tile, null);
 });
+
+test('resist: only 晕眩 冻结 寒冷 恐惧 诱导 are shortened (client Buff._InitIsStatusResistable + PRTS 可抵抗状态; maintainer decision 2026-10-11)', () => {
+  assert.deepEqual([...RESIST_STATUSES].sort(), ['attract', 'cold', 'fear', 'freeze', 'stun']);
+  const h = makeBattle({ defs: { chess: { t_gd: guard() } }, units: [{ chessId: 't_gd', row: 10, col: 4 }], content: 'generic', autoFinish: false });
+  h.step();
+  const u = h.unit('t_gd');
+  h.b.applyStatus(u, 'resist', { duration: 60 });
+  for (const [k, d] of [['silence', 4], ['bind', 4], ['disarm', 4], ['sleep', 4]]) {
+    h.b.applyStatus(u, k, { duration: d });
+    assert.ok(Math.abs(u.findBuff(k).timeLeft - d) < 1e-9, `${k} not shortened`);
+  }
+  h.b.applyStatus(u, 'stun', { duration: 4 });
+  assert.ok(Math.abs(u.findBuff('stun').timeLeft - 2) < 1e-9, 'stun halved');
+});

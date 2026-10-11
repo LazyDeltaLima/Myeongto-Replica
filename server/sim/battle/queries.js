@@ -99,7 +99,7 @@ export class BattleQueries {
       if (!set.has(a.tileR * COLS + a.tileC)) continue;
       if (a !== healer && ((a.s.flags.noHeal && !(through && through(healer, a))) || (a.profile && a.profile.noHeal))) continue;
       const injured = a.hp < a.s.maxHp - 1e-6;
-      const elem = includeElement && (a.elem.burn + a.elem.neural + a.elem.necrosis + a.elem.apoptosis + a.elem.erosion) > 0;
+      const elem = includeElement && (a.elem.burn + a.elem.neural + a.elem.apoptosis + a.elem.erosion) > 0;
       if (injured || elem) out.push(a);
     }
     out.sort((a, b) => a.hpRatio - b.hpRatio || a.deploySeq - b.deploySeq);

@@ -146,6 +146,31 @@ export function normalizeSkill(rec) {
     kind: s.kind ?? null,
     bb,
     description: s.description ?? s.desc ?? '',
+    cast: normSkillCast(s.cast),
+  };
+}
+
+/**
+ * data/chess.json / backups.json skill `cast` (tools/build-data.mjs skillCast — how the client casts the skill: docs/rules/
+ * sim.md 「즉발 스킬의 시전」) → { mode: 'replace' | 'state' | 'free', resetCd, time, cd, dur, hit, max, pre, wait }, or
+ * null when absent. `time` null = no skill ability (a buff cast); `dur` null = its clip is not known; `max` −1 → Infinity
+ * (no bound), absent → 1 (normAttackAnim).
+ */
+export function normSkillCast(c) {
+  if (!c || typeof c !== 'object' || !['replace', 'state', 'free'].includes(c.mode)) return null;
+  const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+  const dur = n(c.dur), hit = n(c.hit), max = n(c.max), cd = n(c.cd), pre = n(c.pre);
+  const time = Number.isInteger(c.time) ? c.time : null;
+  return {
+    mode: c.mode,
+    resetCd: !!c.resetCd,
+    time,
+    cd: cd > 0 ? cd : 0,
+    dur: dur > 0 ? dur : null,
+    hit: dur > 0 && hit != null ? Math.min(dur, Math.max(0, hit)) : null,
+    max: max == null ? 1 : max < 0 ? Infinity : Math.max(0.1, max),
+    pre: pre > 0 ? pre : 0,
+    wait: c.wait !== 0 && c.wait !== false,
   };
 }
 
@@ -447,7 +472,6 @@ export function normalizeRoute(r) {
       const t = String(st.t ?? st.type ?? 'move').toUpperCase();
       cps.push({ type: normCpType(t), pos: pairOf(st.p ?? st.pos) ?? [0, 0], time: num(st.s ?? st.time, 0) });
     }
-    portalAppear(cps);
     return { motion, start, end, checkpoints: cps };
   }
   for (const cp of r.checkpoints ?? r.cp ?? []) {
@@ -460,27 +484,7 @@ export function normalizeRoute(r) {
       cps.push({ type: normCpType(cp.type), pos: pairOf(cp.pos ?? cp.position ?? [cp.row, cp.col]) ?? [0, 0], time: num(cp.time ?? cp.t, 0) });
     }
   }
-  portalAppear(cps);
   return { motion, start, end, checkpoints: cps };
-}
-
-/**
- * The boss / Hidden Core templates' 传送门 (GitHub #336, PR #337 by @2321Robin): the twin routes spell a crossing as
- * DISAPPEAR → WAIT → APPEAR[exit], but four official routes leave the APPEAR out and go straight to MOVE-to-the-exit
- * (act1autochess_h07_02 #4, act1autochess_h08_02 #5 / #9, act2autochess_h07_05 #6; the level files themselves have no
- * APPEAR_AT_POS there). Taken literally, such a route walks the enemy's whole remaining run hidden (untargetable,
- * unblockable) and it leaks unseen — the crossing must read "reappear on the far side". Re-insert the exit APPEAR
- * ahead of that MOVE, at the MOVE's own target, where the twins appear ([5,10]; the leftover MOVE becomes a
- * zero-length hop, and the hop no longer counts as walking distance for the targeting order). A DISAPPEAR followed by
- * an APPEAR, or by no MOVE, stays as it is; idempotent.
- */
-function portalAppear(cps) {
-  for (let i = 0; i < cps.length; i++) {
-    if (cps[i].type !== 'DISAPPEAR') continue;
-    let j = i + 1;
-    while (j < cps.length && cps[j].type === 'WAIT') j++;
-    if (cps[j] && cps[j].type === 'MOVE') cps.splice(j, 0, { type: 'APPEAR', pos: cps[j].pos.slice(), time: 0 });
-  }
 }
 
 function normCpType(t) {

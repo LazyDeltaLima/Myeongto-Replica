@@ -19,7 +19,8 @@ export default {
   //      enemies; 蓄势: DP regen + out-of-combat
   //      regen; 精锐 module SOL-X: ATK/DEF + while blocking
   //      S1 小施惩戒 (charges): next attack + extra_damage_ratio × ATK arts and +cost DP; S2 坠刃拷问 (charges, the data rule
-  //      SKILL_RANGE: fires once an enemy is inside its own range 3-12, charges 3 s apart): +cost DP, ≤ max_target enemies of that range take atk_scale arts and
+  //      DEFAULT on its rangeId 3-12 — the client's basic strategy: fires once an enemy is inside that box, a charge per
+  //      automatic operation of hers, ≈ 2.2 s apart): +cost DP, ≤ max_target enemies of that range take atk_scale arts and
   //      停顿 — the ones already 停顿 are also stunned; its targets come from the 3-12 only (PRTS S2 备注 "可对空；无法选中被自身
   //      阻挡而没有位于技能范围内的敌人" — an S2 note, not S3's: S3 隐狐之艺 has none, its client selector is the standard
   //      「同时攻击阻挡的所有敌人」 one). (SOL-Y "首次部署时部署费用-4": the initial deployment is free.)
@@ -64,7 +65,7 @@ export default {
             if (dp > 0) { battle.addDp(unit.ownerId, dp); fx(battle, 'dp', unit, { n: dp }); }
           } },
         }),
-        skchr_vulpis_2: (s) => { // 坠刃拷问 — air units too (PRTS 备注 "※可对空"); data trigger SKILL_RANGE (its 3-12 range)
+        skchr_vulpis_2: (s) => { // 坠刃拷问 — air units too (PRTS 备注 "※可对空"); data trigger DEFAULT on its 3-12 rangeId
           const grid = copyGrid(s.rangeGrid);
           const n = Math.max(1, Math.floor(num(s.bb.max_target, 6)));
           return {

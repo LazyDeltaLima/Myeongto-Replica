@@ -1,4 +1,6 @@
-// test/sim/feedback5-active-range.test.js — the owner's rule of 2026-10-05 (a deliberate deviation, like DESIGN §21.29):
+// test/sim/feedback5-active-range.test.js — the ACTIVE_RANGE engine rule (content only since 2026-10-11: the Touch map
+// character; the data no longer resolves it — maintainer decision 2026-10-11, docs/rules/sim.md 「스킬 범위 발동」). Until then
+// the owner's rule of 2026-10-05 (a deliberate deviation, like DESIGN §21.29):
 // a MANUAL skill on the basic strategy whose attack range while it runs strictly contains the operator's own range casts
 // as soon as an enemy (a heal skill: an injured ally) is inside that larger range — trigger ACTIVE_RANGE, resolved by
 // tools/build-data.mjs resolveTrigger (customRangeGrid = the running range) and checked every tick by server/sim/skills.js.
@@ -74,11 +76,13 @@ test('ACTIVE_RANGE heal skill: an injured ally inside the running range only cas
   done(h);
 });
 
-test('real data: 莫斯提马 S3 序时之匙 (3-15 over her 3-6) casts on its running range; 白面鸮 S2 脑啡肽 (y-7 over y-2, a heal) resolves to it too', () => {
+test('real data (maintainer decision 2026-10-11): 莫斯提马 S3 序时之匙 casts with an enemy on its rangeId 3-15 — the client basic strategy, no ACTIVE_RANGE; 白面鸮 S2 脑啡肽 (y-7) the same', () => {
   const MOST = 'chess_char_4_02_a', PLOSIS = 'chess_char_4_21_a';
   const d = ds.getChess(MOST);
-  assert.equal(d.skill.trigger.rule, 'ACTIVE_RANGE');
-  assert.equal(ds.getChess(PLOSIS).skill.trigger.rule, 'ACTIVE_RANGE');
+  assert.equal(d.skill.trigger.rule, 'DEFAULT');
+  assert.deepEqual(d.skill.trigger.grid, d.skill.rangeGrid, 'the trigger grid is the rangeId 3-15');
+  assert.equal(ds.getChess(PLOSIS).skill.trigger.rule, 'DEFAULT');
+  assert.deepEqual(ds.getChess(PLOSIS).skill.trigger.grid, ds.getChess(PLOSIS).skill.rangeGrid);
   // an enemy on a field tile of 3-15 that 3-6 lacks (she stands at (10,3) facing right)
   const base = new Set(absoluteRangeKeys(d.rangeGrid, 10, 3, 'RIGHT', 0));
   const k = absoluteRangeKeys(d.skill.trigger.grid, 10, 3, 'RIGHT', 0).find((x) => !base.has(x) && ((x / COLS) | 0) >= 9 && ((x / COLS) | 0) <= 12);
@@ -90,30 +94,28 @@ test('real data: 莫斯提马 S3 序时之匙 (3-15 over her 3-6) casts on its r
   const u = h.unit(MOST);
   h.step();
   u.skill.gainSp(1000);
-  assert.ok(h.runUntil(() => u.skill.active, 2), '莫斯提马 S3 cast');
-  assert.equal(casts(h, u)[0].reason, 'ACTIVE_RANGE');
+  assert.ok(h.runUntil(() => u.skill.active, 0.25), '莫斯提马 S3 cast on the next pass');
+  assert.equal(casts(h, u)[0].reason, 'DEFAULT');
   done(h);
 });
 
-test('real data: the SEARCH row widened — 安洁莉娜 S3 秘杖·反重力模式 (y-4 over her y-2) casts on an enemy of the y-4 only, no attack needed; her S2 (no range change) keeps SEARCH on the y-2', () => {
+test('real data (maintainer decision 2026-10-11): the SEARCH row keeps its rule — 安洁莉娜 S3 秘杖·反重力模式 and S2 wait for an enemy on her initial y-2 (no ACTIVE_RANGE widening)', () => {
   const AGL = 'chess_char_5_20_a';
   const idx = (sid) => ds.getChess(AGL).raw.skills.find((s) => s.skillId === sid).index;
   const s3 = ds.getChess(AGL, { skillIndex: idx('skchr_aglina_3') }).skill, s2 = ds.getChess(AGL, { skillIndex: idx('skchr_aglina_2') }).skill;
-  assert.equal(s3.trigger.rule, 'ACTIVE_RANGE');
-  assert.deepEqual(s3.trigger.grid, s3.rangeGrid, 'the trigger grid is the y-4 she attacks with');
+  assert.equal(s3.trigger.rule, 'SEARCH');
   assert.equal(s2.trigger.rule, 'SEARCH');
-  // (10,6) = [0,3]: on the y-4, not on her y-2
-  for (const [sid, want] of [['skchr_aglina_3', 1], ['skchr_aglina_2', 0]]) {
+  // (10,6) = [0,3]: on the y-4, not on her y-2 — (10,4) = [0,1]: on the y-2
+  for (const [pos, want] of [[[10, 6], 0], [[10, 4], 1]]) {
     const h = makeBattle({
-      defs: { enemies: { e: dummy('e') } }, units: [{ chessId: AGL, row: 10, col: 3, dir: 'RIGHT', skillIndex: idx(sid) }],
-      enemies: [{ key: 'e', pos: [10, 6] }], hooks: ['skillStart'], autoFinish: false, timeLimit: 30,
+      defs: { enemies: { e: dummy('e') } }, units: [{ chessId: AGL, row: 10, col: 3, dir: 'RIGHT', skillIndex: idx('skchr_aglina_3') }],
+      enemies: [{ key: 'e', pos }], hooks: ['skillStart'], autoFinish: false, timeLimit: 30,
     });
     const u = h.unit(AGL);
     h.step();
     u.skill.gainSp(1000);
     h.run(4);
-    assert.equal(casts(h, u).length, want, `${sid}: ${want ? 'cast on the y-4' : 'the enemy is outside the initial y-2'}`);
-    if (want) assert.equal(casts(h, u)[0].reason, 'ACTIVE_RANGE');
+    assert.equal(casts(h, u).length, want, `S3 ${pos}: ${want ? 'cast on the y-2' : 'the enemy is outside the initial y-2'}`);
     done(h);
   }
 });

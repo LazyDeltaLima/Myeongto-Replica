@@ -49,8 +49,9 @@ export default {
           }
           fx(battle, 'push', unit, { skill: 'forcer_2', n: victims.length });
         },
-        // "立即将范围内所有敌人…": the data rule SKILL_RANGE fires it once an enemy is inside the skill range (PRTS 技能
-        // 策略 "仅在技能范围内存在敌人（无视其不可选中）时释放技能"), not only when one stands on her 2-tile attack range
+        // "立即将范围内所有敌人…": the data rule DEFAULT on its rangeId 2-2 fires it once a
+        // selectable enemy is inside the skill range (client AutoChessBattleTrigger._DefaultTriggerSkill, maintainer
+        // decision 2026-10-11), not only when one stands on her attack range
       },
       talents: [{ install(battle, unit) {
         battle.on('hit', (ctx) => {

@@ -3,13 +3,15 @@
 // TAKE_DAMAGE. A deliberate, documented deviation (DESIGN §21.29): 深巡 S2 行动能力剥夺, 雷蛇 S2 反击电弧, 号角 S2 暴风号令
 // and S3 终极防线, 灰毫 S1 攻击力强化·γ型 and S2 专注轰击. It lives in the data (tools/build-data.mjs TRIGGER_DEVIATIONS,
 // keyed per chess: 灰毫 S1 is the generic skcom_atk_up[3] other chess carry too), `rawRule` keeps the official TAKE_DAMAGE.
-// Every other MANUAL 重装 skill — 深巡 S1 侵袭破坏应对 among them — still waits for a hit.
+// Every other MANUAL 重装 skill — 深巡 S1 侵袭破坏应对 among them — keeps TAKE_DAMAGE: the hit casts it at once (the client's
+// born buff), and the client's 0.2 s pass sends type 12 down SEARCH's branch too (`_TryTriggerSkill` jump table →
+// `_TrySearchTarget`: the unit's attack trigger finds a target), so a target in its attack range casts it before any hit.
 // One more since 2026-10-04 (the owner's decision after GitHub issue #32 item 1, DESIGN §22.10): 余 S2 厚礼上宾 casts with an
 // enemy on its own 技能范围 x-1 — SKILL_RANGE, customRangeGrid its range (his attack range is his own tile, so the basic
 // strategy could not see an enemy he can pull); `rawRule` keeps TAKE_DAMAGE.
 // And since 0.2.0 (the owner's decision of 2026-10-05): 深巡 S2's running range 3-2 strictly contains her 2-2, so the
-// owner's ACTIVE_RANGE rule applies on top of her DEFAULT deviation — she casts with an enemy in the 3-2 (rule
-// ACTIVE_RANGE, customRangeGrid the 3-2, rawRule still TAKE_DAMAGE; test/sim/feedback5-active-range.test.js).
+// client's basic strategy reads her S2's rangeId — she casts with an enemy in the 3-2 (rule DEFAULT, customRangeGrid the
+// 3-2, rawRule still TAKE_DAMAGE; maintainer decision 2026-10-11, docs/rules/sim.md 「스킬 범위 발동」).
 //
 // The battle check is real: the chess records of data/chess.json with their kits, the stage 战场#01(下半)
 // (act2autochess_m01), a real enemy (萨卡兹枯朽前锋, melee, 0.8 tiles/s) walking the lane from the gate (9,10) to the
@@ -35,7 +37,7 @@ const DEVIATED = [
   ['chess_char_2_18_a', 'skcom_atk_up[3]'],  // 灰毫 S1 攻击力强化·γ型
   ['chess_char_2_18_a', 'skchr_ashlok_2'],   // 灰毫 S2 专注轰击
 ];
-/** The deviated skill whose running range strictly contains the own one: ACTIVE_RANGE on top (0.2.0). */
+/** The deviated skill with a rangeId of its own: DEFAULT checks its 3-2 (client `_DefaultTriggerSkill`). */
 const ACTIVE = new Set(['skchr_udflow_2']);
 /** 余 S2 厚礼上宾: SKILL_RANGE on its own x-1 (DESIGN §22.10). */
 const SKILL_RANGE_DEVIATED = [['chess_char_6_03_a', 'skchr_yu_2']];
@@ -57,7 +59,7 @@ function firstCast(chessId, skillId, { spawnAt = 0, seconds = 40 } = {}) {
   });
   const u = h.unit(chessId);
   assert.equal(u.skill.id, skillId, `${chessId} runs ${skillId}`);
-  const out = { rule: u.skill.rule, cast: null, reason: null, enemyInRange: false, enemyInSkillRange: false, blocking: false, hurt: null };
+  const out = { rule: u.skill.rule, cast: null, reason: null, enemyInRange: false, enemyInSkillRange: false, blocking: false, hurt: null, attackable: null };
   h.b.on('damaged', (ctx) => { if (ctx.target === u && out.hurt == null) out.hurt = h.b.time; }, { priority: 1000 });
   h.b.on('skillStart', (ctx) => {
     if (ctx.unit !== u || out.cast != null) return;
@@ -69,20 +71,25 @@ function firstCast(chessId, skillId, { spawnAt = 0, seconds = 40 } = {}) {
     out.enemyInSkillRange = !!sk && h.b.enemies.some((e) => e.alive && e.deployed && bodyInKeys(e, sk));
     out.blocking = u.blocking.length > 0;
   }, { priority: 1000 });
+  // the automatic operation that casts: did SEARCH's condition hold (a target of its attack in range, or one it blocks —
+  // read inside the pass: the skill may release what it blocked before skillStart)?
+  const pass = u.skill.autoTrigger.bind(u.skill);
+  u.skill.autoTrigger = () => { const c = u.skill._defaultCondition(); const cast = pass(); if (cast && out.attackable == null) out.attackable = c; return cast; };
   h.runUntil(() => out.cast != null && out.hurt != null, seconds);
   checkInvariants(h.b);
   assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
   return out;
 }
 
-test('data: the six deviated 重装 skills are DEFAULT (深巡 S2: ACTIVE_RANGE on its 3-2) and 余 S2 is SKILL_RANGE on its x-1, on the normal and the elite record, rawRule the official TAKE_DAMAGE', () => {
+test('data: the six deviated 重装 skills are DEFAULT (深巡 S2: on its rangeId 3-2) and 余 S2 is SKILL_RANGE on its x-1, on the normal and the elite record, rawRule the official TAKE_DAMAGE', () => {
   let n = 0;
   for (const [normalId, skillId] of DEVIATED) {
     for (const id of both(normalId)) {
       const s = CHESS[id].skills.find((x) => x.skillId === skillId);
       assert.ok(s, `${id} ${skillId}`);
       assert.equal(CHESS[id].profession, 'TANK');
-      const want = ACTIVE.has(skillId) ? { rule: 'ACTIVE_RANGE', rawRule: 'TAKE_DAMAGE', customRangeGrid: s.rangeGrid } : { rule: 'DEFAULT', rawRule: 'TAKE_DAMAGE', customRangeGrid: null };
+      const want = { rule: 'DEFAULT', rawRule: 'TAKE_DAMAGE', customRangeGrid: s.rangeGrid?.length ? s.rangeGrid : null };
+      if (ACTIVE.has(skillId)) assert.ok(s.rangeGrid?.length, `${id} ${skillId}: its 3-2`);
       assert.deepEqual(s.trigger, want, `${id} ${skillId}`);
       // the sim's loadout def carries the data rule
       assert.equal(ds.getChess(id, { skillIndex: s.index }).skill.trigger.rule, want.rule, `${id} ${skillId} loadout def`);
@@ -128,7 +135,7 @@ test('PR #12\'s kit line agrees with the data: 雷蛇 S2\'s spec says DEFAULT, t
       const specRule = typeof spec?.trigger === 'string' ? spec.trigger : spec?.trigger?.rule;
       assert.ok(specRule == null || specRule === s.trigger.rule, `${id} ${skillId}: kit ${specRule} vs data ${s.trigger.rule}`);
       if (skillId === 'skchr_liskam_2') assert.equal(specRule, 'DEFAULT', `${id} ${skillId}: PR #12's trigger line`);
-      if (skillId === 'skchr_udflow_2') assert.equal(specRule, undefined, `${id} ${skillId}: reads the data's ACTIVE_RANGE (PR #12's line would keep the 2-2)`);
+      if (skillId === 'skchr_udflow_2') assert.equal(specRule, undefined, `${id} ${skillId}: reads the data's DEFAULT on its 3-2`);
     }
   }
 });
@@ -138,7 +145,7 @@ test('real battle: each deviated skill casts with an enemy in range before anyth
     for (const id of both(normalId)) {
       const r = firstCast(id, skillId, { spawnAt: 3 });
       const where = `${id} ${skillId}: ${JSON.stringify(r)}`;
-      const rule = ACTIVE.has(skillId) ? 'ACTIVE_RANGE' : 'DEFAULT';
+      const rule = 'DEFAULT';
       assert.equal(r.rule, rule, where);
       assert.ok(r.cast != null, `never cast — ${where}`);
       assert.ok(r.cast >= 3, `no cast before an enemy is on the field — ${where}`);
@@ -166,7 +173,7 @@ test('real battle: 余 S2 casts once the walker steps onto its x-1, before anyth
   }
 });
 
-test('real battle: 深巡 S1 and every other MANUAL 重装 skill still wait for a hit (TAKE_DAMAGE)', () => {
+test('real battle: 深巡 S1 and every other MANUAL 重装 skill keep TAKE_DAMAGE — cast by the first hit or, before it, by a target of its attack (the pass\'s SEARCH branch)', () => {
   let n = 0;
   for (const c of Object.values(CHESS)) {
     if (c.profession !== 'TANK' || c.isDiy) continue;
@@ -175,13 +182,17 @@ test('real battle: 深巡 S1 and every other MANUAL 重装 skill still wait for 
       const r = firstCast(c.chessId, s.skillId);
       const where = `${c.chessId} ${c.name} ${s.skillId}: ${JSON.stringify(r)}`;
       assert.equal(r.rule, 'TAKE_DAMAGE', where);
-      assert.ok(r.hurt != null && r.cast != null, `hit and cast — ${where}`);
+      assert.ok(r.cast != null, `cast — ${where}`);
       assert.equal(r.reason, 'TAKE_DAMAGE', where);
-      assert.equal(r.cast, r.hurt, `cast by the first hit, not before — ${where}`);
+      // the hit casts it at once (or the next 0.2 s pass); a pass before the hit casts it only with a target of its attack
+      // (whose skill may then keep every hit off her: no hit at all)
+      if (r.hurt != null) assert.ok(r.cast - r.hurt <= 0.2 + 1e-6, `cast by the first hit at the latest — ${where}`);
+      if (r.hurt == null || r.cast < r.hurt - 1e-9) assert.ok(r.attackable, `before the hit only with an enemy to attack — ${where}`);
       n++;
     }
   }
   assert.ok(n >= 40, `${n} TAKE_DAMAGE records checked`);
+  // 深巡 (ranged 2-2): S1 casts once the enemy walks into her 2-2, before it reaches and hits her
   const udflowS1 = firstCast('chess_char_1_04_a', 'skchr_udflow_1');
-  assert.ok(udflowS1.cast > 10, `深巡 S1 waits for the enemy to reach and hit her: ${JSON.stringify(udflowS1)}`);
+  assert.ok(udflowS1.cast > 3 && udflowS1.attackable && udflowS1.cast < udflowS1.hurt, `深巡 S1 on the enemy in her range: ${JSON.stringify(udflowS1)}`);
 });

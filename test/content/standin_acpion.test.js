@@ -63,7 +63,8 @@ test('郁金香 fields on all 12 records she replaces: her body (+ SOL-X attribu
     assert.ok(!u.kit.generic && u.kit.skillSource === 'skills', `${id}: her kit's own spec`);
     assert.equal(!!u.def.raw.module?.active, !!mod, `${id}: module`);
     assert.deepEqual([u.base.atk, u.base.def, u.base.maxHp, u.base.blockCnt], [form.stats.atk + (mod?.attr.atk ?? 0), form.stats.def + (mod?.attr.def ?? 0), form.stats.maxHp, 2], `${id}: stats`);
-    assert.equal(u.skill.rule, sk.skillId === S3 ? 'SKILL_RANGE' : 'DEFAULT', `${id}: trigger`);
+    assert.equal(u.skill.rule, 'DEFAULT', `${id}: trigger`);
+    assert.equal(!!u.skill.triggerGrid, sk.skillId === S3, `${id}: S3's x-1 rangeId box`);
     assert.equal(u.profile.canHitFly, false, `${id}: her attack is ground-only`);
     assert.deepEqual([u.skill.spCost, u.skill.initSp], [sk.spCost, sk.initSp], `${id}: SP`);
     assert.equal(h.b.errors.length, 0);
@@ -236,7 +237,9 @@ test('S3 只余芬芳 while it plays (PRTS 备注): 无敌, 无法阻挡, 眩晕
   checkInvariants(h.b);
 });
 
-test('S3 trigger SKILL_RANGE (data): any enemy on the x-1 casts it — an air unit she cannot attack too; none there, no cast', () => {
+// the data's DEFAULT on S3's rangeId (client AutoChessBattleTrigger._DefaultTriggerSkill, maintainer decision 2026-10-11): a
+// selectable enemy in the box, ground or air (`m_findEnemyTargetOptions` ALL motions) — not only what her attack can hit
+test('S3 trigger DEFAULT on its rangeId (data): any enemy on the x-1 casts it — an air unit she cannot attack too; none there, no cast', () => {
   const run = (pos) => {
     const h = battle({ units: [{ chessId: 'chess_char_3_12_a', row: 10, col: 4, standIn: true, carryState: { sp: 999 } }], enemies: [{ key: 'enemy_fly', pos }] });
     const u = h.unit(1);
@@ -244,7 +247,7 @@ test('S3 trigger SKILL_RANGE (data): any enemy on the x-1 casts it — an air un
     return { casts: u.skill.activations, attacks: h.hooksOf('attack').filter((a) => a.attacker === u).length, slashes: h.dmg.filter((d) => d.tags.includes('slash')).length, trigger: u.def.skill.trigger };
   };
   const inside = run([10, 6]);
-  assert.equal(inside.trigger.rule, 'SKILL_RANGE');
+  assert.equal(inside.trigger.rule, 'DEFAULT');
   assert.equal(inside.trigger.grid.length, 13, 'the x-1 diamond');
   assert.deepEqual([inside.casts, inside.attacks, inside.slashes], [1, 0, 8], 'cast with no attack; the slashes reach the air unit');
   const outside = run([10, 7]);

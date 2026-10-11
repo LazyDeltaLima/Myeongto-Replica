@@ -52,12 +52,12 @@ export function tinmanKit(bb, chess, def) {
     },
     talents: [{ install(battle, unit) {
       if (wither > 1) {
-        // "持续伤害" = damage over time only: 'dot'-tagged ticks and the per-second ticks of a necrosis / apoptosis
+        // "持续伤害" = damage over time only: 'dot'-tagged ticks and the per-second ticks of an apoptosis
         // burst — never instantaneous bursts (burn/neural bursts, skill/summon bursts are also tagged 'burst')
         once(battle, witherKey, () => battle.on('hit', (ctx) => {
           if (!ctx.target || ctx.target.side !== 'enemy') return;
           const tags = ctx.dmg.tags || [];
-          if (!(tags.includes('dot') || tags.includes('necrosis') || tags.includes('apoptosis'))) return;
+          if (!(tags.includes('dot') || tags.includes('apoptosis'))) return;
           const w = ctx.target.findBuff(witherKey);
           if (w) ctx.dmg.amount *= w.data?.mul ?? 1;
         }));

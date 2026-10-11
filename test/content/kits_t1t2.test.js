@@ -56,7 +56,9 @@ test('1_01 隐现: ammo skill (trigger_time rounds), ATK +atk, interval −30 %,
   const t0 = h.b.time;
   h.runUntil(() => !u.skill.active, 40);
   assert.equal(h.hooksOf('ammoUsed').filter((c) => c.unit === u).length, bb['attack@trigger_time']);
-  const skillHits = dealt(h, u, (c) => c.t >= t0 && c.dmg.isAttack);
+  // (the shots of attacks begun after the cast: the 0.2 s automatic operation may cast it while a shot at 坚盾 flies)
+  const fired = new Set(h.hooksOf('attack').filter((c) => c.attacker === u && c.t >= t0).flatMap((c) => c.targets));
+  const skillHits = dealt(h, u, (c) => c.t >= t0 && c.dmg.isAttack && fired.has(c.target));
   assert.ok(skillHits.length > 0 && skillHits.every((c) => c.target.defId.endsWith('e_r')), 'the ranged enemy is shot first');
   done(h);
 });
@@ -138,12 +140,12 @@ test('1_04 深巡: fin darts pierce attack@max_target enemies on the line + 1 s 
   });
   const u = h.unit(id);
   h.step();
-  // 技能策略 (issue #4; the deliberate deviation of DESIGN §21.29, and since 0.2.0 the owner's ACTIVE_RANGE on top): an
-  // enemy inside the 3-2 she attacks with is enough — no hit required
-  assert.equal(u.skill.rule, 'ACTIVE_RANGE', '行动能力剥夺 is an offensive ranged skill, not a 重装 TAKE_DAMAGE one');
+  // 技能策略 (issue #4; the deliberate deviation of DESIGN §21.29): the basic strategy, and the skill's rangeId 3-2 is its
+  // trigger box (AutoChessBattleTrigger._DefaultTriggerSkill, maintainer decision 2026-10-11) — no hit required
+  assert.equal(u.skill.rule, 'DEFAULT', '行动能力剥夺 is an offensive ranged skill, not a 重装 TAKE_DAMAGE one');
   h.run(3.5);
   assert.ok(u.skill.active);
-  assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u).reason, 'ACTIVE_RANGE', 'cast on its running range');
+  assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u).reason, 'DEFAULT', 'cast on its rangeId box');
   approx(u.s.atk, u.base.atk * (1 + bb.atk));
   const firstAtk = h.hooksOf('attack').find((c) => c.attacker === u && c.isSkill);
   assert.equal(firstAtk.targets.length, bb['attack@max_target'], 'hits every enemy of the line');
@@ -160,13 +162,14 @@ test('1_04 深巡 / 1_20 雷蛇 S2 技能策略: both 哨戒铁卫 S2s cast with
   // both S2s are offensive (深巡: range up + ATK/ASPD + piercing darts; 雷蛇: ATK +125 % + arts on 3 + stun); the official
   // 下半 重装 row (TAKE_DAMAGE for every MANUAL 重装 skill) made both wait for a hit, and the owner's deliberate deviation
   // from it (DESIGN §21.29, after community feedback) gives them the basic strategy — 雷蛇's data and kit say DEFAULT;
-  // 深巡's 3-2 strictly contains her 2-2, so since 0.2.0 the owner's ACTIVE_RANGE rule casts it on the 3-2 (2026-10-05).
+  // 深巡's S2 rangeId 3-2 is its trigger box (an enemy there, maintainer decision 2026-10-11; the owner's ACTIVE_RANGE
+  // rule of 2026-10-05 did the same on the running range).
   for (const id of ['chess_char_1_04_a', 'chess_char_1_04_b', 'chess_char_1_20_a', 'chess_char_1_20_b']) {
     const udflow = id.startsWith('chess_char_1_04');
     // (9,7) = [0,3]: on 深巡's 3-2, not on her 2-2
     const h = run({ units: [{ chessId: id, row: 9, col: 4, carryState: READY }], enemies: [{ key: 'e', pos: [9, udflow ? 7 : 6] }] });
     const u = h.unit(id);
-    const rule = udflow ? 'ACTIVE_RANGE' : 'DEFAULT';
+    const rule = 'DEFAULT';
     assert.equal(u.skill.rule, rule, `${id}: an offensive skill, not the 重装 TAKE_DAMAGE row`);
     assert.ok(h.runUntil(() => u.skill.activations >= 1, 5), `${id}: casts while an enemy is in range and untouched`);
     assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u).reason, rule, `${id}: cast by ${rule}`);
@@ -774,7 +777,9 @@ test('2_04 小满: 乡音沉沉 sleeps 3 enemies, holds fire while they sleep, t
   assert.ok(sl.every((c) => c.duration === bb.sleep));
   const start = h.hooksOf('skillStart').find((c) => c.unit === u).t;
   const atk = h.hooksOf('attack').filter((c) => c.attacker === u);
-  assert.equal(atk.filter((c) => c.t > start + 1e-9 && c.t < start + bb.sleep - 1e-9).length, 0, 'no attack while they sleep');
+  // (a swing begun before the 0.2 s automatic operation cast S2 — data cast.mode 'free' does not cut it — still strikes)
+  // (it lands within one attack interval of its start)
+  assert.equal(atk.filter((c) => c.t > start + u.base.bat + 1e-9 && c.t < start + bb.sleep - 1e-9).length, 0, 'no attack while they sleep');
   const after = atk.filter((c) => c.t >= start + bb.sleep);
   assert.ok(after.length > 0 && after.some((c) => c.targets.length === bb.max_target));
   approx(u.s.aspd - u.base.aspd, bb.attack_speed + t.attack_speed);
@@ -1277,7 +1282,7 @@ test('1_16 锡人 elite: 凋敝魂灵 multiplies damage over time only, never in
   const e = h.enemies()[0];
   assert.ok(e.findBuff('tinman:wither'), 'inside the alchemy unit');
   approx(h.b.dealDamage(u, e, { amount: 1000, type: 'true', tags: ['dot'] }), 1000 * w, 'DoT ×damage_scale');
-  approx(h.b.dealDamage(u, e, { amount: 1000, type: 'true', tags: ['burst', 'necrosis'] }), 1000 * w, 'necrosis burst tick');
+  approx(h.b.dealDamage(u, e, { amount: 1000, type: 'true', tags: ['burst', 'apoptosis'] }), 1000 * w, 'apoptosis burst tick');
   approx(h.b.dealDamage(u, e, { amount: 1000, type: 'true', tags: ['skill', 'burst'] }), 1000, 'instant burst unchanged');
   approx(h.b.dealDamage(u, e, { amount: 1000, type: 'true', tags: ['burst', 'burn'] }), 1000, 'burn burst unchanged');
   done(h);

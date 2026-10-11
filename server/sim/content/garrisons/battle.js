@@ -30,8 +30,9 @@
 //                       attributes, so atkMul / hpMul), attr_common_global_buff (spRecoveryFlat; "+X%" ATK / HP would be
 //                       直接乘算), attrByBond ("每叠加N层…+X%": 直接乘算, support directMods),
 //                       respawnTimeByBond, attrByBond_add_onstart, ab_damageScaleByBond — layer readers use
-//                       floor(Σ layers of the listed ACTIVE bonds / divide_num) and are recomputed after every layer
-//                       gain (research 02 §5 [ASSUMED] only active bonds count).
+//                       floor(Σ layers of the listed ACTIVE bonds / divide_num) (research 02 §5 [ASSUMED] only active
+//                       bonds count); attrByBond and attrByBond_add_onstart at each deployment only (client buff
+//                       templates: ON_BUFF_START), the others recomputed after every layer gain.
 //   hit modifiers       act1autochess_gar_eff_attack_enemy (dmg.amount × atk vs check_tag enemies),
 //                       ab_damageScaleByBond (bound / sluggish targets), _chaos (弱点伤害, research 04 glossary:
 //                       phys/arts → whichever deals MORE after the engine's mitigation incl. the attacker's DEF/RES
@@ -435,14 +436,31 @@ function installReaders(battle, by) {
   const list = [];
   for (const key of READERS) for (const it of by.get(key) ?? EMPTY) list.push(it);
   if (!list.length) return;
-  const recompute = () => { for (const it of list) applyReader(battle, it); };
-  recompute();
+  for (const it of list) applyReader(battle, it);
+  // attrByBond is computed at a deployment only (client buff template act1autochess_gar_eff_attrByBond: every node under
+  // ON_BUFF_START — the floored steps (`_finalFloor`) × each stat, capped by max_stack 999999 — and no ON_BUFF_TRIGGER):
+  // an in-battle layer gain leaves it as it is until the operator deploys again (a redeploy, a 突袭 landing; a 【移动】
+  // keeps it). attrByBond_add_onstart likewise (ON_BUFF_START only: its timed buff keeps the steps it started with —
+  // until 2026-10-11 a layer gain re-scaled the running buff). The other readers follow the live layers
+  // (ab_damageScaleByBond: ON_BUFF_TRIGGER; respawnTimeByBond has no EN template).
+  const ATTR = 'act1autochess_gar_eff_attrByBond';
+  const ONSTART = 'act2autochess_gar_eff_attrByBond_add_onstart';
+  const live = list.filter((it) => it.key !== ATTR && it.key !== ONSTART);
+  const atDeploy = byUnit(list.filter((it) => it.key === ATTR));
+  if (atDeploy.size) {
+    battle.on('deploy', ({ unit, move }) => {
+      const arr = move ? null : atDeploy.get(unit);
+      if (arr) for (const it of arr) applyReader(battle, it);
+    });
+  }
   let pending = false;
-  battle.on('layerGain', () => {
-    if (pending) return;
-    pending = true;
-    battle.after(0, () => { pending = false; recompute(); });
-  });
+  if (live.length) {
+    battle.on('layerGain', () => {
+      if (pending) return;
+      pending = true;
+      battle.after(0, () => { pending = false; for (const it of live) applyReader(battle, it); });
+    });
+  }
   const onstart = by.get('act2autochess_gar_eff_attrByBond_add_onstart');
   if (onstart) {
     const m = byUnit(onstart);

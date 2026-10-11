@@ -131,8 +131,8 @@ its loadout's `skillIndex` / `moduleId` and no equipment (the copies' items went
 Token pieces: `{ kind:'token', tokenId, ownerUid, row, col, dir? }` — the manually deployable summons the player placed
 (data `placeable`, PRTS 卫戍协议/帮助 §战斗部署; user playtest #6). A piece marks the tile its summon deploys on: a talent
 summon the owner holds from the start (狼群, 海嗣, 流形, 凯瑟琳's 爬行号·防护单元 — facing the operator it shields) deploys
-with the board (望's 棋子 too, each one occupying her stock while it stands and going back into it as it leaves — the
-owner's decision of 2026-10-06, kits/ops/op-wang.js); a skill's summon (赫默 S2 医疗探机, 巫恋 S2 诅咒娃娃, "获得一个…") deploys once at the battle start, free
+with the board (望's 棋子 too: a used one comes back to its prep tile through the token redeploy, one per 0.2 s, and the stones in
+her hand only feed those returns — client `AutoChessBattleTrigger._TryDeployAvailableCharacter`, kits/ops/op-wang.js); a skill's summon (赫默 S2 医疗探机, 巫恋 S2 诅咒娃娃, "获得一个…") deploys once at the battle start, free
 and regardless of the holding (PRTS §作战阶段 "所有手动部署的召唤物，无视所属干员的持有状态…作战开始时立即部署一次"), then
 waits on its tile and takes the field there each time the skill gives one (stock ≤ 1, after the token's redeploy time
 once it left, free; never while its owner is off the field [ASSUMED] — a stocked one deploys as soon as the owner is
@@ -195,14 +195,16 @@ a part) is not, even when it counts for LP (`counted`).
 `RouteSpec` accepts data/waves.json routes (`{motion, start, end, checkpoints:[[r,c]…], steps:[{t:'move',p},{t:'wait',s},{t:'disappear'},{t:'appear',p}]}`)
 and research routes (`{m, s, e, cp:[['MOVE',r,c]…]}`). `spawnsFromTemplate(waveEntry, {mods})` (simdata.js) converts a
 template into `{ routes, spawns, maxPlayTime, overrides, extraRoutes }` (non-spawn `action` entries are skipped; `unharmful`
-and `tag:'part'` spawns don't count in `total`). The boss templates' 传送门 reads as "reappear on the far side" (GitHub
-#336, PR #337): four official routes write the crossing as `disappear → wait → move` to the exit with no `appear` (their
-twins spell the `appear` out), so normalizeRoute re-inserts the exit `appear` ahead of that move — otherwise the enemy
-walks the rest of its route hidden and leaks unseen (test/sim/portal-appear.test.js). A route that ENDS on an entrance
+and `tag:'part'` spawns don't count in `total`). The boss templates' 传送门 is the routes' own steps: four official routes
+write the crossing as `disappear → wait → move` to the exit with no `appear` (their twins spell the `appear` out) and are
+taken as written — the enemy walks the rest of its route hidden and its route ends as any route ends (maintainer decision
+2026-10-11: the client has no portal code; until then normalizeRoute re-inserted the exit `appear`, GitHub #336 / PR #337;
+test/sim/portal-appear.test.js). A route that ENDS on an entrance
 (`tile_telin`; the boss / Hidden Core circuits end on [1,3] / [1,17]) does not leak there: the enemy vanishes, comes
 out of the far exit (`tile_telout`; both entrances feed [5,10], the pairing of every explicit `disappear`/`appear` pair
 of the data) after 3 s hidden inside — the wait of the explicit crossings (85 of 95) — and walks on to the blue door
-on the entrance's side, where it leaks (ai.js portalPickup; [ASSUMED] the pairing and the 3 s).
+on the entrance's side, where it leaks (ai.js portalPickup; [ASSUMED] the pairing and the 3 s) — not an enemy still hidden
+there (the four routes above).
 
 A `bounty` pays `coins` once, when the enemy really dies (not a knock-out it survives; a leak pays nothing), to
 `Battle._bountyPayee`: the player of the operator or summon that dealt the blow, if that player is in the battle; any
@@ -687,15 +689,15 @@ of coverage per 3 s), kept because the current wording no longer says so (feedba
 | `silence` | no skill activation | – |
 | `fear` (恐惧) | 无法被阻挡并四散逃跑: enemy cannot attack, is unblockable (released) and leaves its route: it runs between random checkpoints of the fan away from the source (§1.2 恐惧 movement; no source / itself ⇒ inside its own tile) | – |
 | `tremble` (战栗) | 被阻挡后无法进行普通攻击: no normal attack **while blocked** (abilities still fire) | – |
-| `palsy` (麻痹) | each stack cancels one enemy normal attack (max 3, lasts until consumed); refused by 麻痹免疫 (data `palsyImmune`); each cancel fires the hook `palsyTrigger` (§5) | stacks, default 1 |
+| `palsy` (麻痹) | each stack cancels one enemy normal attack (max 3, lasts until consumed); the enemy then stands `PALSY_STOP` 0.5 s — no move, no new attack, blocked or not (麻痹震颤: client `Enemy.States.PalsyState`; [ASSUMED] the 0.5 s, PRTS 术语释义) unless a stun / freeze / 浮空 takes over; refused by 麻痹免疫 (data `palsyImmune`); each cancel fires the hook `palsyTrigger` (§5) | stacks, default 1 |
 | `disarm` | no normal attacks | – |
 | `stealth` / `reveal` | 隐匿: untargetable unless blocked (an ally: only the enemy it blocks attacks it, and an enemy's area effects and buff auras skip it even when it blocks that enemy — `targeting.js areaSelectable` / `auraSelectable`, GitHub #97, owner 2026-10-04; 0.1.2 made an exception for that blocker) / cancels stealth. An enemy's 隐匿 also stays off after a block: each block's end (`Battle._stealthSwitch`, every release path) switches each of its 隐匿 sources off for `STEALTH_RESTORE` (3) s — PRTS 作战机制 §隐匿 "不被阻挡的3秒后重新进入隐匿" — or the source's own "（解除阻挡N秒后恢复）" (buff `data.stealthRestore`: 0 s for 业余竞演者, 节日爵士乐手, 假想敌：骨刺, 流泪小子, 访问团强攻冠军 and 清明's veil, 1 s for the 家族灭迹人 — and no less than 1 s for a 鸭爵 swap, spawn tag `'duck'`: `content/enemies/helpers.js DUCK_STEALTH_RESTORE`, the owner's decision of 2026-10-07, a deliberate deviation for its 流泪小子); a new block inside it lifts it again and its end restarts the window; our operators' 隐匿 / 迷彩 never lift by blocking (DESIGN §22.8). `targeting.js enemyStealthed` is the one test: the b.snap stealth bit is set only while its 隐匿 is on (drawn solid otherwise); an operator's radius area damage (`foesInRadius`) skips it too (PRTS 作战机制 §AOE伤害判定 "对攻击范围内的每个可以被选中的敌人进行判定"; until 0.1.1 the splash still hit it) | – |
 | `camou` (迷彩) | an ally's camouflage (ba.camou "不阻挡时不成为敌方普通攻击的目标（无法躲避溅射类攻击）"): like `stealth` for enemy targeting (only the enemy it blocks attacks it) — but an enemy's splash and other area effects still hit it (`areaSelectable` does not check it) — and on screen (b.snap stealth bit, `snapshot.js flagsOf`), but not 隐匿 for 隐匿-conditions (叙拉古, 家族徽章) and under its own buff keys. 忍冬 S3 (key `vulpis:camou`, until her next cast), 寒芒克洛丝 S1 | – |
 | `invulnerable` | ignores damage | – |
 | `levitate` (浮空) | stun + unblockable (unblocks enemies) + 失衡免疫 (`noDisplace`); an air unit meanwhile (`isFlying`: melee cannot hit it); **half duration on units with (current) massLevel > 3**; refused on data flyers (`motion` FLY) that hold no 缚地 and on units already levitated (PRTS 异常效果 "若单位数据上为飞行单位且不持有缚地异常或是持有浮空异常则Buff取消") — a 近地悬浮 enemy is WALK in its data, so it can be levitated; 浮空 is not one of the 近地悬浮 enemies' drop triggers | – |
-| `groundbind` (缚地) | gamedata_const ba.groundbind "目标变为地面单位，无法移动；使部分近地悬浮敌人掉落；对重量大于3的单位持续时间减半": an enemy air unit (data flyer, 近地悬浮) counts as a ground unit (`isFlying` false: melee operators hit it, ground blockers block it) and cannot move (`noMove`); **half duration on units with (current) massLevel > 3**; one of 抵抗's statuses [ASSUMED, as 束缚]; the drop trigger of 掠海漂移体 / 吉兆飞鳞 (content/enemies: "受…缚地影响后"). 予愿安洁莉娜 S2 (upstream's removed 自选 kit) | – |
+| `groundbind` (缚地) | gamedata_const ba.groundbind "目标变为地面单位，无法移动；使部分近地悬浮敌人掉落；对重量大于3的单位持续时间减半": an enemy air unit (data flyer, 近地悬浮) counts as a ground unit (`isFlying` false: melee operators hit it, ground blockers block it) and cannot move (`noMove`); **half duration on units with (current) massLevel > 3**; not one of 抵抗's statuses (2026-10-11, as 束缚); the drop trigger of 掠海漂移体 / 吉兆飞鳞 (content/enemies: "受…缚地影响后"). 予愿安洁莉娜 S2 (upstream's removed 自选 kit) | – |
 | `attract` (诱导) | 无法被阻挡并向目标位置移动: unblockable (released); the engine walks it (own speed, grid path re-planned on obstacle changes, after a push and after an outranking 恐惧; flyers straight) to `opts.point` (`[r, c]` or `{x, y}`, default the source's tile, clamped to the rect) and keeps it there; stun/bind/sleep stop it; its route re-plans from where it stands when the status ends. A new application moves the point | point |
-| `resist` (抵抗) | the control statuses of `RESIST_STATUSES` (晕眩 冻结 寒冷 沉睡 恐惧 战栗 诱导 浮空 束缚 沉默 缴械 停顿 减速 缚地) applied to the unit last ×(1 − value); a resisting unit loses one 麻痹 stack every 5 s. **同名效果不叠加** — `battle.resistOf(u)` = the strongest `status: 'resist'` buff (never a product): several sources (灵知, 流明, 寒檀, enemy talents) never compound. *strongest*; a permanent one that survives death is a `persist` buff with `status: 'resist', data: { value }` | 0.5 (≤ 0.95) |
+| `resist` (抵抗) | the statuses of `RESIST_STATUSES` (晕眩 冻结 寒冷 恐惧 诱导 — client code `Buff._InitIsStatusResistable`: a buff is resisted by its own `statusResistable`, AUTOMATIC = when it carries STUNNED / FROZEN / DOZE / ATTRACTED; 寒冷·恐惧 from PRTS 可抵抗状态; maintainer decision 2026-10-11, until then 14 statuses) applied to the unit last ×max(0.001, 1 − value) (`Buff._PreprocessDeltaTime`: dt ÷ that, the same while the value holds); a resisting unit loses one 麻痹 stack every 5 s. **同名效果不叠加** — `battle.resistOf(u)` = the strongest `status: 'resist'` buff (never a product): several sources (灵知, 流明, 寒檀, enemy talents) never compound. *strongest*; a permanent one that survives death is a `persist` buff with `status: 'resist', data: { value }` | 0.5 (≤ 0.95) |
 | `taunt` | taunt level +value | 1 |
 | `weaken` | atkMul 1 − value (*strongest*) | 0.3 |
 | `aspdDown` | aspd + value (*strongest*) | −30 |
@@ -708,7 +710,7 @@ unit takes no new enemy by contact (`Battle._blockerFor`) and keeps the blocks i
 (酒神's 迷狂牢笼, upstream's removed 自选 kit: PRTS "只在生成/刷新时判定阻挡新的敌人"); `undying` = a content 不死 window (淬羽赫默 S3,
 upstream's removed 自选 kit — its own `fatal` hook holds it), which items/battle.js `holdsUndying` reports like 坚固维式重锤's.
 
-**Element gauges** (`unit.elem = {burn, neural, apoptosis, erosion, necrosis}`; capacity `unit.gaugeMax` = 1000, enemy
+**Element gauges** (`unit.elem = {burn, neural, apoptosis, erosion}`; capacity `unit.gaugeMax` = 1000, enemy
 leaders (rank BOSS / boss units) 2000): deal `{ type:'element', element, amount }` (fires `elementHit` first; the gauge
 gain is amount × `dmg.mul` × `elemTakenMul` (元素损伤倍率: "受到的元素损伤提高/降低…") × max(5 %, 1 − 损伤抵抗 / 100),
 损伤抵抗 = the target's data `epResistance` — PRTS 元素 "受到的元素损伤 = 损伤值 × (1 − 损伤抵抗 × 0.01)，
@@ -730,7 +732,6 @@ the source's side):
 | `neural` 神经 | stun 10 s, then 1000 true (10 s lock) | 3 `palsy` (none with 麻痹免疫), then 6000 元素伤害, 10 s lock |
 | `apoptosis` 凋亡 | 15 s: 阻回 (`noSp`: no SP gain of any kind, skills.js) + 静默 (no skill activation), −1 技力/s — of `spTotal`, stored charges included (PRTS 技能 可充能 "当持有者的技力流失时，充能次数也会实时降低"; `setSpTotal`, a running timed skill untouched; PR #262), 100 arts/s | 15 s: 50 % weaken recovering over the burst, 800 元素伤害/s |
 | `erosion` 侵蚀 | permanent DEF −100 (stacking `erosionDown`) then 800 phys, 10 s lock | permanent DEF −120 then 5000 元素伤害, 8 s lock |
-| `necrosis` (legacy spare gauge) | 12 s: 100 true/s, ATK −20 % | same |
 
 The lock (`<el>Burst` buff, flag `burstLock`) is the official **爆发冷却**: while it runs NO element of the unit fills or
 can be recovered (`battle.reduceElement(unit, amount, el?)` removes nothing) and the bursting gauge shows full; when it
@@ -739,7 +740,7 @@ ends EVERY gauge of the unit resets to 0. A burst that is still resolving counts
 fills of that unit are refused until the burst has resolved — an `elementBurst` handler that spreads the element to
 neighbours (淤困 parasite) cannot bounce it back into a second burst. `elementView(u, now)` (damage.js) is the one gauge
 a unit shows (b.snap `elem`, §9): the fullest one, ties by the official element id (`constants.js ELEMENT_ORDER`: 神经,
-侵蚀, 灼燃, 凋亡, then the legacy `necrosis`), with its fill rounded DOWN to 1 % and kept within 0.01–0.99 — the remainder
+侵蚀, 灼燃, 凋亡), with its fill rounded DOWN to 1 % and kept within 0.01–0.99 — the remainder
 the client draws (the white bar, 1 − fill) is never less than what is left (except that a first chip of less than 1 %
 already shows as 1 % taken), so it only runs out when the gauge bursts (user playtest #6); during a 爆发冷却 the bursting
 element with fill 1 and the cooldown's end (the client draws that refill in the element's colour, not white).
@@ -940,9 +941,13 @@ instance) and skip `'counter'` / `'reflect'` damage. When the guard trips, the l
   2.5e-14 short of it — a 10-SP skill at 1 SP/s took 301 ticks, now 300 (PR #402, 0.2.2).
 - Triggers (`skill.trigger.rule` in data — the official 技能策略, PRTS 卫戍协议/帮助 §作战阶段 技能操作, resolved by
   `tools/build-data.mjs resolveTrigger`: charId rows by skill index; the class rows (重装 / 执旗手 / 战术家 / 吟游者 / 解放者 /
-  阵法术师) for **every MANUAL skill** of the class; SKILL_RANGE for a MANUAL skill with a 技能范围 of its own; ACTIVE_RANGE
-  for a MANUAL skill on the basic strategy or the SEARCH row whose running attack range strictly contains the own range;
-  AUTO skills take no row — they keep their own rule, DEFAULT or a kit override): `DEFAULT` — the basic strategy: ready
+  阵法术师) for **every MANUAL skill** of the class; a MANUAL skill on the basic strategy with a rangeId gets DEFAULT + its
+  rangeId box (`customRangeGrid`; maintainer decision 2026-10-11, client `AutoChessBattleTrigger._DefaultTriggerSkill` —
+  until then SKILL_RANGE for an own 技能范围 and ACTIVE_RANGE for a larger running range, docs/rules/sim.md 「스킬 범위 발동」);
+  AUTO skills take no row — they keep their own rule, DEFAULT or a kit override): `DEFAULT` — the basic strategy; for a
+  MANUAL skill (the automatic operations below) a selectable enemy, ground or air, in its rangeId box (no 攻击距离 added; a
+  heal skill counts enemies there too), or without one the unit attacking (an attack target in its initial range or an
+  enemy it blocks: `isInAttackState || isInCombatState`); for an AUTO skill: ready
   **and** about to attack/heal **and** an enemy (heal skills: an injured ally) inside the **initial** range
   (`unit.baseRangeKeys`: its own grid + its permanent rangeExtend — "攻击范围扩大" modules/talents as persist never-expiring
   `rangeExtend` buffs; no skill range, no temporary extend, no extra keys) or blocked by the melee unit — or, checked
@@ -956,8 +961,8 @@ instance) and skip `'counter'` / `'reflect'` damage. When the guard trips, the l
   official `TRY_SEARCH_ALLY_SKILL`, "技能范围内存在可治疗的我方单位时释放技能": tools/build-data.mjs `TRIGGER_ALLY_RULES`,
   simdata passes `allies` on) — asks for an injured, healable ally of the grid at or below that HP ratio instead (the AUTO
   heal skill 古米 S1: PRTS 备注 "此技能在存在生命值不满的可治疗角色时可触发…直至古米完成一次普通攻击的治疗" — her heal mode
-  waits for its heal); `ACTIVE_RANGE` — the owner's rule of 2026-10-05
-  (a deliberate deviation): a MANUAL skill on the basic strategy (深巡 S2's DEFAULT deviation included) or on the SEARCH
+  waits for its heal); `ACTIVE_RANGE` — a kit rule since maintainer decision 2026-10-11 (until then the data's, the
+  owner's rule of 2026-10-05, a deliberate deviation): a MANUAL skill on the basic strategy (深巡 S2's DEFAULT deviation included) or on the SEARCH
   row (薄绿 S1, 蜜蜡 S1, 卡涅利安 S3, 玛恩纳 S2, 安洁莉娜 S3) whose attack range while it runs strictly contains the
   unit's own range checks the DEFAULT condition — a targetable enemy (or one it blocks), a heal skill an injured ally —
   on `trigger.customRangeGrid` (= that running range, grown by the unit's permanent rangeExtend unless the skill's
@@ -966,27 +971,38 @@ instance) and skip `'counter'` / `'reflect'` damage. When the guard trips, the l
   skills only; GitHub #260); `DEFAULT` with `trigger.allies` (+ `hpAtMost`,
   `grid`) = the basic rule **and** such an ally on the grid: the cast replaces the attack about to be made (塞雷娅 S1 "触发
   时会替换当次攻击", ≤ half HP); a cast whose ally condition fails before that attack is withdrawn, its charge returned;
-  `TAKE_DAMAGE` — ready and just hit (重装: "不受技能范围影响，受到伤害时释放技能"; in the data every MANUAL 重装 skill but
+  `TAKE_DAMAGE` — ready and just hit, cast on the hit (the client's born buff `autochess_trigger_skill[on_take_damage]`), or
+  SEARCH's condition at a 0.2 s pass (the client pass sends type 12 down SEARCH's branch, `_TrySearchTarget`: the unit's
+  attack trigger finds a target — docs/rules/sim.md 「스킬 범위 발동」) (重装: "不受技能范围影响，受到伤害时释放技能"; in the data every MANUAL 重装 skill but
   the six of DESIGN §21.29 — 深巡 / 雷蛇 S2, 号角 S2 / S3, 灰毫 S1 / S2 — which are `DEFAULT`, a deliberate deviation (深巡
-  S2 then `ACTIVE_RANGE` on its 3-2), and 余 S2 厚礼上宾, `SKILL_RANGE` on its own x-1 since DESIGN §22.10);
+  S2 on its 3-2 rangeId), and 余 S2 厚礼上宾, `SKILL_RANGE` on its own x-1 since DESIGN §22.10);
   `SP_FULL` (`ALWAYS`) — immediately;
   `CUSTOM_RANGE` — an enemy inside `trigger.customRangeGrid` (rotated by the unit direction like every grid); `SEARCH` — an
   enemy inside the INITIAL range, checked every tick (no attack needed: "不受基础策略影响，在初始攻击范围内存在敌人时释放技能");
   `GDGLOW_SKILL_2` — "全场存在可选目标时释放技能": a targetable enemy anywhere (a heal skill: an ally that needs healing),
   every tick; `NEVER` (alias `MANUAL`) — never auto-casts: the kit calls `unit.skill.activate(reason)` itself;
   `MLYSS_WTRMAN` and any unknown rule behave like DEFAULT. Units that never attack (bard, phalanx, librator) check
-  DEFAULT every tick. Silence blocks activation. The automatic operations cool down (`constants.js AUTO_OP_COOLDOWN` 3 s,
-  "自动操作具有3s冷却，在完成一次操作或作战开始时部署的单位将进入冷却"): a MANUAL skill is auto-cast no sooner than 3 s
-  after its previous cast (a charged skill spends its charges 3 s apart) or after its battle-start deployment
-  (`Battle._deploy` initial; `battle.flags.startOpCooldown`, default 3 — the test harness sets 0 unless told otherwise);
-  AUTO skills are exempt; kits with their own automatic cast of a MANUAL skill check `skill.opCooling` (波登可 S1, 雪猎
+  DEFAULT every tick. Silence blocks activation. MANUAL skills are cast by the automatic operations only (client code
+  `AutoChessBattleTrigger`, maintainer decision 2026-10-11): every `AUTO_TRIGGER_INTERVAL` 0.2 s one pass over the units in
+  deployment order (`battle/lifecycle.js _autoTriggerPass` → `skills.js autoTrigger`) casts at once the first whose rule
+  holds and blocks it `BLOCK_SKILL_TICK` 10 passes (checked again ≈ 2.2 s later; a charged skill spends its charges that far
+  apart) — one automatic cast per pass in the whole battle; the battle-start deployment starts blocked
+  (`constants.js AUTO_OP_COOLDOWN` 2 s, `Battle._deploy` initial; `battle.flags.startOpCooldown` — the test harness sets 0
+  unless told otherwise); until 2026-10-11 a 3 s cooldown per unit (PRTS 「自动操作具有3s冷却」). AUTO skills are exempt; kits with their own automatic cast of a MANUAL skill check `skill.opCooling` (波登可 S1, 雪猎
   special bullets, 流形 copy). While a cast "next attack" (instant / charges with an attack override) waits for its
   attack, no further charge is cast. An instant / charges skill with no attack override of its own (a throw, a heal, a
-  buff, a DP gain …) is cast from the tick (the rules above, the DEFAULT of units that never attack, content trigger
-  ranges) at most once per attack interval of its unit — `skill.nextCastAt`, set by such a cast, reset on deployment —:
-  attack speed paces it, and an SP refund that refills the bar at once (迅捷) no longer recasts it every tick (GitHub #298,
-  引星棘刺 S1; [ASSUMED] one attack interval: PRTS prints no 前后摇 for such casts). The cast is no attack: the unit's
-  attacks and heals keep their own rhythm, and its first cast comes as soon as it is ready (#124). `gainSp` is ignored while a duration/ammo/toggle skill
+  buff, a DP gain …) is cast the way the client's skill class says (data `cast`, tools/build-data.mjs skillCast ←
+  tools/assets/local-skill-cast.json; maintainer decision 2026-10-11, docs/rules/sim.md 「즉발 스킬의 시전」): `replace`
+  (ReplacementSkill — 引星棘刺 S1, 锡人 S1, 伺夜 S1/S2, 华法琳 S1) spends the SP at the cast and goes out as the unit's next
+  attack, with or without a target (`skill.replacing`; ai.js startReplacement: the skill ability's clip, its effect at the
+  strike, the next attack one interval after that swing's start — so at most one per attack interval, an SP refund (迅捷)
+  included, GitHub #298); `state` (CastSkill `_switchToState` 1) casts at once, cuts the swing in progress (cooldown kept)
+  and keeps the unit from attacking until its skill ability's action ends (`unit.skillStateUntil`, a stun ends it); `free`
+  (`_switchToState` 0) casts at once and leaves the attacks alone. The next cast waits for the skill ability
+  (`skill.nextCastAt`, reset on deployment): its cooldown — the attack interval for a FROM_ATTACK_SPEED ability, its clip
+  for FROM_ANIMATION — and, for `state`, the action's end (`resetCd`: that end only); a buff-only cast waits for SP only
+  (SkillRuntime.castTiming / _paceInstant). A skill with no `cast` keeps the old rule: one attack interval from a tick
+  cast. Its first cast comes as soon as it is ready (#124). `gainSp` is ignored while a duration/ammo/toggle skill
   runs (its bar shows the skill), whatever the reason, and — any reason but `'init'` — while the unit has the `noSp`
   flag (阻回: "停止并阻止任意形式的技力回复"; the operators' 凋亡 burst, §3).
 - Kinds: `duration` (mods for `duration` s), `ammo` (mods until `ammo` attacks were made, optional duration cap),
@@ -1003,7 +1019,7 @@ instance) and skip `'counter'` / `'reflect'` damage. When the guard trips, the l
   free heals).
 - Runtime helpers on `unit.skill`: `activate(reason, {free})`, `end(reason)`, `stop()`, `addAmmo(n)`, `extend(s)`,
   `addCharge(n)`, `gainSp(n, reason)`, `addTriggerRange(fn)`, `setTrigger(rule, grid)` (a kit's own rule change mid-battle —
-  薇薇安娜 S3's ACTIVE_RANGE on 3-2 after its first cast; 0.2.0); fields `sp, spCost (= floor(base×spCostMul + spCostFlat)), spCostMul, charges,
+  0.2.0's 薇薇安娜 S3, whose kit is gone with the 自选 operators we do not offer; no kit calls it now); fields `sp, spCost (= floor(base×spCostMul + spCostFlat)), spCostMul, charges,
   maxCharges, active, timeLeft, ammoLeft, ammoMax, activations, kind, rule, bb` (`ammoMax`: the most bullets the running ammo skill
   has held — set at activation, raised by skillStart additions and `addAmmo` above it; 0 when inactive).
 
@@ -1391,11 +1407,11 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `units` (the 0.8 s death window included), never a hidden or unlisted one. The newest snapshot showing a death, a stun
   (freeze, sleep, 浮空 included) or a block is not extrapolated until a later snapshot shows it moving again; the
   extrapolated velocity uses the same moving span as the interpolation (the stand is not in its denominator).
-- `drainEvents()` tuples: `['spawn', UnitInfo]` (first appearance), `['deploy', id]` (every (re)deploy and 【移动】 — the client plays the deploy and its interpolation snaps instead of sliding), `['swing', id, windup, projKind]` (a normal attack's swing starts — operators and enemies, `ai.js updateAlly` / `enemyAttack`, and “萨米的意志”'s 冰凌 (`content/bosses.js kitDeer`, kind `none`, no 'atk': its strike is the fx `column`): its strike, the `atk` events of the same `projKind`, comes `windup` game seconds later, `ai.js attackTiming`; the renderer starts the Spine attack clip at the official speed from it), `['atk', src, tgt, projKind, signal?]`
+- `drainEvents()` tuples: `['spawn', UnitInfo]` (first appearance), `['deploy', id]` (every (re)deploy and 【移动】 — the client plays the deploy and its interpolation snaps instead of sliding), `['swing', id, windup, projKind, base?]` (a normal attack's swing starts; `base` 1 = it plays the Default attack clip although the skill is on — 赤刃明霄陈 S3 before its mode switch, `ai.js attackClipOf` — operators and enemies, `ai.js updateAlly` / `enemyAttack`, and “萨米的意志”'s 冰凌 (`content/bosses.js kitDeer`, kind `none`, no 'atk': its strike is the fx `column`): its strike, the `atk` events of the same `projKind`, comes `windup` game seconds later, `ai.js attackTiming`; the renderer starts the Spine attack clip at the official speed from it), `['atk', src, tgt, projKind, signal?]`
   (`signal`: only when the attack is a talent's own ability in the client — `Battle.forceAttack(u, t, { signal })`, 圣约送葬人's 受选之人
   extra shot `'T.1'`; the client sounds its `ON_ABILITY_*.<charId>.T.1` banks instead of the normal attack's, docs/rules/audio.md) (`none|arrow|bolt|bomb|lob|orb|drone|enemy|boomerang|droneBomb|chain|chainHeal`; a boomerang's way back has no event — the
   renderer flies it back to the thrower at `BOOMERANG_RETURN_SPEED`; an enemy's `profile.shot` may name another kind,
-  e.g. `mortar` for 帝国炮火先兆者, which the renderer does not draw — its fx `bombardShell` is the shell; an enemy whose official attack has no projectile — data/enemies.json `proj: null` — sends `none` for its ranged hits too, which land at the strike: `ai.js enemyShot`), `['dmg', tgt, amount, type, numFlag, attackerId]` (`phys|arts|true|burn|neural|necrosis|apoptosis`, an element fill its element; `numFlag` the damage-number flag of `local-hud.js` — 0 for an element fill; `attackerId` the unit that dealt it — a normal attack, a kit's skill damage through `battle.dealDamage` (no 'atk' event), a DoT tick credited to its applier, a summon's own id — or null for 无来源 damage (element bursts, `periodicDamage`) and damage without a source unit: `damage.js attackerId`; the client binds the attacker's official hit effect / sound by it),
+  e.g. `mortar` for 帝国炮火先兆者, which the renderer does not draw — its fx `bombardShell` is the shell; an enemy whose official attack has no projectile — data/enemies.json `proj: null` — sends `none` for its ranged hits too, which land at the strike: `ai.js enemyShot`), `['dmg', tgt, amount, type, numFlag, attackerId]` (`phys|arts|true|burn|neural|apoptosis|erosion`, an element fill its element; `numFlag` the damage-number flag of `local-hud.js` — 0 for an element fill; `attackerId` the unit that dealt it — a normal attack, a kit's skill damage through `battle.dealDamage` (no 'atk' event), a DoT tick credited to its applier, a summon's own id — or null for 无来源 damage (element bursts, `periodicDamage`) and damage without a source unit: `damage.js attackerId`; the client binds the attacker's official hit effect / sound by it),
   `['heal', tgt, amount]`, `['skill', id, 1|0]`, `['engage', id]` (an ally's first attack that hits an enemy — upstream's
   行动开始 voice, DESIGN §21.30; the fork plays no 行动开始 / 行动出发 line at all — the official client has none in this mode, docs/rules/audio.md), `['die', id, reason]`, `['leak', id]`, `['status', id, key, 1|0]`,
   `['fx', kind, x, y, extra]` (`hitCap` `{ id, n }`: a leader's hit cancelled by 限伤 — the renderer draws nothing;
@@ -1418,7 +1434,18 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   strike on the stage's top tile (row `r0`) of column `c` and runs `dir` [0, −1] at `speed` tiles/s, leaving projectile `sub` on every `dist`-th
   tile as it reaches it; each `sub` hits the one ally on its tile `life` s after it appears (the 'dmg' then, attacker = the boss);
   `extra.form` = the unit's model form from then on — an enemy's `content/enemies/helpers.js setForm`, a 傀儡师's 替身 — `shared/protocol.js fxForm`),
-  `['layer', playerId, bondId, n]` (n = the layers actually added, capped at 999), `['bounty', playerId, coins]`.
+  `['layer', playerId, bondId, n]` (n = the layers actually added, capped at 999), `['bounty', playerId, coins]`,
+  `['tplfx', targetId | null, effectKey, sourceId | null]` (a 卫戍协议 bond / equipment / band template effect: the client buff
+  template node `CreateEffect` — on `targetId`, from `sourceId` (null: the buff's source is no unit) — or `CreateEffectAtScreenPos`
+  (`targetId` null: the screen centre), once, at the moment the node runs; `effectKey` = the official effect prefab key; display
+  only, `content/support tplFx`): `bond_laterano_reload_01` 拉特兰桥夹's refill (acarm057 ON_AFTER_ATTACK, only when it refills);
+  `bond_charge_battle_01` 黄沙罗盘's first skill-end SP of a 萨尔贡 carrier (acarm103 ON_SKILL_FINISH) and each SP line of a 迅捷 roll
+  (bond_eff_swift ON_SKILL_FINISH: two on a member at ≥ power_bond_stack_cnt layers, source null); `bond_aegir_eat_01` each 阿戈尔
+  devour mark as it resolves, on the marked unit (bond_eff_egir[eat_mark] ON_BUFF_LATE_ENABLE); `map_act1autochess_reinforce_02` each
+  revive of 埃芒加德 (band28) / M3茧甲 (acarm068) / 阿戈尔 5 (bond_eff_egir) — ON_OWNER_FINISH — and the deployments of a 歌利亚头盔
+  carrier with nobody in front (acarm049) and of a 维多利亚 蒸汽之心 carrier (acarm079) — ON_BUFF_START; `common_071_bond_siracusa_hit_01`
+  each 叙拉古 6 proc, on the enemy from the member (bond_eff_siracusa[ex][buff] ON_OUTPUT_DAMAGE); `map_snow_left_2_right` each 谢拉格
+  6 cold-wind gust, target null (bond_eff_kjerag[storm] ON_BUFF_TRIGGER).
 - `UnitInfo = { id, kind, side, ownerId, defId, name, tier, golden, spine, avatar, x, y, facing, dir, maxHp, motion?, boss?, uid?, form?, skillIndex?, moduleId?, items?, standInFor?, diy?, potential?, cultivate? }` (`potential` / `cultivate`: an ally operator's potential below 6 and its 练度 tier, 0.2.2 — a teammate's card composes its numbers from them) (`standInFor`: a 补位 stand-in's replaced operator charId — `spine` / `avatar` / `name` are the stand-in's, DATA.md §18; the prep scouting units of `Match.prepFieldMeta` carry it too, board and held pieces alike with the stand-in's art (the owner's recall of the official mode, 2026-10-06), and so do the m.result lineups; `diy`: a 自选 piece's pick `{ charId, skillIndex, uniEquipId }` — `defId` is its slot, `spine` / `avatar` / `name` the operator's; the prep scouting units of `Match.prepFieldMeta` and the m.result lineups carry it too (server/match/player/diy.js, the client composes the operator's card from it); `skillIndex`: an ally's equipped skill, DESIGN §16; `form`: the unit's current model form — `content/enemies/helpers.js setForm`: 掠海漂移体 `'crawl'`, 暴鸰 `'bombed'` after its drop, 转译基底·α's forms …; a 傀儡师 fighting as its 替身 `'doll'` — so a view built mid-battle from `fieldMeta()` starts on that clip set; `items`: an ally operator's equipped item ids — a 变形同构体 wearer is a member of the bond it grants on the client too, the bond popup and the detail card's chips)
   (`dir` = the unit direction, allies meaningful, enemies 'RIGHT'; `facing` = its horizontal sign for sprite flipping)
   (`spine`/`avatar` are asset ids from data).
@@ -1547,9 +1574,9 @@ id, `loadout` the selection with `diy` = the checked pick `{ charId, skillIndex,
 `Battle.producesToken` key a 自选 owner's variant by `def.tokenOwner`. A PlayerBattleInput entry carries the pick as
 `diy` (spec.js keeps `charId` / `skillIndex` / `uniEquipId` when well-formed); Battle fields a DIY slot only with a legal
 pick (none ⇒ no unit), and each unit resolves its own pick — two players filling one slot id differently are exact.
-Assumptions taken here (documented choices): element burst numbers for necrosis/apoptosis; unspawned enemies at timeout
+Assumptions taken here (documented choices): element burst numbers for apoptosis; unspawned enemies at timeout
 are dropped (not leaks); geek drain is non-lethal; tactician reinforcement stats; displacement is instantaneous, followed by the 失衡 hold (push: the 位移时间 table; pull: the force
 window — `push` / `pull`; a wall-shortened slide ends at the wall, the 0.1 s floor at least); pushes PRTS does not classify use the 弹道 distance column (`PUSH_TILES`);
 platforms/mounds are ground obstacles that elevate operators; the generic kit maps 凋亡 to `apoptosis` (侵蚀 has no element key
-yet — enemy content must pick one); 抵抗 covers the control statuses of `RESIST_STATUSES` (the official term lists 晕眩/寒冷/
-冻结/恐惧/诱导…, the rest follow the operator kits that grant it) and caps at 0.95; tactical points prefer enemy path tiles.
+yet — enemy content must pick one); 抵抗 covers the statuses of `RESIST_STATUSES` (晕眩/冻结/寒冷/恐惧/诱导, §3 — 寒冷 and 恐惧 on PRTS
+可抵抗状态, the client's buff table not read) and caps at 0.95 [ASSUMED: the client floors 1 − 抵抗 at 0.001]; tactical points prefer enemy path tiles.

@@ -1229,7 +1229,9 @@ test('every tier-3 variant (normal + 精锐) fights and casts in a real battle w
     for (let t = 0; t < 20; t++) { h.run(1); if (t % 5 === 1 && u.alive && u.skill.kind !== 'passive') u.skill.gainSp(u.skill.spCost, 'test'); }
     if (u.skill.kind === 'passive') assert.ok(u.skill.active, `${id} passive on`);
     else assert.ok(u.skill.activations >= 1, `${id} cast (${u.skill.activations})`);
-    assert.ok(u.stats.dmg > 0 || u.skill.spec.attack?.noAttack, `${id} dealt damage`);
+    // (见行者 S2 惊爆射击 is a Skill-state cast — data `cast.mode` 'state', docs/rules/sim.md 「즉발 스킬의 시전」: it takes
+    // the attack it was cast before and pushes every enemy out of her range, so in this field she never hits)
+    if (id !== 'chess_char_3_07_a') assert.ok(u.stats.dmg > 0 || u.skill.spec.attack?.noAttack, `${id} dealt damage`);
     done(h);
   }
 });

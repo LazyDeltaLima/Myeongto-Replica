@@ -14,12 +14,12 @@
 //   too), checked every tick, no attack needed. Kit option `trigger.allies` (+ `hpAtMost`, default 1): a healable,
 //   injured ally of the grid whose HP ratio is at most that instead (an AUTO heal skill's own rule — 古米 S1 waits in
 //   its heal mode until it has healed);
-//   ACTIVE_RANGE — the owner's rule (2026-10-05, a deliberate deviation): a MANUAL skill on the basic strategy (深巡 S2's
-//   DEFAULT deviation included) or on the SEARCH row (薄绿 S1, 玛恩纳 S2, 安洁莉娜 S3 …) whose attack range while it runs
-//   strictly contains the unit's own range checks the DEFAULT condition on that larger range (trigger grid = the running
+//   ACTIVE_RANGE — a kit rule (the data's until maintainer decision 2026-10-11: the owner's rule of 2026-10-05 for a MANUAL
+//   skill whose running attack range strictly contains the unit's own range; Touch's 恳切福音 still uses it) checks the DEFAULT condition on that larger range (trigger grid = the running
 //   range, grown by the unit's permanent rangeExtend unless the skill ignores 攻击距离), every tick, no attack needed —
 //   an enemy the unit can target there (or one it blocks), a heal skill an injured ally;
-//   TAKE_DAMAGE (ready + just took a hit: 重装 "不受技能范围影响，受到伤害时释放技能"), SP_FULL/ALWAYS (as soon as ready),
+//   TAKE_DAMAGE (ready + just took a hit, cast on the hit: 重装 "不受技能范围影响，受到伤害时释放技能"; client born buff
+//   `autochess_trigger_skill[on_take_damage]`), SP_FULL/ALWAYS (as soon as ready),
 //   CUSTOM_RANGE (enemy inside the custom trigger grid), SEARCH (an enemy inside the INITIAL range, checked every tick
 //   without waiting for an attack: "不受基础策略影响，在初始攻击范围内存在敌人时释放技能" — not any enemy on the field,
 //   which burnt the skill on enemies that had just spawned), GDGLOW_SKILL_2 ("全场存在可选目标时释放技能": a targetable
@@ -28,12 +28,18 @@
 //   (noAttack profiles) evaluate DEFAULT every tick instead. DEFAULT with `trigger.allies` (+ `hpAtMost`): the basic
 //   rule AND such an ally on the trigger grid — the cast replaces the attack about to be made (塞雷娅 S1 "触发时会替换当
 //   次攻击"); should that ally condition fail before the attack, the cast is withdrawn and its charge returned.
-// Automatic operations cool down (constants.js AUTO_OP_COOLDOWN, "自动操作具有3s冷却，在完成一次操作或作战开始时部署的单位
-//   将进入冷却"): the engine auto-casts a MANUAL skill (def.skillType) no sooner than 3 s after its previous cast (so a
-//   charged skill spends its charges 3 s apart) or after the unit's deployment at the battle start (Battle._deploy
-//   `initial`). AUTO skills are exempt; a kit with its own automatic cast checks `opCooling`; a cast made by activate()
-//   directly is not held back (it still starts the cooldown). While a cast "next attack" waits for its attack, no
-//   further charge is cast.
+// MANUAL skills (def.skillType) are cast by the battle's automatic operations (client code `AutoChessBattleTrigger`;
+//   maintainer decision 2026-10-11): every 0.2 s one pass (Battle._autoTriggerPass → autoTrigger below) checks the rules
+//   above and casts at once — the first cast ends the pass (one per pass in the whole battle) and blocks its unit for
+//   BLOCK_SKILL_TICK passes (`blockTicks`; a charged skill spends its charges ≈ 2.2 s apart); the battle-start deployment
+//   starts blocked too (Battle._deploy `initial`). DEFAULT for a MANUAL skill (`_DefaultTriggerSkill`): with a trigger
+//   grid (its rangeId) a selectable enemy, ground or air, there; without one, the unit attacking (an attack target in its
+//   initial range or one it blocks — its ATTACK / COMBAT state). TAKE_DAMAGE: the hit itself (onDamaged), or one the cast
+//   could not use, seen by the next pass — and every pass SEARCH's condition too (the client sends type 12 down SEARCH's
+//   branch, `_TrySearchTarget`: the unit's attack trigger finds a target).
+//   AUTO skills fire by their own rule (tick, onAboutToAttack, onDamaged — not operations). A kit with its own automatic
+//   cast checks `opCooling`; a cast made by activate() directly is not held back (it still starts the block). While a cast
+//   "next attack" waits for its attack, no further charge is cast.
 // Kinds: duration (mods for `duration` s), ammo (mods until `ammo` attacks were made; optional duration cap),
 //   instant (onStart + optional one-shot attack override for the next attack), charges (= instant with charges),
 //   passive (always on from deployment, no SP), toggle (stays on until death once activated).
@@ -41,13 +47,15 @@
 //   mods, flags, targeting {maxTargets, rangeGrid, priority, allInRange, rangeExtend, noRangeExtend (the range ignores
 //   the unit's 攻击距离), showOwnRange (rangeGrid only selects targets: the detail card keeps the unit's own range)},
 //   attack {dmgType, atkScale, splashRadius, splashScale, hits, projectile, maxTargets, dmgMul, onHit, heal…},
-//   heal (bool: heal-type skill for the trigger rule), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx).
+//   heal (bool: heal-type skill for the trigger rule), inAttack (bool: the kit casts the skill inside the attack about to
+//   land and makes that attack the skill's — a ReplacementSkill whose replaced attack the kit models itself, 华法琳 S1:
+//   the engine does not hold the cast for the next attack), onStart(ctx), onEnd(ctx), onHit(ctx), onAttack(ctx), onTick(ctx).
 // ctx passed to spec callbacks: { battle, unit, skill, bb, target?, dealt?, targets?, dt?, reason? }; onAttack's ctx
 //   also carries `noAmmo` (set it to true: this attack spends no ammo). onEnd runs while the skill's mods / range are
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
 
 import { absoluteRangeKeys, canTargetEnemy } from './targeting.js';
-import { AUTO_OP_COOLDOWN, COLS, ROWS } from './constants.js';
+import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE, ROWS } from './constants.js';
 
 const TICK_RULES = new Set(['SP_FULL', 'SEARCH', 'CUSTOM_RANGE', 'SKILL_RANGE', 'ACTIVE_RANGE', 'GDGLOW_SKILL_2']);
 /** True when a SkillSpec `targeting` changes the unit's range while the skill runs (Battle._refreshRange). */
@@ -101,8 +109,14 @@ export class SkillRuntime {
     this.healSkill = s.heal ?? (unit.profile && unit.profile.dmgType === 'heal' && !!unit.profile.heal);
     // the official skill strategies automate the manual 开启: only MANUAL skills wait for the operation cooldown
     this.manual = String(d.skillType ?? 'MANUAL').toUpperCase() === 'MANUAL';
-    this.opReadyAt = -Infinity;   // no automatic cast before this battle time (AUTO_OP_COOLDOWN)
-    this.nextCastAt = -Infinity;  // instant / charges with no attack of its own: no cast from the tick before (GitHub #298)
+    this.blockTicks = 0;          // automatic-operation passes this unit still sits out (BLOCK_SKILL_TICK)
+    this._hurt = false;           // TAKE_DAMAGE of an automatic operation: a hit since the unit's last pass
+    this.nextCastAt = -Infinity;  // instant / charges with no attack of its own: no cast before (_paceInstant, GitHub #298)
+    // how the client casts it (data `cast`, simdata.js normSkillCast; docs/rules/sim.md 「즉발 스킬의 시전」): 'replace' —
+    // the cast replaces the unit's next attack; 'state' — the unit stays in its Skill state while the skill ability
+    // plays; 'free' — no state change. null (not read): the one-attack-interval rule of #298
+    this.cast = d.cast ?? null;
+    this._replace = null;         // a 'replace' cast waiting for the unit's next attack: { reason }
     if (this.kind === 'passive') this.baseSpCost = 0;
     this._spCostMul = 1;          // content may set spCostMul (e.g. 绝技 ×0.7) — see the accessor below
     this.sp = 0;
@@ -229,8 +243,11 @@ export class SkillRuntime {
     this.sp = 0;
     this._trigKeys = null;
     this._trigSet = null;
-    this.opReadyAt = -Infinity;   // (Battle._deploy starts the operation cooldown of the battle-start deployment)
+    this.blockTicks = 0;          // (Battle._deploy blocks the battle-start deployment)
+    this._hurt = false;
     this.nextCastAt = -Infinity;
+    this._replace = null;
+    if (this.unit) this.unit.skillStateUntil = 0;
     if (this.noSkill) return;
     if (this.kind === 'passive') {
       this._startPassive();
@@ -351,8 +368,10 @@ export class SkillRuntime {
     }
     if (!this.ready || u.s.flags.silence) return;
     if (this.active && this.isTimed) return;
+    // a MANUAL skill is cast by the automatic operations only (Battle._autoTriggerPass → autoTrigger)
+    if (this.autoOp) return;
     // a cast "next attack" still waits for its attack: another charge now would be spent on the same attack
-    if (this.pending || this._opCooling()) return;
+    if (this.pending) return;
     // an instant / charge skill with no attack of its own is cast at most once per attack interval of its unit
     // (activate sets nextCastAt; GitHub #298): the casts checked here wait for it — the unit's attacks are not touched
     if (!this.isTimed && !this.spec.attack && this.battle.time < this.nextCastAt - 1e-9) return;
@@ -368,8 +387,54 @@ export class SkillRuntime {
     }
   }
 
-  /** The automatic operations of a MANUAL skill are cooling down (AUTO_OP_COOLDOWN). */
-  _opCooling() { return this.manual && this.battle.time < this.opReadyAt - 1e-9; }
+  /** A skill the battle's automatic operations cast (a MANUAL skill on any rule but NEVER). */
+  get autoOp() { return this.manual && !this.noSkill && this.kind !== 'passive' && this.rule !== 'NEVER'; }
+
+  /** The automatic operations of a MANUAL skill are blocked for this unit (BLOCK_SKILL_TICK passes after a cast). */
+  _opCooling() { return this.manual && this.blockTicks > 0; }
+
+  /**
+   * One automatic-operation check of this unit's MANUAL skill (Battle._autoTriggerPass; client code
+   * `AutoChessBattleTrigger._TryTriggerSkill` → `_DoDefaultCheck` → the rule): ready, able, not held by its skill ability
+   * (nextCastAt) and its rule met → cast at once (`UseSkill`: a 'state' cast cuts the swing, a 'replace' one arms the next
+   * attack). Returns true when it cast.
+   */
+  autoTrigger() {
+    const hurt = this._hurt;
+    this._hurt = false;
+    if (!this.autoOp) return false;
+    const u = this.unit;
+    if (!u.alive || !u.deployed || u.hidden || !u.canAct) return false;
+    if (!this.ready || u.s.flags.silence || (this.active && this.isTimed) || this.pending) return false;
+    if (!this.isTimed && !this.spec.attack && this.battle.time < this.nextCastAt - 1e-9) return false;
+    let ok;
+    // TAKE_DAMAGE: a hit the born buff could not cast on (onDamaged), or SEARCH's condition — the client pass sends type 12
+    // down SEARCH's branch (`_TryTriggerSkill` jump table: types 2 and 12 → `_DoDefaultCheck` + `_TrySearchTarget`), and
+    // `_TrySearchTarget` asks the unit's attack trigger (`Character.attackTrigger.Search(false)`; a NeverTrigger attack:
+    // its `rangeToShow` selector) — a target of its attack in range, or one it blocks; no skill-specific part
+    if (this.rule === 'TAKE_DAMAGE') ok = hurt || this._defaultCondition();
+    else if (TICK_RULES.has(this.rule)) ok = this._tickRuleSatisfied();
+    else ok = this._autoDefault();
+    if (!ok) return false;
+    return this.activate(TICK_RULES.has(this.rule) || this.rule === 'TAKE_DAMAGE' ? this.rule : 'DEFAULT');
+  }
+
+  /**
+   * DEFAULT of a MANUAL skill (client code `AutoChessBattleTrigger._DefaultTriggerSkill`): a trigger grid (the skill's
+   * rangeId, data customRangeGrid) — a selectable enemy, ground or air, on those cells as the unit faces
+   * (`LitePhysicsUtil.FindTargetsInBox`, the trigger's ALL-motion options; no 攻击距离 added); none — the unit attacking
+   * (`Character.isInAttackState || isInCombatState`): a target of its attack in its initial range — a heal skill an
+   * injured ally — or an enemy it blocks (_defaultCondition). Content trigger ranges count too; `trigger.allies` adds the
+   * ally condition.
+   */
+  _autoDefault() {
+    const b = this.battle;
+    const u = this.unit;
+    let ok;
+    if (this.triggerGrid) ok = b.enemiesInKeys(this._triggerKeys(), u, TRIGGER_PROFILE).length > 0 || (this.triggerRanges.length > 0 && this._extraTriggerSatisfied());
+    else ok = this._defaultCondition();
+    return ok && (!this.triggerAllies || this._allyTriggerSatisfied());
+  }
 
   /** Public form of the operation cooldown, for kits with their own automatic cast of a MANUAL skill. */
   get opCooling() { return this._opCooling(); }
@@ -439,7 +504,8 @@ export class SkillRuntime {
     if (b.rangeChanged(u)) b._refreshRange(u);
     const keys = range || u.baseRangeKeys || u.rangeKeys;
     if (keys) {
-      if (this.healSkill) return b.injuredAlliesInKeys(keys, u).length > 0;
+      // (a heal that also restores 元素损伤 heals an ally whose HP is full but whose gauge is not: 赫德雷 … PR #459)
+      if (this.healSkill) return b.injuredAlliesInKeys(keys, u, !!u.profile?.heal?.elementHealRatio).length > 0;
       if (b.enemiesInKeys(keys, u, u.profile).length > 0) return true;
     }
     // the enemies a unit blocks are always its targets (Battle.blockedTargets), in range or not — PRTS 卫戍协议/帮助
@@ -453,7 +519,9 @@ export class SkillRuntime {
     if (!this.ready || this.unit.s.flags.silence) return false;
     if (this.active && this.isTimed) return false;
     if (this.rule === 'TAKE_DAMAGE' || this.rule === 'NEVER' || TICK_RULES.has(this.rule)) return false;
-    if (this.pending || this._opCooling()) return false;
+    if (this.autoOp || this.pending) return false;   // (a MANUAL skill: the automatic operations — autoTrigger)
+    // (a skill read from the client: its skill ability's cooldown and action hold the next cast — _paceInstant)
+    if (this.cast && !this.isTimed && !this.spec.attack && this.battle.time < this.nextCastAt - 1e-9) return false;
     if (!this._defaultCondition()) return false;
     if (this.triggerAllies && !this._allyTriggerSatisfied()) return false;
     this._beforeAttack = true;   // the attack follows this cast in the same check (ai.js updateAlly): attacks pace it
@@ -464,9 +532,12 @@ export class SkillRuntime {
   onDamaged() {
     if (this.noSkill) return;
     if (this.spType === 'hurt' && !(this.active && this.isTimed)) this.gainSp(1, 'hurt');
-    if (this.rule === 'TAKE_DAMAGE' && this.ready && !this.pending && !(this.active && this.isTimed) && this.unit.canAct && !this.unit.s.flags.silence && !this._opCooling()) {
-      this.activate('TAKE_DAMAGE');
-    }
+    if (this.rule !== 'TAKE_DAMAGE') return;
+    // the hit casts at once, outside the 0.2 s passes: client code `AutoChessBattleTrigger._OnUnitBorn` (0x7D6B30) gives a
+    // TAKE_DAMAGE (12) character the buff `autochess_trigger_skill[on_take_damage]`, whose ON_TAKE_DAMAGE node triggers the
+    // skill (`_checkBeforeTrigger`); a hit the cast could not use is still seen by the next pass (_hurt)
+    if (this.autoOp) this._hurt = true;
+    if (this.ready && !this.pending && !(this.active && this.isTimed) && this.unit.canAct && !this.unit.s.flags.silence) this.activate('TAKE_DAMAGE');
   }
 
   /** Activate now (consumes one charge). Returns true on success. */
@@ -484,7 +555,7 @@ export class SkillRuntime {
     this.activations++;
     this.lastStart = this.battle.time;
     const b = this.battle;
-    if (this.manual) this.opReadyAt = b.time + AUTO_OP_COOLDOWN;
+    if (this.manual) this.blockTicks = BLOCK_SKILL_TICK;
     if (this.isTimed) {
       this.active = true;
       this.timeLeft = this.kind === 'duration' ? Math.max(0.01, this.duration) : (this.kind === 'ammo' && this.duration > 0 ? this.duration : Infinity);
@@ -497,6 +568,13 @@ export class SkillRuntime {
       this.pending = !!this.spec.attack;
       // (a targeting-only instant skill must still switch to its skill range for the pending attack)
       if (this.spec.mods || this.spec.flags || this.spec.targeting) this._applyMods();
+      // a ReplacementSkill (client code `ReplacementSkill.ApplyModification` → `Character.RegisterReplacement`): the SP
+      // is spent now, the skill goes out as the unit's next attack — ai.js startReplacement, fireReplacement below
+      if (!this.pending && this._replacesAttack()) {
+        this.pending = true;
+        this._replace = { reason };
+        return true;
+      }
     }
     b._ev(['skill', u.id, 1]);
     u.skillAnimUntil = b.time + SKILL_ANIM_WINDOW;
@@ -507,14 +585,105 @@ export class SkillRuntime {
     if (this.active && this.ammoLeft > this.ammoMax) this.ammoMax = this.ammoLeft;
     if (!this.isTimed && !this.pending) {
       this.end('instant');
-      // an instant / charge skill with no attack of its own (no spec.attack: a throw, a heal, a buff, DP …) waits one
-      // attack interval of its unit before it is cast again from the tick (GitHub #298: 引星棘刺 S1 度算浪波, an SP_FULL
-      // cast, was recast every tick once 迅捷's refund refilled its bar at once, whatever the attack speed) — on the skill
-      // only: the cast is no attack, the unit's attacks / heals keep their own rhythm. [ASSUMED] one attack interval: PRTS
-      // prints no 前后摇 for such casts. A cast made right before an attack (DEFAULT) is paced by those attacks already;
-      // a cast onEnd opened again owns its own gap.
-      if (!this.active && !this.spec.attack && !this._beforeAttack && u.alive && u.s.interval > 0) this.nextCastAt = b.time + u.s.interval;
+      // (a cast onEnd opened again owns its own gap)
+      if (!this.active && !this.spec.attack && u.alive) this._paceInstant();
     }
+    return true;
+  }
+
+  /** A 'replace' cast of this unit: an instant / charge skill with no attack override, cast by a unit that attacks. */
+  _replacesAttack() {
+    const p = this.unit.profile;
+    return this.cast?.mode === 'replace' && !this.spec.attack && !this.spec.inAttack && !this.isTimed && !!p && !p.noAttack && !p.noAttackUnlessSkill;
+  }
+
+  /** A 'replace' cast waits for the unit's next attack (ai.js updateAlly). */
+  get replacing() { return this.pending && !!this._replace; }
+
+  /**
+   * The time of the skill ability for this unit now (client code `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
+   * `UpdatePlaybackSpeed`): its time `t` — `time` 0 FROM_ATTACK_SPEED the unit's attack interval, 1 FROM_ANIMATION its
+   * clip (`DoAttach` writes `Entity.GetAnimationTime(_animKey)` into `_cooldown`; [ASSUMED] the attack interval when the
+   * skeleton has no such clip), 2 / 3 `cd` — is its cooldown; its clip plays scaled to `t` within [MIN_ANIM_SCALE,
+   * `max`] as an attack's (ai.js attackTiming): `action` = scale × clip (no clip known: `t`), `strike` = its OnAttack
+   * frame × scale (`wait` off: `pre` × scale; no OnAttack frame: the action's end). No skill ability: all 0.
+   * @returns {{ action: number, strike: number, cooldown: number }}
+   */
+  castTiming(out = { action: 0, strike: 0, cooldown: 0 }) {
+    const c = this.cast;
+    const iv = this.unit.s?.interval > 0 ? this.unit.s.interval : 0;
+    if (!c || c.time == null) { out.action = 0; out.strike = 0; out.cooldown = 0; return out; }
+    const t = c.time === 1 ? (c.dur ?? iv) : c.time === 2 || c.time === 3 ? c.cd : iv;
+    let action = t, strike;
+    if (c.dur) {
+      let scale = t / c.dur;
+      if (!(scale >= MIN_ANIM_SCALE)) scale = MIN_ANIM_SCALE;
+      if (scale > c.max) scale = c.max;
+      action = scale * c.dur;
+      strike = c.wait ? (c.hit != null ? c.hit * scale : action) : Math.min(action, c.pre * scale);
+    } else strike = c.wait ? action : Math.min(action, c.pre);
+    out.action = action;
+    out.strike = strike;
+    out.cooldown = t;
+    return out;
+  }
+
+  /**
+   * After an instant / charge cast with no attack of its own (a throw, a heal, a buff, DP …): when may it be cast again,
+   * and does the unit stop attacking meanwhile (docs/rules/sim.md 「즉발 스킬의 시전」, maintainer decision 2026-10-11:
+   * the client's classes). The skill ability must be ready again (`CastSkill.IsAvailable` → `Ability.isReady`: its
+   * cooldown from the cast and not casting): 'free' (`_switchToState` 0) waits its cooldown only and leaves the unit's
+   * attacks alone; 'state' (`_switchToState` 1, `Character.States.SkillState`) also cuts the swing in progress (the
+   * attack cooldown is kept and keeps running) and keeps the unit from attacking until the skill ability's action ends
+   * (`unit.skillStateUntil`; a stun / freeze ends it — `SkillState.OnTick`), the next cast waiting for that end and the
+   * cooldown — only for the end with `resetCd` (`CastSkill.OnCastFinish` resets the ability). A buff-only cast (no
+   * animated ability; `ActiveBuffAbility.cooldown` = its buffs' lifetime, instant ones here) waits for nothing but SP.
+   * Not read from the client (no `cast`): one attack interval of its unit before it is cast again from the tick
+   * (GitHub #298, the rule up to 2026-10-11), a cast right before an attack (DEFAULT) paced by those attacks.
+   */
+  _paceInstant() {
+    const b = this.battle;
+    const u = this.unit;
+    const c = this.cast;
+    if (!c) {
+      if (!this._beforeAttack && u.s.interval > 0) this.nextCastAt = b.time + u.s.interval;
+      return;
+    }
+    if (c.time == null) return;
+    const t = this.castTiming();
+    if (c.mode === 'state') {
+      u.swing = null;
+      u.castLeft = 0;
+      u.skillStateUntil = b.time + t.action;
+      if (t.action > SKILL_ANIM_WINDOW) u.skillAnimUntil = b.time + t.action;
+      this.nextCastAt = b.time + (c.resetCd ? t.action : Math.max(t.action, t.cooldown));
+    } else this.nextCastAt = b.time + t.cooldown;
+  }
+
+  /** A 'replace' cast's attack starts (ai.js startReplacement): the skill clip plays for its action. */
+  beginReplacement(action) {
+    const b = this.battle;
+    const u = this.unit;
+    b._ev(['skill', u.id, 1]);
+    u.skillAnimUntil = b.time + (action > SKILL_ANIM_WINDOW ? action : SKILL_ANIM_WINDOW);
+  }
+
+  /**
+   * The strike of a 'replace' cast's attack (its OnAttack frame): the skill's effect (onStart — the kit picks its own
+   * targets, as the client's `ReplacementSkill.TryHookSearchTarget` does: no enemy needed), then the cast ends. The
+   * unit's next attack comes one attack interval after this attack's start (`Character.ClearReplacement` hands the skill
+   * ability's cooldown, matched to the attack's at the cast, back to the attack). Returns true when it fired.
+   */
+  fireReplacement() {
+    const r = this._replace;
+    if (!r || !this.pending || !this.active) return false;
+    this._replace = null;
+    this.pending = false;
+    const b = this.battle;
+    const u = this.unit;
+    this._call('onStart', { reason: r.reason });
+    if (b._hooks.skillStart) b.emit('skillStart', { unit: u, skill: this, reason: r.reason });
+    if (this.active && !this.isTimed && !this.pending) this.end('instant');
     return true;
   }
 
@@ -558,6 +727,7 @@ export class SkillRuntime {
     const b = this.battle;
     this.active = false;
     this.pending = false;
+    this._replace = null;
     this.timeLeft = 0;
     this.ammoLeft = 0;
     this.ammoMax = 0;

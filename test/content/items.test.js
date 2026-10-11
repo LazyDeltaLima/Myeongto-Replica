@@ -638,6 +638,18 @@ test('黄沙罗盘: initial SP +30 / +50; (萨尔贡) first skill end +30 SP; + 
   u.skill.activate('test', { free: true });
   u.skill.end('test');
   close(u.skill.sp, 0, 'only the first skill end');
+  // client acarm103 resets has_used_skill on ON_BUFF_START: a redeployment gets the first-skill-end SP again
+  h.b.retreat(u);
+  u.respawnAt = 0;
+  assert.ok(h.b.redeploy(u));
+  u.skill.sp = 0;
+  u.skill.activate('test', { free: true });
+  u.skill.end('test');
+  close(u.skill.sp, 30, 'first skill end of the new deployment +30');
+  u.skill.sp = 0;
+  u.skill.activate('test', { free: true });
+  u.skill.end('test');
+  close(u.skill.sp, 0, 'once per deployment');
   cover(A('6_07'), B('6_07'), A('2_04'), B('2_04'));
 });
 

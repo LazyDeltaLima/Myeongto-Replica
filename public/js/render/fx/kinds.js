@@ -129,7 +129,7 @@ export function fxSpec(kind, extra = {}) {
   }
   const el = extra && extra.element;
   if (el && (spec.a === 'blast' || spec.a === 'zone' || spec.a === 'element')) {
-    const c = el === 'burn' ? 0xff7a33 : el === 'neural' ? 0xff5ad0 : el === 'necrosis' || el === 'apoptosis' ? 0x9dff6a : el === 'erosion' ? 0x6fe0ff : null;
+    const c = el === 'burn' ? 0xff7a33 : el === 'neural' ? 0xff5ad0 : el === 'apoptosis' ? 0x9dff6a : el === 'erosion' ? 0x6fe0ff : null;
     if (c) spec = { ...spec, c };
   }
   if (extra && (extra.dmgType === 'arts' || /arts|magic/i.test(String(extra.kind || ''))) && spec.a === 'blast') spec = { ...spec, c: 0xc77dff };

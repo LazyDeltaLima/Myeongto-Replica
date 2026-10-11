@@ -71,7 +71,7 @@
 | 방별 진행 상황 (내부 `GET /healthz/rooms`: 방 코드·모드·난이도·단계·라운드·사람/접속/봇 수, 프록시 경유는 404) | `server/local-rooms.js`, `test/local-patch-rooms.test.js` | `ui.md` 「서버 재시작 예고」 |
 | 게임 결과 통계 로그 (판이 끝날 때마다 `[stats] {JSON}` 한 줄 — 모드·난이도·스테이지·보스·승패·도달 라운드·시간, 플레이어별 닉네임·봇 여부·라운드·LP·편성·맹약·전투 통계. playerId·시드는 뺌) | `server/local-stats.js`, `test/local-patch-stats.test.js` | — |
 | 결산 화면 피드백 보내기 (버그·제안을 서버 `SP_FEEDBACK_DIR`에 보관, `SP_FEEDBACK_REPO`가 있으면 relay가 GitHub issue로 등록) | `server/local-feedback.js`, `server/feedback-relay.js`, `public/js/ui/feedback.js`, `public/css/feedback.css`, `test/local-feedback.test.js`, `test/feedback-relay.test.js` | `ui.md` 「결산 화면 피드백 보내기」 |
-| 스킬 범위 발동 — **미확정**: 0.2.0부터 upstream 데이터 규칙 `ACTIVE_RANGE`(관리자 결정 2026-10-07, 공식 기본 전략과 다름) | `server/sim/content/kits/README.md` 「ACTIVE_RANGE」 | `sim.md` 「스킬 범위 발동」 |
+| 스킬 범위 발동 — **확정**(관리자 결정 2026-10-11): 클라 `AutoChessBattleTrigger` 그대로(0.2 s 패스·패스당 한 번·2.2 s 블록, rangeId 상자의 적). 옛 `ACTIVE_RANGE`(2026-10-07)는 되돌리기 기록만 | `tools/build-data.mjs resolveTrigger`, `server/sim/skills.js autoTrigger`, `server/sim/battle/lifecycle.js _autoTriggerPass`, `server/sim/content/kits/README.md` 「5. Auto-cast trigger」 | `sim.md` 「스킬 범위 발동」 |
 | iframe 차단 헤더 | `server/http/common.js setSecurityHeaders` | — |
 | 나가기 창에서 「暂离（AI 托管）」 숨김 — 나가면 자리를 포기한다 | `public/js/ui/matchChrome.js` (`AWAY_OPTION = false`) | — |
 | 맹약 스택 세 자리 줄바꿈 수정 | `public/i18n/ko/ko.css` | — |

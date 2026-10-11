@@ -414,6 +414,8 @@ function egirDownAtStart(battle, u) {
  * 联防 down — is marked like an own one, gives the same base ATK / block count, and the chain goes on through it when it
  * is an 阿戈尔 (S.isMember: its own bonds). Its knock-out is its owner's (their bonds' revives, 不屈 …), credited to the
  * marker as usual. Each devoured operator adds its tier to 阿戈尔 once (IN_BATTLE gain, disabled in 联防 / boss fields).
+ * Kept by maintainer decision 2026-10-11 although the client graph spares a teammate whose 阿戈尔 is not active (eat_calculated):
+ * on 联防 / boss fields the halves' boundary has attack points and undeployable tiles, so no teammate stands in front.
  * Tokens / devices / empty tiles are never devoured.
  */
 function devour(battle, pid, bb, members) {
@@ -475,6 +477,9 @@ function devour(battle, pid, bb, members) {
     if (knocked(t)) continue;
     S.fxOn(battle, 'devour', t, 'bond:egirShip', 'devour', { from: m.id });
     if (amount > 0) battle.loseHp(t, mitigate(amount, 'phys', t.s), { source: m, tags: ['bond:egir:devour'] });
+    // client buff template act1autochess_bond_eff_egir[eat_mark] ON_BUFF_LATE_ENABLE: CreateEffect on the marked unit
+    // after its FixedValueDamage (owner and source: the marked unit; display only)
+    S.tplFx(battle, t, 'bond_aegir_eat_01', t);
     if (!layered.has(t)) {
       layered.add(t);
       S.gainLayers(battle, { playerId: pid, bonds: 'egirShip', n: S.tierOf(t), source: m, reason: 'bond' });
@@ -542,6 +547,7 @@ function installEgir(battle, pid, bb, members) {
     if (!battle.redeploy(u, { free: true })) return;
     revives++;
     S.fxOn(battle, 'revive', u, 'bond:egirShip', 'respawn', { n: revives });
+    S.tplFx(battle, u, 'map_act1autochess_reinforce_02', u); // act1autochess_bond_eff_egir ON_OWNER_FINISH, the free-respawn branch
   };
   start.flush.push(() => {
     for (const u of batch.splice(0).filter((x) => !x.alive && !x.removed).sort(egirReviveScan)) {
@@ -616,6 +622,9 @@ function installSiracusa(battle, pid, bb, members) {
     S.fxOn(battle, 'bondProc', t, 'bond:siracusaShip', 'assassin', { from: u.id, amount });
     if (amount > 0) battle.dealDamage(u, t, { amount, type: 'true', canDodge: false, tags: ['bond:siracusa'] });
     if (t.alive && num(bb.fear, 0) > 0) battle.applyStatus(t, 'fear', { duration: num(bb.fear, 0), source: u });
+    // client buff template act2autochess_bond_eff_siracusa[ex][buff] ON_OUTPUT_DAMAGE: CreateEffect on the target after
+    // the damage and the fear (display only)
+    S.tplFx(battle, t, 'common_071_bond_siracusa_hit_01', u);
   };
   for (const u of members) onUnitDamaged(battle, u, onDmg);
 }

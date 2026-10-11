@@ -65,8 +65,12 @@ export const MIN_DAMAGE_RATIO = 0.05;
 /** Element gauge capacity of operators and normal/elite enemies; leaders (rank BOSS) hold 2000 (ba.dt.*2). */
 export const ELEMENT_GAUGE_MAX = 1000;
 export const ELEMENT_GAUGE_MAX_LEADER = 2000;
-/** Element names with a gauge on every unit. `necrosis` is a legacy spare gauge (凋亡 is `apoptosis`). */
-export const ELEMENTS = Object.freeze(['burn', 'neural', 'necrosis', 'apoptosis', 'erosion']);
+/**
+ * Element names with a gauge on every unit (凋亡 is `apoptosis`). The engine's own fifth gauge `necrosis` (12 s of 100 true
+ * damage/s and ATK −20 % — no official element: the client's `ElementType` is SANITY / WATER / FIRE / DARK) was removed
+ * by the maintainer decision of 2026-10-11 (docs/rules/sim.md 「자작 원소 necrosis 삭제」).
+ */
+export const ELEMENTS = Object.freeze(['burn', 'neural', 'apoptosis', 'erosion']);
 /**
  * Element bursts — official term table (gamedata_const termDescriptionDict):
  *   `ally` = an operator/summon hit by enemy damage (ba.dt.burning / neural / apoptosis / erosion),
@@ -76,7 +80,6 @@ export const ELEMENTS = Object.freeze(['burn', 'neural', 'necrosis', 'apoptosis'
  * `duration` = the burst's 爆发冷却 (PRTS 元素 table "持续时间": 10 s, 凋亡 15 s, 侵蚀 on enemies 8 s — the operators'
  * 侵蚀 burst has its 10 s cooldown too): while it runs NO element of the unit fills or recovers, and when it ends every
  * gauge of the unit resets (damage.js).
- * `necrosis` keeps the engine's earlier invented burst (no official counterpart) for legacy content.
  */
 export const ELEMENT = Object.freeze({
   burn: Object.freeze({
@@ -98,15 +101,21 @@ export const ELEMENT = Object.freeze({
     ally: Object.freeze({ damage: 800, type: 'phys', defDown: 100, duration: 10 }),
     enemy: Object.freeze({ elemDamage: 5000, defDown: 120, duration: 8 }),
   }),
-  necrosis: Object.freeze({ dps: 100, duration: 12, atkDownPct: 0.2 }),
 });
 /**
- * Official element order (PRTS 元素: SANITY 1 神经, WATER 2 侵蚀, FIRE 3 灼燃, DARK 4 凋亡; the legacy `necrosis` last):
+ * Official element order (PRTS 元素: SANITY 1 神经, WATER 2 侵蚀, FIRE 3 灼燃, DARK 4 凋亡):
  * the tie-break of the "当前损伤元素" a unit shows — the fullest gauge, then the lower id (damage.js elementView).
  */
-export const ELEMENT_ORDER = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis', 'necrosis']);
+export const ELEMENT_ORDER = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis']);
 /** 麻痹 (ba.palsy): each stack cancels one normal attack of an enemy; at most 3 stacks, lasts until consumed. */
 export const PALSY_MAX = 3;
+/**
+ * 麻痹震颤: an enemy whose attack 麻痹 interrupted neither moves nor starts an attack for this long — melee, ranged, blocked
+ * or not (client code `Enemy.States.PalsyState.OnTick`: it stays while its `palsying` buff holds; a stun / freeze / 浮空
+ * takes over). [ASSUMED] the length: `palsying` is a buff of the client's buff table, which the client files we read do
+ * not hold — PRTS 术语释义 麻痹 「进入0.5秒的麻痹震颤状态」.
+ */
+export const PALSY_STOP = 0.5;
 
 /**
  * Push / pull (位移; user playtest #6 item 14). The 受力等级 is the source's 力度 minus the target's current 重量等级
@@ -167,14 +176,22 @@ export const FREEZE_RES_DOWN = 15;
 /** Default DP rules (DESIGN §5.5), overridable by Battle opts.flags. */
 export const DP_DEFAULTS = Object.freeze({ dpInit: 10, dpPerSec: 1, dpMax: 99 });
 /**
- * Cooldown of the automatic skill operations (PRTS 卫戍协议/帮助 §作战阶段 技能操作: "自动操作具有3s冷却，在完成一次操作或作战
- * 开始时部署的单位将进入冷却"), in battle seconds [ASSUMED: the game clock, like every skill timer]: the engine auto-casts
- * a MANUAL skill no sooner than this after its previous cast and after the unit's battle-start deployment
- * (skills.js; Battle._deploy `initial` sets `opReadyAt` from `battle.flags.startOpCooldown`, default this value). Kits
- * with an automatic cast of their own check `skill.opCooling`. AUTO skills fire by their own rule and are not
- * operations.
+ * The automatic skill operations (client code `AutoChessBattleTrigger`, maintainer decision 2026-10-11 — docs/rules/sim.md
+ * 「스킬 범위 발동」): every AUTO_TRIGGER_INTERVAL s of battle time (`AutoTrigger`: `WaitForFixedSeconds(0.2)`) one pass
+ * over the characters (`_TryTriggerAvailableSkills`): one whose block is running counts it down one and is skipped; the
+ * first whose MANUAL skill casts gets BLOCK_SKILL_TICK passes of block and ends the pass — one automatic cast per pass in
+ * the whole battle, the same character checked again on the 11th pass (≈ 2.2 s). Battle.js _autoTriggerPass,
+ * skills.js autoTrigger. AUTO skills fire by their own rule and are not operations.
  */
-export const AUTO_OP_COOLDOWN = 3;
+export const AUTO_TRIGGER_INTERVAL = 0.2;
+export const BLOCK_SKILL_TICK = 10;
+/**
+ * The block of the battle-start deployment, in seconds (`battle.flags.startOpCooldown`; PRTS 卫戍协议/帮助 "…作战开始时部署
+ * 的单位将进入冷却") — BLOCK_SKILL_TICK passes [ASSUMED: no start block found in the client — `_OnUnitBorn` (0x7D6B30) only gives a TAKE_DAMAGE
+ * character its on-hit buff;
+ * until 2026-10-11 every automatic cast waited 3 s, PRTS 「自动操作具有3s冷却」].
+ */
+export const AUTO_OP_COOLDOWN = BLOCK_SKILL_TICK * AUTO_TRIGGER_INTERVAL;
 
 // The battle-start deployment interval lives in shared/constants.js: the browser's audio.js times the 部署 line by it and
 // can only import from /shared/ and /sim/ (this module is served as /sim/constants.js, not under its repository path).

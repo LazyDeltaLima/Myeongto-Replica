@@ -24,13 +24,13 @@ function arena(units = []) {
   return h;
 }
 
-test('缚地 is a catalogue status: flag groundbind + noMove, move ×0, one of 抵抗\'s statuses', () => {
+test('缚地 is a catalogue status: flag groundbind + noMove, move ×0, not one of 抵抗\'s statuses (maintainer decision 2026-10-11)', () => {
   assert.deepEqual(STATUS.groundbind, { flags: { groundbind: true, noMove: true }, mods: { moveMul: 0 } });
   assert.ok(FLAG_KEYS.includes('groundbind'));
-  assert.ok(RESIST_STATUSES.has('groundbind'));
+  assert.ok(!RESIST_STATUSES.has('groundbind'), 'the client resists by flag: STUNNED / FROZEN / DOZE / ATTRACTED (Buff._InitIsStatusResistable)');
 });
 
-test('缚地: an air unit is a ground unit (melee operators hit it) and cannot move; half as long on weight > 3; 抵抗 shortens it; 浮空 lands on a 缚地 flyer; back in the air when it ends', () => {
+test('缚地: an air unit is a ground unit (melee operators hit it) and cannot move; half as long on weight > 3; 抵抗 leaves it; 浮空 lands on a 缚地 flyer; back in the air when it ends', () => {
   const h = arena([{ uid: 1, chessId: 'chess_char_1_02_a', row: 9, col: 4 }]);
   const yak = h.unit(1);
   const fl = h.spawn('enemy_flywalk', { routeIndex: 2 });
@@ -58,8 +58,8 @@ test('缚地: an air unit is a ground unit (melee operators hit it) and cannot m
   const res = h.spawn('enemy_fly', { pos: [11, 9] });
   h.b.applyStatus(res, 'resist', { duration: 99, value: 0.5 });
   h.b.applyStatus(res, 'groundbind', { duration: 10 });
-  approx(res.findBuff('groundbind').timeLeft, 5, '抵抗 halves it');
-  h.run(6);
+  approx(res.findBuff('groundbind').timeLeft, 10, '抵抗 does not shorten it (no STUNNED / FROZEN / DOZE / ATTRACTED flag)');
+  h.run(11);
   assert.equal(res.isFlying, true, 'back in the air when it ends');
   checkInvariants(h.b);
   assert.equal(h.b.errors.length, 0);

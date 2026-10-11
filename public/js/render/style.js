@@ -126,7 +126,7 @@ export const DMG_STYLE = Object.freeze({
 /** Map b.ev dmg types to a style key. */
 export function dmgStyleKey(type) {
   if (type === 'phys' || type === 'arts' || type === 'true' || type === 'heal') return type;
-  if (type === 'burn' || type === 'neural' || type === 'necrosis' || type === 'apoptosis' || type === 'erosion' || type === 'element') return 'elem';
+  if (type === 'burn' || type === 'neural' || type === 'apoptosis' || type === 'erosion' || type === 'element') return 'elem';
   return 'phys';
 }
 
@@ -169,7 +169,7 @@ export const STATUS_ICON = Object.freeze({
   artsFragile: 'fragile', physFragile: 'fragile', elemFragile: 'fragile', sleep: 'sleep', invulnerable: 'invuln',
   silence: 'silence', slow: 'slow', sluggish: 'slow', bind: 'bind', groundbind: 'bind', fear: 'fear', tremble: 'fear', weaken: 'weaken',
   levitate: 'levitate', taunt: 'taunt', defDown: 'weaken', resDown: 'weaken', aspdDown: 'slow', disarm: 'silence',
-  burn: 'burn', burnBurst: 'burn', neural: 'neural', neuralBurst: 'neural', necrosis: 'necrosis', apoptosis: 'necrosis',
+  burn: 'burn', burnBurst: 'burn', neural: 'neural', neuralBurst: 'neural', apoptosis: 'necrosis',
   // a 傀儡师 fighting as its <替身> (sim professions.js buff 'trait:substitute', the 20 s form)
   substitute: 'doll',
   // 禁疗 (sim status 'healFree': 史尔特尔's 余烬 — no heal reaches her until she leaves)

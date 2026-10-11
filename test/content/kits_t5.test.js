@@ -145,6 +145,9 @@ test('烛煌 S3: its target and the enemies within the 1.7 splash, BAT −1.3 s,
   h.run(1);
   const hitIds = new Set(h.hooksOf('damaged').filter((c) => c.source === u && c.dmg.isSkill && c.dmg.isAttack).map((c) => c.target.id));
   assert.equal(hitIds.size, 3, 'group attack: the three stand within 1.7 of each other (PRTS 备注 "攻击溅射半径1.7")');
+  // (the 0.2 s automatic operation may cast S3 inside an attack's cooldown: a few rounds out first, so the refill below
+  // is not cut by the ammo cap)
+  assert.ok(h.runUntil(() => h.hooksOf('ammoUsed').length >= 3, 5));
   // a burn burst anywhere: +ammo, 熔点引爆 elemental damage and heal
   const e = h.b.enemies[0];
   u.hp = 100;
@@ -689,7 +692,7 @@ test('凛御银灰 S2: 6 front enemies in the skill range take 260 % ATK phys + 
 });
 
 // ------------------------------------------------------------------------------------------------------------------
-test('凛御银灰 S2 auto-cast: SKILL_RANGE — an enemy inside the skill range casts it, no attack needed (PRTS 技能策略)', () => {
+test('凛御银灰 S2 auto-cast: rangeId box — an enemy inside the skill range casts it, no attack needed (PRTS 技能策略, AutoChessBattleTrigger)', () => {
   // PRTS 卫戍协议/帮助 技能操作: "携带拥有技能范围的技能（非攻击距离增加）的干员：不通过普通攻击/治疗触发技能，仅在技能范围内存在敌人
   // （无视其不可选中）时释放技能" (it used to wait for an enemy in his melee range — user playtest #6 report 15)
   const h = makeBattle({
@@ -699,7 +702,9 @@ test('凛御银灰 S2 auto-cast: SKILL_RANGE — an enemy inside the skill range
     hooks: ['damaged'], captureNoisy: true, autoFinish: false, timeLimit: 30,
   });
   const u = h.unit('chess_char_5_14_a');
-  assert.equal(u.skill.rule, 'SKILL_RANGE');
+  // (the 0.2 s automatic operation's rangeId branch, maintainer decision 2026-10-11: data DEFAULT + customRangeGrid)
+  assert.equal(u.skill.rule, 'DEFAULT');
+  assert.ok(u.skill.triggerGrid, 'the rangeId box');
   h.step();
   u.skill.gainSp(1000);
   h.run(0.2);
@@ -743,8 +748,11 @@ test('引星棘刺 S2: alchemy unit (+3 s with an op in range) — 120 % ATK art
 // ------------------------------------------------------------------------------------------------------------------
 test('白面鸮 S2: BAT −1.8 s and a larger range; T1 SP aura +0.3/s on every ally (highest wins)', () => {
   const h = makeBattle({
-    defs: { chess: { t_a: chessRec({ id: 't_a', stats: { maxHp: 10000, atk: 0 }, skill: { spCost: 100 } }) } },
+    defs: { chess: { t_a: chessRec({ id: 't_a', stats: { maxHp: 10000, atk: 0 }, skill: { spCost: 100 } }) }, enemies: { enemy_dummy: dummy() } },
     units: [{ chessId: 'chess_char_5_16_a', row: 10, col: 3 }, { chessId: 't_a', row: 10, col: 5 }, { chessId: 'chess_char_5_10_a', row: 12, col: 3 }],
+    // [0,3]: on S2's rangeId box — the automatic operation counts enemies there, even for a medic (_DefaultTriggerSkill
+    // m_findEnemyTargetOptions)
+    enemies: [{ key: 'enemy_dummy', pos: [10, 6] }],
     autoFinish: false, timeLimit: 30,
   });
   const u = h.unit('chess_char_5_16_a');
@@ -821,9 +829,9 @@ test('百炼嘉维尔 S2: drags unblocked enemies in front of her; T1 ATK/DEF +1
   const near = h.spawn('enemy_dummy', { pos: [9, 5] });
   const far = h.spawn('enemy_dummy', { pos: [9, 6] });
   u.skill.gainSp(1000);
-  // S2's 2-5 strictly contains her 1-1: ACTIVE_RANGE (the owner's rule, 2026-10-05) casts it at once, no attack needed
+  // an enemy on S2's rangeId box casts it by the next 0.2 s automatic operation, no attack needed
   assert.ok(h.runUntil(() => u.skill.active, 3));
-  assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u)?.reason, 'ACTIVE_RANGE');
+  assert.equal(h.hooksOf('skillStart').find((c) => c.unit === u)?.reason, 'DEFAULT');
   approx(u.s.atk, u.base.atk * (1 + t0.atk + bb.atk));
   h.b.dealDamage(null, near, { amount: 1e9, type: 'true' });
   h.run(1.5);

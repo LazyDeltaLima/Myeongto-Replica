@@ -229,7 +229,7 @@ describe('element gauge row (official: element icon + white bar of the remaining
   test('the atlas: one ring frame per step (the redeploy ring), every element disc in both styles', () => {
     const R = T.hudRings();
     assert.equal(R.arcs.length, T.RING_STEPS + 1);
-    for (const el of ['neural', 'erosion', 'burn', 'apoptosis', 'necrosis']) { assert.ok(R.disc[el]); assert.ok(R.discEnemy[el]); }
+    for (const el of ['neural', 'erosion', 'burn', 'apoptosis']) { assert.ok(R.disc[el]); assert.ok(R.discEnemy[el]); }
     assert.equal(T.ringArc(0.001), R.arcs[1], 'a sliver never shows as empty');
     assert.equal(T.ringArc(2), R.arcs[T.RING_STEPS]);
   });

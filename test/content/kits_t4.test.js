@@ -528,7 +528,8 @@ test('灵知 S2: 130 % ATK arts + 2.5 s cold to all in range; fully charged cast
   // charged: two colds on each of the two enemies — each enemy's pair becomes one freeze (友方寒冷 「两两一对」, since 0.2.0)
   assert.equal(colds(starts[0]), 2, 'charged: the first cold on each enemy lands as a cold');
   assert.equal(freezes(starts[0]), 2, 'charged: the second cold on each enemy turns the pair into a freeze');
-  assert.equal(colds(starts[1]), 2, 'single charge: one cold each');
+  // (≈ 2.2 s later — the automatic operations' block: an enemy still cold from her normal attack freezes instead)
+  assert.equal(colds(starts[1]) + freezes(starts[1]), 2, 'single charge: one cold each');
   // normal attacks chill for 1 s
   assert.ok(noisy(h, 'statusApplied').some((c) => c.source === u && c.status === 'cold' && c.duration === t0.cold));
   checkInvariants(h.b);

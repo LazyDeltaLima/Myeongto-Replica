@@ -289,7 +289,7 @@ test('余 S2: a ranged enemy hitting him from outside x-1 no longer casts it (it
   h.run(3);
   assert.equal(yu.skill.activations, 0, 'no cast from the hit');
   h.spawn('enemy_1422_lrsldr', { pos: [10, 6] });
-  h.step(2);
+  h.runUntil(() => yu.skill.activations > 0, 0.25);   // (the automatic operations check every 0.2 s)
   assert.equal(yu.skill.activations, 1, 'an enemy steps onto x-1: cast');
   done(h);
 });
@@ -306,7 +306,7 @@ test('余 S2: a leader inside x-1 is teleported onto his tile like any ground en
     const samiAt = [sami.x, sami.y];
     const fx0 = h.eventsOf('fx').length;
     yu.skill.gainSp(yu.skill.spCost, 'init', true);
-    h.step(1);
+    h.runUntil(() => yu.skill.active, 0.25);   // (the next 0.2 s pass of the automatic operations)
     assert.ok(yu.skill.active && yu.skill.id === 'skchr_yu_2' && castOf(h, yu).reason === 'SKILL_RANGE', 'S2 cast (SKILL_RANGE)');
     for (const e of [lucien, gun]) assert.deepEqual([e.y, e.x], [yu.tileR, yu.tileC], `${e.name} teleported onto 余`);
     assert.deepEqual([sami.x, sami.y], samiAt, '自缚: not a reachable target (PRTS 余 S2 备注)');
@@ -353,7 +353,7 @@ test('余 S2 on the real leader rounds: 假想敌：铳 teleported onto 余 walk
     e.mem.yuTest = true;
     const leg0 = e.route.legIdx;
     yu.skill.gainSp(yu.skill.spCost, 'init', true);
-    h.step(1);
+    h.runUntil(() => yu.skill.active, 0.25);   // (the next 0.2 s pass of the automatic operations)
     assert.ok(yu.skill.active, 'S2 (SKILL_RANGE)');
     assert.deepEqual([e.y, e.x], [yu.tileR, yu.tileC], 'teleported onto 余');
     assert.equal(e.route.pts, null, 'its path is re-planned from there');

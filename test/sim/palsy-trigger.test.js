@@ -60,3 +60,43 @@ test('palsyTrigger: `keep` leaves the stack; a handler that kills the enemy ends
   checkInvariants(h.b);
   checkInvariants(h2.b);
 });
+
+test('麻痹震颤 (PALSY_STOP, maintainer decision 2026-10-11): every enemy whose attack 麻痹 interrupts stands 0.5 s and starts no attack — a blocked melee one too; a stun takes over', async () => {
+  const { PALSY_STOP } = await import('../../server/sim/constants.js');
+  assert.equal(PALSY_STOP, 0.5);
+  // a blocked melee enemy (interval 0.2 s: it would swing again at once)
+  const brute = enemyRec({ key: 'enemy_brute', hp: 1e6, atk: 100, bat: 0.2, speed: 1, mass: 0 });
+  const h = makeBattle({
+    defs: { chess: { t_guard: guard }, enemies: { enemy_brute: brute } },
+    units: [{ chessId: 't_guard', row: 10, col: 5 }], content: 'none', autoFinish: false,
+  });
+  h.step();
+  const e = h.spawn('enemy_brute', { pos: [10, 5.4] });
+  assert.ok(h.runUntil(() => e.blockedBy, 2), 'blocked');
+  h.b.applyStatus(e, 'palsy', { value: 1 });
+  let cut = null;
+  h.b.on('palsyTrigger', () => { cut = h.b.time; });
+  assert.ok(h.runUntil(() => cut != null, 2), 'its attack is interrupted');
+  h.step();
+  assert.ok(e.palsyUntil > h.b.time, 'in its 麻痹震颤');
+  const a0 = e.stats.attacks;
+  assert.equal(e.swing ?? null, null);
+  h.run(PALSY_STOP - 2 / 30);
+  assert.equal(e.swing ?? null, null, 'no swing started in the 0.5 s');
+  assert.equal(e.stats.attacks, a0);
+  assert.ok(h.runUntil(() => e.stats.attacks > a0, 1), 'attacks again after it');
+  // an unblocked walker stands; a stun ends the state
+  const g = field();
+  const w = g.spawn('enemy_shooter', { pos: [10, 7] });
+  g.step();
+  g.b.applyStatus(w, 'palsy', { value: 1 });
+  let at = null;
+  g.b.on('palsyTrigger', () => { at = g.b.time; });
+  assert.ok(g.runUntil(() => at != null, 2));
+  g.step();
+  assert.ok(w.atkStandUntil > g.b.time && w.palsyUntil > g.b.time);
+  g.b.applyStatus(w, 'stun', { duration: 0.1 });
+  g.step();
+  assert.equal(w.palsyUntil, -Infinity, 'the stun takes over');
+  checkInvariants(h.b);
+});

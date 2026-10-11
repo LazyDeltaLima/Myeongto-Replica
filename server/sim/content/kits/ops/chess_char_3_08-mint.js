@@ -11,10 +11,9 @@ export default {
   //      S1 风语: wider range (skill grid), attacks every enemy on it at attack@atk_scale. Auto-cast: the official
   //      rule is the 阵法术师 row SEARCH (PRTS 卫戍协议/帮助 "不受基础策略影响，在初始攻击范围内存在敌人时释放技能"; it covers
   //      every MANUAL skill of the class — user playtest #6) = an enemy inside her INITIAL range, never any enemy on the
-  //      field (she would burn the skill on enemies that just spawned). Since 0.2.0 the owner's ACTIVE_RANGE rule
-  //      (2026-10-05) widens it: the S1 x-2 strictly contains her x-1, so the data rule is ACTIVE_RANGE on the x-2 (rawRule
-  //      SEARCH) — an enemy she can target inside the x-2, every tick — which this spec reads. S2 keeps SEARCH (no range
-  //      change).
+  //      field (she would burn the skill on enemies that just spawned). The data rule is SEARCH for both
+  //      skills (the owner's ACTIVE_RANGE widening of S1 to its x-2, 2026-10-05, ended with maintainer decision 2026-10-11:
+  //      the client AutoChessBattleTrigger takes the class row first).
   chess_char_3_08_a: (bb, chess, def) => {
     const d = defOf(chess, def);
     const t0 = talentBb(d, 0);

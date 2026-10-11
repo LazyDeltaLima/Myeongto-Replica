@@ -597,7 +597,7 @@ function chaosContent(cr, P, pools) {
           case 10: b.setObstacle(cr.int(19), cr.int(21), cr.chance(0.5)); break;
           case 11: b.loseHp(u, w()); break;
           case 12: b.heal(any(), u, w(), { overheal: cr.chance(0.5) }); break;
-          case 13: b.dealDamage(any(), u, { amount: w(), type: cr.pick(['phys', 'arts', 'true', 'element']), element: cr.pick(['burn', 'neural', 'necrosis', 'apoptosis']), mul: w() }); break;
+          case 13: b.dealDamage(any(), u, { amount: w(), type: cr.pick(['phys', 'arts', 'true', 'element']), element: cr.pick(['burn', 'neural', 'apoptosis', 'erosion']), mul: w() }); break;
           case 14: b.addDp(u.ownerId, w()); b.addLayers(u.ownerId, 'bond_x', w()); b.addCoins(u.ownerId, w()); break;
           case 15: if (u.skill) { const m = cr.int(5); if (m === 0) u.skill.gainSp(w()); else if (m === 1) u.skill.activate('chaos', { free: cr.chance(0.5) }); else if (m === 2) u.skill.end('chaos'); else if (m === 3) u.skill.extend(w()); else u.skill.spCostMul = w(); } break;
           case 16: b.after(w(), () => { const v = any(); if (v) b.kill(v); }, { owner: cr.chance(0.5) ? u : null }); break;

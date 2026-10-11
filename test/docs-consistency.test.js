@@ -470,15 +470,17 @@ test('user playtest #6 (DESIGN §20): summons, skill triggers, blocking, push fo
   assert.match(PLAYING, /\*\*阻挡了就一定能打到\*\*/);
   const battleSrc = battleText();
   assert.ok(!/meleeUnit/.test(battleSrc) && !/export function meleeUnit/.test(readFileSync(join(ROOT, 'server/sim/targeting.js'), 'utf8')), 'no melee gate in the engine');
-  // #15 / #16: skill triggers and the 3 s operation cooldown (code = §5.6 = §19.2 superseded)
-  assert.equal(AUTO_OP_COOLDOWN, 3);
+  // #15 / #16: skill triggers and the operation block (code = §5.6 = §19.2 superseded; the client's AutoChessBattleTrigger
+  // since maintainer decision 2026-10-11: 10 passes of 0.2 s)
+  assert.equal(AUTO_OP_COOLDOWN, 2);
   assert.match(s56, /`SKILL_RANGE` \(a MANUAL skill with a 技能范围 of its own/);
   assert.match(s56, /\*\*every MANUAL skill\*\* of the class and never an AUTO skill/);
-  assert.match(s56, /`AUTO_OP_COOLDOWN` \(3 s\) after its previous cast and after the unit's battle-start deployment/);
+  assert.match(s56, /`AUTO_OP_COOLDOWN` \(2 s\) after the unit's battle-start deployment/);
+  assert.match(s56, /one automatic cast per pass in the whole battle/);
   assert.match(sec(19), /灰毫 S2 专注轰击 — \*\*superseded by §20\.2\*\*/);
   assert.ok(!/so her S1 is TAKE_DAMAGE and S2 stays DEFAULT/.test(DESIGN), '§19.2: 灰毫 S2 is TAKE_DAMAGE now');
   assert.ok(!/the battle-start part is left out/.test(readFileSync(join(ROOT, 'server/sim/constants.js'), 'utf8')), 'AUTO_OP_COOLDOWN comment');
-  assert.match(DATA_MD, /13 MANUAL skills \(26 normal \+ elite records\)/);
+  assert.match(DATA_MD, /50 MANUAL skills \(100 normal \+ elite records\) on\s+DEFAULT with a `rangeId` check that box/);
   assert.match(sub('20.2', '20.3'), /180 % \(精锐 200 %\)/, '#8: the elite shield ratio');
   // #14 / #17: push force vs weight, ASPD floor, 孤立 (code = §5.2 / §5.3 / §5.4 = §20.3)
   assert.equal(ASPD_MIN, 20);
@@ -860,8 +862,8 @@ test('the deliberate trigger deviation (DESIGN §21.29): six 重装 skills DEFAU
   assert.match(r03, /上半 \(act1autochess, 2025-11\) shipped no TANK row/);
   assert.match(r03, /下半 \(act2autochess, 2026-03-14\) added `TANK \| \| \| 0 \| TAKE_DAMAGE` for every skill index/);
   assert.match(r03, /\*\*Deliberate deviation\*\* \(the owner, 2026-10-03/);
-  // PR #12's kit line stays (雷蛇 S2; 深巡 S2 dropped its own in 0.2.0 and reads its data's ACTIVE_RANGE, the owner's
-  // decision of 2026-10-05); the comments give this reason, not the community summary
+  // PR #12's kit line stays (雷蛇 S2; 深巡 S2 dropped its own in 0.2.0 and reads its data's DEFAULT on its 3-2 rangeId,
+  // maintainer decision 2026-10-11); the comments give this reason, not the community summary
   const t1 = tierSources(1).map(doc).join('\n');
   assert.equal((t1.match(/trigger: 'DEFAULT',/g) || []).length, 1, "PR #12's kit line left (雷蛇 S2)");
   assert.ok(!/offensive skills activate when an enemy is in their skill range/.test(t1));

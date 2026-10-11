@@ -111,7 +111,8 @@ test('backups: the 17 stand-in characters, each with a form for every status it 
       for (const s of f.skills) assert.deepEqual(s.trigger, { rule: 'DEFAULT', rawRule: 'TAKE_DAMAGE', customRangeGrid: null }, `${id}@${statusKey(f.status)} ${s.skillId}`);
     }
   }
-  assert.equal(backups.units.char_608_acpion.forms['2/1/4/0'].skills[2].trigger.rule, 'SKILL_RANGE', '郁金香 S3 对周围的敌人: its own x-1');
+  const tulipS3 = backups.units.char_608_acpion.forms['2/1/4/0'].skills[2];
+  assert.deepEqual(tulipS3.trigger, { rule: 'DEFAULT', rawRule: 'DEFAULT', customRangeGrid: tulipS3.rangeGrid }, '郁金香 S3 对周围的敌人: the basic strategy on its own x-1 rangeId');
   assert.equal(backups.units.char_617_sharp2.assets.avatarGolden, 'char_617_sharp2_2', '领主·Sharp has E2 art');
 });
 

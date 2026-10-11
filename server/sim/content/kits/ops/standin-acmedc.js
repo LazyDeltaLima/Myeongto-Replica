@@ -29,8 +29,9 @@ export default {
   //      multiplies (×1.61 at Lv7): both are `heal_scale` blackboards, the 治疗倍率, and PRTS 游戏数据基础 §倍率 says "同种
   //      倍率间叠乘" — no Touch-specific note or buff template exists. S3's extra heal is a heal of hers like any other: its
   //      recipient below `hp_ratio` gets the ×1.15 too (its base is taken before either bonus).
-  //   Triggers (data, nothing set here): S1 DEFAULT (an injured ally in her range); S2 / S3 ACTIVE_RANGE — the owner's
-  //      rule of 2026-10-05 read for a heal skill: an injured ally inside the running 3-10 / 5-2 range casts.
+  //   Triggers (data, nothing set here; the client's basic strategy, maintainer decision 2026-10-11): S1 DEFAULT without a
+  //      rangeId (she casts while healing: an injured ally in her range); S2 / S3 DEFAULT on their rangeId 3-10 / 5-2 —
+  //      an ENEMY inside that box casts them (`m_findEnemyTargetOptions`, heal skills too), not an injured ally.
   char_613_acmedc: (bb, chess, def) => {
     const tb = traitBb(chess);
     const phyScale = num(tb.heal_scale, 1), phyRatio = num(tb.hp_ratio, 0);

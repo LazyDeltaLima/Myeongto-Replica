@@ -569,7 +569,7 @@ test('GAIN_BUFF (哈洛德 / 锡人 / 迷迭香 03, 流星 137) and 古米 08: d
   approx(stat('garrison_08_b').spRecovery, 1.3);
 });
 
-test('attrByBond (26 ids): floor(Σ layers of the listed ACTIVE bonds / divide_num) × per-step values; live recompute', () => {
+test('attrByBond (26 ids): floor(Σ layers of the listed ACTIVE bonds / divide_num) × per-step values, computed at each deployment only (client buff template ON_BUFF_START; maintainer decision 2026-10-11)', () => {
   for (const gid of idsOfKey('act1autochess_gar_eff_attrByBond')) {
     const { bb, bbStr } = GR(gid);
     const list = ids(bbStr.bond_id);
@@ -603,7 +603,18 @@ test('attrByBond (26 ids): floor(Σ layers of the listed ACTIVE bonds / divide_n
   assert.deepEqual(h.unit('sk').findBuff('gar:garrison_84_b').mods, { hpRegen: 200, spRecoveryFlat: 0.6 }, '浊心斯卡蒂: 2 steps × (100 HP/s, 0.3 SP/s)');
   h.b.addLayers('p1', 'egirShip', 2, 'test');
   h.step(2);
-  approx(h.unit('mz').s.atk, 500 * 1.09, 'recomputed after a layer gain');
+  approx(h.unit('mz').s.atk, 500 * 1.08, 'an in-battle layer gain changes nothing (no ON_BUFF_TRIGGER in the template)');
+  const mz = h.unit('mz');
+  h.b.kill(mz);
+  mz.respawnAt = 0;
+  assert.ok(h.b.redeploy(mz));
+  approx(mz.s.atk, 500 * 1.09, 'the redeployment reads the layers now: 27 / 3 = 9 × 1 %');
+  approx(mz.hp, mz.s.maxHp, 'full HP');
+  assert.ok(h.b.moveRedeploy(mz, 9, 3));
+  h.b.addLayers('p1', 'egirShip', 3, 'test');
+  h.step(1);
+  assert.ok(h.b.moveRedeploy(mz, 9, 4));
+  approx(mz.s.atk, 500 * 1.09, 'a 【移动】 keeps it [ASSUMED]');
   checkInvariants(h.b);
 });
 
@@ -620,7 +631,7 @@ test('respawnTimeByBond 144, attrByBond_add_onstart 115 (玛恩纳, 100 s after 
     assert.deepEqual(mn.findBuff(`gar:${gid}`).mods, { atkFlat: 2 * bb.atk, hpFlat: 2 * bb.max_hp }, `${gid}: 12 / 5 = 2 steps`);
     h.b.addLayers('p1', 'kazimierzShip', 3, 'test');
     h.step(2);
-    assert.deepEqual(mn.findBuff(`gar:${gid}`).mods, { atkFlat: 3 * bb.atk, hpFlat: 3 * bb.max_hp }, 'live');
+    assert.deepEqual(mn.findBuff(`gar:${gid}`).mods, { atkFlat: 2 * bb.atk, hpFlat: 2 * bb.max_hp }, 'ON_BUFF_START only: the running buff keeps its steps');
     const atk = mn.s.atk;
     h.run(bb.duration + 1);
     assert.equal(mn.findBuff(`gar:${gid}`), null, `expired after ${bb.duration} s`);
@@ -628,7 +639,7 @@ test('respawnTimeByBond 144, attrByBond_add_onstart 115 (玛恩纳, 100 s after 
     h.b.retreat(mn, { reason: 'test' });
     h.b.redeploy(mn, { free: true });
     h.step(1);
-    assert.ok(mn.findBuff(`gar:${gid}`), 'again after a redeploy');
+    assert.deepEqual(mn.findBuff(`gar:${gid}`)?.mods, { atkFlat: 3 * bb.atk, hpFlat: 3 * bb.max_hp }, 'again after a redeploy, with the layers then (15 / 5)');
     cover(gid);
   }
   const mn = battle({ units: [{ id: 'mn', g: ['garrison_115_a'], row: 9, col: 4 }], bonds: { kazimierzShip: B(10) } }).unit('mn');
@@ -735,4 +746,42 @@ test('coverage: every IN_BATTLE garrison id of a visible chess (and every id the
   const missing = [...VISIBLE_IDS].filter((g) => !COVER.has(g)).sort();
   assert.deepEqual(missing, []);
   assert.ok(VISIBLE_IDS.size >= 100, `${VISIBLE_IDS.size} ids`);
+});
+
+test('attrByBond on the real match path (spec → createBattleFromSpec): an in-battle 阿戈尔 gain leaves 水月\'s +ATK until it is knocked out and redeploys', async () => {
+  const { makeMatch, legalTileFor } = await import('../match/harness.js');
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 5 }).start();
+  h.toPrep(3);
+  const m = h.m, ps = h.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  const skip = new Set(); // no piece in front of another: no 阿戈尔 devour
+  for (const id of ['chess_char_4_09_a', 'chess_char_1_04_a', 'chess_char_2_07_a']) {
+    const p = ps.acquireChess(id, { source: 'buy' });
+    const [r, c] = legalTileFor(m, ps, id, skip);
+    for (const dc of [-1, 0, 1]) skip.add(`${r},${c + dc}`);
+    assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: p.uid, to: { area: 'board', row: r, col: c }, dir: 'RIGHT' }), { ok: true });
+  }
+  ps.layers = { ...ps.layers, egirShip: 30 };
+  ps.recompute();
+  const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'abb', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+  const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+  let started = false;
+  b.on('battleStart', () => { started = true; });
+  while (!started && b.time < 10) b.step();
+  const mz = b.allyUnits.find((u) => u.defId === 'chess_char_4_09_a');
+  const L0 = b.getPlayer('p_0').bonds.egirShip.layers;
+  const pct = () => mz.findBuff('gar:garrison_07_a')?.mods.atkPct ?? 0;
+  approx(pct(), 0.01 * Math.floor(L0 / 3), `${L0} layers at the deployment`);
+  b.addLayers('p_0', 'egirShip', 6, 'test');
+  b.step(); b.step();
+  approx(pct(), 0.01 * Math.floor(L0 / 3), 'unchanged by the in-battle gain');
+  b.kill(mz);
+  mz.respawnAt = 0;
+  assert.ok(mz.alive || b.redeploy(mz), 'redeployed');
+  approx(pct(), 0.01 * Math.floor(b.getPlayer('p_0').bonds.egirShip.layers / 3), 'the redeployment reads the layers then');
+  assert.ok(pct() > 0.01 * Math.floor(L0 / 3));
+  m.dispose?.();
 });

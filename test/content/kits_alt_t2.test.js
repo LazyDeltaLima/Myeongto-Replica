@@ -166,8 +166,7 @@ test('2_05 哈洛德 S1 治疗强化·γ型: ATK +atk; the 重症优先 target o
     h.step();
     low.hp = low.s.maxHp * 0.3;
     el.elem.neural = 900;
-    h.step();
-    assert.ok(u.skill.active);
+    assert.ok(h.runUntil(() => u.skill.active, 0.25), 'cast by the next 0.2 s automatic-operation pass');
     approx(u.s.atk, u.base.atk * (1 + bb.atk));
     const first = firstAttack(h, u);
     assert.equal(first.targets[0], low, 'lowest HP ratio first, not the element-damaged ally');
@@ -370,10 +369,11 @@ test('2_12 砾 S1 影袭: at deployment DEF +def decaying to 0 over `duration` s
   }
 });
 
-test('2_13 蒂比 S1 专业喷绘技巧: ACTIVE_RANGE trigger (an enemy in its 2-3 only), takes off (skill range, ATK +atk, blocks flyers), single shots; hits never set it off', () => {
+test('2_13 蒂比 S1 专业喷绘技巧: rangeId trigger (an enemy in its 2-3 only), takes off (skill range, ATK +atk, blocks flyers), single shots; hits never set it off', () => {
   for (const id of both('chess_char_2_13')) {
     const bb = bbAlt(id);
-    // (10,5) = [1,0]: inside S1's 2-3, outside her own 2-2 — the owner's rule of 2026-10-05 (data trigger ACTIVE_RANGE)
+    // (10,5) = [1,0]: inside S1's 2-3, outside her own 2-2 — the skill's rangeId counts (AutoChessBattleTrigger
+    // _DefaultTriggerSkill, maintainer decision 2026-10-11: data trigger DEFAULT + customRangeGrid)
     const h = run({ defs: { enemies: { e: dummy('e'), f: dummy('f', { motion: 'FLY' }) } }, units: [U(id, 9, 5, { carryState: READY })], enemies: [{ key: 'e', pos: [10, 5] }] });
     const u = h.unit(id);
     usesAlt(u, id);
@@ -381,7 +381,7 @@ test('2_13 蒂比 S1 专业喷绘技巧: ACTIVE_RANGE trigger (an enemy in its 2
     const range0 = u.baseRangeKeys.length;
     assert.ok(!u.baseRangeKeys.includes(h.b.grid.key(10, 5)), 'the enemy is outside her own range');
     h.runUntil(() => u.skill.active, 3);
-    assert.equal(started(h, u)[0].reason, 'ACTIVE_RANGE');
+    assert.equal(started(h, u)[0].reason, 'DEFAULT');
     assert.equal(u.s.flags.liftoff, true, 'airborne (起飞)');
     assert.equal(u.ground, true, 'still a ground unit on her low tile');
     approx(u.s.atk, u.base.atk * (1 + bb.atk));
@@ -523,8 +523,8 @@ test('2_19 锡人 S1 “老科利”: alchemy unit — 8 s of weaken −atk and 
     });
     const u = h.unit(id);
     usesAlt(u, id);
-    h.step();
-    assert.equal(started(h, u).length, 1);
+    // (a ReplacementSkill: the throw goes out as her next attack)
+    assert.ok(h.runUntil(() => started(h, u).length === 1, 3), 'the cast went out as her next attack');
     const atk0 = u.s.atk;
     const [g, f, g2, far] = h.enemies();
     h.run(0.5);

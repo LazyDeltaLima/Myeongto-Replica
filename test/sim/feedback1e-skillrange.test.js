@@ -10,9 +10,9 @@
 //   缩短) uses the official grid (skill rangeId, or the base grid grown by ability_range_forward_extend) while it runs —
 //   with every module of the loadout: a module's 攻击距离 widens it too, except where the skill's range ignores 攻击距离
 //   (信仰搅拌机 S3 with SPT-Y, PRTS 备注 "此技能的攻击范围不受'攻击距离'属性影响") — and the DEFAULT trigger still reads the
-//   initial range (PRTS 卫戍协议/帮助 "技能就绪，且即将进行普通攻击"), except where the owner's rule of 2026-10-05 makes it
-//   ACTIVE_RANGE (a running range that strictly contains the own one; not 烛煌's 4-11 vs 3-1 —
-//   test/sim/feedback5-active-range.test.js). A skill grid that only selects targets (荒芜拉普兰德
+//   skill's rangeId cells — the client's basic strategy (AutoChessBattleTrigger._DefaultTriggerSkill: a MANUAL skill
+//   with a rangeId casts with a selectable enemy there; maintainer decision 2026-10-11, docs/rules/sim.md 「스킬 범위
+//   발동」): 烛煌 S3 on its 4-11, not her 3-1. A skill grid that only selects targets (荒芜拉普兰德
 //   S1: no rangeId, no 攻击范围 text) leaves the card on the unit's own range.
 
 import { test } from 'node:test';
@@ -50,23 +50,24 @@ test('data: 烛煌 S3 众恶的焚场 is the default skill (index 2), skill rang
     assert.equal(c.skill.index, 2);
     assert.equal(c.rangeId, '3-1');
     assert.equal(c.skill.rangeId, '4-11');
-    assert.equal(c.skill.trigger.rule, 'DEFAULT', 'an attack-range change keeps the basic strategy (§20.2); 4-11 does not contain 3-1, so no ACTIVE_RANGE');
+    assert.equal(c.skill.trigger.rule, 'DEFAULT', 'the basic strategy');
+    assert.deepEqual(c.skill.trigger.customRangeGrid, c.skill.rangeGrid, 'on its rangeId 4-11 (client _DefaultTriggerSkill)');
   }
   assert.equal(C[BLAZE].skill.bb['attack@trigger_time'], 18);
   assert.equal(C.chess_char_5_03_b.skill.bb['attack@trigger_time'], 21);
 });
 
-test('烛煌 S3 attacks with the skill range: an enemy only in 4-11 is hit while it runs, an enemy only in 3-1 is not; the cast needs an enemy in 3-1', () => {
+test('烛煌 S3 attacks with the skill range: an enemy only in 4-11 is hit while it runs, an enemy only in 3-1 is not; the cast needs an enemy in 4-11', () => {
   // (10,7) = [0,4]: S3 only; (11,3) = [1,0]: base range only
-  const h = blazeArena([{ key: 'enemy_far', pos: [10, 7] }]);
+  const h = blazeArena([{ key: 'enemy_near', pos: [11, 3] }]);
   const u = h.unit(BLAZE);
   h.step();
+  const near = h.enemy('enemy_near');
   u.skill.gainSp(1000);
   h.run(5);
-  assert.equal(h.hooksOf('skillStart').length, 0, 'no enemy in the initial range: no cast (DEFAULT, "即将进行普通攻击")');
-  assert.equal(h.hooksOf('damaged').filter((c) => c.source === u).length, 0, 'nothing in reach of 3-1');
-  const near = h.spawn('enemy_far', { pos: [11, 3] });
-  assert.ok(h.runUntil(() => u.skill.active, 5), 'an enemy in 3-1: she casts on her next attack');
+  assert.equal(h.hooksOf('skillStart').length, 0, 'no enemy on the 4-11 (her rangeId): no cast, although she attacks the one on 3-1');
+  h.spawn('enemy_far', { pos: [10, 7] });
+  assert.ok(h.runUntil(() => u.skill.active, 0.25), 'an enemy on 4-11: the next 0.2 s pass casts');
   assert.ok(sameSet(new Set(u.rangeKeys), keysOf(s3Grid(), u)), 'the range keys are 4-11');
   const mark = h.hooksOf('damaged').length;
   h.run(2);
@@ -170,7 +171,7 @@ test('烛煌 S3: the burst bonus is dealt BEFORE the attack\'s damage (PRTS 备�
   h.b.applyStatus(main, 'burnBurst', { duration: 10 });
   h.b.applyStatus(low, 'burnBurst', { duration: 10 });
   const mark = h.hooksOf('damaged').length;
-  h.run(1.5);
+  h.run(3);
   const ev = h.hooksOf('damaged').slice(mark).filter((c) => c.source === u);
   const isBonus = (c) => (c.dmg.tags || []).includes('blazeBurn');
   assert.ok(ev.some((c) => c.target === low && isBonus(c)), 'the enemy the hit kills still takes the bonus');
@@ -222,8 +223,8 @@ test('烛煌 S3: a burn burst refills 2 ammo but never above the skill\'s ammo (
     h.step();
     u.skill.gainSp(1000);
     assert.ok(h.runUntil(() => u.skill.active, 5));
-    const first = u.skill.ammoLeft;                 // the casting attack already fired one bullet
-    assert.equal(first, max - 1);
+    assert.ok(h.runUntil(() => u.skill.ammoLeft === max - 1, 5), 'her first S3 bolt');
+    const first = u.skill.ammoLeft;
     h.b.dealDamage(null, h.enemy('enemy_main'), { type: 'element', element: 'burn', amount: 1000 });
     assert.equal(u.skill.ammoLeft, max, `${id}: +1 only — ${max} is the cap (it was ${first + 2})`);
     h.b.dealDamage(null, h.enemy('enemy_b'), { type: 'element', element: 'burn', amount: 1000 });
@@ -404,15 +405,16 @@ test('荒芜拉普兰德 S1 慵怠者悲鸣 (no rangeId, no 攻击范围 text): 
   }
 });
 
-test('audit: the DEFAULT trigger of an attack-range change reads the INITIAL range (PRTS "技能就绪，且即将进行普通攻击")', () => {
-  // an enemy on [0,4]: inside 4-11, outside 3-1
+test('audit: the DEFAULT trigger of a skill with a rangeId reads that range (client _DefaultTriggerSkill; maintainer decision 2026-10-11)', () => {
+  // an enemy on [0,4]: inside 4-11, outside 3-1 — she casts without attacking (until 2026-10-11 she waited, the PRTS
+  // 「技能就绪，且即将进行普通攻击」 reading)
   for (const id of [BLAZE, 'chess_char_5_03_b']) {
     const h = blazeArena([{ key: 'enemy_far', pos: [10, 7] }], { id });
     const u = h.unit(id);
     h.step();
     u.skill.gainSp(1000);
-    h.run(4);
-    assert.equal(h.hooksOf('skillStart').length, 0, `${id}: no cast`);
+    h.run(0.25);
+    assert.equal(h.hooksOf('skillStart').length, 1, `${id}: cast on the next pass`);
     done(h);
   }
 });

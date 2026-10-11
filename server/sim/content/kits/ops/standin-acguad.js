@@ -15,7 +15,7 @@ const STACK_KEY = 'acguad:s3stack';
 export default {
   // Sharp — talent 1 隐匿刀刃: ATK +atk, physical dodge prob (DRE-X levels 2 / 3 upgrade both). Talent 2 寸步不退: after
   // `interval` s on the field (each deployment), ASPD +attack_speed.
-  // S1 快刀: ATK +atk; each attack becomes a double hit with attack@prob1 (data trigger: SKILL_RANGE on its 1-1 range).
+  // S1 快刀: ATK +atk; each attack becomes a double hit with attack@prob1 (data trigger: DEFAULT on its 1-1 rangeId — an enemy in that box).
   // S2 亮剑: DEF to 0 (no blackboard key: the text "防御力降至0" — a final ×0, so no DEF bonus survives it), max HP
   // +max_hp, every attack at attack@atk_scale.
   // S3 力战不竭: ATK +atk; before each attack +atk_each_stack ATK (one layer, at most max_atk_stack_cnt), all layers lost

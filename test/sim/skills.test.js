@@ -171,7 +171,7 @@ test('SP: time regen, starts at initSp, capped at cost; DEFAULT waits for an ene
   assert.equal(u.skill.ready, true);
   assert.equal(u.skill.activations, 0, 'no enemy in range: DEFAULT waits');
   h.spawn('enemy_dummy', { pos: [10, 6] });
-  h.run(0.1);
+  h.run(0.21);   // (the automatic operations check every 0.2 s: battle/lifecycle.js _autoTriggerPass)
   assert.equal(u.skill.activations, 1);
   assert.equal(u.skill.active, true);
   approx(u.s.atk, 200);
@@ -269,14 +269,15 @@ test('ammo skills end when ammo runs out; ammoUsed fires per shot; no SP gain wh
   const u = h.unit('t_sn');
   assert.equal(u.skill.kind, 'ammo');
   assert.equal(u.skill.active, true);
-  h.run(3.1);
+  // (cast by the first pass, after her first — normal — attack made her attacking: the four bullets at 1 … 4 s)
+  h.run(4.1);
   assert.equal(u.skill.active, false);
   assert.deepEqual(h.hooksOf('ammoUsed').map((c) => c.left), [3, 2, 1, 0]);
   assert.equal(h.hooksOf('skillEnd').length, 1);
   assert.equal(h.hooksOf('skillEnd')[0].reason, 'ammo');
 });
 
-test('charges accumulate up to maxCharges and are spent one per cast, 3 s apart (the automatic operation cooldown)', () => {
+test('charges accumulate up to maxCharges and are spent one per cast, 11 passes (2.2 s) apart (the automatic operation block)', () => {
   const h = makeBattle({
     defs: { chess: { t_sn: sniperWith({ duration: 0, spCost: 2, initSp: 0, maxChargeTime: 3, bb: { atk_scale: 3 } }) }, enemies: { enemy_dummy: dummy() } },
     units: [{ chessId: 't_sn', row: 10, col: 4 }], content: 'generic', autoFinish: false,
@@ -287,15 +288,16 @@ test('charges accumulate up to maxCharges and are spent one per cast, 3 s apart 
   assert.equal(u.skill.charges, 3);
   assert.equal(u.skill.sp, 2);
   h.spawn('enemy_dummy', { pos: [10, 6] });
-  h.step(1);
+  assert.ok(h.runUntil(() => u.skill.activations === 1, 0.25), 'the next 0.2 s pass casts');
   const t1 = h.b.time;
   assert.equal(u.skill.charges, 2);
-  assert.equal(u.skill.sp, 0, 'SP bar restarts after using a full stack');
-  // PRTS 卫戍协议/帮助 技能操作 "自动操作具有3s冷却": a MANUAL skill's next automatic cast comes ≥ 3 s later
-  h.run(2.8);
-  assert.equal(u.skill.activations, 1, 'not within 3 s although she attacks every second');
-  assert.ok(h.runUntil(() => u.skill.activations >= 2, 2));
-  assert.ok(h.b.time - t1 >= 3 - 1e-6);
+  assert.ok(u.skill.sp <= 1 / 30 + 1e-9, 'SP bar restarts after using a full stack (one tick of regen since the pass)');
+  // client code AutoChessBattleTrigger._TryTriggerAvailableSkills: the caster sits out BLOCK_SKILL_TICK (10) passes of
+  // 0.2 s, its next automatic cast on the 11th
+  h.run(2.1);
+  assert.equal(u.skill.activations, 1, 'not within 10 passes although she attacks every second');
+  assert.ok(h.runUntil(() => u.skill.activations >= 2, 1));
+  assert.ok(Math.abs(h.b.time - t1 - 2.2) < 1e-6, `11 passes later (${(h.b.time - t1).toFixed(3)} s)`);
 });
 
 test('instant skills with an attack override apply to exactly one attack', () => {
@@ -304,9 +306,10 @@ test('instant skills with an attack override apply to exactly one attack', () =>
     units: [{ chessId: 't_sn', row: 10, col: 4 }], enemies: [{ key: 'enemy_dummy', pos: [10, 5] }], content: 'generic',
     captureNoisy: true, hooks: ['damaged', 'skillStart', 'skillEnd'],
   });
-  h.run(2.2);
+  h.run(3.2);
   const dmgs = h.hooksOf('damaged').map((c) => Math.round(c.amount));
-  assert.deepEqual(dmgs.slice(0, 3), [500, 100, 100]);
+  // her first attack makes her attacking (the client's ATTACK state); the pass after it casts, the next attack is the skill's
+  assert.deepEqual(dmgs.slice(0, 4), [100, 500, 100, 100]);
   assert.equal(h.hooksOf('skillEnd').length, 1);
 });
 
@@ -329,12 +332,12 @@ test('SkillSpec from a kit: mods, targeting override, attack override, onStart/o
       }),
     },
   });
-  h.run(0.6); // arrows are in flight for ~0.15 s
+  h.run(1.2); // the cast follows her first (normal) attack; its first skill arrow at 1 s is in flight ~0.15 s
   const u = h.unit('t_sn');
   assert.equal(u.s.aspd, 200);
   const hits = log.filter((x) => x[0] === 'hit');
   assert.equal(new Set(hits.map((x) => x[1])).size, 3, 'hits 3 targets while active');
-  h.run(2);
+  assert.ok(h.runUntil(() => log.some((x) => x[0] === 'end'), 3));
   assert.deepEqual(log.find((x) => x[0] === 'start'), ['start', 2]);
   assert.deepEqual(log.find((x) => x[0] === 'end'), ['end', 'duration']);
   assert.equal(u.s.aspd, 100);

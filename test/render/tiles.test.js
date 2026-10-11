@@ -84,7 +84,7 @@ describe('style helpers', () => {
     assert.equal(dmgStyleKey('arts'), 'arts');
     assert.equal(dmgStyleKey('true'), 'true');
     assert.equal(dmgStyleKey('burn'), 'elem');
-    assert.equal(dmgStyleKey('necrosis'), 'elem');
+    assert.equal(dmgStyleKey('apoptosis'), 'elem');
     assert.equal(dmgStyleKey('???'), 'phys');
     for (const k of Object.values(STATUS_ICON)) assert.ok(STATUS_KEYS.includes(k), `status icon ${k} drawn in the atlas`);
     for (const p of Object.values(PROJ)) assert.ok(p.speed > 0 && p.width > 0);

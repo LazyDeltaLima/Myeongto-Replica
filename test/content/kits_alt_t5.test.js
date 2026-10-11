@@ -55,7 +55,8 @@ const pair = (n) => [`chess_char_5_${n}_a`, `chess_char_5_${n}_b`];
 /** Fill SP and run until the skill has been cast. */
 function cast(h, u, max = 15) {
   u.skill.gainSp(1000);
-  assert.ok(h.runUntil(() => u.skill.activations > 0, max), `${u.defId} ${u.skill.id} cast`);
+  // (a ReplacementSkill — 引星棘刺 S1 — goes out as the unit's next attack: until its strike)
+  assert.ok(h.runUntil(() => u.skill.activations > 0 && !u.skill.replacing, max), `${u.defId} ${u.skill.id} cast`);
 }
 
 // =================================================================================================================
@@ -1094,7 +1095,7 @@ test('引星棘刺 S1 度算浪波: at an HP-ratio tie the unit goes to the late
     last.hp = last.s.maxHp; first.hp = first.s.maxHp * 0.4;
     const n0 = u.skill.activations;
     u.skill.gainSp(1000);
-    assert.ok(h.runUntil(() => u.skill.activations > n0, 15), 'cast again');
+    assert.ok(h.runUntil(() => u.skill.activations > n0 && !u.skill.replacing, 15), 'cast again');
     const z2 = u.mem.zones.filter((x) => x.type === 'guard').at(-1);
     assert.deepEqual([z2.r, z2.c], [11, 4], 'a lower ratio beats a later deployment');
     done(h);
@@ -1112,8 +1113,9 @@ test('引星棘刺 S1 度算浪波 (AUTO): fires as soon as its SP is full, no e
     h.step();
     assert.equal(h.b.enemies.length, 0, 'no enemy on the field');
     const need = u.skill.spCost - u.skill.sp;
-    h.run(need + 0.5);
-    assert.ok((u.mem.zones || []).some((z) => z.type === 'guard'), `cast within ${need.toFixed(1)} s of SP filling, no enemy around`);
+    // (the cast goes out as her next attack — a ReplacementSkill: within one attack interval and its strike)
+    h.run(need + u.s.interval + 1);
+    assert.ok((u.mem.zones || []).some((z) => z.type === 'guard'), `cast within ${need.toFixed(1)} s of SP filling + her next attack, no enemy around`);
     done(h);
   }
 });

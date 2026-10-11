@@ -59,6 +59,9 @@ function wildmnHit(dir, off, { side = 'L', kind = 'normal', mass = 1 } = {}) {
   });
   const u = h.unit(WILDMN);
   assert.equal(u.dir, fieldDir, 'field direction');
+  // (the push is under test, not the trigger: an enemy beside her stands off her S2's 2-2 cells, which the automatic
+  // operation checks since 2026-10-11 — cast it by hand when it has not come by itself)
+  if (!h.runUntil(() => u.skill.active, 0.5)) u.skill.activate('test');
   assert.ok(h.runUntil(() => moved != null, 6), `${side} ${dir} ${off}: a skill hit`);
   const [lf, ll] = toLocal(moved[0], moved[1], fieldDir); // [left (+row in the RIGHT frame), forward]
   return { fwd: ll, side: lf, len: Math.hypot(lf, ll) };

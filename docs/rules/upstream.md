@@ -25,7 +25,7 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   upstream은 싱글 보스 HP를 bloodPoint ×1로 바꿨지만, **우리는 싱글 ×0.25로 되돌렸다**(f11bdabc, 관리자 결정 2026-10-07: 혼자서는
   팀원이 없다 — `server/match/gamedata.js bossPoolShareOf`의 `solo` 기본값, `tools/build-data.mjs` → `data/config.json bossHpScale.solo`).
   협동은 upstream의 × 생존 인원 그대로.
-- 스킬 범위 발동(748a79fb, 관리자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(관리자 결정 2026-10-07: upstream 사용). 「미확정」 표시는 유지(`sim.md` 「스킬 범위 발동」).
+- 스킬 범위 발동(748a79fb, 관리자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(관리자 결정 2026-10-07: upstream 사용) → 2026-10-11 클라 `AutoChessBattleTrigger` 규칙으로 확정·대체(`sim.md` 「스킬 범위 발동」, 옛 규칙은 그 절 「되돌리기」).
   `local-skill-range.js`·관련 테스트 삭제. 赤刃明霄陈 S3를 공중 적만으로 켜던 `hitsFly`는 upstream 규칙에 없다 — 읽는 곳이 없던
   남은 플래그는 `kits/ops/op-chen3.js`에서 지웠다(2026-10-08, 동작 영향 없음: golden 전부 일치).
 - 사야 늑대(PR #225)·와파린·라플란드·페페 등은 upstream 구현으로 대체, PR #225가 바꾼 upstream 테스트는 upstream 판으로 되돌렸다.
@@ -83,12 +83,14 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   관리자 기억(2026-10-08): 联防이 이어지면 내 전투가 끝났을 때 배너가 없고, 联防이 끝난 뒤 막은 수에 따라 감소량 배너 또는 완벽한 작전 배너,
   완벽한 작전 쪽(돕는 쪽)도 联防이 끝난 뒤. 联防이 없는 협동 라운드(팀원 누수 없음)도 팀원의 작전이 끝난 뒤에야 완벽한 작전 배너(관리자 확인 2026-10-08:
   공식은 내 방어가 성공해도 바로 띄우지 않고 팀원을 기다린다) — 서버가 모든 전투가 끝나면 넘어가는 SETTLE에 뜬다.
-  SETTLE의 판단(`settleBattleEnd`): 联防이 있었으면 서버가 실제로 깎은 LP(`m.public.uniteResult.losses[나]`, upstream 규칙) — 감소 N이면 「목표 HP 감소 N」 +
-  REDUCE, 0이면 「완벽한 작전!」 + NOREDUCE(구해진 누수 쪽·돕는 쪽 모두); 없으면 잡아 둔 결과 그대로; 결과가 안 온 라운드(서버 전투 모드·재접속·
-  클라이언트가 안 돌린 전투)는 라운드 동안 센 누수 수. 관전 좌석·탈락자·보스 라운드는 없음.
-  확인(실제 협동 판): 联防에서 12마리 통과 → 누수 쪽 SETTLE에 「목표 HP 감소 6」 + REDUCE(서버 감소량 6), 돕는 쪽 「완벽한 작전!」;
+  SETTLE의 판단(`settleBattleEnd`): 서버가 실제로 깎은 LP — 2026-10-11부터 联防 여부와 상관없이 `m.public.roundLosses`(살아 있는 모든 플레이어,
+  联防이 있으면 그 재배분 값 = `uniteResult.losses`와 같음)로 `battleOverOf`(관리자 결정 2026-10-11, `audio.md` 「작전 종료 효과음」): 내가 N 잃음 →
+  「목표 HP 감소 N」 + REDUCE, 모두 0 → 「완벽한 작전!」 + NOREDUCE, 나는 0인데 다른 플레이어가 잃음 → panel_miss 제목만 + NORMAL(옛 규칙은
+  `uniteResult.losses[나]`만 보아 0이면 돕는 쪽도 「완벽한 작전!」 — 되돌리기는 `audio.md`); 값이 없으면 잡아 둔 결과 그대로; 결과가 안 온 라운드(서버
+  전투 모드·재접속·클라이언트가 안 돌린 전투)는 라운드 동안 센 누수 수. 관전 좌석·탈락자·보스 라운드는 없음.
+  확인(실제 협동 판, 2026-10-08 규칙 — 2026-10-11부터 이 경우 돕는 쪽은 제목만 + NORMAL): 联防에서 12마리 통과 → 누수 쪽 SETTLE에 「목표 HP 감소 6」 + REDUCE(서버 감소량 6), 돕는 쪽 「완벽한 작전!」;
   联防이 다 막음 → 둘 다 「완벽한 작전!」; 联防 없는 협동 라운드 → 둘 다 SETTLE에 「완벽한 작전!」; 전투가 끝난 순간에는 어느 쪽도 배너 없음.
-  SETTLE 경로는 셈하지 않는 누수만 있는 판을 완벽한 작전과 구분하지 못한다 — LP 0이면 완벽한 작전(NOREDUCE) [추정].
+  SETTLE 경로에서 셈하지 않는 누수만 있는 판은 LP 0이라 완벽한 작전(NOREDUCE) — 클라와 같음(2026-10-11, `GetBattleResultStatus`는 hpCost만 본다).
   배너 그림(로컬 추출)이 없는 클라이언트는 upstream 상자(`ResultDialog`·`roundResultBox`)를 같은 순간에 대신 띄운다.
   지운 것: `battleOverSfx`·`uniteResultBox`·`battleResultBox`와 그 테스트, `test/ui/resultbox.e2e.test.js`(upstream SETTLE 상자 브라우저 테스트).
 - PREP의 upstream 「休整期」 띠(`ui/gameLogic/phases.js phaseBanner`) 삭제 — **관리자 확인 2026-10-08: 공식은 휴식 기간 띠가 없고 라운드·획득 배너만**.

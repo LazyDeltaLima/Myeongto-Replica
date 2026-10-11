@@ -46,7 +46,7 @@ export const TUPLE = Object.freeze({ ID: 0, X: 1, Y: 2, HP: 3, MAXHP: 4, SP: 5, 
 /** The unit was (re)deployed between tuples `a` and the newer `b`: `b` plays the deploy animation, `a` did not (sim snapshot animOf). */
 const redeployed = (a, b) => b[8] === ANIM.DEPLOY && a[8] !== ANIM.DEPLOY;
 /** Element keys a snapshot `elem` entry may carry (server/sim/constants.js ELEMENT_ORDER). */
-const ELEMENT_KEYS = new Set(['neural', 'erosion', 'burn', 'apoptosis', 'necrosis']);
+const ELEMENT_KEYS = new Set(['neural', 'erosion', 'burn', 'apoptosis']);
 
 const MAX_EVENTS = 6000;
 const finite = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);

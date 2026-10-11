@@ -44,7 +44,7 @@
 //   events.js        client events, snapshot, field meta, fx, the sim log
 //   util.js          fin / clone
 
-import { TICK, ROWS, COLS, DP_DEFAULTS, MAX_HOOK_DEPTH, AUTO_OP_COOLDOWN, PREBUILT_INTERVAL } from './constants.js';
+import { TICK, ROWS, COLS, DP_DEFAULTS, MAX_HOOK_DEPTH, AUTO_OP_COOLDOWN, AUTO_TRIGGER_INTERVAL, PREBUILT_INTERVAL } from './constants.js';
 import { GEO } from '../../shared/constants.js';
 import { createRng } from './rng.js';
 import { Grid } from './grid.js';
@@ -121,6 +121,8 @@ export class Battle {
     /** Per-template enemy overrides `{ [enemyKey]: { stats: {…partial} } }` (waves.json `overrides`). */
     this.enemyOverrides = opts.enemyOverrides ?? {};
     this.dt = TICK;
+    // the automatic skill operations run every AUTO_TRIGGER_INTERVAL s: 6 ticks of 1/30 s (battle/lifecycle.js)
+    this._autoTriggerTicks = Math.max(1, Math.round(AUTO_TRIGGER_INTERVAL / TICK));
     this.time = 0;
     this.tickCount = 0;
     this.finished = false;

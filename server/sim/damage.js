@@ -27,7 +27,6 @@
 //     (noSp) + 静默 (no skill activation), −1 SP/s, 100 arts/s · erosion permanent DEF −100, then 800 phys (10 s).
 //   enemies (operator damage, "·我方"): burn 7000 元素伤害 + RES −20 (10 s) · neural 3 麻痹, then 6000 元素伤害 (10 s) ·
 //     apoptosis 15 s: 50 % weaken recovering over the burst + 800 元素伤害/s · erosion 5000 元素伤害 + permanent DEF −120 (8 s).
-//   necrosis (legacy spare gauge): 12 s of 100 true dmg/s and ATK −20 %.
 // Burst damage is 无来源 (PRTS 元素 "元素爆发通常造成无来源的伤害"; PRTS 伤害分类: 无来源 = "无法被追溯伤害来源", yet "无来源
 // 伤害的击杀也能追溯击杀来源"): DamageInfo `sourceless` — the damage-dealt multipliers and penetration of the unit that
 // filled the gauge do not apply (the target's own RES cuts do, "可享受法抗减少效果"), and the `hit` / `damaged` / `fatal`
@@ -463,13 +462,6 @@ function resolveBurst(battle, source, target, el) {
     if (!(duration > 0)) { reset(); return null; }
     return battle.addBuff(target, { key: `${el}Burst`, duration, visible: true, onExpire: reset, onRemove: reset, ...extra, flags: { burstLock: true, ...(extra.flags || {}) } });
   };
-  if (el === 'necrosis') {
-    lock(cfg.duration, {
-      mods: { atkMul: 1 - cfg.atkDownPct }, interval: 1,
-      onTick: () => battle.dealDamage(source, target, { amount: cfg.dps, type: 'true', canDodge: false, sourceless: true, tags: ['burst', 'necrosis'] }),
-    });
-    return;
-  }
   const enemy = target.side === 'enemy';
   const c = enemy ? cfg.enemy : cfg.ally;
   if (el === 'burn') {
@@ -501,7 +493,9 @@ function resolveBurst(battle, source, target, el) {
       // The loss is of the official 技力 (Skill.spTotal: the stored charges × cost + the SP towards the next) — PRTS 技能
       // 可充能 "当持有者的技力流失时，充能次数也会实时降低": taking it from the partial bar alone left a full skill every
       // charge it had (a one-charge skill stayed ready through the burst; PR #262). setSpTotal rebuilds the charges
-      // silently (no spGain) and leaves a running timed skill alone, whose SP was spent at its cast.
+      // silently (no spGain) and leaves a running timed skill alone, whose SP was spent at its cast: the client takes the
+      // loss then too (`Entity.DoApplyModifier`: the skill's SP_RECOVER_STOPPED blocks increases only), from the SP left
+      // — 0 for a one-charge skill — and never from the skill's own duration (its ability timer); docs/rules/sim.md.
       lock(c.duration, {
         flags: { silence: true, noSp: true }, interval: 1,
         onTick: () => {

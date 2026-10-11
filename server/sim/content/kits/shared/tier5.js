@@ -25,10 +25,9 @@
 //   initial range is her own tile), 华法琳 (heal target below half HP, checked right before the heal). 塞雷娅 S1 (自动触发)
 //   uses the engine's DEFAULT rule with `allies` / `hpAtMost` (about to attack + an ally of the skill area at ≤ half HP:
 //   the heal replaces that attack). Every other
-//   kit keeps the data rule (tools/build-data.mjs resolveTrigger, the official 技能策略: DEFAULT = about to attack + an
-//   enemy in the INITIAL range; SKILL_RANGE for a MANUAL skill's own 技能范围; ACTIVE_RANGE for a MANUAL skill on the basic
-//   strategy or the SEARCH row (玛恩纳 S2, 安洁莉娜 S3) whose running attack range strictly contains the own one (the
-//   owner's rule, 2026-10-05); the class rows —
+//   kit keeps the data rule (tools/build-data.mjs resolveTrigger, the official 技能策略: DEFAULT for a MANUAL skill = an
+//   enemy in its rangeId box, or without one the unit attacking (client AutoChessBattleTrigger, maintainer decision
+//   2026-10-11; 玛恩纳 S2 / 安洁莉娜 S3 keep their SEARCH row); the class rows —
 //   重装 TAKE_DAMAGE … — for
 //   every MANUAL skill; AUTO skills never take a class row).
 // - fx kinds emitted (battle.fx(kind, {x, y, id, …})): 'aoe' {r, skill}, 'healAoe' {r}, 'summon' {token}, 'anchor'

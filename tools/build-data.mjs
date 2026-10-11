@@ -40,7 +40,6 @@ import { isDeepStrictEqual } from 'node:util';
 import { Grid, DEPLOY_REFUSED_TILES } from '../server/sim/grid.js';
 import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
-import { extendedGrid } from '../shared/loadoutRecord.js';
 import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { skillModeIndex } from '../shared/skill-modes.js';
@@ -398,6 +397,7 @@ async function loadContext() {
     attackTiming: await loadLocalJson('tools/assets/local-attack-timing.json', 'attack timings (tools/local-extract/attack_timing.py): no `_maxAnimScale` …'),
     charModes: await loadLocalJson('tools/assets/local-char-modes.json', 'operator modes (tools/local-extract/char_modes.py)'),
     enemyProjectiles: await loadLocalJson('tools/assets/local-enemy-projectiles.json', 'enemy projectiles (tools/local-extract/enemy_projectiles.py): no `proj` …'),
+    skillCast: await loadLocalJson('tools/assets/local-skill-cast.json', 'skill classes (tools/local-extract/skill_cast.py): no skill `cast` …'),
   };
 }
 
@@ -504,13 +504,6 @@ const TRIGGER_RENAME = { ALWAYS: 'SP_FULL', CUSTOM_RANGE_SEARCH_ENEMY: 'CUSTOM_R
 const TRIGGER_ALLY_RULES = Object.freeze({ TRY_SEARCH_ALLY_SKILL: 'SKILL_RANGE' });
 
 /**
- * A skill whose rangeId is its new ATTACK range — "攻击范围扩大 / 改变 / 缩小 / 缩短", "攻击距离+1 / 加长 / 缩短", "攻击范围与
- * 溅射范围扩大" — and not a 技能范围 of its own (PRTS 卫戍协议/帮助 技能操作: "拥有技能范围的技能（非攻击距离增加）").
- * "攻击范围内…" (an effect on the attack range) does not match.
- */
-const ATTACK_RANGE_CHANGE = /攻击(?:范围|距离)(?:与溅射范围)?(?:扩大|增大|改变|改为|缩小|缩短|加长|增加|\+|(?:向前|往前)?延伸|朝[^，。；]{1,8}扩大)/;
-
-/**
  * A deliberate deviation from the official 技能策略 (DESIGN §21.29): the owner's decision of 2026-10-03 after community
  * feedback ("反馈的人太多了"; GitHub issue #4, PR #12). The 下半 data's TANK class row (`TANK | | | 0 | TAKE_DAMAGE`,
  * added with 下半 — 上半 had no TANK row) makes every MANUAL 重装 skill wait for a hit; these six offensive skills cast
@@ -523,9 +516,8 @@ const ATTACK_RANGE_CHANGE = /攻击(?:范围|距离)(?:与溅射范围)?(?:扩�
  * from a ranged hit with nobody to pull). His attack range is his own tile (0-1), so the basic strategy would not see an
  * enemy he could pull: his S2 takes SKILL_RANGE on its own 技能范围 (x-1) — the official strategy of a MANUAL skill with a
  * 技能范围 when no class row applies, "仅在技能范围内存在敌人（无视其不可选中）时释放技能" — `customRangeGrid` = that range.
- * A DEFAULT entry is the basic strategy, so the owner's ACTIVE_RANGE rule applies on top of it (resolveTrigger; the
- * owner's decision of 2026-10-05): 深巡 S2, whose running range 3-2 strictly contains her 2-2, casts with an enemy in the
- * 3-2 (`rule` ACTIVE_RANGE, `rawRule` still TAKE_DAMAGE).
+ * A DEFAULT entry is the basic strategy: a skill with a rangeId checks those cells (resolveTrigger; `rawRule` still
+ * TAKE_DAMAGE).
  */
 const TRIGGER_DEVIATIONS = Object.freeze({
   chess_char_1_04_a: { skchr_udflow_2: 'DEFAULT' },                                // 深巡 S2 行动能力剥夺
@@ -549,34 +541,6 @@ const STANDIN_TRIGGER_DEVIATIONS = Object.freeze({
 });
 
 /**
- * The attack range a MANUAL skill gives while it runs, when its text changes the attack range (ATTACK_RANGE_CHANGE): its
- * own rangeId grid, else the operator's range grown by `ability_range_forward_extend` ("攻击距离+N": 空弦 S3, 史尔特尔
- * S2 / S3, 异客 S2 — the kits' targeting.rangeExtend, extendedGrid as Battle._refreshRange); null for any other skill and
- * for "被动效果：攻击范围扩大" (引星棘刺 S3: her own range while she carries it — shared/loadoutRecord.js attackRangeGrid).
- */
-function activeAttackGrid(skill, baseGrid) {
-  const desc = skill.desc || '';
-  if (!ATTACK_RANGE_CHANGE.test(desc) || /被动效果：攻击范围扩大/.test(desc)) return null;
-  if (skill.rangeGrid?.length) return skill.rangeGrid.map((p) => p.slice());
-  const n = Math.round(Number(skill.bb?.ability_range_forward_extend) || 0);
-  return n > 0 && baseGrid?.length ? extendedGrid(baseGrid, n) : null;
-}
-
-/** True when grid `a` holds every tile of grid `b` and at least one more (`[dRow, dCol]` pairs, facing RIGHT). */
-function strictlyContains(a, b) {
-  const sa = new Set(a.map(([r, c]) => `${r},${c}`)), sb = new Set(b.map(([r, c]) => `${r},${c}`));
-  return sa.size > sb.size && [...sb].every((k) => sa.has(k));
-}
-
-/**
- * The rules the owner's ACTIVE_RANGE replaces (resolveTrigger), both of which wait for an enemy in the INITIAL range:
- * DEFAULT, the basic strategy (no row, or a DEFAULT deviation of the tables — 深巡 S2, the owner's decision of
- * 2026-10-05), and SEARCH, the 解放者 / 阵法术师 / 安洁莉娜 S2·S3 row "不受基础策略影响，在初始攻击范围内存在敌人时释放技能"
- * (the owner's decision of 2026-10-05 too).
- */
-const ACTIVE_RANGE_OVER = new Set(['DEFAULT', 'SEARCH']);
-
-/**
  * Resolve the auto-cast rule of a skill record (PRTS 卫戍协议/帮助 §作战阶段 技能操作 — the official skill strategies;
  * DESIGN §5.6):
  * - charId rows first (exact skillIndex, or −1 = every skill of the operator);
@@ -586,29 +550,25 @@ const ACTIVE_RANGE_OVER = new Set(['DEFAULT', 'SEARCH']);
  *   its skill is off, so the basic strategy could never cast it; "不受技能范围影响" of the 重装 row speaks of their skills
  *   with a 技能范围, which only S2/S3 have). They apply to MANUAL skills only: the strategies automate the manual 开启,
  *   an AUTO skill fires by its own rule (PRTS 古米 S1 备注: "此技能在存在生命值不满的可治疗角色时可触发");
- * - else, for an operator's MANUAL skill with a 技能范围 (a rangeId that is not an attack-range change): SKILL_RANGE,
- *   "不通过普通攻击/治疗触发技能，仅在技能范围内存在敌人（无视其不可选中）时释放技能", customRangeGrid = the skill range;
- * - else DEFAULT (the basic strategy: ready + about to attack / heal);
+ * - else DEFAULT, the basic strategy — client code `AutoChessBattleTrigger._DefaultTriggerSkill` (maintainer decision
+ *   2026-10-11, docs/rules/sim.md 「스킬 범위 발동」): a MANUAL skill with a rangeId (an attack-range change included —
+ *   the skill table holds the new range as its rangeId) checks those cells, `customRangeGrid` = the rangeId grid (a
+ *   selectable enemy, ground or air, there: `LitePhysicsUtil.FindTargetsInBox` with the trigger's ALL-motion options, no
+ *   攻击距离 added); one without checks whether the unit is attacking (its ATTACK / COMBAT state) — server/sim/skills.js
+ *   autoTrigger. A DEFAULT row or deviation does the same;
  * - an ally row the engine plays as one of its rules (TRIGGER_ALLY_RULES: 黍 S3's TRY_SEARCH_ALLY_SKILL → SKILL_RANGE on
  *   the skill range with `allies: true` — an injured, healable ally there);
  * - last, the deliberate deviations (TRIGGER_DEVIATIONS, per chess and skill; STANDIN_TRIGGER_DEVIATIONS, per stand-in
  *   unit and skill): `rule` from the table, `rawRule` the official row (a SKILL_RANGE deviation takes the skill's own
- *   range as `customRangeGrid`);
- * - and the owner's rule of 2026-10-05, a deliberate deviation like §21.29 (community report 「有的干员开技能后的攻击范围比
- *   平时攻击范围大，但是怪走到平时的攻击范围内才会开技能」): an operator's MANUAL skill on the basic strategy (DEFAULT — by
- *   no row, or by a DEFAULT deviation of the tables: 深巡 S2's 3-2 over her 2-2) or on the SEARCH row (解放者 / 阵法术师 /
- *   安洁莉娜: 薄绿 S1, 蜜蜡 S1, 卡涅利安 S3, 玛恩纳 S2, 安洁莉娜 S3) — ACTIVE_RANGE_OVER, both by the owner's decisions
- *   of 2026-10-05 — whose attack range while it runs (activeAttackGrid) strictly contains the operator's own range casts as
- *   soon as an enemy — a heal skill: an injured ally — is inside that larger range: ACTIVE_RANGE, `customRangeGrid` = the
- *   running range, `rawRule` the official row. Other rows keep their rule (TAKE_DAMAGE waits for a hit, CUSTOM_RANGE /
- *   SKILL_RANGE / SP_FULL / … have their own range or none).
+ *   range as `customRangeGrid`). Other rows keep their rule (TAKE_DAMAGE waits for a hit, SEARCH an enemy in the initial
+ *   range, CUSTOM_RANGE / SKILL_RANGE / SP_FULL / … have their own range or none). Until 2026-10-11 (the owner's
+ *   provisional rule of 2026-10-05/07) a skill whose running range strictly contained the operator's own took
+ *   ACTIVE_RANGE on that running range, and a 技能范围 that was no attack-range change took SKILL_RANGE.
  * @param {object} skill record from buildSkill (skillId, skillType, desc, rangeGrid, bb)
- * @param {{operator?: boolean, chessId?: string, unitCharId?: string, baseGrid?: number[][]|null}} opts operator = a
- *   chess (the 技能范围 strategy is written for 干员; summons keep DEFAULT); chessId = the chess's NORMAL id
- *   (TRIGGER_DEVIATIONS key); unitCharId = the character of a backups.json unit form (STANDIN_TRIGGER_DEVIATIONS key);
- *   baseGrid = the operator's own range at that status (ACTIVE_RANGE)
+ * @param {{chessId?: string, unitCharId?: string}} opts chessId = the chess's NORMAL id (TRIGGER_DEVIATIONS key);
+ *   unitCharId = the character of a backups.json unit form (STANDIN_TRIGGER_DEVIATIONS key)
  */
-function resolveTrigger(ctx, char, charId, skillIdx, skill, { operator = false, chessId = null, unitCharId = null, baseGrid = null } = {}) {
+function resolveTrigger(ctx, char, charId, skillIdx, skill, { chessId = null, unitCharId = null } = {}) {
   const rows = Object.values(ctx.ac.skillTriggerDataList || {});
   const manual = skill.skillType === 'MANUAL';
   const pick =
@@ -616,9 +576,10 @@ function resolveTrigger(ctx, char, charId, skillIdx, skill, { operator = false, 
     (manual && rows.find((r) => !r.charId && r.subProfessionId && r.subProfessionId === char.subProfessionId)) ||
     (manual && rows.find((r) => !r.charId && !r.subProfessionId && r.profession === char.profession)) ||
     null;
-  if (!pick && operator && manual && skill.rangeGrid && !ATTACK_RANGE_CHANGE.test(skill.desc || '')) {
-    return { rule: 'SKILL_RANGE', rawRule: 'DEFAULT', customRangeGrid: skill.rangeGrid.map((p) => p.slice()) };
-  }
+  // the client's basic strategy (AutoChessBattleTrigger._DefaultTriggerSkill): a MANUAL skill with a rangeId checks its
+  // own range — a selectable enemy, ground or air, on those cells — and one without checks the attack / combat state
+  const ownRange = manual && skill.rangeGrid?.length ? skill.rangeGrid.map((p) => p.slice()) : null;
+  if (!pick && ownRange) return { rule: 'DEFAULT', rawRule: 'DEFAULT', customRangeGrid: ownRange };
   const rawRule = pick ? pick.skillTriggerType : 'DEFAULT';
   // the 重装 exception also covers every 自选 重装 (a backups.json unit of the TANK class whose MANUAL skill meets the
   // class row's TAKE_DAMAGE casts with an enemy in range — the owner's decision of 2026-10-05, as for the stand-ins)
@@ -634,10 +595,7 @@ function resolveTrigger(ctx, char, charId, skillIdx, skill, { operator = false, 
     return { rule: TRIGGER_ALLY_RULES[rawRule], rawRule, customRangeGrid: skill.rangeGrid ? skill.rangeGrid.map((p) => p.slice()) : null, allies: true };
   }
   const rule = deviation || TRIGGER_RENAME[rawRule] || rawRule;
-  if (ACTIVE_RANGE_OVER.has(rule) && operator && manual && baseGrid?.length) {
-    const active = activeAttackGrid(skill, baseGrid);
-    if (active && strictlyContains(active, baseGrid)) return { rule: 'ACTIVE_RANGE', rawRule, customRangeGrid: active };
-  }
+  if (rule === 'DEFAULT' && ownRange) return { rule, rawRule, customRangeGrid: ownRange };
   if (deviation) return { rule: deviation, rawRule, customRangeGrid: null };
   let customRangeGrid = null;
   if (rawRule === 'CUSTOM_RANGE_SEARCH_ENEMY') {
@@ -1032,8 +990,10 @@ function buildChess(ctx) {
       if (!se?.skillId || (i !== sIdx && !unlocked(se.unlockCond, phase, level))) return;
       const s = buildSkill(ctx, se.skillId, skillLevel, null, `chess ${chessId}`);
       if (!s) return;
-      s.trigger = resolveTrigger(ctx, char, shop.charId, i, s, { operator: true, chessId: baseId, baseGrid: rec.rangeGrid });
+      s.trigger = resolveTrigger(ctx, char, shop.charId, i, s, { chessId: baseId });
       s.index = i;
+      const cast = skillCast(ctx, shop.charId, s);
+      if (cast) s.cast = cast;
       s.overrideTokenKey = se.overrideTokenKey || null;
       skillRecs.push(s);
     });
@@ -1230,8 +1190,10 @@ function buildUnitForm(ctx, charId, status, { chessId = null, skillIndex = null 
     if (!se?.skillId || (i !== skillIndex && !unlocked(se.unlockCond, phase, level))) return;
     const s = buildSkill(ctx, se.skillId, skillLevel, null, label);
     if (!s) return;
-    s.trigger = resolveTrigger(ctx, char, charId, i, s, { operator: true, chessId, unitCharId: chessId ? null : charId, baseGrid: rangeGrid(ctx, rangeId) });
+    s.trigger = resolveTrigger(ctx, char, charId, i, s, { chessId, unitCharId: chessId ? null : charId });
     s.index = i;
+    const cast = skillCast(ctx, charId, s);
+    if (cast) s.cast = cast;
     s.overrideTokenKey = se.overrideTokenKey || null;
     skills.push(s);
   });
@@ -2470,6 +2432,37 @@ function opAttackAnim(ctx, charId, skillCount) {
     skills.push(ab ? clipOf(ab, sp.anims?.skills?.[String(i)]?.loop ?? sp.anims?.skill?.loop) : null);
   }
   return base || skills.some(Boolean) ? { base, skills } : null;
+}
+
+/**
+ * How a skill is cast (tools/assets/local-skill-cast.json, tools/local-extract/skill_cast.py) → the skill record's `cast`
+ * (server/sim/skills.js, docs/rules/sim.md 「즉발 스킬의 시전」): `mode` 'replace' (ReplacementSkill: the cast replaces
+ * the next attack), 'state' (CastSkill `_switchToState` 1: the unit stays in its Skill state until the skill ability
+ * ends) or 'free' (`_switchToState` 0); `resetCd` 1 = `_resetAbilityCooldownWhenCastEnd`. With a skill ability: `time`
+ * = its `_timeMode` (0 the attack interval, 1 its clip, 2 / 3 `cd`), `cd` (time 2: `_cooldown`, 3: the blackboard
+ * value of `_cooldownKey`), its clip (`clip`, `dur`, the first OnAttack frame `hit` — Front skeleton, data/assets.json,
+ * a key the skeleton lacks also tried as `<key>_Loop`) and abilityTiming's `max` / `pre` / `wait`. No ability (a buff
+ * cast): `mode` only. null when the skill was not read.
+ */
+function skillCast(ctx, charId, s) {
+  const c = ctx.skillCast?.skills?.[s.prefabId] ?? ctx.skillCast?.skills?.[s.skillId];
+  if (!c || (c.cls !== 'replace' && c.cls !== 'cast')) return null;
+  const out = { mode: c.cls === 'replace' ? 'replace' : c.state ? 'state' : 'free' };
+  if (c.cls === 'cast' && c.reset) out.resetCd = 1;
+  const a = c.ability;
+  if (!a || typeof a !== 'object') return out;
+  out.time = Number.isInteger(a.time) ? a.time : 0;
+  if (out.time === 2 && a.cd > 0) out.cd = a.cd;
+  if (out.time === 3 && Number(s.bb?.[a.cdKey]) > 0) out.cd = Number(s.bb[a.cdKey]);
+  const sp = ctx.manifest?.chars?.[charId]?.spine?.front;
+  for (const n of a.anim ? [a.anim, `${a.anim}_Loop`] : []) {
+    const dur = sp?.animations?.[n];
+    if (!(typeof dur === 'number' && dur > 0)) continue;
+    const h = sp.hits?.[n];
+    Object.assign(out, { clip: n, dur, ...(Array.isArray(h) && Number.isFinite(h[0]) ? { hit: Math.min(dur, Math.max(0, h[0])) } : {}) });
+    break;
+  }
+  return Object.assign(out, abilityTiming({ max: a.max, pre: a.pre, wait: a.wait }));
 }
 
 /** The handbook's 「不停止移动」 attack (“十字路口”量产型's 四向攻击) → enemies.json `attackMoves`: it never stops to attack. */
@@ -3971,8 +3964,8 @@ function validateAll(f) {
     if (c.placement !== undefined) err(`chess ${c.chessId}: placement is not a data field`);
   }
   // the deliberate trigger deviations (DESIGN §21.29, §22.10) still override an official TAKE_DAMAGE row, on the normal
-  // chess and its elite alike (a DEFAULT one may resolve to the owner's ACTIVE_RANGE on top: 深巡 S2)
-  const deviationHolds = (rule, trig) => trig.rawRule === 'TAKE_DAMAGE' && (trig.rule === rule || (ACTIVE_RANGE_OVER.has(rule) && trig.rule === 'ACTIVE_RANGE'));
+  // chess and its elite alike (a DEFAULT one checks the skill's rangeId cells when it has one: resolveTrigger)
+  const deviationHolds = (rule, trig) => trig.rawRule === 'TAKE_DAMAGE' && trig.rule === rule;
   for (const [baseId, skillsOf] of Object.entries(TRIGGER_DEVIATIONS)) {
     const recs = Object.values(chess).filter((c) => c.baseId === baseId);
     if (recs.length !== 2) err(`trigger deviation ${baseId}: expected the normal and the elite record, got ${recs.length}`);
@@ -3985,14 +3978,12 @@ function validateAll(f) {
       }
     }
   }
-  // the owner's ACTIVE_RANGE rule (2026-10-05): a MANUAL skill of the basic strategy (DEFAULT by its row or a deviation)
-  // or of the SEARCH row whose running range strictly contains the record's own range, and no other
+  // the client's basic strategy (resolveTrigger): a MANUAL DEFAULT skill with a rangeId checks exactly those cells
   for (const c of Object.values(chess)) {
     for (const s of c.skills || []) {
-      if (s.trigger?.rule !== 'ACTIVE_RANGE') continue;
-      const over = TRIGGER_DEVIATIONS[c.baseId]?.[s.skillId] || s.trigger.rawRule;
-      if (s.skillType !== 'MANUAL' || !ACTIVE_RANGE_OVER.has(over) || !c.rangeGrid?.length || !strictlyContains(s.trigger.customRangeGrid || [], c.rangeGrid)) {
-        err(`chess ${c.chessId} ${s.skillId}: ACTIVE_RANGE needs a MANUAL basic-strategy or SEARCH skill whose customRangeGrid strictly contains the record's range`);
+      if (s.trigger?.rule === 'ACTIVE_RANGE') err(`chess ${c.chessId} ${s.skillId}: ACTIVE_RANGE is no data rule since 2026-10-11`);
+      if (s.skillType === 'MANUAL' && s.trigger?.rule === 'DEFAULT' && s.rangeGrid?.length && JSON.stringify(s.trigger.customRangeGrid) !== JSON.stringify(s.rangeGrid)) {
+        err(`chess ${c.chessId} ${s.skillId}: a MANUAL DEFAULT skill with a rangeId checks that range (customRangeGrid)`);
       }
     }
   }

@@ -284,13 +284,15 @@ Each item is a mistake this project already made once. Tick every one for every 
   skill's own 技能范围. Examples: 烛煌 S3, `test/sim/feedback1e-skillrange.test.js`; DESIGN §21.16 (the live range on the
   card); 见行者 / 松果, `kits_t3.test.js` ("fires on an enemy inside the skill range only").
 - [ ] **5. Auto-cast trigger** — the data resolves it (`tools/build-data.mjs resolveTrigger`, `data/chess.json`
-  `skills[].trigger`); check it, and change the data rule rather than hand-coding a trigger in the kit. The owner's
-  rules (0.2.0): a skill whose attack range is larger than the normal one casts as soon as an enemy is inside the
-  SKILL range (a deliberate deviation from the official 技能策略, like the 重装 exception: data `ACTIVE_RANGE` for a
-  MANUAL skill on the basic strategy — 深巡 S2's DEFAULT deviation included — or on the SEARCH row (薄绿 S1, 玛恩纳 S2,
-  安洁莉娜 S3 …) whose running range strictly contains the operator's own,
-  `test/sim/feedback5-active-range.test.js`; 烛煌 S3 in `feedback1e-skillrange.test.js` keeps DEFAULT — its 4-11 does
-  not contain her 3-1); an AUTO skill that acts on
+  `skills[].trigger`); check it, and change the data rule rather than hand-coding a trigger in the kit. MANUAL skills
+  are cast by the battle's automatic operations (client `AutoChessBattleTrigger`, maintainer decision 2026-10-11,
+  docs/rules/sim.md 「스킬 범위 발동」): one pass every 0.2 s, one cast a pass, the casting unit blocked ≈ 2.2 s; the
+  official row first (重装 TAKE_DAMAGE, the SEARCH row of 解放者 / 阵法术师 / 安洁莉娜 …), else the basic strategy DEFAULT —
+  a skill with a rangeId (an attack-range change included) casts once a selectable enemy, ground or air, is inside that
+  box (`customRangeGrid`; a heal skill counts enemies too), one without once the unit is attacking
+  (`test/sim/skills.test.js`, `feedback1e-skillrange.test.js` 烛煌 S3 on its 4-11). The engine rules `ACTIVE_RANGE` /
+  `SKILL_RANGE` stay for kits (`feedback5-active-range.test.js`); the data no longer resolves `ACTIVE_RANGE`, and
+  `SKILL_RANGE` only for 余 S2's deviation. An AUTO skill that acts on
   allies or itself fires at full SP (引星棘刺 S1, `kits_alt_t5.test.js` "… fires as soon as its SP is full, no enemy
   needed (GitHub #124)"); the 重装 exception list (`TRIGGER_DEVIATIONS`: 深巡 S2, 雷蛇 S2, 号角 S2 / S3, 灰毫 S1 / S2,
   余 S2; the 预备干员-重装 / Mechanist stand-ins: `STANDIN_TRIGGER_DEVIATIONS`, every skill), DESIGN §21.29 / §22.10,

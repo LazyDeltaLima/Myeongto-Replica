@@ -1,0 +1,2568 @@
+{
+ "skills": {
+  "skchr_aglina_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_aglina_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_aglina_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_agoat2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_agoat2_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_agoat2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_akkord_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_akkord_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_angel2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_angel2_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_angel2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_angel_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_angel_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_angel_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_archet_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_archet_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_archet_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_aroma_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_aroma_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ascln_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_ascln_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_ascln_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ashlok_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_ayer_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_ayer_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_beewax_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_beewax_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_billro_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_billro_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_billro_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_blaze2_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_blaze2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_blaze2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_bldsk_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_bldsk_2": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_blemsh_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 2,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_blemsh_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_blemsh_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0.533,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_blkkgt_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_blkkgt_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 1,
+   "state": 1
+  },
+  "skchr_blkkgt_3": {
+   "ability": {
+    "anim": "Skill_3_End",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 1,
+   "state": 1
+  },
+  "skchr_bpipe_2": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_bpipe_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_branch_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_branch_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_bubble_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_caper_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_caper_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_cathy_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_cello_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_cello_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_cello_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_cetsyr_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_cetsyr_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_cetsyr_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_chen3_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_chen3_2": {
+   "ability": {
+    "anim": "Skill_2_Begin",
+    "cd": 4,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 1,
+   "state": 1
+  },
+  "skchr_chen3_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_demkni_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_demkni_2": {
+   "ability": {
+    "anim": "Heal",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0.533,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_demkni_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_dusk_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_dusk_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_dusk_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_estell_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_etlchi_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_etlchi_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_etlchi_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_excu2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_excu2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_excu2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_excu_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_excu_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_f12yin_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0.533,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_f12yin_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_f12yin_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_fartth_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_fartth_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_flamtl_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_flamtl_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_flamtl_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_flower_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_forcer_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_forcer_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ghost2_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 1,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ghost2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ghost2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ghost_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_glady_1": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_glady_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_glady_3": {
+   "ability": {
+    "anim": "Skill_3_Startup",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_gnosis_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_gnosis_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_gnosis_3": {
+   "ability": {
+    "anim": "",
+    "cd": -1,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_grabds_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_grabds_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_gravel_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_gravel_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_greyy_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_gvial2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_gvial2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_gvial2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_haini_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_haini_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_halo2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_halo2_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_halo2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_harold_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_horn_1": {
+   "ability": {
+    "anim": "Skill_1_A",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_horn_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_horn_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_hsguma_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_hsguma_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0.4,
+    "time": 1,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 1,
+   "state": 1
+  },
+  "skchr_humus_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_humus_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_indigo_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_indigo_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_ines_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_ines_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ines_3": {
+   "ability": {
+    "anim": "Start_Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_inside_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_inside_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_kazema_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_kazema_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_kjera_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_kroos2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_kroos2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_leizi_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_lemuen_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_lemuen_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_lemuen_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_lionhd_2": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0.533,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_lisa_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_lisa_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_lisa_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_liskam_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_liskam_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_lumen_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_lumen_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_lumen_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_malist_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_mint_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mint_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0.62,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_mizuki_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_mizuki_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_mizuki_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mlynar_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mlynar_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mlynar_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_mlyss_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_mlyss_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mlyss_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mostma_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 1,
+   "state": 1
+  },
+  "skchr_mostma_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mudrok_2": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_mudrok_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_nearl2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_nearl2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_nearl2_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_nymph_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_nymph_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_nymph_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_oblvns_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1.2,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_oblvns_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_oblvns_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_papyrs_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_papyrs_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_pasngr_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_pasngr_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_pasngr_3": {
+   "ability": {
+    "anim": "Skill_3",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_pepe_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_pepe_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_pepe_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_philae_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_philae_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_pinecn_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0.533,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_pinecn_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_pithst_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_plosis_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_podego_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_podego_2": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_prove_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_qiubai_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_qiubai_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_qiubai_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_reckpr_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_reckpr_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_reed2_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 20,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_reed2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_rmixer_1": {
+   "ability": {
+    "anim": "Skill_Loop",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_rmixer_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_rmixer_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_rockr_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_rosesa_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_rosesa_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_rosmon_1": {
+   "ability": {
+    "anim": "Attack_A",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_rosmon_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_rosmon_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_sbell2_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_sbell2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_sbell2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_shotst_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_shotst_2": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_siege2_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_siege2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_siege2_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_silent_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_skadi2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_skadi2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_skadi2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_skadi_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_skadi_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_skgoat_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_slbell_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_slbell_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_slchan_1": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_slchan_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_snakek_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_snhunt_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_snhunt_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_sntlla_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_sunbr_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0.533,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_sunbr_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_surtr_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0.533,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_surtr_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_surtr_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_svash2_1": {
+   "ability": {
+    "anim": "Skill_1_A",
+    "cd": 0.8,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_svash2_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 1,
+   "state": 1
+  },
+  "skchr_svash2_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_svrash_1": {
+   "ability": {
+    "anim": "Attack",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_svrash_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_svrash_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_swire2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_swire2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_swire2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_swire_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_swire_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_texas2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_texas2_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_texas2_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_texas_2": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 2,
+    "pre": 0.5,
+    "time": 1,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_thorn2_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_thorn2_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_thorn2_3": {
+   "ability": {
+    "anim": "Skill_3_Loop",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_tinman_1": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_tinman_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_tippi_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_tippi_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_titi_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_titi_2": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_titi_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_udflow_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_udflow_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ulpia_1": {
+   "ability": {
+    "anim": "",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ulpia_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_ulpia_3": {
+   "ability": {
+    "anim": "Skill_3_Begin",
+    "cd": 1,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_utage_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_utage_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_vendla_2": {
+   "ability": {
+    "anim": "Skill",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_vigil_1": {
+   "ability": {
+    "anim": "Skill1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_vigil_2": {
+   "ability": {
+    "anim": "Skill2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_vigil_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_vigna_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_vigna_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_vodfox_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_vodfox_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_vulpis_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_vulpis_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_vulpis_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_wang_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_wang_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_wang_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0.25,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0.25,
+    "time": 2,
+    "wait": 0
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_whitew_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_whitew_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_whitw2_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_whitw2_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_whitw2_3": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_wildmn_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_wildmn_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_wisdel_1": {
+   "ability": {
+    "anim": "Skill_1",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": 1,
+    "pre": 0,
+    "time": 0,
+    "wait": 1
+   },
+   "cls": "replace"
+  },
+  "skchr_wisdel_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_wisdel_3": {
+   "ability": {
+    "anim": "",
+    "cd": 0.1,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 2,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_yak_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_yak_2": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skchr_yu_1": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_yu_2": {
+   "ability": {
+    "anim": "Skill_2",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skchr_yu_3": {
+   "ability": {
+    "anim": "Skill_3_Begin",
+    "cd": 0,
+    "cdKey": "duration",
+    "max": -1,
+    "pre": 0,
+    "time": 1,
+    "wait": 1
+   },
+   "cls": "cast",
+   "reset": 0,
+   "state": 1
+  },
+  "skcom_atk_up": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skcom_attack_speed_up": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skcom_charge_cost": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skcom_def_up": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skcom_heal_up": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  },
+  "skcom_quickattack": {
+   "ability": null,
+   "cls": "cast",
+   "reset": 0,
+   "state": 0
+  }
+ }
+}

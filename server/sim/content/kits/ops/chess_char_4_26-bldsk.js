@@ -30,6 +30,8 @@ export default withDefaults({
       skill: {
         kind: (def.skill?.maxCharges ?? 1) > 1 ? 'charges' : 'instant',
         heal: true,
+        // a ReplacementSkill (client): the heal it casts in is the replaced attack itself (install, beforeAttack)
+        inAttack: true,
         trigger: { rule: 'CUSTOM_RANGE', grid: [] }, // never auto-cast by the engine: fired by the kit on a < 50 % heal target
       },
       talents: [{ install(battle, unit) { // 血液样本回收: an enemy falls in range ⇒ +2 SP to her and a random ally in range

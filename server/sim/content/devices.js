@@ -121,13 +121,16 @@ function isActive(battle, st, d) {
  * gets cold again freezes (engine rule). `playerId` only tags the fx; `ownerOnly` limits the gust to enemies
  * attributed to that player. Returns { cancel() } or null for bad numbers.
  */
-export function startColdWind(battle, { playerId = null, interval, duration, first, ownerOnly = false } = {}) {
+export function startColdWind(battle, { playerId = null, interval, duration, first, ownerOnly = false, effectKey = null } = {}) {
   const iv = num(interval, 0);
   if (!(iv > 0)) return null;
   const durOf = () => num(typeof duration === 'function' ? duration() : duration, 0);
   const handle = { cancelled: false, gusts: 0, timer: null, cancel() { this.cancelled = true; this.timer?.cancel(); } };
   const gust = () => {
     if (handle.cancelled || battle.finished) return;
+    // the screen-centre effect of each gust (`effectKey`: the client node CreateEffectAtScreenPos, before the cold is
+    // applied; the status event 'tplfx' with no target, as content/support tplFx makes it)
+    if (effectKey) battle._ev(['tplfx', null, effectKey, null]);
     const dur = durOf();
     if (!(dur > 0)) return;
     let n = 0;
@@ -164,7 +167,9 @@ export function kjeragColdWind(battle, playerId, bb = {}, { bondId = 'kjeragShip
     for (const p of battle.players ?? []) L = Math.max(L, num(battle.getPlayer(p.playerId)?.bonds?.[bondId]?.layers, 0));
     return L;
   };
-  return startColdWind(battle, { playerId, interval, duration: () => base + per * layers() });
+  // client buff template act1autochess_bond_eff_kjerag[storm] ON_BUFF_TRIGGER: CreateEffectAtScreenPos map_snow_left_2_right
+  // (screen ratio 0.5 / 0.5)
+  return startColdWind(battle, { playerId, interval, duration: () => base + per * layers(), effectKey: 'map_snow_left_2_right' });
 }
 
 // ---------------------------------------------------------------------------------------------------------------

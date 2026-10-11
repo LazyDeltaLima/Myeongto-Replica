@@ -141,10 +141,13 @@ test('F3: 【污染秽蚀】 (萨卡兹枯朽战士) still reaches an airborne �
   const h = makeBattle({
     stageId: 'act2autochess_m02', seed: 3, autoFinish: false, timeLimit: 400, hooks: ['damaged'], captureNoisy: true,
     units: [{ chessId: TIPPI[0], row: 9, col: 5, carryState: { sp: 999 }, skillIndex: skillIndex(TIPPI[0], S1) }],
-    enemies: [{ key: NHPBR, pos: [9, 6], mods: { hpMul: 0.01, speedMul: 0 } }],
+    // enough HP to outlive her first hit: S1 (no rangeId) waits for the attack state of the 0.2 s trigger pass
+    // (AutoChessBattleTrigger, maintainer decision 2026-10-11), so a 45-HP 战士 would die to the opening shot
+    enemies: [{ key: NHPBR, pos: [9, 6], mods: { hpMul: 0.3, speedMul: 0 } }],
   });
   const u = h.unit(TIPPI[0]);
   assert.ok(h.runUntil(() => u.skill.active, 3), 'takes off');
+  assert.ok(h.b.enemies.some((e) => e.alive), 'before the 战士 dies');
   assert.ok(h.runUntil(() => !h.b.enemies.some((e) => e.alive), 10), 'she kills the 战士 while airborne');
   h.run(4);
   assert.ok(u.skill.active && u.s.flags.liftoff, 'still airborne');

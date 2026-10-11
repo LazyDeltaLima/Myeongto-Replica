@@ -6,7 +6,7 @@ import { num, talentBb, up } from '../shared/tier1.js';
 import { onDefaultSkill } from '../shared/tier2.js';
 
 /** Largest element gauge of a unit (every element — 侵蚀 included: the bosses' attacks fill it on operators). */
-const elemLoad = (a) => Math.max(a.elem.burn, a.elem.neural, a.elem.necrosis, a.elem.apoptosis, a.elem.erosion ?? 0);
+const elemLoad = (a) => Math.max(a.elem.burn, a.elem.neural, a.elem.apoptosis, a.elem.erosion ?? 0);
 
 export default {
   // ---------------------------------------------------------------------------------------------------------------

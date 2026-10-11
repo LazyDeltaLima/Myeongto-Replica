@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
-import { makeMatch, give, giveItem, DATA } from '../match/harness.js';
+import { makeMatch, give, giveItem, DATA, legalTileFor } from '../match/harness.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { hasBattlePart, amedicCharsFor, PRIO_BAND_REVIVE } from '../../server/sim/content/bands/battle.js';
 import { bandMetaHandler, duckReplace } from '../../server/sim/content/bands/meta.js';
@@ -556,19 +556,62 @@ test('埃芒加德 命结之秘: the first 3 knock-downs of the battle revive at
   cover('band_ermengard');
 });
 
-test('克莱门莎 崇高牺牲: a <阿戈尔> operator knocked down ⇒ +its tier <阿戈尔> layers (no activation needed; none in 联防/boss)', () => {
-  const ops = { t_eg: op('t_eg', { bonds: ['egirShip'], tier: 3 }), t_x: op('t_x', { bonds: ['yanShip'], tier: 5 }) };
-  const h = fight({ band: 'band_clementia', ops, units: [{ chessId: 't_eg', row: 10, col: 4 }, { chessId: 't_x', row: 11, col: 4 }], foes: [[10, 9]] });
-  h.step(1);
-  h.b.dealDamage(foe(h), h.unit('t_eg'), { amount: 1e6, type: 'true' });
-  h.b.dealDamage(foe(h), h.unit('t_x'), { amount: 1e6, type: 'true' });
-  h.b.retreat(h.unit('t_eg')); // not knocked down: nothing (already dead anyway)
-  assert.deepEqual(h.b.result().perPlayer.p1.layerGains, { egirShip: 3 });
-  const u = fight({ band: 'band_clementia', kind: 'unite', ops, units: [{ chessId: 't_eg', row: 10, col: 4 }], foes: [[10, 9]] });
+test('克莱门莎 崇高牺牲: a <阿戈尔> operator knocked down ⇒ +its tier <阿戈尔> layers, only while <阿戈尔> is active; a 调和 member counts (none in 联防/boss)', () => {
+  // client buff template act1autochess_band13_buff ON_OWNER_KILLED: AutoChessFilterCharacterBondIds egirShip
+  // _considerManiShip → AutoChessTriggerGarrisonAbility → client code ScenePlayerData.AddBondCount (RVA 0x856930): an
+  // inactive bond gets no layers (until 2026-10-11: requireActive false, own bonds only)
+  const ops = { t_eg: op('t_eg', { bonds: ['egirShip'], tier: 3 }), t_x: op('t_x', { bonds: ['yanShip'], tier: 5 }), t_m: op('t_m', { bonds: ['maniShip'], tier: 4 }) };
+  const units = [{ chessId: 't_eg', row: 10, col: 4 }, { chessId: 't_x', row: 11, col: 4 }, { chessId: 't_m', row: 12, col: 4 }];
+  const run = (bonds) => {
+    const h = fight({ band: 'band_clementia', ops, bonds, units, foes: [[10, 9]] });
+    h.step(1);
+    for (const id of ['t_eg', 't_x', 't_m']) h.b.dealDamage(foe(h), h.unit(id), { amount: 1e6, type: 'true' });
+    h.b.retreat(h.unit('t_eg')); // not knocked down: nothing (already dead anyway)
+    return h.b.result().perPlayer.p1.layerGains;
+  };
+  assert.deepEqual(run(undefined), {}, '<阿戈尔> not active: no layers');
+  assert.deepEqual(run(active('egirShip')), { egirShip: 3 }, 'active: the member\'s tier; the 调和 operator only while 调和 is active');
+  assert.deepEqual(run(active('egirShip', 'maniShip')), { egirShip: 3 + 4 }, '+ the 调和 member\'s tier');
+  const u = fight({ band: 'band_clementia', kind: 'unite', ops, bonds: active('egirShip'), units: [{ chessId: 't_eg', row: 10, col: 4 }], foes: [[10, 9]] });
   u.step(1);
   u.b.dealDamage(foe(u), u.unit('t_eg'), { amount: 1e6, type: 'true' });
   assert.deepEqual(u.b.result().perPlayer.p1.layerGains, {});
   cover('band_clementia');
+});
+
+test('克莱门莎 崇高牺牲 on the real match path (spec → createBattleFromSpec): the knock-out adds its tier to <阿戈尔> only while the bond is active', async () => {
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const gains = (ids, band) => {
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 5 }).start();
+    h.toPrep(3);
+    const m = h.m, ps = h.ps('p_0');
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    const skip = new Set(); // no piece in front of another: no 阿戈尔 devour
+    for (const id of ids) {
+      const p = ps.acquireChess(id, { source: 'buy' });
+      const [r, c] = legalTileFor(m, ps, id, skip);
+      for (const dc of [-1, 0, 1]) skip.add(`${r},${c + dc}`);
+      assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: p.uid, to: { area: 'board', row: r, col: c }, dir: 'RIGHT' }), OK);
+    }
+    ps.bandId = band;
+    ps.recompute();
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'b13', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    let started = false;
+    b.on('battleStart', () => { started = true; });
+    while (!started && b.time < 10) b.step();
+    const u = b.allyUnits.find((x) => x.kind === 'op' && x.defId === ids[0]);
+    const before = b.result().perPlayer.p_0.layerGains.egirShip ?? 0;
+    b.kill(u);
+    const after = b.result().perPlayer.p_0.layerGains.egirShip ?? 0;
+    m.dispose?.();
+    return after - before;
+  };
+  const one = ['chess_char_1_04_a'], three = ['chess_char_1_04_a', 'chess_char_2_07_a', 'chess_char_4_12_a'];
+  assert.equal(gains(one, 'band_clementia') - gains(one, null), 0, 'one <阿戈尔> piece: the bond is not active, no layers');
+  assert.equal(gains(three, 'band_clementia') - gains(three, null), 1, 'three: active, +tier 1');
 });
 
 test('大帝 加急调派: every deployment halves the operator\'s next redeploy time (cumulative)', () => {
@@ -610,6 +653,82 @@ test('桑葚 药枚实验: the units on the right-most column get a 25 % chance 
     assert.equal(sh(h.unit('t_b')), 0, 'not right-most');
   }
   cover('band_mberry');
+});
+
+test('桑葚 药枚实验: a deployment after the battle start judges again 0.1 s later — further right takes the shield chance from those left of it, further left gets none (client buff template act1autochess_band17_buff [self] / [check])', () => {
+  const ops = { t_op: op('t_op'), t_b: op('t_b') };
+  const h = fight({ band: 'band_mberry', ops, units: [{ chessId: 't_op', row: 10, col: 7 }, { chessId: 't_b', row: 11, col: 5 }], foes: [[10, 8], [11, 6], [11, 9]] });
+  forceRng(h, 0);
+  h.step(1);
+  const [a, b] = [h.unit('t_op'), h.unit('t_b')];
+  const KEY = 'band:band_mberry:shield';
+  const sh = (u) => { const x = u.findBuff(KEY); return x ? x.shieldHits : 0; };
+  const reset = () => { h.b.removeBuff(a, KEY); h.b.removeBuff(b, KEY); };
+  const shieldsAfter = (sec) => { h.run(0.2); reset(); h.run(sec); return [sh(a), sh(b)]; };
+  assert.deepEqual(shieldsAfter(3), [1, 0], 'battle start: col 7 holds it');
+  assert.ok(h.b.moveRedeploy(b, 11, 8), 'b moves right of a');
+  assert.deepEqual(shieldsAfter(3), [0, 1], 'b (col 8) took it from a (col 7)');
+  assert.ok(h.b.moveRedeploy(b, 11, 5), 'b moves back left');
+  assert.deepEqual(shieldsAfter(3), [0, 0], 'b lost it, a does not get it back');
+  h.b.kill(a);
+  h.runUntil(() => a.alive, 60);
+  assert.deepEqual(shieldsAfter(3), [1, 0], 'a redeployed on col 7, right of everyone: it holds it again');
+});
+
+test('桑葚 药枚实验 on the mirrored half: the raw field column, as the client compares it (maintainer decision 2026-10-11, second answer) — at the start and at a redeploy', () => {
+  const ops = { t_op: op('t_op'), t_b: op('t_b') };
+  const h = fight({ band: 'band_mberry', ops, units: [{ chessId: 't_op', row: 10, col: 7 }, { chessId: 't_b', row: 11, col: 5 }], foes: [[10, 8], [11, 6], [11, 9]] });
+  h.b.players[0].mirror = true; // the mirrored Final Assault right side (read by the band at the battle start)
+  forceRng(h, 0);
+  h.step(1);
+  const [a, b] = [h.unit('t_op'), h.unit('t_b')];
+  const KEY = 'band:band_mberry:shield';
+  const sh = (u) => { const x = u.findBuff(KEY); return x ? x.shieldHits : 0; };
+  const shieldsAfter = (sec) => { h.run(0.2); h.b.removeBuff(a, KEY); h.b.removeBuff(b, KEY); h.run(sec); return [sh(a), sh(b)]; };
+  assert.deepEqual(shieldsAfter(3), [1, 0], 'mirrored too: field column 7 holds it');
+  assert.ok(h.b.moveRedeploy(b, 11, 8), 'b moves to field column 8');
+  assert.deepEqual(shieldsAfter(3), [0, 1], 'b took it');
+});
+
+test('桑葚 药枚实验 on the real match path (spec → createBattleFromSpec): a piece moved right of the holder after the start takes the shield chance from it', async () => {
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const run = (move) => {
+    const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
+    const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 5 }).start();
+    h.toPrep(3);
+    const m = h.m, ps = h.ps('p_0');
+    for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+    ps.board.clear(); ps.hand.fill(null); ps.recompute();
+    for (const [r, c] of [[10, 3], [11, 5]]) {
+      const p = ps.acquireChess('chess_char_1_07_a', { source: 'buy' });
+      assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: p.uid, to: { area: 'board', row: r, col: c }, dir: 'RIGHT' }), OK);
+    }
+    ps.bandId = 'band_mberry';
+    ps.recompute();
+    const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'b17', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent });
+    const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+    let started = false;
+    b.on('battleStart', () => { started = true; });
+    while (!started && b.time < 10) b.step();
+    const holder = b.allyUnits.find((u) => u.kind === 'op' && u.tileC === 5);
+    const other = b.allyUnits.find((u) => u.kind === 'op' && u.tileC === 3);
+    const orig = b.rng;
+    b.rng = Object.assign(() => 0, orig);
+    if (move) assert.ok(b.moveRedeploy(other, 10, 6), 'moved to col 6');
+    let attacks = 0;
+    b.on('attack', (c) => { if (c.attacker === holder) attacks++; });
+    const shields = [];
+    while (!b.finished && b.time < 40) {
+      b.step();
+      for (const e of b.drainEvents()) if (e[0] === 'fx' && e[4] && e[4].src === 'band:band_mberry') shields.push(e[4].id);
+    }
+    m.dispose?.();
+    return { attacks, holder: shields.filter((x) => x === holder.id).length };
+  };
+  const still = run(false), moved = run(true);
+  assert.ok(still.attacks > 0 && still.holder > 0, 'unmoved: the col-5 holder gains shields');
+  assert.ok(moved.attacks > 0, 'it still attacks');
+  assert.equal(moved.holder, 0, 'after the col-6 move it holds no shield chance');
 });
 
 test('休谟斯 回收利用: a ground operator\'s skill end gives a random operator on its 4 neighbouring tiles 3 SP', () => {

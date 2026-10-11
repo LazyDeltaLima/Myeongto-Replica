@@ -305,6 +305,16 @@ export function fxOn(battle, kind, u, src, key, extra = {}) {
   battle.fx(kind, { x: u.x, y: u.y, id: u.id, src, key, ...extra });
 }
 
+/**
+ * A 卫戍协议 bond / equipment / band template effect (client buff template node `CreateEffect` /
+ * `CreateEffectAtScreenPos`): the status event ['tplfx', targetId | null, effectKey, sourceId | null] at the moment the
+ * node runs, once (docs/SIM.md events). `target` null = a screen-position effect. Display only: no state, no rng.
+ */
+export function tplFx(battle, target, effectKey, source = null) {
+  if (!battle || typeof battle._ev !== 'function' || !effectKey) return;
+  battle._ev(['tplfx', target ? target.id : null, effectKey, source ? source.id : null]);
+}
+
 const STORES = new WeakMap();
 /** Per-battle scratch object for namespace `ns` (created with `init()` on first use). */
 export function battleStore(battle, ns, init = () => ({})) {

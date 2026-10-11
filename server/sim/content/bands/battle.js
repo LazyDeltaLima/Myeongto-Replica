@@ -14,13 +14,19 @@
 //                                               5 / 不屈 (in place until 0.2.0, community report 「…砾和瑕光这种死亡和部
 //                                               署的叠层效果，如果有艾芒加德的3次复活似乎是无法触发」)
 //   act1autochess_band13_buff 克莱门莎 崇高牺牲 a <bond_id> operator knocked down ⇒ +its tier (等阶) <bond_id> layers
-//                                               (bond_add_type by_charlevel; no "已激活" in the text ⇒ requireActive false)
+//                                               (bond_add_type by_charlevel) — only while <bond_id> is active, and a 调和
+//                                               member counts (client buff template act1autochess_band13_buff ON_OWNER_KILLED:
+//                                               AutoChessFilterCharacterBondIds _considerManiShip → AutoChessTriggerGarrisonAbility
+//                                               → client code ScenePlayerData.AddBondCount, RVA 0x856930: no layers for an
+//                                               inactive bond; until 2026-10-11 requireActive false and own bonds only)
 //   act1autochess_band16_buff 大帝 加急调派     "每次部署后再部署时间减少50%": every deployment of an operator stacks one
 //                                               redeploy ×(1 + respawn_time) for the rest of the battle, with no cap (PRTS
 //                                               卫戍协议：盟约 下半 / PRTS盟约记录 备注 "※该策略效果可无限叠加"; a 20-stack cap
 //                                               until 0.2.2 — GitHub #328, PR #329)
 //   act1autochess_band17_buff 桑葚 药枚实验     at combat start the player's units on the front-most (最右边) column: each
-//                                               attack has `prob` to gain 1 shield layer (max 1)
+//                                               attack has `prob` to gain 1 shield layer (max 1); a later deployment
+//                                               judges again 0.1 s after it (keeps it if none of the player's units
+//                                               stands further right, and takes it from those left of it)
 //   act1autochess_band18_buff 休谟斯 回收利用   a ground (地面) operator's skill ends ⇒ a random operator on its 4
 //                                               neighbouring tiles gains `sp` SP
 //   act1autochess_band15_buff 卡莱莎 食腐之蝶   an operator knocked down ⇒ every other unit of the player on the field
@@ -39,7 +45,7 @@
 // Prep-only bands (economy / shop / grants / layers at prep end or round start) live in bands/meta.js.
 
 import {
-  num, buffsOf, bandRecord, isOp, onField, isElite, tierOf, unitBonds, activeBondIds, playerOps, passiveBuff, fxOn,
+  num, buffsOf, bandRecord, isOp, onField, isElite, tierOf, isMember, activeBondIds, playerOps, passiveBuff, fxOn, tplFx,
   matchBands, gainLayers, alliesAround, N4, baseChessId, isGroundOp, directMods,
 } from '../support/index.js';
 import { weaknessRetype, addShieldLayer, PRIO_RESPAWN, reviveNow } from '../items/battle.js';
@@ -81,6 +87,7 @@ const BY_KEY = {
       if (used >= max || !isOp(u) || u.ownerId !== ps.playerId || !reviveNow(battle, c, 'band')) return;
       used++;
       fxOn(battle, 'revive', u, keyOf(bandId), bandId, { left: max - used });
+      tplFx(battle, u, 'map_act1autochess_reinforce_02', u); // client buff template act1autochess_band28_buff ON_OWNER_FINISH
     }, { priority: PRIO_BAND_REVIVE });
   },
 
@@ -91,9 +98,9 @@ const BY_KEY = {
     const byLevel = p.bond_add_type == null || p.bond_add_type === 'by_charlevel';
     battle.on('death', (c) => {
       const u = c.unit;
-      if (c.reason !== 'killed' || !isOp(u) || u.ownerId !== ps.playerId || !unitBonds(u).includes(bond)) return;
+      if (c.reason !== 'killed' || !isOp(u) || u.ownerId !== ps.playerId || !isMember(battle, u, bond)) return;
       const n = byLevel ? tierOf(u) : Math.max(1, Math.floor(num(p.value, 1)));
-      if (gainLayers(battle, { playerId: ps.playerId, bonds: bond, n, requireActive: false, source: u, reason: 'band' }) > 0) {
+      if (gainLayers(battle, { playerId: ps.playerId, bonds: bond, n, requireActive: true, source: u, reason: 'band' }) > 0) {
         fxOn(battle, 'layer', u, keyOf(bandId), bandId, { bond, n });
       }
     });
@@ -117,14 +124,38 @@ const BY_KEY = {
     if (!(pr > 0)) return;
     const key = keyOf(bandId, 'shield');
     const chosen = new Set();
+    // "最右边的所有我方单位": the highest raw field column (a board position, whatever the units' directions), on the
+    // mirrored Final Assault right side too — the client compares grid columns (AssignGridPositionToBlackboard;
+    // maintainer decision 2026-10-11, second answer: follow the client). Until then the mirrored side counted from the
+    // field's left (`ps.mirror ? -u.tileC : u.tileC`), docs/rules/sim.md 「桑葚」
+    const boardCol = (u) => u.tileC;
+    let begun = false;
     battle.on('battleStart', () => {
+      begun = true;
       const units = battle.allies(ps.playerId);
-      // "最右边的所有我方单位": the rightmost column of the player's own board (a board position, whatever the units'
-      // directions; the mirrored Final Assault right side counts from the field's left)
-      const boardCol = (u) => (ps.mirror ? -u.tileC : u.tileC);
       let front = -Infinity;
       for (const u of units) front = Math.max(front, boardCol(u));
       for (const u of units) if (boardCol(u) === front) chosen.add(u);
+    });
+    // a deployment after the battle start (a redeploy, a jump, a summon) runs its own check (client buff template
+    // act1autochess_band17_buff: ON_BUFF_START gives the unit [core] and [self], which 0.1 s later puts [check] on every
+    // unit of the same player side — whichever of the two stands further left loses its [core]): it keeps [core] only
+    // if no unit of the player stands further right, and takes it from every unit left of it
+    battle.on('deploy', (c) => {
+      const u = c.unit;
+      if (!begun || !u || u.ownerId !== ps.playerId || u.side === 'enemy' || u.kind === 'device') return;
+      chosen.add(u);
+      const seq = u.deploySeq;
+      battle.after(0.1, () => {
+        if (!u.alive || !u.deployed || u.deploySeq !== seq) return;
+        const me = boardCol(u);
+        for (const a of battle.allies(ps.playerId)) {
+          if (a === u) continue;
+          const col = boardCol(a);
+          if (col > me) chosen.delete(u);
+          else if (col < me) chosen.delete(a);
+        }
+      }, { owner: u });
     });
     battle.on('attack', (c) => {
       const u = c.attacker;

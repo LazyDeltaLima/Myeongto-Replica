@@ -14,6 +14,8 @@ export default {
     return {
       skill: {
         kind: 'charges', heal: true, trigger: NEVER,
+        // a ReplacementSkill (client): the heal it casts in is the replaced attack itself (beforeAttack below)
+        inAttack: true,
         onStart({ unit }) { unit.mem.bldskBonus = unit.mem.bldskTarget ?? null; },
       },
       talents: [{ install(battle, unit) { // 血液样本回收

@@ -36,7 +36,7 @@
 // moveFeared; a self-inflicted fear flutters inside its own tile); an `attract` (诱导) status walks it to the status
 // point instead (moveAttracted); both re-plan the route when released (恐惧 outranks 诱导).
 
-import { ATTACK_PAUSE, MIN_ANIM_SCALE, ALLY_COLLIDER_RADIUS, MOVE_SCALE, PROJECTILE_SPEEDS, PROJECTILE_SPEED, BOOMERANG_RETURN_SPEED, COLS, CHAIN_RADIUS } from './constants.js';
+import { ATTACK_PAUSE, PALSY_STOP, MIN_ANIM_SCALE, ALLY_COLLIDER_RADIUS, MOVE_SCALE, PROJECTILE_SPEEDS, PROJECTILE_SPEED, BOOMERANG_RETURN_SPEED, COLS, CHAIN_RADIUS } from './constants.js';
 import { sortEnemyTargets, sortAllyTargets, canTargetEnemy, canTargetAlly, tileKeyOf } from './targeting.js';
 import { reduceElement } from './damage.js';
 import { straightClear } from './grid.js';
@@ -106,7 +106,8 @@ export function updateAlly(b, u, dt) {
     if (u.castLeft > 0) u.castLeft = attackCountdown(u.castLeft, dt);
   }
   if (u.blocking.length) enforceBlockCapacity(b, u);
-  if (!u.canAct || !u.profile) { cutSwing(u); return; }
+  // (a stun / freeze / sleep also ends a Skill state — client code `SkillState.OnTick`: no `canUseAbility` → IDLE)
+  if (!u.canAct || !u.profile) { cutSwing(u); u.skillStateUntil = 0; return; }
   // a rangeExtend change (buff added / expired) rebuilds the range — also for units that never attack (auras)
   if (b.rangeChanged(u)) b._refreshRange(u);
   const sk = u.skill;
@@ -117,13 +118,20 @@ export function updateAlly(b, u, dt) {
     if (!(u.swing.left > 0)) allyStrike(b, u, prof);
     return;
   }
+  // the Skill state of a skill cast (skills.js _paceInstant, 'state'): no attack until its skill ability ends — the
+  // attack cooldown keeps running meanwhile
+  if (u.skillStateUntil > b.time + 1e-9) return;
   if (u.atkCd > 0 || u.castLeft > 0) return;
+  // a 'replace' cast (skills.js): this attack goes out as the skill, with or without a target of the attack's own
+  if (sk && sk.replacing) { startReplacement(b, u, sk); return; }
   // (a 秘术师's `canAttack` is its own target rule: false = no valid target — 深靛's bound enemies, 维伊's marked ones)
   if (prof.canAttack && !prof.canAttack(b, u)) { if (prof.storeEnergy) { u.trait.hadTarget = false; storeEnergy(b, u, prof); } return; }
   let targets = acquireTargets(b, u, prof);
   if (!targets.length) { u.trait.hadTarget = false; storeEnergy(b, u, prof); return; }
   u.trait.hadTarget = true;
   if (sk && sk.onAboutToAttack()) {
+    if (sk.replacing) { startReplacement(b, u, sk); return; }
+    if (u.skillStateUntil > b.time + 1e-9) return;   // a 'state' cast: no attack until its skill ability ends
     prof = effectiveProfile(u);
     if (prof.noAttack || !u.alive) return;
     targets = acquireTargets(b, u, prof);
@@ -131,10 +139,27 @@ export function updateAlly(b, u, dt) {
   }
   const t = attackTiming(u, TIMING);
   u.atkCd = Math.max(u.atkCd, u.s.interval);
-  b._ev(['swing', u.id, roundMs(t.strike), prof._fortressMelee ? 'none' : (prof.projectile || 'none')]);
+  const swingEv = ['swing', u.id, roundMs(t.strike), prof._fortressMelee ? 'none' : (prof.projectile || 'none')];
+  if (sk && sk.active && sk.spec?.baseClip) swingEv.push(1);   // the Default clip while the skill is on (attackClipOf)
+  b._ev(swingEv);
   u.castLeft = t.action;
   u.swing = { left: t.strike, targets, sel: t.sel, isSkill: !!prof.isSkill };
   if (!(t.strike > 1e-9)) allyStrike(b, u, prof);
+}
+
+/**
+ * The attack a 'replace' cast took over (client code `Character.get_attack` → the registered replacement's ability;
+ * skills.js): its swing starts like an attack's — the attack cooldown restarts from the full interval now — and plays the
+ * skill ability's clip (SkillRuntime.castTiming); its strike is the skill's effect (allyStrike → fireReplacement). A
+ * swing cut before the strike (stun, 缴械 …) leaves the cast waiting for the next attack.
+ */
+function startReplacement(b, u, sk) {
+  const t = sk.castTiming();
+  u.atkCd = Math.max(u.atkCd, u.s.interval);
+  u.castLeft = t.action;
+  u.swing = { left: t.strike, targets: null, sel: 0, isSkill: true, replace: sk };
+  sk.beginReplacement(t.action);
+  if (!(t.strike > 1e-9)) allyStrike(b, u, effectiveProfile(u));
 }
 
 /** A swing in progress or its recovery is cut (`Ability.InterruptIfNot`): the cooldown is left as it is. */
@@ -165,6 +190,7 @@ const strikable = (t) => !!t && t.alive && !t.hidden && (t.side !== 'ally' || t.
 function allyStrike(b, u, prof) {
   const sw = u.swing;
   u.swing = null;
+  if (sw.replace) { sw.replace.fireReplacement(); return; }
   let targets = sw.targets;
   if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(targets[0])) || sw.isSkill !== !!prof.isSkill) {
     targets = acquireTargets(b, u, prof);
@@ -178,13 +204,17 @@ function allyStrike(b, u, prof) {
 
 const TIMING = { strike: 0, action: 0, sel: 0 };
 
-/** The clip timing record of `u`'s next swing: an enemy's one clip, an operator's Default mode or its active skill's. */
+/**
+ * The clip timing record of `u`'s next swing: an enemy's one clip, an operator's Default mode or its active skill's —
+ * the Default one while the running skill's spec says `baseClip` (a kit whose skill keeps the Default mode for a while:
+ * 赤刃明霄陈 S3 until its mode switch, kits/ops/op-chen3.js).
+ */
 function attackClipOf(u) {
   const a = u.def?.attackAnim;
   if (!a) return null;
   if (!('base' in a)) return a;
   const i = u.def.skill?.index;
-  if (u.skill && u.skill.active && Number.isInteger(i) && a.skills[i]) return a.skills[i];
+  if (u.skill && u.skill.active && !u.skill.spec?.baseClip && Number.isInteger(i) && a.skills[i]) return a.skills[i];
   return a.base;
 }
 
@@ -668,6 +698,8 @@ export function updateEnemy(b, e, dt) {
   // a stun / freeze / sleep / 浮空 / 失衡 — or leaving the field — takes the enemy out of its attack: a swing short of its
   // damage frame does not land, and its cooldown runs on from the cut swing's start (enemyAttack)
   if (stunned || e.hidden || unbalanced) cutSwing(e);
+  // (a stun / freeze / sleep / 浮空 takes the enemy out of its 麻痹震颤 — `PalsyState.OnTick` switches to that state)
+  if (stunned || e.s.flags.levitate) e.palsyUntil = -Infinity;
   // true: an enemy in a swing (it stands; a 「不停止移动」 one walks on)
   const winding = !e.hidden && !stunned && !unbalanced && enemyAttack(b, e, dt);
   if (!e.alive) return;
@@ -838,9 +870,14 @@ function advanceRoute(b, e, dt, R, standing = false) {
  * telouts [5,10] / [2,10] of the battle stages — and the doors [2,2] / [2,18] stand beside the entrances. Inside the
  * portal the enemy stays hidden PORTAL_WAIT s, the wait of the explicit crossings of the same tiles (WAIT 3 s in 85 of
  * the 95; 5 s in 9, 1 s in 1). [ASSUMED] the pairing (no tile carries a link) and the 3 s (no source times this one).
+ * An enemy still hidden at its route's end — the four routes whose crossing has no APPEAR in the data (act1autochess_h07_02
+ * #4, act1autochess_h08_02 #5 / #9, act2autochess_h07_05 #6: DISAPPEAR → WAIT → MOVE on, hidden) — ends it as any route
+ * ends (maintainer decision 2026-10-11, docs/rules/sim.md 「보스 포털」: the client has no portal code, the level data moves
+ * the enemy; until then simdata.js re-inserted an APPEAR at the exit there).
  */
 const PORTAL_WAIT = 3;
 function portalPickup(b, e) {
+  if (e.hidden) return false;
   const r = Math.round(e.y), c = Math.round(e.x);
   if (!b.grid.inBounds(r, c) || b.grid.tile(r, c).special !== 'telin') return false;
   const outs = b.grid.specialTiles('telout');
@@ -959,6 +996,7 @@ function enemyAttack(b, e, dt) {
     return false;
   }
   if (e.atkCd > 0 || e.castLeft > 0) return false;   // the cooldown runs, or the last swing still plays out
+  if (b.time < e.palsyUntil - 1e-9) return false;     // 麻痹震颤 (PALSY_STOP): no new attack
   const targets = enemyTargets(e, attackTargets(b, e, radius, reach, own));
   if (!targets.length) return false;                  // ready, nobody in reach: no swing
   const t = attackTiming(e, TIMING);
@@ -1062,8 +1100,11 @@ function enemyStrike(b, e, radius, reach, own) {
     }
     if (!keep) { if (--palsy.stacks <= 0) b.removeBuff(e, palsy); else e.markDirty(); }
     e.castLeft = 0;
-    // the interrupted attack ends its clip: the old short stand after it (PRTS 异常效果 麻痹: 0.5 s 麻痹震颤 — not modelled)
-    e.atkStandUntil = !e.blockedBy && radius > 0 && !(e.profile?.attackMoves ?? def.attackMoves) ? b.time + ATTACK_PAUSE : -Infinity;
+    // 麻痹震颤 (client code `Enemy.OnTriggerPalsy` → `Enemy.States.PalsyState`; maintainer decision 2026-10-11): every
+    // enemy so interrupted — blocked or not, melee or ranged, a 「不停止移动」 one too — stands PALSY_STOP s and starts no
+    // attack (until 2026-10-11 only an unblocked ranged enemy stood, ATTACK_PAUSE); `atkStandUntil` holds the walking
+    e.palsyUntil = b.time + PALSY_STOP;
+    e.atkStandUntil = b.time + PALSY_STOP;
     b.fx('palsy', { x: e.x, y: e.y, id: e.id });
     return;
   }

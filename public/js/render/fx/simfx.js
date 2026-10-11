@@ -297,7 +297,7 @@ export class FxSim {
       case 'lp': this.leak(); break;
       case 'element': {
         const el = ex.element;
-        const c2 = el === 'burn' ? 0xff7a33 : el === 'neural' ? 0xff5ad0 : el === 'necrosis' || el === 'apoptosis' ? 0x9dff6a : el === 'erosion' ? 0x6fe0ff : col;
+        const c2 = el === 'burn' ? 0xff7a33 : el === 'neural' ? 0xff5ad0 : el === 'apoptosis' ? 0x9dff6a : el === 'erosion' ? 0x6fe0ff : col;
         this.particle('glow', p.x, p.y, { tint: c2, life: 0.45, s0: s / 128 * 1.2, s1: s / 128 * 2.6, a0: 1, a1: 0 });
         this.ring(at.x, at.y, at.z, 0.2, 1.5, c2, 0.55);
         this.burst(p.x, p.y, s, 12, c2, { speed: 3, life: 0.5 });

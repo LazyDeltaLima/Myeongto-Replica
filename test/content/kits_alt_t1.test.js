@@ -418,11 +418,15 @@ test('1_17 深靛 S1 灯塔守卫者: skill range, attack interval ×0.2 (−80 
     const st = h.b.time;
     assert.deepEqual([...u.rangeKeys].sort((x, y) => x - y), absoluteRangeKeys(s.rangeGrid, u.tileR, u.tileC, u.dir, 0).sort((x, y) => x - y), 'skill range');
     approx(u.s.interval, u.base.bat * (1 + bb.base_attack_time) * 100 / u.s.aspd, `${id} interval ×0.2`);
+    const fast = u.s.interval;
     h.runUntil(() => !u.skill.active, 10);
     within(h.b.time - st, s.duration, 0.05, 'duration');
     h.run(0.5); // bolts in flight
     const hits = dealt(h, u, (c) => c.dmg.isAttack && c.dmg.isSkill);
-    assert.ok(hits.length >= Math.floor(s.duration / (u.base.bat * (1 + bb.base_attack_time))) - 1, `${hits.length} hits in ${s.duration} s`);
+    // the 0.2 s automatic operation casts S1 right after her opening swing (or energy store) began: that swing keeps its
+    // full 3 s cooldown (AbilityStandard.CastToTarget resets the timer at the swing start), the swings after it run ×0.2
+    assert.ok(hits.length >= 2, `${hits.length} hits in ${s.duration} s`);
+    for (let i = 2; i < hits.length; i++) within(hits[i].t - hits[i - 1].t, fast, 0.05, 'fast swings');
     for (const c of hits) { assert.equal(c.type, 'arts'); approx(c.amount, u.s.atk * bb['attack@atk_scale'], 'hit'); }
     assert.deepEqual([...u.rangeKeys].sort(), [...u.baseRangeKeys].sort(), 'range restored');
     done(h);

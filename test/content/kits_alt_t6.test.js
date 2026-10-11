@@ -84,8 +84,9 @@ test('every tier-6 skill × module choice (normal + elite) survives a real wave 
         done(h);
         const u = h.b.allyUnits.find((x) => x.defId === id);
         assert.equal(u.skill.id, s.skillId);
-        // (a TAKE_DAMAGE skill needs an attacker: these slimes walk past)
-        if (u.skill.kind !== 'passive' && u.skill.rule !== 'TAKE_DAMAGE') assert.ok(u.skill.activations > 0, `${id} ${s.name} (module ${moduleId}) casts`);
+        // (a TAKE_DAMAGE skill needs an attacker: these slimes walk past; so does a 阵法术师's SEARCH-row skill an enemy in
+        // her initial range — 圣聆初雪 S1: the slimes pass outside it)
+        if (u.skill.kind !== 'passive' && u.skill.rule !== 'TAKE_DAMAGE' && !u.profile?.noAttackUnlessSkill) assert.ok(u.skill.activations > 0, `${id} ${s.name} (module ${moduleId}) casts`);
       }
     }
   }
@@ -187,11 +188,11 @@ test('6_02 圣聆初雪 S1 铃音吹雪: 2 charges (cast with enemies in range);
     approx(e1.y, 10, 'no sideways push');
     // (the pushed enemies clear the snow of the tiles they leave: "首个敌人离开该地块时积雪消失")
     for (let d = 3; d <= bb.trig_cnt; d++) assert.ok((u.mem.snow.get(10 * COLS + 4 + d) ?? 0) >= 1, `snow ${d} tiles ahead`);
-    h.run(2.5);
-    assert.equal(started(h, u).length, 1, 'the next automatic cast waits the 3 s operation cooldown ("自动操作具有3s冷却")');
+    h.run(2);
+    assert.equal(started(h, u).length, 1, 'the next automatic cast waits the 10-pass block (BLOCK_SKILL_TICK, ≈ 2.2 s)');
     h.run(1);
     assert.equal(started(h, u).length, 2, 'the second charge fires too');
-    assert.ok(started(h, u)[1].t - t0 >= 3 - 1e-6);
+    assert.ok(started(h, u)[1].t - t0 >= 2.2 - 1e-6);
     done(h);
   }
 });
@@ -621,7 +622,8 @@ test('6_09 塑心 S2 “安魂的弥撒”: normal attacks allowed; ASPD +, 2 ta
     assert.equal(u.mem.celloPartner, big, 'highest-ATK other operator of her range');
     h.run(1.5); // (before a 凋亡 burst locks the gauges)
     assert.ok(h.enemies().every((e) => !e.findBuff('apoptosisBurst')));
-    const direct = (c) => c.type !== 'element' && c.type !== 'elemental' && c.amount > 0 && c.target.side === 'enemy' && c.t >= t0 - 1e-9;
+    // (after the cast: the partner's opening hit at t = 0 lands before the 0.2 s automatic operation of that tick)
+    const direct = (c) => c.type !== 'element' && c.type !== 'elemental' && c.amount > 0 && c.target.side === 'enemy' && c.t > t0 + 1e-9;
     const fills = h.hooksOf('elementHit').filter((c) => c.source === u && c.dmg.element === 'apoptosis' && (c.dmg.tags || []).includes('skill'));
     const own = h.hooksOf('damaged').filter((c) => (c.source === u || c.source === big) && direct(c));
     assert.ok(h.hooksOf('damaged').some((c) => c.source === big && direct(c)) && h.hooksOf('damaged').some((c) => c.source === small && direct(c)), 'both allies hit');

@@ -1572,11 +1572,13 @@ export function touchGospel(bb, skill) {
 }
 
 /**
- * Touch (外勤医疗 map character): 恳切福音 (touchGospel) + 攫升 / 超脱 (mapCharTalents). The trigger is ACTIVE_RANGE on
- * the skill's 5-2 range (her running range, which strictly contains her own 3-3): an injured ally inside it casts — the
- * owner's larger-range rule of 2026-10-05, read for a heal skill as for the Touch 补位 stand-in, whose data rule it is
- * (data/backups.json). The map character's record keeps DEFAULT (tools/build-data.mjs resolveTrigger widens operators'
- * skills only), so she waited for an injured ally in her 3-3 (GitHub #260, PR #278).
+ * Touch (外勤医疗 map character): 恳切福音 (touchGospel) + 攫升 / 超脱 (mapCharTalents). The trigger is the kit rule
+ * ACTIVE_RANGE on the skill's 5-2 range (her running range, which strictly contains her own 3-3): an injured ally inside
+ * it casts — the owner's larger-range rule of 2026-10-05 read for a heal skill (GitHub #260, PR #278: the map
+ * character's record keeps DEFAULT, so she waited for an injured ally in her 3-3). The Touch 补位 stand-in no longer
+ * shares it: since maintainer decision 2026-10-11 her data rule is the client's basic strategy, DEFAULT on the 5-2
+ * rangeId — an ENEMY in that box (docs/rules/sim.md 「스킬 범위 발동」). Whether the client's automatic operations drive
+ * a map character the same way was not checked [ASSUMED: kept as it was].
  */
 function touchKit(bb, raw, def) {
   const sk = def?.skill;

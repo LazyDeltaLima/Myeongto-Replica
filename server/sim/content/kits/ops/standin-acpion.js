@@ -37,7 +37,8 @@ export default {
   //      character char_513_apionr, whose S1 只余芬芳 has the same text, blackboard and x-1 range) 备注: "※可对空" and
   //      "※技能生效期间，持有效果：无敌，无法阻挡，眩晕免疫，冻结免疫" [ASSUMED: the 卫戍 copy skchr_acpion_3 behaves the same].
   //   Module SOL-X (elite, trait override): "阻挡敌人时攻击力和防御力各+8％" — while she blocks (none during S3: 无法阻挡).
-  //   Triggers (data, nothing set here): S1 / S2 DEFAULT; S3 SKILL_RANGE on its x-1 (any enemy in it, air units too).
+  //   Triggers (data, nothing set here): S1 / S2 DEFAULT; S3 DEFAULT on its x-1 rangeId (a selectable enemy in
+  //      it, air units too — the client's basic strategy, maintainer decision 2026-10-11).
   char_608_acpion: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1), tb = traitBb(chess);
     const r1 = skillRec(chess, S1), r2 = skillRec(chess, S2), r3 = skillRec(chess, S3);

@@ -1,6 +1,6 @@
 // test/content/standin_acsupo.test.js — the 补位 stand-in Raidian (char_614_acsupo, kits/ops/standin-acsupo.js) on every
 // chess it replaces (灵知 T4 S2, 夕 / 安洁莉娜 T5 S3 + DEC-X, 浊心斯卡蒂 / 仇白 T6 S3 + DEC-X), normal and elite: every skill
-// (S1 双声, S2 三形, S3 信号跃动 with its range, auras and the data's ACTIVE_RANGE trigger), both talents (同调 on herself and
+// (S1 双声, S2 三形, S3 信号跃动 with its range, auras and the data's DEFAULT trigger on its rangeId), both talents (同调 on herself and
 // the operators next to her, 诱引's hit-rate cut on the attacks of the enemies in her range — PRTS 命中率), the module
 // (DEC-X SP, stats, 同调 at level 3), the 停顿 trait, anti-air; and the engine option behind S3's 虚弱 (applyStatus stackAs).
 // Run: node --test test/content/standin_acsupo.test.js
@@ -71,26 +71,28 @@ test('Raidian on every chess it replaces: the stand-in body, its kit, the backup
   }
 });
 
-test('Raidian triggers: S1 / S2 MANUAL DEFAULT; S3 the data\'s ACTIVE_RANGE over its y-4 (the owner\'s rule), the kit sets none', () => {
+// the data's DEFAULT (client AutoChessBattleTrigger._DefaultTriggerSkill, maintainer decision 2026-10-11): S1 / S2 have no
+// rangeId — the attack state; S3 has its y-4 — a selectable enemy in that box
+test('Raidian triggers: S1 / S2 MANUAL DEFAULT; S3 the data\'s DEFAULT on its y-4 rangeId, the kit sets none', () => {
   for (const id of ['chess_char_4_13_a', 'chess_char_5_12_b']) {
     for (const [i, sid] of [[0, S1], [1, S2], [2, S3]]) {
       const h = arena(id, { standIn: { skillIndex: i }, sp: null });
       h.step();
       const u = h.unit(1);
-      const rule = sid === S3 ? 'ACTIVE_RANGE' : 'DEFAULT';
-      assert.deepEqual([u.skill.id, u.skill.rule, u.def.skill.trigger.rule, u.kit.skill.trigger], [sid, rule, rule, undefined], `${id} ${sid}`);
+      assert.deepEqual([u.skill.id, u.skill.rule, u.def.skill.trigger.rule, u.kit.skill.trigger], [sid, 'DEFAULT', 'DEFAULT', undefined], `${id} ${sid}`);
       if (sid === S3) assert.deepEqual(u.def.skill.trigger.grid, skillOf(id, S3).rangeGrid, 'trigger grid = the skill range');
+      else assert.equal(u.skill.triggerGrid, null, `${id} ${sid}: no rangeId`);
       done(h);
     }
   }
 });
 
-test('S3 ACTIVE_RANGE: an enemy only in its y-4 range ((10,7)) casts it at once, before any attack; none there, or one beyond it, no cast', () => {
+test('S3 rangeId box: an enemy only in its y-4 range ((10,7)) casts it at the first automatic operation after the battle-start block, before any attack; none there, or one beyond it, no cast', () => {
   for (const id of ['chess_char_5_12_a', 'chess_char_6_15_b']) {
     const h = arena(id, { enemies: [{ key: 'd', pos: [10, 7] }] });
     const u = h.unit(1);
-    assert.ok(h.runUntil(() => u.skill.active, 2), `${id}: cast`);
-    assert.equal(castOf(h, u).reason, 'ACTIVE_RANGE');
+    assert.ok(h.runUntil(() => u.skill.active, 2.5), `${id}: cast`);
+    assert.equal(castOf(h, u).reason, 'DEFAULT');
     assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u && c.t < castOf(h, u).t).length, 0, 'no attack before (it is out of y-2)');
     assert.ok(u.rangeKeySet.has(key(10, 7)), 'then in her running range');
     h.run(3);
@@ -135,9 +137,11 @@ test('S2 三形: base attack time 1.9 → 1.8 / 1.7 s, 3 targets, 停顿 1.1 / 1
     const start = castOf(h, u).t;
     close(u.s.interval * u.s.aspd / 100, 1.9 + sk.bb.base_attack_time, `${id}: base attack time`);
     h.run(5);
-    const atks = h.hooksOf('attack').filter((c) => c.attacker === u && c.t >= start);
+    // (the 0.2 s automatic operation runs after the units' update: a swing that began in the cast's own tick took its
+    // targets before the skill — docs/rules/sim.md 「스킬 범위 발동」 known result)
+    const atks = h.hooksOf('attack').filter((c) => c.attacker === u && c.t > start + 1e-9);
     assert.ok(atks.length >= 3 && atks.every((c) => c.targets.length === 3), `${id}: 3 targets`);
-    const during = slow(start, h.b.time);
+    const during = slow(atks[0].t, h.b.time);   // (from the first swing of the skill: the earlier one carries the trait's)
     assert.ok(during.length >= 9 && during.every((d) => d === sk.bb['attack@sluggish']), `${id}: 停顿 ${sk.bb['attack@sluggish']} s`);
     assert.ok(h.runUntil(() => !u.skill.active, 30));
     close(h.b.time - start, sk.duration, `${id}: ${sk.duration} s`, 0.05);

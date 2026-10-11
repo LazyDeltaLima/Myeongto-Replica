@@ -59,7 +59,9 @@ test('#4 深靛 S1 灯塔守卫者 (PRTS 备注): the energies she stored land w
   assert.ok(h.runUntil(() => u.trait.stored === 3, 15), 'three energies stored with no target');
   u.skill.gainSp(999);
   h.spawn('e', { pos: [10, 6] });
-  assert.ok(h.runUntil(() => u.skill.active, u.s.interval + 1), 'S1 cast at her next attack check');
+  assert.ok(h.runUntil(() => u.skill.active, 1), 'S1 cast by the next 0.2 s automatic-operation pass (rangeId 4-1)');
+  // her first strike waits for the cooldown of the last energy store (a full attack interval from its start)
+  assert.ok(h.runUntil(() => h.hooksOf('damaged').some((c) => c.source === u && c.dmg.isAttack), u.base.bat + 2), 'S1 strikes');
   h.run(1);
   const first = h.hooksOf('damaged').filter((c) => c.source === u && c.dmg.isAttack);
   const id0 = first[0].dmg.attackId;

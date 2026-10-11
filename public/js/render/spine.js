@@ -177,6 +177,7 @@ export class SpineActor {
     this.runMode = false;         // move on the model's own Run cycle (setRunMode)
     this.formRoles = null;        // the clip set of the form in force (setForm), over the unit's own roles
     this.skillOn = false;
+    this.baseClip = false;        // the latest swing plays the Default attack clip while a skill is on (units.js onSwing)
     this.skillClipOnce = false;    // skillBegin: the skill's own clip plays once (a clip with no Begin / own Idle)
     this.skillEndPending = false;  // … and the skill turned off inside it: play its End clip / base when it ends
     this.attackUntil = 0;
@@ -519,7 +520,7 @@ export class SpineActor {
   _attackClip() {
     if (this._stance()) return null;   // the client's attack `_animKey ""`: the stance runs on
     const sk = this.roles.skill;
-    if (this.skillOn && sk && this.has(sk.loop) && sk.via !== 'attack' && !this._skillIsBuffOnly()) return sk;
+    if (this.skillOn && !this.baseClip && sk && this.has(sk.loop) && sk.via !== 'attack' && !this._skillIsBuffOnly()) return sk;
     const a = this.roles.attack;
     if (a && this.has(a.loop)) return a;
     return null;
@@ -566,6 +567,7 @@ export class SpineActor {
     on = !!on;
     if (on === this.skillOn || this.dead) return;
     this.skillOn = on;
+    this.baseClip = false;
     const sk = this.roles.skill;
     if (this.mode === 'stun' || this.mode === 'die') return;
     // a skill that ends as the unit (re)deploys — 乌尔比安's 【返回】 is a 【移动】 (sim Battle.moveRedeploy) right before

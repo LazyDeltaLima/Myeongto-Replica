@@ -84,6 +84,9 @@ test('蕾缪安: S3 locks 5 (+1 talent) targets every 0.5 s, then the shells lan
   });
   const u = h.unit('chess_char_6_01_a');
   const bb = u.def.skill.bb, t1 = u.def.talents[1].bb;
+  // (from no SP: with her initial 26 of 45 the 0.2 s automatic operation would cast at 19 s, before the talent)
+  h.step();
+  u.skill.sp = 0;
   assert.ok(h.runUntil(() => u.skill.active, 60));
   assert.ok(h.b.time >= t1.interval, 'talent 2 active (20 s on field) before the first cast');
   const start = h.b.time;

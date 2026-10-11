@@ -218,19 +218,36 @@
     `TOKEN_MODEL_K`는 그대로(보정은 그 위의 비율). 연구 문서 `docs/research/12-flying-visuals-official.md`도 가져옴. 테스트
     `test/render/playtest6-enemies.test.js`(upstream 그대로, 수정 전 렌더러로 2개 실패 확인).
 
-## 스킬 범위 발동 (2026-10-07, 관리자 결정 — 미확정)
-- 규칙(관리자 제보·결정 2026-10-07, **미확정**): 스킬로 공격 범위가 넓어지는 오퍼레이터는 기본 공격을 못 하더라도, 스킬이 준비되면 넓어진 **스킬 범위**
-  안에 적이 들어오는 즉시 스킬을 자동으로 쓴다(본체가 공중을 못 쳐도 스킬이 공중을 치면 — 赤刃明霄陈 S3 — 공중 적도 발동 조건).
-  근거는 관리자의 플레이 기억과 다른 플레이어의 제보이고 **공식 자료와 다르다** — 공식 기본 전략(`skillTriggerDataList`가 없는 MANUAL 스킬,
-  PRTS 卫戍协议/帮助 「技能就绪，且即将进行普通攻击」, 「攻击范围扩大」 같은 공격 범위 변경은 기본 전략)이 맞을 수도 있어, 공식 자료로 확인될 때까지
-  미확정으로 둔다.
-- 지금 구현(0.2.0부터, 관리자 결정 2026-10-07): upstream 데이터 규칙 `ACTIVE_RANGE` — `tools/build-data.mjs resolveTrigger`가 기본 전략의 MANUAL 스킬
-  (深巡 S2의 DEFAULT 예외 포함)과, SEARCH 행 가운데 실행 범위가 자기 범위를 엄격히 포함하는 스킬에 붙이고, `server/sim/skills.js`가 매 틱 그 범위의
-  적을 본다. 烛煌 S3는 4-11이 그녀의 3-1을 포함하지 않아 DEFAULT 그대로. 자세히는 `server/sim/content/kits/README.md` 「Auto-cast trigger」,
-  테스트 `test/sim/feedback5-active-range.test.js`, `test/sim/feedback1e-skillrange.test.js`.
-- 처음 구현(2026-10-07, `server/sim/local-skill-range.js` — 0.2.0 병합 때 지움)은 같은 취지의 로컬 규칙이었다.
-- 알려진 차이: 틱에서 켜지므로 이미 나간 일반 공격의 쿨다운(BAT 그대로)이 끝나야 첫 스킬 공격이 나간다(엔진 그대로, 공식 SKILL_RANGE 스킬과 같음).
-  2026-10-10 「일반 공격 타이밍」부터는 켜질 때 휘두르던 공격이 있으면 그 타격이 스킬 공격으로 나간다(대상을 다시 고름 — 그 절의 [추정]). 이 규칙 자체는 그대로 미확정.
+## 스킬 범위 발동 — 관리자 결정 2026-10-11 확정 (클라 `AutoChessBattleTrigger` 그대로)
+- 규칙(관리자 결정 2026-10-11 「공식대로」, **확정**): MANUAL 스킬의 자동 시전은 클라 위수협약 자동 조작을 그대로 따른다.
+  0.2 s마다(`AutoTrigger` → `WaitForFixedSeconds(0.2)`, `constants.js AUTO_TRIGGER_INTERVAL`) 한 번 배치 순서대로 캐릭터를 돈다
+  (`_TryTriggerAvailableSkills` 0x7D8230): 블록이 남은 캐릭터는 1 줄이고 건너뛰고, 처음으로 시전한 캐릭터에 `BLOCK_SKILL_TICK` 10틱 블록을 걸고
+  그 패스를 끝낸다 → 한 패스에 전투 전체에서 자동 시전 하나, 같은 캐릭터는 11번째 패스(≈ 2.2 s)에 다시 검사. AUTO 스킬은 자동 조작을 타지 않는다
+  (`_DoDefaultCheck` 0x7D61F0: `skillType` MANUAL만) — 스킬 자신의 트리거로 켜진다.
+- 기본 전략(`_DefaultTriggerSkill` 0x7D5E10): 스킬 레벨에 **rangeId가 있으면** 그 칸을 캐릭터 방향으로 돌린 상자 안에 선택 가능한 적(지상·공중, `m_findEnemyTargetOptions`
+  `targetMotion` 3 = ALL)이 하나라도 있으면, **없으면** 캐릭터가 공격·저지 상태(`isInAttackState || isInCombatState`)이면 그 자리에서 `UseSkill`.
+  상자에 사거리 연장은 더하지 않는다(`LitePhysicsUtil.FindTargetsInBox`). 치유 스킬도 rangeId 갈래는 **적**을 센다(같은 옵션). 데이터:
+  `tools/build-data.mjs resolveTrigger` — MANUAL + rangeId → `{ rule: 'DEFAULT', customRangeGrid: rangeGrid }`; 엔진 `server/sim/skills.js autoTrigger`·`_autoDefault`,
+  `server/sim/battle/lifecycle.js _autoTriggerPass`.
+- TAKE_DAMAGE(12): 배치 때 버프 `autochess_trigger_skill[on_take_damage]`(`_OnUnitBorn` 0x7D6B30, 형 12일 때 `AddBuffById`)가 피격 순간 스킬을 켠다
+  → 엔진 `onDamaged`가 그 자리에서 시전(패스를 기다리지 않음). 그리고 클라 패스의 점프표(0x7D8B70, 바이너리에서 직접 읽음)는 12를 SEARCH(2)와 같은
+  갈래(`_DoDefaultCheck` + `_TrySearchTarget`, 0x7D8AE9)로 보낸다. `_TrySearchTarget`(0x7D6E70)은 스킬이 아니라 캐릭터의 **공격 트리거**를 묻는다:
+  `Character.attackTrigger`(대체 공격 `IReplacement` 반영)의 `TargetTrigger.Search(false)`가 참이면 시전, 공격 트리거가 없거나 `NeverTrigger`면
+  `rangeToShow`의 `TargetSelector.FindTargets`가 하나라도 찾으면 시전. 그래서 TAKE_DAMAGE 스킬은 피격 **또는** 공격할 적(초기 범위 안·저지 중)이 있으면
+  0.2 s 패스에서 켜진다 — 엔진 `autoTrigger`: `hurt || _defaultCondition()`(SEARCH와 같은 조건). 이전(2026-10-11 sim6)은 피격만 [추정]이었다.
+  핫픽스(DefinedFix.lua en/zh)에 `AutoChessBattleTrigger` 없음. 결과: 근접 重装은 적을 저지하면 맞기 전에 시전(瑕光·蛇屠箱 S1 등),
+  `TRIGGER_DEVIATIONS`(重装 6개 → DEFAULT)와의 차이는 rangeId 상자 쪽뿐이다.
+- 전투 시작 배치 블록: `AUTO_OP_COOLDOWN` = 10틱 × 0.2 s = 2 s(`battle.flags.startOpCooldown`). [추정] 클라 `_OnUnitBorn`은 TAKE_DAMAGE 버프만 붙이고
+  시작 블록은 코드로 못 찾음 — PRTS 「作战开始时部署的单位将进入冷却」를 블록 길이로 읽음.
+- 알려진 결과: 패스가 휘두름 시작 뒤에 오면 그 휘두름은 원래 쿨다운을 그대로 지닌다(`AbilityStandard.CastToTarget`이 휘두름 시작에 타이머를 다시 검) —
+  공속 스킬의 첫 몇 타가 느리다. 결정 1(즉발 시전)의 `cast` 모드(replace/state/free)는 「즉발 스킬의 시전」 절.
+- 근거 기록: 비공개 조사 기록 round2 §7, upstream 0.2.3 대조(스킬 발동). 테스트 `test/sim/skills.test.js`, `test/sim/instant-cast.test.js`, `test/local-patch-diy-chen3.test.js`(첸 S3 3-12 공중).
+- **되돌리기(옛 잠정 규칙, 2026-10-07 관리자 결정 — 미확정이었음)**: 스킬로 공격 범위가 넓어지는 오퍼레이터는 넓어진 실행 범위 안의 적으로 매 틱 발동
+  (`resolveTrigger`가 MANUAL 기본 전략·SEARCH 행 중 실행 범위가 자기 범위를 엄격히 포함하면 `ACTIVE_RANGE` + 실행 범위 grid, MANUAL + 자기 技能范围면
+  `SKILL_RANGE`; 나머지 DEFAULT = `onAboutToAttack` 「다음 공격 직전」), 자동 조작 간격 `AUTO_OP_COOLDOWN` 3 s(PRTS 「自动操作具有3s冷却」, `opReadyAt`),
+  틱당 시전 수 제한 없음, TAKE_DAMAGE는 피격 즉시. 되돌리려면 `tools/build-data.mjs resolveTrigger`(ACTIVE_RANGE·SKILL_RANGE 부여, `activeAttackGrid`·
+  `strictlyContains`), `server/sim/skills.js`(`autoOp`이면 tick/onAboutToAttack 시전 안 함 → 되살림, `blockTicks` → `opReadyAt`), `battle/lifecycle.js _autoTriggerPass`
+  삭제, `constants.js AUTO_OP_COOLDOWN` 3. 엔진 규칙 `ACTIVE_RANGE`·`SKILL_RANGE`는 키트용으로 남아 있다(Touch `content/tokens.js` 등).
 
 ## upstream 0.2.1·0.2.2 이식 (2026-10-09, 관리자 결정)
 upstream v0.2.0 이후 수정 가운데 고른 것(비공개 비교 기록). 근거는 각 upstream 커밋(과 그 커밋이 인용한 PRTS 비고)이다. golden은 바뀐 커밋마다 다시 만들었고,
@@ -266,7 +283,8 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   (upstream `game.js` 부분 포함).
 - **보스 필드 포털** (`5d8180f2` ← `a87cc1e9`, `47b73f1a` ← `1205336a`, GitHub #336 / PR #337, 공식 녹화): 경로가 모서리 포털 입구([1,3]/[1,17])에서
   끝나면 누수가 아니라 가장 먼 출구 [5,10]으로 나와 그쪽 파란 문까지 걸어가 누수. 포털 안 3초는 [ASSUMED](데이터 명시 통과 95개 중 85개가 3초).
-  APPEAR 없는 통과 4개(h07_02 #4, h08_02 #5/#9, act2 h07_05 #6)에 출구 APPEAR 추가(`simdata.js portalAppear`). 짝짓기(입구→가장 먼 출구)도 [ASSUMED].
+  APPEAR 없는 통과 4개(h07_02 #4, h08_02 #5/#9, act2 h07_05 #6)에 출구 APPEAR를 넣던 보정(`simdata.js portalAppear`)은 2026-10-11 관리자 결정으로 뺐다
+  (아래 「관리자 결정 2026-10-11」 보스 포털). 짝짓기(입구→가장 먼 출구)는 [ASSUMED].
 - **失衡** (`6824d528` ← `cdf2bd5c`, `36470218` ← `1db84d79`, PR #392 아이디어; PRTS 失衡位移机制·失衡免疫·推力-位移近似对应表·推与拉·特殊机制 静态刚体):
   밀린 적은 受力等级별 位移时间(−2 0.2 s … 3 35/30 s), 당긴 적은 1 s(−2 이하 0.5 s) 동안 걷지 않고(恐惧·诱导 포함) 평타를 시작하지 않으며
   스킬·순간이동·스크립트 이동도 멈춘다. 静态刚体는 밀기 0.1 s·당기기 그 창 전체, 이동 0. 浮空·重生·逐火 余烬·경로 APPEAR가 끝낸다.
@@ -284,10 +302,10 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   歌蕾蒂娅 S3 捕网 반경 1 `4c7eed16` ← `b2510524`(#324) · 异客 S3 雷暴 x-1 마름모 `ea08c23a` ← `a0cd6826`(#322) · 伊内丝 S3 突袭 착지 후 재발동
   `4b739035` ← `6d6fbe92` · 凋亡이 저장 충전 SP도 깎음 `54692ccd` ← `c225559d`(PR #262) · 引星棘刺 S1/S2 회복 = 생명 회복 속도 `a753baa7` ← `42caca3b`,
   DEF 중첩 `95dea8a0` ← `1a67ecc3`, 동률 = 마지막 배치 `e8cc138c` ← `03688c82`(#388; 사이의 白铁 `69d791f9` 줄은 안 받음) · 공격 없는 즉발 스킬은
-  공격 간격마다 한 번 `a71bb1e8` ← `4128965a` + `db29acf9`(#298, [ASSUMED] 한 간격 — 우리 望 테스트는 수정 불필요) · 外勤医疗 Touch ACTIVE_RANGE
-  `a254e00e` ← `c623550f`(sim만, 카드 UI는 UI 쪽 이식; 「스킬 범위 발동」 미확정 상태 그대로) · 香槟炸弹 은신·수면 적에 안 터짐 `c59e05a7` ← `e733171b`
+  공격 간격마다 한 번 `a71bb1e8` ← `4128965a` + `db29acf9`(#298 — 2026-10-11 관리자 결정으로 클라 스킬 클래스대로 바뀜: 아래 「즉발 스킬의 시전」) · 外勤医疗 Touch ACTIVE_RANGE
+  `a254e00e` ← `c623550f`(sim만, 카드 UI는 UI 쪽 이식; 「스킬 범위 발동」은 당시 미확정 — 2026-10-11 확정) · 香槟炸弹 은신·수면 적에 안 터짐 `c59e05a7` ← `e733171b`
   (손 이식, `5f98baec` 무적·禁疗은 안 받음 — 관리자 결정).
-- 望 跟子: `d0031e33` ← `5a045731` 중 跟子 칸 배치 부분만(관리자 결정) — `diy.md` 「跟子 칸에 배치하면 그 跟子가 사라진다」. 전투 시작 跟子는 안 받음(관리자 결정), 나머지 하나는 이미 PRTS대로.
+- 望 跟子: `d0031e33` ← `5a045731` 중 跟子 칸 배치 부분만(관리자 결정) — `diy.md` 「跟子 칸에 배치하면 그 跟子가 사라진다」. 전투 시작 跟子는 안 받음(관리자 결정 — 2026-10-11에 뒤집힘: 클라대로 전투 시작에도 붙음, `diy.md` 「되돌리기」), 나머지 하나는 이미 PRTS대로.
 - 엔진: 同名效果取最高 3개 이상 `f17d705c` ← `3356b340`(#342; upstream content 테스트는 우리에게 없는 선발 3명이라 버림, sim 단위 테스트가 대신) ·
   帝国炮火先兆者 포탄 3×3 `4e463805` ← `895653fc`(#364, **[ASSUMED]** 충돌 반경 0.25 더함) · 假想敌：骨刺 대상 `e55366ad` ← `c250ff66`(#365 —
   우리 `NO_AIR_KEYS`의 acbunn은 뺌) · 碎铳之簧 5초 추적 `81bbc3c1` ← `f2aec39e`(PR #347, `unbalancedNow` 조건 유지) · 战场#08 보스 경로
@@ -346,7 +364,7 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
 
 ## 盟约·특질·장비·생성기 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 그래프와 클라 코드(디컴파일, RVA는 EN 판; 레포에는 클래스·메서드 이름만). 핫픽스(DefinedFix.lua en/zh)에 아래 클래스 없음.
-관리자 결정이 필요한 것(阿戈尔 吞噬가 팀원 오퍼를 먹는가, 특질 `attrByBond`의 배치 때 고정, 桑葚 미러 판 「가장 오른쪽」)은 바꾸지 않았다(관리자 결정 대기).
+이때 관리자 결정이 필요했던 세 가지(阿戈尔 吞噬가 팀원 오퍼를 먹는가, 특질 `attrByBond`의 배치 때 고정, 桑葚 미러 판 「가장 오른쪽」)는 관리자 결정 2026-10-11로 정했다(아래 「阿戈尔 吞噬 팀원」·「特质 attrByBond」·「桑葚」).
 - **谢拉格 6명 寒风 = 필드당 하나**: 그래프 `act1autochess_bond_eff_kjerag`의 `[env]`는 맵 컨트롤러에 붙는 하나 — `AutoChessAssignBondCharCntToBB(_filterAllSides)`
   = 플레이어별 인원의 최대(0xB49840) ≥ 6이면 `[storm]` 하나, 지속 20 + 0.1 × 층의 층은 `AutoChessAssignBondStackCntToBB(_assignAllPlayerIndex)` = 플레이어별 층의
   최대(0xB49C80). 그래서 공동 필드(联防·보스)에서 둘 다 6명이어도 바람은 25초마다 한 번(이전: 플레이어마다 하나 → 寒冷 두 번 = 冻结), 6명이 아닌 팀원의 층이 더 높으면
@@ -383,6 +401,37 @@ upstream 순서(联防 → 포털 → 失衡 → 정수 프레임)로 이식했�
   SPECIAL로 다시 뽑기); `_DoReplaceActionDataClient`(0x839A30) — 뽑기가 없거나 뽑힌 키에 적 데이터가 없으면(`LogError` 후 false) 자리표시 액션은 `isValid = false`
   (이전: 자리표시 적 그대로 소환); 새 키의 P/f = 0이면 0마리(이전: 1마리, 우리는 무효 처리). 테스트 `test/match/waves-official.test.js` 「the client generator's exceptions」.
   `docs/research/05-enemies-levels.md` §3.2·§6 `k` 열·§7, `05-enemies.json generation.recommendedAlgorithm`, `00-INDEX.md` #12에 「08이 대체」 표시.
+- **桑葚(`band17`) 「가장 오른쪽」 — 관리자 결정 2026-10-11(두 번째 답) 「클라대로」**: 반전 판(최후 공세 오른쪽)에서도 **원시 필드 열**이 가장 큰 유닛
+  (`bands/battle.js` `boardCol = u.tileC`). 근거: 클라 버프 템플릿 `act1autochess_band17_buff[self]`·`[check]`가 `AssignGridPositionToBlackboard`의 열을 그대로 비교
+  ([추정] GridPosition은 쪽마다 뒤집히지 않음). 같은 날 첫 답은 「반전을 따라감」이었다. **되돌리기**: 그 플레이어 판 기준(반전 판은 필드 왼쪽이 오른쪽)은
+  `boardCol = (u) => (ps.mirror ? -u.tileC : u.tileC)` — 2026-10-11 전까지의 동작. 테스트 `bands.test.js` 「桑葚 … mirrored half」.
+- **桑葚 재배치 재판정**: 템플릿 ON_BUFF_START가 배치마다 `[core]`와 `[self]`를 주고, `[self]`는 0.1 s 뒤(`triggerInterval 0.1`, `AutoChessIsInBattle`) 같은 플레이어 쪽
+  유닛 모두에 `[check]` → 둘 중 왼쪽 것의 `[core]`를 지움. 그래서 전투 시작 뒤의 배치(재배치·기습 착지·【移动】·소환물)도 0.1 s 뒤 다시 판정한다 — 그 플레이어의 유닛 중
+  더 오른쪽이 없으면 유지하고 자기보다 왼쪽 유닛의 것을 지우며, 있으면 자기 것을 잃는다(이미 잃은 유닛은 되찾지 않음). 이전: 전투 시작 때 한 번. [추정] 소환물·【移动】도
+  새 배치로 봄; 전투 시작 판정은 battleStart 순간 그대로(공식은 0.1 s 뒤 — 그 사이 공격이 없어 차이 없음). 테스트 `test/content/bands.test.js` 「桑葚」(실제 경로 포함).
+- **克莱门莎(`band13`) — 켜진 맹약만, 调和 멤버 포함**: 그래프 `act1autochess_band13_buff` ON_OWNER_KILLED → `AutoChessFilterCharacterBondIds(_considerManiShip)` →
+  `AutoChessTriggerGarrisonAbility` → 클라 코드 `AutoChessGarrisonManager._TriggerGarrisonStatusRefresh`(RVA 0x81C8B0) → `ScenePlayerData.AddBondCount`(0x856930)는
+  켜지지 않은 맹약(`GarrisonBond.isActive` false)에 층을 주지 않는다 → `requireActive: true`, 调和 멤버(调和가 켜져 있을 때 — `support isMember`)도 쓰러지면 셈. 이전: 켜짐
+  확인 없음(위 2라운드 D1은 그래프 노드만 본 판정), 자기 맹약만. 전투 중 층 증가 중 `requireActive: false`였던 곳은 이것뿐(특질 `gar_event_*`는 이미 true). 준비 단계의
+  층(서버 규칙 SERVER_PREP_*: `bands/meta.js` prep_finish_char_bond_add_layer, `choices.js` addLayer, `server/match/builtinMeta.js` 장비, 특질 「无需激活盟约」)은 클라
+  경로가 아니라 그대로. 테스트 `bands.test.js` 「克莱门莎」(실제 경로 포함).
+- **特质 attrByBond = 배치 때 계산 — 관리자 결정 2026-10-11 「클라대로」**: 클라 버프 템플릿 `act1autochess_gar_eff_attrByBond`는 노드가 모두 ON_BUFF_START에 있다
+  (`AutoChessAssignBondStackCntToBB` → 층 ÷ divide_num `_finalFloor` → 능력치마다 × 단계, 상한 `max_stack` 999999) — ON_BUFF_TRIGGER가 없어 전투 중 층이 늘어도 다시
+  계산하지 않는다. 그래서 그 오퍼레이터가 다시 배치될 때(쓰러진 뒤 재배치·기습 착지 — 【移动】은 유지 [추정])만 그 순간의 층으로 다시 정한다. `act2autochess_gar_eff_attrByBond_add_onstart`도
+  ON_BUFF_START뿐이라 같은 방식(이전에는 층이 늘면 돌고 있는 시한 버프를 다시 계산). `ab_damageScaleByBond`(ON_BUFF_TRIGGER)와 `respawnTimeByBond`(EN 템플릿 없음)는 계속 층을
+  따라감. `garrisons/battle.js installReaders`. **되돌리기**: `installReaders`의 `layerGain` 재계산 목록 `live`에 attrByBond·add_onstart를 다시 넣으면 2026-10-11 전 동작
+  (층이 늘 때마다 다시 계산; bonds.md T1). 테스트 `test/content/garrisons_battle.test.js` 「attrByBond」(실제 경로 포함).
+- **阿戈尔 吞噬 팀원 — 관리자 결정 2026-10-11 「지금 규칙 유지(A)」**: 에기르 멤버는 앞 칸의 오퍼레이터를 주인과 상관없이 먹는다(#140 결정 그대로, `bonds/core.js devour`).
+  그래프 읽기(bonds.md B9: 맹약이 안 켜진 팀원은 `eat_calculated`로 안 먹음)와 다르지만, 联防·보스 필드는 두 플레이어 구역 경계에 공격 지점·배치 불가 칸이 있어 팀원
+  오퍼레이터가 에기르 멤버 앞 칸에 설 수 없으므로 결과가 같다(관리자 설명). 동작 변경 없음.
+- **黄沙罗盘 「첫 스킬 끝」 = 배치마다**: 클라 버프 템플릿 `act1autochess_acarm103_buff` ON_BUFF_START가 `has_used_skill`을 0으로, ON_SKILL_FINISH는 그 값이 0일 때만
+  萨尔贡 운반자에게 `sp`(그다음 1) → 재배치하면 다시 받는다(이전: 전투당 한 번). `items/battle.js` `doneSeq`(배치 번호). [추정] 기습 착지·【移动】도 새 배치로 봄.
+  테스트 `test/content/items.test.js` 「黄沙罗盘」.
+- **맹약·장비·전략 템플릿 이펙트 — 관리자 결정 2026-10-11 「넣음」**: 템플릿 그래프의 `CreateEffect`·`CreateEffectAtScreenPos` 노드가 도는 순간 상태 이벤트
+  `['tplfx', 대상 id | null, effectKey, 출처 id | null]` 한 번(목록·조건은 `docs/SIM.md` 이벤트 표, 코드 `content/support tplFx`). 표시만 — 상태·rng를 바꾸지 않는다.
+  EN 템플릿(卫戍协议 201개)의 노드 이펙트 16개 중 우리 sim이 모델하는 것 전부: 拉特兰桥夹(채울 때만), 黄沙罗盘, 迅捷(줄마다), 阿戈尔 표식·5 부활, 埃芒加德·M3茧甲 부활,
+  歌利亚头盔(앞 칸이 비었을 때), 蒸汽之心(维多利亚 운반자), 叙拉古 6 발동, 谢拉格 바람(화면 가운데). 뺀 것: `act1vautochess_acarm024`·`trap_acspell004`(다른 모드, 우리 데이터에
+  없음); 버프 자체 이펙트(`overrideEffectKey`: 은신 `common_invisible` 등)는 노드가 아니라 버프가 붙어 있는 동안의 것이라 이 이벤트가 아님. 테스트 `test/content/tplfx.test.js`.
 
 ## 일반 공격 타이밍 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 오퍼레이터·적의 일반 공격을 EN 클라 코드(Il2CppDumper → 역어셈, 비공개 조사 기록)대로 맞췄다. 코드 `server/sim/ai.js` `attackTiming`·`updateAlly`·`enemyAttack`,
@@ -556,3 +605,70 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   (두 번째는 옆에 떠 있음 `hoverDy`), 보스 짝의 반전된 오른쪽은 열을 뒤집음, `spawnRandom`은 전투 난수로 ±범위 균등 [ASSUMED: 클라의 분포].
   템플릿이 없으면 예전 규칙(`airTile`: 반쪽 중앙의 배치 불가 칸, 대개 (10, 6)).
 - 테스트 `test/content/yanyou-spawn.test.js`.
+
+## 관리자 결정 2026-10-11 — 즉발 스킬의 시전 · 보스 포털 · 자작 원소 · 저항 · 麻痹震颤
+근거: 클라 코드(EN 클라 2026-08, Il2CppDumper 덤프)와 스킬 프리팹(`battle/prefabs/[uc]skills.ab`). 결정 번호는 관리자 노트의 2라운드 결정 목록.
+
+### 즉발 스킬의 시전 (결정 1, GitHub #298)
+- **규칙**: 자기 공격(`spec.attack`)이 없는 즉발·충전 스킬은 클라 스킬 클래스대로 시전한다 — 데이터 `skills[i].cast`
+  (`tools/local-extract/skill_cast.py` → `tools/assets/local-skill-cast.json` → `tools/build-data.mjs skillCast`, 클립 길이는 `data/assets.json`).
+  - `replace` = `ReplacementSkill`(풀 49개; 공격 없는 것: 引星棘刺 S1·锡人 S1·伺夜 S1/S2·华法琳 S1): 시전 때 SP를 쓰고 **다음 공격이 스킬로 나간다** —
+    그 주기에 일반 공격 없음, 스킬 자신의 대상 선택(적이 없어도 나감), 효과는 그 휘두름의 OnAttack 프레임, 다음 공격은 그 휘두름 시작부터 공격 간격 한 번 뒤.
+    클라 코드 `ReplacementSkill.ApplyModification`(0x678690) → `Character.RegisterReplacement`(0x6FC950), `Character.get_attack`(0x7053C0),
+    `Character._SearchAttackTarget`(0x703DE0) → `TryHookSearchTarget`, 공격 뒤 `ReplacementSkill.CancelAfterAttack`(0x678870) →
+    `Character.ClearReplacement`(0x6F4FB0)(스킬 능력 쿨다운을 공격 능력으로). 구현: `skills.js activate`(`replacing`)·`fireReplacement`, `ai.js startReplacement`.
+    휘두름이 끊기면(기절·缴械) 시전은 다음 공격을 기다린다. 华法琳 S1 두 키트는 키트가 「막 나갈 치료」를 스킬 치료로 바꾸는 방식이라(대체되는 공격을 키트가
+    직접 모델) SkillSpec `inAttack: true`로 엔진 대기를 끈다.
+  - `state` = `CastSkill` `_switchToState` 1(풀 149개; 공격 없는 즉발 약 20개): 곧바로 시전하고 Skill 상태 — 진행 중 휘두름은 끊기고(쿨다운 유지,
+    계속 흐름) 스킬 능력이 끝날 때까지(`unit.skillStateUntil`) 공격하지 않는다. 기절·빙결·수면은 상태를 끝낸다.
+    클라 코드 `Character.States.SkillState._StartSkill`(0x7379B0: `BasicSkill.Cast`의 끝 콜백 = 상태 끝), `SkillState.OnTick`(0x737660).
+  - `free` = `_switchToState` 0(사일런스 S2·플레임테일 S1·와파린 S2·텍사스 S1 `skcom_charge_cost`): 곧바로 시전, 공격과 무관.
+  - **다음 시전**: 스킬 능력이 다시 준비돼야 한다 — `CastSkill.IsAvailable`(0x6459A0) → `Ability.get_isReady`(0x34F6F80: 쿨다운 타이머 + 시전 중 아님).
+    능력 시간(`SkillRuntime.castTiming`): `AbstractAnimatedAbility.get_cooldown`(0xA6E680) — `_timeMode` 0 FROM_ATTACK_SPEED = 주인의 공격 간격,
+    1 FROM_ANIMATION = `DoAttach`(0xA6D470)가 `_cooldown`에 쓰는 `Entity.GetAnimationTime(_animKey)`(클립 길이), 2 = `_cooldown`, 3 = 블랙보드 `_cooldownKey`;
+    행동 길이 = `UpdatePlaybackSpeed`(0xA6E070) 배율(시간 ÷ 클립, [0.1, `_maxAnimScale`]) × 클립(골격에 클립이 없으면 그 시간 그대로).
+    `state`는 행동 끝과 쿨다운 둘 다(`_resetAbilityCooldownWhenCastEnd` 1이면 `CastSkill.OnCastFinish` 0x645C10가 능력을 되돌려 행동 끝만), `free`는 쿨다운만.
+    버프만 거는 능력(`ActiveBuffAbility`: 쿨다운 = `SetLifeTime` 0xA4CE50의 버프 수명, 여기 해당 스킬은 즉시형)은 SP만 기다린다.
+  - 텍사스 S1(`skcom_charge_cost[3]`)은 프리팹 덤프에서 찾음: `CastSkill` sw0 + `ActiveBuffAbility`(`charge_cost` 즉시 버프) → `free`, 간격 = SP뿐.
+  - [ASSUMED] `state` 스킬의 효과(키트 `onStart`)는 시전 순간에 둔다 — 클라는 스킬 클립의 OnAttack 프레임(`_waitForAttackEvent` 1)에 낸다. 클립에 없는
+    FROM_ANIMATION 키(패신저 S3 `Skill_3` — 골격은 `Skill3`)는 공격 간격으로 셈.
+  - 데이터에 `cast`가 없는 스킬(클라 프리팹을 못 읽은 것)은 옛 규칙(틱 시전 뒤 공격 간격 한 번)을 쓴다.
+  - 범위 밖: `spec.attack`이 있는 `CastSkill` sw1 4개(솔방울 S1·첼로 S1·머드락 S2·님프 S2)는 지금처럼 「다음 공격에 스킬 공격」.
+  - **옛 동작**(2026-10-09 upstream #298 이식, [ASSUMED]): 모든 공격 없는 즉발이 틱 시전 뒤 `nextCastAt = now + 공격 간격`, 시전은 공격이 아니고 공격 리듬은
+    그대로. 되돌리려면 `skills.js _paceInstant`에서 `this.cast` 갈래를 빼고(`!c` 갈래만), `_replacesAttack`이 false를 돌려주게 한다.
+  - 테스트: `test/sim/instant-cast.test.js`(세 부류 + 실제 경기 경로 引星棘刺 S2), `test/content/bonds_addon.test.js` #298(迅捷 + 引星棘刺 S1 = 매 공격이 투척).
+
+### 보스 포털 (결정 3)
+- **규칙**: APPEAR가 없는 네 경로(act1autochess_h07_02 #4, act1autochess_h08_02 #5·#9, act2autochess_h07_05 #6)는 데이터 그대로 —
+  DISAPPEAR → WAIT 3 → MOVE … 를 숨은 채로 가고, 경로 끝은 다른 경로 끝과 같다(누수). 숨은 적에는 우리 `portalPickup`(입구 끝 → 출구 3 s)도 적용하지 않는다.
+  근거: 클라 코드에 위수 협의 포털 클래스가 없고(경로는 레벨 데이터의 체크포인트 형만으로 움직임) 그 네 경로의 레벨 파일에 APPEAR_AT_POS가 없다.
+- **옛 동작**(upstream PR #337, 2026-10-09 이식): `simdata.js normalizeRoute`의 `portalAppear`가 DISAPPEAR(→WAIT) 다음 MOVE 앞에 그 MOVE 목표([5,10])로
+  APPEAR를 넣었다(upstream 제보 「进传送门后被判定进蓝门，全程隐身」). 되돌리려면 그 함수(git 이력의 `portalAppear`)를 `normalizeRoute`의 두 반환 앞에
+  다시 부르고 `ai.js portalPickup`의 `if (e.hidden) return false;`를 뺀다. 테스트: `test/sim/portal-appear.test.js`.
+
+### 자작 원소 `necrosis` 삭제 (결정 4)
+- 엔진이 만든 다섯 번째 원소(12 s 진실 100/s, ATK −20 %)는 공식에 없다(클라 `Torappu.ElementType` = SANITY·WATER·FIRE·DARK; 괴사 = `apoptosis`) — 거는 데이터·콘텐츠도
+  없어 지웠다: `constants.js ELEMENTS`·`ELEMENT_ORDER`·`ELEMENT.necrosis`, `damage.js` 폭발 갈래, `buffs.js necrosisBurst`, 유닛 게이지, 원소 합계(锡人 凋敝魂灵 태그,
+  哈洛德·纯烬艾雅法拉 합계), 렌더 막대 색·아이콘·링·피해 숫자 종류. 렌더 아이콘 아틀라스 키 `necrosis`(凋亡 아이콘 이름)는 그대로.
+
+### 저항 대상 (결정 4 조사)
+- **규칙**: 抵抗이 줄이는 상태 = 晕眩·冻结·寒冷·恐惧·诱导(`buffs.js RESIST_STATUSES`). 클라 코드 `Buff._InitIsStatusResistable`(0x3594440): 버프마다
+  `statusResistable` NO/YES/AUTOMATIC, AUTOMATIC은 이상 플래그가 STUNNED·FROZEN·DOZE·ATTRACTED이면 저항 — 우리 풀 스킬 프리팹 버프 586개가 모두 AUTOMATIC.
+  寒冷·恐惧는 클라 버프 표(DB, 우리가 읽은 번들에 없음) 값이라 PRTS 「可抵抗状态」를 따른다; 같은 근거로 沉睡·停顿·战栗은 뺐다. 浮空·束缚·沉默·缴械·减速·缚地는
+  플래그 없는 AUTOMATIC(데이터)이라 저항 안 됨. 티티 小睡(DOZE, 아군)는 키트의 `addBuff`라 저항 경로 밖(그대로).
+- 감쇠: `Buff._PreprocessDeltaTime`(0x35956F0) = dt ÷ max(0.001, 1 − 저항) → 걸 때 지속 × max(0.001, 1 − 저항)과 같다(저항이 도중에 바뀌면 다름 — 작은 차이,
+  그대로). `resistOf` 상한 0.95는 그대로 [ASSUMED].
+- **옛 동작**: 14개(위 + 沉睡·战栗·浮空·束缚·沉默·缴械·停顿·减速·缚地) [ASSUMED 「키트가 주는 抵抗을 따름」]. 되돌리려면 그 Set에 다시 넣는다.
+
+### 麻痹震颤 (결정 4 조사)
+- **규칙**: 麻痹로 공격이 끊긴 적은 모두(막힘·근접·원거리·「不停止移动」) `PALSY_STOP` 0.5 s 동안 움직이지 않고 새 공격을 시작하지 않는다(`ai.js` `palsyUntil`·
+  `atkStandUntil`); 기절·빙결·수면·浮空이 오면 끝. 클라 코드 `Enemy.OnTriggerPalsy`(0x727C70) → `Enemy.States.PalsyState.OnTick`(0x74BBC0: `palsying` 버프가
+  있는 동안 머묾). [ASSUMED] 0.5 s — `palsying`은 클라 버프 표 값이라 PRTS 术语释义 麻痹 「进入0.5秒的麻痹震颤状态」. `_PlayShaking`의 5 s는 흔들림 연출 길이일 뿐.
+- **옛 동작**: 막히지 않은 원거리 적만 `ATTACK_PAUSE` 0.35 s 섬. 되돌리려면 `ai.js enemyAttack`의 麻痹 갈래 두 줄을 옛 `atkStandUntil` 식으로.
+- 미구현: PRTS 「或开始动作2秒时被打断」(선딜 2 s 넘는 공격의 2 s 시점 끊김).
+
+### 괴사 손상의 SP 감소와 지속형 스킬 (결정 4 조사, 동작 그대로)
+- 클라 코드 `Entity.DoApplyModifier`(0x35F6B50)의 SP 갈래: `SP_MODIFY_STOPPED`면 거부, `spRecoverStopped`(지속형 스킬 중 주인 플래그)는 **증가만** 막는다 →
+  감소는 지속 중에도 들어가지만 깎이는 것은 남은 SP뿐이고 지속 시간은 능력 타이머라 줄지 않는다. 1회 충전 지속형은 시전 때 SP가 0이라 결과가 같다 —
+  `damage.js`의 「지속 중엔 건너뜀」은 그대로(차이: 충전 2회 이상 지속형의 남은 충전, 스와이어 디 엘리건트 위트 스킬 중 `SP_MODIFY_STOPPED` — 미구현).
+

@@ -157,6 +157,15 @@ export { FORCED_EXIT, showsDeathFx, renderInfo } from './app/info.js';
 export { releaseGl } from './app/host.js';
 
 /**
+ * Whether looking at another player's prep board (a scouted board's pieces) and coming back to the own one sound the
+ * pieces' deploy (pieceDeploy → audio.prepDeploy). Off — maintainer decision 2026-10-11 「코드대로」: the client plays the
+ * placement sound only in SetCharacter (a piece made or moved), never for a camera switch between boards (client code
+ * AutoChessDummyManager._PlayAudioWhenCharacterPlaced, RVA 0x829E40; docs/rules/audio.md 「배치 효과음」 되돌리기). The
+ * drop-ins stay. true restores the maintainer decision of 2026-10-08 「남의 보드도 소리 남」.
+ */
+export const SCOUT_DEPLOY_SFX = false;
+
+/**
  * Create the battlefield view inside `host` (an element sized by CSS; the canvas fills it).
  * @param {HTMLElement} host
  * @param {{ data?: any, assets?: any, audio?: any, settings?: { damageNumbers?: boolean, quality?: string }, signal?: AbortSignal,
@@ -285,6 +294,9 @@ export async function createFieldView(host, options = {}) {
   // a scouted prep board's pieces as last shown { fieldId, at: Map(id → 'x,y'), prev } — re-entering the same board (the
   // teammate moved a piece: a new m.field) drops in only what is new or moved
   let scoutSeen = null;
+  // a real battle (not a scouted prep board) was entered since the own prep was last shown: the prep that follows rebuilds
+  // the lineup (the client's SetCharacter) and sounds it; back from a scouted board it only drops in (SCOUT_DEPLOY_SFX)
+  let battleSincePrep = false;
   const promotions = [];      // the last merges cued by setPrep (fx.promote): { uid, id, area, row, col, idx, copies } — dev / tests
   let battleMeta = null;
   let sceneHold = null;       // release function of the Spine cache hold of battle mode (holdScene)
@@ -843,8 +855,11 @@ export async function createFieldView(host, options = {}) {
     // still exist until the sweep below) — the elite gets the promotion cue instead of the deploy flash
     const promoFrom = new Map();
     // back in the own prep after a battle or a scouted board (the views were cleared, the pieces before it kept in
-    // promoBase): the lineup drops in again and the board pieces sound their deploy (maintainer 2026-10-08 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」)
+    // promoBase): the lineup drops in again; after a battle the board pieces sound their deploy (maintainer 2026-10-08
+    // 「라운드 종료 후, 배치 단계 진입할때도 배치음이 나오는게 맞아」), back from a scouted board not (SCOUT_DEPLOY_SFX)
     const backFromBattle = !prepPieces.length && promoBase.length > 0;
+    const backSounds = backFromBattle && (battleSincePrep || SCOUT_DEPLOY_SFX);
+    battleSincePrep = false;
     scoutSeen = null; // the next look at a teammate's board drops it in again
     const before = prepPieces.length ? prepPieces : promoBase;
     promoBase = [];
@@ -887,7 +902,7 @@ export async function createFieldView(host, options = {}) {
         else if ((before.length || prepSynced) && (e.area === 'hand' || e.area === 'temp') && !before.some((g) => g.uid === e.uid)) { v.onDeploy?.(); fx.deploy(v); prepDeployed(e, info); } // local patch: onDeploy — a bench arrival drops in too
         // the whole lineup drops in again (maintainer 2026-10-08 「공식은 배치 연출이 있어」; the bench too [추정: the client's
         // prep pieces are dummies made on their tile / slot]), the board pieces with their sound
-        else if (backFromBattle) { v.onDeploy?.(); fx.deploy(v); if (e.area === 'board') prepDeployed(e, info); }
+        else if (backFromBattle) { v.onDeploy?.(); fx.deploy(v); if (e.area === 'board' && backSounds) prepDeployed(e, info); }
       } else {
         const prevHome = v._home;
         const moved = !prevHome || prevHome.x !== w.x || prevHome.y !== w.y || prevHome.z !== w.z;
@@ -1453,6 +1468,7 @@ export async function createFieldView(host, options = {}) {
     clearViews();
     if (prepPieces.length) promoBase = prepPieces;
     prepPieces = [];
+    if (meta.prep !== true) battleSincePrep = true;
     infos.clear();
     gone.clear();
     interp.reset();
@@ -1521,13 +1537,14 @@ export async function createFieldView(host, options = {}) {
     v._born = performance.now();
     views.set(id, v);
     // local patch: a scouted prep board's piece drops in when first shown there or moved (scoutSeen); a board piece (not
-    // the bench) with its deploy sound (maintainer 2026-10-08: viewing another player's board sounds too)
+    // the bench) with its deploy sound only under SCOUT_DEPLOY_SFX (off: maintainer decision 2026-10-11, the client's
+    // camera switch makes no SetCharacter)
     if (scoutSeen && battleMeta?.prep && info.side === 'ally' && v instanceof UnitView) {
       const k = `${info.x},${info.y}`;
       scoutSeen.at.set(id, k);
       if (scoutSeen.prev?.get(id) !== k) {
         v.onDeploy?.(); fx.deploy(v);
-        if (info.y !== GEO.HAND_ROW && info.y !== GEO.TEMP_ROW) emit('pieceDeploy', { uid: info.uid ?? id, area: 'board', unit: info });
+        if (SCOUT_DEPLOY_SFX && info.y !== GEO.HAND_ROW && info.y !== GEO.TEMP_ROW) emit('pieceDeploy', { uid: info.uid ?? id, area: 'board', unit: info });
       }
     }
     return v;
@@ -1614,7 +1631,7 @@ export async function createFieldView(host, options = {}) {
         if (w > 0) {
           const seen = swingStrikes.get(e[1]);   // (the look-ahead's note carries the event's own time)
           if (!(seen != null && Math.abs(seen - now - w) < 0.2)) swingStrikes.set(e[1], now + w);
-          views.get(e[1])?.onSwing?.(w, e[3]);
+          views.get(e[1])?.onSwing?.(w, e[3], e[4] === 1);
         }
         break;
       }

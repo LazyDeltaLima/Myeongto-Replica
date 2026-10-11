@@ -44,7 +44,7 @@
 
 import {
   num, itemRecord, itemKeyOf, buffsOf, isOp, onField, unitBonds, isMember, bondActive, isGroundOp, frontTile,
-  alliesAround, passiveBuff, fxOn, battleStore, contentInfo, itemsOf, directMods,
+  alliesAround, passiveBuff, fxOn, tplFx, battleStore, contentInfo, itemsOf, directMods,
 } from '../support/index.js';
 import { mitigate, hasHp, periodicDamage, isHpLoss } from '../../damage.js';
 import { hypot } from '../../detmath.js';
@@ -528,8 +528,11 @@ const BY_ITEM = {
         const here = initial ? a.homeR === fr && a.homeC === fc : onField(a) && a.tileR === fr && a.tileC === fc;
         if (here) { occupied = true; break; }
       }
-      if (!occupied) S.buff(u, { key, mods: directMods({ hp: ex }), refresh: 'replace' });
-      else battle.removeBuff(u, key);
+      if (!occupied) {
+        S.buff(u, { key, mods: directMods({ hp: ex }), refresh: 'replace' });
+        // client buff template act1autochess_acarm049_buff ON_BUFF_START: the CreateEffect of the no-one-in-front branch
+        tplFx(battle, u, 'map_act1autochess_reinforce_02', u);
+      } else battle.removeBuff(u, key);
     };
     S.on('deploy', (c) => { if (c.unit === u) check(!!c.initial); });
     if (onField(u)) check(false);
@@ -620,6 +623,7 @@ const BY_ITEM = {
       const max = Math.max(c.skill.ammoMax || 0, c.skill.ammo || 0);
       c.skill.addAmmo(Math.max(1, Math.ceil(Math.fround(Math.fround(max) * Math.fround(num(p.ammo_percent))))));
       fxOn(battle, 'buff', u, 'item:chess_item_4_08_e', rec.id);
+      tplFx(battle, u, 'bond_laterano_reload_01', u); // act1autochess_acarm057_buff ON_AFTER_ATTACK, after the refill
     });
   },
   // 浓缩嗅盐: while HP ratio > hp_ratio, immune to 晕眩/冻结 … special states
@@ -653,6 +657,7 @@ const BY_ITEM = {
       if (c.unit !== u || used >= max || !reviveNow(battle, c, 'item')) return;
       used++;
       fxOn(battle, 'revive', u, 'item:chess_item_4_12_e', rec.id, { left: max - used });
+      tplFx(battle, u, 'map_act1autochess_reinforce_02', u); // act1autochess_acarm068_buff ON_OWNER_FINISH
     }, PRIO_RESPAWN); // a knock-out: after every 不死 (the hammer's lock), whatever the equip order (header)
   },
   // 催泪瓦斯: every damage instance (client graph act1autochess_equip_acarm058 ON_OUTPUT_MODIFIER IsDamage → Dice) prob
@@ -740,6 +745,11 @@ const BY_ITEM = {
     if (!hs.steamP) hs.steamP = bp(rec, STEAM_BUFF);
     hammerRefresh(battle, rt, u, hs);
     S.onDispose(() => { hs.steam = Math.max(0, hs.steam - 1); hammerRelease(battle, rt, u, hs); });
+    // client buff template act1autochess_acarm079_buff ON_BUFF_START: AutoChessFilterCharacterBondIds victoriaShip (own
+    // bonds, no _considerManiShip) → CreateEffect, at every deployment of a 维多利亚 carrier (display only)
+    const show = () => { if (unitBonds(u).includes('victoriaShip')) tplFx(battle, u, 'map_act1autochess_reinforce_02', u); };
+    S.on('deploy', (c) => { if (c.unit === u) show(); });
+    if (onField(u)) show();
   },
   // 耶拉冈德之泪 (谢拉格): every interval s, cold/frozen enemies in range take atk_scale (+不融冰: atk_scale_ex) × ATK arts
   chess_item_6_06_e(battle, u, rec, S) {
@@ -755,7 +765,7 @@ const BY_ITEM = {
       }
     });
   },
-  // 黄沙罗盘: 初始技力 +init_sp each deploy; (萨尔贡) first skill end +sp; + 萨尔贡浓茶: each cast all 萨尔贡 +addition_sp
+  // 黄沙罗盘: 初始技力 +init_sp each deploy; (萨尔贡) first skill end of each deployment +sp; + 萨尔贡浓茶: each cast all 萨尔贡 +addition_sp
   chess_item_6_07_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm103_global_buff');
     if (!p) return;
@@ -765,11 +775,14 @@ const BY_ITEM = {
       S.on('deploy', (c) => { if (c.unit === u && u.skill) u.skill.gainSp(init, 'init'); });
       if (onField(u) && u.skill) u.skill.gainSp(init, 'init');
     }
-    let firstDone = false;
+    // "first skill end" per deployment: client buff template act1autochess_acarm103_buff resets has_used_skill on
+    // ON_BUFF_START (every deployment) and ON_SKILL_FINISH gives `sp` only while it is 0 (until 2026-10-11: once per battle)
+    let doneSeq = -1;
     S.on('skillEnd', (c) => {
-      if (c.unit !== u || firstDone || c.reason === 'death' || !memberOf(battle, u, 'sargonShip')) return;
-      firstDone = true;
+      if (c.unit !== u || doneSeq === u.deploySeq || c.reason === 'death' || !memberOf(battle, u, 'sargonShip')) return;
+      doneSeq = u.deploySeq;
       if (u.skill && u.alive) u.skill.gainSp(num(p.sp), 'item');
+      tplFx(battle, u, 'bond_charge_battle_01', u); // act1autochess_acarm103_buff ON_SKILL_FINISH, after ModifySp
     });
     S.on('skillStart', (c) => {
       if (c.unit !== u || !partner || !memberOf(battle, u, 'sargonShip') || !carries(battle, u, partner)) return;

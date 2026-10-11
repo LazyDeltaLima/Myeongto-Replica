@@ -1312,7 +1312,6 @@ export const ELEMENT_RING = Object.freeze({
   erosion: Object.freeze({ disc: '#2d5d86', glyph: '#cfdcea', tint: 0x4a8cc4 }),
   burn: Object.freeze({ disc: '#8f3512', glyph: '#f0cdbd', tint: 0xe0632c }),
   apoptosis: Object.freeze({ disc: '#363338', glyph: '#bdb8c2', tint: 0x9c8fb0 }),
-  necrosis: Object.freeze({ disc: '#363338', glyph: '#bdb8c2', tint: 0x9c8fb0 }),
 });
 const RING_KEYS = Object.keys(ELEMENT_RING);
 const RC = 64;              // cell px

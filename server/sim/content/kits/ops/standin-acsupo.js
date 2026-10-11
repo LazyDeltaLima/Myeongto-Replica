@@ -24,8 +24,9 @@
 // - S1 双声 (24 s): ATK +atk, attack@max_target targets.
 // - S2 三形 (14 / 17 s): base attack time + base_attack_time s (PRTS "略微缩短(-0.1)" / "缩短(-0.2)": a flat change, batMod),
 //   attack@max_target targets, 停顿 attack@sluggish s.
-// - S3 信号跃动 (30 / 35 s): range y-4 (the skill's rangeGrid) — its auto-cast is the data's ACTIVE_RANGE (the owner's rule
-//   of 2026-10-05: an enemy inside the larger range casts it; tools/build-data.mjs resolveTrigger, not this kit) —, ATK
+// - S3 信号跃动 (30 / 35 s): range y-4 (the skill's rangeGrid) — its auto-cast is the data's DEFAULT on that rangeId (the
+//   client's basic strategy, maintainer decision 2026-10-11: an enemy inside the y-4 box casts it; tools/build-data.mjs
+//   resolveTrigger, not this kit) —, ATK
 //   +acsupo_s_3.atk, T1 × talent_scale, and every enemy in her attack range takes 脆弱 damage_scale − 1 and 虚弱 1 − atk:
 //   the catalogue statuses (同名效果取最高), refreshed every AURA_IV s while the skill runs. The 虚弱 stacks as `atk`
 //   (0.9 / 0.8: PRTS 备注 "此技能的虚弱在叠加时视为90%（1级~6级）/80%（7级~专精二）…的虚弱（仅影响叠加优先级，不影响实际效果）"

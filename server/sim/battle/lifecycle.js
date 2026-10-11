@@ -3,7 +3,7 @@
 // / forced / cleared finishes and the BattleResult.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { FORCED_EXIT, MAX_BATTLE_TIME } from '../constants.js';
+import { BLOCK_SKILL_TICK, FORCED_EXIT, MAX_BATTLE_TIME } from '../constants.js';
 import { updateAlly, updateEnemy } from '../ai.js';
 
 export class BattleLifecycle {
@@ -132,6 +132,9 @@ export class BattleLifecycle {
           } catch (err) { this._internalError('updateAlly', err); }
         }
       });
+      // the automatic skill operations, one pass every AUTO_TRIGGER_INTERVAL s after the allies' own tick (skills.js
+      // autoTrigger; a cast there acts from the next tick, as a tick-rule cast did)
+      if (this.tickCount % this._autoTriggerTicks === 0) this._phase('autoTrigger', () => this._autoTriggerPass());
       this._phase('projectiles', () => this.projectiles.update(dt));
       this._phase('redeploy', () => this._checkRedeploys());
       this._phase('boss', () => this._bossSync());
@@ -148,6 +151,27 @@ export class BattleLifecycle {
     }
     if (this._endReq && !this.finished) {
       try { this.forceEnd(this._endReq); } catch (e) { this._handlerError('internal:forceEnd', null, e); this._hardFinish(this._endReq); }
+    }
+  }
+
+  /**
+   * One pass of the automatic skill operations (client code `AutoChessBattleTrigger._TryTriggerAvailableSkills`, every
+   * 0.2 s: `AutoTrigger` → `WaitForFixedSeconds(AUTO_TRIGGER_INTERVAL)`; maintainer decision 2026-10-11): over the
+   * characters in deployment order, one whose block runs counts it down and is skipped; the first whose MANUAL skill
+   * casts (SkillRuntime.autoTrigger) is blocked BLOCK_SKILL_TICK passes and the pass ends there — one automatic cast per
+   * pass in the whole battle. [ASSUMED] one pass for every player's units of the field (the client runs one trigger per
+   * battle) and the order of `allyUnits`.
+   */
+  _autoTriggerPass() {
+    const list = this.allyUnits;
+    for (let i = 0; i < list.length && !this._endReq; i++) {
+      const u = list[i];
+      const sk = u.skill;
+      if (!u.alive || !u.deployed || !sk || !sk.autoOp) continue;
+      if (sk.blockTicks > 0) { sk.blockTicks--; sk._hurt = false; continue; }
+      let cast = false;
+      try { cast = sk.autoTrigger(); } catch (err) { this._internalError('autoTrigger', err); }
+      if (cast) { sk.blockTicks = BLOCK_SKILL_TICK; return; }
     }
   }
 
