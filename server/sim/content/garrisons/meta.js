@@ -76,6 +76,13 @@ function sameRowCount(ctx, me) {
 }
 function rowCondition(ctx, me) {
   const { bb, bbStr } = ctx.source;
+  // 白面鸮 copying 歌蕾蒂娅's / 余's prep-start gift skips the three-in-a-row gate (GitHub #473, the reporter's official
+  // footage BV1XJSoBzEFB 2:30–2:38, upstream 6bfc0827). Only these two copies: not a general change to copying, to
+  // 塞雷娅, or to either original operator's own condition.
+  const from = ctx.source.copiedFrom;
+  if (from && ctx.source.garrison?.eventType === 'SERVER_PREP_START'
+    && ctx.chessRecord(me?.id)?.charId === 'char_128_plosis'
+    && ['char_474_glady', 'char_2026_yu'].includes(ctx.chessRecord(from.id)?.charId)) return true;
   if (bbStr.conditionkey === 'character_same_row') return sameRowCount(ctx, me) >= num(bb.check_count, 0);
   return true;
 }

@@ -517,6 +517,14 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
   (커밋 메시지·보고에 사례 목록). 그중 roster-047(仇白이 일반·고급 둘 다 듦)은 초반 37 s의 동결 한 번에서 갈라져 판이 뒤집힌다(처치 140 → 77) — 장비 동작의
   오류가 아니라 같은 시드의 연쇄 차이로 확인(寒冷 적용 10 → 23회, 동결 적 시간 0.4 s → 7 s).
 
+### 白面鸮(프틸롭시스)가 복사한 歌蕾蒂娅·余의 준비 시작 증정은 「같은 줄 세 명」을 건너뜀 (GitHub #473, upstream `6bfc0827`)
+- 근거: 제보자의 공식 플레이 영상(bilibili BV1XJSoBzEFB 2:30–2:38)을 upstream 관리자가 확인 — 白面鸮가 앞 칸 歌蕾蒂娅(오퍼레이터)·余(오퍼레이터)의 특질을
+  복사하면, 白面鸮 줄에도 원래 오퍼레이터 줄에도 세 명이 없는데 증정이 나온다.
+- 동작(upstream 그대로): 디스패처가 복사 실행에 `copiedFrom`(원래 오퍼레이터의 말)을 기록하고, `garrisons/meta.js rowCondition`은 「복사한 쪽이 白面鸮,
+  원본이 歌蕾蒂娅·余, 준비 시작(`SERVER_PREP_START`)」일 때만 조건을 통과시킨다. 원래 오퍼레이터의 자기 증정은 여전히 자기 줄을 검사한다.
+  塞雷娅(오퍼레이터)의 복사·다른 특질·다른 줄 조건은 바꾸지 않음(영상이 이 두 경우만 보여 줌 — upstream도 넓히지 않음).
+- 테스트 `test/content/garrisons_meta.test.js`(두 원본 × 白面鸮 줄 · 원본 줄 있음/없음 8가지, upstream 그대로).
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).

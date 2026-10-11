@@ -354,7 +354,9 @@ export class EffectDispatcher {
         const repeat = hook === 'onGain' ? this.investRepeat(ps) : 1;
         const loc = ps.find(self.uid);
         const where = loc ? (loc.area === 'board' ? 'board' : loc.area) : 'trigger';
-        this._call(ps, key, h, hook, { kind: 'garrison', key, piece: self, garrisonId: gid, garrison: g, bb: g.bb || {}, bbStr: g.bbStr || {}, where, trigger: true, triggeredBy }, ev, repeat);
+        // copiedFrom: the piece whose trait a copier (塞雷娅 / 白面鸮) runs as its own (garrisons/meta.js rowCondition, #473)
+        this._call(ps, key, h, hook, { kind: 'garrison', key, piece: self, copiedFrom: asPiece ? piece : null,
+          garrisonId: gid, garrison: g, bb: g.bb || {}, bbStr: g.bbStr || {}, where, trigger: true, triggeredBy }, ev, repeat);
         n++;
       }
     } finally {
