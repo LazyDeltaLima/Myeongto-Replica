@@ -914,7 +914,7 @@ export class UnitView {
         if (this.imp) this.imp.dirty = true;
       }
     }
-    if (this.isEnemy && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
+    if (this.isEnemy && !this.slide?.face && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
     if ((prevFlags ^ this.flags) & UF.SKILL) this.setSkill(!!(this.flags & UF.SKILL));
     if (this.anim === ANIM.DIE && this.alive) this.die();
     if (this.actor && this.alive) this.actor.setBase(this._baseFromAnim());
@@ -957,15 +957,18 @@ export class UnitView {
     const rate = this.ctx.animRate?.() || 1;
     const T = Math.max(0.05, (opts.dur > 0 ? opts.dur / rate : clamp(DISPLACE_SLIDE * Math.sqrt(D), 0.12, 0.45)) / f);
     // v0 = 2D/T and a = v0/T run the distance in exactly T with the velocity reaching 0 there, integrated in update().
-    // The official turns a displaced unit towards the force (its _dontChangeFaceByDirection is an opt-in flag), while
-    // our facing comes from the snapshot's vx — which points back down the route the enemy resumes after the
-    // displacement, i.e. against the push. The slide therefore owns the facing until it lands.
-    if (this.isEnemy) this.visFacing = dx < 0 ? -1 : 1;
+    // The slide owns an enemy's facing until it lands (the snapshot's vx points back down the route it resumes):
+    // `face` 'push' — it faces the pusher, against its travel (client `Enemy.KnockBack` → `FaceTo(-direction)`; a push
+    // with no left / right part leaves it as it was), 'keep' — a pull leaves it as it was (client `DragTowardSource`,
+    // hook pulls); none (a raw displacement) — it faces its travel. battle/displacement.js push / pull.
+    const face = opts.face === 'push' || opts.face === 'keep' ? opts.face : null;
+    if (this.isEnemy && face === 'push') { if (Math.abs(dx) > 1e-3) this.visFacing = dx < 0 ? 1 : -1; }
+    else if (this.isEnemy && !face) this.visFacing = dx < 0 ? -1 : 1;
     const v0 = 2 * D / T;
     const at = Number.isFinite(opts.at) ? opts.at : -Infinity;
     this.slide = {
       x1: x, y1: y, sx: this.x, sy: this.y, ux: dx / D, uy: dy / D, D, done: 0, v: v0, a: v0 / T, t: 0, dur: T,
-      at, live: at === -Infinity, lx: x, ly: y, ox: 0, oy: 0, run: false, wait: 0,
+      at, live: at === -Infinity, lx: x, ly: y, ox: 0, oy: 0, run: false, wait: 0, face,
     };
   }
 
@@ -1223,7 +1226,7 @@ export class UnitView {
         // 9 % of a 0.18 s slide at 60 fps, then a jump onto the end)
         sl.done = Math.min(sl.D, sl.done + (v0 + sl.v) / 2 * step);
         sl.t += step;
-        if (this.isEnemy) this.visFacing = sl.ux < 0 ? -1 : 1;
+        if (this.isEnemy && !sl.face) this.visFacing = sl.ux < 0 ? -1 : 1;
         const k = 1 - sl.done / sl.D;                  // the share of the way still to go
         this.x = sl.lx + sl.ox * k; this.y = sl.ly + sl.oy * k;
         // the clock or the spent velocity lands it on the sampled position

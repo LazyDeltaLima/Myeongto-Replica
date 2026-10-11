@@ -372,6 +372,14 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   서로 넘겨 훅 깊이 제한까지 갈라져 전투가 멈춤). 클라 근거: 두 분담(`DamageSplit` 0xBBE1B0, `AutoChessDamageSplit`)이 옮긴 몫에 `SharedFlag 7 SKIP_MODIFIER_EVENT`를
   붙여 어느 ON_TAKE_DAMAGE 그래프도 다시 보지 않는다. upstream v0.2.4가 손본 판(`6bfc0827`: 분담 효과마다 첫 적용은 허용, 몫 보존)은 이 점에서 공식과
   달라 원본 PR을 가져왔다. golden 변화 없음. 테스트 `test/content/skadi2-stead-loop.test.js`(PR).
+- **밀린 적은 미는 쪽을, 당긴 적은 원래 방향을** (`4980ee78`, GitHub #418·#427을 클라 코드로 고침, 렌더만): upstream은 밀기·당김 모두 「원래 방향 유지」
+  (기여자 영상 野鬃 S2·莫斯提马 S3·歌蕾蒂娅 S1/S2)였다. 클라 코드: `Enemy.KnockBack`(0x7248B0)은 changeFaceByDirection이면 `FaceTo(-direction)` — 미는 쪽을
+  봄. 밀기 노드 `Nodes.Knockback`(0xC1E850)·`KnockBackWithDirection`은 true, `KnockBackWithCharacterDirection`은 `!_dontChangeFaceByDirection`(기본 false)을
+  넘긴다. 당김 `Nodes.DragTowardSource`(0xC16CE0)는 false, 갈고리 `Enemy.BeginPull`/`StillPull`/`EndPull`은 방향을 안 바꾼다. 그래서 `displace` fx의
+  `face`: 밀기 'push'(미는 쪽 = 이동 반대, 좌우 성분이 없으면 그대로), 당김 'keep', 그 밖의 직접 이동은 없음(이동 방향). 미끄러지는 동안 스냅숏 속도로
+  뒤집지 않는다(`render/units.js slideTo`). upstream 영상은 적이 원래 미는 쪽을 보고 있던 경우라 두 규칙이 같아 보였다. 전에는 밀기·당김 모두 이동 방향을
+  봤다(둘 다 공식과 반대). **[ASSUMED]** 薄绿 S2의 안쪽 밀기도 같은 노드(그녀 반대쪽을 봄). golden 변화 없음. 테스트 `test/render/unitview.test.js`·
+  `test/sim/displace-fx.test.js`.
 - **松果 S2 공격 단계는 배치마다 처음부터** (upstream PR #462 by @Xinglan233, `8ebdcf5d`, PRTS 松果 S2 备注): 단계 카운터를 `unit.mem.pinecnS2Uses`로 따로 두고
   배치 때 0으로(엔진 `activations`는 누적 그대로). 클라: 카운터 `PassiveOneOfBuffAbility.m_attachCnt`가 `DoSetData`에서 0이 된다(재배치 때 다시 불리는지는
   추적 안 함, 비공개 디컴파일 기록). golden 변화 없음. 테스트 `test/content/kits_pinecn.test.js`(PR).

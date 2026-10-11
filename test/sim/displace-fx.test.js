@@ -31,3 +31,25 @@ test('a displacement puts a `displace` fx into the event stream the client recei
   assert.equal(disp[4].y, undefined, 'e[4] carries no y either');
 });
 
+test('a push marks its displace fx face: push (radial or directional), a pull face: keep, a raw move nothing', () => {
+  // client code: the push nodes call Enemy.KnockBack with changeFaceByDirection (FaceTo(-direction)); DragTowardSource
+  // passes false (battle/displacement.js push / pull)
+  for (const directional of [false, true]) {
+    const h = makeBattle({
+      defs: { enemies: { enemy_walker: walker({ speed: 0.01 }) } },
+      enemies: [{ key: 'enemy_walker', pos: [10, 6] }],
+      content: 'none', autoFinish: false,
+    });
+    h.step();
+    const e = h.enemy('enemy_walker');
+    h.b.drainEvents();
+    const from = { x: 5, y: 10 };
+    const fx = () => h.b.drainEvents().find((ev) => ev[0] === 'fx' && ev[1] === 'displace');
+    assert.ok(h.b.push(e, 0, directional ? { from, dir: { x: 1, y: 0 } } : { from }) > 0);
+    assert.equal(fx()?.[4]?.face, 'push');
+    assert.ok(h.b.pull(e, 0, { to: { x: 5, y: 10 } }) > 0);
+    assert.equal(fx()?.[4]?.face, 'keep');
+    assert.ok(h.b.displace(e, { x: -1, y: 0 }, 0.2) > 0);
+    assert.equal(fx()?.[4]?.face, undefined);
+  }
+});

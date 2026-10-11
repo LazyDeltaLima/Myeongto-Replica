@@ -533,19 +533,42 @@ describe('a push / pull slide (推拉: the official impulse under friction)', ()
     assert.equal(v.x, 7.7, 'and it still lands');
   });
 
-  test('a pushed enemy faces the way it is pushed, not the route it resumes', async () => {
-    // The official turns a displaced unit towards the force (_dontChangeFaceByDirection is an opt-in flag); our facing
-    // comes from the snapshot's vx, which after a displacement points back down the route the enemy walks again —
-    // i.e. against the push (player report: 被推开敌人的方向反过来了).
+  test('an unmarked raw displacement faces its travel', async () => {
     const v = await view(10);
     v.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 0, vx: -1.2 });
-    assert.equal(v.visFacing, -1, 'walking left before the push');
-    v.slideTo(7.7, 12);                       // pushed to the right
-    assert.equal(v.visFacing, 1, 'faces the push at once');
+    assert.equal(v.visFacing, -1, 'walking left before the move');
+    v.slideTo(7.7, 12);                       // a raw move to the right
+    assert.equal(v.visFacing, 1, 'faces the move at once');
     for (let i = 0; i < 20; i++) v.update(v.slide.dur / 40, cam(), 0);
-    assert.equal(v.visFacing, 1, 'still facing the push in flight');
-    v.slideTo(5.2, 12);                       // now pulled back to the left
-    assert.equal(v.visFacing, -1, 'and the other way for a pull');
+    assert.equal(v.visFacing, 1, 'still facing the move in flight');
+    v.slideTo(5.2, 12);                       // and back to the left
+    assert.equal(v.visFacing, -1, 'and the other way');
+  });
+
+  test('a pushed enemy faces the pusher (against its travel) through the slide; a pulled one keeps its facing', async () => {
+    // client code Enemy.KnockBack → FaceTo(-direction) for the push nodes; DragTowardSource / hook pulls never turn it
+    const v = await view(14);
+    v.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 1, vx: 1 });
+    assert.equal(v.visFacing, 1, 'walking right before the push');
+    v.slideTo(6.7, 12, { dur: 0.8, face: 'push' });   // pushed to the right, from its left
+    assert.equal(v.visFacing, -1, 'turns to the pusher at once');
+    v.sync({ x: 6.7, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 1, vx: 20 });
+    step(v, v.slide.dur / 2);
+    assert.equal(v.visFacing, -1, 'the sampled velocity does not flip it in flight');
+    step(v, v.slide.dur);
+    assert.equal(v.slide, null, 'lands');
+    v.sync({ x: 6.8, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 1, vx: 1 });
+    assert.equal(v.visFacing, 1, 'snapshot facing resumes after the slide');
+
+    v.slideTo(5, 12, { dur: 0.6, face: 'keep' });       // pulled back to the left
+    assert.equal(v.visFacing, 1, 'a pull keeps the facing');
+    step(v, v.slide.dur / 2);
+    assert.equal(v.visFacing, 1, 'in flight too');
+
+    const w = await view(15);
+    w.sync({ x: 5, y: 12, hp: 100, maxHp: 100, sp: 0, spMax: 0, flags: 0, anim: 1, vx: -1 });
+    w.slideTo(5, 13.5, { dur: 0.6, face: 'push' });     // pushed straight down: no left / right part
+    assert.equal(w.visFacing, -1, 'a push with no left / right part leaves it as it was');
   });
 
   test('a snapshot in flight does not teleport it (the slide owns the position until it lands)', async () => {

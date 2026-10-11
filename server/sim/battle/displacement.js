@@ -62,7 +62,11 @@ export class BattleDisplacement {
    * 而改变推动的方向或削减力度" — the < 0.25 tile rule still applies). `inward` = a radial push towards `from` (薄绿 S2's "拖拽", PRTS 备注 "实际为
    * 反方向（指向薄绿方向）的推开"), never nearer than PULL_STOP_RADIUS to its centre [ASSUMED: "至面前"]. `effect` = a 特效
    * push (PRTS 推与拉: one frame less of travel than a 弹道 push — constants.js PUSH_TILES_EFFECT / PUSH_EFFECT_SKILLS).
-   * Returns the tiles moved.
+   * The pushed enemy turns to face the pusher — against its travel — and slides so (the displace fx `face: 'push'`):
+   * client code `Enemy.KnockBack(direction, force, changeFaceByDirection)` (RVA 0x7248B0) calls `FaceTo(-direction)`, and
+   * the push nodes pass true (`Nodes.Knockback` 0xC1E850, `KnockBackWithDirection`; `KnockBackWithCharacterDirection`
+   * passes `!_dontChangeFaceByDirection`, false by default). [ASSUMED] 薄绿's inward push uses the same node (PRTS calls it
+   * a push), so it faces away from her. Returns the tiles moved.
    */
   push(e, force, { from = null, dir = null, fixed = false, fixedAngle = false, inward = false, effect = false } = {}) {
     if (!this._displaceable(e)) { this._staticForce(e, force, false); return 0; }
@@ -91,7 +95,7 @@ export class BattleDisplacement {
     // the first step)
     const hold = pushUnbalance(level);
     const holdOf = (moved) => (moved + 1e-6 >= dist ? hold : Math.max(UNBALANCE_MIN, wallHold(hold, moved, dist)));
-    const moved = this.displace(e, { x: ux, y: uy }, dist, { dur: hold > 0 ? holdOf : 0 });
+    const moved = this.displace(e, { x: ux, y: uy }, dist, { dur: hold > 0 ? holdOf : 0, face: 'push' });
     if (hold > 0) this._unbalance(e, holdOf(moved));
     return moved;
   }
@@ -100,7 +104,9 @@ export class BattleDisplacement {
    * Pull enemy `e` with 力度 `force` towards the point `to` (PRTS 推与拉 §拉力 / §捕网): 受力等级 ≥ 0 — all the way, until it
    * is within `stop` tiles of `center` (急停; `center` defaults to `to`, `stop` to PULL_STOP_RADIUS) or reaches `to`;
    * −1 — PULL_WEAK_SHARE of its starting distance to `to`; −2 — PULL_CRAWL tiles; ≤ −3 — nothing. `pullToFront` aims at
-   * the official 拉力起点 in front of an operator. Returns the tiles moved.
+   * the official 拉力起点 in front of an operator. The pulled enemy keeps its facing through the slide (displace fx
+   * `face: 'keep'`): client code `Nodes.DragTowardSource.Execute` (0xC16CE0) passes changeFaceByDirection false, and the
+   * hook pull (`Enemy.BeginPull` / `StillPull` / `EndPull`) never turns it. Returns the tiles moved.
    */
   pull(e, force, { to, center = null, stop = PULL_STOP_RADIUS } = {}) {
     if (!to) return 0;
@@ -125,7 +131,7 @@ export class BattleDisplacement {
       if (disc >= 0) { const t = -wu - Math.sqrt(disc); if (t >= 0) full = Math.min(full, t); }
     }
     const dist = level >= 0 ? full : level === -1 ? Math.min(full, PULL_WEAK_SHARE * d0) : Math.min(full, PULL_CRAWL);
-    const moved = dist > 1e-6 ? this.displace(e, { x: ux, y: uy }, dist, { dur: hold }) : 0;
+    const moved = dist > 1e-6 ? this.displace(e, { x: ux, y: uy }, dist, { dur: hold, face: 'keep' }) : 0;
     this._unbalance(e, hold);
     return moved;
   }
@@ -190,9 +196,10 @@ export class BattleDisplacement {
    * push() / pull(), which apply the official 力度 − 重量 rules (content uses those; the old `force` option is gone).
    * 失衡免疫 (flag `noDisplace`: 近地悬浮, 浮空 — PRTS 异常效果 "不会被位移影响"), 静态刚体 (data `staticBody`) and leaders
    * ⇒ no movement (_displaceable). The tiles it may cross follow its movement (`motion`): a hovering enemy walks the
-   * ground, so it stays on ground-passable tiles.
+   * ground, so it stays on ground-passable tiles. `face` (render only): 'push' — the view faces against its travel,
+   * 'keep' — it keeps its facing; none — it faces its travel.
    */
-  displace(e, dir, distance, { dur: durOpt = 0 } = {}) {
+  displace(e, dir, distance, { dur: durOpt = 0, face = null } = {}) {
     if (!this._displaceable(e) || !dir) return 0;
     const dxv = fin(dir.x, 0), dyv = fin(dir.y, 0);
     const len = hypot(dxv, dyv);
@@ -218,7 +225,7 @@ export class BattleDisplacement {
       e.atkStandUntil = -Infinity;
       if (e.route) e.route.pts = null;
       // `dur` (game s): the 失衡 the push / pull gives — the client's slide takes that long (render/units.js slideTo)
-      this.fx('displace', dur > 0 ? { x: e.x, y: e.y, id: e.id, dur } : { x: e.x, y: e.y, id: e.id });
+      this.fx('displace', { x: e.x, y: e.y, id: e.id, ...(dur > 0 ? { dur } : {}), ...(face ? { face } : {}) });
     }
     return moved;
   }
