@@ -386,6 +386,21 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
 - **家族徽章 + 叙拉古正装: 은신이 풀린 직후 첫 타** (upstream PR #461 by @Xinglan233, `a173a470`): 은신 해제를 0.25 s 성장 주기가 아니라 피해 순간에 읽는다.
   전에는 해제 직후 첫 타가 다음 주기 전에 들어가면 추가 진피해가 빠졌다. 연속 타격이 같은 처리에 다시 들어오기 전에 보너스를 먼저 소모한다.
   golden 변화 없음. 테스트 `test/content/family-crest-timing.test.js`(PR), `items.test.js`.
+- **深池逐火 余烬/火灰: 막힌 채 쓰러져도 새 余烬은 은신으로 시작** (upstream PR #465 by @CXUtk, `78032541`): 전사의 저지를 먼저 풀고 余烬의 은신 버프를
+  붙인다(`archetypes.js husk`). 전에는 반대 순서라 그 저지 끝이 새 은신을 3 s 꺼서, 막아 주던 오퍼레이터가 다음 적을 잡아도 원거리·스플래시가 余烬을
+  약 2 s 칠 수 있었다(0.1.2 §22.8의 **[ASSUMED]** 순서, 「죽지 않는 은신 적」 제보 대응). 클라 근거(EN 클라, 레포에는 이름만):
+  `Enemy.DoFakeDeath`(0x721DC0)가 `Enemy.ReleaseFromBlocker`(→ `Character.RemoveBlockee`)를 먼저 부르고, `Enemy.States.RebornState`는 그동안
+  BLOCK_FREE·INVINCIBLE·UNBALANCE_IMMUNE(마스크 0x128)을 준다. 余烬 모드(`enemy_1288_duskls` 프리팹 `Modes/Prop`)는 재생이 끝날 때 `Unit.DoReborn` →
+  `SwitchMode`로 켜지고, 거기 달린 재능 `Invisible`(`ToggleablePassiveBuffAbility` + `AdvancedCompoundToggleChecker`: `_isInitToggled` 1,
+  `_disableWhenBlocked` 1, `_restoreDelay` 3, `_disableDuringReborn` 0, 버프 `common_t_invisible` = INVISIBLE)이 붙는 순간 켜진다. 막혀 있으면 매 틱
+  끄고 풀린 뒤 3 s에 다시 켠다. 그래서 전사의 옛 저지는 새 은신에 창을 열지 못하고, 余烬 자신의 저지만 3 s 창을 연다. 이어서 余烬의 `BornAnim`(Start)
+  버프가 무적·저지 불가·失衡 면역을 주고, 그것이 끝나면 빈 자리가 있는 저지 오퍼레이터가 다시 막아 보이게 된다. 사용자 기억(「저지된 채 쓰러지면 아주
+  잠깐 은신되었다가 다시 보였다」 = 은신으로 시작 → 같은 오퍼레이터가 다시 막음)과 맞는다. 0.1.1 제보(아무도 못 치는 余烬)는 돌아오지 않는다: 余烬은 걷고
+  막을 수 있으며, 막히면 보이고 죽는다. 공식에서도 余烬을 잡는 방법은 빈 저지 자리·반은신(反隐)·많은 타격이다.
+  남은 차이 **[미확인]**: 공식은 「재생(RebornState) 시간 → 余烬 모드 + Start」 두 단계로 보이는데 우리는 1 s 하나(`HUSK_REBIRTH`)이고, 재생 중에도
+  은신 표시가 켜져 있다(공식은 그때 아직 전사 모드라 불투명). RebornData의 시간 값은 못 읽었다.
+  golden: roster 001·003·025·034·048, bonds bond-maniShip-high, matches solo-ABYSS-1·coop4-FUNNY-6·solo-HARD-9-boosted. 테스트
+  `test/sim/ember-initial-stealth.test.js`(PR), `test/sim/feedback2-surtr-stealth.test.js`(PR로 갱신), `test/match/ember-stealth-real.test.js`(실제 대전 경로).
 
 ### 관리자 결정 2026-10-11 (D1 공식 데이터 갱신 · D2 전략 차례 50 s · D8 공용 카드 풀)
 - **공식 표 갱신 + 乌尔比安 모듈 「前路」 CRU-Y** (upstream `2e122873`의 乌尔比安 키트 부분, 손 이식): `node tools/build-data.mjs --refresh`로 zh_CN 표를
