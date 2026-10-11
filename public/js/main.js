@@ -142,6 +142,7 @@ function maybeFinishRestore() {
  * follow the store themselves).
  */
 function backToLobby() {
+  identity.rememberMatch(null);
   clearTimeout(restoreTimer);
   const s = store.get();
   if (s.room || s.match.public) closeAllDialogs();
@@ -151,9 +152,11 @@ function backToLobby() {
 
 function onWelcome(msg) {
   identity.saveToken(msg.token);
+  identity.rememberMatch(null);
   const prev = store.get();
   const prevId = prev.me.playerId;
   const name = typeof msg.name === 'string' && msg.name ? msg.name : prev.me.name;
+  identity.saveName(name);
   store.set({ me: { playerId: msg.playerId ?? null, name, token: typeof msg.token === 'string' ? msg.token : null } });
   welcomeAt = Date.now();
 
@@ -206,6 +209,8 @@ function onRoomState(msg) {
     toast(outcome === 'split' ? t('就绪与重新抽取票数相同，已返回等待室') : t('无法开始新的模拟，已返回等待室'), 'warn', { ttl: 6000 });
   }
   store.set({ room });
+  identity.rememberMatch(room.inMatch && seats.some((seat) => seat?.playerId === myId)
+    ? { name: store.get().me.name, code: room.code || '' } : null);
   if (room.mode === 'coop' && typeof room.code === 'string') rememberRoom(room.code);
   maybeFinishRestore();
 }
@@ -228,7 +233,10 @@ function wireNet() {
   });
   net.on('clock', (c) => store.set({ clock: { offset: c.offset, rtt: c.rtt, synced: c.synced } }));
   net.on('welcome', onWelcome);
-  net.on('helloError', (err) => toastError(err));
+  net.on('helloError', (err) => {
+    if (err.code === 'SESSION_IN_USE') identity.rejectToken();
+    toastError(err);
+  });
   net.on('replaced', () => toast(t('该身份已在其他页面登录，本页已断开'), 'warn', { ttl: 6000 }));
   net.on('unhandledError', (err) => toastError(err));
   net.on('room.state', onRoomState);
@@ -272,6 +280,8 @@ function wireNet() {
     if (s.session.entered && !prev.session.entered) schedulePendingJoin();
     // in a room (co-op or solo, also a resumed one) a match is near: its data starts downloading
     if (s.room && !prev.room) warmGameData();
+    // a room this page leaves (放弃模拟 / 离开同盟 / no longer seated) is no seat another window may recover
+    if (prev.room && !s.room) identity.rememberMatch(null);
   });
 }
 

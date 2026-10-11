@@ -43,6 +43,7 @@
 | 서버 재시작 예고 (배포 전 카운트다운, 마지막 5분 판 시작 거부) | `server/local-restart.js`, `public/js/ui/restartNotice.js`, `test/local-restart.test.js` | `ui.md` 「서버 재시작 예고」 |
 | `SP_MAX_BOTS` (방마다 AI 팀원 한도) | `server/local-patch.js` | — |
 | AI 팀원 표정 반응 (`SP_BOT_EMOTES=0`이면 끔, upstream 0.2.3) | `server/match/botEmotes.js` | `ui.md` 「upstream 0.2.3 이식 — UI」 |
+| 닫은 창의 판 복구 (타이틀·로비 「이 기기의 판 복구」, 같은 브라우저 토큰, upstream 0.2.3) | `public/js/net.js` `createIdentity`, `public/js/ui/resumeMatch.js`, `server/net.js` (`SESSION_IN_USE`) | `ui.md` 「upstream 0.2.3 이식 — UI」 |
 | 이모티콘 공식/유저 탭 | `shared/emote-art.js`, `public/img/emotes/*`, `public/js/ui/emotes.js` | — |
 | 리소스 미리 받기 (음성 언어 선택 포함) | `public/js/resources.js`, `public/resource-worker.js`, `tools/build-browser-resources.mjs`, `public/css/resources.css` | — |
 | 오퍼레이터 음성 언어 선택(한국어/일본어/끄기)과 정비 단계 대사(선택·배치) — 원본 #73 「干员战斗语音」 위에 | `tools/assets/voice.mjs`, `public/js/voice.js`, `public/js/voicePolicy.js` | `audio.md` 「음성」 |

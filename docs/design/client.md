@@ -54,6 +54,24 @@ Audio: autochess BGM per phase, UI SFX (buy/sell/refresh/level/merge/ready/timer
 
 ---
 
+### Local match recovery (upstream 0.2.3, GitHub #431)
+
+A remake convenience the official game lacks. The title footer and the lobby header offer 「恢复本机对局」 (`ui/resumeMatch.js`,
+shown only when there is something to recover) for a match seat a closed window of the same browser left behind.
+`sp.matches` stores bounded name / room-code metadata indexed by token hash; the existing four-entry `sp.tokens` ring
+remains the authority. Recovery rechecks BroadcastChannel claims before selecting the token in memory and reconnecting
+in the same document. Only the server's `welcome` (`saveToken`) persists that selection and its first-welcome stamp
+(`sp.tokenWelcome`, bound to the token hash). Refreshing or reconnecting the same token preserves that stamp. A tab with
+a session token initializes with that token or null, never another recent token, and answers ownership queries during
+initialization. An earlier welcome takes precedence; equal stamps prefer an already welcomed live document over a copied
+session, then tab id breaks ties. A pending recovery yields when the original owner returns. `hello.noReplace` /
+`hello.claimAt` (design/network.md) keep a hello already in flight from evicting a connected holder, and a stale welcome
+never reaches the store or flushes queued game actions. Nickname persistence waits for welcome, so a refused recovery
+returns to the previous identity and nickname. Players are never identified by name or IP. Without BroadcastChannel
+shared recovery is refused. Leaving a match (g.leave / back to the lobby) or a server-issued replacement token clears
+the metadata, so a seat given up on purpose is never offered; a server restart or an expired reconnect window makes
+the attempt end in the server's new session.
+
 ## 13. Local-client art (optional, host-side)
 
 `tools/local-extract/extract.py` (Python: UnityPy + lz4 + Pillow; decodes Arknights' custom **LZ4AK** bundle compression via `aklz4.py`) extracts the art the web download does not include (some of it, most official HUD sprites among it, is on the public mirror too — §22.5) from a locally installed client (CrossOver Windows build or PlayCover iOS build) into `public/assets/local/**` and writes `data/local-assets.json` (`{ groups: { '<subdir>': { name: { path, w, h, kind } } } }`). Everything here is **optional**: clients must render correctly when the file or any entry is missing (fall back to the web assets / procedural art). The emotes and the guide pages below are on the public mirror too (§22.5): fetch-assets downloads them (data/assets.json `ui['emoticon/<dir>/<picId>']`, `ui['guide/<key>']`) and the client shows the local copy first, then that one (`data.js artUrls`); docs/DEPLOY.md §6 lists what still needs the client.

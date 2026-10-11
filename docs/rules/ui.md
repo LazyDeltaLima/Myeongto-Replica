@@ -618,6 +618,17 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   AI의 답은 늘 공식 그림. (2) upstream은 연합 방어 시작 반응을 서버 전투 경로(`startUnite`)에만 달아 기본값 `SP_COMBAT=client`에서는
   안 나왔다 — 클라이언트 전투 경로(`_startUniteClient`)에도 단다. `[ASSUMED]` 반응 고르기는 사회적 휴리스틱.
   확인: `test/match/bot-emotes.test.js`(upstream 사례 + 유저 그림 사례) [화면 미확인].
+- 닫은 창의 판 복구(「恢复本机对局」, `f3658a0d` + 경쟁 조건 수정 `ba5b998a`, upstream GitHub #431, 관리자 결정 2026-10-11): 공식에 없는 기능(`feat`).
+  같은 브라우저에서 판을 하던 창을 닫아 버렸을 때, 다른 창의 타이틀 아래쪽(저작권 줄 왼쪽)이나 로비 머리(「통계」 오른쪽)의 「이 기기의 판 복구」 →
+  저장된 자리(닉네임 · 동맹 코드)를 골라 그 창에서 다시 접속한다. 복구할 것이 없으면 버튼이 없다. `public/js/net.js`·`ui/resumeMatch.js`는 upstream 그대로.
+  - 신원: 서버가 준 토큰(`sp.tokens` 최근 4개)만, 닉네임·IP로는 찾지 않는다. 아직 살아 있는 창(새로고침·초기화 중 포함)의 자리는 빼앗지 않는다
+    (BroadcastChannel로 묻고, 서버 쪽은 `hello.noReplace`/`claimAt` → `SESSION_IN_USE`). BroadcastChannel이 없는 브라우저는 복구하지 않는다.
+  - 우리 재접속 규칙과의 관계: 서버 재접속 창(협동 10분, 솔로 판 24시간 `singleReconnectTime`)은 그대로이고, 복구는 그 창 안에서 같은 토큰으로
+    다시 들어가는 것뿐이다. 우리는 나가기 창에 「暂离」가 없어 나가면 자리를 포기하므로(README 기능 목록), 이 창이 방을 떠나면
+    (「放弃模拟」·「离开同盟」·자리에서 빠짐) 복구 목록에서 지운다(`main.js` 스토어 구독 — upstream은 로비 복귀·새 세션 때만 지워, 포기한 자리가 목록에 남았다).
+  - 버튼 자리: 공식 위수협약 UI 작업(아래 「공식 위수협약 UI」)은 판 안 화면이라 겹치지 않는다. upstream이 같이 넣은 설치 버튼(PWA)은 넣지 않는다(「iPhone 전체 화면 안내」의 결정: 홈 화면 안내만).
+  - 확인: `test/client-static.test.js` 「explicit local match recovery」(살아 있는 창 보호·닫힌 창 복구·동시 복구·새로고침 중·welcome 전 저장 안 함),
+    `test/client-identity-handshake.test.js`(실제 클라·서버 hello 처리, 늦게 온 welcome). upstream 브라우저 테스트(`followup-023.e2e`)는 가져오지 않았다 [화면 미확인].
 
 ## 본판 정보 다시 뽑기 (2026-10-09, 관리자 결정)
 - 공식에 없는 기능(`feat`). 싱글에서 결석 맹약·리더 적을 보고 나갔다가 새로 시작하는 일이 많아서 넣었다(관리자 2026-10-09).
