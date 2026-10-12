@@ -247,6 +247,17 @@ export function PresetPicker({ choice, presets, off, locked, onChoice }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => { if (locked) setOpen(false); }, [locked]);
+  // the opened list scrolls into the pane's view above its pinned actions (a phone's short pane hid it under them)
+  useEffect(() => {
+    if (!open) return;
+    const list = ref.current?.querySelector('.draft-preset__list');
+    const pane = ref.current?.closest('.draft-detail');
+    if (!list || !pane) return;
+    const acts = pane.querySelector('.draft-detail__actions');
+    const bottom = acts ? acts.getBoundingClientRect().top : pane.getBoundingClientRect().bottom;
+    const over = list.getBoundingClientRect().bottom - bottom + 4;
+    if (over > 0) pane.scrollTop += over;
+  }, [open]);
   useEffect(() => {
     if (!open) return undefined;
     const away = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };

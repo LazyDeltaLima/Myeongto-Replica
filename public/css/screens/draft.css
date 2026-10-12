@@ -149,8 +149,10 @@
 .draft-preset__sel { height: max(.4rem, 26px); padding: 0 .08rem; }
 .draft-preset__sel:hover:not(:disabled), .draft-preset__sel[aria-expanded="true"] { border-color: var(--mint-700); }
 .draft-preset__sel:disabled { opacity: .6; }
-.draft-preset__optname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.draft-preset__sel small, .draft-preset__opt small { flex: none; font-size: max(.12rem, 9px); color: var(--text-dim); }
+.draft-preset__optname { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 未设置 / 本局禁用 give way before the name does */
+.draft-preset__sel small, .draft-preset__opt small { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: max(.12rem, 9px); color: var(--text-dim); }
 .draft-preset__ico.chat__facico { width: max(.2rem, 15px); height: max(.2rem, 15px); }
 .draft-preset__ico.is-none { flex: none; display: inline-block; width: max(.2rem, 15px); height: max(.2rem, 15px); border: 1px dashed var(--line-3); border-radius: 50%; }
 .draft-preset__caret { flex: none; margin-left: auto; width: 0; height: 0; border-left: .05rem solid transparent; border-right: .05rem solid transparent;
@@ -181,4 +183,6 @@
   background: linear-gradient(90deg, rgba(78, 216, 175, .18), rgba(78, 216, 175, .04)); }
 .draft-confirm b { font-size: max(.17rem, 11px); color: var(--mint-400); }
 .draft-confirm p { margin: 0; font-size: max(.13rem, 9px); line-height: 1.5; color: var(--text-md); }
+/* a phone's short pane: the title and the button only (the pinned box would cover the preset row) */
+@media (max-height: 500px) { .draft-confirm p { display: none; } }
 .dorder__ready { margin-left: .06rem; padding: 0 .04rem; font-size: max(.11rem, 8px); color: var(--text-on-mint); background: var(--mint-500); }
