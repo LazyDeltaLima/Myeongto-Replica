@@ -15,7 +15,7 @@
   pointer-events: auto; animation: bart-in .25s ease-out both; }
 .bload.is-leaving { animation: bart-out .4s ease-in both; pointer-events: none; }
 .bload i, .bload span, .bload div { position: absolute; display: block; }
-.bload__pic { inset: 0; background: var(--bl-pic) center / 100% 100% no-repeat; }
+.bload__pic { inset: 0; background: var(--bl-pic) center / contain no-repeat; } /* the 1024² picture at its own ratio, letterboxed on black */
 /* image_shadow_corner: the dark corners over the picture ([추정] its sprite: a vignette) */
 .bload__shade { inset: 0; background: radial-gradient(ellipse 75% 70% at 50% 48%, transparent 55%, rgba(0, 0, 0, .55)); }
 .bload__op, .bload__code, .bload__name { display: flex !important; align-items: center; justify-content: center; white-space: nowrap; color: #fff; line-height: 1; }
