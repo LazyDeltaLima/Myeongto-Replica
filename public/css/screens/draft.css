@@ -150,11 +150,17 @@
 .draft-preset__sel:hover:not(:disabled), .draft-preset__sel[aria-expanded="true"] { border-color: var(--mint-700); }
 .draft-preset__sel:disabled { opacity: .6; }
 .draft-preset__optname { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 未设置 / 本局禁用 give way before the name does */
-.draft-preset__sel small, .draft-preset__opt small { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: max(.12rem, 9px); color: var(--text-dim); }
-.draft-preset__ico.chat__facico { width: max(.2rem, 15px); height: max(.2rem, 15px); }
-.draft-preset__ico.is-none { flex: none; display: inline-block; width: max(.2rem, 15px); height: max(.2rem, 15px); border: 1px dashed var(--line-3); border-radius: 50%; }
+/* the icon's states (no words): no preset = dimmed in a dashed ring (the 自选编队 tab's empty chip); off this match = the
+   briefing's img_bond_banned mark on its corner (local art; without it the dimmed name below) */
+.draft-preset__icw { position: relative; flex: none; display: inline-grid; place-items: center; margin-right: .04rem; }
+.is-empty > .draft-preset__icw { outline: 1px dashed var(--line-3); outline-offset: 1px; border-radius: 50%; }
+.is-empty .draft-preset__ico { opacity: .4; }
+.is-empty > .draft-preset__optname { color: var(--text-lo); }
+/* the briefing's place for it: top-right of the icon (client: img_bond_banned at (29, 32) from the disc's middle) */
+.draft-preset__ban { position: absolute; right: -.07rem; top: -.07rem; width: max(.18rem, 13px); height: max(.18rem, 13px); pointer-events: none;
+  filter: drop-shadow(0 0 1px #000); }
+.draft-preset__ico.chat__facico { width: max(.22rem, 17px); height: max(.22rem, 17px); }
+.draft-preset__ico.is-glyph { flex: none; width: max(.2rem, 15px); height: max(.2rem, 15px); color: var(--mint-400); }
 .draft-preset__caret { flex: none; margin-left: auto; width: 0; height: 0; border-left: .05rem solid transparent; border-right: .05rem solid transparent;
   border-top: .06rem solid var(--text-lo); }
 .draft-preset__sel[aria-expanded="true"] .draft-preset__caret { transform: rotate(180deg); }
@@ -163,7 +169,7 @@
 .draft-preset__opt { height: max(.34rem, 24px); padding: 0 .06rem; background: rgba(255, 255, 255, .04); border-color: transparent; }
 .draft-preset__opt:hover { background: rgba(255, 255, 255, .1); border-color: var(--fac, var(--line-3)); }
 .draft-preset__opt.is-on { border-color: var(--fac, var(--mint-400)); box-shadow: inset 0 0 0 1px var(--fac, var(--mint-400)); }
-.draft-preset__opt.is-off .draft-preset__optname { color: var(--text-lo); }
+.draft-preset__sel.is-off .draft-preset__optname, .draft-preset__opt.is-off .draft-preset__optname { color: var(--text-lo); }
 .draft-preset__slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .04rem; }
 /* a slot: its tier chip and the operator's icon, small (maintainer request 2026-10-13: icons and tiers, not names) */
 .draft-preset__slot { position: relative; display: flex; align-items: center; justify-content: center; gap: .04rem; min-width: 0;

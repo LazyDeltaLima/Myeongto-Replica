@@ -45,7 +45,7 @@ import { loadoutStore, flushDiySync } from '../ui/loadoutSync.js';
 import { diySlotList } from '../ui/diyModel.js';
 import { CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
 import { PHASE } from '../../../shared/constants.js';
-import { data } from '../data.js';
+import { data, localAsset } from '../data.js';
 import { audio } from '../audio.js';
 import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
 import { t, tParts, tName } from '../../../shared/i18n.js';
@@ -240,7 +240,10 @@ export function presetOptions(presets, off) {
 /**
  * The 自选预设 dropdown (maintainer request 2026-10-13: an icon before each faction — a native <select> draws no image):
  * a button showing the choice, and the list opening in the pane's flow (the pane scrolls, a floating list would be cut).
- * Escape or a tap outside closes it.
+ * Escape or a tap outside closes it. No words beside the names (maintainer decision 2026-10-13): a faction without a
+ * preset has its icon dimmed in a dashed ring (the 自选编队 tab's empty chip), a faction this match disables carries the
+ * briefing's own img_bond_banned mark top-right of its icon (as the briefing draws it; without that local art the dimmed
+ * name); both say so in the tooltip.
  * @param {{ choice: string, presets: Record<string, any>, off: string[]|null, locked: boolean, onChoice: (v: string) => void }} props
  */
 export function PresetPicker({ choice, presets, off, locked, onChoice }) {
@@ -268,15 +271,21 @@ export function PresetPicker({ choice, presets, off, locked, onChoice }) {
   }, [open]);
   const opts = presetOptions(presets, off);
   const cur = opts.find((o) => o.v === choice) || opts[0];
-  const line = (o) => html`${o.f ? html`<${FactionIcon} f=${o.f} class="chat__facico draft-preset__ico" />` : html`<i class="draft-preset__ico is-none" aria-hidden="true"></i>`}
-    <span class="draft-preset__optname">${o.label}</span>${o.empty ? html`<small>${t('（未设置）')}</small>` : null}${o.off ? html`<small class="is-off">${t('（本局禁用）')}</small>` : null}`;
+  const ban = localAsset('ui/outer', 'img_bond_banned');
+  const tip = (o) => [o.label, o.empty && t('尚未设置预设'), o.off && t('本局禁用')].filter(Boolean).join(' · ');
+  // 保持当前编队 ✓ / 不使用预设 − (glyphs, so the dashed ring only ever means "no preset yet")
+  const line = (o) => html`<span class="draft-preset__icw">${o.f ? html`<${FactionIcon} f=${o.f} class="chat__facico draft-preset__ico" />`
+    : html`<${Icon} name=${o.v === KEEP_LINK ? 'check' : 'minus'} class="draft-preset__ico is-glyph" />`}
+    ${o.off && ban ? html`<img class="draft-preset__ban" src=${ban} alt="" draggable=${false} />` : null}</span><span class="draft-preset__optname">${o.label}</span>`;
+  const stateCls = (o) => cx(o.empty && 'is-empty', o.off && 'is-off');
   return html`<div class="draft-preset__pick" ref=${ref}>
-    <button type="button" id="draft-preset-sel" class="draft-preset__sel" data-testid="draft-preset-select" data-value=${cur.v}
+    <button type="button" id="draft-preset-sel" data-testid="draft-preset-select" data-value=${cur.v}
       aria-haspopup="listbox" aria-expanded=${open ? 'true' : 'false'} disabled=${locked} style=${cur.f ? `--fac:${cur.f.color}` : null}
+      class=${cx('draft-preset__sel', stateCls(cur))} title=${tip(cur)}
       onClick=${() => setOpen(!open)}>${line(cur)}<i class="draft-preset__caret" aria-hidden="true"></i></button>
     ${open ? html`<ul class="draft-preset__list" role="listbox" aria-label=${t('自选预设')}>
       ${opts.map((o) => html`<li key=${o.v} role="option" aria-selected=${o.v === choice ? 'true' : 'false'}>
-        <button type="button" class=${cx('draft-preset__opt', o.v === choice && 'is-on', o.off && 'is-off')} data-preset=${o.v}
+        <button type="button" class=${cx('draft-preset__opt', o.v === choice && 'is-on', stateCls(o))} data-preset=${o.v} title=${tip(o)}
           style=${o.f ? `--fac:${o.f.color}` : null} onClick=${() => { setOpen(false); if (o.v !== choice) onChoice(o.v); }}>${line(o)}</button>
       </li>`)}
     </ul>` : null}
