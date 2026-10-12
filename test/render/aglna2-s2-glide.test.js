@@ -127,3 +127,42 @@ test('airborne lift: 予愿安洁莉娜 0.8, 凯尔希·思衡托 stays on her t
   for (let i = 0; i < 120; i++) fly.update(1 / 60, cam, 0);
   assert.ok(Math.abs(fly.hover - FLY_HOVER) < 1e-3, `a flyer: ${fly.hover}`);
 });
+
+test('fly_range_01 stays on her tile, turned to the sweep; the trail follows the gliding model (maintainer report 2026-10-12)', async () => {
+  const { faceTurn } = await import('../../public/js/render/fx/face.js');
+  const fx = (n) => JSON.parse(readFileSync(path.join(ROOT, `public/assets/local/fx/aglna2/${n}.json`), 'utf8'));
+  const range = fx('aglna2_skill_02_fly_range_01'), trail = fx('aglna2_skill_02_fly_trail_rightAndLeft_01');
+  // a ground streak (_spawnLocation 5, no FollowMountPoint) authored along its _mainDir RIGHT for the sweep's length
+  assert.equal(range.spawn, 5);
+  assert.equal(range.mount, undefined);
+  assert.deepEqual([range.face.rot, range.face.dir], [2, 1]);
+  assert.ok(Math.max(...range.nodes.map((n) => n.pos[0])) > 4, 'it reaches ~4 tiles ahead of where it is created');
+  assert.ok(trail.mount, 'the trail rides its mount point');
+  // FOUR_DIRECTION: up the board turns it 90°, left 180°
+  assert.equal(faceTurn(range.face, { x: 0, y: 3 }).z, 90);
+  assert.equal(faceTurn(range.face, { x: -4, y: 0 }).z, 180);
+  const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
+  const dash = SRC.slice(SRC.indexOf("case 'dash': {"), SRC.indexOf("case 'dash': {") + 1600);
+  assert.match(dash, /const at = \{ x: x \+ \(Number\(src\?\.modelDX\) \|\| 0\), y, z: Number\(src\?\.z\) \|\| 0 \};/);
+  assert.match(dash, /spawn\(b\.bundle, range, at, \{ owner: o\.id, buff: true, until: clockS \+ fly \}, \{ dir: \{ x: dx, y: dy \} \}\)/);
+  assert.match(dash, /if \(trail\) spawn\(b\.bundle, trail, src,/);
+});
+
+test('an effect on her without a FollowMountPoint (aglna2_skill_02_buff_01 at her feet) stays on her tile while the model glides', () => {
+  const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
+  const start = SRC.indexOf('const ex = (v) =>');
+  assert.ok(start > 0);
+  // the entity's place: the glide's sampled tile while the model is away, else the model's column
+  const body = SRC.slice(start, SRC.indexOf('\n', SRC.indexOf('const ey = (v) =>')));
+  const mx = (v) => Number(v.x) + (Number(v.modelDX) || 0);
+  const { ex, ey } = new Function('mx', `${body}; return { ex, ey };`)(mx);
+  const v = { x: 5.5, y: 9, modelDX: 0, glideS: { lx: 3, ly: 9 } };
+  assert.deepEqual([ex(v), ey(v)], [3, 9]);
+  v.glideS = null;
+  assert.deepEqual([ex(v), ey(v)], [5.5, 9]);
+  // every unit view (UnitView has `glideS`) gets the anchor, the ground / body / airborne branches all use it
+  const lifted = SRC.slice(SRC.indexOf('function lifted(v, def) {'), SRC.indexOf('const ownerOf = (v) =>'));
+  assert.match(lifted, /if \(!v \|\| !\(v\.modelDX \|\| 'glideS' in v\)\) return v;/);
+  assert.equal((lifted.match(/get x\(\) \{ return ex\(v\); \}, get y\(\) \{ return ey\(v\); \}/g) || []).length, 3);
+  assert.doesNotMatch(lifted.slice(lifted.indexOf('const frac = SPAWN_FRAC')), /return mx\(v\)/);
+});

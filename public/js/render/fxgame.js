@@ -673,6 +673,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // the world point under it at the unit's row (fxpoints.js liftedPoint: the camera's perspective taken into account)
     return liftedPoint(camRef, v.x, v.y, (v.z || 0) + (v.hover || 0), v.screen.y, g.x, g.y, out, SP_P);
   }
+  /**
+   * Where a unit's entity stands (maintainer report 2026-10-12: 予愿安洁莉娜 S2's buff_01 on the ground went along with her
+   * gliding model): its model's column (mx), but its tile while the model glides away from it (render/units.js glide —
+   * the client carries only the model, on projectile_chr_aglna2_s2_fly; the entity stays). An effect created on the unit
+   * without a FollowMountPoint stays with the entity [추정: the client's Effect is held at the entity, not the model]; a
+   * mounted one follows its point on the model (specialPoint).
+   */
+  const ex = (v) => (v.glideS ? Number(v.glideS.lx) + (Number(v.modelDX) || 0) : mx(v));
+  const ey = (v) => (v.glideS ? Number(v.glideS.ly) : v.y);
   // local patch (maintainer report): a prefab with a FollowMountPoint (fx_extract.py `mount`) is placed
   // at and follows its mount point instead of its _spawnLocation; with `pauseWhenInvalid` it stands still (`paused`, the
   // frame loop skips its update) while the unit's current skeleton has none of the point's bones
@@ -711,18 +720,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // come down from there onto her tile (docs/rules/render.md 「이륙 높이」)
       if (v && v.liftoff) {
         return {
-          get x() { return mx(v); }, get y() { return v.y; }, get z() { return (v.z || 0) + (v.hover || 0); },
+          get x() { return ex(v); }, get y() { return ey(v); }, get z() { return (v.z || 0) + (v.hover || 0); },
           get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
         };
       }
-      if (!v || !v.modelDX) return v;
-      return {   // its feet under the drawn model (MODEL_SHIFT)
-        get x() { return mx(v); }, get y() { return v.y; }, get z() { return v.z; }, get hover() { return v.hover; },
+      if (!v || !(v.modelDX || 'glideS' in v)) return v;
+      return {   // its feet under the drawn model (MODEL_SHIFT), on its tile while the model glides
+        get x() { return ex(v); }, get y() { return ey(v); }, get z() { return v.z; }, get hover() { return v.hover; },
         get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
       };
     }
     return {
-      get x() { return mx(v); }, get y() { return v.y; },
+      get x() { return ex(v); }, get y() { return ey(v); },
       get z() { return camRef ? bodyZ(camRef, v, frac) : (v.z || 0) + (v.hover || 0) + (v._headTiles || 1.2) * frac; },
       get alive() { return v.alive; }, get remove() { return v.remove; },
       id: v.id, info: v.info,
@@ -1436,7 +1445,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
       // 予愿安洁莉娜 S2 (`chant` > 0): aglna2_s_2[flying] on her model while it glides out (projectile_chr_aglna2_s2_fly
       // creates it as it leaves and finishes it as it reaches: `t`; render/units.js glide moves the model) — the glide trail
-      // of her direction (rightAndLeft / up / down _01) and fly_range_01 —, then [chant_end] fly_end_01–03 back home (aglGlideBack)
+      // of her direction (rightAndLeft / up / down _01) and fly_range_01 —, then [chant_end] fly_end_01–03 back home (aglGlideBack).
+      // The trail follows its mount point on the gliding model; fly_range_01 (_spawnLocation 5, no FollowMountPoint) is a
+      // streak on the ground authored from x −0.5 to ~4.3 along its _mainDir RIGHT (FOUR_DIRECTION), the length of the
+      // sweep: it stays on her tile, turned to the sweep (maintainer report 2026-10-12: it moved with her model) [추정: played
+      // with the projectile's direction of flight]
       case 'dash': {
         const src = views.get(o.id), b = pickOf(src, 'aglna2'), chant = Number(o.chant);
         if (!b || !(chant > 0)) return false;
@@ -1444,8 +1457,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const way = Math.abs(dx) >= Math.abs(dy) ? 'rightAndLeft' : dy > 0 ? 'up' : 'down';
         ownFx.add(e);
         if (fly > 0) {
-          for (const n of [`aglna2_skill_02_fly_trail_${way}_01`, 'aglna2_skill_02_fly_range_01'].map((k) => pickName(b, k)).filter(Boolean)) {
-            spawn(b.bundle, n, src, { owner: o.id, buff: true, until: clockS + fly });
+          const trail = pickName(b, `aglna2_skill_02_fly_trail_${way}_01`), range = pickName(b, 'aglna2_skill_02_fly_range_01');
+          if (trail) spawn(b.bundle, trail, src, { owner: o.id, buff: true, until: clockS + fly });
+          if (range) {
+            const at = { x: x + (Number(src?.modelDX) || 0), y, z: Number(src?.z) || 0 };
+            spawn(b.bundle, range, at, { owner: o.id, buff: true, until: clockS + fly }, { dir: { x: dx, y: dy } });
           }
         }
         castsDelayed.push({ t: clockS + aglGlideBack(fly, chant), run: () => {
