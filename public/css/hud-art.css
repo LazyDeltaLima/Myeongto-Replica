@@ -595,6 +595,22 @@
 .dart__tab.is-on { color: #fff; background: rgba(12, 12, 12, .9); }
 .dart__pane { display: flex; flex-direction: column; gap: .1rem; padding: .14rem .24rem .3rem .3rem; width: 6.6rem; flex: 1;
   background: linear-gradient(90deg, rgba(14, 14, 14, .55), rgba(14, 14, 14, .35) 70%, rgba(14, 14, 14, 0)); }
+/* each tab scrolls on its own (the client's group_* scroll_desc; maintainer report 2026-10-12: the equipped items' texts
+   were cut at the screen's bottom): the pane takes the card's height left under the tabs (at least 1.6rem — less, and
+   the card scrolls as before), no scrollbar, its end padded to clear the bottom-left corner buttons, an edge fades while
+   more text is there (ui/components.js useScrollEdges). It takes wheel / touch only while it scrolls (.is-scroll) — a
+   short tab still passes presses to the bench pads under it (2026-10-06 rule above). */
+.dpanel--chess .dart__pane { flex: 1 1 auto; min-height: 1.6rem; overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: none;
+  padding-bottom: calc(.34rem + max(.56rem, 34px)); --dp-fade: .36rem; }
+.dpanel--chess .dart__pane > * { flex: none; }
+.dpanel--chess .dart__pane::-webkit-scrollbar { display: none; }
+.gm.has-hud-art .dpanel--chess .dart__pane.is-scroll { pointer-events: auto; touch-action: pan-y; }
+.dpanel--chess .dart__pane.has-down { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - var(--dp-fade)), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - var(--dp-fade)), transparent); }
+.dpanel--chess .dart__pane.has-up { -webkit-mask-image: linear-gradient(0deg, #000 calc(100% - var(--dp-fade)), transparent); mask-image: linear-gradient(0deg, #000 calc(100% - var(--dp-fade)), transparent); }
+.dpanel--chess .dart__pane.has-up.has-down {
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--dp-fade), #000 calc(100% - var(--dp-fade)), transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 var(--dp-fade), #000 calc(100% - var(--dp-fade)), transparent);
+}
 .dart__pane .dtext, .dart__pane .dgarrison__text, .dart__pane .ditem__desc { font-size: .17rem; line-height: 1.55; color: #f2f2f2; }
 .dart__pane .rt-vup, .dart__pane .rt-kw { color: #0098dc; }
 /* section chips: the talent names on grey boxes, the 特质 type on the green 作战能力 chip */

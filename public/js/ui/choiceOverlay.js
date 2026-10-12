@@ -17,7 +17,7 @@
 // no countdown and say so.
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, TierChip, Countdown, MicroLabel, Button } from './components.js';
+import { html, Icon, TierChip, Countdown, MicroLabel, Button, useScrollEdges } from './components.js';
 import { Img, RichText, PlayerAvatar, GIcon } from './gameComponents.js';
 import { itemIconUrl, enemyIconUrl, uiUrl } from './assetUrls.js';
 import { richTextPlain } from './richText.js';
@@ -163,25 +163,13 @@ export function ChoiceOverlay(props) {
  */
 function CardScroll({ children }) {
   const ref = useRef(null);
-  const [more, setMore] = useState({ up: false, down: false });
+  const more = useScrollEdges(ref);
+  // the tier chip (common_chess_level) is part of the official scrolled content: it leaves once the text scrolls
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return undefined;
-    const check = () => {
-      const up = el.scrollTop > 1;
-      const down = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
-      setMore((m) => (m.up === up && m.down === down ? m : { up, down }));
-      // the tier chip (common_chess_level) is part of the official scrolled content: it leaves once the text scrolls
-      const card = el.closest('.spcard');
-      if (card) { if (up) card.dataset.scrolled = ''; else delete card.dataset.scrolled; }
-    };
-    check();
-    el.addEventListener('scroll', check, { passive: true });
-    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(check) : null;
-    ro?.observe(el);
-    for (const c of el.children) ro?.observe(c);
-    return () => { el.removeEventListener('scroll', check); ro?.disconnect(); };
-  }, []);
+    const card = ref.current?.closest('.spcard');
+    if (!card) return;
+    if (more.up) card.dataset.scrolled = ''; else delete card.dataset.scrolled;
+  }, [more.up]);
   return html`<span class=${cx('spcard__scroll', more.up && 'has-up', more.down && 'has-down')}>
     <span class="spcard__body" ref=${ref}>${children}</span>
     <span class="spcard__more spcard__more--up" aria-hidden="true"></span>

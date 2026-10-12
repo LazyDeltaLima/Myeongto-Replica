@@ -316,6 +316,35 @@ export function SevenSeg({ text, tone = 'mint', size, class: cls, flicker = fals
   </span>`;
 }
 
+/**
+ * Whether a scroll box has more above / below and whether it overflows at all (scrolls), kept current on scroll and on
+ * resize of the box or its children — for the official in-card scroll views (the 机变 cards, the operator card's tabs).
+ * `deps` re-measure after content changes the observers cannot see (a tab switch keeps the box).
+ * @param {{ current: Element|null }} ref
+ * @param {any[]} [deps]
+ * @returns {{ up: boolean, down: boolean, scroll: boolean }}
+ */
+export function useScrollEdges(ref, deps = []) {
+  const [edges, setEdges] = useState({ up: false, down: false, scroll: false });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const check = () => {
+      const up = el.scrollTop > 1;
+      const down = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      const scroll = el.scrollHeight > el.clientHeight + 1;
+      setEdges((m) => (m.up === up && m.down === down && m.scroll === scroll ? m : { up, down, scroll }));
+    };
+    check();
+    el.addEventListener('scroll', check, { passive: true });
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(check) : null;
+    ro?.observe(el);
+    for (const c of el.children) ro?.observe(c);
+    return () => { el.removeEventListener('scroll', check); ro?.disconnect(); };
+  }, deps);
+  return edges;
+}
+
 // Shared ticker so every live countdown re-renders from one interval per period.
 const tickers = new Map(); // ms -> { subs:Set, id }
 /**

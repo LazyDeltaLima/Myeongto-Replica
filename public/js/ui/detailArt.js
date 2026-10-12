@@ -27,8 +27,8 @@
 //                           player's m.private: a 自选 slot's operator, a 补位 stand-in — maintainer report 2026-10-08: the
 //                           drag showed the bare slot record 「自选干员」); null for an item / token or an unknown piece
 
-import { useState } from '../../vendor/hooks.module.js';
-import { html, TierChip } from './components.js';
+import { useRef, useState } from '../../vendor/hooks.module.js';
+import { html, TierChip, useScrollEdges } from './components.js';
 import { Img } from './gameComponents.js';
 import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail } from './detailPanel.js';
 import { attackInterval, fmtNum, chessLoadout, pickGetter, standInLoadout, standInLabel, standInTip, standInForText } from './gameLogic.js';
@@ -105,6 +105,11 @@ export function ChessDetailArt(props) {
     : snapHp || { hp: Number.isFinite(live?.maxHp) ? live.maxHp : s.maxHp, max: Number.isFinite(live?.maxHp) ? live.maxHp : s.maxHp };
   const pct = Number.isFinite(hp?.hp) && hp.max > 0 ? Math.max(0, Math.min(100, (hp.hp / hp.max) * 100)) : 100;
   const cur = tabs.find((t) => t.id === tab) || tabs[0] || null;
+  // each tab is its own vertical scroll view, as the client's detailedPanels group_* scroll_desc: equipped items with
+  // set-bonus lines ran past the screen's bottom and under the corner buttons, and the pane — which lets presses
+  // through to the bench pads under it — could not be scrolled (css/hud-art.css .dart__pane.is-scroll)
+  const paneRef = useRef(null);
+  const edges = useScrollEdges(paneRef, [cur?.id]);
   const phase = Number.isInteger(c.status?.phase) ? c.status.phase : null;
   const level = Number.isFinite(c.status?.level) ? c.status.level : null;
   const eliteUrl = phase != null ? uiUrl(m, `elite/elite_${phase}`) : null;
@@ -150,7 +155,8 @@ export function ChessDetailArt(props) {
           class=${cx('dart__tab', tb === cur && 'is-on')} onClick=${() => setTab(tb.id)}>${t(tb.label)}</button>`)}
     </div>` : null,
     by.get('merge') || null,
-    cur ? html`<div key=${`pane:${cur.id}`} class=${cx('dart__pane', `dart__pane--${cur.id}`)} role="tabpanel">${cur.nodes}</div>` : null,
+    cur ? html`<div key=${`pane:${cur.id}`} ref=${paneRef} class=${cx('dart__pane', `dart__pane--${cur.id}`, edges.scroll && 'is-scroll', edges.up && 'has-up', edges.down && 'has-down')}
+        role="tabpanel">${cur.nodes}</div>` : null,
   ].filter(Boolean);
 }
 

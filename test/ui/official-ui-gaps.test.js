@@ -91,3 +91,16 @@ describe('official connection pieces', () => {
     assert.match(hud, /battleArt\('ping'\)\.cls \? html`<\$\{PingPanel\}/);
   });
 });
+
+describe('operator card tabs scroll on their own', () => {
+  test('the tab pane is a scroll view that takes presses only while it scrolls (bench pads under a short tab stay pressable)', () => {
+    const css = read('public/css/hud-art.css');
+    assert.match(css, /\.dpanel--chess \.dart__pane \{ flex: 1 1 auto; min-height: 1\.6rem; overflow: hidden auto;/);
+    assert.match(css, /padding-bottom: calc\(\.34rem \+ max\(\.56rem, 34px\)\)/, 'its end clears the corner buttons');
+    assert.match(css, /\.gm\.has-hud-art \.dpanel--chess \.dart__pane\.is-scroll \{ pointer-events: auto; touch-action: pan-y; \}/);
+    assert.match(css, /\.gm\.has-hud-art \.dpanel--chess \.dart__pane \{ pointer-events: none; \}/, 'the 2026-10-06 pass-through stays for the rest');
+    const js = read('public/js/ui/detailArt.js');
+    assert.match(js, /const edges = useScrollEdges\(paneRef, \[cur\?\.id\]\);/);
+    assert.match(js, /ref=\$\{paneRef\} class=\$\{cx\('dart__pane', `dart__pane--\$\{cur\.id\}`, edges\.scroll && 'is-scroll', edges\.up && 'has-up', edges\.down && 'has-down'\)\}/);
+  });
+});
