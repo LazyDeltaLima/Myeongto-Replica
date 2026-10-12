@@ -44,7 +44,7 @@ function fixture() {
     importApp: async () => ({
       createFieldView(_host, opts) {
         // Deliberately ignore cancellation: the host must still dispose a factory's late return value.
-        return new Promise((resolve, reject) => requests.push({ resolve, reject, signal: opts.signal }));
+        return new Promise((resolve, reject) => requests.push({ resolve, reject, signal: opts.signal, deadline: opts.deadline }));
       },
     }),
     createFallbackView() {
@@ -80,6 +80,17 @@ test('successful initialization releases deadlines and cancellation listeners', 
   assert.equal(getEventListeners(f.requests[0].signal, 'abort').length, 0);
   mounted.destroy();
   assert.equal(raw.destroyCalls, 1);
+});
+
+test('the factory gets the race\'s own deadline, so its optional waits end before the timeout', async () => {
+  const f = fixture();
+  const t0 = Date.now();
+  const pending = f.mount();
+  await flush();
+  const { deadline } = f.requests[0];
+  assert.ok(deadline >= t0 + 12000 && deadline <= Date.now() + 12000, `deadline ${deadline - t0} ms after the mount`);
+  f.requests[0].resolve(f.view('engine'));
+  (await pending).destroy();
 });
 
 test('cancelling a pending mount rejects without fallback and disposes a late result', async () => {

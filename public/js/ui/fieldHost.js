@@ -16,6 +16,12 @@ import { settingsStore } from './settings.js';
 import { noteRender } from '../diag.js';
 
 const LOAD_TIMEOUT_MS = 12000;
+/**
+ * A view that fell back to the DOM view while the page is on screen mounts the engine again this long after (one of the
+ * two retries in a row): the first try may have lost the race only to an empty cache (an iPhone's Safari tab, whose
+ * cache is not the home-screen app's), and what it fetched is there by now.
+ */
+const FALLBACK_RETRY_MS = 5000;
 const METHODS = ['setStage', 'setCamera', 'setPrep', 'enterBattle', 'pushSnapshot', 'pushEvents', 'highlightTiles', 'on', 'resize', 'destroy'];
 // direction-step hooks (ui/facingWheel.js): optional — the wheel falls back to the engine's dev hooks when absent;
 // setPen (enemy preview pen list), prepField ({ kind, side, mirror } of the Final Assault prep), stripesUnder (the view
@@ -241,7 +247,8 @@ export async function mountFieldView(host, { signal } = {}) {
       checkActive(controller.signal);
       if (typeof mod?.createFieldView !== 'function') throw new Error('createFieldView missing');
       // A factory that ignores cancellation still belongs to this attempt when it eventually returns.
-      const pending = Promise.resolve(mod.createFieldView(host, { ...opts, signal: controller.signal })).then((view) => {
+      // `deadline`: the engine cuts its optional waits (art, 3D board) to fit this race instead of losing it
+      const pending = Promise.resolve(mod.createFieldView(host, { ...opts, signal: controller.signal, deadline: Date.now() + LOAD_TIMEOUT_MS })).then((view) => {
         if (controller.signal.aborted) dispose(view); else engineView = view;
         return view;
       });
@@ -266,9 +273,9 @@ export async function mountFieldView(host, { signal } = {}) {
 
 /**
  * Preact hook: mount a field view into `hostRef`; returns { view, kind } (view null while loading). A view that fell back
- * to the DOM view is mounted again — a new view object, which screens/game.js enters afresh — when the page comes back
- * online or is shown again, at most twice in a row (upstream 0.2.4); the 3D board's own retries inside the engine are
- * render/app/retry3d.js.
+ * to the DOM view is mounted again — a new view object, which screens/game.js enters afresh — FALLBACK_RETRY_MS later
+ * while the page is on screen, and when the page comes back online or is shown again, at most twice in a row (upstream
+ * 0.2.4); the 3D board's own retries inside the engine are render/app/retry3d.js.
  * @param {{ current: HTMLElement|null }} hostRef
  */
 export function useFieldView(hostRef) {
@@ -277,7 +284,7 @@ export function useFieldView(hostRef) {
   const retries = useRef(0);
   const viewRef = useRef(null);
   useEffect(() => {
-    let dead = false, retrying = false;
+    let dead = false, retrying = false, retryTimer = 0;
     const host = hostRef.current;
     if (!host) return undefined;
     setState({ view: null, kind: 'loading' });
@@ -288,16 +295,18 @@ export function useFieldView(hostRef) {
       if (view.kind === 'engine') retries.current = 0;
       globalThis.__SP_VIEW__ = view; // dev / E2E introspection (view.raw.stats?.())
       setState({ view, kind: view.kind });
+      if (view.kind === 'fallback') retryTimer = setTimeout(onRetry, FALLBACK_RETRY_MS);
     }, (err) => { if (!dead && !controller.signal.aborted) console.error('[field] mount failed', err); });
     const unsub = settingsStore.subscribe((s) => viewRef.current?.setSettings?.(s));
     const onResize = () => viewRef.current?.resize();
-    // A temporary network/vendor failure must not pin this mounted match to fallback forever. Retry on a useful
-    // user event, at most twice in succession; the effect cleanup disposes the old view before creating its successor.
-    const onRetry = () => {
+    // A temporary network/vendor failure must not pin this mounted match to fallback forever. Retry once a moment later
+    // and on a useful user event, at most twice in succession; the effect cleanup disposes the old view before creating
+    // its successor. A hidden page waits for visibilitychange.
+    const onRetry = (e) => {
       if (dead || retrying || viewRef.current?.kind !== 'fallback' || renderPref() === 'fallback'
         || document.visibilityState !== 'visible' || globalThis.navigator?.onLine === false || retries.current >= 2) return;
       retrying = true; retries.current++;
-      noteRender('engine retry', `${retries.current}/2`); // the bug report's render events (diag.js)
+      noteRender('engine retry', `${retries.current}/2 ${e?.type || 'timer'}`); // the bug report's render events (diag.js)
       setAttempt((n) => n + 1);
     };
     window.addEventListener('resize', onResize);
@@ -305,6 +314,7 @@ export function useFieldView(hostRef) {
     document.addEventListener('visibilitychange', onRetry);
     return () => {
       dead = true;
+      clearTimeout(retryTimer);
       controller.abort();
       unsub();
       window.removeEventListener('resize', onResize);

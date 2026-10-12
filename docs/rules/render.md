@@ -257,6 +257,16 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   새 엔진은 새 view 객체라 `screens/game.js`가 그 view에서 정비 카메라·전투를 다시 들어간다(`enteredViewRef` — 판을 다시 시작하지 않음: 로컬 전투는
   `battleRunner.reshow()`, 서버 전투·관전은 `g.watch`로 새 메타를 받아 버퍼된 재진입 경로로). 진단 `render events:`에 `engine retry n/2`.
   [화면 미확인] 실제 휴대폰에서 간이 보기 → 복귀.
+- 시간 초과 예산·시간 재시도 (2026-10-12, 관리자 제보 「iOS Safari 탭에서 필드가 2D, 홈 화면 앱은 정상」 → 관리자 요청 「1·2번 같이」):
+  진단 정보 `render: view fallback`·`simplified view (createFieldView timed out)` — 3D 보드가 아니라 엔진 전체가 12초 경쟁에서 졌다. 원인(코드):
+  `createFieldView`의 선택 대기(매니페스트 4초·폰트 1.5초·보드 아트 2.5초·3D 보드 6초 = 14초 + Pixi 받기)가 바깥 12초보다 길어, 빈 캐시에서 3D
+  보드가 느리면 멀쩡한 엔진까지 버렸다. Safari 탭만인 이유(추정): iOS 홈 화면 앱은 Safari와 저장소(서비스 워커 캐시)가 따로라 탭 쪽이 빈 캐시.
+  처리: ① `fieldHost.js`가 `deadline`(epoch ms)을 넘기고 `createFieldView`의 선택 대기는 모두 `capWait`(`render/app/host.js`)로 마감 500 ms
+  전까지로 줄인다 — 늦은 보드 아트·3D 보드는 엔진이 뜬 뒤 붙는다 ② 간이 보기로 떨어진 뒤 페이지가 보이는 중이면 5초 뒤(`FALLBACK_RETRY_MS`)
+  엔진을 다시 띄운다(연달아 2번 한도를 같이 씀; 진단 `engine retry n/2 timer|online|visibilitychange`).
+  확인: `test/render/mount-deadline.test.js`, `test/ui/fieldHost-lifecycle.test.js`; Windows Chrome 하네스(관리자 노트의 mount-deadline.mjs, 서비스
+  워커 우회 + 요청 지연): Pixi 6초·보드 아트·three.js 8초 → 11.8초에 엔진, 31초에 3D 붙음(이전 코드라면 6 + 2.5 + 6초 > 12초로 간이 보기);
+  첫 Pixi 14초 → 12.2초 간이 보기 → 17.3초 시간 재시도 → 18.1초 엔진 + 3D. [화면 미확인] 실제 iPhone Safari 탭.
 
 ## 공식 스테이지 씬 텍스처 받기 실패 (2026-10-11, 관리자 제보 「일부 유저가 게임 중 3D 렌더링이 제대로 안 된다」)
 - 원인(코드): `board3d/official.js loadOfficialScene`이 스테이지마다 이미지 약 21장(텍스처 17 + 라이트맵 4, act1autochess_m01)을 받는데,

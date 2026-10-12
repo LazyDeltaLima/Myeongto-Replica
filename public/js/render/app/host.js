@@ -22,6 +22,14 @@ function withTimeout(p, ms, signal) {
   });
 }
 
+/** The optional mount waits of createFieldView end this long before the caller's deadline (the view still has to return). */
+const DEADLINE_MARGIN_MS = 500;
+
+/** An optional wait of `ms` cut to end DEADLINE_MARGIN_MS before `deadline` (epoch ms; none: `ms`), never below 0. */
+function capWait(ms, deadline, now = Date.now()) {
+  return Number.isFinite(deadline) ? Math.max(0, Math.min(ms, deadline - DEADLINE_MARGIN_MS - now)) : ms;
+}
+
 /** Wrap whatever the caller passed as `assets` into the store API of public/js/assets.js. */
 function resolveAssets(a) {
   if (a && typeof a === 'object' && typeof a.ready === 'function' && typeof a.spineEntry === 'function') return a;
@@ -112,4 +120,4 @@ export function releaseGl(renderer) {
   }
 }
 
-export { withTimeout, resolveAssets, makeData, QUALITY_RES, BOARD_RES };
+export { withTimeout, capWait, DEADLINE_MARGIN_MS, resolveAssets, makeData, QUALITY_RES, BOARD_RES };

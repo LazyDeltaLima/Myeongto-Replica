@@ -146,7 +146,7 @@ import { dirVector } from './face-turn.js'; // an operator's front (render.md �
 import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
 import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
-import { resolveAssets, makeData, withTimeout, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
+import { resolveAssets, makeData, withTimeout, capWait, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { t } from '../../../shared/i18n.js';
 import { syncGoldenFx } from './fxgolden.js'; // local patch: the prep elite glow
 import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」); the battle start's official one (render.md 「적 경로 미리보기」)
@@ -169,7 +169,9 @@ export const SCOUT_DEPLOY_SFX = false;
 /**
  * Create the battlefield view inside `host` (an element sized by CSS; the canvas fills it).
  * @param {HTMLElement} host
+ * `deadline` (epoch ms): the caller's own limit (ui/fieldHost.js); the optional waits stop in time for it.
  * @param {{ data?: any, assets?: any, audio?: any, settings?: { damageNumbers?: boolean, quality?: string }, signal?: AbortSignal,
+ *           deadline?: number,
  *           padding?: object|((kind:string, size:{width:number,height:number}) => object),
  *           hud?: {top:number,bottom:number}|((kind:'prep'|'bossPrep', size:{width:number,height:number}, o:{shop:boolean}) => {top:number,bottom:number}|null) }} [opts]
  */
@@ -178,6 +180,10 @@ export async function createFieldView(host, options = {}) {
   const opts = options && typeof options === 'object' ? options : {};
   const signal = opts.signal;
   signal?.throwIfAborted();
+  // The optional waits below (manifests, fonts, board art, 3D board) add up to more than the caller's limit (fieldHost
+  // 12 s): each is cut to what is left before `deadline`, so a slow download (an empty cache, a phone) never costs the
+  // whole engine — the art and the 3D board attach when they arrive. Without a deadline each wait keeps its own cap.
+  const waitCap = (ms) => capWait(ms, opts.deadline);
   const P = await withTimeout(ensurePixi(), null, signal);
   signal?.throwIfAborted();
   const assets = resolveAssets(opts.assets);
@@ -192,10 +198,10 @@ export async function createFieldView(host, options = {}) {
   // the manifest, and the optional local-art manifest in parallel: unit views pick an enemy's local-client model by it
   // (assets.js spineEntry, DESIGN §13 — 灼热源石虫 / 炽焰源石虫); absent or slow, they draw the web models
   await withTimeout(Promise.all([assets.ready ? assets.ready() : null, assets.local ? assets.local() : null]
-    .map((p) => Promise.resolve(p).catch(() => {}))), 4000, signal);
+    .map((p) => Promise.resolve(p).catch(() => {}))), waitCap(4000), signal);
   signal?.throwIfAborted();
   // web fonts for the bitmap damage numbers / tier chips (never block long)
-  try { if (document.fonts?.load) await withTimeout(Promise.all([document.fonts.load('700 40px Bender'), document.fonts.load('700 40px Oxanium')]), 1500, signal); } catch { /* optional fonts */ }
+  try { if (document.fonts?.load) await withTimeout(Promise.all([document.fonts.load('700 40px Bender'), document.fonts.load('700 40px Oxanium')]), waitCap(1500), signal); } catch { /* optional fonts */ }
   signal?.throwIfAborted();
 
   const size = () => ({ width: Math.max(1, host.clientWidth || 1), height: Math.max(1, host.clientHeight || 1) });
@@ -2262,8 +2268,8 @@ export async function createFieldView(host, options = {}) {
   onAbort = () => view.destroy();
   signal?.addEventListener('abort', onAbort, { once: true });
   signal?.throwIfAborted();
-  await withTimeout(artPromise, 2500, signal);
-  if (want3d) await withTimeout(boardReady, 6000, signal);
+  await withTimeout(artPromise, waitCap(2500), signal);
+  if (want3d) await withTimeout(boardReady, waitCap(6000), signal);
   signal?.throwIfAborted();
   return view;
   } catch (err) {
