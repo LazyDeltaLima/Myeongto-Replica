@@ -127,6 +127,11 @@ This is a remake of the official mode; the official game decides.
   `Math.random` (the seeded `rng.js`); `npm run check:imports` enforces the boundary. Split classes (`Battle.js` /
   `battle/`, `Match.js` / `match/match/`, `PlayerState.js` / `match/player/`) install their methods on the prototype,
   and a method defined twice throws.
+- Never hand a live engine object (a `Match`, a room, the server, the game data `gd`, a socket) to `assert.equal` /
+  `deepEqual` of `node:assert/strict`: when it fails, Node 22 inspects the object at depth 1000 and diffs it with a
+  quadratic, off-heap Myers diff even when a message is given (one such failure took a test process to 30 GB). Compare
+  identity with `assert.ok(a === b, '…')`. Timing tests that use real timers leave a margin of seconds, not hundreds
+  of milliseconds: a full `node --test` run on a loaded machine lags the event loop that much.
 - A new client message is a validator in `shared/protocol.js` (`C2S`) plus a handler in `server/match/match/intents.js`
   (or `server/lobby.js` for `room.*`).
 - Effects (`public/js/render/fxgame.js`): prefab loads are async, so guard units that died meanwhile (`gone`); a looping

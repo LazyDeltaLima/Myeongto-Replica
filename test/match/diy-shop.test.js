@@ -100,7 +100,7 @@ test('seats[].diy → PlayerState.diy (re-checked, frozen; bots none); the playe
   assert.deepEqual(Object.keys(p0.diy), [T5A, T5B, T6A], 'the owned operator\'s second slot dropped');
   assert.ok(Object.isFrozen(p0.diy) && Object.isFrozen(p0.diy[T5A]));
   assert.deepEqual(bot.diy, {}, 'bots field no 自选 piece');
-  assert.equal(bot.gd, h.m.gd, 'a player without picks keeps the match\'s data');
+  assert.ok(bot.gd === h.m.gd, 'a player without picks keeps the match\'s data');
   for (const [id, elite] of [[T5A, false], ['chess_char_5_diy1_b', true]]) {
     const rec = p0.gd.chess(id);
     const want = diyRecord(T5A, CHEN_PICK, { elite, data: DATA });

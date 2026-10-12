@@ -82,7 +82,7 @@ test('a recovery hello already in flight cannot displace the original window aft
   pending.deliver();
   assert.equal(pending.frames.at(-1).code, 'SESSION_IN_USE');
   assert.equal(owner.net.status, 'online'); assert.equal(owner.net.lastError, null);
-  assert.equal(h.ownerSeat.ws, owner.conn.ws);
+  assert.ok(h.ownerSeat.ws === owner.conn.ws);
   assert.equal(pending.welcomes.length, 0);
   assert.equal(h.guestSession.getItem('sp.token'), h.guestSeat.token);
 });
@@ -102,7 +102,7 @@ test('a later welcomed holder also yields; its buffered reconnect cannot overrid
   delayedReconnect.deliver();
   assert.equal(delayedReconnect.frames.at(-1).code, 'SESSION_IN_USE');
   assert.equal(owner.net.status, 'online'); assert.equal(owner.net.lastError, null);
-  assert.equal(h.ownerSeat.ws, owner.conn.ws);
+  assert.ok(h.ownerSeat.ws === owner.conn.ws);
   assert.equal(h.ownerSeat.claimAt, 100);
 });
 

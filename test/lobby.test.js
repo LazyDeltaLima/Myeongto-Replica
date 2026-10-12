@@ -1405,7 +1405,10 @@ describe('lobby timers and match interface', () => {
 
 describe('solo resume window', () => {
   const WINDOW = 300;       // stands in for the 10-minute reconnect window
-  const SOLO_WINDOW = 1500; // stands in for singleReconnectTime (24 h)
+  // stands in for singleReconnectTime (24 h); 2 s above the first check, so a loaded machine's event-loop lag does not
+  // expire the solo run before it (with 1500 a full `node --test` run lost the 600 ms margin). The windows run on the
+  // wall clock: a stepped system clock (NTP vs the host fighting) still fails this suite, now without the 30 GB diff.
+  const SOLO_WINDOW = 3000;
   let srv;
   let url;
   const open = [];
@@ -1436,7 +1439,8 @@ describe('solo resume window', () => {
     const match = room.match;
     await a.terminate();
     await delay(WINDOW + 600); // several sweeps past the co-op window
-    assert.equal(room.match, match, 'the solo match still runs');
+    // identity through assert.ok: a failing assert/strict equal on a Match diffs its whole object graph (tens of GB)
+    assert.ok(room.match === match, 'the solo match still runs');
     assert.equal(match.players.get(a.id).left, false, 'not treated as a quit');
 
     const b = await connect();
@@ -1639,7 +1643,7 @@ describe('match result replay', () => {
       await a.terminate();
       await delay(30);
       m.finish({ victory: true, reason: 'victory' });
-      assert.equal(room.match, null, 'room back in LOBBY');
+      assert.ok(room.match === null, 'room back in LOBBY');
       const b = await TestClient.connect(url);
       await b.hello('A', w.token);
       const res = await b.waitFor('m.result', () => true, 3000);
