@@ -434,11 +434,29 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spcard--bounty .spcard__icon img { object-fit: cover; }
 .spcard__title { display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; min-width: 0; }
 .spcard__name { font-size: .28rem; font-weight: 900; letter-spacing: .04em; line-height: 1.25; }
-/* the effect text: the official rich text (highlighted numbers, set bonuses, line breaks), clamped by lines — 7 fit a 3×2
-   card (the longest item, 信标, takes 7 at 16:9 and on phones narrower than ≈ 740 px); it never shrinks below them
-   (flex: none) */
-.spcard__desc { flex: none; font-size: .2rem; line-height: 1.4; color: var(--text-md); display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden; }
-.spov__grid--3 .spcard__desc { -webkit-line-clamp: 10; }
+/* the content (head + effect text) scrolls inside the card like the official card_small_item's vertical ScrollRect
+   (ui/choiceOverlay.js CardScroll, maintainer decision 2026-10-12): the effect text — the official rich text (highlighted
+   numbers, set bonuses, line breaks) — is whole; a text longer than the card (家族徽章, 黄沙罗盘 … with their set-bonus
+   line, desktop too) scrolls by wheel or drag instead of running past the card. No scrollbar (official); while there is
+   more above / below, that edge fades and a small ▲ / ▼ shows (has-up / has-down). */
+.spcard__scroll { position: relative; flex: 1 1 auto; min-height: 0; display: flex; gap: inherit; }
+.spcard__body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: inherit; overflow-x: hidden; overflow-y: auto;
+  overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; --sp-fade: .3rem; }
+.spcard__body::-webkit-scrollbar { display: none; }
+.spcard__scroll.has-down .spcard__body { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - var(--sp-fade)), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - var(--sp-fade)), transparent); }
+.spcard__scroll.has-up .spcard__body { -webkit-mask-image: linear-gradient(0deg, #000 calc(100% - var(--sp-fade)), transparent); mask-image: linear-gradient(0deg, #000 calc(100% - var(--sp-fade)), transparent); }
+.spcard__scroll.has-up.has-down .spcard__body {
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--sp-fade), #000 calc(100% - var(--sp-fade)), transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 var(--sp-fade), #000 calc(100% - var(--sp-fade)), transparent);
+}
+.spcard__more { --sp-arrow: .16rem; position: absolute; left: 50%; width: var(--sp-arrow); height: calc(var(--sp-arrow) * .55); margin-left: calc(var(--sp-arrow) / -2);
+  background: rgba(230, 240, 236, .75); opacity: 0; transition: opacity var(--t-fast); pointer-events: none; }
+.spcard__more--up { top: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.spcard__more--down { bottom: 0; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.spcard__scroll.has-up .spcard__more--up, .spcard__scroll.has-down .spcard__more--down { opacity: 1; }
+.spcard__desc { flex: none; font-size: .2rem; line-height: 1.4; color: var(--text-md); }
+/* the tier chip sits on the icon, inside the official scroll content: scrolled, it goes with the head (data-scrolled) */
+.spcard[data-scrolled] .spcard__tier { visibility: hidden; }
 .spcard__tags { display: flex; flex-wrap: wrap; gap: .06rem; }
 .spcard__tag { font-size: .13rem; font-weight: 700; padding: .01rem .08rem; }
 .spcard__tag--team { background: var(--mint-500); color: var(--text-on-mint); }
@@ -496,13 +514,12 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   .spov__grid--3 .spcard__icon { width: 1rem; height: 1rem; }
   .spcard__name { font-size: .23rem; }
   .spcard__desc { font-size: .19rem; }
-  .spov__grid--3 .spcard__desc { -webkit-line-clamp: 10; }
 }
 /* The narrowest of them (640×360): with Noto Sans SC — the page's web font and Android's CJK font — the longest text
    (海沟实验体) wraps to 8 lines in a 162 px card, one more than the clamp; a slightly tighter line height gives the 8th
    line room (QA, playtest #6). */
 @media (max-height: 431.98px) and (max-width: 699.98px) {
-  .spcard__desc { line-height: 1.3; -webkit-line-clamp: 8; }
+  .spcard__desc { line-height: 1.3; }
 }
 
 /* Grid image boxes: definite 100% tracks so `height: 100%` images resolve against the box (an auto track would

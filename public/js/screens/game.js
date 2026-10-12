@@ -119,7 +119,7 @@ import { data, localAsset, getMode } from '../data.js';
 import { voiceForPiece, voiceForPlace, voiceForUnit, holdResultVoice, voiceForRoutePreview } from '../voice.js'; // local patch: 选中 lines on a tap, 部署 on a bench → board placement, 结算 line kept, 行动开始 on a battle-start route preview cursor
 import { hudArt, BondNav } from '../ui/hudArt.js'; // local patch: the official HUD look (css/hud-art.css)
 import { phaseArt, RoundStartBanner, BattleEndBanner, useRoundGold, roundsToBoss } from '../ui/phaseArt.js'; // local patch: css/phase-art.css
-import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame, BottomTips, bottomTipType, WaitingDialog, HelpBattleBanner, BossPrepare, bossOpening, SettleEnding, endingOf, ENDINGS, SelfDead, ReadyTipDialog } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
+import { battleArt, loadingArt, LoadingScreen, GameStartBanner, opensGame, BottomTips, bottomTipType, WaitingDialog, HelpBattleBanner, BossPrepare, bossOpening, SettleEnding, endingOf, ENDINGS, SelfDead, ReadyTipDialog, OnlyConfirmDialog, soloResumeDue, preloadBattleArt } from '../ui/battleArt.js'; // the official 卫戍协议 dialogs (css/battle-art.css)
 import { placingDetail } from '../ui/detailArt.js'; // local patch: the unit card while placing
 import { audio, resultSpeaker, resultVoiceSlot } from '../audio.js';
 import { battleOverOf, battleLossOf } from '../audioOfficial.js'; // local patch: round_result_dialog sound
@@ -191,6 +191,18 @@ const inBattleCard = (d) => d?.kind === 'unit' || (d?.kind === 'device' && d.dev
 
 function MatchScreen() {
   useDocClass('sp-in-match');
+  // the official 卫戍协议 toast (auto_chess_notify_taost, css/battle-art.css .sp-ac-toast) while the art is there
+  const toastArt = battleArt('toast');
+  useDocClass('sp-ac-toast', !!toastArt.cls);
+  useEffect(() => {
+    const root = document.documentElement;
+    const url = /--ts-bg:([^;]+)/.exec(toastArt.style || '')?.[1];
+    if (url) root.style.setProperty('--ts-bg', url);
+    return () => root.style.removeProperty('--ts-bg');
+  }, [toastArt.style]);
+  const serverLostBox = useStore((s) => s.ui.serverLost);
+  // the connection pieces show when the server may be gone: their sprites are fetched now
+  useEffect(() => { preloadBattleArt(['reconnect', 'confirm']); }, [toastArt.style]);
   const pub = useStore((s) => s.match.public);
   const priv = useStore((s) => s.match.private);
   const field = useStore((s) => s.match.field);
@@ -217,6 +229,7 @@ function MatchScreen() {
   const [emoteOpen, setEmoteOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false); // room chat (local patch)
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false); // phones: ⚙ / 📖 / ⛶ folded behind ⋯ (css/devices.css .gm__more)
   const [exitOpen, setExitOpen] = useState(false);
   const [drag, setDrag] = useState(null);                // { uid, kind, id } while dragging a piece
   const [facing, setFacing] = useState(null);            // direction step: { uid, piece, row, col, grid, name }
@@ -1241,6 +1254,25 @@ function MatchScreen() {
   const togglePauseRef = useRef(togglePause);
   togglePauseRef.current = togglePause;
 
+  // ---- solo resume (tab_single_resume_dialog): this screen opened on a solo run already under way (a reload, a new tab)
+  // → the official one-button dialog first; a running battle waits paused under it (the client sends ReqResumeSingleMode
+  // only on 确认) and goes on at 确认 (ui/battleArt.js soloResumeDue / OnlyConfirmDialog)
+  const firstPubSeen = useRef(false);
+  const [resumeAsk, setResumeAsk] = useState(null); // { pausedHere }
+  useEffect(() => {
+    if (firstPubSeen.current || !pub) return;
+    firstPubSeen.current = true;
+    if (spectator || !soloResumeDue(pub, solo) || !battleArt('confirm').cls) return;
+    const pause = !pub.paused && pauseAvailable(pub, { solo, alive });
+    setResumeAsk({ pausedHere: pause });
+    if (pause) togglePauseRef.current(true);
+  }, [pub]);
+  const answerResume = () => {
+    const ask = resumeAsk;
+    setResumeAsk(null);
+    if (ask?.pausedHere && isPaused(store.get().match.public)) togglePauseRef.current(false);
+  };
+
   // a press on the field deselects (a tap on a piece selects it again at release — see pieceClick)
   useEffect(() => {
     const host = hostRef.current;
@@ -1722,9 +1754,15 @@ function MatchScreen() {
     <div class=${sp || personalChoice ? 'gm__corner is-over-choice' : 'gm__corner'}>${/* local patch (maintainer report): out of .gm__hud, above the 机变 / 悬赏 screen (css/phase-art.css) */ ''}
       ${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id, set) => actions.emote(id, set)} disabled=${conn.status !== 'online'} />`}
       ${solo ? null : html`<${GameChat} open=${chatOpen} onToggle=${(v) => { setChatOpen(v); if (v) setEmoteOpen(false); }} disabled=${conn.status !== 'online'} />`}
-      <button type="button" class="gm__gear" aria-label=${t('设置')} title=${t('设置')} onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
-      <button type="button" class="gm__gear gm__guide" aria-label=${t('玩法说明')} title=${t('玩法说明')} onClick=${() => openGuide(0)}><${Icon} name="book" /></button>
-      <${FullscreenButton} class="gm__gear gm__fs" />
+      ${/* phones (css/devices.css): ⚙ / 📖 / ⛶ fold behind one ⋯ button so the corner stops covering the bottom row of
+          the 机变 cards and the bench (maintainer request 2026-10-12); elsewhere the ⋯ button is hidden and the three show */ ''}
+      <button type="button" class=${toolsOpen ? 'gm__gear gm__more is-open' : 'gm__gear gm__more'} aria-expanded=${String(toolsOpen)}
+        aria-label=${toolsOpen ? t('收起') : t('更多')} title=${toolsOpen ? t('收起') : t('更多')} onClick=${() => setToolsOpen((v) => !v)}><${Icon} name=${toolsOpen ? 'close' : 'dots'} /></button>
+      <span class=${toolsOpen ? 'gm__tools is-open' : 'gm__tools'}>
+        <button type="button" class="gm__gear" aria-label=${t('设置')} title=${t('设置')} onClick=${() => { setToolsOpen(false); setSettingsOpen(true); }}><${GIcon} name="gear" /></button>
+        <button type="button" class="gm__gear gm__guide" aria-label=${t('玩法说明')} title=${t('玩法说明')} onClick=${() => { setToolsOpen(false); openGuide(0); }}><${Icon} name="book" /></button>
+        <${FullscreenButton} class="gm__gear gm__fs" />
+      </span>
     </div>
 
     ${loadArt ? html`<${LoadingScreen} show=${phase === PHASE.BATTLE_CHECK || (viewKind === 'loading' && phase !== PHASE.RESULT)} art=${loadArt} tips=${gd.config?.tips} />` : null}
@@ -1754,7 +1792,9 @@ function MatchScreen() {
       goldAsk.resolve(ok);
     }} />` : null}
     ${outDialog ? html`<${SelfDead} onWatch=${() => setOutDialog(false)} onExit=${() => { setOutDialog(false); setExitOpen(true); }} />` : null}
-    ${paused ? html`<${PausedOverlay} canResume=${solo} busy=${pauseBusy} onResume=${() => togglePause(false)} onExit=${() => setExitOpen(true)} />` : null}
+    ${resumeAsk && !serverLostBox ? html`<${OnlyConfirmDialog} text=${t('存在进行中的模拟，是否继续？')} onOk=${answerResume} />` : null}
+    ${serverLostBox ? html`<${OnlyConfirmDialog} key=${serverLostBox.text} text=${serverLostBox.text} onOk=${() => store.patch('ui', { serverLost: null })} />` : null}
+    ${paused && !resumeAsk ? html`<${PausedOverlay} canResume=${solo} busy=${pauseBusy} onResume=${() => togglePause(false)} onExit=${() => setExitOpen(true)} />` : null}
 
     ${view ? html`<${EquipHoverPanel} view=${view} state=${eqHover} />` : null}
 

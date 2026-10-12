@@ -418,3 +418,50 @@
 .bcd .bcd__btn:focus-visible { outline: 2px solid rgba(255, 255, 255, .6); outline-offset: calc(var(--pu) * -14); }
 
 @media (prefers-reduced-motion: reduce) { .bart, .bart *, .bload, .bload *, .btip, .ctrans, .ctrans * { animation: none !important; } }
+
+/* ---- reconnect mask (auto_chess_reconnect_mask, ui/battleArt.js ReconnectMask) ------------------------------------- */
+.brc { pointer-events: auto; z-index: var(--z-conn); }
+.brc__block { inset: 0; }
+.brc__tile { left: 0; right: 0; bottom: 0; height: calc(var(--pu) * 218.26); background: var(--rc-tile) 0 100% / calc(var(--pu) * 68) calc(var(--pu) * 218.71) repeat-x; }
+.brc__band { left: 0; right: 0; bottom: calc(var(--pu) * 50); height: calc(var(--pu) * 60); }
+.brc__orange, .brc__mid { top: calc(var(--pu) * -2); height: calc(var(--pu) * 64); background: var(--rc-orange) 0 0 / calc(var(--pu) * 44) 100% repeat-x; }
+.brc__orange.is-l { left: 0; right: calc(50% + var(--pu) * 270); }
+.brc__orange.is-r { left: calc(50% + var(--pu) * 270); right: 0; }
+.brc__mid { left: calc(50% - var(--pu) * 270); width: calc(var(--pu) * 540); background-image: var(--rc-black); }
+.brc__frame { top: calc(var(--pu) * 6.5); height: calc(var(--pu) * 47); box-sizing: border-box; border-style: solid; border-color: transparent;
+  border-width: 0 calc(var(--pu) * 18) 0 calc(var(--pu) * 8); border-image: var(--rc-frame) 0 18 0 8 fill / 0 calc(var(--pu) * 18) 0 calc(var(--pu) * 8) stretch; }
+.brc__frame.is-l { left: 0; right: calc(50% + var(--pu) * 197.5); }
+.brc__frame.is-r { left: calc(50% + var(--pu) * 197.5); right: 0; transform: scaleX(-1); }
+.brc__dec { left: calc(50% - var(--pu) * (131.2 + 50.5)); top: calc(var(--pu) * (30 + 1.6 - 8.5)); width: calc(var(--pu) * 101); height: calc(var(--pu) * 17);
+  background: var(--rc-dec) center / 100% 100% no-repeat; }
+.brc__notice { left: 50%; top: 0; height: 100%; transform: translateX(-50%); display: flex !important; align-items: center; gap: calc(var(--pu) * 6); white-space: nowrap; }
+.brc .brc__icon { position: relative; flex: none; width: calc(var(--pu) * 43); height: calc(var(--pu) * 35); background: #ef7c39;
+  -webkit-mask: var(--rc-icon) center / contain no-repeat; mask: var(--rc-icon) center / contain no-repeat; animation: brc-wait 1.2s ease-in-out infinite; }
+.brc .brc__text { position: static; font-size: calc(var(--pu) * 22); line-height: 1; color: #ef7c39; }
+/* [추정] the waiting icon breathes (the prefab's own loop clip was not read) */
+@keyframes brc-wait { 50% { opacity: .45; } }
+
+/* ---- latency panel (panel_ping, ui/battleArt.js PingPanel) --------------------------------------------------------- */
+.bping { --pu: var(--ui-u, .015rem); display: inline-flex; align-items: center; justify-content: center; flex: none; box-sizing: border-box;
+  width: calc(var(--pu) * 76); height: calc(var(--pu) * 24); padding: 0 calc(var(--pu) * 3); background: var(--pp-bg) center / 100% 100% no-repeat;
+  color: #fff; font-size: calc(var(--pu) * 12.5); line-height: 1; white-space: pre; letter-spacing: -.01em; }
+/* (pre: the space of 「PING {0}ms」 sits at a flex item's edge, where normal white-space drops it) */
+/* best fit 1–16 in a 76 × 24 box: the longest texts (「当前延迟999ms」, 「Current ping: 999ms」) only fit smaller [추정 size] */
+.bping__num { font-weight: 400; }
+.bping__num.is-low { color: #7fa826; }
+.bping__num.is-medium { color: #ec7a00; }
+.bping__num.is-high { color: #ff3d3d; }
+.bping__num.is-off { color: #9a9a9a; }
+
+/* ---- 卫戍协议 toast (auto_chess_notify_taost) — html.sp-ac-toast while a match screen with the art is open --------- */
+/* root 346 × 114; img_toast_bg (rect 379 × 181 at −18, its 361 × 143 texture 18 / 19 inside: the plate with the "i"
+   mark) behind; the text 230 × 80 at +40, 20 white, line spacing .8. In the middle of the screen [추정: the client's
+   UINotification toast layer]. */
+.sp-ac-toast.sp-in-match .toast-host, .sp-ac-toast.sp-in-match.sp-conn .toast-host { --pu: var(--ui-u, .015rem); top: 50%; transform: translate(-50%, -50%); }
+.sp-ac-toast .toast { position: relative; isolation: isolate; box-sizing: border-box; width: calc(var(--pu) * 346); max-width: none; min-width: 0;
+  min-height: calc(var(--pu) * 114); padding: calc(var(--pu) * 17) calc(var(--pu) * 18) calc(var(--pu) * 17) calc(var(--pu) * 98);
+  background: none; border: 0; box-shadow: none; color: #fff; font-size: calc(var(--pu) * 20); line-height: 1.15; }
+.sp-ac-toast .toast::before { content: ''; position: absolute; z-index: -1; left: calc(var(--pu) * -16.42); right: calc(var(--pu) * 1.5);
+  top: calc(var(--pu) * -14.43); bottom: calc(var(--pu) * -14.42); background: var(--ts-bg) center / 100% 100% no-repeat; }
+.sp-ac-toast .toast__icon { display: none; }
+.sp-ac-toast .toast__count { color: rgba(255, 255, 255, .6); font-size: calc(var(--pu) * 16); }

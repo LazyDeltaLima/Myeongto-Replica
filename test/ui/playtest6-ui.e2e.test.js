@@ -82,12 +82,13 @@ describe('user playtest #6 — UI items 6 / 10 (mock harness, headless Chrome)',
     return { page, problems, noto };
   }
 
-  /** Each 机变 card's text: clamped?, bottom beyond the card's padding (px), font size; taken?, name / tags under the badge? */
+  /** Each 机变 card's text: clamped?, bottom of its scroll view beyond the card's padding (px), font size; taken?, name / tags under the badge? */
   const cardTexts = (page) => page.evaluate(() => [...document.querySelectorAll('.spcard')].map((c) => {
     const r = c.getBoundingClientRect();
     const d = c.querySelector('.spcard__desc');
     if (!d) return { name: c.querySelector('.spcard__name')?.textContent, missing: true };
-    const dr = d.getBoundingClientRect();
+    // the scroll view (maintainer decision 2026-10-12): head + text scroll inside the card, so the view must end inside it
+    const dr = (c.querySelector('.spcard__body') || d).getBoundingClientRect();
     const cs = getComputedStyle(d);
     const badge = c.querySelector('.spcard__taker')?.getBoundingClientRect();
     let under = false;

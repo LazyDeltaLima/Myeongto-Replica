@@ -108,13 +108,16 @@ describe('6: 机变 cards (道具补给 / 机密商店 / 悬赏 / 战术) show t
     const sp = serverSp('supply', itemCards);
     const v = ChoiceView({ pub: { players, deadline: 0 }, sp, myId: 'me', solo: false });
     for (const card of [...walk(v)].filter((n) => hasClass(n, 'spcard'))) {
-      const kids = children(card);
+      // head + description sit in the card's scroll view (CardScroll — the official card_small_item ScrollRect)
+      const scroll = children(card).find((n) => n.type?.name === 'CardScroll');
+      assert.ok(scroll, 'the card content is in its scroll view');
+      const kids = children(scroll);
       const head = kids.find((n) => hasClass(n, 'spcard__head'));
-      assert.ok(head, 'a head row is a direct child of the card');
+      assert.ok(head, 'a head row is a direct child of the scroll view');
       const headNodes = [...walk(head)];
       assert.ok(headNodes.some((n) => hasClass(n, 'spcard__icon')) && headNodes.some((n) => hasClass(n, 'spcard__name')), 'icon + name in the head');
       const desc = kids.find((n) => hasClass(n, 'spcard__desc'));
-      assert.ok(desc, 'the description is a direct child of the card');
+      assert.ok(desc, 'the description is a direct child of the scroll view');
       assert.ok(kids.indexOf(desc) > kids.indexOf(head), 'under the head');
     }
     // the taker's badge and the two-tap strip stay (DESIGN §18.2); the badge is the round avatar alone, as in the
@@ -132,7 +135,7 @@ describe('6: 机变 cards (道具补给 / 机密商店 / 悬赏 / 战术) show t
     assert.ok(armed.some((n) => hasClass(n, 'spcard__confirm')));
   });
 
-  test('CSS: left-aligned official card; the description is clamped by lines, larger on desktop, ≥ .18rem on short phones', () => {
+  test('CSS: left-aligned official card; the description is whole in a scroll view, larger on desktop, ≥ .18rem on short phones', () => {
     const css = read('public/css/screens/game-panels.css');
     const rule = (sel, src = css) => {
       const m = src.match(new RegExp(`(?:^|\\n)\\s*${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`));
@@ -141,7 +144,10 @@ describe('6: 机变 cards (道具补给 / 机密商店 / 悬赏 / 战术) show t
     assert.match(rule('.spcard'), /text-align: left/);
     assert.match(rule('.spcard__head'), /display: flex/);
     const desc = rule('.spcard__desc');
-    assert.match(desc, /-webkit-line-clamp: \d/);
+    assert.doesNotMatch(desc, /line-clamp/, 'the whole text (maintainer decision 2026-10-12: it scrolls in the card)');
+    assert.match(rule('.spcard__body'), /overflow-y: auto/);
+    assert.match(rule('.spcard__body'), /min-height: 0/);
+    assert.match(rule('.spcard__scroll'), /min-height: 0/);
     const size = (r) => Number(r.match(/font-size: (\.\d+)rem/)[1]);
     assert.ok(size(desc) >= 0.19, `desktop description ${size(desc)}rem`);
     // short landscape phones (height < 10.8rem because the root size is clamped at 40 px)

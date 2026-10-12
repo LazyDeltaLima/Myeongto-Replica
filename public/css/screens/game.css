@@ -367,6 +367,14 @@
 }
 .gm__gear .icon { width: .28rem; height: .28rem; }
 .gm__gear:hover { color: var(--mint-400); border-color: var(--mint-700); }
+/* ⋯ folds ⚙ / 📖 / ⛶ on phones (css/devices.css) and, on every screen, while the corner sits over the 机变 / 悬赏 cards
+   (.is-over-choice: at 1920×1080 the three covered the bottom-left card's foot); elsewhere ⋯ is hidden and the three are
+   plain corner items */
+.gm__more { display: none; }
+.gm__more.is-open { color: var(--mint-400); border-color: var(--mint-700); }
+.gm__tools { display: contents; }
+.gm__corner.is-over-choice .gm__more { display: grid; }
+.gm__corner.is-over-choice .gm__tools:not(.is-open) { display: none; }
 
 .ewheel { position: relative; }
 .ewheel__btn {

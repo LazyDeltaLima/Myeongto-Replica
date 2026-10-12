@@ -114,7 +114,7 @@
 .spov.has-phase-art .spov__grid { --pu: min(var(--ui-u, .015rem), .125vh); grid-template-columns: repeat(3, calc(var(--pu) * 307)); grid-template-rows: repeat(2, calc(var(--pu) * 271));
   justify-content: center; align-content: center; column-gap: calc(var(--pu) * 25); row-gap: calc(var(--pu) * 34); flex: 1; }
 .spov.has-phase-art .spov__grid--3 { --pu: min(var(--ui-u, .015rem), .2vh); grid-template-rows: calc(var(--pu) * 271); column-gap: calc(var(--pu) * 48); margin-top: 0; }
-.spov.has-phase-art .spcard { width: calc(var(--pu) * 307); height: calc(var(--pu) * 271); padding: calc(var(--pu) * 21.5) calc(var(--pu) * 22) 0 calc(var(--pu) * 20.5);
+.spov.has-phase-art .spcard { width: calc(var(--pu) * 307); height: calc(var(--pu) * 271); padding: calc(var(--pu) * 21.5) calc(var(--pu) * 22) calc(var(--pu) * 17.5) calc(var(--pu) * 20.5);
   gap: calc(var(--pu) * 10); overflow: visible; border: 0; box-shadow: none; transform: none; filter: none; color: #fff;
   background: var(--pc-card) center / 100% 100% no-repeat; }
 .spov.has-phase-art .spcard:hover, .spov.has-phase-art .spcard.is-pickable:hover { border: 0; box-shadow: none; transform: none; background: var(--pc-card) center / 100% 100% no-repeat; filter: brightness(1.08); }
@@ -127,7 +127,10 @@
 .spov.has-phase-art .spcard--bounty .spcard__icon { border: 0; background: #1b1b1b; }
 .spov.has-phase-art .spcard__name { font-size: calc(var(--pu) * 20); line-height: 1.3; letter-spacing: .02em; color: #fff; }
 .spov.has-phase-art .spcard__tag { font-size: calc(var(--pu) * 12); padding: 0 calc(var(--pu) * 6); }
-.spov.has-phase-art .spcard__desc { font-size: calc(var(--pu) * 16); line-height: 1.5; color: rgba(206, 206, 206, .8); padding: 0 calc(var(--pu) * 4); -webkit-line-clamp: 6; }
+.spov.has-phase-art .spcard__desc { font-size: calc(var(--pu) * 16); line-height: 1.5; color: rgba(206, 206, 206, .8); padding: 0 calc(var(--pu) * 4); }
+/* the scroll view ends where group_layout does (236 tall from 17.5 under the plate's top: 17.5 above its bottom) */
+.spov.has-phase-art .spcard__body { --sp-fade: calc(var(--pu) * 28); }
+.spov.has-phase-art .spcard__more { --sp-arrow: calc(var(--pu) * 18); }
 .spov.has-phase-art .spcard__tier { left: calc(var(--pu) * 16.8); top: calc(var(--pu) * 22.2); }
 /* selected (the second tap confirms): select_glow (9-sliced 44) + select_frame (white, 9-sliced 8) + btn_certain — btn_bg
    (333 × 115, 9-sliced 292 | 38, drawn 354 wide), btn_icon 31 and 确认选择 (23, black 90 %); the bar's bottom on the

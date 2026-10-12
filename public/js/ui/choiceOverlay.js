@@ -5,7 +5,7 @@
 // both, left-aligned; the tier chip on the icon's corner and the taker's round avatar alone at the top-right (their
 // name is its tooltip and part of the card's accessible name; a taken card's name wraps before it). The effect text
 // is the official rich text of the item / effect (items.json / effects.json `descRaw` — the detail card's text — while it
-// says what the server card's plain `desc` says: cardText), clamped by lines, and it fits the card on phones too (user
+// says what the server card's plain `desc` says: cardText), whole, in the card's scroll view (CardScroll), and it fits the card on phones too (user
 // playtest #6 item 6: at 756×366 it used to sit below a large centred icon, clipped away). Picking takes two taps, like
 // buying in the shop (user playtest #4 item 2 — extra enemies, items and tactics were picked by a slip of the finger;
 // research 09 §5 EventOnFirstClick → EventOnConfirm): the first tap on an available card selects it (it lifts with a
@@ -16,7 +16,7 @@
 // when the request settles, ≤ 8 s, or the phase moves on). Untimed drafts (solo, a single-human match: sp.untimed) show
 // no countdown and say so.
 
-import { useEffect, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Countdown, MicroLabel, Button } from './components.js';
 import { Img, RichText, PlayerAvatar, GIcon } from './gameComponents.js';
 import { itemIconUrl, enemyIconUrl, uiUrl } from './assetUrls.js';
@@ -155,6 +155,41 @@ export function ChoiceOverlay(props) {
 }
 
 /**
+ * A card's content (head + effect text) in the official card's vertical scroll view (card_small_item group_layout: a
+ * ScrollRect over icon, name and text, clamped, no scrollbar): a long text — the set-bonus items such as 家族徽章 or
+ * 黄沙罗盘 — scrolls inside the card instead of running past its plate (maintainer decision 2026-10-12). The official
+ * view's arrow slots are empty; here ▲ / ▼ show while there is more above / below (the maintainer chose this option), so
+ * a cut text is visible as such. Wheel and touch drags scroll it; a tap still picks the card (a drag never clicks).
+ */
+function CardScroll({ children }) {
+  const ref = useRef(null);
+  const [more, setMore] = useState({ up: false, down: false });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const check = () => {
+      const up = el.scrollTop > 1;
+      const down = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      setMore((m) => (m.up === up && m.down === down ? m : { up, down }));
+      // the tier chip (common_chess_level) is part of the official scrolled content: it leaves once the text scrolls
+      const card = el.closest('.spcard');
+      if (card) { if (up) card.dataset.scrolled = ''; else delete card.dataset.scrolled; }
+    };
+    check();
+    el.addEventListener('scroll', check, { passive: true });
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(check) : null;
+    ro?.observe(el);
+    for (const c of el.children) ro?.observe(c);
+    return () => { el.removeEventListener('scroll', check); ro?.disconnect(); };
+  }, []);
+  return html`<span class=${cx('spcard__scroll', more.up && 'has-up', more.down && 'has-down')}>
+    <span class="spcard__body" ref=${ref}>${children}</span>
+    <span class="spcard__more spcard__more--up" aria-hidden="true"></span>
+    <span class="spcard__more spcard__more--down" aria-hidden="true"></span>
+  </span>`;
+}
+
+/**
  * The overlay's view (pure: no hooks — test/ui renders it as a function).
  * @param {{ pub:any, sp:any, myId:string, solo:boolean, personal?:boolean, busyIdx?:number|null, total?:number|null, armed?:number|null,
  *   onTap?:(idx:number)=>void, onConfirm?:()=>void, onDisarm?:()=>void }} props
@@ -227,6 +262,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
               aria-busy=${busy ? 'true' : undefined} aria-pressed=${can ? String(isArmed) : undefined} disabled=${!can} onClick=${() => can && onTap(card.idx)}
               aria-label=${isArmed ? t('{name}，已选中，再次点击确认', { name: r.name }) : takerName ? t('{name}，{takerName}已选择', { name: r.name, takerName }) : r.name} title=${`${r.name}\n${richTextPlain(r.desc)}`}>
             <span class="spcard__glow" aria-hidden="true"></span>
+            <${CardScroll}>
             <span class="spcard__head">
               <span class="spcard__icon"><${Img} src=${r.icon} fallback=${html`<${GIcon} name=${r.kind === 'bounty' ? 'target' : 'bolt'} />`} /></span>
               <span class="spcard__title">
@@ -238,6 +274,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
               </span>
             </span>
             <${RichText} text=${r.desc} class="spcard__desc" />
+            </${CardScroll}>
             ${card.soldOut && !taker ? html`<span class="spcard__busy spcard__busy--soldout" role="status">${t('库存不足')}</span>` : null}
             ${r.tier ? html`<${TierChip} tier=${r.tier} size="md" class="spcard__tier" />` : null}
             ${taker ? html`<span class="spcard__taker" title=${t('{name} 已选择', { name: taker.name })}><${PlayerAvatar} player=${taker} size="sm" /></span>` : null}

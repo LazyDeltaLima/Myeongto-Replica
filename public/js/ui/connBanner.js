@@ -7,10 +7,14 @@
 // The deploy's restart countdown (ui/restartNotice.js, ui.restartAt) shows here in its last 5 minutes, ahead of 服务器已更新.
 // Once it is due, and while the page reconnects to the restarted server, the banner says the page reloads by itself
 // (ui/buildGuard.js reloads it as soon as the new build answers) instead of reporting a lost connection.
+// In a match with the local art, plain reconnecting shows the official 「等待重连中......」 mask instead (ui/battleArt.js
+// ReconnectMask, docs/rules/ui.md 「공식 위수협약 UI」): it takes every press, has no 立即重连 button (the client's has
+// none; the page still retries at once on focus / online, net.js).
 
 import { html, Button, Icon, useTicker } from './components.js';
 import { net, CLIENT_ERR_TEXT } from '../net.js';
-import { useStore, shallowEqual } from '../store.js';
+import { useStore, shallowEqual, selectRoute } from '../store.js';
+import { ReconnectMask, battleArt } from './battleArt.js';
 import { useDocClass } from './device.js';
 import { t } from '../../../shared/i18n.js';
 import { restartBannerDue, restartClock } from './restartNotice.js';
@@ -29,6 +33,8 @@ export function ConnectionBanner() {
   const restoring = useStore((s) => s.ui.restoring);
   const buildStale = useStore((s) => !!s.ui.buildStale);
   const restartAt = useStore((s) => s.ui.restartAt ?? null);
+  // (not while the server-lost dialog holds a match the server already closed: the mask would cover its 确认)
+  const inGame = useStore((s) => selectRoute(s) === 'game' && !s.ui.serverLost);
   // a running countdown ticks every second: it crosses into the banner's last minutes and counts down there
   useTicker(conn.status === 'reconnecting' ? 500 : restartAt != null ? 1000 : 0);
   const restartDue = restartBannerDue(restartAt);
@@ -64,6 +70,7 @@ export function ConnectionBanner() {
     </div>`;
   }
   if (!conn.everOnline && (conn.status === 'connecting' || conn.status === 'handshaking' || conn.status === 'idle')) return null;
+  if (conn.status === 'reconnecting' && inGame && battleArt('reconnect').cls) return html`<${ReconnectMask} />`;
   const secs = conn.retryAt ? Math.max(0, Math.ceil((conn.retryAt - Date.now()) / 1000)) : 0;
   const replaced = conn.status === 'closed' && conn.lastError?.code === 'REPLACED';
   const rejected = conn.status === 'connected' && !!conn.lastError; // hello refused (version, server full…)

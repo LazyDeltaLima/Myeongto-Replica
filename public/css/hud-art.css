@@ -161,11 +161,13 @@
 .gm.has-hud-art .bslot[data-full] .bond__icon { filter: brightness(0); }
 /* the stack number on matte_num (42×25, 16 px white), on the ring's lower edge (KR captures: ≈ .75 of the radius under
    the centre; the prefab's 8 units looked too high in play, maintainer 2026-10-06). (2026-10-07) the CN prep capture puts the
-   digits' centre .35 of the ring (53 units across) under its centre, over its bottom edge — 15 here gave .27 → 19.5 */
+   digits' centre .35 of the ring (53 units across) under its centre, over its bottom edge — 15 here gave .27 → 19.5.
+   The prefab's 16 px drew the digits .22 of the ring tall in our font against the capture's .17 (the client font is
+   smaller per px): 16 × .17 / .22 ≈ 12.4 units (maintainer decision 2026-10-12) */
 .gm.has-hud-art .bslot .bond__count {
   position: absolute; left: 50%; top: calc(50% + var(--u) * 19.5); right: auto; bottom: auto; transform: translate(-50%, -50%);
   min-width: calc(var(--u) * 42); height: calc(var(--u) * 25); padding: 0 calc(var(--u) * 4); display: grid; place-items: center;
-  background: var(--ha-num) center / 100% 100% no-repeat; border: 0; border-radius: 0; color: #fff; font-size: calc(var(--u) * 16); box-shadow: none;
+  background: var(--ha-num) center / 100% 100% no-repeat; border: 0; border-radius: 0; color: #fff; font-size: calc(var(--u) * 12.4); box-shadow: none;
 }
 /* the name: text_name (74×22 at 31 under the item's centre, 14 px, UpperCenter, line spacing .8) — its line hangs from the
    box's top 20 under the centre, the glyphs ≈ 36 under the disc's centre (CN 联防 capture .73 of the ring; upstream-style

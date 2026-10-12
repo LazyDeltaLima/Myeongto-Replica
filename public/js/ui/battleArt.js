@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.
 import { html } from './components.js';
 import { uiUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
-import { t, N_ } from '../../../shared/i18n.js';
+import { t, tParts, N_ } from '../../../shared/i18n.js';
 
 /** CSS variable → ui/battle sprite, per dialog. */
 const ART = Object.freeze({
@@ -68,6 +68,13 @@ const ART = Object.freeze({
     '--cd-check': 'img_confirm_dialog_check', '--cd-cancel': 'img_confirm_dialog_cancel', '--cd-box': 'img_confirm_dialog_check_box',
     '--cd-tick': 'img_confirm_dialog_check_small',
   },
+  // auto_chess_reconnect_mask (common) — a key with a slash names its own extraction folder
+  reconnect: {
+    '--rc-tile': 'ui/common/bg_lower_tile', '--rc-orange': 'ui/common/banner_orange_tile', '--rc-black': 'ui/common/banner_black_tile',
+    '--rc-frame': 'ui/common/banner_frame', '--rc-dec': 'ui/common/banner_dec', '--rc-icon': 'icon_waiting',
+  },
+  ping: { '--pp-bg': 'img_delay_bkg' },
+  toast: { '--ts-bg': 'ui/common/img_toast_bg' },
   ob: {
     '--ob-other': 'bg_ob_other', '--ob-self': 'bg_ob_self', '--ob-icon-other': 'icon_ob_other', '--ob-icon-self': 'icon_ob_self',
     '--ob-arrow': 'left_arrow_active', '--ob-lost': 'bg_ob_player_quit', '--ob-lost-icon': 'icon_ob_player_quit',
@@ -88,13 +95,27 @@ export function battleArt(kind) {
   const vars = [];
   let ok = !!m;
   for (const [name, key] of Object.entries(map)) {
-    const u = localAsset(FOLDER[kind] || 'ui/battle', key);
+    const cut = key.lastIndexOf('/');
+    const u = cut > 0 ? localAsset(key.slice(0, cut), key.slice(cut + 1)) : localAsset(FOLDER[kind] || 'ui/battle', key);
     if (!u) { ok = false; break; }
     vars.push(`${name}:url("${u}")`);
   }
   const v = ok ? { cls: 'has-battle-art', style: vars.join(';') } : NONE;
   cache.set(kind, { m, v });
   return v;
+}
+
+/**
+ * Load the sprites of these dialogs into the browser cache now: the connection ones (reconnect mask, server-lost
+ * dialog) first show when the server is unreachable — drawn from sprites fetched only then, the mask came up as bare
+ * text (2026-10-12 check). Called once a match screen is open.
+ * @param {string[]} kinds
+ */
+export function preloadBattleArt(kinds) {
+  if (typeof Image !== 'function') return;
+  for (const kind of kinds) {
+    for (const m of (battleArt(kind).style || '').matchAll(/url\("([^"]+)"\)/g)) { const img = new Image(); img.src = m[1]; }
+  }
 }
 
 /** Position of a prefab RectTransform inside its parent (centre anchors): x, y = anchoredPosition (y up), w, h = size. */
@@ -761,18 +782,22 @@ export function SelfDead({ onWatch, onExit }) {
  * tables: the question is the remake's own wording [ASSUMED], 「本局不再提示」 ours too.
  * `check` false: the temp-overflow question (_GetPreReadyTipHandOverflowDialogTabInput: AUTO_CHESS_BATTLE_PREP_READY_TIP_1,
  * the same view without the check box — content_without_check: the text 1080 × 200 in the middle of the band; our wording).
- * @param {{ text: string, check?: boolean, onAnswer: (ok: boolean, noMore: boolean) => void }} props
+ * `only`: auto_chess_only_confirm_view — the same band and text without the check box, one 确认 button across the screen
+ * (panel_btns: btn_confirm FlexibleWidth 1; the green plate [추정]: the view also holds a red one) — the server-lost and
+ * solo-resume dialogs (OnlyConfirmDialog). Esc confirms there (there is nothing to cancel).
+ * @param {{ text: string, check?: boolean, only?: boolean, onAnswer: (ok: boolean, noMore: boolean) => void }} props
  */
-export function ReadyTipDialog({ text, check = true, onAnswer }) {
+export function ReadyTipDialog({ text, check = true, only = false, onAnswer }) {
+  if (only) check = false;
   const [noMore, setNoMore] = useState(false);
   const okRef = useRef(null);
-  const live = useRef({ noMore, onAnswer });
-  live.current = { noMore, onAnswer };
+  const live = useRef({ noMore, onAnswer, only });
+  live.current = { noMore, onAnswer, only };
   useEffect(() => {
     try { okRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
     // Esc cancels, Enter confirms (capture: the match's own Space / Enter shortcuts must not see them)
     const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); live.current.onAnswer(false, false); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); live.current.onAnswer(live.current.only, false); }
       else if (e.key === 'Enter' && e.target?.tagName !== 'BUTTON') { e.preventDefault(); e.stopImmediatePropagation(); live.current.onAnswer(true, live.current.noMore); }
     };
     window.addEventListener('keydown', onKey, true);
@@ -788,12 +813,82 @@ export function ReadyTipDialog({ text, check = true, onAnswer }) {
         onClick=${() => setNoMore((v) => !v)}><i class="bcd__box" aria-hidden="true"></i><span>${t('本局不再提示')}</span></button>` : null}
     </div>
     <div class="bcd__btns" style=${'top:calc(50% - var(--pu) * (-140 + 103 / 2));height:calc(var(--pu) * 103)'}>
-      <button type="button" class="bcd__btn is-cancel" onClick=${() => onAnswer(false, false)}>
+      ${only ? null : html`<button type="button" class="bcd__btn is-cancel" onClick=${() => onAnswer(false, false)}>
         <i class="bcd__btnbg" aria-hidden="true"></i><span class="bcd__group"><i class="bcd__icon" aria-hidden="true"></i><span>${t('取消')}</span></span>
-      </button>
+      </button>`}
       <button type="button" class="bcd__btn is-ok" ref=${okRef} onClick=${() => onAnswer(true, noMore)}>
         <i class="bcd__btnbg" aria-hidden="true"></i><span class="bcd__group"><i class="bcd__icon" aria-hidden="true"></i><span>${t('确认')}</span></span>
       </button>
     </div>
   </div>`;
+}
+
+// ---- connection: reconnect mask, server lost, solo resume (AutoChessBattleUIController) ------------------------------
+
+/**
+ * 「等待重连中......」 (auto_chess_reconnect_mask in the controller's _reconnectWaitContainer) while the socket reconnects
+ * during a match: bg_block over the whole screen (it takes every press: nothing can be sent anyway), the dark tiled foot
+ * bg_lower_tile (218 tall), and a band 60 tall centred 80 above the bottom edge — orange tiles banner_orange_tile out to the
+ * screen's sides, the black middle banner_black_tile 540 wide, the frame lines banner_frame (sliced 8 | 18; the right one
+ * mirrored) from the sides to ±197.5, banner_dec at −131 — with icon_waiting (35 tall, #ef7c39) and the text (22,
+ * #ef7c39) 6 apart in the middle. Text: the client's own 「等待重连中......」 (prefab m_InputText); KR 「재연결 대기 중......」
+ * ours. Shown by ui/connBanner.js instead of its banner (and its 立即重连 button — the official mask has none).
+ */
+export function ReconnectMask() {
+  const art = battleArt('reconnect');
+  return html`<div class=${['bart', 'brc', art.cls].join(' ')} style=${art.style} role="alert" aria-live="assertive" data-testid="reconnect-mask">
+    <i class="brc__block" aria-hidden="true"></i>
+    <i class="brc__tile" aria-hidden="true"></i>
+    <div class="brc__band">
+      <i class="brc__orange is-l" aria-hidden="true"></i><i class="brc__orange is-r" aria-hidden="true"></i><i class="brc__mid" aria-hidden="true"></i>
+      <i class="brc__frame is-l" aria-hidden="true"></i><i class="brc__frame is-r" aria-hidden="true"></i><i class="brc__dec" aria-hidden="true"></i>
+      <span class="brc__notice"><i class="brc__icon" aria-hidden="true"></i><span class="brc__text">${t('等待重连中......')}</span></span>
+    </div>
+  </div>`;
+}
+
+/**
+ * The one-button confirm dialog (auto_chess_only_confirm_view) of the server-lost / solo-resume tabs: `text`, 确认 →
+ * onOk. Server lost (client code _HandleServerLost → tab_server_lost_dialog, _GetServerLostDialogTabInput:
+ * AUTO_CHESS_BATTLE_SERVER_LOST_TIP, or …_TIP_NEGATIVE_PLAY when the server ended the game for inactivity; 确认 →
+ * AutoChessGameManager.QuitGame). Solo resume (EventOnShowSingleResumeDialog → tab_single_resume_dialog,
+ * _GetSingleResumeDialogTabInput: AUTO_CHESS_BATTLE_SINGLE_RESUME_DIALOG; 确认 → ReqResumeSingleMode). The client's texts
+ * are not in our tables: ours (research 2026-10-10-autochess-ui-gap 「한국어 문구 확정표」).
+ * @param {{ text: string, onOk: () => void }} props
+ */
+export function OnlyConfirmDialog({ text, onOk }) {
+  return html`<${ReadyTipDialog} text=${text} only=${true} onAnswer=${() => onOk()} />`;
+}
+
+/**
+ * The solo-resume dialog shows when a match screen opens on a solo run already under way (a reload or a new tab: the
+ * client asks before ReqResumeSingleMode) — not on its first phases (the run is just starting) nor its result.
+ * @param {any} pub m.public of the first state this screen sees @param {boolean} solo
+ */
+export function soloResumeDue(pub, solo) {
+  if (!solo || !pub || typeof pub.phase !== 'string') return false;
+  return !['LOBBY', 'INFO_CHECK', 'BAND_DRAFT', 'BATTLE_CHECK', 'RESULT'].includes(pub.phase);
+}
+
+// ---- the latency panel (panel_ping) ---------------------------------------------------------------------------------
+
+/** Latency tier by constData pingConds (cond 1 / 60 / 200 ms → ping.low / ping.medium / ping.high). */
+export function pingTier(ms) {
+  if (!Number.isFinite(ms)) return null;
+  return ms >= 200 ? 'high' : ms >= 60 ? 'medium' : 'low';
+}
+
+/**
+ * panel_ping (AutoChessBattleUIPingPanel): img_delay_bkg 76 × 24 at 115.5 from the screen's left, 20.3 from its top, the
+ * text 16 (best fit) white, centred — constData pingConds 「当前延迟<@ping.low>{0}</>ms」 (KR 「PING {0}ms」, EN
+ * 「Current ping: {0}ms」), the number in the gamedata_const richTextStyles colour (#7fa826 / #ec7a00 / #ff3d3d).
+ * @param {{ ms?: number|null, online?: boolean }} props
+ */
+export function PingPanel({ ms, online = true }) {
+  const art = battleArt('ping');
+  const ok = online && Number.isFinite(ms);
+  const tier = ok ? pingTier(ms) : null;
+  const num = html`<b class=${`bping__num is-${tier || 'off'}`}>${ok ? Math.min(9999, Math.round(ms)) : '--'}</b>`;
+  return html`<span class=${['bping', art.cls].join(' ')} style=${art.style} title=${ok ? t('当前延迟 {ms}ms', { ms: Math.round(ms) }) : t('未连接')}
+    data-testid="ping-panel">${tParts('当前延迟{ms}ms', { ms: num })}</span>`;
 }

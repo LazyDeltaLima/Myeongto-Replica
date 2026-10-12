@@ -138,6 +138,15 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   .gm__corner { width: max(96px, calc(3 * max(.56rem, 34px) + .2rem)); }
   .dpanel:not(.dpanel--right) { bottom: calc(.44rem + max(1.51rem, 96px) * 55 / 151 + max(.56rem, 34px)); }
 }
+/* Phones (short or narrow touch screens): ⚙ / 📖 / ⛶ fold behind one ⋯ button (screens/game.js toolsOpen, folded by
+   default; a tool's tap folds them again) — three 34 px buttons with 44 px touch areas covered the bottom row of the
+   机变 cards (the corner sits above that screen, phase-art.css .is-over-choice) and the bench's near pads; the 交流 /
+   chat buttons stay (maintainer request 2026-10-12). Opened, they line up as before. */
+@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse),
+  (max-width: 767px) and (pointer: coarse), (max-width: 767px) and (any-pointer: coarse) {
+  .gm__more { display: grid; }
+  .gm__tools:not(.is-open) { display: none; }
+}
 /* With the shop folded (收起) no bar covers the corner: one row again, so the folded shop's prep camera, which keeps the
    bench above the corner's hit areas (ui/fieldHost.js hudBands), grows the board on narrow phones too (public issue #5). */
 @media (max-width: 767px) {

@@ -51,7 +51,8 @@
   가운데 단계 알약(`bg_rest`/`bg_battle`/`bg_coop` + `frame_mid_normal`, 글자 17px #40b196), 라운드 숫자 `bg_round`(20px #171717), LP 20px #a8a8a8,
   🔍 버튼은 `bg_check_btn` 판 위.
 - 맹약 원: 판은 프리팹이 실행 중에 고르는 `_imgBoard` = `bondBoardIcon/<최대단계(최대 4)>_<도달 단계>`, 비활성은 `1_0`(스크린샷과 대조). 최고 단계면
-  아이콘이 검정, 아니면 밝은 회색. 숫자(층수) 16px는 `matte_num` 위, 이름 14px. 원본의 "개수/다음 단계" 배지는 공식 원에 없어 숨기고 툴팁에만 둔다.
+  아이콘이 검정, 아니면 밝은 회색. 숫자(층수)는 `matte_num` 위 12.4단위(프리팹 16px는 우리 글꼴에서 링 지름의 .22 높이, CN 캡처는 .17 → 16 × .17/.22,
+  관리자 결정 2026-10-12), 이름 14px. 원본의 "개수/다음 단계" 배지는 공식 원에 없어 숨기고 툴팁에만 둔다.
   맹약 줄은 라운드 띠 아래 가운데(`bond_list_info_view`), 뒤에 `matte`.
 - 준비 완료: `ready_bg`(+`ready_frame`) + `ready_icon` + 18px 검정, 준비한 뒤(취소)는 `cancel_bg` + `cancel_icon` + #2f2f2f. 단축키 칸은 버튼 아래.
 - 번역: 스크린샷의 한국 서버 표기로 「휴식 기간」(休息一下), 「배치 가능 인원」(剩余可放置角色).
@@ -258,7 +259,12 @@
   특수 #f2bd3e) 뒤 `title` 장식, 3단위 세로줄, 설명 18 + 공지 15 「选择后不可更改」(KR 「선택 후 변경 불가」, CN 원문 [추정]). 원본의 시간 안내 줄은
   공식 모양에서는 숨김. 오른쪽 차례 표시는 다른 사람 차례만 #c2c2c2 + `tip_wait`(내 차례는 「내 차례」 오버레이가 알려 주므로 원본의 「내 차례입니다」 띠를 숨김 — KR 캡처에서
   오른쪽 위가 비어 있음; 프리팹의 `root_self`(`tip_glow` + #00ffc4)는 쓰지 않음).
-  카드(`card_small_item` 307×271): 판 `card_bg_normal`(종이 겹친 모양), 아이콘 86, 이름 20 흰색, 설명 16 #cecece 80 %. 선택(첫 탭)하면 `card_select_glow`
+  카드(`card_small_item` 307×271): 판 `card_bg_normal`(종이 겹친 모양), 아이콘 86, 이름 20 흰색, 설명 16 #cecece 80 %.
+  긴 설명(관리자 결정 2026-10-12 「공식대로 카드 안 스크롤」): 글은 줄 수로 자르지 않고 카드 안에서 세로 스크롤 — 공식 `group_layout`(286×236, 판 위·아래
+  17.5 안쪽)이 아이콘·이름·설명을 함께 담은 세로 ScrollRect(Clamped, 스크롤바 없음, 화살표 칸 `_topArrow`/`_downArrow`는 비어 있음, `_btnExpand`도 비어 있음).
+  세트 효과 줄이 붙은 아이템(패밀리 배지·사막 나침반 등)은 데스크톱에서도 넘친다. 글은 공식 원문 그대로(`effectDesc` = 장치 스킬 설명; 한국어도 KR 클라
+  `activity_table` 문장과 같음 — 우리가 늘린 글이 아님). 우리 추가: 더 있는 쪽 가장자리를 흐리게 하고 작은 ▲/▼(관리자가 고른 안), 스크롤하면 등급 칩이
+  내용과 함께 빠짐(공식은 칩도 스크롤 내용 안). 휠·드래그로 스크롤, 드래그는 카드를 고르지 않음, 탭은 그대로 두 번 탭 선택. 선택(첫 탭)하면 `card_select_glow`
   (9-slice 44) + `card_select_frame`(9-slice 8) + 아래 막대 `card_btn_bg`(9-slice 292|38, 354 폭) + `card_btn_icon` + 「确认选择」(KR 「선택 확인」) — 막대를
   다시 누르면(카드 두 번째 탭) 확정. 막대 위치는 프리팹 −122가 아니라 카드 아래쪽에 맞춤(KR 캡처, `card_small_select` 애니메이션이 올리는 양 [추정]).
   가져간 카드: `card_bg_selected` 회색 판 + 회색 줄무늬, 오른쪽 위 둥근 아바타(`avatar_head_bg` + 청록 고리 `avatar_head_outline`). 헤더의 확인 버튼은 공식
@@ -550,6 +556,9 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 타이틀 설정·전체 화면 버튼(upstream #183): 터치 화면에서 16px 버튼 두 개의 44px 터치 영역이 겹쳐 전체 화면 버튼이 설정 버튼을 가렸다 →
   28px + 간격 14px. (devices.css)
 - 확인: Chrome(GPU) 844×390·740×360·932·430·1920×1080 — 설정 버튼 중심이 자기 버튼, 접기 탭 24×10.
+- 판 화면 왼쪽 아래 ⚙·📖·⛶ 접기(관리자 요청 2026-10-12): 휴대폰(높이 ≤600 또는 폭 ≤767의 터치 화면)에서는 세 버튼이 ⋯ 하나 뒤로 접히고(기본 접힘, 도구를
+  누르면 다시 접힘), 기기와 상관없이 机变/悬赏 화면 위에 있을 때(`is-over-choice`)도 접힘 — 휴대폰에선 아래 줄 카드가 그 밑에 깔렸고 1920×1080에서도 왼쪽 아래
+  카드 아래쪽을 가렸다. 소통·채팅 버튼은 그대로. 펼치면 예전 배치. (`screens/game.js toolsOpen`, `game.css`·`devices.css`)
 
 ## iPhone 전체 화면 안내 (2026-10-10, 관리자 요청)
 - 증상: iOS Safari 가로 모드에서 주소창·탭 막대가 사라지지 않는다. 원인: iPhone Safari에는 요소 전체 화면 API가 없고(전체 화면 버튼은
@@ -857,8 +866,30 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   남은 자금(`screens/game.js toggleReady`). 글 「临时整备区中仍有单位，休整期结束时将被销毁。确定准备就绪吗？」 KR 「임시 정비 구역에 유닛이 남아 있습니다.
   휴식 기간이 끝나면 파기됩니다. 준비 완료하시겠습니까?」(우리 번역). 준비 버튼 아래 「임시 정비 구역 N개 대기」는 알림으로 남기되 버튼은 막지 않고, 판 위 줄
   설명(`underframe.js tempRowRule`)도 새 규칙대로. 감사(`server/match/audit.js`)의 「비지 않은 임시 칸으로 준비」 검사는 뺐다. AI는 예전처럼 스스로 비운 뒤 준비.
-- 아직 안 넣은 것: 재접속 대기 마스크(`auto_chess_reconnect_mask`)·서버 끊김·혼자 판 이어하기 창, 핑 판(`panel_ping`), 위수협약 토스트, 결산 화면 좋아요(서버 기능 필요)·
-  「战斗中...」 — `research/2026-10-10-autochess-ui-gap/README.md`.
+- 재접속 대기 마스크(관리자 요청 2026-10-12, 클라 코드 `AutoChessBattleUIController._reconnectWaitContainer` + common `auto_chess_reconnect_mask`): 판 안에서
+  소켓이 다시 붙는 중(`reconnecting`)이면 연결 띠 대신(`ui/connBanner.js`) 화면 전체를 막는 판(`bg_block`) + 아래 `bg_lower_tile`(218) + 바닥에서 80 위 60 높이 띠 —
+  양옆 주황 `banner_orange_tile`, 가운데 540 폭 `banner_black_tile`, 옆 선 `banner_frame`(9분할 8|18, 오른쪽 뒤집음, ±197.5), `banner_dec`, 가운데 `icon_waiting`(35,
+  #ef7c39) + 「等待重连中......」(22 #ef7c39, 프리팹 원문) — KR 「재연결 대기 중......」(우리 번역). 공식처럼 「立即重连」 버튼이 없다(포커스·온라인 때 즉시 재시도는
+  그대로). 아이콘 깜빡임 [추정]. 서버 재시작 카운트다운 뒤의 「재시작하는 중」 띠는 그대로.
+- 서버 끊김 창(클라 코드 `_HandleServerLost` → `tab_server_lost_dialog`, `_GetServerLostDialogTabInput`: `AutoChessConfirmDialogInPage` 확인 버튼 하나,
+  `AUTO_CHESS_BATTLE_SERVER_LOST_TIP` 또는 비활동 종료 `…_TIP_NEGATIVE_PLAY`, 확인 → `QuitGame`): 진행 중인 판(RESULT 전)에서 `room.closed`가 오거나 새 세션(서버
+  재시작)이 되면 바로 로비로 보내지 않고 판 화면 위에 확인 하나짜리 창(`auto_chess_only_confirm_view`: 띠·글은 확인 창과 같고 버튼이 화면 너비 하나, 초록 판
+  [추정 — 빨간 판도 있음])에 이유 글(닫힘 이유 문구, 모르면 「与服务器的连接已断开」 KR 「서버와 연결이 끊겼습니다」 — 우리 번역)을 띄우고, 확인해야 로비로
+  (`main.js serverLost`). 그림이 없으면 예전처럼 로비 + 토스트.
+- 혼자 판 이어하기 창(클라 코드 `EventOnShowSingleResumeDialog` → `tab_single_resume_dialog`, `_GetSingleResumeDialogTabInput`: 확인 버튼 하나,
+  `AUTO_CHESS_BATTLE_SINGLE_RESUME_DIALOG`, 확인 → `ReqResumeSingleMode`): 판 화면이 이미 진행 중인 혼자 판으로 열릴 때(새로고침·새 탭; INFO_CHECK·BAND_DRAFT·
+  BATTLE_CHECK·RESULT 제외, `battleArt.js soloResumeDue`) 같은 창에 「存在进行中的模拟，是否继续？」 KR 「진행 중인 시뮬레이션이 있습니다. 이어서
+  진행하시겠습니까?」(우리 번역). 전투 중이면 창이 떠 있는 동안 일시정지(`g.pause`, 일시정지 화면은 창 뒤에 안 띄움)하고 확인하면 이어 감. 서버 규칙은 그대로
+  (끊긴 동안 혼자 판은 예전처럼 서버가 이어 감 — 공식은 멈춰 둠 [추정 차이]); 휴식은 시간 제한이 없어 창만.
+- 핑 판(`panel_ping`, `AutoChessBattleUIPingPanel`): 위 왼쪽 나가기 버튼 옆 `img_delay_bkg` 76×24, 글 흰색(best fit 1–16 → 12.5 [추정]) — constData
+  `pingConds` 원문 「当前延迟<@ping.low>{0}</>ms」, KR 클라 「PING {0}ms」, EN 「Current ping: {0}ms」, 숫자 색 `gamedata_const` richTextStyles
+  `ping.low/medium/high` #7fa826 / #ec7a00 / #ff3d3d(1 / 60 / 200 ms 기준). 그림이 없으면 upstream 알약.
+- 위수협약 토스트(`auto_chess_notify_taost`, 클라 코드 `AutoChessUtil.ShowTextToast` — 전투·상점·방·결산의 토스트가 모두 이것): 판 화면이 열려 있고 그림이 있으면
+  모든 토스트를 346×114 판(`img_toast_bg`, 「i」 표시 포함, 텍스처는 rect 379×181 안 18/19) + 글 230×80(+40, 20 흰색)으로, 화면 가운데에(위치 [추정] — 클라
+  일반 토스트 층). `html.sp-ac-toast`(`screens/game.js`).
+- 결산 「战斗中...」(`auto_chess_settle_game_player_item` `panel_battle`, 19 #e4e4e4 on `round_battle_bg`): 공식은 탈락해 먼저 결산으로 나간 사람에게 아직 싸우는
+  팀원을 보여 주지만, 우리 서버는 판이 끝날 때 모두에게 한 번 결과를 보내 이 상태가 생기지 않는다 — 넣지 않음(먼저 나간 사람의 중간 결산이 서버 기능으로 생기면 그때).
+  결산 좋아요는 서버 기능이 필요해 관리자 결정 2026-10-12로 빼 둠 — `research/2026-10-10-autochess-ui-gap/README.md`.
 
 ## 본판 정보의 맹약·결장 오퍼레이터를 공식 정보 화면 모양으로 (2026-10-11, 관리자 요청)
 

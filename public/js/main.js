@@ -61,6 +61,8 @@ import { installResources, ResourceHost } from './resources.js';
 import { emoteSet } from '../../shared/emote-art.js';
 import { initLang, useLang, tickerText } from './ui/lang.js';
 import { t, N_, translateWire } from '../../shared/i18n.js';
+import { PHASE } from '../../shared/constants.js';
+import { battleArt } from './ui/battleArt.js';
 import { recordError } from './diag.js';
 
 const RESTORE_GRACE_MS = 1500;
@@ -149,7 +151,7 @@ function backToLobby() {
   const s = store.get();
   if (s.room || s.match.public) closeAllDialogs();
   store.set({ room: null, match: emptyMatch(), ticker: [], emotes: [] });
-  store.patch('ui', { restoring: false });
+  store.patch('ui', { restoring: false, serverLost: null });
 }
 
 function onWelcome(msg) {
@@ -164,10 +166,14 @@ function onWelcome(msg) {
 
   if (prevId != null && prevId !== msg.playerId) {
     // A brand-new server session (the server restarted — crashed / killed, so no room.closed arrived — or this session
-    // expired on it): whatever we showed before is gone — back to the lobby cleanly and say why.
+    // expired on it): whatever we showed before is gone — back to the lobby cleanly and say why (over a running match:
+    // the official server-lost dialog first, serverLost).
     const notice = sessionResetNotice(prev, msg.playerId);
-    backToLobby();
-    if (notice) toast(t(notice), 'warn', { ttl: 7000 });
+    if (serverLostDue(prev)) serverLost(t(notice || SERVER_LOST_TIP));
+    else {
+      backToLobby();
+      if (notice) toast(t(notice), 'warn', { ttl: 7000 });
+    }
   } else if (prev.room || prev.match.public) {
     // Resumed session: the server re-pushes room/match state; drop whatever it doesn't.
     store.patch('ui', { restoring: true });
@@ -217,6 +223,23 @@ function onRoomState(msg) {
   maybeFinishRestore();
 }
 
+/**
+ * Server lost (client code AutoChessBattleUIController._HandleServerLost → tab_server_lost_dialog; docs/rules/ui.md
+ * 「공식 위수협약 UI」): a running match the server ended for this player (room.closed, or a brand-new session after the
+ * server restarted) stays on screen under the official one-button dialog (screens/game.js) with the reason, and only its
+ * 确认 leads to the lobby (the client's QuitGame) — without the local art: straight to the lobby with a toast, as before.
+ */
+const SERVER_LOST_TIP = N_('与服务器的连接已断开');
+function serverLostDue(s) {
+  const pub = s?.match?.public;
+  if (!pub || !pub.phase || pub.phase === PHASE.LOBBY || pub.phase === PHASE.RESULT || s.match.result) return false;
+  return !!battleArt('confirm').cls;
+}
+function serverLost(text) {
+  identity.rememberMatch(null);
+  store.patch('ui', { serverLost: { text } });
+}
+
 const CLOSE_REASON = {
   // 'timeout' = this player was removed after staying disconnected past the lobby grace (server/lobby.js)
   host_left: N_('创建者已离开，同盟已解散'), timeout: N_('由于长时间断开连接，你已离开同盟'), empty: N_('同盟已解散'),
@@ -243,9 +266,11 @@ function wireNet() {
   net.on('unhandledError', (err) => toastError(err));
   net.on('room.state', onRoomState);
   net.on('room.closed', (msg) => {
-    backToLobby();
     const known = Object.hasOwn(CLOSE_REASON, String(msg.reason)) ? CLOSE_REASON[msg.reason] : null;
-    toast(known ? t(known) : typeof msg.reason === 'string' && msg.reason.length < 60 ? t('同盟已关闭：{reason}', { reason: msg.reason }) : t('同盟已关闭'), 'warn');
+    const text = known ? t(known) : typeof msg.reason === 'string' && msg.reason.length < 60 ? t('同盟已关闭：{reason}', { reason: msg.reason }) : t('同盟已关闭');
+    if (serverLostDue(store.get())) { serverLost(text); return; }
+    backToLobby();
+    toast(text, 'warn');
   });
   net.on('m.public', (msg) => { matchAt = Date.now(); store.patch('match', { public: payload(msg) }); maybeFinishRestore(); });
   net.on('m.private', (msg) => { matchAt = Date.now(); store.patch('match', { private: payload(msg) }); });
@@ -279,6 +304,8 @@ function wireNet() {
 
   // Entering (title → lobby) while already online also needs the deep-link join.
   store.subscribe((s, prev) => {
+    // the server-lost dialog's 确认 (screens/game.js) clears it: now leave the dead match
+    if (prev.ui.serverLost && !s.ui.serverLost) backToLobby();
     if (s.session.entered && !prev.session.entered) schedulePendingJoin();
     // in a room (co-op or solo, also a resumed one) a match is near: its data starts downloading
     if (s.room && !prev.room) warmGameData();
