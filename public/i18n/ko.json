@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1217 of 1432 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1216 of 1431 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1318,7 +1318,7 @@
   "已准备": "준비 완료",
   "准备完毕": "준비 완료",
   "策略已确定 · 编队确认": "전략 확정 · 편성 확인",
-  "倒计时结束前仍可更改自选编队：选择阵营即套用该阵营的预设。全员准备完毕后立即开始": "카운트다운이 끝나기 전까지 선발 편성을 바꿀 수 있습니다. 진영을 고르면 그 진영 프리셋이 적용됩니다. 모두 준비 완료하면 바로 시작합니다",
+  "倒计时结束前仍可在上方更改自选预设，更改后立即套用。全员准备完毕后立即开始": "카운트다운이 끝나기 전까지 위의 선발 프리셋을 바꿀 수 있고, 바꾸면 바로 적용됩니다. 모두 준비 완료하면 바로 시작합니다",
   "已关联{faction}预设": "{faction} 프리셋과 연결됨",
   "已关联": "연결됨",
   "推荐": "추천",
@@ -1343,7 +1343,6 @@
   "已将{faction}预设套用到自选编队": "{faction} 프리셋을 선발 편성에 적용했습니다",
   "撤销": "되돌리기",
   "本局生效": "이번 판에 적용",
-  "选择阵营后套用该阵营的自选预设": "진영을 고르면 그 진영 선발 프리셋이 적용됩니다",
   "「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设": "「프리셋 없음」과 진영마다 편성이 따로 저장됩니다. 채팅이나 전략 선택에서 진영을 고르면 그 진영 프리셋이 적용됩니다",
   "全局作战目标": "전역 작전 목표",
   "通过14回合，消灭领袖": "리더 적 섬멸!",

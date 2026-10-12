@@ -12,16 +12,17 @@
 // A strategy built around a bond the mode switches off (bands.json bondIds ∩ the mode's inactive bonds — 标准: 潘格尼尼
 // 拉特兰, 克莱门莎 阿戈尔, 玛恩纳 卡西米尔; the bot never picks one) reads 本局禁用 on its card and in the detail pane
 // (BandOffTag / BandOffNote, DESIGN §21.26, §21.7's look); it stays selectable — information only.
-// Under the order list, the faction row (ui/factionPick.js DraftFactionPicker — the same pick as the chat's, and the
-// faction's 自选 preset applies to this match; local feature, maintainer 2026-10-09).
 // 전략별 선발 프리셋 (local feature, maintainer decisions 2026-10-12; ui/diyPresets.js links): the detail pane's 自选预设 row
 // picks the roster the strategy applies — this match's choice, else the strategy's saved link, else the chat faction it is
 // built around (推荐, bandRecommendation), else 保持当前编队 — with a preview of its picks and 记住此策略的预设 (on by
 // default: the choice becomes the link). It applies when my pick lands — 确认选择 applies it first and flushes room.diy
-// (a solo draft ends with the pick), a turn that runs out or an AI 托管 pick right after — through the faction row's own
-// pick (the chat faction follows; a faction this match disables is still applied, 本局禁用). A linked strategy's card
-// carries the faction's badge. After the last pick a timed draft keeps 编队确认 (m.public.draft.confirm, the server's
-// DRAFT_CONFIRM_SECONDS): the faction row can still change the picks, 准备完毕 (g.draftReady) ends it once every human is done.
+// (a solo draft ends with the pick), a turn that runs out or an AI 托管 pick right after — through the chat's faction pick
+// (ui/factionPick.js applyPresetChoice: the chat faction follows; a faction this match disables is still applied, 本局禁用).
+// Once my pick has landed, the row of my strategy applies a new choice at once (the faction row under the order list did
+// that until 2026-10-13 and is gone, maintainer request), with the 撤销 notice under it. The preview shows each slot's
+// tier and operator icon (name in the tooltip). A linked strategy's card carries the faction's badge. After the last pick
+// a timed draft keeps 编队确认 (m.public.draft.confirm, the server's DRAFT_CONFIRM_SECONDS): the row can still change the
+// picks, 准备完毕 (g.draftReady) ends it once every human is done.
 // 本局信息 (GitHub issue #8 item 1, "选策略时没法返回查看禁用的干员和盟约"): 查看禁用盟约与干员 under the order list opens the
 // briefing's bond rows, legend and 本局禁用干员 again, read-only (ui/matchInfo.js MatchInfoDialog — the very blocks of the
 // briefing). The draft runs on underneath: its status line repeats the current turn and the countdown (draftInfoStatus),
@@ -29,8 +30,9 @@
 // never touches the highlighted band or the buttons.
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Button, Icon, MicroLabel, useTicker, secondsLeft } from '../ui/components.js';
-import { useGameData, BandIcon, RichText, PlayerAvatar, LpTower, Sprite } from '../ui/gameComponents.js';
+import { html, Button, Icon, MicroLabel, TierChip, useTicker, secondsLeft } from '../ui/components.js';
+import { useGameData, BandIcon, RichText, PlayerAvatar, LpTower, Sprite, Img } from '../ui/gameComponents.js';
+import { chessAvatarUrl } from '../ui/assetUrls.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel } from '../ui/matchInfo.js';
 import { actions, act } from '../ui/gameActions.js';
@@ -46,7 +48,7 @@ import { data } from '../data.js';
 import { audio } from '../audio.js';
 import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
 import { t, tParts, tName } from '../../../shared/i18n.js';
-import { DraftFactionPicker, applyPresetChoice } from '../ui/factionPick.js'; // the faction row under the draft order (진영별 선발 프리셋)
+import { applyPresetChoice, PresetNotice } from '../ui/factionPick.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -213,20 +215,24 @@ export function draftInfoStatus({ myPick = null, pickName = null, myTurn, turnNa
   return { text: turnName ? t('{turnName} 决策中', { turnName }) : t('等待轮到你'), secs: s, tone: s != null ? tone : 'dim' };
 }
 
-/** A 自选 pick's operator name (backups.json units; the slot's preview). */
-const pickName = (pick) => (pick?.charId ? data.get('backups')?.units?.[pick.charId]?.name || pick.charId : null);
+/** A 自选 pick's operator (backups.json units; the slot's preview): its name and avatar (the 自选编队 tab's own icon). */
+const pickUnit = (pick) => (pick?.charId ? data.get('backups')?.units?.[pick.charId] || { charId: pick.charId } : null);
+const pickAvatar = (m, u) => (u ? chessAvatarUrl(m, { charId: u.charId, assets: { avatar: u.assets?.avatar } }) : null);
+/** A DIY slot's tier from its id (chess_char_<tier>_diy…) when the slot list is not loaded. */
+const slotTier = (id) => Number(/^chess_char_(\d)_/.exec(id)?.[1]) || null;
 
 /**
- * The detail pane's 自选预设 row (전략별 선발 프리셋): the roster choice, its tags, the four slots it would field, 记住.
+ * The detail pane's 自选预设 row (전략별 선발 프리셋): the roster choice, its tags, the four slots it would field (tier +
+ * operator icon, the name in the tooltip — maintainer request 2026-10-13), 记住, and the 撤销 notice of the last apply.
  * @param {{ band: any, choice: string, link: string|null, presets: Record<string, any>, base: Record<string, any>,
- *   live: Record<string, any>, off: string[]|null, locked: boolean, remember: boolean,
+ *   live: Record<string, any>, off: string[]|null, locked: boolean, remember: boolean, m?: any, notice?: boolean,
  *   onChoice: (v: string) => void, onRemember: (v: boolean) => void }} props
  */
-export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, onChoice, onRemember }) {
+export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, m = null, notice = false, onChoice, onRemember }) {
   const tags = presetChoiceTags(choice, { link, rec: bandRecommendation(band), off });
   const picks = presetPreviewPicks(choice, { presets, base }, live);
   const slots = diySlotList({ chess: data.get('chess'), backups: data.get('backups') });
-  const ids = slots.length ? slots.map((x) => x.slotId) : Object.keys(picks || {});
+  const list = slots.length ? slots.map((x) => ({ id: x.slotId, tier: x.tier })) : Object.keys(picks || {}).map((id) => ({ id, tier: slotTier(id) }));
   const offIds = Array.isArray(off) ? off : [];
   const TAG = { linked: ['link', t('已关联')], rec: ['rec', t('推荐')], off: ['off', t('本局禁用')] };
   return html`<div class="draft-preset" data-testid="draft-preset">
@@ -238,12 +244,18 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
       <option value=${BASE_LINK} selected=${choice === BASE_LINK}>${t('不使用预设')}</option>
       ${CHAT_FACTIONS.map((f) => html`<option key=${f.id} value=${f.id} selected=${choice === f.id}>${t(f.name)}${presets?.[f.id] ? '' : t('（未设置）')}${offIds.includes(f.bond) ? t('（本局禁用）') : ''}</option>`)}
     </select>
-    <div class="draft-preset__slots">${picks ? ids.map((id) => {
-      const n = pickName(picks[id]);
-      return html`<span key=${id} class=${cx('draft-preset__slot', !n && 'is-empty')} title=${n || ''}>${n || '—'}</span>`;
+    <div class="draft-preset__slots">${picks ? list.map(({ id, tier }) => {
+      const u = pickUnit(picks[id]);
+      const name = u ? u.name || u.charId : '';
+      return html`<span key=${id} class=${cx('draft-preset__slot', !u && 'is-empty')} title=${name ? `${t('{tier}阶', { tier: tier || '?' })} · ${name}` : t('{tier}阶', { tier: tier || '?' })}>
+        ${tier ? html`<${TierChip} tier=${tier} size="sm" class="draft-preset__tier" />` : null}
+        ${u ? html`<${Img} src=${pickAvatar(m, u)} class="draft-preset__ava" alt=${name} fallback=${html`<b class="draft-preset__ava is-letter">${[...name][0] || '?'}</b>`} />`
+          : html`<span class="draft-preset__ava is-empty"></span>`}
+      </span>`;
     }) : html`<span class="draft-preset__none">${t('该阵营尚未设置预设，自选编队不变')}</span>`}</div>
     <label class="draft-preset__keep" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><input type="checkbox"
       checked=${remember && choice !== KEEP_LINK} disabled=${locked || choice === KEEP_LINK} onChange=${(e) => onRemember(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
+    ${notice ? html`<${PresetNotice} inline=${true} />` : null}
   </div>`;
 }
 
@@ -331,6 +343,17 @@ export function BandDraftScreen() {
     // a solo draft ends with the pick: the picks must reach the match first (room.diy is debounced)
     await flushDiySync();
   };
+  // my strategy's row after the pick (its 编队确认 included): a new choice applies at once
+  const changeChoice = (bid, v) => {
+    setPresetSel({ ...presetSel, [bid]: v });
+    if (myPick !== bid || pub?.phase !== PHASE.BAND_DRAFT || v === KEEP_LINK) return;
+    if (remember[bid] ?? true) linkBand(bid, v);
+    void applyPresetChoice(v).then(() => flushDiySync());
+  };
+  const changeRemember = (bid, v) => {
+    setRemember({ ...remember, [bid]: v });
+    if (v && myPick === bid && choiceFor(bid) !== KEEP_LINK) linkBand(bid, choiceFor(bid));
+  };
   const confirm = async () => {
     if (!band || busy || !myTurn || selTaken) return;
     setBusy('pick');
@@ -395,7 +418,6 @@ export function BandDraftScreen() {
             </span>
           </div>`;
         })}
-        <${DraftFactionPicker} />
         <${Button} variant="secondary" icon="search" block=${true} class="draft-order__info" data-testid="match-info-open"
           aria-haspopup="dialog" onClick=${() => setInfoOpen(true)}>${t('查看禁用盟约与干员')}<//>
         ${!solo ? html`<p class="draft-order__tip" data-testid="draft-tip">${draftTip({ timed, turnSeconds: turnLen, autoName: myPick ? null : autoName, selected: autoId === sel })}</p>` : null}
@@ -435,13 +457,14 @@ export function BandDraftScreen() {
             <${RichText} as="p" text=${band.descRaw || band.desc} class="draft-detail__desc" />
           </div>
           ${inDraft ? html`<${DraftPresetRow} band=${band} choice=${choiceFor(band.bandId)} link=${links?.[band.bandId] ?? null}
-            presets=${presets} base=${baseRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} locked=${!!myPick || busy === 'pick'}
-            remember=${remember[band.bandId] ?? true} onChoice=${(v) => setPresetSel({ ...presetSel, [band.bandId]: v })}
-            onRemember=${(v) => setRemember({ ...remember, [band.bandId]: v })} />` : null}` : html`<p class="t-dim">${t('选择一个策略查看详情')}</p>`}
+            presets=${presets} base=${baseRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
+            locked=${(!!myPick && myPick !== band.bandId) || busy === 'pick'} notice=${!!myPick && myPick === band.bandId}
+            remember=${remember[band.bandId] ?? true} onChoice=${(v) => changeChoice(band.bandId, v)}
+            onRemember=${(v) => changeRemember(band.bandId, v)} />` : null}` : html`<p class="t-dim">${t('选择一个策略查看详情')}</p>`}
         <div class="draft-detail__actions">
           ${confirmOn && inDraft ? html`<div class="draft-confirm" role="status" data-testid="draft-confirm">
             <b>${t('策略已确定 · 编队确认')}</b>
-            <p>${t('倒计时结束前仍可更改自选编队：选择阵营即套用该阵营的预设。全员准备完毕后立即开始')}</p>
+            <p>${t('倒计时结束前仍可在上方更改自选预设，更改后立即套用。全员准备完毕后立即开始')}</p>
             <${Button} variant="primary" size="lg" icon="check" active=${meReady} disabled=${meReady} loading=${busy === 'ready'}
               data-testid="draft-ready" onClick=${readyUp}>${meReady ? t('已准备') : t('准备完毕')}<//>
           </div>`
