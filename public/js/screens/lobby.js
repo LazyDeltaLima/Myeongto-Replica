@@ -1,4 +1,5 @@
-// Lobby screen: pick 独立模拟 / 同盟模拟 and a difficulty (标准/险境/绝境/终极), create a room,
+// Lobby screen: pick 独立模拟 / 同盟模拟 and a difficulty (标准/险境/绝境/终极), create a room, queue for 随机匹配 (co-op, the
+// selected difficulty; ui/matchQueue.js shows the queue and its confirmation, server/matchmaking.js has the rules),
 // or join one with a 同盟密钥 (recent codes remembered) — as a player (加入同盟) or in one of its MAX_SPECTATORS
 // spectator seats (观战: room.spectate, also while its match runs; community report #26, a remake feature — the
 // official room has none). Shows connection status + ping.
@@ -20,6 +21,7 @@ import { openStats } from './stats.js';
 import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
+import { MatchQueueDialog, joinQueue } from '../ui/matchQueue.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { getConfig, getMode, getStage, useData } from '../data.js';
@@ -272,6 +274,7 @@ export function LobbyScreen() {
     }
   };
   const create = () => run('create', () => net.request('room.create', { mode: roomMode, difficulty }));
+  const queue = () => run('queue', () => joinQueue(difficulty));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
     // `undefined` — codeArg keeps an event target out of the key and falls back to the input field
@@ -367,6 +370,8 @@ export function LobbyScreen() {
               ${roomMode === 'solo' ? t('开始独立模拟') : t('创建同盟')}
             <//>
           <//>
+          ${roomMode === 'coop' ? html`<${Button} variant="secondary" size="lg" block=${true} icon="users" class="create-box__queue"
+            loading=${busy === 'queue'} disabled=${!online} onClick=${queue}>${t('随机匹配')}<//>` : null}
           <div class="create-box__hint">
             ${online
               ? html`<span>${roomMode === 'solo' ? t('创建后即可开始模拟') : t('创建后可邀请好友或添加 AI 队友')}</span>`
@@ -375,5 +380,6 @@ export function LobbyScreen() {
         </div>
       </section>
     </div>
+    <${MatchQueueDialog} />
   </div>`;
 }

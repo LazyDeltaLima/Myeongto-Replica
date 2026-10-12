@@ -98,6 +98,10 @@
 //     time → room.closed {kicked} to it. A spectator in a LOBBY room may take a free player seat with room.join of the same
 //     code; a player never switches to spectating in place (ALREADY). Disconnect / grace / reconnect / expiry work as for
 //     a player seat (the seat is kept and given back on resume).
+//   * 랜덤 매칭 (maintainer decisions 2026-10-13, a remake feature): room.queue / room.unqueue / room.queueFallback /
+//     room.queueAccept go to the Matchmaker (server/matchmaking.js, its header has the rules): a per-difficulty co-op
+//     queue whose confirmed groups get a room of their own (queue order = seat order, the first is host) and a match
+//     started at once. Its session events come from onHello / onDisconnect / onExpire / shutdown here.
 
 import { randomBytes, randomInt } from 'node:crypto';
 import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
@@ -108,6 +112,7 @@ import { Match as DefaultMatch } from './match/Match.js';
 import * as localPatch from './local-patch.js'; // local patch: room chat, chat factions, SP_MAX_BOTS
 import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: the 自选 picks offered
 import { KITTED_CHARS } from './sim/content/kits/index.js';
+import { Matchmaker } from './matchmaking.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -273,6 +278,8 @@ export class Lobby {
     this.resyncTimers = new Map();
     /** per-network limit warnings: at most one log line per 10 s (the rest are counted) */
     this.limitLog = { at: -Infinity, suppressed: 0 };
+    /** 랜덤 매칭 (header) */
+    this.queue = new Matchmaker(this, { Room, botNames: BOT_NAMES, newBotId: (room) => this.newBotId(room), options: this.opts });
   }
 
   /** @param {string} code @returns {Room | null} */
@@ -303,6 +310,7 @@ export class Lobby {
    */
   onHello(session, { resumed, repeat }) {
     if (!resumed && !repeat) return;
+    this.queue.onResume(session);
     const room = this.roomOf(session);
     if (!room) {
       if (session.notice) {
@@ -355,6 +363,10 @@ export class Lobby {
       case 'room.diy': return this.diy(session, msg);
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
+      case 'room.queue': return this.queue.queue(session, msg);
+      case 'room.unqueue': return this.queue.unqueue(session);
+      case 'room.queueFallback': return this.queue.setFallback(session, msg);
+      case 'room.queueAccept': return this.queue.accept(session, msg);
       default:
         if (typeof msg.t === 'string' && msg.t.startsWith('g.')) return this.routeGame(session, msg);
         return fail(ERR.BAD_MSG, `unhandled type ${String(msg.t).slice(0, 32)}`);
@@ -364,6 +376,7 @@ export class Lobby {
   /** The session's socket closed. @param {import('./net.js').Session} session */
   onDisconnect(session) {
     this.clearResync(session.playerId); // the next resume resyncs immediately
+    this.queue.onDisconnect(session);
     const room = this.roomOf(session);
     // a solo run may be resumed within singleReconnectTime (24 h); everything else keeps the registry's window
     session.resumeWindowMs = room && room.match && room.mode === 'solo' ? this.soloResumeWindowMs() : null;
@@ -382,6 +395,7 @@ export class Lobby {
     session.notice = null;
     session.pendingResult = null;
     this.clearResync(session.playerId);
+    this.queue.onExpire(session);
     const code = session.roomCode;
     session.roomCode = null;
     const room = code ? this.rooms.get(code) : null;
@@ -393,6 +407,7 @@ export class Lobby {
    * @param {string} [reason]
    */
   shutdown(reason = 'shutdown') {
+    this.queue.shutdown();
     for (const room of [...this.rooms.values()]) this.disposeRoom(room, reason);
     for (const t of this.graceTimers.values()) clearTimeout(t);
     this.graceTimers.clear();
@@ -565,9 +580,7 @@ export class Lobby {
     if (idx < 0) return fail(ERR.ROOM_FULL);
     const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
     const name = BOT_NAMES.find((n) => !used.has(n)) || `AI·${idx + 1}`;
-    let playerId;
-    do playerId = 'ai_' + randomBytes(4).toString('hex'); while (room.seatOf(playerId));
-    room.seats[idx] = { seat: idx, playerId, name, isBot: true, ready: true, connected: true, left: false };
+    room.seats[idx] = { seat: idx, playerId: this.newBotId(room), name, isBot: true, ready: true, connected: true, left: false };
     this.broadcastState(room);
     return OK;
   }
@@ -999,6 +1012,13 @@ export class Lobby {
     if (room && !seat && room.spectatorOf(session.playerId)) return room; // a spectator seat
     if (!room || !seat || seat.left || seat.isBot) { session.roomCode = null; return null; }
     return room;
+  }
+
+  /** A playerId for a new AI seat of the room. */
+  newBotId(room) {
+    let playerId;
+    do playerId = 'ai_' + randomBytes(4).toString('hex'); while (room.seatOf(playerId));
+    return playerId;
   }
 
   /** @returns {Seat} */

@@ -15,7 +15,7 @@ In scope:
 - Rendering with the real Spine battle chibis (PixiJS 7 + pixi-spine 4), procedural tiles, VFX, damage numbers, real BGM/SFX, emotes, broadcast ticker.
 - Reconnect, AI take-over of disconnected players, robust validation of every client intent.
 
-Out of scope v1: matchmaking queue, training/tutorial, DIY (甄选) slots (the 4 DIY chess are removed from the shared pool — 0.2.0 plays them as 自选编队: the picks of the 干员调配 overlay's 自选编队 tab, each sold only in its player's shop; DATA.md §18, shared/diy.js, server/match/player/diy.js), trophies/progression persistence, reporting.
+Out of scope v1: matchmaking queue (this fork added one: network.md "Random matchmaking"), training/tutorial, DIY (甄选) slots (the 4 DIY chess are removed from the shared pool — 0.2.0 plays them as 自选编队: the picks of the 干员调配 overlay's 自选编队 tab, each sold only in its player's shop; DATA.md §18, shared/diy.js, server/match/player/diy.js), trophies/progression persistence, reporting.
 
 ---
 

@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1189 of 1404 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1210 of 1425 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [
       "en"
     ],
@@ -1421,5 +1421,26 @@
   "首领": "보스",
   "数量": "수량",
   "加入下一场作战": "다음 전투에 추가",
-  "下一场作战：{list}": "다음 전투: {list}"
+  "下一场作战：{list}": "다음 전투: {list}",
+  "随机匹配": "랜덤 매칭",
+  "有博士未接受，继续匹配": "수락하지 않은 박사가 있어 매칭을 계속합니다",
+  "未在时限内确认，已退出匹配": "시간 안에 수락하지 않아 매칭에서 나갔습니다",
+  "连接中断，已退出匹配": "연결이 끊겨 매칭에서 나갔습니다",
+  "服务器即将重启，匹配已取消": "서버가 곧 재시작되어 매칭이 취소되었습니다",
+  "服务器同盟数量已满，匹配已取消": "서버의 동맹 수가 가득 차 매칭이 취소되었습니다",
+  "你已加入同盟，匹配已取消": "동맹에 참가해 매칭이 취소되었습니다",
+  "匹配成功": "매칭 완료",
+  "等待其他博士确认…": "다른 박사의 수락을 기다리는 중…",
+  "拒绝": "거절",
+  "接受": "수락",
+  "{players} 名博士 + {bots} 名 AI 队友": "박사 {players}명 + AI 팀원 {bots}명",
+  "{players} 名博士": "박사 {players}명",
+  "已接受 {accepted}/{players}": "수락 {accepted}/{players}",
+  "正在匹配同盟…": "동맹을 찾는 중…",
+  "取消匹配": "매칭 취소",
+  "排队中的博士：{count}/4": "대기 중인 박사: {count}/4",
+  "{s} 秒后可以选择开始方式": "{s}초 뒤 시작 방식을 고를 수 있습니다",
+  "继续等待 4 名博士": "박사 4명이 모일 때까지 기다리기",
+  "用 AI 队友补满后立即开始": "빈자리를 AI 팀원으로 채우고 바로 시작",
+  "凑齐 2 名以上博士即开始": "박사 2명 이상이 모이면 시작"
 }

@@ -414,6 +414,13 @@ export const C2S = {
   // room.closed { reason: 'kicked' }). room.leave / g.leave leave a spectator seat like a player seat.
   'room.spectate': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.removeSpectator': { playerId: isId },
+  // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue; queueFallback (after QUEUE_DEFAULTS.queueFallbackMs of
+  // waiting) 'bots' = start now with AI teammates, 'humans' = start with the other players who chose one, null = wait for
+  // four; queueAccept answers room.matchFound
+  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v) },
+  'room.unqueue': {},
+  'room.queueFallback': { fallback: (v) => v === null || v === 'bots' || v === 'humans' },
+  'room.queueAccept': { accept: isBool },
 
   // match
   'g.infoReady': {},
@@ -479,6 +486,9 @@ export const C2S = {
 export const S2C = [
   'welcome', 'ok', 'error', 'pong',
   'room.state', 'room.closed',
+  // 랜덤 매칭: room.queueState { queued, difficulty, count?, waitedMs?, fallbackInMs?, fallback?, reason? } · room.matchFound
+  // { difficulty, players, bots, accepted, mine, inMs }
+  'room.queueState', 'room.matchFound',
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',
   // m.unitStats { seq, round, units: [unitStatsEntry] } — the answer to g.unitStats (the requester only)
   'm.unitStats',

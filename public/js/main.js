@@ -56,6 +56,7 @@ import { installDiyPresets } from './ui/diyPresets.js'; // 진영별 선발 프�
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
 import { installRestartNotice } from './ui/restartNotice.js'; // the deploy's restart countdown
+import { installMatchQueue } from './ui/matchQueue.js'; // 랜덤 매칭 (server/matchmaking.js)
 import { installFeedback } from './ui/feedback.js'; // local patch: whether the server keeps feedback (welcome)
 import { installResources, ResourceHost } from './resources.js';
 import { emoteSet } from '../../shared/emote-art.js';
@@ -413,6 +414,7 @@ async function boot() {
   installLoadoutSync({ net });
   installChat();
   installRestartNotice({ net, onRestarted: () => { buildGuard?.burst().catch(() => {}); } });
+  installMatchQueue({ net });
   installFeedback({ net });
   installResources();
   installOwnershipSync({ net });

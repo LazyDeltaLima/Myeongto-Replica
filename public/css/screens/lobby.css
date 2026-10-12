@@ -238,3 +238,19 @@
 .create-box { margin-top: .3rem; display: flex; flex-direction: column; gap: .12rem; }
 .create-box .btn--xl { height: .92rem; font-size: .32rem; letter-spacing: .3em; }
 .create-box__hint { display: flex; align-items: center; justify-content: center; min-height: .3rem; font-size: .14rem; color: var(--text-lo); }
+
+/* 랜덤 매칭 (ui/matchQueue.js): the lobby button and the queue / confirmation dialog */
+.create-box__queue { letter-spacing: .2em; }
+.queue-dialog { width: min(6.4rem, 92vw); }
+.queue-dialog__body { display: flex; align-items: center; gap: .3rem; }
+.queue-dialog__clock { font-family: var(--font-num); font-size: .56rem; color: var(--text-hi); min-width: 1.6rem; }
+.queue-dialog__lines { display: flex; flex-direction: column; gap: .06rem; font-size: .18rem; }
+.queue-dialog__mode { color: var(--text-hi); font-weight: 700; }
+.queue-dialog__fallback { margin-top: .22rem; padding-top: .16rem; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: .1rem; font-size: .16rem; }
+.queue-options { display: flex; flex-direction: column; gap: .08rem; }
+.queue-option { text-align: left; padding: .12rem .18rem; font: inherit; font-size: .17rem; color: var(--text-md); background: var(--bg-glass);
+  border: 1px solid var(--line); cursor: pointer; transition: border-color var(--t-fast), color var(--t-fast); }
+.queue-option:hover:not(:disabled) { color: var(--text-hi); border-color: var(--text-lo); }
+.queue-option.is-on { color: var(--text-hi); border-color: var(--mint-400); box-shadow: inset .04rem 0 0 var(--mint-400); }
+.queue-option:disabled { opacity: .6; cursor: default; }
+.queue-dialog__wait { display: inline-flex; align-items: center; gap: .1rem; color: var(--text-lo); font-size: .16rem; }
