@@ -915,7 +915,7 @@
   `ParticleEffect.OnFinish`(0xCB2AB0)도 시스템 하나를 멈추고 목록을 끄지만 그 목록은 안 읽음.
 - 재추출: `fx_extract.py --game <EN> --finish-only`(index.json 번들, CN 번들 aglna2·kalts2·clemnt는 `--game <CN>`), 적 번들은 `--index enemy-index.json
   --bundle <b>`(`pfx_enemy_N`은 `--pack pkgrps/btl_pfb_fx_enemy_N.ab`). 2026-10-11 실행: 204개 파일, `finish`·`offFinish` 말고 바뀐 것 없음(JSON 비교).
-  적 번들은 처음 돌려 ParticleEffect `finish`도 새로 들어갔다(상태 이펙트 끝 `statusOff`에만 쓰임). **배포 `--fx`(또는 `--assets`) 필요**.
+  적 번들은 처음 돌려 ParticleEffect `finish`도 새로 들어갔다(상태 이펙트 끝 `statusOff`에만 쓰임).
 - 확인: `test/render/projectile-finish.test.js`(소스 계약, 추출 값, FxInstance: 애쉬락 포탄이 꺼지고 다른 가지 불꽃은 돎, 언더플로우 탄 시스템 정지). [화면 미확인]
 
 ### 횟수형 护盾 이펙트 (2026-10-11, 사용자 제보 「켈시 에스페란타 실드가 HP 바 위 가는 흰 줄 — 아르케토 재능 실드와 같은 유형, 인게임대로」)
@@ -933,5 +933,5 @@
   옛 육각형 대역을 안 그림(`standInOff`). HP 바 띠 제거는 `docs/rules/ui.md` 「횟수형 护盾」.
 - golden: 층이 막는 전투마다 `events.fx`·`fx.parry`만 늘었다(roster 13·bonds 6·fields 5·diy 1 시나리오, 상태 변화 없음).
 - 추출: `fx_extract.py --game <EN> --cab-index .cache/fx-cab-index.json --bundle archet --prefab archet_buff_01_start`, `--bundle common --prefab
-  common_buff_parry_01`. **배포 `--fx`(또는 `--assets`) 필요**.
+  common_buff_parry_01`.
 - [미구현] 막을 때 소리 `battle.ON_DAMAGE_BLOCK` = `Enemy/e_atk/e_atk_soldiershield`(audio_data) — sfx 항목·에셋 받기가 필요. [화면 미확인] 루프 높이·크기, parry 위치.
