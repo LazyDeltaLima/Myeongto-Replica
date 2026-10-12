@@ -202,6 +202,13 @@ describe('랜덤 매칭 (server/matchmaking.js)', () => {
     }
   });
 
+  test('pong n: the players online (sessions with a live socket), shown beside the ping', async () => {
+    const ps = await players(pool, 3);
+    const pong = await ps[0].request({ t: 'ping', c: 1 });
+    assert.equal(pong.t, 'pong');
+    assert.ok(Number.isInteger(pong.n) && pong.n >= 3, JSON.stringify(pong));
+  });
+
   test('a player in a lobby room leaves it to queue; one in a running match is refused', async () => {
     const [host, guest] = await players(pool, 2);
     await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });

@@ -526,6 +526,8 @@ export class Network {
     /** @type {Map<string, number>} open sockets per client network key */
     this.connsPerKey = new Map();
     this.closed = false;
+    /** pong `n`: players online (sessions with a live socket), recounted at most once a second */
+    this.online = { at: -Infinity, n: 0 };
     this.heartbeatTimer = setInterval(() => this.heartbeat(), this.opts.heartbeatMs);
     this.heartbeatTimer.unref?.();
     const sweepMs = Math.max(20, Math.min(15_000, Math.floor(this.opts.reconnectWindowMs / 4)));
@@ -605,7 +607,7 @@ export class Network {
     if (reason) { this.reply(conn, errorMsg(ERR.BAD_MSG, rid, reason)); return; }
 
     if (msg.t === 'ping') {
-      const pong = { t: 'pong', c: msg.c, s: now };
+      const pong = { t: 'pong', c: msg.c, s: now, n: this.onlineCount(now) };
       if (validRid(rid)) pong.rid = rid;
       this.reply(conn, pong);
       return;
@@ -712,6 +714,15 @@ export class Network {
   }
 
   /** Ping every socket; terminate the ones that did not answer since the previous heartbeat. */
+  /** Players online now — sessions with a live socket (the lobby's 在线 count, pong `n`). @param {number} now */
+  onlineCount(now) {
+    if (now - this.online.at < 1000) return this.online.n;
+    let n = 0;
+    for (const s of this.registry.byPlayerId.values()) if (s.connected) n++;
+    this.online = { at: now, n };
+    return n;
+  }
+
   heartbeat() {
     const now = this.now();
     for (const conn of this.conns.values()) {

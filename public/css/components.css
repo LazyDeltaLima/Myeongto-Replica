@@ -865,6 +865,8 @@
 .ping--medium { --pc: var(--amber); }
 .ping--high { --pc: var(--red-premium); }
 .ping--off { --pc: var(--text-dim); }
+.ping--online { --pc: var(--mint-400); margin-left: .08rem; }
+.ping--online .ping__unit { margin-left: .05rem; }
 
 /* ---- difficulty tag ---------------------------------------------------------------------------------- */
 .dtag { --d-color: var(--amber); display: inline-flex; align-items: center; gap: .06rem; color: var(--d-color); font-weight: 700; font-size: .18rem; letter-spacing: .04em; white-space: nowrap; }

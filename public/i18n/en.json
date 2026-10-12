@@ -1417,7 +1417,6 @@
   "数量": "Count",
   "加入下一场作战": "Add to next battle",
   "下一场作战：{list}": "Next battle: {list}",
-  "随机匹配": "Random Match",
   "有博士未接受，继续匹配": "A Doctor did not accept: back in the queue",
   "未在时限内确认，已退出匹配": "You did not confirm in time and left the queue",
   "连接中断，已退出匹配": "Connection lost: you left the queue",
@@ -1437,5 +1436,13 @@
   "{s} 秒后可以选择开始方式": "In {s} s you can choose how to start",
   "继续等待 4 名博士": "Keep waiting for 4 Doctors",
   "用 AI 队友补满后立即开始": "Start now, AI Teammates fill the empty seats",
-  "凑齐 2 名以上博士即开始": "Start once 2 or more Doctors are ready"
+  "凑齐 2 名以上博士即开始": "Start once 2 or more Doctors are ready",
+  "同盟匹配": "Alliance Matchmaking",
+  "独自进入公共匹配池，与其他博士组成同盟后开始模拟。": "Join the public matchmaking pool alone and start once you form an Alliance with other Doctors.",
+  "单人加入 · 自动匹配队友": "Join solo · teammates matched automatically",
+  "满四人后开始 · 久等可选 AI 补位": "Starts at 4 Doctors · AI Teammates optional after a long wait",
+  "开始匹配": "Start Matchmaking",
+  "与选择同一难度的博士组成同盟": "Forms an Alliance with Doctors who chose the same difficulty",
+  "当前在线博士 {n} 名": "{n} Doctors online",
+  "在线": "online"
 }

@@ -2,7 +2,7 @@
 //
 // Exports: html (bound htm), Icon, Button, Panel, MicroLabel, Chevrons, HexBadge, TierChip,
 // BondDisc, SevenSeg, Countdown, Modal, confirmDialog/alertDialog + DialogHost, Tooltip +
-// TooltipLayer, ProgressBar, Tabs, Spinner, AvatarFrame, PhaseBanner, ResultDialog, PingPill, DifficultyTag,
+// TooltipLayer, ProgressBar, Tabs, Spinner, AvatarFrame, PhaseBanner, ResultDialog, PingPill, OnlinePill, DifficultyTag,
 // DifficultyIcon, TextField, UiHosts (mount once: dialogs + tooltips), useTicker, secondsLeft/hasDeadline,
 // roman(), doctorNo().
 //
@@ -857,6 +857,15 @@ export function PingPill({ ms, online = true, class: cls }) {
   return html`<span class=${cx('ping', `ping--${tier}`, cls)} title=${ok ? t('当前延迟 {ms}ms', { ms }) : t('未连接')}>
     <${Icon} name=${ok ? 'signal' : 'wifiOff'} class="ping__icon" />
     <span class="ping__value">${ok ? Math.min(9999, Math.round(ms)) : '--'}</span><span class="ping__unit">ms</span>
+  </span>`;
+}
+
+/** Players online on the server (pong `n`, server/net.js onlineCount): nothing until the first count arrives. */
+export function OnlinePill({ n, class: cls }) {
+  if (!Number.isInteger(n) || n < 0) return null;
+  return html`<span class=${cx('ping', 'ping--online', cls)} title=${t('当前在线博士 {n} 名', { n })}>
+    <${Icon} name="users" class="ping__icon" />
+    <span class="ping__value">${Math.min(99999, n)}</span><span class="ping__unit">${t('在线')}</span>
   </span>`;
 }
 

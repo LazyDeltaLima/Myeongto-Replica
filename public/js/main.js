@@ -253,11 +253,13 @@ function wireNet() {
     store.set({
       connection: {
         status: snap.status, ping: snap.ping, attempt: snap.attempt, retryAt: snap.retryAt,
-        lastError: snap.lastError, everOnline: cur.everOnline || snap.status === 'online',
+        lastError: snap.lastError, everOnline: cur.everOnline || snap.status === 'online', online: cur.online ?? null,
       },
     });
   });
   net.on('clock', (c) => store.set({ clock: { offset: c.offset, rtt: c.rtt, synced: c.synced } }));
+  // the 在线 count beside the ping (components.js OnlinePill)
+  net.on('pong', (m) => { if (Number.isInteger(m.n) && m.n !== store.get().connection.online) store.patch('connection', { online: m.n }); });
   net.on('welcome', onWelcome);
   net.on('helloError', (err) => {
     if (err.code === 'SESSION_IN_USE') identity.rejectToken();

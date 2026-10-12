@@ -1,5 +1,6 @@
-// Lobby screen: pick 独立模拟 / 同盟模拟 and a difficulty (标准/险境/绝境/终极), create a room, queue for 随机匹配 (co-op, the
-// selected difficulty; ui/matchQueue.js shows the queue and its confirmation, server/matchmaking.js has the rules),
+// Lobby screen: pick 独立模拟 / 同盟模拟 / 同盟匹配 and a difficulty (标准/险境/绝境/终极), then create a room or — 同盟匹配, the
+// random matchmaking — queue for a co-op match of that difficulty (ui/matchQueue.js shows the queue and its confirmation,
+// server/matchmaking.js has the rules; the card follows another fork's lobby the maintainer showed, 2026-10-13),
 // or join one with a 同盟密钥 (recent codes remembered) — as a player (加入同盟) or in one of its MAX_SPECTATORS
 // spectator seats (观战: room.spectate, also while its match runs; community report #26, a remake feature — the
 // official room has none). Shows connection status + ping.
@@ -14,7 +15,7 @@
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
-import { html, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
+import { html, Button, Icon, MicroLabel, Panel, TextField, PingPill, OnlinePill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
 import { openStats } from './stats.js';
@@ -87,7 +88,13 @@ const MODE_CARDS = [
     desc: N_('与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: MAX_SEATS - 1 },
     points: [N_('1–{n} 名博士 · 可由 AI 队友补位'), N_('联防阶段 · 最终攻势合并生命值')], pointParams: { n: MAX_SEATS },
   },
+  {
+    id: 'match', name: N_('同盟匹配'), en: 'ALLIANCE MATCHMAKING', icon: 'signal',
+    desc: N_('独自进入公共匹配池，与其他博士组成同盟后开始模拟。'),
+    points: [N_('单人加入 · 自动匹配队友'), N_('满四人后开始 · 久等可选 AI 补位')],
+  },
 ];
+const MODE_IDS = MODE_CARDS.map((c) => c.id);
 
 /**
  * Text for a difficulty card, preferring data/config.json.
@@ -245,7 +252,8 @@ export function LobbyScreen() {
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
   useData('config');
-  const [roomMode, setRoomMode] = useState(() => (loadPref('lobby.mode', 'coop') === 'solo' ? 'solo' : 'coop'));
+  // 'solo' | 'coop' (room.create) | 'match' (room.queue, co-op)
+  const [roomMode, setRoomMode] = useState(() => { const m = loadPref('lobby.mode', 'coop'); return MODE_IDS.includes(m) ? m : 'coop'; });
   const [difficulty, setDifficulty] = useState(() => {
     const d = loadPref('lobby.difficulty', 'FUNNY');
     return DIFFICULTIES.includes(d) ? d : 'FUNNY';
@@ -274,7 +282,7 @@ export function LobbyScreen() {
     }
   };
   const create = () => run('create', () => net.request('room.create', { mode: roomMode, difficulty }));
-  const queue = () => run('queue', () => joinQueue(difficulty));
+  const queue = () => run('create', () => joinQueue(difficulty));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
     // `undefined` — codeArg keeps an event target out of the key and falls back to the input field
@@ -311,6 +319,7 @@ export function LobbyScreen() {
       <div class="topbar__left">
         <${Button} variant="ghost" size="sm" icon="chevronLeft" onClick=${backToTitle} title=${t('返回标题')}>${t('返回')}<//>
         <${PingPill} ms=${conn.ping} online=${online} />
+        ${online ? html`<${OnlinePill} n=${conn.online} />` : null}
       </div>
       <div class="topbar__center">
         <${MicroLabel} tone="mint">SIMULATION PROTOCOL SELECT<//>
@@ -366,15 +375,14 @@ export function LobbyScreen() {
         </div>
         <div class="create-box">
           <${Tooltip} block=${true} text=${online ? null : t('正在连接服务器…')}>
-            <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" loading=${busy === 'create'} disabled=${!online} onClick=${create}>
-              ${roomMode === 'solo' ? t('开始独立模拟') : t('创建同盟')}
+            <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" loading=${busy === 'create'} disabled=${!online}
+              onClick=${roomMode === 'match' ? queue : create}>
+              ${roomMode === 'solo' ? t('开始独立模拟') : roomMode === 'match' ? t('开始匹配') : t('创建同盟')}
             <//>
           <//>
-          ${roomMode === 'coop' ? html`<${Button} variant="secondary" size="lg" block=${true} icon="users" class="create-box__queue"
-            loading=${busy === 'queue'} disabled=${!online} onClick=${queue}>${t('随机匹配')}<//>` : null}
           <div class="create-box__hint">
             ${online
-              ? html`<span>${roomMode === 'solo' ? t('创建后即可开始模拟') : t('创建后可邀请好友或添加 AI 队友')}</span>`
+              ? html`<span>${roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('与选择同一难度的博士组成同盟') : t('创建后可邀请好友或添加 AI 队友')}</span>`
               : html`<${Spinner} size="sm" label="CONNECTING" />`}
           </div>
         </div>
