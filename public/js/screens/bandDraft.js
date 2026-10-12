@@ -230,7 +230,7 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
   const offIds = Array.isArray(off) ? off : [];
   const TAG = { linked: ['link', t('已关联')], rec: ['rec', t('推荐')], off: ['off', t('本局禁用')] };
   return html`<div class="draft-preset" data-testid="draft-preset">
-    <div class="draft-preset__head"><${MicroLabel} tone="mint">DIY PRESET</${MicroLabel}><label for="draft-preset-sel">${t('自选预设')}</label>
+    <div class="draft-preset__head" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><${MicroLabel} tone="mint">DIY PRESET</${MicroLabel}><label for="draft-preset-sel">${t('自选预设')}</label>
       ${tags.map((k) => html`<span key=${k} class=${`draft-preset__tag is-${TAG[k][0]}`}>${TAG[k][1]}</span>`)}</div>
     <select id="draft-preset-sel" class="draft-preset__sel" data-testid="draft-preset-select" disabled=${locked}
       onChange=${(e) => onChoice(e.currentTarget.value)}>
@@ -242,9 +242,8 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
       const n = pickName(picks[id]);
       return html`<span key=${id} class=${cx('draft-preset__slot', !n && 'is-empty')} title=${n || ''}>${n || '—'}</span>`;
     }) : html`<span class="draft-preset__none">${t('该阵营尚未设置预设，自选编队不变')}</span>`}</div>
-    <label class="draft-preset__keep"><input type="checkbox" checked=${remember && choice !== KEEP_LINK} disabled=${locked || choice === KEEP_LINK}
-      onChange=${(e) => onRemember(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
-    <p class="draft-preset__hint">${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}</p>
+    <label class="draft-preset__keep" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><input type="checkbox"
+      checked=${remember && choice !== KEEP_LINK} disabled=${locked || choice === KEEP_LINK} onChange=${(e) => onRemember(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
   </div>`;
 }
 
@@ -422,7 +421,7 @@ export function BandDraftScreen() {
         })}
       </section>
 
-      <aside class="draft-detail brackets">
+      <aside class=${cx('draft-detail', 'brackets', band && inDraft && 'has-preset')}>
         ${band ? html`
           <div class="draft-detail__art">
             <${BandIcon} bandId=${band.bandId} size="xl" />
@@ -449,11 +448,11 @@ export function BandDraftScreen() {
             : myPick ? html`<p class="draft-detail__status t-mint"><${Icon} name="check" />${t('已选择「{name}」', { name: gd.band(myPick)?.name || '' })}${!solo && !draft.done ? t('，等待其他博士') : ''}</p>`
             : selTaken ? html`<p class="draft-detail__status draft-detail__status--taken"><${Icon} name="close" />${t('队友已选，请选择其他策略')}</p>`
             : !myTurn ? html`<p class="draft-detail__status"><${Icon} name="hourglass" />${turnName ? t('{turnName} 正在决策…', { turnName }) : t('等待轮到你')}</p>` : null}
-          <div class="draft-detail__btns">
+          ${confirmOn && inDraft ? null : html`<div class="draft-detail__btns">
             ${!solo ? html`<${Button} variant="secondary" size="lg" icon="chevrons" disabled=${!canSkip} loading=${busy === 'skip'} onClick=${skip}
               title=${skipsLeft > 0 ? t('跳过本轮，稍后再选') : t('跳过次数已用完')}>${t('跳过')}${skipsLeft > 0 ? '' : t('（已用）')}<//>` : null}
             <${Button} variant="primary" size="lg" icon="check" disabled=${!myTurn || !band || selTaken} loading=${busy === 'pick'} onClick=${confirm}>${selTaken ? t('队友已选') : t('确认选择')}<//>
-          </div>
+          </div>`}
         </div>
       </aside>
     </main>

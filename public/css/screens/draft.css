@@ -152,7 +152,14 @@
 /* ---- 전략별 선발 프리셋 (screens/bandDraft.js DraftPresetRow, maintainer 2026-10-12) ------------------------------------
    The detail pane's 自选预设 row: the roster the strategy applies when the pick lands, its tags, the four slots it would
    field and 记住此策略的预设; a linked strategy's card carries the faction's badge; 编队确认 after the last pick. Px floors
-   keep the row readable on phones (1rem = 40 px). */
+   keep the row readable on phones (1rem = 40 px). With the row the pane scrolls rather than squeeze the strategy's effect
+   (its own minimum height), and the big icon shrinks (the grid shows it already). */
+.draft-detail.has-preset { overflow-y: auto; }
+.draft-detail.has-preset .draft-detail__eff { flex: 1 0 auto; min-height: max(1.3rem, 72px); }
+.draft-detail.has-preset .draft-detail__art .bandicon { --bi: 1.3rem; }
+.draft-detail.has-preset .draft-detail__name { font-size: .34rem; }
+.draft-detail.has-preset .draft-detail__actions { position: sticky; bottom: -.22rem; z-index: 1; margin-bottom: -.22rem; padding: .08rem 0 .22rem;
+  background: rgba(10, 13, 12, .96); }
 .draft-preset { align-self: stretch; flex: none; display: flex; flex-direction: column; gap: .06rem; padding: .08rem .12rem;
   background: rgba(78, 216, 175, .06); border: 1px solid var(--mint-800); }
 .draft-preset__head { display: flex; flex-wrap: wrap; align-items: center; gap: .06rem; font-size: max(.15rem, 10px); color: var(--text-hi); font-weight: 700; }
@@ -170,7 +177,6 @@
 .draft-preset__none { grid-column: 1 / -1; font-size: max(.12rem, 9px); color: var(--text-dim); }
 .draft-preset__keep { display: flex; align-items: center; gap: .06rem; font-size: max(.13rem, 9px); color: var(--text-md); }
 .draft-preset__keep input { width: max(.16rem, 12px); height: max(.16rem, 12px); margin: 0; accent-color: var(--mint-500); }
-.draft-preset__hint { margin: 0; font-size: max(.12rem, 8px); line-height: 1.5; color: var(--text-dim); }
 .dband__link { position: absolute; right: .04rem; bottom: .04rem; display: grid; place-items: center; width: max(.24rem, 14px); height: max(.24rem, 14px);
   background: rgba(0, 0, 0, .55); border: 1px solid var(--fac); }
 .dband__link .chat__facico { width: 80%; height: 80%; }
