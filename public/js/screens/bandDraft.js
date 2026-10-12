@@ -19,8 +19,9 @@
 // (a solo draft ends with the pick), a turn that runs out or an AI 托管 pick right after — through the chat's faction pick
 // (ui/factionPick.js applyPresetChoice: the chat faction follows; a faction this match disables is still applied, 本局禁用).
 // Once my pick has landed, the row of my strategy applies a new choice at once (the faction row under the order list did
-// that until 2026-10-13 and is gone, maintainer request), with the 撤销 notice under it. The preview shows each slot's
-// tier and operator icon (name in the tooltip). A linked strategy's card carries the faction's badge. After the last pick
+// that until 2026-10-13 and is gone, maintainer request; no 「…预设已套用 · 撤销」 notice in the draft either, maintainer
+// request 2026-10-13). The choice is a dropdown of our own (PresetPicker) so each faction carries its icon. The preview
+// shows each slot's tier and operator icon (name in the tooltip). A linked strategy's card carries the faction's badge. After the last pick
 // a timed draft keeps 编队确认 (m.public.draft.confirm, the server's DRAFT_CONFIRM_SECONDS): the row can still change the
 // picks, 准备完毕 (g.draftReady) ends it once every human is done.
 // 本局信息 (GitHub issue #8 item 1, "选策略时没法返回查看禁用的干员和盟约"): 查看禁用盟约与干员 under the order list opens the
@@ -48,7 +49,7 @@ import { data } from '../data.js';
 import { audio } from '../audio.js';
 import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
 import { t, tParts, tName } from '../../../shared/i18n.js';
-import { applyPresetChoice, PresetNotice } from '../ui/factionPick.js';
+import { applyPresetChoice } from '../ui/factionPick.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -222,28 +223,72 @@ const pickAvatar = (m, u) => (u ? chessAvatarUrl(m, { charId: u.charId, assets: 
 const slotTier = (id) => Number(/^chess_char_(\d)_/.exec(id)?.[1]) || null;
 
 /**
- * The detail pane's 自选预设 row (전략별 선발 프리셋): the roster choice, its tags, the four slots it would field (tier +
- * operator icon, the name in the tooltip — maintainer request 2026-10-13), 记住, and the 撤销 notice of the last apply.
+ * The roster choices of the 自选预设 row: 保持当前编队, 不使用预设, then the eight chat factions (their icon, 未设置 when the
+ * faction has no preset, 本局禁用 when this match disables its bond).
+ * @param {Record<string, any>} presets @param {string[]|null} off
+ * @returns {Array<{ v: string, label: string, f?: any, empty?: boolean, off?: boolean }>}
+ */
+export function presetOptions(presets, off) {
+  const offIds = Array.isArray(off) ? off : [];
+  return [
+    { v: KEEP_LINK, label: t('保持当前编队') },
+    { v: BASE_LINK, label: t('不使用预设') },
+    ...CHAT_FACTIONS.map((f) => ({ v: f.id, label: t(f.name), f, empty: !presets?.[f.id], off: offIds.includes(f.bond) })),
+  ];
+}
+
+/**
+ * The 自选预设 dropdown (maintainer request 2026-10-13: an icon before each faction — a native <select> draws no image):
+ * a button showing the choice, and the list opening in the pane's flow (the pane scrolls, a floating list would be cut).
+ * Escape or a tap outside closes it.
+ * @param {{ choice: string, presets: Record<string, any>, off: string[]|null, locked: boolean, onChoice: (v: string) => void }} props
+ */
+export function PresetPicker({ choice, presets, off, locked, onChoice }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => { if (locked) setOpen(false); }, [locked]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const away = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } };
+    document.addEventListener('pointerdown', away, true);
+    document.addEventListener('keydown', esc, true);
+    return () => { document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc, true); };
+  }, [open]);
+  const opts = presetOptions(presets, off);
+  const cur = opts.find((o) => o.v === choice) || opts[0];
+  const line = (o) => html`${o.f ? html`<${FactionIcon} f=${o.f} class="chat__facico draft-preset__ico" />` : html`<i class="draft-preset__ico is-none" aria-hidden="true"></i>`}
+    <span class="draft-preset__optname">${o.label}</span>${o.empty ? html`<small>${t('（未设置）')}</small>` : null}${o.off ? html`<small class="is-off">${t('（本局禁用）')}</small>` : null}`;
+  return html`<div class="draft-preset__pick" ref=${ref}>
+    <button type="button" id="draft-preset-sel" class="draft-preset__sel" data-testid="draft-preset-select" data-value=${cur.v}
+      aria-haspopup="listbox" aria-expanded=${open ? 'true' : 'false'} disabled=${locked} style=${cur.f ? `--fac:${cur.f.color}` : null}
+      onClick=${() => setOpen(!open)}>${line(cur)}<i class="draft-preset__caret" aria-hidden="true"></i></button>
+    ${open ? html`<ul class="draft-preset__list" role="listbox" aria-label=${t('自选预设')}>
+      ${opts.map((o) => html`<li key=${o.v} role="option" aria-selected=${o.v === choice ? 'true' : 'false'}>
+        <button type="button" class=${cx('draft-preset__opt', o.v === choice && 'is-on', o.off && 'is-off')} data-preset=${o.v}
+          style=${o.f ? `--fac:${o.f.color}` : null} onClick=${() => { setOpen(false); if (o.v !== choice) onChoice(o.v); }}>${line(o)}</button>
+      </li>`)}
+    </ul>` : null}
+  </div>`;
+}
+
+/**
+ * The detail pane's 自选预设 row (전략별 선발 프리셋): the roster choice (PresetPicker), its tags, the four slots it would
+ * field (tier + operator icon, the name in the tooltip — maintainer request 2026-10-13), 记住.
  * @param {{ band: any, choice: string, link: string|null, presets: Record<string, any>, base: Record<string, any>,
- *   live: Record<string, any>, off: string[]|null, locked: boolean, remember: boolean, m?: any, notice?: boolean,
+ *   live: Record<string, any>, off: string[]|null, locked: boolean, remember: boolean, m?: any,
  *   onChoice: (v: string) => void, onRemember: (v: boolean) => void }} props
  */
-export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, m = null, notice = false, onChoice, onRemember }) {
+export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, m = null, onChoice, onRemember }) {
   const tags = presetChoiceTags(choice, { link, rec: bandRecommendation(band), off });
   const picks = presetPreviewPicks(choice, { presets, base }, live);
   const slots = diySlotList({ chess: data.get('chess'), backups: data.get('backups') });
   const list = slots.length ? slots.map((x) => ({ id: x.slotId, tier: x.tier })) : Object.keys(picks || {}).map((id) => ({ id, tier: slotTier(id) }));
-  const offIds = Array.isArray(off) ? off : [];
   const TAG = { linked: ['link', t('已关联')], rec: ['rec', t('推荐')], off: ['off', t('本局禁用')] };
   return html`<div class="draft-preset" data-testid="draft-preset">
     <div class="draft-preset__head" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><${MicroLabel} tone="mint">DIY PRESET</${MicroLabel}><label for="draft-preset-sel">${t('自选预设')}</label>
       ${tags.map((k) => html`<span key=${k} class=${`draft-preset__tag is-${TAG[k][0]}`}>${TAG[k][1]}</span>`)}</div>
-    <select id="draft-preset-sel" class="draft-preset__sel" data-testid="draft-preset-select" disabled=${locked}
-      onChange=${(e) => onChoice(e.currentTarget.value)}>
-      <option value=${KEEP_LINK} selected=${choice === KEEP_LINK}>${t('保持当前编队')}</option>
-      <option value=${BASE_LINK} selected=${choice === BASE_LINK}>${t('不使用预设')}</option>
-      ${CHAT_FACTIONS.map((f) => html`<option key=${f.id} value=${f.id} selected=${choice === f.id}>${t(f.name)}${presets?.[f.id] ? '' : t('（未设置）')}${offIds.includes(f.bond) ? t('（本局禁用）') : ''}</option>`)}
-    </select>
+    <${PresetPicker} choice=${choice} presets=${presets} off=${off} locked=${locked} onChoice=${onChoice} />
     <div class="draft-preset__slots">${picks ? list.map(({ id, tier }) => {
       const u = pickUnit(picks[id]);
       const name = u ? u.name || u.charId : '';
@@ -255,7 +300,6 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
     }) : html`<span class="draft-preset__none">${t('该阵营尚未设置预设，自选编队不变')}</span>`}</div>
     <label class="draft-preset__keep" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><input type="checkbox"
       checked=${remember && choice !== KEEP_LINK} disabled=${locked || choice === KEEP_LINK} onChange=${(e) => onRemember(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
-    ${notice ? html`<${PresetNotice} inline=${true} />` : null}
   </div>`;
 }
 
@@ -458,7 +502,7 @@ export function BandDraftScreen() {
           </div>
           ${inDraft ? html`<${DraftPresetRow} band=${band} choice=${choiceFor(band.bandId)} link=${links?.[band.bandId] ?? null}
             presets=${presets} base=${baseRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
-            locked=${(!!myPick && myPick !== band.bandId) || busy === 'pick'} notice=${!!myPick && myPick === band.bandId}
+            locked=${(!!myPick && myPick !== band.bandId) || busy === 'pick'}
             remember=${remember[band.bandId] ?? true} onChoice=${(v) => changeChoice(band.bandId, v)}
             onRemember=${(v) => changeRemember(band.bandId, v)} />` : null}` : html`<p class="t-dim">${t('选择一个策略查看详情')}</p>`}
         <div class="draft-detail__actions">

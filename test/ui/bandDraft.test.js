@@ -9,7 +9,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { ERR, PHASE } from '../../shared/constants.js';
 import { makeMatch, DATA } from '../match/harness.js';
-import { teammateBands, timeoutBand, allowedBands, autoPickBand, draftClock, draftTip, draftSelection, presetPreviewPicks, presetChoiceTags } from '../../public/js/screens/bandDraft.js';
+import { teammateBands, timeoutBand, allowedBands, autoPickBand, draftClock, draftTip, draftSelection, presetPreviewPicks, presetChoiceTags, presetOptions } from '../../public/js/screens/bandDraft.js';
 import { BAND_TURN_SECONDS } from '../../server/match/Match.js';
 
 const TURN_MS = BAND_TURN_SECONDS * 1000;
@@ -262,6 +262,14 @@ describe('UI: one countdown and the highlighted band (user playtest #4 item 4)',
     assert.deepEqual(presetChoiceTags('yan', { link: 'laterano', rec: 'laterano' }), [], 'this match\'s other choice: no tag');
     assert.deepEqual(presetChoiceTags('siracusa', { off: ['siracusaShip'] }), ['off'], 'a disabled bond is still offered, tagged');
     assert.deepEqual(presetChoiceTags('keep', { off: ['siracusaShip'] }), []);
+    // the dropdown: 保持当前编队, 不使用预设, then the eight factions with their icon record, 未设置 / 本局禁用
+    const opts = presetOptions({ yan: { a: 1 } }, ['siracusaShip']);
+    assert.deepEqual(opts.map((o) => o.v), ['keep', 'base', 'yan', 'sargon', 'victoria', 'kjerag', 'laterano', 'aegir', 'siracusa', 'kazimierz']);
+    assert.equal(opts.find((o) => o.v === 'yan').f.id, 'yan');
+    assert.equal(opts.find((o) => o.v === 'yan').empty, false);
+    assert.equal(opts.find((o) => o.v === 'sargon').empty, true);
+    assert.equal(opts.find((o) => o.v === 'siracusa').off, true);
+    assert.equal(opts[0].f, undefined, 'no icon for 保持当前编队');
   });
 
   test('the server publishes one clock: deadline = turnDeadline, turnSeconds = the turn length; AI seats pick at once', () => {

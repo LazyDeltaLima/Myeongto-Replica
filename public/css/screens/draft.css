@@ -142,9 +142,26 @@
 .draft-preset__tag.is-link { color: var(--mint-400); border-color: var(--mint-700); }
 .draft-preset__tag.is-rec { color: var(--ice); border-color: rgba(159, 212, 255, .45); }
 .draft-preset__tag.is-off { color: var(--text-dim); border-style: dashed; border-color: rgba(255, 255, 255, .28); }
-.draft-preset__sel { width: 100%; min-width: 0; height: max(.4rem, 26px); padding: 0 .08rem; font-size: max(.15rem, 10px);
-  color: var(--text-hi); background: var(--bg-1); border: 1px solid var(--line-2); }
+/* the dropdown (bandDraft.js PresetPicker): the faction's icon before each name; the list opens in the flow */
+.draft-preset__pick { display: flex; flex-direction: column; gap: .03rem; min-width: 0; }
+.draft-preset__sel, .draft-preset__opt { display: flex; align-items: center; gap: .06rem; width: 100%; min-width: 0; text-align: left;
+  font-size: max(.15rem, 10px); color: var(--text-hi); background: var(--bg-1); border: 1px solid var(--line-2); }
+.draft-preset__sel { height: max(.4rem, 26px); padding: 0 .08rem; }
+.draft-preset__sel:hover:not(:disabled), .draft-preset__sel[aria-expanded="true"] { border-color: var(--mint-700); }
 .draft-preset__sel:disabled { opacity: .6; }
+.draft-preset__optname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-preset__sel small, .draft-preset__opt small { flex: none; font-size: max(.12rem, 9px); color: var(--text-dim); }
+.draft-preset__ico.chat__facico { width: max(.2rem, 15px); height: max(.2rem, 15px); }
+.draft-preset__ico.is-none { flex: none; display: inline-block; width: max(.2rem, 15px); height: max(.2rem, 15px); border: 1px dashed var(--line-3); border-radius: 50%; }
+.draft-preset__caret { flex: none; margin-left: auto; width: 0; height: 0; border-left: .05rem solid transparent; border-right: .05rem solid transparent;
+  border-top: .06rem solid var(--text-lo); }
+.draft-preset__sel[aria-expanded="true"] .draft-preset__caret { transform: rotate(180deg); }
+.draft-preset__list { list-style: none; margin: 0; padding: .03rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .03rem;
+  background: rgba(8, 11, 10, .96); border: 1px solid var(--mint-800); }
+.draft-preset__opt { height: max(.34rem, 24px); padding: 0 .06rem; background: rgba(255, 255, 255, .04); border-color: transparent; }
+.draft-preset__opt:hover { background: rgba(255, 255, 255, .1); border-color: var(--fac, var(--line-3)); }
+.draft-preset__opt.is-on { border-color: var(--fac, var(--mint-400)); box-shadow: inset 0 0 0 1px var(--fac, var(--mint-400)); }
+.draft-preset__opt.is-off .draft-preset__optname { color: var(--text-lo); }
 .draft-preset__slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .04rem; }
 /* a slot: its tier chip and the operator's icon, small (maintainer request 2026-10-13: icons and tiers, not names) */
 .draft-preset__slot { position: relative; display: flex; align-items: center; justify-content: center; gap: .04rem; min-width: 0;
