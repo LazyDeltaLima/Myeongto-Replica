@@ -316,5 +316,17 @@ export function installDiySync({ net, timers, target = loadoutStore, notify } = 
     lockedText: N_('自选编队是局外设置，修改将在下一局生效'),
     prepare: async () => cleanPicks(target.get().diy),
   });
-  return { flush: sync.flush, dispose() { offKit?.(); sync.dispose(); } };
+  diyFlush = sync.flush;
+  return { flush: sync.flush, dispose() { offKit?.(); sync.dispose(); if (diyFlush === sync.flush) diyFlush = null; } };
+}
+
+/** @type {null | (() => Promise<void>)} the installed 自选编队 sync's flush */
+let diyFlush = null;
+
+/**
+ * Send a pending 自选编队 edit now and wait for the server's reply (the strategy draft applies a strategy's preset right
+ * before its pick: a solo draft ends with that pick, and a debounced room.diy would then only reach the next match).
+ */
+export function flushDiySync() {
+  return diyFlush ? diyFlush() : Promise.resolve();
 }

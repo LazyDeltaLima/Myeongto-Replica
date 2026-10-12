@@ -199,7 +199,9 @@ describe('countdown', () => {
     assert.equal(countdownState(now + 2_000_000, now).text, '999', 'clamped to 3 digits');
   });
   test('phase totals from config', () => {
-    assert.equal(phaseTotalSeconds({ phase: PHASE.INFO_CHECK }, config), config.timers.infoCheck);
+    assert.equal(phaseTotalSeconds({ phase: PHASE.INFO_CHECK }, config), 45, 'the remake\'s co-op briefing (the official step is 25 s)');
+    assert.equal(phaseTotalSeconds({ phase: PHASE.INFO_CHECK, infoSeconds: 9 }, config), 9, 'm.public.infoSeconds (× timerScale)');
+    assert.equal(phaseTotalSeconds({ phase: PHASE.BAND_DRAFT, draft: { turnSeconds: 50, confirm: { seconds: 10 } } }, config), 10, '编队确认');
     assert.equal(phaseTotalSeconds({ phase: PHASE.PREP, modeId: 'mode_multi_hard', round: 4 }, config), config.modes.mode_multi_hard.rounds['4'].prepTime);
     assert.equal(phaseTotalSeconds({ phase: PHASE.PREP, modeId: 'mode_single_hard', round: 4 }, config), null, 'solo prep untimed');
     assert.equal(phaseTotalSeconds({ phase: PHASE.SP_DRAFT, sp: { cards: [], picks: {} }, players: [] }, config), config.timers.spFirst);

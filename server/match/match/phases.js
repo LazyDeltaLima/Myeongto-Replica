@@ -1,6 +1,7 @@
 // server/match/match/phases.js — Match methods: the round flow up to the prep — INFO_CHECK (with its reroll vote), the
 // strategy draft
-// (BAND_DRAFT: one countdown of BAND_TURN_SECONDS per turn, 队友已选, the highlighted strategy on a timeout, skips),
+// (BAND_DRAFT: one countdown of BAND_TURN_SECONDS per turn, 队友已选, the highlighted strategy on a timeout, skips, then
+// the 编队确认 window of DRAFT_CONFIRM_SECONDS),
 // BATTLE_CHECK and ROUND_START (the round's enemies — a normal wave or the boss pairing — planned before the players'
 // round start).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
@@ -9,7 +10,7 @@ import { PHASE, ERR } from '../../../shared/constants.js';
 import { buildNormalWave, buildBossWave } from '../waves.js';
 import { pairPlayers } from '../finalAssault.js';
 import { botPickBand } from '../bot.js';
-import { OK, fail, DELAYS, BAND_TURN_SECONDS } from './common.js';
+import { OK, fail, DELAYS, BAND_TURN_SECONDS, INFO_CHECK_SECONDS, DRAFT_CONFIRM_SECONDS } from './common.js';
 
 /** The briefing's 重新抽取 is refused this long after INFO_CHECK starts (ms; MatchPhases.voteReroll). */
 export const INFO_REROLL_MIN_MS = 1000;
@@ -18,10 +19,12 @@ export class MatchPhases {
   enterInfoCheck() {
     this.phase = PHASE.INFO_CHECK;
     this.infoAt = this.sched.now();
+    /** the seats voting 重新抽取, in the order they voted (a cancel drops one): [0] is the proposer m.public names */
+    this.infoRerollers = [];
     for (const ps of this.order) if (ps.botControlled) ps.infoReady = true;
-    // solo: no time limit (the player confirms); co-op: the official 25 s guard — a seat that has not voted then counts
-    // as ready (maybeEndInfo)
-    this.setDeadline(this.soloUntimed ? 0 : this.gd.timer('infoCheck'), () => this.maybeEndInfo(true));
+    // solo: no time limit (the player confirms); co-op: INFO_CHECK_SECONDS (45 s, the remake's; the official guard is
+    // 25 s) — a seat that has not voted then counts as ready (maybeEndInfo)
+    this.setDeadline(this.soloUntimed ? 0 : INFO_CHECK_SECONDS, () => this.maybeEndInfo(true));
     this.markPublic();
     for (const ps of this.order) this.markPrivate(ps);
     this.flush(true);
@@ -30,13 +33,15 @@ export class MatchPhases {
 
   /**
    * The briefing's vote (feat, maintainer decision 2026-10-09 — the official briefing has 准备就绪 only): every human seat
-   * still in the match votes 准备就绪 (infoReady) or 重新抽取 (infoReroll), one or the other, and cannot change it. AI
-   * seats and departed seats do not vote (an AI seat is ready at once, so with it a reroll could never be unanimous);
-   * spectators hold no seat. When every voter has voted — or the co-op 25 s guard runs out (`timeout`: a seat that has not
-   * voted counts as ready) — more ready votes start the strategy draft, more reroll votes end this match for a new one
-   * with a new seed (_endInfo('reroll'): the lobby starts it at once, so the boss, the hidden boss, the battlefield, the
-   * 特训敌人 and the banned bonds are all drawn again), and a tie ends it back to the room's lobby (_endInfo('split')). A
-   * single human decides alone (solo, or a 同盟 room with AI teammates only).
+   * still in the match votes 准备就绪 (infoReady) or 重新抽取 (infoReroll), one or the other. 准备就绪 is final; a 重新抽取
+   * vote can be taken back while the vote is open (g.infoReroll { cancel }, maintainer decision 2026-10-12) and the seat
+   * votes again. AI seats and departed seats do not vote (an AI seat is ready at once, so with it a reroll could never
+   * be unanimous); spectators hold no seat. When every voter has voted — or the co-op INFO_CHECK_SECONDS run out
+   * (`timeout`: a seat that has not voted counts as ready) — more reroll votes than ready ones end this match for a new
+   * one with a new seed (_endInfo('reroll'): the lobby starts it at once, so the boss, the hidden boss, the battlefield,
+   * the 特训敌人 and the banned bonds are all drawn again); otherwise, a tie included, the strategy draft starts (maintainer
+   * decision 2026-10-12; a tie used to return the room to its lobby). A single human decides alone (solo, or a 同盟 room
+   * with AI teammates only).
    */
   maybeEndInfo(timeout = false) {
     if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return;
@@ -45,8 +50,8 @@ export class MatchPhases {
     const reroll = voters.filter((p) => p.infoReroll).length;
     const ready = voters.length - reroll;
     this.setDeadline(0);
-    if (reroll > ready || (reroll && reroll === ready)) {
-      this.infoOutcome = reroll > ready ? 'reroll' : 'split';
+    if (reroll > ready) {
+      this.infoOutcome = 'reroll';
       this.markPublic();
       this.later(0, () => this._endInfo());
       return;
@@ -54,21 +59,43 @@ export class MatchPhases {
     this.later(0, () => { if (this.phase === PHASE.INFO_CHECK && !this.ended) this.enterBandDraft(); });
   }
 
-  /** g.infoReroll: the seat's 重新抽取 vote (maybeEndInfo). Refused within INFO_REROLL_MIN_MS of the briefing's start,
-   *  so one held button cannot spin up matches back to back. */
-  voteReroll(ps) {
+  /**
+   * g.infoReroll { cancel? }: the seat's 重新抽取 vote (maybeEndInfo), or with `cancel` its withdrawal (the seat has not
+   * voted again; maintainer decision 2026-10-12). The vote is refused within INFO_REROLL_MIN_MS of the briefing's start,
+   * so one held button cannot spin up matches back to back. infoRerollers keeps the voters in order: the first one still
+   * voting is the proposer the briefing names (m.public.rerollBy).
+   */
+  voteReroll(ps, cancel = false) {
     if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return fail(ERR.WRONG_PHASE);
     if (ps.infoReady) return fail(ERR.ALREADY, 'already ready');
+    if (!Array.isArray(this.infoRerollers)) this.infoRerollers = [];
+    if (cancel) {
+      if (!ps.infoReroll) return OK;
+      ps.infoReroll = false;
+      this.infoRerollers = this.infoRerollers.filter((id) => id !== ps.playerId);
+      this.markPublic();
+      return OK;
+    }
     if (ps.infoReroll) return OK;
     if (this.sched.now() - (this.infoAt ?? 0) < INFO_REROLL_MIN_MS) return fail(ERR.RATE, 'the briefing just started');
     ps.infoReroll = true;
+    if (!this.infoRerollers.includes(ps.playerId)) this.infoRerollers.push(ps.playerId);
     this.markPublic();
     this.maybeEndInfo();
     return OK;
   }
 
+  /** The first seat still voting 重新抽取 (m.public.rerollBy), or null. */
+  rerollProposer() {
+    for (const id of this.infoRerollers || []) {
+      const p = this.players.get(id);
+      if (p && p.infoReroll && !p.left) return id;
+    }
+    return null;
+  }
+
   /**
-   * The vote ended the match before its first round (this.infoOutcome 'reroll' | 'split'): no m.result — the last
+   * The vote ended the match before its first round (this.infoOutcome 'reroll'): no m.result — the last
    * m.public carries `infoOutcome`, then onEnd({ reason }) hands the room back to the lobby, which starts the new
    * match for a reroll (server/lobby.js onMatchEnd). Nothing was played: no [stats] line, no replay.
    */
@@ -90,7 +117,8 @@ export class MatchPhases {
    * m.public.deadline is the current turn's end (= draft.turnDeadline; the step header and the turn indicator show the
    * same number). No separate step cap: the turns bound the step (≤ (seats + skips) × turn). AI seats pick at once. A
    * turn that runs out takes the strategy the player has highlighted (g.bandFocus) while it is free, else the default
-   * (timeoutBand). Solo, and any single-human match (soloUntimed): untimed. Solo also keeps seat order and has no skip.
+   * (timeoutBand). After the last pick a timed draft keeps DRAFT_CONFIRM_SECONDS of 编队确认 (enterDraftConfirm). Solo, and
+   * any single-human match (soloUntimed): untimed, no 编队确认. Solo also keeps seat order and has no skip.
    */
   enterBandDraft() {
     if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return;
@@ -143,7 +171,8 @@ export class MatchPhases {
     if (d.idx >= d.order.length) {
       d.turnDeadline = 0;
       this.deadline = 0;
-      this.later(0, () => this.finishBandDraft(false));
+      if (d.untimed || d.confirm) this.later(0, () => this.finishBandDraft(false));
+      else this.enterDraftConfirm();
       return;
     }
     const token = ++this._turnToken;
@@ -280,8 +309,56 @@ export class MatchPhases {
     return OK;
   }
 
+  /**
+   * 编队确认 (feat, maintainer decision 2026-10-12): every seat has its strategy, and a timed draft stays up
+   * DRAFT_CONFIRM_SECONDS more so the last picker can still change its 自选 picks (match.setDiy is accepted during
+   * BAND_DRAFT; the client applies the strategy's linked 진영 preset when the pick lands). It ends at its deadline, or as
+   * soon as every awaited seat — a connected human not under AI control — has sent g.draftReady (maybeEndDraftConfirm).
+   * m.public.deadline is its end; m.public.draft.confirm { deadline, ready, seconds }.
+   */
+  enterDraftConfirm() {
+    const d = this.draft;
+    if (this.phase !== PHASE.BAND_DRAFT || !d || d.confirm) return;
+    const ms = this.scaled(DRAFT_CONFIRM_SECONDS * 1000);
+    d.confirm = { deadline: this.sched.now() + ms, ready: new Set() };
+    this.deadline = d.confirm.deadline;
+    const token = ++this._turnToken;
+    this._turnTimer = this.later(ms, () => {
+      if (this.phase !== PHASE.BAND_DRAFT || token !== this._turnToken) return;
+      this.finishBandDraft(true);
+    });
+    this.markPublic();
+    this.maybeEndDraftConfirm();
+  }
+
+  /** The seats 编队确认 waits for: connected humans still in, not under AI control (AI 托管 / an AI seat). */
+  draftConfirmAwaited() {
+    return this.order.filter((p) => !p.botControlled && p.connected);
+  }
+
+  /** g.draftReady: the seat is done with 编队确认. */
+  draftReady(ps) {
+    const d = this.draft;
+    if (this.phase !== PHASE.BAND_DRAFT || !d || !d.confirm) return fail(ERR.WRONG_PHASE);
+    if (d.confirm.ready.has(ps.playerId)) return OK;
+    d.confirm.ready.add(ps.playerId);
+    this.markPublic();
+    this.maybeEndDraftConfirm();
+    return OK;
+  }
+
+  /** Ends 编队确认 once every awaited seat is ready (also re-checked when a seat leaves, drops or goes AI 托管). */
+  maybeEndDraftConfirm() {
+    const d = this.draft;
+    if (this.phase !== PHASE.BAND_DRAFT || !d || !d.confirm || this.ended) return;
+    if (!this.draftConfirmAwaited().every((p) => d.confirm.ready.has(p.playerId))) return;
+    const token = ++this._turnToken;
+    this.later(0, () => { if (token === this._turnToken) this.finishBandDraft(false); });
+  }
+
   finishBandDraft(timeout) {
     if (this.phase !== PHASE.BAND_DRAFT) return;
+    ++this._turnToken;
     this.cancel(this._turnTimer);
     this._turnTimer = null;
     for (const ps of this.order) {

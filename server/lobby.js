@@ -780,14 +780,14 @@ export class Lobby {
   /**
    * onEnd callback: return the room to LOBBY and dispose the match on the next macrotask. The briefing's vote
    * (Match phases.js maybeEndInfo) ends a match before its first round with reason 'reroll' — a new match with a new seed
-   * starts at once, without room.start's ready check (the vote was the agreement) — or 'split' (back to the room); nothing
-   * was played, so no lastSummary ([stats] line) and no replay. The chat factions are cleared either way (players pick
+   * starts at once, without room.start's ready check (the vote was the agreement; back to the room only when the restart
+   * countdown refuses new matches); nothing was played, so no lastSummary ([stats] line) and no replay. The chat factions are cleared either way (players pick
    * one after seeing the banned bonds, maintainer 2026-10-09).
    */
   onMatchEnd(room, ctx, summary) {
     if (ctx.ended || !ctx.live || room.matchCtx !== ctx || room.disposed) return;
     ctx.ended = true;
-    const vote = summary?.reason === 'reroll' || summary?.reason === 'split';
+    const vote = summary?.reason === 'reroll';
     const key = room.matchKey;
     room.lastSummary = vote ? null : summary ?? null;
     room.match = null;

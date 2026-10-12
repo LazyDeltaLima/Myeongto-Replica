@@ -417,13 +417,16 @@ export const C2S = {
 
   // match
   'g.infoReady': {},
-  // the briefing's 重新抽取 vote (server/match/match/phases.js maybeEndInfo): ready OR reroll
-  'g.infoReroll': {},
+  // the briefing's 重新抽取 vote (server/match/match/phases.js maybeEndInfo): ready OR reroll; `cancel: true` takes a
+  // reroll vote back while the vote is open
+  'g.infoReroll': { cancel: isBool, $optional: ['cancel'] },
   'g.band': { bandId: isId },
   'g.bandSkip': {},
   // the strategy highlighted in the draft screen (user playtest #4 item 4): a turn that runs out takes it while it is
   // free (Match.timeoutBand); absent / null clears it
   'g.bandFocus': { bandId: nullable(isId), $optional: ['bandId'] },
+  // the strategy draft's 编队确认 window (after the last pick): the seat is done (MatchPhases.draftReady)
+  'g.draftReady': {},
   'g.buy': { slot: (v) => isInt(v, 0, 15) },
   'g.refresh': {},
   'g.freeze': {},

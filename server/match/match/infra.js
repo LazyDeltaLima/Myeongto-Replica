@@ -58,7 +58,7 @@ export class MatchInfra {
   /**
    * Solo timers (research 01 §843 / 06 §3: 下半 独立模拟 has no time limit on 休整期 / 机变 — "休整期及机变阶段没有时间
    * 限制"; the strategy draft is free too): a solo match publishes a deadline ONLY for its battles. INFO_CHECK waits
-   * for 准备就绪 (co-op keeps the official 25 s guard), BAND_DRAFT / SP_DRAFT / PREP are untimed, and the fixed
+   * for 准备就绪 (co-op has a 45 s guard, common.js INFO_CHECK_SECONDS), BAND_DRAFT / SP_DRAFT / PREP are untimed, and the fixed
    * presentation steps (BATTLE_CHECK, ROUND_START, SETTLE) run silently (no countdown). The same holds for any match
    * with a single human (loneHuman: a 同盟 room started alone or with AI teammates only — user playtest #4 item 3):
    * the timers only ever made humans wait on each other; AI seats act at once.

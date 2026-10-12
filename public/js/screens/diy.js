@@ -10,9 +10,12 @@
 // 练度 selects (0.2.2, screens/cultivation.js — the same per-operator settings as 干员调配, `ops`); a prototype has neither.
 // Above the slots, the 阵营预设 bar (local feature, maintainer decisions 2026-10-09; ui/diyPresets.js): 不使用预设 + the eight chat
 // factions, each its own roster — a chip shows its roster (a faction without one starts empty), every change here is
-// saved into the roster shown; picking that faction in the chat or the strategy draft applies it.
+// saved into the roster shown; picking that faction in the chat or the strategy draft applies it. Under the bar, the
+// strategies linked to the roster shown (전략별 선발 프리셋, maintainer 2026-10-12: chips with ×, 关联策略 to add one —
+// a strategy has one link, adding it here moves it — and the strategies built around that faction, dashed, as 推荐:
+// unlinked, the draft offers them this roster anyway).
 
-import { useLayoutEffect, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useLayoutEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, TierChip } from '../ui/components.js';
 import { Img, RichText, BondGlyph } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, profIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
@@ -23,7 +26,7 @@ import { LoadoutStats } from '../ui/loadoutStats.js';
 import { CultivationSelects } from './cultivation.js';
 import { useStore } from '../store.js';
 import { FactionIcon } from '../ui/faction.js';
-import { diyPresetStore, selectPreset, deletePreset } from '../ui/diyPresets.js';
+import { diyPresetStore, selectPreset, deletePreset, linkBand, bandRecommendation, BASE_LINK } from '../ui/diyPresets.js';
 import { CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
 import { t } from '../../../shared/i18n.js';
 
@@ -266,7 +269,13 @@ export function DiyPanel(props) {
   const [picking, setPicking] = useState(null);
   const presets = useStore((s) => s.presets, Object.is, diyPresetStore);
   const activePreset = useStore((s) => s.active, Object.is, diyPresetStore);
-  return DiyPanelView({ ...props, picking, onPicking: setPicking, presets, activePreset, onPreset: selectPreset, onPresetDelete: deletePreset });
+  const links = useStore((s) => s.links, Object.is, diyPresetStore);
+  // the strategies (bands.json) for the linked-strategy chips; drawn once they are loaded
+  const [bandsReady, setBandsReady] = useState(() => data.list('bands').length > 0);
+  useEffect(() => { if (!bandsReady) data.load('bands').then(() => setBandsReady(true), () => {}); }, []);
+  const bands = bandsReady ? data.list('bands') : [];
+  return DiyPanelView({ ...props, picking, onPicking: setPicking, presets, activePreset, onPreset: selectPreset, onPresetDelete: deletePreset,
+    links, bands, onLink: linkBand });
 }
 
 /**
@@ -274,7 +283,7 @@ export function DiyPanel(props) {
  * shown one marked — and 删除 for the shown faction's preset.
  * @param {{ presets: Record<string, any>, active: string|null, onSelect: (id: string|null) => void, onDelete: (id: string) => void }} props
  */
-export function DiyPresetBar({ presets, active, onSelect, onDelete }) {
+export function DiyPresetBar({ presets, active, onSelect, onDelete, links = null, bands = null, onLink = null }) {
   const on = chatFaction(active);
   return html`<div class="diy-presets" role="group" aria-label=${t('阵营预设')} data-testid="diy-presets">
     <span class="diy-presets__k">${t('阵营预设')}</span>
@@ -290,11 +299,39 @@ export function DiyPresetBar({ presets, active, onSelect, onDelete }) {
       onClick=${() => onDelete(on.id)}>${t('删除{faction}预设', { faction: t(on.name) })}<//>` : null}
     <p class="diy-presets__hint">${on ? t('此处的修改会保存到{faction}预设；在聊天中选择{faction}时自动套用', { faction: t(on.name) })
       : t('「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设')}</p>
+    ${onLink && Array.isArray(bands) && bands.length ? html`<${PresetBandLinks} target=${on ? on.id : BASE_LINK} links=${links || {}} bands=${bands} onLink=${onLink} />` : null}
+  </div>`;
+}
+
+/**
+ * The strategies linked to the roster shown (전략별 선발 프리셋): a chip per link (× clears it), the strategies built around
+ * that faction as dashed 推荐 chips while they have no link, and 关联策略 — a select of every other strategy (one already
+ * linked elsewhere moves here).
+ * @param {{ target: string, links: Record<string, string>, bands: any[], onLink: (bandId: string, target: string|null) => void }} props
+ */
+export function PresetBandLinks({ target, links, bands, onLink }) {
+  const sid = (b) => (Number.isFinite(b.sortId) ? b.sortId : 99);
+  const list = bands.filter((b) => b && typeof b.bandId === 'string').sort((a, b) => sid(a) - sid(b));
+  const linked = list.filter((b) => links[b.bandId] === target);
+  const recs = target === BASE_LINK ? [] : list.filter((b) => !links[b.bandId] && bandRecommendation(b) === target);
+  const rest = list.filter((b) => links[b.bandId] !== target);
+  const where = (b) => (links[b.bandId] === BASE_LINK ? t('不使用预设') : chatFaction(links[b.bandId]) ? t(chatFaction(links[b.bandId]).name) : null);
+  return html`<div class="diy-links" data-testid="diy-band-links">
+    <span class="diy-links__k">${t('关联策略')}</span>
+    ${linked.map((b) => html`<span key=${b.bandId} class="diy-link" data-band=${b.bandId}>${b.name}
+      <button type="button" class="diy-link__x" aria-label=${t('取消关联{name}', { name: b.name })} onClick=${() => onLink(b.bandId, null)}>×</button></span>`)}
+    ${recs.map((b) => html`<span key=${b.bandId} class="diy-link is-rec" data-band=${b.bandId} title=${t('以该阵营为核心的策略：未关联时也会推荐此预设')}>${b.name}<small>${t('推荐')}</small></span>`)}
+    ${!linked.length && !recs.length ? html`<span class="diy-links__none">${t('没有关联的策略')}</span>` : null}
+    <select class="diy-links__add" aria-label=${t('关联策略')} data-testid="diy-band-link-add"
+      onChange=${(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v) onLink(v, target); }}>
+      <option value="">${t('+ 关联策略')}</option>
+      ${rest.map((b) => html`<option key=${b.bandId} value=${b.bandId}>${b.name}${where(b) ? t('（当前：{where}）', { where: where(b) }) : ''}</option>`)}
+    </select>
   </div>`;
 }
 
 /** The tab's view (no hooks: the tests draw it): `picking` = the slot being filled, or null. */
-export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPicking: setPicking, ops = {}, onOps = null, presets = null, activePreset = null, onPreset = null, onPresetDelete = null }) {
+export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPicking: setPicking, ops = {}, onOps = null, presets = null, activePreset = null, onPreset = null, onPresetDelete = null, links = null, bands = null, onLink = null }) {
   const slots = diySlotList(diyData());
   const slot = picking ? slots.find((s) => s.slotId === picking) : null;
   const tiers = [...new Set(slots.map((s) => s.tier))];
@@ -302,7 +339,8 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPickin
     <div class="own__bar">
       <p class="own__lead">${t('5阶与6阶各有两个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。')}</p>
     </div>
-    ${onPreset ? html`<${DiyPresetBar} presets=${presets || {}} active=${activePreset} onSelect=${onPreset} onDelete=${onPresetDelete || (() => {})} />` : null}
+    ${onPreset ? html`<${DiyPresetBar} presets=${presets || {}} active=${activePreset} onSelect=${onPreset} onDelete=${onPresetDelete || (() => {})}
+      links=${links} bands=${bands} onLink=${onLink} />` : null}
     <div class="diy__body">
       ${tiers.map((tier) => html`<section key=${tier} class="own-tier diy-tier" data-tier=${tier} aria-label=${t('{tier}阶', { tier })}>
         <h3 class="own-tier__head"><${TierChip} tier=${tier} size="sm" /><span class="num">${ROMAN[tier]}</span><span>${t('阶')}</span></h3>

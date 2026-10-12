@@ -148,3 +148,34 @@
 .minfo-dlg .brief-banned__n { font-size: max(.22rem, 13px); }
 .minfo-dlg .brief-banned__diy { font-size: max(.14rem, 12px); }
 .minfo-dlg .t-dim { font-size: max(.16rem, 10px); }
+
+/* ---- 전략별 선발 프리셋 (screens/bandDraft.js DraftPresetRow, maintainer 2026-10-12) ------------------------------------
+   The detail pane's 自选预设 row: the roster the strategy applies when the pick lands, its tags, the four slots it would
+   field and 记住此策略的预设; a linked strategy's card carries the faction's badge; 编队确认 after the last pick. Px floors
+   keep the row readable on phones (1rem = 40 px). */
+.draft-preset { align-self: stretch; flex: none; display: flex; flex-direction: column; gap: .06rem; padding: .08rem .12rem;
+  background: rgba(78, 216, 175, .06); border: 1px solid var(--mint-800); }
+.draft-preset__head { display: flex; flex-wrap: wrap; align-items: center; gap: .06rem; font-size: max(.15rem, 10px); color: var(--text-hi); font-weight: 700; }
+.draft-preset__tag { font-size: max(.12rem, 9px); font-weight: 400; line-height: 1.4; padding: 0 .05rem; border: 1px solid; white-space: nowrap; }
+.draft-preset__tag.is-link { color: var(--mint-400); border-color: var(--mint-700); }
+.draft-preset__tag.is-rec { color: var(--ice); border-color: rgba(159, 212, 255, .45); }
+.draft-preset__tag.is-off { color: var(--text-dim); border-style: dashed; border-color: rgba(255, 255, 255, .28); }
+.draft-preset__sel { width: 100%; min-width: 0; height: max(.4rem, 26px); padding: 0 .08rem; font-size: max(.15rem, 10px);
+  color: var(--text-hi); background: var(--bg-1); border: 1px solid var(--line-2); }
+.draft-preset__sel:disabled { opacity: .6; }
+.draft-preset__slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .04rem; }
+.draft-preset__slot { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: .02rem .04rem; text-align: center;
+  font-size: max(.12rem, 9px); color: var(--text-md); background: rgba(0, 0, 0, .3); border: 1px solid var(--line); }
+.draft-preset__slot.is-empty { color: var(--text-dim); }
+.draft-preset__none { grid-column: 1 / -1; font-size: max(.12rem, 9px); color: var(--text-dim); }
+.draft-preset__keep { display: flex; align-items: center; gap: .06rem; font-size: max(.13rem, 9px); color: var(--text-md); }
+.draft-preset__keep input { width: max(.16rem, 12px); height: max(.16rem, 12px); margin: 0; accent-color: var(--mint-500); }
+.draft-preset__hint { margin: 0; font-size: max(.12rem, 8px); line-height: 1.5; color: var(--text-dim); }
+.dband__link { position: absolute; right: .04rem; bottom: .04rem; display: grid; place-items: center; width: max(.24rem, 14px); height: max(.24rem, 14px);
+  background: rgba(0, 0, 0, .55); border: 1px solid var(--fac); }
+.dband__link .chat__facico { width: 80%; height: 80%; }
+.draft-confirm { display: flex; flex-direction: column; gap: .06rem; padding: .1rem .12rem; border: 1px solid var(--mint-700);
+  background: linear-gradient(90deg, rgba(78, 216, 175, .18), rgba(78, 216, 175, .04)); }
+.draft-confirm b { font-size: max(.17rem, 11px); color: var(--mint-400); }
+.draft-confirm p { margin: 0; font-size: max(.13rem, 9px); line-height: 1.5; color: var(--text-md); }
+.dorder__ready { margin-left: .06rem; padding: 0 .04rem; font-size: max(.11rem, 8px); color: var(--text-on-mint); background: var(--mint-500); }

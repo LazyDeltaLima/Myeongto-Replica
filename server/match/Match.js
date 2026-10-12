@@ -53,7 +53,7 @@
 //                                              `summary` is free-form JSON (kept as room.lastSummary).
 //                                              Exception: the briefing's vote (phases.js maybeEndInfo) ends the
 //                                              match with NO m.result and summary.reason 'reroll' (the platform
-//                                              starts a new match at once) or 'split' (back to the room).
+//                                              starts a new match at once).
 //
 // start()                   Called once, right after construction. Must broadcast the first m.public and send
 //                           each human its m.private. May call onEnd synchronously (the platform copes).
@@ -351,8 +351,10 @@ export class Match {
     this.phase = PHASE.LOBBY;
     /** INFO_CHECK: when it started (sched ms) and how its reroll vote ended the match, if it did (phases.js) */
     this.infoAt = 0;
-    /** @type {'reroll' | 'split' | null} */
+    /** @type {'reroll' | null} */
     this.infoOutcome = null;
+    /** INFO_CHECK: the seats voting 重新抽取, in vote order (phases.js voteReroll / rerollProposer) */
+    this.infoRerollers = [];
     this.round = 0;
     this.deadline = 0;
     /** Final Assault / Hidden Core: ms epoch when the overtime drain starts (m.public.overtimeAt) */

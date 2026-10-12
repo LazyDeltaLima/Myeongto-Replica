@@ -167,3 +167,11 @@
 /* the 重新抽取 vote (screens/briefing.js): its count and the voters' pips in gold, apart from the mint ready ones */
 .brief-ready__txt--rr b { color: var(--gold); }
 .brief-ready__pips i.rr { color: var(--gold); filter: drop-shadow(0 0 .06rem var(--gold-a20)); }
+/* 「…提议重新抽取」 (co-op): the first seat still voting reroll, over the footer, in the vote's gold */
+.brief-rr { position: relative; z-index: 2; flex: none; display: flex; align-items: center; gap: .14rem; align-self: flex-end;
+  margin: 0 .5rem -.06rem; padding: .08rem .18rem; max-width: min(100%, 9rem); background: var(--gold-a20);
+  border: 1px solid rgba(255, 198, 0, .45); color: var(--text-hi); }
+.brief-rr > .icon { flex: none; width: .3rem; height: .3rem; color: var(--gold); }
+.brief-rr__text { display: grid; gap: .02rem; min-width: 0; }
+.brief-rr__text b { font-size: .2rem; color: var(--gold); }
+.brief-rr__text span { font-size: .15rem; color: var(--text-md); }

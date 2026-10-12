@@ -202,9 +202,11 @@ export function phaseTotalSeconds(pub, config, myId = null) {
   const mode = isObj(config?.modes) ? config.modes[pub.modeId] : null;
   const num = (v) => (Number.isFinite(v) && v > 0 ? v : null);
   switch (pub.phase) {
-    case PHASE.INFO_CHECK: return num(timers.infoCheck) ?? 25;
-    // one countdown: the current turn's (m.public.draft.turnSeconds = Match.BAND_TURN_SECONDS; user playtest #4 item 4)
-    case PHASE.BAND_DRAFT: return num(pub.draft?.turnSeconds) ?? num(timers.bandTurn) ?? 50;
+    // the co-op briefing's guard (m.public.infoSeconds = INFO_CHECK_SECONDS, 45 s; the official step is 25 s)
+    case PHASE.INFO_CHECK: return num(pub.infoSeconds) ?? 45;
+    // one countdown: the current turn's (m.public.draft.turnSeconds = Match.BAND_TURN_SECONDS; user playtest #4 item 4),
+    // then 编队确认's (m.public.draft.confirm.seconds)
+    case PHASE.BAND_DRAFT: return num(pub.draft?.confirm?.seconds) ?? num(pub.draft?.turnSeconds) ?? num(timers.bandTurn) ?? 50;
     case PHASE.BATTLE_CHECK: return num(timers.battleCheck) ?? 3;
     case PHASE.SP_DRAFT: {
       const sp = normalizeSp(pub.sp, pub.players);

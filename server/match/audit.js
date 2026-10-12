@@ -35,7 +35,8 @@
 //   result        each title ≤ once, ≤ 1 title per player, onlyOnWin titles only on a win, roundsPassed per player,
 //                 Σ alive players' LP = the merged team LP after the Final Assault
 //   deadlines     every timed phase's m.public deadline equals its configured duration × timerScale; the co-op
-//                 strategy draft has one countdown: the deadline is the current turn's (Match.BAND_TURN_SECONDS). A match
+//                 strategy draft has one countdown: the deadline is the current turn's (Match.BAND_TURN_SECONDS), then the
+//                 编队确认 window's. A match
 //                 with a single human (solo, or a 同盟 room with AI teammates only: Match.soloUntimed) times nothing
 //                 outside its battles — no INFO_CHECK / draft / 机变 / prep deadline, BATTLE_CHECK / ROUND_START / SETTLE
 //                 silent (deadline 0)
@@ -47,6 +48,7 @@ import { mergeTile, pieceDir, canPlace, placeClass } from './board.js';
 import { pairPlayers, bossPoolHp, hiddenEligible } from './finalAssault.js';
 import { helperOrder } from './unite.js';
 import { BAND_TURN_SECONDS } from './Match.js';
+import { INFO_CHECK_SECONDS } from './match/common.js';
 
 /**
  * @param {import('./Match.js').Match} m
@@ -293,7 +295,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     const r = orig();
     runInvariants();
     if (m.phase === PHASE.INFO_CHECK && m.soloUntimed) check('briefing', () => { if (m.deadline) fail('untimed briefing is timed'); });
-    else if (m.phase === PHASE.INFO_CHECK && m.deadline) expectDeadline(gd.timer('infoCheck'), 'INFO_CHECK');
+    else if (m.phase === PHASE.INFO_CHECK && m.deadline) expectDeadline(INFO_CHECK_SECONDS, 'INFO_CHECK');
     return r;
   });
   wrap(m, 'enterBandDraft', function (orig) {

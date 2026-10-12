@@ -167,6 +167,9 @@
 .chat__preset--inline .chat__preset-undo { margin-left: auto; }
 @media (max-width: 900px), (max-height: 500px) { .chat__preset--inline .chat__facico { display: none; } }
 .chat__preset small { color: var(--text-lo); font-size: max(.12rem, 10px); }
+/* a faction whose bond this match disables is still applied (maintainer 2026-10-12): 本局禁用, dashed like the draft's tag */
+.chat__preset.is-off { border-style: dashed; }
+.chat__preset .chat__preset-off { color: var(--text-dim); }
 .chat__preset-undo {
   flex: none; padding: .02rem .1rem; border: 1px solid var(--mint-700); border-radius: .03rem;
   background: var(--mint-a20); color: var(--mint-400); font-weight: 700; font-size: max(.14rem, 12px);

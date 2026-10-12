@@ -10,7 +10,10 @@
 //   DraftFactionPicker  the eight factions as a row of chips: the own pick lit, a saved preset dotted, a faction whose
 //                       bond is off this match dimmed with a 禁用 tag; the notice under it.
 //   PresetNotice        「炎国预设已套用到自选编队 · 撤销」 for PRESET_NOTICE_MS after a pick applied a preset — above the
-//                       chat input, and `inline` in the draft row (the chat is closed there).
+//                       chat input, and `inline` in the draft row (the chat is closed there); a faction whose bond this
+//                       match disables is still applied and says 本局禁用 (maintainer 2026-10-12).
+//   applyPresetChoice(choice)  a strategy's linked roster (전략별 선발 프리셋, screens/bandDraft.js): a faction = the faction
+//                       pick above (chat tag + preset), BASE_LINK = 不使用预设, KEEP_LINK = nothing.
 // Styles: public/css/screens/draft.css (.dfac).
 
 import { useEffect } from '../../vendor/hooks.module.js';
@@ -18,7 +21,7 @@ import { html } from './components.js';
 import { net } from '../net.js';
 import { store, useStore } from '../store.js';
 import { FactionIcon } from './faction.js';
-import { diyPresetStore, applyFactionPreset, undoFactionPreset, clearPresetNotice, PRESET_NOTICE_MS } from './diyPresets.js';
+import { diyPresetStore, applyFactionPreset, applyBasePreset, undoFactionPreset, clearPresetNotice, PRESET_NOTICE_MS, BASE_LINK } from './diyPresets.js';
 import { CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
 import { PHASE } from '../../../shared/constants.js';
 import { t } from '../../../shared/i18n.js';
@@ -50,6 +53,21 @@ export async function chooseFaction(id) {
   return true;
 }
 
+/**
+ * Apply a strategy's roster choice (diyPresets.js bandPresetChoice): a chat faction is picked like the faction row
+ * (chooseFaction: the chat tag follows, maintainer 2026-10-12), BASE_LINK shows 不使用预设, anything else changes nothing.
+ * @param {string|null} choice
+ */
+export async function applyPresetChoice(choice) {
+  if (choice === BASE_LINK) {
+    const now = store.get();
+    if (presetPickLive(now)) applyBasePreset({ inMatch: !!now.room?.inMatch });
+    return true;
+  }
+  if (!chatFaction(choice)) return false;
+  return chooseFaction(choice);
+}
+
 /** The faction the player picked: the chat tag in co-op, the remembered pick of this match in solo. */
 export function useMyFaction() {
   const tag = useStore((s) => s.chatFactions?.[s.me.playerId] ?? null);
@@ -62,15 +80,17 @@ export function useMyFaction() {
 /** The last preset a faction pick applied (ui/diyPresets.js notice), with its 撤销. @param {{ inline?: boolean }} props */
 export function PresetNotice({ inline = false }) {
   const n = useStore((s) => s.notice, Object.is, diyPresetStore);
+  const off = useStore((s) => (s.room?.inMatch ? s.match?.public?.disabledBonds ?? null : null));
   useEffect(() => {
     if (!n) return undefined;
     const h = setTimeout(() => { if (diyPresetStore.get().notice === n) clearPresetNotice(); }, Math.max(0, n.at + PRESET_NOTICE_MS - Date.now()));
     return () => clearTimeout(h);
   }, [n]);
   const f = n ? chatFaction(n.factionId) : null;
-  if (!f) return null;
-  return html`<p class=${cx('chat__preset', inline && 'chat__preset--inline')} role="status" data-testid="preset-notice">
-    <${FactionIcon} f=${f} /><span>${t('已将{faction}预设套用到自选编队', { faction: t(f.name) })}${n.inMatch ? html`<small>${t('本局生效')}</small>` : null}</span>
+  if (!f && !n?.base) return null;
+  const isOff = !!f && Array.isArray(off) && off.includes(f.bond);
+  return html`<p class=${cx('chat__preset', inline && 'chat__preset--inline', isOff && 'is-off')} role="status" data-testid="preset-notice">
+    ${f ? html`<${FactionIcon} f=${f} />` : null}<span>${f ? t('已将{faction}预设套用到自选编队', { faction: t(f.name) }) : t('自选编队已切换为「不使用预设」')}${isOff ? html`<small class="chat__preset-off">${t('本局禁用')}</small>` : null}${n.inMatch ? html`<small>${t('本局生效')}</small>` : null}</span>
     <button type="button" class="chat__preset-undo" data-testid="preset-undo" onClick=${undoFactionPreset}>${t('撤销')}</button>
   </p>`;
 }

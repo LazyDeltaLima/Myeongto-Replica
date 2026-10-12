@@ -19,12 +19,14 @@ export class MatchIntents {
         if (ps.infoReroll) return fail(ERR.ALREADY, 'voted to reroll');
         if (!ps.infoReady) { ps.infoReady = true; this.markPublic(); this.maybeEndInfo(); }
         return OK;
-      // the briefing's reroll vote (MatchPhases.maybeEndInfo): ready OR reroll, final either way
-      case 'g.infoReroll': return this.voteReroll(ps);
+      // the briefing's reroll vote (MatchPhases.maybeEndInfo): ready (final) OR reroll (`cancel` takes it back)
+      case 'g.infoReroll': return this.voteReroll(ps, msg.cancel === true);
       case 'g.band': return this.pickBand(ps, msg.bandId);
       case 'g.bandSkip': return this.skipBand(ps);
       // the strategy highlighted in the draft screen (what a timed-out turn takes, timeoutBand)
       case 'g.bandFocus': return this.bandFocus(ps, msg.bandId ?? null);
+      // 编队确认: the seat is done (MatchPhases.draftReady)
+      case 'g.draftReady': return this.draftReady(ps);
       case 'g.buy': return ps.buy(msg.slot);
       case 'g.refresh': return ps.refresh();
       case 'g.freeze': return ps.freeze();
@@ -79,6 +81,7 @@ export class MatchIntents {
     if (!ps.botControlled || this.ended) return;
     if (this.phase === PHASE.INFO_CHECK && !ps.infoReady && !ps.infoReroll) { ps.infoReady = true; this.markPublic(); this.maybeEndInfo(); }
     else if (this.phase === PHASE.BAND_DRAFT && this.draftTurn() === ps.playerId) this.scheduleBandBot();
+    else if (this.phase === PHASE.BAND_DRAFT && this.draft?.confirm) this.maybeEndDraftConfirm();
     else if (this.phase === PHASE.SP_DRAFT && this.spTurn() === ps.playerId) this.scheduleSpBot();
     else if (this.phase === PHASE.PREP && ps.alive && !ps.ready) this.scheduleBotPrep(ps, 0);
   }

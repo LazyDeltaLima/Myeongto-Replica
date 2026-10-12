@@ -112,6 +112,7 @@ export class MatchPlatform {
       this._resume();
       if (this.clientCombat) this._authorityLost(ps, 'disconnect');
       this.markPublic();
+      this.maybeEndDraftConfirm();
     });
   }
 
@@ -189,6 +190,8 @@ export class MatchPlatform {
       ps.bandId = d.picks[ps.playerId];
       if (turn) this.startDraftTurn();
     }
+    // 编队确认 waits for nobody who has gone
+    if (phase === PHASE.BAND_DRAFT) this.maybeEndDraftConfirm();
     const passedRound = phase === PHASE.SETTLE ? this.round + 1 : Math.max(1, this.round);
     // its own normal battle has nobody left to fight for
     for (const f of this.fields) {

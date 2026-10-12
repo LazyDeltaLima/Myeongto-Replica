@@ -13,6 +13,7 @@ import { timelineAt } from '../fields.js';
 import { bossFieldPlacement } from '../finalAssault.js';
 import { bossFieldPaths } from '../bossPath.js';
 import { battleProgress } from '../../sim/spec.js';
+import { DRAFT_CONFIRM_SECONDS, INFO_CHECK_SECONDS } from './common.js';
 
 /**
  * A scouted operator's potential (below 6) and 练度 (0.2.2), like the sim's UnitInfo: PlayerState.loadoutFor's
@@ -98,6 +99,8 @@ export class MatchViews {
         ready: this.phase === PHASE.INFO_CHECK ? ps.infoReady : ps.ready,
         // the briefing's 重新抽取 vote (phases.js maybeEndInfo), only while INFO_CHECK runs
         ...(this.phase === PHASE.INFO_CHECK && ps.infoReroll ? { reroll: true } : {}),
+        // the strategy draft's 编队确认: the seat is done (phases.js draftReady)
+        ...(this.phase === PHASE.BAND_DRAFT && this.draft?.confirm?.ready.has(ps.playerId) ? { confirmReady: true } : {}),
         // the strip of a teammate watching this player (DESIGN §20.15): every bond with members, layers or an active tier
         // (= the player's own m.private list without thresholds / countsHand — the client reads those from bonds.json),
         // this round's in-battle gains included once the COMBAT phase ended (PlayerState.bondsView); [] once eliminated —
@@ -119,8 +122,15 @@ export class MatchViews {
       }),
     };
     if (this.teamLp != null) v.teamLp = Math.max(0, Math.round(this.teamLp));
-    // the briefing's vote ended the match: 'reroll' (a new match follows at once) | 'split' (back to the room)
+    // the briefing's vote ended the match: 'reroll' (a new match follows at once)
     if (this.infoOutcome) v.infoOutcome = this.infoOutcome;
+    // the briefing: its length (the countdown gauge's total; 0 when untimed) and the first seat still voting 重新抽取
+    // (phases.js rerollProposer) — the 「…提议重新抽取」 banner
+    if (this.phase === PHASE.INFO_CHECK) {
+      v.infoSeconds = this.soloUntimed ? 0 : this.scaled(INFO_CHECK_SECONDS * 1000) / 1000;
+      const by = this.rerollProposer();
+      if (by) v.rerollBy = by;
+    }
     // 最终攻势 / 隐秘核心: when the overtime drain starts (ms epoch; `deadline` is the level's 120 s countdown)
     if ((this.phase === PHASE.FINAL_ASSAULT || this.phase === PHASE.HIDDEN_CORE) && this.overtimeAt) v.overtimeAt = this.overtimeAt;
     if (this.bossPool) v.bossHp = { hp: Math.max(0, Math.round(this.bossPool.hp)), max: Math.round(this.bossPool.maxHp) };
@@ -131,6 +141,8 @@ export class MatchViews {
         order: d.order.slice(), turn: this.draftTurn(), picks: { ...d.picks }, skipsLeft: { ...d.skipsLeft }, turnDeadline: d.turnDeadline || 0,
         turnSeconds: d.untimed ? 0 : this.bandTurnMs() / 1000, untimed: !!d.untimed,
       };
+      // 编队确认 after the last pick (phases.js enterDraftConfirm): its end (= m.public.deadline) and length
+      if (d.confirm) v.draft.confirm = { deadline: d.confirm.deadline, seconds: this.scaled(DRAFT_CONFIRM_SECONDS * 1000) / 1000 };
     }
     if (this.phase === PHASE.SP_DRAFT && this.sp) {
       const s = this.sp;

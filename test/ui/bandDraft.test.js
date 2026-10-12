@@ -9,7 +9,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { ERR, PHASE } from '../../shared/constants.js';
 import { makeMatch, DATA } from '../match/harness.js';
-import { teammateBands, timeoutBand, allowedBands, autoPickBand, draftClock, draftTip, draftSelection } from '../../public/js/screens/bandDraft.js';
+import { teammateBands, timeoutBand, allowedBands, autoPickBand, draftClock, draftTip, draftSelection, presetPreviewPicks, presetChoiceTags } from '../../public/js/screens/bandDraft.js';
 import { BAND_TURN_SECONDS } from '../../server/match/Match.js';
 
 const TURN_MS = BAND_TURN_SECONDS * 1000;
@@ -38,6 +38,8 @@ describe('server: no duplicate strategies in the co-op draft', () => {
     assert.deepEqual(m.handle(third, { t: 'g.band', bandId: 'band_amiya' }), { ok: true });
     const picks = Object.values(m.publicView().draft?.picks || m.draft.picks);
     assert.equal(new Set(picks).size, picks.length, 'all different');
+    // 编队确认 (after the last pick) ends once every human is done
+    for (const id of [first, second, third]) m.handle(id, { t: 'g.draftReady' });
     h.sched.advance(1);
     assert.equal(m.phase, PHASE.BATTLE_CHECK);
     m.dispose();
@@ -245,6 +247,21 @@ describe('UI: one countdown and the highlighted band (user playtest #4 item 4)',
     assert.equal(draftClock({ deadline: 0, draft: { turnDeadline: 0 } }), null);
     assert.equal(draftClock(null), null);
     assert.deepEqual(draftClock({ deadline: 4000, draft: {} }), { deadline: 4000, total: null });
+    assert.deepEqual(draftClock({ deadline: 6000, draft: { turnDeadline: 0, turnSeconds: 50, confirm: { deadline: 6000, seconds: 10 } } }),
+      { deadline: 6000, total: 10 }, '编队确认 counts its own 10 s');
+  });
+
+  test('전략별 선발 프리셋: the 自选预设 row previews the roster a choice applies and tags it', () => {
+    const st = { presets: { laterano: { a: 1 } }, base: { b: 2 } };
+    assert.deepEqual(presetPreviewPicks('laterano', st, { c: 3 }), { a: 1 });
+    assert.equal(presetPreviewPicks('yan', st, { c: 3 }), null, 'a faction without a preset: nothing would change');
+    assert.deepEqual(presetPreviewPicks('base', st, { c: 3 }), { b: 2 });
+    assert.deepEqual(presetPreviewPicks('keep', st, { c: 3 }), { c: 3 });
+    assert.deepEqual(presetChoiceTags('laterano', { link: 'laterano', rec: 'laterano' }), ['linked']);
+    assert.deepEqual(presetChoiceTags('laterano', { link: null, rec: 'laterano' }), ['rec']);
+    assert.deepEqual(presetChoiceTags('yan', { link: 'laterano', rec: 'laterano' }), [], 'this match\'s other choice: no tag');
+    assert.deepEqual(presetChoiceTags('siracusa', { off: ['siracusaShip'] }), ['off'], 'a disabled bond is still offered, tagged');
+    assert.deepEqual(presetChoiceTags('keep', { off: ['siracusaShip'] }), []);
   });
 
   test('the server publishes one clock: deadline = turnDeadline, turnSeconds = the turn length; AI seats pick at once', () => {

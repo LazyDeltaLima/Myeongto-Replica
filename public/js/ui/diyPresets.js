@@ -11,20 +11,28 @@
 //   selectPreset(id) the tab's preset bar: switch to that roster (a faction without one starts empty; null = base) —
 //                    the one left keeps its picks (maintainer report 2026-10-09: switching once copied them over).
 //   deletePreset(id) forget a faction's preset (and go back to base if it was shown).
-//   applyFactionPreset(id) / undoFactionPreset()   the faction pick.
+//   applyFactionPreset(id) / undoFactionPreset()   the faction pick; applyBasePreset() shows 不使用预设 the same way.
 //   installDiyPresets()   main.js, once: follow the picks into the shown roster.
+//   links            { [bandId]: factionId | 'base' } — 전략별 선발 프리셋 (maintainer decision 2026-10-12): the roster a
+//                    strategy applies when the player's pick of it lands in the strategy draft (screens/bandDraft.js);
+//                    linkBand() sets / clears one. A strategy without a link falls back to the nation bond it is built
+//                    around (bandRecommendation: bands.json bondIds ∩ the chat factions — 9 of 40), else keeps the picks.
 // The picks themselves stay ui/loadoutSync.js's (setDiyPicks → localStorage + room.diy); a running match takes them while
 // its briefing or strategy draft runs (server platform.js setDiy) — from the prep on a faction pick applies no preset.
-// Storage: localStorage `sp.pref.diyPresets` = { v: 2, presets, base, active } (each roster cleaned like the picks; a v1
-// envelope without `base` takes the current picks as base when it showed none).
+// Storage: localStorage `sp.pref.diyPresets` = { v: 3, presets, base, active, links } (each roster cleaned like the picks;
+// a v1 envelope without `base` takes the current picks as base when it showed none; v2 has no links).
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { loadoutStore, setDiyPicks } from './loadoutSync.js';
 import { cleanPicks } from './diyModel.js';
-import { chatFaction } from '../../../shared/local.js';
+import { chatFaction, CHAT_FACTIONS } from '../../../shared/local.js';
 
 export const DIY_PRESETS_PREF = 'diyPresets';
-export const DIY_PRESETS_VERSION = 2;
+export const DIY_PRESETS_VERSION = 3;
+/** A strategy link to the 不使用预设 roster. */
+export const BASE_LINK = 'base';
+/** The draft's choice that applies no roster (the picks stay as they are). */
+export const KEEP_LINK = 'keep';
 /** How long the chat's 「…预设已套用 · 撤销」 line stays (ms). */
 export const PRESET_NOTICE_MS = 10000;
 
@@ -47,21 +55,52 @@ export function parseStoredPresets(raw, current = {}) {
   }
   const active = isObj(raw) && chatFaction(raw.active) ? raw.active : null;
   const base = isObj(raw) && isObj(raw.base) ? cleanPicks(raw.base) : active ? {} : cleanPicks(current);
-  return { presets: out, base, active };
+  return { presets: out, base, active, links: cleanLinks(isObj(raw) ? raw.links : null) };
+}
+
+/** A link target: a chat faction or BASE_LINK. */
+const isLinkTarget = (v) => v === BASE_LINK || !!chatFaction(v);
+const isBandId = (v) => typeof v === 'string' && /^band_[A-Za-z0-9_-]{1,48}$/.test(v);
+
+/** The valid strategy links of a stored object (unknown targets and junk keys dropped). */
+export function cleanLinks(raw) {
+  const out = {};
+  if (!isObj(raw)) return out;
+  for (const [b, f] of Object.entries(raw)) if (isBandId(b) && isLinkTarget(f)) out[b] = f;
+  return out;
 }
 
 /** The envelope for localStorage. */
-export function toStoredPresets(presets, base, active) {
-  return { v: DIY_PRESETS_VERSION, presets, base: base || {}, active: active ?? null };
+export function toStoredPresets(presets, base, active, links = {}) {
+  return { v: DIY_PRESETS_VERSION, presets, base: base || {}, active: active ?? null, links: cleanLinks(links) };
+}
+
+/**
+ * The chat faction a strategy is built around (bands.json bondIds: one nation bond for 9 of the 40 — 「파가니니」 →
+ * 拉特兰), else null: the draft's recommended roster when the strategy has no link.
+ * @param {{ bondIds?: string[] } | null | undefined} band
+ */
+export function bandRecommendation(band) {
+  const ids = Array.isArray(band?.bondIds) ? band.bondIds : [];
+  return CHAT_FACTIONS.find((f) => ids.includes(f.bond))?.id ?? null;
+}
+
+/**
+ * What the draft applies for a strategy: its link, else the recommendation, else KEEP_LINK.
+ * @param {string} bandId @param {any} band the bands.json record @param {Record<string, string>} [links]
+ */
+export function bandPresetChoice(bandId, band, links = diyPresetStore.get().links) {
+  const l = links && isLinkTarget(links[bandId]) ? links[bandId] : null;
+  return l || bandRecommendation(band) || KEEP_LINK;
 }
 
 const samePicks = (a, b) => JSON.stringify(cleanPicks(a)) === JSON.stringify(cleanPicks(b));
 
 function readStored() {
-  try { return parseStoredPresets(loadPref(DIY_PRESETS_PREF, null), loadoutStore.get().diy); } catch { return { presets: {}, base: {}, active: null }; }
+  try { return parseStoredPresets(loadPref(DIY_PRESETS_PREF, null), loadoutStore.get().diy); } catch { return { presets: {}, base: {}, active: null, links: {} }; }
 }
 
-export const diyPresetStore = createStore({ ...readStored(), notice: null });
+export const diyPresetStore = createStore({ links: {}, ...readStored(), notice: null });
 
 /** The roster `id` holds (null = base; a faction without a preset: empty). */
 function rosterOf(s, id) {
@@ -70,8 +109,8 @@ function rosterOf(s, id) {
 
 function save(patch, extra = {}) {
   const next = { ...diyPresetStore.get(), ...patch };
-  try { savePref(DIY_PRESETS_PREF, toStoredPresets(next.presets, next.base, next.active)); } catch { /* private mode: the session keeps it */ }
-  diyPresetStore.set({ presets: next.presets, base: next.base, active: next.active, ...extra });
+  try { savePref(DIY_PRESETS_PREF, toStoredPresets(next.presets, next.base, next.active, next.links)); } catch { /* private mode: the session keeps it */ }
+  diyPresetStore.set({ presets: next.presets, base: next.base, active: next.active, links: next.links || {}, ...extra });
 }
 
 /** Store `picks` as roster `id` (null = base); an emptied faction's preset goes. */
@@ -122,6 +161,38 @@ export function applyFactionPreset(id, { inMatch = false, now = Date.now() } = {
   save({ ...withRoster(s, s.active, prev.picks), active: id }, { notice });
   setDiyPicks(preset);
   return notice;
+}
+
+/**
+ * Show 不使用预设 (a strategy linked to BASE_LINK, screens/bandDraft.js): like applyFactionPreset, with the notice's
+ * `base` set (no faction). Null when it is already shown.
+ * @param {{ inMatch?: boolean, now?: number }} [o]
+ */
+export function applyBasePreset({ inMatch = false, now = Date.now() } = {}) {
+  const s = diyPresetStore.get();
+  if (s.active == null) { clearPresetNotice(); return null; }
+  const prev = { picks: loadoutStore.get().diy, active: s.active };
+  const notice = { factionId: null, base: true, prev, inMatch: !!inMatch, at: now };
+  save({ ...withRoster(s, s.active, prev.picks), active: null }, { notice });
+  setDiyPicks(s.base || {});
+  return notice;
+}
+
+/**
+ * Link a strategy to a roster (a chat faction or BASE_LINK); null / KEEP_LINK clears the link.
+ * @param {string} bandId @param {string|null} target
+ */
+export function linkBand(bandId, target) {
+  if (!isBandId(bandId)) return;
+  const links = { ...(diyPresetStore.get().links || {}) };
+  if (isLinkTarget(target)) {
+    if (links[bandId] === target) return;
+    links[bandId] = target;
+  } else {
+    if (!(bandId in links)) return;
+    delete links[bandId];
+  }
+  save({ links });
 }
 
 /** 撤销 of the last faction apply: the roster shown before, with its picks. */

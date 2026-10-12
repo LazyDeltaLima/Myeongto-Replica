@@ -465,6 +465,19 @@
   .diy-preset span { display: none; }
   .diy-preset--none { padding: 0 .08rem; }
 }
+/* 전략별 선발 프리셋 (screens/diy.js PresetBandLinks): the strategies linked to the roster shown, the dashed 推荐 ones,
+   and the 关联策略 select */
+.diy-links { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: .05rem; }
+.diy-links__k { font-size: max(.13rem, 10px); font-weight: 700; color: var(--text-lo); margin-right: .04rem; }
+.diy-link { display: inline-flex; align-items: center; gap: .04rem; height: max(.28rem, 22px); padding: 0 .02rem 0 .08rem;
+  font-size: max(.13rem, 10px); color: var(--text-hi); background: rgba(255, 255, 255, .06); border: 1px solid var(--line-2); }
+.diy-link.is-rec { padding-right: .08rem; color: var(--ice); border-style: dashed; border-color: rgba(159, 212, 255, .45); background: none; }
+.diy-link small { font-size: max(.11rem, 9px); color: var(--text-lo); }
+.diy-link__x { padding: 0 .06rem; border: 0; background: none; color: var(--text-lo); font-size: max(.16rem, 12px); line-height: 1; }
+.diy-link__x:hover { color: var(--text-hi); }
+.diy-links__none { font-size: max(.12rem, 10px); color: var(--text-dim); }
+.diy-links__add { height: max(.28rem, 22px); max-width: 100%; padding: 0 .06rem; font-size: max(.13rem, 10px);
+  color: var(--text-lo); background: var(--bg-1); border: 1px solid var(--line-2); }
 .diy-slot {
   position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .1rem; align-items: start; min-width: 0;
   padding: .08rem; background: rgba(255, 255, 255, .03); border: 1px solid var(--line); border-left: 3px solid var(--tc, var(--line-3));

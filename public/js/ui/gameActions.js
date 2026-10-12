@@ -10,7 +10,7 @@ import { audio } from '../audio.js';
 const SUCCESS_SFX = {
   'g.buy': 'buy', 'g.sell': 'sell', 'g.refresh': 'refresh', 'g.freeze': 'freeze', 'g.levelUp': 'levelup',
   'g.move': 'drop', 'g.equip': 'equip', 'g.art': 'artPlace', 'g.reward': 'pick', 'g.choice': 'pick',
-  'g.band': 'confirm', 'g.bandSkip': 'back', 'g.infoReady': 'ready', 'g.infoReroll': 'confirm', 'g.emote': 'emote', 'g.destroy': 'back',
+  'g.band': 'confirm', 'g.bandSkip': 'back', 'g.infoReady': 'ready', 'g.infoReroll': 'confirm', 'g.draftReady': 'ready', 'g.emote': 'emote', 'g.destroy': 'back',
 };
 
 let inflight = 0;
@@ -51,8 +51,12 @@ export const actions = {
   infoReady: () => act('g.infoReady'),
   // the briefing's 重新抽取 vote (server phases.js maybeEndInfo)
   infoReroll: () => act('g.infoReroll'),
+  // ... and its withdrawal while the vote is open
+  infoRerollCancel: () => act('g.infoReroll', { cancel: true }, { sfx: 'back' }),
   band: (bandId) => act('g.band', { bandId }),
   bandSkip: () => act('g.bandSkip'),
+  // the strategy draft's 编队确认 (after the last pick): done
+  draftReady: () => act('g.draftReady'),
   buy: (slot, opts) => act('g.buy', { slot }, opts), // local patch: `opts` (screens/game.js — an operator's purchase sounds as its drop-in)
   refresh: () => act('g.refresh'),
   freeze: () => act('g.freeze'),

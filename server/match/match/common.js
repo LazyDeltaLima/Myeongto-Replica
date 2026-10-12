@@ -31,3 +31,19 @@ export const DELAYS = Object.freeze({
  * draft.turnDeadline). × timerScale.
  */
 export const BAND_TURN_SECONDS = 50;
+
+/**
+ * Seconds of the co-op briefing (INFO_CHECK) before a seat that has not voted counts as ready. The official step is 25 s
+ * (autoChessData.enterStepList, gd.timer('infoCheck')); this remake gives 45 s so a team can read the briefing and
+ * talk over its 重新抽取 vote (feat, maintainer decision 2026-10-12). A reroll starts a new match, whose briefing counts
+ * from 45 again. × timerScale. Solo / a single human: untimed.
+ */
+export const INFO_CHECK_SECONDS = 45;
+
+/**
+ * Seconds of the strategy draft's 编队确认 window (feat, maintainer decision 2026-10-12): once every seat has its strategy,
+ * the draft stays up this long so the last picker can still change the 自选 picks (진영별 선발 프리셋, match.setDiy takes
+ * them during BAND_DRAFT); every human seat's 准备完毕 (g.draftReady) ends it early. Timed drafts only (a single human's
+ * draft goes straight on). × timerScale.
+ */
+export const DRAFT_CONFIRM_SECONDS = 10;

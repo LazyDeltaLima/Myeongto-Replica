@@ -26,7 +26,7 @@ const { presetPickLive } = await import('../../public/js/ui/factionPick.js');
 const { loadoutStore, setDiyPicks } = await import('../../public/js/ui/loadoutSync.js');
 const { DiyPanelView, DiyPresetBar } = await import('../../public/js/screens/diy.js');
 const { data } = await import('../../public/js/data.js');
-await data.loadAll('chess', 'bonds', 'assets', 'backups');
+await data.loadAll('chess', 'bonds', 'assets', 'backups', 'bands');
 
 const T6A = 'chess_char_6_diy1_a';
 const T6B = 'chess_char_6_diy2_a';
@@ -37,7 +37,7 @@ const stored = () => JSON.parse(mem.get(`sp.pref.${P.DIY_PRESETS_PREF}`) || 'nul
 
 P.installDiyPresets();
 beforeEach(() => {
-  P.diyPresetStore.set({ presets: {}, base: {}, active: null, notice: null });
+  P.diyPresetStore.set({ presets: {}, base: {}, active: null, links: {}, notice: null });
   setDiyPicks({});
   mem.delete(`sp.pref.${P.DIY_PRESETS_PREF}`);
 });
@@ -48,7 +48,7 @@ test('stored rosters: only chat factions, clean and non-empty picks; a v1 envelo
   assert.deepEqual(got.presets.yan, { [T6A]: WANG });
   assert.deepEqual(got.base, { [T6A]: WIS });
   assert.equal(got.active, 'kjerag', 'an empty faction may be the one shown');
-  assert.deepEqual(P.parseStoredPresets(null), { presets: {}, base: {}, active: null });
+  assert.deepEqual(P.parseStoredPresets(null), { presets: {}, base: {}, active: null, links: {} });
   assert.deepEqual(P.parseStoredPresets({ v: 1, presets: { yan: { [T6A]: WANG } }, active: null }, { [T6A]: CHEN }).base, { [T6A]: CHEN });
   assert.deepEqual(P.parseStoredPresets({ v: 1, presets: { yan: { [T6A]: WANG } }, active: 'yan' }, { [T6A]: WANG }).base, {});
 });
@@ -126,4 +126,58 @@ test('a faction pick applies its preset out of a match and in its briefing / str
   assert.equal(presetPickLive({ room: null }), true);
   for (const phase of ['INFO_CHECK', 'BAND_DRAFT']) assert.equal(presetPickLive({ room: { inMatch: true }, match: { public: { phase } } }), true, phase);
   for (const phase of ['PREP', 'COMBAT', 'SP_DRAFT', 'FINAL_ASSAULT']) assert.equal(presetPickLive({ room: { inMatch: true }, match: { public: { phase } } }), false, phase);
+});
+
+test('전략별 선발 프리셋 (maintainer 2026-10-12): links persist, a strategy without one falls back to its nation bond, else keeps the picks', () => {
+  const got = P.parseStoredPresets({ v: 3, presets: {}, base: {}, active: null, links: { band_paganini: 'laterano', band_chen: 'base', band_x: 'nowhere', junk: 'yan' } });
+  assert.deepEqual(got.links, { band_paganini: 'laterano', band_chen: 'base' });
+  assert.deepEqual(P.parseStoredPresets({ v: 2, presets: {}, base: {}, active: null }).links, {}, 'a v2 envelope has none');
+  P.linkBand('band_paganini', 'laterano');
+  P.linkBand('band_chen', 'yan');
+  assert.deepEqual(P.diyPresetStore.get().links, { band_paganini: 'laterano', band_chen: 'yan' });
+  assert.equal(stored().v, 3);
+  assert.deepEqual(stored().links, { band_paganini: 'laterano', band_chen: 'yan' }, 'persisted');
+  P.linkBand('band_chen', null);
+  assert.deepEqual(P.diyPresetStore.get().links, { band_paganini: 'laterano' }, 'cleared');
+  P.linkBand('band_paganini', 'nowhere');
+  assert.deepEqual(P.diyPresetStore.get().links, {}, 'an unknown target clears it too');
+  // the recommendation: bands.json bondIds ∩ the chat factions
+  const bands = data.list('bands');
+  const pag = bands.find((b) => b.bandId === 'band_paganini');
+  const bld = bands.find((b) => b.bandId === 'band_bldsk');
+  assert.equal(P.bandRecommendation(pag), 'laterano');
+  assert.equal(P.bandRecommendation(bld), null);
+  assert.equal(bands.filter((b) => P.bandRecommendation(b)).length, 9, '9 of the 40 strategies are built around a nation bond');
+  assert.equal(P.bandPresetChoice('band_paganini', pag, {}), 'laterano', 'no link: the recommendation');
+  assert.equal(P.bandPresetChoice('band_paganini', pag, { band_paganini: 'base' }), 'base', 'a link wins');
+  assert.equal(P.bandPresetChoice('band_bldsk', bld, {}), P.KEEP_LINK, 'neither: keep the picks');
+});
+
+test('不使用预设 by a strategy link: the base roster is shown with a notice and 撤销', () => {
+  setDiyPicks({ [T6A]: WIS }); // 不使用预设 shown: its roster follows
+  P.diyPresetStore.set({ presets: { yan: { [T6A]: WANG } } });
+  P.selectPreset('yan');
+  const n = P.applyBasePreset({ inMatch: true, now: 1 });
+  assert.equal(n.base, true);
+  assert.equal(n.factionId, null);
+  assert.equal(P.diyPresetStore.get().active, null);
+  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WIS });
+  assert.equal(P.undoFactionPreset(), true);
+  assert.equal(P.diyPresetStore.get().active, 'yan');
+  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WANG });
+  P.selectPreset(null);
+  assert.equal(P.applyBasePreset(), null, 'already shown');
+});
+
+test('the tab lists the strategies linked to the roster shown, the dashed suggestions and the add select', async () => {
+  const { PresetBandLinks } = await import('../../public/js/screens/diy.js');
+  const bands = data.list('bands');
+  const flat = (tree) => JSON.stringify(tree, (k, v) => (k === '__o' || typeof v === 'function' ? undefined : v));
+  const a = flat(PresetBandLinks({ target: 'laterano', links: { band_chen: 'laterano' }, bands, onLink() {} }));
+  assert.match(a, /"diy-link","data-band":"band_chen"|data-band":"band_chen"/);
+  assert.match(a, /is-rec","data-band":"band_paganini"|band_paganini/, '파가니니 suggested while unlinked');
+  const b = flat(PresetBandLinks({ target: 'laterano', links: { band_paganini: 'yan' }, bands, onLink() {} }));
+  assert.doesNotMatch(b, /is-rec[^}]*band_paganini/, 'linked elsewhere: no suggestion');
+  const bar = flat(DiyPresetBar({ presets: {}, active: null, onSelect() {}, onDelete() {}, links: {}, bands, onLink() {} }));
+  assert.match(bar, /PresetBandLinks|diy-band-links|"target":"base"/);
 });
