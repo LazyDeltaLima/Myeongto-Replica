@@ -40,8 +40,12 @@ const isLeak = (l) => isPlain(l) && isId(l.enemyKey)
   && optional(isBool)(l.counted) && optional(isBool)(l.boss) && optional(isBool)(l.spawned);
 const isUnitEnd = (u) => isPlain(u) && nullable(isUid)(u.uid) && isNum(u.hpPct, 0, 1) && isNum(u.sp, 0, 1e5) && isBool(u.alive)
   && optional(isBool)(u.skillActive) && nullable(isId)(u.defId);
+// `boss` (damage to the shared leader pool), `assist` (联防 knock-outs by leaker) and `ownerUid` (the summoner's board uid)
+// feed the settlement's per-operator charts (server/match/unitTally.js)
 const isUnitStat = (u) => isPlain(u) && nullable(isUid)(u.uid) && nullable(isId)(u.defId) && optional((v) => isStr(v, 16))(u.kind)
-  && isStat(u.dmg) && isStat(u.kills) && isStat(u.heal) && isStat(u.taken) && isStat(u.attacks);
+  && isStat(u.dmg) && isStat(u.kills) && isStat(u.heal) && isStat(u.taken) && isStat(u.attacks)
+  && isStat(u.boss) && (u.assist === undefined || isMap(u.assist, RESULT_LIMITS.players, isId, (v) => isInt(v, 0, 1e5)))
+  && nullable(isUid)(u.ownerUid);
 const isPerPlayer = (p) => isPlain(p) && isInt(p.killed, 0, 1e5) && isInt(p.total, 0, 1e5)
   // `resolved` = the HUD capsule's numerator of this player's own field (the round's own scheduled enemies knocked out
   // or leaked: server/sim/battle/deploy.js killedInTotal / leakedInTotal, Battle.resolved). `killed` counts every counted

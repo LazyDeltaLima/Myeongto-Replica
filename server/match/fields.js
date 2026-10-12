@@ -883,11 +883,22 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (!onBoard && gd && !own.defIds.has(defId)) continue;
         const rec = gd ? (gd.chess?.(defId) || gd.token?.(defId)) : null;
         if (gd && !rec) continue;
-        unitStats.push({
+        const us = {
           uid: Number.isInteger(u.uid) ? u.uid : null, defId, name: (onBoard && own.names.get(u.uid)) || (typeof rec?.name === 'string' ? rec.name : defId), kind: u.kind === 'token' ? 'token' : 'op',
           dmg: Math.max(0, Number(u.dmg) || 0), kills: Math.max(0, Math.trunc(Number(u.kills) || 0)), heal: Math.max(0, Number(u.heal) || 0),
           taken: Math.max(0, Number(u.taken) || 0), attacks: Math.max(0, Math.trunc(Number(u.attacks) || 0)),
-        });
+        };
+        // the settlement charts' fields (server/match/unitTally.js, which also caps a player's units at what the server
+        // credited the player): leader damage on boss fields only, 联防 knock-outs only of a leaker of this field, a
+        // summoner only on this player's board
+        if (bossLike && Number(u.boss) > 0) us.boss = Number(u.boss);
+        if (spec.kind === 'unite' && u.assist && typeof u.assist === 'object') {
+          const a = {};
+          for (const [src, n] of Object.entries(u.assist)) if (src !== pid && B.sources.has(src) && Number.isInteger(n) && n > 0) a[src] = Math.min(n, B.maxTotal);
+          if (Object.keys(a).length) us.assist = a;
+        }
+        if (Number.isInteger(u.ownerUid) && own.all.has(u.ownerUid)) us.ownerUid = u.ownerUid;
+        unitStats.push(us);
       }
       const stat = (v) => (finiteIn(v, 0, 1e13) ? v : 0);
       perPlayer[pid] = {

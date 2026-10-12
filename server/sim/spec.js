@@ -425,11 +425,23 @@ export function compactResult(res) {
         uid: uidOr(u.uid), defId: keyOr(u.defId), hpPct: Math.max(0, Math.min(1, fnum(u.hpPct))), sp: Math.max(0, Math.min(1e5, fnum(u.sp))),
         skillActive: !!u.skillActive, alive: !!u.alive,
       })),
-      unitStats: cap(p.unitStats, 160).filter(Boolean).map((u) => ({
-        uid: uidOr(u.uid), defId: keyOr(u.defId), kind: typeof u.kind === 'string' && u.kind.length <= 16 ? u.kind : 'op',
-        dmg: Math.max(0, Math.round(fnum(u.dmg))), kills: Math.max(0, Math.trunc(fnum(u.kills))), heal: Math.max(0, Math.round(fnum(u.heal))),
-        taken: Math.max(0, Math.round(fnum(u.taken))), attacks: Math.max(0, Math.trunc(fnum(u.attacks))),
-      })),
+      unitStats: cap(p.unitStats, 160).filter(Boolean).map((u) => {
+        const o = {
+          uid: uidOr(u.uid), defId: keyOr(u.defId), kind: typeof u.kind === 'string' && u.kind.length <= 16 ? u.kind : 'op',
+          dmg: Math.max(0, Math.round(fnum(u.dmg))), kills: Math.max(0, Math.trunc(fnum(u.kills))), heal: Math.max(0, Math.round(fnum(u.heal))),
+          taken: Math.max(0, Math.round(fnum(u.taken))), attacks: Math.max(0, Math.trunc(fnum(u.attacks))),
+        };
+        // the settlement charts' fields (server/match/unitTally.js), only when present
+        if (fnum(u.boss) > 0) o.boss = Math.round(fnum(u.boss));
+        if (u.assist && typeof u.assist === 'object') {
+          const a = {};
+          for (const [k, v] of Object.entries(u.assist).slice(0, 4)) if (isKey(k) && fnum(v) > 0) a[k] = Math.min(1e5, Math.trunc(fnum(v)));
+          if (Object.keys(a).length) o.assist = a;
+        }
+        const ou = uidOr(u.ownerUid);
+        if (ou != null) o.ownerUid = ou;
+        return o;
+      }),
     };
     // the HUD capsule's numerator (or absent for a result that has none: the teammate UI falls back to `killed`)
     const resolved = Number.isFinite(p.resolved) ? Math.max(0, Math.min(total, Math.trunc(p.resolved))) : null;

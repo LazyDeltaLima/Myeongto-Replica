@@ -160,6 +160,13 @@ export class BattleDeploy {
           if (pp) pp.killedInTotal++;
         }
         if (killer) killer.stats.kills++;
+        // 联防: an enemy another player let through (its leaker) — one the field scheduled (`inTotal`: a re-entered leak,
+        // never a split / summon it left), so the count stays within what the leaker sent in — knocked out by this
+        // unit: the settlement's 연합 방어 chart; a knock-out no unit caused credits nobody [ASSUMED]
+        if (killer && killer.side === 'ally' && unit.inTotal && this.kind === 'unite' && unit.sourcePlayerId != null && unit.sourcePlayerId !== killer.ownerId) {
+          const a = killer.stats.assist || (killer.stats.assist = {});
+          a[unit.sourcePlayerId] = (a[unit.sourcePlayerId] || 0) + 1;
+        }
         if (unit.bounty && unit.bounty.coins > 0) this.addCoins(this._bountyPayee(unit, killer), unit.bounty.coins);
       }
     }

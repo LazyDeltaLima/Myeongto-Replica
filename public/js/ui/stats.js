@@ -6,8 +6,9 @@
 // Two kinds of record (`end`):
 //   'settled'  the match reached its settlement: m.result arrived (server/match/results.js buildResult). The record
 //              keeps what the settlement offers — the match frame (difficulty, mode, boss, seed, duration, hidden-core
-//              outcome, reason) and one row per player (band, title, lineup, bonds, the stat block) — so the page can
-//              re-view the settlement screen (recordToResult).
+//              outcome, reason, the leader pools) and one row per player (band, title, lineup, bonds, the stat block, the
+//              top per-operator rows of the 伤害 / 联防 tabs) — so the page can re-view the settlement screen
+//              (recordToResult).
 //   'quit'     the player gave up (放弃模拟) before the settlement; the server sends a leaver nothing, so the record is
 //              built from what the client knew at that moment (buildQuitRecord): the frame, the player's own row, the
 //              rounds cleared. It is listed in the history, marked 中途退出, and cannot be re-viewed.
@@ -69,6 +70,9 @@ const MAX_ITEMS = 4;
 const MAX_BONDS = 24;
 const MAX_STAT_KEYS = 24;
 const MAX_NAME = 24;
+const MAX_UNITS = 16; // the result screen's per-operator rows a stored record keeps (m.result sends up to 24)
+/** A non-negative finite number, rounded (0 otherwise). */
+const pos = (v) => (Number.isFinite(v) && v > 0 ? Math.round(v) : 0);
 
 /**
  * Copy only the finite numeric keys of a stats block (the settlement's numbers; a numeric field this build does not
@@ -144,6 +148,22 @@ function normalizePlayerRow(raw, quit = false) {
   const bonds = (Array.isArray(p.bonds) ? p.bonds : []).filter(isObj).slice(0, MAX_BONDS).map((b) => ({
     bondId: str(b.bondId) || str(b.id) || '', layers: int(b.layers, 0), active: bool(b.active),
   })).filter((b) => b.bondId);
+  // the result screen's 伤害 / 联防 tabs (server/match/unitTally.js): the top MAX_UNITS operators, numbers rounded
+  const units = (Array.isArray(p.units) ? p.units : []).filter(isObj).slice(0, MAX_UNITS).map((u) => {
+    const e = { id: str(u.id) || '', golden: bool(u.golden), tier: int(u.tier, 0), dmg: pos(u.dmg), final: pos(u.final), hidden: pos(u.hidden) };
+    if (isObj(u.diy) && str(u.diy.charId)) {
+      e.diy = { charId: str(u.diy.charId), skillIndex: Number.isInteger(u.diy.skillIndex) ? u.diy.skillIndex : 0, uniEquipId: str(u.diy.uniEquipId) };
+    }
+    if (str(u.standInFor)) e.standInFor = str(u.standInFor);
+    if (u.sold === true) e.sold = true;
+    if (u.summon === true) e.summon = true;
+    if (isObj(u.assist)) {
+      const a = {};
+      for (const [k, v] of Object.entries(u.assist).slice(0, MAX_PLAYERS)) if (str(k) && pos(v) > 0) a[str(k)] = pos(v);
+      if (Object.keys(a).length) e.assist = a;
+    }
+    return e;
+  }).filter((u) => u.id);
   return {
     playerId: str(p.playerId) || '',
     seat: int(p.seat, 0),
@@ -162,7 +182,18 @@ function normalizePlayerRow(raw, quit = false) {
     lineup,
     bonds,
     stats: normalizeStatBlock(p.stats),
+    units,
+    unite: isObj(p.unite) ? { sent: pos(p.unite.sent), through: pos(p.unite.through) } : null,
+    faction: str(p.faction, 16),
   };
+}
+
+/** m.result bossPools ({ final, hidden: { maxHp, dealt } | null }) or null. */
+function normalizeBossPools(raw) {
+  if (!isObj(raw)) return null;
+  const one = (x) => (isObj(x) && pos(x.maxHp) > 0 ? { maxHp: pos(x.maxHp), dealt: Math.min(pos(x.maxHp), pos(x.dealt)) } : null);
+  const out = { final: one(raw.final), hidden: one(raw.hidden) };
+  return out.final || out.hidden ? out : null;
 }
 
 /**
@@ -198,6 +229,8 @@ export function normalizeRecord(raw) {
     seed: num(r.seed),
     durationMs: num(r.durationMs),
     teamLp: num(r.teamLp),
+    bossPools: normalizeBossPools(r.bossPools),
+    uniteRounds: num(r.uniteRounds),
     roomMode: r.roomMode === 'solo' || r.roomMode === 'coop' ? r.roomMode : null,
     selfId: str(r.selfId),
     players,
@@ -390,6 +423,8 @@ export function buildRecord(res, ctx = {}) {
     seed: num(r.seed),
     durationMs: num(r.durationMs),
     teamLp: num(r.teamLp),
+    bossPools: r.bossPools,
+    uniteRounds: num(r.uniteRounds),
     roomMode: roomModeOf(str(r.modeId), ctx.roomMode),
     selfId: myId,
     players: r.players,
@@ -524,6 +559,8 @@ export function recordToResult(rec) {
     players: r.players,
   };
   if (Number.isFinite(r.lastRound)) res.lastRound = r.lastRound;
+  if (r.bossPools) res.bossPools = r.bossPools;
+  if (Number.isFinite(r.uniteRounds)) res.uniteRounds = r.uniteRounds;
   return res;
 }
 

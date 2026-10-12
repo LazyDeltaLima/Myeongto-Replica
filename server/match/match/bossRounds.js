@@ -11,6 +11,7 @@ import { buildBossWave, bountySpawns } from '../waves.js';
 import { pairPlayers, bossPoolHp, SharedBossPool, CreditPool, hiddenEligible, BOSS_HIT_STEPS } from '../finalAssault.js';
 import { FieldRunner, HeadlessPacer, syntheticResult, BOSS_SILENCE_MS, CATCHUP_TICKS_PER_INTERVAL } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS } from './common.js';
+import { tallyBattle } from '../unitTally.js';
 
 /** b.pool broadcasts at most this often (ms). */
 const POOL_MIN_GAP_MS = 250;
@@ -529,6 +530,9 @@ export class MatchBoss {
           ps.stats.kills += Number(pp.killed) || 0;
           ps.dirty(); // m.private.stats
           this._charDamageTickers(ps, pp);
+          // the settlement's per-operator numbers: leader damage capped at what this round's pool credited the player
+          // (unitTally.js — a browser-run field counts against its local copy of the pool)
+          tallyBattle(this.gd, ps, pp.unitStats, { boss: hidden ? 'hidden' : 'final', bossCap: this.bossPool ? this.bossPool.byPlayer.get(pid) || 0 : null });
         }
         if (pp && ps) {
           // the own battle counts as perfect when the team won, the result is a real one (not the stand-in of a field that
@@ -540,6 +544,11 @@ export class MatchBoss {
         }
         if (pp && ps) this.dispatch(ps, 'onBattleResult', { result: pp, lpLoss: 0, perfect: !!pp.perfect, boss: true });
       }
+    }
+    // the result screen's leader HP line (m.result bossPools): the pool's size and what the alliance took off it
+    if (this.bossPool) {
+      if (!this.bossPoolsDone) this.bossPoolsDone = {};
+      this.bossPoolsDone[hidden ? 'hidden' : 'final'] = { maxHp: Math.round(this.bossPool.maxHp), dealt: Math.round(Math.max(0, this.bossPool.maxHp - this.bossPool.hp)) };
     }
     this._syncTeamLp();
     this.deadline = 0;

@@ -6,6 +6,7 @@
 import { PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { uniteSurvivors } from '../unite.js';
 import { buildResult } from '../results.js';
+import { tallyBattle } from '../unitTally.js';
 import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
 import { msg } from '../../../shared/i18n.js';
 import { onSettle, resetRoundCounters } from '../botEmotes.js';
@@ -33,6 +34,15 @@ export class MatchSettle {
       leakers: plan.leakers.map((p) => p.playerId),
       losses: {},
     } : null;
+    // the result screen's 연합 방어 tab (PlayerState.uniteTally): what each leaker sent in — re-entered or not — and how many
+    // still got through (uncapped, like `through` above)
+    if (uniteRan) {
+      this.uniteRoundsDone = (this.uniteRoundsDone || 0) + 1;
+      for (const lk of plan.leakers) {
+        lk.uniteTally.sent += plan.leaked.filter((l) => l.sourcePlayerId === lk.playerId).length + (plan.notReentered.get(lk.playerId) || 0);
+        lk.uniteTally.through += Math.max(0, survivors.get(lk.playerId) || 0);
+      }
+    }
     const alive = this.alivePlayers();
     // every alive player's LP charge of this round (m.public.roundLosses at SETTLE, views.js): the client's battle-end
     // banner and sound read the whole round from it, as the client's AutoChessBattleUIViewModel.GetBattleResultStatus
@@ -60,6 +70,9 @@ export class MatchSettle {
         ps.stats.dmgDealt += Number(up.damageDealt) || 0;
         ps.stats.kills += Number(up.killed) || 0;
       }
+      // the settlement's per-operator numbers (unitTally.js): the own battle, then the 联防 one
+      tallyBattle(this.gd, ps, r.unitStats);
+      if (up) tallyBattle(this.gd, ps, up.unitStats);
       // perfect-payout bounties (战术特训): own phase perfect
       for (const b of ps.bounties) if (b.card.payout === 'perfect' && counted === 0 && r.perfect !== false) coins += b.card.coin;
       if (coins > 0) { ps.pendingFunds += coins; ps.stats.fundsGained += coins; }

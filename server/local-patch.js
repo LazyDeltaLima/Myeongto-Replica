@@ -5,6 +5,7 @@
 //   onMessage(lobby, session, msg)   first line of Lobby.onMessage: answers room.chat / room.chatFaction, null otherwise
 //   onJoin(lobby, room, session)     a member joined, resumed or took a spectator seat: the recent lines + the factions
 //   onMatchEnd(lobby, room)          the match ended: one [stats] log line (local-stats.js), factions are cleared (they last one match)
+//   chatFactionOf(room, playerId)    Match opts.factionOf: the player's faction for m.result (the result screen's player colors)
 //   botCap(room)                     Lobby.addBot: the refusal when SP_MAX_BOTS is reached, else null
 //   maxBotsSetting()                 room.state `maxBots` (null when unset)
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
@@ -146,6 +147,12 @@ export function onJoin(lobby, room, session) {
   if (!c) return;
   if (c.log.length) sendSession(session, { t: 'room.chatlog', lines: c.log });
   if (c.factions.size) sendSession(session, factionsMsg(c));
+}
+
+/** The chat faction a room's player picked, or null (Match opts.factionOf: m.result players[].faction, read before the clear below). */
+export function chatFactionOf(room, playerId) {
+  const c = room ? rooms.get(room) : null;
+  return (c && c.factions.get(playerId)) ?? null;
 }
 
 /** The match ended: the factions last one match. */

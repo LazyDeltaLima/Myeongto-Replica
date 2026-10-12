@@ -354,21 +354,50 @@ function setPhase(phase, variant) {
 function buildResult(victory) {
   const titles = (data.get('config')?.titles || []).filter((t) => victory || !t.onlyOnWin);
   const pickTitle = (i) => { const t = titles[[0, 3, 5, 2][i] % Math.max(1, titles.length)]; return t ? { id: t.id, name: t.name, picId: t.picId, text: t.text } : null; };
+  // the 伤害 / 联防 tabs (screens/resultCharts.js): ?variant=hidden adds a Hidden Core round
+  const hidden = victory && VARIANTS.has('hidden');
+  const leader = victory ? [912000, 610000, 240000, 0] : [0, 0, 0, 0];
+  const hiddenLeader = hidden ? [402000, 251000, 88000, 0] : [0, 0, 0, 0];
+  const factions = ['kjerag', 'victoria', null, 'aegir']; // the chat factions (bots pick none); 에기르 falls back (≈ 쉐라그)
+  const ids = S.pub.players.map((p) => p.playerId);
+  // 联防 knock-outs of other players' enemies, helper seat → { leaker seat: n }
+  const assists = [{ 1: 9, 2: 5, 3: 12 }, { 0: 2, 2: 1, 3: 4 }, { 0: 1, 1: 3, 3: 3 }, { 1: 1, 2: 2 }];
+  const sent = [4, 15, 9, 21], through = [1, 2, 1, 2];
+  const SHARES = [0.31, 0.22, 0.16, 0.11, 0.08, 0.06, 0.04, 0.02, 0];
+  const split = (total, k) => Math.round(total * SHARES[Math.min(k, SHARES.length - 1)]);
   return {
-    victory, roundsPassed: victory ? 14 : 11, hiddenReached: false, hiddenCleared: false, reason: victory ? 'victory' : 'defeat',
+    victory, roundsPassed: victory ? 14 : 11, hiddenReached: hidden, hiddenCleared: false, reason: victory ? 'victory' : 'defeat',
     bossId: 'boss_5', hiddenBossId: 'boss_8', difficulty: 'HARD', modeId: 'mode_multi_hard', stageId: S.pub.stageId, durationMs: 52 * 60000,
-    players: S.pub.players.map((p, i) => ({
-      playerId: p.playerId, seat: p.seat, name: p.name, isBot: p.isBot, left: false, alive: i !== 3, victory, lp: [12, 12, 12, 0][i], bandId: p.bandId,
-      roundsPassed: i === 3 ? 9 : victory ? 14 : 11, eliminatedRound: i === 3 ? 10 : null, title: pickTitle(i),
-      lineup: shuffle(S.pool).slice(0, 8 + (i % 2)).map((c, k) => ({ id: k < 3 ? c.goldenId : c.chessId, golden: k < 3, tier: c.tier, row: 9 + (k % 4), col: 2 + k, items: [] })),
-      bonds: shuffle(data.list('bonds')).slice(0, 4).map((b, k) => ({ bondId: b.bondId, count: 3 - (k % 3), layers: [359, 136, 34, 12][k], active: k < 3, tier: k < 3 ? 1 : 0 })),
-      stats: {
-        dmgDealt: [2310000, 1720000, 980000, 402000][i], kills: [412, 388, 301, 150][i], leaks: [3, 6, 9, 31][i], gold: [188, 164, 231, 90][i],
-        refreshes: [22, 18, 30, 8][i], merges: [7, 5, 9, 2][i], itemsEquipped: [9, 6, 11, 3][i], bossDamage: victory ? [912000, 610000, 240000, 0][i] : 0,
-        activatedLayers: [541, 402, 377, 120][i], lpLost: [16, 19, 12, 24][i], perfectRounds: [11, 12, 9, 4][i],
-      },
-      trophies: i === 3 ? 1 : 5, reward: i === 3 ? 170 : 425,
-    })),
+    bossPools: {
+      final: { maxHp: 1762000, dealt: victory ? 1762000 : 1240000 },
+      hidden: hidden ? { maxHp: 900000, dealt: 741000 } : null,
+    },
+    uniteRounds: 6,
+    players: S.pub.players.map((p, i) => {
+      const lineup = shuffle(S.pool).slice(0, 8 + (i % 2)).map((c, k) => ({ id: k < 3 ? c.goldenId : c.chessId, golden: k < 3, tier: c.tier, row: 9 + (k % 4), col: 2 + k, items: [] }));
+      const dmgDealt = [2310000, 1720000, 980000, 402000][i];
+      const units = lineup.map((u, k) => ({ id: u.id, golden: u.golden, tier: u.tier, dmg: split(dmgDealt, k), final: split(leader[i], k), hidden: split(hiddenLeader[i], k) }));
+      // the first unit has a summon behind it, one operator was sold mid-match
+      units[0].summon = true;
+      units.push({ id: S.pool[(i * 5 + 3) % S.pool.length].chessId, golden: false, tier: 5, dmg: Math.round(dmgDealt * 0.05), final: 0, hidden: 0, sold: true });
+      Object.entries(assists[i]).forEach(([leaker, n], j) => {
+        const u = units[j % units.length];
+        u.assist = { ...(u.assist || {}), [ids[+leaker]]: n };
+      });
+      return {
+        playerId: p.playerId, seat: p.seat, name: p.name, isBot: p.isBot, left: false, alive: i !== 3, victory, lp: [12, 12, 12, 0][i], bandId: p.bandId,
+        roundsPassed: i === 3 ? 9 : victory ? 14 : 11, eliminatedRound: i === 3 ? 10 : null, title: pickTitle(i),
+        lineup,
+        bonds: shuffle(data.list('bonds')).slice(0, 4).map((b, k) => ({ bondId: b.bondId, count: 3 - (k % 3), layers: [359, 136, 34, 12][k], active: k < 3, tier: k < 3 ? 1 : 0 })),
+        stats: {
+          dmgDealt, kills: [412, 388, 301, 150][i], leaks: [3, 6, 9, 31][i], gold: [188, 164, 231, 90][i],
+          refreshes: [22, 18, 30, 8][i], merges: [7, 5, 9, 2][i], itemsEquipped: [9, 6, 11, 3][i], bossDamage: leader[i] + hiddenLeader[i],
+          activatedLayers: [541, 402, 377, 120][i], lpLost: [16, 19, 12, 24][i], perfectRounds: [11, 12, 9, 4][i],
+        },
+        trophies: i === 3 ? 1 : 5, reward: i === 3 ? 170 : 425,
+        units, unite: { sent: sent[i], through: through[i] }, faction: p.isBot ? null : factions[i],
+      };
+    }),
   };
 }
 

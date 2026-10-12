@@ -287,10 +287,20 @@ export class BattleLifecycle {
         skillActive: !!(u.skill && u.skill.active && u.skill.kind !== 'passive'),
         alive: !!u.alive,
       }));
-      pp.unitStats = ps.units.map((u) => ({
-        id: u.id, uid: u.uid, defId: u.defId, name: u.name, kind: u.kind,
-        dmg: Math.round(u.stats.dmg), kills: u.stats.kills, heal: Math.round(u.stats.heal), taken: Math.round(u.stats.taken), attacks: u.stats.attacks,
-      }));
+      // `boss` / `assist` / `ownerUid` feed the settlement's per-operator charts (server/match/unitTally.js): a unit the
+      // battle created (no board uid) names the nearest summoner up its chain that has one, so it counts for that operator
+      pp.unitStats = ps.units.map((u) => {
+        const e = {
+          id: u.id, uid: u.uid, defId: u.defId, name: u.name, kind: u.kind,
+          dmg: Math.round(u.stats.dmg), kills: u.stats.kills, heal: Math.round(u.stats.heal), taken: Math.round(u.stats.taken), attacks: u.stats.attacks,
+        };
+        if (u.stats.boss > 0) e.boss = Math.round(u.stats.boss);
+        if (u.stats.assist) e.assist = { ...u.stats.assist };
+        let o = u.ownerUnit;
+        for (let i = 0; o && o.uid == null && i < 8; i++) o = o.ownerUnit;
+        if (o && o.uid != null && o !== u) e.ownerUid = o.uid;
+        return e;
+      });
       perPlayer[ps.playerId] = pp;
     }
     const res = { time: Math.round(this.time * 1000) / 1000, reason: this.reason, perPlayer, killed: this.killed, total: this.total, resolved: this.resolved, errors: this.errorCount };

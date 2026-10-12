@@ -13,12 +13,17 @@
 //                                           with a small 「替补」 mark (gameLogic standInOf; the owner's recall, 2026-10-06) */ }],
 //                 bonds?: [{ bondId, layers, active }],
 //                 stats: { dmgDealt, kills, leaks, gold /* funds SPENT */, refreshes, merges, bossDamage?, itemsEquipped?,
-//                          activatedLayers?, lpLost?, perfectRounds? } }] }
+//                          activatedLayers?, lpLost?, perfectRounds? },
+//                 units?, unite?, faction? /* the 伤害 / 联防 tabs, screens/resultCharts.js */ }],
+//     bossPools?, uniteRounds? }
+// Beside 同盟成员 (this fork, maintainer decision 2026-10-12): the 伤害 tab and, co-op only, the 联防 tab
+// (screens/resultCharts.js) when the payload carries the per-operator numbers.
 
-import { useEffect } from '../../vendor/hooks.module.js';
-import { html, Button, Icon, MicroLabel, DifficultyTag } from '../ui/components.js';
+import { useEffect, useMemo, useState } from '../../vendor/hooks.module.js';
+import { html, Button, Icon, MicroLabel, DifficultyTag, Tabs } from '../ui/components.js';
 import { useGameData, Img, UnitThumb, BandIcon, PlayerAvatar, BondGlyph, LpTower, Sprite } from '../ui/gameComponents.js';
-import { normalizeResult, fmtNum, diyRecordFor, cardStandIn, standInForText } from '../ui/gameLogic.js';
+import { normalizeResult, fmtNum, diyRecordFor, cardStandIn, standInForText, hasUnitCharts, playerColors } from '../ui/gameLogic.js';
+import { DamageTab, UniteTab } from './resultCharts.js';
 import { data } from '../data.js';
 import { enemyIconUrl, titleIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { store, useStore, emptyMatch } from '../store.js';
@@ -65,7 +70,7 @@ export function LineupThumb({ u, gd }) {
     title=${si ? t('{name}（{note}）', { name: si.name, note: standInForText(chess.name) }) : undefined} />`;
 }
 
-function PlayerCard({ p, myId, titles, best, solo = false }) {
+function PlayerCard({ p, myId, titles, best, solo = false, color = null }) {
   const gd = useGameData();
   const titleRec = p.title ? titles.find((x) => x.id === p.title.id) || null : null;
   // (the server sends the title's Chinese name: the localized config.titles record when it is that record's)
@@ -80,7 +85,7 @@ function PlayerCard({ p, myId, titles, best, solo = false }) {
       <${PlayerAvatar} player=${p} self=${p.playerId === myId} />
       <div class="rcard__who">
         <b class="rcard__name">${p.name}${p.isBot ? html`<span class="rcard__ai">AI</span>` : null}${p.playerId === myId ? html`<span class="rcard__you">${t('你')}</span>` : null}</b>
-        <span class="rcard__band">${band ? html`<${BandIcon} bandId=${band.bandId} size="xs" />${band.name}` : '—'}</span>
+        <span class="rcard__band">${color ? html`<i class="rch-dot" style=${`background:${color}`} title=${t('图表颜色')}></i>` : null}${band ? html`<${BandIcon} bandId=${band.bandId} size="xs" />${band.name}` : '—'}</span>
       </div>
       <div class="rcard__mid">
         <div class="rcard__lineup">
@@ -136,6 +141,13 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
   const boss = r.bossId ? gd.boss(r.bossId) : null;
   // the Hidden Core medal (and its corrupted leader) only once R15 was actually fought
   const hidden = r.hiddenBossId && r.hiddenReached ? gd.boss(r.hiddenBossId) : null;
+  // the 伤害 / 联防 tabs (screens/resultCharts.js): only when the payload carries the per-operator numbers; 联防 co-op only
+  const charts = hasUnitCharts(r);
+  const solo = r.players.length < 2;
+  const colors = useMemo(() => playerColors(r.players), [res]);
+  const [tab, setTab] = useState('members');
+  const tabs = charts ? [{ id: 'members', label: t('同盟成员') }, { id: 'damage', label: t('伤害') }, ...(solo ? [] : [{ id: 'unite', label: t('联防') }])] : null;
+  const shownTab = tabs && tabs.some((x) => x.id === tab) ? tab : 'members';
   const bg = uiUrl(gd.m, r.victory ? 'settle/settlemen_teamshow_success' : 'settle/settlemen_teamshow_fail');
   const mins = r.durationMs ? Math.round(r.durationMs / 60000) : null;
 
@@ -167,9 +179,13 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
           ${extra}
         </footer>
       </section>
-      <section class="result__players">
-        <h2 class="brief-h"><span>${t('同盟成员')}</span><${MicroLabel}>ALLIANCE REPORT</${MicroLabel}></h2>
-        ${r.players.length ? r.players.map((p) => html`<${PlayerCard} key=${p.playerId} p=${p} myId=${myId} titles=${titles} best=${best} solo=${r.players.length < 2} />`)
+      <section class=${cx('result__players', tabs && 'has-tabs')}>
+        ${tabs ? html`<div class="result__tabs"><${Tabs} items=${tabs} value=${shownTab} onChange=${setTab} size="sm" />
+            <${MicroLabel}>${({ members: 'ALLIANCE REPORT', damage: 'DAMAGE', unite: 'UNITE' })[shownTab]}</${MicroLabel}></div>`
+          : html`<h2 class="brief-h"><span>${t('同盟成员')}</span><${MicroLabel}>ALLIANCE REPORT</${MicroLabel}></h2>`}
+        ${shownTab === 'damage' ? html`<${DamageTab} r=${r} myId=${myId} colors=${colors} Thumb=${LineupThumb} />`
+          : shownTab === 'unite' ? html`<${UniteTab} r=${r} myId=${myId} colors=${colors} Thumb=${LineupThumb} />`
+          : r.players.length ? r.players.map((p) => html`<${PlayerCard} key=${p.playerId} p=${p} myId=${myId} titles=${titles} best=${best} solo=${solo} color=${charts && !solo ? colors.get(p.playerId)?.color : null} />`)
           : html`<p class="t-dim">${t('暂无结算数据')}</p>`}
       </section>
     </main>

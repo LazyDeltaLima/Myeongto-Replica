@@ -230,6 +230,10 @@ export class PlayerState {
       dmgDealt: 0, kills: 0, leaks: 0, gold: 0, refreshes: 0, merges: 0, itemMerges: 0, itemsEquipped: 0,
       bossDamage: 0, lpLost: 0, buys: 0, sells: 0, perfectRounds: 0, fundsGained: 0, healing: 0,
     };
+    /** the settlement's per-operator numbers (server/match/unitTally.js): row key → row; kept apart from `stats` */
+    this.unitTally = new Map();
+    /** 联防 as a leaker: enemies its leaks sent in over the match (re-entered or not) and those that still got through */
+    this.uniteTally = { sent: 0, through: 0 };
     this.eliminatedRound = null;
     this.lpAtFinal = null;
     /** last combat result for this player (unite carry state, bounties) */

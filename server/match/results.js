@@ -14,6 +14,14 @@
 
 import { bondList } from './bondsMeta.js';
 import { boardOrder } from './board.js';
+import { unitRows } from './unitTally.js';
+import { chatFaction } from '../../shared/local.js';
+
+/** The player's chat faction id (Match opts.factionOf, local patch), or null: bots and solo matches have none. */
+function factionOf(m, playerId) {
+  const f = m.opts && typeof m.opts.factionOf === 'function' ? m.opts.factionOf(playerId) : null;
+  return chatFaction(f) ? f : null;
+}
 
 const STAT_OF = {
   bossDamage: (ps) => ps.stats.bossDamage,
@@ -131,6 +139,11 @@ export function buildResult(m, outcome) {
       title: titles.get(ps.playerId) ?? null,
       trophies: trophiesFor(gd, roundsPassed, cleared && hiddenCleared),
       reward: rewardFor(gd, roundsPassed),
+      // the result screen's damage / 연합 방어 tabs (unitTally.js), kept apart from `stats` (the 评语 numbers)
+      units: unitRows(gd, ps),
+      unite: m.isSolo || !ps.uniteTally ? null : { sent: ps.uniteTally.sent, through: ps.uniteTally.through },
+      // the chat faction (local patch, Match opts.factionOf): the player's color on those tabs
+      faction: factionOf(m, ps.playerId),
     };
   });
   return {
@@ -149,6 +162,10 @@ export function buildResult(m, outcome) {
     hiddenBossId: m.hiddenBossId,
     seed: m.seed,
     durationMs: Math.max(0, m.sched.now() - m.startedAt),
+    // each boss round's shared pool: { maxHp, dealt } (bossRounds.js _finishFinal) — the damage tab's leader HP line
+    bossPools: { final: m.bossPoolsDone?.final ?? null, hidden: m.bossPoolsDone?.hidden ?? null },
+    // 联防 battles that ran (settle.js): the 联防 tab's count
+    uniteRounds: m.isSolo ? null : m.uniteRoundsDone || 0,
     players: rows,
   };
 }

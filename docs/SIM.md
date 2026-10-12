@@ -450,7 +450,7 @@ recorded for the player whose half contains the goal it reached, with `sourcePla
       leaked: [{ enemyKey, mods, lpr, sourcePlayerId, tag, counted, boss?, spawned }],
       layerGains: {bondId: n}, coins, damageDealt, bossDamage, healingDone, deaths,
       unitsEnd: [{ uid, id, defId, hpPct, sp, skillActive, alive }],   // operators + board summon pieces; sp = skill.spTotal
-      unitStats: [{ id, uid, defId, name, kind, dmg, kills, heal, taken, attacks }] } } }
+      unitStats: [{ id, uid, defId, name, kind, dmg, kills, heal, taken, attacks, boss?, assist?, ownerUid? }] } } }
 ```
 - **Two sets of counters, and they never cross.** `counted` drives the official LP / 完美作战 / `killed` reading (master's,
   untouched): every counted enemy — a runtime split child, a summon, a boss's summon included — is in it. `inTotal` (the
@@ -487,6 +487,10 @@ recorded for the player whose half contains the goal it reached, with `sourcePla
 - `damageDealt` and `unitStats[].dmg` count only HP removed from the other side: a unit's own drain or 流失 (源石溶剂,
   史尔特尔 S3 …) and friendly damage (the drain on 炎佑) count as the target's `taken`, never as damage dealt; the kill
   credit is unchanged (`damage.js applyHpLoss`).
+- `unitStats[].boss` is the unit's share of `bossDamage` (the same spot of `applyHpLoss`); `assist` counts, by the leaker, the
+  联防 knock-outs of enemies another player let through (`sourcePlayerId`, the field's own `inTotal` enemies only — never a split
+  or a summon they leave); `ownerUid` names the nearest summoner with a board uid of a unit the battle created. They feed the
+  result screen's per-operator tabs (`server/match/unitTally.js`) and nothing in the battle reads them.
 
 ### 1.4 Robustness
 

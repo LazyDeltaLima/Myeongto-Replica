@@ -34,6 +34,9 @@
 //                    shop (PlayerState setDiy / initDiyStock).
 //   opts.spectators  string[] (optional)        the room's spectator seats (remake feature, community report #26;
 //                                              server/lobby.js): never players — see addSpectator below
+//   opts.factionOf(playerId) → string|null (optional)  the chat faction the player picked (server/local-patch.js,
+//                                              cleared when the match ends): m.result players[].faction, read once
+//                                              when the result is built (the result screen's player colors)
 //   opts.seed        uint32                     master seed for all match randomness
 //   opts.matchNo     integer ≥ 1 (optional)     the room's match number (lobby: room.matchCount + 1); with the seed it
 //                                              makes this match's battleIds unique within the room (DESIGN §14)

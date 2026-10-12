@@ -756,6 +756,7 @@ export class Lobby {
         send: (playerId, msg) => (ctx.live ? this.matchSend(room, ctx, playerId, msg) : false),
         broadcast: (msg) => { if (ctx.live) this.matchBroadcast(room, ctx, msg); },
         onEnd: (summary) => this.onMatchEnd(room, ctx, summary),
+        factionOf: (playerId) => localPatch.chatFactionOf(room, playerId), // local patch: the result screen's player colors
       });
       ctx.match = match;
       room.match = match;

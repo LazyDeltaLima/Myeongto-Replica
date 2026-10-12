@@ -6,6 +6,10 @@ import { t } from '../../../../shared/i18n.js';
 
 // ---- result -----------------------------------------------------------------------------------------------------------
 
+const num0 = (v) => (Number.isFinite(v) && v > 0 ? v : 0);
+/** A boss round's pool ({ maxHp, dealt }) or null. */
+const poolOf = (p) => (isObj(p) && Number.isFinite(p.maxHp) && p.maxHp > 0 ? { maxHp: p.maxHp, dealt: Math.min(p.maxHp, num0(p.dealt)) } : null);
+
 /**
  * Normalise an m.result payload (free-form; see screens/result.js header for the expected shape).
  * @param {any} res
@@ -39,6 +43,12 @@ export function normalizeResult(res, pub) {
       trophies: Number.isFinite(p.trophies) ? p.trophies : 0,
       reward: Number.isFinite(p.reward) ? p.reward : 0,
       left: !!p.left,
+      // the damage / 联防 tabs (gameLogic/resultCharts.js): absent on older payloads and stored records
+      units: (Array.isArray(p.units) ? p.units : []).filter((u) => isObj(u) && typeof u.id === 'string').map((u) => ({
+        ...u, dmg: num0(u.dmg), final: num0(u.final), hidden: num0(u.hidden), assist: isObj(u.assist) ? u.assist : null,
+      })),
+      unite: isObj(p.unite) ? { sent: num0(p.unite.sent), through: num0(p.unite.through) } : null,
+      faction: typeof p.faction === 'string' ? p.faction : null,
     };
   }).sort((a, b) => a.seat - b.seat);
   return {
@@ -54,6 +64,8 @@ export function normalizeResult(res, pub) {
     bossId: r.bossId ?? pub?.bossId ?? null,
     hiddenBossId: r.hiddenBossId ?? pub?.hiddenBossId ?? null,
     durationMs: Number.isFinite(r.durationMs) ? r.durationMs : null,
+    bossPools: { final: poolOf(r.bossPools?.final), hidden: poolOf(r.bossPools?.hidden) },
+    uniteRounds: Number.isFinite(r.uniteRounds) ? r.uniteRounds : null,
     players,
   };
 }
