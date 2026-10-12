@@ -182,8 +182,8 @@ function pickTip(tips) {
 }
 
 /**
- * The battle loading screen (UIBattleLoading + UIStageInfo): the picture at its own ratio, centred on black (the 1024²
- * loading illustrations are not stretched to 16:9, maintainer decision 2026-10-12), the corner shadow, the
+ * The battle loading screen (UIBattleLoading + UIStageInfo): the picture stretched over the screen (the 1024² loading
+ * illustrations are drawn squeezed — every official loading picture fills the 16:9 screen), the corner shadow, the
  * stage info in the middle — "OPERATION" (Novecento wide 30, y +60), the code (90, y −20), the mode name (60, y −120) —
  * a tip along the bottom (panel_tips 250 tall, the text 300 in from either side) and "Loading" with its three dots at
  * the bottom right (text_loading, 154 × 67 at −77 / 33.5). Shown while `show` (BATTLE_CHECK, the field view loading),
