@@ -108,10 +108,10 @@ const BLADE_HAND = Object.freeze({ enemy_9014_acstma: 'left_hand', enemy_9015_ac
  * (PRTS 假想敌：胄 "该妖怪死亡时令假想敌：胄受到最大生命值2%的真实伤害"). WHICH max HP is not documented [ASSUMED reading]:
  *   'pool' (default, = v2.5): the leader's max HP as the battle shows it — the shared pool (the engine syncs the unit's
  *          HP to it). It is the same HP the "自身生命值低于20%" talent reads, and that one must read the pool (the
- *          unit's data 600 000 is above the co-op 标准 pool 247 500 and above every solo pool, where a fixed 600 000
+ *          unit's data 600 000 is above the 标准 pool 247 500 of one player, solo or co-op, where a fixed 600 000
  *          would never drop below 20 %). A drone = 2 % of the leader bar in every mode and difficulty (终极 72 000).
  *   'unit': the in-battle unit's data max HP (600 000 / hidden 1 200 000, 不死) — 12 000 / 24 000 per drone at every
- *          difficulty: 0.33 % of the 终极 bar but 19 % of the solo 标准 bar (61 875), so drones decide solo fights.
+ *          difficulty: 0.33 % of the 终极 bar but 4.8 % of the solo 标准 bar (247 500).
  * Round 2 of the boss-HP review tried 'unit'; the review measured the solo regression, so the default is back to 'pool'.
  * 限伤 (shared/constants.js BOSS_HIT_LIMIT): the share is no hit and passes the limit (Battle.loseHp `noHitLimit`).
  * Since the pool counts every player alive at the fight's start (DESIGN §25.13.4, the owner's decision of 2026-10-06),

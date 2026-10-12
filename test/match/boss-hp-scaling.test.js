@@ -11,14 +11,14 @@ import { makeBattle } from '../helpers/battleHarness.js';
 
 const DIFFS = ['FUNNY', 'NORMAL', 'HARD', 'ABYSS'];
 
-test('every leader and difficulty: bloodPoint × the players alive (co-op), × 0.25 solo (local: no teammates)', () => {
+test('every leader and difficulty: bloodPoint × the players alive (co-op), × 1 solo', () => {
   for (const difficulty of DIFFS) {
     const gd = new GameData(DATA, `mode_multi_${difficulty.toLowerCase()}`);
     const solo = new GameData(DATA, `mode_single_${difficulty.toLowerCase()}`);
     for (const id of Object.keys(DATA.bosses)) {
       const base = DATA.bosses[id].bloodPoint[difficulty];
       for (const n of [1, 2, 3, 4]) assert.equal(bossPoolHp(gd, id, n), base * n, `${id} ${difficulty} ×${n}`);
-      assert.equal(bossPoolHp(solo, id, 1), Math.round(base * 0.25), `${id} ${difficulty} solo`);
+      assert.equal(bossPoolHp(solo, id, 1), base, `${id} ${difficulty} solo`);
     }
   }
 });

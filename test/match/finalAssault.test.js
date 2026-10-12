@@ -17,7 +17,7 @@ test('pairing by seat: (1,2), (3,4); an odd player alone', () => {
   assert.deepEqual(pairPlayers([p(3), p(1), p(0), p(2)]).map((g) => g.map((x) => x.seat)), [[0, 1], [2, 3]]);
 });
 
-test('boss pool = bloodPoint[difficulty] × the players alive at the fight\'s start (solo × 0.25, local) × tuning; config restores the fixed pool; shared and never negative', () => {
+test('boss pool = bloodPoint[difficulty] × the players alive at the fight\'s start (solo × 1) × tuning; config restores the fixed pool; shared and never negative', () => {
   // DESIGN §25.13.4: the owner's decision of 2026-10-06 adopts PR #209 by @qingjingshenghuo (bloodPoint is one player's
   // share) and replaces the fixed pool of 「保持固定血量」 — config bossHpScale (perPlayer false, solo 0.25) restores it.
   // Research numbers (data/tuning.json left out).
@@ -27,8 +27,8 @@ test('boss pool = bloodPoint[difficulty] × the players alive at the fight\'s st
   assert.equal(bossPoolHp(gd, 'boss_1'), 1800000 * 4, 'no count given: a full team');
   assert.equal(bossPoolHp(gd, 'boss_1', 9), 1800000 * 4, 'at most aliveFull (4) players');
   assert.equal(gd.bossPoolHp('boss_1', 2), bossPoolHp(gd, 'boss_1', 2), 'GameData agrees');
-  assert.equal(bossPoolHp(new GameData(RAW, 'mode_single_abyss'), 'boss_5', 1), 750000, 'solo: a quarter of the table value (local: no teammates)');
-  assert.equal(bossPoolHp(new GameData(RAW, 'mode_single_funny'), 'boss_2', 1), 56250);
+  assert.equal(bossPoolHp(new GameData(RAW, 'mode_single_abyss'), 'boss_5', 1), 3000000, 'solo: the table value');
+  assert.equal(bossPoolHp(new GameData(RAW, 'mode_single_funny'), 'boss_2', 1), 225000);
   // the flip back: the fixed pool of 0.1.x (perPlayer false; solo 0.25), and its optional × alive / 4 (aliveScaling)
   const withScale = (over) => ({ ...RAW, config: { ...RAW.config, bossHpScale: { ...RAW.config.bossHpScale, ...over } } });
   const fixed = withScale({ perPlayer: false, solo: 0.25 });

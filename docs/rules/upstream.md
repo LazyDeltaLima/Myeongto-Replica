@@ -22,9 +22,8 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 **upstream이 같은 것을 넣어서 뺀 local patch**
 - 미리 가져온 원본 수정 10건(아래 절) — 0.2.0에 모두 들어 있다(#199 울피안은 upstream 방식 `downAtHome`).
 - 협동 보스 HP × 생존 인원, 胄 드론 몫 限伤 통과 — upstream이 PR #209를 채택(`gamedata.js bossPoolShareOf`, `Battle.loseHp noHitLimit`).
-  upstream은 싱글 보스 HP를 bloodPoint ×1로 바꿨지만, **우리는 싱글 ×0.25로 되돌렸다**(f11bdabc, 관리자 결정 2026-10-07: 혼자서는
-  팀원이 없다 — `server/match/gamedata.js bossPoolShareOf`의 `solo` 기본값, `tools/build-data.mjs` → `data/config.json bossHpScale.solo`).
-  협동은 upstream의 × 생존 인원 그대로.
+  upstream은 싱글 보스 HP를 bloodPoint ×1로 바꿨고, 우리는 ×0.25로 되돌렸다가(f11bdabc, 관리자 결정 2026-10-07) 다시 upstream과 같은
+  ×1로 맞췄다(관리자 결정 2026-10-12, `sim.md` 「협동 보스 HP」). 협동은 upstream의 × 생존 인원 그대로.
 - 스킬 범위 발동(748a79fb, 관리자 결정·미확정) → upstream `ACTIVE_RANGE` 규칙(관리자 결정 2026-10-07: upstream 사용) → 2026-10-11 클라 `AutoChessBattleTrigger` 규칙으로 확정·대체(`sim.md` 「스킬 범위 발동」, 옛 규칙은 그 절 「되돌리기」).
   `local-skill-range.js`·관련 테스트 삭제. 赤刃明霄陈 S3를 공중 적만으로 켜던 `hitsFly`는 upstream 규칙에 없다 — 읽는 곳이 없던
   남은 플래그는 `kits/ops/op-chen3.js`에서 지웠다(2026-10-08, 동작 영향 없음: golden 전부 일치).

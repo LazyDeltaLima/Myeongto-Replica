@@ -3813,11 +3813,9 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
     bossOvertimeAfter: 150, bossOvertimeDrainPerSec: 1,
     // DESIGN §25.13.4: the owner's decision of 2026-10-06 adopts PR #209 by @qingjingshenghuo — bloodPoint is one player's
     // share; it replaces the fixed pool of 「保持固定血量」 (perPlayer false + solo 0.25 restore it)
-    // local patch (maintainer decision 2026-10-07): solo 0.25 — a solo player has no teammates, the pool stays a quarter of the
-    // table's (bloodPoint) as before 0.2.0; co-op keeps upstream's × alive players
     bossHpScale: {
-      formula: 'one pool for every boss field ("所有人将一起对敌方领袖造成伤害"; the mirrored copies of a pair field share it, "两侧的敌方领袖共享生命值（敌方领袖的总生命值不变）") = bloodPoint[difficulty] × share. perPlayer true (the owner\'s decision of 2026-10-06, PR #209): co-op share = coop × the players alive when the fight starts (bots and AI 托管 seats count, eliminated and departed seats do not), at most aliveFull; solo share = solo (0.25, local patch: no teammates). perPlayer false (the fixed pool of 0.1.x, 「保持固定血量」): co-op share = coop whatever the count (× alive / aliveFull with aliveScaling, the alive / 4 proportion [ASSUMED]: 巴哈姆特 12294); solo was 0.25 [ASSUMED]',
-      perPlayer: true, coop: 1, solo: 0.25, aliveFull: 4, aliveScaling: false, aliveAssumed: true, unaffectedByEnemyScale: true,
+      formula: 'one pool for every boss field ("所有人将一起对敌方领袖造成伤害"; the mirrored copies of a pair field share it, "两侧的敌方领袖共享生命值（敌方领袖的总生命值不变）") = bloodPoint[difficulty] × share. perPlayer true (the owner\'s decision of 2026-10-06, PR #209): co-op share = coop × the players alive when the fight starts (bots and AI 托管 seats count, eliminated and departed seats do not), at most aliveFull; solo share = solo (1). perPlayer false (the fixed pool of 0.1.x, 「保持固定血量」): co-op share = coop whatever the count (× alive / aliveFull with aliveScaling, the alive / 4 proportion [ASSUMED]: 巴哈姆特 12294); solo was 0.25 [ASSUMED]',
+      perPlayer: true, coop: 1, solo: 1, aliveFull: 4, aliveScaling: false, aliveAssumed: true, unaffectedByEnemyScale: true,
     },
     hiddenCore: { single: 350, multi: 1200, minTeamLpExclusive: 1, difficulties: ['NORMAL', 'HARD', 'ABYSS'], checkedAfterRound: 14 },
     dp: { init: 10, perSec: 1, max: 99 },

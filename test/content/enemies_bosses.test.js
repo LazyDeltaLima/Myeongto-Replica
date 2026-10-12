@@ -2578,7 +2578,7 @@ test('假想敌：胄 死亡集群: the 2 % reads the leader\'s shown max HP (th
   approx(before - h.b.sharedBoss.hp, 3600000 * skb('enemy_9013_acstmk', '2').bb.hp_ratio);
   approx(before - h.b.sharedBoss.hp, 72000);
   assert.ok(h.result().perPlayer.p1.bossDamage >= 72000 - 1e-6);
-  // a solo-sized pool (标准 247 500 × 0.25): still 2 % of the bar, never the 19 % a fixed 12 000 would take
+  // a small pool (61 875): still 2 % of the bar, never the 19 % a fixed 12 000 would take
   const solo = bossArena({ hp: 61875, units: [{ chessId: 't_gun', row: 12, col: 3 }], setup: setTpl('act1autochess_h07_01') });
   solo.step();
   put(solo, 'enemy_9013_acstmk', [3, 10], { tag: 'boss' });
