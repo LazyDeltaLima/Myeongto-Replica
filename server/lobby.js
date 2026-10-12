@@ -134,7 +134,7 @@ const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
 /**
  * @typedef {{ seat: number, playerId: string, name: string, isBot: boolean, ready: boolean,
- *             connected: boolean, left: boolean, loadout?: Record<string, { skill: number, module: string|null }> | null,
+ *             connected: boolean, left: boolean, awayAt?: number, loadout?: Record<string, { skill: number, module: string|null }> | null,
  *             ops?: Readonly<Record<string, { potential: number, cultivate: number }>> | null,
  *             notOwned?: readonly string[] | null, diy?: Readonly<Record<string, DiyLoadout>> | null }} Seat
  * @typedef {{ charId: string, skillIndex: number, uniEquipId: string|null }} DiyLoadout
@@ -371,6 +371,7 @@ export class Lobby {
     const player = room.seatOf(session.playerId);
     const seat = player || room.spectatorOf(session.playerId);
     seat.connected = false;
+    seat.awayAt = this.now(); // the room's `awayMin` (server/local-rooms.js): how long ago it lost its last connection
     // a spectator's seat is kept like a player's (nothing to tell the match: it plays no field)
     if (room.match) { if (player) this.callMatch(room, 'onDisconnect', session.playerId); } else this.startGrace(room, seat);
     this.broadcastState(room);

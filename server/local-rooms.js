@@ -2,11 +2,13 @@
 // so an operator can see which rooms are where before a restart (the deploy script prints it during the countdown and
 // on request). One row per room:
 //
-//   { code, mode, difficulty, phase, round, stageId, bossId, humans, connected, bots, spectators, ageMin, matchMin }
+//   { code, mode, difficulty, phase, round, stageId, bossId, humans, connected, bots, spectators, ageMin, matchMin, awayMin }
 //
 // `phase` is shared/constants.js PHASE (LOBBY between matches, round 0); `humans` counts seated humans that have not
 // left, `connected` those of them online now; `ageMin` = since the room was created, `matchMin` = since the running
-// match started (null in the lobby). Room codes are shown as they are: the path answers 404 through the reverse proxy
+// match started (null in the lobby); `awayMin` = since the last of its humans lost the connection (lobby.js onDisconnect
+// `seat.awayAt`), null while one is connected or when no drop time is known. The deploy script waits for a room nobody
+// is connected to only while `awayMin` is short (a phone app switch), not for a run parked for hours. Room codes are shown as they are: the path answers 404 through the reverse proxy
 // (proxiedRequest), so only someone with docker access on the host reads them (maintainer decision 2026-10-09).
 // Nothing is kept or logged here.
 
@@ -17,12 +19,13 @@ const minutes = (ms) => (Number.isFinite(ms) && ms >= 0 ? Math.floor(ms / 60_000
 /** The status row of one lobby room. */
 export function roomRow(room, now) {
   const m = room.match;
-  let humans = 0, connected = 0, bots = 0;
+  let humans = 0, connected = 0, bots = 0, awayAt = -Infinity;
   for (const s of room.seats) {
     if (!s || s.left) continue;
     if (s.isBot) { bots++; continue; }
     humans++;
     if (s.connected) connected++;
+    else if (Number.isFinite(s.awayAt)) awayAt = Math.max(awayAt, s.awayAt);
   }
   return {
     code: room.code,
@@ -38,6 +41,7 @@ export function roomRow(room, now) {
     spectators: room.spectators.length,
     ageMin: minutes(now - room.createdAt),
     matchMin: m && typeof m.sched?.now === 'function' && Number.isFinite(m.startedAt) ? minutes(m.sched.now() - m.startedAt) : null,
+    awayMin: humans && !connected ? minutes(now - awayAt) : null,
   };
 }
 

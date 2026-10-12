@@ -585,8 +585,10 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   `echo 30 > /tmp/stronghold-restart && kill -USR2 1`로 카운트다운을 시작하고, 내부 healthz의 `restartInSec`가 0이 되면 컨테이너를 다시 만든다.
   접속자가 없으면 카운트다운 없이 바로 진행하고, 도중에 모두 나가면 앞당긴다. 실패하면 취소 공지를 보낸다.
 - 방별 진행 상황(2026-10-09, 관리자 결정 「방별 진행 상황 정도면 충분해」·방 코드는 그대로 표시): 내부 `GET /healthz/rooms`(`server/local-rooms.js`, 프록시 경유는 404)가
-  방마다 `{ code, mode, difficulty, phase, round, stageId, bossId, humans, connected, bots, spectators, ageMin, matchMin }`를 준다(진행 중인 판 먼저, 라운드 높은 순).
-  배포 스크립트는 카운트다운 동안 이 목록을 「ABCD 협동 극한 R7 휴식 기간 · 사람 2(접속 1) 봇 2 · 판 23분」처럼 보여 준다.
+  방마다 `{ code, mode, difficulty, phase, round, stageId, bossId, humans, connected, bots, spectators, ageMin, matchMin, awayMin }`를 준다(진행 중인 판 먼저, 라운드 높은 순).
+  `awayMin`(2026-10-12)은 방의 마지막 사람이 연결을 잃은 뒤 지난 분(`lobby.js` onDisconnect의 `seat.awayAt`), 누가 연결돼 있거나 끊긴 시각을 모르면 `null`.
+  배포 스크립트는 연결된 사람이 있거나 끊긴 지 10분이 안 된 방만 기다린다(관리자 결정 2026-10-12: 세워 둔 솔로 판은 연결 0, 잠깐 끊긴 판은 곧 돌아옴).
+  카운트다운 동안 이 목록을 「ABCD 협동 극한 R7 휴식 기간 · 사람 2(접속 1) 봇 2 · 판 23분」(끊긴 방은 「· 끊긴 지 3분」을 덧붙임)처럼 보여 준다.
   지금 상태만 보여 줄 뿐 로그에는 남기지 않는다(판 결과는 `[stats]` 줄).
   확인: `test/local-patch-rooms.test.js`(실제 서버·실제 Match로 대기실·판 시작 뒤 목록, 프록시 헤더면 404).
 - 확인: `test/local-restart.test.js`(시점·취소·만료는 가짜 타이머, 실제 서버의 방송·welcome·healthz·판 시작 거부, 실제 프로세스에 `SIGUSR2`, 클라이언트 토스트 조건).
