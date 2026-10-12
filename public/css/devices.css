@@ -54,15 +54,20 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 
 /* ---- 3. touch targets ---------------------------------------------------------------------------------------------- */
 /* An invisible hit area of at least --tap-min around small controls on touch screens: centred, never smaller than the
-   control, no layout change. Only controls that do not use ::before themselves are listed. */
+   control, no layout change. Only controls that do not use ::before themselves are listed; 准备就绪 and the shop's
+   冻结 / 刷新 draw their sprite plate in ::before (hud-art.css, shop-art.css), so theirs is ::after — this file loads last
+   with the same specificity, and its `border: 0` / `background` wiped the plates on every touch screen. */
 :where(.sp-coarse) :where(.tapx, .gtop__exit, .gtop__iconbtn, .enemybtn, .readybtn, .gm__gear, .fsbtn, .ewheel__btn, .ewheel__nav,
   .toolbtn, .funds__collapse, .team__btn, .effect, .bslot .bond, .vswitch__arrow, .edrawer__close, .dpanel__close, .bpop__close,
-  .modal__close, .uf__btn, .chud__back, .tabs__tab, .btn, .pill-btn, .title-guide, .stephead__guide, .set-toggle, .set-seg button) {
+  .modal__close, .uf__btn, .chud__back, .tabs__tab, .btn, .pill-btn, .title-guide, .stephead__guide, .set-toggle, .set-seg button,
+  .dpick__opt, .guide__close) {
   position: relative;
 }
-.sp-coarse :is(.tapx, .gtop__exit, .gtop__iconbtn, .enemybtn, .readybtn, .gm__gear, .fsbtn, .ewheel__btn, .ewheel__nav,
-  .toolbtn, .funds__collapse, .team__btn, .effect, .bslot .bond, .vswitch__arrow, .edrawer__close, .dpanel__close, .bpop__close,
-  .modal__close, .uf__btn, .chud__back, .tabs__tab, .btn, .pill-btn, .title-guide, .stephead__guide, .set-toggle, .set-seg button)::before {
+.sp-coarse :is(.readybtn, .toolbtn)::after,
+.sp-coarse :is(.tapx, .gtop__exit, .gtop__iconbtn, .enemybtn, .gm__gear, .fsbtn, .ewheel__btn, .ewheel__nav,
+  .funds__collapse, .team__btn, .effect, .bslot .bond, .vswitch__arrow, .edrawer__close, .dpanel__close, .bpop__close,
+  .modal__close, .uf__btn, .chud__back, .tabs__tab, .btn, .pill-btn, .title-guide, .stephead__guide, .set-toggle, .set-seg button,
+  .dpick__opt, .guide__close):where(:not(.readybtn, .toolbtn))::before {
   content: '';
   position: absolute; left: 50%; top: 50%; z-index: 0;
   width: max(100%, var(--tap-min)); height: max(100%, var(--tap-min));
