@@ -150,11 +150,10 @@
 .draft-preset__sel:hover:not(:disabled), .draft-preset__sel[aria-expanded="true"] { border-color: var(--mint-700); }
 .draft-preset__sel:disabled { opacity: .6; }
 .draft-preset__optname { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* the icon's states (no words): no preset = dimmed in a dashed ring (the 自选编队 tab's empty chip); off this match = the
+/* the icon's states (no words): no preset = the icon left uncoloured, grey (maintainer 2026-10-13); off this match = the
    briefing's img_bond_banned mark on its corner (local art; without it the dimmed name below) */
 .draft-preset__icw { position: relative; flex: none; display: inline-grid; place-items: center; margin-right: .04rem; }
-.is-empty > .draft-preset__icw { outline: 1px dashed var(--line-3); outline-offset: 1px; border-radius: 50%; }
-.is-empty .draft-preset__ico { opacity: .4; }
+.is-empty .draft-preset__ico.chat__facico { background: var(--text-dim); }
 .is-empty > .draft-preset__optname { color: var(--text-lo); }
 /* the briefing's place for it: top-right of the icon (client: img_bond_banned at (29, 32) from the disc's middle) */
 .draft-preset__ban { position: absolute; right: -.07rem; top: -.07rem; width: max(.18rem, 13px); height: max(.18rem, 13px); pointer-events: none;

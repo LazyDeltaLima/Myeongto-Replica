@@ -241,7 +241,7 @@ export function presetOptions(presets, off) {
  * The 自选预设 dropdown (maintainer request 2026-10-13: an icon before each faction — a native <select> draws no image):
  * a button showing the choice, and the list opening in the pane's flow (the pane scrolls, a floating list would be cut).
  * Escape or a tap outside closes it. No words beside the names (maintainer decision 2026-10-13): a faction without a
- * preset has its icon dimmed in a dashed ring (the 自选编队 tab's empty chip), a faction this match disables carries the
+ * preset has its icon left uncoloured (grey), a faction this match disables carries the
  * briefing's own img_bond_banned mark top-right of its icon (as the briefing draws it; without that local art the dimmed
  * name); both say so in the tooltip.
  * @param {{ choice: string, presets: Record<string, any>, off: string[]|null, locked: boolean, onChoice: (v: string) => void }} props
@@ -273,7 +273,7 @@ export function PresetPicker({ choice, presets, off, locked, onChoice }) {
   const cur = opts.find((o) => o.v === choice) || opts[0];
   const ban = localAsset('ui/outer', 'img_bond_banned');
   const tip = (o) => [o.label, o.empty && t('尚未设置预设'), o.off && t('本局禁用')].filter(Boolean).join(' · ');
-  // 保持当前编队 ✓ / 不使用预设 − (glyphs, so the dashed ring only ever means "no preset yet")
+  // 保持当前编队 ✓ / 不使用预设 − (glyphs: they have no faction icon)
   const line = (o) => html`<span class="draft-preset__icw">${o.f ? html`<${FactionIcon} f=${o.f} class="chat__facico draft-preset__ico" />`
     : html`<${Icon} name=${o.v === KEEP_LINK ? 'check' : 'minus'} class="draft-preset__ico is-glyph" />`}
     ${o.off && ban ? html`<img class="draft-preset__ban" src=${ban} alt="" draggable=${false} />` : null}</span><span class="draft-preset__optname">${o.label}</span>`;
