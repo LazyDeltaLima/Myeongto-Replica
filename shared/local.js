@@ -7,7 +7,7 @@
 //   chat faction   room.chatFaction { faction } → room.factions { factions: { [playerId]: factionId } } (all members,
 //                  whenever it changes, and to whoever joins); cleared when the match ends
 //   emote sets     g.emote { id, set? } — 'user' pictures (shared/emote-art.js), missing = official
-//   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } · dbg.addChess { chessId, golden? } · dbg.finish { victory } — local debug mode only (server/local-patch.js debugMode)
+//   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } · dbg.addChess { chessId, golden? } · dbg.addEnemy { enemyKey, count? } · dbg.clearEnemies {} · dbg.finish { victory } — local debug mode only (server/local-patch.js debugMode)
 //   restart        server.restart { inMs, mark? } (every connected socket; inMs null = called off) + welcome `restart: { inMs }`
 //                  while a countdown runs — the deploy's server-restart notice (server/local-restart.js)
 //   feedback       fb.send { id, kind, text, diag?, battles?, match?, public? } → ok — the settlement screen's 피드백 보내기, stored in
@@ -93,6 +93,12 @@ export function extendProtocol(C2S, S2C) {
     module: (v) => typeof v === 'string' && /^[A-Za-z0-9_\-]{1,64}$/.test(v),
     $optional: ['golden', 'skill', 'module'],
   };
+  C2S['dbg.addEnemy'] = {
+    enemyKey: (v) => typeof v === 'string' && /^enemy_[A-Za-z0-9_]{1,60}$/.test(v),
+    count: (v) => Number.isInteger(v) && v >= 1 && v <= 20,
+    $optional: ['count'],
+  };
+  C2S['dbg.clearEnemies'] = {};
   C2S['dbg.addChess'] = {
     chessId: (v) => typeof v === 'string' && /^chess_[A-Za-z0-9_]{1,60}$/.test(v),
     golden: (v) => typeof v === 'boolean',

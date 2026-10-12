@@ -1035,7 +1035,7 @@ test('SP_DEBUG_FUNDS: parsed only as an integer 0..999, unset on deployed server
   assert.equal(debugFunds({ SP_DEBUG_FUNDS: '5000' }), null);
 });
 
-describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.addChess / dbg.finish, local debug mode only (server/local-patch.js debugIntent)', () => {
+describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.addChess / dbg.addEnemy / dbg.finish, local debug mode only (server/local-patch.js debugIntent)', () => {
   const DEBUG_ENV = { SP_DEBUG_PAGE: '1' };
   const humans = () => [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }, { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true }];
   const prep = () => { const h = makeMatch({ mode: 'coop', seats: humans(), seed: 3 }); h.start(); h.toPrep(1); return h; };
@@ -1233,6 +1233,49 @@ describe('in-game debug panel: dbg.funds / dbg.addDiy / dbg.addChess / dbg.finis
     assert.deepEqual(filterDebugEntries(all, { query: 'Insider' }).map((e) => e.key), ['chess_char_1_01_a'], 'the English appellation');
     assert.deepEqual(filterDebugEntries(all, { query: '隐现' }).map((e) => e.key), ['chess_char_1_01_a'], 'the Chinese name');
     assert.equal(filterDebugEntries(all, { tier: 1, bond: 'diy' }).length, 0);
+  });
+
+  test('dbg.addEnemy queues extra enemies for the sender\'s next battle only (a 0-coin one-battle bounty), dbg.clearEnemies drops them', async () => {
+    const { debugIntent, debugView } = await import('../server/local-patch.js');
+    const { debugEnemyEntries } = await import('../public/js/ui/debugPanel.js');
+    assert.equal(validateC2S({ t: 'dbg.addEnemy', enemyKey: 'enemy_1007_slime', count: 20 }), null);
+    assert.equal(validateC2S({ t: 'dbg.addEnemy', enemyKey: 'enemy_1007_slime' }), null);
+    assert.ok(validateC2S({ t: 'dbg.addEnemy', enemyKey: 'enemy_1007_slime', count: 21 }));
+    assert.ok(validateC2S({ t: 'dbg.addEnemy', enemyKey: 'char_1_x' }));
+    assert.equal(validateC2S({ t: 'dbg.clearEnemies' }), null);
+    const h = prep(), m = h.m, ps = h.ps('p_0');
+    const enemies = Object.values(m.gd.raw.enemies);
+    const key = enemies.find((e) => e.rank === 'NORMAL' && !e.tokenOnly && !e.isFlyEnemy).key;
+    const fly = enemies.find((e) => e.rank === 'ELITE' && !e.tokenOnly && e.isFlyEnemy).key;
+    const token = enemies.find((e) => e.tokenOnly).key;
+    const add = (f, env = DEBUG_ENV) => debugIntent(m, 'p_0', { t: 'dbg.addEnemy', ...f }, env);
+    assert.equal(add({ enemyKey: key }, {}).error, ERR.BAD_MSG, 'off outside debug mode');
+    assert.equal(add({ enemyKey: token }).error, ERR.BAD_TARGET, 'a token-only summon');
+    assert.equal(add({ enemyKey: 'enemy_9999_none' }).error, ERR.BAD_TARGET);
+    assert.deepEqual(add({ enemyKey: key, count: 3 }), { ok: true });
+    assert.deepEqual(add({ enemyKey: fly }), { ok: true });
+    assert.deepEqual(debugView(ps).enemies, [{ enemyKey: key, count: 3 }, { enemyKey: fly, count: 1 }]);
+    const extra = (pid) => m._normalOpts(h.ps(pid)).spawns.filter((s) => s.tag === 'bounty');
+    const sum = (list, k) => list.filter((s) => s.enemyKey === k).reduce((n, s) => n + s.count, 0);
+    assert.equal(sum(extra('p_0'), key), 3, 'the battle spec of the sender');
+    assert.equal(sum(extra('p_0'), fly), 1);
+    assert.ok(extra('p_0').every((s) => !s.bounty), 'no coins on them');
+    assert.equal(extra('p_1').length, 0, 'not the other player');
+    assert.ok(ps.privateView().nextEnemies.some((e) => e.enemyKey === key && e.source === 'bounty'), 'in the 敌情 preview');
+    assert.deepEqual(debugIntent(m, 'p_0', { t: 'dbg.clearEnemies' }, DEBUG_ENV), { ok: true });
+    assert.deepEqual(debugView(ps).enemies, []);
+    assert.equal(extra('p_0').length, 0);
+    // they spawn in the round's battle and are gone after its settlement
+    assert.deepEqual(add({ enemyKey: key, count: 2 }), { ok: true });
+    const specs = [];
+    const newBattle = m.newBattle;
+    m.newBattle = function (opts) { if (opts.kind === 'normal') specs.push(opts); return newBattle.call(this, opts); };
+    h.toPrep(2);
+    const mine = specs.find((o) => o.fieldId === 'n:p_0');
+    assert.equal(sum(mine.spawns, key) - sum(specs.find((o) => o.fieldId === 'n:p_1').spawns, key), 2, 'two more than the other field');
+    assert.deepEqual(debugView(ps).enemies, [], 'one battle only');
+    const listed = debugEnemyEntries(enemies);
+    assert.ok(!listed.some((e) => e.key === token) && listed.some((e) => e.key === fly), 'the panel leaves token-only summons out');
   });
 });
 

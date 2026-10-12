@@ -10,7 +10,7 @@
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
 //   fb.send                          (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
 //   debugPageHidden(path)            server/index.js static route: the effect / sound debug page only with SP_DEBUG_PAGE=1
-//   dbg.funds / dbg.addDiy / dbg.addChess / dbg.finish  (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
+//   dbg.funds / dbg.addDiy / dbg.addChess / dbg.addEnemy / dbg.clearEnemies / dbg.finish  (via onMessage) the in-game debug panel, local debug mode only — see debugMode below
 //
 // 선발 오퍼레이터: since 0.2.0 upstream's 自选 framework (shared/diy.js, server/match/player/diy.js) with our
 // operators as its only candidates (tools/build-data.mjs local patch); nothing of it is wrapped here.
@@ -80,7 +80,7 @@ const factionsMsg = (c) => ({ t: 'room.factions', factions: Object.fromEntries(c
 export function onMessage(lobby, session, msg) {
   if (msg.t === 'room.chat') return chat(lobby, session, msg);
   if (msg.t === 'room.chatFaction') return pickFaction(lobby, session, msg);
-  if (msg.t === 'dbg.funds' || msg.t === 'dbg.addDiy' || msg.t === 'dbg.addChess' || msg.t === 'dbg.finish') return debugMessage(lobby, session, msg); // local debug mode only
+  if (DEBUG_MSGS.has(msg.t)) return debugMessage(lobby, session, msg); // local debug mode only
   if (msg.t === 'fb.send') return feedbackOf(lobby).submit(session, msg);
   return null;
 }
@@ -297,8 +297,8 @@ export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-f
 // Local debug mode = SP_DEBUG_PAGE=1 or a valid SP_DEBUG_FUNDS, and NODE_ENV is not 'production'.
 // local.sh sets both; deployed servers set neither and the Docker image sets NODE_ENV=production, so a deployed
 // server is never in it. Only then:
-//   m.private.debug = { fundsPin, pinValue, candidates }   (privateView wrapper, installed at import) — the client
-//                     renders the panel only when this is present
+//   m.private.debug = { fundsPin, pinValue, candidates, enemies }   (privateView wrapper, installed at import) — the
+//                     client renders the panel only when this is present; `enemies` = the extra enemies queued below
 //   dbg.funds { on }        the sender's funds pinned to pinValue (SP_DEBUG_FUNDS, else 99) or back to real funds
 //                           (they keep the pinned value and move normally from there)
 //   dbg.addDiy { charId, tier, golden?, skill?, module? }
@@ -316,11 +316,22 @@ export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-f
 //                           into the sender's hand through PlayerState.acquireChess like dbg.addDiy: normal, or its elite
 //                           with `golden`, prep only, refused with a full hand unless it completes a merge, no pool copies
 //                           taken (a merge it completes still tops the elite up, _mergeChess). The panel lists them from the client's own chess table (no list in m.private.debug).
+//   dbg.addEnemy { enemyKey, count? }
+//                           `count` (1–20, default 1) more of any enemy of data/enemies.json (not a token-only summon) in
+//                           the sender's next battle: queued as a 0-coin, one-battle bounty (Match.addBounty, the
+//                           `debugEnemies` flag), so they join the round exactly like the official extra enemies of a
+//                           悬赏 card (waves.js bountyPlan: inserted into the template's first walker / flyer action, the
+//                           normal round's scale, the boss rounds' own half) and show in the 敌情 preview and the effects
+//                           list; the settlement after that battle drops them (roundsLeft 1). Prep only — a bounty added in
+//                           combat would be dropped by that combat's settlement before it spawned.
+//   dbg.clearEnemies {}     the queued debug enemies dropped (prep only)
 //   dbg.finish { victory }  the match ends now as won / lost (Match.finish, reason victory / defeat): the settlement screen,
 //                           its [stats] line and its feedback (local-feedback.js) without playing to the end — any phase
 // Outside debug mode these messages are refused as BAD_MSG (the server never trusts the client's panel).
 
 export const DEBUG_PIN_DEFAULT = 99;
+const DEBUG_MSGS = new Set(['dbg.funds', 'dbg.addDiy', 'dbg.addChess', 'dbg.addEnemy', 'dbg.clearEnemies', 'dbg.finish']);
+export const DEBUG_ENEMY_NAME = 'DEBUG'; // the queued bounty's name in the effects list (the same in every language)
 
 /** Whether this server runs in local debug mode (see above). */
 export function debugMode(env = process.env) {
@@ -394,7 +405,8 @@ export function debugSetPick(ps, slotId, pick) {
 export function debugView(ps) {
   if (!ps || ps.isBot) return null;
   if (!ps.m.debugCandidates) ps.m.debugCandidates = debugCandidates(ps.gd);
-  return { fundsPin: fundsPinOf(ps) != null, pinValue: FIXED_FUNDS ?? DEBUG_PIN_DEFAULT, candidates: ps.m.debugCandidates };
+  const enemies = ps.bounties.filter((b) => b.debugEnemies).map((b) => ({ enemyKey: b.card.enemyKey, count: b.card.count }));
+  return { fundsPin: fundsPinOf(ps) != null, pinValue: FIXED_FUNDS ?? DEBUG_PIN_DEFAULT, candidates: ps.m.debugCandidates, enemies };
 }
 
 /**
@@ -455,6 +467,23 @@ export function debugIntent(m, playerId, msg, env = process.env) {
     ps.dirty();
     return OK;
   }
+  if (msg.t === 'dbg.addEnemy') {
+    const e = m.gd.enemy(msg.enemyKey);
+    if (!e || e.tokenOnly) return fail(ERR.BAD_TARGET, 'not a spawnable enemy');
+    const g = ps._gate({ allowWhenReady: true }); if (g) return g;
+    const count = msg.count ?? 1;
+    const id = m.addBounty(ps, { name: DEBUG_ENEMY_NAME, desc: '', coin: 0, payout: 'kill', rounds: 1, enemyKey: msg.enemyKey, count });
+    const b = id && ps.bounties.find((x) => x.id === id);
+    if (!b) return fail(ERR.BAD_TARGET, 'not a spawnable enemy');
+    b.debugEnemies = true;
+    return OK;
+  }
+  if (msg.t === 'dbg.clearEnemies') {
+    const g = ps._gate({ allowWhenReady: true }); if (g) return g;
+    ps.bounties = ps.bounties.filter((b) => !b.debugEnemies);
+    ps.dirty();
+    return OK;
+  }
   return fail(ERR.BAD_MSG);
 }
 
@@ -469,7 +498,7 @@ function debugMessage(lobby, session, msg) {
 }
 
 if (debugMode()) {
-  console.warn('[local-patch] local debug mode: in-game debug panel on (dbg.funds / dbg.addDiy / dbg.addChess / dbg.finish)');
+  console.warn(`[local-patch] local debug mode: in-game debug panel on (${[...DEBUG_MSGS].join(' / ')})`);
   const upstreamView = PlayerState.prototype.privateView;
   PlayerState.prototype.privateView = function privateView() {
     const v = upstreamView.call(this);

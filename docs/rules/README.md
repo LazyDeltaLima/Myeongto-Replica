@@ -68,7 +68,7 @@
 | 갱신 버튼 강조 (전략이 다음 수동 갱신에 작용할 때 테두리가 빛남: 두요야 라운드 첫 2회, 梓兰 매번, 佩佩 특수 갱신 대기, 贾维 N번째 갱신 직전) | `server/local-patch.js refreshBoost`, `public/css/refresh-boost.css` | — |
 | 얼린 상점에서 특수 갱신이 바꾼 칸도 얼림 유지 (원본은 `setShopSlot`이 항상 `frozen: false` → 佩佩·杜遥夜가 넣은 칸이 전투 시작 때 사라짐) | `server/match/effectsMeta.js setShopSlot` | — |
 | 디버그용 재화 고정 (`SP_DEBUG_FUNDS=<0..999>`이면 사람 플레이어 재화가 그 값으로 고정, 봇은 그대로) | `server/local-patch.js debugFunds` | `ui.md` 「디버그 패널」 |
-| 게임 내 디버그 패널 (로컬 디버그 모드만: 재화 고정, 모든 오퍼레이터·선발 추가(맹약·티어·이름 필터), 결산 화면 바로 보기) | `server/local-patch.js` `debugMode`·`debugIntent`·`debugView`, `public/js/ui/debugPanel.js`, `public/css/debug-panel.css` | `ui.md` 「디버그 패널」 |
+| 게임 내 디버그 패널 (로컬 디버그 모드만: 재화 고정, 모든 오퍼레이터·선발 추가(맹약·티어·이름 필터), 다음 전투 추가 적, F2 숨기기, 결산 화면 바로 보기) | `server/local-patch.js` `debugMode`·`debugIntent`·`debugView`, `public/js/ui/debugPanel.js`, `public/css/debug-panel.css` | `ui.md` 「디버그 패널」 |
 | 이펙트·사운드 디버그 페이지 = 샌드백 아레나 (`SP_DEBUG_PAGE=1`일 때만, 그 밖에는 404 — `/js/debug/*` 포함) | `public/debug.html`, `public/js/debug.js`, `public/js/debug/arena.js`·`sandbag.js`, `server/local-patch.js debugPageHidden`, `test/local-patch-debug.test.js` | — |
 | `/healthz` 축소 (프록시를 거친 요청은 `ok`·`version`·`app`·`build`만, 접속자·방 수는 서버 안에서만) | `server/local-patch.js proxiedRequest` | — |
 | 방별 진행 상황 (내부 `GET /healthz/rooms`: 방 코드·모드·난이도·단계·라운드·사람/접속/봇 수·끊긴 뒤 지난 분, 프록시 경유는 404) | `server/local-rooms.js`, `test/local-patch-rooms.test.js` | `ui.md` 「서버 재시작 예고」 |

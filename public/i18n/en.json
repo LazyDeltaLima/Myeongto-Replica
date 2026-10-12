@@ -1351,5 +1351,14 @@
   "选择已关闭窗口的对局。服务器重启或对局过期后无法恢复。": "Select a match from a closed window. Matches cannot be resumed after a server restart or expiry.",
   "{name} · 同盟 {code}": "{name} · Alliance {code}",
   "装备库存不足，未获得该装备": "Equipment stock is insufficient; no equipment was received",
-  "库存不足": "Out of stock"
+  "库存不足": "Out of stock",
+  "调试面板已隐藏，按 {key} 再次显示": "Debug panel hidden: press {key} to show it",
+  "{key} 键显示 / 隐藏": "{key}: show / hide",
+  "搜索敌人": "Search enemies",
+  "敌人": "Enemy",
+  "没有符合条件的敌人": "No matching enemy",
+  "首领": "Boss",
+  "数量": "Count",
+  "加入下一场作战": "Add to next battle",
+  "下一场作战：{list}": "Next battle: {list}"
 }

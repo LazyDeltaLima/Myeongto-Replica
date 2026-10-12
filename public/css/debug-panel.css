@@ -31,3 +31,11 @@
   flex: 1; height: .26rem; font: inherit; color: #ffcfae; background: rgba(0, 0, 0, .55); border: 1px solid #ff9a5c; cursor: pointer;
 }
 .dbgp__end:disabled { opacity: .45; cursor: default; }
+.dbgp__key { margin-left: .04rem; font-weight: 400; letter-spacing: 0; opacity: .7; }
+.dbgp__sep { height: 0; border-top: 1px dashed rgba(255, 120, 47, .45); margin: .02rem 0; }
+.dbgp__num {
+  flex: none; box-sizing: border-box; width: .44rem; height: .26rem; padding: 0 .04rem; font: inherit; color: inherit;
+  background: rgba(0, 0, 0, .55); border: 1px solid var(--line-2, #2c3833);
+}
+.dbgp__queued { flex: 1; min-width: 0; color: #ffcfae; overflow-wrap: anywhere; }
+.dbgp__clear { flex: none; padding: 0 .08rem; }

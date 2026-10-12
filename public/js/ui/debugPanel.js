@@ -1,5 +1,5 @@
 // In-game debug panel (local patch, docs/LOCAL-PATCH.md) — local debug mode only. The server adds m.private.debug
-// ({ fundsPin, pinValue, candidates }) only when it runs in local debug mode (server/local-patch.js debugMode:
+// ({ fundsPin, pinValue, candidates, enemies }) only when it runs in local debug mode (server/local-patch.js debugMode:
 // SP_DEBUG_PAGE=1 or SP_DEBUG_FUNDS, never NODE_ENV=production); without it this renders nothing. The server checks
 // every message again (debugIntent), so the panel is a convenience, not a gate.
 //   checkbox  dbg.funds { on }      the player's funds pinned to pinValue (local.sh: 99) or real funds
@@ -10,21 +10,30 @@
 //             a 自选 pick: dbg.addDiy { charId, tier, golden, skill, module? } of tier V / VI, fighting with the chosen
 //             skill (S1–S3) and — elite only — module (or 'none'); the server sets it as the pick of a 自选 slot of that
 //             tier. The selectors start at the player's current pick of that operator (m.private.diy) or the defaults.
+//   enemies   dbg.addEnemy { enemyKey, count } — `count` more of any enemy of the client's enemy table (token-only summons
+//             left out; search by name, Chinese name or key) in the player's next battle, joined like a 悬赏 card's
+//             enemies (preview, effects list); m.private.debug.enemies lists the queued ones, dbg.clearEnemies drops them
 //   end       dbg.finish { victory } the match ends now as won / lost — the settlement screen (and its feedback) at once
+//   F2        hides / shows the whole panel (remembered per browser: sp.pref.debugPanelHidden)
 // Sits left of the board under the bond strip (css/debug-panel.css), clear of the board, shop and hand.
 
-import { useMemo, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useMemo, useState } from '../../vendor/hooks.module.js';
 import { html, roman } from './components.js';
 import { act } from './gameActions.js';
 import { toast, toastError } from './toasts.js';
 import { net } from '../net.js';
 import { audio } from '../audio.js';
 import { data } from '../data.js';
-import { t, tName } from '../../../shared/i18n.js';
+import { loadPref, savePref } from '../store.js';
+import { N_, t, tName } from '../../../shared/i18n.js';
 
 const NONE = 'none';
 const DIY = 'diy';         // the bond filter's 自选-only choice
 const DIY_KEY = 'diy:';    // entry key prefix of a 自选 candidate (a chess entry's key is its chessId)
+export const DEBUG_PANEL_KEY = 'F2'; // KeyboardEvent.key that hides / shows the panel
+const HIDDEN_PREF = 'debugPanelHidden';
+const RANK_ORDER = { NORMAL: 0, ELITE: 1, BOSS: 2 };
+const RANK_LABEL = { NORMAL: N_('普通'), ELITE: N_('精英'), BOSS: N_('首领') };
 
 /**
  * Every operator the panel offers: [{ key, kind: 'chess'|'diy', name, tiers, bonds, hidden, hay, cand? }], tier then
@@ -63,6 +72,20 @@ export function diySlotsFullOf(detail) {
   return m ? { tier: Number(m[1]), names: m[2] ? m[2].split(', ') : [] } : null;
 }
 
+/**
+ * The enemies dbg.addEnemy may queue: [{ key, name, rank, hay }], token-only summons left out, normal → elite → boss,
+ * then by key. @param {any[]} enemyList data.list('enemies') @param {(key: string) => any} rawEnemy the Chinese record
+ */
+export function debugEnemyEntries(enemyList, rawEnemy = () => null) {
+  const out = [];
+  for (const e of Array.isArray(enemyList) ? enemyList : []) {
+    if (!e || typeof e.key !== 'string' || e.tokenOnly) continue;
+    const rank = Object.hasOwn(RANK_ORDER, e.rank) ? e.rank : 'NORMAL';
+    out.push({ key: e.key, name: e.name || e.key, rank, hay: [e.name, rawEnemy(e.key)?.name, e.key].filter(Boolean).join(' ').toLowerCase() });
+  }
+  return out.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank] || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+}
+
 /** The entries passing the filters: `bond` '' | DIY | a bond id, `tier` 0 (all) | 1–6, `query` a name fragment. */
 export function filterDebugEntries(entries, { bond = '', tier = 0, query = '' } = {}) {
   const q = String(query || '').trim().toLowerCase();
@@ -78,7 +101,11 @@ export function filterDebugEntries(entries, { bond = '', tier = 0, query = '' } 
  *   diy?: Record<string, { charId: string, skillIndex: number, uniEquipId: string|null }> | null }} props
  */
 export function DebugPanel({ debug, prep, diy }) {
+  const [hidden, setHidden] = useState(() => loadPref(HIDDEN_PREF, false) === true);
   const [open, setOpen] = useState(true);
+  const [enemyQ, setEnemyQ] = useState('');
+  const [enemyKey, setEnemyKey] = useState('');
+  const [enemyN, setEnemyN] = useState(1);
   const [bondF, setBondF] = useState('');
   const [tierF, setTierF] = useState(0);
   const [query, setQuery] = useState('');
@@ -92,9 +119,24 @@ export function DebugPanel({ debug, prep, diy }) {
   const chessReady = data.status('chess');
   const entries = useMemo(() => debugEntries(data.list('chess'), candidates, (id) => data.lookupRaw('chess', id), (id) => data.lookup('bonds', id)),
     [candidates, chessReady, data.status('bonds'), data.locale()]);
+  const enemyEntries = useMemo(() => debugEnemyEntries(data.list('enemies'), (k) => data.lookupRaw('enemies', k)),
+    [data.status('enemies'), data.locale()]);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== DEBUG_PANEL_KEY || e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+      e.preventDefault();
+      setHidden((h) => {
+        savePref(HIDDEN_PREF, !h);
+        if (!h) toast(t('调试面板已隐藏，按 {key} 再次显示', { key: DEBUG_PANEL_KEY }));
+        return !h;
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const bonds = useMemo(() => data.list('bonds').filter((b) => b && b.bondId && entries.some((e) => e.bonds.includes(b.bondId)))
     .sort((a, b) => (a.identifier ?? 99) - (b.identifier ?? 99)), [entries, data.status('bonds'), data.locale()]);
-  if (!debug || !Array.isArray(candidates)) return null;
+  if (!debug || !Array.isArray(candidates) || hidden) return null;
   const shown = filterDebugEntries(entries, { bond: bondF, tier: tierF, query });
   const sel = shown.find((e) => e.key === key) || shown[0] || null;
   const cand = sel?.kind === 'diy' ? sel.cand : null;
@@ -132,11 +174,24 @@ export function DebugPanel({ debug, prep, diy }) {
     }
     setBusy(false);
   };
+  const eq = enemyQ.trim().toLowerCase();
+  const enemiesShown = eq ? enemyEntries.filter((e) => e.hay.includes(eq)) : enemyEntries;
+  const enemySel = enemiesShown.find((e) => e.key === enemyKey) || enemiesShown[0] || null;
+  const queued = Array.isArray(debug.enemies) ? debug.enemies : [];
+  const enemyName = (k) => data.lookup('enemies', k)?.name || k;
+  const addEnemy = async () => {
+    if (!enemySel) return;
+    setBusy(true);
+    await send('dbg.addEnemy', { enemyKey: enemySel.key, count: enemyN });
+    setBusy(false);
+  };
+  const clearEnemies = async () => { setBusy(true); await act('dbg.clearEnemies', {}, { sfx: false }); setBusy(false); };
   const label = (e) => `${e.tiers.map(roman).join('/')} · ${e.name}`
     + (e.kind === 'diy' ? ` (${t('自选')})` : e.hidden ? ` (${t('隐藏')})` : '');
   return html`<div class="dbgp" role="group" aria-label=${t('调试面板')}>
-    <button type="button" class="dbgp__head" onClick=${() => setOpen(!open)} aria-expanded=${open ? 'true' : 'false'}>
-      <span>DEBUG</span><span class="dbgp__fold">${open ? '−' : '+'}</span>
+    <button type="button" class="dbgp__head" onClick=${() => setOpen(!open)} aria-expanded=${open ? 'true' : 'false'}
+      title=${t('{key} 键显示 / 隐藏', { key: DEBUG_PANEL_KEY })}>
+      <span>DEBUG <span class="dbgp__key">${DEBUG_PANEL_KEY}</span></span><span class="dbgp__fold">${open ? '−' : '+'}</span>
     </button>
     ${open ? html`<div class="dbgp__body">
       <label class="dbgp__pin">
@@ -188,6 +243,26 @@ export function DebugPanel({ debug, prep, diy }) {
         </select>
       </div>` : null}
       <button type="button" class="dbgp__add" disabled=${busy || !prep || !sel} onClick=${add}>${t('加入整备区')}</button>
+      <div class="dbgp__sep"></div>
+      <input type="search" class="dbgp__search" value=${enemyQ} placeholder=${t('搜索敌人')} aria-label=${t('搜索敌人')}
+        onInput=${(e) => setEnemyQ(String(e.currentTarget.value).slice(0, 24))} />
+      <div class="dbgp__row">
+        <span class="dbgp__label">${t('敌人')}</span>
+        ${enemiesShown.length ? html`<select value=${enemySel?.key || ''} onChange=${(e) => setEnemyKey(e.currentTarget.value)}>
+          ${enemiesShown.map((e) => html`<option key=${e.key} value=${e.key}>${`${e.name} · ${t(RANK_LABEL[e.rank])}`}</option>`)}
+        </select>` : html`<span class="dbgp__none">${t('没有符合条件的敌人')}</span>`}
+        <span class="dbgp__count">${enemiesShown.length}</span>
+      </div>
+      <div class="dbgp__row">
+        <span class="dbgp__label">${t('数量')}</span>
+        <input type="number" class="dbgp__num" min="1" max="20" step="1" value=${String(enemyN)} aria-label=${t('数量')}
+          onInput=${(e) => { const n = Math.trunc(Number(e.currentTarget.value)); if (n >= 1 && n <= 20) setEnemyN(n); }} />
+      </div>
+      <button type="button" class="dbgp__add" disabled=${busy || !prep || !enemySel} onClick=${addEnemy}>${t('加入下一场作战')}</button>
+      ${queued.length ? html`<div class="dbgp__row">
+        <span class="dbgp__queued">${t('下一场作战：{list}', { list: queued.map((q) => `${enemyName(q.enemyKey)} ×${q.count}`).join(', ') })}</span>
+        <button type="button" class="dbgp__end dbgp__clear" disabled=${busy || !prep} onClick=${clearEnemies}>${t('清空')}</button>
+      </div>` : null}
       <div class="dbgp__row">
         <span class="dbgp__label">${t('结算')}</span>
         <button type="button" class="dbgp__end" disabled=${busy} onClick=${() => finish(true)}>${t('胜利')}</button>
