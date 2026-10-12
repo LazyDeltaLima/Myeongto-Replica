@@ -20,6 +20,9 @@
 //   noteRender(event, detail?)         what the field view's board did (3D on / failed / lost / waits / retry, the
 //                                      simplified view): the last RENDER_MAX events, for the report's render lines
 //   renderEvents() / clearRenderEvents()
+//   mountTimer()                       times one field mount (fieldHost + createFieldView stages, late art / 3D / scene)
+//                                      for the report's `mount:` lines (+ the downloads in that window, Resource Timing)
+//   mountRecords() / clearMountRecords() / mountNet(m, resources)
 //   buildDiagnostics(input)            the report text (pure: the state, the environment and the battle are passed in)
 //   diagnosticsText({ state, settings, attachBattle })  the report of this page (this browser, the battle on screen)
 //
@@ -51,6 +54,52 @@ export function noteRender(event, detail = null, at = Date.now()) {
 }
 export const renderEvents = () => renderLog.map((e) => ({ ...e }));
 export function clearRenderEvents() { renderLog.length = 0; }
+
+/** @type {{ at: number, t0: number, kind: string|null, total: number|null, steps: { name: string, ms: number, cut: boolean }[], late: { name: string, ms: number }[] }[]} */
+const mountLog = [];
+export const MOUNT_MAX = 4;
+const LATE_MAX = 8;
+// the downloads a report sums per mount (Resource Timing): the default buffer of 250 entries is full before a match
+try { globalThis.performance?.setResourceTimingBufferSize?.(3000); } catch { /* ignore */ }
+/**
+ * Time one field mount (ui/fieldHost.js → render/app.js createFieldView) for the report's `mount:` lines: `step(name,
+ * cut)` closes a stage (ms since the previous one; `cut` = its wait ended by the deadline, not by the thing arriving),
+ * `done(kind)` the mount ('engine' | 'fallback' | 'cancelled'), `late(name)` when something arrived, from the mount's
+ * start (art, 3d, scene — during or after the mount; first of each name only). The last MOUNT_MAX mounts are kept. The
+ * field load on phones is slow (maintainer report 2026-10-12) — this says which stage.
+ * @param {() => number} [now] ms clock (performance.now)
+ */
+export function mountTimer(now = () => globalThis.performance.now()) {
+  const t0 = now();
+  let last = t0;
+  const rec = { at: Date.now(), t0, kind: null, total: null, steps: [], late: [] };
+  mountLog.push(rec);
+  if (mountLog.length > MOUNT_MAX) mountLog.splice(0, mountLog.length - MOUNT_MAX);
+  return {
+    step(name, cut = false) { const t = now(); rec.steps.push({ name: String(name), ms: t - last, cut: !!cut }); last = t; },
+    late(name) { if (rec.late.length < LATE_MAX && !rec.late.some((e) => e.name === name)) rec.late.push({ name: String(name), ms: now() - t0 }); },
+    done(kind) { if (rec.kind == null) { rec.kind = String(kind); rec.total = now() - t0; } },
+  };
+}
+export const mountRecords = () => mountLog.map((m) => ({ ...m, steps: m.steps.map((s) => ({ ...s })), late: m.late.map((e) => ({ ...e })) }));
+export function clearMountRecords() { mountLog.length = 0; }
+
+const sec = (ms) => (ms / 1000).toFixed(1);
+/**
+ * The downloads of one mount, from its start to its last late arrival (or 60 s after it began, still loading):
+ * Resource Timing entries → files, MB over the network, files with no transfer (browser / service worker cache).
+ * @param {{ t0: number, total: number|null, late: { ms: number }[] }} m @param {any[]} resources
+ */
+export function mountNet(m, resources) {
+  const end = m.t0 + Math.max(m.total ?? 60000, ...m.late.map((e) => e.ms));
+  let files = 0, bytes = 0, cached = 0;
+  for (const r of resources) {
+    if (!(r.startTime >= m.t0 && r.startTime <= end)) continue;
+    files++;
+    if (r.transferSize > 0) bytes += r.transferSize; else if (r.decodedBodySize > 0 || r.encodedBodySize > 0) cached++;
+  }
+  return { files, mb: bytes / 1048576, cached };
+}
 
 /** `name: message (code)` of an Error, a NetError, a {code, msg} push, a string or anything else. */
 export function messageOf(err) {
@@ -239,9 +288,10 @@ const join = (...parts) => parts.filter((p) => p != null && p !== '' && p !== fa
  * error log newest first) and, with `battle`, a ```json block of its spec. Secrets of `state` are whole tokens in the
  * prose and exact string values in the JSON.
  * `render` is the field view on screen (`{ kind: 'engine' | 'fallback', board3d }`, render/app.js stats().board3d) and
- * `renderEvents` what its board did (noteRender).
+ * `renderEvents` what its board did (noteRender), `mounts` the field mounts (mountTimer) and `resources` the page's
+ * Resource Timing entries (each mount line sums the downloads of its window).
  * @param {{ state: any, env?: any, settings?: any, battle?: any, entries?: any[], dropped?: number, total?: number,
- *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[] }} input
+ *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[], mounts?: any[], resources?: any[] }} input
  */
 export function buildDiagnostics(input) {
   const { state = {}, env = {}, settings = null, battle = null } = input;
@@ -254,7 +304,8 @@ export function buildDiagnostics(input) {
   if (env.ua) lines.push(`browser: ${env.ua}`);
   if (env.gpu) lines.push(`gpu: ${env.gpu}`);
   lines.push(`device: ${join(env.viewport, env.dpr ? `@${env.dpr}x` : null, env.touch ? 'touch' : null, env.cores ? `${env.cores} threads` : null,
-    env.memoryGB ? `${env.memoryGB} GB` : null, env.lang ? `lang ${env.lang}` : null, env.uiLang ? `ui ${env.uiLang}` : null) || 'unknown'}`);
+    env.memoryGB ? `${env.memoryGB} GB` : null, env.lang ? `lang ${env.lang}` : null, env.uiLang ? `ui ${env.uiLang}` : null,
+    env.standalone ? 'home-screen app' : null, env.sw ? 'resource worker' : null) || 'unknown'}`);
   const c = state.connection || {};
   lines.push(`connection: ${join(c.status || 'unknown', Number.isFinite(c.ping) ? `ping ${Math.round(c.ping)} ms` : null,
     c.attempt ? `retry ${c.attempt}` : null, c.lastError ? `last error ${messageOf(c.lastError)}` : null)}`);
@@ -284,6 +335,14 @@ export function buildDiagnostics(input) {
   const rev = input.renderEvents ?? renderEvents();
   if (rev.length) {
     lines.push(`render events: ${rev.map((e) => `${clockOf(e.at)} ${e.event}${e.detail ? ` (${e.detail})` : ''}`).join('; ')}`);
+  }
+  for (const m of input.mounts ?? mountRecords()) {
+    const head = m.kind ? `${m.kind} in ${sec(m.total)} s` : 'loading';
+    const steps = m.steps.map((s) => `${s.name} ${sec(s.ms)}${s.cut ? ' cut' : ''}`).join(', ');
+    const late = m.late.length ? `arrived: ${m.late.map((e) => `${e.name} ${sec(e.ms)} s`).join(', ')}` : null;
+    const net = input.resources ? mountNet(m, input.resources) : null;
+    lines.push(`mount: ${join(`${clockOf(m.at)} ${head}`, steps || null, late,
+      net && net.files ? `net ${net.files} files, ${net.mb.toFixed(1)} MB${net.cached ? `, ${net.cached} cached` : ''}` : null)}`);
   }
   const shown = entries.slice().reverse();
   const tot = input.total ?? total;
@@ -334,6 +393,9 @@ export function browserEnv() {
     memoryGB: g.navigator?.deviceMemory ?? null,
     lang: g.navigator?.language ?? null,
     uiLang,
+    // an iPhone's home-screen app and its Safari tab keep separate caches (the field's first load differs)
+    standalone: !!(g.navigator?.standalone || (g.matchMedia && g.matchMedia('(display-mode: standalone)').matches)),
+    sw: !!g.navigator?.serviceWorker?.controller,
   };
 }
 
@@ -343,7 +405,9 @@ export function browserEnv() {
  * @param {{ state: any, settings?: any, attachBattle?: boolean }} opts
  */
 export function diagnosticsText({ state, settings = null, attachBattle = false }) {
-  return buildDiagnostics({ state, settings, env: browserEnv(), battle: attachBattle ? currentBattle() : null, render: renderStatus() });
+  let resources;
+  try { resources = globalThis.performance?.getEntriesByType?.('resource') ?? null; } catch { resources = null; }
+  return buildDiagnostics({ state, settings, env: browserEnv(), battle: attachBattle ? currentBattle() : null, render: renderStatus(), resources });
 }
 
 /** The field view on screen (ui/fieldHost.js keeps it on `__SP_VIEW__`): its kind and its board's 3D state, or null. */

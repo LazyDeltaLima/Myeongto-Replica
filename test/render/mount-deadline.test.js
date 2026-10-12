@@ -30,7 +30,11 @@ test('the waits of a slow mount all fit in a 12 s race', () => {
 test('createFieldView passes every optional wait through the deadline', () => {
   const src = readFileSync(new URL('../../public/js/render/app.js', import.meta.url), 'utf8');
   const body = src.slice(src.indexOf('export async function createFieldView'));
-  const waits = [...body.matchAll(/withTimeout\([^;]*?,\s*([^,;]+),\s*signal\)/g)].map((m) => m[1].trim());
-  assert.ok(waits.length >= 5, `found ${waits.length} waits`);
-  for (const w of waits) assert.ok(w === 'null' || /^waitCap\(\d+\)$/.test(w), `uncapped wait: ${w}`);
+  // the timed optional waits (waitStep: manifests, fonts, art, 3d) and any direct withTimeout but the uncapped Pixi load
+  const steps = [...body.matchAll(/waitStep\('(\w+)',[^;]*?,\s*([^,;]+)\);/g)].map((m) => [m[1], m[2].trim()]);
+  assert.deepEqual(steps.map(([n]) => n), ['manifests', 'fonts', 'art', '3d']);
+  for (const [n, w] of steps) assert.match(w, /^waitCap\(\d+\)\)?$/, `uncapped wait: ${n}`);
+  const direct = [...body.matchAll(/withTimeout\([^;]*?,\s*([^,;]+),\s*signal\)/g)].map((m) => m[1].trim());
+  assert.deepEqual(direct, ['null'], 'besides waitStep, only the Pixi load (uncapped: the engine needs it) calls withTimeout');
+  assert.match(body, /const waitStep = async \(name, p, ms\) => \{[^}]*\{ came = true; \}[^]*?\), ms, signal\);/);
 });

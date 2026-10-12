@@ -13,7 +13,7 @@ import { createFallbackView } from './fallbackField.js';
 import { data } from '../data.js';
 import { audio } from '../audio.js';
 import { settingsStore } from './settings.js';
-import { noteRender } from '../diag.js';
+import { noteRender, mountTimer } from '../diag.js';
 
 const LOAD_TIMEOUT_MS = 12000;
 /**
@@ -231,6 +231,7 @@ export async function mountFieldView(host, { signal } = {}) {
     if (signal?.aborted) onAbort();
     let engineView = null;
     const dispose = (view) => { try { view?.destroy?.(); } catch { /* ignore */ } };
+    const timing = mountTimer(); // the report's `mount:` line (diag.js): which stage a slow field load spent its time in
     try {
       checkActive(controller.signal);
       // the shared asset store (public/js/assets.js) keeps its Spine cache across remounts (next match, reconnect)
@@ -239,16 +240,18 @@ export async function mountFieldView(host, { signal } = {}) {
         return null;
       });
       checkActive(controller.signal);
+      timing.step('store');
       if (am?.assets && typeof am.assets.ready === 'function') {
         opts.assets = am.assets;
         seedAssets(am.assets);
       }
       const mod = await withTimeout(import('../render/app.js'), LOAD_TIMEOUT_MS, 'render engine import', controller.signal);
       checkActive(controller.signal);
+      timing.step('engine');
       if (typeof mod?.createFieldView !== 'function') throw new Error('createFieldView missing');
       // A factory that ignores cancellation still belongs to this attempt when it eventually returns.
       // `deadline`: the engine cuts its optional waits (art, 3D board) to fit this race instead of losing it
-      const pending = Promise.resolve(mod.createFieldView(host, { ...opts, signal: controller.signal, deadline: Date.now() + LOAD_TIMEOUT_MS })).then((view) => {
+      const pending = Promise.resolve(mod.createFieldView(host, { ...opts, signal: controller.signal, deadline: Date.now() + LOAD_TIMEOUT_MS, timing })).then((view) => {
         if (controller.signal.aborted) dispose(view); else engineView = view;
         return view;
       });
@@ -256,10 +259,12 @@ export async function mountFieldView(host, { signal } = {}) {
       checkActive(controller.signal);
       const missing = METHODS.filter((k) => typeof view?.[k] !== 'function');
       if (missing.length) throw new Error(`view lacks ${missing.join(', ')}`);
+      timing.done('engine');
       return guardView(view, 'engine');
     } catch (err) {
       controller.abort();
       dispose(engineView);
+      timing.done(signal?.aborted ? 'cancelled' : 'fallback');
       checkActive(signal);
       console.warn('[field] render engine unavailable, using the simplified view:', err?.message || err);
       noteRender('simplified view', String(err?.message || err));

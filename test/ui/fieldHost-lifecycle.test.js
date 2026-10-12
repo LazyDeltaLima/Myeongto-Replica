@@ -16,7 +16,7 @@ const METHODS = ['setStage', 'setCamera', 'setPrep', 'enterBattle', 'pushSnapsho
 const flush = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
 
 function fixture() {
-  const timers = new Map(), requests = [], fallbacks = [], warnings = [];
+  const timers = new Map(), requests = [], fallbacks = [], warnings = [], mounts = [];
   let timerId = 0;
   const unrelated = { name: 'unrelated' };
   const host = {
@@ -38,13 +38,14 @@ function fixture() {
     AbortController, DOMException, URLSearchParams, Promise,
     console: { warn: (...args) => warnings.push(args) },
     audio: {}, data: { get() { return null; } }, settingsStore: { get() { return {}; } }, noteRender: () => {},
+    mountTimer() { const m = { steps: [], kind: null }; mounts.push(m); return { step: (n) => m.steps.push(n), late() {}, done: (k) => { m.kind ??= k; } }; },
     setTimeout(fn) { timers.set(++timerId, fn); return timerId; },
     clearTimeout(id) { timers.delete(id); },
     importAssets: async () => null,
     importApp: async () => ({
       createFieldView(_host, opts) {
         // Deliberately ignore cancellation: the host must still dispose a factory's late return value.
-        return new Promise((resolve, reject) => requests.push({ resolve, reject, signal: opts.signal, deadline: opts.deadline }));
+        return new Promise((resolve, reject) => requests.push({ resolve, reject, signal: opts.signal, deadline: opts.deadline, timing: opts.timing }));
       },
     }),
     createFallbackView() {
@@ -55,7 +56,7 @@ function fixture() {
   });
   vm.runInContext(source + '\nglobalThis.mount = mountFieldView;', context, { filename: sourcePath.pathname });
   return {
-    host, unrelated, timers, requests, fallbacks, warnings, view,
+    host, unrelated, timers, requests, fallbacks, warnings, view, mounts,
     mount: (signal) => context.mount(host, { signal }),
     timeout() { const fn = [...timers.values()].at(-1); assert.ok(fn, 'initialization has a deadline'); fn(); },
   };
@@ -91,6 +92,27 @@ test('the factory gets the race\'s own deadline, so its optional waits end befor
   assert.ok(deadline >= t0 + 12000 && deadline <= Date.now() + 12000, `deadline ${deadline - t0} ms after the mount`);
   f.requests[0].resolve(f.view('engine'));
   (await pending).destroy();
+});
+
+test('each engine attempt is timed for the report: its stages, then engine / fallback / cancelled', async () => {
+  const f = fixture();
+  const ok = f.mount();
+  await flush();
+  assert.equal(typeof f.requests[0].timing?.step, 'function', 'the factory gets the timer for its own stages');
+  f.requests[0].resolve(f.view('engine'));
+  (await ok).destroy();
+  const late = f.mount();
+  await flush();
+  f.timeout();
+  (await late).destroy();
+  const controller = new AbortController();
+  const gone = settled(f.mount(controller.signal));
+  await flush();
+  controller.abort();
+  await flush();
+  assert.equal(gone.state, 'rejected');
+  assert.deepEqual(f.mounts.map((m) => [m.steps.join(','), m.kind]),
+    [['store,engine', 'engine'], ['store,engine', 'fallback'], ['store,engine', 'cancelled']]);
 });
 
 test('cancelling a pending mount rejects without fallback and disposes a late result', async () => {

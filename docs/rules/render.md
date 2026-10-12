@@ -267,6 +267,13 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   확인: `test/render/mount-deadline.test.js`, `test/ui/fieldHost-lifecycle.test.js`; Windows Chrome 하네스(관리자 노트의 mount-deadline.mjs, 서비스
   워커 우회 + 요청 지연): Pixi 6초·보드 아트·three.js 8초 → 11.8초에 엔진, 31초에 3D 붙음(이전 코드라면 6 + 2.5 + 6초 > 12초로 간이 보기);
   첫 Pixi 14초 → 12.2초 간이 보기 → 17.3초 시간 재시도 → 18.1초 엔진 + 3D. [화면 미확인] 실제 iPhone Safari 탭.
+- 필드 로딩 단계 시간 (2026-10-12, 관리자 질문 「모바일은 wifi인데도 필드 진입이 느림 — 기기 성능?」 → 관리자 요청 「추가해」): 진단 정보에
+  `mount:` 줄(최근 4번) — `diag.js mountTimer`를 `fieldHost`가 만들어 `createFieldView`에 `timing`으로 넘긴다. 단계: `store`·`engine`(모듈
+  import)·`pixi`·`manifests`·`fonts`·`setup`·`art`·`3d`(초; 마감으로 끊긴 대기는 `cut`), 결과 `engine`/`fallback`/`cancelled`, `arrived:`(판 그림·
+  3D 보드·공식 씬이 도착한 시각, 마운트 시작부터), `net`(그 구간의 Resource Timing: 파일 수·전송 MB·전송 0인 캐시 파일 수). `device:` 줄에
+  `home-screen app`(iOS standalone)·`resource worker`(서비스 워커가 페이지를 맡음). 받기 대 디코딩·설정을 가르는 용도 — 측정 기능이지 동작 변경 없음.
+  확인: `test/diag.test.js` 3, lifecycle 1; Windows Chrome 하네스에서 slow3d `engine in 11.7 s | … pixi 6.1, … art 2.5 cut, 3d 2.8 cut | arrived: art
+  14.6 s, 3d 31.3 s | net 99 files, 3.1 MB`, slowpixi `fallback in 12.2 s | store 0.0, engine 0.2` 다음 줄 `engine in 1.0 s`.
 
 ## 공식 스테이지 씬 텍스처 받기 실패 (2026-10-11, 관리자 제보 「일부 유저가 게임 중 3D 렌더링이 제대로 안 된다」)
 - 원인(코드): `board3d/official.js loadOfficialScene`이 스테이지마다 이미지 약 21장(텍스처 17 + 라이트맵 4, act1autochess_m01)을 받는데,

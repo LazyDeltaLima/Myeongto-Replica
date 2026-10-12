@@ -184,7 +184,16 @@ export async function createFieldView(host, options = {}) {
   // 12 s): each is cut to what is left before `deadline`, so a slow download (an empty cache, a phone) never costs the
   // whole engine — the art and the 3D board attach when they arrive. Without a deadline each wait keeps its own cap.
   const waitCap = (ms) => capWait(ms, opts.deadline);
+  // `timing` (diag.js mountTimer, from ui/fieldHost.js): each stage's time for the report's `mount:` line — `cut` when
+  // the deadline ended a wait, not the thing arriving; the art, the 3D board and the stage scene note when they arrive
+  const timing = opts.timing || null;
+  const waitStep = async (name, p, ms) => {
+    let came = false;
+    await withTimeout(Promise.resolve(p).then(() => { came = true; }, () => { came = true; }), ms, signal);
+    timing?.step(name, !came);
+  };
   const P = await withTimeout(ensurePixi(), null, signal);
+  timing?.step('pixi');
   signal?.throwIfAborted();
   const assets = resolveAssets(opts.assets);
   const data = makeData(opts.data);
@@ -197,11 +206,11 @@ export async function createFieldView(host, options = {}) {
   let load3d = want3d && gpu3d() ? loadBoard3d(assets).catch((err) => ({ status: 'retry', why: String(err?.message || err) })) : null;
   // the manifest, and the optional local-art manifest in parallel: unit views pick an enemy's local-client model by it
   // (assets.js spineEntry, DESIGN §13 — 灼热源石虫 / 炽焰源石虫); absent or slow, they draw the web models
-  await withTimeout(Promise.all([assets.ready ? assets.ready() : null, assets.local ? assets.local() : null]
-    .map((p) => Promise.resolve(p).catch(() => {}))), waitCap(4000), signal);
+  await waitStep('manifests', Promise.all([assets.ready ? assets.ready() : null, assets.local ? assets.local() : null]
+    .map((p) => Promise.resolve(p).catch(() => {}))), waitCap(4000));
   signal?.throwIfAborted();
   // web fonts for the bitmap damage numbers / tier chips (never block long)
-  try { if (document.fonts?.load) await withTimeout(Promise.all([document.fonts.load('700 40px Bender'), document.fonts.load('700 40px Oxanium')]), waitCap(1500), signal); } catch { /* optional fonts */ }
+  try { if (document.fonts?.load) await waitStep('fonts', Promise.all([document.fonts.load('700 40px Bender'), document.fonts.load('700 40px Oxanium')]), waitCap(1500)); } catch { /* optional fonts */ }
   signal?.throwIfAborted();
 
   const size = () => ({ width: Math.max(1, host.clientWidth || 1), height: Math.max(1, host.clientHeight || 1) });
@@ -406,7 +415,7 @@ export async function createFieldView(host, options = {}) {
   // the real board art of the local client (optional): wait briefly so the first frame already uses it; a late
   // arrival swaps the atlas in place
   const artPromise = loadBoardArt(assets).then((art) => {
-    if (art && !destroyed) { tiles.setArt(art); tiles.project(cam, true); }
+    if (art && !destroyed) { tiles.setArt(art); tiles.project(cam, true); timing?.late('art'); }
     return art;
   }, () => null);
 
@@ -435,6 +444,7 @@ export async function createFieldView(host, options = {}) {
         onOfficialMissing: (id, why, n) => noteRender('3d scene retry', `${id} try ${n}: ${why}`),
         // the official scene's tile heights (style.js tileTop): the units, picking and highlights follow them
         onOfficial: (info) => {
+          timing?.late('scene');
           const h = info?.highland ?? null;
           const p = info?.platform ?? null;  // the official 射击台 model's plate (style.js tileTop 'platform')
           if (!stageRec || ((stageRec.highlandHeight ?? null) === h && (stageRec.platformHeight ?? null) === p)) return;
@@ -466,6 +476,7 @@ export async function createFieldView(host, options = {}) {
       recover.since = performance.now();
       board3dError = null;
       noteRender('3d on', recover.count ? `after ${recover.count} lost` : null);
+      timing?.late('3d');
       for (const [g, r] of hlReq) drawHighlight(r.tiles, r.style, g);
       return true;
     } catch (err) {
@@ -2268,8 +2279,9 @@ export async function createFieldView(host, options = {}) {
   onAbort = () => view.destroy();
   signal?.addEventListener('abort', onAbort, { once: true });
   signal?.throwIfAborted();
-  await withTimeout(artPromise, waitCap(2500), signal);
-  if (want3d) await withTimeout(boardReady, waitCap(6000), signal);
+  timing?.step('setup');
+  await waitStep('art', artPromise, waitCap(2500));
+  if (want3d) await waitStep('3d', boardReady, waitCap(6000));
   signal?.throwIfAborted();
   return view;
   } catch (err) {

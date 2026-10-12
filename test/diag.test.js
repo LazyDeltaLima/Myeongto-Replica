@@ -5,7 +5,7 @@ import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recordError, errorLog, errorCount, clearErrorLog, messageOf, stackOf, stripHosts, redact, redactValues, secretsOf, buildDiagnostics,
-  setBattleSource, currentBattle, LOG_MAX, STACK_LINES,
+  setBattleSource, currentBattle, LOG_MAX, STACK_LINES, mountTimer, mountRecords, clearMountRecords, mountNet, MOUNT_MAX,
 } from '../public/js/diag.js';
 import { APP_VERSION } from '../shared/constants.js';
 
@@ -182,5 +182,52 @@ describe('the report', () => {
     setBattleSource(() => { throw new Error('gone'); });
     assert.equal(currentBattle(), null);
     setBattleSource(null);
+  });
+});
+
+describe('field mount timings (mount: lines)', () => {
+  beforeEach(() => clearMountRecords());
+
+  test('a mount records its stages, cut waits, when the art / 3D / scene arrived and the downloads of its window', () => {
+    let t = 1000;
+    const timer = mountTimer(() => t);
+    t += 120; timer.step('store');
+    t += 300; timer.step('engine');
+    t += 6000; timer.step('pixi');
+    t += 2500; timer.step('art', true);
+    timer.late('art'); timer.late('art');
+    t += 1500; timer.done('engine');
+    timer.done('fallback');
+    t = 1000 + 31000; timer.late('3d');
+    const [m] = mountRecords();
+    assert.equal(m.kind, 'engine', 'the first done wins');
+    assert.equal(m.total, 10420);
+    assert.deepEqual(m.late.map((e) => [e.name, e.ms]), [['art', 8920], ['3d', 31000]], 'first of each name only');
+    const resources = [
+      { startTime: 900, transferSize: 5e6 },                          // before the mount: not counted
+      { startTime: 1100, transferSize: 456133 },
+      { startTime: 5000, transferSize: 0, decodedBodySize: 662772 },  // cache / service worker
+      { startTime: 30000, transferSize: 9 * 1048576 },
+      { startTime: 40000, transferSize: 1e6 },                        // after the last arrival: not counted
+    ];
+    assert.deepEqual(mountNet(m, resources), { files: 3, mb: (456133 + 9 * 1048576) / 1048576, cached: 1 });
+    const text = buildDiagnostics({ state: {}, renderEvents: [], resources, mounts: [{ ...m, at: Date.UTC(2026, 9, 12, 3, 26, 8) }] });
+    assert.ok(text.split('\n').includes('mount: 03:26:08 engine in 10.4 s | store 0.1, engine 0.3, pixi 6.0, art 2.5 cut'
+      + ' | arrived: art 8.9 s, 3d 31.0 s | net 3 files, 9.4 MB, 1 cached'), text);
+  });
+
+  test('only the last MOUNT_MAX mounts are kept; one still loading says so; no mounts, no line', () => {
+    assert.doesNotMatch(buildDiagnostics({ state: {} }), /mount:/);
+    for (let i = 0; i < MOUNT_MAX + 2; i++) mountTimer(() => i).done('fallback');
+    mountTimer(() => 0);
+    assert.equal(mountRecords().length, MOUNT_MAX);
+    const lines = buildDiagnostics({ state: {} }).split('\n').filter((l) => l.startsWith('mount:'));
+    assert.equal(lines.length, MOUNT_MAX);
+    assert.match(lines.at(-1), /^mount: \d\d:\d\d:\d\d loading$/);
+  });
+
+  test('the device line says when the page is the home-screen app and the resource worker serves it', () => {
+    const env = { viewport: '844x280', dpr: 3, touch: true, standalone: true, sw: true };
+    assert.ok(buildDiagnostics({ state: {}, env }).split('\n').includes('device: 844x280 | @3x | touch | home-screen app | resource worker'));
   });
 });
