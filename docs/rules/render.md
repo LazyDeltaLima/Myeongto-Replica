@@ -383,23 +383,39 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   - 대상이 없어지면 `CombatState`(대상이 있는 동안 유지) → `IdleState.OnEnter` → `Character.TryFaceToIdleDirection`: **저지 중인 적이 없을 때만**
     `FaceToDirection(idle)`로 배치 방향. 저지 중이면 돈 채로 둔다.
   - 이펙트가 쓰는 4방향 = `Entity.faceDirection` = `ParseDirection(faceTo, 0)`.
+  - 도는 모습(2차, 같은 날 관리자 요청 「즉시 도는 것·스킬 능력 플래그·공격 대신 스킬의 도는 시점도 공식대로」): `FaceSwitcher._DoSwitchFaceInternal` — 모델을
+    세로축으로 `_switchTime`의 절반 동안 0°→±90°(선형, `SetEase` 1), 옆으로 선 그 순간 `onSwitchFace`로 반전·앞/뒤 모델을 바꾸고, ∓90°→0°로 나머지 절반.
+    `_switchTime` = 0.15초(클래스 기본값이자 EN 오퍼레이터 모델 143개 `chararts` 전부). 전투 시간 기준(`BattleUtil.Deprecated_PlayTweenInBattle`).
+    강제(`StartSwitch(immediately)` = `OnFaceChanged(force)`, 배치 때)와 첫 번째는 즉시, 도는 중에 새로 돌면 앞의 것을 끝까지 보낸 뒤(`_KillLastTween` → `Kill(true)`) 새로 돈다.
+  - 스킬 능력도 같은 `DealWithFaceDirection`: 공격을 대신하는 스킬(`ReplacementSkill`)은 그 공격이 스킬 능력으로 나가므로 **휘두르기 시작할 때** 그 능력의 플래그로,
+    `CastSkill`은 능력을 바로 시전하므로 **발동할 때** 돈다.
 - 데이터: `tools/local-extract/attack_timing.py`가 공격 능력의 네 플래그를 `face`(1 대상·2 배치 방향·3 앞·4 첫 시전 대상·0 없음)로 읽고
   (EN 143명 + CN 3명 — 켈시 에스페란타·클레멘티아·안젤리나 더 멜로우 위시는 CN 실행에서 합침), `build-data.mjs abilityFace`가 1이 아닐 때만
   `attackAnim.base/skills[i].face`로 싣는다(chess 128·backups 7). 대상(1): 대부분. 없음(0): 범위 전체를 치는 공격 — 莫斯提马·诗怀雅·白面鸮 등 43모드.
   배치 방향(2): 赤刃明霄陈 S3, 丰川祥子 전 모드, 史尔特尔 S2 등 43모드. 첫 시전 대상(4): 焰尾·凯尔希·思衡托 5모드.
+  스킬 능력: `tools/local-extract/skill_cast.py`가 같은 네 플래그를 `ability.face`로 읽고(EN, 293개 중 능력 있는 113개), `build-data.mjs skillCast`가 1이 아닐 때
+  스킬 기록의 `cast.face`로 싣는다(chess 70). 없음(0) 15개(德克萨斯 S2, 泥岩 S2, 阿罗玛 S1 등), 배치 방향(2) 10개(余 S3, 莫斯提马 S2, 凛御银灰 S2·S3,
+  锏 S1·S2 등), 첫 시전 대상(4) 1개(归溟幽灵鲨 S1).
 - 구현:
   - sim `ai.js updateAlly`: 'swing'에 여섯째 값 — 주 대상 id(`face` 1·4, 값이 없는 능력도 [추정] 대상), `'D'`(2), `'F'`(3), 없음(0). 다섯째 값은 기본 클립
     플래그(0/1). 대상이 사라지면(죽음·이탈·범위 밖이고 저지 안 함) 다른 대상이 있으면 그것으로, 없고 저지 중이 아니면 `['face', id]`(`faceIdle`).
     다음 공격이 준비됐는데 대상이 없을 때도 같다. 전투 결과에는 영향 없음(골든은 이벤트 수만 바뀜).
+    스킬 능력(`ai.js castFace`): 'replace' 시전의 공격이 시작될 때(`startReplacement`, 공격 덮어쓰기 키트는 `swingFace`가 스킬 능력 플래그를 씀)와
+    `CastSkill`이 능력을 시전할 때(`skills.js activate`, 능력 없는 버프 시전은 안 돎) `['face', id, 돌 곳]`(값은 'swing'의 여섯째와 같음). 대상은 그 순간
+    공격이 잡을 대상 [추정: 키트가 스킬 효과에서 대상을 따로 고르고, 공식은 스킬 능력이 시전 때 찾음].
   - 렌더 `render/face-turn.js`(위 규칙 그대로), `units.js turnToward/turnTo/faceDeploy`, 상태 `view.face {lr, ud, dir4}`: 반전 = `lr`,
     Back 모델 = `ud === 'UP'`(`_wantsBack`), 재배치 때 배치 방향으로 초기화. `app.js faceEvent`가 이벤트의 **이펙트보다 먼저** 돌린다(시전 이펙트가 돈
-    방향을 씀 — `fxgame.js facingDir`이 `face.dir4`). 'swing' 없이 온 'atk'(공격을 대신하는 스킬 시전, 키트의 공격)는 타격 때 그 대상으로 돈다
-    [추정: 공식은 시전 시작 때]. 앞/뒤 모델 교체는 비동기라 휘두르던 클립을 새 모델이 이어 받는다(`spine.js swingElapsed`).
-- [추정] 남은 차이: `FaceSwitcher._switchTime` 돌아서는 트윈 없음(즉시), 부유·이상 플래그 13/22 검사 없음, 반전 방향 이펙트 `U_OR_D`는 `faceToBack`이
-  아니라 4방향으로 고름(뒤 모델로 옆을 칠 때만 다름), 스킬 능력(`skill_cast.py`)의 플래그는 안 읽음(대상으로 돈다고 봄).
+    방향을 씀 — `fxgame.js facingDir`이 `face.dir4`). 'swing'·시전 'face' 없이 온 'atk'(키트가 따로 내는 공격)는 타격 때 그 대상으로 돈다
+    [추정: 공식은 그 능력 시전 때, 그 플래그는 안 읽음]. 앞/뒤 모델 교체는 비동기라 휘두르던 클립을 새 모델이 이어 받는다(`spine.js swingElapsed`).
+    도는 모습: `units.js turnTo` → `turnS`, `update`가 전투 시간(`animRate`)으로 진행하며 반전 배율에 `face-turn.js turnWidth`(각도의 cos)를 곱하고 절반에서
+    `_showFace`(반전·`faceUd` → `_wantsBack`). 논리 방향 `face`(이펙트의 `dir4`)는 공식 `Entity.faceDirection`처럼 돌기 시작할 때 바뀐다. 모델이 아직 안 그려졌으면 즉시.
+- [추정] 남은 차이: 부유·이상 플래그 13/22 검사 없음, 반전 방향 이펙트 `U_OR_D`는 `faceToBack`이 아니라 4방향으로 고름(뒤 모델로 옆을 칠 때만 다름),
+  도는 모습은 세로축 회전을 2D에서 너비(cos)로만 그림(원근 차이 없음), 공식 옵션(`BattleOptions` +0xAB)과 2배속 이상에서 트윈을 건너뛰는 분기는 안 따름,
+  키트가 따로 내는 공격(재능·스킬 효과의 추가 타격)은 그 능력 플래그를 안 읽고 타격 때 대상으로 돎.
 - 연결된 일: 아래 방향 클립(`DOWN_FAMILY`) — 공격 능력에 `_downAnimKey`·`_upAnimKey`가 있어 공식은 **돈 방향**으로 아래/위 클립을 고르는 것으로 보인다
   [추정]. 이제 `view.face`가 있으니 그 판정을 디컴파일로 확인하면 붙일 수 있다.
-- 테스트: `test/render/face-turn.test.js`, `test/sim/attack-timing.test.js`(대상 id·뒤에 저지된 적·`face` 이벤트·'D'/없음). **[화면 미확인]**
+- 테스트: `test/render/face-turn.test.js`(도는 너비·절반에서 바뀜·도는 중 새로 돌기), `test/sim/attack-timing.test.js`(대상 id·뒤에 저지된 적·`face` 이벤트·'D'/없음·
+  스킬 능력 시전의 `face`). **[화면 미확인]**
 
 ## 모델 점 위치·임포스터 상자 (2026-10-12, 관리자 제보 「안젤리나 더 멜로우 위시 S2 무기 이펙트가 오퍼 본인에 겹쳐 나오고, 오른쪽 위 언덕 타일에 무기가 잘린다 — 디버그 아레나에선 재현 안 됨」)
 - 실제 판(솔로 판 정비에 디버그로 넣고 전투, Windows Chrome)에서 재현. 둘 다 공식 동작이 아니라 우리 렌더 코드의 계산 오류다.

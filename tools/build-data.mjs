@@ -2456,8 +2456,9 @@ function opAttackAnim(ctx, charId, skillCount) {
  * ends) or 'free' (`_switchToState` 0); `resetCd` 1 = `_resetAbilityCooldownWhenCastEnd`. With a skill ability: `time`
  * = its `_timeMode` (0 the attack interval, 1 its clip, 2 / 3 `cd`), `cd` (time 2: `_cooldown`, 3: the blackboard
  * value of `_cooldownKey`), its clip (`clip`, `dur`, the first OnAttack frame `hit` — Front skeleton, data/assets.json,
- * a key the skeleton lacks also tried as `<key>_Loop`) and abilityTiming's `max` / `pre` / `wait`. No ability (a buff
- * cast): `mode` only. null when the skill was not read.
+ * a key the skeleton lacks also tried as `<key>_Loop`), abilityTiming's `max` / `pre` / `wait` and abilityFace's `face`
+ * (where the unit turns as the ability is cast — server/sim/ai.js castFace). No ability (a buff cast): `mode` only. null
+ * when the skill was not read.
  */
 function skillCast(ctx, charId, s) {
   const c = ctx.skillCast?.skills?.[s.prefabId] ?? ctx.skillCast?.skills?.[s.skillId];
@@ -2477,7 +2478,7 @@ function skillCast(ctx, charId, s) {
     Object.assign(out, { clip: n, dur, ...(Array.isArray(h) && Number.isFinite(h[0]) ? { hit: Math.min(dur, Math.max(0, h[0])) } : {}) });
     break;
   }
-  return Object.assign(out, abilityTiming({ max: a.max, pre: a.pre, wait: a.wait }));
+  return Object.assign(out, abilityTiming({ max: a.max, pre: a.pre, wait: a.wait }), abilityFace(a));
 }
 
 /**

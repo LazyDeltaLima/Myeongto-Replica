@@ -163,3 +163,31 @@ test('the real match path: 引星棘刺 S2 (a Skill-state cast) holds her attack
   assert.equal(b.errors.length, 0, b.errors[0]?.error?.message);
   m.dispose?.();
 });
+
+// docs/rules/render.md 「공격 방향」: a skill ability turns its unit by its own flags as it is cast (client code
+// `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`; data `cast.face`, ai.js castFace) — a 'replace' cast as
+// its attack starts, not at its strike; a CastSkill as it casts; a buff-only cast (no ability) not at all
+test('a skill ability turns its unit as it is cast: [face, unit, turn] at a replace swing\'s start and at a CastSkill\'s cast', () => {
+  const faces = (h, u) => h.eventsOf('face').filter((e) => e[1] === u.id && e.length > 2);
+  const r = field({ mode: 'replace', time: 0, clip: 'Skill', dur: 1, hit: 0.5, max: 1 });
+  const foe = r.h.b.units.find((e) => e.side === 'enemy');
+  r.u.skill.gainSp(5, 'test');
+  assert.ok(r.h.runUntil(() => r.u.swing?.replace, 3), 'the replaced attack starts');
+  const t0 = r.h.b.time;
+  assert.deepEqual(faces(r.h, r.u).map((e) => e[2]), [foe.id], 'turned to its target as the swing starts');
+  assert.ok(!r.u.mem.casts?.length, 'before its strike');
+  assert.ok(r.h.runUntil(() => r.u.mem.casts?.length, 2) && r.h.b.time > t0, 'the skill strikes later');
+  for (const [face, want] of [[1, [foe.id]], [2, ['D']], [3, ['F']], [0, []]]) {
+    const s = field({ mode: 'state', time: 1, clip: 'Skill', dur: 1, max: 1, ...(face === 1 ? {} : { face }) });
+    s.u.skill.gainSp(5, 'test');
+    s.h.step();
+    assert.equal(s.u.mem.casts?.length, 1);
+    assert.deepEqual(faces(s.h, s.u).map((e) => e[2]), want, `state cast, face ${face}`);
+  }
+  const buff = field({ mode: 'free' });
+  buff.u.skill.gainSp(5, 'test');
+  buff.h.step();
+  assert.equal(buff.u.mem.casts?.length, 1);
+  assert.deepEqual(faces(buff.h, buff.u), [], 'a buff-only cast turns nowhere');
+  checkInvariants(r.h.b);
+});

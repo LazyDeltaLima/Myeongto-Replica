@@ -55,6 +55,7 @@
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
 
 import { absoluteRangeKeys, canTargetEnemy } from './targeting.js';
+import { castFace } from './ai.js';
 import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE, ROWS } from './constants.js';
 
 const TICK_RULES = new Set(['SP_FULL', 'SEARCH', 'CUSTOM_RANGE', 'SKILL_RANGE', 'ACTIVE_RANGE', 'GDGLOW_SKILL_2']);
@@ -579,6 +580,9 @@ export class SkillRuntime {
     }
     b._ev(['skill', u.id, 1]);
     u.skillAnimUntil = b.time + SKILL_ANIM_WINDOW;
+    // a CastSkill casts its skill ability now: the unit turns by its flags (ai.js castFace; a 'replace' cast turns as
+    // its attack starts — ai.js startReplacement / swingFace)
+    if (this.cast && this.cast.mode !== 'replace' && this.cast.time != null) castFace(b, u, this.cast.face);
     this._call('onStart', { reason });
     if (b._hooks.skillStart) b.emit('skillStart', { unit: u, skill: this, reason });
     // bullets added in skillStart (拉特兰's round(ammo × (0.05 + 0.015 × layers)), 逃犯引渡手续, talents): the bar's full mark

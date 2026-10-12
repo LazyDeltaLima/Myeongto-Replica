@@ -154,7 +154,7 @@ export function normalizeSkill(rec) {
 
 /**
  * data/chess.json / backups.json skill `cast` (tools/build-data.mjs skillCast — how the client casts the skill: docs/rules/
- * sim.md 「즉발 스킬의 시전」) → { mode: 'replace' | 'state' | 'free', resetCd, time, cd, dur, hit, max, pre, wait }, or
+ * sim.md 「즉발 스킬의 시전」) → { mode: 'replace' | 'state' | 'free', resetCd, time, cd, dur, hit, max, pre, wait, face }, or
  * null when absent. `time` null = no skill ability (a buff cast); `dur` null = its clip is not known; `max` −1 → Infinity
  * (no bound), absent → 1 (normAttackAnim).
  */
@@ -173,6 +173,8 @@ export function normSkillCast(c) {
     max: max == null ? 1 : max < 0 ? Infinity : Math.max(0.1, max),
     pre: pre > 0 ? pre : 0,
     wait: c.wait !== 0 && c.wait !== false,
+    // where the skill ability turns its unit as it is cast (ai.js castFace): as attackAnim `face`, absent = 1 its target
+    face: Number.isInteger(c.face) && c.face >= 0 && c.face <= 4 ? c.face : 1,
   };
 }
 

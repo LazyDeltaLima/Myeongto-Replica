@@ -1620,26 +1620,27 @@ export async function createFieldView(host, options = {}) {
   /**
    * An operator turns as its attack starts (docs/rules/render.md 「공격 방향」, render/face-turn.js) — before the event's
    * effects, which take its facing: the sim's swing ['swing', unit, windup, kind, base, face] with `face` its main
-   * target's id, 'D' its deploy direction or 'F' its front (no 6th field: the attack turns it nowhere); ['face', unit]
-   * no target left → its deploy direction. An 'atk' with no swing before it (a skill cast that replaces an attack, a
-   * kit's own attack) turns it to that target at the strike [추정: the client turns at the cast's start].
+   * target's id, 'D' its deploy direction or 'F' its front (no 6th field: the attack turns it nowhere); ['face', unit,
+   * turn] a skill ability cast (sim ai.js castFace: a 'replace' cast's attack, a CastSkill), `turn` as a swing's face;
+   * ['face', unit] no target left → its deploy direction. An 'atk' with no swing or cast turn before it (a kit's own
+   * attack) turns it to that target at the strike [추정: the client turns as that ability is cast, its flags unread].
    */
   function faceEvent(e, now) {
     const k = e[0];
     if (k !== 'swing' && k !== 'face' && k !== 'atk') return;
     const v = views.get(e[1]);
     if (!v || !v.face) return;
-    if (k === 'face') { v.faceDeploy(true); return; }
-    if (k === 'swing') {
+    if (k === 'face' && e.length < 3) { v.faceDeploy(true); return; }
+    if (k === 'swing' || k === 'face') {
       v._swingTurn = true;
-      const f = e[5];
+      const f = k === 'face' ? e[2] : e[5];
       if (f === 'D') v.faceDeploy(false);
       else if (f === 'F') { const [dx, dy] = dirVector(v.dir); v.turnTo(dx * 0.5, dy * 0.5 - 1); }   // Entity.FaceToFront
       else if (f != null) { const t = views.get(f); if (t) v.turnToward(t.x, t.y); }
       return;
     }
     if (CHAIN_KINDS.has(e[3]) || e.length > 4) return;   // a bounce's "source" is its previous target; a talent's own attack
-    if (v._swingTurn) { v._swingTurn = false; v._atkTurnAt = now; return; }   // the strike of a swing that turned it already
+    if (v._swingTurn) { v._swingTurn = false; v._atkTurnAt = now; return; }   // the strike of a swing / cast that turned it already
     if (v._atkTurnAt === now) return;   // the other targets of the same attack
     v._atkTurnAt = now;
     const t = views.get(e[2]);

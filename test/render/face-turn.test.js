@@ -2,15 +2,17 @@
 // (docs/rules/render.md 「공격 방향」): the client's `MapUtil.ParseDirection`, `CharacterAnimator.OnFaceChanged` (the mirror:
 // ParseDirection(dir, 0), else the sign of x beyond 0.2) and `FaceSwitcher._TryUpdateDirection` (Back / Front: fourDir =
 // ParseDirection(dir, 0.25)) — render/face-turn.js; a swing begun on the old model goes on after a Front ⇄ Back swap
-// (render/spine.js swingElapsed). Headless fake PIXI for the actor.
+// (render/spine.js swingElapsed); each change played as the client's turn (`FaceSwitcher._DoSwitchFaceInternal`: 0.15 s about
+// the upright axis, the change edge-on half way — turnWidth, UnitView.turnTo / update). Headless fake PIXI for the actor.
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseDir, faceOf, turnFace } from '../../public/js/render/face-turn.js';
-import { installFakePixi } from './fakepixi.js';
+import { parseDir, faceOf, turnFace, turnWidth, SWITCH_TIME } from '../../public/js/render/face-turn.js';
+import { installFakePixi, fakeViewCtx } from './fakepixi.js';
+import { presetCamera } from '../../public/js/render/projection.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -63,10 +65,20 @@ test('the data: attackAnim.face where an ability does not turn to its target (�
   if (most) assert.equal(most.attackAnim.base.face, 0);
 });
 
-let fake, SpineActor;
+test('turnWidth: the model narrows to edge-on half way through the 0.15 s turn and widens again (cos of its angle)', () => {
+  assert.equal(SWITCH_TIME, 0.15);
+  assert.equal(turnWidth(0), 1);
+  assert.ok(Math.abs(turnWidth(0.0375) - Math.cos(Math.PI / 4)) < 1e-9, '45° a quarter of the way');
+  assert.ok(turnWidth(0.075) < 1e-9, 'edge-on half way');
+  assert.ok(Math.abs(turnWidth(0.1125) - Math.cos(Math.PI / 4)) < 1e-9);
+  assert.equal(turnWidth(0.15), 1, 'over');
+});
+
+let fake, SpineActor, UnitView;
 before(async () => {
   fake = installFakePixi();
   ({ SpineActor } = await import('../../public/js/render/spine.js'));
+  ({ UnitView } = await import('../../public/js/render/units.js'));
 });
 after(() => fake.restore());
 
@@ -81,4 +93,49 @@ test('a swing reports how far it is, so a model swapped mid-swing (Front ⇄ Bac
   const s = a.swingElapsed();
   assert.equal(s.windup, 0.533);
   assert.ok(Math.abs(s.elapsed - 0.2) < 1e-6, `${s.elapsed}`);
+});
+
+test('UnitView.turnTo: the mirror changes half way through the turn, a second turn completes the first, no model turns at once', async () => {
+  const CAPER = 'char_4100_caper';
+  const assets = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
+  const cam = presetCamera('prep', { width: 1280, height: 720 });
+  const entry = assets.chars[CAPER].spine.front;
+  const st = {
+    picture: () => null, image: async () => null, hasBack: () => false,
+    spineEntry: () => entry,
+    spine: { acquire: async () => ({ animations: Object.keys(entry.animations).map((name) => ({ name })) }), release() {} },
+  };
+  const make = () => new UnitView(fakeViewCtx(fake.P, { assets: st, cam: () => cam }), { id: 1, side: 'ally', kind: 'chess', defId: CAPER, x: 4, y: 10, dir: 'RIGHT', maxHp: 1000 }, {});
+  const bare = make();
+  bare.turnToward(3, 10);
+  assert.deepEqual([bare.visFacing, bare.turnS], [-1, null], 'no model drawn yet: at once');
+  const v = make();
+  for (let i = 0; i < 50 && !(v.actor && v.spineReady); i++) { await new Promise((r) => setImmediate(r)); v.update(1 / 60, cam, 0); }
+  assert.ok(v.actor && v.spineReady, 'the model is up');
+  const step = (s) => { const n = Math.max(1, Math.round(s / 0.005)); for (let i = 0; i < n; i++) v.update(s / n, cam, 0); };
+  step(0.2);
+  const full = v.modelSX;
+  assert.ok(full > 0);
+  v.turnToward(3, 10);                       // an enemy behind it
+  assert.equal(v.face.lr, -1, 'its facing (the effects\' dir4) changes as the turn starts');
+  assert.equal(v.face.dir4, 'LEFT');
+  step(0.04);
+  assert.equal(v.visFacing, 1, 'not yet mirrored');
+  assert.ok(v.modelSX > 0 && v.modelSX < full * 0.75, `narrowing: ${v.modelSX / full}`);
+  step(0.05);
+  assert.equal(v.visFacing, -1, 'mirrored edge-on, half way');
+  assert.ok(v.modelSX < 0 && -v.modelSX < full, `widening mirrored: ${v.modelSX / full}`);
+  step(0.08);
+  assert.equal(v.turnS, null);
+  assert.ok(Math.abs(v.modelSX + full) < 1e-9, 'full width again, mirrored');
+  v.turnToward(5, 10);                       // back to the right …
+  step(0.03);
+  assert.equal(v.visFacing, -1);
+  v.turnToward(3, 10);                       // … and left again before that turn showed: it completes first, with the
+  // facing the switcher holds by then (its onSwitchFace reads m_currentLOrR, already LEFT again)
+  assert.equal(v.visFacing, -1, '_KillLastTween → Kill(true): shown at once');
+  assert.equal(v.turnS.t, 0, 'the new turn starts from the beginning');
+  step(0.16);
+  assert.equal(v.visFacing, -1);
+  assert.ok(Math.abs(v.modelSX + full) < 1e-9);
 });

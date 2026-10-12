@@ -151,7 +151,7 @@ export function updateAlly(b, u, dt) {
   const swingEv = ['swing', u.id, roundMs(t.strike), prof._fortressMelee ? 'none' : (prof.projectile || 'none')];
   const base = sk && sk.active && sk.spec?.baseClip ? 1 : 0;   // the Default clip while the skill is on (attackClipOf)
   const face = swingFace(u, targets);
-  if (face != null) { swingEv.push(base, face); u.faced = true; u.faceTgt = targets[0]; } else if (base) swingEv.push(1);
+  if (face != null) { swingEv.push(base, face); u.faced = true; u.faceTgt = targets[0] ?? null; } else if (base) swingEv.push(1);
   b._ev(swingEv);
   u.castLeft = t.action;
   u.swing = { left: t.strike, targets, sel: t.sel, isSkill: !!prof.isSkill };
@@ -170,6 +170,7 @@ function startReplacement(b, u, sk) {
   u.castLeft = t.action;
   u.swing = { left: t.strike, targets: null, sel: 0, isSkill: true, replace: sk };
   sk.beginReplacement(t.action);
+  castFace(b, u, sk.cast?.face);
   if (!(t.strike > 1e-9)) allyStrike(b, u, effectiveProfile(u));
 }
 
@@ -181,9 +182,32 @@ function startReplacement(b, u, sk) {
  * renderer turns the model (render/face-turn.js, docs/rules/render.md 「공격 방향」); the sim's targeting never depends on it.
  */
 function swingFace(u, targets) {
-  const f = attackClipOf(u)?.face ?? 1;
-  if (f === 1 || f === 4) return targets[0]?.id ?? null;
-  return f === 2 ? 'D' : f === 3 ? 'F' : null;
+  // an attack a 'replace' cast took over that the kit plays as an attack override (spec.attack): the skill ability's flags
+  const sk = u.skill;
+  const f = sk && sk.pending && sk.cast?.mode === 'replace' && sk.cast.time != null ? sk.cast.face ?? 1 : attackClipOf(u)?.face ?? 1;
+  return faceOf(f, targets[0]);
+}
+
+/** The turn of facing flag `f` (swingFace) with main target `t`: its id, 'D', 'F' or null. */
+const faceOf = (f, t) => (f === 1 || f === 4 ? t?.id ?? null : f === 2 ? 'D' : f === 3 ? 'F' : null);
+
+/**
+ * A skill ability is cast (a 'replace' cast's attack starts — startReplacement —, a CastSkill casts its ability —
+ * skills.js activate): the unit turns by the ability's flags (`cast.face`, tools/local-extract/skill_cast.py; absent = 1)
+ * as it starts (client code `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`), event ['face', unit, turn]
+ * with turn as a swing's (swingFace). Its main target is the one its attack would take now [추정: the kit picks the
+ * skill's own targets at its effect; the client's skill ability searches them as it is cast]; none → no turn.
+ */
+export function castFace(b, u, face) {
+  if (!u.alive || !u.deployed || !u.canAct) return;
+  const f = face ?? 1;
+  const prof = effectiveProfile(u);
+  const t = f === 1 || f === 4 ? (prof.noAttack ? null : acquireTargets(b, u, prof)[0]) : null;
+  const turn = faceOf(f, t);
+  if (turn == null) return;
+  b._ev(['face', u.id, turn]);
+  u.faced = true;
+  u.faceTgt = t ?? null;
 }
 
 /**
@@ -200,7 +224,7 @@ function holdFaceTarget(b, u, prof) {
 }
 
 /**
- * No target left: the unit turns back to its deploy direction (event ['face', unit]) — client code
+ * No target left: the unit turns back to its deploy direction (event ['face', unit], no turn field) — client code
  * `Character.States.IdleState.OnEnter` → `TryFaceToIdleDirection`: only when it blocks no enemy (and has an Idle clip),
  * `FaceToDirection(idle)`.
  */

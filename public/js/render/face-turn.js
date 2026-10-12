@@ -11,7 +11,11 @@
 //     directions get +0.25 —, applied by `FaceSwitcher._TryUpdateDirection`: UP from DOWN always; DOWN from UP when
 //     fourDir is DOWN (an attack) or anything but UP (idle); a LEFT / RIGHT fourDir keeps it.
 // So an operator facing RIGHT mirrors to shoot an enemy behind it, takes its Back model for one clearly above it and
-// keeps whichever model it has for one beside it. Map axes as the sim's: x = column, y = row, UP = +y (row 0 is the
+// keeps whichever model it has for one beside it. A change plays as a turn (`FaceSwitcher._DoSwitchFaceInternal`, battle
+// time): the model turns about its upright axis to 90° in half of `_switchTime` (0.15 s on all 143 operator models,
+// linear), the mirror / model changes edge-on (`onSwitchFace`), and it turns from −90° back in the other half — seen from
+// the front its width goes as cos(angle) (turnWidth). A forced turn (a (re)deployment) and the first one are at once
+// (`StartSwitch(immediately)`); a turn begun during another completes that one first (`_KillLastTween` → Kill(true)). Map axes as the sim's: x = column, y = row, UP = +y (row 0 is the
 // bottom). Pure logic (no PIXI); render/units.js UnitView holds the state.
 
 /** The four directions in the client's `SharedConsts.Direction` order (UP 0, RIGHT 1, DOWN 2, LEFT 3) and vectors. */
@@ -22,6 +26,19 @@ export const LR_TOLERANCE = 0.2;
 export const LR_ADDON = 0.25;
 /** Entity.FaceToTarget: no turn for a target this close (squared distance ≤ 0.04). */
 export const NEAR_SQ = 0.04;
+/** FaceSwitcher `_switchTime` (the class default and every operator model's value, EN client chararts). */
+export const SWITCH_TIME = 0.15;
+
+/**
+ * The model's width share `t` battle s into a turn of `dur`: cos of its angle about the upright axis — 90° × t / (dur/2)
+ * in the first half, 90° × (1 − (t − dur/2) / (dur/2)) in the second (the change happens at dur/2); 1 once it is over.
+ */
+export function turnWidth(t, dur = SWITCH_TIME) {
+  if (!(t < dur) || !(dur > 0)) return 1;
+  const h = dur / 2;
+  const k = t < h ? t / h : 1 - (t - h) / h;
+  return Math.cos(Math.max(0, Math.min(1, k)) * Math.PI / 2);
+}
 
 /**
  * `MapUtil.ParseDirection(v, addon)`: the direction whose unit vector has the largest dot product with v normalised,

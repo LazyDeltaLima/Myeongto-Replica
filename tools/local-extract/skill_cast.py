@@ -12,7 +12,9 @@ The skill ability is the animated ability on the root (`AbstractAnimatedAbility`
 HitEnemy / HitTile play one clip). Its time (client code `AbstractAnimatedAbility.get_cooldown` / `DoAttach` /
 `UpdatePlaybackSpeed`): `_timeMode` 0 FROM_ATTACK_SPEED = the unit's attack interval, 1 FROM_ANIMATION = its clip length,
 2 SPECIFIED = `_cooldown`, 3 LOAD_FROM_BLACKBOARD = the blackboard value `_cooldownKey`; the clip is scaled to that time
-within [0.1, `_maxAnimScale`] as an attack's. tools/build-data.mjs folds this, with the clip lengths of data/assets.json,
+within [0.1, `_maxAnimScale`] as an attack's; its facing flags (`face`, as tools/local-extract/attack_timing.py: 1 its
+main target, 2 its deploy direction, 3 front, 4 its first cast target, 0 none) say where the unit turns as the cast
+starts (`AbstractAnimatedAbility.DealWithFaceDirection`, docs/rules/render.md 「공격 방향」). tools/build-data.mjs folds this, with the clip lengths of data/assets.json,
 into every skill record of data/chess.json / data/backups.json (`cast`). Output tools/assets/local-skill-cast.json:
 
   { "skills": { "skchr_thorn2_1": { "cls": "replace", "ability": { "anim": "Skill", "time": 0, "max": 1, "wait": 1, … } },
@@ -40,6 +42,8 @@ FIELDS = {
     '_animKey': 'anim', '_timeMode': 'time', '_cooldown': 'cd', '_cooldownKey': 'cdKey', '_maxAnimScale': 'max',
     '_preDelay': 'pre', '_waitForAttackEvent': 'wait',
 }
+# the facing flags in the order DealWithFaceDirection tests them → `face` 1..4 (0: none set)
+FACE_FLAGS = ('_faceToTarget', '_faceToDefault', '_faceToFront', '_faceToFirstCastTarget')
 
 
 def num(v):
@@ -58,6 +62,8 @@ def ability(d):
             out[o] = v if isinstance(v, str) else ''
         elif isinstance(v, (int, float)):
             out[o] = num(v)
+    if any(f in d for f in FACE_FLAGS):
+        out['face'] = next((i + 1 for i, f in enumerate(FACE_FLAGS) if d.get(f)), 0)
     return out
 
 
