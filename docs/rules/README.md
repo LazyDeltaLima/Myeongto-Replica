@@ -42,7 +42,7 @@
 | 한국어 번역 (UI·데이터·공식 문구) | `public/js/i18n/*`, `public/i18n/ko/*`, `tools/i18n/*` | — |
 | 협동 방 채팅, 채팅 진영 (8개국, 맹약 아이콘) | `server/local-patch.js`, `shared/local.js`, `public/js/ui/chat.js`, `public/js/ui/faction.js`, `public/css/chat.css` | — |
 | 서버 재시작 예고 (배포 전 카운트다운, 마지막 5분 판 시작 거부) | `server/local-restart.js`, `public/js/ui/restartNotice.js`, `test/local-restart.test.js` | `ui.md` 「서버 재시작 예고」 |
-| `SP_MAX_BOTS` (방마다 AI 팀원 한도) | `server/local-patch.js` | — |
+| `SP_MAX_BOTS` (방마다 AI 팀원 한도), `SP_MAX_BOTS_TOTAL`·`SP_MAX_BOTS_PER_ADDR` (서버 전체·네트워크별 AI 팀원 한도, 연결된 사람이 앉은 방의 AI만 셈, 거절은 `BOT_LIMIT`) | `server/local-patch.js` `botCap` | — |
 | AI 팀원 표정 반응 (`SP_BOT_EMOTES=0`이면 끔, upstream 0.2.3) | `server/match/botEmotes.js` | `ui.md` 「upstream 0.2.3 이식 — UI」 |
 | 닫은 창의 판 복구 (타이틀·로비 「이 기기의 판 복구」, 같은 브라우저 토큰, upstream 0.2.3) | `public/js/net.js` `createIdentity`, `public/js/ui/resumeMatch.js`, `server/net.js` (`SESSION_IN_USE`) | `ui.md` 「upstream 0.2.3 이식 — UI」 |
 | 이모티콘 공식/유저 탭 | `shared/emote-art.js`, `public/img/emotes/*`, `public/js/ui/emotes.js` | — |

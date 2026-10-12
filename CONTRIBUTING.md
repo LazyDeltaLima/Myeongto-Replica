@@ -25,7 +25,8 @@ npm run dev        # the server with node --watch: http://localhost:3000
 
 `npm run doctor` checks the Node version, the assets and the port. The official tables are downloaded by
 `tools/build-data.mjs` into `.cache/gamedata/`; you only need them to change data. Environment variables the server reads:
-`SP_MAX_BOTS` (AI seats per room), `SP_BOT_EMOTES=0` (silences the AI teammates' emote reactions, on by default),
+`SP_MAX_BOTS` (AI seats per room), `SP_MAX_BOTS_TOTAL` / `SP_MAX_BOTS_PER_ADDR` (AI seats on the server / from
+one network, counting rooms with a connected human), `SP_BOT_EMOTES=0` (silences the AI teammates' emote reactions, on by default),
 `SP_DEBUG_PAGE=1` (`/debug.html`, the effect and sound arena), `SP_DEBUG_FUNDS`
 (pins the human players' funds), `SP_VERIFY`, `SP_COMBAT=server`. A deployed server leaves the debug ones unset.
 

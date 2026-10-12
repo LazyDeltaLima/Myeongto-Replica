@@ -51,6 +51,8 @@ npm start          # http://localhost:3000
 | `PORT`          | `3000`    | 리스닝 포트 (`PORT=8080 npm start`)                                                |
 | `HOST`          | `0.0.0.0` | 리스닝 주소 (`127.0.0.1` = 이 PC에서만, 리버스 프록시 뒤에 둘 때)                  |
 | `SP_MAX_BOTS`   | 제한 없음 | 협동 방 하나에 넣을 수 있는 AI 팀원 수                                             |
+| `SP_MAX_BOTS_TOTAL` | 제한 없음 | 서버 전체 AI 팀원 수. 연결된 사람이 앉아 있는 방의 AI만 센다 |
+| `SP_MAX_BOTS_PER_ADDR` | 제한 없음 | 같은 네트워크에서 만든 방들의 AI 팀원 수 (세는 방식은 위와 같음, 로컬·LAN 접속은 제외) |
 | `SP_BOT_EMOTES` | 켜짐      | 사람과 AI가 섞인 판에서 AI 팀원의 표정 반응. `0`이면 끔                            |
 | `SP_COMBAT`     | `client`  | `client`: 각 플레이어 브라우저가 자기 전투를 계산 / `server`: 서버가 계산해서 보냄 |
 | `SP_VERIFY`     | `off`     | 클라이언트가 보낸 전투 결과를 서버가 다시 계산: `off` / `sample`(약 1/8) / `all`   |

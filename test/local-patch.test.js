@@ -14,6 +14,7 @@ import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
 import { makeMatch } from './match/harness.js';
 import { ERR, EMOTES } from '../shared/constants.js';
+import { botCap, liveBots } from '../server/local-patch.js';
 import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction } from '../shared/local.js';
 import { validateC2S, C2S, S2C } from '../shared/protocol.js';
 import { USER_EMOTE_PAGES, userEmoteArt, emoteSet } from '../shared/emote-art.js';
@@ -166,6 +167,56 @@ describe('room chat, chat factions and SP_MAX_BOTS (server/local-patch.js)', () 
       else process.env.SP_MAX_BOTS = prev;
     }
   });
+
+  test('SP_MAX_BOTS_TOTAL: the server-wide AI teammate budget refuses the next bot with BOT_LIMIT', async () => {
+    const prev = process.env.SP_MAX_BOTS_TOTAL;
+    try {
+      // the earlier tests' rooms are closed (their clients terminated) or hold no bots
+      process.env.SP_MAX_BOTS_TOTAL = '2';
+      const a = await player('BudgetA');
+      await createRoom(a);
+      await expectOk(a, { t: 'room.addBot' });
+      await expectOk(a, { t: 'room.addBot' });
+      const b = await player('BudgetB');
+      await createRoom(b);
+      await expectError(b, { t: 'room.addBot' }, ERR.BOT_LIMIT);
+      await expectOk(a, { t: 'room.removeBot', seat: 1 });
+      await expectOk(b, { t: 'room.addBot' });
+    } finally {
+      if (prev === undefined) delete process.env.SP_MAX_BOTS_TOTAL;
+      else process.env.SP_MAX_BOTS_TOTAL = prev;
+    }
+  });
+});
+
+test('AI teammate budget: only rooms with a connected seated human count; the per-network cap counts the rooms it created', () => {
+  const human = (connected = true) => ({ isBot: false, left: false, connected });
+  const bot = { isBot: true, left: false };
+  const room = (ownerKey, ...seats) => ({ ownerKey, seats: [...seats, null, null, null].slice(0, 4) });
+  const parked = room('k1', human(false), bot, bot, bot);
+  assert.equal(liveBots(parked), 0, 'nobody connected: the room parks, it holds no budget');
+  assert.equal(liveBots(room('k1', human(true), bot, { ...human(true), left: true })), 1);
+  const env = { SP_MAX_BOTS: process.env.SP_MAX_BOTS, SP_MAX_BOTS_TOTAL: process.env.SP_MAX_BOTS_TOTAL, SP_MAX_BOTS_PER_ADDR: process.env.SP_MAX_BOTS_PER_ADDR };
+  const warned = [];
+  const lobby = (...rooms) => ({ rooms: new Map(rooms.map((r, i) => [String(i), r])), limitWarn: (t) => warned.push(t) });
+  try {
+    delete process.env.SP_MAX_BOTS;
+    process.env.SP_MAX_BOTS_TOTAL = '6';
+    process.env.SP_MAX_BOTS_PER_ADDR = '3';
+    const mine = room('k1', human(), bot, bot);
+    const other = room('k2', human(), bot, bot, bot);
+    const me = { limitKey: 'k1', addr: '203.0.113.1' };
+    assert.equal(botCap(mine, lobby(mine, other, parked), me), null, '2 of mine + 3 others, the parked room not counted');
+    const full = room('k1', human(), bot, bot, bot);
+    assert.equal(botCap(full, lobby(full, parked), me)?.error, ERR.BOT_LIMIT, 'my network holds 3');
+    assert.equal(botCap(full, lobby(full, parked), { limitKey: null })?.error, undefined, 'local peers have no per-network cap');
+    const third = room('k3', human(), bot, bot);
+    assert.equal(botCap(mine, lobby(mine, other, third), me)?.error, ERR.BOT_LIMIT, '7 live bots ≥ 6');
+    assert.equal(botCap(mine, null, me), null, 'without the lobby only SP_MAX_BOTS applies');
+    assert.equal(warned.length, 2);
+  } finally {
+    for (const [k, v] of Object.entries(env)) if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  }
 });
 
 // ---- match: emote sets ---------------------------------------------------------------------------------------------

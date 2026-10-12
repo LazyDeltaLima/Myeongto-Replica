@@ -1205,6 +1205,7 @@
   "服务器将在 {minutes} 分钟后重启，进行中的对局将会结束": "The server restarts in {minutes} min. Matches in progress will end",
   "服务器重启已取消": "The server restart was cancelled",
   "服务器即将重启，暂时无法开始新的模拟": "The server restarts soon. New simulations cannot start now",
+  "服务器的 AI 队友名额已满，请稍后再试": "This server's AI teammate slots are full. Try again later",
   "服务器重启倒计时": "Server restart in",
   "进行中的对局将会结束": "Matches in progress will end",
   "服务器正在重启": "The server is restarting",

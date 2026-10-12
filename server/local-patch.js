@@ -1,4 +1,4 @@
-// Local patch, server side: the room chat, chat factions, the SP_MAX_BOTS cap and the co-op leader HP, kept out of
+// Local patch, server side: the room chat, chat factions, the SP_MAX_BOTS caps and the co-op leader HP, kept out of
 // the upstream files so that merging upstream releases stays conflict-free. lobby.js only calls the hooks below, one
 // line each (the leader HP needs none — see below):
 //
@@ -6,7 +6,7 @@
 //   onJoin(lobby, room, session)     a member joined, resumed or took a spectator seat: the recent lines + the factions
 //   onMatchEnd(lobby, room)          the match ended: one [stats] log line (local-stats.js), factions are cleared (they last one match)
 //   chatFactionOf(room, playerId)    Match opts.factionOf: the player's faction for m.result (the result screen's player colors)
-//   botCap(room)                     Lobby.addBot: the refusal when SP_MAX_BOTS is reached, else null
+//   botCap(room, lobby, session)     Lobby.addBot: the refusal when SP_MAX_BOTS / _TOTAL / _PER_ADDR is reached, else null
 //   maxBotsSetting()                 room.state `maxBots` (null when unset)
 //   welcomeInfo(lobby)               Lobby.welcomeInfo: `feedback: true` while the feedback inbox is on (local-feedback.js)
 //   fb.send                          (via onMessage) the settlement screen's feedback, kept in SP_FEEDBACK_DIR (local-feedback.js)
@@ -61,11 +61,58 @@ export function maxBotsSetting(env = process.env) {
   return n >= 0 ? n : null;
 }
 
-/** Lobby.addBot: the refusal once the room holds SP_MAX_BOTS AI teammates (0 = none at all), else null. */
-export function botCap(room) {
+/**
+ * SP_MAX_BOTS_TOTAL / SP_MAX_BOTS_PER_ADDR: the server's AI-teammate budget (the bots run on one Node thread), or null
+ * when unset. Only bots of rooms with a connected seated human count (`liveBots`): a room whose humans all dropped
+ * parks at its next untimed prep or is abandoned when the 10-minute reconnect window ends, so it does not hold the
+ * budget; a returning human may push the count past the cap by that room's bots, never more.
+ */
+export function botBudgetSetting(name, env = process.env) {
+  const n = Number.parseInt(env[name] ?? '', 10);
+  return n >= 0 ? n : null;
+}
+
+/** AI teammates of a room that cost CPU now: its bots while one of its seated humans is connected, else 0. */
+export function liveBots(room) {
+  let bots = 0, online = false;
+  for (const s of room.seats) {
+    if (!s || s.left) continue;
+    if (s.isBot) bots++;
+    else if (s.connected) online = true;
+  }
+  return online ? bots : 0;
+}
+
+/**
+ * Lobby.addBot: the refusal once the room holds SP_MAX_BOTS AI teammates (0 = none at all), or the server
+ * (SP_MAX_BOTS_TOTAL) or the host's network (SP_MAX_BOTS_PER_ADDR, rooms it created; local peers exempt, net.js
+ * clientAddress) has its live bots; else null.
+ */
+export function botCap(room, lobby = null, session = null) {
   const maxBots = maxBotsSetting();
-  if (maxBots == null || room.seats.filter((s) => s && s.isBot).length < maxBots) return null;
-  return fail(ERR.ROOM_FULL, maxBots === 0 ? 'AI teammates are disabled on this server' : `at most ${maxBots} AI teammate(s) per room`);
+  if (maxBots != null && room.seats.filter((s) => s && s.isBot).length >= maxBots) {
+    return fail(ERR.ROOM_FULL, maxBots === 0 ? 'AI teammates are disabled on this server' : `at most ${maxBots} AI teammate(s) per room`);
+  }
+  if (!lobby) return null;
+  const total = botBudgetSetting('SP_MAX_BOTS_TOTAL');
+  const key = session?.limitKey || null;
+  const perAddr = key ? botBudgetSetting('SP_MAX_BOTS_PER_ADDR') : null;
+  if (total == null && perAddr == null) return null;
+  let all = 0, mine = 0;
+  for (const r of lobby.rooms.values()) {
+    const n = liveBots(r);
+    all += n;
+    if (key && r.ownerKey === key) mine += n;
+  }
+  if (total != null && all >= total) {
+    lobby.limitWarn?.(`AI teammate budget (${total}) reached`);
+    return fail(ERR.BOT_LIMIT, `at most ${total} AI teammates on this server`);
+  }
+  if (perAddr != null && mine >= perAddr) {
+    lobby.limitWarn?.(`AI teammate limit (${perAddr}) reached for ${session.addr}`);
+    return fail(ERR.BOT_LIMIT, `at most ${perAddr} AI teammates from your network`);
+  }
+  return null;
 }
 
 /** @type {WeakMap<object, { log: any[], seq: number, factions: Map<string, string> }>} per room */
