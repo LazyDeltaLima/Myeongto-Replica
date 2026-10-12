@@ -306,6 +306,19 @@ describe('④ official damage / heal numbers (num-official.js, local-hud.js dama
     nums.update(0.34);
     assert.equal(nums.live.length, 0, 'gone after 0.5 s');
   });
+  test('official numbers scale with the screen like the bars (a phone is not drawn at the 1080p size)', async () => {
+    const N = await import('../public/js/render/num-official.js');
+    const phone = { width: 915, height: 412 };
+    const nums = new N.OfficialNumbers(fakeViewCtx(fake.P, { viewport: () => phone }));
+    nums.heal({ screen: { x: 0, y: 300 } }, 180);
+    assert.ok(Math.abs(nums.live[0].text.scale.x - 30 * HB.hudUnit(phone) / 60) < 1e-9, '30 units at 412 / 1080 px per unit');
+    // the numbers live in the FX system (fx/numbers.js new OfficialNumbers(this.ctx)): its context must carry the viewport,
+    // or hudUnit() falls back to 1 and every screen gets the 1920×1080 size
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../public/js/render/app.js', import.meta.url), 'utf8');
+    const fxArgs = src.slice(src.indexOf('new FxSystem({'), src.indexOf('new FxSystem({') + 2500);
+    assert.match(fxArgs.slice(0, fxArgs.indexOf('\n  });')), /\n\s+viewport: ctx\.viewport,/, 'FxSystem gets the frame viewport');
+  });
   test('blocked: a forced / crit hit stopped by a shield → \'blk\' (1 blue for the client\'s showing shields, 0 BLOCK); ordinary hits nothing', () => {
     const run = (key) => {
       const h = makeBattle({ seed: 3, timeLimit: 60, units: [{ chessId: 'chess_char_6_01_a', row: 9, col: 4, uid: 1, skillIndex: 2 }],

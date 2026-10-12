@@ -384,6 +384,9 @@ export async function createFieldView(host, options = {}) {
     P, layers, cam: () => cam, settings, assets, heightAt, redVignette: bg.red, surfaceLayer: ctx.surfaceLayer,
     timeScale: () => ctx.timeScale(),
     loadLevel: () => loadLevel,
+    // the official damage / heal numbers size by it (num-official.js hudUnit); without it they kept the 1920×1080 size
+    // on every screen — 2.6× too big on a 412 px high phone
+    viewport: ctx.viewport,
     fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null),
     subProfOf: (defId, info = null) => ((info && info.standInFor && data.standIn(defId)) || (info && info.diy && data.diy(defId, info.diy)) || data.chess(defId))?.subProfessionId || null,
     view: (id) => views.get(id) || null,
