@@ -241,7 +241,8 @@ describe('D3 client: the official model only when data/local-assets.json lists i
 
   test('render/app.js waits for the local manifest with the asset manifest before building unit views', () => {
     const src = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
-    assert.match(src, /await withTimeout\(Promise\.all\(\[assets\.ready \? assets\.ready\(\) : null, assets\.local \? assets\.local\(\) : null\]/);
+    // waitStep = withTimeout + the bug report's per-stage timing
+    assert.match(src, /await waitStep\('manifests', Promise\.all\(\[assets\.ready \? assets\.ready\(\) : null, assets\.local \? assets\.local\(\) : null\]/);
   });
 
   describe('UnitView', () => {
