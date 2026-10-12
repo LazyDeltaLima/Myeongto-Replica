@@ -18,6 +18,7 @@ import { installAudio } from '/js/audio.js';
 import { settingsStore } from '/js/ui/settings.js';
 import { awayStore } from '/js/ui/matchChrome.js';
 import { GAME_FILES } from '/js/ui/gameComponents.js';
+import { initLang } from '/js/ui/lang.js';
 import { PHASE, GEO } from '/shared/constants.js';
 
 const params = new URLSearchParams(location.search);
@@ -356,6 +357,7 @@ function buildResult(victory) {
   const pickTitle = (i) => { const t = titles[[0, 3, 5, 2][i] % Math.max(1, titles.length)]; return t ? { id: t.id, name: t.name, picId: t.picId, text: t.text } : null; };
   // the 伤害 / 联防 tabs (screens/resultCharts.js): ?variant=hidden adds a Hidden Core round
   const hidden = victory && VARIANTS.has('hidden');
+  const solo = VARIANTS.has('solo');
   const leader = victory ? [912000, 610000, 240000, 0] : [0, 0, 0, 0];
   const hiddenLeader = hidden ? [402000, 251000, 88000, 0] : [0, 0, 0, 0];
   const factions = ['kjerag', 'victoria', null, 'aegir']; // the chat factions (bots pick none); 에기르 falls back (≈ 쉐라그)
@@ -372,7 +374,7 @@ function buildResult(victory) {
       final: { maxHp: 1762000, dealt: victory ? 1762000 : 1240000 },
       hidden: hidden ? { maxHp: 900000, dealt: 741000 } : null,
     },
-    uniteRounds: 6,
+    uniteRounds: solo ? null : 6,
     players: S.pub.players.map((p, i) => {
       const lineup = shuffle(S.pool).slice(0, 8 + (i % 2)).map((c, k) => ({ id: k < 3 ? c.goldenId : c.chessId, golden: k < 3, tier: c.tier, row: 9 + (k % 4), col: 2 + k, items: [] }));
       const dmgDealt = [2310000, 1720000, 980000, 402000][i];
@@ -380,7 +382,7 @@ function buildResult(victory) {
       // the first unit has a summon behind it, one operator was sold mid-match
       units[0].summon = true;
       units.push({ id: S.pool[(i * 5 + 3) % S.pool.length].chessId, golden: false, tier: 5, dmg: Math.round(dmgDealt * 0.05), final: 0, hidden: 0, sold: true });
-      Object.entries(assists[i]).forEach(([leaker, n], j) => {
+      if (!solo) Object.entries(assists[i]).forEach(([leaker, n], j) => {
         const u = units[j % units.length];
         u.assist = { ...(u.assist || {}), [ids[+leaker]]: n };
       });
@@ -395,7 +397,7 @@ function buildResult(victory) {
           activatedLayers: [541, 402, 377, 120][i], lpLost: [16, 19, 12, 24][i], perfectRounds: [11, 12, 9, 4][i],
         },
         trophies: i === 3 ? 1 : 5, reward: i === 3 ? 170 : 425,
-        units, unite: { sent: sent[i], through: through[i] }, faction: p.isBot ? null : factions[i],
+        units, unite: solo ? null : { sent: sent[i], through: through[i] }, faction: p.isBot || solo ? null : factions[i],
       };
     }),
   };
@@ -852,6 +854,8 @@ async function boot() {
     clock: { offset: 0, rtt: 20, synced: true },
     room: { code: 'MOCK', hostId: ME, mode: 'coop', difficulty: 'HARD', inMatch: true, seats: PLAYERS.map((p) => ({ seat: p.seat, playerId: p.playerId, name: p.name, isBot: p.isBot, ready: true, connected: true })) },
   });
+  // the language as the app picks it (?lang=ko|en|ja|zh-TW, else the stored choice): before the data, so the game texts follow
+  await initLang().catch((err) => console.warn('[mock] language setup failed', err));
   await data.loadAll(GAME_FILES);
   installDeviceSupport();
   installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });
