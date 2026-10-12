@@ -815,6 +815,9 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - 지금(`content/tokens.js yanyouSpawnPoint`): 전투의 웨이브 템플릿(`opts.waveId` — 매치가 넘김; 하네스는 `waveTemplate`)에서 위 점을 읽어 모든 炎佑를 거기에
   (두 번째는 옆에 떠 있음 `hoverDy`), 보스 짝의 반전된 오른쪽은 열을 뒤집음, `spawnRandom`은 전투 난수로 ±범위 균등 [ASSUMED: 클라의 분포].
   템플릿이 없으면 예전 규칙(`airTile`: 반쪽 중앙의 배치 불가 칸, 대개 (10, 6)).
+- 그 점에 오퍼레이터·소환물이 서 있어도 나온다(2026-10-12 관리자 제보 「모델이 아예 안 보여」): (11, 7)은 배치 칸이라 자주 차 있는데,
+  `spawnToken`이 키트가 비행(`FLY`)으로 바꾸기 전에 빈 칸만 받아, 그 칸에 누가 서 있으면 炎佑가 통째로 빠졌다. 이제
+  `force`로 넘기고 `Battle._deploy`의 비행 유닛 규칙(칸을 차지하지 않음)에 맡긴다 — 그 칸의 유닛은 그대로.
 - 테스트 `test/content/yanyou-spawn.test.js`.
 
 ## 관리자 결정 2026-10-11 — 즉발 스킬의 시전 · 보스 포털 · 자작 원소 · 저항 · 麻痹震颤

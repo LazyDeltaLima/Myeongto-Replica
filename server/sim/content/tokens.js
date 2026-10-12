@@ -1451,7 +1451,9 @@ export function spawnYanyou(battle, playerId, { atk, hp, atkMul = 1, dmgTakenMul
     const tile = pt ? [pt.r, pt.c] : airTile(battle, playerId, taken);
     if (!tile) break;
     taken.add(tile[0] * COLS + tile[1]);
-    const u = battle.spawnToken(playerId, TOKEN_IDS.yanyou, tile[0], tile[1], { ...(def ? { def } : {}), stats, dir: ps ? ps.dir : 'RIGHT' });
+    // `force`: the point is often under a deployed operator or summon (11, 7 is a board tile); a flyer holds no tile
+    // (Battle._deploy), but spawnToken refuses an occupied tile before the kit makes it one — no 炎佑 at all then
+    const u = battle.spawnToken(playerId, TOKEN_IDS.yanyou, tile[0], tile[1], { ...(def ? { def } : {}), stats, dir: ps ? ps.dir : 'RIGHT', force: true });
     if (!u) continue;
     if (pt && (pt.dx || pt.dy)) {
       const R = battle.rect;

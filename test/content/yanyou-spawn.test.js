@@ -52,3 +52,18 @@ test('two-helper 联防: (11, 16) within the route\'s ±0.5 spawn spread; boss f
   assert.equal(yb.length, 1);
   assert.deepEqual([yb[0].x, yb[0].y], [10, 4]);
 });
+
+test('an operator or a summon standing on the branch point does not stop the 炎佑 (a flyer holds no tile)', REAL, () => {
+  // 6 炎 with one of them on (11, 7) — the board tile most fields put under the point; it used to summon nothing
+  const six = YAN.slice(0, 6).map((id, i) => ({ chessId: `${id}_a`, row: i ? TILES[i][0] : 11, col: i ? TILES[i][1] : 7 }));
+  const h = makeBattle({ stageId: 'act2autochess_m01', waveTemplate: 'act1autochess_01', autoFinish: false, timeLimit: 60, seed: 3, units: six, bonds: bonds(6) });
+  const y = firstYan(h);
+  assert.equal(y.length, 1);
+  assert.deepEqual([y[0].x, y[0].y], [7, 11]);
+  const op = h.b.allyUnits.find((u) => u.defId === `${YAN[0]}_a`);
+  assert.ok(op && op.alive && op.deployed && h.b._occ[11 * 21 + 7] === op, 'the operator keeps its tile');
+  // 9 炎: both of them over the occupied point
+  const nine = YAN.map((id, i) => ({ chessId: `${id}_a`, row: i ? TILES[i][0] : 11, col: i ? TILES[i][1] : 7 }));
+  const h9 = makeBattle({ stageId: 'act2autochess_m02', waveTemplate: 'act1autochess_02', autoFinish: false, timeLimit: 60, seed: 5, units: nine, bonds: bonds(9) });
+  assert.equal(firstYan(h9).length, 2);
+});
