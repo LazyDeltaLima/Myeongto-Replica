@@ -24,6 +24,7 @@ import { html, Button, Icon, MicroLabel, DifficultyTag, Tabs } from '../ui/compo
 import { useGameData, Img, UnitThumb, BandIcon, PlayerAvatar, BondGlyph, LpTower, Sprite } from '../ui/gameComponents.js';
 import { normalizeResult, fmtNum, diyRecordFor, cardStandIn, standInForText, hasUnitCharts, playerColors } from '../ui/gameLogic.js';
 import { DamageTab, UniteTab } from './resultCharts.js';
+import { useDocClass } from '../ui/device.js';
 import { data } from '../data.js';
 import { enemyIconUrl, titleIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { store, useStore, emptyMatch } from '../store.js';
@@ -130,6 +131,8 @@ export function ResultScreen() {
 export function ResultView({ res, pub = null, myId = null, backLabel, onBack, quiet = false, extra = null }) {
   const gd = useGameData();
   const r = normalizeResult(res, pub);
+  // html.sp-result: toasts move over the hero column (result.css) — at the top centre they covered the tab row
+  useDocClass('sp-result');
   const titles = Array.isArray(gd.config?.titles) ? gd.config.titles : [];
   const best = {};
   for (const [k] of STAT_ROWS) {

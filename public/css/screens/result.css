@@ -80,6 +80,11 @@
 /* ---- 伤害 / 联防 tabs (js/screens/resultCharts.js; this fork, maintainer decision 2026-10-12) ----------------------
    Player colors come inline (gameLogic/resultCharts.js playerColors: the chat faction's, else a default seat color);
    everything else is the card palette. Bars: 4px-rounded data end, 2px gaps between stacked segments. */
+/* Toasts on the settlement screen (html.sp-result, js/screens/result.js): over the top of the hero column — the logo,
+   nothing to press — and no wider than it. At the top centre (components.css) a toast sat on the tab row and took its
+   clicks (a toast is clickable: it dismisses). Centre = the column's left padding .6rem + half its 5.6rem. */
+.sp-result .toast-host { left: calc(3.4rem + var(--sa-l, 0px)); max-width: 5.4rem; }
+.sp-result .toast { min-width: 0; max-width: 5.4rem; }
 .result__players.has-tabs > :first-child { margin-top: 0; }
 .result__players.has-tabs > :last-child { margin-bottom: 0; }
 .result__tabs { display: flex; align-items: flex-end; justify-content: space-between; gap: .12rem; border-bottom: 1px solid var(--line); }
