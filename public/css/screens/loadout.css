@@ -465,19 +465,50 @@
   .diy-preset span { display: none; }
   .diy-preset--none { padding: 0 .08rem; }
 }
-/* 전략별 선발 프리셋 (screens/diy.js PresetBandLinks): the strategies linked to the roster shown, the dashed 推荐 ones,
-   and the 关联策略 select */
+/* 전략별 선발 프리셋 (screens/diy.js PresetBandLinks): the strategies applying the roster shown (icon + name, × ; the dashed
+   推荐 ones by recommendation), and 关联策略 — a grid of every strategy's icon floating over the tab (fixed, placed by the
+   script under or above the button), each a toggle: ✓ linked here (dashed: by recommendation), dimmed with the other
+   roster's faction icon when another applies it (maintainer decision 2026-10-13) */
 .diy-links { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: .05rem; }
 .diy-links__k { font-size: max(.13rem, 10px); font-weight: 700; color: var(--text-lo); margin-right: .04rem; }
-.diy-link { display: inline-flex; align-items: center; gap: .04rem; height: max(.28rem, 22px); padding: 0 .02rem 0 .08rem;
+.diy-link { display: inline-flex; align-items: center; gap: .05rem; height: max(.3rem, 24px); padding: 0 .02rem 0 .03rem;
   font-size: max(.13rem, 10px); color: var(--text-hi); background: rgba(255, 255, 255, .06); border: 1px solid var(--line-2); }
-.diy-link.is-rec { padding-right: .08rem; color: var(--ice); border-style: dashed; border-color: rgba(159, 212, 255, .45); background: none; }
+.diy-link .bandicon { --bi: max(.24rem, 18px); }
+.diy-link.is-rec { color: var(--ice); border-style: dashed; border-color: rgba(159, 212, 255, .45); background: none; }
 .diy-link small { font-size: max(.11rem, 9px); color: var(--text-lo); }
 .diy-link__x { padding: 0 .06rem; border: 0; background: none; color: var(--text-lo); font-size: max(.16rem, 12px); line-height: 1; }
 .diy-link__x:hover { color: var(--text-hi); }
 .diy-links__none { font-size: max(.12rem, 10px); color: var(--text-dim); }
-.diy-links__add { height: max(.28rem, 22px); max-width: 100%; padding: 0 .06rem; font-size: max(.13rem, 10px);
+.diy-links__add { display: inline-flex; align-items: center; gap: .05rem; height: max(.3rem, 24px); padding: 0 .08rem; font-size: max(.13rem, 10px);
   color: var(--text-lo); background: var(--bg-1); border: 1px solid var(--line-2); }
+.diy-links__add .icon { width: max(.14rem, 11px); height: max(.14rem, 11px); color: var(--mint-400); }
+.diy-links__add:hover, .diy-links__add[aria-expanded="true"] { border-color: var(--mint-700); color: var(--text-hi); }
+.diy-links__caret { width: 0; height: 0; border-left: .05rem solid transparent; border-right: .05rem solid transparent; border-top: .06rem solid var(--text-lo); }
+.diy-links__add[aria-expanded="true"] .diy-links__caret { transform: rotate(180deg); }
+.diy-links__grid { position: fixed; z-index: 30; visibility: hidden; overflow-y: auto; display: grid; grid-template-columns: repeat(8, max(.62rem, 46px));
+  gap: .04rem; padding: .04rem; background: rgba(8, 11, 10, .98); border: 1px solid var(--mint-700); box-shadow: 0 .08rem .24rem rgba(0, 0, 0, .6); }
+.diy-band { position: relative; display: flex; flex-direction: column; align-items: center; gap: .02rem; min-width: 0; padding: .03rem 0 .02rem;
+  font-size: max(.11rem, 9px); color: var(--text-hi); background: rgba(255, 255, 255, .03); border: 1px solid transparent; }
+.diy-band .bandicon { --bi: max(.44rem, 32px); }
+.diy-band__name { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+.diy-band:hover { background: rgba(255, 255, 255, .1); border-color: var(--line-3); }
+.diy-band.is-here { border-color: var(--mint-400); box-shadow: inset 0 0 0 1px var(--mint-400); background: rgba(78, 216, 175, .1); }
+.diy-band.is-rec { border-style: dashed; box-shadow: none; }
+.diy-band__check { position: absolute; left: .02rem; top: .02rem; width: max(.14rem, 11px); height: max(.14rem, 11px); color: var(--mint-400);
+  filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000); }
+.diy-band.is-other .bandicon { filter: grayscale(.6) brightness(.7); }
+.diy-band.is-other .diy-band__name { color: var(--text-lo); }
+.diy-band__mark { position: absolute; right: .02rem; top: .02rem; filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000); }
+.diy-band__mark.chat__facico { width: max(.2rem, 15px); height: max(.2rem, 15px); }
+.diy-band__mark.is-glyph { width: max(.14rem, 11px); height: max(.14rem, 11px); color: var(--text-hi); }
+.diy-links__legend { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .04rem .14rem; margin: 0; padding: .04rem .04rem .01rem;
+  font-size: max(.11rem, 9px); color: var(--text-lo); border-top: 1px solid var(--line-2); }
+.diy-links__legend > span { display: inline-flex; align-items: center; gap: .04rem; }
+.diy-links__legend .icon { width: max(.12rem, 10px); height: max(.12rem, 10px); color: var(--mint-400); }
+.diy-links__dash { display: inline-block; width: max(.16rem, 12px); height: max(.12rem, 9px); border: 1px dashed var(--mint-400); }
+/* a narrow window: more columns; a short one (a phone in landscape): the legend goes, the tooltips say it */
+@media (max-width: 900px) { .diy-links__grid { grid-template-columns: repeat(10, 46px); } }
+@media (max-height: 500px) { .diy-links__legend { display: none; } }
 .diy-slot {
   position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .1rem; align-items: start; min-width: 0;
   padding: .08rem; background: rgba(255, 255, 255, .03); border: 1px solid var(--line); border-left: 3px solid var(--tc, var(--line-3));

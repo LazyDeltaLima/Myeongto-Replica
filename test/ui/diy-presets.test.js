@@ -153,6 +153,40 @@ test('전략별 선발 프리셋 (maintainer 2026-10-12): links persist, a strat
   assert.equal(P.bandPresetChoice('band_bldsk', bld, {}), P.KEEP_LINK, 'neither: keep the picks');
 });
 
+test('a 推荐 can be unlinked (maintainer request 2026-10-13): KEEP_LINK turns the recommendation off, and the grid toggles', () => {
+  const bands = data.list('bands');
+  const pag = bands.find((b) => b.bandId === 'band_paganini');
+  const chen = bands.find((b) => b.bandId === 'band_chen');
+  P.diyPresetStore.set({ links: {} });
+  assert.deepEqual(P.parseStoredPresets({ v: 3, presets: {}, base: {}, active: null, links: { band_paganini: 'keep' } }).links, { band_paganini: 'keep' }, 'stored');
+  assert.equal(P.bandPresetChoice('band_paganini', pag, { band_paganini: P.KEEP_LINK }), P.KEEP_LINK, 'turned off: keep the picks');
+  assert.equal(P.bandLinkTarget(pag, {}), 'laterano', 'the recommendation applies');
+  assert.equal(P.bandLinkTarget(pag, { band_paganini: P.KEEP_LINK }), null);
+  assert.equal(P.bandLinkTarget(pag, { band_paganini: 'yan' }), 'yan', 'a link wins');
+  // the recommended strategy: off, then back to recommended (no link)
+  P.toggleBandLink(pag, 'laterano');
+  assert.deepEqual(P.diyPresetStore.get().links, { band_paganini: 'keep' });
+  assert.deepEqual(stored().links, { band_paganini: 'keep' }, 'persisted');
+  P.toggleBandLink(pag, 'laterano');
+  assert.deepEqual(P.diyPresetStore.get().links, {});
+  // from another roster it is linked there, and unlinked from there it goes back to its recommendation
+  P.toggleBandLink(pag, 'yan');
+  assert.deepEqual(P.diyPresetStore.get().links, { band_paganini: 'yan' });
+  P.toggleBandLink(pag, 'yan');
+  assert.deepEqual(P.diyPresetStore.get().links, {});
+  // a linked recommended strategy unlinked from its own faction is turned off
+  P.linkBand('band_paganini', 'laterano');
+  P.toggleBandLink(pag, 'laterano');
+  assert.deepEqual(P.diyPresetStore.get().links, { band_paganini: 'keep' });
+  // a strategy without a recommendation: link, move, unlink
+  P.diyPresetStore.set({ links: {} });
+  P.toggleBandLink(chen, 'yan');
+  P.toggleBandLink(chen, P.BASE_LINK);
+  assert.deepEqual(P.diyPresetStore.get().links, { band_chen: 'base' }, 'moved');
+  P.toggleBandLink(chen, P.BASE_LINK);
+  assert.deepEqual(P.diyPresetStore.get().links, {});
+});
+
 test('不使用预设 by a strategy link: the base roster is shown with a notice and 撤销', () => {
   setDiyPicks({ [T6A]: WIS }); // 不使用预设 shown: its roster follows
   P.diyPresetStore.set({ presets: { yan: { [T6A]: WANG } } });
@@ -169,17 +203,35 @@ test('不使用预设 by a strategy link: the base roster is shown with a notice
   assert.equal(P.applyBasePreset(), null, 'already shown');
 });
 
-test('the tab lists the strategies linked to the roster shown, the dashed suggestions and the add select', async () => {
-  const { PresetBandLinks } = await import('../../public/js/screens/diy.js');
+test('the tab lists the strategies applying the roster shown (icon, dashed suggestions, ×) and the strategy grid', async () => {
+  const { PresetBandLinksView } = await import('../../public/js/screens/diy.js');
   const bands = data.list('bands');
   const flat = (tree) => JSON.stringify(tree, (k, v) => (k === '__o' || typeof v === 'function' ? undefined : v));
-  const a = flat(PresetBandLinks({ target: 'laterano', links: { band_chen: 'laterano' }, bands, onLink() {} }));
-  assert.match(a, /"diy-link","data-band":"band_chen"|data-band":"band_chen"/);
-  assert.match(a, /is-rec","data-band":"band_paganini"|band_paganini/, '파가니니 suggested while unlinked');
-  const b = flat(PresetBandLinks({ target: 'laterano', links: { band_paganini: 'yan' }, bands, onLink() {} }));
-  assert.doesNotMatch(b, /is-rec[^}]*band_paganini/, 'linked elsewhere: no suggestion');
-  const bar = flat(DiyPresetBar({ presets: {}, active: null, onSelect() {}, onDelete() {}, links: {}, bands, onLink() {} }));
-  assert.match(bar, /PresetBandLinks|diy-band-links|"target":"base"/);
+  const a = flat(PresetBandLinksView({ target: 'laterano', links: { band_chen: 'laterano' }, bands, onToggle() {} }));
+  assert.match(a, /data-band":"band_chen"/);
+  assert.match(a, /"bandId":"band_chen"/, 'the chip carries the strategy icon');
+  assert.match(a, /"diy-link is-rec","data-band":"band_paganini"/, '파가니니 suggested while unlinked');
+  assert.doesNotMatch(a, /diy-band-grid/, 'the grid is closed');
+  const b = flat(PresetBandLinksView({ target: 'laterano', links: { band_paganini: 'yan' }, bands, onToggle() {} }));
+  assert.doesNotMatch(b, /data-band":"band_paganini"/, 'linked elsewhere: no suggestion');
+  const off = flat(PresetBandLinksView({ target: 'laterano', links: { band_paganini: 'keep' }, bands, onToggle() {} }));
+  assert.doesNotMatch(off, /data-band":"band_paganini"/, 'a turned-off suggestion is gone');
+  // the open grid: every strategy a toggle — ✓ here (dashed by recommendation), dimmed with the other roster's mark
+  const g = PresetBandLinksView({ target: 'laterano', links: { band_chen: 'laterano', band_amiya: 'yan', band_dusk: 'base' }, bands, onToggle() {}, open: true });
+  const tiles = [];
+  const walk = (n) => { if (Array.isArray(n)) n.forEach(walk); else if (n && typeof n === 'object') { if (n.props?.['data-band'] && String(n.props.class || '').includes('diy-band')) tiles.push(n.props); Object.values(n.props || {}).forEach(walk); } };
+  walk(g);
+  const tile = (id) => tiles.find((p) => p['data-band'] === id);
+  assert.equal(tiles.length, 40, 'all 40 strategies');
+  assert.equal(tile('band_chen').class, 'diy-band is-here');
+  assert.equal(tile('band_chen')['aria-pressed'], 'true');
+  assert.equal(tile('band_paganini').class, 'diy-band is-here is-rec');
+  assert.equal(tile('band_amiya').class, 'diy-band is-other');
+  assert.equal(tile('band_dusk').class, 'diy-band is-other');
+  assert.equal(tile('band_bldsk').class, 'diy-band');
+  assert.equal(tile('band_bldsk')['aria-pressed'], 'false');
+  const bar = flat(DiyPresetBar({ presets: {}, active: null, onSelect() {}, onDelete() {}, links: {}, bands, onToggle() {} }));
+  assert.match(bar, /"target":"base"/);
 });
 
 test('the strategy draft\'s preset row: a filled slot\'s × empties it in the roster the row shows (maintainer request 2026-10-13)', async () => {

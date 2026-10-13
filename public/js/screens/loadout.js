@@ -602,7 +602,8 @@ function LoadoutScreen({ st }) {
     const onKey = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (document.querySelector('.modal')) return; // a confirm dialog handles its own keys
-      if (e.key === 'Escape' && document.querySelector('.diy-pick')) return; // the 自选 picker's Esc closes only the picker (diy.js)
+      // the 自选 picker's / strategy grid's Esc closes only that (diy.js)
+      if (e.key === 'Escape' && document.querySelector('.diy-pick, .diy-links__grid')) return;
       const typing = e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
       if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeLoadout(); return; }
       if (typing) return;

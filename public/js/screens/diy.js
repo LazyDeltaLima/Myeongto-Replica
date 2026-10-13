@@ -13,11 +13,13 @@
 // saved into the roster shown; picking that faction in the chat or the strategy draft applies it. Under the bar, the
 // strategies linked to the roster shown (전략별 선발 프리셋, maintainer 2026-10-12: chips with ×, 关联策略 to add one —
 // a strategy has one link, adding it here moves it — and the strategies built around that faction, dashed, as 推荐:
-// unlinked, the draft offers them this roster anyway).
+// unlinked, the draft offers them this roster anyway). Each strategy carries its icon, and 关联策略 opens a grid of all
+// 40 icons over the tab where a tap links or unlinks one (maintainer decision 2026-10-13, picked from mockups); a
+// 推荐 one can be unlinked too (its × or its tile), which turns the recommendation off (diyPresets.js KEEP_LINK).
 
-import { useEffect, useLayoutEffect, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Button, TierChip } from '../ui/components.js';
-import { Img, RichText, BondGlyph } from '../ui/gameComponents.js';
+import { Img, RichText, BondGlyph, BandIcon } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, profIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
 import { data } from '../data.js';
 import { PROF_NAME, skillLabel, moduleBadge, fullTraitText, skillTags } from '../ui/loadoutModel.js';
@@ -27,7 +29,7 @@ import { CultivationSelects } from './cultivation.js';
 import { useStore } from '../store.js';
 import { loadoutStore, closeLoadout } from '../ui/loadoutSync.js';
 import { FactionIcon } from '../ui/faction.js';
-import { diyPresetStore, selectPreset, deletePreset, linkBand, bandRecommendation, BASE_LINK } from '../ui/diyPresets.js';
+import { diyPresetStore, selectPreset, deletePreset, toggleBandLink, bandLinkTarget, BASE_LINK } from '../ui/diyPresets.js';
 import { CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
 import { t } from '../../../shared/i18n.js';
 
@@ -296,7 +298,7 @@ export function DiyPanel(props) {
   useEffect(() => { if (!bandsReady) data.load('bands').then(() => setBandsReady(true), () => {}); }, []);
   const bands = bandsReady ? data.list('bands') : [];
   return DiyPanelView({ ...props, picking, onPicking, presets, activePreset, onPreset: selectPreset, onPresetDelete: deletePreset,
-    links, bands, onLink: linkBand });
+    links, bands, onToggle: toggleBandLink });
 }
 
 /**
@@ -304,7 +306,7 @@ export function DiyPanel(props) {
  * shown one marked — and 删除 for the shown faction's preset.
  * @param {{ presets: Record<string, any>, active: string|null, onSelect: (id: string|null) => void, onDelete: (id: string) => void }} props
  */
-export function DiyPresetBar({ presets, active, onSelect, onDelete, links = null, bands = null, onLink = null }) {
+export function DiyPresetBar({ presets, active, onSelect, onDelete, links = null, bands = null, onToggle = null }) {
   const on = chatFaction(active);
   return html`<div class="diy-presets" role="group" aria-label=${t('阵营预设')} data-testid="diy-presets">
     <span class="diy-presets__k">${t('阵营预设')}</span>
@@ -320,39 +322,99 @@ export function DiyPresetBar({ presets, active, onSelect, onDelete, links = null
       onClick=${() => onDelete(on.id)}>${t('删除{faction}预设', { faction: t(on.name) })}<//>` : null}
     <p class="diy-presets__hint">${on ? t('此处的修改会保存到{faction}预设；在聊天中选择{faction}时自动套用', { faction: t(on.name) })
       : t('「不使用预设」与每个阵营各存一套自选；在聊天或策略选择中选择阵营时自动套用该阵营的预设')}</p>
-    ${onLink && Array.isArray(bands) && bands.length ? html`<${PresetBandLinks} target=${on ? on.id : BASE_LINK} links=${links || {}} bands=${bands} onLink=${onLink} />` : null}
+    ${onToggle && Array.isArray(bands) && bands.length ? html`<${PresetBandLinks} target=${on ? on.id : BASE_LINK} links=${links || {}} bands=${bands} onToggle=${onToggle} />` : null}
   </div>`;
 }
 
 /**
- * The strategies linked to the roster shown (전략별 선발 프리셋): a chip per link (× clears it), the strategies built around
- * that faction as dashed 推荐 chips while they have no link, and 关联策略 — a select of every other strategy (one already
- * linked elsewhere moves here).
- * @param {{ target: string, links: Record<string, string>, bands: any[], onLink: (bandId: string, target: string|null) => void }} props
+ * The strategies linked to the roster shown (전략별 선발 프리셋), with the 关联策略 grid's open state. The grid floats over
+ * the tab (fixed under the button, or above it without room below; maintainer decision 2026-10-13: opening it must not
+ * push the slots down); a tap outside, Escape, a scroll or a resize closes it.
+ * @param {{ target: string, links: Record<string, string>, bands: any[], onToggle: (band: any, target: string) => void }} props
  */
-export function PresetBandLinks({ target, links, bands, onLink }) {
+export function PresetBandLinks(props) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const btn = ref.current?.querySelector('.diy-links__add');
+    const list = ref.current?.querySelector('.diy-links__grid');
+    if (!btn || !list) return;
+    const r = btn.getBoundingClientRect();
+    const h = list.offsetHeight;
+    const below = window.innerHeight - r.bottom - 4;
+    const up = h > below && r.top - 4 > below;
+    list.style.left = `${Math.max(4, Math.min(r.left, window.innerWidth - list.offsetWidth - 4))}px`;
+    list.style.top = up ? `${Math.max(4, r.top - 2 - h)}px` : `${r.bottom + 2}px`;
+    list.style.maxHeight = `${Math.max(below, r.top - 4) - 2}px`;
+    list.style.visibility = 'visible';
+  }, [open]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const away = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } };
+    const moved = (e) => { if (!ref.current?.querySelector('.diy-links__grid')?.contains(e.target)) setOpen(false); };
+    const resized = () => setOpen(false);
+    document.addEventListener('pointerdown', away, true);
+    document.addEventListener('keydown', esc, true);
+    document.addEventListener('scroll', moved, true);
+    window.addEventListener('resize', resized);
+    return () => {
+      document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc, true);
+      document.removeEventListener('scroll', moved, true); window.removeEventListener('resize', resized);
+    };
+  }, [open]);
+  return html`<div class="diy-links" data-testid="diy-band-links" ref=${ref}>${PresetBandLinksView({ ...props, open, onOpen: setOpen })}</div>`;
+}
+
+/**
+ * The row's content (no hooks: the tests draw it). A strategy applies the roster its link names, else the one it is
+ * built around (bandLinkTarget). Chips: each strategy that applies `target` — its icon, its name, 推荐 when only the
+ * recommendation does it, × to unlink (toggleBandLink: a 推荐 one is turned off). The grid (`open`): every strategy as
+ * an icon tile, a toggle — ✓ on the ones that apply `target` (dashed when by recommendation), dimmed with the other
+ * roster's faction icon (or −, 不使用预设) on the ones that apply another (a tap moves them here) — and a legend.
+ * @param {{ target: string, links: Record<string, string>, bands: any[], onToggle: (band: any, target: string) => void,
+ *   open?: boolean, onOpen?: (v: boolean) => void }} props
+ */
+export function PresetBandLinksView({ target, links, bands, onToggle, open = false, onOpen = () => {} }) {
   const sid = (b) => (Number.isFinite(b.sortId) ? b.sortId : 99);
   const list = bands.filter((b) => b && typeof b.bandId === 'string').sort((a, b) => sid(a) - sid(b));
-  const linked = list.filter((b) => links[b.bandId] === target);
-  const recs = target === BASE_LINK ? [] : list.filter((b) => !links[b.bandId] && bandRecommendation(b) === target);
-  const rest = list.filter((b) => links[b.bandId] !== target);
-  const where = (b) => (links[b.bandId] === BASE_LINK ? t('不使用预设') : chatFaction(links[b.bandId]) ? t(chatFaction(links[b.bandId]).name) : null);
-  return html`<div class="diy-links" data-testid="diy-band-links">
-    <span class="diy-links__k">${t('关联策略')}</span>
-    ${linked.map((b) => html`<span key=${b.bandId} class="diy-link" data-band=${b.bandId}>${b.name}
-      <button type="button" class="diy-link__x" aria-label=${t('取消关联{name}', { name: b.name })} onClick=${() => onLink(b.bandId, null)}>×</button></span>`)}
-    ${recs.map((b) => html`<span key=${b.bandId} class="diy-link is-rec" data-band=${b.bandId} title=${t('以该阵营为核心的策略：未关联时也会推荐此预设')}>${b.name}<small>${t('推荐')}</small></span>`)}
-    ${!linked.length && !recs.length ? html`<span class="diy-links__none">${t('没有关联的策略')}</span>` : null}
-    <select class="diy-links__add" aria-label=${t('关联策略')} data-testid="diy-band-link-add"
-      onChange=${(e) => { const v = e.currentTarget.value; e.currentTarget.value = ''; if (v) onLink(v, target); }}>
-      <option value="">${t('+ 关联策略')}</option>
-      ${rest.map((b) => html`<option key=${b.bandId} value=${b.bandId}>${b.name}${where(b) ? t('（当前：{where}）', { where: where(b) }) : ''}</option>`)}
-    </select>
-  </div>`;
+  const at = (b) => bandLinkTarget(b, links);
+  const byRec = (b) => !links[b.bandId] && at(b) === target;
+  const here = list.filter((b) => at(b) === target);
+  const whereName = (w) => (w === BASE_LINK ? t('不使用预设') : t(chatFaction(w)?.name || ''));
+  const tip = (b) => {
+    const w = at(b);
+    if (w === target) return `${b.name} · ${byRec(b) ? t('推荐：以该阵营为核心的策略，点击取消') : t('已关联此预设，点击取消')}`;
+    if (w) return `${b.name} · ${t('已关联{where}，点击改为关联此预设', { where: whereName(w) })}`;
+    return `${b.name} · ${t('点击关联此预设')}`;
+  };
+  const badge = (w) => (w === BASE_LINK ? html`<${Icon} name="minus" class="diy-band__mark is-glyph" />`
+    : chatFaction(w) ? html`<${FactionIcon} f=${chatFaction(w)} class="chat__facico diy-band__mark" />` : null);
+  return html`<span class="diy-links__k">${t('关联策略')}</span>
+    ${here.map((b) => html`<span key=${b.bandId} class=${cx('diy-link', byRec(b) && 'is-rec')} data-band=${b.bandId} title=${tip(b)}>
+      <${BandIcon} bandId=${b.bandId} size="xs" />${b.name}${byRec(b) ? html`<small>${t('推荐')}</small>` : null}
+      <button type="button" class="diy-link__x" aria-label=${t('取消关联{name}', { name: b.name })} onClick=${() => onToggle(b, target)}>×</button></span>`)}
+    ${!here.length ? html`<span class="diy-links__none">${t('没有关联的策略')}</span>` : null}
+    <button type="button" class="diy-links__add" data-testid="diy-band-link-add" aria-haspopup="true" aria-expanded=${open ? 'true' : 'false'}
+      onClick=${() => onOpen(!open)}><${Icon} name="plus" />${t('选择关联策略')}<i class="diy-links__caret" aria-hidden="true"></i></button>
+    ${open ? html`<div class="diy-links__grid" role="group" aria-label=${t('关联策略')} data-testid="diy-band-grid">
+      ${list.map((b) => {
+        const w = at(b);
+        const on = w === target;
+        return html`<button key=${b.bandId} type="button" class=${cx('diy-band', on && 'is-here', on && byRec(b) && 'is-rec', w && !on && 'is-other')}
+          data-band=${b.bandId} aria-pressed=${on ? 'true' : 'false'} title=${tip(b)} onClick=${() => onToggle(b, target)}>
+          <${BandIcon} bandId=${b.bandId} size="sm" /><span class="diy-band__name">${b.name}</span>${on ? html`<${Icon} name="check" class="diy-band__check" />` : badge(w)}
+        </button>`;
+      })}
+      <p class="diy-links__legend"><span><${Icon} name="check" />${t('已关联此预设（再次点击取消）')}</span>
+        <span><i class="diy-links__dash"></i>${t('以该阵营为核心的推荐策略')}</span>
+        <span>${t('图标暗淡：已关联其他预设（点击移到这里）')}</span></p>
+    </div>` : null}`;
 }
 
 /** The tab's view (no hooks: the tests draw it): `picking` = the slot being filled, or null. */
-export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPicking: setPicking, ops = {}, onOps = null, presets = null, activePreset = null, onPreset = null, onPresetDelete = null, links = null, bands = null, onLink = null }) {
+export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPicking: setPicking, ops = {}, onOps = null, presets = null, activePreset = null, onPreset = null, onPresetDelete = null, links = null, bands = null, onToggle = null }) {
   const slots = diySlotList(diyData());
   const slot = picking ? slots.find((s) => s.slotId === picking) : null;
   const tiers = [...new Set(slots.map((s) => s.tier))];
@@ -361,7 +423,7 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPickin
       <p class="own__lead">${t('5阶与6阶各有两个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。')}</p>
     </div>
     ${onPreset ? html`<${DiyPresetBar} presets=${presets || {}} active=${activePreset} onSelect=${onPreset} onDelete=${onPresetDelete || (() => {})}
-      links=${links} bands=${bands} onLink=${onLink} />` : null}
+      links=${links} bands=${bands} onToggle=${onToggle} />` : null}
     <div class="diy__body">
       ${tiers.map((tier) => html`<section key=${tier} class="own-tier diy-tier" data-tier=${tier} aria-label=${t('{tier}阶', { tier })}>
         <h3 class="own-tier__head"><${TierChip} tier=${tier} size="sm" /><span class="num">${ROMAN[tier]}</span><span>${t('阶')}</span></h3>
