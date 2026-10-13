@@ -86,12 +86,15 @@ test('GET /changelog.json answers the parsed entries, re-reads a changed file, a
   }
 });
 
-test('patchNotes client: summary line, seen version, one fetch per page', async () => {
+test('patchNotes client: summary line, the 更新 tab lines, seen version, one fetch per page', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
-  const { summaryOf, isUnseen, markSeen, loadPatchNotes } = await import('../public/js/ui/patchNotes.js');
+  const { summaryOf, slidesOf, isUnseen, markSeen, loadPatchNotes } = await import('../public/js/ui/patchNotes.js');
   const [e] = parseChangelog(SAMPLE);
   assert.equal(summaryOf(e), '첫 문장입니다.');
+  const slides = slidesOf(e);
+  assert.deepEqual(slides.map((x) => x.summary ?? x.group), ['첫 문장입니다.', '새 기능', '새 기능'], 'the summary, then each item with its group');
+  assert.deepEqual(slides[1].segs[0], { s: '굵게', b: true });
   assert.equal(summaryOf({ blocks: [{ ul: [[{ s: '항목만' }]] }] }), '항목만');
   assert.equal(isUnseen('1.2.0'), true);
   markSeen('1.2.0');

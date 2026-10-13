@@ -161,8 +161,8 @@
 .tips__nav .icon { width: .18rem; height: .18rem; }
 .tips__text { margin-top: .1rem; font-size: .17rem; color: var(--text-lo); line-height: 1.6; animation: tip-in var(--t-slow) var(--ease-out); }
 @keyframes tip-in { from { opacity: 0; transform: translateX(.1rem); } }
-/* 作战提示 | 更新 tabs (ui/patchNotes.js): ghost buttons — no outline, the button's hover bracket corners; the open tab
-   is mint on a faint wash */
+/* 作战提示 | 更新 tabs (ui/patchNotes.js; the 更新 tab steps through the newest release line by line): ghost buttons —
+   no outline, the button's hover bracket corners; the open tab is mint on a faint wash */
 .tips__tabs { display: inline-flex; gap: .04rem; }
 .tips__tab.btn--sm { height: .3rem; padding: 0 .1rem; font-size: .16rem; }
 .tips__tab.is-on { --btn-fg: var(--mint-400); --btn-bg: rgba(78, 216, 175, .08); }
@@ -175,6 +175,13 @@
 .tips__ver { flex: none; color: var(--mint-400); font-weight: 700; }
 .tips__date { flex: none; color: var(--text-dim); font-size: .9em; }
 .tips__sum { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tips__sum b { color: var(--text-hi); }
+.tips__sum code { font-family: var(--font-num); font-size: .9em; }
+/* the group a change is under (화면 / 전투 …): a small chip before the line */
+.tips__group {
+  flex: none; align-self: center; display: inline-flex; align-items: center; height: .22rem; padding: 0 .07rem;
+  border: 1px solid var(--line-2); color: var(--text-lo); font-size: .13rem; font-weight: 700; letter-spacing: .02em;
+}
 .tips__more {
   flex: none; display: inline-flex; align-items: center; gap: .02rem; padding: 0; border: 0; background: none;
   color: var(--mint-400); font-size: .15rem; font-weight: 700; white-space: nowrap; cursor: pointer;

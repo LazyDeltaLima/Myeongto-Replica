@@ -4,7 +4,7 @@
 // or join one with a 同盟密钥 (recent codes remembered) — as a player (加入同盟) or in one of its MAX_SPECTATORS
 // spectator seats (观战: room.spectate, also while its match runs; community report #26, a remake feature — the
 // official room has none). Shows connection status + ping. The tips panel has an 更新 tab beside the tips: the patch
-// notes (ui/patchNotes.js, maintainer decision 2026-10-13).
+// notes one line at a time (ui/patchNotes.js, maintainer decision 2026-10-13).
 //
 // Difficulty descriptions come from data/config.json `modes[modeId]` when present, else from the
 // official act2autochess `modeDataDict` texts embedded below (desc + effectDescList), so the
@@ -24,7 +24,7 @@ import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue } from '../ui/matchQueue.js';
-import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, summaryOf } from '../ui/patchNotes.js';
+import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, slidesOf, Inline } from '../ui/patchNotes.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { getConfig, getMode, getStage, useData } from '../data.js';
@@ -187,11 +187,21 @@ const FALLBACK_TIPS = [
   N_('只有达成完美作战的队友可以进行联防'),
 ];
 const TIP_ROTATE_MS = 5000; // matchingTipRotateInterval
+const NEWS_ROTATE_MS = 8000; // the 更新 tab's lines are longer than a tip
+
+/** The 01/15 counter and the previous / next arrows shared by both tabs of the tips panel. */
+function TipsPager({ at, total, onStep }) {
+  return html`<span class="tips__idx num">${String(at + 1).padStart(2, '0')}<span class="t-dim">/${String(total).padStart(2, '0')}</span></span>
+    <button type="button" class="tips__nav" onClick=${() => onStep(-1)} aria-label=${t('上一条')}><${Icon} name="chevronLeft" /></button>
+    <button type="button" class="tips__nav" onClick=${() => onStep(1)} aria-label=${t('下一条')}><${Icon} name="chevronRight" /></button>`;
+}
 
 /**
  * Rotating tactical tips (config.json `tips`, weighted list of { tip, weight }), and beside them the 更新 tab: the newest
- * release in one line, 查看全部 opens the 更新记录 window (ui/patchNotes.js). The 更新 tab opens by itself, marked NEW, on
- * the first lobby visit after a release; without patch notes (/changelog.json unreachable) the panel has no tabs.
+ * release one line at a time — its summary, then each change with its group (ui/patchNotes.js slidesOf) — stepping every
+ * NEWS_ROTATE_MS, held while the pointer is over the panel and for good once the player steps by hand (maintainer decision
+ * 2026-10-13); 查看全部 opens the 更新记录 window. The 更新 tab opens by itself, marked NEW, on the first lobby visit after a
+ * release; without patch notes (/changelog.json unreachable) the panel has no tabs.
  */
 function TipsPanel() {
   const cfg = getConfig();
@@ -210,6 +220,9 @@ function TipsPanel() {
   const [tab, setTab] = useState('tips');
   const [fresh, setFresh] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [newsIdx, setNewsIdx] = useState(0);
+  const [hover, setHover] = useState(false);
+  const [held, setHeld] = useState(false); // the player stepped by hand: no more auto stepping
   useEffect(() => {
     if (!latest || !isUnseen(latest.version)) return;
     setFresh(true);
@@ -217,8 +230,17 @@ function TipsPanel() {
     markSeen(latest.version);
   }, [latest?.version]);
   const news = tab === 'news' && !!latest;
+  useEffect(() => {
+    if (!news || hover || held || notesOpen) return undefined;
+    const id = setInterval(() => setNewsIdx((n) => n + 1), NEWS_ROTATE_MS);
+    return () => clearInterval(id);
+  }, [news, hover, held, notesOpen]);
+  const slides = latest ? slidesOf(latest) : [];
   const i = ((idx % list.length) + list.length) % list.length;
-  return html`<div class=${`tips brackets${latest ? ' has-news' : ''}`}>
+  const n = slides.length ? ((newsIdx % slides.length) + slides.length) % slides.length : 0;
+  const slide = slides[n];
+  const stepNews = (d) => { setHeld(true); setNewsIdx(n + d + slides.length); };
+  return html`<div class=${`tips brackets${latest ? ' has-news' : ''}`} onMouseEnter=${() => setHover(true)} onMouseLeave=${() => setHover(false)}>
     <div class="tips__head">
       <${Icon} name="info" />
       ${latest ? html`<span class="tips__tabs" role="tablist">
@@ -228,14 +250,15 @@ function TipsPanel() {
             onClick=${() => setTab('news')}>${t('更新')}${fresh ? html`<span class="tips__new">NEW</span>` : null}<//>
         </span>`
         : html`<span>${t('作战提示')}</span><${MicroLabel}>TACTICAL TIPS<//>`}
-      ${news ? null : html`<span class="tips__idx num">${String(i + 1).padStart(2, '0')}<span class="t-dim">/${String(list.length).padStart(2, '0')}</span></span>
-        <button type="button" class="tips__nav" onClick=${() => setIdx(i - 1 + list.length)} aria-label=${t('上一条')}><${Icon} name="chevronLeft" /></button>
-        <button type="button" class="tips__nav" onClick=${() => setIdx(i + 1)} aria-label=${t('下一条')}><${Icon} name="chevronRight" /></button>`}
+      ${news ? html`<${TipsPager} at=${n} total=${slides.length} onStep=${stepNews} />`
+        : html`<${TipsPager} at=${i} total=${list.length} onStep=${(d) => setIdx(i + d + list.length)} />`}
     </div>
-    ${news ? html`<p class="tips__text tips__news">
-        <span class="tips__ver num">v${latest.version}</span>
-        ${/^\d{4}-\d\d-\d\d$/.test(latest.date) ? html`<span class="tips__date num">${latest.date.slice(5)}</span>` : null}
-        <span class="tips__sum">${summaryOf(latest)}</span>
+    ${news ? html`<p key=${`n${n}`} class="tips__text tips__news">
+        ${slide.summary != null ? html`<span class="tips__ver num">v${latest.version}</span>
+          ${/^\d{4}-\d\d-\d\d$/.test(latest.date) ? html`<span class="tips__date num">${latest.date.slice(5)}</span>` : null}
+          <span class="tips__sum">${slide.summary}</span>`
+        : html`${slide.group ? html`<span class="tips__group">${slide.group}</span>` : null}
+          <span class="tips__sum"><${Inline} segs=${slide.segs} /></span>`}
         <button type="button" class="tips__more" onClick=${() => setNotesOpen(true)}>${t('查看全部')}<${Icon} name="chevronRight" /></button>
       </p>`
       : html`<p key=${i} class="tips__text">${list[i]}</p>`}

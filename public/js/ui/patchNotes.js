@@ -1,6 +1,6 @@
-// Patch notes in the lobby: the 更新 tab of the tips panel (screens/lobby.js) shows the newest release in one line, and
-// 查看全部 opens the 更新记录 window with every release of this fork (CHANGELOG.md through GET /changelog.json,
-// server/http/changelog.js). The newest release opens the tab by itself once per browser: the version last shown is
+// Patch notes in the lobby: the 更新 tab of the tips panel (screens/lobby.js) steps through the newest release one line
+// at a time — its summary, then each change with its group — and 查看全部 opens the 更新记录 window with every release
+// of this fork (CHANGELOG.md through GET /changelog.json, server/http/changelog.js). The newest release opens the tab by itself once per browser: the version last shown is
 // remembered (pref `patchNotesSeen`), so the tab is a NEW tab only on the first lobby visit after a release.
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
@@ -65,8 +65,23 @@ export function summaryOf(entry) {
   return ul ? plainText(ul.ul[0]) : '';
 }
 
-/** @param {{ segs: { s: string, b?: boolean, c?: boolean }[] }} props */
-function Inline({ segs }) {
+/**
+ * The lines the 更新 tab steps through: the release's summary first, then every list item with the group it is under.
+ * @param {{ blocks: object[] }} entry
+ * @returns {({ summary: string } | { group: string, segs: object[] })[]}
+ */
+export function slidesOf(entry) {
+  const out = [{ summary: summaryOf(entry) }];
+  let group = '';
+  for (const b of entry?.blocks || []) {
+    if (b.h) group = b.h;
+    if (b.ul) for (const segs of b.ul) out.push({ group, segs });
+  }
+  return out;
+}
+
+/** Inline segments of a patch note (bold, code). @param {{ segs: { s: string, b?: boolean, c?: boolean }[] }} props */
+export function Inline({ segs }) {
   return (segs || []).map((x, i) => (x.b ? html`<b key=${i}>${x.s}</b>` : x.c ? html`<code key=${i}>${x.s}</code>` : x.s));
 }
 
