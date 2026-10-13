@@ -106,7 +106,7 @@ This is a remake of the official mode; the official game decides.
 - **Plain messages**: a commit message says what changed and why, with the issue number when there is one. No attribution
   trailers (`Co-Authored-By:`, `Generated with …`, session links); merged pull requests are credited in the CHANGELOG.
 - **The repository is public**: no tracked file may name a home directory, a private folder or a machine account
-  (`test/public-repo.test.js`). Notes that are not in the repository are referred to as the maintainer's notes.
+  (`test/public-repo.test.js`). Notes that are not in the repository are referred to as the maintainer's notes. The same test refuses work-process wording — a decision is cited as "maintainer decision YYYY-MM-DD", never a "user" decision; no session names or internal decision numbers — and, through `SP_PUBLIC_SCAN_WORDS`, the maintainer's private names (`tools/public-scan.mjs`; the list stays outside the repository).
 - **`// local patch` comments** mark the fork's older changes and point at the `docs/rules/` section that justifies them.
   Do not add new ones; keep the existing ones, and drop a marker when the line it marks is rewritten (keep the reasoning).
 - **Server-side hubs** of the fork's changes: `server/local-patch.js`, `shared/local.js`, `shared/local-diy.js`.

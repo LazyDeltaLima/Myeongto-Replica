@@ -103,7 +103,7 @@
       반전 플레이어의 유닛은 필드 좌표(20 − c)에 서고, `buildOne`이 받는 칸은 이미 필드 좌표, 필드 col+ = 화면 오른쪽. 그래서 2순위는 늘 화면
       오른쪽(필드 col+)이다. 테스트 `test/local-patch-diy-wang.test.js` 「on a mirrored field (boss right side) the 跟子 order stays the field's up >
       col+ > down > col−」.
-      - **되돌리기** (옛 결정 W8, 관리자 결정 2026-10-07 — 「반전 필드면 그려진 대로 좌우를 바꿈」, upstream `SIDES_MIRRORED`와 같은 생각; 2026-10-10
+      - **되돌리기** (옛 결정, 관리자 결정 2026-10-07 — 「반전 필드면 그려진 대로 좌우를 바꿈」, upstream `SIDES_MIRRORED`와 같은 생각; 2026-10-10
         클라 순서로 바꿀 때도 「미확정」으로 유지; 2026-10-11까지): 옛 동작은 `battle.getPlayer(owner).mirror`인 플레이어(보스·히든 필드 오른쪽)의
         跟子가 필드 좌표 (+row, **−col**, −row, +col) 순서였다 — 화면 왼쪽이 2순위. 되돌리려면 `op-wang.js`에 상수
         `const ORTHO_MIRRORED = [[1, 0], [0, -1], [-1, 0], [0, 1]];`를 다시 두고 `buildOne`에서 `ORTHO.forEach` 대신
