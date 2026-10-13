@@ -195,7 +195,7 @@ export function TitleScreen() {
   useLang(); // re-render on a language switch
   const [name, setName] = useState(() => store.get().me.name || identity.loadName() || '');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);   // 关于本服务器 (ui/about.js), the button under the login box
+  const [aboutOpen, setAboutOpen] = useState(false);   // 许可证 (ui/about.js), the button under the login box
   const assetsSettled = useData('assets');
   const assets = data.get('assets');
   const backdrop = findUiAsset(assets, BACKDROP_KEYS);
@@ -300,7 +300,7 @@ export function TitleScreen() {
         </div>
       </div>
       <div class="title-links">
-        <button type="button" class="title-link tapx" onClick=${() => setAboutOpen(true)}><${Icon} name="info" /><span>${t('关于本服务器')}</span></button>
+        <button type="button" class="title-link tapx" onClick=${() => setAboutOpen(true)}>${t('许可证')}</button>
       </div>
     </main>
 
@@ -315,7 +315,7 @@ export function TitleScreen() {
 
     <footer class="title-foot">
       <${ResumeMatchButton} />
-      <span>${t('非官方同人复刻 · 游戏素材版权归 上海鹰角网络 / Yostar 所有')}</span>
+      <span>${t('非官方同人复刻 · 与上海鹰角网络 / Yostar 无关 · 仅限非商业用途 · 游戏素材版权归原权利人所有')}</span>
       <${MicroLabel}>v${APP_VERSION} · WEB SIMULATION<//>
       ${DEV_BUILD ? html`<span class="title-dev" role="note">${t('开发版 · 不稳定，请勿用于公开服务器')}</span>` : null}
     </footer>

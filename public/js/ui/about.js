@@ -1,4 +1,4 @@
-// 关于本服务器: the licence and use notice the title screen opens from the button under the login box — a short summary
+// 许可证: the licence and use notice the title screen opens from the button under the login box — a short summary
 // of NOTICE.md (unofficial, non-commercial, the game material is the rights holders', the code is GPL-3.0-or-later with
 // no warranty, removal on request) with the source repository, so the players of a server see it without the README
 // (maintainer decision 2026-10-13, docs/rules/ui.md 「타이틀 라이선스 고지」). 关闭 takes the focus, so the notice opens at its top.
@@ -23,7 +23,7 @@ const SECTIONS = [
  * @param {{ open: boolean, onClose: Function }} props
  */
 export function AboutModal({ open, onClose }) {
-  return html`<${Modal} open=${open} onClose=${onClose} title=${t('关于本服务器')} micro="ABOUT · LICENSE" width="7.4rem" class="about"
+  return html`<${Modal} open=${open} onClose=${onClose} title=${t('许可证')} micro="LICENSE" width="7.4rem" class="about"
     actions=${html`<${Button} variant="primary" icon="check" data-autofocus onClick=${onClose}>${t('关闭')}<//>`}>
     ${SECTIONS.map(([head, text]) => html`<section key=${head} class="about__sec">
       <h3 class="about__head">${t(head)}</h3>

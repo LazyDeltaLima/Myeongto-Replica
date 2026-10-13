@@ -263,11 +263,10 @@
 .title-lang.lang-select select { height: .3rem; font-size: .14rem; }
 html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .title-conn .ping { height: .26rem; font-size: .15rem; }
-/* the text buttons under the login box (关于本服务器: the licence notice, ui/about.js), like the Chinese fork servers' row
-   under theirs; outside the box, so the connection row keeps its one line */
-.title-links { display: flex; justify-content: center; gap: .2rem; margin-top: .1rem; animation: rise-in 600ms 320ms var(--ease-out) backwards; }
-.title-link { display: inline-flex; align-items: center; gap: .06rem; padding: .04rem .1rem; background: none; border: 0; color: var(--text-lo); font-size: max(.14rem, 12px); cursor: pointer; transition: color var(--t-fast); }
-.title-link .icon { width: max(.16rem, 13px); height: max(.16rem, 13px); }
+/* the text buttons under the login box (许可证: the licence notice, ui/about.js), like the Chinese fork servers' row
+   under theirs; outside the box, so the connection row keeps its one line; right-aligned with the box while it is one */
+.title-links { width: var(--login-w); display: flex; justify-content: flex-end; gap: .2rem; margin-top: .1rem; animation: rise-in 600ms 320ms var(--ease-out) backwards; }
+.title-link { padding: .04rem 0 .04rem .1rem; background: none; border: 0; color: var(--text-lo); font-size: max(.14rem, 9px); cursor: pointer; transition: color var(--t-fast); }
 .title-link:hover, .title-link:focus-visible { color: var(--mint-400); }
 /* the notice itself */
 .about__sec + .about__sec { margin-top: .14rem; }
