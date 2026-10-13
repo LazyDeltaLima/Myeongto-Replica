@@ -10,7 +10,7 @@
 //
 // It drives a real Chrome (GPU) against a running server that has the local-client extraction (assets/local scene/*):
 //
-//   node tools/map-previews.mjs --base http://localhost:3011 [--chrome <path>] [--only id,id] [--width 1024] [--height 448]
+//   node tools/map-previews.mjs --base http://localhost:3000 [--chrome <path>] [--only id,id] [--width 1024] [--height 448]
 //
 // Writes public/assets/local/stage/preview/<stageId>.webp (git-ignored, like every local-client asset) and the
 // `stage/preview` group of data/local-assets.json (other groups kept). Run tools/build-browser-resources.mjs after it.
@@ -52,7 +52,7 @@ const CHROMES = [
 ];
 
 async function main() {
-  const base = String(opt.base || 'http://localhost:3011').replace(/\/$/, '');
+  const base = String(opt.base || 'http://localhost:3000').replace(/\/$/, '');
   const W = Math.max(64, Math.min(2048, Number(opt.width) || PICTURE.w));
   const H = Math.max(64, Math.min(2048, Number(opt.height) || PICTURE.h));
   const chrome = typeof opt.chrome === 'string' ? opt.chrome : process.env.CHROME_PATH || CHROMES.find((p) => fs.existsSync(p));

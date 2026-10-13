@@ -10,7 +10,7 @@
 // Sources
 //   ours   public/i18n/ko/{official,data,manual,diy,ui,patterns}.json — the dictionaries of our display-only translator
 //          (keyed by the Chinese text, later files win, `{0}` patterns). --ours <dir>, else the working tree's
-//          public/i18n/ko/, else `git show <--ours-ref, default nas-local>:public/i18n/ko/<file>.json`.
+//          public/i18n/ko/, else `git show <--ours-ref, default HEAD>:public/i18n/ko/<file>.json`.
 //   base   upstream's machine-translated pack: `git show <--base-ref>:public/i18n/ko.json` (default: the newest v0.* tag
 //          merged into HEAD — upstream's; this fork's release tags v1.x carry this script's own output) or --base <file>. It gives the msgid list (with public/i18n/en.json, the complete pack) and
 //          the text of every msgid our dictionaries do not have.
@@ -143,7 +143,7 @@ const STYLE = [
 // ===== helpers =======================================================================================================
 
 const parseArgs = (argv) => {
-  const o = { ours: null, oursRef: 'nas-local', base: null, baseRef: null, data: true, offline: false, check: false, report: path.join(ROOT, '.cache', 'build-ko-pack-report.json'), quiet: false };
+  const o = { ours: null, oursRef: 'HEAD', base: null, baseRef: null, data: true, offline: false, check: false, report: path.join(ROOT, '.cache', 'build-ko-pack-report.json'), quiet: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--ours') o.ours = path.resolve(argv[++i]);
