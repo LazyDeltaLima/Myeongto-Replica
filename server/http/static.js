@@ -172,6 +172,13 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
 }
 
 /**
+ * index.html's src / href attributes under /js/, /css/ and /vendor/ moved under /b/<tag>/r/ (the versioned code URLs,
+ * buildTag.js BUILD_PREFIX); everything else — the import map, fonts, icons — stays.
+ * @param {string} html @param {string} tag
+ */
+export const versionIndexHtml = (html, tag) => html.replace(/(\s(?:src|href)=")\/(js|css|vendor)\//g, `$1/b/${tag}/r/$2/`);
+
+/**
  * index.html with its /js/, /css/ and /vendor/ entries (the module script, modulepreloads, prefetches, stylesheets) under
  * /b/<tag>/r/, where the modules' relative imports of public/vendor resolve (the import map stays: no module uses it); false
  * when there is no tag (nothing readable), and the caller serves the file as it is.
@@ -184,8 +191,7 @@ async function serveVersionedIndex(req, res, absPath, stat) {
   const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}-${tag}"`;
   const headers = { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-cache', ETag: etag, 'Last-Modified': stat.mtime.toUTCString() };
   if (isNotModified(req, etag, stat.mtime)) { res.writeHead(304, headers); res.end(); return true; }
-  const html = (await fsp.readFile(absPath, 'utf8')).replace(/(\s(?:src|href)=")\/(js|css|vendor)\//g, `$1/b/${tag}/r/$2/`);
-  const body = Buffer.from(html);
+  const body = Buffer.from(versionIndexHtml(await fsp.readFile(absPath, 'utf8'), tag));
   res.writeHead(200, { ...headers, 'Content-Length': body.length });
   res.end(req.method === 'HEAD' ? undefined : body);
   return true;
