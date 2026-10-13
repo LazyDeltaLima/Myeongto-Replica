@@ -8,8 +8,9 @@
 //   策略      – per strategy (band): games used / passed (self alive on a winning team) / pass rate
 //   战斗累计  – the player's summed combat bookkeeping of the settled matches
 //   对局记录  – every stored match, newest first. A settled row re-views that match's settlement screen (the record is
-//               inverted into an m.result payload for <ResultView/>); a match given up early is marked 中途退出 and,
-//               when it did not count, 不计入统计
+//               inverted into an m.result payload for <ResultView/>): the whole row is the target, its last cell shows a
+//               查看结算 button (the others say why there is none: 无结算 / 仅汇总); a match given up early is marked
+//               中途退出 and, when it did not count, 不计入统计
 // Everything is 本机数据 (localStorage, `sp.pref.stats`) and the page says so, teammates' names included. 导出 / 导入 (a
 // JSON file, merged by record id on the way in) moves it between devices; 清空 resets it after a confirm dialog.
 // The host renders nothing until opened and the game data files the replay needs load only then (the lobby alone never
@@ -218,7 +219,8 @@ function HistoryRow({ rec, gd, onOpen }) {
     <td class="st-res">${quit ? html`<span class="t-quit">${t('中途退出')}</span>` : html`<span class=${won ? 't-win' : 't-lose'}>${won ? t('胜') : t('负')}</span>`}
       ${!counted ? html`<em class="st-chip">${t('不计入统计')}</em>` : null}</td>
     <td class="num">${known ? fmtNum(rounds) : '—'}</td>
-    <td class="st-go" aria-hidden="true">${view ? html`<${Icon} name="chevronRight" />` : null}</td>
+    <td class="st-go">${view ? html`<span class="st-view">${t('查看结算')}<${Icon} name="chevronRight" /></span>`
+      : html`<span class="st-why">${quit ? t('无结算') : t('仅汇总')}</span>`}</td>
   </tr>`;
 }
 
@@ -228,7 +230,7 @@ function History({ records, gd, onOpen }) {
   const rows = records.slice(0, shown);
   return html`<${Section} title=${t('对局记录')} micro=${`HISTORY · ${records.length}`}>
     ${rows.length ? html`<div class="st-tablewrap"><table class="st-table st-table--history">
-      <thead><tr><th>${t('时间')}</th><th>${t('难度')}</th><th>${t('模式')}</th><th>${t('策略')}</th><th>${t('结果')}</th><th class="num">${t('回合')}</th><th aria-hidden="true"></th></tr></thead>
+      <thead><tr><th>${t('时间')}</th><th>${t('难度')}</th><th>${t('模式')}</th><th>${t('策略')}</th><th>${t('结果')}</th><th class="num">${t('回合')}</th><th class="st-go">${t('结算')}</th></tr></thead>
       <tbody>${rows.map((r) => html`<${HistoryRow} key=${r.id} rec=${r} gd=${gd} onOpen=${onOpen} />`)}</tbody>
     </table></div>
     ${records.length > shown ? html`<div class="st-more"><${Button} size="sm" variant="secondary" onClick=${() => setShown(shown + HISTORY_PAGE)}>${t('显示更多（还有 {n} 局）', { n: records.length - shown })}<//></div>` : null}

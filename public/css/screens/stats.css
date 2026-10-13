@@ -129,9 +129,18 @@
 .st-table tr.is-clickable { cursor: pointer; }
 .st-table tr.is-clickable:hover td, .st-table tr.is-clickable:focus-visible td { background: rgba(78, 216, 175, .1); color: var(--text-hi); }
 .st-table tr.is-clickable:focus-visible { outline: 2px solid var(--mint-400); outline-offset: -2px; }
-.st-go { width: .24rem; color: var(--text-lo); }
-.st-go .icon { width: max(.18rem, 12px); height: max(.18rem, 12px); }
-.st-table tr.is-clickable:hover .st-go { color: var(--mint-400); }
+/* the last cell: a 查看结算 button on a re-viewable row (the row itself takes the click; hovering it fills the button),
+   the reason in dim text on the others (maintainer decision 2026-10-13) */
+.st-table .st-go { text-align: right; white-space: nowrap; }
+.st-view {
+  display: inline-flex; align-items: center; gap: max(.04rem, 3px); height: max(.32rem, 22px); padding: 0 max(.12rem, 7px) 0 max(.14rem, 8px);
+  border: 1px solid var(--mint-700); background: rgba(78, 216, 175, .06); color: var(--mint-400);
+  font-size: max(.14rem, 11px); font-weight: 700; letter-spacing: .04em;
+  transition: background-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
+}
+.st-view .icon { width: max(.16rem, 11px); height: max(.16rem, 11px); }
+.st-table tr.is-clickable:hover .st-view, .st-table tr.is-clickable:focus-visible .st-view { background: var(--mint-500); border-color: var(--mint-400); color: var(--text-on-mint); }
+.st-why { font-size: max(.13rem, 10px); color: var(--text-dim); }
 .st-more { display: flex; justify-content: center; margin: .14rem 0 0; }
 .st-hint { margin: .1rem 0 0; font-size: max(.13rem, 10px); line-height: 1.6; color: var(--text-lo); letter-spacing: .04em; }
 
