@@ -30,7 +30,7 @@
 // a turn change (a pick, a skip, a turn that runs out, an AI pick) closes it, the end of the draft unmounts it, and it
 // never touches the highlighted band or the buttons.
 
-import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel, useTicker, secondsLeft } from '../ui/components.js';
 import { useGameData, BandIcon, RichText, PlayerAvatar, LpTower, Sprite } from '../ui/gameComponents.js';
 import { chessAvatarUrl } from '../ui/assetUrls.js';
@@ -239,8 +239,8 @@ export function presetOptions(presets, off) {
 
 /**
  * The 自选预设 dropdown (maintainer request 2026-10-13: an icon before each faction — a native <select> draws no image):
- * a button showing the choice, and the list opening in the pane's flow (the pane scrolls, a floating list would be cut).
- * Escape or a tap outside closes it. No words beside the names (maintainer decision 2026-10-13): a faction without a
+ * a button showing the choice, and the list floating over the pane (fixed: the pane's overflow cannot cut it; under the
+ * button, or above it without room below). Escape, a tap outside, a scroll or a resize closes it. No words beside the names (maintainer decision 2026-10-13): a faction without a
  * preset has its icon left uncoloured (grey), a faction this match disables carries the
  * briefing's own img_bond_banned mark top-right of its icon (as the briefing draws it; without that local art the dimmed
  * name); both say so in the tooltip.
@@ -250,24 +250,38 @@ export function PresetPicker({ choice, presets, off, locked, onChoice }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => { if (locked) setOpen(false); }, [locked]);
-  // the opened list scrolls into the pane's view above its pinned actions (a phone's short pane hid it under them)
-  useEffect(() => {
+  // the opened list floats over the pane (maintainer request 2026-10-13: opening it must not grow the pane into a scroll):
+  // fixed under the button, or above it when the viewport has no room below, as wide as the button
+  useLayoutEffect(() => {
     if (!open) return;
+    const btn = ref.current?.querySelector('.draft-preset__sel');
     const list = ref.current?.querySelector('.draft-preset__list');
-    const pane = ref.current?.closest('.draft-detail');
-    if (!list || !pane) return;
-    const acts = pane.querySelector('.draft-detail__actions');
-    const bottom = acts ? acts.getBoundingClientRect().top : pane.getBoundingClientRect().bottom;
-    const over = list.getBoundingClientRect().bottom - bottom + 4;
-    if (over > 0) pane.scrollTop += over;
+    if (!btn || !list) return;
+    const r = btn.getBoundingClientRect();
+    const h = list.offsetHeight;
+    const below = window.innerHeight - r.bottom - 4;
+    const up = h > below && r.top - 4 > below;
+    list.style.left = `${r.left}px`;
+    list.style.width = `${r.width}px`;
+    list.style.top = up ? `${Math.max(4, r.top - 2 - h)}px` : `${r.bottom + 2}px`;
+    list.style.maxHeight = `${Math.max(below, r.top - 4) - 2}px`;
+    list.style.visibility = 'visible';
   }, [open]);
   useEffect(() => {
     if (!open) return undefined;
     const away = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } };
+    // a fixed list would stay behind when the pane scrolls or the window resizes: close it instead
+    const moved = (e) => { if (!ref.current?.querySelector('.draft-preset__list')?.contains(e.target)) setOpen(false); };
+    const resized = () => setOpen(false);
     document.addEventListener('pointerdown', away, true);
     document.addEventListener('keydown', esc, true);
-    return () => { document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc, true); };
+    document.addEventListener('scroll', moved, true);
+    window.addEventListener('resize', resized);
+    return () => {
+      document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc, true);
+      document.removeEventListener('scroll', moved, true); window.removeEventListener('resize', resized);
+    };
   }, [open]);
   const opts = presetOptions(presets, off);
   const cur = opts.find((o) => o.v === choice) || opts[0];
