@@ -380,8 +380,8 @@
    right-aligned 25 from the right, 34.5 down; then the scrolling content (padding 24 / 20 / 30, gap 19): the bond text
    (18 px) and the member grid (cells 88×88, 5 a row, gaps 25.5 × 38: autochess_hud_bond_char_item — avatar 76, avatar_border
    83, avatar_active_border 92×90 on members on the field, #3b3b3b 50 % on the others, the tier badge at the bottom left,
-   the name 16 px under it). Upstream's extras (the tiers, 当前效果, 同构 / 调和 / 本局禁用 marks) stay in the scroll, after
-   the text. The < > arrows (btn_prev / btn_next 100×100, arrow 87×86) sit 344 / 339 from the centre (ui/hudArt.js BondNav). ---- */
+   the name 16 px under it). The text is the layer-resolved effect only (当前效果, see below); upstream's 同构 / 调和 /
+   本局禁用 marks stay. The < > arrows (btn_prev / btn_next 100×100, arrow 87×86) sit 344 / 339 from the centre (ui/hudArt.js BondNav). ---- */
 .bpop__need, .bpop__stack { display: none; } /* (upstream look: its own facts row) */
 .gm.has-hud-art .bpop {
   /* KR 3838-wide captures: ≈ 620 px wide at 1920, .71 of the prefab's 584 units at 1.5 px — fitted to a .9-scaled capture,
@@ -436,13 +436,15 @@
 }
 .gm.has-hud-art .bpop__stack b { color: #fff; font-family: 'Novecento Wide', var(--font-num); font-weight: 400; margin-left: calc(var(--u) * 4); }
 .gm.has-hud-art .bpop__close { position: absolute; z-index: 3; right: calc(var(--u) * 4); top: calc(var(--u) * 4); width: calc(var(--u) * 20); height: calc(var(--u) * 20); border: 0; opacity: .6; }
-/* the bond text first (its heading hidden), then upstream's tiers, 当前效果, and the members */
-.gm.has-hud-art .bpop > .bpop__tiers { order: 3; }
-.gm.has-hud-art .bpop > .bpop__sec--now { order: 4; }
-.gm.has-hud-art .bpop > .bpop__sec:last-child { order: 5; }
-.gm.has-hud-art .bpop > .bpop__sec:not(.bpop__sec--now):not(:last-child) > h4 { display: none; }
-.gm.has-hud-art .bpop__desc { font-size: calc(var(--u) * 18); line-height: 1.55; color: #fff; }
-.gm.has-hud-art .bpop__sec--now { background: rgba(255, 255, 255, .04); border-left-color: #40b196; }
+/* the content is the client's one _descText (AutoChessBattleUIBondDetailView._RenderContent → AutoChessBattleUtil.GetBondDesc
+   (bondId, stack): the bond effect's text with its numbers at the current layers = our 当前效果, formatBondEffect), then the
+   members: no tier row, no 当前效果 heading, no full 盟约 text (KR capture 2026-10-13). test_desc 18 px, lineSpacing .9;
+   _activeDescColor white .9, _inactiveDescColor white .8. A bond without that block (本局禁用) keeps the full text. */
+.gm.has-hud-art .bpop > .bpop__tiers, .gm.has-hud-art .bpop > .bpop__sec--now + .bpop__sec { display: none; }
+.gm.has-hud-art .bpop > .bpop__sec > h4 { display: none; }
+.gm.has-hud-art .bpop__desc { font-size: calc(var(--u) * 18); line-height: 1.35; color: rgba(255, 255, 255, .8); }
+.gm.has-hud-art .bpop__sec--now { padding: 0; background: none; border: 0; }
+.gm.has-hud-art .bpop__sec--now.is-active .bpop__desc { color: rgba(255, 255, 255, .9); }
 .gm.has-hud-art .bpop .rt-vup, .gm.has-hud-art .dpanel .rt-vup { color: #0098dc; }
 .gm.has-hud-art .bpop .rt-vdown, .gm.has-hud-art .dpanel .rt-vdown { color: #ff6237; }
 .gm.has-hud-art .bpop .rt-rem, .gm.has-hud-art .dpanel .rt-rem { color: #f49800; }
@@ -663,7 +665,7 @@
 /* the official list is not shown in a solo game (the KR solo captures, prep and battle: no list) [추정: solo only] */
 .gm.has-hud-art .team.is-solo { display: none; }
 /* (bond popup members) the tier badge at the client's 30 units; members not on the field are only darkened (img_inactive_mask), not grey */
-.gm.has-hud-art .bpop__member .uthumb__tier { transform: scale(2); transform-origin: bottom left; } /* ≈ 30 units (common_chess_level), ~0.4 of the avatar */
+.gm.has-hud-art .bpop__member .uthumb__tier { --tier-h: calc(var(--u) * 30); transform: none; } /* common_chess_level 30×30 (img_chess_level_N: rect = texture 45, no margin) */
 .gm.has-hud-art .bpop__member .uthumb.is-dim .uthumb__art, .gm.has-hud-art .bpop__member .uthumb.is-dim .uthumb__art img { filter: none; opacity: 1; }
 
 /* ---- the shop card's first tap (autochess_shop_card_item btn_double_check; KR capture 20): group_able — bg_doublecheck1

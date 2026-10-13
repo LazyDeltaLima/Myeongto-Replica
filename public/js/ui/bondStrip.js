@@ -169,7 +169,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
     <div class="bpop__tiers">
       ${th.map((n, i) => html`<span key=${i} class=${cx('bpop__tier', i < tier && 'is-on')}><b class="num">${n}</b><small>${b.maxCount != null ? t('名及以下') : tc('bond-threshold', '名')}</small></span>`)}
     </div>
-    ${hasNow ? html`<section class="bpop__sec bpop__sec--now">
+    ${hasNow ? html`<section class=${cx('bpop__sec', 'bpop__sec--now', active && 'is-active')}>
       <h4>${t('当前效果')} ${b.noStack ? null : html`<small class="num">${t('（{layers} 层）', { layers })}</small>`}</h4>
       <${RichText} as="p" text=${formatBondEffect(b, layers)} class="bpop__desc" />
     </section>` : null}

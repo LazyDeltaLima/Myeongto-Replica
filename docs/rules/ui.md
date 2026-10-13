@@ -171,10 +171,14 @@
     `<color=#F0F0F0>{0}</color><color=#A3A3A3>/{1}</color>` — 두 경우 모두 m을 찍는다(색은 hud-art.css `.bpop__needn`/`.bpop__needm`). 공식 HUD 맹약 줄
     (`AutoChessBattleUIBondItemView`)에는 인원 숫자가 없다(중첩 수·이름만 — 공식 모양에서 `.bslot__count`를 숨기는 것과 같음). 같은 m을 upstream 모양의
     줄·팝업 사실 줄·기물 카드 맹약 칩에도 씀(`gameLogic bondRequireCount`); 단계 진행은 단계 칸·점으로 본다.
-  - 스크롤 내용(여백 24 / 20 / 30, 간격 19): 맹약 설명(18, 공식 rich text 색 ba.vup #0098DC, ba.vdown #FF6237, ba.rem #F49800, ba.kw #00B0FF,
-    ba.acrem #727272, autochess.gray #777777, autochess.dgreen #40B196 — Kengxxiao zh_CN `gamedata_const`), 원본의 단계 칸·当前效果, 구성원 격자
+  - 스크롤 내용(여백 24 / 20 / 30, 간격 19): 맹약 설명 하나(18, 공식 rich text 색 ba.vup #0098DC, ba.vdown #FF6237, ba.rem #F49800, ba.kw #00B0FF,
+    ba.acrem #727272, autochess.gray #777777, autochess.dgreen #40B196 — Kengxxiao zh_CN `gamedata_const`)와 구성원 격자
     (`autochess_hud_bond_char_item`: 칸 88, 한 줄 5, 간격 25.5 × 38, 아바타 76 + `avatar_border` 83, 필드에 있는 구성원은 `avatar_active_border` 92×90,
-    나머지는 #3b3b3b 50 % 어둡게 — 회색 처리 없음, 등급 배지 30 왼쪽 아래, 이름 16 아래). 얇은 스크롤바.
+    나머지는 #3b3b3b 50 % 어둡게 — 회색 처리 없음, 등급 배지 30×30 왼쪽 아래 — 스프라이트 rect = 텍스처 45라 상자 그대로, 이름 16 아래). 얇은 스크롤바.
+  - 설명은 **현재 효과만**(2026-10-13, 사용자 KR 캡처 「기민」 + 클라 코드): `_RenderContent`(0x1FE3120)가 `_descText` 하나에
+    `AutoChessBattleUtil.GetBondDesc(bondId, stack)`(0x7F1B20: 맹약 효과 문구의 자리표시를 기본값 + 층당 값 × 중첩 수로 채움 = 우리 `formatBondEffect`,
+    원본의 当前效果)를 쓴다. 원본의 단계 칸·当前效果 제목·맹약 전체 문구는 공식 모양에서 숨김(本局禁用 맹약은 当前效果가 없어 전체 문구를 남김). 글자색은
+    스크립트 `_activeDescColor` 흰색 .9 / `_inactiveDescColor` 흰색 .8, `test_desc` 줄 간격 .9.
   - 패널 밖 < > (`btn_prev`/`btn_next` 100×100, `arrow` 87×86, 중심에서 −344 / +339): 맹약 줄 순서의 이전 / 다음 맹약(`hudArt.js BondNav`, game.js 1줄).
   - 맹약 줄에서 연 원: `group_select` — 좌우 괄호 `select_frame`(21×61, ±34.5, 8.4 위).
   - 그림: 웹 소재(`hudBondItem/select_frame`)와 로컬 추출(ui/battle `detail_bg`, `bond_inactive_bg`, `bond_active_bg`, `title_char_icon`, `active_icon`,
