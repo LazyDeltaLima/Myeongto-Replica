@@ -11,9 +11,7 @@
       "the Stronghold Protocol contributors"
     ],
     "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1218 of 1433 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
-    "fallback": [
-      "en"
-    ],
+    "fallback": [],
     "complete": true,
     "machineTranslated": false
   },

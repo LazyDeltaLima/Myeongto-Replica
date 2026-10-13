@@ -338,6 +338,9 @@ function packMeta(baseMeta, count, total) {
     + '(© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch\'s translations of texts the KR tables lack.';
   // the 设置 note says "machine translated": not true of a pack that is mostly a human translation
   meta.machineTranslated = false;
+  // no English fallback: the pack and its game texts cover every string (a gap shows the Chinese), and a Korean player
+  // then never downloads the English UI pack and game texts (≈ 300 KB gzip)
+  meta.fallback = [];
   return meta;
 }
 
