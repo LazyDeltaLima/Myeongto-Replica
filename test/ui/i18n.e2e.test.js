@@ -190,7 +190,7 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
       return [code, { ready, release }];
     }));
     globalThis.releaseLanguage = async (code, ok) => {
-      const { loadLangChain } = await import('/js/ui/lang.js');
+      const { loadLangChain } = await globalThis.__SP__.import('./ui/lang.js');
       const settled = loadLangChain(code);
       gates[code].release(ok);
       await settled;
@@ -206,7 +206,7 @@ describe('language switch on the title screen', { skip: !ENABLED && 'set SP_E2E=
   const waitForPack = (page, code) => page.waitForFunction((c) => globalThis.languageRequests[c] > 0, {}, code);
   const releasePack = (page, code, ok = true) => page.evaluate((c, success) => globalThis.releaseLanguage(c, success), code, ok);
   const languageState = (page) => page.evaluate(async () => ({
-    current: (await import('/shared/i18n.js')).getLang(),
+    current: (await globalThis.__SP__.import('../../shared/i18n.js')).getLang(), // the page's copy (main.js's own path)
     document: document.documentElement.lang,
     dataLang: document.documentElement.dataset.lang,
     script: document.documentElement.dataset.script,

@@ -1,6 +1,7 @@
 // public/js/render/app/pixi.js — load PIXI and pixi-spine once (one module-level promise).
 
-const VENDOR = { pixi: '/vendor/pixi.min.js', spine: '/vendor/pixi-spine.js' };
+// beside this module (the page's /b/<tag>/r/ URLs too, server/http/buildTag.js), where index.html prefetches them
+const VENDOR = { pixi: new URL('../../../vendor/pixi.min.js', import.meta.url).href, spine: new URL('../../../vendor/pixi-spine.js', import.meta.url).href };
 
 let pixiPromise = null;
 

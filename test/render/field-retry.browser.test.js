@@ -28,16 +28,19 @@ describe('field hook retry after a fallback', { skip: !enabled && 'set RENDER_E2
     try {
       await page.setRequestInterception(true);
       page.on('request', (req) => {
-        const pixi = new URL(req.url()).pathname === '/vendor/pixi.min.js';
+        const pixi = new URL(req.url()).pathname.endsWith('/vendor/pixi.min.js'); // under /b/<tag>/r/ too
         if (pixi) pixiRequests++;
         if (pixi && failing) void req.abort('failed'); else void req.continue();
       });
       await page.goto(`http://127.0.0.1:${srv.port}/?${forced ? 'render=fallback&' : ''}board=2d`);
       await page.evaluate(async () => {
-        const { render, h } = await import('/vendor/preact.module.js');
-        const { useRef, useEffect } = await import('/vendor/hooks.module.js');
-        const { useFieldView } = await import('/js/ui/fieldHost.js');
-        const { data } = await import('/js/data.js');
+        // the page's own modules — Preact too — beside its entry script (/b/<tag>/r/js/main.js under the versioned URLs):
+        // a second copy (an absolute /js/… or /vendor/… import) would not drive the page's components
+        const entry = document.querySelector('script[type="module"][src$="/js/main.js"]').src;
+        const { render, h } = await import(new URL('../vendor/preact.module.js', entry).href);
+        const { useRef, useEffect } = await import(new URL('../vendor/hooks.module.js', entry).href);
+        const { useFieldView } = await import(new URL('./ui/fieldHost.js', entry).href);
+        const { data } = await import(new URL('./data.js', entry).href);
         await data.loadAll('stages', 'chess', 'assets', 'local');
         function Harness() {
           const host = useRef(null), state = useFieldView(host);

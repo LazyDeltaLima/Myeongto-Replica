@@ -18,7 +18,9 @@
 import { resolveUvTable } from './atlas.js';
 import { parseObj } from './obj.js';
 
-export const THREE_URL = '/vendor/three.module.js';
+// beside this module, as fxgame.js / fxplayer.js import it: one three.js for the page, also under its versioned
+// /b/<tag>/r/ URLs (server/http/buildTag.js)
+export const THREE_URL = new URL('../../../vendor/three.module.js', import.meta.url).href;
 
 let threePromise = null;
 let threeFailed = false;

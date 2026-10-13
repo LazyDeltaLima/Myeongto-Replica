@@ -304,7 +304,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     // 0.2.0: the third tab (自选编队) ran the right column into the tabs there, at 844×390, and in English at every size.
     // Only the size changes (toggling isMobile / hasTouch would make puppeteer reload the page).
     const switchLang = async (lang) => {
-      await page.evaluate((l) => import('/js/ui/lang.js').then((m) => m.switchLang(l)), lang);
+      await page.evaluate((l) => globalThis.__SP__.import('./ui/lang.js').then((m) => m.switchLang(l)), lang);
       await page.waitForFunction((l) => document.documentElement.lang.startsWith(l) && /[一-鿿]/.test(document.querySelector('.lo-tabs').textContent) === (l === 'zh'), { timeout: 5000 }, lang);
     };
     for (const [lang, sizes] of [['zh', [[667, 375], [844, 390]]], ['en', [[667, 375], [844, 390], [1920, 1080]]]]) {

@@ -446,7 +446,10 @@ async function boot() {
     splash.classList.add('is-done');
     setTimeout(() => splash.remove(), 300);
   }
-  globalThis.__SP__ = { store, net, data, version: 1 };
+  // `import`: a module of this page by its path from /js/ (`__SP__.import('./ui/lang.js')`, tests and the console). The
+  // page loads its modules under the build's /b/<tag>/r/ URLs (server/http/buildTag.js), so an absolute import('/js/…')
+  // would load a second copy with its own state, not the page's.
+  globalThis.__SP__ = { store, net, data, version: 1, import: (p) => import(new URL(p, import.meta.url).href) };
   // A page keeps the modules it imported at load time for its whole lifetime, so a deploy cannot reach an open tab
   // (ui/buildGuard.js): watch `/healthz.build`. Outside a match the page reloads itself; during a match the guard says
   // so instead (the connection banner offers 刷新页面) and reloads once the match — settlement screen included — is over,

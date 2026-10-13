@@ -413,7 +413,7 @@ describe('static http server: versioned code URLs (/b/<tag>/)', () => {
     const w = (rel, content) => { const p = path.join(tmp, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, content); };
     w('secret.txt', 'TOP-SECRET-CONTENT');
     w('public/index.html', '<!doctype html><link rel="stylesheet" href="/css/a.css" /><link rel="modulepreload" href="/js/app.js" />'
-      + '<link rel="prefetch" href="/vendor/v.js" /><script type="module" src="/js/app.js"></script>');
+      + '<link rel="prefetch" href="/vendor/v.js" /><link rel="stylesheet" href="/fonts/fonts.css" /><script type="module" src="/js/app.js"></script>');
     w('public/js/app.js', 'export const x = 1;');
     w('public/css/a.css', 'body{color:red}');
     w('public/assets/img/a.png', randomBytes(32));
@@ -435,7 +435,9 @@ describe('static http server: versioned code URLs (/b/<tag>/)', () => {
     const html = index.body.toString();
     assert.equal(index.headers['cache-control'], 'no-cache');
     assert.ok(html.includes(`href="/b/${tag}/r/css/a.css"`) && html.includes(`href="/b/${tag}/r/js/app.js"`) && html.includes(`src="/b/${tag}/r/js/app.js"`), html);
-    assert.ok(html.includes('href="/vendor/v.js"'), 'other URLs stay as they are');
+    // vendor: where the modules' relative imports of public/vendor land under the prefix
+    assert.ok(html.includes(`href="/b/${tag}/r/vendor/v.js"`), html);
+    assert.ok(html.includes('href="/fonts/fonts.css"'), 'other URLs stay as they are');
     assert.ok(index.headers.etag.includes(tag), 'the ETag changes with the build');
     assert.equal((await httpReq(srv.port, '/', { headers: { 'if-none-match': index.headers.etag } })).status, 304);
 
