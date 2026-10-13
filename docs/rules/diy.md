@@ -350,7 +350,7 @@
 - 한국어: `public/i18n/ko/diy.json` — 위셔델·아스카론은 KR 공식 테이블, 왕·첸 더 던스트릭·사키코는 `tools/i18n/diy-ko-manual.json` 수동 번역(이름·스킬·재능·모듈 이름은 나무위키 표기).
   `tools/i18n/build-ko-diy.mjs`가 `backups.json` 빌더(`build-data.mjs` `buildBackups`)를 한국어 테이블로 한 번 더 돌려(잠재 1–6 모두) 같은 경로의
   문자열을 짝짓는다. 0.2.0 병합으로 옛 빌더(`build-diy.mjs`)가 없어져 멈춰 있던 것을 2026-10-09 이렇게 고쳤다. 사전에 없는 문자열은
-  `KO_DIY_TRACE=1`로 확인하고, 다시 만든 뒤에는 `build-ko-pack.mjs`로 팩을 다시 빌드한다(커밋된 `nas-local`의 사전을 읽는다).
+  `KO_DIY_TRACE=1`로 확인하고, 다시 만든 뒤에는 `build-ko-pack.mjs`로 팩을 다시 빌드한다(커밋된 사전을 읽는다).
 
 ### 처음 5명 키트에서 고친 버그 (2026-10-06)
 코드 리뷰에서 나온 9개를 공식 자료와 대조해 고쳤다. 각 항목은 회귀 테스트가 고치기 전 코드에서 실패하는 것을 확인했다.
@@ -643,7 +643,7 @@
   그대로(upstream은 같은 커밋에서 목록을 구성 화면처럼 한 줄씩 늘어놓는 표로 바꿨다 — 우리 선발은 8명이라 받지 않음), 글자 크기 변수(`--t`)는
   우리 CSS에 없어 그 hunk는 받지 않음.
 - 테스트: `test/ui/diy-ui.test.js` 「the picker detail (upstream 0.2.4)」(일반/정예화 전환마다 S1 수치·SP가 sim def와 같음, Lv 표기, 잠재·육성도 줄),
-  `test/ui/loadout-stats.test.js`(upstream: `LoadoutStats`가 `ui/loadoutStats.js`에서 옴). 화면 확인은 메인 세션.
+  `test/ui/loadout-stats.test.js`(upstream: `LoadoutStats`가 `ui/loadoutStats.js`에서 옴). [화면 미확인]
 
 ## 아스카론 死亡拘审 틱 간격 (2026-10-11 확인)
 - 키트 `op-ascln.js`의 `interval: 1`(1초마다)은 공식과 같다. 클라 버프 템플릿 `ascln_t_1[debuff]`의 `triggerInterval` 2.0은 기본값일 뿐이다:

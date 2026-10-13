@@ -1,4 +1,4 @@
-// server/sim/content/kits/ops/op-wang.js — 望 (char_2027_wang) 自选 operator kit — local patch: the nas-local 선발 kit
+// server/sim/content/kits/ops/op-wang.js — 望 (char_2027_wang) 自选 operator kit — local patch: this fork's 선발 kit
 // (formerly kits/diy.js, docs/LOCAL-PATCH.md 「선발 오퍼레이터」 — the owner's decisions are recorded there) on upstream's
 // 自选 framework; it replaces upstream's op-wang.js (the owner's rule: where the two differ, ours wins). Kit contract:
 // ../README.md ("How to add an operator (自选)"); `chess` = the composed 自选 record (shared/diy.js diyRecordOf). Her 棋子
@@ -447,7 +447,7 @@ function wang(bb, chess, def) {
         }, { owner: unit, priority: -20 });
         // PRTS 铸子 备注 「跟子所在格进行部署（或进行类似部署的行为）时，该跟子会随之消失」: any ally deploying on the tile of a
         // 跟子 of hers — a placed stone coming back, a later piece of the battle-start deployment, an operator's redeploy or
-        // move — removes it (user decision 2026-10-09 #3, upstream 5a045731 (b); client code StoneTriggerMap.UpdateStoneMap
+        // move — removes it (maintainer decision 2026-10-09, upstream 5a045731 (b); client code StoneTriggerMap.UpdateStoneMap
         // on every born unit)
         battle.on('deploy', (ctx) => {
           const a = ctx.unit;

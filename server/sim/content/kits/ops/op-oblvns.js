@@ -1,4 +1,4 @@
-// server/sim/content/kits/ops/op-oblvns.js — 丰川祥子 (char_4182_oblvns) 自选 operator kit — local patch: the nas-local 선발
+// server/sim/content/kits/ops/op-oblvns.js — 丰川祥子 (char_4182_oblvns) 自选 operator kit — local patch: this fork's 선발
 // kit (formerly kits/diy.js, docs/LOCAL-PATCH.md 「선발 오퍼레이터」) on upstream's 自选 framework. A collab operator upstream
 // leaves out of the 自选 pool; the owner takes her in (shared/local-diy.js LOCAL_DIY_PICKS, tools/build-data.mjs). Kit
 // contract: ../README.md ("How to add an operator (自选)"); `chess` = the composed 自选 record (shared/diy.js diyRecordOf).

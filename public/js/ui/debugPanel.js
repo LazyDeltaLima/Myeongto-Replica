@@ -2,7 +2,7 @@
 // ({ fundsPin, pinValue, candidates, enemies }) only when it runs in local debug mode (server/local-patch.js debugMode:
 // SP_DEBUG_PAGE=1 or SP_DEBUG_FUNDS, never NODE_ENV=production); without it this renders nothing. The server checks
 // every message again (debugIntent), so the panel is a convenience, not a gate.
-//   checkbox  dbg.funds { on }      the player's funds pinned to pinValue (local.sh: 99) or real funds
+//   checkbox  dbg.funds { on }      the player's funds pinned to pinValue (SP_DEBUG_FUNDS) or real funds
 //   operator  one list of every operator: the normal chess of the client's chess table (data/chess.json, hidden ones
 //             marked) and the 自选 candidates (data/backups.json diy.ownedPool), filtered by bond (盟约, or 自选 alone),
 //             tier and a search (the shown and Chinese names, the English appellation, the branch, the bond names)

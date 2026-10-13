@@ -6,7 +6,7 @@
 //   Arrow: sprite_direction_arrow (same bundle, rect 128 — the texture is tight-packed 65×112 at (31, 8), a "›" pointing
 //          +x whose concave root meets the ring) 0.333 tiles out along the facing, tint #FF9900 opaque → its tip on the
 //          tile's edge.
-// (User request 2026-10-07 「배치 방향 표시 화살표도 실제 인게임과 동일하게」, replacing the drawn orange chevron.) Both are
+// (Maintainer request 2026-10-07 「배치 방향 표시 화살표도 실제 인게임과 동일하게」, replacing the drawn orange chevron.) Both are
 // drawn as ground quads: each frame the four corners are projected with the camera (SimpleMesh), so they lie on the
 // board like the client's. The art is the web manifest's ui/battle sprites (sprite_direction_arrow / _ring); without
 // them (or without SimpleMesh: tests) the caller keeps the chevron.

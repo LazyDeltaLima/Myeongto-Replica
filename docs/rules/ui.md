@@ -733,7 +733,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 확인: `test/ui/playtest3.test.js`(liveLp·LpTower·bossLp), `test/ui/playtest6-unite.test.js` [화면 미확인].
 
 ## upstream 0.2.4 이식 — UI (2026-10-11)
-- **장치 탭 설명** (upstream `df540b62`, GitHub #228·PR #229 by @rickylxw, + `6bfc0827` §29.14 「같은 전투 재입장 때 장치 카드」, 사용자 결정 2026-10-11):
+- **장치 탭 설명** (upstream `df540b62`, GitHub #228·PR #229 by @rickylxw, + `6bfc0827` §29.14 「같은 전투 재입장 때 장치 카드」, 관리자 결정 2026-10-11):
   阻隔工事·“双眼皮”·射击台·源石流发生装置를 누르면 지형 카드(#184)와 같은 자리에 장치 카드(`gameLogic/terrain.js deviceInfo`·`deviceTipAt`,
   `detailPanel.js DeviceDetail`). 정비·정찰 판은 관 데이터의 장치 위치로, 전투 중에는 상자·포탑이 장치 **유닛**이라 그 유닛이 선 칸으로 찾고(관 밖 포탑은
   다른 칸에 섬), 카드에 실시간 HP, 부서지면 카드가 닫힌다. 같은 전장의 메타가 다시 와도(관전 `g.watch`·`reshow`) 이미 받은 장치 유닛을 렌더러와 카드

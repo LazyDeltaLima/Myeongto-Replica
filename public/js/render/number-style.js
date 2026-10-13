@@ -1,7 +1,7 @@
 // render/number-style.js — local patch (docs/LOCAL-PATCH.md 「전투 화면 UI」 ④): which damage / heal numbers render/fx.js
 // draws. 'official' (default): the client's UIDamageText / UIHealText — a damage number only for a critical or forced hit
 // (sim 'dmg' event 5th field, server/sim/local-hud.js damageNumberFlag), heals always; 'classic': every hit as before
-// (upstream look: per-type colours, merged totals, lanes). User decision 2026-10-07: 「지금 표시 방식도 설정창에서 고를 수
+// (upstream look: per-type colours, merged totals, lanes). Maintainer decision 2026-10-07: 「지금 표시 방식도 설정창에서 고를 수
 // 있게」. Kept in localStorage `sp.pref.dmgNumberStyle` (the settings row: ui/numberStyleSetting.js); read on every number.
 
 export const NUMBER_STYLES = Object.freeze(['official', 'classic']);

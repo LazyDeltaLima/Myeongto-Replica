@@ -150,7 +150,7 @@
   선을 거기서 끊는다. ④ 전투의 0초 = 공식 웨이브·조각 시작(둘 다 preDelay 0).
 - 확인: `test/match/route-preview.test.js` — 데이터 표시, 커서 시각, 실제 매치 경로(4라운드 `act1autochess_04`: 액션 3 → 0·0.3초, 액션 0 → 9·9.3초)에서 적의 매 틱
   위치가 미리보기 선에서 0.02칸 안, 계획을 읽은 전투와 안 읽은 전투가 매 틱 같음; 联防 1인/2인; 브라우저 커서(한 번씩, 늦게 들어온 화면).
-  화면 확인은 아직(메인 세션).
+  [화면 미확인]
 
 ## 보스 경로 미리보기 (2026-10-08, 관리자 제보 → 관리자 요청 「실제 루트를 알 수 없으니 준비기간에 경로를 표시」)
 - 조사(공식 데이터): 걷는 보스는 가상적: 총(boss_2·9)과 루시안(boss_5)뿐(나머지는 自缚). 경로는 보스 레벨 파일의 체크포인트뿐이고
@@ -225,7 +225,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 이전 방식(보간 지연 ≈0.2 게임 초 앞을 보는 'atk' 미리보기 → `windUpPlan`, 전딜을 `MAX_WIND_SPEEDUP` 2.5배속까지 감음)은 'swing'이 없거나 windup이 0인
   공격(클립 모르는 유닛, 강제 공격, 적 치유)에만 남는다 — `app.js windUpAttacks`는 'swing'이 예고한 타격의 'atk'를 미리보기에서 뺀다(`swingStrikes`).
 - 'swing'은 `interp.js COSMETIC_EVENTS`(늦으면 버림), `shared/protocol.js EV.SWING`.
-- 테스트: `test/render/attack-swing.test.js`(가짜 PIXI). [화면 미확인] — 메인 세션의 Windows Chrome 확인 대기.
+- 테스트: `test/render/attack-swing.test.js`(가짜 PIXI). [화면 미확인]
 - **요새 근접·원거리 클립** (관리자 제보 2026-10-10: 号角이 원거리 공격에도 저지 시 모션을 씀): 클라 프리팹 `<id>/Modes/<mode>/Body/Attack/`의
   MeleeAttack·BlockedMeleeAttack·BlockedRangedAttack과 RangedAttack은 다른 클립 — 号角 Default `Attack_A`/`Attack_B`, S2 `Skill_2_A_Loop`/`Skill_2_B_Loop`,
   S3 `Skill_3_A_Loop`/`Skill_3_B_Loop`(S3 아래 방향 원거리 `Skill_Down_3_Loop`은 우리가 아래 방향 클립을 안 써서 제외), 灰毫 Default `Attack02`/`Attack01`
@@ -251,7 +251,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   → 재시도로 3D. `[ASSUMED]` 실제 휴대폰(iOS·Android)에서의 효과는 미확인 — 다음 제보의 진단 정보로 원인(소실·받기 실패·GPU 검사·간이 보기)을 가른다.
 - 안 한 것(관리자 결정 대기): 휴대폰 GPU 메모리 상한(무대 텍스처 ~90 MB·품질 기본 high). (`fxgame.js destroy`의 `forceContextLoss`는
   아래 「이펙트 렌더러 정리」에서 넣음.)
-- 간이 보기 재시도(upstream 0.2.4 `6bfc0827`, 사용자 결정 2026-10-11): `ui/fieldHost.js`가 12초 시간 초과·엔진 오류로 간이 보기(DOM)에 떨어진 뒤,
+- 간이 보기 재시도(upstream 0.2.4 `6bfc0827`, 관리자 결정 2026-10-11): `ui/fieldHost.js`가 12초 시간 초과·엔진 오류로 간이 보기(DOM)에 떨어진 뒤,
   `online`·`visibilitychange`(페이지가 다시 보일 때)에 엔진을 처음부터 다시 띄운다 — 연달아 최대 2번(엔진이 뜨면 횟수 0으로), 오프라인·숨김·
   `?render=fallback`이면 안 함. 위 3D 재시도(`retry3d`)는 **엔진 안에서** 보드만 다시 시도하는 것이라 겹치지 않는다(이쪽은 엔진 자체가 실패했을 때).
   새 엔진은 새 view 객체라 `screens/game.js`가 그 view에서 정비 카메라·전투를 다시 들어간다(`enteredViewRef` — 판을 다시 시작하지 않음: 로컬 전투는
@@ -390,7 +390,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 ## 공격 방향 (2026-10-12, 관리자 요청 「공격·스킬 범위 안의 적을 향해 돌아서 공격, 최대 저지 수를 넘겨 뒤에 걸린 적은 뒤를 보며 공격 — 공식 로직대로」)
 - 이전: 오퍼레이터는 배치 방향만 봤다(`units.js onAttack` 「operators keep their deploy direction」, research 09 §1.2의 배치 모습을 전투 내내 적용).
   뒤에 걸려 저지된 적도 등을 진 채 쳤고, 이펙트도 배치 방향으로 나갔다.
-- 공식(EN 클라 디컴파일, 관리자 노트 `research/decompile`):
+- 공식(EN 클라 디컴파일, 관리자 노트의 디컴파일 기록):
   - 공격 능력이 시전을 시작할 때 `AbstractAnimatedAbility.OnCastStart` → `DealWithFaceDirection`: 능력 프리팹의 플래그를 이 순서로 본다 —
     `_faceToTarget` 주 대상(`Entity.FaceToTarget` → `FaceTo(대상 − 자기 위치)`, 0.2칸 안이면 안 돎), `_faceToDefault` 배치 방향(`FaceToDirection`),
     `_faceToFront` 앞(배치 방향×0.5 + 아래), `_faceToFirstCastTarget` 첫 시전 대상. 넷 다 0이면 돌지 않는다. `Entity.FaceTo`는 기절·빙결·부유 중엔 안 돎.

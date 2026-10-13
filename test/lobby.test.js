@@ -472,7 +472,7 @@ describe('static http server: versioned code URLs (/b/<tag>/)', () => {
     try {
       delete process.env.SP_VERSIONED_URLS;
       process.env.WATCH_REPORT_DEPENDENCIES = '1';
-      assert.equal(versionedUrls(), false, 'the dev server (./local.sh, npm run dev): a browser file edit does not restart it');
+      assert.equal(versionedUrls(), false, 'the dev server (npm run dev): a browser file edit does not restart it');
       delete process.env.WATCH_REPORT_DEPENDENCIES;
       assert.equal(versionedUrls(), !process.execArgv.some((a) => a.startsWith('--watch')));
       process.env.WATCH_REPORT_DEPENDENCIES = '1';

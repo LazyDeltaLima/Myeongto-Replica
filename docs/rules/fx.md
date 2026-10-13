@@ -612,7 +612,7 @@
   `shotFrom[모드]`(우리 풀: 로즈몬티스 S2 GROUND, 포덴코 S2 SPECIAL_0, 토가와 사키코 Default·S1 SPECIAL_3 — 사키코는 음표라 꼬리 경로 밖), `fxgame.js shotFrom`이
   그 점(`fxpoints.js mountSpawn` → `pointKey`; GROUND = 발밑)에서, 없으면 Muzzle에서 쏜다. 끝은 대상의 `points.json` `hit` 점(오퍼레이터), 표가 없는 적은 키의 0.5(근사).
 - **⑥ DirectionType 4 UD_OR_LR** — 위 「이펙트 방향」 참고(0번/2번, 비면 좌우). 지금 바인딩에 그 묶음 0개라 화면 변화 없음.
-- 확인: 단위 `test/render/fx-cast-timing.test.js`(추출 결과·`castTiming`/`castPhase`·`activationEffects`·UD_OR_LR·소스 고정). 화면 확인은 안 함(브라우저 확인은 메인 세션).
+- 확인: 단위 `test/render/fx-cast-timing.test.js`(추출 결과·`castTiming`/`castPhase`·`activationEffects`·UD_OR_LR·소스 고정). [화면 미확인]
   `modes.json`(공유 `public/assets/local/fx/`)은 `char_modes.py` 재실행으로 다시 씀; 프리팹의 `back`은 `fx_extract.py --game <클라> --back-only` 실행 전에는 없어 ④는 그 뒤에 보인다.
 - **2026-10-10에 마저 한 것**(같은 조사의 다른 점, 관리자 결정 (2026-10-10)):
   - FollowMountPoint 회전을 매 프레임 따르기 — 위 「이펙트 방향」.
@@ -670,7 +670,7 @@
   묶인 프리팹 51개(예: 텍사스 디 오메르토사 `texas2_skill_02_start` −1)에 `spawn`이 없었고, `_subFXDelayConfigs`(#3 목록)가 비어 있지 않으면 뒤 필드가 4×n칸 밀렸다.
   → `root_effect`가 모양으로 알아본다(목록 길이 보정, `_maxLifetime` −1 또는 (0, 100), 불 값 0/1, `_rotateType` ≤ 8, `_spawnLocation` < 64 — 조사 기록의 이펙트 번들
   13,204개 판독과 6개 번들 전수 일치). `--root-only`가 이미 뽑은 프리팹의 `spawn`·`height`·`face`만 다시 쓴다.
-- 확인: 단위 `test/render/fx-round2.test.js`(추출 결과·`clipGroup`/`deployEffect`·소스 고정·스텁 표로 쓰러짐 이펙트 판정). 화면 확인은 안 함(메인 세션).
+- 확인: 단위 `test/render/fx-round2.test.js`(추출 결과·`clipGroup`/`deployEffect`·소스 고정·스텁 표로 쓰러짐 이펙트 판정). [화면 미확인]
 
 ### 좌우 거울·재생 속도·루트 지연 (관리자 결정 2026-10-11 「공식대로」, 디컴파일 2라운드)
 근거: 클라 코드 `Effect.Play`(RVA 0xC8A5D0)·`Effect._PlayInternal`(0xC8C4F0)·`ParticleEffect.FaceTo`(0xCB1DC0)·`FxDelay.OnEnable`(0x34C1650)·`Effect.UpdatePlaybackSpeed`(0xC8AE50)과
@@ -753,7 +753,7 @@
   24개와 오래 가는 것(버프, 끝이 없거나 5초 넘게 남은 것: `isLasting`) 48개(`MAX_LASTING`)를 따로 세어 각자 자기 종류의 가장 오래된 것을 끝냄
   (`liveOverCap`); 플레이어 자체 상한은 둘을 넘는 안전선(`PLAYER_CAP` 80). 위 S3 벽은 칸마다 2개 + 끝 2개(보스 필드 한 줄 44개)라 48. 테스트
   `test/render/fx-live-cap.test.js`. 성능(휴대폰)은 상한 숫자로 조정 가능 — 사용자 질문으로 남김. [화면 미확인]
-- **자기 버프가 사라짐 — 상한 말고 다른 원인** (사용자 결정 「오래 가는 상한 48 유지」 + 재제보: 이격 리드(焰影苇草)도 같음): 스킬 활성 루프 354개(126명,
+- **자기 버프가 사라짐 — 상한 말고 다른 원인** (관리자 결정 「오래 가는 상한 48 유지」 + 재제보: 이격 리드(焰影苇草)도 같음): 스킬 활성 루프 354개(126명,
   `fxmap.js activationEffects`)를 실제 프리팹으로 FxInstance에 15초 돌려 봄(작업용 감사 스크립트). 리드 S3 `reed2_skill_03_buff_01~04`·첸 S3·위 S3 버프는
   모두 반복 입자가 있어 상한 분리(위)만으로 남는다. 따로 고친 것 두 가지(`fxplayer.js`): ① **메시** — 반복 입자 없이 메시만 있는 프리팹은 첫 프레임에
   `done`이라 바로 지워졌다(浊心斯卡蒂 S2 `skadi2_skill_02_buff`, 寒芒克洛丝 S2, 号角 S3 `_buff_02`, 耀骑士临光 S3 `_a`, 伊内丝 S2, 信仰搅拌机 S3 …;

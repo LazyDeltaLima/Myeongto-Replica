@@ -1,4 +1,4 @@
-// test/local-patch-diy.test.js — the nas-local 선발 (自选) picks on upstream 0.2.0's 自选 framework (local patch,
+// test/local-patch-diy.test.js — this fork's 선발 (自选) picks on upstream 0.2.0's 自选 framework (local patch,
 // docs/LOCAL-PATCH.md 「선발 오퍼레이터」): only the owner's eight picks are offered and accepted (shared/local-diy.js: the
 // server's welcome `diyKitted` and its room.diy check — server/lobby.js), they are the whole 自选 data of
 // data/backups.json (tools/build-data.mjs builds it from LOCAL_DIY_PICKS, 丰川祥子 included; no prototype), and the first

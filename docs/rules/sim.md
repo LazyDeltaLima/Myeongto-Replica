@@ -422,7 +422,7 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
 - **외근 의료(外勤医疗, 전략)의 맵 캐릭터는 어그로 순서가 오퍼레이터보다 앞** (upstream PR #451 by @YinqiMargatroid, `3b57f727`): 예비 오퍼레이터-메딕(预备干员-医疗)
   또는 Touch(정예 2명 이상)는 우리 sim에서 `battleStart` 때(정예 수를 센 뒤) 만들어지지만 `aggroSeq`를 맨 앞(−1)으로 둔다(`Battle.spawnToken preBattleAggro`,
   `tokens.js spawnMapChar`, `bands/battle.js installMapChars`) → 같은 도발 단계면 적이 오퍼레이터를 먼저 고른다. 배치 이벤트·`deploySeq`는 그대로.
-  upstream v0.2.4는 표시 부분만 받고 「어그로 순서는 그대로」였다 — 사용자 결정 D10으로 PR 원본을 받음. 클라 근거(EN 클라, 레포에는 이름만): 이 둘은 레벨
+  upstream v0.2.4는 표시 부분만 받고 「어그로 순서는 그대로」였다 — 관리자 결정 2026-10-11로 PR 원본을 받음. 클라 근거(EN 클라, 레포에는 이름만): 이 둘은 레벨
   predefine이고 `BattleController._CreatePredefinedCharacter` → `Character.BuildAsPredefined` → `Character._BuildAtInternal`(0x700A50)이 `m_createdTime =
   fixedPlayTime`을 찍은 뒤 `Character.UpdateHatred`(0x6FEFA0, 아군 위협도 = 생성 시각 기반 + 도발 단계)를 부른다. predefine은 레벨을 불러올 때
   (`_LoadPredefinedData`) 지어지고 오퍼레이터는 그 뒤 자동 배치로 들어오므로 생성 시각이 앞 = 위협도가 낮음 = 나중에 맞음. **[추정]** Touch 교체본이 언제
@@ -791,7 +791,7 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   `prefabKey`(`enemies/helpers.js abOf`의 `sk[*].name`; 보스 키트의 수동 능력 객체도 `name`). 렌더(`kinds.js` `enemySkill` 'none' — 그리지 않음)·소리가
   `enemy-bindings`의 `Skills/<이름>`·`ON_ABILITY_*.<신호>`를 대소문자 무시로 찾는다. 이름 없는 콘텐츠 능력(특성 반응, 일반 공격 변형)은 표시 없음.
 - 테스트 `test/sim/official-event-fields.test.js`(`shoot` 포함), `enemies_bosses.test.js`의 黑云·凋零骑士·陷落雪祀·杰斯顿·碎铳之簧·管·弦 시각을 비행 시간만큼 늦춤. 투사체 속도로 적 원거리 피해 시각이 바뀌어 golden이 움직인다(roster 44·bonds 6·fields 20·matches 6·
-  standins 5·diy 2 사례 — 갱신은 메인 세션), `enemies_bosses.test.js`의 重弩突袭者·集团军重型火炮 시각을 공식 속도로 고침.
+  standins 5·diy 2 사례), `enemies_bosses.test.js`의 重弩突袭者·集团军重型火炮 시각을 공식 속도로 고침.
 
 ## 작전 시작 차례 배치 (2026-10-10, 관리자 결정 「공식처럼 한 개씩, 部署 대사는 한 번」)
 - 근거(클라 코드, 오디오 담당이 찾음 — `audio.md` 「전투 시작」): `MainGameInBattle._StartBattle`이 먼저 `_Prebuilt`를 끝까지 돌린다 — 말 하나마다
@@ -828,7 +828,7 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - 테스트 `test/content/yanyou-spawn.test.js`.
 
 ## 관리자 결정 2026-10-11 — 즉발 스킬의 시전 · 보스 포털 · 자작 원소 · 저항 · 麻痹震颤
-근거: 클라 코드(EN 클라 2026-08, Il2CppDumper 덤프)와 스킬 프리팹(`battle/prefabs/[uc]skills.ab`). 결정 번호는 관리자 노트의 2라운드 결정 목록.
+근거: 클라 코드(EN 클라 2026-08, Il2CppDumper 덤프)와 스킬 프리팹(`battle/prefabs/[uc]skills.ab`).
 
 ### 즉발 스킬의 시전 (결정 1, GitHub #298)
 - **규칙**: 자기 공격(`spec.attack`)이 없는 즉발·충전 스킬은 클라 스킬 클래스대로 시전한다 — 데이터 `skills[i].cast`

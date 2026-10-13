@@ -79,9 +79,9 @@ legal from R14 into R15. The client mirrors it
 
 | Timer (real s, × `opts.timerScale`) | Value |
 |---|---|
-| INFO_CHECK | `INFO_CHECK_SECONDS` 45 (the remake's, user decision 2026-10-12; the official step `config.timers.infoCheck` is 25) (co-op; solo / single human untimed) |
+| INFO_CHECK | `INFO_CHECK_SECONDS` 45 (the remake's, maintainer decision 2026-10-12; the official step `config.timers.infoCheck` is 25) (co-op; solo / single human untimed) |
 | band draft turn | `Match.BAND_TURN_SECONDS` 50 (upstream owner's official-play report 2026-10-10) (= `timers.bandTurn`), the step's only countdown: `m.public.deadline` = the current turn's end, no step cap (`timers.bandDraft` 50 = the official whole step, informational) (co-op; solo / single human untimed) |
-| 编队确认 (after the last pick) | `DRAFT_CONFIRM_SECONDS` 10 — switched off since 2026-10-13 (local feature, user decision 2026-10-12; ended early once every connected human not under AI control was ready) (co-op; solo / single human: none) |
+| 编队确认 (after the last pick) | `DRAFT_CONFIRM_SECONDS` 10 — switched off since 2026-10-13 (local feature, maintainer decision 2026-10-12; ended early once every connected human not under AI control was ready) (co-op; solo / single human: none) |
 | BATTLE_CHECK | `battleCheck` 3 |
 | 机变 first / other pickers | `spFirst` 30 / `spTurn` 16 (co-op; solo / single human untimed) |
 | PREP | `modes[m].rounds[r].prepTime` (co-op; solo / single human untimed) |
@@ -570,7 +570,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
 * **自选编队 (0.2.0, `player/diy.js`; research 0.2.0 §2, the owner's decisions of 2026-10-05)**: a human's `seat.diy`
   picks (room.diy, checked again against the match's data and kits) are fixed for the match once its strategy draft ends
   (local: during the briefing / draft `match.setDiy` re-makes them while the player's 自选 stock is untouched — 진영별 선발
-  프리셋, user decision 2026-10-09, docs/rules/diy.md); bots field none [ASSUMED].
+  프리셋, maintainer decision 2026-10-09, docs/rules/diy.md); bots field none [ASSUMED].
   The player's `ps.gd` is then a view of the match's GameData whose `chess(id)` of a slotted slot (normal and elite) is
   the composed 自选 record (shared/diy.js `diyRecord`): every rule that reads a record through `ps.gd` — bonds
   (bondsMeta: BOARD / BOARD_AND_DECK distinct pieces, 煌's 炎 + 维多利亚, 绝技 elites), 特质 / meta effects (`makeCtx`
@@ -703,7 +703,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   its optional × alive / 4, `aliveScaling`, stays off); leaders are never scaled by `enemyScale`, their parts and escorts
   keep their own HP. The merged team LP loses leaks (`lpr`), the overtime drain
   (1 LP per REAL second from the end of the boss level's 120 s maxPlayTime countdown — the battle goes on — = 240 game s
-  on the 2× field clock; `gd.bossOvertimeStartReal` / `gd.bossOvertimeDue`; local patch, user decision 2026-10-09 from
+  on the 2× field clock; `gd.bossOvertimeStartReal` / `gd.bossOvertimeDue`; local patch, maintainer decision 2026-10-09 from
   official footage) for the data's `bossTurnHpReduceTime` (150 real s, `gd.bossOvertimeWindowReal`): then the server
   force-ends the boss fields like at team LP 0 — a defeat — so the drain takes at most 150 LP (client code
   `AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo`: the countdown ends at the server's forced end − 150)

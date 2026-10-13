@@ -1,4 +1,4 @@
-// server/sim/content/kits/ops/op-chen3.js — 赤刃明霄陈 (char_1050_chen3) 自选 operator kit — local patch: the nas-local 선발
+// server/sim/content/kits/ops/op-chen3.js — 赤刃明霄陈 (char_1050_chen3) 自选 operator kit — local patch: this fork's 선발
 // kit (formerly kits/diy.js, docs/LOCAL-PATCH.md 「선발 오퍼레이터」) on upstream's 自选 framework; it replaces upstream's
 // op-chen3.js (the owner's rule: where the two differ, ours wins). Kit contract: ../README.md ("How to add an operator
 // (自选)"); `chess` = the composed 自选 record (shared/diy.js diyRecordOf), every number from it.

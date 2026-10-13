@@ -270,7 +270,7 @@ PlayerState.prototype.privateView = function privateView() {
   return v;
 };
 
-// 디버그용 재화 고정 (local.sh only): SP_DEBUG_FUNDS=<0..999> pins every human player's funds to that value — buying,
+// 디버그용 재화 고정 (local debug only): SP_DEBUG_FUNDS=<0..999> pins every human player's funds to that value — buying,
 // refreshing and levelling never lower it (bots keep real funds). Deployed servers leave it unset.
 export function debugFunds(env = process.env) {
   const raw = env.SP_DEBUG_FUNDS;
@@ -329,7 +329,7 @@ PlayerState.prototype.privateView = function privateView() {
 const DEBUG_PATHS = new Set(['/debug.html', '/fxlab.html', '/js/debug.js']);
 const DEBUG_DIR = '/js/debug/';
 /**
- * Whether a static request is the debug page on a server that does not serve it: only `SP_DEBUG_PAGE=1` (local.sh)
+ * Whether a static request is the debug page on a server that does not serve it: only `SP_DEBUG_PAGE=1`
  * serves it; deployed servers answer 404.
  */
 export function debugPageHidden(decodedPath, env = process.env) {
@@ -349,7 +349,7 @@ export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-f
 // ---- local debug mode: the in-game debug panel (public/js/ui/debugPanel.js) --------------------------------------
 //
 // Local debug mode = SP_DEBUG_PAGE=1 or a valid SP_DEBUG_FUNDS, and NODE_ENV is not 'production'.
-// local.sh sets both; deployed servers set neither and the Docker image sets NODE_ENV=production, so a deployed
+// A local debug run sets them; deployed servers set neither and the Docker image sets NODE_ENV=production, so a deployed
 // server is never in it. Only then:
 //   m.private.debug = { fundsPin, pinValue, candidates, enemies }   (privateView wrapper, installed at import) — the
 //                     client renders the panel only when this is present; `enemies` = the extra enemies queued below

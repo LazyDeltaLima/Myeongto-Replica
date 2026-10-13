@@ -435,7 +435,7 @@ export class EquipBar {
 }
 
 // ---- element (EP) rings ----------------------------------------------------------------------------------------------
-// User request 2026-10-07 (「원소 피해는 원형 바, 가운데 아이콘은 원소 유형에 따라 다르다」). The client's `char_ep_slider` /
+// Maintainer request 2026-10-07 (「원소 피해는 원형 바, 가운데 아이콘은 원소 유형에 따라 다르다」). The client's `char_ep_slider` /
 // `enemy_ep_slider` (arts/ui/[uc]battlecommon.ab), their UIHudUnitEpSlider `_elementDatas` in ELEMENT_ORDER (neural,
 // erosion, burn, apoptosis — sim constants.js):
 //   ally: ep_slider ×1.2 at 25.9 under hud_unit — ep_hit_spread (76×78, the element's colour, a pulse on a hit [추정 anim]),

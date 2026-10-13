@@ -1,4 +1,4 @@
-// server/sim/content/kits/ops/op-wisdel.js — 维什戴尔 (char_1035_wisdel) 自选 operator kit — local patch: the nas-local 선발
+// server/sim/content/kits/ops/op-wisdel.js — 维什戴尔 (char_1035_wisdel) 自选 operator kit — local patch: this fork's 선발
 // kit (formerly kits/diy.js, docs/LOCAL-PATCH.md 「선발 오퍼레이터」) on upstream's 自选 framework; it replaces upstream's
 // op-wisdel.js (the owner's rule: where the two differ, ours wins). 6★ 投掷手 (狙击); every skill, both talents, the trait,
 // the module and the kit of her summon 魂灵之影 (token_10035_wisdel_wward). Kit contract: ../README.md ("How to add an
