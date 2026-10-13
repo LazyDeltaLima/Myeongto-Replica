@@ -190,17 +190,33 @@
 .draft-preset__opt:hover { background: rgba(255, 255, 255, .1); border-color: var(--fac, var(--line-3)); }
 .draft-preset__opt.is-on { border-color: var(--fac, var(--mint-400)); box-shadow: inset 0 0 0 1px var(--fac, var(--mint-400)); }
 .draft-preset__sel.is-off .draft-preset__optname, .draft-preset__opt.is-off .draft-preset__optname { color: var(--text-lo); }
-/* the slots on the stage info's group bar (prefab_auto_chess_stage_info_chess_banned_group img_bkg = img_content_bkg, a flat
-   rgb(31, 31, 31) at 40 %) over the dark list panel it lies on in the client (the briefing's .brief-banned), so it reads as a
-   box on this lighter pane — maintainer request 2026-10-13 */
-.draft-preset__slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .04rem; padding: .05rem .03rem;
-  background: linear-gradient(rgba(31, 31, 31, .4), rgba(31, 31, 31, .4)), rgba(12, 15, 14, .8); }
-/* a slot: the operator's icon as the stage info draws it (matchInfo.js ChessIcon: the tier on its bottom-left corner, a
-   banned operator under the red corner — maintainer request 2026-10-13) on its official white card; room for the tier and the card's shadow that stick out */
-.draft-preset__slot { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; padding: .04rem .06rem .07rem .08rem; }
-.draft-preset__ava.chessico { --ci: max(.62rem, 32px); }
-.draft-preset__slot.is-empty .chessico__tier { opacity: .45; }
-.draft-preset__none { grid-column: 1 / -1; font-size: max(.12rem, 9px); color: var(--text-dim); }
+/* the slots by tier (maintainer decision 2026-10-13): a plate per tier — the stage info's group bar
+   (prefab_auto_chess_stage_info_chess_banned_group img_bkg = img_content_bkg, a flat rgb(31, 31, 31) at 40 %) over the dark
+   list panel it lies on in the client (the briefing's .brief-banned), so it reads as a box on this lighter pane — with a
+   line of the tier's colour under it; the tier's badge once, at the icons' bottom edge where each icon carries it elsewhere */
+.draft-preset__slots { display: flex; gap: .06rem; }
+.draft-preset__grp { flex: 1 1 0; min-width: 0; display: flex; align-items: flex-end; gap: .08rem; padding: .06rem .07rem .07rem;
+  background: linear-gradient(rgba(31, 31, 31, .4), rgba(31, 31, 31, .4)), rgba(12, 15, 14, .8); box-shadow: inset 0 -2px 0 var(--gc, var(--line-2)); }
+.draft-preset__tier { flex: none; display: flex; }
+.draft-preset__tier .tier { --tier-h: max(.3rem, 20px); }
+/* a slot: the operator's icon as the stage info draws it (matchInfo.js ChessIcon, a banned operator under the red corner —
+   maintainer request 2026-10-13) on its official white card; room on the right and below for the card's shadow */
+.draft-preset__slot { position: relative; flex: none; display: flex; padding: 0 .02rem .02rem 0; }
+.draft-preset__ava.chessico { --ci: max(.66rem, 34px); }
+.draft-preset__slot.is-empty .chessico__art { place-items: center; border: 1px dashed rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .06); }
+.draft-preset__slot.is-empty .chessico__art::after { content: '+'; font-size: calc(var(--ci) * .45); line-height: 1; color: rgba(255, 255, 255, .45); }
+/* a narrow window: the px floors would overflow the pane — smaller icons, and on a phone (~200 px pane) smaller gaps too */
+@media (max-width: 1000px) {
+  .draft-preset__ava.chessico { --ci: 30px; }
+  .draft-preset__tier .tier { --tier-h: 18px; }
+}
+@media (max-width: 900px) {
+  .draft-preset__slots { gap: 4px; }
+  .draft-preset__grp { gap: 3px; padding: 4px 3px 5px; }
+  .draft-preset__ava.chessico { --ci: 26px; }
+  .draft-preset__tier .tier { --tier-h: 15px; }
+}
+.draft-preset__none { flex: 1; font-size: max(.12rem, 9px); color: var(--text-dim); }
 .draft-preset__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .04rem .08rem; }
 .draft-preset__edit.btn { flex: none; height: max(.32rem, 22px); padding: 0 .08rem; font-size: max(.13rem, 9px); }
 .draft-preset__edit .btn__icon { color: var(--mint-400); }
