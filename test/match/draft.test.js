@@ -63,16 +63,14 @@ test('band draft (co-op): random order, one pick per turn, NOT_YOUR_TURN, one sk
   assert.deepEqual(m.handle(first, { t: 'g.bandSkip' }).error, ERR.ALREADY, 'only one skip');
   assert.deepEqual(m.handle(first, { t: 'g.band', bandId: 'band_lisa' }), { ok: true });
   assert.equal(h.ps(first).lp, 20);
-  // 编队确认: the draft stays up until every human is done (or DRAFT_CONFIRM_SECONDS)
-  h.sched.advance(1);
-  assert.equal(m.phase, PHASE.BAND_DRAFT);
-  for (const id of order) assert.deepEqual(m.handle(id, { t: 'g.draftReady' }), { ok: true });
+  // the draft ends with the last pick (编队确认 switched off, maintainer 2026-10-13)
   h.sched.advance(1);
   assert.equal(m.phase, PHASE.BATTLE_CHECK);
   m.dispose();
 });
 
-test('编队确认 (maintainer 2026-10-12): after the last pick a timed draft waits DRAFT_CONFIRM_SECONDS or every human\'s g.draftReady; 自选 picks still change', () => {
+// 编队确认 is switched off (maintainer decision 2026-10-13, phases.js startDraftTurn); the case stays for its return
+test.skip('编队确认 (maintainer 2026-10-12): after the last pick a timed draft waits DRAFT_CONFIRM_SECONDS or every human\'s g.draftReady; 自选 picks still change', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, bots: 1, seed: 21 }).start();
   const m = h.m;
   m.handle('p_0', { t: 'g.infoReady' });
@@ -145,7 +143,7 @@ test('band draft timers (user playtest #4 item 4): one countdown of BAND_TURN_SE
   h.run(() => m.phase !== PHASE.BAND_DRAFT, { maxTime: 10 * TURN_MS });
   assert.equal(m.phase, PHASE.BATTLE_CHECK);
   const took = h.sched.now() - t0;
-  assert.ok(took >= 2 * TURN_MS + CONFIRM_MS - 5 && took <= 2 * TURN_MS + CONFIRM_MS + 50, `two human turns of ${BAND_TURN_SECONDS} s each + 编队确认 (${took} ms)`);
+  assert.ok(took >= 2 * TURN_MS - 5 && took <= 2 * TURN_MS + 50, `two human turns of ${BAND_TURN_SECONDS} s each (${took} ms; 编队确认 switched off)`);
   // every published draft view: the step's deadline IS the current turn's (then 编队确认's)
   assert.ok(seen.length > 0);
   for (const pub of seen) {
@@ -174,7 +172,7 @@ test('band draft timers (user playtest #4 item 4): one countdown of BAND_TURN_SE
   const s0 = h2.sched.now();
   h2.run(() => h2.m.phase !== PHASE.BAND_DRAFT, { maxTime: 10 * TURN_MS });
   const took2 = h2.sched.now() - s0;
-  assert.ok(took2 >= 4 * TURN_MS + CONFIRM_MS - 5 && took2 <= 4 * TURN_MS + CONFIRM_MS + 50, `four turns + 编队确认 (${took2} ms)`);
+  assert.ok(took2 >= 4 * TURN_MS - 5 && took2 <= 4 * TURN_MS + 50, `four turns (${took2} ms)`);
   assert.equal(h2.ps(first).bandId, 'band_amiya', 'the first timeout takes the highlighted strategy');
   assert.equal(h2.ps(h2.m.draft.order[1]).bandId, 'band_bldsk', 'the next one the official default');
   assert.equal(new Set([...h2.m.players.values()].map((ps) => ps.bandId)).size, 4, 'the rest get distinct free strategies');

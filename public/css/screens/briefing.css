@@ -187,10 +187,14 @@
 .brief-ready__pips i.me { border-bottom: 2px solid var(--mint-700); }
 /* the 重新抽取 vote (screens/briefing.js): its count and the voters' pips in gold, apart from the mint ready ones */
 .brief-ready__txt--rr b { color: var(--gold); }
-.brief-ready__pips i.rr { color: var(--gold); filter: drop-shadow(0 0 .06rem var(--gold-a20)); }
-/* 「…提议重新抽取」 (co-op): the first seat still voting reroll, over the footer, in the vote's gold */
-.brief-rr { position: relative; z-index: 2; flex: none; display: flex; align-items: center; gap: .14rem; align-self: flex-end;
-  margin: 0 .5rem -.06rem; padding: .08rem .18rem; max-width: min(100%, 9rem); background: var(--gold-a20);
+/* (a seat both ready and voting reroll keeps the ready mint, with the reroll icon) */
+.brief-ready__pips i.rr:not(.on) { color: var(--gold); filter: drop-shadow(0 0 .06rem var(--gold-a20)); }
+/* 「…提议重新抽取」 (co-op): the first seat still voting reroll, in the vote's gold. It hangs just above the footer
+   (inside it, absolute) and lies over the screen's lower edge, so it neither grows the footer nor shrinks the main grid
+   (maintainer report 2026-10-13: as a flex row of its own it made the bottom look taller); opaque under the tint. */
+.brief-rr { position: absolute; right: .5rem; bottom: calc(100% - .02rem); z-index: 3; display: flex; align-items: center; gap: .14rem;
+  padding: .08rem .18rem; max-width: min(calc(100% - 1rem), 9rem);
+  background: linear-gradient(var(--gold-a20), var(--gold-a20)), rgba(12, 15, 14, .94);
   border: 1px solid rgba(255, 198, 0, .45); color: var(--text-hi); }
 .brief-rr > .icon { flex: none; width: .3rem; height: .3rem; color: var(--gold); }
 .brief-rr__text { display: grid; gap: .02rem; min-width: 0; }

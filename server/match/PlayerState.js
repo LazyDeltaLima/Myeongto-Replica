@@ -155,7 +155,7 @@ export class PlayerState {
     this.pendingFunds = 0;
     this.ready = false;
     this.infoReady = this.isBot;
-    /** INFO_CHECK: voted 重新抽取 instead of 准备就绪 (the briefing's reroll vote, MatchPhases.maybeEndInfo) */
+    /** INFO_CHECK: voted 重新抽取 (the briefing's reroll vote, separate from 准备就绪; MatchPhases.maybeEndInfo) */
     this.infoReroll = false;
     this.lastEmoteAt = -Infinity;
     /** operator loadout (DESIGN §16): frozen { [baseChessId]: { skill, module } }, {} = every chess on its defaults */

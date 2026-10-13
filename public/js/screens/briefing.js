@@ -3,11 +3,12 @@
 // 战场随机（共N张）, and under its name the battlefield's preview picture — maintainer request 2026-10-11,
 // tools/map-previews.mjs; the card then sits beside the factions, both as tall as the taller one), 特训敌人 factions (icon, name, description), the difficulty
 // tag, the ready count x/N with person pips, the 准备就绪 button (g.infoReady) and the countdown. Next to it 重新抽取
-// (g.infoReroll, feat — maintainer decision 2026-10-09; the official briefing has no such button): a vote instead of ready, one
-// or the other; alone it redraws at once, in co-op more reroll votes than ready ones redraw (a new match) and anything else,
-// a tie included, starts the strategy draft (server phases.js maybeEndInfo). In co-op a reroll vote can be taken back
-// (取消重新抽取) and the first seat still voting it is named above the footer (「…提议重新抽取」, m.public.rerollBy) with the
-// vote counts (maintainer decisions 2026-10-12; the co-op countdown runs 45 s, m.public.infoSeconds). The right column — 核心盟约
+// (g.infoReroll, feat — maintainer decision 2026-10-09; the official briefing has no such button): alone it redraws at
+// once; in co-op it is a vote of its own, apart from ready (maintainer decision 2026-10-13): a unanimous vote redraws
+// (a new match), every seat ready starts the strategy draft (server phases.js maybeEndInfo). In co-op a reroll vote can
+// be taken back (取消重新抽取), also by a seat already ready, and the first seat still voting it is named just above the
+// footer, over the screen rather than in its flow (「…提议重新抽取」, m.public.rerollBy), with the vote count (maintainer
+// decisions 2026-10-12; the co-op countdown runs 45 s, m.public.infoSeconds). The right column — 核心盟约
 // / 附加盟约 rows of bond discs (disabled bonds greyed with the banned-member badge), the legend and the 本局禁用干员
 // avatars, with the player's own 自选 pieces out of the shop (m.private.diyBanned) — is ui/matchInfo.js MatchInfo, the same
 // blocks the strategy draft's 本局信息 dialog shows (screens/bandDraft.js).
@@ -52,12 +53,11 @@ export function BriefingScreen() {
   const rerollN = players.filter((p) => p.reroll).length;
   // a single human decides alone (solo, or a 同盟 room with AI teammates only)
   const alone = players.filter((p) => !p.isBot).length <= 1;
-  const voted = !!(me?.ready || me?.reroll);
   const closing = !!pub.infoOutcome;
-  // the 「…提议重新抽取」 banner (co-op): the first seat still voting reroll and the counts
+  // the 「…提议重新抽取」 banner (co-op): the first seat still voting reroll and the count
   const proposer = !alone && pub.rerollBy ? players.find((p) => p.playerId === pub.rerollBy) : null;
-  const voters = players.filter((p) => !p.isBot && p.status !== 'left');
-  const undecided = voters.filter((p) => !p.ready && !p.reroll).length;
+  // the seats a reroll needs (server maybeEndInfo: humans still in, not under AI 托管)
+  const voters = players.filter((p) => !p.isBot && p.status !== 'left' && !p.autoplay);
   const mode = gd.config?.modes?.[pub.modeId];
   // (+ the own 自选 pieces this match leaves out of the shop: m.private.diyBanned)
   const info = matchInfoModel(pub, { bonds: gd.list('bonds'), chess: gd.chess, mode, priv, diyData: { chess: data.get('chess'), backups: data.get('backups') } });
@@ -92,14 +92,14 @@ export function BriefingScreen() {
       setBusy(null);
       return;
     }
-    if (voted) return;
+    if (kind === 'ready' ? me?.ready : me?.reroll) return;
     setBusy(kind);
     await (kind === 'reroll' ? actions.infoReroll() : actions.infoReady());
     setBusy(null);
   };
   const rerollTip = alone ? t('重新抽取首领、战场、特训敌人与禁用盟约')
     : me?.reroll ? t('撤回重新抽取的投票')
-    : t('投票重新抽取首领、战场、特训敌人与禁用盟约：重抽票多于就绪票时重新抽取，票数相同则继续进行');
+    : t('投票重新抽取首领、战场、特训敌人与禁用盟约：全员同意时重新抽取');
 
   return html`<div class="screen brief">
     <div class="brief__bg" aria-hidden="true"></div>
@@ -143,25 +143,25 @@ export function BriefingScreen() {
         <${MatchInfo} model=${info} />
       </section>
     </main>
-    ${proposer ? html`<div class="brief-rr" role="status" data-testid="reroll-proposer">
-      <${Icon} name="refresh" />
-      <div class="brief-rr__text">
-        <b>${proposer.playerId === myId ? t('你提议重新抽取') : t('{name} 提议重新抽取', { name: proposer.name || t('博士') })}</b>
-        <span>${t('重新抽取 {rr} · 已就绪 {rd} · 未投票 {un}：重抽票多于就绪票时重新抽取，票数相同则继续进行', { rr: rerollN, rd: voters.filter((p) => p.ready).length, un: undecided })}</span>
-      </div>
-    </div>` : null}
     <footer class="brief__foot">
+      ${proposer ? html`<div class="brief-rr" role="status" data-testid="reroll-proposer">
+        <${Icon} name="refresh" />
+        <div class="brief-rr__text">
+          <b>${proposer.playerId === myId ? t('你提议重新抽取') : t('{name} 提议重新抽取', { name: proposer.name || t('博士') })}</b>
+          <span>${t('重新抽取 {rr}/{n}：全员同意时重新抽取', { rr: rerollN, n: voters.length })}</span>
+        </div>
+      </div>` : null}
       <${LoadoutButton} from="briefing" size="lg" class="brief-loadout" />
       <div class="brief-ready">
         <span class="brief-ready__txt">${t('已就绪')} <b class="num">${readyN}</b><span class="num">/${players.length}</span></span>
-        ${!alone && rerollN ? html`<span class="brief-ready__txt brief-ready__txt--rr" data-testid="reroll-count">${t('重新抽取')} <b class="num">${rerollN}</b></span>` : null}
+        ${!alone && rerollN ? html`<span class="brief-ready__txt brief-ready__txt--rr" data-testid="reroll-count">${t('重新抽取')} <b class="num">${rerollN}</b><span class="num">/${voters.length}</span></span>` : null}
         <span class="brief-ready__pips">${players.map((p) => html`<i key=${p.playerId} class=${cx(p.ready && 'on', p.reroll && 'rr', p.playerId === myId && 'me')} title=${p.name}><${Icon} name=${p.reroll ? 'refresh' : 'user'} /></i>`)}</span>
       </div>
       ${me ? html`<${Button} variant="secondary" size="xl" icon="refresh" class="brief-reroll" data-testid="info-reroll" title=${rerollTip}
-        active=${!!me.reroll} loading=${busy === 'reroll' || pub.infoOutcome === 'reroll'} disabled=${(voted && !(me.reroll && !alone)) || closing || !armed}
+        active=${!!me.reroll} loading=${busy === 'reroll' || pub.infoOutcome === 'reroll'} disabled=${(me.reroll && alone) || closing || !armed}
         onClick=${vote('reroll')}>${me.reroll && !alone ? t('取消重新抽取') : t('重新抽取')}<//>` : null}
       <${Button} variant="primary" size="xl" icon=${me?.ready ? 'check' : me ? 'play' : 'eye'} active=${!!me?.ready} loading=${busy === 'ready'}
-        disabled=${voted || closing || !me} onClick=${vote('ready')}>${me?.ready ? t('已就绪') : me ? t('准备就绪') : t('观战中')}<//>
+        disabled=${!!me?.ready || closing || !me} onClick=${vote('ready')}>${me?.ready ? t('已就绪') : me ? t('准备就绪') : t('观战中')}<//>
     </footer>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
   </div>`;

@@ -22,8 +22,9 @@
 // that until 2026-10-13 and is gone, maintainer request; no 「…预设已套用 · 撤销」 notice in the draft either, maintainer
 // request 2026-10-13). The choice is a dropdown of our own (PresetPicker) so each faction carries its icon. The preview
 // shows each slot's tier and operator icon (name in the tooltip). A linked strategy's card carries the faction's badge. After the last pick
-// a timed draft keeps 编队确认 (m.public.draft.confirm, the server's DRAFT_CONFIRM_SECONDS): the row can still change the
-// picks, 准备完毕 (g.draftReady) ends it once every human is done. The slots stand by tier (maintainer decision 2026-10-13):
+// a timed draft kept 编队确认 (m.public.draft.confirm, the server's DRAFT_CONFIRM_SECONDS): the row could still change the
+// picks, 准备完毕 (g.draftReady) ended it once every human was done — switched off on the server since 2026-10-13
+// (maintainer decision, phases.js startDraftTurn); the code here stays for a return and draws nothing without it. The slots stand by tier (maintainer decision 2026-10-13):
 // one plate per tier — the stage info's group bar (img_content_bkg) — with the tier's badge once (its tooltip: the slot
 // kind and the 调度中心 level it sells from) and a line of the tier's colour under it; an empty slot is a faint card with +.
 // 编辑自选编队 under them opens the 干员调配 overlay's 自选编队 tab on

@@ -38,7 +38,7 @@ export class MatchViews {
     if (ps.left) return 'left';
     if (!ps.alive) return 'dead';
     switch (this.phase) {
-      case PHASE.INFO_CHECK: return ps.infoReady || ps.infoReroll ? 'ready' : 'deciding';
+      case PHASE.INFO_CHECK: return ps.infoReady ? 'ready' : 'deciding';
       case PHASE.BAND_DRAFT:
         if (this.draft && this.draft.picks[ps.playerId]) return 'ready';
         return this.draft && this.draftTurn() === ps.playerId ? 'deciding' : 'acting';

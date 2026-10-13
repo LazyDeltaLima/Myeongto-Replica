@@ -1,8 +1,8 @@
 // The briefing's 重新抽取 vote (feat, maintainer decisions 2026-10-09 and 2026-10-12; server/match/match/phases.js
-// maybeEndInfo): every human seat votes 准备就绪 (final) or 重新抽取 (can be taken back), one or the other; more reroll
-// votes than ready ones end the match with reason 'reroll' (the lobby starts a new one), anything else — a tie included —
-// starts the strategy draft. AI seats and departed seats do not vote; the co-op 45 s guard (INFO_CHECK_SECONDS) counts a
-// seat that has not voted as ready. m.public.rerollBy names the first seat still voting reroll. No m.result.
+// maybeEndInfo; separate votes since 2026-10-13): every human seat may press 准备就绪 (final) and, apart from it, vote
+// 重新抽取 (can be taken back); a unanimous reroll ends the match with reason 'reroll' (the lobby starts a new one), every
+// seat ready — or the co-op 45 s guard (INFO_CHECK_SECONDS) — starts the strategy draft. AI seats, departed seats and
+// seats under AI 托管 do not vote. m.public.rerollBy names the first seat still voting reroll. No m.result.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeMatch } from './harness.js';
@@ -33,27 +33,28 @@ test('solo: 重新抽取 ends the match at once with reason reroll — no m.resu
   m.dispose();
 });
 
-test('ready and reroll exclude each other; ready is final, a reroll vote can be taken back', () => {
+test('ready and reroll are separate votes (maintainer 2026-10-13); ready is final, a reroll vote can be taken back', () => {
   const h = makeMatch({ mode: 'coop', humans: 3, seed: 4 }).start();
   const m = h.m;
   arm(h);
   assert.deepEqual(m.handle('p_0', { t: 'g.infoReady' }), { ok: true });
-  assert.equal(m.handle('p_0', { t: 'g.infoReroll' }).error, ERR.ALREADY);
+  assert.deepEqual(m.handle('p_0', { t: 'g.infoReroll' }), { ok: true }, 'a ready seat may still vote reroll');
   assert.deepEqual(m.handle('p_1', { t: 'g.infoReroll' }), { ok: true });
-  assert.equal(m.handle('p_1', { t: 'g.infoReady' }).error, ERR.ALREADY);
   assert.deepEqual(m.handle('p_1', { t: 'g.infoReroll' }), { ok: true }, 'a repeat is harmless');
-  const pub = m.publicView().players;
+  let pub = m.publicView().players;
   assert.equal(pub.find((p) => p.playerId === 'p_0').ready, true);
+  assert.equal(pub.find((p) => p.playerId === 'p_0').reroll, true);
   assert.equal(pub.find((p) => p.playerId === 'p_1').reroll, true);
   assert.equal(pub.find((p) => p.playerId === 'p_1').ready, false);
-  assert.equal(pub.find((p) => p.playerId === 'p_1').status, 'ready', 'a voter has decided');
+  assert.equal(pub.find((p) => p.playerId === 'p_1').status, 'deciding', 'a reroll vote is not ready');
+  assert.deepEqual(m.handle('p_1', { t: 'g.infoReady' }), { ok: true }, 'and ready may follow it');
+  assert.deepEqual(m.handle('p_0', { t: 'g.infoReroll', cancel: true }), { ok: true }, 'a ready seat takes its reroll vote back');
+  pub = m.publicView().players;
+  assert.equal(pub.find((p) => p.playerId === 'p_0').reroll, undefined);
+  assert.equal(pub.find((p) => p.playerId === 'p_0').ready, true, 'ready stays');
   assert.equal(pub.find((p) => p.playerId === 'p_2').status, 'deciding');
-  assert.deepEqual(m.handle('p_0', { t: 'g.infoReroll', cancel: true }).error, ERR.ALREADY, 'ready cannot be taken back');
-  assert.deepEqual(m.handle('p_1', { t: 'g.infoReroll', cancel: true }), { ok: true });
-  const p1 = m.publicView().players.find((p) => p.playerId === 'p_1');
-  assert.equal(p1.reroll, undefined);
-  assert.equal(p1.status, 'deciding', 'back to undecided');
-  assert.deepEqual(m.handle('p_1', { t: 'g.infoReady' }), { ok: true }, 'and may vote ready now');
+  h.sched.advance(1);
+  assert.equal(m.phase, PHASE.INFO_CHECK, 'p_2 is not ready yet');
   m.dispose();
 });
 
@@ -75,40 +76,53 @@ test('m.public.rerollBy: the first seat still voting reroll', () => {
   m.dispose();
 });
 
-test('co-op: more ready votes start the draft, more reroll votes reroll, a tie starts the draft; AI seats do not vote', () => {
-  // 2 ready vs 1 reroll → the draft
+test('co-op (maintainer 2026-10-13): everyone ready starts the draft, only a unanimous reroll redraws; AI seats do not vote', () => {
+  // every seat ready, two of them also voting reroll → the draft
   let h = makeMatch({ mode: 'coop', humans: 3, seed: 5 }).start();
   arm(h);
   h.m.handle('p_0', { t: 'g.infoReroll' });
-  h.m.handle('p_1', { t: 'g.infoReady' });
-  h.m.handle('p_2', { t: 'g.infoReady' });
+  h.m.handle('p_2', { t: 'g.infoReroll' });
+  for (const id of ['p_0', 'p_1', 'p_2']) h.m.handle(id, { t: 'g.infoReady' });
   h.sched.advance(1);
   assert.equal(h.m.phase, PHASE.BAND_DRAFT);
-  assert.equal(h.ended, null);
+  assert.equal(h.ended, null, '2 of 3 is no reroll');
   assert.equal(h.m.publicView().players[0].reroll, undefined, 'the vote is not shown past the briefing');
   h.m.dispose();
 
-  // 2 reroll vs 1 ready → reroll (maintainer 2026-10-09: the majority, not only a unanimous vote)
+  // 2 of 3 reroll and nobody else ready → still waiting
   h = makeMatch({ mode: 'coop', humans: 3, seed: 5 }).start();
   arm(h);
   h.m.handle('p_0', { t: 'g.infoReroll' });
-  h.m.handle('p_1', { t: 'g.infoReady' });
+  h.m.handle('p_1', { t: 'g.infoReroll' });
+  h.sched.advance(1);
+  assert.equal(h.m.phase, PHASE.INFO_CHECK);
+  assert.equal(h.ended, null);
+  // the third reroll vote makes it unanimous → reroll at once, ready or not
+  h.m.handle('p_2', { t: 'g.infoReady' });
   h.m.handle('p_2', { t: 'g.infoReroll' });
   h.sched.advance(1);
   assert.equal(h.ended?.reason, 'reroll');
   h.m.dispose();
 
-  // 1 vs 1 with two AI teammates (ready at once, not counted) → a tie → the draft (maintainer 2026-10-12)
+  // two humans with two AI teammates (not counted): both reroll → reroll
   h = makeMatch({ mode: 'coop', humans: 2, bots: 2, seed: 6 }).start();
   arm(h);
   h.m.handle('p_0', { t: 'g.infoReroll' });
   h.sched.advance(1);
   assert.equal(h.ended, null, 'waits for the other human');
-  h.m.handle('p_1', { t: 'g.infoReady' });
+  h.m.handle('p_1', { t: 'g.infoReroll' });
   h.sched.advance(1);
-  assert.equal(h.ended, null);
-  assert.equal(h.m.phase, PHASE.BAND_DRAFT);
-  assert.equal(lastPublic(h).infoOutcome, undefined);
+  assert.equal(h.ended?.reason, 'reroll');
+  assert.equal(lastPublic(h).infoOutcome, 'reroll');
+  h.m.dispose();
+
+  // a seat under AI 托管 does not vote: the other human's reroll is unanimous
+  h = makeMatch({ mode: 'coop', humans: 2, seed: 6 }).start();
+  arm(h);
+  h.m.handle('p_1', { t: 'g.autoplay', on: true });
+  h.m.handle('p_0', { t: 'g.infoReroll' });
+  h.sched.advance(1);
+  assert.equal(h.ended?.reason, 'reroll');
   h.m.dispose();
 });
 
@@ -121,7 +135,7 @@ test('one human with AI teammates decides alone; the 45 s guard counts a seat th
   assert.equal(h.ended?.reason, 'reroll');
   h.m.dispose();
 
-  // 1 reroll vs 1 silent seat at the deadline → a tie → the draft
+  // 1 reroll, 1 silent seat at the deadline → not unanimous → the draft
   h = makeMatch({ mode: 'coop', humans: 2, seed: 8 }).start();
   assert.equal(h.m.deadline - h.sched.now(), INFO_CHECK_SECONDS * 1000, 'the co-op briefing runs 45 s');
   arm(h);

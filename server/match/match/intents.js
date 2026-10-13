@@ -16,10 +16,9 @@ export class MatchIntents {
     switch (msg.t) {
       case 'g.infoReady':
         if (this.phase !== PHASE.INFO_CHECK) return fail(ERR.WRONG_PHASE);
-        if (ps.infoReroll) return fail(ERR.ALREADY, 'voted to reroll');
         if (!ps.infoReady) { ps.infoReady = true; this.markPublic(); this.maybeEndInfo(); }
         return OK;
-      // the briefing's reroll vote (MatchPhases.maybeEndInfo): ready (final) OR reroll (`cancel` takes it back)
+      // the briefing's reroll vote (MatchPhases.maybeEndInfo), separate from ready (`cancel` takes it back)
       case 'g.infoReroll': return this.voteReroll(ps, msg.cancel === true);
       case 'g.band': return this.pickBand(ps, msg.bandId);
       case 'g.bandSkip': return this.skipBand(ps);
@@ -79,7 +78,7 @@ export class MatchIntents {
   /** Let the bot act for a (newly) bot-controlled seat in the current phase. */
   kickBot(ps) {
     if (!ps.botControlled || this.ended) return;
-    if (this.phase === PHASE.INFO_CHECK && !ps.infoReady && !ps.infoReroll) { ps.infoReady = true; this.markPublic(); this.maybeEndInfo(); }
+    if (this.phase === PHASE.INFO_CHECK && !ps.infoReady) { ps.infoReady = true; this.markPublic(); this.maybeEndInfo(); }
     else if (this.phase === PHASE.BAND_DRAFT && this.draftTurn() === ps.playerId) this.scheduleBandBot();
     else if (this.phase === PHASE.BAND_DRAFT && this.draft?.confirm) this.maybeEndDraftConfirm();
     else if (this.phase === PHASE.SP_DRAFT && this.spTurn() === ps.playerId) this.scheduleSpBot();

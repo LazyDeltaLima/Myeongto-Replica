@@ -1,7 +1,8 @@
 // The briefing's 重新抽取 vote through the real platform (server/lobby.js onMatchEnd, feat — maintainer decision 2026-10-09):
 // a reroll replaces the match by a new one with a new seed and the next match number while the room stays in a match
 // (room.state matchNo) without a replay or a [stats] line, and the chat factions are cleared (they are picked after seeing
-// the banned bonds); a tie starts the strategy draft (maintainer decision 2026-10-12; it used to return to the lobby).
+// the banned bonds); a reroll short of unanimous starts the strategy draft once everyone is ready (maintainer decision
+// 2026-10-13; a tie did since 2026-10-12, before that it returned to the lobby).
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -68,7 +69,7 @@ describe('briefing reroll vote', () => {
     await a.expectNone?.('m.result', () => true, 200);
   });
 
-  test('co-op: a tie starts the strategy draft; the room stays in its match', async () => {
+  test('co-op: a reroll vote short of unanimous starts the strategy draft once everyone is ready; the room stays in its match', async () => {
     const a = await player('Host');
     const b = await player('Guest');
     await ok(a, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });
@@ -83,6 +84,7 @@ describe('briefing reroll vote', () => {
     await a.waitFor('room.factions', (m) => m.factions[b.id] === 'yan', W);
     await delay(INFO_REROLL_MIN_MS + 100);
     await ok(a, { t: 'g.infoReroll' });
+    await ok(a, { t: 'g.infoReady' });
     await ok(b, { t: 'g.infoReady' });
     const pub = await a.waitFor('m.public', (p) => p.phase === PHASE.BAND_DRAFT, W);
     assert.equal(pub.infoOutcome, undefined);
