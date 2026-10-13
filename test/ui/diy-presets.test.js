@@ -181,3 +181,51 @@ test('the tab lists the strategies linked to the roster shown, the dashed sugges
   const bar = flat(DiyPresetBar({ presets: {}, active: null, onSelect() {}, onDelete() {}, links: {}, bands, onLink() {} }));
   assert.match(bar, /PresetBandLinks|diy-band-links|"target":"base"/);
 });
+
+test('the strategy draft\'s preset row: a filled slot\'s × empties it in the roster the row shows (maintainer request 2026-10-13)', async () => {
+  // the roster shown (base) takes it through the live picks
+  setDiyPicks({ [T6A]: WIS, [T6B]: CHEN });
+  P.diyPresetStore.set({ presets: { yan: { [T6A]: WANG, [T6B]: CHEN }, sargon: { [T6A]: WIS } } });
+  P.clearRosterSlot(P.BASE_LINK, T6B);
+  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WIS });
+  assert.deepEqual(P.diyPresetStore.get().base, { [T6A]: WIS }, 'the shown roster follows');
+  // another faction's preset is only stored: the live picks and the roster shown stay
+  P.clearRosterSlot('yan', T6A);
+  assert.deepEqual(P.diyPresetStore.get().presets.yan, { [T6B]: CHEN });
+  assert.deepEqual(stored().presets.yan, { [T6B]: CHEN }, 'persisted');
+  assert.deepEqual(loadoutStore.get().diy, { [T6A]: WIS });
+  assert.equal(P.diyPresetStore.get().active, null);
+  // its last pick: the faction has no preset any more (as the tab's 清空)
+  P.clearRosterSlot('sargon', T6A);
+  assert.equal(P.diyPresetStore.get().presets.sargon, undefined);
+  // 保持当前编队: the picks in use, whichever roster is shown
+  P.selectPreset('yan');
+  P.clearRosterSlot(P.KEEP_LINK, T6B);
+  assert.deepEqual(loadoutStore.get().diy, {});
+  assert.equal(P.diyPresetStore.get().presets.yan, undefined);
+  // an empty slot or an unknown roster: nothing
+  P.clearRosterSlot('nowhere', T6A);
+  P.clearRosterSlot(P.BASE_LINK, T6B);
+  assert.deepEqual(P.diyPresetStore.get().base, { [T6A]: WIS });
+
+  // the row: × on a filled slot it can edit, none on an empty one, a locked row or without the handler
+  const { DraftPresetRow } = await import('../../public/js/screens/bandDraft.js');
+  const band = data.list('bands').find((b) => b.bandId === 'band_paganini');
+  const walk = function* (v) {
+    if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
+    if (!v || typeof v !== 'object') return;
+    yield v;
+    yield* walk(v.props?.children);
+  };
+  const cleared = [];
+  const row = (extra) => [...walk(DraftPresetRow({ band, choice: 'yan', link: null, presets: { yan: { [T6A]: WANG } }, base: {}, live: {}, off: null,
+    locked: false, remember: true, onChoice() {}, onRemember() {}, onEdit() {}, onClear: (id) => cleared.push(id), ...extra }))];
+  const rm = (nodes) => nodes.filter((v) => v.props?.['data-testid'] === 'draft-preset-remove');
+  const nodes = row({});
+  assert.equal(rm(nodes).length, 1, 'only the filled slot');
+  assert.equal(nodes.filter((v) => v.props?.['data-testid'] === 'draft-preset-swap').length, 1, 'its swap stays');
+  rm(nodes)[0].props.onClick();
+  assert.deepEqual(cleared, [T6A]);
+  assert.equal(rm(row({ locked: true })).length, 0, 'a locked row');
+  assert.equal(rm(row({ onClear: null })).length, 0, 'no handler');
+});

@@ -29,7 +29,8 @@
 // kind and the 调度中心 level it sells from) and a line of the tier's colour under it; an empty slot is a faint card with +.
 // 编辑自选编队 under them opens the 干员调配 overlay's 自选编队 tab on
 // the roster the dropdown shows, a slot opens that slot's picker there — an empty one to fill, a filled one (a swap icon on
-// hover) as its 更换 does, and closing it (确认 or 取消) comes back here (maintainer requests 2026-10-13); a faction
+// hover) as its 更换 does, and closing it (确认, 取消 or 清空) comes back here (maintainer requests 2026-10-13); a filled
+// slot's × empties it in the roster the dropdown shows, without leaving the draft (maintainer request 2026-10-13); a faction
 // without a preset shows four empty slots (its 「…自选编队不变」 in the tooltip) (selectPreset: the live picks follow it, as the tab's own preset bar does); the order
 // list carries the overlay's entry (LoadoutButton, from 'draft' — it closes when the draft ends; maintainer request 2026-10-13).
 // 本局信息 (GitHub issue #8 item 1, "选策略时没法返回查看禁用的干员和盟约"): 查看禁用盟约与干员 under the order list opens the
@@ -48,7 +49,7 @@ import { actions, act } from '../ui/gameActions.js';
 import { normalizeDraft, sortedPlayers, diyPickOff } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { FactionIcon } from '../ui/faction.js';
-import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, KEEP_LINK, BASE_LINK } from '../ui/diyPresets.js';
+import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, clearRosterSlot, KEEP_LINK, BASE_LINK } from '../ui/diyPresets.js';
 import { loadoutStore, flushDiySync, openLoadout } from '../ui/loadoutSync.js';
 import { LoadoutButton } from './loadout.js';
 import { diySlotList } from '../ui/diyModel.js';
@@ -320,13 +321,14 @@ export function PresetPicker({ choice, presets, off, locked, onChoice }) {
  * field by tier — a plate per tier with its badge once, then the operators' icons as the official stage info draws them
  * (ChessIcon without its own tier badge; the name in the tooltip; maintainer request 2026-10-13: an operator whose every
  * bond this match disables is drawn banned; a slot opens its picker through `onEdit(slotId)` — empty: +, filled: a swap
- * icon on hover; a faction without a
+ * icon on hover, and its × (`onClear(slotId)`) empties it in the roster shown; a faction without a
  * preset: four empty slots) —, 记住 and 编辑自选编队 (`onEdit()`).
  * @param {{ band: any, choice: string, link: string|null, presets: Record<string, any>, base: Record<string, any>,
  *   live: Record<string, any>, off: string[]|null, locked: boolean, remember: boolean, m?: any,
- *   onChoice: (v: string) => void, onRemember: (v: boolean) => void, onEdit?: ((slotId?: string) => void)|null }} props
+ *   onChoice: (v: string) => void, onRemember: (v: boolean) => void, onEdit?: ((slotId?: string) => void)|null,
+ *   onClear?: ((slotId: string) => void)|null }} props
  */
-export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, m = null, onChoice, onRemember, onEdit = null }) {
+export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, m = null, onChoice, onRemember, onEdit = null, onClear = null }) {
   const tags = presetChoiceTags(choice, { link, rec: bandRecommendation(band), off });
   const preview = presetPreviewPicks(choice, { presets, base }, live);
   const picks = preview || {}; // a faction without a preset: its slots drawn empty (nothing would change)
@@ -366,11 +368,15 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
         const tip = [t('{tier}阶', { tier: tier || '?' }), name, gone && t('本局禁用')].filter(Boolean).join(' · ');
         if (onEdit && !locked) {
           const swap = `${tip} · ${t('更换')}`;
-          return html`<button key=${id} type="button" class=${cx('draft-preset__slot', 'is-edit', gone && 'is-off')} data-slot=${id} title=${swap}
-            aria-label=${swap} data-testid="draft-preset-swap" onClick=${() => onEdit(id)}>
-            <${ChessIcon} src=${pickAvatar(m, u)} name=${name} banned=${gone} title=${swap} class="draft-preset__ava" />
-            <i class="draft-preset__swap" aria-hidden="true"><${Icon} name="refresh" /></i>
-          </button>`;
+          const rm = `${tip} · ${t('清空')}`;
+          return html`<span key=${id} class=${cx('draft-preset__slot', 'is-edit', gone && 'is-off')} data-slot=${id}>
+            <button type="button" class="draft-preset__hit" title=${swap} aria-label=${swap} data-testid="draft-preset-swap" onClick=${() => onEdit(id)}>
+              <${ChessIcon} src=${pickAvatar(m, u)} name=${name} banned=${gone} title=${swap} class="draft-preset__ava" />
+              <i class="draft-preset__swap" aria-hidden="true"><${Icon} name="refresh" /></i>
+            </button>
+            ${onClear ? html`<button type="button" class="draft-preset__rm" title=${rm} aria-label=${rm} data-testid="draft-preset-remove"
+              onClick=${() => onClear(id)}><${Icon} name="close" /></button>` : null}
+          </span>`;
         }
         return html`<span key=${id} class=${cx('draft-preset__slot', !u && 'is-empty', gone && 'is-off')} data-slot=${id}>
           <${ChessIcon} src=${pickAvatar(m, u)} name=${name} banned=${gone} title=${tip} class="draft-preset__ava" />
@@ -483,6 +489,8 @@ export function BandDraftScreen() {
     if (choice !== KEEP_LINK) selectPreset(choice === BASE_LINK ? null : choice);
     openLoadout('draft', null, 'diy', slotId);
   };
+  // a filled slot's ×: empties it in the roster the row shows (the picks in use only when that is the one shown)
+  const clearPresetSlot = (bid, slotId) => clearRosterSlot(choiceFor(bid), slotId);
   const changeRemember = (bid, v) => {
     setRemember({ ...remember, [bid]: v });
     if (v && myPick === bid && choiceFor(bid) !== KEEP_LINK) linkBand(bid, choiceFor(bid));
@@ -594,7 +602,8 @@ export function BandDraftScreen() {
             presets=${presets} base=${baseRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
             locked=${(!!myPick && myPick !== band.bandId) || busy === 'pick'}
             remember=${remember[band.bandId] ?? true} onChoice=${(v) => changeChoice(band.bandId, v)}
-            onRemember=${(v) => changeRemember(band.bandId, v)} onEdit=${(slotId) => editPreset(band.bandId, slotId)} />` : null}` : html`<p class="t-dim">${t('选择一个策略查看详情')}</p>`}
+            onRemember=${(v) => changeRemember(band.bandId, v)} onEdit=${(slotId) => editPreset(band.bandId, slotId)}
+            onClear=${(slotId) => clearPresetSlot(band.bandId, slotId)} />` : null}`: html`<p class="t-dim">${t('选择一个策略查看详情')}</p>`}
         <div class="draft-detail__actions">
           ${confirmOn && inDraft ? html`<div class="draft-confirm" role="status" data-testid="draft-confirm">
             <b>${t('策略已确定 · 编队确认')}</b>

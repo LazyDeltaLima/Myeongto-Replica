@@ -155,7 +155,10 @@ function ModuleRow({ id, rec, on, locked, onPick }) {
  * detail (upstream 0.2.4) also carries the pick's 潜能与练度 selects and 干员调配's 局内数值 (ui/loadoutStats.js), whose
  * 普通 / 精锐 toggle sets the skill rows' level too. The state (filter, search, the draft pick, that toggle) lives here;
  * DiyPickerView draws it.
- * @param {{ m: any, slot: any, picks: Record<string, any>, kitted: string[]|null, onDone: (pick: any) => void, onClose: () => void }} props
+ * A filled slot's picker carries 清空 too (it empties the slot and closes, like the slot card's — maintainer request
+ * 2026-10-13: the draft's preset slot opens this picker).
+ * @param {{ m: any, slot: any, picks: Record<string, any>, kitted: string[]|null, onDone: (pick: any) => void, onClose: () => void,
+ *   onClear?: (() => void)|null }} props
  */
 export function DiyPicker(props) {
   const [previewLevel, setPreviewLevel] = useState('elite');
@@ -184,7 +187,7 @@ export function DiyPicker(props) {
  * The picker's view (no hooks: the tests draw it): `filter` 'all' | 'proto' | 'owned', `query`, `draft` the pick being
  * made (null = none chosen yet) and their setters.
  */
-export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter, query, draft, onFilter: setFilter, onQuery: setQuery, onDraft: setDraft, ops = {}, onOps = null, previewLevel = 'elite', onPreviewLevel = () => {} }) {
+export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, onClear = null, filter, query, draft, onFilter: setFilter, onQuery: setQuery, onDraft: setDraft, ops = {}, onOps = null, previewLevel = 'elite', onPreviewLevel = () => {} }) {
   const D = diyData();
   const cur = picks[slot.slotId] || null;
   const options = pickOptions(slot.slotId, picks, D, kitted);
@@ -253,6 +256,7 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
       </div>
     </div>
     <footer class="diy-pick__foot">
+      ${cur && onClear ? html`<${Button} variant="ghost" icon="close" class="diy-pick__clear" data-testid="diy-pick-clear" onClick=${onClear}>${t('清空')}<//>` : null}
       <${Button} variant="ghost" onClick=${onClose}>${t('取消')}<//>
       <${Button} variant="primary" icon="check" data-testid="diy-confirm" disabled=${!ch} onClick=${() => onDone(ch.proto ? { charId: draft.charId } : draft)}>${t('确认')}<//>
     </footer>
@@ -368,6 +372,6 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPickin
       </section>`)}
     </div>
     ${slot ? html`<${DiyPicker} m=${m} slot=${slot} picks=${picks} kitted=${kitted} ops=${ops} onOps=${onOps} onClose=${() => setPicking(null)}
-      onDone=${(pick) => { onSet(slot.slotId, pick); setPicking(null); }} />` : null}
+      onDone=${(pick) => { onSet(slot.slotId, pick); setPicking(null); }} onClear=${() => { onSet(slot.slotId, null); setPicking(null); }} />` : null}
   </main>`;
 }

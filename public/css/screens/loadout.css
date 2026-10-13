@@ -564,6 +564,7 @@
 .diy-choice__head { display: flex; align-items: center; gap: .05rem; flex-wrap: wrap; font-size: max(.14rem, 10px); }
 .diy-choice__desc { font-size: max(.12rem, 9px); line-height: 1.45; color: var(--text-md); }
 .diy-pick__foot { flex: none; display: flex; justify-content: flex-end; gap: .08rem; }
+.diy-pick__clear.btn { margin-right: auto; }
 /* 0.2.0 自选编队: the slots the player filled (the entry button's chip) */
 .lo-entry__diy { color: var(--text-on-mint); background: var(--mint-500); }
 @media (max-width: 760px) {

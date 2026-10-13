@@ -291,6 +291,26 @@ describe('自选编队 tab (screens/diy.js)', () => {
     assert.deepEqual(done.at(-1), { charId: WANG, skillIndex: 2, uniEquipId: 'uniequip_002_wang' });
   });
 
+  test('the picker of a filled slot carries 清空 (the draft\'s preset slot opens it — maintainer request 2026-10-13)', () => {
+    let cleared = 0;
+    const view = (picks, onClear) => expand(DiyPickerView({ m: null, slot: { slotId: T5A, tier: 5, shopLevel: 5 }, picks, kitted: KIT, onDone() {}, onClose() {},
+      onClear, filter: 'all', query: '', draft: picks[T5A] ? { ...picks[T5A] } : null, onFilter() {}, onQuery() {}, onDraft() {} }));
+    const clear = (tree) => [...walk(tree)].find((v) => v.props?.['data-testid'] === 'diy-pick-clear');
+    clear(view({ [T5A]: MAIN_PICK }, () => cleared++)).props.onClick();
+    assert.equal(cleared, 1);
+    assert.equal(clear(view({}, () => cleared++)), undefined, 'an empty slot: nothing to clear');
+    assert.equal(clear(view({ [T5A]: MAIN_PICK }, null)), undefined, 'no handler: no button');
+    // the panel: 清空 empties the slot and closes the picker
+    const set = [];
+    const closed = [];
+    const panel = DiyPanelView({ m: null, picks: { [T5A]: MAIN_PICK }, legal: { [T5A]: true }, kitted: KIT, onSet: (id, p) => set.push([id, p]),
+      picking: T5A, onPicking: (v) => closed.push(v) });
+    const picker = [...walk(panel)].find((v) => v.props?.slot?.slotId === T5A && typeof v.props.onDone === 'function');
+    picker.props.onClear();
+    assert.deepEqual(set, [[T5A, null]]);
+    assert.deepEqual(closed, [null]);
+  });
+
   test('the picker detail (upstream 0.2.4): 潜能与练度, 局内数值, and skill numbers at the rank each slot piece fights at', async () => {
     const { getDefaultSource } = await import('../../server/sim/simdata.js');
     const ds = getDefaultSource();

@@ -15,7 +15,7 @@
 //   installDiyPresets()   main.js, once: follow the picks into the shown roster.
 //   links            { [bandId]: factionId | 'base' } — 전략별 선발 프리셋 (maintainer decision 2026-10-12): the roster a
 //                    strategy applies when the player's pick of it lands in the strategy draft (screens/bandDraft.js);
-//                    linkBand() sets / clears one. A strategy without a link falls back to the nation bond it is built
+//                    linkBand() sets / clears one; clearRosterSlot() empties a slot of the roster the draft row shows. A strategy without a link falls back to the nation bond it is built
 //                    around (bandRecommendation: bands.json bondIds ∩ the chat factions — 9 of 40), else keeps the picks.
 // The picks themselves stay ui/loadoutSync.js's (setDiyPicks → localStorage + room.diy); a running match takes them while
 // its briefing or strategy draft runs (server platform.js setDiy) — from the prep on a faction pick applies no preset.
@@ -24,7 +24,7 @@
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { loadoutStore, setDiyPicks } from './loadoutSync.js';
-import { cleanPicks } from './diyModel.js';
+import { cleanPicks, setPick } from './diyModel.js';
 import { chatFaction, CHAT_FACTIONS } from '../../../shared/local.js';
 
 export const DIY_PRESETS_PREF = 'diyPresets';
@@ -193,6 +193,25 @@ export function linkBand(bandId, target) {
     delete links[bandId];
   }
   save({ links });
+}
+
+/**
+ * Empty one slot of a roster — the strategy draft's preset row (its 清空 on a filled slot): a chat faction, BASE_LINK or
+ * KEEP_LINK (the picks in use). The roster shown takes it through the live picks (synced like an edit); another one is
+ * only stored, the live picks stay (an emptied faction's preset goes, as in the tab).
+ * @param {string} id @param {string} slotId
+ */
+export function clearRosterSlot(id, slotId) {
+  const s = diyPresetStore.get();
+  const target = id === KEEP_LINK ? s.active : id === BASE_LINK ? null : chatFaction(id) ? id : undefined;
+  if (target === undefined) return;
+  if (target === s.active) {
+    const live = loadoutStore.get().diy || {};
+    if (live[slotId]) setDiyPicks(setPick(live, slotId, null));
+    return;
+  }
+  const roster = rosterOf(s, target);
+  if (roster[slotId]) save(withRoster(s, target, setPick(roster, slotId, null)));
 }
 
 /** 撤销 of the last faction apply: the roster shown before, with its picks. */
