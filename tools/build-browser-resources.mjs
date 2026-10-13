@@ -59,11 +59,18 @@ for await (const abs of walk(ASSETS)) {
 files.sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : 0));
 const bytes = files.reduce((n, f) => n + f.s, 0);
 const version = createHash('sha256').update(files.map((f) => f.p + ':' + f.h).join('\n')).digest('hex').slice(0, 16);
-const tmp = join(ASSETS, OUT + '.tmp');
-await writeFile(tmp, JSON.stringify({ version, bytes, files }));
-await rename(tmp, join(ASSETS, OUT));
+const body = JSON.stringify({ version, bytes, files });
+// an unchanged list keeps its file: the server's ETag is size + mtime (server/http/files.js), so a rewrite made every
+// client download the whole list (≈ 750 KB gzip) again after a deploy that changed none of it
+let same = false;
+try { same = (await readFile(join(ASSETS, OUT), 'utf8')) === body; } catch { /* no list yet */ }
+if (!same) {
+  const tmp = join(ASSETS, OUT + '.tmp');
+  await writeFile(tmp, body);
+  await rename(tmp, join(ASSETS, OUT));
+}
 const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
-console.log(`[resources] ${files.length} files, ${mb(bytes)} (upstream ${files.filter((f) => f.u).length} files / ${mb(upstreamBytes)}), version ${version}`);
+console.log(`[resources] ${files.length} files, ${mb(bytes)} (upstream ${files.filter((f) => f.u).length} files / ${mb(upstreamBytes)}), version ${version}${same ? ' (unchanged, file kept)' : ''}`);
 
 if (VERIFY > 0) {
   const pool = files.filter((f) => f.u);
