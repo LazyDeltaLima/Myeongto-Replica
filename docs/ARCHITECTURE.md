@@ -79,7 +79,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | path | what |
 |---|---|
 | `server/index.js` | the process entry (`npm start`); `startServer()` wires `server/http/` |
-| `server/http/` | `config.js` (environment), `websocket.js` (sessions, `/ws`), `static.js` (the mounts), `media.js`, `files.js` (MIME, gzip, ETag, ranges), `buildTag.js`, `routes.js` (`/healthz`), `common.js`, `boot.js` (banner, shutdown) |
+| `server/http/` | `config.js` (environment), `websocket.js` (sessions, `/ws`), `static.js` (the mounts), `media.js`, `files.js` (MIME, gzip, ETag, ranges), `buildTag.js`, `routes.js` (`/healthz`, `/changelog.json`), `changelog.js` (the lobby patch notes from CHANGELOG.md), `common.js`, `boot.js` (banner, shutdown) |
 | `server/net.js` | sessions and reconnect tokens, rate limits, message validation |
 | `server/lobby.js` | rooms, seats, AI seats, spectators; starts a `Match` |
 | `server/data.js` | loads `data/*.json` once (frozen) |

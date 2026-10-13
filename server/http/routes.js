@@ -5,6 +5,7 @@
 //   * any method but GET / HEAD → 405 with `Allow: GET, HEAD`;
 //   * GET /healthz → JSON status (protocol `version`, release `app`, uptime, the served `build`, sockets, sessions,
 //     rooms, matches), never cached; GET /healthz/rooms → the per-room status list (server/local-rooms.js), inside only;
+//   * GET /changelog.json → the lobby's patch notes parsed from CHANGELOG.md (changelog.js);
 //   * everything else → the static files (static.js).
 // A route that throws is logged and answers 500.
 
@@ -14,6 +15,7 @@ import { setSecurityHeaders, sendError, sendJson, splitUrl } from './common.js';
 import { localVersion } from '../../shared/local.js'; // local patch: version label
 import { proxiedRequest } from '../local-patch.js'; // local patch: /healthz through the proxy
 import { roomList } from '../local-rooms.js';
+import { CHANGELOG_URL, createChangelogReader } from './changelog.js';
 
 const MAX_URL_LENGTH = 4096;
 
@@ -37,10 +39,11 @@ export function healthReport({ startedAt, network, registry, lobby, restart }) {
  * The request listener for `http.createServer`.
  * @param {{ serveStatic: (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse,
  *             rawPath: string, query: string) => Promise<void>,
- *           health: Parameters<typeof healthReport>[0], log: object }} deps
+ *           health: Parameters<typeof healthReport>[0], log: object,
+ *           changelog?: ReturnType<typeof createChangelogReader> }} deps
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => void}
  */
-export function createRequestHandler({ serveStatic, health, log }) {
+export function createRequestHandler({ serveStatic, health, log, changelog = createChangelogReader() }) {
   async function handleRequest(req, res) {
     const url = req.url || '/';
     if (url.length > MAX_URL_LENGTH) { sendError(req, res, 414, '请求地址过长 · URI too long'); return; }
@@ -59,6 +62,10 @@ export function createRequestHandler({ serveStatic, health, log }) {
     if (parts.rawPath === '/healthz/rooms') { // per-room status (local-rooms.js), 404 through the proxy
       if (proxiedRequest(req)) sendError(req, res, 404, '页面不存在 · Not found');
       else sendJson(req, res, 200, { rooms: roomList(health.lobby) });
+      return;
+    }
+    if (parts.rawPath === CHANGELOG_URL) {
+      sendJson(req, res, 200, await changelog());
       return;
     }
     await serveStatic(req, res, parts.rawPath, parts.query);

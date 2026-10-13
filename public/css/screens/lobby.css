@@ -161,6 +161,45 @@
 .tips__nav .icon { width: .18rem; height: .18rem; }
 .tips__text { margin-top: .1rem; font-size: .17rem; color: var(--text-lo); line-height: 1.6; animation: tip-in var(--t-slow) var(--ease-out); }
 @keyframes tip-in { from { opacity: 0; transform: translateX(.1rem); } }
+/* 作战提示 | 更新 tabs (ui/patchNotes.js): ghost buttons — no outline, the button's hover bracket corners; the open tab
+   is mint on a faint wash */
+.tips__tabs { display: inline-flex; gap: .04rem; }
+.tips__tab.btn--sm { height: .3rem; padding: 0 .1rem; font-size: .16rem; }
+.tips__tab.is-on { --btn-fg: var(--mint-400); --btn-bg: rgba(78, 216, 175, .08); }
+.tips__tab.is-on:not(:disabled):hover { color: var(--mint-400); }
+.tips__new {
+  display: inline-flex; align-items: center; height: .18rem; padding: 0 .05rem; margin-left: .02rem;
+  background: var(--amber); color: #1d1203; font-family: var(--font-num); font-size: .11rem; letter-spacing: .08em;
+}
+.tips__news { display: flex; align-items: baseline; gap: .1rem; min-width: 0; color: var(--text-md); }
+.tips__ver { flex: none; color: var(--mint-400); font-weight: 700; }
+.tips__date { flex: none; color: var(--text-dim); font-size: .9em; }
+.tips__sum { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tips__more {
+  flex: none; display: inline-flex; align-items: center; gap: .02rem; padding: 0; border: 0; background: none;
+  color: var(--mint-400); font-size: .15rem; font-weight: 700; white-space: nowrap; cursor: pointer;
+}
+.tips__more .icon { width: .14rem; height: .14rem; }
+.tips__more:hover { color: var(--text-hi); }
+
+/* the 更新记录 window (ui/patchNotes.js PatchNotesModal): one <details> per release, the newest open */
+.pnotes .modal__body { padding-right: .22rem; }
+.pnotes__ver { border-left: 2px solid var(--line-3); padding: .02rem 0 .02rem .16rem; margin-bottom: .16rem; }
+.pnotes__ver[open] { border-left-color: var(--mint-500); }
+.pnotes__head { display: flex; align-items: center; gap: .1rem; cursor: pointer; list-style: none; font-size: .2rem; font-weight: 700; }
+.pnotes__head::-webkit-details-marker { display: none; }
+.pnotes__head::after { content: '›'; color: var(--mint-400); font-size: .2rem; transition: transform var(--t-fast) var(--ease-out); }
+.pnotes__ver[open] > .pnotes__head::after { transform: rotate(90deg); }
+.pnotes__v { color: var(--text-md); }
+.pnotes__ver[open] .pnotes__v { color: var(--mint-400); }
+.pnotes__date { color: var(--text-dim); font-size: .14rem; font-weight: 400; }
+.pnotes__new { padding: .01rem .05rem; background: var(--amber); color: #1d1203; font-family: var(--font-num); font-size: .11rem; letter-spacing: .08em; }
+.pnotes__p { margin: .08rem 0; font-size: .16rem; line-height: 1.65; color: var(--text-md); }
+.pnotes__group { margin: .14rem 0 .04rem; font-size: .15rem; color: var(--amber); letter-spacing: .04em; }
+.pnotes__list { margin: 0; padding-left: .22rem; font-size: .155rem; line-height: 1.65; color: var(--text-lo); }
+.pnotes__list li { margin: .03rem 0; }
+.pnotes b { color: var(--text-hi); }
+.pnotes code { font-family: var(--font-num); font-size: .9em; color: var(--text-md); }
 
 /* ---- difficulty cards -------------------------------------------------------------------------------- */
 .diff-list { display: flex; flex-direction: column; gap: .14rem; }

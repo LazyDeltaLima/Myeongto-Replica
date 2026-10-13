@@ -174,7 +174,10 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   .mode-card__name { font-size: .34rem; }
   .mode-cards { gap: .14rem; }
   .mode-card { padding: .2rem .18rem .18rem; }
-  .mode-card__points, .diff-card__effects, .tips, .create-box__hint { display: none; }
+  .mode-card__points, .diff-card__effects, .tips:not(.has-news), .create-box__hint { display: none; }
+  /* the tips panel stays while it carries the 更新 tab (patch notes, ui/patchNotes.js): one line under the join panel */
+  .tips { margin-top: .16rem; padding: .1rem .16rem .12rem; }
+  .tips__text { margin-top: .06rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .diff-list { gap: .1rem; }
   .diff-card { padding-top: .12rem; padding-bottom: .12rem; }
   .create-box { margin-top: .18rem; }

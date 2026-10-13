@@ -3,7 +3,8 @@
 // server/matchmaking.js has the rules; the card follows another fork's lobby the maintainer showed, 2026-10-13),
 // or join one with a 同盟密钥 (recent codes remembered) — as a player (加入同盟) or in one of its MAX_SPECTATORS
 // spectator seats (观战: room.spectate, also while its match runs; community report #26, a remake feature — the
-// official room has none). Shows connection status + ping.
+// official room has none). Shows connection status + ping. The tips panel has an 更新 tab beside the tips: the patch
+// notes (ui/patchNotes.js, maintainer decision 2026-10-13).
 //
 // Difficulty descriptions come from data/config.json `modes[modeId]` when present, else from the
 // official act2autochess `modeDataDict` texts embedded below (desc + effectDescList), so the
@@ -23,6 +24,7 @@ import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue } from '../ui/matchQueue.js';
+import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, summaryOf } from '../ui/patchNotes.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { getConfig, getMode, getStage, useData } from '../data.js';
@@ -186,7 +188,11 @@ const FALLBACK_TIPS = [
 ];
 const TIP_ROTATE_MS = 5000; // matchingTipRotateInterval
 
-/** Rotating tactical tips (config.json `tips`, weighted list of { tip, weight }). */
+/**
+ * Rotating tactical tips (config.json `tips`, weighted list of { tip, weight }), and beside them the 更新 tab: the newest
+ * release in one line, 查看全部 opens the 更新记录 window (ui/patchNotes.js). The 更新 tab opens by itself, marked NEW, on
+ * the first lobby visit after a release; without patch notes (/changelog.json unreachable) the panel has no tabs.
+ */
 function TipsPanel() {
   const cfg = getConfig();
   const fallback = FALLBACK_TIPS.map((x) => t(x));
@@ -199,17 +205,41 @@ function TipsPanel() {
     const id = setInterval(() => setIdx((i) => i + 1), TIP_ROTATE_MS);
     return () => clearInterval(id);
   }, []);
+  const notes = usePatchNotes();
+  const latest = notes?.[0] || null;
+  const [tab, setTab] = useState('tips');
+  const [fresh, setFresh] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  useEffect(() => {
+    if (!latest || !isUnseen(latest.version)) return;
+    setFresh(true);
+    setTab('news');
+    markSeen(latest.version);
+  }, [latest?.version]);
+  const news = tab === 'news' && !!latest;
   const i = ((idx % list.length) + list.length) % list.length;
-  return html`<div class="tips brackets">
+  return html`<div class=${`tips brackets${latest ? ' has-news' : ''}`}>
     <div class="tips__head">
       <${Icon} name="info" />
-      <span>${t('作战提示')}</span>
-      <${MicroLabel}>TACTICAL TIPS<//>
-      <span class="tips__idx num">${String(i + 1).padStart(2, '0')}<span class="t-dim">/${String(list.length).padStart(2, '0')}</span></span>
-      <button type="button" class="tips__nav" onClick=${() => setIdx(i - 1 + list.length)} aria-label=${t('上一条')}><${Icon} name="chevronLeft" /></button>
-      <button type="button" class="tips__nav" onClick=${() => setIdx(i + 1)} aria-label=${t('下一条')}><${Icon} name="chevronRight" /></button>
+      ${latest ? html`<span class="tips__tabs" role="tablist">
+          <${Button} variant="ghost" size="sm" class=${`tips__tab${news ? '' : ' is-on'}`} role="tab" aria-selected=${!news}
+            onClick=${() => setTab('tips')}>${t('作战提示')}<//>
+          <${Button} variant="ghost" size="sm" class=${`tips__tab${news ? ' is-on' : ''}`} role="tab" aria-selected=${news}
+            onClick=${() => setTab('news')}>${t('更新')}${fresh ? html`<span class="tips__new">NEW</span>` : null}<//>
+        </span>`
+        : html`<span>${t('作战提示')}</span><${MicroLabel}>TACTICAL TIPS<//>`}
+      ${news ? null : html`<span class="tips__idx num">${String(i + 1).padStart(2, '0')}<span class="t-dim">/${String(list.length).padStart(2, '0')}</span></span>
+        <button type="button" class="tips__nav" onClick=${() => setIdx(i - 1 + list.length)} aria-label=${t('上一条')}><${Icon} name="chevronLeft" /></button>
+        <button type="button" class="tips__nav" onClick=${() => setIdx(i + 1)} aria-label=${t('下一条')}><${Icon} name="chevronRight" /></button>`}
     </div>
-    <p key=${i} class="tips__text">${list[i]}</p>
+    ${news ? html`<p class="tips__text tips__news">
+        <span class="tips__ver num">v${latest.version}</span>
+        ${/^\d{4}-\d\d-\d\d$/.test(latest.date) ? html`<span class="tips__date num">${latest.date.slice(5)}</span>` : null}
+        <span class="tips__sum">${summaryOf(latest)}</span>
+        <button type="button" class="tips__more" onClick=${() => setNotesOpen(true)}>${t('查看全部')}<${Icon} name="chevronRight" /></button>
+      </p>`
+      : html`<p key=${i} class="tips__text">${list[i]}</p>`}
+    <${PatchNotesModal} open=${notesOpen} onClose=${() => setNotesOpen(false)} entries=${notes} fresh=${fresh} />
   </div>`;
 }
 

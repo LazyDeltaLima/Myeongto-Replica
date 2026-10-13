@@ -33,6 +33,7 @@ COPY tools ./tools
 COPY data ./data
 COPY public ./public
 COPY docs/research ./docs/research
+COPY CHANGELOG.md ./
 RUN node tools/vendor.mjs \
  && if [ "$FETCH_ASSETS" = "1" ]; then \
       node tools/fetch-assets.mjs || echo "WARNING: art download incomplete; the image falls back to placeholder art"; \
@@ -53,6 +54,8 @@ COPY --from=build /app/data ./data
 COPY --from=build /app/public ./public
 # research tables: read by server/sim/nodeData.js as a fallback
 COPY --from=build /app/docs/research ./docs/research
+# the lobby's patch notes: served as /changelog.json (server/http/changelog.js)
+COPY --from=build /app/CHANGELOG.md ./CHANGELOG.md
 
 USER node
 EXPOSE 3000
