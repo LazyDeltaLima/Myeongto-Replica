@@ -55,6 +55,11 @@ RENDER_E2E=1 node --test 'test/render/*.browser.test.js'         # rendering
 SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # the battle simulation in a browser
 ```
 
+Under WSL, run them against the Windows Chrome (the GPU; a WSL Chromium renders WebGL in software and the GPU-only
+render cases fail there) with WSL's mirrored networking, one file at a time:
+`CHROME_PATH="$PWD/test/helpers/wsl-windows-chrome.sh" SP_E2E=1 node --test --test-concurrency=1 …`
+(the script's header explains the profile folder and the cleanup).
+
 **Golden results** ([test/golden/README.md](test/golden/README.md)): a refactor never changes `test/golden/*.json`. An
 intended gameplay change runs `npm run golden:update` and commits the digests with the change, naming in the message
 which scenarios moved and why.
