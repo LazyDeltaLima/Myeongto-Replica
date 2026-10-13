@@ -196,12 +196,14 @@ export function presetPreviewPicks(choice, st, live) {
 /**
  * The tags of the 自选预设 row: 已关联 (the choice is the strategy's saved link), 推荐 (no link: the faction the
  * strategy is built around), 本局禁用 (the faction's bond is off this match — applied anyway, maintainer 2026-10-12).
+ * A turned-off recommendation (link KEEP_LINK, ui/diyPresets.js) reads as no link: 保持当前编队 untagged (maintainer
+ * decision 2026-10-13).
  * @param {string} choice @param {{ link?: string|null, rec?: string|null, off?: string[]|null }} o
  * @returns {Array<'linked'|'rec'|'off'>}
  */
 export function presetChoiceTags(choice, { link = null, rec = null, off = null } = {}) {
   const out = [];
-  if (link && link === choice) out.push('linked');
+  if (link && link === choice && link !== KEEP_LINK) out.push('linked');
   else if (!link && rec && rec === choice) out.push('rec');
   const f = chatFaction(choice);
   if (f && Array.isArray(off) && off.includes(f.bond)) out.push('off');

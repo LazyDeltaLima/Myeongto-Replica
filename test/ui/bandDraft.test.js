@@ -262,6 +262,8 @@ describe('UI: one countdown and the highlighted band (user playtest #4 item 4)',
     assert.deepEqual(presetChoiceTags('yan', { link: 'laterano', rec: 'laterano' }), [], 'this match\'s other choice: no tag');
     assert.deepEqual(presetChoiceTags('siracusa', { off: ['siracusaShip'] }), ['off'], 'a disabled bond is still offered, tagged');
     assert.deepEqual(presetChoiceTags('keep', { off: ['siracusaShip'] }), []);
+    assert.deepEqual(presetChoiceTags('keep', { link: 'keep', rec: 'laterano' }), [], 'a turned-off recommendation reads as no link');
+    assert.deepEqual(presetChoiceTags('laterano', { link: 'keep', rec: 'laterano' }), [], 'picked again this match: no 推荐 tag');
     // the dropdown: 保持当前编队, 不使用预设, then the eight factions with their icon record, 未设置 / 本局禁用
     const opts = presetOptions({ yan: { a: 1 } }, ['siracusaShip']);
     assert.deepEqual(opts.map((o) => o.v), ['keep', 'base', 'yan', 'sargon', 'victoria', 'kjerag', 'laterano', 'aegir', 'siracusa', 'kazimierz']);
