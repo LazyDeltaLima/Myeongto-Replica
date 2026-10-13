@@ -448,3 +448,30 @@
   안 넣어 통째로 빠졌다 → 그 경우도 `skills`에 넣음. 같은 이유로 무음이던 琳琅诗怀雅 S3·普罗旺斯 S2·华法琳 S2(b_char_atkboost / healboost)도 같이 생김.
   매니페스트 재생성(fetch-assets)으로 바뀐 것은 이 4명 + 파일 1개(p_skill_stwctp_s.mp3). 디버그 아레나에서 S3 발동 때 p_skill_stwctp_s 재생 확인
   (아레나는 샌드백이 범위 밖이라 S3가 저절로 안 켜져서 `skill.activate`로 켬). 테스트 `test/local-patch-audio.test.js`.
+
+## 랜덤 매칭·방 알림음 (관리자 결정 2026-10-14)
+- 공식(EN 클라 코드): 매칭 화면 `AutoChessMatchingView.Render`가 결과(`AutoChessMultiMatchResult` NONE·CANCEL·SUCCESS·TIMEOUT)로 연출을 켜고,
+  성공 연출 `_OnSucAnimChanged`가 `ON_ACT1AUTOCHESS_MATCH_SUCCEED`(act1autochess_g_ui_match_succeed, 2.0초), 시간 초과(`matchTimeMax` 120초) 연출
+  `_OnFailAnimChanged`가 `ON_ACT1AUTOCHESS_MATCH_FAIL`을 낸다. 취소(CANCEL)는 소리 없음 — `MATCH_CANCEL` 뱅크는 데이터에 있지만 C# 코드에 재생하는 곳이 없다.
+  방은 `AutoChessRoomState._HandlePlayersDeltaResult`가 새로 들어온 플레이어가 있으면 `ON_ACT1AUTOCHESS_PLAYER_JOINROOM`을 한 번(입장 토스트는 사람마다).
+- 우리(`public/js/ui/matchQueue.js queueCue`): 4명이 모여 수락 창이 뜨는 첫 `room.matchFound` → `matchSucceed`(수락 수 갱신은 무음). 매칭이 본인 탓 없이
+  깨짐 → `matchFail`: 그룹이 해산돼 큐로 돌아옴, 큐에서 빠진 이유가 `left`·`declined`가 아닌 모든 것(동료 거절·확인 시간 초과·방 변동·서버). 리메이크에는
+  검색 시간 초과가 없어 이것들이 공식 TIMEOUT 자리. 본인 취소·거절 → `matchCancel` [추정: 공식 코드에 재생처 없음, 관리자가 취소음도 원함].
+  수락 창 카운트다운(5초)도 아래 경고음을 낸다 — 아직 답하지 않은 사람만(리메이크 창, 공식에 없음).
+- 방(`public/js/screens/room.js joinedDoctors`): 방 화면에서 room.state 사이에 자리에 앉은 박사(본인·AI 제외, 관전석에서 자리로 옮긴 사람 포함)가 있으면
+  `joinRoom` 한 번. 다른 방(코드가 바뀜)이나 판이 시작된 room.state는 세지 않는다. 입장 토스트는 넣지 않았다.
+- 숨은 탭: 오디오는 탭이 숨으면 멈추는데(`audio.js _onVis`), 대기 중(`ui.queue`가 있는 동안) `audio.keepAwake(true)` — 숨은 탭에서도 컨텍스트를 유지하고
+  BGM·음성 채널은 0, UI 효과음만 난다. 큐가 끝나면 원래대로. 숨은 탭에서 그룹이 생기면 탭 제목이 1초마다 「匹配成功」과 번갈아 깜빡이고, 탭으로 돌아오거나
+  그룹이 끝나면 멈춘다(`flashTitle`). 브라우저가 첫 클릭 전에는 오디오를 못 켜므로 매칭 시작 버튼을 누른 페이지에서만 확실하다.
+- 확인: 단위 `test/ui/match-sounds.test.js`. [화면 미확인: 실제 매칭에서 다른 탭 상태로 성공음·제목 깜빡임]
+
+## 카운트다운 경고음 (관리자 결정 2026-10-14)
+- 공식(EN 클라 코드 `AutoChessCountDownView.SetCountDownNum`): 남은 초가 바뀔 때 `남은 초 ≤ 경고 시간`이면 위급 상태(막대·숫자 주황)이고, 위급이 아니다가
+  위급이 된 순간 **한 번** `ON_ACT1AUTOCHESS_COUNTDOWN`(act1autochess_g_ui_countdown, 0.62초)을 낸다(처음 그릴 때 이미 위급이어도 한 번). 준비 여부는 보지 않는다
+  — 정비·전투 막대(`AutoChessBattleUICountdownPanel.OnTick`)와 입장 단계 막대(`AutoChessOuterTopMenu`) 모두 같은 함수.
+  경고 시간: 입장 단계는 `autoChessData.enterStepList` `hintTime`(INFO_CHECK 5·BAND_CHECK 15·BATTLE_CHECK 0, `config.timers`), 그 밖은
+  `constData.hintTime{Normal,Special,Fight,Dot}Phase` 모두 10.
+- 우리: `gameLogic countdownWarnAt`(위 값) → HUD(`hud.js TopBar`)·입장 단계 머리(`matchChrome.js StepHeader`, 정보 확인·전략 선택)의 `Countdown`이
+  그 값에서 주황으로 바뀌고 `onWarn`으로 `timer` 한 번(`components.js warnCue`; 일시 정지 시계는 상태 유지). 기물 단계·전투·联防·보스전 모두.
+- 예전(원본): 정비에서 준비 안 한 사람과 자기 机变 차례일 때만, 남은 10초부터 **매초** `timer`(음량 0.6). 주황 기준도 모든 단계 10초였다(정보 확인 5·전략 15로 바뀜).
+- 확인: 단위 `test/ui/match-sounds.test.js`. [화면 미확인: 실제 판의 정비·전투·전략 선택에서 1회 재생]

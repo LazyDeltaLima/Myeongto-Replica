@@ -12,6 +12,8 @@ import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, createStore, isSpectating } from '../store.js';
 import { GIcon } from './gameComponents.js';
 import { GuideButton } from './guide.js';
+import { countdownWarnAt } from './gameLogic.js';
+import { audio } from '../audio.js';
 import { recordQuit } from './stats.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 
@@ -122,11 +124,16 @@ export function AwayOverlay({ onBack = () => {} }) {
   </div>`;
 }
 
+const timerCue = () => audio.sfx('timer');
+
 /**
  * Pre-game step header.
- * @param {{ step: number, of: number, title: string, micro: string, pub: any, total?: number|null, onExit: Function }} props
+ * The countdown turns orange at the step's official warning time and plays the countdown cue then (gameLogic
+ * countdownWarnAt: 确认本局信息 5 s, 选择策略 15 s; maintainer decision 2026-10-14).
+ * @param {{ step: number, of: number, title: string, micro: string, pub: any, total?: number|null, config?: any,
+ *   onExit: Function }} props config: data/config.json (the steps' warning times)
  */
-export function StepHeader({ step, of, title, micro, pub, total, onExit }) {
+export function StepHeader({ step, of, title, micro, pub, total, config = null, onExit }) {
   const conn = useStore((s) => s.connection, shallowEqual);
   return html`<header class="stephead">
     <div class="stephead__left">
@@ -142,7 +149,7 @@ export function StepHeader({ step, of, title, micro, pub, total, onExit }) {
     </div>
     <div class="stephead__right">
       <${GuideButton} class="stephead__guide" variant="secondary" />
-      <${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} size="md" />
+      <${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} warnAt=${countdownWarnAt(pub, config)} onWarn=${timerCue} size="md" />
     </div>
   </header>`;
 }

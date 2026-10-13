@@ -15,7 +15,7 @@
 | `ui.md` | 화면 UI: 디버그 패널, 정비 화면 HUD, 상점, 휴식 진입·현상 수배·전투 종료 화면, 배치 UI, 전투 화면 UI, 위장 아이콘, 초대 링크, 휴대폰, 서버 재시작 예고, 결산 화면 피드백, 로비 업데이트 소식 |
 | `render.md` | 보드·유닛 렌더링·연출: 공식 맵, 공식 스테이지 3D 씬, 배치 낙하, 유닛 모델 크기, 적 경로 미리보기(전투 시작), 보스 경로 미리보기 |
 | `fx.md` | 공식 전투 이펙트: 추출·재생기·붙는 자리·마운트·방향·정예 금빛·제보별 수정 |
-| `audio.md` | 소리·음성: 오퍼레이터 음성, 스킬 효과음·믹서, 작전 종료 효과음, 배치 효과음 |
+| `audio.md` | 소리·음성: 오퍼레이터 음성, 스킬 효과음·믹서, 작전 종료 효과음, 배치 효과음, 랜덤 매칭·방 알림음, 카운트다운 경고음 |
 | `upstream.md` | upstream과의 관계: 0.2.0 병합(옛 경로 대응표 포함), 0.2.0 전에 미리 가져온 원본 수정, upstream에서 이식할 때 비교할 우리 패치 |
 
 ## 쓰는 법
@@ -67,6 +67,8 @@
 | 스킬 효과음 보강 (ON_SKILL_START가 없는 스킬은 ON_ABILITY_START/ON_CUSTOM_TRIGGER [start]/ON_ABILITY_ON/HIT 뱅크) | `tools/assets/skill-sfx.mjs` | `audio.md` |
 | 스킬 모드 공격·타격음 + 공식 믹서 그룹 볼륨 + 믹서 스냅샷 | `public/js/audioOfficial.js`, `public/js/audioSnapshot.js`, `tools/assets/skill-mode-sfx.mjs`, `test/local-patch-audio.test.js`, `test/local-patch-skill-music.test.js`, `test/local-patch-skill-snapshot.test.js` | `audio.md` |
 | 라운드 작전 종료 효과음 (내 일반 전투 결과에 공식 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`) | `public/js/audioOfficial.js battleOverOf` | `audio.md` 「작전 종료 효과음」 |
+| 랜덤 매칭 성사·실패·취소음, 방 입장음, 대기 중 숨은 탭에서도 소리 유지 + 탭 제목 깜빡임 | `public/js/ui/matchQueue.js queueCue`, `public/js/screens/room.js joinedDoctors`, `public/js/audio.js keepAwake` | `audio.md` 「랜덤 매칭·방 알림음」 |
+| 카운트다운 경고음을 공식대로 주황이 되는 순간 1회 (단계별 공식 경고 시간) | `public/js/ui/gameLogic/phases.js countdownWarnAt`, `public/js/ui/components.js Countdown onWarn` | `audio.md` 「카운트다운 경고음」 |
 | 갱신 버튼 강조 (전략이 다음 수동 갱신에 작용할 때 테두리가 빛남: 두요야 라운드 첫 2회, 梓兰 매번, 佩佩 특수 갱신 대기, 贾维 N번째 갱신 직전) | `server/local-patch.js refreshBoost`, `public/css/refresh-boost.css` | — |
 | 얼린 상점에서 특수 갱신이 바꾼 칸도 얼림 유지 (원본은 `setShopSlot`이 항상 `frozen: false` → 佩佩·杜遥夜가 넣은 칸이 전투 시작 때 사라짐) | `server/match/effectsMeta.js setShopSlot` | — |
 | 디버그용 재화 고정 (`SP_DEBUG_FUNDS=<0..999>`이면 사람 플레이어 재화가 그 값으로 고정, 봇은 그대로) | `server/local-patch.js debugFunds` | `ui.md` 「디버그 패널」 |

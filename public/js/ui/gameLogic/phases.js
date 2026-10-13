@@ -191,6 +191,27 @@ export function countdownState(deadline, now, total, warnAt = 10) {
 }
 
 /**
+ * The official warning time of a phase's countdown (s): at or below it the bar turns orange and the countdown cue plays
+ * once (client AutoChessCountDownView.SetCountDownNum — ON_ACT1AUTOCHESS_COUNTDOWN when the view enters its emergency
+ * state; maintainer decision 2026-10-14). The match steps take theirs from autoChessData.enterStepList `hintTime`
+ * (config.timers: INFO_CHECK 5, BAND_CHECK 15, BATTLE_CHECK 0); every other phase from constData
+ * hintTime{Normal,Special,Fight,Dot}Phase, all 10.
+ * @param {any} pub m.public
+ * @param {any} [config] data/config.json
+ * @returns {number}
+ */
+export function countdownWarnAt(pub, config) {
+  const timers = isObj(config?.timers) ? config.timers : {};
+  const num = (v) => (Number.isFinite(v) && v >= 0 ? v : null);
+  switch (pub?.phase) {
+    case PHASE.INFO_CHECK: return num(timers.infoCheckHint) ?? 5;
+    case PHASE.BAND_DRAFT: return num(timers.bandDraftHint) ?? 15;
+    case PHASE.BATTLE_CHECK: return num(timers.enterSteps?.find?.((s) => s?.step === 'BATTLE_CHECK')?.hint) ?? 0;
+    default: return 10;
+  }
+}
+
+/**
  * Nominal length (s) of the current timed phase from data/config.json, or null when unknown/untimed.
  * @param {any} pub m.public
  * @param {any} config data/config.json

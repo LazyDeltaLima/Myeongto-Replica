@@ -104,7 +104,7 @@ export function BriefingScreen() {
   return html`<div class="screen brief">
     <div class="brief__bg" aria-hidden="true"></div>
     <${StepHeader} step=${1} of=${2} title=${t('确认本局信息')} micro="BRIEFING // INFO CHECK" pub=${pub}
-      total=${phaseTotalSeconds(pub, gd.config)} onExit=${() => setExit(true)} />
+      total=${phaseTotalSeconds(pub, gd.config)} config=${gd.config} onExit=${() => setExit(true)} />
     <main class="brief__main">
       <section class="brief__left">
         <div class="brief-enemy">

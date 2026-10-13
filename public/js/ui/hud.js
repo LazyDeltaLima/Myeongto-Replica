@@ -34,7 +34,7 @@ import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, Difficult
 import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
 import { localAsset } from '../data.js';
 import { serverNow } from '../store.js';
-import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason } from './gameLogic.js';
+import { isCombatPhase, isBossPhase, prepCapsuleLabel, bossFrac, bossPctText, fmtNum, shopBlockReason, countdownWarnAt } from './gameLogic.js';
 import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf } from './settings.js';
 import { t, tParts } from '../../../shared/i18n.js';
@@ -329,17 +329,19 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  * Top bar.
  * @param {{ pub:any, priv:any, conn:any, hud:any, total:number|null, drawer:string|null, onExit:Function, onDrawer:(tab:string)=>void,
  *   onReady:(r:boolean)=>void, readyBusy?:boolean, readyCount?:number, playerCount?:number,
- *   pen?:boolean, penAvail?:boolean, onPen?:(on:boolean)=>void, config?: any, frozenAt?: number|null,
+ *   pen?:boolean, penAvail?:boolean, onPen?:(on:boolean)=>void, config?: any, frozenAt?: number|null, onTimerWarn?: Function,
  *   pause?: { show: boolean, paused: boolean, busy?: boolean, onToggle: () => void } | null,
  *   live?: { pending: number, unite: boolean, left?: number|null } | null }} props
  *   frozenAt: the server time every clock shows while the solo match is paused (null = live)
+ *   onTimerWarn: the countdown turned orange at the phase's warning time (countdownWarnAt) — the countdown cue
  *   live: the own battle's pending LP loss (liveLp): the tower shows lp with a −N tick, 联防中 during 联防;
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
 export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
-  config = null, frozenAt = null, pause = null, live = null, spectator = false }) {
+  config = null, frozenAt = null, pause = null, live = null, spectator = false, onTimerWarn }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
+  const warnAt = countdownWarnAt(pub, config);
   // boss rounds: the team LP as the phase began and what it lost since (bossLp); normal rounds: the settled LP and the
   // own battle's leaks so far (liveLp)
   const bossBaseRef = useRef(null);
@@ -395,8 +397,8 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
     <div class="gtop__right">
       <div class="gtop__clock">
         ${frozenSecs != null
-          ? html`<${Countdown} seconds=${frozenSecs} total=${total ?? undefined} size="md" label="PAUSED" />`
-          : html`<${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} size="md" />`}
+          ? html`<${Countdown} seconds=${frozenSecs} total=${total ?? undefined} warnAt=${warnAt} size="md" label="PAUSED" />`
+          : html`<${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} warnAt=${warnAt} onWarn=${onTimerWarn} size="md" />`}
         ${pause && (pause.show || pause.paused) ? html`<${PauseButton} paused=${!!pause.paused} busy=${pause.busy} onToggle=${pause.onToggle} />` : null}
       </div>
       <${OvertimeWarning} ot=${ot} />

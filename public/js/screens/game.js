@@ -102,7 +102,7 @@ import {
   holdsBattleEnd, settleBattleEnd, roundResultBox,
   snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
-  countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
+  shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, foldCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
   mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull,
 } from '../ui/gameLogic.js';
@@ -828,17 +828,10 @@ function MatchScreen() {
     if (r.fieldId) setWatching(r.fieldId);
   }, [battleState?.battleId, battleState?.loading, !!pub]);
 
-  // timer ticks (≤ 10 s) while the player still has something to do
-  const cd = countdownState(pub?.deadline, serverNow(), total);
-  useTicker(cd.remain != null && cd.remain <= 10 ? 1000 : 0);
-  const lastTick = useRef(null);
-  useEffect(() => {
-    if (cd.remain == null || cd.remain > 10 || cd.remain === lastTick.current) return;
-    lastTick.current = cd.remain;
-    const busyPrep = phase === PHASE.PREP && priv && !priv.ready && alive;
-    const myPick = sp && (solo || sp.turnPid === myId) && !sp.pickOf.has(myId);
-    if ((busyPrep || myPick) && cd.remain > 0) audio.sfx('timer', { volume: 0.6 });
-  });
+  // the countdown cue (official ON_ACT1AUTOCHESS_COUNTDOWN, maintainer decision 2026-10-14): once, when the HUD countdown
+  // turns orange at the phase's warning time (gameLogic countdownWarnAt), ready or not — upstream ticked every second
+  // of the last 10, and only for a player not ready yet or on their own 机变 pick
+  const timerCue = () => audio.sfx('timer');
 
   // your turn cue in the 机变 draft
   const spMine = !!sp && !solo && sp.turnPid === myId && !sp.pickOf.has(myId);
@@ -1661,7 +1654,7 @@ function MatchScreen() {
       <${TopBar} pub=${pub} priv=${priv} conn=${conn} hud=${hud} total=${total} drawer=${drawer}
         onExit=${() => setExitOpen(true)} onDrawer=${(t) => setDrawer((d) => (d ? null : t))} onReady=${toggleReady}
         readyBusy=${readyBusy} readyCount=${readyCount} playerCount=${solo ? 1 : aliveCount}
-        pen=${pen} penAvail=${penAvail} onPen=${togglePen} config=${gd.config} frozenAt=${frozenAt}
+        pen=${pen} penAvail=${penAvail} onPen=${togglePen} config=${gd.config} frozenAt=${frozenAt} onTimerWarn=${timerCue}
         pause=${canPause || paused ? { show: canPause, paused, busy: pauseBusy, onToggle: () => togglePause(!paused) } : null}
         live=${liveLpNow} spectator=${spectator} />
 

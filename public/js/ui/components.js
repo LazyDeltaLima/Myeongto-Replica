@@ -387,15 +387,25 @@ export function secondsLeft(deadline) {
 }
 
 /**
+ * Whether a countdown's cue plays: it just turned orange (client AutoChessCountDownView.SetCountDownNum plays
+ * ON_ACT1AUTOCHESS_COUNTDOWN when the view goes from its normal to its emergency state, once; a view that first shows
+ * already in emergency plays it too).
+ * @param {boolean} wasWarn @param {boolean} warn
+ */
+export const warnCue = (wasWarn, warn) => !!warn && !wasWarn;
+
+/**
  * 7-segment countdown with "COUNTDOWN" micro label and a 5-bar gauge; turns orange ≤ warnAt s.
  * Untimed (no `seconds` and no deadline — the server sends deadline 0 for every phase outside the battles of a solo
  * match, Match.soloUntimed): renders nothing at all. It used to draw a "--" placeholder with the COUNTDOWN label,
  * which reads as a timer (user playtest #4 item 3; css/screens/loadout.css keeps hiding the old placeholder).
  * @param {{ deadline?: number, seconds?: number, total?: number, warnAt?: number, label?: string,
- *   size?: 'sm'|'md'|'lg', gauge?: boolean, onExpire?: Function, class?: string }} props
+ *   size?: 'sm'|'md'|'lg', gauge?: boolean, onExpire?: Function, onWarn?: Function, class?: string }} props
  *   deadline: server epoch ms (live); seconds: static value (overrides deadline); total: seconds for the gauge.
+ *   onWarn: called once each time a live countdown turns orange (the official countdown cue, warnCue); a static one
+ *   (`seconds`, the paused clock) keeps the state it had.
  */
-export function Countdown({ deadline, seconds, total, warnAt = 10, label = 'COUNTDOWN', size = 'md', gauge = true, onExpire, class: cls }) {
+export function Countdown({ deadline, seconds, total, warnAt = 10, label = 'COUNTDOWN', size = 'md', gauge = true, onExpire, onWarn, class: cls }) {
   const live = seconds == null && hasDeadline(deadline);
   useTicker(live ? 200 : 0);
   const remain = seconds != null && Number.isFinite(Number(seconds)) ? Math.max(0, Math.floor(Number(seconds))) : live ? secondsLeft(deadline) : null;
@@ -403,6 +413,14 @@ export function Countdown({ deadline, seconds, total, warnAt = 10, label = 'COUN
   const text = remain == null ? '--' : String(Math.min(999, remain)).padStart(2, '0');
   const bars = 5;
   const lit = remain == null ? 0 : Number.isFinite(total) && total > 0 ? Math.max(0, Math.min(bars, Math.ceil((remain / total) * bars))) : bars;
+
+  const warned = useRef(false);
+  useEffect(() => {
+    if (!live) return;
+    const cue = warnCue(warned.current, warn);
+    warned.current = warn;
+    if (cue && onWarn) onWarn();
+  });
 
   const expiredFor = useRef(null);
   useEffect(() => {

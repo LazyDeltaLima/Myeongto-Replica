@@ -537,7 +537,7 @@ export function BandDraftScreen() {
   return html`<div class="screen draft">
     <div class="brief__bg" aria-hidden="true"></div>
     <${StepHeader} step=${2} of=${2} title=${t('选择策略')} micro="STRATEGY // BAND CHECK" pub=${clock ? { ...pub, deadline: clock.deadline } : { ...pub, deadline: 0 }}
-      total=${clock ? clock.total : null} onExit=${() => setExit(true)} />
+      total=${clock ? clock.total : null} config=${gd.config} onExit=${() => setExit(true)} />
     <main class="draft__main">
       <aside class="draft-order">
         <h3 class="brief-h"><span>${solo ? t('独立模拟') : t('决策顺序')}</span><${MicroLabel}>${solo ? 'FREE PICK' : 'RANDOM ORDER'}</${MicroLabel}></h3>

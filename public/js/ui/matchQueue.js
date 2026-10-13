@@ -9,6 +9,10 @@
 // store ui.queue: null, or { difficulty, count, since, party, found } — since in this page's clock; party = queued with
 // the room; found: null or { players, accepted, mine, deadline, total } (deadline in server time for components.js
 // Countdown, total = the window's seconds for its gauge).
+//
+// Sounds (maintainer decision 2026-10-14, docs/rules/audio.md 「랜덤 매칭·방 알림음」): the official matching sounds
+// (queueCue), and while ui.queue is set the page keeps its audio running in a hidden tab (audio.keepAwake) and a group
+// that forms while the tab is hidden blinks the tab title until the player comes back (flashTitle).
 
 import { useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTY_NAMES } from '../../../shared/constants.js';
@@ -16,6 +20,7 @@ import { html, Button, Countdown, Modal, Spinner, useTicker } from './components
 import { toast, toastError } from './toasts.js';
 import { net } from '../net.js';
 import { store, useStore, serverNow } from '../store.js';
+import { audio } from '../audio.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 /**
@@ -44,10 +49,53 @@ export function leftText(msg) {
 
 const setQueue = (queue) => store.patch('ui', { queue });
 
+/**
+ * The sound of a queue message (sfx.ui key), from the official matching view (client AutoChessMatchingView: a SUCCESS
+ * result plays ON_ACT1AUTOCHESS_MATCH_SUCCEED, a TIMEOUT ON_ACT1AUTOCHESS_MATCH_FAIL, a CANCEL nothing):
+ * - matchSucceed: a group formed — the first room.matchFound; the later ones only update the accept count;
+ * - matchFail: the search failed without the player's doing — back in the queue from a group, or taken out for any
+ *   reason but their own (this remake has no search timeout; its failures are a teammate's decline, a timeout of the
+ *   confirmation, a member leaving the room, the server);
+ * - matchCancel: the player's own cancel or decline [ASSUMED: the client data has the MATCH_CANCEL bank, but no client
+ *   code plays it];
+ * - null: nothing (a queue update, or a message for a page that was not queued).
+ * @param {'room.queueState'|'room.matchFound'} kind @param {any} prev ui.queue before the message @param {any} msg
+ * @returns {'matchSucceed'|'matchFail'|'matchCancel'|null}
+ */
+export function queueCue(kind, prev, msg) {
+  if (kind === 'room.matchFound') return prev?.found ? null : 'matchSucceed';
+  if (kind !== 'room.queueState' || !prev) return null;
+  if (msg?.queued) return prev.found ? 'matchFail' : null;
+  return msg?.reason === 'left' || msg?.reason === 'declined' ? 'matchCancel' : 'matchFail';
+}
+
+/** The tab title blinking while a formed group waits for a player on another tab (stops on return or when it ends). */
+let titleFlash = null;
+function flashTitle(text) {
+  const doc = globalThis.document;
+  if (!doc?.hidden || titleFlash) return;
+  const base = doc.title;
+  let on = true;
+  doc.title = text;
+  const timer = setInterval(() => { on = !on; doc.title = on ? text : base; }, 1000);
+  const onVis = () => { if (!doc.hidden) stopTitleFlash(); };
+  doc.addEventListener('visibilitychange', onVis);
+  titleFlash = { stop: () => { clearInterval(timer); doc.removeEventListener('visibilitychange', onVis); doc.title = base; } };
+}
+function stopTitleFlash() {
+  titleFlash?.stop();
+  titleFlash = null;
+}
+
+const cue = (key) => { if (key) audio.sfx(key); };
+/** The confirmation's countdown cue at its last 5 s, for a player who has not answered yet (Countdown onWarn). */
+const timerCue = () => audio.sfx('timer');
+
 /** Wire the queue messages into the store (main.js, once). @param {{ net: { on: Function } }} deps */
 export function installMatchQueue({ net: n = net } = {}) {
   n.on('room.queueState', (msg) => {
     const prev = store.get().ui.queue;
+    cue(queueCue('room.queueState', prev, msg));
     if (!msg.queued) {
       setQueue(null);
       const text = leftText(msg);
@@ -60,6 +108,8 @@ export function installMatchQueue({ net: n = net } = {}) {
   });
   n.on('room.matchFound', (msg) => {
     const prev = store.get().ui.queue;
+    cue(queueCue('room.matchFound', prev, msg));
+    if (!prev?.found) flashTitle(t('匹配成功'));
     setQueue({
       ...(prev || { difficulty: msg.difficulty, count: msg.players, since: Date.now(), party: false }),
       found: { players: msg.players, accepted: msg.accepted, mine: !!msg.mine, deadline: serverNow() + msg.inMs,
@@ -73,6 +123,13 @@ export function installMatchQueue({ net: n = net } = {}) {
   });
   n.on('room.closed', () => { if (store.get().ui.queue?.party) setQueue(null); });
   n.on('welcome', (msg) => { if (!msg.resumed && store.get().ui.queue) setQueue(null); });
+  // while queued the page's audio stays up in a hidden tab; the title blink ends with its group
+  store.subscribe((s, prev) => {
+    const q = s.ui.queue;
+    if (q === prev?.ui?.queue) return;
+    audio.keepAwake(!!q);
+    if (!q?.found) stopTitleFlash();
+  });
 }
 
 /** room.queue for the difficulty (the lobby's 开始匹配 button). @returns {Promise<any>} */
@@ -109,7 +166,7 @@ export function MatchQueueDialog() {
         : html`<${Button} variant="secondary" loading=${busy === 'decline'} onClick=${() => run('decline', { t: 'room.queueAccept', accept: false })}>${t('拒绝')}<//>
           <${Button} variant="primary" icon="check" loading=${busy === 'accept'} onClick=${() => run('accept', { t: 'room.queueAccept', accept: true })}>${t('接受')}<//>`}>
       <div class="queue-dialog__body">
-        <${Countdown} deadline=${f.deadline} total=${f.total} warnAt=${5} label="CONFIRM" />
+        <${Countdown} deadline=${f.deadline} total=${f.total} warnAt=${5} label="CONFIRM" onWarn=${f.mine ? null : timerCue} />
         <div class="queue-dialog__lines">
           <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}</span>
           <span>${t('{players} 名博士', { players: f.players })}</span>

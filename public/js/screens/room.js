@@ -33,6 +33,7 @@ import { store, useStore, shallowEqual, emptyMatch, isSpectating } from '../stor
 import { difficultyInfo } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
 import { MatchQueueDialog, mmss } from '../ui/matchQueue.js';
+import { audio } from '../audio.js';
 import { t, tc } from '../../../shared/i18n.js';
 
 /**
@@ -81,6 +82,19 @@ export function roomFacts(room, myId) {
     spectators: Array.isArray(room?.spectators) ? room.spectators.filter((s) => s && typeof s === 'object') : [],
     spectating: isSpectating(room, myId),
   };
+}
+
+/**
+ * How many Doctors took a player seat between two room.state payloads — the official room's join cue
+ * (client AutoChessRoomState._HandlePlayersDeltaResult plays ON_ACT1AUTOCHESS_PLAYER_JOINROOM once when its new-player
+ * count is above 0; maintainer decision 2026-10-14). The page's own player and AI seats never count; another room
+ * (a new code) and a room whose match started give 0.
+ * @param {any} prev the previous room.state payload @param {any} room @param {any} myId
+ */
+export function joinedDoctors(prev, room, myId) {
+  if (!prev || !room || prev.code !== room.code || room.inMatch) return 0;
+  const was = new Set(roomFacts(prev, myId).humans.map((s) => s.playerId));
+  return roomFacts(room, myId).humans.filter((s) => s.playerId !== myId && !was.has(s.playerId)).length;
 }
 
 /**
@@ -245,6 +259,12 @@ export function RoomScreen() {
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
   useEffect(() => () => { alive.current = false; }, []);
   useTicker(room?.matching ? 500 : 0); // the waiting clock
+  // a Doctor taking a seat: the official join cue (joinedDoctors)
+  const lastRoom = useRef(room);
+  useEffect(() => {
+    if (joinedDoctors(lastRoom.current, room, me.playerId) > 0) audio.sfx('joinRoom');
+    lastRoom.current = room;
+  }, [room]);
 
   if (!room) return null;
   const online = conn.status === 'online';

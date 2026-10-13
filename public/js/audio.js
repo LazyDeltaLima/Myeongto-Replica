@@ -10,7 +10,8 @@
 //
 // - The AudioContext is created on the first user gesture (pointerdown/keydown/touchend), so browsers
 //   never block or warn; everything requested before that is remembered (BGM) or dropped (SFX).
-// - Channels: master → { bgm, sfx, voice } gains; volumes from settings (0..1) + mute. Tab hidden ⇒ suspend.
+// - Channels: master → { bgm, sfx, voice } gains; volumes from settings (0..1) + mute. Tab hidden ⇒ suspend
+//   (except while `keepAwake` — the 랜덤 매칭 wait: UI sounds only, BGM and voice silent).
 // - BGM: `intro` then `loop` (1 s crossfade); switching tracks fades out/in (0.8 s). The same loop URL
 //   keeps playing across phases (prep and combat share a track).
 // - 开战 BGM: `bgm.combatAlts` are the mode's own battle tracks (塞壬唱片 骑士之日 / 无畏者). The track is fixed per
@@ -601,6 +602,7 @@ export class AudioManager {
     this.bus = null;          // local patch: BattleGameSound — the channels a mixer snapshot filters (audioSnapshot.js)
     this.sfxOutside = null;   // local patch: sfx outside it (Independent banks, UI one-shots)
     this.volumes = { bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false };
+    this.awake = false;       // keepAwake: a hidden tab keeps the context running (UI sounds only)
     this.buffers = new Map(); // url → Promise<AudioBuffer|null> (insertion order = LRU)
     this.bufBytes = new Map(); // url → decoded PCM bytes (the byte budget of the LRU, see _buffer)
     this.warned = new Set();
@@ -720,10 +722,23 @@ export class AudioManager {
     } catch { /* ignore */ }
   }
 
+  /**
+   * Keep the context running while the tab is hidden (랜덤 매칭: the match-found cue has to reach a player who waits on
+   * another tab, maintainer decision 2026-10-14). A hidden tab then hears the UI sounds only: BGM and voice stay
+   * silent there (_applyVolumes). Off again ⇒ a hidden tab suspends as before.
+   * @param {boolean} on
+   */
+  keepAwake(on) {
+    if (this.awake === !!on) return;
+    this.awake = !!on;
+    this._onVis();
+  }
+
   _onVis() {
     try {
       if (!this.ctx) return;
-      if (this.win?.document?.hidden) this.ctx.suspend().catch(() => {});
+      this._applyVolumes();
+      if (this.win?.document?.hidden && !this.awake) this.ctx.suspend().catch(() => {});
       else if (this.ctx.state !== 'running') {
         // back on the page: resume, and keep a gesture ready in case the browser wants one first (iOS after a call)
         this._armUnlock();
@@ -758,12 +773,13 @@ export class AudioManager {
     try {
       const t = this.ctx.currentTime;
       this.master.gain.setTargetAtTime(this.volumes.muted ? 0 : 1, t, 0.03);
+      const away = this.awake && !!this.win?.document?.hidden; // keepAwake in a hidden tab: UI sounds only
       // perceptual curve
-      this.bgmGain.gain.setTargetAtTime(this.volumes.bgm ** 2 * 0.55, t, 0.05);
+      this.bgmGain.gain.setTargetAtTime(away ? 0 : this.volumes.bgm ** 2 * 0.55, t, 0.05);
       this.sfxGain.gain.setTargetAtTime(this.volumes.sfx ** 2, t, 0.03); // local patch: the mixer groups carry the SFX bus (audioOfficial.js)
       this.sfxOutside?.gain.setTargetAtTime(this.volumes.sfx ** 2, t, 0.03); // local patch: the same channel outside the snapshot bus
       // no 0.9: a voice line is already mastered as loud as the rest of the official mix (settings 干员语音 tunes it)
-      this.voiceGain.gain.setTargetAtTime(this.volumes.voice ** 2 * VOICE_GAIN, t, 0.03); // local patch: the Voice group
+      this.voiceGain.gain.setTargetAtTime(away ? 0 : this.volumes.voice ** 2 * VOICE_GAIN, t, 0.03); // local patch: the Voice group
     } catch { /* ignore */ }
   }
 
