@@ -627,7 +627,7 @@
   아스카론(阿斯卡纶)·켈시 에스페란타(凯尔希·思衡托)는 **S2**에서 시작한다(`shared/local-diy.js LOCAL_DIY_DEFAULT_SKILL`). 시작 선택만 바뀌고 다른 스킬은 그대로 고를 수 있다.
   이미 저장된 편성(`sp.pref.diy`·프리셋)의 스킬은 바꾸지 않는다. 테스트 `test/ui/diy-ui.test.js` 「defaultPick」.
 
-## upstream 0.2.4 이식 — 선발 선택 창 상세 (2026-10-11, 관리자 결정 W3)
+## upstream 0.2.4 이식 — 선발 선택 창 상세 (2026-10-11, 관리자 결정)
 - 선발 칸 선택 창의 오른쪽 상세를 upstream `6bfc0827`(0.2.4-dev §29.6)처럼 바꿨다: 고른 오퍼레이터 아래에 「잠재와 육성도」 선택(`screens/cultivation.js
   CultivationSelects`, 슬롯 카드와 같은 설정), 오퍼레이터 구성 화면과 같은 「인게임 능력치」(`public/js/ui/loadoutStats.js LoadoutStats` — 구성 화면에서
   이 파일로 옮김: 능력치 표·공격 범위·특성·재능, 일반/정예화 전환, 정예화가 기본), 스킬 줄마다 SP 줄(회복 방식·초기·소모·지속). 선발 기록은
