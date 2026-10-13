@@ -268,8 +268,8 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
  */
 export function DiyPanel(props) {
   const [picking, setPicking] = useState(null);
-  // a slot handed over by openLoadout (the strategy draft's preset slot): its picker opens once, and its 确认 returns to
-  // the draft (closes the overlay — maintainer request 2026-10-13); cancelling it stays in the tab
+  // a slot handed over by openLoadout (the strategy draft's preset slot): its picker opens once, and closing it — 确认 or
+  // 取消 — returns to the draft (closes the overlay — maintainer requests 2026-10-13)
   const handed = useStore((s) => s.diyPick, Object.is, loadoutStore);
   const [back, setBack] = useState(null);
   useEffect(() => {
@@ -278,8 +278,12 @@ export function DiyPanel(props) {
     setBack(handed);
     loadoutStore.set({ diyPick: null });
   }, [handed]);
-  const onPicking = (v) => { setPicking(v); if (!v) setBack(null); };
-  const onPicked = (slotId) => { if (back && slotId === back) closeLoadout(); };
+  const onPicking = (v) => {
+    setPicking(v);
+    if (v) return;
+    if (back) closeLoadout();
+    setBack(null);
+  };
   const presets = useStore((s) => s.presets, Object.is, diyPresetStore);
   const activePreset = useStore((s) => s.active, Object.is, diyPresetStore);
   const links = useStore((s) => s.links, Object.is, diyPresetStore);
@@ -287,7 +291,7 @@ export function DiyPanel(props) {
   const [bandsReady, setBandsReady] = useState(() => data.list('bands').length > 0);
   useEffect(() => { if (!bandsReady) data.load('bands').then(() => setBandsReady(true), () => {}); }, []);
   const bands = bandsReady ? data.list('bands') : [];
-  return DiyPanelView({ ...props, picking, onPicking, onPicked, presets, activePreset, onPreset: selectPreset, onPresetDelete: deletePreset,
+  return DiyPanelView({ ...props, picking, onPicking, presets, activePreset, onPreset: selectPreset, onPresetDelete: deletePreset,
     links, bands, onLink: linkBand });
 }
 
@@ -343,8 +347,8 @@ export function PresetBandLinks({ target, links, bands, onLink }) {
   </div>`;
 }
 
-/** The tab's view (no hooks: the tests draw it): `picking` = the slot being filled, or null; `onPicked(slotId)` after its 确认. */
-export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPicking: setPicking, onPicked = null, ops = {}, onOps = null, presets = null, activePreset = null, onPreset = null, onPresetDelete = null, links = null, bands = null, onLink = null }) {
+/** The tab's view (no hooks: the tests draw it): `picking` = the slot being filled, or null. */
+export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPicking: setPicking, ops = {}, onOps = null, presets = null, activePreset = null, onPreset = null, onPresetDelete = null, links = null, bands = null, onLink = null }) {
   const slots = diySlotList(diyData());
   const slot = picking ? slots.find((s) => s.slotId === picking) : null;
   const tiers = [...new Set(slots.map((s) => s.tier))];
@@ -364,6 +368,6 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPickin
       </section>`)}
     </div>
     ${slot ? html`<${DiyPicker} m=${m} slot=${slot} picks=${picks} kitted=${kitted} ops=${ops} onOps=${onOps} onClose=${() => setPicking(null)}
-      onDone=${(pick) => { onSet(slot.slotId, pick); setPicking(null); onPicked?.(slot.slotId); }} />` : null}
+      onDone=${(pick) => { onSet(slot.slotId, pick); setPicking(null); }} />` : null}
   </main>`;
 }

@@ -28,7 +28,7 @@
 // kind and the 调度中心 level it sells from) and a line of the tier's colour under it; an empty slot is a faint card with +.
 // 编辑自选编队 under them opens the 干员调配 overlay's 自选编队 tab on
 // the roster the dropdown shows, a slot opens that slot's picker there — an empty one to fill, a filled one (a swap icon on
-// hover) as its 更换 does, and its 确认 comes back here (maintainer requests 2026-10-13); a faction
+// hover) as its 更换 does, and closing it (确认 or 取消) comes back here (maintainer requests 2026-10-13); a faction
 // without a preset shows four empty slots (its 「…自选编队不变」 in the tooltip) (selectPreset: the live picks follow it, as the tab's own preset bar does); the order
 // list carries the overlay's entry (LoadoutButton, from 'draft' — it closes when the draft ends; maintainer request 2026-10-13).
 // 本局信息 (GitHub issue #8 item 1, "选策略时没法返回查看禁用的干员和盟约"): 查看禁用盟约与干员 under the order list opens the
