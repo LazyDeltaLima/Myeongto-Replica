@@ -171,7 +171,9 @@ export function harmonyMembers(priv, getChess = () => null) {
  * Member rows of a bond popup: every visible member with owned / on-board / in-hand / banned state, plus the player's
  * operators that are members through 变形同构体 (grantedBonds; `granted: true` and `items`: the item ids of the copy that
  * wears the pair — the card the row opens shows them; one row per operator — normal and elite copies are one member,
- * like the count's distinct members), so "成员 x/y" agrees with the count the server reports (在场; memberHeadCount).
+ * like the count's distinct members; a 自选 piece wearing the pair is its operator, `diy` / `rec` / `pick` as below — the
+ * owner's report of 2026-10-13: its row drew the empty slot's 「自」), so "成员 x/y" agrees with the count the server
+ * reports (在场; memberHeadCount).
  * 0.2.0 自选编队: the 自选 pieces of the bond (a DIY slot filled with an operator, whose bonds come from its factions — the
  * own pieces through `getChess` (gameLogic/diy.js diyGetter), a teammate's through `pieceRecord` (its UnitInfo `diy`
  * pick) are rows too (`diy: true`, the operator's name and record `rec`: its normal form, one row per slot like a
@@ -206,15 +208,20 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
   const diyOfBond = (rec) => isObj(rec) && typeof rec.diyFor === 'string' && Array.isArray(rec.bonds) && rec.bonds.includes(bond?.bondId);
   /** slot base id → { on, hand, owned, rec, pick } — the player's 自选 pieces and picks whose operator carries this bond */
   const diy = new Map();
+  /** a composed 自选 piece's row record — the normal form, as a member row draws its base chess (an elite copy is the
+   *  same member) — and its pick (a teammate's piece: the card the row opens composes it); null for any other piece */
+  const diyRow = (p, rec = recOf(p)) => {
+    if (!isObj(rec) || typeof rec.diyFor !== 'string') return null;
+    const pick = isObj(p.diy) && typeof p.diy.charId === 'string' ? p.diy : null;
+    const normal = rec.isGolden ? recOf(pick ? { kind: 'chess', id: rec.diyFor, diy: pick } : { kind: 'chess', id: rec.diyFor }) : rec;
+    return { rec: isObj(normal) && normal.diyFor === rec.diyFor ? normal : rec, pick };
+  };
   const diyOf = (p, on, hand) => {
     const rec = recOf(p);
     if (!diyOfBond(rec)) return false;
     const g = diy.get(rec.diyFor);
     if (g) { g.on = g.on || on; g.hand = g.hand || hand; return true; }
-    // the row draws the normal form, as a member row its base chess (an elite copy is the same member)
-    const pick = isObj(p.diy) && typeof p.diy.charId === 'string' ? p.diy : null;
-    const normal = rec.isGolden ? recOf(pick ? { kind: 'chess', id: rec.diyFor, diy: pick } : { kind: 'chess', id: rec.diyFor }) : rec;
-    diy.set(rec.diyFor, { on, hand, owned: true, rec: diyOfBond(normal) && normal.diyFor === rec.diyFor ? normal : rec, pick });
+    diy.set(rec.diyFor, { on, hand, owned: true, ...diyRow(p, rec) });
     return true;
   };
   const itemIds = (p) => p.items.map((it) => (typeof it === 'string' ? it : it?.id)).filter((x) => typeof x === 'string');
@@ -223,7 +230,7 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
     const base = baseOf(p.id);
     onBoard.add(base); owned.add(base);
     if (diyOf(p, true, false)) continue;
-    if (!memberSet.has(base) && !granted.has(base) && grants(p)) granted.set(base, { on: true, hand: false, items: itemIds(p) });
+    if (!memberSet.has(base) && !granted.has(base) && grants(p)) granted.set(base, { on: true, hand: false, items: itemIds(p), d: diyRow(p) });
   }
   for (const [list, hand] of [[priv?.hand, true], [priv?.temp, false]]) {
     for (const p of Array.isArray(list) ? list : []) {
@@ -234,7 +241,7 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
       if (diyOf(p, false, hand)) continue;
       if (memberSet.has(base) || !grants(p)) continue;
       const g = granted.get(base);
-      if (!g) granted.set(base, { on: false, hand, items: itemIds(p) });
+      if (!g) granted.set(base, { on: false, hand, items: itemIds(p), d: diyRow(p) });
       else if (hand) g.hand = true;
     }
   }
@@ -251,8 +258,10 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
     return { id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: onBoard.has(id), owned: owned.has(id), inHand: inHand.has(id), banned: bannedSet.has(id) };
   });
   for (const [id, g] of granted) {
-    const c = getChess(id);
-    rows.push({ id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: g.on, owned: true, inHand: g.hand, banned: false, granted: true, items: g.items });
+    // a 自选 piece through 变形同构体 is its operator too (a diy row's record and pick), not the empty slot
+    const c = g.d ? g.d.rec : getChess(id);
+    rows.push({ id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: g.on, owned: true, inHand: g.hand, banned: false, granted: true, items: g.items,
+      ...(g.d ? { diy: true, rec: g.d.rec, ...(g.d.pick ? { pick: g.d.pick } : {}) } : {}) });
   }
   for (const [id, g] of diy) {
     rows.push({ id, tier: g.rec.tier ?? 0, name: g.rec.name ?? id, onBoard: g.on, owned: g.owned, inHand: g.hand, banned: bannedSet.has(id) || diyBanned.has(id), diy: true, rec: g.rec, ...(g.pick ? { pick: g.pick } : {}) });

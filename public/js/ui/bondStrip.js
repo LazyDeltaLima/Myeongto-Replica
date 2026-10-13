@@ -26,7 +26,7 @@
 // opens the stand-in's card (gameLogic memberStandIn; the owner's recall of the official mode, 2026-10-06).
 // 0.2.1 自选编队 (the owner's report of 2026-10-07): each 自选 pick of the player (m.private.diy) is a row of every bond its
 // operator carries — the operator's name and portrait (upstream's 「自选」 tag is left out: docs/rules/upstream.md J-2),
-// dimmed until owned (not bought, or not in the shop yet), ✕ when all its bonds are off this match (m.private.diyBanned) — and opens the operator's card; a watched
+// dimmed until owned (not bought, or not in the shop yet), marked banned (the red corner) when all its bonds are off this match (m.private.diyBanned) — and opens the operator's card; a watched
 // teammate's 自选 pieces on the field are rows too (their picks are not sent), opening THEIR operator's card (the unit's
 // pick goes with onMember: never the empty 甄选干员 slot's card).
 
@@ -35,7 +35,7 @@ import { RichText, UnitThumb, BondGlyph, GIcon } from './gameComponents.js';
 import { sortBonds, bondMembers, nextThreshold, bondRequireCount, bondTier, harmonyMembers, HARMONY_BOND, memberHeadCount, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { formatBondEffect } from './richText.js';
 import { bondIconUrl } from './assetUrls.js';
-import { data } from '../data.js';
+import { data, localAsset } from '../data.js';
 import { bondBoardStyle, bondBoardOf } from './hudArt.js'; // local patch
 import { t, tc, tParts, tName } from '../../../shared/i18n.js';
 
@@ -143,6 +143,11 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
     const si = memberStandIn(priv, rawChess(x.id), data.get('backups'), rawChess);
     return si ? { ...x, name: si.name } : x;
   }) : [];
+  // a banned member: the stage info's mark (img_chess_banned_mask + the img_chess_banned corner, as ui/matchInfo.js
+  // ChessIcon) — the client's bond dialog (autochess_hud_bond_char_item) has no banned state of its own
+  const banArt = localAsset('ui/outer', 'img_chess_banned');
+  const banMark = html`<i class="bpop__banmask" aria-hidden="true"></i>${banArt
+    ? html`<img class="bpop__ban" src=${banArt} alt="" draggable=${false} />` : html`<i class="bpop__ban is-css" aria-hidden="true"></i>`}`;
   const harmonyName = data.lookup('bonds', HARMONY_BOND)?.name || tName('调和');
   const harmonyText = harmonyBy.length ? t('{names} 在场：核心盟约激活人数 +{harmony}', { names: harmonyBy.map((x) => x.name), harmony })
     : t('{harmonyName}已激活：核心盟约激活人数 +{harmony}', { harmonyName, harmony });
@@ -193,9 +198,9 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
               onClick=${() => (si ? onMember?.(mb.id, items, si.standInFor) : mb.pick ? onMember?.(mb.id, items, null, mb.pick) : onMember?.(mb.id, items))}
               data-granted=${mb.granted ? '1' : null} data-standin=${si ? si.charId : null} data-diy=${mb.diy ? mb.rec?.charId || '1' : null}
               title=${`${name}${si ? t('（{note}）', { note: standInForText(mb.name) }) : ''}${mb.granted ? t('（变形同构体：视为本盟约成员）') : ''}${mb.banned ? t('（本局禁用）') : mb.onBoard ? t('（在场）') : mb.owned ? t('（整备区）') : ''}`}>
-            <${UnitThumb} kind="chess" id=${mb.id} size="sm" dim=${!mb.owned || mb.banned} rec=${si || (mb.diy ? mb.rec : null)} title=${name} />
+            <${UnitThumb} kind="chess" id=${mb.id} size="sm" dim=${!mb.owned || mb.banned} rec=${si || (mb.diy ? mb.rec : null)} title=${name}
+              badge=${mb.banned ? banMark : null} />
             <span class="bpop__mname">${name}</span>
-            ${mb.banned ? html`<span class="bpop__ban"><${Icon} name="close" /></span>` : null}
             ${mb.granted ? html`<span class="bpop__iso" aria-hidden="true">${t('同构')}</span>` : null}
           </button>`;
         })}

@@ -173,7 +173,8 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     assert.equal(rowsOf('emptyShip', priv).find((x) => x.id === T5B).banned, false, '阿斯卡纶 keeps its stock');
     const btn = memberButtons(popup({ bondId: 'yanShip', priv })).find((v) => v.props['data-diy'] === SIEGE);
     assert.ok(hasClass(btn, 'is-banned'));
-    assert.ok([...walk(btn)].some((v) => hasClass(v, 'bpop__ban')), 'the red ✕');
+    assert.ok([...walk(btn)].some((v) => hasClass(v, 'bpop__ban')), 'the stage info\'s red corner (img_chess_banned)');
+    assert.ok([...walk(btn)].some((v) => hasClass(v, 'bpop__banmask')), 'under its grey mask');
     assert.ok([...walk(btn)].some((v) => hasClass(v, 'uthumb') && hasClass(v, 'is-dim')));
     assert.ok(btn.props.title.endsWith('（本局禁用）'), btn.props.title);
   });
@@ -209,5 +210,34 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     // the game screen hands the pick on to the card
     const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
     assert.match(src, /onMember=\$\{\(id, items, standInFor, diy\) => setDetail\(\{ kind: 'chess', id, owner: bondPop\.ownerId, items: items \|\| null, standInFor: standInFor \|\| null, diy: diy \|\| null \}\)\}/);
+  });
+
+  test('a 自选 piece wearing 变形同构体 + a bond item is its operator in that bond\'s list, not the empty slot (owner\'s report 2026-10-13: 「自」)', () => {
+    const ISO = 'chess_item_6_09_e_a'; // 变形同构体
+    const HAMMER = 'chess_item_1_01_e_a'; // 维式重锤 → 维多利亚
+    const getItem = (id) => data.lookup('items', id);
+    const wear = (p) => ({ ...p, items: [{ uid: 90, id: ISO }, { uid: 91, id: HAMMER }] });
+    // own: 赤刃明霄陈 (炎) on the board, elite, wearing the pair → a 维多利亚 row of 赤刃明霄陈's normal form
+    const priv = privOf({ board: [wear(piece(4, T5A_ELITE, [10, 5]))] });
+    const rows = G.bondMembers(DATA.bonds.victoriaShip, priv, [], G.diyGetter(getChess, priv, D), getItem);
+    const r = rows.find((x) => x.id === T5A);
+    assert.ok(r, rows.map((x) => x.id).join(' '));
+    assert.deepEqual([r.granted, r.diy, r.name, r.tier, r.onBoard, r.rec.charId, r.rec.isGolden], [true, true, SIEGE_NAME, 5, true, SIEGE, false]);
+    assert.deepEqual(r.items, [ISO, HAMMER]);
+    const btn = memberButtons(popup({ bondId: 'victoriaShip', priv })).find((v) => v.props['data-diy'] === SIEGE);
+    assert.ok(btn && hasClass(btn, 'is-granted') && hasClass(btn, 'is-on'), 'the row draws 赤刃明霄陈 (UnitThumb rec)');
+    const raw = [...walk(BondPopup({ bondId: 'victoriaShip', entry: ENTRY, onClose() {}, priv }))].find((v) => v.props?.['data-diy'] === SIEGE);
+    const thumb = [...walk(raw)].find((v) => v.props && 'rec' in v.props);
+    assert.equal(thumb?.props.rec?.charId, SIEGE, 'UnitThumb gets the composed record');
+    // a watched teammate's: the unit's pick names the operator, and the row hands it on to the card
+    const mate = ownerBoard({ units: [{ id: 9, kind: 'op', ownerId: 'p_2', defId: T5B, diy: HUANG_PICK, items: [ISO, HAMMER] }] }, 'p_2');
+    const pieceRecord = (p) => (p.diy ? G.diyRecordFor(getChess(p.id), p.diy, D) : null) || getChess(p.id);
+    const m = G.bondMembers(DATA.bonds.victoriaShip, mate, [], G.diyGetter(getChess, mate, D), getItem, pieceRecord).find((x) => x.id === T5B);
+    assert.deepEqual([m?.granted, m?.diy, m?.name, m?.rec.charId], [true, true, HUANG_NAME, HUANG]);
+    assert.deepEqual(m.pick, HUANG_PICK);
+    // a plain wearer stays a plain row
+    const plain = G.bondMembers(DATA.bonds.victoriaShip, privOf({ board: [wear(piece(5, 'chess_char_1_01_a', [10, 6]))] }), [], getChess, getItem);
+    const w = plain.find((x) => x.granted);
+    assert.ok(w && !w.diy && !('rec' in w));
   });
 });
