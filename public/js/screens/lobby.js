@@ -326,18 +326,18 @@ export function LobbyScreen() {
         <h1 class="topbar__title">${t('选择模拟协议')}</h1>
       </div>
       <div class="topbar__right">
-        <${Button} variant="secondary" size="sm" icon="chart" class="stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')}>${t('统计')}<//>
         <${ResumeMatchButton} />
         <${SettingsButton} class="lobby-settings" variant="secondary" label=${t('设置')} />
         <${GuideButton} class="lobby-guide" variant="secondary" label=${t('玩法说明')} />
         <${LoadoutButton} from="lobby" size="sm" class="lobby-loadout" label=${t('干员调配')} />
-        <div class="me-chip">
+        <button type="button" class="me-chip" onClick=${openStats} title=${t('统计数据')}>
           <${AvatarFrame} size="sm" name=${me.name} seat=${0} self=${true} />
-          <div class="me-chip__text">
+          <span class="me-chip__text">
             <span class="me-chip__name">${me.name || t('博士')}</span>
             <${MicroLabel}>${me.playerId != null ? `DOCTOR #${doctorNo(me.playerId)}` : 'DOCTOR'}<//>
-          </div>
-        </div>
+          </span>
+          <span class="me-chip__go" aria-hidden="true"><${Icon} name="chart" /></span>
+        </button>
       </div>
     </header>
 
