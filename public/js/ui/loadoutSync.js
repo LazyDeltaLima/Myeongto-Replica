@@ -49,9 +49,10 @@ export const loadoutStore = createStore({
   diy: readStoredDiy(), // 自选编队: { [slotBaseId]: { charId, skillIndex?, uniEquipId? } } ({} = every slot empty)
   diyKitted: null,     // the operators a DIY slot may field (welcome.diyKitted; null before the first welcome)
   open: false,
-  from: null,          // 'lobby' | 'room' | 'briefing'
+  from: null,          // 'lobby' | 'room' | 'briefing' | 'draft'
   tab: 'loadout',      // 'loadout' (干员调配) | 'ownership' (干员持有) | 'diy' (自选编队)
   sel: null,           // selected base chess id
+  diyPick: null,       // a 自选 slot whose picker the 自选编队 tab opens once (the strategy draft's empty preset slot)
   filters: { tier: null, prof: null, bond: null, query: '', changedOnly: false },
   sync: 'idle',
   ownSync: 'idle',
@@ -142,10 +143,11 @@ export function applyDiyImport(picks, data, kitted) {
 }
 
 /**
- * Open the 干员调配 overlay. @param {'lobby'|'room'|'briefing'} from @param {string|null} [sel]
+ * Open the 干员调配 overlay. @param {'lobby'|'room'|'briefing'|'draft'} from @param {string|null} [sel]
  * @param {'loadout'|'ownership'|'diy'|null} [tab] the tab to show (default: the last one)
+ * @param {string|null} [diySlot] with tab 'diy': a slot whose picker opens at once (screens/diy.js DiyPanel)
  */
-export function openLoadout(from = 'lobby', sel = null, tab = null) {
+export function openLoadout(from = 'lobby', sel = null, tab = null, diySlot = null) {
   data.load('chess');
   data.load('bonds');
   data.load('assets');
@@ -153,7 +155,8 @@ export function openLoadout(from = 'lobby', sel = null, tab = null) {
   data.load('backups');
   data.load('effects'); // 0.2.2: the 练度 multipliers of the 局内数值 (effects.json CHAR_MAP)
   data.load('garrisons'); // the 特质 at the top of the detail (PR #301)
-  loadoutStore.set({ open: true, from, ...(sel ? { sel } : {}), ...(tab === 'loadout' || tab === 'ownership' || tab === 'diy' ? { tab } : {}) });
+  loadoutStore.set({ open: true, from, ...(sel ? { sel } : {}), ...(tab === 'loadout' || tab === 'ownership' || tab === 'diy' ? { tab } : {}),
+    diyPick: tab === 'diy' && diySlot ? diySlot : null });
 }
 export const closeLoadout = () => loadoutStore.set({ open: false });
 

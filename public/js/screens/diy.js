@@ -25,6 +25,7 @@ import { diySlotList, pickChoices, pickOptions, slotRecord, defaultPick } from '
 import { LoadoutStats } from '../ui/loadoutStats.js';
 import { CultivationSelects } from './cultivation.js';
 import { useStore } from '../store.js';
+import { loadoutStore } from '../ui/loadoutSync.js';
 import { FactionIcon } from '../ui/faction.js';
 import { diyPresetStore, selectPreset, deletePreset, linkBand, bandRecommendation, BASE_LINK } from '../ui/diyPresets.js';
 import { CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
@@ -267,6 +268,13 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
  */
 export function DiyPanel(props) {
   const [picking, setPicking] = useState(null);
+  // a slot to fill handed over by openLoadout (the strategy draft's empty preset slot): its picker opens once
+  const handed = useStore((s) => s.diyPick, Object.is, loadoutStore);
+  useEffect(() => {
+    if (!handed) return;
+    setPicking(handed);
+    loadoutStore.set({ diyPick: null });
+  }, [handed]);
   const presets = useStore((s) => s.presets, Object.is, diyPresetStore);
   const activePreset = useStore((s) => s.active, Object.is, diyPresetStore);
   const links = useStore((s) => s.links, Object.is, diyPresetStore);

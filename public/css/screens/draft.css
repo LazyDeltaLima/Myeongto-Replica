@@ -205,18 +205,28 @@
 .draft-preset__ava.chessico { --ci: max(.66rem, 34px); }
 .draft-preset__slot.is-empty .chessico__art { place-items: center; border: 1px dashed rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .06); }
 .draft-preset__slot.is-empty .chessico__art::after { content: '+'; font-size: calc(var(--ci) * .45); line-height: 1; color: rgba(255, 255, 255, .45); }
+/* a slot that opens its picker in the 自选编队 tab (bandDraft.js): empty = the + card, filled = the swap icon over the
+   icon on hover / focus (maintainer requests 2026-10-13) */
+.draft-preset__slot.is-edit { margin: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+.draft-preset__slot.is-edit:focus-visible { outline: none; }
+.draft-preset__slot.is-empty.is-edit:hover .chessico__art, .draft-preset__slot.is-empty.is-edit:focus-visible .chessico__art { border-color: var(--mint-400); background: rgba(78, 216, 175, .12); }
+.draft-preset__slot.is-empty.is-edit:hover .chessico__art::after, .draft-preset__slot.is-empty.is-edit:focus-visible .chessico__art::after { color: var(--mint-400); }
+.draft-preset__swap { position: absolute; z-index: 3; left: 0; top: 0; width: var(--ci); height: var(--ci); --ci: max(.66rem, 34px);
+  display: grid; place-items: center; background: rgba(0, 0, 0, .55); box-shadow: inset 0 0 0 1px var(--mint-400);
+  opacity: 0; transition: opacity .12s; pointer-events: none; }
+.draft-preset__swap .icon { width: 46%; height: 46%; color: var(--mint-400); filter: drop-shadow(0 0 2px #000); }
+.draft-preset__slot.is-edit:hover .draft-preset__swap, .draft-preset__slot.is-edit:focus-visible .draft-preset__swap { opacity: 1; }
 /* a narrow window: the px floors would overflow the pane — smaller icons, and on a phone (~200 px pane) smaller gaps too */
 @media (max-width: 1000px) {
-  .draft-preset__ava.chessico { --ci: 30px; }
+  .draft-preset__ava.chessico, .draft-preset__swap { --ci: 30px; }
   .draft-preset__tier .tier { --tier-h: 18px; }
 }
 @media (max-width: 900px) {
   .draft-preset__slots { gap: 4px; }
   .draft-preset__grp { gap: 3px; padding: 4px 3px 5px; }
-  .draft-preset__ava.chessico { --ci: 26px; }
+  .draft-preset__ava.chessico, .draft-preset__swap { --ci: 26px; }
   .draft-preset__tier .tier { --tier-h: 15px; }
 }
-.draft-preset__none { flex: 1; font-size: max(.12rem, 9px); color: var(--text-dim); }
 .draft-preset__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .04rem .08rem; }
 .draft-preset__edit.btn { flex: none; height: max(.32rem, 22px); padding: 0 .08rem; font-size: max(.13rem, 9px); }
 .draft-preset__edit .btn__icon { color: var(--mint-400); }

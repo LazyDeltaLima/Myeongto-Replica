@@ -15,7 +15,7 @@ import {
   changedCount, moduleBadge, attrRows, skillTags, skillLabel, selectedSkill, selectedModule, recordsOf,
   exportPayload, serializeExport, parseImport, LOADOUT_EXPORT_KIND, LOADOUT_VERSION, LOADOUT_IMPORT_MAX_BYTES,
 } from '../../public/js/ui/loadoutModel.js';
-import { installLoadoutSync, SYNC_DEBOUNCE_MS, RETRY_MS, applyLoadoutEntries, setEntries, loadoutStore } from '../../public/js/ui/loadoutSync.js';
+import { installLoadoutSync, SYNC_DEBOUNCE_MS, RETRY_MS, applyLoadoutEntries, setEntries, loadoutStore, openLoadout, closeLoadout } from '../../public/js/ui/loadoutSync.js';
 import { createStore } from '../../public/js/store.js';
 import { shouldAutoClose } from '../../public/js/screens/loadout.js';
 
@@ -502,4 +502,15 @@ test('entry badge (review fix): counts like the screen once chess.json is loaded
   assert.equal(badgeCount(entries, get), 1, 'with the data: only chess the screen shows as 已调整');
   assert.equal(badgeCount(entries, get), changedCount(entries, get));
   assert.equal(badgeCount({}, get), 0);
+});
+
+test('openLoadout hands the 自选编队 tab a slot to fill (the draft\'s empty preset slot) only with the diy tab', () => {
+  openLoadout('draft', null, 'diy', 'chess_char_5_diy1_a');
+  assert.equal(loadoutStore.get().tab, 'diy');
+  assert.equal(loadoutStore.get().diyPick, 'chess_char_5_diy1_a');
+  openLoadout('draft', null, 'diy');
+  assert.equal(loadoutStore.get().diyPick, null, 'the edit button opens no picker');
+  openLoadout('draft', null, 'loadout', 'chess_char_5_diy1_a');
+  assert.equal(loadoutStore.get().diyPick, null, 'another tab: no picker');
+  closeLoadout();
 });
