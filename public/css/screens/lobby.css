@@ -28,6 +28,7 @@
   min-height: 4.3rem;
   padding: .32rem .26rem .28rem;
   overflow: hidden;
+  container-type: inline-size;
   text-align: left;
   background: linear-gradient(180deg, rgba(28, 34, 31, .92), rgba(13, 16, 15, .94));
   border: 1px solid var(--line);
@@ -73,7 +74,8 @@
 }
 .mode-card__icon .icon { width: .44rem; height: .44rem; }
 .mode-card__text { position: relative; display: flex; flex-direction: column; gap: .1rem; }
-.mode-card__name { font-size: .4rem; font-weight: 900; letter-spacing: .06em; line-height: 1.1; word-break: keep-all; }
+/* sized by the card's width (cqi): with three cards 「단독 시뮬레이션」 must still fit on one line */
+.mode-card__name { font-size: min(.4rem, 12cqi); font-weight: 900; letter-spacing: .06em; line-height: 1.1; word-break: keep-all; }
 .mode-card__desc { font-size: .16rem; color: var(--text-lo); line-height: 1.6; word-break: keep-all; }
 .mode-card__points { display: flex; flex-direction: column; gap: .05rem; margin-top: .06rem; font-size: .15rem; color: var(--text-md); }
 .mode-card__points span::before {

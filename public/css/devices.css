@@ -166,7 +166,7 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   .mode-cards { margin-bottom: .2rem; }
   .mode-card { min-height: 0; gap: .12rem; padding: .22rem .26rem .2rem; }
   .mode-card__icon { width: .66rem; height: .66rem; }
-  .mode-card__name { font-size: .34rem; }
+  .mode-card__name { font-size: min(.34rem, 12cqi); }
   .mode-cards { gap: .14rem; }
   .mode-card { padding: .2rem .18rem .18rem; }
   .mode-card__points, .diff-card__effects, .tips, .create-box__hint { display: none; }
