@@ -1,90 +1,99 @@
-// server/matchmaking.js — 랜덤 매칭: a per-difficulty queue of co-op players that the lobby turns into a room and a match
-// (a remake feature; the upstream design left a matchmaking queue out of scope, docs/design/overview.md). The lobby
-// (server/lobby.js) owns one Matchmaker and routes room.queue / room.unqueue / room.queueFallback / room.queueAccept to
-// it, plus its session events (disconnect, resume, expiry, shutdown).
+// server/matchmaking.js — 랜덤 매칭: a per-difficulty queue of co-op players (and co-op rooms with empty seats) that the
+// lobby turns into a full room and a match (a remake feature; the upstream design left a matchmaking queue out of scope,
+// docs/design/overview.md). The lobby (server/lobby.js) owns one Matchmaker and routes room.queue / room.queueRoom /
+// room.unqueue / room.queueAccept to it, plus its session and room events (disconnect, resume, expiry, a member leaving
+// a queued room, a room's disposal, shutdown).
 //
 // Rules (maintainer decisions 2026-10-13):
-//   * One queue per difficulty, co-op only. room.queue { difficulty } enters it (switching difficulty moves the entry to
-//     the back of the other queue); a player in a LOBBY room leaves the room (like room.create), one whose room is in a
-//     match is refused (ROOM_STARTED). room.unqueue leaves it. Every waiting player gets room.queueState whenever its
-//     queue changes.
-//   * Four connected waiting players, in queue order, form a group. ▸ A player who has waited `queueFallbackMs` (60 s)
-//     may choose a fallback with room.queueFallback { fallback }: 'bots' (start now, the empty seats filled with AI
-//     teammates) or 'humans' (start as soon as one more player chose a fallback, without AI); null keeps waiting for
-//     four. Only players who chose a fallback join a smaller group: two or three of them start together (AI-filled only
-//     when every one of them chose 'bots'); a lone 'bots' player starts with three AI teammates. The AI seats obey the
-//     server's AI budgets (SP_MAX_BOTS / _TOTAL / _PER_ADDR, server/local-patch.js botCap) — a budget that is used up
-//     leaves the seats empty instead of refusing the match.
-//   * A formed group is confirmed: every member gets room.matchFound and answers room.queueAccept { accept } within
-//     `queueConfirmMs` (15 s). All accepted → the lobby creates a co-op room with the members seated in queue order (the
-//     first is the host), adds the AI seats and starts the match at once (no ready check: the confirmation was it). A
-//     member who declines, or has not answered when the time runs out, leaves the queue (room.queueState { queued:
-//     false, reason }); the others go back to the front of their queue, in their old order, keeping their waiting time
-//     and fallback.
-//   * A waiting player whose socket closes is skipped by group formation and leaves the queue after `queueGraceMs`
-//     (10 s; a phone switching apps keeps its place); a resume within that time resends the queue state (or the pending
-//     room.matchFound). The reconnect window expiring removes the entry at once. A player who ended up in a room some
-//     other way (an invitation link) is dropped when a group would take them (reason 'room').
-//   * Limits: at most `maxQueuedPerAddr` waiting players from one client network (internet clients only, net.js
-//     clientAddress; room.queue → ERR.RATE); no queue entry and no match start during the deploy countdown's last
-//     minutes (server/local-restart.js startRefusal → ERR.RESTARTING; a group that completes then is dissolved with
-//     reason 'restarting').
+//   * One queue per difficulty, co-op only. Its entries are single players or rooms ("parties"):
+//     - room.queue { difficulty } queues the player alone (switching difficulty moves the entry to the back of the other
+//       queue); a player in a LOBBY room leaves the room (like room.create), one whose room is in a match is refused
+//       (ROOM_STARTED).
+//     - room.queueRoom {} (the host of a co-op LOBBY room with 1–3 humans) queues the room's humans together for the
+//       room's difficulty, under the gate of room.start: every other human connected and ready (NOT_READY). The room's
+//       AI seats are freed (matchmaking fills the seats with humans only). While the room is queued (room.state
+//       `matching`) nobody may join it (ERR.MATCHING; spectating is fine) and the host may not change the difficulty,
+//       add an AI seat or start (ERR.MATCHING); a human leaving the room (leave, kick, the lobby grace, a resume window
+//       expiring) or its disposal cancels the room's entry (reason 'changed' to the others).
+//     room.unqueue (any queued member) leaves the queue — for a room, the whole room: the sender gets reason 'left', the
+//     other members 'party'. Every waiting player gets room.queueState whenever its queue changes (`count` = the humans
+//     waiting for that difficulty, `party` = queued with a room).
+//   * A group is always four humans (maintainer decision 2026-10-13: no AI fill, no smaller group). Formation walks the
+//     queue in order and takes the first entries whose humans add up to exactly four, preferring the oldest entries
+//     (an entry that does not fit is skipped, not dropped). An entry with an offline human is skipped.
+//   * A formed group is confirmed: every human gets room.matchFound and answers room.queueAccept { accept } within
+//     `queueConfirmMs` (15 s). All accepted → the match starts at once (no ready check: the confirmation was it):
+//     - with a room in the group, in the first (oldest) such room: its members keep their seats, the others take its
+//       free seats in queue order (players of another queued room leave that room, which closes empty); its host stays
+//       the host;
+//     - otherwise in a new co-op room, seated in queue order (the first is the host).
+//     A human who declines, or has not answered when the time runs out, takes their entry out of the queue (a room
+//     leaves whole: the others get reason 'party'); the other entries go back to the front of their queue, in their old
+//     order, keeping their waiting time.
+//   * A waiting single player whose socket closes is skipped by group formation and leaves the queue after
+//     `queueGraceMs` (10 s; a phone switching apps keeps its place); a resume within that time resends the queue state
+//     (or the pending room.matchFound). The reconnect window expiring removes the entry at once. A single player who
+//     ended up in a room some other way (an invitation link) is dropped when a group would take them (reason 'room').
+//     A queued room's offline human is the room's business: the lobby grace (60 s) removes them, which cancels the entry.
+//   * Limits: at most `maxQueuedPerAddr` waiting single players from one client network (internet clients only, net.js
+//     clientAddress; room.queue → ERR.RATE; queued rooms are already capped by the lobby's room limits); no queue entry
+//     and no match start during the deploy countdown's last minutes (server/local-restart.js startRefusal →
+//     ERR.RESTARTING; a group that completes then is dissolved with reason 'restarting').
 //   * The queue lives in memory: a server restart forgets it (the client's queue screen closes on the new `welcome`).
 
 import { ERR, MAX_SEATS } from '../shared/constants.js';
 import { sendSession } from './net.js';
-import * as localPatch from './local-patch.js';
 
 export const QUEUE_DEFAULTS = Object.freeze({
   queueConfirmMs: 15_000,  // a formed group's room.queueAccept window
-  queueFallbackMs: 60_000, // waiting time before room.queueFallback is accepted
-  queueGraceMs: 10_000,    // a disconnected waiting player keeps the place this long
-  maxQueuedPerAddr: 4,     // waiting players from one client network (0 = unlimited)
+  queueGraceMs: 10_000,    // a disconnected waiting single player keeps the place this long
+  maxQueuedPerAddr: 4,     // waiting single players from one client network (0 = unlimited)
 });
-
-export const QUEUE_FALLBACKS = Object.freeze(['bots', 'humans']);
 
 const OK = Object.freeze({ ok: true });
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
 
 /**
- * @typedef {{ playerId: string, difficulty: string, joinedAt: number, fallback: string | null, limitKey: string | null,
- *   group: Group | null, offline: NodeJS.Timeout | null }} Entry
- * @typedef {{ id: number, difficulty: string, members: Entry[], bots: number, accepted: Set<string>,
+ * @typedef {{ key: string, playerId: string | null, room: import('./lobby.js').Room | null, difficulty: string,
+ *   joinedAt: number, limitKey: string | null, group: Group | null, offline: NodeJS.Timeout | null }} Entry
+ *   a single player (playerId) or a queued room (room); key = the playerId, or 'room:' + the room code
+ * @typedef {{ id: number, difficulty: string, members: Entry[], ids: string[], accepted: Set<string>,
  *   deadline: number, timer: NodeJS.Timeout | null }} Group
  */
+
+const roomKey = (room) => `room:${room.code}`;
 
 export class Matchmaker {
   /**
    * @param {import('./lobby.js').Lobby} lobby
-   * @param {{ Room: typeof import('./lobby.js').Room, botNames: readonly string[], newBotId: (room: any) => string,
-   *   options?: Partial<typeof QUEUE_DEFAULTS> }} deps
+   * @param {{ Room: typeof import('./lobby.js').Room, options?: Partial<typeof QUEUE_DEFAULTS> }} deps
    */
-  constructor(lobby, { Room, botNames, newBotId, options = {} }) {
+  constructor(lobby, { Room, options = {} }) {
     this.lobby = lobby;
     this.Room = Room;
-    this.botNames = botNames;
-    this.newBotId = newBotId;
     this.opts = { ...QUEUE_DEFAULTS, ...options };
     /** @type {Map<string, Entry[]>} waiting entries by difficulty, in queue order */
     this.queues = new Map();
-    /** @type {Map<string, Entry>} every entry (waiting or in a group) by playerId */
+    /** @type {Map<string, Entry>} every entry (waiting or in a group) by key */
     this.entries = new Map();
     this.groupSeq = 0;
   }
 
-  /** Counters for /healthz-style status. */
+  /** Counters for /healthz-style status: humans waiting / confirming. */
   stats() {
     let waiting = 0;
-    for (const q of this.queues.values()) waiting += q.length;
-    return { waiting, confirming: this.entries.size - waiting };
+    let confirming = 0;
+    for (const e of this.entries.values()) {
+      if (e.group) confirming += this.size(e); else waiting += this.size(e);
+    }
+    return { waiting, confirming };
   }
 
   // ---------------------------------------------------------------------------------------------------
   // Messages
   // ---------------------------------------------------------------------------------------------------
 
-  /** room.queue { difficulty } */
+  /** room.queue { difficulty } — a single player. */
   queue(session, { difficulty }) {
     const lobby = this.lobby;
     const cur = lobby.roomOf(session);
@@ -97,19 +106,19 @@ export class Matchmaker {
     const key = session.limitKey || null;
     if (key && this.opts.maxQueuedPerAddr > 0 && !had) {
       let n = 0;
-      for (const e of this.entries.values()) if (e.limitKey === key) n++;
+      for (const e of this.entries.values()) if (e.playerId && e.limitKey === key) n++;
       if (n >= this.opts.maxQueuedPerAddr) {
         lobby.limitWarn(`queue limit (${this.opts.maxQueuedPerAddr}) reached for ${session.addr}`);
         return fail(ERR.RATE, 'too many queued players from your network');
       }
     }
-    if (cur) lobby.removeMember(cur, session.playerId);
+    if (cur) lobby.removeMember(cur, session.playerId); // a queued room of theirs is cancelled by onRoomChange
     session.notice = null;
     session.pendingResult = null;
     if (had) this.drop(had, null); // moved to another difficulty: no queued:false in between
     /** @type {Entry} */
-    const entry = { playerId: session.playerId, difficulty, joinedAt: lobby.now(), fallback: null, limitKey: key, group: null, offline: null };
-    this.entries.set(entry.playerId, entry);
+    const entry = { key: session.playerId, playerId: session.playerId, room: null, difficulty, joinedAt: lobby.now(), limitKey: key, group: null, offline: null };
+    this.entries.set(entry.key, entry);
     this.queueOf(difficulty).push(entry);
     if (had) this.broadcastQueue(had.difficulty);
     this.broadcastQueue(difficulty);
@@ -117,51 +126,72 @@ export class Matchmaker {
     return OK;
   }
 
-  /** room.unqueue — idempotent; inside a pending group it is a decline. */
-  unqueue(session) {
-    const entry = this.entries.get(session.playerId);
-    if (!entry) return OK;
-    if (entry.group) return this.decline(entry.group, entry, 'left');
-    this.drop(entry, 'left');
+  /** room.queueRoom {} — the host queues the room's humans for its empty seats (header). */
+  queueRoom(session) {
+    const lobby = this.lobby;
+    const room = lobby.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.spectatorOf(session.playerId)) return fail(ERR.SPECTATOR);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (room.mode !== 'coop') return fail(ERR.BAD_TARGET, 'co-op rooms only');
+    const had = this.entries.get(roomKey(room));
+    if (had) { this.sendState(had); return OK; }
+    const humans = room.activeHumans();
+    if (humans.length >= MAX_SEATS) return fail(ERR.ROOM_FULL, 'no seat to fill');
+    for (const s of humans) {
+      if (s.playerId !== room.hostId && (!s.connected || !s.ready)) return fail(ERR.NOT_READY);
+    }
+    const late = lobby.restartNotice?.startRefusal();
+    if (late) return late;
+    for (const s of room.seats) if (s && s.isBot) room.seats[s.seat] = null; // humans only fill the seats
+    for (const s of humans) lobby.dropReplay(room, s.playerId);
+    /** @type {Entry} */
+    const entry = { key: roomKey(room), playerId: null, room, difficulty: room.difficulty, joinedAt: lobby.now(), limitKey: session.limitKey || null, group: null, offline: null };
+    this.entries.set(entry.key, entry);
+    this.queueOf(entry.difficulty).push(entry);
+    room.matching = true;
+    lobby.log.info(`[queue] ${room.code} queued (${humans.length} player(s), ${entry.difficulty})`);
+    lobby.broadcastState(room);
     this.broadcastQueue(entry.difficulty);
+    this.tryForm(entry.difficulty);
     return OK;
   }
 
-  /** room.queueFallback { fallback: 'bots' | 'humans' | null } */
-  setFallback(session, { fallback }) {
-    const entry = this.entries.get(session.playerId);
-    if (!entry) return fail(ERR.NOT_IN_ROOM, 'not queued');
-    if (entry.group) return fail(ERR.WRONG_PHASE, 'a match was found');
-    if (fallback != null && this.lobby.now() - entry.joinedAt < this.opts.queueFallbackMs) return fail(ERR.WRONG_PHASE, 'keep waiting a little longer');
-    entry.fallback = fallback ?? null;
-    this.sendState(entry);
-    this.tryForm(entry.difficulty);
+  /** room.unqueue — idempotent; inside a pending group it is a decline. */
+  unqueue(session) {
+    const entry = this.entryOf(session);
+    if (!entry) return OK;
+    if (entry.group) return this.decline(entry.group, entry, 'left', session.playerId);
+    this.drop(entry, 'left', session.playerId);
+    this.broadcastQueue(entry.difficulty);
     return OK;
   }
 
   /** room.queueAccept { accept } */
   accept(session, { accept }) {
-    const entry = this.entries.get(session.playerId);
+    const entry = this.entryOf(session);
     const group = entry?.group;
     if (!group) return fail(ERR.WRONG_PHASE, 'no match to answer');
-    if (!accept) return this.decline(group, entry, 'declined');
-    group.accepted.add(entry.playerId);
-    if (group.accepted.size === group.members.length) return this.launch(group);
+    if (!accept) return this.decline(group, entry, 'declined', session.playerId);
+    group.accepted.add(session.playerId);
+    if (group.ids.every((id) => group.accepted.has(id))) return this.launch(group);
     this.sendFound(group);
     return OK;
   }
 
   // ---------------------------------------------------------------------------------------------------
-  // Session events (from the lobby)
+  // Session and room events (from the lobby)
   // ---------------------------------------------------------------------------------------------------
 
   onDisconnect(session) {
     const entry = this.entries.get(session.playerId);
-    if (!entry || entry.group) return; // a group member may come back before its deadline
+    // a group member may come back before its deadline; a queued room's member has the lobby grace (header)
+    if (!entry || entry.group) return;
     this.clearOffline(entry);
     entry.offline = setTimeout(() => {
       entry.offline = null;
-      if (this.entries.get(entry.playerId) !== entry || entry.group) return;
+      if (this.entries.get(entry.key) !== entry || entry.group) return;
       this.drop(entry, 'offline');
       this.broadcastQueue(entry.difficulty);
     }, this.opts.queueGraceMs);
@@ -170,18 +200,33 @@ export class Matchmaker {
 
   /** A resumed or repeated hello: resend what the player is waiting for. */
   onResume(session) {
-    const entry = this.entries.get(session.playerId);
+    const entry = this.entryOf(session);
     if (!entry) return;
     this.clearOffline(entry);
-    if (entry.group) this.sendFound(entry.group, entry);
-    else { this.sendState(entry); this.tryForm(entry.difficulty); }
+    if (entry.group) this.sendFound(entry.group, session.playerId);
+    else { this.sendState(entry, session.playerId); this.tryForm(entry.difficulty); }
   }
 
   onExpire(session) {
-    const entry = this.entries.get(session.playerId);
+    const entry = this.entries.get(session.playerId); // a queued room's member: the lobby's removeMember follows
     if (!entry) return;
-    if (entry.group) { this.decline(entry.group, entry, 'offline'); return; }
+    if (entry.group) { this.decline(entry.group, entry, 'offline', null); return; }
     this.drop(entry, null);
+    this.broadcastQueue(entry.difficulty);
+  }
+
+  /**
+   * A queued room lost a human (lobby removeMember in LOBBY) or is being disposed: its entry is cancelled. The one who
+   * left gets queued:false at once (no toast), the others reason 'changed'.
+   * @param {import('./lobby.js').Room} room @param {string | null} goneId
+   */
+  onRoomChange(room, goneId) {
+    const entry = this.entries.get(roomKey(room));
+    if (!entry || entry.room !== room) return;
+    if (goneId) sendSession(this.lobby.registry.byId(goneId), { t: 'room.queueState', queued: false, difficulty: entry.difficulty, reason: 'left' });
+    const reason = room.disposed ? null : 'changed';
+    if (entry.group) { this.decline(entry.group, entry, reason, null); return; }
+    this.drop(entry, reason);
     this.broadcastQueue(entry.difficulty);
   }
 
@@ -189,6 +234,7 @@ export class Matchmaker {
     for (const e of this.entries.values()) {
       this.clearOffline(e);
       if (e.group?.timer) { clearTimeout(e.group.timer); e.group.timer = null; }
+      if (e.room) e.room.matching = false;
     }
     this.entries.clear();
     this.queues.clear();
@@ -198,30 +244,44 @@ export class Matchmaker {
   // Groups
   // ---------------------------------------------------------------------------------------------------
 
-  /** Form every group the difficulty's queue allows (header). */
+  /** Form every group of four the difficulty's queue allows (header). */
   tryForm(difficulty) {
     const q = this.queueOf(difficulty);
     this.dropSeated(q);
     for (;;) {
-      const ready = q.filter((e) => this.online(e));
-      if (ready.length >= MAX_SEATS) { this.form(ready.slice(0, MAX_SEATS), 0); continue; }
-      const willing = ready.filter((e) => e.fallback);
-      if (willing.length >= 2) {
-        this.form(willing, willing.every((e) => e.fallback === 'bots') ? MAX_SEATS - willing.length : 0);
-        continue;
-      }
-      if (willing.length === 1 && willing[0].fallback === 'bots') { this.form(willing, MAX_SEATS - 1); continue; }
-      break;
+      const members = this.pickFour(q.filter((e) => this.online(e)));
+      if (!members) break;
+      this.form(members);
     }
   }
 
-  /** @param {Entry[]} members @param {number} bots */
-  form(members, bots) {
+  /**
+   * The first entries, in queue order, whose humans add up to exactly MAX_SEATS (the earliest entries win: a depth-first
+   * search that tries taking each entry before skipping it). @param {Entry[]} list @returns {Entry[] | null}
+   */
+  pickFour(list) {
+    const sizes = list.map((e) => this.size(e));
+    const out = [];
+    const dfs = (i, left) => {
+      if (left === 0) return true;
+      for (let j = i; j < list.length; j++) {
+        if (sizes[j] > left || sizes[j] < 1) continue;
+        out.push(list[j]);
+        if (dfs(j + 1, left - sizes[j])) return true;
+        out.pop();
+      }
+      return false;
+    };
+    return dfs(0, MAX_SEATS) ? out : null;
+  }
+
+  /** @param {Entry[]} members */
+  form(members) {
     const difficulty = members[0].difficulty;
-    bots = Math.min(bots, localPatch.maxBotsSetting() ?? bots); // the per-room cap shows in room.matchFound already
     const q = this.queueOf(difficulty);
     /** @type {Group} */
-    const group = { id: ++this.groupSeq, difficulty, members, bots, accepted: new Set(), deadline: this.lobby.now() + this.opts.queueConfirmMs, timer: null };
+    const group = { id: ++this.groupSeq, difficulty, members, ids: members.flatMap((e) => this.ids(e)), accepted: new Set(),
+      deadline: this.lobby.now() + this.opts.queueConfirmMs, timer: null };
     for (const e of members) {
       q.splice(q.indexOf(e), 1);
       e.group = group;
@@ -229,28 +289,30 @@ export class Matchmaker {
     }
     group.timer = setTimeout(() => { group.timer = null; this.expire(group); }, this.opts.queueConfirmMs);
     group.timer.unref?.();
-    this.lobby.log.info(`[queue] ${difficulty} group #${group.id}: ${members.length} player(s) + ${bots} AI, confirming`);
+    const rooms = members.filter((e) => e.room).length;
+    this.lobby.log.info(`[queue] ${difficulty} group #${group.id}: ${group.ids.length} player(s) in ${members.length} entr${members.length === 1 ? 'y' : 'ies'} (${rooms} room(s)), confirming`);
     this.sendFound(group);
     this.broadcastQueue(difficulty);
   }
 
-  /** The confirmation window ran out: the silent members leave, the others go back to the front. */
+  /** The confirmation window ran out: entries with a silent human leave, the others go back to the front. */
   expire(group) {
     if (!this.live(group)) return;
-    const stay = group.members.filter((e) => group.accepted.has(e.playerId));
-    for (const e of group.members) if (!group.accepted.has(e.playerId)) this.drop(e, 'timeout');
+    const done = (e) => this.ids(e).every((id) => group.accepted.has(id));
+    const stay = group.members.filter(done);
+    for (const e of group.members) if (!done(e)) this.drop(e, 'timeout');
     this.dissolve(group, stay);
   }
 
-  /** A member declined (or left / expired): it leaves the queue, every other member goes back to the front. */
-  decline(group, entry, reason) {
+  /** A member declined (or left / expired): its entry leaves the queue, every other entry goes back to the front. */
+  decline(group, entry, reason, byId) {
     if (!this.live(group)) return OK;
-    this.drop(entry, reason);
+    this.drop(entry, reason, byId);
     this.dissolve(group, group.members.filter((e) => e !== entry));
     return OK;
   }
 
-  /** @param {Group} group @param {Entry[]} back members returned to the front of the queue, in their old order */
+  /** @param {Group} group @param {Entry[]} back entries returned to the front of the queue, in their old order */
   dissolve(group, back) {
     this.endGroup(group);
     const q = this.queueOf(group.difficulty);
@@ -261,47 +323,43 @@ export class Matchmaker {
     this.tryForm(group.difficulty);
   }
 
-  /** Every member accepted: create the room and start its match (header). */
+  /** Every human accepted: seat them in the group's first queued room (or a new room) and start its match (header). */
   launch(group) {
     const lobby = this.lobby;
     this.endGroup(group);
     const late = lobby.restartNotice?.startRefusal();
-    const code = late || lobby.rooms.size >= lobby.opts.maxRooms ? null : lobby.genCode();
+    const host = group.members.find((e) => e.room && !e.room.disposed && !e.room.match) || null;
+    const code = late ? null : host ? host.room.code : lobby.rooms.size >= lobby.opts.maxRooms ? null : lobby.genCode();
     if (!code) {
       for (const e of group.members) this.drop(e, late ? 'restarting' : 'full');
       return OK;
     }
-    const sessions = [];
-    for (const e of group.members) {
-      this.entries.delete(e.playerId);
-      e.group = null;
-      const session = lobby.registry.byId(e.playerId);
+    // who moves where is read before any room changes; the entries go first, so the moves below cancel nothing
+    const movers = group.members.filter((e) => e !== host).flatMap((e) => this.ids(e));
+    for (const e of group.members) this.unlist(e);
+    const room = host ? host.room : new this.Room(code, 'coop', group.difficulty, lobby.now());
+    const seated = [];
+    for (const playerId of movers) {
+      const session = lobby.registry.byId(playerId);
       const cur = session && lobby.roomOf(session);
-      if (!session || (cur && cur.match)) continue;
-      if (cur) lobby.removeMember(cur, e.playerId);
-      sessions.push(session);
-    }
-    if (!sessions.length) return OK;
-    const room = new this.Room(code, 'coop', group.difficulty, lobby.now());
-    room.ownerKey = sessions[0].limitKey || null;
-    sessions.forEach((session, idx) => {
+      if (!session || (cur && (cur.match || cur === room))) continue;
+      const idx = room.freeSeat();
+      if (idx < 0) break;
+      if (cur) lobby.removeMember(cur, playerId);
       room.seats[idx] = lobby.humanSeat(idx, session);
       session.roomCode = code;
       session.notice = null;
       session.pendingResult = null;
-    });
-    room.hostId = sessions[0].playerId;
-    lobby.rooms.set(code, room);
-    let bots = 0;
-    for (let n = 0; n < group.bots; n++) {
-      const idx = room.freeSeat();
-      if (idx < 0 || localPatch.botCap(room, lobby, sessions[0])) break;
-      const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
-      const name = this.botNames.find((x) => !used.has(x)) || `AI·${idx + 1}`;
-      room.seats[idx] = { seat: idx, playerId: this.newBotId(room), name, isBot: true, ready: true, connected: true, left: false };
-      bots++;
+      seated.push(session);
     }
-    lobby.log.info(`[lobby] ${code} matched (coop/${group.difficulty}, ${sessions.length} player(s) + ${bots} AI, group #${group.id})`);
+    if (!host) {
+      if (!seated.length) return OK;
+      room.ownerKey = seated[0].limitKey || null;
+      room.hostId = seated[0].playerId;
+      lobby.rooms.set(code, room);
+    }
+    const humans = room.activeHumans().length;
+    lobby.log.info(`[lobby] ${code} matched (coop/${group.difficulty}, ${humans} player(s)${host ? `, ${seated.length} joined the room` : ''}, group #${group.id})`);
     lobby.startMatch(room, room.ownerKey);
     return OK;
   }
@@ -316,20 +374,38 @@ export class Matchmaker {
     return q;
   }
 
-  live(group) { return group.members.some((e) => this.entries.get(e.playerId) === e && e.group === group); }
+  /** The entry the session waits in: its queued room's (a seated human), else its own. @returns {Entry | null} */
+  entryOf(session) {
+    const room = this.lobby.roomOf(session);
+    if (room && room.seatOf(session.playerId)) {
+      const e = this.entries.get(roomKey(room));
+      if (e && e.room === room) return e;
+    }
+    return this.entries.get(session.playerId) || null;
+  }
+
+  /** The entry's humans (a room's: its seated humans in seat order). @param {Entry} entry @returns {string[]} */
+  ids(entry) { return entry.room ? entry.room.activeHumans().map((s) => s.playerId) : [entry.playerId]; }
+
+  size(entry) { return entry.room ? entry.room.activeHumans().length : 1; }
+
+  live(group) { return group.members.some((e) => this.entries.get(e.key) === e && e.group === group); }
 
   endGroup(group) {
     if (group.timer) { clearTimeout(group.timer); group.timer = null; }
   }
 
   online(entry) {
-    const session = this.lobby.registry.byId(entry.playerId);
-    return !!session && session.connected;
+    return this.ids(entry).every((id) => {
+      const session = this.lobby.registry.byId(id);
+      return !!session && session.connected;
+    });
   }
 
-  /** Waiting players who sit in a room now (an invitation link) leave the queue. */
+  /** Waiting single players who sit in a room now (an invitation link) leave the queue. */
   dropSeated(q) {
     for (const e of [...q]) {
+      if (!e.playerId) continue;
       const session = this.lobby.registry.byId(e.playerId);
       if (session && this.lobby.roomOf(session)) this.drop(e, 'room');
     }
@@ -339,41 +415,55 @@ export class Matchmaker {
     if (entry.offline) { clearTimeout(entry.offline); entry.offline = null; }
   }
 
-  /** Remove an entry for good, telling its player why (reason null: nobody to tell). */
-  drop(entry, reason) {
+  /** Take an entry out of the maps and its queue (a queued room: room.state `matching` false). */
+  unlist(entry) {
     this.clearOffline(entry);
-    if (this.entries.get(entry.playerId) === entry) this.entries.delete(entry.playerId);
+    if (this.entries.get(entry.key) === entry) this.entries.delete(entry.key);
     if (!entry.group) {
       const q = this.queueOf(entry.difficulty);
       const i = q.indexOf(entry);
       if (i >= 0) q.splice(i, 1);
     }
     entry.group = null;
-    if (reason) sendSession(this.lobby.registry.byId(entry.playerId), { t: 'room.queueState', queued: false, difficulty: entry.difficulty, reason });
+    if (entry.room) entry.room.matching = false;
   }
 
-  /** @param {Entry} entry */
-  sendState(entry) {
+  /**
+   * Remove an entry for good, telling its humans why (reason null: nobody to tell). A room's other members hear 'party'
+   * when one of them (byId) left or declined.
+   */
+  drop(entry, reason, byId = null) {
+    const ids = this.ids(entry);
+    this.unlist(entry);
+    if (entry.room && !entry.room.disposed) this.lobby.broadcastState(entry.room);
+    if (!reason) return;
+    for (const id of ids) {
+      const why = byId && id !== byId && entry.room ? 'party' : reason;
+      sendSession(this.lobby.registry.byId(id), { t: 'room.queueState', queued: false, difficulty: entry.difficulty, reason: why });
+    }
+  }
+
+  /** @param {Entry} entry @param {string} [only] one of its humans */
+  sendState(entry, only) {
     const now = this.lobby.now();
     const waited = Math.max(0, now - entry.joinedAt);
-    sendSession(this.lobby.registry.byId(entry.playerId), {
-      t: 'room.queueState', queued: true, difficulty: entry.difficulty,
-      count: this.queueOf(entry.difficulty).length, waitedMs: waited,
-      fallbackInMs: Math.max(0, this.opts.queueFallbackMs - waited), fallback: entry.fallback,
-    });
+    let count = 0;
+    for (const e of this.queueOf(entry.difficulty)) count += this.size(e);
+    const msg = { t: 'room.queueState', queued: true, difficulty: entry.difficulty, count, waitedMs: waited, party: !!entry.room };
+    for (const id of only ? [only] : this.ids(entry)) sendSession(this.lobby.registry.byId(id), msg);
   }
 
   broadcastQueue(difficulty) {
     for (const e of this.queueOf(difficulty)) this.sendState(e);
   }
 
-  /** room.matchFound to every member (or one), with the accept count so far. @param {Group} group @param {Entry} [only] */
+  /** room.matchFound to every human of the group (or one), with the accept count so far. @param {Group} group @param {string} [only] */
   sendFound(group, only) {
     const inMs = Math.max(0, group.deadline - this.lobby.now());
-    for (const e of only ? [only] : group.members) {
-      sendSession(this.lobby.registry.byId(e.playerId), {
-        t: 'room.matchFound', difficulty: group.difficulty, players: group.members.length, bots: group.bots,
-        accepted: group.accepted.size, mine: group.accepted.has(e.playerId), inMs,
+    for (const id of only ? [only] : group.ids) {
+      sendSession(this.lobby.registry.byId(id), {
+        t: 'room.matchFound', difficulty: group.difficulty, players: group.ids.length,
+        accepted: group.accepted.size, mine: group.accepted.has(id), inMs,
       });
     }
   }

@@ -98,10 +98,13 @@
 //     time → room.closed {kicked} to it. A spectator in a LOBBY room may take a free player seat with room.join of the same
 //     code; a player never switches to spectating in place (ALREADY). Disconnect / grace / reconnect / expiry work as for
 //     a player seat (the seat is kept and given back on resume).
-//   * 랜덤 매칭 (maintainer decisions 2026-10-13, a remake feature): room.queue / room.unqueue / room.queueFallback /
+//   * 랜덤 매칭 (maintainer decisions 2026-10-13, a remake feature): room.queue / room.queueRoom / room.unqueue /
 //     room.queueAccept go to the Matchmaker (server/matchmaking.js, its header has the rules): a per-difficulty co-op
-//     queue whose confirmed groups get a room of their own (queue order = seat order, the first is host) and a match
-//     started at once. Its session events come from onHello / onDisconnect / onExpire / shutdown here.
+//     queue of single players and co-op rooms with empty seats; a confirmed group of four gets the oldest queued room
+//     of the group (or a room of its own: queue order = seat order, the first is host) and a match started at once.
+//     While a room is queued (room.state `matching`) room.join of it, room.setDifficulty, room.addBot and room.start are
+//     refused (ERR.MATCHING); a human leaving it in LOBBY, or its disposal, cancels the room's entry (removeMember /
+//     disposeRoom → onRoomChange). Its session events come from onHello / onDisconnect / onExpire / shutdown here.
 
 import { randomBytes, randomInt } from 'node:crypto';
 import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
@@ -187,6 +190,8 @@ export class Room {
      * put every human seat before every AI seat (Match opts.aiPicksLast). Kept across the room's matches.
      */
     this.aiPicksLast = false;
+    /** 랜덤 매칭: the room's humans wait in the queue for its empty seats (server/matchmaking.js queueRoom) */
+    this.matching = false;
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
@@ -237,6 +242,7 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       aiPicksLast: this.aiPicksLast,
+      matching: this.matching,
       inMatch: !!this.match,
       // the room's match number (DESIGN §14): a briefing reroll replaces the match while inMatch stays true
       matchNo: this.matchCount,
@@ -279,7 +285,7 @@ export class Lobby {
     /** per-network limit warnings: at most one log line per 10 s (the rest are counted) */
     this.limitLog = { at: -Infinity, suppressed: 0 };
     /** 랜덤 매칭 (header) */
-    this.queue = new Matchmaker(this, { Room, botNames: BOT_NAMES, newBotId: (room) => this.newBotId(room), options: this.opts });
+    this.queue = new Matchmaker(this, { Room, options: this.opts });
   }
 
   /** @param {string} code @returns {Room | null} */
@@ -364,8 +370,8 @@ export class Lobby {
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
       case 'room.queue': return this.queue.queue(session, msg);
+      case 'room.queueRoom': return this.queue.queueRoom(session);
       case 'room.unqueue': return this.queue.unqueue(session);
-      case 'room.queueFallback': return this.queue.setFallback(session, msg);
       case 'room.queueAccept': return this.queue.accept(session, msg);
       default:
         if (typeof msg.t === 'string' && msg.t.startsWith('g.')) return this.routeGame(session, msg);
@@ -458,6 +464,7 @@ export class Lobby {
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     if (room.match) return fail(ERR.ROOM_STARTED);
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo room');
+    if (room.matching) return fail(ERR.MATCHING, 'the room is matchmaking');
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
     if (cur) this.removeMember(cur, session.playerId);
@@ -543,6 +550,7 @@ export class Lobby {
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
+    if (room.matching && room.difficulty !== difficulty) return fail(ERR.MATCHING, 'cancel the matchmaking first');
     this.dropReplay(room, session.playerId);
     if (room.difficulty !== difficulty) {
       room.difficulty = difficulty;
@@ -575,6 +583,7 @@ export class Lobby {
     if (room.match) return fail(ERR.ROOM_STARTED);
     this.dropReplay(room, session.playerId);
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo rooms cannot have AI teammates');
+    if (room.matching) return fail(ERR.MATCHING, 'matchmaking fills the seats with Doctors');
     const capped = localPatch.botCap(room, this, session); if (capped) return capped; // local patch: SP_MAX_BOTS(_TOTAL/_PER_ADDR)
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
@@ -627,6 +636,7 @@ export class Lobby {
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
+    if (room.matching) return fail(ERR.MATCHING, 'cancel the matchmaking first');
     const humans = room.activeHumans();
     for (const s of humans) {
       if (s.playerId !== room.hostId && (!s.connected || !s.ready)) return fail(ERR.NOT_READY);
@@ -1052,6 +1062,7 @@ export class Lobby {
       this.callMatch(room, 'onLeave', playerId);
     } else {
       room.seats[seat.seat] = null;
+      this.queue.onRoomChange(room, playerId); // a queued room lost a human: its 랜덤 매칭 entry is cancelled
     }
     if (room.disposed) return; // onLeave may have ended the match and emptied the room
     if (room.hostId === playerId) this.migrateHost(room);
@@ -1113,6 +1124,7 @@ export class Lobby {
   disposeRoom(room, reason) {
     if (room.disposed) return;
     room.disposed = true;
+    this.queue.onRoomChange(room, null);
     if (this.rooms.get(room.code) === room) this.rooms.delete(room.code);
     const ctx = room.matchCtx;
     room.match = null;

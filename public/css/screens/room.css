@@ -313,3 +313,7 @@
 .ready-count__icons .icon.is-on { color: var(--mint-400); filter: drop-shadow(0 0 4px var(--mint-glow)); }
 
 .room-bar .btn--xl { min-width: 3.2rem; letter-spacing: .2em; }
+/* 랜덤 매칭 for the empty seats (screens/room.js): 干员调配 and 匹配补位 stacked; the matching status line */
+.room-bar__stack { display: flex; flex-direction: column; gap: .08rem; }
+.room-bar__stack .btn { width: 100%; justify-content: center; }
+.room-bar__match b { color: var(--text-hi); }

@@ -91,7 +91,7 @@ const MODE_CARDS = [
   {
     id: 'match', name: N_('同盟匹配'), en: 'ALLIANCE MATCHMAKING', icon: 'signal',
     desc: N_('独自进入公共匹配池，与其他博士组成同盟后开始模拟。'),
-    points: [N_('单人加入 · 自动匹配队友'), N_('满四人后开始 · 久等可选 AI 补位')],
+    points: [N_('单人加入 · 自动匹配队友'), N_('仅匹配真人 · 满四人后开始')],
   },
 ];
 const MODE_IDS = MODE_CARDS.map((c) => c.id);
