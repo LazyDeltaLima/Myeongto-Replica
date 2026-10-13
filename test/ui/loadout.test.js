@@ -352,7 +352,7 @@ test('sync: closing the overlay sends a pending edit at once (the next click —
   s.dispose();
 });
 
-test('overlay auto-close: briefing entry closes when INFO_CHECK ends; lobby / room entry closes when a match starts', () => {
+test('overlay auto-close: briefing entry closes when INFO_CHECK ends, draft entry when BAND_DRAFT ends; lobby / room entry closes when a match starts', () => {
   const open = (from) => ({ open: true, from });
   assert.equal(shouldAutoClose(open('briefing'), PHASE.INFO_CHECK, true, true), false);
   assert.equal(shouldAutoClose(open('briefing'), PHASE.BAND_DRAFT, true, true), true);
@@ -360,6 +360,8 @@ test('overlay auto-close: briefing entry closes when INFO_CHECK ends; lobby / ro
   assert.equal(shouldAutoClose(open('room'), null, true, false), true);
   assert.equal(shouldAutoClose(open('lobby'), PHASE.INFO_CHECK, true, true), false, 'reopened during the briefing from elsewhere');
   assert.equal(shouldAutoClose({ open: false, from: 'briefing' }, PHASE.PREP, true, true), false);
+  assert.equal(shouldAutoClose(open('draft'), PHASE.BAND_DRAFT, true, true), false, 'the strategy draft (编队确认 included) keeps it');
+  assert.equal(shouldAutoClose(open('draft'), PHASE.PREP, true, true), true, 'the prep takes over');
 });
 
 test('untimed phases show no countdown: the "无倒计时" placeholder of Countdown is hidden (user playtest #11)', () => {

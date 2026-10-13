@@ -96,6 +96,8 @@
   --btn-bd: var(--mint-800); --btn-bg: rgba(78, 216, 175, .06); --btn-bg-hover: rgba(78, 216, 175, .14);
 }
 .draft-order__info .btn__icon { color: var(--mint-400); }
+/* 干员调配 from the draft (screens/loadout.js LoadoutButton, maintainer request 2026-10-13): under 本局信息, the same size */
+.draft-order__loadout.btn { justify-content: flex-start; width: 100%; padding: 0 .16rem; height: max(.5rem, 28px); font-size: max(.18rem, 10px); }
 .modal__box.minfo-dlg {
   width: min(max(12rem, 600px), calc(100vw - .6rem - var(--sa-l, 0px) - var(--sa-r, 0px)));
   max-height: calc(100vh - .6rem);
@@ -188,13 +190,20 @@
 .draft-preset__opt:hover { background: rgba(255, 255, 255, .1); border-color: var(--fac, var(--line-3)); }
 .draft-preset__opt.is-on { border-color: var(--fac, var(--mint-400)); box-shadow: inset 0 0 0 1px var(--fac, var(--mint-400)); }
 .draft-preset__sel.is-off .draft-preset__optname, .draft-preset__opt.is-off .draft-preset__optname { color: var(--text-lo); }
-.draft-preset__slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .04rem; }
+/* the slots on the stage info's group bar (prefab_auto_chess_stage_info_chess_banned_group img_bkg = img_content_bkg, a flat
+   rgb(31, 31, 31) at 40 %) over the dark list panel it lies on in the client (the briefing's .brief-banned), so it reads as a
+   box on this lighter pane — maintainer request 2026-10-13 */
+.draft-preset__slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .04rem; padding: .05rem .03rem;
+  background: linear-gradient(rgba(31, 31, 31, .4), rgba(31, 31, 31, .4)), rgba(12, 15, 14, .8); }
 /* a slot: the operator's icon as the stage info draws it (matchInfo.js ChessIcon: the tier on its bottom-left corner, a
    banned operator under the red corner — maintainer request 2026-10-13) on its official white card; room for the tier and the card's shadow that stick out */
 .draft-preset__slot { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; padding: .04rem .06rem .07rem .08rem; }
 .draft-preset__ava.chessico { --ci: max(.62rem, 32px); }
 .draft-preset__slot.is-empty .chessico__tier { opacity: .45; }
 .draft-preset__none { grid-column: 1 / -1; font-size: max(.12rem, 9px); color: var(--text-dim); }
+.draft-preset__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .04rem .08rem; }
+.draft-preset__edit.btn { flex: none; height: max(.32rem, 22px); padding: 0 .08rem; font-size: max(.13rem, 9px); }
+.draft-preset__edit .btn__icon { color: var(--mint-400); }
 .draft-preset__keep { display: flex; align-items: center; gap: .06rem; font-size: max(.13rem, 9px); color: var(--text-md); }
 .draft-preset__keep input { width: max(.16rem, 12px); height: max(.16rem, 12px); margin: 0; accent-color: var(--mint-500); }
 .dband__link { position: absolute; right: .04rem; bottom: .04rem; display: grid; place-items: center; width: max(.24rem, 14px); height: max(.24rem, 14px);

@@ -23,7 +23,10 @@
 // request 2026-10-13). The choice is a dropdown of our own (PresetPicker) so each faction carries its icon. The preview
 // shows each slot's tier and operator icon (name in the tooltip). A linked strategy's card carries the faction's badge. After the last pick
 // a timed draft keeps 编队确认 (m.public.draft.confirm, the server's DRAFT_CONFIRM_SECONDS): the row can still change the
-// picks, 准备完毕 (g.draftReady) ends it once every human is done.
+// picks, 准备完毕 (g.draftReady) ends it once every human is done. The slots sit on the stage info's group bar
+// (img_content_bkg, maintainer request 2026-10-13), and 编辑自选编队 under them opens the 干员调配 overlay's 自选编队 tab on
+// the roster the dropdown shows (selectPreset: the live picks follow it, as the tab's own preset bar does); the order
+// list carries the overlay's entry (LoadoutButton, from 'draft' — it closes when the draft ends; maintainer request 2026-10-13).
 // 本局信息 (GitHub issue #8 item 1, "选策略时没法返回查看禁用的干员和盟约"): 查看禁用盟约与干员 under the order list opens the
 // briefing's bond rows, legend and 本局禁用干员 again, read-only (ui/matchInfo.js MatchInfoDialog — the very blocks of the
 // briefing). The draft runs on underneath: its status line repeats the current turn and the countdown (draftInfoStatus),
@@ -40,8 +43,9 @@ import { actions, act } from '../ui/gameActions.js';
 import { normalizeDraft, sortedPlayers, diyPickOff } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { FactionIcon } from '../ui/faction.js';
-import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, KEEP_LINK, BASE_LINK } from '../ui/diyPresets.js';
-import { loadoutStore, flushDiySync } from '../ui/loadoutSync.js';
+import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, KEEP_LINK, BASE_LINK } from '../ui/diyPresets.js';
+import { loadoutStore, flushDiySync, openLoadout } from '../ui/loadoutSync.js';
+import { LoadoutButton } from './loadout.js';
 import { diySlotList } from '../ui/diyModel.js';
 import { CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
 import { PHASE } from '../../../shared/constants.js';
@@ -309,12 +313,13 @@ export function PresetPicker({ choice, presets, off, locked, onChoice }) {
 /**
  * The detail pane's 自选预设 row (전략별 선발 프리셋): the roster choice (PresetPicker), its tags, the four slots it would
  * field (the operator's icon with its tier as the official stage info draws it — ChessIcon — the name in the tooltip;
- * maintainer request 2026-10-13: an operator whose every bond this match disables is drawn banned), 记住.
+ * maintainer request 2026-10-13: an operator whose every bond this match disables is drawn banned) on the stage info's
+ * group bar, 记住 and 编辑自选编队 (`onEdit`).
  * @param {{ band: any, choice: string, link: string|null, presets: Record<string, any>, base: Record<string, any>,
  *   live: Record<string, any>, off: string[]|null, locked: boolean, remember: boolean, m?: any,
- *   onChoice: (v: string) => void, onRemember: (v: boolean) => void }} props
+ *   onChoice: (v: string) => void, onRemember: (v: boolean) => void, onEdit?: (() => void)|null }} props
  */
-export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, m = null, onChoice, onRemember }) {
+export function DraftPresetRow({ band, choice, link, presets, base, live, off, locked, remember, m = null, onChoice, onRemember, onEdit = null }) {
   const tags = presetChoiceTags(choice, { link, rec: bandRecommendation(band), off });
   const picks = presetPreviewPicks(choice, { presets, base }, live);
   const slots = diySlotList({ chess: data.get('chess'), backups: data.get('backups') });
@@ -337,8 +342,12 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
         <${ChessIcon} src=${pickAvatar(m, u)} name=${name} tier=${tier} banned=${gone} title=${tip} class="draft-preset__ava" />
       </span>`;
     }) : html`<span class="draft-preset__none">${t('该阵营尚未设置预设，自选编队不变')}</span>`}</div>
-    <label class="draft-preset__keep" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><input type="checkbox"
-      checked=${remember && choice !== KEEP_LINK} disabled=${locked || choice === KEEP_LINK} onChange=${(e) => onRemember(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
+    <div class="draft-preset__foot">
+      <label class="draft-preset__keep" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><input type="checkbox"
+        checked=${remember && choice !== KEEP_LINK} disabled=${locked || choice === KEEP_LINK} onChange=${(e) => onRemember(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
+      ${onEdit ? html`<${Button} variant="ghost" size="sm" icon="edit" class="draft-preset__edit" data-testid="draft-preset-edit" disabled=${locked}
+        title=${t('在自选编队中编辑此预设')} onClick=${onEdit}>${t('编辑自选编队')}<//>` : null}
+    </div>
   </div>`;
 }
 
@@ -433,6 +442,12 @@ export function BandDraftScreen() {
     if (remember[bid] ?? true) linkBand(bid, v);
     void applyPresetChoice(v).then(() => flushDiySync());
   };
+  // 编辑自选编队: the 自选编队 tab on the roster the row shows (keep: the one in use)
+  const editPreset = (bid) => {
+    const choice = choiceFor(bid);
+    if (choice !== KEEP_LINK) selectPreset(choice === BASE_LINK ? null : choice);
+    openLoadout('draft', null, 'diy');
+  };
   const changeRemember = (bid, v) => {
     setRemember({ ...remember, [bid]: v });
     if (v && myPick === bid && choiceFor(bid) !== KEEP_LINK) linkBand(bid, choiceFor(bid));
@@ -503,6 +518,7 @@ export function BandDraftScreen() {
         })}
         <${Button} variant="secondary" icon="search" block=${true} class="draft-order__info" data-testid="match-info-open"
           aria-haspopup="dialog" onClick=${() => setInfoOpen(true)}>${t('查看禁用盟约与干员')}<//>
+        ${inDraft ? html`<${LoadoutButton} from="draft" class="draft-order__loadout" />` : null}
         ${!solo ? html`<p class="draft-order__tip" data-testid="draft-tip">${draftTip({ timed, turnSeconds: turnLen, autoName: myPick ? null : autoName, selected: autoId === sel })}</p>` : null}
       </aside>
 
@@ -543,7 +559,7 @@ export function BandDraftScreen() {
             presets=${presets} base=${baseRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
             locked=${(!!myPick && myPick !== band.bandId) || busy === 'pick'}
             remember=${remember[band.bandId] ?? true} onChoice=${(v) => changeChoice(band.bandId, v)}
-            onRemember=${(v) => changeRemember(band.bandId, v)} />` : null}` : html`<p class="t-dim">${t('选择一个策略查看详情')}</p>`}
+            onRemember=${(v) => changeRemember(band.bandId, v)} onEdit=${() => editPreset(band.bandId)} />` : null}` : html`<p class="t-dim">${t('选择一个策略查看详情')}</p>`}
         <div class="draft-detail__actions">
           ${confirmOn && inDraft ? html`<div class="draft-confirm" role="status" data-testid="draft-confirm">
             <b>${t('策略已确定 · 编队确认')}</b>

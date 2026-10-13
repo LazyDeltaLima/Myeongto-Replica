@@ -1,6 +1,6 @@
 // 干员调配 (Operator loadout, DESIGN §16): choose the equipped skill of every chess and the module of its elite before a
 // match (official rule: "开始游戏前无法调整干员的等级，但可调整其所携带的技能和模组"). A full-screen overlay opened
-// from the lobby, the room and the briefing (INFO_CHECK) — `openLoadout(from)` / <LoadoutButton/>; <LoadoutHost/> is
+// from the lobby, the room, the briefing (INFO_CHECK) and the strategy draft — `openLoadout(from)` / <LoadoutButton/>; <LoadoutHost/> is
 // mounted once by main.js. Styles: css/screens/loadout.css (official preset sprites from the local-client art when
 // present: operator_preset, image_skill_select_outline, skill_select_deco, icon_equip_non; the module type icons of
 // groups.module — lettered tiles without them).
@@ -636,7 +636,10 @@ function LoadoutScreen({ st }) {
   const ownLocked = inMatch && !!phase && phase !== PHASE.LOBBY;
   const ownText = ownLocked ? t('干员持有是局外设置：本局按开局时的设置进行，修改将在下一局生效')
     : t('局外设置，下一局生效 · 联机时只影响你自己的棋子 · 默认全部持有');
-  const diyText = ownLocked ? t('自选编队是局外设置：本局按开局时的设置进行，修改将在下一局生效')
+  // 自选编队 reaches a running match while its briefing / strategy draft runs (server match.setDiy, 진영별 선발 프리셋)
+  const diyLive = inMatch && (phase === PHASE.INFO_CHECK || phase === PHASE.BAND_DRAFT);
+  const diyText = diyLive ? t('选择策略结束前修改立即用于本局 · 联机时只进入你自己的商店')
+    : ownLocked ? t('自选编队是局外设置：本局按开局时的设置进行，修改将在下一局生效')
     : t('局外设置，下一局生效 · 联机时只进入你自己的商店');
 
   return html`<${Fragment}>
@@ -679,7 +682,7 @@ function LoadoutScreen({ st }) {
       </div>`}
     </header>
     ${tab === 'diy'
-      ? html`<p class=${cx('lo-note', ownLocked && 'is-locked')}><${Icon} name="info" />${diyText}</p>`
+      ? html`<p class=${cx('lo-note', ownLocked && !diyLive && 'is-locked')}><${Icon} name="info" />${diyText}</p>`
       : tab === 'ownership'
       ? html`<p class=${cx('lo-note', ownLocked && 'is-locked')}><${Icon} name="info" />${ownText}</p>`
       : html`<p class=${cx('lo-note', locked && 'is-locked')}><${Icon} name="info" />${locked ? t('本局的调配已锁定（确认本局信息后无法修改），修改将在下一局生效') : fromText}</p>`}
@@ -740,12 +743,14 @@ function LoadoutScreen({ st }) {
 
 /**
  * Whether the overlay must close because its context moved on: opened from the briefing and the match left INFO_CHECK
- * (the strategy draft needs the player), or opened from the lobby / room and a match started (its briefing takes over).
+ * (the strategy draft needs the player), from the strategy draft and the draft ended (the prep takes over), or opened
+ * from the lobby / room and a match started (its briefing takes over).
  * @param {{ open: boolean, from: string|null }} st @param {string|null} phase @param {boolean} inMatch @param {boolean} wasInMatch
  */
 export function shouldAutoClose(st, phase, inMatch, wasInMatch) {
   if (!st || !st.open) return false;
   if (st.from === 'briefing') return !!phase && phase !== PHASE.INFO_CHECK;
+  if (st.from === 'draft') return !!phase && phase !== PHASE.BAND_DRAFT;
   return inMatch && !wasInMatch;
 }
 
@@ -781,7 +786,7 @@ export function badgeCount(entries, getChess, ops = null, roster = null) {
 
 /**
  * Entry button (lobby / room / briefing).
- * @param {{ from: 'lobby'|'room'|'briefing', size?: string, variant?: string, class?: string, label?: string }} props
+ * @param {{ from: 'lobby'|'room'|'briefing'|'draft', size?: string, variant?: string, class?: string, label?: string }} props
  */
 export function LoadoutButton({ from, size = 'md', variant = 'secondary', class: cls, label = t('干员调配') }) {
   useData('local'); // the official preset icon (re-render once the local-art manifest arrives)

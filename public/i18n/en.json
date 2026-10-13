@@ -1442,5 +1442,8 @@
   "开始匹配": "Start Matchmaking",
   "与选择同一难度的博士组成同盟": "Forms an Alliance with Doctors who chose the same difficulty",
   "当前在线博士 {n} 名": "{n} Doctors online",
-  "在线": "online"
+  "在线": "online",
+  "编辑自选编队": "Edit DIY squad",
+  "在自选编队中编辑此预设": "Edit this preset in the DIY squad tab",
+  "选择策略结束前修改立即用于本局 · 联机时只进入你自己的商店": "Changes apply to this match until the strategy pick ends · in team play only in your own shop"
 }
