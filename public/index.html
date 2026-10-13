@@ -82,6 +82,10 @@
        at low priority so entering the match doesn't wait on ~800 KB of script. -->
   <link rel="prefetch" href="/vendor/pixi.min.js" as="script" />
   <link rel="prefetch" href="/vendor/pixi-spine.js" as="script" />
+  <!-- …and the 3D board's three.js (module imports of render/board3d and fxgame.js), which a cold match otherwise only
+       starts fetching once the render modules are in, behind the match's pictures on a slow line -->
+  <link rel="prefetch" href="/vendor/three.core.js" as="script" />
+  <link rel="prefetch" href="/vendor/three.module.js" as="script" />
 </head>
 <body>
   <div id="app"></div>
