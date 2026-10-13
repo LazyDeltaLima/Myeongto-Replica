@@ -190,8 +190,8 @@
 .draft-preset__sel.is-off .draft-preset__optname, .draft-preset__opt.is-off .draft-preset__optname { color: var(--text-lo); }
 .draft-preset__slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .04rem; }
 /* a slot: the operator's icon as the stage info draws it (matchInfo.js ChessIcon: the tier on its bottom-left corner, a
-   banned operator under the red corner — maintainer request 2026-10-13), no box around it; room for the tier that sticks out */
-.draft-preset__slot { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; padding: .04rem 0 .04rem .06rem; }
+   banned operator under the red corner — maintainer request 2026-10-13) on its official white card; room for the tier and the card's shadow that stick out */
+.draft-preset__slot { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; padding: .04rem .06rem .07rem .08rem; }
 .draft-preset__ava.chessico { --ci: max(.62rem, 32px); }
 .draft-preset__slot.is-empty .chessico__tier { opacity: .45; }
 .draft-preset__none { grid-column: 1 / -1; font-size: max(.12rem, 9px); color: var(--text-dim); }

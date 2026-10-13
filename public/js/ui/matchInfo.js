@@ -155,12 +155,13 @@ export function MatchLegend({ model }) {
 }
 
 /**
- * An operator icon as the client's stage info draws it (prefab_auto_chess_stage_info_chess_banned_item around an
- * AutoChessCommonChessView): the square avatar, the tier sprite on its bottom-left corner (common_chess_level, ~0.36 of
- * the avatar, a little outside it) and, when `banned`, the avatar under img_chess_banned_mask (30 % grey) with
- * img_chess_banned placed so its red triangle sits on the avatar's top-right corner (sprite 73 at (34, 32) from the
- * item's centre, the triangle 34 units in it; the mask 94 × 95). The chess record of `id`, or `src` / `name` / `tier`
- * for a 自选 pick (the operator's own avatar). Sized by `--ci` (css/screens/briefing.css).
+ * An operator icon as the client draws it (auto_chess_outer_common_chess, the AutoChessCommonChessView that
+ * prefab_auto_chess_stage_info_chess_banned_item loads): the 90-unit avatar on the white card img_chess_bkg (109 × 107
+ * with its soft shadow, the card 96 × 95 from 2.5 above-left of the avatar), the tier sprite (35) on the avatar's
+ * bottom-left corner (9.1 out to the left and below) and, when `banned`, img_chess_banned_mask (30 % grey, 94 × 95) over
+ * avatar and card with img_chess_banned (73, at (33, 32) from the avatar's centre) whose red triangle lands on the card's
+ * top-right corner. The chess record of `id`, or `src` / `name` / `tier` for a 自选 pick (the operator's own avatar).
+ * Sized by `--ci`, the avatar (css/screens/briefing.css); without the local art, CSS stand-ins.
  * @param {{ id?: string|null, src?: string|null, name?: string, tier?: number|null, banned?: boolean, title?: string|null,
  *   class?: string }} props
  */
@@ -170,8 +171,10 @@ export function ChessIcon({ id = null, src = null, name = '', tier = null, banne
   const label = name || c?.name || '';
   const n = tier ?? c?.tier ?? null;
   const corner = banned ? outerArt('img_chess_banned') : null;
+  const card = outerArt('img_chess_bkg');
   const empty = !url && !label;
   return html`<span class=${cx('chessico', banned && 'is-banned', empty && 'is-empty', cls)} title=${title ?? label}>
+    ${empty ? null : html`<i class=${cx('chessico__bkg', !card && 'is-css')} aria-hidden="true" style=${card ? `background-image:url("${card}")` : null}></i>`}
     <span class="chessico__art">${empty ? null : html`<${Img} src=${url} alt=${label}
       fallback=${html`<b class="chessico__glyph">${[...label][0] || '?'}</b>`} />`}</span>
     ${banned ? corner ? html`<img class="chessico__ban" src=${corner} alt="" draggable=${false} />` : html`<i class="chessico__ban is-css" aria-hidden="true"></i>` : null}
