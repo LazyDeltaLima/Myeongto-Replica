@@ -26,10 +26,10 @@
 // status line from its caller (the draft's turn and countdown, so the running clock stays in view).
 // Styles: css/screens/briefing.css (.brief-*), css/screens/draft.css (.minfo-dlg).
 
-import { html, Button, Icon, MicroLabel, Tooltip, Modal, natSizeVars } from './components.js';
-import { UnitThumb, Img } from './gameComponents.js';
+import { html, Button, Icon, MicroLabel, Tooltip, Modal, TierChip, natSizeVars } from './components.js';
+import { Img } from './gameComponents.js';
 import { bannedPerBond, disabledBondSets, briefingBondTip, diyBannedPieces } from './gameLogic.js';
-import { bondIconUrl } from './assetUrls.js';
+import { bondIconUrl, chessAvatarUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { t, dn } from '../../../shared/i18n.js';
 
@@ -155,13 +155,37 @@ export function MatchLegend({ model }) {
 }
 
 /**
+ * An operator icon as the client's stage info draws it (prefab_auto_chess_stage_info_chess_banned_item around an
+ * AutoChessCommonChessView): the square avatar, the tier sprite on its bottom-left corner (common_chess_level, ~0.36 of
+ * the avatar, a little outside it) and, when `banned`, the avatar under img_chess_banned_mask (30 % grey) with
+ * img_chess_banned placed so its red triangle sits on the avatar's top-right corner (sprite 73 at (34, 32) from the
+ * item's centre, the triangle 34 units in it; the mask 94 × 95). The chess record of `id`, or `src` / `name` / `tier`
+ * for a 自选 pick (the operator's own avatar). Sized by `--ci` (css/screens/briefing.css).
+ * @param {{ id?: string|null, src?: string|null, name?: string, tier?: number|null, banned?: boolean, title?: string|null,
+ *   class?: string }} props
+ */
+export function ChessIcon({ id = null, src = null, name = '', tier = null, banned = false, title = null, class: cls = null }) {
+  const c = id ? data.lookup('chess', id) : null;
+  const url = src || (c ? chessAvatarUrl(data.get('assets'), c) : null);
+  const label = name || c?.name || '';
+  const n = tier ?? c?.tier ?? null;
+  const corner = banned ? outerArt('img_chess_banned') : null;
+  const empty = !url && !label;
+  return html`<span class=${cx('chessico', banned && 'is-banned', empty && 'is-empty', cls)} title=${title ?? label}>
+    <span class="chessico__art">${empty ? null : html`<${Img} src=${url} alt=${label}
+      fallback=${html`<b class="chessico__glyph">${[...label][0] || '?'}</b>`} />`}</span>
+    ${banned ? corner ? html`<img class="chessico__ban" src=${corner} alt="" draggable=${false} />` : html`<i class="chessico__ban is-css" aria-hidden="true"></i>` : null}
+    ${n ? html`<${TierChip} tier=${n} size="sm" class="chessico__tier" />` : null}
+  </span>`;
+}
+
+/**
  * 本局禁用干员: the count, then one group per greyed bond (MatchInfoModel bannedGroups) — the bond, a divider and its
  * banned operators by tier, each darkened under the banned corner.
  * @param {{ model: MatchInfoModel }} props
  */
 export function BannedOperators({ model }) {
   const { banned, bannedGroups = [] } = model;
-  const corner = outerArt('img_chess_banned');
   const split = outerArt('img_bond_banned_split');
   return html`<div class="brief-banned">
     <${InfoTitle} kind="chess" title=${t('本局禁用干员')} micro="BANNED OPERATORS" extra=${html`<b class="num brief-banned__n">${banned.length}</b>`} />
@@ -170,10 +194,7 @@ export function BannedOperators({ model }) {
         <div class="brief-bgroup__bond"><${InfoBond} bond=${bond} off=${true} small=${true} /></div>
         <i class="brief-bgroup__split" aria-hidden="true" style=${split ? `background-image:url("${split}")` : null}></i>
         <div class="brief-bgroup__chess">
-          ${chess.map((id) => html`<span key=${id} class="brief-bchess" data-chess=${id}>
-            <${UnitThumb} kind="chess" id=${id} size="sm" dim=${true} />
-            ${corner ? html`<img class="brief-bchess__ban" src=${corner} alt="" draggable=${false} />` : null}
-          </span>`)}
+          ${chess.map((id) => html`<span key=${id} class="brief-bchess" data-chess=${id}><${ChessIcon} id=${id} banned=${true} /></span>`)}
         </div>
       </div>`)}
     </div>` : html`<p class="t-dim">${t('本局没有禁用干员')}</p>`}

@@ -170,14 +170,12 @@
 .draft-preset__opt.is-on { border-color: var(--fac, var(--mint-400)); box-shadow: inset 0 0 0 1px var(--fac, var(--mint-400)); }
 .draft-preset__sel.is-off .draft-preset__optname, .draft-preset__opt.is-off .draft-preset__optname { color: var(--text-lo); }
 .draft-preset__slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .04rem; }
-/* a slot: its tier chip and the operator's icon, small (maintainer request 2026-10-13: icons and tiers, not names) */
-.draft-preset__slot { position: relative; display: flex; align-items: center; justify-content: center; gap: .04rem; min-width: 0;
-  padding: .03rem; background: rgba(0, 0, 0, .3); border: 1px solid var(--line); }
-.draft-preset__tier { flex: none; }
-.draft-preset__ava { flex: none; display: grid; place-items: center; width: max(.36rem, 22px); height: max(.36rem, 22px); object-fit: cover;
-  border: 1px solid var(--line-2); background: var(--bg-3); font-size: max(.13rem, 10px); color: var(--text-hi); }
-.draft-preset__ava.is-empty { border-style: dashed; background: none; }
-.draft-preset__slot.is-empty .draft-preset__tier { opacity: .45; }
+/* a slot: the operator's icon as the stage info draws it (matchInfo.js ChessIcon: the tier on its bottom-left corner, a
+   banned operator under the red corner — maintainer request 2026-10-13); room for the tier that sticks out */
+.draft-preset__slot { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0;
+  padding: .06rem .04rem .06rem .08rem; background: rgba(0, 0, 0, .3); border: 1px solid var(--line); }
+.draft-preset__ava.chessico { --ci: max(.5rem, 30px); }
+.draft-preset__slot.is-empty .chessico__tier { opacity: .45; }
 .draft-preset__none { grid-column: 1 / -1; font-size: max(.12rem, 9px); color: var(--text-dim); }
 .draft-preset__keep { display: flex; align-items: center; gap: .06rem; font-size: max(.13rem, 9px); color: var(--text-md); }
 .draft-preset__keep input { width: max(.16rem, 12px); height: max(.16rem, 12px); margin: 0; accent-color: var(--mint-500); }

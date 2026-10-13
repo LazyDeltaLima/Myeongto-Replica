@@ -143,10 +143,26 @@
   background: rgba(255, 255, 255, .16) center / 100% 100% no-repeat; }
 .brief-bgroup__split[style] { background-color: transparent; }
 .brief-bgroup__chess { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: calc(var(--ou) * 7); }
-/* chess_banned_item 130 × 130: the avatar (dimmed = img_chess_banned_mask), img_chess_banned 73 × 73 on its top-right */
+/* chess_banned_item 130 × 130: the 94-unit avatar (ChessIcon below) */
 .brief-bchess { position: relative; width: calc(var(--ou) * 130); height: calc(var(--ou) * 130); display: grid; place-items: center; }
-.brief-bchess .uthumb { --ut: calc(var(--ou) * 104); }
-.brief-bchess__ban { position: absolute; right: calc(var(--ou) * -2); top: calc(var(--ou) * 2); width: calc(var(--ou) * 73); height: calc(var(--ou) * 73); pointer-events: none; }
+.brief-bchess .chessico { --ci: calc(var(--ou) * 94); }
+/* ChessIcon (ui/matchInfo.js), in units of the 94-unit avatar --ci: the avatar, its tier sprite on the bottom-left corner
+   (common_chess_level, 34 units, 8 out to the left and 3.5 below), and when banned the 30 % grey img_chess_banned_mask
+   with img_chess_banned (73 units) whose red triangle (34 units, its right angle 20 in from the sprite's top-right)
+   lands on the avatar's top-right corner */
+.chessico { --ci: .54rem; position: relative; display: inline-block; flex: none; width: var(--ci); height: var(--ci); }
+.chessico__art { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center; background: #2b302e;
+  border: 1px solid rgba(255, 255, 255, .3); box-shadow: 0 0 0 1px rgba(0, 0, 0, .55); }
+.chessico__art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.chessico__glyph { font-size: calc(var(--ci) * .42); font-weight: 900; color: var(--text-md); }
+.chessico.is-empty .chessico__art { border-style: dashed; background: none; box-shadow: none; }
+.chessico.is-banned .chessico__art::after { content: ''; position: absolute; inset: 0; background: rgba(53, 53, 53, .3); }
+.chessico__ban { position: absolute; z-index: 1; right: calc(var(--ci) * -20 / 94); top: calc(var(--ci) * -20 / 94);
+  width: calc(var(--ci) * 73 / 94); height: calc(var(--ci) * 73 / 94); pointer-events: none; }
+.chessico__ban.is-css { right: 0; top: 0; width: calc(var(--ci) * 34 / 94); height: calc(var(--ci) * 34 / 94); background: #a5262f;
+  clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.chessico__tier.tier { --tier-h: calc(var(--ci) * 34 / 94); position: absolute; z-index: 2; left: calc(var(--ci) * -8 / 94);
+  bottom: calc(var(--ci) * -3.5 / 94); }
 .brief-banned > .t-dim { margin: calc(var(--ou) * 12) calc(var(--ou) * 16) 0; }
 .brief-banned > .brief-banned__diy { margin: calc(var(--ou) * 10) calc(var(--ou) * 16) 0; }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine; m.private.diyBanned) */

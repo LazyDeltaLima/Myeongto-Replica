@@ -31,13 +31,13 @@
 // never touches the highlighted band or the buttons.
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Button, Icon, MicroLabel, TierChip, useTicker, secondsLeft } from '../ui/components.js';
-import { useGameData, BandIcon, RichText, PlayerAvatar, LpTower, Sprite, Img } from '../ui/gameComponents.js';
+import { html, Button, Icon, MicroLabel, useTicker, secondsLeft } from '../ui/components.js';
+import { useGameData, BandIcon, RichText, PlayerAvatar, LpTower, Sprite } from '../ui/gameComponents.js';
 import { chessAvatarUrl } from '../ui/assetUrls.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
-import { MatchInfoDialog, matchInfoModel } from '../ui/matchInfo.js';
+import { MatchInfoDialog, matchInfoModel, ChessIcon } from '../ui/matchInfo.js';
 import { actions, act } from '../ui/gameActions.js';
-import { normalizeDraft, sortedPlayers } from '../ui/gameLogic.js';
+import { normalizeDraft, sortedPlayers, diyPickOff } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { FactionIcon } from '../ui/faction.js';
 import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, KEEP_LINK, BASE_LINK } from '../ui/diyPresets.js';
@@ -294,7 +294,8 @@ export function PresetPicker({ choice, presets, off, locked, onChoice }) {
 
 /**
  * The detail pane's 自选预设 row (전략별 선발 프리셋): the roster choice (PresetPicker), its tags, the four slots it would
- * field (tier + operator icon, the name in the tooltip — maintainer request 2026-10-13), 记住.
+ * field (the operator's icon with its tier as the official stage info draws it — ChessIcon — the name in the tooltip;
+ * maintainer request 2026-10-13: an operator whose every bond this match disables is drawn banned), 记住.
  * @param {{ band: any, choice: string, link: string|null, presets: Record<string, any>, base: Record<string, any>,
  *   live: Record<string, any>, off: string[]|null, locked: boolean, remember: boolean, m?: any,
  *   onChoice: (v: string) => void, onRemember: (v: boolean) => void }} props
@@ -305,6 +306,10 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
   const slots = diySlotList({ chess: data.get('chess'), backups: data.get('backups') });
   const list = slots.length ? slots.map((x) => ({ id: x.slotId, tier: x.tier })) : Object.keys(picks || {}).map((id) => ({ id, tier: slotTier(id) }));
   const TAG = { linked: ['link', t('已关联')], rec: ['rec', t('推荐')], off: ['off', t('本局禁用')] };
+  // a pick whose every bond is off this match would never reach the shop: drawn as the briefing's banned operators
+  const offSet = new Set(Array.isArray(off) ? off : []);
+  const diyData = { chess: data.get('chess'), backups: data.get('backups') };
+  const getChess = (id) => data.lookup('chess', id);
   return html`<div class="draft-preset" data-testid="draft-preset">
     <div class="draft-preset__head" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><${MicroLabel} tone="mint">DIY PRESET</${MicroLabel}><label for="draft-preset-sel">${t('自选预设')}</label>
       ${tags.map((k) => html`<span key=${k} class=${`draft-preset__tag is-${TAG[k][0]}`}>${TAG[k][1]}</span>`)}</div>
@@ -312,10 +317,10 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
     <div class="draft-preset__slots">${picks ? list.map(({ id, tier }) => {
       const u = pickUnit(picks[id]);
       const name = u ? u.name || u.charId : '';
-      return html`<span key=${id} class=${cx('draft-preset__slot', !u && 'is-empty')} title=${name ? `${t('{tier}阶', { tier: tier || '?' })} · ${name}` : t('{tier}阶', { tier: tier || '?' })}>
-        ${tier ? html`<${TierChip} tier=${tier} size="sm" class="draft-preset__tier" />` : null}
-        ${u ? html`<${Img} src=${pickAvatar(m, u)} class="draft-preset__ava" alt=${name} fallback=${html`<b class="draft-preset__ava is-letter">${[...name][0] || '?'}</b>`} />`
-          : html`<span class="draft-preset__ava is-empty"></span>`}
+      const gone = !!u && diyPickOff(id, picks[id], offSet, getChess, diyData);
+      const tip = [t('{tier}阶', { tier: tier || '?' }), name, gone && t('本局禁用')].filter(Boolean).join(' · ');
+      return html`<span key=${id} class=${cx('draft-preset__slot', !u && 'is-empty', gone && 'is-off')} data-slot=${id}>
+        <${ChessIcon} src=${pickAvatar(m, u)} name=${name} tier=${tier} banned=${gone} title=${tip} class="draft-preset__ava" />
       </span>`;
     }) : html`<span class="draft-preset__none">${t('该阵营尚未设置预设，自选编队不变')}</span>`}</div>
     <label class="draft-preset__keep" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><input type="checkbox"

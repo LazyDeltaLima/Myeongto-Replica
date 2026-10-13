@@ -46,6 +46,17 @@ test('#11 diyBannedPieces: the banned slots with their operator\'s name, slot or
   assert.deepEqual(G.diyBannedPieces(null, getChess, D), []);
 });
 
+test('diyPickOff: a pick not sent yet (the draft\'s preset preview) is off when every bond of its operator is off', () => {
+  const wisdelBonds = DATA.backups.diy.operators[WISDEL].bonds;
+  const pick = { charId: WISDEL, skillIndex: 0 };
+  assert.ok(wisdelBonds.length > 0);
+  assert.equal(G.diyPickOff(T6A, pick, new Set(wisdelBonds), getChess, D), true);
+  assert.equal(G.diyPickOff(T6A, pick, new Set(['yanShip']), getChess, D), wisdelBonds.every((b) => b === 'yanShip'));
+  assert.equal(G.diyPickOff(T6A, pick, new Set(), getChess, D), false, 'nothing off');
+  assert.equal(G.diyPickOff(T6A, null, new Set(wisdelBonds), getChess, D), false, 'no pick');
+  assert.equal(G.diyPickOff('chess_nope', pick, new Set(wisdelBonds), getChess, D), false, 'no slot');
+});
+
 test('#11 the match-info model and its line: the own banned 自选 piece is named; nothing without priv / diyBanned', () => {
   const pub = { bannedChess: [], drawnDisabledBonds: [], modeId: 'mode_multi_hard' };
   const model = matchInfoModel(pub, { bonds: [], chess: getChess, priv, diyData: D });

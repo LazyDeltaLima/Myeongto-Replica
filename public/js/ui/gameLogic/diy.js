@@ -124,3 +124,16 @@ export function diyBannedPieces(priv, getChess, data) {
   }
   return out;
 }
+
+/**
+ * Whether this match would leave 自选 pick `pick` of slot `slotId` out of the shop (the server's initDiyStock: every bond
+ * of the composed record is off) — for picks the server has not judged yet, e.g. a preset the strategy draft previews.
+ * @param {string} slotId @param {any} pick `{ charId, … }` @param {Set<string>} off the bonds off this match (public
+ *   disabledBonds: drawn + the mode's) @param {(id: string) => any} getChess @param {{ chess?: any, backups?: any }} data
+ */
+export function diyPickOff(slotId, pick, off, getChess, data) {
+  if (!off?.size || !isObj(pick) || typeof pick.charId !== 'string') return false;
+  const chess = getChess(slotId);
+  const bonds = (chess ? diyRecordFor(chess, pick, data) : null)?.bonds;
+  return Array.isArray(bonds) && bonds.length > 0 && bonds.every((b) => off.has(b));
+}

@@ -24,10 +24,9 @@ globalThis.fetch = async (url) => {
   }
 };
 
-const { matchInfoModel, MatchBondRow, MatchLegend, BannedOperators, MatchInfo, MatchInfoDialog, InfoBond, InfoTitle } = await import('../../public/js/ui/matchInfo.js');
+const { matchInfoModel, MatchBondRow, MatchLegend, BannedOperators, MatchInfo, MatchInfoDialog, InfoBond, InfoTitle, ChessIcon } = await import('../../public/js/ui/matchInfo.js');
 const { briefingBondTip } = await import('../../public/js/ui/gameLogic.js');
 const { Tooltip, Modal, Button } = await import('../../public/js/ui/components.js');
-const { UnitThumb } = await import('../../public/js/ui/gameComponents.js');
 const { draftInfoStatus } = await import('../../public/js/screens/bandDraft.js');
 const { data, getMode } = await import('../../public/js/data.js');
 const { DATA, makeMatch } = await import('../match/harness.js');
@@ -135,13 +134,13 @@ test('BannedOperators: the count, one group per greyed bond (the bond, then its 
   for (const [i, gv] of groups.entries()) {
     const bond = [...walk(gv)].find((v) => v.type === InfoBond);
     assert.deepEqual([bond.props.bond, bond.props.off, bond.props.small], [m.bannedGroups[i].bond, true, true]);
-    const thumbs = [...walk(gv)].filter((v) => v.type === UnitThumb);
+    const thumbs = [...walk(gv)].filter((v) => v.type === ChessIcon);
     assert.deepEqual(thumbs.map((v) => v.props.id), m.bannedGroups[i].chess);
-    assert.ok(thumbs.every((v) => v.props.kind === 'chess' && v.props.dim === true));
+    assert.ok(thumbs.every((v) => v.props.banned === true), 'drawn banned (the red corner, the tier on the bottom-left)');
   }
   const none = BannedOperators({ model: matchInfoModel({}, SRC('mode_single_normal')) });
   assert.match(textOf(none), /本局没有禁用干员/);
-  assert.equal([...walk(none)].filter((v) => v.type === UnitThumb).length, 0);
+  assert.equal([...walk(none)].filter((v) => v.type === ChessIcon).length, 0);
 });
 
 test('MatchInfo = 核心盟约, 附加盟约, the legend, 本局禁用干员 (one model); MatchInfoDialog = the same in a Modal with 关闭 and the status line', () => {
@@ -222,7 +221,8 @@ test('the briefing, the strategy draft and the in-game 本局信息 tab all read
   assert.match(brief, /const info = matchInfoModel\(pub, \{ bonds: gd\.list\('bonds'\), chess: gd\.chess, mode, priv, diyData: \{ chess: data\.get\('chess'\), backups: data\.get\('backups'\) \} \}\);/);
   assert.doesNotMatch(brief, /brief-legend|brief-banned|function BondRow|bannedPerBond|disabledBondSets/, 'no own copy of the blocks');
   const draft = read('public/js/screens/bandDraft.js');
-  assert.match(draft, /import \{ MatchInfoDialog, matchInfoModel \} from '\.\.\/ui\/matchInfo\.js';/);
+  // (+ ChessIcon: the 自选预设 row draws its picks as the stage info draws operators)
+  assert.match(draft, /import \{ MatchInfoDialog, matchInfoModel, ChessIcon \} from '\.\.\/ui\/matchInfo\.js';/);
   assert.match(draft, /const info = infoOpen \? matchInfoModel\(pub, \{ bonds: gd\.list\('bonds'\), chess: gd\.chess, mode, priv, diyData: \{ chess: data\.get\('chess'\), backups: data\.get\('backups'\) \} \}\) : null;/);
   assert.match(draft, /data-testid="match-info-open"[\s\S]*?onClick=\$\{\(\) => setInfoOpen\(true\)\}>\$\{t\('查看禁用盟约与干员'\)\}</);
   assert.match(draft, /<\$\{MatchInfoDialog\} open=\$\{infoOpen\} onClose=\$\{\(\) => setInfoOpen\(false\)\} model=\$\{info\}/);
