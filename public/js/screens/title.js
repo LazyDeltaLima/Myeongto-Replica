@@ -195,7 +195,7 @@ export function TitleScreen() {
   useLang(); // re-render on a language switch
   const [name, setName] = useState(() => store.get().me.name || identity.loadName() || '');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);   // 许可证 (ui/about.js), the button under the login box
+  const [aboutOpen, setAboutOpen] = useState(false);   // 服务器信息 (ui/about.js), the button under the login box
   const assetsSettled = useData('assets');
   const assets = data.get('assets');
   const backdrop = findUiAsset(assets, BACKDROP_KEYS);
@@ -300,7 +300,7 @@ export function TitleScreen() {
         </div>
       </div>
       <div class="title-links">
-        <button type="button" class="title-link tapx" onClick=${() => setAboutOpen(true)}>${t('许可证')}</button>
+        <button type="button" class="title-link tapx" onClick=${() => setAboutOpen(true)}>${t('服务器信息')}</button>
       </div>
     </main>
 

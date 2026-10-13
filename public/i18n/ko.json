@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1245 of 1461 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1246 of 1462 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1465,7 +1465,7 @@
   "编辑自选编队": "선발 편성 수정",
   "在自选编队中编辑此预设": "선발 편성 탭에서 이 프리셋을 수정합니다",
   "选择策略结束前修改立即用于本局 · 联机时只进入你自己的商店": "전략 선택이 끝나기 전까지는 수정하면 이번 판에 바로 적용 · 협동 플레이 시 내 상점에만 등장",
-  "许可证": "라이선스",
+  "服务器信息": "서버 정보",
   "非官方同人作品": "비공식 팬 작품",
   "本服务器是《明日方舟》限时玩法「卫戍协议：盟约」的非官方同人复刻，与上海鹰角网络（Hypergryph）、Yostar 及其关联方没有任何关联，也未获得其授权或认可。": "이 서버는 명일방주의 기간 한정 모드 「위수 협의: 맹약」을 비공식으로 재현한 팬 작품입니다. Hypergryph, Yostar 및 관계사와 아무 관계가 없고, 허가나 승인을 받지 않았습니다.",
   "仅限非商业用途": "비상업 용도 한정",
@@ -1476,5 +1476,6 @@
   "本项目自己编写的代码以 GPL-3.0-or-later 发布，可以在该许可证的条件下使用、修改和再分发。本项目按「原样」提供，不附带任何担保。许可证全文和第三方库的许可证见源代码仓库的 LICENSE、NOTICE.md 与 THIRD-PARTY-NOTICES.md。": "이 프로젝트가 직접 작성한 코드는 GPL-3.0-or-later로 공개되며, 그 조건에 따라 사용·수정·재배포할 수 있습니다. 있는 그대로 제공하며 어떤 보증도 하지 않습니다. 라이선스 전문과 외부 라이브러리의 라이선스는 소스 저장소의 LICENSE, NOTICE.md, THIRD-PARTY-NOTICES.md에 있습니다.",
   "权利人联系": "권리자 연락",
   "如果你是相关权利人，认为本项目的任何内容不妥，请在源代码仓库提交 Issue，我们会尽快删除相关内容。": "권리자께서 이 프로젝트의 내용이 권리를 침해한다고 판단하시면 소스 저장소에 Issue를 남겨 주세요. 바로 삭제하겠습니다.",
-  "源代码": "소스 코드"
+  "源代码": "소스 코드",
+  "关于本服务器": "이 서버에 대하여"
 }
