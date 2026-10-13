@@ -99,7 +99,7 @@ export function issueBody(rec) {
     escapeMarkdown(rec.text || ''),
   ];
   const battles = Array.isArray(rec.battles) ? rec.battles.length : 0;
-  if (battles) parts.push('', `<sub>이번 판 전투 데이터 ${battles}전이 첨부되어 서버에 보관 중입니다(공개하지 않음).</sub>`);
+  if (battles) parts.push('', `<sub>이번 시뮬레이션 전투 데이터 ${battles}전이 첨부되어 서버에 보관 중입니다(공개하지 않음).</sub>`);
   let body = parts.join('\n');
   if (typeof rec.diag === 'string' && rec.diag) {
     const room = BODY_MAX - body.length - 200;
