@@ -505,10 +505,14 @@
 }
 @keyframes dart-in { from { opacity: 0; transform: translateX(-.2rem); } }
 .gm.has-hud-art .dpanel--chess.brackets::before, .gm.has-hud-art .dpanel--chess.brackets::after { display: none; }
-.gm.has-hud-art .dpanel--chess .dpanel__close, .dart__head, .dart__mid, .dart__tabs, .dart__pane { pointer-events: auto; }
+.gm.has-hud-art .dpanel--chess .dpanel__close, .dart__tabs { pointer-events: auto; }
 /* local patch (2026-10-06, maintainer report): the tab text lies over the left bench pads (bench row y ≈ the pane) — the
    pane passes presses through to the board; only its buttons / chips / thumbnails / tooltip targets take them */
 .gm.has-hud-art .dpanel--chess .dart__pane { pointer-events: none; }
+/* the header and the stats / tiles row pass presses through to the board too (maintainer report 2026-10-14: on the right
+   half of a co-op boss prep the mirrored board puts its columns 6–10 under the card, and pieces there could be neither
+   picked nor dragged): only their buttons (the bond chips) and tooltip targets take them */
+.gm.has-hud-art .dpanel--chess :is(.dart__head, .dart__mid) :is(button, a, [title], [role="button"], .uthumb) { pointer-events: auto; }
 /* local patch (2026-10-06, maintainer report): the selection diamond (ui/underframe.js .uframe--dia) goes under the card
    (z 9) — a bench pad under the card showed the dashed diamond over its text; the 撤退 / 出售 buttons stay at z 12 */
 .gm.has-hud-art .gm__hud > .uframe--dia { z-index: 8; }
@@ -565,11 +569,12 @@
 .dart__stat small { font-size: .14rem; }
 .dart__tiles { display: flex; flex-wrap: wrap; gap: .06rem; max-width: 4.6rem; margin-bottom: .04rem; }
 .dart__tiles .dbonds { display: contents; }
+/* tile widths as an official play video (16:10, measured in 1920-wide units): 攻击范围 ≈ 110, a bond tile ≈ 91, both 93 high */
 .dart__tile, .dart__tiles .dbond {
-  width: 1rem; height: .93rem; padding: .07rem .04rem .05rem; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  width: .91rem; height: .93rem; padding: .07rem .04rem .05rem; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
   background: rgba(20, 20, 20, .8); border: 0; border-radius: 0; color: #fff; font-size: .17rem; text-align: center;
 }
-.dart__range { width: 1.2rem; }
+.dart__range { width: 1.1rem; }
 .dart__range .rgrid, .dart__range > :first-child { margin: auto 0; }
 .dart__tiles .dbond .dbond__icon { width: .42rem; height: .42rem; }
 .dart__tiles .dbond .dbond__icon img { filter: brightness(0) invert(.92); }

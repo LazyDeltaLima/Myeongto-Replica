@@ -99,6 +99,14 @@ describe('operator card tabs scroll on their own', () => {
     assert.match(css, /padding-bottom: calc\(\.34rem \+ max\(\.56rem, 34px\)\)/, 'its end clears the corner buttons');
     assert.match(css, /\.gm\.has-hud-art \.dpanel--chess \.dart__pane\.is-scroll \{ pointer-events: auto; touch-action: pan-y; \}/);
     assert.match(css, /\.gm\.has-hud-art \.dpanel--chess \.dart__pane \{ pointer-events: none; \}/, 'the 2026-10-06 pass-through stays for the rest');
+    // the header and the stats / tiles row pass presses through as well (the right half of a co-op boss prep puts board
+    // columns 6–10 under the card): only the close button, the tabs and their own buttons / tooltip targets take them
+    assert.match(css, /\.gm\.has-hud-art \.dpanel--chess \.dpanel__close, \.dart__tabs \{ pointer-events: auto; \}/);
+    assert.match(css, /\.gm\.has-hud-art \.dpanel--chess :is\(\.dart__head, \.dart__mid\) :is\(button, a, \[title\], \[role="button"\], \.uthumb\) \{ pointer-events: auto; \}/);
+    assert.doesNotMatch(css, /\.dart__head, \.dart__mid, \.dart__tabs/, 'the header / stats row no longer take every press');
+    // tile widths of the official card (a 16:10 play video, 1920-wide units): 攻击范围 ≈ 110, a bond tile ≈ 91
+    assert.match(css, /\.dart__tile, \.dart__tiles \.dbond \{\n  width: \.91rem; height: \.93rem;/);
+    assert.match(css, /\.dart__range \{ width: 1\.1rem; \}/);
     const js = read('public/js/ui/detailArt.js');
     assert.match(js, /const edges = useScrollEdges\(paneRef, \[cur\?\.id\]\);/);
     assert.match(js, /ref=\$\{paneRef\} class=\$\{cx\('dart__pane', `dart__pane--\$\{cur\.id\}`, edges\.scroll && 'is-scroll', edges\.up && 'has-up', edges\.down && 'has-down'\)\}/);
