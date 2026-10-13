@@ -243,7 +243,7 @@ describe('bonds', () => {
     assert.equal(bondRequireCount(null, []), null);
     for (const b of Object.values(bonds)) assert.equal(b.activeCount, b.thresholds[0], `${b.name}: activeCount = first threshold`);
   });
-  test('bondMembers marks on-board / owned / banned', () => {
+  test('bondMembers marks on-board / owned and leaves banned members out', () => {
     const b = bonds.deputShip;
     const [m1, m2, m3] = b.visibleMembers;
     const priv = privWith({ board: [{ ...piece(m1), row: 9, col: 3 }], hand: [piece(chess[m2].goldenId)] });
@@ -252,10 +252,10 @@ describe('bonds', () => {
     assert.equal(byId.get(m1).onBoard, true);
     assert.equal(byId.get(m2).owned, true, 'golden in hand counts as owned base');
     assert.equal(byId.get(m2).onBoard, false);
-    assert.equal(byId.get(m3).banned, true);
+    assert.equal(byId.has(m3), false, 'a banned member is not listed (the client\'s bond dialog)');
     assert.equal(byId.get(m2).inHand, true, 'a golden copy in the hand marks the base in hand');
     assert.equal(rows[0].id, m1, 'on-board first');
-    assert.equal(rows.length, b.visibleMembers.length);
+    assert.equal(rows.length, b.visibleMembers.length - 1);
   });
   test('memberHeadCount: the hand counts only for a bond that counts the hand, once per row', () => {
     const rows = [

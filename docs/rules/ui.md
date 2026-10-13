@@ -175,9 +175,9 @@
     ba.acrem #727272, autochess.gray #777777, autochess.dgreen #40B196 — Kengxxiao zh_CN `gamedata_const`)와 구성원 격자
     (`autochess_hud_bond_char_item`: 칸 88, 한 줄 5, 간격 25.5 × 38, 아바타 76 + `avatar_border` 83, 필드에 있는 구성원은 `avatar_active_border` 92×90,
     나머지는 #3b3b3b 50 % 어둡게 — 회색 처리 없음, 등급 배지 30×30 왼쪽 아래 — 스프라이트 rect = 텍스처 45라 상자 그대로, 이름 16 아래). 얇은 스크롤바.
-  - 결석(본판 금지) 구성원(2026-10-13, 관리자 요청): 공식 `autochess_hud_bond_char_item`·`AutoChessBondCharModel`에는 결석 상태가 없다 → 빨간 원 ✕ 대신
-    브리핑 결장 목록과 같은 공식 표시(`matchInfo.js ChessIcon`): 30 % 회색 `img_chess_banned_mask`가 아바타와 `avatar_border`(83)를 덮고, `img_chess_banned`의
-    빨간 삼각형이 테두리 오른쪽 위 모서리에 닿는다. 크기는 그곳 아바타 90 대비 76으로 줄임 [추정]. 그림이 없으면 CSS 빨간 삼각형(`bondStrip.js banMark`).
+  - 결석(본판 금지) 구성원은 **목록에서 뺀다**(2026-10-13 관리자 결정, 공식 화면 기억 [추정] — 목록을 만드는 클라 코드는 안 읽음): 공식
+    `autochess_hud_bond_char_item`·`AutoChessBondCharModel`에 결석 상태가 없다. 맹약이 전부 꺼진 선발 pick(`m.private.diyBanned`)도 같이 빠진다
+    (`gameLogic bondMembers`; 예전 빨간 원 ✕ 표시는 없앰). 「成员 x/y」의 y도 그만큼 줄고, 머리의 「n/m」(`activeCount`)은 그대로.
   - 변형 구조체 + 맹약 장비를 낀 선발 오퍼레이터(2026-10-13, 관리자 제보: 그 맹약 목록에 빈 칸 「선」): `bondMembers`의 변형 구조체 행도 선발 행처럼
     오퍼레이터의 합성 기록(일반형)·동료의 pick을 단다 → 그 오퍼레이터 그림·이름, 누르면 그 오퍼레이터 카드.
   - 설명은 **현재 효과만**(2026-10-13, 사용자 KR 캡처 「기민」 + 클라 코드): `_RenderContent`(0x1FE3120)가 `_descText` 하나에

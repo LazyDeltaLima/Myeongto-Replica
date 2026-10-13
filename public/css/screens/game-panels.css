@@ -294,16 +294,6 @@
 .bpop__mname { font-size: .12rem; color: var(--text-lo); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bpop__member.is-on .bpop__mname { color: var(--mint-400); }
 .bpop__member.is-owned .bpop__mname { color: var(--text-hi); }
-/* a banned member (ui/bondStrip.js banMark): the stage info's mark as ui/matchInfo.js ChessIcon draws it, in units of the
-   90-unit avatar there — the 30 % grey img_chess_banned_mask over the avatar, img_chess_banned (73) whose red triangle
-   (34, its right angle 21 in from the sprite's top-right) lands on the avatar's top-right corner; the tier stays on top */
-.bpop__member .uthumb { isolation: isolate; }
-.bpop__banmask { position: absolute; inset: 0; z-index: 1; background: rgba(53, 53, 53, .3); pointer-events: none; }
-.bpop__ban { position: absolute; z-index: 2; right: calc(var(--ut) * -21 / 90); top: calc(var(--ut) * -21 / 90);
-  width: calc(var(--ut) * 73 / 90); height: calc(var(--ut) * 73 / 90); pointer-events: none; }
-.bpop__ban.is-css { right: 0; top: 0; width: calc(var(--ut) * 34 / 90); height: calc(var(--ut) * 34 / 90); background: #a5262f;
-  clip-path: polygon(0 0, 100% 0, 100% 100%); }
-.bpop__member.is-banned .uthumb__tier { z-index: 3; }
 /* a member through 变形同构体 (the item pairing, not the operator's own bond): a gold 同构 tag on the portrait */
 .bpop__iso { position: absolute; top: .02rem; right: .08rem; padding: 0 .04rem; font-size: .11rem; line-height: 1.45; font-weight: 700; color: #141414; background: var(--gold-2); }
 .dbonds--top .dbond.is-granted { border-style: dashed; }

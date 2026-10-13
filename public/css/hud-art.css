@@ -667,12 +667,6 @@
 /* (bond popup members) the tier badge at the client's 30 units; members not on the field are only darkened (img_inactive_mask), not grey */
 .gm.has-hud-art .bpop__member .uthumb__tier { --tier-h: calc(var(--u) * 30); transform: none; } /* common_chess_level 30×30 (img_chess_level_N: rect = texture 45, no margin) */
 .gm.has-hud-art .bpop__member .uthumb.is-dim .uthumb__art, .gm.has-hud-art .bpop__member .uthumb.is-dim .uthumb__art img { filter: none; opacity: 1; }
-/* a banned member: the mask covers avatar_border (83: 3.5 out) and the red triangle lands on its top-right corner, as on the
-   stage info's white card [추정: the client's bond dialog draws no banned state] */
-.gm.has-hud-art .bpop__banmask { inset: calc(var(--u) * -3.5); }
-.gm.has-hud-art .bpop__ban { right: calc(var(--u) * -3.5 - var(--ut) * 21 / 90); top: calc(var(--u) * -3.5 - var(--ut) * 21 / 90); }
-.gm.has-hud-art .bpop__ban.is-css { right: calc(var(--u) * -3.5); top: calc(var(--u) * -3.5); }
-.gm.has-hud-art .bpop__member.is-banned .uthumb__tier { z-index: 3; }
 
 /* ---- the shop card's first tap (autochess_shop_card_item btn_double_check; KR capture 20): group_able — bg_doublecheck1
    (158×125, teal) over the card's lower part (its centre 25.5 under the card's), 确认购买 22 px Heavy #dcfff7 centred 62

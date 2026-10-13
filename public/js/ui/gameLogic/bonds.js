@@ -168,7 +168,8 @@ export function harmonyMembers(priv, getChess = () => null) {
 }
 
 /**
- * Member rows of a bond popup: every visible member with owned / on-board / in-hand / banned state, plus the player's
+ * Member rows of a bond popup: every visible member with owned / on-board / in-hand state — less the banned ones (no
+ * stock this match: the client's bond dialog leaves them out, owner's recollection 2026-10-13 [ASSUMED]) — plus the player's
  * operators that are members through 变形同构体 (grantedBonds; `granted: true` and `items`: the item ids of the copy that
  * wears the pair — the card the row opens shows them; one row per operator — normal and elite copies are one member,
  * like the count's distinct members; a 自选 piece wearing the pair is its operator, `diy` / `rec` / `pick` as below — the
@@ -181,7 +182,7 @@ export function harmonyMembers(priv, getChess = () => null) {
  * (the owner's report of 2026-10-07 「自选编队的干员在局内对应盟约展开的名单里没有显示出来」) every 自选 pick of the
  * player (m.private.diy: the V and VI slots) is a row of each bond its operator carries, owned or not — an unowned one
  * (not bought, or not in the shop yet: the slot's 调度中心 level) dimmed like an unowned member, one whose bonds are all
- * off this match (m.private.diyBanned: no stock, it never shows in the shop) `banned` like a banned member. A
+ * off this match (m.private.diyBanned: no stock, it never shows in the shop) left out like a banned member. A
  * teammate's board carries no picks (m.public sends none): their 自选 pieces on the field only.
  * `inHand`: in the 整备区 (hand), not the 5 temporary slots — what BOARD_AND_DECK bonds (投资人 远见 奇迹) count.
  * @param {any} bond bonds.json record
@@ -253,18 +254,20 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
     if (diyOfBond(rec) && rec.diyFor === slotId) diy.set(slotId, { on: false, hand: false, owned: false, rec, pick: null });
   }
   const diyBanned = new Set(Array.isArray(priv?.diyBanned) ? priv.diyBanned : []);
-  const rows = members.map((id) => {
+  // a banned member (no stock this match) is not a row, as in the client's dialog (an owned copy — none should be — stays)
+  const rows = members.filter((id) => owned.has(id) || !bannedSet.has(id)).map((id) => {
     const c = getChess(id);
-    return { id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: onBoard.has(id), owned: owned.has(id), inHand: inHand.has(id), banned: bannedSet.has(id) };
+    return { id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: onBoard.has(id), owned: owned.has(id), inHand: inHand.has(id) };
   });
   for (const [id, g] of granted) {
     // a 自选 piece through 变形同构体 is its operator too (a diy row's record and pick), not the empty slot
     const c = g.d ? g.d.rec : getChess(id);
-    rows.push({ id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: g.on, owned: true, inHand: g.hand, banned: false, granted: true, items: g.items,
+    rows.push({ id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: g.on, owned: true, inHand: g.hand, granted: true, items: g.items,
       ...(g.d ? { diy: true, rec: g.d.rec, ...(g.d.pick ? { pick: g.d.pick } : {}) } : {}) });
   }
   for (const [id, g] of diy) {
-    rows.push({ id, tier: g.rec.tier ?? 0, name: g.rec.name ?? id, onBoard: g.on, owned: g.owned, inHand: g.hand, banned: bannedSet.has(id) || diyBanned.has(id), diy: true, rec: g.rec, ...(g.pick ? { pick: g.pick } : {}) });
+    if (!g.owned && (bannedSet.has(id) || diyBanned.has(id))) continue;
+    rows.push({ id, tier: g.rec.tier ?? 0, name: g.rec.name ?? id, onBoard: g.on, owned: g.owned, inHand: g.hand, diy: true, rec: g.rec, ...(g.pick ? { pick: g.pick } : {}) });
   }
   return rows.sort((a, b) => (b.onBoard - a.onBoard) || (b.owned - a.owned) || (a.tier - b.tier) || (a.id < b.id ? -1 : 1));
 }

@@ -4,7 +4,8 @@
 // not in the shop yet (the tier-5 / tier-6 slots from 调度中心 level 5 / 6), never showed. Now each pick is a row of every
 // bond its operator carries: the operator's name and portrait (its normal-form composed record, one row per slot) —
 // upstream adds a 「自选」 tag, we do not (docs/rules/upstream.md J-2) — dimmed until owned, counted by neither 在场 nor the 成员 header until it is on the board (or in the
-// hand, for a bond that counts the hand), ✕ when all its bonds are off this match (m.private.diyBanned). A watched
+// hand, for a bond that counts the hand), left out when all its bonds are off this match (m.private.diyBanned), as banned
+// members are (owner, 2026-10-13: the client's dialog lists neither). A watched
 // teammate's popup lists their 自选 pieces on the field (their picks are not on the client) and such a row opens THEIR
 // operator's card, not the empty 甄选干员 slot's.
 // Ported from upstream 41fd3c7e onto our five picks (shared/local-diy.js): each carries one bond, so 赤刃明霄陈 (炎) stands
@@ -87,8 +88,8 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     const n = DATA.bonds.yanShip.visibleMembers.length;
     const siege = vic.find((r) => r.id === T5A);
     assert.ok(siege, 'the unbought 赤刃明霄陈 is a 炎 row');
-    assert.deepEqual([siege.diy, siege.name, siege.tier, siege.owned, siege.onBoard, siege.inHand, siege.banned, siege.rec.charId],
-      [true, SIEGE_NAME, 5, false, false, false, false, SIEGE]);
+    assert.deepEqual([siege.diy, siege.name, siege.tier, siege.owned, siege.onBoard, siege.inHand, siege.rec.charId],
+      [true, SIEGE_NAME, 5, false, false, false, SIEGE]);
     assert.equal(vic.length, n + 1, 'the members + 赤刃明霄陈 (阿斯卡纶 is no 炎 operator)');
     assert.equal(G.memberHeadCount(vic), 0);
     assert.equal(G.memberHeadCount(vic, true), 0, 'nor when the bond counts the hand');
@@ -165,18 +166,16 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     assert.equal(G.memberHeadCount(rows), 1);
   });
 
-  test('a pick whose bonds are all off this match (m.private.diyBanned: never in the shop) is listed like a banned member', () => {
+  test('a pick whose bonds are all off this match (m.private.diyBanned: never in the shop) is left out like a banned member', () => {
     const priv = privOf({ diyBanned: [T5A] });
-    const rows = rowsOf('yanShip', priv);
-    const r = rows.find((x) => x.id === T5A);
-    assert.deepEqual([r.diy, r.banned, r.owned], [true, true, false]);
-    assert.equal(rowsOf('emptyShip', priv).find((x) => x.id === T5B).banned, false, '阿斯卡纶 keeps its stock');
-    const btn = memberButtons(popup({ bondId: 'yanShip', priv })).find((v) => v.props['data-diy'] === SIEGE);
-    assert.ok(hasClass(btn, 'is-banned'));
-    assert.ok([...walk(btn)].some((v) => hasClass(v, 'bpop__ban')), 'the stage info\'s red corner (img_chess_banned)');
-    assert.ok([...walk(btn)].some((v) => hasClass(v, 'bpop__banmask')), 'under its grey mask');
-    assert.ok([...walk(btn)].some((v) => hasClass(v, 'uthumb') && hasClass(v, 'is-dim')));
-    assert.ok(btn.props.title.endsWith('（本局禁用）'), btn.props.title);
+    assert.equal(rowsOf('yanShip', priv).some((x) => x.id === T5A), false, '赤刃明霄陈 is not listed');
+    assert.ok(rowsOf('emptyShip', priv).some((x) => x.id === T5B), '阿斯卡纶 keeps its stock and its row');
+    assert.equal(memberButtons(popup({ bondId: 'yanShip', priv })).some((v) => v.props['data-diy'] === SIEGE), false);
+    // banned members are left out too (m.public.bannedChess), the rest stay
+    const [m0] = DATA.bonds.yanShip.visibleMembers;
+    const rows = G.bondMembers(DATA.bonds.yanShip, privOf(), [m0], G.diyGetter(getChess, privOf(), D));
+    assert.equal(rows.some((x) => x.id === m0), false);
+    assert.equal(rows.length, DATA.bonds.yanShip.visibleMembers.length, 'the other members + 赤刃明霄陈');
   });
 
   test('a watched teammate: their 自选 pieces on the field are rows (their picks are not sent), ours never are; the row opens THEIR operator\'s card', () => {
