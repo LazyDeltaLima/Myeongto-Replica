@@ -230,19 +230,27 @@
   background: linear-gradient(90deg, var(--mint-500), transparent 60%);
 }
 .title-login .btn--xl { letter-spacing: .6em; padding-left: calc(.48rem + .3em); }
+/* the invite card: the heading with the room code, then the hint — each kept whole; the hint takes its own line when
+   both do not fit (Korean / English) */
 .title-invite {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: .08rem;
+  gap: .02rem .1rem;
   padding: .08rem .12rem;
   background: rgba(246, 163, 41, .08);
   border: 1px solid rgba(246, 163, 41, .35);
   color: var(--amber);
   font-size: .16rem;
 }
-.title-invite .icon { width: .2rem; height: .2rem; }
+.title-invite__head { display: inline-flex; align-items: center; gap: .08rem; white-space: nowrap; }
+.title-invite .icon { flex: none; width: .2rem; height: .2rem; }
 .title-invite b { font-size: .2rem; letter-spacing: .2em; color: #ffd08a; }
-.title-conn { display: flex; align-items: center; justify-content: center; gap: .1rem; min-height: .32rem; font-size: .14rem; color: var(--text-lo); }
+.title-invite__hint { min-width: min(100%, max-content); font-size: .15rem; }
+/* the connection row: the status with the ping and online pills, then the buttons — two groups that never break inside
+   and take two lines when they do not fit side by side (with the online pill they no longer do in any language) */
+.title-conn { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .06rem .16rem; min-height: .32rem; font-size: .14rem; color: var(--text-lo); }
+.title-conn__status, .title-conn__tools { display: inline-flex; flex: none; align-items: center; gap: .1rem; white-space: nowrap; }
 /* 统计 (the local stats page) beside the language menu in the top-right corner */
 .title-corner__tools { display: flex; align-items: center; justify-content: flex-end; gap: .1rem; margin-bottom: .1rem; }
 .title-corner__tools .title-lang { margin-bottom: 0; }
