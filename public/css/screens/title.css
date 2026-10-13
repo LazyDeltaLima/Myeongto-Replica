@@ -3,7 +3,8 @@
    nickname console. Pure CSS/SVG art; an optional backdrop image fades in underneath.
    ========================================================================================== */
 
-.title-screen { align-items: center; justify-content: center; }
+/* --login-w: the login box's width (touch screens widen it, devices.css), also read by the 「添加到主屏幕」 note beside it */
+.title-screen { --login-w: 4.9rem; align-items: center; justify-content: center; }
 
 /* ---- backdrop ----------------------------------------------------------------------------------- */
 .title-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
@@ -207,7 +208,7 @@
 .title-login {
   --bk-c: var(--mint-500);
   position: relative;
-  width: 4.9rem;
+  width: var(--login-w);
   margin-top: .42rem;
   display: flex;
   flex-direction: column;
@@ -247,8 +248,9 @@
 .title-invite .icon { flex: none; width: .2rem; height: .2rem; }
 .title-invite b { font-size: .2rem; letter-spacing: .2em; color: #ffd08a; }
 .title-invite__hint { min-width: min(100%, max-content); font-size: .15rem; }
-/* the connection row: the status with the ping and online pills, then the buttons — two groups that never break inside
-   and take two lines when they do not fit side by side (with the online pill they no longer do in any language) */
+/* the connection row: the status dot with the ping, then the buttons — two groups that never break inside, side by side
+   on one line in Chinese and Korean (the 在线 count is the lobby's alone, the status words show only while not online;
+   a touch screen's bigger buttons widen the box, devices.css); a longer language still takes two lines */
 .title-conn { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .06rem .16rem; min-height: .32rem; font-size: .14rem; color: var(--text-lo); }
 .title-conn__status, .title-conn__tools { display: inline-flex; flex: none; align-items: center; gap: .1rem; white-space: nowrap; }
 /* 统计 (the local stats page) beside the language menu in the top-right corner */
@@ -263,7 +265,7 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .title-conn .ping { height: .26rem; font-size: .15rem; }
 /* iPhone Safari's 「添加到主屏幕」 note (title.js fsNote): the free bottom-right corner beside the login box, above the
    footer — under the login box it ran off a landscape phone's screen */
-.title-fsnote { position: absolute; z-index: 2; right: .44rem; bottom: .62rem; width: min(260px, calc(50% - 2.45rem - .44rem - .16rem)); display: flex; align-items: flex-start; gap: .08rem; padding: .08rem .1rem .08rem .12rem; background: rgba(8, 11, 10, .72); border: 1px solid var(--line-2); border-left: 2px solid var(--mint-700); color: var(--text-md); font-size: max(.13rem, 12px); line-height: 1.45; text-align: left; }
+.title-fsnote { position: absolute; z-index: 2; right: .44rem; bottom: .62rem; width: min(260px, calc(50% - var(--login-w) / 2 - .44rem - .16rem)); display: flex; align-items: flex-start; gap: .08rem; padding: .08rem .1rem .08rem .12rem; background: rgba(8, 11, 10, .72); border: 1px solid var(--line-2); border-left: 2px solid var(--mint-700); color: var(--text-md); font-size: max(.13rem, 12px); line-height: 1.45; text-align: left; }
 .title-fsnote > .icon { flex: none; width: max(.18rem, 14px); height: max(.18rem, 14px); margin-top: .02rem; color: var(--mint-400); }
 .title-fsnote > span { flex: 1; }
 .title-fsnote__close { flex: none; display: grid; place-items: center; width: max(.24rem, 20px); height: max(.24rem, 20px); padding: 0; background: none; border: 0; color: var(--text-lo); cursor: pointer; }

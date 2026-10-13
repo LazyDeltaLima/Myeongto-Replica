@@ -113,6 +113,8 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
    844×390) and their --tap-min hit areas overlapped, so the full-screen button's area took every tap on the gear —
    bigger buttons with a gap so each one's own centre is its own */
 .sp-coarse .title-fs, .sp-coarse .title-settings { width: max(.4rem, 28px); height: max(.4rem, 28px); margin-left: max(.06rem, 14px); }
+/* …and the login box grows by what those two buttons grew, so the connection row under 开始 stays on one line */
+.sp-coarse .title-screen { --login-w: calc(4.9rem + 2 * (max(.4rem, 28px) - .4rem + max(.06rem, 14px) - .06rem)); }
 /* standalone / fullscreen: the browser bars are gone, nothing to reserve */
 .sp-standalone .rotate-hint__micro::after { content: ' · PWA'; }
 

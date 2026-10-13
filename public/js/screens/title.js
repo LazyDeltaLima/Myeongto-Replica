@@ -12,7 +12,7 @@
 
 import { useMemo, useState } from '../../vendor/hooks.module.js';
 import { NAME_MAX_LEN, APP_VERSION, DEV_BUILD } from '../../../shared/constants.js';
-import { html, Button, Icon, MicroLabel, TextField, PingPill, OnlinePill } from '../ui/components.js';
+import { html, Button, Icon, MicroLabel, TextField, PingPill } from '../ui/components.js';
 import { GuideButton } from '../ui/guide.js';
 import { openStats } from './stats.js';
 import { toast } from '../ui/toasts.js';
@@ -216,6 +216,10 @@ export function TitleScreen() {
 
   const online = conn.status === 'online' || conn.status === 'connected';
   const dotClass = online ? 'is-on' : conn.status === 'reconnecting' || conn.status === 'connecting' || conn.status === 'handshaking' ? 'is-warn' : 'is-bad';
+  // the connection row stays on one line: once a ping is measured (before the name too: the title's socket pings), the
+  // green dot and the ping say it (the words stay for screen readers and as the tooltip); the 在线 count is the lobby's alone
+  const statusText = STATUS_TEXT[conn.status] ? t(STATUS_TEXT[conn.status]) : conn.status;
+  const showPing = online && Number.isFinite(conn.ping);
 
   // touch screens: no autofocus (it would pop the on-screen keyboard over a landscape phone's whole view)
   const touchUi = useMemo(() => detectFeatures().coarse, []);
@@ -280,10 +284,10 @@ export function TitleScreen() {
           onInput=${setName} onEnter=${start} />
         <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" disabled=${!valid} onClick=${start}>${t('开始')}<//>
         <div class="title-conn">
-          <span class="title-conn__status">
+          <span class="title-conn__status" title=${statusText}>
             <span class=${`status-dot ${dotClass}`}></span>
-            <span>${STATUS_TEXT[conn.status] ? t(STATUS_TEXT[conn.status]) : conn.status}</span>
-            ${conn.status === 'online' ? html`<${PingPill} ms=${conn.ping} /><${OnlinePill} n=${conn.online} />` : null}
+            <span class=${showPing ? 'sr-only' : null}>${statusText}</span>
+            ${showPing ? html`<${PingPill} ms=${conn.ping} />` : null}
           </span>
           <span class="title-conn__tools">
             <${GuideButton} class="title-guide" label=${t('玩法说明')} />
