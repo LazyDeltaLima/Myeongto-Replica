@@ -252,7 +252,7 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
     const tab = await page.evaluate(() => ({
       off: [...document.querySelectorAll('.edrawer .ibond.is-off')].map((el) => el.querySelector(':scope > span:not([class])')?.textContent || ''),
       ban: Object.fromEntries([...document.querySelectorAll('.edrawer .ibond')].map((el) => [el.querySelector(':scope > span:not([class])')?.textContent || '', el.querySelector('.ibond__ban')?.textContent.trim() || ''])),
-      banned: [...document.querySelectorAll('.edrawer .ibanned .uthumb')].map((el) => el.getAttribute('title')),
+      banned: [...document.querySelectorAll('.edrawer .ibanned .chessico')].map((el) => el.getAttribute('title')),
       count: document.querySelector('.edrawer .ihead small')?.textContent.trim() || '',
     }));
     assert.deepEqual(tab.off.sort(), brief.bonds.filter((b) => b.off).map((b) => b.name).sort(), 'the same greyed bonds');

@@ -10,7 +10,7 @@
 import { html, Icon, Tabs, MicroLabel } from './components.js';
 import { Img, UnitThumb, BondGlyph, BandIcon, RichText, GIcon } from './gameComponents.js';
 import { groupEnemies, factionTypes, briefingBondTip } from './gameLogic.js';
-import { matchInfoModel, DiyBannedLine } from './matchInfo.js';
+import { matchInfoModel, DiyBannedLine, ChessIcon } from './matchInfo.js';
 import { factionIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
@@ -88,7 +88,7 @@ function InfoTab({ pub, priv, onChess, bandId = null, bandOwner = null }) {
       </span>`) : html`<span class="t-dim">${t('本局没有禁用盟约')}</span>`}
     </div>
     ${banned.length ? html`<div class="ibanned">${banned.map((id) => html`<button key=${id} type="button" class="ibanned__one" onClick=${() => onChess(id)}>
-      <${UnitThumb} kind="chess" id=${id} size="sm" dim=${true} /></button>`)}</div>` : null}
+      <${ChessIcon} id=${id} banned=${true} /></button>`)}</div>` : null}
     <${DiyBannedLine} model=${model} class="idiybanned" />
   </div>`;
 }

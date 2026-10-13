@@ -927,7 +927,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 제목 줄(`perm_bond_title` / `temp_bond_title` / `chess_banned_title`): 바 그림 `img_group_title_perm_bond` / `img_group_title`(가로 반복)과 아이콘
   `img_title_icon_perm_bond` / `_temp_bond` / `_chess`. 결장 수는 제목 바로 뒤(바 그림 오른쪽 로고와 겹치지 않게).
 - 결장 오퍼레이터는 **맹약별**(`prefab_auto_chess_stage_info_chess_banned_group`): 왼쪽 꺼진 맹약(110 × 130, 문양 45), 구분선 `img_bond_banned_split`, 그 맹약의
-  결장 오퍼레이터(130 칸, 7 간격). 오퍼레이터 그림(`matchInfo.js ChessIcon`, 전략 선택의 선발 프리셋 칸도 같은 것)은 `chess_banned_item` 프리팹 값대로: 그림 94, 30 % 회색
+  결장 오퍼레이터(130 칸, 7 간격). 오퍼레이터 그림(`matchInfo.js ChessIcon`, 전략 선택의 선발 프리셋 칸과 판 안 「이번 판 정보」 탭도 같은 것)은 `chess_banned_item` 프리팹 값대로: 그림 94, 30 % 회색
   `img_chess_banned_mask`, `img_chess_banned`(73, 그림 가운데에서 (34, 32))의 빨간 삼각형(34, 스프라이트 오른쪽 위에서 20 안쪽)이 그림 오른쪽 위 모서리에 닿고,
   단계 그림(`common_chess_level`)은 34로 왼쪽 아래 모서리(왼쪽으로 8, 아래로 3.5 나감 — `AutoChessCommonChessView`를 94에 맞춘 값 [추정]; 관리자 요청 2026-10-13, 공식 화면 대조). 클라 코드 근거: `AutoChessStageInfoGroupViewModel._LoadBondDataFromIdRange`가
   `bannedBondList`의 맹약마다 `AutoChessStageInfoChessGroupModel`을 만들고, `LoadData`가 그 맹약 멤버 중 `CalculateBannedChessIdList`에 든 것을 넣는다 →
