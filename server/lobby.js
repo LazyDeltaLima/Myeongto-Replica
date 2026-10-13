@@ -1062,7 +1062,7 @@ export class Lobby {
       this.callMatch(room, 'onLeave', playerId);
     } else {
       room.seats[seat.seat] = null;
-      this.queue.onRoomChange(room, playerId); // a queued room lost a human: its 랜덤 매칭 entry is cancelled
+      this.queue.onRoomChange(room, playerId, seat.name); // a queued room lost a human: its 랜덤 매칭 entry is cancelled
     }
     if (room.disposed) return; // onLeave may have ended the match and emptied the room
     if (room.hostId === playerId) this.migrateHost(room);

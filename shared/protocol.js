@@ -485,7 +485,7 @@ export const C2S = {
 export const S2C = [
   'welcome', 'ok', 'error', 'pong',
   'room.state', 'room.closed',
-  // 랜덤 매칭: room.queueState { queued, difficulty, count?, waitedMs?, party?, reason? } · room.matchFound
+  // 랜덤 매칭: room.queueState { queued, difficulty, count?, waitedMs?, party?, reason?, by? } · room.matchFound
   // { difficulty, players, accepted, mine, inMs }
   'room.queueState', 'room.matchFound',
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',

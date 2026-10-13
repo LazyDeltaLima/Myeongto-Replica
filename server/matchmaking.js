@@ -14,9 +14,10 @@
 //       AI seats are freed (matchmaking fills the seats with humans only). While the room is queued (room.state
 //       `matching`) nobody may join it (ERR.MATCHING; spectating is fine) and the host may not change the difficulty,
 //       add an AI seat or start (ERR.MATCHING); a human leaving the room (leave, kick, the lobby grace, a resume window
-//       expiring) or its disposal cancels the room's entry (reason 'changed' to the others).
-//     room.unqueue (any queued member) leaves the queue — for a room, the whole room: the sender gets reason 'left', the
-//     other members 'party'. Every waiting player gets room.queueState whenever its queue changes (`count` = the humans
+//       expiring) or its disposal cancels the room's entry (reason 'changed' to the others, `by` = who left).
+//     room.unqueue (any queued member, maintainer decision 2026-10-13) leaves the queue — for a room, the whole room: the
+//     sender gets reason 'left', the other members 'party' with `by` = the sender's name (the same decision: the others
+//     see who cancelled). Every waiting player gets room.queueState whenever its queue changes (`count` = the humans
 //     waiting for that difficulty, `party` = queued with a room).
 //   * A group is always four humans (maintainer decision 2026-10-13: no AI fill, no smaller group). Formation walks the
 //     queue in order and takes the first entries whose humans add up to exactly four, preferring the oldest entries
@@ -28,8 +29,8 @@
 //       the host;
 //     - otherwise in a new co-op room, seated in queue order (the first is the host).
 //     A human who declines, or has not answered when the time runs out, takes their entry out of the queue (a room
-//     leaves whole: the others get reason 'party'); the other entries go back to the front of their queue, in their old
-//     order, keeping their waiting time.
+//     leaves whole: the other members get 'partyDeclined' with `by`, or 'partyTimeout' when they had accepted); the other
+//     entries go back to the front of their queue, in their old order, keeping their waiting time.
 //   * A waiting single player whose socket closes is skipped by group formation and leaves the queue after
 //     `queueGraceMs` (10 s; a phone switching apps keeps its place); a resume within that time resends the queue state
 //     (or the pending room.matchFound). The reconnect window expiring removes the entry at once. A single player who
@@ -162,8 +163,8 @@ export class Matchmaker {
   unqueue(session) {
     const entry = this.entryOf(session);
     if (!entry) return OK;
-    if (entry.group) return this.decline(entry.group, entry, 'left', session.playerId);
-    this.drop(entry, 'left', session.playerId);
+    if (entry.group) return this.decline(entry.group, entry, 'left', { byId: session.playerId });
+    this.drop(entry, 'left', { byId: session.playerId });
     this.broadcastQueue(entry.difficulty);
     return OK;
   }
@@ -173,7 +174,7 @@ export class Matchmaker {
     const entry = this.entryOf(session);
     const group = entry?.group;
     if (!group) return fail(ERR.WRONG_PHASE, 'no match to answer');
-    if (!accept) return this.decline(group, entry, 'declined', session.playerId);
+    if (!accept) return this.decline(group, entry, 'declined', { byId: session.playerId });
     group.accepted.add(session.playerId);
     if (group.ids.every((id) => group.accepted.has(id))) return this.launch(group);
     this.sendFound(group);
@@ -210,23 +211,24 @@ export class Matchmaker {
   onExpire(session) {
     const entry = this.entries.get(session.playerId); // a queued room's member: the lobby's removeMember follows
     if (!entry) return;
-    if (entry.group) { this.decline(entry.group, entry, 'offline', null); return; }
+    if (entry.group) { this.decline(entry.group, entry, 'offline'); return; }
     this.drop(entry, null);
     this.broadcastQueue(entry.difficulty);
   }
 
   /**
    * A queued room lost a human (lobby removeMember in LOBBY) or is being disposed: its entry is cancelled. The one who
-   * left gets queued:false at once (no toast), the others reason 'changed'.
-   * @param {import('./lobby.js').Room} room @param {string | null} goneId
+   * left gets queued:false at once (no toast), the others reason 'changed' with `by` = the leaver's name.
+   * @param {import('./lobby.js').Room} room @param {string | null} goneId @param {string} [goneName]
    */
-  onRoomChange(room, goneId) {
+  onRoomChange(room, goneId, goneName) {
     const entry = this.entries.get(roomKey(room));
     if (!entry || entry.room !== room) return;
     if (goneId) sendSession(this.lobby.registry.byId(goneId), { t: 'room.queueState', queued: false, difficulty: entry.difficulty, reason: 'left' });
     const reason = room.disposed ? null : 'changed';
-    if (entry.group) { this.decline(entry.group, entry, reason, null); return; }
-    this.drop(entry, reason);
+    const why = { by: goneName ?? null };
+    if (entry.group) { this.decline(entry.group, entry, reason, why); return; }
+    this.drop(entry, reason, why);
     this.broadcastQueue(entry.difficulty);
   }
 
@@ -300,14 +302,14 @@ export class Matchmaker {
     if (!this.live(group)) return;
     const done = (e) => this.ids(e).every((id) => group.accepted.has(id));
     const stay = group.members.filter(done);
-    for (const e of group.members) if (!done(e)) this.drop(e, 'timeout');
+    for (const e of group.members) if (!done(e)) this.drop(e, 'timeout', { accepted: group.accepted });
     this.dissolve(group, stay);
   }
 
   /** A member declined (or left / expired): its entry leaves the queue, every other entry goes back to the front. */
-  decline(group, entry, reason, byId) {
+  decline(group, entry, reason, why = {}) {
     if (!this.live(group)) return OK;
-    this.drop(entry, reason, byId);
+    this.drop(entry, reason, why);
     this.dissolve(group, group.members.filter((e) => e !== entry));
     return OK;
   }
@@ -429,18 +431,31 @@ export class Matchmaker {
   }
 
   /**
-   * Remove an entry for good, telling its humans why (reason null: nobody to tell). A room's other members hear 'party'
-   * when one of them (byId) left or declined.
+   * Remove an entry for good, telling its humans why (reason null: nobody to tell). In a room, the members other than
+   * the one who acted (byId) hear who it was: 'left' → 'party', 'declined' → 'partyDeclined' (`by` = that member's
+   * name); a 'timeout' tells the members who had accepted 'partyTimeout'; `by` (a leaver's name) rides along otherwise.
+   * @param {Entry} entry @param {string | null} reason
+   * @param {{ byId?: string, by?: string | null, accepted?: Set<string> }} [why]
    */
-  drop(entry, reason, byId = null) {
+  drop(entry, reason, { byId = null, by = null, accepted = null } = {}) {
     const ids = this.ids(entry);
+    const name = byId ? this.nameOf(entry, byId) : by;
     this.unlist(entry);
     if (entry.room && !entry.room.disposed) this.lobby.broadcastState(entry.room);
     if (!reason) return;
     for (const id of ids) {
-      const why = byId && id !== byId && entry.room ? 'party' : reason;
-      sendSession(this.lobby.registry.byId(id), { t: 'room.queueState', queued: false, difficulty: entry.difficulty, reason: why });
+      let code = reason;
+      if (entry.room && byId && id !== byId) code = reason === 'declined' ? 'partyDeclined' : 'party';
+      else if (entry.room && reason === 'timeout' && accepted?.has(id)) code = 'partyTimeout';
+      const msg = { t: 'room.queueState', queued: false, difficulty: entry.difficulty, reason: code };
+      if (name != null && id !== byId && code !== 'partyTimeout') msg.by = name;
+      sendSession(this.lobby.registry.byId(id), msg);
     }
+  }
+
+  /** A queued human's display name: the room seat's, else the session's. */
+  nameOf(entry, playerId) {
+    return entry.room?.seatOf(playerId)?.name ?? this.lobby.registry.byId(playerId)?.name ?? null;
   }
 
   /** @param {Entry} entry @param {string} [only] one of its humans */

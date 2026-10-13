@@ -18,16 +18,29 @@ import { net } from '../net.js';
 import { store, useStore, serverNow } from '../store.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
-/** Why the server took the player out of the queue (room.queueState queued:false reason); 'left' / 'declined' say nothing. */
+/**
+ * Why the server took the player out of the queue (room.queueState queued:false reason); 'left' / 'declined' say
+ * nothing. A queued room's members hear who acted (`by`, maintainer decision 2026-10-13); [generic, named] texts.
+ */
 const LEFT_REASON = {
-  timeout: N_('未在时限内确认，已退出匹配'),
-  offline: N_('连接中断，已退出匹配'),
-  restarting: N_('服务器即将重启，匹配已取消'),
-  full: N_('服务器同盟数量已满，匹配已取消'),
-  room: N_('你已加入同盟，匹配已取消'),
-  party: N_('同盟中有博士取消了匹配'),
-  changed: N_('同盟成员有变动，匹配已取消'),
+  timeout: [N_('未在时限内确认，已退出匹配')],
+  offline: [N_('连接中断，已退出匹配')],
+  restarting: [N_('服务器即将重启，匹配已取消')],
+  full: [N_('服务器同盟数量已满，匹配已取消')],
+  room: [N_('你已加入同盟，匹配已取消')],
+  party: [N_('同盟中有博士取消了匹配'), N_('{name} 取消了匹配')],
+  partyDeclined: [N_('同盟中有博士拒绝了匹配，匹配已取消'), N_('{name} 拒绝了匹配，匹配已取消')],
+  partyTimeout: [N_('同盟中有博士未在时限内确认，匹配已取消')],
+  changed: [N_('同盟成员有变动，匹配已取消'), N_('{name} 离开了同盟，匹配已取消')],
 };
+
+/** The toast text for a queued:false message, or null. */
+export function leftText(msg) {
+  const texts = LEFT_REASON[msg?.reason];
+  if (!texts) return null;
+  const named = texts[1] && typeof msg.by === 'string' && msg.by;
+  return named ? t(texts[1], { name: msg.by }) : t(texts[0]);
+}
 
 const setQueue = (queue) => store.patch('ui', { queue });
 
@@ -37,8 +50,8 @@ export function installMatchQueue({ net: n = net } = {}) {
     const prev = store.get().ui.queue;
     if (!msg.queued) {
       setQueue(null);
-      const text = LEFT_REASON[msg.reason];
-      if (text) toast(t(text), 'warn');
+      const text = leftText(msg);
+      if (text) toast(text, 'warn');
       return;
     }
     // back in the queue from a group: someone did not accept
