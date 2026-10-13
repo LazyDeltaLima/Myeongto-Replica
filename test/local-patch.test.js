@@ -242,8 +242,8 @@ test('emote sets: user pictures for all 36 ids exist on disk, six pages of six',
 // ---- client helpers ------------------------------------------------------------------------------------------------
 
 describe('client helpers', () => {
-  test('chat: mergeLines / feedLines / unreadCount / historySeen / isChatHotkey', async () => {
-    const { mergeLines, feedLines, unreadCount, historySeen, isChatHotkey, FEED_MS } = await mod('ui/chat.js');
+  test('chat: mergeLines / feedLines / unreadCount / historySeen / notifiesChat / isChatHotkey', async () => {
+    const { mergeLines, feedLines, unreadCount, historySeen, notifiesChat, isChatHotkey, FEED_MS } = await mod('ui/chat.js');
     const l = (seq, playerId = 'g', rx = 0) => ({ seq, playerId, name: playerId, text: `t${seq}`, at: seq, rx });
     assert.deepEqual(mergeLines([l(2), l(1)], [l(3), l(2)]).map((x) => x.seq), [1, 2, 3], 'sorted, deduplicated');
     assert.deepEqual(mergeLines([], [l(1), l(2), l(3)], 2).map((x) => x.seq), [2, 3], 'keeps the newest');
@@ -256,6 +256,13 @@ describe('client helpers', () => {
     assert.equal(historySeen([], [l(1), l(2), l(3)], 0), 3, 'history on joining is read');
     assert.equal(historySeen([l(1), l(4)], [l(1), l(2), l(3)], 1), 3, 'missed lines from a resync are read');
     assert.equal(historySeen([l(1), l(2), l(3)], [l(1), l(2), l(3)], 1), 1, 'lines already received keep their unread state');
+    const ring = (line, o = {}) => notifiesChat(line, { myId: 'h', known: [l(1)], factionAlerts: false, ...o });
+    assert.equal(ring(l(2, 'g')), true, "another player's new line");
+    assert.equal(ring(l(2, 'h')), false, 'my own line');
+    assert.equal(ring(l(1, 'g')), false, 'a line already kept');
+    assert.equal(ring({ seq: 'x', playerId: 'g' }), false, 'malformed');
+    assert.equal(ring({ ...l(2, 'g'), kind: 'faction' }), false, 'a faction pick: only with its switch');
+    assert.equal(ring({ ...l(2, 'g'), kind: 'faction' }, { factionAlerts: true }), true);
     const doc = { querySelector: () => null };
     const key = (o) => ({ key: 'Enter', target: { tagName: 'DIV' }, ...o });
     assert.equal(isChatHotkey(key(), doc), true);

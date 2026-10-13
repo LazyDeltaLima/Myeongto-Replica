@@ -448,3 +448,14 @@
   안 넣어 통째로 빠졌다 → 그 경우도 `skills`에 넣음. 같은 이유로 무음이던 琳琅诗怀雅 S3·普罗旺斯 S2·华法琳 S2(b_char_atkboost / healboost)도 같이 생김.
   매니페스트 재생성(fetch-assets)으로 바뀐 것은 이 4명 + 파일 1개(p_skill_stwctp_s.mp3). 디버그 아레나에서 S3 발동 때 p_skill_stwctp_s 재생 확인
   (아레나는 샌드백이 범위 밖이라 S3가 저절로 안 켜져서 `skill.activate`로 켬). 테스트 `test/local-patch-audio.test.js`.
+
+## 채팅 알림음 (2026-10-14)
+- 공식에 없는 기능(`feat`). 협동 방 채팅(방 화면·판 진행 중)에서 **다른 박사**의 새 줄이 오면 알림음을 낸다. 채팅창이 열려 있든 접혀 있든 같다.
+  내 줄, 입장·재동기화 때 받는 기록(`room.chatlog`), 이미 받은 seq는 울리지 않는다(`public/js/ui/chat.js notifiesChat`).
+- 소리는 하나: 공식 이모티콘 효과음(`sfx.ui.emote` = `ui.ON_ACT1AUTOCHESS_EMOJIDIALOGUE`, 받는 이모티콘과 같은 파일). 따로 음원을 저장소에 넣지 않는다.
+  이 소리는 전투 믹스가 아니라서 자기 채널(`chatGain`, 스냅숏 버스 밖에서 마스터로 바로)로 내고, 음소거·탭 숨김을 따른다.
+- 설정(`ui/settings.js` 「채팅 알림음」): 켜기/끄기(기본 켜짐), 켜져 있을 때만 「알림음 크기」(기본 50, 움직이면 미리 듣기), 「알림 간격」 1~5초(기본 2초,
+  정수), 「진영 선택 알림」(기본 꺼짐: `kind: 'faction'` 줄은 이 스위치가 켜져 있을 때만 울림). 저장은 다른 설정과 같이 `sp.pref.settings`.
+- 겹침 막기(`audio.js chatNotification`): 한 번에 하나, 마지막 알림이 **시작한** 때부터 간격(그리고 적어도 소리 길이 + 0.5초) 안에 온 줄은 **버린다**(쌓아 두었다가
+  늦게 울리지 않음). 처음 불러오기가 2초보다 오래 걸려도 버린다. 미리 듣기는 꺼져 있어도 울리고, 울리던 것을 끊으며, 간격은 세지 않는다.
+- 확인: `test/ui/audio.test.js` 「chat notification」, `test/ui/gameLogic.test.js` 「sanitizeSettings」, `test/local-patch.test.js` 「chat: … notifiesChat」.

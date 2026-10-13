@@ -40,7 +40,7 @@ export { normalizeDraft, normalizeSp, normalizePersonalChoice } from './gameLogi
 export { groupEnemies, PEN, penZoneTiles, penPlacement, previewEnemyKey, factionTypes } from './gameLogic/enemies.js';
 export { snapHud, bossFrac, bossPctText, hasFlag, UF, attackInterval, fmtNum, rangeGridBox } from './gameLogic/format.js';
 export { shortcutFor, closesOnFieldPress, shortcutBlocked, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, isBindableCode, hotkeyLabel, sanitizeHotkeys, rebindHotkey, isDefaultHotkeys, hotkeyOf, actionForKey, captureHotkey, facingSwallows, facingEnter } from './gameLogic/shortcuts.js';
-export { DEFAULT_SETTINGS, sanitizeSettings } from './gameLogic/settings.js';
+export { DEFAULT_SETTINGS, CHAT_COOLDOWN, sanitizeSettings } from './gameLogic/settings.js';
 export { normalizeResult } from './gameLogic/result.js';
 export { DEFAULT_PLAYER_COLORS, SPARE_PLAYER_COLORS, MIN_COLOR_DE, colorDistance, playerColors, leaderOf, assistSum, hasUnitCharts, damageRanking, playerSum, leaderPool, uniteFlows } from './gameLogic/resultCharts.js';
 export { chessLoadout, unitLoadout, unitCultivation } from './gameLogic/loadout.js';

@@ -1,4 +1,4 @@
-// Player settings (BGM/SFX/voice volume, mute, damage numbers, render quality, the shortcut keys): a tiny observable
+// Player settings (BGM/SFX/voice volume, mute, the chat notification, damage numbers, render quality, the shortcut keys): a tiny observable
 // store persisted in localStorage (`sp.pref.settings`), applied to the audio manager on every change, plus
 // the settings modal — which also holds the language switch (ui/lang.js; kept apart in `sp.pref.lang`; under it a note
 // while the current language's pack is a machine translation, `_meta.machineTranslated`) and the 快捷键
@@ -12,7 +12,7 @@ import { useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js'
 import { html, Modal, Button, Icon, MicroLabel } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
-import { sanitizeSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
+import { sanitizeSettings, CHAT_COOLDOWN, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
@@ -67,6 +67,35 @@ function Toggle({ label, micro, value, onChange }) {
     <button type="button" class=${`set-toggle${value ? ' is-on' : ''}`} role="switch" aria-checked=${value ? 'true' : 'false'}
       onClick=${() => onChange(!value)}><i></i><span>${value ? tc('toggle', '开启') : tc('toggle', '关闭')}</span></button>
   </div>`;
+}
+
+/**
+ * 聊天提示音: the notification of the others' chat lines (audio.js chatNotification) — on / off, then, while on, its
+ * volume (moving it plays the sound), the gap between two notifications and whether a faction pick rings too.
+ * @param {{ s: ReturnType<typeof sanitizeSettings> }} props
+ */
+function ChatSoundSection({ s }) {
+  const previewAt = useRef(0);
+  const preview = () => {
+    const now = Date.now();
+    if (now - previewAt.current < 400) return;
+    previewAt.current = now;
+    audio.chatNotification({ preview: true });
+  };
+  const { min, max } = CHAT_COOLDOWN;
+  const pct = Math.round(((s.chatCooldown - min) / (max - min)) * 100);
+  return html`<${Toggle} label=${t('聊天提示音')} micro="CHAT SOUND" value=${s.chatSound}
+      onChange=${(v) => { updateSettings({ chatSound: v }); if (v) preview(); }} />
+    ${s.chatSound ? html`<${Slider} label=${t('提示音音量')} micro="CHAT VOLUME" icon="signal" value=${s.chatVolume}
+        onInput=${(v) => { updateSettings({ chatVolume: v }); preview(); }} />
+      <label class="set-row">
+        <span class="set-row__label"><${Icon} name="hourglass" />${t('提示间隔')}<${MicroLabel}>COOLDOWN<//></span>
+        <input class="set-range" type="range" min=${min} max=${max} step="1" value=${s.chatCooldown} style=${`--pct:${pct}%`}
+          data-testid="chat-cooldown" onInput=${(e) => updateSettings({ chatCooldown: Number(e.currentTarget.value) })} />
+        <span class="set-row__val num">${t('{n}秒', { n: s.chatCooldown })}</span>
+      </label>
+      <${Toggle} label=${t('阵营选择提示')} micro="FACTION ALERTS" value=${s.chatFactionAlerts} onChange=${(v) => updateSettings({ chatFactionAlerts: v })} />
+      <p class="set-hint">${t('房间和对局中其他玩家发来新消息时播放表情提示音。提示音播放中或提示间隔内收到的消息不再提示。')}</p>` : null}`;
 }
 
 const QUALITY = [['high', N_('高')], ['medium', N_('中')], ['low', N_('低')]];
@@ -231,6 +260,7 @@ export function SettingsModal({ open, onClose }) {
         onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
       <${VoiceSetting} />${/* local patch */ ''}
       <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
+      <${ChatSoundSection} s=${s} />
       <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
       ${s.damageNumbers ? html`<${NumberStyleSetting} />` : ''}${/* local patch: 官方 / 全部 numbers */ ''}
       <div class="set-row">
