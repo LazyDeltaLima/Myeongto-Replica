@@ -217,26 +217,28 @@
 .draft-preset__swap .icon { width: 46%; height: 46%; color: var(--mint-400); filter: drop-shadow(0 0 2px #000); }
 .draft-preset__slot.is-edit:hover .draft-preset__swap, .draft-preset__slot.is-edit:focus-visible .draft-preset__swap,
 .draft-preset__hit:focus-visible .draft-preset__swap { opacity: 1; }
-/* a filled slot: the swap button over the icon, and a × at its top right that empties it (on hover / focus; always on a
-   touch screen) */
+/* a filled slot: the swap button over the icon, and a × that empties it — a square chip inside the card's top right
+   corner, drawn like the game's other close buttons (.dpanel__close: dark fill, --line-2 hairline, no rounding) and sized
+   from the icon (--ci); shown with the swap frame on hover / focus, always on a touch screen; red when aimed at */
 .draft-preset__hit { position: relative; display: flex; margin: 0; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
 .draft-preset__hit:focus-visible { outline: none; }
-.draft-preset__rm { position: absolute; z-index: 4; right: -5px; top: -5px; width: 16px; height: 16px; display: grid; place-items: center;
-  margin: 0; padding: 0; border: 1px solid var(--line-3); border-radius: 50%; background: rgba(12, 15, 14, .92); color: var(--text-lo);
-  cursor: pointer; opacity: 0; transition: opacity .12s, color .12s, border-color .12s; }
-.draft-preset__rm .icon { width: 10px; height: 10px; }
-.draft-preset__slot.is-edit:hover .draft-preset__rm, .draft-preset__slot.is-edit:focus-within .draft-preset__rm { opacity: 1; }
-.draft-preset__rm:hover, .draft-preset__rm:focus-visible { outline: none; color: var(--red); border-color: currentColor; }
-@media (hover: none) { .draft-preset__rm { opacity: 1; } }
+.draft-preset__rm { --ci: max(.66rem, 34px); --rm: max(calc(var(--ci) * .4), 13px); position: absolute; z-index: 4; left: calc(var(--ci) - var(--rm)); top: 0;
+  width: var(--rm); height: var(--rm); display: grid; place-items: center; margin: 0; padding: 0;
+  border: 1px solid var(--line-2); background: rgba(0, 0, 0, .72); color: var(--text-lo);
+  cursor: pointer; opacity: 0; transition: opacity .12s, color .12s, background-color .12s, border-color .12s; }
+.draft-preset__rm .icon { width: 62%; height: 62%; }
+.draft-preset__slot.is-edit:hover .draft-preset__rm, .draft-preset__slot.is-edit:focus-within .draft-preset__rm { opacity: 1; border-color: var(--mint-400); }
+.draft-preset__slot.is-edit .draft-preset__rm:hover, .draft-preset__slot.is-edit .draft-preset__rm:focus-visible { outline: none; color: #fff; background: var(--red); border-color: var(--red); }
+@media (hover: none) { .draft-preset__rm { opacity: 1; --rm: max(calc(var(--ci) * .46), 14px); } }
 /* a narrow window: the px floors would overflow the pane — smaller icons, and on a phone (~200 px pane) smaller gaps too */
 @media (max-width: 1000px) {
-  .draft-preset__ava.chessico, .draft-preset__swap { --ci: 30px; }
+  .draft-preset__ava.chessico, .draft-preset__swap, .draft-preset__rm { --ci: 30px; }
   .draft-preset__tier .tier { --tier-h: 18px; }
 }
 @media (max-width: 900px) {
   .draft-preset__slots { gap: 4px; }
   .draft-preset__grp { gap: 3px; padding: 4px 3px 5px; }
-  .draft-preset__ava.chessico, .draft-preset__swap { --ci: 26px; }
+  .draft-preset__ava.chessico, .draft-preset__swap, .draft-preset__rm { --ci: 26px; }
   .draft-preset__tier .tier { --tier-h: 15px; }
 }
 .draft-preset__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .04rem .08rem; }
