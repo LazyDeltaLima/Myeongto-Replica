@@ -129,8 +129,11 @@ export function stackOf(err) {
   return out.length ? out.join('\n') : null;
 }
 
-/** Cut `scheme://host[:port]` from every URL (a LAN server's address, a domain): the path is what locates the code. */
-export const stripHosts = (s) => String(s).replace(/\b[a-z][a-z0-9+.-]*:\/\/[^/\s)]+/gi, '');
+/**
+ * Cut `scheme://host[:port]` from every URL (a LAN server's address, a domain) and the build prefix `/b/<tag>[/r]` of the
+ * versioned code URLs (server/http/buildTag.js): the path is what locates the code.
+ */
+export const stripHosts = (s) => String(s).replace(/\b[a-z][a-z0-9+.-]*:\/\/[^/\s)]+/gi, '').replace(/\/b\/[0-9a-f]{12}(?:\/r)?(?=\/)/g, '');
 
 /**
  * Record an error. An entry identical to the newest one (same source, message and stack) raises its count instead.

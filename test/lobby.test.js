@@ -394,6 +394,83 @@ describe('static http server', () => {
   });
 });
 
+describe('static http server: versioned code URLs (/b/<tag>/)', () => {
+  let tmp;
+  const servers = [];
+  const env = process.env.SP_VERSIONED_URLS;
+  const start = async (flag) => {
+    process.env.SP_VERSIONED_URLS = flag;
+    const s = await startServer({
+      port: 0, host: '127.0.0.1', quiet: true,
+      publicDir: path.join(tmp, 'public'), dataDir: path.join(tmp, 'data'), sharedDir: path.join(tmp, 'shared'),
+    });
+    servers.push(s);
+    return s;
+  };
+
+  before(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-build-'));
+    const w = (rel, content) => { const p = path.join(tmp, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, content); };
+    w('secret.txt', 'TOP-SECRET-CONTENT');
+    w('public/index.html', '<!doctype html><link rel="stylesheet" href="/css/a.css" /><link rel="modulepreload" href="/js/app.js" />'
+      + '<link rel="prefetch" href="/vendor/v.js" /><script type="module" src="/js/app.js"></script>');
+    w('public/js/app.js', 'export const x = 1;');
+    w('public/css/a.css', 'body{color:red}');
+    w('public/assets/img/a.png', randomBytes(32));
+    w('shared/x.js', 'export const y = 2;');
+    w('data/config.json', '{}');
+  });
+  after(async () => {
+    for (const s of servers) await s.close();
+    if (env === undefined) delete process.env.SP_VERSIONED_URLS; else process.env.SP_VERSIONED_URLS = env;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  test('index.html names its /js/ and /css/ entries under /b/<tag>/r/; those files are immutable under the current tag only', async () => {
+    const { buildTag } = await import('../server/http/buildTag.js');
+    const tag = buildTag();
+    assert.match(tag, /^[0-9a-f]{12}$/);
+    const srv = await start('1');
+    const index = await httpReq(srv.port, '/');
+    const html = index.body.toString();
+    assert.equal(index.headers['cache-control'], 'no-cache');
+    assert.ok(html.includes(`href="/b/${tag}/r/css/a.css"`) && html.includes(`href="/b/${tag}/r/js/app.js"`) && html.includes(`src="/b/${tag}/r/js/app.js"`), html);
+    assert.ok(html.includes('href="/vendor/v.js"'), 'other URLs stay as they are');
+    assert.ok(index.headers.etag.includes(tag), 'the ETag changes with the build');
+    assert.equal((await httpReq(srv.port, '/', { headers: { 'if-none-match': index.headers.etag } })).status, 304);
+
+    const mod = await httpReq(srv.port, `/b/${tag}/r/js/app.js`);
+    assert.equal(mod.status, 200);
+    assert.equal(mod.body.toString(), 'export const x = 1;');
+    assert.match(mod.headers['cache-control'], /immutable/);
+    assert.match((await httpReq(srv.port, `/b/${tag}/r/css/a.css`)).headers['cache-control'], /immutable/);
+    // a /shared/ import climbs one level past /b/<tag>/r/ (public/ is a folder on disk, not in the URL)
+    const shared = await httpReq(srv.port, `/b/${tag}/shared/x.js`);
+    assert.equal(shared.body.toString(), 'export const y = 2;');
+    assert.match(shared.headers['cache-control'], /immutable/);
+    assert.match((await httpReq(srv.port, `/b/${tag}/r/data.js`)).headers['cache-control'], /immutable/);
+    assert.equal((await httpReq(srv.port, '/data.js')).headers['cache-control'], 'no-cache');
+    // art is not part of the build tag: its usual policy under the prefix too
+    assert.equal((await httpReq(srv.port, `/b/${tag}/r/assets/img/a.png`)).headers['cache-control'], 'public, max-age=86400');
+    // another tag (a page from before a deploy): today's file, uncached
+    const other = tag === '000000000000' ? '111111111111' : '000000000000';
+    const stale = await httpReq(srv.port, `/b/${other}/r/js/app.js`);
+    assert.equal(stale.status, 200);
+    assert.equal(stale.headers['cache-control'], 'no-cache');
+    assert.equal((await httpReq(srv.port, '/js/app.js')).headers['cache-control'], 'no-cache');
+    for (const p of [`/b/${tag}/r/%2e%2e/secret.txt`, `/b/${tag}/%2e%2e/secret.txt`, `/b/${tag}/r/../../secret.txt`]) {
+      const r = await httpReq(srv.port, p);
+      assert.ok([400, 403, 404].includes(r.status) && !r.body.toString().includes('TOP-SECRET'), `${p} → ${r.status}`);
+    }
+  });
+
+  test('SP_VERSIONED_URLS=0 (and node --watch) serves index.html as it is', async () => {
+    const srv = await start('0');
+    const html = (await httpReq(srv.port, '/')).body.toString();
+    assert.ok(html.includes('src="/js/app.js"') && !html.includes('/b/'), html);
+  });
+});
+
 describe('static http server (real repository roots)', () => {
   let srv;
   before(async () => { srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true }); });

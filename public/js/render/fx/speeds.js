@@ -22,7 +22,8 @@ export function setSimProjectileSpeeds(table, boomerangReturn = null) {
 }
 
 if (typeof window !== 'undefined' && typeof window.location?.origin === 'string') {
-  import('/sim/constants.js').then((m) => { if (m?.PROJECTILE_SPEEDS) setSimProjectileSpeeds(m.PROJECTILE_SPEEDS, m.BOOMERANG_RETURN_SPEED); }, () => {});
+  // beside this module (the page's /b/<tag>/ build, server/http/buildTag.js), as battle/runner.js loads the sim
+  import(new URL('../../../sim/constants.js', import.meta.url).href).then((m) => { if (m?.PROJECTILE_SPEEDS) setSimProjectileSpeeds(m.PROJECTILE_SPEEDS, m.BOOMERANG_RETURN_SPEED); }, () => {});
 }
 
 /**

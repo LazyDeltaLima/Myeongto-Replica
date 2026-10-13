@@ -69,3 +69,39 @@ export function buildTag(root = ROOT) {
 
 /** Drop the cache: the next `buildTag()` re-reads the tree (tests, and `startServer`). */
 export function resetBuildTag() { buildCache = null; }
+
+// ---------------------------------------------------------------------------------------------------
+// versioned code URLs — /b/<tag>/… (static.js): the browser runtime cached for good between deploys
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * The prefix of the versioned code URLs. index.html is served with its /js/ and /css/ entries under `/b/<tag>/r/`, and
+ * every module and stylesheet those import by relative path follows (the sim, /shared/, /data.js too), so a page loads
+ * one build's files only and they can be cached as immutable: no revalidation round trip per module on a return visit,
+ * and a deploy (a new tag) changes every URL at once. A URL with another tag (a page opened before the deploy) gets
+ * today's file with the plain no-cache policy.
+ *
+ * Why the `r` segment: the browser modules' relative imports of /shared/ (public/js → `../../shared/`, server/sim →
+ * `../../shared/`) climb one directory more than the URL has — `public/` and `server/` are folders on disk, not in the
+ * URL — and at `/` the browser stops there. Under `/b/<tag>/r/` that extra step lands on `/b/<tag>/`, so `/b/<tag>/x`
+ * and `/b/<tag>/r/x` both mean `/x`; each module is still reached by one URL (every /shared/ import overshoots).
+ */
+export const BUILD_PREFIX = '/b/';
+const BUILD_PATH = /^\/b\/([0-9a-f]{12})(?:\/r(?=\/))?(\/.*)$/;
+
+/** `/b/<tag>/r/rest` or `/b/<tag>/rest` → { tag, rest }, else null. @param {string} p decoded path */
+export function splitBuildPath(p) {
+  const m = BUILD_PATH.exec(p);
+  return m ? { tag: m[1], rest: m[2] } : null;
+}
+
+/**
+ * Whether index.html points at the versioned URLs. Off under `node --watch` (`npm run dev`, the local dev server): the
+ * tag is computed once per process and a browser file edited there does not restart it, so an immutable URL would keep
+ * the old file. SP_VERSIONED_URLS=0 / 1 forces it.
+ */
+export function versionedUrls() {
+  const env = process.env.SP_VERSIONED_URLS;
+  if (env === '0' || env === '1') return env === '1';
+  return !process.execArgv.some((a) => a === '--watch' || a.startsWith('--watch-path') || a.startsWith('--watch='));
+}

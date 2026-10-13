@@ -27,7 +27,9 @@ effects), [DATA.md](DATA.md) (generated data), [ASSETS.md](ASSETS.md) (art and a
   `server/http/`). It serves the static client, the generated data and the sim's source files, and runs every room and
   match in memory — rounds, shop, economy, bots, validation. Nothing is written to disk.
 - **The browser** loads native ES modules with no bundler and no build step; the libraries are vendored into
-  `public/vendor/` by `tools/vendor.mjs` on `npm install`.
+  `public/vendor/` by `tools/vendor.mjs` on `npm install`. index.html names its modules and stylesheets under the build
+  tag (`/b/<tag>/r/js/main.js`, `server/http/buildTag.js` BUILD_PREFIX), so a page loads one build's files and caches
+  them as immutable until the next deploy; under `node --watch` (`npm run dev`) the plain URLs are used.
 - **The battle simulation** (`server/sim/`) is pure ESM without any Node API, served read-only at `/sim/`. Both sides
   run it from the same JSON battle description (`server/sim/spec.js`, the BattleSpec): each player's browser simulates
   its own battle (`public/js/battle/runner.js`) and reports progress and the result; the server checks the result

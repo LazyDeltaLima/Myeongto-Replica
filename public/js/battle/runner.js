@@ -141,9 +141,11 @@ function deepFreeze(root) {
 
 /**
  * Browser sim loader: the /sim/ modules + the data files (own frozen copies — the server's data is frozen too, so a
- * content bug that writes into a record fails identically on both sides).
+ * content bug that writes into a record fails identically on both sides). The modules resolve beside this one, so a page
+ * loaded under a versioned /b/<tag>/ URL (server/http/buildTag.js) imports the sim and its /shared/ modules from the same
+ * build as the rest — never a second copy of a shared module under the plain URL.
  */
-export async function loadBrowserSim({ base = '/sim/', dataBase = '/data/', fetchFn = (...a) => globalThis.fetch(...a) } = {}) {
+export async function loadBrowserSim({ base = new URL('../../sim/', import.meta.url).href, dataBase = '/data/', fetchFn = (...a) => globalThis.fetch(...a) } = {}) {
   const [spec, simdata, support] = await Promise.all([
     import(`${base}spec.js`), import(`${base}simdata.js`), import(`${base}content/support/index.js`),
   ]);

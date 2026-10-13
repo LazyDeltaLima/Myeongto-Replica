@@ -65,7 +65,7 @@ const GZIP_CACHE_MAX_TOTAL = 96 << 20;
 // Asset URLs carry no content hash yet, and tools/fetch-assets.mjs / tools/vendor.mjs can rewrite files in
 // place (atlas + png + skel must stay consistent), so "long" is one day; revalidation after that is a cheap 304.
 const LONG_CACHE = 'public, max-age=86400';          // 1 day
-const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable';
+export const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable';
 const LONG_CACHE_DIRS = ['assets', 'fonts', 'vendor']; // first path segment under public/
 
 const gzipAsync = promisify(zlib.gzip);
@@ -183,14 +183,20 @@ function ifRangeMatches(req, etag, lastModified) {
   return s === lastModified;
 }
 
-function cacheControlFor(ext, mountName, segments, query) {
+/** The browser runtime's files (buildTag.js BUILD_INPUTS) — immutable when requested under the current /b/<tag>/. */
+const isBuildFile = (mountName, segments) => mountName === 'sim' || mountName === 'shared'
+  || (mountName === 'public' && segments.length > 1 && (segments[0] === 'js' || segments[0] === 'css'));
+
+function cacheControlFor(ext, mountName, segments, query, versioned) {
   if (ext === '.html' || ext === '.htm') return 'no-cache';
   if (/(^|&)v=/.test(query)) return IMMUTABLE_CACHE;
+  if (versioned && isBuildFile(mountName, segments)) return IMMUTABLE_CACHE;
   if (mountName === 'public' && segments.length > 1 && LONG_CACHE_DIRS.includes(segments[0])) return LONG_CACHE;
   return 'no-cache';
 }
 
-export async function serveFile(req, res, absPath, stat, mountName, segments, query, gzipCache, log) {
+/** @param {boolean} [versioned] requested under the current build's /b/<tag>/ (static.js) */
+export async function serveFile(req, res, absPath, stat, mountName, segments, query, gzipCache, log, versioned = false) {
   const ext = path.extname(absPath).toLowerCase();
   const type = MIME[ext] || 'application/octet-stream';
   const compressible = COMPRESSIBLE.has(ext);
@@ -203,7 +209,7 @@ export async function serveFile(req, res, absPath, stat, mountName, segments, qu
 
   const headers = {
     'Content-Type': type,
-    'Cache-Control': cacheControlFor(ext, mountName, segments, query),
+    'Cache-Control': cacheControlFor(ext, mountName, segments, query, versioned),
     ETag: etag,
     'Last-Modified': lastModified,
   };

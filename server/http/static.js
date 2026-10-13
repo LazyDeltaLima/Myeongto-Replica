@@ -15,6 +15,8 @@
 //     /packs/index.json → the content packs of this server (server/packs.js: the language packs of
 //                public/i18n/ and the pack folders of packs/, re-read when they change; never cached)
 //     /packs/<id>/<file> → a file of a pack folder — only one its manifest names (server/packs.js servable)
+//     /b/<tag>/r/…, /b/<tag>/… → the same files as /… — the versioned code URLs (buildTag.js BUILD_PREFIX): index.html names its
+//                /js/ and /css/ entries under the build tag, and under the current tag the runtime's files are immutable
 //
 // Traversal & dotfile protection, a directory without its trailing slash → 301, 404 page; an absent
 // data/local-assets.json is answered with an empty manifest. Files go out through files.js serveFile.
@@ -25,7 +27,8 @@ import { MEDIA_PREFIX } from '../../shared/media.js';
 import { ROOT, noopLog } from './config.js';
 import { sendError, sendJson } from './common.js';
 import { debugPageHidden } from '../local-patch.js'; // local patch: SP_DEBUG_PAGE
-import { MIME, GzipCache, isNotModified, serveFile } from './files.js';
+import { MIME, GzipCache, IMMUTABLE_CACHE, isNotModified, serveFile } from './files.js';
+import { buildTag, splitBuildPath, versionedUrls } from './buildTag.js';
 import { serveMedia } from './media.js';
 import { createPackRegistry } from '../packs.js';
 import { PACKS_URL, PACK_INDEX_FILE } from '../../shared/packs.js';
@@ -68,6 +71,8 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
   const shimBody = Buffer.from(DATA_SHIM_JS);
   const shimTag = `"shim-${shimBody.length.toString(16)}"`;
   const gzipCache = new GzipCache();
+  const indexPath = path.join(path.resolve(publicDir), 'index.html');
+  const versioning = versionedUrls();
 
   return async function serveStatic(req, res, rawPath, query) {
     let decoded;
@@ -76,8 +81,13 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
       sendError(req, res, 400, '请求地址无效 · Bad request');
       return;
     }
+    // /b/<tag>/… is the file at /…; immutable only under the tag this process serves (another tag: a page from before
+    // the deploy, which gets today's file uncached)
+    let versioned = false;
+    const built = splitBuildPath(decoded);
+    if (built) { decoded = built.rest; versioned = built.tag === buildTag(); }
     if (decoded === '/data.js') {
-      const headers = { 'Content-Type': MIME['.js'], 'Cache-Control': 'no-cache', ETag: shimTag, 'Content-Length': shimBody.length };
+      const headers = { 'Content-Type': MIME['.js'], 'Cache-Control': versioned ? IMMUTABLE_CACHE : 'no-cache', ETag: shimTag, 'Content-Length': shimBody.length };
       if (isNotModified(req, shimTag, new Date(0))) { delete headers['Content-Length']; res.writeHead(304, headers); res.end(); return; }
       res.writeHead(200, headers);
       res.end(req.method === 'HEAD' ? undefined : shimBody);
@@ -156,6 +166,26 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
       }
       return;
     }
-    await serveFile(req, res, absPath, stat, mount.name, segments, query, gzipCache, log);
+    if (absPath === indexPath && versioning && await serveVersionedIndex(req, res, absPath, stat)) return;
+    await serveFile(req, res, absPath, stat, mount.name, segments, query, gzipCache, log, versioned);
   };
+}
+
+/**
+ * index.html with its /js/ and /css/ entries (the module script, modulepreload, stylesheets) under /b/<tag>/r/; false
+ * when there is no tag (nothing readable), and the caller serves the file as it is.
+ * @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res
+ * @param {string} absPath @param {import('node:fs').Stats} stat
+ */
+async function serveVersionedIndex(req, res, absPath, stat) {
+  const tag = buildTag();
+  if (!tag) return false;
+  const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}-${tag}"`;
+  const headers = { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-cache', ETag: etag, 'Last-Modified': stat.mtime.toUTCString() };
+  if (isNotModified(req, etag, stat.mtime)) { res.writeHead(304, headers); res.end(); return true; }
+  const html = (await fsp.readFile(absPath, 'utf8')).replace(/(\s(?:src|href)=")\/(js|css)\//g, `$1/b/${tag}/r/$2/`);
+  const body = Buffer.from(html);
+  res.writeHead(200, { ...headers, 'Content-Length': body.length });
+  res.end(req.method === 'HEAD' ? undefined : body);
+  return true;
 }
