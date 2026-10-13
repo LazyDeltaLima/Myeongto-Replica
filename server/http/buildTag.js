@@ -103,5 +103,7 @@ export function splitBuildPath(p) {
 export function versionedUrls() {
   const env = process.env.SP_VERSIONED_URLS;
   if (env === '0' || env === '1') return env === '1';
+  // node --watch runs the script in a child whose execArgv is empty; Node marks that child with WATCH_REPORT_DEPENDENCIES
+  if (process.env.WATCH_REPORT_DEPENDENCIES) return false;
   return !process.execArgv.some((a) => a === '--watch' || a.startsWith('--watch-path') || a.startsWith('--watch='));
 }
