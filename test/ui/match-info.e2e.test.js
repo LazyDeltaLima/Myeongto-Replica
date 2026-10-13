@@ -144,8 +144,8 @@ describe('GitHub issue #8 item 1: 本局信息 in the strategy draft (real serve
       legend: scope.querySelector('.brief-legend')?.textContent.trim() || '',
       count: scope.querySelector('.brief-banned__n')?.textContent.trim() || '',
       // 本局禁用干员 by greyed bond (an operator whose bonds are all off is under each of them)
-      groups: [...scope.querySelectorAll('.brief-bgroup')].map((el) => ({ bond: el.dataset.bond, names: [...el.querySelectorAll('.uthumb')].map((u) => u.getAttribute('title')) })),
-      banned: [...new Set([...scope.querySelectorAll('.brief-bgroup .uthumb')].map((el) => el.getAttribute('title')))].sort(),
+      groups: [...scope.querySelectorAll('.brief-bgroup')].map((el) => ({ bond: el.dataset.bond, names: [...el.querySelectorAll('.chessico')].map((u) => u.getAttribute('title')) })),
+      banned: [...new Set([...scope.querySelectorAll('.brief-bgroup .chessico')].map((el) => el.getAttribute('title')))].sort(),
     };
   }, root);
   /** What the server says: greyed = the drawn set ∪ the mode's inactive bonds; banned names by tier. */
