@@ -26,6 +26,7 @@ import { scriptOf } from '../../../shared/i18nPacks.js';
 import { GIcon } from '../ui/gameComponents.js';
 import { SettingsModal } from '../ui/settings.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
+import { AboutModal } from '../ui/about.js';
 
 // Same character classes as server/net.js sanitizeName (control, zero-width, bidi, BOM), so a name
 // the client accepts is never rejected by the server's hello validation.
@@ -194,6 +195,7 @@ export function TitleScreen() {
   useLang(); // re-render on a language switch
   const [name, setName] = useState(() => store.get().me.name || identity.loadName() || '');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);   // 关于本服务器 (ui/about.js), the button under the login box
   const assetsSettled = useData('assets');
   const assets = data.get('assets');
   const backdrop = findUiAsset(assets, BACKDROP_KEYS);
@@ -297,9 +299,13 @@ export function TitleScreen() {
           </span>
         </div>
       </div>
+      <div class="title-links">
+        <button type="button" class="title-link tapx" onClick=${() => setAboutOpen(true)}><${Icon} name="info" /><span>${t('关于本服务器')}</span></button>
+      </div>
     </main>
 
     <${SettingsModal} open=${settingsOpen} onClose=${() => setSettingsOpen(false)} />
+    <${AboutModal} open=${aboutOpen} onClose=${() => setAboutOpen(false)} />
 
     ${fsNote && !fsNoteClosed ? html`<div class="title-fsnote" role="note">
       <${Icon} name="expand" />

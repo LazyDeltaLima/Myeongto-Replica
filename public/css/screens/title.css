@@ -263,6 +263,19 @@
 .title-lang.lang-select select { height: .3rem; font-size: .14rem; }
 html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .title-conn .ping { height: .26rem; font-size: .15rem; }
+/* the text buttons under the login box (关于本服务器: the licence notice, ui/about.js), like the Chinese fork servers' row
+   under theirs; outside the box, so the connection row keeps its one line */
+.title-links { display: flex; justify-content: center; gap: .2rem; margin-top: .1rem; animation: rise-in 600ms 320ms var(--ease-out) backwards; }
+.title-link { display: inline-flex; align-items: center; gap: .06rem; padding: .04rem .1rem; background: none; border: 0; color: var(--text-lo); font-size: max(.14rem, 12px); cursor: pointer; transition: color var(--t-fast); }
+.title-link .icon { width: max(.16rem, 13px); height: max(.16rem, 13px); }
+.title-link:hover, .title-link:focus-visible { color: var(--mint-400); }
+/* the notice itself */
+.about__sec + .about__sec { margin-top: .14rem; }
+.about__head { margin-bottom: .04rem; font-size: max(.17rem, 13px); font-weight: 700; color: var(--text-hi); }
+.about .modal__text { font-size: max(.16rem, 12px); line-height: 1.6; }
+.about__src { display: flex; flex-wrap: wrap; gap: .04rem .12rem; margin-top: .18rem; font-size: max(.15rem, 12px); }
+.about__src a { color: var(--mint-400); overflow-wrap: anywhere; }
+.about__copy { margin-top: .06rem; font-size: max(.13rem, 11px); color: var(--text-dim); }
 /* iPhone Safari's 「添加到主屏幕」 note (title.js fsNote): the free bottom-right corner beside the login box, above the
    footer — under the login box it ran off a landscape phone's screen */
 .title-fsnote { position: absolute; z-index: 2; right: .44rem; bottom: .62rem; width: min(260px, calc(50% - var(--login-w) / 2 - .44rem - .16rem)); display: flex; align-items: flex-start; gap: .08rem; padding: .08rem .1rem .08rem .12rem; background: rgba(8, 11, 10, .72); border: 1px solid var(--line-2); border-left: 2px solid var(--mint-700); color: var(--text-md); font-size: max(.13rem, 12px); line-height: 1.45; text-align: left; }

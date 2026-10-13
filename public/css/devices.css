@@ -102,6 +102,11 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   /* a taller range input whose visible track stays thin: transparent borders are part of the hit area */
   .set-range { height: 30px; border: 11px solid transparent; border-left-width: 0; border-right-width: 0; background-clip: padding-box; box-shadow: inset 0 0 0 1px var(--line-2); }
   .field--lg .field__box { height: max(.68rem, 40px); }
+  /* the title's emblem shrinks to make room for the button row under the login box (关于本服务器), as the Chinese fork
+     servers do on phones (maintainer decision 2026-10-13) */
+  .title-screen .emblem { gap: .16rem; margin-bottom: .1rem; }
+  .title-screen .emblem__svg { width: .74rem; height: .8rem; }
+  .title-screen .emblem__bracket { width: .1rem; height: .96rem; }
 }
 
 /* ---- 4. misc ------------------------------------------------------------------------------------------------------ */

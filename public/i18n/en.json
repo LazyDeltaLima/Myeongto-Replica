@@ -1457,5 +1457,17 @@
   "在线": "online",
   "编辑自选编队": "Edit DIY squad",
   "在自选编队中编辑此预设": "Edit this preset in the DIY squad tab",
-  "选择策略结束前修改立即用于本局 · 联机时只进入你自己的商店": "Changes apply to this match until the strategy pick ends · in team play only in your own shop"
+  "选择策略结束前修改立即用于本局 · 联机时只进入你自己的商店": "Changes apply to this match until the strategy pick ends · in team play only in your own shop",
+  "关于本服务器": "About this server",
+  "非官方同人作品": "Unofficial fan work",
+  "本服务器是《明日方舟》限时玩法「卫戍协议：盟约」的非官方同人复刻，与上海鹰角网络（Hypergryph）、Yostar 及其关联方没有任何关联，也未获得其授权或认可。": "This server runs an unofficial fan remake of Arknights' limited-time mode Stronghold Protocol: Alliance. It is not affiliated with, authorised or endorsed by Hypergryph, Yostar or their affiliates.",
+  "仅限非商业用途": "Non-commercial use only",
+  "仅供学习、学术研究和个人非商业娱乐。禁止任何形式的盈利：出售或付费分发、收费开服或付费房间、广告、打赏、赞助、会员等。": "For study, academic research and personal non-commercial play only. No monetisation of any kind: no selling or paid distribution, paid servers or rooms, advertising, tips, sponsorship or memberships.",
+  "游戏素材的版权": "Game material",
+  "《明日方舟》相关的名称、角色、美术、音乐音效、文本与游戏数据，版权归上海鹰角网络及其授权方（Yostar 等）所有，不适用本项目的代码许可证。": "All Arknights names, characters, art, music and sound, text and game data are © Hypergryph and its licensors (Yostar and others) and are not covered by this project's code licence.",
+  "代码许可证": "Code licence",
+  "本项目自己编写的代码以 GPL-3.0-or-later 发布，可以在该许可证的条件下使用、修改和再分发。本项目按「原样」提供，不附带任何担保。许可证全文和第三方库的许可证见源代码仓库的 LICENSE、NOTICE.md 与 THIRD-PARTY-NOTICES.md。": "The project's own code is released under GPL-3.0-or-later: you may use, modify and redistribute it under that licence. It is provided \"as is\", without any warranty. The full licence and the licences of third-party libraries are in the source repository's LICENSE, NOTICE.md and THIRD-PARTY-NOTICES.md.",
+  "权利人联系": "Rights holders",
+  "如果你是相关权利人，认为本项目的任何内容不妥，请在源代码仓库提交 Issue，我们会尽快删除相关内容。": "If you hold rights to any of this material and object to its use, please open an issue in the source repository and it will be removed promptly.",
+  "源代码": "Source code"
 }
