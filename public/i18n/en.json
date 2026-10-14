@@ -1389,6 +1389,7 @@
   "准备就绪前已在此处的将在本休整期结束时销毁；之后进入的保留到下个休整期，届时仍在此处的将被销毁": "Units here before Ready are destroyed when this Rest Phase ends; those that arrived after it are kept until the next Rest Phase, and destroyed if still here then",
   "放入整备区或战场、配发或使用；休整期结束时仍在此处的将被销毁": "Move them to the Bench or Battlefield, equip or use them; anything still here at the end of the Rest Phase will be destroyed",
   "恢复本机对局": "Resume local match",
+  "恢复": "Resume",
   "此对局仍在其他窗口中，或当前浏览器无法安全恢复。请关闭原窗口后重试。": "This match is still open in another window, or this browser cannot safely resume it. Close the original window and retry.",
   "选择已关闭窗口的对局。服务器重启或对局过期后无法恢复。": "Select a match from a closed window. Matches cannot be resumed after a server restart or expiry.",
   "{name} · 同盟 {code}": "{name} · Alliance {code}",

@@ -36,7 +36,10 @@ export function ResumeMatchButton() {
       toast(t('此对局仍在其他窗口中，或当前浏览器无法安全恢复。请关闭原窗口后重试。'), 'warn');
     }
   };
-  return html`<${Button} variant="secondary" size="sm" data-testid="resume-local-match" onClick=${() => setOpen(true)}>${t('恢复本机对局')}<//>
+  // the lobby top bar is narrow: the button says 恢复 and its title the full name (the Korean full name covered the
+  // page title, maintainer decision 2026-10-14)
+  return html`<${Button} variant="secondary" size="sm" data-testid="resume-local-match" title=${t('恢复本机对局')} aria-label=${t('恢复本机对局')}
+    onClick=${() => setOpen(true)}>${t('恢复')}<//>
     <${Modal} open=${open} onClose=${() => !busy && setOpen(false)} title=${t('恢复本机对局')}>
       <p>${t('选择已关闭窗口的对局。服务器重启或对局过期后无法恢复。')}</p>
       ${items.map((item) => html`<${Button} key=${item.id} variant="secondary" block=${true} disabled=${busy} onClick=${() => resume(item)}>
