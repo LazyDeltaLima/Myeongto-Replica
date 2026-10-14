@@ -162,6 +162,8 @@ test('烛煌 S3: its target and the enemies within the 1.7 splash, BAT −1.3 s,
   // 绝处重燃
   h.b.dealDamage(null, u, { amount: 1e9, type: 'true' });
   assert.ok(u.alive && u.hasBuff('blaze2:downed'));
+  assert.equal(u.form, 'downed', 'the downed model form (render/units.js FORMS)');
+  assert.ok(h.eventsOf('fx').some((x) => x[1] === 'downed' && x[4]?.id === u.id && x[4].form === 'downed'));
   approx(u.s.shield, t1.dynamic, 1e-6, 'shield');
   assert.ok(u.s.flags.disarm && u.s.flags.noHeal);
   assert.equal(h.b.heal(h.unit('chess_char_5_03_a'), u, 0) === 0, true);
@@ -173,6 +175,8 @@ test('烛煌 S3: its target and the enemies within the 1.7 splash, BAT −1.3 s,
   u.hp = u.s.maxHp;
   h.run(0.3);
   assert.ok(!u.hasBuff('blaze2:downed'), 'revived');
+  assert.equal(u.form, null);
+  assert.ok(h.eventsOf('fx').some((x) => x[1] === 'revive' && x[4]?.id === u.id && x[4].form === null));
   assert.ok(h.b.enemies.filter((x) => Math.hypot(x.x - u.x, x.y - u.y) <= 1.5).every((x) => x.s.flags.stun), 'nearby enemies stunned');
   clean(h);
 });

@@ -336,6 +336,9 @@ export const EL_BAR = Object.freeze({ icon: 0.15, min: 8, max: 15, enemy: 0.8, g
  *   knocked-out operator facing UP (_wantsBack). The sim resets the form right after the 'die' event; the form it died in
  *   (`_dieForm`) gives the model built for the knock-out — and one rebuilt while it is down — the 替身's death clip; it
  *   stands up as the 本体.
+ * - 烛煌 (char_1040_blaze2) 绝处重燃 (her kit: fx 'downed' → form 'downed', 'revive' → null): downed on Revive_Begin, lying on
+ *   Revive_Idle (her charpack talent mode), up again on Revive_End (`leave`). Knocked out while downed she falls on Die and the
+ *   form ends with the knock-out (`endsOnDeath`: the sim clears it without an fx).
  * A kind without a clip set of this skeleton (barriers, charges, …) changes nothing. 吉兆飞鳞's 晕眩模式 is its Stun clip.
  */
 /**
@@ -410,6 +413,9 @@ const dollRoles = (idle, die, attack = null) => Object.freeze({
 export const FORMS = Object.freeze({
   char_1023_ghost2: Object.freeze({
     doll: Object.freeze({ change: 'Start_B', end: 'Die_B', leave: 'Start_2', roles: dollRoles('Idle_B', 'Die_B_2') }),
+  }),
+  char_1040_blaze2: Object.freeze({
+    downed: Object.freeze({ change: 'Revive_Begin', leave: 'Revive_End', endsOnDeath: true, roles: Object.freeze({ idle: 'Revive_Idle', deploy: 'Revive_Idle', move: loop('Revive_Idle'), stun: loop('Revive_Idle'), attack: null, skill: null }) }),
   }),
   char_4016_kazema: Object.freeze({
     doll: Object.freeze({ change: Object.freeze(['Die_2', 'Start_B']), leave: Object.freeze(['Die_B', 'Start']), roles: dollRoles('Idle_B', 'Die_B', 'Attack_B') }),
@@ -1286,6 +1292,8 @@ export class UnitView {
     this.alive = false;
     this._modelDirty = true;
     this._dieForm = this._formSpec();
+    // a form that ends with a knock-out (`endsOnDeath`: 烛煌 downed) — the death clip still comes from it (_dieForm)
+    if (this._dieForm?.endsOnDeath) { this.form = null; this.info.form = null; }
     // a skill's mode it dies in (SpineActor.skillDying: its own Die pair) — kept for the model built for the knock-out
     this._dieSkill = this.actor ? this.actor.skillDying() : !!(this.flags & UF.SKILL);
     let d = this.actor ? this.actor.die(this._dieSkill) : 0;

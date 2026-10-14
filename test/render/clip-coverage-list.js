@@ -47,11 +47,6 @@ export const UNPLAYED = {
     Skill_2_Overload_Idle: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
     Skill_2_Overload_Loop: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
   },
-  char_1040_blaze2: {
-    Revive_Begin: 'todo: H — talent / trait state',
-    Revive_End: 'todo: H — talent / trait state',
-    Revive_Idle: 'todo: H — talent / trait state',
-  },
   char_1041_angel2: {
     Skill_1_Close: 'todo: G — skill prefab clip [ASSUMED]',
     Skill_3_Skill: 'todo: G — skill prefab clip',

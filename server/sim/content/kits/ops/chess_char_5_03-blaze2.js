@@ -117,6 +117,8 @@ export default {
         } },
         { install(battle, unit) { // 绝处重燃
           battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.downed = false; }, { owner: unit });
+          // downed is a model form (render/units.js FORMS: Revive_Begin, Revive_Idle, Revive_End); a knock-out ends it
+          battle.on('death', (c) => { if (c.unit === unit && unit.form === 'downed') unit.form = null; }, { owner: unit });
           battle.on('fatal', (c) => {
             if (c.unit !== unit || c.prevented || unit.mem.downed) return;
             c.prevented = true;
@@ -132,11 +134,13 @@ export default {
                 if (u.deploySeq !== dep || u.hp < u.s.maxHp - 1e-6) return;
                 battle.removeBuff(u, buff);
                 u.mem.downed = false;
+                u.form = null;
                 for (const e of battle.foesInRadius(u.x, u.y, NEARBY_RADIUS)) if (e.alive) battle.applyStatus(e, 'stun', { duration: num(t1.stun), source: u });
-                battle.fx('revive', { x: u.x, y: u.y, id: u.id, r: NEARBY_RADIUS });
+                battle.fx('revive', { x: u.x, y: u.y, id: u.id, r: NEARBY_RADIUS, form: null });
               },
             });
-            battle.fx('downed', { x: unit.x, y: unit.y, id: unit.id });
+            unit.form = 'downed';
+            battle.fx('downed', { x: unit.x, y: unit.y, id: unit.id, form: 'downed' });
           }, { owner: unit, priority: -50 });
         } },
       ],
