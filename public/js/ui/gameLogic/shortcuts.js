@@ -188,15 +188,42 @@ export function facingEnter(e, chosen) {
 /**
  * Whether a press on the field closes the open detail card: a card opened from the field itself (an own piece — tap,
  * right-click or long press —, a battle / teammate unit, a stage device, or an enemy of the
- * preview pen / the boss field's leader: `fromField`). Shop, reward, bond-member and intel-drawer (enemy) cards stay.
+ * preview pen / the boss field's leader: `fromField`). Shop, reward, bond-member and intel-drawer cards have their own
+ * rules (closesOnOutsidePress; ui/shopBar.js).
  * @param {{ kind?: string, fromField?: boolean }|null|undefined} detail
  */
 // a card opened BY a field press (a piece, a unit, a stage device: #228, an enemy on the board: GitHub #3, maintainer
-// decision 2026-10-14 — a boss card left open covered the bench) closes on the next press of the field; the ones opened
-// from the shop / hand / HUD / the 敌方情报 drawer stay until their own close button (or the flow that opened them).
+// decision 2026-10-14 — a boss card left open covered the bench) closes on the next press of the field.
 // A special terrain tile opens no card: its toast (ui/tileToast.js) goes with the next field press too (screens/game.js)
 export const closesOnFieldPress = (detail) => detail?.kind === 'piece' || detail?.kind === 'unit' || detail?.kind === 'device'
   || (detail?.kind === 'enemy' && detail.fromField === true);
+
+// No card has a close button, as the client's UICharacterInfoPanel has none (GitHub #3, maintainer decision 2026-10-14):
+// a card a window opened — the 敌方情报 / 本局信息 drawer's enemy and operator rows (`from: 'drawer'`), a bond popup's
+// members, one's own, a teammate's or a spectator's (`from: 'bond'`) — closes on a press anywhere but on the card and
+// on the rows that open another card (their click replaces it), and with its window (windowCardGone). A card of the
+// official form lets presses through where it has nothing to press, so a press there reaches what lies under it and
+// closes it like any outside press.
+/** @param {{ from?: string }|null|undefined} detail */
+export const openedFromWindow = (detail) => detail?.from === 'drawer' || detail?.from === 'bond';
+/** What a press may hit without closing a window's card: the card, a dialog (a confirm), the rows that open a card. */
+export const WINDOW_CARD_KEEP = '.dpanel, .modal, .erow, .ibanned__one, .bpop__member, button.bpop__harmony';
+/**
+ * Whether a press on `target` closes the open card (a window's card only). A drawer's card also stays for a press in a
+ * bond popup (one its bond chip opened); a bond popup's card does not — the popup's empty area is its window's.
+ * @param {{ from?: string }|null|undefined} detail @param {{ closest?: (sel: string) => any }|null|undefined} target
+ */
+export function closesOnOutsidePress(detail, target) {
+  if (!openedFromWindow(detail)) return false;
+  const keep = detail?.from === 'drawer' ? `${WINDOW_CARD_KEEP}, .bpop, .bpop-nav` : WINDOW_CARD_KEEP;
+  return !(target && typeof target.closest === 'function' && target.closest(keep));
+}
+/**
+ * Whether the window that opened the card is gone (the drawer closed, the bond popup closed): the card goes with it.
+ * @param {{ from?: string }|null|undefined} detail @param {{ drawer?: any, bond?: any }} open
+ */
+export const windowCardGone = (detail, { drawer = null, bond = null } = {}) =>
+  (detail?.from === 'drawer' && !drawer) || (detail?.from === 'bond' && !bond);
 
 /**
  * Whether an open overlay swallows a game shortcut: a modal / the guide own the keyboard (Esc included — they close

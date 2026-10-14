@@ -505,7 +505,9 @@
 }
 @keyframes dart-in { from { opacity: 0; transform: translateX(-.2rem); } }
 .gm.has-hud-art .dpanel--chess.brackets::before, .gm.has-hud-art .dpanel--chess.brackets::after { display: none; }
-.gm.has-hud-art .dpanel--chess .dpanel__close, .dart__tabs { pointer-events: auto; }
+/* no close button (GitHub #3, maintainer decision 2026-10-14: the client's character panel has none) — a press elsewhere
+   closes the card (gameLogic/shortcuts.js closesOnFieldPress / closesOnOutsidePress) */
+.dart__tabs { pointer-events: auto; }
 /* local patch (2026-10-06, maintainer report): the tab text lies over the left bench pads (bench row y ≈ the pane) — the
    pane passes presses through to the board; only its buttons / chips / thumbnails / tooltip targets take them */
 .gm.has-hud-art .dpanel--chess .dart__pane { pointer-events: none; }
@@ -518,7 +520,6 @@
 .gm.has-hud-art .gm__hud > .uframe--dia { z-index: 8; }
 .gm.has-hud-art .dpanel--chess .dart__pane :is(button, a, [title], [role="button"], .uthumb) { pointer-events: auto; }
 .gm.has-hud-art .dpanel--chess .dpanel__scroll { position: static; height: 100%; padding: 0; overflow: hidden auto; scrollbar-width: thin; display: flex; flex-direction: column; }
-.gm.has-hud-art .dpanel--chess .dpanel__close { top: 1.9rem; right: 2.2rem; border: 0; background: rgba(0, 0, 0, .35); z-index: 3; }
 /* KR captures at 2000×1125 (1rem = 104 px): class icon top ≈ 1.97rem, x .24rem */
 .dart { position: static; display: flex; flex-direction: column; isolation: isolate; padding: 1.97rem 0 0 .24rem; }
 /* the art behind the whole card: placed on the panel (the scroller and .dart are static), so it neither scrolls nor clips */
@@ -662,7 +663,6 @@
 /* while a piece is being placed (dragged, or waiting for its direction) the same card, its art more transparent (KR
    captures), and it never takes the pointer (screens/game.js .dart-placing) */
 .dart-placing .dpanel--chess, .dart-placing .dpanel--chess * { pointer-events: none !important; }
-.dart-placing .dpanel__close { display: none; }
 .dart-placing .dart__bg { opacity: .55; }
 
 /* ---- battle HUD (KR capture, 2000×1125, in battle): the round bar's pill is bg_battle + icon_battle with the kills

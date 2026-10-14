@@ -100,8 +100,10 @@ describe('operator card tabs scroll on their own', () => {
     assert.match(css, /\.gm\.has-hud-art \.dpanel--chess \.dart__pane\.is-scroll \{ pointer-events: auto; touch-action: pan-y; \}/);
     assert.match(css, /\.gm\.has-hud-art \.dpanel--chess \.dart__pane \{ pointer-events: none; \}/, 'the 2026-10-06 pass-through stays for the rest');
     // the header and the stats / tiles row pass presses through as well (the right half of a co-op boss prep puts board
-    // columns 6–10 under the card): only the close button, the tabs and their own buttons / tooltip targets take them
-    assert.match(css, /\.gm\.has-hud-art \.dpanel--chess \.dpanel__close, \.dart__tabs \{ pointer-events: auto; \}/);
+    // columns 6–10 under the card): only the tabs and their own buttons / tooltip targets take them (no close button:
+    // GitHub #3, maintainer decision 2026-10-14)
+    assert.match(css, /\n\.dart__tabs \{ pointer-events: auto; \}/);
+    assert.doesNotMatch(css, /dpanel__close/, 'the card has no close button');
     assert.match(css, /\.gm\.has-hud-art \.dpanel--chess :is\(\.dart__head, \.dart__mid\) :is\(button, a, \[title\], \[role="button"\], \.uthumb\) \{ pointer-events: auto; \}/);
     assert.doesNotMatch(css, /\.dart__head, \.dart__mid, \.dart__tabs/, 'the header / stats row no longer take every press');
     // tile widths of the official card (a 16:10 play video, 1920-wide units): 攻击范围 ≈ 110, a bond tile ≈ 91

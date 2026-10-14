@@ -65,7 +65,7 @@ test('user Given a real battle with strategy medics When clicking units and clos
           });
           assert.ok(await page.$('.dpanel'), 'same-field settlement keeps the inspected card');
           assert.ok(await page.$('.ff-tile.is-range'), 'same-field settlement keeps its range');
-          await page.click('.dpanel__close');
+          await page.keyboard.press('Escape'); // the card has no close button (GitHub #3)
           await page.waitForFunction(() => !document.querySelector('.ff-tile.is-range'));
           await page.evaluate(async (snapshot) => {
             const { net } = await import('/js/net.js');

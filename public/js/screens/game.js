@@ -101,7 +101,7 @@ import { pieceTile } from '../render/drag.js';
 import {
   phaseMode, phaseBanner, isCombatPhase, showDeadPill, isBossPhase, placementContext, canPlace, boardTargets, dropIntent,
   holdsBattleEnd, settleBattleEnd, roundResultBox,
-  snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
+  snapHud, activeBubbles, shortcutFor, shortcutBlocked, closesOnFieldPress, closesOnOutsidePress, openedFromWindow, windowCardGone, phaseTotalSeconds, homeFieldId, ownFieldId, normalizeSp, normalizePersonalChoice, sortedPlayers,
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, foldCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
@@ -1464,6 +1464,7 @@ function MatchScreen() {
       if (act === 'escape') {
         if (L.emoteOpen) setEmoteOpen(false);
         else if (L.pen && !L.detail) togglePenRef.current(false);
+        else if (L.detail?.from === 'bond') setDetail(null); // a bond member's card lies over its popup
         else if (L.bondOpen) setBondOpen(null);
         else if (L.detail) setDetail(null);
         else if (L.tileTip) setTileTip(null);
@@ -1563,12 +1564,26 @@ function MatchScreen() {
   useEffect(() => {
     if (!bondOpen) return undefined;
     const onDown = (e) => {
-      if (e.target?.closest?.('.bpop, .bpop-nav, .bslot, [data-bond], .modal')) return;
+      // (a press in the card a member row or a chip opened keeps it: the member's card goes with its popup)
+      if (e.target?.closest?.('.bpop, .bpop-nav, .bslot, [data-bond], .modal, .dpanel')) return;
       setBondOpen(null);
     };
     document.addEventListener('pointerdown', onDown, true);
     return () => document.removeEventListener('pointerdown', onDown, true);
   }, [!!bondOpen]);
+  // a card a window opened (the drawer's rows, a bond popup's members) has no close button (GitHub #3, maintainer
+  // decision 2026-10-14): a press anywhere but on the card or a row that opens another one closes it, and it goes with
+  // its window (gameLogic/shortcuts.js closesOnOutsidePress / windowCardGone)
+  const windowCard = openedFromWindow(detail) ? detail.from : null;
+  useEffect(() => {
+    if (!windowCard) return undefined;
+    const onDown = (e) => setDetail((d) => (closesOnOutsidePress(d, e.target) ? null : d));
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, [windowCard]);
+  useEffect(() => {
+    setDetail((d) => (windowCardGone(d, { drawer, bond: bondOpen }) ? null : d));
+  }, [!!drawer, !!bondOpen, windowCard]);
   const watchingNow = combat ? (watching || field?.fieldId || home) : watching;
   const shopOpen = showShop && !collapsed;
   const ufShown = !!(selEntry && editable && !facing && !drag && showPrep && ufGeo);
@@ -1731,19 +1746,19 @@ function MatchScreen() {
 
       ${drawer ? html`<${EnemyDrawer} tab=${drawer} onTab=${setDrawer} pub=${pub} priv=${priv} onClose=${() => setDrawer(null)}
         bandId=${scoutBandId} bandOwner=${scoutBandOwner}
-        onEnemy=${(k, n) => setDetail({ kind: 'enemy', id: k, count: n })} onChess=${(id) => setDetail({ kind: 'chess', id, foreign: true })} />` : null}
+        onEnemy=${(k, n) => setDetail({ kind: 'enemy', id: k, count: n, from: 'drawer' })} onChess=${(id) => setDetail({ kind: 'chess', id, foreign: true, from: 'drawer' })} />` : null}
 
       ${bondPop ? html`<${BondPopup} bondId=${bondPop.bondId} entry=${bondPop.entry} priv=${bondPop.priv} banned=${pub?.bannedChess || []} owner=${bondPop.name}
         off=${offBonds.has(bondPop.bondId)}
         place=${bpPlace} over=${!!resolved && bpPlace === dSide}
-        onClose=${() => setBondOpen(null)} onMember=${(id, items, standInFor, diy) => setDetail({ kind: 'chess', id, owner: bondPop.ownerId, items: items || null, standInFor: standInFor || null, diy: diy || null })} />` : null}
+        onClose=${() => setBondOpen(null)} onMember=${(id, items, standInFor, diy) => setDetail({ kind: 'chess', id, owner: bondPop.ownerId, items: items || null, standInFor: standInFor || null, diy: diy || null, from: 'bond' })} />` : null}
       ${bondPop && hudLook.cls && bondPop.ownerId === strip.ownerId ? html`<${BondNav} bonds=${stripBonds} id=${bondPop.bondId} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />` : null /* local patch: the popup's < > (ui/hudArt.js) */}
 
-      ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp} onClose=${() => { setDetail(null); setSel(null); }}
+      ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp}
         bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} ops=${priv?.ops ?? null} side=${dSide} shopOpen=${shopOpen} live=${liveStats}
         onBond=${(id) => openBond(id, detailOwner, 'detail')} />` : null}
       ${!resolved && hudLook.cls && (drag || facing) && placingDetail(drag || facing, placeCtx.pieces, { priv, backups: gd.backups }) ? html`<div class="dart-placing">
-        <${DetailPanel} detail=${placingDetail(drag || facing, placeCtx.pieces, { priv, backups: gd.backups })} onClose=${() => {}} bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} ops=${priv?.ops ?? null} /></div>` : null /* local patch: the card while placing (ui/detailArt.js) */}
+        <${DetailPanel} detail=${placingDetail(drag || facing, placeCtx.pieces, { priv, backups: gd.backups })} bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} ops=${priv?.ops ?? null} /></div>` : null /* local patch: the card while placing (ui/detailArt.js) */}
 
       ${selEntry && editable && !facing && !drag && showPrep ? html`<${Underframe} key=${sel.uid} view=${view} uid=${sel.uid}
         row=${pieceTile(selEntry)?.row} col=${pieceTile(selEntry)?.col} actions=${underframeActions(placeCtx, sel.uid)} busy=${selBusy}

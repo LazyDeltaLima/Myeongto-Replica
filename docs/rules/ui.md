@@ -1070,7 +1070,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   (`screens/game.js` `pieceClick`), `gameLogic/shortcuts.js closesOnFieldPress`가 그것도 닫는다. 敌方情报 서랍에서 연 적 카드(`fromField` 없음)는 그대로 남는다.
 - 결정 2: **장치 카드는 오퍼레이터 카드와 같은 공식 모양**(`ui/detailArt.js DeviceDetailArt`, `detailPanel.js`가 공식 모양 HUD일 때 `dpanel--chess`
   클래스를 같이 붙임): 상자 없이 화면 왼쪽 전체 높이, 이름·태그·능력치 줄·공격 범위 칸(포탑)·HP 막대·탭 「技能」(장치 자신의 공식 스킬 글)·「装置机制」(우리
-  설명 줄 + 이 칸). 누름 통과도 오퍼레이터 카드와 같다(머리·능력치 칸·짧은 탭 내용은 보드로 넘김, 닫기·탭·버튼만 받음; 「관리자 제보 수정(2026-10-06 3차)」).
+  설명 줄 + 이 칸). 누름 통과도 오퍼레이터 카드와 같다(머리·능력치 칸·짧은 탭 내용은 보드로 넘김, 탭·버튼만 받음; 「관리자 제보 수정(2026-10-06 3차)」).
   - 공식 근거(EN 클라 코드): 장치는 `Trap : Token : Character`다. 칸을 누르면 `AutoChessHighlightState._OnTileClicked`가 `AutoChessDummyManager.GetCharacter`
     → `Tile.GetCharacter`로 그 칸의 캐릭터를 찾고(`_disableClickCharacterInfo`면 끝), 보는 쪽이 맞으면 `AutoChessUIPlugin.ReqShowCharacterMenu` →
     `UICharacterInfoPanel.ShowCharacter`. 이 패널의 하위 패널(`UICharacterInfoStatusSubPanelInAutochess`·`…TabGroupSubPanelInAutochess`)은 플러그인이
@@ -1094,7 +1094,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   왼쪽 전체 높이, 누름 통과는 오퍼레이터·장치 카드와 같다. 직업 칸 자리에 적 아이콘(테두리: 일반 회색·정예 금색·리더 빨강), 등급 줄 자리에 등급·지상/공중·
   수(서랍), 그 아래 진영, 능력치 줄(공격+피해 종류·방어·법저·이동 속도·공격 범위·목표 가치·공격 간격, 전투 중 실시간 색), 빨간 HP 막대, 탭 「能力」(면역 +
   능력 줄) / 「说明」(능력이 없을 때 설명). `[ASSUMED]` 배치·색 전부(측정할 공식 적 카드가 없음). 공식 모양이 아닐 때는 예전 상자(`EnemyDetail`).
-  서랍에서 연 카드는 서랍(가운데) 왼쪽 일부와 겹친다(카드 닫기 단추가 서랍 왼쪽 위에 걸림) — 서랍 카드는 보드 누름에 안 닫히는 것은 그대로.
+  서랍에서 연 카드는 서랍(가운데) 왼쪽 일부와 겹친다. 서랍 카드가 닫히는 규칙은 아래 「카드에 닫기 단추 없음」.
 - 결정 3(개막 연출 건너뛰기 없음, 연출 중 보드 누름 막기는 보류): 1·2로 제보가 고쳐지지 않을 때만.
 - 확인: `test/ui/uiRepair3.test.js`(보드에서 연 적 카드 닫힘·서랍 카드 유지·`fromField` 소스), `test/ui/official-ui-gaps.test.js`(장치 카드 공식 모양·클래스·CSS),
   `test/ui/device-tip.e2e.test.js`(공식 모양에서도 이름·스킬·장치 효과·HP — 탭 전환, `lang=zh`). Windows Chrome(실서버 fastServer `startRound: 'hidden'`,
@@ -1106,6 +1106,31 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   `elementFromPoint` = 캔버스), 같은 칸 다시 누름에 그대로(`is-again`), 다른 칸 누름에 사라짐, 상세 카드 안 열림. 실서버 협동 보스 라운드(fastServer
   `startRound: 'boss'`) 1920×1080 호스트 — 리더(卢西恩，“猩红血钻”)를 누르면 공식 모양 적 카드, 카드 밑 보드 칸 35개 중 33개가 캔버스(나머지 2개는 탭 줄 —
   오퍼레이터 카드와 같은 남은 막힘), 카드 밖 보드 누름·카드 밑 보드 누름 모두 닫힘. 서랍 적 카드도 공식 모양(목업).
+
+## 카드에 닫기 단추 없음 (GitHub #3 후속, 2026-10-14, 관리자 결정)
+
+- 결정: **상세 카드(오퍼레이터·장치·적·아이템·소환물, 공식 모양과 예전 상자 모두)에 ✕ 닫기 단추가 없다**(`detailPanel.js`의 `.dpanel__close`를 없앰,
+  CSS도). 카드는 단추 없이 닫힌다:
+  - 보드에서 연 카드(기물·전투 유닛·장치·보드의 적, `fromField`) — 다음 보드 누름(`gameLogic/shortcuts.js closesOnFieldPress`, 그대로).
+  - 상점·보상 카드 — 다른 곳 누름(`ui/shopBar.js`, 그대로).
+  - **창에서 연 카드** — 敌方情报 서랍의 적 줄·本局信息의 금지 오퍼레이터(`{ from: 'drawer' }`), 맹약 팝업의 멤버(자기·동료·관전 모두, `{ from: 'bond' }`,
+    `screens/game.js`): 카드 자신·다른 카드를 여는 줄(`.erow`·`.ibanned__one`·`.bpop__member`·`button.bpop__harmony`)·대화상자 밖을 누르면 닫힌다
+    (`closesOnOutsidePress`, 보드·창의 빈 곳·HUD 모두). 서랍 카드는 그 카드의 맹약 칸이 연 팝업 안을 눌러도 남고, 맹약 팝업 카드는 팝업의 빈 곳을 누르면 닫힌다
+    (팝업이 그 카드의 창). **창이 닫히면 같이 닫힌다**(`windowCardGone`: 서랍 닫힘·팝업 닫힘). 맹약 팝업의 바깥 누름 닫기는 카드(`.dpanel`) 안 누름을 바깥으로
+    보지 않는다(멤버 카드의 탭을 눌러도 팝업·카드가 남음).
+  - Esc는 그대로(맹약 멤버 카드는 팝업보다 먼저 닫힘 — 카드가 위). 터치 기기(Esc 없음)는 위 누름으로 닫는다.
+  - 공식 모양 카드는 누를 것이 없는 곳을 통과시키므로 그곳을 누르면 밑(보드·서랍)이 받고, 그 누름이 위 규칙대로 카드를 닫는다.
+- 예전 상자(공식 모양 HUD가 아닐 때의 `.dpanel`)도 같은 규칙으로 단추를 없앴다: 위의 닫는 길이 모두 같게 동작하고, 상자 위를 누르면 그대로 남는다(밖을 누르면 닫힘).
+- 공식 근거(EN 클라): `UICharacterInfoPanel`(dump.cs 519168) 필드는 `m_tweenTime`·`_illustHandler`·`_statusSubPanel`·`_tabGroupSubPanel`·캔버스 그룹·
+  하위 패널 사전뿐 — `Button` 필드도 닫기 메서드도 없다(`ShowCard`·`ShowCharacter`·`Hide(Deck.Card)`). 하위 패널 `UICharacterInfoStatusSubPanel(InAutochess)`·
+  `UICharacterInfoTabGroupSubPanel(InAutochess)`에도 `Button` 필드가 없고, 프리팹 `act2autochess_character_info_subpanel_status`·`…_tabgroup`
+  (`ui/autochess/[uc]autochessbattle.ab`, `tools/local-extract/ui_inspect.py prefab`)의 오브젝트는 직업 아이콘·공격 범위·HP/SP 막대·이름·능력치·맹약 칸과
+  탭 단추(`tab_button_autochess_equip`·`_skill`·`_subprofession_trait`·`_trait`·`_talent`)·`detailedPanels`뿐, 닫기 오브젝트가 없다. 관리자 기억과 같음.
+  `[추정]` 상위 패널 프리팹(전투 공용 UI 번들)은 안 봄 — 필드에 단추가 없어 거기에도 없다고 봄.
+- 확인: `test/ui/card-close.test.js`(누름·창 닫힘 규칙, 게임 화면 연결, ✕ 없음), `test/ui/official-ui-gaps.test.js`(CSS), `test/ui/uiRepair3.test.js`.
+  Windows Chrome(목업 정비 화면, 공식 모양 HUD) 1920×1080 마우스·932×430 터치: 서랍 적 줄·本局信息 금지 오퍼레이터·맹약 멤버·상점 아이템·손의 아이템 카드 모두 ✕ 없음.
+  서랍 카드 — 카드 탭 누름에 남음, 서랍 빈 곳 누름에 닫힘(서랍은 남음), 보드 누름에 닫힘, 서랍 닫기에 같이 닫힘, Esc 한 번에 카드·두 번에 서랍. 맹약 멤버 카드 —
+  카드 탭 누름에 카드·팝업 남음, 팝업 빈 곳 누름에 카드만 닫힘, Esc에 카드 먼저, 팝업 닫기에 같이 닫힘, 보드 누름에 둘 다 닫힘. 상점·손 아이템 카드 — 보드 누름에 닫힘.
 
 
 ## 설정 창을 기능별 절로 (2026-10-14, 관리자 결정)
