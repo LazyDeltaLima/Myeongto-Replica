@@ -68,8 +68,9 @@
 //                           state: m.public, m.private and, if a battle is on (client-side combat), the
 //                           b.start of the field the player is on / watching (server-run mode: m.field + b.snap).
 // setLoadout(playerId, loadout, ops?) → { ok } | { error, detail? }   (DESIGN §16; optional for the platform) a new
-//                           checked operator loadout (and its 潜能 / 练度 `ops`, 0.2.2) from room.loadout. Accepted only
-//                           during INFO_CHECK (the briefing's 干员调配 entry); afterwards the match's loadout is locked
+//                           checked operator loadout (and its 潜能 / 练度 `ops`, 0.2.2) from room.loadout. Accepted
+//                           during INFO_CHECK / BAND_DRAFT (the briefing's and the strategy draft's 干员调配 entries, the
+//                           window of setDiy — maintainer decision 2026-10-14); afterwards the match's loadout is locked
 //                           (WRONG_PHASE).
 // setDiy(playerId, picks) → { ok } | { error, detail? }   (local, optional for the platform) new checked 自选 picks from
 //                           room.diy: accepted during INFO_CHECK / BAND_DRAFT while the player's 自选 stock is untouched

@@ -194,7 +194,7 @@ test('diy sync: welcome brings the kit list and sends room.diy; edits are deboun
   target.set({ diy: {} });
   await T.advance(SYNC_DEBOUNCE_MS + 10);
   assert.equal(target.get().diySync, 'locked');
-  assert.deepEqual(told, ['自选编队是局外设置，修改将在下一局生效']);
+  assert.deepEqual(told, ['选择策略已结束，本局的自选编队已锁定，修改将在下一局生效']);
   net.emit('room.state', { inMatch: false });
   await T.advance(SYNC_DEBOUNCE_MS + 10);
   assert.deepEqual(net.sent.at(-1), { t: 'room.diy', picks: {} });

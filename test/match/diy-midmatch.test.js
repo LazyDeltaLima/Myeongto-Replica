@@ -61,3 +61,22 @@ test('a drawn 自选 stock locks the picks even before the prep; bots and unknow
   assert.equal(m.setDiy('nobody', { [T6A]: WANG }).error, ERR.NOT_IN_ROOM);
   m.dispose();
 });
+
+test('strategy draft: a 自选 operator swapped in takes its 潜能 / 练度 and skill this match (room.loadout shares setDiy\'s window, maintainer decision 2026-10-14)', REAL, () => {
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T6A]: WISDEL } }];
+  const h = makeMatch({ mode: 'solo', seats, seed: 13 }).start();
+  const m = h.m;
+  const p0 = h.ps('p_0');
+  m.handle('p_0', { t: 'g.infoReady' });
+  h.sched.advance(1);
+  assert.equal(m.phase, PHASE.BAND_DRAFT);
+  assert.deepEqual(m.setDiy('p_0', { [T6A]: WANG }), { ok: true });
+  assert.deepEqual(m.setLoadout('p_0', {}, { [WANG.charId]: { potential: 2, cultivate: 1 } }), { ok: true });
+  m.handle('p_0', { t: 'g.band', bandId: m.gd.bandDraft.timeoutBandId }); // the solo draft ends with this pick
+  h.drive(() => m.phase === PHASE.PREP);
+  assert.equal(m.setLoadout('p_0', {}, null).error, ERR.WRONG_PHASE, 'locked from the prep on');
+  const lo = p0.loadoutFor(p0.gd.chess(T6A));
+  assert.deepEqual([lo.skillIndex, lo.potential, lo.cultivate], [WANG.skillIndex, 2, 1]);
+  assert.deepEqual(privOf(h, 'p_0').ops[WANG.charId], { potential: 2, cultivate: 1 });
+  m.dispose();
+});

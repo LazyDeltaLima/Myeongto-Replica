@@ -57,9 +57,10 @@ export class MatchPlatform {
   }
 
   /**
-   * room.loadout during the match (DESIGN §16): only while INFO_CHECK runs (the briefing's 干员调配 entry); the lobby
-   * already checked it against the data (PlayerState.setLoadout re-checks it). `ops` (0.2.2): the per-operator 潜能 /
-   * 练度 that come with it (undefined = unchanged).
+   * room.loadout during the match (DESIGN §16): while the briefing or the strategy draft runs (the 干员调配 entries of
+   * both screens; the same window as setDiy, maintainer decision 2026-10-14 — nothing reads the loadout before the
+   * prep); the lobby already checked it against the data (PlayerState.setLoadout re-checks it). `ops` (0.2.2): the
+   * per-operator 潜能 / 练度 that come with it (undefined = unchanged).
    * @param {string} playerId
    * @param {Record<string, { skill: number, module: string|null }> | null} loadout
    * @param {Record<string, { potential: number, cultivate: number }> | null} [ops]
@@ -68,7 +69,9 @@ export class MatchPlatform {
   setLoadout(playerId, loadout, ops = undefined) {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
-    if (this.disposed || this.ended || this.phase !== PHASE.INFO_CHECK) return fail(ERR.WRONG_PHASE, 'loadout locked for this match');
+    if (this.disposed || this.ended || this.infoOutcome || (this.phase !== PHASE.INFO_CHECK && this.phase !== PHASE.BAND_DRAFT)) {
+      return fail(ERR.WRONG_PHASE, 'loadout locked for this match');
+    }
     let res = OK;
     this.guard(() => {
       if (!ps.setLoadout(loadout, ops)) { res = fail(ERR.BAD_TARGET, 'loadout does not match the game data'); return; }

@@ -63,8 +63,9 @@
 //     session (it follows the player into every room they create/join, and survives a resume) and on the seat; the
 //     match receives seats[].loadout (bots: none — they fight with the defaults). ▸ Accepted any time: in a LOBBY room
 //     (or outside a room) it simply replaces the stored one; while the room's match runs it is also handed to
-//     match.setLoadout(playerId, loadout), which accepts it only during INFO_CHECK (the 干员调配 entry of the briefing)
-//     and refuses it afterwards (WRONG_PHASE: the match's loadout is locked, the stored one applies to the next match).
+//     match.setLoadout(playerId, loadout), which accepts it during INFO_CHECK / BAND_DRAFT (the 干员调配 entries of the
+//     briefing and the strategy draft, maintainer decision 2026-10-14) and refuses it afterwards (WRONG_PHASE: the
+//     match's loadout is locked, the stored one applies to the next match).
 //     ▸ Its `ops` (0.2.2: the per-operator 潜能 / 练度, shared/protocol.js checkLoadoutOps — an operator of the 干员调配
 //     roster or the 自选 owned pool, strict like the entries) travel with it: session.ops / seat.ops / seats[].ops and
 //     match.setLoadout(playerId, loadout, ops); a message without `ops` sets none (every operator 潜能 6, 精英2 Lv.60).
@@ -657,8 +658,8 @@ export class Lobby {
 
   /**
    * room.loadout (DESIGN §16): check the operator loadout — and its per-operator 潜能 / 练度 `ops` (0.2.2) — against the
-   * game data, store both on the session and the seat, and — while a match runs — hand them to the match (accepted only
-   * during INFO_CHECK, see the header). Either part refused: nothing is stored.
+   * game data, store both on the session and the seat, and — while a match runs — hand them to the match (accepted
+   * during its briefing and strategy draft, see the header). Either part refused: nothing is stored.
    */
   loadout(session, { entries, ops }) {
     const data = this.safeData();

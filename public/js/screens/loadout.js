@@ -464,8 +464,8 @@ function LoadoutScreen({ st }) {
   const ready = useData('chess', 'bonds', 'assets', 'local', 'backups', 'garrisons', 'effects');
   const phase = useStore((s) => s.match?.public?.phase || null);
   const inMatch = useStore((s) => !!s.room?.inMatch);
-  // co-op briefing (INFO_CHECK, 25 s): the overlay covers the briefing's own countdown, so it shows the time left — the
-  // match locks the loadout when it runs out (review fix: edits were silently only for the next match)
+  // co-op briefing (INFO_CHECK, 45 s): the overlay covers the briefing's own countdown, so it shows the time left — the
+  // overlay closes when it runs out (the strategy draft has its own entry; the loadout locks when the draft ends)
   const infoDeadline = useStore((s) => (s.match?.public?.phase === PHASE.INFO_CHECK ? s.match.public.deadline : 0));
   const m = data.get('assets');
   const getChess = (id) => data.lookup('chess', id);
@@ -480,7 +480,9 @@ function LoadoutScreen({ st }) {
   const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
   const nChanged = changedCount(st.entries, getChess, st.ops, roster);
-  const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) || st.sync === 'locked';
+  // the match takes the loadout until its strategy draft ends (server match.setLoadout, the window of setDiy —
+  // maintainer decision 2026-10-14); afterwards an edit is stored for the next match
+  const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.BAND_DRAFT && phase !== PHASE.LOBBY) || st.sync === 'locked';
   const gridRef = useRef(null);
   const fileRef = useRef(null);                            // hidden <input type=file> of the 导入 dialog
   const [narrowDetail, setNarrowDetail] = useState(false); // phones: the detail slides over the roster
@@ -631,8 +633,10 @@ function LoadoutScreen({ st }) {
   }, [selId]);
 
   const [syncText, syncCls] = tab === 'ownership' ? OWN_SYNC_TEXT[st.ownSync] || OWN_SYNC_TEXT.idle
-    : tab === 'diy' ? DIY_SYNC_TEXT[st.diySync] || DIY_SYNC_TEXT.idle : SYNC_TEXT[st.sync] || SYNC_TEXT.idle;
-  const fromText = st.from === 'briefing' ? t('确认本局信息阶段结束前可调整本局配置') : t('开始模拟前可调整干员携带的技能与模组，以及潜能与练度；干员的局内等级不可调整');
+    : tab === 'diy' ? DIY_SYNC_TEXT[st.diySync] || DIY_SYNC_TEXT.idle
+    // a locked match says so before the first refused edit (the sync state alone still read 已同步 then)
+    : locked ? SYNC_TEXT.locked : SYNC_TEXT[st.sync] || SYNC_TEXT.idle;
+  const fromText = st.from === 'briefing' || st.from === 'draft' ? t('选择策略结束前可调整本局配置') : t('开始模拟前可调整干员携带的技能与模组，以及潜能与练度；干员的局内等级不可调整');
   // 干员持有 is out of match: a running match keeps the list its seat had at its start
   const ownLocked = inMatch && !!phase && phase !== PHASE.LOBBY;
   const ownText = ownLocked ? t('干员持有是局外设置：本局按开局时的设置进行，修改将在下一局生效')
@@ -640,7 +644,7 @@ function LoadoutScreen({ st }) {
   // 自选编队 reaches a running match while its briefing / strategy draft runs (server match.setDiy, 진영별 선발 프리셋)
   const diyLive = inMatch && (phase === PHASE.INFO_CHECK || phase === PHASE.BAND_DRAFT);
   const diyText = diyLive ? t('选择策略结束前修改立即用于本局 · 联机时只进入你自己的商店')
-    : ownLocked ? t('自选编队是局外设置：本局按开局时的设置进行，修改将在下一局生效')
+    : ownLocked ? t('本局的自选编队已锁定（选择策略结束后无法修改），修改将在下一局生效')
     : t('局外设置，下一局生效 · 联机时只进入你自己的商店');
 
   return html`<${Fragment}>
@@ -674,7 +678,7 @@ function LoadoutScreen({ st }) {
         <${Button} variant="ghost" size="sm" data-testid="ownership-import" disabled=${!ready} onClick=${openImport} title=${t('导入干员持有（粘贴或选择文件）')}>${t('导入')}<//>
         <${Button} variant="secondary" size="sm" icon="refresh" data-testid="ownership-reset" disabled=${!nNotOwned} onClick=${ownAll}>${t('全部持有')}<//>
       </div>` : html`<div class="lo-top__right">
-        ${inMatch && hasDeadline(infoDeadline) ? html`<${Countdown} deadline=${infoDeadline} size="sm" gauge=${false} label=${t('调配截止')} class="lo-deadline" />` : null}
+        ${inMatch && hasDeadline(infoDeadline) ? html`<${Countdown} deadline=${infoDeadline} size="sm" gauge=${false} label=${t('确认本局信息')} class="lo-deadline" />` : null}
         ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status">${t(syncText)}</span>` : null}
         <span class="lo-count">${t('已调整')} <b class="num">${nChanged}</b><span class="num t-dim">/${roster.length}</span></span>
         <${Button} variant="ghost" size="sm" data-testid="loadout-export" disabled=${!nChanged} onClick=${openExport} title=${t('导出当前调配（可复制或下载）')}>${t('导出')}<//>
@@ -686,7 +690,7 @@ function LoadoutScreen({ st }) {
       ? html`<p class=${cx('lo-note', ownLocked && !diyLive && 'is-locked')}><${Icon} name="info" />${diyText}</p>`
       : tab === 'ownership'
       ? html`<p class=${cx('lo-note', ownLocked && 'is-locked')}><${Icon} name="info" />${ownText}</p>`
-      : html`<p class=${cx('lo-note', locked && 'is-locked')}><${Icon} name="info" />${locked ? t('本局的调配已锁定（确认本局信息后无法修改），修改将在下一局生效') : fromText}</p>`}
+      : html`<p class=${cx('lo-note', locked && 'is-locked')}><${Icon} name="info" />${locked ? t('本局的调配已锁定（选择策略结束后无法修改），修改将在下一局生效') : fromText}</p>`}
     ${!ready ? html`<div class="lo-loading"><${Spinner} size="sm" />${t('正在载入干员数据（打开页面后仅载入一次）…')}</div>`
       : lost.length ? html`<${DataMissing} files=${lost} />` : tab === 'diy'
       ? html`<${DiyPanel} m=${m} picks=${st.diy || {}} legal=${diyLegal} kitted=${st.diyKitted} onSet=${setDiySlot} ops=${st.ops} onOps=${setOpsOf} />`

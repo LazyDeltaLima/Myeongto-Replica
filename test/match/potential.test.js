@@ -3,7 +3,7 @@
 // PlayerState.ops (re-checked, frozen; bots none) → every owned operator's PlayerBattleInput entry states `potential` /
 // `cultivate` (defaults 6 / 3 — also an old loadout without ops), never a 补位 stand-in or a prototype 自选 pick; the
 // 自选 summons' hand count follows the owner's potential; m.private.ops; the scouting units; Match.setLoadout takes
-// them in INFO_CHECK only.
+// them in INFO_CHECK / BAND_DRAFT only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ERR, PHASE } from '../../shared/constants.js';
@@ -124,7 +124,7 @@ test('自选: an owned pick states its operator\'s settings (none set: 6 / 3; th
   m.dispose();
 });
 
-test('Match.setLoadout: the settings change with the loadout in INFO_CHECK only; re-checked; a refusal changes nothing', () => {
+test('Match.setLoadout: the settings change with the loadout until the strategy draft ends; re-checked; a refusal changes nothing', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, bots: 1, seed: 4 }).start();
   const m = h.m;
   const ps = h.ps('p_0');
@@ -141,7 +141,10 @@ test('Match.setLoadout: the settings change with the loadout in INFO_CHECK only;
   for (const id of ['p_0', 'p_1']) m.handle(id, { t: 'g.infoReady' });
   h.sched.advance(1);
   assert.equal(m.phase, PHASE.BAND_DRAFT);
-  assert.equal(m.setLoadout('p_0', {}, { [VENDLA_CHAR]: { potential: 1 } }).error, ERR.WRONG_PHASE, 'locked after INFO_CHECK');
-  assert.deepEqual(ps.ops, {});
+  assert.deepEqual(m.setLoadout('p_0', {}, { [VENDLA_CHAR]: { potential: 1 } }), { ok: true }, 'still during the strategy draft');
+  assert.deepEqual(ps.ops, { [VENDLA_CHAR]: { potential: 1, cultivate: 3 } });
+  h.drive(() => m.phase === PHASE.PREP);
+  assert.equal(m.setLoadout('p_0', {}, null).error, ERR.WRONG_PHASE, 'locked once the strategy draft ended');
+  assert.deepEqual(ps.ops, { [VENDLA_CHAR]: { potential: 1, cultivate: 3 } });
   m.dispose();
 });

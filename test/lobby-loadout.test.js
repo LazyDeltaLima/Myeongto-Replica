@@ -1,6 +1,6 @@
 // test/lobby-loadout.test.js — room.loadout end to end over WebSocket (DESIGN §16): strict validation, storage on the
 // session (follows the player into rooms, survives a resume) and on the seat, seats[].loadout handed to the Match
-// (bots: none), re-sendable until the match leaves INFO_CHECK (real Match: accepted in the briefing, WRONG_PHASE after),
+// (bots: none), re-sendable until the match leaves BAND_DRAFT (real Match: accepted in the briefing and the strategy draft, WRONG_PHASE after),
 // the heavy-intent rate limit; its per-operator 潜能 / 练度 `ops` (0.2.2): validated with it, stored and handed over beside it.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,6 +13,7 @@ import { ERR, PHASE } from '../shared/constants.js';
 
 const DATA = getData({ log: { warn() {}, error() {}, info() {} } });
 const C = (id) => DATA.chess[id];
+const BAND = 'band_bldsk'; // 华法琳, the draft's default (server/match/gamedata.js bandDraft.timeoutBandId)
 const INSIDE = 'chess_char_1_01_a'; // 隐现: S1 / S2 (default S2), module MAR-X
 const SWIRE = 'chess_char_3_04_a'; // 琳琅诗怀雅: three modules
 const SWIRE_ALT = C(C(SWIRE).goldenId).modules.find((m) => !m.isDefault).uniEquipId;
@@ -164,7 +165,7 @@ describe('room.loadout (lobby + real match)', () => {
   afterEach(async () => { await pool.closeAll(); });
   after(async () => { await srv?.close(); });
 
-  test('accepted during INFO_CHECK (the briefing entry), locked afterwards; the solo briefing has no deadline', async () => {
+  test('accepted during INFO_CHECK and BAND_DRAFT (the briefing and strategy draft entries), locked afterwards; the solo briefing has no deadline', async () => {
     const a = await pool.player('Solo');
     await createRoom(a, 'solo');
     await ok(a, { t: 'room.start' });
@@ -175,12 +176,16 @@ describe('room.loadout (lobby + real match)', () => {
     assert.deepEqual(priv.loadout, { [INSIDE]: { skill: 0, module: 'uniequip_002_inside' } });
     await ok(a, { t: 'g.infoReady' });
     await a.waitFor('m.public', (p) => p.phase === PHASE.BAND_DRAFT, 3000);
-    const r = await err(a, { t: 'room.loadout', entries: {} }, ERR.WRONG_PHASE);
+    await ok(a, { t: 'room.loadout', entries: {} });
+    await a.waitFor('m.private', (p) => p.loadout && !p.loadout[INSIDE], 3000);
+    await ok(a, { t: 'g.band', bandId: BAND });
+    await a.waitFor('m.public', (p) => p.phase !== PHASE.BAND_DRAFT, 3000);
+    const r = await err(a, { t: 'room.loadout', entries: { [INSIDE]: { skill: 0 } } }, ERR.WRONG_PHASE);
     assert.match(r.detail || '', /locked/);
     assert.deepEqual(cap.errors, []);
   });
 
-  test('潜能 / 练度 (0.2.2): taken with the loadout in the briefing (m.private.ops), stated in the battle input; locked afterwards', async () => {
+  test('潜能 / 练度 (0.2.2): taken with the loadout in the briefing and the strategy draft (m.private.ops); locked afterwards', async () => {
     const VENDLA = C('chess_char_1_06_a').charId;
     const a = await pool.player('Solo2');
     await createRoom(a, 'solo');
@@ -191,6 +196,10 @@ describe('room.loadout (lobby + real match)', () => {
     assert.deepEqual(priv.ops, { [VENDLA]: { potential: 2, cultivate: 1 } });
     await ok(a, { t: 'g.infoReady' });
     await a.waitFor('m.public', (p) => p.phase === PHASE.BAND_DRAFT, 3000);
+    await ok(a, { t: 'room.loadout', entries: {}, ops: { [VENDLA]: { potential: 3, cultivate: 1 } } });
+    await a.waitFor('m.private', (p) => p.ops && p.ops[VENDLA]?.potential === 3, 3000);
+    await ok(a, { t: 'g.band', bandId: BAND });
+    await a.waitFor('m.public', (p) => p.phase !== PHASE.BAND_DRAFT, 3000);
     await err(a, { t: 'room.loadout', entries: {}, ops: {} }, ERR.WRONG_PHASE);
     assert.deepEqual(cap.errors, []);
   });

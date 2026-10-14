@@ -1,6 +1,6 @@
 // Operator loadout (DESIGN §16) — shared checks (shared/protocol.js checkLoadout / loadoutOptions / resolveLoadout),
 // the match side (seats[].loadout → PlayerState → PlayerBattleInput units skillIndex / moduleId → BattleSpec, m.private
-// `loadout`, Match.setLoadout only during INFO_CHECK, bots on defaults) and the solo timers (user playtest #11: official
+// `loadout`, Match.setLoadout only during INFO_CHECK / BAND_DRAFT, bots on defaults) and the solo timers (user playtest #11: official
 // 独立模拟 has no countdown outside combat).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -183,7 +183,7 @@ test('client-side combat: the b.start spec of the owner carries the loadout of i
   m.dispose();
 });
 
-test('Match.setLoadout: accepted during INFO_CHECK only; re-checked; bots / strangers refused', () => {
+test('Match.setLoadout: accepted during INFO_CHECK and BAND_DRAFT; re-checked; bots / strangers refused', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, bots: 1, seed: 4 }).start();
   const m = h.m;
   const ps = h.ps('p_0');
@@ -200,8 +200,12 @@ test('Match.setLoadout: accepted during INFO_CHECK only; re-checked; bots / stra
   for (const id of ['p_0', 'p_1']) m.handle(id, { t: 'g.infoReady' });
   h.sched.advance(1);
   assert.equal(m.phase, PHASE.BAND_DRAFT);
+  assert.deepEqual(m.setLoadout('p_0', {}), { ok: true }, 'the strategy draft still takes it (maintainer decision 2026-10-14)');
+  assert.deepEqual(ps.loadout, {});
+  assert.deepEqual(m.setLoadout('p_0', lo), { ok: true });
+  h.drive(() => m.phase === PHASE.PREP);
   const r = m.setLoadout('p_0', {});
-  assert.equal(r.error, ERR.WRONG_PHASE, 'locked after INFO_CHECK');
+  assert.equal(r.error, ERR.WRONG_PHASE, 'locked once the strategy draft ended');
   assert.deepEqual(ps.loadout, lo);
   m.dispose();
 });

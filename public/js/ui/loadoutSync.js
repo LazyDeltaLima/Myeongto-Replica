@@ -12,7 +12,7 @@
 // the whole loadout; `ops` = the per-operator 潜能 / 练度 of 0.2.2, sanitizeOps against chess.json + backups.json), `room.ownership { notOwned }` (sent as stored: the server keeps the droppable chess and drops
 // the rest, so no data is needed) and `room.diy { picks }` (sent as stored, structurally clean: the server keeps the
 // legal picks). Replies: RATE → retried later; WRONG_PHASE / ROOM_STARTED → the running match keeps what it took (the
-// loadout locks when INFO_CHECK ends; the ownership and the 自选 picks never change during a match) — stored for the
+// loadout and the 自选 picks lock when the strategy draft ends, the ownership never changes during a match) — stored for the
 // next match, not an error for the player; anything else is logged. `sync` / `ownSync` / `diySync` ∈ 'idle' |
 // 'pending' | 'sending' | 'synced' | 'locked' | 'error' are mirrored into the store for the screen's status line.
 
@@ -188,7 +188,8 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
 
   // Review fix: a send is never held back behind one still in flight. The socket is ordered and the server applies
   // the frames in order, so the newest payload always wins; holding the edit until the previous reply arrived let a
-  // click right after closing the overlay (准备就绪 → INFO_CHECK ends) overtake it, and the edit silently missed the match.
+  // click right after closing the overlay (准备就绪 / 确认选择 → the briefing / the solo draft ends) overtake it, and the
+  // edit silently missed the match.
   async function flush() {
     if (disposed) return;
     if (net.status !== 'online') { setState('idle'); return; } // the next welcome resends
@@ -233,12 +234,13 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
   const keys = Array.isArray(key) ? key : [key];
   const offStore = target.subscribe((s, prev) => {
     if (keys.some((k) => s[k] !== prev[k])) { edited = true; schedule(); }
-    // closing the overlay sends a pending edit at once (review fix): the player's next click — 准备就绪 in the solo
-    // briefing, 开始模拟 in the room — must not overtake the debounced message (the match locks its loadout when
-    // INFO_CHECK ends, so a late edit would silently only apply to the next match). Same socket ⇒ ordered.
+    // closing the overlay sends a pending edit at once (review fix): the player's next click — 确认选择 in the solo
+    // strategy draft, 开始模拟 in the room — must not overtake the debounced message (the match locks its loadout and
+    // its 自选 picks when the strategy draft ends, so a late edit would silently only apply to the next match). Same
+    // socket ⇒ ordered.
     if (prev.open && !s.open && timer != null) { T.clearTimeout(timer); timer = null; void flush(); }
   });
-  // a match leaving INFO_CHECK locks the loadout; a new match (the room back in LOBBY / a new INFO_CHECK) accepts it again
+  // a match leaving the strategy draft locks the loadout; a new match (the room back in LOBBY / a new INFO_CHECK) accepts it again
   const offRoom = net.on('room.state', (msg) => { if (msg && !msg.inMatch && target.get()[stateKey] === 'locked') { lastSent = null; schedule(); } });
 
   return {
@@ -303,8 +305,9 @@ export function installOwnershipSync({ net, timers, target = loadoutStore, notif
 
 /**
  * Wire the 自选编队 sync once (0.2.0 DIY): `room.diy { picks }` after every welcome and edit. The picks go as stored
- * (structurally clean); the server keeps the legal ones. During a match the server stores them for the next one
- * (ROOM_STARTED → 'locked'): the setting is out of match. Every `welcome` also brings the operators a DIY slot may field
+ * (structurally clean); the server keeps the legal ones. A running match takes them during its briefing and strategy
+ * draft (match.setDiy); afterwards the server stores them for the next one (ROOM_STARTED → 'locked'). Every `welcome`
+ * also brings the operators a DIY slot may field
  * (`diyKitted`, the picker's list).
  * @param {{ net: any, timers?: { setTimeout: Function, clearTimeout: Function }, target?: ReturnType<typeof createStore>,
  *   notify?: (text: string) => void }} deps
@@ -316,7 +319,7 @@ export function installDiySync({ net, timers, target = loadoutStore, notify } = 
   });
   const sync = installPrefSync({
     net, timers, target, notify, key: 'diy', stateKey: 'diySync', msgType: 'room.diy', field: 'picks', tag: 'diy',
-    lockedText: N_('自选编队是局外设置，修改将在下一局生效'),
+    lockedText: N_('选择策略已结束，本局的自选编队已锁定，修改将在下一局生效'),
     prepare: async () => cleanPicks(target.get().diy),
   });
   diyFlush = sync.flush;
