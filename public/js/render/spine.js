@@ -29,9 +29,11 @@
 //                                         without this the actor fell through to its idle and played no skill clip at
 //                                         all (player report).
 //   deploy()                              'Start' once, then base
-//   die()                                 die clip once (callers fade out afterwards); a skeleton without one holds its
-//                                         idle clip's first frame (GitHub issue #25: the attack loop went on)
-//   stunned (setBase('stun'))             stun clip, or the current track frozen at timeScale 0
+//   die()                                 die clip once (callers fade out afterwards) — the running skill's own (anims
+//                                         skill.die) while its mode holds; a skeleton without one holds its idle clip's
+//                                         first frame (GitHub issue #25: the attack loop went on)
+//   stunned (setBase('stun'))             stun clip (the running skill's own, skill.stun), or the current track frozen
+//                                         at timeScale 0
 //   setForm(roles, change, end)           another clip set of the skeleton (an enemy's mode, a 傀儡师's 替身), after a change clip
 //                                         (no attack cuts the change clip short); `end` = { clip, in, roles? }: a
 //                                         closing clip timed to end `in` s from now (a 重生's last clip ends with the
@@ -179,6 +181,7 @@ export class SpineActor {
     this.runMode = false;         // move on the model's own Run cycle (setRunMode)
     this.formRoles = null;        // the clip set of the form in force (setForm), over the unit's own roles
     this.skillOn = false;
+    this.skillOffAt = null;       // the clock when the skill last switched off (skillDying)
     this.baseClip = false;        // the latest swing plays the Default attack clip while a skill is on (units.js onSwing)
     this.skillClipOnce = false;    // skillBegin: the skill's own clip plays once (a clip with no Begin / own Idle)
     this.skillEndPending = false;  // … and the skill turned off inside it: play its End clip / base when it ends
@@ -395,7 +398,9 @@ export class SpineActor {
   _enterStun() {
     if (this.mode === 'stun') return;
     this.mode = 'stun';
-    const s = this.roles.stun;
+    // the running skill's own stun clip (anims skill `stun`: its mode's Stun pair, SKILL_STATE_CLIPS — 迷迭香 S3)
+    const ss = this.skillOn ? this.roles.skill?.stun : null;
+    const s = this.has(ss) ? { begin: null, loop: ss, end: null } : this.roles.stun;
     if (s && this.has(s.loop)) {
       if (this.has(s.begin)) { this._play(s.begin, false); this._queue(s.loop, true); }
       else this._play(s.loop, true);
@@ -630,6 +635,7 @@ export class SpineActor {
     on = !!on;
     if (on === this.skillOn || this.dead) return;
     this.skillOn = on;
+    if (!on) this.skillOffAt = this.clock;   // skillDying: an off right before the 'die' event
     this.baseClip = false;
     const sk = this.roles.skill;
     if (this.mode === 'stun' || this.mode === 'die') return;
@@ -735,24 +741,39 @@ export class SpineActor {
     return this.mode === 'deploy' ? Math.max(0, this.clock - (this.deployAt || 0)) : null;
   }
 
-  /** The skeleton's death clip, or null. */
-  dieClip() {
+  /**
+   * The skeleton's death clip, or null: the running skill's own (anims skill `die`: the Die pair of the skill's mode,
+   * tools/assets/anim-overrides.mjs SKILL_STATE_CLIPS) while it runs — `inSkill` (render/units.js: a model rebuilt for
+   * the knock-out) or skillDying() —, else the unit's.
+   */
+  dieClip(inSkill = this.skillDying()) {
+    const sd = inSkill ? this.roles.skill?.die : null;
+    if (this.has(sd)) return sd;
     const d = this.roles.die || (this.has('Die') ? 'Die' : null);
     return d && this.has(d) ? d : null;
   }
 
   /**
-   * Play the death clip; returns its duration (0 when there is none). A skeleton without one (131 of the 135 Back
+   * The skill's mode is in force now: the skill is on, its 吟唱 or End clip plays, or it switched off this very frame —
+   * the sim ends an operator's skill right before its 'die' event (Battle._remove), and the client's mode lasts to the
+   * knock-out.
+   */
+  skillDying() {
+    return this.skillOn || this.mode === 'chant' || this.mode === 'skillEnd' || this.skillOffAt === this.clock;
+  }
+
+  /**
+   * Play the death clip (dieClip: the running skill's own when `inSkill`); returns its duration (0 when there is none). A skeleton without one (131 of the 135 Back
    * models, GitHub issue #25; a few idle-only summons and enemies) stops whatever looped — an attack, a skill or the idle —
    * and holds the first frame of its idle clip (frozen when it has none either) [ASSUMED look]: a dead unit never goes on attacking. A
    * knocked-out operator shows its fall with the Front model instead (render/units.js _wantsBack).
    */
-  die() {
+  die(inSkill = this.skillDying()) {
     if (this.dead) return 0;
+    const d = this.dieClip(inSkill);
     this.dead = true;
     this.frozen = false;
     this.mode = 'die';
-    const d = this.dieClip();
     if (d) { this._play(d, false, { mix: 0.05 }); return this.dur(d); }
     const idle = this.has(this.roles.idle) ? this.roles.idle : this.has('Idle') ? 'Idle' : null;
     if (idle) this._play(idle, false, { mix: 0.1, timeScale: 0 });

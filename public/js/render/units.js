@@ -591,6 +591,7 @@ export class UnitView {
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
     this.destroyed = false;
     this.form = typeof info.form === 'string' ? info.form : null;   // the unit's model form: an enemy's mode, a 傀儡师's 替身 (setForm, FORMS)
+    this._dieSkill = false;       // it died in a skill's mode (die): a model built while it lies down plays that skill's death
     this._dieForm = null;         // the form it died in (die): a model built while it lies down shows that form's death
 
     // --- display objects
@@ -769,7 +770,7 @@ export class UnitView {
       if (f) this.actor.setForm(f.roles);
       // replay current state (a dead model resumes its Die clip where it would be — a knocked-down one holds its end)
       if (!this.alive) {
-        const d = this.actor.die();
+        const d = this.actor.die(!!this._dieSkill);
         const at = Math.min(d, this.dieT * (this.ctx.animRate?.() || 1));
         if (at > 0) this.actor.update(at);
       } else {
@@ -1274,14 +1275,17 @@ export class UnitView {
    * and a redeploy in one frame — a 突袭 jump, a 不屈 revive, a backlog after a hidden tab — load nothing); meanwhile the
    * Back model holds still (SpineActor.die), and the Front model's Die clip times the fade. The form it dies in
    * (`_dieForm`: a 傀儡师's 替身, which the sim resets right after the 'die' event) gives that model — and any built while
-   * it lies down — its death clip, until it stands up again.
+   * it lies down — its death clip, until it stands up again; so does the skill it dies in (`_dieSkill`: the Die pair of
+   * the skill's mode, SpineActor.dieClip — the sim ends the skill right before the 'die' event).
    */
   die(instant = false) {
     if (!this.alive) return;
     this.alive = false;
     this._modelDirty = true;
     this._dieForm = this._formSpec();
-    let d = this.actor ? this.actor.die() : 0;
+    // a skill's mode it dies in (SpineActor.skillDying: its own Die pair) — kept for the model built for the knock-out
+    this._dieSkill = this.actor ? this.actor.skillDying() : !!(this.flags & UF.SKILL);
+    let d = this.actor ? this.actor.die(this._dieSkill) : 0;
     if (this.actor && !d) d = this._fallDur();
     const rate = this.ctx.animRate?.() || 1;
     this.dieT = 0;
@@ -1304,6 +1308,7 @@ export class UnitView {
     // a model built while it lay in a form's death pose (_dieForm) stands up on the unit's own clips
     if (this._dieForm && this.actor && !this._formSpec()) this.actor.setForm(null);
     this._dieForm = null;
+    this._dieSkill = false;
     this.dying = 0; this.remove = false; this.alpha = 1;
     this.down = null;
     this.hp = this.maxHp; this.ghostHp = this.hp;

@@ -184,6 +184,23 @@ export const EQUIP_ROLES = Object.freeze({
 });
 
 /**
+ * The death and stun clips of a skill's mode (docs/rules/render.md 「Spine 클립 커버리지」 D·F, maintainer's notes
+ * 2026-10-14): the mode a skill switches the operator to pairs Die (or Stun) with a clip of its own (`_replaceAnimPairs`,
+ * or a mode's animator hooker), so an operator knocked out or stunned while that skill runs plays it. Model key prefix →
+ * { [0-based skill index]: { die?, stun? } } → the skill clip's `die` / `stun` (render/spine.js dieClip / _enterStun).
+ */
+export const SKILL_STATE_CLIPS = Object.freeze({
+  // 予愿安洁莉娜 (CN client): the S1 / S2 / S3 modes (with their take-off, 吟唱 and landing modes) pair Die→Skill_n_Die
+  'op:char_1015_aglna2:': { 0: { die: 'Skill_1_Die' }, 1: { die: 'Skill_2_Die' }, 2: { die: 'Skill_3_Die' } },
+  // 乌尔比安: the S2 mode (a toggle) pairs Die→Skill_2_Die
+  'op:char_4145_ulpia:': { 1: { die: 'Skill_2_Die' } },
+  // 缇比: the S1 / S2 flight modes (take-off and landing included) pair Die→Die_2
+  'op:char_4191_tippi:': { 0: { die: 'Die_2' }, 1: { die: 'Die_2' } },
+  // 迷迭香: only mode S3's animator hooker is the Graphic SimpleUnitAnimatorHooker with Stun→Stun_Skill_3
+  'op:char_391_rosmon:': { 2: { stun: 'Stun_Skill_3' } },
+});
+
+/**
  * Apply SKILL_CLIP_OVERRIDES to resolveRoles' result for model `key` (mutates and returns `anims`). `names` (the
  * skeleton's clip names, optional): an override clip the model lacks is dropped — one side's skeleton can miss a clip
  * the other has (泥岩 Back has no Skill_2_Begin / _Awake / _Sleep: its S3 starts straight in Skill_2_Attack / _Idle).
@@ -242,6 +259,15 @@ export function applyAnimOverrides(key, anims, names = null) {
         e.attack = a;
       }
       if (Object.keys(e).length) (anims.equip ||= {})[i] = e;
+    }
+  }
+  for (const [prefix, map] of Object.entries(SKILL_STATE_CLIPS)) {
+    if (!key.startsWith(prefix)) continue;
+    for (const [i, st] of Object.entries(map)) {
+      for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) {
+        if (!clip) continue;
+        for (const f of ['die', 'stun']) if (st[f] && (!names || names.includes(st[f]))) clip[f] = st[f];
+      }
     }
   }
   return anims;

@@ -20,12 +20,9 @@
 
 export const UNPLAYED = {
   char_1015_aglna2: {
-    Skill_1_Die: 'todo: F — skill mode Die pair',
-    Skill_2_Die: 'todo: F — skill mode Die pair',
     Skill_2_Takeoff_Begin: 'render: render/units.js UnitView.glide → SpineActor.chant',
     Skill_2_Takeoff_End: 'render: render/units.js UnitView.glide → SpineActor.chant',
     Skill_2_Takeoff_Loop: 'render: render/units.js UnitView.glide → SpineActor.chant',
-    Skill_3_Die: 'todo: F — skill mode Die pair',
     Skill_3_Restart_Begin: 'todo: G — skill prefab clip [ASSUMED]',
   },
   char_1021_kroos2: {
@@ -95,9 +92,6 @@ export const UNPLAYED = {
     Skill_2_Awake: 'todo: G — skill prefab clip',
     Skill_2_Sleep: 'todo: G — skill prefab clip',
   },
-  char_391_rosmon: {
-    Stun_Skill_3: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-  },
   char_4016_kazema: {
     Default_B: 'none: setup pose of the stand-in form (0 s); only the buff template of another unit (parrot_m1_t) names it',
     Die_2: 'todo: H — talent / trait state',
@@ -112,7 +106,6 @@ export const UNPLAYED = {
     Skill_2_B: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); S2 plays Skill_2',
   },
   char_4145_ulpia: {
-    Skill_2_Die: 'todo: F — skill mode Die pair',
     Skill_3_Back: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
     Skill_3_ReStart_A: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
     Skill_3_ReStart_B: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair) [ASSUMED]',
@@ -123,9 +116,6 @@ export const UNPLAYED = {
     Skill_2_Loop_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
     Skill_2_Trans_A: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
     Skill_2_Trans_B: 'todo: G — skill prefab clip',
-  },
-  char_4191_tippi: {
-    Die_2: 'todo: F — skill mode Die pair',
   },
   char_420_flamtl: {
     Skill_2_Attack_2: 'todo: H+J — talent / trait state; skin key table (SpineAnimator._animations)',

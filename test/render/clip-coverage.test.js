@@ -1,6 +1,6 @@
 // test/render/clip-coverage.test.js — every Spine clip of every operator model (data/assets.json chars, Front and Back) is
 // either reached by the renderer or listed with its status in clip-coverage-list.js. The renderer plays a model's roles
-// (anims: idle, deploy, die, attack, move, stun, run, skill / skills[i] begin · loop · end · idle · alts · combat, equip) plus the clips
+// (anims: idle, deploy, die, attack, move, stun, run, skill / skills[i] begin · loop · end · idle · die · stun · alts · combat, equip) plus the clips
 // render/units.js names per Spine id (FORMS, FORTRESS_CLIPS); a clip outside them never plays unless code names it. User
 // report 2026-10-12: 予愿安洁莉娜 S2's Skill_2_Takeoff_* had never played (docs/rules/diy.md 「S2 활공 모션」) — a
 // new model, a new kit or a manifest rebuild that leaves a clip unplayed now fails here until someone says why.
@@ -47,7 +47,7 @@ function rolePlayed(anims) {
     ...equip.map((r) => r.attack)];
   for (const c of clips) {
     if (!c || typeof c !== 'object') continue;
-    for (const k of ['begin', 'loop', 'end', 'idle']) if (typeof c[k] === 'string') out.add(c[k]);
+    for (const k of ['begin', 'loop', 'end', 'idle', 'die', 'stun']) if (typeof c[k] === 'string') out.add(c[k]);
     if (Array.isArray(c.alts)) for (const a of c.alts) out.add(a);   // clips taking turns (spine.js _nextAlt)
     if (c.combat) for (const a of [c.combat.loop, ...(c.combat.alts || [])]) out.add(a);   // on a blocked enemy (_swingClip)
   }
