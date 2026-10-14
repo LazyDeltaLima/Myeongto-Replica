@@ -49,7 +49,7 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   'op:char_206_gnosis:': Object.freeze({
     2: clips({ begin: 'Skill_4_Begin', loop: 'Skill_4_Loop', end: 'Skill_4_End' }),
   }),
-  // 格拉蒂亚 (char_474_glady): S2's cast clip is skchr_glady_2 `_beginAnim "Skill_2_Startup"` (`_playSkillBeginAnim 1`);
+  // 歌蕾蒂娅 (char_474_glady): S2's cast clip is skchr_glady_2 `_beginAnim "Skill_2_Startup"` (`_playSkillBeginAnim 1`);
   // Skill_2_Begin / _Loop / _End are the S2 mode's attack channel.
   'op:char_474_glady:': Object.freeze({
     1: clips({ begin: 'Skill_2_Startup', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
@@ -68,6 +68,29 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   // 银灰 (char_172_svrash): every attack of the S2 mode is `Modes/S2/Body/Attack _animKey "Combat"`; `Skill` is S3's.
   'op:char_172_svrash:': Object.freeze({
     1: clips({ loop: 'Combat' }),
+  }),
+  // The client plays clips by key only: the skill prefabs and modes name keys, and the skin's key table (chararts
+  // DefaultSkin SpineAnimator._animations) turns each into a clip name. Where the clip numbers are not the skill numbers:
+  // 安洁莉娜 (char_291_aglina): S1 is a mode with the plain Attack and no clip of its own; S2's `_default` keys
+  // Skill_1_Begin / _Loop / _End are the clips Skill1_*; S3's Skill_2_Begin / _Loop / _End are Skill1_Begin, Skill2_Loop,
+  // Skill2_End (no key names Skill2_Begin).
+  'op:char_291_aglina:': Object.freeze({
+    0: 'attack',
+    1: clips({ begin: 'Skill1_Begin', loop: 'Skill1_Loop', end: 'Skill1_End' }),
+    2: clips({ begin: 'Skill1_Begin', loop: 'Skill2_Loop', end: 'Skill2_End' }),
+  }),
+  // 焰尾 (char_420_flamtl): S1 is a buff without a clip; S2 skchr_flamtl_2 `_animKey "Skill_2"` is the clip Skill_1; S3's
+  // keys Skill_3_* (its begin and the S3 mode's Idle / Attack pairs) are the clips Skill_2_*.
+  'op:char_420_flamtl:': Object.freeze({
+    0: 'attack',
+    1: clips({ loop: 'Skill_1' }),
+    2: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
+  }),
+  // 塞雷娅 (char_202_demkni): S1 skchr_demkni_1 attacks with `_animKey "Attack"`; S2's heal key `Heal` is the clip
+  // Attack_2; Skill_Begin / _Loop / _End are S3 钙质化's.
+  'op:char_202_demkni:': Object.freeze({
+    0: 'attack',
+    1: clips({ loop: 'Attack_2' }),
   }),
 });
 

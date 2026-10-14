@@ -95,7 +95,7 @@ test('焰影苇草 S3: attacks with Skill_3_Attack and idles in Skill_3_Loop (ch
 
 // The skill clips the EN client's skill prefabs and charpack modes name where the resolver guessed another skill's
 // (tools/assets/anim-overrides.mjs, docs/rules/render.md 「Spine 클립 커버리지」).
-test('manifest: 灵知 S3 Skill_4_*, 格拉蒂亚 S2 opens with Skill_2_Startup, 伊内丝 S3 Start_Skill, 缄默德克萨斯 S2 / S3 Start_n, 银灰 S2 Combat', () => {
+test('manifest: 灵知 S3 Skill_4_*, 歌蕾蒂娅 S2 opens with Skill_2_Startup, 伊内丝 S3 Start_Skill, 缄默德克萨斯 S2 / S3 Start_n, 银灰 S2 Combat', () => {
   for (const dir of ['front', 'back']) {
     const sk = (id) => assets.chars[id].spine[dir].anims.skills;
     assert.deepEqual([sk('char_206_gnosis')[2].begin, sk('char_206_gnosis')[2].loop, sk('char_206_gnosis')[2].end],
@@ -126,4 +126,30 @@ test('缄默德克萨斯 S3: Start_3 at the cast, then the skill idle; attacks p
   run(a, 3);
   a.attack(1.2);
   assert.equal(a.current, 'Skill_3_Loop');
+});
+
+test('manifest: the skin key table shifts 安洁莉娜 / 焰尾 / 塞雷娅 clip numbers — S1 attacks plainly, S2 / S3 take the shifted clips', () => {
+  const ag = assets.chars.char_291_aglina.spine.front.anims.skills;
+  assert.equal(ag[0].via, 'attack');
+  assert.deepEqual([ag[1].begin, ag[1].loop, ag[1].end], ['Skill1_Begin', 'Skill1_Loop', 'Skill1_End']);
+  assert.deepEqual([ag[2].begin, ag[2].loop, ag[2].end], ['Skill1_Begin', 'Skill2_Loop', 'Skill2_End']);
+  for (const dir of ['front', 'back']) {
+    const fl = assets.chars.char_420_flamtl.spine[dir].anims.skills;
+    assert.equal(fl[0].via, 'attack', dir);
+    assert.equal(fl[1].loop, 'Skill_1', dir);
+    assert.deepEqual([fl[2].begin, fl[2].loop, fl[2].end, fl[2].idle], ['Skill_2_Begin', 'Skill_2_Loop', 'Skill_2_End', 'Skill_2_Idle'], dir);
+    const sa = assets.chars.char_202_demkni.spine[dir].anims.skills;
+    assert.equal(sa[0].via, 'attack', dir);
+    assert.equal(sa[1].loop, 'Attack_2', dir);
+    assert.ok(!sa[1].via, dir);
+  }
+});
+
+test('塞雷娅 S2: the heal cast plays Attack_2 once (it played S3 钙质化\'s Skill_Begin)', () => {
+  const a = actor('char_202_demkni', 1);
+  a.setSkill(true);
+  a.setSkill(false);
+  assert.deepEqual(a.log, ['Attack_2']);
+  run(a, 3);
+  assert.equal(a.mode, 'base');
 });

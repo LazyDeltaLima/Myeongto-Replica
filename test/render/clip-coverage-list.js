@@ -97,9 +97,6 @@ export const UNPLAYED = {
     Skill_3_Attack_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
     Start_2: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
   },
-  char_202_demkni: {
-    Attack_2: 'todo: G+J — skill prefab clip; skin key table (SpineAnimator._animations)',
-  },
   char_206_gnosis: {
     Skill_3: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs): the charged S2, mode S2+ Skill_2→Skill_3',
   },
@@ -118,6 +115,7 @@ export const UNPLAYED = {
   },
   char_291_aglina: {
     Idle_Charge: 'todo: E+J — equipped skill default mode (_defaultModeIndex, Born pair); skin key table (SpineAnimator._animations)',
+    Skill2_Begin: 'none: not a key of the skin SpineAnimator._animations (S3 key Skill_2_Begin plays Skill1_Begin; the client plays clips by key only)',
   },
   char_294_ayer: {
     Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
