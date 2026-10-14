@@ -2744,11 +2744,23 @@ test('假想敌：铳: unblockable, targets the highest DEF in range, ASPD ramps
   const e = put(h, 'enemy_9017_achunt', [3, 10], { tag: 'boss' });
   assert.ok(e.s.flags.unblockable);
   assert.equal(e.s.aspd, 20, 'data ASPD 0 → floor 20');
-  h.runUntil(() => e.stats.attacks >= 3, 120);
+  const step = tb('enemy_9017_achunt', '2.attack_speed'), bat = E.enemy_9017_achunt.stats.bat;
+  const at = [];
+  for (let n = 1; n <= 3; n++) { h.runUntil(() => e.stats.attacks >= n, 120); at.push(h.b.time); }
   assert.equal(h.unit('t_wall').stats.taken, 0);
   assert.ok(h.unit('t_wall2').stats.taken > 0);
-  assert.equal(e.s.aspd, 2 * tb('enemy_9017_achunt', '2.attack_speed'));
+  // official BrownbTalent_1: every attack adds a stack, a new target first clears them — 3 attacks = 3 stacks
+  assert.equal(e.s.aspd, 3 * step);
+  // the stack counts for the cooldown of the attack that adds it: 1 stack after the first attack → bat × 100 / 80
+  approx(at[1] - at[0], bat * 100 / step, 0.01, 'second attack');
+  approx(at[2] - at[1], bat * 100 / (2 * step), 0.01, 'third attack');
   assert.ok(h.unit('t_wall2').elem[EROSION] > 0);
+  // a new target: the group is cleared, then this attack's stack — 1, not the floor
+  h.b.kill(h.unit('t_wall2'), null);
+  h.runUntil(() => e.stats.attacks >= 4, 120);
+  assert.equal(e.s.aspd, step);
+  h.runUntil(() => e.stats.attacks >= 9, 120);
+  assert.equal(e.s.aspd, tb('enemy_9017_achunt', '2.max_stack_cnt') * step, 'at most max_stack_cnt stacks');
 });
 
 test('假想敌：铳 最终之罚: charges at the highest-DEF ground unit, trampling units on the way (ATK×1.2)', () => {

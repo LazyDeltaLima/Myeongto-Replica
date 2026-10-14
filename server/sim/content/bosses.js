@@ -28,8 +28,9 @@
 //                            replaces it at home. Every damage it takes costs 胄 as much (PART_TRANSFER, 无来源, 等量) —
 //                            grounded per both texts, during the dive per the PRTS talent [ASSUMED]. The shell, 剑 and
 //                            锤 are 失衡免疫 + 静态刚体 (PRTS 天赋): no push or pull moves them.
-//   boss_2/9 假想敌：铳      unblockable; highest-DEF target in range; erosion; ASPD ramp (+80 × 5) on the same target
-//                            (floor 20); 最终之罚 charge at the highest-DEF ground unit (disabled by the h07_02 override).
+//   boss_2/9 假想敌：铳      unblockable; highest-DEF target in range; erosion; ASPD +80 per attack on the same target (max 5,
+//                            a new target restarts at 1; floor 20 before the first attack); 最终之罚 charge at the highest-DEF
+//                            ground unit (disabled by the h07_02 override).
 //                            boss_9: damage ×0.2 while springs live, 盲信之誓 links (100 phys/s on the lines), 末日布道 dash.
 //   碎铳之簧 a/b/c           arts barrier (absorbs arts after RES; phys ×0.1, counter phys + erosion) / element shield
 //                            (phys+arts ×0.1, broken by its own element burst; every (spCost+1)-th attack a bouncing erosion
@@ -604,10 +605,19 @@ function kitGun(ab, e, b) {
     {
       spawn(b2, e2) { b2.addBuff(e2, { key: 'boss:unblockable', persist: true, flags: { unblockable: true } }); setAspd(b2); },
       before(c, b2, e2) { const l = targetsNear(b2, e2, range()); if (l.length) c.targets = [l.sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0]]; }, // 优先攻击防御力最高的单位
-      attack(c, b2) {
+      // ASPD stacks (official client BrownbTalent_1.Apply, on every attack): a target other than the last one clears the
+      // stack group, then the attack ALWAYS adds one stack (+`2.attack_speed`, at most `2.max_stack_cnt`) — the first
+      // attack on a new target already leaves 1 stack (until 2026-10-14 it left 0: the floor 20, a 22.5 s wait). The
+      // client re-times the running cooldown when ASPD changes (keeping its progress ratio); our engine keeps an
+      // attack's cooldown in seconds (docs/rules/sim.md), so the stack counts for the cooldown of the attack that adds
+      // it — the cooldown is re-run from the swing's start at the new ASPD, the client's effective interval [ASSUMED]
+      attack(c, b2, e2) {
         const t = c.targets[0];
-        if (t === P.last) P.n = Math.min(maxN, P.n + 1); else { P.last = t; P.n = 0; }
+        if (t !== P.last) { P.last = t; P.n = 0; }
+        P.n = Math.min(maxN, P.n + 1);
+        const was = e2.s.interval;
         setAspd(b2);
+        if (e2.atkCd > 0) e2.atkCd = Math.max(0, e2.s.interval - (was - e2.atkCd));
       },
       dealt(c, b2, e2) { elem(b2, e2, c.target, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0)); }, // 攻击时附带侵蚀损伤
       tick(b2, e2, a, dt) {
