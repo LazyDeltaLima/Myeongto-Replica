@@ -964,6 +964,27 @@
   예전 코드가 `_ToggleUseDisturb2`로 첫 노이즈를 끄던 것은 틀림(그 값은 두 번째 노이즈 스위치). [추정: `_DisturTex_02`·`_WeightTex`의 uv는 정점
   셰이더가 각 `_ST`로 만든 것 — 정점 셰이더 상수 이름은 RDEF가 지워져 확인 못 함]
   - 구현: `fxplayer.js` 셰이더 `uDisMode`(0 그대로 · 1 Origin · 2 Anchor), `uDisAnchor`, `uACtrl`, 두 번째 노이즈·가중치 유니폼; 다른 셰이더 경로는 바뀌지 않음.
+- **2차 — 셰이더별 흐름 속성**(2026-10-14, 클라 셰이더 속성 목록 + DXBC 전수): 재질에 남은 흐름 값 중 셰이더가 실제로 선언·사용하는 것만 읽는다.
+  - `_UVTween`을 선언하는 것은 Disturb Anchor(1차)와 **Dissolve AB UVTween·Dissolve Add UVTween**뿐 — 정점 셰이더가 `_UVTween × _Time.y`를 넘기고
+    픽셀 셰이더가 메인 uv(타일링 뒤)에 `.xy`, 디졸브 uv에 `.zw`를 더해 `frac`. 플레이어가 이 둘을 안 읽어 그 재질(재질 282개, 프리팹 186개 — 그중
+    오퍼레이터 몸에 붙는 버프 54개: 라플란드 더 데카덴차·노시스·카넬리안·위셔델·인디고·크루스 더 킨 글린트 …)이 멈춰 있었다. Additive·AlphaBlend·
+    Disturb(CustomData) 등의 0 아닌 `_UVTween`(수백 재질)은 다른 셰이더에서 남은 값 — 클라 셰이더에 속성이 없다.
+  - `_Speed`는 Flipbook 셰이더만, `_NoiseSpeed`·`_MaskSpeed`는 GrabPass 셰이더만 선언하고 추출된 재질 중 그 셰이더를 쓰는 것은 없다. `_FlowStrength`는
+    어떤 셰이더도 선언하지 않음. → 둘 다 안 읽음.
+  - `_Main` / `_Dissolve` / `_DisturbU·VSpeed`는 (CustomData) 계열만 선언한다. 예전 플레이어는 Additive·AlphaBlend 등에 남은 값(재질 수십 개)으로도
+    텍스처를 흘렸다 — 이제 (CustomData) 셰이더에서만 읽음(공식은 그 재질이 안 흐름).
+  - **Mask (AlphaBlend)**(사리아 버프 `demkni_buff_01_self`의 방패): 색 = (메인 + 2 · `_AddFactor` · `_AddTex`(`_AddTex_ST` uv) · `_MaskTex`.a(메인
+    uv)) × 2 · 정점색 · `_TintColor`; 클립이 `_AddTex_ST` 오프셋을 3초에 (2, −1)만큼 흘림. 예전엔 메인만 그렸다. [추정: 샘플러 셋 중 어느 것이
+    `_AddTex`·`_MaskTex`인지 — 두 번째 uv의 `_ST`가 클립이 움직이는 `_AddTex_ST`라는 데서 맞춤]
+  - Double 계열의 두 번째 디졸브도 첫 번째처럼 경계 항 `bw · (1 − roundEven(amount + .5))`을 더한다(DXBC; 예전엔 빠짐).
+  - 클립 트랙 중 받는 유니폼이 없어 버려지던 것 연결: `_DissolveTex_02_ST`(Double, 36트랙 — 안젤리나 더 멜로우 위시 `aglna2_skill_03_range_01`·가비알
+    디 인빈서블 S3·캐서린), `_IntensityU/V`(Origin·Anchor 노이즈 세기, 로즈몬티스·미즈키·비질), `_AnchorU/V`(Anchor만 — 비질), `_RimPower`(켈시 에스페란타
+    S2 구), `_AddTex_ST`(위 Mask).
+  - 확인: 단위 `test/render/fx-uv-tween.test.js`(UVTween 두 셰이더·남은 값 무시·(CustomData) 속도·Mask·클립 트랙). Windows Chrome 디버그 페이지에서
+    HEAD와 새 코드를 같은 소재로 띄워 재생 0.5초 뒤 렌더러 재질의 uv를 읽음: 라플란드 더 데카덴차 S2 `white01`·`black01`, 카넬리안 `xx`, 위셔델
+    `trail_hong1`, 노시스 `qixuan`이 HEAD 0 → 새 코드에서 흐름, 사리아 `_AddTex` 흐름, 나머지 재질 값 그대로. 스펙터 디 언체인드 S2 `ghost2_skill_02_buff_01`·
+    글래디아 `glady_skill_03_range_02`는 HEAD(1차)에서 이미 흐름. 셰이더 컴파일 오류 0(D3D 정밀도 경고 X4122 하나 — 상수 접기, 동작 무관).
+    [화면 미확인: 공식 녹화 대조, 실제 판에서 눈으로]
 - 확인: 단위 `test/render/fx-uv-tween.test.js`(흐름 식·keep·until·없는 텍스처·클립 우선, Origin·Anchor 유니폼). Windows Chrome 디버그 페이지에서
   HEAD와 나란히 0.4초 간격 3프레임: 스펙터 디 언체인드 `ghost2_beidong_buff_01`(3×3 원)이 굳은 밝은 고리 → 흐르는 물결 고리, 글래디아
   `glady_skill_03_range_02`가 오퍼레이터를 덮는 흰 고리 → 도는 반투명 소용돌이, 프레임 간 차이 2.5→4.0·0.8→3.9. 셰이더 컴파일 오류 0

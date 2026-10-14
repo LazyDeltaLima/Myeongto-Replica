@@ -95,3 +95,65 @@ test('the other shaders keep their old distortion path', () => {
   assert.equal(u.uHasDisturb.value, true);
   inst.dispose();
 });
+
+test('Dissolve AB / Add UVTween: _UVTween scrolls the main (xy) and dissolve (zw) uv; elsewhere _UVTween and the U·V speeds are leftovers', () => {
+  const uvtw = (kind) => ({ shader: `Torappu/Particles/Dissolve/Dissolve ${kind} UVTween`, tex: { _MainTex: tex(), _DissolveTex: tex() },
+    floats: { _Amount: 0.2, _BorderWidth: 0.3, _MainUSpeed: 5 }, colors: { _TintColor: [0.5, 0.5, 0.5, 0.5], _UVTween: [0.5, -0.25, 0.1, 0.2] } });
+  for (const kind of ['AB', 'Add']) {
+    const inst = new fxp.FxInstance(def(uvtw(kind)), { quality: 'high' });
+    const u = inst.meshMats[1].uniforms;
+    near(u.uMainSpeed.value.x, 0.5, `${kind} main u`); near(u.uMainSpeed.value.y, -0.25, `${kind} main v`);
+    near(u.uDissolveSpeed.value.x, 0.1, `${kind} dissolve u`); near(u.uDissolveSpeed.value.y, 0.2, `${kind} dissolve v`);
+    inst.update(2);
+    near(u.uTime.value, 2, 'the shader clock runs');
+    inst.dispose();
+  }
+  // the client's Additive / AlphaBlend declare _TintColor / _MainTex only: a leftover _UVTween or _MainUSpeed moves nothing
+  const plain = new fxp.FxInstance(def({ shader: 'Torappu/Particles/Additive', tex: { _MainTex: tex() }, floats: { _MainUSpeed: 0.7, _DissolveVSpeed: 1 },
+    colors: { _UVTween: [1, 1, 1, 1] } }), { quality: 'high' });
+  const p = plain.meshMats[1].uniforms;
+  near(p.uMainSpeed.value.x, 0, 'no main speed'); near(p.uDissolveSpeed.value.y, 0, 'no dissolve speed');
+  // the (CustomData) family declares them
+  const custom = new fxp.FxInstance(def({ shader: 'Torappu/Particles/Dissolve/Dissolve(CustomData)', tex: { _MainTex: tex() }, floats: { _MainUSpeed: 0.7 }, colors: {} }), { quality: 'high' });
+  near(custom.meshMats[1].uniforms.uMainSpeed.value.x, 0.7, 'CustomData main speed');
+  plain.dispose(); custom.dispose();
+});
+
+test('Mask (AlphaBlend): _AddTex is added through its own _AddTex_ST, and its clip scrolls that', () => {
+  const mask = { shader: 'Torappu/Particles/Mask/Mask (AlphaBlend)', tex: { _MainTex: tex(), _MaskTex: tex(), _AddTex: tex() },
+    floats: { _AddFactor: 0.5 }, colors: { _TintColor: [1, 0.2, 0, 1] } };
+  const seg = [[-3.4e38, 0, 0, 0, 0], [0, 0, 0, 2 / 3, 0], [3, 0, 0, 0, 2]];
+  const clip = { name: 'c', len: 3, loop: true, tracks: [{ node: 1, prop: 'mat:_AddTex_ST.z', type: 22, curves: [seg] }] };
+  const inst = new fxp.FxInstance(def(mask, {}, { clips: [clip] }), { quality: 'high' });
+  const u = inst.meshMats[1].uniforms;
+  assert.equal(u.uHasAdd.value, true);
+  near(u.uAddFactor.value, 0.5, 'AddFactor');
+  inst.update(1.5);
+  near(u.uAddST.value.z, 1, 'scrolled by the clip');
+  const plain = new fxp.FxInstance(def({ shader: 'Torappu/Particles/AlphaBlend', tex: { _MainTex: tex(), _AddTex: tex() }, floats: {}, colors: {} }), { quality: 'high' });
+  assert.equal(plain.meshMats[1].uniforms.uHasAdd.value, false, 'only the Mask shader adds');
+  inst.dispose(); plain.dispose();
+});
+
+test('clip tracks on _IntensityU/V, _AnchorU/V, _RimPower and the Double family\'s _DissolveTex_02_ST drive their uniforms', () => {
+  const anchor = { shader: 'Torappu/Particles/Disturb/Disturb Anchor', tex: { _MainTex: tex(), _DisturTex: tex() }, floats: { _IntensityU: 0.1 }, colors: {} };
+  const flat = (v) => [[[-3.4e38, 0, 0, 0, v], [0, 0, 0, 0, v], [1, 0, 0, 0, v]]];
+  const tracks = (props) => ({ name: 'c', len: 1, loop: true, tracks: Object.entries(props).map(([prop, v]) => ({ node: 1, prop: `mat:${prop}`, type: 22, curves: flat(v) })) });
+  const a = new fxp.FxInstance(def(anchor, {}, { clips: [tracks({ _IntensityU: 0.6, _IntensityV: 0.7, _AnchorU: 0.2, _AnchorV: 0.3 })] }), { quality: 'high' });
+  a.update(0.5);
+  const u = a.meshMats[1].uniforms;
+  near(u.uDisturbStr.value.x, 0.6, 'IntensityU'); near(u.uDisturbStr.value.y, 0.7, 'IntensityV');
+  near(u.uDisAnchor.value.x, 0.2, 'AnchorU'); near(u.uDisAnchor.value.y, 0.3, 'AnchorV');
+  const o = new fxp.FxInstance(def(origin, {}, { clips: [tracks({ _AnchorU: 0.2 })] }), { quality: 'high' });
+  o.update(0.5);
+  near(o.meshMats[1].uniforms.uDisAnchor.value.x, 0, 'Disturb Origin has no anchor');
+  const dbl = { shader: 'Torappu/Particles/Dissolve/Dissolve Add Double', tex: { _MainTex: tex(), _DissolveTex_01: tex(), _DissolveTex_02: tex() }, floats: {}, colors: {} };
+  const d = new fxp.FxInstance(def(dbl, {}, { clips: [tracks({ '_DissolveTex_02_ST.z': 0.4 })] }), { quality: 'high' });
+  d.update(0.5);
+  near(d.meshMats[1].uniforms.uDissolve2ST.value.z, 0.4, 'second dissolve offset');
+  const rim = { shader: 'Torappu/Particles/Rim/Rim Texture (Add)', tex: { _MainTex: tex() }, floats: { _RimPower: 1 }, colors: {} };
+  const r = new fxp.FxInstance(def(rim, {}, { clips: [tracks({ _RimPower: 3 })] }), { quality: 'high' });
+  r.update(0.5);
+  near(r.meshMats[1].uniforms.uRimPower.value, 3, 'RimPower');
+  a.dispose(); o.dispose(); d.dispose(); r.dispose();
+});

@@ -302,6 +302,7 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   uniform int uDisMode; uniform vec2 uDisAnchor; uniform float uACtrl;
   uniform bool uHasDisturb2; uniform sampler2D uDisturb2; uniform vec4 uDisturb2ST; uniform vec2 uDisturb2Str; uniform vec2 uDisturb2Anchor;
   uniform bool uHasWeight; uniform sampler2D uWeight; uniform vec4 uWeightST;
+  uniform bool uHasAdd; uniform sampler2D uAdd; uniform vec4 uAddST; uniform sampler2D uMask; uniform float uAddFactor;
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   void main() {
     if (vH < uFloor) discard;   // local patch: under the floor (FxInstance opts.floor)
@@ -333,6 +334,8 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       uv = (vUv + dis) * uMainST.xy + uMainST.zw + uMainSpeed * uTime;
     }
     vec4 tex = texture2D(uMain, uv);
+    // 2026-10-14 (client DXBC): Mask (AlphaBlend) — main + 2 · _AddFactor · _AddTex(own uv) · _MaskTex.a(main uv)
+    if (uHasAdd) tex += 2.0 * uAddFactor * texture2D(uAdd, vUv * uAddST.xy + uAddST.zw) * texture2D(uMask, uv).a;
     vec4 col = tex * uTint * vColor;
     // 2026-10-14 (client DXBC): Disturb Origin multiplies by _MainColor.a once more, Anchor by lerp(1, _MainColor.a,
     // _MainColorACtrl) (uTint carries the ×2)
@@ -359,7 +362,9 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
       // local patch: the … Double family cuts by a second texture with its own amount / border too [ASSUMED: alpha × both]
       if (uHasDissolve2) {
         float d2 = texture2D(uDissolve2, vUv * uDissolve2ST.xy + uDissolve2ST.zw + uDissolveSpeed * uTime + dis * uDisturbDissolve).r;
-        col.a *= clamp((d2 - uAmount2) / max(uBorder2, 1e-3), 0.0, 1.0);
+        // 2026-10-14 (client DXBC): the second cut adds its border like the first
+        float bw2 = max(uBorder2, 1e-3);
+        col.a *= clamp((d2 - uAmount2 + bw2 * (1.0 - roundEven(uAmount2 + 0.5))) / bw2, 0.0, 1.0);
       }
     }
     // local patch: Torappu/Particles/Rim — opaque at the silhouette, clear facing the camera [ASSUMED: alpha × (1 − |N·V|)^power]
@@ -393,7 +398,18 @@ function makeMaterial(m, lib) {
   const disKey = t._DisturbTex ? '_DisturbTex' : t._NoiseTex ? '_NoiseTex' : '_DisturTex';
   const disturb = tex(disKey);
   const disMode = /Disturb Origin/.test(shader) ? 1 : /Disturb Anchor/.test(shader) ? 2 : 0;
-  const uvTween = disMode === 2 && Array.isArray(c._UVTween) ? c._UVTween : [0, 0, 0, 0];
+  // 2026-10-14 (client DXBC): Disturb Anchor and Dissolve AB / Add UVTween scroll by _UVTween × _Time.y — main uv by .xy, the
+  // noise (Anchor) or dissolve (UVTween) uv by .zw. No other particle shader declares it (nor _Speed / _FlowStrength, which
+  // only Flipbook / GrabPass shaders read and no extracted material uses): there they are values left from another shader
+  const tween = disMode === 2 || /UVTween/.test(shader);
+  const uvTween = tween && Array.isArray(c._UVTween) ? c._UVTween : [0, 0, 0, 0];
+  // 2026-10-14 (client DXBC): Mask (AlphaBlend) adds _AddTex (its own uv through _AddTex_ST, which its clips scroll) × the
+  // _MaskTex alpha × _AddFactor × 2 to the main texture [ASSUMED: which sampler is which — the second uv's _ST is the one the
+  // clips move]
+  const add = /\/Mask\//.test(shader) ? tex('_AddTex') : null;
+  // 2026-10-14 (client shader properties): only the (CustomData) family declares _Main / _Dissolve / _DisturbU·VSpeed —
+  // Additive, AlphaBlend, the Dissolve and Disturb Origin / Anchor materials carry them left from another shader (they scrolled before)
+  const sp = (v) => (/CustomData/.test(shader) && v) || 0;
   const disturb2 = disMode === 2 && (f._ToggleUseDisturb2 || 0) > 0 ? tex('_DisturTex_02') : null;
   const weight = disMode === 2 && (m?.keywords || []).includes('_WEIGHT_ON') ? tex('_WeightTex') : null;
   // local patch: the … Double family dissolves by _DissolveTex_01 / _02, each with its own _Amount_0N / _BorderWidth_0N (its
@@ -412,7 +428,9 @@ function makeMaterial(m, lib) {
     blendSrcAlpha: additive ? THREE.ZeroFactor : THREE.OneFactor, blendDstAlpha: additive ? THREE.OneFactor : THREE.OneMinusSrcAlphaFactor,
     uniforms: {
       uMain: { value: tex('_MainTex') || WHITE }, uMainST: { value: st('_MainTex') },
-      uMainSpeed: { value: disMode === 2 ? new THREE.Vector2(uvTween[0], uvTween[1]) : new THREE.Vector2(f._MainUSpeed || 0, f._MainVSpeed || 0) },
+      uMainSpeed: { value: tween ? new THREE.Vector2(uvTween[0], uvTween[1]) : new THREE.Vector2(sp(f._MainUSpeed), sp(f._MainVSpeed)) },
+      uHasAdd: { value: !!add }, uAdd: { value: add || WHITE }, uAddST: { value: st('_AddTex') },
+      uMask: { value: tex('_MaskTex') || WHITE }, uAddFactor: { value: f._AddFactor ?? 1 },
       uTint: { value: new THREE.Vector4(tint[0] * tintMul, tint[1] * tintMul, tint[2] * tintMul, tint[3] * tintMul) },
       uOpacity: { value: f._Opacity ?? 1 },
       // local patch (client DXBC, 2026-10-07): only Disturb Anchor declares the _ToggleUse* switches (and Dissolve(CustomData)
@@ -420,7 +438,7 @@ function makeMaterial(m, lib) {
       // 2026-10-14 (client DXBC): Anchor's first noise always runs; _ToggleUseDisturb2 switches its second one (uHasDisturb2)
       uHasDisturb: { value: !!disturb }, uDisturb: { value: disturb || WHITE },
       uDisturbST: { value: st(disKey) },
-      uDisturbSpeed: { value: disMode === 2 ? new THREE.Vector2(uvTween[2], uvTween[3]) : new THREE.Vector2(f._DisturbUSpeed || 0, f._DisturbVSpeed || 0) },
+      uDisturbSpeed: { value: disMode === 2 ? new THREE.Vector2(uvTween[2], uvTween[3]) : new THREE.Vector2(sp(f._DisturbUSpeed), sp(f._DisturbVSpeed)) },
       uDisMode: { value: disMode }, uDisAnchor: { value: new THREE.Vector2(disMode === 2 ? f._AnchorU || 0 : 0, disMode === 2 ? f._AnchorV || 0 : 0) },
       uACtrl: { value: disMode === 1 ? 1 : disMode === 2 ? f._MainColorACtrl || 0 : 0 },
       uHasDisturb2: { value: !!disturb2 }, uDisturb2: { value: disturb2 || WHITE }, uDisturb2ST: { value: st('_DisturTex_02') },
@@ -431,7 +449,7 @@ function makeMaterial(m, lib) {
       uDisturbMain: { value: f._DisturbInfluenceMainUV ?? 1 }, uDisturbDissolve: { value: f._DisturbInfluenceDissolveUV ?? 0 },
       uHasDissolve: { value: !!dissolve && (toggles ? (f._ToggleUseDissolve ?? 1) !== 0 : useTex ? (f._UseDissolveTex ?? 1) !== 0 : true) }, uDissolve: { value: dissolve || WHITE },
       uDissolveST: { value: st(double ? '_DissolveTex_01' : '_DissolveTex') },
-      uDissolveSpeed: { value: new THREE.Vector2(f._DissolveUSpeed || 0, f._DissolveVSpeed || 0) },
+      uDissolveSpeed: { value: disMode === 0 && tween ? new THREE.Vector2(uvTween[2], uvTween[3]) : new THREE.Vector2(sp(f._DissolveUSpeed), sp(f._DissolveVSpeed)) },
       // local patch (client DXBC): Dissolve(CustomData)'s amount is _DissolveIntensity (no _Amount), … (VertexColor Major) has none:
       // its vertex alpha is the amount (uVCMajor)
       uAmount: { value: (double ? f._Amount_01 : useTex ? f._DissolveIntensity : f._Amount) || 0 }, uVCMajor: { value: /VertexColor Major/.test(shader) }, uBorder: { value: (double ? f._BorderWidth_01 : f._BorderWidth) || 0 },
@@ -457,7 +475,7 @@ function makeMaterial(m, lib) {
 }
 
 /** 2026-10-14: the uniform holding a texture's tiling / offset, by the material's texture name. */
-const TEX_ST = { _MainTex: 'uMainST', _DisturbTex: 'uDisturbST', _NoiseTex: 'uDisturbST', _DisturTex: 'uDisturbST', _DisturTex_02: 'uDisturb2ST',
+const TEX_ST = { _MainTex: 'uMainST', _AddTex: 'uAddST', _DisturbTex: 'uDisturbST', _NoiseTex: 'uDisturbST', _DisturTex: 'uDisturbST', _DisturTex_02: 'uDisturb2ST',
   _DissolveTex: 'uDissolveST', _DissolveTex_01: 'uDissolveST', _DissolveTex_02: 'uDissolve2ST', _RamTex: 'uRamST', _WeightTex: 'uWeightST' };
 
 /**
@@ -1179,7 +1197,12 @@ const CLIP_UNIFORM = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: '
   // local patch: textures' tiling / offset (a line's scrolling dots / flow)
   _MainTex_ST: 'uMainST', _DissolveTex_ST: 'uDissolveST', _DisturbTex_ST: 'uDisturbST', _NoiseTex_ST: 'uDisturbST', _DissolveIntensity: 'uAmount',
   // 2026-10-14: Disturb Origin / Anchor's noise textures and strengths
-  _DisturTex_ST: 'uDisturbST', _DisturTex_02_ST: 'uDisturb2ST', _MainColorACtrl: 'uACtrl' };
+  _DisturTex_ST: 'uDisturbST', _DisturTex_02_ST: 'uDisturb2ST', _MainColorACtrl: 'uACtrl',
+  // 2026-10-14: the tracks no uniform took before — the Double family's second dissolve tiling, Rim's power, Mask's added texture
+  _DissolveTex_02_ST: 'uDissolve2ST', _RimPower: 'uRimPower', _AddTex_ST: 'uAddST' };
+/** 2026-10-14: float tracks that drive one axis of a vector uniform (Disturb Origin / Anchor's strengths and anchors). */
+const CLIP_COMP = { _IntensityU: ['uDisturbStr', 'x'], _IntensityV: ['uDisturbStr', 'y'], _AnchorU: ['uDisAnchor', 'x'], _AnchorV: ['uDisAnchor', 'y'],
+  _IntensityU_02: ['uDisturb2Str', 'x'], _IntensityV_02: ['uDisturb2Str', 'y'], _AnchorU_02: ['uDisturb2Anchor', 'x'], _AnchorV_02: ['uDisturb2Anchor', 'y'] };
 /**
  * local patch: a renderer whose node rests more than this far under the ground (board height, tiles) is cut at the floor
  * (FxInstance opts.floor): the client's map hides it by depth (surtr_skill_03_range gx_glow 0.42 under, 5 tiles away;
@@ -1436,8 +1459,9 @@ export class FxInstance {
     const mat = this.meshMats[tr.node] || this.systems.find((s) => s.node === o)?.material
       || this.trails.find((t) => t.node === o)?.batch.material || this.lines.find((t) => t.node === o)?.batch.material;
     if (!mat) return null;
-    const [name, comp] = tr.prop.slice(4).split('.');
-    const uname = CLIP_UNIFORM[name];
+    const [name, comp0] = tr.prop.slice(4).split('.');
+    const uname = CLIP_UNIFORM[name] || CLIP_COMP[name]?.[0], comp = comp0 || CLIP_COMP[name]?.[1];
+    if (/^_Anchor/.test(name) && mat.uniforms.uDisMode?.value !== 2) return null;   // only Disturb Anchor declares them
     const u = mat.uniforms[uname];
     if (!u) return null;
     if (mat.userData.uvt) mat.userData.uvt = mat.userData.uvt.filter((e) => e.u !== u); // uvTween: the clip's property block wins
@@ -1568,7 +1592,7 @@ export class FxInstance {
         case 'scale': o.scale.set(v[0], v[1], v[2]); break;
         case 'quat': o.quaternion.set(v[0], v[1], v[2], v[3]).normalize(); break;
         case 'euler': o.quaternion.setFromEuler(clipE.set(v[0] * D2R, v[1] * D2R, v[2] * D2R, 'YXZ')); break;
-        case 'matComp': if (b.u.value?.isVector4) b.u.value[b.axis] = v[0] * b.k; break;
+        case 'matComp': if (b.u.value?.isVector4 || b.u.value?.isVector2) b.u.value[b.axis] = v[0] * b.k; break;
         case 'width': b.ln.w = v[0]; break; // local patch
         case 'active': o.visible = v[0] > 0.5; break; // local patch: m_IsActive
         default: b.u.value = v[0];
