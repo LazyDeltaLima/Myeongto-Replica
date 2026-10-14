@@ -83,8 +83,9 @@ export const STATUS = Object.freeze({
   // 恐惧: 无法被阻挡并四散逃跑 (no attacks, unblockable; leaves its route and runs to random tiles of the fan away from the
   // source — fear.js, stamped by Battle.applyStatus)
   fear: { flags: { fear: true, unblockable: true }, immune: 'feared' },
-  // 战栗: 被阻挡后无法进行普通攻击
-  tremble: { flags: { tremble: true }, immune: 'feared' },
+  // 战栗: 被阻挡后无法进行普通攻击 — resisted by 战栗免疫 (enemy data `disarmedCombatImmune`; the client's
+  // CheckAbnormalImmune DISARMED_COMBAT), not by 恐惧免疫 as before 2026-10-15
+  tremble: { flags: { tremble: true }, immune: 'disarmedcombat' },
   disarm: { flags: { disarm: true } },
   // 隐匿 (ba.invisible): 不阻挡时不成为敌方攻击的目标 (an ally: only the enemy it blocks attacks it — targeting.js)
   stealth: { flags: { stealth: true } },

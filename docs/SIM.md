@@ -661,7 +661,7 @@ applied); a unit that is 无敌 and 无法选中 at once (flags `invulnerable` +
 永久无敌 leader part) takes no status from the other side, `force` included (PRTS 无敌 "无法被不同阵营选中" — so the status
 a knocking-out hit carries, 妮芙 S2's fear say, does not land after the 重生's cleanse; since 0.1.1's QA); refused when
 `source` is a ground enemy and the target an airborne 起飞 ally (对地规避, unless `ignoreSelect`); honours
-enemy/op immunities (`stun`, `silence`, `sleep`, `frozen`, `levitate`, `feared`) unless `force`; fires
+enemy/op immunities (`stun`, `silence`, `sleep`, `frozen`, `levitate`, `feared`, `disarmedcombat` — 战栗) unless `force`; fires
 `beforeStatus` (cancellable; handlers may also change `ctx.duration` / `ctx.value`), then applies 抵抗 (`resist`, below)
 and the 浮空 weight rule, then `statusApplied { source, target, status, duration (final), value, entered }` — `entered`
 = the target carried no buff of that status before (a refresh / a weaker "取最高" application is not an entry: "进入…时"). Effects follow the official term table

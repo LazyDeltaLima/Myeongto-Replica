@@ -295,6 +295,23 @@ test('淤困 (enemy_9007_acelem) parasite hosts side by side: one burst spreads 
   assert.ok(hpA - A.hp < 2 * ELEMENT.burn.ally.damage && hpB - B.hp < 2 * ELEMENT.burn.ally.damage);
 });
 
+// the client's CheckAbnormalImmune(DISARMED_COMBAT) before a 战栗 (buff templates such as enemy_vtmstr_equip_B_attack_disarm[char])
+test('战栗 is resisted by 战栗免疫 (disarmedCombat), not by 恐惧免疫 (feared)', () => {
+  const enemies = {
+    enemy_fear: dummy({ key: 'enemy_fear', otherImmunities: ['feared'] }),
+    enemy_trem: dummy({ key: 'enemy_trem', otherImmunities: ['disarmedCombat'] }),
+  };
+  const h = makeBattle({ defs: { enemies }, units: [], enemies: [{ key: 'enemy_fear', pos: [11, 8] }, { key: 'enemy_trem', pos: [10, 8] }], content: 'none', autoFinish: false, timeLimit: 60 });
+  h.step();
+  const [f, t] = ['enemy_fear', 'enemy_trem'].map((k) => h.enemies().find((e) => e.defId === k));
+  h.b.applyStatus(f, 'tremble', { duration: 3 });
+  h.b.applyStatus(t, 'tremble', { duration: 3 });
+  assert.ok(f.s.flags.tremble, '恐惧免疫 does not stop a 战栗');
+  assert.ok(!t.s.flags.tremble, '战栗免疫 does');
+  h.b.applyStatus(f, 'fear', { duration: 1 });
+  assert.ok(!f.s.flags.fear, '恐惧免疫 still stops a 恐惧');
+});
+
 test('statuses (official terms): tremble only stops attacks while blocked; fear = unblockable + no attack + no advance (no source: it stays on its tile, fear.js); stunned blocker lets go', () => {
   const g = chessRec({ id: 't_guard', profession: 'WARRIOR', stats: { atk: 0, blockCnt: 2, maxHp: 1e6 }, skill: null });
   const h = makeBattle({

@@ -911,6 +911,13 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **옛 동작**: 막히지 않은 원거리 적만 `ATTACK_PAUSE` 0.35 s 섬. 되돌리려면 `ai.js enemyAttack`의 麻痹 갈래 두 줄을 옛 `atkStandUntil` 식으로.
 - 미구현: PRTS 「或开始动作2秒时被打断」(선딜 2 s 넘는 공격의 2 s 시점 끊김).
 
+### 战栗 면역 (2026-10-15)
+- **규칙**: 战栗(`tremble`)은 적 데이터의 战栗 면역(`disarmedCombatImmune` → enemies.json `otherImmunities` 'disarmedCombat')이 막는다. 클라 버프
+  템플릿이 战栗을 걸기 전에 `CheckAbnormalImmune(DISARMED_COMBAT)`로 거른다(예: `enemy_vtmstr_equip_B_attack_disarm[char]`). 대상: 折桠 S1·战栗维式重锤·
+  冲击式施术单元(알리스테어 장비를 든 오퍼레이터).
+- **옛 동작**(upstream부터): 恐惧 면역(`feared`)이 막았다 → 恐惧만 면역인 7종(假想敌：胄 ×2·管 ×2·弦·阿利斯泰尔·乌顶巨角卢鲁 `enemy_10144_xdelk_2`)이 战栗도 막았고, 战栗만 면역인
+  愧悔魂灵圣杯는 걸렸다. 그중 胄·管·阿利斯泰尔은 자박·저지 불가라 战栗(저지당했을 때만 공격 못 함)이 걸려도 효과가 없다.
+
 ### 괴사 손상의 SP 감소와 지속형 스킬 (결정 4 조사, 동작 그대로)
 - 클라 코드 `Entity.DoApplyModifier`(0x35F6B50)의 SP 갈래: `SP_MODIFY_STOPPED`면 거부, `spRecoverStopped`(지속형 스킬 중 주인 플래그)는 **증가만** 막는다 →
   감소는 지속 중에도 들어가지만 깎이는 것은 남은 SP뿐이고 지속 시간은 능력 타이머라 줄지 않는다. 1회 충전 지속형은 시전 때 SP가 0이라 결과가 같다 —

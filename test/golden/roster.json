@@ -2980,8 +2980,8 @@
         "enemy_1430_lrrook": [1,0,1,0,19192],
         "enemy_2017_csphts": [1,1,0,2172,16589]
       },
-      "hooks": [1,104,6202,298,298,2973,2971,27931,72,96,87,86,0,12774,393,40,90,24,1,86,8,0,5],
-      "events": {"atk":504,"bounty":3,"deploy":11,"die":72,"dmg":2971,"engage":6,"face":38,"fx":133,"heal":63,"layer":8,"leak":24,"skill":173,"spawn":100,"status":768,"swing":327,"tplfx":34},
+      "hooks": [1,104,6202,298,298,2973,2971,27931,72,96,87,86,0,12774,384,40,90,24,1,86,8,0,5],
+      "events": {"atk":504,"bounty":3,"deploy":11,"die":72,"dmg":2971,"engage":6,"face":38,"fx":133,"heal":63,"layer":8,"leak":24,"skill":173,"spawn":100,"status":767,"swing":327,"tplfx":34},
       "fx": {"dodge":5,"enemySkill":3,"explode":10,"garrison":8,"lightning":39,"revive":1,"shield":6,"slash":11,"sp":31,"storm":2,"substitute":4,"summon":2,"swap":4,"telegraph":2,"weightless":5},
       "snaps": "2f1dc807 2f6d93d3 878c1fdb 8c9a3363 18a46754 3eaed87f 49132753 998b5af5 f7d3b524 2fa3299a 2824558d 28de00de fc9f7c37 d43b2ab2 5a48d8c4 e67edf87 ef644c6a fd2d250b 6082f767 672a645e d3a97ffd"
     },
