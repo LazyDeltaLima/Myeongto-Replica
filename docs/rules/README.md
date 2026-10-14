@@ -41,6 +41,7 @@
 |---|---|---|
 | 한국어 번역 (UI·데이터·공식 문구) | `public/js/i18n/*`, `public/i18n/ko/*`, `tools/i18n/*` | — |
 | 협동 방 채팅, 채팅 진영 (8개국, 맹약 아이콘) | `server/local-patch.js`, `shared/local.js`, `public/js/ui/chat.js`, `public/js/ui/faction.js`, `public/css/chat.css` | — |
+| 채팅 알림음 (다른 참가자의 새 채팅에 이모티콘 효과음, 설정에서 끄기·크기·간격·진영 선택 알림) | `public/js/audio.js` `chatNotification`, `public/js/ui/chat.js`, `public/js/ui/settings.js` | `audio.md` 「채팅 알림음」 |
 | 로비 업데이트 소식 (작전 팁 칸의 「업데이트」 탭 + 「업데이트 소식」 창, 원문 `CHANGELOG.md`) | `server/http/changelog.js`, `public/js/ui/patchNotes.js`, `public/js/screens/lobby.js`, `test/changelog.test.js` | `ui.md` 「로비 업데이트 소식」 |
 | 서버 재시작 예고 (배포 전 카운트다운, 마지막 5분 판 시작 거부) | `server/local-restart.js`, `public/js/ui/restartNotice.js`, `test/local-restart.test.js` | `ui.md` 「서버 재시작 예고」 |
 | `SP_MAX_BOTS` (방마다 AI 팀원 한도), `SP_MAX_BOTS_TOTAL`·`SP_MAX_BOTS_PER_ADDR` (서버 전체·네트워크별 AI 팀원 한도, 연결된 사람이 앉은 방의 AI만 셈, 거절은 `BOT_LIMIT`) | `server/local-patch.js` `botCap` | — |

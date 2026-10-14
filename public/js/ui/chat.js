@@ -8,7 +8,9 @@
 //                  changes), each stamped with its local receipt time `rx` (0 for history lines, which never pop up as
 //                  new). `seen` is the last seq the player has read: kept in the store, not in a panel, so the unread
 //                  badge and the floating feed survive the screen / match-phase switches that remount the panels;
-//                  history lines a player gets on joining or resyncing count as read.
+//                  history lines a player gets on joining or resyncing count as read. A new line of another player
+//                  rings the chat notification (audio.js chatNotification; settings 聊天提示音), a faction pick only
+//                  with 阵营选择提示 on; history lines, the player's own lines and a seq already kept never do.
 //   FactionPicker  the chat faction (server/local-patch.js, room.factions → store.chatFactions): a colored tag on the
 //                  player's lines and avatar until the match ends; picking one announces it as a `kind: 'faction'` line
 //                  and applies the faction's 自选 preset if the player made one (ui/factionPick.js chooseFaction — the
@@ -25,6 +27,8 @@ import { CHAT_MAX_LEN, CHAT_COOLDOWN_MS, CHAT_FACTIONS, chatFaction } from '../.
 import { html } from './components.js';
 import { net } from '../net.js';
 import { store, useStore, loadPref, savePref } from '../store.js';
+import { audio } from '../audio.js';
+import { settingsStore } from './settings.js';
 import { t } from '../../../shared/i18n.js';
 import { FactionIcon, factionIconUrl } from './faction.js';
 import { chooseFaction, PresetNotice } from './factionPick.js';
@@ -78,6 +82,18 @@ export function historySeen(known, history, seen) {
   return out;
 }
 
+/**
+ * Does a live line ring the chat notification? Another player's new line in the current room; a faction pick only with
+ * `factionAlerts`.
+ * @param {any} line
+ * @param {{ myId: any, known: any[], factionAlerts: boolean }} o
+ */
+export function notifiesChat(line, { myId, known, factionAlerts }) {
+  if (!line || !Number.isInteger(line.seq) || line.playerId === myId) return false;
+  if (line.kind === 'faction' && !factionAlerts) return false;
+  return !known.some((l) => l.seq === line.seq);
+}
+
 /** Others' lines newer than `seenSeq`. */
 export const unreadCount = (lines, myId, seenSeq) => lines.filter((l) => l.seq > seenSeq && l.playerId !== myId).length;
 
@@ -93,7 +109,13 @@ export function installChat() {
     const seen = rx ? (same ? cur.seen || 0 : 0) : historySeen(base, incoming, same ? cur.seen || 0 : 0);
     store.set({ chat: { code, lines: mergeLines(base, incoming.map((l) => ({ ...l, rx: rx ? Date.now() : 0 }))), seen } });
   };
-  net.on('room.chat', (m) => put([m], true));
+  net.on('room.chat', (m) => {
+    const cur = store.get().chat;
+    const known = cur && cur.code === roomCode() ? cur.lines : [];
+    const ring = roomCode() && notifiesChat(m, { myId: store.get().me?.playerId, known, factionAlerts: settingsStore.get().chatFactionAlerts });
+    put([m], true);
+    if (ring) audio.chatNotification();
+  });
   net.on('room.chatlog', (m) => put(Array.isArray(m.lines) ? m.lines : [], false));
   // room.factions { factions: { [playerId]: factionId } } (server/local-patch.js) → store.chatFactions
   net.on('room.factions', (m) => { if (roomCode()) store.set({ chatFactions: m.factions && typeof m.factions === 'object' ? { ...m.factions } : {} }); });

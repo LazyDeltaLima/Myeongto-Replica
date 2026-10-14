@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1251 of 1467 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1256 of 1472 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1197,6 +1197,11 @@
   "韩语": "한국어",
   "日语": "일본어",
   "语音语言": "음성 언어",
+  "聊天提示音": "채팅 알림음",
+  "提示音音量": "알림음 크기",
+  "提示间隔": "알림 간격",
+  "阵营选择提示": "진영 선택 알림",
+  "房间和对局中其他玩家发来新消息时播放表情提示音。提示音播放中或提示间隔内收到的消息不再提示。": "방과 판 진행 중에 다른 박사가 새 메시지를 보내면 이모티콘 효과음을 재생합니다. 알림음이 재생 중이거나 알림 간격 안에 온 메시지는 알리지 않습니다.",
   "用户表情 {n}": "유저 {n}",
   "炎国": "염국",
   "萨尔贡": "사르곤",

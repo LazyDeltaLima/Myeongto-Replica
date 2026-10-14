@@ -420,7 +420,67 @@ function fakeWindow() {
 }
 
 describe('AudioManager', () => {
-  test('no AudioContext / no manifest: every call is a silent no-op', () => {
+  test('chat notification: the emote sound on its own channel, one at a time, at most once per gap', async () => {
+    const fw = fakeWindow();
+    const origFetch = globalThis.fetch;
+    const urls = [];
+    globalThis.fetch = async (u) => { urls.push(u); return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) }; };
+    const realNow = performance.now.bind(performance);
+    let clock = 0;
+    performance.now = () => clock;
+    try {
+      const a = new AudioManager({ win: fw.win, getManifest: () => manifest });
+      a.install();
+      assert.equal(await a.chatNotification(), false, 'nothing before the first gesture');
+      fw.fire('pointerdown');
+      a.setVolumes({ chatVolume: 0.4, chatCooldown: 3, chatSound: true });
+      assert.equal(a.chatGain.gain.value, 0.4 ** 2, 'its own volume');
+      assert.equal(await a.chatNotification(), true);
+      assert.ok(asked(urls, manifest.audio.sfx.ui.emote), 'the official emote sound');
+      const first = a.chatNode;
+      assert.ok(first);
+      assert.equal(await a.chatNotification(), false, 'one at a time');
+      first.onended();
+      assert.equal(a.chatNode, null);
+      clock = 2999;
+      assert.equal(await a.chatNotification(), false, 'dropped inside the gap, not queued');
+      clock = 3000;
+      assert.equal(await a.chatNotification(), true, 'the gap counts from the start of the last one');
+      a.chatNode.onended();
+      // the gap is never shorter than the sound + 0.5 s (the fake decodes 1.5 s)
+      a.setVolumes({ chatCooldown: 1 });
+      clock = 4999;
+      assert.equal(await a.chatNotification(), false);
+      clock = 5000;
+      assert.equal(await a.chatNotification(), true);
+      a.chatNode.onended();
+      // switched off: a line rings nothing, the volume slider's preview still plays and leaves the gap alone
+      a.setVolumes({ chatSound: false });
+      clock = 9000;
+      assert.equal(await a.chatNotification(), false, 'off');
+      assert.equal(await a.chatNotification({ preview: true }), true, 'preview while off');
+      a.chatNode.onended();
+      a.setVolumes({ chatSound: true });
+      assert.equal(await a.chatNotification(), true, 'a preview does not start the gap');
+      // muting stops the one on air
+      a.setVolumes({ muted: true });
+      assert.equal(a.chatNode, null);
+      assert.equal(await a.chatNotification({ preview: true }), false, 'muted: not even a preview');
+      a.setVolumes({ muted: false, chatVolume: 0 });
+      assert.equal(await a.chatNotification({ preview: true }), false, 'volume 0');
+      // a hidden tab rings nothing (the context is suspended; nothing is kept for later)
+      a.setVolumes({ chatVolume: 0.5 });
+      clock = 20000;
+      fw.win.document.hidden = true;
+      assert.equal(await a.chatNotification(), false, 'hidden tab');
+      fw.win.document.hidden = false;
+      assert.equal(await a.chatNotification(), true);
+    } finally {
+      globalThis.fetch = origFetch;
+      performance.now = realNow;
+    }
+  });
+  test('no AudioContext / no manifest: every call is a silent no-op', async () => {
     const a = new AudioManager({ win: null, getManifest: () => null });
     a.install();
     a.playBgm('prep');
@@ -429,7 +489,8 @@ describe('AudioManager', () => {
     assert.equal(a.unit('char_x', 'attack', 1), false);
     a.handleBattleEvents([['atk', 1, 2, 'arrow'], 'junk', null]);
     a.setVolumes({ bgm: 5, sfx: -1, muted: true });
-    assert.deepEqual(a.volumes, { bgm: 1, sfx: 0, voice: 0.8, muted: true });
+    assert.deepEqual(a.volumes, { bgm: 1, sfx: 0, voice: 0.8, chat: 0.5, muted: true });
+    assert.equal(await a.chatNotification(), false, 'no context: the chat notification resolves false');
     assert.equal(a.unlocked, false);
   });
   test('unlocks on the first gesture, then plays BGM and SFX from the manifest', async () => {

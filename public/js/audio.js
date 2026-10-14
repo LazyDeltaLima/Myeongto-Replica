@@ -10,8 +10,12 @@
 //
 // - The AudioContext is created on the first user gesture (pointerdown/keydown/touchend), so browsers
 //   never block or warn; everything requested before that is remembered (BGM) or dropped (SFX).
-// - Channels: master → { bgm, sfx, voice } gains; volumes from settings (0..1) + mute. Tab hidden ⇒ suspend
+// - Channels: master → { bgm, sfx, voice, chat } gains; volumes from settings (0..1) + mute. Tab hidden ⇒ suspend
 //   (except while `keepAwake` — the 랜덤 매칭 wait: UI sounds only, BGM and voice silent).
+// - Chat notification (`chatNotification`, ui/chat.js): another player's new chat line plays the official emote sound
+//   (`sfx.ui.emote`) on its own channel (settings 聊天提示音 / 提示音音量), one at a time and at most once per
+//   `chatCooldown` s (settings 提示间隔, at least the sound's length + 0.5 s); a line arriving meanwhile is dropped,
+//   never queued. A hidden tab plays none, `keepAwake` or not.
 // - BGM: `intro` then `loop` (1 s crossfade); switching tracks fades out/in (0.8 s). The same loop URL
 //   keeps playing across phases (prep and combat share a track).
 // - 开战 BGM: `bgm.combatAlts` are the mode's own battle tracks (塞壬唱片 骑士之日 / 无畏者). The track is fixed per
@@ -601,8 +605,15 @@ export class AudioManager {
     this.voiceGain = null;
     this.bus = null;          // local patch: BattleGameSound — the channels a mixer snapshot filters (audioSnapshot.js)
     this.sfxOutside = null;   // local patch: sfx outside it (Independent banks, UI one-shots)
-    this.volumes = { bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false };
+    this.chatGain = null;
+    this.volumes = { bgm: 0.6, sfx: 0.8, voice: 0.8, chat: 0.5, muted: false };
     this.awake = false;       // keepAwake: a hidden tab keeps the context running (UI sounds only)
+    this.chatOn = true;          // settings chatSound
+    this.chatCooldown = 2;       // settings chatCooldown (s)
+    this.chatNode = null;        // the notification on air
+    this.chatPending = false;    // its buffer is loading
+    this.chatToken = 0;          // bumped by stopChatNotification: a load in flight then plays nothing
+    this.chatLast = null;        // { at, ms }: start time and length of the last notification (the gap counts from it)
     this.buffers = new Map(); // url → Promise<AudioBuffer|null> (insertion order = LRU)
     this.bufBytes = new Map(); // url → decoded PCM bytes (the byte budget of the LRU, see _buffer)
     this.warned = new Set();
@@ -664,6 +675,9 @@ export class AudioManager {
       this.bgmGain = this.ctx.createGain();
       this.sfxGain = this.ctx.createGain();
       this.voiceGain = this.ctx.createGain();
+      // the chat notification is not part of the battle mix: straight to the master, outside the snapshot bus
+      this.chatGain = this.ctx.createGain();
+      this.chatGain.connect(this.master);
       // local patch (report follow-up): the channels meet on `bus` (BattleGameSound) so a mixer snapshot can filter
       // them (audioSnapshot.js); `sfxOutside` carries the sfx outside that bus straight to the master
       this.bus = this.ctx.createGain();
@@ -754,8 +768,9 @@ export class AudioManager {
   }
 
   /**
-   * Set channel volumes (0..1) and mute.
-   * @param {{ bgm?: number, sfx?: number, voice?: number, muted?: boolean }} v
+   * Set channel volumes (0..1) and mute, and the chat notification's switch and gap (the settings store's shape).
+   * @param {{ bgm?: number, sfx?: number, voice?: number, chatVolume?: number, muted?: boolean, chatSound?: boolean,
+   *   chatCooldown?: number }} v
    */
   setVolumes(v) {
     const n = (x, d) => (Number.isFinite(x) ? Math.max(0, Math.min(1, x)) : d);
@@ -763,8 +778,12 @@ export class AudioManager {
       bgm: n(v?.bgm, this.volumes.bgm),
       sfx: n(v?.sfx, this.volumes.sfx),
       voice: n(v?.voice, this.volumes.voice),
+      chat: n(v?.chatVolume, this.volumes.chat),
       muted: typeof v?.muted === 'boolean' ? v.muted : this.volumes.muted,
     };
+    if (typeof v?.chatSound === 'boolean') this.chatOn = v.chatSound;
+    if (Number.isFinite(v?.chatCooldown)) this.chatCooldown = Math.max(1, Math.min(5, Math.round(v.chatCooldown)));
+    if (!this.chatOn || this.volumes.muted || this.volumes.chat <= 0) this.stopChatNotification();
     this._applyVolumes();
   }
 
@@ -780,6 +799,7 @@ export class AudioManager {
       this.sfxOutside?.gain.setTargetAtTime(this.volumes.sfx ** 2, t, 0.03); // local patch: the same channel outside the snapshot bus
       // no 0.9: a voice line is already mastered as loud as the rest of the official mix (settings 干员语音 tunes it)
       this.voiceGain.gain.setTargetAtTime(away ? 0 : this.volumes.voice ** 2 * VOICE_GAIN, t, 0.03); // local patch: the Voice group
+      this.chatGain?.gain.setTargetAtTime(this.volumes.chat ** 2, t, 0.03);
     } catch { /* ignore */ }
   }
 
@@ -983,6 +1003,58 @@ export class AudioManager {
       const url = this.getManifest()?.audio?.sfx?.ui?.[name];
       if (typeof url === 'string') this._play(url, { volume: o.volume ?? 0.9 });
     } catch { /* ignore */ }
+  }
+
+  // ---- chat notification ------------------------------------------------------------------------------------
+
+  /** Stop the notification on air and drop one still loading. */
+  stopChatNotification() {
+    this.chatToken += 1;
+    this.chatPending = false;
+    const node = this.chatNode;
+    this.chatNode = null;
+    if (node) { try { node.stop(); } catch { /* already ended */ } }
+  }
+
+  /**
+   * Play the chat notification (the emote sound) on the chat channel. `preview` (the settings' volume slider) plays it
+   * even while switched off, cuts the one on air and leaves the gap alone. Resolves whether it played.
+   * @param {{ preview?: boolean }} [o]
+   * @returns {Promise<boolean>}
+   */
+  async chatNotification({ preview = false } = {}) {
+    const url = this.getManifest()?.audio?.sfx?.ui?.emote;
+    const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const blocked = () => !this.ctx || this.ctx.state !== 'running' || !!this.win?.document?.hidden
+      || this.volumes.muted || this.volumes.chat <= 0 || (!preview && !this.chatOn);
+    if (typeof url !== 'string' || blocked()) return false;
+    if (preview) this.stopChatNotification();
+    else if (this.chatPending || this.chatNode
+      || (this.chatLast && now() < this.chatLast.at + Math.max(this.chatCooldown * 1000, this.chatLast.ms + 500))) return false;
+    const token = this.chatToken;
+    const asked = now();
+    this.chatPending = true;
+    try {
+      const buf = await this._buffer(url);
+      // a first load slower than 2 s is late news: drop it rather than ring long after the line
+      if (token !== this.chatToken || !buf || now() - asked > 2000 || blocked()) return false;
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.chatGain);
+      src.onended = () => {
+        if (this.chatNode === src) this.chatNode = null;
+        try { src.disconnect(); } catch { /* ignore */ }
+      };
+      this.chatNode = src;
+      src.start();
+      if (!preview) this.chatLast = { at: now(), ms: buf.duration * 1000 };
+      return true;
+    } catch (err) {
+      this._warn('chat', err);
+      return false;
+    } finally {
+      if (token === this.chatToken) this.chatPending = false;
+    }
   }
 
   /** Battle sound by name (sfx.battle keys), limited like unit sounds. */

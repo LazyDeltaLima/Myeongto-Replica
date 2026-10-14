@@ -713,11 +713,22 @@ describe('keyboard & settings', () => {
   test('sanitizeSettings', () => {
     assert.deepEqual(sanitizeSettings(null), { ...DEFAULT_SETTINGS });
     assert.deepEqual(sanitizeSettings({ bgm: 3, sfx: -1, voice: 2, muted: 'yes', damageNumbers: false, quality: 'ultra' }),
-      { bgm: 1, sfx: 0, voice: 1, muted: false, damageNumbers: false, quality: 'high', keys: { ...DEFAULT_SETTINGS.keys } },
+      { bgm: 1, sfx: 0, voice: 1, muted: false, damageNumbers: false, quality: 'high', keys: { ...DEFAULT_SETTINGS.keys },
+        chatSound: true, chatVolume: 0.5, chatCooldown: 2, chatFactionAlerts: false },
       'a saved profile without `keys` (before 0.2.0) gets the default key map (test/ui/feedback5-hotkeys.test.js)');
     assert.equal(sanitizeSettings({ bgm: 0.5 }).voice, DEFAULT_SETTINGS.voice, 'a saved profile without `voice` gets the default');
     assert.equal(sanitizeSettings({ bgm: 0.333 }).bgm, 0.33);
     assert.equal(sanitizeSettings({ quality: 'low' }).quality, 'low');
+    // the chat notification (ui/settings.js 聊天提示音)
+    assert.equal(sanitizeSettings({ chatSound: false }).chatSound, false);
+    assert.equal(sanitizeSettings({ chatSound: 'emote' }).chatSound, true, 'not a boolean: the default');
+    assert.equal(sanitizeSettings({ chatVolume: 3 }).chatVolume, 1);
+    assert.equal(sanitizeSettings({ chatVolume: -1 }).chatVolume, 0);
+    assert.equal(sanitizeSettings({ chatCooldown: 9 }).chatCooldown, 5);
+    assert.equal(sanitizeSettings({ chatCooldown: 0 }).chatCooldown, 1);
+    assert.equal(sanitizeSettings({ chatCooldown: 3.4 }).chatCooldown, 3, 'whole seconds');
+    assert.equal(sanitizeSettings({ chatCooldown: 'x' }).chatCooldown, DEFAULT_SETTINGS.chatCooldown);
+    assert.equal(sanitizeSettings({ chatFactionAlerts: true }).chatFactionAlerts, true);
   });
 });
 
