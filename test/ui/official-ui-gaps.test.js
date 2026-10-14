@@ -112,3 +112,30 @@ describe('operator card tabs scroll on their own', () => {
     assert.match(js, /ref=\$\{paneRef\} class=\$\{cx\('dart__pane', `dart__pane--\$\{cur\.id\}`, edges\.scroll && 'is-scroll', edges\.up && 'has-up', edges\.down && 'has-down'\)\}/);
   });
 });
+
+describe('a stage device\'s card takes the operator card\'s official form (GitHub #3)', () => {
+  // the client opens UICharacterInfoPanel on a trap like on an operator (AutoChessHighlightState._OnTileClicked →
+  // AutoChessUIPlugin.ReqShowCharacterMenu); maintainer decision 2026-10-14
+  test('DetailPanel renders DeviceDetailArt in the .dpanel--chess family while the HUD has its official look', () => {
+    const js = read('public/js/ui/detailPanel.js');
+    assert.match(js, /const artDevice = detail\.type === 'device' && !!hudArt\(\)\.cls;/);
+    assert.match(js, /`dpanel--\$\{detail\.type\}`, artDevice && 'dpanel--chess'/, 'the device card gets the operator card\'s class family: no box, presses pass through');
+    assert.match(js, /\$\{detail\.type === 'device' \? html`<\$\{artDevice \? DeviceDetailArt : DeviceDetail\} device=\$\{detail\.device\}/);
+    assert.match(js, /\$\{detail\.type === 'enemy' \? html`<\$\{EnemyDetail\}/, 'the enemy card keeps its box (a later decision)');
+    assert.match(js, /\$\{detail\.type === 'terrain' \? html`<\$\{TerrainDetail\}/, 'the terrain card too: the client shows a toast, not this panel');
+  });
+
+  test('DeviceDetailArt: the operator card\'s parts — head, stat list, 攻击范围 tile, HP bar, tabs, the scrolling pane', async () => {
+    const js = read('public/js/ui/detailArt.js');
+    const body = js.slice(js.indexOf('export function DeviceDetailArt('), js.indexOf('/** The first vnode under'));
+    assert.ok(body.length > 0);
+    for (const cls of ['dart is-device', 'dart__bg', 'dart__head', 'dart__prof', 'dart__name', 'dart__mid', 'dart__stats', 'dart__tile dart__range', 'dart__hp', 'dart__tabs', 'dart__tab']) assert.ok(body.includes(cls), cls);
+    assert.match(body, /label: N_\('技能'\)/);
+    assert.match(body, /label: N_\('装置机制'\)/);
+    assert.match(body, /const edges = useScrollEdges\(paneRef, \[cur\?\.id\]\);/);
+    const { DeviceDetailArt } = await import('../../public/js/ui/detailArt.js');
+    assert.equal(typeof DeviceDetailArt, 'function');
+    const css = read('public/css/hud-art.css');
+    assert.match(css, /\.dart\.is-device \.dart__prof \.icon \{/);
+  });
+});

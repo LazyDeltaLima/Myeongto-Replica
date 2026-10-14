@@ -28,8 +28,8 @@
 //                           drag showed the bare slot record 「自选干员」); null for an item / token or an unknown piece
 
 import { useRef, useState } from '../../vendor/hooks.module.js';
-import { html, TierChip, useScrollEdges } from './components.js';
-import { Img } from './gameComponents.js';
+import { html, Icon, TierChip, useScrollEdges } from './components.js';
+import { Img, RichText } from './gameComponents.js';
 import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail } from './detailPanel.js';
 import { attackInterval, fmtNum, chessLoadout, pickGetter, standInLoadout, standInLabel, standInTip, standInForText } from './gameLogic.js';
 import { chessPortraitUrl, profIconUrl, uiUrl } from './assetUrls.js';
@@ -158,6 +158,63 @@ export function ChessDetailArt(props) {
     cur ? html`<div key=${`pane:${cur.id}`} ref=${paneRef} class=${cx('dart__pane', `dart__pane--${cur.id}`, edges.scroll && 'is-scroll', edges.up && 'has-up', edges.down && 'has-down')}
         role="tabpanel">${cur.nodes}</div>` : null,
   ].filter(Boolean);
+}
+
+/**
+ * A stage device's card (阻隔工事 / “双眼皮” / 射击台 / 源石流发生装置 — detailPanel DeviceDetail's data, gameLogic deviceInfo /
+ * deviceTipAt) in the operator card's official form, while the HUD has its official look: in the client a device is a
+ * trap (`Trap : Token : Character`), and a press on it goes the operator's way — AutoChessHighlightState._OnTileClicked →
+ * AutoChessUIPlugin.ReqShowCharacterMenu → UICharacterInfoPanel.ShowCharacter, whose status / tab-group subpanels the
+ * plugin hooks for every character alike (GitHub #3, maintainer decision 2026-10-14; docs/rules/ui.md). So the same
+ * layout and the same press pass-through as ChessDetailArt: the name, the stat list and the 攻击范围 tile (the turret's),
+ * the HP bar (a battle's live HP, a prep card shows the record's 生命上限), and the tabs 技能 (the device's own skill text)
+ * / 装置机制 (our mechanism lines and what the tile allows). No art (a trap has no 立绘 — [ASSUMED] the client's panel
+ * then shows none); the class icon box holds an info glyph ([ASSUMED]: the trap's class icon is not extracted).
+ * @param {{ device: any, snapHp?: { hp:number, max:number }|null, live?: any }} props
+ */
+export function DeviceDetailArt({ device, snapHp = null, live = null }) {
+  const [tab, setTab] = useState(null);
+  const stats = Array.isArray(device?.stats) ? device.stats : [];
+  const range = Array.isArray(device?.range) && device.range.length ? device.range : null;
+  const sk = device?.skill && typeof device.skill === 'object' && device.skill.text ? device.skill : null;
+  const battle = live && live.src === 'battle' && Number.isFinite(live.hp) && Number.isFinite(live.maxHp) ? { hp: live.hp, max: live.maxHp } : null;
+  const maxRow = stats.find((x) => x && x.k === t('生命上限'));
+  const hp = battle || snapHp || (maxRow && Number.isFinite(Number(maxRow.v)) ? { hp: Number(maxRow.v), max: Number(maxRow.v) } : null);
+  const pct = hp && hp.max > 0 ? Math.max(0, Math.min(100, (hp.hp / hp.max) * 100)) : 100;
+  const tabs = [
+    sk ? { id: 'skill', label: N_('技能'), nodes: [
+      sk.name ? html`<p key="n" class="dtext"><b>${sk.name}</b></p>` : null,
+      html`<${RichText} key="t" as="p" text=${sk.text} class="dtext" />`,
+    ].filter(Boolean) } : null,
+    { id: 'device', label: N_('装置机制'), nodes: [
+      ...(Array.isArray(device?.lines) ? device.lines : []).map((line, i) => html`<p class="dtext" key=${`l${i}`}>${line}</p>`),
+      Array.isArray(device?.facts) && device.facts.length ? html`<p key="f" class="dtext dart__facts"><b>${t('这一格')}</b> ${device.facts.join(' · ')}</p>` : null,
+    ].filter(Boolean) },
+  ].filter(Boolean);
+  const cur = tabs.find((x) => x.id === tab) || tabs[0];
+  const paneRef = useRef(null);
+  const edges = useScrollEdges(paneRef, [cur?.id]);
+  return [
+    html`<div key="art" class="dart is-device" data-device=${device?.key || ''}>
+      <div class="dart__bg" aria-hidden="true"></div>
+      <div class="dart__head">
+        <span class="dart__prof"><${Icon} name="info" /></span>
+        <h3 class="dart__name">${device?.name || ''}</h3>
+        <div class="dart__tier"><span class="dtag-kind">${device?.tag || ''}</span></div>
+      </div>
+      ${stats.length || range ? html`<div class="dart__mid">
+        ${stats.length ? html`<div class="dart__stats">${stats.map((x) => html`<${Line} key=${x.k} k=${x.k} v=${x.v} />`)}</div>` : null}
+        ${range ? html`<div class="dart__tiles"><div class="dart__tile dart__range"><${RangeGrid} grid=${range} /><span>${t('攻击范围')}</span></div></div>` : null}
+      </div>` : null}
+      ${hp ? html`<div class="dart__hp"><i style=${`width:${pct}%`}></i><span><em>${t('生命')}</em><b class="num">${fmtNum(hp.hp)}/${fmtNum(hp.max)}</b></span></div>` : null}
+    </div>`,
+    html`<div key="tabs" class="dart__tabs" role="tablist">
+      ${tabs.map((tb) => html`<button key=${tb.id} type="button" role="tab" aria-selected=${tb === cur ? 'true' : 'false'}
+          class=${cx('dart__tab', tb === cur && 'is-on')} onClick=${() => setTab(tb.id)}>${t(tb.label)}</button>`)}
+    </div>`,
+    html`<div key=${`pane:${cur.id}`} ref=${paneRef} class=${cx('dart__pane', `dart__pane--${cur.id}`, edges.scroll && 'is-scroll', edges.up && 'has-up', edges.down && 'has-down')}
+        role="tabpanel">${cur.nodes}</div>`,
+  ];
 }
 
 /** The first vnode under `node` whose class list holds `cls` (ChessDetail's bond chips inside its header). */

@@ -46,7 +46,7 @@ import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
 import { moduleBadge, fullTraitText } from './loadoutModel.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { audio } from '../audio.js';
-import { ChessDetailArt } from './detailArt.js'; // local patch: the official card look (css/hud-art.css)
+import { ChessDetailArt, DeviceDetailArt } from './detailArt.js'; // local patch: the official card look (css/hud-art.css)
 import { hudArt } from './hudArt.js'; // local patch
 import { tokenVariantFor } from './gameLogic/loadout.js';
 
@@ -872,7 +872,10 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
     const ok = await confirmDialog({ title: t('销毁道具'), text: t('道具无法出售。确定要销毁「{name}」吗？', { name: item?.name || '' }), okText: t('销毁'), danger: true });
     if (ok) onDestroy(piece);
   };
-  return html`<aside class=${cx('dpanel', 'brackets', `dpanel--${detail.type}`, side === 'right' && 'dpanel--right', side === 'right' && shopOpen && 'is-shop')} role="dialog" aria-label=${t('详情')}
+  // a stage device's card takes the operator card's official form (and its class family, `.dpanel--chess`: no box, the
+  // press pass-through) while the HUD has its official look — the client opens the same panel on a trap (DeviceDetailArt)
+  const artDevice = detail.type === 'device' && !!hudArt().cls;
+  return html`<aside class=${cx('dpanel', 'brackets', `dpanel--${detail.type}`, artDevice && 'dpanel--chess', side === 'right' && 'dpanel--right', side === 'right' && shopOpen && 'is-shop')} role="dialog" aria-label=${t('详情')}
       data-side=${side === 'right' ? 'right' : 'left'}>
     <button type="button" class="dpanel__close" aria-label=${t('关闭')} onClick=${onClose}><${Icon} name="close" /></button>
     <div class="dpanel__scroll">
@@ -883,7 +886,7 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
       ${detail.type === 'enemy' ? html`<${EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}
       ${detail.type === 'token' ? html`<${TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} snapHp=${snapHp} live=${liveNow} />` : null}
       ${detail.type === 'terrain' ? html`<${TerrainDetail} terrain=${detail.terrain} />` : null}
-      ${detail.type === 'device' ? html`<${DeviceDetail} device=${detail.device} snapHp=${snapHp} live=${liveNow} />` : null}
+      ${detail.type === 'device' ? html`<${artDevice ? DeviceDetailArt : DeviceDetail} device=${detail.device} snapHp=${snapHp} live=${liveNow} />` : null}
     </div>
   </aside>`;
 }

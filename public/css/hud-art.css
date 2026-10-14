@@ -549,6 +549,11 @@
 .dart.is-token .dart__prof { border-color: #36d3e6; box-shadow: 0 0 .12rem rgba(54, 211, 230, .5); }
 /* prof/icon_*.png is the label sprite (名称 + the square class glyph on its right): its right square only */
 .dart__prof i { width: 80%; height: 80%; background: right center / auto 100% no-repeat; }
+/* a stage device's card (ui/detailArt.js DeviceDetailArt, GitHub #3): the same card without art — an info glyph in the
+   class box, the device tag where an operator's tier row is */
+.dart.is-device .dart__prof .icon { width: 56%; height: 56%; color: #e3b53f; }
+.dart.is-device .dart__tier .dtag-kind { font-size: .17rem; padding: .02rem .1rem; color: #d8d8d8; border-color: rgba(255, 255, 255, .35); background: rgba(10, 10, 10, .55); }
+.dart.is-device .dart__stats { min-width: 1.6rem; }
 .dart__name { margin-top: .1rem; font-size: .28rem; font-weight: 500; color: #fff; text-shadow: 0 1px 3px #000; }
 /* 0.2.0 补位: 「X的替补」 under a stand-in's name (ui/detailArt.js; [ASSUMED] placement, as ChessDetail's dhead__for) */
 .dart__for { margin-top: -.04rem; font-size: .15rem; color: #b2b2b2; text-shadow: 0 1px 2px #000; }

@@ -48,7 +48,8 @@ describe('stage device tip in the browser', { skip: !ENABLED && 'set SP_E2E=1 (a
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
     page.on('requestfailed', (r) => { if (r.failure()?.errorText !== 'net::ERR_ABORTED') problems.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`); });
     // the engine keeps fetching art (and SwiftShader is slow to build the board), so it waits on __SP_VIEW__ instead
-    await page.goto(`${base}${url}`, { waitUntil, timeout: 60000 });
+    // `lang=zh`: the texts below are the source language's (a first visit opens in Korean, lang.js initialLang)
+    await page.goto(`${base}${url}&lang=zh`, { waitUntil, timeout: 60000 });
     return { page, problems };
   }
 
@@ -72,7 +73,8 @@ describe('stage device tip in the browser', { skip: !ENABLED && 'set SP_E2E=1 (a
 
     assert.ok(await tap(CRATE.row, CRATE.col), 'the mock board draws the crate tile');
     await page.waitForSelector('.dpanel', { timeout: 5000 });
-    const text = await card(page);
+    // both tabs of the official-form card (技能, then 装置机制), or the plain card at once
+    const text = `${await card(page)} ${(await mechTab(page)) ? (await sleep(150), await card(page)) : ''}`;
     assert.match(text, new RegExp(CRATE.name), text);
     assert.match(text, /场地装置/, text);
     assert.match(text, /绕开它走/, text);
@@ -99,6 +101,7 @@ describe('stage device tip in the browser', { skip: !ENABLED && 'set SP_E2E=1 (a
     assert.ok(pt, 'the crate tile has a screen position');
     await page.mouse.click(pt.x, pt.y);
     await page.waitForSelector('.dpanel', { timeout: 5000 });
+    if (await mechTab(page)) await sleep(150);
     const text = await card(page);
     assert.match(text, new RegExp(CRATE.name), text);
     assert.match(text, /绕开它走/, text);
@@ -113,7 +116,10 @@ describe('stage device tip in the browser', { skip: !ENABLED && 'set SP_E2E=1 (a
 
   // A battle: the crates are device UNITS that come in with 'spawn' events after the field meta (the mock's ?variant=devices
   // streams them like the sim). The tap finds the unit, the card draws its live HP, and it closes when the crate is destroyed.
-  const hpText = (page) => page.evaluate(() => document.querySelector('.dpanel .dhp')?.textContent.replace(/\s+/g, ' ').trim() ?? null);
+  // (the plain card's `.dhp` "60 / 100", or the official-form card's HP box `.dart__hp b` "60/100" — DeviceDetailArt, GitHub #3)
+  const hpText = (page) => page.evaluate(() => (document.querySelector('.dpanel .dhp, .dpanel .dart__hp b')?.textContent ?? null)?.replace(/\s+/g, '').replace('/', ' / ') ?? null);
+  // the official-form card shows the mechanism lines on its 装置机制 tab (the 技能 tab opens first)
+  const mechTab = (page) => page.evaluate(() => { const b = [...document.querySelectorAll('.dpanel .dart__tab')].find((x) => x.textContent.includes('装置机制')); if (b) b.click(); return !!b; });
 
   test('a battle on the fallback board: the crate unit\'s card shows its live HP and closes when it is destroyed', async () => {
     const { page, problems } = await open(`/dev/game-mock.html?phase=COMBAT&variant=devices&render=fallback&stage=${CRATE_STAGE}`);
@@ -130,12 +136,13 @@ describe('stage device tip in the browser', { skip: !ENABLED && 'set SP_E2E=1 (a
     const unit = await page.evaluate(() => { const d = globalThis.__MOCK__.S().battle.devices[0]; return { row: d.y, col: d.x }; });
     assert.ok(await tap(unit.row, unit.col), 'the board draws the crate unit\'s tile');
     await page.waitForSelector('.dpanel', { timeout: 5000 });
+    if (await mechTab(page)) await sleep(150);
     const text = await card(page);
     assert.match(text, new RegExp(CRATE.name), text);
     assert.match(text, /绕开它走/, text);
     assert.equal(await hpText(page), '100 / 100');
     assert.ok(await page.evaluate(() => globalThis.__MOCK__.hurtDevice(0, 40)));
-    await page.waitForFunction(() => /60 \/ 100/.test(document.querySelector('.dpanel .dhp')?.textContent || ''), { timeout: 5000 });
+    await page.waitForFunction(() => /60 ?\/ ?100/.test(document.querySelector('.dpanel .dhp, .dpanel .dart__hp b')?.textContent || ''), { timeout: 5000 });
     // destroyed: its HP bar runs out, then its card closes with it (the tuple leaves the snapshots)
     assert.ok(await page.evaluate(() => globalThis.__MOCK__.hurtDevice(0, 100)));
     await page.waitForFunction(() => !document.querySelector('.dpanel'), { timeout: 5000 });
@@ -187,7 +194,7 @@ describe('stage device tip in the browser', { skip: !ENABLED && 'set SP_E2E=1 (a
     await page.waitForSelector('.dpanel');
     assert.match(await card(page), new RegExp(CRATE.name));
     assert.ok(await page.evaluate(() => globalThis.__MOCK__.hurtDevice(0, 40)));
-    await page.waitForFunction(() => /60 \/ 100/.test(document.querySelector('.dpanel .dhp')?.textContent || ''));
+    await page.waitForFunction(() => /60 ?\/ ?100/.test(document.querySelector('.dpanel .dhp, .dpanel .dart__hp b')?.textContent || ''));
     assert.ok(await page.evaluate(() => globalThis.__MOCK__.hurtDevice(0, 100)));
     await page.waitForFunction(() => !document.querySelector('.dpanel'));
     assert.deepEqual(problems, []);

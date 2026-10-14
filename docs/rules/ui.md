@@ -750,8 +750,8 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   - 공식 근거: EN 클라 `btl_pfb_tokens_4.ab`·`_0.ab`의 이 넷 프리팹은 `Character._disableClickCharacterInfo`·`_disableCharInfoPanel`이 0(盟约寒风
     `trap_1112_acblzd`은 `_disableClickCharacterInfo` 1) — 공식 전투에서 누르면 유닛과 같은 정보 패널(`UICharacterInfoPanel`: 이름·HP·공격/방어/
     마법 저항/저지·공격 범위·스킬 탭)이 열린다. 그래서 우리 카드는 upstream 글 위에 **장치 자신의 공식 스킬 글**(관 데이터 `devices[].skill`, 한국어는 데이터
-    오버레이의 공식 KR 문구)과 포탑의 **공격 범위**(관 데이터 `rangeGrid`)를 더했다. 모양은 우리 적·소환물 카드와 같은 일반 카드(공식 모양 `ChessDetailArt`는
-    오퍼레이터 전용). `[ASSUMED]` 공식 패널의 실제 배치·정비 단계에서 누를 수 있는지(공식 정비 화면 캡처 없음), upstream의 「装置机制」 설명 글(우리 sim 수치)은 upstream 것.
+    오버레이의 공식 KR 문구)과 포탑의 **공격 범위**(관 데이터 `rangeGrid`)를 더했다. 모양은 처음엔 우리 적·소환물 카드와 같은 일반 카드였고, 2026-10-14부터
+    공식 모양 HUD에서는 오퍼레이터 카드와 같은 공식 모양(아래 「보드에서 연 카드가 벤치를 가림」). `[ASSUMED]` 공식 패널의 실제 배치·정비 단계에서 누를 수 있는지(공식 정비 화면 캡처 없음), upstream의 「装置机制」 설명 글(우리 sim 수치)은 upstream 것.
   - 문구: `en.json`·`ko/ui.json` 16개(ja·zh-TW 팩은 이번에 안 넣음 — 영어로 떨어짐). 한국어 「스테이지 장치」·「장치 효과」(지형 카드의 「지형 효과」에 맞춤).
   - 확인: `test/ui/device-tip.test.js`(upstream v0.2.4 판, 언어는 zh/en/ko + 공식 스킬 글·범위 사례), `test/ui/device-tip.e2e.test.js`(SP_E2E, upstream 그대로 + 공식 글 한 줄),
     dev mock `?variant=devices&stage=act1autochess_m01`·`__MOCK__.hurtDevice(i, dmg)` [화면 미확인].
@@ -1060,3 +1060,32 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 새 판이 나온 뒤 처음 로비에 들어오면 업데이트 탭이 열려 있고 「NEW」 표시가 붙는다. 본 판은 브라우저 설정 `patchNotesSeen`에 저장한다. 다음 방문부터는 작전 팁이 열린다. 기록이 없는 새 플레이어에게도 한 번은 그렇게 보인다. 따로 뜨는 창은 없다(배포 뒤 자동 새로 고침마다 방해가 되므로).
 - 휴대폰 가로(높이 460px 이하)에서는 원래 작전 팁 칸을 숨겼다. 업데이트 소식이 있으면 칸을 줄여(여백·한 줄 말줄임) 동맹 참가 아래에 둔다(`devices.css`). `/changelog.json`을 받지 못하면 탭이 없고 예전 그대로다(휴대폰에서도 숨김).
 - 확인: `test/changelog.test.js`(인라인·문단·묶음·이어지는 항목, 실제 CHANGELOG의 첫 판 = `APP_VERSION`, 라우트·파일 변경 재읽기·파일 없음, 클라이언트 요약 문장·넘길 줄 목록·본 판·한 번만 받기). Windows Chrome(로컬 서버, 2026-10-13): 1600×900·1280×720·휴대폰 가로 844×390·740×360·667×375에서 로비 스크롤 높이가 넣기 전과 같다(808/808 · 647/647 · 346/346 · 316/316 · 331/331). 첫 방문은 업데이트 탭과 NEW, 다시 들어오면 작전 팁이고 NEW가 없다. 작전 팁 탭 호버 브래킷과 데스크톱·휴대폰 「업데이트 소식」 창도 확인했다. 한 줄씩 넘기기(같은 날): 8.6초 뒤 01→02, 호버 9초 동안 그대로, 마우스가 떠나면 다시 넘김, `>` 두 번 뒤 9초 동안 그대로, `<`로 하나 뒤로. 1600과 휴대폰 844에서 스크롤이 생기지 않는다.
+
+## 보드에서 연 카드가 벤치를 가림 (GitHub #3, 2026-10-14, 관리자 결정)
+
+- 제보(1.4.2, 협동 심연 15라운드 = 숨은 보스 라운드, 3D 보드, 1920×1080): 라운드 개막 연출 중 보드를 연타하다 보스·장치·지형이 눌리면 보드 맨 아랫줄(벤치)과
+  상호작용이 안 됨. 원인: 그 누름이 왼쪽에 상세 카드를 연다. 적·장치·지형 카드는 불투명 상자(`.dpanel`, 1920×1080에서 x 230–720·y 210–978)라 그 밑의 벤치 칸
+  (왼쪽 절반 플레이어: 6칸 중 4칸)과 배치 칸이 눌리지 않고, 보스(적) 카드는 보드를 눌러도 닫히지 않았다(`closesOnFieldPress`가 `enemy`를 정보 서랍 카드로 봄).
+- 결정 1: **보드에서 연 적 카드는 다음 보드 누름에 닫힌다.** 미리보기 적·보스 필드의 라운드 리더를 눌러 연 카드는 `{ kind: 'enemy', fromField: true }`
+  (`screens/game.js` `pieceClick`), `gameLogic/shortcuts.js closesOnFieldPress`가 그것도 닫는다. 敌方情报 서랍에서 연 적 카드(`fromField` 없음)는 그대로 남는다.
+- 결정 2: **장치 카드는 오퍼레이터 카드와 같은 공식 모양**(`ui/detailArt.js DeviceDetailArt`, `detailPanel.js`가 공식 모양 HUD일 때 `dpanel--chess`
+  클래스를 같이 붙임): 상자 없이 화면 왼쪽 전체 높이, 이름·태그·능력치 줄·공격 범위 칸(포탑)·HP 막대·탭 「技能」(장치 자신의 공식 스킬 글)·「装置机制」(우리
+  설명 줄 + 이 칸). 누름 통과도 오퍼레이터 카드와 같다(머리·능력치 칸·짧은 탭 내용은 보드로 넘김, 닫기·탭·버튼만 받음; 「관리자 제보 수정(2026-10-06 3차)」).
+  - 공식 근거(EN 클라 코드): 장치는 `Trap : Token : Character`다. 칸을 누르면 `AutoChessHighlightState._OnTileClicked`가 `AutoChessDummyManager.GetCharacter`
+    → `Tile.GetCharacter`로 그 칸의 캐릭터를 찾고(`_disableClickCharacterInfo`면 끝), 보는 쪽이 맞으면 `AutoChessUIPlugin.ReqShowCharacterMenu` →
+    `UICharacterInfoPanel.ShowCharacter`. 이 패널의 하위 패널(`UICharacterInfoStatusSubPanelInAutochess`·`…TabGroupSubPanelInAutochess`)은 플러그인이
+    캐릭터 종류와 상관없이 건다(`_hookedCharacterInfoSubPanels`, `HookedCharacterInfoType` STATUS/TAB_GROUP/ADDITION) → 오퍼레이터와 같은 틀. 관리자 기억과도 맞음.
+  - `[ASSUMED]` 장치에는 그림이 없다(함정은 立绘가 없음 — 클라 패널이 그때 무엇을 그리는지는 안 봄), 직업 칸에는 정보 아이콘(함정 직업 아이콘 미추출). 정비 중
+    阻隔工事처럼 관 데이터에 HP 수치가 없는 장치는 HP 막대가 없다(전투 중에는 실시간 HP). 기본 탭은 「技能」(스킬 글이 없으면 「装置机制」).
+- 지형 카드는 **바꾸지 않음**: 공식은 카드가 아니라 토스트다. 캐릭터 없는 칸은 `_OnTileClicked`가 거짓이고, 일반 경로 `UIController.OnBottomMaskDown` →
+  `TileInfoController._SelectTile`이 `Tile.isFunctional`이면 `IGameMode.TryShowTileInfoToast`(위수협약 모드는 덮어쓰지 않아 기본 = 거짓) 뒤
+  `UIToastController.Show(tileName, tileDescription)`. 위수협약 UI 상태가 이 경로의 상태 검사를 통과하는지는 안 읽음 `[ASSUMED]`. 토스트로 바꿀지는 관리자 결정 대기.
+- 적 클릭: 공식 `_OnTileClicked`는 `Character`만 찾는다(적 `Enemy : Unit`은 Character가 아님) — 적·보스를 눌러도 아무 패널도 안 열린다(관리자 기억과 같음).
+  우리 적 카드(보드에서 여는 것)는 그대로 둠 — 없앨지는 관리자 결정 대기.
+- 결정 3(개막 연출 건너뛰기 없음, 연출 중 보드 누름 막기는 보류): 1·2로 제보가 고쳐지지 않을 때만.
+- 확인: `test/ui/uiRepair3.test.js`(보드에서 연 적 카드 닫힘·서랍 카드 유지·`fromField` 소스), `test/ui/official-ui-gaps.test.js`(장치 카드 공식 모양·클래스·CSS),
+  `test/ui/device-tip.e2e.test.js`(공식 모양에서도 이름·스킬·장치 효과·HP — 탭 전환, `lang=zh`). Windows Chrome(실서버 fastServer `startRound: 'hidden'`,
+  협동 심연, 3D 보드): 고치기 전 1920×1080 호스트 — 연타로 장치·적(보스)·지형 카드가 열리고, 적 카드 밑 벤치 4칸 누름·끌기 안 됨, 카드 밖 보드 누름에도 적 카드
+  유지. 고친 뒤 — 적 카드가 카드 밖 보드 누름에 닫힘(1920×1080), 장치 카드(`act1autochess_m01`, 3라운드)는 공식 모양·벤치 6칸 모두 캔버스가 받음, 그 밑 기물
+  누름 → 선택·그 기물 카드, 끌기 → 방향 단계까지, 카드 밖 누름에 닫힘(1920×1080·1920×940, 호스트·손님). 불투명 적·지형 카드 위를 누른 것은 여전히 카드가 받는다.
+
