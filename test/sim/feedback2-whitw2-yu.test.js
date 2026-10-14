@@ -358,7 +358,9 @@ test('余 S2 on the real leader rounds: 假想敌：铳 teleported onto 余 walk
     assert.deepEqual([e.y, e.x], [yu.tileR, yu.tileC], 'teleported onto 余');
     assert.equal(e.route.pts, null, 'its path is re-planned from there');
     if (key === 'enemy_9017_achunt') {
-      assert.ok(h.runUntil(() => e.route.legIdx !== leg0, 25), '不可阻挡: walks on to its next patrol checkpoint');
+      // it stands through its swings at 余 (ai.js attackStand) — at the official ASPD stacks (+80 per attack on the same
+      // target, content/bosses.js kitGun) that is most of the time while 余 is in range — but nothing blocks it
+      assert.ok(h.runUntil(() => { assert.equal(e.blockedBy, null, '不可阻挡'); return e.route.legIdx !== leg0; }, 60), '不可阻挡: walks on to its next patrol checkpoint');
     } else {
       h.step(1);
       assert.equal(e.blockedBy, yu, 'blocked by 余 (block +2)');
