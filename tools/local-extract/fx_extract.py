@@ -475,6 +475,9 @@ class Extractor:
                 dl = self.fx_delay(go)
                 if dl:
                     node['delay'] = dl
+            uvt = self.uv_tween(go)
+            if uvt:
+                node['uvt'] = uvt
             tr = None
             for c in d['m_Component']:
                 comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
@@ -867,6 +870,106 @@ class Extractor:
                 f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
                 changed += 1
         print(f'[fx] {bundle}: {found} prefab(s) with a branch delay, {changed} file(s) changed')
+        return found, changed
+
+    def uv_tween(self, go):
+        """2026-10-14, decompile check — the GameObject's Torappu.Fx.FxUVTweener / FxUVTweenerAdvance (`Update` RVA
+        0x34C5F90 / 0x34C5780): every frame its renderer's material moves the offset of `_MainTex` (xspeed, yspeed), of
+        `secondMapName` (secondXSpeed, secondYSpeed; `useSecondMap`) and, for Advance, of each enabled `extraMapSettings`
+        texture (XSpeed, YSpeed) by 2 × speed × dt (SPEED_SCALE 2; a texture with both speeds 0 is not touched); `OnEnable`
+        starts the offsets from the material's own with `keepInitOffset`, else from 0; an Advance without `tweenRepeat` stops
+        after `tweenAnmTime` s. Read by the component's type tree (found by its fields, not its script id): { maps:
+        [[texture, 2·sx, 2·sy], …], keep?, until? }, None without one. Drawn by render/fxplayer.js uvTween."""
+        try:
+            d = go.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            try:
+                t = comp.read_typetree()
+            except Exception:
+                continue
+            if 'xspeed' not in t or 'secondMapName' not in t:
+                continue
+            maps = [('_MainTex', t.get('xspeed'), t.get('yspeed'))]
+            if t.get('useSecondMap') and isinstance(t.get('secondMapName'), str) and t['secondMapName']:
+                maps.append((t['secondMapName'], t.get('secondXSpeed'), t.get('secondYSpeed')))
+            for e in t.get('extraMapSettings') or []:
+                if e.get('enabled') and isinstance(e.get('mapName'), str) and e['mapName']:
+                    maps.append((e['mapName'], e.get('XSpeed'), e.get('YSpeed')))
+            maps = [[n, r4(2 * float(x or 0)), r4(2 * float(y or 0))] for n, x, y in maps if float(x or 0) or float(y or 0)]
+            if not maps:
+                return None
+            out = {'maps': maps}
+            if t.get('keepInitOffset'):
+                out['keep'] = 1
+            if 'tweenRepeat' in t and not t.get('tweenRepeat'):
+                out['until'] = r4(float(t.get('tweenAnmTime') or 0))
+            return out
+        return None
+
+    def uvt_only(self, bundle, pack=None):
+        """2026-10-14: write only the nodes' `uvt` (uv_tween) into the bundle's already extracted prefabs (the nodes in the
+        extractor's own walk order, like delay_only; a file whose node names do not line up is left alone). Returns
+        (prefabs with one, files changed)."""
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
+        p = bundle_path(self.game, rel)
+        if not p:
+            print(f'[fx] {bundle}: bundle not found, skipped')
+            return 0, 0
+        env = self.UnityPy.load(str(p))
+        found = changed = 0
+        for o in env.objects:
+            if o.type.name != 'Transform':
+                continue
+            t = o.read_typetree()
+            if t['m_Father']['m_PathID'] != 0:
+                continue
+            go = self.resolve(t['m_GameObject'], o)
+            if go is None:
+                continue
+            f = OUT / bundle / f"{go.read_typetree()['m_Name']}.json"
+            if not f.exists():
+                continue
+            order = []
+
+            def walk(g):
+                dd = g.read_typetree()
+                order.append((dd['m_Name'], self.uv_tween(g)))
+                tr = None
+                for c in dd['m_Component']:
+                    comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], g)
+                    if comp is not None and comp.type.name == 'Transform':
+                        tr = comp.read_typetree()
+                for ch in (tr or {}).get('m_Children') or []:
+                    cto = self.resolve(ch, g)
+                    cgo = self.resolve(cto.read_typetree()['m_GameObject'], cto) if cto is not None else None
+                    if cgo is not None:
+                        walk(cgo)
+            walk(go)
+            d = json.loads(f.read_text())
+            nodes = d.get('nodes') or []
+            if len(nodes) != len(order) or any(n.get('name') != order[k][0] for k, n in enumerate(nodes)):
+                print(f'[fx] {bundle}/{f.stem}: node tree differs from the bundle, uvt skipped')
+                continue
+            dirty = False
+            for k, n in enumerate(nodes):
+                v = order[k][1]
+                if n.get('uvt') == v:
+                    continue
+                dirty = True
+                if v is None:
+                    n.pop('uvt', None)
+                else:
+                    n['uvt'] = v
+            found += any(x[1] for x in order)
+            if dirty:
+                f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+                changed += 1
+        print(f'[fx] {bundle}: {found} prefab(s) with a uv tween, {changed} file(s) changed')
         return found, changed
 
     def spawn_location(self, root):
@@ -1368,6 +1471,8 @@ def main():
     ap.add_argument('--prune', action='store_true', help='delete textures / meshes no extracted effect references')
     ap.add_argument('--mount-only', action='store_true', help='only write the FollowMountPoint `mount` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch)')
+    ap.add_argument('--uvt-only', action='store_true', help='only write the FxUVTweener `uvt` of the nodes into the already '
+                    'extracted prefabs of the bundles (every bundle of the index without --bundle; 2026-10-14)')
     ap.add_argument('--back-only', action='store_true', help='only write the SwitchableBackEffect `back` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-10)')
     ap.add_argument('--index', default='index.json', help='the index file under public/assets/local/fx the bundles\' lists go '
@@ -1413,6 +1518,11 @@ def main():
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])
         tot = [ex.back_only(b, pack=a.pack) for b in bundles]
         print(f'[fx] back: {sum(x[0] for x in tot)} prefab(s) with a back switch, {sum(x[1] for x in tot)} file(s) changed')
+        return
+    if a.uvt_only:
+        bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
+        tot = [ex.uvt_only(b, pack=a.pack) for b in bundles]
+        print(f'[fx] uvt: {sum(x[0] for x in tot)} prefab(s) with a uv tween, {sum(x[1] for x in tot)} file(s) changed')
         return
     if a.mount_only:
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])

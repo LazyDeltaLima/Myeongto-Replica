@@ -330,7 +330,7 @@
     Mecanim 클립만 읽어 이 페이드인은 없음 — 차이는 처음 0.3초).
   - `beidong_buff_02`는 `Talents/1`(拥抱自我, `_targetOptions.targetSide 2` = 적 대상) 버프 이펙트 — **적에게 붙는 것**이라 대역 본인에게는 안 튼다. `char_modes.py` `attachFoe`.
   - `fxgame.js dollFx`: fx `substitute`에 dollBorn 1회 + Stand 모드 attach − attachFoe 반복, `swap`·`dollEnd`에 끔. 아레나·실제 솔로 판: 전환 순간 본체에 소용돌이 약 0.6초, 3×3 원형 유지.
-    알려진 빈 곳: 3×3 원형 메시의 왜곡 텍스처 흐름 컴포넌트(84바이트 MonoBehaviour, `_DisturTex` 속도)는 안 읽음 — 원형이 멈춘 그림처럼 보일 수 있음; `beidong_buff_01_end` 안 틂;
+    알려진 빈 곳: `beidong_buff_01_end` 안 틂; (3×3 원형 메시의 왜곡 텍스처 흐름 컴포넌트 = `FxUVTweener`, 2026-10-14부터 읽음 — 아래 「흐르는 텍스처」)
     `beidong_buff_02`를 적에게 붙이는 것은 안 함.
 - 안 한 것: `_followScaleSign`·`_followScale`(좌우·크기 따라감). `_keepOriginRotation`(본 회전)은 아래 「이펙트 방향」(57a8bc33)에서 적용.
 - **(관리자 제보 2026-10-08, 2026-10-10 디컴파일로 정함 — 아래 「시전 이펙트 시점·붙는 대상」 ②)**: 6명은 본인이 맞고(능력에 `_selector` 없음 = 스펙터 디
@@ -935,3 +935,38 @@
 - 추출: `fx_extract.py --game <EN> --cab-index .cache/fx-cab-index.json --bundle archet --prefab archet_buff_01_start`, `--bundle common --prefab
   common_buff_parry_01`.
 - [미구현] 막을 때 소리 `battle.ON_DAMAGE_BLOCK` = `Enemy/e_atk/e_atk_soldiershield`(audio_data) — sfx 항목·에셋 받기가 필요. [화면 미확인] 루프 높이·크기, parry 위치.
+
+### 흐르는 텍스처 — FxUVTweener · Disturb Origin / Anchor (2026-10-14, 사용자 제보 「이펙트가 재생되지 않고 멈춰있는 것들이 많아」)
+
+- 원인 대조(추출된 프리팹 2,005개 × EN 클라 번들, 비공개 조사 기록): 추출기는 파티클·메시·Mecanim 클립만 읽고 렌더러에 붙은 스크립트를 읽지 않았다.
+  멈춤의 주원인은 둘이다. ① 텍스처 오프셋을 움직이는 스크립트 `Torappu.Fx.FxUVTweener`(268개 프리팹)·`FxUVTweenerAdvance`(98개).
+  ② 왜곡 셰이더 `Torappu/Particles/Disturb/Disturb Origin`(재질 213개)·`Disturb Anchor`(204개)는 노이즈 텍스처 이름이 `_DisturTex`인데
+  플레이어는 `_DisturbTex`·`_NoiseTex`만 읽어 **왜곡이 통째로 꺼져** 있었고, Anchor의 흐름 벡터 `_UVTween`도 안 읽었다.
+- **FxUVTweener**(클라 코드 `FxUVTweener.Update` RVA 0x34C5F90, `OnEnable` 0x34C5ED0; Advance `Update` 0x34C5780): 매 프레임 렌더러 재질의
+  `_MainTex` 오프셋에 (xspeed, yspeed) × 2 × dt(`SPEED_SCALE` 2), `useSecondMap`이면 `secondMapName` 텍스처의 `_ST.zw`에 (secondXSpeed,
+  secondYSpeed) × 2 × dt를 더한다(두 속도가 모두 0인 텍스처는 건드리지 않음). Advance는 `extraMapSettings`의 켜진 텍스처도 같은 식이고,
+  `tweenRepeat`이 꺼져 있으면 `tweenAnmTime` 초 뒤 멈춘다(추출분은 모두 켜짐). `OnEnable`은 `keepInitOffset`이면 재질의 오프셋에서, 아니면 0에서
+  시작한다. `protect*UV`·`tweenRepeat`의 소수부 처리는 반복 래핑 텍스처에서 결과가 같다. 두 번째 텍스처 이름(컴포넌트 수)은 `_DissolveTex` 277·`_DisturTex`
+  228·`_DissolveTex_01` 14·`_RamTex` 20·`_DissolveTex_02` 3, extra는 `_DisturTex`·`_DisturTex_02`·`_DissolveTex(_02)`.
+  - 구현: `fx_extract.py uv_tween` → 노드 `uvt` { maps: [[텍스처, 2·sx, 2·sy], …], keep?, until? }(스크립트 id가 아니라 필드로 찾음),
+    `--uvt-only`로 이미 추출된 프리팹에 그것만 씀. `fxplayer.js uvTween`/`setTime`이 그 노드의 렌더러 재질(메시 → 파티클 → 선 → 꼬리 순, Unity
+    `GetComponent<Renderer>`)의 `_ST` 유니폼을 렌더러 시간으로 움직인다. 재질에 없는 텍스처는 무시(클라도 없는 속성은 효과 없음). 같은 텍스처를
+    클립 트랙이 움직이면 클립이 이긴다 [추정: Animator의 프로퍼티 블록이 재질 값을 덮음]. `useSharedMaterial`(컴포넌트 72개)도 개별 재질처럼 움직임 [추정:
+    공유 재질이면 동시에 켜진 개수만큼 빨라지는 클라 특성은 따르지 않음].
+  - 추출(2026-10-14): 운영자 이펙트 347개 프리팹(EN `index.json` 340 + CN 켈시 에스페란타 2·클레멘티아 4·안젤리나 더 멜로우 위시 1), 적
+    이펙트 51개(`--index enemy-index.json`, `pfx_*`는 `--pack pkgrps/btl_pfb_fx_*.ab`), 흐름 1,133개. `uvt` 말고 바뀐 키 0.
+- **Disturb Origin**(클라 셰이더 DXBC): 노이즈 = `_DisturTex`(uv × `_DisturTex_ST`).r, 렌더러 uv에 노이즈 × (`_IntensityU`, `_IntensityV`)를
+  **메인 타일링 앞에** 더한 뒤 `_MainTex_ST`; 색 = 텍스처 × `_MainColor` × 정점색 × `_MainColor.a` × 2(알파를 한 번 더 곱함). 중심 맞춤 없음.
+- **Disturb Anchor**(DXBC): 메인 uv는 `frac(_UVTween.xy × 시간)`, 노이즈 uv는 `frac(_UVTween.zw × 시간)`만큼 흐른다. 노이즈는
+  `.r − (_AnchorU, _AnchorV)`(중심), `_ToggleUseDisturb2`면 `_DisturTex_02`.r − (`_AnchorU_02`, `_AnchorV_02`)도, `_WEIGHT_ON` 키워드면 둘 다
+  `_WeightTex`.rg를 곱함. 렌더러 uv + 노이즈 × (`_IntensityU`, `_IntensityV`) + 노이즈2 × (`_IntensityU_02`, `_IntensityV_02`) → `_MainTex_ST`.
+  색 × 2 × lerp(1, `_MainColor.a`, `_MainColorACtrl`). `_ToggleUseDissolve`면 디졸브(다른 셰이더와 같은 식, 그 이동된 uv × `_DissolveTex_ST`).
+  예전 코드가 `_ToggleUseDisturb2`로 첫 노이즈를 끄던 것은 틀림(그 값은 두 번째 노이즈 스위치). [추정: `_DisturTex_02`·`_WeightTex`의 uv는 정점
+  셰이더가 각 `_ST`로 만든 것 — 정점 셰이더 상수 이름은 RDEF가 지워져 확인 못 함]
+  - 구현: `fxplayer.js` 셰이더 `uDisMode`(0 그대로 · 1 Origin · 2 Anchor), `uDisAnchor`, `uACtrl`, 두 번째 노이즈·가중치 유니폼; 다른 셰이더 경로는 바뀌지 않음.
+- 확인: 단위 `test/render/fx-uv-tween.test.js`(흐름 식·keep·until·없는 텍스처·클립 우선, Origin·Anchor 유니폼). Windows Chrome 디버그 페이지에서
+  HEAD와 나란히 0.4초 간격 3프레임: 스펙터 디 언체인드 `ghost2_beidong_buff_01`(3×3 원)이 굳은 밝은 고리 → 흐르는 물결 고리, 글래디아
+  `glady_skill_03_range_02`가 오퍼레이터를 덮는 흰 고리 → 도는 반투명 소용돌이, 프레임 간 차이 2.5→4.0·0.8→3.9. 셰이더 컴파일 오류 0
+  (WebGL `drawElementsInstanced: no buffer` 경고는 HEAD와 같은 기존 것). [화면 미확인: 공식 녹화와의 대조, 실제 판]
+- 안 한 것: `FxUVRotation`(62개 프리팹 — 움직임이 아니라 `_Rotation0..3`에 고정 각도의 회전 행렬을 넣고 `_HG_UV_ROTATION` 키워드를 켬; 셰이더 쪽
+  적용 식을 안 읽음), 레거시 `Animation` 클립(39개 — 3×3 원의 처음 0.3초 나타나기 등), 파티클 서브 이미터(145개, `mods.sub`는 기록만).

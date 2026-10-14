@@ -11,7 +11,8 @@
 // noise (cheap), color / size / rotation over lifetime, texture sheet frames, custom data (two vec4 streams), local or
 // world simulation; renderers billboard / stretched / horizontal / vertical / mesh. Not drawn: trails, sub emitters,
 // collisions. Shaders: one uber shader standing in for the Torappu particle shaders (main texture with UV scroll,
-// distortion, dissolve with edge, colour ramp, the material's blend factors).
+// distortion, dissolve with edge, colour ramp, the material's blend factors); the renderers' FxUVTweener scripts move their
+// textures' offsets (uvTween, 2026-10-14).
 //
 // Cost control (DESIGN §17.3 rules): one draw call per particle system (instanced, skipped while it has no particle),
 // particle arrays preallocated and reused, no per-frame allocation, curves flattened to typed arrays at load, a
@@ -298,23 +299,44 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   uniform bool uRim; uniform float uRimPower; uniform float uFloor;
   varying float vH; varying vec3 vN; varying vec3 vVP;
   uniform bool uHasRam; uniform sampler2D uRam; uniform vec4 uRamST; uniform bool uCustom; uniform float uTime; uniform bool uAdditive;
+  uniform int uDisMode; uniform vec2 uDisAnchor; uniform float uACtrl;
+  uniform bool uHasDisturb2; uniform sampler2D uDisturb2; uniform vec4 uDisturb2ST; uniform vec2 uDisturb2Str; uniform vec2 uDisturb2Anchor;
+  uniform bool uHasWeight; uniform sampler2D uWeight; uniform vec4 uWeightST;
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
   void main() {
     if (vH < uFloor) discard;   // local patch: under the floor (FxInstance opts.floor)
-    vec2 uv = vUv * uMainST.xy + uMainST.zw + uMainSpeed * uTime;
-    // custom data (Torappu (CustomData) shaders, streams Custom1XYZW + Custom2XYZW): custom1.xy = main uv offset,
-    // custom1.zw = extra distortion, custom2.x = dissolve amount — [ASSUMED] from the curves, tuned by eye
-    if (uCustom) uv += vC1.xy;
     vec2 dis = vec2(0.0);
-    if (uHasDisturb) {
-      vec2 duv = vUv * uDisturbST.xy + uDisturbST.zw + uDisturbSpeed * uTime;
-      // local patch (client DXBC): the noise's red channel times the strength, not centred
-      vec2 n = vec2(texture2D(uDisturb, duv).r);
-      dis = n * (uDisturbStr + (uCustom ? vC1.zw : vec2(0.0)));
-      uv += dis * uDisturbMain;
+    vec2 uv;
+    if (uDisMode == 0) {
+      uv = vUv * uMainST.xy + uMainST.zw + uMainSpeed * uTime;
+      // custom data (Torappu (CustomData) shaders, streams Custom1XYZW + Custom2XYZW): custom1.xy = main uv offset,
+      // custom1.zw = extra distortion, custom2.x = dissolve amount — [ASSUMED] from the curves, tuned by eye
+      if (uCustom) uv += vC1.xy;
+      if (uHasDisturb) {
+        vec2 duv = vUv * uDisturbST.xy + uDisturbST.zw + uDisturbSpeed * uTime;
+        // local patch (client DXBC): the noise's red channel times the strength, not centred
+        vec2 n = vec2(texture2D(uDisturb, duv).r);
+        dis = n * (uDisturbStr + (uCustom ? vC1.zw : vec2(0.0)));
+        uv += dis * uDisturbMain;
+      }
+    } else {
+      // 2026-10-14 (client DXBC): Disturb Origin (1) / Disturb Anchor (2) — the noise (.r − _Anchor, × the _WEIGHT_ON weight
+      // texture's rg; Anchor's second noise when _ToggleUseDisturb2) × _Intensity moves the renderer's own uv before the
+      // main texture's tiling / offset; Anchor scrolls the main uv by _UVTween.xy and the noise uv by .zw (uMainSpeed /
+      // uDisturbSpeed)
+      if (uHasDisturb) {
+        vec2 n = vec2(texture2D(uDisturb, vUv * uDisturbST.xy + uDisturbST.zw + uDisturbSpeed * uTime).r) - uDisAnchor;
+        vec2 n2 = uHasDisturb2 ? vec2(texture2D(uDisturb2, vUv * uDisturb2ST.xy + uDisturb2ST.zw).r) - uDisturb2Anchor : vec2(0.0);
+        if (uHasWeight) { vec2 w = texture2D(uWeight, vUv * uWeightST.xy + uWeightST.zw).rg; n *= w; n2 *= w; }
+        dis = n * uDisturbStr + n2 * uDisturb2Str;
+      }
+      uv = (vUv + dis) * uMainST.xy + uMainST.zw + uMainSpeed * uTime;
     }
     vec4 tex = texture2D(uMain, uv);
     vec4 col = tex * uTint * vColor;
+    // 2026-10-14 (client DXBC): Disturb Origin multiplies by _MainColor.a once more, Anchor by lerp(1, _MainColor.a,
+    // _MainColorACtrl) (uTint carries the ×2)
+    if (uACtrl != 0.0) col *= 1.0 + uACtrl * (uTint.a * 0.5 - 1.0);
     // local patch (maintainer report 2026-10-07, 赤刃明霄陈 S3's range too bright): the Ram family multiplies by _RamTex sampled at
     // the renderer's own uv through its tiling / offset — all of rgba (the client's DXBC: Ram/Disturb(CustomData),
     // Ram/Add, Ram/AlphaBlend) — not a ramp looked up by the dissolve edge as assumed before
@@ -322,7 +344,8 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     // dissolve: the shaders declare no edge colour, so _BorderWidth is the softness of the cut [ASSUMED]
     float e = 1.0;
     if (uHasDissolve) {
-      vec2 suv = vUv * uDissolveST.xy + uDissolveST.zw + uDissolveSpeed * uTime + dis * uDisturbDissolve;
+      vec2 suv = uDisMode == 0 ? vUv * uDissolveST.xy + uDissolveST.zw + uDissolveSpeed * uTime + dis * uDisturbDissolve
+        : (vUv + dis) * uDissolveST.xy + uDissolveST.zw;   // Anchor: the moved uv through _DissolveTex_ST (client DXBC)
       float d = texture2D(uDissolve, suv).r;
       // local patch (client DXBC): saturate((d − amount + border · (1 − roundEven(amount + .5))) / border) — at amount 0
       // the border is added, so nothing is cut (the dark texels were holes before)
@@ -366,7 +389,13 @@ function makeMaterial(m, lib) {
   else if (/Additive|Add\b|Add /.test(shader)) additive = true;
   else additive = (f._DstBlend ?? 1) === 1;
   const src = 5, dst = additive ? 1 : 10;
-  const disturb = tex('_DisturbTex') || tex('_NoiseTex');
+  // 2026-10-14: Disturb Origin / Anchor name their noise _DisturTex (it was never read: no distortion, no flow)
+  const disKey = t._DisturbTex ? '_DisturbTex' : t._NoiseTex ? '_NoiseTex' : '_DisturTex';
+  const disturb = tex(disKey);
+  const disMode = /Disturb Origin/.test(shader) ? 1 : /Disturb Anchor/.test(shader) ? 2 : 0;
+  const uvTween = disMode === 2 && Array.isArray(c._UVTween) ? c._UVTween : [0, 0, 0, 0];
+  const disturb2 = disMode === 2 && (f._ToggleUseDisturb2 || 0) > 0 ? tex('_DisturTex_02') : null;
+  const weight = disMode === 2 && (m?.keywords || []).includes('_WEIGHT_ON') ? tex('_WeightTex') : null;
   // local patch: the … Double family dissolves by _DissolveTex_01 / _02, each with its own _Amount_0N / _BorderWidth_0N (its
   // clips animate those; the materials' plain _Amount / _BorderWidth are left over from another shader)
   const double = !t._DissolveTex && !!t._DissolveTex_01;
@@ -383,14 +412,21 @@ function makeMaterial(m, lib) {
     blendSrcAlpha: additive ? THREE.ZeroFactor : THREE.OneFactor, blendDstAlpha: additive ? THREE.OneFactor : THREE.OneMinusSrcAlphaFactor,
     uniforms: {
       uMain: { value: tex('_MainTex') || WHITE }, uMainST: { value: st('_MainTex') },
-      uMainSpeed: { value: new THREE.Vector2(f._MainUSpeed || 0, f._MainVSpeed || 0) },
+      uMainSpeed: { value: disMode === 2 ? new THREE.Vector2(uvTween[0], uvTween[1]) : new THREE.Vector2(f._MainUSpeed || 0, f._MainVSpeed || 0) },
       uTint: { value: new THREE.Vector4(tint[0] * tintMul, tint[1] * tintMul, tint[2] * tintMul, tint[3] * tintMul) },
       uOpacity: { value: f._Opacity ?? 1 },
       // local patch (client DXBC, 2026-10-07): only Disturb Anchor declares the _ToggleUse* switches (and Dissolve(CustomData)
       // _UseDissolveTex) — elsewhere they are values left over from another shader, and dissolve / disturb always run
-      uHasDisturb: { value: !!disturb && (!toggles || (f._ToggleUseDisturb2 ?? 1) !== 0) }, uDisturb: { value: disturb || WHITE },
-      uDisturbST: { value: st(t._DisturbTex ? '_DisturbTex' : '_NoiseTex') },
-      uDisturbSpeed: { value: new THREE.Vector2(f._DisturbUSpeed || 0, f._DisturbVSpeed || 0) },
+      // 2026-10-14 (client DXBC): Anchor's first noise always runs; _ToggleUseDisturb2 switches its second one (uHasDisturb2)
+      uHasDisturb: { value: !!disturb }, uDisturb: { value: disturb || WHITE },
+      uDisturbST: { value: st(disKey) },
+      uDisturbSpeed: { value: disMode === 2 ? new THREE.Vector2(uvTween[2], uvTween[3]) : new THREE.Vector2(f._DisturbUSpeed || 0, f._DisturbVSpeed || 0) },
+      uDisMode: { value: disMode }, uDisAnchor: { value: new THREE.Vector2(disMode === 2 ? f._AnchorU || 0 : 0, disMode === 2 ? f._AnchorV || 0 : 0) },
+      uACtrl: { value: disMode === 1 ? 1 : disMode === 2 ? f._MainColorACtrl || 0 : 0 },
+      uHasDisturb2: { value: !!disturb2 }, uDisturb2: { value: disturb2 || WHITE }, uDisturb2ST: { value: st('_DisturTex_02') },
+      uDisturb2Str: { value: new THREE.Vector2(f._IntensityU_02 || 0, f._IntensityV_02 || 0) },
+      uDisturb2Anchor: { value: new THREE.Vector2(f._AnchorU_02 || 0, f._AnchorV_02 || 0) },
+      uHasWeight: { value: !!weight }, uWeight: { value: weight || WHITE }, uWeightST: { value: st('_WeightTex') },
       uDisturbStr: { value: new THREE.Vector2(f._IntensityU || 0, f._IntensityV || 0) },
       uDisturbMain: { value: f._DisturbInfluenceMainUV ?? 1 }, uDisturbDissolve: { value: f._DisturbInfluenceDissolveUV ?? 0 },
       uHasDissolve: { value: !!dissolve && (toggles ? (f._ToggleUseDissolve ?? 1) !== 0 : useTex ? (f._UseDissolveTex ?? 1) !== 0 : true) }, uDissolve: { value: dissolve || WHITE },
@@ -418,6 +454,42 @@ function makeMaterial(m, lib) {
   // the only depth in an effect canvas: every effect renderer writes none, as before)
   mat.depthTest = mat.userData.ztest;
   return mat;
+}
+
+/** 2026-10-14: the uniform holding a texture's tiling / offset, by the material's texture name. */
+const TEX_ST = { _MainTex: 'uMainST', _DisturbTex: 'uDisturbST', _NoiseTex: 'uDisturbST', _DisturTex: 'uDisturbST', _DisturTex_02: 'uDisturb2ST',
+  _DissolveTex: 'uDissolveST', _DissolveTex_01: 'uDissolveST', _DissolveTex_02: 'uDissolve2ST', _RamTex: 'uRamST', _WeightTex: 'uWeightST' };
+
+/**
+ * 2026-10-14 (client Torappu.Fx.FxUVTweener / FxUVTweenerAdvance, `Update` RVA 0x34C5F90 / 0x34C5780): a renderer's
+ * script that moves its material's texture offsets — each named texture's offset grows by 2 × speed per second (SPEED_SCALE
+ * 2), from the material's own offset with `keepInitOffset`, else from 0 (`OnEnable`), until `tweenAnmTime` for an Advance
+ * without `tweenRepeat` (fx_extract.py `uvt`). The fractional wrap of `protect*UV` / `tweenRepeat` changes nothing on
+ * repeating textures. Kept on `mat.userData.uvt`, moved by setTime; a texture a clip track drives is left to the clip
+ * (bindTrack0 — the Animator's property block wins over the material) [ASSUMED: a shared material (`useSharedMaterial`) moves
+ * as an own one].
+ */
+function uvTween(mat, uvt, m) {
+  if (!mat || !uvt || !Array.isArray(uvt.maps)) return;
+  const list = [];
+  for (const [name, vx, vy] of uvt.maps) {
+    const u = TEX_ST[name] && m?.tex?.[name] ? mat.uniforms[TEX_ST[name]] : null;
+    if (!u || list.some((e) => e.u === u)) continue;
+    list.push({ u, z0: uvt.keep ? u.value.z : 0, w0: uvt.keep ? u.value.w : 0, vx: +vx || 0, vy: +vy || 0, until: uvt.until > 0 ? uvt.until : Infinity });
+  }
+  if (list.length) mat.userData.uvt = list;
+}
+
+/** The renderer's time (seconds since its branch started) into its material: the shader clock and the uvTween offsets. */
+function setTime(mat, t) {
+  mat.uniforms.uTime.value = t;
+  const uvt = mat.userData.uvt;
+  if (!uvt) return;
+  for (const e of uvt) {
+    const s = Math.max(0, Math.min(t, e.until));
+    e.u.value.z = e.z0 + e.vx * s;
+    e.u.value.w = e.w0 + e.vy * s;
+  }
 }
 
 /**
@@ -618,7 +690,7 @@ class TrailRenderer {
 
   update(dt, sinceStart) {
     this.time += dt;
-    this.batch.material.uniforms.uTime.value = sinceStart;
+    setTime(this.batch.material, sinceStart);
     // local patch (m_IsActive): switched off by a clip — not drawn, its points dropped [ASSUMED: cleared, not kept for the next on]
     if (this.off) { this.count = 0; this.batch.begin(); this.batch.end(); return; }
     const tr = this.tr, R = this.ring;
@@ -687,7 +759,7 @@ class LineRenderer {
 
   update(dt, sinceStart) {
     const ln = this.tr, n = this.n;
-    this.batch.material.uniforms.uTime.value = sinceStart;
+    setTime(this.batch.material, sinceStart);
     this.batch.begin();
     let shown = true;
     for (let o = this.node; o && o !== this.root; o = o.parent) if (!o.visible) { shown = false; break; }
@@ -871,7 +943,7 @@ class ParticleSystem {
   update(dt, sinceStart) {
     const ps = this.ps, m = ps.mods;
     dt *= ps.speedMul || 1;
-    this.material.uniforms.uTime.value = sinceStart;
+    setTime(this.material, sinceStart);
     // emission
     const prev = this.time;
     this.time += dt;
@@ -972,7 +1044,7 @@ class ParticleSystem {
 
   updateTrails(sinceStart) {
     const tm = this.tm, K = this.histK, H = this.hist, n = this.n, b = this.trailBatch;
-    b.material.uniforms.uTime.value = sinceStart;
+    setTime(b.material, sinceStart);
     b.begin();
     if (tm.mode === 1) {
       // ribbon: the particles from the oldest to the newest (a stable sort, ties keep their index order)
@@ -1105,7 +1177,9 @@ const CLIP_UNIFORM = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: '
   // local patch: the … Double dissolve's two amounts / borders
   _Amount_01: 'uAmount', _Amount_02: 'uAmount2', _BorderWidth_01: 'uBorder', _BorderWidth_02: 'uBorder2',
   // local patch: textures' tiling / offset (a line's scrolling dots / flow)
-  _MainTex_ST: 'uMainST', _DissolveTex_ST: 'uDissolveST', _DisturbTex_ST: 'uDisturbST', _NoiseTex_ST: 'uDisturbST', _DissolveIntensity: 'uAmount' };
+  _MainTex_ST: 'uMainST', _DissolveTex_ST: 'uDissolveST', _DisturbTex_ST: 'uDisturbST', _NoiseTex_ST: 'uDisturbST', _DissolveIntensity: 'uAmount',
+  // 2026-10-14: Disturb Origin / Anchor's noise textures and strengths
+  _DisturTex_ST: 'uDisturbST', _DisturTex_02_ST: 'uDisturb2ST', _MainColorACtrl: 'uACtrl' };
 /**
  * local patch: a renderer whose node rests more than this far under the ground (board height, tiles) is cut at the floor
  * (FxInstance opts.floor): the client's map hides it by depth (surtr_skill_03_range gx_glow 0.42 under, 5 tiles away;
@@ -1252,6 +1326,15 @@ export class FxInstance {
         // per-system cap: the extract's max, shared out of the quality budget
         this.systems.push(new ParticleSystem(n.ps, this.nodes[i], unity, def, { q: this.q, cap: Math.ceil(this.q.budget / 8), pivot: opts.pivot !== false }));
       }
+      // 2026-10-14: the node's FxUVTweener moves its renderer's material (Unity GetComponent<Renderer>: a node has one)
+      if (n.uvt) {
+        const o = this.nodes[i];
+        const sys = this.systems.find((s) => s.node === o), ln = this.lines.find((t) => t.node === o), tr = this.trails.find((t) => t.node === o);
+        if (this.meshMats[i]) uvTween(this.meshMats[i], n.uvt, def.materials[n.mesh.mat]);
+        else if (sys) uvTween(sys.material, n.uvt, def.materials[n.ps.render.mat]);
+        else if (ln) uvTween(ln.batch.material, n.uvt, def.materials[n.lineR.mat]);
+        else if (tr) uvTween(tr.batch.material, n.uvt, def.materials[n.trailR.mat]);
+      }
     });
     // local patch (maintainer report, maintainer's decision 2026-10-08): every clip of the prefab plays — a nested sub-prefab has
     // its own Animator (缄默德克萨斯 S2's texas2_birth_02_start: the root + 4 slashes; clips[0] alone left the slashes frozen
@@ -1357,6 +1440,7 @@ export class FxInstance {
     const uname = CLIP_UNIFORM[name];
     const u = mat.uniforms[uname];
     if (!u) return null;
+    if (mat.userData.uvt) mat.userData.uvt = mat.userData.uvt.filter((e) => e.u !== u); // uvTween: the clip's property block wins
     const k = uname === 'uTint' ? 2 : 1;   // the material tint carries the shaders' ×2 (makeMaterial)
     return comp ? { tr, o, kind: 'matComp', u, axis: CLIP_AXIS[comp], k, len } : { tr, o, kind: 'mat', u, len };
   }
@@ -1447,7 +1531,7 @@ export class FxInstance {
     for (const s of this.systems) s.update(dt, this.time - (s.node.userData.t0 || 0));
     for (const t of this.trails) t.update(dt, this.time - (t.node.userData.t0 || 0));
     for (const t of this.lines) t.update(dt, this.time - (t.node.userData.t0 || 0)); // local patch
-    for (const m of this.meshMatList) m.uniforms.uTime.value = this.time - (m.userData.t0 || 0);
+    for (const m of this.meshMatList) setTime(m, this.time - (m.userData.t0 || 0));
   }
 
   /**
