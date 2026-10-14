@@ -455,6 +455,8 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `Modes/*/Body/Talents/1`). [화면 미확인]
   - **H** 深靛 秘术师 저장(대상이 없어 공격 대신 에너지 하나): 기본 모드 공격 행동의 `Attack_Charge` — 시뮬이 저장마다 fx 'mysticStore' `{ signal: 'store' }`(秘术师 전원,
     골든 fx 개수만 움직임) → `units.js onSignal` → `spine.js signalSwing`(역할 `signals.store` 클립을 공격 간격에 맞춰 한 번). [화면 미확인]
+  - **H+J** 焰尾 S3 중 前锋剑术(회피 뒤 강화 일격): 모드 S3 공격 트리거 묶음의 재능 공격 키 `Skill_3_Attack_2` = 스킨 키 표의 클립 `Skill_2_Attack_2` — 키트 'riposte' fx에
+    `signal: 'riposte', strike: 1`(타격 순간, 이벤트 수 그대로) → 그 클립을 타격 프레임부터(`_signalStrike`). 기본 모드의 같은 공격은 `Attack`이라 그대로. [화면 미확인]
   - **G** 新约能天使 S3 시작 포격 `Skill_3_Skill`(모드 S3 공격 트리거 묶음의 S3FireToToken): 키트 'airstrike' fx에 `signal: 'fireToToken'`(이벤트 수 그대로) →
     같은 `signalSwing`, 스킬 begin이 끝난 뒤. `Skill_1_Close`(S1 수동 정지 뒤의 몰아 쏘기)는 `none` — 이 모드엔 수동 정지가 없음(스킬을 멈추는 클라 메시지 없음,
     `skills.js stop()` 호출처 없음). [화면 미확인]

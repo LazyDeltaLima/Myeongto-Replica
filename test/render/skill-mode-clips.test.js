@@ -323,3 +323,18 @@ test('予愿安洁莉娜 S3 ending away from her tile: the way home opens on Ski
   w.setSkill(false);        // at home: the plain end
   assert.equal(w.actor.current, 'Skill_3_End');
 });
+
+test('焰尾 前锋剑术 in S3: the strike after a dodge (fx riposte { signal, strike }) plays Skill_2_Attack_2; outside S3 nothing changes', async () => {
+  const hits = assets.chars.char_420_flamtl.spine.front.hits;
+  const v = await view('char_420_flamtl', { skillIndex: 2 });
+  v.setSkill(true);
+  secs(v, 1);
+  v.onSwing(hits.Skill_2_Loop?.[0] ?? 0.3, 'none');
+  assert.equal(v.actor.current, 'Skill_2_Loop');
+  v.onSignal('riposte', null, true);
+  assert.equal(v.actor.current, 'Skill_2_Attack_2');
+  const w = await view('char_420_flamtl', { skillIndex: 2 });
+  w.onSwing(hits.Attack?.[0] ?? 0.3, 'none');
+  w.onSignal('riposte', null, true);
+  assert.equal(w.actor.current, 'Attack', 'the Default mode\'s talent attack is its Attack');
+});

@@ -1767,8 +1767,8 @@ export async function createFieldView(host, options = {}) {
           if (v && v.slideTo) v.slideTo(Number(e[2]), Number(e[3]), { ...(Number(d.dur) > 0 ? { dur: Number(d.dur) } : {}), face: d.face });
         }
         // an attack behaviour that strikes nothing (fx `signal`, over `t` game s when given: 秘术师 'mysticStore', 凯尔希·思衡托's
-        // S3 take-off → its role's `signals` clip, UnitView.onSignal)
-        if (e[4] && typeof e[4] === 'object' && typeof e[4].signal === 'string' && e[4].id != null) views.get(e[4].id)?.onSignal?.(e[4].signal, Number(e[4].t) > 0 ? Number(e[4].t) : null);
+        // S3 take-off) or a strike just made (`strike`: 焰尾's 前锋剑术) → its role's `signals` clip, UnitView.onSignal
+        if (e[4] && typeof e[4] === 'object' && typeof e[4].signal === 'string' && e[4].id != null) views.get(e[4].id)?.onSignal?.(e[4].signal, Number(e[4].t) > 0 ? Number(e[4].t) : null, !!e[4].strike);
         // a skill's deploy clip without a deployment (fx `redeploy`: 乌尔比安 S3's anchor on his own tile, UnitView.replayDeploy)
         if (e[4] && typeof e[4] === 'object' && typeof e[4].redeploy === 'string' && e[4].id != null) views.get(e[4].id)?.replayDeploy?.(e[4].redeploy);
         // 予愿安洁莉娜 S2's 吟唱: her model glides out along the sweep and back (UnitView.glide; the sim keeps her on her tile)

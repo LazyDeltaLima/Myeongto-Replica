@@ -106,7 +106,9 @@ export default withDefaults({
             if (c.attacker !== unit || !unit.mem.riposteNow) return;
             unit.mem.riposteNow = false;
             for (const e of c.targets) if (e.alive) battle.dealDamage(unit, e, { amount: unit.s.atk * unit.s.atkScaleMul, type: 'phys', isAttack: true, tags: ['riposte'] });
-            battle.fx('riposte', { x: unit.x, y: unit.y, id: unit.id });
+            // `signal` (`strike`: from its strike frame): in S3's mode the client plays it as Skill_2_Attack_2 (her skin's key
+            // table, render anims `signals`)
+            battle.fx('riposte', { x: unit.x, y: unit.y, id: unit.id, signal: 'riposte', strike: 1 });
           }, { owner: unit });
         } },
         { install(battle, unit) { // 红松骑士团团长: 卡西米尔 operators +22 % physical dodge

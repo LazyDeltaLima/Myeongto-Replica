@@ -65,9 +65,6 @@ export const UNPLAYED = {
   char_4116_blkkgt: {
     Skill_2_B: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); S2 plays Skill_2',
   },
-  char_420_flamtl: {
-    Skill_2_Attack_2: 'todo: H+J — talent / trait state; skin key table (SpineAnimator._animations)',
-  },
   char_4211_snhunt: {
     Reload_Begin: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
     Reload_Break: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',

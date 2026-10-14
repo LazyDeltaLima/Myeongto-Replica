@@ -196,6 +196,9 @@ export const SIGNAL_CLIPS = Object.freeze({
   'op:char_1041_angel2:': { skills: { 2: { fireToToken: 'Skill_3_Skill' } } },
   // 凯尔希·思衡托 (CN client) S3: the transport's take-off Skill_3_Restart_Begin (the kit's fx 'kalts2Takeoff')
   'op:char_1052_kalts2:': { skills: { 2: { takeoff: 'Skill_3_Restart_Begin' } } },
+  // 焰尾 S3 (焰心): 前锋剑术's strike after a dodge is the S3 mode's talent attack, key Skill_3_Attack_2 → the clip
+  // Skill_2_Attack_2 (skin key table; the kit's 'riposte' fx { signal, strike })
+  'op:char_420_flamtl:': { skills: { 2: { riposte: 'Skill_2_Attack_2' } } },
   // 予愿安洁莉娜 (CN client) S3 ending away from her tile: the Comback flight home opens on Skill_3_Restart_Begin [ASSUMED]
   // (the kit's 'aglnaFlight' { signal: 'comeback' }, sent as the skill ends — it closes the skill instead of Skill_3_End)
   'op:char_1015_aglna2:': { skills: { 2: { comeback: 'Skill_3_Restart_Begin' } } },
