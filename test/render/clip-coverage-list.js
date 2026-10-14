@@ -23,7 +23,6 @@ export const UNPLAYED = {
     Skill_2_Takeoff_Begin: 'render: render/units.js UnitView.glide → SpineActor.chant',
     Skill_2_Takeoff_End: 'render: render/units.js UnitView.glide → SpineActor.chant',
     Skill_2_Takeoff_Loop: 'render: render/units.js UnitView.glide → SpineActor.chant',
-    Skill_3_Restart_Begin: 'todo: G — skill prefab clip [ASSUMED]',
   },
   char_1023_ghost2: {
     Attack2: 'none: back-only clip, not a key of the skin SpineAnimator._animations (the client plays clips by key only)',

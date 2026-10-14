@@ -367,6 +367,7 @@ test('S3 move: blocking nothing, she flies (2.4 tiles/s, 无敌, disarmed, her b
     assert.equal(u.extraRangeKeys, null);
     // the way home is a flight too (the client's Comback movement), the marker kept until she lands
     assert.ok(u.findBuff('aglna2:move') && m.alive, `${label(f)}: flying home`);
+    assert.ok(h.eventsOf('fx').some((e) => e[1] === 'aglnaFlight' && e[4].on === 1 && e[4].signal === 'comeback'), `${label(f)}: its start clip (render)`);
     const t1 = h.b.time;
     assert.ok(h.runUntil(() => u.tileR === 10 && u.tileC === 4, 5), `${label(f)}: back home`);
     approx(h.b.time - t1, Math.hypot(1, 3) / 2, `${label(f)}: at 2 tiles/s`, 0.05);

@@ -309,3 +309,17 @@ test('凯尔希·思衡托 S3 transport: takes off on Skill_3_Restart_Begin (its
   v.onDeploy('land');
   assert.equal(v.actor.current, 'Skill_3_Restart_End');
 });
+
+test('予愿安洁莉娜 S3 ending away from her tile: the way home opens on Skill_3_Restart_Begin instead of Skill_3_End', async () => {
+  const v = await view('char_1015_aglna2', { skillIndex: 2 });
+  v.setSkill(true);
+  secs(v, 2);
+  v.onSignal('comeback');   // the kit's 'aglnaFlight' { on: 1, signal } from the skill's onEnd …
+  v.setSkill(false);        // … then the skill's off event
+  assert.equal(v.actor.current, 'Skill_3_Restart_Begin');
+  const w = await view('char_1015_aglna2', { skillIndex: 2 });
+  w.setSkill(true);
+  secs(w, 2);
+  w.setSkill(false);        // at home: the plain end
+  assert.equal(w.actor.current, 'Skill_3_End');
+});

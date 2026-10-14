@@ -240,7 +240,8 @@ export default {
       const was = !!flight;
       flight = { r, c, speed: home ? RETURN_SPEED : MOVE_SPEED, home, next: battle.time + MOVE_CHECK, vx: c - unit.x, vy: r - unit.y };
       // the render's official flight effects (S3Move's aglna2_skill_03_fly_trail_01, [move_eff_l / _r]) while it lasts
-      if (!was) battle.fx('aglnaFlight', { x: unit.x, y: unit.y, id: unit.id, on: 1, tx: c, ty: r });
+      // (`signal`: the way home opens on Skill_3_Restart_Begin — CN client, [ASSUMED] the Comback flight's start clip)
+      if (!was) battle.fx('aglnaFlight', { x: unit.x, y: unit.y, id: unit.id, on: 1, tx: c, ty: r, ...(home ? { signal: 'comeback' } : null) });
     }
     function stopFlight(battle, unit) {
       flight = null;

@@ -615,6 +615,7 @@ export class SpineActor {
     this.attackUntil = this.clock + dur / ts + SWING_HOLD;
     this.swingUntil = this.attackUntil;
     this.swingAt = null;
+    this.signalAt = this.clock;
     this._play(name, false, { timeScale: ts, mix: 0.06 });
     return true;
   }
@@ -723,6 +724,8 @@ export class SpineActor {
     // a skill that ends as the unit (re)deploys — 乌尔比安's 【返回】 is a 【移动】 (sim Battle.moveRedeploy) right before
     // his S3's 'skill' off event — lets the deploy clip play out (then the plain idle) instead of cutting it with the End
     if (!on && this.mode === 'deploy') return;
+    // a closing behaviour signalled as the skill ends (signalSwing in this frame: 予愿安洁莉娜 S3's way home) is its end
+    if (!on && this.mode === 'attack' && this.signalAt === this.clock && this.swingAt == null) return;
     if (on && sk) {
       this.skillEndPending = false;
       this.skillClipOnce = false;
