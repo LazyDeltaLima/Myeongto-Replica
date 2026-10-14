@@ -588,3 +588,19 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 기절해 누운 채 쓰러지면 Die를 처음부터 다시 틀지 않고 이어 간다, 누운 채 빙결·수면이 겹치면 누운 자세로 멈추고 풀리면 다시 넘어지지 않는다 [추정].
 - 테스트: `test/render/stun-fall.test.js`(가짜 PIXI). 화면: 렌더 데모(Windows Chrome)에서 오른쪽을 보는 오퍼레이터 3명이 기절 동안 Die 끝 자세로
   눕고 풀리면 Idle로 섬. 위를 보는 오퍼레이터(앞모습 모델로 바꿈)와 실제 판의 기절은 [화면 미확인].
+
+## 심해 구역 잠김 (2026-10-14, 관리자 제보 「심해 구역에 들어가면 z축이 상당히 아래로 내려가야 하는데 일반 타일과 똑같다」)
+근거: 공식 버프 템플릿 `trap_sea_drown[enemy]`(buff_template_data — 涨潮控制 장치의 `sea_drown[enemy]` 버프, 이 포크의 深水区 수몰 `devices.js`)가
+ON_BUFF_START에 `AddHeightOffsetToSpine`(그래픽 홀더 높이 이동, `_instant` 거짓)으로 −0.7칸, 대상에 `buff_swim`이 있으면 −0.2칸을 옮기고,
+ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +0.7 / +0.2로 되돌린다. 칸 자체는 내려가지 않는다: 스테이지 씬
+(act2 m04·act1 m05)의 `tile_deepsea` 타일 `_height`·`_locateHeightOffset`은 0, 타일 그래픽은 지면 바로 아래(0.02)의 물 평면이고 타일이 주는
+버프 `under_sea[tile]`(템플릿 empty)은 모터보트류 적 4종의 헤엄 이펙트 조건으로만 쓰인다.
+- 이전: 적은 어느 칸에서든 도로 높이(z 0)에 그렸다.
+- 지금: 지상 적이 반올림한 칸이 심해 구역이면(시뮬의 수몰 판정 `devices.js terrainFor`와 같은 규칙 — 비행·이륙·아군은 제외) 몸을 0.7칸, 잠수원
+  (`buff_swim` — enemy_database에서 Swim 재능을 가진 적은 잠수원 두 종뿐 [추정: 그 재능이 `buff_swim`을 붙임])은 0.2칸 내려 그린다. 육지로 나오면
+  다시 올라오고, 심해에서 쓰러진 적은 잠긴 채 사라진다. 그림자는 물 위(z 0)에 남는다. 코드: `render/units.js deepSink`·`DEEP_SINK`,
+  타일 재질은 `render/app.js` ctx `terrainAt`.
+- [추정] 내려가고 올라오는 속도(발 높이 보간과 같게 — 클라 값은 네이티브라 안 읽음), HP 바와 몸에 붙는 이펙트도 함께 내려감(비행 `hover`와 같은 처리).
+- 안 한 것: 공식은 물 평면 아래로 들어간 몸 부분을 물빛으로 칠한다(씬의 `HGSceneWaterEffect` 프로필 `WE_Static_WEProfiles`: `spineIntersect` 켜짐,
+  색 (0, 0.543, 0.772, α 0.547), `spineHeightTeak` 0.8). 이 렌더러는 유닛을 보드 위 2D 층에 그려 아직 잠긴 부분이 그대로 보인다.
+- 테스트: `test/render/deep-sink.test.js`(가짜 PIXI). 실제 판(전장#08 등 심해 구역 스테이지)은 [화면 미확인].

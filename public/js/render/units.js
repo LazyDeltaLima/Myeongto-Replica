@@ -226,6 +226,27 @@ export const FLY_HOVER = 1.3;
  * report 2026-10-12 「제자리에 돌아왔을 때 이륙 고도가 지금보다 낮다」: she flew at 1.3) [ASSUMED: the offset is in tiles —
  * world space, not the 0.27 character space of the flyers' 0.35].
  */
+/**
+ * 深水区: a ground enemy on a deep-water tile is drawn this many tiles down (docs/rules/render.md 「심해 구역 잠김」). The
+ * client's buff template `trap_sea_drown[enemy]` (the 涨潮控制 device's sea_drown[enemy] buff — devices.js' deep water)
+ * moves the model's graphic holder by AddHeightOffsetToSpine on ON_BUFF_START: −0.7, or −0.2 for an enemy holding
+ * `buff_swim`; ON_BUFF_FINISH moves it back only while the owner lives (a body dies sunk). `_instant` false: it eases
+ * [ASSUMED: at the feet's usual rate — the client's speed is native and not read]. Drawn by lowering the view's z, so the
+ * HP bar and the effects on the body go down with it like they rise with `hover` [ASSUMED]; the shadow stays on the water.
+ */
+export const DEEP_SINK = 0.7;
+export const DEEP_SINK_SWIM = 0.2;
+/** `buff_swim` holders: 潜水员 (enemy_database: the only enemies with the Swim talent, Swim.atk). */
+const SWIMMERS = new Set(['enemy_1158_divman', 'enemy_1158_divman_2']);
+/**
+ * How far a view at world (x, y) sinks: the sim's deep-water rule (devices.js terrainFor — ground enemies on the tile
+ * round(y), round(x), never allies or flyers) on the stage tile the renderer draws (`ctx.terrainAt`).
+ */
+export function deepSink(ctx, info, airborne, x, y) {
+  if (info?.side !== 'enemy' || airborne || !ctx.terrainAt) return 0;
+  if (ctx.terrainAt(Math.round(y), Math.round(x)) !== 'deepsea') return 0;
+  return SWIMMERS.has(info.defId) ? DEEP_SINK_SWIM : DEEP_SINK;
+}
 const LIFTOFF_HEIGHT = Object.freeze({
   char_1015_aglna2: { lift: 0.8, high: 0.4, highSkill: 2 },
   // 凯尔希·思衡托: no ModifyGraphicHolderHeight in her charpack or any kalts2_* buff template, `_motionMode` 0 — her 起飞
@@ -600,7 +621,7 @@ export class UnitView {
     this.golden = !!info.golden;
     this.tier = clamp(Number(info.tier) || 1, 1, 6);
     this.x = Number(info.x) || 0; this.y = Number(info.y) || 0; this.z = 0;
-    this.zTarget = null;          // battle: standing height the feet ease towards (tile top under the unit; 0 for enemies)
+    this.zTarget = null;          // battle: standing height the feet ease towards (tile top under the unit; 0 for enemies, −sink on deep water)
     this.slide = null;            // a push / pull slide (slideTo): held, then easing into the sim's position (update)
     this.glideS = null;           // a model glide away from its tile and back (glide): it owns the drawn position meanwhile
     this.riseDur = 0;             // after a glide: the lift comes up linearly over this many game s (0 = the usual ease)
@@ -610,6 +631,7 @@ export class UnitView {
     this.shadowZTarget = null;
     this.flying = info.motion === 'FLY';
     this.hover = 0;               // flying: body height above the road / the ground under it
+    this.sink = 0;                // 深水区: how far an enemy is drawn below the road (deepSink; z eases to −sink, its shadow stays)
     this.liftoff = false;         // an airborne (起飞) operator: drawn at the flyers' height too (shared/local.js UF_LIFTOFF)
     this.modelSX = NaN;           // the Spine model's display scale (x with the facing mirror) — render/fxgame.js specialPoint
     this.modelSY = NaN;
@@ -996,10 +1018,14 @@ export class UnitView {
     // high-ground / forbidden block rose and dropped like stairs). Its shadow still lies on the tile top under it.
     // While sliding, the floor is read under the view's own (mid-flight) position, not the destination's.
     const floor = this.slide ? groundZ(this.ctx, this.x, this.y) : groundZ(this.ctx, s.x, s.y);
-    const gz = this.isEnemy ? 0 : floor;
+    // 深水区 (deepSink): a ground enemy on deep water sinks — its body, HP bar and the effects on it go down, its shadow
+    // stays on the water; a body that dies there stays down (the client moves it back only while it lives)
+    if (this.alive) this.sink = this.slide ? deepSink(this.ctx, this.info, this.flying || this.liftoff, this.x, this.y)
+      : deepSink(this.ctx, this.info, this.flying || this.liftoff, s.x, s.y);
+    const gz = !this.isEnemy ? floor : this.sink ? -this.sink : 0;
     if (this.zTarget == null) this.z = gz;
     this.zTarget = gz;
-    this.shadowZTarget = this.isEnemy && this.flying ? floor : null;
+    this.shadowZTarget = !this.isEnemy ? null : this.flying ? floor : this.sink || this.z < 0 ? 0 : null;
     if (this.shadowZTarget == null) this.shadowZ = null;
     else if (this.shadowZ == null) this.shadowZ = this.z;
     if (s.maxHp > 0) this.maxHp = s.maxHp;
