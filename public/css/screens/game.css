@@ -515,6 +515,11 @@
 .settings-btn .btn__label { display: inline-flex; align-items: center; gap: .1rem; }
 .settings-btn .btn__icon { color: var(--mint-500); }
 .set-list { display: flex; flex-direction: column; gap: .16rem; padding-top: .06rem; }
+/* the sections of the modal (ui/settings.js SetSection: 通用 / 声音 / 聊天提示 / 画面 — maintainer decision 2026-10-14), headed like
+   快捷键 / 问题反馈 below them: a title with its micro label over a rule; the first one without the rule */
+.set-sec { display: flex; flex-direction: column; gap: .16rem; padding-top: .1rem; border-top: 1px solid var(--line); }
+.set-list > .set-sec:first-child { padding-top: 0; border-top: 0; }
+.set-sec__head { display: flex; align-items: center; min-height: .44rem; }
 .set-row { display: grid; grid-template-columns: 3.3rem 1fr auto; align-items: center; gap: .18rem; min-height: .44rem; }
 .set-row__label { display: flex; align-items: center; gap: .1rem; font-size: .18rem; color: var(--text-hi); white-space: nowrap; }
 .set-row__label .icon { width: .2rem; height: .2rem; color: var(--mint-500); }

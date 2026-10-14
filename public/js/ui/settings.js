@@ -1,8 +1,9 @@
 // Player settings (BGM/SFX/voice volume, mute, the chat notification, damage numbers, render quality, the shortcut keys): a tiny observable
 // store persisted in localStorage (`sp.pref.settings`), applied to the audio manager on every change, plus
-// the settings modal — which also holds the language switch (ui/lang.js; kept apart in `sp.pref.lang`; under it a note
-// while the current language's pack is a machine translation, `_meta.machineTranslated`) and the 快捷键
-// section that rebinds the in-match shortcuts (the key map: ui/gameLogic/shortcuts.js; the community request
+// the settings modal, in sections by function (SetSection: 通用 / 声音 / 聊天提示 / 画面, maintainer decision 2026-10-14) — 通用
+// holds the language switch (ui/lang.js; kept apart in `sp.pref.lang`; under it a note
+// while the current language's pack is a machine translation, `_meta.machineTranslated`) and the resource download; after
+// them come the 快捷键 section that rebinds the in-match shortcuts (the key map: ui/gameLogic/shortcuts.js; the community request
 // 「快捷键可不可以自己设置」, the owner's decision of 2026-10-07) and 问题反馈, which copies the diagnostics of this page
 // for a bug report (diag.js: the error log, this browser, optionally the battle on screen; nothing is uploaded). The lobby
 // and the room open it from a 设置 button next to 玩法说明 (SettingsButton, GitHub #238); the title screen and the match
@@ -237,6 +238,18 @@ function DiagSection() {
 }
 
 /**
+ * One section of the settings modal, headed like 快捷键 / 问题反馈 (a title with its micro label over a rule): the rows
+ * grouped by what they set — 通用 (language, the resource download), 声音, 聊天提示, 画面 (maintainer decision 2026-10-14).
+ * @param {{ id: string, title: string, micro: string, children?: any }} props
+ */
+function SetSection({ id, title, micro, children }) {
+  return html`<section class=${`set-sec set-sec--${id}`} aria-labelledby=${`set-sec-${id}`} data-testid=${`set-sec-${id}`}>
+    <div class="set-sec__head"><span class="set-row__label" id=${`set-sec-${id}`}>${title}<${MicroLabel}>${micro}<//></span></div>
+    ${children}
+  </section>`;
+}
+
+/**
  * Settings modal.
  * @param {{ open: boolean, onClose: Function }} props
  */
@@ -249,29 +262,37 @@ export function SettingsModal({ open, onClose }) {
     actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
       <${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
     <div class="set-list">
-      <div class="set-row">
-        <span class="set-row__label">${t('语言')}<${MicroLabel}>LANGUAGE<//></span>
-        <${LangToggle} class="set-lang" />
-      </div>
-      ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
-      <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
-      <${Slider} label=${t('干员语音')} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
-      <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
-        onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
-      <${VoiceSetting} />${/* local patch */ ''}
-      <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
-      <${ChatSoundSection} s=${s} />
-      <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
-      ${s.damageNumbers ? html`<${NumberStyleSetting} />` : ''}${/* local patch: 官方 / 全部 numbers */ ''}
-      <div class="set-row">
-        <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
-        <div class="set-seg" role="radiogroup">
-          ${QUALITY.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.quality === id ? 'true' : 'false'}
-            class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
+      <${SetSection} id="general" title=${t('通用')} micro="GENERAL">
+        <div class="set-row">
+          <span class="set-row__label">${t('语言')}<${MicroLabel}>LANGUAGE<//></span>
+          <${LangToggle} class="set-lang" />
         </div>
-      </div>
-      <${UiScaleSetting} />${/* local patch */ ''}
-      <${ResourceSetting} />${/* local patch */ ''}
+        ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
+        <${ResourceSetting} />${/* local patch */ ''}
+      <//>
+      <${SetSection} id="sound" title=${t('声音')} micro="SOUND">
+        <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
+        <${Slider} label=${t('干员语音')} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
+        <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
+          onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
+        <${VoiceSetting} />${/* local patch */ ''}
+        <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
+      <//>
+      <${SetSection} id="chat" title=${t('聊天提示')} micro="CHAT ALERTS">
+        <${ChatSoundSection} s=${s} />
+      <//>
+      <${SetSection} id="display" title=${t('画面')} micro="DISPLAY">
+        <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
+        ${s.damageNumbers ? html`<${NumberStyleSetting} />` : ''}${/* local patch: 官方 / 全部 numbers */ ''}
+        <div class="set-row">
+          <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
+          <div class="set-seg" role="radiogroup">
+            ${QUALITY.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.quality === id ? 'true' : 'false'}
+              class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
+          </div>
+        </div>
+        <${UiScaleSetting} />${/* local patch */ ''}
+      <//>
       <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
       <${DiagSection} />
       <p class="set-hint">${touchUi ? t('触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向') : t('右键查看详情')}</p>
