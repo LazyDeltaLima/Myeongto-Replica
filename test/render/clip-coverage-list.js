@@ -51,6 +51,9 @@ export const UNPLAYED = {
   char_4016_kazema: {
     Default_B: 'none: setup pose of the stand-in form (0 s); only the buff template of another unit (parrot_m1_t) names it',
   },
+  char_4087_ines: {
+    Start_Skill: 'none: skchr_ines_3/First _animKey — S3 is cast only as she deploys (ON_DEPLOY) and the official game shows no Start_Skill after the deployment (maintainer 2026-10-14)',
+  },
   char_4116_blkkgt: {
     Skill_2_B: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); S2 plays Skill_2',
   },

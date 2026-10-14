@@ -95,14 +95,14 @@ test('焰影苇草 S3: attacks with Skill_3_Attack and idles in Skill_3_Loop (ch
 
 // The skill clips the EN client's skill prefabs and charpack modes name where the resolver guessed another skill's
 // (tools/assets/anim-overrides.mjs, docs/rules/render.md 「Spine 클립 커버리지」).
-test('manifest: 灵知 S3 Skill_4_*, 歌蕾蒂娅 S2 opens with Skill_2_Startup, 伊内丝 S3 Start_Skill, 缄默德克萨斯 S2 / S3 Start_n, 银灰 S2 Combat', () => {
+test('manifest: 灵知 S3 Skill_4_*, 歌蕾蒂娅 S2 opens with Skill_2_Startup, 伊内丝 S3 without a clip, 缄默德克萨斯 S2 / S3 Start_n, 银灰 S2 Combat', () => {
   for (const dir of ['front', 'back']) {
     const sk = (id) => assets.chars[id].spine[dir].anims.skills;
     assert.deepEqual([sk('char_206_gnosis')[2].begin, sk('char_206_gnosis')[2].loop, sk('char_206_gnosis')[2].end],
       ['Skill_4_Begin', 'Skill_4_Loop', 'Skill_4_End'], dir);
     assert.equal(sk('char_474_glady')[1].begin, 'Skill_2_Startup', dir);
     assert.equal(sk('char_474_glady')[1].loop, 'Skill_2_Loop', dir);
-    assert.equal(sk('char_4087_ines')[2].begin, 'Start_Skill', dir);
+    assert.deepEqual([sk('char_4087_ines')[2].begin, sk('char_4087_ines')[2].via], [null, 'attack'], dir);
     assert.equal(sk('char_1028_texas2')[1].begin, 'Start_2', dir);
     assert.equal(sk('char_1028_texas2')[2].begin, 'Start_3', dir);
     assert.equal(sk('char_1028_texas2')[2].idle, 'Skill_3_Idle', dir);
@@ -110,10 +110,10 @@ test('manifest: 灵知 S3 Skill_4_*, 歌蕾蒂娅 S2 opens with Skill_2_Startup,
   }
 });
 
-test('伊内丝 S3: Start_Skill at the cast, then she idles and attacks with her ordinary Attack', () => {
+test('伊内丝 S3: no clip at the cast (official: nothing after the deployment); she attacks with her ordinary Attack', () => {
   const a = actor('char_4087_ines', 2);
   a.setSkill(true);
-  assert.deepEqual(a.log, ['Start_Skill', 'Idle'], 'the begin clip, then her idle queued');
+  assert.ok(!a.log.includes('Start_Skill'), 'no Start_Skill');
   run(a, 2);
   a.attack(1.2);
   assert.equal(a.current, 'Attack');

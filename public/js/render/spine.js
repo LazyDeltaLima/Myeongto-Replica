@@ -778,10 +778,6 @@ export class SpineActor {
     const sk = this.roles.skill;
     if (this.mode === 'stun' || this.mode === 'die' || this.mode === 'held') return;
     if (on && this.mode === 'chant') return;   // the 吟唱's clips run on (chant); its after clip begins the skill
-    // a cast whose opening clip follows the deploy clip (anims skill `afterDeploy`: 伊内丝 S3 Start_Skill, cast as she
-    // deploys) begins when the deploy clip ends (update 'deploy')
-    this.beginAfterDeploy = on && !!sk?.afterDeploy && this.mode === 'deploy';
-    if (this.beginAfterDeploy) return;
     // a skill that ends as the unit (re)deploys — 乌尔比安's 【返回】 is a 【移动】 (sim Battle.moveRedeploy) right before
     // his S3's 'skill' off event — lets the deploy clip play out (then the plain idle) instead of cutting it with the End
     if (!on && this.mode === 'deploy') return;
@@ -901,9 +897,6 @@ export class SpineActor {
     const md = this.skillOn ? this.roles.skill?.deploy : null;
     const d = this.has(sd) ? sd : this.has(md) ? md : this.roles.deploy;
     if (this.has(d) && d !== this.roles.idle) {
-      // a skill cast just before (its opening clip started this frame, or already waits) whose opening clip follows the
-      // deploy clip (`afterDeploy`): it begins again once the deploy clip ends
-      this.beginAfterDeploy = this.skillOn && !!this.roles.skill?.afterDeploy && (this.mode === 'skillBegin' || !!this.beginAfterDeploy);
       this.mode = 'deploy';
       this._play(d, false, { mix: 0 });
       this.deployAt = this.clock;
@@ -1050,12 +1043,7 @@ export class SpineActor {
         else if (this.chantEnd && this.clock >= this.chantEndAt) { this._play(this.chantEnd, false, { mix: 0.08 }); this.chantEnd = null; }
         break;
       case 'deploy':
-        if (this.clock >= this.deployUntil) {
-          this.mode = 'base';
-          if (this.beginAfterDeploy && this.skillOn) { this.skillOn = false; this.setSkill(true, this.skillVariant); }
-          else this._play(this._baseName(), true);
-          this.beginAfterDeploy = false;
-        }
+        if (this.clock >= this.deployUntil) { this.mode = 'base'; this._play(this._baseName(), true); }
         break;
       case 'change':
         if (this.changeNext?.length && this.clock >= this.changeNextAt && this.clock < this.changeUntil) {

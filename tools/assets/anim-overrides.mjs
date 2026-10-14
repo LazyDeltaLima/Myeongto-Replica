@@ -59,12 +59,10 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
     2: Object.freeze({ via: 'attack', begin: 'Skill_3_Startup', idle: 'Skill_3_Chant', end: Object.freeze(['Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_End']) }),
   }),
   // 伊内丝 (char_4087_ines): S3 独影归途 = an ability group whose first ability (`_animKey "Start_Skill"`) leaves the
-  // shadow sentry; her attacks stay the ordinary ones (loop = idle: no skill attack clip). The skill is cast as she deploys
-  // (spType ON_DEPLOY) and Start_Skill follows her drop instead of replacing it (`afterDeploy`, maintainer 2026-10-14
-  // 「낙하를 대신하는 것 같지는 않아」 [ASSUMED: no recording]): render/spine.js holds the begin until the deploy clip ends.
-  'op:char_4087_ines:': Object.freeze({
-    2: clips({ begin: 'Start_Skill', loop: 'Idle', afterDeploy: true }),
-  }),
+  // shadow sentry; her attacks stay the ordinary ones. It is cast only as she deploys (spType ON_DEPLOY), and the official
+  // game shows no Start_Skill after the deployment (maintainer 2026-10-14) — only her Start drop: the skill has no clip of
+  // its own (Start_Skill: test/render/clip-coverage-list.js `none`), so a cast during the drop never cuts it.
+  'op:char_4087_ines:': Object.freeze({ 2: 'attack' }),
   // 缄默德克萨斯 (char_1028_texas2): the S2 / S3 deploy burst (skchr_texas2_{2,3} AnimationEmitBehaviour ON_CAST_START
   // anim `Start_n`; charpack modes S2 / S3 pair Born→Start_n, Idle→Skill_n_Idle) opens the skill.
   'op:char_1028_texas2:': Object.freeze({
