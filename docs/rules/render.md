@@ -418,7 +418,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   `CN only` 9개(EN에 없는 오퍼레이터 — CN 필드만, [추정]). 처음부터 `none`으로 확정한 것은 없다.
 - 판정(2026-10-14, 관리자 노트 — EN·CN 클라 프리팹·버프 템플릿·디컴파일): 105개 = 연결 94·`none` 11. `none`은 근거와 함께 목록에 적었고, 역할이 다른
   스킬의 클립을 틀던 다섯 명은 `anim-overrides.mjs`로 고쳤다 — 灵知 S3 `Skill_4_*`(그동안 S2 충전 모드의 `Skill_3`), 歌蕾蒂娅 S2 시작 `Skill_2_Startup`
-  (`Skill_2_Begin`은 S2 모드 공격 채널의 시작), 伊内丝 S3 시작 `Start_Skill`(→ 공식은 배치 뒤 안 나와 `none`, 아래 E), 缄默德克萨斯 S2·S3 시작 `Start_2`·`Start_3`(배치 일격, 모드 Born 짝), 银灰 S2 공격
+  (`Skill_2_Begin`은 S2 모드 공격 채널의 시작), 伊内丝 S3 시작 `Start_Skill`(→ 공식은 배치 뒤 안 나와 목록 `todo` 보류, 아래 E), 缄默德克萨斯 S2·S3 시작 `Start_2`·`Start_3`(배치 일격, 모드 Born 짝), 银灰 S2 공격
   `Combat`(그동안 S3의 `Skill`). [화면 미확인] 남은 `todo`는 클립을 트는 클라 구조로 묶었다(묶음 하나 = 렌더 고칠 자리 하나):
   - **A** 저지 대상 공격: 모드 `UnitMode._combat` — `Character._FetchCombatTarget`이 저지 중인 적 중 첫 적을 고를 때(要塞 `FORTRESS_CLIPS`의 일반형). 구현(같은 날):
     시뮬 `ai.js`가 주 대상이 자기가 저지한 적이면 'swing' 7번째 칸 1 → `units.js onSwing` → `spine.js combatHit`, 역할 클립의 `combat`(`anim-overrides.mjs COMBAT_CLIPS`,
@@ -452,7 +452,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `Start` 클립 자체(첫 프레임 뒤 −975, 높이 0)라 원래 그렇게 그려진다(같은 아레나로 확인). 전수(같은 날, 관리자 노트): 오퍼레이터 146명의 `Start`는 수직 95·사선 11·수평 13·제자리 27이고
     렌더가 그대로 틀며, 스킨 키 표 Born은 전원 `Start`, 모드 Born 짝은 위 E의 여섯 명뿐. 배치 발동 스킬 중 시전 클립이 있는 다른 하나 伊内丝 S3
     `Start_Skill`(`skchr_ines_3/First _animKey`)은 공식에서 배치 뒤에 안 나온다(관리자 확인 2026-10-14). S3는 배치 때만 시전되므로
-    S3 역할을 클립 없음(`'attack'`)으로 바꾸고 `Start_Skill`은 목록 `none` — 그동안 시뮬이 배치 다음에 시전하면 낙하를 끊고 `Start_Skill`이 나왔다(한때 착지 뒤에 잇게 했다가 되돌림). 予愿安洁莉娜 S1은 기본 모드
+    S3 역할을 클립 없음(`'attack'`)으로 바꾸고 `Start_Skill`은 목록 `todo` 보류(관리자 2026-10-14 「로직을 확실히 아는 건 아니니」 — 클라가 언제 트는지 미확인) — 그동안 시뮬이 배치 다음에 시전하면 낙하를 끊고 `Start_Skill`이 나왔다(한때 착지 뒤에 잇게 했다가 되돌림). 予愿安洁莉娜 S1은 기본 모드
     S1_TakeOff(`_defaultModeIndex` 5)로 배치부터 이륙(관리자 결정 2026-10-14) — E `equip` 배치 클립 `Start_2`(위에서 내려와 떠 있음; 땅 배치 `Start`는 뒤에서 휘어 들어옴).
     아레나로 둘 다 확인. 스킬이 일으킨 【移动】의 배치 클립(같은 날): `Battle.moveRedeploy({ clip })` → 'deploy' 이벤트 4번째 칸 → 역할 `deploys`
     (`anim-overrides.mjs SKILL_STATE_CLIPS`, `spine.js deploy(key)`) — 乌尔比安 S3 닻으로 `Skill_3_ReStart_A`, 【返回】 `Skill_3_Back`, 닻이 자기 칸이면 이동 없이

@@ -61,7 +61,7 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   // 伊内丝 (char_4087_ines): S3 独影归途 = an ability group whose first ability (`_animKey "Start_Skill"`) leaves the
   // shadow sentry; her attacks stay the ordinary ones. It is cast only as she deploys (spType ON_DEPLOY), and the official
   // game shows no Start_Skill after the deployment (maintainer 2026-10-14) — only her Start drop: the skill has no clip of
-  // its own (Start_Skill: test/render/clip-coverage-list.js `none`), so a cast during the drop never cuts it.
+  // its own (Start_Skill: test/render/clip-coverage-list.js, on hold), so a cast during the drop never cuts it.
   'op:char_4087_ines:': Object.freeze({ 2: 'attack' }),
   // 缄默德克萨斯 (char_1028_texas2): the S2 / S3 deploy burst (skchr_texas2_{2,3} AnimationEmitBehaviour ON_CAST_START
   // anim `Start_n`; charpack modes S2 / S3 pair Born→Start_n, Idle→Skill_n_Idle) opens the skill.
