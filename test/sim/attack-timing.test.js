@@ -25,9 +25,9 @@ const done = (h) => { checkInvariants(h.b); assert.equal(h.b.errors.length, 0, J
 
 const HIT = 0.4, BAT = 2;
 /** One test operator (clip 1 s, strike at HIT, interval BAT) facing a dummy on the next tile. */
-function field({ max = 1, enemies = 1 } = {}) {
+function field({ max = 1, enemies = 1, begin = null } = {}) {
   const op = { ...chessRec({ id: 't_op', stats: { atk: 100, bat: BAT }, skill: null, rangeGrid: [[0, 0], [0, 1], [0, 2]] }),
-    attackAnim: { base: { clip: 'Attack', dur: 1, hit: HIT, max }, skills: [] } };
+    attackAnim: { base: { clip: 'Attack', dur: 1, hit: HIT, max, ...(begin ? { begin, esc: 0.5 } : {}) }, skills: [] } };
   const h = makeBattle({
     defs: { chess: { t_op: op }, enemies: { e: enemyRec({ key: 'e', hp: 1e9, speed: 0 }) } },
     units: [{ chessId: 't_op', row: 10, col: 4 }], enemies: Array.from({ length: enemies }, (_, i) => ({ key: 'e', pos: [10, 5 + i] })),
@@ -190,4 +190,60 @@ test('the swing marks a blocked main target (7th field 1); an enemy out of block
     if (want) assert.ok(u.blocking.length === 1, 'it blocks the enemy');
     done(h);
   }
+});
+
+test('a ThreePart attack\'s first-attack begin: scaled with the clip, the strike after it (ThreePartOneshotAnimation.InitAnimation)', () => {
+  const u = (max) => ({ s: { interval: 2 }, def: { attackAnim: { clip: 'Attack', dur: 1, hit: 0.4, max, begin: 0.2 } } });
+  // no bound: scale = 2 ÷ (0.2 + 1), the strike at (0.2 + 0.4) × scale; the following swings 2 ÷ 1
+  let t = attackTiming(u(-1), undefined, true);
+  near(t.strike, 0.6 * 2 / 1.2, 'first, no bound', 0);
+  near(t.action, 2, 'the swing fills the interval', 0);
+  assert.equal(t.begun, true);
+  t = attackTiming(u(-1), undefined, false);
+  near(t.strike, 0.8, 'not first', 0);
+  assert.equal(t.begun, false);
+  // a bound of 1 (실버애쉬 더 레인프로스트, 르무엔 S2): the begin at its own length before the strike
+  near(attackTiming(u(1), undefined, true).strike, 0.6, 'first, bound 1', 0);
+  near(attackTiming(u(1), undefined, false).strike, 0.4, 'not first, bound 1', 0);
+  // no begin in the record: `first` changes nothing
+  near(attackTiming({ s: { interval: 2 }, def: { attackAnim: { clip: 'Attack', dur: 1, hit: 0.4, max: 1 } } }, undefined, true).strike, 0.4, 'no begin', 0);
+  // the data: 德克萨스 Default (key Attack_Begin = the clip Attack_Start, 0.5 s; _escapeTime 0.5)
+  const tex = readJson('data/chess.json').chess_char_1_08_a.attackAnim.base;
+  assert.equal(tex.begin, 0.5);
+  assert.equal(tex.esc, 0.5);
+});
+
+test('the first swing of a spell opens on the begin (8th field 1) and strikes later; the next ones do not; a target lost past _escapeTime starts a new spell', () => {
+  const { h, u } = field({ begin: 0.2 });
+  h.run(4.5);
+  const sw = h.eventsOf('swing').filter((e) => e[1] === u.id);
+  assert.ok(sw.length >= 3, `${sw.length} swings`);
+  assert.equal(sw[0][7], 1, `the first: ${JSON.stringify(sw[0])}`);
+  near(sw[0][2], HIT + 0.2, 'its wind-up: the begin, then the strike frame (bound 1)', 0);
+  assert.equal(sw[1][7], undefined, `the second: ${JSON.stringify(sw[1])}`);
+  near(sw[1][2], HIT, 'the second: the strike frame alone', 0);
+  const s = strikes(h, u);
+  near(s[0], TICK + HIT + 0.2, 'the first strike waits for the begin');
+  near(s[1] - s[0], BAT - 0.2, 'the second one interval after the first swing started', 1);
+  // the target leaves (killed); a new one arrives after the swing has ended + _escapeTime 0.5: a first attack again
+  for (const e of h.b.units.filter((x) => x.side === 'enemy')) h.b.dealDamage(null, e, { amount: 1e12, type: 'true' });
+  h.run(3);
+  h.spawn('e', { pos: [10, 5] });
+  h.run(1);
+  const late = h.eventsOf('swing').filter((e) => e[1] === u.id).at(-1);
+  assert.equal(late[7], 1, `a new spell: ${JSON.stringify(late)}`);
+  done(h);
+});
+
+test('a target lost within _escapeTime keeps the spell: the next swing has no begin', () => {
+  const { h, u } = field({ begin: 0.2 });
+  h.run(0.1);   // the first swing (0.6 s wind-up, swing over at BAT)
+  for (const e of h.b.units.filter((x) => x.side === 'enemy')) h.b.dealDamage(null, e, { amount: 1e12, type: 'true' });
+  h.run(BAT - 0.1 + 0.2);   // ready at BAT; no target until BAT + 0.2 < BAT + 0.5
+  h.spawn('e', { pos: [10, 5] });
+  h.run(0.5);
+  const sw = h.eventsOf('swing').filter((e) => e[1] === u.id);
+  assert.equal(sw.length, 2);
+  assert.equal(sw[1][7], undefined, `no begin: ${JSON.stringify(sw[1])}`);
+  done(h);
 });

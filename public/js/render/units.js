@@ -840,7 +840,7 @@ export class UnitView {
         if (deployed != null) { this.actor.deploy(this._deployKey); if (deployed > 0) this.actor.update(deployed); }
         else if (swung) {
           this.actor.combatHit = !!swung.combat;
-          if (this.actor.swing(swung.windup, swung.alt) && swung.elapsed > 0) this.actor.update(swung.elapsed);
+          if (this.actor.swing(swung.windup, swung.alt, swung.first) && swung.elapsed > 0) this.actor.update(swung.elapsed);
         }
         // a stealth-driven form (STEALTH_FORMS): the pose of the clip set in force now, even under a frozen stun
         if (STEALTH_FORMS[id]) this.actor.syncFormPose();
@@ -1293,12 +1293,12 @@ export class UnitView {
    * although a skill is on (赤刃明霄陈 S3 before its mode switch, kits/ops/op-chen3.js s3Spec); `combat` = its 7th: the main
    * target is an enemy this unit blocks (the role's `combat` clip, render/spine.js _swingClip).
    */
-  onSwing(windup, kind, base = false, combat = false) {
+  onSwing(windup, kind, base = false, combat = false, first = false) {
     if (!this.alive || !this.actor || !this.spineReady) return false;
     this._atkKind(kind);
     this.actor.baseClip = !!base;
     this.actor.combatHit = !!combat;
-    const ok = this.actor.swing(windup);
+    const ok = this.actor.swing(windup, null, first);
     if (ok && this.imp) this.imp.dirty = true;
     return ok;
   }

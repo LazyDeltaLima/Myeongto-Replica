@@ -210,12 +210,17 @@ export const SIGNAL_CLIPS = Object.freeze({
  * (`_onlyPlayBeginAnimWhenFirstAttack` 1 on every one of the roster) and the ability's `_endAnimKey` as the attacks stop.
  * Model key prefix → { attack?: { begin?, end? }, skills?: { [0-based skill index]: { attackBegin?, attackEnd? } } }: the
  * attack role gains `firstBegin` (its begin is that first-attack clip; begin / end fill in clips the resolver left out), a
- * skill clip `attackBegin` / `attackEnd` (its own begin / end being the skill's) — render/spine.js swing / update.
+ * skill clip `firstAttackBegin` (a ThreePart begin of the skill's mode) or `attackBegin` / `attackEnd` (an attack channel's;
+ * its own begin / end being the skill's) — render/spine.js swing / update. The sim flags the first attacks and adds the
+ * begin to their wind-up (server/sim/ai.js attackTiming, data `attackAnim.begin`).
  */
 export const FIRST_ATTACK_BEGIN = Object.freeze({
-  // the attack roles the resolver already framed with Attack_Begin (texas: the key Attack_Begin is the clip Attack_Start)
+  // the attack roles the resolver already framed with Attack_Begin (texas: the key Attack_Begin is the clip Attack_Start;
+  // 凯尔希·思衡托: CN client, Modes/default and s1)
   ...Object.fromEntries(['char_102_texas', 'char_1041_angel2', 'char_1045_svash2', 'char_107_liskam', 'char_222_bpipe',
-    'char_4036_forcer', 'char_4193_lemuen', 'char_4194_rmixer', 'char_4211_snhunt', 'char_498_inside'].map((id) => [`op:${id}:`, { attack: {} }])),
+    'char_4036_forcer', 'char_4193_lemuen', 'char_4194_rmixer', 'char_4211_snhunt', 'char_498_inside', 'char_1052_kalts2'].map((id) => [`op:${id}:`, { attack: {} }])),
+  // 送葬人: Modes/S2 Body/Attack `_beginAnim "Skill_Right_Begin"`, `_oneshotAnim "Skill_Right_Loop"`
+  'op:char_279_excu:': { skills: { 1: { firstAttackBegin: 'Skill_Right_Begin' } } },
   // 斯卡蒂: Modes/Default, S2, S3 Body/Attack `_beginAnim "Attack_Begin"`, `_oneshotAnim "Attack"`, `_endAnimKey "Attack_End"`
   'op:char_263_skadi:': { attack: { begin: 'Attack_Begin', end: 'Attack_End' } },
   // 伺夜: Modes/Default Body/Attack the same; Modes/S3 Attack_A / _B / _C `_endAnimKey "Skill3_ABC_Idle_Into"`
@@ -387,7 +392,7 @@ export function applyAnimOverrides(key, anims, names = null) {
     for (const [i, o] of Object.entries(map.skills || {})) {
       for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) {
         if (!clip) continue;
-        for (const f of ['attackBegin', 'attackEnd']) if (has(o[f])) clip[f] = o[f];
+        for (const f of ['firstAttackBegin', 'attackBegin', 'attackEnd']) if (has(o[f])) clip[f] = o[f];
       }
     }
   }

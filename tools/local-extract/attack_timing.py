@@ -18,7 +18,7 @@ tools/assets/local-attack-timing.json, which tools/build-data.mjs folds into dat
 
   { "ops": { "char_4100_caper": { "modes": ["Default", "S2", "S2[Down]"],
                                   "attack": [ { "anim": "Attack", "max": 1, "pre": 0, "wait": 1, "sel": 0, "dead": 0,
-                                                "time": 0, "face": 1 }, … ] } },
+                                                "time": 0, "face": 1 }, … ] } },   (+ "begin", "esc": a ThreePart attack)
     "enemies": { "enemy_1001_bigbo": { "combat": { … }, "attack": { … } } } }
 
 `attack[i]` = the attack ability of mode i (null when the mode has none), its clip renamed by the mode's
@@ -108,21 +108,35 @@ def mode_paths(tree):
 
 def under(tree, base):
     """{path relative to `base`: ability fields} of the animated abilities below GameObject `base`."""
-    out, oneshot = {}, {}
+    out, three = {}, {}
     for gp, d, _ in tree:
         if not gp.startswith(base + '/'):
             continue
         rel = gp[len(base) + 1:]
         a = ability(d)
         if a is not None:
+            a['_esc'] = d.get('_escapeTime')
             out.setdefault(rel, a)
-        # the clip of a ThreePartOneshotAnimation / CycleThreePartAnimation beside it (its `_beginAnim` plays first —
-        # only before a first attack with `_onlyPlayBeginAnimWhenFirstAttack` — and is not counted)
+        # a ThreePartOneshotAnimation / CycleThreePartAnimation beside it plays the clips and sets their speed
         if isinstance(d.get('_oneshotAnim'), str) and d['_oneshotAnim']:
-            oneshot.setdefault(rel, d['_oneshotAnim'])
+            three.setdefault(rel, d)
     for rel, a in out.items():
-        if not a.get('anim') and rel in oneshot:
-            a['anim'] = oneshot[rel]
+        esc = a.pop('_esc', None)
+        t = three.get(rel)
+        if t is None or a.get('anim'):
+            continue
+        # its `_oneshotAnim` is the attack clip; its own `_maxAnimScale` bounds the scale (ThreePartOneshotAnimation.
+        # InitAnimation, whose speed UpdatePlaybackSpeed hands the ability); a `_beginAnim` played before the first attack
+        # only (`_onlyPlayBeginAnimWhenFirstAttack`) is scaled with it — `begin` + the ability's `_escapeTime` (`esc`: how
+        # long the attack state outlasts a lost target, which decides what a first attack is; docs/rules/sim.md
+        # 「일반 공격 타이밍」). A begin on every attack and an `_endAnim` are not read: none in the pool has one.
+        a['anim'] = t['_oneshotAnim']
+        if isinstance(t.get('_maxAnimScale'), (int, float)):
+            a['max'] = num(t['_maxAnimScale'])
+        if t.get('_onlyPlayBeginAnimWhenFirstAttack') and isinstance(t.get('_beginAnim'), str) and t['_beginAnim']:
+            a['begin'] = t['_beginAnim']
+            if isinstance(esc, (int, float)) and esc > 0:
+                a['esc'] = num(esc)
     return out
 
 

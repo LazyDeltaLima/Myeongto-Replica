@@ -29,9 +29,9 @@ function actor(charId, skillIndex = null, dir = 'front') {
 }
 const run = (a, s, dt = 1 / 60) => { for (let t = 0; t < s - 1e-9; t += dt) a.update(dt); };
 /** The clips of `n` swings, each played out. */
-function swings(a, n) {
+function swings(a, n, first = false) {
   const out = [];
-  for (let i = 0; i < n; i++) { assert.ok(a.swing(0.3)); out.push(a.current); run(a, 3); }
+  for (let i = 0; i < n; i++) { assert.ok(a.swing(0.3, null, first && i === 0)); out.push(a.current); run(a, 3); }
   return out;
 }
 
@@ -41,7 +41,7 @@ test('阿斯卡纶: Attack_A, Attack_B in turn (AbilityRandomGroup Loop)', () =>
 
 test('伺夜 S3: Skill3_Attack_A → B → C in turn while the skill is on; the plain Attack outside it', () => {
   const a = actor('char_427_vigil', 2);
-  assert.deepEqual(swings(a, 1), ['Attack_Begin'], 'its first-attack begin, then Attack (FIRST_ATTACK_BEGIN)');
+  assert.deepEqual(swings(a, 1, true), ['Attack_Begin'], 'its first-attack begin, then Attack (FIRST_ATTACK_BEGIN)');
   a.setSkill(true);
   run(a, 5);
   assert.deepEqual(swings(a, 4), ['Skill3_Attack_A', 'Skill3_Attack_B', 'Skill3_Attack_C', 'Skill3_Attack_A']);

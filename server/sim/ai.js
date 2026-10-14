@@ -107,13 +107,14 @@ export function updateAlly(b, u, dt) {
   }
   if (u.blocking.length) enforceBlockCapacity(b, u);
   // (a stun / freeze / sleep also ends a Skill state — client code `SkillState.OnTick`: no `canUseAbility` → IDLE)
-  if (!u.canAct || !u.profile) { cutSwing(u); u.skillStateUntil = 0; return; }
+  if (!u.canAct || !u.profile) { cutSwing(u); u.skillStateUntil = 0; u.atkSpell = 0; return; }
   // a rangeExtend change (buff added / expired) rebuilds the range — also for units that never attack (auras)
   if (b.rangeChanged(u)) b._refreshRange(u);
   const sk = u.skill;
   let prof = effectiveProfile(u);
   if (prof.noAttack || (prof.noAttackUnlessSkill && !(sk && sk.active)) || u.s.flags.disarm) {
     cutSwing(u);
+    u.atkSpell = 0;
     if (prof.watchForm) watchForm(b, u, prof);
     return;
   }
@@ -123,14 +124,14 @@ export function updateAlly(b, u, dt) {
     return;
   }
   // the Skill state of a skill cast (skills.js _paceInstant, 'state'): no attack until its skill ability ends — the
-  // attack cooldown keeps running meanwhile
-  if (u.skillStateUntil > b.time + 1e-9) return;
+  // attack cooldown keeps running meanwhile (and the unit has left its attack state)
+  if (u.skillStateUntil > b.time + 1e-9) { u.atkSpell = 0; return; }
   if (u.faceTgt) holdFaceTarget(b, u, prof);
   if (u.atkCd > 0 || u.castLeft > 0) return;
   // a 'replace' cast (skills.js): this attack goes out as the skill, with or without a target of the attack's own
   if (sk && sk.replacing) { startReplacement(b, u, sk); return; }
   // (a 秘术师's `canAttack` is its own target rule: false = no valid target — 深靛's bound enemies, 维伊's marked ones)
-  if (prof.canAttack && !prof.canAttack(b, u)) { faceIdle(b, u); if (prof.storeEnergy) { u.trait.hadTarget = false; storeEnergy(b, u, prof); } return; }
+  if (prof.canAttack && !prof.canAttack(b, u)) { endSpell(b, u); faceIdle(b, u); if (prof.storeEnergy) { u.trait.hadTarget = false; storeEnergy(b, u, prof); } return; }
   let targets = acquireTargets(b, u, prof);
   // a charged heal of the ally rule (塞雷娅 S1 急救: trigger.allies) casts at her attack cadence with no enemy too and that
   // attack heals the ally (PRTS; client: an AUTO NextAttackOrCombatSkill whose trigger searches allies only). After the
@@ -140,27 +141,33 @@ export function updateAlly(b, u, dt) {
     if (prof.noAttack || !u.alive) return;
     targets = acquireTargets(b, u, prof);
   }
-  if (!targets.length) { faceIdle(b, u); u.trait.hadTarget = false; storeEnergy(b, u, prof); return; }
+  if (!targets.length) { endSpell(b, u); faceIdle(b, u); u.trait.hadTarget = false; storeEnergy(b, u, prof); return; }
   u.trait.hadTarget = true;
   if (sk && sk.onAboutToAttack()) {
     if (sk.replacing) { startReplacement(b, u, sk); return; }
-    if (u.skillStateUntil > b.time + 1e-9) return;   // a 'state' cast: no attack until its skill ability ends
+    if (u.skillStateUntil > b.time + 1e-9) { u.atkSpell = 0; return; }   // a 'state' cast: no attack until its skill ability ends
     prof = effectiveProfile(u);
     if (prof.noAttack || !u.alive) return;
     targets = acquireTargets(b, u, prof);
     if (!targets.length) { storeEnergy(b, u, prof); return; }   // the cast left none (a range change): still this check
   }
-  const t = attackTiming(u, TIMING);
-  u.atkCd = Math.max(u.atkCd, u.s.interval);
-  const swingEv = ['swing', u.id, roundMs(t.strike), prof._fortressMelee ? 'none' : (prof.projectile || 'none')];
-  const base = sk && sk.active && sk.spec?.baseClip ? 1 : 0;   // the Default clip while the skill is on (attackClipOf)
-  const face = swingFace(u, targets);
   // the main target is an enemy this unit blocks: the client's COMBAT state attacks it with the mode's `_combat` ability
   // (Character._FetchCombatTarget — the first blocked enemy), whose clip the renderer plays (docs/rules/render.md
   // 「Spine 클립 커버리지」 A) — the 7th field, 1
   const combat = targets[0] && u.blocking?.includes(targets[0]) ? 1 : 0;
-  if (face != null) { swingEv.push(base, face); u.faced = true; u.faceTgt = targets[0] ?? null; } else if (base || combat) swingEv.push(base);
-  if (combat) { if (swingEv.length < 6) swingEv.push(null); swingEv.push(1); }
+  // the first swing since the unit entered its attack (1) or combat (2) state (attackTiming `first`)
+  const state = combat ? 2 : 1;
+  const t = attackTiming(u, TIMING, u.atkSpell !== state);
+  u.atkSpell = state;
+  u.atkSpellExit = b.time + t.action + (attackClipOf(u)?.esc ?? 0);
+  u.atkCd = Math.max(u.atkCd, u.s.interval);
+  const swingEv = ['swing', u.id, roundMs(t.strike), prof._fortressMelee ? 'none' : (prof.projectile || 'none')];
+  const base = sk && sk.active && sk.spec?.baseClip ? 1 : 0;   // the Default clip while the skill is on (attackClipOf)
+  const face = swingFace(u, targets);
+  if (face != null) { swingEv.push(base, face); u.faced = true; u.faceTgt = targets[0] ?? null; } else if (base || combat || t.begun) swingEv.push(base);
+  if (combat || t.begun) { if (swingEv.length < 6) swingEv.push(null); swingEv.push(combat); }
+  // the swing opens on its first-attack begin clip, inside the wind-up (render/spine.js swing) — the 8th field, 1
+  if (t.begun) swingEv.push(1);
   b._ev(swingEv);
   u.castLeft = t.action;
   u.swing = { left: t.strike, targets, sel: t.sel, isSkill: !!prof.isSkill };
@@ -176,6 +183,9 @@ export function updateAlly(b, u, dt) {
 function startReplacement(b, u, sk) {
   const t = sk.castTiming();
   u.atkCd = Math.max(u.atkCd, u.s.interval);
+  // (the cast takes the attack state's turn: the next normal attack is no first attack)
+  u.atkSpell = u.atkSpell || 1;
+  u.atkSpellExit = b.time + t.action;
   u.castLeft = t.action;
   u.swing = { left: t.strike, targets: null, sel: 0, isSkill: true, replace: sk };
   sk.beginReplacement(t.action);
@@ -284,7 +294,7 @@ function allyStrike(b, u, prof) {
   performAttack(b, u, prof, targets);
 }
 
-const TIMING = { strike: 0, action: 0, sel: 0 };
+const TIMING = { strike: 0, action: 0, sel: 0, begun: false };
 
 /**
  * The clip timing record of `u`'s next swing: an enemy's one clip, an operator's Default mode or its active skill's —
@@ -309,21 +319,44 @@ function attackClipOf(u) {
  * clip's OnAttack frame × scale (`_waitForAttackEvent` 1; a clip with no OnAttack event: at the end of the swing —
  * `EasyToStartAbility.WaitForNextEvent` waits up to the whole swing), else `_preDelay` × scale (at most the swing).
  * No clip known (a summon, a device, a model the manifest lacks): strike and action 0 — the strike as the swing starts.
- * @returns {{ strike: number, action: number, sel: number }} game seconds into `out`; `sel` = `_selectTargetTiming`
+ * A ThreePart attack (`begin`: client code `ThreePartOneshotAnimation`) plays its begin clip before the attack clip on a
+ * first attack only (`first`: the first swing since the unit entered its attack / combat state — `AttackState.OnEnter`
+ * and `CombatState.OnEnter` cast with firstAttack, the following swings without) and scales the two together
+ * (`InitAnimation`: scale = attack time ÷ (begin + clip), bounded by its own `_maxAnimScale`), so that swing's strike
+ * waits for the clip's OnAttack frame after the begin — (begin + OnAttack) × scale (`begun` true); its swings last the
+ * attack interval.
+ * @returns {{ strike: number, action: number, sel: number, begun: boolean }} game seconds into `out`; `sel` =
+ *   `_selectTargetTiming`
  */
-export function attackTiming(u, out = { strike: 0, action: 0, sel: 0 }) {
+export function attackTiming(u, out = { strike: 0, action: 0, sel: 0, begun: false }, first = false) {
   const a = attackClipOf(u);
+  out.begun = false;
   if (!a) { out.strike = 0; out.action = 0; out.sel = 0; return out; }
   // (a raw record — content, tests — may leave the ability fields out: no bound beyond 1, the strike on the OnAttack frame)
   const iv = u.s.interval, max = a.max == null ? 1 : a.max < 0 ? Infinity : a.max;
-  let scale = iv > 0 ? iv / a.dur : MIN_ANIM_SCALE;
+  const lead = first && a.begin > 0 ? a.begin : 0;
+  const dur = lead + a.dur;
+  let scale = iv > 0 ? iv / dur : MIN_ANIM_SCALE;
   if (scale < MIN_ANIM_SCALE) scale = MIN_ANIM_SCALE;
   if (scale > max) scale = max;
-  out.action = scale * a.dur;
-  out.strike = a.wait !== false && a.wait !== 0 ? (Number.isFinite(a.hit) ? Math.min(a.hit, a.dur) * scale : out.action)
-    : Math.min(out.action, (a.pre > 0 ? a.pre : 0) * scale);
+  // (a ThreePart ability has no clip of its own — `_animKey` empty —, so its swing lasts the attack interval:
+  // AbstractAnimatedAbility.UpdatePlaybackSpeed keeps m_attackTime = the attack time; its exit time counts from there)
+  out.action = a.begin > 0 && iv > 0 ? iv : scale * dur;
+  out.strike = a.wait !== false && a.wait !== 0 ? (Number.isFinite(a.hit) ? (lead + Math.min(a.hit, a.dur)) * scale : out.action)
+    : Math.min(out.action, (lead + (a.pre > 0 ? a.pre : 0)) * scale);
   out.sel = Number.isInteger(a.sel) ? a.sel : 0;
+  out.begun = lead > 0;
   return out;
+}
+
+/**
+ * The attack check of a ready unit found no target: the unit leaves its attack / combat state once the last swing has
+ * played out and the attack ability's `_escapeTime` has passed (client code `AttackState._NextAttackOrExit` /
+ * `CombatState._NextCombatOrExit`: IDLE when fixedPlayTime ≥ the exit time the swing's finish set) — its next swing is a
+ * first attack again (attackTiming `first`).
+ */
+function endSpell(b, u) {
+  if (u.atkSpell && b.time + 1e-9 >= (u.atkSpellExit ?? 0)) u.atkSpell = 0;
 }
 
 /**
@@ -1021,7 +1054,7 @@ function standRest(e) {
   const r = attackStand(e, STAND).rest;
   return r > 0 && e.def?.attackAnim?.dur > 0 ? e.castLeft : r;
 }
-const STAND_T = { strike: 0, action: 0, sel: 0 };
+const STAND_T = { strike: 0, action: 0, sel: 0, begun: false };
 
 /**
  * The damage frame of an enemy's normal attack: seconds from the start of its swing to the strike (attackTiming — a

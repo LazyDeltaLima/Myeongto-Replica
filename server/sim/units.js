@@ -73,6 +73,8 @@ export class Unit {
     this.atkCd = 0;
     this.swing = null;          // a normal attack swung, its strike not reached yet (ai.js startSwing)
     this.castLeft = 0;          // the rest of the swing after its strike (ai.js: the next swing waits for it)
+    this.atkSpell = 0;          // ai.js: the attack (1) / combat (2) state its swings run in, 0 none — the next is a first attack
+    this.atkSpellExit = 0;      // ai.js endSpell: when a check with no target ends that state (last swing's end + _escapeTime)
     this.faceTgt = null;        // the main target its latest swing turned it to (ai.js holdFaceTarget)
     this.faced = false;         // a swing turned it from its deploy direction; 'face' turns it back (ai.js faceIdle)
     this.lastAttackAt = -Infinity;

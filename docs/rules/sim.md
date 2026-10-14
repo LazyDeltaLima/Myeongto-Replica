@@ -681,16 +681,31 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
 - **휘두름 이벤트**: 휘두름을 시작하는 틱에 `['swing', unitId, windup, projKind]`(타격까지 게임 초, 그 타격 'atk'의 kind). 렌더는 이것으로 Spine 휘두름을
   공식 속도로 시작한다(`render.md` 「공격 모션」). fx 담당도 같은 이벤트를 쓴다.
 - [추정] 휘두름 중 스킬이 켜지거나 꺼지면(공격 프로필이 바뀜) 타격 때 대상을 다시 고른다 — 클라는 모드를 바꾸고 새 모드의 공격 능력이 따로 대상·쿨다운을
-  가진다(아래 차이). [추정] 클립 이름: `ThreePartOneshotAnimation`의 `_oneshotAnim`(`_beginAnim`은 안 셈), 골격에 없는 `_animKey`는 `<key>_Loop`, 그래도 없으면
+  가진다(아래 차이). [추정] 클립 이름: `ThreePartOneshotAnimation`의 `_oneshotAnim`(`_beginAnim`은 아래 「첫 공격 begin」), 골격에 없는 `_animKey`는 `<key>_Loop`, 그래도 없으면
   렌더가 그 모드에 쓰는 클립(`anims.attack`/`anims.skills[i]`) — 왕 Default, 마운틴 S2·S3, 시·수르트·민트·플레임테일·파투스 스킬 모드 등 10개 능력. 적은 Default 모드의 능력 하나(형태별 클립은 기존 [ASSUMED]).
 - 아직 공식과 다른 것: 공속이 바뀔 때 쿨다운 진행 비율 유지(`OnAttackTimeChanged` → `ResetButKeepProgress`) — 우리 `atkCd`는 남은 초 그대로. 모드·능력마다 따로인
   쿨다운(적 Combat/Attack, 스킬 모드) — 우리는 유닛당 하나. 저지가 생기면 오퍼레이터의 Attack 상태가 COMBAT으로 바뀌며 휘두름이 끊기는 것(`AttackState.OnTick`)과
   르무엔 S2의 `_interuptIfTargetDead` 1 — 모델 안 함. `_timeMode` 1·2(오퍼 9개, 적 7개)도 공격 간격으로 계산. `_escapeTime` = 대상이 없어진 뒤 공격 자세(Attack 상태)에 머무는 시간 — `AttackState.<_StartAttack>b__5_0`(0x71ADA0)이 `fixedPlayTime + escapeTime`을
-  적고 `_NextAttackOrExit`(0x71B210)는 대상이 없으면 그 뒤에야 IDLE로; 다음 공격 조건(대상·쿨다운)은 같아 시뮬 영향 없음(렌더 대기 자세 후보), 스킬 쪽
+  적고 `_NextAttackOrExit`(0x71B210)는 대상이 없으면 그 뒤에야 IDLE로; 다음 공격 조건(대상·쿨다운)은 같고, 시뮬은 아래 「첫 공격 begin」의 첫 공격 판정에만 쓴다(그 능력만 `esc`), 스킬 쪽
   `BasicSkill.get_escapeTime`(0x63CF80)은 `_useEscapeTime`이 1인 스킬만 — 우리 풀 296개에 없음. 소환물(token)은 데이터가
   없어 휘두름 시작에 바로 타격.
 - 테스트: `test/sim/attack-timing.test.js`(오퍼레이터·데이터), `test/sim/feedback5-enemy-swing.test.js`(적: 끊김·헛휘두름·재선택·麻痹), `test/render/attack-swing.test.js`.
   일반 공격 시각이 바뀌어 golden 전부가 움직이고, 첫 공격·스킬 공격 시각을 같은 틱으로 보던 키트 테스트를 「타격까지 기다림」으로 고쳤다.
+- **첫 공격 begin** (2026-10-14, 관리자 결정 「첫 공격 begin의 타격 지연을 공식대로」): 공격 능력 옆에 `ThreePartOneshotAnimation`이 있으면 그것이 클립을 틀고
+  속도를 정한다 — `UpdatePlaybackSpeed`(0xAEC7B0)가 `InitAnimation`(0xAEC030)의 속도를 능력에 넘기고(참 반환), `InitAnimation`은 배율 = 공격 간격 ÷ (begin(첫 공격일
+  때만, `_onlyPlayBeginAnimWhenFirstAttack`) + oneshot + end)를 **그 컴포넌트의** `_minAnimScale`·`_maxAnimScale`(−1 = 제한 없음)로 자른다. `DoPlayAnimation`이
+  begin → oneshot 순으로 틀고 타격은 oneshot의 OnAttack을 기다리므로 첫 공격의 타격 = (begin + OnAttack) × 배율. 능력 자체엔 클립이 없어(`_animKey` 빈칸) 휘두름 길이는
+  공격 간격 그대로(`AbstractAnimatedAbility.UpdatePlaybackSpeed`의 m_attackTime). 「첫 공격」 = 공격 상태에 들어간 뒤 첫 휘두름: `AttackState.OnEnter`(0x71A720)·
+  `CombatState.OnEnter`(0x71C7F0)가 firstAttack 참으로, `_NextAttackOrExit`·`_NextCombatOrExit(false)`는 거짓으로 시전(`AbilityStandard.set_firstAttack`).
+  시뮬(`ai.js` `attackTiming`·`endSpell`, 유닛 `atkSpell`): 공격(1)·저지(2) 상태가 바뀐 첫 휘두름, 또는 대상 없는 공격 판정이 지난 휘두름 끝 + `_escapeTime` 뒤에 온 뒤의
+  첫 휘두름, 기절·缴械·공격 불가·Skill 상태·퇴각 뒤의 첫 휘두름. 'swing' 이벤트 8번째 칸 1 = begin을 붙인 휘두름(렌더가 begin 클립을 앞에 붙임, `render.md`
+  「Spine 클립 커버리지」 C). 데이터 `attackAnim.begin`(begin 클립 초 — 키가 골격에 없으면 렌더 역할의 begin: 텍사스 `Attack_Start`)·`esc`.
+  해당 모드(EN 클라 전수 + CN 켈시 에스페란타): 텍사스·엑시아 더 뉴 커버넌트·실버애쉬 더 레인프로스트·리스캄·백파이프·인포서·르무엔·산크타 믹사파라토·
+  스노우헌터·비질·인사이더·켈시 에스페란타 Default, 스카디 Default·S2·S3, 르무엔 S2, 送葬人 S2 — begin 0.033~0.667 s. 같은 컴포넌트의 상한으로 바뀐 것:
+  실버애쉬 더 레인프로스트 Default 1, 리스캄 Default 2, 르무엔 S2 1(공격 능력의 −1이던 것), 백파이프·비질 Default·비질 S3 −1(1이던 것).
+  [ASSUMED] 쿨다운이 남은 채 상태에 들어가면 클라는 OnEnter의 시전이 실패하고 다음 시전이 firstAttack 거짓일 수 있다(읽지 않음) — 시뮬은 그 상태의 첫 휘두름을 첫 공격으로 본다.
+  `_minAnimScale` −1(상한 없는 아래쪽)은 안 옮김(전원 −1, 0.1 아래로 갈 간격 없음). 스노우헌터 장전 중 공격(`ReloadAttack` begin `Reload_Break`)도 같은 0.167 s.
+  golden 전부가 움직였다(위 오퍼레이터의 첫 타격이 수십~수백 ms 늦어짐 + 'swing' 칸).
 
 ## 오퍼레이터 키트 — 클라 코드·프리팹대로 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 근거: EN 클라(2026-08) 프리팹 값과 클라 코드(디컴파일 — 레포에는 클래스·메서드 이름만). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 메서드 없음.

@@ -80,5 +80,5 @@ test('no kind known yet, or another operator: the role\'s clip', () => {
   assert.ok(a.swing(0.3));
   assert.equal(a.current, 'Attack_A');
   // the swing event hands its kind to the view (units.js onSwing → _atkKind)
-  assert.match(APP, /views\.get\(e\[1\]\)\?\.onSwing\?\.\(w, e\[3\], e\[4\] === 1, e\[6\] === 1\);/);
+  assert.match(APP, /views\.get\(e\[1\]\)\?\.onSwing\?\.\(w, e\[3\], e\[4\] === 1, e\[6\] === 1, e\[7\] === 1\);/);
 });

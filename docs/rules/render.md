@@ -433,8 +433,10 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `DoPlayAnimation`이 begin → oneshot 순으로 틀며, 타격은 oneshot 클립의 OnAttack 이벤트를 기다린다 → **첫 공격의 타격은 begin만큼 늦다**. 로스터의 ThreePart
     공격 12명은 모두 첫 공격만 begin(EN charpack 전수, 관리자 노트 `three_part.py`). 구현(같은 날, 렌더만): `anim-overrides.mjs FIRST_ATTACK_BEGIN` → 공격 역할 `firstBegin`
     (斯卡蒂·伺夜는 begin·end도 채움), 스킬 역할 `attackBegin`/`attackEnd`(歌蕾蒂娅 S2 모드의 공격 채널 `Skill_2_Begin`/`_End`, 伺夜 S3 `Skill3_ABC_Idle_Into`).
-    `spine.js swing`이 공격 묶음의 첫 휘두름(공격 모드가 끝난 지 `FIRST_ATTACK_GAP` 0.35 s 넘음 — 클라 공격 상태의 추정 [추정])에 begin을 앞에 붙여 둘을 시뮬의
-    전딜 안에 함께 압축한다. 시뮬의 첫 타격 지연은 아직 없다(관리자 결정 대기). [화면 미확인]
+    `spine.js swing`이 begin을 앞에 붙여 둘을 시뮬의 전딜 안에 함께 압축한다. 첫 공격인지는 시뮬이 정한다(2026-10-14, 관리자 결정 「공식대로 늦춰」):
+    시뮬이 그 휘두름의 전딜에 begin을 더하고 'swing' 이벤트 8번째 칸 1로 알린다(`sim.md` 「일반 공격 타이밍」 첫 공격 begin) → `units.js onSwing` → `swing(…, first)`.
+    알림이 있으면 스킬 클립의 `firstAttackBegin`(送葬人 S2 모드 `Skill_Right_Begin`), 공격 역할의 `firstBegin` begin, `attackBegin` 순. 시뮬이 시간을 모르는 공격
+    채널(歌蕾蒂娅 S2 `attackBegin`)만 예전처럼 공격 모드가 끝난 지 `FIRST_ATTACK_GAP` 0.35 s 넘은 휘두름에 [추정]. 켈시 에스페란타(CN) Default도 목록에. [화면 미확인]
     雪猎 장전(charpack `Attack/Reload` `Reload_Begin`→`Reload_Loop`, 장전 중 공격은 `ReloadAttack` `Reload_Break`→`Attack_Loop`, 다 차면 스킨 믹스 `Reload_End`):
     시뮬의 猎手 장전 상태(`professions.js installHunter`: 마지막 공격 1 s 뒤부터 탄 1/s)를 형태 `reload`로(fx 'hunterReload', 공격으로 끊기면 `cut` — 猎手 전원,
     골든 fx 개수만 움직임) → `FORMS.char_4211_snhunt`(대기 `Reload_Loop`, 나갈 때 `Reload_End`, 공격 역할의 첫 공격 begin `Reload_Break`). [화면 미확인]
@@ -496,7 +498,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   - **U** 위 방향 `*_Up`: `AbstractAnimatedAbility.GetAnimKey` — 아래·위·기본 순(`_faceToTarget`이면 바라보는 방향, 아니면 배치 방향). 아래 방향 공백과 같은 계열.
     구현(2026-10-14): `*_Up`은 뒷모델에만 있고 렌더는 위를 볼 때만 뒷모델을 쓰므로, `anim-overrides.mjs UP_CLIPS`가 뒷모델 역할에 `up`을 달고 `spine.js _loopOf`
     (즉발 스킬 클립도)가 그것을 튼다 — 送葬人·诗怀雅 `Attack_Up`, 松果 S1 `Skill_1_Up`·S2 `Skill_2_Up`. 아래 방향(`*_Down`, 앞모델)은 여전히 전역 공백(`DOWN_FAMILY`). [화면 미확인]
-  - 첫 목록의 `todo`는 2026-10-14에 모두 정리됐다(연결 또는 근거 있는 `none`). 남은 것: C의 시뮬 첫 타격 지연(관리자 결정 대기), 아래 방향 공백.
+  - 첫 목록의 `todo`는 2026-10-14에 모두 정리됐다(연결 또는 근거 있는 `none`). 남은 것: 아래 방향 공백. C의 시뮬 첫 타격 지연은 같은 날 들어감.
 
 ## 공격 방향 (2026-10-12, 관리자 요청 「공격·스킬 범위 안의 적을 향해 돌아서 공격, 최대 저지 수를 넘겨 뒤에 걸린 적은 뒤를 보며 공격 — 공식 로직대로」)
 - 이전: 오퍼레이터는 배치 방향만 봤다(`units.js onAttack` 「operators keep their deploy direction」, research 09 §1.2의 배치 모습을 전투 내내 적용).

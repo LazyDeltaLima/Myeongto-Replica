@@ -353,8 +353,8 @@ test('玛恩纳 解放者: a target in range outside her skill (form watch) → 
 test('a spell of attacks opens on the first-attack begin (sharing the wind-up) and closes on the attack end: 斯卡蒂, 伺夜 S3, 歌蕾蒂娅 S2', async () => {
   const a = actor('char_263_skadi');
   const hit = assets.chars.char_263_skadi.spine.front.hits.Attack[0];
-  assert.ok(a.swing(1));
-  assert.equal(a.current, 'Attack_Begin');
+  assert.ok(a.swing(1, null, true));
+  assert.equal(a.current, 'Attack_Begin', 'the sim\'s first attack (the swing event\'s 8th field)');
   const ts = a.spine.state.tracks[0].timeScale;
   assert.ok(Math.abs(ts - (hit + a.dur('Attack_Begin')) / 1) < 1e-9, 'begin + strike over the wind-up');
   run(a, 1.2);
@@ -363,7 +363,15 @@ test('a spell of attacks opens on the first-attack begin (sharing the wind-up) a
   run(a, 4);
   assert.notEqual(a.mode, 'attack');
   assert.ok(a.swing(1));
-  assert.equal(a.current, 'Attack_Begin', 'a new spell after a pause');
+  assert.equal(a.current, 'Attack', 'a pause alone opens no begin: the sim says which swing is a first attack');
+  run(a, 4);
+  assert.ok(a.swing(1, null, true));
+  assert.equal(a.current, 'Attack_Begin', 'a new spell');
+  const e = actor('char_279_excu', 1);
+  e.setSkill(true);
+  run(e, 2);
+  assert.ok(e.swing(1, null, true));
+  assert.equal(e.current, 'Skill_Right_Begin', '送葬人 S2 mode\'s first attack (firstAttackBegin)');
   const v = actor('char_427_vigil', 2);
   v.setSkill(true);
   run(v, 1);
@@ -372,7 +380,7 @@ test('a spell of attacks opens on the first-attack begin (sharing the wind-up) a
   run(v, 2);
   assert.equal(v.current, 'Skill3_ABC_Idle_Into', 'the S3 attacks end back into Skill3_Idle');
   const s = actor('char_263_skadi');
-  assert.ok(s.swing(1));
+  assert.ok(s.swing(1, null, true));
   run(s, 3);
   assert.equal(s.current, 'Attack_End');
   const g = actor('char_474_glady', 1);
@@ -397,7 +405,7 @@ test('雪猎 reload: Reload_Begin, Reload_Loop while she reloads, Reload_End whe
   secs(v, 0.3);
   v.setForm('reload', { form: 'reload' });
   secs(v, 0.5);
-  v.onSwing(hit + v.actor.dur('Reload_Break'), 'arrow');
+  v.onSwing(hit + v.actor.dur('Reload_Break'), 'arrow', false, false, true);
   v.setForm(null, { form: null, cut: 1 });
   assert.equal(v.actor.current, 'Reload_Break', 'ReloadAttack: Reload_Break (then Attack_Loop) — no Reload_End');
   assert.equal(v.actor.mode, 'attack');

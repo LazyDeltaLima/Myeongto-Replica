@@ -507,10 +507,11 @@ export class SpineActor {
    * A normal attack's swing starts now (b.ev 'swing'; docs/rules/render.md 「공격 모션」): its strike — the 'atk' events —
    * comes `windup` game seconds later. The attack clip plays once from its first frame at swingSpeed (the official
    * speed: its OnAttack frame meets the strike), then holds and rests; the 'atk' events of that strike leave it alone
-   * (attack). Returns false when nothing was started (stunned, dying, a change clip, no attack clip, no wind-up — the
-   * 'atk' path then shows the strike as before).
+   * (attack). `first`: the sim opened this swing with its first-attack begin (the 'swing' event's 8th field). Returns false
+   * when nothing was started (stunned, dying, a change clip, no attack clip, no wind-up — the 'atk' path then shows the
+   * strike as before).
    */
-  swing(windup, alt = null) {
+  swing(windup, alt = null, first = false) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || !(windup > 0)) return false;
     if (this._endPlaying()) return false; // local patch
     const clip = this._attackClip();
@@ -523,9 +524,9 @@ export class SpineActor {
     const hit = Array.isArray(hits) && hits.length && Number.isFinite(hits[0]) ? clampN(hits[0], 0, loopDur) : loopDur;
     if (!(hit > 0)) return false;
     // the first swing of a spell of attacks opens on the role's begin clip (the client's ThreePartOneshotAnimation
-    // `_onlyPlayBeginAnimWhenFirstAttack`): begin and attack clip share the wind-up, as the client scales them together
-    const first = this.mode !== 'attack' && !(this.lastAttackEnd != null && this.clock - this.lastAttackEnd <= FIRST_ATTACK_GAP);
-    const begin = first ? this._firstBegin(clip) : null;
+    // `_onlyPlayBeginAnimWhenFirstAttack`, the sim's `first`): begin and attack clip share the wind-up, as the client
+    // scales them together and the sim strikes after both (server/sim/ai.js attackTiming)
+    const begin = this._firstBegin(clip, !!first);
     const lead = begin ? this.dur(begin) : 0;
     const ts = swingSpeed(hit + lead, windup);
     this.mode = 'attack';
@@ -533,6 +534,7 @@ export class SpineActor {
     this.swingUntil = this.attackUntil;
     this.swingAt = this.clock;
     this.swingWindup = windup;
+    this.swingFirst = !!first;
     this.windUntil = null;
     this.wound = false;
     if (begin) { this._play(begin, false, { timeScale: ts, mix: 0.06 }); this._queue(name, false, ts); }
@@ -541,13 +543,16 @@ export class SpineActor {
   }
 
   /**
-   * The begin clip of a spell of attacks of role `clip` (null: none): a skill clip's `attackBegin` (歌蕾蒂娅 S2's attack
-   * channel), or the attack role's `begin` when `firstBegin` marks it the client's first-attack-only begin
-   * (tools/assets/anim-overrides.mjs FIRST_ATTACK_BEGIN) — not on a blocked enemy's own clip (`combat`).
+   * The begin clip of a swing of role `clip` (null: none) — not on a blocked enemy's own clip (`combat`). A first attack
+   * the sim flagged (`first`) opens on a skill clip's `firstAttackBegin`, the attack role's `begin` when `firstBegin` marks
+   * it the client's first-attack-only begin (tools/assets/anim-overrides.mjs FIRST_ATTACK_BEGIN), or `attackBegin`; a skill
+   * clip's `attackBegin` (歌蕾蒂娅 S2's attack channel, which the sim does not time) also opens a swing that follows no
+   * attack for FIRST_ATTACK_GAP [ASSUMED: the client's attack state].
    */
-  _firstBegin(clip) {
+  _firstBegin(clip, first) {
     if (this._swingClip(clip) !== clip) return null;
-    const b = clip.attackBegin || (clip.firstBegin ? clip.begin : null);
+    const fresh = this.mode !== 'attack' && !(this.lastAttackEnd != null && this.clock - this.lastAttackEnd <= FIRST_ATTACK_GAP);
+    const b = first ? clip.firstAttackBegin || (clip.firstBegin ? clip.begin : null) || clip.attackBegin : fresh ? clip.attackBegin : null;
     return this.has(b) ? b : null;
   }
 
@@ -558,7 +563,7 @@ export class SpineActor {
    */
   swingElapsed() {
     return this._swinging() && this.swingAt != null
-      ? { windup: this.swingWindup, elapsed: Math.max(0, this.clock - this.swingAt), alt: this.alt?.name ?? null, combat: this.combatHit } : null;
+      ? { windup: this.swingWindup, elapsed: Math.max(0, this.clock - this.swingAt), alt: this.alt?.name ?? null, combat: this.combatHit, first: this.swingFirst } : null;
   }
 
   /** A swing's clip is playing (swing): the 'atk' events of its strike, and any other attack meanwhile, leave it alone. */

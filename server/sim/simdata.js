@@ -292,6 +292,7 @@ export function normAttackAnim(a) {
   const hit = Number(a.hit);
   const max = Number(a.max);
   const pre = Number(a.pre);
+  const begin = Number(a.begin), esc = Number(a.esc);
   return {
     dur,
     hit: a.hit != null && Number.isFinite(hit) ? Math.min(dur, Math.max(0, hit)) : null,
@@ -302,6 +303,9 @@ export function normAttackAnim(a) {
     // where the swing turns its unit (ai.js swingFace): 1 its main target (absent: the common case), 0 nowhere, 2 its
     // deploy direction, 3 its front, 4 its first cast target
     face: Number.isInteger(a.face) && a.face >= 0 && a.face <= 4 ? a.face : 1,
+    // a ThreePart attack's first-attack begin clip (s) and its ability's `_escapeTime` (ai.js attackTiming / endSpell)
+    begin: Number.isFinite(begin) && begin > 0 ? begin : 0,
+    esc: Number.isFinite(esc) && esc > 0 ? esc : 0,
   };
 }
 

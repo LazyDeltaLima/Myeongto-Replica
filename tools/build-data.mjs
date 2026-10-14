@@ -2421,7 +2421,8 @@ function enemyAbility(ctx, spineId, key, applyWay) {
  * mode's `_replaceAnimPairs`; tools/assets/local-attack-timing.json), its length and first OnAttack frame from the Front
  * skeleton (data/assets.json `animations` / `hits`; a key the skeleton lacks under that name, also as `<key>_Loop`, falls
  * back to the clip the renderer plays for that mode — `anims.attack` / `anims.skills[i]`), the ability's timing
- * (abilityTiming) and facing (abilityFace). null when the client timing or the model is unknown (the sim then strikes as the swing starts).
+ * (abilityTiming), a ThreePart attack's first-attack begin (`begin` / `esc`, server/sim/ai.js attackTiming) and facing
+ * (abilityFace). null when the client timing or the model is unknown (the sim then strikes as the swing starts).
  */
 function opAttackAnim(ctx, charId, skillCount) {
   const t = ctx.attackTiming?.ops?.[charId];
@@ -2433,10 +2434,18 @@ function opAttackAnim(ctx, charId, skillCount) {
       if (typeof dur === 'number' && dur > 0) {
         const h = sp.hits?.[n];
         const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
-        return { clip: n, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(ab), ...abilityFace(ab) };
+        return { clip: n, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(ab), ...firstBegin(ab), ...abilityFace(ab) };
       }
     }
     return null;
+  };
+  // a ThreePart attack's first-attack begin clip (`begin` seconds, `esc` its `_escapeTime`): the key, else the clip the
+  // renderer frames the attack with when the skin names it otherwise (德克萨斯: key Attack_Begin, clip Attack_Start)
+  const firstBegin = (ab) => {
+    if (typeof ab?.begin !== 'string' || !ab.begin) return {};
+    const role = sp.anims?.attack;
+    const dur = [ab.begin, role?.firstBegin ? role.begin : null].map((n) => (n ? sp.animations[n] : null)).find((d) => typeof d === 'number' && d > 0);
+    return dur ? { begin: dur, ...(ab.esc > 0 ? { esc: ab.esc } : {}) } : {};
   };
   const base = t.attack?.[0] ? clipOf(t.attack[0], sp.anims?.attack?.loop) : null;
   const skillMode = ctx.charModes?.[charId]?.skillMode ?? null;
