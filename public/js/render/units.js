@@ -325,12 +325,12 @@ export const EL_BAR = Object.freeze({ icon: 0.15, min: 8, max: 15, enemy: 0.8, g
  *   (普通囚犯 / 老练囚犯 Idle …, 强壮囚犯 *3, the others *_red); no change clip (the prefab switches the set at once).
  * - the 傀儡师 operators' <替身> (sim professions.js installDollkeeper: form 'doll' from the start of the switch to it
  *   until the switch back starts, GitHub issue #44): the skeletons draw it on their *_B clips (their own slots — the
- *   本体's are hidden). 归溟幽灵鲨: Start_B fades it in (the 1 s switch), Idle_B (it never attacks), Die_B breaks it
+ *   本体's are hidden). 归溟幽灵鲨: Start_B fades it in (the 2 s switch, whose first second the client plays on Die), Idle_B (it never attacks), Die_B breaks it
  *   apart over its last second (`end`, timed from the 'substitute' fx's `dur`), the 本体 comes back on Start_2 (`leave`:
  *   played when the form ends); knocked out as the 替身 it collapses on Die_B_2 and stays down so. 风丸: Die_2 → Start_B
  *   (charpack CommonAbilities kazema[switch2stand]), then Idle_B / Attack_B (her 替身 attacks), Die_B as its death; the
- *   本体 comes back on Die_B → Start ([switch2normal]: Die_B → Born) — two clips in a row each way, while the sim's switch
- *   (professions.js DOLL_SWITCH) is 1 s [ASSUMED], so her 替身's first attacks wait for Start_B to end on screen. Facing
+ *   本体 comes back on Die_B → Start ([switch2normal]: Die_B → Born) — two clips in a row each way, as long as the sim's
+ *   switch (professions.js DOLL_SWITCH, 2 s). Facing
  *   UP: 归溟幽灵鲨's Back skeleton has only Idle_B and Start_2, 风丸's Start_B, Idle_B and Attack_B — the clips a Back
  *   skeleton lacks are skipped; neither has the 替身's death clip, so a 替身 knocked out lies on the Front model like every
  *   knocked-out operator facing UP (_wantsBack). The sim resets the form right after the 'die' event; the form it died in

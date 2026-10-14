@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getData } from '../../server/data.js';
+import { DOLL_SWITCH } from '../../server/sim/professions.js';
 
 const D = getData({ log: { warn() {}, error() {}, info() {} } });
 const GR = (gid) => D.garrisons[gid];
@@ -178,7 +179,7 @@ test('selfdead (幽灵鲨 46 / 砾 75 / 归溟幽灵鲨 40): per knock-out; 归�
   h.step(1);
   assert.ok(g.alive && g.trait.doll, 'substitute');
   assert.deepEqual(gains(h), { egirShip: 10, indomShip: 10 }, 'body → substitute');
-  h.run(21);
+  h.run(DOLL_SWITCH + 20);
   assert.ok(g.alive && !g.trait.doll, 'swapped back');
   assert.deepEqual(gains(h), { egirShip: 20, indomShip: 20 }, 'substitute → body');
   checkInvariants(h.b);

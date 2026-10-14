@@ -194,13 +194,17 @@ const installCharger = (battle, unit) => {
  * The 替身's max HP is the operator's own (PRTS: HP "重设…至最大值"; the trait blackboard's 替身 HP bonus `max_hp` is 0 for
  * both 傀儡师 — the elite PUM-Y module's +20 % aside — and 风丸's 纸偶 token has her max HP at every level), or its 替身
  * token's (风丸).
- * [ASSUMED]: a switch animation lasts DOLL_SWITCH (the skeletons' 1 s Start_B — the 替身 appearing — and Start_2 — the
- * 本体 back), also on a direct switch (`dollSwitch`); "清除自身一切Buff" ends the running skill and removes the statuses
+ * A switch animation lasts DOLL_SWITCH = 2 s, also on a direct switch (`dollSwitch`): the client's switch is a sequence
+ * ability (charpack CommonAbilities `kazema[switch2stand]` / `[switch2normal]`, `ghost2[…]` the same) — SwitchBegin puts on
+ * the protection buff (`*_switchbegin`, INFINITY), then a death clip and a birth clip each last their clip (`_timeMode` 1,
+ * `_maxAnimScale` 1: 风丸 Die_2 → Start_B, back Die_B → Born; 归溟幽灵鲨 Die → Start_B, back Die_B → Start_2, all 1 s), and
+ * the birth step's `BuffAfterAffecting` puts on `*_switchend` once that clip has ended, which clears the protection and
+ * switches the mode. [ASSUMED]: "清除自身一切Buff" ends the running skill and removes the statuses
  * (buffs with a catalogue `status`) — every other buff stays, the remake's bond / item / talent effects (buffs too)
  * and other units' timed buffs and shields alike; 无敌 is damage immunity only (as for every ally 无敌 here — PRTS's
  * "无法被不同阵营选中" is not modelled for it).
  */
-export const DOLL_SWITCH = 1;
+export const DOLL_SWITCH = 2;
 const DOLL_SWITCH_IMMUNE = new Set(['stun', 'freeze', 'sleep']);
 
 const installDollkeeper = (battle, unit) => {
@@ -212,7 +216,7 @@ const installDollkeeper = (battle, unit) => {
     return tok && tok.stats.maxHp > 0 ? Math.max(0.05, tok.stats.maxHp / Math.max(1, unit.base.maxHp)) : 1;
   };
   const at = (extra) => ({ x: unit.x, y: unit.y, id: unit.id, ...extra });
-  // a switch animation: "切换动画开始时会清除自身一切Buff" (header: the running skill and the statuses), then 1 s of 不死
+  // a switch animation: "切换动画开始时会清除自身一切Buff" (header: the running skill and the statuses), then 2 s of 不死
   // (the fatal hook below) 无敌 阻回 禁疗 孤立 强制缴械 and 眩晕 / 冻结 / 睡眠 immunity (beforeStatus below). "切换途中重设自身
   // 生命至最大值": the HP is set to the max at the start (enter / leave) and again when the switch ends, so she always
   // leaves it at full HP — a lethal 流失 inside the switch (无敌 does not stop it, 不死 holds it at 1 HP: a later 阿戈尔

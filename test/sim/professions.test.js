@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
-import { SUB, resolveProfile } from '../../server/sim/professions.js';
+import { SUB, resolveProfile, DOLL_SWITCH } from '../../server/sim/professions.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { PROJECTILE_SPEEDS, BOOMERANG_RETURN_SPEED } from '../../server/sim/constants.js';
 
@@ -161,7 +161,7 @@ test('geek loses HP over time; merchant drains DP and retreats when broke; charg
   approx(h3.b.getPlayer('p1').dp, 13);
 });
 
-test('dollkeeper: fatal damage ⇒ a 1 s switch, 20 s as the substitute (block 0, 阻回), the switch back; the substitute dies ⇒ the unit dies', () => {
+test('dollkeeper: fatal damage ⇒ a 2 s switch, 20 s as the substitute (block 0, 阻回), the switch back; the substitute dies ⇒ the unit dies', () => {
   const h = makeBattle({ defs: { chess: { t_dollkeeper: mk('dollkeeper', 'SPECIAL', { stats: { maxHp: 2000, blockCnt: 2 } }) } }, units: [{ chessId: 't_dollkeeper', row: 9, col: 5 }], content: 'none' });
   h.step();
   const u = h.unit('t_dollkeeper');
@@ -182,7 +182,7 @@ test('dollkeeper: fatal damage ⇒ a 1 s switch, 20 s as the substitute (block 0
   assert.equal(h.b.heal(u, u, 500), 0, 'a self-heal does not land');
   approx(u.hp, low);
   u.hp = 2000;
-  h.run(1.05);
+  h.run(DOLL_SWITCH + 0.05);
   assert.ok(u.trait.doll && !u.trait.dollSwitching, 'fighting as the substitute');
   h.run(19.9);
   assert.ok(u.trait.doll && u.s.flags.noSp, 'the 20 s form, 阻回');
@@ -190,10 +190,10 @@ test('dollkeeper: fatal damage ⇒ a 1 s switch, 20 s as the substitute (block 0
   assert.ok(!u.trait.doll && u.trait.dollSwitching && u.form === null, 'switching back');
   assert.equal(u.s.blockCnt, 2, 'blocks again from the start of the switch back');
   approx(u.hp, 2000);
-  h.run(1.05);
+  h.run(DOLL_SWITCH + 0.05);
   assert.ok(!u.trait.dollSwitching && !u.s.flags.noSp, 'the body again, no 阻回');
   h.b.dealDamage(null, u, { amount: 1e5, type: 'true' });
-  h.run(1.05);
+  h.run(DOLL_SWITCH + 0.05);
   h.b.dealDamage(null, u, { amount: 1e5, type: 'true' });
   assert.equal(u.alive, false, 'substitute dies ⇒ unit dies');
   assert.ok(!u.trait.doll && u.form === null, 'the redeploy is the body again');

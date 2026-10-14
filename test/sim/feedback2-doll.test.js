@@ -192,7 +192,7 @@ test('a 本体 holding 不死 (a running 坚固维式重锤 window) does not swi
   const { h, g, lethal } = setup({ items: ['chess_item_3_09_e_a'] });
   lethal();
   assert.ok(g.trait.doll && !holdsUndying(h.b, g), 'the first lethal hit: the switch, the hammer\'s lock unspent');
-  h.run(15);
+  h.run(2 * DOLL_SWITCH + 13);   // the 8 s window outlasts the switch back (DOLL_SWITCH + 20 s as the 替身 + DOLL_SWITCH)
   lethal();
   assert.ok(g.alive && g.trait.doll && holdsUndying(h.b, g), 'the 替身\'s lethal hit sets off the lock: 8 s of 不死');
   approx(g.hp, 1, 'held at 1 HP');

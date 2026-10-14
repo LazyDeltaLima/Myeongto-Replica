@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
 import { TIER_KITS } from '../../server/sim/content/kits/index.js';
+import { DOLL_SWITCH } from '../../server/sim/professions.js';
 
 const KITS = TIER_KITS[4];
 
@@ -632,7 +633,7 @@ test('归溟幽灵鲨 S2: never below 1 HP during the skill, then knocked out �
   assert.ok(h.runUntil(() => !u.skill.active, 20));
   h.step();
   assert.ok(u.alive && u.trait.doll && u.hasBuff('trait:substitute'), 'counts as knocked out → substitute');
-  h.run(2);
+  h.run(DOLL_SWITCH + 1);
   assert.ok(e.findBuff('ghost2:embrace'));
   approx(e.s.moveSpeed, e.base.moveSpeed * (1 + t0.move_speed));
   const emb = tagged(h, 'embrace', e);

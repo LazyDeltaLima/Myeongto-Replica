@@ -717,6 +717,11 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
 - **歌蕾蒂娅 S3 缺水的碎漩狂舞 중 일반 공격 없음** (2026-10-14, 관리자 결정 「S3 중에는 일반 공격을 하지 않는다」; charpack `skchr_glady_3` `_switchToState` 1 =
   Skill 상태): 스킬 내내 `noAttack`(`chess_char_4_12-glady.js`), 모델은 `Skill_3_Chant`로 쉰다. 그 전엔 S3 중에도 평소 `Attack`으로 공격했다. 테스트
   `kits_alt_t4.test.js` 「歌蕾蒂娅 S3」.
+- **傀儡师 전환 2 s** (2026-10-14, 클라 프리팹): 전환은 순차 능력(charpack `CommonAbilities` `kazema[switch2stand]`·`[switch2normal]`, 归溟幽灵鲨 `ghost2[…]`도
+  같은 꼴) — SwitchBegin이 보호 버프(`*_switchbegin`: 무적·불사 등, INFINITY)를 걸고, 죽는 클립과 나오는 클립이 각각 제 길이(`_timeMode` 1, `_maxAnimScale` 1;
+  风丸 `Die_2`→`Start_B`, 돌아올 때 `Die_B`→`Born`(=`Start`), 归溟幽灵鲨 `Die`→`Start_B`, `Die_B`→`Start_2`, 모두 1 s), 나오는 단계의 `BuffAfterAffecting`(OnEvent
+  2 = 시전 시작에 표시, `OnTick`이 능력이 끝난 뒤 `AddBuff`)이 그 클립이 끝난 뒤 `*_switchend`(보호 버프를 지우는 ClearAllBuffs + SwitchMode)를 건다 →
+  `professions.js DOLL_SWITCH` 2(전엔 1 s [ASSUMED]). 远牙가 준 특질로 바뀌는 다른 오퍼레이터도 같은 2 s([ASSUMED]: 그들의 클립은 안 봄).
 
 ## 적 투사체·공식 바인딩용 이벤트 필드 (관리자 결정 (2026-10-10) 「동작 변경 모두 공식이랑 동일하게」)
 근거: EN 클라(2026-08) 적 프리팹 `battle/enm_pfb_*.ab`·투사체 `battle/prefabs/[uc]projectiles.ab`의 값과 클라 코드(디컴파일 — 레포에는 클래스·메서드 이름만,
