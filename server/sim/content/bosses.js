@@ -52,9 +52,11 @@
 //                            + 1 s stun every 1 s; withdraws 35 s after it appears), 物种爆发 LP loss (stage 3).
 //   boss_5 卢西恩            evade 40 % while unblocked, DEF pen 40 %, neural on hit; AoE skill (radius 2); blinks past its
 //                            blocker leaving a 不祥幻影 (same kit minus blink). Template overrides (0.2 / 0.12) apply.
-//   boss_6 阿利斯泰尔        王权号令 (SP 1/s, plus-shaped 200 % strike + random equipment drop); 莫非王土 animates the
-//                            latest equipment on the field (2 s after it appears, then once per 王权号令 cycle) (sword strike / directional vest + barrier / wand disarm); ≤50 %: DEF +100 %,
-//                            RES +45, animates 2; 斥退 at 999 s.
+//   boss_6 阿利斯泰尔        王权号令 (SP 1/s, plus-shaped 200 % strike + random equipment drop, an operator's tile too: the
+//                            operator on a piece's tile picks it up — sword ATK +30 %, vest DEF +30 %, wand 800 arts + 战栗
+//                            after a skill); 莫非王土 animates the latest equipment on the field (2 s after it appears, then
+//                            once per 王权号令 cycle) (sword strike / directional vest + barrier / wand → 黄金回响 device on its
+//                            tile); ≤50 %: DEF +100 %, RES +45, animates 2; 斥退 at 999 s.
 //   boss_7 “萨米的意志”      冰凌 (its normal attack) runs down a whole column from the stage's top row, tile by tile
 //                            (each tile's ally hit 1 s after the ice reaches it); 自然涌动 stun + arts DoT; <50 %: damage taken
 //                            ×(1−0.6), 2 targets; Doom at 600 s (LP −30). Targets via fairOrder (two players alternate).
@@ -203,6 +205,17 @@ function skillSp(e, s) {
   return st;
 }
 const EQUIP_KEYS = Object.freeze(['enemy_10028_vtswd', 'enemy_10029_vtshld', 'enemy_10030_vtwand']);
+const SWORD_KEY = 'enemy_10028_vtswd', VEST_KEY = 'enemy_10029_vtshld', WAND_KEY = 'enemy_10030_vtwand';
+/** The buff an operator holding one of 王权号令's pieces carries, by the piece (one piece per operator). */
+export const HELD_BUFF = Object.freeze({ [SWORD_KEY]: 'boss:heldSword', [VEST_KEY]: 'boss:heldVest', [WAND_KEY]: 'boss:heldWand' });
+/**
+ * 黄金回响 (trap_185_vtlntw, 莫非王土 on a 冲击式施术单元 — data/enemies.json 阿利斯泰尔 `devices[]`): its range `x-1` is the
+ * 13 tiles within Manhattan 2 of its tile — the engine's range circle (GOLDEN_RADIUS + the ally collider) with the tile
+ * rule on top; its shot projectile_trap_vtlntw (TRACE_TARGET_WITH_SPEED 10).
+ */
+const GOLDEN_KEY = 'trap_185_vtlntw', GOLDEN_RADIUS = 2, GOLDEN_SHOT = Object.freeze({ key: 'projectile_trap_vtlntw', move: 'TRACE_TARGET_WITH_SPEED', speed: 10 });
+/** Its attack clip (token model `Attack` 1.633 s, OnAttack at 0.6 s — tools/assets/local-token-spines.json; prefab Attack `_maxAnimScale` −1). */
+const GOLDEN_ANIM = Object.freeze({ clip: 'Attack', dur: 1.633, hit: 0.6, max: -1 });
 const SHELL_KEY = 'enemy_9016_acstmr', ECHO_KEY = 'enemy_9023_acdums', PHANTOM_KEY = 'enemy_2017_csphts';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1368,9 +1381,9 @@ function kitLucien(ab, e) {
 
 function kitLion(ab, e, b) {
   const eq = ab.sk.equip, eqA = ab.sk.equipA, st = ab.sk.store, stA = ab.sk.storeA, su = ab.sk.Suicide;
-  const P = { sp: 0, adv: false, nextAnim: null, wand: false, vestSide: 0 };
-  const wandDef = b.data.getEnemy('enemy_10030_vtwand');
-  const disarm = wandDef && wandDef.talent ? wandDef.talent['1.disarmed_duration'] ?? 0 : 0;
+  const P = { sp: 0, adv: false, nextAnim: null, vestSide: 0 };
+  const raw = e.def.raw || {};
+  const golden = (raw.devices || b.data.getEnemy(e.defId)?.raw?.devices || []).find((d) => d && d.key === GOLDEN_KEY) || null;
   const range = () => e.base.rangeRadius || 3.4;
   const cost = eq ? (eq.sp > 0 ? eq.sp : 25) : Infinity;
   /** Equipment lying on this field, oldest first. */
@@ -1383,9 +1396,18 @@ function kitLion(ab, e, b) {
     const tiles = [[r0, c0], [r0 + 1, c0], [r0 - 1, c0], [r0, c0 + 1], [r0, c0 - 1]];
     b2.fx('telegraph', { x: c0, y: r0, r: 1, kind: 'royalDecree', tiles: 'plus', id: e2.id });
     for (const u of areaAlliesInTiles(b2, e2, r0, c0, 'plus', 1)) hurt(b2, e2, u, e2.s.atk * ((sk && sk.bb.atk_scale) || 0), 'phys');
+    // the drop tile (projectile_enemy_vtlionk_s1 selector, ACT37SIDE_EQUIP): any tile of the plus but one where a piece
+    // lies (`act37side_equip`) or whose operator holds one (`enemy_vtmstr_equip_char[mark]`) — an operator's tile too,
+    // and it picks the piece up (kitEquip); the selector checks no height (a 高台 tile too). [ASSUMED] the tile must take
+    // a unit (no wall, hole or 深水区: the client's DEFAULT tile mask, not modelled)
     const taken = equipment(b2);
-    const free = tiles.filter(([r, c]) => b2.grid.inRect(r, c) && b2.grid.isLow(r, c) && b2.grid.groundPassable(r, c) && !b2.unitAt(r, c)
-      && !taken.some((q) => Math.round(q.y) === r && Math.round(q.x) === c));
+    const g = b2.grid;
+    const free = tiles.filter(([r, c]) => {
+      if (!g.inRect(r, c) || g.deepWater[g.key(r, c)] || !(g.groundPassable(r, c) || g.canStand(r, c, { ranged: true }))) return false;
+      if (taken.some((q) => Math.round(q.y) === r && Math.round(q.x) === c)) return false;
+      const u = b2.unitAt(r, c);
+      return !(u && holdsEquip(u));
+    });
     const spot = b2.rng.pick(free);
     if (spot) {
       const key = b2.rng.pick(EQUIP_KEYS);
@@ -1407,9 +1429,10 @@ function kitLion(ab, e, b) {
         const side = P.vestSide = P.vestSide > 0 ? -1 : 1;
         b2.addBuff(e2, { key: 'boss:vest', shield: (sk && sk.bb.dynamic) || 0, persist: true, visible: true, data: { side, cut: (sk && sk.bb.damage_resistance) || 0 } });
         b2.fx('vest', { x: e2.x, y: e2.y, id: e2.id, side });
-      } else if (q.defId === 'enemy_10030_vtwand') {
-        P.wand = true;   // [substitute for 黄金回响]: next attack becomes arts and disarms its target
+      } else if (q.defId === WAND_KEY) {
+        // enemy_vtlionk_s2: SpawnTokenOnTargetTile trap_185_vtlntw (黄金回响) on the piece's tile
         b2.fx('equip', { x: q.x, y: q.y, id: q.id, key: q.defId, kind: 'wand' });
+        if (golden) spawnGolden(b2, e2, golden, [Math.round(q.y), Math.round(q.x)]);
       }
       b2.kill(q, null);
     }
@@ -1436,8 +1459,6 @@ function kitLion(ab, e, b) {
         const v = e2.findBuff('boss:vest');
         if (v && v.shield > 0 && c.source && Math.sign(c.source.x - e2.x) === v.data.side) c.dmg.mul *= 1 - v.data.cut;
       },
-      hitOut(c, b2, e2) { if (P.wand && c.dmg.isAttack) c.dmg.type = 'arts'; },
-      dealt(c, b2, e2) { if (!P.wand) return; P.wand = false; if (disarm > 0) b2.applyStatus(c.target, 'disarm', { duration: disarm, source: e2 }); },
     },
     su && {
       name: su.name, cd: su.cd, icd: su.icd,
@@ -1450,8 +1471,99 @@ function kitLion(ab, e, b) {
   ];
 }
 
-function kitEquip() {
-  return [{ spawn(b, e) { b.addBuff(e, { key: 'boss:equip', persist: true, flags: { invulnerable: true, untargetable: true, noMove: true } }); } }];
+/** Whether operator `u` holds one of 王权号令's pieces (enemy_vtmstr_equip_char[A/B/C]). */
+const holdsEquip = (u) => Object.values(HELD_BUFF).some((k) => u.findBuff(k));
+
+/**
+ * 王权号令's pieces (official client — research boss-patterns §2): inert where they lie (invulnerable, untargetable, never
+ * move) until 莫非王土 animates one. Each carries an aura on its own tile (prefab Talents/2, range `0-1`) that hands its
+ * `[char]` buff to an operator standing there — at any moment, so also one deployed, redeployed or moved there later —
+ * of any class (profession mask 639: no summon, no device) on the ground (targetMotion WALK_ONLY: no 起飞 operator). The
+ * buff (enemy_vtmstr_equip_A/B/C[char]) refuses an operator that already holds a piece; else the operator keeps it for
+ * the battle and the piece is gone (InstantKill, no kill): 未装配刀片 ATK ×(1 + `2.atk`), 防护背心 DEF ×(1 + `2.def`),
+ * 冲击式施术单元 the wand effect (equipHooks). Until 2026-10-15 nobody picked a piece up.
+ */
+function kitEquip(ab, e) {
+  const pickUp = (b, q, u) => {
+    const key = HELD_BUFF[q.defId];
+    if (q.defId === SWORD_KEY) b.addBuff(u, { key, persist: true, visible: true, mods: { atkPct: T(ab, '2.atk') ?? 0 } });
+    else if (q.defId === VEST_KEY) b.addBuff(u, { key, persist: true, visible: true, mods: { defPct: T(ab, '2.def') ?? 0 } });
+    else {
+      b.addBuff(u, { key, persist: true, visible: true });
+      equipHooks(b).set(u, { armed: false, until: -Infinity, value: T(ab, '2.value') ?? 0, window: T(ab, '2.work_time') ?? 0, tremble: T(ab, '2.not_combat') ?? 0 });
+    }
+    b.fx('equip', { x: u.x, y: u.y, id: u.id, key: q.defId, kind: 'pickup' });
+    b.kill(q, null);
+  };
+  return [{
+    spawn(b, q) { b.addBuff(q, { key: 'boss:equip', persist: true, flags: { invulnerable: true, untargetable: true, noMove: true } }); },
+    tick(b, q) {
+      if (!EQUIP_KEYS.includes(q.defId)) return;
+      const u = b.unitAt(Math.round(q.y), Math.round(q.x));
+      if (!u || u.kind !== 'op' || !u.deployed || u.hidden || u.s.flags.liftoff || holdsEquip(u)) return;
+      pickUp(b, q, u);
+    },
+  }];
+}
+
+/**
+ * 冲击式施术单元 held by an operator (enemy_vtmstr_equip_B_disarm[char] → B_attack_disarm[char] → B_instant[char]): every
+ * skill it casts arms it; the first damage it then deals to an enemy opens a `2.work_time` (0.1) s window, and that
+ * damage and every other one it deals to an enemy in the window add `2.value` (800) 无来源 arts damage (B_damage[char]
+ * NoSourceDamage, `cnt` absent → ×1 [ASSUMED]) and `2.not_combat` (10) s 战栗 (disarmed_combat; a blocked target's swing
+ * is cut — ai.js). [ASSUMED] element damage (元素损伤) is no "output damage" here. Its own 800 is 无来源: the hook sees no
+ * source, so it never re-arms the window. One battle-wide pair of hooks; the state per holder (`Map`).
+ */
+function equipHooks(b) {
+  const st = stOf(b);
+  if (st.wands) return st.wands;
+  const wands = st.wands = new Map();
+  b.on('skillStart', (c) => { const w = wands.get(c.unit); if (w && c.unit.findBuff(HELD_BUFF[WAND_KEY])) w.armed = true; });
+  b.on('damaged', (c) => {
+    const u = c.source, t = c.target;
+    const w = u && wands.get(u);
+    if (!w || c.type === 'element' || !t || t.side !== 'enemy' || !u.findBuff(HELD_BUFF[WAND_KEY])) return;
+    if (w.armed) { w.armed = false; w.until = b.time + w.window; } else if (b.time > w.until + 1e-9) return;
+    if (t.alive && w.value > 0) b.dealDamage(u, t, { amount: w.value, type: 'arts', canDodge: false, sourceless: true, tags: ['equipWand'] });
+    if (t.alive && w.tremble > 0) b.applyStatus(t, 'tremble', { duration: w.tremble, source: u });
+  });
+  return wands;
+}
+
+/**
+ * 黄金回响 (trap_185_vtlntw; token prefab in pkgrps/btl_pfb_tokens_1, character_table): an enemy-side device (`_sideType`
+ * ENEMY) on the 冲击式施术单元's tile — HP 8000, ATK 425, DEF 150, RES 70; its normal attack every `baseAttackTime` 3.8 s
+ * takes one operator of its range `x-1` (engine target order: blocker → taunt → latest deployed = HATRED_DES) for ATK ×1
+ * arts (Attack `_damageType` MAGICAL) through projectile_trap_vtlntw. No lifetime: it stays until destroyed (operators can
+ * attack it); it never moves and blocks nobody, nor is it blocked. No LP, no kill count (a part). The round's enemy effects
+ * reach it like 子代 (summonMods) [ASSUMED].
+ */
+function goldenDef(d) {
+  const st = d.stats || {};
+  return {
+    name: d.name || d.key, rank: 'NORMAL', applyWay: 'RANGED', notCountInTotal: true, staticBody: true, spine: d.key,
+    stats: { maxHp: st.maxHp, atk: st.atk, def: st.def, res: st.res, bat: st.bat, aspd: st.aspd, moveSpeed: 0, massLevel: st.massLevel,
+      motion: 'WALK', lpr: 0, rangeRadius: GOLDEN_RADIUS, dmgType: d.dmgType || 'arts' },
+    proj: GOLDEN_SHOT, attackAnim: GOLDEN_ANIM,
+  };
+}
+
+function spawnGolden(b, boss, d, pos) {
+  const u = b.spawnEnemy(d.key, { def: goldenDef(d), pos, route: { motion: 'FLY', start: pos, end: pos, steps: [{ t: 'wait', s: 99999 }] },
+    tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId, mods: summonMods(b) });
+  if (u) u.mem.noLeak = true;   // a device: never a leak at the time limit (Battle._timeout)
+  return u;
+}
+
+function kitGolden() {
+  return [{
+    spawn(b, e) {
+      b.addBuff(e, { key: 'boss:golden', persist: true, flags: { noMove: true, noDisplace: true, unblockable: true } });
+      const r0 = Math.round(e.y), c0 = Math.round(e.x);
+      // range x-1: the tiles within Manhattan 2 (the radius alone would also take the (1, 2) tiles at 2.24 + collider)
+      e.profile.canTarget = (a) => Math.abs(a.tileR - r0) + Math.abs(a.tileC - c0) <= 2;
+    },
+  }];
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1577,7 +1689,7 @@ export const BOSS_KITS = Object.freeze({
   enemy_2016_csphtm: kitLucien,        // boss_5 卢西恩，“猩红血钻”
   enemy_2017_csphts: lucienCore,       // 不祥幻影
   enemy_9032_aclionk: kitLion,         // boss_6 阿利斯泰尔，帝国余晖
-  enemy_10028_vtswd: kitEquip,         // 未装配刀片 (inert until animated)
+  enemy_10028_vtswd: kitEquip,         // 未装配刀片 (inert until animated or picked up)
   enemy_10029_vtshld: kitEquip,        // 防护背心
   enemy_10030_vtwand: kitEquip,        // 冲击式施术单元
   enemy_9033_acdeer: kitDeer,          // boss_7 “萨米的意志”
@@ -1586,4 +1698,5 @@ export const BOSS_KEYS = Object.freeze(Object.keys(BOSS_KITS));
 /** Stage tokens a leader switches on (template `devices`, not in data/enemies.json), spawned as enemies with an inline record. */
 export const DEVICE_KITS = Object.freeze({
   trap_039_dstnta: kitBrood,           // 子代 (盐风主教昆图斯's 断裂生殖)
+  trap_185_vtlntw: kitGolden,          // 黄金回响 (阿利斯泰尔's 莫非王土 on a 冲击式施术单元)
 });

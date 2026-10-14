@@ -1016,3 +1016,28 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   Idle_02/Die_02), 'feed'(Attack_Begin → Attack_Loop), 'fed'(Attack_End → Idle_02). 공식 공격 이펙트(`trap_dstnta_attack_01_*`)는 아직 안 붙음.
 - **옛 동작**: 장치 칸 반경 1 안 오퍼레이터에게 5 s 기절 한 번(피해 없음, 남는 유닛 없음, [ASSUMED] 값). 테스트 `enemies_bosses.test.js` 「子代…」 2건·
   「盐风主教昆图斯…」, 실제 판 경로 `boss-patterns-real.test.js` 「real boss_4 field…」.
+
+### 阿利斯泰尔 王权号令 장비 줍기·【莫非王土】 黄金回响 (`kitLion`·`kitEquip`·`kitGolden`, 2026-10-15)
+- **떨어지는 칸**: 【王权号令】 투사체 `projectile_enemy_vtlionk_s1`의 칸 선택기(`ACT37SIDE_EQUIP`)는 십자 다섯 칸 중 장비가 이미 놓인 칸(`act37side_equip`)과
+  장비를 든 오퍼레이터의 칸(`enemy_vtmstr_equip_char[mark]`)만 뺀다 — **오퍼레이터가 선 칸에도** 떨어진다. 선택기 옵션(`TileSelector.Options.Verify`)은 높이를
+  보지 않으므로 고지대 칸도 된다(장비 버프 `enemy_vtmstr_equip_tr`도 HIGHLAND 칸을 따로 다룸). [ASSUMED] 유닛이 설 수 없는 칸(벽·구멍·深水区)은 뺀다
+  (클라는 칸의 DEFAULT 마스크로 거르는데 우리 격자에 그 마스크가 없음).
+- **줍기**: 장비마다 자기 칸(범위 `0-1`)에 오라(프리팹 `Talents/2`)가 있어, 그 칸에 선 오퍼레이터에게 `[char]` 버프를 준다 — 언제든(나중에 배치·재배치·이동해
+  들어와도). 대상은 모든 직군의 오퍼레이터(직군 마스크 639: 소환물·장치 제외), 지상(`targetMotion` WALK_ONLY: 起飞 제외). 이미 장비를 든 오퍼레이터는 안 줍고
+  장비는 그대로 남는다. 주우면 그 전투 동안 지니고 장비는 사라진다(InstantKill, 처치 아님) → 【莫非王土】의 활성화 대상이 준다.
+  - 未装配刀片: ATK ×(1 + `2.atk` 0.3). 防护背心: DEF ×(1 + `2.def` 0.3).
+  - 冲击式施术单元(`B_disarm[char]` → `B_attack_disarm[char]` → `B_instant[char]`): 스킬을 쓸 때마다 장전, 그 뒤 적에게 준 첫 피해가 `2.work_time` 0.1 s 창을
+    열고, 그 피해와 창 안의 다른 피해마다 무출처 법술 `2.value` 800(`NoSourceDamage`, `cnt` 없음 → ×1 [ASSUMED]) + `2.not_combat` 10 s 战栗. 800은 무출처라 다시
+    장전·창을 건드리지 않는다. [ASSUMED] 원소 손상은 이 「준 피해」에 들지 않는다.
+- **黄金回响**: 【莫非王土】가 冲击式施术单元을 활성화하면 `enemy_vtlionk_s2`가 그 장비 칸에 `trap_185_vtlntw`(SpawnTokenOnTargetTile, 레벨 1 PHASE_0)를 놓고
+  장비를 지운다. 적 진영 장치(토큰 프리팹 `_sideType` ENEMY, `pkgrps/btl_pfb_tokens_1`): HP 8000·ATK 425·DEF 150·RES 70(character_table), 일반 공격
+  3.8 s마다 범위 `x-1`(자기 칸에서 맨해튼 2 이내 13칸) 오퍼레이터 1명(엔진 순서 저지자 → 도발 → 최근 배치 = HATRED_DES)에게 ATK 100 % 법술(Attack
+  `_damageType` MAGICAL), 탄 `projectile_trap_vtlntw`(추적 10칸/s), 공격 클립 1.633 s·OnAttack 0.6 s(토큰 모델). 수명 없음 — 부서질 때까지 남는다(오퍼레이터가
+  공격할 수 있음). 움직이지 않고 저지하지도 저지되지도 않는다. 부품(`part`: 처치 수·LP 없음, 시간 초과 때 누수 아님). 수치 경로: enemies.json 알리스테어
+  `devices[]`(build-data `ENEMY_SKILL_DEVICES` — 연결은 클라 버프 템플릿에만 있음). 라운드 적 효과는 子代처럼 받는다(`summonMods`) [ASSUMED].
+  그림: 공식 토큰 모델(로컬 추출 `spine/token/trap_185_vtlntw`).
+- **옛 동작**: 빈 낮은 칸에만 떨어지고 아무도 줍지 않았다. 冲击式施术单元 활성화는 [黄金回响 대체] 보스의 다음 공격을 법술 + 3 s 缴械로 바꿨다. 테스트
+  `enemies_bosses.test.js` 「阿利斯泰尔 冲击式施术单元…」 2건·「阿利斯泰尔 equipment…」·「阿利斯泰尔 王权号令: a piece may drop…」, 실제 판 경로
+  `boss-patterns-real.test.js` 「real boss_6 field…」.
+- 덤으로 본 차이(안 고침): 【莫非王土】 프리팹은 `hasSword`(검 + 사거리 안 오퍼레이터) 갈래를 먼저 시도하고 없으면 `noSword` 갈래로 간다 — 우리는 「가장
+  최근 장비」 하나. 선택기 연결을 다 읽지 못해 이번엔 두었다(관리자 노트의 남은 일).

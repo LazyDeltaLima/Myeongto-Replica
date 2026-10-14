@@ -3363,19 +3363,122 @@ test('阿利斯泰尔 防护背心: an animated vest gives a barrier and −80 %
   approx(v2.shield, s0 - 1000 * (1 - st.damage_resistance));
 });
 
-test('阿利斯泰尔 未装配刀片 / 冲击式施术单元: sword strike (ATK×2) / next attack becomes arts and disarms', () => {
-  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }], hooks: ['statusApplied'] });
+test('阿利斯泰尔 未装配刀片: 莫非王土 on a sword strikes an operator for ATK×2', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }] });
   h.step();
   const e = put(h, 'enemy_9032_aclionk', [3, 10], { tag: 'boss' });
   e.profile.noAttack = true;
   put(h, 'enemy_10028_vtswd', [3, 8], { tag: 'part' });
   h.run(2.2);
   approx(h.unit('t_wall').stats.taken, e.s.atk * skb('enemy_9032_aclionk', 'store').bb.atk_scale);
-  const w2 = put(h, 'enemy_10030_vtwand', [4, 8], { tag: 'part' });
-  e.profile.noAttack = false;
-  h.runUntil(() => !w2.alive, 30);
-  h.runUntil(() => statuses(h, h.unit('t_wall').id, 'disarm').length > 0, 30);
-  assert.ok(h.eventsOf('dmg').some((d) => d[1] === h.unit('t_wall').id && d[3] === 'arts'));
+});
+
+// official: buff template enemy_vtlionk_s2 (冲击式施术单元 → SpawnTokenOnTargetTile trap_185_vtlntw on its tile, then the
+// piece dies); token prefab trap_185_vtlntw (_sideType ENEMY, Attack MAGICAL, projectile_trap_vtlntw), character_table
+// (HP 8000, ATK 425, DEF 150, RES 70, baseAttackTime 3.8, range x-1)
+test('阿利斯泰尔 冲击式施术单元: 莫非王土 puts a 黄金回响 on its tile — HP 8000 … RES 70, one operator within Manhattan 2 every 3.8 s for 425 arts; no disarm', () => {
+  const d = E.enemy_9032_aclionk.devices.find((x) => x.key === 'trap_185_vtlntw');
+  assert.deepEqual(d.stats, { maxHp: 8000, atk: 425, def: 150, res: 70, bat: 3.8, aspd: 100, moveSpeed: 1, massLevel: 0 });
+  assert.equal(d.rangeGrid.length, 13);
+  assert.ok(d.rangeGrid.every(([r, c]) => Math.abs(r) + Math.abs(c) <= 2));
+  // field (3, 9) and (5, 8): Manhattan 2 and 1 from the wand's (4, 8); (4, 11) is 3 away and (2, 9) the (2, 1) tile at 2.24
+  const units = [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 12, col: 8 }, { chessId: 't_wall3', row: 11, col: 11 }, { chessId: 't_wall4', row: 9, col: 9 }];
+  const h = bossArena({ units, hooks: ['statusApplied'] });
+  h.step();
+  const e = put(h, 'enemy_9032_aclionk', [3, 12], { tag: 'boss' });
+  e.profile.noAttack = true;
+  const w = put(h, 'enemy_10030_vtwand', [4, 8], { tag: 'part' });
+  const hits = [];
+  h.b.on('damaged', (c) => { if (c.source && c.source.defId === 'trap_185_vtlntw') hits.push({ t: h.b.time, to: c.target.defId, type: c.type, amount: c.amount }); }, { priority: -1000 });
+  h.runUntil(() => !w.alive, 5);
+  const g = h.b.enemies.find((q) => q.alive && q.defId === 'trap_185_vtlntw');
+  assert.ok(g, 'a 黄金回响 appeared');
+  assert.deepEqual([g.y, g.x], [4, 8], 'on the wand\'s tile');
+  assert.equal(g.tag, 'part');
+  assert.ok(!g.counted, 'no kill count');
+  assert.deepEqual([g.s.maxHp, g.s.atk, g.s.def, g.s.res, g.s.interval], [8000, 425, 150, 70, 3.8]);
+  assert.ok(!g.s.flags.untargetable && !g.s.flags.invulnerable, 'operators can attack it');
+  h.run(12);
+  assert.ok(hits.length >= 3, `it shoots (${hits.length})`);
+  assert.ok(hits.every((x) => x.type === 'arts' && x.amount === 425));
+  assert.ok(hits.every((x) => x.to === 't_wall' || x.to === 't_wall2'), 'only the operators within Manhattan 2');
+  for (let i = 1; i < hits.length; i++) approx(hits[i].t - hits[i - 1].t, 3.8, 0.05);
+  assert.equal(h.unit('t_wall3').stats.taken, 0);
+  assert.equal(h.unit('t_wall4').stats.taken, 0);
+  assert.equal(h.hooksOf('statusApplied').filter((c) => c.status === 'disarm').length, 0, 'the old substitute (disarm) is gone');
+});
+
+// official: equipment prefab Talents/2 (aura on its own tile `0-1`: enemy_vtmstr_equip_A/B/C[char], validator profession
+// mask 639, targetMotion WALK_ONLY) — the operator standing there takes it; one piece per operator
+test('阿利斯泰尔 equipment: an operator on a piece\'s tile picks it up — 未装配刀片 ATK +30 %, 防护背心 DEF +30 %; one piece per operator, the piece is gone', () => {
+  const units = [{ chessId: 't_blade', row: 10, col: 6 }, { chessId: 't_wall', row: 11, col: 6 }];
+  const h = bossArena({ units, chess: { t_wall: WALL('t_wall', { def: 300 }) } });
+  h.step();
+  const blade = h.unit('t_blade'), wall = h.unit('t_wall');
+  const atk0 = blade.s.atk, def0 = wall.s.def;
+  const sw = put(h, 'enemy_10028_vtswd', [3, 6], { tag: 'part' });
+  const vs = put(h, 'enemy_10029_vtshld', [4, 6], { tag: 'part' });
+  h.step(2);
+  assert.ok(!sw.alive && !vs.alive, 'both picked up');
+  approx(blade.s.atk, atk0 * (1 + tb('enemy_10028_vtswd', '2.atk')));
+  approx(wall.s.def, def0 * (1 + tb('enemy_10029_vtshld', '2.def')));
+  assert.equal(tb('enemy_10028_vtswd', '2.atk'), 0.3);
+  // a second piece on a holder's tile stays where it lies
+  const sw2 = put(h, 'enemy_10028_vtswd', [3, 6], { tag: 'part' });
+  h.step(2);
+  assert.ok(sw2.alive, 'a holder takes no second piece');
+  approx(blade.s.atk, atk0 * 1.3);
+  assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'equip' && f[4].kind === 'pickup').length, 2);
+});
+
+// official: enemy_vtmstr_equip_B_disarm[char] (ON_SKILL_CAST_SUCCEED → B_attack_disarm[char]) → the first damage dealt
+// opens B_instant[char] (`work_time` 0.1 s): NoSourceDamage MAGICAL `value` 800 + disarmed_combat (战栗) per damage
+test('阿利斯泰尔 冲击式施术单元 held: after each skill the first hit and the others within 0.1 s add 800 无来源 arts + 10 s 战栗', () => {
+  const chess = { t_cast: chessRec({ id: 't_cast', profession: 'CASTER', projectile: 'none', stats: { atk: 50, maxHp: 1e7, bat: 1, blockCnt: 0 }, rangeGrid: BIG, skill: { skillType: 'AUTO', spCost: 3, initSp: 0, duration: 1 } }) };
+  const h = bossArena({ units: [{ chessId: 't_cast', row: 10, col: 4 }], chess, kits: { t_cast: NOATK }, hooks: ['statusApplied'] });
+  h.step();
+  const u = h.unit('t_cast');
+  const wd = put(h, 'enemy_10030_vtwand', [3, 4], { tag: 'part' });
+  h.step(2);
+  assert.ok(!wd.alive && u.findBuff('boss:heldWand'), 'picked up');
+  const o = put(h, 'enemy_1007_slime', [3, 12], { mods: { hpMul: 1000 } });
+  const zaps = [];
+  h.b.on('damaged', (c) => { if (c.dmg && c.dmg.tags && c.dmg.tags.includes('equipWand')) zaps.push({ t: h.b.time, source: c.source, type: c.type, amount: c.amount }); }, { priority: -1000 });
+  const hit = () => h.b.dealDamage(u, o, { amount: 10, type: 'arts' });
+  hit();
+  assert.equal(zaps.length, 0, 'not armed before a skill');
+  h.b.emit('skillStart', { unit: u, skill: null, reason: 'test' });
+  hit(); hit();                                         // the first hit opens the window; the second lies in it
+  assert.equal(zaps.length, 2);
+  assert.ok(zaps.every((z) => z.source === null && z.type === 'arts' && z.amount === tb('enemy_10030_vtwand', '2.value')), '800 无来源 arts');
+  assert.equal(tb('enemy_10030_vtwand', '2.value'), 800);
+  const tr = statuses(h, o.id, 'tremble');
+  assert.equal(tr.length, 2);
+  approx(tr[0].duration, tb('enemy_10030_vtwand', '2.not_combat'));
+  h.run(0.2);
+  hit();
+  assert.equal(zaps.length, 2, 'the 0.1 s window is over');
+  h.b.emit('skillStart', { unit: u, skill: null, reason: 'test' });
+  h.run(0.5);
+  hit();
+  assert.equal(zaps.length, 3, 'each skill arms it again; the window opens at the first hit, not at the cast');
+});
+
+// official: projectile_enemy_vtlionk_s1 selector ACT37SIDE_EQUIP — no tile where a piece lies, nor one whose operator
+// holds a piece; an operator's own tile is a drop tile
+test('阿利斯泰尔 王权号令: a piece may drop on its target\'s tile (here the only free one) and the operator picks it up', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }], kits: { t_wall: NOATK } });
+  h.step();
+  const e = put(h, 'enemy_9032_aclionk', [3, 12], { tag: 'boss' });
+  e.profile.noAttack = true;
+  for (const p of [[2, 9], [4, 9], [3, 8], [3, 10]]) put(h, 'enemy_10028_vtswd', p, { tag: 'part' });
+  const decoy = put(h, 'enemy_10029_vtshld', [6, 14], { tag: 'part' });   // the latest piece: 莫非王土 animates it first
+  h.run(2.2);
+  assert.ok(!decoy.alive);
+  const wall = h.unit('t_wall');
+  h.runUntil(() => Object.values(bossesMod.HELD_BUFF).some((k) => wall.findBuff(k)), skb('enemy_9032_aclionk', 'equip').spCost + 2);
+  assert.ok(Object.values(bossesMod.HELD_BUFF).some((k) => wall.findBuff(k)), 'the piece fell on its tile and it took it');
+  assert.equal(h.b.enemies.filter((q) => q.alive && q.defId === 'enemy_10028_vtswd').length, 4, 'the four around still lie there');
 });
 
 test('“萨米的意志”: 冰凌 hits a whole column; 自然涌动 stun + arts/s; <50 %: damage ×(1−0.6) and 2 columns; Doom LP loss', () => {

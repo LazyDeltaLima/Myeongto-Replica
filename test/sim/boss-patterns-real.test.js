@@ -3,7 +3,8 @@
 // (official BrownbTalent_1), 刺胄之弹's lasting arrival zone (official projectile_enemy_acstmr_s1), 假想敌：管's
 // whole-field 3-shot normal attack (official prefab Attack, projectile_enemy_acduml) and the hidden 铳 field's
 // “碎铳之簧” (BLOCK_FREE passive, the shield skill in place of a normal attack, the share to 铳 only) and 盐风主教昆图斯's
-// 子代 (the template's predefined token: 隐匿, then 摄食 on the operator next to it). The unit-level rules
+// 子代 (the template's predefined token: 隐匿, then 摄食 on the operator next to it) and 阿利斯泰尔's 黄金回响 (莫非王土 on a
+// 冲击式施术单元: a device on its tile that shoots the operators within Manhattan 2). The unit-level rules
 // and their numbers are pinned in test/content/enemies_bosses.test.js; docs/rules/sim.md 「최종 공세·히든 코어 보스 패턴」.
 
 import { test } from 'node:test';
@@ -168,4 +169,26 @@ test('real boss_4 field: 断裂生殖 switches on the template\'s 子代 at devi
   assert.ok(bites.length >= 3 && bites.every((x) => x.to === op), `摄食 bites it (${bites.length})`);
   assert.ok(bites[0].t - t0 >= 14.85, `not before it has grown (${bites[0].t - t0})`);
   for (let i = 1; i < bites.length; i++) assert.ok(Math.abs(bites[i].t - bites[i - 1].t - 1) < 0.06, 'every 1 s');
+});
+
+test('real boss_6 field: 莫非王土 on a 冲击式施术单元 leaves a 黄金回响 on its tile, which shoots operators within Manhattan 2 (arts); no disarm', () => {
+  // 阿利斯泰尔 stands at field (3, 10): two operators in its reach, at (3, 8) and (2, 7)
+  const b = realBossField('boss_6', { extra: [{ chessId: 'chess_char_1_02_a', row: 10, col: 8 }, { chessId: 'chess_char_1_02_a', row: 9, col: 7 }] });
+  const wands = [], goldens = [], hits = [], disarms = [];
+  b.on('enemySpawn', ({ enemy }) => {
+    if (enemy.defId === 'enemy_10030_vtwand') wands.push(enemy);
+    if (enemy.defId === 'trap_185_vtlntw') goldens.push({ t: b.time, at: [enemy.y, enemy.x], u: enemy });
+  });
+  b.on('damaged', (c) => { if (c.source && c.source.defId === 'trap_185_vtlntw') hits.push({ to: c.target, type: c.type, from: c.source }); }, { priority: -1000 });
+  b.on('statusApplied', (c) => { if (c.status === 'disarm' && c.source && c.source.defId === 'enemy_9032_aclionk') disarms.push(c); });
+  for (let i = 0; i < 30 * 120 && !b.finished && !(hits.length >= 2); i++) b.step();
+  assert.ok(wands.length >= 1, 'a 冲击式施术单元 fell');
+  assert.ok(goldens.length >= 1, 'a 黄金回响 appeared');
+  assert.ok(wands.some((w) => !w.alive && w.y === goldens[0].at[0] && w.x === goldens[0].at[1]), 'on the animated wand\'s tile');
+  assert.ok(hits.length >= 2, `it shoots (${hits.length})`);
+  for (const x of hits) {
+    assert.equal(x.type, 'arts');
+    assert.ok(Math.abs(x.to.tileR - Math.round(x.from.y)) + Math.abs(x.to.tileC - Math.round(x.from.x)) <= 2, 'within Manhattan 2');
+  }
+  assert.equal(disarms.length, 0, 'no more disarm substitute');
 });

@@ -2250,6 +2250,27 @@ const STATIC_BODIES = Object.freeze(new Set([
 ]));
 
 /**
+ * Devices an enemy's skill puts on a tile → enemies.json `devices[]` (the templateDevice record, at the token inst the
+ * client spawns, plus `rangeGrid` and `dmgType`). The link lives in the client's buff templates, not in the game tables:
+ * 阿利斯泰尔's 【莫非王土】 on a 冲击式施术单元 runs `enemy_vtlionk_s2` → SpawnTokenOnTargetTile trap_185_vtlntw (黄金回响,
+ * `inst` level 1 PHASE_0) on the unit's tile. `dmgType` from the token prefab's Attack `_damageType` (2 MAGICAL).
+ */
+const ENEMY_SKILL_DEVICES = Object.freeze({
+  enemy_9032_aclionk: [{ key: 'trap_185_vtlntw', level: 1, phase: 'PHASE_0', dmgType: 'arts' }],
+});
+
+/** One ENEMY_SKILL_DEVICES entry → its record (templateDevice at the inst, the token's range grid, its damage type). */
+function skillDevice(ctx, d, label) {
+  const rec = templateDevice(ctx, { inst: { characterKey: d.key, level: d.level, phase: d.phase }, skillIndex: -1 }, label);
+  delete rec.alias; delete rec.pos; delete rec.dir; delete rec.hidden;
+  const ch = ctx.charTable[d.key];
+  const ph = ch ? Math.max(0, Math.min(phaseIdx(d.phase), (ch.phases?.length || 1) - 1)) : 0;
+  rec.rangeGrid = ch ? rangeGrid(ctx, ch.phases?.[ph]?.rangeId) : null;
+  rec.dmgType = d.dmgType;
+  return rec;
+}
+
+/**
  * Official drawn size of enemy models (user playtest #6 item 9: 威龙 far too large) → enemies.json `modelScale`.
  * The official client scales every Spine model in its battle prefab (`dyn/battle/prefabs/enemies/<prefab>.prefab`,
  * bundles battle/enm_pfb_*.ab): world size = skeleton units × SkeletonDataAsset.scale (0.01 for all 1731 enemy
@@ -2619,6 +2640,7 @@ function buildEnemies(ctx) {
       iconId: key, spine: mv(data.prefabKey) || key,
       ...(hitArea ? { hitArea: { ...hitArea } } : {}),
       ...(STATIC_BODIES.has(key) ? { staticBody: true } : {}),
+      ...(ENEMY_SKILL_DEVICES[key] ? { devices: ENEMY_SKILL_DEVICES[key].map((d) => skillDevice(ctx, d, `enemy ${key}`)) } : {}),
       ...(modelScale != null && modelScale !== 1 ? { modelScale } : {}),
       ...(modelScaleY != null && modelScaleY !== 1 ? { modelScaleY } : {}),
       ...(MIRRORED_PREFABS.has(mv(data.prefabKey) || key) ? { mirrorX: true } : {}),
