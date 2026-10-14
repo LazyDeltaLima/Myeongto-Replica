@@ -301,7 +301,7 @@ The resolver's full precedence list is in the header of `tools/assets/anim-roles
 The manifest roles describe a unit's first form. Units whose skeleton holds another form's clip set get it from
 `public/js/render/units.js FORMS` (keyed by Spine id, switched by the `form` of the sim's 'phase' / 'ember' / 'revive'
 / 'telegraph' / 'stone' / 'rockfall' / 'liberate' / 'substitute' / 'swap' / 'dollEnd' / 'downed' / 'quadShot' / 'wisdelOverload' /
-'rangeMax' fx — `shared/protocol.js fxForm`; no client stage drops these fx: the runner keeps them through
+'rangeMax' / 'spGain' fx — `shared/protocol.js fxForm`; no client stage drops these fx: the runner keeps them through
 catch-up frames and hidden tabs (`keepsState`), the game screen's pre-entry buffer (`keepEarly`) and the render engine's
 event queue (`render/interp.js isCosmeticEvent`) too — or, for a view built mid-battle, UnitInfo `form`, which `render/app/info.js renderInfo` passes to the view; a
 `change` clip plays once first, an `end` clip is timed from the fx's `dur` to finish as that state ends, keeping the
@@ -334,6 +334,8 @@ pose carried over (`render/spine.js syncFormPose`). The forms:
 - a skill's sub-modes, ending with the skill (`endsWithSkill`): 寒芒克洛丝 S2's 4 shots (form `quad` of 'quadShot':
   `Skill_Loop_2`), 维什戴尔 S2's overload (`overload`: `Skill_2_Overload_Begin`, `_Idle` / `_Loop`, `_End` closing the skill),
   佩佩 S3 at its full range (`rangeMax`: `Skill_3_Loop_B`).
+- 丰川祥子 S2's organ timbre (form `organ` of her kit's 'spGain' fx: `Skill_2_Idle_B` / `_Loop_B`, over the piano clips her S2
+  sets from the deployment, `equip`).
 - 泥岩's S3 sleep (form `dormant` of her kit's 'stone' / 'rockfall' fx): `Skill_2_Begin`, asleep on `Skill_2_Sleep`, up
   on `Skill_2_Awake` (`leave`); her Back skeleton lacks the three and sleeps on `Skill_2_Idle` (a form's `idle` may list
   clips: the first the skeleton has).

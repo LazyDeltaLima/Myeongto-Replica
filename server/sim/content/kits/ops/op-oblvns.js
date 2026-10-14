@@ -237,11 +237,16 @@ function sakiko(bb, chess, def) {
       // 满月的舞会: a cast switches the timbre (piano first)
       skchr_oblvns_2: {
         kind: 'instant',
+        // the cast's clip (render): `_beginAnim "Skill_2_Trans_B"`, which the piano mode (S2_Atk) pairs to Skill_2_Trans_A
+        castVariant: ({ unit }) => (unit.mem.timbre === 'organ' ? 'fromOrgan' : null),
         onStart({ battle, unit }) {
           startFeverIfFull(battle, unit);
           unit.mem.timbre = unit.mem.timbre === 'piano' ? 'organ' : 'piano';
           unit.mem.applyTimbre?.();
-          battle.fx('spGain', { x: unit.x, y: unit.y, id: unit.id });
+          // the organ is a model form (charpack S2_AttackSpeed / S2_Fever_Mag: Idle→Skill_2_Idle_B, Attack→Skill_2_Loop_B;
+          // render/units.js FORMS); the piano is her S2 default mode (render anims `equip`)
+          unit.form = unit.mem.timbre === 'organ' ? 'organ' : null;
+          battle.fx('spGain', { x: unit.x, y: unit.y, id: unit.id, form: unit.form });
         },
       },
       // 残月的余响: range 3-21; each attack: 2 piano notes (phys) at the highest-RES enemy + 2 organ notes (arts) at the

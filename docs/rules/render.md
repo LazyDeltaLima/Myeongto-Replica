@@ -443,7 +443,9 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `Skill_Loop_2`), 维什戴尔 S2 과부하(새 fx 'wisdelOverload': 모드 S2_Overload — `Skill_2_Overload_Begin`을 전환 클립으로, `_Idle`·`_Loop`, 스킬 끝은 `_End` — I의 믹스 두 줄을 이렇게
     대신함), 佩佩 S3 사거리 최대(새 fx 'rangeMax': `Skill_3_Loop_A`→`_B`, 버프 `pepe_s3_range_max`의 `_hookSettings`). 새 fx 두 종은 골든의 fx 개수만 움직임.
     시전 순간에 정해지는 변형은 'skill' 이벤트 4번째 칸(키트 `castVariant`, `skills.js _evOn`) → 역할 `variants`(`anim-overrides.mjs SKILL_VARIANTS`): 灵知 S2를 충전을
-    다 모아 쓰면 `Skill_3`(모드 S2+), 缄默德克萨斯 S3 재시전(德克萨斯传统)은 `Start_3_2`. [화면 미확인]
+    다 모아 쓰면 `Skill_3`(모드 S2+), 缄默德克萨斯 S3 재시전(德克萨斯传统)은 `Start_3_2`. 丰川祥子 S2: 장착하면 피아노 모드 S2_Atk(`_defaultModeIndex` 2, E의 `equip`:
+    `Skill_2_Start`·`_Idle_A`·`_Loop_A`, 저지 공격도 그것), 오르간은 키트 'spGain' fx의 `form` `'organ'`(`_Idle_B`·`_Loop_B`), 시전 클립은 `_beginAnim "Skill_2_Trans_B"` —
+    피아노 모드가 `Trans_A`로 바꾸므로 피아노에서 `Trans_A`, 오르간에서(변형 `fromOrgan`) `Trans_B`. [화면 미확인]
   - **G** 스킬 프리팹 연출. 泥岩 S3 휴면(`skchr_mudrok_3/SleepAura` `_default {Skill_2_Begin, Skill_2_Sleep, Skill_2_Awake}`): 키트 'stone'·'rockfall' fx에
     `form`(`'dormant'`/null) → `FORMS.char_311_mudrok`(뒤 모델엔 세 클립이 없어 `Skill_2_Idle`로 잠듦 — 형태 `idle`은 클립 목록 중 그 골격에 있는 첫 것).
     歌蕾蒂娅 S3(`skchr_glady_3` 순차 능력: Chant `Skill_3_Startup` → 모드 S3 Idle→`Skill_3_Chant` → FinalAttack `_default {Skill_3_Begin, _Loop, _End}`):

@@ -234,6 +234,10 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     const casts = h.hooksOf('skillStart').filter((x) => x.unit === h.unit(1)).length;
     assert.ok(casts >= 1);
     assert.equal(h.unit(1).mem.timbre, casts % 2 ? 'organ' : 'piano');
+    // the model: the organ is a form, each cast's clip variant names the timbre it leaves (render/units.js FORMS)
+    assert.equal(h.unit(1).form ?? null, casts % 2 ? 'organ' : null);
+    const on = h.eventsOf('skill').filter((e) => e[1] === h.unit(1).id && e[2] === 1).map((e) => e[3] ?? null);
+    assert.deepEqual(on, on.map((_, i) => (i % 2 ? 'fromOrgan' : null)));
   });
 
   test('丰川祥子 S1: the 8 notes fan ±angle·(2·ratio − 1) around her facing (client BasicMovement._InitDirectionByStart, angle 15 → ±13.125°), note 1 to the left (counter-clockwise)', async () => {

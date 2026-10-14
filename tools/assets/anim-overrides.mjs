@@ -95,6 +95,12 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   'op:char_1015_aglna2:': Object.freeze({
     0: clips({ begin: 'Start_2', loop: 'Skill_1_Loop', end: 'Skill_1_End', idle: 'Skill_1_Idle' }),
   }),
+  // 丰川祥子 (char_4182_oblvns): S2 满月的舞会's cast clip is skchr_oblvns_2 `_beginAnim "Skill_2_Trans_B"` (`_playSkillBeginAnim
+  // 1), which the piano mode pairs Trans_B→Trans_A (SKILL_VARIANTS: from the organ, Trans_B); Skill_2_Start / _Idle_A / _Loop_A
+  // are the piano mode's (EQUIP_ROLES), _Idle_B / _Loop_B the organ's (render/units.js FORMS).
+  'op:char_4182_oblvns:': Object.freeze({
+    1: clips({ loop: 'Skill_2_Trans_A' }),
+  }),
   // 塞雷娅 (char_202_demkni): S1 skchr_demkni_1 attacks with `_animKey "Attack"`; S2's heal key `Heal` is the clip
   // Attack_2; Skill_Begin / _Loop / _End are S3 钙质化's.
   'op:char_202_demkni:': Object.freeze({
@@ -183,6 +189,9 @@ export const EQUIP_ROLES = Object.freeze({
   'op:char_2027_wang:': {
     1: { deploy: 'Start_2', idle: 'Idle_2', attack: { begin: null, loop: 'Attack_2_A', end: null, alts: ['Attack_2_A', 'Attack_2_B'], pick: 'loop' } },
   },
+  // 丰川祥子 (char_4182_oblvns) S2: skchr_oblvns_2 `_defaultModeIndex` 2 = mode S2_Atk, the piano (Born→Skill_2_Start,
+  // Idle→Skill_2_Idle_A, Attack→Skill_2_Loop_A; its `_combat` is that attack too)
+  'op:char_4182_oblvns:': { 1: { deploy: 'Skill_2_Start', idle: 'Skill_2_Idle_A', attack: { begin: null, loop: 'Skill_2_Loop_A', end: null } } },
   // 安洁莉娜 (char_291_aglina) S2 / S3: `_defaultModeIndex` 1 = mode Disarmed (no normal attack; Idle→Idle2, skin key → Idle_Charge)
   'op:char_291_aglina:': { 1: { idle: 'Idle_Charge' }, 2: { idle: 'Idle_Charge' } },
 });
@@ -198,6 +207,8 @@ export const SKILL_VARIANTS = Object.freeze({
   'op:char_206_gnosis:': { 1: { charged: { loop: 'Skill_3' } } },
   // 缄默德克萨斯 S3 recast by 德克萨斯传统 (her first kill): skchr_texas2_3 plays Start_3_2 for Start_3
   'op:char_1028_texas2:': { 2: { recast: { begin: 'Start_3_2' } } },
+  // 丰川祥子 S2 cast from the organ (mode S2_AttackSpeed: no Trans pair) plays the key's own clip Skill_2_Trans_B
+  'op:char_4182_oblvns:': { 1: { fromOrgan: { loop: 'Skill_2_Trans_B' } } },
 });
 
 /**

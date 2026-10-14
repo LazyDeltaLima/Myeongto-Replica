@@ -84,13 +84,6 @@ export const UNPLAYED = {
     Skill_3_ReStart_A: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
     Skill_3_ReStart_B: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair) [ASSUMED]',
   },
-  char_4182_oblvns: {
-    Skill_2_Idle_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-    Skill_2_Loop_A: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-    Skill_2_Loop_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-    Skill_2_Trans_A: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-    Skill_2_Trans_B: 'todo: G — skill prefab clip',
-  },
   char_420_flamtl: {
     Skill_2_Attack_2: 'todo: H+J — talent / trait state; skin key table (SpineAnimator._animations)',
   },

@@ -190,3 +190,31 @@ test('a cast\'s clip variant (the sim\'s skill event 4th field): 灵知 charged 
   t.setSkill(true, 'recast');
   assert.equal(t.current, 'Start_3_2');
 });
+
+test('丰川祥子 S2: the piano from the deployment (Skill_2_Start, _Idle_A, _Loop_A); a cast plays Trans_A to the organ (_Idle_B, _Loop_B), Trans_B back', async () => {
+  const id = 'char_4182_oblvns';
+  const hit = (clip) => assets.chars[id].spine.front.hits?.[clip]?.[0] ?? 0.4;
+  const v = await view(id, { skillIndex: 1 });
+  v.actor.deploy();
+  assert.equal(v.actor.current, 'Skill_2_Start');
+  secs(v, 1.1);
+  assert.equal(v.actor.current, 'Skill_2_Idle_A');
+  v.onSwing(hit('Skill_2_Loop_A'), 'none', false, true);
+  assert.equal(v.actor.current, 'Skill_2_Loop_A', 'the timbre mode\'s attack, on a blocked enemy too');
+  secs(v, 2);
+  v.setSkill(true);                                 // from the piano
+  assert.equal(v.actor.current, 'Skill_2_Trans_A');
+  v.setForm('organ', { form: 'organ' });
+  v.setSkill(false);
+  secs(v, 0.5);
+  assert.equal(v.actor.current, 'Skill_2_Idle_B');
+  v.onSwing(hit('Skill_2_Loop_B'), 'none');
+  assert.equal(v.actor.current, 'Skill_2_Loop_B');
+  secs(v, 2);
+  v.setSkill(true, 'fromOrgan');
+  assert.equal(v.actor.current, 'Skill_2_Trans_B');
+  v.setForm(null, { form: null });
+  v.setSkill(false);
+  secs(v, 0.5);
+  assert.equal(v.actor.current, 'Skill_2_Idle_A');
+});
