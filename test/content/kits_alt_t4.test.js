@@ -846,6 +846,7 @@ test('泥岩 S1 防御力强化·γ型 (TAKE_DAMAGE) and S3 秽壤的血脉 (闭
     // 闭锁 (PRTS 备注 "实际将会进入闭锁状态"; PRTS 异常效果 闭锁 = 强制缴械 + 无敌 + 不可阻挡, 不可阻挡 "无法阻挡/被阻挡，自动解除阻挡")
     assert.ok(u.blocking.length === 0 && walkers.every((e) => e.blockedBy !== u), `${id}: 闭锁 lets go of the enemies she held`);
     assert.ok(walkers.every((e) => e.findBuff(`mudrok:slow:${u.id}`)), 'enemies around slowed');
+    assert.equal(u.form, 'dormant', 'the sleep is a model form (render/units.js FORMS)');
     const x0 = walkers.map((e) => e.x);
     h.run(1);
     assert.ok(walkers.every((e, i) => e.removed || e.x < x0[i] - 0.05), `${id}: they walk on`);
@@ -857,6 +858,7 @@ test('泥岩 S1 防御力强化·γ型 (TAKE_DAMAGE) and S3 秽壤的血脉 (闭
     h.step();
     assert.equal(u.blocking.length, 0, `${id}: not blocked before she wakes`);
     assert.ok(h.runUntil(() => !!u.findBuff('mudrok:awake'), 2), 'awake');
+    assert.equal(u.form, null);
     h.run(0.2);
     for (const e of near) assert.ok(e.s.flags.stun, 'ground enemies around stunned');
     approx(u.s.atk, u.base.atk * (1 + b3.atk) * (u.findBuff('mudrok:module') ? 1 + (u.def.traitBb.atk ?? 0) : 1), 1e-6, 'ATK');

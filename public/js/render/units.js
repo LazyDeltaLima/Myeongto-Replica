@@ -339,6 +339,10 @@ export const EL_BAR = Object.freeze({ icon: 0.15, min: 8, max: 15, enemy: 0.8, g
  * - 烛煌 (char_1040_blaze2) 绝处重燃 (her kit: fx 'downed' → form 'downed', 'revive' → null): downed on Revive_Begin, lying on
  *   Revive_Idle (her charpack talent mode), up again on Revive_End (`leave`). Knocked out while downed she falls on Die and the
  *   form ends with the knock-out (`endsOnDeath`: the sim clears it without an fx).
+ * - 泥岩 (char_311_mudrok) S3's 10 s sleep (her kit: fx 'stone' → form 'dormant', 'rockfall' → null; skchr_mudrok_3
+ *   SleepAura `_default`): Skill_2_Begin, asleep on Skill_2_Sleep, Skill_2_Awake as she wakes (`leave`), then the S3 mode's
+ *   Skill_2_Idle / Skill_2_Attack. Her Back skeleton has none of the three: asleep on Skill_2_Idle (a role `idle` may list
+ *   clips, the first the skeleton has).
  * A kind without a clip set of this skeleton (barriers, charges, …) changes nothing. 吉兆飞鳞's 晕眩模式 is its Stun clip.
  */
 /**
@@ -416,6 +420,9 @@ export const FORMS = Object.freeze({
   }),
   char_1040_blaze2: Object.freeze({
     downed: Object.freeze({ change: 'Revive_Begin', leave: 'Revive_End', endsOnDeath: true, roles: Object.freeze({ idle: 'Revive_Idle', deploy: 'Revive_Idle', move: loop('Revive_Idle'), stun: loop('Revive_Idle'), attack: null, skill: null }) }),
+  }),
+  char_311_mudrok: Object.freeze({
+    dormant: Object.freeze({ change: 'Skill_2_Begin', leave: 'Skill_2_Awake', endsOnDeath: true, roles: Object.freeze({ idle: Object.freeze(['Skill_2_Sleep', 'Skill_2_Idle']), deploy: 'Skill_2_Sleep', stun: loop('Skill_2_Sleep'), attack: null, skill: null }) }),
   }),
   char_4016_kazema: Object.freeze({
     doll: Object.freeze({ change: Object.freeze(['Die_2', 'Start_B']), leave: Object.freeze(['Die_B', 'Start']), roles: dollRoles('Idle_B', 'Die_B', 'Attack_B') }),

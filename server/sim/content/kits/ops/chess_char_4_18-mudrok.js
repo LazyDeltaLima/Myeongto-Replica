@@ -29,7 +29,9 @@ export default withDefaults({
             unit.mem.mudS3 = { awake: false, t: 0 };
             // 闭锁: 强制缴械 + 无敌 + 不可阻挡 (her blocked enemies are released: ai.js lets go of a noBlock blocker)
             battle.addBuff(unit, { key: 'mudrok:dormant', duration: sleep + 1, flags: { invulnerable: true, disarm: true, noBlock: true }, visible: true });
-            battle.fx('stone', { x: unit.x, y: unit.y, id: unit.id });
+            // the sleep is a model form (render/units.js FORMS: SleepAura Skill_2_Begin → Skill_2_Sleep, Skill_2_Awake)
+            unit.form = 'dormant';
+            battle.fx('stone', { x: unit.x, y: unit.y, id: unit.id, form: 'dormant' });
           },
           onTick({ battle, unit, dt }) {
             const M = unit.mem.mudS3;
@@ -41,10 +43,12 @@ export default withDefaults({
             battle.removeBuff(unit, 'mudrok:dormant');
             for (const e of targetsInGrid(battle, unit, g)) if (!e.isFlying && e.alive) battle.applyStatus(e, 'stun', { duration: num(bb.stun, 3), source: unit });
             battle.addBuff(unit, { key: 'mudrok:awake', mods: { atkPct: num(bb.atk), defPct: num(bb.def), batPct: batFlat(def, bb.base_attack_time) } });
-            battle.fx('rockfall', { x: unit.x, y: unit.y, id: unit.id });
+            unit.form = null;
+            battle.fx('rockfall', { x: unit.x, y: unit.y, id: unit.id, form: null });
           },
           onEnd({ battle, unit }) {
             unit.mem.mudS3 = null;
+            if (unit.form === 'dormant') unit.form = null;   // (only a knock-out ends the skill asleep: the view ends it, endsOnDeath)
             battle.removeBuff(unit, 'mudrok:dormant');
             battle.removeBuff(unit, 'mudrok:awake');
           },

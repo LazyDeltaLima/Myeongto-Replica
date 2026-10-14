@@ -83,10 +83,6 @@ export const UNPLAYED = {
   char_308_swire: {
     Attack_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
   },
-  char_311_mudrok: {
-    Skill_2_Awake: 'todo: G — skill prefab clip',
-    Skill_2_Sleep: 'todo: G — skill prefab clip',
-  },
   char_4016_kazema: {
     Default_B: 'none: setup pose of the stand-in form (0 s); only the buff template of another unit (parrot_m1_t) names it',
   },
@@ -134,8 +130,6 @@ export const UNPLAYED = {
   },
   char_474_glady: {
     Skill_2_Begin: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation): the attack channel begin of the S2 mode',
-    Skill_3_Chant: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-    Skill_3_Startup: 'todo: G — skill prefab clip',
   },
   char_498_inside: {
     Attack_Idle: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); attack is Attack_Begin/Loop/End',

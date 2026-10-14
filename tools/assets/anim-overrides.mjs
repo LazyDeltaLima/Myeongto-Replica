@@ -12,14 +12,14 @@
 // mode carries an animator hooker (`_excludeAnimKeys ["Idle","Attack","Born"]`) that swaps her clips to the Skill_*
 // family. So S2 = the normal Attack clip (skill clip `via: 'attack'`, like resolveSkill's own fallback).
 //
-// A clip object replaces the skill's clips outright — models whose clip numbers are not their skill numbers (the S1 is a
+// A clip object replaces the skill's clips outright (one with `via: 'attack'` keeps the attack role's clip for its attacks;
+// an `end` may be an array of clips played in a row) — models whose clip numbers are not their skill numbers (the S1 is a
 // common buff without clips of its own, so the numbers shift; maintainer report 2026-10-07, maintainer's notes 2026-10-07):
 // 泥岩 (char_311_mudrok): S2 岩崩锤 strikes with `Skill_1` ([uc]skills.ab skchr_mudrok_2 attack ability `_animKey
 // "Skill_1"`, 1.6 s) — `strike: true`: the clip is that empowered attack's, played by the attack, not at the cast
 // (render/spine.js). `Skill_2_*` is S3 秽壤的血脉's (SleepAura `_default {Skill_2_Begin, Skill_2_Sleep, Skill_2_Awake}`,
-// then charpack mode S3 `_replaceAnimPairs` Idle→Skill_2_Idle, Attack→Skill_2_Attack). The kit models the 10 s sleep, but
-// the renderer does not draw it yet (Skill_2_Sleep / Skill_2_Awake, test/render/clip-coverage-list.js): the dormant
-// operator stands in Skill_2_Idle.
+// then charpack mode S3 `_replaceAnimPairs` Idle→Skill_2_Idle, Attack→Skill_2_Attack). The 10 s sleep (Skill_2_Begin →
+// Skill_2_Sleep, Skill_2_Awake as she wakes) is a model form of its own: render/units.js FORMS (kit fx 'stone' / 'rockfall').
 // 莫斯提马 (char_213_mostma): S2 荒时之锁 = skchr_mostma_2's anim component `_default {Skill_Begin, Skill_Loop, Skill_End}`;
 // S3 序时之匙 switches to charpack mode 1 (switch_mode_restart_fsm blackboard `mode 1`), whose attack is `_animKey
 // "Skill_2_Loop"` / `_endAnimKey "Skill_2_Idle"` (Graphic Idle→Skill_2_Idle) — resolveSkill had the two swapped, so her
@@ -51,8 +51,12 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
   }),
   // 歌蕾蒂娅 (char_474_glady): S2's cast clip is skchr_glady_2 `_beginAnim "Skill_2_Startup"` (`_playSkillBeginAnim 1`);
   // Skill_2_Begin / _Loop / _End are the S2 mode's attack channel.
+  // S3 = an ability sequence: Chant `_animKey "Skill_3_Startup"` for the duration, the S3 mode (Idle→Skill_3_Chant, her
+  // plain Attack), and the closing FinalAttack channel `_default {Skill_3_Begin, Skill_3_Loop, Skill_3_End}` — `via:
+  // 'attack'` keeps the attack clip; `end` is the three clips in a row.
   'op:char_474_glady:': Object.freeze({
     1: clips({ begin: 'Skill_2_Startup', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
+    2: Object.freeze({ via: 'attack', begin: 'Skill_3_Startup', idle: 'Skill_3_Chant', end: Object.freeze(['Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_End']) }),
   }),
   // 伊内丝 (char_4087_ines): S3 独影归途 = an ability group whose first ability (`_animKey "Start_Skill"`) leaves the
   // shadow sentry; her attacks stay the ordinary ones (loop = idle: no skill attack clip).
@@ -213,8 +217,11 @@ export function applyAnimOverrides(key, anims, names = null) {
       let clip = null;
       if (how === 'attack' && anims.attack) clip = { ...anims.attack, via: 'attack', index: Number(i), idle: null };
       else if (how && typeof how === 'object') {
-        clip = { ...how, index: Number(i) };
-        if (names) for (const f of ['begin', 'loop', 'end', 'idle']) if (clip[f] && !names.includes(clip[f])) clip[f] = null;
+        clip = how.via === 'attack' && anims.attack ? { ...anims.attack, idle: null, ...how, index: Number(i) } : { ...how, index: Number(i) };
+        for (const f of ['begin', 'loop', 'end', 'idle']) {
+          if (Array.isArray(clip[f])) clip[f] = names ? clip[f].filter((n) => names.includes(n)) : [...clip[f]];
+          else if (names && clip[f] && !names.includes(clip[f])) clip[f] = null;
+        }
       }
       if (!clip) continue;
       if (anims.skills && anims.skills[i]) anims.skills[i] = clip;

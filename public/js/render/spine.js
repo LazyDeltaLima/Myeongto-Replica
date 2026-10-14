@@ -362,7 +362,9 @@ export class SpineActor {
     const sk = this.roles.skill;
     if (this._stance()) return sk.loop;
     if (this.skillOn && sk && this.has(sk.idle)) return sk.idle;
-    return this.has(this.roles.idle) ? this.roles.idle : (this.has('Idle') ? 'Idle' : [...this.names][0]);
+    // a form's idle may list clips: the first this skeleton has (render/units.js FORMS: 泥岩 asleep)
+    const idle = [this.roles.idle].flat().find((n) => this.has(n));
+    return idle || (this.has('Idle') ? 'Idle' : [...this.names][0]);
   }
 
   _baseName() {
@@ -668,7 +670,7 @@ export class SpineActor {
         this._play(sk.begin, false, { mix: 0.08 });
         this.skillBeginUntil = this.clock + this.dur(sk.begin);
         // then the skill's own idle until an attack plays its loop (community report #23); without one, the loop
-        const next = this._skillIdle() || (this.has(sk.loop) ? sk.loop : null);
+        const next = this._afterBegin(sk);
         if (next) this._queue(next, true);
       } else if (!this.has(sk.idle) && this.has(sk.loop) && sk.via !== 'attack' && sk.loop !== this.roles.attack?.loop && !this._skillIsBuffOnly()) {
         // No Begin and no own Idle: the skill's clip IS its animation (德克萨斯 剑雨 — anims.skill {begin:null,
@@ -691,15 +693,36 @@ export class SpineActor {
         return;
       }
       this.skillClipOnce = false;
-      if (this.has(sk.end)) {
-        this.mode = 'skillEnd';
-        this._play(sk.end, false, { mix: 0.08 });
-        this.skillEndUntil = this.clock + this.dur(sk.end);
-      } else {
+      if (!this._skillEnd(sk)) {
         this.mode = 'base';
         this._play(this._baseName(), true);
       }
     }
+  }
+
+  /**
+   * Close the skill on its End clip — or its clips one after another (an array: 歌蕾蒂娅 S3's closing FinalAttack
+   * Skill_3_Begin → _Loop → _End) — in mode skillEnd; false when it has none.
+   */
+  _skillEnd(sk) {
+    const clips = this._changeClips(sk?.end);
+    if (!clips.length) return false;
+    this.mode = 'skillEnd';
+    this._play(clips[0], false, { mix: 0.08 });
+    this.endNext = clips.slice(1);
+    this.endNextAt = this.clock + this.dur(clips[0]);
+    this.skillEndUntil = this.clock + this.dur(clips);
+    return true;
+  }
+
+  /**
+   * The clip a skill's Begin (or 吟唱) hands over to: the skill's own idle when its attacks are its loop clip
+   * (_skillIdle) or when it attacks with the plain attack clip (`via: 'attack'` with an idle of its own: 歌蕾蒂娅 S3's
+   * Skill_3_Chant), else its loop.
+   */
+  _afterBegin(sk) {
+    const idle = this._skillIdle() || (sk?.via === 'attack' && this.has(sk.idle) ? sk.idle : null);
+    return idle || (this.has(sk?.loop) ? sk.loop : null);
   }
 
   /**
@@ -730,7 +753,7 @@ export class SpineActor {
       this.skillEndPending = false;
       this._play(this.chantAfter, false, { mix: 0.08 });
       this.skillBeginUntil = this.clock + this.dur(this.chantAfter);
-      const next = this._skillIdle() || (this.has(sk?.loop) ? sk.loop : null);
+      const next = this._afterBegin(sk);
       if (next) this._queue(next, true);
     } else {
       this.mode = 'base';
@@ -856,11 +879,8 @@ export class SpineActor {
           this.skillClipOnce = false;
           this.skillEndPending = false;
           this.mode = 'base';
-          if (pending && this.has(sk?.end)) {
+          if (pending && this._skillEnd(sk)) {
             // the skill switched off inside its own clip: its End clip closes it now
-            this.mode = 'skillEnd';
-            this._play(sk.end, false, { mix: 0.08 });
-            this.skillEndUntil = this.clock + this.dur(sk.end);
           } else if (once || pending || !this.has(sk?.loop)) {
             // the one-shot clip is over (or the skill has no loop clip at all): rest. A Begin clip with a queued next
             // clip (the loop, or the skill's own idle) needs no play here — it is already on the track
@@ -869,6 +889,11 @@ export class SpineActor {
         }
         break;
       case 'skillEnd':
+        if (this.endNext?.length && this.clock >= this.endNextAt && this.clock < this.skillEndUntil) {
+          const next = this.endNext.shift();
+          this._play(next, false, { mix: 0.05 });
+          this.endNextAt += this.dur(next);
+        }
         if (this.clock >= this.skillEndUntil) { this.mode = 'base'; this._play(this._baseName(), true); }
         break;
       case 'chant':

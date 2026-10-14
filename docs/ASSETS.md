@@ -255,7 +255,8 @@ ranged enemy for that clip, GitHub #58, and strikes every enemy attack at that f
 ### The `Roles` object
 
 ```js
-Clip      = { begin: string|null, loop: string, end: string|null, via?: 'combat'|'attackAny'|'skill'|'idle'|'attack',
+Clip      = { begin: string|null, loop: string, end: string|string[]|null /* an array: clips in a row */,
+              via?: 'combat'|'attackAny'|'skill'|'idle'|'attack',
               alts?: string[], pick?: 'loop'|'random'|'other' /* attack clips taking turns */,
               combat?: { loop: string, alts?: string[], pick?: string } /* on an enemy it blocks (COMBAT_CLIPS) */ }
 SkillClip = Clip & { index: number /* 0-based skill index */, idle: string|null /* Skill_n_Idle */,
@@ -285,7 +286,9 @@ Roles = {
 | `skill` | `Skill_1_Loop` (pure supporters) |
 | `idle` | `Idle` (no attack animation at all) |
 
-On a skill clip, `via: 'attack'` means the model has no skill animation, so the attack clip is reused.
+On a skill clip, `via: 'attack'` means the skill attacks with the attack clip: the model has no skill animation, or (a
+`tools/assets/anim-overrides.mjs` clip object with `via: 'attack'`: 歌蕾蒂娅 S3) the skill has a begin, idle and end of its
+own around the plain attack.
 `alts` / `pick` (from `tools/assets/anim-overrides.mjs ATTACK_ALTS`, the client's AbilityRandomGroup /
 UberAnimationEffectEmitter `_replaceGroup` / sequential ability groups): every attack of that role plays one of `alts` — in
 turn from the first (`loop`), any (`random`), or a random first and then never the one just played (`other`)
@@ -296,7 +299,7 @@ The resolver's full precedence list is in the header of `tools/assets/anim-roles
 
 The manifest roles describe a unit's first form. Units whose skeleton holds another form's clip set get it from
 `public/js/render/units.js FORMS` (keyed by Spine id, switched by the `form` of the sim's 'phase' / 'ember' / 'revive'
-/ 'telegraph' / 'stone' / 'liberate' / 'substitute' / 'swap' / 'dollEnd' / 'downed' fx — `shared/protocol.js fxForm`; no client stage drops these fx: the runner keeps them through
+/ 'telegraph' / 'stone' / 'rockfall' / 'liberate' / 'substitute' / 'swap' / 'dollEnd' / 'downed' fx — `shared/protocol.js fxForm`; no client stage drops these fx: the runner keeps them through
 catch-up frames and hidden tabs (`keepsState`), the game screen's pre-entry buffer (`keepEarly`) and the render engine's
 event queue (`render/interp.js isCosmeticEvent`) too — or, for a view built mid-battle, UnitInfo `form`, which `render/app/info.js renderInfo` passes to the view; a
 `change` clip plays once first, an `end` clip is timed from the fx's `dur` to finish as that state ends, keeping the
@@ -326,6 +329,9 @@ pose carried over (`render/spine.js syncFormPose`). The forms:
   Neither Back skeleton has the 替身's death clip, so a 替身 knocked out lies on the Front model (like every knocked-out
   operator facing up, DESIGN §22.1) with its `Die_B_2` / `Die_B`: the view keeps the form it died in for that model and
   for one rebuilt while it lies down, although the sim resets the form right after the knock-out.
+- 泥岩's S3 sleep (form `dormant` of her kit's 'stone' / 'rockfall' fx): `Skill_2_Begin`, asleep on `Skill_2_Sleep`, up
+  on `Skill_2_Awake` (`leave`); her Back skeleton lacks the three and sleeps on `Skill_2_Idle` (a form's `idle` may list
+  clips: the first the skeleton has).
 - 烛煌's 绝处重燃 (form `downed` of her kit's 'downed' / 'revive' fx): `Revive_Begin`, held on `Revive_Idle`, up again on
   `Revive_End` (`leave`); a knock-out while downed ends the form (`endsOnDeath`) and she falls on `Die`.
 

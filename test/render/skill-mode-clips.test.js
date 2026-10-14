@@ -1,6 +1,6 @@
 // The clips a skill's or a talent's mode swaps in (docs/rules/render.md 「Spine 클립 커버리지」 D–H): the death and stun
-// clips of a skill's mode (anims skill `die` / `stun`, tools/assets/anim-overrides.mjs SKILL_STATE_CLIPS), a talent's
-// model form (render/units.js FORMS). Real manifest entries, headless fake PIXI like test/render/attack-alts.test.js and
+// clips of a skill's mode (anims skill `die` / `stun`, tools/assets/anim-overrides.mjs SKILL_STATE_CLIPS), a skill's or a
+// talent's model form (render/units.js FORMS), a skill whose End is a row of clips. Real manifest entries, headless fake PIXI like test/render/attack-alts.test.js and
 // test/render/feedback2-doll.test.js.
 
 import { test, before, after } from 'node:test';
@@ -104,4 +104,36 @@ test('烛煌 绝处重燃: downed on Revive_Begin, lying on Revive_Idle, up on R
   w.die();
   assert.equal(w.actor.current, 'Die');
   assert.equal(w.form, null, 'the knock-out ends the form (the sim clears it without an fx)');
+});
+
+test('泥岩 S3: Skill_2_Begin, asleep on Skill_2_Sleep, Skill_2_Awake, then the S3 mode; facing UP asleep on Skill_2_Idle', async () => {
+  for (const [dir, asleep] of [['RIGHT', 'Skill_2_Sleep'], ['UP', 'Skill_2_Idle']]) {
+    const v = await view('char_311_mudrok', { skillIndex: 2, dir });
+    v.actor.setSkill(true);                       // the 'skill' event, then the kit's fx 'stone' { form: 'dormant' }
+    v.setForm('dormant', { form: 'dormant' });
+    if (dir === 'RIGHT') assert.equal(v.actor.current, 'Skill_2_Begin');
+    secs(v, 2);
+    assert.equal(v.actor.current, asleep, dir);
+    v.setForm(null, { form: null });              // fx 'rockfall'
+    if (dir === 'RIGHT') { assert.equal(v.actor.current, 'Skill_2_Awake'); secs(v, 1.1); }
+    assert.equal(v.actor.current, 'Skill_2_Idle', dir);
+    v.onAttack(null, 1.2);
+    assert.equal(v.actor.current, 'Skill_2_Attack', dir);
+  }
+});
+
+test('歌蕾蒂娅 S3: Skill_3_Startup, the S3 mode\'s Skill_3_Chant between her plain attacks, the FinalAttack Begin → Loop → End', () => {
+  const a = actor('char_474_glady', 2);
+  a.setSkill(true);
+  assert.equal(a.current, 'Skill_3_Startup');
+  run(a, 0.6);
+  assert.equal(a._afterBegin(a.roles.skill), 'Skill_3_Chant');
+  assert.ok(a.swing(0.5));
+  assert.equal(a.current, 'Attack');
+  run(a, 3);
+  assert.equal(a.current, 'Skill_3_Chant');
+  a.setSkill(false);
+  const seen = [a.current];
+  for (let i = 0; i < 240; i++) { a.update(1 / 60); if (seen.at(-1) !== a.current) seen.push(a.current); }
+  assert.deepEqual(seen, ['Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_End', 'Idle']);
 });
