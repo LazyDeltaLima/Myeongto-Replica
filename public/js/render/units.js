@@ -826,7 +826,7 @@ export class UnitView {
         if (at > 0) this.actor.update(at);
       } else {
         if (this.flags & UF.SKILL) this.actor.setSkill(true);
-        this.actor.setBase(this._baseFromAnim());
+        this.actor.setBase(this._baseFromAnim(), this._stunFalls());
         if (deployed != null) { this.actor.deploy(this._deployKey); if (deployed > 0) this.actor.update(deployed); }
         else if (swung) {
           this.actor.combatHit = !!swung.combat;
@@ -963,6 +963,13 @@ export class UnitView {
     return 'idle';
   }
 
+  /**
+   * An operator's stun (UF.STUNNED: not a freeze or a sleep): without a Stun clip its model falls on the Die clip and lies
+   * there until the stun ends (SpineActor._enterStun; the client's Character.States.StunState.OnEnter, docs/rules/render.md
+   * 「아군 기절 모션」). An enemy's stun freezes its clip (Enemy.States.StunState plays only a Stun clip).
+   */
+  _stunFalls() { return !this.isEnemy && this.alive && !!(this.flags & UF.STUNNED); }
+
   /** Apply an interpolated sample (render/interp.js); `t` = the render clock's game time (ring countdowns). */
   sync(s, t) {
     if (!s) return;
@@ -1015,7 +1022,9 @@ export class UnitView {
     else if (!this.isEnemy && (this.anim | 0) === ANIM.MOVE && (s.anim | 0) !== ANIM.MOVE) this.visFacing = this.face ? this.face.lr : this.facing;
     if ((prevFlags ^ this.flags) & UF.SKILL) this.setSkill(!!(this.flags & UF.SKILL));
     if (this.anim === ANIM.DIE && this.alive) this.die();
-    if (this.actor && this.alive) this.actor.setBase(this._baseFromAnim());
+    // an operator's stun lies down on its Front model's Die clip and stands up on its Back model again (_wantsBack)
+    if (!this.isEnemy && ((prevFlags ^ this.flags) & UF.STUNNED)) this._modelDirty = true;
+    if (this.actor && this.alive) this.actor.setBase(this._baseFromAnim(), this._stunFalls());
   }
 
   setWorld(x, y, z = 0) { this.x = x; this.y = y; this.z = z; }
@@ -1110,8 +1119,8 @@ export class UnitView {
   }
 
   /**
-   * Whether this unit should show its Back model: facing UP and a Back model exists — while it stands. A dead or
-   * knocked-out one keeps the Back model only when that skeleton has a fall of its own (4 of the 135 Back models); the
+   * Whether this unit should show its Back model: facing UP and a Back model exists — while it stands. A dead, knocked-out
+   * or stunned (_stunFalls) one keeps the Back model only when that skeleton has a fall of its own (4 of the 135 Back models); the
    * others have no Die clip, so the Front model shows the fall and the held knocked-down pose (GitHub issue #25: the
    * Back model went on with its attack loop under the redeploy ring) [ASSUMED: no source says which model the official
    * client lies down with; a Back skeleton without a Die clip cannot show a fall].
@@ -1120,7 +1129,7 @@ export class UnitView {
     const a = this.ctx.assets;
     const id = this.info.spine || this.info.defId;
     if (this.isEnemy || (this.face ? this.faceUd : this.dir) !== 'UP' || !id || !a || typeof a.hasBack !== 'function' || !a.hasBack(id)) return false;
-    return this.alive || dieClipDur(typeof a.spineEntry === 'function' ? a.spineEntry(id, { back: true }) : null) > 0;
+    return (this.alive && !this._stunFalls()) || dieClipDur(typeof a.spineEntry === 'function' ? a.spineEntry(id, { back: true }) : null) > 0;
   }
 
   /**

@@ -32,8 +32,9 @@
 //   die()                                 die clip once (callers fade out afterwards) — the running skill's own (anims
 //                                         skill.die) while its mode holds; a skeleton without one holds its idle clip's
 //                                         first frame (GitHub issue #25: the attack loop went on)
-//   stunned (setBase('stun'))             stun clip (the running skill's own, skill.stun), or the current track frozen
-//                                         at timeScale 0
+//   stunned (setBase('stun', fall))       stun clip (the running skill's own, skill.stun); without one an operator's stun
+//                                         (`fall`) plays its Die clip and lies on its last frame, anything else (an
+//                                         enemy, a freeze, a sleep) freezes the current track at timeScale 0
 //   setForm(roles, change, end)           another clip set of the skeleton (an enemy's mode, a 傀儡师's 替身), after a change clip
 //                                         (no attack cuts the change clip short); `end` = { clip, in, roles? }: a
 //                                         closing clip timed to end `in` s from now (a 重生's last clip ends with the
@@ -198,6 +199,8 @@ export class SpineActor {
     this.clock = 0;
     this.current = '';
     this.frozen = false;
+    this.stunFall = false;        // the stun is an operator's (setBase `fall`): no Stun clip → the Die clip (_enterStun)
+    this.stunHow = null;          // mode 'stun': 'clip' | 'fall' | 'freeze'
     this.dead = false;
     this.interval = 1;
     /**
@@ -325,8 +328,9 @@ export class SpineActor {
       this.attackUntil = this.clock + lead +
         Math.max(0, dur - (lead > 0 ? hit : start)) / tailTs;
     } else if (this.mode === 'stun') {
-      const name = this.has(this.roles.stun?.loop) ? this.roles.stun.loop : this._baseName();
-      this._play(name, true, { mix: 0 });
+      const d = this.stunHow === 'fall' ? this.dieClip(this.skillOn) : null;
+      if (d) this._play(d, false, { mix: 0, start: this.dur(d) });   // still lying down
+      else this._play(this.has(this.roles.stun?.loop) ? this.roles.stun.loop : this._baseName(), true, { mix: 0 });
     } else if (this.mode === 'base') {
       this._play(this._baseName(), true, { mix: 0 });
     } else {
@@ -411,10 +415,14 @@ export class SpineActor {
     return true;
   }
 
-  /** Resting state from the snapshot. */
-  setBase(base) {
+  /**
+   * Resting state from the snapshot. `fall` (with 'stun'): an operator's stun, not a freeze / sleep — without a Stun clip
+   * it falls on its Die clip (_enterStun).
+   */
+  setBase(base, fall = false) {
     if (this.dead) return;
     const b = base === 'move' || base === 'stun' ? base : 'idle';
+    this.stunFall = b === 'stun' && !!fall;
     // a mode change clip plays out first; the resting state it lands in is remembered
     if (this.mode === 'change') { this.stunWanted = b === 'stun'; if (b !== 'stun') this.base = b; return; }
     if (this.mode === 'held') { if (b !== 'stun') this.base = b; return; }   // a held change clip: the form's end decides
@@ -425,16 +433,31 @@ export class SpineActor {
     if (this.mode === 'base') this._play(this._baseName(), true);
   }
 
+  /**
+   * The stun pose: the Stun clip (the running skill's own first); without one an operator's stun (setBase `fall`) plays
+   * its Die clip once and lies on its last frame until the stun ends — the client's Character.States.StunState.OnEnter
+   * plays "Stun" when the model has it, else "Die" (Enemy.States.StunState only "Stun") —, and anything else (an enemy, a
+   * freeze, a sleep) freezes the current clip.
+   */
   _enterStun() {
-    if (this.mode === 'stun') return;
-    this.mode = 'stun';
     // the running skill's own stun clip (anims skill `stun`: its mode's Stun pair, SKILL_STATE_CLIPS — 迷迭香 S3)
     const ss = this.skillOn ? this.roles.skill?.stun : null;
     const s = this.has(ss) ? { begin: null, loop: ss, end: null } : this.roles.stun;
-    if (s && this.has(s.loop)) {
+    const how = s && this.has(s.loop) ? 'clip' : this.stunFall && this.dieClip(this.skillOn) ? 'fall' : 'freeze';
+    if (this.mode === 'stun' && how === this.stunHow) return;
+    const wasStun = this.mode === 'stun';
+    this.mode = 'stun';
+    this.stunHow = how;
+    this.frozen = false;
+    if (how === 'clip') {
       if (this.has(s.begin)) { this._play(s.begin, false); this._queue(s.loop, true); }
       else this._play(s.loop, true);
+    } else if (how === 'fall') {
+      // back from a freeze / sleep over the fall: it is still down (the frozen Die clip goes on)
+      const d = this.dieClip(this.skillOn);
+      if (!(wasStun && this.current === d)) this._play(d, false, { mix: 0.05 });
     } else {
+      // a freeze / sleep over a stun holds the pose it is in (a fallen operator stays down)
       this.frozen = true;
     }
   }
@@ -442,6 +465,7 @@ export class SpineActor {
   _leaveStun() {
     this.frozen = false;
     this.mode = 'base';
+    this.stunHow = null;
     this._play(this._baseName(), true);
   }
 
@@ -905,9 +929,12 @@ export class SpineActor {
   die(inSkill = this.skillDying()) {
     if (this.dead) return 0;
     const d = this.dieClip(inSkill);
+    // knocked out while it lies stunned on the same clip: the fall goes on, it does not stand up to fall again [ASSUMED]
+    const down = this.mode === 'stun' && this.stunHow === 'fall' && d && this.current === d;
     this.dead = true;
     this.frozen = false;
     this.mode = 'die';
+    if (down) { const e = this.spine.state.tracks[0]; return Math.max(0, this.dur(d) - (e ? e.trackTime : 0)); }
     if (d) { this._play(d, false, { mix: 0.05 }); return this.dur(d); }
     const idle = this.has(this.roles.idle) ? this.roles.idle : this.has('Idle') ? 'Idle' : null;
     if (idle) this._play(idle, false, { mix: 0.1, timeScale: 0 });
@@ -938,6 +965,7 @@ export class SpineActor {
     this.dead = false;
     this.frozen = false;
     this.mode = 'base';
+    this.stunHow = null;
     this.skillOn = false;
     this._play(this._baseName(), true);
   }
