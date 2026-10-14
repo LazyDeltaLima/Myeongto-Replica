@@ -2485,6 +2485,8 @@ test('leader summons take the round\'s enemy effects (flags.enemyScale): HP — 
   assert.equal(alive(q, 'enemy_9016_acstmr')[0].s.maxHp, E.enemy_9016_acstmr.stats.maxHp);
 });
 
+const SHELL_LIFE = 9.95; // projectile_enemy_acstmr_s1 lifetime (official client prefab)
+
 test('假想敌：胄: arts ray on a random target in range; <20 % pool: damage taken ×0.5, still one 刺胄之弹 (PRTS 能力修正)', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 12, col: 4 }] });
   h.step();
@@ -2502,9 +2504,9 @@ test('假想敌：胄: arts ray on a random target in range; <20 % pool: damage 
   assert.equal(alive(h, 'enemy_9016_acstmr').length, 1);
 });
 
-test('假想敌：胄 + 刺胄之弹: the shell flies to the highest-ATK operator; on arrival 3×3 stun + physical DoT; 8 hits shoot it down', () => {
+test('假想敌：胄 + 刺胄之弹: the shell flies to the highest-ATK operator; on arrival a 9.95 s 3×3 zone hits every operator in it each 1 s (400 phys + 2.1 s stun), late arrivals too; 8 hits shoot it down', () => {
   const hi = WALL('t_wall', { atk: 900 });
-  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 10, col: 7 }, { chessId: 't_wall3', row: 12, col: 3 }], chess: { t_wall: hi }, hooks: ['statusApplied'] });
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 10, col: 7 }, { chessId: 't_wall3', row: 12, col: 3 }], chess: { t_wall: hi }, hooks: ['statusApplied', 'damaged'], captureNoisy: true });
   h.step();
   const e = put(h, 'enemy_9013_acstmk', [3, 10], { tag: 'boss' });
   e.profile.noAttack = true;
@@ -2514,12 +2516,33 @@ test('假想敌：胄 + 刺胄之弹: the shell flies to the highest-ATK operato
   assert.equal(shell.s.maxHp, E.enemy_9016_acstmr.stats.maxHp);
   const target = h.unit('t_wall');
   h.runUntil(() => !shell.alive, 60);
+  const t0 = h.b.time;
+  const value = tb('enemy_9016_acstmr', 'killed.value'), stun = tb('enemy_9016_acstmr', 'killed.stun');
+  const zoneHits = (u) => h.hooksOf('damaged').filter((c) => c.target === u && c.dmg.tags.includes('helmShell'));
   const st = statuses(h, target.id, 'stun');
   assert.equal(st.length, 1);
-  approx(st[0].duration, tb('enemy_9016_acstmr', 'killed.duration'));
-  assert.equal(statuses(h, h.unit('t_wall2').id, 'stun').length, 1, 'neighbour tile stunned too');
-  assert.equal(statuses(h, h.unit('t_wall3').id, 'stun').length, 0);
-  assert.ok(target.findBuff('boss:helmShellDot'));
+  approx(st[0].duration, stun, 1e-6, 'killed.stun (not killed.duration)');
+  assert.equal(zoneHits(target).length, 1, 'hit at the arrival');
+  approx(zoneHits(target)[0].amount, value);
+  assert.ok(zoneHits(target)[0].dmg.tags.includes('splash'));
+  assert.equal(zoneHits(h.unit('t_wall2')).length, 1, 'neighbour tile hit too');
+  assert.equal(zoneHits(h.unit('t_wall3')).length, 0);
+  assert.ok(!target.findBuff('boss:helmShellDot'), 'no DoT buff: the zone itself hits again');
+  h.run(1.01);
+  assert.equal(zoneHits(target).length, 2, 'again 1 s later');
+  // a unit moved into the zone later is hit at once, then on its own 1 s rhythm
+  h.run(0.5);
+  const w3 = h.unit('t_wall3');
+  assert.ok(h.b.relocate(w3, target.tileR, target.tileC - 1), 'moved into the 3×3');
+  h.step();
+  assert.equal(zoneHits(w3).length, 1, 'late arrival hit at once');
+  assert.equal(statuses(h, w3.id, 'stun').length, 1);
+  h.run(SHELL_LIFE - (h.b.time - t0) + 1);
+  assert.equal(zoneHits(target).length, 10, 'hits at 0, 1 … 9 s of the 9.95 s zone');
+  const n3 = zoneHits(w3).length;
+  h.run(2);
+  assert.equal(zoneHits(target).length, 10, 'the zone is gone');
+  assert.equal(zoneHits(w3).length, n3);
   // a second shell is shot down: 8 hits, no explosion
   h.run(skb('enemy_9013_acstmk', '1').cooldown - (h.b.time - skb('enemy_9013_acstmk', '1').initCooldown) + 0.2);
   const s2 = alive(h, 'enemy_9016_acstmr')[0];

@@ -941,3 +941,12 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   능력이 없어 쓰지 않는다. [ASSUMED] 행동할 수 없는 余音(기절·빙결·수면)은 합주하지 않고 SP만 함께 비워진다; 검사 자체는 상태와 무관.
 - **옛 동작**: 余音마다 `Skill` 쿨다운(첫 2 s, 이후 5 s)으로 따로 합주. 테스트 `enemies_bosses.test.js` 「“余音” 【合奏】…」·「“余音”: 10-hit unit…」.
 - 피격 펄스(`echoHit`)는 그대로. 관·현의 일반 공격·스킬이 余音을 치는 것은 피해가 아니라 펄스만이라 SP에 들어가지 않는다(관·현 쪽 수정 때 다시 볼 것).
+
+### 刺胄之弹 도착 장판 (`kitShell`·`shellZone`)
+- **규칙**: 도착(죽음)하면 클라 투사체 `projectile_enemy_acstmr_s1`을 남긴다 — 수명 9.95 s, 범위 `x-4`(도착 칸 둘레 3×3), `_keepAlreadyHitTime` 1.0 s.
+  그 안의 오퍼레이터(起飞 포함 — 탄은 비행, 迷彩 무시, 隐匿 제외: 다른 보스 범위 선택과 같은 `areaAlliesInTiles`)를 도착 즉시, 그 뒤 머무는 동안 유닛마다
+  1 s마다 다시 친다: `killed.value` 400 무출처 물리(스플래시) + `killed.stun` 2.1 s 기절, 공로는 예전처럼 胄. 나중에 배치·이동해 들어온 유닛도 맞는다
+  (머무는 유닛은 0·1·…·9 s에 10번). fx: 도착 `explode` + 장판 `zone`(kind `helmShell`, `dur` 9.95, `tiles` 'box').
+- **옛 동작**: 도착 순간 3×3에 있던 유닛만 `killed.duration` 10 s 기절 + 10회 DoT(`boss:helmShellDot`). 그 자리 유닛 기준 총 피해는 같았다.
+- 斩胄之剑·破胄之锤의 돌진 폭발(`acstma_s_1[reach_target]`)은 공식도 도착 순간 스냅샷이라 그대로(`stunBlast`). 테스트 `enemies_bosses.test.js`
+  「假想敌：胄 + 刺胄之弹…」.

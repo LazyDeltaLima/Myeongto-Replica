@@ -18,7 +18,7 @@
 //
 // Leaders (see each kit for details):
 //   boss_1/8 假想敌：胄      random arts beam (range 8); 灭顶之灾 one 刺胄之弹 at the highest-ATK operator in range (8-hit
-//                            flying shell, 3×3 stun + phys DoT on arrival); <20 %: damage ×0.5 (no extra shell: PRTS
+//                            flying shell; on arrival a 9.95 s 3×3 zone: stun + phys every 1 s); <20 %: damage ×0.5 (no extra shell: PRTS
 //                            能力修正); 死亡集群 drones — a drone that dies costs the leader 2 % of its max HP = the shared
 //                            pool's (DRONE_LINK_BASE, [ASSUMED] reading), past 限伤 (a share, no hit). boss_8 adds 斩胄之剑 /
 //                            破胄之锤.
@@ -58,7 +58,7 @@
 // 自缚 + 无法被阻挡 (PRTS 天赋): a persistent noMove + unblockable buff from spawn, so they never walk their route.
 // Every leader (tag boss) ignores 侵蚀 gauge damage ("最终攻势中，敌方领袖不会受到侵蚀损伤").
 // An airborne (起飞) operator is no selection of a ground leader or part (对地规避: canTargetAlly, the damage pipeline,
-// the area selectors); still reach it (`ignoreSelect`): the 刺胄之弹 / 剑 / 锤 blasts (flying units, 无来源 DoT; 掷剑 /
+// the area selectors); still reach it (`ignoreSelect`): the 刺胄之弹 zone / 剑 / 锤 blasts (flying units, 无来源 hits; 掷剑 /
 // 掷锤 pick their operator "（无视无法选择）"), the 盲信之誓 chains ("无视无法选择"), the 法术护盾 counter on its attacker
 // (a direct pick) and the ticks of a debuff already on it (【自然涌动】: a tick selects nobody).
 // Every area effect of a leader or part — pulses, strikes around an echo, blasts, charges and tramples, crosses, columns,
@@ -70,7 +70,7 @@
 // fx kinds: 'beam' 'shell' 'explode' 'telegraph' 'charge' 'link' 'dash' 'column' 'tide' 'rockfall' 'tentacle' 'equip'
 //   'sword' 'vest' 'blink' 'summon' 'grow' 'phase' 'lpLoss' (x, y + extra {id, r, tiles, kind, tx, ty …}).
 
-import { MOVE_SCALE, ROWS, ALLY_COLLIDER_RADIUS } from '../constants.js';
+import { MOVE_SCALE, ROWS, ALLY_COLLIDER_RADIUS, TICK } from '../constants.js';
 import { aggroCmp, areaSelectable } from '../targeting.js';
 import { compileRoute, attackWindup } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
@@ -374,8 +374,9 @@ export function fairOrder(b, e, list, P) {
 }
 
 /**
- * Stun + phys DoT on the 3×3 around (r, c), credited to `src` (胄). The blast is a flying unit's — `by`: 刺胄之弹 /
- * 斩胄之剑 / 破胄之锤 (PRTS 行动方式 飞行) — and its damage 无来源, so 对地规避 does not stop it: `ignoreSelect` (an airborne
+ * Stun + phys DoT on the 3×3 around (r, c), credited to `src` (胄) — the 剑 / 锤 dive blast, a snapshot of the units there
+ * (刺胄之弹's lasting zone: shellZone, the same selection). The blast is a flying unit's — `by`: 斩胄之剑 / 破胄之锤 / 刺胄之弹
+ * (PRTS 行动方式 飞行) — and its damage 无来源, so 对地规避 does not stop it: `ignoreSelect` (an airborne
  * 起飞 ally in the 3×3 is stunned and hurt like the others, although the credited 胄 walks). It is still that unit's area
  * selection (PRTS: "令自身周围8格内的所有我方单位…" / "…无视迷彩，可对空", no 无视无法选择): areaAlliesInTiles of `by` — no
  * 隐匿 ally, the one blocking it included (GitHub #97; 掷剑 / 掷锤's "无视无法选择" is their pick of the operator they fly at, not the blast).
@@ -475,8 +476,38 @@ function fireShell(b, boss, target) {
   return sh;
 }
 
+/**
+ * 刺胄之弹's arrival (official client: on its death it leaves projectile_enemy_acstmr_s1 — lifetime 9.95 s, range `x-4`
+ * = the 3×3 around its tile, `_keepAlreadyHitTime` 1 s): a lasting zone. Every operator in the 3×3 — airborne 起飞 ones
+ * too (the shell flies), 迷彩 not checked, no 隐匿 one (areaAlliesInTiles of the shell) — is hit at once and then again
+ * every 1 s while it stays (each its own 1 s): `killed.value` 无来源 physical splash damage + `killed.stun` s stun, credited
+ * to 胄 as before. Units deployed or moved into it later are hit too. Until 2026-10-14 the units standing there at the
+ * arrival took a `killed.duration` (10) s stun and a 10-tick DoT instead (the 剑 / 锤 dive blast — acstma_s_1[reach_target],
+ * a snapshot — stays stunBlast).
+ */
+const SHELL_ZONE_LIFE = 9.95, SHELL_ZONE_REHIT = 1;
+function shellZone(b, src, by, r, c, dmg, stun) {
+  const kind = 'helmShell';
+  b.fx('explode', { x: c, y: r, r: 1.5, kind, tiles: 'box' });
+  b.fx('zone', { x: c, y: r, r: 1.5, dur: SHELL_ZONE_LIFE, kind, tiles: 'box', id: by.id });
+  const last = new Map();                                   // unit → time of its last hit (_keepAlreadyHitTime)
+  const end = b.time + SHELL_ZONE_LIFE;
+  const sweep = () => {
+    for (const u of areaAlliesInTiles(b, by, r, c, 'box', 1)) {
+      const t = last.get(u);
+      if (t != null && b.time - t < SHELL_ZONE_REHIT - 1e-9) continue;
+      last.set(u, b.time);
+      if (stun > 0) b.applyStatus(u, 'stun', { duration: stun, source: src, ignoreSelect: true });
+      if (dmg > 0 && u.alive) b.dealDamage(src, u, { amount: dmg, type: 'phys', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'splash', kind] });
+    }
+  };
+  sweep();
+  const h = b.every(TICK, () => { if (b.time > end + 1e-9) { h.cancel(); return; } sweep(); });
+  return h;
+}
+
 function kitShell(ab, e) {
-  const stun = T(ab, 'killed.duration') ?? 0, dot = T(ab, 'killed.value') ?? 0;
+  const stun = T(ab, 'killed.stun') ?? 0, dmg = T(ab, 'killed.value') ?? 0;
   return [{
     spawn(b, e2) {
       setHits(e2, e2.base.maxHp); hitCount(b, e2, true);                      // 需要数次攻击击倒 (× the round's HP: summonMods)
@@ -486,8 +517,8 @@ function kitShell(ab, e) {
       const s = e2.mem.ab.shell;
       if (!s || a.done) return;
       if (!stepToward(e2, s.tc, s.tr, e2.s.moveSpeed * MOVE_SCALE * dt)) return;
-      a.done = true;                                            // arrival: 3×3 long stun + phys DoT
-      stunBlast(b, s.boss && s.boss.alive ? s.boss : e2, e2, s.tr, s.tc, stun, dot, stun, 'helmShell');
+      a.done = true;                                            // arrival: the lasting 3×3 zone (stun + 无来源 phys every 1 s)
+      shellZone(b, s.boss && s.boss.alive ? s.boss : e2, e2, s.tr, s.tc, dmg, stun);
       b.kill(e2, null);
     },
   }];
