@@ -106,10 +106,12 @@ This is a remake of the official mode; the official game decides.
 - **Plain messages**: a commit message says what changed and why, with the issue number when there is one. No attribution
   trailers (`Co-Authored-By:`, `Generated with …`, session links); merged pull requests are credited in the CHANGELOG.
 - **Issue numbers**: `#N` is an issue or pull request of this repository; the upstream's read `upstream #N` /
-  `upstream PR #N` (older commits wrote the upstream's as `GitHub #N`). A release's CHANGELOG entry closes each item with
-  the numbers it comes from, in parentheses and linked to the issue's full address (the lobby leaves them out), and ends with a 「기여」 group: the merged pull
-  requests with their authors, and the fixed reports with their reporters — a report the feedback relay filed is
-  credited by its receipt number, not a name.
+  `upstream PR #N` (older commits wrote the upstream's as `GitHub #N`). A commit that fixes an issue says `Fixes #N` in
+  its message, so the issue closes when the commit reaches `main`; an issue a release settles without such a commit is
+  closed by the release's version commit (`Closes #N`). A release's CHANGELOG entry closes each item with the numbers it
+  comes from, in parentheses and linked to the issue's full address (the lobby leaves them out), and ends with a 「기여」
+  group: the merged pull requests with their authors, and the fixed reports with their reporters — a report the feedback
+  relay filed is credited by its receipt number, not a name.
 - **The repository is public**: no tracked file may name a home directory, a private folder or a machine account
   (`test/public-repo.test.js`). Notes that are not in the repository are referred to as the maintainer's notes. The same test refuses work-process wording — a decision is cited as "maintainer decision YYYY-MM-DD", never a "user" decision; no session names or internal decision numbers — and, through `SP_PUBLIC_SCAN_WORDS`, the maintainer's private names (`tools/public-scan.mjs`; the list stays outside the repository).
 - **`// local patch` comments** mark the fork's older changes and point at the `docs/rules/` section that justifies them.
