@@ -284,3 +284,16 @@ test('深靛 秘术师: storing an energy (fx signal store) plays Attack_Charge 
   w.onSignal('store');
   assert.equal(w.actor.current, 'Idle', 'no store clip named');
 });
+
+test('新约能天使 S3: Skill_3_Begin, then the strike at the 投递坐标 (Skill_3_Skill), then her S3 attacks', async () => {
+  const v = await view('char_1041_angel2', { skillIndex: 2 });
+  v.setSkill(true);
+  v.onSignal('fireToToken');   // the kit's 'airstrike' fx, in the same tick
+  assert.equal(v.actor.current, 'Skill_3_Begin');
+  secs(v, 0.3);
+  assert.equal(v.actor.current, 'Skill_3_Skill');
+  secs(v, 3);
+  assert.equal(v.actor.current, 'Skill_3_Idle');
+  v.onSwing(0.167, 'bullet');
+  assert.equal(v.actor.current, 'Skill_3_Loop');
+});

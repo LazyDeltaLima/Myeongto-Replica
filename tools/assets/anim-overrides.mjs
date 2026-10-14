@@ -191,6 +191,9 @@ export const SIGNAL_CLIPS = Object.freeze({
   // 深靛: the 秘术师 store (no valid target: one energy instead of an attack) is the Default mode's attack behaviour with
   // Attack_Charge (the sim's fx 'mysticStore' { signal: 'store' }); her skill modes store nothing
   'op:char_469_indigo:': { attack: { store: 'Attack_Charge' } },
+  // 新约能天使 S3: Modes/S3/Body/Attack trigger group [S3FireToToken `_animKey "Skill_3_Skill"`, Common Skill_3_Loop] — the
+  // strike at the 投递坐标 as the skill opens (the kit's 'airstrike' fx { signal: 'fireToToken' })
+  'op:char_1041_angel2:': { skills: { 2: { fireToToken: 'Skill_3_Skill' } } },
 });
 
 /**

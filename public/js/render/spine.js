@@ -179,6 +179,7 @@ export class SpineActor {
     this.endRoles = null;
     this.skillIndex = null;       // the skill slot whose clip `skill` plays (setSkillIndex), null = the manifest's primary
     this.skillVariant = null;     // the latest cast's clip variant (setSkill: anims skill `variants`)
+    this.pendingSignal = null;    // a signalSwing waiting for the skill's opening clip to end
     this.runMode = false;         // move on the model's own Run cycle (setRunMode)
     this.formRoles = null;        // the clip set of the form in force (setForm), over the unit's own roles
     this.skillOn = false;
@@ -604,6 +605,8 @@ export class SpineActor {
     if (this._endPlaying() || this._swinging()) return false;
     const name = this._attackClip()?.signals?.[signal];
     if (!this.has(name)) return false;
+    // the skill's opening clip plays out first (新约能天使 S3: Skill_3_Begin, then the strike at the 投递坐标)
+    if (this.mode === 'skillBegin' && this.clock < this.skillBeginUntil) { this.pendingSignal = { signal, interval }; return true; }
     const dur = this.dur(name);
     const ts = swingSpeed(dur, clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8));
     this.mode = 'attack';
@@ -940,6 +943,9 @@ export class SpineActor {
         break;
       case 'skillBegin':
         if (this.clock >= this.skillBeginUntil) {
+          const ps = this.pendingSignal;
+          this.pendingSignal = null;
+          if (ps) { this.mode = 'base'; if (this.signalSwing(ps.signal, ps.interval)) break; }
           const sk = this.roles.skill;
           const once = this.skillClipOnce;
           const pending = this.skillEndPending;

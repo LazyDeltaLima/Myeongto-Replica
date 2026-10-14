@@ -33,8 +33,7 @@ export const UNPLAYED = {
     Default_3: 'none: setup pose (0 s); no ability, mode pair or mix names it',
   },
   char_1041_angel2: {
-    Skill_1_Close: 'todo: G — skill prefab clip [ASSUMED]',
-    Skill_3_Skill: 'todo: G — skill prefab clip',
+    Skill_1_Close: 'none: the S1 burst after a stop by hand (Modes/S1_Burst_Mode); this mode has no manual stop — no client message stops a skill and server/sim/skills.js stop() has no caller',
   },
   char_1045_svash2: {
     Skill_3_Deploy: 'none: only when the 风雪之眼 card is used by hand during S3 (skchr_svash2_3 BirdAura AnimationEmitBehaviour via svash2_s_3[*_bird_onuse]); no hand deployment in this mode [ASSUMED]',

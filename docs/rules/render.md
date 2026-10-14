@@ -455,6 +455,9 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `Modes/*/Body/Talents/1`). [화면 미확인]
   - **H** 深靛 秘术师 저장(대상이 없어 공격 대신 에너지 하나): 기본 모드 공격 행동의 `Attack_Charge` — 시뮬이 저장마다 fx 'mysticStore' `{ signal: 'store' }`(秘术师 전원,
     골든 fx 개수만 움직임) → `units.js onSignal` → `spine.js signalSwing`(역할 `signals.store` 클립을 공격 간격에 맞춰 한 번). [화면 미확인]
+  - **G** 新约能天使 S3 시작 포격 `Skill_3_Skill`(모드 S3 공격 트리거 묶음의 S3FireToToken): 키트 'airstrike' fx에 `signal: 'fireToToken'`(이벤트 수 그대로) →
+    같은 `signalSwing`, 스킬 begin이 끝난 뒤. `Skill_1_Close`(S1 수동 정지 뒤의 몰아 쏘기)는 `none` — 이 모드엔 수동 정지가 없음(스킬을 멈추는 클라 메시지 없음,
+    `skills.js stop()` 호출처 없음). [화면 미확인]
   - **G** 스킬 프리팹 연출. 泥岩 S3 휴면(`skchr_mudrok_3/SleepAura` `_default {Skill_2_Begin, Skill_2_Sleep, Skill_2_Awake}`): 키트 'stone'·'rockfall' fx에
     `form`(`'dormant'`/null) → `FORMS.char_311_mudrok`(뒤 모델엔 세 클립이 없어 `Skill_2_Idle`로 잠듦 — 형태 `idle`은 클립 목록 중 그 골격에 있는 첫 것).
     歌蕾蒂娅 S3(`skchr_glady_3` 순차 능력: Chant `Skill_3_Startup` → 모드 S3 Idle→`Skill_3_Chant` → FinalAttack `_default {Skill_3_Begin, _Loop, _End}`):

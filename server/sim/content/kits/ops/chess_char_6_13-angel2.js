@@ -75,7 +75,8 @@ function angel2(bb, chess, def) {
         const c = coord(battle, unit);
         if (!c) return;
         const r = c.tileR, col = c.tileC;
-        battle.fx('airstrike', { x: col, y: r, id: unit.id, r: AIRSTRIKE_RADIUS });
+        // `signal`: her S3 mode's first attack S3FireToToken (_animKey "Skill_3_Skill") — the client plays its clip
+        battle.fx('airstrike', { x: col, y: r, id: unit.id, r: AIRSTRIKE_RADIUS, signal: 'fireToToken' });
         for (const e of battle.foesInRadius(col, r, AIRSTRIKE_RADIUS)) {
           if (e.alive && !e.s.flags.untargetable) battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb['attack@cannon_atk_scale'], 1), type: 'phys', isSkill: true, isSplash: true, tags: ['skill', 'delivery'] });
         }
