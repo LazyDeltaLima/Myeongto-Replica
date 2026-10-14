@@ -1168,6 +1168,17 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     `arts/ui/[uc]battlecommon.ab`): `_tileStand` = `attack_range_stand`(16×16 흰색 불투명), `_tileAttack` = `attack_range_attack`(16×16, 가장자리 2px
     `#fe7800`, 안 `rgba(253,122,63,.4)`), `_tileEmpty` = `sprite_mask`. `RenderAttackRange`는 범위 칸을 흰색(1,1,1,1)으로 칠하고 빈 칸은
     `Colors.TRANSPARENT`. 관리자 캡처 두 장(刺玫: 주황 테 칸 + 흰 자기 칸, 不屈弹射器: 흰 칸 하나)과 픽셀이 맞음. 칸 사이 간격은 우리 2px 그대로.
+- 결정 3(**소환물 카드도 공식 모양**): 공식 모양 HUD일 때 소환물 카드(벤치·보드의 소환물 말, 전투 중 소환물, 밴드 맵 캐릭터 预备干员-医疗 등 —
+  `detail.type === 'token'`)는 `ui/detailArt.js TokenDetailArt` + `dpanel--chess`(`detailPanel.js` `artToken`): 상자 없이 왼쪽 전체 높이, 누름 통과도
+  같음. 직업 칸(소환물 청록 틀) · 이름 · 등급 | 정예 아이콘 LV n(소환물은 주인 변형의 phase·level) · 공격·방어·법저·저지·비용(+ 작게 공격 간격·재배치,
+  전투 중 실시간 색) · 「攻击范围」 칸 · 파란 HP 막대, 맹약 칸 없음. 탭 「技能」(스킬 줄 — 아이콘·태그·글) / 「特性」(캐릭터 설명) / 「天赋」, 그리고 우리
+  「说明」(놓은 소환물이 언제 나오는지). 「召唤物」·「干员」(맵 캐릭터: 직군 · 위치)·×개수 꼬리표는 등급 옆. 공식 모양이 아닐 때는 예전 상자(`TokenDetail`).
+  - 공식 근거: 소환물은 클라 `character_table`의 캐릭터(`profession: TOKEN`; 맵 캐릭터는 오퍼레이터)라 누르면 오퍼레이터와 같은 `UICharacterInfoPanel`
+    (위 「보드에서 연 카드가 벤치를 가림」 결정 2의 경로). 프리팹의 직업 아이콘 쌍(`_professionIcons`)에서 TOKEN(128)과 TRAP(256)은 같은 그림(장비 캡처의
+    흰 그림). `SetData`는 맹약이 없는 캐릭터에 맹약 칸을 그리지 않는다(위 결정 1의 `_campGroupBkgImgColorWhenEmpty`). `UpdateData`는 캐릭터의
+    블랙보드 `autochess_chess_id`가 없으면 비용 「0」·등급 그림 `_chessLevelSprites[0]`(I), 있으면 그 말의 등급.
+  - `[ASSUMED]` 등급은 주인 말의 등급, 주인을 모르면 I(소환물에 `autochess_chess_id`가 붙는지는 안 봄). 비용은 소환물 자신의 비용. 직업 칸 안은 소환물
+    아바타(TOKEN 직업 그림 미추출 — 장치·아이템 카드의 정보 아이콘 대신 누구인지 보이게), 맵 캐릭터는 그 직군 아이콘. 그림(立绘) 없음.
 
 ## 설정 창을 기능별 절로 (2026-10-14, 관리자 결정)
 

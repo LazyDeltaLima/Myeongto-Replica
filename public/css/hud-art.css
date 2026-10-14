@@ -583,6 +583,14 @@
 .dart__pane--skill .dskill[data-item] .dskill__name { font-size: .26rem; font-weight: 500; color: #e8e8e8; }
 .dart__pane--skill .dskill[data-item] .dsp--trig { padding: .02rem .26rem; background: #8a8a8a; border: 0; border-radius: .05rem; color: #fff; font-size: .19rem; }
 .dart__pane .dart__flavor { color: #b8b8b8; font-style: italic; white-space: pre-line; }
+/* a summon's card (ui/detailArt.js TokenDetailArt — a token is a character of the client, maintainer decision 2026-10-14):
+   the operator card without art and bond boxes, the cyan class box of a token holding the summon's avatar ([ASSUMED]: the
+   client's TOKEN class glyph is not extracted), 召唤物 / 干员 and the count beside the tier */
+.dart.is-summon .dart__prof { overflow: hidden; }
+.dart.is-summon .dart__prof img { width: 100%; height: 100%; object-fit: contain; }
+.dart.is-summon .dart__prof .icon { width: 56%; height: 56%; color: #d8d8d8; }
+.dart.is-token .dart__tier :is(.dtag-token, .dtag-kind) { font-size: .17rem; padding: .02rem .1rem; }
+.dart.is-token .dart__tier .dtag-kind { color: #d8d8d8; border-color: rgba(255, 255, 255, .35); background: rgba(10, 10, 10, .55); }
 .dart__name { margin-top: .1rem; font-size: .28rem; font-weight: 500; color: #fff; text-shadow: 0 1px 3px #000; }
 /* 0.2.0 补位: 「X的替补」 under a stand-in's name (ui/detailArt.js; [ASSUMED] placement, as ChessDetail's dhead__for) */
 .dart__for { margin-top: -.04rem; font-size: .15rem; color: #b2b2b2; text-shadow: 0 1px 2px #000; }

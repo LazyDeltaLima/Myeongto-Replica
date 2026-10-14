@@ -30,10 +30,11 @@
 import { useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Button, useScrollEdges } from './components.js';
 import { Img, RichText, GIcon } from './gameComponents.js';
-import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail, hpOf, enemyImmunities, RANK, DMG, MorphPairings, MorphGrantLine } from './detailPanel.js';
+import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail, hpOf, enemyImmunities, RANK, DMG, MorphPairings, MorphGrantLine, PROF_NAME, chessTalents, skillTags, skillTextNote, summonDeployHint } from './detailPanel.js';
 import { abilityRows } from './abilityLines.js';
 import { attackInterval, fmtNum, chessLoadout, pickGetter, standInLoadout, standInLabel, standInTip, standInForText } from './gameLogic.js';
-import { chessPortraitUrl, profIconUrl, uiUrl, enemyIconUrl, factionIconUrl, itemIconUrl } from './assetUrls.js';
+import { chessPortraitUrl, profIconUrl, uiUrl, enemyIconUrl, factionIconUrl, itemIconUrl, tokenAvatarUrl, skillRecordIconUrl } from './assetUrls.js';
+import { tokenVariantFor } from './gameLogic/loadout.js';
 import { data, localAsset } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
@@ -398,6 +399,108 @@ function findByClass(node, cls, depth = 0) {
   if (c.split(/\s+/).includes(cls)) return node;
   if (typeof node.type === 'function' && node.type.name === 'BondChips') return node;
   return findByClass(p.children, cls, depth + 1);
+}
+
+/**
+ * A summon's card (a token piece on the bench or the board, a battle token, a band map character such as 外勤医疗's
+ * 预备干员-医疗 — detailPanel TokenDetail's data) in the operator card's official form, while the HUD has its official look
+ * (maintainer decision 2026-10-14). A token is a character of the client (character_table, profession TOKEN; a band map
+ * character is an operator), so a press on it goes the operator's way — AutoChessHighlightState._OnTileClicked →
+ * UICharacterInfoPanel.ShowCharacter with the same status / tab-group subpanels (docs/rules/ui.md 「상세 카드 세부」). From
+ * the token's record — the owner's variant for a summon (tokenVariantFor: a golden owner's summon is stronger): the
+ * class box, the name, the tier | elite icon LV n, 攻击 防御 法抗 阻挡 费用 (live in a battle), the 攻击范围 tile, no bond
+ * boxes (UICharacterInfoStatusSubPanelInAutochess.SetData shows none for a character without bonds), the HP bar, and the
+ * tabs 技能 / 特性 (the character's description, as the operator card's) / 天赋, then ours: 说明 (how a placed summon takes
+ * the field). [ASSUMED]: the tier is the owner's chess tier, else I (the client's fallback sprite when the token carries
+ * no autochess_chess_id — whether it carries the owner's is not read); 费用 is the token's own cost; the class box holds
+ * the summon's avatar (the client's TOKEN class icon, the same glyph as a trap's, is not extracted) — a map character's
+ * class icon is its profession's.
+ * @param {{ token: any, piece?: any, ownerId?: string|null, snapHp?: { hp:number, max:number }|null, live?: any }} props
+ */
+export function TokenDetailArt({ token, piece = null, ownerId = null, snapHp = null, live = null }) {
+  const [tab, setTab] = useState(null);
+  const m = data.get('assets');
+  const mapChar = token?.kind === 'mapChar';
+  const v0 = mapChar ? null : tokenVariantFor(token, ownerId);
+  const rec = v0 || token || {};
+  const s = rec.stats || token?.stats || {};
+  const owner = typeof ownerId === 'string' ? data.lookup('chess', ownerId) : null;
+  const st = {
+    atk: liveStat(live, 'atk', s.atk), def: liveStat(live, 'def', s.def), res: liveStat(live, 'res', s.res ?? 0, fmtRes),
+    blockCnt: liveStat(live, 'blockCnt', s.blockCnt, (v) => String(v)), interval: liveStat(live, 'interval', attackInterval(s.bat, s.aspd), fmtInterval),
+  };
+  const hp = hpOf(live, snapHp) || (Number.isFinite(live?.maxHp) ? { hp: live.maxHp, max: live.maxHp } : Number.isFinite(s.maxHp) ? { hp: s.maxHp, max: s.maxHp } : null);
+  const pct = hp && hp.max > 0 ? Math.max(0, Math.min(100, (hp.hp / hp.max) * 100)) : 100;
+  const range = live && Array.isArray(live.range) && live.range.length ? live.range : Array.isArray(rec.rangeGrid) && rec.rangeGrid.length ? rec.rangeGrid : token?.rangeGrid || null;
+  const phase = Number.isInteger(rec.phase) ? rec.phase : Number.isInteger(token?.phase) ? token.phase : null;
+  const level = Number.isFinite(rec.level) ? rec.level : Number.isFinite(token?.level) ? token.level : null;
+  const eliteUrl = phase != null ? uiUrl(m, `elite/elite_${phase}`) : null;
+  // the skill: a summon's withdraw skill (skcom_withdraw) says nothing (TokenDetail's rule)
+  const sk = rec.skill && rec.skill.desc && !/^skcom_withdraw/.test(String(rec.skill.skillId || '')) ? rec.skill : null;
+  const talents = mapChar ? chessTalents(token) : (rec.talents || []).filter((x) => x && x.name && x.desc);
+  const trait = (mapChar ? token.trait?.descRaw || token.trait?.desc : '') || token?.descRaw || token?.desc || '';
+  const hint = piece ? summonDeployHint(token) : null;
+  const prof = mapChar ? profIconUrl(m, token.profession) : null;
+  const tabs = [
+    sk ? { id: 'skill', label: N_('技能'), nodes: [
+      html`<div key="s" class="dskill" data-skill=${sk.skillId || ''}>
+        <${Img} src=${skillRecordIconUrl(m, sk, { empty: false })} class="dskill__icon" fallback=${html`<span class="dskill__icon dskill__icon--empty"></span>`} />
+        <div class="dskill__meta">
+          <b class="dskill__name">${sk.name}</b>
+          <div class="dskill__tags">${skillTags(sk)}</div>
+        </div>
+      </div>`,
+      html`<${RichText} key="d" as="p" text=${sk.descRaw || sk.desc} class="dtext" />`,
+      skillTextNote(sk),
+    ].filter(Boolean) } : null,
+    trait ? { id: 'trait', label: N_('特性'), nodes: [html`<${RichText} key="t" as="p" text=${trait} class="dtext" />`] } : null,
+    talents.length ? { id: 'talents', label: N_('天赋'), nodes: talents.map((x, i) => html`<div key=${i} class="dtalent"><b>${x.name}</b><${RichText} text=${x.descRaw || x.desc} class="dtext" /></div>`) } : null,
+    hint ? { id: 'desc', label: N_('说明'), nodes: [html`<p key="h" class="dhint"><${Icon} name="info" />${hint}</p>`] } : null,
+  ].filter(Boolean);
+  const cur = tabs.find((x) => x.id === tab) || tabs[0] || null;
+  const paneRef = useRef(null);
+  const edges = useScrollEdges(paneRef, [cur?.id]);
+  return [
+    html`<div key="art" class=${cx('dart', 'is-token', mapChar ? 'is-mapchar' : 'is-summon')} data-token=${token?.tokenId || ''}>
+      <div class="dart__bg" aria-hidden="true"></div>
+      <div class="dart__head">
+        <span class="dart__prof">${mapChar
+          ? html`<i style=${prof ? `background-image:url("${prof}")` : ''}></i>`
+          : html`<${Img} src=${tokenAvatarUrl(m, token?.tokenId)} fallback=${html`<${GIcon} name="target" />`} />`}</span>
+        <h3 class="dart__name">${token?.name || ''}</h3>
+        <div class="dart__tier">
+          <${TierChip} tier=${owner?.tier ?? 1} golden=${!!owner?.isGolden} size="md" />
+          ${mapChar
+            ? html`<span class="dtag-kind">${t('干员')}</span><span class="dtag-kind">${t(PROF_NAME[token.profession]) || token.profession || ''} · ${token.position === 'MELEE' ? t('近战位') : t('远程位')}</span>`
+            : html`<span class="dtag-token">${t('召唤物')}</span>`}
+          ${piece?.count > 1 ? html`<span class="dtag-kind num">×${piece.count}</span>` : null}
+          <i class="dart__split"></i>
+          ${eliteUrl ? html`<img class="dart__elite" src=${eliteUrl} alt="" />` : null}
+          ${level != null ? html`<span class="dart__lv"><small>LV</small><b class="num">${level}</b></span>` : null}
+        </div>
+      </div>
+      <div class="dart__mid">
+        <div class=${cx('dart__stats', live && 'is-live')} data-live=${live ? live.src || 'prep' : undefined}
+            title=${live ? (live.src === 'battle' ? t('当前作战中的实时数值（绿色为增益，红色为减益）') : t('下一场作战开始时的数值')) : undefined}>
+          <${Line} k=${t('攻击')} ...${st.atk} />
+          <${Line} k=${t('防御')} ...${st.def} />
+          <${Line} k=${t('法抗')} ...${st.res} />
+          <${Line} k=${t('阻挡')} ...${st.blockCnt} cls="is-white" />
+          <${Line} k=${t('费用')} v=${s.cost ?? '—'} cls="is-white" />
+          <${Line} k=${t('攻击间隔')} ...${st.interval} cls="is-extra" />
+          <${Line} k=${t('再部署')} v=${s.respawnTime != null ? `${s.respawnTime}s` : '—'} cls="is-extra" />
+        </div>
+        ${range ? html`<div class="dart__tiles"><div class="dart__tile dart__range"><${RangeGrid} grid=${range} /><span>${t('攻击范围')}</span></div></div>` : null}
+      </div>
+      ${hp ? html`<div class="dart__hp"><i style=${`width:${pct}%`}></i><span><em>${t('生命')}</em><b class="num">${fmtNum(hp.hp)}/${fmtNum(hp.max)}</b></span></div>` : null}
+    </div>`,
+    tabs.length ? html`<div key="tabs" class="dart__tabs" role="tablist">
+      ${tabs.map((tb) => html`<button key=${tb.id} type="button" role="tab" aria-selected=${tb === cur ? 'true' : 'false'}
+          class=${cx('dart__tab', tb === cur && 'is-on')} onClick=${() => setTab(tb.id)}>${t(tb.label)}</button>`)}
+    </div>` : null,
+    cur ? html`<div key=${`pane:${cur.id}`} ref=${paneRef} class=${cx('dart__pane', `dart__pane--${cur.id}`, edges.scroll && 'is-scroll', edges.up && 'has-up', edges.down && 'has-down')}
+        role="tabpanel">${cur.nodes}</div>` : null,
+  ].filter(Boolean);
 }
 
 /**

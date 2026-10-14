@@ -46,13 +46,13 @@ import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
 import { moduleBadge, fullTraitText } from './loadoutModel.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { audio } from '../audio.js';
-import { ChessDetailArt, DeviceDetailArt, EnemyDetailArt, ItemDetailArt } from './detailArt.js'; // local patch: the official card look (css/hud-art.css)
+import { ChessDetailArt, DeviceDetailArt, EnemyDetailArt, ItemDetailArt, TokenDetailArt } from './detailArt.js'; // local patch: the official card look (css/hud-art.css)
 import { hudArt } from './hudArt.js'; // local patch
 import { tokenVariantFor } from './gameLogic/loadout.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
-const PROF_NAME = { PIONEER: N_('先锋'), WARRIOR: N_('近卫'), TANK: N_('重装'), SNIPER: N_('狙击'), CASTER: N_('术师'), MEDIC: N_('医疗'), SUPPORT: N_('辅助'), SPECIAL: N_('特种'), TOKEN: N_('召唤物') };
+export const PROF_NAME = { PIONEER: N_('先锋'), WARRIOR: N_('近卫'), TANK: N_('重装'), SNIPER: N_('狙击'), CASTER: N_('术师'), MEDIC: N_('医疗'), SUPPORT: N_('辅助'), SPECIAL: N_('特种'), TOKEN: N_('召唤物') };
 const SP_TYPE = { INCREASE_WITH_TIME: N_('自动回复'), INCREASE_WHEN_ATTACK: N_('攻击回复'), INCREASE_WHEN_TAKEN_DAMAGE: N_('受击回复'), ON_DEPLOY: N_('被动') };
 const SKILL_TYPE = { MANUAL: N_('自动触发'), AUTO: N_('自动触发'), PASSIVE: N_('被动') };
 /** Fallback type icon by trigger, for a garrison record without its official `eventTypeIcon` (garrisonTypeIconKey). */
@@ -370,18 +370,23 @@ export function chessStatsBlock({ rec, chess, live = null }) {
     </div>`;
 }
 
-/** A skill's tags (SP type, trigger, initial SP · cost, duration, charges): the operator card's and a map character's. */
-function skillTags(sk) {
+/**
+ * A skill's tags (SP type, trigger, initial SP · cost, duration, charges): the operator card's, a map character's and a
+ * summon's. A passive skill's SP type and trigger both read 被动 (ON_DEPLOY / PASSIVE): one tag.
+ */
+export function skillTags(sk) {
+  const sp = t(SP_TYPE[sk.spType]) || t('技力');
+  const trig = t(SKILL_TYPE[sk.skillType]) || t('自动触发');
   return html`
-    <span class="dsp dsp--${sk.spType === 'INCREASE_WHEN_ATTACK' ? 'atk' : sk.spType === 'INCREASE_WHEN_TAKEN_DAMAGE' ? 'def' : 'time'}">${t(SP_TYPE[sk.spType]) || t('技力')}</span>
-    <span class="dsp dsp--trig">${t(SKILL_TYPE[sk.skillType]) || t('自动触发')}</span>
+    <span class="dsp dsp--${sk.spType === 'INCREASE_WHEN_ATTACK' ? 'atk' : sk.spType === 'INCREASE_WHEN_TAKEN_DAMAGE' ? 'def' : 'time'}">${sp}</span>
+    ${trig !== sp ? html`<span class="dsp dsp--trig">${trig}</span>` : null}
     ${sk.spType !== 'ON_DEPLOY' && sk.skillType !== 'PASSIVE' ? html`<span class="dsp__num"><${GIcon} name="bolt" />${t('初始')} <b class="num">${sk.initSp ?? 0}</b> ${t('· 消耗')} <b class="num">${sk.spCost ?? 0}</b></span>` : null}
     ${sk.duration > 0 ? html`<span class="dsp__num">${t('持续')} <b class="num">${sk.duration}</b>s</span>` : null}
     ${sk.maxChargeTime > 1 ? html`<span class="dsp__num">${t('充能')} <b class="num">${sk.maxChargeTime}</b></span>` : null}`;
 }
 
 /** The line under a skill text the game contradicts (SKILL_TEXT_NOTES), or null. */
-function skillTextNote(sk) {
+export function skillTextNote(sk) {
   const note = sk && SKILL_TEXT_NOTES[sk.skillId];
   return note ? html`<p class="dhint dhint--rule" data-skill-note=${sk.skillId}><${Icon} name="info" />${t(note)}</p>` : null;
 }
@@ -856,7 +861,9 @@ export function DetailPanel({ detail, editable, snapHp, onSell, onDestroy, bonds
   // press pass-through) while the HUD has its official look — the client opens the same panel on a trap (DeviceDetailArt);
   // an enemy's card too, the board's and the 敌方情报 drawer's alike (EnemyDetailArt — the client opens none for an enemy:
   // the maintainer's choice, GitHub #3, maintainer decision 2026-10-14); an item's card too — in the client an item is a
-  // trap, and a press on one opens the operator's panel (ItemDetailArt, maintainer decision 2026-10-14).
+  // trap, and a press on one opens the operator's panel (ItemDetailArt, maintainer decision 2026-10-14); a summon's card
+  // too — a token is a character of the client, and a press on it opens the same panel (TokenDetailArt, maintainer
+  // decision 2026-10-14).
   // No card has a close button (maintainer decision 2026-10-14): the client's UICharacterInfoPanel and its autochess
   // sub-panels have none (no Button field, no close object in act2autochess_character_info_subpanel_status / _tabgroup).
   // A card closes on a press elsewhere — the field (gameLogic/shortcuts.js closesOnFieldPress), anywhere but the card for
@@ -865,7 +872,8 @@ export function DetailPanel({ detail, editable, snapHp, onSell, onDestroy, bonds
   const artDevice = detail.type === 'device' && !!hudArt().cls;
   const artEnemy = detail.type === 'enemy' && !!hudArt().cls;
   const artItem = detail.type === 'item' && !!hudArt().cls;
-  return html`<aside class=${cx('dpanel', 'brackets', `dpanel--${detail.type}`, (artDevice || artEnemy || artItem) && 'dpanel--chess', side === 'right' && 'dpanel--right', side === 'right' && shopOpen && 'is-shop')} role="dialog" aria-label=${t('详情')}
+  const artToken = detail.type === 'token' && !!hudArt().cls;
+  return html`<aside class=${cx('dpanel', 'brackets', `dpanel--${detail.type}`, (artDevice || artEnemy || artItem || artToken) && 'dpanel--chess', side === 'right' && 'dpanel--right', side === 'right' && shopOpen && 'is-shop')} role="dialog" aria-label=${t('详情')}
       data-side=${side === 'right' ? 'right' : 'left'}>
     <div class="dpanel__scroll">
       ${detail.type === 'chess' ? html`<${hudArt().cls ? ChessDetailArt : ChessDetail /* local patch */} chess=${detail.chess} piece=${detail.piece} snapHp=${snapHp} editable=${editable} onSell=${sellIt}
@@ -873,7 +881,7 @@ export function DetailPanel({ detail, editable, snapHp, onSell, onDestroy, bonds
         standIn=${detail.standIn || null} diy=${detail.diy || null} cultOpts=${detail.cultOpts || { ops }} />` : null}
       ${detail.type === 'item' ? html`<${artItem ? ItemDetailArt : ItemDetail} item=${detail.item} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds} />` : null}
       ${detail.type === 'enemy' ? html`<${artEnemy ? EnemyDetailArt : EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}
-      ${detail.type === 'token' ? html`<${TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} snapHp=${snapHp} live=${liveNow} />` : null}
+      ${detail.type === 'token' ? html`<${artToken ? TokenDetailArt : TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} snapHp=${snapHp} live=${liveNow} />` : null}
       ${detail.type === 'device' ? html`<${artDevice ? DeviceDetailArt : DeviceDetail} device=${detail.device} snapHp=${snapHp} live=${liveNow} />` : null}
     </div>
   </aside>`;

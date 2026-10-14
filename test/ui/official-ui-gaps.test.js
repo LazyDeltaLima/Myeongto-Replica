@@ -121,7 +121,7 @@ describe('a stage device\'s card takes the operator card\'s official form (GitHu
   test('DetailPanel renders DeviceDetailArt in the .dpanel--chess family while the HUD has its official look', () => {
     const js = read('public/js/ui/detailPanel.js');
     assert.match(js, /const artDevice = detail\.type === 'device' && !!hudArt\(\)\.cls;/);
-    assert.match(js, /`dpanel--\$\{detail\.type\}`, \(artDevice \|\| artEnemy \|\| artItem\) && 'dpanel--chess'/, 'the device card gets the operator card\'s class family: no box, presses pass through');
+    assert.match(js, /`dpanel--\$\{detail\.type\}`, \(artDevice \|\| artEnemy \|\| artItem \|\| artToken\) && 'dpanel--chess'/, 'the device card gets the operator card\'s class family: no box, presses pass through');
     assert.match(js, /\$\{detail\.type === 'device' \? html`<\$\{artDevice \? DeviceDetailArt : DeviceDetail\} device=\$\{detail\.device\}/);
     assert.ok(!js.includes('TerrainDetail'), 'no terrain card: the client shows a toast (ui/tileToast.js)');
   });
@@ -148,7 +148,7 @@ describe('an enemy\'s card takes the official card form too (GitHub #3)', () => 
   test('DetailPanel renders EnemyDetailArt in the .dpanel--chess family while the HUD has its official look', () => {
     const js = read('public/js/ui/detailPanel.js');
     assert.match(js, /const artEnemy = detail\.type === 'enemy' && !!hudArt\(\)\.cls;/);
-    assert.match(js, /\(artDevice \|\| artEnemy \|\| artItem\) && 'dpanel--chess'/, 'no box, presses pass through to the board');
+    assert.match(js, /\(artDevice \|\| artEnemy \|\| artItem \|\| artToken\) && 'dpanel--chess'/, 'no box, presses pass through to the board');
     assert.match(js, /\$\{detail\.type === 'enemy' \? html`<\$\{artEnemy \? EnemyDetailArt : EnemyDetail\} enemy=/);
   });
 

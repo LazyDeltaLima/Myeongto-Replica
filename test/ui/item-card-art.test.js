@@ -47,7 +47,7 @@ describe('the card', () => {
   test('DetailPanel renders ItemDetailArt in the .dpanel--chess family while the HUD has its official look', () => {
     const js = read('public/js/ui/detailPanel.js');
     assert.match(js, /const artItem = detail\.type === 'item' && !!hudArt\(\)\.cls;/);
-    assert.match(js, /\(artDevice \|\| artEnemy \|\| artItem\) && 'dpanel--chess'/, 'no box, presses pass through to the board');
+    assert.match(js, /\(artDevice \|\| artEnemy \|\| artItem \|\| artToken\) && 'dpanel--chess'/, 'no box, presses pass through to the board');
     assert.match(js, /\$\{detail\.type === 'item' \? html`<\$\{artItem \? ItemDetailArt : ItemDetail\} item=/);
   });
 
