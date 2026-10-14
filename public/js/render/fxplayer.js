@@ -229,6 +229,8 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   varying float vH; varying vec3 vN; varying vec3 vVP;
   // the scene height of a view-space offset (the camera has no scale: the inverse view rotation is its transpose)
   float hOfView(vec3 off) { return (vec4(off, 0.0) * viewMatrix).z; }
+  // 2026-10-14: a SkinnedMeshRenderer (THREE.SkinnedMesh: three defines USE_SKINNING and binds the bone texture)
+  #include <skinning_pars_vertex>
   mat3 rotZXY(vec3 e) {  // Unity euler order: Z, then X, then Y (applied to column vectors as Ry * Rx * Rz)
     float cx = cos(e.x), sx = sin(e.x), cy = cos(e.y), sy = sin(e.y), cz = cos(e.z), sz = sin(e.z);
     mat3 rx = mat3(1., 0., 0., 0., cx, sx, 0., -sx, cx);
@@ -251,7 +253,10 @@ const VERT = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     }
     if (uMode == 4) {                       // mesh particle (Unity rotates by -angle around z for 2D rotation)
       mat3 rm = rotZXY(vec3(iRot.x, iRot.y, -iRot.z));
-      vec3 p = rm * (position * iSize);
+      vec3 transformed = position;
+      #include <skinbase_vertex>
+      #include <skinning_vertex>
+      vec3 p = rm * (transformed * iSize);
       vH = (modelMatrix * vec4(iPos + p, 1.0)).z;
       if (uRim) { vN = normalMatrix * (rm * (normal / max(abs(iSize), vec3(1e-4)))); vVP = (modelViewMatrix * vec4(iPos + p, 1.0)).xyz; }
       gl_Position = projectionMatrix * modelViewMatrix * vec4(iPos + p, 1.0);
@@ -562,6 +567,12 @@ export class FxLibrary {
           const mx = d.col.reduce((a, v) => (v > a ? v : a), 0);
           g.setAttribute('vcol', new THREE.Float32BufferAttribute(mx > 1.001 ? d.col.map((v) => v / 255) : d.col, 4));
         }
+        // 2026-10-14: a skinned mesh's 4 bone indices / weights per vertex and its bones' bind poses (FxInstance n.skin)
+        if (d.bi?.length === nv * 4 && d.bw?.length === nv * 4 && d.bind?.length) {
+          g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(d.bi, 4));
+          g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(d.bw, 4));
+          g.userData.bind = d.bind;
+        }
         return g;
       }).catch(() => null));
     }
@@ -585,6 +596,7 @@ export class FxLibrary {
         for (const n of def.nodes) {
           if (n.ps?.render?.mesh) keys.add(n.ps.render.mesh);
           if (n.mesh?.mesh) keys.add(n.mesh.mesh);
+          if (n.skin?.mesh) keys.add(n.skin.mesh);
         }
         await Promise.all([...keys].map(async (k) => { def.geoms[k] = await this.mesh(k); }));
         def.lib = this;
@@ -1244,6 +1256,7 @@ const CLIP_AXIS = { r: 'x', g: 'y', b: 'z', a: 'w', x: 'x', y: 'y', z: 'z', w: '
 // local patch: a clip's GameObject m_IsActive binding (Mecanim type 1, crc32('m_IsActive'); the extract keeps it as 'attr:…')
 const ACTIVE_PROP = 'attr:2086281974';
 const clipE = new THREE.Euler();
+const IDENTITY16 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
 export class FxInstance {
   /**
@@ -1298,6 +1311,8 @@ export class FxInstance {
       + (Number(f.delay) > 0 ? (f.rnd ? Math.random() : 1) * Number(f.delay) * speed : 0) : 0;
     if (this.wait > 0) unity.visible = false;
     const t0 = [];   // each node's start (effect seconds after the root shows): its own and its parents' branch delays
+    const skins = [];
+    this.skeletons = [];
     this.branches = [];
     def.nodes.forEach((n, i) => {
       const o = new THREE.Group();
@@ -1320,27 +1335,43 @@ export class FxInstance {
       t0[i] = (n.parent >= 0 ? t0[n.parent] || 0 : 0) + own;
       o.userData.t0 = t0[i];
       if (own > 0 && o.visible) { o.visible = false; this.branches.push({ o, at: t0[i], on: false }); }
-      if (n.mesh && def.geoms[n.mesh.mesh]) {
-        const mat = makeMaterial(def.materials[n.mesh.mat], def.lib);
+      // 2026-10-14: a SkinnedMeshRenderer (n.skin) is drawn like a mesh, by its bones (bound below, once every node exists)
+      const mr = n.mesh || n.skin;
+      const src = mr && def.geoms[mr.mesh];
+      if (src && (!n.skin || src.userData.bind)) {
+        const mat = makeMaterial(def.materials[mr.mat], def.lib);
         mat.uniforms.uMode.value = 4;
         const g = new THREE.InstancedBufferGeometry();
-        const src = def.geoms[n.mesh.mesh];
         g.index = src.index;
         g.setAttribute('position', src.getAttribute('position'));
         if (src.getAttribute('uv')) g.setAttribute('uv', src.getAttribute('uv'));
+        if (n.skin) { g.setAttribute('skinIndex', src.getAttribute('skinIndex')); g.setAttribute('skinWeight', src.getAttribute('skinWeight')); }
         useMeshAttrs(g, src, mat); // local patch
         const one = (name, v) => g.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(v), v.length));
         one('iPos', [0, 0, 0]); one('iSize', [1, 1, 1]); one('iRot', [0, 0, 0]); one('iColor', [1, 1, 1, 1]);
         one('iC1', [0, 0, 0, 0]); one('iC2', [0, 0, 0, 0]); one('iUV', [0, 0, 1, 1]); one('iVel', [0, 0, 0]);
         g.instanceCount = 1;
-        const mesh = new THREE.Mesh(g, mat);
+        const mesh = n.skin ? new THREE.SkinnedMesh(g, mat) : new THREE.Mesh(g, mat);
         mesh.frustumCulled = false;
-        mesh.renderOrder = n.mesh.order || 0;
+        mesh.renderOrder = mr.order || 0;
         o.add(mesh);
+        if (n.skin) skins.push({ mesh, skin: n.skin, bind: src.userData.bind });
         this.meshMats[i] = mat;
         mat.userData.t0 = t0[i];
       }
     });
+    // Unity skins in world space: Σ weight · bone.localToWorld · bindpose · vertex — the renderer's own transform is not used.
+    // A SkinnedMesh bound with an identity bind matrix in 'attached' mode gives the same (bone.matrixWorld · boneInverse, then
+    // back through the mesh's own matrix); that matrix is the effect root's, not the node's — a node may be flattened to scale
+    // 0 (水月 S2's tentacle `2`: y 0), which would collapse the mesh. Its node still switches it on and off
+    for (const k of skins) {
+      const bones = k.skin.bones.map((b) => this.nodes[b]);
+      if (bones.some((b) => !b)) { k.mesh.visible = false; continue; }
+      const sk = new THREE.Skeleton(bones, bones.map((_, j) => new THREE.Matrix4().fromArray(k.bind[j] || IDENTITY16)));
+      this.skeletons.push(sk);   // its bone texture is freed with the effect (dispose)
+      k.mesh.bind(sk, new THREE.Matrix4());
+      k.mesh.updateMatrixWorld = function () { this.matrixWorld.copy(unity.matrixWorld); this.bindMatrixInverse.copy(this.matrixWorld).invert(); };
+    }
     if (turn) this.applyTurn(turn);
     def.nodes.forEach((n, i) => {
       if (n.trailR) this.trails.push(new TrailRenderer(n.trailR, this.nodes[i], unity, def));
@@ -1353,7 +1384,7 @@ export class FxInstance {
       if (n.uvt) {
         const o = this.nodes[i];
         const sys = this.systems.find((s) => s.node === o), ln = this.lines.find((t) => t.node === o), tr = this.trails.find((t) => t.node === o);
-        if (this.meshMats[i]) uvTween(this.meshMats[i], n.uvt, def.materials[n.mesh.mat]);
+        if (this.meshMats[i]) uvTween(this.meshMats[i], n.uvt, def.materials[(n.mesh || n.skin).mat]);
         else if (sys) uvTween(sys.material, n.uvt, def.materials[n.ps.render.mat]);
         else if (ln) uvTween(ln.batch.material, n.uvt, def.materials[n.lineR.mat]);
         else if (tr) uvTween(tr.batch.material, n.uvt, def.materials[n.trailR.mat]);
@@ -1387,7 +1418,8 @@ export class FxInstance {
           // local patch (maintainer report 2026-10-07, video: 蛇屠箱's S2 hex dome covers her): an order-0 mesh that stands up
           // around the unit (a dome / shell, > WRAP_H tall) is in front — the client sorts order 0 by distance; a flat
           // ground decal stays behind
-          if (mesh) put(mesh, (n.mesh.order || 0) > 0 || (!(n.mesh.order || 0) && wrapsUnit(mesh, this.object)));
+          const order = (n.mesh || n.skin).order || 0;
+          if (mesh) put(mesh, order > 0 || (!order && wrapsUnit(mesh, this.object)));
         }
       });
       // local patch (opts.ahead, maintainer report 2026-10-08: the elite glow's gold band covers the legs in the game; every split
@@ -1607,6 +1639,7 @@ export class FxInstance {
     for (const t of this.trails) t.dispose();
     for (const t of this.lines) t.dispose(); // local patch
     for (const m of this.meshMats) m?.dispose();
+    for (const sk of this.skeletons || []) sk.dispose();
     this.object.removeFromParent();
     const i = live.indexOf(this);
     if (i >= 0) live.splice(i, 1);

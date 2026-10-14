@@ -295,6 +295,69 @@ def decode_clip(clip):
     return r4(mc['m_StopTime']), curves
 
 
+def hermite_keys(keys, comp=None):
+    """A legacy clip's AnimationCurve (Unity Keyframes: time, value, inSlope, outSlope; `comp` picks x / y / z / w of a vector
+    or quaternion key) -> the clip keys of decode_clip: per segment the cubic of its Hermite span (a stepped key, an infinite
+    slope, holds its value). Weighted keys are read unweighted [ASSUMED: none of the extracted prefabs has one]."""
+    def val(k, f):
+        v = k[f]
+        return v[comp] if comp else v
+    out = []
+    for i, k in enumerate(keys):
+        t, p0 = k['time'], val(k, 'value')
+        if i + 1 == len(keys):
+            out.append([r4(t), 0, 0, 0, r4(p0)])
+            break
+        n = keys[i + 1]
+        dt, p1 = n['time'] - t, val(n, 'value')
+        m0, m1 = val(k, 'outSlope'), val(n, 'inSlope')
+        if dt <= 0 or not (math.isfinite(m0) and math.isfinite(m1)):
+            out.append([r4(t), 0, 0, 0, r4(p0)])
+            continue
+        d = (p1 - p0) / dt
+        out.append([r4(t), r4((m0 + m1 - 2 * d) / (dt * dt)), r4((3 * d - 2 * m0 - m1) / dt), r4(m0), r4(p0)])
+    return out
+
+
+def legacy_clip(clip, rel, wrap=0):
+    """(2026-10-14) A legacy Animation clip (m_Legacy: Unity keeps its curves as keyframes, not a muscle clip) -> a clip like
+    animator_clips': position / scale / quaternion / euler curves by their transform path, float curves by attribute —
+    `material.<prop>[.<r|g|b|a|x|y|z|w>]` → `mat:` (the renderer's material), `m_IsActive` → the GameObject switch (type 1, as the
+    Mecanim binding), any other attribute kept as `attr:<crc32>`. `rel` maps a path relative to the Animation's GameObject to
+    a node — a path that is not under it binds nothing, as in Unity (sbell2_skill_03_range's `spin` names its siblings: no
+    clip). The length is every curve's last key (a legacy clip's m_MuscleClip is unused); wrap 2 (Loop) repeats — the clip's
+    own m_WrapMode, or with 0 (Default) the Animation's `wrap`. Once / ClampForever hold the last key, like a Mecanim clip
+    [ASSUMED for Once: Unity stops the clip there]."""
+    tracks, length = [], 0.0
+    for field, prop, comps in (('m_PositionCurves', 'pos', 'xyz'), ('m_ScaleCurves', 'scale', 'xyz'),
+                               ('m_RotationCurves', 'quat', 'xyzw'), ('m_EulerCurves', 'euler', 'xyz')):
+        for cv in clip.get(field) or []:
+            keys = (cv.get('curve') or {}).get('m_Curve') or []
+            length = max([length] + [k['time'] for k in keys[-1:]])
+            node = rel.get(cv.get('path') or '')
+            if not keys or node is None:
+                continue
+            tracks.append({'node': node, 'prop': prop, 'type': 4, 'curves': [hermite_keys(keys, c) for c in comps]})
+    for cv in clip.get('m_FloatCurves') or []:
+        keys = (cv.get('curve') or {}).get('m_Curve') or []
+        length = max([length] + [k['time'] for k in keys[-1:]])
+        node = rel.get(cv.get('path') or '')
+        attr = cv.get('attribute') or ''
+        if not keys or node is None:
+            continue
+        if attr.startswith('material.'):
+            prop = 'mat:' + attr[9:]
+        else:
+            prop = f'attr:{crc32(attr)}'
+        tracks.append({'node': node, 'prop': prop, 'type': cv.get('classID', 0), 'curves': [hermite_keys(keys)]})
+    if clip.get('m_CompressedRotationCurves'):
+        print(f"[fx] legacy clip {clip['m_Name']}: compressed rotation curves skipped")
+    if not tracks:
+        return None
+    return {'name': clip['m_Name'], 'len': r4(length), 'loop': (clip.get('m_WrapMode') or wrap) == 2, 'legacy': 1,
+            'tracks': tracks}
+
+
 def crc32(s):
     return zlib.crc32(s.encode('utf-8')) & 0xffffffff
 
@@ -400,8 +463,11 @@ class Extractor:
         self.textures[key] = name
         return name
 
-    def mesh(self, obj, out):
-        key = f'{obj.read().m_Name}_{obj.path_id & 0xffffffff:08x}'
+    def mesh(self, obj, out, skin=False):
+        """A mesh file; `skin` (2026-10-14, a SkinnedMeshRenderer's mesh — its own key `…_skin`) adds per vertex 4 bone
+        indices `bi` and weights `bw` (a mesh with an index channel only weighs 1 on its first bone) and per bone its bind
+        pose `bind` (16 numbers, column-major)."""
+        key = f'{obj.read().m_Name}_{obj.path_id & 0xffffffff:08x}' + ('_skin' if skin else '')
         if key in self.meshes:
             return self.meshes[key]
         m = obj.read()
@@ -419,6 +485,18 @@ class Extractor:
         data = {'pos': pos, 'uv': uv, 'idx': idx}
         if col:
             data['col'] = col
+        if skin:
+            bi, bw = [], []
+            inds, wts = h.m_BoneIndices or [], h.m_BoneWeights or []
+            for v in range(len(pos) // 3):
+                ii = list(inds[v]) if v < len(inds) else [0]
+                ww = list(wts[v]) if v < len(wts) else [1.0]
+                bi += (ii + [0, 0, 0, 0])[:4]
+                bw += [r4(float(x)) for x in (ww + [0, 0, 0, 0])[:4]]
+            bind = []
+            for b in obj.read_typetree().get('m_BindPose') or []:
+                bind.append([r4(b[f'e{r}{c}']) for c in range(4) for r in range(4)])
+            data.update(bi=bi, bw=bw, bind=bind)
         p = out / 'mesh' / (key + '.json')
         p.parent.mkdir(parents=True, exist_ok=True)
         if not p.exists():   # 2026-10-10: the same key is the same mesh — a shared file is never rewritten
@@ -461,6 +539,7 @@ class Extractor:
     def prefab(self, root, out):
         nodes, mats, paths = [], {}, {}
         animators = []
+        skinned = []
 
         gos = {}
 
@@ -501,6 +580,10 @@ class Extractor:
                     node['_mf'] = comp
                 elif t == 'Animator':
                     animators.append((idx, comp))
+                elif t == 'Animation':
+                    animators.append((idx, comp))   # legacy (animator_clips → legacy_clips)
+                elif t == 'SkinnedMeshRenderer':
+                    skinned.append((idx, comp))     # its bones are resolved once the whole tree is walked (skin)
                 elif t == 'TrailRenderer':
                     tr_t = comp.read_typetree()
                     tm = self.resolve(tr_t['m_Materials'][0], comp) if tr_t.get('m_Materials') else None
@@ -568,6 +651,10 @@ class Extractor:
                         walk(cgo, idx, f'{path}/{cname}' if path else cname)
 
         walk(root, -1, '')
+        for idx, smr in skinned:
+            sk = self.skin(smr, gos, out, mats)
+            if sk:
+                nodes[idx]['skin'] = sk
         for k, t in self.sub_delays(root, gos).items():
             nodes[k]['sdelay'] = t
         spawn = self.spawn_location(root)
@@ -972,6 +1059,153 @@ class Extractor:
         print(f'[fx] {bundle}: {found} prefab(s) with a uv tween, {changed} file(s) changed')
         return found, changed
 
+    def skin(self, smr, gos, out, mats):
+        """(2026-10-14) A SkinnedMeshRenderer: { mesh (with its bones' bind poses — mesh(skin=True)), mat, order, bones (node
+        indices, in the mesh's bone order) }; Unity draws it from its bones' world transforms (the node's own transform is not
+        used). None when it is off, has no material or names a bone outside the tree. 9 extracted prefabs (水月 S2, 歌蕾蒂娅 S2,
+        斯卡蒂 S3, 浊心斯卡蒂 S3, 铃兰 S3, 星熊 S3), their bones turned by legacy clips."""
+        s = smr.read_typetree()
+        if not s.get('m_Enabled', 1) or not s.get('m_Materials'):
+            return None
+        mo = self.mesh_ref(s.get('m_Mesh'), smr)
+        mat = self.resolve(s['m_Materials'][0], smr)
+        bones = [gos.get(b['m_PathID']) if not b.get('m_FileID') else None for b in s.get('m_Bones') or []]
+        if mo is None or mat is None or not bones or any(b is None for b in bones):
+            return None
+        mk = self.mesh(mo, out, skin=True)
+        if mk is None:
+            return None
+        return {'mesh': mk, 'mat': self.material(mat, out, mats), 'order': s.get('m_SortingOrder', 0), 'bones': bones}
+
+    def skin_only(self, bundle, pack=None):
+        """2026-10-14: write only the nodes' `skin` (skin: SkinnedMeshRenderers, their meshes, materials and textures) into the
+        bundle's already extracted prefabs (walk order checked like uvt_only). Returns (prefabs with one, files changed)."""
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
+        if not bundle_path(self.game, rel):
+            print(f'[fx] {bundle}: bundle not found, skipped')
+            return 0, 0
+        env = self.load(rel)
+        found = changed = 0
+        for o in env.objects:
+            if o.type.name != 'Transform':
+                continue
+            t = o.read_typetree()
+            if t['m_Father']['m_PathID'] != 0:
+                continue
+            go = self.resolve(t['m_GameObject'], o)
+            if go is None:
+                continue
+            f = OUT / bundle / f"{go.read_typetree()['m_Name']}.json"
+            if not f.exists():
+                continue
+            names, gos, smrs = [], {}, []
+
+            def walk(g):
+                dd = g.read_typetree()
+                idx = len(names)
+                names.append(dd['m_Name'])
+                tr = None
+                for c in dd['m_Component']:
+                    comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], g)
+                    if comp is None:
+                        continue
+                    if comp.type.name == 'Transform':
+                        tr = comp.read_typetree()
+                        gos[comp.path_id] = idx
+                    elif comp.type.name == 'SkinnedMeshRenderer':
+                        smrs.append((idx, comp))
+                for ch in (tr or {}).get('m_Children') or []:
+                    cto = self.resolve(ch, g)
+                    cgo = self.resolve(cto.read_typetree()['m_GameObject'], cto) if cto is not None else None
+                    if cgo is not None:
+                        walk(cgo)
+            walk(go)
+            if not smrs:
+                continue
+            d = json.loads(f.read_text())
+            nodes = d.get('nodes') or []
+            if len(nodes) != len(names) or any(n.get('name') != names[k] for k, n in enumerate(nodes)):
+                print(f'[fx] {bundle}/{f.stem}: node tree differs from the bundle, skin skipped')
+                continue
+            before = json.dumps(d, sort_keys=True)
+            mats = d.setdefault('materials', {})
+            for idx, smr in smrs:
+                sk = self.skin(smr, gos, OUT, mats)
+                if sk:
+                    nodes[idx]['skin'] = sk
+                    found += 1
+                else:
+                    nodes[idx].pop('skin', None)
+            if json.dumps(d, sort_keys=True) != before:
+                f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+                changed += 1
+        print(f'[fx] {bundle}: {found} skinned renderer(s), {changed} file(s) changed')
+        return found, changed
+
+    def legacy_only(self, bundle, pack=None):
+        """2026-10-14: write only the legacy Animation clips (legacy_clips, `legacy: 1` in `clips`) into the bundle's already
+        extracted prefabs (the nodes in the extractor's own walk order, like uvt_only; a file whose node names do not line up
+        is left alone); `duration` grows to the longest clip as a full extraction does. Returns (prefabs with one, files changed)."""
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
+        p = bundle_path(self.game, rel)
+        if not p:
+            print(f'[fx] {bundle}: bundle not found, skipped')
+            return 0, 0
+        env = self.load(rel)   # with the dependency bundles: some clips live in a shared one (kroos2 / cetsyr)
+        found = changed = 0
+        for o in env.objects:
+            if o.type.name != 'Transform':
+                continue
+            t = o.read_typetree()
+            if t['m_Father']['m_PathID'] != 0:
+                continue
+            go = self.resolve(t['m_GameObject'], o)
+            if go is None:
+                continue
+            f = OUT / bundle / f"{go.read_typetree()['m_Name']}.json"
+            if not f.exists():
+                continue
+            names, paths, anims = [], {}, []
+
+            def walk(g, path):
+                dd = g.read_typetree()
+                idx = len(names)
+                names.append(dd['m_Name'])
+                paths[idx] = path
+                tr = None
+                for c in dd['m_Component']:
+                    comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], g)
+                    if comp is None:
+                        continue
+                    if comp.type.name == 'Transform':
+                        tr = comp.read_typetree()
+                    elif comp.type.name == 'Animation':
+                        anims.append((idx, comp))
+                for ch in (tr or {}).get('m_Children') or []:
+                    cto = self.resolve(ch, g)
+                    cgo = self.resolve(cto.read_typetree()['m_GameObject'], cto) if cto is not None else None
+                    if cgo is not None:
+                        cn = cgo.read_typetree()['m_Name']
+                        walk(cgo, f'{path}/{cn}' if path else cn)
+            walk(go, '')
+            d = json.loads(f.read_text())
+            nodes = d.get('nodes') or []
+            if len(nodes) != len(names) or any(n.get('name') != names[k] for k, n in enumerate(nodes)):
+                print(f'[fx] {bundle}/{f.stem}: node tree differs from the bundle, legacy clips skipped')
+                continue
+            new = [c for aidx, a in anims for c in self.legacy_clips(a, aidx, paths)]
+            clips = [c for c in d.get('clips') or [] if not c.get('legacy')] + new
+            found += bool(new)
+            if clips == (d.get('clips') or []):
+                continue
+            d['clips'] = clips
+            if new:
+                d['duration'] = r4(min(max(d.get('duration') or 0, *(c['len'] for c in new)), 10))
+            f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+            changed += 1
+        print(f'[fx] {bundle}: {found} prefab(s) with a legacy clip, {changed} file(s) changed')
+        return found, changed
+
     def spawn_location(self, root):
         """local patch: the effect component's `_spawnLocation` on the root (1 feet, 2 body / HIT point, 4 head, 5 ground
         centre — docs/rules/fx.md 「관리자 제보 재수정 (2026-10-07 저녁)」; verified on buff_stun 4 / buff_slowdown 1 / buff_sleep 2)
@@ -1265,6 +1499,8 @@ class Extractor:
         return None
 
     def animator_clips(self, anim, aidx, nodes, paths, mats):
+        if anim.type.name == 'Animation':
+            return self.legacy_clips(anim, aidx, paths)
         a = anim.read_typetree()
         ctrl = self.resolve(a.get('m_Controller'), anim)
         if ctrl is None:
@@ -1304,6 +1540,24 @@ class Extractor:
                 ci += n
             clips_out.append({'name': clip['m_Name'], 'len': length, 'loop': bool(clip.get('m_MuscleClip', {}).get('m_LoopTime', 0)), 'tracks': tracks})
         return clips_out
+
+    def legacy_clips(self, anim, aidx, paths):
+        """(2026-10-14) A legacy Animation component: its default clip (m_Animation, played automatically — every one of the
+        39 extracted prefabs with one has m_PlayAutomatically) as legacy_clip; [] without one."""
+        a = anim.read_typetree()
+        if not a.get('m_PlayAutomatically', 1):
+            return []
+        co = self.resolve(a.get('m_Animation'), anim)
+        if co is None:
+            return []
+        base = paths[aidx]
+        rel = {}
+        for i, p in paths.items():
+            if base and not (p == base or p.startswith(base + '/')):
+                continue
+            rel.setdefault(p[len(base) + 1:] if base and p != base else ('' if p == base else p), i)
+        c = legacy_clip(co.read_typetree(), rel, a.get('m_WrapMode', 0))
+        return [c] if c else []
 
     @staticmethod
     def material_prop(attr, node, mats):
@@ -1473,6 +1727,11 @@ def main():
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch)')
     ap.add_argument('--uvt-only', action='store_true', help='only write the FxUVTweener `uvt` of the nodes into the already '
                     'extracted prefabs of the bundles (every bundle of the index without --bundle; 2026-10-14)')
+    ap.add_argument('--skin-only', action='store_true', help='only write the SkinnedMeshRenderers (node `skin`, their meshes '
+                    'and materials) into the already extracted prefabs of the bundles (every bundle of the index without '
+                    '--bundle; 2026-10-14)')
+    ap.add_argument('--legacy-only', action='store_true', help='only write the legacy Animation clips into the already '
+                    'extracted prefabs of the bundles (every bundle of the index without --bundle; 2026-10-14)')
     ap.add_argument('--back-only', action='store_true', help='only write the SwitchableBackEffect `back` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; 2026-10-10)')
     ap.add_argument('--index', default='index.json', help='the index file under public/assets/local/fx the bundles\' lists go '
@@ -1523,6 +1782,16 @@ def main():
         bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
         tot = [ex.uvt_only(b, pack=a.pack) for b in bundles]
         print(f'[fx] uvt: {sum(x[0] for x in tot)} prefab(s) with a uv tween, {sum(x[1] for x in tot)} file(s) changed')
+        return
+    if a.skin_only:
+        bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
+        tot = [ex.skin_only(b, pack=a.pack) for b in bundles]
+        print(f'[fx] skin: {sum(x[0] for x in tot)} skinned renderer(s), {sum(x[1] for x in tot)} file(s) changed')
+        return
+    if a.legacy_only:
+        bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
+        tot = [ex.legacy_only(b, pack=a.pack) for b in bundles]
+        print(f'[fx] legacy: {sum(x[0] for x in tot)} prefab(s) with a legacy clip, {sum(x[1] for x in tot)} file(s) changed')
         return
     if a.mount_only:
         bundles = a.bundle or sorted(json.loads((OUT / 'index.json').read_text())['bundles'])

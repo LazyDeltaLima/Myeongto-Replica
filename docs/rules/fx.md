@@ -985,12 +985,32 @@
     `trail_hong1`, 노시스 `qixuan`이 HEAD 0 → 새 코드에서 흐름, 사리아 `_AddTex` 흐름, 나머지 재질 값 그대로. 스펙터 디 언체인드 S2 `ghost2_skill_02_buff_01`·
     글래디아 `glady_skill_03_range_02`는 HEAD(1차)에서 이미 흐름. 셰이더 컴파일 오류 0(D3D 정밀도 경고 X4122 하나 — 상수 접기, 동작 무관).
     [화면 미확인: 공식 녹화 대조, 실제 판에서 눈으로]
+- **3차 — 레거시 `Animation` 클립·`SkinnedMeshRenderer`**(2026-10-14, 클라 번들 대조): Mecanim `Animator` 말고 옛 `Animation` 컴포넌트가 돌리는 클립과
+  뼈로 휘는 메시를 읽지 않아, 반복 회전·흔들림이 멈춰 있거나 메시가 아예 안 그려졌다.
+  - 레거시 클립(`m_Legacy`, 추출된 프리팹 39개 중 클립이 있는 37개): 기본 클립 `m_Animation`(모두 `m_PlayAutomatically`)의 곡선은 Mecanim 근육 클립이
+    아니라 키프레임(시간·값·in/out 기울기)이다. 위치·크기·쿼터니언·오일러 곡선은 변환 경로로, float 곡선은 `material.<속성>[.r…/.x…]` → 그 렌더러
+    재질, `m_IsActive` → GameObject 켜고 끄기로 묶는다. 경로는 `Animation`이 붙은 GameObject 기준이라 그 아래가 아닌 이름은 Unity에서도 안 묶인다
+    (프라마닉스 더 프레리타 S3 `sbell2_skill_03_range`의 `spin`은 형제 노드를 가리켜 공식에서도 안 돎 — 클립 없음). 길이 = 모든 곡선의 마지막 키
+    (레거시 클립의 `m_StopTime`은 안 씀), 클립의 `m_WrapMode` 2(Loop) 또는 그것이 0이면 `Animation`의 값이 Loop면 반복. Once·ClampForever는 Mecanim
+    클립처럼 마지막 키에서 멈춤 [추정: Once는 Unity가 그 자리에서 클립을 멈춤]. 가중 키는 가중치 없이 읽음 [추정: 추출분에 없음]. 대상: 시빌라이트
+    에테르나 궤적·원의 회전(2초·8초 반복), 노시스 S2·S3 돌의 흔들림, 첸 더 던스트릭 S3 용, 패신저 S2, 크루스 더 킨 글린트 S2 궤적, 스펙터 디 언체인드
+    3×3 원의 0.3초 나타나기·끝, 카넬리안 버프 색, 비질 소환, 엔텔레키아 등장·필라에 S1 시작, 아래 스킨드 메시의 뼈.
+  - `SkinnedMeshRenderer`(9개 프리팹, 렌더러 24개 — 미즈키 S2 촉수, 스카디 S3 상어, 스카디 더 커럽팅 하트 S3, 스즈란 S3 꼬리, 호시구마 S3 귀신, 글래디아
+    S2): 정점마다 뼈 인덱스(채널 13)·가중치(채널 12, 없으면 첫 뼈에 1), 뼈마다 바인드 포즈. Unity는 Σ 가중치 · 뼈 localToWorld · 바인드 포즈 · 정점으로
+    월드 공간에서 그리고 **렌더러 자신의 트랜스폼은 안 쓴다** — 미즈키 S2의 촉수 노드 `2`는 크기 y가 0이라, 그 행렬을 거치면 메시가 사라진다.
+  - 구현: `fx_extract.py legacy_clip`(키프레임 → 구간별 3차식, 클립 트랙 형식 그대로, `legacy: 1`)·`skin`(노드 `skin` { mesh, mat, order, bones },
+    메시 파일 `…_skin.json`에 `bi`·`bw`·`bind`), 이미 추출된 프리팹에는 `--legacy-only`·`--skin-only`. `fxplayer.js`는 클립을 기존 트랙대로 재생하고, 스킨
+    노드를 `THREE.SkinnedMesh`(항등 바인드 행렬, 월드 행렬 = 이펙트 루트)로 그린다 — 노드의 켜고 끄기·재질 클립·텍스처 흐름은 메시와 같다.
+  - 확인: 단위 `test/render/fx-legacy-skin.test.js`(반복 쿼터니언 트랙, 뼈 회전 → 정점 이동·노드 트랜스폼 무시, 추출본 값). 키프레임 변환은 무작위 곡선에서
+    Unity Hermite 식과 대조. Windows Chrome 디버그 페이지에서 재생 2.6초·3.2초 사이 이동: 스킨드 메시 24개 모두 보이고 정점이 0.02~0.7 움직임, 시빌라이트
+    에테르나 원 27°, 노시스 돌 56~108°, 첸 더 던스트릭 용 위치 이동. 셰이더 컴파일 오류 0. 이번 변경 전에는 스킨드 메시가 그려지지 않고 이 노드들이
+    정지. [화면 미확인: 공식 녹화와의 대조, 실제 판]
 - 확인: 단위 `test/render/fx-uv-tween.test.js`(흐름 식·keep·until·없는 텍스처·클립 우선, Origin·Anchor 유니폼). Windows Chrome 디버그 페이지에서
   HEAD와 나란히 0.4초 간격 3프레임: 스펙터 디 언체인드 `ghost2_beidong_buff_01`(3×3 원)이 굳은 밝은 고리 → 흐르는 물결 고리, 글래디아
   `glady_skill_03_range_02`가 오퍼레이터를 덮는 흰 고리 → 도는 반투명 소용돌이, 프레임 간 차이 2.5→4.0·0.8→3.9. 셰이더 컴파일 오류 0
   (WebGL `drawElementsInstanced: no buffer` 경고는 HEAD와 같은 기존 것). [화면 미확인: 공식 녹화와의 대조, 실제 판]
 - 안 한 것: `FxUVRotation`(62개 프리팹 — 움직임이 아니라 `_Rotation0..3`에 고정 각도의 회전 행렬을 넣고 `_HG_UV_ROTATION` 키워드를 켬; 셰이더 쪽
-  적용 식을 안 읽음), 레거시 `Animation` 클립(39개 — 3×3 원의 처음 0.3초 나타나기 등), 파티클 서브 이미터(145개, `mods.sub`는 기록만).
+  적용 식을 안 읽음), 파티클 서브 이미터(145개, `mods.sub`는 기록만). 레거시 클립은 위 3차.
 - **글래디아 S3 회오리**: 키트 fx `'tornado'`가 `zoneFx`(그 스킬 투사체의 도달 이펙트 `glady_skill_03_range`·`_02`, 「시전 이펙트 시점·붙는 대상」
   zone)를 타지 않아 2D 원(`areaAway`)이 대신 그려지던 것 → `fxgame.js`가 `'zone'`과 같이 공식 프리팹을 회오리 자리에 지속 시간 동안 튼다.
   테스트 `test/render/fx-cast-timing.test.js` 「歌蕾蒂娅 S3」. [화면 미확인: 실제 판에서 회오리 자리·크기]
