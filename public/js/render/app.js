@@ -1632,9 +1632,16 @@ export async function createFieldView(host, options = {}) {
     interp.takeEvents(renderT, EVS, renderT - 1.5, LATE);
     for (const e of EVS) {
       try { faceEvent(e, renderT); } catch { /* the facing never breaks the view */ }
+      // a swing starts the view's clip first: its effects take the clip group of the clip it chose (spine.js _nextAlt,
+      // fxgame.js castGroup) and the swing's Default-clip flag (onSwing base)
+      const viewFirst = e[0] === 'swing';
+      if (viewFirst) handle(e, renderT);
       try { fxGame.onEvent(e, views); } catch { /* local patch: official effects never break the view */ }
-      try { handleEvent(e, renderT); } catch (err) { if (!handleEvent.warned) { handleEvent.warned = true; console.warn('[render] event failed', e, err); } }
+      if (!viewFirst) handle(e, renderT);
     }
+  }
+  function handle(e, renderT) {
+    try { handleEvent(e, renderT); } catch (err) { if (!handleEvent.warned) { handleEvent.warned = true; console.warn('[render] event failed', e, err); } }
   }
 
   /**

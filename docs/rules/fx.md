@@ -652,8 +652,8 @@
   (`_CalculatePlayIndex` 0xAEDDB0: `_loopType` 0 LOOP 순환, 1 RANDOM 무작위) 그 `anim`을 틀고 그 묶음의 시전·타격 옵션을 이번 시전에 쓴다. 비나 빅토리아 기본 공격
   `Attack_1`/`Attack_2`(RANDOM) → `siege2_attack_start_01`/`_02`가 우리 바인딩에 없었다. → `char_modes.py clipFx[모드] = { src, loop, groups: [{ anim, cast, hit }] }`
   (시점은 `castOpt`), `fxgame.js castGroup`이 모델이 지금 트는 공격 클립과 이름이 같은 묶음을, 없으면 `_loopType`대로 고른다(`fxmap.js clipGroup`). 묶음 이펙트는
-  기본 옵션에 더한다 [추정: 왕처럼 묶음이 비어 있으면 기본 옵션만]. 우리 Spine은 비나 빅토리아의 공격 클립을 `Attack_1` 하나로 틀어(`data/assets.json` anims)
-  지금은 늘 `_01` — 클립 무작위는 Spine 쪽 일(남김).
+  기본 옵션에 더한다 [추정: 왕처럼 묶음이 비어 있으면 기본 옵션만]. 클립 고르기는 Spine 쪽(2026-10-14, `render.md` 「Spine 클립 커버리지」 B): 모델이 휘두를 때마다
+  `alts`에서 고르고(`spine.js _nextAlt`), 'swing' 이벤트는 뷰가 먼저 받아(`app.js processEvents`) 이펙트가 그 클립의 묶음을 쓴다.
 - **⑤ 배치·쓰러짐 이펙트** — `Character.get_startEffect`(0x7085E0) = 프리팹 루트 `_startEffect`, 없으면 오퍼 `common_char_birth_01`, 토큰 `common_call_start_01`
   (`DefaultEffects.CHARACTER_BORN`/`TOKEN_BORN`); 모드의 `_overrideStartEffect`가 먼저(`GetStartEffect` 0x6F74B0); 사망은 `_deadEffect` 또는 `common_char_die_01`.
   우리는 오퍼 배치 이펙트가 없었다('birth' 이름 매핑은 부르는 곳이 없었음). → `char_modes.py`가 `start`·`startOnce`(`_onlyPlayStartEffectOnce`)·`modeStart`·`dead`를 쓰고

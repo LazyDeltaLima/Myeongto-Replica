@@ -6,7 +6,7 @@
 //
 // Driving (units.js calls these; the sim is authoritative, the actor only visualises):
 //   setBase('idle'|'move'|'stun')        the resting state from the snapshot anim code
-//   swing(windup)                         a normal attack's swing starts now (b.ev 'swing', operators and enemies): the
+//   swing(windup, alt)                    a normal attack's swing starts now (b.ev 'swing', operators and enemies): the
 //                                         attack clip plays once from its start at the official speed — 1 / the clip
 //                                         scale of the sim's attackTiming, read back as the clip's OnAttack frame ÷
 //                                         `windup` — so its strike frame lands with the attack's 'atk' events; a capped
@@ -198,6 +198,8 @@ export class SpineActor {
     this.swingUntil = null;       // the end of a swing's clip (swing): attacks meanwhile leave it alone
     this.fortressClips = null;    // a 要塞's [melee, ranged] clip pairs (render/units.js FORTRESS_CLIPS)
     this.atkRanged = null;        // …and whether its latest attack was ranged (null: not known yet — the role's clip)
+    this.alt = null;              // the attack clip a role with turns (anims `alts`) plays now: { clip, name, n }
+    this.altRandom = Math.random; // its 'random' / 'other' choice
     this.stanceSkills = null;     // skill indices whose loop is the stance while on, attacks clipless (render/units.js STANCE_SKILLS)
     this._applied = false;        // an update has posed the skeleton since its clip last changed (poseHeld)
     this._appliedTint = undefined; // the tint that update put on the slots (pixi-spine applies `tint` in update)
@@ -416,8 +418,9 @@ export class SpineActor {
     const per = this.clipPerAttack || !!clip.strike; // local patch: a strike skill clip plays once per attack
     const single = once || per;
     // in rhythm: attack() re-phases; a clip-per-attack actor starts each attack's clip anew unless already wound up for it
-    const name = this._loopOf(clip);
+    let name = this._loopOf(clip);
     if (this.mode === 'attack' && this.current === name && (!per || once || this.wound)) return false;
+    if (this._nextAlt(clip)) name = this._loopOf(clip);
     const loopDur = this.dur(name);
     // a one-off cast plays at the clip's own speed (one loop per clip length), whatever the attack rhythm
     const iv = once ? loopDur : clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
@@ -442,11 +445,12 @@ export class SpineActor {
    * (attack). Returns false when nothing was started (stunned, dying, a change clip, no attack clip, no wind-up — the
    * 'atk' path then shows the strike as before).
    */
-  swing(windup) {
+  swing(windup, alt = null) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'chant' || !(windup > 0)) return false;
     if (this._endPlaying()) return false; // local patch
     const clip = this._attackClip();
     if (!clip) return false;
+    this._nextAlt(clip, alt);
     const name = this._loopOf(clip);
     const loopDur = this.dur(name);
     const hits = this.entry.hits && this.entry.hits[name];
@@ -466,11 +470,12 @@ export class SpineActor {
   }
 
   /**
-   * The swing playing now as { windup, elapsed } (game s), else null — a model swapped mid-swing carries it over
+   * The swing playing now as { windup, elapsed, alt } (game s; alt = its clip of a role with turns), else null — a model swapped mid-swing carries it over
    * (units.js: an operator turned Front ⇄ Back as its attack starts, render/face-turn.js).
    */
   swingElapsed() {
-    return this._swinging() && this.swingAt != null ? { windup: this.swingWindup, elapsed: Math.max(0, this.clock - this.swingAt) } : null;
+    return this._swinging() && this.swingAt != null
+      ? { windup: this.swingWindup, elapsed: Math.max(0, this.clock - this.swingAt), alt: this.alt?.name ?? null } : null;
   }
 
   /** A swing's clip is playing (swing): the 'atk' events of its strike, and any other attack meanwhile, leave it alone. */
@@ -495,7 +500,8 @@ export class SpineActor {
     if (this._swinging()) return;   // the strike of a swing already playing at the official speed
     const clip = this._attackClip();
     if (!clip) return;
-    const name = this._loopOf(clip);
+    let name = this._loopOf(clip);
+    if (!(this.mode === 'attack' && this.current === name) && this._nextAlt(clip)) name = this._loopOf(clip);
     const loopDur = this.dur(name);
     const per = (this.clipPerAttack || !!clip.strike) && !once; // local patch: a strike skill clip
     const single = once || per;
@@ -547,11 +553,33 @@ export class SpineActor {
    * latest attack's kind (atkRanged) — the client's MeleeAttack / BlockedMeleeAttack / BlockedRangedAttack vs RangedAttack.
    */
   _loopOf(clip) {
-    const name = clip.loop;
+    const name = clip.alts && this.alt?.clip === clip && this.has(this.alt.name) ? this.alt.name : clip.loop;
     if (this.atkRanged == null || !this.fortressClips) return name;
     const pair = this.fortressClips.find((p) => p[0] === name || p[1] === name);
     const want = pair ? pair[this.atkRanged ? 1 : 0] : name;
     return this.has(want) ? want : name;
+  }
+
+  /**
+   * A new attack of role `clip` begins: when the role's clips take turns (anims `alts`, tools/assets/anim-overrides.mjs
+   * ATTACK_ALTS — the client's AbilityRandomGroup / UberAnimationEffectEmitter `_replaceGroup` / sequential ability group),
+   * choose this attack's clip by `pick`: 'loop' in turn from the first, 'random' any, 'other' a random first and then never
+   * the one just played. `keep` = the clip to keep (a model swapped mid-swing). True when the role has turns.
+   */
+  _nextAlt(clip, keep = null) {
+    const alts = clip?.alts;
+    if (!Array.isArray(alts) || alts.length < 2) return false;
+    const st = this.alt?.clip === clip ? this.alt : (this.alt = { clip, name: null, n: 0 });
+    let name;
+    if (keep && alts.includes(keep)) name = keep;
+    else if (clip.pick === 'loop') name = alts[st.n % alts.length];
+    else {
+      const pool = clip.pick === 'other' && st.name ? alts.filter((a) => a !== st.name) : alts;
+      name = pool[Math.min(pool.length - 1, Math.floor(this.altRandom() * pool.length))];
+    }
+    st.name = name;
+    st.n = alts.indexOf(name) + 1;
+    return true;
   }
 
   // Skill loops that are pure stances (no OnAttack in the loop) are still valid attack visuals during a skill;

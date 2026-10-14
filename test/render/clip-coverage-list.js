@@ -30,9 +30,6 @@ export const UNPLAYED = {
     Skill_3_Restart_Begin: 'todo: G — skill prefab clip [ASSUMED]',
     Start_2: 'todo: J — skin key table (SpineAnimator._animations)',
   },
-  char_1019_siege2: {
-    Attack_2: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
-  },
   char_1021_kroos2: {
     Skill_Loop_2: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
   },
@@ -50,8 +47,6 @@ export const UNPLAYED = {
     Skill_3_Attack_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
   },
   char_1035_wisdel: {
-    Attack_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
-    Attack_C: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
     Skill_2_Overload_Begin: 'todo: D+I — skill sub-mode clip pairs (mode _replaceAnimPairs); mix clip (SpineAnimator._mixSettings)',
     Skill_2_Overload_End: 'todo: D+I — skill sub-mode clip pairs (mode _replaceAnimPairs); mix clip (SpineAnimator._mixSettings)',
     Skill_2_Overload_Idle: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
@@ -70,13 +65,7 @@ export const UNPLAYED = {
     Skill_3_Skill: 'todo: G — skill prefab clip',
   },
   char_1045_svash2: {
-    Attack_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
-    Attack_C: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
     Skill_3_Deploy: 'none: only when the 风雪之眼 card is used by hand during S3 (skchr_svash2_3 BirdAura AnimationEmitBehaviour via svash2_s_3[*_bird_onuse]); no hand deployment in this mode [ASSUMED]',
-  },
-  char_1046_sbell2: {
-    Skill_3_Attack_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
-    Skill_3_Attack_C: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
   },
   char_1050_chen3: {
     Start_2: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
@@ -89,12 +78,10 @@ export const UNPLAYED = {
     Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
   },
   char_2027_wang: {
-    Attack_1_B: 'todo: B+J — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence); skin key table (SpineAnimator._animations)',
     Attack_2_A: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
     Attack_2_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
     Default_2: 'none: setup pose of mode S2 (replaces Default, 0 s; charpack Modes/S2 _replaceAnimPairs)',
     Idle_2: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
-    Skill_3_Attack_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
     Start_2: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
   },
   char_206_gnosis: {
@@ -103,9 +90,6 @@ export const UNPLAYED = {
   char_263_skadi: {
     Attack_Begin: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
     Attack_End: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
-  },
-  char_264_f12yin: {
-    Attack_B: 'todo: B+J — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence); skin key table (SpineAnimator._animations)',
   },
   char_279_excu: {
     Attack_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
@@ -128,11 +112,7 @@ export const UNPLAYED = {
     Skill_2_Sleep: 'todo: G — skill prefab clip',
   },
   char_391_rosmon: {
-    Attack_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
     Stun_Skill_3: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-  },
-  char_4010_etlchi: {
-    Skill_3_Loop_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
   },
   char_4016_kazema: {
     Default_B: 'none: setup pose of the stand-in form (0 s); only the buff template of another unit (parrot_m1_t) names it',
@@ -154,9 +134,6 @@ export const UNPLAYED = {
   },
   char_4116_blkkgt: {
     Skill_2_B: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); S2 plays Skill_2',
-  },
-  char_4132_ascln: {
-    Attack_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
   },
   char_4145_ulpia: {
     Skill_2_Die: 'todo: F — skill mode Die pair',
@@ -188,8 +165,6 @@ export const UNPLAYED = {
     Attack_Begin: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
     Attack_End: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
     Skill3_ABC_Idle_Into: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
-    Skill3_Attack_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
-    Skill3_Attack_C: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
   },
   char_440_pinecn: {
     Skill_1_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',

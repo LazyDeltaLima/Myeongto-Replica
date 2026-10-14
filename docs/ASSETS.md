@@ -255,7 +255,8 @@ ranged enemy for that clip, GitHub #58, and strikes every enemy attack at that f
 ### The `Roles` object
 
 ```js
-Clip      = { begin: string|null, loop: string, end: string|null, via?: 'combat'|'attackAny'|'skill'|'idle'|'attack' }
+Clip      = { begin: string|null, loop: string, end: string|null, via?: 'combat'|'attackAny'|'skill'|'idle'|'attack',
+              alts?: string[], pick?: 'loop'|'random'|'other' /* attack clips taking turns */ }
 SkillClip = Clip & { index: number /* 0-based skill index */, idle: string|null /* Skill_n_Idle */ }
 Roles = {
   idle: string, deploy: string,
@@ -281,6 +282,10 @@ Roles = {
 | `idle` | `Idle` (no attack animation at all) |
 
 On a skill clip, `via: 'attack'` means the model has no skill animation, so the attack clip is reused.
+`alts` / `pick` (from `tools/assets/anim-overrides.mjs ATTACK_ALTS`, the client's AbilityRandomGroup /
+UberAnimationEffectEmitter `_replaceGroup` / sequential ability groups): every attack of that role plays one of `alts` — in
+turn from the first (`loop`), any (`random`), or a random first and then never the one just played (`other`)
+(`render/spine.js _nextAlt`).
 A skill clip may also come from directional-only animations when a model has no undirected ones: for example `Skill_Right_Loop` (`char_279_excu`) or `Skill_Loop_Up` (the Back model of `char_431_ashlok`).
 
 The resolver's full precedence list is in the header of `tools/assets/anim-roles.mjs`.

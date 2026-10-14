@@ -776,7 +776,7 @@ export class UnitView {
         if (this.flags & UF.SKILL) this.actor.setSkill(true);
         this.actor.setBase(this._baseFromAnim());
         if (deployed != null) { this.actor.deploy(); if (deployed > 0) this.actor.update(deployed); }
-        else if (swung && this.actor.swing(swung.windup) && swung.elapsed > 0) this.actor.update(swung.elapsed);
+        else if (swung && this.actor.swing(swung.windup, swung.alt) && swung.elapsed > 0) this.actor.update(swung.elapsed);
         // a stealth-driven form (STEALTH_FORMS): the pose of the clip set in force now, even under a frozen stun
         if (STEALTH_FORMS[id]) this.actor.syncFormPose();
       }

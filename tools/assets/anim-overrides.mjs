@@ -95,6 +95,43 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
 });
 
 /**
+ * Attack clips that take turns (docs/rules/render.md 「Spine 클립 커버리지」 B, EN client charpacks and skill prefabs,
+ * maintainer's notes 2026-10-14): model key prefix → { [the role's loop clip]: { alts, pick } }. Every role clip (attack,
+ * skill, skills[i]) whose loop is that clip gains `alts` (the clips, in the client's order) and `pick`; render/spine.js
+ * chooses one per swing. `pick`: 'loop' = in turn from the first (AbilityRandomGroup `_selectMethod` 1, an
+ * UberAnimationEffectEmitter `_replaceGroup` with `_loopType` LOOP, an ability group `_selectAbilitySequentially`);
+ * 'random' = any (`_selectMethod` 0, `_loopType` RANDOM); 'other' = a random first, then never the clip just played
+ * (`_diffFromLastOneIfNotFirst`).
+ */
+export const ATTACK_ALTS = Object.freeze({
+  // 维什戴尔: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_A, Attack_B, Attack_C]
+  'op:char_1035_wisdel:': { Attack_A: { alts: ['Attack_A', 'Attack_B', 'Attack_C'], pick: 'random' } },
+  // 迷迭香: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_A, Attack_B]
+  'op:char_391_rosmon:': { Attack_A: { alts: ['Attack_A', 'Attack_B'], pick: 'random' } },
+  // 阿斯卡纶: Modes/Default/Body/Attack AbilityRandomGroup Loop [Attack_A, Attack_B]
+  'op:char_4132_ascln:': { Attack_A: { alts: ['Attack_A', 'Attack_B'], pick: 'loop' } },
+  // 隐德来希 S3: Modes/S3/Body/Attack AbilityRandomGroup Loop [Skill_3_Loop_A, Skill_3_Loop_B]
+  'op:char_4010_etlchi:': { Skill_3_Loop_A: { alts: ['Skill_3_Loop_A', 'Skill_3_Loop_B'], pick: 'loop' } },
+  // 望: Modes/Default/Body/Attack UberAnimationEffectEmitter LOOP [Attack_A, Attack_B] (skin keys → Attack_1_A / _B);
+  // S3 skchr_wang_3/SpawnAnim LOOP [Skill_3_Attack_A, Skill_3_Attack_B]
+  'op:char_2027_wang:': {
+    Attack_1_A: { alts: ['Attack_1_A', 'Attack_1_B'], pick: 'loop' },
+    Skill_3_Attack_A: { alts: ['Skill_3_Attack_A', 'Skill_3_Attack_B'], pick: 'loop' },
+  },
+  // 维娜·维多利亚: Modes/Default/Body/Attack UberAnimationEffectEmitter RANDOM [Attack_1, Attack_2]
+  'op:char_1019_siege2:': { Attack_1: { alts: ['Attack_1', 'Attack_2'], pick: 'random' } },
+  // 凛御银灰: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_A, Attack_B, Attack_C]
+  'op:char_1045_svash2:': { Attack_A: { alts: ['Attack_A', 'Attack_B', 'Attack_C'], pick: 'random' } },
+  // 圣聆初雪 S3: Modes/S3/Body/Attack UberAnimationEffectEmitter LOOP [Skill_3_Attack_A, _B, _C]
+  'op:char_1046_sbell2:': { Skill_3_Attack_A: { alts: ['Skill_3_Attack_A', 'Skill_3_Attack_B', 'Skill_3_Attack_C'], pick: 'loop' } },
+  // 伺夜 S3: Modes/S3/Body/Attack ability group `_selectAbilitySequentially` [Skill3_Attack_A, _B, _C]
+  'op:char_427_vigil:': { Skill3_Attack_A: { alts: ['Skill3_Attack_A', 'Skill3_Attack_B', 'Skill3_Attack_C'], pick: 'loop' } },
+  // 山: Modes/Default/Body/Attack AbilityRandomGroup Random [Attack_1, Attack_2, Attack_1] with
+  // `_diffFromLastOneIfNotFirst` (skin keys Attack_1 / _2 → Attack_A / _B)
+  'op:char_264_f12yin:': { Attack_A: { alts: ['Attack_A', 'Attack_B'], pick: 'other' } },
+});
+
+/**
  * Apply SKILL_CLIP_OVERRIDES to resolveRoles' result for model `key` (mutates and returns `anims`). `names` (the
  * skeleton's clip names, optional): an override clip the model lacks is dropped — one side's skeleton can miss a clip
  * the other has (泥岩 Back has no Skill_2_Begin / _Awake / _Sleep: its S3 starts straight in Skill_2_Attack / _Idle).
@@ -113,6 +150,15 @@ export function applyAnimOverrides(key, anims, names = null) {
       if (!clip) continue;
       if (anims.skills && anims.skills[i]) anims.skills[i] = clip;
       if (anims.skill && anims.skill.index === Number(i)) anims.skill = clip;
+    }
+  }
+  for (const [prefix, map] of Object.entries(ATTACK_ALTS)) {
+    if (!key.startsWith(prefix)) continue;
+    for (const c of [anims.attack, anims.skill, ...Object.values(anims.skills || {})]) {
+      const alt = c && map[c.loop];
+      if (!alt) continue;
+      const alts = names ? alt.alts.filter((n) => names.includes(n)) : [...alt.alts];
+      if (alts.length > 1) Object.assign(c, { alts, pick: alt.pick });
     }
   }
   return anims;

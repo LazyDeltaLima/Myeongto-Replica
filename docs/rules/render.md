@@ -421,7 +421,10 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   (`Skill_2_Begin`은 S2 모드 공격 채널의 시작), 伊内丝 S3 시작 `Start_Skill`, 缄默德克萨斯 S2·S3 시작 `Start_2`·`Start_3`(배치 일격, 모드 Born 짝), 银灰 S2 공격
   `Combat`(그동안 S3의 `Skill`). 남은 `todo`는 클립을 트는 클라 구조로 묶었다(묶음 하나 = 렌더 고칠 자리 하나):
   - **A** 저지 대상 공격: 모드 `UnitMode._combat` — `Character._FetchCombatTarget`이 저지 중인 적 중 첫 적을 고를 때(要塞 `FORTRESS_CLIPS`의 일반형).
-  - **B** 대체 공격 클립: `AbilityRandomGroup`(무작위/차례)·`UberAnimationEffectEmitter._replaceGroup`·순차 묶음 — 휘두를 때마다 고름.
+  - **B** 대체 공격 클립: `AbilityRandomGroup`(무작위/차례)·`UberAnimationEffectEmitter._replaceGroup`·순차 묶음 — 휘두를 때마다 고름. 구현(같은 날):
+    `anim-overrides.mjs ATTACK_ALTS` → 역할 클립 `alts`·`pick`(차례 `loop`·무작위 `random`·「직전과 다르게」 `other` = `_diffFromLastOneIfNotFirst`), `spine.js _nextAlt`가
+    휘두름마다 고르고 모델이 바뀌어도(앞/뒤) 그 휘두름의 클립을 잇는다. 11명(维什戴尔·迷迭香·阿斯卡纶·隐德来希 S3·望 기본·S3·维娜·维多利亚·凛御银灰·
+    圣聆初雪 S3·伺夜 S3·山). 望 S2의 `Attack_2_A/B`는 E(장착 스킬 기본 모드)가 먼저.
   - **C** 첫 공격 begin·공격 end: `ThreePartOneshotAnimation`(`_onlyPlayBeginAnimWhenFirstAttack`, `_endAnimKey`) — `spine.js`가 공격 역할의 begin을 안 튼다.
   - **D** 스킬이 켜는 하위 모드의 `_replaceAnimPairs`(크루스 S2_Sub, 위셔델 과부하, 사키코 음색 등). **E** 장착 스킬의 기본 모드: `Character._GetDefaultModeIndex`
     (전투에 든 스킬의 `_defaultModeIndex`가 재능 값을 덮음) → `Unit.OnInit` `SwitchMode` — 배치부터 그 모드(Born→`Start_n`·Idle 짝).
