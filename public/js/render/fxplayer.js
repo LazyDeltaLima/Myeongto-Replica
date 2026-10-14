@@ -307,18 +307,25 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
   uniform bool uHasDisturb2; uniform sampler2D uDisturb2; uniform vec4 uDisturb2ST; uniform vec2 uDisturb2Str; uniform vec2 uDisturb2Anchor;
   uniform bool uHasWeight; uniform sampler2D uWeight; uniform vec4 uWeightST;
   uniform bool uHasAdd; uniform sampler2D uAdd; uniform vec4 uAddST; uniform sampler2D uMask; uniform float uAddFactor;
+  uniform bool uUVRot; uniform vec4 uRot[4];
   varying vec2 vUv; varying vec4 vColor; varying vec4 vC1; varying vec4 vC2;
+  // 2026-10-14 (client DXBC, _HG_UV_ROTATION): FxUVRotation turns a texture's tiled uv about its centre, before the scroll
+  vec2 rotUV(vec2 t, vec4 r) { vec2 c = t - 0.5; return vec2(r.x * c.x + r.z * c.y, r.y * c.x + r.w * c.y) + 0.5; }
   void main() {
     if (vH < uFloor) discard;   // local patch: under the floor (FxInstance opts.floor)
     vec2 dis = vec2(0.0);
     vec2 uv;
     if (uDisMode == 0) {
-      uv = vUv * uMainST.xy + uMainST.zw + uMainSpeed * uTime;
+      uv = vUv * uMainST.xy + uMainST.zw;
       // custom data (Torappu (CustomData) shaders, streams Custom1XYZW + Custom2XYZW): custom1.xy = main uv offset,
       // custom1.zw = extra distortion, custom2.x = dissolve amount — [ASSUMED] from the curves, tuned by eye
       if (uCustom) uv += vC1.xy;
+      if (uUVRot) uv = rotUV(uv, uRot[0]);
+      uv += uMainSpeed * uTime;
       if (uHasDisturb) {
-        vec2 duv = vUv * uDisturbST.xy + uDisturbST.zw + uDisturbSpeed * uTime;
+        vec2 duv = vUv * uDisturbST.xy + uDisturbST.zw;
+        if (uUVRot) duv = rotUV(duv, uRot[3]);
+        duv += uDisturbSpeed * uTime;
         // local patch (client DXBC): the noise's red channel times the strength, not centred
         vec2 n = vec2(texture2D(uDisturb, duv).r);
         dis = n * (uDisturbStr + (uCustom ? vC1.zw : vec2(0.0)));
@@ -347,11 +354,13 @@ const FRAG = /* glsl; i18n-ignore: the Chinese is in shader comments */`
     // local patch (maintainer report 2026-10-07, 赤刃明霄陈 S3's range too bright): the Ram family multiplies by _RamTex sampled at
     // the renderer's own uv through its tiling / offset — all of rgba (the client's DXBC: Ram/Disturb(CustomData),
     // Ram/Add, Ram/AlphaBlend) — not a ramp looked up by the dissolve edge as assumed before
-    if (uHasRam) col *= texture2D(uRam, vUv * uRamST.xy + uRamST.zw);
+    if (uHasRam) { vec2 ruv = vUv * uRamST.xy + uRamST.zw; if (uUVRot) ruv = rotUV(ruv, uRot[2]); col *= texture2D(uRam, ruv); }
     // dissolve: the shaders declare no edge colour, so _BorderWidth is the softness of the cut [ASSUMED]
     float e = 1.0;
     if (uHasDissolve) {
-      vec2 suv = uDisMode == 0 ? vUv * uDissolveST.xy + uDissolveST.zw + uDissolveSpeed * uTime + dis * uDisturbDissolve
+      vec2 suv = vUv * uDissolveST.xy + uDissolveST.zw;
+      if (uUVRot) suv = rotUV(suv, uRot[1]);
+      suv = uDisMode == 0 ? suv + uDissolveSpeed * uTime + dis * uDisturbDissolve
         : (vUv + dis) * uDissolveST.xy + uDissolveST.zw;   // Anchor: the moved uv through _DissolveTex_ST (client DXBC)
       float d = texture2D(uDissolve, suv).r;
       // local patch (client DXBC): saturate((d − amount + border · (1 − roundEven(amount + .5))) / border) — at amount 0
@@ -464,10 +473,12 @@ function makeMaterial(m, lib) {
       uHasRam: { value: !!t._RamTex }, uRam: { value: tex('_RamTex') || WHITE }, uRamST: { value: st('_RamTex') },
       uCustom: { value: (f._HGCustomVertexStream ?? (/CustomData/.test(shader) ? 1 : 0)) !== 0 },
       uTime: { value: 0 }, uAdditive: { value: additive },
+      uUVRot: { value: false }, uRot: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(1, 0, 0, 1)) },   // uvRotation
       uMode: { value: 0 }, uLengthScale: { value: 2 }, uVelScale: { value: 0 }, uAlign: { value: 0 }, uPivot: { value: new THREE.Vector2() },
     },
   });
   mat.userData.order = m?.queue ?? 3000;
+  mat.userData.uvRot = /Disturb\(CustomData/.test(shader);   // the shaders with the _HG_UV_ROTATION variant (uvRotation)
   mat.userData.rim = /\/Rim\//.test(shader);
   // local patch: whether the material tests depth (`_ZTest` 4 LessEqual …; 0 Disabled / 8 Always do not) — the floor cut
   // applies only to those: the client's map hides what they draw under the ground by depth [ASSUMED: 0 = Disabled is used]
@@ -500,6 +511,24 @@ function uvTween(mat, uvt, m) {
     list.push({ u, z0: uvt.keep ? u.value.z : 0, w0: uvt.keep ? u.value.w : 0, vx: +vx || 0, vy: +vy || 0, until: uvt.until > 0 ? uvt.until : Infinity });
   }
   if (list.length) mat.userData.uvt = list;
+}
+
+/**
+ * (2026-10-14, client code + DXBC) a node's FxUVRotation (fx_extract.py `uvr`: 4 angles in degrees, 0 = off): it switches the
+ * material to its _HG_UV_ROTATION variant — only the Disturb(CustomData) family has one (Disturb / Ram/Disturb / ZDistort …;
+ * every rotated material of the extracted prefabs) — and sets _Rotation0..3 to (cos, −sin, sin, cos) of each angle
+ * [ASSUMED: cos / sin — the client calls two unnamed CRT functions; the identity at angle 0 settles it]. The shader turns
+ * texture k's tiled uv (+ the custom offset for the main one) about (0.5, 0.5), u' = x·u + z·v, v' = y·u + w·v, then scrolls:
+ * 0 main, 1 dissolve, 2 the third texture (_RamTex / _WeightTex), 3 the noise [ASSUMED: _Rotation2 / 3 in the order of their
+ * constant slots — the shader's names are stripped].
+ */
+function uvRotation(mat, uvr) {
+  if (!mat?.userData.uvRot || !Array.isArray(uvr)) return;
+  mat.uniforms.uUVRot.value = true;
+  uvr.forEach((deg, k) => {
+    const a = (+deg || 0) * (Math.PI / 180), c = Math.cos(a), s = Math.sin(a);
+    if (k < 4) mat.uniforms.uRot.value[k].set(c, -s, s, c);
+  });
 }
 
 /** The renderer's time (seconds since its branch started) into its material: the shader clock and the uvTween offsets. */
@@ -1469,6 +1498,11 @@ export class FxInstance {
         else if (sys) uvTween(sys.material, n.uvt, def.materials[n.ps.render.mat]);
         else if (ln) uvTween(ln.batch.material, n.uvt, def.materials[n.lineR.mat]);
         else if (tr) uvTween(tr.batch.material, n.uvt, def.materials[n.trailR.mat]);
+      }
+      if (n.uvr) {   // 2026-10-14: FxUVRotation, the same renderer
+        const o = this.nodes[i];
+        const sys = this.systems.find((s) => s.node === o), ln = this.lines.find((t) => t.node === o), tr = this.trails.find((t) => t.node === o);
+        uvRotation(this.meshMats[i] || sys?.material || ln?.batch.material || tr?.batch.material, n.uvr);
       }
     });
     // 2026-10-14: sub emitters (fx_extract.py `mods.sub`, all Birth): the target system emits from each of this system's particles

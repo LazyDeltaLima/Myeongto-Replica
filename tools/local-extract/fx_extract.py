@@ -580,6 +580,9 @@ class Extractor:
             uvt = self.uv_tween(go)
             if uvt:
                 node['uvt'] = uvt
+            uvr = self.uv_rotation(go)
+            if uvr:
+                node['uvr'] = uvr
             tr = None
             for c in d['m_Component']:
                 comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
@@ -1023,8 +1026,37 @@ class Extractor:
             return out
         return None
 
+    def uv_rotation(self, go):
+        """(2026-10-14, decompile check) the GameObject's Torappu.Fx.FxUVRotation: `_Initialize` (RVA 0x34C4C70) enables the
+        material keyword _HG_UV_ROTATION and sets `<_propertyName>0..3` to the identity (1, 0, 0, 1) (the class's static,
+        `.cctor` 0x34C4EE0); `Update` (0x34C4870) sets each enabled one (`_rotateTex1..4`) to `_CalculateMatrix` (0x34C4B80)
+        of its angle (`angle1`, `_angle2..4`, degrees × 0.0174533): (f₂, −f₁, f₁, f₂) of two unnamed CRT calls — (cos, −sin, sin,
+        cos) [ASSUMED: identity at angle 0]. → `uvr` [4 angles, degrees; 0 for a disabled one], None without one or with all
+        disabled. Every component (154 in 62 prefabs) names `_Rotation`. Drawn by render/fxplayer.js (uRot0..3)."""
+        try:
+            d = go.read_typetree()
+        except Exception:
+            return None
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
+            if comp is None or comp.type.name != 'MonoBehaviour':
+                continue
+            try:
+                t = comp.read_typetree()
+            except Exception:
+                continue
+            if '_rotateTex1' not in t or '_propertyName' not in t:
+                continue
+            if t.get('_propertyName') != '_Rotation':
+                print(f"[fx] FxUVRotation {d['m_Name']}: property {t.get('_propertyName')!r} skipped")
+                return None
+            ang = [r4(float(t.get(a) or 0)) if t.get(f'_rotateTex{k + 1}') else 0
+                   for k, a in enumerate(('angle1', '_angle2', '_angle3', '_angle4'))]
+            return ang if any(ang) else None
+        return None
+
     def uvt_only(self, bundle, pack=None):
-        """2026-10-14: write only the nodes' `uvt` (uv_tween) into the bundle's already extracted prefabs (the nodes in the
+        """2026-10-14: write only the nodes' `uvt` (uv_tween) and `uvr` (uv_rotation) into the bundle's already extracted prefabs (the nodes in the
         extractor's own walk order, like delay_only; a file whose node names do not line up is left alone). Returns
         (prefabs with one, files changed)."""
         rel = pack or f'battle/prefabs/effects/{bundle}.ab'
@@ -1050,7 +1082,7 @@ class Extractor:
 
             def walk(g):
                 dd = g.read_typetree()
-                order.append((dd['m_Name'], self.uv_tween(g)))
+                order.append((dd['m_Name'], self.uv_tween(g), self.uv_rotation(g)))
                 tr = None
                 for c in dd['m_Component']:
                     comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], g)
@@ -1069,15 +1101,15 @@ class Extractor:
                 continue
             dirty = False
             for k, n in enumerate(nodes):
-                v = order[k][1]
-                if n.get('uvt') == v:
-                    continue
-                dirty = True
-                if v is None:
-                    n.pop('uvt', None)
-                else:
-                    n['uvt'] = v
-            found += any(x[1] for x in order)
+                for key, v in (('uvt', order[k][1]), ('uvr', order[k][2])):   # 2026-10-14: and FxUVRotation's `uvr`
+                    if n.get(key) == v:
+                        continue
+                    dirty = True
+                    if v is None:
+                        n.pop(key, None)
+                    else:
+                        n[key] = v
+            found += any(x[1] or x[2] for x in order)
             if dirty:
                 f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
                 changed += 1
@@ -1819,7 +1851,7 @@ def main():
     ap.add_argument('--prune', action='store_true', help='delete textures / meshes no extracted effect references')
     ap.add_argument('--mount-only', action='store_true', help='only write the FollowMountPoint `mount` into the already '
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch)')
-    ap.add_argument('--uvt-only', action='store_true', help='only write the FxUVTweener `uvt` of the nodes into the already '
+    ap.add_argument('--uvt-only', action='store_true', help='only write the FxUVTweener `uvt` and FxUVRotation `uvr` of the nodes into the already '
                     'extracted prefabs of the bundles (every bundle of the index without --bundle; 2026-10-14)')
     ap.add_argument('--sub-only', action='store_true', help='only write the particle systems\' sub emitters (`ps.mods.sub`) '
                     'into the already extracted prefabs of the bundles (every bundle of the index without --bundle; 2026-10-14)')

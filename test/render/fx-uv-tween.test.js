@@ -157,3 +157,17 @@ test('clip tracks on _IntensityU/V, _AnchorU/V, _RimPower and the Double family\
   near(r.meshMats[1].uniforms.uRimPower.value, 3, 'RimPower');
   a.dispose(); o.dispose(); d.dispose(); r.dispose();
 });
+
+test('FxUVRotation: a Disturb(CustomData) material gets its _Rotation0..3 = (cos, −sin, sin, cos) per angle; other shaders ignore it', () => {
+  const cd = { shader: 'Torappu/Particles/Ram/Disturb(CustomData)', tex: { _MainTex: tex(), _RamTex: tex() }, floats: {}, colors: {} };
+  const inst = new fxp.FxInstance(def(cd, { uvr: [-90, 0, 45, 0] }), { quality: 'high' });
+  const u = inst.meshMats[1].uniforms;
+  assert.equal(u.uUVRot.value, true);
+  const r = u.uRot.value;
+  near(r[0].x, 0, 'cos −90°'); near(r[0].y, 1, '−sin −90°'); near(r[0].z, -1, 'sin −90°'); near(r[0].w, 0, 'cos');
+  near(r[1].x, 1, 'off: identity'); near(r[1].w, 1, 'off: identity');
+  near(r[2].x, Math.SQRT1_2, '45°'); near(r[2].z, Math.SQRT1_2, '45°');
+  const other = new fxp.FxInstance(def(origin, { uvr: [90, 0, 0, 0] }), { quality: 'high' });
+  assert.equal(other.meshMats[1].uniforms.uUVRot.value, false, 'Disturb Origin has no _HG_UV_ROTATION variant');
+  inst.dispose(); other.dispose();
+});

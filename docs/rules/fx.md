@@ -326,8 +326,8 @@
   있었지만 스킬 모드가 아닌 모드의 attach를 트는 곳이 없어 한 번도 안 나왔다. 첫 수정은 둘 다 대역에 계속 틀었는데, 관리자 녹화(프레임 대조)와
   관리자 제보로 정정:
   - 파란 소용돌이·물보라 = 대역 등장 `[switch2stand]/StandBorn` `_castEffects` `ghost2_birth_01_start` — 1회(공식 약 0.4~1.4초). `char_modes.py` `dollBorn`.
-  - 3×3 원형 = `Talents/-1` 버프 `ghost2_standin[switch]`(대역 상태 버프)의 `beidong_buff_01` — 대역 동안. 레거시 `Animation` 클립이 메시 3개를 0.3초에 나타나게만 한다(추출기는
-    Mecanim 클립만 읽어 이 페이드인은 없음 — 차이는 처음 0.3초).
+  - 3×3 원형 = `Talents/-1` 버프 `ghost2_standin[switch]`(대역 상태 버프)의 `beidong_buff_01` — 대역 동안. 레거시 `Animation` 클립이 메시 3개를 0.3초에 나타나게만 한다(2026-10-14부터
+    읽음 — 아래 「흐르는 텍스처」 3차).
   - `beidong_buff_02`는 `Talents/1`(拥抱自我, `_targetOptions.targetSide 2` = 적 대상) 버프 이펙트 — **적에게 붙는 것**이라 대역 본인에게는 안 튼다. `char_modes.py` `attachFoe`.
   - `fxgame.js dollFx`: fx `substitute`에 dollBorn 1회 + Stand 모드 attach − attachFoe 반복, `swap`·`dollEnd`에 끔. 아레나·실제 솔로 판: 전환 순간 본체에 소용돌이 약 0.6초, 3×3 원형 유지.
     알려진 빈 곳: `beidong_buff_01_end` 안 틂; (3×3 원형 메시의 왜곡 텍스처 흐름 컴포넌트 = `FxUVTweener`, 2026-10-14부터 읽음 — 아래 「흐르는 텍스처」)
@@ -1015,12 +1015,23 @@
     - 확인: 단위 `test/render/fx-legacy-skin.test.js` 「Birth sub emitters」. Windows Chrome 디버그 페이지에서 대상 시스템의 입자 수·위치 개수: 위셔델
       `wisdel_skill_01_hit_02` 폭발 11종이 부모 입자 자리에서, 첸 더 던스트릭 `chen3_skill_03_trail_01` 별 9개가 동전 9곳에서, 무에나 별이 부모 별 자리에서.
       오류 0. [화면 미확인: 공식 녹화 대조, 실제 판]
+  - **FxUVRotation**(움직임이 아니라 텍스처의 고정 회전, 추출본 96개 프리팹·노드 228): 클라 코드 `_Initialize`(RVA 0x34C4C70)가
+    키워드 `_HG_UV_ROTATION`을 켜고 `_Rotation0..3`을 항등 (1, 0, 0, 1)(정적 필드, `.cctor` 0x34C4EE0)로 두며, `Update`(0x34C4870)가 켜진 것
+    (`_rotateTex1..4`)만 `_CalculateMatrix`(0x34C4B80) = 각도(도 × 0.0174533)의 (cos, −sin, sin, cos)로 바꾼다 [추정: cos·sin — 이름 없는 CRT 함수
+    둘, 각도 0이 항등이라는 데서]. 이 변형은 Disturb(CustomData) 계열(Disturb·Ram/Disturb·ZDistort … — 회전된 재질 전부가 이 둘)에만 있다. 정점
+    셰이더(DXBC)가 텍스처마다 타일링(+ 메인은 커스텀 오프셋) 뒤 uv를 (0.5, 0.5) 둘레로 u' = x·u + z·v, v' = y·u + w·v 돌린 다음 흐름을 더한다:
+    0 메인, 1 디졸브, 2 셋째 텍스처(Ram은 `_RamTex`, Disturb는 `_WeightTex`), 3 노이즈 [추정: 2·3의 짝은 상수 슬롯 순서 — 셰이더 이름이 지워짐;
+    켜진 2번 72개 중 62개는 그 재질에 해당 텍스처가 없어 결과가 같음]. 예전엔 회전 없이 그려 그 텍스처들의 방향이 틀렸다(각도 −90°~270°; 첸 더
+    던스트릭·비나 빅토리아·아스트젠 더 라이트체이서·쏜즈 더 로드스타 …).
+    - 구현: `fx_extract.py uv_rotation` → 노드 `uvr` [각도 4개, 꺼진 것 0](`--uvt-only`가 함께 씀), `fxplayer.js uvRotation`·셰이더 `rotUV`.
+    - 확인: 단위 `test/render/fx-uv-tween.test.js` 「FxUVRotation」. Windows Chrome 디버그 페이지에서 HEAD와 새 코드: 새 코드의 재질 유니폼이 첸 더
+      던스트릭 `quan2` −90° → (0, 1, −1, 0), 비나 빅토리아 `slash_bg_01_wave` 90° → (0, −1, 1, 0), 셰이더 컴파일 오류 0. 두 서버의 맵·재생 시점이
+      달라 눈 비교는 약함. [화면 미확인: 공식 녹화 대조]
 - 확인: 단위 `test/render/fx-uv-tween.test.js`(흐름 식·keep·until·없는 텍스처·클립 우선, Origin·Anchor 유니폼). Windows Chrome 디버그 페이지에서
   HEAD와 나란히 0.4초 간격 3프레임: 스펙터 디 언체인드 `ghost2_beidong_buff_01`(3×3 원)이 굳은 밝은 고리 → 흐르는 물결 고리, 글래디아
   `glady_skill_03_range_02`가 오퍼레이터를 덮는 흰 고리 → 도는 반투명 소용돌이, 프레임 간 차이 2.5→4.0·0.8→3.9. 셰이더 컴파일 오류 0
   (WebGL `drawElementsInstanced: no buffer` 경고는 HEAD와 같은 기존 것). [화면 미확인: 공식 녹화와의 대조, 실제 판]
-- 안 한 것: `FxUVRotation`(62개 프리팹 — 움직임이 아니라 `_Rotation0..3`에 고정 각도의 회전 행렬을 넣고 `_HG_UV_ROTATION` 키워드를 켬; 셰이더 쪽
-  적용 식을 안 읽음). 레거시 클립·스킨드 메시·서브 이미터는 위 3차. 파티클 충돌 모듈은 안 함.
+- 안 한 것: 파티클 충돌 모듈. `FxUVRotation`·레거시 클립·스킨드 메시·서브 이미터는 위 3차.
 - **글래디아 S3 회오리**: 키트 fx `'tornado'`가 `zoneFx`(그 스킬 투사체의 도달 이펙트 `glady_skill_03_range`·`_02`, 「시전 이펙트 시점·붙는 대상」
   zone)를 타지 않아 2D 원(`areaAway`)이 대신 그려지던 것 → `fxgame.js`가 `'zone'`과 같이 공식 프리팹을 회오리 자리에 지속 시간 동안 튼다.
   테스트 `test/render/fx-cast-timing.test.js` 「歌蕾蒂娅 S3」. [화면 미확인: 실제 판에서 회오리 자리·크기]
