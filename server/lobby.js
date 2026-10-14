@@ -139,6 +139,8 @@ export const BOT_NAMES = Object.freeze(['AI·华法琳', 'AI·阿米娅', 'AI·�
 
 const OK = Object.freeze({ ok: true });
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
+/** What a draining generation refuses (server/local-generation.js): everything that would bring a player into a room. */
+const DRAIN_REFUSED = new Set(['room.create', 'room.join', 'room.spectate', 'room.queue', 'room.queueRoom', 'room.queueAccept']);
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
 /**
@@ -354,6 +356,7 @@ export class Lobby {
    */
   onMessage(session, msg) {
     const local = localPatch.onMessage(this, session, msg); if (local) return local; // local patch
+    if (this.generation?.draining && DRAIN_REFUSED.has(msg.t)) return fail(ERR.NEW_VERSION); // server/local-generation.js
     switch (msg.t) {
       case 'room.create': return this.create(session, msg);
       case 'room.join': return this.join(session, msg);
@@ -735,7 +738,7 @@ export class Lobby {
   /** Extra fields of every `welcome` (net.js): the operators a 自选 slot may field (shared/diy.js `kitted`). */
   welcomeInfo() {
     // + a running restart countdown (local-restart.js, set by server/index.js)
-    return { diyKitted: KITTED_CHARS.filter(isLocalDiyPick), ...this.restartNotice?.welcomeInfo(), ...localPatch.welcomeInfo(this) }; // local patch: the picker offers our picks only; feedback
+    return { diyKitted: KITTED_CHARS.filter(isLocalDiyPick), ...this.restartNotice?.welcomeInfo(), ...this.generation?.welcomeInfo(), ...localPatch.welcomeInfo(this) }; // local patch: the picker offers our picks only; feedback
   }
 
   // ---------------------------------------------------------------------------------------------------
@@ -821,6 +824,7 @@ export class Lobby {
     setImmediate(() => this.disposeMatchCtx(ctx));
     this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended`);
     localPatch.onMatchEnd(this, room); // local patch: chat factions last one match
+    this.generation?.onMatchEnd(room); // a draining server keeps this room for its settlement screen
     for (let i = 0; i < room.seats.length; i++) {
       const s = room.seats[i];
       if (!s || s.isBot) continue;

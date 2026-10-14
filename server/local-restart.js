@@ -59,6 +59,8 @@ export class RestartNotice {
     this.at = null;
     /** @type {NodeJS.Timeout[]} */
     this.timers = [];
+    /** @type {import('./local-generation.js').Generation | null} set by server/index.js */
+    this.generation = null;
   }
 
   /** ms until the restart (0 once it is due), null when none is planned. */
@@ -90,6 +92,8 @@ export class RestartNotice {
 
   /** Lobby.start: the refusal when a new match would start within noStartMin of the restart, else null. */
   startRefusal() {
+    const drain = this.generation?.refusal(); // a draining generation starts nothing (server/local-generation.js)
+    if (drain) return drain;
     const inMs = this.inMs();
     return this.noStartMs > 0 && inMs != null && inMs <= this.noStartMs ? { error: ERR.RESTARTING } : null;
   }

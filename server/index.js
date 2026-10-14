@@ -32,6 +32,7 @@ import { createRequestHandler } from './http/routes.js';
 import { answerClientError } from './http/common.js';
 import { lanUrls, isProcessEntry, runMain } from './http/boot.js';
 import { RestartNotice } from './local-restart.js';
+import { Generation } from './local-generation.js';
 
 // The public API of this module (tests and tools import it from here); the code lives in ./http/.
 export {
@@ -49,6 +50,7 @@ export {
  *   ratePerSec?: number, rateBurst?: number, maxConnections?: number, maxRooms?: number,
  *   maxConnectionsPerAddr?: number, maxRoomsPerAddr?: number, maxMatchesPerAddr?: number, resyncMinGapMs?: number,
  *   heavyPerSec?: number, heavyBurst?: number, trustProxy?: 'auto' | boolean, soloReconnectWindowMs?: number,
+ *   genEnv?: Record<string, string | undefined>,
  * }} [opts]
  * @returns {Promise<{ port: number, host: string, url: string, server: http.Server, wss: import('ws').WebSocketServer,
  *                     lobby: import('./lobby.js').Lobby, network: import('./net.js').Network,
@@ -65,6 +67,10 @@ export async function startServer(opts = {}) {
   const { registry, lobby, network } = createSessionStack(opts, { data, log });
   const restart = new RestartNotice({ network, log }); // the deploy's restart countdown: SIGUSR2 (http/boot.js) → server.restart to everyone
   lobby.restartNotice = restart;
+  // the deploy's generation (SP_GEN): a draining server keeps its running matches and refuses the rest
+  const generation = new Generation({ lobby, network, restart, log, env: opts.genEnv || process.env });
+  lobby.generation = generation;
+  restart.generation = generation;
   // content packs (docs/PACKS.md): scanned now — the start log names them — and again whenever their folders change
   const packs = createPackRegistry({ publicDir, dataDir, packsDir }, { log });
   packs.refresh(true);
@@ -74,7 +80,7 @@ export async function startServer(opts = {}) {
   resetBuildTag();
   buildTag();
 
-  const server = http.createServer(createRequestHandler({ serveStatic, health: { startedAt, network, registry, lobby, restart }, log }));
+  const server = http.createServer(createRequestHandler({ serveStatic, health: { startedAt, network, registry, lobby, restart, generation }, log }));
   server.on('clientError', answerClientError);
   const wss = attachWebSocket(server, { network, log });
 
@@ -101,6 +107,7 @@ export async function startServer(opts = {}) {
     if (closing) return closing;
     closing = (async () => {
       restart.close();
+      generation.close();
       try { lobby.shutdown('shutdown'); } catch (e) { log.error('[shutdown] lobby', e); }
       network.close();
       await new Promise((resolve) => {
@@ -113,7 +120,7 @@ export async function startServer(opts = {}) {
     return closing;
   }
 
-  return { port: actualPort, host, url, server, wss, lobby, network, registry, packs, restart, close };
+  return { port: actualPort, host, url, server, wss, lobby, network, registry, packs, restart, generation, close };
 }
 
 // `node server/index.js` / npm start: listen, print the banner, stop on SIGINT / SIGTERM (http/boot.js).

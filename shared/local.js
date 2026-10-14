@@ -10,6 +10,8 @@
 //   debug panel    dbg.funds { on } · dbg.addDiy { charId, tier, golden?, skill?, module? } · dbg.addChess { chessId, golden? } · dbg.addEnemy { enemyKey, count? } · dbg.clearEnemies {} · dbg.finish { victory } — local debug mode only (server/local-patch.js debugMode)
 //   restart        server.restart { inMs, mark? } (every connected socket; inMs null = called off) + welcome `restart: { inMs }`
 //                  while a countdown runs — the deploy's server-restart notice (server/local-restart.js)
+//   generation     server.gen { id, state } (every connected socket when the server starts draining) + welcome
+//                  `gen: { id, state }` on a named server — deploys that keep running matches (server/local-generation.js)
 //   feedback       fb.send { id, kind, text, diag?, battles?, match?, public? } → ok — the settlement screen's 피드백 보내기, stored in
 //                  the server's inbox (server/local-feedback.js); welcome `feedback: true` while the inbox is on, `feedbackIssues`
 //                  (a repository's issue list) while reports sent with `public` become issues there (server/feedback-relay.js)
@@ -70,7 +72,7 @@ const isStr = (v, max) => typeof v === 'string' && v.length <= max;
 const optional = (check) => (v) => v === undefined || check(v);
 
 /** Server → client message types this patch adds (protocol.js S2C). */
-export const LOCAL_S2C = Object.freeze(['room.chat', 'room.chatlog', 'room.factions', 'server.restart']);
+export const LOCAL_S2C = Object.freeze(['room.chat', 'room.chatlog', 'room.factions', 'server.restart', 'server.gen']);
 
 /**
  * Add this patch's messages to the protocol tables (called once by shared/protocol.js, after both are defined). An

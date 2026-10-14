@@ -5,6 +5,8 @@
 //   * any method but GET / HEAD → 405 with `Allow: GET, HEAD`;
 //   * GET /healthz → JSON status (protocol `version`, release `app`, uptime, the served `build`, sockets, sessions,
 //     rooms, matches), never cached; GET /healthz/rooms → the per-room status list (server/local-rooms.js), inside only;
+//   * GET /healthz/accept → 200 while this server takes new visitors, else 503 (server/local-generation.js — the proxy's
+//     health check), and every page (/ and *.html) carries the generation cookie of a named server;
 //   * GET /changelog.json → the lobby's patch notes parsed from CHANGELOG.md (changelog.js);
 //   * GET /preload.json → the match screen's modules and scripts, for the lobby to download ahead (preload.js);
 //   * everything else → the static files (static.js).
@@ -24,9 +26,10 @@ const MAX_URL_LENGTH = 4096;
 /**
  * The GET /healthz body.
  * @param {{ startedAt: number, network: import('../net.js').Network, registry: import('../net.js').SessionRegistry,
- *           lobby: import('../lobby.js').Lobby, restart?: import('../local-restart.js').RestartNotice }} health
+ *           lobby: import('../lobby.js').Lobby, restart?: import('../local-restart.js').RestartNotice,
+ *           generation?: import('../local-generation.js').Generation }} health
  */
-export function healthReport({ startedAt, network, registry, lobby, restart }) {
+export function healthReport({ startedAt, network, registry, lobby, restart, generation }) {
   return {
     ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion() /* local patch */, uptimeSec: Math.round((Date.now() - startedAt) / 1000),
     // the runtime the server is serving right now (public/js/ui/buildGuard.js): a page whose own build is
@@ -34,6 +37,7 @@ export function healthReport({ startedAt, network, registry, lobby, restart }) {
     build: buildTag(),
     sockets: network.connectionCount, sessions: registry.size, ...lobby.stats(),
     restartInSec: restart ? (restart.inMs() == null ? null : Math.ceil(restart.inMs() / 1000)) : null, // the deploy's restart countdown (local-restart.js)
+    gen: generation?.id ?? null, genState: generation ? generation.state : null, // the deploy's generation (local-generation.js)
   };
 }
 
@@ -56,9 +60,15 @@ export function createRequestHandler({ serveStatic, health, log, changelog = cre
       sendError(req, res, 405, '不支持的请求方法 · Method not allowed');
       return;
     }
-    if (parts.rawPath === '/healthz' && proxiedRequest(req)) { sendJson(req, res, 200, { ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion(), build: buildTag() }); return; } // local patch: no counters through the proxy; `local` = shared/local.js localVersion
+    const gen = health?.generation;
+    if (parts.rawPath === '/healthz' && proxiedRequest(req)) { sendJson(req, res, 200, { ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, local: localVersion(), build: buildTag(), gen: gen?.id ?? null, draining: !!gen?.draining }); return; } // local patch: no counters through the proxy; `local` = shared/local.js localVersion
     if (parts.rawPath === '/healthz') {
       sendJson(req, res, 200, healthReport(health));
+      return;
+    }
+    if (parts.rawPath === '/healthz/accept') { // answered through the proxy too: it only says yes or no
+      const yes = !gen || gen.state === 'accept';
+      sendJson(req, res, yes ? 200 : 503, { accept: yes });
       return;
     }
     if (parts.rawPath === '/healthz/rooms') { // per-room status (local-rooms.js), 404 through the proxy
@@ -74,6 +84,8 @@ export function createRequestHandler({ serveStatic, health, log, changelog = cre
       sendJson(req, res, 200, await preloadList());
       return;
     }
+    const cookie = gen && (parts.rawPath === '/' || parts.rawPath.endsWith('.html')) ? gen.cookie(req.headers['x-forwarded-proto'] === 'https') : null;
+    if (cookie) res.setHeader('Set-Cookie', cookie);
     await serveStatic(req, res, parts.rawPath, parts.query);
   }
 

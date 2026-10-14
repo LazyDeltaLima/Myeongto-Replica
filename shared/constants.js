@@ -161,6 +161,7 @@ export const ERR = Object.freeze({
   ELIMINATED: 'ELIMINATED',
   SPECTATOR: 'SPECTATOR',         // a spectator seat only watches (MAX_SPECTATORS)
   RESTARTING: 'RESTARTING',       // no new match this close to a deploy restart (server/local-restart.js, last 5 min)
+  NEW_VERSION: 'NEW_VERSION',     // a draining server (server/local-generation.js): the new version takes new rooms
   BOT_LIMIT: 'BOT_LIMIT',         // the server's AI-teammate budget (SP_MAX_BOTS_TOTAL / _PER_ADDR, server/local-patch.js) is used
   MATCHING: 'MATCHING',           // the room waits in the 랜덤 매칭 queue (server/matchmaking.js): no join / seat change / start
   INTERNAL: 'INTERNAL',
@@ -174,6 +175,7 @@ export const ERR_TEXT = {
   BAD_TILE: N_('无法部署在该位置'), BAD_TARGET: N_('无效的目标'), SOLD_OUT: N_('已售出'), MAX_LEVEL: N_('调度中心已达最高等级'),
   NOT_YOUR_TURN: N_('尚未轮到你'), ALREADY: N_('已完成该操作'), TEMP_NOT_EMPTY: N_('临时整备区不为空'), ELIMINATED: N_('你已被淘汰'),
   SPECTATOR: N_('观战中无法进行该操作'), RESTARTING: N_('服务器即将重启，暂时无法开始新的模拟'),
+  NEW_VERSION: N_('新版本已上线，请刷新页面'),
   BOT_LIMIT: N_('服务器的 AI 队友名额已满，请稍后再试'), MATCHING: N_('同盟正在匹配中，请先取消匹配'), INTERNAL: N_('服务器内部错误'),
 };
 

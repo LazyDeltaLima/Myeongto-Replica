@@ -37,7 +37,7 @@ import { useErrorBoundary } from '../vendor/hooks.module.js';
 import { html, UiHosts, Button, MicroLabel, closeAllDialogs } from './ui/components.js';
 import { ConnectionBanner } from './ui/connBanner.js';
 import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
-import { net, identity, NetError } from './net.js';
+import { net, identity, NetError, defaultWsUrl } from './net.js';
 import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating } from './store.js';
 import { data } from './data.js';
 import { GAME_FILES } from './ui/gameComponents.js';
@@ -59,6 +59,7 @@ import { installDiyPresets } from './ui/diyPresets.js'; // 진영별 선발 프�
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
 import { installRestartNotice } from './ui/restartNotice.js'; // the deploy's restart countdown
+import { installGeneration, genUrl } from './ui/generation.js'; // the deploy's server generation (no cut matches)
 import { installMatchQueue } from './ui/matchQueue.js'; // 랜덤 매칭 (server/matchmaking.js)
 import { installFeedback } from './ui/feedback.js'; // local patch: whether the server keeps feedback (welcome)
 import { installResources, ResourceHost } from './resources.js';
@@ -248,6 +249,7 @@ const CLOSE_REASON = {
   // 'timeout' = this player was removed after staying disconnected past the lobby grace (server/lobby.js)
   host_left: N_('创建者已离开，同盟已解散'), timeout: N_('由于长时间断开连接，你已离开同盟'), empty: N_('同盟已解散'),
   kicked: N_('你已被移出同盟'), ended: N_('模拟已结束'), expired: N_('同盟已过期'), shutdown: N_('服务器维护中，同盟已关闭'),
+  newVersion: N_('新版本已上线，请在新版本中重新创建同盟'),
 };
 
 function wireNet() {
@@ -424,6 +426,7 @@ async function boot() {
   installLoadoutSync({ net });
   installChat();
   installRestartNotice({ net, onRestarted: () => { buildGuard?.burst().catch(() => {}); } });
+  installGeneration({ net, inMatch: () => selectRoute(store.get()) === 'game', wsUrl: () => defaultWsUrl() });
   installMatchQueue({ net });
   installFeedback({ net });
   installResources();
@@ -465,6 +468,7 @@ async function boot() {
   // A restart the page heard of is over (ui/restartNotice.js onRestarted): the guard checks at once, not within two minutes.
   try {
     buildGuard = startBuildGuard({
+      fetchFn: (url, init) => globalThis.fetch(genUrl(url), init), // this tab's server during a deploy (ui/generation.js)
       inMatch: () => selectRoute(store.get()) === 'game',
       onStale: ({ waiting }) => { if (waiting) store.patch('ui', { buildStale: true }); },
     });

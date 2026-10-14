@@ -563,7 +563,8 @@ test('/healthz through the proxy: build only, no counters (server/local-patch.js
     const direct = await (await fetch(url)).json();
     assert.ok('sockets' in direct && 'rooms' in direct && direct.build);
     const viaProxy = await (await fetch(url, { headers: { 'X-Forwarded-For': '1.2.3.4' } })).json();
-    assert.deepEqual(Object.keys(viaProxy).sort(), ['app', 'build', 'local', 'ok', 'version']);
+    // + the deploy's generation for the page (server/local-generation.js): its name and whether it is draining
+    assert.deepEqual(Object.keys(viaProxy).sort(), ['app', 'build', 'draining', 'gen', 'local', 'ok', 'version']);
     assert.match(viaProxy.local, /^\d+\.\d+\.\d+$/, '`local` repeats APP_VERSION since 1.2.0 (shared/local.js localVersion) for the deploy script');
     assert.equal(viaProxy.build, direct.build);
   } finally { await srv.close(); }

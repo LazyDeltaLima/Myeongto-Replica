@@ -6,13 +6,16 @@
 //     exceptions are logged, not fatal;
 //   * graceful shutdown on SIGINT/SIGTERM (rooms get room.closed{reason:'shutdown'}, sockets close 1001); a second
 //     signal exits at once, and the process exits anyway 5 s after the first;
-//   * SIGUSR2 reads the restart countdown file and announces it (server/local-restart.js).
+//   * SIGUSR2 reads the restart countdown file and announces it (server/local-restart.js), or — when the file holds
+//     `accept` / `drain` / `standby` — moves the deploy's generation (server/local-generation.js); a drained generation
+//     stops the process the same way as SIGTERM (exit 0).
 
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { APP_VERSION, DEV_BUILD } from '../../shared/constants.js';
 import { restartFile, parseRestartFile } from '../local-restart.js';
+import { parseGenControl } from '../local-generation.js';
 
 /** Non-internal IPv4 addresses as http URLs. @param {number} port */
 export function lanUrls(port) {
@@ -49,7 +52,8 @@ export function printBanner(srv) {
 /**
  * The process main: start the server, print the banner, stop gracefully on SIGINT / SIGTERM.
  * @param {() => Promise<{ url: string, host: string, port: number, close: () => Promise<void>,
- *                         restart?: import('../local-restart.js').RestartNotice }>} start index.js startServer
+ *                         restart?: import('../local-restart.js').RestartNotice,
+ *                         generation?: import('../local-generation.js').Generation }>} start index.js startServer
  */
 export async function runMain(start) {
   process.on('unhandledRejection', (e) => console.error('[process] unhandled rejection', e));
@@ -62,8 +66,10 @@ export async function runMain(start) {
   const readRestart = () => {
     const file = restartFile();
     fs.promises.readFile(file, 'utf8').then((text) => {
+      const gen = parseGenControl(text);
+      if (gen) { srv.generation?.set(gen); return; }
       const minutes = parseRestartFile(text);
-      if (minutes == null) { console.error(`[restart] ${file}: expected minutes or "cancel", got ${JSON.stringify(text.slice(0, 40))}`); return; }
+      if (minutes == null) { console.error(`[restart] ${file}: expected minutes, "cancel" or accept / drain / standby, got ${JSON.stringify(text.slice(0, 40))}`); return; }
       srv.restart?.schedule(minutes);
     }, (e) => console.error(`[restart] cannot read ${file}: ${e.code || e.message}`));
   };
@@ -86,6 +92,7 @@ export async function runMain(start) {
     setTimeout(() => process.exit(0), 5000).unref();
     srv.close().then(() => process.exit(0), () => process.exit(1));
   };
+  if (srv.generation) srv.generation.onDrained = () => stop('drained');
   process.on('SIGINT', () => stop('SIGINT'));
   process.on('SIGTERM', () => stop('SIGTERM'));
 }
