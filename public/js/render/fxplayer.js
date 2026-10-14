@@ -1368,10 +1368,15 @@ const ACTIVE_PROP = 'attr:2086281974';
 const clipE = new THREE.Euler();
 const IDENTITY16 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
+/** Whether any renderer of the prefab `def` has a negative sortingOrder (behind the units) — a status effect splits only then. */
+export function hasBackOrder(def) {
+  return !!def?.nodes?.some((n) => [n.mesh, n.skin, n.ps?.render, n.trailR, n.lineR].some((r) => (r?.order || 0) < 0));
+}
+
 export class FxInstance {
   /**
    * @param {any} def FxLibrary.load result
-   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean, atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean }} [opts]
+   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean|'backOnly', atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean }} [opts]
    *   facing / dir / body (maintainer decision 2026-10-11 「공식대로」): the effect turns as the client's `ParticleEffect.FaceTo`
    *   (RVA 0xCB1DC0) does by its root `face` record (render/fx/face.js faceTurn) — `dir` = the direction it is played with
    *   (default ±x by `facing`, the owner's drawn side), `body` = the four-way facing of the unit it is created on (for
@@ -1384,7 +1389,7 @@ export class FxInstance {
    *   local patch: floor = the board height of the ground under it (default 0): what lies more than 0.05 below is not drawn
    *   (null: no cut); split = each renderer on layer FX_FRONT or FX_BACK by its Unity sorting (sortingOrder > 0, or 0 with a
    *   negative sorting fudge = in front of the units, whose Spine renderers are Default / order 0 and write no depth) —
-   *   without it everything stays on layer 0; atSpawn (default on; false keeps it) = drop the root node's own position (the
+   *   without it everything stays on layer 0; 'backOnly' (a status effect) puts only sortingOrder < 0 on FX_BACK; atSpawn (default on; false keeps it) = drop the root node's own position (the
    *   caller's placement replaces it); pivot (default on; false ignores it) = billboard / aligned / horizontal quads use their
    *   renderer's pivot (uPivot) — on for every effect by the maintainer's decision 2026-10-08 (docs/LOCAL-PATCH.md 「정예 기물 금빛」);
    *   ahead (default on, with split; false keeps order 0 behind) = an order-0 particle system whose node lies in front of the unit
@@ -1534,6 +1539,9 @@ export class FxInstance {
     this.layerN = [0, 0, 0];
     if (opts.split) {
       const put = (mesh, front) => { const k = front ? FX_FRONT : FX_BACK; mesh.layers.set(k); this.layerN[k]++; };
+      // backOnly (a status effect, render/fxgame.js playStatus): only sortingOrder < 0 goes behind the unit, the rest stays
+      // in front as it was before the split
+      const back = opts.split === 'backOnly' ? (o) => o >= 0 : null;
       this.object.updateMatrixWorld(true);
       def.nodes.forEach((n, i) => {
         if (this.meshMats[i]) {
@@ -1542,7 +1550,7 @@ export class FxInstance {
           // around the unit (a dome / shell, > WRAP_H tall) is in front — the client sorts order 0 by distance; a flat
           // ground decal stays behind
           const order = (n.mesh || n.skin).order || 0;
-          if (mesh) put(mesh, order > 0 || (!order && wrapsUnit(mesh, this.object)));
+          if (mesh) put(mesh, back ? back(order) : order > 0 || (!order && wrapsUnit(mesh, this.object)));
         }
       });
       // local patch (opts.ahead, maintainer report 2026-10-08: the elite glow's gold band covers the legs in the game; every split
@@ -1551,12 +1559,12 @@ export class FxInstance {
       // in front of / behind every unit at once, not sorted per unit]
       for (const s of this.systems) {
         const r = s.ps.render, o = r.order || 0;
-        const front = o > 0 || (o === 0 && ((r.fudge || 0) < 0 || (opts.ahead !== false && aheadOf(s.node, this.object))));
+        const front = back ? back(o) : o > 0 || (o === 0 && ((r.fudge || 0) < 0 || (opts.ahead !== false && aheadOf(s.node, this.object))));
         if (s.draws) put(s.mesh, front); else s.mesh.layers.set(front ? FX_FRONT : FX_BACK);
         if (s.trailBatch) put(s.trailBatch.mesh, front);
       }
-      for (const t of this.trails) put(t.batch.mesh, (t.tr.order || 0) > 0);
-      for (const t of this.lines) put(t.batch.mesh, (t.tr.order || 0) > 0); // local patch
+      for (const t of this.trails) put(t.batch.mesh, back ? back(t.tr.order || 0) : (t.tr.order || 0) > 0);
+      for (const t of this.lines) put(t.batch.mesh, back ? back(t.tr.order || 0) : (t.tr.order || 0) > 0); // local patch
     } else this.layerN[0] = 1;
     // (2026-10-10, user report: buff effects that vanish) a clip with Unity's loop flag (fx_extract.py `loop` = the clip's
     // m_LoopTime) repeats — it was held on its last frame, and an effect whose only motion was such a clip ended with it

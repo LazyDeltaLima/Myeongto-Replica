@@ -105,3 +105,39 @@ describe('client: status → the official buff effect', () => {
   });
 });
 
+
+// 2026-10-14 (maintainer report, YouTube captures of 伊内丝's / 卡涅利安's bind): a status effect's sortingOrder < 0
+// renderers are behind the model (render/fxgame.js playStatus splits 'backOnly' at 'high'), the rest stays in front
+describe('status effects: sortingOrder < 0 behind the unit', () => {
+  const mat = { shader: 'Torappu/Particles/Additive', tex: {}, floats: {}, colors: {} };
+  const node = (name, parent, extra = {}) => ({ name, parent, active: true, pos: [0, 0, 0], rot: [0, 0, 0, 1], scale: [1, 1, 1], ...extra });
+  const k = (s) => ({ m: 0, s });
+  const ps = (order) => ({ dur: 1, loop: true, delay: k(0), speedMul: 1, space: 0, scaling: 1, prewarm: false, life: k(1), speed: k(0), color: { m: 0, a: [1, 1, 1, 1] },
+    size: k(1), rot: k(0), max: 1, gravity: k(0), flipRot: 0, rate: k(1), bursts: [], mods: {},
+    render: { mode: 0, mesh: null, mat: 'm', lengthScale: 2, velScale: 0, align: 2, pivot: [0, 0, 0], order, fudge: 0, maxSize: 2, streams: [0, 1, 3, 4] } });
+  const def = (orders) => ({ name: 'x', duration: 4, materials: { m: mat }, clips: [], geoms: {}, lib: null,
+    nodes: [node('x', -1), ...orders.map((o, i) => node(`p${i}`, 0, { pos: [0, 0.609, 0.152], ps: ps(o) }))] });
+
+  test("FxInstance split 'backOnly': only order < 0 on FX_BACK — order 0 stays in front even behind the unit (the 冻结 block)", async () => {
+    const fxp = await import('../../public/js/render/fxplayer.js');
+    const F2 = 1 << fxp.FX_FRONT, B = 1 << fxp.FX_BACK;
+    const layers = (split) => { const i = new fxp.FxInstance(def([-1, 0, 7]), { quality: 'high', split }); const m = i.systems.map((s) => s.mesh.layers.mask); i.dispose(); return m; };
+    assert.deepEqual(layers('backOnly'), [B, F2, F2]);
+    assert.deepEqual(layers(true), [B, B, F2], 'a caster effect: order 0 behind the unit stays back (unchanged)');
+    assert.equal(fxp.hasBackOrder(def([0, 7])), false);
+    assert.equal(fxp.hasBackOrder(def([-1, 0])), true);
+  });
+
+  test('the bind prefabs: 伊内丝 glow and 卡涅利安 sand planes behind, their lines / strands in front', async (t) => {
+    const fs = await import('node:fs');
+    const fxp = await import('../../public/js/render/fxplayer.js');
+    const load = (k) => { const f = new URL(`../../public/assets/local/fx/${k}.json`, import.meta.url); return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null; };
+    const ines = load('ines/ines_imprison_01'), billro = load('billro/billro_skill_02_buff_03');
+    if (!ines || !billro) return t.skip('effects not extracted');
+    const back = (d) => d.nodes.filter((n) => [n.mesh, n.ps?.render].some((r) => (r?.order || 0) < 0)).map((n) => n.name);
+    assert.ok(fxp.hasBackOrder(ines) && fxp.hasBackOrder(billro));
+    assert.deepEqual(back(ines), ['glow_01 (3)']);
+    assert.deepEqual(back(billro), ['plane01 (6)', 'plane01_2', 'baoshan2']);
+    assert.equal(fxp.hasBackOrder(load('mizuki/mizuki_skill_02_buff_02') || { nodes: [] }), false, 'no back renderer: not split');
+  });
+});

@@ -772,12 +772,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (view.hover || 0); },
       get alive() { return view.alive; }, get remove() { return view.remove; },
     };
-    // local patch: status prefabs are NOT split — their renderers are sortingOrder 0 / fudge 0 (buff_autochess_frozen's
-    // block too), which the split puts behind the unit, while the client sorts them by depth and the 冻结 block covers the
-    // model (maintainer capture 9); drawn over the units as before (the snowflake / fist over heads, capture 10)
+    // local patch: status prefabs are not split like a caster's effect — their renderers are sortingOrder 0 / fudge 0
+    // (buff_autochess_frozen's block too), which that split puts behind the unit, while the client sorts them by depth and
+    // the 冻结 block covers the model (maintainer capture 9); drawn over the units (the snowflake / fist over heads, capture 10).
+    // 2026-10-14 (maintainer report: 伊内丝's / 卡涅利安's bind tinted the whole enemy, YouTube captures: thin red lines / gold
+    // sand strands, the glow only around the silhouette): a renderer with sortingOrder < 0 is behind the model (伊内丝 glow -1,
+    // 卡涅利安 sand planes -2 / -3) — at 'high' a prefab that has one splits 'backOnly', everything else stays in front.
     // local patch (maintainer request 2026-10-08): `under` (the prep elite glow, fxgolden.js — its glow / sparks are sortingOrder -1,
     // behind the model) splits by sorting at 'high' like a caster's effect, else draws under the units
-    const split = !!under && splitOn();
+    const split = !splitOn() ? false : under ? true : mod.fxp.hasBackOrder(def) ? 'backOnly' : false;
     const inst = new mod.fxp.FxInstance(def, { quality: q(), facing: (view.visFacing ?? view.facing ?? 1) < 0 ? -1 : 1, split, floor: view.z || 0, hold });
     inst.object.position.set(anchor.x, anchor.y, anchor.z);
     addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: () => playStatus(view, bundle, name, key, frac, hold, under), unit: view }, split ? layers.split : under ? layers.under : layers.over);
