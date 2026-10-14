@@ -1142,7 +1142,7 @@ function kitLucien(ab, e) {
 
 function kitLion(ab, e, b) {
   const eq = ab.sk.equip, eqA = ab.sk.equipA, st = ab.sk.store, stA = ab.sk.storeA, su = ab.sk.Suicide;
-  const P = { sp: 0, adv: false, nextAnim: null, wand: false };
+  const P = { sp: 0, adv: false, nextAnim: null, wand: false, vestSide: 0 };
   const wandDef = b.data.getEnemy('enemy_10030_vtwand');
   const disarm = wandDef && wandDef.talent ? wandDef.talent['1.disarmed_duration'] ?? 0 : 0;
   const range = () => e.base.rangeRadius || 3.4;
@@ -1176,7 +1176,9 @@ function kitLion(ab, e, b) {
         const t = b2.rng.pick(targetsNear(b2, e2, range()));
         if (t) { b2.fx('sword', { x: q.x, y: q.y, from: q.id, to: t.id }); hurt(b2, e2, t, e2.s.atk * ((sk && sk.bb.atk_scale) || 0), 'phys'); }
       } else if (q.defId === 'enemy_10029_vtshld') {
-        const side = Math.sign(q.x - e2.x) || -1;
+        // the guarded side alternates with every vest activated (official template enemy_vtlionk_shld `front` toggle):
+        // first +x [ASSUMED: the client's first side is "right" = the larger column], then the other side each time
+        const side = P.vestSide = P.vestSide > 0 ? -1 : 1;
         b2.addBuff(e2, { key: 'boss:vest', shield: (sk && sk.bb.dynamic) || 0, persist: true, visible: true, data: { side, cut: (sk && sk.bb.damage_resistance) || 0 } });
         b2.fx('vest', { x: e2.x, y: e2.y, id: e2.id, side });
       } else if (q.defId === 'enemy_10030_vtwand') {

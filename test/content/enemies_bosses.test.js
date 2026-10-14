@@ -3108,21 +3108,30 @@ for (const key of ['enemy_10028_vtswd', 'enemy_10029_vtshld', 'enemy_10030_vtwan
   });
 }
 
-test('阿利斯泰尔 防护背心: an animated vest gives a barrier and −80 % damage from its side', () => {
+test('阿利斯泰尔 防护背心: an animated vest gives a barrier and −80 % damage from the guarded side — first +x, then the other side with each vest (wherever the vest lay)', () => {
   const h = bossArena({ units: [{ chessId: 't_gun', row: 10, col: 4 }, { chessId: 't_mage', row: 10, col: 16 }], kits: { t_gun: NOATK, t_mage: NOATK } });
   h.step();
   const e = put(h, 'enemy_9032_aclionk', [3, 10], { tag: 'boss' });
   e.profile.noAttack = true;
-  const vest = put(h, 'enemy_10029_vtshld', [3, 8], { tag: 'part' });
+  const vest = put(h, 'enemy_10029_vtshld', [3, 8], { tag: 'part' });   // lying on the left
   h.run(2.2);
   assert.ok(!vest.alive, 'animated & consumed');
   const v = e.findBuff('boss:vest');
   const st = skb('enemy_9032_aclionk', 'store').bb;
   assert.equal(v.shield, st.dynamic);
-  h.b.dealDamage(h.unit('t_gun'), e, { amount: 1000, type: 'true' });      // from the vest side (left)
+  assert.equal(v.data.side, 1, 'the first vest guards +x (official `front` toggle, first side [ASSUMED] right)');
+  h.b.dealDamage(h.unit('t_mage'), e, { amount: 1000, type: 'true' });     // from the guarded side (+x)
   approx(v.shield, st.dynamic - 1000 * (1 - st.damage_resistance));
-  h.b.dealDamage(h.unit('t_mage'), e, { amount: 1000, type: 'true' });     // from the other side
+  h.b.dealDamage(h.unit('t_gun'), e, { amount: 1000, type: 'true' });      // from the other side
   approx(v.shield, st.dynamic - 1000 * (1 - st.damage_resistance) - 1000);
+  // the next vest, lying on the right this time, guards the other side (−x)
+  const vest2 = put(h, 'enemy_10029_vtshld', [3, 12], { tag: 'part' });
+  h.runUntil(() => !vest2.alive, skb('enemy_9032_aclionk', 'equip').spCost + 3);
+  const v2 = e.findBuff('boss:vest');
+  assert.equal(v2.data.side, -1);
+  const s0 = v2.shield;
+  h.b.dealDamage(h.unit('t_gun'), e, { amount: 1000, type: 'true' });
+  approx(v2.shield, s0 - 1000 * (1 - st.damage_resistance));
 });
 
 test('阿利斯泰尔 未装配刀片 / 冲击式施术单元: sword strike (ATK×2) / next attack becomes arts and disarms', () => {

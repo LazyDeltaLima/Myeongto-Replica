@@ -950,3 +950,8 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **옛 동작**: 도착 순간 3×3에 있던 유닛만 `killed.duration` 10 s 기절 + 10회 DoT(`boss:helmShellDot`). 그 자리 유닛 기준 총 피해는 같았다.
 - 斩胄之剑·破胄之锤의 돌진 폭발(`acstma_s_1[reach_target]`)은 공식도 도착 순간 스냅샷이라 그대로(`stunBlast`). 테스트 `enemies_bosses.test.js`
   「假想敌：胄 + 刺胄之弹…」.
+
+### 阿利斯泰尔 防护背心 방향 (`kitLion` 【莫非王土】)
+- **규칙**: 조끼를 활성화할 때마다 막는 면이 번갈아 바뀐다(클라 버프 템플릿 `enemy_vtlionk_shld`의 `front` 토글) — 알리스테어 유닛마다 첫 조끼는 +x(열 번호가 큰
+  쪽), 그다음은 직전의 반대쪽. 5000 보호막이 남아 있는 동안 그 면(공격자의 칸 위치)에서 온 피해 ×(1 − `damage_resistance`). [ASSUMED] 첫 면 「오른쪽」 = +x.
+- **옛 동작**: 조끼가 놓였던 칸이 보스의 어느 쪽인지로 면을 정했다. 테스트 `enemies_bosses.test.js` 「阿利斯泰尔 防护背心…」.
