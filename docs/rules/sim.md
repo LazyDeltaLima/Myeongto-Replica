@@ -801,8 +801,8 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   - 杰斯顿·威廉姆斯 IronSandStorm(`projectile_enemy_jakill_s1` 10): 대상마다 한 발, 닿을 때 기절(본 공격 피해는 엔진의 일반 공격 투사체 10).
   - “碎铳之簧” `1`: 元素护盾 탄(`projectile_enemy_actrpb` 15)은 닿을 때 침식, 튕김은 맞은 대상에서 출발 [추정: 같은 투사체]; 频次护盾 10연타
     (`projectile_enemy_actrpc` 10)는 닿을 때 10타 [추정: 10타 사이 간격은 안 읽음].
-  - 假想敌：管 `1`(`projectile_enemy_acduml` 10): 0.4 s 간격 세 발이 余音에 닿을 때 폭발·余音 피격. 假想敌：弦 `1`(`projectile_enemy_acdumm` 10): 金 余音에
-    닿을 때 폭발·暗 전환. 둘의 일반 공격(余音 타격)도 공식 `proj`(같은 키, 10)로 날아 닿을 때 余音 피격.
+  - 假想敌：管 `1`(`projectile_enemy_acduml` 10): 0.25 s 간격 세 발이 余音에 닿을 때 폭발·余音 피격. 假想敌：弦 `1`(`projectile_enemy_acdumm` 10): 金 余音에
+    닿을 때 폭발·暗 전환. 둘의 일반 공격도 공식 `proj`(같은 키, 10)로 날아 닿을 때 폭발(아래 「假想敌：管·弦 일반 공격…」).
 - **'dmg' 이벤트 6번째 = 공격자 unit id** (`server/sim/damage.js attackerId`): 일반 공격, 키트가 `battle.dealDamage`로 넣는 스킬 피해('atk' 없음 — 키트
   약 60개), DoT(건 유닛), 소환물(자기 id). 无来源(원소 폭발, `periodicDamage`)·출처 없는 피해는 null. 원소 게이지
   채움도 같은 자리(5번째는 0). 기존 원소 위치·뜻은 그대로.
@@ -940,7 +940,7 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   둘 다 ATK 100 % 법술. 시전 fx `enemySkill`의 `ability`가 프리팹 능력 이름(렌더가 공식 이펙트를 붙임). enemy_database 스킬 `Skill`(쿨 5·첫 2)은 프리팹에
   능력이 없어 쓰지 않는다. [ASSUMED] 행동할 수 없는 余音(기절·빙결·수면)은 합주하지 않고 SP만 함께 비워진다; 검사 자체는 상태와 무관.
 - **옛 동작**: 余音마다 `Skill` 쿨다운(첫 2 s, 이후 5 s)으로 따로 합주. 테스트 `enemies_bosses.test.js` 「“余音” 【合奏】…」·「“余音”: 10-hit unit…」.
-- 피격 펄스(`echoHit`)는 그대로. 관·현의 일반 공격·스킬이 余音을 치는 것은 피해가 아니라 펄스만이라 SP에 들어가지 않는다(관·현 쪽 수정 때 다시 볼 것).
+- 피격 펄스(`echoHit`)는 그대로. 관·현의 일반 공격·스킬이 余音을 치는 것도 실제 피해 1회(2026-10-15, 아래 「假想敌：管·弦…」)라 SP·타수·형태 전환에 든다.
 
 ### 刺胄之弹 도착 장판 (`kitShell`·`shellZone`)
 - **규칙**: 도착(죽음)하면 클라 투사체 `projectile_enemy_acstmr_s1`을 남긴다 — 수명 9.95 s, 범위 `x-4`(도착 칸 둘레 3×3), `_keepAlreadyHitTime` 1.0 s.
@@ -955,3 +955,24 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **규칙**: 조끼를 활성화할 때마다 막는 면이 번갈아 바뀐다(클라 버프 템플릿 `enemy_vtlionk_shld`의 `front` 토글) — 알리스테어 유닛마다 첫 조끼는 +x(열 번호가 큰
   쪽), 그다음은 직전의 반대쪽. 5000 보호막이 남아 있는 동안 그 면(공격자의 칸 위치)에서 온 피해 ×(1 − `damage_resistance`). [ASSUMED] 첫 면 「오른쪽」 = +x.
 - **옛 동작**: 조끼가 놓였던 칸이 보스의 어느 쪽인지로 면을 정했다. 테스트 `enemies_bosses.test.js` 「阿利斯泰尔 防护背心…」.
+
+### 假想敌：管·弦 일반 공격·【裂管之奏】·회피 (`pipeCore`·`pipeBurst`·`kitPipe`·`kitString`, 2026-10-15)
+- **일반 공격**: 사거리 전장 전체(PRTS 「攻击范围扩大至全场」). 클라 프리팹 `Modes/Default/Body/Attack`의 `_abilityConfigs` 둘을 차례로 시도 — 자기 형태
+  余音(선택기 `_filterByEnemiesKey` enemy_9023_acdums, 관 `_enemyMode` 1 = 暗 / 현 0 = 金)이 있으면 그것(여럿이면 무작위, 예전 그대로), **없으면 오퍼레이터**
+  (선택기 side ENEMY, `_postFilter` HATRED_DES — `aggroCmp`). 관은 세 발(`_additionalTimes` 2, `_triggerDelta` 0.25 s), 현은 한 발. 발마다 투사체가
+  닿을 때 그 자리 반경 안 오퍼레이터에게 ATK 100 % 법술(凋亡 없음): 관 1.8(`projectile_enemy_acduml` CircleCollider2D), 현 1.6(`_acdumm`), 투사체
+  `_hitNumType` INFINITY·`_onlyCheckHitWhenReachTarget`·`_ignoreCamouflage` → `areaAllies`. PRTS의 현 반경 3.0은 클라 값이 없다.
+- **余音도 맞는다**: 투사체 `_alwaysHitTraceTargetInTheEnd` — 겨냥한 余音이 ATK 100 % 법술 피해 1회를 받는다(타수 1, 【合奏】 SP +1, 피격 펄스·형태
+  전환 타수). 우리 `taken` 훅이 이 피해(태그 `echoStrike`)를 오퍼레이터 피해처럼 펄스로 센다. 그래서 관 혼자서도 暗 余音을 약 4번 공격(10타)이면 金으로
+  바꾸고 그 뒤로는 다른 余音이나 오퍼레이터를 친다. 실제 판 14라운드(단독 험지) 余音은 17타 — SP 12를 채워 합주할 수 있다.
+- **【裂管之奏】**: 暗 余音마다 세 발(0.25 s), 발마다 위 폭발(반경 1.8 법술 100 %, 余音 피격 포함) 뒤 스킬 `_activeBuffs` `acduml_s_1`이 맞은 유닛마다(余音 포함):
+  `CreateBuffInCircleRange` 반경 블랙보드 `range_radius` 0.8(클라 `Execute`가 `GetFloatOrDefault("range_radius", 1.8)`) 안 오퍼레이터 모두(선택 가능 여부
+  무관, PRTS 「无视其可选性」·「中点判定，可叠加」, 자기 포함)에게 凋亡 `ep_damage_ratio` 25 %, 그리고 그 유닛 자신에게 凋亡 25 %(`ApplyElementDamage`). 余音
+  바로 위 오퍼레이터는 한 발에 凋亡 3번(余音 둘레·자기 둘레·자기). [ASSUMED] 余音 자신은 凋亡을 받지 않는다(적이 적에게 거는 원소, 확인 못 함).
+- **【断弦之奏】**: 金 余音마다 한 발, 위 폭발(반경 1.6, 余音 피격 포함) 뒤 `acdumm_s_1`: 맞은 오퍼레이터에게 凋亡 25 %, 余音은 暗으로(`CheckEnemyId` →
+  `SwitchMode` 1). [ASSUMED] 관과 같이 余音 자신은 凋亡 없음.
+- **회피**: 관은 체력 50 % 미만일 때 물리·법술 회피 `1.prob` 10 %(템플릿 `acduml_t_1` `ON_TAKE_DAMAGE`: `FilterByTargetHpRatio` LT 0.5 → `Evade`
+  PHYSICAL_AND_MAGICAL; PRTS 「自身生命值低于50%时，获得10%物理和法术闪避」). 매 틱 체력 비율로 `boss:evade`(`dodgePhys`·`dodgeArts`)를 켜고 끈다(卢西恩과 같은 방식).
+- **옛 동작**: 일반 공격은 余音만 겨냥해 펄스만 냈다(관·현 자신의 피해 없음, 余音이 없으면 공격 안 함, 余音 타수·SP 안 셈); 【裂管之奏】은 0.4 s 간격, 폭발 반경
+  0.8(블랙보드 값을 본 범위로 씀), 보조 凋亡 없음; 【断弦之奏】은 余音 피격 없음; 회피 없음. 테스트 `enemies_bosses.test.js` 「假想敌：管: whole-field…」·
+  「假想敌：管 【裂管之奏】…」·「假想敌：管: below 50 %…」·「假想敌：弦: whole-field…」, 실제 판 경로 `boss-patterns-real.test.js` 「real boss_3 field…」.

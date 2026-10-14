@@ -37,9 +37,11 @@
 //                            shot) / 5-hit shield (every (spCost+1)-th attack a ten-hit combo); unblockable while shielded;
 //                            shield back 25 s after breaking; every damage taken costs 铳 as much (PART_TRANSFER, 无来源)
 //                            and, split, the other springs.
-//   boss_3/10 假想敌：管     summons 余音 (dark) every 40 s (20 s < 50 %); normal attacks strike dark 余音 (their pulse hurts
-//                            operators); 裂管之奏 3 strikes on every dark 余音 (AoE arts + apoptosis). boss_10 + 假想敌：弦
-//                            (invulnerable, gold 余音, 断弦之奏 AoE + flips them dark; leaves with 管).
+//   boss_3/10 假想敌：管     summons 余音 (dark) every 40 s (20 s < 50 %); whole-field normal attack of 3 shots (r 1.8 arts)
+//                            on a dark 余音 (which takes the hit and pulses), else on an operator; 10 % evade < 50 % HP;
+//                            裂管之奏 3 shots on every dark 余音 (r 1.8 arts + apoptosis, 0.8 apoptosis around each unit hit).
+//                            boss_10 + 假想敌：弦 (invulnerable, gold 余音 else an operator, 1 shot r 1.6; 断弦之奏 AoE + flips
+//                            them dark; leaves with 管).
 //   余音                     10-hit unit, block ≥ 2 only; gold (ASPD +50) / dark (ATK +50 %, move +20 %) forms that swap
 //                            after 10 strikes; pulses on every hit taken; 合奏 SP +1 per damage taken (max 12): one full
 //                            echo makes every echo play its ensemble at once (checked every 1 s).
@@ -130,8 +132,16 @@ const ECHO_PULSE_RADIUS = 1.6;
 const ECHO_ENSEMBLE_RADIUS = Object.freeze({ gold: 0.8, dark: 1.6 });
 /** "只能被阻挡数大于等于2的单位阻挡". */
 const ECHO_BLOCK_WEIGHT = 2;
-/** 裂管之奏 strike spacing (s). */
-const PIPE_STRIKE_GAP = 0.4;
+/** 管 / 弦 shot spacing (s): the prefab Attack and Skills/1 `_triggerDelta` 0.25 between the `_additionalTimes` shots
+ *  (until 2026-10-15 0.4 s, skill only). */
+const PIPE_STRIKE_GAP = 0.25;
+/** 管 / 弦 shot burst radius: the CircleCollider2D of projectile_enemy_acduml (1.8) / _acdumm (1.6), no `range_scale`
+ *  (research boss-patterns §2). PRTS gives 弦 3.0, which no client value backs. */
+const PIPE_SHOT_RADIUS = Object.freeze({ acduml: 1.8, acdumm: 1.6 });
+/** Shots per normal attack: 管 3 (prefab Attack `_additionalTimes` 2), 弦 1. */
+const PIPE_SHOTS = Object.freeze({ acduml: 3, acdumm: 1 });
+/** Damage tag of a 管 / 弦 shot on a “余音”: the echo pulses as it does under an operator's hit. */
+const ECHO_STRIKE = 'echoStrike';
 /** 断裂生殖 tentacle: stun duration and reach around its device tile [ASSUMED]. */
 const TENTACLE_STUN = 5, TENTACLE_RADIUS = 1;
 /** 崩坍 delay (PRTS 1 s), targets per growth stage (PRTS 2/4/8) and 物种爆发 delay (PRTS 4 s). */
@@ -909,7 +919,8 @@ function kitEcho(ab, e) {
       },
       taken(c, b, e2) {
         if (max > 0) ab.sp = Math.min(max, (ab.sp ?? 0) + inc);                        // 合奏 SP: one per damage instance taken
-        const s = c.source || c.credit; if (s && s.side === 'ally') echoHit(b, e2);     // 受到伤害时以自身为中心造成一次范围伤害 (a 无来源 burst too)
+        // 受到伤害时以自身为中心造成一次范围伤害 (a 无来源 burst too; a 管 / 弦 shot as well — pipeBurst)
+        const s = c.source || c.credit; if (s && (s.side === 'ally' || c.dmg.tags?.includes(ECHO_STRIKE))) echoHit(b, e2);
       },
     },
     max > 0 && {
@@ -926,7 +937,27 @@ function kitEcho(ab, e) {
   ];
 }
 
-/** 管 / 弦 core: summon loop, strikes on its own form of 余音, skill. */
+/**
+ * A 管 / 弦 shot lands on `at` (official projectile_enemy_acduml / _acdumm: `_onlyCheckHitWhenReachTarget`, INFINITY hits,
+ * `_ignoreCamouflage`): every operator within `r` takes ATK 100 % arts, and a “余音” it was aimed at takes the hit too
+ * (`_alwaysHitTraceTargetInTheEnd` — a real damage instance: 1 of its hits, +1 合奏 SP, its pulse). Returns the units hit,
+ * the echo first (the skill's `_activeBuffs` land on each).
+ */
+function pipeBurst(b, e, at, r, kind) {
+  b.fx('explode', { x: at.x, y: at.y, r, kind });
+  const hit = areaAllies(b, e, at.x, at.y, r);
+  for (const u of hit) hurt(b, e, u, e.s.atk, 'arts');
+  if (at.defId === ECHO_KEY && at.alive) { hurt(b, e, at, e.s.atk, 'arts', { tags: [ECHO_STRIKE] }); hit.unshift(at); }
+  return hit;
+}
+
+/**
+ * 管 / 弦 core: summon loop, normal attack, skill. The normal attack (official prefab Modes/Default/Body/Attack, two
+ * `_abilityConfigs` tried in order) reaches the whole field (PRTS 「攻击范围扩大至全场」): a “余音” of its form (selector
+ * `_filterByEnemiesKey` enemy_9023_acdums, `_enemyMode`) or, when there is none, an operator (selector side ENEMY,
+ * `_postFilter` HATRED_DES — aggroCmp); `PIPE_SHOTS` shots `PIPE_STRIKE_GAP` apart, each a pipeBurst of `PIPE_SHOT_RADIUS`
+ * (until 2026-10-15 it struck only 余音 and only pulsed them: no damage of its own, no attack without one).
+ */
 function pipeCore(ab, e, b, tpl, { form, prefix }) {
   const hi = T(ab, `1.${prefix}_t_1[high_hp].interval`) ?? 40, lo = T(ab, `1.${prefix}_t_1[low_hp].interval`) ?? hi, thr = T(ab, '1.hp_ratio') ?? 0;
   const key = ab.tS['1.enemy_key'] ?? ECHO_KEY;
@@ -944,15 +975,22 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
       if (!canCast(e2, false, b2)) return;
       P.atk += dt;
       if (P.atk < e2.s.interval) return;
-      const t = b2.rng.pick(echoesOf(b2, form));                 // 优先攻击…形态余音
+      const echoes = echoesOf(b2, form);
+      const t = echoes.length ? b2.rng.pick(echoes) : allTargets(b2, e2).sort(aggroCmp)[0];   // 优先攻击…形态余音, else an operator
       if (!t) return;
       P.atk = 0;
       e2.lastAttackAt = b2.time;
       e2.stats.attacks++;
       b2.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: `${prefix}Strike` });
       // its normal attack's official projectile (data/enemies.json `proj` — projectile_enemy_acduml / _acdumm, TRACE 10
-      // tiles/s; enemies/helpers.js shoot): the echo takes the strike as it arrives (until 2026-10-10 at once)
-      shoot(b2, e2, t, e2.def?.proj, (o) => { if (o && o.alive) echoHit(b2, o); });
+      // tiles/s; enemies/helpers.js shoot), bursting as it arrives
+      const shot = () => {
+        if (!e2.alive || !t.alive) return;
+        shoot(b2, e2, t, e2.def?.proj, (o) => { if (o && o.alive) pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS[prefix], `${prefix}Hit`); });
+      };
+      for (let k = 0; k < PIPE_SHOTS[prefix]; k++) {
+        if (k === 0) shot(); else b2.after(k * PIPE_STRIKE_GAP, shot, { owner: e2 });
+      }
     },
   };
 }
@@ -960,10 +998,20 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
 function kitPipe(ab, e, b, tpl) {
   const s = ab.sk['1'];
   const g = skillSp(e, s); // local patch: official SP
+  const thr = T(ab, '1.hp_ratio') ?? 0, prob = T(ab, '1.prob') ?? 0;
   return [
     pipeCore(ab, e, b, tpl, { form: 'dark', prefix: 'acduml' }),
     {
       death(c, b2) { for (const o of b2.aliveEnemies()) if (o.defId === 'enemy_9022_acdumm') b2.kill(o, null); }, // 弦 leaves with 管
+      // below `1.hp_ratio` HP: 物理和法术闪避 `1.prob` (template acduml_t_1 ON_TAKE_DAMAGE: FilterByTargetHpRatio LT 0.5 → Evade
+      // PHYSICAL_AND_MAGICAL; PRTS 「自身生命值低于50%时，获得10%物理和法术闪避」; until 2026-10-15 none)
+      tick(b2, e2, a) {
+        const on = prob > 0 && e2.hpRatio < thr;
+        if (on === !!a.on) return;
+        a.on = on;
+        if (on) b2.addBuff(e2, { key: 'boss:evade', persist: true, mods: { dodgePhys: prob, dodgeArts: prob } });
+        else b2.removeBuff(e2, 'boss:evade');
+      },
     },
     s && {
       name: s.name, cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'dark').length > 0 && (!g || g.ready()), // local patch: + SP
@@ -971,14 +1019,20 @@ function kitPipe(ab, e, b, tpl) {
         if (g) g.spend(e2); // local patch
         const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
         // each strike is the skill's official projectile (skills `1`.proj — projectile_enemy_acduml, TRACE 10 tiles/s;
-        // enemies/helpers.js shoot) at the echo, bursting as it arrives (until 2026-10-10 at the strike's moment)
+        // enemies/helpers.js shoot) at the echo, a pipeBurst of 1.8 as it arrives (until 2026-10-10 at the strike's moment;
+        // until 2026-10-15 a burst of `range_radius`). The skill's `_activeBuffs` acduml_s_1 then lands on every unit the
+        // shot hit, the echo included: CreateBuffInCircleRange `range_radius` (0.8, 「中点判定」) around it — 凋亡
+        // `ep_damage_ratio` to each operator there, selectable or not (PRTS 「无视其可选性」), itself included — and
+        // ApplyElementDamage `ep_damage_ratio` on it. [ASSUMED] the echo itself takes no 凋亡 (an enemy's element on an enemy).
         const strike = (echo) => {
           if (!e2.alive || !echo.alive) return;
           shoot(b2, e2, echo, s.proj, (o) => {
             if (!o || !o.alive) return;
-            b2.fx('explode', { x: o.x, y: o.y, r, kind: 'pipeStrike' });
-            for (const u of areaAllies(b2, e2, o.x, o.y, r)) { hurt(b2, e2, u, e2.s.atk, 'arts'); elem(b2, e2, u, 'apoptosis', e2.s.atk * ep); }
-            echoHit(b2, o);
+            const hit = pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS.acduml, 'pipeStrike');
+            for (const u of hit) {
+              for (const v of b2.alliesInRadius(u.x, u.y, r)) elem(b2, e2, v, 'apoptosis', e2.s.atk * ep, { ignoreSelect: true });
+              if (u.side === 'ally') elem(b2, e2, u, 'apoptosis', e2.s.atk * ep);
+            }
           });
         };
         for (const echo of echoesOf(b2, 'dark')) for (let k = 0; k < 3; k++) {
@@ -1000,15 +1054,18 @@ function kitString(ab, e, b, tpl) {
       name: s.name, cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'gold').length > 0 && (!g || g.ready()), // local patch: + SP
       fire(b2, e2) { // 【断弦之奏】 AoE on every gold echo, which then turns dark
         if (g) g.spend(e2); // local patch
-        const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
+        const ep = s.bb.ep_damage_ratio ?? 0;
         // the skill's official projectile (skills `1`.proj — projectile_enemy_acdumm, TRACE 10 tiles/s; enemies/helpers.js
-        // shoot) to every gold echo: its burst and the echo's turn to dark as it arrives (until 2026-10-10 at the cast)
+        // shoot) to every gold echo, a pipeBurst as it arrives (until 2026-10-10 at the cast; until 2026-10-15 the echo took
+        // no hit). The skill's `_activeBuffs` acdumm_s_1 on every unit hit: 凋亡 `ep_damage_ratio`, and the echo turns dark
+        // (CheckEnemyId → SwitchMode 1). [ASSUMED] as 管's: the echo itself takes no 凋亡.
         for (const echo of echoesOf(b2, 'gold')) {
           shoot(b2, e2, echo, s.proj, (o) => {
             if (!o || !o.alive) return;   // a shot in flight lands even if its shooter fell meanwhile
-            b2.fx('explode', { x: o.x, y: o.y, r, kind: 'stringStrike' });
-            for (const u of areaAllies(b2, e2, o.x, o.y, r)) { hurt(b2, e2, u, e2.s.atk, 'arts'); elem(b2, e2, u, 'apoptosis', e2.s.atk * ep); }
-            setEchoForm(b2, o, 'dark');
+            for (const u of pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS.acdumm, 'stringStrike')) {
+              if (u.side === 'ally') elem(b2, e2, u, 'apoptosis', e2.s.atk * ep);
+              else if (u.alive) setEchoForm(b2, u, 'dark');
+            }
           });
         }
       },

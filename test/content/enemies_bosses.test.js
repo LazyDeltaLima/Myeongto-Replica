@@ -2924,20 +2924,114 @@ test('“碎铳之簧”: damage taken costs 假想敌：铳 as much (等量, �
   assert.ok(h.result().perPlayer.p1.bossDamage >= dealt - 1e-6, 'the per-player pool tally');
 });
 
-test('假想敌：管: strikes dark 余音 (their pulse hurts operators); 裂管之奏 at 50 s (official SP); summons 余音 every 40 s', () => {
-  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 6 }], setup: setTpl('act1autochess_h07_03') });
+/** Record every damage instance `src` deals, element ones included (a spy on b.dealDamage): { t, to, type, amount }. */
+const hitsBy = (h, src) => {
+  const out = [], deal = h.b.dealDamage;
+  h.b.dealDamage = function (s, t, d) {
+    if (s === src && t && t.alive) out.push({ t: h.b.time, to: t, type: d.type, amount: d.amount });
+    return deal.call(this, s, t, d);
+  };
+  return out;
+};
+const ECHO = 'enemy_9023_acdums';
+/** Three walls on one row: t_wall on (row 10, col 6), t_wall2 one tile right, t_wall3 (`far` = col 8 or 9). */
+const pipeArena = (tpl, far = 8) => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 10, col: 7 }, { chessId: 't_wall3', row: 10, col: far }], setup: setTpl(tpl) });
   h.step();
-  const e = put(h, 'enemy_9021_acduml', [3, 10], { tag: 'boss' });
-  const echo = put(h, 'enemy_9023_acdums', [3, 6], { tag: 'part' });
-  assert.equal(echo.mem.ab.form, 'dark');
+  return h;
+};
+
+test('假想敌：管: whole-field normal attack — 3 shots 0.25 s apart, each ATK 100 % arts within 1.8 (no 凋亡); a dark 余音 first (it takes every shot and pulses), else an operator by aggro', () => {
+  const h = pipeArena('act1autochess_h07_03');
+  const [a, b, c] = ['t_wall', 't_wall2', 't_wall3'].map((id) => h.unit(id));
+  const e = put(h, 'enemy_9021_acduml', [3, 12], { tag: 'boss' });
   assert.equal(e.s.interval, E.enemy_9021_acduml.stats.bat * 100 / 20);
-  h.run(e.s.interval + 0.6);   // the strike flies 4 tiles at 10 tiles/s (projectile_enemy_acduml)
-  assert.ok(h.eventsOf('fx').some((f) => f[1] === 'beam' && f[4].kind === 'acdumlStrike'));
-  assert.ok(h.unit('t_wall').stats.taken > 0 && h.unit('t_wall').elem.apoptosis > 0);
-  h.run(firstCast('enemy_9021_acduml', '1') - h.b.time + 1.6);   // the third strike leaves 0.8 s in, lands 0.4 s later
-  const strikes = h.eventsOf('fx').filter((f) => f[1] === 'explode' && f[4].kind === 'pipeStrike').length;
-  assert.ok(strikes >= 3 && strikes % 3 === 0, `three strikes per dark echo (${strikes})`);
-  assert.ok(alive(h, 'enemy_9023_acdums').length >= 2, 'summoned');
+  const hits = hitsBy(h, e);
+  // no 余音 yet: the operator the aggro order puts first (t_wall3, deployed last) — 4 tiles at 10 tiles/s
+  h.run(1.2);
+  const atC = hits.filter((x) => x.to === c);
+  assert.equal(atC.length, 3, 'three shots');
+  approx(atC[1].t - atC[0].t, 0.25, 0.02);
+  approx(atC[2].t - atC[1].t, 0.25, 0.02);
+  assert.ok(hits.every((x) => x.type === 'arts' && x.amount === e.s.atk), 'ATK 100 % arts, no element');
+  assert.equal(hits.filter((x) => x.to === b).length, 3, 't_wall2, 1 tile away, is in the 1.8 burst');
+  assert.equal(hits.filter((x) => x.to === a).length, 0, 't_wall, 2 tiles away, is not');
+  assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'explode' && f[4].kind === 'acdumlHit').length, 3);
+  // a dark 余音 on t_wall: the next attack goes to it; it loses one hit and pulses per shot
+  const echo = put(h, ECHO, [3, 6], { tag: 'part', mods: { hpMul: 3 } });
+  assert.equal(echo.mem.ab.form, 'dark');
+  const hp0 = echo.hp, n0 = hits.length;
+  const pulses = () => h.eventsOf('fx').filter((f) => f[1] === 'explode' && f[4].kind === 'echoPulse').length;
+  const p0 = pulses();
+  h.run(e.s.interval);
+  const later = hits.slice(n0);
+  assert.equal(later.filter((x) => x.to === echo).length, 3, 'the 余音 takes each shot');
+  assert.equal(hp0 - echo.hp, 3, 'one hit each');
+  assert.equal(echo.mem.ab.sp, 3, '合奏 SP +1 per shot');
+  assert.equal(pulses() - p0, 3, 'and pulses per shot');
+  assert.equal(later.filter((x) => x.to === a).length, 3, 't_wall, under the 余音, in the burst');
+  assert.equal(later.filter((x) => x.to === c).length, 0, 't_wall3, 2 tiles from the 余音, not');
+  assert.equal(a.elem.apoptosis > 0, true, 'the pulse\'s 凋亡 (not the 管\'s)');
+});
+
+test('假想敌：管 【裂管之奏】 at 50 s (official SP): 3 shots on every dark 余音 — ATK 100 % arts within 1.8, then on every unit hit (余音 included) 凋亡 25 % to each operator within 0.8 of it and 25 % on itself', () => {
+  const h = pipeArena('act1autochess_h07_03', 9);
+  const [a, b, c] = ['t_wall', 't_wall2', 't_wall3'].map((id) => h.unit(id));
+  const e = put(h, 'enemy_9021_acduml', [3, 12], { tag: 'boss' });
+  const hits = hitsBy(h, e);
+  h.run(41);
+  for (const o of alive(h, ECHO)) h.b.kill(o, null);                         // the 40 s summon walks the field
+  // on t_wall; placed late: the 管's own volleys (3 hits each) would turn an earlier one gold before 50 s (10 hits)
+  const echo = put(h, ECHO, [3, 6], { tag: 'part', mods: { hpMul: 3 } });
+  const at = firstCast('enemy_9021_acduml', '1');
+  assert.equal(at, 50);
+  h.run(at - h.b.time - 0.1);
+  const n0 = hits.length;
+  h.run(1.5);                                                                  // 6 tiles at 10 tiles/s, last shot 0.5 s in
+  assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'explode' && f[4].kind === 'pipeStrike').length, 3);
+  const cast = hits.slice(n0), ep = skb('enemy_9021_acduml', '1').bb.ep_damage_ratio;
+  const of = (u, type) => cast.filter((x) => x.to === u && x.type === type);
+  for (const u of [a, b]) assert.equal(of(u, 'arts').length, 3, `${u.chessId} in the 1.8 burst`);
+  assert.equal(of(echo, 'arts').length, 3, 'the 余音 takes each shot');
+  assert.equal(of(c, 'arts').length + of(c, 'element').length, 0, 't_wall3, 3 tiles away: nothing');
+  // per shot: t_wall = around the 余音 + around itself + its own; t_wall2 (1 tile away, beyond 0.8) = around itself + its own
+  assert.equal(of(a, 'element').length, 9);
+  assert.equal(of(b, 'element').length, 6);
+  assert.ok(cast.filter((x) => x.type === 'element').every((x) => x.amount === e.s.atk * ep));
+  assert.equal(of(echo, 'element').length, 0, '[ASSUMED] the 余音 takes no 凋亡');
+});
+
+test('假想敌：管: below 50 % HP 10 % physical and arts evade (acduml_t_1), gone again above', () => {
+  const h = pipeArena('act1autochess_h07_03');
+  const e = put(h, 'enemy_9021_acduml', [3, 12], { tag: 'boss' });
+  const prob = tb('enemy_9021_acduml', '1.prob'), pool0 = h.b.sharedBoss;
+  h.step();
+  assert.equal(e.s.dodgePhys, 0);
+  pool0.hp = pool0.maxHp * 0.49; h.b._syncBossHp(e); h.step();
+  approx(e.s.dodgePhys, prob);
+  approx(e.s.dodgeArts, prob);
+  pool0.hp = pool0.maxHp * 0.6; h.b._syncBossHp(e); h.step();
+  assert.equal(e.s.dodgeArts, 0);
+});
+
+test('假想敌：弦: whole-field normal attack — 1 shot, ATK 100 % arts within 1.6; a gold 余音 first (it takes the shot), else an operator', () => {
+  const names = (h, hits, echo = null) => hits.map((x) => (x.to === echo ? 'echo' : ['t_wall', 't_wall2', 't_wall3'].find((id) => h.unit(id) === x.to))).sort();
+  // no 余音: the operator the aggro order puts first (t_wall3, deployed last)
+  const h = pipeArena('act1autochess_h08_03');
+  const str = put(h, 'enemy_9022_acdumm', [3, 12], { tag: 'part' });
+  const hits = hitsBy(h, str);
+  h.run(1);
+  assert.deepEqual(names(h, hits), ['t_wall2', 't_wall3'], 'one shot at t_wall3, 1.6 reaches t_wall2 only');
+  assert.ok(hits.every((x) => x.type === 'arts' && x.amount === str.s.atk));
+  // a gold 余音 on t_wall
+  const h2 = pipeArena('act1autochess_h08_03');
+  const str2 = put(h2, 'enemy_9022_acdumm', [3, 12], { tag: 'part' });
+  const echo = put(h2, ECHO, [3, 6], { tag: 'part', mods: { hpMul: 3 } });
+  bossesMod.setEchoForm(h2.b, echo, 'gold');
+  const hits2 = hitsBy(h2, str2), hp0 = echo.hp;
+  h2.run(1);
+  assert.deepEqual(names(h2, hits2, echo), ['echo', 't_wall', 't_wall2'], 'the 余音, t_wall under it, t_wall2 1 tile away');
+  assert.equal(hp0 - echo.hp, 1);
 });
 
 test('假想敌：管 (隐秘核心) + 假想敌：弦: 弦 is invulnerable, 断弦之奏 flips gold 余音 dark; 弦 leaves when 管 falls', () => {

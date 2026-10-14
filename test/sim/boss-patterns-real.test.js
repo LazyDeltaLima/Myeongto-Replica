@@ -1,6 +1,7 @@
 // Leader patterns on the real boss field (CONTRIBUTING §6: the real match path — the round's boss wave from
 // server/match/waves.js → buildBattleSpec → createBattleFromSpec, real operators, the full content): 假想敌：铳's ASPD stacks
-// (official BrownbTalent_1) and 刺胄之弹's lasting arrival zone (official projectile_enemy_acstmr_s1). The unit-level rules
+// (official BrownbTalent_1), 刺胄之弹's lasting arrival zone (official projectile_enemy_acstmr_s1) and 假想敌：管's
+// whole-field 3-shot normal attack (official prefab Attack, projectile_enemy_acduml). The unit-level rules
 // and their numbers are pinned in test/content/enemies_bosses.test.js; docs/rules/sim.md 「최종 공세·히든 코어 보스 패턴」.
 
 import { test } from 'node:test';
@@ -74,6 +75,30 @@ test('real boss_1 field: 刺胄之弹 leaves a 9.95 s zone that hits the operato
     }
   }
   assert.ok(again, 'an operator staying in the zone is hit again 1 s later');
+});
+
+test('real boss_3 field: 假想敌：管 fires 3 shots per attack (arts) at a dark 余音 while one exists, at operators while none does', () => {
+  const b = realBossField('boss_3');
+  let pipe = null;
+  for (let i = 0; i < 30 * 20 && !pipe; i++) { b.step(); pipe = b.enemies.find((e) => e.alive && e.isBoss && e.defId === 'enemy_9021_acduml'); }
+  assert.ok(pipe, 'the 管 entered');
+  const echoes = () => b.enemies.filter((e) => e.alive && e.defId === 'enemy_9023_acdums');
+  const shots = [];   // the 管's non-element hits: [time, target, type, a 余音 alive then]
+  const deal = b.dealDamage;
+  b.dealDamage = function (s, t, d) {
+    if (s === pipe && t && t.alive && d.type !== 'element') shots.push([b.time, t, d.type, echoes().length > 0]);
+    return deal.call(this, s, t, d);
+  };
+  let maxHits = 0;
+  for (let i = 0; i < 30 * 70 && !b.finished; i++) { b.step(); for (const o of echoes()) maxHits = Math.max(maxHits, o.s.maxHp); }
+  assert.ok(shots.length > 0 && shots.every(([, , ty]) => ty === 'arts'), 'arts shots');
+  const onEcho = shots.filter(([, u]) => u.defId === 'enemy_9023_acdums');
+  assert.ok(onEcho.length >= 3, `余音 took shots (${onEcho.length})`);
+  const t0 = onEcho[0][0];
+  assert.equal(new Set(onEcho.filter(([t]) => t - t0 < 1).map(([t]) => t.toFixed(3))).size, 3, 'three shots in a volley');
+  assert.ok(shots.some(([, u, , any]) => !any && u.side === 'ally'), 'operators shot while no 余音 was on the field');
+  // round 14 余音: the round's HP multiplies its hits (research boss-patterns 「진행」: 合奏 needs 12 hits taken)
+  assert.ok(maxHits >= 12, `a 余音 lives long enough to fill its 合奏 SP (${maxHits} hits)`);
 });
 
 function approx(a, b, eps = 1e-6) { assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${a} ≈ ${b}`); }
