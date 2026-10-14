@@ -338,3 +338,17 @@ test('焰尾 前锋剑术 in S3: the strike after a dodge (fx riposte { signal, 
   w.onSignal('riposte', null, true);
   assert.equal(w.actor.current, 'Attack', 'the Default mode\'s talent attack is its Attack');
 });
+
+test('玛恩纳 解放者: a target in range outside her skill (form watch) → Idle_2; her skill idles win; none → Idle', async () => {
+  const v = await view('char_4064_mlynar', { skillIndex: 1 });
+  v.setForm('watch', { form: 'watch' });
+  assert.equal(v.actor.current, 'Idle_2');
+  v.setSkill(true);
+  secs(v, 1);
+  assert.equal(v.actor._idleName(), 'Skill_2_Idle', 'Skill_2_Start, then her S2 idle');
+  v.setSkill(false);
+  secs(v, 1);
+  assert.equal(v.actor.current, 'Idle_2');
+  v.setForm(null, { form: null });
+  assert.equal(v.actor.current, 'Idle');
+});

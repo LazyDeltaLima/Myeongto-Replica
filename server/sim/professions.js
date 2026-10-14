@@ -19,6 +19,7 @@
 //   chain {count, falloff, radius, sluggish}              heal {mode:'single'|'multi'|'chain', count, falloff, farMul, elementHealRatio}
 //   priority 'fly'|'lowDef'|'ranged'|'lowestHp'|'highestHp'|'nearest'|'farthest'|'notBurst'|null
 //   noAttack bool (never attacks)   noAttackUnlessSkill bool (attacks only while its skill is active)
+//   watchForm string (解放者: the model form while a target stands in range outside the skill — ai.js watchForm)
 //   noHeal bool (cannot be healed by others)   blockFly bool   onHitStatus {key, duration, value}
 //   dmgMul(battle, unit, target) → number      afterHit(battle, unit, target, {dealt,x,y})
 //   canAttack(battle, unit) → bool             afterAttack(battle, unit, targets)
@@ -558,7 +559,7 @@ export const SUB = Object.freeze({
   fighter: P({}),
   hammer: P({ splashRadius: 1.0, splashScale: 0.5, splashOthersOnly: true }),
   instructor: P({ dmgMul: (battle, unit, target) => (target.blockedBy === unit ? 1 : (unit.profile.unblockedScale ?? 1.2)) }),
-  librator: P({ noAttackUnlessSkill: true, install: installLibrator }),
+  librator: P({ noAttackUnlessSkill: true, install: installLibrator, watchForm: 'watch' }),
   lord: P({ canHitFly: true,
     dmgMul: (battle, unit, target) => {
       if (target.blockedBy === unit) return 1;

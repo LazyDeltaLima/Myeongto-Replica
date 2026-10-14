@@ -1369,7 +1369,7 @@ header of professions.js).
 | centurion / crusher / pusher | "同时攻击阻挡的所有敌人" (`hitAllBlocked`): each attack takes up to the block count of targets (never fewer than 1) from the range and the enemies it blocks, the blocked ones first — PRTS 分支特性信息 "普通攻击最大目标数等于阻挡数（不会低于1）", PRTS 作战机制 §AOE伤害判定 (强攻手: a 锁定人数 AoE taking the targets of its range up to its cap); the client's selector flag `_limitedMaxTargetNumToBlockedCnt`, carried by every skill worded so too (忍冬 S3, 左乐 S2, Mon3tr S3, 凯尔希's Mon3tr under S2 … — kits set `attack.hitAllBlocked`). Until 0.2.0 it struck the blocked enemies only |
 | hammer | 50 % splash (bb atk_scale_2) to others within 1 tile |
 | instructor | ×1.2 (bb atk_scale) vs enemies it doesn't block |
-| librator | no attack & block 0 while the skill is off; ATK +5 %/s up to +200 % (bb atk / max_stack_cnt), reset at skill end; elite module starts at +100 % (bb init_atk) |
+| librator | no attack & block 0 while the skill is off; ATK +5 %/s up to +200 % (bb atk / max_stack_cnt), reset at skill end; elite module starts at +100 % (bb init_atk); while the skill is off a valid target in range puts it in the model form `watch` (fx 'watch' { form } on each change, ai.js watchForm — display only: 玛恩纳's animation-only Default attack Idle_2) |
 | lord | can hit FLY at range; ×0.8 (bb atk_scale) unless the target is on its tile / the tile in front (along its direction) or blocked by it |
 | sword / swordmaster | 2 hits per attack |
 | artsfghter | melee arts |

@@ -866,7 +866,12 @@ test('玛恩纳 S3: trait ×2, 5 targets at 125 % ATK (×1.1 游侠), Kazimierz 
   approx(refl[0].amount, u.s.atk * t1.atk_scale, 1e-6, 'reflect');
   h.b.dealDamage(null, foe, { amount: 1e9, type: 'true' });
   h.run(10);
+  assert.equal(u.form ?? null, null, 'no target in range: no 解放者 watch');
   for (const p of tiles) h.spawn('enemy_dummy', { pos: p });
+  h.step();
+  // a target in range outside her skill: the watch form (her Default mode's AnimAttack Idle_2; render/units.js FORMS)
+  assert.equal(u.form, 'watch');
+  assert.ok(h.eventsOf('fx').some((e) => e[1] === 'watch' && e[4]?.id === u.id && e[4].form === 'watch'));
   const ramp = u.trait.ramp;
   assert.ok(ramp > 0.4);
   u.skill.gainSp(1000);
