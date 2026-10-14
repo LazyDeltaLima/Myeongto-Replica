@@ -1708,7 +1708,7 @@ export async function createFieldView(host, options = {}) {
         const src = views.get(e[1]) || battleView(e[1]);
         const tgt = views.get(e[2]) || battleView(e[2]);
         // chain / chainHeal bounces: the "source" is the previous target of the bounce, not an attacker
-        if (src && !CHAIN_KINDS.has(e[3])) src.onAttack?.(tgt, now, e[3]);
+        if (src && !CHAIN_KINDS.has(e[3])) src.onAttack?.(tgt, now, e[3], e[4]);
         if (e[3] === 'none' || !e[3]) { if (tgt && src) meleePending.set(tgt.id, { src, t: now }); }
         fx.attack(src, tgt, fxGame.arrowKind(e)); // local patch: 丰川祥子's note replaces the arrow (render/fxgame.js)
         break;

@@ -1221,7 +1221,8 @@ export class UnitView {
   }
 
   /** An attack was made (b.ev 'atk'). `target` = view or null. */
-  onAttack(target, now, kind) {
+  /** One attack hit now (b.ev 'atk'); `signal` = its 5th field: the client ability it is (a talent's own attack 'T.1'). */
+  onAttack(target, now, kind, signal = null) {
     if (!this.alive) return;
     // a one-off cast (PROJ[kind].once: 暴鸰's bomb drop) is no attack rhythm: its clip plays once at its own speed
     const once = !!PROJ[kind]?.once;
@@ -1244,7 +1245,7 @@ export class UnitView {
     }
     this.lunge = 1;
     this._atkKind(kind);
-    if (this.actor) this.actor.attack(this.atkInterval, once); // game seconds: the actor's clock runs in game time
+    if (this.actor) this.actor.attack(this.atkInterval, once, typeof signal === 'string' ? signal : null); // game seconds: the actor's clock runs in game time
     if (this.imp) this.imp.dirty = true;
   }
 

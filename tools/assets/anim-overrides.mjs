@@ -178,6 +178,18 @@ export const COMBAT_CLIPS = Object.freeze({
 });
 
 /**
+ * Clips of an attack the sim marks as another ability of the client (docs/rules/render.md 「Spine 클립 커버리지」 D,
+ * maintainer's notes 2026-10-14): the 'atk' event's signal (Battle.forceAttack `signal`: a talent's own attack 'T.1') →
+ * that attack plays its clip (render/spine.js _signalStrike). Model key prefix → { attack?: { [signal]: clip }, skills?:
+ * { [0-based skill index]: { [signal]: clip } } } → the role clip's `signals`.
+ */
+export const SIGNAL_CLIPS = Object.freeze({
+  // 圣约送葬人: the 受选之人 shot is each mode's talent ability (charpack Modes/*/Body/Talents/1 `_animKey "Attack_B"`, 2
+  // shots); the S2 / S3 modes pair Attack_B→Skill_n_Attack_B
+  'op:char_1032_excu2:': { attack: { 'T.1': 'Attack_B' }, skills: { 1: { 'T.1': 'Skill_2_Attack_B' }, 2: { 'T.1': 'Skill_3_Attack_B' } } },
+});
+
+/**
  * The resting clips a skill sets for the whole battle (docs/rules/render.md 「Spine 클립 커버리지」 E, maintainer's notes
  * 2026-10-14): a skill whose prefab root has `_defaultModeIndex` ≥ 0 makes that charpack mode the operator's default mode
  * (`Character._GetDefaultModeIndex` → `Unit.OnInit` SwitchMode), so the mode's `_replaceAnimPairs` (Born → Start_n,
@@ -299,6 +311,17 @@ export function applyAnimOverrides(key, anims, names = null) {
         e.attack = a;
       }
       if (Object.keys(e).length) (anims.equip ||= {})[i] = e;
+    }
+  }
+  for (const [prefix, map] of Object.entries(SIGNAL_CLIPS)) {
+    if (!key.startsWith(prefix)) continue;
+    const put = (clip, sigs) => {
+      const o = Object.fromEntries(Object.entries(sigs || {}).filter(([, n]) => !names || names.includes(n)));
+      if (clip && Object.keys(o).length) clip.signals = o;
+    };
+    put(anims.attack, map.attack);
+    for (const [i, sigs] of Object.entries(map.skills || {})) {
+      for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) put(clip, sigs);
     }
   }
   for (const [prefix, map] of Object.entries(SKILL_VARIANTS)) {

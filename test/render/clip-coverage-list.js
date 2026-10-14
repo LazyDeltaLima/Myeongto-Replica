@@ -32,11 +32,6 @@ export const UNPLAYED = {
     Default_2: 'none: setup pose (0 s); no ability, mode pair or mix names it',
     Default_3: 'none: setup pose (0 s); no ability, mode pair or mix names it',
   },
-  char_1032_excu2: {
-    Attack_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-    Skill_2_Attack_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-    Skill_3_Attack_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-  },
   char_1041_angel2: {
     Skill_1_Close: 'todo: G — skill prefab clip [ASSUMED]',
     Skill_3_Skill: 'todo: G — skill prefab clip',

@@ -254,3 +254,21 @@ test('乌尔比安 S3: the 【移动】 to the anchor restarts on Skill_3_ReStar
   w.onDeploy();
   assert.equal(w.actor.current, 'Start', 'a plain deployment');
 });
+
+test('圣约送葬人 受选之人: the talent shot (the atk event\'s signal T.1) plays Attack_B — Skill_n_Attack_B in S2 / S3 — over the swing', async () => {
+  for (const [i, on, plain, talent] of [[0, false, 'Attack_A', 'Attack_B'], [1, true, 'Skill_2_Attack_A', 'Skill_2_Attack_B'], [2, true, 'Skill_3_Attack_A', 'Skill_3_Attack_B']]) {
+    const v = await view('char_1032_excu2', { skillIndex: i });
+    if (on) { v.setSkill(true); secs(v, 1); }
+    v.onSwing(assets.chars.char_1032_excu2.spine.front.hits[plain][0], 'bullet');
+    assert.equal(v.actor.current, plain);
+    secs(v, 0.3);
+    v.onAttack(null, 1, 'bullet');            // the swing's own strike
+    assert.equal(v.actor.current, plain);
+    v.onAttack(null, 1, 'bullet', 'T.1');     // the talent shot right after it
+    assert.equal(v.actor.current, talent, `S${i + 1}`);
+    v.onAttack(null, 1, 'bullet', 'T.1');     // its second 'atk' of the same strike
+    assert.equal(v.actor.current, talent);
+    secs(v, 2);
+    assert.notEqual(v.actor.current, talent, 'then back to rest');
+  }
+});

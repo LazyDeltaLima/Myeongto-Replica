@@ -526,10 +526,12 @@ export class SpineActor {
    * An attack happened now. `interval` = seconds between attacks (game time already scaled to real); `once` = a one-off
    * cast (no rhythm): the clip plays once at its own speed from its strike frame, then the resting state.
    */
-  attack(interval, once = false) {
+  attack(interval, once = false, signal = null) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant') return;   // a form change / 吟唱 plays out
     if (this._endPlaying()) return; // local patch
     if (!once) this.interval = clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
+    const sig = signal ? this._attackClip()?.signals?.[signal] : null;
+    if (this.has(sig)) { this._signalStrike(sig); return; }
     if (this._swinging()) return;   // the strike of a swing already playing at the official speed
     const clip = this._attackClip();
     if (!clip) return;
@@ -570,6 +572,26 @@ export class SpineActor {
         e.trackTime += d * 0.8;
       }
     }
+  }
+
+  /**
+   * An attack the sim marks as another ability of the client (the 'atk' event's signal: a talent's own attack, 'T.1') whose
+   * role names a clip for it (anims `signals`, tools/assets/anim-overrides.mjs SIGNAL_CLIPS — 圣约送葬人's 受选之人 shot
+   * Attack_B): that clip once at its own speed from its strike frame — the sim resolved the strike already — over a
+   * swing still playing; the other 'atk' events of the same strike leave it alone.
+   */
+  _signalStrike(name) {
+    if (this.mode === 'attack' && this.current === name && this.signalAt === this.clock) return;
+    const dur = this.dur(name);
+    const hit = this._hitTime(name, dur);
+    this.mode = 'attack';
+    this.windUntil = null;
+    this.wound = false;
+    this.signalAt = this.clock;
+    this.attackUntil = this.clock + Math.max(0, dur - hit);
+    this.swingUntil = this.attackUntil;   // what follows of this strike leaves the clip alone (_swinging)
+    this.swingAt = null;
+    this._play(name, false, { start: hit, mix: 0.06 });
   }
 
   _attackClip() {
