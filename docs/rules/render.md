@@ -275,6 +275,36 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   확인: `test/diag.test.js` 3, lifecycle 1; Windows Chrome 하네스에서 slow3d `engine in 11.7 s | … pixi 6.1, … art 2.5 cut, 3d 2.8 cut | arrived: art
   14.6 s, 3d 31.3 s | net 99 files, 3.1 MB`, slowpixi `fallback in 12.2 s | store 0.0, engine 0.2` 다음 줄 `engine in 1.0 s`.
 
+## 필드 진입 미리 받기·늦은 엔진 이어받기 (2026-10-14, 관리자 제보 「모바일에서 인게임 진입 시 3D 불러오기가 2번 실패해 로딩 이미지가 2번 뜬 뒤 3D가 뜸」 → 관리자 결정 「개선안 A–C 모두」)
+- 진단 정보·서버 접근 기록(iPhone 홈 화면 앱, Wi‑Fi, 배포 뒤 첫 접속): `simplified view (render engine import timed out)` → 재시도 →
+  `simplified view (createFieldView timed out)` → 재시도 → 3D, 첫 시도부터 약 65초. 서버는 모든 파일을 바로 보냈고 같은 시각 다른 접속자는
+  정상 — 그 회선이 요청마다 몇 초씩 멈췄다. 회선 탓만이 아니라 구조가 그 느림을 실패로 바꿨다(원인, 코드):
+  ① 렌더 엔진·브라우저 전투 시뮬·three.js·Pixi를 경기 화면이 마운트될 때에야 받기 시작했다. 모듈은 앞 모듈이 와야 다음 import가 보여 약
+  15단계로 차례차례 요청되고, 회선이 단계마다 0.5–3.5초 멈추자 단계만으로 12초를 넘겼다. index.html의 `rel="prefetch"`(Pixi·three.js)는
+  Safari가 무시한다.
+  ② 12초를 넘기면 엔진 시도를 버리고 5초 뒤 처음부터 다시 — 그때마다 로딩 화면이 다시 떴다.
+  ③ 브라우저 전투 시뮬(`battle/runner.js loadBrowserSim`)이 경기 화면이 이미 받은 데이터 11개(약 350 KB)를 따로 다시 받아 엔진과 회선을
+  다퉜다(2차 시도는 이 받기 뒤에 밀린 Pixi 때문에 넘김).
+- 처리:
+  A. `GET /preload.json`(`server/http/preload.js`): 엔진·시뮬·three.js의 모듈 그래프를 서버가 디스크에서 한 번 따라가 평탄한 목록으로 준다
+  (`public/js/` 기준 상대 경로 — `/shared/`는 버전 URL `/b/<tag>/`에서 한 단계 위, 페이지의 import와 같은 URL; 실행 중 경로를 만드는 import는
+  `RUNTIME_DIRS`). Pixi 두 클래식 스크립트는 따로. `public/js/preload.js`가 로비 진입 때(방 입장 때도, 페이지당 한 번) 모듈을 모두
+  `<link rel="modulepreload">`로 한꺼번에 요청하고(받고 파싱만, 실행은 안 함), 그것을 모르는 브라우저와 Pixi는 `fetch`로 HTTP 캐시만 데운다
+  (버전 URL은 immutable). 방 입장 때 미리 받는 데이터에 시뮬 전용 파일(`waves`)도 넣었다.
+  B. `ui/fieldHost.js mountFieldView({ late: true })`(경기 화면의 `useFieldView`만): 12초 시간 초과(엔진 오류가 아님)면 간이 보기를 띄우되
+  엔진 시도는 계속한다 — 간이 보기는 위 층(`.fh-fallback`), 그동안 엔진의 캔버스·이펙트 층은 숨김(`.fh-late`, `css/screens/game.css`).
+  엔진이 오면 새 view로 바꾸고(`screens/game.js`가 새 view로 다시 들어감; 간이 보기는 `SWAP_HOLD_MS` 150 ms 더 위에 있다가 제거) 로딩 화면은
+  다시 뜨지 않는다. 엔진이 실패하거나 `LATE_MAX_MS` 60초 안에 오지 않으면 위의 재시도(5초 뒤, 연달아 2번)로. `[ASSUMED]` 60초. 이어받는
+  동안은 「간이 보기로 전환」 토스트를 띄우지 않는다. 진단: `render events:`에 `simplified view (…; the engine keeps loading)` → `engine late`,
+  `mount:` 줄 `arrived: engine n s`(경쟁에서 진 뒤의 엔진 단계는 단계 시간에 넣지 않음).
+  C. `loadBrowserSim`이 데이터를 `data.js` 저장소에서 받아 자기 사본은 `structuredClone` 뒤 얼린다(저장소의 기록은 얼리지 않음). 저장소가
+  앞서 포기한 파일만 다시 받는다(`invalidate`).
+- 안 한 것: 모듈 묶기(번들러). 빌드 단계, 공유 모듈 한 벌 보장, 브라우저 테스트를 다시 맞춰야 하는 데 비해 효과는 회선이 나쁠 때뿐이고, 그
+  단계 대기는 평탄한 목록 미리 받기로 대부분 사라진다(관리자 결정 2026-10-14).
+- 확인: `test/preload.test.js`(목록 범위, 모든 항목이 버전·일반 URL 모두에서 200, 링크를 한꺼번에), `test/ui/fieldHost-lifecycle.test.js`
+  (늦은 엔진 넘겨받기, 시간 초과된 import 뒤 새 예산, 취소·실패 4종), `test/match/clientCombat-review.test.js`(시뮬이 저장소 사본을 씀, 다시
+  요청 0). [화면 미확인] 느린 회선: 로비에서 기다린 뒤 진입 → 바로 엔진; 진입 직후 → 간이 보기 → 엔진(로딩 화면 한 번).
+
 ## 공식 스테이지 씬 텍스처 받기 실패 (2026-10-11, 관리자 제보 「일부 유저가 게임 중 3D 렌더링이 제대로 안 된다」)
 - 원인(코드): `board3d/official.js loadOfficialScene`이 스테이지마다 이미지 약 21장(텍스처 17 + 라이트맵 4, act1autochess_m01)을 받는데,
   한 장이 실패해도 씬을 성공으로 페이지 끝까지 캐시했고(`assets.image`도 실패를 캐시), 그 재질의 텍스처 자리는 three.js의 빈 텍스처

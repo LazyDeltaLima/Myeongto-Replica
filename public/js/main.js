@@ -24,7 +24,8 @@
 // not-owned list (0.2.0 补位) by installOwnershipSync (room.ownership, likewise), the 自选编队 picks (0.2.0 DIY) by
 // installDiySync (room.diy, likewise; it also keeps welcome.diyKitted for the picker).
 // Game data: every text of the game is static data (/data/*.json) downloaded once per page; the in-match files are
-// warmed in the background as soon as the player is in a room (warmGameData), before the match needs them.
+// warmed in the background as soon as the player is in a room (warmGameData), before the match needs them; the match
+// screen's code (render engine, browser sim, three.js, Pixi) from the lobby on (preload.js).
 // Language (ui/lang.js, docs/I18N.md): chosen before the first render (initLang); App re-renders on a switch (useLang).
 // Server texts are translated on arrival: m.toast / m.ticker frames (msgid + params, or the text as a msgid; a
 // config.broadcasts line from its id + args), error codes (ui/toasts.js describeError) and room.closed reasons.
@@ -40,6 +41,8 @@ import { net, identity, NetError } from './net.js';
 import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating } from './store.js';
 import { data } from './data.js';
 import { GAME_FILES } from './ui/gameComponents.js';
+import { SIM_DATA_FILES } from './battle/runner.js';
+import { preloadMatchCode } from './preload.js';
 import { TitleScreen, sanitizeName } from './screens/title.js';
 import { LobbyScreen, rememberRoom, parseRoomParam } from './screens/lobby.js';
 import { RoomScreen } from './screens/room.js';
@@ -309,7 +312,10 @@ function wireNet() {
   store.subscribe((s, prev) => {
     // the server-lost dialog's 确认 (screens/game.js) clears it: now leave the dead match
     if (prev.ui.serverLost && !s.ui.serverLost) backToLobby();
-    if (s.session.entered && !prev.session.entered) schedulePendingJoin();
+    if (s.session.entered && !prev.session.entered) {
+      schedulePendingJoin();
+      preloadMatchCode(); // the match screen's code, while the player is in the lobby (preload.js)
+    }
     // in a room (co-op or solo, also a resumed one) a match is near: its data starts downloading
     if (s.room && !prev.room) warmGameData();
     // a room this page leaves (放弃模拟 / 离开同盟 / no longer seated) is no seat another window may recover
@@ -319,13 +325,15 @@ function wireNet() {
 
 /**
  * Download every data file of the match UI (gameComponents GAME_FILES: operators, skills, bonds, items, enemies, 特质 …)
- * in the background once the player is in a room — a match is near (the lobby alone never downloads them). The game's
+ * and of the browser battle simulation (battle/runner.js SIM_DATA_FILES, which takes them from this store) in the
+ * background once the player is in a room — a match is near (the lobby alone never downloads them). The game's
  * texts are static data loaded once per page — never fetched during a match — and the match screen waits for these
  * files, so with them warmed it opens at once and no text ever appears late (user playtest #3 item 9). Idempotent (the
- * data store shares each file's promise).
+ * data store shares each file's promise); the match code too (preload.js), for a page that skipped the lobby.
  */
 function warmGameData() {
-  const go = () => { data.loadAll(GAME_FILES).catch(() => {}); };
+  preloadMatchCode();
+  const go = () => { data.loadAll(GAME_FILES, SIM_DATA_FILES).catch(() => {}); };
   if (typeof globalThis.requestIdleCallback === 'function') globalThis.requestIdleCallback(go, { timeout: 2500 });
   else setTimeout(go, 600);
 }

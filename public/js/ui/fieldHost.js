@@ -4,6 +4,10 @@
 // The shared asset store gets the game data's copy of the asset manifest (`seedAssets`, public issue #8 item 5), and the
 // prep cameras the HUD bands they keep clear (`hudBands`; the folded shop's band: public issue #5).
 //
+// An engine that only lost the race to the clock keeps loading behind the simplified view (`late`, the game screen's
+// hook): when it arrives it replaces that view, with no second loading screen and no new download of what it already
+// has (a slow phone line in a player's report opened the field in the simplified view twice before the engine came).
+//
 // `?render=fallback` (or globalThis.__SP_RENDER__ = 'fallback') skips the engine (dev / mock harness);
 // `?render=engine` never falls back silently (errors are logged and the fallback still mounts).
 
@@ -22,6 +26,13 @@ const LOAD_TIMEOUT_MS = 12000;
  * cache is not the home-screen app's), and what it fetched is there by now.
  */
 const FALLBACK_RETRY_MS = 5000;
+/**
+ * How long a simplified view waits for its late engine (mountFieldView `late`) before giving it up for the retries above.
+ * [ASSUMED] 60 s: well past the slowest load in the reports (the engine 65 s after the first try, but over three tries).
+ */
+const LATE_MAX_MS = 60000;
+/** The simplified view stays on top this long after its late engine took over, while the game screen enters the engine. */
+const SWAP_HOLD_MS = 150;
 const METHODS = ['setStage', 'setCamera', 'setPrep', 'enterBattle', 'pushSnapshot', 'pushEvents', 'highlightTiles', 'on', 'resize', 'destroy'];
 // direction-step hooks (ui/facingWheel.js): optional — the wheel falls back to the engine's dev hooks when absent;
 // setPen (enemy preview pen list), prepField ({ kind, side, mirror } of the Final Assault prep), stripesUnder (the view
@@ -160,7 +171,7 @@ function withTimeout(p, ms, what, signal) {
     };
     const onAbort = () => finish(reject, abortError(signal));
     signal?.addEventListener('abort', onAbort, { once: true });
-    timer = setTimeout(() => finish(reject, new Error(`${what} timed out`)), ms);
+    timer = setTimeout(() => finish(reject, Object.assign(new Error(`${what} timed out`), { timeout: true })), ms);
     // Keep a rejection handler attached even when cancellation wins before this promise settles.
     Promise.resolve(p).then((value) => finish(resolve, value), (err) => finish(reject, err));
     if (signal?.aborted) onAbort();
@@ -215,12 +226,34 @@ export function seedAssets(store) {
 }
 
 /**
+ * The simplified view of a mount whose engine is still loading (`late`): in a layer of its own above the engine's
+ * elements, which stay hidden until the engine takes over (css/screens/game.css `.fh-late`); its destroy removes both.
+ * @param {HTMLElement} host
+ * @param {object} opts
+ */
+function lateFallback(host, opts) {
+  const layer = host.ownerDocument?.createElement?.('div');
+  if (!layer) return createFallbackView(host, opts);
+  layer.className = 'fh-fallback';
+  host.appendChild(layer);
+  host.classList?.add('fh-late');
+  const view = createFallbackView(layer, opts);
+  const destroy = view.destroy;
+  view.destroy = function destroyLate(...args) {
+    try { return destroy?.apply(this, args); } finally { layer.remove(); host.classList?.remove('fh-late'); }
+  };
+  return view;
+}
+
+/**
  * Create a field view in `host`: the render engine when available, else the DOM fallback.
  * @param {HTMLElement} host
- * @param {{ signal?: AbortSignal }} [options] Cancels a pending mount without creating a fallback.
+ * @param {{ signal?: AbortSignal, late?: boolean }} [options] `signal` cancels a pending mount without creating a
+ *   fallback. `late`: when the engine only ran out of time, the returned fallback carries `upgrade`, a promise of the
+ *   guarded engine view once it is ready (null if it fails), and `cancelUpgrade()`; the caller swaps the views.
  * @returns {Promise<ReturnType<typeof guardView>>}
  */
-export async function mountFieldView(host, { signal } = {}) {
+export async function mountFieldView(host, { signal, late = false } = {}) {
   checkActive(signal);
   const pref = renderPref();
   const opts = { data, assets: data.get('assets'), audio, settings: settingsStore.get(), padding: hudPadding, hud: hudBands };
@@ -230,8 +263,27 @@ export async function mountFieldView(host, { signal } = {}) {
     signal?.addEventListener('abort', onAbort, { once: true });
     if (signal?.aborted) onAbort();
     let engineView = null;
+    /** `late`: the engine view still on its way after the race was lost */
+    let upgrade = null;
     const dispose = (view) => { try { view?.destroy?.(); } catch { /* ignore */ } };
     const timing = mountTimer(); // the report's `mount:` line (diag.js): which stage a slow field load spent its time in
+    // the factory's stages count while the race runs; what arrives after it was lost is noted as `late` only
+    let racing = true;
+    const stages = { step: (name, cut) => { if (racing) timing.step(name, cut); }, late: (name) => timing.late(name), done: (kind) => timing.done(kind) };
+    // A factory that ignores cancellation still belongs to this attempt when it eventually returns.
+    // `deadline`: the engine cuts its optional waits (art, 3D board) to fit this race instead of losing it
+    const start = (mod, budget) => {
+      if (typeof mod?.createFieldView !== 'function') throw new Error('createFieldView missing');
+      return Promise.resolve(mod.createFieldView(host, { ...opts, signal: controller.signal, deadline: Date.now() + budget, timing: stages })).then((view) => {
+        if (controller.signal.aborted) dispose(view); else engineView = view;
+        return view;
+      });
+    };
+    const complete = (view) => {
+      const missing = METHODS.filter((k) => typeof view?.[k] !== 'function');
+      if (missing.length) throw new Error(`view lacks ${missing.join(', ')}`);
+      return view;
+    };
     try {
       checkActive(controller.signal);
       // the shared asset store (public/js/assets.js) keeps its Spine cache across remounts (next match, reconnect)
@@ -245,31 +297,69 @@ export async function mountFieldView(host, { signal } = {}) {
         opts.assets = am.assets;
         seedAssets(am.assets);
       }
-      const mod = await withTimeout(import('../render/app.js'), LOAD_TIMEOUT_MS, 'render engine import', controller.signal);
+      const imported = import('../render/app.js');
+      const mod = await withTimeout(imported, LOAD_TIMEOUT_MS, 'render engine import', controller.signal).catch((err) => {
+        // the engine's own waits get a full budget again once it is in (art and 3D board before it shows)
+        if (late && err?.timeout) {
+          upgrade = imported.then((m) => start(m, LOAD_TIMEOUT_MS));
+          upgrade.catch(() => {}); // settled below (or dropped with the attempt)
+        }
+        throw err;
+      });
       checkActive(controller.signal);
       timing.step('engine');
-      if (typeof mod?.createFieldView !== 'function') throw new Error('createFieldView missing');
-      // A factory that ignores cancellation still belongs to this attempt when it eventually returns.
-      // `deadline`: the engine cuts its optional waits (art, 3D board) to fit this race instead of losing it
-      const pending = Promise.resolve(mod.createFieldView(host, { ...opts, signal: controller.signal, deadline: Date.now() + LOAD_TIMEOUT_MS, timing })).then((view) => {
-        if (controller.signal.aborted) dispose(view); else engineView = view;
-        return view;
+      const pending = start(mod, LOAD_TIMEOUT_MS);
+      const view = await withTimeout(pending, LOAD_TIMEOUT_MS, 'createFieldView', controller.signal).catch((err) => {
+        if (late && err?.timeout) upgrade = pending;
+        throw err;
       });
-      const view = await withTimeout(pending, LOAD_TIMEOUT_MS, 'createFieldView', controller.signal);
       checkActive(controller.signal);
-      const missing = METHODS.filter((k) => typeof view?.[k] !== 'function');
-      if (missing.length) throw new Error(`view lacks ${missing.join(', ')}`);
+      complete(view);
       timing.done('engine');
       return guardView(view, 'engine');
     } catch (err) {
+      racing = false;
+      timing.done(signal?.aborted ? 'cancelled' : 'fallback');
+      if (upgrade && !signal?.aborted) {
+        console.warn('[field] render engine still loading, using the simplified view meanwhile:', err?.message || err);
+        noteRender('simplified view', `${err?.message || err}; the engine keeps loading`);
+        let fallback;
+        try {
+          fallback = guardView(lateFallback(host, { ...opts, assets: data.get('assets') }), 'fallback');
+        } catch (e) {
+          upgrade = null;
+          controller.abort();
+          dispose(engineView);
+          throw e;
+        }
+        let handedOver = false;
+        fallback.upgrade = upgrade.then((view) => {
+          checkActive(controller.signal);
+          complete(view);
+          handedOver = true;
+          timing.late('engine');
+          return guardView(view, 'engine');
+        }).catch((e) => {
+          // once handed over, aborting would destroy the engine (its factory listens to this signal until destroy)
+          controller.abort();
+          dispose(engineView);
+          if (!signal?.aborted) {
+            console.warn('[field] late render engine unavailable:', e?.message || e);
+            noteRender('engine late failed', String(e?.message || e));
+          }
+          return null;
+        }).finally(() => signal?.removeEventListener('abort', onAbort));
+        fallback.cancelUpgrade = () => { if (!handedOver) controller.abort(); };
+        return fallback;
+      }
+      upgrade = null;
       controller.abort();
       dispose(engineView);
-      timing.done(signal?.aborted ? 'cancelled' : 'fallback');
       checkActive(signal);
       console.warn('[field] render engine unavailable, using the simplified view:', err?.message || err);
       noteRender('simplified view', String(err?.message || err));
     } finally {
-      signal?.removeEventListener('abort', onAbort);
+      if (!upgrade) signal?.removeEventListener('abort', onAbort);
     }
   }
   checkActive(signal);
@@ -277,38 +367,65 @@ export async function mountFieldView(host, { signal } = {}) {
 }
 
 /**
- * Preact hook: mount a field view into `hostRef`; returns { view, kind } (view null while loading). A view that fell back
- * to the DOM view is mounted again — a new view object, which screens/game.js enters afresh — FALLBACK_RETRY_MS later
- * while the page is on screen, and when the page comes back online or is shown again, at most twice in a row (upstream
- * 0.2.4); the 3D board's own retries inside the engine are render/app/retry3d.js.
+ * Preact hook: mount a field view into `hostRef`; returns { view, kind, upgrading } (view null while loading). A mount
+ * that ran out of time shows the DOM view while its engine keeps loading (`upgrading`), and the engine replaces it when it
+ * arrives — a new view object, which screens/game.js enters afresh (the DOM view stays on top for SWAP_HOLD_MS meanwhile).
+ * A view that fell back to the DOM view otherwise (or whose late engine failed or took longer than LATE_MAX_MS) is
+ * mounted again FALLBACK_RETRY_MS later while the page is on screen, and when the page comes back online or is shown
+ * again, at most twice in a row (upstream 0.2.4); the 3D board's own retries inside the engine are render/app/retry3d.js.
  * @param {{ current: HTMLElement|null }} hostRef
  */
 export function useFieldView(hostRef) {
-  const [state, setState] = useState({ view: null, kind: 'loading' });
+  const [state, setState] = useState({ view: null, kind: 'loading', upgrading: false });
   const [attempt, setAttempt] = useState(0);
   const retries = useRef(0);
   const viewRef = useRef(null);
   useEffect(() => {
-    let dead = false, retrying = false, retryTimer = 0;
+    let dead = false, retrying = false, retryTimer = 0, lateTimer = 0, holdTimer = 0, upgrading = false;
+    let retiring = null; // the DOM view a late engine replaced, still on top for SWAP_HOLD_MS
     const host = hostRef.current;
     if (!host) return undefined;
-    setState({ view: null, kind: 'loading' });
+    setState({ view: null, kind: 'loading', upgrading: false });
     const controller = new AbortController();
-    mountFieldView(host, { signal: controller.signal }).then((view) => {
-      if (dead) { view.destroy(); return; }
+    const awaitUpgrade = (fallback) => {
+      upgrading = true;
+      lateTimer = setTimeout(() => fallback.cancelUpgrade?.(), LATE_MAX_MS);
+      fallback.upgrade.then((engine) => {
+        clearTimeout(lateTimer);
+        upgrading = false;
+        if (dead || viewRef.current !== fallback) { engine?.destroy(); return; }
+        if (!engine) {
+          setState({ view: fallback, kind: 'fallback', upgrading: false });
+          retryTimer = setTimeout(onRetry, FALLBACK_RETRY_MS);
+          return;
+        }
+        noteRender('engine late', 'replaced the simplified view');
+        viewRef.current = engine;
+        retries.current = 0;
+        globalThis.__SP_VIEW__ = engine;
+        setState({ view: engine, kind: 'engine', upgrading: false });
+        retiring = fallback;
+        holdTimer = setTimeout(() => { retiring?.destroy(); retiring = null; }, SWAP_HOLD_MS);
+      });
+    };
+    mountFieldView(host, { signal: controller.signal, late: true }).then((view) => {
+      if (dead) { view.cancelUpgrade?.(); view.destroy(); return; }
       viewRef.current = view;
       if (view.kind === 'engine') retries.current = 0;
       globalThis.__SP_VIEW__ = view; // dev / E2E introspection (view.raw.stats?.())
-      setState({ view, kind: view.kind });
-      if (view.kind === 'fallback') retryTimer = setTimeout(onRetry, FALLBACK_RETRY_MS);
+      setState({ view, kind: view.kind, upgrading: !!view.upgrade });
+      if (view.kind === 'fallback') {
+        if (view.upgrade) awaitUpgrade(view);
+        else retryTimer = setTimeout(onRetry, FALLBACK_RETRY_MS);
+      }
     }, (err) => { if (!dead && !controller.signal.aborted) console.error('[field] mount failed', err); });
     const unsub = settingsStore.subscribe((s) => viewRef.current?.setSettings?.(s));
     const onResize = () => viewRef.current?.resize();
     // A temporary network/vendor failure must not pin this mounted match to fallback forever. Retry once a moment later
     // and on a useful user event, at most twice in succession; the effect cleanup disposes the old view before creating
-    // its successor. A hidden page waits for visibilitychange.
+    // its successor. A hidden page waits for visibilitychange; a late engine still on its way is waited for instead.
     const onRetry = (e) => {
-      if (dead || retrying || viewRef.current?.kind !== 'fallback' || renderPref() === 'fallback'
+      if (dead || retrying || upgrading || viewRef.current?.kind !== 'fallback' || renderPref() === 'fallback'
         || document.visibilityState !== 'visible' || globalThis.navigator?.onLine === false || retries.current >= 2) return;
       retrying = true; retries.current++;
       noteRender('engine retry', `${retries.current}/2 ${e?.type || 'timer'}`); // the bug report's render events (diag.js)
@@ -320,6 +437,8 @@ export function useFieldView(hostRef) {
     return () => {
       dead = true;
       clearTimeout(retryTimer);
+      clearTimeout(lateTimer);
+      clearTimeout(holdTimer);
       controller.abort();
       unsub();
       window.removeEventListener('resize', onResize);
@@ -327,8 +446,11 @@ export function useFieldView(hostRef) {
       document.removeEventListener('visibilitychange', onRetry);
       // the dev hook must not keep the destroyed view — and through its host the whole detached match screen — alive
       if (viewRef.current && globalThis.__SP_VIEW__ === viewRef.current) globalThis.__SP_VIEW__ = null;
+      viewRef.current?.cancelUpgrade?.();
       viewRef.current?.destroy();
       viewRef.current = null;
+      retiring?.destroy();
+      retiring = null;
     };
   }, [attempt]);
   return state;

@@ -399,23 +399,37 @@ test('fitResult: an oversized b.result is trimmed under the frame budget without
 
 // ---- browser loader (runs last: it injects the data into this process' sim like a page does) ------------------------
 
-test('loadBrowserSim: a data file that cannot be fetched fails the loader (no battle on partial data); all files → a working sim', async () => {
+test('loadBrowserSim: the files come from the page\'s data store (no second download), cloned and frozen; a file that cannot be fetched fails the loader (no battle on partial data)', async () => {
   const { loadBrowserSim, SIM_DATA_FILES } = await import('../../public/js/battle/runner.js');
+  const { createDataStore } = await import('../../public/js/data.js');
   const base = new URL('../../server/sim/', import.meta.url).href;
   const served = (fail = new Set()) => async (url) => {
     const name = String(url).replace(/^.*\//, '').replace(/\.json$/, '');
     if (fail.has(name)) return { ok: false, status: 503, json: async () => null };
     return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(DATA[name])) };
   };
+  const storeOf = (fetch) => createDataStore({ fetch, wait: async () => {}, timeoutMs: 0 });
   let calls = 0;
-  const flaky = served(new Set(['bonds']));
-  await assert.rejects(loadBrowserSim({ base, fetchFn: (u, o) => { calls++; return flaky(u, o); } }), /simulation data unavailable: bonds/);
-  assert.equal(calls, SIM_DATA_FILES.length + 1, 'one retry for the failed file');
-  // a transient failure is retried once
-  let first = true;
-  const once = served();
-  const sim = await loadBrowserSim({ base, fetchFn: (u, o) => { if (first && /enemies/.test(u)) { first = false; return Promise.reject(new Error('net')); } return once(u, o); } });
-  assert.ok(sim.spec && sim.ds);
+  let down = new Set(['bonds']);
+  const flaky = storeOf((u, o) => { calls++; return served(down)(u, o); });
+  await assert.rejects(loadBrowserSim({ base, dataStore: flaky }), /simulation data unavailable: bonds/);
+  assert.equal(calls, SIM_DATA_FILES.length + 2, 'the store retries the failed file twice, nothing else');
+  // the next load (the next b.start) fetches only the file the store gave up on
+  down = new Set();
+  calls = 0;
+  const again = await loadBrowserSim({ base, dataStore: flaky });
+  assert.ok(again.spec && again.ds);
+  assert.equal(calls, 1, 'only bonds is fetched again');
+  // files the match screen already loaded are not downloaded again
+  const page = storeOf((u, o) => { calls++; return served()(u, o); });
+  await page.loadAll(SIM_DATA_FILES);
+  calls = 0;
+  const sim = await loadBrowserSim({ base, dataStore: page });
+  assert.equal(calls, 0, 'no request: the store has every file');
+  const [id, rec] = Object.entries(sim.ds.raw.chess)[0];
+  assert.ok(Object.isFrozen(rec), 'the sim\'s records are frozen');
+  const own = page.lookupRaw('chess', id);
+  assert.ok(own && own !== rec && !Object.isFrozen(own), 'the store keeps its own unfrozen record');
   const spec = buildBattleSpec({ battleId: 'l1', fieldId: 'n:p', kind: 'normal', seed: 5, round: 1, stageId: Object.keys(DATA.stages)[0], timeLimit: 30,
     players: [{ playerId: 'p', units: [], bonds: {} }], spawns: [{ enemyKey: plainKey, count: 1, time: 1 }], flags: { layerGainsEnabled: true } });
   const b = sim.spec.createBattleFromSpec(spec, sim.ds, { quiet: true, recordEvents: false });

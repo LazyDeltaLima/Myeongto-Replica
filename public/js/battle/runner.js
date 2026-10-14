@@ -73,6 +73,7 @@ import { store as appStore } from '../store.js';
 import { unitStatsEntry, fxForm } from '../../../shared/protocol.js';
 import { spectateEffects } from './observe.js';
 import { recordError, setBattleSource, rememberBattle } from '../diag.js';
+import { data as appData } from '../data.js';
 
 const TICK = 1 / 30;
 /** Fast-forward budget per frame (ticks) when far behind. */
@@ -140,28 +141,32 @@ function deepFreeze(root) {
 }
 
 /**
- * Browser sim loader: the /sim/ modules + the data files (own frozen copies — the server's data is frozen too, so a
- * content bug that writes into a record fails identically on both sides). The modules resolve beside this one, so a page
- * loaded under a versioned /b/<tag>/ URL (server/http/buildTag.js) imports the sim and its /shared/ modules from the same
- * build as the rest — never a second copy of a shared module under the plain URL.
+ * Browser sim loader: the /sim/ modules + the data files. The files come from the page's data store (public/js/data.js),
+ * the copies the match screen already downloaded (main.js warms them in the room): a second download of the same ~350 KB
+ * competed with the render engine on a slow phone line and timed it out. The sim gets its own deep-frozen clones — the
+ * server's data is frozen too, so a content bug that writes into a record fails identically on both sides, and the
+ * store's records stay as the UI knows them. A file the store gave up on earlier is fetched again (`invalidate`); one
+ * that fails now fails the loader (the next b.start retries it). The modules resolve beside this one, so a page loaded
+ * under a versioned /b/<tag>/ URL (server/http/buildTag.js) imports the sim and its /shared/ modules from the same build
+ * as the rest — never a second copy of a shared module under the plain URL.
+ * @param {{ base?: string, dataStore?: { load: (n: string) => Promise<any>, status: (n: string) => string, invalidate: (n: string) => Promise<any> } }} [opts]
  */
-export async function loadBrowserSim({ base = new URL('../../sim/', import.meta.url).href, dataBase = '/data/', fetchFn = (...a) => globalThis.fetch(...a) } = {}) {
+export async function loadBrowserSim({ base = new URL('../../sim/', import.meta.url).href, dataStore = appData } = {}) {
   const [spec, simdata, support] = await Promise.all([
     import(`${base}spec.js`), import(`${base}simdata.js`), import(`${base}content/support/index.js`),
   ]);
-  const fetchOnce = async (n) => {
+  const fileOf = async (n) => {
     try {
-      const res = await fetchFn(`${dataBase}${n}.json`, { cache: 'no-cache' });
-      return res && res.ok ? await res.json() : null;
+      return await (dataStore.status(n) === 'missing' ? dataStore.invalidate(n) : dataStore.load(n));
     } catch { return null; }
   };
-  const files = await Promise.all(SIM_DATA_FILES.map(async (n) => (await fetchOnce(n)) ?? fetchOnce(n)));
+  const files = await Promise.all(SIM_DATA_FILES.map(fileOf));
   // a battle simulated without part of the data would still produce a plausible result the server accepts: never run
   // one — the loader fails (the next b.start retries it; meanwhile the server's deadline takes the field over)
   const missing = SIM_DATA_FILES.filter((n, i) => !files[i] || typeof files[i] !== 'object');
   if (missing.length) throw new Error(`simulation data unavailable: ${missing.join(', ')}`);
   const raw = {};
-  SIM_DATA_FILES.forEach((n, i) => { raw[n] = deepFreeze(files[i]); });
+  SIM_DATA_FILES.forEach((n, i) => { raw[n] = deepFreeze(structuredClone(files[i])); });
   simdata.setSimData(raw);
   if (typeof support.setGameData === 'function') support.setGameData(null); // re-read through the injected data
   return { spec, ds: new simdata.DataSource(raw, null) };

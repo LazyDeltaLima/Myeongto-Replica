@@ -15,8 +15,9 @@ const source = readFileSync(sourcePath, 'utf8')
 const METHODS = ['setStage', 'setCamera', 'setPrep', 'enterBattle', 'pushSnapshot', 'pushEvents', 'highlightTiles', 'on', 'resize'];
 const flush = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
 
-function fixture() {
+function fixture({ slowApp = false } = {}) {
   const timers = new Map(), requests = [], fallbacks = [], warnings = [], mounts = [];
+  let appArrives = null;
   let timerId = 0;
   const unrelated = { name: 'unrelated' };
   const host = {
@@ -38,16 +39,19 @@ function fixture() {
     AbortController, DOMException, URLSearchParams, Promise,
     console: { warn: (...args) => warnings.push(args) },
     audio: {}, data: { get() { return null; } }, settingsStore: { get() { return {}; } }, noteRender: () => {},
-    mountTimer() { const m = { steps: [], kind: null }; mounts.push(m); return { step: (n) => m.steps.push(n), late() {}, done: (k) => { m.kind ??= k; } }; },
+    mountTimer() { const m = { steps: [], kind: null, late: [] }; mounts.push(m); return { step: (n) => m.steps.push(n), late: (n) => m.late.push(n), done: (k) => { m.kind ??= k; } }; },
     setTimeout(fn) { timers.set(++timerId, fn); return timerId; },
     clearTimeout(id) { timers.delete(id); },
     importAssets: async () => null,
-    importApp: async () => ({
-      createFieldView(_host, opts) {
-        // Deliberately ignore cancellation: the host must still dispose a factory's late return value.
-        return new Promise((resolve, reject) => requests.push({ resolve, reject, signal: opts.signal, deadline: opts.deadline, timing: opts.timing }));
-      },
-    }),
+    importApp: async () => {
+      if (slowApp) await new Promise((resolve) => { appArrives = resolve; });
+      return {
+        createFieldView(_host, opts) {
+          // Deliberately ignore cancellation: the host must still dispose a factory's late return value.
+          return new Promise((resolve, reject) => requests.push({ resolve, reject, signal: opts.signal, deadline: opts.deadline, timing: opts.timing }));
+        },
+      };
+    },
     createFallbackView() {
       const fallback = view('fallback');
       fallbacks.push({ view: fallback, rendererAborted: requests.at(-1)?.signal?.aborted });
@@ -58,6 +62,8 @@ function fixture() {
   return {
     host, unrelated, timers, requests, fallbacks, warnings, view, mounts,
     mount: (signal) => context.mount(host, { signal }),
+    mountLate: (signal) => context.mount(host, { signal, late: true }),
+    arrive: () => appArrives(),
     timeout() { const fn = [...timers.values()].at(-1); assert.ok(fn, 'initialization has a deadline'); fn(); },
   };
 }
@@ -188,4 +194,92 @@ test('a timed-out factory returning late cannot remove a replacement view or unr
   assert.equal(f.timers.size, 0);
   assert.deepEqual(f.host.children, [f.unrelated, replacement.node]);
   mounted.destroy();
+});
+
+// ---- `late` (the game screen's hook): an engine that only ran out of time keeps loading behind the simplified view ----
+
+test('late: a factory that runs out of time keeps loading; the fallback carries the engine once it arrives', async () => {
+  const f = fixture(), controller = new AbortController();
+  const pending = f.mountLate(controller.signal);
+  await flush();
+  f.timeout();
+  const fallback = await pending;
+  assert.equal(fallback.kind, 'fallback');
+  assert.equal(typeof fallback.upgrade?.then, 'function', 'the fallback carries the late engine');
+  assert.equal(f.requests[0].signal.aborted, false, 'the engine attempt is not cancelled');
+  assert.equal(f.fallbacks[0].rendererAborted, false);
+  f.requests[0].timing.step('setup'); // a stage after the race was lost is not the race's
+  const raw = f.view('engine');
+  f.requests[0].resolve(raw);
+  const engine = await fallback.upgrade;
+  assert.equal(engine.kind, 'engine');
+  assert.ok(engine.raw === raw, 'the engine view of this attempt');
+  assert.deepEqual([f.mounts[0].steps.join(','), f.mounts[0].kind, f.mounts[0].late.join(',')], ['store,engine', 'fallback', 'engine']);
+  assert.equal(getEventListeners(controller.signal, 'abort').length, 0, 'handed over: the caller owns it now');
+  controller.abort();
+  await flush();
+  assert.equal(raw.destroyCalls, 0, 'cancelling the old mount does not destroy the handed-over engine');
+  fallback.cancelUpgrade();
+  assert.equal(f.requests[0].signal.aborted, false, 'nor does a late cancelUpgrade');
+  fallback.destroy();
+  engine.destroy();
+  assert.deepEqual(f.host.children, [f.unrelated]);
+});
+
+test('late: an engine import that runs out of time starts the factory when it lands, with a fresh budget', async () => {
+  const f = fixture({ slowApp: true });
+  const pending = f.mountLate();
+  await flush();
+  f.timeout();
+  const fallback = await pending;
+  assert.equal(fallback.kind, 'fallback');
+  assert.equal(f.requests.length, 0);
+  const t0 = Date.now();
+  f.arrive();
+  await flush();
+  assert.equal(f.requests.length, 1, 'the factory starts once the import is in');
+  assert.ok(f.requests[0].deadline >= t0 + 12000, 'its optional waits get a full budget again');
+  const raw = f.view('engine');
+  f.requests[0].resolve(raw);
+  assert.ok((await fallback.upgrade).raw === raw);
+  fallback.destroy();
+  raw.destroy();
+});
+
+test('late: cancelled before the engine arrives (unmount, cancelUpgrade, a failing factory) → no engine, nothing left behind', async () => {
+  for (const how of ['abort', 'cancel', 'reject', 'invalid']) {
+    const f = fixture(), controller = new AbortController();
+    const pending = f.mountLate(controller.signal);
+    await flush();
+    f.timeout();
+    const fallback = await pending;
+    if (how === 'abort') controller.abort();
+    if (how === 'cancel') fallback.cancelUpgrade();
+    if (how === 'reject') f.requests[0].reject(new Error('boom'));
+    if (how === 'invalid') f.requests[0].resolve(f.view('invalid', false));
+    await flush();
+    if (how === 'abort' || how === 'cancel') {
+      assert.equal(f.requests[0].signal.aborted, true, how);
+      const late = f.view('late');
+      f.requests[0].resolve(late);
+      await flush();
+      assert.equal(late.destroyCalls, 1, `${how}: a view returned after cancellation is disposed`);
+    }
+    assert.equal(await fallback.upgrade, null, how);
+    assert.equal(getEventListeners(controller.signal, 'abort').length, 0, how);
+    fallback.destroy();
+    assert.deepEqual(f.host.children, [f.unrelated], how);
+  }
+});
+
+test('late: an engine that fails outright still mounts the plain fallback, without an upgrade', async () => {
+  const f = fixture();
+  const pending = f.mountLate();
+  await flush();
+  f.requests[0].reject(new Error('no WebGL'));
+  const fallback = await pending;
+  assert.equal(fallback.kind, 'fallback');
+  assert.equal(fallback.upgrade, undefined);
+  assert.equal(f.requests[0].signal.aborted, true);
+  fallback.destroy();
 });

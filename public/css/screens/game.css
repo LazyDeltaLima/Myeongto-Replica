@@ -9,6 +9,10 @@
 .gm { background: transparent; }
 .gm__field { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
 .gm__field canvas { display: block; }
+/* a simplified view shown while the render engine is still loading (ui/fieldHost.js lateFallback): on top, and the
+   engine's canvases and layers stay hidden until it takes over */
+.fh-fallback { position: absolute; inset: 0; z-index: 2; }
+.fh-late > :not(.fh-fallback) { visibility: hidden !important; }
 .gm__vignette {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background:

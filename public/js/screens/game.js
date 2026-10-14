@@ -216,7 +216,7 @@ function MatchScreen() {
   const hostRef = useRef(null);
   const barRef = useRef(null);
   const hudElRef = useRef(null);                         // .gm__hud (inside the safe-area insets: the panels' frame)
-  const { view, kind: viewKind } = useFieldView(hostRef);
+  const { view, kind: viewKind, upgrading: viewUpgrading } = useFieldView(hostRef);
 
   const [watching, setWatching] = useState(null);        // fieldId the player chose to watch (null = home)
   const [watchWho, setWatchWho] = useState(null);        // { fieldId, playerId }: the teammate picked with 前往查看
@@ -740,14 +740,15 @@ function MatchScreen() {
     setCam(field.kind === 'hidden' ? 'boss' : field.kind, layerCamera(field, k, sidesOf(field)[myId] || 'L'));
   }, [view, watchWho, field, phase]);
 
-  // graceful degradation: without WebGL / the render engine the DOM view takes over — say so once per match
+  // graceful degradation: without WebGL / the render engine the DOM view takes over — say so once per match (not while
+  // a late engine is still on its way to replace it: ui/fieldHost.js useFieldView `upgrading`)
   useEffect(() => {
-    if (viewKind !== 'fallback') return;
+    if (viewKind !== 'fallback' || viewUpgrading) return;
     let asked = null;
     try { asked = new URLSearchParams(globalThis.location?.search || '').get('render'); } catch { asked = null; }
     if (asked === 'fallback' || globalThis.__SP_RENDER__ === 'fallback') return;
     toast(t('渲染器暂时未能加载，已切换为简化视图（功能不受影响，可刷新重试）'), 'info', { ttl: 5000 });
-  }, [viewKind]);
+  }, [viewKind, viewUpgrading]);
 
   // phase changes: banners, sounds, resets
   const phaseKey = `${phase}:${pub?.round}`;

@@ -79,7 +79,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | path | what |
 |---|---|
 | `server/index.js` | the process entry (`npm start`); `startServer()` wires `server/http/` |
-| `server/http/` | `config.js` (environment), `websocket.js` (sessions, `/ws`), `static.js` (the mounts), `media.js`, `files.js` (MIME, gzip, ETag, ranges), `buildTag.js`, `routes.js` (`/healthz`, `/changelog.json`), `changelog.js` (the lobby patch notes from CHANGELOG.md), `common.js`, `boot.js` (banner, shutdown) |
+| `server/http/` | `config.js` (environment), `websocket.js` (sessions, `/ws`), `static.js` (the mounts), `media.js`, `files.js` (MIME, gzip, ETag, ranges), `buildTag.js`, `routes.js` (`/healthz`, `/changelog.json`, `/preload.json`), `changelog.js` (the lobby patch notes from CHANGELOG.md), `preload.js` (the match screen's modules as one flat list, for the lobby to download ahead), `common.js`, `boot.js` (banner, shutdown) |
 | `server/net.js` | sessions and reconnect tokens, rate limits, message validation |
 | `server/lobby.js` | rooms, seats, AI seats, spectators; starts a `Match` |
 | `server/data.js` | loads `data/*.json` once (frozen) |
@@ -102,6 +102,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | path | what |
 |---|---|
 | `public/index.html`, `public/js/main.js` | the page and its entry: boot, the router (title → lobby → room → game) |
+| `public/js/preload.js` | from the lobby on, downloads the match screen's code ahead (`/preload.json` → modulepreload), so entering a match only runs it |
 | `public/js/net.js`, `public/js/store.js`, `public/js/data.js` | the socket client, the observable store, the data loader (`/data/*.json`, with the English overlay) |
 | `public/js/battle/` | `runner.js` (the local battle: loads `/sim/`, steps it, reports), `observe.js` (who may watch which field) |
 | `public/js/screens/` | `title.js`, `lobby.js`, `room.js`, `loadout.js` (干员调配), `cultivation.js` (its 潜能 / 练度 controls), `ownership.js` (干员持有), `diy.js` (自选编队), `briefing.js`, `bandDraft.js`, `game.js` with `public/js/screens/game/`, `result.js` (its 伤害 / 联防 tabs: `resultCharts.js`) |
@@ -141,8 +142,9 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   compare the JSON to see that only the intended data changed.
 - **On the server**, `server/data.js` loads the files once; the match reads them through `server/match/gamedata.js`,
   the sim through `server/sim/simdata.js`, which turns every record into a frozen engine def.
-- **In the browser**, `public/js/data.js` fetches the same files once per page for the UI, and the battle runner loads
-  its own frozen copies for the sim (`loadBrowserSim` → `setSimData`), so both sides simulate from the same data.
+- **In the browser**, `public/js/data.js` fetches the same files once per page for the UI, and the battle runner takes
+  them from it as its own frozen clones for the sim (`loadBrowserSim` → `setSimData`), so both sides simulate from the
+  same data and nothing is downloaded twice.
 - **Languages.** Chinese is the source language; every other language is a pack — `public/i18n/<code>.json` (UI
   strings) and optionally `data/i18n/<code>.json` (game texts), listed by the server at `/packs/index.json`
   (`server/packs.js`; PACKS.md). The English game texts come from the official EN client (`tools/build-i18n.mjs` →

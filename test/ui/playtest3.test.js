@@ -506,7 +506,8 @@ describe('9: busy indicators and data loading', () => {
     assert.deepEqual(missing, [], 'read by the match UI but not awaited by the match screen');
     const main = read('public/js/main.js');
     assert.match(main, /if \(s\.room && !prev\.room\) warmGameData\(\);/);
-    assert.match(main, /data\.loadAll\(GAME_FILES\)/);
+    // with the browser sim's files, which battle/runner.js loadBrowserSim takes from the same store
+    assert.match(main, /data\.loadAll\(GAME_FILES, SIM_DATA_FILES\)/);
   });
 });
 

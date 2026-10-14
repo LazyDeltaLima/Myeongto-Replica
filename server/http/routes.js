@@ -6,6 +6,7 @@
 //   * GET /healthz → JSON status (protocol `version`, release `app`, uptime, the served `build`, sockets, sessions,
 //     rooms, matches), never cached; GET /healthz/rooms → the per-room status list (server/local-rooms.js), inside only;
 //   * GET /changelog.json → the lobby's patch notes parsed from CHANGELOG.md (changelog.js);
+//   * GET /preload.json → the match screen's modules and scripts, for the lobby to download ahead (preload.js);
 //   * everything else → the static files (static.js).
 // A route that throws is logged and answers 500.
 
@@ -16,6 +17,7 @@ import { localVersion } from '../../shared/local.js'; // local patch: version la
 import { proxiedRequest } from '../local-patch.js'; // local patch: /healthz through the proxy
 import { roomList } from '../local-rooms.js';
 import { CHANGELOG_URL, createChangelogReader } from './changelog.js';
+import { PRELOAD_URL, preloadList } from './preload.js';
 
 const MAX_URL_LENGTH = 4096;
 
@@ -66,6 +68,10 @@ export function createRequestHandler({ serveStatic, health, log, changelog = cre
     }
     if (parts.rawPath === CHANGELOG_URL) {
       sendJson(req, res, 200, await changelog());
+      return;
+    }
+    if (parts.rawPath === PRELOAD_URL) {
+      sendJson(req, res, 200, await preloadList());
       return;
     }
     await serveStatic(req, res, parts.rawPath, parts.query);
