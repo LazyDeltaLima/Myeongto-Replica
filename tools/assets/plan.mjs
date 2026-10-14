@@ -453,7 +453,8 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   const chessById = new Map((ops03?.chess || []).map((c) => [c.chessId, c]));
   const tokens = {};
   const tokenIds = new Set(Object.keys(assets07?.tokens || {}));
-  for (const id of extraTokenIds) if (typeof id === 'string' && /^token_\d+_[a-z0-9_]+$/i.test(id)) tokenIds.add(id);
+  // token_* summons and trap_* stage tokens (a leader's 子代 trap_039_dstnta: an enemy-side unit, the model a token's)
+  for (const id of extraTokenIds) if (typeof id === 'string' && /^(token|trap)_\d+_[a-z0-9_]+$/i.test(id)) tokenIds.add(id);
   for (const id of [...tokenIds].sort()) {
     // Tokens unknown to research 07: default avatar/Spine locations (misses are tolerated).
     const t = assets07?.tokens?.[id] ?? {

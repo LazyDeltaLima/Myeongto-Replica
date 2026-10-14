@@ -356,6 +356,62 @@
         "width": 398,
         "height": 410
       }
+    },
+    "trap_039_dstnta": {
+      "skel": "trap_039_dstnta.skel",
+      "atlas": "trap_039_dstnta.atlas",
+      "textures": [
+        "trap_039_dstnta.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle_01",
+        "deploy": "Start_01",
+        "attack": {
+          "begin": "Attack_Begin",
+          "loop": "Attack_Loop",
+          "end": "Attack_End"
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": "Attack_Begin",
+          "loop": "Attack_Loop",
+          "end": "Attack_End",
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die_01",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack_Begin": 0.833,
+        "Attack_End": 0.667,
+        "Attack_Loop": 0.667,
+        "Default": 0,
+        "Die_01": 1,
+        "Die_02": 1.333,
+        "Idle_01": 1,
+        "Idle_02": 4,
+        "Start_01": 0.5,
+        "Start_02": 1
+      },
+      "events": [
+        "OnAttack",
+        "OnStart"
+      ],
+      "hits": {
+        "Attack_Loop": [
+          0.1
+        ]
+      },
+      "bounds": {
+        "x": -111.86,
+        "y": -6.396,
+        "width": 289.01,
+        "height": 358.996
+      }
     }
   }
 }

@@ -393,7 +393,9 @@ Other renderer rules from research 07 §5.4–5.5:
   "missing skel"), nor of 凯瑟琳's 爬行号·防护单元 and 凛御银灰's 风雪之眼, so they were drawn as the avatar diamond. The
   local client has them in its battle token packs (`pkgrps/btl_pfb_tokens_*.ab`, the Windows build carries all of them;
   the iOS build lacks `btl_pfb_tokens_0` and has ASTC pages), the same overlay as the enemies above:
-  - `tools/local-extract/extract.py TOKEN_SPINES` (8 ids; `--only spine/token`) reads each token's battle prefab
+  - `tools/local-extract/extract.py TOKEN_SPINES` (9 ids — the 8 summons and 盐风主教昆图斯's 子代 `trap_039_dstnta`, an
+    enemy-side stage token; `--only spine/token`; plan.mjs / spine.mjs take `trap_*` ids next to `token_*`, and fetch-assets
+    adds the wave templates' `devices` keys to the planned tokens) reads each token's battle prefab
     (`dyn/battle/prefabs/[uc]tokens/<id>.prefab`), takes the skeleton of its Front renderer — a directional token has
     Front / Back (/ Down) renderers, each with its own skeleton of the same name; the web tokens use Front too — and
     writes it to `public/assets/local/spine/token/{tokenId}/` like an enemy model (skeleton, sized `pma: true` atlas,

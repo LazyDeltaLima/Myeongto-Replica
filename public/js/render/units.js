@@ -493,7 +493,21 @@ const skillRoles = (index, loop, o = {}) => Object.freeze({ begin: null, end: nu
 const dollRoles = (idle, die, attack = null) => Object.freeze({
   idle, deploy: idle, die, attack: attack ? Object.freeze({ begin: null, loop: attack, end: null }) : null, attackDown: null, skill: null,
 });
+/**
+ * 子代 (trap_039_dstnta, 盐风主教昆图斯's 断裂生殖 — server/sim/content/bosses.js kitBrood): its token prefab's Graphic
+ * table (Born → Start_01, Idle → Idle_01, Die → Die_01; GrowUp mode replaces Idle / Die with Idle_02 / Die_02; its Grow
+ * ability plays Start_02, 摄食 Attack_Begin → Attack_Loop → Attack_End). 'larva' as it appears, 'grown' as 隐匿 ends,
+ * 'feed' while it holds an operator, 'fed' after.
+ */
+const BROOD_GROWN = Object.freeze({ idle: 'Idle_02', deploy: 'Idle_02', die: 'Die_02', attack: null, skill: null });
+const BROOD = Object.freeze({
+  larva: Object.freeze({ change: 'Start_01', roles: Object.freeze({ idle: 'Idle_01', deploy: 'Idle_01', die: 'Die_01', attack: null, skill: null }) }),
+  grown: Object.freeze({ change: 'Start_02', roles: BROOD_GROWN }),
+  feed: Object.freeze({ change: 'Attack_Begin', roles: Object.freeze({ ...BROOD_GROWN, idle: 'Attack_Loop', stun: loop('Attack_Loop') }) }),
+  fed: Object.freeze({ change: 'Attack_End', roles: BROOD_GROWN }),
+});
 export const FORMS = Object.freeze({
+  trap_039_dstnta: BROOD,
   char_1023_ghost2: Object.freeze({
     doll: Object.freeze({ change: 'Start_B', end: 'Die_B', leave: 'Start_2', roles: dollRoles('Idle_B', 'Die_B_2') }),
   }),

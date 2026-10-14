@@ -398,8 +398,10 @@ async function main() {
   const audio = indexAudio(audioData);
   // The game data built by tools/build-data.mjs (when present) may reference more
   // spawnable enemies/tokens than research lists (e.g. 机变 enemy swaps): cover them too.
-  const [dataEnemies, dataTokens, dataBosses, dataBackups, dataChess] = await Promise.all(
-    ['data/enemies.json', 'data/tokens.json', 'data/bosses.json', 'data/backups.json', 'data/chess.json'].map((f) => readJson(f).catch(() => null)));
+  const [dataEnemies, dataTokens, dataBosses, dataBackups, dataChess, dataWaves] = await Promise.all(
+    ['data/enemies.json', 'data/tokens.json', 'data/bosses.json', 'data/backups.json', 'data/chess.json', 'data/waves.json'].map((f) => readJson(f).catch(() => null)));
+  // the stage tokens a leader switches on mid-fight (wave template `devices`: 子代 trap_039_dstnta) are drawn as tokens
+  const deviceIds = [...new Set(Object.values(dataWaves || {}).flatMap((w) => (w?.devices || []).map((d) => d?.key)).filter(Boolean))];
   const extras = dataExtras(dataBackups, dataChess);
   const extraHandbook = {};
   for (const b of Object.values(dataBosses || {})) if (b?.enemyKey && typeof b.handbookId === 'string') extraHandbook[b.enemyKey] = b.handbookId;
@@ -410,7 +412,7 @@ async function main() {
     // default: only the slots a battle can play (plan.mjs VOICE_BATTLE_SLOTS); --voice-all takes the whole official set
     voiceSlots: opts.voiceAll ? null : undefined,
     extraEnemyIds: Object.keys(dataEnemies || {}),
-    extraTokenIds: [...Object.keys(dataTokens || {}), ...extras.tokenIds],
+    extraTokenIds: [...Object.keys(dataTokens || {}), ...extras.tokenIds, ...deviceIds],
     extraHandbook,
     localEnemySpines,
     localTokenSpines,

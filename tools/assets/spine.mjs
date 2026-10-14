@@ -65,11 +65,11 @@ async function findLocalModels(root, base, idRe) {
  */
 export const findLocalEnemyModels = (root) => findLocalModels(root, LOCAL_ENEMY_SPINE_DIR, /^enemy_\d+_[a-z0-9_]+$/i);
 /**
- * Token Spine models extracted from the local client (tools/local-extract/extract.py TOKEN_SPINES): every
- * `local/spine/token/<tokenId>/` holding a skeleton, the atlas of the same stem and at least one page PNG.
+ * Token Spine models extracted from the local client (tools/local-extract/extract.py TOKEN_SPINES — summons, and the
+ * trap_* stage token a leader switches on): every `local/spine/token/<tokenId>/` holding a skeleton, the atlas of the same stem and at least one page PNG.
  * @param {string} root absolute public/assets directory
  */
-export const findLocalTokenModels = (root) => findLocalModels(root, LOCAL_TOKEN_SPINE_DIR, /^token_\d+_[a-z0-9_]+$/i);
+export const findLocalTokenModels = (root) => findLocalModels(root, LOCAL_TOKEN_SPINE_DIR, /^(token|trap)_\d+_[a-z0-9_]+$/i);
 
 /**
  * @typedef {{ skel: string, atlas: string, textures: string[], pma: boolean, anims: any, animations: Record<string, number>,
