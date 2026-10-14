@@ -25,27 +25,17 @@ export const UNPLAYED = {
     Skill_2_Takeoff_Loop: 'render: render/units.js UnitView.glide → SpineActor.chant',
     Skill_3_Restart_Begin: 'todo: G — skill prefab clip [ASSUMED]',
   },
-  char_1021_kroos2: {
-    Skill_Loop_2: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-  },
   char_1023_ghost2: {
     Attack2: 'none: back-only clip, not a key of the skin SpineAnimator._animations (the client plays clips by key only)',
   },
   char_1028_texas2: {
     Default_2: 'none: setup pose (0 s); no ability, mode pair or mix names it',
     Default_3: 'none: setup pose (0 s); no ability, mode pair or mix names it',
-    Start_3_2: 'todo: G — skill prefab clip',
   },
   char_1032_excu2: {
     Attack_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
     Skill_2_Attack_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
     Skill_3_Attack_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-  },
-  char_1035_wisdel: {
-    Skill_2_Overload_Begin: 'todo: D+I — skill sub-mode clip pairs (mode _replaceAnimPairs); mix clip (SpineAnimator._mixSettings)',
-    Skill_2_Overload_End: 'todo: D+I — skill sub-mode clip pairs (mode _replaceAnimPairs); mix clip (SpineAnimator._mixSettings)',
-    Skill_2_Overload_Idle: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-    Skill_2_Overload_Loop: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
   },
   char_1041_angel2: {
     Skill_1_Close: 'todo: G — skill prefab clip [ASSUMED]',
@@ -63,9 +53,6 @@ export const UNPLAYED = {
   },
   char_2027_wang: {
     Default_2: 'none: setup pose of mode S2 (replaces Default, 0 s; charpack Modes/S2 _replaceAnimPairs)',
-  },
-  char_206_gnosis: {
-    Skill_3: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs): the charged S2, mode S2+ Skill_2→Skill_3',
   },
   char_263_skadi: {
     Attack_Begin: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
@@ -85,9 +72,6 @@ export const UNPLAYED = {
   },
   char_4016_kazema: {
     Default_B: 'none: setup pose of the stand-in form (0 s); only the buff template of another unit (parrot_m1_t) names it',
-  },
-  char_4058_pepe: {
-    Skill_3_Loop_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
   },
   char_4064_mlynar: {
     Idle_2: 'todo: H — talent / trait state [ASSUMED]',

@@ -137,3 +137,56 @@ test('歌蕾蒂娅 S3: Skill_3_Startup, the S3 mode\'s Skill_3_Chant between her
   for (let i = 0; i < 240; i++) { a.update(1 / 60); if (seen.at(-1) !== a.current) seen.push(a.current); }
   assert.deepEqual(seen, ['Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_End', 'Idle']);
 });
+
+test('a skill\'s sub-mode form (endsWithSkill): 维什戴尔 overload, 寒芒克洛丝 4 shots, 佩佩 full range — ending with the skill', async () => {
+  const cases = [
+    ['char_1035_wisdel', 1, 'overload', 'Skill_2_Loop', 'Skill_2_Overload_Loop', 'Skill_2_Overload_Idle', 'Skill_2_Overload_End'],
+    ['char_1021_kroos2', 1, 'quad', 'Skill_Loop', 'Skill_Loop_2', 'Skill_Idle', 'Skill_End'],
+    ['char_4058_pepe', 2, 'rangeMax', 'Skill_3_Loop_A', 'Skill_3_Loop_B', 'Skill_3_Idle', 'Skill_3_End'],
+  ];
+  for (const [id, i, form, before, after, idle, end] of cases) {
+    const hit = (clip) => assets.chars[id].spine.front.hits?.[clip]?.[0] ?? 0.4;   // a swing at the clip's own speed
+    const v = await view(id, { skillIndex: i });
+    v.setSkill(true);
+    secs(v, 1);
+    v.onSwing(hit(before), 'none');
+    assert.equal(v.actor.current, before, id);
+    secs(v, 3);
+    v.setForm(form, { form });
+    if (id === 'char_1035_wisdel') { assert.equal(v.actor.current, 'Skill_2_Overload_Begin'); secs(v, 0.3); }
+    assert.equal(v.actor.current, idle, `${id} rests in the mode's idle`);
+    v.onSwing(hit(after), 'none');
+    assert.equal(v.actor.current, after, id);
+    secs(v, 3);
+    v.setSkill(false);
+    assert.equal(v.actor.current, end, `${id} closes in the mode`);
+    assert.equal(v.form, null, `${id}: the form ends with the skill`);
+    secs(v, 1.2);
+    v.setSkill(true);
+    secs(v, 1);
+    v.onSwing(hit(before), 'none');
+    assert.equal(v.actor.current, before, `${id}: the next cast starts in the skill's own mode`);
+  }
+});
+
+test('a cast\'s clip variant (the sim\'s skill event 4th field): 灵知 charged S2 Skill_3, 缄默德克萨斯 S3 recast Start_3_2', () => {
+  const g = actor('char_206_gnosis', 1);
+  g.setSkill(true);
+  assert.equal(g.current, 'Skill_2');
+  g.setSkill(false);
+  run(g, 2);
+  g.setSkill(true, 'charged');
+  assert.equal(g.current, 'Skill_3');
+  g.setSkill(false);
+  run(g, 2);
+  g.setSkill(true);   // the snapshot flag first, the event's variant after
+  g.setSkill(true, 'charged');
+  assert.equal(g.current, 'Skill_3');
+  const t = actor('char_1028_texas2', 2);
+  t.setSkill(true);
+  assert.equal(t.current, 'Start_3');
+  t.setSkill(false);
+  run(t, 2);
+  t.setSkill(true, 'recast');
+  assert.equal(t.current, 'Start_3_2');
+});

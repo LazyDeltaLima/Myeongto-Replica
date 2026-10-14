@@ -542,6 +542,16 @@ export class SkillRuntime {
     if (this.ready && !this.pending && !(this.active && this.isTimed) && this.unit.canAct && !this.unit.s.flags.silence) this.activate('TAKE_DAMAGE');
   }
 
+  /**
+   * The 'skill' on event — `['skill', id, 1, variant]` when the spec's `castVariant(ctx)` names one for this cast: the
+   * clip variant the client plays (render: anims skill `variants`, docs/rules/render.md 「Spine 클립 커버리지」 G — 灵知's
+   * charged S2, 缄默德克萨斯's S3 recast). A display field: no rule reads it.
+   */
+  _evOn(reason) {
+    const v = typeof this.spec.castVariant === 'function' ? this._call('castVariant', { reason }) : null;
+    this.battle._ev(typeof v === 'string' && v ? ['skill', this.unit.id, 1, v] : ['skill', this.unit.id, 1]);
+  }
+
   /** Activate now (consumes one charge). Returns true on success. */
   activate(reason = 'manual', { free = false } = {}) {
     if (this.noSkill || this.kind === 'passive') return false;
@@ -578,7 +588,7 @@ export class SkillRuntime {
         return true;
       }
     }
-    b._ev(['skill', u.id, 1]);
+    this._evOn(reason);
     u.skillAnimUntil = b.time + SKILL_ANIM_WINDOW;
     // a CastSkill casts its skill ability now: the unit turns by its flags (ai.js castFace; a 'replace' cast turns as
     // its attack starts — ai.js startReplacement / swingFace)
@@ -669,7 +679,7 @@ export class SkillRuntime {
   beginReplacement(action) {
     const b = this.battle;
     const u = this.unit;
-    b._ev(['skill', u.id, 1]);
+    this._evOn(this._replace?.reason ?? 'DEFAULT');
     u.skillAnimUntil = b.time + (action > SKILL_ANIM_WINDOW ? action : SKILL_ANIM_WINDOW);
   }
 

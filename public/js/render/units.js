@@ -339,6 +339,12 @@ export const EL_BAR = Object.freeze({ icon: 0.15, min: 8, max: 15, enemy: 0.8, g
  * - 烛煌 (char_1040_blaze2) 绝处重燃 (her kit: fx 'downed' → form 'downed', 'revive' → null): downed on Revive_Begin, lying on
  *   Revive_Idle (her charpack talent mode), up again on Revive_End (`leave`). Knocked out while downed she falls on Die and the
  *   form ends with the knock-out (`endsOnDeath`: the sim clears it without an fx).
+ * - a skill's sub-mode (`endsWithSkill`: the view drops the form as the skill ends, after its End clip is chosen — the
+ *   sim clears unit.form without an fx), drawn as the skill's clips of that mode (charpack modes, docs/rules/render.md
+ *   「Spine 클립 커버리지」 D): 寒芒克洛丝 S2's 4 shots after 40 hits (fx 'quadShot' → 'quad': mode S2_Sub Skill_Loop_2),
+ *   维什戴尔 S2's overload, the second half (fx 'wisdelOverload': mode S2_Overload — Skill_2_Overload_Begin, then
+ *   Skill_2_Overload_Idle / _Loop, closing on Skill_2_Overload_End instead of Skill_2_End: the skin's mix clips), 佩佩 S3 at
+ *   its full range (fx 'rangeMax': Skill_3_Loop_B for Skill_3_Loop_A, buff pepe_s3_range_max).
  * - 泥岩 (char_311_mudrok) S3's 10 s sleep (her kit: fx 'stone' → form 'dormant', 'rockfall' → null; skchr_mudrok_3
  *   SleepAura `_default`): Skill_2_Begin, asleep on Skill_2_Sleep, Skill_2_Awake as she wakes (`leave`), then the S3 mode's
  *   Skill_2_Idle / Skill_2_Attack. Her Back skeleton has none of the three: asleep on Skill_2_Idle (a role `idle` may list
@@ -410,6 +416,8 @@ const prisoner = (warn, free) => Object.freeze({
 });
 const PRISONER = prisoner('2', '');
 const PRISONER_COLOURED = prisoner('_orange', '_red');
+/** A skill's clips in one of its sub-modes (FORMS `endsWithSkill`): skill slot `index`, attack clip `loop`. */
+const skillRoles = (index, loop, o = {}) => Object.freeze({ begin: null, end: null, idle: null, ...o, loop, index });
 /** A 傀儡师's 替身 roles: idle `idle`, death `die`, attack `attack` (null: none), no skill clip of its own. */
 const dollRoles = (idle, die, attack = null) => Object.freeze({
   idle, deploy: idle, die, attack: attack ? Object.freeze({ begin: null, loop: attack, end: null }) : null, attackDown: null, skill: null,
@@ -420,6 +428,15 @@ export const FORMS = Object.freeze({
   }),
   char_1040_blaze2: Object.freeze({
     downed: Object.freeze({ change: 'Revive_Begin', leave: 'Revive_End', endsOnDeath: true, roles: Object.freeze({ idle: 'Revive_Idle', deploy: 'Revive_Idle', move: loop('Revive_Idle'), stun: loop('Revive_Idle'), attack: null, skill: null }) }),
+  }),
+  char_1021_kroos2: Object.freeze({
+    quad: Object.freeze({ change: null, endsWithSkill: true, roles: Object.freeze({ skill: skillRoles(1, 'Skill_Loop_2', { begin: 'Skill_Begin', end: 'Skill_End', idle: 'Skill_Idle' }) }) }),
+  }),
+  char_1035_wisdel: Object.freeze({
+    overload: Object.freeze({ change: 'Skill_2_Overload_Begin', endsWithSkill: true, roles: Object.freeze({ skill: skillRoles(1, 'Skill_2_Overload_Loop', { end: 'Skill_2_Overload_End', idle: 'Skill_2_Overload_Idle' }) }) }),
+  }),
+  char_4058_pepe: Object.freeze({
+    rangeMax: Object.freeze({ change: null, endsWithSkill: true, roles: Object.freeze({ skill: skillRoles(2, 'Skill_3_Loop_B', { begin: 'Skill_3_Begin', end: 'Skill_3_End', idle: 'Skill_3_Idle' }) }) }),
   }),
   char_311_mudrok: Object.freeze({
     dormant: Object.freeze({ change: 'Skill_2_Begin', leave: 'Skill_2_Awake', endsOnDeath: true, roles: Object.freeze({ idle: Object.freeze(['Skill_2_Sleep', 'Skill_2_Idle']), deploy: 'Skill_2_Sleep', stun: loop('Skill_2_Sleep'), attack: null, skill: null }) }),
@@ -1256,9 +1273,16 @@ export class UnitView {
 
   onHit() { this.flash = 1; }
 
-  setSkill(on) {
+  /** The skill turned on / off (`variant`: the cast's clip variant, the sim's 'skill' event 4th field — anims skill `variants`). */
+  setSkill(on, variant = null) {
     if (on) this.statuses.add('skill'); else this.statuses.delete('skill');
-    if (this.actor) this.actor.setSkill(on);
+    if (this.actor) this.actor.setSkill(on, variant);
+    // a skill's sub-mode (FORMS `endsWithSkill`) ends with it — its End clip was chosen in that mode just above
+    if (!on && this._formSpec()?.endsWithSkill) {
+      this.form = null;
+      this.info.form = null;
+      this.actor?.setForm(null);
+    }
   }
 
   onDeploy() {

@@ -50,6 +50,7 @@ function rolePlayed(anims) {
     for (const k of ['begin', 'loop', 'end', 'idle', 'die', 'stun']) for (const n of [c[k]].flat()) if (typeof n === 'string') out.add(n);
     if (Array.isArray(c.alts)) for (const a of c.alts) out.add(a);   // clips taking turns (spine.js _nextAlt)
     if (c.combat) for (const a of [c.combat.loop, ...(c.combat.alts || [])]) out.add(a);   // on a blocked enemy (_swingClip)
+    for (const v of Object.values(c.variants || {})) for (const n of Object.values(v)) out.add(n);   // a cast's variant (setSkill)
   }
   return out;
 }

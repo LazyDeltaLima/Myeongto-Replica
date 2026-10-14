@@ -178,6 +178,7 @@ export class SpineActor {
     this.endAt = 0;               // landing in endRoles (the next form's) when given
     this.endRoles = null;
     this.skillIndex = null;       // the skill slot whose clip `skill` plays (setSkillIndex), null = the manifest's primary
+    this.skillVariant = null;     // the latest cast's clip variant (setSkill: anims skill `variants`)
     this.runMode = false;         // move on the model's own Run cycle (setRunMode)
     this.formRoles = null;        // the clip set of the form in force (setForm), over the unit's own roles
     this.skillOn = false;
@@ -253,8 +254,11 @@ export class SpineActor {
     const clip = Number.isInteger(this.skillIndex) && anims.skills ? anims.skills[String(this.skillIndex)] : null;
     const equip = Number.isInteger(this.skillIndex) && anims.equip ? anims.equip[String(this.skillIndex)] : null;
     const run = this.runMode && anims.run ? anims.run : null;
-    const base = clip || run || equip ? { ...anims, ...equip } : anims;
+    const sk = clip || anims.skill;
+    const variant = this.skillVariant && sk?.variants?.[this.skillVariant] ? { ...sk, ...sk.variants[this.skillVariant] } : null;
+    const base = clip || run || equip || variant ? { ...anims, ...equip } : anims;
     if (clip) base.skill = clip;
+    if (variant) base.skill = variant;   // this cast's clip variant (setSkill)
     if (run) base.move = run;
     this.baseRoles = base;
     this.roles = this.formRoles ? { ...base, ...this.formRoles } : base;
@@ -645,10 +649,22 @@ export class SpineActor {
     return dur * 0.5;
   }
 
-  /** Skill active flag changed. */
-  setSkill(on) {
+  /**
+   * Skill active flag changed. `variant` (on): the cast's clip variant — the sim's 'skill' event 4th field, anims skill
+   * `variants` (tools/assets/anim-overrides.mjs SKILL_VARIANTS: 灵知's charged S2 Skill_3, 缄默德克萨斯's S3 recast Start_3_2) —
+   * kept until the next cast.
+   */
+  setSkill(on, variant = null) {
     on = !!on;
+    if (on && this.skillOn && variant && variant !== this.skillVariant && !this.dead) {
+      // the 'skill' event's variant after the snapshot flag already turned the skill on (render/units.js sync): its clips
+      this.skillVariant = variant;
+      this._applyRoles();
+      if (this.mode !== 'skillBegin') return;
+      this.skillOn = false;   // the cast's opening clip anew, in the variant
+    }
     if (on === this.skillOn || this.dead) return;
+    if (on && (variant || null) !== this.skillVariant) { this.skillVariant = variant || null; this._applyRoles(); }
     this.skillOn = on;
     if (!on) this.skillOffAt = this.clock;   // skillDying: an off right before the 'die' event
     this.baseClip = false;

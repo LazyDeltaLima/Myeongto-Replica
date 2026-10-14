@@ -1057,8 +1057,8 @@
         "enemy_9006_actoxi": [1,0,1,0,6028]
       },
       "hooks": [1,147,6773,1028,1109,7524,7733,63819,108,134,40,37,29,40153,1127,33,126,22,1,117,2,6,3],
-      "events": {"atk":2349,"bounty":5,"deploy":21,"die":112,"dmg":7653,"engage":10,"face":36,"fx":597,"heal":113,"layer":2,"leak":22,"skill":77,"spawn":143,"status":2703,"swing":1069,"tplfx":2},
-      "fx": {"aoe":6,"bombard":29,"bombardShell":29,"burst":6,"crit":54,"dodge":3,"enemySkill":7,"explode":24,"firewall":2,"garrison":2,"iceSpike":99,"lightning":157,"lock":29,"lure":3,"revive":1,"snow":74,"sp":2,"storm":5,"talent":1,"telegraph":8,"tide":4,"wanted":47,"weightless":5},
+      "events": {"atk":2349,"bounty":5,"deploy":21,"die":112,"dmg":7653,"engage":10,"face":36,"fx":599,"heal":113,"layer":2,"leak":22,"skill":77,"spawn":143,"status":2703,"swing":1069,"tplfx":2},
+      "fx": {"aoe":6,"bombard":29,"bombardShell":29,"burst":6,"crit":54,"dodge":3,"enemySkill":7,"explode":24,"firewall":2,"garrison":2,"iceSpike":99,"lightning":157,"lock":29,"lure":3,"rangeMax":2,"revive":1,"snow":74,"sp":2,"storm":5,"talent":1,"telegraph":8,"tide":4,"wanted":47,"weightless":5},
       "snaps": "ea081163 86107b6a 4ed9b410 e6bc67c3 d5ff4f7c a63d766f 7ea676dc 3a588e7c c0f93c8e 780290e1 56a42b7a 205c2b95 bafdb5ee f2a088dc 5179d594 bff1a656 1128f5f9 36d428d8 f6832e11 9e2b7e7f c9e7756d 38fdc107 7ee7c810"
     },
     "roster-017": {

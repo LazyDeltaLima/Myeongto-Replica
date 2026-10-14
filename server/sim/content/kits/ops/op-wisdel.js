@@ -31,7 +31,8 @@
 // The skills' aftershock parameters live on their attack overrides (bound when the shot leaves — a bomb that lands after an
 // instant / last-ammo skill ended still carries them).
 // fx kinds the client draws / sounds from (render/fxgame.js, audio.js kitHitKey): 'explode' { by } (好礼's bomb),
-// 'bombardShell' { id } (the overload shots), 'burst' { id: the shade } (魂灵之影's strike), 'summon'.
+// 'bombardShell' { id } (the overload shots), 'burst' { id: the shade } (魂灵之影's strike), 'summon', 'wisdelOverload' { form }
+// (S2's overload begins: her model's overload clips).
 
 import { COLS } from '../../../constants.js';
 import { sortEnemyTargets } from '../../../targeting.js';
@@ -270,9 +271,12 @@ function wisdel(bb, chess, def) {
           m.olBase = unit.profile;
           if (!m.olBase) return;
           unit.profile = m.olProfile = { ...m.olBase, atkScale: num(bb['attack@atk_scale_ol'], 0.7) };
+          // the overload is a model form (charpack mode S2_Overload: render/units.js FORMS), ending with the skill
+          if (unit.form !== 'overload') { unit.form = 'overload'; battle.fx('wisdelOverload', { x: unit.x, y: unit.y, id: unit.id, form: 'overload' }); }
         } else if (m.olProfile) {
           if (unit.profile === m.olProfile) unit.profile = m.olBase;
           m.olProfile = m.olBase = null;
+          if (unit.form === 'overload') unit.form = null;   // (the client view ends it with the skill: endsWithSkill)
         }
       }, { owner: unit, immediate: true });
       battle.on('beforeAttack', (ctx) => {

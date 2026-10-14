@@ -77,8 +77,12 @@ function pepe(bb, chess, def) {
         unit.mem.pepeStack++;
         battle.addBuff(unit, { key: 'pepe:tremor', mods: { atkPct: stackAtk * unit.mem.pepeStack } });
         skill.spec.attack.splashRadius = unit.mem.pepeR0 + ext * unit.mem.pepeStack;
+        // the full range (buff pepe_s3_range_max): her attacks swap Skill_3_Loop_A for _B (charpack Modes/S3 Attack
+        // AnimationEmitBehaviour `_hookSettings`) — a model form ending with the skill (render/units.js FORMS)
+        if (unit.mem.pepeStack >= maxStack) { unit.form = 'rangeMax'; battle.fx('rangeMax', { x: unit.x, y: unit.y, id: unit.id, form: 'rangeMax' }); }
       },
       onEnd({ battle, unit, skill }) {
+        if (unit.form === 'rangeMax') unit.form = null;   // (the view ends it with the skill: endsWithSkill)
         battle.removeBuff(unit, 'pepe:tremor');
         skill.spec.attack.splashRadius = unit.mem.pepeR0 ?? 1;
         pastSp(unit, skill);

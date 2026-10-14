@@ -72,6 +72,8 @@ export default withDefaults({
       },
       skill: {
         kind: (def.skill?.maxCharges ?? 1) > 1 ? 'charges' : 'instant',
+        // a cast with every charge stored is the charged mode S2+ (charpack Skill_2→Skill_3): its clip (render)
+        castVariant: ({ skill }) => (skill.maxCharges > 1 && skill.charges + 1 >= skill.maxCharges ? 'charged' : null),
         onStart({ battle, unit, skill }) {
           const charged = skill.maxCharges > 1 && skill.charges + 1 >= skill.maxCharges; // cast with every charge stored
           for (const e of targetsInRange(battle, unit)) {

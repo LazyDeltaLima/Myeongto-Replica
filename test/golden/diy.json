@@ -54,8 +54,8 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[36,36,0,24723,472980],"enemy_1270_nhstlk_2":[27,20,7,4490,893165],"enemy_9006_actoxi":[30,28,2,3643,1053282]},
       "hooks": [1,124,6399,467,467,5527,5527,0,102,111,211,210,29,37255,1191,20,93,9,1,102,0,0,0],
-      "events": {"atk":542,"deploy":28,"die":102,"dmg":5527,"engage":12,"face":27,"fx":520,"leak":9,"skill":421,"spawn":116,"status":1487,"swing":493},
-      "fx": {"bombardShell":99,"burst":166,"explode":183,"summon":8,"zone":64},
+      "events": {"atk":542,"deploy":28,"die":102,"dmg":5527,"engage":12,"face":27,"fx":526,"leak":9,"skill":421,"spawn":116,"status":1487,"swing":493},
+      "fx": {"bombardShell":99,"burst":166,"explode":183,"summon":8,"wisdelOverload":6,"zone":64},
       "snaps": "32233b58 bfe0d219 308423a1 b40cfa6b cfbb490e a21a5a9e 4be90d7f 74f2c390 4e000516 8049a79f 052f766e 3e8606c3 d23d16fa b23a5650 ed61b5dc 5d4dc9c3 49b77f62 24888acf cc5bad27 b40da8ec 558feff2 0ec34d9e"
     },
     "diy-002": {
@@ -101,8 +101,8 @@
       ],
       "enemies": {"enemy_1006_shield_3":[21,18,3,12064,2769214],"enemy_1043_zomsbr":[66,66,0,47,607249],"enemy_1402_tgshd_2":[36,30,3,11447,1555101]},
       "hooks": [1,149,6900,711,711,12046,12026,6158,121,127,441,438,28,71669,4632,19,123,6,1,121,0,0,20],
-      "events": {"atk":837,"deploy":26,"die":121,"dmg":12026,"engage":11,"face":31,"fx":7190,"heal":6,"leak":6,"skill":879,"spawn":143,"status":3104,"swing":728},
-      "fx": {"bombardShell":108,"burst":367,"chen3Qi":1020,"dodge":20,"explode":390,"expose":4665,"kitHit":197,"summon":8,"swordStorm":415},
+      "events": {"atk":837,"deploy":26,"die":121,"dmg":12026,"engage":11,"face":31,"fx":7194,"heal":6,"leak":6,"skill":879,"spawn":143,"status":3104,"swing":728},
+      "fx": {"bombardShell":108,"burst":367,"chen3Qi":1020,"dodge":20,"explode":390,"expose":4665,"kitHit":197,"summon":8,"swordStorm":415,"wisdelOverload":4},
       "snaps": "c8df7528 4eef1149 b133d3aa 1c59cfc1 98b8c2ae 739c602b 1552ea07 30147039 b537a582 d6687e0c 99093e23 97640107 f10aa73b c513a5c3 a16463a4 7b6ed0da d620a0f9 514ae71b 38156d98 717dd218 ebf68442 d7b4f66b f5cafd12"
     },
     "diy-003": {

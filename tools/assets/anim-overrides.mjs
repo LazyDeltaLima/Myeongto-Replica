@@ -188,6 +188,19 @@ export const EQUIP_ROLES = Object.freeze({
 });
 
 /**
+ * A cast's clip variants (docs/rules/render.md 「Spine 클립 커버리지」 G, maintainer's notes 2026-10-14): the sim names the
+ * variant of a cast in its 'skill' event (a kit's `castVariant`, server/sim/skills.js _evOn) and the skill clip's
+ * `variants[name]` overlays its clips for that cast (render/spine.js setSkill). Model key prefix → { [0-based skill
+ * index]: { [variant]: { begin?, loop?, end?, idle? } } }.
+ */
+export const SKILL_VARIANTS = Object.freeze({
+  // 灵知 S2 cast with every charge stored: charpack mode S2+ pairs Skill_2→Skill_3
+  'op:char_206_gnosis:': { 1: { charged: { loop: 'Skill_3' } } },
+  // 缄默德克萨斯 S3 recast by 德克萨斯传统 (her first kill): skchr_texas2_3 plays Start_3_2 for Start_3
+  'op:char_1028_texas2:': { 2: { recast: { begin: 'Start_3_2' } } },
+});
+
+/**
  * The death and stun clips of a skill's mode (docs/rules/render.md 「Spine 클립 커버리지」 D·F, maintainer's notes
  * 2026-10-14): the mode a skill switches the operator to pairs Die (or Stun) with a clip of its own (`_replaceAnimPairs`,
  * or a mode's animator hooker), so an operator knocked out or stunned while that skill runs plays it. Model key prefix →
@@ -266,6 +279,18 @@ export function applyAnimOverrides(key, anims, names = null) {
         e.attack = a;
       }
       if (Object.keys(e).length) (anims.equip ||= {})[i] = e;
+    }
+  }
+  for (const [prefix, map] of Object.entries(SKILL_VARIANTS)) {
+    if (!key.startsWith(prefix)) continue;
+    for (const [i, vars] of Object.entries(map)) {
+      for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) {
+        if (!clip) continue;
+        for (const [name, v] of Object.entries(vars)) {
+          const o = Object.fromEntries(Object.entries(v).filter(([, n]) => !names || names.includes(n)));
+          if (Object.keys(o).length) (clip.variants ||= {})[name] = o;
+        }
+      }
     }
   }
   for (const [prefix, map] of Object.entries(SKILL_STATE_CLIPS)) {

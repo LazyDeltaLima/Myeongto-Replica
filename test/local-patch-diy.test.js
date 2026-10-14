@@ -534,6 +534,10 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     assert.ok(first.length && ol.length, 'attacks in both halves');
     assert.ok(first.every((r) => Math.abs(r - 1) < 1e-6), `first half: the full scale (${first})`);
     assert.ok(ol.every((r) => Math.abs(r - ol0) < 1e-6), `overload: atk_scale_ol ${ol0} (${ol})`);
+    // each overload is a model form (render/units.js FORMS), one fx per cast, cleared with the skill
+    const casts = u.skill.activations, fx = h.eventsOf('fx').filter((e) => e[1] === 'wisdelOverload' && e[4]?.id === u.id);
+    assert.ok(fx.length >= 1 && fx.length <= casts && fx.every((e) => e[4].form === 'overload'), `${fx.length} overload fx, ${casts} casts`);
+    if (!u.skill.active) assert.equal(u.form ?? null, null);
   });
 
   test('선발 kits audit: 赤刃明霄陈 S2 never slashes an unrevealed 隐匿 enemy; 阿斯卡纶 S2 spreads 死亡拘审 on a death in range', async () => {

@@ -598,7 +598,7 @@
         "enemy_2017_csphts": [8,7,0,1499,304705]
       },
       "hooks": [1,53,2968,581,581,1557,1810,4712,18,31,58,49,56,23405,1016,27,18,0,1,16,0,16,108],
-      "events": {"atk":722,"deploy":35,"die":31,"dmg":1666,"engage":21,"face":63,"fx":953,"heal":215,"skill":107,"spawn":45,"status":558,"swing":599},
+      "events": {"atk":722,"deploy":35,"die":31,"dmg":1666,"engage":21,"face":63,"fx":954,"heal":215,"skill":107,"spawn":45,"status":558,"swing":599},
       "fx": {
         "airstrike": 20,
         "blink": 16,
@@ -624,6 +624,7 @@
         "palsy": 1,
         "parry": 5,
         "radiantSword": 2,
+        "rangeMax": 1,
         "scorchBurst": 1,
         "shield": 6,
         "slash": 19,
@@ -1167,7 +1168,7 @@
         "enemy_9020_actrpc": [1,0,0,26575,1320476]
       },
       "hooks": [1,62,6000,1680,1680,7946,14639,5308,22,35,93,87,267,49690,3051,17,13,0,1,22,0,17,0],
-      "events": {"atk":2142,"deploy":43,"die":35,"dmg":14242,"engage":24,"face":87,"fx":2856,"heal":910,"skill":180,"spawn":53,"status":846,"swing":1699,"tplfx":4},
+      "events": {"atk":2142,"deploy":43,"die":35,"dmg":14242,"engage":24,"face":87,"fx":2857,"heal":910,"skill":180,"spawn":53,"status":846,"swing":1699,"tplfx":4},
       "fx": {
         "airstrike": 81,
         "beam": 23,
@@ -1196,6 +1197,7 @@
         "lure": 2,
         "phase": 12,
         "radiantSword": 3,
+        "rangeMax": 1,
         "revive": 3,
         "scorchBurst": 4,
         "shieldBreak": 11,

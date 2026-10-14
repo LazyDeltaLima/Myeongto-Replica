@@ -25,6 +25,7 @@ export default withDefaults({
         mods: { batPct: batFlat(def, bb.base_attack_time) },
         attack: { hitsFn: (battle, unit) => ((unit.mem.kroosHits ?? 0) >= need ? 4 : 2) },
         onStart({ unit }) { unit.mem.kroosHits = 0; },
+        onEnd({ unit }) { if (unit.form === 'quad') unit.form = null; },   // (the view ends it with the skill: endsWithSkill)
       },
       talents: [{ install(battle, unit) {
         // 中的: the ×1.5 is rolled before mitigation; the stun (and the S2 "击中目标" count) only for shots that landed
@@ -37,7 +38,8 @@ export default withDefaults({
           if (c.source !== unit || !c.dmg || !c.dmg.isAttack || c.target.side !== 'enemy') return;
           if (S2 && skillActive(unit)) {
             unit.mem.kroosHits = (unit.mem.kroosHits ?? 0) + 1;
-            if (unit.mem.kroosHits === need) battle.fx('quadShot', { x: unit.x, y: unit.y, id: unit.id });
+            // 4 shots from now: charpack mode S2_Sub (Skill_Loop_2), a model form ending with the skill (render/units.js FORMS)
+            if (unit.mem.kroosHits === need) { unit.form = 'quad'; battle.fx('quadShot', { x: unit.x, y: unit.y, id: unit.id, form: 'quad' }); }
           }
           if (!crits.has(c.dmg)) return;
           crits.delete(c.dmg);

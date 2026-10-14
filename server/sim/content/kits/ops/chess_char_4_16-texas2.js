@@ -92,6 +92,8 @@ export default withDefaults({
       // client's texas2_s_3 / texas2_s_3[sword] buffs (life `duration`) are attached by ModeWithSwordRain, the last step]
       kind: 'duration', activateOnDeploy: true, duration: S1 || S2 ? dur : dur + S3_APPEAR_PRE + S3_APPEAR_DELTA, spCost: 0, spType: 'none', trigger: 'NEVER',
       mods: { atkPct: num(t0.atk, 0.2) + (S1 || S2 ? num(bb.atk) : 0) },
+      // 德克萨斯传统's recast: the S3 opens on Start_3_2 instead of Start_3 (render: anims skill `variants`)
+      castVariant: ({ reason }) => (reason === 'kill' ? 'recast' : null),
       onStart({ battle, unit, reason }) {
         if (reason === 'kill' && unit.mem.texasRecastPending) {
           unit.mem.texasRecastPending = false; // the synchronous burst already performed this recast

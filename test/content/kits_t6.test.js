@@ -400,6 +400,8 @@ test('佩佩: S3 ATK +150 %, main target stunned, stacks up to 4 with a growing 
   h.run(10);
   const main = enemyAt(h, 'enemy_dummy'), side = enemyAt(h, 'enemy_dummy2');
   assert.equal(u.mem.pepeStack, bb['attack@max_stack_cnt']);
+  assert.equal(u.form, 'rangeMax', 'the full range: a model form (render/units.js FORMS), once');
+  assert.equal(h.eventsOf('fx').filter((e) => e[1] === 'rangeMax' && e[4]?.form === 'rangeMax').length, 1);
   assert.ok(near(u.skill.spec.attack.splashRadius, 1 + bb['attack@ability_range_forward_extend'] * bb['attack@max_stack_cnt']));
   const lotus = u.def.talents[1].bb.atk;
   assert.ok(near(u.s.atk, u.base.atk * (1 + bb.atk + lotus + bb['attack@atk'] * bb['attack@max_stack_cnt']), 1e-6));

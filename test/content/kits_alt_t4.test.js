@@ -750,6 +750,8 @@ test('缄默德克萨斯 S1/S2/S3: first kill reopens a full window, including a
     assert.equal(sk.active, false);
     assert.deepEqual(h.hooksOf('skillEnd').map((c) => c.reason), ['recast', 'duration']);
     assert.deepEqual(h.hooksOf('skillStart').map((c) => c.reason), ['deploy', 'kill']);
+    // the recast's 'skill' event names its clip variant (S3: Start_3_2, render anims skill `variants`)
+    assert.deepEqual(h.eventsOf('skill').filter((e) => e[1] === u.id && e[2] === 1).map((e) => e[3] ?? null), [null, 'recast']);
     h.b.retreat(u);
     const lifeAt = life.length;
     const weak = h.spawn('enemy_dummy', { pos: [10, 5] });
