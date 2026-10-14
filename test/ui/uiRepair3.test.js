@@ -64,6 +64,17 @@ describe('detail card vs a press on the field', () => {
     assert.equal(closesOnFieldPress(null), false);
   });
 
+  test('an enemy card opened on the board (pen enemy, the boss field\'s leader) closes on a field press; the intel drawer\'s stays (GitHub #3)', () => {
+    // maintainer decision 2026-10-14: a boss card left open by a press on the leader covered the bench of the boss prep
+    assert.equal(closesOnFieldPress({ kind: 'enemy', id: 'enemy_9013_acstmk_2', fromField: true }), true);
+    assert.equal(closesOnFieldPress({ kind: 'enemy', id: 'enemy_9013_acstmk_2', count: 1 }), false, 'the 敌方情报 drawer\'s card');
+    const src = readFileSync(new URL('../../public/js/screens/game.js', import.meta.url), 'utf8');
+    const h = src.slice(src.indexOf("view.on('pieceClick'"), src.indexOf("view.on('tileClick'"));
+    assert.ok(h.length > 0);
+    assert.match(h, /const penKey = previewEnemyKey\(e\);\s*if \(penKey\) \{ setDetail\(\{ kind: 'enemy', id: penKey, fromField: true \}\); return; \}/);
+    assert.match(src, /onEnemy=\$\{\(k, n\) => setDetail\(\{ kind: 'enemy', id: k, count: n \}\)\}/, 'the drawer opens it without fromField');
+  });
+
   test('the field press handler closes the card whether or not a piece is selected', () => {
     const src = readFileSync(new URL('../../public/js/screens/game.js', import.meta.url), 'utf8');
     const h = src.slice(src.indexOf('const onDown = () => {'), src.indexOf("host.addEventListener('pointerdown', onDown, true)"));

@@ -1159,9 +1159,11 @@ function MatchScreen() {
       view.on('pieceClick', (e) => {
         if (!e) return;
         audio.sfx('click', { volume: 0.4 });
-        // an enemy of the preview pen (research 09 §2.2 "Intel": tap it for its detail card)
+        // an enemy of the preview pen (research 09 §2.2 "Intel": tap it for its detail card) or the round's leader on the boss
+        // field; opened from the field, so the next press of the field closes it like a piece's card (GitHub #3: a boss card
+        // left open covered the bench)
         const penKey = previewEnemyKey(e);
-        if (penKey) { setDetail({ kind: 'enemy', id: penKey }); return; }
+        if (penKey) { setDetail({ kind: 'enemy', id: penKey, fromField: true }); return; }
         if (e.unitId != null || e.unit) {
           setDetail({ kind: 'unit', unit: e.unit || null, unitId: e.unitId, uid: e.uid });
           if (isCombatPhase(live.current.pub?.phase)) voiceForUnit(e.unit, e.unitId); // local patch: 选中 line, a re-tap too

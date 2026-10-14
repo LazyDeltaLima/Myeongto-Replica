@@ -187,13 +187,16 @@ export function facingEnter(e, chosen) {
 
 /**
  * Whether a press on the field closes the open detail card: a card opened from the field itself (an own piece — tap,
- * right-click or long press — or a battle / teammate unit). Shop, reward, bond-member and intel (enemy) cards stay.
- * @param {{ kind?: string }|null|undefined} detail
+ * right-click or long press —, a battle / teammate unit, a special terrain tile, a stage device, or an enemy of the
+ * preview pen / the boss field's leader: `fromField`). Shop, reward, bond-member and intel-drawer (enemy) cards stay.
+ * @param {{ kind?: string, fromField?: boolean }|null|undefined} detail
  */
-// a card opened BY a field press (a piece, a unit, a special terrain tile: issue #184, a stage device: #228) closes on the
-// next press of the field; the ones opened from the shop / hand / HUD stay until their own close button (or the flow that
-// opened them)
-export const closesOnFieldPress = (detail) => detail?.kind === 'piece' || detail?.kind === 'unit' || detail?.kind === 'terrain' || detail?.kind === 'device';
+// a card opened BY a field press (a piece, a unit, a special terrain tile: issue #184, a stage device: #228, an enemy on the
+// board: GitHub #3, maintainer decision 2026-10-14 — a boss card left open covered the bench) closes on the next press of
+// the field; the ones opened from the shop / hand / HUD / the 敌方情报 drawer stay until their own close button (or the
+// flow that opened them)
+export const closesOnFieldPress = (detail) => detail?.kind === 'piece' || detail?.kind === 'unit' || detail?.kind === 'terrain' || detail?.kind === 'device'
+  || (detail?.kind === 'enemy' && detail.fromField === true);
 
 /**
  * Whether an open overlay swallows a game shortcut: a modal / the guide own the keyboard (Esc included — they close
