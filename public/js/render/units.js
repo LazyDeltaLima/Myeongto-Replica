@@ -77,7 +77,6 @@ import { noHpBar, facingless, bodyless } from '../../../shared/trap-tokens.js'; 
 import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch: 迷彩 icon; 起飞
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
 import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './face-turn.js'; // an operator turns to its target (「공격 방향」)
-import { iconShownAsFx } from './fxstatus.js'; // local patch: statuses drawn as official effects
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './boomerang.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar } from './hud-bars.js'; // local patch: official battle HUD
@@ -1360,9 +1359,18 @@ export class UnitView {
     else if (this.actor) { this.actor.deploy(this._deployKey); if (official) this._bornT = BORN_TINT_S; }
   }
 
-  onStatus(key, on) {
+  /** `from` (fxstatus.js statusSource: applier's fx code, buff hint, layer count) picks the buff's own effect. */
+  onStatus(key, on, from = null) {
     if (typeof key !== 'string') return;
     if (on) this.statuses.add(key); else this.statuses.delete(key);
+    if (on && from) (this.statusFrom ||= new Map()).set(key, { ...from });
+    else this.statusFrom?.delete(key);
+  }
+
+  /** A layer of the status `key` was used up (fx 'parry'): fxstatus.js LAYER_FX draws one fewer. */
+  onStatusHit(key) {
+    const from = this.statusFrom?.get(key);
+    if (from && from.n > 0) from.n--;
   }
 
   /**
@@ -2106,17 +2114,19 @@ export class UnitView {
     out.length = 0;
     const f = this.flags;
     const push = (k) => { if (k && !out.includes(k) && out.length < 4) out.push(k); };
-    // local patch (LOCAL-PATCH.md 「전투 화면 UI」 ⑤): a status shown by its official effect (fxstatus.js) has no icon
-    const fx = this._fxStatusOn && this._fxStatusOn.size ? this._fxStatusOn : null;
-    if (f & UF.FROZEN) { if (!fx?.has('freeze')) push('freeze'); }
-    else if (f & UF.STUNNED && !fx?.has('stun')) push('stun');
-    if (f & UF.SLEEP && !fx?.has('sleep')) push('sleep');
-    if (f & UF.COLD && !(f & UF.FROZEN) && !fx?.has('cold')) push('cold');
+    // The official game draws no status icons: its buffs show their own effects (fxstatus.js). The icons stand in only
+    // while the effect layer is off (quality 'low', no WebP, no extracted effects: `_statusIcons`, set each frame by
+    // fxstatus.js syncStatusFx; maintainer decision 2026-10-14)
+    if (this._statusIcons === false) return out;
+    if (f & UF.FROZEN) push('freeze');
+    else if (f & UF.STUNNED) push('stun');
+    if (f & UF.SLEEP) push('sleep');
+    if (f & UF.COLD && !(f & UF.FROZEN)) push('cold');
     // local patch (maintainer report 2026-10-07, official capture: 望's stones carry no badge; then "소환물 위에 붙어 있는 노란 방패
     // 모양 아이콘을 제거해줘"): no shield icon over a summon — a trap's standing invulnerability (shared/trap-tokens.js) is no
     // status, and the view cannot tell a skill's short one from it (only the UF.INVULN flag) [추정: summons show none]
     if (f & UF.INVULN && !this.isToken && !noHpBar(this.info?.defId)) push('invuln');
-    if (f & UF.STEALTH && !(fx && (fx.has('camou') || fx.has('stealth') || fx.has('stealthAlly')))) push(f & UF_CAMOU ? 'camou' : 'stealth'); // local patch: 迷彩 (위장) has its own icon
+    if (f & UF.STEALTH) push(f & UF_CAMOU ? 'camou' : 'stealth'); // local patch: 迷彩 (위장) has its own icon
     for (const k of this.statuses) {
       if (out.length >= 4) break;
       if (k === 'skill') continue;
@@ -2124,7 +2134,6 @@ export class UnitView {
       // (b.snap `elem`); only a feed without gauges (an older recording) shows it as a status
       if (this.el && k.endsWith('Burst')) continue;
       if (statusIconSuppressed(k, this.statuses)) continue; // 折射 while silenced
-      if (fx && iconShownAsFx(this, k)) continue; // local patch: drawn as its official effect
       const icon = statusIconKey(k);
       // flag-driven states are authoritative (a stale 'stun' status must not outlive the flag)
       if (!icon || icon === 'stun' || icon === 'freeze' || icon === 'sleep' || icon === 'stealth' || icon === 'invuln') continue;

@@ -841,6 +841,12 @@
 - 위 클래스·메서드는 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 없음.
 - 안 한 것: 버프 노드의 다른 이펙트(방패 깨짐·끝 이펙트 — 2026-10-11 디컴파일 2라운드: 전용 코드는 없고 템플릿 노드 `Nodes.CreateEffect`(RVA 0xB90880)가 그 노드의 이벤트(ON_BUFF_FINISH·ON_TAKE_DAMAGE …) 때 한 번 만든다; 2026-10-11: 추출기가 이벤트별로 나눠 기록 — 아래 「위수 협의 템플릿 이펙트」; 버프 끝·피격 이벤트를 렌더에 알리는 sim 이벤트는 아직 없음), 炎佑 선(우리가 안 쓰는 模式甲), 나오지 않는 적 82종의
   이펙트(`--extract --all`), 소리(audio 담당). 화면 확인 없음.
+- 안 한 것(2026-10-14, 상태 아이콘 정리 — docs/rules/ui.md ⑤ 「버프 이펙트」): 머리 위 상태 아이콘이 빠지면서 적·보스의 아래 sim 버프는 이제 바인딩이
+  그 버프의 이펙트를 그릴 때만 보인다 — 이 바인딩이 공식 버프 이펙트를 그리는지 하나씩 대조하지 않았다: `ab:warden`(enemy_1516_jakill)·`ab:xiShield`
+  (enemy_1517_xi)·`ab:wolfGuard`(enemy_1535_wlfmster)·`kitLeaderMisc`의 `ab:burnDot`·`ab:sandDef`·`ab:rockPower`, `ab:artsBarrier`, 부활·KO 무적(`reborn` `…:inv`),
+  `ab:exposed`, `boss:helmGuard`(enemy_9013_acstmk)·`boss:hover`(enemy_9014/9015)·`boss:dash`(enemy_9017_achunt)·`boss:springShield`(enemy_9018~9020)·`boss:eternal`
+  (enemy_9022_acdumm)·`boss:equip`(enemy_10028~10030), 굴절(EN 템플릿에 refract 버프 없음 — 적 프리팹 쪽은 안 봄). EN 템플릿에서 이펙트가 있는 적 무적: `common_invincible_01`
+  (enemy_amiy·wdslm·trcerb·cstlrs·bsnake·pppdth 등 10개 버프), `_02`(mmamiy), `_03`(mirbst), 전용(fthlgj·ldevil·ubbphw·lrking·ristar …) — 이 적들이 우리 웨이브에 나오는지도 안 봄.
 - 확인: `test/local-patch-fxspawn.test.js`(적이 바인딩한 muzzle/특수점 이펙트가 그 적의 점을 찾음 — 클라 데이터의 빈 곳 2개 목록), `test/render/enemy-fx.test.js`, `test/render/enemy-fx-layer.test.js`(모드 전환 → audio.enemyMode, 사망 이펙트 대체, 대체 beam, 冰凌 칸별 시각, 직선 사격).
 
 ### 선발 추가 3명 — CN 클라이언트 (2026-10-11)

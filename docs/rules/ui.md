@@ -544,8 +544,32 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   인스턴스가 있으면 새로 만들지 않는다(로드 중 꺼졌다 켜지면 로드가 둘 걸리던 것). 같은 경로라 목록 전체에 적용 — 수정 전 아레나에서
   18종 중 13종이 겹쳤다(기절·冻结·寒冷·沉睡·减速·攻速下降·虚弱·防御下降·法抗下降·脆弱·浮空·隐匿·迷彩; 沉默·恐惧·战栗·缴械·迟缓은 파티클 수명이
   짧아 거의 안 보였음), 수정 후 18종 모두 최대 1개·상태가 끝나면 0개. 테스트 `test/local-patch-status-boomerang.test.js`.
-- 이펙트로 그리는 상태는 아이콘 줄에서 빠지고(`units.js _iconKeys`, `view._fxStatusOn`), 冻结·寒冷 파란 틴트도 그 동안은 안 쓴다. 클라 프리팹이 없는 상태
-  (束缚, 嘲讽, 无敌, 护盾, 麻痹, 원소 폭발, 禁疗, 折射, 替身 …)와 이펙트 층이 꺼진 경우(품질 낮음, WebP 없음, 추출 없음)는 예전 아이콘 그대로.
+- **상태 아이콘 줄은 대체 표시만**(관리자 결정 2026-10-14 「낮은 품질 옵션용 fallback만 남기고 제거」): 공식 전투 화면에는 상태 아이콘이 없다(아래 「버프 이펙트」).
+  머리 위 원형 아이콘 줄(`units.js _iconKeys`, 원본이 만든 것)은 이펙트 층이 꺼졌을 때만 그린다 — 품질 낮음, WebP 없음, 추출 이펙트 없음(`fxgame.js statusLayer`
+  → `fxstatus.js syncStatusFx`가 매 프레임 `view._statusIcons`). 층이 켜져 있으면 이펙트가 없는 상태(嘲讽, 无敌, 일반 护盾, 麻痹, 折射, 替身 …)도 아이콘 없이
+  아무것도 안 그린다(공식과 같음). 冻结·寒冷 파란 틴트는 그 이펙트가 켜진 동안만 쉰다(예전 그대로). 예전(2026-10-07~10-14)에는 이펙트로 그린 상태만 아이콘이 빠졌다.
+- **버프 이펙트**(관리자 결정 2026-10-14 「공식 프리팹 연결 시작」): 클라에는 상태별 공용 이펙트 표가 없다 — 버프마다 데이터의 `overrideEffectKey`(템플릿
+  `effectKey`)로 자기 이펙트를 정하고(`Entity.AddBuffEffect`, 이름당 하나), 없으면 아무것도 안 그린다. 클라 코드 문자열에 상태 이름 → 프리팹 표는 없고 접두어
+  `common_`만 있다. EN 버프 템플릿 전수: INVINCIBLE 버프 46개 중 21개, UNMOVABLE 22개 중 12개, 키에 shield가 든 110개 중 42개, taunt 10개 중 9개가 이펙트 없음;
+  공용처럼 보이는 `common_invincible_01~03`·`common_unmovable_01`·`common_shield_01`은 특정 적·장비 하나·케언 S2만 쓴다. 그래서 같은 상태라도 건 쪽에 따라 다르다:
+  - 건 쪽별(`fxstatus.js SOURCE_FX`, sim 'status' 켬 이벤트에 건 유닛 id·버프 힌트 `fxTag`·방패 층 `n` — `battle/status.js statusOnEvent`, 골든 다이제스트는 이벤트를 종류별로만 셈):
+    束缚 — 인디고 재능 `indigo_buff_01_start`, 카넬리안 S2 강화 `billro_skill_02_buff_03`, 미즈키 S2 `mizuki_skill_02_buff_02`, 시빌라이트 에테르나 S2
+    `cetsyr_skill_02_tie`, 이네스 재능 `ines_imprison_01`, 글래디아 S3 `glady_skill_03_buff_to_enemy`(`skchr_glady_3/ChantAttack1`), 뮤엘시스 S3 `token_10030_mlyss_wtrman_c3_debuff_01`,
+    치우바이 S1만 `qiubai_skill_01_buff`(재능·모듈 落英 속박은 없음 → 키트가 `fxTag: 's1'`); 안젤리나 더 멜로우 위시 缚地는 없음. 抵抗 — 노시스 재능 2(谢拉格 대상)
+    `common_ resistance_01`; 루멘·베토치키·적의 抵抗은 없음. 禁疗 — 수르트 재능 2 `surtr_buff_01_start`.
+  - 키트 버프 키별(`KEY_FX`): 파피루스 재능 `papyrs_talent_01`, 실버애쉬 더 레인프로스트 S1 배치 屏障 `svash2_skill_01_shield_01`, 캐서린 장치 `token_cathy_catsld_shield_01`,
+    레코드키퍼 S2 `reckpr_skill2_hit_buff`, 산탈라 재능(`sntlla:born`) `common_ resistance_01`, 카넬리안 S3 표식 `billro_skill_03_buff_03_01`([part]; 스택이 가득 찬
+    [full] `_03_02`는 스택 수가 이벤트에 없어 안 씀 [추정]), 엑시아 더 뉴 커버넌트 S2 屏障 — 본인 `angel2_skill_2_buff_01`([trigger]), 공속을 뺏긴 팀원 `_02`([select_target])
+    [추정: 주인 짝]; 원소 폭발 — 凋亡 양쪽 `common_darkdamage_debuff`, 오퍼레이터의 灼燃 `buff_burn`·侵蚀 방어 감소 `buff_defdown`(적의 灼燃·侵蚀은 타격 이펙트뿐).
+  - 층별(`LAYER_FX`): 니어 더 래디언트 나이트 S2 `nearl2_s_2[shield][a..d]` = 남은 횟수 ≥ 1..4마다 `nearl2_skill_02_buff_02..05` 하나씩, 'parry' fx마다 하나 줄임.
+  - 일반 스킬 보호막(`generic:shield:*`)·아이템·인연 보호막 층·우리 키트의 무적(첸 더 던스트릭 S2, 머드락 S3 闭锁, 데겐블레허 S3, 튤립, 카제마루 교체)·도발(벤델라)·
+    메테오 파쇄·비질 늑대 표식(공식 이펙트는 늑대 쪽)은 공식 버프에 이펙트가 없어 아무것도 안 그린다.
+  - 아이콘 시절 `statusFxKey`가 'invulnerable'을 `/vulner/`로 脆弱 이펙트에 잇던 것도 막음(그 상태를 거는 곳은 없었음).
+  - 추출(git 밖): `fx_extract.py --bundle qiubai --prefab qiubai_skill_01_buff`, `--bundle mlyss_token`·`--bundle cathy_token --pack pkgrps/btl_pfb_fx_token_0.ab
+    --match '^token_10030_mlyss_wtrman_c3_debuff_01$'`/`'^token_cathy_catsld_shield_01'`, `--bundle common --prefab 'common_ resistance_01' --prefab common_darkdamage_debuff`,
+    `--bundle buff --prefab buff_burn`. 나머지는 이미 뽑혀 있었다(오퍼레이터 번들). 근거 덤프: EN `config/buff_template_holder.ab`(관리자 노트의 2026-10-10 덤프),
+    charpack MonoBehaviour, `[uc]skills.ab`, CN 공개 `battle/buff_template_data.json`.
+  - 확인: 단위 `test/render/status-buff-fx.test.js`, `test/local-patch-hud.test.js` ⑤. [화면 미확인]
 - 디버그 아레나 확인: 寒冷+战栗(눈꽃 위·주먹 아래, 캡처 10과 같음), 冻结+寒冷(캡처 9의 얼음), 沉默 ✕, 脆弱, 沉睡, 迷彩. 아레나에서 WebGL 경고
   `drawElementsInstanced: no buffer is bound` — 상태를 하나도 안 걸어도 나와서 이번 작업과 무관(조사 안 함).
 - git 밖 생성물: `public/assets/local/fx/buff/`, `fx/common/`, 새 텍스처·메시, `fx/index.json`.
@@ -565,6 +589,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 공식 아이콘: 없음. 공식 전투 화면은 오퍼레이터 위에 상태 아이콘을 그리지 않고(이 원본의 아이콘 행은 원본이 만든 것), 클라이언트 UI에서 찾은 것은 적 도감
   유형 아이콘 `enemyTypeIcon/invisible_icon`(隐匿 적)뿐이다. 반투명 표현은 둘 다 유지 [추정: 공식도 迷彩 오퍼레이터를 반투명으로 그린다].
 - 한국어 이름표·툴팁: 상태 아이콘에 이름표가 없어서 추가하지 않았다(용어는 `ba.camou` = 위장).
+- 2026-10-14부터 상태 아이콘 줄 전체가 이펙트 층이 꺼졌을 때의 대체 표시다(「전투 화면 UI」 ⑤).
 - 확인: `test/local-patch-camou.test.js`(寒芒克洛丝 S1 迷彩 → `UF_CAMOU`, 叙拉古 隐匿 → 없음; 유닛 뷰 아이콘), headless Chromium 렌더 데모(포트 3103,
   寒芒克洛丝 S1 옆에 隐匿 오퍼레이터): 위장 무늬 아이콘과 은신 아이콘이 나란히 보임.
 

@@ -22,10 +22,14 @@
 //   lemuen:wanted 通缉 (蕾缪安's talent) → lemuen/lemuen_talent_buff_01 (head) [추정 height]
 //   reed2:scorch 灼痕 (焰影苇草's talent) → reed2/reed2_debuff_01 (body) [추정 height]
 //   talent:archet_shield 铁弦 (空弦's 护盾 layer) → archet/archet_buff_01_start (feet: its _spawnLocation 1)
-// A status the client draws (in this table, its prefab extracted, the effect layer on — not quality 'low', WebP) loses its
-// icon (units.js reads `view._fxStatusOn`); the rest keep the drawn icons (bind, taunt, invulnerable, shield, palsy, the
-// element bursts, 禁疗, 折射, 替身 …: no client prefab matched by name). Synced once per frame from the views' flags and
-// 'status' keys (render/app.js).
+// Beyond this table the client has no status effect of its own: every buff names its effect (`overrideEffectKey`, client
+// `Entity.AddBuffEffect`), and a status with none shows nothing — no 无敌 / 束缚 / 护盾 / 嘲讽 badge (EN buff templates: 21
+// of 46 INVINCIBLE buffs, 12 of 22 UNMOVABLE, 42 of 110 shield buffs carry none; `common_invincible_0N`,
+// `common_unmovable_01`, `common_shield_01` belong to single enemies / one 装备 / 凯恩's S2). SOURCE_FX / KEY_FX / LAYER_FX
+// below draw the effects of the buffs this fork's statuses stand for, by the applier or the buff key
+// (docs/rules/ui.md ⑤ 「버프 이펙트」). The drawn status icons (units.js _iconKeys) are only the fallback while the effect
+// layer is off (quality 'low', no WebP, no extracted effects: `view._statusIcons`, maintainer decision 2026-10-14).
+// Synced once per frame from the views' flags and 'status' keys (render/app.js).
 
 import { UF } from '../../../shared/constants.js';
 import { UF_CAMOU } from '../../../shared/local.js';
@@ -55,6 +59,80 @@ export const STATUS_FX = Object.freeze({
 });
 const ALIAS = Object.freeze({ artsFragile: 'fragile', physFragile: 'fragile', elemFragile: 'fragile' });
 
+// ---- buff effects (docs/rules/ui.md ⑤ 「버프 이펙트」; EN buff templates, charpacks, [uc]skills.ab, 2026-10-14) ----------
+// A spec is [bundle, prefab, height share] as STATUS_FX (spawn 1 feet / 5 ground → 0, 2 body → 0.5, 4 head → HEAD). These
+// effects are keyed by `bundle/prefab`: the client keeps one effect per name on a unit (Entity.AddBuffEffect refCounter).
+
+/**
+ * A catalogue status whose official buff depends on who applies it: status key → the applier's fx code (render/fxmap.js
+ * fxBundleOf of its charId — the holder's own when the buff has no source) → spec, or { [buff `fx` hint]: spec } when only
+ * one of the applier's buffs has an effect. An applier missing here draws nothing (the client's buff has no effect).
+ */
+export const SOURCE_FX = Object.freeze({
+  bind: Object.freeze({
+    indigo: ['indigo', 'indigo_buff_01_start', 0],                        // indigo_t[unmovable] (charpack S2_T1/Talents/1)
+    billro: ['billro', 'billro_skill_02_buff_03', 0],                     // billro_s_2[enhance][root]
+    mizuki: ['mizuki', 'mizuki_skill_02_buff_02', 0],                     // mizuki_s_2[unmovable]
+    cetsyr: ['cetsyr', 'cetsyr_skill_02_tie', 0],                         // cetsyr_s_2[unmoveable] (template, spawn 5)
+    ines: ['ines', 'ines_imprison_01', 0.5],                              // ines_t_1[enemy][unmove]
+    glady: ['glady', 'glady_skill_03_buff_to_enemy', 0],                  // skchr_glady_3/ChantAttack1 _activeBuffs[0]
+    mlyss: ['mlyss_token', 'token_10030_mlyss_wtrman_c3_debuff_01', 0],   // mlyss_s_3[unmoveable] (the 流形's S3 bind)
+    // qiubai_s_1[unmovable_effect]; the talent / module 落英 binds carry none
+    qiubai: Object.freeze({ s1: ['qiubai', 'qiubai_skill_01_buff', 0.5] }),
+  }),
+  // 抵抗: gnosis_t_2[effect] on the 谢拉格 operators (charpack Talents/2/karlan); 寒檀's is KEY_FX 'sntlla:born'
+  resist: Object.freeze({ gnosis: ['common', 'common_ resistance_01', 0] }),
+  // 禁疗: 史尔特尔's 余烬 surtr_t_2[withdraw] (charpack Talents/2; the sim buff has no source: the holder's code)
+  healFree: Object.freeze({ surtr: ['surtr', 'surtr_buff_01_start', 0] }),
+});
+
+const ANGEL2_SELF = Object.freeze(['angel2', 'angel2_skill_2_buff_01', 0]);
+const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
+/** A kit buff → the official buff's effect: by its key; a function picks by the holder (`view`) or returns null for none. */
+export const KEY_FX = Object.freeze({
+  'papyrs:shield': ['papyrs', 'papyrs_talent_01', 0.5],                   // papyrs_t_1[shield_core]
+  'svash2:barrier': ['svash2', 'svash2_skill_01_shield_01', 0],           // svash2_s_1[build] (the deployed card's 屏障)
+  'cathy:shield': ['cathy_token', 'token_cathy_catsld_shield_01', 0],     // catsld_t_1[shield_mark]
+  'reckpr:guard': ['reckpr', 'reckpr_skill2_hit_buff', 0],                // reckpr_02[listener] (S2's healed operator)
+  'sntlla:born': ['common', 'common_ resistance_01', 0],                  // sntlla_t_1[atk] (its 抵抗 with it)
+  // billro_s_3[mark_effect][part]; [full] (billro_skill_03_buff_03_02) needs the stack count, which no event carries [추정]
+  'billro:mark': ['billro', 'billro_skill_03_buff_03_01', HEAD],
+  // angel2_s_2[shield][trigger] on her, angel2_s_2[select_target] on the teammate she takes ASPD from [추정: the owners]
+  'angel2:barrier': (v) => (fxCode(v) === 'angel2' ? ANGEL2_SELF : ANGEL2_OTHER),
+  // element bursts (ep_break_*): 凋亡 ep_break_dark[damage] on both sides; 灼燃 ep_fire_magic_res_down and 侵蚀
+  // ep_water_def_down (the DEF cut, `erosionDown`) on operators only — an enemy's 灼燃 / 侵蚀 burst has its hit effect only
+  apoptosisBurst: ['common', 'common_darkdamage_debuff', 0.5],
+  burnBurst: (v) => (v.isEnemy ? null : ['buff', 'buff_burn', 0.5]),
+  erosionDown: (v) => (v.isEnemy ? null : ['buff', 'buff_defdown', HEAD]),
+});
+
+/**
+ * A kit buff whose official effect is one prefab per layer left: nearl2_s_2 creates [shield][a..d] while `times` ≥ 1..4.
+ * The count comes with the status (app.js `n`) and drops with each fx 'parry' of the buff (UnitView.onStatusHit).
+ */
+export const LAYER_FX = Object.freeze({
+  'nearl2:shield': Object.freeze([2, 3, 4, 5].map((i) => Object.freeze(['nearl2', `nearl2_skill_02_buff_0${i}`, 0]))),
+});
+
+/** The fx code of a view's character (fxmap.js fxBundleOf: 'char_469_indigo' → 'indigo'), or ''. */
+function fxCode(v) {
+  const id = v && v.info && (v.info.spine || v.info.defId);
+  return id ? String(id).replace(/^char_\d+_/, '') : '';
+}
+
+/**
+ * What the client needs of a 'status' on-event `e` (['status', id, key, 1, sourceId?, { fx?, n? }?], sim
+ * battle/status.js): the applier's fx code (resolved now: the applier may be gone by the next frame), the buff's `fx`
+ * hint and its layer count. null when the event carries none.
+ * @param {Map<any, any>} views
+ * @param {any[]} e
+ */
+export function statusSource(views, e) {
+  const info = e[5] && typeof e[5] === 'object' ? e[5] : null;
+  if (e[4] == null && !info) return null;
+  return { src: e[4] != null ? fxCode(views.get(e[4])) || null : null, fx: info?.fx ?? null, n: Number(info?.n) || 0 };
+}
+
 /** The STATUS_FX key of a sim 'status' key ('tremble', 'skill:haini_slow', 'talent:weak_fragile' …), or null. */
 export function statusFxKey(key) {
   if (typeof key !== 'string' || !key) return null;
@@ -66,7 +144,7 @@ export function statusFxKey(key) {
   // keyword fallbacks as render/style.js STATUS_GUESS (the content buffs' own keys)
   if (/trembl/i.test(tail)) return 'tremble';
   if (/fear/i.test(tail)) return 'fear';
-  if (/fragil|vulner/i.test(tail)) return 'fragile';
+  if (/fragil|vulner/i.test(tail) && !/invul/i.test(tail)) return 'fragile';   // 'invulnerable' is no 脆弱
   if (/aspd/i.test(tail)) return /gain|up/i.test(tail) ? null : 'aspdDown';
   if (/slugg/i.test(tail)) return 'sluggish';
   if (/slow/i.test(tail)) return 'slow';
@@ -79,54 +157,72 @@ export function statusFxKey(key) {
   return null;
 }
 
-const WANT = new Set();
+const WANT = new Map();
+/** Every effect key syncStatusFx turns on (and so may turn off): not the prep 'golden' glow of fxgolden.js. */
+const MINE = new Set(Object.keys(STATUS_FX));
 
-/** The statuses `v` should show now (STATUS_FX keys; `stealth` already resolved to the side's prefab key). */
+function put(out, k, spec) { if (spec && !out.has(k)) out.set(k, spec); }
+const byName = (out, spec) => { if (spec) put(out, `${spec[0]}/${spec[1]}`, spec); };
+
+/**
+ * The effects `v` should show now: effect key → spec. STATUS_FX keys for the catalogue statuses (`stealth` already
+ * resolved to the side's prefab key), `bundle/prefab` for the buff effects (SOURCE_FX / KEY_FX / LAYER_FX).
+ * `v.statusFrom` (UnitView.onStatus): status key → statusSource().
+ */
 export function wantedStatusFx(v, out = WANT) {
   out.clear();
   const f = v.flags | 0;
-  if (f & UF.STUNNED) out.add('stun');
-  if (f & UF.FROZEN) out.add('freeze');
-  if (f & UF.COLD) out.add('cold');
-  if (f & UF.SLEEP) out.add('sleep');
-  if (f & UF.STEALTH) out.add(f & UF_CAMOU ? 'camou' : v.isEnemy ? 'stealth' : 'stealthAlly');
+  if (f & UF.STUNNED) put(out, 'stun', STATUS_FX.stun);
+  if (f & UF.FROZEN) put(out, 'freeze', STATUS_FX.freeze);
+  if (f & UF.COLD) put(out, 'cold', STATUS_FX.cold);
+  if (f & UF.SLEEP) put(out, 'sleep', STATUS_FX.sleep);
+  if (f & UF.STEALTH) { const k = f & UF_CAMOU ? 'camou' : v.isEnemy ? 'stealth' : 'stealthAlly'; put(out, k, STATUS_FX[k]); }
   if (v.statuses) {
     for (const k of v.statuses) {
+      const from = v.statusFrom?.get?.(k) || null;
+      const per = SOURCE_FX[k];
+      if (per) {
+        const e = per[from?.src || fxCode(v)];
+        byName(out, Array.isArray(e) ? e : e && from?.fx != null ? e[from.fx] : null);
+        continue;
+      }
+      const kf = KEY_FX[k];
+      if (kf) { byName(out, typeof kf === 'function' ? kf(v) : kf); continue; }
+      const layers = LAYER_FX[k];
+      if (layers) { for (let i = 0; i < Math.min(layers.length, from?.n || 0); i++) byName(out, layers[i]); continue; }
       const s = statusFxKey(k);
       if (s === 'stealth' || s === 'camou') continue; // by the flags above (side, 迷彩)
-      if (s) out.add(s);
+      if (s) put(out, s, STATUS_FX[s]);
     }
   }
   return out;
 }
 
+/** Whether the effect layer draws status effects now (fxgame.js statusLayer); off: the drawn icons stand in. */
+function layerOn(fxGame) { return typeof fxGame.statusLayer === 'function' ? !!fxGame.statusLayer() : true; }
+
 /**
  * Sync every live unit's status effects with `fxGame` (render/fxgame.js statusOn / statusOff). `views`: the field's
- * views (Map). Units not in battle (prep), dead or culled show none.
+ * views (Map). Units not in battle (prep), dead or culled show none. Sets `view._statusIcons` (units.js): the drawn icons
+ * only while the layer is off.
  */
 export function syncStatusFx(views, fxGame, battle) {
   if (!fxGame || typeof fxGame.statusOn !== 'function') return;
+  const icons = !layerOn(fxGame);
   for (const v of views.values()) {
     if (!v || typeof v.flags !== 'number') continue;
+    v._statusIcons = icons;
     const on = v._fxStatusOn;
     const live = battle && v.alive && !v.prep && !v.remove;
     const want = live ? wantedStatusFx(v) : (WANT.clear(), WANT);
-    for (const k of want) {
+    for (const [k, spec] of want) {
       if (on && on.has(k)) continue;
-      const [bundle, name, frac, hold] = STATUS_FX[k];
-      if (fxGame.statusReady(bundle, name)) fxGame.statusOn(v, bundle, name, k, frac, hold);
+      const [bundle, name, frac, hold] = spec;
+      if (fxGame.statusReady(bundle, name)) { MINE.add(k); fxGame.statusOn(v, bundle, name, k, frac, hold); }
     }
     // local patch: not the prep 'golden' glow (fxgolden.js); local patch (maintainer report 2026-10-08): `now` — an ended
     // status takes its effect's particles with it (buff_stun's mark lives 10 s: it hung on beside the next stun's), after
     // the prefab's `_delayToFinish` as the client's Effect.FinishMe does (2026-10-11, fxgame.js statusOff; buff_stun 0)
-    if (on) for (const k of [...on]) if (!want.has(k) && STATUS_FX[k]) fxGame.statusOff(v, k, true);
+    if (on) for (const k of [...on]) if (!want.has(k) && MINE.has(k)) fxGame.statusOff(v, k, true);
   }
-}
-
-/** Whether `view` shows the icon key `icon` (render/style.js STATUS_ICON value) as an official effect (units.js hides it). */
-export function iconShownAsFx(view, rawKey) {
-  const on = view._fxStatusOn;
-  if (!on || !on.size) return false;
-  const k = statusFxKey(rawKey);
-  return !!k && on.has(k);
 }

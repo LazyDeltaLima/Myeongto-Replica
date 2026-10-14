@@ -9,6 +9,17 @@ import { palsyBuff } from '../damage.js';
 import { evadesGround } from '../targeting.js';
 import { stampFear } from '../fear.js';
 
+/**
+ * ['status', id, key, 1, sourceId?, { fx?, n? }?]: the applier, the buff's `fxTag` (sent as `fx`) and its 护盾 layers let the client draw
+ * the official effect of the buff the status stands for (render/fxstatus.js — the client names effects per buff, not per
+ * status). Display only: the golden digests count events by type.
+ */
+function statusOnEvent(unit, key, buff) {
+  const src = buff.source && buff.source.id != null ? buff.source.id : null;
+  const info = buff.fxTag != null || buff.shieldHits > 0 ? { ...(buff.fxTag != null ? { fx: buff.fxTag } : {}), ...(buff.shieldHits > 0 ? { n: buff.shieldHits } : {}) } : null;
+  return info ? ['status', unit.id, key, 1, src, info] : src != null ? ['status', unit.id, key, 1, src] : ['status', unit.id, key, 1];
+}
+
 export class BattleStatus {
   addBuff(unit, b) {
     if (!unit || (!unit.alive && !b.allowDead)) return null;
@@ -56,7 +67,7 @@ export class BattleStatus {
     unit.markDirty();
     if (buff.visible || buff.status) {
       const key = buff.status ?? buff.key;
-      if (list.filter((x) => (x.status ?? x.key) === key).length === 1) this._ev(['status', unit.id, key, 1]);
+      if (list.filter((x) => (x.status ?? x.key) === key).length === 1) this._ev(statusOnEvent(unit, key, buff));
     }
     return buff;
   }
@@ -222,7 +233,7 @@ export class BattleStatus {
       this._applyValuedStatus(target, key, tpl, duration, value ?? tpl.valued, source, opts.stackAs);
     } else {
       const mods = tpl.enemyOnlyMods && target.side !== 'enemy' ? null : typeof tpl.mods === 'function' ? tpl.mods(value) : (tpl.mods || null);
-      const b = this.addBuff(target, { key, duration, refresh: opts.refresh ?? 'extend', mods, flags: tpl.flags || null, status: key, visible: true, source });
+      const b = this.addBuff(target, { key, duration, refresh: opts.refresh ?? 'extend', mods, flags: tpl.flags || null, status: key, visible: true, source, fxTag: opts.fxTag ?? null });
       if (tpl.attract && b) this._setAttractPoint(target, b, opts.point ?? value, source);
       // 恐惧: the hit position and the source's position of every application (fear.js — the fan of reachable tiles)
       if (key === 'fear' && b && target.side === 'enemy') stampFear(this, target, b, source);

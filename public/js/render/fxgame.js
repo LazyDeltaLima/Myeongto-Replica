@@ -2563,6 +2563,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     },
     /** local patch (⑤): whether the shared status prefab `bundle`/`name` can play (index loaded, not 'low', listed). */
     statusReady(bundle, name) { return !!(index && !failed && q() !== 'low' && index.bundles?.[bundle]?.includes(name) && !statusFailed.has(`${bundle}/${name}`)); },
+    /** Whether status effects can play at all (index loaded, not 'low', no WebP failure): off, units draw their status icons (fxstatus.js). */
+    statusLayer() { return !!(index && !failed && q() !== 'low'); },
     /** local patch (⑤): loop `bundle`/`name` on `view` as its status `key` (once per key) at `frac` of its height. */
     statusOn(view, bundle, name, key, frac = 0, hold = null, under = false) {
       const on = view._fxStatusOn || (view._fxStatusOn = new Set());

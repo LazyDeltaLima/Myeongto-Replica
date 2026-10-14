@@ -139,7 +139,7 @@ import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.j
 import { pickOnTile, pickBattle, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
 import { createFxLayer } from './fxgame.js'; // local patch: official battle effects
-import { syncStatusFx } from './fxstatus.js'; // local patch: official status effects
+import { syncStatusFx, statusSource } from './fxstatus.js'; // local patch: official status effects
 import { ensurePixi } from './app/pixi.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
 import { dirVector } from './face-turn.js'; // an operator's front (render.md 「공격 방향」)
@@ -1748,8 +1748,10 @@ export async function createFieldView(host, options = {}) {
         fx.leak();
         break;
       }
-      case 'status': { const v = views.get(e[1]); if (v) v.onStatus?.(e[2], !!e[3]); break; }
+      case 'status': { const v = views.get(e[1]); if (v) v.onStatus?.(e[2], !!e[3], e[3] ? statusSource(views, e) : null); break; }
       case 'fx': {
+        // a 护盾 layer used up (sim damage.js absorbShields): one fewer layer effect (fxstatus.js LAYER_FX)
+        if (e[1] === 'parry' && e[4] && typeof e[4] === 'object' && e[4].buff) views.get(e[4].id)?.onStatusHit?.(e[4].buff);
         if (e[4] && typeof e[4] === 'object' && e[4].consumed && e[4].id != null) {
           consumedIds.add(e[4].id);
           if (consumedIds.size > 200) consumedIds.delete(consumedIds.values().next().value);

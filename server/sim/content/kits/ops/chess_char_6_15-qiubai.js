@@ -27,7 +27,7 @@ function qiubai(bb, chess, def) {
         onHit({ battle, unit, target }) {
           if (!target || !target.alive) return;
           const dur = num(bb.duration, 2);
-          battle.applyStatus(target, 'bind', { duration: dur, source: unit });
+          battle.applyStatus(target, 'bind', { duration: dur, source: unit, fxTag: 's1' });   // its effect: qiubai_s_1[unmovable_effect]
           const seq = unit.deploySeq;
           battle.after(dur, () => {
             if (!unit.alive || unit.deploySeq !== seq) return;

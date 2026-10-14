@@ -176,6 +176,9 @@ export function makeBuff(b) {
     persist: !!b.persist,
     status: b.status ?? null,
     visible: b.visible ?? false,
+    // which of the applier's official buffs this is, when only one of them has an effect (qiubai S1's 束缚 's1'): sent
+    // with the status for the client's effect (battle/status.js statusOnEvent, render/fxstatus.js SOURCE_FX); no rule
+    fxTag: b.fxTag ?? null,
     data: b.data ?? {},
     seq: ++buffSeq,
   };
