@@ -22,7 +22,7 @@
 
 import { html, MicroLabel } from './ui/components.js';
 import { createStore, useStore, store, loadPref, savePref, selectRoute } from './store.js';
-import { voiceWanted, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS } from './voice.js';
+import { voiceWanted, onVoiceLangChange, voiceStore, setVoiceLang, VOICE_LANGS, voiceLangLabel } from './voice.js';
 import { t } from '../../shared/i18n.js';
 
 const CACHE = 'sp-res';
@@ -259,7 +259,7 @@ export function ResourceHost() {
       <p>${t('下载后图片会立即显示，不会延迟出现。建议使用 Wi-Fi。')}</p>
       <div class="res-ask__lang"><span>${t('干员语音')}</span><div class="set-seg" role="radiogroup">
         ${VOICE_LANGS.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${lang === id ? 'true' : 'false'}
-          class=${lang === id ? 'is-on' : ''} onClick=${() => setVoiceLang(id)}>${t(label)}</button>`)}
+          class=${lang === id ? 'is-on' : ''} onClick=${() => setVoiceLang(id)}>${voiceLangLabel(id, label)}</button>`)}
       </div></div>
       <p class="res-ask__size num" data-i18n-skip="">${mb(r.bytesTotal)} MB</p>
       <div class="res-ask__btns">
