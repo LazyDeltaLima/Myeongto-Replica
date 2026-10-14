@@ -419,25 +419,25 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 판정(2026-10-14, 관리자 노트 — EN·CN 클라 프리팹·버프 템플릿·디컴파일): 105개 = 연결 94·`none` 11. `none`은 근거와 함께 목록에 적었고, 역할이 다른
   스킬의 클립을 틀던 다섯 명은 `anim-overrides.mjs`로 고쳤다 — 灵知 S3 `Skill_4_*`(그동안 S2 충전 모드의 `Skill_3`), 歌蕾蒂娅 S2 시작 `Skill_2_Startup`
   (`Skill_2_Begin`은 S2 모드 공격 채널의 시작), 伊内丝 S3 시작 `Start_Skill`, 缄默德克萨斯 S2·S3 시작 `Start_2`·`Start_3`(배치 일격, 모드 Born 짝), 银灰 S2 공격
-  `Combat`(그동안 S3의 `Skill`). 남은 `todo`는 클립을 트는 클라 구조로 묶었다(묶음 하나 = 렌더 고칠 자리 하나):
+  `Combat`(그동안 S3의 `Skill`). [화면 미확인] 남은 `todo`는 클립을 트는 클라 구조로 묶었다(묶음 하나 = 렌더 고칠 자리 하나):
   - **A** 저지 대상 공격: 모드 `UnitMode._combat` — `Character._FetchCombatTarget`이 저지 중인 적 중 첫 적을 고를 때(要塞 `FORTRESS_CLIPS`의 일반형). 구현(같은 날):
     시뮬 `ai.js`가 주 대상이 자기가 저지한 적이면 'swing' 7번째 칸 1 → `units.js onSwing` → `spine.js combatHit`, 역할 클립의 `combat`(`anim-overrides.mjs COMBAT_CLIPS`,
     `{loop, alts?, pick?}`)을 `_swingClip`이 고른다. 拉普兰德(기본·S2)·银灰·断崖·伊内丝(S2는 `Skill_2_Combat`)·丰川祥子(기본)·仇白(`Combat_A/B` 무작위)·予愿安洁莉娜 S3·
-    领主·Sharp. 领主·Sharp는 클립만 — 저지 중 근접 공격이라는 판정(시뮬 `professions.js` lord)은 그대로.
+    领主·Sharp. 领主·Sharp는 클립만 — 저지 중 근접 공격이라는 판정(시뮬 `professions.js` lord)은 그대로. 테스트 `test/render/attack-alts.test.js`·`test/sim/attack-timing.test.js`. [화면 미확인]
   - **B** 대체 공격 클립: `AbilityRandomGroup`(무작위/차례)·`UberAnimationEffectEmitter._replaceGroup`·순차 묶음 — 휘두를 때마다 고름. 구현(같은 날):
     `anim-overrides.mjs ATTACK_ALTS` → 역할 클립 `alts`·`pick`(차례 `loop`·무작위 `random`·「직전과 다르게」 `other` = `_diffFromLastOneIfNotFirst`), `spine.js _nextAlt`가
     휘두름마다 고르고 모델이 바뀌어도(앞/뒤) 그 휘두름의 클립을 잇는다. 11명(维什戴尔·迷迭香·阿斯卡纶·隐德来希 S3·望 기본·S3·维娜·维多利亚·凛御银灰·
-    圣聆初雪 S3·伺夜 S3·山). 望 S2의 `Attack_2_A/B`는 E(장착 스킬 기본 모드)가 먼저.
+    圣聆初雪 S3·伺夜 S3·山). 'swing' 이벤트는 뷰가 이펙트보다 먼저 받는다(`app.js processEvents`, 이펙트 묶음이 고른 클립을 따름). [화면 미확인]
   - **C** 첫 공격 begin·공격 end: `ThreePartOneshotAnimation`(`_onlyPlayBeginAnimWhenFirstAttack`, `_endAnimKey`) — `spine.js`가 공격 역할의 begin을 안 튼다.
   - **D** 스킬이 켜는 하위 모드의 `_replaceAnimPairs`(크루스 S2_Sub, 위셔델 과부하, 사키코 음색 등). **E** 장착 스킬의 기본 모드: `Character._GetDefaultModeIndex`
     (전투에 든 스킬의 `_defaultModeIndex`가 재능 값을 덮음) → `Unit.OnInit` `SwitchMode` — 배치부터 그 모드(Born→`Start_n`·Idle 짝). 구현(같은 날):
     `anim-overrides.mjs EQUIP_ROLES` → `anims.equip[스킬]` `{deploy, idle, attack}`, `spine.js setSkillIndex`가 그 스킬을 들면 쉬는 클립으로 — 引星棘刺 S3
     (`Start_2`·`Skill_3_Idle`), 望 S2(`Start_2`·`Idle_2`·공격 `Attack_2_A/B` 차례), 安洁莉娜 S2·S3(`Idle_Charge`). 予愿安洁莉娜 S1 시작 `Start_2`(스킨 키 `Skill_1_Begin`)는
-    스킬 클립 덮어쓰기. 남은 E: 乌尔比安 S3 재배치 클립(`Skill_3_Back`·`Skill_3_ReStart_A/B`), 赤刃明霄陈 S2 재등장 `Start_2` — 시뮬 재배치 신호가 필요.
+    스킬 클립 덮어쓰기. [화면 미확인] 남은 E: 乌尔比安 S3 재배치 클립(`Skill_3_Back`·`Skill_3_ReStart_A/B`), 赤刃明霄陈 S2 재등장 `Start_2` — 시뮬 재배치 신호가 필요.
   - **F** 모드의 `Die` 짝. **G** 스킬 프리팹 연출. **H** 재능·특성 상태. **I** 믹스 전환: chararts `SpineAnimator._mixSettings` — 클립 A→B 사이에 끼우는 클립.
   - **J** 스킨 키 표: chararts `SpineAnimator._animations`(키 → 클립 이름). 클라는 능력·모드의 **키**로만 튼다(`PlayAnimationInternal` → `GetAnimationData`).
     역할 추출(`anim-roles.mjs`, 이름 추측)은 이 표를 안 읽는다. 안젤리나·焰尾(`skills[]`가 한 칸 밀려 주 스킬 S3가 일반 공격 클립)·塞雷娅(S1·S2가 S3 钙质化
-    클립)는 `anim-overrides.mjs`로 고쳤다. 전 오퍼레이터 EN 표에서 `Born`→`Start` 말고 이름이 바뀌는 모델은 18명인데, 이름 추측을 키 이름에 돌리고 표로 바꾸는
+    클립)는 `anim-overrides.mjs`로 고쳤다 [화면 미확인]. 전 오퍼레이터 EN 표에서 `Born`→`Start` 말고 이름이 바뀌는 모델은 18명인데, 이름 추측을 키 이름에 돌리고 표로 바꾸는
     방식은 焰尾만 맞고 德克萨斯·雷蛇·艾丝黛尔·幽灵鲨·望 등을 틀리게 해(키 자체가 스킬 번호와 어긋난 모델도 있음 — 안젤리나 S2 키 `Skill_1_*`) 버렸다.
     근본 해결은 역할을 클라의 키(스킬 `_default`·`_animKey`·모드 짝)에서 읽고 이 표로 클립 이름을 얻는 추출이다(관리자 노트 2026-10-14).
   - **U** 위 방향 `*_Up`: `AbstractAnimatedAbility.GetAnimKey` — 아래·위·기본 순(`_faceToTarget`이면 바라보는 방향, 아니면 배치 방향). 아래 방향 공백과 같은 계열.
