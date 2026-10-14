@@ -449,7 +449,12 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `skchr_texas2_2/Damage`·`_3/AppearSwordRain`이 시전 시작에 `Start_n`을 처음부터 틀고(`forceFromStart`), 모드 S2·S3이 Born→`Start_n`. `_defaultModeIndex` −1이라
     시전 전(정비 판)은 `Start`. 구현: `anim-overrides.mjs SKILL_STATE_CLIPS`의 `deploy` → 스킬 역할 `deploy`, `spine.js deploy`가 스킬이 켜져 있으면 그것(시뮬은 시전이
     'deploy' 이벤트보다 먼저지만 순서가 바뀌어도 같은 클립). 디버그 아레나(Windows Chrome, 0.25배속)로 S2 사선·S3 도약 확인. 歌蕾蒂娅의 뒤에서 미끄러져 들어오는 배치는
-    `Start` 클립 자체(첫 프레임 뒤 −975, 높이 0)라 원래 그렇게 그려진다(같은 아레나로 확인). 스킬이 일으킨 【移动】의 배치 클립(같은 날): `Battle.moveRedeploy({ clip })` → 'deploy' 이벤트 4번째 칸 → 역할 `deploys`
+    `Start` 클립 자체(첫 프레임 뒤 −975, 높이 0)라 원래 그렇게 그려진다(같은 아레나로 확인). 전수(같은 날, 관리자 노트): 오퍼레이터 146명의 `Start`는 수직 95·사선 11·수평 13·제자리 27이고
+    렌더가 그대로 틀며, 스킨 키 표 Born은 전원 `Start`, 모드 Born 짝은 위 E의 여섯 명뿐. 배치 발동 스킬 중 시전 클립이 있는 다른 하나 伊内丝 S3
+    `Start_Skill`(`skchr_ines_3/First _animKey`)은 낙하를 대신하지 않고 착지 뒤에 이어진다(관리자 결정 2026-10-14 「낙하를 대신하는 것 같지는 않아」, 녹화 없음 [추정]):
+    스킬 역할 `afterDeploy` → `spine.js`가 배치 클립 중 온 시전(또는 시전 직후 온 배치)의 시작 클립을 배치 클립 끝까지 미룬다. 予愿安洁莉娜 S1은 기본 모드
+    S1_TakeOff(`_defaultModeIndex` 5)로 배치부터 이륙(관리자 결정 2026-10-14) — E `equip` 배치 클립 `Start_2`(위에서 내려와 떠 있음; 땅 배치 `Start`는 뒤에서 휘어 들어옴).
+    아레나로 둘 다 확인. 스킬이 일으킨 【移动】의 배치 클립(같은 날): `Battle.moveRedeploy({ clip })` → 'deploy' 이벤트 4번째 칸 → 역할 `deploys`
     (`anim-overrides.mjs SKILL_STATE_CLIPS`, `spine.js deploy(key)`) — 乌尔比安 S3 닻으로 `Skill_3_ReStart_A`, 【返回】 `Skill_3_Back`, 닻이 자기 칸이면 이동 없이
     'anchor' fx의 `redeploy` → `Skill_3_ReStart_B`(어느 노드가 트는지 [추정]). 赤刃明霄陈 S2(`_animKey "Skill_2_Begin"`·`_endAnimKey "Skill_2_Disappear"`, 재등장 모드
     S2Respawn Born→`Start_2`): 키트 새 fx 'chen3Vanish'·'chen3Respawn'의 `form` → `FORMS` `vanish`(변환 클립 두 개 뒤 마지막 프레임 유지 `hold`, 나갈 때 `Start_2`),

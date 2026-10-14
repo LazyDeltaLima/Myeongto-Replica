@@ -257,6 +257,41 @@ test('缄默德克萨斯 S2 / S3 (cast as she deploys): she comes in on Start_2 
   assert.equal(s1.actor.current, 'Start', 'S1 has no mode deploy clip');
 });
 
+test('伊内丝 S3 (cast as she deploys): Start_Skill follows her Start drop in either event order; S2 and a cast without a deploy as before', async () => {
+  for (const order of ['skill first', 'deploy first']) {
+    const v = await view('char_4087_ines', { skillIndex: 2 });
+    if (order === 'skill first') { v.setSkill(true); v.onDeploy(); } else { v.onDeploy(); v.setSkill(true); }
+    assert.equal(v.actor.current, 'Start', `${order}: the drop first`);
+    secs(v, 0.5);
+    assert.equal(v.actor.current, 'Start', `${order}: still dropping`);
+    secs(v, 0.6);
+    assert.equal(v.actor.current, 'Start_Skill', `${order}: then Start_Skill`);
+    secs(v, 1.2);
+    assert.equal(v.actor.mode, 'base', `${order}: then her resting state (the queued Idle)`);
+  }
+  const off = await view('char_4087_ines', { skillIndex: 2 });
+  off.onDeploy();
+  off.setSkill(true);
+  off.setSkill(false);   // over before the drop ends: nothing waits
+  secs(off, 1.2);
+  assert.equal(off.actor.current, 'Idle');
+  const s2 = await view('char_4087_ines', { skillIndex: 1 });
+  s2.onDeploy();
+  s2.setSkill(true);
+  assert.notEqual(s2.actor.current, 'Start', 'S2 opens at once, as before');
+});
+
+test('予愿安洁莉娜 S1 (default mode S1_TakeOff): she deploys on her take-off Start_2; S2 / S3 on Start', async () => {
+  const v = await view('char_1015_aglna2', { skillIndex: 0 });
+  v.onDeploy();
+  assert.equal(v.actor.current, 'Start_2');
+  for (const i of [1, 2]) {
+    const w = await view('char_1015_aglna2', { skillIndex: i });
+    w.onDeploy();
+    assert.equal(w.actor.current, 'Start', `S${i + 1}`);
+  }
+});
+
 test('乌尔比安 S3: the 【移动】 to the anchor restarts on Skill_3_ReStart_A, on his own tile Skill_3_ReStart_B, the 【返回】 Skill_3_Back', async () => {
   const v = await view('char_4145_ulpia', { skillIndex: 2 });
   v.setSkill(true);

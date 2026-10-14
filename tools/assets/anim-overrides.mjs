@@ -59,9 +59,11 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
     2: Object.freeze({ via: 'attack', begin: 'Skill_3_Startup', idle: 'Skill_3_Chant', end: Object.freeze(['Skill_3_Begin', 'Skill_3_Loop', 'Skill_3_End']) }),
   }),
   // 伊内丝 (char_4087_ines): S3 独影归途 = an ability group whose first ability (`_animKey "Start_Skill"`) leaves the
-  // shadow sentry; her attacks stay the ordinary ones (loop = idle: no skill attack clip).
+  // shadow sentry; her attacks stay the ordinary ones (loop = idle: no skill attack clip). The skill is cast as she deploys
+  // (spType ON_DEPLOY) and Start_Skill follows her drop instead of replacing it (`afterDeploy`, maintainer 2026-10-14
+  // 「낙하를 대신하는 것 같지는 않아」 [ASSUMED: no recording]): render/spine.js holds the begin until the deploy clip ends.
   'op:char_4087_ines:': Object.freeze({
-    2: clips({ begin: 'Start_Skill', loop: 'Idle' }),
+    2: clips({ begin: 'Start_Skill', loop: 'Idle', afterDeploy: true }),
   }),
   // 缄默德克萨斯 (char_1028_texas2): the S2 / S3 deploy burst (skchr_texas2_{2,3} AnimationEmitBehaviour ON_CAST_START
   // anim `Start_n`; charpack modes S2 / S3 pair Born→Start_n, Idle→Skill_n_Idle) opens the skill.
@@ -265,6 +267,10 @@ export const EQUIP_ROLES = Object.freeze({
   'op:char_4182_oblvns:': { 1: { deploy: 'Skill_2_Start', idle: 'Skill_2_Idle_A', attack: { begin: null, loop: 'Skill_2_Loop_A', end: null } } },
   // 安洁莉娜 (char_291_aglina) S2 / S3: `_defaultModeIndex` 1 = mode Disarmed (no normal attack; Idle→Idle2, skin key → Idle_Charge)
   'op:char_291_aglina:': { 1: { idle: 'Idle_Charge' }, 2: { idle: 'Idle_Charge' } },
+  // 予愿安洁莉娜 (char_1015_aglna2, CN client) S1: skchr_aglna2_1 `_defaultModeIndex` 5 = S1_TakeOff — she deploys taking
+  // off (maintainer 2026-10-14 「배치부터 이륙이 맞아」): her take-off clip Start_2 (skin key Skill_1_Begin; down from above
+  // into her hover) instead of the ground Start (a swoop in from behind)
+  'op:char_1015_aglna2:': { 0: { deploy: 'Start_2' } },
 });
 
 /**
