@@ -9,8 +9,7 @@
 // Subset of Unity's particle system: start values (constant / curve / random two curves / random two constants), rate
 // and bursts, shapes (sphere, hemisphere, cone, box, circle, edge, rectangle, donut), velocity / force / limit velocity /
 // noise (cheap), color / size / rotation over lifetime, texture sheet frames, custom data (two vec4 streams), local or
-// world simulation; renderers billboard / stretched / horizontal / vertical / mesh. Not drawn: trails, sub emitters,
-// collisions. Shaders: one uber shader standing in for the Torappu particle shaders (main texture with UV scroll,
+// world simulation, Birth sub emitters; renderers billboard / stretched / horizontal / vertical / mesh. Not drawn: collisions. Shaders: one uber shader standing in for the Torappu particle shaders (main texture with UV scroll,
 // distortion, dissolve with edge, colour ramp, the material's blend factors); the renderers' FxUVTweener scripts move their
 // textures' offsets (uvTween, 2026-10-14).
 //
@@ -831,6 +830,8 @@ class LineRenderer {
 
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpM = new THREE.Matrix4(), tmpM2 = new THREE.Matrix4();
 const emitM = new THREE.Matrix4();   // ParticleSystem.emit: node → root for a world-space system
+// ParticleSystem sub emitters (2026-10-14): the parent's node → root, a particle's point, the shape offset, inherited values
+const subM = new THREE.Matrix4(), subAt = new THREE.Vector3(), subOff = new THREE.Vector3(), subCol = [0, 0, 0, 0], subSize = [1, 1, 1];
 // one particle's instance data = 28 floats in one buffer (one upload per system and frame, was eight):
 // iPos 3, iSize 3, iRot 3, iColor 4, iC1 4, iC2 4, iUV 4, iVel 3
 const IV = 28, IV_POS = 0, IV_SIZE = 3, IV_ROT = 6, IV_COL = 9, IV_C1 = 13, IV_C2 = 17, IV_UV = 21, IV_VEL = 25;
@@ -903,7 +904,24 @@ class ParticleSystem {
     systems.add(this);
   }
 
-  get alive() { return this.n > 0 || (!this.stopped && (this.ps.loop || this.time < this.ps.dur)); }
+  get alive() {
+    if (this.subOf) return this.n > 0 || this.subOf.alive;   // a sub emitter lives on its parent's particles
+    return this.n > 0 || (!this.stopped && (this.ps.loop || this.time < this.ps.dur));
+  }
+
+  /**
+   * (2026-10-14) Sub emitters of type Birth (`list`: { e: { node, props, p }, sys }): each target stops emitting on its own and
+   * instead runs its emission module per particle of this system — its rate over time and its bursts on that particle's
+   * age (the target's own duration; looping or not, as the target), at the particle's position (+ the target's shape),
+   * each emission kept with probability `p`. `props` inherits from the particle: 1 colour (× its current colour), 2 size
+   * (× its current size), 4 rotation (+ its rotation), 8 lifetime (× its remaining fraction) [ASSUMED: Unity's inherit
+   * lifetime by the remaining fraction]. [ASSUMED: the target's start values are evaluated at that age over its duration]
+   */
+  setSubs(list) {
+    this.subs = list;
+    for (const x of list) { x.sys.subOf = this; x.sys.emitAcc = 0; }
+    this.subAcc = new Float32Array(this.max * list.length);
+  }
 
   /**
    * local patch (m_IsActive, maintainer's decision 2026-10-08 「공식과 동일하게」): its GameObject switched off by a clip — Unity clears
@@ -916,24 +934,33 @@ class ParticleSystem {
     } else { this.stopped = true; while (this.n) this.kill(this.n - 1); }
   }
 
-  emit(count) {
+  /**
+   * `count` particles from the shape. `sub` (2026-10-14, a sub emitter's call — setSubs): { at (the parent particle, root
+   * frame), t01, col?, size?, rot?, lifeK? } — from that point instead of the node's origin, with the inherited values.
+   */
+  emit(count, sub = null) {
     const ps = this.ps;
     const room = Math.min(count, this.max - this.n, this.q.budget - liveParticles);
     if (room <= 0) return;
     if (this.listed) liveParticles += room;
     // world space: the node → root transform, the same for every particle of this call
-    if (this.world) {
+    if (this.world || sub) {
       this.node.updateWorldMatrix(true, false);
       this.root.updateWorldMatrix(true, false);
       emitM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
+    }
+    if (sub) {   // the shape's origin moved to the particle: in the root frame (world) or the node's
+      subOff.copy(sub.at);
+      if (this.world) subOff.sub(tmpV.setFromMatrixPosition(emitM));
+      else subOff.applyMatrix4(tmpM2.copy(emitM).invert());
     }
     for (let k = 0; k < room; k++) {
       const i = this.n++;
       const r = this.rnd;
       for (let j = 0; j < 4; j++) r[i * 4 + j] = Math.random();
-      const t01 = ps.dur > 0 ? Math.min(1, Math.max(0, this.time / ps.dur)) : 0;
+      const t01 = sub ? sub.t01 : ps.dur > 0 ? Math.min(1, Math.max(0, this.time / ps.dur)) : 0;
       this.age[i] = 0;
-      this.life[i] = Math.max(0.01, evalMM(ps.life, t01, Math.random()));
+      this.life[i] = Math.max(0.01, evalMM(ps.life, t01, Math.random()) * (sub?.lifeK ?? 1));
       const sp = evalMM(ps.speed, t01, Math.random());
       const s = evalMM(ps.size, t01, Math.random());
       this.size0[i * 3] = s;
@@ -944,11 +971,15 @@ class ParticleSystem {
       this.rot[i * 3 + 1] = ps.rotY ? evalMM(ps.rotY, t01, Math.random()) : 0;
       this.rot[i * 3 + 2] = evalMM(ps.rot, t01, Math.random()) * flip;
       evalMG(ps.color, t01, Math.random(), tmpC);
+      if (sub?.col) for (let j = 0; j < 4; j++) tmpC[j] *= sub.col[j];
       this.col0.set(tmpC, i * 4);
+      if (sub?.size) for (let j = 0; j < 3; j++) this.size0[i * 3 + j] *= sub.size[j];
+      if (sub?.rot != null) this.rot[i * 3 + 2] += sub.rot;
       // position + direction from the shape (local space of the node)
       const p = tmpV.set(0, 0, 0), d = tmpV2.set(0, 0, 1);
       shapeSample(ps.shape, p, d);
       if (this.world) { p.applyMatrix4(emitM); d.transformDirection(emitM); }
+      if (sub) p.add(subOff);
       this.pos[i * 3] = p.x; this.pos[i * 3 + 1] = p.y; this.pos[i * 3 + 2] = p.z;
       if (this.histN) this.histN[i] = 0;
       this.vel[i * 3] = d.x * sp; this.vel[i * 3 + 1] = d.y * sp; this.vel[i * 3 + 2] = d.z * sp;
@@ -963,6 +994,7 @@ class ParticleSystem {
     this.size0.copyWithin(i * 3, last * 3, last * 3 + 3); this.rot.copyWithin(i * 3, last * 3, last * 3 + 3);
     this.col0.copyWithin(i * 4, last * 4, last * 4 + 4); this.rnd.copyWithin(i * 4, last * 4, last * 4 + 4);
     this.age[i] = this.age[last]; this.life[i] = this.life[last]; this.rotVel[i] = this.rotVel[last];
+    if (this.subAcc) { const J = this.subs.length; this.subAcc.copyWithin(i * J, last * J, last * J + J); }
     if (this.hist) {
       const K = this.histK * 4;
       this.hist.copyWithin(i * K, last * K, last * K + K);
@@ -977,7 +1009,7 @@ class ParticleSystem {
     // emission
     const prev = this.time;
     this.time += dt;
-    if (!this.stopped && this.time >= 0) {
+    if (!this.stopped && !this.subOf && this.time >= 0) {
       let t = this.time;
       if (ps.loop && ps.dur > 0 && t >= ps.dur) {
         t %= ps.dur;
@@ -1003,7 +1035,12 @@ class ParticleSystem {
     }
     // simulate
     const grav = evalMM(ps.gravity, 0, 0);
+    if (this.subs && !this.world) {   // the node → root transform for the sub emitters' points
+      this.node.updateWorldMatrix(true, false); this.root.updateWorldMatrix(true, false);
+      subM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
+    }
     for (let i = this.n - 1; i >= 0; i--) {
+      const age0 = this.age[i];
       this.age[i] += dt;
       if (this.age[i] >= this.life[i]) { this.kill(i); continue; }
       const a = this.age[i] / this.life[i], r = this.rnd[i * 4];
@@ -1025,6 +1062,7 @@ class ParticleSystem {
       }
       this.pos[i * 3] += (vx + ox) * dt; this.pos[i * 3 + 1] += (vy + oy) * dt; this.pos[i * 3 + 2] += (vz + oz) * dt;
       if (m.rotOL) this.rot[i * 3 + 2] += evalMM(m.rotOL.z, a, r) * dt;
+      if (this.subs) this.emitSubs(i, age0, this.age[i], dt);
     }
     // instance data, uploaded by the used range in one call
     const n = this.n, D = this.ib.array;
@@ -1055,6 +1093,49 @@ class ParticleSystem {
     this.geometry.instanceCount = n;
     this.mesh.visible = this.draws && n > 0;
     if (this.trailBatch) this.updateTrails(sinceStart);
+  }
+
+  /** setSubs: particle i (age a0 → a1 this frame) runs each sub emitter's emission module. */
+  emitSubs(i, a0, a1, dt) {
+    const m = this.ps.mods, J = this.subs.length, a = a1 / this.life[i], r = this.rnd[i * 4 + 2];
+    let at = null, col = null, size = null;
+    for (let j = 0; j < J; j++) {
+      const { e, sys } = this.subs[j], tp = sys.ps, dur = tp.dur > 0 ? tp.dur : 1;
+      if (!tp.loop && a0 > dur) continue;
+      let n = 0;
+      const t1 = tp.loop ? a1 % dur : Math.min(a1, dur), t01 = t1 / dur;
+      this.subAcc[i * J + j] += evalMM(tp.rate, t01, Math.random()) * this.q.emission * dt;
+      const whole = Math.floor(this.subAcc[i * J + j]);
+      if (whole > 0) { this.subAcc[i * J + j] -= whole; n += whole; }
+      for (const b of tp.bursts || []) {   // each burst time (and its cycles) in [a0, a1) of the particle's age, per lap when looping
+        for (let c = 0; c < (b.cycles || 1); c++) {
+          const tb = b.t + c * (b.interval || 0);
+          if (tb > dur) break;
+          const lap0 = tp.loop ? Math.floor(a0 / dur) : 0, lap1 = tp.loop ? Math.floor(a1 / dur) : 0;
+          for (let L = lap0; L <= lap1; L++) {
+            const at0 = L * dur + tb;
+            if (at0 >= a0 && (at0 < a1 || (a0 === 0 && at0 === 0)) && Math.random() <= (b.p ?? 1)) n += Math.max(0, Math.round(evalMM(b.n, 0, Math.random()) * Math.max(this.q.emission, tb === 0 ? 1 : 0)));
+          }
+        }
+      }
+      if (n <= 0 || Math.random() > (e.p ?? 1)) continue;
+      if (!at) {
+        at = subAt.set(this.pos[i * 3], this.pos[i * 3 + 1], this.pos[i * 3 + 2]);
+        if (!this.world) at.applyMatrix4(subM);
+      }
+      const props = e.props || 0;
+      if (props & 1 && !col) {
+        col = subCol; for (let k = 0; k < 4; k++) col[k] = this.col0[i * 4 + k];
+        if (m.colorOL) { evalMG(m.colorOL, a, this.rnd[i * 4 + 3], tmpC2); for (let k = 0; k < 4; k++) col[k] *= tmpC2[k]; }
+      }
+      if (props & 2 && !size) {
+        let sx = 1, sy = 1, sz = 1;
+        if (m.sizeOL) { sx = evalMM(m.sizeOL.x, a, r); sy = m.sizeOL.y ? evalMM(m.sizeOL.y, a, r) : sx; sz = m.sizeOL.z ? evalMM(m.sizeOL.z, a, r) : sx; }
+        size = subSize; size[0] = this.size0[i * 3] * sx; size[1] = this.size0[i * 3 + 1] * sy; size[2] = this.size0[i * 3 + 2] * sz;
+      }
+      sys.emit(n, { at, t01, col: props & 1 ? col : null, size: props & 2 ? size : null, rot: props & 4 ? this.rot[i * 3 + 2] : null,
+        lifeK: props & 8 ? Math.max(0, 1 - a) : 1 });
+    }
   }
 
   /** Trail width at u (0 = the particle, 1 = the tail) for particle i. */
@@ -1390,6 +1471,14 @@ export class FxInstance {
         else if (tr) uvTween(tr.batch.material, n.uvt, def.materials[n.trailR.mat]);
       }
     });
+    // 2026-10-14: sub emitters (fx_extract.py `mods.sub`, all Birth): the target system emits from each of this system's particles
+    // instead of playing on its own
+    for (const s of this.systems) {
+      const list = (Array.isArray(s.ps.mods?.sub) ? s.ps.mods.sub : [])
+        .map((e) => ({ e, sys: this.systems.find((x) => x.node === this.nodes[e.node]) }))
+        .filter((x) => x.sys && x.sys !== s && !x.sys.subOf && (x.e.type || 0) === 0);
+      if (list.length) s.setSubs(list);
+    }
     // local patch (maintainer report, maintainer's decision 2026-10-08): every clip of the prefab plays — a nested sub-prefab has
     // its own Animator (缄默德克萨斯 S2's texas2_birth_02_start: the root + 4 slashes; clips[0] alone left the slashes frozen
     // on their material defaults). The extract resolves each clip's nodes into the whole tree; each starts when its branch shows

@@ -1,7 +1,8 @@
 // test/render/fx-legacy-skin.test.js — motion the client drives outside the Mecanim Animators (render/fxplayer.js,
 // tools/local-extract/fx_extract.py, 2026-10-14). A legacy Animation component's default clip (keyframe curves, not a
 // muscle clip) becomes the same clip tracks — 37 prefabs whose spinning rings, swaying stones and fading layers stood
-// still; a SkinnedMeshRenderer (never extracted: 水月 S2's tentacles, 斯卡蒂 S3's shark …) is drawn by its bones.
+// still; a SkinnedMeshRenderer (never extracted: 水月 S2's tentacles, 斯卡蒂 S3's shark …) is drawn by its bones; a
+// particle system's Birth sub emitters emit from each of its particles, not once from their own node.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -76,6 +77,40 @@ test('a skinned renderer is a SkinnedMesh bound to its bone nodes: turning a bon
   assert.equal(freed, 1, 'its skeleton (bone texture) goes with the effect');
 });
 
+const k = (v) => ({ m: 0, s: v });
+const psDef = (extra = {}) => ({ dur: 1, loop: false, delay: k(0), speedMul: 1, space: 0, scaling: 1, prewarm: false, life: k(1), speed: k(0),
+  color: { m: 0, a: [1, 1, 1, 1] }, size: k(1), rot: k(0), max: 16, gravity: k(0), flipRot: 0, rate: k(0), bursts: [], mods: {},
+  render: { mode: 0, mesh: null, mat: 'm', lengthScale: 2, velScale: 0, align: 0, pivot: [0, 0, 0], order: 0, fudge: 0, maxSize: 2, streams: [] }, ...extra });
+const burst = (n, t = 0) => ({ t, n: k(n), cycles: 1, interval: 0.01, p: 1 });
+
+test('Birth sub emitters: the target emits from each parent particle (its bursts on the particle\'s age), never on its own', () => {
+  // the parent: 2 particles at once, flying +x at 2 / s; the target: a burst of 3 at 0.5 s of each particle's life, inheriting size
+  const parent = psDef({ speed: k(2), size: k(0.5), bursts: [burst(2)], shape: { type: 4, radius: 0, angle: 0, arc: 360, thick: 1 },
+    mods: { sub: [{ node: 2, type: 0, props: 2, p: 1 }] } });
+  const target = psDef({ life: k(5), bursts: [burst(3, 0.5)] });
+  const def = { name: 't', duration: 2, materials: { m: mat }, clips: [], geoms: {}, lib: { texture: () => new THREE.Texture() },
+    nodes: [node('t', -1), node('p', 0, { ps: parent }), node('sub', 1, { ps: target })] };
+  const inst = new fxp.FxInstance(def, { quality: 'high' });
+  const [p, sub] = inst.systems;
+  assert.ok(sub.subOf === p, 'the target is driven by the parent');
+  inst.update(0.25);
+  assert.equal(p.n, 2);
+  assert.equal(sub.n, 0, 'its own burst at 0 s does not fire');
+  inst.update(0.3);   // the particles pass 0.5 s of age
+  assert.equal(sub.n, 6, '3 per parent particle');
+  // where: the parent particles' points (local space: the parent node is the target's parent, both at the root)
+  for (let i = 0; i < sub.n; i++) {
+    const near1 = [0, 1].some((j) => Math.hypot(sub.pos[i * 3] - p.pos[j * 3], sub.pos[i * 3 + 1] - p.pos[j * 3 + 1], sub.pos[i * 3 + 2] - p.pos[j * 3 + 2]) < 0.2);
+    assert.ok(near1, `sub particle ${i} at a parent particle`);
+    near(sub.size0[i * 3], 0.5, 'inherited size (× the parent\'s 0.5)');
+  }
+  assert.ok(Math.hypot(sub.pos[0], sub.pos[1], sub.pos[2]) > 0.8, 'not at the node\'s origin');
+  inst.update(0.6);   // the parents die at 1 s; the target's particles live on
+  assert.equal(p.n, 0);
+  assert.equal(sub.alive, true);
+  inst.dispose();
+});
+
 test('fx_extract.py writes legacy clips and skinned renderers (--legacy-only / --skin-only)', () => {
   const fx = readFileSync(path.join(ROOT, 'tools/local-extract/fx_extract.py'), 'utf8');
   assert.match(fx, /def hermite_keys\(keys, comp=None\)/);
@@ -84,6 +119,8 @@ test('fx_extract.py writes legacy clips and skinned renderers (--legacy-only / -
   assert.match(fx, /elif t == 'SkinnedMeshRenderer':/);
   assert.match(fx, /ap\.add_argument\('--legacy-only'/);
   assert.match(fx, /ap\.add_argument\('--skin-only'/);
+  assert.match(fx, /ap\.add_argument\('--sub-only'/);
+  assert.match(fx, /def sub_emitters\(nodes, pss\)/);
 });
 
 const read = (f) => { const p = path.join(FX, f); return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : null; };

@@ -247,7 +247,10 @@ def particle_system(ps, psr, mat_key, mesh_key, trail_mat=None):
                          'colorOL': mmgrad(tm.get('colorOverLifetime')), 'width': minmax(tm.get('widthOverTrail')),
                          'colorOT': mmgrad(tm.get('colorOverTrail')), 'ribbons': tm.get('ribbonCount', 1)}
     if ps.get('SubModule', {}).get('enabled'):
-        mods['sub'] = True    # not played yet
+        # 2026-10-14: the sub emitters — the emitter's ParticleSystem is resolved to its node after the walk (sub_emitters);
+        # type 0 Birth (all 397 of the extracted prefabs), properties = the inherit bits (1 colour, 2 size, 4 rotation, 8 lifetime)
+        mods['sub'] = [{'emitter': e.get('emitter') or {}, 'type': e.get('type', 0), 'props': e.get('properties', 0),
+                        'p': r4(e.get('emitProbability', 1))} for e in ps['SubModule'].get('subEmitters') or []]
     o['mods'] = mods
     o['render'] = {'mode': psr['m_RenderMode'], 'mat': mat_key, 'mesh': mesh_key, 'trailMat': trail_mat, 'lengthScale': r4(psr.get('m_LengthScale', 2)),
                    'velScale': r4(psr.get('m_VelocityScale', 0)), 'align': psr.get('m_RenderAlignment', 0),
@@ -360,6 +363,25 @@ def legacy_clip(clip, rel, wrap=0):
 
 def crc32(s):
     return zlib.crc32(s.encode('utf-8')) & 0xffffffff
+
+
+def sub_emitters(nodes, pss):
+    """(2026-10-14) Each extracted system's `mods.sub` emitters → { node, type, props, p }: `pss` maps a ParticleSystem path id
+    to its node. An emitter outside the prefab or a node drawing nothing (no `ps`) is dropped, an empty list with it."""
+    for n in nodes:
+        mods = (n.get('ps') or {}).get('mods') or {}
+        if not isinstance(mods.get('sub'), list):
+            continue
+        out = []
+        for e in mods['sub']:
+            em = e.pop('emitter', None) or {}
+            k = pss.get(em.get('m_PathID')) if not em.get('m_FileID') else None
+            if k is not None and nodes[k].get('ps'):
+                out.append({'node': k, **e})
+        if out:
+            mods['sub'] = out
+        else:
+            mods.pop('sub')   # no emitter set (67 of the 145 prefabs with the module on): Unity emits nothing
 
 
 # ---------------------------------------------------------------- extraction
@@ -540,6 +562,7 @@ class Extractor:
         nodes, mats, paths = [], {}, {}
         animators = []
         skinned = []
+        pss = {}   # ParticleSystem path id -> node (sub emitters)
 
         gos = {}
 
@@ -572,6 +595,7 @@ class Extractor:
                     node['scale'] = vec3(tr['m_LocalScale'])
                 elif t == 'ParticleSystem':
                     node['_ps'] = comp
+                    pss[comp.path_id] = idx
                 elif t == 'ParticleSystemRenderer':
                     node['_psr'] = comp
                 elif t == 'MeshRenderer':
@@ -655,6 +679,7 @@ class Extractor:
             sk = self.skin(smr, gos, out, mats)
             if sk:
                 nodes[idx]['skin'] = sk
+        sub_emitters(nodes, pss)
         for k, t in self.sub_delays(root, gos).items():
             nodes[k]['sdelay'] = t
         spawn = self.spawn_location(root)
@@ -1140,6 +1165,75 @@ class Extractor:
                 f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
                 changed += 1
         print(f'[fx] {bundle}: {found} skinned renderer(s), {changed} file(s) changed')
+        return found, changed
+
+    def sub_only(self, bundle, pack=None):
+        """2026-10-14: write only the particle systems' sub emitters (`ps.mods.sub`, sub_emitters) into the bundle's already
+        extracted prefabs (walk order checked like uvt_only). Returns (prefabs with one, files changed)."""
+        rel = pack or f'battle/prefabs/effects/{bundle}.ab'
+        p = bundle_path(self.game, rel)
+        if not p:
+            print(f'[fx] {bundle}: bundle not found, skipped')
+            return 0, 0
+        env = self.UnityPy.load(str(p))
+        found = changed = 0
+        for o in env.objects:
+            if o.type.name != 'Transform':
+                continue
+            t = o.read_typetree()
+            if t['m_Father']['m_PathID'] != 0:
+                continue
+            go = self.resolve(t['m_GameObject'], o)
+            if go is None:
+                continue
+            f = OUT / bundle / f"{go.read_typetree()['m_Name']}.json"
+            if not f.exists():
+                continue
+            names, pss, subs = [], {}, {}
+
+            def walk(g):
+                dd = g.read_typetree()
+                idx = len(names)
+                names.append(dd['m_Name'])
+                tr = None
+                for c in dd['m_Component']:
+                    comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], g)
+                    if comp is None:
+                        continue
+                    if comp.type.name == 'Transform':
+                        tr = comp.read_typetree()
+                    elif comp.type.name == 'ParticleSystem':
+                        pss[comp.path_id] = idx
+                        sm = comp.read_typetree().get('SubModule') or {}
+                        if sm.get('enabled'):
+                            subs[idx] = [{'emitter': e.get('emitter') or {}, 'type': e.get('type', 0), 'props': e.get('properties', 0),
+                                          'p': r4(e.get('emitProbability', 1))} for e in sm.get('subEmitters') or []]
+                for ch in (tr or {}).get('m_Children') or []:
+                    cto = self.resolve(ch, g)
+                    cgo = self.resolve(cto.read_typetree()['m_GameObject'], cto) if cto is not None else None
+                    if cgo is not None:
+                        walk(cgo)
+            walk(go)
+            d = json.loads(f.read_text())
+            nodes = d.get('nodes') or []
+            if len(nodes) != len(names) or any(n.get('name') != names[k] for k, n in enumerate(nodes)):
+                print(f'[fx] {bundle}/{f.stem}: node tree differs from the bundle, sub emitters skipped')
+                continue
+            before = json.dumps(d, sort_keys=True)
+            for k, n in enumerate(nodes):
+                mods = (n.get('ps') or {}).get('mods')
+                if mods is None:
+                    continue
+                if k in subs:
+                    mods['sub'] = subs[k]
+                else:
+                    mods.pop('sub', None)
+            sub_emitters(nodes, pss)
+            found += any((n.get('ps') or {}).get('mods', {}).get('sub') for n in nodes)
+            if json.dumps(d, sort_keys=True) != before:
+                f.write_text(json.dumps(d, separators=(',', ':'), ensure_ascii=False))
+                changed += 1
+        print(f'[fx] {bundle}: {found} prefab(s) with a sub emitter, {changed} file(s) changed')
         return found, changed
 
     def legacy_only(self, bundle, pack=None):
@@ -1727,6 +1821,8 @@ def main():
                     'extracted prefabs of the bundles (every bundle of index.json without --bundle; local patch)')
     ap.add_argument('--uvt-only', action='store_true', help='only write the FxUVTweener `uvt` of the nodes into the already '
                     'extracted prefabs of the bundles (every bundle of the index without --bundle; 2026-10-14)')
+    ap.add_argument('--sub-only', action='store_true', help='only write the particle systems\' sub emitters (`ps.mods.sub`) '
+                    'into the already extracted prefabs of the bundles (every bundle of the index without --bundle; 2026-10-14)')
     ap.add_argument('--skin-only', action='store_true', help='only write the SkinnedMeshRenderers (node `skin`, their meshes '
                     'and materials) into the already extracted prefabs of the bundles (every bundle of the index without '
                     '--bundle; 2026-10-14)')
@@ -1782,6 +1878,11 @@ def main():
         bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
         tot = [ex.uvt_only(b, pack=a.pack) for b in bundles]
         print(f'[fx] uvt: {sum(x[0] for x in tot)} prefab(s) with a uv tween, {sum(x[1] for x in tot)} file(s) changed')
+        return
+    if a.sub_only:
+        bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
+        tot = [ex.sub_only(b, pack=a.pack) for b in bundles]
+        print(f'[fx] sub: {sum(x[0] for x in tot)} prefab(s) with a sub emitter, {sum(x[1] for x in tot)} file(s) changed')
         return
     if a.skin_only:
         bundles = a.bundle or sorted(json.loads((OUT / a.index).read_text())['bundles'])
