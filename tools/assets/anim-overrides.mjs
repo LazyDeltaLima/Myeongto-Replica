@@ -194,6 +194,8 @@ export const SIGNAL_CLIPS = Object.freeze({
   // 新约能天使 S3: Modes/S3/Body/Attack trigger group [S3FireToToken `_animKey "Skill_3_Skill"`, Common Skill_3_Loop] — the
   // strike at the 投递坐标 as the skill opens (the kit's 'airstrike' fx { signal: 'fireToToken' })
   'op:char_1041_angel2:': { skills: { 2: { fireToToken: 'Skill_3_Skill' } } },
+  // 凯尔希·思衡托 (CN client) S3: the transport's take-off Skill_3_Restart_Begin (the kit's fx 'kalts2Takeoff')
+  'op:char_1052_kalts2:': { skills: { 2: { takeoff: 'Skill_3_Restart_Begin' } } },
 });
 
 /**
@@ -250,6 +252,8 @@ export const SKILL_STATE_CLIPS = Object.freeze({
     1: { die: 'Skill_2_Die' },
     2: { deploys: { anchor: 'Skill_3_ReStart_A', here: 'Skill_3_ReStart_B', back: 'Skill_3_Back' } },
   },
+  // 凯尔希·思衡托 (CN client) S3: she lands from the transport on Skill_3_Restart_End (the 【移动】's key 'land')
+  'op:char_1052_kalts2:': { 2: { deploys: { land: 'Skill_3_Restart_End' } } },
   // 缇比: the S1 / S2 flight modes (take-off and landing included) pair Die→Die_2
   'op:char_4191_tippi:': { 0: { die: 'Die_2' }, 1: { die: 'Die_2' } },
   // 迷迭香: only mode S3's animator hooker is the Graphic SimpleUnitAnimatorHooker with Stun→Stun_Skill_3

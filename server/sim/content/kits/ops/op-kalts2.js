@@ -68,8 +68,11 @@
 //   ③ on arrival the anchor is withdrawn (her old instance's token_ctrl ends: WithdrawTokens, stock 0) and she 【移动】s
 //     (Battle.moveRedeploy) onto its tile, facing the anchor's direction; the skill goes on with its remaining time. Should
 //     the move be refused, she comes back on her own tile [ASSUMED; officially she is knocked out].
-//   At the skill's end any anchor of hers on the field is withdrawn and the stock emptied (token_ctrl). The flight's begin
-//   clip and its 生命回复速度 ×0 are not modelled [ASSUMED].
+//   The flight starts with her Skill_3_Restart_Begin clip (1 s, CN client): its OnAttack frame (0.667 s) emits the flight
+//   projectile, so she leaves the field TAKEOFF_PRE after the transport starts — meanwhile she makes no attack [ASSUMED:
+//   the cast holds her]; she lands on Skill_3_Restart_End (the 【移动】's clip key 'land').
+//   At the skill's end any anchor of hers on the field is withdrawn and the stock emptied (token_ctrl). The flight's
+//   生命回复速度 ×0 is not modelled [ASSUMED].
 // - 战术锚点 (token_10068_kalts2_mtship, placed in prep on a ranged tile outside her attack range — "仅可以部署在凯尔希·思衡托
 //   攻击范围外的远程位": the data's `ownerRangeOutside` / `rangedTilesOnly`, enforced by the match, 0.2.0 WE2): 无敌 and never targeted ("不会受到攻击"), no attack, blocks nothing; its range (hers) is only shown.
 //   A placed piece is docked by content/tokens.js (a skill's summon: deployed for free at the battle start, then only when
@@ -98,6 +101,8 @@ const TRANSPORT_SPEED = 3.5;
 const TRANSPORT_RADIUS = 2.2;
 /** S3: the operators chosen are withdrawn this long after the flight starts (kalts2_s_3[withdraw] firstTriggerInterval). */
 const WITHDRAW_DELAY = 0.6;
+/** S3: the take-off — Skill_3_Restart_Begin's OnAttack frame, where the flight projectile leaves (CN client clip). */
+export const TAKEOFF_PRE = 0.667;
 /** S3: at most this many operators (S3OperatorSelector `_maxNum`). */
 const WITHDRAW_MAX = 2;
 
@@ -214,14 +219,14 @@ function land(battle, unit) {
   if (f.anchor.alive) battle.retreat(f.anchor, { reason: 'expired' });
   const dir0 = unit.dir;
   unit.dir = f.dir;
-  if (!battle.moveRedeploy(unit, f.r, f.c)) {
+  if (!battle.moveRedeploy(unit, f.r, f.c, { clip: 'land' })) {
     unit.dir = dir0;
     battle.refreshRange(unit);
   }
   battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX: f.from.x, fromY: f.from.y });
 }
 
-/** S3 ①②: the 待投放 operators and the flight to `anchor`. */
+/** S3 ①②: the 待投放 operators and the take-off towards `anchor` (the flight, fly, from its OnAttack frame). */
 function startTransport(battle, unit, anchor) {
   const picks = battle.allyUnits
     .filter((a) => otherOp(a, unit) && a.ownerId === unit.ownerId && unit.rangeKeySet?.has(a.tileR * COLS + a.tileC))
@@ -237,6 +242,19 @@ function startTransport(battle, unit, anchor) {
       if (!battle.redeploy(a, { free: true })) a.respawnAt = Math.min(a.respawnAt, battle.time);   // 再部署时间视为0
     }, { owner: unit });
   }
+  // the take-off clip (Skill_3_Restart_Begin), then the flight from its OnAttack frame
+  unit.mem.k2takeoff = true;
+  battle.addBuff(unit, { key: 'kalts2:takeoff', duration: TAKEOFF_PRE, flags: { disarm: true } });
+  battle.fx('kalts2Takeoff', { x: unit.x, y: unit.y, id: unit.id, signal: 'takeoff', t: 1 });   // t: the clip's own 1 s
+  const seq = unit.deploySeq;
+  battle.after(TAKEOFF_PRE, () => {
+    unit.mem.k2takeoff = false;
+    if (up(unit) && unit.deploySeq === seq && skillOn(unit, S3) && up(anchor) && isAnchorOf(anchor, unit)) fly(battle, unit, anchor);
+  }, { owner: unit });
+}
+
+/** S3 ②: the flight to `anchor`. */
+function fly(battle, unit, anchor) {
   const from = { x: unit.x, y: unit.y }, to = { x: anchor.x, y: anchor.y };
   const T = hypot(to.x - from.x, to.y - from.y) / TRANSPORT_SPEED;
   const f = { t0: battle.time, T, from, to, hit: new Set(), anchor, r: anchor.tileR, c: anchor.tileC, dir: anchor.dir };
@@ -251,7 +269,7 @@ function startTransport(battle, unit, anchor) {
 /** S3: start the transport when it can (S3 on, not done yet this cast, her linked anchor standing). */
 function tryTransport(battle, unit) {
   const m = unit.mem;
-  if (!skillOn(unit, S3) || m.k2flight || m.k2landed || !up(unit) || unit.hidden) return;
+  if (!skillOn(unit, S3) || m.k2flight || m.k2takeoff || m.k2landed || !up(unit) || unit.hidden) return;
   const a = m.k2link;
   if (!a || !up(a) || !isAnchorOf(a, unit)) return;
   startTransport(battle, unit, a);
@@ -294,6 +312,7 @@ export default {
             // kalts2_s_3[token_ctrl] ON_BUFF_FINISH: WithdrawTokens, RechargeToken cnt_minus 0 (refresh)
             setStock(unit, 0);
             for (const t of anchorsOf(battle, unit)) if (t.alive) battle.retreat(t, { reason: 'expired' });
+            unit.mem.k2takeoff = false;
             if (unit.mem.k2flight) { unit.mem.k2flight = null; unit.hidden = false; }
           },
         },

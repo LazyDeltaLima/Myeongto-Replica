@@ -1221,10 +1221,13 @@ export class UnitView {
   }
 
   /** An attack was made (b.ev 'atk'). `target` = view or null. */
-  /** An fx `signal` of this unit (秘术师 'store'): the role's clip for it, over its attack interval (SpineActor.signalSwing). */
-  onSignal(signal) {
+  /**
+   * An fx `signal` of this unit (秘术师 'store', 凯尔希·思衡托 S3 'takeoff'): the role's clip for it over `t` game s (the fx's),
+   * else over its attack interval (SpineActor.signalSwing).
+   */
+  onSignal(signal, t = null) {
     if (!this.alive || !this.actor || typeof signal !== 'string') return;
-    this.actor.signalSwing(signal, this.atkInterval);
+    this.actor.signalSwing(signal, t > 0 ? t : this.atkInterval);
   }
 
   /** One attack hit now (b.ev 'atk'); `signal` = its 5th field: the client ability it is (a talent's own attack 'T.1'). */

@@ -297,3 +297,15 @@ test('新约能天使 S3: Skill_3_Begin, then the strike at the 投递坐标 (Sk
   v.onSwing(0.167, 'bullet');
   assert.equal(v.actor.current, 'Skill_3_Loop');
 });
+
+test('凯尔希·思衡托 S3 transport: takes off on Skill_3_Restart_Begin (its own 1 s), lands on Skill_3_Restart_End', async () => {
+  const v = await view('char_1052_kalts2', { skillIndex: 2 });
+  v.setSkill(true);
+  secs(v, 0.5);
+  v.onSignal('takeoff', 1);
+  assert.equal(v.actor.current, 'Skill_3_Restart_Begin');
+  assert.ok(Math.abs(v.actor.spine.state.tracks[0].timeScale - 1) < 1e-9, 'at its own speed');
+  secs(v, 3);
+  v.onDeploy('land');
+  assert.equal(v.actor.current, 'Skill_3_Restart_End');
+});

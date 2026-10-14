@@ -38,10 +38,6 @@ export const UNPLAYED = {
   char_1045_svash2: {
     Skill_3_Deploy: 'none: only when the 风雪之眼 card is used by hand during S3 (skchr_svash2_3 BirdAura AnimationEmitBehaviour via svash2_s_3[*_bird_onuse]); no hand deployment in this mode [ASSUMED]',
   },
-  char_1052_kalts2: {
-    Skill_3_Restart_Begin: 'todo: G — skill prefab clip',
-    Skill_3_Restart_End: 'todo: G — skill prefab clip',
-  },
   char_2027_wang: {
     Default_2: 'none: setup pose of mode S2 (replaces Default, 0 s; charpack Modes/S2 _replaceAnimPairs)',
   },

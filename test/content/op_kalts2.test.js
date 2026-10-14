@@ -288,7 +288,7 @@ test('S3 破梏重生 (MANUAL, data DEFAULT): 35 s, ATK +, attack interval 1.30 
   }
 });
 
-test('S3 with her anchor: 0.1 s after the cast she flies to it (hidden, 无敌, the skill time paused, 3.5 tiles/s; operators within 2.2 of her flight enter T2), the two latest-deployed operators of her range are withdrawn 0.6 s on and back at once; she lands on its tile facing its way; the anchor is withdrawn for the rest of the skill', () => {
+test('S3 with her anchor: 0.1 s after the cast she takes off (Skill_3_Restart_Begin: the flight leaves at its 0.667 s OnAttack) and flies to it (hidden, 无敌, the skill time paused, 3.5 tiles/s; operators within 2.2 of her flight enter T2), the two latest-deployed operators of her range are withdrawn 0.6 s on and back at once; she lands on its tile facing its way; the anchor is withdrawn for the rest of the skill', () => {
   for (const f of [[5, false], [6, true]]) {
     const [tier, elite] = f;
     // deployment order (left column first, top row first): (11,5) → (10,5) → (9,5); (12,7) beside her flight
@@ -305,9 +305,13 @@ test('S3 with her anchor: 0.1 s after the cast she flies to it (hidden, 无敌, 
     yak.hp = yak.s.maxHp * 0.3;
     assert.ok(h.runUntil(() => u.skill.active, 4), label(f));
     const t0 = h.b.time;
-    h.runUntil(() => u.hidden, 0.2);
+    const PRE = 0.667;   // op-kalts2.js TAKEOFF_PRE
+    assert.ok(h.runUntil(() => u.mem.k2takeoff, 0.3), `${label(f)}: taking off`);
+    assert.ok(!u.hidden && u.s.flags.disarm, `${label(f)}: still on her tile, no attack`);
+    assert.ok(h.eventsOf('fx').some((x) => x[1] === 'kalts2Takeoff' && x[4]?.id === u.id && x[4].signal === 'takeoff'), `${label(f)}: the take-off clip`);
+    h.runUntil(() => u.hidden, 0.2 + PRE);
     assert.ok(u.hidden && u.mem.k2flight, `${label(f)}: flying`);
-    approx(h.b.time - t0, 0.1, `${label(f)}: 0.1 s after the cast`, 0.4);
+    approx(h.b.time - t0, 0.1 + PRE, `${label(f)}: 0.1 s after the cast and the take-off`, 0.4);
     const tl = u.skill.timeLeft;
     assert.equal(h.b.dealDamage(null, u, { amount: 5000, type: 'true', sourceless: true }), 0, `${label(f)}: 无敌 in flight`);
     const T = 5 / 3.5;
@@ -322,7 +326,8 @@ test('S3 with her anchor: 0.1 s after the cast she flies to it (hidden, 无敌, 
     assert.deepEqual([tx.tileR, tx.tileC, pf.tileR, pf.tileC], [10, 5, 9, 5], `${label(f)}: on their tiles`);
     h.runUntil(() => !u.hidden, T);
     assert.ok(!u.hidden, `${label(f)}: landed`);
-    approx(h.b.time - t0, 0.1 + T, `${label(f)}: after ${T.toFixed(2)} s of flight`, 0.1);
+    approx(h.b.time - t0, 0.1 + PRE + T, `${label(f)}: after ${T.toFixed(2)} s of flight`, 0.1);
+    assert.ok(h.eventsOf('deploy').some((x) => x[1] === u.id && x[3] === 'land'), `${label(f)}: lands on Skill_3_Restart_End`);
     assert.deepEqual([u.tileR, u.tileC, u.dir], [10, 9, 'UP'], `${label(f)}: on the anchor's tile, facing its way`);
     assert.ok(!a.alive && !a.removed && a.mem.docked, `${label(f)}: the anchor withdrawn (its piece kept)`);
     assert.equal(u.mem.summonStock[ANCHOR], 0, `${label(f)}: stock emptied`);
