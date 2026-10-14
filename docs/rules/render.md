@@ -407,7 +407,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   + `anim-overrides.mjs`, 대체 `Idle`·`Die`) + `render/units.js`의 `FORMS[charId]`(형태 전환·替身)·`FORTRESS_CLIPS[charId]`(要塞 근접/원거리 짝).
   나머지는 `test/render/clip-coverage-list.js UNPLAYED`에 상태와 함께 있어야 통과하고, 목록에 있는데 이제 틀거나 없어진 클립도 실패한다(지울 것).
   - 상태: `render: <public/js 아래 파일> <방법>`(역할 밖에서 이름으로 틂 — 그 파일에 클립 이름이 있어야 함, 예: 안젤리나 S2 `UnitView.glide`),
-    `none: <근거>`(공식이 이 모드에서 안 틂 / 그릴 필요 없음 — 프리팹 필드·디컴파일 메서드·녹화를 적음), `todo: <힌트>`(아직 안 봄).
+    `none: <근거>`(공식이 이 모드에서 안 틂 / 그릴 필요 없음 — 프리팹 필드·디컴파일 메서드·녹화를 적음), `todo: <묶음> — <자리>`(공식은 트는데 렌더가 아직 안 틂, 아래 묶음 글자).
   - 새 모델·새 키트·매니페스트 재생성(`fetch-assets`)으로 새 클립이 생기면 실패한다 → 공식에서 언제 트는지 찾아 연결하거나(역할·`anim-overrides.mjs`·
     `FORMS`·키트 연출), 근거와 함께 `none`으로 적는다. 찾는 곳과 필드는 `diy.md` 「새 선발 오퍼레이터 키트 체크리스트」 **연출 대조**(선발이 아니어도 같음).
   - 아래 방향 클립(이름에 `Down`: `Attack_Down`, `Skill_Down_2_Loop`, `Skill_1_Loop_Down` …, 129개)은 렌더가 하나도 안 그리는 **전역 공백** 하나로 묶어
@@ -416,6 +416,20 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
 - 첫 목록(2026-10-12): 46명·105개 `todo`. 힌트는 10-07 EN 클라 추출(스킬 프리팹 anim 컴포넌트·`_animKey`, charpack 모드별 클립 — 관리자 노트)로 붙였다:
   `official <스킬 id | 모드>` 58개(공식이 그 클립을 가리킴 — 누락 가능성 높음, 먼저 볼 것), `no official reference` 38개(버프 템플릿·디컴파일로 찾을 것),
   `CN only` 9개(EN에 없는 오퍼레이터 — CN 필드만, [추정]). 처음부터 `none`으로 확정한 것은 없다.
+- 판정(2026-10-14, 관리자 노트 — EN·CN 클라 프리팹·버프 템플릿·디컴파일): 105개 = 연결 94·`none` 11. `none`은 근거와 함께 목록에 적었고, 역할이 다른
+  스킬의 클립을 틀던 다섯 명은 `anim-overrides.mjs`로 고쳤다 — 灵知 S3 `Skill_4_*`(그동안 S2 충전 모드의 `Skill_3`), 格拉蒂亚 S2 시작 `Skill_2_Startup`
+  (`Skill_2_Begin`은 S2 모드 공격 채널의 시작), 伊内丝 S3 시작 `Start_Skill`, 缄默德克萨斯 S2·S3 시작 `Start_2`·`Start_3`(배치 일격, 모드 Born 짝), 银灰 S2 공격
+  `Combat`(그동안 S3의 `Skill`). 남은 `todo`는 클립을 트는 클라 구조로 묶었다(묶음 하나 = 렌더 고칠 자리 하나):
+  - **A** 저지 대상 공격: 모드 `UnitMode._combat` — `Character._FetchCombatTarget`이 저지 중인 적 중 첫 적을 고를 때(要塞 `FORTRESS_CLIPS`의 일반형).
+  - **B** 대체 공격 클립: `AbilityRandomGroup`(무작위/차례)·`UberAnimationEffectEmitter._replaceGroup`·순차 묶음 — 휘두를 때마다 고름.
+  - **C** 첫 공격 begin·공격 end: `ThreePartOneshotAnimation`(`_onlyPlayBeginAnimWhenFirstAttack`, `_endAnimKey`) — `spine.js`가 공격 역할의 begin을 안 튼다.
+  - **D** 스킬이 켜는 하위 모드의 `_replaceAnimPairs`(크루스 S2_Sub, 위셔델 과부하, 사키코 음색 등). **E** 장착 스킬의 기본 모드: `Character._GetDefaultModeIndex`
+    (전투에 든 스킬의 `_defaultModeIndex`가 재능 값을 덮음) → `Unit.OnInit` `SwitchMode` — 배치부터 그 모드(Born→`Start_n`·Idle 짝).
+  - **F** 모드의 `Die` 짝. **G** 스킬 프리팹 연출. **H** 재능·특성 상태. **I** 믹스 전환: chararts `SpineAnimator._mixSettings` — 클립 A→B 사이에 끼우는 클립.
+  - **J** 스킨 키 표: chararts `SpineAnimator._animations`(키 → 클립 이름). 클라는 능력·모드의 **키**로만 튼다(`PlayAnimationInternal` → `GetAnimationData`).
+    역할 추출(`anim-roles.mjs`, 이름 추측)은 이 표를 안 읽어, 키와 클립 이름이 다른 모델은 역할이 어긋난다(안젤리나·플레임테일 `skills[]`가 한 칸 밀림, 사리아
+    S1·S2가 S3 클립).
+  - **U** 위 방향 `*_Up`: `AbstractAnimatedAbility.GetAnimKey` — 아래·위·기본 순(`_faceToTarget`이면 바라보는 방향, 아니면 배치 방향). 아래 방향 공백과 같은 계열.
 
 ## 공격 방향 (2026-10-12, 관리자 요청 「공격·스킬 범위 안의 적을 향해 돌아서 공격, 최대 저지 수를 넘겨 뒤에 걸린 적은 뒤를 보며 공격 — 공식 로직대로」)
 - 이전: 오퍼레이터는 배치 방향만 봤다(`units.js onAttack` 「operators keep their deploy direction」, research 09 §1.2의 배치 모습을 전투 내내 적용).

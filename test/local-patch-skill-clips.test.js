@@ -92,3 +92,38 @@ test('焰影苇草 S3: attacks with Skill_3_Attack and idles in Skill_3_Loop (ch
   const m = JSON.parse(readFileSync(new URL('../data/assets.json', import.meta.url), 'utf8'));
   for (const side of ['front', 'back']) assert.equal(m.chars.char_1020_reed2.spine[side].anims.skills['2'].loop, 'Skill_3_Attack', side);
 });
+
+// The skill clips the EN client's skill prefabs and charpack modes name where the resolver guessed another skill's
+// (tools/assets/anim-overrides.mjs, docs/rules/render.md 「Spine 클립 커버리지」).
+test('manifest: 灵知 S3 Skill_4_*, 格拉蒂亚 S2 opens with Skill_2_Startup, 伊内丝 S3 Start_Skill, 缄默德克萨斯 S2 / S3 Start_n, 银灰 S2 Combat', () => {
+  for (const dir of ['front', 'back']) {
+    const sk = (id) => assets.chars[id].spine[dir].anims.skills;
+    assert.deepEqual([sk('char_206_gnosis')[2].begin, sk('char_206_gnosis')[2].loop, sk('char_206_gnosis')[2].end],
+      ['Skill_4_Begin', 'Skill_4_Loop', 'Skill_4_End'], dir);
+    assert.equal(sk('char_474_glady')[1].begin, 'Skill_2_Startup', dir);
+    assert.equal(sk('char_474_glady')[1].loop, 'Skill_2_Loop', dir);
+    assert.equal(sk('char_4087_ines')[2].begin, 'Start_Skill', dir);
+    assert.equal(sk('char_1028_texas2')[1].begin, 'Start_2', dir);
+    assert.equal(sk('char_1028_texas2')[2].begin, 'Start_3', dir);
+    assert.equal(sk('char_1028_texas2')[2].idle, 'Skill_3_Idle', dir);
+    assert.equal(sk('char_172_svrash')[1].loop, 'Combat', dir);
+  }
+});
+
+test('伊内丝 S3: Start_Skill at the cast, then she idles and attacks with her ordinary Attack', () => {
+  const a = actor('char_4087_ines', 2);
+  a.setSkill(true);
+  assert.deepEqual(a.log, ['Start_Skill', 'Idle'], 'the begin clip, then her idle queued');
+  run(a, 2);
+  a.attack(1.2);
+  assert.equal(a.current, 'Attack');
+});
+
+test('缄默德克萨斯 S3: Start_3 at the cast, then the skill idle; attacks play Skill_3_Loop', () => {
+  const a = actor('char_1028_texas2', 2);
+  a.setSkill(true);
+  assert.deepEqual(a.log, ['Start_3', 'Skill_3_Idle'], 'the begin clip, then the skill idle queued');
+  run(a, 3);
+  a.attack(1.2);
+  assert.equal(a.current, 'Skill_3_Loop');
+});
