@@ -4,8 +4,9 @@
 //
 // The subset of Markdown CHANGELOG.md uses: `## <version> — <date>` opens an entry, `### <title>` a group, `- ` a list
 // item (an indented line continues it), other lines are paragraphs (a blank line ends one). Inline: **bold** and
-// `code`; a [link](url) keeps its text only (the targets are repository paths). The file is re-read when its mtime
-// changes; a missing file answers an empty list.
+// `code`; a [link](url) keeps its text only (the targets are repository paths). A list item may close on the issues and
+// pull requests it comes from, ` ([#12](…), [#15](…))`: they stay on GitHub and are left out of the lobby. The file is
+// re-read when its mtime changes; a missing file answers an empty list.
 
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -13,6 +14,11 @@ import { ROOT } from './config.js';
 
 export const CHANGELOG_URL = '/changelog.json';
 const ENTRY_RE = /^##\s+(\d+)\.(\d+)\.(\d+)\s*(?:[—–-]\s*(.*))?$/;
+/** the issue / pull-request references closing a list item: ` ([#12](url), [#15](url))` */
+const REFS_RE = /\s*\(\s*\[#\d+\]\([^)\s]*\)(?:\s*,\s*\[#\d+\]\([^)\s]*\))*\s*\)$/;
+
+/** A list item without the references that close it. @param {string} item */
+export const stripRefs = (item) => String(item).replace(REFS_RE, '');
 
 /**
  * Inline Markdown → segments: `{ s }` plain, `{ s, b: true }` bold, `{ s, c: true }` code.
@@ -46,7 +52,7 @@ export function parseChangelog(md, { minMajor = 1 } = {}) {
   let list = null;   // raw items of the open list
   const close = () => {
     if (para) entry?.blocks.push({ p: parseInline(para.join(' ')) });
-    if (list) entry?.blocks.push({ ul: list.map(parseInline) });
+    if (list) entry?.blocks.push({ ul: list.map((item) => parseInline(stripRefs(item))) });
     para = null; list = null;
   };
   for (const raw of String(md).split(/\r?\n/)) {

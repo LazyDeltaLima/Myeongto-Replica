@@ -48,6 +48,33 @@ test('parseChangelog: entries from 1.0.0 up, paragraphs joined, groups and list 
   assert.equal(parseChangelog(SAMPLE, { minMajor: 0 }).length, 2);
 });
 
+test('parseChangelog: the issue / pull-request references closing an item stay out of the lobby, other links keep their text', () => {
+  const R = 'https://github.com/o/r';
+  const md = `## 1.5.0 — 2026-10-15
+
+판.
+
+### 화면
+
+- 알림음이 생겼습니다. ([#4](${R}/pull/4))
+- 카드가 보드를 막지 않습니다. ([#3](${R}/issues/3), [#7](${R}/issues/7))
+- 이어지는 줄의 끝에도
+  ([#9](${R}/issues/9))
+- [#5](${R}/issues/5) 앞에 놓인 번호와 (괄호 속 설명)은 남습니다.
+
+### 기여
+
+- 채팅 알림음과 설정 — @mingtochess ([#4](${R}/pull/4))
+- 카드가 보드를 막는다는 제보 — 접수 번호 a1b2c3d4 ([#3](${R}/issues/3))
+`;
+  const [e] = parseChangelog(md);
+  const text = (segs) => segs.map((x) => x.s).join('');
+  assert.deepEqual(e.blocks[2].ul.map(text), ['알림음이 생겼습니다.', '카드가 보드를 막지 않습니다.', '이어지는 줄의 끝에도',
+    '#5 앞에 놓인 번호와 (괄호 속 설명)은 남습니다.']);
+  assert.deepEqual(e.blocks[3], { h: '기여' });
+  assert.deepEqual(e.blocks[4].ul.map(text), ['채팅 알림음과 설정 — @mingtochess', '카드가 보드를 막는다는 제보 — 접수 번호 a1b2c3d4']);
+});
+
 test('the real CHANGELOG.md: the newest entry is the running version, every entry has content', () => {
   const entries = parseChangelog(readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8'));
   assert.ok(entries.length > 0);
