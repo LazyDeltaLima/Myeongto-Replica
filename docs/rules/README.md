@@ -64,7 +64,7 @@
 | 스킬 중 매 공격 이펙트(공식 모드 바인딩)·이펙트 배속·투사체 꼬리·시전자 이펙트는 유닛 아래 | `shared/skill-modes.js`, `tools/local-extract/char_modes.py` → `public/assets/local/fx/modes.json`(git 밖), `test/local-patch-fxmodes.test.js` | `fx.md` |
 | 공식 스테이지 3D 씬 (스테이지별 사막·카시미어·시라쿠사 씬, 라이트맵, 필드별 숨김 세트) | `tools/local-extract/scene_extract.py` → `public/assets/local/scene/**`, `public/js/render/board3d/official.js`, `test/render/board3d-official.test.js` | `render.md` 「공식 스테이지 3D 씬」 |
 | 오퍼레이터 배치 낙하 연출 (각 모델의 Start 클립으로 하늘에서 떨어짐) | `public/js/render/units.js` `onDeploy` | `render.md` 「배치 낙하」 |
-| 심해 구역의 지상 적을 0.7칸(잠수원 0.2칸) 내려 그림 (공식 `trap_sea_drown[enemy]`의 그래픽 높이 이동) | `public/js/render/units.js deepSink`, `test/render/deep-sink.test.js` | `render.md` 「심해 구역 잠김」 |
+| 심해 구역의 지상 적을 0.7칸(잠수원 0.2칸) 내려 그리고 수면 아래 몸을 물빛으로 칠함 (공식 `trap_sea_drown[enemy]`·물 셰이더) | `public/js/render/units.js deepSink`, `test/render/deep-sink.test.js` | `render.md` 「심해 구역 잠김」 |
 | 적 경로 미리보기 (공식: 전투 시작에 표시된 레벨 액션의 경로를 커서 2개가 달림, 첫 유닛 3초 전 — 행동개시 대사가 여기서 남) | `server/sim/routePreview.js`, `public/js/battle/runner.js`, `public/js/render/fxroute.js createBattleCursors`, `test/match/route-preview.test.js` | `render.md` 「적 경로 미리보기」 |
 | 보스 경로 미리보기 (공식에 없는 편의 기능: 최종 공세·숨겨진 핵심 준비 단계에서 걷는 보스의 이번 판 경로, 대사 없음) | `server/match/bossPath.js`, `public/js/render/fxroute.js`, `tools/boss-route-map.mjs`, `test/match/boss-path.test.js` | `render.md` 「보스 경로 미리보기」 |
 | 스킬 효과음 보강 (ON_SKILL_START가 없는 스킬은 ON_ABILITY_START/ON_CUSTOM_TRIGGER [start]/ON_ABILITY_ON/HIT 뱅크) | `tools/assets/skill-sfx.mjs` | `audio.md` |

@@ -601,6 +601,15 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   다시 올라오고, 심해에서 쓰러진 적은 잠긴 채 사라진다. 그림자는 물 위(z 0)에 남는다. 코드: `render/units.js deepSink`·`DEEP_SINK`,
   타일 재질은 `render/app.js` ctx `terrainAt`.
 - [추정] 내려가고 올라오는 속도(발 높이 보간과 같게 — 클라 값은 네이티브라 안 읽음), HP 바와 몸에 붙는 이펙트도 함께 내려감(비행 `hover`와 같은 처리).
-- 안 한 것: 공식은 물 평면 아래로 들어간 몸 부분을 물빛으로 칠한다(씬의 `HGSceneWaterEffect` 프로필 `WE_Static_WEProfiles`: `spineIntersect` 켜짐,
-  색 (0, 0.543, 0.772, α 0.547), `spineHeightTeak` 0.8). 이 렌더러는 유닛을 보드 위 2D 층에 그려 아직 잠긴 부분이 그대로 보인다.
-- 테스트: `test/render/deep-sink.test.js`(가짜 PIXI). 실제 판(전장#08 등 심해 구역 스테이지)은 [화면 미확인].
+- 물빛 칠(2026-10-14, 관리자 요청 「물빛 칠까지 넣어」): 심해 씬의 모든 Spine은 `Torappu/Spine/Skeleton-AlphaSplit-Water (Z-Distorted)`로 그려진다
+  (씬 `HGSceneWaterEffect`, 프로필 `WE_Static_WEProfiles` — act2 m04·act1 m05 같음). 픽셀 셰이더(DXBC): 픽셀의 월드 깊이 z를 모델 기준선 쪽으로
+  `spineHeightTeak` 0.8배 눌러(z' = 기준 + (z − 기준) × 0.8) 수면(`_waterSurfaceTransform` z 0.1409 − `spineHeightOffset` 0)보다 깊으면 색을
+  mix(색, 물빛 × α, 물빛.a) — 물빛 (0, 0.543, 0.772, a 0.547) — 로, 그중 수면 바로 아래 0.03 × 0.8 띠는 수면선의 (0.7, 0.8, 0.9) × α에서 물빛으로 흐려진다.
+  알파는 그대로. 우리: `units.js _updateWater`가 잠긴 몸(`body`)에 화면 공간 필터(`WATER_FRAG`)를 걸고, 수면선은 발에서
+  `waterLineAbove(깊이)` = (깊이 − 0.1409) / 0.8 위 지점을 투영한 화면 높이 — 0.7칸 잠긴 적이면 0.699칸 위, 즉 화면에서 도로·수면 높이에 온다
+  (잠수원은 0.074칸, 발목). 띠는 그 아래 0.03칸. [추정] 기준선이 잠긴 발(AddHeightOffsetToSpine이 「스파인 셰이더를 다시 맞춤」), 깊이를 화면에 곧게 선
+  모델 위로 잰다(우리 모델은 2D로 서 있음), 수면 높이는 `_HGWaterSurfaceZ` 전역이 그 변환의 z라는 것(설정하는 코드는 안 읽음).
+- 그림자는 물 위(z 0)에 남아 잠긴 몸보다 화면 위쪽에 보인다 — 클라도 그래픽 홀더 밖이라 [추정] 같다.
+- 테스트: `test/render/deep-sink.test.js`(가짜 PIXI — 필터 자체는 안 돎). 실제 판 확인 2026-10-14: 로컬 서버에서 솔로 일반 act2 m04, 보드를 비우고
+  전투 — 적(원석충·평범한 죄수)이 (10,6)·(11,6) 심해 칸에서 z −0.7·그림자 0·필터 켜짐, (11,5)로 나오면 z 0·필터 꺼짐. Windows Chrome 캡처에서 수면선 아래 몸이
+  물빛, 수면 위로 나온 가시 끝은 원래 색(필터 끔/켬 비교). 잠수원은 화면 미확인.

@@ -247,6 +247,42 @@ export function deepSink(ctx, info, airborne, x, y) {
   if (ctx.terrainAt(Math.round(y), Math.round(x)) !== 'deepsea') return 0;
   return SWIMMERS.has(info.defId) ? DEEP_SINK_SWIM : DEEP_SINK;
 }
+/**
+ * The water a sunk body is tinted under (docs/rules/render.md 「심해 구역 잠김」): the deep-water stages' HGSceneWaterEffect
+ * (act2 m04 and act1 m05 alike) — profile WE_Static_WEProfiles (spineIntersect on, spineTintColor `tint`, spineHeightTeak
+ * `tweak`, spineHeightOffset `offset`) and its _waterSurfaceTransform `surface` tiles below the road. Every Spine there
+ * draws with Torappu/Spine/Skeleton-AlphaSplit-Water (Z-Distorted), whose pixel shader takes a pixel's world depth z,
+ * squeezes it towards the model's baseline (z' = base + (z − base) × tweak) and, where z' lies below surface − offset,
+ * turns its colour into mix(c, tint × α, tint.a) — the top `band` of that (z' within 0.03 × tweak) fades from
+ * (0.7, 0.8, 0.9) × α at the water line into the tint. [ASSUMED] the baseline is the sunk feet (AddHeightOffsetToSpine
+ * "resets its spine shader") and the depth is measured up the model as drawn here, which stands upright on screen.
+ */
+export const DEEP_WATER = Object.freeze({ surface: 0.1409, offset: 0, tweak: 0.8, band: 0.03, tint: Object.freeze([0, 0.5431, 0.7721, 0.547]) });
+/** Height above the feet of a body `depth` tiles under the road where its water line lies (≤ 0: nothing under water). */
+export function waterLineAbove(depth) {
+  return (depth - (DEEP_WATER.surface - DEEP_WATER.offset)) / DEEP_WATER.tweak;
+}
+const WATER_FRAG = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#endif
+varying vec2 vTextureCoord;
+uniform sampler2D uSampler;
+uniform vec4 inputSize;
+uniform vec4 outputFrame;
+uniform float uLine;
+uniform float uBand;
+uniform vec4 uTint;
+void main(void) {
+  vec4 c = texture2D(uSampler, vTextureCoord);
+  float y = vTextureCoord.y * inputSize.y + outputFrame.y;
+  if (y <= uLine) { gl_FragColor = c; return; }
+  vec3 col = mix(c.rgb, uTint.rgb * c.a, uTint.a);
+  if (y < uBand) col = mix(col, vec3(0.7, 0.8, 0.9) * c.a, clamp((uBand - y) / max(uBand - uLine, 1e-3), 0.0, 1.0));
+  gl_FragColor = vec4(col, c.a);
+}`;
+const WATER_LINE_P = { x: 0, y: 0, s: 0, depth: 0 };
+const WATER_BAND_P = { x: 0, y: 0, s: 0, depth: 0 };
 const LIFTOFF_HEIGHT = Object.freeze({
   char_1015_aglna2: { lift: 0.8, high: 0.4, highSkill: 2 },
   // 凯尔希·思衡托: no ModifyGraphicHolderHeight in her charpack or any kalts2_* buff template, `_motionMode` 0 — her 起飞
@@ -1002,6 +1038,33 @@ export class UnitView {
    */
   _stunFalls() { return !this.isEnemy && this.alive && !!(this.flags & UF.STUNNED); }
 
+  /**
+   * 深水区: tint the part of a sunk body under the water (DEEP_WATER — the client's Skeleton-AlphaSplit-Water pixel shader)
+   * with a screen-space filter on `body` (Spine model, impostor or fallback alike), on only while there is water above
+   * its feet. The line is the point `waterLineAbove(depth)` up from the feet, projected like every other height.
+   */
+  _updateWater(cam, bx) {
+    const P = this.ctx.P;
+    const up = this.isEnemy && this.z < -1e-3 ? waterLineAbove(-this.z) : 0;
+    const layer = this.root.parent;
+    if (!(up > 0) || !P?.Filter || !layer) {
+      if (this.body.filters) this.body.filters = null;
+      return;
+    }
+    let f = this._waterFilter;
+    if (!f) {
+      const tint = DEEP_WATER.tint;
+      f = this._waterFilter = new P.Filter(undefined, WATER_FRAG, { uLine: 0, uBand: 0, uTint: new Float32Array(tint) });
+      f.resolution = this.ctx.renderer?.resolution || 1;
+    }
+    const line = cam.project(this.x, this.y, this.z + up, WATER_LINE_P);
+    const band = cam.project(this.x, this.y, this.z + Math.max(0, up - DEEP_WATER.band), WATER_BAND_P);
+    // the filter reads global (stage) coordinates; the projection is the units layer's own
+    f.uniforms.uLine = layer.toGlobal({ x: bx, y: line.y }).y;
+    f.uniforms.uBand = layer.toGlobal({ x: bx, y: band.y }).y;
+    if (this.body.filters?.[0] !== f) this.body.filters = [f];
+  }
+
   /** Apply an interpolated sample (render/interp.js); `t` = the render clock's game time (ring countdowns). */
   sync(s, t) {
     if (!s) return;
@@ -1602,6 +1665,7 @@ export class UnitView {
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
     // off-screen: nothing to animate or draw (bounds / hit-testing still follow `screen`)
     if (this._cull(bx, by, s, dt)) return;
+    this._updateWater(cam, bx);
     const flip = (this.isEnemy ? (ENEMY_MODEL_FACES_LEFT ? -this.visFacing : this.visFacing) : this.visFacing) * (this.mirrorX ? -1 : 1) * turnK;
 
     // shadow (on a raised top it is drawn with that block row, else in the shadow layer under everything); an enemy

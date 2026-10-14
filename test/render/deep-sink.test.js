@@ -7,10 +7,10 @@ import { installFakePixi, fakeViewCtx } from './fakepixi.js';
 import { presetCamera } from '../../public/js/render/projection.js';
 import { UF } from '../../shared/constants.js';
 
-let fake, UnitView, DEEP_SINK, DEEP_SINK_SWIM;
+let fake, UnitView, DEEP_SINK, DEEP_SINK_SWIM, waterLineAbove;
 before(async () => {
   fake = installFakePixi();
-  ({ UnitView, DEEP_SINK, DEEP_SINK_SWIM } = await import('../../public/js/render/units.js'));
+  ({ UnitView, DEEP_SINK, DEEP_SINK_SWIM, waterLineAbove } = await import('../../public/js/render/units.js'));
 });
 after(() => fake.restore());
 
@@ -62,4 +62,13 @@ test('without a stage tile lookup nothing sinks', () => {
   const v = new UnitView(fakeViewCtx(fake.P, { cam: () => cam }), { id: 1, side: 'enemy', kind: 'enemy', defId: 'enemy_1007_slime', x: 5, y: 10, maxHp: 100 }, {});
   at(v, 5);
   assert.equal(v.z, 0);
+});
+
+// the water line of Skeleton-AlphaSplit-Water: (depth − (surface 0.1409 − offset 0)) / tweak 0.8 up from the sunk feet
+test('the water line: a drowned body (0.7) is under water up to about the road, a diver (0.2) to its ankles, a dry one not', () => {
+  const up = waterLineAbove(DEEP_SINK);
+  assert.ok(Math.abs(up - 0.6989) < 1e-3, `0.7 deep: ${up}`);
+  assert.ok(Math.abs(-DEEP_SINK + up) < 0.01, 'the line sits at the road / water surface on screen');
+  assert.ok(Math.abs(waterLineAbove(DEEP_SINK_SWIM) - 0.0739) < 1e-3, 'diver');
+  assert.ok(waterLineAbove(0) <= 0 && waterLineAbove(0.1) <= 0, 'feet above the water surface: nothing tinted');
 });
