@@ -799,8 +799,8 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
     맞은 대상에 붙는다고 봄).
   - 陷落雪祀 ChainBuff(`projectile_enemy_smsha_s` 15): 적마다 닿을 때 버프, 다음 도약은 거기서 그때 고름. [추정] 도약도 같은 투사체·속도.
   - 杰斯顿·威廉姆斯 IronSandStorm(`projectile_enemy_jakill_s1` 10): 대상마다 한 발, 닿을 때 기절(본 공격 피해는 엔진의 일반 공격 투사체 10).
-  - “碎铳之簧” `1`: 元素护盾 탄(`projectile_enemy_actrpb` 15)은 닿을 때 침식, 튕김은 맞은 대상에서 출발 [추정: 같은 투사체]; 频次护盾 10연타
-    (`projectile_enemy_actrpc` 10)는 닿을 때 10타 [추정: 10타 사이 간격은 안 읽음].
+  - “碎铳之簧” `1`: 元素护盾 탄(`projectile_enemy_actrpb` 15, 튕김은 `_speedAfterFirstReach` 6)은 닿을 때 피해·침식, 튕김은 맞은 대상에서 출발;
+    频次护盾 十连击(`projectile_enemy_actrpc` 10)은 0.1 s 간격 열 발(아래 「“碎铳之簧”…」).
   - 假想敌：管 `1`(`projectile_enemy_acduml` 10): 0.25 s 간격 세 발이 余音에 닿을 때 폭발·余音 피격. 假想敌：弦 `1`(`projectile_enemy_acdumm` 10): 金 余音에
     닿을 때 폭발·暗 전환. 둘의 일반 공격도 공식 `proj`(같은 키, 10)로 날아 닿을 때 폭발(아래 「假想敌：管·弦 일반 공격…」).
 - **'dmg' 이벤트 6번째 = 공격자 unit id** (`server/sim/damage.js attackerId`): 일반 공격, 키트가 `battle.dealDamage`로 넣는 스킬 피해('atk' 없음 — 키트
@@ -976,3 +976,24 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **옛 동작**: 일반 공격은 余音만 겨냥해 펄스만 냈다(관·현 자신의 피해 없음, 余音이 없으면 공격 안 함, 余音 타수·SP 안 셈); 【裂管之奏】은 0.4 s 간격, 폭발 반경
   0.8(블랙보드 값을 본 범위로 씀), 보조 凋亡 없음; 【断弦之奏】은 余音 피격 없음; 회피 없음. 테스트 `enemies_bosses.test.js` 「假想敌：管: whole-field…」·
   「假想敌：管 【裂管之奏】…」·「假想敌：管: below 50 %…」·「假想敌：弦: whole-field…」, 실제 판 경로 `boss-patterns-real.test.js` 「real boss_3 field…」.
+
+### “碎铳之簧” 저지·조준·스킬·피해 전달 (`kitSpring`, 2026-10-15)
+- **저지 불가**: 세 종류 모두 늘 저지 불가 — 클라 프리팹 `CommonAbilities/Ability0`의 `actrpa/b/c_passive`가 abnormalFlags [3] BLOCK_FREE(영구). 보호막과
+  무관(PRTS 능력 문구 「护盾生效时，自身无法被阻挡」와 다르다). 영구 버프 `boss:unblockable`, 보호막 표시는 `boss:springShield`(플래그 없음).
+- **조준**: 일반 공격과 스킬 `1`의 선택기가 `_postFilter` 8 DEF_DES — 사거리 안 방어력 최고, 같으면 `aggroCmp`(铳과 같음).
+- **스킬이 일반 공격을 대신함**: SP = enemy_database spData `INCREASE_WHEN_ATTACK`(일반 공격 1회 +1, 최대 = spCost: 元素 4, 频次 2). SP가 차면 다음
+  공격이 스킬 — 일반 공격 피해 없이 스킬만(엔진 `profile.deferHit`: 공격·쿨다운·'attack' 훅은 그대로, 'atk' 종류 `springSkill`은 렌더가 그리지 않음; 시전 fx
+  `enemySkill` `ability` '1'). 그래서 元素는 4번 일반 공격 뒤 5번째, 频次는 2번 뒤 3번째가 스킬. 보호막이 깨지면 재생 버프 `actrpb/c_t_1[regenerate]`가 沉默을
+  걸어 스킬이 안 나가고, 재생이 끝날 때 `ClearEnemySp` 뒤 보호막이 돌아온다 → 우리는 보호막이 있을 때만 스킬, 보호막이 돌아올 때 SP 0. 침묵(오퍼레이터)도 스킬을 막는다.
+- **元素护盾 탄**: 스킬 프리팹 `Skills/1`(`_damageType` PHYSICAL, `_atkScale` 1, `_activeBuffs` `actrpb_s_1`) — 맞은 대상마다 ATK 100 % 물리 ×0.8^튕긴 횟수
+  (투사체 `_atkScaleRatePerBounce`) + 침식 `ep_damage_ratio` 10 %(`actrpb_s_1` `ApplyElementDamage`, 감소 없음), 모두 `times` 4타. 튕김: 맞은 대상 둘레
+  1.7(투사체 선택 원, `_ignoreRangeScale`) 안에서 0.7 s 안에 맞지 않은 다른 대상(`_keepAlreadyHitTime` 0.7), 없으면 같은 대상에게 다시(`_allowRepetitionIfNoTarget`).
+  첫 발 15, 튕김 6 칸/s. [ASSUMED] 다음 대상 순서는 가까운 순(선택기 순서 못 읽음).
+- **频次护盾 十连击**: `Skills/1` `_additionalTimes` 9·`_triggerDelta` 0.1 → 0.1 s 간격 열 발, 발마다 ATK × `atk_scale` 0.5 물리. [ASSUMED] 대상이 도중에 죽으면
+  남은 발은 사거리 안 방어력 최고를 다시 고른다.
+- **피해 전달**: `actrp*_passive`가 받은 피해(`hp_lose`)를 `BossSelector`(enemy_9017_achunt + `achunt_mark`, HATRED_DES, 최대 1)로 넘긴다(`actrpa_hp_trans`,
+  PURE·무출처) — **총에게만**. [ASSUMED] 총이 둘 이상이면 가장 가까운 총(HATRED_DES 순서 대신). 클라 선택기는 적 키를 정확히 비교하는데(`LevelData.EnemyData.key`)
+  히든 총은 `enemy_9017_achunt_2`라, 레벨 데이터의 `key`가 무엇이 되는지는 못 읽음 — 리드는 히든 판에만 나오므로 전달이 된다고 본다(PRTS 天赋 그대로).
+- **옛 동작**: 보호막이 있을 때만 저지 불가, 조준 우선순위 없음; 스킬은 (spCost+1)번째 일반 공격에 **덧붙음**; 탄은 침식만 0.85씩 감소·반경 2·같은 대상
+  재타격 없음; 十连击은 도착 때 한꺼번에 10타; 받은 피해는 총 + 다른 리드들에게 나눠(도감 문구 [ASSUMED]). 테스트 `enemies_bosses.test.js` 「“碎铳之簧”…」 5건,
+  `feedback1e-healers.test.js` 「E2 audit…」(리드는 보호막이 깨져도 저지 안 됨), 실제 판 경로 `boss-patterns-real.test.js` 「real boss_9 field…」.

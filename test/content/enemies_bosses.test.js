@@ -2843,6 +2843,44 @@ test('假想敌：铳 (隐秘核心): damage ×0.2 while springs live; 盲信之
   assert.ok(sp.s.flags.disarm, '追逐模式: 不进行普通攻击');
 });
 
+/** Record every damage instance `src` deals, element ones included (a spy on b.dealDamage): { t, to, type, amount, atk, tags }. */
+const hitsBy = (h, src) => {
+  const out = [], deal = h.b.dealDamage;
+  h.b.dealDamage = function (s, t, d) {
+    if (s === src && t && t.alive) out.push({ t: h.b.time, to: t, type: d.type, amount: d.amount, atk: !!d.isAttack, tags: d.tags || [] });
+    return deal.call(this, s, t, d);
+  };
+  return out;
+};
+
+test('“碎铳之簧” (all three): never blockable, shield up or down (BLOCK_FREE passive); every attack aims at the highest-DEF unit in range', () => {
+  // official prefab: CommonAbilities/Ability0 `actrp*_passive` abnormalFlags [3] BLOCK_FREE; Attack/Selector `_postFilter` 8 DEF_DES
+  const h = bossArena({
+    units: [{ chessId: 't_hi', row: 10, col: 9 }, { chessId: 't_wall', row: 10, col: 11 }],
+    chess: { t_hi: WALL('t_hi', { def: 300 }) }, kits: { t_hi: NOATK },
+  });
+  h.step();
+  const hi = h.unit('t_hi'), w = h.unit('t_wall');
+  for (const key of ['enemy_9018_actrpa', 'enemy_9019_actrpb', 'enemy_9020_actrpc']) {
+    const sp = put(h, key, [3, 10], { tag: 'part' });
+    assert.ok(sp.s.flags.unblockable, `${key}: shielded`);
+    if (key === 'enemy_9018_actrpa') h.b.dealDamage(null, sp, { amount: 1e6, type: 'arts' });
+    else if (key === 'enemy_9019_actrpb') h.b.dealDamage(null, sp, { type: 'element', element: 'burn', amount: 1e6 });
+    else for (let i = 0; i < tb(key, '1.block_damage_max_times'); i++) h.b.dealDamage(null, sp, { amount: 1, type: 'true' });
+    assert.ok(!sp.findBuff('boss:springShield'), `${key}: shield down`);
+    assert.ok(sp.s.flags.unblockable, `${key}: still unblockable`);
+    h.b.kill(sp, null);
+  }
+  const sp = put(h, 'enemy_9018_actrpa', [3, 10], { tag: 'part' });
+  const hits = hitsBy(h, sp);
+  h.runUntil(() => sp.stats.attacks >= 2, 30);
+  h.run(0.5);
+  const normal = hits.filter((x) => x.atk);
+  assert.equal(normal.length, 2);
+  assert.ok(normal.every((x) => x.to === hi), 'DEF 300 before the later-deployed DEF 0 unit');
+  assert.equal(w.stats.taken, 0);
+});
+
 test('“碎铳之簧” 法术护盾 (9018): barrier absorbs arts, physical ×0.1 with a counter; damage passes to 铳', () => {
   const h = bossArena({ units: [{ chessId: 't_gun', row: 12, col: 3 }] });
   h.step();
@@ -2850,7 +2888,6 @@ test('“碎铳之簧” 法术护盾 (9018): barrier absorbs arts, physical ×0
   const sp = put(h, 'enemy_9018_actrpa', [3, 10], { tag: 'part' });
   sp.profile.noAttack = true;
   const g = h.unit('t_gun');
-  assert.ok(sp.s.flags.unblockable);
   h.b.dealDamage(g, sp, { amount: 1000, type: 'arts' });
   assert.equal(sp.hp, sp.s.maxHp, 'absorbed by the barrier');
   const pool0 = h.b.sharedBoss.hp;
@@ -2860,50 +2897,84 @@ test('“碎铳之簧” 法术护盾 (9018): barrier absorbs arts, physical ×0
   assert.ok(g.stats.taken > 0 && g.elem[EROSION] > 0, 'counter');
 });
 
-test('“碎铳之簧” 元素护盾 (9019): phys/arts ×0.1 until its own element burst breaks the shield; every (spCost+1)-th attack adds a bouncing erosion shot', () => {
+test('“碎铳之簧” 元素护盾 (9019): phys/arts ×0.1 until its own element burst; full SP makes the next attack the bullet — 4 hits, ATK 100 % phys ×0.8 per bounce + 10 % erosion each, no normal hit; SP restarts with the shield', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 10, col: 8 }] });
   h.step();
+  const w = h.unit('t_wall'), w2 = h.unit('t_wall2');
   const sp = put(h, 'enemy_9019_actrpb', [3, 10], { tag: 'part' });
-  const d = h.b.dealDamage(null, sp, { amount: 10000, type: 'true' });
-  approx(d, 10000);
-  const p = h.b.dealDamage(null, sp, { amount: 10000, type: 'phys' });
-  approx(p, (10000 - sp.s.def) * tb('enemy_9019_actrpb', '1.damage_scale'));
+  approx(h.b.dealDamage(null, sp, { amount: 10000, type: 'true' }), 10000);
+  approx(h.b.dealDamage(null, sp, { amount: 10000, type: 'phys' }), (10000 - sp.s.def) * tb('enemy_9019_actrpb', '1.damage_scale'));
   const sk = skb('enemy_9019_actrpb', '1');
+  const bullets = () => h.eventsOf('fx').filter((f) => f[1] === 'beam' && f[4].kind === 'springBullet').length;
+  const hits = hitsBy(h, sp);
   h.runUntil(() => sp.stats.attacks >= sk.spCost, 60);
-  assert.ok(!h.eventsOf('fx').some((f) => f[1] === 'beam' && f[4].kind === 'springBullet'), 'not before the skill attack');
+  h.run(0.5);
+  assert.equal(bullets(), 0, 'not before the skill attack');
+  assert.equal(hits.filter((x) => x.atk).length, sk.spCost);
+  assert.ok(hits.every((x) => x.atk && x.type === 'phys' && x.amount === sp.s.atk));
+  hits.length = 0;
   h.runUntil(() => sp.stats.attacks >= sk.spCost + 1, 30);
-  h.run(0.8);   // the bullet and its bounce fly the official projectile (projectile_enemy_actrpb, 15 tiles/s)
-  assert.ok(h.eventsOf('fx').some((f) => f[1] === 'beam' && f[4].kind === 'springBullet'));
-  assert.ok(h.unit('t_wall').elem[EROSION] > 0 && h.unit('t_wall2').elem[EROSION] > 0, 'bounced');
-  h.b.dealDamage(null, sp, { type: 'element', element: 'burn', amount: 1000 });
-  assert.ok(!sp.s.flags.unblockable, 'shield down');
+  h.run(1.5);   // the bullet flies 15 tiles/s, its bounces 6
+  assert.ok(bullets() >= 1);
+  assert.equal(hits.filter((x) => x.atk).length, 0, 'the skill attack has no normal hit');
+  const phys = hits.filter((x) => x.type === 'phys'), ero = hits.filter((x) => x.type === 'element');
+  assert.equal(phys.length, sk.bb.times);
+  phys.forEach((x, k) => approx(x.amount, sp.s.atk * 0.8 ** k, 1e-9, `hit ${k}`));
+  assert.equal(ero.length, sk.bb.times);
+  assert.ok(ero.every((x) => Math.abs(x.amount - sp.s.atk * sk.bb.ep_damage_ratio) < 1e-9), 'erosion 10 % on every hit, no falloff');
+  // it bounces to the other wall (1 tile, within 1.7); the first was hit under 0.7 s ago, so the remaining bounces hit
+  // the second again (nobody else)
+  const [first, second] = [phys[0].to, phys[1].to];
+  assert.ok((first === w || first === w2) && (second === w || second === w2) && first !== second, 'the bullet bounces to the other wall');
+  assert.ok(phys.slice(2).every((x) => x.to === second), 'then the same one again');
+  approx(phys[1].t - phys[0].t, 1 / 6, 0.05, 'a bounce flies 6 tiles/s (tick-rounded)');
+  assert.ok(w.elem[EROSION] > 0 && w2.elem[EROSION] > 0);
+  // the shield breaks: no skill while it is down; it comes back with SP 0 — the bullet again only after spCost attacks
+  h.b.dealDamage(null, sp, { type: 'element', element: 'burn', amount: 1e6 });
+  assert.ok(!sp.findBuff('boss:springShield'), 'shield down');
   approx(h.b.dealDamage(null, sp, { amount: 10000, type: 'phys' }), 10000 - sp.s.def);
+  const n0 = bullets();
+  h.run(tb('enemy_9019_actrpb', '1.regenerate_duration') + 0.2);
+  assert.ok(sp.findBuff('boss:springShield'), 'shield regenerated');
+  assert.equal(bullets(), n0, 'no bullet while the shield was down');
+  const a0 = sp.stats.attacks;
+  h.runUntil(() => sp.stats.attacks >= a0 + sk.spCost, 60);
+  h.run(0.5);
+  assert.equal(bullets(), n0, 'SP cleared with the shield');
+  h.runUntil(() => sp.stats.attacks >= a0 + sk.spCost + 1, 30);
+  h.run(0.5);
+  assert.ok(bullets() > n0);
 });
 
-test('“碎铳之簧” 频次护盾 (9020): negates 5 hits, then comes back 25 s after breaking; every (spCost+1)-th attack adds a ten-hit combo while shielded', () => {
+test('“碎铳之簧” 频次护盾 (9020): negates 5 hits, back 25 s after breaking; full SP makes the next attack ten shots 0.1 s apart (ATK × atk_scale each), no normal hit', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }] });
   h.step();
   const sp = put(h, 'enemy_9020_actrpc', [3, 10], { tag: 'part' });
   sp.profile.noAttack = true;
   for (let i = 0; i < tb('enemy_9020_actrpc', '1.block_damage_max_times'); i++) h.b.dealDamage(null, sp, { amount: 5000, type: 'true' });
   assert.equal(sp.hp, sp.s.maxHp);
-  assert.ok(!sp.s.flags.unblockable);
+  assert.ok(!sp.findBuff('boss:springShield'));
   assert.ok(sp.hp - h.b.dealDamage(null, sp, { amount: 5000, type: 'true' }) < sp.s.maxHp);
   h.run(tb('enemy_9020_actrpc', '1.regenerate_duration') + 0.2);
-  assert.ok(sp.s.flags.unblockable, 'shield regenerated');
+  assert.ok(sp.findBuff('boss:springShield'), 'shield regenerated');
   sp.profile.noAttack = false;
   const w = h.unit('t_wall');
   const sk = skb('enemy_9020_actrpc', '1');
-  const n = sk.spCost + 1;
-  h.runUntil(() => sp.stats.attacks >= n, 60);
-  h.run(1);   // 7 tiles at 10 tiles/s (projectile_enemy_actrpc) for the attack and the combo
-  const combos = h.eventsOf('fx').filter((f) => f[1] === 'beam' && f[4].kind === 'springCombo').length;
-  assert.equal(combos, 1);
-  approx(w.stats.taken, n * sp.s.atk + 10 * sp.s.atk * sk.bb.atk_scale);
+  const hits = hitsBy(h, sp);
+  h.runUntil(() => sp.stats.attacks >= sk.spCost + 1, 60);
+  h.run(1.5);   // 1 tile at 10 tiles/s (projectile_enemy_actrpc), the tenth shot 0.9 s after the first
+  assert.equal(hits.filter((x) => x.atk).length, sk.spCost, 'the skill attack has no normal hit');
+  const combo = hits.filter((x) => x.tags.includes('springCombo'));
+  assert.equal(combo.length, 10);
+  for (let k = 1; k < 10; k++) approx(combo[k].t - combo[k - 1].t, 0.1, 0.02);
+  assert.ok(combo.every((x) => x.type === 'phys' && Math.abs(x.amount - sp.s.atk * sk.bb.atk_scale) < 1e-9));
+  assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'beam' && f[4].kind === 'springCombo').length, 10);
+  approx(w.stats.taken, sk.spCost * sp.s.atk + 10 * sp.s.atk * sk.bb.atk_scale);
 });
 
-test('“碎铳之簧”: damage taken costs 假想敌：铳 as much (等量, 无来源) and, split, the other springs (never passed on twice)', () => {
-  // PRTS 碎铳之簧 "受到伤害时令全场范围内仇恨值最高的1名假想敌：铳受到等量的无来源生命流失" (DESIGN §20.10; v2.5: half)
+test('“碎铳之簧”: damage taken costs 假想敌：铳 as much (等量, 无来源) and nobody else', () => {
+  // PRTS 碎铳之簧 "受到伤害时令全场范围内仇恨值最高的1名假想敌：铳受到等量的无来源生命流失"; official `actrp*_passive` → the
+  // BossSelector's one gun only (until 2026-10-15 the other springs took a split too; DESIGN §20.10; v2.5: half)
   assert.equal(PART_TRANSFER, 1);
   const h = bossArena({ units: [{ chessId: 't_gun', row: 12, col: 3 }], kits: { t_gun: NOATK } });
   h.step();
@@ -2918,21 +2989,11 @@ test('“碎铳之簧”: damage taken costs 假想敌：铳 as much (等量, �
   const dealt = h.b.dealDamage(h.unit('t_gun'), a, { amount: 1e5, type: 'true' });
   assert.ok(dealt > 0);
   approx(pool0 - h.b.sharedBoss.hp, dealt);
-  approx(b0 - b.hp, dealt / 2);
-  approx(c0 - c.hp, dealt / 2);
+  assert.equal(b.hp, b0, 'no share to the other springs');
+  assert.equal(c.hp, c0);
   assert.ok(seen.length === 1 && seen[0].source === null && seen[0].credit === h.unit('t_gun'), '无来源, credited to the attacker');
   assert.ok(h.result().perPlayer.p1.bossDamage >= dealt - 1e-6, 'the per-player pool tally');
 });
-
-/** Record every damage instance `src` deals, element ones included (a spy on b.dealDamage): { t, to, type, amount }. */
-const hitsBy = (h, src) => {
-  const out = [], deal = h.b.dealDamage;
-  h.b.dealDamage = function (s, t, d) {
-    if (s === src && t && t.alive) out.push({ t: h.b.time, to: t, type: d.type, amount: d.amount });
-    return deal.call(this, s, t, d);
-  };
-  return out;
-};
 const ECHO = 'enemy_9023_acdums';
 /** Three walls on one row: t_wall on (row 10, col 6), t_wall2 one tile right, t_wall3 (`far` = col 8 or 9). */
 const pipeArena = (tpl, far = 8) => {

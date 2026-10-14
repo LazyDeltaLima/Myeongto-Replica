@@ -32,11 +32,12 @@
 //                            a new target restarts at 1; floor 20 before the first attack); 最终之罚 charge at the highest-DEF
 //                            ground unit (disabled by the h07_02 override).
 //                            boss_9: damage ×0.2 while springs live, 盲信之誓 links (100 phys/s on the lines), 末日布道 dash.
-//   碎铳之簧 a/b/c           arts barrier (absorbs arts after RES; phys ×0.1, counter phys + erosion) / element shield
-//                            (phys+arts ×0.1, broken by its own element burst; every (spCost+1)-th attack a bouncing erosion
-//                            shot) / 5-hit shield (every (spCost+1)-th attack a ten-hit combo); unblockable while shielded;
-//                            shield back 25 s after breaking; every damage taken costs 铳 as much (PART_TRANSFER, 无来源)
-//                            and, split, the other springs.
+//   碎铳之簧 a/b/c           always unblockable; highest-DEF target in range; arts barrier (absorbs arts after RES; phys
+//                            ×0.1, counter phys + erosion) / element shield (phys+arts ×0.1, broken by its own element
+//                            burst; the (spCost+1)-th attack is a bouncing bullet: phys ×0.8 per bounce + erosion, 4 hits) /
+//                            5-hit shield (the (spCost+1)-th attack is ten shots 0.1 s apart); the skills need the shield;
+//                            shield back 25 s after breaking (SP cleared); every damage taken costs 铳 as much
+//                            (PART_TRANSFER, 无来源), nobody else.
 //   boss_3/10 假想敌：管     summons 余音 (dark) every 40 s (20 s < 50 %); whole-field normal attack of 3 shots (r 1.8 arts)
 //                            on a dark 余音 (which takes the hit and pulses), else on an operator; 10 % evade < 50 % HP;
 //                            裂管之奏 3 shots on every dark 余音 (r 1.8 arts + apoptosis, 0.8 apoptosis around each unit hit).
@@ -78,7 +79,7 @@ import { compileRoute, attackWindup } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
 import {
   ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies,
-  remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, nthOf, shoot,
+  remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, shoot,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
 
@@ -150,8 +151,15 @@ const ROCKFALL_DELAY = 1, ROCKFALL_TARGETS = [2, 4, 8], DOOM_DELAY = 4;
 const ASPD_FLOOR = 20, CHARGE_RADIUS = 0.35;
 /** 盲信之誓 link half-width (PRTS 0.5). */
 const LINK_WIDTH = 0.5;
-/** 碎铳之簧 bullet bounce falloff / reach [ASSUMED], combo = 十连击; tag of the damage share passed between springs. */
-const SPRING_BOUNCE_FALLOFF = 0.85, SPRING_BOUNCE_RANGE = 2, SPRING_COMBO_HITS = 10, SPRING_SHARE_TAG = 'springShare';
+/**
+ * “碎铳之簧” skill shots (official client, research boss-patterns §1 #8 / #12). 元素护盾 bullet (projectile_enemy_actrpb):
+ * the damage × `_atkScaleRatePerBounce` 0.8 per bounce, the next target within the selector circle 1.7
+ * (`_ignoreRangeScale`), a unit hit less than `_keepAlreadyHitTime` 0.7 s ago is not picked again unless nobody else is
+ * there (`_allowRepetitionIfNoTarget`: the same one again), bounces fly `_speedAfterFirstReach` 6 tiles/s.
+ * 频次护盾 十连击 (Skills/1): 1 + `_additionalTimes` 9 shots `_triggerDelta` 0.1 s apart.
+ */
+const SPRING_BOUNCE_FALLOFF = 0.8, SPRING_BOUNCE_RANGE = 1.7, SPRING_BOUNCE_KEEP = 0.7, SPRING_BOUNCE_SPEED = 6;
+const SPRING_COMBO_HITS = 10, SPRING_COMBO_GAP = 0.1;
 /**
  * Leaders that are 自缚 and cannot be blocked — the 天赋 line of every 巨型单位 page (PRTS 假想敌：胄 (both copies) "自缚、
  * 不可阻挡", 假想敌：管 (+ 隐秘核心) / 盐风主教昆图斯 / 阿利斯泰尔，帝国余晖 / “萨米的意志” "自缚 … 无法被阻挡"). 自缚 (PRTS
@@ -734,20 +742,85 @@ function kitGun(ab, e, b) {
 function kitSpring(ab, e) {
   const kind = /9018/.test(e.defId) ? 'arts' : /9019/.test(e.defId) ? 'element' : 'hits';
   const scale = T(ab, '1.damage_scale') ?? 1, regen = T(ab, '1.regenerate_duration') ?? 0;
-  const P = { up: false, barrier: 0, hits: 0, downAt: null };
+  const sk = kind === 'arts' ? null : ab.sk['1'];
+  const P = { up: false, barrier: 0, hits: 0, downAt: null, sp: 0, skill: false };
+  // 【盲信之誓】 the share's receiver: the prefab's BossSelector (one 假想敌：铳, HATRED_DES) — the nearest gun [ASSUMED: the
+  // hatred order among guns; a field holds one gun per half]
   const gun = (b) => nearestOf(b, e, (o) => isGun(o));
+  const range = () => e.base.rangeRadius || 2;
+  // 优先攻击防御力最高的单位: the Attack and Skills/1 selectors are `_postFilter` DEF_DES (ties: aggro order)
+  const byDef = (l) => l.sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0];
   const raise = (b) => {
     P.up = true;
+    P.sp = 0;   // actrpb/c_t_1[regenerate] ends with ClearEnemySp, then the shield
     if (kind === 'arts') P.barrier = e.s.maxHp * (T(ab, '1.shield_ratio') ?? 0);
     if (kind === 'hits') P.hits = T(ab, '1.block_damage_max_times') ?? 0;
-    b.addBuff(e, { key: 'boss:springShield', persist: true, visible: true, flags: { unblockable: true } }); // 护盾生效时，自身无法被阻挡
+    b.addBuff(e, { key: 'boss:springShield', persist: true, visible: true });
     b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: `spring_${kind}` });
   };
   const drop = (b) => { P.up = false; P.downAt = b.time; b.removeBuff(e, 'boss:springShield'); b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id }); };
-  const sk = ab.sk['1'];
+  // the shield's skill (enemy_database spData INCREASE_WHEN_ATTACK: +1 per normal attack, max = spCost): with full SP the
+  // next attack IS the skill — no normal hit (until 2026-10-15 it was added on top of every (spCost+1)-th attack). It needs
+  // the shield: the broken shield's regenerate buff silences the spring and clears its SP as the shield returns (raise)
+  const skillReady = (e2) => !!sk && P.up && P.sp >= sk.sp && !e2.s.flags.silence;
+  const elementBullet = (b, e2, t0) => { // `times` hits, ATK 100 % phys × 0.8 per bounce + erosion `ep_damage_ratio` each
+    const times = sk.bb.times || 1, ratio = sk.bb.ep_damage_ratio || 0;
+    const lastHit = new Map();
+    const fly = (from, t, k) => {
+      if (!t || k >= times) return;
+      b.fx('beam', { x: from.x, y: from.y, from: from.id, to: t.id, kind: 'springBullet' });
+      shoot(b, from, t, k ? { ...sk.proj, speed: SPRING_BOUNCE_SPEED } : sk.proj, (tt) => {
+        if (!tt || !tt.alive) return;
+        lastHit.set(tt, b.time);
+        hurt(b, e2, tt, e2.s.atk * powi(SPRING_BOUNCE_FALLOFF, k), 'phys', { tags: ['springBullet'] });
+        elem(b, e2, tt, 'erosion', e2.s.atk * ratio);
+        const near = areaAllies(b, e2, tt.x, tt.y, SPRING_BOUNCE_RANGE).filter((u) => u !== tt && !(b.time - (lastHit.get(u) ?? -Infinity) < SPRING_BOUNCE_KEEP));
+        // the next one: the nearest [ASSUMED: the selector's order]; nobody else → the same target again
+        const nx = near.sort((p, q) => hypot(p.x - tt.x, p.y - tt.y) - hypot(q.x - tt.x, q.y - tt.y) || aggroCmp(p, q))[0] || (tt.alive ? tt : null);
+        fly(tt, nx, k + 1);
+      }, { source: e2 });
+    };
+    fly(e2, t0, 0);
+  };
+  const tenHits = (b, e2, t0) => { // 十连击: ten shots, ATK × `atk_scale` phys each, at the highest-DEF unit in range
+    let t = t0;
+    const shot = () => {
+      if (!e2.alive) return;
+      if (!t || !t.alive) t = byDef(targetsNear(b, e2, range()));   // [ASSUMED] a shot after its target's death re-picks
+      if (!t) return;
+      b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'springCombo' });
+      shoot(b, e2, t, sk.proj, (tt) => hurt(b, e2, tt, e2.s.atk * (sk.bb.atk_scale || 0), 'phys', { tags: ['springCombo'] }), { source: e2 });
+    };
+    for (let k = 0; k < SPRING_COMBO_HITS; k++) if (k === 0) shot(); else b.after(k * SPRING_COMBO_GAP, shot, { owner: e2 });
+  };
   return [
     {
-      spawn(b) { raise(b); },
+      // BLOCK_FREE for good (CommonAbilities/Ability0 `actrp*_passive`: abnormalFlags [3]) — until 2026-10-15 only while shielded
+      spawn(b) { b.addBuff(e, { key: 'boss:unblockable', persist: true, flags: { unblockable: true } }); raise(b); },
+      before(c, b, e2) {
+        const t = byDef(targetsNear(b, e2, range()));
+        if (t) c.targets = [t];
+        // the skill attack: the engine makes the attack (cooldown, 'atk', the 'attack' hook) without its hit (ai.js deferHit)
+        P.skill = skillReady(e2);
+        e2.profile.deferHit = P.skill;
+        e2.profile.shot = P.skill ? 'springSkill' : undefined;
+      },
+      attack(c, b, e2, a) {
+        if (!P.skill) { if (sk) P.sp = Math.min(sk.sp, P.sp + 1); return; }
+        P.skill = false;
+        e2.profile.deferHit = false;
+        e2.profile.shot = undefined;
+        P.sp = 0;
+        const t0 = c.targets.find((u) => u && u.alive);
+        if (!t0) return;
+        // the cast names the official ability (Skills/1 — Skill_b / Skill_c, its effects; content/enemies.js onTick)
+        a.casts = (a.casts ?? 0) + 1;
+        e2.skillAnimUntil = b.time + 0.5;
+        b.fx('enemySkill', { x: e2.x, y: e2.y, id: e2.id, ability: sk.name, n: a.casts });
+        const prev = b._castAbility;
+        b._castAbility = { id: e2.id, ability: sk.name };
+        try { if (kind === 'element') elementBullet(b, e2, t0); else tenHits(b, e2, t0); } finally { b._castAbility = prev; }
+      },
       hitIn(c, b, e2) {
         if (!P.up) return;
         const ty = c.dmg.type;
@@ -770,17 +843,15 @@ function kitSpring(ab, e) {
         }
       },
       burst(c, b) { if (kind === 'element' && P.up) drop(b); },  // 自身元素损伤爆发时，护盾消失
-      taken(c, b, e2) {
+      taken(c, b) {
         if (!(c.amount > 0)) return;
-        if (c.dmg.tags && c.dmg.tags.includes(SPRING_SHARE_TAG)) return;       // a share never passes on again
         const s0 = c.source || c.credit;                                       // a 无来源 burst still passes on (credited)
         const src = s0 && s0.side === 'ally' ? s0 : null;
-        // 【盲信之誓】 受到伤害时令假想敌：铳受到等量的无来源生命流失 (PRTS); the even split to the other springs follows the
-        // 隐秘核心 handbook ("传递给<假想敌：铳>和场上其他<“碎铳之簧”>") — not in the PRTS talent, [ASSUMED] amount
+        // 【盲信之誓】 受到伤害时令假想敌：铳受到等量的无来源生命流失 (PRTS): the official `actrp*_passive` passes `hp_lose` to the
+        // BossSelector's one gun (actrpa_hp_trans, PURE, no source) — and to nobody else (until 2026-10-15 an even split also
+        // went to the other springs, after the 隐秘核心 handbook 「传递给…和场上其他“碎铳之簧”」)
         const g = gun(b);
         if (g) b.loseHp(g, c.amount * PART_TRANSFER, { source: src, from: c.dmg, sourceless: true });
-        const others = b.enemies.filter((o) => o.alive && o !== e2 && isSpring(o));
-        for (const o of others) b.loseHp(o, (c.amount * PART_TRANSFER) / others.length, { source: src, from: c.dmg, tags: [SPRING_SHARE_TAG], sourceless: true });
       },
       tick(b, e2, a, dt) {
         if (!P.up && P.downAt != null && b.time - P.downAt >= regen) raise(b);
@@ -796,39 +867,6 @@ function kitSpring(ab, e) {
         // 追逐模式 "对进入自身0.35半径范围内的我方单位（包括飞行单位）造成一次攻击力100%的物理普通伤害" (until 0.1.3: radius 0.5)
         for (const u of areaAllies(b, e2, e2.x, e2.y, CHARGE_RADIUS)) if (!d.hit.has(u)) { d.hit.add(u); hurt(b, e2, u, e2.s.atk, 'phys'); }
         if (b.time >= d.until) { e2.mem.ab.dash = null; b.removeBuff(e2, 'boss:dash'); if (e2.route) e2.route.pts = null; }
-      },
-    },
-    // while shielded, every (spCost+1)-th attack (enemy SP +1 per attack, as 粉碎攻坚手's official text) adds the shield's
-    // special attack on that attack's target
-    (kind === 'element' || kind === 'hits') && sk && {
-      attack(c, b, e2, a) {
-        if (!P.up) return;
-        a.n = (a.n ?? 0) + 1;
-        if (a.n % nthOf(sk)) return;
-        const t0 = c.targets.find((u) => u && u.alive);
-        if (!t0) return;
-        // the special attack flies the skill's official projectile (skills `1`.proj — 元素护盾 projectile_enemy_actrpb TRACE 15,
-        // 频次护盾 projectile_enemy_actrpc TRACE 10 tiles/s; enemies/helpers.js shoot): damage as it arrives, a bounce
-        // leaving from the target it hit (until 2026-10-10 everything at the attack) [추정: a bounce flies the same projectile]
-        if (kind === 'element') { // bouncing element bullet: `times` targets, weaker after each bounce
-          const times = sk.bb.times || 1, ratio = sk.bb.ep_damage_ratio || 0;
-          const hit = new Set();
-          const fly = (from, t, k) => {
-            if (!t || k >= times) return;
-            hit.add(t);
-            b.fx('beam', { x: from.x, y: from.y, from: from.id, to: t.id, kind: 'springBullet' });
-            shoot(b, from, t, sk.proj, (tt) => {
-              if (!tt || !tt.alive) return;
-              elem(b, e2, tt, 'erosion', e2.s.atk * ratio * powi(SPRING_BOUNCE_FALLOFF, k));
-              const nx = areaAllies(b, e2, tt.x, tt.y, SPRING_BOUNCE_RANGE).filter((u) => !hit.has(u)).sort((p, q) => hypot(p.x - tt.x, p.y - tt.y) - hypot(q.x - tt.x, q.y - tt.y) || aggroCmp(p, q))[0];
-              fly(tt, nx, k + 1);
-            }, { source: e2 });
-          };
-          fly(e2, t0, 0);
-        } else { // 十连击 [추정: the ten hits land together as the shot arrives — their spacing was not read]
-          b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t0.id, kind: 'springCombo' });
-          shoot(b, e2, t0, sk.proj, (tt) => { for (let i = 0; i < SPRING_COMBO_HITS && tt && tt.alive; i++) hurt(b, e2, tt, e2.s.atk * (sk.bb.atk_scale || 0), 'phys'); });
-        }
       },
     },
   ];
