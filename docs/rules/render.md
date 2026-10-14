@@ -444,7 +444,12 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     (전투에 든 스킬의 `_defaultModeIndex`가 재능 값을 덮음) → `Unit.OnInit` `SwitchMode` — 배치부터 그 모드(Born→`Start_n`·Idle 짝). 구현(같은 날):
     `anim-overrides.mjs EQUIP_ROLES` → `anims.equip[스킬]` `{deploy, idle, attack}`, `spine.js setSkillIndex`가 그 스킬을 들면 쉬는 클립으로 — 引星棘刺 S3
     (`Start_2`·`Skill_3_Idle`), 望 S2(`Start_2`·`Idle_2`·공격 `Attack_2_A/B` 차례), 安洁莉娜 S2·S3(`Idle_Charge`). 予愿安洁莉娜 S1 시작 `Start_2`(스킨 키 `Skill_1_Begin`)는
-    스킬 클립 덮어쓰기. [화면 미확인] 스킬이 일으킨 【移动】의 배치 클립(같은 날): `Battle.moveRedeploy({ clip })` → 'deploy' 이벤트 4번째 칸 → 역할 `deploys`
+    스킬 클립 덮어쓰기. [화면 미확인] 배치하자마자 시전되는 스킬(spType `ON_DEPLOY`)은 시전과 함께 그 모드에 들어가 모드의 Born 짝이 배치 클립이 된다(2026-10-14,
+    관리자 제보 「이격 텍사스 S2는 사선으로 배치」): 缄默德克萨斯 S2 `Start_2`(뒤 위에서 사선으로 — 클립 첫 프레임 몸 위치 뒤 −638·위 −425)·S3 `Start_3`(제자리 도약) —
+    `skchr_texas2_2/Damage`·`_3/AppearSwordRain`이 시전 시작에 `Start_n`을 처음부터 틀고(`forceFromStart`), 모드 S2·S3이 Born→`Start_n`. `_defaultModeIndex` −1이라
+    시전 전(정비 판)은 `Start`. 구현: `anim-overrides.mjs SKILL_STATE_CLIPS`의 `deploy` → 스킬 역할 `deploy`, `spine.js deploy`가 스킬이 켜져 있으면 그것(시뮬은 시전이
+    'deploy' 이벤트보다 먼저지만 순서가 바뀌어도 같은 클립). 디버그 아레나(Windows Chrome, 0.25배속)로 S2 사선·S3 도약 확인. 歌蕾蒂娅의 뒤에서 미끄러져 들어오는 배치는
+    `Start` 클립 자체(첫 프레임 뒤 −975, 높이 0)라 원래 그렇게 그려진다(같은 아레나로 확인). 스킬이 일으킨 【移动】의 배치 클립(같은 날): `Battle.moveRedeploy({ clip })` → 'deploy' 이벤트 4번째 칸 → 역할 `deploys`
     (`anim-overrides.mjs SKILL_STATE_CLIPS`, `spine.js deploy(key)`) — 乌尔比安 S3 닻으로 `Skill_3_ReStart_A`, 【返回】 `Skill_3_Back`, 닻이 자기 칸이면 이동 없이
     'anchor' fx의 `redeploy` → `Skill_3_ReStart_B`(어느 노드가 트는지 [추정]). 赤刃明霄陈 S2(`_animKey "Skill_2_Begin"`·`_endAnimKey "Skill_2_Disappear"`, 재등장 모드
     S2Respawn Born→`Start_2`): 키트 새 fx 'chen3Vanish'·'chen3Respawn'의 `form` → `FORMS` `vanish`(변환 클립 두 개 뒤 마지막 프레임 유지 `hold`, 나갈 때 `Start_2`),

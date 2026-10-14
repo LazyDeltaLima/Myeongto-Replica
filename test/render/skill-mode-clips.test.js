@@ -235,6 +235,28 @@ test('赤刃明霄陈 S2: Skill_2_Begin → Skill_2_Disappear held while she sla
   assert.equal(v.actor.current, 'Attack', 'the 6 s after the slashes: her plain attack');
 });
 
+test('缄默德克萨斯 S2 / S3 (cast as she deploys): she comes in on Start_2 / Start_3, in either event order; S1 and the prep board on Start', async () => {
+  for (const [i, clip] of [[1, 'Start_2'], [2, 'Start_3']]) {
+    const v = await view('char_1028_texas2', { skillIndex: i });
+    v.setSkill(true);   // the passive's deploy burst (skill.reset) comes before the deploy hook
+    v.onDeploy();
+    assert.equal(v.actor.current, clip, `S${i + 1}: skill, then deploy`);
+    secs(v, 1.2);
+    assert.equal(v.actor.current, `Skill_${i + 1}_Idle`, `S${i + 1}: then the mode's idle`);
+    const w = await view('char_1028_texas2', { skillIndex: i });
+    w.onDeploy();
+    w.setSkill(true);
+    assert.equal(w.actor.current, clip, `S${i + 1}: deploy, then skill`);
+    const p = await view('char_1028_texas2', { skillIndex: i });
+    p.onDeploy();   // a prep board piece: no cast, the default mode
+    assert.equal(p.actor.current, 'Start', `S${i + 1}: no skill on`);
+  }
+  const s1 = await view('char_1028_texas2', { skillIndex: 0 });
+  s1.setSkill(true);
+  s1.onDeploy();
+  assert.equal(s1.actor.current, 'Start', 'S1 has no mode deploy clip');
+});
+
 test('乌尔比安 S3: the 【移动】 to the anchor restarts on Skill_3_ReStart_A, on his own tile Skill_3_ReStart_B, the 【返回】 Skill_3_Back', async () => {
   const v = await view('char_4145_ulpia', { skillIndex: 2 });
   v.setSkill(true);

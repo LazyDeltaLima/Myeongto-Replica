@@ -286,9 +286,11 @@ export const SKILL_VARIANTS = Object.freeze({
  * The death, stun and deploy clips of a skill's mode (docs/rules/render.md 「Spine 클립 커버리지」 D·E·F, maintainer's notes
  * 2026-10-14): the mode a skill switches the operator to pairs Die (or Stun) with a clip of its own (`_replaceAnimPairs`,
  * or a mode's animator hooker), so an operator knocked out or stunned while that skill runs plays it; a 【移动】 by the skill
- * redeploys on a clip of its own. Model key prefix → { [0-based skill index]: { die?, stun?, deploys?: { [key]: clip } } } →
- * the skill clip's `die` / `stun` / `deploys` (render/spine.js dieClip / _enterStun / deploy — the key from the sim's
- * 'deploy' event, Battle.moveRedeploy `clip`).
+ * redeploys on a clip of its own; a mode's Born pair (`deploy`) is the deploy clip while the skill is on — a skill cast
+ * as the operator deploys (spType ON_DEPLOY) puts her in that mode before the deploy clip plays. Model key prefix →
+ * { [0-based skill index]: { die?, stun?, deploy?, deploys?: { [key]: clip } } } → the skill clip's `die` / `stun` /
+ * `deploy` / `deploys` (render/spine.js dieClip / _enterStun / deploy — the key from the sim's 'deploy' event,
+ * Battle.moveRedeploy `clip`).
  */
 export const SKILL_STATE_CLIPS = Object.freeze({
   // 予愿安洁莉娜 (CN client): the S1 / S2 / S3 modes (with their take-off, 吟唱 and landing modes) pair Die→Skill_n_Die
@@ -305,6 +307,10 @@ export const SKILL_STATE_CLIPS = Object.freeze({
   'op:char_4191_tippi:': { 0: { die: 'Die_2' }, 1: { die: 'Die_2' } },
   // 迷迭香: only mode S3's animator hooker is the Graphic SimpleUnitAnimatorHooker with Stun→Stun_Skill_3
   'op:char_391_rosmon:': { 2: { stun: 'Stun_Skill_3' } },
+  // 缄默德克萨斯: S2 / S3 are cast as she deploys (spType ON_DEPLOY; the Damage / AppearSwordRain ability plays Start_n
+  // from its first frame at the cast) and their modes S2 / S3 pair Born→Start_n — she comes in on Start_2 (diagonally,
+  // from behind and above) / Start_3, not on the plain Start drop (maintainer report 2026-10-14)
+  'op:char_1028_texas2:': { 1: { deploy: 'Start_2' }, 2: { deploy: 'Start_3' } },
 });
 
 /**
@@ -424,7 +430,7 @@ export function applyAnimOverrides(key, anims, names = null) {
     for (const [i, st] of Object.entries(map)) {
       for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) {
         if (!clip) continue;
-        for (const f of ['die', 'stun']) if (st[f] && (!names || names.includes(st[f]))) clip[f] = st[f];
+        for (const f of ['die', 'stun', 'deploy']) if (st[f] && (!names || names.includes(st[f]))) clip[f] = st[f];
         const deploys = Object.fromEntries(Object.entries(st.deploys || {}).filter(([, n]) => !names || names.includes(n)));
         if (Object.keys(deploys).length) clip.deploys = deploys;
       }
