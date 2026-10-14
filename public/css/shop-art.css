@@ -129,11 +129,18 @@
   content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none; background: rgba(91, 91, 91, .6); mix-blend-mode: multiply;
 }
 .shopbar.has-shop-art .scard.is-disabled .scard__art { filter: grayscale(1) brightness(.75); }
-/* frozen: ice_matte at the bottom + icon_ice (state_fx_frozen) */
-.shopbar.has-shop-art .scard.is-frozen::after {
-  inset: auto 0 0 0; height: calc(var(--u) * 67); box-shadow: none; background: var(--sa-card-icematte) center bottom / 100% 100% no-repeat;
+/* frozen: state_fx_frozen — ice_matte at the bottom + icon_ice. In the prefab it is its own layer above disable_matte, so a
+   frozen card the player cannot afford (or a locked bar) shows both: the grey matte keeps `::after` and the ice is drawn by
+   `.scard__ice` (the matte as its background, the icon as its `::before`), under the first-tap confirm (btn_double_check) */
+.shopbar.has-shop-art .scard.is-frozen::after { content: none; }
+.shopbar.has-shop-art .scard__ice {
+  left: 0; right: 0; bottom: 0; transform: none; z-index: 6; pointer-events: none; display: block; width: auto; height: calc(var(--u) * 67);
+  border: 0; background: var(--sa-card-icematte) center bottom / 100% 100% no-repeat;
 }
-.shopbar.has-shop-art .scard__ice { bottom: calc(var(--u) * 10); width: calc(var(--u) * 31); height: calc(var(--u) * 34); border: 0; background: var(--sa-card-ice) center / contain no-repeat; }
+.shopbar.has-shop-art .scard__ice::before {
+  content: ''; position: absolute; left: 50%; bottom: calc(var(--u) * 10); width: calc(var(--u) * 31); height: calc(var(--u) * 34); transform: translateX(-50%);
+  background: var(--sa-card-ice) center / contain no-repeat;
+}
 .shopbar.has-shop-art .scard__ice .icon { display: none; }
 /* item card: deco_item 128×99 behind the 93×93 icon, the name bar with icon_item; no description on the official card */
 .shopbar.has-shop-art .scard--item .scard__bg { background: var(--sa-card-deco) center 38% / calc(var(--u) * 128) calc(var(--u) * 99) no-repeat, var(--sa-card-line) left top / auto repeat; }
