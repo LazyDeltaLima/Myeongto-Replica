@@ -481,7 +481,8 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `form`(`'dormant'`/null) → `FORMS.char_311_mudrok`(뒤 모델엔 세 클립이 없어 `Skill_2_Idle`로 잠듦 — 형태 `idle`은 클립 목록 중 그 골격에 있는 첫 것).
     歌蕾蒂娅 S3(`skchr_glady_3` 순차 능력: Chant `Skill_3_Startup` → 모드 S3 Idle→`Skill_3_Chant` → FinalAttack `_default {Skill_3_Begin, _Loop, _End}`):
     역할 begin `Skill_3_Startup`·idle `Skill_3_Chant`·공격은 평소 `Attack`(`via: 'attack'`)·end는 FinalAttack 세 클립을 차례로(`spine.js _skillEnd`, 역할 `end`가
-    배열). 끝의 당김은 시뮬이 스킬 끝 순간에 하고 렌더는 그때 세 클립을 시작한다 [추정]. 공식이 S3 중 일반 공격을 멈추는지(능력 묶음 `_switchToState 1`)는 확인 안 함. [화면 미확인]
+    배열). 끝의 당김은 시뮬이 스킬 끝 순간에 하고 렌더는 그때 세 클립을 시작한다 [추정]. S3 중엔 일반 공격이 없다(2026-10-14 관리자 결정, `sim.md` 「歌蕾蒂娅 S3」) —
+    `Skill_3_Startup` 뒤 `Skill_3_Chant`가 스킬 끝까지. [화면 미확인]
   - **H** 재능·특성 상태. 风丸 傀儡师: 替身으로 바뀔 때 `Die_2`→`Start_B`, 돌아올 때 `Die_B`→`Start`(charpack `CommonAbilities` `kazema[switch2stand]`·
     `[switch2normal]` 순차 묶음) — `FORMS`의 `change`·`leave`가 클립 배열이면 차례로 튼다(`spine.js _change`). 시뮬 전환(`professions.js DOLL_SWITCH`)은 1 s [추정]이라
     替身의 첫 공격은 `Start_B`가 끝날 때까지 화면에 안 나온다. 烛煌 绝处重燃: 쓰러짐 `Revive_Begin`→`Revive_Idle`, 일어남 `Revive_End` — 키트의 'downed'·'revive' fx에

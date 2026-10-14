@@ -13,7 +13,7 @@ const isAbyssal = (u) => u?.def?.raw?.groupId === 'abyssal' || ABYSSAL.has(u?.de
 
 export default withDefaults({
   // ===== 歌蕾蒂娅 (hookmaster) S3 缺水的碎漩狂舞 — bind a far target, tornado (r 1.5): slow, 85 % arts pulses + pull,
-  //       final pull (the 捕网, r 1)
+  //       final pull (the 捕网, r 1); no normal attacks meanwhile
   //       S1 缺水的大洋裂断 (charges: next attack pulls the target to her front, 150 %/180 %); S2 缺水的掌握怒海 (BAT +0.5 s,
   //       wider range, ≤ 2 targets — blocked first — at 135 %/150 % and pulled to her front); module HOK-Y (淡金坠饰):
   //       a pull towards herself of an enemy farther than 2.5 tiles is one force level stronger
@@ -51,6 +51,9 @@ export default withDefaults({
       }),
       skill: {
         kind: 'duration',
+        // no normal attack while it runs: she holds the S3 mode's Skill_3_Chant (charpack skchr_glady_3 `_switchToState` 1,
+        // the unit's Skill state; maintainer decision 2026-10-14)
+        attack: { noAttack: true },
         onStart({ battle, unit, skill }) {
           const foes = targetsInRange(battle, unit).sort((a, b) => bodyDist(b, unit.x, unit.y) - bodyDist(a, unit.x, unit.y) || a.id - b.id);
           const t = foes[0];

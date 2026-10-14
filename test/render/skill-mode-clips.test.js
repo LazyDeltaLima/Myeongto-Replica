@@ -122,16 +122,13 @@ test('泥岩 S3: Skill_2_Begin, asleep on Skill_2_Sleep, Skill_2_Awake, then the
   }
 });
 
-test('歌蕾蒂娅 S3: Skill_3_Startup, the S3 mode\'s Skill_3_Chant between her plain attacks, the FinalAttack Begin → Loop → End', () => {
+test('歌蕾蒂娅 S3: Skill_3_Startup, the S3 mode\'s Skill_3_Chant (no normal attacks meanwhile), the FinalAttack Begin → Loop → End', () => {
   const a = actor('char_474_glady', 2);
   a.setSkill(true);
   assert.equal(a.current, 'Skill_3_Startup');
   run(a, 0.6);
-  assert.equal(a._afterBegin(a.roles.skill), 'Skill_3_Chant');
-  assert.ok(a.swing(0.5));
-  assert.equal(a.current, 'Attack');
+  assert.equal(a._afterBegin(a.roles.skill), 'Skill_3_Chant', 'queued after Skill_3_Startup');
   run(a, 3);
-  assert.equal(a.current, 'Skill_3_Chant');
   a.setSkill(false);
   const seen = [a.current];
   for (let i = 0; i < 240; i++) { a.update(1 / 60); if (seen.at(-1) !== a.current) seen.push(a.current); }

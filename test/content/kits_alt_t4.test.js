@@ -575,6 +575,20 @@ test('歌蕾蒂娅 module HOK-Y 淡金坠饰: pulling a far enemy (> 2.5 tiles) 
   approx(x, moved('none'), 1e-9);
 });
 
+test('歌蕾蒂娅 S3 缺水的碎漩狂舞: no normal attacks while the skill runs, attacks again after it (maintainer decision 2026-10-14)', () => {
+  for (const id of pair('chess_char_4_12_a')) {
+    const h = battle([U(id, 10, 3, 2)]);
+    h.step();
+    const u = h.unit(id);
+    h.spawn('enemy_dummy', { pos: [10, 5] });
+    assert.ok(u.skill.activate('test', { free: true }));
+    const n0 = h.hooksOf('attack').filter((c) => c.attacker === u).length;
+    assert.ok(h.runUntil(() => !u.skill.active, 30));
+    assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u).length, n0, `${id}: no attack during S3`);
+    assert.ok(h.runUntil(() => h.hooksOf('attack').filter((c) => c.attacker === u).length > n0, 5), `${id}: attacks after S3`);
+  }
+});
+
 test('灵知 S1 高速思考: next attack hits twice for atk_scale arts', () => {
   for (const id of pair('chess_char_4_13_a')) {
     const bb = D(id, 0).skill.bb;

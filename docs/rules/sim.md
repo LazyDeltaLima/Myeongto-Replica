@@ -714,6 +714,9 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
   검우 횟수는 그대로 `duration`번. [추정]: 1Frame 단계(1프레임)는 넣지 않음, 검이 생긴 뒤 `_lifeTime` 0.1 끝(`_alwaysHitTraceTargetInTheEnd`)에 맞는지는
   안 봄(생길 때 피해로 둠), AppearSwordRain `_preDelay`가 공속 배율을 받는지 안 봄(0.6 s 고정). 첫 처치 재시전(德克萨斯传统)은 남은 배치 타·검을 지우고
   새로 시작한다. 그 전: 배치 2타 동시, 첫 검우 1 s(배치 기준), 검 동시. 테스트 `test/content/kits_t4.test.js`·`kits_alt_t4.test.js` 「缄默德克萨斯」.
+- **歌蕾蒂娅 S3 缺水的碎漩狂舞 중 일반 공격 없음** (2026-10-14, 관리자 결정 「S3 중에는 일반 공격을 하지 않는다」; charpack `skchr_glady_3` `_switchToState` 1 =
+  Skill 상태): 스킬 내내 `noAttack`(`chess_char_4_12-glady.js`), 모델은 `Skill_3_Chant`로 쉰다. 그 전엔 S3 중에도 평소 `Attack`으로 공격했다. 테스트
+  `kits_alt_t4.test.js` 「歌蕾蒂娅 S3」.
 
 ## 적 투사체·공식 바인딩용 이벤트 필드 (관리자 결정 (2026-10-10) 「동작 변경 모두 공식이랑 동일하게」)
 근거: EN 클라(2026-08) 적 프리팹 `battle/enm_pfb_*.ab`·투사체 `battle/prefabs/[uc]projectiles.ab`의 값과 클라 코드(디컴파일 — 레포에는 클래스·메서드 이름만,
