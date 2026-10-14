@@ -554,6 +554,23 @@
 .dart.is-device .dart__prof .icon { width: 56%; height: 56%; color: #e3b53f; }
 .dart.is-device .dart__tier .dtag-kind { font-size: .17rem; padding: .02rem .1rem; color: #d8d8d8; border-color: rgba(255, 255, 255, .35); background: rgba(10, 10, 10, .55); }
 .dart.is-device .dart__stats { min-width: 1.6rem; }
+/* an enemy's card (ui/detailArt.js EnemyDetailArt, GitHub #3 — the client opens none: the maintainer's choice): the same
+   card, the enemy's icon in the class box (grey frame, gold for an elite, red for a leader), the rank / ground or air /
+   count chips where the tier row is, the factions under it, the HP bar red. [ASSUMED] layout and colours */
+.dart.is-enemy .dart__prof { border-color: #8a8a8a; box-shadow: none; overflow: hidden; }
+.dart.is-enemy.is-elite .dart__prof { border-color: #e3b53f; box-shadow: 0 0 .12rem rgba(227, 181, 63, .5); }
+.dart.is-enemy.is-boss .dart__prof { border-color: #ff3d3d; box-shadow: 0 0 .12rem rgba(255, 61, 61, .55); }
+.dart.is-enemy .dart__prof img { width: 100%; height: 100%; object-fit: contain; }
+.dart.is-enemy .dart__prof .icon { width: 56%; height: 56%; color: #d8d8d8; }
+.dart.is-enemy .dart__tier .drank { font-size: .17rem; padding: .02rem .1rem; }
+.dart.is-enemy .dart__tier .dtag-kind { font-size: .17rem; padding: .02rem .1rem; color: #d8d8d8; border-color: rgba(255, 255, 255, .35); background: rgba(10, 10, 10, .55); }
+.dart__factions { display: flex; flex-wrap: wrap; gap: .06rem; margin-top: .04rem; max-width: 5rem; }
+.dart__factions .dfaction { font-size: .15rem; color: #e8c27a; background: rgba(10, 10, 10, .6); border-color: rgba(227, 181, 63, .45); }
+.dart__factions .dfaction img { width: .24rem; height: .24rem; object-fit: contain; }
+.dart.is-enemy .dart__stats { min-width: 1.9rem; }
+.dart.is-enemy .dart__hp > i { background: #e5383b; box-shadow: 0 0 .08rem rgba(229, 56, 59, .6); }
+.dart.is-enemy .dart__hp b { background: #c42b2e; }
+.dart__pane .dabil { font-size: .17rem; line-height: 1.55; color: #f2f2f2; }
 .dart__name { margin-top: .1rem; font-size: .28rem; font-weight: 500; color: #fff; text-shadow: 0 1px 3px #000; }
 /* 0.2.0 补位: 「X的替补」 under a stand-in's name (ui/detailArt.js; [ASSUMED] placement, as ChessDetail's dhead__for) */
 .dart__for { margin-top: -.04rem; font-size: .15rem; color: #b2b2b2; text-shadow: 0 1px 2px #000; }

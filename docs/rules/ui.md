@@ -1078,8 +1078,8 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   - `[ASSUMED]` 장치에는 그림이 없다(함정은 立绘가 없음 — 클라 패널이 그때 무엇을 그리는지는 안 봄), 직업 칸에는 정보 아이콘(함정 직업 아이콘 미추출). 정비 중
     阻隔工事처럼 관 데이터에 HP 수치가 없는 장치는 HP 막대가 없다(전투 중에는 실시간 HP). 기본 탭은 「技能」(스킬 글이 없으면 「装置机制」).
 - 결정 4(관리자 결정 2026-10-14): **특수 지형은 카드가 아니라 화면 위쪽 토스트**(`ui/tileToast.js TileToast`, `screens/game.js` `tileClick` → `tileTip`).
-  지형 카드(`TerrainDetail`, `{ kind: 'terrain' }`)는 없앴다. 토스트 = 지형 이름·태그·설명 줄(그 판 수치)·「这一格」 사실, 라운드 캡슐 아래 가운데
-  (`.ttoast`, `css/screens/game-panels.css`), **누름을 받지 않음**(`pointer-events: none` — 밑의 보드를 그대로 누를 수 있음).
+  지형 카드(`TerrainDetail`, `{ kind: 'terrain' }`)는 없앴다. 토스트 = 지형 이름·태그(이름과 같으면 생략)·설명 줄(그 판 수치)·「这一格」 사실, 위쪽 가운데
+  — 라운드 캡슐 아래, 공식 모양 HUD에서는 그 아래 맹약 줄 밑(`.ttoast`, `css/screens/game-panels.css`), **누름을 받지 않음**(`pointer-events: none` — 밑의 보드를 그대로 누를 수 있음).
   - 공식 근거(EN 클라 코드): 캐릭터 없는 칸은 `_OnTileClicked`가 거짓이고, 일반 경로 `UIController.OnBottomMaskDown` → `TileInfoController._SelectTile`이
     `Tile.isFunctional`이면 `IGameMode.TryShowTileInfoToast`(위수협약 모드는 덮어쓰지 않아 기본 = 거짓) 뒤 `UIToastController.Show(Options{ name: tileName,
     description: tileDescription, lastTime 0 }, needHide: false)`. 같은 칸을 다시 누르면 아무것도 안 함(그대로), 다른 곳을 누르면 `_ClearSelectedTile` →
@@ -1089,11 +1089,21 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     위치는 못 찾음(전투 UI 프리팹 번들 미확인) — 어두운 띠 + 왼쪽 금색 선, 라운드 캡슐 아래(판 안 일반 토스트 자리). 클라가 고른 칸에 거는 강조
     (`Tile.highlightType`)는 넣지 않음(렌더러 쪽).
 - 적 클릭: 공식 `_OnTileClicked`는 `Character`만 찾는다(적 `Enemy : Unit`은 Character가 아님) — 적·보스를 눌러도 아무 패널도 안 열린다(관리자 기억과 같음).
-  우리 적 카드(보드에서 여는 것)는 그대로 둠 — 없앨지는 관리자 결정 대기.
+  결정 5(관리자 결정 2026-10-14): **적 카드는 남기되 공식 모양 카드로**. 공식에 없는 카드이므로 관리자 선택이다. 공식 모양 HUD일 때 적 카드(보드의 라운드 리더·
+  적 미리보기·전투 중 적, 敌方情报 서랍의 적 줄 모두)는 `ui/detailArt.js EnemyDetailArt` + `dpanel--chess` 클래스(`detailPanel.js` `artEnemy`): 상자 없이
+  왼쪽 전체 높이, 누름 통과는 오퍼레이터·장치 카드와 같다. 직업 칸 자리에 적 아이콘(테두리: 일반 회색·정예 금색·리더 빨강), 등급 줄 자리에 등급·지상/공중·
+  수(서랍), 그 아래 진영, 능력치 줄(공격+피해 종류·방어·법저·이동 속도·공격 범위·목표 가치·공격 간격, 전투 중 실시간 색), 빨간 HP 막대, 탭 「能力」(면역 +
+  능력 줄) / 「说明」(능력이 없을 때 설명). `[ASSUMED]` 배치·색 전부(측정할 공식 적 카드가 없음). 공식 모양이 아닐 때는 예전 상자(`EnemyDetail`).
+  서랍에서 연 카드는 서랍(가운데) 왼쪽 일부와 겹친다(카드 닫기 단추가 서랍 왼쪽 위에 걸림) — 서랍 카드는 보드 누름에 안 닫히는 것은 그대로.
 - 결정 3(개막 연출 건너뛰기 없음, 연출 중 보드 누름 막기는 보류): 1·2로 제보가 고쳐지지 않을 때만.
 - 확인: `test/ui/uiRepair3.test.js`(보드에서 연 적 카드 닫힘·서랍 카드 유지·`fromField` 소스), `test/ui/official-ui-gaps.test.js`(장치 카드 공식 모양·클래스·CSS),
   `test/ui/device-tip.e2e.test.js`(공식 모양에서도 이름·스킬·장치 효과·HP — 탭 전환, `lang=zh`). Windows Chrome(실서버 fastServer `startRound: 'hidden'`,
   협동 심연, 3D 보드): 고치기 전 1920×1080 호스트 — 연타로 장치·적(보스)·지형 카드가 열리고, 적 카드 밑 벤치 4칸 누름·끌기 안 됨, 카드 밖 보드 누름에도 적 카드
   유지. 고친 뒤 — 적 카드가 카드 밖 보드 누름에 닫힘(1920×1080), 장치 카드(`act1autochess_m01`, 3라운드)는 공식 모양·벤치 6칸 모두 캔버스가 받음, 그 밑 기물
-  누름 → 선택·그 기물 카드, 끌기 → 방향 단계까지, 카드 밖 누름에 닫힘(1920×1080·1920×940, 호스트·손님). 불투명 적·지형 카드 위를 누른 것은 여전히 카드가 받는다.
+  누름 → 선택·그 기물 카드, 끌기 → 방향 단계까지, 카드 밖 누름에 닫힘(1920×1080·1920×940, 호스트·손님).
+  결정 4·5 뒤: `test/ui/terrain-detail.test.js`(토스트 내용·게임 화면 연결·누름 통과 CSS), `test/ui/terrain-tip.e2e.test.js`(`.ttoast`, `lang=zh`),
+  `test/ui/official-ui-gaps.test.js`(적 카드 공식 모양). Windows Chrome: 목업 보스 정비 1920×1080 — 특수 칸 누름에 토스트(맹약 줄 아래, 그 자리
+  `elementFromPoint` = 캔버스), 같은 칸 다시 누름에 그대로(`is-again`), 다른 칸 누름에 사라짐, 상세 카드 안 열림. 실서버 협동 보스 라운드(fastServer
+  `startRound: 'boss'`) 1920×1080 호스트 — 리더(卢西恩，“猩红血钻”)를 누르면 공식 모양 적 카드, 카드 밑 보드 칸 35개 중 33개가 캔버스(나머지 2개는 탭 줄 —
+  오퍼레이터 카드와 같은 남은 막힘), 카드 밖 보드 누름·카드 밑 보드 누름 모두 닫힘. 서랍 적 카드도 공식 모양(목업).
 

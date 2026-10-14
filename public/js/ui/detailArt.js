@@ -29,10 +29,11 @@
 
 import { useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, useScrollEdges } from './components.js';
-import { Img, RichText } from './gameComponents.js';
-import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail } from './detailPanel.js';
+import { Img, RichText, GIcon } from './gameComponents.js';
+import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail, hpOf, enemyImmunities, RANK, DMG } from './detailPanel.js';
+import { abilityRows } from './abilityLines.js';
 import { attackInterval, fmtNum, chessLoadout, pickGetter, standInLoadout, standInLabel, standInTip, standInForText } from './gameLogic.js';
-import { chessPortraitUrl, profIconUrl, uiUrl } from './assetUrls.js';
+import { chessPortraitUrl, profIconUrl, uiUrl, enemyIconUrl, factionIconUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
@@ -215,6 +216,83 @@ export function DeviceDetailArt({ device, snapHp = null, live = null }) {
     html`<div key=${`pane:${cur.id}`} ref=${paneRef} class=${cx('dart__pane', `dart__pane--${cur.id}`, edges.scroll && 'is-scroll', edges.up && 'has-up', edges.down && 'has-down')}
         role="tabpanel">${cur.nodes}</div>`,
   ];
+}
+
+/**
+ * An enemy's card (a boss / the round's leader on the boss field, an enemy of the preview pen, a battle enemy, the
+ * 敌方情报 drawer's rows — detailPanel EnemyDetail's data) in the operator card's official form, while the HUD has its
+ * official look. The client opens no panel for an enemy: AutoChessHighlightState._OnTileClicked looks for a `Character`
+ * only, and `Enemy : Unit` is none — this card is the maintainer's choice (GitHub #3, maintainer decision 2026-10-14;
+ * docs/rules/ui.md 「보드에서 연 카드가 벤치를 가림」). So it takes the form and the press pass-through of the cards the client
+ * does open (ChessDetailArt, DeviceDetailArt): no box, the board stays pressable under it. The enemy's icon sits in the class
+ * box (gold frame for an elite, red for a leader), its rank / ground or air / count where an operator's tier row is, its
+ * factions under it; the stat list as EnemyDetail's (live in a battle, coloured against its spawned stats), the HP bar in
+ * red; the tabs 能力 (abilities, immunities) / 说明 (the description when it has no abilities). [ASSUMED] the whole layout
+ * (no official enemy card exists to measure).
+ * @param {{ enemy: any, snapHp?: { hp:number, max:number }|null, count?: number, live?: any }} props
+ */
+export function EnemyDetailArt({ enemy, snapHp = null, count = 0, live = null }) {
+  const [tab, setTab] = useState(null);
+  const m = data.get('assets');
+  const s = enemy?.stats || {};
+  const types = Array.isArray(enemy?.acTypes) ? enemy.acTypes : enemy?.acType ? [enemy.acType] : [];
+  const factions = data.get('factions')?.types || {};
+  const imm = enemyImmunities(s);
+  const st = {
+    atk: liveStat(live, 'atk', s.atk), def: liveStat(live, 'def', s.def), res: liveStat(live, 'res', s.res ?? 0, fmtRes),
+    moveSpeed: liveStat(live, 'moveSpeed', s.moveSpeed, (v) => String(Math.round(v * 100) / 100)),
+    interval: liveStat(live, 'interval', attackInterval(s.bat, s.aspd), fmtInterval),
+  };
+  const hp = hpOf(live, snapHp) || (Number.isFinite(live?.maxHp) ? { hp: live.maxHp, max: live.maxHp } : Number.isFinite(s.maxHp) ? { hp: s.maxHp, max: s.maxHp } : null);
+  const pct = hp && hp.max > 0 ? Math.max(0, Math.min(100, (hp.hp / hp.max) * 100)) : 100;
+  const rank = enemy?.rank === 'BOSS' || enemy?.rank === 'ELITE' ? enemy.rank : 'NORMAL';
+  const abil = Array.isArray(enemy?.abilities) && enemy.abilities.length ? abilityRows(enemy.abilities, !!live?.silenced) : [];
+  const desc = enemy?.descRaw || enemy?.desc || '';
+  const immLine = imm.length ? html`<p key="imm" class="dhint"><${Icon} name="shield" />${t('免疫：{list}', { list: imm })}</p>` : null;
+  const tabs = [
+    abil.length || (immLine && !desc) ? { id: 'abilities', label: N_('能力'), nodes: [
+      immLine,
+      abil.length ? html`<ul key="a" class="dabil">${abil.map((a, i) => html`<li key=${i} class=${a.off ? 'is-off' : null}><${RichText} text=${a.text} /></li>`)}</ul>` : null,
+    ].filter(Boolean) } : null,
+    !abil.length && desc ? { id: 'desc', label: N_('说明'), nodes: [immLine, html`<${RichText} key="d" as="p" text=${desc} class="dtext" />`].filter(Boolean) } : null,
+  ].filter(Boolean);
+  const cur = tabs.find((x) => x.id === tab) || tabs[0] || null;
+  const paneRef = useRef(null);
+  const edges = useScrollEdges(paneRef, [cur?.id]);
+  return [
+    html`<div key="art" class=${cx('dart', 'is-enemy', `is-${rank.toLowerCase()}`)} data-enemy=${enemy?.key || ''}>
+      <div class="dart__bg" aria-hidden="true"></div>
+      <div class="dart__head">
+        <span class="dart__prof"><${Img} src=${enemyIconUrl(m, enemy?.key)} fallback=${html`<${GIcon} name="skull" />`} /></span>
+        <h3 class="dart__name">${enemy?.name || ''}</h3>
+        <div class="dart__tier">
+          <span class=${cx('drank', `drank--${rank.toLowerCase()}`)}>${t(RANK[rank])}</span>
+          <span class="dtag-kind">${s.motion === 'FLY' ? t('空中') : t('地面')}</span>
+          ${count ? html`<span class="dtag-kind num">×${count}</span>` : null}
+        </div>
+        ${types.length ? html`<div class="dart__factions">${types.map((k) => html`<span key=${k} class="dfaction"><${Img} src=${factionIconUrl(m, factions[k]?.icon)} />${factions[k]?.name || k}</span>`)}</div>` : null}
+      </div>
+      <div class="dart__mid">
+        <div class=${cx('dart__stats', live && 'is-live')} data-live=${live ? live.src || 'battle' : undefined}
+            title=${live ? (live.src === 'battle' ? t('当前作战中的实时数值（绿色为增益，红色为减益）') : t('下一场作战开始时的数值')) : undefined}>
+          <${Line} k=${t('攻击')} ...${st.atk} sub=${st.atk.sub || t(DMG[s.dmgType]) || ''} />
+          <${Line} k=${t('防御')} ...${st.def} />
+          <${Line} k=${t('法抗')} ...${st.res} />
+          <${Line} k=${t('移动速度')} ...${st.moveSpeed} cls="is-white" />
+          <${Line} k=${t('攻击范围')} v=${s.rangeRadius > 0 ? s.rangeRadius : t('近战')} cls="is-white" />
+          <${Line} k=${t('目标价值')} v=${s.lpr ?? 1} cls="is-white" />
+          <${Line} k=${t('攻击间隔')} ...${st.interval} cls="is-extra" />
+        </div>
+      </div>
+      ${hp ? html`<div class="dart__hp"><i style=${`width:${pct}%`}></i><span><em>${t('生命')}</em><b class="num">${fmtNum(hp.hp)}/${fmtNum(hp.max)}</b></span></div>` : null}
+    </div>`,
+    tabs.length ? html`<div key="tabs" class="dart__tabs" role="tablist">
+      ${tabs.map((tb) => html`<button key=${tb.id} type="button" role="tab" aria-selected=${tb === cur ? 'true' : 'false'}
+          class=${cx('dart__tab', tb === cur && 'is-on')} onClick=${() => setTab(tb.id)}>${t(tb.label)}</button>`)}
+    </div>` : null,
+    cur ? html`<div key=${`pane:${cur.id}`} ref=${paneRef} class=${cx('dart__pane', `dart__pane--${cur.id}`, edges.scroll && 'is-scroll', edges.up && 'has-up', edges.down && 'has-down')}
+        role="tabpanel">${cur.nodes}</div>` : null,
+  ].filter(Boolean);
 }
 
 /** The first vnode under `node` whose class list holds `cls` (ChessDetail's bond chips inside its header). */

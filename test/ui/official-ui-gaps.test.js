@@ -119,9 +119,8 @@ describe('a stage device\'s card takes the operator card\'s official form (GitHu
   test('DetailPanel renders DeviceDetailArt in the .dpanel--chess family while the HUD has its official look', () => {
     const js = read('public/js/ui/detailPanel.js');
     assert.match(js, /const artDevice = detail\.type === 'device' && !!hudArt\(\)\.cls;/);
-    assert.match(js, /`dpanel--\$\{detail\.type\}`, artDevice && 'dpanel--chess'/, 'the device card gets the operator card\'s class family: no box, presses pass through');
+    assert.match(js, /`dpanel--\$\{detail\.type\}`, \(artDevice \|\| artEnemy\) && 'dpanel--chess'/, 'the device card gets the operator card\'s class family: no box, presses pass through');
     assert.match(js, /\$\{detail\.type === 'device' \? html`<\$\{artDevice \? DeviceDetailArt : DeviceDetail\} device=\$\{detail\.device\}/);
-    assert.match(js, /\$\{detail\.type === 'enemy' \? html`<\$\{EnemyDetail\}/, 'the enemy card keeps its box (a later decision)');
     assert.ok(!js.includes('TerrainDetail'), 'no terrain card: the client shows a toast (ui/tileToast.js)');
   });
 
@@ -137,5 +136,32 @@ describe('a stage device\'s card takes the operator card\'s official form (GitHu
     assert.equal(typeof DeviceDetailArt, 'function');
     const css = read('public/css/hud-art.css');
     assert.match(css, /\.dart\.is-device \.dart__prof \.icon \{/);
+  });
+});
+
+describe('an enemy\'s card takes the official card form too (GitHub #3)', () => {
+  // the client opens no panel for an enemy (AutoChessHighlightState._OnTileClicked finds a Character only; Enemy : Unit
+  // is none): the card is the maintainer's choice, in the form of the cards the client does open; maintainer decision
+  // 2026-10-14
+  test('DetailPanel renders EnemyDetailArt in the .dpanel--chess family while the HUD has its official look', () => {
+    const js = read('public/js/ui/detailPanel.js');
+    assert.match(js, /const artEnemy = detail\.type === 'enemy' && !!hudArt\(\)\.cls;/);
+    assert.match(js, /\(artDevice \|\| artEnemy\) && 'dpanel--chess'/, 'no box, presses pass through to the board');
+    assert.match(js, /\$\{detail\.type === 'enemy' \? html`<\$\{artEnemy \? EnemyDetailArt : EnemyDetail\} enemy=/);
+  });
+
+  test('EnemyDetailArt: head with the icon, rank chips, factions, stat list, red HP bar, tabs 能力 / 说明', async () => {
+    const js = read('public/js/ui/detailArt.js');
+    const body = js.slice(js.indexOf('export function EnemyDetailArt('), js.indexOf('/** The first vnode under'));
+    assert.ok(body.length > 0);
+    for (const cls of ["'dart', 'is-enemy'", 'dart__bg', 'dart__head', 'dart__prof', 'dart__name', 'dart__tier', 'dart__factions', 'dart__mid', 'dart__stats', 'dart__hp', 'dart__tabs', 'dart__tab']) assert.ok(body.includes(cls), cls);
+    assert.match(body, /label: N_\('能力'\)/);
+    assert.match(body, /label: N_\('说明'\)/);
+    assert.match(body, /const edges = useScrollEdges\(paneRef, \[cur\?\.id\]\);/);
+    const { EnemyDetailArt } = await import('../../public/js/ui/detailArt.js');
+    assert.equal(typeof EnemyDetailArt, 'function');
+    const css = read('public/css/hud-art.css');
+    assert.match(css, /\.dart\.is-enemy\.is-boss \.dart__prof \{/);
+    assert.match(css, /\.dart\.is-enemy \.dart__hp > i \{/);
   });
 });

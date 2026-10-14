@@ -46,7 +46,7 @@ import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
 import { moduleBadge, fullTraitText } from './loadoutModel.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { audio } from '../audio.js';
-import { ChessDetailArt, DeviceDetailArt } from './detailArt.js'; // local patch: the official card look (css/hud-art.css)
+import { ChessDetailArt, DeviceDetailArt, EnemyDetailArt } from './detailArt.js'; // local patch: the official card look (css/hud-art.css)
 import { hudArt } from './hudArt.js'; // local patch
 import { tokenVariantFor } from './gameLogic/loadout.js';
 
@@ -64,8 +64,8 @@ const EVENT_ICON = { IN_BATTLE: 's_icon_battle', SERVER_GAIN: 's_icon_bond', SER
  * below half (GitHub #260).
  */
 const SKILL_TEXT_NOTES = { skchr_acmedc_3: N_('实际为生命值低于一半时提高治疗量，正好一半不提高（PRTS 修正，原文为“不高于”）') };
-const RANK = { NORMAL: N_('普通'), ELITE: N_('精英'), BOSS: N_('领袖') };
-const DMG = { phys: N_('物理'), arts: N_('法术'), heal: N_('治疗'), true: N_('真实'), none: N_('无') };
+export const RANK = { NORMAL: N_('普通'), ELITE: N_('精英'), BOSS: N_('领袖') };
+export const DMG = { phys: N_('物理'), arts: N_('法术'), heal: N_('治疗'), true: N_('真实'), none: N_('无') };
 
 /** A range grid of at least this many tiles covers the field (纯烬艾雅法拉 S3 "攻击范围扩大至整个战场"): named, not drawn. */
 export const FIELD_WIDE_CELLS = 400;
@@ -168,7 +168,7 @@ const fmtInterval = (v) => (Number.isFinite(v) && v > 0 ? `${v.toFixed(2)}s` : '
 const fmtRes = (v) => (Number.isFinite(v) ? String(Math.round(v * 10) / 10) : '0');
 
 /** HP bar of the card header: the live HP in battle, else the snapshot's. */
-function hpOf(live, snapHp) {
+export function hpOf(live, snapHp) {
   if (live && live.src === 'battle' && Number.isFinite(live.hp) && Number.isFinite(live.maxHp)) return { hp: live.hp, max: live.maxHp };
   return snapHp || null;
 }
@@ -521,12 +521,15 @@ export function ItemDetail({ item, piece, editable, onDestroy, offBonds = null }
     ${piece && editable ? html`<div class="dactions"><${Button} variant="danger" onClick=${() => onDestroy(piece, item)}>${t('销毁道具')}<//></div>` : null}`;
 }
 
+/** An enemy record's immunities (stats.immunities), in words. */
+export const enemyImmunities = (s) => Object.entries(s?.immunities || {}).filter(([, v]) => v).map(([k]) => ({ stun: t('晕眩'), silence: t('沉默'), sleep: t('沉睡'), frozen: t('冻结'), levitate: t('浮空') }[k] || k));
+
 function EnemyDetail({ enemy, snapHp, count, live = null }) {
   const m = data.get('assets');
   const s = enemy.stats || {};
   const types = Array.isArray(enemy.acTypes) ? enemy.acTypes : enemy.acType ? [enemy.acType] : [];
   const factions = data.get('factions')?.types || {};
-  const imm = Object.entries(s.immunities || {}).filter(([, v]) => v).map(([k]) => ({ stun: t('晕眩'), silence: t('沉默'), sleep: t('沉睡'), frozen: t('冻结'), levitate: t('浮空') }[k] || k));
+  const imm = enemyImmunities(s);
   const interval = attackInterval(s.bat, s.aspd);
   const hp = hpOf(live, snapHp);
   // a battle enemy: its live stats against its spawned ones (the round's multipliers included — unitStatsEntry base)
@@ -850,9 +853,12 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
     if (ok) onDestroy(piece);
   };
   // a stage device's card takes the operator card's official form (and its class family, `.dpanel--chess`: no box, the
-  // press pass-through) while the HUD has its official look — the client opens the same panel on a trap (DeviceDetailArt)
+  // press pass-through) while the HUD has its official look — the client opens the same panel on a trap (DeviceDetailArt);
+  // an enemy's card too, the board's and the 敌方情报 drawer's alike (EnemyDetailArt — the client opens none for an enemy:
+  // the maintainer's choice, GitHub #3, maintainer decision 2026-10-14)
   const artDevice = detail.type === 'device' && !!hudArt().cls;
-  return html`<aside class=${cx('dpanel', 'brackets', `dpanel--${detail.type}`, artDevice && 'dpanel--chess', side === 'right' && 'dpanel--right', side === 'right' && shopOpen && 'is-shop')} role="dialog" aria-label=${t('详情')}
+  const artEnemy = detail.type === 'enemy' && !!hudArt().cls;
+  return html`<aside class=${cx('dpanel', 'brackets', `dpanel--${detail.type}`, (artDevice || artEnemy) && 'dpanel--chess', side === 'right' && 'dpanel--right', side === 'right' && shopOpen && 'is-shop')} role="dialog" aria-label=${t('详情')}
       data-side=${side === 'right' ? 'right' : 'left'}>
     <button type="button" class="dpanel__close" aria-label=${t('关闭')} onClick=${onClose}><${Icon} name="close" /></button>
     <div class="dpanel__scroll">
@@ -860,7 +866,7 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
         bonds=${bonds} offBonds=${offBonds} loadout=${loadout} onBond=${onBond} live=${liveNow} hint=${detail.hint || null} unitItems=${detail.unitItems || null}
         standIn=${detail.standIn || null} diy=${detail.diy || null} cultOpts=${detail.cultOpts || { ops }} />` : null}
       ${detail.type === 'item' ? html`<${ItemDetail} item=${detail.item} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds} />` : null}
-      ${detail.type === 'enemy' ? html`<${EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}
+      ${detail.type === 'enemy' ? html`<${artEnemy ? EnemyDetailArt : EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}
       ${detail.type === 'token' ? html`<${TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} snapHp=${snapHp} live=${liveNow} />` : null}
       ${detail.type === 'device' ? html`<${artDevice ? DeviceDetailArt : DeviceDetail} device=${detail.device} snapHp=${snapHp} live=${liveNow} />` : null}
     </div>
