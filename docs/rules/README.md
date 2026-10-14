@@ -15,7 +15,7 @@
 | `ui.md` | 화면 UI: 디버그 패널, 정비 화면 HUD, 상점, 휴식 진입·현상 수배·전투 종료 화면, 배치 UI, 전투 화면 UI, 위장 아이콘, 초대 링크, 휴대폰, 서버 재시작 예고, 결산 화면 피드백, 로비 업데이트 소식 |
 | `render.md` | 보드·유닛 렌더링·연출: 공식 맵, 공식 스테이지 3D 씬, 배치 낙하, 유닛 모델 크기, 적 경로 미리보기(전투 시작), 보스 경로 미리보기 |
 | `fx.md` | 공식 전투 이펙트: 추출·재생기·붙는 자리·마운트·방향·정예 금빛·제보별 수정 |
-| `audio.md` | 소리·음성: 오퍼레이터 음성, 스킬 효과음·믹서, 작전 종료 효과음, 배치 효과음, 랜덤 매칭·방 알림음, 카운트다운 경고음 |
+| `audio.md` | 소리·음성: 오퍼레이터 음성, 스킬 효과음·믹서, 작전 종료 효과음, 배치 효과음, 랜덤 매칭·방 알림음, 카운트다운 경고음, 채팅 알림음 |
 | `upstream.md` | upstream과의 관계: 0.2.0 병합(옛 경로 대응표 포함), 0.2.0 전에 미리 가져온 원본 수정, upstream에서 이식할 때 비교할 우리 패치 |
 
 ## 쓰는 법
@@ -41,7 +41,7 @@
 |---|---|---|
 | 한국어 번역 (UI·데이터·공식 문구) | `public/js/i18n/*`, `public/i18n/ko/*`, `tools/i18n/*` | — |
 | 협동 방 채팅, 채팅 진영 (8개국, 맹약 아이콘) | `server/local-patch.js`, `shared/local.js`, `public/js/ui/chat.js`, `public/js/ui/faction.js`, `public/css/chat.css` | — |
-| 채팅 알림음 (다른 참가자의 새 채팅에 이모티콘 효과음, 설정에서 끄기·크기·간격·진영 선택 알림) | `public/js/audio.js` `chatNotification`, `public/js/ui/chat.js`, `public/js/ui/settings.js` | `audio.md` 「채팅 알림음」 |
+| 채팅 알림음 (다른 참가자의 새 채팅에 이모티콘 효과음, 설정에서 끄기·볼륨·간격·진영 선택 알림) | `public/js/audio.js` `chatNotification`, `public/js/ui/chat.js`, `public/js/ui/settings.js` | `audio.md` 「채팅 알림음」 |
 | 로비 업데이트 소식 (작전 팁 칸의 「업데이트」 탭 + 「업데이트 소식」 창, 원문 `CHANGELOG.md`) | `server/http/changelog.js`, `public/js/ui/patchNotes.js`, `public/js/screens/lobby.js`, `test/changelog.test.js` | `ui.md` 「로비 업데이트 소식」 |
 | 서버 재시작 예고 (배포 전 카운트다운, 마지막 5분 판 시작 거부) | `server/local-restart.js`, `public/js/ui/restartNotice.js`, `test/local-restart.test.js` | `ui.md` 「서버 재시작 예고」 |
 | `SP_MAX_BOTS` (방마다 AI 팀원 한도), `SP_MAX_BOTS_TOTAL`·`SP_MAX_BOTS_PER_ADDR` (서버 전체·네트워크별 AI 팀원 한도, 연결된 사람이 앉은 방의 AI만 셈, 거절은 `BOT_LIMIT`) | `server/local-patch.js` `botCap` | — |
