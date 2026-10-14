@@ -92,8 +92,14 @@ test('쏜즈 더 로드스타: the token / range are her projectile\'s, at its l
   const pre = ['thorn2_skill_02_range', 'thorn2_skill_02_token', 'thorn2_token_start', 'thorn2_skill_start'];
   const act = activationEffects(t, pre, 1);
   assert.ok(!act.loops.includes('thorn2_skill_02_range') && !act.start.includes('thorn2_skill_02_range'), 'the S2 range is not on her');
-  assert.match(SRC, /if \(e\[1\] === 'zone' && zoneFx\(e, views\)\) return;/);
+  assert.match(SRC, /if \(\(e\[1\] === 'zone' \|\| e\[1\] === 'tornado'\) && zoneFx\(e, views\)\) return;/);
   assert.match(SRC, /spawn\(bundle, n, at, \{ owner: null, buff: false, until \}, \{ over: false \}\)/);
+});
+
+test('歌蕾蒂娅 S3: her tornado (kit fx \'tornado\') plays her S3 projectile\'s reach effects at the marked point', () => {
+  const g = MODES.char_474_glady;
+  assert.deepEqual(g.skills[2].zone, { fx: ['glady_skill_03_range', 'glady_skill_03_range_02'], aura: [], onProj: 0 });
+  assert.match(SRC, /e\[1\] === 'tornado'\) && zoneFx\(e, views\)/);
 });
 
 test('UD_OR_LR (4): slot 0 facing up, else slot 2; the left / right slot when that one is empty; unknown types play nothing', () => {

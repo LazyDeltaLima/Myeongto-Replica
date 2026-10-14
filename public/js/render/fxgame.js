@@ -2757,7 +2757,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
               return;
             }
           }
-          if (e[1] === 'zone' && zoneFx(e, views)) return; // 2026-10-10: a skill projectile's reach effects
+          // 2026-10-10: a skill projectile's reach effects; 2026-10-14: 歌蕾蒂娅 S3's tornado (kit fx 'tornado', its projectile's
+          // reach effects glady_skill_03_range / _02 — the 2D zone stood in for them)
+          if ((e[1] === 'zone' || e[1] === 'tornado') && zoneFx(e, views)) return;
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }

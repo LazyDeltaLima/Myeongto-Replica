@@ -970,3 +970,6 @@
   (WebGL `drawElementsInstanced: no buffer` 경고는 HEAD와 같은 기존 것). [화면 미확인: 공식 녹화와의 대조, 실제 판]
 - 안 한 것: `FxUVRotation`(62개 프리팹 — 움직임이 아니라 `_Rotation0..3`에 고정 각도의 회전 행렬을 넣고 `_HG_UV_ROTATION` 키워드를 켬; 셰이더 쪽
   적용 식을 안 읽음), 레거시 `Animation` 클립(39개 — 3×3 원의 처음 0.3초 나타나기 등), 파티클 서브 이미터(145개, `mods.sub`는 기록만).
+- **글래디아 S3 회오리**: 키트 fx `'tornado'`가 `zoneFx`(그 스킬 투사체의 도달 이펙트 `glady_skill_03_range`·`_02`, 「시전 이펙트 시점·붙는 대상」
+  zone)를 타지 않아 2D 원(`areaAway`)이 대신 그려지던 것 → `fxgame.js`가 `'zone'`과 같이 공식 프리팹을 회오리 자리에 지속 시간 동안 튼다.
+  테스트 `test/render/fx-cast-timing.test.js` 「歌蕾蒂娅 S3」. [화면 미확인: 실제 판에서 회오리 자리·크기]
