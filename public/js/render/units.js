@@ -232,10 +232,13 @@ export const FLY_HOVER = 1.3;
  * moves the model's graphic holder by AddHeightOffsetToSpine on ON_BUFF_START: −0.7, or −0.2 for an enemy holding
  * `buff_swim`; ON_BUFF_FINISH moves it back only while the owner lives (a body dies sunk). `_instant` false: it eases
  * [ASSUMED: at the feet's usual rate — the client's speed is native and not read]. Drawn by lowering the view's z, so the
- * HP bar and the effects on the body go down with it like they rise with `hover` [ASSUMED]; the shadow stays on the water.
+ * HP bar and the effects on the body go down with it like they rise with `hover` [ASSUMED]; the shadow is hidden while it is
+ * under (DEEP_SHADOW_FADE — maintainer decision 2026-10-14: left on the water it hung above the sunk body).
  */
 export const DEEP_SINK = 0.7;
 export const DEEP_SINK_SWIM = 0.2;
+/** A sunk enemy's shadow fades out over its first this many tiles of depth (and back in as it comes up). */
+export const DEEP_SHADOW_FADE = 0.1;
 /** `buff_swim` holders: 潜水员 (enemy_database: the only enemies with the Swim talent, Swim.atk). */
 const SWIMMERS = new Set(['enemy_1158_divman', 'enemy_1158_divman_2']);
 /**
@@ -667,7 +670,7 @@ export class UnitView {
     this.shadowZTarget = null;
     this.flying = info.motion === 'FLY';
     this.hover = 0;               // flying: body height above the road / the ground under it
-    this.sink = 0;                // 深水区: how far an enemy is drawn below the road (deepSink; z eases to −sink, its shadow stays)
+    this.sink = 0;                // 深水区: how far an enemy is drawn below the road (deepSink; z eases to −sink, its shadow fades out)
     this.liftoff = false;         // an airborne (起飞) operator: drawn at the flyers' height too (shared/local.js UF_LIFTOFF)
     this.modelSX = NaN;           // the Spine model's display scale (x with the facing mirror) — render/fxgame.js specialPoint
     this.modelSY = NaN;
@@ -1082,7 +1085,7 @@ export class UnitView {
     // While sliding, the floor is read under the view's own (mid-flight) position, not the destination's.
     const floor = this.slide ? groundZ(this.ctx, this.x, this.y) : groundZ(this.ctx, s.x, s.y);
     // 深水区 (deepSink): a ground enemy on deep water sinks — its body, HP bar and the effects on it go down, its shadow
-    // stays on the water; a body that dies there stays down (the client moves it back only while it lives)
+    // fades out (update, DEEP_SHADOW_FADE); a body that dies there stays down (the client moves it back only while it lives)
     if (this.alive) this.sink = this.slide ? deepSink(this.ctx, this.info, this.flying || this.liftoff, this.x, this.y)
       : deepSink(this.ctx, this.info, this.flying || this.liftoff, s.x, s.y);
     const gz = !this.isEnemy ? floor : this.sink ? -this.sink : 0;
@@ -1676,7 +1679,9 @@ export class UnitView {
     this.shadow.position.set(sh.x, sh.y);
     const shw = s * (this.isBoss ? 1.6 : 0.95) / this.shadow.texture.width;
     this.shadow.scale.set(shw, shw * (this.shadow.texture === shadowTexture() ? 1 : 1.05));
-    this.shadow.alpha = this.bodyless ? 0 : 0.5 * alpha * (this.lift > 0 ? 0.6 : 1);
+    // 深水区: hidden under the water (DEEP_SHADOW_FADE)
+    const dry = this.isEnemy && this.z < 0 ? Math.max(0, 1 + this.z / DEEP_SHADOW_FADE) : 1;
+    this.shadow.alpha = this.bodyless ? 0 : 0.5 * alpha * (this.lift > 0 ? 0.6 : 1) * dry;
 
     // model / fallback
     const spineShown = this.actor && this.spineReady;
