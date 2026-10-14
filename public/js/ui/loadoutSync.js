@@ -175,6 +175,7 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
   let pendingJson = null; // JSON of the newest request still awaiting its reply
   let lastSent = null;    // JSON of the last payload the server accepted (on this session)
   let edited = false;     // an edit is waiting to be sent (a lock refusal is then worth telling the player)
+  let editedAt = 0;       // when the newest edit was made (the refusal's console line says how late it went)
   let disposed = false;
 
   const setState = (sync) => { if (target.get()[stateKey] !== sync) target.set({ [stateKey]: sync }); };
@@ -203,6 +204,7 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
       if (json === lastSent && pendingJson == null) { edited = false; setState('synced'); return; }
       const my = ++seq;
       const wasEdit = edited;
+      const sentAt = Date.now();
       edited = false;
       pendingJson = json;
       setState('sending');
@@ -220,7 +222,11 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
           // the server stored it for the next match; the running one keeps what it took
           lastSent = json;
           setState('locked');
-          if (wasEdit) tell(lockedText);
+          if (wasEdit) {
+            // an intermittent report (a quick edit, then 确认选择) still met the lock: say how late the edit went out
+            console.warn(`[${tag}] ${msgType} edit refused (${code}${err?.detail ? `: ${err.detail}` : ''}), sent ${sentAt - editedAt} ms after the edit`);
+            tell(lockedText);
+          }
         } else if (code === 'RATE' || code === 'TIMEOUT' || code === 'OFFLINE') { edited = edited || wasEdit; schedule(RETRY_MS); }
         else { console.warn(`[${tag}] ${msgType} refused`, code, err && err.detail); setState('error'); }
       }
@@ -233,7 +239,7 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
   const offWelcome = net.on('welcome', () => { lastSent = null; pendingJson = null; seq++; schedule(50); });
   const keys = Array.isArray(key) ? key : [key];
   const offStore = target.subscribe((s, prev) => {
-    if (keys.some((k) => s[k] !== prev[k])) { edited = true; schedule(); }
+    if (keys.some((k) => s[k] !== prev[k])) { edited = true; editedAt = Date.now(); schedule(); }
     // closing the overlay sends a pending edit at once (review fix): the player's next click — 确认选择 in the solo
     // strategy draft, 开始模拟 in the room — must not overtake the debounced message (the match locks its loadout and
     // its 自选 picks when the strategy draft ends, so a late edit would silently only apply to the next match). Same
@@ -267,7 +273,7 @@ export function installLoadoutSync({ net, getChessReady, getBackupsReady, lookup
   const lookup = lookupChess || ((id) => data.lookup('chess', id));
   // the operators a 潜能 / 练度 may name (shared/protocol.js cultivationCharIds: the roster + the 自选 owned pool)
   const opIds = operatorIds || (() => cultivationCharIds(data.get('chess'), data.get('backups')));
-  return installPrefSync({
+  const sync = installPrefSync({
     net, timers, target, notify, key: ['entries', 'ops'], stateKey: 'sync', msgType: 'room.loadout', field: null, tag: 'loadout',
     lockedText: N_('本局的干员调配已锁定，修改将在下一局生效'),
     async prepare() {
@@ -286,6 +292,19 @@ export function installLoadoutSync({ net, getChessReady, getBackupsReady, lookup
       return { entries, ops: sanitizeOps(target.get().ops, (id) => ids.has(id)) };
     },
   });
+  loadoutFlush = sync.flush;
+  return { flush: sync.flush, dispose() { sync.dispose(); if (loadoutFlush === sync.flush) loadoutFlush = null; } };
+}
+
+/** @type {null | (() => Promise<void>)} the installed loadout sync's flush */
+let loadoutFlush = null;
+
+/**
+ * Send a pending loadout edit (技能 / 模组 / 潜能 / 练度) now and wait for the server's reply: the strategy draft's
+ * 确认选择 ends a solo draft, and the match takes the loadout only until then.
+ */
+export function flushLoadoutSync() {
+  return loadoutFlush ? loadoutFlush() : Promise.resolve();
 }
 
 /**

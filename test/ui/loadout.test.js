@@ -15,7 +15,7 @@ import {
   changedCount, moduleBadge, attrRows, skillTags, skillLabel, selectedSkill, selectedModule, recordsOf,
   exportPayload, serializeExport, parseImport, LOADOUT_EXPORT_KIND, LOADOUT_VERSION, LOADOUT_IMPORT_MAX_BYTES,
 } from '../../public/js/ui/loadoutModel.js';
-import { installLoadoutSync, SYNC_DEBOUNCE_MS, RETRY_MS, applyLoadoutEntries, setEntries, loadoutStore, openLoadout, closeLoadout } from '../../public/js/ui/loadoutSync.js';
+import { installLoadoutSync, flushLoadoutSync, SYNC_DEBOUNCE_MS, RETRY_MS, applyLoadoutEntries, setEntries, loadoutStore, openLoadout, closeLoadout } from '../../public/js/ui/loadoutSync.js';
 import { createStore } from '../../public/js/store.js';
 import { shouldAutoClose } from '../../public/js/screens/loadout.js';
 
@@ -350,6 +350,27 @@ test('sync: closing the overlay sends a pending edit at once (the next click —
   await T.advance(SYNC_DEBOUNCE_MS + 10);
   assert.equal(net.sent.length, 2);
   s.dispose();
+});
+
+test('sync: flushLoadoutSync (the strategy draft\'s 确认选择) sends a debounced edit at once and waits for its reply', async () => {
+  const net = fakeNet();
+  const T = fakeTimers();
+  const target = syncStore({});
+  const s = installLoadoutSync({ net, timers: T, target, getChessReady: async () => CHESS, lookupChess: get });
+  net.emit('welcome', {});
+  await T.advance(100);
+  assert.equal(net.sent.length, 1);
+  target.set({ entries: { [INSIDE]: { skill: 0 } } });
+  await T.advance(50); // inside the debounce
+  await flushLoadoutSync();
+  assert.equal(net.sent.length, 2, 'sent before the pick that follows');
+  assert.deepEqual(net.sent[1].entries, { [INSIDE]: { skill: 0 } });
+  await flushLoadoutSync();
+  await T.advance(SYNC_DEBOUNCE_MS + 10);
+  assert.equal(net.sent.length, 2, 'nothing new: neither the second flush nor the old debounce resends it');
+  s.dispose();
+  await flushLoadoutSync(); // disposed: a no-op
+  assert.equal(net.sent.length, 2);
 });
 
 test('overlay auto-close: briefing entry closes when INFO_CHECK ends, draft entry when BAND_DRAFT ends; lobby / room entry closes when a match starts', () => {

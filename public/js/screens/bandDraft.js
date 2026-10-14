@@ -16,7 +16,7 @@
 // picks the roster the strategy applies — this match's choice, else the strategy's saved link, else the chat faction it is
 // built around (推荐, bandRecommendation), else 保持当前编队 — with a preview of its picks and 记住此策略的预设 (on by
 // default: the choice becomes the link). It applies when my pick lands — 确认选择 applies it first and flushes room.diy
-// (a solo draft ends with the pick), a turn that runs out or an AI 托管 pick right after — through the chat's faction pick
+// and room.loadout (a solo draft ends with the pick), a turn that runs out or an AI 托管 pick right after — through the chat's faction pick
 // (ui/factionPick.js applyPresetChoice: the chat faction follows; a faction this match disables is still applied, 本局禁用).
 // Once my pick has landed, the row of my strategy applies a new choice at once (the faction row under the order list did
 // that until 2026-10-13 and is gone, maintainer request; no 「…预设已套用 · 撤销」 notice in the draft either, maintainer
@@ -50,7 +50,7 @@ import { normalizeDraft, sortedPlayers, diyPickOff } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { FactionIcon } from '../ui/faction.js';
 import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, clearRosterSlot, KEEP_LINK, BASE_LINK } from '../ui/diyPresets.js';
-import { loadoutStore, flushDiySync, openLoadout } from '../ui/loadoutSync.js';
+import { loadoutStore, flushDiySync, flushLoadoutSync, openLoadout } from '../ui/loadoutSync.js';
 import { LoadoutButton } from './loadout.js';
 import { diySlotList } from '../ui/diyModel.js';
 import { CHAT_FACTIONS, chatFaction } from '../../../shared/local.js';
@@ -501,6 +501,8 @@ export function BandDraftScreen() {
     if (!band || busy || !myTurn || selTaken) return;
     setBusy('pick');
     await applyBandPreset(band.bandId);
+    // a solo draft ends with this pick: a loadout edit still in its debounce reaches the match first
+    await flushLoadoutSync();
     await actions.band(band.bandId);
     setBusy(null);
   };
