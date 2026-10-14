@@ -122,7 +122,7 @@ describe('a stage device\'s card takes the operator card\'s official form (GitHu
     assert.match(js, /`dpanel--\$\{detail\.type\}`, artDevice && 'dpanel--chess'/, 'the device card gets the operator card\'s class family: no box, presses pass through');
     assert.match(js, /\$\{detail\.type === 'device' \? html`<\$\{artDevice \? DeviceDetailArt : DeviceDetail\} device=\$\{detail\.device\}/);
     assert.match(js, /\$\{detail\.type === 'enemy' \? html`<\$\{EnemyDetail\}/, 'the enemy card keeps its box (a later decision)');
-    assert.match(js, /\$\{detail\.type === 'terrain' \? html`<\$\{TerrainDetail\}/, 'the terrain card too: the client shows a toast, not this panel');
+    assert.ok(!js.includes('TerrainDetail'), 'no terrain card: the client shows a toast (ui/tileToast.js)');
   });
 
   test('DeviceDetailArt: the operator card\'s parts — head, stat list, 攻击范围 tile, HP bar, tabs, the scrolling pane', async () => {

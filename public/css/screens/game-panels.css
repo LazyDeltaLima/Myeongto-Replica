@@ -310,6 +310,29 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop__harmony .bglyph { width: max(.24rem, 14px); height: max(.24rem, 14px); }
 .bpop__harmony .bglyph img { filter: brightness(0) invert(.78) sepia(1) saturate(3) hue-rotate(5deg); }
 
+/* ---- a special terrain tile's toast (ui/tileToast.js, GitHub #184 / #3): the client's tile toast at the top of the screen
+   (TileInfoController._SelectTile → UIToastController.Show: name + description) — not a card. It never takes a press, so
+   the board under it stays pressable; it stays until the next press of the board (needHide false in the client).
+   [ASSUMED] its size and look (the client's toast prefab was not read): a dark band at the top centre, under the round
+   capsule (under the bond strip with the official HUD look). ---- */
+.ttoast {
+  position: absolute; left: 50%; top: calc(1.34rem + var(--sa-t, 0px)); transform: translateX(-50%); z-index: 10;
+  width: max-content; min-width: 3.2rem; max-width: min(6.4rem, 92%); padding: .1rem .22rem .12rem;
+  pointer-events: none; color: #e8e8e8; text-align: left;
+  background: linear-gradient(90deg, rgba(8, 8, 8, .9), rgba(8, 8, 8, .82)); border-left: .04rem solid #e3b53f;
+  box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .55); animation: ttoast-in var(--t-med) var(--ease-out);
+}
+.ttoast.is-again { animation: none; }
+/* the official HUD's bond strip sits right under the round capsule (css/hud-art.css): the toast goes under the strip */
+.gm.has-hud-art .ttoast { top: calc(1.95rem + var(--sa-t, 0px)); }
+@keyframes ttoast-in { from { opacity: 0; transform: translate(-50%, -.12rem); } }
+.ttoast__head { display: flex; align-items: center; gap: .08rem; margin-bottom: .04rem; }
+.ttoast__head .icon { width: .2rem; height: .2rem; color: #e3b53f; flex: none; }
+.ttoast__name { font-size: .2rem; font-weight: 700; color: #fff; }
+.ttoast__tag { font-size: .13rem; padding: .01rem .08rem; color: #cfcfcf; border: 1px solid rgba(255, 255, 255, .3); }
+.ttoast__text { margin: 0; font-size: .15rem; line-height: 1.45; color: #d4d4d4; }
+.ttoast__facts { margin-top: .03rem; color: #a8a8a8; font-size: .14rem; }
+
 /* ---- enemy / info drawer ---- */
 .edrawer {
   --bk-c: var(--amber);

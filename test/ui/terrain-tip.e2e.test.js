@@ -5,8 +5,8 @@
 // A tap on the GROUND — nothing stands there — makes the tile explain itself, on both field implementations: the engine
 // canvas (render/app.js `tileClick`, reached by clicking the tile's own screen position) and the DOM fallback
 // (ui/fallbackField.js, the tile div). Asserted: the mock's own stage (act2autochess_m01) carries gates, a tap on 蓝门 /
-// 红门 opens the card with its mechanism line, a tap on an ordinary floor tile opens nothing (and closes the card that was
-// open), and no scenario logs a console error. The words and the numbers are unit-tested in test/ui/gameLogic.test.js
+// 红门 shows the top toast with its mechanism line (the client's tile toast, GitHub #3), a tap on an ordinary floor tile
+// shows nothing (and takes the toast that was shown away), and no scenario logs a console error. The words and the numbers are unit-tested in test/ui/gameLogic.test.js
 // (terrainInfo, against every terrain of the real stages) — this file is about the tap reaching them.
 
 import { test, describe, before, after } from 'node:test';
@@ -50,17 +50,18 @@ describe('special terrain tip in the browser', { skip: !ENABLED && 'set SP_E2E=1
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
     page.on('requestfailed', (r) => { if (r.failure()?.errorText !== 'net::ERR_ABORTED') problems.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`); });
     // the engine keeps fetching art (and SwiftShader is slow to build the board), so it waits on __SP_VIEW__ instead
-    await page.goto(`${base}${url}`, { waitUntil, timeout: 60000 });
+    // `lang=zh`: the texts below are the source language's (a first visit opens in Korean, lang.js initialLang)
+    await page.goto(`${base}${url}&lang=zh`, { waitUntil, timeout: 60000 });
     return { page, problems };
   }
 
-  /** The open detail card's text (null while none is open). */
+  /** The tile toast's text (null while none is shown) — the client's tile toast, not a card (GitHub #3). */
   const card = (page) => page.evaluate(() => {
-    const el = document.querySelector('.dpanel');
+    const el = document.querySelector('.ttoast');
     return el ? el.textContent.replace(/\s+/g, ' ').trim() : null;
   });
 
-  test('the fallback (DOM) board: a tap on 蓝门 / 红门 opens the card, an ordinary tile opens nothing', async () => {
+  test('the fallback (DOM) board: a tap on 蓝门 / 红门 shows the toast, an ordinary tile shows nothing', async () => {
     const { page, problems } = await open('/dev/game-mock.html?phase=PREP&render=fallback');
     await page.waitForSelector('.ff-tile', { timeout: 15000 });
     await sleep(400);
@@ -73,7 +74,7 @@ describe('special terrain tip in the browser', { skip: !ENABLED && 'set SP_E2E=1
     }, [row, col]);
 
     assert.ok(await tap(GOAL.row, GOAL.col), 'the mock board draws the 蓝门 tile');
-    await page.waitForSelector('.dpanel', { timeout: 5000 });
+    await page.waitForSelector('.ttoast', { timeout: 5000 });
     let text = await card(page);
     assert.match(text, /蓝门/, text);
     assert.match(text, /目标生命值/, text);
@@ -86,7 +87,7 @@ describe('special terrain tip in the browser', { skip: !ENABLED && 'set SP_E2E=1
     assert.match(text, /红门/, text);
     assert.match(text, /从这里出场/, text);
 
-    // an ordinary floor tile: nothing to explain, and the card that was open closes with the press
+    // an ordinary floor tile: nothing to explain, and the toast that was shown goes with the press
     assert.ok(await tap(FLOOR.row, FLOOR.col));
     await sleep(200);
     assert.equal(await card(page), null, 'an ordinary tile opens nothing');
@@ -94,7 +95,7 @@ describe('special terrain tip in the browser', { skip: !ENABLED && 'set SP_E2E=1
     await page.close();
   });
 
-  test('the engine canvas: the same tap on a tile\'s own screen position opens the card', async () => {
+  test('the engine canvas: the same tap on a tile\'s own screen position shows the toast', async () => {
     const { page, problems } = await open('/dev/game-mock.html?phase=PREP&render=engine', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__SP_VIEW__?.tileScreen, { timeout: 30000 });
     await sleep(1200); // models / camera
@@ -105,7 +106,7 @@ describe('special terrain tip in the browser', { skip: !ENABLED && 'set SP_E2E=1
     const pt = await at(GOAL.row, GOAL.col);
     assert.ok(pt, 'the 蓝门 tile has a screen position');
     await page.mouse.click(pt.x, pt.y);
-    await page.waitForSelector('.dpanel', { timeout: 5000 });
+    await page.waitForSelector('.ttoast', { timeout: 5000 });
     let text = await card(page);
     assert.match(text, /蓝门/, text);
     assert.match(text, /目标生命值/, text);
@@ -161,10 +162,10 @@ describe('special terrain tip in the browser', { skip: !ENABLED && 'set SP_E2E=1
     for (let i = 0; i < 3 && text === null; i++) {
       const p = (await at()) || settled;
       await page.mouse.click(p.x, p.y);
-      try { await page.waitForSelector('.dpanel', { timeout: 3000 }); } catch { continue; }   // a tap that missed: retry
+      try { await page.waitForSelector('.ttoast', { timeout: 3000 }); } catch { continue; }   // a tap that missed: retry
       text = await card(page);
     }
-    assert.ok(text !== null, 'the tap opened the terrain card');
+    assert.ok(text !== null, 'the tap showed the terrain toast');
     assert.match(text, new RegExp(target.name), `board (${target.row},${target.col}) → stage (${target.sr},${target.sc}) is ${target.name}, card: ${text}`);
     assert.deepEqual(problems, []);
     await page.close();

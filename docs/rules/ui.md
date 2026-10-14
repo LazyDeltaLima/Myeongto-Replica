@@ -630,11 +630,11 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
 - 마지막 5분(`shared/local.js RESTART_FINAL_MIN`, 관리자 제보 2026-10-09):
   - 새 판 시작 막기: `room.start`를 `ERR.RESTARTING`(「서버가 곧 재시작되어 지금은 새 시뮬레이션을 시작할 수 없습니다」)으로 거부. 이미 진행 중인 판은 그대로.
     `SP_RESTART_NO_START_MIN`이 있으면 그 분(0 = 막지 않음). (같은 날 앞서 「일단 구현만 해놓고 활성화하진 마」로 꺼 두었다가 이 결정으로 켬.)
-  - 연결 띠(`ui/connBanner.js`): 「서버 재시작까지 m:ss · 진행 중인 판은 종료됩니다」(0이 되면, 그리고 재시작한 서버에 다시 붙는 동안에는 연결 끊김 문구 대신 「서버를 재시작하는 중입니다 · 재시작이 끝나면 페이지가 자동으로 새로고침됩니다」, 관리자 요청 2026-10-11). 판 밖 = 아래 가운데,
+  - 연결 띠(`ui/connBanner.js`): 「서버 재시작까지 m:ss · 진행 중인 시뮬레이션은 종료됩니다」(0이 되면, 그리고 재시작한 서버에 다시 붙는 동안에는 연결 끊김 문구 대신 「서버를 재시작하는 중입니다 · 재시작이 끝나면 페이지가 자동으로 새로고침됩니다」, 관리자 요청 2026-10-11). 판 밖 = 아래 가운데,
     판 안 = 라운드 캡슐 아래 한 줄(토스트는 그 아래로 밀림). 휴대폰 가로(844×390)에서도 한 줄.
   - 이 5분 동안은 토스트를 띄우지 않는다(5·3·1분 표시, 접속 때 토스트 모두 — 관리자 제보 2026-10-09). 서버는 5·3·1분에도 `server.restart`를 보내지만(남은 시간 갱신) 클라이언트가 토스트를 거른다.
 - 클라이언트 `public/js/ui/restartNotice.js`: 그 전까지는 **토스트만**(관리자 제보 2026-10-09 — 처음 구현의 30분 내내 띠는 뺐다).
-  5분보다 큰 `mark`(30·10분)마다 경고 토스트 「N분 후 서버가 재시작됩니다. 진행 중인 판은 종료됩니다」(6초), 카운트다운 중에 접속한 페이지는 welcome에서 남은 분으로 한 번(남은 시간이 5분보다 클 때만)
+  5분보다 큰 `mark`(30·10분)마다 경고 토스트 「N분 후 서버가 재시작됩니다. 진행 중인 시뮬레이션은 종료됩니다」(6초), 카운트다운 중에 접속한 페이지는 welcome에서 남은 분으로 한 번(남은 시간이 5분보다 클 때만)
   (`ui.restartAt`로 이미 알던 페이지의 재연결은 다시 띄우지 않음), 취소되면 알던 페이지에만 「서버 재시작이 취소되었습니다」. 판 밖에서는 위쪽 가운데, 판 안
   (`html.sp-in-match`)에서는 라운드 캡슐 아래(기존 토스트 자리). 재시작 뒤에는 기존 흐름 그대로: `room.closed shutdown` → 재연결 → buildGuard가 새 빌드로 새로고침. 서버가 브라우저를 밖에서 새로고침시킬 방법은 없고 페이지가 스스로 한다. 카운트다운을 알던 페이지(`ui.restartAt`)가 `restart` 없는 welcome을 받으면 재시작이 끝난 것으로 보고(`onRestarted`) buildGuard가 60초 간격을 기다리지 않고 3초 간격으로 최대 4번 바로 확인한다(`burst()`, 두 번 연속 같은 새 빌드·판 중이면 대기 규칙은 그대로 — 관리자 요청 2026-10-11). 카운트다운 내내 끊겨 있던 페이지는 예전처럼 60초 확인으로 1~2분 뒤.
 - 배포 쪽(배포 스크립트, 이 저장소에 없음): 이미지를 먼저 빌드하고(옛 컨테이너는 계속 서비스), 접속자가 있으면 컨테이너 안에서
@@ -743,7 +743,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 
 ## upstream 0.2.4 이식 — UI (2026-10-11)
 - **장치 탭 설명** (upstream `df540b62`, GitHub #228·PR #229 by @rickylxw, + `6bfc0827` §29.14 「같은 전투 재입장 때 장치 카드」, 관리자 결정 2026-10-11):
-  阻隔工事·“双眼皮”·射击台·源石流发生装置를 누르면 지형 카드(#184)와 같은 자리에 장치 카드(`gameLogic/terrain.js deviceInfo`·`deviceTipAt`,
+  阻隔工事·“双眼皮”·射击台·源石流发生装置를 누르면 그때의 지형 카드(#184, 지금은 토스트 — 아래 「보드에서 연 카드가 벤치를 가림」)와 같은 자리에 장치 카드(`gameLogic/terrain.js deviceInfo`·`deviceTipAt`,
   `detailPanel.js DeviceDetail`). 정비·정찰 판은 관 데이터의 장치 위치로, 전투 중에는 상자·포탑이 장치 **유닛**이라 그 유닛이 선 칸으로 찾고(관 밖 포탑은
   다른 칸에 섬), 카드에 실시간 HP, 부서지면 카드가 닫힌다. 같은 전장의 메타가 다시 와도(관전 `g.watch`·`reshow`) 이미 받은 장치 유닛을 렌더러와 카드
   양쪽에 되돌린다(`deviceUnitsForEntry` — 안 그러면 다음 HP 묶음이 모르는 적이 되어 탭을 가로챔). 숨은 포탑(机械援助·机变 전)·机变으로 치운 상자는 안 그려지므로 말하지 않는다.
@@ -1077,9 +1077,17 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     캐릭터 종류와 상관없이 건다(`_hookedCharacterInfoSubPanels`, `HookedCharacterInfoType` STATUS/TAB_GROUP/ADDITION) → 오퍼레이터와 같은 틀. 관리자 기억과도 맞음.
   - `[ASSUMED]` 장치에는 그림이 없다(함정은 立绘가 없음 — 클라 패널이 그때 무엇을 그리는지는 안 봄), 직업 칸에는 정보 아이콘(함정 직업 아이콘 미추출). 정비 중
     阻隔工事처럼 관 데이터에 HP 수치가 없는 장치는 HP 막대가 없다(전투 중에는 실시간 HP). 기본 탭은 「技能」(스킬 글이 없으면 「装置机制」).
-- 지형 카드는 **바꾸지 않음**: 공식은 카드가 아니라 토스트다. 캐릭터 없는 칸은 `_OnTileClicked`가 거짓이고, 일반 경로 `UIController.OnBottomMaskDown` →
-  `TileInfoController._SelectTile`이 `Tile.isFunctional`이면 `IGameMode.TryShowTileInfoToast`(위수협약 모드는 덮어쓰지 않아 기본 = 거짓) 뒤
-  `UIToastController.Show(tileName, tileDescription)`. 위수협약 UI 상태가 이 경로의 상태 검사를 통과하는지는 안 읽음 `[ASSUMED]`. 토스트로 바꿀지는 관리자 결정 대기.
+- 결정 4(관리자 결정 2026-10-14): **특수 지형은 카드가 아니라 화면 위쪽 토스트**(`ui/tileToast.js TileToast`, `screens/game.js` `tileClick` → `tileTip`).
+  지형 카드(`TerrainDetail`, `{ kind: 'terrain' }`)는 없앴다. 토스트 = 지형 이름·태그·설명 줄(그 판 수치)·「这一格」 사실, 라운드 캡슐 아래 가운데
+  (`.ttoast`, `css/screens/game-panels.css`), **누름을 받지 않음**(`pointer-events: none` — 밑의 보드를 그대로 누를 수 있음).
+  - 공식 근거(EN 클라 코드): 캐릭터 없는 칸은 `_OnTileClicked`가 거짓이고, 일반 경로 `UIController.OnBottomMaskDown` → `TileInfoController._SelectTile`이
+    `Tile.isFunctional`이면 `IGameMode.TryShowTileInfoToast`(위수협약 모드는 덮어쓰지 않아 기본 = 거짓) 뒤 `UIToastController.Show(Options{ name: tileName,
+    description: tileDescription, lastTime 0 }, needHide: false)`. 같은 칸을 다시 누르면 아무것도 안 함(그대로), 다른 곳을 누르면 `_ClearSelectedTile` →
+    `UIToastController.Hide(popupId)`. 그래서 우리도 **다음 보드 누름에 사라지고**(같은 칸이면 놓을 때 다시 — 등장 애니메이션 없이, `again`), 시간으로는
+    안 사라진다. 단계(정비 ↔ 전투)·보는 필드가 바뀌거나 Esc에도 사라진다.
+  - `[ASSUMED]` 위수협약 UI 상태가 이 경로의 상태 검사(`stateMachine` 비교)를 통과하는지는 안 읽음. 토스트 프리팹(`UIToastController._infoPanel`)의 크기·모양·
+    위치는 못 찾음(전투 UI 프리팹 번들 미확인) — 어두운 띠 + 왼쪽 금색 선, 라운드 캡슐 아래(판 안 일반 토스트 자리). 클라가 고른 칸에 거는 강조
+    (`Tile.highlightType`)는 넣지 않음(렌더러 쪽).
 - 적 클릭: 공식 `_OnTileClicked`는 `Character`만 찾는다(적 `Enemy : Unit`은 Character가 아님) — 적·보스를 눌러도 아무 패널도 안 열린다(관리자 기억과 같음).
   우리 적 카드(보드에서 여는 것)는 그대로 둠 — 없앨지는 관리자 결정 대기.
 - 결정 3(개막 연출 건너뛰기 없음, 연출 중 보드 누름 막기는 보류): 1·2로 제보가 고쳐지지 않을 때만.

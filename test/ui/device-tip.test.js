@@ -292,7 +292,7 @@ test('a device target resolves into the panel card; a malformed one resolves to 
   assert.equal(resolveDetail({ kind: 'device', device: '阻隔工事' }, new Map()), null);
   assert.equal(resolveDetail(null, new Map()), null);
   assert.equal(closesOnFieldPress({ kind: 'device', device: info }), true, 'the next field press closes the device card');
-  assert.equal(closesOnFieldPress({ kind: 'terrain' }), true);
+  assert.equal(closesOnFieldPress({ kind: 'terrain' }), false, 'a special tile opens a toast, not a card (GitHub #3)');
   assert.equal(closesOnFieldPress({ kind: 'enemy' }), false);
 });
 

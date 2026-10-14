@@ -76,6 +76,7 @@ import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
+import { TileToast } from '../ui/tileToast.js';
 import { RewardOverlay } from '../ui/rewardOverlay.js';
 import { ChoiceOverlay } from '../ui/choiceOverlay.js';
 import { EnemyDrawer } from '../ui/enemyDrawer.js';
@@ -224,6 +225,9 @@ function MatchScreen() {
   const [bondOpen, setBondOpen] = useState(null);        // { id, ownerId, from }: the bond popup and whose bond it shows
   const [bondsCollapsed, setBondsCollapsed] = useState(false);
   const [detail, setDetail] = useState(null);            // detail target
+  // a special terrain tile's toast (ui/tileToast.js: { key, terrain, again? }) — the client's tile toast, not a card (GitHub #3)
+  const [tileTip, setTileTip] = useState(null);
+  const tipAtDown = useRef(null);                        // the toast a field press hid (a press on the same tile brings it back)
   const [collapsed, setCollapsed] = useState(false);
   const [rewardMin, setRewardMin] = useState(false);
   const [emoteOpen, setEmoteOpen] = useState(false);
@@ -359,7 +363,7 @@ function MatchScreen() {
     getChess: (id) => { const c = gd.chess(id); return ownDiyRecord(c, priv, { chess: data.get('chess'), backups: data.get('backups') }) || c; },
     getToken: gd.token, getItem: gd.item, getEffect: gd.effect, backups: gd.backups,
   }), [priv, pub?.stageId, editable, gd.ready, deployField]);
-  live.current = { pub, priv, field, editable, hasPersonalChoice, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, collapsedNow: collapsed, localDone: false, canPause: false, paused, cap: gd.config?.lpCapPerRound };
+  live.current = { pub, priv, field, editable, hasPersonalChoice, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, tileTip, collapsedNow: collapsed, localDone: false, canPause: false, paused, cap: gd.config?.lpCapPerRound };
 
   // ---- camera: every request goes through setCam, which remembers it for the pen's way back -----------------------
   // the own prep board: the normal board, or — in the prep of a boss round — the player's half of the boss field
@@ -931,6 +935,8 @@ function MatchScreen() {
     await actions.ready(r);
     setReadyBusy(false);
   }, []);
+  // the tile toast belongs to the board it was read from: a new phase (prep ↔ battle, the next round) takes it away
+  useEffect(() => { setTileTip(null); tipAtDown.current = null; }, [phase, watching]);
   // the prep ended (timer) while the question was open: drop it — the funds are gone either way
   useEffect(() => {
     if (phase === PHASE.PREP || !askingReady.current) return;
@@ -1201,11 +1207,15 @@ function MatchScreen() {
           setDetail({ kind: 'device', device });
           return;
         }
+        // a special tile: the client's tile toast at the top (TileInfoController._SelectTile → UIToastController.Show,
+        // GitHub #3, maintainer decision 2026-10-14) — no card, nothing over the board; the press already hid the last one
         const info = terrainInfo(L.terrainStage, row, col);
         if (!info) return;
-        audio.sfx('click', { volume: 0.4 });
+        const key = `${row},${col}`;
+        const again = tipAtDown.current?.key === key;
+        if (!again) audio.sfx('click', { volume: 0.4 });
         setSel(null);
-        setDetail({ kind: 'terrain', terrain: info });
+        setTileTip({ key, terrain: info, again });
       }),
     ];
     return () => { moveOff?.(); for (const off of offs) { try { off?.(); } catch { /* ignore */ } } };
@@ -1280,6 +1290,9 @@ function MatchScreen() {
       // tapping elsewhere closes the selection and a card opened from the field — by a tap, a right-click or a long
       // press (a press on a piece re-opens its card at release, pieceClick)
       setDetail((d) => (closesOnFieldPress(d) ? null : d));
+      // and the tile toast (the client's _ClearSelectedTile); a press on the same tile shows it again at release (tileClick)
+      tipAtDown.current = L.tileTip;
+      if (L.tileTip) setTileTip(null);
     };
     host.addEventListener('pointerdown', onDown, true);
     return () => host.removeEventListener('pointerdown', onDown, true);
@@ -1453,6 +1466,7 @@ function MatchScreen() {
         else if (L.pen && !L.detail) togglePenRef.current(false);
         else if (L.bondOpen) setBondOpen(null);
         else if (L.detail) setDetail(null);
+        else if (L.tileTip) setTileTip(null);
         else if (L.drawer) setDrawer(null);
         else return;
         e.preventDefault();
@@ -1712,6 +1726,7 @@ function MatchScreen() {
         : html`<div class="gm__dead" role="status"><${Icon} name="close" />${t('你已被淘汰 · 可继续观战队友')}</div>`) : null}
 
       <${Ticker} />
+      <${TileToast} tip=${tileTip} />
 
 
       ${drawer ? html`<${EnemyDrawer} tab=${drawer} onTab=${setDrawer} pub=${pub} priv=${priv} onClose=${() => setDrawer(null)}

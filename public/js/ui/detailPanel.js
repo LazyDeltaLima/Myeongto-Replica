@@ -18,7 +18,7 @@
 // Touch / 预备干员-医疗, tokens.json kind 'mapChar') — an operator of the mode: 干员, its class, 特性, skill and talents
 // from its own record (MapCharDetail, GitHub #260); a skill text the game contradicts gets the line under it that says
 // what the sim does (SKILL_TEXT_NOTES: Touch 恳切福音's 低于一半, PRTS 修正); enemies — stats, rank,
-// faction tags, abilities; special terrain tiles (TerrainDetail, #184) and stage devices (DeviceDetail, #228). Selling / destroying is the underframe's job in the
+// faction tags, abilities; stage devices (DeviceDetail, #228; a special terrain tile is a toast: ui/tileToast.js). Selling / destroying is the underframe's job in the
 // match (research 09 §5, ui/underframe.js): the panel's own 出售 / 销毁 buttons only render for callers that pass
 // `editable` + handlers. `side` 'right' docks the panel at the right edge (the game screen picks the side away from a
 // selected unit's underframe, gameLogic panelSide).
@@ -681,28 +681,7 @@ export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live 
 }
 
 /**
- * A special terrain tile's tip (GitHub issue #184: 「建议加入对于特殊地形的单击信息提示」). Opened by a tap on the tile
- * itself — the game screen resolves it with `gameLogic.terrainInfo` from the stage the board on screen is built from, so
- * the mechanism lines carry that stage's own numbers (活性源石's damage / duration, 沼泽's stacks, 深水区's drowning …).
- * @param {{ name:string, tag:string, lines:string[], facts:string[], row:number, col:number }} terrain
- */
-function TerrainDetail({ terrain }) {
-  return html`
-    <div class="dhead">
-      <div class="dhead__icon"><${Icon} name="info" /></div>
-      <div class="dhead__info">
-        <div class="dhead__chips"><span class="dtag-kind">${terrain.tag}</span></div>
-        <h3 class="dhead__name">${terrain.name}</h3>
-      </div>
-    </div>
-    <${Section} title=${t('地形机制')} micro="TERRAIN">
-      ${terrain.lines.map((line, i) => html`<p class="dtext" key=${i}>${line}</p>`)}
-    <//>
-    ${Array.isArray(terrain.facts) && terrain.facts.length ? html`<${Section} title=${t('这一格')}><p class="dtext">${terrain.facts.join(' · ')}</p><//>` : null}`;
-}
-
-/**
- * A stage device's card (GitHub #228, PR #229: 阻隔工事 / “双眼皮” / 射击台 / 源石流发生装置 — the terrain tip's sibling). Opened
+ * A stage device's card (GitHub #228, PR #229: 阻隔工事 / “双眼皮” / 射击台 / 源石流发生装置 — the terrain toast's sibling). Opened
  * by a tap on the device itself: the game screen resolves it with `gameLogic.deviceInfo` (prep) or `deviceTipAt` (a battle)
  * from the stage the board on screen is built from, so the lines carry that stage's own numbers. In a battle the
  * crate / turret is a device unit: its live HP (`live` from the battle's own sim, else `snapHp` — the screen reads the latest
@@ -744,7 +723,7 @@ function DeviceDetail({ device, snapHp = null, live = null }) {
 
 /**
  * Resolve what a detail target shows.
- * @param {{ kind:'piece'|'chess'|'item'|'enemy'|'unit'|'token'|'terrain'|'device', id?:string, uid?:number, unit?:any, count?:number }} target
+ * @param {{ kind:'piece'|'chess'|'item'|'enemy'|'unit'|'token'|'device', id?:string, uid?:number, unit?:any, count?:number }} target
  * @param {Map<number, any>} pieces indexPieces(priv)
  * @param {{ priv?: any, backups?: any }} [opts] 0.2.0 补位: the player's own pieces and cards of a chess in
  *   m.private.standIns — a unit carrying `standInFor`, and a teammate's bond popup row that says it (`target.standInFor`)
@@ -755,8 +734,6 @@ function DeviceDetail({ device, snapHp = null, live = null }) {
  */
 export function resolveDetail(target, pieces, { priv = null, backups = data.get('backups') } = {}) {
   if (!target) return null;
-  // a special terrain tile (issue #184): the screen resolved the stage's own numbers already (gameLogic.terrainInfo)
-  if (target.kind === 'terrain') return target.terrain && typeof target.terrain === 'object' ? { type: 'terrain', terrain: target.terrain } : null;
   // a stage device (#228): the screen resolved the device's stage entry (gameLogic.deviceInfo / deviceTipAt); in a battle
   // `unitId` is the crate / turret unit whose snapshot tuple gives the live HP
   if (target.kind === 'device') {
@@ -885,7 +862,6 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
       ${detail.type === 'item' ? html`<${ItemDetail} item=${detail.item} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds} />` : null}
       ${detail.type === 'enemy' ? html`<${EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}
       ${detail.type === 'token' ? html`<${TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} snapHp=${snapHp} live=${liveNow} />` : null}
-      ${detail.type === 'terrain' ? html`<${TerrainDetail} terrain=${detail.terrain} />` : null}
       ${detail.type === 'device' ? html`<${artDevice ? DeviceDetailArt : DeviceDetail} device=${detail.device} snapHp=${snapHp} live=${liveNow} />` : null}
     </div>
   </aside>`;
