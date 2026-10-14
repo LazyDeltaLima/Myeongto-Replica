@@ -1161,6 +1161,13 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     `panel_camp_tag` → `camp_tag_group_basic`·`_extra_1..3` = `camp_tag`(63×63 그림)·`text_camp`(20px) 둘뿐, 둘 다 색 `#d0d0d0` — 우리 아이콘·이름도
     그 색으로. `UICharacterInfoStatusSubPanelInAutochess.SetData`는 `AutoChessBattleUtil.GetCharBondIds`의 맹약마다 `_SetCampIcon(bondId, image, text)`만
     부르고, 맹약이 없으면 칸 배경을 `_campGroupBkgImgColorWhenEmpty`(알파 0)로 지운다. 클라 칸을 눌러 팝업이 열리는지는 안 봄 — 우리 동작 유지.
+- 결정 2(**공격 범위 칸 색은 공식대로**): 공식 모양 카드(오퍼레이터·장치·아이템·소환물 — 적 카드에는 범위 칸이 없음)의 「攻击范围」 칸을 민트에서 클라
+  색으로(`css/hud-art.css .dart__range .rgrid`): 자기 칸 흰색, 범위 칸 주황 테 `#fe7800` + 안 `rgba(253,122,63,.4)`, 빈 칸은 안 보임. 테 두께는 칸의 1/8.
+  예전 상자 카드(공식 모양 HUD가 아닐 때)·干员调配 화면의 범위 칸은 그대로.
+  - 공식 근거: 프리팹 `panel_atk_range_grid` = `GridLayoutGroup`(칸 18.7, 간격 1.5) + `UICharacterAttackRangeWidget`의 스프라이트 셋(외부 번들
+    `arts/ui/[uc]battlecommon.ab`): `_tileStand` = `attack_range_stand`(16×16 흰색 불투명), `_tileAttack` = `attack_range_attack`(16×16, 가장자리 2px
+    `#fe7800`, 안 `rgba(253,122,63,.4)`), `_tileEmpty` = `sprite_mask`. `RenderAttackRange`는 범위 칸을 흰색(1,1,1,1)으로 칠하고 빈 칸은
+    `Colors.TRANSPARENT`. 관리자 캡처 두 장(刺玫: 주황 테 칸 + 흰 자기 칸, 不屈弹射器: 흰 칸 하나)과 픽셀이 맞음. 칸 사이 간격은 우리 2px 그대로.
 
 ## 설정 창을 기능별 절로 (2026-10-14, 관리자 결정)
 

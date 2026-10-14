@@ -610,6 +610,18 @@
 }
 .dart__range { width: 1.1rem; }
 .dart__range .rgrid, .dart__range > :first-child { margin: auto 0; }
+/* the 攻击范围 cells in the client's colours (maintainer decision 2026-10-14), on every official-form card: the prefab's
+   panel_atk_range_grid is a UICharacterAttackRangeWidget whose sprites (arts/ui/[uc]battlecommon.ab) are attack_range_stand
+   — the unit's own cell, solid white — and attack_range_attack — 16 px with a 2 px #fe7800 edge round rgba(253,122,63,.4);
+   RenderAttackRange tints both white (as drawn) and an empty cell Colors.TRANSPARENT. The edge is an eighth of the cell as
+   in the sprite, inside the cell's grid track (the gap between cells shows, as the client's 1.5 spacing) */
+.dart__range .rgrid i {
+  box-sizing: border-box; width: var(--rg); height: var(--rg);
+  border: max(1px, calc(var(--rg) / 8)) solid transparent; background: none;
+}
+.dart__range .rgrid i.on { border-color: #fe7800; background: rgba(253, 122, 63, .4); }
+.dart__range .rgrid i.self { border-color: #fff; background: #fff; }
+.dart__range .rgrid-all { color: #fff; border-color: #fe7800; background: rgba(253, 122, 63, .4); }
 /* a bond box holds the bond's icon and name only (maintainer decision 2026-10-14): the client's camp_tag_group_* (prefab
    act2autochess_character_info_subpanel_status) is a camp_tag image and a text_camp label, both #d0d0d0, no count, tier
    or active mark (UICharacterInfoStatusSubPanelInAutochess._SetCampIcon sets the two). The count, the tier and whether
