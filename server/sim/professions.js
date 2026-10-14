@@ -519,6 +519,9 @@ export const SUB = Object.freeze({
       const n = unit.trait.stored ?? 0;
       if (n >= (unit.profile.storeMax ?? 3)) return false;
       unit.trait.stored = n + 1;
+      // the store is an attack behaviour of its own in the client (深靛: Attack_Charge) — the client plays its clip
+      // (render/units.js: an fx `signal` → the role's `signals` clip)
+      battle.fx('mysticStore', { x: unit.x, y: unit.y, id: unit.id, signal: 'store' });
       return true;
     },
     releaseEnergy: (battle, unit) => { const n = unit.trait.stored ?? 0; unit.trait.stored = 0; return n; },

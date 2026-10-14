@@ -594,6 +594,28 @@ export class SpineActor {
     this._play(name, false, { start: hit, mix: 0.06 });
   }
 
+  /**
+   * A behaviour of the attack ability that strikes nothing, as an fx `signal` tells (秘术师 storing an energy: fx
+   * 'mysticStore' { signal: 'store' }): the role's `signals` clip once from its start over `interval` game seconds (its
+   * attack time, as the client scales an attack clip). False when the role names none.
+   */
+  signalSwing(signal, interval) {
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant') return false;
+    if (this._endPlaying() || this._swinging()) return false;
+    const name = this._attackClip()?.signals?.[signal];
+    if (!this.has(name)) return false;
+    const dur = this.dur(name);
+    const ts = swingSpeed(dur, clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8));
+    this.mode = 'attack';
+    this.windUntil = null;
+    this.wound = false;
+    this.attackUntil = this.clock + dur / ts + SWING_HOLD;
+    this.swingUntil = this.attackUntil;
+    this.swingAt = null;
+    this._play(name, false, { timeScale: ts, mix: 0.06 });
+    return true;
+  }
+
   _attackClip() {
     if (this._stance()) return null;   // the client's attack `_animKey ""`: the stance runs on
     const sk = this.roles.skill;

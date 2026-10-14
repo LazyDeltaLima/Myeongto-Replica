@@ -178,15 +178,19 @@ export const COMBAT_CLIPS = Object.freeze({
 });
 
 /**
- * Clips of an attack the sim marks as another ability of the client (docs/rules/render.md 「Spine 클립 커버리지」 D,
+ * Clips of an attack the sim marks as another ability of the client (docs/rules/render.md 「Spine 클립 커버리지」 D·H,
  * maintainer's notes 2026-10-14): the 'atk' event's signal (Battle.forceAttack `signal`: a talent's own attack 'T.1') →
- * that attack plays its clip (render/spine.js _signalStrike). Model key prefix → { attack?: { [signal]: clip }, skills?:
+ * that attack plays its clip (render/spine.js _signalStrike); an fx's `signal` (an attack behaviour that strikes nothing:
+ * 秘术师 'store') → the clip as a whole swing (render/spine.js signalSwing). Model key prefix → { attack?: { [signal]: clip }, skills?:
  * { [0-based skill index]: { [signal]: clip } } } → the role clip's `signals`.
  */
 export const SIGNAL_CLIPS = Object.freeze({
   // 圣约送葬人: the 受选之人 shot is each mode's talent ability (charpack Modes/*/Body/Talents/1 `_animKey "Attack_B"`, 2
   // shots); the S2 / S3 modes pair Attack_B→Skill_n_Attack_B
   'op:char_1032_excu2:': { attack: { 'T.1': 'Attack_B' }, skills: { 1: { 'T.1': 'Skill_2_Attack_B' }, 2: { 'T.1': 'Skill_3_Attack_B' } } },
+  // 深靛: the 秘术师 store (no valid target: one energy instead of an attack) is the Default mode's attack behaviour with
+  // Attack_Charge (the sim's fx 'mysticStore' { signal: 'store' }); her skill modes store nothing
+  'op:char_469_indigo:': { attack: { store: 'Attack_Charge' } },
 });
 
 /**

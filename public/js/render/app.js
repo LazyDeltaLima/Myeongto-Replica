@@ -1766,6 +1766,8 @@ export async function createFieldView(host, options = {}) {
           const v = d && d.id != null ? views.get(d.id) : null;
           if (v && v.slideTo) v.slideTo(Number(e[2]), Number(e[3]), { ...(Number(d.dur) > 0 ? { dur: Number(d.dur) } : {}), face: d.face });
         }
+        // an attack behaviour that strikes nothing (fx `signal`: 秘术师 'mysticStore' → its role's `signals` clip, UnitView.onSignal)
+        if (e[4] && typeof e[4] === 'object' && typeof e[4].signal === 'string' && e[4].id != null) views.get(e[4].id)?.onSignal?.(e[4].signal);
         // a skill's deploy clip without a deployment (fx `redeploy`: 乌尔比安 S3's anchor on his own tile, UnitView.replayDeploy)
         if (e[4] && typeof e[4] === 'object' && typeof e[4].redeploy === 'string' && e[4].id != null) views.get(e[4].id)?.replayDeploy?.(e[4].redeploy);
         // 予愿安洁莉娜 S2's 吟唱: her model glides out along the sweep and back (UnitView.glide; the sim keeps her on her tile)

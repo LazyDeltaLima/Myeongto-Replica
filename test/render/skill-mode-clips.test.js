@@ -272,3 +272,15 @@ test('圣约送葬人 受选之人: the talent shot (the atk event\'s signal T.1
     assert.notEqual(v.actor.current, talent, 'then back to rest');
   }
 });
+
+test('深靛 秘术师: storing an energy (fx signal store) plays Attack_Charge over her attack interval; a model without one stays', async () => {
+  const v = await view('char_469_indigo', { skillIndex: 0 });
+  v.atkInterval = 1.6;
+  v.onSignal('store');
+  assert.equal(v.actor.current, 'Attack_Charge');
+  secs(v, 2);
+  assert.equal(v.actor.current, 'Idle');
+  const w = await view('char_1032_excu2', { skillIndex: 0 });
+  w.onSignal('store');
+  assert.equal(w.actor.current, 'Idle', 'no store clip named');
+});

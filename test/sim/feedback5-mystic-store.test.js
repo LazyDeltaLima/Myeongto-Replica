@@ -50,6 +50,8 @@ test('no target: her first attack check stores at once (an attack action: the in
     assert.equal(u.trait.stored, max, `${id}: at most ${max}`);
     assert.equal(u.atkCd, 0, `${id}: full — idle, the attack ready`);
     assert.equal(attacksOf(h, u).length, 0);
+    // each store tells the client (its Attack_Charge clip: render/units.js onSignal)
+    assert.equal(h.eventsOf('fx').filter((e) => e[1] === 'mysticStore' && e[4]?.id === u.id && e[4].signal === 'store').length, max);
     done(h);
   }
 });

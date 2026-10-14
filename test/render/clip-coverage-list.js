@@ -89,9 +89,6 @@ export const UNPLAYED = {
     Skill_1_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
     Skill_2_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
   },
-  char_469_indigo: {
-    Attack_Charge: 'todo: H — talent / trait state',
-  },
   char_474_glady: {
     Skill_2_Begin: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation): the attack channel begin of the S2 mode',
   },
