@@ -261,7 +261,8 @@ Clip      = { begin: string|null, loop: string, end: string|string[]|null /* an 
               combat?: { loop: string, alts?: string[], pick?: string } /* on an enemy it blocks (COMBAT_CLIPS) */,
               signals?: { [signal]: string } /* an 'atk' the sim marks as another ability, e.g. 'T.1' (SIGNAL_CLIPS) */,
               firstBegin?: true /* attack role: `begin` opens a spell of attacks only (FIRST_ATTACK_BEGIN) */,
-              attackBegin?: string, attackEnd?: string /* skill clip: its spell of attacks' own begin / end */ }
+              attackBegin?: string, attackEnd?: string /* skill clip: its spell of attacks' own begin / end */,
+              up?: string /* Back skeleton: the facing-up clip it attacks with (UP_CLIPS) */ }
 SkillClip = Clip & { index: number /* 0-based skill index */, idle: string|null /* Skill_n_Idle */,
                     die?: string, stun?: string /* its mode's Die / Stun pair (SKILL_STATE_CLIPS) */,
                     variants?: { [name]: { begin?, loop?, end?, idle? } } /* a cast's clip variant (SKILL_VARIANTS) */,

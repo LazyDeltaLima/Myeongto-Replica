@@ -405,3 +405,20 @@ test('雪猎 reload: Reload_Begin, Reload_Loop while she reloads, Reload_End whe
   assert.equal(v.actor.current, 'Reload_Break', 'ReloadAttack: Reload_Break (then Attack_Loop) — no Reload_End');
   assert.equal(v.actor.mode, 'attack');
 });
+
+test('facing up (the Back model): 送葬人 / 诗怀雅 attack on Attack_Up, 松果 S1 / S2 on Skill_n_Up; facing right the plain clips', () => {
+  for (const [id, i, on, clip] of [['char_279_excu', 0, false, 'Attack_Up'], ['char_308_swire', 0, false, 'Attack_Up'], ['char_440_pinecn', 1, true, 'Skill_2_Up']]) {
+    const hits = assets.chars[id].spine.back.hits;
+    const b = actor(id, i, 'back');
+    if (on) { b.setSkill(true); run(b, 1); }
+    assert.ok(b.swing(hits[clip][0]));
+    assert.equal(b.current, clip, id);
+    const f = actor(id, i, 'front');
+    if (on) { f.setSkill(true); run(f, 1); }
+    assert.ok(f.swing(0.4));
+    assert.ok(!/_Up$/.test(f.current), `${id} front: ${f.current}`);
+  }
+  const p = actor('char_440_pinecn', 0, 'back');
+  p.setSkill(true);
+  assert.equal(p.current, 'Skill_1_Up', '松果 S1 cast facing up');
+});

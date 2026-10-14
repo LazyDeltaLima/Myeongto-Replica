@@ -41,7 +41,6 @@ export const UNPLAYED = {
     Default_2: 'none: setup pose of mode S2 (replaces Default, 0 s; charpack Modes/S2 _replaceAnimPairs)',
   },
   char_279_excu: {
-    Attack_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
     Skill_Up_Begin: 'none: S2 ThreePartOneshotAnimation has no up bundle (_GetAnimBundle: _down or Skill_Right_*); only the template of another unit (nasti_nstchr) names it',
     Skill_Up_End: 'none: S2 ThreePartOneshotAnimation has no up bundle (_GetAnimBundle: _down or Skill_Right_*); only the template of another unit (nasti_nstchr) names it',
     Skill_Up_Loop: 'none: S2 ThreePartOneshotAnimation has no up bundle (_GetAnimBundle: _down or Skill_Right_*); only the template of another unit (nasti_nstchr) names it',
@@ -49,18 +48,11 @@ export const UNPLAYED = {
   char_291_aglina: {
     Skill2_Begin: 'none: not a key of the skin SpineAnimator._animations (S3 key Skill_2_Begin plays Skill1_Begin; the client plays clips by key only)',
   },
-  char_308_swire: {
-    Attack_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
-  },
   char_4016_kazema: {
     Default_B: 'none: setup pose of the stand-in form (0 s); only the buff template of another unit (parrot_m1_t) names it',
   },
   char_4116_blkkgt: {
     Skill_2_B: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); S2 plays Skill_2',
-  },
-  char_440_pinecn: {
-    Skill_1_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
-    Skill_2_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
   },
   char_498_inside: {
     Attack_Idle: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); attack is Attack_Begin/Loop/End',

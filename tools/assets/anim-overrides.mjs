@@ -225,6 +225,22 @@ export const FIRST_ATTACK_BEGIN = Object.freeze({
 });
 
 /**
+ * Facing-up clips (docs/rules/render.md 「Spine 클립 커버리지」 U, EN client, maintainer's notes 2026-10-14): an ability with
+ * `_upAnimKey` plays it when its unit faces up (`AbstractAnimatedAbility.GetAnimKey`: down, up, then its key; `_faceToTarget`
+ * → the facing, else the deploy direction), and these clips live in the Back skeleton, which the renderer draws facing
+ * up only. Charid → { attack?: clip, skills?: { [0-based skill index]: clip } } → the Back roles' `up` (render/spine.js
+ * _loopOf, an instant skill's clip).
+ */
+export const UP_CLIPS = Object.freeze({
+  // 送葬人: Modes/Default and S1 Body/Attack `_upAnimKey "Attack_Up"` (S2's ThreePartOneshotAnimation has no up bundle)
+  char_279_excu: { attack: 'Attack_Up' },
+  // 诗怀雅: Modes/Default, S1, S2 Body/Attack `_upAnimKey "Attack_Up"`
+  char_308_swire: { attack: 'Attack_Up' },
+  // 松果: skchr_pinecn_1 `_upAnimKey "Skill_1_Up"`, Modes/S2 Body/Attack `_upAnimKey "Skill_2_Up"`
+  char_440_pinecn: { skills: { 0: 'Skill_1_Up', 1: 'Skill_2_Up' } },
+});
+
+/**
  * The resting clips a skill sets for the whole battle (docs/rules/render.md 「Spine 클립 커버리지」 E, maintainer's notes
  * 2026-10-14): a skill whose prefab root has `_defaultModeIndex` ≥ 0 makes that charpack mode the operator's default mode
  * (`Character._GetDefaultModeIndex` → `Unit.OnInit` SwitchMode), so the mode's `_replaceAnimPairs` (Born → Start_n,
@@ -348,6 +364,15 @@ export function applyAnimOverrides(key, anims, names = null) {
         e.attack = a;
       }
       if (Object.keys(e).length) (anims.equip ||= {})[i] = e;
+    }
+  }
+  for (const [id, map] of Object.entries(UP_CLIPS)) {
+    if (key !== `op:${id}:back`) continue;
+    const has = (n) => typeof n === 'string' && (!names || names.includes(n));
+    if (anims.attack && has(map.attack)) anims.attack.up = map.attack;
+    for (const [i, up] of Object.entries(map.skills || {})) {
+      if (!has(up)) continue;
+      for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) if (clip) clip.up = up;
     }
   }
   for (const [prefix, map] of Object.entries(FIRST_ATTACK_BEGIN)) {

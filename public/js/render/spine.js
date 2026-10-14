@@ -684,7 +684,10 @@ export class SpineActor {
    */
   _loopOf(clip) {
     clip = this._swingClip(clip);
-    const name = clip.alts && this.alt?.clip === clip && this.has(this.alt.name) ? this.alt.name : clip.loop;
+    // a Back skeleton's role names the facing-up clip (`up`: the client's `_upAnimKey`, GetAnimKey — the Back model is
+    // drawn facing up only)
+    const loop = this.has(clip.up) ? clip.up : clip.loop;
+    const name = clip.alts && this.alt?.clip === clip && this.has(this.alt.name) ? this.alt.name : loop;
     if (this.atkRanged == null || !this.fortressClips) return name;
     const pair = this.fortressClips.find((p) => p[0] === name || p[1] === name);
     const want = pair ? pair[this.atkRanged ? 1 : 0] : name;
@@ -797,7 +800,7 @@ export class SpineActor {
         // through to the base clip and show no skill animation at all (player report).
         this.mode = 'skillBegin';
         this.skillClipOnce = true;
-        this._play(sk.loop, false, { mix: 0.08 });
+        this._play(this.has(sk.up) ? sk.up : sk.loop, false, { mix: 0.08 });
         this.skillBeginUntil = this.clock + Math.max(SKILL_CLIP_MIN, this.dur(sk.loop));
       } else if (this.mode === 'base') this._play(this._baseName(), true);
     } else if (!on && sk) {
