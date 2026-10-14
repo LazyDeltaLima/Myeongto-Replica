@@ -224,7 +224,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   늘려 반복 재생 — 그레이·레온하르트·와파린·미즈키 등이 느린 동작으로 보였다).
 - 이전 방식(보간 지연 ≈0.2 게임 초 앞을 보는 'atk' 미리보기 → `windUpPlan`, 전딜을 `MAX_WIND_SPEEDUP` 2.5배속까지 감음)은 'swing'이 없거나 windup이 0인
   공격(클립 모르는 유닛, 강제 공격, 적 치유)에만 남는다 — `app.js windUpAttacks`는 'swing'이 예고한 타격의 'atk'를 미리보기에서 뺀다(`swingStrikes`).
-- 'swing'은 `interp.js COSMETIC_EVENTS`(늦으면 버림), `shared/protocol.js EV.SWING`.
+- 'swing'은 `interp.js COSMETIC_EVENTS`(늦으면 버림), `shared/protocol.js EV.SWING`. 칸: `['swing', id, windup, kind, base?, face?, combat?]`(docs/SIM.md).
 - 테스트: `test/render/attack-swing.test.js`(가짜 PIXI). [화면 미확인]
 - **요새 근접·원거리 클립** (관리자 제보 2026-10-10: 号角이 원거리 공격에도 저지 시 모션을 씀): 클라 프리팹 `<id>/Modes/<mode>/Body/Attack/`의
   MeleeAttack·BlockedMeleeAttack·BlockedRangedAttack과 RangedAttack은 다른 클립 — 号角 Default `Attack_A`/`Attack_B`, S2 `Skill_2_A_Loop`/`Skill_2_B_Loop`,
@@ -420,7 +420,10 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   스킬의 클립을 틀던 다섯 명은 `anim-overrides.mjs`로 고쳤다 — 灵知 S3 `Skill_4_*`(그동안 S2 충전 모드의 `Skill_3`), 歌蕾蒂娅 S2 시작 `Skill_2_Startup`
   (`Skill_2_Begin`은 S2 모드 공격 채널의 시작), 伊内丝 S3 시작 `Start_Skill`, 缄默德克萨斯 S2·S3 시작 `Start_2`·`Start_3`(배치 일격, 모드 Born 짝), 银灰 S2 공격
   `Combat`(그동안 S3의 `Skill`). 남은 `todo`는 클립을 트는 클라 구조로 묶었다(묶음 하나 = 렌더 고칠 자리 하나):
-  - **A** 저지 대상 공격: 모드 `UnitMode._combat` — `Character._FetchCombatTarget`이 저지 중인 적 중 첫 적을 고를 때(要塞 `FORTRESS_CLIPS`의 일반형).
+  - **A** 저지 대상 공격: 모드 `UnitMode._combat` — `Character._FetchCombatTarget`이 저지 중인 적 중 첫 적을 고를 때(要塞 `FORTRESS_CLIPS`의 일반형). 구현(같은 날):
+    시뮬 `ai.js`가 주 대상이 자기가 저지한 적이면 'swing' 7번째 칸 1 → `units.js onSwing` → `spine.js combatHit`, 역할 클립의 `combat`(`anim-overrides.mjs COMBAT_CLIPS`,
+    `{loop, alts?, pick?}`)을 `_swingClip`이 고른다. 拉普兰德(기본·S2)·银灰·断崖·伊内丝(S2는 `Skill_2_Combat`)·丰川祥子(기본)·仇白(`Combat_A/B` 무작위)·予愿安洁莉娜 S3·
+    领主·Sharp. 领主·Sharp는 클립만 — 저지 중 근접 공격이라는 판정(시뮬 `professions.js` lord)은 그대로.
   - **B** 대체 공격 클립: `AbilityRandomGroup`(무작위/차례)·`UberAnimationEffectEmitter._replaceGroup`·순차 묶음 — 휘두를 때마다 고름. 구현(같은 날):
     `anim-overrides.mjs ATTACK_ALTS` → 역할 클립 `alts`·`pick`(차례 `loop`·무작위 `random`·「직전과 다르게」 `other` = `_diffFromLastOneIfNotFirst`), `spine.js _nextAlt`가
     휘두름마다 고르고 모델이 바뀌어도(앞/뒤) 그 휘두름의 클립을 잇는다. 11명(维什戴尔·迷迭香·阿斯卡纶·隐德来希 S3·望 기본·S3·维娜·维多利亚·凛御银灰·

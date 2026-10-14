@@ -198,6 +198,7 @@ export class SpineActor {
     this.swingUntil = null;       // the end of a swing's clip (swing): attacks meanwhile leave it alone
     this.fortressClips = null;    // a 要塞's [melee, ranged] clip pairs (render/units.js FORTRESS_CLIPS)
     this.atkRanged = null;        // …and whether its latest attack was ranged (null: not known yet — the role's clip)
+    this.combatHit = false;       // the latest swing hits an enemy this unit blocks: the role's `combat` clip (units.js onSwing)
     this.alt = null;              // the attack clip a role with turns (anims `alts`) plays now: { clip, name, n }
     this.altRandom = Math.random; // its 'random' / 'other' choice
     this.stanceSkills = null;     // skill indices whose loop is the stance while on, attacks clipless (render/units.js STANCE_SKILLS)
@@ -475,12 +476,13 @@ export class SpineActor {
   }
 
   /**
-   * The swing playing now as { windup, elapsed, alt } (game s; alt = its clip of a role with turns), else null — a model swapped mid-swing carries it over
+   * The swing playing now as { windup, elapsed, alt, combat } (game s; alt = its clip of a role with turns, combat = it hits
+   * an enemy this unit blocks), else null — a model swapped mid-swing carries it over
    * (units.js: an operator turned Front ⇄ Back as its attack starts, render/face-turn.js).
    */
   swingElapsed() {
     return this._swinging() && this.swingAt != null
-      ? { windup: this.swingWindup, elapsed: Math.max(0, this.clock - this.swingAt), alt: this.alt?.name ?? null } : null;
+      ? { windup: this.swingWindup, elapsed: Math.max(0, this.clock - this.swingAt), alt: this.alt?.name ?? null, combat: this.combatHit } : null;
   }
 
   /** A swing's clip is playing (swing): the 'atk' events of its strike, and any other attack meanwhile, leave it alone. */
@@ -558,6 +560,7 @@ export class SpineActor {
    * latest attack's kind (atkRanged) — the client's MeleeAttack / BlockedMeleeAttack / BlockedRangedAttack vs RangedAttack.
    */
   _loopOf(clip) {
+    clip = this._swingClip(clip);
     const name = clip.alts && this.alt?.clip === clip && this.has(this.alt.name) ? this.alt.name : clip.loop;
     if (this.atkRanged == null || !this.fortressClips) return name;
     const pair = this.fortressClips.find((p) => p[0] === name || p[1] === name);
@@ -572,6 +575,7 @@ export class SpineActor {
    * the one just played. `keep` = the clip to keep (a model swapped mid-swing). True when the role has turns.
    */
   _nextAlt(clip, keep = null) {
+    clip = clip && this._swingClip(clip);
     const alts = clip?.alts;
     if (!Array.isArray(alts) || alts.length < 2) return false;
     const st = this.alt?.clip === clip ? this.alt : (this.alt = { clip, name: null, n: 0 });
@@ -585,6 +589,16 @@ export class SpineActor {
     st.name = name;
     st.n = alts.indexOf(name) + 1;
     return true;
+  }
+
+  /**
+   * The clip of role `clip` this swing plays: its `combat` clip while the swing hits an enemy this unit blocks (the
+   * client's COMBAT state ability, UnitMode._combat — `{ loop, alts?, pick? }`, tools/assets/anim-overrides.mjs
+   * COMBAT_CLIPS), else the role clip itself.
+   */
+  _swingClip(clip) {
+    const c = this.combatHit ? clip?.combat : null;
+    return c && this.has(c.loop) ? c : clip;
   }
 
   // Skill loops that are pure stances (no OnAttack in the loop) are still valid attack visuals during a skill;

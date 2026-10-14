@@ -256,7 +256,8 @@ ranged enemy for that clip, GitHub #58, and strikes every enemy attack at that f
 
 ```js
 Clip      = { begin: string|null, loop: string, end: string|null, via?: 'combat'|'attackAny'|'skill'|'idle'|'attack',
-              alts?: string[], pick?: 'loop'|'random'|'other' /* attack clips taking turns */ }
+              alts?: string[], pick?: 'loop'|'random'|'other' /* attack clips taking turns */,
+              combat?: { loop: string, alts?: string[], pick?: string } /* on an enemy it blocks (COMBAT_CLIPS) */ }
 SkillClip = Clip & { index: number /* 0-based skill index */, idle: string|null /* Skill_n_Idle */ }
 Roles = {
   idle: string, deploy: string,

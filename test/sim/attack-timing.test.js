@@ -169,3 +169,25 @@ test('an ability that faces its deploy direction (_faceToDefault) swings with \'
     done(h);
   }
 });
+
+// docs/rules/render.md 「Spine 클립 커버리지」 A: a swing whose main target is an enemy its unit blocks carries a 7th field 1
+// (the client's COMBAT state attacks with the mode's `_combat` ability — Character._FetchCombatTarget, the first blocked
+// enemy); the renderer plays the role's combat clip for it
+test('the swing marks a blocked main target (7th field 1); an enemy out of block range leaves no 7th field', () => {
+  const op = { ...chessRec({ id: 't_op', stats: { atk: 100, bat: BAT }, skill: null, rangeGrid: [[0, 0], [0, 1], [0, 2]] }),
+    attackAnim: { base: { clip: 'Attack', dur: 1, hit: HIT, max: 1 }, skills: [] } };
+  for (const [col, want] of [[4.4, 1], [5, undefined]]) {
+    const h = makeBattle({
+      defs: { chess: { t_op: op }, enemies: { e: enemyRec({ key: 'e', hp: 1e9, speed: 0 }) } },
+      units: [{ chessId: 't_op', row: 10, col: 4 }], enemies: [{ key: 'e', pos: [10, col] }],
+      content: 'none', autoFinish: false, timeLimit: 60, captureNoisy: true,
+    });
+    const u = h.unit('t_op');
+    h.run(0.5);
+    const sw = h.eventsOf('swing').filter((e) => e[1] === u.id);
+    assert.ok(sw.length >= 1, `col ${col}: a swing`);
+    assert.equal(sw[0][6], want, `col ${col}: ${JSON.stringify(sw[0])}`);
+    if (want) assert.ok(u.blocking.length === 1, 'it blocks the enemy');
+    done(h);
+  }
+});

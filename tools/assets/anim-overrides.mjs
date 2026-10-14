@@ -137,6 +137,34 @@ export const ATTACK_ALTS = Object.freeze({
 });
 
 /**
+ * The clip an attack plays on an enemy the unit blocks (docs/rules/render.md 「Spine 클립 커버리지」 A, EN / CN client
+ * charpacks, maintainer's notes 2026-10-14): a mode's `_combat` (UnitMode) is the ability of the COMBAT state, whose target
+ * is the first enemy the unit blocks (Character._FetchCombatTarget); the sim marks such a swing (ai.js 'swing' 7th field).
+ * Model key prefix → { attack?: combat, skills?: { [0-based skill index]: combat } } with combat = a clip name or
+ * { alts, pick } (ATTACK_ALTS' turns) → the role clip's `combat` { loop, alts?, pick? } (render/spine.js _swingClip).
+ */
+export const COMBAT_CLIPS = Object.freeze({
+  // 拉普兰德: Modes/Default and S2 Body/Combat `_animKey "Combat"` (S2's other attacks: Skill)
+  'op:char_140_whitew:': { attack: 'Combat', skills: { 1: 'Combat' } },
+  // 银灰 (its S2 attacks with Combat throughout: SKILL_CLIP_OVERRIDES), 断崖: Modes/Default Body/Combat "Combat"
+  'op:char_172_svrash:': { attack: 'Combat' },
+  'op:char_294_ayer:': { attack: 'Combat' },
+  // 伊内丝: Modes/Default, S2, S3 Body/Combat "Combat"; the S2 mode pairs Combat→Skill_2_Combat
+  'op:char_4087_ines:': { attack: 'Combat', skills: { 1: 'Skill_2_Combat' } },
+  // 丰川祥子: Modes/Default Body/Combat "Combat" (the S2 timbre modes' `_combat` is their Attack key)
+  'op:char_4182_oblvns:': { attack: 'Combat' },
+  // 仇白: Modes/Default and S2 Body/Combat = AbilityRandomGroup Random [Combat_A, Combat_B]; S3's `_combat` is its attack
+  'op:char_4082_qiubai:': {
+    attack: { alts: ['Combat_A', 'Combat_B'], pick: 'random' },
+    skills: { 1: { alts: ['Combat_A', 'Combat_B'], pick: 'random' } },
+  },
+  // 予愿安洁莉娜 (CN client): mode S3 Body/Combat Skill_3_Combat
+  'op:char_1015_aglna2:': { skills: { 2: 'Skill_3_Combat' } },
+  // 领主·Sharp (char_617_sharp2): Modes/Default and S1 Body/Combat "Combat", the melee strike while it blocks
+  'op:char_617_sharp2:': { attack: 'Combat' },
+});
+
+/**
  * The resting clips a skill sets for the whole battle (docs/rules/render.md 「Spine 클립 커버리지」 E, maintainer's notes
  * 2026-10-14): a skill whose prefab root has `_defaultModeIndex` ≥ 0 makes that charpack mode the operator's default mode
  * (`Character._GetDefaultModeIndex` → `Unit.OnInit` SwitchMode), so the mode's `_replaceAnimPairs` (Born → Start_n,
@@ -183,6 +211,21 @@ export function applyAnimOverrides(key, anims, names = null) {
       if (!alt) continue;
       const alts = names ? alt.alts.filter((n) => names.includes(n)) : [...alt.alts];
       if (alts.length > 1) Object.assign(c, { alts, pick: alt.pick });
+    }
+  }
+  for (const [prefix, map] of Object.entries(COMBAT_CLIPS)) {
+    if (!key.startsWith(prefix)) continue;
+    const combatOf = (how) => {
+      const c = typeof how === 'string' ? { loop: how } : { loop: how.alts[0], ...how };
+      if (c.alts) c.alts = c.alts.filter((n) => !names || names.includes(n));
+      if (c.alts && c.alts.length < 2) { c.loop = c.alts[0] ?? c.loop; delete c.alts; delete c.pick; }
+      return !names || names.includes(c.loop) ? c : null;
+    };
+    const put = (clip, how) => { const c = clip && how ? combatOf(how) : null; if (c) clip.combat = c; };
+    put(anims.attack, map.attack);
+    for (const [i, how] of Object.entries(map.skills || {})) {
+      put(anims.skills?.[i], how);
+      if (anims.skill?.index === Number(i) && anims.skill !== anims.skills?.[i]) put(anims.skill, how);
     }
   }
   for (const [prefix, map] of Object.entries(EQUIP_ROLES)) {

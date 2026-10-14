@@ -1,5 +1,6 @@
-// Attack clips taking turns (anims `alts` / `pick`, tools/assets/anim-overrides.mjs ATTACK_ALTS) and an equipped skill's
-// resting clips (anims `equip`, EQUIP_ROLES) — docs/rules/render.md 「Spine 클립 커버리지」 B and E: every swing plays one
+// Attack clips taking turns (anims `alts` / `pick`, tools/assets/anim-overrides.mjs ATTACK_ALTS), the clip on a blocked
+// enemy (`combat`, COMBAT_CLIPS) and an equipped skill's resting clips (anims `equip`, EQUIP_ROLES) — docs/rules/render.md
+// 「Spine 클립 커버리지」 A, B and E: every swing plays one
 // of the role's clips (in turn, at random, never the same twice). Real manifest entries, headless fake PIXI like
 // test/local-patch-skill-clips.test.js.
 
@@ -97,4 +98,27 @@ test('引星棘刺 with S3 equipped: Start_2, then Skill_3_Idle as her idle', ()
   assert.equal(a.current, 'Start_2');
   run(a, 4);
   assert.equal(a.current, 'Skill_3_Idle');
+});
+
+// docs/rules/render.md 「Spine 클립 커버리지」 A: a swing on an enemy the unit blocks (sim 'swing' 7th field → units.js
+// onSwing → combatHit) plays the role's combat clip (tools/assets/anim-overrides.mjs COMBAT_CLIPS)
+test('a swing on a blocked enemy plays the combat clip: 拉普兰德 Combat, 伊内丝 S2 Skill_2_Combat, 仇白 Combat_A / _B', () => {
+  const w = actor('char_140_whitew');
+  assert.deepEqual(swings(w, 1), ['Attack']);
+  w.combatHit = true;
+  assert.deepEqual(swings(w, 1), ['Combat']);
+  w.combatHit = false;
+  assert.deepEqual(swings(w, 1), ['Attack']);
+  const i = actor('char_4087_ines', 1);
+  i.setSkill(true);
+  run(i, 3);
+  i.combatHit = true;
+  assert.deepEqual(swings(i, 1), ['Skill_2_Combat']);
+  const q = actor('char_4082_qiubai');
+  const draws = [0.9, 0.1];
+  q.altRandom = () => draws.shift();
+  q.combatHit = true;
+  assert.deepEqual(swings(q, 2), ['Combat_B', 'Combat_A']);
+  const s = q.swing(0.3) && q.swingElapsed();
+  assert.equal(s.combat, true, 'a model swapped mid-swing carries it');
 });

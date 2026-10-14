@@ -1646,7 +1646,7 @@ export async function createFieldView(host, options = {}) {
 
   /**
    * An operator turns as its attack starts (docs/rules/render.md 「공격 방향」, render/face-turn.js) — before the event's
-   * effects, which take its facing: the sim's swing ['swing', unit, windup, kind, base, face] with `face` its main
+   * effects, which take its facing: the sim's swing ['swing', unit, windup, kind, base, face, combat] with `face` its main
    * target's id, 'D' its deploy direction or 'F' its front (no 6th field: the attack turns it nowhere); ['face', unit,
    * turn] a skill ability cast (sim ai.js castFace: a 'replace' cast's attack, a CastSkill), `turn` as a swing's face;
    * ['face', unit] no target left → its deploy direction. An 'atk' with no swing or cast turn before it (a kit's own
@@ -1700,7 +1700,7 @@ export async function createFieldView(host, options = {}) {
         if (w > 0) {
           const seen = swingStrikes.get(e[1]);   // (the look-ahead's note carries the event's own time)
           if (!(seen != null && Math.abs(seen - now - w) < 0.2)) swingStrikes.set(e[1], now + w);
-          views.get(e[1])?.onSwing?.(w, e[3], e[4] === 1);
+          views.get(e[1])?.onSwing?.(w, e[3], e[4] === 1, e[6] === 1);
         }
         break;
       }

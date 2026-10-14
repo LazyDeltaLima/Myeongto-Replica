@@ -151,7 +151,12 @@ export function updateAlly(b, u, dt) {
   const swingEv = ['swing', u.id, roundMs(t.strike), prof._fortressMelee ? 'none' : (prof.projectile || 'none')];
   const base = sk && sk.active && sk.spec?.baseClip ? 1 : 0;   // the Default clip while the skill is on (attackClipOf)
   const face = swingFace(u, targets);
-  if (face != null) { swingEv.push(base, face); u.faced = true; u.faceTgt = targets[0] ?? null; } else if (base) swingEv.push(1);
+  // the main target is an enemy this unit blocks: the client's COMBAT state attacks it with the mode's `_combat` ability
+  // (Character._FetchCombatTarget — the first blocked enemy), whose clip the renderer plays (docs/rules/render.md
+  // 「Spine 클립 커버리지」 A) — the 7th field, 1
+  const combat = targets[0] && u.blocking?.includes(targets[0]) ? 1 : 0;
+  if (face != null) { swingEv.push(base, face); u.faced = true; u.faceTgt = targets[0] ?? null; } else if (base || combat) swingEv.push(base);
+  if (combat) { if (swingEv.length < 6) swingEv.push(null); swingEv.push(1); }
   b._ev(swingEv);
   u.castLeft = t.action;
   u.swing = { left: t.strike, targets, sel: t.sel, isSkill: !!prof.isSkill };

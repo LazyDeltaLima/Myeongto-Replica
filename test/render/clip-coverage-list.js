@@ -25,7 +25,6 @@ export const UNPLAYED = {
     Skill_2_Takeoff_Begin: 'render: render/units.js UnitView.glide → SpineActor.chant',
     Skill_2_Takeoff_End: 'render: render/units.js UnitView.glide → SpineActor.chant',
     Skill_2_Takeoff_Loop: 'render: render/units.js UnitView.glide → SpineActor.chant',
-    Skill_3_Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
     Skill_3_Die: 'todo: F — skill mode Die pair',
     Skill_3_Restart_Begin: 'todo: G — skill prefab clip [ASSUMED]',
   },
@@ -70,9 +69,6 @@ export const UNPLAYED = {
     Skill_3_Restart_Begin: 'todo: G — skill prefab clip',
     Skill_3_Restart_End: 'todo: G — skill prefab clip',
   },
-  char_140_whitew: {
-    Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
-  },
   char_2027_wang: {
     Default_2: 'none: setup pose of mode S2 (replaces Default, 0 s; charpack Modes/S2 _replaceAnimPairs)',
   },
@@ -91,9 +87,6 @@ export const UNPLAYED = {
   },
   char_291_aglina: {
     Skill2_Begin: 'none: not a key of the skin SpineAnimator._animations (S3 key Skill_2_Begin plays Skill1_Begin; the client plays clips by key only)',
-  },
-  char_294_ayer: {
-    Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
   },
   char_308_swire: {
     Attack_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
@@ -115,14 +108,6 @@ export const UNPLAYED = {
   char_4064_mlynar: {
     Idle_2: 'todo: H — talent / trait state [ASSUMED]',
   },
-  char_4082_qiubai: {
-    Combat_A: 'todo: A — blocked-target attack (UnitMode._combat)',
-    Combat_B: 'todo: A — blocked-target attack (UnitMode._combat)',
-  },
-  char_4087_ines: {
-    Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
-    Skill_2_Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
-  },
   char_4116_blkkgt: {
     Skill_2_B: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); S2 plays Skill_2',
   },
@@ -133,7 +118,6 @@ export const UNPLAYED = {
     Skill_3_ReStart_B: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair) [ASSUMED]',
   },
   char_4182_oblvns: {
-    Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
     Skill_2_Idle_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
     Skill_2_Loop_A: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
     Skill_2_Loop_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
@@ -171,8 +155,5 @@ export const UNPLAYED = {
   },
   char_498_inside: {
     Attack_Idle: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); attack is Attack_Begin/Loop/End',
-  },
-  char_617_sharp2: {
-    Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
   },
 };
