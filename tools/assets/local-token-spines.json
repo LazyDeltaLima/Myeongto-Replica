@@ -412,6 +412,50 @@
         "width": 289.01,
         "height": 358.996
       }
+    },
+    "trap_185_vtlntw": {
+      "skel": "trap_185_vtlntw.skel",
+      "atlas": "trap_185_vtlntw.atlas",
+      "textures": [
+        "trap_185_vtlntw.png"
+      ],
+      "pma": true,
+      "anims": {
+        "idle": "Idle",
+        "deploy": "Idle",
+        "attack": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null
+        },
+        "attackDown": null,
+        "skill": {
+          "begin": null,
+          "loop": "Attack",
+          "end": null,
+          "via": "attack",
+          "index": 0,
+          "idle": null
+        },
+        "die": "Die",
+        "move": null,
+        "stun": null
+      },
+      "animations": {
+        "Attack": 1.633,
+        "Default": 0,
+        "Die": 1,
+        "Idle": 1.333
+      },
+      "events": [
+        "OnAttack"
+      ],
+      "hits": {
+        "Attack": [
+          0.6
+        ]
+      },
+      "bounds": null
     }
   }
 }

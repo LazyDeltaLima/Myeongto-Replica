@@ -400,8 +400,10 @@ async function main() {
   // spawnable enemies/tokens than research lists (e.g. 机变 enemy swaps): cover them too.
   const [dataEnemies, dataTokens, dataBosses, dataBackups, dataChess, dataWaves] = await Promise.all(
     ['data/enemies.json', 'data/tokens.json', 'data/bosses.json', 'data/backups.json', 'data/chess.json', 'data/waves.json'].map((f) => readJson(f).catch(() => null)));
-  // the stage tokens a leader switches on mid-fight (wave template `devices`: 子代 trap_039_dstnta) are drawn as tokens
-  const deviceIds = [...new Set(Object.values(dataWaves || {}).flatMap((w) => (w?.devices || []).map((d) => d?.key)).filter(Boolean))];
+  // the stage tokens a leader switches on mid-fight (wave template `devices`: 子代 trap_039_dstnta) and the devices an
+  // enemy's skill puts down (enemies.json `devices`: 黄金回响 trap_185_vtlntw) are drawn as tokens
+  const deviceIds = [...new Set([...Object.values(dataWaves || {}), ...Object.values(dataEnemies || {})]
+    .flatMap((w) => (w?.devices || []).map((d) => d?.key)).filter(Boolean))];
   const extras = dataExtras(dataBackups, dataChess);
   const extraHandbook = {};
   for (const b of Object.values(dataBosses || {})) if (b?.enemyKey && typeof b.handbookId === 'string') extraHandbook[b.enemyKey] = b.handbookId;

@@ -156,11 +156,12 @@ ENEMY_SPINE_SUB = 'spine/enemy'
 # protection point, 酒神's 迷狂牢笼, 贝洛内's 牵绊, 予愿安洁莉娜's “一会儿见！” (token_10039 / 10058 / 10055 / 10065 / 10071).
 # 香槟炸弹 (琳琅诗怀雅's bomb) is the one listed token with a web model, but that is only a skin variant
 # (ambienceSynesthesia_4): the local model is its original skin, and the web skin stays as the fallback (upstream 6bfc0827).
-# trap_039_dstnta (子代) is an enemy-side stage token: 盐风主教昆图斯's 断裂生殖 switches it on (pkgrps/btl_pfb_tokens_0).
+# trap_039_dstnta (子代) is an enemy-side stage token: 盐风主教昆图斯's 断裂生殖 switches it on (pkgrps/btl_pfb_tokens_0);
+# trap_185_vtlntw (黄金回响) the device 阿利斯泰尔's 莫非王土 puts on a 冲击式施术单元's tile (pkgrps/btl_pfb_tokens_1).
 TOKEN_SPINES = [
     'token_10031_swire2_gdtrap', 'token_10035_wisdel_wward', 'token_10041_cathy_catsld', 'token_10057_svash2_eagle1',
     'token_10057_svash2_eagle2', 'token_10057_svash2_eagle3', 'token_10064_wang_stone1', 'token_10068_kalts2_mtship',
-    'trap_039_dstnta',
+    'trap_039_dstnta', 'trap_185_vtlntw',
 ]
 TOKEN_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 TOKEN_SPINE_SUB = 'spine/token'

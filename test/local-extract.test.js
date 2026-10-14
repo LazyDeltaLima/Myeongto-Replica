@@ -48,18 +48,20 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     assert.equal(tokenSpines.bundles, 'pkgrps/btl_pfb_tokens_*.ab');
     assert.equal(tokenSpines.sub, 'spine/token');
     assert.equal(enemySpines.sub, 'spine/enemy');
-    // every listed id is a token of the game data — a summon, or the stage token a leader switches on (a wave template's
-    // `devices`: 子代) — without a web model (data/assets.json tokens[id].spine), sorted, unique — except 香槟炸弹, whose web
-    // model is only a skin variant (upstream 6bfc0827, 0.2.4): its original model is the overlay
+    // every listed id is a token of the game data — a summon, the stage token a leader switches on (a wave template's
+    // `devices`: 子代) or a device an enemy's skill puts down (enemies.json `devices`: 黄金回响) — without a web model
+    // (data/assets.json tokens[id].spine), sorted, unique — except 香槟炸弹, whose web model is only a skin variant
+    // (upstream 6bfc0827, 0.2.4): its original model is the overlay
     const ids = tokenSpines.ids;
-    assert.equal(ids.length, 9);
+    assert.equal(ids.length, 10);
     assert.deepEqual([...ids].sort(), ids);
     assert.equal(new Set(ids).size, ids.length);
     const tokens = JSON.parse(readFileSync(path.join(ROOT, 'data/tokens.json'), 'utf8'));
     const backups = JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8'));
     const web = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8')).tokens;
     const waves = JSON.parse(readFileSync(path.join(ROOT, 'data/waves.json'), 'utf8'));
-    const devices = new Set(Object.values(waves).flatMap((w) => (w.devices || []).map((d) => d.key)));
+    const enemies = JSON.parse(readFileSync(path.join(ROOT, 'data/enemies.json'), 'utf8'));
+    const devices = new Set([...Object.values(waves), ...Object.values(enemies)].flatMap((w) => (w.devices || []).map((d) => d.key)));
     for (const id of ids) {
       assert.ok(tokens[id] || backups.tokens[id] || devices.has(id), `${id}: a token of the game data`);
       if (id === 'token_10031_swire2_gdtrap') assert.match(web[id]?.spine?.skel || '', /_ambienceSynesthesia_4\.skel$/, `${id}: the web skin`);
