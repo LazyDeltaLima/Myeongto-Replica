@@ -282,7 +282,7 @@ export class SpineActor {
       this.endAt = this.clock + Math.max(0, end.in - this.dur(end.clip));
       this.endRoles = end.roles || null;
     }
-    if (change && this.has(change)) this._change(change);
+    if (change && this._changeClips(change).length) this._change(change);
     else if (this.mode === 'base') this._play(this._baseName(), true);
     else if (this.mode === 'stun' && this.has(this.roles.stun?.loop)) this._play(this.roles.stun.loop, true);
   }
@@ -323,17 +323,30 @@ export class SpineActor {
     this.spine.update(0);
   }
 
-  /** Play a form's transition clip once; attacks and the resting state wait for it (mode 'change'). */
+  /**
+   * Play a form's transition clip once — or its clips one after another (an array: 风丸's 替身 comes on Die_2 then
+   * Start_B); attacks and the resting state wait for them (mode 'change').
+   */
   _change(clip) {
+    const clips = this._changeClips(clip);
+    if (!clips.length) return;
     if (this.mode !== 'change') this.stunWanted = this.mode === 'stun';
     this.frozen = false;
     this.mode = 'change';
-    this._play(clip, false, { mix: 0.08 });
-    this.changeUntil = this.clock + this.dur(clip);
+    this._play(clips[0], false, { mix: 0.08 });
+    this.changeNext = clips.slice(1);   // update plays each as the one before ends
+    this.changeNextAt = this.clock + this.dur(clips[0]);
+    this.changeUntil = this.clock + this.dur(clips);
   }
 
+  /** The clips of a change (one name or an array) this skeleton has. */
+  _changeClips(c) { return (Array.isArray(c) ? c : [c]).filter((n) => this.has(n)); }
+
   has(name) { return !!name && this.names.has(name); }
-  dur(name) { const d = this.durations[name]; return typeof d === 'number' && d > 0 ? d : this._durFromData(name); }
+  dur(name) {
+    if (Array.isArray(name)) return name.reduce((t, n) => t + (this.has(n) ? this.dur(n) : 0), 0);   // clips in a row
+    const d = this.durations[name]; return typeof d === 'number' && d > 0 ? d : this._durFromData(name);
+  }
 
   _durFromData(name) {
     try { const a = this.spine.spineData.findAnimation(name); return a && a.duration > 0 ? a.duration : 1; } catch { return 1; }
@@ -866,6 +879,11 @@ export class SpineActor {
         if (this.clock >= this.deployUntil) { this.mode = 'base'; this._play(this._baseName(), true); }
         break;
       case 'change':
+        if (this.changeNext?.length && this.clock >= this.changeNextAt && this.clock < this.changeUntil) {
+          const next = this.changeNext.shift();
+          this._play(next, false, { mix: 0.05 });
+          this.changeNextAt += this.dur(next);
+        }
         if (this.clock >= this.changeUntil) {
           this.mode = 'base';
           if (this.stunWanted) { this.stunWanted = false; this._enterStun(); } else this._play(this._baseName(), true);

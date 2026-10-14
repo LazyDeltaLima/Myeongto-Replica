@@ -210,7 +210,7 @@ describe('knocked out as the 替身: facing UP, models built while down, the red
     await settle();
     assert.ok(v.entryBack);
     v.setForm('doll', { id: 1, form: 'doll', dur: 21 });
-    assert.equal(clip(v), 'Start_B', 'its Back skeleton has the switch clip');
+    assert.equal(clip(v), 'Start_B', 'its Back skeleton has the switch clip (no Die_2: the Front model\'s only)');
     secs(v, 1.1);
     v.onAttack(null, 2);
     assert.equal(clip(v), 'Attack_B', '…and the 替身\'s attack');
@@ -231,18 +231,24 @@ describe('knocked out as the 替身: facing UP, models built while down, the red
   });
 });
 
-test('风丸\'s 替身: Start_B, Idle_B / Attack_B (it attacks), Die_B; the 本体 back on Start', async () => {
+test('风丸\'s 替身: Die_2 → Start_B, Idle_B / Attack_B (it attacks), Die_B; the 本体 back on Die_B → Start', async () => {
   const anims = assets.chars[KAZEMA].spine.front.animations;
-  for (const name of ['Start_B', 'Idle_B', 'Attack_B', 'Die_B', 'Start']) assert.ok(name in anims, name);
+  for (const name of ['Die_2', 'Start_B', 'Idle_B', 'Attack_B', 'Die_B', 'Start']) assert.ok(name in anims, name);
   const v = await op(KAZEMA);
   v.setForm('doll', { dur: 21 });
-  assert.equal(clip(v), 'Start_B');
+  assert.equal(clip(v), 'Die_2', 'kazema[switch2stand]: Die2Stand, then StandBorn');
   secs(v, 1.1);
+  assert.equal(clip(v), 'Start_B');
+  v.onAttack(null, 2);
+  assert.equal(clip(v), 'Start_B', 'the switch clips play out');
+  secs(v, 1);
   assert.equal(clip(v), 'Idle_B');
   v.onAttack(null, 2);
   assert.equal(clip(v), 'Attack_B');
   secs(v, 3);
   v.setForm(null, { form: null });
+  assert.equal(clip(v), 'Die_B', 'kazema[switch2normal]: Die2Normal, then Born');
+  secs(v, 1.1);
   assert.equal(clip(v), 'Start');
   const w = await op(KAZEMA, { form: 'doll' });
   w.die();

@@ -94,7 +94,6 @@ export const UNPLAYED = {
   },
   char_4016_kazema: {
     Default_B: 'none: setup pose of the stand-in form (0 s); only the buff template of another unit (parrot_m1_t) names it',
-    Die_2: 'todo: H — talent / trait state',
   },
   char_4058_pepe: {
     Skill_3_Loop_B: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',

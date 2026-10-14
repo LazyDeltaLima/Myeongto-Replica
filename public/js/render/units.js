@@ -327,12 +327,15 @@ export const EL_BAR = Object.freeze({ icon: 0.15, min: 8, max: 15, enemy: 0.8, g
  *   until the switch back starts, GitHub issue #44): the skeletons draw it on their *_B clips (their own slots — the
  *   本体's are hidden). 归溟幽灵鲨: Start_B fades it in (the 1 s switch), Idle_B (it never attacks), Die_B breaks it
  *   apart over its last second (`end`, timed from the 'substitute' fx's `dur`), the 本体 comes back on Start_2 (`leave`:
- *   played when the form ends); knocked out as the 替身 it collapses on Die_B_2 and stays down so. 风丸: Start_B, then
- *   Idle_B / Attack_B (her 替身 attacks), Die_B; the 本体 comes back on Start. Facing UP: 归溟幽灵鲨's Back skeleton has
- *   only Idle_B and Start_2, 风丸's Start_B, Idle_B and Attack_B — the clips a Back skeleton lacks are skipped; neither has
- *   the 替身's death clip, so a 替身 knocked out lies on the Front model like every knocked-out operator facing UP
- *   (_wantsBack). The sim resets the form right after the 'die' event; the form it died in (`_dieForm`) gives the model
- *   built for the knock-out — and one rebuilt while it is down — the 替身's death clip; it stands up as the 本体.
+ *   played when the form ends); knocked out as the 替身 it collapses on Die_B_2 and stays down so. 风丸: Die_2 → Start_B
+ *   (charpack CommonAbilities kazema[switch2stand]), then Idle_B / Attack_B (her 替身 attacks), Die_B as its death; the
+ *   本体 comes back on Die_B → Start ([switch2normal]: Die_B → Born) — two clips in a row each way, while the sim's switch
+ *   (professions.js DOLL_SWITCH) is 1 s [ASSUMED], so her 替身's first attacks wait for Start_B to end on screen. Facing
+ *   UP: 归溟幽灵鲨's Back skeleton has only Idle_B and Start_2, 风丸's Start_B, Idle_B and Attack_B — the clips a Back
+ *   skeleton lacks are skipped; neither has the 替身's death clip, so a 替身 knocked out lies on the Front model like every
+ *   knocked-out operator facing UP (_wantsBack). The sim resets the form right after the 'die' event; the form it died in
+ *   (`_dieForm`) gives the model built for the knock-out — and one rebuilt while it is down — the 替身's death clip; it
+ *   stands up as the 本体.
  * A kind without a clip set of this skeleton (barriers, charges, …) changes nothing. 吉兆飞鳞's 晕眩模式 is its Stun clip.
  */
 /**
@@ -409,7 +412,7 @@ export const FORMS = Object.freeze({
     doll: Object.freeze({ change: 'Start_B', end: 'Die_B', leave: 'Start_2', roles: dollRoles('Idle_B', 'Die_B_2') }),
   }),
   char_4016_kazema: Object.freeze({
-    doll: Object.freeze({ change: 'Start_B', leave: 'Start', roles: dollRoles('Idle_B', 'Die_B', 'Attack_B') }),
+    doll: Object.freeze({ change: Object.freeze(['Die_2', 'Start_B']), leave: Object.freeze(['Die_B', 'Start']), roles: dollRoles('Idle_B', 'Die_B', 'Attack_B') }),
   }),
   enemy_1040_bombd: Object.freeze({
     bombed: Object.freeze({
