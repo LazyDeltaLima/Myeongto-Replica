@@ -218,3 +218,39 @@ test('丰川祥子 S2: the piano from the deployment (Skill_2_Start, _Idle_A, _L
   secs(v, 0.5);
   assert.equal(v.actor.current, 'Skill_2_Idle_A');
 });
+
+test('赤刃明霄陈 S2: Skill_2_Begin → Skill_2_Disappear held while she slashes, back on Start_2, then her plain clips', async () => {
+  const id = 'char_1050_chen3';
+  const v = await view(id, { skillIndex: 1 });
+  v.setSkill(true);
+  v.setForm('vanish', { form: 'vanish' });
+  assert.equal(v.actor.current, 'Skill_2_Begin');
+  secs(v, 0.7);
+  assert.equal(v.actor.current, 'Skill_2_Disappear');
+  secs(v, 2);
+  assert.equal(v.actor.current, 'Skill_2_Disappear', 'held (gone) while she slashes');
+  assert.equal(v.actor.mode, 'held');
+  v.setForm(null, { form: null });
+  assert.equal(v.actor.current, 'Start_2');
+  secs(v, 1.1);
+  assert.equal(v.actor.current, 'Idle');
+  v.onSwing(assets.chars[id].spine.front.hits?.Attack?.[0] ?? 0.4, 'none');
+  assert.equal(v.actor.current, 'Attack', 'the 6 s after the slashes: her plain attack');
+});
+
+test('乌尔比安 S3: the 【移动】 to the anchor restarts on Skill_3_ReStart_A, on his own tile Skill_3_ReStart_B, the 【返回】 Skill_3_Back', async () => {
+  const v = await view('char_4145_ulpia', { skillIndex: 2 });
+  v.setSkill(true);
+  v.onDeploy('anchor');
+  assert.equal(v.actor.current, 'Skill_3_ReStart_A');
+  secs(v, 2);
+  v.replayDeploy('here');
+  assert.equal(v.actor.current, 'Skill_3_ReStart_B');
+  secs(v, 2);
+  v.onDeploy('back');
+  v.setSkill(false);   // the return comes in onEnd, before the skill's off event
+  assert.equal(v.actor.current, 'Skill_3_Back');
+  const w = await view('char_4145_ulpia', { skillIndex: 2 });
+  w.onDeploy();
+  assert.equal(w.actor.current, 'Start', 'a plain deployment');
+});

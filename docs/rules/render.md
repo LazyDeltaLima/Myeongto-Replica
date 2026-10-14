@@ -433,7 +433,11 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     (전투에 든 스킬의 `_defaultModeIndex`가 재능 값을 덮음) → `Unit.OnInit` `SwitchMode` — 배치부터 그 모드(Born→`Start_n`·Idle 짝). 구현(같은 날):
     `anim-overrides.mjs EQUIP_ROLES` → `anims.equip[스킬]` `{deploy, idle, attack}`, `spine.js setSkillIndex`가 그 스킬을 들면 쉬는 클립으로 — 引星棘刺 S3
     (`Start_2`·`Skill_3_Idle`), 望 S2(`Start_2`·`Idle_2`·공격 `Attack_2_A/B` 차례), 安洁莉娜 S2·S3(`Idle_Charge`). 予愿安洁莉娜 S1 시작 `Start_2`(스킨 키 `Skill_1_Begin`)는
-    스킬 클립 덮어쓰기. [화면 미확인] 남은 E: 乌尔比安 S3 재배치 클립(`Skill_3_Back`·`Skill_3_ReStart_A/B`), 赤刃明霄陈 S2 재등장 `Start_2` — 시뮬 재배치 신호가 필요.
+    스킬 클립 덮어쓰기. [화면 미확인] 스킬이 일으킨 【移动】의 배치 클립(같은 날): `Battle.moveRedeploy({ clip })` → 'deploy' 이벤트 4번째 칸 → 역할 `deploys`
+    (`anim-overrides.mjs SKILL_STATE_CLIPS`, `spine.js deploy(key)`) — 乌尔比安 S3 닻으로 `Skill_3_ReStart_A`, 【返回】 `Skill_3_Back`, 닻이 자기 칸이면 이동 없이
+    'anchor' fx의 `redeploy` → `Skill_3_ReStart_B`(어느 노드가 트는지 [추정]). 赤刃明霄陈 S2(`_animKey "Skill_2_Begin"`·`_endAnimKey "Skill_2_Disappear"`, 재등장 모드
+    S2Respawn Born→`Start_2`): 키트 새 fx 'chen3Vanish'·'chen3Respawn'의 `form` → `FORMS` `vanish`(변환 클립 두 개 뒤 마지막 프레임 유지 `hold`, 나갈 때 `Start_2`),
+    S2 역할은 평소 `Attack`(그동안 재등장 뒤 6초 공격이 `Skill_2_Disappear`였음). 새 fx 두 종은 골든 fx 개수만 움직임. [화면 미확인]
   - **F** 모드의 `Die` 짝: 스킬이 바꾼 모드가 `Die`를 제 클립과 짝지음 → 그 스킬 중 쓰러지면 그 클립. 구현(2026-10-14): `anim-overrides.mjs SKILL_STATE_CLIPS` →
     스킬 역할의 `die`, `spine.js dieClip`이 스킬 모드 중(켜짐·吟唱·End 클립, 그리고 시뮬이 'die' 바로 앞에 스킬을 끄므로 같은 프레임에 꺼진 것)이면 그것.
     위를 보던 오퍼레이터가 앞 모델로 바뀌어 쓰러질 때는 `units.js _dieSkill`이 넘김. 予愿安洁莉娜 S1·S2·S3 `Skill_n_Die`, 乌尔比安 S2 `Skill_2_Die`, 缇比 S1·S2 `Die_2`.

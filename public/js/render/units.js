@@ -345,6 +345,9 @@ export const EL_BAR = Object.freeze({ icon: 0.15, min: 8, max: 15, enemy: 0.8, g
  *   维什戴尔 S2's overload, the second half (fx 'wisdelOverload': mode S2_Overload — Skill_2_Overload_Begin, then
  *   Skill_2_Overload_Idle / _Loop, closing on Skill_2_Overload_End instead of Skill_2_End: the skin's mix clips), 佩佩 S3 at
  *   its full range (fx 'rangeMax': Skill_3_Loop_B for Skill_3_Loop_A, buff pepe_s3_range_max).
+ * - 赤刃明霄陈 S2 (her kit's 'chen3Vanish' fx → form 'vanish', 'chen3Respawn' → null): skchr_chen3_2 `_animKey
+ *   "Skill_2_Begin"` then `_endAnimKey "Skill_2_Disappear"` — gone (`hold`: the last frame of the change clips stays, mode
+ *   'held') while she slashes —, back on Start_2 (`leave`: mode S2Respawn Born→Start_2), then her plain clips.
  * - 丰川祥子 S2's organ timbre (her kit's 'spGain' fx → form 'organ', null back to the piano): charpack S2_AttackSpeed
  *   Idle→Skill_2_Idle_B, Attack→Skill_2_Loop_B over the piano that S2 sets from the deployment (anims `equip`).
  * - 泥岩 (char_311_mudrok) S3's 10 s sleep (her kit: fx 'stone' → form 'dormant', 'rockfall' → null; skchr_mudrok_3
@@ -439,6 +442,9 @@ export const FORMS = Object.freeze({
   }),
   char_4058_pepe: Object.freeze({
     rangeMax: Object.freeze({ change: null, endsWithSkill: true, roles: Object.freeze({ skill: skillRoles(2, 'Skill_3_Loop_B', { begin: 'Skill_3_Begin', end: 'Skill_3_End', idle: 'Skill_3_Idle' }) }) }),
+  }),
+  char_1050_chen3: Object.freeze({
+    vanish: Object.freeze({ change: Object.freeze(['Skill_2_Begin', 'Skill_2_Disappear']), hold: true, leave: 'Start_2', endsWithSkill: true, endsOnDeath: true, roles: Object.freeze({ attack: null }) }),
   }),
   char_4182_oblvns: Object.freeze({
     organ: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Skill_2_Idle_B', attack: loop('Skill_2_Loop_B') }) }),
@@ -629,6 +635,7 @@ export class UnitView {
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
     this.destroyed = false;
     this.form = typeof info.form === 'string' ? info.form : null;   // the unit's model form: an enemy's mode, a 傀儡师's 替身 (setForm, FORMS)
+    this._deployKey = null;       // the latest deploy clip key (onDeploy): a model swapped mid-deploy plays the same clip
     this._dieSkill = false;       // it died in a skill's mode (die): a model built while it lies down plays that skill's death
     this._dieForm = null;         // the form it died in (die): a model built while it lies down shows that form's death
 
@@ -814,7 +821,7 @@ export class UnitView {
       } else {
         if (this.flags & UF.SKILL) this.actor.setSkill(true);
         this.actor.setBase(this._baseFromAnim());
-        if (deployed != null) { this.actor.deploy(); if (deployed > 0) this.actor.update(deployed); }
+        if (deployed != null) { this.actor.deploy(this._deployKey); if (deployed > 0) this.actor.update(deployed); }
         else if (swung) {
           this.actor.combatHit = !!swung.combat;
           if (this.actor.swing(swung.windup, swung.alt) && swung.elapsed > 0) this.actor.update(swung.elapsed);
@@ -859,7 +866,7 @@ export class UnitView {
     // an fx handed out late (render/app.js: a stall, a hidden tab) skips a change clip that would already have ended
     const late = fx && Number(fx.late) > 0 ? Number(fx.late) : 0;
     const change = f && f.change && !(late > 0 && late >= (this.actor.dur?.(f.change) ?? Infinity)) ? f.change : null;
-    if (f) this.actor.setForm(f.roles, change, f.end && dur > 0 ? { clip: f.end, in: dur, roles: next } : null);
+    if (f) this.actor.setForm(f.roles, change, f.end && dur > 0 ? { clip: f.end, in: dur, roles: next } : null, !!f.hold);
     else if (prev) this.actor.setForm(null, prev.leave && !(late > 0 && late >= (this.actor.dur?.(prev.leave) ?? Infinity)) ? prev.leave : null);
   }
 
@@ -1290,21 +1297,29 @@ export class UnitView {
     }
   }
 
-  onDeploy() {
+  /** A (re)deployment; `key`: the deploy clip's key (the sim's 'deploy' event 4th field — SpineActor.deploy). */
+  onDeploy(key = null) {
     const official = !this.isEnemy && !!this.entry; // local patch: the official drop-in (BORN_LEAD_S, BORN_TINT_S)
     this.bornOfficial = official;
     this.fadeIn = official ? 1 : 0;
+    this._deployKey = typeof key === 'string' ? key : null;
     if (!this.alive) this.revive();
     this._resetFace();
     this._bornStart(official);
     return official;
   }
 
+  /** The skill's deploy clip `key` without a deployment (a sim fx's `redeploy`: 乌尔比安 S3's anchor on his own tile). */
+  replayDeploy(key) {
+    this._deployKey = typeof key === 'string' ? key : null;
+    if (this.alive && this.actor) this.actor.deploy(this._deployKey);
+  }
+
   /** A model already shown drops in at once; none yet (a battle start builds every view then): the ring and
    *  shadow first, update() plays Start once the model is in (BORN_LEAD_S). */
   _bornStart(official) {
     if (official && !this.actor) { this._bornWait = 0; this._bornT = 0; }
-    else if (this.actor) { this.actor.deploy(); if (official) this._bornT = BORN_TINT_S; }
+    else if (this.actor) { this.actor.deploy(this._deployKey); if (official) this._bornT = BORN_TINT_S; }
   }
 
   onStatus(key, on) {
@@ -1478,7 +1493,7 @@ export class UnitView {
     if (this._bornT > 0) this._bornT = Math.max(0, this._bornT - dt); // local patch: the dark first frames (BORN_TINT_S)
     if (this._bornWait >= 0) { // local patch: the body waits BORN_LEAD_S (and for its model) before Start plays
       this._bornWait += Math.min(dt, 0.25); // a hitch of the battle switch does not use up the wait (DEPLOY_MAX_STEP_S)
-      if (this.actor && this.spineReady && this._bornWait >= BORN_LEAD_S && this.alive) { this._bornWait = -1; this.actor.deploy(); this._bornT = BORN_TINT_S; }
+      if (this.actor && this.spineReady && this._bornWait >= BORN_LEAD_S && this.alive) { this._bornWait = -1; this.actor.deploy(this._deployKey); this._bornT = BORN_TINT_S; }
       else if (this._bornWait >= BORN_WAIT_MAX_S || !this.alive) this._bornWait = -1;
     }
     this.body.alpha = this._bornWait >= 0 ? 0 : 1;

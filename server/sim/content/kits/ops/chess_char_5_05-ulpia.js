@@ -84,7 +84,8 @@ export default {
           }
           const [sr, sc] = frontOf(unit.tileR, unit.tileC, unit.dir, stop);
           const fromX = unit.x, fromY = unit.y;
-          battle.fx('anchor', { x: sc, y: sr, id: unit.id, fromX, fromY, r: radius });
+          // (`redeploy`: an anchor on his own tile — the client restarts him where he stands on Skill_3_ReStart_B [ASSUMED])
+          battle.fx('anchor', { x: sc, y: sr, id: unit.id, fromX, fromY, r: radius, ...(stop === 0 ? { redeploy: 'here' } : null) });
           for (const e of battle.foesInRadius(sc, sr, radius)) {
             battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'phys', isSkill: true, tags: ['skill', 'anchor'] });
             if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb.stun), source: unit });
@@ -107,7 +108,7 @@ export default {
           // the 【移动】 is a redeploy on the new tile (Battle.moveRedeploy: a new deployment, deploy effects fire again,
           // no exit) that keeps the running skill — "【移动】后仅继承下列效果：技能进度、第二天赋叠加层数"; the rest of
           // his buffs are kept too (owner's deviation, DESIGN §22.3). The marker is deployed after the move (备注 ③)
-          if (!battle.moveRedeploy(unit, dest[0], dest[1]) || !unit.alive || !unit.skill?.active) return;
+          if (!battle.moveRedeploy(unit, dest[0], dest[1], { clip: 'anchor' }) || !unit.alive || !unit.skill?.active) return;
           // knocked out while moved, he lies and redeploys on his deployment tile (Battle._layBody) — the owner's decision
           // of 2026-10-07 (community report 28 「乌尔比安3技能期间死亡…应回到初始部署位复活」), a deliberate deviation from
           // PRTS's "where it fell" (帮助 「原地留下一个“倒地干员”」), for this 【移动】 only; the return or his next
@@ -130,7 +131,7 @@ export default {
             // effects after it: 迅捷). Here in onEnd the skill's mods are still on (skills.js end) [ASSUMED: officially the
             // return comes "技能结束后"; none of the deploy effects that can reach him reads his stats]
             const fromX = unit.x, fromY = unit.y;
-            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true })) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back' })) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
           }
         },
       },

@@ -173,7 +173,7 @@ export class SpineActor {
       this.spine.state.addListener({ event: (_entry, ev) => { const n = ev?.data?.name; if (n && this.onEvent) this.onEvent(n); } });
     } catch { /* a runtime without listeners: no clip events */ }
     this.base = 'idle';
-    this.mode = 'base';           // base | attack | skillBegin | skillEnd | chant | deploy | die | stun | change
+    this.mode = 'base';           // base | attack | skillBegin | skillEnd | chant | deploy | die | stun | change | held
     this.endClip = null;          // setForm's closing clip, played as a change clip once the clock reaches endAt,
     this.endAt = 0;               // landing in endRoles (the next form's) when given
     this.endRoles = null;
@@ -275,7 +275,7 @@ export class SpineActor {
    * now, landing in `roles` — a leader's 重生 ends on its last clip while the sim still holds it, and the next form
    * starts on its own clips.
    */
-  setForm(roles, change = null, end = null) {
+  setForm(roles, change = null, end = null, hold = false) {
     const anims = this._baseRoles();
     this.formRoles = roles || null;   // kept over a later skill slot (_applyRoles)
     this.roles = roles ? { ...anims, ...roles } : anims;
@@ -286,8 +286,8 @@ export class SpineActor {
       this.endAt = this.clock + Math.max(0, end.in - this.dur(end.clip));
       this.endRoles = end.roles || null;
     }
-    if (change && this._changeClips(change).length) this._change(change);
-    else if (this.mode === 'base') this._play(this._baseName(), true);
+    if (change && this._changeClips(change).length) this._change(change, hold);
+    else if (this.mode === 'base' || this.mode === 'held') { this.mode = 'base'; this._play(this._baseName(), true); }
     else if (this.mode === 'stun' && this.has(this.roles.stun?.loop)) this._play(this.roles.stun.loop, true);
   }
 
@@ -331,12 +331,13 @@ export class SpineActor {
    * Play a form's transition clip once — or its clips one after another (an array: 风丸's 替身 comes on Die_2 then
    * Start_B); attacks and the resting state wait for them (mode 'change').
    */
-  _change(clip) {
+  _change(clip, hold = false) {
     const clips = this._changeClips(clip);
     if (!clips.length) return;
     if (this.mode !== 'change') this.stunWanted = this.mode === 'stun';
     this.frozen = false;
     this.mode = 'change';
+    this.changeHold = !!hold;   // the last clip's last frame stays (mode 'held') until the form ends: 赤刃明霄陈 gone
     this._play(clips[0], false, { mix: 0.08 });
     this.changeNext = clips.slice(1);   // update plays each as the one before ends
     this.changeNextAt = this.clock + this.dur(clips[0]);
@@ -407,6 +408,7 @@ export class SpineActor {
     const b = base === 'move' || base === 'stun' ? base : 'idle';
     // a mode change clip plays out first; the resting state it lands in is remembered
     if (this.mode === 'change') { this.stunWanted = b === 'stun'; if (b !== 'stun') this.base = b; return; }
+    if (this.mode === 'held') { if (b !== 'stun') this.base = b; return; }   // a held change clip: the form's end decides
     if (b === 'stun') { this._enterStun(); return; }
     if (this.mode === 'stun') this._leaveStun();
     if (b === this.base && this.mode !== 'stun') return;
@@ -440,7 +442,7 @@ export class SpineActor {
    * false when it is still too early (call again next frame) or there is nothing to wind up.
    */
   windUp(interval, lead, once = false) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'chant' || !(lead >= 0)) return false;
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || !(lead >= 0)) return false;
     if (this._endPlaying()) return false; // local patch
     if (this._swinging()) return false;   // a swing (b.ev 'swing') drives the clip
     const clip = this._attackClip();
@@ -476,7 +478,7 @@ export class SpineActor {
    * 'atk' path then shows the strike as before).
    */
   swing(windup, alt = null) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'chant' || !(windup > 0)) return false;
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || !(windup > 0)) return false;
     if (this._endPlaying()) return false; // local patch
     const clip = this._attackClip();
     if (!clip) return false;
@@ -525,7 +527,7 @@ export class SpineActor {
    * cast (no rhythm): the clip plays once at its own speed from its strike frame, then the resting state.
    */
   attack(interval, once = false) {
-    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'chant') return;   // a form change / 吟唱 plays out
+    if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant') return;   // a form change / 吟唱 plays out
     if (this._endPlaying()) return; // local patch
     if (!once) this.interval = clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8);
     if (this._swinging()) return;   // the strike of a swing already playing at the official speed
@@ -669,7 +671,7 @@ export class SpineActor {
     if (!on) this.skillOffAt = this.clock;   // skillDying: an off right before the 'die' event
     this.baseClip = false;
     const sk = this.roles.skill;
-    if (this.mode === 'stun' || this.mode === 'die') return;
+    if (this.mode === 'stun' || this.mode === 'die' || this.mode === 'held') return;
     if (on && this.mode === 'chant') return;   // the 吟唱's clips run on (chant); its after clip begins the skill
     // a skill that ends as the unit (re)deploys — 乌尔比安's 【返回】 is a 【移动】 (sim Battle.moveRedeploy) right before
     // his S3's 'skill' off event — lets the deploy clip play out (then the plain idle) instead of cutting it with the End
@@ -777,9 +779,14 @@ export class SpineActor {
     }
   }
 
-  deploy() {
+  /**
+   * The deploy clip once: the running skill's own for `key` (anims skill `deploys`, the sim's 'deploy' event 4th field — a
+   * 【移动】 by the skill: 乌尔比安 S3 Skill_3_ReStart_A / _Back) else the unit's.
+   */
+  deploy(key = null) {
     if (this.dead) return;
-    const d = this.roles.deploy;
+    const sd = key ? this.roles.skill?.deploys?.[key] : null;
+    const d = this.has(sd) ? sd : this.roles.deploy;
     if (this.has(d) && d !== this.roles.idle) {
       this.mode = 'deploy';
       this._play(d, false, { mix: 0 });
@@ -926,8 +933,9 @@ export class SpineActor {
           this.changeNextAt += this.dur(next);
         }
         if (this.clock >= this.changeUntil) {
-          this.mode = 'base';
-          if (this.stunWanted) { this.stunWanted = false; this._enterStun(); } else this._play(this._baseName(), true);
+          this.mode = this.changeHold ? 'held' : 'base';
+          if (this.changeHold) this.stunWanted = false;
+          else if (this.stunWanted) { this.stunWanted = false; this._enterStun(); } else this._play(this._baseName(), true);
         }
         break;
       default: break;

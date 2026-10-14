@@ -240,6 +240,8 @@ test('乌尔比安 S3: anchor 135 % ATK + stun on the first enemy ahead, moves t
   assert.ok(h.runUntil(() => !u.skill.active, 30));
   assert.deepEqual([u.tileR, u.tileC], [9, 3], 'back home');
   assert.equal(marker.alive, false);
+  // the client's clips for the two 【移动】: the 'deploy' event's key (render anims skill `deploys`)
+  assert.deepEqual(h.eventsOf('deploy').filter((x) => x[1] === u.id && x[3]).map((x) => x[3]), ['anchor', 'back']);
   clean(h);
 });
 
@@ -268,6 +270,7 @@ test('乌尔比安 S3 while he blocks (e.g. after a 突袭 landing): the anchor 
     assert.ok(e0.s.flags.stun);
     assert.equal(tagged(h, 'anchor', far).length, 0, '4 tiles ahead, out of the 1.8 radius');
     assert.deepEqual([u.tileR, u.tileC], [9, 3], 'no 【移动】');
+    assert.equal(anchor[4].redeploy, 'here', 'the client restarts him on his tile (Skill_3_ReStart_B)');
     assert.ok(!h.b.allyUnits.some((x) => x.kind === 'token'), 'no 从不混淆的方向');
     assert.ok(h.runUntil(() => !u.skill.active, 30));
     assert.deepEqual([u.tileR, u.tileC], [9, 3]);

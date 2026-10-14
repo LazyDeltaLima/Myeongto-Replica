@@ -44,9 +44,6 @@ export const UNPLAYED = {
   char_1045_svash2: {
     Skill_3_Deploy: 'none: only when the 风雪之眼 card is used by hand during S3 (skchr_svash2_3 BirdAura AnimationEmitBehaviour via svash2_s_3[*_bird_onuse]); no hand deployment in this mode [ASSUMED]',
   },
-  char_1050_chen3: {
-    Start_2: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
-  },
   char_1052_kalts2: {
     Skill_3_Restart_Begin: 'todo: G — skill prefab clip',
     Skill_3_Restart_End: 'todo: G — skill prefab clip',
@@ -78,11 +75,6 @@ export const UNPLAYED = {
   },
   char_4116_blkkgt: {
     Skill_2_B: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); S2 plays Skill_2',
-  },
-  char_4145_ulpia: {
-    Skill_3_Back: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
-    Skill_3_ReStart_A: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
-    Skill_3_ReStart_B: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair) [ASSUMED]',
   },
   char_420_flamtl: {
     Skill_2_Attack_2: 'todo: H+J — talent / trait state; skin key table (SpineAnimator._animations)',

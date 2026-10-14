@@ -44,9 +44,10 @@ export class BattleTiles {
    * deploy handlers run ("部署时将清空技力"; 乌尔比安's 【返回】 "将清空技力，但仍可以享受后续由其他效果提供的技力").
    * `inPlace`: the unit flew there itself and only lands — the 'deploy' event carries a 1 and the snapshot no deploy
    * animation (quietDeployAt), so the client shows no drop-in, ring or deploy sound (予愿安洁莉娜 S3: the client respawns
-   * her where her flight projectile ends, kits/ops/op-aglna2.js); the deployment itself is the same.
+   * her where her flight projectile ends, kits/ops/op-aglna2.js); the deployment itself is the same. `clip`: the deploy
+   * clip's key for the client, the event's 4th field (乌尔比安 S3: 'anchor' / 'back'; render anims skill `deploys`) — display only.
    */
-  moveRedeploy(unit, r, c, { clearSp = false, inPlace = false } = {}) {
+  moveRedeploy(unit, r, c, { clearSp = false, inPlace = false, clip = null } = {}) {
     if (!this.relocate(unit, r, c)) return false;
     unit.deploySeq = ++this._deploySeq;
     unit.aggroSeq = unit.deploySeq;
@@ -57,7 +58,7 @@ export class BattleTiles {
       sk.sp = 0;
       sk.charges = sk.spCost <= 0 ? sk.maxCharges : 0; // (a free skill is available once per deployment: skills.js reset)
     }
-    this._ev(inPlace ? ['deploy', unit.id, 1] : ['deploy', unit.id]);
+    this._ev(clip ? ['deploy', unit.id, inPlace ? 1 : 0, clip] : inPlace ? ['deploy', unit.id, 1] : ['deploy', unit.id]);
     if (this._hooks.deploy) this.emit('deploy', { unit, initial: false, move: true });
     return true;
   }

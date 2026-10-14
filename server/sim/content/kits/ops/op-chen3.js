@@ -153,6 +153,10 @@ function chen3(bb, chess, def) {
     battle.addBuff(unit, { key: 'chen3:s2:inv', duration: Infinity, flags: { invulnerable: true, disarm: true, noBlock: true, noSp: true } });
     battle.releaseBlocked?.(unit);
     unit.mem.chen3Slashing = true;
+    // she vanishes while she slashes (skchr_chen3_2 `_animKey "Skill_2_Begin"`, `_endAnimKey "Skill_2_Disappear"`) and
+    // comes back in mode S2Respawn (Born→Start_2): a model form (render/units.js FORMS)
+    unit.form = 'vanish';
+    battle.fx('chen3Vanish', { x: unit.x, y: unit.y, id: unit.id, form: 'vanish' });
     let target = first, left = 10;
     const step = () => {
       if (unit.deploySeq !== seq || !unit.alive) return;
@@ -172,6 +176,8 @@ function chen3(bb, chess, def) {
       }
       battle.removeBuff?.(unit, 'chen3:s2:inv');
       unit.mem.chen3Slashing = false;
+      unit.form = null;
+      battle.fx('chen3Respawn', { x: unit.x, y: unit.y, id: unit.id, form: null });
       // the 【移动】 to a standing target's tile (deployable for her, free)
       if (!gone(target) && !target.isFlying) {
         const r = Math.round(target.y), c = Math.round(target.x);
@@ -284,6 +290,7 @@ function chen3(bb, chess, def) {
         onTick({ unit, skill, dt }) { if (unit.mem.chen3Slashing) skill.timeLeft = Math.max(0.01, num(skill.duration, 6)) + dt; },
         onEnd({ battle, unit }) {
           unit.mem.chen3Slashing = false;
+          if (unit.form === 'vanish') unit.form = null;   // (ended while she slashed: the view ends it with the skill)
           battle.removeBuff?.(unit, 'chen3:s2:inv');
           battle.removeBuff?.(unit, 'chen3:s2:after');
         },

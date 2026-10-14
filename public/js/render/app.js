@@ -1690,7 +1690,7 @@ export async function createFieldView(host, options = {}) {
         // the battle's opening deployment drops in one by one as the sim deploys it (lifecycle.js _prebuiltStep: a piece
         // every 0.2 game s, docs/rules/render.md 「배치 낙하」) — each 'deploy' event drops its piece at once
         // `e[2]` 1: a unit that flew there itself only lands (sim Battle.moveRedeploy inPlace — 予愿安洁莉娜 S3): no drop-in
-        if (v && e[2] !== 1) { v.onDeploy?.(); if (v.info?.kind !== 'device') fx.deploy(v); }
+        if (v && e[2] !== 1) { v.onDeploy?.(typeof e[3] === 'string' ? e[3] : null); if (v.info?.kind !== 'device') fx.deploy(v); }
         break;
       }
       case 'swing': {
@@ -1766,6 +1766,8 @@ export async function createFieldView(host, options = {}) {
           const v = d && d.id != null ? views.get(d.id) : null;
           if (v && v.slideTo) v.slideTo(Number(e[2]), Number(e[3]), { ...(Number(d.dur) > 0 ? { dur: Number(d.dur) } : {}), face: d.face });
         }
+        // a skill's deploy clip without a deployment (fx `redeploy`: 乌尔比安 S3's anchor on his own tile, UnitView.replayDeploy)
+        if (e[4] && typeof e[4] === 'object' && typeof e[4].redeploy === 'string' && e[4].id != null) views.get(e[4].id)?.replayDeploy?.(e[4].redeploy);
         // 予愿安洁莉娜 S2's 吟唱: her model glides out along the sweep and back (UnitView.glide; the sim keeps her on her tile)
         if (e[1] === 'dash' && e[4] && typeof e[4] === 'object' && Number(e[4].chant) > 0) {
           const v = e[4].id != null ? views.get(e[4].id) : null;

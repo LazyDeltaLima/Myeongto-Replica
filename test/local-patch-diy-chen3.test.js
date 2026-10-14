@@ -53,9 +53,12 @@ describe('赤刃明霄陈 kit — research 2026-10-07 §2 fixes', () => {
     h.spawn('enemy_post', { pos: [10, 5] });
     const dur = recOf({ sk: 1 }).skill.duration;
     u.skill.activate('manual', { free: true });
+    assert.equal(u.form, 'vanish', 'gone while she slashes: a model form (render/units.js FORMS)');
     h.runUntil(() => !slashing(u), 10);
     const landed = h.b.time;
     assert.ok(landed > 3.9, `10 slashes take 4 s (${landed.toFixed(2)})`);
+    assert.equal(u.form ?? null, null, 'back (Start_2)');
+    assert.deepEqual(h.eventsOf('fx').filter((x) => x[4]?.id === u.id && /^chen3(Vanish|Respawn)$/.test(x[1])).map((x) => x[4].form), ['vanish', null]);
     assert.ok(u.findBuff('chen3:s2:after'), 'the after-buff');
     let lastBuffed = landed;
     h.runUntil(() => { if (u.findBuff('chen3:s2:after')) lastBuffed = h.b.time; return !u.skill.active; }, 20);

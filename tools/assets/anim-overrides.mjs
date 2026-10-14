@@ -69,6 +69,9 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
     1: clips({ begin: 'Start_2', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
     2: clips({ begin: 'Start_3', loop: 'Skill_3_Loop', end: 'Skill_3_End', idle: 'Skill_3_Idle' }),
   }),
+  // 赤刃明霄陈 (char_1050_chen3): S2 attacks with her plain clips; its Skill_2_Begin → Skill_2_Disappear (she vanishes while
+  // she slashes) and Start_2 (back, mode S2Respawn) are a model form (render/units.js FORMS)
+  'op:char_1050_chen3:': Object.freeze({ 1: 'attack' }),
   // 银灰 (char_172_svrash): every attack of the S2 mode is `Modes/S2/Body/Attack _animKey "Combat"`; `Skill` is S3's.
   'op:char_172_svrash:': Object.freeze({
     1: clips({ loop: 'Combat' }),
@@ -212,16 +215,22 @@ export const SKILL_VARIANTS = Object.freeze({
 });
 
 /**
- * The death and stun clips of a skill's mode (docs/rules/render.md 「Spine 클립 커버리지」 D·F, maintainer's notes
+ * The death, stun and deploy clips of a skill's mode (docs/rules/render.md 「Spine 클립 커버리지」 D·E·F, maintainer's notes
  * 2026-10-14): the mode a skill switches the operator to pairs Die (or Stun) with a clip of its own (`_replaceAnimPairs`,
- * or a mode's animator hooker), so an operator knocked out or stunned while that skill runs plays it. Model key prefix →
- * { [0-based skill index]: { die?, stun? } } → the skill clip's `die` / `stun` (render/spine.js dieClip / _enterStun).
+ * or a mode's animator hooker), so an operator knocked out or stunned while that skill runs plays it; a 【移动】 by the skill
+ * redeploys on a clip of its own. Model key prefix → { [0-based skill index]: { die?, stun?, deploys?: { [key]: clip } } } →
+ * the skill clip's `die` / `stun` / `deploys` (render/spine.js dieClip / _enterStun / deploy — the key from the sim's
+ * 'deploy' event, Battle.moveRedeploy `clip`).
  */
 export const SKILL_STATE_CLIPS = Object.freeze({
   // 予愿安洁莉娜 (CN client): the S1 / S2 / S3 modes (with their take-off, 吟唱 and landing modes) pair Die→Skill_n_Die
   'op:char_1015_aglna2:': { 0: { die: 'Skill_1_Die' }, 1: { die: 'Skill_2_Die' }, 2: { die: 'Skill_3_Die' } },
-  // 乌尔比安: the S2 mode (a toggle) pairs Die→Skill_2_Die
-  'op:char_4145_ulpia:': { 1: { die: 'Skill_2_Die' } },
+  // 乌尔比安: the S2 mode (a toggle) pairs Die→Skill_2_Die; S3's 【移动】 to the anchor restarts on Skill_3_ReStart_A, on
+  // his own tile on Skill_3_ReStart_B [ASSUMED: which node plays it], its 【返回】 on Skill_3_Back
+  'op:char_4145_ulpia:': {
+    1: { die: 'Skill_2_Die' },
+    2: { deploys: { anchor: 'Skill_3_ReStart_A', here: 'Skill_3_ReStart_B', back: 'Skill_3_Back' } },
+  },
   // 缇比: the S1 / S2 flight modes (take-off and landing included) pair Die→Die_2
   'op:char_4191_tippi:': { 0: { die: 'Die_2' }, 1: { die: 'Die_2' } },
   // 迷迭香: only mode S3's animator hooker is the Graphic SimpleUnitAnimatorHooker with Stun→Stun_Skill_3
@@ -310,6 +319,8 @@ export function applyAnimOverrides(key, anims, names = null) {
       for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) {
         if (!clip) continue;
         for (const f of ['die', 'stun']) if (st[f] && (!names || names.includes(st[f]))) clip[f] = st[f];
+        const deploys = Object.fromEntries(Object.entries(st.deploys || {}).filter(([, n]) => !names || names.includes(n)));
+        if (Object.keys(deploys).length) clip.deploys = deploys;
       }
     }
   }
