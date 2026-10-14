@@ -119,7 +119,11 @@ JOBS = [
      # the element (EP) rings: char_ep_slider / enemy_ep_slider
      r'|slider_ep_back|slider_ep_fill|sprite_ep_color|sprite_ep_icon|sprite_ep_water_icon|sprite_ep_fire_icon|sprite_ep_dark_icon'
      r'|sprite_ep_hit_spread|slider_ep_back_enemy|slider_ep_color_enemy|slider_ep_fill_back_enemy|slider_ep_fill_enemy'
-     r'|sprite_ep_break_spread|sprite_ep_break_hint)$'),
+     r'|sprite_ep_break_spread|sprite_ep_break_hint'
+     # the class glyph of every TRAP / TOKEN character (UICharacterInfoStatusSubPanelInAutochess `_professionIcons`:
+     # TOKEN and TRAP share it, and it is the prefab's default `image_profession` sprite) — the class box of the device,
+     # item and summon cards (ui/detailArt.js, maintainer decision 2026-10-14)
+     r'|icon_profession_token_lighten)$'),
     ('battle/[pack]common.ab', 'battle/common', {'Texture2D'}, r'^sprite_attack_range$'),
 ]
 

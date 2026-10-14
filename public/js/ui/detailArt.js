@@ -73,6 +73,27 @@ export function cardArt(m, chess) {
   return { src: chessPortraitUrl(m, chess), full: false, frame: null };
 }
 
+/** Local-client entry (group ui/battlecommon) of the class glyph every TRAP / TOKEN character shows (ClassBox). */
+export const TRAP_CLASS_SPRITE = 'icon_profession_token_lighten';
+
+/**
+ * The class box of a TRAP / TOKEN character — a device, an item, a summon (maintainer decision 2026-10-14). The client's
+ * status subpanel (UICharacterInfoStatusSubPanelInAutochess `_professionIcons`) gives TOKEN and TRAP the same sprite,
+ * icon_profession_token_lighten of arts/ui/[uc]battlecommon.ab (also the prefab's default `image_profession`), which is
+ * the whole box: the glowing white rim, the half-dark fill and the white drone glyph — so the box drops its own border
+ * and fill (`is-sprite`). Extracted by tools/local-extract (ui/battlecommon); without it, or when it fails to load,
+ * `fallback` in the plain box.
+ * @param {{ fallback: any }} props
+ */
+export function ClassBox({ fallback }) {
+  const src = localAsset('ui/battlecommon', TRAP_CLASS_SPRITE);
+  const [bad, setBad] = useState(null);
+  const ok = !!src && bad !== src;
+  return html`<span class=${cx('dart__prof', ok && 'is-sprite')}>${ok
+    ? html`<img class="dart__profsprite" src=${src} alt="" draggable=${false} onError=${() => setBad(src)} />`
+    : fallback}</span>`;
+}
+
 const fmtInterval = (v) => (Number.isFinite(v) && v > 0 ? `${v.toFixed(2)}s` : '—');
 const fmtRes = (v) => (Number.isFinite(v) ? String(Math.round(v * 10) / 10) : '0');
 
@@ -122,7 +143,9 @@ export function ChessDetailArt(props) {
     html`<div key="art" class=${cx('dart', golden && 'is-golden', token && 'is-token', art.full && 'has-full-art', art.frame && 'has-frame')}>
       <div class="dart__bg" aria-hidden="true" style=${fs}>${art.src ? html`<${Img} src=${art.src} />` : null}</div>
       <div class="dart__head">
-        <span class="dart__prof"><i style=${prof ? `background-image:url("${prof}")` : ''}></i></span>
+        ${body.profession === 'TOKEN' || body.profession === 'TRAP'
+          ? html`<${ClassBox} fallback=${html`<i></i>`} />`
+          : html`<span class="dart__prof"><i style=${prof ? `background-image:url("${prof}")` : ''}></i></span>`}
         <h3 class="dart__name">${si ? si.name : c.name}</h3>
         ${si ? html`<span class="dart__for" data-for=${c.chessId}>${standInForText(c.name)}</span>` : null}
         <div class="dart__tier">
@@ -171,7 +194,7 @@ export function ChessDetailArt(props) {
  * layout and the same press pass-through as ChessDetailArt: the name, the stat list and the 攻击范围 tile (the turret's),
  * the HP bar (a battle's live HP, a prep card shows the record's 生命上限), and the tabs 技能 (the device's own skill text)
  * / 装置机制 (our mechanism lines and what the tile allows). No art (a trap has no 立绘 — [ASSUMED] the client's panel
- * then shows none); the class icon box holds an info glyph ([ASSUMED]: the trap's class icon is not extracted).
+ * then shows none); the class box is a TRAP's (ClassBox; an info glyph without the local-client sprite).
  * @param {{ device: any, snapHp?: { hp:number, max:number }|null, live?: any }} props
  */
 export function DeviceDetailArt({ device, snapHp = null, live = null }) {
@@ -200,7 +223,7 @@ export function DeviceDetailArt({ device, snapHp = null, live = null }) {
     html`<div key="art" class="dart is-device" data-device=${device?.key || ''}>
       <div class="dart__bg" aria-hidden="true"></div>
       <div class="dart__head">
-        <span class="dart__prof"><${Icon} name="info" /></span>
+        <${ClassBox} fallback=${html`<${Icon} name="info" />`} />
         <h3 class="dart__name">${device?.name || ''}</h3>
         <div class="dart__tier"><span class="dtag-kind">${device?.tag || ''}</span></div>
       </div>
@@ -356,7 +379,7 @@ export function ItemDetailArt({ item, piece = null, editable = false, onDestroy 
     html`<div key="art" class=${cx('dart', 'is-item', golden && 'is-golden', magic && 'is-magic')} data-item=${item?.id || ''}>
       <div class="dart__bg" aria-hidden="true"></div>
       <div class="dart__head">
-        <span class="dart__prof"><${Icon} name="info" /></span>
+        <${ClassBox} fallback=${html`<${Icon} name="info" />`} />
         <h3 class="dart__name">${item?.name || ''}</h3>
         <div class="dart__tier">
           <${TierChip} tier=${item?.tier} golden=${golden} size="md" />
@@ -412,9 +435,8 @@ function findByClass(node, cls, depth = 0) {
  * boxes (UICharacterInfoStatusSubPanelInAutochess.SetData shows none for a character without bonds), the HP bar, and the
  * tabs 技能 / 特性 (the character's description, as the operator card's) / 天赋, then ours: 说明 (how a placed summon takes
  * the field). [ASSUMED]: the tier is the owner's chess tier, else I (the client's fallback sprite when the token carries
- * no autochess_chess_id — whether it carries the owner's is not read); 费用 is the token's own cost; the class box holds
- * the summon's avatar (the client's TOKEN class icon, the same glyph as a trap's, is not extracted) — a map character's
- * class icon is its profession's.
+ * no autochess_chess_id — whether it carries the owner's is not read); 费用 is the token's own cost. The class box is a
+ * TOKEN's (ClassBox — the summon's avatar without the local-client sprite); a map character's is its profession's.
  * @param {{ token: any, piece?: any, ownerId?: string|null, snapHp?: { hp:number, max:number }|null, live?: any }} props
  */
 export function TokenDetailArt({ token, piece = null, ownerId = null, snapHp = null, live = null }) {
@@ -464,9 +486,9 @@ export function TokenDetailArt({ token, piece = null, ownerId = null, snapHp = n
     html`<div key="art" class=${cx('dart', 'is-token', mapChar ? 'is-mapchar' : 'is-summon')} data-token=${token?.tokenId || ''}>
       <div class="dart__bg" aria-hidden="true"></div>
       <div class="dart__head">
-        <span class="dart__prof">${mapChar
-          ? html`<i style=${prof ? `background-image:url("${prof}")` : ''}></i>`
-          : html`<${Img} src=${tokenAvatarUrl(m, token?.tokenId)} fallback=${html`<${GIcon} name="target" />`} />`}</span>
+        ${mapChar
+          ? html`<span class="dart__prof"><i style=${prof ? `background-image:url("${prof}")` : ''}></i></span>`
+          : html`<${ClassBox} fallback=${html`<${Img} src=${tokenAvatarUrl(m, token?.tokenId)} fallback=${html`<${GIcon} name="target" />`} />`} />`}
         <h3 class="dart__name">${token?.name || ''}</h3>
         <div class="dart__tier">
           <${TierChip} tier=${owner?.tier ?? 1} golden=${!!owner?.isGolden} size="md" />

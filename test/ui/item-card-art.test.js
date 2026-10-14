@@ -55,7 +55,7 @@ describe('the card', () => {
     const js = read('public/js/ui/detailArt.js');
     const body = js.slice(js.indexOf('export function ItemDetailArt('), js.indexOf('/** The first vnode under'));
     assert.ok(body.length > 0);
-    for (const cls of ["'dart', 'is-item'", 'dart__bg', 'dart__head', 'dart__prof', 'dart__name', 'dart__tier', 'dart__lv', 'dart__mid', 'dart__stats', 'dart__range', 'dart__hp', 'dart__tabs', 'dart__pane']) assert.ok(body.includes(cls), cls);
+    for (const cls of ["'dart', 'is-item'", 'dart__bg', 'dart__head', '${ClassBox}', 'dart__name', 'dart__tier', 'dart__lv', 'dart__mid', 'dart__stats', 'dart__range', 'dart__hp', 'dart__tabs', 'dart__pane']) assert.ok(body.includes(cls), cls);
     for (const k of ['攻击', '防御', '法抗', '阻挡', '费用', '攻击范围', '生命', '被动']) assert.ok(body.includes(`t('${k}')`), k);
     assert.match(body, /label: N_\('技能'\)/);
     assert.match(body, /item\?\.canGiveBond \? \{ id: 'talents', label: N_\('天赋'\)/, 'a 变形同构体 keeps its pairings');

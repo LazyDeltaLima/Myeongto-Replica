@@ -550,8 +550,8 @@
 .dart.is-token .dart__prof { border-color: #36d3e6; box-shadow: 0 0 .12rem rgba(54, 211, 230, .5); }
 /* prof/icon_*.png is the label sprite (名称 + the square class glyph on its right): its right square only */
 .dart__prof i { width: 80%; height: 80%; background: right center / auto 100% no-repeat; }
-/* a stage device's card (ui/detailArt.js DeviceDetailArt, GitHub #3): the same card without art — an info glyph in the
-   class box, the device tag where an operator's tier row is */
+/* a stage device's card (ui/detailArt.js DeviceDetailArt, GitHub #3): the same card without art — a TRAP's class box
+   (.dart__prof.is-sprite below; an info glyph without the sprite), the device tag where an operator's tier row is */
 .dart.is-device .dart__prof .icon { width: 56%; height: 56%; color: #e3b53f; }
 .dart.is-device .dart__tier .dtag-kind { font-size: .17rem; padding: .02rem .1rem; color: #d8d8d8; border-color: rgba(255, 255, 255, .35); background: rgba(10, 10, 10, .55); }
 .dart.is-device .dart__stats { min-width: 1.6rem; }
@@ -584,13 +584,19 @@
 .dart__pane--skill .dskill[data-item] .dsp--trig { padding: .02rem .26rem; background: #8a8a8a; border: 0; border-radius: .05rem; color: #fff; font-size: .19rem; }
 .dart__pane .dart__flavor { color: #b8b8b8; font-style: italic; white-space: pre-line; }
 /* a summon's card (ui/detailArt.js TokenDetailArt — a token is a character of the client, maintainer decision 2026-10-14):
-   the operator card without art and bond boxes, the cyan class box of a token holding the summon's avatar ([ASSUMED]: the
-   client's TOKEN class glyph is not extracted), 召唤物 / 干员 and the count beside the tier */
+   the operator card without art and bond boxes, a TOKEN's class box (.dart__prof.is-sprite below; without the sprite the
+   cyan box holding the summon's avatar), 召唤物 / 干员 and the count beside the tier */
 .dart.is-summon .dart__prof { overflow: hidden; }
 .dart.is-summon .dart__prof img { width: 100%; height: 100%; object-fit: contain; }
 .dart.is-summon .dart__prof .icon { width: 56%; height: 56%; color: #d8d8d8; }
 .dart.is-token .dart__tier :is(.dtag-token, .dtag-kind) { font-size: .17rem; padding: .02rem .1rem; }
 .dart.is-token .dart__tier .dtag-kind { color: #d8d8d8; border-color: rgba(255, 255, 255, .35); background: rgba(10, 10, 10, .55); }
+/* the class box of a TRAP / TOKEN character — device, item, summon (ui/detailArt.js ClassBox, maintainer decision
+   2026-10-14): the client's icon_profession_token_lighten (local client ui/battlecommon) is the whole box — its glowing
+   white rim, the half-dark fill and the drone glyph, 128 px as image_profession — so the box's own border, fill and
+   glow go (after the device / item / golden / token rules, which it overrides) */
+.dart .dart__head > .dart__prof.is-sprite { border: 0; background: none; box-shadow: none; overflow: visible; }
+.dart__prof.is-sprite > .dart__profsprite { width: 100%; height: 100%; object-fit: contain; }
 .dart__name { margin-top: .1rem; font-size: .28rem; font-weight: 500; color: #fff; text-shadow: 0 1px 3px #000; }
 /* 0.2.0 补位: 「X的替补」 under a stand-in's name (ui/detailArt.js; [ASSUMED] placement, as ChessDetail's dhead__for) */
 .dart__for { margin-top: -.04rem; font-size: .15rem; color: #b2b2b2; text-shadow: 0 1px 2px #000; }

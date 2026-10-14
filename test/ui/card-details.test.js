@@ -71,3 +71,35 @@ describe('a summon\'s card in the official form', () => {
     assert.match(css, /\.dart\.is-summon \.dart__prof img \{/);
   });
 });
+
+describe('the class box of a TRAP / TOKEN character', () => {
+  // the client's status subpanel gives TOKEN and TRAP one sprite, icon_profession_token_lighten of
+  // arts/ui/[uc]battlecommon.ab (maintainer decision 2026-10-14): the device, item and summon cards draw it
+  test('ClassBox: the local-client sprite as the whole box, else the fallback in the plain box', async () => {
+    const js = read('public/js/ui/detailArt.js');
+    assert.match(js, /export const TRAP_CLASS_SPRITE = 'icon_profession_token_lighten';/);
+    assert.match(js, /const src = localAsset\('ui\/battlecommon', TRAP_CLASS_SPRITE\);/);
+    assert.match(js, /cx\('dart__prof', ok && 'is-sprite'\)/);
+    assert.match(js, /onError=\$\{\(\) => setBad\(src\)\}/, 'a sprite that fails to load falls back');
+    const fn = (name) => { const i = js.indexOf(`export function ${name}(`); return js.slice(i, js.indexOf('\nexport function', i + 10)); };
+    assert.match(fn('DeviceDetailArt'), /<\$\{ClassBox\} fallback=\$\{html`<\$\{Icon\} name="info" \/>`\} \/>/, 'device: info glyph fallback');
+    assert.match(fn('ItemDetailArt'), /<\$\{ClassBox\} fallback=\$\{html`<\$\{Icon\} name="info" \/>`\} \/>/, 'item: info glyph fallback');
+    assert.match(fn('TokenDetailArt'), /<\$\{ClassBox\} fallback=\$\{html`<\$\{Img\} src=\$\{tokenAvatarUrl\(m, token\?\.tokenId\)\}/, 'summon: avatar fallback');
+    assert.match(fn('TokenDetailArt'), /mapChar\n\s+\? html`<span class="dart__prof"><i style=\$\{prof/, 'a map character keeps its profession icon');
+    assert.match(fn('ChessDetailArt'), /body\.profession === 'TOKEN' \|\| body\.profession === 'TRAP'\n\s+\? html`<\$\{ClassBox\}/);
+    const { ClassBox } = await import('../../public/js/ui/detailArt.js');
+    assert.equal(typeof ClassBox, 'function');
+    const css = read('public/css/hud-art.css');
+    assert.match(css, /\.dart \.dart__head > \.dart__prof\.is-sprite \{ border: 0; background: none; box-shadow: none; overflow: visible; \}/);
+    assert.match(css, /\.dart__prof\.is-sprite > \.dart__profsprite \{ width: 100%; height: 100%; object-fit: contain; \}/);
+    // after every rule it overrides (same specificity or lower)
+    const at = css.indexOf('.dart__prof.is-sprite {');
+    for (const r of ['.dart.is-item.is-golden .dart__prof {', '.dart.is-token .dart__prof {', '.dart.is-summon .dart__prof {']) assert.ok(css.indexOf(r) >= 0 && css.indexOf(r) < at, r);
+  });
+
+  test('the extractor keeps the sprite in its ui/battlecommon job', () => {
+    const py = read('tools/local-extract/extract.py');
+    const job = py.slice(py.indexOf("('arts/ui/[uc]battlecommon.ab', 'ui/battlecommon'"), py.indexOf("('battle/[pack]common.ab'"));
+    assert.match(job, /\|icon_profession_token_lighten\)\$'\),/);
+  });
+});

@@ -1079,7 +1079,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     → `Tile.GetCharacter`로 그 칸의 캐릭터를 찾고(`_disableClickCharacterInfo`면 끝), 보는 쪽이 맞으면 `AutoChessUIPlugin.ReqShowCharacterMenu` →
     `UICharacterInfoPanel.ShowCharacter`. 이 패널의 하위 패널(`UICharacterInfoStatusSubPanelInAutochess`·`…TabGroupSubPanelInAutochess`)은 플러그인이
     캐릭터 종류와 상관없이 건다(`_hookedCharacterInfoSubPanels`, `HookedCharacterInfoType` STATUS/TAB_GROUP/ADDITION) → 오퍼레이터와 같은 틀. 관리자 기억과도 맞음.
-  - `[ASSUMED]` 장치에는 그림이 없다(함정은 立绘가 없음 — 클라 패널이 그때 무엇을 그리는지는 안 봄), 직업 칸에는 정보 아이콘(함정 직업 아이콘 미추출). 정비 중
+  - `[ASSUMED]` 장치에는 그림이 없다(함정은 立绘가 없음 — 클라 패널이 그때 무엇을 그리는지는 안 봄). 직업 칸은 TRAP 직업 그림(아래 「상세 카드 세부」 결정 4). 정비 중
     阻隔工事처럼 관 데이터에 HP 수치가 없는 장치는 HP 막대가 없다(전투 중에는 실시간 HP). 기본 탭은 「技能」(스킬 글이 없으면 「装置机制」).
 - 결정 4(관리자 결정 2026-10-14): **특수 지형은 카드가 아니라 화면 위쪽 토스트**(`ui/tileToast.js TileToast`, `screens/game.js` `tileClick` → `tileTip`).
   지형 카드(`TerrainDetail`, `{ kind: 'terrain' }`)는 없앴다. 토스트 = 지형 이름·태그(이름과 같으면 생략)·설명 줄(그 판 수치)·「这一格」 사실, 위쪽 가운데
@@ -1149,7 +1149,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 우리 카드: 위 그대로(`itemTrapStats` = 위 함정 수치, 진급 아이템은 「进阶」 꼬리표), 탭 「技能」(효과 + 맹약을 주는 아이템의 「与变形同构体一同装备时…」
   줄 + `note`), 变形同构体만 「天赋」(짝 목록), 「说明」(flavor 글·쓰는 법·상점에 없는 아이템의 획득 경로). 销毁는 하단 프레임(underframe)의 것 —
   카드는 `editable`·`onDestroy`를 넘기는 호출자에게만 단추를 그린다(게임 화면은 넘기지 않음, 예전과 같음).
-- `[ASSUMED]` 직업 칸 안 그림: 클라는 TRAP 직업 아이콘(캡처의 흰 그림)을 그리나 미추출 — 장치 카드와 같은 정보 아이콘. 크기·색은 캡처만 보고 맞춤
+- 직업 칸 안 그림: 클라의 TRAP 직업 그림(캡처의 흰 드론 그림, 아래 「상세 카드 세부」 결정 4). `[ASSUMED]` 그 밖의 크기·색은 캡처만 보고 맞춤
   (`css/hud-art.css .dart.is-item`, `.dskill__icon--item`). 진급 아이템이 공식에서 몇 레벨로 보이는지는 안 봄(함정 1단계 LV 1로 둠).
 - 확인: `test/ui/item-card-art.test.js`(아이템 115개의 함정 수치·`PASSIVE`·사거리를 공식 표와 대조 — 표가 없으면 건너뜀, 카드 구성·CSS),
   `test/ui/official-ui-gaps.test.js`. Windows Chrome(목업 정비, 손의 아이템을 바꿔 누름) 1920×1080·932×430 터치: 不屈弹射器 카드가 캡처와 같은 배치
@@ -1174,20 +1174,32 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     `Colors.TRANSPARENT`. 관리자 캡처 두 장(刺玫: 주황 테 칸 + 흰 자기 칸, 不屈弹射器: 흰 칸 하나)과 픽셀이 맞음. 칸 사이 간격은 우리 2px 그대로.
 - 결정 3(**소환물 카드도 공식 모양**): 공식 모양 HUD일 때 소환물 카드(벤치·보드의 소환물 말, 전투 중 소환물, 밴드 맵 캐릭터 预备干员-医疗 등 —
   `detail.type === 'token'`)는 `ui/detailArt.js TokenDetailArt` + `dpanel--chess`(`detailPanel.js` `artToken`): 상자 없이 왼쪽 전체 높이, 누름 통과도
-  같음. 직업 칸(소환물 청록 틀) · 이름 · 등급 | 정예 아이콘 LV n(소환물은 주인 변형의 phase·level) · 공격·방어·법저·저지·비용(+ 작게 공격 간격·재배치,
+  같음. 직업 칸(TOKEN 직업 그림, 결정 4) · 이름 · 등급 | 정예 아이콘 LV n(소환물은 주인 변형의 phase·level) · 공격·방어·법저·저지·비용(+ 작게 공격 간격·재배치,
   전투 중 실시간 색) · 「攻击范围」 칸 · 파란 HP 막대, 맹약 칸 없음. 탭 「技能」(스킬 줄 — 아이콘·태그·글) / 「特性」(캐릭터 설명) / 「天赋」, 그리고 우리
   「说明」(놓은 소환물이 언제 나오는지). 「召唤物」·「干员」(맵 캐릭터: 직군 · 위치)·×개수 꼬리표는 등급 옆. 공식 모양이 아닐 때는 예전 상자(`TokenDetail`).
   - 공식 근거: 소환물은 클라 `character_table`의 캐릭터(`profession: TOKEN`; 맵 캐릭터는 오퍼레이터)라 누르면 오퍼레이터와 같은 `UICharacterInfoPanel`
     (위 「보드에서 연 카드가 벤치를 가림」 결정 2의 경로). 프리팹의 직업 아이콘 쌍(`_professionIcons`)에서 TOKEN(128)과 TRAP(256)은 같은 그림(장비 캡처의
     흰 그림). `SetData`는 맹약이 없는 캐릭터에 맹약 칸을 그리지 않는다(위 결정 1의 `_campGroupBkgImgColorWhenEmpty`). `UpdateData`는 캐릭터의
     블랙보드 `autochess_chess_id`가 없으면 비용 「0」·등급 그림 `_chessLevelSprites[0]`(I), 있으면 그 말의 등급.
-  - `[ASSUMED]` 등급은 주인 말의 등급, 주인을 모르면 I(소환물에 `autochess_chess_id`가 붙는지는 안 봄). 비용은 소환물 자신의 비용. 직업 칸 안은 소환물
-    아바타(TOKEN 직업 그림 미추출 — 장치·아이템 카드의 정보 아이콘 대신 누구인지 보이게), 맵 캐릭터는 그 직군 아이콘. 그림(立绘) 없음.
+  - `[ASSUMED]` 등급은 주인 말의 등급, 주인을 모르면 I(소환물에 `autochess_chess_id`가 붙는지는 안 봄). 비용은 소환물 자신의 비용. 맵 캐릭터의
+    직업 칸은 그 직군 아이콘. 그림(立绘) 없음.
 - 확인: `test/ui/card-details.test.js`(맹약 칸 CSS·팝업 연결, 범위 칸 색, 소환물 카드 구성·연결), `test/ui/official-ui-gaps.test.js`·`item-card-art.test.js`.
   Windows Chrome(목업 정비 화면, 공식 모양 HUD) 1920×1080 마우스·932×430 터치: 오퍼레이터 카드 — 맹약 칸에 아이콘·이름만(이름 #d0d0d0, 개수 숨김,
   누르면 팝업), 범위 칸 주황 테·흰 자기 칸; 아이템 카드 — 흰 칸 하나; 소환물 카드(손의 소환물 말을 狼群·诅咒娃娃·医疗探机로 바꿔 누름) — 공식 모양
   (`dpanel--chess`), 맹약 칸 없음, 탭 전환, 카드 밑 보드 칸이 캔버스(누름 통과, 오퍼레이터 카드와 같은 비율). `[화면 미확인]` 맵 캐릭터(预备干员-医疗)
   카드·장치(射击台) 카드의 범위 색(같은 CSS).
+- 결정 4(관리자 결정 2026-10-14, **TRAP·TOKEN 직업 칸 = 클라의 직업 그림**): 장치·아이템(둘 다 TRAP)·소환물(TOKEN) 카드의 직업 칸은
+  `icon_profession_token_lighten`(`ui/detailArt.js ClassBox`, 직업이 TOKEN·TRAP인 말을 오퍼레이터 카드로 열 때도). 이 스프라이트가 칸 전체(빛나는 흰
+  테·반투명 검은 바탕·흰 드론 그림, 128)라 우리 칸의 테·바탕·빛은 지움(`css/hud-art.css .dart__prof.is-sprite` — 금빛 아이템·소환물 청록 틀도). 맵
+  캐릭터는 그대로 직군 아이콘.
+  - 공식 근거: `UICharacterInfoStatusSubPanelInAutochess._professionIcons`에서 TOKEN(128)·TRAP(256)이 같은 스프라이트이고 프리팹
+    `act2autochess_character_info_subpanel_status`의 `image_profession`(128×128) 기본 스프라이트도 이것(`arts/ui/[uc]battlecommon.ab`). 관리자 캡처
+    (不屈弹射器 카드)의 그림과 같음.
+  - 추출: `tools/local-extract/extract.py`의 `ui/battlecommon` 작업(이름 정규식에 추가) → `public/assets/local/ui/battlecommon/` + `data/local-assets.json`
+    (`extract.py --only ui/battlecommon`으로 그 묶음만 다시 뽑을 수 있음). 클라이언트에서 뽑은 그림이 없거나 못 읽으면 예전 그림: 장치·아이템은 정보
+    아이콘, 소환물은 아바타(테·바탕 그대로).
+  - 확인: `test/ui/card-details.test.js`(ClassBox 연결·대체 그림·CSS·추출 작업). Windows Chrome(목업, 1920×1080): 아이템(坚固维式重锤)·소환물(狼群·
+    医疗探机)·장치(阻隔工事, 전투 목업) 카드의 직업 칸이 캡처와 같은 그림(96px 칸에 꽉 참, 테 없음), 매니페스트에서 항목을 지우면 정보 아이콘·아바타로 돌아감.
 
 ## 설정 창을 기능별 절로 (2026-10-14, 관리자 결정)
 
