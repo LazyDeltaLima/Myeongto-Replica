@@ -244,6 +244,14 @@ test('stalker dodges and hits everything in range; hunter consumes and reloads a
   h2.b.enemies[0].hidden = true;
   h2.run(4);
   assert.ok(hu.trait.ammo >= 2);
+  // the reload is a model form while it runs (render/units.js FORMS: 雪猎's Reload clips): fx 'hunterReload' on each change
+  assert.equal(hu.form, 'reload');
+  const rl = () => h2.eventsOf('fx').filter((e) => e[1] === 'hunterReload' && e[4]?.id === hu.id).map((e) => e[4].form);
+  assert.deepEqual(rl(), ['reload']);
+  h2.b.enemies[0].x = 6; h2.b.enemies[0].hidden = false;   // a target again: an attack cuts the reload
+  assert.ok(h2.runUntil(() => hu.form == null, 3));
+  const cut = h2.eventsOf('fx').filter((e) => e[1] === 'hunterReload' && e[4]?.id === hu.id).pop()[4];
+  assert.ok(cut.form === null && cut.cut === 1, 'ended by the attack: no Reload_End');
 });
 
 // 回环射手 (loopshooter, 跃跃): "持有回旋投射物时才能够攻击（投射物需要时间回收）" — out at 15 tiles/s, back at 3.75

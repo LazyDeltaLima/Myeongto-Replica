@@ -347,10 +347,18 @@ const installHunter = (battle, unit) => {
   unit.trait.reloadAcc = 0;
   battle.on('tick', (ctx) => {
     if (!unit.alive || !unit.deployed) return;
-    if (battle.time - unit.lastAttackAt >= 1 && unit.trait.ammo < max) {
+    const reloading = battle.time - unit.lastAttackAt >= 1 && unit.trait.ammo < max;
+    if (reloading) {
       unit.trait.reloadAcc += ctx.dt;
       if (unit.trait.reloadAcc >= 1) { unit.trait.reloadAcc -= 1; unit.trait.ammo++; }
     } else unit.trait.reloadAcc = 0;
+    // the reload is a model form (雪猎's Reload ability: render/units.js FORMS) — fx 'hunterReload' { form } on each change;
+    // `cut` 1: an attack ended it (the client's ReloadAttack opens on Reload_Break, no Reload_End). Display only.
+    const form = reloading && unit.trait.ammo < max && !unit.swing ? 'reload' : null;
+    if ((unit.form ?? null) !== form) {
+      unit.form = form;
+      battle.fx('hunterReload', { x: unit.x, y: unit.y, id: unit.id, form, ...(form == null && unit.trait.ammo < max ? { cut: 1 } : null) });
+    }
   }, { owner: unit });
   battle.on('deploy', (ctx) => { if (ctx.unit === unit) unit.trait.ammo = max; }, { owner: unit });
 };

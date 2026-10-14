@@ -431,8 +431,8 @@
         "enemy_2021_syfish": [1,0,1,0,1603]
       },
       "hooks": [1,194,4200,690,690,980,987,316,125,181,31,30,0,20366,20,36,169,56,1,131,0,0,0],
-      "events": {"atk":847,"bounty":2,"deploy":23,"die":125,"dmg":975,"engage":13,"face":64,"fx":153,"heal":2,"leak":56,"skill":61,"spawn":184,"status":67,"swing":736,"tplfx":2},
-      "fx": {"aoe":2,"camouflage":1,"displace":33,"dp":2,"explode":16,"phase":1,"pull":33,"strike":3,"summon":45,"volley":8,"wolfShadow":3,"wolfShadowLost":6},
+      "events": {"atk":847,"bounty":2,"deploy":23,"die":125,"dmg":975,"engage":13,"face":64,"fx":203,"heal":2,"leak":56,"skill":61,"spawn":184,"status":67,"swing":736,"tplfx":2},
+      "fx": {"aoe":2,"camouflage":1,"displace":33,"dp":2,"explode":16,"hunterReload":50,"phase":1,"pull":33,"strike":3,"summon":45,"volley":8,"wolfShadow":3,"wolfShadowLost":6},
       "snaps": "2c26d7f6 b658f38f a394d1a2 6499cb7a ece4d5f5 d5492729 af01b3ed 66721925 e8c953f9 0ffd02a2 bd099f44 75f0b4c9 20304e35 72cd90e6"
     },
     "roster-008": {
@@ -509,8 +509,8 @@
         "enemy_2025_syufo": [13,2,8,27583,94284]
       },
       "hooks": [1,131,5100,567,567,1114,1220,409,69,125,21,23,0,8342,85,57,88,32,1,75,8,14,0],
-      "events": {"atk":654,"bounty":4,"deploy":43,"die":93,"dmg":1151,"engage":12,"face":33,"fx":209,"heal":408,"layer":8,"leak":32,"skill":47,"spawn":122,"status":148,"swing":598},
-      "fx": {"aoe":20,"blink":2,"buff":1,"burst":14,"coin":26,"displace":28,"enemySkill":1,"explode":28,"garrison":8,"parry":1,"phase":1,"pull":28,"revive":6,"shield":1,"shieldBreak":1,"stone":1,"strike":9,"summon":23,"telegraph":1,"volley":9},
+      "events": {"atk":654,"bounty":4,"deploy":43,"die":93,"dmg":1151,"engage":12,"face":33,"fx":264,"heal":408,"layer":8,"leak":32,"skill":47,"spawn":122,"status":148,"swing":598},
+      "fx": {"aoe":20,"blink":2,"buff":1,"burst":14,"coin":26,"displace":28,"enemySkill":1,"explode":28,"garrison":8,"hunterReload":55,"parry":1,"phase":1,"pull":28,"revive":6,"shield":1,"shieldBreak":1,"stone":1,"strike":9,"summon":23,"telegraph":1,"volley":9},
       "snaps": "c088d33f da7bf221 bb55f2b3 448bf063 a03c86d4 b546f57d fc742dcf 2fd97ce6 2272bc89 6f7cf452 bb804519 b312519f 80af5dd1 2c5f6f87 c8cc274b 4c53ab0a 9fe22856"
     },
     "roster-009": {
@@ -1660,8 +1660,8 @@
         "enemy_9010_acpupp": [1,0,1,0,1540]
       },
       "hooks": [1,102,4200,433,433,1537,1600,90,44,95,35,35,0,10289,23,50,73,49,1,49,0,0,0],
-      "events": {"atk":505,"bounty":3,"deploy":26,"die":46,"dmg":1600,"engage":14,"face":16,"fx":31,"heal":9,"leak":49,"skill":70,"spawn":90,"status":64,"swing":448,"tplfx":5},
-      "fx": {"dp":7,"enemyShot":2,"enemySkill":1,"explode":3,"liberate":1,"palsy":1,"phase":1,"revive":4,"sp":2,"strike":1,"summon":3,"telegraph":2,"wolfShadow":1,"wolfShadowLost":2},
+      "events": {"atk":505,"bounty":3,"deploy":26,"die":46,"dmg":1600,"engage":14,"face":16,"fx":48,"heal":9,"leak":49,"skill":70,"spawn":90,"status":64,"swing":448,"tplfx":5},
+      "fx": {"dp":7,"enemyShot":2,"enemySkill":1,"explode":3,"hunterReload":17,"liberate":1,"palsy":1,"phase":1,"revive":4,"sp":2,"strike":1,"summon":3,"telegraph":2,"wolfShadow":1,"wolfShadowLost":2},
       "snaps": "b794ae97 0decd704 8c28189c 5c5d7a4b f6efab2f 17632784 9b8eb96d 12d86b05 5362e565 91525402 2a438f7e 8dd17b00 808a5709 8592c08e"
     },
     "roster-027": {
@@ -1713,8 +1713,8 @@
         "enemy_9006_actoxi": [12,8,3,6031,154509]
       },
       "hooks": [1,67,5100,615,615,1983,1983,44,44,60,120,121,0,8658,50,33,53,14,1,44,4,0,0],
-      "events": {"atk":779,"bounty":2,"deploy":14,"die":46,"dmg":1893,"engage":12,"face":41,"fx":162,"heal":44,"layer":4,"leak":14,"skill":244,"spawn":65,"status":180,"swing":625},
-      "fx": {"blink":1,"buff":1,"coin":34,"enemySkill":3,"explode":34,"garrison":4,"parry":16,"shield":17,"shieldBreak":1,"strike":13,"volley":11,"zone":27},
+      "events": {"atk":779,"bounty":2,"deploy":14,"die":46,"dmg":1893,"engage":12,"face":41,"fx":210,"heal":44,"layer":4,"leak":14,"skill":244,"spawn":65,"status":180,"swing":625},
+      "fx": {"blink":1,"buff":1,"coin":34,"enemySkill":3,"explode":34,"garrison":4,"hunterReload":48,"parry":16,"shield":17,"shieldBreak":1,"strike":13,"volley":11,"zone":27},
       "snaps": "411504a2 7d0d176a 3160b2fe b620dbde 627384ee 6f115076 330f3dd7 df7d2981 f876e82f 9fd80d42 67196976 fbb3e53f 45ea0a31 7cb5d696 cced69c9 7353c3d5 18576b22"
     },
     "roster-028": {

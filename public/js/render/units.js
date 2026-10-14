@@ -348,6 +348,10 @@ export const EL_BAR = Object.freeze({ icon: 0.15, min: 8, max: 15, enemy: 0.8, g
  * - 赤刃明霄陈 S2 (her kit's 'chen3Vanish' fx → form 'vanish', 'chen3Respawn' → null): skchr_chen3_2 `_animKey
  *   "Skill_2_Begin"` then `_endAnimKey "Skill_2_Disappear"` — gone (`hold`: the last frame of the change clips stays, mode
  *   'held') while she slashes —, back on Start_2 (`leave`: mode S2Respawn Born→Start_2), then her plain clips.
+ * - 雪猎's reload (the sim's 猎手 reload, professions.js installHunter: fx 'hunterReload' → form 'reload', null when full or —
+ *   `cut` — when an attack ends it): charpack Attack/Reload `_beginAnim "Reload_Begin"`, `_oneshotAnim "Reload_Loop"` (held as
+ *   the idle while she reloads), out on Reload_End (the skin's mix Reload_Loop→Idle); an attack meanwhile is ReloadAttack:
+ *   Reload_Break, then Attack_Loop (the form's attack role, its first-attack begin).
  * - 丰川祥子 S2's organ timbre (her kit's 'spGain' fx → form 'organ', null back to the piano): charpack S2_AttackSpeed
  *   Idle→Skill_2_Idle_B, Attack→Skill_2_Loop_B over the piano that S2 sets from the deployment (anims `equip`).
  * - 玛恩纳's 解放者 watch (the sim's ai.js watchForm: fx 'watch' → form 'watch' while a target stands in her range outside
@@ -448,6 +452,12 @@ export const FORMS = Object.freeze({
   }),
   char_1050_chen3: Object.freeze({
     vanish: Object.freeze({ change: Object.freeze(['Skill_2_Begin', 'Skill_2_Disappear']), hold: true, leave: 'Start_2', endsWithSkill: true, endsOnDeath: true, roles: Object.freeze({ attack: null }) }),
+  }),
+  char_4211_snhunt: Object.freeze({
+    reload: Object.freeze({
+      change: 'Reload_Begin', leave: 'Reload_End', endsOnDeath: true,
+      roles: Object.freeze({ idle: 'Reload_Loop', attack: Object.freeze({ begin: 'Reload_Break', loop: 'Attack_Loop', end: 'Attack_End', firstBegin: true }) }),
+    }),
   }),
   char_4182_oblvns: Object.freeze({
     organ: Object.freeze({ change: null, roles: Object.freeze({ idle: 'Skill_2_Idle_B', attack: loop('Skill_2_Loop_B') }) }),
@@ -873,7 +883,8 @@ export class UnitView {
     const late = fx && Number(fx.late) > 0 ? Number(fx.late) : 0;
     const change = f && f.change && !(late > 0 && late >= (this.actor.dur?.(f.change) ?? Infinity)) ? f.change : null;
     if (f) this.actor.setForm(f.roles, change, f.end && dur > 0 ? { clip: f.end, in: dur, roles: next } : null, !!f.hold);
-    else if (prev) this.actor.setForm(null, prev.leave && !(late > 0 && late >= (this.actor.dur?.(prev.leave) ?? Infinity)) ? prev.leave : null);
+    // (`cut`: the form ended by something that plays its own clip — 雪猎's reload cut by an attack: no `leave` clip)
+    else if (prev) this.actor.setForm(null, prev.leave && !fx?.cut && !(late > 0 && late >= (this.actor.dur?.(prev.leave) ?? Infinity)) ? prev.leave : null);
   }
 
   // ---- HUD -------------------------------------------------------------------------------------------------

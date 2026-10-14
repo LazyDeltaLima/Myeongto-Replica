@@ -58,12 +58,6 @@ export const UNPLAYED = {
   char_4116_blkkgt: {
     Skill_2_B: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); S2 plays Skill_2',
   },
-  char_4211_snhunt: {
-    Reload_Begin: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
-    Reload_Break: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
-    Reload_End: 'todo: C+I — first-attack begin / attack end (ThreePartOneshotAnimation); mix clip (SpineAnimator._mixSettings)',
-    Reload_Loop: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
-  },
   char_440_pinecn: {
     Skill_1_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
     Skill_2_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',

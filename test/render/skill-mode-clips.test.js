@@ -386,3 +386,22 @@ test('a spell of attacks opens on the first-attack begin (sharing the wind-up) a
   run(g, 4);
   assert.equal(g.current, 'Skill_2_End');
 });
+
+test('雪猎 reload: Reload_Begin, Reload_Loop while she reloads, Reload_End when full; an attack meanwhile opens on Reload_Break', async () => {
+  const id = 'char_4211_snhunt';
+  const hit = assets.chars[id].spine.front.hits.Attack_Loop[0];
+  const v = await view(id, { skillIndex: 0 });
+  v.setForm('reload', { form: 'reload' });
+  assert.equal(v.actor.current, 'Reload_Begin');
+  secs(v, 0.3);
+  assert.equal(v.actor.current, 'Reload_Loop');
+  v.setForm(null, { form: null });
+  assert.equal(v.actor.current, 'Reload_End', 'full');
+  secs(v, 0.3);
+  v.setForm('reload', { form: 'reload' });
+  secs(v, 0.5);
+  v.onSwing(hit + v.actor.dur('Reload_Break'), 'arrow');
+  v.setForm(null, { form: null, cut: 1 });
+  assert.equal(v.actor.current, 'Reload_Break', 'ReloadAttack: Reload_Break (then Attack_Loop) — no Reload_End');
+  assert.equal(v.actor.mode, 'attack');
+});
