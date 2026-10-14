@@ -930,3 +930,14 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   다음 공격까지 4.5 × 100 / 80 = 5.6 s).
 - **옛 동작**: 같은 대상일 때만 공격 **뒤** 1스택, 새 대상 첫 공격은 0스택 → 하한 20(다음 공격까지 22.5 s), 최대 스택이 한 타 늦음. 테스트
   `enemies_bosses.test.js` 「假想敌：铳: unblockable…」(3타 뒤 240, 간격 5.6 s·2.8 s).
+
+### “余音” 暗色 형태 이동 속도·【合奏】 (`setEchoForm`·`kitEcho`)
+- **이동 속도**: 暗色(Depression) 형태는 이동 속도 **+20 %**(클라 프리팹 `Modes/Depression/Body/Talents/2`: MOVE_SPEED, MULTIPLIER +`2.move_speed` 0.2).
+  옛 동작: −20 %.
+- **【合奏】 규칙**: 余音의 SP = enemy_database spData `INCREASE_WHEN_TAKEN_DAMAGE`(피해 1회 +1, 최대 12, 시작 0) — 우리 `taken` 훅이 보는 피해 한 번
+  (출처 무관)마다 +1. 클라 프리팹 `Talents/4`(SkillTrigger)가 1 s마다 검사해 **한 余音이라도 SP가 차면 필드의 모든 余音이 함께** 자기 형태의 합주를 하고
+  모두의 SP를 비운다: 金 → `PassionSkill`(반경 0.8, 凋亡 `4.ep_damage_ratio_passion`), 暗 → `DepassionSkill`(반경 1.6, `4.ep_damage_ratio_depassion`),
+  둘 다 ATK 100 % 법술. 시전 fx `enemySkill`의 `ability`가 프리팹 능력 이름(렌더가 공식 이펙트를 붙임). enemy_database 스킬 `Skill`(쿨 5·첫 2)은 프리팹에
+  능력이 없어 쓰지 않는다. [ASSUMED] 행동할 수 없는 余音(기절·빙결·수면)은 합주하지 않고 SP만 함께 비워진다; 검사 자체는 상태와 무관.
+- **옛 동작**: 余音마다 `Skill` 쿨다운(첫 2 s, 이후 5 s)으로 따로 합주. 테스트 `enemies_bosses.test.js` 「“余音” 【合奏】…」·「“余音”: 10-hit unit…」.
+- 피격 펄스(`echoHit`)는 그대로. 관·현의 일반 공격·스킬이 余音을 치는 것은 피해가 아니라 펄스만이라 SP에 들어가지 않는다(관·현 쪽 수정 때 다시 볼 것).

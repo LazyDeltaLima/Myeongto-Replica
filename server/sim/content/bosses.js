@@ -40,8 +40,9 @@
 //   boss_3/10 假想敌：管     summons 余音 (dark) every 40 s (20 s < 50 %); normal attacks strike dark 余音 (their pulse hurts
 //                            operators); 裂管之奏 3 strikes on every dark 余音 (AoE arts + apoptosis). boss_10 + 假想敌：弦
 //                            (invulnerable, gold 余音, 断弦之奏 AoE + flips them dark; leaves with 管).
-//   余音                     10-hit unit, block ≥ 2 only; gold (ASPD +50) / dark (ATK +50 %, slower) forms that swap after
-//                            10 strikes; pulses on every hit taken; 合奏 every 5 s.
+//   余音                     10-hit unit, block ≥ 2 only; gold (ASPD +50) / dark (ATK +50 %, move +20 %) forms that swap
+//                            after 10 strikes; pulses on every hit taken; 合奏 SP +1 per damage taken (max 12): one full
+//                            echo makes every echo play its ensemble at once (checked every 1 s).
 //   boss_4 盐风主教昆图斯     2 highest-DEF targets (+ neural); 3 growth stages (33 % HP lost or 75 s / 200 s): 大潮 global
 //                            arts + neural, 崩坍 delayed strikes on 2/4/8 highest-DEF units, 断裂生殖 tentacles (stun),
 //                            物种爆发 LP loss (stage 3).
@@ -803,7 +804,9 @@ export function setEchoForm(b, echo, form) {
   if (!ab) return;
   ab.form = form;
   ab.strikes = 0;
-  const mods = form === 'gold' ? { aspd: T(ab, '1.attack_speed') ?? 0 } : { atkPct: T(ab, '2.atk') ?? 0, moveMul: 1 - (T(ab, '2.move_speed') ?? 0) };
+  // gold (Passion): ASPD +`1.attack_speed`; dark (Depression): ATK +`2.atk`, move speed +`2.move_speed` (official prefab
+  // Modes/Depression Talents/2: MOVE_SPEED, MULTIPLIER +0.2 — until 2026-10-14 it was −20 %)
+  const mods = form === 'gold' ? { aspd: T(ab, '1.attack_speed') ?? 0 } : { atkPct: T(ab, '2.atk') ?? 0, moveMul: 1 + (T(ab, '2.move_speed') ?? 0) };
   b.addBuff(echo, { key: 'boss:echoForm', persist: true, visible: true, mods });
   b.fx('phase', { x: echo.x, y: echo.y, id: echo.id, kind: `echo_${form}` });
 }
@@ -834,21 +837,59 @@ export function echoHit(b, echo) {
   } finally { ab.pulses.length = 0; ab.pulsing = false; }
 }
 
+/**
+ * 【合奏】 (official client): the echo's SP is INCREASE_WHEN_TAKEN_DAMAGE (enemy_database spData: +1 per damage instance
+ * taken, max 12, init 0). Its talent (prefab Talents/4, a SkillTrigger) checks every ECHO_ENSEMBLE_CHECK s: when ANY echo on
+ * the field has full SP, EVERY echo casts its form's ensemble at once — gold PassionSkill (r 0.8, apoptosis
+ * `4.ep_damage_ratio_passion`) / dark DepassionSkill (r 1.6, `4.ep_damage_ratio_depassion`), ATK 100 % arts each — and
+ * every echo's SP is cleared. The enemy_database skill `Skill` (cd 5 / icd 2) has no prefab ability and is not used
+ * (until 2026-10-14 each echo cast it on its own every 5 s). [ASSUMED] An echo that cannot act (stun / freeze / sleep)
+ * does not cast and its SP is cleared with the others'; the check itself runs on every echo whatever its state.
+ */
+const ECHO_ENSEMBLE_CHECK = 1;
+const isEcho = (o) => o.alive && o.defId === ECHO_KEY && o.mem.ab;
+
+function echoEnsemble(b, echo) {
+  const ab = echo.mem.ab;
+  const gold = ab.form === 'gold';
+  const r = gold ? ECHO_ENSEMBLE_RADIUS.gold : ECHO_ENSEMBLE_RADIUS.dark;
+  const ratio = gold ? T(ab, '4.ep_damage_ratio_passion') ?? 0 : T(ab, '4.ep_damage_ratio_depassion') ?? 0;
+  const ability = gold ? 'PassionSkill' : 'DepassionSkill';   // the prefab's Skills/<name> (render binding, docs/SIM.md)
+  ab.ensembles = (ab.ensembles ?? 0) + 1;
+  echo.skillAnimUntil = b.time + 0.5;
+  b.fx('enemySkill', { x: echo.x, y: echo.y, id: echo.id, ability, n: ab.ensembles });
+  const prev = b._castAbility;
+  b._castAbility = { id: echo.id, ability };
+  try {
+    b.fx('explode', { x: echo.x, y: echo.y, r, kind: gold ? 'ensembleGold' : 'ensembleDark' });
+    for (const u of areaAllies(b, echo, echo.x, echo.y, r)) { hurt(b, echo, u, echo.s.atk, 'arts'); elem(b, echo, u, 'apoptosis', echo.s.atk * ratio); }
+  } finally { b._castAbility = prev; }
+}
+
 function kitEcho(ab, e) {
-  const s = ab.sk.Skill;
+  const d = e.def && e.def.raw && e.def.raw.sp;
+  const max = d && d.type === 'INCREASE_WHEN_TAKEN_DAMAGE' ? Number(d.maxSp) || 0 : 0;
+  const inc = d && Number.isFinite(d.increment) ? d.increment : 1;
   return [
     {
-      spawn(b, e2) { setHits(e2, e2.base.maxHp); hitCount(b, e2, true); e2.blockWeight = ECHO_BLOCK_WEIGHT; setEchoForm(b, e2, 'dark'); }, // hits × the round's HP (summonMods)
-      taken(c, b, e2) { const s = c.source || c.credit; if (s && s.side === 'ally') echoHit(b, e2); }, // 受到伤害时以自身为中心造成一次范围伤害 (a 无来源 burst too)
+      spawn(b, e2) {
+        setHits(e2, e2.base.maxHp); hitCount(b, e2, true); e2.blockWeight = ECHO_BLOCK_WEIGHT; setEchoForm(b, e2, 'dark'); // hits × the round's HP (summonMods)
+        ab.sp = Math.min(max, Number(d && d.initSp) || 0);
+      },
+      taken(c, b, e2) {
+        if (max > 0) ab.sp = Math.min(max, (ab.sp ?? 0) + inc);                        // 合奏 SP: one per damage instance taken
+        const s = c.source || c.credit; if (s && s.side === 'ally') echoHit(b, e2);     // 受到伤害时以自身为中心造成一次范围伤害 (a 无来源 burst too)
+      },
     },
-    s && {
-      name: s.name, cd: s.cd, icd: s.icd,
-      fire(b, e2) { // 合奏
-        const gold = e2.mem.ab.form === 'gold';
-        const r = gold ? ECHO_ENSEMBLE_RADIUS.gold : ECHO_ENSEMBLE_RADIUS.dark;
-        const ratio = gold ? T(ab, '4.ep_damage_ratio_passion') ?? 0 : T(ab, '4.ep_damage_ratio_depassion') ?? 0;
-        b.fx('explode', { x: e2.x, y: e2.y, r, kind: gold ? 'ensembleGold' : 'ensembleDark' });
-        for (const u of areaAllies(b, e2, e2.x, e2.y, r)) { hurt(b, e2, u, e2.s.atk, 'arts'); elem(b, e2, u, 'apoptosis', e2.s.atk * ratio); }
+    max > 0 && {
+      iv: ECHO_ENSEMBLE_CHECK,
+      tick(b) { // 【合奏】 check: one full echo → every echo plays
+        const all = b.enemies.filter(isEcho);
+        if (!all.some((o) => (o.mem.ab.sp ?? 0) >= max - 1e-9)) return;
+        for (const o of all) {
+          o.mem.ab.sp = 0;
+          if (canCast(o, false, b)) echoEnsemble(b, o);
+        }
       },
     },
   ];

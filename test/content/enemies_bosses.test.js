@@ -2932,27 +2932,58 @@ test('假想敌：管 (隐秘核心) + 假想敌：弦: 弦 is invulnerable, 断
   assert.ok(!str.alive);
 });
 
-test('“余音”: 10-hit unit held only by block ≥2; pulses when hit; forms swap after 10 strikes; 合奏 every 5 s', () => {
+test('“余音”: 10-hit unit held only by block ≥2; pulses when hit; forms swap after 10 strikes; dark form ATK +50 % and move +20 %', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_blade', row: 11, col: 6 }], kits: { t_blade: NOATK } });
   h.step();
-  const e = put(h, 'enemy_9023_acdums', [3, 6], { tag: 'part' });
+  const e = put(h, 'enemy_9023_acdums', [3, 6], { tag: 'part', move: true });
   assert.equal(e.s.maxHp, E.enemy_9023_acdums.stats.maxHp);
   assert.equal(e.blockWeight, 2);
   assert.equal(e.mem.ab.form, 'dark');
   approx(e.s.atk, E.enemy_9023_acdums.stats.atk * (1 + tb('enemy_9023_acdums', '2.atk')));
+  // official prefab Modes/Depression Talents/2: MOVE_SPEED MULTIPLIER +`2.move_speed` (0.2) — faster, not slower
+  approx(e.s.moveSpeed, E.enemy_9023_acdums.stats.moveSpeed * (1 + tb('enemy_9023_acdums', '2.move_speed')));
   h.b.dealDamage(h.unit('t_blade'), e, { amount: 1e6, type: 'phys' });
   assert.equal(e.hp, e.s.maxHp - 1, 'one hit = 1');
   assert.ok(h.unit('t_wall').stats.taken > 0, 'pulse when hit');
   for (let i = 1; i < tb('enemy_9023_acdums', '2.hit_times_to_switch'); i++) bossesMod.echoHit(h.b, e);
   assert.equal(e.mem.ab.form, 'gold');
   assert.equal(e.s.aspd, 100 + tb('enemy_9023_acdums', '1.attack_speed'));
-  const e2 = put(h, 'enemy_9023_acdums', [4, 7], { tag: 'part' });
-  const t0 = h.unit('t_wall').stats.taken;
-  h.run(skb('enemy_9023_acdums', 'Skill').initCooldown + 0.1);
-  assert.ok(h.eventsOf('fx').some((f) => f[1] === 'explode' && /ensemble/.test(f[4].kind)));
-  assert.ok(h.unit('t_wall').stats.taken > t0 && e2.alive);
+  approx(e.s.moveSpeed, E.enemy_9023_acdums.stats.moveSpeed, 1e-9, 'gold: data move speed');
   for (let i = 0; i < E.enemy_9023_acdums.stats.maxHp - 1; i++) h.b.dealDamage(h.unit('t_blade'), e, { amount: 1, type: 'phys' });
   assert.ok(!e.alive, 'the 10th hit knocks it out');
+});
+
+test('“余音” 【合奏】: SP +1 per damage instance taken (max 12); one full echo makes EVERY echo play its form\'s ensemble at once (checked every 1 s), all SP cleared; no timer', () => {
+  const K = 'enemy_9023_acdums', max = E[K].sp.maxSp;
+  assert.equal(E[K].sp.type, 'INCREASE_WHEN_TAKEN_DAMAGE');
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 10, col: 9 }, { chessId: 't_blade', row: 11, col: 6 }], kits: { t_blade: NOATK } });
+  h.step();
+  const a = put(h, K, [3, 6], { tag: 'part', mods: { hpMul: 2 } });    // on t_wall; 20 hits: enough to fill 12 SP
+  const g = put(h, K, [3, 9], { tag: 'part' });                         // on t_wall2
+  bossesMod.setEchoForm(h.b, g, 'gold');
+  const casts = () => h.eventsOf('fx').filter((f) => f[1] === 'enemySkill' && /PassionSkill|DepassionSkill/.test(f[4].ability)).map((f) => [f[4].id, f[4].ability]);
+  h.run(8);
+  assert.deepEqual(casts(), [], 'no SP, no ensemble (the data skill `Skill` cd 5 is not used)');
+  for (let i = 0; i < max - 1; i++) h.b.dealDamage(h.unit('t_blade'), a, { amount: 1, type: 'phys' });
+  assert.equal(a.mem.ab.sp, max - 1);
+  assert.equal(g.mem.ab.sp, 0);
+  h.run(1.5);
+  assert.deepEqual(casts(), [], 'one short of full');
+  const formA = a.mem.ab.form;                                           // 10 strikes swapped it to gold
+  h.b.dealDamage(h.unit('t_blade'), a, { amount: 1, type: 'phys' });
+  assert.equal(a.mem.ab.sp, max);
+  const w0 = h.unit('t_wall').stats.taken, w2 = h.unit('t_wall2').stats.taken;
+  h.run(1.05);
+  const c = casts();
+  assert.equal(c.length, 2, 'both echoes play');
+  assert.deepEqual(c.find((x) => x[0] === a.id)[1], formA === 'gold' ? 'PassionSkill' : 'DepassionSkill');
+  assert.deepEqual(c.find((x) => x[0] === g.id)[1], 'PassionSkill');
+  assert.equal(a.mem.ab.sp, 0);
+  assert.equal(g.mem.ab.sp, 0);
+  assert.ok(h.unit('t_wall').stats.taken > w0 && h.unit('t_wall2').stats.taken > w2, 'each echo\'s ensemble hits around it');
+  assert.ok(h.unit('t_wall2').elem.apoptosis > 0);
+  h.run(8);
+  assert.equal(casts().length, 2, 'SP cleared: no new ensemble without new hits');
 });
 
 test('盐风主教昆图斯: 2 highest-DEF targets + neural; 崩坍 / 大潮 / 断裂生殖; growth by lost HP; 物种爆发 LP loss', () => {
