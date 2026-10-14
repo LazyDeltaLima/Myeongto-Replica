@@ -2711,6 +2711,39 @@ function templateUsage(ctx) {
 }
 
 /**
+ * A wave template's predefined token (level `predefines.tokenInsts`) → waves.json `devices[]`: where it stands and the
+ * unit a branch's ACTIVATE_PREDEFINED switches on (子代 trap_039_dstnta, 盐风主教昆图斯's 断裂生殖 — the only template
+ * tokens this season): its character_table name, attributes at its inst level, the talents' blackboards keyed
+ * `<talent prefabKey>.<key>` (enemies.json `talents.bb` style: `1.grow_duration`, `1.duration`) and its skill at
+ * `mainSkillLvl` (prefab id, blackboard, SP).
+ */
+function templateDevice(ctx, t, label) {
+  const key = t.inst?.characterKey;
+  const rec = { key, alias: t.alias || null, pos: pos(t.position), dir: t.direction, hidden: !!t.hidden };
+  const ch = ctx.charTable[key];
+  if (!ch) { warn(`${label}: device ${key} missing from character_table`); return rec; }
+  const ph = Math.max(0, Math.min(phaseIdx(t.inst.phase), (ch.phases?.length || 1) - 1));
+  const s = statsFrom(interpolateAttrs(ch, ph, t.inst.level || 1));
+  rec.name = ch.name || key;
+  if (s) rec.stats = { maxHp: s.maxHp, atk: s.atk, def: s.def, res: s.res, bat: s.bat, aspd: s.aspd, moveSpeed: s.moveSpeed, massLevel: s.massLevel };
+  const talent = {};
+  for (const tal of ch.talents || []) {
+    const c = (tal.candidates || []).at(-1);
+    if (!c) continue;
+    const { bb } = flattenBB(c.blackboard, `${label} device ${key} talent ${c.prefabKey}`);
+    for (const [k, v] of Object.entries(bb)) talent[`${c.prefabKey}.${k}`] = v;
+  }
+  if (Object.keys(talent).length) rec.talent = talent;
+  const sk = ch.skills?.[t.skillIndex ?? 0];
+  const skill = sk?.skillId ? buildSkill(ctx, sk.skillId, t.mainSkillLvl || 1, null, `${label} device ${key}`) : null;
+  if (skill) {
+    rec.skill = { skillId: skill.skillId, prefabId: skill.prefabId, name: skill.name, spType: skill.spType, spCost: skill.spCost,
+      initSp: skill.initSp, duration: skill.duration, bb: skill.bb };
+  }
+  return rec;
+}
+
+/**
  * Build data/waves.json: every wave template (normal, boss, hidden, escaped, training) with resolved
  * routes, absolute-time spawn lists, branches, per-template enemy overrides and mode/round usage.
  */
@@ -2751,9 +2784,7 @@ function buildWaves(ctx, enemies) {
       }
       if (Object.keys(rec).length) overrides[r.id] = rec;
     }
-    const devices = (lv.predefines?.tokenInsts || []).map((t) => ({
-      key: t.inst?.characterKey, alias: t.alias || null, pos: pos(t.position), dir: t.direction, hidden: !!t.hidden,
-    }));
+    const devices = (lv.predefines?.tokenInsts || []).map((t) => templateDevice(ctx, t, `template ${id}`));
     const o = lv.options || {};
     let kind = 'normal';
     if (escaped.has(id)) kind = 'escaped';

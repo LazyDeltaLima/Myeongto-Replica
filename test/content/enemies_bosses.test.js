@@ -12,6 +12,7 @@ import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
 import { spawnYanyou } from '../../server/sim/content/tokens.js';
 import { attackWindup, attackStand } from '../../server/sim/ai.js';
+import { canTargetEnemy } from '../../server/sim/targeting.js';
 
 const E = JSON.parse(fs.readFileSync(new URL('../../data/enemies.json', import.meta.url), 'utf8'));
 const W = JSON.parse(fs.readFileSync(new URL('../../data/waves.json', import.meta.url), 'utf8'));
@@ -3183,7 +3184,7 @@ test('盐风主教昆图斯: 2 highest-DEF targets + neural; 崩坍 / 大潮 / �
   h.run(skb('enemy_1521_dslily', 'Tidewater').initCooldown - h.b.time + 0.2);
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'tide') && h.unit('t_wall3').stats.taken > 0, 'global tide');
   h.run(skb('enemy_1521_dslily', 'SummonTentac').initCooldown - h.b.time + 0.2);
-  assert.ok(h.eventsOf('fx').some((f) => f[1] === 'tentacle'));
+  assert.equal(h.b.enemies.filter((q) => q.alive && q.defId === 'trap_039_dstnta').length, 1, '断裂生殖 switches on a 子代');
   const atk0 = e.s.atk;
   h.b.sharedBoss.hp = h.b.sharedBoss.maxHp * 0.6;
   h.run(0.5);
@@ -3196,6 +3197,79 @@ test('盐风主教昆图斯: 2 highest-DEF targets + neural; 崩坍 / 大潮 / �
   assert.equal(h.result().lpLoss ?? h.b.result().lpLoss ?? 100, 100);
 });
 const ROCK = 1.3;
+
+test('子代 (断裂生殖): template device 3000 HP / ATK 150, 隐匿 12 s, then 摄食 holds the nearest operator within 1: phys + neural + stun every 1 s; withdraws at 35 s', () => {
+  // official: token prefab trap_039_dstnta (Default mode INVISIBLE + immune STUNNED / SILENCED / FROZEN, Grow after
+  // `grow_duration`, withdraw after `duration`), skill sktok_dstnta (Trigger circle 1.0, DIST_TO_SOURCE_ASC, `_triggerDelta` 1,
+  // trap_tentac_s[stun] 1 s, physical ATK × 1 + SANITY `ep_damage_ratio` 1); character_table HP 3000 / ATK 150
+  const dev = W.act1autochess_h07_04.devices.find((d) => d.alias === 'trap_039_dstnta#1');
+  assert.deepEqual(dev.pos, [5, 9]);
+  assert.deepEqual([dev.stats.maxHp, dev.stats.atk, dev.talent['1.grow_duration'], dev.talent['1.duration'], dev.skill.bb.ep_damage_ratio], [3000, 150, 12, 35, 1]);
+  // field (y 5, x 8) is next to the device (5, 9); (5, 7) is 2 away; a 0-DEF wall shows the raw ATK
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 8 }, { chessId: 't_wall2', row: 12, col: 7 }], chess: { t_wall: WALL('t_wall', { def: 0 }) },
+    hooks: ['statusApplied'], setup: setTpl('act1autochess_h07_04') });
+  h.step();
+  const boss = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
+  const hits = [], deal = h.b.dealDamage;
+  h.b.dealDamage = function (s, t, d) {
+    if (s && s.defId === 'trap_039_dstnta' && t && t.alive) hits.push({ t: h.b.time, to: t, type: d.type, element: d.element, amount: d.amount });
+    return deal.call(this, s, t, d);
+  };
+  const quintus = boss.mem.ab.list.find((a) => a && a.name === 'SummonTentac');
+  quintus.fire(h.b, boss);
+  const brood = h.b.enemies.find((q) => q.alive && q.defId === 'trap_039_dstnta');
+  const t0 = h.b.time;
+  assert.ok(brood && brood.y === 5 && brood.x === 9, 'on device #1');
+  assert.deepEqual([brood.s.maxHp, brood.s.atk, brood.tag, brood.counted], [3000, 150, 'part', false]);
+  assert.ok(brood.s.flags.stealth && !canTargetEnemy(h.unit('t_wall'), brood, h.unit('t_wall').profile), '幼体 隐匿: no operator target');
+  assert.equal(h.b.applyStatus(brood, 'stun', { duration: 3, source: null }), false, '幼体: immune to stun');
+  h.run(11.5);
+  assert.equal(hits.length, 0, 'the 幼体 does nothing');
+  h.run(1);
+  assert.ok(!brood.s.flags.stealth && brood.form === 'grown', '12 s: Grow, 隐匿 ends');
+  assert.equal(h.b.applyStatus(brood, 'stun', { duration: 0.1, source: null }), false, 'still the 幼体 mode while Start_02 plays');
+  assert.ok(canTargetEnemy(h.unit('t_wall'), brood, h.unit('t_wall').profile), '可以受到我方攻击');
+  h.run(2.6);
+  assert.ok(hits.length >= 2, `摄食 started (${hits.length})`);
+  const first = hits[0].t;
+  // GrowUp at 13 s, SP full at 14 s, the attack event 0.933 s later
+  assert.ok(Math.abs(first - t0 - 14.933) < 0.06, `first bite at 14.93 s (${first - t0})`);
+  assert.ok(hits.every((x) => x.to === h.unit('t_wall')), 'only the operator within 1');
+  approx(hits.find((x) => x.type === 'phys').amount, 150);
+  approx(hits.find((x) => x.type === 'element').amount, 150);
+  assert.equal(hits.find((x) => x.type === 'element').element, 'neural');
+  h.run(4);
+  const bites = [...new Set(hits.filter((x) => x.type === 'phys').map((x) => Math.round(x.t * 10) / 10))];
+  for (let i = 1; i < bites.length; i++) approx(bites[i] - bites[i - 1], 1, 0.06, 'every 1 s');
+  assert.ok(statuses(h, h.unit('t_wall').id, 'stun').length >= bites.length && h.unit('t_wall').s.flags.stun, 'held: stunned');
+  assert.equal(brood.form, 'feed');
+  h.run(35 - (h.b.time - t0) - 0.2);
+  assert.ok(brood.alive);
+  h.run(0.4);
+  assert.ok(!brood.alive && brood.mem.noLeak, 'withdrawn at 35 s');
+  assert.equal(h.b.killedCount ?? 0, 0);
+});
+
+test('子代: the nearest operator first; a held target that leaves ends 摄食; the next pick comes when the SP refills (1 s)', () => {
+  // t_wall2 on the device tile itself (distance 0), t_wall next to it (distance 1)
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 8 }, { chessId: 't_wall2', row: 12, col: 9 }], setup: setTpl('act1autochess_h07_04') });
+  h.step();
+  const boss = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
+  boss.mem.ab.list.find((a) => a && a.name === 'SummonTentac').fire(h.b, boss);
+  const brood = h.b.enemies.find((q) => q.alive && q.defId === 'trap_039_dstnta');
+  h.run(15.5);
+  assert.equal(brood.form, 'feed');
+  assert.ok(h.unit('t_wall2').s.flags.stun && !h.unit('t_wall').s.flags.stun, 'the nearest one is held');
+  h.b.kill(h.unit('t_wall2'), null);
+  h.run(0.1);
+  assert.equal(brood.form, 'fed', 'target gone: hold ends');
+  h.run(0.7);
+  assert.equal(brood.form, 'fed', 'SP refills first');
+  h.run(0.5);
+  assert.equal(brood.form, 'feed', 'next pick 1 s later');
+  h.run(1);
+  assert.ok(h.unit('t_wall').s.flags.stun);
+});
 
 test('卢西恩: evades 40 % while unblocked, ignores 40 % DEF, neural on hit; blinks past its blocker leaving a 不祥幻影', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 9, col: 6 }], chess: { t_wall: WALL('t_wall', { def: 500 }) }, captureNoisy: true, hooks: ['damaged'] });

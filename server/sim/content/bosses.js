@@ -47,8 +47,9 @@
 //                            after 10 strikes; pulses on every hit taken; 合奏 SP +1 per damage taken (max 12): one full
 //                            echo makes every echo play its ensemble at once (checked every 1 s).
 //   boss_4 盐风主教昆图斯     2 highest-DEF targets (+ neural); 3 growth stages (33 % HP lost or 75 s / 200 s): 大潮 global
-//                            arts + neural, 崩坍 delayed strikes on 2/4/8 highest-DEF units, 断裂生殖 tentacles (stun),
-//                            物种爆发 LP loss (stage 3).
+//                            arts + neural, 崩坍 delayed strikes on 2/4/8 highest-DEF units, 断裂生殖 switches on the
+//                            template's 子代 (隐匿 12 s, then 摄食: holds the nearest operator within 1, ATK phys + neural
+//                            + 1 s stun every 1 s; withdraws 35 s after it appears), 物种爆发 LP loss (stage 3).
 //   boss_5 卢西恩            evade 40 % while unblocked, DEF pen 40 %, neural on hit; AoE skill (radius 2); blinks past its
 //                            blocker leaving a 不祥幻影 (same kit minus blink). Template overrides (0.2 / 0.12) apply.
 //   boss_6 阿利斯泰尔        王权号令 (SP 1/s, plus-shaped 200 % strike + random equipment drop); 莫非王土 animates the
@@ -79,7 +80,7 @@ import { compileRoute, attackWindup } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
 import {
   ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies,
-  remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, shoot,
+  remainingRoute, stayRoute, stepToward, setHits, hitCount, setForm, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, shoot,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
 
@@ -143,8 +144,18 @@ const PIPE_SHOT_RADIUS = Object.freeze({ acduml: 1.8, acdumm: 1.6 });
 const PIPE_SHOTS = Object.freeze({ acduml: 3, acdumm: 1 });
 /** Damage tag of a 管 / 弦 shot on a “余音”: the echo pulses as it does under an operator's hit. */
 const ECHO_STRIKE = 'echoStrike';
-/** 断裂生殖 tentacle: stun duration and reach around its device tile [ASSUMED]. */
-const TENTACLE_STUN = 5, TENTACLE_RADIUS = 1;
+/**
+ * 子代 (trap_039_dstnta, 【断裂生殖】): 摄食's reach — the skill's Trigger CircleCollider2D radius 1.0 around the token
+ * (sktok_dstnta prefab; PRTS 「周围四格」: its tile and the four next to it) —, its hit interval (`_triggerDelta` 1.0) and
+ * the stun of each hit (trap_tentac_s[stun] `lifeTime` 1.0, renewed by the next hit).
+ */
+const BROOD_KEY = 'trap_039_dstnta', BROOD_REACH = 1, BROOD_HIT_EVERY = 1, BROOD_STUN = 1;
+/**
+ * 子代's clip times (its skeleton): Grow plays Start_02 (1 s) — 隐匿 ends as it starts (trap_tentac_finish_invisible on
+ * ON_CAST_START), the GrowUp mode comes as it ends (switch_mode on ON_CAST_END); 摄食 waits for its attack event
+ * (`_waitForAttackEvent`): Attack_Begin (0.833 s), then OnAttack 0.1 s into Attack_Loop.
+ */
+const BROOD_GROW_ANIM = 1, BROOD_FIRST_HIT = 0.933;
 /** 崩坍 delay (PRTS 1 s), targets per growth stage (PRTS 2/4/8) and 物种爆发 delay (PRTS 4 s). */
 const ROCKFALL_DELAY = 1, ROCKFALL_TARGETS = [2, 4, 8], DOOM_DELAY = 4;
 /** 铳: minimum attack speed (PRTS "最低20") and charge hit radius (PRTS 0.35 — also “碎铳之簧”'s 追逐模式 trample). */
@@ -309,7 +320,7 @@ export function install(battle) {
 export function registerMeta() {}
 
 function onSpawn(b, e) {
-  const kit = BOSS_KITS[e.defId];
+  const kit = BOSS_KITS[e.defId] ?? DEVICE_KITS[e.defId];
   if (typeof kit !== 'function') return;
   if (SELF_BOUND.includes(e.defId)) b.addBuff(e, { key: 'boss:selfBound', persist: true, flags: { noMove: true, selfBound: true, unblockable: true } });
   const tpl = templateOf(b);
@@ -1165,19 +1176,29 @@ const QUINTUS = {
       b.after(ROCKFALL_DELAY, () => { if (e.alive && t.alive) hurt(b, e, t, e.s.atk * (s.bb.atk_scale ?? 0), 'phys'); }, { owner: e });
     }
   },
-  SummonTentac(b, e, s, P, tpl) { // 【断裂生殖】 tentacles at the template devices (phase i on the i-th cast)
+  SummonTentac(b, e, s, P, tpl) { // 【断裂生殖】 switches on the template's predefined 子代 (phase i on the i-th cast)
     const br = tpl && tpl.branches && tpl.branches[s.bs.branch_id ?? 'dslily_dstnta'];
+    const devs = (tpl && tpl.devices) || [];
     let spots = [];
     if (Array.isArray(br) && br.length) {
       const phase = br[Math.min(P.tent, br.length - 1)] || [];
-      const devs = (tpl.devices || []);
-      for (const a of phase) { const d = devs.find((x) => x.alias === a.key); if (d && d.pos) spots.push(d.pos); }
+      for (const a of phase) { const d = devs.find((x) => x.alias === a.key); if (d && d.pos) spots.push(d); }
     }
-    if (!spots.length) { const t = b.rng.pick(allTargets(b, e)); if (t) spots = [[t.tileR, t.tileC]]; }
+    // no template (tests, tools): one 子代 on a random operator's tile, from any template device record of the key
+    if (!spots.length) {
+      const t = b.rng.pick(allTargets(b, e));
+      const d = devs.find((x) => x.key === BROOD_KEY) || broodRecord(b);
+      if (t && d) spots = [{ ...d, alias: null, pos: [t.tileR, t.tileC] }];
+    }
     P.tent++;
-    for (const [r, c] of spots) {
-      b.fx('tentacle', { x: c, y: r, r: TENTACLE_RADIUS, dur: TENTACLE_STUN });
-      for (const u of areaAllies(b, e, c, r, TENTACLE_RADIUS)) b.applyStatus(u, 'stun', { duration: TENTACLE_STUN, source: e });
+    P.brood = P.brood || new Map();
+    for (const d of spots) {
+      // [ASSUMED] ACTIVATE_PREDEFINED of a predefined token that is still on the field does nothing (the 18 s cast of
+      // the last form is shorter than a 子代's 35 s)
+      const live = d.alias && P.brood.get(d.alias);
+      if (live && live.alive) continue;
+      const u = spawnBrood(b, e, d);
+      if (u && d.alias) P.brood.set(d.alias, u);
     }
   },
   Doom(b, e, s) { // 【物种爆发】
@@ -1185,6 +1206,116 @@ const QUINTUS = {
     b.after(DOOM_DELAY, () => { if (e.alive) lpLoss(b, Math.abs(s.bb.value ?? 0), 'speciesBurst', e); }, { owner: e });
   },
 };
+
+/** A template device record of 子代 (data/waves.json `devices[]`) from any wave template — for a cast without a template. */
+function broodRecord(b) {
+  const ids = typeof b.data.waveIds === 'function' ? b.data.waveIds() : [];
+  for (const id of ids) {
+    const d = ((b.data.getWave(id) || {}).devices || []).find((x) => x && x.key === BROOD_KEY && x.stats);
+    if (d) return d;
+  }
+  return null;
+}
+
+/**
+ * The enemy record of a 子代 from its template device record (build-data templateDevice: character_table attributes,
+ * hidden talent `1.grow_duration` / `1.duration`, skill sktok_dstnta). A token that never moves (static, 失衡免疫 — it
+ * is a stage device) and has no normal attack: 摄食 is its only action (kitBrood). No LP, no kill count (a part).
+ */
+function broodDef(d) {
+  const st = d.stats || {};
+  return {
+    name: d.name || d.key, rank: 'NORMAL', applyWay: 'NONE', notCountInTotal: true, staticBody: true, spine: d.key,
+    stats: { maxHp: st.maxHp, atk: st.atk, def: st.def, res: st.res, bat: st.bat, aspd: st.aspd, moveSpeed: 0, massLevel: st.massLevel, motion: 'WALK', lpr: 0 },
+    talents: { bb: d.talent || {} },
+    skills: d.skill ? [{ prefabKey: d.skill.prefabId || d.skill.skillId, cooldown: 0, initCooldown: 0, spCost: d.skill.spCost, bb: d.skill.bb || {} }] : [],
+  };
+}
+
+/** Switch on one 子代 at its device tile (the round's enemy effects reach it like any summon: summonMods). */
+function spawnBrood(b, boss, d) {
+  const pos = d.pos;
+  const u = b.spawnEnemy(d.key, { def: broodDef(d), pos, route: { motion: 'FLY', start: pos, end: pos, steps: [{ t: 'wait', s: 99999 }] },
+    tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId, mods: summonMods(b) });
+  if (u) u.mem.noLeak = true;   // a stage device: never a leak at the time limit (Battle._timeout)
+  return u;
+}
+
+/**
+ * 子代 (trap_039_dstnta; the official token prefab in pkgrps/btl_pfb_tokens_0, skill prefab sktok_dstnta, character_table
+ * / skill_table — research boss-patterns 표 6):
+ *   幼体 (Default mode) for `1.grow_duration` (12) s: 隐匿 (INVISIBLE), immune to stun, silence and freeze; PRTS gives 10 s,
+ *     the client 12.
+ *   Grow: 隐匿 ends, and BROOD_GROW_ANIM s later the GrowUp mode starts (the immunities go with the 幼体 mode): SP +1/s.
+ *   摄食 (SP `spCost` 1 from 0) takes the operator nearest to it within BROOD_REACH (DIST_TO_SOURCE_ASC: taunt plays no
+ *     part) and holds it: BROOD_FIRST_HIT s after the pick and then every BROOD_HIT_EVERY s, ATK × `atk_scale` (absent → 1)
+ *     physical + ATK × `ep_damage_ratio` (1) 神经 damage and a BROOD_STUN s stun. The hold ends when the target dies or
+ *     leaves (withdrawn, displaced out of reach) [ASSUMED: out of reach ends it], or when the 子代 is stunned or silenced
+ *     (`_canSilenced`); the SP starts from 0 again (`_resetAbilityCooldownWhenCastEnd`), so the next pick comes 1 s later.
+ *   `1.duration` (35) s after it appears it withdraws (trap_tentac[withdraw], suicide_after_buff[switch_to_dead]: no kill).
+ * Operators can attack it once 隐匿 ends (character_table "可以受到我方攻击"); its HP is its own (no transfer).
+ * Model forms (render units.js FORMS): 'larva' (Start_01 → Idle_01), 'grown' (Start_02 → Idle_02 / Die_02), 'feed' (holding:
+ * Attack_Begin → Attack_Loop), 'fed' (Attack_End → Idle_02).
+ */
+function kitBrood(ab) {
+  const grow = T(ab, '1.grow_duration') ?? 0, life = T(ab, '1.duration') ?? Infinity;
+  const sk = Object.values(ab.sk)[0] || null;
+  const cost = sk && sk.sp > 0 ? sk.sp : 1;
+  const atkScale = (sk && sk.bb.atk_scale) ?? 1, epr = (sk && sk.bb.ep_damage_ratio) ?? 0;
+  const P = { t0: 0, stage: 0, sp: 0, hold: null, next: 0 };   // stage 0 幼体, 1 growing, 2 GrowUp
+  const release = (b, e) => { if (!P.hold) return; P.hold = null; P.sp = 0; if (e.alive) setForm(b, e, 'fed'); };
+  const bite = (b, e, t) => {
+    P.next = b.time + BROOD_HIT_EVERY;
+    e.lastAttackAt = b.time;
+    hurt(b, e, t, e.s.atk * atkScale, 'phys');
+    elem(b, e, t, 'neural', e.s.atk * epr);
+    if (t.alive) b.applyStatus(t, 'stun', { duration: BROOD_STUN, source: e });
+  };
+  const held = (e, t) => t.alive && t.deployed && hypot(t.x - e.x, t.y - e.y) <= BROOD_REACH + 1e-6;
+  return [{
+    spawn(b, e, a, ab2) {
+      P.t0 = b.time;
+      setForm(b, e, 'larva');
+      b.addBuff(e, { key: 'boss:brood', persist: true, flags: { noMove: true, noDisplace: true } });
+      if (grow > 0) {
+        b.addBuff(e, { key: 'boss:broodLarva', persist: true, flags: { stealth: true } });
+        ab2.immune = new Set(['stun', 'silence', 'freeze']);
+      } else P.stage = 2;
+    },
+    tick(b, e, a, dt) {
+      const age = b.time - P.t0;
+      if (age >= life - 1e-9) { P.hold = null; b.kill(e, null); return; }
+      if (P.stage === 0) {
+        if (age < grow - 1e-9) return;
+        P.stage = 1;
+        b.removeBuff(e, 'boss:broodLarva');
+        setForm(b, e, 'grown');
+        return;
+      }
+      if (P.stage === 1) {
+        if (age < grow + BROOD_GROW_ANIM - 1e-9) return;
+        P.stage = 2;
+        e.mem.ab.immune = null;
+        return;
+      }
+      if (P.hold) {
+        if (!canCast(e, true, b) || !held(e, P.hold)) { release(b, e); return; }
+        if (b.time >= P.next - 1e-9) bite(b, e, P.hold);
+        return;
+      }
+      if (!canCast(e, true, b)) return;
+      P.sp = Math.min(cost, P.sp + dt);
+      if (P.sp < cost - 1e-9) return;
+      const t = targetsNear(b, e, BROOD_REACH)
+        .sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || aggroCmp(p, q))[0];
+      if (!t) return;
+      P.hold = t;
+      P.next = b.time + BROOD_FIRST_HIT;
+      setForm(b, e, 'feed', 'phase', { tgt: t.id });
+      if (sk) b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: sk.name, n: 1 });
+    },
+  }];
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // 卢西恩，“猩红血钻” (boss_5) + 不祥幻影
@@ -1452,3 +1583,7 @@ export const BOSS_KITS = Object.freeze({
   enemy_9033_acdeer: kitDeer,          // boss_7 “萨米的意志”
 });
 export const BOSS_KEYS = Object.freeze(Object.keys(BOSS_KITS));
+/** Stage tokens a leader switches on (template `devices`, not in data/enemies.json), spawned as enemies with an inline record. */
+export const DEVICE_KITS = Object.freeze({
+  trap_039_dstnta: kitBrood,           // 子代 (盐风主教昆图斯's 断裂生殖)
+});

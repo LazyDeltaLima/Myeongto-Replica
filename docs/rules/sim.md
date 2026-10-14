@@ -997,3 +997,22 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **옛 동작**: 보호막이 있을 때만 저지 불가, 조준 우선순위 없음; 스킬은 (spCost+1)번째 일반 공격에 **덧붙음**; 탄은 침식만 0.85씩 감소·반경 2·같은 대상
   재타격 없음; 十连击은 도착 때 한꺼번에 10타; 받은 피해는 총 + 다른 리드들에게 나눠(도감 문구 [ASSUMED]). 테스트 `enemies_bosses.test.js` 「“碎铳之簧”…」 5건,
   `feedback1e-healers.test.js` 「E2 audit…」(리드는 보호막이 깨져도 저지 안 됨), 실제 판 경로 `boss-patterns-real.test.js` 「real boss_9 field…」.
+
+### 盐风主教昆图斯 【断裂生殖】 子代 (`kitBrood`, 2026-10-15)
+- **무엇이 나오나**: 스킬 `SummonTentac`(블랙보드 `branch_id` `dslily_dstnta`)이 레벨 분기의 `ACTIVATE_PREDEFINED`대로 템플릿에 숨어 있던 장치
+  子代 `trap_039_dstnta`를 켠다 — i번째 시전에 분기 i번째 단계(#1 → #2 → #3 → #4 → #4·#3 → #2·#1 → 넷 다). 장치 자리는 보스 몸 네 귀퉁이(레벨 5,9·5,11·3,9·3,11).
+  [ASSUMED] 이미 켜져 살아 있는 장치를 다시 켜면 아무 일도 없다(셋째 형태의 쿨 18 s가 수명 35 s보다 짧다). 수치는 waves.json 템플릿 `devices[]`(build-data
+  `templateDevice`: character_table HP 3000·ATK 150, 숨은 天赋 `1.grow_duration` 12·`1.duration` 35, 스킬 `sktok_dstnta` SP 1·`ep_damage_ratio` 1).
+  적 진영 유닛(부품 `part`: 처치 수·LP·보상 없음, 시간 초과 때 누수 아님), 라운드 적 효과(攻坚装备 등)는 다른 소환물처럼 받는다(`summonMods`).
+- **유체**: 12 s 동안 隐匿(클라 토큰 프리팹 `Modes/Default/Body/Passive`: INVISIBLE, 기절·침묵·빙결 면역). PRTS의 10 s는 클라 값과 다르다. 그 뒤 Grow 능력
+  (Start_02 1 s): 시작에 隐匿이 풀리고(`ON_CAST_START`) 끝에 GrowUp 모드(`ON_CAST_END`, 면역도 함께 사라짐). 오퍼레이터는 隐匿이 풀린 뒤 공격할 수 있다
+  (character_table 「可以受到我方攻击」), 받은 피해는 보스에게 넘어가지 않는다.
+- **摄食**: GrowUp에서 SP +1/s, 1이 차면(성장 끝 1 s 뒤) 자기 둘레 반경 1.0(스킬 Trigger CircleCollider2D — 자기 칸과 상하좌우, PRTS 「周围四格」) 안에서
+  가장 가까운 오퍼레이터 1명(`DIST_TO_SOURCE_ASC`, 도발 무시)을 붙잡는다. 공격 이벤트를 기다려(`_waitForAttackEvent`: Attack_Begin 0.833 s + Attack_Loop
+  0.1 s) 첫 타, 그 뒤 1 s마다(`_triggerDelta`) ATK 100 % 물리 + ATK × 1.0 신경 + 1 s 기절(`trap_tentac_s[stun]`). 대상이 죽거나 떠나면(철수·밀려남
+  — [ASSUMED] 반경 밖이면 끝) 또는 子代가 기절·침묵되면(`_canSilenced`) 끝나고 SP 0부터 → 1 s 뒤 다시 고른다.
+- **철수**: 나타난 지 35 s에 스스로 사라진다(`trap_tentac[withdraw]` = `suicide_after_buff[switch_to_dead]`, 처치 아님).
+- **그림**: 공식 토큰 모델(`pkgrps/btl_pfb_tokens_0`의 Spine, 로컬 추출 `spine/token/trap_039_dstnta`) — 형태 'larva'(Start_01 → Idle_01), 'grown'(Start_02 →
+  Idle_02/Die_02), 'feed'(Attack_Begin → Attack_Loop), 'fed'(Attack_End → Idle_02). 공식 공격 이펙트(`trap_dstnta_attack_01_*`)는 아직 안 붙음.
+- **옛 동작**: 장치 칸 반경 1 안 오퍼레이터에게 5 s 기절 한 번(피해 없음, 남는 유닛 없음, [ASSUMED] 값). 테스트 `enemies_bosses.test.js` 「子代…」 2건·
+  「盐风主教昆图斯…」, 실제 판 경로 `boss-patterns-real.test.js` 「real boss_4 field…」.

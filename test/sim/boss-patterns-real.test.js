@@ -2,7 +2,8 @@
 // server/match/waves.js → buildBattleSpec → createBattleFromSpec, real operators, the full content): 假想敌：铳's ASPD stacks
 // (official BrownbTalent_1), 刺胄之弹's lasting arrival zone (official projectile_enemy_acstmr_s1), 假想敌：管's
 // whole-field 3-shot normal attack (official prefab Attack, projectile_enemy_acduml) and the hidden 铳 field's
-// “碎铳之簧” (BLOCK_FREE passive, the shield skill in place of a normal attack, the share to 铳 only). The unit-level rules
+// “碎铳之簧” (BLOCK_FREE passive, the shield skill in place of a normal attack, the share to 铳 only) and 盐风主教昆图斯's
+// 子代 (the template's predefined token: 隐匿, then 摄食 on the operator next to it). The unit-level rules
 // and their numbers are pinned in test/content/enemies_bosses.test.js; docs/rules/sim.md 「최종 공세·히든 코어 보스 패턴」.
 
 import { test } from 'node:test';
@@ -21,9 +22,9 @@ const setup = setupMatchWaves(gd, createRng(3));
 const SPOTS = [[8, 2], [8, 4], [8, 6], [10, 3], [10, 5], [12, 2], [12, 6]];
 
 /** The round's solo boss field — `hidden`: the Hidden Core's (round 15, boss_8–10). */
-function realBossField(bossId, { hidden = false } = {}) {
+function realBossField(bossId, { hidden = false, extra = [] } = {}) {
   const round = hidden ? 15 : 14;
-  const units = SPOTS.map(([row, col], i) => ({ uid: i + 1, chessId: 'chess_char_1_02_a', row, col }));
+  const units = [...SPOTS.map(([row, col]) => ({ chessId: 'chess_char_1_02_a', row, col })), ...extra].map((u, i) => ({ uid: i + 1, ...u }));
   const players = [{ playerId: 'p_0', seat: 0, side: 'L', colOffset: 0, units, bonds: {}, playerEffects: [] }];
   const wave = buildBossWave(gd, createRng(1), setup.factions, round, { bossId, solo: true });
   const pool = new SharedBossPool(gd.boss(bossId).bloodPoint.HARD);
@@ -147,4 +148,24 @@ test('real boss_9 field: “碎铳之簧” are never blocked; with full SP the 
   const dealt = b.dealDamage(op, springs[0], { amount: 50000, type: 'true', canDodge: false });
   assert.ok(dealt > 0 && Math.abs((pool0 - b.sharedBoss.hp) - dealt) < 1e-6, 'the pool lost what the spring took');
   for (const [e, hp] of others) assert.ok(e.hp === hp, 'no share to the other springs');
+});
+
+test('real boss_4 field: 断裂生殖 switches on the template\'s 子代 at device #1 — 隐匿 12 s, then 摄食 bites the operator next to it every 1 s', () => {
+  const b = realBossField('boss_4', { extra: [{ chessId: 'chess_char_1_02_a', row: 12, col: 8 }] });   // field (5, 8), next to device #1 (5, 9)
+  const bites = [];
+  b.on('damaged', (c) => { if (c.source && c.source.defId === 'trap_039_dstnta' && c.dmg && c.dmg.type === 'phys') bites.push({ t: b.time, to: c.target }); }, { priority: -1000 });
+  let brood = null, t0 = null, larva = false;
+  for (let i = 0; i < 30 * 75 && !b.finished; i++) {
+    b.step();
+    if (!brood) { brood = b.enemies.find((q) => q.defId === 'trap_039_dstnta') || null; if (brood) { t0 = b.time; larva = !!brood.s.flags.stealth; } }
+  }
+  assert.ok(brood, 'a 子代 appeared');
+  assert.deepEqual([brood.y, brood.x], [5, 9]);
+  assert.ok(larva, 'it starts 隐匿');
+  assert.equal(brood.tag, 'part');
+  const op = b.allyUnits.find((u) => u.tileR === 5 && u.tileC === 8);   // it may have fallen by now
+  assert.ok(op, 'the operator next to the device');
+  assert.ok(bites.length >= 3 && bites.every((x) => x.to === op), `摄食 bites it (${bites.length})`);
+  assert.ok(bites[0].t - t0 >= 14.85, `not before it has grown (${bites[0].t - t0})`);
+  for (let i = 1; i < bites.length; i++) assert.ok(Math.abs(bites[i].t - bites[i - 1].t - 1) < 0.06, 'every 1 s');
 });
