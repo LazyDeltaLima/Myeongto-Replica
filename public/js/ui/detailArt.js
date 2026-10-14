@@ -28,12 +28,12 @@
 //                           drag showed the bare slot record 「自选干员」); null for an item / token or an unknown piece
 
 import { useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, TierChip, useScrollEdges } from './components.js';
+import { html, Icon, TierChip, Button, useScrollEdges } from './components.js';
 import { Img, RichText, GIcon } from './gameComponents.js';
-import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail, hpOf, enemyImmunities, RANK, DMG } from './detailPanel.js';
+import { ChessDetail, liveStat, RangeGrid, cardRangeGrid, resolveDetail, hpOf, enemyImmunities, RANK, DMG, MorphPairings, MorphGrantLine } from './detailPanel.js';
 import { abilityRows } from './abilityLines.js';
 import { attackInterval, fmtNum, chessLoadout, pickGetter, standInLoadout, standInLabel, standInTip, standInForText } from './gameLogic.js';
-import { chessPortraitUrl, profIconUrl, uiUrl, enemyIconUrl, factionIconUrl } from './assetUrls.js';
+import { chessPortraitUrl, profIconUrl, uiUrl, enemyIconUrl, factionIconUrl, itemIconUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
@@ -293,6 +293,96 @@ export function EnemyDetailArt({ enemy, snapHp = null, count = 0, live = null })
     cur ? html`<div key=${`pane:${cur.id}`} ref=${paneRef} class=${cx('dart__pane', `dart__pane--${cur.id}`, edges.scroll && 'is-scroll', edges.up && 'has-up', edges.down && 'has-down')}
         role="tabpanel">${cur.nodes}</div>` : null,
   ].filter(Boolean);
+}
+
+/**
+ * The trap behind an item: every 装备 and 奇术 of data/items.json is a trap of the client (`trapId` → character_table:
+ * profession TRAP, phase 0 at level 1, HP 100, ATK / DEF / RES / block 0, range 0-1 — 画卷's 1-1 is the item's
+ * `rangeGrid` already; cost 0 for the 112 equipment, 5 for the 3 奇术), so the official card shows those numbers
+ * (test/ui/item-card-art.test.js checks them against the tables when they are downloaded).
+ * @param {any} item items.json record
+ */
+export function itemTrapStats(item) {
+  return { level: 1, maxHp: 100, atk: 0, def: 0, res: 0, blockCnt: 0, cost: item?.itemType === 'MAGIC' ? 5 : 0 };
+}
+
+/**
+ * An item's card (装备 / 奇术: a hand or temp item, a shop or reward card, an item on a scouted board — detailPanel
+ * ItemDetail's data) in the operator card's official form, while the HUD has its official look. In the client an item
+ * is a trap (`trapId`, `Trap : Token : Character`), and a press on it opens UICharacterInfoPanel like an operator's
+ * (the maintainer's capture of 不屈弹射器, maintainer decision 2026-10-14): the class box, the name, the tier | LV 1, the
+ * trap's stats (itemTrapStats, all 0), the 攻击范围 tile, the HP bar 生命 100/100, and the tab 技能 — the item's art as the
+ * skill icon, its effect name, a 被动 tag (the trap's skills are PASSIVE) and the effect text. Ours after it: a
+ * 变形同构体's 天赋 tab (its pairings), and a 说明 tab (the flavour text, how it is used, where an unsold item comes from).
+ * No art (a trap has no 立绘); the class box holds the device card's glyph ([ASSUMED]: the client's TRAP class icon is
+ * not extracted). 销毁 stays the underframe's (the card renders it only for a caller that passes `editable` + `onDestroy`).
+ * @param {{ item: any, piece?: any, editable?: boolean, onDestroy?: Function, offBonds?: Set<string>|null }} props
+ */
+export function ItemDetailArt({ item, piece = null, editable = false, onDestroy = null, offBonds = null }) {
+  const [tab, setTab] = useState(null);
+  const m = data.get('assets');
+  const st = itemTrapStats(item);
+  const golden = !!item?.isGolden;
+  const magic = item?.itemType === 'MAGIC';
+  const range = Array.isArray(item?.rangeGrid) && item.rangeGrid.length ? item.rangeGrid : [[0, 0]];
+  const tabs = [
+    { id: 'skill', label: N_('技能'), nodes: [
+      html`<div key="s" class="dskill" data-item=${item?.id || ''}>
+        <${Img} src=${itemIconUrl(m, item)} class="dskill__icon dskill__icon--item" fallback=${html`<span class="dskill__icon dskill__icon--empty"><${GIcon} name="bolt" /></span>`} />
+        <div class="dskill__meta">
+          <b class="dskill__name">${item?.effectName || item?.name || ''}</b>
+          <div class="dskill__tags"><span class="dsp dsp--trig">${t('被动')}</span></div>
+        </div>
+      </div>`,
+      html`<${RichText} key="d" as="p" text=${item?.descRaw || item?.desc || ''} class="dtext" />`,
+      !item?.canGiveBond && item?.giveBondId ? html`<${MorphGrantLine} key="g" item=${item} off=${offBonds} />` : null,
+      item?.note ? html`<p key="n" class="dhint dhint--rule"><${Icon} name="info" />${item.note}</p>` : null,
+    ].filter(Boolean) },
+    item?.canGiveBond ? { id: 'talents', label: N_('天赋'), nodes: [html`<${MorphPairings} key="p" off=${offBonds} />`] } : null,
+    { id: 'desc', label: N_('说明'), nodes: [
+      item?.flavor ? html`<p key="f" class="dtext dart__flavor">${item.flavor}</p>` : null,
+      magic
+        ? html`<p key="u" class="dhint"><${Icon} name="info" />${t('将其拖拽至战场上的格子使用')}</p>`
+        : html`<p key="u" class="dhint"><${Icon} name="info" />${t('拖拽至干员身上进行配发（每名干员最多 2 件，配发后无法取下）')}${item?.mergeable ? t('；2 件相同装备自动合成进阶装备') : ''}</p>`,
+      item?.shopExcluded ? html`<p key="x" class="dhint dhint--source"><${Icon} name="info" />${t('调度中心不出售 · 获取途径：{source}', { source: item.shopExcludedBy || t('效果获得') })}</p>` : null,
+      piece && editable && onDestroy ? html`<div key="a" class="dactions"><${Button} variant="danger" onClick=${() => onDestroy(piece, item)}>${t('销毁道具')}<//></div>` : null,
+    ].filter(Boolean) },
+  ].filter(Boolean);
+  const cur = tabs.find((x) => x.id === tab) || tabs[0];
+  const paneRef = useRef(null);
+  const edges = useScrollEdges(paneRef, [cur?.id]);
+  return [
+    html`<div key="art" class=${cx('dart', 'is-item', golden && 'is-golden', magic && 'is-magic')} data-item=${item?.id || ''}>
+      <div class="dart__bg" aria-hidden="true"></div>
+      <div class="dart__head">
+        <span class="dart__prof"><${Icon} name="info" /></span>
+        <h3 class="dart__name">${item?.name || ''}</h3>
+        <div class="dart__tier">
+          <${TierChip} tier=${item?.tier} golden=${golden} size="md" />
+          ${golden ? html`<span class="dtag-elite">${t('进阶')}</span>` : null}
+          <i class="dart__split"></i>
+          <span class="dart__lv"><small>LV</small><b class="num">${st.level}</b></span>
+        </div>
+      </div>
+      <div class="dart__mid">
+        <div class="dart__stats">
+          <${Line} k=${t('攻击')} v=${st.atk} />
+          <${Line} k=${t('防御')} v=${st.def} />
+          <${Line} k=${t('法抗')} v=${st.res} />
+          <${Line} k=${t('阻挡')} v=${st.blockCnt} cls="is-white" />
+          <${Line} k=${t('费用')} v=${st.cost} cls="is-white" />
+        </div>
+        <div class="dart__tiles"><div class="dart__tile dart__range"><${RangeGrid} grid=${range} /><span>${t('攻击范围')}</span></div></div>
+      </div>
+      <div class="dart__hp"><i style="width:100%"></i><span><em>${t('生命')}</em><b class="num">${fmtNum(st.maxHp)}/${fmtNum(st.maxHp)}</b></span></div>
+    </div>`,
+    html`<div key="tabs" class="dart__tabs" role="tablist">
+      ${tabs.map((tb) => html`<button key=${tb.id} type="button" role="tab" aria-selected=${tb === cur ? 'true' : 'false'}
+          class=${cx('dart__tab', tb === cur && 'is-on')} onClick=${() => setTab(tb.id)}>${t(tb.label)}</button>`)}
+    </div>`,
+    html`<div key=${`pane:${cur.id}`} ref=${paneRef} class=${cx('dart__pane', `dart__pane--${cur.id}`, edges.scroll && 'is-scroll', edges.up && 'has-up', edges.down && 'has-down')}
+        role="tabpanel">${cur.nodes}</div>`,
+  ];
 }
 
 /** The first vnode under `node` whose class list holds `cls` (ChessDetail's bond chips inside its header). */

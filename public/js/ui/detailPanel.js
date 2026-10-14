@@ -46,7 +46,7 @@ import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
 import { moduleBadge, fullTraitText } from './loadoutModel.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { audio } from '../audio.js';
-import { ChessDetailArt, DeviceDetailArt, EnemyDetailArt } from './detailArt.js'; // local patch: the official card look (css/hud-art.css)
+import { ChessDetailArt, DeviceDetailArt, EnemyDetailArt, ItemDetailArt } from './detailArt.js'; // local patch: the official card look (css/hud-art.css)
 import { hudArt } from './hudArt.js'; // local patch
 import { tokenVariantFor } from './gameLogic/loadout.js';
 
@@ -855,7 +855,8 @@ export function DetailPanel({ detail, editable, snapHp, onSell, onDestroy, bonds
   // a stage device's card takes the operator card's official form (and its class family, `.dpanel--chess`: no box, the
   // press pass-through) while the HUD has its official look — the client opens the same panel on a trap (DeviceDetailArt);
   // an enemy's card too, the board's and the 敌方情报 drawer's alike (EnemyDetailArt — the client opens none for an enemy:
-  // the maintainer's choice, GitHub #3, maintainer decision 2026-10-14).
+  // the maintainer's choice, GitHub #3, maintainer decision 2026-10-14); an item's card too — in the client an item is a
+  // trap, and a press on one opens the operator's panel (ItemDetailArt, maintainer decision 2026-10-14).
   // No card has a close button (maintainer decision 2026-10-14): the client's UICharacterInfoPanel and its autochess
   // sub-panels have none (no Button field, no close object in act2autochess_character_info_subpanel_status / _tabgroup).
   // A card closes on a press elsewhere — the field (gameLogic/shortcuts.js closesOnFieldPress), anywhere but the card for
@@ -863,13 +864,14 @@ export function DetailPanel({ detail, editable, snapHp, onSell, onDestroy, bonds
   // (screens/game.js); the old box (no official HUD) follows the same rule
   const artDevice = detail.type === 'device' && !!hudArt().cls;
   const artEnemy = detail.type === 'enemy' && !!hudArt().cls;
-  return html`<aside class=${cx('dpanel', 'brackets', `dpanel--${detail.type}`, (artDevice || artEnemy) && 'dpanel--chess', side === 'right' && 'dpanel--right', side === 'right' && shopOpen && 'is-shop')} role="dialog" aria-label=${t('详情')}
+  const artItem = detail.type === 'item' && !!hudArt().cls;
+  return html`<aside class=${cx('dpanel', 'brackets', `dpanel--${detail.type}`, (artDevice || artEnemy || artItem) && 'dpanel--chess', side === 'right' && 'dpanel--right', side === 'right' && shopOpen && 'is-shop')} role="dialog" aria-label=${t('详情')}
       data-side=${side === 'right' ? 'right' : 'left'}>
     <div class="dpanel__scroll">
       ${detail.type === 'chess' ? html`<${hudArt().cls ? ChessDetailArt : ChessDetail /* local patch */} chess=${detail.chess} piece=${detail.piece} snapHp=${snapHp} editable=${editable} onSell=${sellIt}
         bonds=${bonds} offBonds=${offBonds} loadout=${loadout} onBond=${onBond} live=${liveNow} hint=${detail.hint || null} unitItems=${detail.unitItems || null}
         standIn=${detail.standIn || null} diy=${detail.diy || null} cultOpts=${detail.cultOpts || { ops }} />` : null}
-      ${detail.type === 'item' ? html`<${ItemDetail} item=${detail.item} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds} />` : null}
+      ${detail.type === 'item' ? html`<${artItem ? ItemDetailArt : ItemDetail} item=${detail.item} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds} />` : null}
       ${detail.type === 'enemy' ? html`<${artEnemy ? EnemyDetailArt : EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}
       ${detail.type === 'token' ? html`<${TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} snapHp=${snapHp} live=${liveNow} />` : null}
       ${detail.type === 'device' ? html`<${artDevice ? DeviceDetailArt : DeviceDetail} device=${detail.device} snapHp=${snapHp} live=${liveNow} />` : null}

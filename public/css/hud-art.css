@@ -572,6 +572,17 @@
 .dart.is-enemy .dart__hp > i { background: #e5383b; box-shadow: 0 0 .08rem rgba(229, 56, 59, .6); }
 .dart.is-enemy .dart__hp b { background: #c42b2e; }
 .dart__pane .dabil { font-size: .17rem; line-height: 1.55; color: #f2f2f2; }
+/* an item's card (ui/detailArt.js ItemDetailArt — in the client an item is a trap, maintainer decision 2026-10-14; the
+   maintainer's capture of 不屈弹射器): the class box white-framed on black, no art; the tab 技能 with the item's art as the
+   skill icon in a white frame, the effect name large, a grey 被动 tag. [ASSUMED] sizes (measured off the capture only) */
+.dart.is-item .dart__prof { border-color: #d8d8d8; box-shadow: 0 0 .12rem rgba(255, 255, 255, .3); }
+.dart.is-item .dart__prof .icon { width: 56%; height: 56%; color: #fff; }
+.dart.is-item.is-golden .dart__prof { border-color: #e3b53f; box-shadow: 0 0 .12rem rgba(227, 181, 63, .5); }
+.dart__pane--skill .dskill__icon--item { width: .92rem; height: .92rem; padding: .04rem; object-fit: contain; border: .03rem solid #e6e6e6; background: rgba(70, 70, 70, .55); }
+.dart__pane--skill .dskill[data-item] { gap: .2rem; align-items: flex-start; }
+.dart__pane--skill .dskill[data-item] .dskill__name { font-size: .26rem; font-weight: 500; color: #e8e8e8; }
+.dart__pane--skill .dskill[data-item] .dsp--trig { padding: .02rem .26rem; background: #8a8a8a; border: 0; border-radius: .05rem; color: #fff; font-size: .19rem; }
+.dart__pane .dart__flavor { color: #b8b8b8; font-style: italic; white-space: pre-line; }
 .dart__name { margin-top: .1rem; font-size: .28rem; font-weight: 500; color: #fff; text-shadow: 0 1px 3px #000; }
 /* 0.2.0 补位: 「X的替补」 under a stand-in's name (ui/detailArt.js; [ASSUMED] placement, as ChessDetail's dhead__for) */
 .dart__for { margin-top: -.04rem; font-size: .15rem; color: #b2b2b2; text-shadow: 0 1px 2px #000; }
