@@ -428,7 +428,13 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     `anim-overrides.mjs ATTACK_ALTS` → 역할 클립 `alts`·`pick`(차례 `loop`·무작위 `random`·「직전과 다르게」 `other` = `_diffFromLastOneIfNotFirst`), `spine.js _nextAlt`가
     휘두름마다 고르고 모델이 바뀌어도(앞/뒤) 그 휘두름의 클립을 잇는다. 11명(维什戴尔·迷迭香·阿斯卡纶·隐德来希 S3·望 기본·S3·维娜·维多利亚·凛御银灰·
     圣聆初雪 S3·伺夜 S3·山). 'swing' 이벤트는 뷰가 이펙트보다 먼저 받는다(`app.js processEvents`, 이펙트 묶음이 고른 클립을 따름). [화면 미확인]
-  - **C** 첫 공격 begin·공격 end: `ThreePartOneshotAnimation`(`_onlyPlayBeginAnimWhenFirstAttack`, `_endAnimKey`) — `spine.js`가 공격 역할의 begin을 안 튼다.
+  - **C** 첫 공격 begin·공격 end: `ThreePartOneshotAnimation`(`_onlyPlayBeginAnimWhenFirstAttack`, `_endAnimKey`). 클라 코드(2026-10-14, 관리자 노트):
+    `InitAnimation`이 배율 = 공격 시간 ÷ (begin(첫 공격일 때만) + oneshot + end)로 셋을 함께 늘이고(`UpdatePlaybackSpeed`가 그 재생 속도를 능력에 줌), 코루틴
+    `DoPlayAnimation`이 begin → oneshot 순으로 틀며, 타격은 oneshot 클립의 OnAttack 이벤트를 기다린다 → **첫 공격의 타격은 begin만큼 늦다**. 로스터의 ThreePart
+    공격 12명은 모두 첫 공격만 begin(EN charpack 전수, 관리자 노트 `three_part.py`). 구현(같은 날, 렌더만): `anim-overrides.mjs FIRST_ATTACK_BEGIN` → 공격 역할 `firstBegin`
+    (斯卡蒂·伺夜는 begin·end도 채움), 스킬 역할 `attackBegin`/`attackEnd`(歌蕾蒂娅 S2 모드의 공격 채널 `Skill_2_Begin`/`_End`, 伺夜 S3 `Skill3_ABC_Idle_Into`).
+    `spine.js swing`이 공격 묶음의 첫 휘두름(공격 모드가 끝난 지 `FIRST_ATTACK_GAP` 0.35 s 넘음 — 클라 공격 상태의 추정 [추정])에 begin을 앞에 붙여 둘을 시뮬의
+    전딜 안에 함께 압축한다. 시뮬의 첫 타격 지연은 아직 없다(사용자 결정 대기). [화면 미확인]
   - **D** 스킬이 켜는 하위 모드의 `_replaceAnimPairs`(크루스 S2_Sub, 위셔델 과부하, 사키코 음색 등). **E** 장착 스킬의 기본 모드: `Character._GetDefaultModeIndex`
     (전투에 든 스킬의 `_defaultModeIndex`가 재능 값을 덮음) → `Unit.OnInit` `SwitchMode` — 배치부터 그 모드(Born→`Start_n`·Idle 짝). 구현(같은 날):
     `anim-overrides.mjs EQUIP_ROLES` → `anims.equip[스킬]` `{deploy, idle, attack}`, `spine.js setSkillIndex`가 그 스킬을 들면 쉬는 클립으로 — 引星棘刺 S3

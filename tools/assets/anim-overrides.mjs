@@ -205,6 +205,26 @@ export const SIGNAL_CLIPS = Object.freeze({
 });
 
 /**
+ * The begin and end of a spell of attacks (docs/rules/render.md 「Spine 클립 커버리지」 C, EN client charpacks, maintainer's
+ * notes 2026-10-14): a ThreePartOneshotAnimation attack plays its `_beginAnim` before the first attack only
+ * (`_onlyPlayBeginAnimWhenFirstAttack` 1 on every one of the roster) and the ability's `_endAnimKey` as the attacks stop.
+ * Model key prefix → { attack?: { begin?, end? }, skills?: { [0-based skill index]: { attackBegin?, attackEnd? } } }: the
+ * attack role gains `firstBegin` (its begin is that first-attack clip; begin / end fill in clips the resolver left out), a
+ * skill clip `attackBegin` / `attackEnd` (its own begin / end being the skill's) — render/spine.js swing / update.
+ */
+export const FIRST_ATTACK_BEGIN = Object.freeze({
+  // the attack roles the resolver already framed with Attack_Begin (texas: the key Attack_Begin is the clip Attack_Start)
+  ...Object.fromEntries(['char_102_texas', 'char_1041_angel2', 'char_1045_svash2', 'char_107_liskam', 'char_222_bpipe',
+    'char_4036_forcer', 'char_4193_lemuen', 'char_4194_rmixer', 'char_4211_snhunt', 'char_498_inside'].map((id) => [`op:${id}:`, { attack: {} }])),
+  // 斯卡蒂: Modes/Default, S2, S3 Body/Attack `_beginAnim "Attack_Begin"`, `_oneshotAnim "Attack"`, `_endAnimKey "Attack_End"`
+  'op:char_263_skadi:': { attack: { begin: 'Attack_Begin', end: 'Attack_End' } },
+  // 伺夜: Modes/Default Body/Attack the same; Modes/S3 Attack_A / _B / _C `_endAnimKey "Skill3_ABC_Idle_Into"`
+  'op:char_427_vigil:': { attack: { begin: 'Attack_Begin', end: 'Attack_End' }, skills: { 2: { attackEnd: 'Skill3_ABC_Idle_Into' } } },
+  // 歌蕾蒂娅: the S2 mode's attack is a channel `_default {Skill_2_Begin, Skill_2_Loop, Skill_2_End}`
+  'op:char_474_glady:': { skills: { 1: { attackBegin: 'Skill_2_Begin', attackEnd: 'Skill_2_End' } } },
+});
+
+/**
  * The resting clips a skill sets for the whole battle (docs/rules/render.md 「Spine 클립 커버리지」 E, maintainer's notes
  * 2026-10-14): a skill whose prefab root has `_defaultModeIndex` ≥ 0 makes that charpack mode the operator's default mode
  * (`Character._GetDefaultModeIndex` → `Unit.OnInit` SwitchMode), so the mode's `_replaceAnimPairs` (Born → Start_n,
@@ -328,6 +348,22 @@ export function applyAnimOverrides(key, anims, names = null) {
         e.attack = a;
       }
       if (Object.keys(e).length) (anims.equip ||= {})[i] = e;
+    }
+  }
+  for (const [prefix, map] of Object.entries(FIRST_ATTACK_BEGIN)) {
+    if (!key.startsWith(prefix)) continue;
+    const has = (n) => typeof n === 'string' && (!names || names.includes(n));
+    const at = anims.attack;
+    if (map.attack && at) {
+      for (const f of ['begin', 'end']) if (has(map.attack[f])) at[f] = map.attack[f];
+      if (has(at.begin)) at.firstBegin = true;
+      // (a skill slot attacking with the attack clip, `via: 'attack'`, attacks through the attack role: render/spine.js)
+    }
+    for (const [i, o] of Object.entries(map.skills || {})) {
+      for (const clip of new Set([anims.skills?.[i], anims.skill?.index === Number(i) ? anims.skill : null])) {
+        if (!clip) continue;
+        for (const f of ['attackBegin', 'attackEnd']) if (has(o[f])) clip[f] = o[f];
+      }
     }
   }
   for (const [prefix, map] of Object.entries(SIGNAL_CLIPS)) {

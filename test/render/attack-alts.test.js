@@ -41,7 +41,7 @@ test('阿斯卡纶: Attack_A, Attack_B in turn (AbilityRandomGroup Loop)', () =>
 
 test('伺夜 S3: Skill3_Attack_A → B → C in turn while the skill is on; the plain Attack outside it', () => {
   const a = actor('char_427_vigil', 2);
-  assert.deepEqual(swings(a, 1), ['Attack']);
+  assert.deepEqual(swings(a, 1), ['Attack_Begin'], 'its first-attack begin, then Attack (FIRST_ATTACK_BEGIN)');
   a.setSkill(true);
   run(a, 5);
   assert.deepEqual(swings(a, 4), ['Skill3_Attack_A', 'Skill3_Attack_B', 'Skill3_Attack_C', 'Skill3_Attack_A']);

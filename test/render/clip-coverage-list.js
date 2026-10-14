@@ -40,10 +40,6 @@ export const UNPLAYED = {
   char_2027_wang: {
     Default_2: 'none: setup pose of mode S2 (replaces Default, 0 s; charpack Modes/S2 _replaceAnimPairs)',
   },
-  char_263_skadi: {
-    Attack_Begin: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
-    Attack_End: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
-  },
   char_279_excu: {
     Attack_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
     Skill_Up_Begin: 'none: S2 ThreePartOneshotAnimation has no up bundle (_GetAnimBundle: _down or Skill_Right_*); only the template of another unit (nasti_nstchr) names it',
@@ -68,17 +64,9 @@ export const UNPLAYED = {
     Reload_End: 'todo: C+I — first-attack begin / attack end (ThreePartOneshotAnimation); mix clip (SpineAnimator._mixSettings)',
     Reload_Loop: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
   },
-  char_427_vigil: {
-    Attack_Begin: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
-    Attack_End: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
-    Skill3_ABC_Idle_Into: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation)',
-  },
   char_440_pinecn: {
     Skill_1_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
     Skill_2_Up: 'todo: U — up-facing clip (AbstractAnimatedAbility.GetAnimKey)',
-  },
-  char_474_glady: {
-    Skill_2_Begin: 'todo: C — first-attack begin / attack end (ThreePartOneshotAnimation): the attack channel begin of the S2 mode',
   },
   char_498_inside: {
     Attack_Idle: 'none: no ability, mode pair, buff, mix or code string names it (EN/CN); attack is Attack_Begin/Loop/End',

@@ -352,3 +352,37 @@ test('玛恩纳 解放者: a target in range outside her skill (form watch) → 
   v.setForm(null, { form: null });
   assert.equal(v.actor.current, 'Idle');
 });
+
+test('a spell of attacks opens on the first-attack begin (sharing the wind-up) and closes on the attack end: 斯卡蒂, 伺夜 S3, 歌蕾蒂娅 S2', async () => {
+  const a = actor('char_263_skadi');
+  const hit = assets.chars.char_263_skadi.spine.front.hits.Attack[0];
+  assert.ok(a.swing(1));
+  assert.equal(a.current, 'Attack_Begin');
+  const ts = a.spine.state.tracks[0].timeScale;
+  assert.ok(Math.abs(ts - (hit + a.dur('Attack_Begin')) / 1) < 1e-9, 'begin + strike over the wind-up');
+  run(a, 1.2);
+  assert.ok(a.swing(1), 'the next swing of the same spell');
+  assert.equal(a.current, 'Attack', 'no begin again');
+  run(a, 4);
+  assert.notEqual(a.mode, 'attack');
+  assert.ok(a.swing(1));
+  assert.equal(a.current, 'Attack_Begin', 'a new spell after a pause');
+  const v = actor('char_427_vigil', 2);
+  v.setSkill(true);
+  run(v, 1);
+  assert.ok(v.swing(assets.chars.char_427_vigil.spine.front.hits?.Skill3_Attack_A?.[0] ?? 0.3));
+  assert.equal(v.current, 'Skill3_Attack_A', 'S3 has no begin');
+  run(v, 2);
+  assert.equal(v.current, 'Skill3_ABC_Idle_Into', 'the S3 attacks end back into Skill3_Idle');
+  const s = actor('char_263_skadi');
+  assert.ok(s.swing(1));
+  run(s, 3);
+  assert.equal(s.current, 'Attack_End');
+  const g = actor('char_474_glady', 1);
+  g.setSkill(true);
+  run(g, 1);
+  assert.ok(g.swing((assets.chars.char_474_glady.spine.front.hits?.Skill_2_Loop?.[0] ?? 0.4) + g.dur('Skill_2_Begin')));
+  assert.equal(g.current, 'Skill_2_Begin', 'the S2 mode\'s attack channel begin');
+  run(g, 4);
+  assert.equal(g.current, 'Skill_2_End');
+});

@@ -68,6 +68,13 @@ export function swingSpeed(hit, windup) {
   return clampN(hit / windup, 0.1, 10);
 }
 
+/**
+ * Game seconds after an attack mode ended within which a new swing still belongs to the same spell of attacks (no first-
+ * attack begin clip): the client's attack state lasts while a target is held, our attack mode only to each clip's end
+ * [ASSUMED: the render's guess of the client's AbilityStandard.Behaviour.firstAttack].
+ */
+const FIRST_ATTACK_GAP = 0.35;
+
 /** Floor for the one-shot window of a skill clip with no Begin / own Idle (a very short clip still gets frames). */
 const SKILL_CLIP_MIN = 0.2;
 
@@ -201,6 +208,7 @@ export class SpineActor {
     this.clipPerAttack = false;
     this.wound = false;           // clipPerAttack: wound up for the coming attack (windUp → attack)
     this.swingUntil = null;       // the end of a swing's clip (swing): attacks meanwhile leave it alone
+    this.lastAttackEnd = null;    // the clock when the attack mode last ended (a first swing after it: _firstBegin)
     this.fortressClips = null;    // a 要塞's [melee, ranged] clip pairs (render/units.js FORTRESS_CLIPS)
     this.atkRanged = null;        // …and whether its latest attack was ranged (null: not known yet — the role's clip)
     this.combatHit = false;       // the latest swing hits an enemy this unit blocks: the role's `combat` clip (units.js onSwing)
@@ -490,16 +498,33 @@ export class SpineActor {
     // the strike frame; a clip with no OnAttack event strikes as the swing ends (the sim's attackTiming)
     const hit = Array.isArray(hits) && hits.length && Number.isFinite(hits[0]) ? clampN(hits[0], 0, loopDur) : loopDur;
     if (!(hit > 0)) return false;
-    const ts = swingSpeed(hit, windup);
+    // the first swing of a spell of attacks opens on the role's begin clip (the client's ThreePartOneshotAnimation
+    // `_onlyPlayBeginAnimWhenFirstAttack`): begin and attack clip share the wind-up, as the client scales them together
+    const first = this.mode !== 'attack' && !(this.lastAttackEnd != null && this.clock - this.lastAttackEnd <= FIRST_ATTACK_GAP);
+    const begin = first ? this._firstBegin(clip) : null;
+    const lead = begin ? this.dur(begin) : 0;
+    const ts = swingSpeed(hit + lead, windup);
     this.mode = 'attack';
-    this.attackUntil = this.clock + loopDur / ts + SWING_HOLD;
+    this.attackUntil = this.clock + (lead + loopDur) / ts + SWING_HOLD;
     this.swingUntil = this.attackUntil;
     this.swingAt = this.clock;
     this.swingWindup = windup;
     this.windUntil = null;
     this.wound = false;
-    this._play(name, false, { timeScale: ts, mix: 0.06 });
+    if (begin) { this._play(begin, false, { timeScale: ts, mix: 0.06 }); this._queue(name, false, ts); }
+    else this._play(name, false, { timeScale: ts, mix: 0.06 });
     return true;
+  }
+
+  /**
+   * The begin clip of a spell of attacks of role `clip` (null: none): a skill clip's `attackBegin` (歌蕾蒂娅 S2's attack
+   * channel), or the attack role's `begin` when `firstBegin` marks it the client's first-attack-only begin
+   * (tools/assets/anim-overrides.mjs FIRST_ATTACK_BEGIN) — not on a blocked enemy's own clip (`combat`).
+   */
+  _firstBegin(clip) {
+    if (this._swingClip(clip) !== clip) return null;
+    const b = clip.attackBegin || (clip.firstBegin ? clip.begin : null);
+    return this.has(b) ? b : null;
   }
 
   /**
@@ -937,10 +962,13 @@ export class SpineActor {
           this.mode = 'base';
           this.wound = false;
           this.swingUntil = null;
+          this.lastAttackEnd = this.clock;
           const clip = this._attackClip() || this.roles.attack;
-          // a skill with its own idle: back to that idle (its end clip is for the end of the skill, setSkill(false))
+          // a skill with its own idle: back to that idle (its end clip is for the end of the skill, setSkill(false)) —
+          // through the skill's own end of a spell of attacks when it has one (`attackEnd`: 伺夜 S3 Skill3_ABC_Idle_Into)
           const toSkillIdle = clip === this.roles.skill && !!this._skillIdle();
-          if (clip && this.has(clip.end) && !toSkillIdle) { this._play(clip.end, false); this._queue(this._baseName(), true); }
+          const end = toSkillIdle ? clip.attackEnd : clip?.end;
+          if (clip && this.has(end)) { this._play(end, false); this._queue(this._baseName(), true); }
           else this._play(this._baseName(), true, { mix: 0.15 });
         }
         break;
