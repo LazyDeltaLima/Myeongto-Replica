@@ -427,7 +427,10 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
     圣聆初雪 S3·伺夜 S3·山). 望 S2의 `Attack_2_A/B`는 E(장착 스킬 기본 모드)가 먼저.
   - **C** 첫 공격 begin·공격 end: `ThreePartOneshotAnimation`(`_onlyPlayBeginAnimWhenFirstAttack`, `_endAnimKey`) — `spine.js`가 공격 역할의 begin을 안 튼다.
   - **D** 스킬이 켜는 하위 모드의 `_replaceAnimPairs`(크루스 S2_Sub, 위셔델 과부하, 사키코 음색 등). **E** 장착 스킬의 기본 모드: `Character._GetDefaultModeIndex`
-    (전투에 든 스킬의 `_defaultModeIndex`가 재능 값을 덮음) → `Unit.OnInit` `SwitchMode` — 배치부터 그 모드(Born→`Start_n`·Idle 짝).
+    (전투에 든 스킬의 `_defaultModeIndex`가 재능 값을 덮음) → `Unit.OnInit` `SwitchMode` — 배치부터 그 모드(Born→`Start_n`·Idle 짝). 구현(같은 날):
+    `anim-overrides.mjs EQUIP_ROLES` → `anims.equip[스킬]` `{deploy, idle, attack}`, `spine.js setSkillIndex`가 그 스킬을 들면 쉬는 클립으로 — 引星棘刺 S3
+    (`Start_2`·`Skill_3_Idle`), 望 S2(`Start_2`·`Idle_2`·공격 `Attack_2_A/B` 차례), 安洁莉娜 S2·S3(`Idle_Charge`). 予愿安洁莉娜 S1 시작 `Start_2`(스킨 키 `Skill_1_Begin`)는
+    스킬 클립 덮어쓰기. 남은 E: 乌尔比安 S3 재배치 클립(`Skill_3_Back`·`Skill_3_ReStart_A/B`), 赤刃明霄陈 S2 재등장 `Start_2` — 시뮬 재배치 신호가 필요.
   - **F** 모드의 `Die` 짝. **G** 스킬 프리팹 연출. **H** 재능·특성 상태. **I** 믹스 전환: chararts `SpineAnimator._mixSettings` — 클립 A→B 사이에 끼우는 클립.
   - **J** 스킨 키 표: chararts `SpineAnimator._animations`(키 → 클립 이름). 클라는 능력·모드의 **키**로만 튼다(`PlayAnimationInternal` → `GetAnimationData`).
     역할 추출(`anim-roles.mjs`, 이름 추측)은 이 표를 안 읽는다. 안젤리나·焰尾(`skills[]`가 한 칸 밀려 주 스킬 S3가 일반 공격 클립)·塞雷娅(S1·S2가 S3 钙质化

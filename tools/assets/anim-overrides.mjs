@@ -86,6 +86,11 @@ export const SKILL_CLIP_OVERRIDES = Object.freeze({
     1: clips({ loop: 'Skill_1' }),
     2: clips({ begin: 'Skill_2_Begin', loop: 'Skill_2_Loop', end: 'Skill_2_End', idle: 'Skill_2_Idle' }),
   }),
+  // 予愿安洁莉娜 (char_1015_aglna2, CN client): S1's take-off key Skill_1_Begin is the clip Start_2 (CN chararts DefaultSkin
+  // SpineAnimator._animations; skchr_aglna2_1 `_defaultModeIndex` 5 = S1_TakeOff, whose attack `_animKey` is that key).
+  'op:char_1015_aglna2:': Object.freeze({
+    0: clips({ begin: 'Start_2', loop: 'Skill_1_Loop', end: 'Skill_1_End', idle: 'Skill_1_Idle' }),
+  }),
   // 塞雷娅 (char_202_demkni): S1 skchr_demkni_1 attacks with `_animKey "Attack"`; S2's heal key `Heal` is the clip
   // Attack_2; Skill_Begin / _Loop / _End are S3 钙质化's.
   'op:char_202_demkni:': Object.freeze({
@@ -132,6 +137,25 @@ export const ATTACK_ALTS = Object.freeze({
 });
 
 /**
+ * The resting clips a skill sets for the whole battle (docs/rules/render.md 「Spine 클립 커버리지」 E, maintainer's notes
+ * 2026-10-14): a skill whose prefab root has `_defaultModeIndex` ≥ 0 makes that charpack mode the operator's default mode
+ * (`Character._GetDefaultModeIndex` → `Unit.OnInit` SwitchMode), so the mode's `_replaceAnimPairs` (Born → Start_n,
+ * Idle → …, Attack → …) hold from the deployment on. Model key prefix → { [0-based skill index]: { deploy?, idle?,
+ * attack? } } → anims.equip (render/spine.js setSkillIndex).
+ */
+export const EQUIP_ROLES = Object.freeze({
+  // 引星棘刺 (char_1039_thorn2) S3: skchr_thorn2_3 `_defaultModeIndex` 1 = mode S3 (Born→Start_2, Idle→Skill_3_Idle)
+  'op:char_1039_thorn2:': { 2: { deploy: 'Start_2', idle: 'Skill_3_Idle' } },
+  // 望 (char_2027_wang) S2: skchr_wang_2 `_defaultModeIndex` 1 = mode S2 (Born→Start_2, Idle→Idle_2, Attack_A/_B→Attack_2_A/_B,
+  // the emitter's LOOP turns)
+  'op:char_2027_wang:': {
+    1: { deploy: 'Start_2', idle: 'Idle_2', attack: { begin: null, loop: 'Attack_2_A', end: null, alts: ['Attack_2_A', 'Attack_2_B'], pick: 'loop' } },
+  },
+  // 安洁莉娜 (char_291_aglina) S2 / S3: `_defaultModeIndex` 1 = mode Disarmed (no normal attack; Idle→Idle2, skin key → Idle_Charge)
+  'op:char_291_aglina:': { 1: { idle: 'Idle_Charge' }, 2: { idle: 'Idle_Charge' } },
+});
+
+/**
  * Apply SKILL_CLIP_OVERRIDES to resolveRoles' result for model `key` (mutates and returns `anims`). `names` (the
  * skeleton's clip names, optional): an override clip the model lacks is dropped — one side's skeleton can miss a clip
  * the other has (泥岩 Back has no Skill_2_Begin / _Awake / _Sleep: its S3 starts straight in Skill_2_Attack / _Idle).
@@ -159,6 +183,22 @@ export function applyAnimOverrides(key, anims, names = null) {
       if (!alt) continue;
       const alts = names ? alt.alts.filter((n) => names.includes(n)) : [...alt.alts];
       if (alts.length > 1) Object.assign(c, { alts, pick: alt.pick });
+    }
+  }
+  for (const [prefix, map] of Object.entries(EQUIP_ROLES)) {
+    if (!key.startsWith(prefix)) continue;
+    const has = (n) => typeof n === 'string' && (!names || names.includes(n));
+    for (const [i, roles] of Object.entries(map)) {
+      const e = {};
+      if (has(roles.deploy)) e.deploy = roles.deploy;
+      if (has(roles.idle)) e.idle = roles.idle;
+      if (roles.attack && has(roles.attack.loop)) {
+        const a = { ...roles.attack };
+        if (a.alts) a.alts = a.alts.filter(has);
+        if (!(a.alts?.length > 1)) { delete a.alts; delete a.pick; }
+        e.attack = a;
+      }
+      if (Object.keys(e).length) (anims.equip ||= {})[i] = e;
     }
   }
   return anims;

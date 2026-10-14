@@ -1,6 +1,6 @@
 // test/render/clip-coverage.test.js — every Spine clip of every operator model (data/assets.json chars, Front and Back) is
 // either reached by the renderer or listed with its status in clip-coverage-list.js. The renderer plays a model's roles
-// (anims: idle, deploy, die, attack, move, stun, run, skill / skills[i] begin · loop · end · idle · alts) plus the clips
+// (anims: idle, deploy, die, attack, move, stun, run, skill / skills[i] begin · loop · end · idle · alts, equip) plus the clips
 // render/units.js names per Spine id (FORMS, FORTRESS_CLIPS); a clip outside them never plays unless code names it. User
 // report 2026-10-12: 予愿安洁莉娜 S2's Skill_2_Takeoff_* had never played (docs/rules/diy.md 「S2 활공 모션」) — a
 // new model, a new kit or a manifest rebuild that leaves a clip unplayed now fails here until someone says why.
@@ -41,8 +41,10 @@ function strings(o, out = new Set()) {
 function rolePlayed(anims) {
   const out = new Set(['Idle', 'Die']);
   if (!anims) return out;
-  for (const k of ['idle', 'deploy', 'die']) if (typeof anims[k] === 'string') out.add(anims[k]);
-  const clips = [anims.attack, anims.move, anims.stun, anims.run, anims.skill, ...Object.values(anims.skills || {})];
+  const equip = Object.values(anims.equip || {});   // an equipped skill's default mode (spine.js setSkillIndex)
+  for (const r of [anims, ...equip]) for (const k of ['idle', 'deploy', 'die']) if (typeof r[k] === 'string') out.add(r[k]);
+  const clips = [anims.attack, anims.move, anims.stun, anims.run, anims.skill, ...Object.values(anims.skills || {}),
+    ...equip.map((r) => r.attack)];
   for (const c of clips) {
     if (!c || typeof c !== 'object') continue;
     for (const k of ['begin', 'loop', 'end', 'idle']) if (typeof c[k] === 'string') out.add(c[k]);

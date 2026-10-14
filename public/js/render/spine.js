@@ -222,12 +222,16 @@ export class SpineActor {
 
   /**
    * The equipped skill (DESIGN §16 loadout, UnitInfo.skillIndex): its own Spine clip when the model has one per skill
-   * index (`anims.skills`), else the primary skill's clip.
+   * index (`anims.skills`), else the primary skill's clip; and the unit's resting clips when that skill sets the
+   * operator's default mode (`anims.equip`: the client's `Character._GetDefaultModeIndex` — the skill's
+   * `_defaultModeIndex` — puts the unit in that mode from `Unit.OnInit`, so its Born / Idle / attack pairs hold all battle).
    * @param {number|undefined} index 0-based skill index
    */
   setSkillIndex(index) {
     this.skillIndex = Number.isInteger(index) ? index : null;
+    const idle = this._baseName();
     this._applyRoles();
+    if (this.mode === 'base' && !this.dead && this._baseName() !== idle) this._play(this._baseName(), true);
   }
 
   /**
@@ -243,8 +247,9 @@ export class SpineActor {
   _applyRoles() {
     const anims = this.entry?.anims || {};
     const clip = Number.isInteger(this.skillIndex) && anims.skills ? anims.skills[String(this.skillIndex)] : null;
+    const equip = Number.isInteger(this.skillIndex) && anims.equip ? anims.equip[String(this.skillIndex)] : null;
     const run = this.runMode && anims.run ? anims.run : null;
-    const base = clip || run ? { ...anims } : anims;
+    const base = clip || run || equip ? { ...anims, ...equip } : anims;
     if (clip) base.skill = clip;
     if (run) base.move = run;
     this.baseRoles = base;

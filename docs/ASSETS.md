@@ -264,6 +264,8 @@ Roles = {
   attackDown: Clip|null,   // _Down variants (target below the unit)
   skill: SkillClip|null,   // for the chess's default skill (primary index)
   skills?: { [index]: SkillClip },   // when the char is used with several default skills (backups)
+  equip?: { [index]: { deploy?: string, idle?: string, attack?: Clip } },   // the resting clips while that skill is
+                           //   equipped (its `_defaultModeIndex` mode; tools/assets/anim-overrides.mjs EQUIP_ROLES)
   die: string|null,        // null ⇒ a Back model gives way to the Front model's Die (DESIGN §22.1); any other
                            //   skeleton holds its idle's first frame while it fades out
   move: Clip|null,         // enemies: Move_Begin|Move_Start + Move_Loop|Move + Move_End → Run_*

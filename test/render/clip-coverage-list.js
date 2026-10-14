@@ -28,7 +28,6 @@ export const UNPLAYED = {
     Skill_3_Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
     Skill_3_Die: 'todo: F — skill mode Die pair',
     Skill_3_Restart_Begin: 'todo: G — skill prefab clip [ASSUMED]',
-    Start_2: 'todo: J — skin key table (SpineAnimator._animations)',
   },
   char_1021_kroos2: {
     Skill_Loop_2: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
@@ -51,9 +50,6 @@ export const UNPLAYED = {
     Skill_2_Overload_End: 'todo: D+I — skill sub-mode clip pairs (mode _replaceAnimPairs); mix clip (SpineAnimator._mixSettings)',
     Skill_2_Overload_Idle: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
     Skill_2_Overload_Loop: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs)',
-  },
-  char_1039_thorn2: {
-    Start_2: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
   },
   char_1040_blaze2: {
     Revive_Begin: 'todo: H — talent / trait state',
@@ -78,11 +74,7 @@ export const UNPLAYED = {
     Combat: 'todo: A — blocked-target attack (UnitMode._combat)',
   },
   char_2027_wang: {
-    Attack_2_A: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
-    Attack_2_B: 'todo: B — alternate attack clip (AbilityRandomGroup / _replaceGroup / sequence)',
     Default_2: 'none: setup pose of mode S2 (replaces Default, 0 s; charpack Modes/S2 _replaceAnimPairs)',
-    Idle_2: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
-    Start_2: 'todo: E — equipped skill default mode (_defaultModeIndex, Born pair)',
   },
   char_206_gnosis: {
     Skill_3: 'todo: D — skill sub-mode clip pairs (mode _replaceAnimPairs): the charged S2, mode S2+ Skill_2→Skill_3',
@@ -98,7 +90,6 @@ export const UNPLAYED = {
     Skill_Up_Loop: 'none: S2 ThreePartOneshotAnimation has no up bundle (_GetAnimBundle: _down or Skill_Right_*); only the template of another unit (nasti_nstchr) names it',
   },
   char_291_aglina: {
-    Idle_Charge: 'todo: E+J — equipped skill default mode (_defaultModeIndex, Born pair); skin key table (SpineAnimator._animations)',
     Skill2_Begin: 'none: not a key of the skin SpineAnimator._animations (S3 key Skill_2_Begin plays Skill1_Begin; the client plays clips by key only)',
   },
   char_294_ayer: {

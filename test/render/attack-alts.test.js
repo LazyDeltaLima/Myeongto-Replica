@@ -1,6 +1,7 @@
-// Attack clips taking turns (anims `alts` / `pick`, tools/assets/anim-overrides.mjs ATTACK_ALTS; docs/rules/render.md
-// 「Spine 클립 커버리지」 B): every swing plays one of the role's clips — in turn, at random, or never the same twice.
-// Real manifest entries, headless fake PIXI like test/local-patch-skill-clips.test.js.
+// Attack clips taking turns (anims `alts` / `pick`, tools/assets/anim-overrides.mjs ATTACK_ALTS) and an equipped skill's
+// resting clips (anims `equip`, EQUIP_ROLES) — docs/rules/render.md 「Spine 클립 커버리지」 B and E: every swing plays one
+// of the role's clips (in turn, at random, never the same twice). Real manifest entries, headless fake PIXI like
+// test/local-patch-skill-clips.test.js.
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -71,4 +72,29 @@ test('a model swapped mid-swing keeps the swing\'s clip (swingElapsed alt → sw
   assert.equal(b.current, 'Attack_B');
   run(b, 3);
   assert.deepEqual(swings(b, 1), ['Attack_A'], 'then in turn from there');
+});
+
+// A skill whose `_defaultModeIndex` sets the operator's default mode (anims.equip, tools/assets/anim-overrides.mjs
+// EQUIP_ROLES; docs/rules/render.md 「Spine 클립 커버리지」 E): its resting clips hold from the deployment on.
+test('望 with S2 equipped: deploys with Start_2, idles in Idle_2, attacks Attack_2_A / _B in turn; with S1 the plain set', () => {
+  const a = actor('char_2027_wang', 1);
+  assert.equal(a.current, 'Idle_2', 'repose on the equipped idle');
+  a.deploy();
+  assert.equal(a.current, 'Start_2');
+  run(a, 3);
+  assert.equal(a.current, 'Idle_2');
+  assert.deepEqual(swings(a, 3), ['Attack_2_A', 'Attack_2_B', 'Attack_2_A']);
+  const b = actor('char_2027_wang', 0);
+  b.deploy();
+  assert.equal(b.current, 'Start');
+  run(b, 3);
+  assert.deepEqual(swings(b, 2), ['Attack_1_A', 'Attack_1_B']);
+});
+
+test('引星棘刺 with S3 equipped: Start_2, then Skill_3_Idle as her idle', () => {
+  const a = actor('char_1039_thorn2', 2);
+  a.deploy();
+  assert.equal(a.current, 'Start_2');
+  run(a, 4);
+  assert.equal(a.current, 'Skill_3_Idle');
 });
