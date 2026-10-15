@@ -332,6 +332,11 @@
 /* 랜덤 매칭 for the empty seats (screens/room.js): 干员调配 and 匹配补位 stacked; the matching status line */
 .room-bar__stack { display: flex; flex-direction: column; gap: .08rem; }
 .room-bar__stack .btn { width: 100%; justify-content: center; }
+/* with the stack beside it, 开始模拟 takes the stack's height so the right column's buttons share top and bottom edges
+   (maintainer request 2026-10-15) */
+.room-bar__right--stack { align-items: stretch; }
+.room-bar__right--stack > .tt-anchor { display: flex; }
+.room-bar__right--stack .btn--xl { height: auto; }
 /* 匹配补位's badge: the Doctors waiting in this room's queue (its difficulty × ruleset, lobby.queueCounts) */
 .room-fill__n { margin-left: .08rem; }
 .room-fill__n.is-on { background: rgba(78, 216, 175, .2); color: var(--mint-400); }

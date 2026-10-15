@@ -426,7 +426,7 @@ export function RoomScreen() {
         </div>
         <div class="room-bar__status">${statusLine}</div>
       </div>
-      <div class="room-bar__right">
+      <div class=${`room-bar__right${canFill ? ' room-bar__right--stack' : ''}`}>
         ${canFill
           // two md buttons stacked in the place of the lg 干员调配 (three side by side overflow the bar's right column)
           ? html`<div class="room-bar__stack">
