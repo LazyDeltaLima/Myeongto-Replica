@@ -1156,6 +1156,13 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   떠나면 다음 타에 원 안의 다른 오퍼레이터(2026-10-15, 옛 [ASSUMED]: 처음 대상만, 반경 밖이면 끝). 대상이 죽거나(`_interuptIfTargetDead` 1, 철수 포함)
   子代가 기절·침묵되면(`_canSilenced`) 끝나고, [ASSUMED] 타 순간 원 안에 아무도 없어도 끝난다(기본 경로라 안 읽음) — SP 0부터 → 1 s 뒤 다시 고른다.
   테스트 「子代 摄食: every hit picks…」.
+- **공격 속도 대조**(2026-10-16, 관리자 제보 「수정 뒤 공격이 너무 빨라진 느낌」): 공식과 다른 곳 없음, 바꾼 것 없음. 摄食 간격은 공격 속도를 받지
+  않는다 — `ChannelingMeleeAttack.DoSetData`가 `m_triggerDelta`를 블랙보드 `interval`(이 스킬엔 없음)에서, 없으면 프리팹 `_triggerDelta` 1.0으로 정하고
+  `OnWaitForTriggerDelta`는 그 값 그대로 `WaitForFixedSeconds`. 한 번 붙잡으면 계속 문다: `CheckAnotherSpell` = 남은 `m_duration` > `_postDelayChecker`(1.0),
+  `m_duration`은 블랙보드 `duration`이고 `SkillData.InitIfNot`이 스킬 `duration`(999999)을 블랙보드 `duration`으로 넣는다(그래서 한 시전 한 타가 아님).
+  퀸투스 본체의 일반 공격은 3.5 s마다 2명(enemy_database `baseAttackTime` 3.5·`attackSpeed` 100; `Attack` 클립 1.667 s라 `_maxAnimScale` 1로도 늘어나지
+  않음)이고, 셋째 형태 【大潮】 쿨 3.5 s(`TidewaterG2`)도 표 그대로다. 실제 판 경로 240 s 측정에서 본체 간격은 이 수정 전후 모두 3.5 s뿐 —
+  빨라 보이는 것은 1.4.4에서 새로 생긴 子代의 1 s 摄食(형태가 오를수록 동시에 최대 넷)이다.
 - **철수**: 나타난 지 35 s에 스스로 사라진다(`trap_tentac[withdraw]` = `suicide_after_buff[switch_to_dead]`, 처치 아님).
 - **그림**: 공식 토큰 모델(`pkgrps/btl_pfb_tokens_0`의 Spine, 로컬 추출 `spine/token/trap_039_dstnta`) — 형태 'larva'(Start_01 → Idle_01), 'grown'(Start_02 →
   Idle_02/Die_02), 'feed'(Attack_Begin → Attack_Loop), 'fed'(Attack_End → Idle_02). 공식 이펙트(탄생·대기·Grow·摄食)는 docs/rules/fx.md 「보스 토큰·장비 이펙트」.
