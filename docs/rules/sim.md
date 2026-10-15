@@ -632,6 +632,18 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
 - 테스트 `test/content/enemies_bosses.test.js`(반경 2에서 공격 → 탄 속도 10·대상·발사 순간 씨앗 사라짐·착탄 시간; 기절 중엔 공격·자폭 없음; 실제 경기 경로 Match 판 →
   `buildBattleSpec` → `createBattleFromSpec`), `test/sim/unbalance.test.js`(PR의 失衡 중 발사 없음).
 
+### 假想敌：镜膜 HP +100%는 첫 침묵에 영구 상실 (upstream #481, upstream PR #613)
+- 문제: 假想敌：镜膜(REFLECTION 적)의 折射가 법술 저항 +70과 최대 HP +100%를 한 버프로 묶어 침묵 동안 끄고 침묵이 끝나면 다시 켜서, HP 보너스가 되돌아왔다.
+- 근거: PRTS 「假想敌：镜膜」 천부 「最大生命值+100%（受沉默影响后失效，无法恢复）」, 능력 수정 「生命值大幅提升，被沉默后永久失效」(PRTS API로 직접 확인).
+  저항 +70(`ba.refraction` 「生效时，法术抗性+70」)은 다른 折射 적과 같이 침묵 동안만 꺼진다.
+- 동작(PR 그대로): `archetypes.js refraction(res, hpPct)` — HP 보너스가 있는 적(镜膜만)이 처음 침묵되는 순간 `hpLost`를 영구로 세우고 `setForm('stopped')`
+  (fx `phase` `{ id, kind: 'stopped', form: 'stopped' }`; 늦게 들어온 관전자는 `fieldMeta()` UnitInfo `form`)를 낸다. 침묵이 끝나면 저항 +70만 다시 붙는다.
+  최대 HP가 바뀔 때 엔진이 HP 비율을 유지하므로(`units.js` 「Changing maxHp keeps the HP ratio」) 보너스를 잃어도 현재 HP 비율은 그대로이고, 다시 늘지 않는다.
+  다른 镜膜은 제 보너스를 그대로 가진다. 멈춘 팬 모습(B 모델)은 `docs/rules/render.md`.
+- 테스트 `test/content/enemies_bosses.test.js`(PR 테스트: 첫 침묵 → HP 보너스·저항 꺼짐·HP 비율 60% 유지·폼 `stopped`·fieldMeta; 침묵 끝 → 저항만 돌아옴; 두 번째 침묵에도
+  폼 이벤트 한 번; + 실제 경기 경로 Match 판 → `buildBattleSpec` → `createBattleFromSpec`). golden: `diy` diy-003만 — 그 판(R13 `act1autochess_h06`)의 镜膜들이
+  침묵을 맞은 뒤 침묵이 끝나도 HP 보너스가 안 돌아와(10번 상실) 오퍼레이터 피해·처치 숫자가 바뀐다.
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).

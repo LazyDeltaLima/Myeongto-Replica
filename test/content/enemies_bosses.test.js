@@ -989,16 +989,72 @@ for (const key of ['enemy_1174_duholy', 'enemy_1174_duholy_2']) {
   });
 }
 
-test(`${nm('enemy_9011_acrefr')}: refraction also doubles max HP while active`, () => {
+test(`${nm('enemy_9011_acrefr')}: first silence permanently removes the HP bonus and stops its fan; RES returns`, () => {
   const h = arena();
   h.step();
   const e = put(h, 'enemy_9011_acrefr', [10, 7]);
+  const other = put(h, 'enemy_9011_acrefr', [12, 7]);
   h.step();
-  assert.equal(e.s.maxHp, E.enemy_9011_acrefr.stats.maxHp * (1 + tb('enemy_9011_acrefr', 'Refracting.max_hp')));
+  const baseHp = E.enemy_9011_acrefr.stats.maxHp;
+  assert.equal(e.s.maxHp, baseHp * (1 + tb(e.defId, 'Refracting.max_hp')));
   assert.equal(e.s.res, 70);
+  e.hp = e.s.maxHp * 0.6;
   h.b.applyStatus(e, 'silence', { duration: 1 });
   h.step();
-  assert.equal(e.s.maxHp, E.enemy_9011_acrefr.stats.maxHp);
+  assert.equal(e.s.maxHp, baseHp);
+  approx(e.hp, baseHp * 0.6, 1e-6, 'HP ratio survives losing the bonus');
+  assert.equal(e.s.res, 0);
+  assert.equal(e.form, 'stopped');
+  assert.equal(h.b.fieldMeta().units.find((u) => u.id === e.id).form, 'stopped', 'late observers get the stopped form');
+  h.run(1.2);
+  assert.equal(e.s.flags.silence, undefined);
+  assert.equal(e.s.res, 70, 'only RES returns after silence');
+  assert.equal(e.s.maxHp, baseHp, 'HP bonus never returns');
+  approx(e.hp, baseHp * 0.6);
+  assert.equal(e.form, 'stopped');
+  assert.equal(other.s.maxHp, baseHp * 2, 'another mirror keeps its own bonus');
+  assert.equal(other.form, null);
+  h.b.applyStatus(e, 'silence', { duration: 1 });
+  h.run(1.2);
+  assert.equal(e.s.maxHp, baseHp);
+  assert.equal(e.s.res, 70);
+  assert.equal(h.eventsOf('fx').filter((event) => event[4]?.form === 'stopped').length, 1, 'one permanent form change');
+  checkInvariants(h.b);
+});
+
+test(`${nm('enemy_9011_acrefr')} through the real match path (Match board → buildBattleSpec → createBattleFromSpec): the first silence takes the HP bonus for good, HP ratio kept`, async () => {
+  const { makeMatch } = await import('../match/harness.js');
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const mh = makeMatch({ mode: 'solo', difficulty: 'NORMAL', humans: 1, seed: 11 }).start();
+  mh.toPrep(3);
+  const m = mh.m, ps = mh.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'mirror', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent, timeLimit: 60,
+    // a late enemy keeps the field open
+    spawns: [{ time: 0, enemyKey: 'enemy_9011_acrefr', routeIndex: 0, count: 1, interval: 0, pos: [9, 8] },
+      { time: 500, enemyKey: 'enemy_9011_acrefr', routeIndex: 0, count: 1, interval: 0, pos: [9, 8] }],
+    routes: [{ motion: 'WALK', start: [9, 8], end: [9, 1], checkpoints: [] }] });
+  const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+  b.start();
+  let e = null;
+  for (let i = 0; i < 100 && !e; i++) { b.step(); e = b.units.find((u) => u.defId === 'enemy_9011_acrefr' && u.alive); }
+  b.step();
+  assert.ok(e && Math.abs(e.s.maxHp / e.base.maxHp - 2) < 1e-9, 'max HP +100 % while never silenced');
+  const bonusMax = e.s.maxHp;
+  e.hp = bonusMax * 0.6;
+  b.drainEvents();
+  b.applyStatus(e, 'silence', { duration: 1 });
+  b.step();
+  assert.ok(Math.abs(e.s.maxHp - bonusMax / 2) < 1e-6 && Math.abs(e.hp / e.s.maxHp - 0.6) < 1e-6, 'bonus gone, HP ratio kept');
+  assert.equal(e.form, 'stopped');
+  assert.equal(b.drainEvents().filter((x) => x[0] === 'fx' && x[4]?.form === 'stopped' && x[4].id === e.id).length, 1);
+  assert.equal(b.fieldMeta().units.find((u) => u.id === e.id).form, 'stopped');
+  for (let i = 0; i < 60; i++) b.step();
+  assert.equal(e.s.flags.silence, undefined);
+  assert.ok(Math.abs(e.s.maxHp - bonusMax / 2) < 1e-6 && e.s.res >= 70, 'after the silence: RES back, HP bonus not');
+  assert.deepEqual(b.errors.map((x) => x.error?.message), []);
+  m.dispose?.();
 });
 
 // ---------------------------------------------------------------------------------------------------------------
