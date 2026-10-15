@@ -563,9 +563,13 @@ function MatchScreen() {
     audio.setGameSpeed?.(field.speed); // a START sound's own delay is in game time (docs/rules/audio.md 「공격 소리 신호」)
     setLayer('ALL');
     // a lone player's boss field (solo modes, the odd player of a co-op Final Assault: the `_s` templates route every
-    // enemy to the left objective) is framed on its own half like the ‹ › half view; pairs start on 全景
+    // enemy to the left objective) is framed on its own half like the ‹ › half view; pairs start on 全景. A 联防 field
+    // with one Doctor starts on that Doctor's half (layerCamera of 全景, upstream #635): the [layer] effect does not
+    // run here when the layer already was 全景, so the entry asks layerCamera itself
     const lone = kind === 'boss' && members.length === 1;
-    setCam(kind, lone ? { rect: field.rect, side, half: true } : { rect: field.rect, side, ...(field.prep ? { shop: false } : {}) });
+    setCam(kind, lone ? { rect: field.rect, side, half: true }
+      : kind === 'unite' ? layerCamera(field, 'ALL', side)
+        : { rect: field.rect, side, ...(field.prep ? { shop: false } : {}) });
     audio.setFieldUnits(field.units);
     if (early && early.length) {
       // replay state-bearing events only (a burst of stale hit sparks / damage numbers would look wrong)

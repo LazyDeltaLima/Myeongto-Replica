@@ -4,6 +4,7 @@
 // a reloaded screen that watched a teammate's battle takes the watch back (resumedWatch).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { observeTarget, teammateProgress, cameraLayers, layerCamera, isClientCombat, resumedWatch } from '../../public/js/battle/observe.js';
 
 const P = (id, seat, extra = {}) => ({ playerId: id, seat, name: id.toUpperCase(), alive: true, ...extra });
@@ -48,6 +49,21 @@ test('cameraLayers: ‹ LEFT / 全景 / RIGHT › with "你自己" / name / "无
   assert.deepEqual(cameraLayers({ kind: 'boss', players: ['a'], sides: { a: 'L' } }, pub, 'a'), [], 'a solo boss field has no halves');
   assert.deepEqual(layerCamera(unite, 'R', 'R'), { rect: unite.rect, side: 'R', half: true });
   assert.deepEqual(layerCamera(unite, 'ALL', 'R'), { rect: unite.rect, side: 'R' });
+  assert.deepEqual(layerCamera(single, 'ALL', 'R'), { rect: unite.rect, side: 'L', half: true });
+});
+
+test('layerCamera: a 联防 field with one Doctor starts on that Doctor\'s half, also on entering the field (upstream #635)', () => {
+  const rect = { r0: 9, r1: 12, c0: 0, c1: 20 };
+  // the lone Doctor's half, whichever it is, for the watcher too; seat order when the meta has no `sides`
+  assert.deepEqual(layerCamera({ kind: 'unite', rect, players: ['b'], sides: { b: 'R' } }, 'ALL', 'L'), { rect, side: 'R', half: true });
+  assert.deepEqual(layerCamera({ kind: 'unite', rect, players: ['b'] }, 'ALL', 'R'), { rect, side: 'L', half: true });
+  // two Doctors keep 全景; a pair's boss field keeps 全景 (the lone boss field is framed by the entry itself)
+  assert.deepEqual(layerCamera({ kind: 'unite', rect, players: ['a', 'b'] }, 'ALL', 'R'), { rect, side: 'R' });
+  assert.deepEqual(layerCamera({ kind: 'boss', rect, players: ['a'], sides: { a: 'L' } }, 'ALL', 'L'), { rect, side: 'L' });
+  // entering a field resets the layer to 全景 without running the [layer] effect when it already was 全景: the entry
+  // camera of a 联防 field comes from layerCamera too (public/js/screens/game.js)
+  const game = readFileSync(new URL('../../public/js/screens/game.js', import.meta.url), 'utf8');
+  assert.match(game, /kind === 'unite' \? layerCamera\(field, 'ALL', side\)/);
 });
 
 test('resumedWatch: a reload while watching a teammate\'s battle adopts the resent field once per battle (review, DESIGN §20.15)', () => {
