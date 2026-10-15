@@ -636,6 +636,22 @@ def modes_of(path, projectiles=None):
         res['startOnce'] = 1
     if isinstance(root.get('_deadEffect'), str) and root['_deadEffect']:
         res['dead'] = root['_deadEffect']
+    # 2026-10-16, decompile check — client `Unit.AttachCommonAbilities` (RVA 0x84DF50): every ability of the prefab root's
+    # `_commonAbilities` is attached with the unit, outside its modes. `common` = the effects of the buffs those abilities
+    # put on the unit itself for good (`lifeTimeType` 2 INFINITY): 新约能天使's wings and halo, 引星棘刺's weapon
+    # glow. An ability that plays a clip, casts effects or picks targets (凯尔希·思衡托's RespawnBorn) is not such a passive.
+    common = []
+    for r in root.get('_commonAbilities') or []:
+        ap = by_pid.get(r.get('m_PathID')) if isinstance(r, dict) else None
+        comps = [x for gp, x, _ in tree if ap and gp == ap]
+        if not comps or any(x.get('_animKey') or x.get('_castEffects') or (x.get('_selector') or {}).get('m_PathID')
+                            or (x.get('_targetValidator') or {}).get('m_PathID') or '_waitForAttackEvent' in x for x in comps):
+            continue
+        for x in comps:
+            add(common, [b['overrideEffectKey'] for b in x.get('_buffs') or []
+                         if isinstance(b, dict) and b.get('lifeTimeType') == 2 and isinstance(b.get('overrideEffectKey'), str)])
+    if common:
+        res['common'] = common
     mode_start = []
     for mp in mode_paths:
         md = next((x for gp, x, _ in tree if gp == mp and '_overrideStartEffect' in x), None)
@@ -717,7 +733,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitLoop', 'castTgt', 'clipFx', 'trail', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitLoop', 'castTgt', 'clipFx', 'trail', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

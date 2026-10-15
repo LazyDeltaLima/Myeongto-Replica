@@ -28,6 +28,7 @@
 //   'dmg'        → <op>_attack_hit_01 / <op>_skill_0N_hit_01 on the target of that attacker's last attack (≤ HIT_GAP_S; local
 //                  patch: once per attack — the first damage after it)
 //   'deploy'     → (2026-10-11) the operator's / token's deploy effect (flushDeploys); 'die' 'killed' → its dead effect
+//                  and (2026-10-16) its always-on effects (modes.json `common`), until its 'die'
 //   fx 'palsy'   → (2026-10-11) the enemy's cast cut by 麻痹 ends its effects (cutCast)
 // Effects follow their unit's rendered position and facing.
 //
@@ -54,6 +55,7 @@ import { attackMode, boundEffects, fortressEffects, modelessTrail } from './fxma
 import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
+import { commonEffects } from './fxmap.js'; // 2026-10-16: the always-on effects of the common abilities
 import { projSpeed } from './fx.js'; // local patch: the trails' flight time (the sim's projectile speeds)
 import { bodyZ } from './fx.js'; // local patch: status effects at a unit's head / body (fxstatus.js)
 import { wallTiles } from './fx.js'; // local patch: 余 S3's wall tiles
@@ -191,14 +193,16 @@ export const isLasting = (l, now) => !!(l && (l.buff || l.keep || l.until == nul
  * self-buff, 余 S3's fire wall and other lasting effects showed and vanished, or never showed, in a full battle: one list
  * capped at 24 ended the oldest effect, nearly always a buff loop or a wall piece started with the skill — the hits and
  * casts of a few attackers fill 24 within a second).
+ * A `pinned` entry (2026-10-16: an operator's always-on effects, alwaysOn — a few per unit on the board) is never ended here.
  */
 export function liveOverCap(list, now, capShort, capLasting) {
-  let nLasting = 0;
-  for (const l of list) if (isLasting(l, now)) nLasting++;
-  let nShort = list.length - nLasting;
+  let nLasting = 0, nPinned = 0;
+  for (const l of list) if (l?.pinned) nPinned++; else if (isLasting(l, now)) nLasting++;
+  let nShort = list.length - nLasting - nPinned;
   const out = [];
   for (const l of list) {
     if (nShort <= capShort && nLasting <= capLasting) break;
+    if (l?.pinned) continue;
     if (isLasting(l, now)) { if (nLasting > capLasting) { out.push(l); nLasting--; } }
     else if (nShort > capShort) { out.push(l); nShort--; }
   }
@@ -2528,12 +2532,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       deployed.delete(id);
       if (!isAlly(v) || v.alive === false || failed || q() === 'low') continue;
       const bind = bindOf(v);
+      alwaysOn(v, id);
       const fx = deployEffect(bind, v.info.kind === 'token', v._fxSkillOn ? modeNow(v) ?? 0 : 0);
       // `_onlyPlayStartEffectOnce`: the root's effect on the first deploy only [추정: a mode's override still plays]
       if (bind?.startOnce && !fx.override) { if (startedOnce.has(id)) continue; startedOnce.add(id); }
       const r = allyFx(v, fx.name);
       if (r) spawn(r[0], r[1], v, { owner: id, buff: false, onCaster: true, tag: 'born' }, { over: false, facing: efacing(v) });
     }
+  }
+  /**
+   * 2026-10-16, decompile check: the always-on effects (fxmap.js commonEffects) — client `Unit.AttachCommonAbilities` (RVA
+   * 0x84DF50) attaches the root's common abilities with the unit, so their INFINITY buffs' effects stay through every mode and
+   * skill. Started on each deploy (a 【移动】 re-attaches them: the old ones end first), ended by its 'die' (stopOwned).
+   * Not `buff` entries: stopBuffs ends those with every skill.
+   */
+  function alwaysOn(v, id) {
+    const b = bundleOf(v);
+    const names = b ? commonEffects(bindOf(v), b.prefabs, KIT_OWNED) : [];
+    if (!names.length) return;
+    for (const l of live) if (l.tag === 'common' && l.owner === id) l.inst.stop(true);
+    for (const n of names) spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });
   }
   function allyDeathFx(v, reason) {
     if (reason !== 'killed' || !isAlly(v) || failed || q() === 'low') return;

@@ -2326,6 +2326,12 @@
     }
    }
   ],
+  "common": [
+   "thorn2_weapon_buff_01",
+   "thorn2_weapon_buff_02",
+   "thorn2_weapon_buff_03",
+   "thorn2_weapon_buff_04"
+  ],
   "skills": [
    {
     "cast": [],
@@ -2836,6 +2842,15 @@
    }
   ],
   "start": "angel2_birth_01",
+  "common": [
+   "angel2_R_wing_01",
+   "angel2_R_wing_02",
+   "angel2_R_wing_03",
+   "angel2_L_wing_01",
+   "angel2_L_wing_02",
+   "angel2_L_wing_03",
+   "angel2_Halo_01"
+  ],
   "dirs": [
    {
     "t": 0,
@@ -3086,6 +3101,9 @@
    }
   ],
   "start": "sbell2_birth_01",
+  "common": [
+   "sbell2_idle"
+  ],
   "skillMode": [
    null,
    null,
@@ -4848,6 +4866,10 @@
    ]
   ],
   "start": "dusk_birth_01_start",
+  "common": [
+   "dusk_buff_02_start",
+   "dusk_buff_05_start"
+  ],
   "skillMode": [
    null,
    1,
@@ -5661,6 +5683,11 @@
    {}
   ],
   "start": "cello_birth_01",
+  "common": [
+   "cello_common_fx01",
+   "cello_common_fx03",
+   "cello_common_fx05"
+  ],
   "skillMode": [
    null,
    1,
@@ -10387,6 +10414,9 @@
    [],
    [],
    []
+  ],
+  "common": [
+   "cetsyr_buff_range_01"
   ],
   "skills": [
    {

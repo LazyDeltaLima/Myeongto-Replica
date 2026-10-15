@@ -1126,3 +1126,23 @@
 - 확인: 단위 `test/render/skill-shot-trail.test.js`. Windows Chrome 디버그 아레나: 维什戴尔 S1 `wisdel_skill_01_hit` 3·`_hit_02` 3, 일반 공격
   `wisdel_attack_01_hit_02` 3, S3 `wisdel_skill_03_hit_02` 2, 异客 S1 `pasngr_skill_01_hit` 3, 歌蕾蒂娅 S1 `glady_skill_01_hit` 7, 断崖 S1
   `ayer_skill_01_hit` 3, 오류 0. [화면 미확인: 폭발 크기·자리 공식 녹화 대조]
+
+### 상시 능력 버프 — 공통 능력의 영구 버프 이펙트 (2026-10-16, 이펙트 연결 전수)
+
+- 원인: 오퍼레이터 프리팹 루트의 `_commonAbilities`(charpack `Others/Direction/CommonAbilities/…`)가 자기에게 거는 영구 버프의 이펙트를 아무도
+  읽지 않아 新约能天使의 날개 6개·후광(`angel2_R/L_wing_01~03`, `angel2_Halo_01`), 引星棘刺의 무기 빛(`thorn2_weapon_buff_01~04`)이 추출되고도
+  안 나왔다. 모드의 `Talents`·`GeneralAbilities` 버프(`attach`)는 그 모드 동안만이라 이 경로가 아니다.
+- 클라: 클라 코드 `Unit.AttachCommonAbilities`가 `_commonAbilities`의 능력을 조건 없이 `Ability.Attach` — 모드 밖이라 모드·스킬이 바뀌어도 그대로다.
+  이 능력들의 버프는 `lifeTimeType` 2(INFINITY), 템플릿 `empty`, 대상 고르기 없음 — 이펙트만 붙이는 버프.
+- 고친 것: `char_modes.py`가 클립·시전 이펙트·선택기·대상 검증이 없는(`_animKey`·`_castEffects`·`_selector`·`_targetValidator`·
+  `_waitForAttackEvent` 없음) 공통 능력의 INFINITY 버프 `overrideEffectKey`를 `common`으로 기록 — 6명: 新约能天使 7, 引星棘刺 4, 圣聆初雪
+  `sbell2_idle`, 魔王 `cetsyr_buff_range_01`, 夕 `dusk_buff_02_start`·`_05_start`, 塑心 `cello_common_fx01/03/05`(塑心의 셋과 夕의 `_02`는 추출물이 빈
+  프리팹이라 그려지는 것 없음). 凯尔希·思衡托의 RespawnBorn은 클립·시전 이펙트가 있는 시전 능력이라 빠진다(순간이동 끝은 키트 몫). `fxgame.js
+  alwaysOn`: 'deploy'마다 그 오퍼에 붙여 'die'(stopOwned)까지 — 【이동】 재배치면 옛것을 끄고 새로. `buff` 항목이 아니다(stopBuffs가 스킬이 끝날 때
+  끔). 살아 있는 이펙트 상한(`liveOverCap`)에서 빠진다(`pinned` — 배치 때 붙어 늘 가장 오래된 지속 이펙트라 먼저 잘림).
+- 안 한 것: 조건이 있는 것은 이 경로가 아니다 — 新约能天使 재능 폭발 꼬리 `angel2_buff_01_trail_01`(TalentBomb 명중), 烛煌 재생 끝
+  `blaze2_revive_end_start`·归溟幽灵鲨 替身 → 본체 `ghost2_birth_empty_03`(공통 능력의 시전 이펙트, 상태 전환 때), 隐现 `inside_buff_01_start`(라테라노
+  아군 하나에게 거는 재능 버프 — 공통 능력 목록에 없음). 오퍼가 몸을 돌릴 때 이미 켜진 이펙트의 좌우는 켤 때 것 그대로 [추정: 다른 버프 루프와 같음].
+- 확인: 단위 `test/render/common-ability-fx.test.js`, `char_modes.py` 전체 재추출 diff는 `common` 6명뿐. Windows Chrome 디버그 아레나(배치 뒤,
+  지금 발동 3번 뒤 갱신 중인 프리팹): 新约能天使 S3·引星棘刺 S3·圣聆初雪 S2·魔王 S2·夕 S2 모두 발동 전후 그대로, 오류 0; 3배 확대 캡처로 新约能天使
+  머리 위 후광·등의 날개, 引星棘刺 무기 쪽 빛. [화면 미확인: 공식 녹화와 모양·자리 대조]
