@@ -3259,6 +3259,33 @@ test('子代 (断裂生殖): template device 3000 HP / ATK 150, 隐匿 12 s, the
   assert.equal(h.b.killedCount ?? 0, 0);
 });
 
+test('断裂生殖 walks the branch dslily_dstnta one phase per cast and switches on nothing once it is past the last phase', () => {
+  // official: the prefab's MoveNextLevelBranch has `_isLoop` false — Scheduler.BranchRuntime.TryPickNextPhase fails past
+  // the last phase. Phases: #1 · #2 · #3 · #4 · #4 #3 · #2 #1 · all four; a 子代 still alive is not switched on again
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 4 }], setup: setTpl('act1autochess_h07_04') });
+  h.step();
+  const boss = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
+  const cast = boss.mem.ab.list.find((a) => a && a.name === 'SummonTentac');
+  const live = () => h.b.enemies.filter((q) => q.alive && q.defId === 'trap_039_dstnta');
+  const clear = () => { for (const q of live()) h.b.kill(q, null); };
+  const n = W.act1autochess_h07_04.branches.dslily_dstnta.length;
+  assert.equal(n, 7);
+  for (let i = 0; i < 4; i++) cast.fire(h.b, boss);
+  assert.equal(live().length, 4, 'casts 1–4: one 子代 each');
+  clear();
+  cast.fire(h.b, boss);
+  assert.equal(live().length, 2, 'cast 5: #4 #3');
+  cast.fire(h.b, boss);
+  assert.equal(live().length, 4, 'cast 6: #2 #1');
+  clear();
+  cast.fire(h.b, boss);
+  assert.equal(live().length, 4, 'cast 7: all four');
+  clear();
+  cast.fire(h.b, boss);
+  cast.fire(h.b, boss);
+  assert.equal(live().length, 0, 'casts 8+: the branch is spent');
+});
+
 test('子代: the nearest operator first; a held target that leaves ends 摄食 (fx enemySkill `hold` … enemySkillEnd); the next pick comes when the SP refills (1 s)', () => {
   // t_wall2 on the device tile itself (distance 0), t_wall next to it (distance 1)
   const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 8 }, { chessId: 't_wall2', row: 12, col: 9 }], setup: setTpl('act1autochess_h07_04') });

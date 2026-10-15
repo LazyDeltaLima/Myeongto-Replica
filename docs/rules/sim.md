@@ -1014,7 +1014,9 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 
 ### 盐风主教昆图斯 【断裂生殖】 子代 (`kitBrood`, 2026-10-15)
 - **무엇이 나오나**: 스킬 `SummonTentac`(블랙보드 `branch_id` `dslily_dstnta`)이 레벨 분기의 `ACTIVATE_PREDEFINED`대로 템플릿에 숨어 있던 장치
-  子代 `trap_039_dstnta`를 켠다 — i번째 시전에 분기 i번째 단계(#1 → #2 → #3 → #4 → #4·#3 → #2·#1 → 넷 다). 장치 자리는 보스 몸 네 귀퉁이(레벨 5,9·5,11·3,9·3,11).
+  子代 `trap_039_dstnta`를 켠다 — i번째 시전에 분기 i번째 단계(#1 → #2 → #3 → #4 → #4·#3 → #2·#1 → 넷 다), 여덟 번째 시전부터는 아무것도 켜지
+  않는다(프리팹 `MoveNextLevelBranch` `_isLoop` false — 클라 `Scheduler.BranchRuntime.TryPickNextPhase`가 마지막 단계를 지나면 실패; 2026-10-15까지는
+  마지막 단계를 계속 다시 켰음, 테스트 「断裂生殖 walks the branch…」). 장치 자리는 보스 몸 네 귀퉁이(레벨 5,9·5,11·3,9·3,11).
   [ASSUMED] 이미 켜져 살아 있는 장치를 다시 켜면 아무 일도 없다(셋째 형태의 쿨 18 s가 수명 35 s보다 짧다). 수치는 waves.json 템플릿 `devices[]`(build-data
   `templateDevice`: character_table HP 3000·ATK 150, 숨은 天赋 `1.grow_duration` 12·`1.duration` 35, 스킬 `sktok_dstnta` SP 1·`ep_damage_ratio` 1).
   적 진영 유닛(부품 `part`: 처치 수·LP·보상 없음, 시간 초과 때 누수 아님), 라운드 적 효과(攻坚装备 등)는 다른 소환물처럼 받는다(`summonMods`).

@@ -1197,12 +1197,16 @@ const QUINTUS = {
     const br = tpl && tpl.branches && tpl.branches[s.bs.branch_id ?? 'dslily_dstnta'];
     const devs = (tpl && tpl.devices) || [];
     let spots = [];
-    if (Array.isArray(br) && br.length) {
-      const phase = br[Math.min(P.tent, br.length - 1)] || [];
+    const branched = Array.isArray(br) && br.length > 0;
+    if (branched) {
+      // the prefab's MoveNextLevelBranch (`_isLoop` false): Scheduler.BranchRuntime.TryPickNextPhase picks the phase at
+      // the cursor and fails once the cursor is past the last one — from the cast after the last phase on, no 子代
+      // (until 2026-10-15 the last phase, all four, came again on every later cast)
+      const phase = P.tent < br.length ? br[P.tent] || [] : [];
       for (const a of phase) { const d = devs.find((x) => x.alias === a.key); if (d && d.pos) spots.push(d); }
     }
     // no template (tests, tools): one 子代 on a random operator's tile, from any template device record of the key
-    if (!spots.length) {
+    if (!branched && !spots.length) {
       const t = b.rng.pick(allTargets(b, e));
       const d = devs.find((x) => x.key === BROOD_KEY) || broodRecord(b);
       if (t && d) spots = [{ ...d, alias: null, pos: [t.tileR, t.tileC] }];
