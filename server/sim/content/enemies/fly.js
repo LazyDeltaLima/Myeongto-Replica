@@ -1,10 +1,10 @@
 // server/sim/content/enemies/fly.js — FLY 飞行 kits (auras, 暴鸰, the “萨科塔”, 假想敌：黑云, shells, seeds) and their part of KITS
 // (split from content/enemies.js).
 
-import { TICK, MOVE_SCALE, PROJECTILE_SPEEDS, ALLY_COLLIDER_RADIUS } from '../../constants.js';
+import { TICK, PROJECTILE_SPEEDS, ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import {
   num, T, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, fieldAllies, byPriority, spawnChildren,
-  stepToward, setForm, expose, unbalancedNow, shoot,
+  setForm, expose, shoot,
 } from './helpers.js';
 import { enemyAura, allyAura, selfFear, skill, kitSelfFear } from './archetypes.js';
 import { hypot } from '../../detmath.js';
@@ -257,20 +257,14 @@ export const FLY_KITS = Object.freeze({
   enemy_1112_emppnt: kitShell,                                       // 帝国炮火先兆者 · attacks are shells landing 3 s later (r 1.2)
   enemy_1112_emppnt_2: kitShell,                                     // 帝国炮火中枢先兆者 · same
   enemy_1321_wdarft: (ab) => [skill(ab.sk.BornBugs, (b, e) => spawnChildren(b, e, 'enemy_1269_nhfly', BUGS_PER_CAST))], // 枯朽萃聚使徒 · spawns 枯朽之种
-  enemy_1269_nhfly: () => [{                                         // 枯朽之种 · no normal attack: dives onto a nearby operator and self-destructs
-    spawn(b, e) { e.profile.noAttack = true; },
-    tick(b, e, a, dt) {
-      if (a.t && !a.t.alive) { a.t = null; b.removeBuff(e, 'ab:dive'); }
-      if (unbalancedNow(b, e)) return;                               // 失衡: no dive, no blast meanwhile
-      if (!a.t) {
-        const l = targetsNear(b, e, e.base.rangeRadius || 1).sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y));
-        if (!l.length) return;
-        a.t = l[0];
-        b.addBuff(e, { key: 'ab:dive', flags: { noMove: true } });
-      }
-      if (!stepToward(e, a.t.x, a.t.y, Math.max(e.s.moveSpeed, 0.5) * MOVE_SCALE * dt) && hypot(a.t.x - e.x, a.t.y - e.y) > 0.3) return;
-      hurt(b, e, a.t, e.s.atk, 'phys');
-      b.fx('explode', { x: e.x, y: e.y, r: 0.5, kind: 'seed' });
+  // 枯朽之种 · its 自毁 is its normal attack (PRTS 枯朽之种 天赋 「普通攻击结束时，若自身未持有晕眩/冻结/浮空/沉睡，强制击杀自身」·
+  // 「攻击弹道飞行速度10」; data: attack radius 2, attackAnim 0.367 s, proj projectile_enemy_nhfly TRACE 10): the engine's ranged
+  // attack (wind-up, enemy target order, the official projectile, physical damage on impact even with the seed gone), and
+  // the seed dies as the attack ends — nothing is left to target while the shot flies (upstream #611)
+  enemy_1269_nhfly: () => [{
+    attack(c, b, e) {
+      const f = e.s.flags;
+      if (!e.alive || f.stun || f.freeze || f.levitate || f.sleep) return;
       b.kill(e, null);
     },
   }],

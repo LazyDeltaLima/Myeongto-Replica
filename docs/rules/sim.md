@@ -617,6 +617,21 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
 - 테스트 `test/content/xi-post-reborn.test.js`(upstream 테스트 + 실제 경기 경로: Match 판 → `buildBattleSpec` → `createBattleFromSpec`, 무적 10초 동안 공격 0 →
   끝나면 다시 공격; 고치기 전에는 모두 실패함을 확인).
 
+### 枯朽之种 자폭 = 일반 공격의 탄환 (upstream #611, upstream PR #612 — 각색)
+- 문제: 枯朽之种(枯朽萃聚使徒가 소환하는 비행 적)이 대상을 정하면 이동 속도로 걸어가 부딪혀 터져서, 그동안 공격 대상이 되고 느렸다.
+- 근거: PRTS 「枯朽之种」 천부 「普通攻击结束时，若自身未持有晕眩/冻结/浮空/沉睡，强制击杀自身」·「攻击弹道飞行速度10」, 공격 범위 반경 2.0(이 이식에서 PRTS API로 직접 확인).
+  data(`data/enemies.json`): `rangeRadius` 2, `attackAnim` Attack 0.367 s(타격 0.367), `proj` `projectile_enemy_nhfly` TRACE_TARGET_WITH_SPEED 10.
+- 동작(**PR과 다름**): 자폭은 그 적의 **일반 공격**이다 — 엔진의 원거리 적 공격 그대로(선딜 0.367 s, 적 공격 대상 순서, 공식 탄환 10칸/s, 물리 피해는 맞을 때,
+  쏜 적이 없어도 맞음), 그리고 공격이 끝나는 순간(`attack` 훅) 晕眩·冻结·浮空·沉睡가 없으면 스스로 죽는다(`enemies/fly.js`). 그래서 탄이 나는 동안 노릴 씨앗이
+  없다. 기절 등으로 선딜이 끊기면 공격도 자폭도 없고 풀리면 다시 공격한다. 失衡 동안은 공격을 시작하지 않는다(엔진 규칙). 탄환 그림은 공식 프리팹
+  (`projectile_enemy_nhfly`, 일반 적 탄환 경로)이라 렌더 작업이 필요 없다.
+  upstream PR은 대상을 고르자마자(선딜 없음, 가장 가까운 오퍼레이터) 씨앗 모델 자체를 탄환에 붙여 날리고(무적·선택 불가) 맞을 때 죽였다 — 위 PRTS 천부
+  「普通攻击结束时…强制击杀自身」와 다르고, 표적을 잃으면 마지막 자리에서 피해 없이 터지는 `[ASSUMED]`이 따로 필요했다. 우리 방식에서 표적을 잃은 탄은 엔진의
+  일반 적 탄환처럼 사라진다. 로고스(우리 풀에 없음) S3 감속 부분은 버렸다.
+- 그 판의 마지막 적이 씨앗이면 자폭과 함께 전투가 끝나 날던 탄은 맞지 않는다(엔진: 모든 적이 정리되면 끝, 탄환 정리) — 공식도 마지막 적이 사라지면 전투가 끝난다.
+- 테스트 `test/content/enemies_bosses.test.js`(반경 2에서 공격 → 탄 속도 10·대상·발사 순간 씨앗 사라짐·착탄 시간; 기절 중엔 공격·자폭 없음; 실제 경기 경로 Match 판 →
+  `buildBattleSpec` → `createBattleFromSpec`), `test/sim/unbalance.test.js`(PR의 失衡 중 발사 없음).
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).

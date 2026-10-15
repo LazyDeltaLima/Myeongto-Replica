@@ -1188,7 +1188,7 @@ test(`${nm('enemy_10084_hlegle')}: never attacks a flying ally (不会攻击飞�
   assert.ok(w.stats.taken > 0, 'the ground wall is');
 });
 
-test(`${nm('enemy_1321_wdarft')} + ${nm('enemy_1269_nhfly')}: the apostle spawns seeds that dive onto operators and self-destruct`, () => {
+test(`${nm('enemy_1321_wdarft')} + ${nm('enemy_1269_nhfly')}: the apostle spawns seeds that self-destruct on operators`, () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 4 }] });
   h.step();
   put(h, 'enemy_1321_wdarft', [9, 8], { route: 2, move: true });
@@ -1197,8 +1197,70 @@ test(`${nm('enemy_1321_wdarft')} + ${nm('enemy_1269_nhfly')}: the apostle spawns
   assert.ok(seeds.length > 0);
   h.runUntil(() => seeds.some((s) => !s.alive), 60);
   assert.ok(seeds.some((s) => !s.alive), 'a seed self-destructed');
+  h.runUntil(() => h.unit('t_wall').stats.taken > 0, 2);   // its shot is still flying
   approx(h.unit('t_wall').stats.taken % E.enemy_1269_nhfly.stats.atk, 0, 1e-6);
   assert.ok(h.unit('t_wall').stats.taken > 0);
+});
+
+test(`${nm('enemy_1269_nhfly')}: its self-destruct is its normal attack — a 10-tile/s projectile from 2 tiles, the seed gone as the attack ends (upstream #611)`, () => {
+  // PRTS 枯朽之种 天赋 「普通攻击结束时，若自身未持有晕眩/冻结/浮空/沉睡，强制击杀自身」·「攻击弹道飞行速度10」
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 4 }, { chessId: 't_gun', row: 10, col: 4 }] });
+  h.step();
+  const seed = put(h, 'enemy_1269_nhfly', [9, 7], { route: 2, move: true });
+  assert.equal(seed.base.rangeRadius, 2);
+  const wall = h.unit('t_wall');
+  let shot = null, x0 = null, t0 = null;
+  h.b.on('attack', (c) => {
+    if (c.attacker !== seed) return;
+    shot = h.b.projectiles.list.find((p) => p.source === seed);
+    x0 = seed.x; t0 = h.b.time;
+  });
+  assert.ok(h.runUntil(() => !!shot, 10), 'the seed attacks once in range');
+  assert.equal(shot.speed, 10, 'the official projectile speed');
+  assert.equal(shot.target, wall);
+  assert.ok(x0 - wall.x <= 2 + 0.25 + 1e-6, `fired from its attack radius (${(x0 - wall.x).toFixed(2)} tiles)`);
+  assert.equal(seed.alive, false, 'the seed is gone as its attack ends: nothing to target while the shot flies');
+  assert.equal(wall.stats.taken, 0, 'no damage before the impact');
+  assert.ok(h.runUntil(() => wall.stats.taken > 0, 1), 'the shot lands');
+  assert.ok(h.b.time - t0 <= (x0 - wall.x) / 10 + 0.1, 'at 10 tiles/s');
+  approx(wall.stats.taken % E.enemy_1269_nhfly.stats.atk, 0, 1e-6);
+  // a seed stunned as its attack ends stays (the 天赋's exceptions): its swing is cut before the strike
+  const h2 = arena({ units: [{ chessId: 't_wall', row: 9, col: 4 }] });
+  h2.step();
+  const s2 = put(h2, 'enemy_1269_nhfly', [9, 6]);
+  h2.b.applyStatus(s2, 'stun', { duration: 2 });
+  h2.run(1.5);
+  assert.ok(s2.alive && h2.unit('t_wall').stats.taken === 0, 'stunned: no attack, no self-destruct');
+  assert.ok(h2.runUntil(() => !s2.alive, 3), 'after the stun it attacks and goes');
+  checkInvariants(h.b);
+});
+
+test(`${nm('enemy_1269_nhfly')} through the real match path (Match board → buildBattleSpec → createBattleFromSpec): the shot flies at 10 tiles/s, the seed is gone at launch`, async () => {
+  const { makeMatch, give } = await import('../match/harness.js');
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const mh = makeMatch({ mode: 'solo', difficulty: 'NORMAL', humans: 1, seed: 11 }).start();
+  mh.toPrep(3);
+  const m = mh.m, ps = mh.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  give(m, ps, 'chess_char_1_02_a', 'board', [9, 4]);   // 角峰
+  const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'seed', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent, timeLimit: 60,
+    // a late enemy keeps the field open: the last enemy gone ends the battle, a shot in flight with it
+    spawns: [{ time: 0, enemyKey: 'enemy_1269_nhfly', routeIndex: 0, count: 1, interval: 0, pos: [9, 8] },
+      { time: 500, enemyKey: 'enemy_1269_nhfly', routeIndex: 0, count: 1, interval: 0, pos: [9, 8] }],
+    routes: [{ motion: 'FLY', start: [9, 8], end: [9, 1], checkpoints: [] }] });
+  const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+  b.start();
+  const u = b.allyUnits.find((x) => x.kind === 'op');
+  let seed = null, shot = null, at = null;
+  b.on('attack', (c) => { if (c.attacker.defId === 'enemy_1269_nhfly') { seed = c.attacker; shot = b.projectiles.list.find((p) => p.source === seed); at = b.time; } });
+  for (let i = 0; i < 600 && !shot; i++) b.step();
+  assert.ok(shot && shot.target === u && shot.speed === 10, 'its attack is the official 10-tile/s projectile');
+  assert.equal(seed.alive, false, 'gone at launch');
+  for (let i = 0; i < 100 && !(u.stats.taken > 0); i++) b.step();
+  assert.ok(u.stats.taken > 0 && b.time > at, 'the shot lands after its flight');
+  assert.deepEqual(b.errors.map((x) => x.error?.message), []);
+  m.dispose?.();
 });
 
 // ---------------------------------------------------------------------------------------------------------------
