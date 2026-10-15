@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {
   recordError, errorLog, errorCount, clearErrorLog, messageOf, stackOf, stripHosts, redact, redactValues, secretsOf, buildDiagnostics,
   setBattleSource, currentBattle, LOG_MAX, STACK_LINES, mountTimer, mountRecords, clearMountRecords, mountNet, MOUNT_MAX,
+  setPerfSource,
 } from '../public/js/diag.js';
 import { APP_VERSION } from '../shared/constants.js';
 
@@ -229,5 +230,18 @@ describe('field mount timings (mount: lines)', () => {
   test('the device line says when the page is the home-screen app and the resource worker serves it', () => {
     const env = { viewport: '844x280', dpr: 3, touch: true, standalone: true, sw: true };
     assert.ok(buildDiagnostics({ state: {}, env }).split('\n').includes('device: 844x280 | @3x | touch | home-screen app | resource worker'));
+  });
+});
+
+describe('the performance HUD\'s lines (perf:)', () => {
+  test('the registered source adds one perf: line each, after the mounts; none registered or a throwing one, no line', () => {
+    setPerfSource(null);
+    assert.doesNotMatch(buildDiagnostics({ state: {}, mounts: [] }), /perf:/);
+    setPerfSource(() => ['R1 PREP 0:10–0:50 | fps 60', 'R1 COMBAT 1:00–2:10 | fps 41']);
+    const lines = buildDiagnostics({ state: {}, mounts: [], renderEvents: [] }).split('\n');
+    assert.deepEqual(lines.filter((l) => l.startsWith('perf:')), ['perf: R1 PREP 0:10–0:50 | fps 60', 'perf: R1 COMBAT 1:00–2:10 | fps 41']);
+    setPerfSource(() => { throw new Error('x'); });
+    assert.doesNotMatch(buildDiagnostics({ state: {}, mounts: [] }), /perf:/);
+    setPerfSource(null);
   });
 });

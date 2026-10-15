@@ -20,6 +20,8 @@
 //   noteRender(event, detail?)         what the field view's board did (3D on / failed / lost / waits / retry, the
 //                                      simplified view): the last RENDER_MAX events, for the report's render lines
 //   renderEvents() / clearRenderEvents()
+//   setPerfSource(fn)                  the performance HUD (ui/perfHud.js, `?perf=1`) registers its per-round summary for
+//                                      the report's `perf:` lines
 //   mountTimer()                       times one field mount (fieldHost + createFieldView stages, late art / 3D / scene)
 //                                      for the report's `mount:` lines (+ the downloads in that window, Resource Timing)
 //   mountRecords() / clearMountRecords() / mountNet(m, resources)
@@ -33,6 +35,11 @@ import { APP_VERSION } from '../../shared/constants.js';
 export const LOG_MAX = 40;
 export const STACK_LINES = 6;
 const MESSAGE_MAX = 300;
+
+let perfSource = null;
+/** @param {(() => string[]) | null} fn */
+export function setPerfSource(fn) { perfSource = typeof fn === 'function' ? fn : null; }
+const perfLines = () => { try { return perfSource ? perfSource() : []; } catch { return []; } };
 
 /** @type {{ source: string, message: string, stack: string|null, detail: string|null, battleId: string|null, at: number, lastAt: number, count: number }[]} */
 const log = [];
@@ -292,9 +299,11 @@ const join = (...parts) => parts.filter((p) => p != null && p !== '' && p !== fa
  * prose and exact string values in the JSON.
  * `render` is the field view on screen (`{ kind: 'engine' | 'fallback', board3d }`, render/app.js stats().board3d) and
  * `renderEvents` what its board did (noteRender), `mounts` the field mounts (mountTimer) and `resources` the page's
- * Resource Timing entries (each mount line sums the downloads of its window).
+ * Resource Timing entries (each mount line sums the downloads of its window), `perf` the performance HUD's lines
+ * (setPerfSource; empty unless `?perf=1`).
  * @param {{ state: any, env?: any, settings?: any, battle?: any, entries?: any[], dropped?: number, total?: number,
- *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[], mounts?: any[], resources?: any[] }} input
+ *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[], mounts?: any[], resources?: any[],
+ *   perf?: string[] }} input
  */
 export function buildDiagnostics(input) {
   const { state = {}, env = {}, settings = null, battle = null } = input;
@@ -347,6 +356,7 @@ export function buildDiagnostics(input) {
     lines.push(`mount: ${join(`${clockOf(m.at)} ${head}`, steps || null, late,
       net && net.files ? `net ${net.files} files, ${net.mb.toFixed(1)} MB${net.cached ? `, ${net.cached} cached` : ''}` : null)}`);
   }
+  for (const l of input.perf ?? perfLines()) lines.push(`perf: ${l}`);
   const shown = entries.slice().reverse();
   const tot = input.total ?? total;
   const drop = input.dropped ?? dropped;
