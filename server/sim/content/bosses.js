@@ -1280,7 +1280,13 @@ function kitBrood(ab) {
   const cost = sk && sk.sp > 0 ? sk.sp : 1;
   const atkScale = (sk && sk.bb.atk_scale) ?? 1, epr = (sk && sk.bb.ep_damage_ratio) ?? 0;
   const P = { t0: 0, stage: 0, sp: 0, hold: null, next: 0 };   // stage 0 幼体, 1 growing, 2 GrowUp
-  const release = (b, e) => { if (!P.hold) return; P.hold = null; P.sp = 0; if (e.alive) setForm(b, e, 'fed'); };
+  const release = (b, e) => {
+    if (!P.hold) return;
+    P.hold = null; P.sp = 0;
+    if (!e.alive) return;
+    setForm(b, e, 'fed');
+    if (sk) b.fx('enemySkillEnd', { x: e.x, y: e.y, id: e.id, ability: sk.name });   // the cast's end (ON_CAST_END: its held effects end)
+  };
   const bite = (b, e, t) => {
     P.next = b.time + BROOD_HIT_EVERY;
     e.lastAttackAt = b.time;
@@ -1329,7 +1335,7 @@ function kitBrood(ab) {
       P.hold = t;
       P.next = b.time + BROOD_FIRST_HIT;
       setForm(b, e, 'feed', 'phase', { tgt: t.id });
-      if (sk) b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: sk.name, n: 1 });
+      if (sk) b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: sk.name, n: 1, hold: 1 });   // held until 'enemySkillEnd' (release)
     },
   }];
 }

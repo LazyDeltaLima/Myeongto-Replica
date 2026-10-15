@@ -1027,7 +1027,7 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   — [ASSUMED] 반경 밖이면 끝) 또는 子代가 기절·침묵되면(`_canSilenced`) 끝나고 SP 0부터 → 1 s 뒤 다시 고른다.
 - **철수**: 나타난 지 35 s에 스스로 사라진다(`trap_tentac[withdraw]` = `suicide_after_buff[switch_to_dead]`, 처치 아님).
 - **그림**: 공식 토큰 모델(`pkgrps/btl_pfb_tokens_0`의 Spine, 로컬 추출 `spine/token/trap_039_dstnta`) — 형태 'larva'(Start_01 → Idle_01), 'grown'(Start_02 →
-  Idle_02/Die_02), 'feed'(Attack_Begin → Attack_Loop), 'fed'(Attack_End → Idle_02). 공식 공격 이펙트(`trap_dstnta_attack_01_*`)는 아직 안 붙음.
+  Idle_02/Die_02), 'feed'(Attack_Begin → Attack_Loop), 'fed'(Attack_End → Idle_02). 공식 이펙트(탄생·대기·Grow·摄食)는 docs/rules/fx.md 「보스 토큰·장비 이펙트」.
 - **옛 동작**: 장치 칸 반경 1 안 오퍼레이터에게 5 s 기절 한 번(피해 없음, 남는 유닛 없음, [ASSUMED] 값). 테스트 `enemies_bosses.test.js` 「子代…」 2건·
   「盐风主教昆图斯…」, 실제 판 경로 `boss-patterns-real.test.js` 「real boss_4 field…」.
 
@@ -1049,7 +1049,7 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   `_damageType` MAGICAL), 탄 `projectile_trap_vtlntw`(추적 10칸/s), 공격 클립 1.633 s·OnAttack 0.6 s(토큰 모델). 수명 없음 — 부서질 때까지 남는다(오퍼레이터가
   공격할 수 있음). 움직이지 않고 저지하지도 저지되지도 않는다. 부품(`part`: 처치 수·LP 없음, 시간 초과 때 누수 아님). 수치 경로: enemies.json 알리스테어
   `devices[]`(build-data `ENEMY_SKILL_DEVICES` — 연결은 클라 버프 템플릿에만 있음). 라운드 적 효과는 子代처럼 받는다(`summonMods`) [ASSUMED].
-  그림: 공식 토큰 모델(로컬 추출 `spine/token/trap_185_vtlntw`).
+  그림: 공식 토큰 모델(로컬 추출 `spine/token/trap_185_vtlntw`), 공식 이펙트와 장비 든 오퍼레이터의 버프 이펙트는 docs/rules/fx.md 「보스 토큰·장비 이펙트」.
 - **옛 동작**: 빈 낮은 칸에만 떨어지고 아무도 줍지 않았다. 冲击式施术单元 활성화는 [黄金回响 대체] 보스의 다음 공격을 법술 + 3 s 缴械로 바꿨다. 테스트
   `enemies_bosses.test.js` 「阿利斯泰尔 冲击式施术单元…」 2건·「阿利斯泰尔 equipment…」·「阿利斯泰尔 王权号令: a piece may drop…」, 실제 판 경로
   `boss-patterns-real.test.js` 「real boss_6 field…」.

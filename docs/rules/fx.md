@@ -849,6 +849,31 @@
   (enemy_amiy·wdslm·trcerb·cstlrs·bsnake·pppdth 등 10개 버프), `_02`(mmamiy), `_03`(mirbst), 전용(fthlgj·ldevil·ubbphw·lrking·ristar …) — 이 적들이 우리 웨이브에 나오는지도 안 봄.
 - 확인: `test/local-patch-fxspawn.test.js`(적이 바인딩한 muzzle/특수점 이펙트가 그 적의 점을 찾음 — 클라 데이터의 빈 곳 2개 목록), `test/render/enemy-fx.test.js`, `test/render/enemy-fx-layer.test.js`(모드 전환 → audio.enemyMode, 사망 이펙트 대체, 대체 beam, 冰凌 칸별 시각, 직선 사격).
 
+### 보스 토큰·장비 이펙트 — 子代·黄金回响·알리스테어 장비 (2026-10-15)
+근거: EN 클라(2026-10-14 판) 토큰 프리팹 `pkgrps/btl_pfb_tokens_0`(子代 `trap_039_dstnta`)·`_1`(黄金回响 `trap_185_vtlntw`), 스킬 프리팹
+`battle/prefabs/[uc]skills.ab` `sktok_dstnta`, 버프 템플릿(`trap_tentac_triggergrow`, `enemy_vtmstr_equip_A/B/C[char]`), 디컴파일 `Buff.OverrideGroup._DoAddInternal`
+(새 덤프 RVA 0x39DF310). 규칙은 docs/rules/sim.md 「盐风主教昆图斯 【断裂生殖】 子代」·「阿利斯泰尔 王权号令 장비 줍기·【莫非王土】 黄金回响」.
+- **추출**: `enemy_bindings.py`가 웨이브 템플릿·enemies.json `devices[]`의 적 진영 토큰(`trap_*`)도 읽는다 — 토큰 프리팹(적과 같은 방식) + 그 토큰 스킬의
+  프리팹(`skill.prefabId`, 능력 경로 `Skills/<prefab>`; 이미터가 프리팹 루트에 있음), 모델 점은 토큰 번들에서. 렌더 표 키는 토큰 키(`fxgame.js ebindOf`가 defId로 찾음).
+  토큰은 Character라 사망 이펙트 기본값이 `common_char_die_01`(`Character.get_deadEffect`, 위 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」의 배치·사망 이펙트).
+- **子代**: 시작 `trap_dstnta_birth_01_start`(루트 `_startEffect`). 天赋 `Talents/1` 버프 `tentac_grow`(LIMITED `grow_duration`)의 `trap_dstnta_idle_01_start`는
+  버프가 끝나며 Grow를 시전하므로(템플릿 ON_BUFF_FINISH `TriggerAbility` Grow) **Grow가 시작될 때까지** 유지 — 렌더 표 `auraEnd` { 이펙트: 능력 }, `eskillFx`가 그
+  능력이 시작될 때 끈다. 隐匿 `common_invisible`은 상태 레이어가 sim 은신으로 그린다(그대로). Grow(`Modes/Default/Body/Grow`, `_animKey` Start_02)의
+  `trap_dstnta_birth_02_start` — 모드 본체의 공격 아닌 능력도 이름으로 스킬 표에 넣어(`skill_keys`) 모델이 Start_02를 틀 때 나온다. 摄食(`sktok_dstnta`): 시전 이펙트
+  `trap_dstnta_attack_01_start`(ON_CAST_START → ON_CAST_END 루프)는 붙잡기 끝까지, 타격 `trap_dstnta_attack_01_hit`(`_onlyOnce`, 끝 이벤트 ON_CAST_END)는 첫 타에
+  붙잡힌 오퍼레이터 위에 놓여 끝까지(렌더 표 `hopt`). 끝은 sim이 알린다: fx `enemySkill`에 `hold: 1`, 놓을 때 `enemySkillEnd` { id, ability }(docs/SIM.md) —
+  [추정] 끝 이벤트를 놓치면 40 s(`ESKILL_HOLD_CAP`, 子代 수명 35 s)에 끊는다. 기절 `buff_stun`(`trap_tentac_s[stun]`)은 상태 레이어가 sim 기절로 그리므로 타격
+  버프로는 안 묶는다(`STATUS_HIT_DRAWN` — 한 유닛에 두 개가 되던 것).
+- **黄金回响**: 공통 능력(루트 `_commonAbilities` = `Others/Direction/commonAbility` — CommonAbilities 경로 밖)의 이펙트만 있는 버프 두 개 `trap_vtlntw_buff_01`·`_02`가
+  늘 붙어 있다: 같은 키 `trap_vtlntw_effectA`지만 `overrideType` DEFAULT는 `_DoAddInternal`이 큐에 그냥 넣으므로 둘 다 남는다. 이제 루트 `_commonAbilities`면 경로와
+  상관없이 aura로 본다(덤: 이 모드에 안 나오는 enemy_1513_dekght `Common/EffectBuff`, enemy_2008_flking `PassiveEffect`도 aura가 됨 — 추출 안 됨). 일반 공격
+  `Attack`: 시전 `trap_vtlntw_attack_start_01`(ON_SPELL_ON → ON_CAST_END), 탄 `projectile_trap_vtlntw` 꼬리·맞음, 사망 `trap_vtlntw_die_01`.
+- **알리스테어 장비를 든 오퍼레이터**: 장비 `Talents/2`의 `…[char]` 템플릿이 거는 `enemy_vtmstr_equip_char[A/C/B]`(INFINITY)의 `overrideEffectKey` —
+  未装配刀片 `enemy_vtswd_buff_01`, 防护背心 `enemy_vtshld_buff_01`, 冲击式施术单元 `enemy_vtwand_buff_01`(`_spawnLocation` 2 = HIT 점) — 를 그 전투 동안
+  (`fxstatus.js KEY_FX` 'boss:heldSword'·'boss:heldVest'·'boss:heldWand'). 추출 목록: 렌더 표 `handed`(天赋의 `…[char]` 버프 템플릿 이펙트 [추정: 이름 규칙으로 고름]).
+- 확인: `test/render/enemy-fx-layer.test.js`(지속 스킬: `hold` → 3 s 넘어도 그 스킬의 타격, `_onlyOnce` 타격 유지, `enemySkillEnd` 뒤 끝),
+  `test/content/enemies_bosses.test.js` 「子代: the nearest operator first…」(sim fx). [화면 미확인]
+
 ### 선발 추가 3명 — CN 클라이언트 (2026-10-11)
 - 켈시 에스페란타(凯尔希·思衡托)·클레멘티아(克莱门莎)·안젤리나 더 멜로우 위시(予愿安洁莉娜)는 EN 클라이언트에 없어 CN 클라이언트(운영 노트 「CN 클라이언트」)에서
   뽑았다. 도구·형식은 EN과 같고(번들 이름·Unity 버전·LZ4AK 같음), 세 명만 골라 기존 EN 추출물은 건드리지 않았다:

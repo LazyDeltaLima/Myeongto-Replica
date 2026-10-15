@@ -104,6 +104,11 @@ export const KEY_FX = Object.freeze({
   apoptosisBurst: ['common', 'common_darkdamage_debuff', 0.5],
   burnBurst: (v) => (v.isEnemy ? null : ['buff', 'buff_burn', 0.5]),
   erosionDown: (v) => (v.isEnemy ? null : ['buff', 'buff_defdown', HEAD]),
+  // 2026-10-15: 阿利斯泰尔's pieces held by an operator (bosses.js HELD_BUFF) — enemy_vtmstr_equip_char[A/C/B]'s
+  // overrideEffectKey (the pieces' Talents/2 `…[char]` templates), INFINITY: for the battle; `_spawnLocation` 2 = its HIT point
+  'boss:heldSword': ['pfx_enemy_13', 'enemy_vtswd_buff_01', 0.5],
+  'boss:heldVest': ['pfx_enemy_13', 'enemy_vtshld_buff_01', 0.5],
+  'boss:heldWand': ['pfx_enemy_13', 'enemy_vtwand_buff_01', 0.5],
 });
 
 /**

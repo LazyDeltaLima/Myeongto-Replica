@@ -87,6 +87,8 @@ export const FX_KINDS = Object.freeze({
   // an enemy skill's cast marker (sim content/enemies.js: { id, ability, n } — the official ability name for the
   // official effect / sound bindings); nothing procedural is drawn for it
   enemySkill: { a: 'none', c: 0xffffff },
+  // the end of a held enemy skill (an 'enemySkill' with `hold`: 子代's 摄食 — bosses.js kitBrood): { id, ability }
+  enemySkillEnd: { a: 'none', c: 0xffffff },
   // an enemy ability's official projectile leaving (sim enemies/helpers.js shoot: { id, from?, tgt, key, move, speed, t }) —
   // drawn by the official-effect layer when it knows `key`; nothing procedural (the kit's own fx stay)
   enemyShot: { a: 'none', c: 0xffffff },

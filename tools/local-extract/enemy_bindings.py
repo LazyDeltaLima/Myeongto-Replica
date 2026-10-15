@@ -8,10 +8,13 @@ charpack: the root's `_startEffect` / `_deadEffect` (born / death; a UnitMode's 
 projectile (`_projectileKey` fired from `_mountPointType`: the projectile prefab's `_mainEffect` trail, `_effectsWhenHit`,
 `_effectsWhenReached` …, battle/prefabs/[uc]projectiles.ab) and its buffs (`overrideEffectKey`, or the buff template's
 `effectKey` / CreateEffect nodes — config/buff_template_holder.ab). The model points (Graphic animator `_muzzleTransform`,
-`_hitTransform`, `_headTransform`, `_specialPointN`) are read like tools/local-extract/char_points.py.
+`_hitTransform`, `_headTransform`, `_specialPointN`) are read like tools/local-extract/char_points.py. The enemy-side tokens a
+boss puts down (data/waves.json template devices, data/enemies.json `devices[]`: 子代, 黄金回响) are read the same way from
+pkgrps/btl_pfb_tokens_*.ab, with their skill prefabs of battle/prefabs/[uc]skills.ab (2026-10-15, docs/rules/fx.md
+「보스 토큰·장비 이펙트」).
 
 Writes
-  tools/assets/local-enemy-bindings.json     the bindings per enemy id of data/enemies.json (review copy, git)
+  tools/assets/local-enemy-bindings.json     the bindings per enemy id of data/enemies.json and token key (review copy, git)
   public/assets/local/fx/enemy-modes.json    the render table (render/fxgame.js): per enemy its modes (attack clip names,
                                              melee / ranged cast + hit effects, projectile), born / death, skills by
                                              name, auras and points; `$fx` = every effect name (lower case) → [bundle,
@@ -61,6 +64,9 @@ PROJ_FX = (('_mainEffect', 'trail'), ('_effectsWhenStart', 'start'), ('_effectsW
            ('_effectOnTrigger', 'trigger'))
 # statuses render/fxstatus.js already draws from the sim's status events (STATUS_FX): not an enemy's own aura
 STATUS_DRAWN = {'common_invisible', 'common_buff_micai_01', 'common_levitate_01'}
+# a hit's buff effect fxstatus.js draws from the sim's status (its stun: buff_stun — 子代's 摄食 trap_tentac_s[stun]): not
+# bound again as the hit's buff (two marks on one unit; the client holds one per name, `Entity.AddBuffEffect`)
+STATUS_HIT_DRAWN = {'buff_stun'}
 
 
 def bundle_files(game, pattern):
@@ -94,6 +100,63 @@ def read_enemies(game):
         for r, lst in roots.items():
             trees[r], src[r] = lst, str(f.relative_to(game))
     return {'trees': trees, 'src': src}
+
+
+def read_tokens(game, keys):
+    """The enemy-side tokens a boss puts on the field (`keys`: data/waves.json template devices, data/enemies.json
+    `devices[]` — 子代 trap_039_dstnta, 黄金回响 trap_185_vtlntw): their prefabs in pkgrps/btl_pfb_tokens_*.ab (the hot
+    update's PersistentData copy wins), read like an enemy's."""
+    trees, src = {}, {}
+    for _rel, f in bundle_files(game, 'pkgrps/btl_pfb_tokens_*.ab').items():
+        roots = defaultdict(list)
+        for gp, d, pid in load_tree(f)[0]:
+            r = gp.split('/')[0]
+            if r in keys:
+                roots[r].append((gp, d, pid))
+        for r, lst in roots.items():
+            trees[r], src[r] = lst, str(f.relative_to(game))
+    return {'trees': trees, 'src': src}
+
+
+def read_skill_prefabs(game, keys):
+    """{skill prefab: [(path, MonoBehaviour, pathId)]} of battle/prefabs/[uc]skills.ab — a token's skills (sktok_dstnta: 子代's
+    摄食) are prefabs of their own there, not abilities of the token prefab."""
+    out = {}
+    for _rel, f in bundle_files(game, 'battle/prefabs/[[]uc[]]skills.ab').items():
+        for gp, d, pid in load_tree(f)[0]:
+            r = gp.split('/')[0]
+            if r in keys:
+                out.setdefault(r, []).append((gp, d, pid))
+    return out
+
+
+def device_keys():
+    """{token key: [skill prefab, …]} of the enemy-side tokens of data/waves.json (template `devices[]`) and data/enemies.json
+    (`devices[]`) — build-data's templateDevice records (`skill.prefabId` / `skillId`)."""
+    acc = {}
+
+    def take(d):
+        if isinstance(d, dict) and isinstance(d.get('key'), str) and d['key'].startswith('trap_'):
+            sk = d.get('skill') or {}
+            p = sk.get('prefabId') or sk.get('skillId') if isinstance(sk, dict) else None
+            lst = acc.setdefault(d['key'], [])
+            if p and p not in lst:
+                lst.append(p)
+
+    def walk(o):
+        if isinstance(o, dict):
+            for d in o.get('devices') or [] if isinstance(o.get('devices'), list) else []:
+                take(d)
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    for name in ('waves.json', 'enemies.json'):
+        p = ROOT / 'data' / name
+        if p.exists():
+            walk(json.loads(p.read_text(encoding='utf-8')))
+    return acc
 
 
 def read_projectiles(game):
@@ -227,10 +290,12 @@ def points_of_bundle(f):
     return out
 
 
-def read_points(game):
+def read_points(game, pattern='battle/enm_pfb*.ab', keys=None):
     out = {}
-    for _rel, f in bundle_files(game, 'battle/enm_pfb*.ab').items():
-        out.update(points_of_bundle(f))
+    for _rel, f in bundle_files(game, pattern).items():
+        for k, v in points_of_bundle(f).items():
+            if keys is None or k in keys:
+                out[k] = v
     return out
 
 
@@ -294,7 +359,9 @@ def walk_strings(o, path, out):
         out.append(('.'.join(path), o))
 
 
-def enemy_record(root, tree, fx_index, proj_keys):
+def enemy_record(root, tree, fx_index, proj_keys, skills=None):
+    """The bindings of one prefab `tree` (root `root`); `skills` {skill prefab: tree} adds a token's skill prefabs as its
+    abilities `Skills/<prefab>[/…]` (their emitters sit on the prefab's root)."""
     by_pid = {pid: gp for gp, _, pid in tree}
     rootmb = next((d for gp, d, _ in tree if isinstance(d.get('_modes'), list)), None)
     rec = {'modes': [], 'abilities': []}
@@ -315,15 +382,21 @@ def enemy_record(root, tree, fx_index, proj_keys):
         if d.get('_includeIndexZero'):
             m['includeIndexZero'] = 1
         rec['modes'].append(m)
+    # the root's `_commonAbilities` (CommonAbilities/…, or elsewhere: 黄金回响's Others/Direction/commonAbility)
+    common = {by_pid.get(r.get('m_PathID')) for r in (rootmb or {}).get('_commonAbilities') or [] if isinstance(r, dict)}
+    items = [(gp, gp[len(root) + 1:] if gp != root else '', d) for gp, d, _pid in tree]
+    for sk, st in (skills or {}).items():
+        items += [(None, f'Skills/{sk}' + (gp[len(sk):] if gp != sk else ''), d) for gp, d, _pid in st]
     abil = {}
-    for gp, d, _pid in tree:
-        rel = gp[len(root) + 1:] if gp != root else ''
-        if rel.startswith('Graphic') or rel.startswith('Shadow') or gp in mode_paths or not rel:
+    for gp, rel, d in items:
+        if rel.startswith('Graphic') or rel.startswith('Shadow') or (gp is not None and gp in mode_paths) or not rel:
             continue
-        mi = next((k for k, mp in enumerate(mode_paths) if mp and gp.startswith(mp + '/')), None)
+        mi = next((k for k, mp in enumerate(mode_paths) if mp and gp and gp.startswith(mp + '/')), None)
         a = abil.setdefault(rel, {'path': rel})
         if mi is not None:
             a['mode'] = mi
+        if gp is not None and gp in common:
+            a['common'] = 1
         for k in EMIT_KEYS:
             lst = [x for x in (emitter(e) for e in d.get(k) or [] if isinstance(e, dict)) if x]
             if lst:
@@ -361,7 +434,7 @@ def enemy_record(root, tree, fx_index, proj_keys):
             elif v in proj_keys and not k.startswith('_extraProjectileKeys'):
                 a.setdefault('otherProjectiles', []).append({'field': k, 'key': v})
     for _rel, a in abil.items():
-        if len(a) > 1 and not (set(a) <= {'path', 'mode', 'anim'}):
+        if len(a) > 1 and not (set(a) <= {'path', 'mode', 'anim', 'common'}):
             rec['abilities'].append(a)
     return rec
 
@@ -396,6 +469,10 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
     def walk(o, ev):
         if isinstance(o, dict):
             typ = str(o.get('$type') or '')
+            # an ability the buff's end casts (ON_BUFF_FINISH 1, Nodes.TriggerAbility: 子代's tentac_grow ends into Grow) — the
+            # buff's own effect lasts until that ability starts
+            if depth == 0 and ev == '1' and typ.endswith('TriggerAbility') and isinstance(o.get('_abilityName'), str) and o['_abilityName']:
+                out.setdefault('finish', o['_abilityName'])
             for k, v in o.items():
                 if isinstance(v, str) and v:
                     if v.lower() in FX:
@@ -454,8 +531,8 @@ def proj_record(key, roots):
 
 
 def used_enemies():
-    """Enemy ids that appear in the game: data/waves.json (spawns, branches, overrides), data/bosses.json, and the random
-    squads' template slots (data/enemies.json `templateSlot`)."""
+    """Enemy ids that appear in the game: data/waves.json (spawns, branches, overrides), data/bosses.json, the random
+    squads' template slots (data/enemies.json `templateSlot`), and the enemy-side tokens (device_keys)."""
     acc = set()
 
     def keys_in(o):
@@ -481,7 +558,7 @@ def used_enemies():
             k = s.get('key') if isinstance(s, dict) else s
             if isinstance(k, str):
                 acc.add(k)
-    return acc
+    return acc | set(device_keys())
 
 
 # ---- the render table ------------------------------------------------------------------------------------------------
@@ -501,7 +578,7 @@ def uniq(lst):
 
 def emit_part(abilities, projs):
     """{cast, opt, hit, aim?, dirs?, proj?, hitBuff?, attach?} of the abilities of one attack (or one skill)."""
-    cast, opt, hit, aim, dirs, attach, hit_buff, lines = [], {}, [], [], [], [], [], []
+    cast, opt, hit, aim, dirs, attach, hit_buff, lines, hopt = [], {}, [], [], [], [], [], [], {}
     buff_life = {}
     proj = None
     for a in abilities:
@@ -515,6 +592,11 @@ def emit_part(abilities, projs):
         for k in ('hitEffects', 'inputTargetEffects', 'castTargetEffects'):
             for em in a.get(k) or []:
                 hit += em['fx']
+                # `_onlyOnce`: the first hit of the cast only, held until its end event (子代's 摄食 trap_dstnta_attack_01_hit on
+                # the held operator until ON_CAST_END 3)
+                if em.get('onlyOnce'):
+                    for n in em['fx']:
+                        hopt.setdefault(n, {'e': em.get('end', 3), 'once': 1})
                 if em.get('aim'):
                     aim += em['fx']
                 if em.get('slots') and len(set(x for x in em['slots'] if x)) > 1:
@@ -524,7 +606,7 @@ def emit_part(abilities, projs):
         # a buff the attack / skill puts on its targets: its own effect (overrideEffectKey, else the template's effectKey) —
         # not the effects its nodes create later (a shield's break, a trap's end)
         for b in a.get('activeBuffs') or []:
-            names = strs(b.get('fx')) or ((b.get('template') or {}).get('key') or [])
+            names = [n for n in strs(b.get('fx')) or ((b.get('template') or {}).get('key') or []) if n not in STATUS_HIT_DRAWN]
             hit_buff += names
             # 2026-10-11, decompile check round 2 — client `Entity.AddBuffEffect` / `RemoveBuffEffect` (RVA 0x35F3CA0 /
             # 0x36001C0): the buff's effect stays on its owner while the buff lasts, one per name (`BuffEffectHolder.refCounter`):
@@ -565,6 +647,8 @@ def emit_part(abilities, projs):
     part = {'cast': uniq(cast), 'opt': opt, 'hit': uniq(hit)}
     if aim:
         part['aim'] = uniq(aim)
+    if hopt:
+        part['hopt'] = hopt
     if dirs:
         part['dirs'] = dirs
     if attach:
@@ -606,6 +690,11 @@ def skill_keys(path):
                 return []
             keys = ['/'.join(rest).lower(), rest[-1].lower(), rest[0].lower()]
             return list(dict.fromkeys(keys))
+    # a token mode's own ability beside its attack (子代's Modes/Default/Body/Grow — cast by its talent buff's end, its
+    # clip Start_02): by its name
+    if len(parts) >= 4 and parts[0] == 'Modes' and parts[2] == 'Body' and parts[3] not in ('Combat', 'Attack', 'Passive'):
+        rest = parts[3:]
+        return list(dict.fromkeys(['/'.join(rest).lower(), rest[-1].lower(), rest[0].lower()]))
     return []
 
 
@@ -635,8 +724,9 @@ def render_entry(r, projs):
         if r.get(k):
             out['start' if k == 'startEffect' else 'dead'] = r[k]
     # 2026-10-10, decompile check — client `Enemy.get_deadEffect` (RVA 0x730300, played by `DeadState._PlayAnimation`): the
-    # current mode's `_overrideDeadEffect`, else the root's `_deadEffect`, else common_enemy_die_01
-    out.setdefault('dead', 'common_enemy_die_01')
+    # current mode's `_overrideDeadEffect`, else the root's `_deadEffect`, else common_enemy_die_01; an enemy-side token is a
+    # Character — `Character.get_deadEffect`'s default common_char_die_01 (docs/rules/fx.md 「보스 토큰·장비 이펙트」)
+    out.setdefault('dead', 'common_char_die_01' if r.get('token') else 'common_enemy_die_01')
     skills = {}
     groups = defaultdict(list)
     for a in r['abilities']:
@@ -657,17 +747,40 @@ def render_entry(r, projs):
         out['skills'] = skills
     # an effect-only buff (template 'empty' — no stat, only its effect) of a talent / common ability: held while the enemy
     # stands [추정: those abilities attach at the birth]; the statuses render/fxstatus.js draws are left to it
-    aura = uniq(b.get('fx') for a in r['abilities'] if re.match(r'^(Talents?|CommonAbilit(y|ies))/', a['path'])
+    # the root's `_commonAbilities` wherever they sit (黄金回响's Others/Direction/commonAbility: trap_vtlntw_buff_01 and _02, two
+    # buffs of one key — BuffData.OverrideType DEFAULT keeps both: `Buff.OverrideGroup._DoAddInternal` RVA 0x39DF310 queues
+    # every one, 2026-10-14 client)
+    ab_aura = [a for a in r['abilities'] if a.get('common') or re.match(r'^(Talents?|CommonAbilit(y|ies))/', a['path'])]
+    aura = uniq(b.get('fx') for a in ab_aura
                 for b in a.get('buffs') or [] if b.get('tmpl') == 'empty' and b.get('fx') and b['fx'] not in STATUS_DRAWN)
+    # a talent buff whose end casts one of its abilities (its template's ON_BUFF_FINISH TriggerAbility): its effect is held
+    # until that ability starts — `auraEnd` { effect: ability key } (子代's tentac_grow: trap_dstnta_idle_01_start until Grow)
+    aura_end = {}
+    for a in ab_aura:
+        for b in a.get('buffs') or []:
+            fin = (b.get('template') or {}).get('finish')
+            if fin and b.get('fx') and b['fx'] not in STATUS_DRAWN:
+                aura.append(b['fx'])
+                aura_end.setdefault(b['fx'], fin.lower())
+    aura = uniq(aura)
     if aura:
         out['aura'] = aura
+    if aura_end:
+        out['auraEnd'] = aura_end
+    # what a talent hands to the operators (a `…[char]` buff — the client's naming of a buff for characters): its template's
+    # effects, held on the operator (render/fxstatus.js KEY_FX: 阿利斯泰尔's pieces — enemy_vtswd_buff_01 …) [추정: by the name]
+    handed = uniq(x for a in r['abilities'] if re.match(r'^Talents?/', a['path'])
+                  for b in a.get('buffs') or [] if str(b.get('key') or '').endswith('[char]')
+                  for x in (b.get('template') or {}).get('fx') or [])
+    if handed:
+        out['handed'] = handed
     if r.get('points'):
         out['points'] = r['points']
     return out
 
 
 def entry_names(e):
-    out = [e.get('start'), e.get('dead')] + list(e.get('aura', []))
+    out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', []))
     for m in e['modes']:
         out += [m.get('start'), m.get('dead')] + list(m.get('attach', []))
         for k in ('melee', 'ranged'):
@@ -710,17 +823,25 @@ def main():
         if cache:
             (cache / 'fx_index.json').write_text(json.dumps(FX))
     BT = cached(cache, 'buff_templates.pkl', lambda: read_buff_templates(game))
+    DEV = device_keys()
+    TOK = cached(cache, 'tokens.pkl', lambda: read_tokens(game, set(DEV)))
+    SKP = cached(cache, 'skill_prefabs.pkl', lambda: read_skill_prefabs(game, {k for v in DEV.values() for k in v}))
+    PTS = dict(PTS, **cached(cache, 'token_points.pkl', lambda: read_points(game, 'pkgrps/btl_pfb_tokens_*.ab', set(DEV))))
     proj_keys = set(PR)
     res, projs = {}, {}
-    for eid, e in sorted(E.items()):
-        root = eid if eid in P['trees'] else (e.get('spine') or eid)
-        tree = P['trees'].get(root)
-        r = {'prefab': root, 'bundle': P['src'].get(root)}
+    units = [(eid, eid if eid in P['trees'] else (e.get('spine') or eid), P) for eid, e in sorted(E.items())]
+    units += [(k, k, TOK) for k in sorted(DEV) if k not in E]
+    for eid, root, src in units:
+        tree = src['trees'].get(root)
+        r = {'prefab': root, 'bundle': src['src'].get(root)}
+        if src is TOK:
+            r['token'] = 1
         if not tree:
             r['missing'] = True
             res[eid] = r
             continue
-        r.update(enemy_record(root, tree, FX, proj_keys))
+        sk = {k: SKP[k] for k in DEV.get(eid, []) if k in SKP} if src is TOK else None
+        r.update(enemy_record(root, tree, FX, proj_keys, sk))
         if PTS.get(root):
             r['points'] = PTS[root]
         pk = []

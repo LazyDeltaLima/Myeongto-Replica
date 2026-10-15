@@ -1436,7 +1436,8 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   ability name, the data skill's `prefabKey` (the client prefab's `Skills/<name>` — compare case-insensitively: `boomb` ↔ `Boomb`), `n` the cast count;
   nothing procedural is drawn; every fx the cast makes in the same call carries `extra.ability` (the same name) and `extra.caster` (the enemy's id)
   unless it names an ability itself — fx scheduled for later (`battle.after`) carry none; the client binds the enemy's official cast / hit effects and
-  `ON_ABILITY_*` sounds by it; `enemyShot` `{ id, from?, tgt, key, move, speed, t }`: an enemy content ability's official projectile leaves
+  `ON_ABILITY_*` sounds by it; `hold: 1` marks a cast that lasts until its `enemySkillEnd` `{ id, ability }` (子代's 摄食, `bosses.js kitBrood`: the
+  client's ON_CAST_START … ON_CAST_END — the effects held to the cast's end end then); `enemyShot` `{ id, from?, tgt, key, move, speed, t }`: an enemy content ability's official projectile leaves
   (`content/enemies/helpers.js shoot` — `id` the shooter, `from` the unit it leaves when that is not the shooter (a chain / bounce hop), `key` the
   projectile prefab, `t` its flight in game seconds; its effect lands then) — nothing procedural is drawn; a straight FIXED_DIRECTION shot
   (`helpers.js lineShot`, 重弩突袭者's 直击) adds `dir` [dx, dy] — its axis on the stage grid (+x a column right, +y a row up) — and `range`

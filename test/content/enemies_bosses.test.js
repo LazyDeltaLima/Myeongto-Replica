@@ -3259,7 +3259,7 @@ test('子代 (断裂生殖): template device 3000 HP / ATK 150, 隐匿 12 s, the
   assert.equal(h.b.killedCount ?? 0, 0);
 });
 
-test('子代: the nearest operator first; a held target that leaves ends 摄食; the next pick comes when the SP refills (1 s)', () => {
+test('子代: the nearest operator first; a held target that leaves ends 摄食 (fx enemySkill `hold` … enemySkillEnd); the next pick comes when the SP refills (1 s)', () => {
   // t_wall2 on the device tile itself (distance 0), t_wall next to it (distance 1)
   const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 8 }, { chessId: 't_wall2', row: 12, col: 9 }], setup: setTpl('act1autochess_h07_04') });
   h.step();
@@ -3269,9 +3269,14 @@ test('子代: the nearest operator first; a held target that leaves ends 摄食;
   h.run(15.5);
   assert.equal(brood.form, 'feed');
   assert.ok(h.unit('t_wall2').s.flags.stun && !h.unit('t_wall').s.flags.stun, 'the nearest one is held');
+  // the cast is announced held (the official 摄食 cast / hit effects last to ON_CAST_END) and its end comes with the release
+  const skillFx = (k) => h.eventsOf('fx').filter((f) => f[1] === k && f[4].id === brood.id);
+  assert.deepEqual(skillFx('enemySkill').map((f) => [f[4].ability, f[4].hold]), [['sktok_dstnta', 1]]);
+  assert.equal(skillFx('enemySkillEnd').length, 0, 'still held');
   h.b.kill(h.unit('t_wall2'), null);
   h.run(0.1);
   assert.equal(brood.form, 'fed', 'target gone: hold ends');
+  assert.deepEqual(skillFx('enemySkillEnd').map((f) => f[4].ability), ['sktok_dstnta']);
   h.run(0.7);
   assert.equal(brood.form, 'fed', 'SP refills first');
   h.run(0.5);

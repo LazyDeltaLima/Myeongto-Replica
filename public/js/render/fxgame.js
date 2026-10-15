@@ -126,6 +126,7 @@ const ENEMY_INDEX_URL = '/assets/local/fx/enemy-index.json';
 const MAX_HIT_FX = 2;
 const MAX_TRAILS = 12;      // official projectile trails in flight at once (then fx.js's procedural shots)
 const HIT_GAP_S = 0.12;        // one hit effect per attacker → target pair within this time (multi-hit skills)
+const ESKILL_HOLD_CAP = 40;    // 2026-10-15: a held enemy skill's effects without its end event (子代 lives 35 s) [추정]
 const ATTACK_GAP_S = 0.2;
 let webpPromise = null;
 /** Whether the browser decodes (lossy + alpha) WebP — a 1×1 probe image. */
@@ -2377,19 +2378,31 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * `loop`, cut at 20 s [추정: an end the sim does not announce]; once otherwise), its projectile's trail to `target` with its
    * start effects there; the units its damage hits next get its hit effects (eskillHit). true when the enemy binds it.
    */
-  function eskillFx(v, key, { on = true, loop = false, target = null } = {}) {
+  function eskillFx(v, key, { on = true, loop = false, target = null, hold = false } = {}) {
     const part = eskillPart(v, key);
     if (!part || !eOn(v)) return false;
     const pr0 = part.proj || {};
     if (![...(part.cast || []), ...(part.hit || []), ...(part.buff || []), ...(part.attach || []), ...(pr0.trail || []), ...(pr0.hit || []),
       ...(pr0.reached || []), ...(pr0.targetStart || [])].some(efx)) return false; // nothing of it extracted: the procedural stand-ins stay
     const id = ownerOf(v);
-    if (!on) { for (const l of live) if (l.tag === 'eskill' && l.owner === id) l.inst.stop(); return true; }
+    if (!on) {
+      for (const l of live) if (l.tag === 'eskill' && l.owner === id) l.inst.stop();
+      if (v._fxESkill) { v._fxESkill.hold = false; v._fxESkill.t = -99; }   // a held skill's end: its later damage is no hit of it
+      return true;
+    }
     const k = `${id}:${key.toLowerCase()}`;
-    v._fxESkill = { part, t: clockS };
+    // 2026-10-15: a talent buff's effect held until this ability starts (enemy-modes.json `auraEnd`: 子代's tentac_grow → Grow)
+    for (const l of live) if (l.owner === id && l.tag === `aura:${key.toLowerCase()}`) l.inst.stop();
+    v._fxESkill = { part, t: clockS, hold, held: hold ? new Set() : null };
     if (clockS - (eskillSeen.get(k) ?? -9) < 1) return true;
     eskillSeen.set(k, clockS);
-    eplay(v, edirs(v, part, part.cast), { tag: 'cast' });
+    if (hold) {
+      // 2026-10-15: a held skill (the sim's fx 'enemySkill' `hold` until its 'enemySkillEnd' — 子代's 摄食): its loop cast
+      // effects (opt `o` 0, to ON_CAST_END) last until that end, cut at ESKILL_HOLD_CAP s [추정: a lost end]
+      const names = edirs(v, part, part.cast), loops = names.filter((n) => part.opt?.[n]?.o === 0);
+      eplay(v, names.filter((n) => !loops.includes(n)), { tag: 'cast' });
+      if (loops.length) eplay(v, loops, { buff: true, tag: 'eskill', until: clockS + ESKILL_HOLD_CAP });
+    } else eplay(v, edirs(v, part, part.cast), { tag: 'cast' });
     const own = [...(part.buff || []), ...(part.attach || [])];
     if (own.length) eplay(v, own, loop ? { buff: true, tag: 'eskill', until: clockS + 20 } : { tag: 'cast' });
     const pr = part.proj;
@@ -2412,12 +2425,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function eskillHit(tid, by, views) {
     const v = by != null ? views.get(by) : null;
     const s = v && v._fxESkill;
-    const tgt = s && clockS - s.t <= 3 && eOn(v) ? views.get(tid) : null;
+    const tgt = s && (s.hold || clockS - s.t <= 3) && eOn(v) ? views.get(tid) : null;
     if (!tgt || level() >= 3) return false;
     const key = `${by}:${tid}`;
     if (clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return true;
     lastHit.set(key, clockS);
-    ehitFx(v, s.part, tgt, eshotHitDone(by, tid));
+    // 2026-10-15: a held skill's `_onlyOnce` hit effects (enemy-modes.json `hopt`): on its first hit of each unit, held there
+    // until the skill ends (子代's trap_dstnta_attack_01_hit on the operator it holds, to ON_CAST_END)
+    const once = s.hold && s.part.hopt ? (s.part.hit || []).filter((n) => s.part.hopt[n]?.once) : [];
+    for (const n of once) {
+      if (s.held.has(`${tid}:${n}`)) continue;
+      s.held.add(`${tid}:${n}`);
+      eplay(v, [n], { at: tgt, owner: ownerOf(v), on: tid, buff: true, tag: 'eskill', until: clockS + ESKILL_HOLD_CAP });
+    }
+    ehitFx(v, once.length ? { ...s.part, hit: s.part.hit.filter((n) => !once.includes(n)) } : s.part, tgt, eshotHitDone(by, tid));
     return true;
   }
   /** The ability key an enemy 'fx' event names (`ability`; `prefabKey`, a string `skill` too), or null. */
@@ -2495,7 +2516,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const b = ebindOf(v);
       v._fxEMode = emodeOf(v);
       if (b.start) eplay(v, [b.start], { tag: 'born' });
-      if (Array.isArray(b.aura) && b.aura.length) eplay(v, b.aura, { buff: true, tag: 'aura' });
+      if (Array.isArray(b.aura) && b.aura.length) {
+        // 2026-10-15: an aura that ends into an ability (`auraEnd`) is tagged by it — eskillFx stops it as that ability starts
+        const end = b.auraEnd || {};
+        eplay(v, b.aura.filter((n) => !end[n]), { buff: true, tag: 'aura' });
+        for (const n of b.aura) if (end[n]) eplay(v, [n], { buff: true, tag: `aura:${end[n]}` });
+      }
     }
   }
   /**
@@ -2757,8 +2783,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             const o = e[4], k = fxAbility(o);
             const v = k ? views.get(o.caster ?? o.id ?? o.src ?? o.by) : null;
             if (v?.info?.side === 'enemy') {
+              // 2026-10-15: a held skill's end ('enemySkillEnd' { id, ability } after an 'enemySkill' with `hold`)
+              if (e[1] === 'enemySkillEnd') { eskillFx(v, k, { on: false }); return; }
               const tgt = o.target ?? o.tgt ?? o.to;
-              if (eskillFx(v, k, { target: tgt != null ? views.get(tgt) || null : null }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
+              if (eskillFx(v, k, { target: tgt != null ? views.get(tgt) || null : null, hold: e[1] === 'enemySkill' && !!o.hold }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
               return;
             }
           }

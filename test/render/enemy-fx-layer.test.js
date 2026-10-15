@@ -21,6 +21,9 @@ const EMODES = {
   // … and one whose sub effect is not extracted (the stand-in pillars)
   enemy_deer2: { modes: [{ name: 'Default', anim: ['Attack'], ranged: { cast: [], opt: {}, hit: [],
     proj: { key: 'p_ice_b', mount: 7, move: 'FIXED_DIRECTION', speed: 5, sub: [{ key: 'p_ice_b2', reached: ['not_extracted'], life: 1 }] } } }] },
+  // 子代-like: a held skill (its loop cast to ON_CAST_END, an `_onlyOnce` hit held to the end)
+  enemy_brood: { modes: [{ name: 'Default', anim: [] }],
+    skills: { sktok_dstnta: { cast: ['t_trail'], opt: { t_trail: { s: 2, e: 3, o: 0 } }, hit: ['t_hit'], hopt: { t_hit: { e: 3, once: 1 } } } } },
   enemy_snip: { modes: [{ name: 'Default', anim: ['Attack'] }],
     skills: { crossattack: { cast: [], opt: {}, hit: [], proj: { key: 'p_bolt', mount: 2, trail: ['t_trail'], hit: ['t_hit'], move: 'FIXED_DIRECTION', speed: 5 } } } },
 };
@@ -117,4 +120,25 @@ test('enemy layer: a straight (FIXED_DIRECTION) shot with dir / range — with o
   layer.update(0.016, { liftFor: () => 0, scaleAt: () => 64, dist: 10 }, { width: 10, height: 10 });
   assert.doesNotThrow(() => layer.onEvent(['fx', 'enemyShot', 0, 0, { id: 9, tgt: 2, key: 'p_bolt', move: 'FIXED_DIRECTION', speed: 5, t: 0.55, dir: [1, 0], range: 2.75 }], views));
   assert.doesNotThrow(() => layer.onEvent(['fx', 'enemyShot', 0, 0, { id: 9, tgt: null, key: 'p_bolt', move: 'FIXED_DIRECTION', speed: 5, t: 10, dir: [0, 1], range: 50 }], views));
+});
+
+test('enemy layer: a held skill (fx enemySkill `hold`) lasts until its enemySkillEnd — its damage stays its hit past 3 s, none after', async () => {
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high' });
+  await settle();
+  const b = enemy(11, 'enemy_brood'), a = ally(2);
+  const views = new Map([[11, b], [2, a]]);
+  const cam = { liftFor: () => 0, scaleAt: () => 64, dist: 10 };
+  layer.update(0.016, cam, { width: 10, height: 10 });
+  layer.onEvent(['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 11, ability: 'sktok_dstnta', n: 1, hold: 1 }], views);
+  assert.equal(b._fxESkill?.hold, true);
+  for (let i = 0; i < 250; i++) layer.update(0.02, cam, { width: 10, height: 10 });   // 5 s: past the 3 s window of a plain cast
+  assert.doesNotThrow(() => layer.onEvent(['dmg', 2, 150, 0, 'phys', 11], views));
+  assert.equal(b._fxESkill.hold, true);
+  assert.ok(b._fxESkill.held.has('2:t_hit'), 'the `_onlyOnce` hit is held on the unit it hit');
+  layer.onEvent(['fx', 'enemySkillEnd', 0, 0, { x: 0, y: 0, id: 11, ability: 'sktok_dstnta' }], views);
+  assert.equal(b._fxESkill.hold, false);
+  assert.ok(b._fxESkill.t < 0, 'its later damage is no hit of it');
+  // a plain cast (no `hold`) is not held
+  layer.onEvent(['fx', 'enemySkill', 0, 0, { x: 0, y: 0, id: 11, ability: 'sktok_dstnta', n: 2 }], views);
+  assert.equal(b._fxESkill.hold, false);
 });
