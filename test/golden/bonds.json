@@ -220,8 +220,8 @@
       "round": 10,
       "seed": 3867395638,
       "waveId": "act1autochess_h03",
-      "time": 88.53,
-      "ticks": 2656,
+      "time": 72.77,
+      "ticks": 2183,
       "reason": "cleared",
       "killed": 19,
       "total": 19,
@@ -235,18 +235,18 @@
       "units": [
         ["p1",1,"op","chess_char_1_04_b",1,"uniequip_002_udflow",36224.5,1,2,0,0,0,0,0,0],
         ["p1",2,"op","chess_char_2_07_b",1,"uniequip_002_ghost",30531.73,1,3,0,0,4599,4598,0,0],
-        ["p1",3,"op","chess_char_3_05_b",2,"uniequip_002_skadi",24598.4,1,11,9,151145,34252,0,50,1],
+        ["p1",3,"op","chess_char_3_05_b",2,"uniequip_002_skadi",25488.91,1,11,9,122732,33295,0,42,1],
         ["p1",4,"op","chess_char_4_16_b",2,"uniequip_002_texas2",1780.9,1,15,0,0,2226,0,0,2],
-        ["p1",5,"op","chess_char_4_09_b",1,"uniequip_002_mizuki",22800.62,1,6,6,128717,0,0,13,2],
-        ["p1",6,"op","chess_char_3_09_b",1,"uniequip_002_haini",19135.12,1,7,3,47492,0,0,53,2],
-        ["p1",7,"op","chess_char_4_13_b",1,"uniequip_002_gnosis",2187.9,1,8,1,52115,0,0,41,21],
+        ["p1",5,"op","chess_char_4_09_b",1,"uniequip_002_mizuki",22800.62,1,6,6,192172,0,0,11,2],
+        ["p1",6,"op","chess_char_3_09_b",1,"uniequip_002_haini",19135.12,1,7,3,26597,0,0,19,1],
+        ["p1",7,"op","chess_char_4_13_b",1,"uniequip_002_gnosis",2187.9,1,8,1,37968,0,0,25,17],
         ["p1",8,"op","chess_char_4_14_b",1,"uniequip_002_lionhd",1788.6,1,1,0,0,0,0,0,0]
       ],
-      "enemies": {"enemy_1229_darmy":[10,10,0,4252,104509],"enemy_1229_darmy_2":[7,7,0,10895,95800],"enemy_9007_acelem":[2,2,0,9653,179159]},
-      "hooks": [1,29,2656,181,181,304,320,181,20,21,28,28,0,5579,569,12,19,0,1,20,4,2,0],
-      "events": {"atk":195,"deploy":10,"die":21,"dmg":320,"engage":4,"face":26,"fx":39,"layer":4,"skill":56,"spawn":27,"status":174,"swing":185,"tplfx":4},
-      "fx": {"beam":2,"blink":1,"burst":2,"devour":4,"dilemma":2,"frostNova":21,"garrison":4,"kitHit":1,"swordStorm":2},
-      "snaps": "802d9c90 d9727f83 93a1eee0 bdaa1d50 c767b04a df79e724 7b129b8a a0feb9e6 6f86891c"
+      "enemies": {"enemy_1229_darmy":[10,10,0,4638,104509],"enemy_1229_darmy_2":[7,7,0,14016,95800],"enemy_9007_acelem":[2,2,0,5189,179159]},
+      "hooks": [1,29,2183,127,127,232,249,181,20,21,23,22,0,4366,421,12,19,0,1,20,4,2,0],
+      "events": {"atk":145,"deploy":10,"die":21,"dmg":249,"engage":4,"face":23,"fx":37,"layer":4,"skill":45,"spawn":27,"status":132,"swing":133,"tplfx":4},
+      "fx": {"beam":2,"blink":1,"burst":2,"devour":4,"dilemma":2,"frostNova":17,"garrison":4,"kitHit":1,"swordStorm":2,"teleport":2},
+      "snaps": "802d9c90 d9727f83 93a1eee0 5c0812ad 81a2a31e 8d172956 70176ed1 e9844ed2"
     },
     "bond-emptyShip-low": {
       "about": "协防干员 low: tier 1 layers 1; chess_char_4_01_a chess_char_4_04_a chess_char_2_14_a chess_char_3_10_a chess_char_3_20_a chess_char_3_21_a chess_char_4_02_a chess_char_4_06_a",

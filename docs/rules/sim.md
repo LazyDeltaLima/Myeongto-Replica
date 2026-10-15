@@ -644,6 +644,18 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
   폼 이벤트 한 번; + 실제 경기 경로 Match 판 → `buildBattleSpec` → `createBattleFromSpec`). golden: `diy` diy-003만 — 그 판(R13 `act1autochess_h06`)의 镜膜들이
   침묵을 맞은 뒤 침묵이 끝나도 HP 보너스가 안 돌아와(10번 상실) 오퍼레이터 피해·처치 숫자가 바뀐다.
 
+### 假想敌：淤困은 부착 때 저지자 칸 중심으로 闪现 + 自缚 (upstream #600, upstream PR #559)
+- 문제(제보): 假想敌：淤困(ELEMENT 적)이 저지한 오퍼레이터에게 「달라붙지 않는다」. 우리 엔진에서도 부착(저지자 `ab:parasite` — 매초 법술 피해·元素损伤 ×)은 됐지만
+  적은 일반 저지처럼 접촉 지점(저지자 중심에서 약 0.7칸 앞)에 서 있었다 — 실제 경기 경로로 확인(고치기 전: 角峰 앞 x 6.7에 멈춘 채 부착). 제보의 「안 붙음」이
+  이 위치 차이라는 것은 PR 작성자 댓글과 위 확인에서 미루어 본 것 **[추정]**.
+- 근거: PRTS 「假想敌：淤困」 천부 「附着开始时闪现至阻挡者所在地块中心，附着期间持有自缚」·「附着效果在解除阻挡时解除」(PRTS API로 직접 확인).
+- 동작(PR 그대로, 이동만 직접 대입으로 줄임): `element.js kitParasite`가 부착하는 순간 적을 저지자 칸 중심(`tileC`, `tileR`)으로 옮기고 경로 캐시(`route.pts`)를 지우며
+  `ab:parasiteAttached`(`noMove` + `selfBound` = 自缚)를 붙이고 fx `teleport` `{ id, fromX, fromY, kind: 'parasite' }`를 낸다(그 다음 기존 `beam`). 저지가 풀리거나
+  (저지자 퇴각·사망·저지 해제 — 키트 틱 0.2초 안) 적이 죽으면 자박도 지운다 — 경로는 그 칸에서 다시 짠다. 자박라 余 S2 등 「자박 불가」 규칙도 그동안 따른다.
+  클라는 `kind: 'parasite'`인 teleport만 짧은 거리라도 미끄러지지 않게 끊어 그린다(`render.md`).
+- 테스트 `test/content/enemies_bosses.test.js`(PR 테스트: 접촉 지점 → 저지자 칸 중심·자박·teleport fx·퇴각 뒤 다시 걸음; + 실제 경기 경로 Match 판 → `buildBattleSpec` →
+  `createBattleFromSpec`, 角峰이 저지 → 칸 중심·3초 동안 그 자리에서 피해·퇴각 뒤 걸음 — 고치기 전에는 칸 중심 확인이 실패).
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).

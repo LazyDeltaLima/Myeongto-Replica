@@ -725,6 +725,64 @@ test(`${nm('enemy_9007_acelem')}: harder to target (taunt −1); parasitises its
   assert.ok(!w.findBuff('ab:parasite'));
 });
 
+test(`${nm('enemy_9007_acelem')}: attaching from contact blinks to the blocker's tile centre`, () => {
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
+  h.step();
+  const e = put(h, 'enemy_9007_acelem', [9, 7], {
+    move: true, route: { motion: 'WALK', start: [9, 7], end: [9, 2], checkpoints: [] },
+  });
+  const host = h.unit('t_wall');
+  assert.ok(h.runUntil(() => !!host.findBuff('ab:parasite'), 15), 'the approaching enemy attaches');
+  assert.equal(e.blockedBy, host);
+  assert.equal(e.x, host.tileC, 'enemy moves to the host tile centre on attachment');
+  assert.equal(e.y, host.tileR);
+  assert.ok(e.s.flags.selfBound && e.s.flags.noMove, 'attachment holds 自缚');
+  const blink = h.eventsOf('fx').find((fx) => fx[1] === 'teleport' && fx[4].id === e.id);
+  assert.ok(blink && blink[4].fromX > host.tileC, 'the blink starts at the contact point');
+  assert.equal(blink[4].kind, 'parasite', 'only this attachment effect marks a short position cut');
+  assert.deepEqual(blink.slice(2, 4), [host.tileC, host.tileR]);
+  h.b.retreat(host, { reason: 'test' });
+  h.run(0.3);
+  assert.ok(!e.s.flags.selfBound && !e.s.flags.noMove, 'attachment state ends after the block is released');
+  assert.ok(e.x < host.tileC, 'the enemy resumes its route from the host tile');
+  checkInvariants(h.b);
+});
+
+test(`${nm('enemy_9007_acelem')} through the real match path (Match board → buildBattleSpec → createBattleFromSpec): it attaches on its blocker's tile centre and stays there`, async () => {
+  const { makeMatch, give } = await import('../match/harness.js');
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const mh = makeMatch({ mode: 'solo', difficulty: 'NORMAL', humans: 1, seed: 11 }).start();
+  mh.toPrep(3);
+  const m = mh.m, ps = mh.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  give(m, ps, 'chess_char_1_02_a', 'board', [9, 6]);   // 角峰, on the route
+  const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'parasite', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent, timeLimit: 60,
+    // a late enemy keeps the field open
+    spawns: [{ time: 0, enemyKey: 'enemy_9007_acelem', routeIndex: 0, count: 1, interval: 0, pos: [9, 8] },
+      { time: 500, enemyKey: 'enemy_9007_acelem', routeIndex: 0, count: 1, interval: 0, pos: [9, 8] }],
+    routes: [{ motion: 'WALK', start: [9, 8], end: [9, 1], checkpoints: [] }] });
+  const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+  b.start();
+  const u = b.allyUnits.find((x) => x.kind === 'op');
+  const fx = [];
+  for (let i = 0; i < 600 && !u.findBuff('ab:parasite'); i++) { b.step(); fx.push(...b.drainEvents().filter((x) => x[0] === 'fx')); }
+  const e = b.units.find((x) => x.defId === 'enemy_9007_acelem' && x.alive);
+  assert.ok(u.findBuff('ab:parasite') && e.blockedBy === u, 'blocked by 角峰, it attaches');
+  assert.ok(e.x === u.tileC && e.y === u.tileR, `on its blocker's tile centre (${e.x}, ${e.y})`);
+  assert.ok(e.s.flags.noMove && e.s.flags.selfBound, '自缚 while attached');
+  const blink = fx.find((x) => x[1] === 'teleport' && x[4].id === e.id);
+  assert.ok(blink && blink[4].kind === 'parasite' && blink[4].fromX > u.tileC && blink[4].fromX - u.tileC < 1, 'a short blink from the contact point');
+  const hp0 = u.hp;
+  for (let i = 0; i < 90; i++) b.step();
+  assert.ok(e.x === u.tileC && e.y === u.tileR && u.hp < hp0, 'it stays on the tile and keeps hurting its host');
+  b.retreat(u, { reason: 'test' });
+  for (let i = 0; i < 60; i++) b.step();
+  assert.ok(!e.s.flags.noMove && !e.s.flags.selfBound && Math.abs(e.x - u.tileC) + Math.abs(e.y - u.tileR) > 0.2, 'the block over, it walks its route on');
+  assert.deepEqual(b.errors.map((x) => x.error?.message), []);
+  m.dispose?.();
+});
+
 test(`${nm('enemy_10067_ftsjc')} + ${nm('enemy_10065_ftzlc')}: ATK ramps until the first attack (AoE arts + burn); ignites 卷心籽, whose ignited death blasts`, () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }, { chessId: 't_wall2', row: 10, col: 5 }] });
   h.step();

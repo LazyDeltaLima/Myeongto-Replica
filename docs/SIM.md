@@ -283,7 +283,8 @@ attacks) —, so an operator redeployed beside a held enemy blocks it where it s
 contact is blocked once it walks in after the status (GitHub #232; until 0.2.0 the check waited for the status to end).
 Several blockers in contact → the nearest [ASSUMED]. A head-on enemy therefore stops at contact, ~0.71 tile from the blocker's centre, on the
 tile in front of it (PRTS 作战机制: a blocked enemy's collider does not enter the blocker's tile; the official few
-hundredths of a tile of deceleration are not modelled), and **every blocker** — melee units (要塞 / 领主 / 哨戒铁卫
+hundredths of a tile of deceleration are not modelled; the exception is 假想敌：淤困, which on attaching blinks onto its
+blocker's tile centre with 自缚 until the block ends — PRTS 假想敌：淤困, `enemies/element.js kitParasite`), and **every blocker** — melee units (要塞 / 领主 / 哨戒铁卫
 included), summons (流形's melee copy) and a ranged operator standing on a melee tile alike — may always target the
 enemies it blocks, in range or not, whatever its facing, and targets them first ("可以选择且优先选择阻挡单位", PRTS 选择器;
 the user's rule after playtest #6, "阻挡了就一定要能打到": officially the collision pushes a blocked enemy to its blocker's
