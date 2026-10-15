@@ -2,7 +2,8 @@
 // a reroll replaces the match by a new one with a new seed and the next match number while the room stays in a match
 // (room.state matchNo) without a replay or a [stats] line, and the chat factions are cleared (they are picked after seeing
 // the banned bonds); a reroll short of unanimous starts the strategy draft once everyone is ready (maintainer decision
-// 2026-10-13; a tie did since 2026-10-12, before that it returned to the lobby).
+// 2026-10-13; a tie did since 2026-10-12, before that it returned to the lobby). The rooms are 休闲 (shared/ruleset.js
+// infoReroll): a reroll keeps the room's ruleset for the new match.
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -47,7 +48,7 @@ describe('briefing reroll vote', () => {
 
   test('solo: a reroll starts a new match with a new seed and the next matchNo; no replay, no [stats] line', async () => {
     const a = await player('Solo');
-    await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
+    await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL', ruleset: 'casual' });
     const st = await a.waitFor('room.state', (s) => s.hostId === a.id, W);
     await ok(a, { t: 'room.start' });
     await a.waitFor('room.state', (s) => s.inMatch && s.matchNo === 1, W);
@@ -72,7 +73,7 @@ describe('briefing reroll vote', () => {
   test('co-op: a reroll vote short of unanimous starts the strategy draft once everyone is ready; the room stays in its match', async () => {
     const a = await player('Host');
     const b = await player('Guest');
-    await ok(a, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });
+    await ok(a, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', ruleset: 'casual' });
     const st = await a.waitFor('room.state', (s) => s.hostId === a.id, W);
     await ok(b, { t: 'room.join', code: st.code });
     await ok(b, { t: 'room.ready', ready: true });
@@ -95,7 +96,7 @@ describe('briefing reroll vote', () => {
 
   test('room.diy reaches the running match during its briefing (진영별 선발 프리셋), and only the next one from the prep on', async () => {
     const a = await player('Diy');
-    await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
+    await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL', ruleset: 'casual' });
     const st = await a.waitFor('room.state', (s) => s.hostId === a.id, W);
     await ok(a, { t: 'room.diy', picks: { chess_char_6_diy1_a: { charId: 'char_1035_wisdel', skillIndex: 0 } } });
     await ok(a, { t: 'room.start' });

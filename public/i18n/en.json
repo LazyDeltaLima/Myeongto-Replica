@@ -1492,5 +1492,18 @@
   "权利人联系": "Rights holders",
   "如果你是相关权利人，认为本项目的任何内容不妥，请在源代码仓库提交 Issue，我们会尽快删除相关内容。": "If you hold rights to any of this material and object to its use, please open an issue in the source repository and it will be removed promptly.",
   "源代码": "Source code",
-  "关于本服务器": "About this server"
+  "关于本服务器": "About this server",
+  "战场信息": "Battlefield info",
+  "领袖路线预览": "Leader route preview",
+  "领袖限伤": "Leader damage cap",
+  "经典": "Classic",
+  "休闲": "Casual",
+  "与官方规则相同": "Same as the official rules",
+  "开启：{list}": "On: {list}",
+  "关闭：{list}": "Off: {list}",
+  "、": ", ",
+  "规则": "Rules",
+  "{name}：{tip}": "{name}: {tip}",
+  "未知战场": "Unknown battlefield",
+  "战斗开始时揭晓": "Revealed when the battle starts"
 }

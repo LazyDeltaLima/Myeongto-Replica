@@ -70,6 +70,12 @@
 .brief-stage__head { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
 .brief-stage__map { display: block; flex: 1 1 0; width: 100%; min-height: 1.82rem; object-fit: cover; object-position: center; border: 1px solid rgba(255, 255, 255, .12); background: #0c1114; }
 .brief-stage__k { display: flex; align-items: baseline; gap: .12rem; min-width: 0; }
+/* 经典 (规则 모드, js/screens/briefing.js): 「未知战场」 in the preview's place — the box the picture fills, striped dark, with
+   the boss block's unknown 「?」 (.brief-eboss__q) and the reveal line; a phone keeps a smaller box (the column scrolls) */
+.brief-stage__unknown { flex: 1 1 0; width: 100%; min-height: 1.82rem; display: grid; place-items: center; text-align: center;
+  border: 1px solid rgba(255, 255, 255, .12); background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .035) 0 .05rem, transparent .05rem .14rem), #0c1114; }
+.brief-stage__unknown span { display: block; font-size: 1.2rem; font-weight: 900; line-height: 1; color: rgba(255, 174, 19, .55); }
+.brief-stage__unknown em { display: block; margin-top: .08rem; font-style: normal; font-size: .15rem; color: var(--text-lo); }
 .brief-stage__pool { font-size: .14rem; color: var(--text-lo); white-space: nowrap; }
 .brief-stage__name { display: flex; align-items: center; gap: .08rem; font-size: .19rem; font-weight: 700; }
 .brief-stage__name .icon { width: .2rem; height: .2rem; color: var(--mint-500); }

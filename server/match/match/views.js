@@ -71,6 +71,8 @@ export class MatchViews {
       serverNow: this.sched.now(),
       modeId: this.modeId,
       difficulty: this.difficulty,
+      // 규칙 모드 (shared/ruleset.js): the client hides what the ruleset turns off (the briefing's battlefield card, 重新抽取)
+      ruleset: this.ruleset,
       stageId: this.stageId,
       factions: this.factions.slice(),
       disabledBonds: [...new Set([...this.disabledBonds, ...this.staticInactiveBonds])].sort(),
@@ -245,7 +247,9 @@ export class MatchViews {
       const g = this.bossGroupOf(ps);
       if (!g) return [];
       const list = previewOf([...g.wave.spawns, ...bountySpawns(this.gd, this.round, g.wave, ps.bounties, ps.playerId, { solo: this.isSolo, side: g.side })]);
-      // a walking leader's paths (LOCAL-PATCH.md 「보스 경로 미리보기」) on this field (server/match/bossPath.js)
+      // a walking leader's paths (LOCAL-PATCH.md 「보스 경로 미리보기」) on this field (server/match/bossPath.js) — only
+      // when the ruleset turns the preview on (shared/ruleset.js bossRoutePreview: 休闲); classic sends no path at all
+      if (!this.ruleset.options.bossRoutePreview) return list;
       const lead = list.find((e) => e.boss && Array.isArray(e.start));
       const paths = lead ? bossFieldPaths(this, g).filter((p) => p.enemyKey === lead.enemyKey).map((p) => p.pts) : [];
       if (paths.length) lead.paths = paths;

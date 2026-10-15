@@ -14,6 +14,8 @@
 // room waits (room.state `matching`) the bar shows the waiting time and the queue, every Doctor's main button is
 // 取消匹配 (room.unqueue: the whole room leaves the queue), and the difficulty, AI seats and start are locked; the
 // confirmation of a formed group is ui/matchQueue.js's dialog.
+// 규칙 모드 (shared/ruleset.js, maintainer decision 2026-10-15): the bar's 规则 picker (经典 / 休闲, host only, locked while
+// matchmaking like the difficulty; its tooltip lists what 休闲 turns on) and the ruleset tag beside the title's difficulty.
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
@@ -35,6 +37,7 @@ import { RoomChat } from '../ui/chat.js';
 import { MatchQueueDialog, mmss } from '../ui/matchQueue.js';
 import { audio } from '../audio.js';
 import { t, tc } from '../../../shared/i18n.js';
+import { RULE_OPTIONS, RULE_PRESETS, PRESET_LABELS, resolveRuleset } from '../../../shared/ruleset.js';
 
 /**
  * Seats padded to the room's capacity (co-op 4, solo 1), each null or a seat record.
@@ -108,6 +111,36 @@ export function joinedDoctors(prev, room, myId) {
 export function aiLastOption(room, myId) {
   if (!room || room.mode === 'solo') return null;
   return { on: room.aiPicksLast === true, editable: room.hostId != null && room.hostId === myId };
+}
+
+/**
+ * 규칙 모드 of a room (room.state.ruleset; the default preset when the server sends none) and whether this player may
+ * change it — the host, while the room is not matchmaking.
+ * @param {any} room room.state payload
+ * @param {any} myId
+ * @returns {{ preset: string, editable: boolean } | null}
+ */
+export function rulesetOption(room, myId) {
+  if (!room) return null;
+  return { preset: resolveRuleset(room.ruleset).preset, editable: room.hostId != null && room.hostId === myId && !room.matching };
+}
+
+/**
+ * What a preset changes against the official rules, for its tooltip: the labels of the options it sets to a value
+ * other than the official one (none for 经典).
+ * @param {string} preset
+ * @returns {string}
+ */
+export function rulesetTip(preset) {
+  const { options } = resolveRuleset(preset);
+  const on = [], off = [];
+  for (const [k, o] of Object.entries(RULE_OPTIONS)) {
+    if (options[k] === o.official) continue;
+    (options[k] ? on : off).push(t(o.label));
+  }
+  if (!on.length && !off.length) return t('与官方规则相同');
+  return [on.length ? t('开启：{list}', { list: on.join(t('、')) }) : '', off.length ? t('关闭：{list}', { list: off.join(t('、')) }) : '']
+    .filter(Boolean).join(' · ');
 }
 
 /** Invite link for a room code (current page URL with ?room=CODE). */
@@ -233,6 +266,22 @@ function DifficultyPicker({ room, isHost, busy, onPick }) {
   </div>`;
 }
 
+/**
+ * The 规则 picker (header): 经典 / 休闲 for the host, the room's preset read-only for everybody else; one tooltip says
+ * what each preset changes.
+ */
+function RulesetPicker({ option, busy, onPick }) {
+  if (!option) return null;
+  const tip = RULE_PRESETS.map((p) => t('{name}：{tip}', { name: t(PRESET_LABELS[p]), tip: rulesetTip(p) })).join('\n');
+  return html`<${Tooltip} text=${tip}>
+    <div class="dpick rpick" role="radiogroup" aria-label=${t('规则')}>
+      ${RULE_PRESETS.map((p) => html`<button key=${p} type="button" role="radio" aria-checked=${option.preset === p ? 'true' : 'false'} data-ruleset=${p}
+          class=${`dpick__opt rpick__opt${option.preset === p ? ' is-active' : ''}`} disabled=${!option.editable || !!busy}
+          onClick=${() => option.editable && option.preset !== p && onPick(p)}>${t(PRESET_LABELS[p])}</button>`)}
+    </div>
+  <//>`;
+}
+
 /** The 「AI 队友最后选择」 switch (co-op): the host toggles it, everybody else sees its state. */
 function AiLastToggle({ option, busy, onToggle }) {
   if (!option) return null;
@@ -297,6 +346,7 @@ export function RoomScreen() {
   };
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
+  const setRuleset = (preset) => run('rules', () => net.request('room.setRuleset', { preset }));
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
   const sit = () => run('sit', () => net.request('room.join', { code: room.code }));
@@ -360,7 +410,7 @@ export function RoomScreen() {
       </div>
       <div class="topbar__center">
         <${MicroLabel} tone="mint">${coop ? 'ALLIANCE LOBBY' : 'SOLO SIMULATION'}<//>
-        <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" /></h1>
+        <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" /><span class=${`rtag rtag--${resolveRuleset(room.ruleset).preset}`} data-testid="room-ruleset">${t(PRESET_LABELS[resolveRuleset(room.ruleset).preset])}</span></h1>
       </div>
       <div class="topbar__right">
         ${coop ? html`<${InviteBox} code=${room.code} name=${me.name} difficulty=${room.difficulty} />` : html`<div class="solo-note"><${MicroLabel}>SINGLE OPERATOR<//><span>${t('仅限 1 名博士')}</span></div>`}
@@ -390,7 +440,10 @@ export function RoomScreen() {
         <span class="room-bar__label">${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//></span>
         <div class="room-bar__opts">
           <${DifficultyPicker} room=${room} isHost=${facts.isHost} busy=${busy} onPick=${setDifficulty} />
-          <${AiLastToggle} option=${aiLastOption(room, me.playerId)} busy=${busy} onToggle=${setAiLast} />
+          <div class="room-bar__row">
+            <${RulesetPicker} option=${rulesetOption(room, me.playerId)} busy=${busy} onPick=${setRuleset} />
+            <${AiLastToggle} option=${aiLastOption(room, me.playerId)} busy=${busy} onToggle=${setAiLast} />
+          </div>
         </div>
       </div>
       <div class="room-bar__center">

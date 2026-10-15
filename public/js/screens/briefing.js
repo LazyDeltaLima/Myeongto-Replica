@@ -12,6 +12,10 @@
 // / 附加盟约 rows of bond discs (disabled bonds greyed with the banned-member badge), the legend and the 本局禁用干员
 // avatars, with the player's own 自选 pieces out of the shop (m.private.diyBanned) — is ui/matchInfo.js MatchInfo, the same
 // blocks the strategy draft's 本局信息 dialog shows (screens/bandDraft.js).
+// 규칙 모드 (m.public.ruleset, shared/ruleset.js; maintainer decision 2026-10-15): the battlefield card's name, pool and
+// preview are a 休闲 convenience (battlefieldInfo) — the official stage-info view has no battlefield, so 经典 keeps the card
+// in its place as 「未知战场」 (a dark box with the boss block's 「?」, revealed when the battle starts) and the column
+// keeps its shape; 重新抽取 (infoReroll) is 休闲 only too.
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel } from '../ui/components.js';
@@ -25,6 +29,7 @@ import { enemyIconUrl, factionIconUrl } from '../ui/assetUrls.js';
 import { useStore } from '../store.js';
 import { data, localAsset } from '../data.js';
 import { t, tParts } from '../../../shared/i18n.js';
+import { resolveRuleset } from '../../../shared/ruleset.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -71,6 +76,7 @@ export function BriefingScreen() {
   // the battlefield's preview picture under its name (tools/map-previews.mjs: our 3D board drawn like the client's
   // stage_mappreview shots, which the autochess stages lack) — the local-client art; without it the plain row
   const mapUrl = pub.stageId ? localAsset('stage/preview', pub.stageId) : null;
+  const rules = resolveRuleset(pub.ruleset).options;
   // the enemy block as the client's stage-info view draws it (prefab_auto_chess_stage_info_enemy_group): the boss in
   // img_boss_bkg with the img_boss_name_bkg tag under it, then its name and abilities; the 特训敌人 types one under the
   // other on img_normal_enemy_bkg — icon in the same frame, name, description (maintainer 2026-10-11: the client's
@@ -131,13 +137,19 @@ export function BriefingScreen() {
             </div>`)}</div>` : html`<p class="t-dim">${t('本局没有特训敌人')}</p>`}
           </div>
         </div>
-        <div class=${cx('brief-stage', mapUrl && 'has-map')}>
+        ${rules.battlefieldInfo ? html`<div class=${cx('brief-stage', mapUrl && 'has-map')}>
           <div class="brief-stage__head">
             <span class="brief-stage__k"><${MicroLabel}>BATTLEFIELD</${MicroLabel}>${pool ? html`<span class="brief-stage__pool">${pool}</span>` : null}</span>
             <span class="brief-stage__name"><${Icon} name="rook" />${stageName}</span>
           </div>
           ${mapUrl ? html`<${Img} src=${mapUrl} class="brief-stage__map" alt=${stageName} />` : null}
-        </div>
+        </div>` : html`<div class="brief-stage has-map is-unknown" data-testid="brief-stage-unknown">
+          <div class="brief-stage__head">
+            <span class="brief-stage__k"><${MicroLabel}>BATTLEFIELD</${MicroLabel}></span>
+            <span class="brief-stage__name"><${Icon} name="rook" />${t('未知战场')}</span>
+          </div>
+          <div class="brief-stage__unknown"><div><span aria-hidden="true">?</span><em>${t('战斗开始时揭晓')}</em></div></div>
+        </div>`}
       </section>
       <section class="brief__right">
         <${MatchInfo} model=${info} />
@@ -157,7 +169,7 @@ export function BriefingScreen() {
         ${!alone && rerollN ? html`<span class="brief-ready__txt brief-ready__txt--rr" data-testid="reroll-count">${t('重新抽取')} <b class="num">${rerollN}</b><span class="num">/${voters.length}</span></span>` : null}
         <span class="brief-ready__pips">${players.map((p) => html`<i key=${p.playerId} class=${cx(p.ready && 'on', p.reroll && 'rr', p.playerId === myId && 'me')} title=${p.name}><${Icon} name=${p.reroll ? 'refresh' : 'user'} /></i>`)}</span>
       </div>
-      ${me ? html`<${Button} variant="secondary" size="xl" icon="refresh" class="brief-reroll" data-testid="info-reroll" title=${rerollTip}
+      ${me && rules.infoReroll ? html`<${Button} variant="secondary" size="xl" icon="refresh" class="brief-reroll" data-testid="info-reroll" title=${rerollTip}
         active=${!!me.reroll} loading=${busy === 'reroll' || pub.infoOutcome === 'reroll'} disabled=${(me.reroll && alone) || closing || !armed}
         onClick=${vote('reroll')}>${me.reroll && !alone ? t('取消重新抽取') : t('重新抽取')}<//>` : null}
       <${Button} variant="primary" size="xl" icon=${me?.ready ? 'check' : me ? 'play' : 'eye'} active=${!!me?.ready} loading=${busy === 'ready'}

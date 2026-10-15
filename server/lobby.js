@@ -8,8 +8,12 @@
 //     Humans and bots take the lowest free seat index; seat indexes never compact.
 //   * ▸ Being in a LOBBY room and sending room.create / room.join implicitly leaves it. While your room is
 //     in a match, create/join of another room fails with ROOM_STARTED (send g.leave or room.leave first).
-//   * Host-only: room.setDifficulty, room.setAiPicksLast, room.addBot, room.removeBot, room.kick, room.start.
-//     ▸ Changing the difficulty or the AI-picks-last option (co-op only) un-readies the other humans.
+//   * Host-only: room.setDifficulty, room.setRuleset, room.setAiPicksLast, room.addBot, room.removeBot, room.kick, room.start.
+//     ▸ Changing the difficulty, the ruleset or the AI-picks-last option (co-op only) un-readies the other humans.
+//   * 규칙 모드 (shared/ruleset.js, maintainer decision 2026-10-15): every room has a ruleset — classic (the official
+//     rules) or casual (this remake's conveniences). room.create { ruleset? } picks it (default classic), the host
+//     changes it before the match with room.setRuleset { preset } (refused while the room is matchmaking: ERR.MATCHING),
+//     room.state carries it and every match of the room (a briefing reroll's too) gets it.
 //     ▸ room.start requires every other human to be connected and ready; the host's start counts as the host's
 //     ready (the host may still toggle room.ready for display).
 //   * room.kick {seat, playerId} (community report #17, owner approved): before the match only, the host removes another
@@ -117,6 +121,7 @@ import * as localPatch from './local-patch.js'; // local patch: room chat, chat 
 import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: the 自选 picks offered
 import { KITTED_CHARS } from './sim/content/kits/index.js';
 import { Matchmaker } from './matchmaking.js';
+import { resolveRuleset } from '../shared/ruleset.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -193,6 +198,8 @@ export class Room {
      * put every human seat before every AI seat (Match opts.aiPicksLast). Kept across the room's matches.
      */
     this.aiPicksLast = false;
+    /** 규칙 모드 (shared/ruleset.js): { preset, options }, the default preset until room.create / room.setRuleset picks one */
+    this.ruleset = resolveRuleset(null);
     /** 랜덤 매칭: the room's humans wait in the queue for its empty seats (server/matchmaking.js queueRoom) */
     this.matching = false;
     /** @type {string | null} */
@@ -244,6 +251,7 @@ export class Room {
       hostId: this.hostId,
       mode: this.mode,
       difficulty: this.difficulty,
+      ruleset: this.ruleset,
       aiPicksLast: this.aiPicksLast,
       matching: this.matching,
       inMatch: !!this.match,
@@ -363,6 +371,7 @@ export class Lobby {
       case 'room.leave': return this.leave(session);
       case 'room.ready': return this.ready(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
+      case 'room.setRuleset': return this.setRuleset(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
@@ -429,7 +438,7 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty }) {
+  create(session, { mode, difficulty, ruleset }) {
     const cur = this.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     if (this.rooms.size >= this.opts.maxRooms) return fail(ERR.INTERNAL, 'too many rooms');
@@ -446,6 +455,7 @@ export class Lobby {
     if (!code) return fail(ERR.INTERNAL, 'no room code available');
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now());
+    room.ruleset = resolveRuleset(ruleset);
     room.ownerKey = key;
     room.seats[0] = this.humanSeat(0, session);
     room.hostId = session.playerId;
@@ -453,7 +463,7 @@ export class Lobby {
     session.roomCode = code;
     session.notice = null;
     session.pendingResult = null;
-    this.log.info(`[lobby] ${code} created (${mode}/${difficulty}) by ${session.name}`);
+    this.log.info(`[lobby] ${code} created (${mode}/${difficulty}/${room.ruleset.preset}) by ${session.name}`);
     this.broadcastState(room);
     return OK;
   }
@@ -558,6 +568,23 @@ export class Lobby {
     this.dropReplay(room, session.playerId);
     if (room.difficulty !== difficulty) {
       room.difficulty = difficulty;
+      for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
+  /** 규칙 모드 (header): host-only, before the match; a queued room keeps its ruleset (its queue is the ruleset's). */
+  setRuleset(session, { preset }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    const next = resolveRuleset(preset);
+    if (room.matching && room.ruleset !== next) return fail(ERR.MATCHING, 'cancel the matchmaking first');
+    this.dropReplay(room, session.playerId);
+    if (room.ruleset !== next) {
+      room.ruleset = next;
       for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
       this.broadcastState(room);
     }
@@ -769,6 +796,8 @@ export class Lobby {
         mode: room.mode,
         difficulty: room.difficulty,
         modeId: modeIdFor(room.mode, room.difficulty),
+        // 규칙 모드 (shared/ruleset.js): fixed for the match
+        ruleset: room.ruleset,
         // 「AI 队友最后选择」 (GitHub #338): fixed for the match
         aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
         seats,
@@ -791,7 +820,7 @@ export class Lobby {
       room.matchKey = key;
       room.replay = null;
       room.matchCount++;
-      this.log.info(`[lobby] ${room.code} match #${room.matchCount} starting (${room.mode}/${room.difficulty}, ${seats.length} seats, seed ${seed})`);
+      this.log.info(`[lobby] ${room.code} match #${room.matchCount} starting (${room.mode}/${room.difficulty}/${room.ruleset.preset}, ${seats.length} seats, seed ${seed})`);
       this.broadcastState(room);
       match.start();
     } catch (e) {

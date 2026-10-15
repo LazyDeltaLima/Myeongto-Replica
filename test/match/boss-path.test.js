@@ -66,8 +66,8 @@ test('simplifyPath keeps the corners; pointAt walks the polyline', () => {
   assert.equal(CURSOR.speed, 8, 'the prefab controller\'s _moveSpeed');
 });
 
-test('real match: the boss prep\'s nextEnemies leader entry carries the field\'s paths (pair: both copies)', () => {
-  const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 2, seed: 4242, fake: true }).start();
+test('real match (休闲 ruleset): the boss prep\'s nextEnemies leader entry carries the field\'s paths (pair: both copies)', () => {
+  const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 2, seed: 4242, fake: true, ruleset: 'casual' }).start();
   const m = h.m;
   m.bossId = 'boss_5';
   h.drive(() => m.phase === PHASE.PREP && m.round === m.gd.bossRound, { ready: true });
@@ -82,5 +82,17 @@ test('real match: the boss prep\'s nextEnemies leader entry carries the field\'s
   assert.deepEqual(lead.paths, want, 'the same headless run as the tool');
   assert.deepEqual(h.ps('p_1').privateView().nextEnemies.find((e) => e.boss).paths, want, 'both players see both copies');
   assert.ok(list.filter((e) => !e.boss).every((e) => !e.paths), 'escorts carry none');
+  m.dispose();
+});
+
+test('real match (经典 ruleset, the default): the boss prep sends no leader path — the preview is a 休闲 convenience', () => {
+  const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 2, seed: 4242, fake: true }).start();
+  const m = h.m;
+  m.bossId = 'boss_5';
+  h.drive(() => m.phase === PHASE.PREP && m.round === m.gd.bossRound, { ready: true });
+  m.BattleClass = Battle;
+  const lead = h.ps('p_0').privateView().nextEnemies.find((e) => e.boss);
+  assert.equal(lead.enemyKey, 'enemy_2016_csphtm', 'the leader is still previewed');
+  assert.equal(lead.paths, undefined, 'without its route');
   m.dispose();
 });

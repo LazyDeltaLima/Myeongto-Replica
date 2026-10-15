@@ -303,6 +303,13 @@
 .ailast__opt:last-child { border-right: 1px solid var(--line-2); }
 .ailast__opt .icon { opacity: .25; }
 .ailast__opt .icon.is-on { opacity: 1; }
+/* 규칙 모드 (shared/ruleset.js): the 经典 / 休闲 picker beside the 「AI 队友最后选择」 switch, in its size; the title's tag */
+.room-bar__row { display: flex; align-items: center; gap: .14rem; flex-wrap: wrap; }
+.rpick__opt { height: .36rem; padding: 0 .16rem; font-size: .15rem; letter-spacing: .04em; }
+.rpick__opt[data-ruleset='classic'] { --d-color: var(--amber); }
+.rpick__opt[data-ruleset='casual'] { --d-color: var(--mint-400); }
+.rtag { padding: .02rem .1rem; border: 1px solid currentColor; font-size: .16rem; letter-spacing: .06em; color: var(--amber); }
+.rtag--casual { color: var(--mint-400); }
 
 .ready-count[hidden] { display: none; }
 .ready-count { display: flex; align-items: baseline; gap: .06rem; font-size: .16rem; }

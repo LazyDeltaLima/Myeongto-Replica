@@ -61,9 +61,11 @@ export class MatchPhases {
    * g.infoReroll { cancel? }: the seat's 重新抽取 vote (maybeEndInfo), or with `cancel` its withdrawal (maintainer
    * decision 2026-10-12); a seat that is already ready may still vote (maintainer decision 2026-10-13). The vote is refused within INFO_REROLL_MIN_MS of the briefing's start,
    * so one held button cannot spin up matches back to back. infoRerollers keeps the voters in order: the first one still
-   * voting is the proposer the briefing names (m.public.rerollBy).
+   * voting is the proposer the briefing names (m.public.rerollBy). A 休闲 convenience (shared/ruleset.js infoReroll,
+   * maintainer decision 2026-10-15): the classic ruleset refuses the vote (BAD_TARGET; its briefing shows no button).
    */
   voteReroll(ps, cancel = false) {
+    if (!this.ruleset.options.infoReroll) return fail(ERR.BAD_TARGET, 'the ruleset has no reroll vote');
     if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return fail(ERR.WRONG_PHASE);
     if (!Array.isArray(this.infoRerollers)) this.infoRerollers = [];
     if (cancel) {

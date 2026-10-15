@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1267 of 1486 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1281 of 1499 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1501,5 +1501,18 @@
   "权利人联系": "권리자 연락",
   "如果你是相关权利人，认为本项目的任何内容不妥，请在源代码仓库提交 Issue，我们会尽快删除相关内容。": "권리자께서 이 프로젝트의 내용이 권리를 침해한다고 판단하시면 소스 저장소에 Issue를 남겨 주세요. 바로 삭제하겠습니다.",
   "源代码": "소스 코드",
-  "关于本服务器": "이 서버에 대하여"
+  "关于本服务器": "이 서버에 대하여",
+  "战场信息": "전장 정보",
+  "领袖路线预览": "리더 경로 미리보기",
+  "领袖限伤": "리더 피해 상한",
+  "经典": "클래식",
+  "休闲": "캐주얼",
+  "与官方规则相同": "공식 규칙과 같음",
+  "开启：{list}": "켜짐: {list}",
+  "关闭：{list}": "꺼짐: {list}",
+  "、": ", ",
+  "规则": "규칙",
+  "{name}：{tip}": "{name}: {tip}",
+  "未知战场": "미확인 전장",
+  "战斗开始时揭晓": "전투가 시작되면 공개됩니다"
 }
