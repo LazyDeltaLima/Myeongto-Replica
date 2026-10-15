@@ -947,6 +947,8 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   둘 다 ATK 100 % 법술. 시전 fx `enemySkill`의 `ability`가 프리팹 능력 이름(렌더가 공식 이펙트를 붙임). enemy_database 스킬 `Skill`(쿨 5·첫 2)은 프리팹에
   능력이 없어 쓰지 않는다. [ASSUMED] 행동할 수 없는 余音(기절·빙결·수면)은 합주하지 않고 SP만 함께 비워진다; 검사 자체는 상태와 무관.
 - **옛 동작**: 余音마다 `Skill` 쿨다운(첫 2 s, 이후 5 s)으로 따로 합주. 테스트 `enemies_bosses.test.js` 「“余音” 【合奏】…」·「“余音”: 10-hit unit…」.
+- SP 바 없음(2026-10-15 확인): 余音은 일반 등급(`rank` NORMAL)이라 공식도 일반 적 체력 바(`enemy_hp_slider`, SP 줄 없음)를 쓴다 — 보스 SP 바(`e.mem.lpSp`,
+  render `hud-bars.js` 보스·거대 보스만)에 안 내보내는 지금이 공식과 같다.
 - 피격 펄스(`echoHit`)는 그대로. 관·현의 일반 공격·스킬이 余音을 치는 것도 실제 피해 1회(2026-10-15, 아래 「假想敌：管·弦…」)라 SP·타수·형태 전환에 든다.
 
 ### 刺胄之弹 도착 장판 (`kitShell`·`shellZone`)
