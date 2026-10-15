@@ -5,7 +5,7 @@
 // (AutoChessBattleConst.MAX_BATTLE_DAMAGE) is cancelled: 0 damage, nothing credited to the shared pool.
 //
 // This file: the switches (shared/constants.js), the in-battle layer copy (Battle.addLayers / support.gainLayers) and
-// the hit limit in the damage pipeline (server/sim/damage.js leaderHitCancelled: dealDamage, Battle.loseHp).
+// the hit limit in the damage pipeline (server/sim/damage.js leaderHitLimit: dealDamage, Battle.loseHp).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,7 +19,7 @@ import { buildBossWave, setupMatchWaves } from '../../server/match/waves.js';
 import { createRng } from '../../server/sim/rng.js';
 import { GEO } from '../../shared/constants.js';
 import { getData } from '../../server/data.js';
-import { leaderHitCancelled } from '../../server/sim/damage.js';
+import { leaderHitLimit } from '../../server/sim/damage.js';
 import { abOf } from '../../server/sim/content/enemies.js';
 
 const DATA = getData({ log: { warn() {}, error() {}, info() {} } });
@@ -154,6 +154,22 @@ test('限伤: a leader\'s hit of 299999 lands, 300000 deals 0 — nothing credit
   assert.equal(b.dealDamage(op, leader, { amount: 5e6, type: 'true' }), 0, 'a whole pool in one hit is cancelled too');
   assert.ok(leader.alive);
   assert.equal(pool.hp, 5e6 - (LIMIT - 1));
+});
+
+test('限伤 with the 休闲 ruleset\'s flags.bossHitClamp (maintainer decision 2026-10-15): a hit of ≥ 300000 lands as 300000, no hitCap', () => {
+  const pool = new SharedBossPool(5e6);
+  const { h, b, leader, op } = hitField({ pool });
+  b.flags.bossHitClamp = true;
+  assert.equal(b.dealDamage(op, leader, { amount: LIMIT - 1, type: 'true' }), LIMIT - 1, 'under the line: unchanged');
+  const near = b.dealDamage(op, leader, { amount: 299999.2, type: 'true' });
+  assert.ok(Math.abs(near - 299999.2) < 1e-6, `ceil reaches the line: never raised (${near})`);
+  assert.equal(b.dealDamage(op, leader, { amount: 5e6, type: 'true' }), LIMIT, 'a whole pool in one hit lands as the limit');
+  assert.ok(leader.alive);
+  const dealt = (LIMIT - 1) + 299999.2 + LIMIT;
+  assert.ok(Math.abs(pool.hp - (5e6 - dealt)) < 1e-6, `pool ${pool.hp}`);
+  assert.ok(Math.abs(pool.byPlayer.get('P') - dealt) < 1e-6, 'credited as dealt');
+  assert.equal(b.loseHp(leader, 1e6, { source: op }), LIMIT, 'a loss passed on to a leader is clamped the same way');
+  assert.equal(capEvents(h).length, 0, 'nothing was cancelled');
 });
 
 test('限伤: the check is ceil(final damage) — 299999.2 rounds up to the line and is cancelled, 299999 exactly lands', () => {
@@ -326,9 +342,9 @@ for (const [bossId, hidden] of [['boss_1', false], ['boss_5', false], ['boss_8',
     if (hidden && bossId !== 'boss_10') assert.ok(parts.length > 0, 'the parts spawned');
     for (const p of parts) {
       assert.equal(p.isBoss, false);
-      assert.equal(leaderHitCancelled(b, p, 1e7), false, `part ${p.defId} is no leader`);
+      assert.equal(leaderHitLimit(b, p, 1e7), 1e7, `part ${p.defId} is no leader`);
     }
-    for (const m of b.enemies.filter((e) => e.alive && !e.isBoss && e.tag !== 'part')) assert.equal(leaderHitCancelled(b, m, 1e7), false, m.defId);
+    for (const m of b.enemies.filter((e) => e.alive && !e.isBoss && e.tag !== 'part')) assert.equal(leaderHitLimit(b, m, 1e7), 1e7, m.defId);
   });
 }
 

@@ -4,7 +4,8 @@
 //   targeting.js evadesGround; not `ignoreSelect` damage: no selection, e.g. a debuff's tick) → 'hit' hook (mutable DamageInfo, may set cancel)
 //   → dodge (phys/arts, canDodge) → mitigation (phys: DEF, arts: RES, true: none)
 //   → × source dmgDealtMul (× phys/artsDealtMul) × target dmgTakenMul (not for 元素伤害) × type-taken mul × dmg.mul
-//   → 限伤 (leaders in boss / hidden battles: a hit of ceil(final) ≥ BOSS_HIT_LIMIT is cancelled, see leaderHitCancelled)
+//   → 限伤 (leaders in boss / hidden battles: a hit of ceil(final) ≥ BOSS_HIT_LIMIT is cancelled — 休闲: lands as
+//   BOSS_HIT_LIMIT — see leaderHitLimit)
 //   → shields (hit-negating barriers first, then HP shields; a typed one — buff `shieldType` — only its damage type)
 //   → 'hpDamage' hook (what passed the shields; handlers may only lower `amount`: the 伤判效果 that act after a
 //   barrier — 煌's 紧急除颤 HP floor, 左乐's 庇护 re-applied after his 行险 barrier) → HP loss (boss pool routing)
@@ -184,24 +185,25 @@ export function mitigate(amount, type, target, ign = {}) {
 /**
  * 限伤 — the official boss-hit limit (shared/constants.js BOSS_HIT_LIMIT, docs/research/11-limits-official.md §2;
  * client `AutoChessStepModeManager._OnBossEnemyTakeDamage`: `d = ceil(value); if (d >= 300000) modifier.Cancel()`).
- * True when the hit of `amount` HP about to land on `target` is cancelled: the target is a leader (`isBoss`: the
- * tag-'boss' units — data/bosses.json enemyKey, the official IsBossEnemy list — and their mirrored copies; never a part,
- * escort, drone or other minion), the battle is a boss / hidden one (the client's step mode: every boss battle outside
- * training) and ceil(amount) ≥ BOSS_HIT_LIMIT — unless the battle's `flags.noBossHitLimit` is set (the 休闲 ruleset,
- * shared/ruleset.js; maintainer decision 2026-10-15). The cancel is whole (no clamp): no HP / pool loss, no credit, no damage
- * number. A 'hitCap' fx event `{ id, n: ceil(amount) }` marks it for the client, which draws nothing — the official
- * shows no number [ASSUMED]. Every HP-damage kind is checked as the official `modifier.isDamage` (phys, arts, true,
- * 元素伤害 incl. element bursts, DoT ticks — they all come through dealDamage — and losses passed on to a leader through
- * Battle.loseHp, except the 胄 drone link's pool share: `noHitLimit`, DESIGN §25.13.4); element 损伤 (gauge fill,
- * 'element') removes no HP and is never checked. Deterministic (Math.ceil of the same double on every engine).
+ * Returns the HP of the hit of `amount` about to land on `target` that does land: `amount` unless the target is a leader
+ * (`isBoss`: the tag-'boss' units — data/bosses.json enemyKey, the official IsBossEnemy list — and their mirrored copies;
+ * never a part, escort, drone or other minion), the battle is a boss / hidden one (the client's step mode: every boss
+ * battle outside training) and ceil(amount) ≥ BOSS_HIT_LIMIT. Such a hit is cancelled whole (0: no HP / pool loss, no
+ * credit, no damage number); a 'hitCap' fx event `{ id, n: ceil(amount) }` marks it for the client, which draws nothing —
+ * the official shows no number [ASSUMED]. With the battle's `flags.bossHitClamp` (the 休闲 ruleset, shared/ruleset.js;
+ * maintainer decision 2026-10-15) it lands as BOSS_HIT_LIMIT instead — not in the official game — and no event is sent.
+ * Every HP-damage kind is checked as the official `modifier.isDamage` (phys, arts, true, 元素伤害 incl. element bursts,
+ * DoT ticks — they all come through dealDamage — and losses passed on to a leader through Battle.loseHp, except the 胄
+ * drone link's pool share: `noHitLimit`, DESIGN §25.13.4); element 损伤 (gauge fill, 'element') removes no HP and is
+ * never checked. Deterministic (Math.ceil of the same double on every engine).
  */
-export function leaderHitCancelled(battle, target, amount) {
-  if (!(BOSS_HIT_LIMIT > 0) || !target || !target.isBoss || (battle.kind !== 'boss' && battle.kind !== 'hidden')) return false;
-  // 규칙 모드 休闲 (shared/ruleset.js bossHitLimit off → spec.flags.noBossHitLimit): no 限伤
-  if (battle.flags && battle.flags.noBossHitLimit === true) return false;
-  if (!(Math.ceil(amount) >= BOSS_HIT_LIMIT)) return false;
+export function leaderHitLimit(battle, target, amount) {
+  if (!(BOSS_HIT_LIMIT > 0) || !target || !target.isBoss || (battle.kind !== 'boss' && battle.kind !== 'hidden')) return amount;
+  if (!(Math.ceil(amount) >= BOSS_HIT_LIMIT)) return amount;
+  // 규칙 모드 休闲 (shared/ruleset.js bossHitClamp → spec.flags.bossHitClamp): the hit lands as BOSS_HIT_LIMIT
+  if (battle.flags && battle.flags.bossHitClamp === true) return Math.min(amount, BOSS_HIT_LIMIT);
   battle.fx('hitCap', { x: target.x, y: target.y, id: target.id, n: Math.ceil(amount) });
-  return true;
+  return 0;
 }
 
 /**
@@ -304,8 +306,12 @@ export function dealDamage(battle, source, target, dmgIn) {
   // (lpExpectDiv: a hit-time ATK rise a kit marks as not expected — 锏's 天生的武者 165 %, maintainer video 2026-10-07: every S3 slash red)
   dmg.lpNum = damageNumberFlag(dmg, ss, mitigate(dmg.amount / (dmg.lpExpectDiv || 1), type, ts, { elementalRes: type === 'elemental' ? (target.def?.epDamageResistance ?? 0) : 0 }), final);
   // 限伤: a leader's hit of ≥ BOSS_HIT_LIMIT in a boss / hidden battle is cancelled before it reaches shields / HP — what
-  // ran before it (the attack, its SP, `hit` hook effects, separate element 损伤) stays; nothing after it happens
-  if (final > 0 && leaderHitCancelled(battle, target, final)) return 0;
+  // ran before it (the attack, its SP, `hit` hook effects, separate element 损伤) stays; nothing after it happens.
+  // 休闲 (flags.bossHitClamp): it goes on as BOSS_HIT_LIMIT
+  if (final > 0) {
+    final = leaderHitLimit(battle, target, final);
+    if (!(final > 0)) return 0;
+  }
   const lpShield = {}, lpBefore = final; // local patch: a red number stopped by a shield → blue / BLOCK (local-hud.js)
   final = absorbShields(battle, target, final, type, lpShield);
   if (lpBefore > 0 && !(final > 0)) blockedEvent(battle, target, lpBefore, dmg.lpNum, lpShield.key); // local patch

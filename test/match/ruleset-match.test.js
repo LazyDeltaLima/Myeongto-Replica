@@ -1,19 +1,19 @@
 // test/match/ruleset-match.test.js — 규칙 모드 on the real match path (shared/ruleset.js): the match carries its ruleset in
-// m.public, and the 休闲 ruleset lifts 限伤 — the same 999-layer 炎 Final Assault + Hidden Core as
-// test/match/playtest6-limits.test.js (where classic cancels every leader hit of ≥ 300000) lands those hits and credits
-// them to the shared pool.
+// m.public, and the 休闲 ruleset relaxes 限伤 — the same 999-layer 炎 Final Assault + Hidden Core as
+// test/match/playtest6-limits.test.js (where classic cancels every leader hit of ≥ 300000) lands those hits as 300000
+// and credits them to the shared pool.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE, BOSS_HIT_LIMIT } from '../../shared/constants.js';
 import { Battle } from '../../server/sim/Battle.js';
 import { makeMatch, give, legalTileFor } from './harness.js';
 
-test('m.public.ruleset: the match ruleset (classic without one, casual when given); boss battles get noBossHitLimit only in casual', () => {
+test('m.public.ruleset: the match ruleset (classic without one, casual when given); boss battles get bossHitClamp only in casual', () => {
   for (const [ruleset, preset] of [[undefined, 'classic'], ['casual', 'casual'], [{ preset: 'casual' }, 'casual'], ['bogus', 'classic']]) {
     const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 3, fake: true, ruleset }).start();
     const pub = h.m.publicView();
     assert.equal(pub.ruleset.preset, preset, String(ruleset));
-    assert.equal(typeof pub.ruleset.options.bossHitLimit, 'boolean');
+    assert.equal(typeof pub.ruleset.options.bossHitClamp, 'boolean');
     h.m.dispose();
   }
 });
@@ -47,7 +47,7 @@ function recordingBattleClass(log) {
   };
 }
 
-test('casual: a 999-layer 炎 board\'s leader hits of ≥ 300000 land and reach the shared pool (no 限伤)', () => {
+test('casual: a 999-layer 炎 board\'s leader hits of ≥ 300000 land as 300000 and reach the shared pool (限伤 clamps)', () => {
   const h = makeMatch({ mode: 'solo', difficulty: 'HARD', seed: 76, fake: true, captureFrames: false, ruleset: 'casual',
     script: (b) => (b.kind === 'normal' ? { duration: 1 } : {}) });
   const m = h.m;
@@ -76,10 +76,12 @@ test('casual: a 999-layer 炎 board\'s leader hits of ≥ 300000 land and reach 
   assert.ok(h.ended, `the match ended (${m.phase} R${m.round})`);
   assert.ok(log.length >= 1, 'a real boss field ran');
   for (const rec of log) {
-    assert.equal(rec.battle.flags.noBossHitLimit, true, `${rec.kind}: the battle got the flag`);
+    assert.equal(rec.battle.flags.bossHitClamp, true, `${rec.kind}: the battle got the flag`);
     assert.equal(rec.caps, 0, `${rec.kind}: nothing was cancelled`);
-    assert.ok(rec.leaderHits.some((a) => Math.ceil(a) >= BOSS_HIT_LIMIT), `${rec.kind}: a hit of ≥ 300000 landed (max ${Math.max(0, ...rec.leaderHits)})`);
-    assert.ok(rec.credits.some((a) => a >= BOSS_HIT_LIMIT), `${rec.kind}: and reached the shared pool`);
+    const max = Math.max(0, ...rec.leaderHits);
+    assert.equal(max, BOSS_HIT_LIMIT, `${rec.kind}: the big hits landed as exactly 300000 (max ${max})`);
+    assert.ok(rec.credits.some((a) => a === BOSS_HIT_LIMIT), `${rec.kind}: and reached the shared pool`);
+    assert.ok(rec.credits.every((a) => a <= BOSS_HIT_LIMIT), `${rec.kind}: no credit above the limit`);
     assert.equal(rec.battle.reason, 'cleared');
   }
   assert.equal(h.ended.victory, true);

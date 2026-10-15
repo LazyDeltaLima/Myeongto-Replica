@@ -102,7 +102,7 @@ export class MatchBoss {
         routes: wave.routes,
         sharedBoss: this.bossPool,
         // the round's enemy effects for the leaders' mid-fight summons (server/sim/content/bosses.js summonMods); the
-        // ruleset's sim options (shared/ruleset.js simRuleFlags: 休闲 → noBossHitLimit; none in classic)
+        // ruleset's sim options (shared/ruleset.js simRuleFlags: 休闲 → bossHitClamp; none in classic)
         flags: { layerGainsEnabled: false, ...this.gd.dp, enemyScale: this.gd.enemyScale(this.round), ...simRuleFlags(this.ruleset) },
         fieldId,
         enemyOverrides: wave.overrides,

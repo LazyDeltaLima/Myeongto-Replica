@@ -794,12 +794,13 @@ PRTS 异常效果: 无法选择 effects "仅在选择时生效"); checked before
 `max(A − max(0, D×(1−defIgnorePct) − defIgnoreFlat), 5 %A)`, arts `max(A×(1 − R′/100), 5 %A)`, elemental
 `max(A×(1 − 元素抗性/100), 5 %A)`, true = A; source ignore mods are added) → × source `dmgDealtMul` (× phys/artsDealtMul)
 × target `dmgTakenMul` (not for elemental) × type-taken mul × `dmg.mul` (a `sourceless` hit skips every source term) →
-**限伤** (`leaderHitCancelled`: on a leader — `isBoss`, the tag-'boss' units: data/bosses.json `enemyKey`, the official
+**限伤** (`leaderHitLimit`: on a leader — `isBoss`, the tag-'boss' units: data/bosses.json `enemyKey`, the official
 `IsBossEnemy` list, and their mirrored copies; never parts, escorts, drones — in a `'boss'` / `'hidden'` battle, a hit
 with `ceil(final) ≥ BOSS_HIT_LIMIT` (300000, shared/constants.js) is cancelled whole: returns 0 before shields (阿利斯泰尔's
 `boss:vest` barrier stays untouched; a `hit`-step block such as 假想敌：再生's aura acts earlier) [ASSUMED order], no HP /
 pool loss, no credit or stats, no `dmg` event, no `damaged` / `fatal` / kill; an fx `hitCap` `{ id, n }` marks it and
-draws nothing; none of it when the battle's `flags.noBossHitLimit` is set — the casual ruleset, shared/ruleset.js; research 11) → shields (a typed one — buff `shieldType` — only for its damage type) → **`hpDamage`** (what
+draws nothing; with the battle's `flags.bossHitClamp` — the casual ruleset, shared/ruleset.js, not in the official game — such a hit lands as
+BOSS_HIT_LIMIT instead and no `hitCap` is sent; research 11) → shields (a typed one — buff `shieldType` — only for its damage type) → **`hpDamage`** (what
 passed the shields; a handler may only lower `amount` — the 伤判效果 that act after a barrier: 煌's 紧急除颤 HP floor, PRTS
 备注 "该伤害减少(伤害值-煌当前生命值+煌最大生命值×50%)点"; 左乐's 庇护 re-applied after his 行险 barrier; never for a 流失) → HP loss
 (boss units: routed to `sharedBoss.damage(playerId, amount)`; a pool left under 1 HP is emptied) → if HP ≤ 0: **`fatal`** (`ctx.prevented = true` keeps the

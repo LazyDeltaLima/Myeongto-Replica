@@ -1497,7 +1497,7 @@
   "关于本服务器": "About this server",
   "战场信息": "Battlefield info",
   "移动型领袖路线预览": "Walking leader route preview",
-  "领袖限伤": "Leader damage cap",
+  "领袖限伤放宽": "Relaxed leader damage cap",
   "经典": "Classic",
   "休闲": "Casual",
   "与官方规则相同": "Same as the official rules",
@@ -1507,7 +1507,7 @@
   "规则": "Rules",
   "【{name}】{tip}": "[{name}] {tip}",
   "※ {label} — {note}": "※ {label} — {note}",
-  "对敌方领袖单次造成 {n} 以上的伤害会整个无效": "a single hit of {n} or more on an enemy leader is voided entirely",
+  "对敌方领袖单次造成 {n} 以上的伤害在官方规则下整个无效，放宽后按 {n} 计算": "a single hit of {n} or more on an enemy leader is voided entirely under the official rules; relaxed, it counts as {n}",
   "未知战场": "Unknown battlefield",
   "战斗开始时揭晓": "Revealed when the battle starts"
 }

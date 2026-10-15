@@ -1200,9 +1200,10 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   건너뛰고 조끼·충격식을 쓰며, 검만 있으면 발동하지 않고 검은 남는다; 주기가 왔는데 고를 것이 없으면 고를 수 있게 되는 즉시 발동(클라는 트리거형)
   [ASSUMED 주기 자체는 그대로]. 옛 동작: 사거리와 무관하게 가장 최근 장비 — 아무도 없을 때 검이 헛돌고 사라졌다. 테스트 「阿利斯泰尔 莫非王土 order…」 2건.
 
-## 캐주얼 규칙 모드의 리더 피해 상한 (2026-10-15, 관리자 결정)
-- 공식 限伤(보스전·숨겨진 핵심에서 리더에게 들어가는 `ceil(최종 피해) ≥ 300000`의 한 방은 통째로 무효, `server/sim/damage.js leaderHitCancelled`, `docs/research/11-limits-official.md` §2)은 클래식 규칙 모드에서 그대로다.
-  캐주얼 규칙 모드는 이 상한을 없앤다(관리자 결정 2026-10-15, `ui.md` 「규칙 모드 — 클래식·캐주얼」): 보스전 spec의 `flags.noBossHitLimit`(`shared/ruleset.js simRuleFlags`)가 있으면 `leaderHitCancelled`가 아무것도 막지 않아, 큰 한 방이 리더 HP와 공유 풀에 그대로 들어가고 공로·BOSS_HIT 방송도 그대로 센다.
+## 캐주얼 규칙 모드의 리더 피해 상한 완화 (2026-10-15, 관리자 결정)
+- 공식 限伤(보스전·숨겨진 핵심에서 리더에게 들어가는 `ceil(최종 피해) ≥ 300000`의 한 방은 통째로 무효, `server/sim/damage.js leaderHitLimit`, `docs/research/11-limits-official.md` §2)은 클래식 규칙 모드에서 그대로다.
+  캐주얼 규칙 모드는 이 상한을 무효 대신 절삭으로 바꾼다(관리자 결정 2026-10-15, `ui.md` 「규칙 모드 — 클래식·캐주얼」; 공식에는 없는 규칙): 보스전 spec의 `flags.bossHitClamp`(`shared/ruleset.js simRuleFlags`)가 있으면 `leaderHitLimit`가 그런 한 방을 `min(피해, 300000)`으로 들여보낸다 — 리더 HP·공유 풀에 300,000이 들어가고 공로·BOSS_HIT 방송도 그 값으로 센다. 30만 아래의 한 방은 그대로, `ceil`이 선에 닿는 299999.2 같은 값도 올리지 않는다. 판정 위치는 클래식과 같다(모든 배율 뒤, 보호막 앞; 부위가 넘기는 `loseHp`도 같음, 胄 드론 연결 몫은 예외). 무효가 아니므로 `hitCap` fx는 보내지 않는다.
+  같은 날 처음 구현은 상한을 아예 껐다(큰 한 방이 그대로 들어감); 관리자 결정으로 같은 릴리스 안에서 절삭으로 바꿨다.
 - 플래그는 공식 값과 다를 때만 붙어 클래식 보스전의 spec은 바뀌지 않는다. 브라우저 전투(`clientCombat`)와 서버 검증이 같은 spec을 읽는다.
-- 확인: `test/match/ruleset-match.test.js`(실제 판, 999층 炎 보드 + 피해 ×2000: 최종 공세·숨겨진 핵심 모두 30만 이상 타격이 들어가고 `hitCap` 0), 클래식은 그대로 `test/match/playtest6-limits.test.js`.
+- 확인: `test/match/ruleset-match.test.js`(실제 판, 999층 炎 보드 + 피해 ×2000: 최종 공세·숨겨진 핵심 모두 리더가 받은 가장 큰 한 방이 정확히 300000, 공유 풀 공로도 300000을 넘지 않고 `hitCap` 0), `test/sim/playtest6_limits.test.js` 「限伤 with the 休闲 ruleset's flags.bossHitClamp」(299999 그대로 · 299999.2 그대로 · 500만 → 300000 · `loseHp`도 절삭), 클래식은 그대로 `test/match/playtest6-limits.test.js`.
 

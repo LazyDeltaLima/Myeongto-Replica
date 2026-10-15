@@ -86,7 +86,7 @@ describe('room ruleset (lobby)', () => {
     const b = await pool.player('B');
     const cs = await createRoom(b, { ruleset: 'casual' });
     assert.equal(presetOf(cs), 'casual');
-    assert.equal(cs.ruleset.options.bossHitLimit, false);
+    assert.equal(cs.ruleset.options.bossHitClamp, true);
     const s = await pool.player('S');
     const solo = await createRoom(s, { ruleset: 'casual' }, 'solo');
     assert.equal(presetOf(solo), 'casual');

@@ -30,14 +30,14 @@ test('classic is every official value, casual every casual value; both list ever
   assert.deepEqual(Object.keys(casual.options).sort(), Object.keys(RULE_OPTIONS).sort());
 });
 
-test('the casual preset turns on the maintainer-chosen conveniences and lifts 限伤 (maintainer decision 2026-10-15)', () => {
+test('the casual preset turns on the maintainer-chosen conveniences and relaxes 限伤 to a clamp (maintainer decision 2026-10-15)', () => {
   const { options } = resolveRuleset('casual');
   assert.equal(options.battlefieldInfo, true);
   assert.equal(options.infoReroll, true);
   assert.equal(options.bossRoutePreview, true);
-  assert.equal(options.bossHitLimit, false);
+  assert.equal(options.bossHitClamp, true);
   const c = resolveRuleset('classic').options;
-  assert.deepEqual([c.battlefieldInfo, c.infoReroll, c.bossRoutePreview, c.bossHitLimit], [false, false, false, true]);
+  assert.deepEqual([c.battlefieldInfo, c.infoReroll, c.bossRoutePreview, c.bossHitClamp], [false, false, false, false]);
 });
 
 test('presets: menu order, labels, default classic; anything unknown resolves to the default; results are shared frozen objects', () => {
@@ -59,7 +59,7 @@ test('matchmaking key = the preset; sim flags only where a preset leaves the off
   assert.equal(rulesetKey(null), 'classic');
   assert.deepEqual(simRuleFlags('classic'), {}, 'a classic battle spec is unchanged');
   assert.deepEqual(simRuleFlags(null), {});
-  assert.deepEqual(simRuleFlags('casual'), { noBossHitLimit: true });
+  assert.deepEqual(simRuleFlags('casual'), { bossHitClamp: true });
 });
 
 test('the switch tooltip: one line per preset without a colon inside, then the 限伤 footnote with BOSS_HIT_LIMIT', async () => {
@@ -68,9 +68,9 @@ test('the switch tooltip: one line per preset without a colon inside, then the �
   const lines = rulesetTips().split('\n');
   assert.equal(lines.length, RULE_PRESETS.length + 1);
   assert.equal(lines[0], '【经典】与官方规则相同');
-  assert.equal(lines[1], '【休闲】使用战场信息、重新抽取、移动型领袖路线预览 · 没有领袖限伤');
+  assert.equal(lines[1], '【休闲】使用战场信息、重新抽取、移动型领袖路线预览、领袖限伤放宽');
   for (const l of lines) assert.ok(!/[:：]/.test(l), `no colon in ${l}`);
-  assert.ok(lines[2].startsWith('※ 领袖限伤 — ') && lines[2].includes(BOSS_HIT_LIMIT.toLocaleString('en-US')), lines[2]);
+  assert.ok(lines[2].startsWith('※ 领袖限伤放宽 — ') && lines[2].includes(BOSS_HIT_LIMIT.toLocaleString('en-US')), lines[2]);
 });
 
 test("the room's 匹配补位 button shows its own queue's waiting count (difficulty × ruleset)", async () => {

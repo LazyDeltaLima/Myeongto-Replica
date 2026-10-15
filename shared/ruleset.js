@@ -3,7 +3,7 @@
 //
 //   classic (经典)  every option at its official value — the official mode as it was
 //   casual  (休闲)  the conveniences on: the briefing's battlefield card, its 重新抽取 vote, the boss route preview, and
-//                   no 限伤 on leaders
+//                   a relaxed 限伤 on leaders (a hit over the limit lands as the limit instead of being cancelled)
 //
 // RULE_OPTIONS is the one table of options. Every option has its official value and its casual value; the classic preset
 // is derived from the official values, so a new option keeps classic official by construction. A later 'custom' preset
@@ -34,9 +34,10 @@ export const RULE_OPTIONS = Object.freeze({
   infoReroll: Object.freeze({ official: false, casual: true, scope: 'match', label: N_('重新抽取') }),
   // the walking leader's route in the boss rounds' prep (server/match/bossPath.js); not in the official game
   bossRoutePreview: Object.freeze({ official: false, casual: true, scope: 'match', label: N_('移动型领袖路线预览') }),
-  // 限伤: a hit of ≥ BOSS_HIT_LIMIT on a leader in a boss battle is cancelled (server/sim/damage.js leaderHitCancelled)
-  bossHitLimit: Object.freeze({ official: true, casual: false, scope: 'sim', label: N_('领袖限伤'), flag: 'noBossHitLimit',
-    note: N_('对敌方领袖单次造成 {n} 以上的伤害会整个无效'), noteN: BOSS_HIT_LIMIT }),
+  // 限伤: a hit of ≥ BOSS_HIT_LIMIT on a leader in a boss battle is cancelled (server/sim/damage.js leaderHitLimit); this
+  // option lands it as BOSS_HIT_LIMIT instead, which the official game never does
+  bossHitClamp: Object.freeze({ official: false, casual: true, scope: 'sim', label: N_('领袖限伤放宽'), flag: 'bossHitClamp',
+    note: N_('对敌方领袖单次造成 {n} 以上的伤害在官方规则下整个无效，放宽后按 {n} 计算'), noteN: BOSS_HIT_LIMIT }),
 });
 
 /** The presets a room may pick, in menu order. */
