@@ -420,7 +420,7 @@ export const C2S = {
   'room.removeSpectator': { playerId: isId },
   // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue of four; queue = alone, queueRoom = the host queues
   // the co-op room's humans for its empty seats, unqueue leaves (a room: the whole room), queueAccept answers room.matchFound
-  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v) },
+  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isRulePreset, $optional: ['ruleset'] },
   'room.queueRoom': {},
   'room.unqueue': {},
   'room.queueAccept': { accept: isBool },
@@ -489,9 +489,10 @@ export const C2S = {
 export const S2C = [
   'welcome', 'ok', 'error', 'pong',
   'room.state', 'room.closed',
-  // 랜덤 매칭: room.queueState { queued, difficulty, count?, waitedMs?, party?, reason?, by? } · room.matchFound
-  // { difficulty, players, accepted, mine, inMs }
-  'room.queueState', 'room.matchFound',
+  // 랜덤 매칭: room.queueState { queued, difficulty, ruleset, count?, waitedMs?, party?, reason?, by? } · room.matchFound
+  // { difficulty, ruleset, players, accepted, mine, inMs } · lobby.queueCounts { counts: { [ruleset]: { [difficulty]: n } } }
+  // (the waiting Doctors of every queue, server/matchmaking.js)
+  'room.queueState', 'room.matchFound', 'lobby.queueCounts',
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',
   // m.layer { playerId, bondId, add } — the player's own bond layer gain in ROUND_START / SP_DRAFT / PREP (upstream #482:
   // the layer-up sound); live only, never replayed on a resync

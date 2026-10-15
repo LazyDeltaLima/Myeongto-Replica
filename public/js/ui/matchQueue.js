@@ -6,7 +6,11 @@
 // (room.matchFound, its own countdown). The match's room.state closes it (the room / game screen follows); a welcome
 // that starts a new server session forgets it (the server's queue is gone).
 //
-// store ui.queue: null, or { difficulty, count, since, party, found } — since in this page's clock; party = queued with
+// The queues are per difficulty AND 规则 모드 (shared/ruleset.js; maintainer decision 2026-10-15): room.queue carries the
+// lobby's ruleset, the dialogs name it, and every Doctor in the lobby gets the waiting counts of every queue
+// (lobby.queueCounts → store ui.queueCounts, shown by screens/lobby.js through ui/ruleset.js).
+//
+// store ui.queue: null, or { difficulty, ruleset, count, since, party, found } — since in this page's clock; party = queued with
 // the room; found: null or { players, accepted, mine, deadline, total } (deadline in server time for components.js
 // Countdown, total = the window's seconds for its gauge).
 //
@@ -22,6 +26,7 @@ import { net } from '../net.js';
 import { store, useStore, serverNow } from '../store.js';
 import { audio } from '../audio.js';
 import { t, N_ } from '../../../shared/i18n.js';
+import { presetName } from './ruleset.js';
 
 /**
  * Why the server took the player out of the queue (room.queueState queued:false reason); 'left' / 'declined' say
@@ -104,14 +109,14 @@ export function installMatchQueue({ net: n = net } = {}) {
     }
     // back in the queue from a group: someone did not accept
     if (prev?.found) toast(t('有博士未接受，继续匹配'), 'info');
-    setQueue({ difficulty: msg.difficulty, count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), party: !!msg.party, found: null });
+    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), party: !!msg.party, found: null });
   });
   n.on('room.matchFound', (msg) => {
     const prev = store.get().ui.queue;
     cue(queueCue('room.matchFound', prev, msg));
     if (!prev?.found) flashTitle(t('匹配成功'));
     setQueue({
-      ...(prev || { difficulty: msg.difficulty, count: msg.players, since: Date.now(), party: false }),
+      ...(prev || { difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, count: msg.players, since: Date.now(), party: false }),
       found: { players: msg.players, accepted: msg.accepted, mine: !!msg.mine, deadline: serverNow() + msg.inMs,
         total: prev?.found?.total ?? Math.max(1, Math.ceil(msg.inMs / 1000)) },
     });
@@ -122,6 +127,8 @@ export function installMatchQueue({ net: n = net } = {}) {
     if (q && (!q.party || msg.inMatch || !msg.matching)) setQueue(null);
   });
   n.on('room.closed', () => { if (store.get().ui.queue?.party) setQueue(null); });
+  // the waiting Doctors of every queue (the lobby's 同盟匹配 card): { [ruleset]: { [difficulty]: n } }
+  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: msg.counts && typeof msg.counts === 'object' ? msg.counts : null }));
   n.on('welcome', (msg) => { if (!msg.resumed && store.get().ui.queue) setQueue(null); });
   // while queued the page's audio stays up in a hidden tab; the title blink ends with its group
   store.subscribe((s, prev) => {
@@ -132,8 +139,8 @@ export function installMatchQueue({ net: n = net } = {}) {
   });
 }
 
-/** room.queue for the difficulty (the lobby's 开始匹配 button). @returns {Promise<any>} */
-export const joinQueue = (difficulty) => net.request('room.queue', { difficulty });
+/** room.queue for the difficulty and ruleset (the lobby's 开始匹配 button). @returns {Promise<any>} */
+export const joinQueue = (difficulty, ruleset) => net.request('room.queue', ruleset ? { difficulty, ruleset } : { difficulty });
 
 /** m:ss of a waiting time. */
 export const mmss = (ms) => {
@@ -156,7 +163,7 @@ export function MatchQueueDialog() {
     try { await net.request(msg.t, msg); } catch (err) { toastError(err); } finally { setBusy(null); }
   };
   const cancel = () => run('cancel', { t: 'room.unqueue' });
-  const name = t(DIFFICULTY_NAMES[queue.difficulty] || queue.difficulty);
+  const name = t(DIFFICULTY_NAMES[queue.difficulty] || queue.difficulty) + (queue.ruleset ? ` · ${presetName(queue.ruleset)}` : '');
 
   if (queue.found) {
     const f = queue.found;

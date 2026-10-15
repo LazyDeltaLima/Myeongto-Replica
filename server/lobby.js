@@ -326,6 +326,7 @@ export class Lobby {
    * @param {{ resumed: boolean, repeat: boolean }} info
    */
   onHello(session, { resumed, repeat }) {
+    if (!this.roomOf(session)?.match) this.sendQueueCounts(session); // the lobby's matchmaking counts (matchmaking.js header)
     if (!resumed && !repeat) return;
     this.queue.onResume(session);
     const room = this.roomOf(session);
@@ -572,6 +573,23 @@ export class Lobby {
       this.broadcastState(room);
     }
     return OK;
+  }
+
+  /**
+   * lobby.queueCounts (server/matchmaking.js header) to every connected session outside a running match.
+   * @param {Record<string, Record<string, number>>} counts
+   */
+  broadcastQueueCounts(counts) {
+    const frame = encode({ t: 'lobby.queueCounts', counts });
+    for (const session of this.registry.all()) {
+      if (!session.connected || this.roomOf(session)?.match) continue;
+      sendRaw(session.ws, frame);
+    }
+  }
+
+  /** lobby.queueCounts to one session (hello, back from a match). @param {any} session */
+  sendQueueCounts(session) {
+    if (session && session.connected) sendSession(session, { t: 'lobby.queueCounts', counts: this.queue.counts() });
   }
 
   /** 규칙 모드 (header): host-only, before the match; a queued room keeps its ruleset (its queue is the ruleset's). */
@@ -853,6 +871,8 @@ export class Lobby {
     setImmediate(() => this.disposeMatchCtx(ctx));
     this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended`);
     localPatch.onMatchEnd(this, room); // local patch: chat factions last one match
+    // back outside a match: the matchmaking counts they missed while playing (matchmaking.js header)
+    if (!vote) for (const s of room.activeHumans()) this.sendQueueCounts(this.registry.byId(s.playerId));
     this.generation?.onMatchEnd(room); // a draining server keeps this room for its settlement screen
     for (let i = 0; i < room.seats.length; i++) {
       const s = room.seats[i];

@@ -5,20 +5,25 @@
 // a queued room, a room's disposal, shutdown).
 //
 // Rules (maintainer decisions 2026-10-13):
-//   * One queue per difficulty, co-op only. Its entries are single players or rooms ("parties"):
-//     - room.queue { difficulty } queues the player alone (switching difficulty moves the entry to the back of the other
-//       queue); a player in a LOBBY room leaves the room (like room.create), one whose room is in a match is refused
-//       (ROOM_STARTED).
+//   * One queue per difficulty and 규칙 모드 (shared/ruleset.js rulesetKey; maintainer decision 2026-10-15: the players of
+//     a match share the room's rules), co-op only. Its entries are single players or rooms ("parties"):
+//     - room.queue { difficulty, ruleset? } queues the player alone (ruleset absent = the default, classic; switching
+//       either moves the entry to the back of the other queue); a player in a LOBBY room leaves the room (like
+//       room.create), one whose room is in a match is refused (ROOM_STARTED).
 //     - room.queueRoom {} (the host of a co-op LOBBY room with 1–3 humans) queues the room's humans together for the
-//       room's difficulty, under the gate of room.start: every other human connected and ready (NOT_READY). The room's
+//       room's difficulty and ruleset, under the gate of room.start: every other human connected and ready (NOT_READY). The room's
 //       AI seats are freed (matchmaking fills the seats with humans only). While the room is queued (room.state
-//       `matching`) nobody may join it (ERR.MATCHING; spectating is fine) and the host may not change the difficulty,
-//       add an AI seat or start (ERR.MATCHING); a human leaving the room (leave, kick, the lobby grace, a resume window
+//       `matching`) nobody may join it (ERR.MATCHING; spectating is fine) and the host may not change the difficulty or
+//       the ruleset, add an AI seat or start (ERR.MATCHING); a human leaving the room (leave, kick, the lobby grace, a resume window
 //       expiring) or its disposal cancels the room's entry (reason 'changed' to the others, `by` = who left).
 //     room.unqueue (any queued member, maintainer decision 2026-10-13) leaves the queue — for a room, the whole room: the
 //     sender gets reason 'left', the other members 'party' with `by` = the sender's name (the same decision: the others
 //     see who cancelled). Every waiting player gets room.queueState whenever its queue changes (`count` = the humans
-//     waiting for that difficulty, `party` = queued with a room).
+//     waiting in that queue, `party` = queued with a room, `ruleset` = its preset).
+//   * Waiting counts in the lobby (maintainer decision 2026-10-15): lobby.queueCounts { counts: { [ruleset]:
+//     { [difficulty]: humans } } } (every preset and difficulty, zeros included; waiting entries only, not a group being
+//     confirmed) goes to every connected Doctor outside a running match — at most once per `countsMinGapMs` (1 s) and
+//     only when the counts changed — and to each one on hello (Lobby.sendQueueCounts).
 //   * A group is always four humans (maintainer decision 2026-10-13: no AI fill, no smaller group). Formation walks the
 //     queue in order and takes the first entries whose humans add up to exactly four, preferring the oldest entries
 //     (an entry that does not fit is skipped, not dropped). An entry with an offline human is skipped.
@@ -27,7 +32,7 @@
 //     - with a room in the group, in the first (oldest) such room: its members keep their seats, the others take its
 //       free seats in queue order (players of another queued room leave that room, which closes empty); its host stays
 //       the host;
-//     - otherwise in a new co-op room, seated in queue order (the first is the host).
+//     - otherwise in a new co-op room of the queue's difficulty and ruleset, seated in queue order (the first is the host).
 //     A human who declines, or has not answered when the time runs out, takes their entry out of the queue (a room
 //     leaves whole: the other members get 'partyDeclined' with `by`, or 'partyTimeout' when they had accepted); the other
 //     entries go back to the front of their queue, in their old order, keeping their waiting time.
@@ -42,13 +47,15 @@
 //     ERR.RESTARTING; a group that completes then is dissolved with reason 'restarting').
 //   * The queue lives in memory: a server restart forgets it (the client's queue screen closes on the new `welcome`).
 
-import { ERR, MAX_SEATS } from '../shared/constants.js';
+import { ERR, MAX_SEATS, DIFFICULTIES } from '../shared/constants.js';
+import { RULE_PRESETS, resolveRuleset, rulesetKey } from '../shared/ruleset.js';
 import { sendSession } from './net.js';
 
 export const QUEUE_DEFAULTS = Object.freeze({
   queueConfirmMs: 15_000,  // a formed group's room.queueAccept window
   queueGraceMs: 10_000,    // a disconnected waiting single player keeps the place this long
   maxQueuedPerAddr: 4,     // waiting single players from one client network (0 = unlimited)
+  countsMinGapMs: 1_000,   // lobby.queueCounts at most this often (header)
 });
 
 const OK = Object.freeze({ ok: true });
@@ -56,13 +63,15 @@ const fail = (code, detail) => (detail ? { error: code, detail } : { error: code
 
 /**
  * @typedef {{ key: string, playerId: string | null, room: import('./lobby.js').Room | null, difficulty: string,
- *   joinedAt: number, limitKey: string | null, group: Group | null, offline: NodeJS.Timeout | null }} Entry
- *   a single player (playerId) or a queued room (room); key = the playerId, or 'room:' + the room code
- * @typedef {{ id: number, difficulty: string, members: Entry[], ids: string[], accepted: Set<string>,
+ *   ruleset: string, qk: string, joinedAt: number, limitKey: string | null, group: Group | null, offline: NodeJS.Timeout | null }} Entry
+ *   a single player (playerId) or a queued room (room); key = the playerId, or 'room:' + the room code; qk = its queue
+ * @typedef {{ id: number, difficulty: string, ruleset: string, qk: string, members: Entry[], ids: string[], accepted: Set<string>,
  *   deadline: number, timer: NodeJS.Timeout | null }} Group
  */
 
 const roomKey = (room) => `room:${room.code}`;
+/** A queue's key: its difficulty and ruleset key (shared/ruleset.js rulesetKey). */
+const queueKey = (difficulty, ruleset) => `${difficulty}|${ruleset}`;
 
 export class Matchmaker {
   /**
@@ -73,11 +82,16 @@ export class Matchmaker {
     this.lobby = lobby;
     this.Room = Room;
     this.opts = { ...QUEUE_DEFAULTS, ...options };
-    /** @type {Map<string, Entry[]>} waiting entries by difficulty, in queue order */
+    /** @type {Map<string, Entry[]>} waiting entries by queue key (difficulty|ruleset), in queue order */
     this.queues = new Map();
     /** @type {Map<string, Entry>} every entry (waiting or in a group) by key */
     this.entries = new Map();
     this.groupSeq = 0;
+    /** lobby.queueCounts pacing (header): the last counts sent (JSON), when, and the pending send */
+    this.countsSent = null;
+    this.countsAt = -Infinity;
+    /** @type {NodeJS.Timeout | null} */
+    this.countsTimer = null;
   }
 
   /** Counters for /healthz-style status: humans waiting / confirming. */
@@ -94,14 +108,16 @@ export class Matchmaker {
   // Messages
   // ---------------------------------------------------------------------------------------------------
 
-  /** room.queue { difficulty } — a single player. */
-  queue(session, { difficulty }) {
+  /** room.queue { difficulty, ruleset? } — a single player. */
+  queue(session, { difficulty, ruleset: preset }) {
+    const ruleset = rulesetKey(preset);
+    const qk = queueKey(difficulty, ruleset);
     const lobby = this.lobby;
     const cur = lobby.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     const had = this.entries.get(session.playerId);
     if (had?.group) return fail(ERR.ALREADY, 'a match was found: answer it first');
-    if (had && had.difficulty === difficulty) { this.sendState(had); return OK; }
+    if (had && had.qk === qk) { this.sendState(had); return OK; }
     const late = lobby.restartNotice?.startRefusal();
     if (late) return late;
     const key = session.limitKey || null;
@@ -116,14 +132,14 @@ export class Matchmaker {
     if (cur) lobby.removeMember(cur, session.playerId); // a queued room of theirs is cancelled by onRoomChange
     session.notice = null;
     session.pendingResult = null;
-    if (had) this.drop(had, null); // moved to another difficulty: no queued:false in between
+    if (had) this.drop(had, null); // moved to another queue: no queued:false in between
     /** @type {Entry} */
-    const entry = { key: session.playerId, playerId: session.playerId, room: null, difficulty, joinedAt: lobby.now(), limitKey: key, group: null, offline: null };
+    const entry = { key: session.playerId, playerId: session.playerId, room: null, difficulty, ruleset, qk, joinedAt: lobby.now(), limitKey: key, group: null, offline: null };
     this.entries.set(entry.key, entry);
-    this.queueOf(difficulty).push(entry);
-    if (had) this.broadcastQueue(had.difficulty);
-    this.broadcastQueue(difficulty);
-    this.tryForm(difficulty);
+    this.queueOf(qk).push(entry);
+    if (had) this.broadcastQueue(had.qk);
+    this.broadcastQueue(qk);
+    this.tryForm(qk);
     return OK;
   }
 
@@ -148,14 +164,16 @@ export class Matchmaker {
     for (const s of room.seats) if (s && s.isBot) room.seats[s.seat] = null; // humans only fill the seats
     for (const s of humans) lobby.dropReplay(room, s.playerId);
     /** @type {Entry} */
-    const entry = { key: roomKey(room), playerId: null, room, difficulty: room.difficulty, joinedAt: lobby.now(), limitKey: session.limitKey || null, group: null, offline: null };
+    const ruleset = rulesetKey(room.ruleset);
+    const entry = { key: roomKey(room), playerId: null, room, difficulty: room.difficulty, ruleset, qk: queueKey(room.difficulty, ruleset),
+      joinedAt: lobby.now(), limitKey: session.limitKey || null, group: null, offline: null };
     this.entries.set(entry.key, entry);
-    this.queueOf(entry.difficulty).push(entry);
+    this.queueOf(entry.qk).push(entry);
     room.matching = true;
-    lobby.log.info(`[queue] ${room.code} queued (${humans.length} player(s), ${entry.difficulty})`);
+    lobby.log.info(`[queue] ${room.code} queued (${humans.length} player(s), ${entry.difficulty}/${ruleset})`);
     lobby.broadcastState(room);
-    this.broadcastQueue(entry.difficulty);
-    this.tryForm(entry.difficulty);
+    this.broadcastQueue(entry.qk);
+    this.tryForm(entry.qk);
     return OK;
   }
 
@@ -165,7 +183,7 @@ export class Matchmaker {
     if (!entry) return OK;
     if (entry.group) return this.decline(entry.group, entry, 'left', { byId: session.playerId });
     this.drop(entry, 'left', { byId: session.playerId });
-    this.broadcastQueue(entry.difficulty);
+    this.broadcastQueue(entry.qk);
     return OK;
   }
 
@@ -194,7 +212,7 @@ export class Matchmaker {
       entry.offline = null;
       if (this.entries.get(entry.key) !== entry || entry.group) return;
       this.drop(entry, 'offline');
-      this.broadcastQueue(entry.difficulty);
+      this.broadcastQueue(entry.qk);
     }, this.opts.queueGraceMs);
     entry.offline.unref?.();
   }
@@ -205,7 +223,7 @@ export class Matchmaker {
     if (!entry) return;
     this.clearOffline(entry);
     if (entry.group) this.sendFound(entry.group, session.playerId);
-    else { this.sendState(entry, session.playerId); this.tryForm(entry.difficulty); }
+    else { this.sendState(entry, session.playerId); this.tryForm(entry.qk); }
   }
 
   onExpire(session) {
@@ -213,7 +231,7 @@ export class Matchmaker {
     if (!entry) return;
     if (entry.group) { this.decline(entry.group, entry, 'offline'); return; }
     this.drop(entry, null);
-    this.broadcastQueue(entry.difficulty);
+    this.broadcastQueue(entry.qk);
   }
 
   /**
@@ -224,12 +242,12 @@ export class Matchmaker {
   onRoomChange(room, goneId, goneName) {
     const entry = this.entries.get(roomKey(room));
     if (!entry || entry.room !== room) return;
-    if (goneId) sendSession(this.lobby.registry.byId(goneId), { t: 'room.queueState', queued: false, difficulty: entry.difficulty, reason: 'left' });
+    if (goneId) sendSession(this.lobby.registry.byId(goneId), { t: 'room.queueState', queued: false, difficulty: entry.difficulty, ruleset: entry.ruleset, reason: 'left' });
     const reason = room.disposed ? null : 'changed';
     const why = { by: goneName ?? null };
     if (entry.group) { this.decline(entry.group, entry, reason, why); return; }
     this.drop(entry, reason, why);
-    this.broadcastQueue(entry.difficulty);
+    this.broadcastQueue(entry.qk);
   }
 
   shutdown() {
@@ -240,15 +258,16 @@ export class Matchmaker {
     }
     this.entries.clear();
     this.queues.clear();
+    if (this.countsTimer) { clearTimeout(this.countsTimer); this.countsTimer = null; }
   }
 
   // ---------------------------------------------------------------------------------------------------
   // Groups
   // ---------------------------------------------------------------------------------------------------
 
-  /** Form every group of four the difficulty's queue allows (header). */
-  tryForm(difficulty) {
-    const q = this.queueOf(difficulty);
+  /** Form every group of four the queue allows (header). @param {string} qk */
+  tryForm(qk) {
+    const q = this.queueOf(qk);
     this.dropSeated(q);
     for (;;) {
       const members = this.pickFour(q.filter((e) => this.online(e)));
@@ -279,10 +298,10 @@ export class Matchmaker {
 
   /** @param {Entry[]} members */
   form(members) {
-    const difficulty = members[0].difficulty;
-    const q = this.queueOf(difficulty);
+    const { difficulty, ruleset, qk } = members[0];
+    const q = this.queueOf(qk);
     /** @type {Group} */
-    const group = { id: ++this.groupSeq, difficulty, members, ids: members.flatMap((e) => this.ids(e)), accepted: new Set(),
+    const group = { id: ++this.groupSeq, difficulty, ruleset, qk, members, ids: members.flatMap((e) => this.ids(e)), accepted: new Set(),
       deadline: this.lobby.now() + this.opts.queueConfirmMs, timer: null };
     for (const e of members) {
       q.splice(q.indexOf(e), 1);
@@ -292,9 +311,9 @@ export class Matchmaker {
     group.timer = setTimeout(() => { group.timer = null; this.expire(group); }, this.opts.queueConfirmMs);
     group.timer.unref?.();
     const rooms = members.filter((e) => e.room).length;
-    this.lobby.log.info(`[queue] ${difficulty} group #${group.id}: ${group.ids.length} player(s) in ${members.length} entr${members.length === 1 ? 'y' : 'ies'} (${rooms} room(s)), confirming`);
+    this.lobby.log.info(`[queue] ${difficulty}/${ruleset} group #${group.id}: ${group.ids.length} player(s) in ${members.length} entr${members.length === 1 ? 'y' : 'ies'} (${rooms} room(s)), confirming`);
     this.sendFound(group);
-    this.broadcastQueue(difficulty);
+    this.broadcastQueue(qk);
   }
 
   /** The confirmation window ran out: entries with a silent human leave, the others go back to the front. */
@@ -317,12 +336,12 @@ export class Matchmaker {
   /** @param {Group} group @param {Entry[]} back entries returned to the front of the queue, in their old order */
   dissolve(group, back) {
     this.endGroup(group);
-    const q = this.queueOf(group.difficulty);
+    const q = this.queueOf(group.qk);
     for (const e of back) e.group = null;
     q.unshift(...back);
     q.sort((a, b) => a.joinedAt - b.joinedAt);
-    this.broadcastQueue(group.difficulty);
-    this.tryForm(group.difficulty);
+    this.broadcastQueue(group.qk);
+    this.tryForm(group.qk);
   }
 
   /** Every human accepted: seat them in the group's first queued room (or a new room) and start its match (header). */
@@ -340,6 +359,7 @@ export class Matchmaker {
     const movers = group.members.filter((e) => e !== host).flatMap((e) => this.ids(e));
     for (const e of group.members) this.unlist(e);
     const room = host ? host.room : new this.Room(code, 'coop', group.difficulty, lobby.now());
+    if (!host) room.ruleset = resolveRuleset(group.ruleset);
     const seated = [];
     for (const playerId of movers) {
       const session = lobby.registry.byId(playerId);
@@ -361,7 +381,7 @@ export class Matchmaker {
       lobby.rooms.set(code, room);
     }
     const humans = room.activeHumans().length;
-    lobby.log.info(`[lobby] ${code} matched (coop/${group.difficulty}, ${humans} player(s)${host ? `, ${seated.length} joined the room` : ''}, group #${group.id})`);
+    lobby.log.info(`[lobby] ${code} matched (coop/${group.difficulty}/${group.ruleset}, ${humans} player(s)${host ? `, ${seated.length} joined the room` : ''}, group #${group.id})`);
     lobby.startMatch(room, room.ownerKey);
     return OK;
   }
@@ -370,9 +390,10 @@ export class Matchmaker {
   // Helpers
   // ---------------------------------------------------------------------------------------------------
 
-  queueOf(difficulty) {
-    let q = this.queues.get(difficulty);
-    if (!q) { q = []; this.queues.set(difficulty, q); }
+  /** @param {string} qk a queue key (difficulty|ruleset) */
+  queueOf(qk) {
+    let q = this.queues.get(qk);
+    if (!q) { q = []; this.queues.set(qk, q); }
     return q;
   }
 
@@ -422,10 +443,11 @@ export class Matchmaker {
     this.clearOffline(entry);
     if (this.entries.get(entry.key) === entry) this.entries.delete(entry.key);
     if (!entry.group) {
-      const q = this.queueOf(entry.difficulty);
+      const q = this.queueOf(entry.qk);
       const i = q.indexOf(entry);
       if (i >= 0) q.splice(i, 1);
     }
+    this.noteCounts();
     entry.group = null;
     if (entry.room) entry.room.matching = false;
   }
@@ -447,7 +469,7 @@ export class Matchmaker {
       let code = reason;
       if (entry.room && byId && id !== byId) code = reason === 'declined' ? 'partyDeclined' : 'party';
       else if (entry.room && reason === 'timeout' && accepted?.has(id)) code = 'partyTimeout';
-      const msg = { t: 'room.queueState', queued: false, difficulty: entry.difficulty, reason: code };
+      const msg = { t: 'room.queueState', queued: false, difficulty: entry.difficulty, ruleset: entry.ruleset, reason: code };
       if (name != null && id !== byId && code !== 'partyTimeout') msg.by = name;
       sendSession(this.lobby.registry.byId(id), msg);
     }
@@ -463,13 +485,48 @@ export class Matchmaker {
     const now = this.lobby.now();
     const waited = Math.max(0, now - entry.joinedAt);
     let count = 0;
-    for (const e of this.queueOf(entry.difficulty)) count += this.size(e);
-    const msg = { t: 'room.queueState', queued: true, difficulty: entry.difficulty, count, waitedMs: waited, party: !!entry.room };
+    for (const e of this.queueOf(entry.qk)) count += this.size(e);
+    const msg = { t: 'room.queueState', queued: true, difficulty: entry.difficulty, ruleset: entry.ruleset, count, waitedMs: waited, party: !!entry.room };
     for (const id of only ? [only] : this.ids(entry)) sendSession(this.lobby.registry.byId(id), msg);
   }
 
-  broadcastQueue(difficulty) {
-    for (const e of this.queueOf(difficulty)) this.sendState(e);
+  /** @param {string} qk */
+  broadcastQueue(qk) {
+    for (const e of this.queueOf(qk)) this.sendState(e);
+    this.noteCounts();
+  }
+
+  /**
+   * The humans waiting in every queue (header): { [ruleset]: { [difficulty]: n } }, every preset and difficulty listed.
+   * @returns {Record<string, Record<string, number>>}
+   */
+  counts() {
+    /** @type {Record<string, Record<string, number>>} */
+    const out = {};
+    for (const p of RULE_PRESETS) out[p] = Object.fromEntries(DIFFICULTIES.map((d) => [d, 0]));
+    for (const q of this.queues.values()) {
+      for (const e of q) {
+        if (e.group || !out[e.ruleset] || !(e.difficulty in out[e.ruleset])) continue;
+        out[e.ruleset][e.difficulty] += this.size(e);
+      }
+    }
+    return out;
+  }
+
+  /** A queue changed: send lobby.queueCounts when the counts did, at most once per countsMinGapMs (header). */
+  noteCounts() {
+    if (this.countsTimer) return;
+    const wait = Math.max(0, this.countsAt + this.opts.countsMinGapMs - this.lobby.now());
+    this.countsTimer = setTimeout(() => {
+      this.countsTimer = null;
+      const counts = this.counts();
+      const json = JSON.stringify(counts);
+      if (json === this.countsSent) return;
+      this.countsSent = json;
+      this.countsAt = this.lobby.now();
+      this.lobby.broadcastQueueCounts(counts);
+    }, wait);
+    this.countsTimer.unref?.();
   }
 
   /** room.matchFound to every human of the group (or one), with the accept count so far. @param {Group} group @param {string} [only] */
@@ -477,7 +534,7 @@ export class Matchmaker {
     const inMs = Math.max(0, group.deadline - this.lobby.now());
     for (const id of only ? [only] : group.ids) {
       sendSession(this.lobby.registry.byId(id), {
-        t: 'room.matchFound', difficulty: group.difficulty, players: group.ids.length,
+        t: 'room.matchFound', difficulty: group.difficulty, ruleset: group.ruleset, players: group.ids.length,
         accepted: group.accepted.size, mine: group.accepted.has(id), inMs,
       });
     }

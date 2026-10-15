@@ -308,6 +308,9 @@
 .rpick__opt { height: .36rem; padding: 0 .16rem; font-size: .15rem; letter-spacing: .04em; }
 .rpick__opt[data-ruleset='classic'] { --d-color: var(--amber); }
 .rpick__opt[data-ruleset='casual'] { --d-color: var(--mint-400); }
+/* the waiting Doctors of a preset (the lobby's 同盟匹配) */
+.rpick__n { min-width: .22rem; padding: 0 .05rem; border-radius: .11rem; background: rgba(255, 255, 255, .08); font-size: .13rem; line-height: 1.5; text-align: center; color: var(--text-md); }
+.rpick__opt.is-active .rpick__n { background: rgba(255, 255, 255, .14); background: color-mix(in srgb, var(--d-color) 25%, transparent); color: var(--d-color); }
 .rtag { padding: .02rem .1rem; border: 1px solid currentColor; font-size: .16rem; letter-spacing: .06em; color: var(--amber); }
 .rtag--casual { color: var(--mint-400); }
 

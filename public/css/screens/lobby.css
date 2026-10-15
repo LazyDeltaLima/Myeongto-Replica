@@ -208,6 +208,13 @@
 .pnotes b { color: var(--text-hi); }
 .pnotes code { font-family: var(--font-num); font-size: .9em; color: var(--text-md); }
 
+/* ---- 规则 (규칙 모드, js/ui/ruleset.js): the 经典 / 休闲 switch above the difficulty cards; in 同盟匹配 each preset shows its
+   waiting Doctors and each card those of its queue ------------------------------------------------------------ */
+.lobby-rules { display: flex; align-items: center; gap: .18rem; margin: 0 0 .14rem; }
+.lobby-rules__k { display: flex; flex-direction: column; font-size: .17rem; font-weight: 700; color: var(--text-md); line-height: 1.35; }
+.diff-card__wait { padding: 0 .08rem; border: 1px solid var(--line-2); font-size: .13rem; line-height: 1.6; color: var(--text-dim); white-space: nowrap; }
+.diff-card__wait.is-on { border-color: var(--mint-700, var(--line-2)); color: var(--mint-400); }
+
 /* ---- difficulty cards -------------------------------------------------------------------------------- */
 .diff-list { display: flex; flex-direction: column; gap: .14rem; }
 .diff-card {

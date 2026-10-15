@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1281 of 1499 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1282 of 1500 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1483,7 +1483,8 @@
   "匹配补位": "빈자리 매칭",
   "仅匹配真人 · 满四人后开始": "사람만 매칭 · 4명이 모이면 시작",
   "同盟正在匹配中，请先取消匹配": "방이 매칭 중입니다. 먼저 매칭을 취소하세요",
-  "与选择同一难度的博士组成同盟": "같은 난이도를 고른 박사들과 동맹을 맺습니다",
+  "与选择同一难度和规则的博士组成同盟": "같은 난이도와 규칙을 고른 박사들과 동맹을 맺습니다",
+  "{n} 名博士匹配中": "박사 {n}명 매칭 중",
   "当前在线博士 {n} 名": "접속 중인 박사 {n}명",
   "在线": "접속",
   "编辑自选编队": "선발 편성 수정",

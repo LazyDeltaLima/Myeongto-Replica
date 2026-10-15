@@ -5,6 +5,10 @@
 // spectator seats (观战: room.spectate, also while its match runs; community report #26, a remake feature — the
 // official room has none). Shows connection status + ping. The tips panel has an 更新 tab beside the tips: the patch
 // notes one line at a time (ui/patchNotes.js, maintainer decision 2026-10-13).
+// 규칙 모드 (shared/ruleset.js, maintainer decision 2026-10-15): the 规则 switch under the difficulty label picks 经典 / 休闲
+// for 创建 / 开始独立模拟 (room.create ruleset) and 开始匹配 (room.queue: one queue per difficulty and ruleset), remembered
+// like the difficulty (classic the first time). In 同盟匹配 the switch shows each ruleset's waiting Doctors and every
+// difficulty card those of its queue (lobby.queueCounts, ui/ruleset.js queueCountOf).
 //
 // Difficulty descriptions come from data/config.json `modes[modeId]` when present, else from the
 // official act2autochess `modeDataDict` texts embedded below (desc + effectDescList), so the
@@ -24,6 +28,8 @@ import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue } from '../ui/matchQueue.js';
+import { RulesetSwitch, lobbyRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
+import { RULE_PRESETS } from '../../../shared/ruleset.js';
 import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, slidesOf, Inline } from '../ui/patchNotes.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
@@ -281,7 +287,7 @@ function ModeCard({ card, selected, onSelect }) {
   </button>`;
 }
 
-function DifficultyCard({ roomMode, difficulty, selected, onSelect }) {
+function DifficultyCard({ roomMode, difficulty, selected, onSelect, waiting = null }) {
   const info = difficultyInfo(roomMode, difficulty);
   return html`<button type="button" class=${`diff-card${selected ? ' is-selected' : ''}`}
       style=${`--d-color:${DIFFICULTY_COLORS[difficulty]}`} onClick=${() => onSelect(difficulty)} aria-pressed=${selected ? 'true' : 'false'}>
@@ -293,6 +299,7 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect }) {
       <span class="diff-card__meta">
         <span class="num">${info.rounds}</span> ${tc('rounds', '回合')}${info.hidden ? html`<span class="diff-card__hidden">${t('+ 隐秘核心')}</span>` : null}
       </span>
+      ${waiting != null ? html`<span class=${`diff-card__wait${waiting > 0 ? ' is-on' : ''}`} data-testid=${`queue-count-${difficulty}`}>${t('{n} 名博士匹配中', { n: waiting })}</span>` : null}
     </span>
     <span class="diff-card__desc">${info.desc}</span>
     <span class="diff-card__effects">${info.effects.map((e) => html`<span key=${e}>${e}</span>`)}${info.stageNote ? html`<span key="stage" class="diff-card__stage"><${Icon} name="rook" />${info.stageNote}</span>` : null}</span>
@@ -311,6 +318,8 @@ export function LobbyScreen() {
     const d = loadPref('lobby.difficulty', 'FUNNY');
     return DIFFICULTIES.includes(d) ? d : 'FUNNY';
   });
+  const [ruleset, setRuleset] = useState(lobbyRuleset);
+  const queueCounts = useStore((s) => s.ui.queueCounts);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(null);
   const [recent] = useState(recentRooms);
@@ -323,6 +332,8 @@ export function LobbyScreen() {
 
   const pickMode = (m) => { setRoomMode(m); savePref('lobby.mode', m); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
+  const pickRuleset = (p) => { setRuleset(p); saveLobbyRuleset(p); };
+  const matching = roomMode === 'match';
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -334,8 +345,8 @@ export function LobbyScreen() {
       if (alive.current) setBusy(null);
     }
   };
-  const create = () => run('create', () => net.request('room.create', { mode: roomMode, difficulty }));
-  const queue = () => run('create', () => joinQueue(difficulty));
+  const create = () => run('create', () => net.request('room.create', { mode: roomMode, difficulty, ruleset }));
+  const queue = () => run('create', () => joinQueue(difficulty, ruleset));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
     // `undefined` — codeArg keeps an event target out of the key and falls back to the input field
@@ -423,8 +434,14 @@ export function LobbyScreen() {
 
       <section class="lobby-right">
         <div class="section-label"><span class="section-label__idx num">02</span>${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//></div>
+        <div class="lobby-rules">
+          <span class="lobby-rules__k">${t('规则')}<${MicroLabel}>RULESET<//></span>
+          <${RulesetSwitch} value=${ruleset} onPick=${pickRuleset}
+            counts=${matching ? Object.fromEntries(RULE_PRESETS.map((p) => [p, queueCountOf(queueCounts, p)])) : null} />
+        </div>
         <div class="diff-list">
-          ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${pickDifficulty} />`)}
+          ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${pickDifficulty}
+            waiting=${matching ? queueCountOf(queueCounts, ruleset, d) : null} />`)}
         </div>
         <div class="create-box">
           <${Tooltip} block=${true} text=${online ? null : t('正在连接服务器…')}>
@@ -435,7 +452,7 @@ export function LobbyScreen() {
           <//>
           <div class="create-box__hint">
             ${online
-              ? html`<span>${roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('与选择同一难度的博士组成同盟') : t('创建后可邀请好友或添加 AI 队友')}</span>`
+              ? html`<span>${roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('与选择同一难度和规则的博士组成同盟') : t('创建后可邀请好友或添加 AI 队友')}</span>`
               : html`<${Spinner} size="sm" label="CONNECTING" />`}
           </div>
         </div>
