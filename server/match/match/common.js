@@ -42,7 +42,7 @@ export const INFO_CHECK_SECONDS = 45;
 
 /**
  * Seconds of the strategy draft's 编队确认 window (feat, maintainer decision 2026-10-12): once every seat has its strategy,
- * the draft stays up this long so the last picker can still change the 自选 picks (진영별 선발 프리셋, match.setDiy takes
+ * the draft stays up this long so the last picker can still change the 自选 picks (맹약별 선발 프리셋, match.setDiy takes
  * them during BAND_DRAFT); every human seat's 准备完毕 (g.draftReady) ends it early. Timed drafts only (a single human's
  * draft goes straight on). × timerScale. Switched off (maintainer decision 2026-10-13, phases.js startDraftTurn).
  */

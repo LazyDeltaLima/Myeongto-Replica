@@ -314,7 +314,7 @@ export class MatchPhases {
   /**
    * 编队确认 (feat, maintainer decision 2026-10-12; switched off 2026-10-13 — startDraftTurn no longer calls it): every seat has its strategy, and a timed draft stays up
    * DRAFT_CONFIRM_SECONDS more so the last picker can still change its 自选 picks (match.setDiy is accepted during
-   * BAND_DRAFT; the client applies the strategy's linked 진영 preset when the pick lands). It ends at its deadline, or as
+   * BAND_DRAFT; the client applies the strategy's linked 맹약 preset when the pick lands). It ends at its deadline, or as
    * soon as every awaited seat — a connected human not under AI control — has sent g.draftReady (maybeEndDraftConfirm).
    * m.public.deadline is its end; m.public.draft.confirm { deadline, ready, seconds }.
    */

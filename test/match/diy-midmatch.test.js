@@ -1,4 +1,4 @@
-// 진영별 선발 프리셋 on the server (local feature, maintainer decision 2026-10-09; server/match/match/platform.js setDiy and
+// 맹약별 선발 프리셋 on the server (local feature, maintainer decision 2026-10-09; server/match/match/platform.js setDiy and
 // server/lobby.js room.diy): new 自选 picks reach the RUNNING match while its briefing or strategy draft runs and none of
 // the player's 自选 stock has been drawn; from the prep on (or once drawn) the match keeps its picks and the lobby keeps the
 // new ones for the next match (ROOM_STARTED).

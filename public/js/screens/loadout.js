@@ -641,7 +641,7 @@ function LoadoutScreen({ st }) {
   const ownLocked = inMatch && !!phase && phase !== PHASE.LOBBY;
   const ownText = ownLocked ? t('干员持有是局外设置：本局按开局时的设置进行，修改将在下一局生效')
     : t('局外设置，下一局生效 · 联机时只影响你自己的棋子 · 默认全部持有');
-  // 自选编队 reaches a running match while its briefing / strategy draft runs (server match.setDiy, 진영별 선발 프리셋)
+  // 自选编队 reaches a running match while its briefing / strategy draft runs (server match.setDiy, 맹약별 선발 프리셋)
   const diyLive = inMatch && (phase === PHASE.INFO_CHECK || phase === PHASE.BAND_DRAFT);
   const diyText = diyLive ? t('选择策略结束前修改立即用于本局 · 联机时只进入你自己的商店')
     : ownLocked ? t('本局的自选编队已锁定（选择策略结束后无法修改），修改将在下一局生效')

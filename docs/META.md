@@ -571,7 +571,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   eliminated items stop counting [ASSUMED]; non-shop effect-only equipment is uncapped. Item odds are unchanged.
 * **自选编队 (0.2.0, `player/diy.js`; research 0.2.0 §2, the owner's decisions of 2026-10-05)**: a human's `seat.diy`
   picks (room.diy, checked again against the match's data and kits) are fixed for the match once its strategy draft ends
-  (local: during the briefing / draft `match.setDiy` re-makes them while the player's 自选 stock is untouched — 진영별 선발
+  (local: during the briefing / draft `match.setDiy` re-makes them while the player's 自选 stock is untouched — 맹약별 선발
   프리셋, maintainer decision 2026-10-09, docs/rules/diy.md); bots field none [ASSUMED].
   The player's `ps.gd` is then a view of the match's GameData whose `chess(id)` of a slotted slot (normal and elite) is
   the composed 自选 record (shared/diy.js `diyRecord`): every rule that reads a record through `ps.gd` — bonds

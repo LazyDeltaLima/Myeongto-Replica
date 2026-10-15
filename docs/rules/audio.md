@@ -484,7 +484,7 @@
   숨은 탭에서는 랜덤 매칭 대기(`keepAwake`) 중이어도 울리지 않는다.
 - 관리자 결정 2026-10-14: 기본 켜짐, 숨은 탭에서는 울리지 않음, 이모티콘 효과음을 그대로 씀(판 중에는 받는 이모티콘과 소리로 구분되지 않음).
 - 설정(`ui/settings.js` 「채팅 알림음」): 켜기/끄기(기본 켜짐), 켜져 있을 때만 「알림음 볼륨」(기본 50, 움직이면 미리 듣기), 「알림 간격」 1~5초(기본 2초,
-  정수), 「진영 선택 알림」(기본 꺼짐: `kind: 'faction'` 줄은 이 스위치가 켜져 있을 때만 울림). 저장은 다른 설정과 같이 `sp.pref.settings`.
+  정수), 「맹약 선택 알림」(기본 꺼짐: `kind: 'faction'` 줄은 이 스위치가 켜져 있을 때만 울림). 저장은 다른 설정과 같이 `sp.pref.settings`.
 - 겹침 막기(`audio.js chatNotification`): 한 번에 하나, 마지막 알림이 **시작한** 때부터 간격(그리고 적어도 소리 길이 + 0.5초) 안에 온 줄은 **버린다**(쌓아 두었다가
   늦게 울리지 않음). 처음 불러오기가 2초보다 오래 걸려도 버린다. 미리 듣기는 꺼져 있어도 울리고, 울리던 것을 끊으며, 간격은 세지 않는다.
 - 확인: `test/ui/audio.test.js` 「chat notification」, `test/ui/gameLogic.test.js` 「sanitizeSettings」, `test/local-patch.test.js` 「chat: … notifiesChat」.

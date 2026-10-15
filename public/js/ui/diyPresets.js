@@ -1,4 +1,4 @@
-// 맹약별 선발 프리셋 (local feature, maintainer decisions 2026-10-09; docs/rules/diy.md 「진영별 선발 프리셋」): per-browser
+// 맹약별 선발 프리셋 (local feature, maintainer decisions 2026-10-09; docs/rules/diy.md 「맹약별 선발 프리셋」): per-browser
 // 自选编队 rosters — one for 不使用预设 (`base`) and one per chat faction (shared/local.js CHAT_FACTIONS — the eight nation
 // bonds), each its own; a faction's is empty until the player fills it (an empty one is no preset). Picking a faction
 // (ui/factionPick.js chooseFaction: the chat, the strategy draft's row) applies that faction's preset to the 自选 picks,

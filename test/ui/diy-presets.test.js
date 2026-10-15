@@ -1,4 +1,4 @@
-// 진영별 선발 프리셋 (local feature, maintainer decisions 2026-10-09; public/js/ui/diyPresets.js): per-browser 自选 rosters,
+// 맹약별 선발 프리셋 (local feature, maintainer decisions 2026-10-09; public/js/ui/diyPresets.js): per-browser 自选 rosters,
 // one for 不使用预设 and one per chat faction, each its own (a faction's empty until filled — then no preset); the
 // 自选编队 tab's bar switches between them, edits follow the roster shown, and a faction pick (chat / strategy draft)
 // applies that faction's preset with a 撤销 (a faction without one changes nothing).

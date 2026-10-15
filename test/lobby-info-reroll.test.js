@@ -94,7 +94,7 @@ describe('briefing reroll vote', () => {
     assert.equal(stats.length, 0);
   });
 
-  test('room.diy reaches the running match during its briefing (진영별 선발 프리셋), and only the next one from the prep on', async () => {
+  test('room.diy reaches the running match during its briefing (맹약별 선발 프리셋), and only the next one from the prep on', async () => {
     const a = await player('Diy');
     await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL', ruleset: 'casual' });
     const st = await a.waitFor('room.state', (s) => s.hostId === a.id, W);

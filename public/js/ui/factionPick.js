@@ -1,4 +1,4 @@
-// Faction pick (local feature: chat factions + 진영별 선발 프리셋, maintainer decisions 2026-10-09; docs/rules/diy.md): the one
+// Faction pick (local feature: chat factions + 맹약별 선발 프리셋, maintainer decisions 2026-10-09; docs/rules/diy.md): the one
 // way a player picks a faction — the chat's FactionPicker (ui/chat.js) and a strategy's linked preset in the strategy draft
 // (applyPresetChoice, screens/bandDraft.js; the draft's own faction row went on 2026-10-13, maintainer request).
 //
