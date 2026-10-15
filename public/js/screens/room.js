@@ -431,7 +431,7 @@ export function RoomScreen() {
           // two md buttons stacked in the place of the lg 干员调配 (three side by side overflow the bar's right column)
           ? html`<div class="room-bar__stack">
               <${LoadoutButton} from="room" class="room-loadout" label=${t('干员调配')} />
-              <${Tooltip} block=${true} text=${`${facts.canStart ? t('用随机匹配的博士补满空位（AI 队友会被移出）') : t('仍有博士未准备就绪')}\n${t('以相同难度和规则匹配中的博士 {n} 名', { n: fillWaiting })}`}>
+              <${Tooltip} block=${true} text=${facts.canStart ? t('用随机匹配的博士补满空位（AI 队友会被移出）') : t('仍有博士未准备就绪')}>
                 <${Button} variant="secondary" icon="signal" block=${true} class="room-fill" loading=${busy === 'fill'} disabled=${!facts.canStart || !online} onClick=${fill}>${t('匹配补位')}<span class=${`rpick__n room-fill__n num${fillWaiting > 0 ? ' is-on' : ''}`} data-testid="fill-waiting">${fillWaiting}</span><//>
               <//>
             </div>`
