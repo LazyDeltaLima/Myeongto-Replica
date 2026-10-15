@@ -135,7 +135,7 @@ export function boundEffects(bind, prefabs, n, role) {
 /**
  * (2026-10-16) The trail of an attack in a running skill that switches no attack mode (attackMode −1): the skill's own
  * shot (modes.json `skills[i].shot`, char_modes.py — kept for a skill without duration) while `pending` (the first attack
- * after its start, render/fxgame.js skillTrail), else the Default mode's trail. `shot` = it is the skill's.
+ * after its start, render/fxgame.js takeShot), else the Default mode's trail. `shot` = it is the skill's.
  * @param {any} bind modes.json entry
  * @param {string[]|null|undefined} prefabs
  * @param {number} skillIndex 0-based

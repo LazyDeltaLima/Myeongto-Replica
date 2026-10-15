@@ -229,7 +229,8 @@ def add(lst, names):
 
 class Projectiles:
     """Projectile prefabs ([uc]projectiles.ab, PersistentData first): key → { hit: [...], trail: [...], start: [...],
-    zone: [...], onProj, aura: [...] } — `zone` = its `_effectsWhenReached` when `_clearReachedEffectWhenStop` is set (they
+    zone: [...], onProj, aura: [...] } — `hit` = its `_effectsWhenHit`, `_effectsWhenReached` and a shot's
+    `_effectsWhenStop`; `zone` = its `_effectsWhenReached` when `_clearReachedEffectWhenStop` is set (they
     last until the projectile stops: client `EffectBehaviour.OnProjectileReached` / `OnProjectileStop`), `onProj` its
     `_setReachEffectOnProjectile` (1: parented to the projectile's body, moving with it), `aura` a ScalableAuraHitBehaviour's
     `_effectKey` (made under the projectile's body, scaled to its range, ended at its stop)."""
@@ -261,9 +262,14 @@ class Projectiles:
             add(out['start'], effect_names(d.get('_effectsToTargetWhenStart')))
             # 2026-10-10, decompile check: 쏜즈 더 로드스타's token / range lasted the whole battle: the reach
             # effects that end with the projectile, and its scalable aura
+            # 2026-10-16: `_effectsWhenStop` play where the projectile stops (client `EffectBehaviour.OnProjectileStop`):
+            # a shot stops at its hit (维什戴尔's blasts wisdel_attack_01_hit_02 …). A lasting one's are left out: it stops
+            # when it ends, and none of the pool's modes or skills has such (伊内丝's are her talent device's)
             if d.get('_clearReachedEffectWhenStop') == 1:
                 add(out['zone'], effect_names(d.get('_effectsWhenReached')))
                 out['onProj'] |= 1 if d.get('_setReachEffectOnProjectile') == 1 else 0
+            else:
+                add(out['hit'], effect_names(d.get('_effectsWhenStop')))
             if '_onlyCheckHitWhenReachTarget' in d and isinstance(d.get('_effectKey'), str) and d['_effectKey']:
                 add(out['aura'], [d['_effectKey']])
             # a chain's graphic (异客 S3 projectile_chr_pasngr_s3): `_mainEffect` is the line from one struck unit to the next,
@@ -341,7 +347,8 @@ def skill_effects(tree, projectiles=None):
     buff = its `_buffs`' effects (on the caster while the buff lasts), targetBuff = its `_activeBuffs`' (on each target hit),
     target = its `_hitEffects` + its projectiles' start / hit effects (on the targets), shot = its projectiles' `_mainEffect`
     (2026-10-16: 号角 S1's projectile_chr_horn_s1 flew as a procedural arrow; a chain's line left out, LINE_FX names last — main()
-    keeps it for a skill without duration only, see there). An ability named End… (戴菲恩 S3 EndAttack: the finishing blow
+    keeps it for a skill without duration only, see there) and shotHit = the hits of the ability whose projectile shot[0] is
+    (its `_hitEffects` + that projectile's start / hit effects). An ability named End… (戴菲恩 S3 EndAttack: the finishing blow
     after the slashes) goes to `end` { cast, hit } instead. Directional copies are left out."""
     out = {}
     for gp, d, _ in tree:
@@ -361,7 +368,13 @@ def skill_effects(tree, projectiles=None):
             p = projectiles.effects(d['_projectileKey'])
             add(e['end']['hit'] if end else e['target'], [x for x in p['start'] + p['hit'] if x not in p['zone']])
             if not end:
-                add(e.setdefault('shot', []), [x for x in p['trail'] if x not in p['line']])
+                fly = [x for x in p['trail'] if x not in p['line']]
+                add(e.setdefault('shot', []), fly)
+                hits = []
+                for k in HIT_KEYS:
+                    add(hits, effect_names(d.get(k) or []))
+                add(hits, [x for x in p['start'] + p['hit'] if x not in p['zone']])
+                e.setdefault('_shots', []).append((fly, hits))
             if p['zone'] or p['aura']:
                 z = e.setdefault('zone', {'fx': [], 'aura': [], 'onProj': 0})
                 add(z['fx'], p['zone'])
@@ -374,8 +387,14 @@ def skill_effects(tree, projectiles=None):
         add(e['turn'], turned(d))
         dir_groups(d, e['dirs'])
     for e in out.values():
+        shots = e.pop('_shots', [])
         if e.get('shot'):
             e['shot'].sort(key=lambda x: 1 if LINE_FX.search(x) else 0)
+            # the hits of the projectile the shot is (维什戴尔 S1: S1_Common's, not the aftershocks' S1_Shock); none (号角 S1's
+            # shell: its flare's hit comes after) leaves the hit to the name rule
+            hit = next((h for fly, h in shots if e['shot'][0] in fly), [])
+            if hit:
+                e['shotHit'] = hit
         else:
             e.pop('shot', None)
         if not e['end']['cast'] and not e['end']['hit']:
@@ -678,7 +697,7 @@ def main():
             # local patch: the skills' own effects (skills.ab), in skill order; a skill's turned effects join the operator's
             # a skill's shot (skill_effects) flies with its first attack after the cast (render/fxgame.js trailShot): a skill
             # without duration only — a timed one's projectile is an ability of its own (焰影苇草 S2's fireballs, the kit's 'strike')
-            sks = [{k: v for k, v in (sk_fx.get(pid) or {}).items() if k != 'shot' or not durations.get(pid, 0) > 0}
+            sks = [{k: v for k, v in (sk_fx.get(pid) or {}).items() if k not in ('shot', 'shotHit') or not durations.get(pid, 0) > 0}
                    for pid in (prefabs.get(cid) or [])]
             if any(sks):
                 m['skills'] = [{k: v for k, v in x.items() if k not in ('turn', 'dirs')} for x in sks]

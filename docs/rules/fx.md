@@ -1108,3 +1108,21 @@
 - 확인: 단위 `test/render/skill-shot-trail.test.js`. Windows Chrome 디버그 아레나(지금 발동 3번, `FxInstance` 프리팹 집계): 号角 S1
   `horn_skill_01_trail_02` 3, 歌蕾蒂娅 S1 `glady_skill_01_trail` 5, 流星 S1 3, 异客 S1 `pasngr_skill_01_trail` 2(첫 발은 불러오는 중), 维什戴尔 S1 2,
   断崖 S1 3, 焰影苇草 S2 일반 공격 `reed2_attack_trail` 7(불덩이 꼬리 없음), 오류 0. [화면 미확인: 공식 녹화와 꼬리 모양·속도 대조]
+
+### 투사체 정지 이펙트·스킬 투사체 명중 (2026-10-16, 이펙트 연결 전수)
+
+- 원인: `char_modes.py Projectiles`가 투사체의 `_effectsWhenStop`(클라 `EffectBehaviour.OnProjectileStop`: 투사체가 멈춘 자리)을 읽지 않아
+  维什戴尔의 착탄 폭발(`wisdel_attack_01_hit_02`, S1·S2·S3 `_hit_02`)이 안 나왔다. 위 절의 스킬 투사체(`shot`) 공격도 명중은 이름 규칙
+  ('skillHit')이라 그 투사체의 명중(`pasngr_skill_01_hit`, `ayer_skill_01_hit` …)이 안 나왔다.
+- 고친 것: 남는 투사체가 아닌 것(`_clearReachedEffectWhenStop` 0 — 맞은 자리에서 멈춤)의 `_effectsWhenStop`은 그 투사체의 `hit` [추정: 멈춘
+  자리 = 맞은 대상]. 남는 투사체(장판)의 것은 끝날 때 나오는데 풀의 모드·스킬에는 없어 읽지 않는다(伊内丝의 것은 재능 장치). `skills[i].shotHit`
+  = `shot[0]`을 쏘는 능력의 `_hitEffects` + 그 투사체의 시작·명중(维什戴尔 S1은 S1_Common의 것 — 여진 S1_Shock 것이 아님); 없으면 기록 안 함
+  (号角 S1 포탄은 자기 명중이 없고 뒤의 조명탄이 맞음 → 이름 규칙 그대로). `fxgame.js takeShot`이 그 공격을 `lastAtk`에 `shot`으로 남기고
+  'dmg'에서 `shotHit`을 튼다.
+- 안 한 것: 한 공격의 하위 투사체 명중(`_additionalProjectile(s)`·재능 `_projectileKey` — 伺夜 S3, 至简 S2, 寒芒克洛丝 재능 …). 시뮬은 한 'atk'의
+  피해를 같은 틱의 여러 'dmg'로 보내는데 그 순서가 하위 투사체와 1:1이 아니다(寒芒克洛丝의 두 번째 피해는 특성 이중 사격이지 재능 화살이 아님) —
+  오퍼마다 키트와 맞춰야 한다. 号角 S2 `_burstProjectiles`(Full Burst)는 수동 조기 종료 때만 나가 자동 전투에는 없다. 迷迭香 Attack_A/B는
+  `_selectMethod` 0 선택기 아래라 번갈아인지 둘 다인지 디컴파일 확인 필요(지금은 A만 「대안 공격」으로 읽음).
+- 확인: 단위 `test/render/skill-shot-trail.test.js`. Windows Chrome 디버그 아레나: 维什戴尔 S1 `wisdel_skill_01_hit` 3·`_hit_02` 3, 일반 공격
+  `wisdel_attack_01_hit_02` 3, S3 `wisdel_skill_03_hit_02` 2, 异客 S1 `pasngr_skill_01_hit` 3, 歌蕾蒂娅 S1 `glady_skill_01_hit` 7, 断崖 S1
+  `ayer_skill_01_hit` 3, 오류 0. [화면 미확인: 폭발 크기·자리 공식 녹화 대조]

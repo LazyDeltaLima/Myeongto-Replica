@@ -17,7 +17,7 @@
 // that prefab from the shooter to its (moving) target over the sim's flight time (fx.js projSpeed — it lands with the damage,
 // lobbed shots on fx.js's arc) instead of render/fx.js's procedural shot (arrowKind 'officialTrail'); a trail's first shot
 // keeps the procedural one while its file loads, and past MAX_TRAILS live trails or at load level 3 the procedural shot stays.
-// In a skill without a mode of its own: the skill's shot on its first attack, else the Default mode's trail (skillTrail).
+// In a skill without a mode of its own: the skill's shot on its first attack, else the Default mode's trail (takeShot).
 // Clock: every effect, its gaps and its end run on the battle clock (`rate`, the game speed — the official effects use
 // scaled time), not only the notes.
 // Event → effect (render/fxmap.js effectsFor, by the client's prefab names):
@@ -903,24 +903,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const trailReady = new Set();    // `bundle/prefab` loaded once: its shots draw the official trail from then on
   const trailAtks = new WeakSet(); // 'atk' tuples drawn here (fx.js skips its shot: arrowKind)
   /**
-   * 2026-10-16: the trail of an attack in a skill that switches no attack mode (modeNow −1) — they flew as render/fx.js's
-   * procedural shot (fxmap.js modelessTrail). A skill without duration (an instant cast, charges, the next attack: 号角 S1,
-   * 歌蕾蒂娅 S1, 流星 S1 …) shoots its own projectile with the first attack after its start — the sim's window of such a
-   * skill ends with that attack; the attacks of the same moment share it (断崖 S1's two targets). Any other attack keeps the
-   * Default mode's: the client's attack mode does not change.
+   * 2026-10-16: whether an attack in a skill that switches no attack mode (modeNow −1) is the skill's own shot. A skill
+   * without duration (an instant cast, charges, the next attack: 号角 S1, 歌蕾蒂娅 S1, 流星 S1 …) shoots its projectile
+   * (modes.json `skills[i].shot` / `shotHit`, char_modes.py) with the first attack after its start — the sim's window of such
+   * a skill ends with that attack; the attacks of the same moment share it (断崖 S1's two targets). Its trail
+   * (fxmap.js modelessTrail) and its hits ('dmg') are the shot's; any other attack of the skill flies the Default mode's trail
+   * (the client's attack mode does not change) — before, they all flew render/fx.js's procedural shot.
    */
-  function skillTrail(src) {
-    const s = src._fxShot;
-    const r = modelessTrail(bindOf(src), bundleOf(src)?.prefabs, skillIdx(src), !!s && (s.t == null || s.t === clockS));
-    if (r.shot) s.t = clockS;
-    return r;
+  function takeShot(src) {
+    const s = src._fxShot, shot = skillBind(src)?.shot;
+    if (!s || !(s.t == null || s.t === clockS) || !Array.isArray(shot) || !shot.length) return false;
+    s.t = clockS;
+    return true;
   }
   /** Whether this attack flies its mode's official trail (decided now, synchronously, for arrowKind); loads it otherwise. */
-  function trailShot(e, src, tgt, mode) {
+  function trailShot(e, src, tgt, mode, shot = false) {
     if (!tgt || mode == null || level() >= 3 || failed) return false;
     const spec = PROJ[e[3]];
     let name = null;
-    if (spec && mode === -1) ({ name, mode } = skillTrail(src));
+    if (spec && mode === -1) ({ name, mode } = modelessTrail(bindOf(src), bundleOf(src)?.prefabs, skillIdx(src), shot));
     else if (spec) name = bound(src, mode, 'trail')[0];
     if (!name) return false;
     const b = bundleOf(src);
@@ -2728,7 +2729,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-10: the mode switch detaches the old mode's abilities (ON_DETACHED ends their loop cast
           // effects) and attaches the new one's (its first attack again: `_delayIfFirstAttack`)
           endCast(v); v._fxFirstDone = null; v._fxFoe = null;
-          v._fxShot = e[2] ? { t: null } : null; // 2026-10-16: its shot, not flown yet (skillTrail)
+          v._fxShot = e[2] ? { t: null } : null; // 2026-10-16: its shot, not taken yet (takeShot)
           if (e[2]) {
             v._fxSkillOn = true;
             v._fxMarked = null;   // local patch: the targets its marks sit on (pendingHit)
@@ -2765,8 +2766,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 丰川祥子: her note (the 'oblvnsNote' born event of this attack) replaces render/fx.js's arrow
           if (tgt && fxBundleOf(src.info.spine || src.info.defId) === 'oblvns' && notesOn(src)) noteAtks.add(e);
           const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
-          if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3] });
-          if (!noteAtks.has(e)) trailShot(e, src, tgt, mode); // local patch: its projectile's official trail
+          const shot = mode === -1 && takeShot(src); // 2026-10-16: a mode-less skill's own shot
+          if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot });
+          if (!noteAtks.has(e)) trailShot(e, src, tgt, mode, shot); // local patch: its projectile's official trail
           if (src._fxSkillOn) foeFx(src, tgt, mode); // 2026-10-10: a mode buff held by the enemy
           // local patch: the mode's own cast effects (a skill's on each of its attacks) — since 2026-10-10 on the attack's own
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
@@ -2809,8 +2811,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return;
           lastHit.set(key, clockS);
           lastAtk.delete(tid); // local patch: one impact per attack (a mark's / DoT's later ticks are no attack's hit; audio.js does the same)
-          // the mode's hit effects (a 要塞's of the attack it made: boundFor)
-          const { names: hitList, split } = boundFor(a.src, a.mode, 'hit', a.kind);
+          // the mode's hit effects (a 要塞's of the attack it made: boundFor); a skill's shot: its projectile's (takeShot)
+          const { names: hitList, split } = a.shot ? { names: extracted(a.src, skillBind(a.src)?.shotHit), split: false } : boundFor(a.src, a.mode, 'hit', a.kind);
           const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
           const hits = withGroup(hitList, c?.group?.hit).slice(0, MAX_HIT_FX);
           if (hits.length) { hitFx(a.src, tgt, hits, c); return; }

@@ -1,8 +1,9 @@
 // test/render/skill-shot-trail.test.js — the trail of an attack in a skill that switches no attack mode (2026-10-16: those
 // attacks flew render/fx.js's procedural shot). A skill without duration shoots its skill prefab's projectile
 // (char_modes.py `skills[i].shot`, its `_mainEffect`) with the first attack after its start (号角 S1 projectile_chr_horn_s1
-// → horn_skill_01_trail_02); every other attack of such a skill keeps the Default mode's trail (fxmap.js modelessTrail,
-// fxgame.js skillTrail).
+// → horn_skill_01_trail_02) and that attack hits with the projectile's hits (`shotHit`); every other attack of such a skill
+// keeps the Default mode's trail (fxmap.js modelessTrail, fxgame.js takeShot). And a shot's `_effectsWhenStop` (维什戴尔's
+// blasts) are its hits.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -75,8 +76,19 @@ test('modelessTrail: the skill\'s shot while pending, else the Default mode\'s t
   assert.deepEqual(modelessTrail(h, null, 0, true), { name: null, mode: 0, shot: false });
 });
 
-test('fxgame: a mode-less skill\'s attack takes skillTrail; a skill\'s start arms its shot, its end disarms it', () => {
-  assert.match(SRC, /if \(spec && mode === -1\) \(\{ name, mode \} = skillTrail\(src\)\);/);
+test('char_modes.py: the shot\'s hits are its own projectile\'s; a shot\'s stop effects are hits', () => {
+  const w = MODES.char_1035_wisdel;
+  assert.deepEqual(w.skills[0].shotHit, ['wisdel_skill_01_hit_02', 'wisdel_skill_01_hit'], '维什戴尔 S1: S1_Common\'s, not the aftershocks\'');
+  assert.deepEqual(w.hit[0], ['wisdel_attack_01_hit', 'wisdel_attack_01_hit_02'], 'projectile_chr_wisdel_default `_effectsWhenStop`');
+  assert.ok(w.hit[w.modes.indexOf('S3')].includes('wisdel_skill_03_hit_02'));
+  assert.deepEqual(MODES.char_472_pasngr.skills[0].shotHit, ['pasngr_skill_01_hit']);
+  assert.equal(MODES.char_4039_horn.skills[0].shotHit, undefined, '号角 S1\'s shell hits nothing itself (its flare does): the name rule');
+});
+
+test('fxgame: a mode-less skill\'s attack takes its shot once; its trail and hits follow', () => {
+  assert.match(SRC, /const shot = mode === -1 && takeShot\(src\);/);
+  assert.match(SRC, /lastAtk\.set\(tgt\.id \?\? tgt\.info\?\.id, \{ src, t: clockS, mode, kind: e\[3\], shot \}\);/);
+  assert.match(SRC, /if \(spec && mode === -1\) \(\{ name, mode \} = modelessTrail\(bindOf\(src\), bundleOf\(src\)\?\.prefabs, skillIdx\(src\), shot\)\);/);
+  assert.match(SRC, /a\.shot \? \{ names: extracted\(a\.src, skillBind\(a\.src\)\?\.shotHit\), split: false \}/);
   assert.match(SRC, /v\._fxShot = e\[2\] \? \{ t: null \} : null;/);
-  assert.match(SRC, /if \(r\.shot\) s\.t = clockS;/);
 });
