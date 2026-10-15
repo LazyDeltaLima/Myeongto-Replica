@@ -725,3 +725,26 @@ describe('local stats: recordToResult (history row → settlement re-view)', () 
     assert.equal(recordToResult({ players: [] }), null);
   });
 });
+
+describe('local stats: 규칙 모드 (records keep their ruleset; the ones before it count as casual)', () => {
+  test('a settled record takes the match ruleset from its context (classic without one)', () => {
+    assert.equal(buildRecord(baseResult(), { myId: 'p1', now: 1, ruleset: { preset: 'casual' } }).ruleset, 'casual');
+    assert.equal(buildRecord(baseResult(), { myId: 'p1', now: 1, ruleset: 'classic' }).ruleset, 'classic');
+    assert.equal(buildRecord(baseResult(), { myId: 'p1', now: 1 }).ruleset, 'classic');
+    assert.equal(compactRecord(buildRecord(baseResult(), { myId: 'p1', now: 1, ruleset: 'casual' })).ruleset, 'casual', 'kept by compaction');
+  });
+
+  test('a v1 envelope migrates to v2 with every record casual; a row without a ruleset reads as casual', () => {
+    const rec = buildRecord(baseResult(), { myId: 'p1', now: 5, ruleset: 'classic' });
+    const { ruleset: _drop, ...old } = rec;
+    const { stats, changed } = migrateStats({ v: 1, records: [{ ...old, v: 1 }] });
+    assert.equal(STATS_VERSION, 2);
+    assert.equal(changed, true);
+    assert.equal(stats.v, 2);
+    assert.equal(stats.records[0].ruleset, 'casual');
+    assert.equal(typeof MIGRATIONS[1], 'function');
+    assert.equal(normalizeRecord({ ...old }).ruleset, 'casual');
+    assert.equal(normalizeRecord({ ...old, ruleset: 'custom' }).ruleset, 'casual', 'an unknown preset too');
+    assert.equal(normalizeRecord({ ...old, ruleset: 'classic' }).ruleset, 'classic');
+  });
+});

@@ -46,6 +46,8 @@
   background: linear-gradient(90deg, var(--mint-700), transparent 26%, transparent 74%, var(--mint-700));
 }
 .st-top__left { justify-self: start; display: flex; align-items: center; gap: .14rem; }
+/* 规则 (규칙 모드): which ruleset's records every tab reads */
+.st-rules .rpick__opt { height: .34rem; }
 .st-top__center { display: flex; flex-direction: column; align-items: center; gap: .02rem; min-width: 0; }
 .st-top__right { justify-self: end; display: flex; align-items: center; gap: .16rem; min-width: 0; }
 .st-tabs { display: flex; align-items: stretch; gap: .04rem; max-width: 100%; overflow-x: auto; scrollbar-width: none; }

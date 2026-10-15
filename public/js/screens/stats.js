@@ -11,6 +11,9 @@
 //               inverted into an m.result payload for <ResultView/>): the whole row is the target, its last cell shows a
 //               查看结算 button (the others say why there is none: 无结算 / 仅汇总); a match given up early is marked
 //               中途退出 and, when it did not count, 不计入统计
+// 규칙 모드 (maintainer decision 2026-10-15): the 规则 switch in the top bar (经典 / 休闲, the lobby's current choice when the
+// page opens) splits everything: every tab reads the chosen ruleset's records only (records before rulesets are 休闲,
+// ui/stats.js LEGACY_RULESET); export / import / 清空 still cover every record.
 // Everything is 本机数据 (localStorage, `sp.pref.stats`) and the page says so, teammates' names included. 导出 / 导入 (a
 // JSON file, merged by record id on the way in) moves it between devices; 清空 resets it after a confirm dialog.
 // The host renders nothing until opened and the game data files the replay needs load only then (the lobby alone never
@@ -29,23 +32,24 @@ import { ResultView } from './result.js';
 import { toast, toastError } from '../ui/toasts.js';
 import {
   loadStats, saveStats, emptyStats, importStats, exportStats, aggregateStats, countsTowardStats, selfRowOf, roundsOf,
-  recordToResult, MAX_RECORDS, FULL_KEEP, IMPORT_MAX_CHARS,
+  recordToResult, MAX_RECORDS, FULL_KEEP, IMPORT_MAX_CHARS, LEGACY_RULESET,
 } from '../ui/stats.js';
 import { t, N_ } from '../../../shared/i18n.js';
+import { RulesetSwitch, lobbyRuleset } from '../ui/ruleset.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Rows of 对局记录 shown at first and added by each 显示更多. */
 export const HISTORY_PAGE = 50;
 
-const statsStore = createStore({ open: false, tab: 'overview' });
+const statsStore = createStore({ open: false, tab: 'overview', ruleset: 'classic' });
 
 /** Open the stats viewer (title screen / lobby / room entry points). */
 export function openStats() {
   data.load('config');
   data.load('bands');
   data.load('assets');
-  statsStore.set({ open: true, tab: 'overview' });
+  statsStore.set({ open: true, tab: 'overview', ruleset: lobbyRuleset() });
 }
 export const closeStats = () => statsStore.set({ open: false });
 
@@ -248,7 +252,7 @@ function Replay({ rec, onBack }) {
 }
 
 /** The overlay, rendered while open (its data hooks run only then). */
-function StatsScreen({ tab }) {
+function StatsScreen({ tab, ruleset }) {
   const ready = useData('config', 'bands', 'assets');
   const gd = useMemo(() => makeLookups(ready), [ready, data.locale()]);
   const [stats, setStats] = useState(() => loadStats());
@@ -273,7 +277,9 @@ function StatsScreen({ tab }) {
     return () => { window.removeEventListener('keydown', onKey, true); clearTimeout(timer); };
   }, []);
 
-  const agg = useMemo(() => aggregateStats(stats.records), [stats]);
+  // 규칙 모드 (header): every tab reads the chosen ruleset's records
+  const records = useMemo(() => stats.records.filter((r) => (r.ruleset || LEGACY_RULESET) === ruleset), [stats, ruleset]);
+  const agg = useMemo(() => aggregateStats(records), [records]);
   const reload = () => setStats(loadStats());
 
   const doExport = () => {
@@ -323,6 +329,7 @@ function StatsScreen({ tab }) {
     <header class="st-top">
       <div class="st-top__left">
         <${Button} variant="ghost" size="md" icon="chevronLeft" class="st-back" onClick=${closeStats} aria-label=${t('返回')} title=${t('返回 (Esc)')}>${t('返回')}<//>
+        <${RulesetSwitch} value=${ruleset} class="st-rules" onPick=${(p) => statsStore.set({ ruleset: p })} />
       </div>
       <div class="st-top__center">
         <${MicroLabel} tone="mint">STATISTICS // ${tabInfo.micro}<//>
@@ -345,9 +352,10 @@ function StatsScreen({ tab }) {
       ${!ready ? html`<div class="st-loading"><${Spinner} size="md" /></div>`
         : stats.newer ? html`<p class="st-empty">${t('检测到更新版本的统计数据，请先升级客户端再查看，以免覆盖数据。')}</p>`
           : empty ? html`<p class="st-empty">${t('还没有记录 —— 完成一局对局后，这里会开始积累。')}</p>`
+            : !records.length ? html`<p class="st-empty" data-testid="stats-ruleset-empty">${t('这个规则还没有记录 —— 可在左上角切换规则。')}</p>`
             : tab === 'bands' ? html`<${Bands} agg=${agg} gd=${gd} />`
               : tab === 'totals' ? html`<${CombatSums} agg=${agg} />`
-                : tab === 'history' ? html`<${History} records=${stats.records} gd=${gd} onOpen=${setReplay} />`
+                : tab === 'history' ? html`<${History} key=${ruleset} records=${records} gd=${gd} onOpen=${setReplay} />`
                   : html`<${Overview} agg=${agg} gd=${gd} />`}
     </main>
   </div>`;
@@ -355,8 +363,8 @@ function StatsScreen({ tab }) {
 
 /** Global stats viewer host — mounted once by main.js; renders nothing (and loads nothing) until opened. */
 export function StatsHost() {
-  const { open, tab } = useStore((s) => s, Object.is, statsStore);
+  const { open, tab, ruleset } = useStore((s) => s, Object.is, statsStore);
   if (!open) return null;
-  return html`<${StatsScreen} tab=${tab} />`;
+  return html`<${StatsScreen} tab=${tab} ruleset=${ruleset} />`;
 }
 

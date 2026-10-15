@@ -26,6 +26,10 @@
 // and a write the browser refuses shrinks the list further instead of failing. Teammates' display names are part of
 // the newest records and of an export file: they stay on this device unless the player exports them.
 //
+// 규칙 모드 (shared/ruleset.js; maintainer decision 2026-10-15): every record keeps its match's ruleset preset (`ruleset`,
+// from m.public.ruleset) and the stats page counts each ruleset apart. A record from before rulesets (envelope v1, or a
+// row without the field) counts as 休闲 — those matches had the reroll and the battlefield preview.
+//
 // Format evolution: the envelope carries a version (`STATS_VERSION`); `migrateStats` walks records through a chain of
 // per-version steps and every loaded / imported record passes `normalizeRecord`, a strict schema: missing fields get
 // defaults, unknown fields and oversized values are dropped, a row it cannot salvage is dropped. An envelope from a
@@ -36,17 +40,23 @@
 // saveStats / their helpers.
 
 import { PHASE } from '../../../shared/constants.js';
+import { isRulePreset, rulesetKey } from '../../../shared/ruleset.js';
 
 /** Current record-envelope version (bump + add a MIGRATIONS step when the record shape changes). */
-export const STATS_VERSION = 1;
+export const STATS_VERSION = 2;
+/** The ruleset of a record without one (before rulesets: maintainer decision 2026-10-15). */
+export const LEGACY_RULESET = 'casual';
 /** localStorage key under the app's `sp.pref.` prefix (store.js loadPref). */
 export const STATS_PREF_KEY = 'stats';
 /** Oldest records are dropped beyond this many matches. */
 export const MAX_RECORDS = 1000;
 /** The newest records that keep their full rows (lineups, bonds, teammates) — what the settlement replay reads. */
 export const FULL_KEEP = 30;
-/** Budget of the stored JSON in characters (a character costs up to 2 bytes of the browser's ~5 MB quota): the oldest records go first. */
-export const MAX_CHARS = 800_000;
+/**
+ * Budget of the stored JSON in characters (a character costs up to 2 bytes of the browser's ~5 MB quota): the oldest records
+ * go first. 850 000 since the records carry their ruleset (v2): a full store of real-size co-op matches still keeps 900+.
+ */
+export const MAX_CHARS = 850_000;
 /** Largest export file the page reads. */
 export const IMPORT_MAX_CHARS = 8_000_000;
 
@@ -232,6 +242,7 @@ export function normalizeRecord(raw) {
     bossPools: normalizeBossPools(r.bossPools),
     uniteRounds: num(r.uniteRounds),
     roomMode: r.roomMode === 'solo' || r.roomMode === 'coop' ? r.roomMode : null,
+    ruleset: isRulePreset(r.ruleset) ? r.ruleset : LEGACY_RULESET,
     selfId: str(r.selfId),
     players,
   };
@@ -243,11 +254,13 @@ export function normalizeRecord(raw) {
 
 /**
  * The MIGRATIONS chain: `MIGRATIONS[v]` upgrades a v-envelope to v+1, for v = STATS_VERSION and down.
- * Empty at v1 — the steps exist so the next format change lands as one function here and every stored /
- * imported envelope walks the whole chain.
+ * Every stored / imported envelope walks the whole chain.
+ *   1 → 2: the records gain `ruleset` (규칙 모드); the matches before it count as 休闲 (LEGACY_RULESET).
  * @type {Record<number, (stats: any) => any>}
  */
-export const MIGRATIONS = {};
+export const MIGRATIONS = {
+  1: ({ records }) => ({ v: 2, records: records.map((r) => (isObj(r) && !isRulePreset(r.ruleset) ? { ...r, ruleset: LEGACY_RULESET } : r)) }),
+};
 
 /** Newest first (the stored order): by time, then id. */
 const newestFirst = (a, b) => (b.t - a.t) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -315,7 +328,7 @@ export function loadStats() {
 // ---- compaction + the storage budget ---------------------------------------------------------------------------
 
 const COMPACT_FRAME = ['id', 'v', 't', 'end', 'victory', 'roundsPassed', 'lastRound', 'hiddenReached', 'hiddenCleared', 'reason', 'modeId',
-  'difficulty', 'roomMode', 'durationMs', 'selfId'];
+  'difficulty', 'roomMode', 'ruleset', 'durationMs', 'selfId'];
 
 /**
  * The compact form of a record: the frame and the player's OWN row without lineup, bonds and name — everything the
@@ -395,7 +408,7 @@ export function roomModeOf(modeId, roomMode) {
  * without players (the error-path settlement) or matches the local player did not take part in (spectator
  * seats get every result pushed too — eliminated players, who ARE in players[], keep recording).
  * @param {any} res raw m.result payload
- * @param {{ myId?: string|null, roomMode?: string|null, now?: number }} ctx
+ * @param {{ myId?: string|null, roomMode?: string|null, ruleset?: any, now?: number }} ctx
  * @returns {any|null}
  */
 export function buildRecord(res, ctx = {}) {
@@ -426,6 +439,7 @@ export function buildRecord(res, ctx = {}) {
     bossPools: r.bossPools,
     uniteRounds: num(r.uniteRounds),
     roomMode: roomModeOf(str(r.modeId), ctx.roomMode),
+    ruleset: rulesetKey(ctx.ruleset),
     selfId: myId,
     players: r.players,
   });
@@ -523,6 +537,7 @@ export function buildQuitRecord(state, ctx = {}) {
     durationMs: live.sawStart ? Math.max(0, now - live.startedAt) : null,
     teamLp: num(pub.teamLp),
     roomMode: roomModeOf(str(pub.modeId), state.room?.mode),
+    ruleset: rulesetKey(pub.ruleset),
     selfId: myId,
     players: [{
       playerId: myId, seat: row.seat, name: row.name, isBot: false, left: true, alive, victory: false, roundsPassed,
@@ -591,7 +606,7 @@ function storeRecord(rec) {
  * Record a finished match end-to-end (load → append → save). Returns the built record, or null when
  * nothing was stored (no players / not my match / replay).
  * @param {any} res raw m.result payload
- * @param {{ myId?: string|null, roomMode?: string|null, now?: number }} [ctx]
+ * @param {{ myId?: string|null, roomMode?: string|null, ruleset?: any, now?: number }} [ctx]
  * @returns {any|null}
  */
 export function recordResult(res, ctx = {}) {
