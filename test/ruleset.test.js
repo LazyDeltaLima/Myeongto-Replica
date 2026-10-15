@@ -68,7 +68,7 @@ test('the switch tooltip: one line per preset without a colon inside, then the �
   const lines = rulesetTips().split('\n');
   assert.equal(lines.length, RULE_PRESETS.length + 1);
   assert.equal(lines[0], '【经典】与官方规则相同');
-  assert.equal(lines[1], '【休闲】使用战场信息、重新抽取、领袖路线预览 · 没有领袖限伤');
+  assert.equal(lines[1], '【休闲】使用战场信息、重新抽取、移动型领袖路线预览 · 没有领袖限伤');
   for (const l of lines) assert.ok(!/[:：]/.test(l), `no colon in ${l}`);
   assert.ok(lines[2].startsWith('※ 领袖限伤 — ') && lines[2].includes(BOSS_HIT_LIMIT.toLocaleString('en-US')), lines[2]);
 });
