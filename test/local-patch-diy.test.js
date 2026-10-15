@@ -200,6 +200,42 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
     for (const s of shades) assert.ok(s.kit && !s.kit.generic && s.kit.fromTokens, 'the shade runs its kit (under its deploy limit)');
   });
 
+  test('upstream #557: 魂灵之影 only on a board of its field — never a boss field\'s 临时整备区 row, no summon when nothing fits (T2 and S3)', () => {
+    // board (9, 7) facing DOWN = field (2, 7) on the left half / (2, 13) mirrored: the other tiles of her range on row 2
+    // are taken, (2, 8 / 12) stays free or not; row 1 (the 临时整备区, inside BOSS_RECT) is in her range
+    const shadesOf = (h, u) => h.b.allyUnits.filter((t) => t.kind === 'token' && t.defId === SHADE && t.ownerUnit === u && t.alive);
+    for (const kind of ['boss', 'hidden']) for (const side of ['L', 'R']) for (const free of [false, true]) {
+      const units = [{ uid: 1, chessId: 'chess_char_5_diy1_a', diy: { charId: CHAR.wisdel, skillIndex: 2 }, row: 9, col: 7, dir: 'DOWN', carryState: { sp: 999 } }];
+      for (let col = 5; col <= 9; col++) if (col !== 7 && !(free && col === 8)) units.push({ uid: col + 10, chessId: 'chess_char_1_01_a', row: 9, col });
+      const h = makeBattle({ seed: 5, kind, stageId: 'act2autochess_m02', players: [{ playerId: 'p1', side, units }], autoFinish: false });
+      h.step();
+      const u = h.unit(1);
+      const at = `${kind}/${side}/${free ? 'free' : 'full'}`;
+      const expected = free ? [[2, side === 'L' ? 8 : 12]] : [];
+      assert.deepEqual(shadesOf(h, u).map((t) => [t.tileR, t.tileC]), expected, `${at}: 死魂灵的余息`);
+      assert.ok(h.runUntil(() => u.skill.activations >= 1, 40), `${at}: S3 casts without an enemy`);
+      h.run(1);
+      assert.deepEqual(shadesOf(h, u).map((t) => [t.tileR, t.tileC]), expected, `${at}: S3 never spills onto the 临时整备区 row`);
+      for (const t of shadesOf(h, u)) assert.ok(h.b.onFieldBoard(t.tileR, t.tileC), `${at}: on a board`);
+    }
+  });
+
+  test('upstream #557: a 魂灵之影 may stand on the teammate\'s half of a pair field, never on the empty half of a solo boss field', () => {
+    // board (10, 8) facing RIGHT = field (3, 8) on the left half / (3, 12) mirrored; her free tiles of her own half are
+    // filled, the 临时整备区 tile (1, 8 / 12) and the other half's (2, 11 / 9) and (3, 12 / 8) stay in range
+    const shadesOf = (h, u) => h.b.allyUnits.filter((t) => t.kind === 'token' && t.defId === SHADE && t.ownerUnit === u && t.alive);
+    for (const kind of ['boss', 'hidden']) for (const side of ['L', 'R']) for (const pair of [false, true]) {
+      const units = [{ uid: 1, chessId: 'chess_char_6_diy1_a', diy: { charId: CHAR.wisdel, skillIndex: 0 }, row: 10, col: 8, dir: 'RIGHT' },
+        ...[[9, 8], [11, 8], [12, 8], [9, 9]].map(([row, col], i) => ({ uid: 2 + i, chessId: 'chess_char_1_01_a', row, col }))];
+      const players = [{ playerId: 'p1', side, units }];
+      if (pair) players.push({ playerId: 'p2', side: side === 'L' ? 'R' : 'L', units: [{ uid: 11, chessId: 'chess_char_1_01_a', row: 12, col: 2 }] });
+      const h = makeBattle({ seed: 5, kind, stageId: 'act2autochess_m02', players, autoFinish: false });
+      h.step();
+      const expected = pair ? [[2, side === 'L' ? 11 : 9]] : [];
+      assert.deepEqual(shadesOf(h, h.unit(1)).map((t) => [t.tileR, t.tileC]), expected, `${kind}/${side}/${pair ? 'pair' : 'solo'}`);
+    }
+  });
+
   test('阿斯卡纶: 死亡拘审 stacks tick arts damage', () => {
     assert.ok(tagged(battle('ascln', 1, 10, 4), 'dot') > 0);
   });

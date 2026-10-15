@@ -178,10 +178,13 @@ function wisdel(bb, chess, def) {
     if (Math.abs(unit.tileR - w.tileR) + Math.abs(unit.tileC - w.tileC) > 1) return;
     battle.addBuff(unit, { key: camoKey(w), duration: Infinity, flags: { camou: true }, status: 'camou', source: w });
   };
+  /** A shade on the free deployable tile of her range nearest to her, or none when no tile fits. Deployable = on a board
+   *  of this field (Battle.onFieldBoard): a teammate's half counts; a boss field's hand / 临时整备区 rows and a solo boss
+   *  field's empty half do not (upstream #557, docs/rules/sim.md). */
   const placeWard = (battle, unit, sp = 0) => {
     if (ownWards(battle, unit).length >= WIS_WARD_MAX) return null;
     const tiles = [...(unit.rangeKeys || [])].map((k) => [Math.floor(k / COLS), k % COLS])
-      .filter(([r, c]) => battle.grid.inRect(r, c) && battle.grid.canStand(r, c, { ranged: true }) && !battle.isReservedTile?.(r, c))
+      .filter(([r, c]) => battle.grid.inRect(r, c) && battle.onFieldBoard(r, c) && battle.grid.canStand(r, c, { ranged: true }) && !battle.isReservedTile?.(r, c))
       .sort((a, b) => hypot(a[0] - unit.tileR, a[1] - unit.tileC) - hypot(b[0] - unit.tileR, b[1] - unit.tileC) || a[1] - b[1]);
     for (const [r, c] of tiles) {
       // the shade's kit is given here (content/index.js resolves no token kit for it)

@@ -226,4 +226,41 @@ describe('维什戴尔 through the real match path (seats[].diy → Match board 
     assert.equal(b.errors.length, 0, b.errors[0]?.error?.message);
     m.dispose?.();
   });
+
+  test('upstream #557 on a solo boss field (m02): her shadows stay on her board — never the 临时整备区 row, no summon when it is full', async () => {
+    const T5 = 'chess_char_5_diy1_a';
+    const { makeMatch, give } = await import('./match/harness.js');
+    const { buildBattleSpec, createBattleFromSpec } = await import('../server/sim/spec.js');
+    const { GEO } = await import('../shared/constants.js');
+    for (const free of [false, true]) {
+      const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T5]: pickOf(false, 2) } }];
+      const mh = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seats, seed: 11 }).start();
+      mh.toPrep(3);
+      mh.setStage('act2autochess_m02');
+      const m = mh.m, ps = mh.ps('p_0');
+      ps.initDiyStock?.(new Set());
+      for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+      ps.board.clear(); ps.hand.fill(null); ps.recompute();
+      const w = ps.acquireChess(T5, { source: 'buy' });
+      assert.ok(m.handle('p_0', { t: 'g.move', uid: w.uid, to: { area: 'board', row: 9, col: 7 }, dir: 'DOWN' }).ok);
+      // her row: every other tile of her range on the board taken but (9, 8) when `free`
+      for (const col of [5, 6, 8, 9]) if (!(free && col === 8)) give(m, ps, 'chess_char_1_01_a', 'board', [9, col]);
+      const input = ps.battleInput({ side: 'L', colOffset: 0 });
+      const spec = buildBattleSpec({ seed: 3, kind: 'boss', modeId: m.modeId, round: m.round, stageId: m.stageId, rect: { ...GEO.BOSS_RECT },
+        timeLimit: Infinity, players: [input], battleId: 'lp',
+        // one late enemy keeps the field open while she casts
+        spawns: [{ time: 500, enemyKey: ENEMY, routeIndex: 0, count: 1, interval: 0 }], routes: [{ motion: 'WALK', start: [2, 10], end: [2, 2], checkpoints: [] }], fieldId: 'b1', content: m.battleContent });
+      const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+      b.start();
+      const u = b.allyUnits.find((x) => x.kind === 'op' && x.def.charId === CHAR);
+      for (let i = 0; i < 200 && !b.finished; i++) b.step();
+      assert.ok(!b.finished && u.alive, 'the boss field runs on');
+      u.skill.activate('manual', { free: true });
+      for (let i = 0; i < 200 && !b.finished; i++) b.step();
+      const tiles = shadesOf({ b }, u).map((t) => [t.tileR, t.tileC]);
+      assert.deepEqual(tiles, free ? [[2, 8]] : [], `${free ? 'free' : 'full'}: shades ${JSON.stringify(tiles)}`);
+      assert.equal(b.errors.length, 0, b.errors[0]?.error?.message);
+      m.dispose?.();
+    }
+  });
 });

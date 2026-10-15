@@ -592,6 +592,19 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
   `test/content/bands.test.js`·`test/ui/feedback1-offers.test.js`·`test/data.test.js`·`test/docs-consistency.test.js`(PLAYING 문장). golden: `matches` coop4-ABYSS-7만 —
   ai_3이 凯瑟琳이라 R4·R5·R7의 【定向投放】 제시가 풀이 한 칸 늘어난 만큼 같은 시드에서 다른 장비를 뽑았다(그 판에서 突变细胞는 안 나옴).
 
+### 维什戴尔 魂灵之影은 그 필드의 판 위에만 (upstream #557, upstream `347343d7`)
+- 문제: 维什戴尔(선발 오퍼레이터)의 재능 死魂灵的余息·S3 爆裂黎明이 魂灵之影(소환물)을 놓는 칸이 「범위 안 + 설 수 있음 + 빈 칸」뿐이라, 보스 필드(최종 공격·숨은 핵심)에서
+  아래 줄에 서면 손패·临时整备区 줄(보스 필드 0–1행, `BOSS_RECT` 안)에 소환됐다.
+- 근거: 제보 화면(upstream #557)과 upstream 관리자 수정(`347343d7`, PR #558 각색). 공식에서 소환물은 「범위 안의 배치 가능한 칸」(PRTS 备注)이고 손패·임시 줄은
+  전투 칸이 아니다(`tile_achand`, 위 「卫戍协议 버프 그래프」 突袭 전장 칸).
+- 동작(upstream 그대로): `op-wisdel.js placeWard`의 칸 조건에 `Battle.onFieldBoard(r, c)`(이 필드에 선 플레이어 누구든의 판, `battle/players.js`) — 같은 필드
+  팀원의 반쪽은 됨, 보스 필드의 손패·临时整备区 줄과 혼자인 보스 필드의 빈 반쪽은 안 됨, 맞는 칸이 없으면 소환하지 않음(S3 추가 소환도 같음).
+- **[ASSUMED]**(upstream 그대로): 혼자인 보스 필드의 빈 반쪽 제외. 突袭 착지는 클라 `IsBattleField`(BOSS_BATTLE = 보스 맵 전체)라 그 반쪽이 열려 있는데,
+  魂灵之影 소환이 클라에서 같은 검사를 쓰는지는 대조하지 않았다 — 같다면 빈 반쪽도 공식은 허용.
+- 테스트 `test/local-patch-diy.test.js`(upstream 테스트 각색: 보스·숨은 핵심 × 좌우 × 자리 있음/없음 — 재능·S3 모두 临时整备区 줄에 안 감; 팀원 반쪽은 됨·혼자면 빈
+  반쪽 안 됨), `test/local-patch-diy-wisdel.test.js`(실제 경기 경로: Match 판 → `battleInput` → `buildBattleSpec` → `createBattleFromSpec`, 혼자인 m02 보스 필드 —
+  고치기 전에는 临时整备区 줄에 소환됨을 확인).
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).
