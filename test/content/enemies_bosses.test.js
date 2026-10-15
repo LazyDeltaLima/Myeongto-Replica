@@ -3382,6 +3382,40 @@ test('阿利斯泰尔 未装配刀片: 莫非王土 on a sword strikes an operat
   approx(h.unit('t_wall').stats.taken, e.s.atk * skb('enemy_9032_aclionk', 'store').bb.atk_scale);
 });
 
+// official: prefab store (AbilitySelectableGroup, first branch that can cast): hasSword — an operator in range — takes any
+// piece (enemy_vtmstr_equip_tr), else noSword takes a vest / wand (enemy_vtmstr_mark[not_sword])
+test('阿利斯泰尔 莫非王土 order: with nobody in range it skips the sword for a vest; the sword waits, then fires once an operator is in range', () => {
+  // no 王权号令 here: a decree held back for want of a target fires on the same tick and its fresh piece would go first
+  const ov = JSON.parse(JSON.stringify(W.act1autochess_h07_06.overrides));
+  ov.enemy_9032_aclionk.skills = ov.enemy_9032_aclionk.skills.filter((s) => !/^equip/.test(s.prefabKey));
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 2 }], kits: { t_wall: NOATK }, setup(b) { b.enemyOverrides = ov; } });
+  h.step();
+  const e = put(h, 'enemy_9032_aclionk', [3, 12], { tag: 'boss' });
+  e.profile.noAttack = true;
+  const sword = put(h, 'enemy_10028_vtswd', [5, 14], { tag: 'part' });
+  const vest = put(h, 'enemy_10029_vtshld', [1, 14], { tag: 'part' });
+  h.run(2.2);
+  assert.ok(!vest.alive && e.findBuff('boss:vest'), 'the vest (noSword branch)');
+  assert.ok(sword.alive, 'the sword waits');
+  h.run(10);
+  assert.ok(sword.alive, 'still nobody in range');
+  e.x = 4;                                                                // the operator at (3, 2) is now in range
+  h.step(2);
+  assert.ok(!sword.alive, 'fired at once');
+  approx(h.unit('t_wall').stats.taken, e.s.atk * skb('enemy_9032_aclionk', 'store').bb.atk_scale);
+});
+
+test('阿利斯泰尔 莫非王土 order: with an operator in range the latest piece goes, a sword too', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }], kits: { t_wall: NOATK } });
+  h.step();
+  const e = put(h, 'enemy_9032_aclionk', [3, 10], { tag: 'boss' });
+  e.profile.noAttack = true;
+  const vest = put(h, 'enemy_10029_vtshld', [1, 14], { tag: 'part' });
+  const sword = put(h, 'enemy_10028_vtswd', [5, 14], { tag: 'part' });
+  h.run(2.2);
+  assert.ok(!sword.alive && vest.alive, 'the sword (hasSword branch, latest)');
+});
+
 // official: buff template enemy_vtlionk_s2 (冲击式施术单元 → SpawnTokenOnTargetTile trap_185_vtlntw on its tile, then the
 // piece dies); token prefab trap_185_vtlntw (_sideType ENEMY, Attack MAGICAL, projectile_trap_vtlntw), character_table
 // (HP 8000, ATK 425, DEF 150, RES 70, baseAttackTime 3.8, range x-1)

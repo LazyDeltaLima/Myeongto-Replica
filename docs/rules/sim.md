@@ -1051,5 +1051,11 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **옛 동작**: 빈 낮은 칸에만 떨어지고 아무도 줍지 않았다. 冲击式施术单元 활성화는 [黄金回响 대체] 보스의 다음 공격을 법술 + 3 s 缴械로 바꿨다. 테스트
   `enemies_bosses.test.js` 「阿利斯泰尔 冲击式施术单元…」 2건·「阿利斯泰尔 equipment…」·「阿利斯泰尔 王权号令: a piece may drop…」, 실제 판 경로
   `boss-patterns-real.test.js` 「real boss_6 field…」.
-- 덤으로 본 차이(안 고침): 【莫非王土】 프리팹은 `hasSword`(검 + 사거리 안 오퍼레이터) 갈래를 먼저 시도하고 없으면 `noSword` 갈래로 간다 — 우리는 「가장
-  최근 장비」 하나. 선택기 연결을 다 읽지 못해 이번엔 두었다(관리자 노트의 남은 일).
+- **【莫非王土】 고르는 순서** (2026-10-15): 프리팹 `store`/`storeA`는 `AbilitySelectableGroup` — `_DoCastInternal`이 설정 순서대로 시전을 시도해 처음
+  되는 갈래를 쓴다. 스킬 발동 조건(`GroupTrigger` AT_LEAST_ONE)은 「검(`enemy_vtmstr_mark[sword]`)이 있고 **그리고**(ALL) `hasSword` 원 안에 오퍼레이터」 또는
+  「검이 아닌 장비(`mark[not_sword]`)가 있음」. ① `hasSword`(트리거 = 원 안 오퍼레이터, 반경 1 × `_scaleble` — [ASSUMED] 배율 = 보스 사거리 3.4, 검 탄이
+  고르는 `s2range`와 같은 범위)는 놓인 장비 **아무거나**(`enemy_vtmstr_equip_tr`)를, ② 아니면 `noSword`가 조끼·冲击式施术单元(`mark[not_sword]`)을 고른다.
+  둘 다 HATRED_DES 최대 `max_target`(≤50 % 2) — 장비는 모두 도발 0이라 [ASSUMED] 같으면 가장 최근 장비 먼저(`Enemy.get_hatred`의 남은 경로 항은 장비에
+  안 맞춤). 그래서 사거리 안에 아무도 없으면 검을 건너뛰고 조끼·충격식을 쓰며, 검만 있으면 발동하지 않고 검은 남는다; 주기가 왔는데 고를 것이 없으면
+  고를 수 있게 되는 즉시 발동(클라는 트리거형) [ASSUMED 주기 자체는 그대로]. 옛 동작: 사거리와 무관하게 가장 최근 장비 — 아무도 없을 때 검이 헛돌고
+  사라졌다. 테스트 「阿利斯泰尔 莫非王土 order…」 2건.

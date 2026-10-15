@@ -54,8 +54,9 @@
 //                            blocker leaving a 不祥幻影 (same kit minus blink). Template overrides (0.2 / 0.12) apply.
 //   boss_6 阿利斯泰尔        王权号令 (SP 1/s, plus-shaped 200 % strike + random equipment drop, an operator's tile too: the
 //                            operator on a piece's tile picks it up — sword ATK +30 %, vest DEF +30 %, wand 800 arts + 战栗
-//                            after a skill); 莫非王土 animates the latest equipment on the field (2 s after it appears, then
-//                            once per 王权号令 cycle) (sword strike / directional vest + barrier / wand → 黄金回响 device on its
+//                            after a skill); 莫非王土 animates the latest piece — any with an operator in range, else a vest
+//                            or wand; a lone sword waits — (2 s after it appears, then once per 王权号令 cycle) (sword
+//                            strike / directional vest + barrier / wand → 黄金回响 device on its
 //                            tile); ≤50 %: DEF +100 %, RES +45, animates 2; 斥退 at 999 s.
 //   boss_7 “萨米的意志”      冰凌 (its normal attack) runs down a whole column from the stage's top row, tile by tile
 //                            (each tile's ally hit 1 s after the ice reaches it); 自然涌动 stun + arts DoT; <50 %: damage taken
@@ -1419,10 +1420,18 @@ function kitLion(ab, e, b) {
     }
     return true;
   };
-  const animate = (b2, e2) => { // 【莫非王土】 the latest equipment (2 at ≤50 %)
+  const animate = (b2, e2) => { // 【莫非王土】 one piece (2 at ≤50 %); false when no branch can cast
     const n = P.adv && stA ? stA.bb.max_target ?? 2 : 1;
     const sk = P.adv && stA ? stA : st;
-    for (const q of equipment(b2).slice(-n)) {
+    // prefab store / storeA: an AbilitySelectableGroup casting its first branch that can (_DoCastInternal walks the
+    // configs in order). hasSword — triggered by an operator in its circle (radius 1 × the boss's range [ASSUMED scale],
+    // the range the sword's s2range shot picks from) — takes any piece (selector buff enemy_vtmstr_equip_tr); else
+    // noSword takes a vest or a wand (enemy_vtmstr_mark[not_sword]). A sword with nobody in range waits on the field.
+    // Both sort HATRED_DES, all pieces tie: [ASSUMED] the latest first
+    const all = equipment(b2);
+    const pool = targetsNear(b2, e2, range()).length > 0 ? all : all.filter((q) => q.defId !== SWORD_KEY);
+    if (!pool.length) return false;
+    for (const q of pool.slice(-n)) {
       if (q.defId === 'enemy_10028_vtswd') {
         const t = b2.rng.pick(targetsNear(b2, e2, range()));
         if (t) { b2.fx('sword', { x: q.x, y: q.y, from: q.id, to: t.id }); hurt(b2, e2, t, e2.s.atk * ((sk && sk.bb.atk_scale) || 0), 'phys'); }
@@ -1439,6 +1448,7 @@ function kitLion(ab, e, b) {
       }
       b2.kill(q, null);
     }
+    return true;
   };
   return [
     {
@@ -1452,11 +1462,12 @@ function kitLion(ab, e, b) {
         P.sp += dt * ENEMY_SP_PER_SEC;
         if (P.sp >= cost && decree(b2, e2)) P.sp = 0;
         if (Number.isFinite(cost)) e2.mem.lpSp = [Math.min(P.sp, cost), cost]; // local patch: the boss SP bar (local-hud.js)
-        // 【莫非王土】: ANIMATE_DELAY s after equipment first lies on the field, then once per 王权号令 cycle
+        // 【莫非王土】: ANIMATE_DELAY s after equipment first lies on the field, then once per 王权号令 cycle; when no branch
+        // can cast (a lone sword, nobody in range) it fires as soon as one can
         const has = equipment(b2).length > 0;
         if (!has) { P.nextAnim = null; return; }
         if (P.nextAnim == null) P.nextAnim = b2.time + ANIMATE_DELAY;
-        if (b2.time >= P.nextAnim) { animate(b2, e2); P.nextAnim = b2.time + (Number.isFinite(cost) ? cost : ANIMATE_DELAY); }
+        if (b2.time >= P.nextAnim && animate(b2, e2)) P.nextAnim = b2.time + (Number.isFinite(cost) ? cost : ANIMATE_DELAY);
       },
       hitIn(c, b2, e2) { // vest: damage from its side ×(1 − damage_resistance) while the barrier holds
         const v = e2.findBuff('boss:vest');
