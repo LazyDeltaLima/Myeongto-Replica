@@ -299,7 +299,7 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect, waiting = nu
       <span class="diff-card__meta">
         <span class="num">${info.rounds}</span> ${tc('rounds', '回合')}${info.hidden ? html`<span class="diff-card__hidden">${t('+ 隐秘核心')}</span>` : null}
       </span>
-      ${waiting != null ? html`<span class=${`diff-card__wait${waiting > 0 ? ' is-on' : ''}`} data-testid=${`queue-count-${difficulty}`}>${t('{n} 名博士匹配中', { n: waiting })}</span>` : null}
+      ${waiting != null ? html`<span class=${`diff-card__wait${waiting > 0 ? ' is-on' : ''}`} data-testid=${`queue-count-${difficulty}`}>${t('{n} 人匹配中', { n: waiting })}</span>` : null}
     </span>
     <span class="diff-card__desc">${info.desc}</span>
     <span class="diff-card__effects">${info.effects.map((e) => html`<span key=${e}>${e}</span>`)}${info.stageNote ? html`<span key="stage" class="diff-card__stage"><${Icon} name="rook" />${info.stageNote}</span>` : null}</span>
@@ -433,11 +433,12 @@ export function LobbyScreen() {
       </section>
 
       <section class="lobby-right">
-        <div class="section-label"><span class="section-label__idx num">02</span>${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//></div>
-        <div class="lobby-rules">
-          <span class="lobby-rules__k">${t('规则')}<${MicroLabel}>RULESET<//></span>
-          <${RulesetSwitch} value=${ruleset} onPick=${pickRuleset}
-            counts=${matching ? Object.fromEntries(RULE_PRESETS.map((p) => [p, queueCountOf(queueCounts, p)])) : null} />
+        <div class="section-label section-label--rules"><span class="section-label__idx num">02</span>${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//>
+          <div class="lobby-rules">
+            <span class="lobby-rules__k">${t('规则')}</span>
+            <${RulesetSwitch} value=${ruleset} onPick=${pickRuleset}
+              counts=${matching ? Object.fromEntries(RULE_PRESETS.map((p) => [p, queueCountOf(queueCounts, p)])) : null} />
+          </div>
         </div>
         <div class="diff-list">
           ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${pickDifficulty}

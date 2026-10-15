@@ -9,7 +9,8 @@ import { loadPref, savePref } from '../store.js';
 import { t } from '../../../shared/i18n.js';
 
 /**
- * What a preset changes against the official rules: the labels of the options it turns on and off (none for 经典).
+ * What a preset changes against the official rules: the options it turns on, then those it turns off (none for 经典).
+ * No colon inside a line: the switch's tooltip already pairs each preset with its line.
  * @param {string} preset
  * @returns {string}
  */
@@ -22,12 +23,22 @@ export function rulesetTip(preset) {
     (options[k] ? on : off).push(t(o.label));
   }
   if (!on.length && !off.length) return t('与官方规则相同');
-  return [on.length ? t('开启：{list}', { list: on.join(t('、')) }) : '', off.length ? t('关闭：{list}', { list: off.join(t('、')) }) : '']
+  return [on.length ? t('使用{list}', { list: on.join(t('、')) }) : '', off.length ? t('没有{list}', { list: off.join(t('、')) }) : '']
     .filter(Boolean).join(' · ');
 }
 
-/** The switch's tooltip: one line per preset. */
-export const rulesetTips = () => RULE_PRESETS.map((p) => t('{name}：{tip}', { name: t(PRESET_LABELS[p]), tip: rulesetTip(p) })).join('\n');
+/**
+ * The switch's tooltip: one line per preset, then a footnote for each option some preset changes that has a `note`
+ * (what the official rule does, for players who never met it — 限伤).
+ */
+export function rulesetTips() {
+  const lines = RULE_PRESETS.map((p) => t('【{name}】{tip}', { name: t(PRESET_LABELS[p]), tip: rulesetTip(p) }));
+  for (const [k, o] of Object.entries(RULE_OPTIONS)) {
+    if (!o.note || !RULE_PRESETS.some((p) => resolveRuleset(p).options[k] !== o.official)) continue;
+    lines.push(t('※ {label} — {note}', { label: t(o.label), note: t(o.note, { n: (o.noteN ?? 0).toLocaleString('en-US') }) }));
+  }
+  return lines.join('\n');
+}
 
 /** The preset's display name. @param {unknown} preset */
 export const presetName = (preset) => t(PRESET_LABELS[resolveRuleset(preset).preset]);

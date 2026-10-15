@@ -19,9 +19,11 @@
 // docs/rules/ui.md 「규칙 모드」 has the rules and their evidence.
 
 import { N_ } from './i18n.js';
+import { BOSS_HIT_LIMIT } from './constants.js';
 
 /**
- * @typedef {{ official: boolean, casual: boolean, scope: 'ui'|'match'|'sim', label: string, flag?: string }} RuleOption
+ * `note` = one line for players who do not know the rule (the switch's tooltip; `{n}` = the option's `noteN`).
+ * @typedef {{ official: boolean, casual: boolean, scope: 'ui'|'match'|'sim', label: string, flag?: string, note?: string, noteN?: number }} RuleOption
  * @type {Readonly<Record<string, Readonly<RuleOption>>>}
  */
 export const RULE_OPTIONS = Object.freeze({
@@ -33,7 +35,8 @@ export const RULE_OPTIONS = Object.freeze({
   // the walking leader's route in the boss rounds' prep (server/match/bossPath.js); not in the official game
   bossRoutePreview: Object.freeze({ official: false, casual: true, scope: 'match', label: N_('领袖路线预览') }),
   // 限伤: a hit of ≥ BOSS_HIT_LIMIT on a leader in a boss battle is cancelled (server/sim/damage.js leaderHitCancelled)
-  bossHitLimit: Object.freeze({ official: true, casual: false, scope: 'sim', label: N_('领袖限伤'), flag: 'noBossHitLimit' }),
+  bossHitLimit: Object.freeze({ official: true, casual: false, scope: 'sim', label: N_('领袖限伤'), flag: 'noBossHitLimit',
+    note: N_('对敌方领袖单次造成 {n} 以上的伤害会整个无效'), noteN: BOSS_HIT_LIMIT }),
 });
 
 /** The presets a room may pick, in menu order. */
