@@ -12,6 +12,7 @@ import { pairPlayers, bossPoolHp, SharedBossPool, CreditPool, hiddenEligible, BO
 import { FieldRunner, HeadlessPacer, syntheticResult, BOSS_SILENCE_MS, CATCHUP_TICKS_PER_INTERVAL } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS } from './common.js';
 import { tallyBattle } from '../unitTally.js';
+import { simRuleFlags } from '../../../shared/ruleset.js';
 
 /** b.pool broadcasts at most this often (ms). */
 const POOL_MIN_GAP_MS = 250;
@@ -100,8 +101,9 @@ export class MatchBoss {
         spawns: this._sanitizeSpawns(spawns),
         routes: wave.routes,
         sharedBoss: this.bossPool,
-        // the round's enemy effects for the leaders' mid-fight summons (server/sim/content/bosses.js summonMods)
-        flags: { layerGainsEnabled: false, ...this.gd.dp, enemyScale: this.gd.enemyScale(this.round) },
+        // the round's enemy effects for the leaders' mid-fight summons (server/sim/content/bosses.js summonMods); the
+        // ruleset's sim options (shared/ruleset.js simRuleFlags: 休闲 → noBossHitLimit; none in classic)
+        flags: { layerGainsEnabled: false, ...this.gd.dp, enemyScale: this.gd.enemyScale(this.round), ...simRuleFlags(this.ruleset) },
         fieldId,
         enemyOverrides: wave.overrides,
         waveId: wave.templateId,

@@ -1197,3 +1197,10 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   `Entity.CompareTo`(`instanceUid` 오름차순)라 **가장 오래된 장비 먼저**(2026-10-15, 옛 [ASSUMED]: 가장 최근 장비 먼저). 그래서 사거리 안에 아무도 없으면 검을
   건너뛰고 조끼·충격식을 쓰며, 검만 있으면 발동하지 않고 검은 남는다; 주기가 왔는데 고를 것이 없으면 고를 수 있게 되는 즉시 발동(클라는 트리거형)
   [ASSUMED 주기 자체는 그대로]. 옛 동작: 사거리와 무관하게 가장 최근 장비 — 아무도 없을 때 검이 헛돌고 사라졌다. 테스트 「阿利斯泰尔 莫非王土 order…」 2건.
+
+## 캐주얼 규칙 모드의 리더 피해 상한 (2026-10-15, 관리자 결정)
+- 공식 限伤(보스전·숨겨진 핵심에서 리더에게 들어가는 `ceil(최종 피해) ≥ 300000`의 한 방은 통째로 무효, `server/sim/damage.js leaderHitCancelled`, `docs/research/11-limits-official.md` §2)은 클래식 규칙 모드에서 그대로다.
+  캐주얼 규칙 모드는 이 상한을 없앤다(관리자 결정 2026-10-15, `ui.md` 「규칙 모드 — 클래식·캐주얼」): 보스전 spec의 `flags.noBossHitLimit`(`shared/ruleset.js simRuleFlags`)가 있으면 `leaderHitCancelled`가 아무것도 막지 않아, 큰 한 방이 리더 HP와 공유 풀에 그대로 들어가고 공로·BOSS_HIT 방송도 그대로 센다.
+- 플래그는 공식 값과 다를 때만 붙어 클래식 보스전의 spec은 바뀌지 않는다. 브라우저 전투(`clientCombat`)와 서버 검증이 같은 spec을 읽는다.
+- 확인: `test/match/ruleset-match.test.js`(실제 판, 999층 炎 보드 + 피해 ×2000: 최종 공세·숨겨진 핵심 모두 30만 이상 타격이 들어가고 `hitCap` 0), 클래식은 그대로 `test/match/playtest6-limits.test.js`.
+

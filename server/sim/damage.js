@@ -187,7 +187,8 @@ export function mitigate(amount, type, target, ign = {}) {
  * True when the hit of `amount` HP about to land on `target` is cancelled: the target is a leader (`isBoss`: the
  * tag-'boss' units — data/bosses.json enemyKey, the official IsBossEnemy list — and their mirrored copies; never a part,
  * escort, drone or other minion), the battle is a boss / hidden one (the client's step mode: every boss battle outside
- * training) and ceil(amount) ≥ BOSS_HIT_LIMIT. The cancel is whole (no clamp): no HP / pool loss, no credit, no damage
+ * training) and ceil(amount) ≥ BOSS_HIT_LIMIT — unless the battle's `flags.noBossHitLimit` is set (the 休闲 ruleset,
+ * shared/ruleset.js; maintainer decision 2026-10-15). The cancel is whole (no clamp): no HP / pool loss, no credit, no damage
  * number. A 'hitCap' fx event `{ id, n: ceil(amount) }` marks it for the client, which draws nothing — the official
  * shows no number [ASSUMED]. Every HP-damage kind is checked as the official `modifier.isDamage` (phys, arts, true,
  * 元素伤害 incl. element bursts, DoT ticks — they all come through dealDamage — and losses passed on to a leader through
@@ -196,6 +197,8 @@ export function mitigate(amount, type, target, ign = {}) {
  */
 export function leaderHitCancelled(battle, target, amount) {
   if (!(BOSS_HIT_LIMIT > 0) || !target || !target.isBoss || (battle.kind !== 'boss' && battle.kind !== 'hidden')) return false;
+  // 규칙 모드 休闲 (shared/ruleset.js bossHitLimit off → spec.flags.noBossHitLimit): no 限伤
+  if (battle.flags && battle.flags.noBossHitLimit === true) return false;
   if (!(Math.ceil(amount) >= BOSS_HIT_LIMIT)) return false;
   battle.fx('hitCap', { x: target.x, y: target.y, id: target.id, n: Math.ceil(amount) });
   return true;

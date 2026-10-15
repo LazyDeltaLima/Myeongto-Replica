@@ -1288,9 +1288,11 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 | `battlefieldInfo` 브리핑 전장 카드(이름·전장 수·미리보기 그림) | 「미확인 전장」 카드 | 보임 | `public/js/screens/briefing.js` | 공식 정보 화면 입력 `AutoChessStageInfoGroupViewModel.Input`에 전장 값이 없다(actId·bossId·enemyTypes·bannedBondList·trainingBondList·modeId — 클라 코드) |
 | `infoReroll` 브리핑 「다시 뽑기」 투표 | 없음(서버가 거부, 버튼 없음) | 있음 | `server/match/match/phases.js voteReroll` | 공식 브리핑에는 准备就绪뿐(이 파일 「본판 정보 다시 뽑기」) |
 | `bossRoutePreview` 보스 경로 미리보기 | 없음(서버가 경로를 보내지 않음) | 있음 | `server/match/match/views.js nextEnemiesFor` | 공식에 없는 편의 기능(`render.md` 「보스 경로 미리보기」) |
+| `bossHitLimit` 리더 피해 상한(限伤) | 있음 | 없음 | `server/sim/damage.js leaderHitCancelled` ← 전투 spec `flags.noBossHitLimit` | 공식 限伤(`sim.md` 「캐주얼 규칙 모드의 리더 피해 상한」, `docs/research/11-limits-official.md` §2) |
 
 - 관리자 결정(2026-10-15): 이름은 클래식 / 캐주얼, 보스 경로 미리보기도 캐주얼 쪽, 처음 기본값은 클래식이고 그 뒤로는 로비에서 마지막에 고른 값을 기억, 공개 매칭은 규칙 모드별로 나눔, 통계는 규칙 모드별로 나누고 이 기능 전의 판 기록은 캐주얼로 셈.
 - [화면 미확인] 브리핑 전장 카드(관리자 결정 2026-10-15, 시안 비교 뒤): 카드를 빼면 왼쪽 열이 비어 보여서, 같은 자리에 **「미확인 전장」** 카드를 둔다 — 제목 줄은 전장 이름 대신 「미확인 전장」(전장 수 문구 없음), 그림 자리에는 줄무늬 어두운 상자와 보스 칸의 「?」와 같은 주황 「?」, 그 아래 「전투가 시작되면 공개됩니다」. 두 모드의 화면 틀이 같다. 비교한 다른 안(결장 오퍼레이터 묶음을 왼쪽 열로 옮겨 공식 순서 적 → 결장 → 핵심 → 부가를 따르기)은 결장이 많은 판에서 왼쪽만 길어지고 오른쪽 아래가 비어 고르지 않았다. 처음 요청한 「공식의 미클리어 스테이지 맵 미리보기」는 없다: 공식 스테이지 정보 패널(`StagePreviewInfoBasicPanel` `_LoadStagePreviewMap`)은 클리어 여부와 상관없이 같은 미리보기를 불러온다(클라 코드).
 - 방(`server/lobby.js`): `room.create { ruleset? }`(없으면 클래식), 방장이 판 전에 `room.setRuleset { preset }`로 바꾼다(매칭 중이면 `ERR.MATCHING`, 바꾸면 다른 박사의 준비가 풀림 — 난이도와 같음). `room.state.ruleset = { preset, options }`, 판은 `opts.ruleset`로 받아 `m.public.ruleset`에 싣는다. 다시 뽑기로 새로 시작한 판도 방의 규칙 모드를 그대로 쓴다.
+- 리더 피해 상한: 캐주얼이면 보스전 spec의 `flags`에 `noBossHitLimit`이 붙고(`shared/ruleset.js simRuleFlags`, 공식 값과 다를 때만), 브라우저 전투와 서버 검증이 같은 spec을 읽는다. 클래식 보스전의 spec은 예전과 같아 골든이 움직이지 않는다.
 - [화면 미확인] 방 화면(`public/js/screens/room.js`): 아래 줄 난이도 밑에 「규칙」 선택(클래식 / 캐주얼, 방장만, 매칭 중 잠김; 툴팁이 프리셋마다 공식과 다른 옵션을 나열), 위 제목의 난이도 옆에 규칙 모드 표.
-- 확인: `test/ruleset.test.js`(표·프리셋), `test/lobby-ruleset.test.js`(방), `test/match/info-reroll.test.js`(클래식은 투표 거부), `test/match/boss-path.test.js`(클래식은 경로 없음).
+- 확인: `test/ruleset.test.js`(표·프리셋), `test/lobby-ruleset.test.js`(방), `test/match/ruleset-match.test.js`(실제 판: `m.public.ruleset`, 캐주얼에서 999층 炎 보드의 30만 이상 타격이 리더와 공유 풀에 들어감), `test/match/info-reroll.test.js`(클래식은 투표 거부), `test/match/boss-path.test.js`(클래식은 경로 없음).
