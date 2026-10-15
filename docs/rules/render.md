@@ -640,3 +640,13 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
 - 확인: `test/ui/perf-hud.test.js` 4, `test/diag.test.js` 1; Windows Chrome(844×390 @3x) 실제 솔로 대전: 제목 화면부터 표시, 전투 중
   `sim … (60 t/s) · js 0.9 · draw 0.3`, `3d 20 calls`, 진단에 `perf: R1 COMBAT …` 줄, 주소 없이 다시 열어도 켜짐, `?perf=0`으로 꺼짐.
   [화면 미확인] 실제 iPhone Safari.
+
+## upstream 버그 이슈 이식 — 렌더 (2026-10-15)
+upstream 새 버그 이슈의 수정 PR 중 sim 수정에 기대는 렌더 쪽(관리자 결정 2026-10-15). sim 쪽 근거는 `sim.md` 「upstream 버그 이슈 이식 (2026-10-15)」.
+- **假想敌：镜膜 멈춘 팬**(upstream #481, upstream PR #613): sim이 첫 침묵에 폼 `stopped`를 낸다 → `units.js FORMS.enemy_9011_acrefr.stopped` =
+  `B_Idle`/`B_Move`/`B_Die`/`B_Attack`(모델의 A_*·B_* 두 클립 묶음 중 B, 전환 클립 없음). 늦게 들어온 관전자는 UnitInfo `form`으로 처음부터 B 모델.
+  **[추정]**(PR 그대로): B 묶음이 팬이 멈춘 모습이라는 것은 클립 이름과 upstream PR뿐(클라 Graphic 표는 대조 안 함).
+  그 순간의 fx `phase`(kind `stopped`)는 `fx/kinds.js SILENT_PHASES`에 넣어 대체 이펙트(보라색 사라짐)를 그리지 않는다 — 모델이 바뀌는 것으로 보이고,
+  공식에 그 순간 이펙트가 있다는 근거가 없다 **[추정]**(upstream은 대체 이펙트를 그림).
+  테스트 `test/render/forms.test.js`(PR: A_Idle → setForm 뒤 B_Idle·B_Move·B_Attack·B_Die, 늦은 관전자는 처음부터 B). [화면 미확인] 침묵 뒤 B 모델·침묵이 끝나도
+  HP 바 상한 그대로·늦은 관전자.

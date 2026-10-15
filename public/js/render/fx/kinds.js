@@ -124,9 +124,10 @@ const FX_GUESS = [
  * 'phase' (an enemy's mode change, render/units.js FORMS) kinds the model shows on its own: 暴鸰 'bombed' — its bomb is
  * the 'droneBomb' projectile of the same moment, a puff on the drone would read as something else (feedback D4); a
  * prisoner's 'warning' — its collar light starts blinking orange (the official mode R shows nothing else); 子代's
- * 'larva' / 'grown' / 'feed' / 'fed' — its own clips (Start_01, Start_02, Attack_Begin, Attack_End).
+ * 'larva' / 'grown' / 'feed' / 'fed' — its own clips (Start_01, Start_02, Attack_Begin, Attack_End); 假想敌：镜膜's 'stopped' —
+ * its B_* clip set (the fan stops at the first silence; no effect known for that moment).
  */
-const SILENT_PHASES = new Set(['bombed', 'warning', 'larva', 'grown', 'feed', 'fed']);
+const SILENT_PHASES = new Set(['bombed', 'warning', 'larva', 'grown', 'feed', 'fed', 'stopped']);
 
 /** Visual spec of an fx kind (see FX_KINDS); `extra.kind` / `extra.element` may pick a better colour. */
 export function fxSpec(kind, extra = {}) {

@@ -508,6 +508,11 @@ const BROOD = Object.freeze({
 });
 export const FORMS = Object.freeze({
   trap_039_dstnta: BROOD,
+  // 假想敌：镜膜: the first silence stops its fan for good (server refraction → form 'stopped'): the B_* clip set
+  // (upstream #481, upstream PR #613)
+  enemy_9011_acrefr: Object.freeze({
+    stopped: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }),
+  }),
   char_1023_ghost2: Object.freeze({
     doll: Object.freeze({ change: 'Start_B', end: 'Die_B', leave: 'Start_2', roles: dollRoles('Idle_B', 'Die_B_2') }),
   }),
