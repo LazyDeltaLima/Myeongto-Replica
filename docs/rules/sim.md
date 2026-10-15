@@ -577,6 +577,21 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
 - 테스트 `test/match/feedback1-meta.test.js`(실제 `g.refresh` 경로, 쓴 일반 0·1·2장 × 증정 합성 → 정예 다음 刷新 +8 → 같은 라운드 반복 없음; 옛 순서에서 0·1장
   경우가 실패함을 확인), `test/match/meta.test.js`(`onRefresh`는 특질 먼저, `onPrepEnd`·`onRoundStart`는 전역 → 전략 → 맹약 → 특질). golden 변화 없음.
 
+### 凯瑟琳 【定向投放】은 突变细胞도 준다 (upstream #631, PR #634)
+- 문제: 凯瑟琳(전략) 【定向投放】(조달 센터를 올릴 때마다 장비 3개 중 1개, `pool_equip_kathe`)이 상점 판매 장비만 뽑아, 상점이 팔지 않는 突变细胞(돌연변이
+  세포)가 절대 안 나왔다(제보자 20판).
+- 근거: #631 댓글의 공식 플레이 영상 3개 — https://www.bilibili.com/video/BV1XmUhBhEtw/ ·
+  https://www.bilibili.com/video/BV1sUSQBLE93/ (「凯瑟琳分队甚至能发突变细胞，无敌了」) · https://www.bilibili.com/video/BV1WRQeBNEqW/ .
+  제보 본문: 조달 센터 레벨과 무관하게 나오고, 突变细胞를 얻는 전략은 凯瑟琳·昆图斯 둘뿐. 첫 댓글의 스크린숏은 결과 화면뿐이라(11라운드 보상일 수 있다는 반론)
+  영상이 근거다. 영상 내용은 이 이식에서 직접 열어 보지 못했다(댓글의 주소·제목 그대로).
+- 동작(PR 그대로): `tools/build-data.mjs`의 `pool_equip_kathe`에 `plus: ['chess_item_5_08_e_a']`(`data/choices.json`에서 이 풀만 바뀜), `spDraft.js rollItemId`가
+  `items`·`tiers`·전체 단계 목록 뒤에 `plus`를 붙여 균등하게 뽑는다(`weighted` 풀에는 안 씀). 突变细胞는 여전히 상점(`SHOP_EXCLUDED_ITEMS`)·다른 상점 풀·机变
+  보급에는 안 나오고, 효과 전용이라 공용 장비 재고가 없다(`itemPool.cap` null). 카드의 출처 표시(`shopExcludedBy`)는 昆图斯 그대로(PR 그대로).
+- **[ASSUMED]**(PR): 풀 안 가중치는 균등(52개 중 1개), 이 풀의 효과 전용 장비는 突变细胞뿐(특수 维式重锤 넷은 없음).
+- 테스트 `test/match/pool.test.js`·`test/match/feedback5-cathy-pool.test.js`(실제 `g.levelUp` 경로 40판 × 5번 — 突变细胞가 나오고 다른 효과 전용 장비는 안 나옴)·
+  `test/content/bands.test.js`·`test/ui/feedback1-offers.test.js`·`test/data.test.js`·`test/docs-consistency.test.js`(PLAYING 문장). golden: `matches` coop4-ABYSS-7만 —
+  ai_3이 凯瑟琳이라 R4·R5·R7의 【定向投放】 제시가 풀이 한 칸 늘어난 만큼 같은 시드에서 다른 장비를 뽑았다(그 판에서 突变细胞는 안 나옴).
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).
