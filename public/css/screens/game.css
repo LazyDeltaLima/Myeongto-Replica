@@ -22,6 +22,8 @@
 }
 .gm__loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; pointer-events: none; }
 .gm__hud { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+/* the left player list's layer (screens/game.js): the HUD's box, painted just under the HUD panels (the detail card covers it) */
+.gm__side { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 .gm__hud > * { pointer-events: auto; }
 .gload { align-items: center; justify-content: center; gap: .2rem; }
 

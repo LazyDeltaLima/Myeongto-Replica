@@ -81,7 +81,8 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
       items: document.querySelectorAll(`${root} .ewheel__item`.trim()).length,
       imgs: [...document.querySelectorAll(`${root} .ewheel__item img`.trim())].filter((i) => i.complete && i.naturalWidth > 0).length,
       glyphs: document.querySelectorAll(`${root} .ewheel__item .eart--glyph`.trim()).length,
-      panelText: panel ? panel.textContent.trim() : '',
+      // the emotes are pictures only; the set tabs (官方表情 / 用户表情, ui/emotes.js) are the panel's only words
+      panelText: panel ? [...panel.childNodes].filter((n) => !n.classList?.contains('ewheel__tabs')).map((n) => n.textContent).join('').trim() : '',
       btnDisabled: q('.ewheel__btn')?.disabled ?? null,
       dotOn: [...document.querySelectorAll(`${root} .ewheel__dot`.trim())].findIndex((d) => d.classList.contains('is-on')),
     };
@@ -334,8 +335,12 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
       const a = r.querySelector('.pavatar, .team__btn').getBoundingClientRect();
       const b = r.querySelector('.team__bubble').getBoundingClientRect();
       const bubble = r.querySelector('.team__bubble');
+      // the official list (css/hud-art.css): the tail's tip (9 of the bubble's 108 px) 3.5 units right of the portrait;
+      // upstream's list: just right of the sender's row
+      const tip = b.left + b.width * 9 / 108;
+      const art = !!r.closest('.gm.has-hud-team');
       return {
-        beside: b.left >= a.right && b.left - row.right >= 0 && b.left - row.right <= 24, // just right of the sender's row
+        beside: art ? tip >= a.right && tip - a.right <= 12 : b.left >= a.right && b.left - row.right >= 0 && b.left - row.right <= 24,
         centred: Math.abs((b.top + b.bottom) / 2 - (a.top + a.bottom) / 2) <= 14,     // at the avatar's height
         absolute: getComputedStyle(bubble).position === 'absolute',                     // does not push the row
         text: bubble.textContent.trim(),
@@ -352,5 +357,56 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
     await page.screenshot({ path: path.join(OUT, 'emotes-mock-sent-1920.png') });
     assert.deepEqual(problems, []);
     await page.close();
+  });
+
+  // maintainer report: on the 机变 / 悬赏 screen the left player list and the bubbles sat under its backdrop, and the
+  // title sat 1.14rem down from the top (the official panel_choice: title row centred 59.2 units under the top edge)
+  test('in-match mock, 悬赏 screen: the player list and the bubbles stay above it, the title at the top', { skip: !HAS_ART && 'no official emote art (neither the local extraction nor the fetched copies)' }, async () => {
+    for (const [w, h] of [[1920, 1080], [756, 366]]) {
+      const { page, problems } = await open('/dev/game-mock.html?shot=1&render=fallback&phase=SP_DRAFT&variant=bounty', { w, h });
+      await page.waitForFunction(() => !!document.querySelector('.screen:not(.gload)'), { timeout: 15000 });
+      await page.waitForSelector('.spov');
+      // two teammates' bubbles (not ?variant=emote: it also opens the wheel, which covers the list's foot on a phone)
+      await page.evaluate(() => {
+        const now = Date.now();
+        globalThis.__MOCK__.store.set({ emotes: [{ seq: now, playerId: 'p3', id: 'autochess_battle_nice_cooperate', at: now }, { seq: now + 1, playerId: 'ai_2', id: 'slug_autochess_battle_thanks', at: now }] });
+      });
+      await page.waitForSelector('.team__bubble');
+      await sleep(700);
+      const s = await page.evaluate(() => {
+        const top = (el) => { const r = el.getBoundingClientRect(); return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); };
+        const btns = [...document.querySelectorAll('.team__btn')];
+        const bubbles = [...document.querySelectorAll('.team__bubble')];
+        const team = document.querySelector('.team').getBoundingClientRect();
+        const order = document.querySelector('.spov__order')?.getBoundingClientRect();
+        const name = document.querySelector('.spov__name').getBoundingClientRect();
+        const art = !!document.querySelector('.spov.has-phase-art');
+        // one unit (--pu, a calc / clamp the computed style leaves unresolved): a probe 100 units wide
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:absolute;width:calc(var(--pu) * 100);height:0';
+        document.querySelector('.spov').append(probe);
+        const pu = art ? probe.getBoundingClientRect().width / 100 : 0;
+        probe.remove();
+        return {
+          avatars: btns.length > 0 && btns.every((b) => top(b)?.closest('.team__btn') === b),
+          // a bubble takes no pointer events (hit tests skip it): made hit-testable for the probe only
+          bubbles: bubbles.length > 0 && bubbles.every((b) => {
+            b.style.pointerEvents = 'auto';
+            const hit = top(b);
+            b.style.pointerEvents = '';
+            return !!hit && b.contains(hit);
+          }),
+          clear: name.left >= team.right && (!order || order.left >= team.right),
+          art, pu, centre: (name.top + name.bottom) / 2,
+        };
+      });
+      assert.equal(s.avatars, true, `${w}×${h}: the avatars are on top`);
+      assert.equal(s.bubbles, true, `${w}×${h}: the bubbles are on top`);
+      assert.equal(s.clear, true, `${w}×${h}: the title and the pick order start right of the player list`);
+      if (s.art && s.pu) assert.ok(Math.abs(s.centre - 59.2 * s.pu) <= 10 * s.pu, `${w}×${h}: title centre ${s.centre.toFixed(1)} px ≈ 59.2 units (${(59.2 * s.pu).toFixed(1)} px)`);
+      await page.screenshot({ path: path.join(OUT, `emotes-mock-choice-${w}.png`) });
+      assert.deepEqual(problems, []);
+      await page.close();
+    }
   });
 });

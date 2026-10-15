@@ -1688,6 +1688,14 @@ function MatchScreen() {
       ready=${phase === PHASE.PREP && !!priv?.ready} />` : null}
     ${showPrep && view && viewKind !== 'loading' && priv && !pen ? html`<${StandInTags} view=${view} priv=${priv} getChess=${gd.chess} backups=${gd.backups} />` : null}
 
+    ${/* the player list and its emote bubbles: a layer of their own under the HUD panels, lifted above the 机变 / 悬赏
+        screen while it is open (css/phase-art.css .gm__side) */ ''}
+    <div class="gm__side">
+      <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
+        self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
+        observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther, ownDone: localDone }), observing: watchingOther, onBack: backHome } : null} />
+    </div>
+
     <div class="gm__hud" ref=${hudElRef}>
       <${TopBar} pub=${pub} priv=${priv} conn=${conn} hud=${hud} total=${total} drawer=${drawer}
         onExit=${() => setExitOpen(true)} onDrawer=${(t) => setDrawer((d) => (d ? null : t))} onReady=${toggleReady}
@@ -1713,10 +1721,6 @@ function MatchScreen() {
           ${layersDisabled && hudLook.cls ? html`<span class="bpause" role="status">${t('暂停叠层')}</span>` : null}
         </div>
       </div>
-
-      <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
-        self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
-        observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther, ownDone: localDone }), observing: watchingOther, onBack: backHome } : null} />
 
       <div class="gm__effects"><${EffectsList} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} /></div>
       ${priv?.debug && !spectator ? html`<${DebugPanel} debug=${priv.debug} prep=${phase === PHASE.PREP} diy=${priv.diy} />` : null /* local patch: local debug mode */}
