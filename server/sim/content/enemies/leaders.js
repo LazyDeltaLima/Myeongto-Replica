@@ -561,6 +561,7 @@ function kitMace(ab) {
   skill(ab.sk.CircleAttack2, circle(ab.sk.CircleAttack2 || { bb: {} }), { id: 'circle2', cond: (b, e) => P.form2 && inR(b, e, ab.sk.CircleAttack2) }),
   reborn({
     dur: T(ab, 'Reborn.duration') ?? 0, invincible: T(ab, 'Reborn.invincible') ?? 0,
+    invincibleUntargetable: true,                                // 无敌 = 无法被不同阵营选中, as “自在” (kitXi)
     onReborn(b, e) { P.form2 = true; P.next = 1; b.addBuff(e, { key: 'ab:stealth', flags: { stealth: true }, persist: true }); },
   })];
 }
@@ -630,6 +631,7 @@ function kitWolfLord(ab) {
   doubleHit(() => P.form2),                                     // 攻击变为远程二连击
   reborn({
     dur: T(ab, 'Reborn.duration') ?? 0, invincible: T(ab, 'Passive2.invincible_time') ?? 0,
+    invincibleUntargetable: true,                                // PRTS 「获得10s无敌」: 无敌 = 无法被不同阵营选中, as “自在” (kitXi)
     onKo(b, e) {
       cure(b);
       b.removeBuff(e, 'ab:wolfGuard');

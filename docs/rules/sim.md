@@ -612,10 +612,11 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
 - 동작(upstream 그대로): `archetypes.js reborn`에 `invincibleUntargetable` 선택지 — 켜면 부활 뒤 무적 버프(`ab:reborn:inv`)가 `invulnerable`에 `untargetable`도 단다.
   `leaders.js kitXi`만 켠다. 이미 날아가는 탄은 맞아도 피해 0(무적), 무적이 끝나면 다시 대상이 된다. 스킬 발동은 각 규칙 그대로 — 대상이 필요한
   DEFAULT·ACTIVE_RANGE는 안 켜지고, 범위 안 존재·SP만 보는 SKILL_RANGE·SP_FULL은 켜진다.
-- 엔진의 `invulnerable` 일반 의미(피해만 막음)는 그대로다. PRTS 无敌 정의로는 다른 적의 부활 뒤 无敌(`reborn` `invincible`을 쓰는 锏·扎罗·主角阵营角色 등)도 선택 불가여야
-  하지만 이번에는 upstream처럼 “自在”만 바꿨다(대조 안 함).
+- 엔진의 `invulnerable` 일반 의미(피해만 막음)는 그대로다. 부활 뒤 无敌가 있는 다른 적 — 데이터에서 0보다 큰 것은 같은 悬赏 리더인 锏(`Reborn.invincible` 10)과
+  扎罗，“狼之主”(`Passive2.invincible_time` 10, PRTS 「获得10s无敌」) 둘뿐 — 도 같은 PRTS 无敌 정의로 선택 불가를 켠다(관리자 결정 2026-10-15). 主角阵营角色는
+  `reborn.invincible` 0이라 해당 없다. 锏은 2형태가 隐匿이라 무적이 끝나도 隐匿를 보는 오퍼레이터만 노린다(기존 그대로).
 - 테스트 `test/content/xi-post-reborn.test.js`(upstream 테스트 + 실제 경기 경로: Match 판 → `buildBattleSpec` → `createBattleFromSpec`, 무적 10초 동안 공격 0 →
-  끝나면 다시 공격; 고치기 전에는 모두 실패함을 확인).
+  끝나면 다시 공격; 고치기 전에는 모두 실패함을 확인) + 锏·扎罗 무적 동안 선택 불가. golden: 锏·扎罗를 추가 소환하는 roster-012·013·047.
 
 ### 枯朽之种 자폭 = 일반 공격의 탄환 (upstream #611, upstream PR #612 — 각색)
 - 문제: 枯朽之种(枯朽萃聚使徒가 소환하는 비행 적)이 대상을 정하면 이동 속도로 걸어가 부딪혀 터져서, 그동안 공격 대상이 되고 느렸다.

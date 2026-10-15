@@ -1,5 +1,6 @@
 // test/content/xi-post-reborn.test.js — “自在” (enemy_1517_xi): the 10 s 无敌 after its rebirth is untargetable too
 // (upstream #510; PRTS 无敌 「无法被不同阵营选中」). The first test is upstream's (221e6b8d); the last one runs the real match path.
+// The other 悬赏 leaders with a 无敌 after their 重生 — 锏 and 扎罗，“狼之主” — follow it (maintainer decision 2026-10-15).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, checkInvariants } from '../helpers/battleHarness.js';
@@ -35,6 +36,24 @@ for (const rule of ['DEFAULT', 'ACTIVE_RANGE', 'SKILL_RANGE', 'SP_FULL']) test(`
   assert.equal(e.hp, hp);
   h.run(7.2);
   assert.equal(canTargetEnemy(u, e, u.profile), true); assert.ok(u.stats.attacks > attacks);
+  checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
+});
+
+for (const [key, reborn, inv] of [['enemy_1525_blkswb', 5, 10], ['enemy_1535_wlfmster', 40, 10]]) test(`${key}: the 无敌 after its 重生 is untargetable too, as 自在's`, () => {
+  const h = makeBattle({ content: 'generic', extraContent: [enemiesMod], autoFinish: false, captureNoisy: true,
+    defs: { chess: { probe: chessRec({ id: 'probe', profession: 'SNIPER', projectile: 'none',
+      stats: { atk: 10, maxHp: 1e7, bat: 1, blockCnt: 0 }, rangeGrid: grid }) } },
+    units: [{ chessId: 'probe', row: 10, col: 4 }], enemies: [{ key, pos: [10, 7], mods: { speedMul: 0 } }],
+  });
+  h.step(); const u = h.unit('probe'), e = h.enemy(key);
+  h.b.kill(e, null); h.run(reborn + 0.3);
+  assert.equal(e.form, 'form2');
+  assert.ok(e.s.flags.invulnerable && e.s.flags.untargetable, '无敌 = invulnerable + untargetable');
+  assert.equal(canTargetEnemy(u, e, u.profile), false);
+  h.run(inv);
+  assert.ok(!e.s.flags.invulnerable && !e.s.flags.untargetable);
+  // 锏's second form keeps 隐匿, so only 扎罗 is a plain target again
+  if (key === 'enemy_1535_wlfmster') assert.equal(canTargetEnemy(u, e, u.profile), true);
   checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
 });
 
