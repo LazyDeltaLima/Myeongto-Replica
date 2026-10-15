@@ -64,6 +64,17 @@ import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // lo
 const MAX_VOICES = 32;
 /** A bank the manifest has no values for: the official majority (maxSoundAllowed 2, popOldest — 9,950 of 13,000 banks). */
 const DEFAULT_BANK = Object.freeze([1, 1, 2, 1]);
+/**
+ * The bond layer-up cue (`bondUp`, upstream #482; docs/rules/audio.md 「맹약 층 효과음」): the official bank
+ * battle.ON_ACT1AUTOCHESS_ADD_BOND holds one sound (maxSoundAllowed 1, popOldest) — one channel, a new cue cuts the one on
+ * air, no cooldown. BOND_BANK is its SfxLimiter key; BOND_POP its values when the manifest has none for the file.
+ */
+const BOND_BANK = 'ui:bondUp';
+const BOND_POP = Object.freeze({ max: 1, pop: true });
+/** Its volume (the activation cue's since before #482). */
+const BOND_VOLUME = 0.7;
+/** A second trigger of one preparation update (a layer gain and a bond turning on) within this many ms keeps the cue. */
+const BOND_SAME_UPDATE_MS = 400;
 /** local patch: a battle 'deploy' this soon (real ms) after a prep drop-in of the same model stays silent (round start). */
 const PREP_DEPLOY_OVERLAP_MS = 1500;
 /**
@@ -515,6 +526,11 @@ export class SfxLimiter {
 
   /** Sounds of bank `key` playing now. */
   count(key) { return this.byBank.get(key)?.length || 0; }
+
+  /** Cut every sound of bank `key` (playing or still loading). */
+  cut(key) {
+    for (const slot of [...(this.byBank.get(key) || [])]) { this.release(slot); try { slot.cut?.(); } catch { /* ignore */ } }
+  }
 }
 
 /**
@@ -623,6 +639,7 @@ export class AudioManager {
     this.voiceToken = 0;
     this.startVoiceDone = false; // 行动出发 of this field (the first operator deployed says it)
     this.uiVoices = 0;
+    this.bondCue = null;      // { scope: 'prep' | 'battle', at } of the last bond layer-up cue (BOND_BANK)
     this.wantBgm = null;      // desired key (kept while locked)
     this.bgm = null;          // { key, loopUrl, nodes: [{src, gain}], gain }
     this.bgmToken = 0;
@@ -784,6 +801,7 @@ export class AudioManager {
     if (typeof v?.chatSound === 'boolean') this.chatOn = v.chatSound;
     if (Number.isFinite(v?.chatCooldown)) this.chatCooldown = Math.max(1, Math.min(5, Math.round(v.chatCooldown)));
     if (!this.chatOn || this.volumes.muted || this.volumes.chat <= 0) this.stopChatNotification();
+    if (this.volumes.muted || this.volumes.sfx <= 0) this.stopBondCue();
     this._applyVolumes();
   }
 
@@ -951,9 +969,10 @@ export class AudioManager {
    * (manifest `sfx.bank[url]` = [minPitch, maxPitch, maxSoundAllowed, popOldest], audioOfficial.js bankPlayOf) — a random
    * pitch in the range on every play (playbackRate, like Unity's AudioSource.pitch it also changes the length), and for a
    * `limited` (battle) sound its bank's cap: `bank` names the bank (default: the URL), `pop` = a kit key's { max, pop }
-   * when the table has no values for the file.
+   * when the table has no values for the file. `channel` holds a UI sound to its bank's cap the same way, under that key
+   * (the bond layer-up cue, BOND_BANK).
    */
-  _play(url, { volume = 1, rate = null, limited = false, bank = null, unitKey = null, pop = null, delay: ownDelay = null } = {}) {
+  _play(url, { volume = 1, rate = null, limited = false, bank = null, unitKey = null, pop = null, delay: ownDelay = null, channel = null } = {}) {
     if (!this.ctx || !url || this.volumes.muted || this.volumes.sfx <= 0) return;
     const info = bankPlayOf(this.getManifest(), url) ?? (pop && Number.isInteger(pop.max) ? [1, 1, pop.max, pop.pop ? 1 : 0] : DEFAULT_BANK);
     const pitch = Number.isFinite(rate) && rate > 0 ? rate : playPitch(info, Math.random);
@@ -962,7 +981,8 @@ export class AudioManager {
     const d0 = Number.isFinite(ownDelay) ? ownDelay : info.length > 4 ? info[4] : 0; // a cue's own bank delay first (_playCue)
     const delay = d0 > 0 ? d0 / (limited ? this.gameSpeed() : 1) : 0;
     let slot = null;
-    if (limited) { slot = this.limiter.acquire(String(bank ?? unitKey ?? url), info[2], !!info[3]); if (!slot) return; }
+    const capped = limited || channel != null;
+    if (capped) { slot = this.limiter.acquire(String(channel ?? bank ?? unitKey ?? url), info[2], !!info[3]); if (!slot) return; }
     else if (this.uiVoices >= 12) return;
     else this.uiVoices += 1;
     let done = false, s = null, g = null, unsnap = null;
@@ -970,7 +990,7 @@ export class AudioManager {
       if (done) return;
       done = true;
       unsnap?.(); // local patch: a hook's mixer snapshot ends with it (audioSnapshot.js)
-      if (limited) this.limiter.release(slot); else this.uiVoices = Math.max(0, this.uiVoices - 1);
+      if (capped) this.limiter.release(slot); else this.uiVoices = Math.max(0, this.uiVoices - 1);
       try { g?.disconnect(); } catch { /* ignore */ }
     };
     if (slot) slot.cut = () => { try { s?.stop(); } catch { /* ignore */ } end(); };   // local patch: popOldest
@@ -994,15 +1014,55 @@ export class AudioManager {
   }
 
   /**
-   * UI sound by name (sfx.ui keys). Unknown names are ignored.
+   * UI sound by name (sfx.ui keys). Unknown names are ignored. `bondUp` plays on its own channel (_bondCue).
    * @param {string} name
-   * @param {{ volume?: number }} [o]
+   * @param {{ volume?: number, scope?: 'prep' | 'battle' }} [o]
    */
   sfx(name, o = {}) {
     try {
       const url = this.getManifest()?.audio?.sfx?.ui?.[name];
-      if (typeof url === 'string') this._play(url, { volume: o.volume ?? 0.9 });
+      if (typeof url !== 'string') return;
+      if (name === 'bondUp') this._bondCue(url, o.volume ?? BOND_VOLUME, o.scope);
+      else this._play(url, { volume: o.volume ?? 0.9 });
     } catch { /* ignore */ }
+  }
+
+  // ---- bond layer-up cue (upstream #482) -------------------------------------------------------------------------
+
+  /**
+   * A bond's layers rose by `add` (m.layer in 回合开始 / 机变 / 休整期, a battle's 'layer' tuple): one cue per real gain,
+   * however many layers and whether or not the bond is active. `scope` is where it came from ('prep' | 'battle').
+   * @param {string} bondId
+   * @param {number} add
+   * @param {'prep' | 'battle'} [scope]
+   */
+  layerGain(bondId, add, scope = 'prep') {
+    if (typeof bondId === 'string' && bondId && Number.isFinite(add) && add > 0) this.sfx('bondUp', { scope });
+  }
+
+  /**
+   * True while a cue of `scope` started less than `ms` ago: one preparation update can both add layers (m.layer) and turn
+   * a bond on (screens/game.js) — the second trigger keeps the cue on air instead of cutting it and starting it again.
+   * A later gain still replaces the cue at once.
+   */
+  bondCueRecent(scope, ms = BOND_SAME_UPDATE_MS) {
+    const c = this.bondCue;
+    if (!c || c.scope !== scope) return false;
+    return (typeof performance !== 'undefined' ? performance.now() : Date.now()) - c.at < ms;
+  }
+
+  /** Cut the bond cue (playing or loading) — only one of `scope` when it is given. */
+  stopBondCue(scope = null) {
+    if (scope && this.bondCue?.scope !== scope) return;
+    this.bondCue = null;
+    this.limiter.cut(BOND_BANK);
+  }
+
+  _bondCue(url, volume, scope) {
+    if (!this.ctx || this.volumes.muted || this.volumes.sfx <= 0) return;
+    this.bondCue = { scope: scope === 'battle' ? 'battle' : 'prep', at: typeof performance !== 'undefined' ? performance.now() : Date.now() };
+    // the bank's cap (1, popOldest) cuts the cue on air, or one still loading, for this one
+    this._play(url, { volume, channel: BOND_BANK, pop: BOND_POP });
   }
 
   // ---- chat notification ------------------------------------------------------------------------------------
@@ -1375,6 +1435,7 @@ export class AudioManager {
 
   /** Reset the unit map for a new field (m.field.units = UnitInfo[]). */
   setFieldUnits(units) {
+    this.stopBondCue(); // upstream #482: no layer-up cue carries into a new field
     this.units.clear();
     this.lastAttacker.clear();
     this.consumed.clear();
@@ -1757,6 +1818,9 @@ export class AudioManager {
           this.unit(u.def, 'hit', `${ex.id}:boom`);
         } else if (kind === 'bounty') {
           this.battle('killCoin');
+        } else if (kind === 'layer') {
+          // upstream #482: a bond's layers rose in this battle ([layer, playerId, bondId, add], sim battle/economy.js)
+          this.layerGain(e[2], e[3], 'battle');
         }
       }
     } catch (err) { this._warn('events', err); }
@@ -1791,6 +1855,10 @@ export function installAudio(deps) {
           // a skill's held sounds never outlive its battle: a battle that ends sends no skill off / 'die' for the units
           // still on the field, so 薄绿's field loop played on through the 休整期 (maintainer report 2026-10-10)
           if (!pub?.phase || !BATTLE_PHASES.has(pub.phase)) stopSkillLoops(audio);
+          // upstream #482: the layer-up cue stays in the game screen; a battle's cue ends with its battle (a prep gain's
+          // m.layer can come before the m.public of the phase it belongs to — only the battle's cue is cut)
+          if (deps.selectRoute(s) !== 'game') audio.stopBondCue();
+          else if (!pub?.phase || !BATTLE_PHASES.has(pub.phase)) audio.stopBondCue('battle');
         } catch { /* ignore */ }
       };
       sync(deps.getState());

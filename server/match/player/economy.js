@@ -4,9 +4,12 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
-import { ERR, layerGainRoom } from '../../../shared/constants.js';
+import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
+
+/** The phases whose layer gains the owner hears (m.layer); a battle's gains sound from its own 'layer' events. */
+const LIVE_LAYER_PHASES = new Set([PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP]);
 
 export class PlayerEconomy {
   addFunds(n, { reason = '' } = {}) {
@@ -47,6 +50,9 @@ export class PlayerEconomy {
     if (add <= 0) return 0;
     this.layers[bondId] = before + add;
     this.recompute();
+    // upstream #482: the owner's layer-up sound (m.layer) for a live gain of 回合开始 / 机变 / 休整期 — not a view: a
+    // reconnect or a battle's settlement (the IN_BATTLE gains carried over) sends none
+    if (LIVE_LAYER_PHASES.has(this.m.phase)) this.m.sendTo(this.playerId, { t: 'm.layer', playerId: this.playerId, bondId, add });
     this.m.dispatch(this, 'onLayers', { bondId, from: before, to: before + add, reason });
     return add;
   }

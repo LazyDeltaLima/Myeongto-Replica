@@ -488,3 +488,25 @@
 - 겹침 막기(`audio.js chatNotification`): 한 번에 하나, 마지막 알림이 **시작한** 때부터 간격(그리고 적어도 소리 길이 + 0.5초) 안에 온 줄은 **버린다**(쌓아 두었다가
   늦게 울리지 않음). 처음 불러오기가 2초보다 오래 걸려도 버린다. 미리 듣기는 꺼져 있어도 울리고, 울리던 것을 끊으며, 간격은 세지 않는다.
 - 확인: `test/ui/audio.test.js` 「chat notification」, `test/ui/gameLogic.test.js` 「sanitizeSettings」, `test/local-patch.test.js` 「chat: … notifiesChat」.
+
+## 맹약 층 효과음 (upstream #482, 2026-10-15)
+- upstream `221e6b8d`(0.2.5-dev, upstream #482)를 손으로 옮겼다. 맹약의 층이 오르면 `bondUp` — 공식 뱅크 `battle.ON_ACT1AUTOCHESS_ADD_BOND`
+  (`act1autochess_b_ui_buffup`, `tools/assets/audio.mjs UI_SFX`). 그 전에는 정비 중 켜진 맹약 수가 늘 때만 났다.
+- 언제: 回合开始·机变·休整期에 자기 맹약 층이 오름 → 서버가 그 플레이어에게만 `m.layer {playerId, bondId, add}`(`server/match/player/economy.js
+  addLayers`, `shared/protocol.js` S2C) → `main.js`가 자기 것이고 게임 화면일 때 `audio.layerGain`. 전투 중에는 화면의 필드가 보내는 `layer` 튜플
+  (`server/sim/battle/economy.js addLayers`) → `audio.js handleBattleEvents`. 한 번에 몇 층이 오르든, 꺼진 맹약이어도 한 번. 맹약이 새로 켜질 때의 소리는
+  그대로이고 같은 채널을 쓴다 — 같은 갱신에서 층도 오르고 맹약도 켜지면(400 ms 안, `bondCueRecent`) 한 번만 난다.
+- 재생: 공식 뱅크 값(zh_CN `audio_data.json`) `maxSoundAllowed` 1·`popOldest` true·피치 1.0·믹서 그룹 `Battle_UI_Important` → 매니페스트 `sfx.bank`의 그 파일 값
+  `[1, 1, 1, 1]`로 `SfxLimiter` 채널 `ui:bondUp` 하나(위 「효과음 재생: 피치·동시 재생 상한」과 같은 규칙; 매니페스트에 값이 없어도 1·popOldest). 새 소리가
+  재생 중이거나 아직 불러오는 소리를 바로 끊는다. 쿨다운 없음. 음량은 예전 맹약 켜짐 소리의 0.7 그대로(UI 효과음 — 믹서 그룹 게인은 안 씀).
+- 안 나는 것: 재접속·재동기화(뷰에는 소리 신호가 없다), 전투 층의 결산 합산(`settle.js`가 층을 직접 더함 — 그 층은 전투 중에 이미 소리가 났다), 늦게 들어간 필드의 이벤트
+  재생(`screens/game/early.js keepEarly`에 `layer` 없음)과 클라 전투 따라잡기 프레임(`battle/runner.js`도 상태 이벤트만), AI 자리.
+- 끊는 때: 새 필드에 들어감(`setFieldUnits`), 게임 화면을 떠남, 음소거·효과음 0. 전투 국면이 끝나거나 정비 화면으로 돌아오면 전투에서 난 소리만 끊는다 —
+  回合开始의 `m.layer`가 그 국면의 `m.public`보다 먼저 올 수 있어서 정비 쪽 소리는 남긴다(`installAudio`, `screens/game.js`).
+- 옮긴 방식: upstream은 `_playBondCue`가 노드·토큰을 따로 들고 있었는데, 우리 오디오는 `8a279320`부터 공식 `SoundFXBank` 구조(`_play` + `SfxLimiter`)라 뱅크 채널
+  하나로 옮겼다(`_play`의 `channel`, `SfxLimiter.cut`). upstream의 브라우저 e2e(`test/ui/bond-audio.e2e.test.js`)는 옮기지 않았다.
+- [ASSUMED] 공식이 이 소리를 내는 순간: EN 클라 코드에 이벤트 이름 상수(`AudioSignals.ON_ACT1AUTOCHESS_ADD_BOND`)만 있고 그 문자열을 쓰는 C# 코드를 찾지 못했다
+  (2026-10-15 xref). 어느 단계에서 나는지, 전투 중 같은 필드의 다른 박사(联防·보스전) 층에도 나는지는 upstream 판단을 따랐다 — 전투에서는 화면 필드의 모든
+  `layer`에 난다(렌더의 층 팝업과 같음).
+- 확인: `test/ui/bond-audio.test.js`(채널·끊기·디코딩 경합·되채움 없음·한 갱신 한 번), `test/match/bond-audio.test.js`(실제 `Match`로 `m.layer`: 단계별·상한·AI 없음).
+  [화면 미확인] 回合开始·机变·정비 구매(예: 마터호른 두 장 — 쉐라그·고수 층)·전투 중 층 얻음에 소리, 재접속 때 안 남.

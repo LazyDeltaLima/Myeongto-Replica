@@ -489,6 +489,9 @@ export const S2C = [
   // { difficulty, players, accepted, mine, inMs }
   'room.queueState', 'room.matchFound',
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',
+  // m.layer { playerId, bondId, add } — the player's own bond layer gain in ROUND_START / SP_DRAFT / PREP (upstream #482:
+  // the layer-up sound); live only, never replayed on a resync
+  'm.layer',
   // m.unitStats { seq, round, units: [unitStatsEntry] } — the answer to g.unitStats (the requester only)
   'm.unitStats',
   // client-side combat (DESIGN §14): b.start { battleId, fieldId, kind, spec, authoritative, startAt, serverNow, elapsed,
