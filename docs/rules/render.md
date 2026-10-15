@@ -224,6 +224,16 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   늘려 반복 재생 — 그레이·레온하르트·와파린·미즈키 등이 느린 동작으로 보였다).
 - 이전 방식(보간 지연 ≈0.2 게임 초 앞을 보는 'atk' 미리보기 → `windUpPlan`, 전딜을 `MAX_WIND_SPEEDUP` 2.5배속까지 감음)은 'swing'이 없거나 windup이 0인
   공격(클립 모르는 유닛, 강제 공격, 적 치유)에만 남는다 — `app.js windUpAttacks`는 'swing'이 예고한 타격의 'atk'를 미리보기에서 뺀다(`swingStrikes`).
+- **'swing' 없는 공격도 공격마다 클립 한 번** (upstream #506, upstream `221e6b8d`의 `render/spine.js` 부분을 손으로 이식, 2026-10-15): 위 'atk' 길
+  (`windUp`·`attack`, 모델이 늦게 떠서 'swing'을 못 받은 때·늦어 버려진 'swing'도 여기로)에서 오퍼레이터 클립이 마지막 공격 뒤에도 간격 ×1.4(최소 0.45초)
+  동안 반복돼 공격 없는 휘두름이 한 번 더 보였다. 이제 적처럼 공격마다 클립을 한 번만 틀고 끝나면(남은 클립 길이 = `attackUntil`) end 클립·쉬는 상태로.
+  오퍼레이터의 리듬 배속(`loopDur / interval`, 0.35–4)과 감아 둔 클립의 타격 프레임 맞추기(re-phase)는 그대로, 반복 재생만 없앴다. 앞 공격의 회복 중에 온
+  다음 공격은 새 와인드업·새 클립으로 시작하고, 차례 클립 역할(`alts`)은 감지 않은 공격마다 다음 클립(감은 공격은 `windUp`에서 이미 넘김). 스킬 전용 idle
+  (그 idle로 바로)·`clipPerAttack`(적)·`once` 캐스트·strike 스킬 클립 규칙은 그대로.
+  - 근거: upstream 관리자의 재현(upstream #506 「공격 뒤 한 번 더 휘두름」). **[ASSUMED]** 공식에서 연속 공격 사이에 대기 자세로 돌아가는지는 공식 녹화로 확인
+    필요 — 우리 'swing' 길(위)도 클립이 끝나고 0.1초 뒤 쉬는 상태라 같은 가정이다.
+  - 확인: `test/render/feedback2-enemy-attack-clip.test.js`(upstream 판 — 오퍼레이터 한 번·회복 중 다음 공격·프로방스 간격 0.08/1.6/8·실제 Spine 런타임의 묶음
+    갱신), `test/render/attack-alts.test.js`(아스카론 'swing' 없는 차례 클립). [화면 미확인]
 - 'swing'은 `interp.js COSMETIC_EVENTS`(늦으면 버림), `shared/protocol.js EV.SWING`. 칸: `['swing', id, windup, kind, base?, face?, combat?]`(docs/SIM.md).
 - 테스트: `test/render/attack-swing.test.js`(가짜 PIXI). [화면 미확인]
 - **요새 근접·원거리 클립** (관리자 제보 2026-10-10: 号角이 원거리 공격에도 저지 시 모션을 씀): 클라 프리팹 `<id>/Modes/<mode>/Body/Attack/`의

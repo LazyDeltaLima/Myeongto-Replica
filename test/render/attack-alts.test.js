@@ -47,6 +47,26 @@ test('伺夜 S3: Skill3_Attack_A → B → C in turn while the skill is on; the 
   assert.deepEqual(swings(a, 4), ['Skill3_Attack_A', 'Skill3_Attack_B', 'Skill3_Attack_C', 'Skill3_Attack_A']);
 });
 
+test('阿斯卡纶 without a swing (an \'atk\' seen late): each attack plays one clip, in turn, also inside the last one\'s recovery (upstream #506)', () => {
+  const a = actor('char_4132_ascln');
+  const got = [];
+  for (let i = 0; i < 3; i++) {
+    a.attack(0.3);
+    got.push(a.current);
+    assert.equal(a.spine.state.tracks[0].loop, false, 'one clip per attack, not a loop');
+    run(a, 0.1);
+  }
+  assert.deepEqual(got, ['Attack_A', 'Attack_B', 'Attack_A']);
+  run(a, 5);
+  assert.equal(a.mode, 'base', 'no swing after the last attack');
+  // a wound-up attack keeps the clip its wind-up took
+  assert.ok(a.windUp(0.3, 0.05));
+  const wound = a.current;
+  run(a, 0.05);
+  a.attack(0.3);
+  assert.equal(a.current, wound);
+});
+
 test('维什戴尔: any of Attack_A / _B / _C (AbilityRandomGroup Random)', () => {
   const a = actor('char_1035_wisdel');
   const draws = [0.9, 0.1, 0.5, 0.95];
