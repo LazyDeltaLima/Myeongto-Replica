@@ -1,6 +1,6 @@
 // test/render/enemy-fx-layer.test.js — render/fxgame.js's enemy layer driven with stub tables (2026-10-10, docs/rules/fx.md
 // 「적 이펙트 바인딩」): a content shot's stand-in beam, the mode change told to the sound (audio.enemyMode), the dead
-// effect's fallback (client Enemy.get_deadEffect) and the death puff it replaces. No three.js here: the browser-only
+// effect's fallback (client Enemy.get_deadEffect; none for a `Trap` token without its own) and the death puff it replaces. No three.js here: the browser-only
 // parts (WebP, the player) stay off, so these are the decisions taken before anything is drawn.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,6 +15,8 @@ const EMODES = {
     dead: 'my_die',
   },
   enemy_y: { modes: [{ name: 'Default', anim: ['Attack'] }] },
+  // a `Trap` token without a dead effect of its own (子代: Trap.get_deadEffect has no default)
+  enemy_trap: { modes: [{ name: 'Default', anim: [] }], dead: '' },
   // 萨米的意志-like: the 冰凌 projectile places a sub-projectile per tile (its reach effect extracted) …
   enemy_deer: { modes: [{ name: 'Default', anim: ['Attack'], ranged: { cast: [], opt: {}, hit: [],
     proj: { key: 'p_ice', mount: 7, move: 'FIXED_DIRECTION', speed: 5, sub: [{ key: 'p_ice_2', reached: ['t_hit'], life: 1 }] } } }] },
@@ -42,8 +44,8 @@ test('enemy layer: mode change → audio.enemyMode(unitId, defId, mode, previous
   const audio = { enemyMode: (...a) => calls.push(a) };
   const layer = createFxLayer({ host: null, above: null, quality: () => 'high', audio: () => audio });
   await settle();
-  const e = enemy(1, 'enemy_x'), f = enemy(3, 'enemy_y'), a = ally(2);
-  const views = new Map([[1, e], [2, a], [3, f]]);
+  const e = enemy(1, 'enemy_x'), f = enemy(3, 'enemy_y'), a = ally(2), tr = enemy(4, 'enemy_trap');
+  const views = new Map([[1, e], [2, a], [3, f], [4, tr]]);
   layer.onEvent(['tick'], views);
   const cam = { liftFor: () => 0, scaleAt: () => 64, dist: 10 };
   layer.update(0.016, cam, { width: 10, height: 10 });   // first sight: the mode is noted, not announced
@@ -58,6 +60,8 @@ test('enemy layer: mode change → audio.enemyMode(unitId, defId, mode, previous
   assert.equal(layer.ownsDeath(e), true);
   assert.equal(layer.ownsDeath(f), false);
   assert.equal(layer.ownsDeath(a), false);
+  // a `Trap` token bound with no dead effect: nothing official, and no puff either
+  assert.equal(layer.ownsDeath(tr), true);
   // a FireWeapon stand-in beam is not drawn when its projectile's trail can be; another beam kind is
   const beam = ['fx', 'beam', 0, 0, { x: 0, y: 0, from: 1, to: 2, kind: 'fireWeapon' }];
   layer.onEvent(beam, views);

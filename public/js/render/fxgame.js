@@ -2556,11 +2556,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * An enemy's death: its dead effect where it falls — its mode's `_overrideDeadEffect`, else the root's `_deadEffect`, else
-   * common_enemy_die_01 (client code `Enemy.get_deadEffect`, RVA 0x730300; the last is not bound in enemy-modes.json).
+   * common_enemy_die_01 (client code `Enemy.get_deadEffect`, RVA 0x730300). enemy-modes.json `dead` carries the default
+   * already (enemy_bindings.py); '' = none (a `Trap` token without its own: 子代), the fallback only for an entry without it.
    */
   const edeadOf = (v) => {
     const b = ebindOf(v);
-    return b ? b.modes?.[v._fxEMode ?? emodeOf(v) ?? 0]?.dead || b.dead || 'common_enemy_die_01' : null;
+    return b ? b.modes?.[v._fxEMode ?? emodeOf(v) ?? 0]?.dead || (b.dead ?? 'common_enemy_die_01') || null : null;
   };
   function edeathFx(v) {
     if (!eOn(v)) return;
@@ -2642,7 +2643,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * 2026-10-10: whether an enemy's death is drawn here with its official dead effect (edeathFx) — render/app.js then skips
      * render/fx.js's procedural death puff (the client plays only the dead effect: `DeadState._PlayAnimation`).
      */
-    ownsDeath(v) { return !!(v?.info?.side === 'enemy' ? eOn(v) && efx(edeadOf(v)) : v && opDead.has(ownerOf(v))); }, // 2026-10-11: operators / tokens too (allyDeathFx)
+    // 2026-10-11: operators / tokens too (allyDeathFx); 2026-10-15: an enemy-side token bound with no dead effect (子代) owns
+    // its death too — the client shows nothing, so no procedural puff either
+    ownsDeath(v) {
+      if (v?.info?.side !== 'enemy') return !!(v && opDead.has(ownerOf(v)));
+      if (!eOn(v)) return false;
+      const d = edeadOf(v);
+      return d ? !!efx(d) : true;
+    },
     /** Whether a 'fx' event is drawn here with its official effect (render/fx.js then skips its 2D stand-in). */
     ownsFx(e) { return ownFx.has(e); },
     /**

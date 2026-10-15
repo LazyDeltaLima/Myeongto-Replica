@@ -855,7 +855,10 @@
 (새 덤프 RVA 0x39DF310). 규칙은 docs/rules/sim.md 「盐风主教昆图斯 【断裂生殖】 子代」·「阿利斯泰尔 王权号令 장비 줍기·【莫非王土】 黄金回响」.
 - **추출**: `enemy_bindings.py`가 웨이브 템플릿·enemies.json `devices[]`의 적 진영 토큰(`trap_*`)도 읽는다 — 토큰 프리팹(적과 같은 방식) + 그 토큰 스킬의
   프리팹(`skill.prefabId`, 능력 경로 `Skills/<prefab>`; 이미터가 프리팹 루트에 있음), 모델 점은 토큰 번들에서. 렌더 표 키는 토큰 키(`fxgame.js ebindOf`가 defId로 찾음).
-  토큰은 Character라 사망 이펙트 기본값이 `common_char_die_01`(`Character.get_deadEffect`, 위 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」의 배치·사망 이펙트).
+  사망 이펙트 기본값: Character 토큰은 `common_char_die_01`(`Character.get_deadEffect`, 위 「입력 대상·루프 타격·클립별 이펙트·배치 이펙트」의 배치·사망 이펙트),
+  **`Trap` 토큰은 없음** — `Trap.get_deadEffect`(0x84C240)는 `_deadEffect`를 그대로 돌려준다(2026-10-15, 공식 대조 fx-c). 子代·黄金回响은 둘 다 `Trap`(루트에
+  `Trap`만의 필드 `_withdrawable`·`_hitRangeId`)이라 `enemy_bindings.py`가 기록에 `trap: 1`을 달고 `dead` 기본값을 ''로 쓴다; 렌더 `edeadOf`는 ''면 아무것도
+  안 틀고, `ownsDeath`가 참이라 2D 사망 연기도 안 그린다. 子代(`_deadEffect` '')는 사망 이펙트 없음(옛: `common_char_die_01`), 黄金回响은 자기 것.
 - **子代**: 시작 `trap_dstnta_birth_01_start`(루트 `_startEffect`). 天赋 `Talents/1` 버프 `tentac_grow`(LIMITED `grow_duration`)의 `trap_dstnta_idle_01_start`는
   버프가 끝나며 Grow를 시전하므로(템플릿 ON_BUFF_FINISH `TriggerAbility` Grow) **Grow가 시작될 때까지** 유지 — 렌더 표 `auraEnd` { 이펙트: 능력 }, `eskillFx`가 그
   능력이 시작될 때 끈다. 隐匿 `common_invisible`은 상태 레이어가 sim 은신으로 그린다(그대로). Grow(`Modes/Default/Body/Grow`, `_animKey` Start_02)의
@@ -870,9 +873,11 @@
   `Attack`: 시전 `trap_vtlntw_attack_start_01`(ON_SPELL_ON → ON_CAST_END), 탄 `projectile_trap_vtlntw` 꼬리·맞음, 사망 `trap_vtlntw_die_01`.
 - **알리스테어 장비를 든 오퍼레이터**: 장비 `Talents/2`의 `…[char]` 템플릿이 거는 `enemy_vtmstr_equip_char[A/C/B]`(INFINITY)의 `overrideEffectKey` —
   未装配刀片 `enemy_vtswd_buff_01`, 防护背心 `enemy_vtshld_buff_01`, 冲击式施术单元 `enemy_vtwand_buff_01`(`_spawnLocation` 2 = HIT 점) — 를 그 전투 동안
-  (`fxstatus.js KEY_FX` 'boss:heldSword'·'boss:heldVest'·'boss:heldWand'). 추출 목록: 렌더 표 `handed`(天赋의 `…[char]` 버프 템플릿 이펙트 [추정: 이름 규칙으로 고름]).
+  (`fxstatus.js KEY_FX` 'boss:heldSword'·'boss:heldVest'·'boss:heldWand'). 추출 목록: 렌더 표 `handed`(天赋의 `…[char]` 버프 템플릿 이펙트 — 이름 규칙으로 고르지만
+  템플릿 `enemy_vtmstr_equip_A/B/C[char]` CreateBuff의 `overrideEffectKey`와 같음을 확인, 공식 대조 fx-b). 子代 摄食이 매 타 대상을 다시 고르면(docs/rules/sim.md)
+  새 대상 위에도 첫 타에 `_onlyOnce` 타격이 놓이고 앞 대상의 것은 채널 끝까지 남는다(`eskillHit` 대상별 — 클라도 ON_CAST_END까지).
 - 확인: `test/render/enemy-fx-layer.test.js`(지속 스킬: `hold` → 3 s 넘어도 그 스킬의 타격, `_onlyOnce` 타격 유지, `enemySkillEnd` 뒤 끝),
-  `test/content/enemies_bosses.test.js` 「子代: the nearest operator first…」(sim fx). [화면 미확인]
+  `test/content/enemies_bosses.test.js` 「子代: the nearest operator first…」(sim fx), `Trap` 사망 이펙트 없음(같은 렌더 테스트 `enemy_trap`). [화면 미확인]
 
 ### 선발 추가 3명 — CN 클라이언트 (2026-10-11)
 - 켈시 에스페란타(凯尔希·思衡托)·클레멘티아(克莱门莎)·안젤리나 더 멜로우 위시(予愿安洁莉娜)는 EN 클라이언트에 없어 CN 클라이언트(운영 노트 「CN 클라이언트」)에서

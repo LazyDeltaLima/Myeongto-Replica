@@ -369,6 +369,9 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
         for k in ('_startEffect', '_deadEffect'):
             if rootmb.get(k):
                 rec[k.strip('_')] = rootmb[k]
+        # a `Trap` root (a token class with fields only Trap has: `_withdrawable`, `_hitRangeId`) — its dead effect has no default
+        if '_withdrawable' in rootmb or '_hitRangeId' in rootmb:
+            rec['trap'] = 1
     mode_paths = [by_pid.get(r.get('m_PathID')) for r in (rootmb or {}).get('_modes') or []]
     mode_mb = {gp: d for gp, d, _ in tree if gp in mode_paths and '_overrideStartEffect' in d}
     for i, mp in enumerate(mode_paths):
@@ -725,8 +728,9 @@ def render_entry(r, projs):
             out['start' if k == 'startEffect' else 'dead'] = r[k]
     # 2026-10-10, decompile check — client `Enemy.get_deadEffect` (RVA 0x730300, played by `DeadState._PlayAnimation`): the
     # current mode's `_overrideDeadEffect`, else the root's `_deadEffect`, else common_enemy_die_01; an enemy-side token is a
-    # Character — `Character.get_deadEffect`'s default common_char_die_01 (docs/rules/fx.md 「보스 토큰·장비 이펙트」)
-    out.setdefault('dead', 'common_char_die_01' if r.get('token') else 'common_enemy_die_01')
+    # Character — `Character.get_deadEffect`'s default common_char_die_01 — unless it is a `Trap` (`Trap.get_deadEffect`, RVA
+    # 0x84C240 in the 2026-10-14 client, returns the field as it is: '' = no dead effect; 子代) (docs/rules/fx.md 「보스 토큰·장비 이펙트」)
+    out.setdefault('dead', '' if r.get('trap') else 'common_char_die_01' if r.get('token') else 'common_enemy_die_01')
     skills = {}
     groups = defaultdict(list)
     for a in r['abilities']:
