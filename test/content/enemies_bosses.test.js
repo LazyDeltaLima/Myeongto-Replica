@@ -2831,15 +2831,21 @@ test('假想敌：铳: unblockable, targets the highest DEF in range, ASPD ramps
   assert.ok(e.s.flags.unblockable);
   assert.equal(e.s.aspd, 20, 'data ASPD 0 → floor 20');
   const step = tb('enemy_9017_achunt', '2.attack_speed'), bat = E.enemy_9017_achunt.stats.bat;
-  const at = [];
+  const at = [], swings = [];
+  const ev = h.b._ev.bind(h.b);
+  h.b._ev = (x) => { if (x[0] === 'swing' && x[1] === e.id) swings.push(h.b.time); return ev(x); };
   for (let n = 1; n <= 3; n++) { h.runUntil(() => e.stats.attacks >= n, 120); at.push(h.b.time); }
   assert.equal(h.unit('t_wall').stats.taken, 0);
   assert.ok(h.unit('t_wall2').stats.taken > 0);
   // official BrownbTalent_1: every attack adds a stack, a new target first clears them — 3 attacks = 3 stacks
   assert.equal(e.s.aspd, 3 * step);
-  // the stack counts for the cooldown of the attack that adds it: 1 stack after the first attack → bat × 100 / 80
-  approx(at[1] - at[0], bat * 100 / step, 0.01, 'second attack');
-  approx(at[2] - at[1], bat * 100 / (2 * step), 0.01, 'third attack');
+  // the stack lands as the attack strikes, t into the swing; the client keeps the running cooldown's progress ratio:
+  // swing to swing = t + (1 − t/T_old)·T_new (the floor 20 → 1 stack → 2 stacks)
+  const T = (aspd) => bat * 100 / aspd;
+  for (const [k, from, to] of [[0, 20, step], [1, step, 2 * step]]) {
+    const t = at[k] - swings[k];
+    approx(swings[k + 1] - swings[k], t + (1 - t / T(from)) * T(to), 0.05, `swing ${k + 2}`);
+  }
   assert.ok(h.unit('t_wall2').elem[EROSION] > 0);
   // a new target: the group is cleared, then this attack's stack — 1, not the floor
   h.b.kill(h.unit('t_wall2'), null);
@@ -3018,6 +3024,22 @@ test('“碎铳之簧” 元素护盾 (9019): phys/arts ×0.1 until its own elem
   assert.ok(bullets() > n0);
 });
 
+// official: projectile_enemy_actrpb/Selector `_postFilter` ALL (no sort), at most 1 — the first candidate of the range
+// query, not the nearest ([ASSUMED] the query's order = the field's ally order)
+test('“碎铳之簧” 元素护盾 bullet: a bounce takes the first unit in reach, not the nearest', () => {
+  const units = [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 11, col: 10 }, { chessId: 't_wall3', row: 10, col: 8 }];
+  const h = bossArena({ units, chess: { t_wall: WALL('t_wall', { def: 500 }) } });
+  h.step();
+  const sp = put(h, 'enemy_9019_actrpb', [3, 10], { tag: 'part' });
+  const sk = skb('enemy_9019_actrpb', '1');
+  const hits = hitsBy(h, sp);
+  h.runUntil(() => sp.stats.attacks >= sk.spCost + 1, 60);
+  h.run(1.5);
+  const phys = hits.filter((x) => x.tags.includes('springBullet'));
+  assert.ok(phys[0].to === h.unit('t_wall'), 'the highest DEF first');
+  assert.ok(phys[1].to === h.unit('t_wall2'), 't_wall2 (1.41 away, listed first), not t_wall3 (1 away)');
+});
+
 test('“碎铳之簧” 频次护盾 (9020): negates 5 hits, back 25 s after breaking; full SP makes the next attack ten shots 0.1 s apart (ATK × atk_scale each), no normal hit', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }] });
   h.step();
@@ -3044,6 +3066,23 @@ test('“碎铳之簧” 频次护盾 (9020): negates 5 hits, back 25 s after br
   approx(w.stats.taken, sk.spCost * sp.s.atk + 10 * sp.s.atk * sk.bb.atk_scale);
 });
 
+// official: Skills/1 `_selectTargetSource` INPUT_TARGET, `_selectTargetTiming` AT_BEGINING — the first shot's target for
+// all ten; once it is dead the shots left are lost (no re-pick)
+test('“碎铳之簧” 频次护盾 十连击: the shots stay on the first target; once it dies the rest are lost', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 10, col: 11 }], chess: { t_wall: WALL('t_wall', { def: 500 }) } });
+  h.step();
+  const sp = put(h, 'enemy_9020_actrpc', [3, 10], { tag: 'part' });
+  const sk = skb('enemy_9020_actrpc', '1');
+  const hits = hitsBy(h, sp);
+  h.runUntil(() => sp.stats.attacks >= sk.spCost + 1, 60);
+  h.runUntil(() => hits.filter((x) => x.tags.includes('springCombo')).length >= 3, 2);
+  h.b.kill(h.unit('t_wall'), null);
+  h.run(1.5);
+  const combo = hits.filter((x) => x.tags.includes('springCombo'));
+  assert.equal(combo.length, 3, 'three landed before it died, the rest lost');
+  assert.ok(combo.every((x) => x.to === h.unit('t_wall')));
+});
+
 test('“碎铳之簧”: damage taken costs 假想敌：铳 as much (等量, 无来源) and nobody else', () => {
   // PRTS 碎铳之簧 "受到伤害时令全场范围内仇恨值最高的1名假想敌：铳受到等量的无来源生命流失"; official `actrp*_passive` → the
   // BossSelector's one gun only (until 2026-10-15 the other springs took a split too; DESIGN §20.10; v2.5: half)
@@ -3065,6 +3104,24 @@ test('“碎铳之簧”: damage taken costs 假想敌：铳 as much (等量, �
   assert.equal(c.hp, c0);
   assert.ok(seen.length === 1 && seen[0].source === null && seen[0].credit === h.unit('t_gun'), '无来源, credited to the attacker');
   assert.ok(h.result().perPlayer.p1.bossDamage >= dealt - 1e-6, 'the per-player pool tally');
+});
+
+// official: the BossSelector sorts HATRED_DES; an enemy's hatred = taunt × k − its remaining distance to the exit
+// (Enemy.get_hatred): with two guns (隐秘核心 pair field) the one nearest its EXIT takes the share, not the nearest one
+test('“碎铳之簧”: with two 假想敌：铳 the share goes to the gun nearest its exit, not the one nearest the spring', () => {
+  const h = bossArena({ units: [{ chessId: 't_gun', row: 12, col: 3 }], kits: { t_gun: NOATK } });
+  h.step();
+  const near = put(h, 'enemy_9017_achunt_2', [3, 16], { tag: 'boss' });   // route 0 ends at (2, 2): far from its exit
+  const exit = put(h, 'enemy_9017_achunt_2', [3, 4], { tag: 'boss' });    // close to it
+  for (const g of [near, exit]) g.profile.noAttack = true;
+  const sp = put(h, 'enemy_9018_actrpa', [3, 15], { tag: 'part' });
+  sp.profile.noAttack = true;
+  h.step();
+  assert.ok(h.b.remainingDistance(exit) < h.b.remainingDistance(near));
+  const seen = [];
+  h.b.on('damaged', (x) => { if (x.target === near || x.target === exit) seen.push(x.target); }, { priority: -1e9 });
+  h.b.dealDamage(h.unit('t_gun'), sp, { amount: 1e5, type: 'true' });
+  assert.deepEqual(seen, [exit]);
 });
 const ECHO = 'enemy_9023_acdums';
 /** Three walls on one row: t_wall on (row 10, col 6), t_wall2 one tile right, t_wall3 (`far` = col 8 or 9). */
@@ -3131,7 +3188,7 @@ test('假想敌：管 【裂管之奏】 at 50 s (official SP): 3 shots on every
   assert.equal(of(a, 'element').length, 9);
   assert.equal(of(b, 'element').length, 6);
   assert.ok(cast.filter((x) => x.type === 'element').every((x) => x.amount === e.s.atk * ep));
-  assert.equal(of(echo, 'element').length, 0, '[ASSUMED] the 余音 takes no 凋亡');
+  assert.equal(of(echo, 'element').length, 3, 'the 余音 takes the 凋亡 on itself too (ApplyElementDamage checks no side)');
 });
 
 test('假想敌：管: below 50 % HP 10 % physical and arts evade (acduml_t_1), gone again above', () => {
@@ -3236,6 +3293,32 @@ test('“余音” 【合奏】: SP +1 per damage instance taken (max 12); one f
   assert.equal(casts().length, 2, 'SP cleared: no new ensemble without new hits');
 });
 
+// official: each echo's acdums_skill_trigger sends acdums_s_1[ability_trigger] to every echo, then clears ITS OWN SP; a
+// receiver that cannot act stops the chain (`_checkSrcCastable`) before its ClearEnemySp — no ensemble, SP kept
+test('“余音” 【合奏】: an echo that cannot act neither plays nor loses its SP; the full echo that triggers it is cleared even when stunned', () => {
+  const K = 'enemy_9023_acdums', max = E[K].sp.maxSp;
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 10, col: 9 }, { chessId: 't_blade', row: 11, col: 6 }], kits: { t_blade: NOATK } });
+  h.step();
+  const a = put(h, K, [3, 6], { tag: 'part', mods: { hpMul: 4 } });
+  const g = put(h, K, [3, 9], { tag: 'part', mods: { hpMul: 4 } });
+  const casts = () => h.eventsOf('fx').filter((f) => f[1] === 'enemySkill' && /PassionSkill|DepassionSkill/.test(f[4].ability)).map((f) => f[4].id);
+  const fill = (u, n) => { for (let i = 0; i < n; i++) h.b.dealDamage(h.unit('t_blade'), u, { amount: 1, type: 'phys' }); };
+  fill(g, 5);
+  h.b.applyStatus(g, 'stun', { duration: 3, source: null });
+  fill(a, max);
+  h.run(1.05);
+  assert.deepEqual(casts(), [a.id], 'only the echo that can act plays');
+  assert.equal(a.mem.ab.sp, 0);
+  assert.equal(g.mem.ab.sp, 5, 'the stunned one keeps its SP');
+  // the full echo stunned: its own check still runs — the other plays, the stunned trigger's SP is cleared
+  fill(g, max - 5);
+  h.b.applyStatus(g, 'stun', { duration: 3, source: null });
+  assert.equal(g.mem.ab.sp, max);
+  h.run(1.05);
+  assert.deepEqual(casts(), [a.id, a.id]);
+  assert.equal(g.mem.ab.sp, 0, 'the trigger clears its own SP');
+});
+
 test('盐风主教昆图斯: 2 highest-DEF targets + neural; 崩坍 / 大潮 / 断裂生殖; growth by lost HP; 物种爆发 LP loss', () => {
   const tpl = W.act1autochess_h07_04;
   const ov = JSON.parse(JSON.stringify(tpl.overrides));
@@ -3323,7 +3406,7 @@ test('子代 (断裂生殖): template device 3000 HP / ATK 150, 隐匿 12 s, the
 
 test('断裂生殖 walks the branch dslily_dstnta one phase per cast and switches on nothing once it is past the last phase', () => {
   // official: the prefab's MoveNextLevelBranch has `_isLoop` false — Scheduler.BranchRuntime.TryPickNextPhase fails past
-  // the last phase. Phases: #1 · #2 · #3 · #4 · #4 #3 · #2 #1 · all four; a 子代 still alive is not switched on again
+  // the last phase. Phases: #1 · #2 · #3 · #4 · #4 #3 · #2 #1 · all four; a 子代 still alive is replaced by a new one
   const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 4 }], setup: setTpl('act1autochess_h07_04') });
   h.step();
   const boss = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
@@ -3334,11 +3417,13 @@ test('断裂生殖 walks the branch dslily_dstnta one phase per cast and switche
   assert.equal(n, 7);
   for (let i = 0; i < 4; i++) cast.fire(h.b, boss);
   assert.equal(live().length, 4, 'casts 1–4: one 子代 each');
+  const old = live();
+  cast.fire(h.b, boss);
+  assert.equal(live().length, 4, 'cast 5: #4 #3 replace the live ones');
+  assert.equal(old.filter((q) => q.alive).length, 2, 'two old ones gone (#4, #3), two kept (#1, #2)');
   clear();
   cast.fire(h.b, boss);
-  assert.equal(live().length, 2, 'cast 5: #4 #3');
-  cast.fire(h.b, boss);
-  assert.equal(live().length, 4, 'cast 6: #2 #1');
+  assert.equal(live().length, 2, 'cast 6: #2 #1');
   clear();
   cast.fire(h.b, boss);
   assert.equal(live().length, 4, 'cast 7: all four');
@@ -3348,7 +3433,30 @@ test('断裂生殖 walks the branch dslily_dstnta one phase per cast and switche
   assert.equal(live().length, 0, 'casts 8+: the branch is spent');
 });
 
-test('子代: the nearest operator first; a held target that leaves ends 摄食 (fx enemySkill `hold` … enemySkillEnd); the next pick comes when the SP refills (1 s)', () => {
+// official: ACTIVATE_PREDEFINED → BattleController._CreatePredefinedCharacter: a NEW token, Tile.ClearCharacterIfExists
+// first — a 子代 still on its tile is removed and the new one starts over (12 s 幼体, 35 s life)
+test('断裂生殖: switching on a 子代 that is still alive replaces it with a new one (幼体 again, a fresh 35 s)', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 4 }], setup: setTpl('act1autochess_h07_04') });
+  h.step();
+  const boss = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
+  const cast = boss.mem.ab.list.find((a) => a && a.name === 'SummonTentac');
+  for (let i = 0; i < 4; i++) cast.fire(h.b, boss);
+  const at = (r, c) => h.b.enemies.find((q) => q.alive && q.defId === 'trap_039_dstnta' && q.y === r && q.x === c);
+  const dev4 = W.act1autochess_h07_04.devices.find((d) => d.alias === 'trap_039_dstnta#4').pos;
+  h.run(20);
+  const first = at(...dev4);
+  assert.ok(first && !first.s.flags.stealth, 'grown');
+  cast.fire(h.b, boss);                                                    // cast 5: #4 #3
+  const second = at(...dev4);
+  assert.ok(second && second !== first && !first.alive, 'a new 子代 in its place');
+  assert.ok(second.s.flags.stealth && second.form === 'larva', '幼体 again');
+  h.run(34.8);
+  assert.ok(second.alive, 'its own 35 s');
+  h.run(0.4);
+  assert.ok(!second.alive);
+});
+
+test('子代: the nearest operator first; a held target that dies ends 摄食 (fx enemySkill `hold` … enemySkillEnd); the next pick comes when the SP refills (1 s)', () => {
   // t_wall2 on the device tile itself (distance 0), t_wall next to it (distance 1)
   const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 8 }, { chessId: 't_wall2', row: 12, col: 9 }], setup: setTpl('act1autochess_h07_04') });
   h.step();
@@ -3372,6 +3480,60 @@ test('子代: the nearest operator first; a held target that leaves ends 摄食 
   assert.equal(brood.form, 'feed', 'next pick 1 s later');
   h.run(1);
   assert.ok(h.unit('t_wall').s.flags.stun);
+});
+
+// official: sktok_dstnta ChannelingMeleeAttack `_selectTargetTiming` BEFORE_SPELL_START — every hit picks the nearest
+// operator in the circle again
+test('子代 摄食: every hit picks the nearest operator in reach again — a nearer one takes over, one that left is replaced; nobody in reach ends it', () => {
+  // t_wall next to the device (5, 9); t_wall2 away at (5, 5)
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 12, col: 8 }, { chessId: 't_wall2', row: 12, col: 5 }], setup: setTpl('act1autochess_h07_04') });
+  h.step();
+  const [w, w2] = [h.unit('t_wall'), h.unit('t_wall2')];
+  const boss = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
+  boss.mem.ab.list.find((a) => a && a.name === 'SummonTentac').fire(h.b, boss);
+  const brood = h.b.enemies.find((q) => q.alive && q.defId === 'trap_039_dstnta');
+  const hits = [], deal = h.b.dealDamage;
+  h.b.dealDamage = function (s, t, d) {
+    if (s === brood && t && t.alive && d.type === 'phys') hits.push(t);
+    return deal.call(this, s, t, d);
+  };
+  const ends = () => h.eventsOf('fx').filter((f) => f[1] === 'enemySkillEnd' && f[4].id === brood.id).length;
+  h.run(15.5);
+  assert.deepEqual(hits, [w], 'held: t_wall');
+  assert.ok(h.b.relocate(w2, 5, 9), 't_wall2 onto the device tile (distance 0)');
+  h.run(1);
+  assert.deepEqual(hits, [w, w2], 'the next hit takes the nearer one');
+  assert.ok(h.b.relocate(w2, 5, 5), 't_wall2 leaves');
+  h.run(1);
+  assert.deepEqual(hits, [w, w2, w], 'replaced by the one left in reach');
+  assert.equal(ends(), 0, 'one channel throughout');
+  assert.equal(brood.form, 'feed');
+  assert.ok(h.b.relocate(w, 5, 6), 't_wall leaves too');
+  h.run(1);
+  assert.equal(hits.length, 3);
+  assert.equal(ends(), 1, 'nobody in reach at the hit: 摄食 ends');
+  assert.equal(brood.form, 'fed');
+});
+
+// official: RuneManager EAttribuesMul (enemy_attribute_mul) is a BasicEnemyRune — DoPreprocessEnemy(EnemyData, Enemy) only;
+// 子代 and 黄金回响 are character_table tokens (Trap)
+test('the round\'s enemy HP / ATK effects do not reach the tokens 子代 and 黄金回响', () => {
+  const enemyScale = { hpMul: 2, atkMul: 1.5, speedMul: 1.15 };
+  const h = bossArena({ flags: { enemyScale }, units: [{ chessId: 't_wall', row: 12, col: 8 }], setup: setTpl('act1autochess_h07_04') });
+  h.step();
+  const boss = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
+  boss.mem.ab.list.find((a) => a && a.name === 'SummonTentac').fire(h.b, boss);
+  const brood = h.b.enemies.find((q) => q.alive && q.defId === 'trap_039_dstnta');
+  assert.deepEqual([brood.s.maxHp, brood.s.atk], [3000, 150]);
+  const h2 = bossArena({ flags: { enemyScale }, units: [{ chessId: 't_wall', row: 10, col: 9 }] });
+  h2.step();
+  const e = put(h2, 'enemy_9032_aclionk', [3, 12], { tag: 'boss' });
+  e.profile.noAttack = true;
+  put(h2, 'enemy_10030_vtwand', [4, 8], { tag: 'part' });
+  h2.run(2.5);
+  const g = h2.b.enemies.find((q) => q.alive && q.defId === 'trap_185_vtlntw');
+  assert.ok(g);
+  assert.deepEqual([g.s.maxHp, g.s.atk], [8000, 425]);
 });
 
 test('卢西恩: evades 40 % while unblocked, ignores 40 % DEF, neural on hit; blinks past its blocker leaving a 不祥幻影', () => {
@@ -3440,29 +3602,30 @@ for (const key of ['enemy_10028_vtswd', 'enemy_10029_vtshld', 'enemy_10030_vtwan
   });
 }
 
-test('阿利斯泰尔 防护背心: an animated vest gives a barrier and −80 % damage from the guarded side — first +x, then the other side with each vest (wherever the vest lay)', () => {
+test('阿利斯泰尔 防护背心: an animated vest gives a barrier and −80 % damage from the guarded side — first its front (its route\'s way, −x here), then the other side with each vest (wherever the vest lay)', () => {
   const h = bossArena({ units: [{ chessId: 't_gun', row: 10, col: 4 }, { chessId: 't_mage', row: 10, col: 16 }], kits: { t_gun: NOATK, t_mage: NOATK } });
   h.step();
   const e = put(h, 'enemy_9032_aclionk', [3, 10], { tag: 'boss' });
   e.profile.noAttack = true;
-  const vest = put(h, 'enemy_10029_vtshld', [3, 8], { tag: 'part' });   // lying on the left
+  assert.ok(e.route.legs.find((l) => l.t === 'move' && l.c !== e.x).c < e.x, 'the arena route leads to −x');
+  const vest = put(h, 'enemy_10029_vtshld', [3, 12], { tag: 'part' });   // lying on the right
   h.run(2.2);
   assert.ok(!vest.alive, 'animated & consumed');
   const v = e.findBuff('boss:vest');
   const st = skb('enemy_9032_aclionk', 'store').bb;
   assert.equal(v.shield, st.dynamic);
-  assert.equal(v.data.side, 1, 'the first vest guards +x (official `front` toggle, first side [ASSUMED] right)');
-  h.b.dealDamage(h.unit('t_mage'), e, { amount: 1000, type: 'true' });     // from the guarded side (+x)
+  assert.equal(v.data.side, -1, 'the first vest guards the FRONT (official `front` toggle from 0), the side it faces: −x');
+  h.b.dealDamage(h.unit('t_gun'), e, { amount: 1000, type: 'true' });      // from the guarded side (−x)
   approx(v.shield, st.dynamic - 1000 * (1 - st.damage_resistance));
-  h.b.dealDamage(h.unit('t_gun'), e, { amount: 1000, type: 'true' });      // from the other side
+  h.b.dealDamage(h.unit('t_mage'), e, { amount: 1000, type: 'true' });     // from the other side
   approx(v.shield, st.dynamic - 1000 * (1 - st.damage_resistance) - 1000);
-  // the next vest, lying on the right this time, guards the other side (−x)
-  const vest2 = put(h, 'enemy_10029_vtshld', [3, 12], { tag: 'part' });
+  // the next vest, lying on the left this time, guards the other side (+x)
+  const vest2 = put(h, 'enemy_10029_vtshld', [3, 8], { tag: 'part' });
   h.runUntil(() => !vest2.alive, skb('enemy_9032_aclionk', 'equip').spCost + 3);
   const v2 = e.findBuff('boss:vest');
-  assert.equal(v2.data.side, -1);
+  assert.equal(v2.data.side, 1);
   const s0 = v2.shield;
-  h.b.dealDamage(h.unit('t_gun'), e, { amount: 1000, type: 'true' });
+  h.b.dealDamage(h.unit('t_mage'), e, { amount: 1000, type: 'true' });
   approx(v2.shield, s0 - 1000 * (1 - st.damage_resistance));
 });
 
@@ -3499,15 +3662,16 @@ test('阿利斯泰尔 莫非王土 order: with nobody in range it skips the swor
   approx(h.unit('t_wall').stats.taken, e.s.atk * skb('enemy_9032_aclionk', 'store').bb.atk_scale);
 });
 
-test('阿利斯泰尔 莫非王土 order: with an operator in range the latest piece goes, a sword too', () => {
+// official: all pieces tie on HATRED_DES (no route), the tie goes to the lower instanceUid (WeightedTarget.CompareTo)
+test('阿利斯泰尔 莫非王土 order: with an operator in range the oldest piece goes, a sword too', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }], kits: { t_wall: NOATK } });
   h.step();
   const e = put(h, 'enemy_9032_aclionk', [3, 10], { tag: 'boss' });
   e.profile.noAttack = true;
-  const vest = put(h, 'enemy_10029_vtshld', [1, 14], { tag: 'part' });
   const sword = put(h, 'enemy_10028_vtswd', [5, 14], { tag: 'part' });
+  const vest = put(h, 'enemy_10029_vtshld', [1, 14], { tag: 'part' });
   h.run(2.2);
-  assert.ok(!sword.alive && vest.alive, 'the sword (hasSword branch, latest)');
+  assert.ok(!sword.alive && vest.alive, 'the sword (hasSword branch, oldest)');
 });
 
 // official: buff template enemy_vtlionk_s2 (冲击式施术单元 → SpawnTokenOnTargetTile trap_185_vtlntw on its tile, then the
@@ -3608,14 +3772,32 @@ test('阿利斯泰尔 王权号令: a piece may drop on its target\'s tile (here
   h.step();
   const e = put(h, 'enemy_9032_aclionk', [3, 12], { tag: 'boss' });
   e.profile.noAttack = true;
+  const decoy = put(h, 'enemy_10029_vtshld', [6, 14], { tag: 'part' });   // the oldest piece: 莫非王土 animates it first
   for (const p of [[2, 9], [4, 9], [3, 8], [3, 10]]) put(h, 'enemy_10028_vtswd', p, { tag: 'part' });
-  const decoy = put(h, 'enemy_10029_vtshld', [6, 14], { tag: 'part' });   // the latest piece: 莫非王土 animates it first
   h.run(2.2);
   assert.ok(!decoy.alive);
   const wall = h.unit('t_wall');
   h.runUntil(() => Object.values(bossesMod.HELD_BUFF).some((k) => wall.findBuff(k)), skb('enemy_9032_aclionk', 'equip').spCost + 2);
   assert.ok(Object.values(bossesMod.HELD_BUFF).some((k) => wall.findBuff(k)), 'the piece fell on its tile and it took it');
   assert.equal(h.b.enemies.filter((q) => q.alive && q.defId === 'enemy_10028_vtswd').length, 4, 'the four around still lie there');
+});
+
+// official: the selector checks only the tile's advanced mask DEFAULT (TileSelector.Options.Verify) — tile_forbidden has
+// it; maintainer decision 2026-10-15: drop there as the client does (until then such tiles were left out)
+test('阿利斯泰尔 王权号令: a piece drops on a tile no operator can stand on (tile_forbidden) too, and lies there', () => {
+  const h = bossArena({ units: [{ chessId: 't_gun', row: 10, col: 2 }], kits: { t_gun: NOATK } });
+  h.step();
+  const g = h.b.grid;
+  assert.ok(g.inRect(3, 1) && !g.groundPassable(3, 1) && !g.canStand(3, 1, { ranged: true }) && !g.deepWater[g.key(3, 1)], 'field (3, 1): tile_forbidden');
+  const gun = h.unit('t_gun');
+  assert.deepEqual([gun.tileR, gun.tileC], [3, 2]);
+  h.b.addBuff(gun, { key: bossesMod.HELD_BUFF.enemy_10029_vtshld, persist: true });   // holds a piece: its tile is no drop tile
+  const e = put(h, 'enemy_9032_aclionk', [3, 5], { tag: 'boss' });
+  e.profile.noAttack = true;
+  const on = () => h.b.enemies.find((q) => q.alive && /enemy_1002[89]|enemy_10030/.test(q.defId) && Math.round(q.y) === 3 && Math.round(q.x) === 1);
+  assert.ok(h.runUntil(() => !!on(), 300), 'a piece fell on the forbidden tile');
+  h.run(1);
+  assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'equip' && f[4].kind === 'pickup').length, 0, 'nobody picks it up');
 });
 
 test('“萨米的意志”: 冰凌 hits a whole column; 自然涌动 stun + arts/s; <50 %: damage ×(1−0.6) and 2 columns; Doom LP loss', () => {

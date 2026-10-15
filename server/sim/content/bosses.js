@@ -48,15 +48,16 @@
 //                            echo makes every echo play its ensemble at once (checked every 1 s).
 //   boss_4 盐风主教昆图斯     2 highest-DEF targets (+ neural); 3 growth stages (33 % HP lost or 75 s / 200 s): 大潮 global
 //                            arts + neural, 崩坍 delayed strikes on 2/4/8 highest-DEF units, 断裂生殖 switches on the
-//                            template's 子代 (隐匿 12 s, then 摄食: holds the nearest operator within 1, ATK phys + neural
-//                            + 1 s stun every 1 s; withdraws 35 s after it appears), 物种爆发 LP loss (stage 3).
+//                            template's 子代 (隐匿 12 s, then 摄食: before every hit the nearest operator within 1, ATK
+//                            phys + neural + 1 s stun every 1 s; withdraws 35 s after it appears; switched on again while
+//                            alive: a new one replaces it), 物种爆发 LP loss (stage 3).
 //   boss_5 卢西恩            evade 40 % while unblocked, DEF pen 40 %, neural on hit; AoE skill (radius 2); blinks past its
 //                            blocker leaving a 不祥幻影 (same kit minus blink). Template overrides (0.2 / 0.12) apply.
-//   boss_6 阿利斯泰尔        王权号令 (SP 1/s, plus-shaped 200 % strike + random equipment drop, an operator's tile too: the
-//                            operator on a piece's tile picks it up — sword ATK +30 %, vest DEF +30 %, wand 800 arts + 战栗
-//                            after a skill); 莫非王土 animates the latest piece — any with an operator in range, else a vest
+//   boss_6 阿利斯泰尔        王权号令 (SP 1/s, plus-shaped 200 % strike + random equipment drop, an operator's tile or one no
+//                            operator can stand on too: the operator on a piece's tile picks it up — sword ATK +30 %, vest
+//                            DEF +30 %, wand 800 arts + 战栗 after a skill); 莫非王土 animates the oldest piece — any with an operator in range, else a vest
 //                            or wand; a lone sword waits — (2 s after it appears, then once per 王权号令 cycle) (sword
-//                            strike / directional vest + barrier / wand → 黄金回响 device on its
+//                            strike / directional vest (first its front) + barrier / wand → 黄金回响 device on its
 //                            tile); ≤50 %: DEF +100 %, RES +45, animates 2; 斥退 at 999 s.
 //   boss_7 “萨米的意志”      冰凌 (its normal attack) runs down a whole column from the stage's top row, tile by tile
 //                            (each tile's ally hit 1 s after the ice reaches it); 自然涌动 stun + arts DoT; <50 %: damage taken
@@ -312,7 +313,8 @@ function branchSpawn(b, tpl, name, phaseIdx, { fallback = null, mods = null, at 
  * ("领袖单位于服务器的生命值加成不受上述加成影响", PRTS 下半). They come as the battle's `flags.enemyScale` (gd.enemyScale of the
  * boss round, set by the match — a BattleSpec flag, so browsers run the same); `hpRatio` = the skill's own summon HP ratio
  * (死亡集群 `summon.hp_ratio`), multiplied in. No flags (tests, tools): the ratio alone. Until 0.2.1 the summons took no
- * round effect at all (PR #272). 王权号令's equipment is left out: invulnerable, untargetable, it never fights.
+ * round effect at all (PR #272). 王权号令's equipment is left out: invulnerable, untargetable, it never fights. So are the
+ * tokens 子代 and 黄金回响 (`Trap`, not `Enemy`: the client's enemy runes skip them — spawnBrood, goldenDef).
  */
 function summonMods(b, hpRatio = null) {
   const s = b.flags && b.flags.enemyScale;
@@ -680,19 +682,20 @@ function kitGun(ab, e, b) {
     {
       spawn(b2, e2) { b2.addBuff(e2, { key: 'boss:unblockable', persist: true, flags: { unblockable: true } }); setAspd(b2); },
       before(c, b2, e2) { const l = targetsNear(b2, e2, range()); if (l.length) c.targets = [l.sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0]]; }, // 优先攻击防御力最高的单位
-      // ASPD stacks (official client BrownbTalent_1.Apply, on every attack): a target other than the last one clears the
-      // stack group, then the attack ALWAYS adds one stack (+`2.attack_speed`, at most `2.max_stack_cnt`) — the first
-      // attack on a new target already leaves 1 stack (until 2026-10-14 it left 0: the floor 20, a 22.5 s wait). The
-      // client re-times the running cooldown when ASPD changes (keeping its progress ratio); our engine keeps an
-      // attack's cooldown in seconds (docs/rules/sim.md), so the stack counts for the cooldown of the attack that adds
-      // it — the cooldown is re-run from the swing's start at the new ASPD, the client's effective interval [ASSUMED]
+      // ASPD stacks (official client BrownbTalent_1.Apply, an attachment of the attack ability: as the attack is cast on
+      // its target): a target other than the last one clears the stack group, then the attack ALWAYS adds one stack
+      // (+`2.attack_speed`, at most `2.max_stack_cnt`) — the first attack on a new target already leaves 1 stack (until
+      // 2026-10-14 it left 0: the floor 20, a 22.5 s wait). The client re-times the running cooldown when ASPD changes
+      // keeping its progress ratio (OnAttackTimeChanged, docs/rules/sim.md 「일반 공격 타이밍」): the interval becomes
+      // t + (1 − t/T_old)·T_new, t the time since the swing began (until 2026-10-15 the cooldown re-ran from the swing's
+      // start at the new ASPD — the same only at t = 0)
       attack(c, b2, e2) {
         const t = c.targets[0];
         if (t !== P.last) { P.last = t; P.n = 0; }
         P.n = Math.min(maxN, P.n + 1);
         const was = e2.s.interval;
         setAspd(b2);
-        if (e2.atkCd > 0) e2.atkCd = Math.max(0, e2.s.interval - (was - e2.atkCd));
+        if (e2.atkCd > 0 && was > 0) e2.atkCd *= e2.s.interval / was;
       },
       dealt(c, b2, e2) { elem(b2, e2, c.target, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0)); }, // 攻击时附带侵蚀损伤
       tick(b2, e2, a, dt) {
@@ -769,9 +772,21 @@ function kitSpring(ab, e) {
   const scale = T(ab, '1.damage_scale') ?? 1, regen = T(ab, '1.regenerate_duration') ?? 0;
   const sk = kind === 'arts' ? null : ab.sk['1'];
   const P = { up: false, barrier: 0, hits: 0, downAt: null, sp: 0, skill: false };
-  // 【盲信之誓】 the share's receiver: the prefab's BossSelector (one 假想敌：铳, HATRED_DES) — the nearest gun [ASSUMED: the
-  // hatred order among guns; a field holds one gun per half]
-  const gun = (b) => nearestOf(b, e, (o) => isGun(o));
+  // 【盲信之誓】 the share's receiver: the prefab's BossSelector (one 假想敌：铳, HATRED_DES). An enemy's hatred is its taunt
+  // level × k − its remaining distance to the exit (client Enemy.get_hatred): with equal taunt the gun nearest its EXIT
+  // (until 2026-10-15 the gun nearest the spring; the 隐秘核心 pair field has two, branch boss_battle_multi_player)
+  const gun = (b) => {
+    const key = (o) => [-(o.s.taunt || 0), b.remainingDistance(o), o.spawnSeq];
+    let best = null, bk = null;
+    for (const o of b.enemies) {
+      if (!o.alive || !isGun(o)) continue;
+      const k = key(o);
+      if (!bk || (k[0] - bk[0] || k[1] - bk[1] || k[2] - bk[2]) < 0) { best = o; bk = k; }
+    }
+    return best;
+  };
+  // the 追逐模式 fallback when its casting gun is gone: the nearest other gun (the remake's own rule)
+  const nearGun = (b) => nearestOf(b, e, (o) => isGun(o));
   const range = () => e.base.rangeRadius || 2;
   // 优先攻击防御力最高的单位: the Attack and Skills/1 selectors are `_postFilter` DEF_DES (ties: aggro order)
   const byDef = (l) => l.sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0];
@@ -799,20 +814,20 @@ function kitSpring(ab, e) {
         lastHit.set(tt, b.time);
         hurt(b, e2, tt, e2.s.atk * powi(SPRING_BOUNCE_FALLOFF, k), 'phys', { tags: ['springBullet'] });
         elem(b, e2, tt, 'erosion', e2.s.atk * ratio);
-        const near = areaAllies(b, e2, tt.x, tt.y, SPRING_BOUNCE_RANGE).filter((u) => u !== tt && !(b.time - (lastHit.get(u) ?? -Infinity) < SPRING_BOUNCE_KEEP));
-        // the next one: the nearest [ASSUMED: the selector's order]; nobody else → the same target again
-        const nx = near.sort((p, q) => hypot(p.x - tt.x, p.y - tt.y) - hypot(q.x - tt.x, q.y - tt.y) || aggroCmp(p, q))[0] || (tt.alive ? tt : null);
+        // the next one: the selector's `_postFilter` ALL (no sort) and at most 1 — the first candidate of the range query
+        // (until 2026-10-15 the nearest). [ASSUMED] the query's order = the field's ally order (areaAllies); nobody
+        // else → the same target again
+        const nx = areaAllies(b, e2, tt.x, tt.y, SPRING_BOUNCE_RANGE).find((u) => u !== tt && !(b.time - (lastHit.get(u) ?? -Infinity) < SPRING_BOUNCE_KEEP)) || (tt.alive ? tt : null);
         fly(tt, nx, k + 1);
       }, { source: e2 });
     };
     fly(e2, t0, 0);
   };
-  const tenHits = (b, e2, t0) => { // 十连击: ten shots, ATK × `atk_scale` phys each, at the highest-DEF unit in range
-    let t = t0;
+  const tenHits = (b, e2, t) => { // 十连击: ten shots, ATK × `atk_scale` phys each, at the attack's highest-DEF target
+    // the target stays the first shot's (Skills/1 `_selectTargetSource` INPUT_TARGET, `_selectTargetTiming` AT_BEGINING,
+    // MultiRangedAttack.UpdateTargets): once it is dead the shots left are lost (until 2026-10-15 they re-picked)
     const shot = () => {
-      if (!e2.alive) return;
-      if (!t || !t.alive) t = byDef(targetsNear(b, e2, range()));   // [ASSUMED] a shot after its target's death re-picks
-      if (!t) return;
+      if (!e2.alive || !t.alive) return;
       b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'springCombo' });
       shoot(b, e2, t, sk.proj, (tt) => hurt(b, e2, tt, e2.s.atk * (sk.bb.atk_scale || 0), 'phys', { tags: ['springCombo'] }), { source: e2 });
     };
@@ -890,7 +905,7 @@ function kitSpring(ab, e) {
         // the gun does not end it, the spring keeps following the gun until the 5 s are over (PR #347 by @CXUtk; until
         // 0.2.1 it ended on arrival or within 1 tile). The casting gun dead: the nearest other gun; none left on the
         // field: it holds still, the gain running on.
-        const g = d.gun && d.gun.alive ? d.gun : gun(b);
+        const g = d.gun && d.gun.alive ? d.gun : nearGun(b);
         if (g) stepToward(e2, g.x, g.y, e2.s.moveSpeed * d.mul * MOVE_SCALE * dt);
         // 追逐模式 "对进入自身0.35半径范围内的我方单位（包括飞行单位）造成一次攻击力100%的物理普通伤害" (until 0.1.3: radius 0.5)
         for (const u of areaAllies(b, e2, e2.x, e2.y, CHARGE_RADIUS)) if (!d.hit.has(u)) { d.hit.add(u); hurt(b, e2, u, e2.s.atk, 'phys'); }
@@ -946,12 +961,14 @@ export function echoHit(b, echo) {
 
 /**
  * 【合奏】 (official client): the echo's SP is INCREASE_WHEN_TAKEN_DAMAGE (enemy_database spData: +1 per damage instance
- * taken, max 12, init 0). Its talent (prefab Talents/4, a SkillTrigger) checks every ECHO_ENSEMBLE_CHECK s: when ANY echo on
- * the field has full SP, EVERY echo casts its form's ensemble at once — gold PassionSkill (r 0.8, apoptosis
- * `4.ep_damage_ratio_passion`) / dark DepassionSkill (r 1.6, `4.ep_damage_ratio_depassion`), ATK 100 % arts each — and
- * every echo's SP is cleared. The enemy_database skill `Skill` (cd 5 / icd 2) has no prefab ability and is not used
- * (until 2026-10-14 each echo cast it on its own every 5 s). [ASSUMED] An echo that cannot act (stun / freeze / sleep)
- * does not cast and its SP is cleared with the others'; the check itself runs on every echo whatever its state.
+ * taken, max 12, init 0). Each echo's talent (prefab Talents/4, acdums_skill_trigger) checks its own SP every
+ * ECHO_ENSEMBLE_CHECK s, whatever the echo's state: full, it sends acdums_s_1[ability_trigger] to every echo on the field
+ * and then clears its own SP (ClearEnemySp). Each echo that receives it casts its form's ensemble — gold PassionSkill
+ * (r 0.8, apoptosis `4.ep_damage_ratio_passion`) / dark DepassionSkill (r 1.6, `4.ep_damage_ratio_depassion`), ATK 100 %
+ * arts — and clears its SP; one that cannot act (stun / freeze / sleep: `_checkSrcCastable`, Entity.inAbnormalState)
+ * stops the chain there — no ensemble AND its SP stays (until 2026-10-15 it was cleared with the others'), so it plays
+ * again within 1 s of coming back if its SP is full. The enemy_database skill `Skill` (cd 5 / icd 2) has no prefab
+ * ability and is not used (until 2026-10-14 each echo cast it on its own every 5 s).
  */
 const ECHO_ENSEMBLE_CHECK = 1;
 const isEcho = (o) => o.alive && o.defId === ECHO_KEY && o.mem.ab;
@@ -991,13 +1008,14 @@ function kitEcho(ab, e) {
     },
     max > 0 && {
       iv: ECHO_ENSEMBLE_CHECK,
-      tick(b) { // 【合奏】 check: one full echo → every echo plays
-        const all = b.enemies.filter(isEcho);
-        if (!all.some((o) => (o.mem.ab.sp ?? 0) >= max - 1e-9)) return;
-        for (const o of all) {
+      tick(b) { // 【合奏】 check: this echo full → every echo that can act plays, then this echo's SP is cleared
+        if ((ab.sp ?? 0) < max - 1e-9) return;
+        for (const o of b.enemies.filter(isEcho)) {
+          if (!canCast(o, false, b)) continue;
           o.mem.ab.sp = 0;
-          if (canCast(o, false, b)) echoEnsemble(b, o);
+          echoEnsemble(b, o);
         }
+        ab.sp = 0;
       },
     },
   ];
@@ -1089,7 +1107,7 @@ function kitPipe(ab, e, b, tpl) {
         // until 2026-10-15 a burst of `range_radius`). The skill's `_activeBuffs` acduml_s_1 then lands on every unit the
         // shot hit, the echo included: CreateBuffInCircleRange `range_radius` (0.8, 「中点判定」) around it — 凋亡
         // `ep_damage_ratio` to each operator there, selectable or not (PRTS 「无视其可选性」), itself included — and
-        // ApplyElementDamage `ep_damage_ratio` on it. [ASSUMED] the echo itself takes no 凋亡 (an enemy's element on an enemy).
+        // ApplyElementDamage `ep_damage_ratio` on it, the echo too (the node checks no side; until 2026-10-15 the echo took none).
         const strike = (echo) => {
           if (!e2.alive || !echo.alive) return;
           shoot(b2, e2, echo, s.proj, (o) => {
@@ -1097,7 +1115,7 @@ function kitPipe(ab, e, b, tpl) {
             const hit = pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS.acduml, 'pipeStrike');
             for (const u of hit) {
               for (const v of b2.alliesInRadius(u.x, u.y, r)) elem(b2, e2, v, 'apoptosis', e2.s.atk * ep, { ignoreSelect: true });
-              if (u.side === 'ally') elem(b2, e2, u, 'apoptosis', e2.s.atk * ep);
+              elem(b2, e2, u, 'apoptosis', e2.s.atk * ep);
             }
           });
         };
@@ -1124,13 +1142,13 @@ function kitString(ab, e, b, tpl) {
         // the skill's official projectile (skills `1`.proj — projectile_enemy_acdumm, TRACE 10 tiles/s; enemies/helpers.js
         // shoot) to every gold echo, a pipeBurst as it arrives (until 2026-10-10 at the cast; until 2026-10-15 the echo took
         // no hit). The skill's `_activeBuffs` acdumm_s_1 on every unit hit: 凋亡 `ep_damage_ratio`, and the echo turns dark
-        // (CheckEnemyId → SwitchMode 1). [ASSUMED] as 管's: the echo itself takes no 凋亡.
+        // (CheckEnemyId → SwitchMode 1); as 管's, the echo takes the 凋亡 too (until 2026-10-15 it did not).
         for (const echo of echoesOf(b2, 'gold')) {
           shoot(b2, e2, echo, s.proj, (o) => {
             if (!o || !o.alive) return;   // a shot in flight lands even if its shooter fell meanwhile
             for (const u of pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS.acdumm, 'stringStrike')) {
-              if (u.side === 'ally') elem(b2, e2, u, 'apoptosis', e2.s.atk * ep);
-              else if (u.alive) setEchoForm(b2, u, 'dark');
+              elem(b2, e2, u, 'apoptosis', e2.s.atk * ep);
+              if (u.side !== 'ally' && u.alive) setEchoForm(b2, u, 'dark');
             }
           });
         }
@@ -1214,10 +1232,12 @@ const QUINTUS = {
     P.tent++;
     P.brood = P.brood || new Map();
     for (const d of spots) {
-      // [ASSUMED] ACTIVATE_PREDEFINED of a predefined token that is still on the field does nothing (the 18 s cast of
-      // the last form is shorter than a 子代's 35 s)
+      // ACTIVATE_PREDEFINED makes a NEW token and clears the tile's unit first (BattleController._CreatePredefinedCharacter:
+      // CreateToken → Tile.ClearCharacterIfExists → LocateCharacter): a 子代 still there is removed and a new one
+      // starts over — 12 s 幼体, 35 s life (the 18 s cast of the last form is shorter than a 子代's 35 s). Until 2026-10-15
+      // the live one stayed and nothing happened
       const live = d.alias && P.brood.get(d.alias);
-      if (live && live.alive) continue;
+      if (live && live.alive) b.kill(live, null);
       const u = spawnBrood(b, e, d);
       if (u && d.alias) P.brood.set(d.alias, u);
     }
@@ -1253,11 +1273,14 @@ function broodDef(d) {
   };
 }
 
-/** Switch on one 子代 at its device tile (the round's enemy effects reach it like any summon: summonMods). */
+/**
+ * Switch on one 子代 at its device tile. Its own numbers: the round's enemy HP / ATK effects (rune `enemy_attribute_mul`,
+ * EAttribuesMul) work on an `Enemy` only and a 子代 is a token (`Trap`) — until 2026-10-15 they reached it (summonMods).
+ */
 function spawnBrood(b, boss, d) {
   const pos = d.pos;
   const u = b.spawnEnemy(d.key, { def: broodDef(d), pos, route: { motion: 'FLY', start: pos, end: pos, steps: [{ t: 'wait', s: 99999 }] },
-    tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId, mods: summonMods(b) });
+    tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId });
   if (u) u.mem.noLeak = true;   // a stage device: never a leak at the time limit (Battle._timeout)
   return u;
 }
@@ -1268,11 +1291,14 @@ function spawnBrood(b, boss, d) {
  *   幼体 (Default mode) for `1.grow_duration` (12) s: 隐匿 (INVISIBLE), immune to stun, silence and freeze; PRTS gives 10 s,
  *     the client 12.
  *   Grow: 隐匿 ends, and BROOD_GROW_ANIM s later the GrowUp mode starts (the immunities go with the 幼体 mode): SP +1/s.
- *   摄食 (SP `spCost` 1 from 0) takes the operator nearest to it within BROOD_REACH (DIST_TO_SOURCE_ASC: taunt plays no
- *     part) and holds it: BROOD_FIRST_HIT s after the pick and then every BROOD_HIT_EVERY s, ATK × `atk_scale` (absent → 1)
- *     physical + ATK × `ep_damage_ratio` (1) 神经 damage and a BROOD_STUN s stun. The hold ends when the target dies or
- *     leaves (withdrawn, displaced out of reach) [ASSUMED: out of reach ends it], or when the 子代 is stunned or silenced
- *     (`_canSilenced`); the SP starts from 0 again (`_resetAbilityCooldownWhenCastEnd`), so the next pick comes 1 s later.
+ *   摄食 (SP `spCost` 1 from 0, a ChannelingMeleeAttack) takes the operator nearest to it within BROOD_REACH
+ *     (DIST_TO_SOURCE_ASC: taunt plays no part) and holds it: BROOD_FIRST_HIT s after the pick and then every
+ *     BROOD_HIT_EVERY s, ATK × `atk_scale` (absent → 1) physical + ATK × `ep_damage_ratio` (1) 神经 damage and a BROOD_STUN s
+ *     stun. Every hit picks its target again (`_selectTargetTiming` BEFORE_SPELL_START): the nearest operator within reach
+ *     THEN — a nearer one takes over, one that left is replaced (until 2026-10-15 the first pick was held to the end). The
+ *     channel ends when its target dies (`_interuptIfTargetDead`), when nobody is in reach at a hit [ASSUMED: the default
+ *     path, not read], or when the 子代 is stunned or silenced (`_canSilenced`); the SP starts from 0 again
+ *     (`_resetAbilityCooldownWhenCastEnd`), so the next pick comes 1 s later.
  *   `1.duration` (35) s after it appears it withdraws (trap_tentac[withdraw], suicide_after_buff[switch_to_dead]: no kill).
  * Operators can attack it once 隐匿 ends (character_table "可以受到我方攻击"); its HP is its own (no transfer).
  * Model forms (render units.js FORMS): 'larva' (Start_01 → Idle_01), 'grown' (Start_02 → Idle_02 / Die_02), 'feed' (holding:
@@ -1298,7 +1324,8 @@ function kitBrood(ab) {
     elem(b, e, t, 'neural', e.s.atk * epr);
     if (t.alive) b.applyStatus(t, 'stun', { duration: BROOD_STUN, source: e });
   };
-  const held = (e, t) => t.alive && t.deployed && hypot(t.x - e.x, t.y - e.y) <= BROOD_REACH + 1e-6;
+  const nearest = (b, e) => targetsNear(b, e, BROOD_REACH)
+    .sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || aggroCmp(p, q))[0] || null;
   return [{
     spawn(b, e, a, ab2) {
       P.t0 = b.time;
@@ -1326,15 +1353,18 @@ function kitBrood(ab) {
         return;
       }
       if (P.hold) {
-        if (!canCast(e, true, b) || !held(e, P.hold)) { release(b, e); return; }
-        if (b.time >= P.next - 1e-9) bite(b, e, P.hold);
+        if (!canCast(e, true, b) || !P.hold.alive || !P.hold.deployed) { release(b, e); return; }
+        if (b.time < P.next - 1e-9) return;
+        const t = nearest(b, e);
+        if (!t) { release(b, e); return; }
+        P.hold = t;
+        bite(b, e, t);
         return;
       }
       if (!canCast(e, true, b)) return;
       P.sp = Math.min(cost, P.sp + dt);
       if (P.sp < cost - 1e-9) return;
-      const t = targetsNear(b, e, BROOD_REACH)
-        .sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || aggroCmp(p, q))[0];
+      const t = nearest(b, e);
       if (!t) return;
       P.hold = t;
       P.next = b.time + BROOD_FIRST_HIT;
@@ -1396,6 +1426,11 @@ function kitLucien(ab, e) {
 function kitLion(ab, e, b) {
   const eq = ab.sk.equip, eqA = ab.sk.equipA, st = ab.sk.store, stA = ab.sk.storeA, su = ab.sk.Suicide;
   const P = { sp: 0, adv: false, nextAnim: null, vestSide: 0 };
+  /** The x side (±1) the boss faces: its route's first column change from where it stands (none: +1). */
+  const frontSide = (e2) => {
+    for (const l of (e2.route && e2.route.legs) || []) if (l && l.t === 'move' && Number.isFinite(l.c) && Math.abs(l.c - e2.x) > 1e-6) return Math.sign(l.c - e2.x);
+    return 1;
+  };
   const raw = e.def.raw || {};
   const golden = (raw.devices || b.data.getEnemy(e.defId)?.raw?.devices || []).find((d) => d && d.key === GOLDEN_KEY) || null;
   const range = () => e.base.rangeRadius || 3.4;
@@ -1412,12 +1447,15 @@ function kitLion(ab, e, b) {
     for (const u of areaAlliesInTiles(b2, e2, r0, c0, 'plus', 1)) hurt(b2, e2, u, e2.s.atk * ((sk && sk.bb.atk_scale) || 0), 'phys');
     // the drop tile (projectile_enemy_vtlionk_s1 selector, ACT37SIDE_EQUIP): any tile of the plus but one where a piece
     // lies (`act37side_equip`) or whose operator holds one (`enemy_vtmstr_equip_char[mark]`) — an operator's tile too,
-    // and it picks the piece up (kitEquip); the selector checks no height (a 高台 tile too). [ASSUMED] the tile must take
-    // a unit (no wall, hole or 深水区: the client's DEFAULT tile mask, not modelled)
+    // and it picks the piece up (kitEquip). The selector checks no height and no buildable type, only the tile's advanced
+    // mask DEFAULT (TileSelector.Options.Verify): every tile of this mode but 深水区 (tile_deepsea DEEP_SEA) — a tile no
+    // operator can stand on too (tile_forbidden, tile_fence_bound: maintainer decision 2026-10-15, as the client), where
+    // the piece lies for good, nobody to pick it up, still a 莫非王土 target (until 2026-10-15 those tiles were left out;
+    // the mode's maps have no hole or wall)
     const taken = equipment(b2);
     const g = b2.grid;
     const free = tiles.filter(([r, c]) => {
-      if (!g.inRect(r, c) || g.deepWater[g.key(r, c)] || !(g.groundPassable(r, c) || g.canStand(r, c, { ranged: true }))) return false;
+      if (!g.inRect(r, c) || g.deepWater[g.key(r, c)]) return false;
       if (taken.some((q) => Math.round(q.y) === r && Math.round(q.x) === c)) return false;
       const u = b2.unitAt(r, c);
       return !(u && holdsEquip(u));
@@ -1434,21 +1472,24 @@ function kitLion(ab, e, b) {
     const n = P.adv && stA ? stA.bb.max_target ?? 2 : 1;
     const sk = P.adv && stA ? stA : st;
     // prefab store / storeA: an AbilitySelectableGroup casting its first branch that can (_DoCastInternal walks the
-    // configs in order). hasSword — triggered by an operator in its circle (radius 1 × the boss's range [ASSUMED scale],
-    // the range the sword's s2range shot picks from) — takes any piece (selector buff enemy_vtmstr_equip_tr); else
+    // configs in order). hasSword — triggered by an operator in its circle (radius 1 × the boss's range 3.4: no
+    // `range_radius` in the skill's blackboard → GetModeRangeRadius; the range the sword's s2range shot picks from) — takes any piece (selector buff enemy_vtmstr_equip_tr); else
     // noSword takes a vest or a wand (enemy_vtmstr_mark[not_sword]). A sword with nobody in range waits on the field.
-    // Both sort HATRED_DES, all pieces tie: [ASSUMED] the latest first
+    // Both sort HATRED_DES; a piece never moves, so all tie on hatred and the tie goes to the lower instanceUid
+    // (WeightedTarget.CompareTo → Entity.CompareTo): the OLDEST first (until 2026-10-15 the latest)
     const all = equipment(b2);
     const pool = targetsNear(b2, e2, range()).length > 0 ? all : all.filter((q) => q.defId !== SWORD_KEY);
     if (!pool.length) return false;
-    for (const q of pool.slice(-n)) {
+    for (const q of pool.slice(0, n)) {
       if (q.defId === 'enemy_10028_vtswd') {
         const t = b2.rng.pick(targetsNear(b2, e2, range()));
         if (t) { b2.fx('sword', { x: q.x, y: q.y, from: q.id, to: t.id }); hurt(b2, e2, t, e2.s.atk * ((sk && sk.bb.atk_scale) || 0), 'phys'); }
       } else if (q.defId === 'enemy_10029_vtshld') {
-        // the guarded side alternates with every vest activated (official template enemy_vtlionk_shld `front` toggle):
-        // first +x [ASSUMED: the client's first side is "right" = the larger column], then the other side each time
-        const side = P.vestSide = P.vestSide > 0 ? -1 : 1;
+        // the guarded side alternates with every vest activated (official template enemy_vtlionk_shld `front` toggle,
+        // the boss buff's `front` starting at 0): the first vest guards the FRONT, the side the boss faces (its route's
+        // way: −x, the smaller column, for the official route (3,10) → (2,2)), then the other side each time. Until
+        // 2026-10-15 the first was +x; maintainer decision 2026-10-15 [ASSUMED: facing while it waits = its route's way]
+        const side = P.vestSide = P.vestSide ? -P.vestSide : frontSide(e2);
         b2.addBuff(e2, { key: 'boss:vest', shield: (sk && sk.bb.dynamic) || 0, persist: true, visible: true, data: { side, cut: (sk && sk.bb.damage_resistance) || 0 } });
         b2.fx('vest', { x: e2.x, y: e2.y, id: e2.id, side });
       } else if (q.defId === WAND_KEY) {
@@ -1534,8 +1575,9 @@ function kitEquip(ab, e) {
  * 冲击式施术单元 held by an operator (enemy_vtmstr_equip_B_disarm[char] → B_attack_disarm[char] → B_instant[char]): every
  * skill it casts arms it; the first damage it then deals to an enemy opens a `2.work_time` (0.1) s window, and that
  * damage and every other one it deals to an enemy in the window add `2.value` (800) 无来源 arts damage (B_damage[char]
- * NoSourceDamage, `cnt` absent → ×1 [ASSUMED]) and `2.not_combat` (10) s 战栗 (disarmed_combat; a blocked target's swing
- * is cut — ai.js). [ASSUMED] element damage (元素损伤) is no "output damage" here. Its own 800 is 无来源: the hook sees no
+ * NoSourceDamage, `_multiplierByKey` false: `cnt` is not read, ×1) and `2.not_combat` (10) s 战栗 (disarmed_combat; a blocked
+ * target's swing is cut — ai.js). Element damage (元素损伤) is no "output damage" here (it raises ON_AFTER_OUTPUT_ELEMENT_DAMAGE
+ * only; the templates listen to ON_OUTPUT_DAMAGE). Its own 800 is 无来源: the hook sees no
  * source, so it never re-arms the window. One battle-wide pair of hooks; the state per holder (`Map`).
  */
 function equipHooks(b) {
@@ -1559,8 +1601,9 @@ function equipHooks(b) {
  * ENEMY) on the 冲击式施术单元's tile — HP 8000, ATK 425, DEF 150, RES 70; its normal attack every `baseAttackTime` 3.8 s
  * takes one operator of its range `x-1` (engine target order: blocker → taunt → latest deployed = HATRED_DES) for ATK ×1
  * arts (Attack `_damageType` MAGICAL) through projectile_trap_vtlntw. No lifetime: it stays until destroyed (operators can
- * attack it); it never moves and blocks nobody, nor is it blocked. No LP, no kill count (a part). The round's enemy effects
- * reach it like 子代 (summonMods) [ASSUMED].
+ * attack it); it never moves and blocks nobody, nor is it blocked. No LP, no kill count (a part). The round's enemy HP / ATK
+ * effects do not reach it: the rune `enemy_attribute_mul` (EAttribuesMul) works on an `Enemy` only, and this is a token
+ * (`Trap`) — its own numbers (until 2026-10-15 summonMods).
  */
 function goldenDef(d) {
   const st = d.stats || {};
@@ -1574,7 +1617,7 @@ function goldenDef(d) {
 
 function spawnGolden(b, boss, d, pos) {
   const u = b.spawnEnemy(d.key, { def: goldenDef(d), pos, route: { motion: 'FLY', start: pos, end: pos, steps: [{ t: 'wait', s: 99999 }] },
-    tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId, mods: summonMods(b) });
+    tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId });
   if (u) u.mem.noLeak = true;   // a device: never a leak at the time limit (Battle._timeout)
   return u;
 }

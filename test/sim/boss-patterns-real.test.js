@@ -4,7 +4,7 @@
 // whole-field 3-shot normal attack (official prefab Attack, projectile_enemy_acduml) and the hidden 铳 field's
 // “碎铳之簧” (BLOCK_FREE passive, the shield skill in place of a normal attack, the share to 铳 only) and 盐风主教昆图斯's
 // 子代 (the template's predefined token: 隐匿, then 摄食 on the operator next to it) and 阿利斯泰尔's 黄金回响 (莫非王土 on a
-// 冲击式施术单元: a device on its tile that shoots the operators within Manhattan 2). The unit-level rules
+// 冲击式施术单元: a device on its tile that shoots the operators within Manhattan 2; its first 防护背心 guards its front). The unit-level rules
 // and their numbers are pinned in test/content/enemies_bosses.test.js; docs/rules/sim.md 「최종 공세·히든 코어 보스 패턴」.
 
 import { test } from 'node:test';
@@ -42,8 +42,10 @@ test('real boss_2 field: 假想敌：铳 leaves 1 stack after a new target\'s fi
   const b = realBossField('boss_2');
   const bb = gd.enemy('enemy_9017_achunt').talents.bb;
   const step = bb['2.attack_speed'], max = bb['2.max_stack_cnt'];
-  const seen = [];
+  const seen = [], swings = [];
   b.on('attack', (c) => { if (c.attacker && c.attacker.isBoss) seen.push({ t: b.time, tgt: c.targets[0], aspd: c.attacker.s.aspd }); }, { priority: -1000 });
+  const ev = b._ev.bind(b);
+  b._ev = (x) => { const e = x[0] === 'swing' && b.enemies.find((u) => u.id === x[1]); if (e && e.isBoss) swings.push({ t: b.time, aspd: e.s.aspd }); return ev(x); };
   for (let i = 0; i < 30 * 90 && !b.finished; i++) b.step();
   assert.ok(seen.length >= 5, `the gun attacked (${seen.length})`);
   let last = null, n = 0;
@@ -54,8 +56,12 @@ test('real boss_2 field: 假想敌：铳 leaves 1 stack after a new target\'s fi
   }
   const k = seen.findIndex((a, i) => i > 0 && a.tgt === seen[i - 1].tgt);
   assert.ok(k > 0, 'two attacks in a row on one target');
-  const gap = seen[k].t - seen[k - 1].t, want = gd.enemy('enemy_9017_achunt').stats.bat * 100 / seen[k - 1].aspd;
-  assert.ok(Math.abs(gap - want) < 0.1, `the stack counts for the cooldown of the attack that adds it: ${gap} ≈ ${want}`);
+  // the stack lands as the attack strikes, t into its swing; the running cooldown keeps its progress ratio (client
+  // OnAttackTimeChanged): the next swing comes t + (1 − t/T_old)·T_new after this one
+  const T = (aspd) => gd.enemy('enemy_9017_achunt').stats.bat * 100 / aspd;
+  const sw = swings.filter((x) => x.t <= seen[k - 1].t + 1e-9).at(-1), next = swings.find((x) => x.t > seen[k - 1].t + 1e-9);
+  const t = seen[k - 1].t - sw.t, want = t + (1 - t / T(sw.aspd)) * T(seen[k - 1].aspd);
+  assert.ok(Math.abs(next.t - sw.t - want) < 0.1, `swing to swing: ${next.t - sw.t} ≈ ${want}`);
 });
 
 test('real boss_1 field: 刺胄之弹 leaves a 9.95 s zone that hits the operators in it every 1 s (400 phys + 2.1 s stun), no DoT buff', () => {
@@ -118,7 +124,7 @@ test('real boss_9 field: “碎铳之簧” are never blocked; with full SP the 
   b.on('damaged', (c) => {
     if (!isSpring(c.source)) return;
     if (c.dmg && c.dmg.isAttack) normal.push({ t: b.time, e: c.source });
-    if (c.dmg && c.dmg.tags && c.dmg.tags.includes('springCombo')) combo.push({ t: b.time, e: c.source });
+    if (c.dmg && c.dmg.tags && c.dmg.tags.includes('springCombo')) combo.push({ t: b.time, e: c.source, to: c.target });
   }, { priority: -1000 });
   let free = true;
   for (let i = 0; i < 30 * 150 && !b.finished; i++) {
@@ -137,8 +143,10 @@ test('real boss_9 field: “碎铳之簧” are never blocked; with full SP the 
   }
   const c0 = castBy('enemy_9020_actrpc')[0];
   const shots = combo.filter((c) => c.e.id === c0.id && c.t >= c0.t && c.t < c0.t + 2);
-  assert.equal(shots.length, 10, '十连击');
-  for (let k = 1; k < 10; k++) assert.ok(Math.abs(shots[k].t - shots[k - 1].t - 0.1) < 0.02, '0.1 s apart');
+  // ten shots on the first shot's target; if it dies the rest are lost (official INPUT_TARGET, AT_BEGINING)
+  assert.ok(shots.length >= 2 && shots.every((x) => x.to === shots[0].to), '十连击: one target');
+  assert.ok(shots.length === 10 || !shots[0].to.alive, `ten shots, fewer only once the target died (${shots.length})`);
+  for (let k = 1; k < shots.length; k++) assert.ok(Math.abs(shots[k].t - shots[k - 1].t - 0.1) < 0.02, '0.1 s apart');
   // 【盲信之誓】: the gun alone takes the share
   const springs = b.enemies.filter((e) => e.alive && isSpring(e));
   const gun = b.enemies.find((e) => e.alive && e.isBoss);
@@ -191,4 +199,15 @@ test('real boss_6 field: 莫非王土 on a 冲击式施术单元 leaves a 黄金
     assert.ok(Math.abs(x.to.tileR - Math.round(x.from.y)) + Math.abs(x.to.tileC - Math.round(x.from.x)) <= 2, 'within Manhattan 2');
   }
   assert.equal(disarms.length, 0, 'no more disarm substitute');
+});
+
+test('real boss_6 field: the first 防护背心 阿利斯泰尔 animates guards its front — the way its route leads, −x', () => {
+  // official route (3, 10) → (2, 2): it faces −x while it waits at the start; enemy_vtlionk_shld's `front` toggle from 0 makes
+  // the first vest FRONT (maintainer decision 2026-10-15)
+  const b = realBossField('boss_6', { extra: [{ chessId: 'chess_char_1_02_a', row: 10, col: 8 }, { chessId: 'chess_char_1_02_a', row: 9, col: 7 }] });
+  const lion = () => b.enemies.find((e) => e.alive && e.defId === 'enemy_9032_aclionk');
+  for (let i = 0; i < 30 * 600 && !b.finished && !(lion() && lion().findBuff('boss:vest')); i++) b.step();
+  const v = lion() && lion().findBuff('boss:vest');
+  assert.ok(v, 'a vest was animated');
+  assert.equal(v.data.side, -1);
 });

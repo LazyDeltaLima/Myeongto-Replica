@@ -1012,20 +1012,25 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **규칙**: 공격할 때마다, 대상이 마지막 대상과 다르면 스택을 비우고, 그다음 **항상** 1스택(+`2.attack_speed` 80, 최대 `2.max_stack_cnt` 5)을 더한다 →
   새 대상 첫 공격 뒤 공속 80, 같은 대상 n번째 공격 뒤 n스택. 공속 하한 20은 첫 공격 전에만 보인다. 클라 코드 `BrownbTalent_1.Apply`(0xC547E0): 마지막
   대상과 다르면 `OverrideGroup.Clear` 뒤 대상 갱신, 이어서 무조건 `Entity.AddBuff(_stackBuff)`(프리팹 `Talents/2`, ATTACK_SPEED).
-- 쿨다운: 클라는 공속이 바뀌면 도는 쿨다운의 진행 비율을 유지한다(`OnAttackTimeChanged`, 위 「일반 공격 타이밍」). 우리 엔진은 남은 초를 그대로 두므로,
-  [ASSUMED] 스택은 그것을 더한 공격의 쿨다운부터 친다 — 그 공격의 쿨다운을 휘두름 시작부터 새 공속으로 다시 잰다(클라의 실제 간격과 같음: 새 대상 첫 공격 뒤
-  다음 공격까지 4.5 × 100 / 80 = 5.6 s).
+- 쿨다운 (2026-10-15): 스택은 공격이 대상에 시전되는 순간(`BrownbTalent_1.Apply`는 공격 어빌리티의 부착물 — 우리 'attack' 훅, 타격 순간) 붙고, 클라는
+  공속이 바뀌면 도는 쿨다운의 진행 비율을 유지한다(`OnAttackTimeChanged`, 위 「일반 공격 타이밍」) → 휘두름에서 다음 휘두름까지
+  t + (1 − t/T_old)·T_new(t = 휘두름 시작부터 타격까지, T = 4.5 × 100 / 공속). 우리 엔진은 남은 쿨다운에 T_new/T_old를 곱한다. 옛 [ASSUMED] 「그 공격의
+  쿨다운을 휘두름 시작부터 새 공속으로 다시 잼」(새 대상 첫 공격 뒤 5.6 s)은 t = 0일 때만 같았다(공식 대조 research/sim/2026-10-15-boss-assumed-check 1번).
 - **옛 동작**: 같은 대상일 때만 공격 **뒤** 1스택, 새 대상 첫 공격은 0스택 → 하한 20(다음 공격까지 22.5 s), 최대 스택이 한 타 늦음. 테스트
-  `enemies_bosses.test.js` 「假想敌：铳: unblockable…」(3타 뒤 240, 간격 5.6 s·2.8 s).
+  `enemies_bosses.test.js` 「假想敌：铳: unblockable…」(3타 뒤 240, 휘두름 간격 = 위 식), 실제 판 경로 `boss-patterns-real.test.js` 「real boss_2 field…」.
 
 ### “余音” 暗色 형태 이동 속도·【合奏】 (`setEchoForm`·`kitEcho`)
 - **이동 속도**: 暗色(Depression) 형태는 이동 속도 **+20 %**(클라 프리팹 `Modes/Depression/Body/Talents/2`: MOVE_SPEED, MULTIPLIER +`2.move_speed` 0.2).
   옛 동작: −20 %.
 - **【合奏】 규칙**: 余音의 SP = enemy_database spData `INCREASE_WHEN_TAKEN_DAMAGE`(피해 1회 +1, 최대 12, 시작 0) — 우리 `taken` 훅이 보는 피해 한 번
-  (출처 무관)마다 +1. 클라 프리팹 `Talents/4`(SkillTrigger)가 1 s마다 검사해 **한 余音이라도 SP가 차면 필드의 모든 余音이 함께** 자기 형태의 합주를 하고
-  모두의 SP를 비운다: 金 → `PassionSkill`(반경 0.8, 凋亡 `4.ep_damage_ratio_passion`), 暗 → `DepassionSkill`(반경 1.6, `4.ep_damage_ratio_depassion`),
-  둘 다 ATK 100 % 법술. 시전 fx `enemySkill`의 `ability`가 프리팹 능력 이름(렌더가 공식 이펙트를 붙임). enemy_database 스킬 `Skill`(쿨 5·첫 2)은 프리팹에
-  능력이 없어 쓰지 않는다. [ASSUMED] 행동할 수 없는 余音(기절·빙결·수면)은 합주하지 않고 SP만 함께 비워진다; 검사 자체는 상태와 무관.
+  (출처 무관, 원소 손상 제외)마다 +1. 余音마다 클라 프리팹 `Talents/4`(`acdums_skill_trigger`, 1 s 주기)가 **자기** SP를 검사해, 차 있으면 필드의 모든 余音에게
+  `acdums_s_1[ability_trigger]`를 보내고 자기 SP를 비운다(`ClearEnemySp`). 받은 余音은 자기 형태의 합주를 하고 자기 SP를 비운다: 金 → `PassionSkill`(반경 0.8,
+  凋亡 `4.ep_damage_ratio_passion`), 暗 → `DepassionSkill`(반경 1.6, `4.ep_damage_ratio_depassion`), 둘 다 ATK 100 % 법술. 시전 fx `enemySkill`의 `ability`가
+  프리팹 능력 이름(렌더가 공식 이펙트를 붙임). enemy_database 스킬 `Skill`(쿨 5·첫 2)은 프리팹에 능력이 없어 쓰지 않는다.
+- **행동 불능 余音** (2026-10-15): `[ability_trigger]`의 `TriggerAbilityUseSelectorMergeBB`(`_checkSrcCastable` 1)가 `Entity.inAbnormalState`(기절·빙결·수면)면
+  false → 사슬이 멈춰 그 余音의 `ClearEnemySp`까지 가지 않는다(`IfElse`는 가지 결과를 그대로 돌려줌). 그래서 행동 불능인 余音은 합주하지 않고 **SP도 그대로**
+  남아, 풀린 뒤 가득 차 있으면 1 s 안에 다시 전체 합주를 일으킨다. 발동시킨 余音(자기 주기 검사)은 행동 불능이어도 자기 SP가 비워진다(검사는 상태와 무관).
+  옛 [ASSUMED]: 행동 불능 余音도 SP를 함께 비웠다. 테스트 「“余音” 【合奏】: an echo that cannot act…」.
 - **옛 동작**: 余音마다 `Skill` 쿨다운(첫 2 s, 이후 5 s)으로 따로 합주. 테스트 `enemies_bosses.test.js` 「“余音” 【合奏】…」·「“余音”: 10-hit unit…」.
 - SP 바 없음(2026-10-15 확인): 余音은 일반 등급(`rank` NORMAL)이라 공식도 일반 적 체력 바(`enemy_hp_slider`, SP 줄 없음)를 쓴다 — 보스 SP 바(`e.mem.lpSp`,
   render `hud-bars.js` 보스·거대 보스만)에 안 내보내는 지금이 공식과 같다.
@@ -1041,9 +1046,14 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   「假想敌：胄 + 刺胄之弹…」.
 
 ### 阿利斯泰尔 防护背心 방향 (`kitLion` 【莫非王土】)
-- **규칙**: 조끼를 활성화할 때마다 막는 면이 번갈아 바뀐다(클라 버프 템플릿 `enemy_vtlionk_shld`의 `front` 토글) — 알리스테어 유닛마다 첫 조끼는 +x(열 번호가 큰
-  쪽), 그다음은 직전의 반대쪽. 5000 보호막이 남아 있는 동안 그 면(공격자의 칸 위치)에서 온 피해 ×(1 − `damage_resistance`). [ASSUMED] 첫 면 「오른쪽」 = +x.
-- **옛 동작**: 조끼가 놓였던 칸이 보스의 어느 쪽인지로 면을 정했다. 테스트 `enemies_bosses.test.js` 「阿利斯泰尔 防护背心…」.
+- **규칙**: 조끼를 활성화할 때마다 막는 면이 번갈아 바뀐다(클라 버프 템플릿 `enemy_vtlionk_shld`의 `front` 토글) — 알리스테어 유닛마다 첫 조끼는 **앞면**(보스가
+  바라보는 쪽), 그다음은 직전의 반대쪽. 5000 보호막이 남아 있는 동안 그 면(공격자의 칸 위치)에서 온 피해 ×(1 − `damage_resistance`).
+- **첫 면 = 앞면** (관리자 결정 2026-10-15, 공식 대조 research/sim/2026-10-15-boss-assumed-check 3번): 보스 `CommonAbilities/Ability0`의 `enemy_vtlionk_unmove`에
+  블랙보드가 없어 `front`가 0에서 시작 → 첫 조끼의 ON_BUFF_START가 1로 바꿈 → FRONT. 노드 `Execute`(0xD805F0)는 보스 `get_faceTo`를 4방향으로 맞춰 열을
+  비교한다. 우리는 앞면 = 보스 경로가 처음 열을 바꾸는 쪽(`frontSide`): 공식 경로 (3,10) → (2,2)는 −x(열 번호가 작은 쪽). [ASSUMED] 출발점에서 기다리는
+  동안 바라보는 방향 = 경로 방향(보통의 적과 같다고 봄, 공식 영상으로 확정 가능).
+- **옛 동작**: 첫 조끼 +x([ASSUMED] 「오른쪽」, 2026-10-15까지), 그 전에는 조끼가 놓였던 칸이 보스의 어느 쪽인지로 면을 정했다. 테스트 `enemies_bosses.test.js`
+  「阿利斯泰尔 防护背心…」, 실제 판 경로 `boss-patterns-real.test.js` 「real boss_6 field: the first 防护背心…」.
 
 ### 假想敌：管·弦 일반 공격·【裂管之奏】·회피 (`pipeCore`·`pipeBurst`·`kitPipe`·`kitString`, 2026-10-15)
 - **일반 공격**: 사거리 전장 전체(PRTS 「攻击范围扩大至全场」). 클라 프리팹 `Modes/Default/Body/Attack`의 `_abilityConfigs` 둘을 차례로 시도 — 자기 형태
@@ -1057,9 +1067,11 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **【裂管之奏】**: 暗 余音마다 세 발(0.25 s), 발마다 위 폭발(반경 1.8 법술 100 %, 余音 피격 포함) 뒤 스킬 `_activeBuffs` `acduml_s_1`이 맞은 유닛마다(余音 포함):
   `CreateBuffInCircleRange` 반경 블랙보드 `range_radius` 0.8(클라 `Execute`가 `GetFloatOrDefault("range_radius", 1.8)`) 안 오퍼레이터 모두(선택 가능 여부
   무관, PRTS 「无视其可选性」·「中点判定，可叠加」, 자기 포함)에게 凋亡 `ep_damage_ratio` 25 %, 그리고 그 유닛 자신에게 凋亡 25 %(`ApplyElementDamage`). 余音
-  바로 위 오퍼레이터는 한 발에 凋亡 3번(余音 둘레·자기 둘레·자기). [ASSUMED] 余音 자신은 凋亡을 받지 않는다(적이 적에게 거는 원소, 확인 못 함).
-- **【断弦之奏】**: 金 余音마다 한 발, 위 폭발(반경 1.6, 余音 피격 포함) 뒤 `acdumm_s_1`: 맞은 오퍼레이터에게 凋亡 25 %, 余音은 暗으로(`CheckEnemyId` →
-  `SwitchMode` 1). [ASSUMED] 관과 같이 余音 자신은 凋亡 없음.
+  바로 위 오퍼레이터는 한 발에 凋亡 3번(余音 둘레·자기 둘레·자기). **余音 자신도 凋亡 25 %** (2026-10-15): `ApplyElementDamage.Execute`(0xD928F0)에 진영 검사가
+  없고 余音의 `epResistance`·`epDamageResistance`는 0(공식 대조 4번; 모디파이어 적용 경로는 안 읽음). 余音의 凋亡 게이지·폭발은 엔진 일반 규칙(적 쪽 凋亡
+  폭발: 虚弱 + 초당 元素伤害 — 그 피해 한 번이 타수 1·SP +1). 옛 [ASSUMED]: 余音은 凋亡 없음.
+- **【断弦之奏】**: 金 余音마다 한 발, 위 폭발(반경 1.6, 余音 피격 포함) 뒤 `acdumm_s_1`: 맞은 유닛마다 凋亡 25 %(余音 포함 — 관과 같음, 2026-10-15), 余音은
+  暗으로(`CheckEnemyId` → `SwitchMode` 1).
 - **회피**: 관은 체력 50 % 미만일 때 물리·법술 회피 `1.prob` 10 %(템플릿 `acduml_t_1` `ON_TAKE_DAMAGE`: `FilterByTargetHpRatio` LT 0.5 → `Evade`
   PHYSICAL_AND_MAGICAL; PRTS 「自身生命值低于50%时，获得10%物理和法术闪避」). 매 틱 체력 비율로 `boss:evade`(`dodgePhys`·`dodgeArts`)를 켜고 끈다(卢西恩과 같은 방식).
 - **옛 동작**: 일반 공격은 余音만 겨냥해 펄스만 냈다(관·현 자신의 피해 없음, 余音이 없으면 공격 안 함, 余音 타수·SP 안 셈); 【裂管之奏】은 0.4 s 간격, 폭발 반경
@@ -1077,19 +1089,23 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **元素护盾 탄**: 스킬 프리팹 `Skills/1`(`_damageType` PHYSICAL, `_atkScale` 1, `_activeBuffs` `actrpb_s_1`) — 맞은 대상마다 ATK 100 % 물리 ×0.8^튕긴 횟수
   (투사체 `_atkScaleRatePerBounce`) + 침식 `ep_damage_ratio` 10 %(`actrpb_s_1` `ApplyElementDamage`, 감소 없음), 모두 `times` 4타. 튕김: 맞은 대상 둘레
   1.7(투사체 선택 원, `_ignoreRangeScale`) 안에서 0.7 s 안에 맞지 않은 다른 대상(`_keepAlreadyHitTime` 0.7), 없으면 같은 대상에게 다시(`_allowRepetitionIfNoTarget`).
-  첫 발 15, 튕김 6 칸/s. [ASSUMED] 다음 대상 순서는 가까운 순(선택기 순서 못 읽음).
+  첫 발 15, 튕김 6 칸/s. 다음 대상은 선택기 `_postFilter` 0 ALL(정렬 없음)·최대 1 → 범위 조회의 첫 후보(2026-10-15, 옛 [ASSUMED] 가까운 순). [ASSUMED] 조회
+  순서 = 필드의 아군 순서(`areaAllies` — 배치 순, 클라 범위 조회 순서는 못 읽음). 테스트 「“碎铳之簧” 元素护盾 bullet…」.
 - **法术护盾 물리 감쇠·반격** (2026-10-15): 반격 템플릿 `actrpa_t_1` ON_TAKE_DAMAGE가 `FilterDamageModifer`(`_attackTypeFilter` NORMAL·`_damageMask`
   PHYSICAL)로 거른다 — 공격의 주 대상 물리 피해만 ×`damage_scale` 0.1 + 그 출처에 무출처 물리 附加 `atk_scale`·침식 `ep_damage_ratio`. 스플래시(SPLASH 2)·
   附加(ADDITION 8)·상태 틱(BUFF 4)·키트 자체 피해의 물리는 그대로 들어가고 반격도 없다(클라 `Modifier.SourceAttackType`). 법술 흡수(`BlockDamage` MAGICAL)는
   공격 종류를 안 거른다. [ASSUMED] 엔진 대응: NORMAL = `isAttack`이면서 `isSplash` 아님(일반 공격·공격형 스킬의 주 대상, 연쇄 튕김 포함) — 공격이 아닌 스킬
   피해 중 클라가 NORMAL로 내는 것도 있으나 우리 엔진은 구분하지 않는다. 옛 동작: 모든 물리 피해 ×0.1 + 반격. 테스트 「“碎铳之簧” 法术护盾 (9018)…」.
-- **频次护盾 十连击**: `Skills/1` `_additionalTimes` 9·`_triggerDelta` 0.1 → 0.1 s 간격 열 발, 발마다 ATK × `atk_scale` 0.5 물리. [ASSUMED] 대상이 도중에 죽으면
-  남은 발은 사거리 안 방어력 최고를 다시 고른다.
+- **频次护盾 十连击**: `Skills/1` `_additionalTimes` 9·`_triggerDelta` 0.1 → 0.1 s 간격 열 발, 발마다 ATK × `atk_scale` 0.5 물리. 대상은 첫 발의 대상으로
+  고정(`_selectTargetSource` INPUT_TARGET·`_selectTargetTiming` AT_BEGINING·`_interuptIfTargetDead` 0, `MultiRangedAttack.UpdateTargets` 0xBF5E50) — 도중에
+  죽으면 남은 발은 버려진다(2026-10-15, 옛 [ASSUMED]: 다시 고름). 테스트 「“碎铳之簧” 频次护盾 十连击…」.
 - **피해 전달**: `actrp*_passive`가 받은 피해(`hp_lose`)를 `BossSelector`(enemy_9017_achunt + `achunt_mark`, HATRED_DES, 최대 1)로 넘긴다(`actrpa_hp_trans`,
-  PURE·무출처) — **총에게만**. [ASSUMED] 총이 둘 이상이면 가장 가까운 총(HATRED_DES 순서 대신). 클라 선택기는 적 키를 정확히 비교하는데(`LevelData.EnemyData.key`)
-  히든 총은 `enemy_9017_achunt_2`라, 레벨 데이터의 `key`가 무엇이 되는지는 못 읽음 — 리드는 히든 판에만 나오므로 전달이 된다고 본다(PRTS 天赋 그대로).
+  PURE·무출처) — **총에게만**. 총이 둘이면(히든 2인 판 `boss_battle_multi_player`) HATRED_DES = 도발 × k − 출구까지 남은 거리(`Enemy.get_hatred` 0x815180)라
+  도발이 같으면 **출구에 가장 가까운** 총(2026-10-15, 옛 [ASSUMED]: 리드에게 가장 가까운 총; 동률은 먼저 나온 총). 히든 총 키: 클라 선택기는 적 키를
+  정확히 비교하고(`LevelData.EnemyData.key`), 그 `key`는 enemy_database `prefabKey`에서 온다 — `enemy_9017_achunt_2`의 prefabKey = `enemy_9017_achunt`라
+  맞는다(공식 대조 9번, 옛 「못 읽음」). 테스트 「“碎铳之簧”: with two 假想敌：铳…」.
 - **옛 동작**: 보호막이 있을 때만 저지 불가, 조준 우선순위 없음; 스킬은 (spCost+1)번째 일반 공격에 **덧붙음**; 탄은 침식만 0.85씩 감소·반경 2·같은 대상
-  재타격 없음; 十连击은 도착 때 한꺼번에 10타; 받은 피해는 총 + 다른 리드들에게 나눠(도감 문구 [ASSUMED]). 테스트 `enemies_bosses.test.js` 「“碎铳之簧”…」 5건,
+  재타격 없음; 十连击은 도착 때 한꺼번에 10타; 받은 피해는 총 + 다른 리드들에게 나눠(도감 문구 [ASSUMED]). 테스트 `enemies_bosses.test.js` 「“碎铳之簧”…」 8건,
   `feedback1e-healers.test.js` 「E2 audit…」(리드는 보호막이 깨져도 저지 안 됨), 실제 판 경로 `boss-patterns-real.test.js` 「real boss_9 field…」.
 
 ### 盐风主教昆图斯 【断裂生殖】 子代 (`kitBrood`, 2026-10-15)
@@ -1097,40 +1113,52 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   子代 `trap_039_dstnta`를 켠다 — i번째 시전에 분기 i번째 단계(#1 → #2 → #3 → #4 → #4·#3 → #2·#1 → 넷 다), 여덟 번째 시전부터는 아무것도 켜지
   않는다(프리팹 `MoveNextLevelBranch` `_isLoop` false — 클라 `Scheduler.BranchRuntime.TryPickNextPhase`가 마지막 단계를 지나면 실패; 2026-10-15까지는
   마지막 단계를 계속 다시 켰음, 테스트 「断裂生殖 walks the branch…」). 장치 자리는 보스 몸 네 귀퉁이(레벨 5,9·5,11·3,9·3,11).
-  [ASSUMED] 이미 켜져 살아 있는 장치를 다시 켜면 아무 일도 없다(셋째 형태의 쿨 18 s가 수명 35 s보다 짧다). 수치는 waves.json 템플릿 `devices[]`(build-data
+  이미 켜져 살아 있는 子代를 다시 켜면 **새 子代로 바뀐다** — `Scheduler.TryActivePredefined` → `BattleController._CreatePredefinedCharacter`(0x3987750)가
+  `CreateToken`으로 새로 만들고 `Tile.ClearCharacterIfExists`로 그 칸의 유닛을 지운 뒤 세운다 → 유체 12 s·수명 35 s를 다시(셋째 형태의 쿨 18 s가 수명보다
+  짧아 생김; 2026-10-15, 옛 [ASSUMED]: 아무 일 없음, 테스트 「断裂生殖: switching on a 子代 that is still alive…」). 수치는 waves.json 템플릿 `devices[]`(build-data
   `templateDevice`: character_table HP 3000·ATK 150, 숨은 天赋 `1.grow_duration` 12·`1.duration` 35, 스킬 `sktok_dstnta` SP 1·`ep_damage_ratio` 1).
-  적 진영 유닛(부품 `part`: 처치 수·LP·보상 없음, 시간 초과 때 누수 아님), 라운드 적 효과(攻坚装备 등)는 다른 소환물처럼 받는다(`summonMods`).
+  적 진영 유닛(부품 `part`: 처치 수·LP·보상 없음, 시간 초과 때 누수 아님). 라운드 적 효과의 HP·ATK 배율은 **받지 않는다**: 룬 `enemy_attribute_mul`
+  (`EAttribuesMul : BasicEnemyRune`, `RuneManager._RegisterRuneClasses` 0xA01CE0)은 `DoPreprocessEnemy(EnemyData, Enemy)`뿐 — 子代는 character_table 토큰
+  (`Trap`)이다(2026-10-15, 옛: 다른 소환물처럼 `summonMods`; 急行军 이속은 정지 토큰이라 무관). 테스트 「the round's enemy HP / ATK effects do not reach…」.
 - **유체**: 12 s 동안 隐匿(클라 토큰 프리팹 `Modes/Default/Body/Passive`: INVISIBLE, 기절·침묵·빙결 면역). PRTS의 10 s는 클라 값과 다르다. 그 뒤 Grow 능력
   (Start_02 1 s): 시작에 隐匿이 풀리고(`ON_CAST_START`) 끝에 GrowUp 모드(`ON_CAST_END`, 면역도 함께 사라짐). 오퍼레이터는 隐匿이 풀린 뒤 공격할 수 있다
   (character_table 「可以受到我方攻击」), 받은 피해는 보스에게 넘어가지 않는다.
 - **摄食**: GrowUp에서 SP +1/s, 1이 차면(성장 끝 1 s 뒤) 자기 둘레 반경 1.0(스킬 Trigger CircleCollider2D — 자기 칸과 상하좌우, PRTS 「周围四格」) 안에서
   가장 가까운 오퍼레이터 1명(`DIST_TO_SOURCE_ASC`, 도발 무시)을 붙잡는다. 공격 이벤트를 기다려(`_waitForAttackEvent`: Attack_Begin 0.833 s + Attack_Loop
-  0.1 s) 첫 타, 그 뒤 1 s마다(`_triggerDelta`) ATK 100 % 물리 + ATK × 1.0 신경 + 1 s 기절(`trap_tentac_s[stun]`). 대상이 죽거나 떠나면(철수·밀려남
-  — [ASSUMED] 반경 밖이면 끝) 또는 子代가 기절·침묵되면(`_canSilenced`) 끝나고 SP 0부터 → 1 s 뒤 다시 고른다.
+  0.1 s) 첫 타, 그 뒤 1 s마다(`_triggerDelta`) ATK 100 % 물리 + ATK × 1.0 신경 + 1 s 기절(`trap_tentac_s[stun]`). 능력이 `ChannelingMeleeAttack`이고
+  `_selectTargetTiming` 1 = BEFORE_SPELL_START라 **매 타 전에 원 안 가장 가까운 오퍼레이터를 다시 고른다** — 더 가까운 오퍼레이터가 오면 갈아타고, 대상이
+  떠나면 다음 타에 원 안의 다른 오퍼레이터(2026-10-15, 옛 [ASSUMED]: 처음 대상만, 반경 밖이면 끝). 대상이 죽거나(`_interuptIfTargetDead` 1, 철수 포함)
+  子代가 기절·침묵되면(`_canSilenced`) 끝나고, [ASSUMED] 타 순간 원 안에 아무도 없어도 끝난다(기본 경로라 안 읽음) — SP 0부터 → 1 s 뒤 다시 고른다.
+  테스트 「子代 摄食: every hit picks…」.
 - **철수**: 나타난 지 35 s에 스스로 사라진다(`trap_tentac[withdraw]` = `suicide_after_buff[switch_to_dead]`, 처치 아님).
 - **그림**: 공식 토큰 모델(`pkgrps/btl_pfb_tokens_0`의 Spine, 로컬 추출 `spine/token/trap_039_dstnta`) — 형태 'larva'(Start_01 → Idle_01), 'grown'(Start_02 →
   Idle_02/Die_02), 'feed'(Attack_Begin → Attack_Loop), 'fed'(Attack_End → Idle_02). 공식 이펙트(탄생·대기·Grow·摄食)는 docs/rules/fx.md 「보스 토큰·장비 이펙트」.
-- **옛 동작**: 장치 칸 반경 1 안 오퍼레이터에게 5 s 기절 한 번(피해 없음, 남는 유닛 없음, [ASSUMED] 값). 테스트 `enemies_bosses.test.js` 「子代…」 2건·
+- **옛 동작**: 장치 칸 반경 1 안 오퍼레이터에게 5 s 기절 한 번(피해 없음, 남는 유닛 없음, [ASSUMED] 값). 테스트 `enemies_bosses.test.js` 「子代…」 3건·
   「盐风主教昆图斯…」, 실제 판 경로 `boss-patterns-real.test.js` 「real boss_4 field…」.
 
 ### 阿利斯泰尔 王权号令 장비 줍기·【莫非王土】 黄金回响 (`kitLion`·`kitEquip`·`kitGolden`, 2026-10-15)
 - **떨어지는 칸**: 【王权号令】 투사체 `projectile_enemy_vtlionk_s1`의 칸 선택기(`ACT37SIDE_EQUIP`)는 십자 다섯 칸 중 장비가 이미 놓인 칸(`act37side_equip`)과
   장비를 든 오퍼레이터의 칸(`enemy_vtmstr_equip_char[mark]`)만 뺀다 — **오퍼레이터가 선 칸에도** 떨어진다. 선택기 옵션(`TileSelector.Options.Verify`)은 높이를
-  보지 않으므로 고지대 칸도 된다(장비 버프 `enemy_vtmstr_equip_tr`도 HIGHLAND 칸을 따로 다룸). [ASSUMED] 유닛이 설 수 없는 칸(벽·구멍·深水区)은 뺀다
-  (클라는 칸의 DEFAULT 마스크로 거르는데 우리 격자에 그 마스크가 없음).
+  보지 않으므로 고지대 칸도 된다(장비 버프 `enemy_vtmstr_equip_tr`도 HIGHLAND 칸을 따로 다룸). 건설형·통행도 보지 않고(`allowNoneBuildableType` 1,
+  `buildableType`·`passableMask` 0) 칸의 advanced 마스크에 DEFAULT(1)가 있어야 한다(`advancedBuildableMask` 1): `TileData` 기본값 1, 이 모드 타일 중
+  `tile_deepsea`만 DEEP_SEA(2) → **深水区만 빠지고, 오퍼레이터가 설 수 없는 칸(`tile_forbidden`·`tile_fence_bound`)에도 떨어진다** — 관리자 결정 2026-10-15
+  「공식대로」(공식 대조 13번). 그 장비는 아무도 못 줍고 남아 【莫非王土】 대상이 된다. 이 모드 지도에는 구멍·벽 칸이 없다. 옛 [ASSUMED](2026-10-15까지):
+  유닛이 설 수 없는 칸(`groundPassable`도 원거리 `canStand`도 아님)은 뺐다. 테스트 「阿利斯泰尔 王权号令: a piece drops on a tile no operator can stand on…」.
 - **줍기**: 장비마다 자기 칸(범위 `0-1`)에 오라(프리팹 `Talents/2`)가 있어, 그 칸에 선 오퍼레이터에게 `[char]` 버프를 준다 — 언제든(나중에 배치·재배치·이동해
   들어와도). 대상은 모든 직군의 오퍼레이터(직군 마스크 639: 소환물·장치 제외), 지상(`targetMotion` WALK_ONLY: 起飞 제외). 이미 장비를 든 오퍼레이터는 안 줍고
   장비는 그대로 남는다. 주우면 그 전투 동안 지니고 장비는 사라진다(InstantKill, 처치 아님) → 【莫非王土】의 활성화 대상이 준다.
   - 未装配刀片: ATK ×(1 + `2.atk` 0.3). 防护背心: DEF ×(1 + `2.def` 0.3).
   - 冲击式施术单元(`B_disarm[char]` → `B_attack_disarm[char]` → `B_instant[char]`): 스킬을 쓸 때마다 장전, 그 뒤 적에게 준 첫 피해가 `2.work_time` 0.1 s 창을
-    열고, 그 피해와 창 안의 다른 피해마다 무출처 법술 `2.value` 800(`NoSourceDamage`, `cnt` 없음 → ×1 [ASSUMED]) + `2.not_combat` 10 s 战栗. 800은 무출처라 다시
-    장전·창을 건드리지 않는다. [ASSUMED] 원소 손상은 이 「준 피해」에 들지 않는다.
+    열고, 그 피해와 창 안의 다른 피해마다 무출처 법술 `2.value` 800(`NoSourceDamage` `_multiplierByKey` false → `cnt`를 읽지 않음, ×1) + `2.not_combat` 10 s
+    战栗. 800은 무출처라 다시 장전·창을 건드리지 않는다. 원소 손상은 이 「준 피해」에 들지 않는다(원소 피해는 `ON_AFTER_OUTPUT_ELEMENT_DAMAGE` 83만, 장비 템플릿은
+    `ON_OUTPUT_DAMAGE` 11만 들음). 둘 다 공식 대조 14·15번(옛 [ASSUMED]).
 - **黄金回响**: 【莫非王土】가 冲击式施术单元을 활성화하면 `enemy_vtlionk_s2`가 그 장비 칸에 `trap_185_vtlntw`(SpawnTokenOnTargetTile, 레벨 1 PHASE_0)를 놓고
   장비를 지운다. 적 진영 장치(토큰 프리팹 `_sideType` ENEMY, `pkgrps/btl_pfb_tokens_1`): HP 8000·ATK 425·DEF 150·RES 70(character_table), 일반 공격
   3.8 s마다 범위 `x-1`(자기 칸에서 맨해튼 2 이내 13칸) 오퍼레이터 1명(엔진 순서 저지자 → 도발 → 최근 배치 = HATRED_DES)에게 ATK 100 % 법술(Attack
   `_damageType` MAGICAL), 탄 `projectile_trap_vtlntw`(추적 10칸/s), 공격 클립 1.633 s·OnAttack 0.6 s(토큰 모델). 수명 없음 — 부서질 때까지 남는다(오퍼레이터가
   공격할 수 있음). 움직이지 않고 저지하지도 저지되지도 않는다. 부품(`part`: 처치 수·LP 없음, 시간 초과 때 누수 아님). 수치 경로: enemies.json 알리스테어
-  `devices[]`(build-data `ENEMY_SKILL_DEVICES` — 연결은 클라 버프 템플릿에만 있음). 라운드 적 효과는 子代처럼 받는다(`summonMods`) [ASSUMED].
+  `devices[]`(build-data `ENEMY_SKILL_DEVICES` — 연결은 클라 버프 템플릿에만 있음). 라운드 적 효과의 HP·ATK 배율은 子代처럼 **받지 않는다**(토큰 `Trap` — 적 룬은
+  `Enemy`만; 2026-10-15, 옛 [ASSUMED]: `summonMods`로 받음).
   그림: 공식 토큰 모델(로컬 추출 `spine/token/trap_185_vtlntw`), 공식 이펙트와 장비 든 오퍼레이터의 버프 이펙트는 docs/rules/fx.md 「보스 토큰·장비 이펙트」.
 - **옛 동작**: 빈 낮은 칸에만 떨어지고 아무도 줍지 않았다. 冲击式施术单元 활성화는 [黄金回响 대체] 보스의 다음 공격을 법술 + 3 s 缴械로 바꿨다. 테스트
   `enemies_bosses.test.js` 「阿利斯泰尔 冲击式施术单元…」 2건·「阿利斯泰尔 equipment…」·「阿利斯泰尔 王权号令: a piece may drop…」, 실제 판 경로
@@ -1139,7 +1167,9 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   되는 갈래를 쓴다. 스킬 발동 조건(`GroupTrigger` AT_LEAST_ONE)은 「검(`enemy_vtmstr_mark[sword]`)이 있고 **그리고**(ALL) `hasSword` 원 안에 오퍼레이터」 또는
   「검이 아닌 장비(`mark[not_sword]`)가 있음」. ① `hasSword`(트리거 = 원 안 오퍼레이터, 반경 1 × `_scaleble` — [ASSUMED] 배율 = 보스 사거리 3.4, 검 탄이
   고르는 `s2range`와 같은 범위)는 놓인 장비 **아무거나**(`enemy_vtmstr_equip_tr`)를, ② 아니면 `noSword`가 조끼·冲击式施术单元(`mark[not_sword]`)을 고른다.
-  둘 다 HATRED_DES 최대 `max_target`(≤50 % 2) — 장비는 모두 도발 0이라 [ASSUMED] 같으면 가장 최근 장비 먼저(`Enemy.get_hatred`의 남은 경로 항은 장비에
-  안 맞춤). 그래서 사거리 안에 아무도 없으면 검을 건너뛰고 조끼·충격식을 쓰며, 검만 있으면 발동하지 않고 검은 남는다; 주기가 왔는데 고를 것이 없으면
-  고를 수 있게 되는 즉시 발동(클라는 트리거형) [ASSUMED 주기 자체는 그대로]. 옛 동작: 사거리와 무관하게 가장 최근 장비 — 아무도 없을 때 검이 헛돌고
-  사라졌다. 테스트 「阿利斯泰尔 莫非王土 order…」 2건.
+  배율 3.4 확인(공식 대조 11번): `EnemySkill.AssignData`(0x3A033B0)가 스킬 블랙보드 `range_radius`, 없으면 `GetModeRangeRadius` = enemy_database
+  `rangeRadius` 3.4 — `store`/`storeA`에 `range_radius` 없음.
+  둘 다 HATRED_DES 최대 `max_target`(≤50 % 2) — 장비는 움직이지 않아(moveCursor 없음) 위협도가 모두 같고, 동률은 `WeightedTarget.CompareTo`(0x4A5EAA0) →
+  `Entity.CompareTo`(`instanceUid` 오름차순)라 **가장 오래된 장비 먼저**(2026-10-15, 옛 [ASSUMED]: 가장 최근 장비 먼저). 그래서 사거리 안에 아무도 없으면 검을
+  건너뛰고 조끼·충격식을 쓰며, 검만 있으면 발동하지 않고 검은 남는다; 주기가 왔는데 고를 것이 없으면 고를 수 있게 되는 즉시 발동(클라는 트리거형)
+  [ASSUMED 주기 자체는 그대로]. 옛 동작: 사거리와 무관하게 가장 최근 장비 — 아무도 없을 때 검이 헛돌고 사라졌다. 테스트 「阿利斯泰尔 莫非王土 order…」 2건.
