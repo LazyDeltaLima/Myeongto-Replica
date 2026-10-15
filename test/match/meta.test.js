@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { MetaRegistry, createRegistry, HOOKS, GARRISON_HOOK, MAX_DEPTH } from '../../server/match/effectsMeta.js';
 import { registerBuiltins, BUILTIN_EFFECT_KEYS } from '../../server/match/builtinMeta.js';
 import { PHASE } from '../../shared/constants.js';
-import { DATA, makeMatch, give, giveItem, checkInvariants, chessOfTier } from './harness.js';
+import { DATA, makeMatch, give, giveItem, checkInvariants, chessOfTier, legalTileFor } from './harness.js';
 
 test('registry: key validation, function sugar, last registration wins, helpers', () => {
   const reg = new MetaRegistry();
@@ -72,6 +72,41 @@ test('dispatch order and hooks: global → band → bond → garrison → item �
   m.handle('p_0', { t: 'g.refresh' });
   m.handle('p_0', { t: 'g.levelUp' });
   assert.ok(calls.includes('refresh') && calls.includes('level2'));
+  m.dispose();
+});
+
+// upstream #627 (upstream PR #642): onRefresh runs the board / hand 特质 before the global, band and bond handlers (a
+// 贾维 gift merging existing copies must not drop their first-refresh layers — the order is [ASSUMED]); every other hook
+// keeps global → band → bond → garrison
+test('onRefresh runs the garrisons first; onPrepEnd / onRoundStart keep global → band → bond → garrison (upstream #627)', () => {
+  const reg = registerBuiltins(new MetaRegistry(), DATA);
+  const calls = [];
+  const spy = (who) => ({ onRefresh: () => calls.push(['onRefresh', who]), onPrepEnd: () => calls.push(['onPrepEnd', who]), onRoundStart: () => calls.push(['onRoundStart', who]) });
+  const owned = (g) => g.owners.find((o) => DATA.chess[o] && DATA.chess[o].visible && !DATA.chess[o].isGolden);
+  const byEvent = (ev) => Object.values(DATA.garrisons).find((g) => g.eventType === ev && owned(g) && !(g.bbStr && g.bbStr.conditionkey));
+  const garrisons = { onRefresh: byEvent('SERVER_REFRESH_SHOP'), onPrepEnd: byEvent('SERVER_PREP_FIN'), onRoundStart: byEvent('SERVER_PREP_START') };
+  reg.global('spy', spy('global'));
+  reg.band('band_bldsk', spy('band'));
+  reg.bond('yanShip', spy('bond'));
+  for (const [hook, g] of Object.entries(garrisons)) {
+    assert.ok(g, `a ${hook} garrison`);
+    reg.garrison(g.effectKey, { [hook]: () => calls.push([hook, 'garrison']) });
+  }
+  const { m, ps } = metaMatch(reg, { seed: 72 });
+  ps.bandId = 'band_bldsk';
+  for (const g of Object.values(garrisons)) { const id = owned(g); give(m, ps, id, 'board', legalTileFor(m, ps, id)); }
+  ps.recompute();
+  const want = {
+    onRefresh: ['garrison', 'global', 'band', 'bond'],
+    onPrepEnd: ['global', 'band', 'bond', 'garrison'],
+    onRoundStart: ['global', 'band', 'bond', 'garrison'],
+  };
+  for (const [hook, order] of Object.entries(want)) {
+    calls.length = 0;
+    m.dispatch(ps, hook, {});
+    assert.deepEqual(calls.filter(([h]) => h === hook).map(([, who]) => who), order, hook);
+  }
+  assert.equal(m.dispatcher.errors, 0);
   m.dispose();
 });
 
