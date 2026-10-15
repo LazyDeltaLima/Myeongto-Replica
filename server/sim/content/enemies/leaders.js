@@ -493,6 +493,9 @@ function kitXi(ab) {
   };
   const re = reborn({
     dur: T(ab, 'reborn.duration') ?? 0, invincible: T(ab, 'reborn.invincible') ?? 0,
+    // the 10 s 无敌 after the rebirth is untargetable too: PRTS 无敌 「无法被不同阵营选中」 (upstream #510); opt-in, the engine's
+    // `invulnerable` flag stays damage protection only
+    invincibleUntargetable: true,
     onKo(b, e) { b.removeBuff(e, 'ab:xiShield'); },
     onReborn(b, e) {
       P.form2 = true;

@@ -605,6 +605,18 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
   반쪽 안 됨), `test/local-patch-diy-wisdel.test.js`(실제 경기 경로: Match 판 → `battleInput` → `buildBattleSpec` → `createBattleFromSpec`, 혼자인 m02 보스 필드 —
   고치기 전에는 临时整备区 줄에 소환됨을 확인).
 
+### “自在” 부활 뒤 무적은 선택도 안 됨 (upstream #510, upstream `221e6b8d` 일부)
+- 문제: “自在”(보스)가 첫 击败 뒤 5초 重生을 마치고 받는 10초 无敌 동안 오퍼레이터가 계속 그를 공격 대상으로 골라(피해는 0) 공격·스킬을 허비했다.
+- 근거: PRTS 「“自在”」 천부 「重生结束后进入第二形态，反转自身明晦属性，并获得10s无敌」, PRTS 异常效果 无敌(INVINCIBLE) 「无法被不同阵营选中（属于无法选择类效果）；
+  受到的伤害与元素值变为0」(이 이식에서 PRTS API로 직접 확인).
+- 동작(upstream 그대로): `archetypes.js reborn`에 `invincibleUntargetable` 선택지 — 켜면 부활 뒤 무적 버프(`ab:reborn:inv`)가 `invulnerable`에 `untargetable`도 단다.
+  `leaders.js kitXi`만 켠다. 이미 날아가는 탄은 맞아도 피해 0(무적), 무적이 끝나면 다시 대상이 된다. 스킬 발동은 각 규칙 그대로 — 대상이 필요한
+  DEFAULT·ACTIVE_RANGE는 안 켜지고, 범위 안 존재·SP만 보는 SKILL_RANGE·SP_FULL은 켜진다.
+- 엔진의 `invulnerable` 일반 의미(피해만 막음)는 그대로다. PRTS 无敌 정의로는 다른 적의 부활 뒤 无敌(`reborn` `invincible`을 쓰는 锏·扎罗·主角阵营角色 등)도 선택 불가여야
+  하지만 이번에는 upstream처럼 “自在”만 바꿨다(대조 안 함).
+- 테스트 `test/content/xi-post-reborn.test.js`(upstream 테스트 + 실제 경기 경로: Match 판 → `buildBattleSpec` → `createBattleFromSpec`, 무적 10초 동안 공격 0 →
+  끝나면 다시 공격; 고치기 전에는 모두 실패함을 확인).
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).

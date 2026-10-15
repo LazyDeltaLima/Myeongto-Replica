@@ -342,8 +342,10 @@ function rebirthCleanse(b, e) {
  * enemy stands up with `hpRatio` of its max HP, `onReborn(b, e, a)` switches the form and `invincible` s of 无敌 follow.
  * `a.state`: undefined → 'reborn' → 'form2'. The 'telegraph' fx of the knock-out carries `form: 'reborn'` and the 'revive'
  * fx `form: 'form2'`: models with those clip sets (render/units.js FORMS — 锏, 扎罗, “复仇者”, 杰斯顿) play them.
+ * `invincibleUntargetable` makes that 无敌 untargetable too (`自在`, upstream #510); the engine's `invulnerable` flag stays
+ * damage protection only for every other enemy.
  */
-function reborn({ dur = 0, hpRatio = 1, invincible = 0, onKo = null, during = null, onReborn = null, key = 'ab:reborn' } = {}) {
+function reborn({ dur = 0, hpRatio = 1, invincible = 0, invincibleUntargetable = false, onKo = null, during = null, onReborn = null, key = 'ab:reborn' } = {}) {
   const finish = (b, e, a) => {
     if (!e.alive || a.state !== 'reborn') return;
     a.state = 'form2';
@@ -351,7 +353,8 @@ function reborn({ dur = 0, hpRatio = 1, invincible = 0, onKo = null, during = nu
     e.profile.noAttack = a.noAtk;
     if (onReborn) safe(b, e, () => onReborn(b, e, a));
     e.hp = Math.max(1, e.s.maxHp * Math.max(0, Math.min(1, hpRatio)));
-    if (invincible > 0) b.addBuff(e, { key: `${key}:inv`, duration: invincible, visible: true, flags: { invulnerable: true } });
+    if (invincible > 0) b.addBuff(e, { key: `${key}:inv`, duration: invincible, visible: true,
+      flags: { invulnerable: true, ...(invincibleUntargetable ? { untargetable: true } : null) } });
     if (e.route) e.route.pts = null;
     e.atkCd = 0;
     rebirthCooldowns(e);
