@@ -17,6 +17,7 @@
 // that prefab from the shooter to its (moving) target over the sim's flight time (fx.js projSpeed — it lands with the damage,
 // lobbed shots on fx.js's arc) instead of render/fx.js's procedural shot (arrowKind 'officialTrail'); a trail's first shot
 // keeps the procedural one while its file loads, and past MAX_TRAILS live trails or at load level 3 the procedural shot stays.
+// In a skill without a mode of its own: the skill's shot on its first attack, else the Default mode's trail (skillTrail).
 // Clock: every effect, its gaps and its end run on the battle clock (`rate`, the game speed — the official effects use
 // scaled time), not only the notes.
 // Event → effect (render/fxmap.js effectsFor, by the client's prefab names):
@@ -49,7 +50,7 @@
 import { syncThreeCamera } from './projection.js';
 import { fxBundleOf, effectsFor } from './fxmap.js';
 import { noteEffects, NOTE_FLIGHT } from './fxmap.js';
-import { attackMode, boundEffects, fortressEffects } from './fxmap.js'; // local patch: the mode bindings (modes.json)
+import { attackMode, boundEffects, fortressEffects, modelessTrail } from './fxmap.js'; // local patch: the mode bindings (modes.json)
 import { activationEffects } from './fxmap.js'; // local patch: a skill activation's effects
 import { foeEffects, castTiming, castPhase, CAST_EVENT } from './fxmap.js'; // 2026-10-10: enemy-held mode buffs, cast timings
 import { clipGroup, hitLoopEnd, deployEffect, deadEffect } from './fxmap.js'; // 2026-10-11: clip variants, looping hits, deploy / dead effects
@@ -901,11 +902,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const trails = [];               // { inst, tgt view, x0, y0, tx, ty, k, dur, arc }
   const trailReady = new Set();    // `bundle/prefab` loaded once: its shots draw the official trail from then on
   const trailAtks = new WeakSet(); // 'atk' tuples drawn here (fx.js skips its shot: arrowKind)
+  /**
+   * 2026-10-16: the trail of an attack in a skill that switches no attack mode (modeNow −1) — they flew as render/fx.js's
+   * procedural shot (fxmap.js modelessTrail). A skill without duration (an instant cast, charges, the next attack: 号角 S1,
+   * 歌蕾蒂娅 S1, 流星 S1 …) shoots its own projectile with the first attack after its start — the sim's window of such a
+   * skill ends with that attack; the attacks of the same moment share it (断崖 S1's two targets). Any other attack keeps the
+   * Default mode's: the client's attack mode does not change.
+   */
+  function skillTrail(src) {
+    const s = src._fxShot;
+    const r = modelessTrail(bindOf(src), bundleOf(src)?.prefabs, skillIdx(src), !!s && (s.t == null || s.t === clockS));
+    if (r.shot) s.t = clockS;
+    return r;
+  }
   /** Whether this attack flies its mode's official trail (decided now, synchronously, for arrowKind); loads it otherwise. */
   function trailShot(e, src, tgt, mode) {
     if (!tgt || mode == null || level() >= 3 || failed) return false;
     const spec = PROJ[e[3]];
-    const name = spec ? bound(src, mode, 'trail')[0] : null;
+    let name = null;
+    if (spec && mode === -1) ({ name, mode } = skillTrail(src));
+    else if (spec) name = bound(src, mode, 'trail')[0];
     if (!name) return false;
     const b = bundleOf(src);
     const key = `${b.bundle}/${name}`;
@@ -2712,6 +2728,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-10: the mode switch detaches the old mode's abilities (ON_DETACHED ends their loop cast
           // effects) and attaches the new one's (its first attack again: `_delayIfFirstAttack`)
           endCast(v); v._fxFirstDone = null; v._fxFoe = null;
+          v._fxShot = e[2] ? { t: null } : null; // 2026-10-16: its shot, not flown yet (skillTrail)
           if (e[2]) {
             v._fxSkillOn = true;
             v._fxMarked = null;   // local patch: the targets its marks sit on (pendingHit)

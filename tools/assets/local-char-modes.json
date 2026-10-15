@@ -2071,6 +2071,9 @@
     "targetBuff": [
      "wisdel_bomb_buff_01",
      "buff_stun"
+    ],
+    "shot": [
+     "wisdel_skill_01_trail"
     ]
    },
    {
@@ -2322,6 +2325,9 @@
     "buff": [],
     "target": [],
     "targetBuff": [],
+    "shot": [
+     "thorn2_attack_trail"
+    ],
     "zone": {
      "fx": [
       "thorn2_token_start",
@@ -2340,6 +2346,9 @@
     "buff": [],
     "target": [],
     "targetBuff": [],
+    "shot": [
+     "thorn2_attack_trail"
+    ],
     "zone": {
      "fx": [
       "thorn2_token_start",
@@ -2360,6 +2369,10 @@
     "buff": [],
     "target": [],
     "targetBuff": [],
+    "shot": [
+     "thorn2_attack_trail",
+     "thorn2_skill_03_line"
+    ],
     "zone": {
      "fx": [
       "thorn2_token_start",
@@ -2443,7 +2456,10 @@
     "target": [
      "angle_attack_02_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "angle_skill_01_trail"
+    ]
    },
    {
     "cast": [],
@@ -3219,7 +3235,11 @@
      "halo2_skill_02_hit_02",
      "halo2_skill_02_hit_01"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "halo2_skill_02_trail_01",
+     "halo2_skill_02_line_01"
+    ]
    },
    {
     "cast": [],
@@ -3668,6 +3688,9 @@
     ],
     "targetBuff": [
      "buff_defdown"
+    ],
+    "shot": [
+     "shotst_skill_01_trail"
     ]
    },
    {
@@ -3679,6 +3702,9 @@
     ],
     "targetBuff": [
      "buff_defdown"
+    ],
+    "shot": [
+     "shotst_skill_02_trail"
     ]
    }
   ]
@@ -4357,7 +4383,11 @@
      "slchan_skill_01_hit",
      "slchan_skill_01_buff"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "slchan_skill_01_trail",
+     "slchan_skill_01_line"
+    ]
    },
    {
     "cast": [
@@ -4369,7 +4399,11 @@
      "slchan_skill_02_hit",
      "slchan_skill_01_buff"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "slchan_skill_01_trail",
+     "slchan_skill_02_line"
+    ]
    }
   ]
  },
@@ -4587,7 +4621,10 @@
     "target": [
      "sunbr_skill_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "sunbr_skill_01_trail"
+    ]
    },
    {
     "cast": [],
@@ -5196,7 +5233,10 @@
     "target": [
      "gnosis_skill_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "gnosis_skill_01_trail"
+    ]
    },
    {
     "cast": [],
@@ -5603,7 +5643,10 @@
     "target": [
      "cello_skill_01_hit_01"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "cello_skill_01_trail_01"
+    ]
    },
    {
     "cast": [],
@@ -5993,6 +6036,9 @@
     "target": [],
     "targetBuff": [
      "buff_silence"
+    ],
+    "shot": [
+     "podego_skill_02_trail"
     ],
     "zone": {
      "fx": [
@@ -6650,7 +6696,10 @@
     "target": [
      "ayer_skill_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "ayer_skill_01_trail"
+    ]
    },
    {
     "cast": [],
@@ -7052,7 +7101,11 @@
      "archet_skill_01_hit_02",
      "archet_skill_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "archet_skill_01_trail_02",
+     "archet_skill_01_trail"
+    ]
    },
    {
     "cast": [],
@@ -7065,7 +7118,10 @@
     "target": [
      "archet_skill_02_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "archet_skill_02_trail_01"
+    ]
    },
    {
     "cast": [],
@@ -8605,6 +8661,9 @@
      "horn_skill_01_hit"
     ],
     "targetBuff": [],
+    "shot": [
+     "horn_skill_01_trail_02"
+    ],
     "zone": {
      "fx": [
       "horn_skill_01_hit_02_buff",
@@ -8809,7 +8868,11 @@
     "target": [
      "lumen_attack_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "lumen_attack_01_trail",
+     "lumen_skill_01_range"
+    ]
    },
    {
     "cast": [],
@@ -8991,7 +9054,11 @@
     "target": [
      "malist_skill_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "malist_skill_trail",
+     "malist_drone_trail"
+    ]
    }
   ]
  },
@@ -9424,7 +9491,10 @@
     "target": [
      "haini_skill_01_hit_01"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "haini_skill_01_trail_01"
+    ]
    },
    {
     "cast": [],
@@ -9545,7 +9615,10 @@
     "target": [
      "qiubai_attack_hit_01"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "qiubai_attack_trail_01"
+    ]
    },
    {
     "cast": [],
@@ -9676,6 +9749,9 @@
     ],
     "targetBuff": [
      "ines_skill_01_debuff_01"
+    ],
+    "shot": [
+     "ines_skill_01_trail_01"
     ]
    },
    {
@@ -9787,7 +9863,10 @@
     "target": [
      "caper_skill_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "caper_skill_01_trail"
+    ]
    },
    {
     "cast": [],
@@ -10054,7 +10133,10 @@
     "target": [
      "grabds_skill_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "grabds_skill_01_trail"
+    ]
    },
    {
     "cast": [],
@@ -10497,7 +10579,10 @@
     "target": [
      "papyrs_hit_01"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "papyrs_trail_01"
+    ]
    },
    {
     "cast": [],
@@ -10626,7 +10711,10 @@
     "target": [
      "ulpia_skill_01_range_02"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "ulpia_skill_01_trail_01"
+    ]
    },
    {
     "cast": [],
@@ -10757,7 +10845,10 @@
      "nymph_skill_02_hit_02",
      "nymph_skill_02_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "nymph_skill_02_trail"
+    ]
    },
    {
     "cast": [],
@@ -10895,6 +10986,9 @@
     "buff": [],
     "target": [],
     "targetBuff": [],
+    "shot": [
+     "tinman_skill_01_trail_01"
+    ],
     "zone": {
      "fx": [
       "tinman_skill_01_range_01",
@@ -10915,6 +11009,9 @@
     "buff": [],
     "target": [],
     "targetBuff": [],
+    "shot": [
+     "tinman_skill_02_trail_02"
+    ],
     "zone": {
      "fx": [
       "tinman_skill_02_range_01",
@@ -11266,7 +11363,10 @@
     "target": [
      "oblvns_skill_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "oblvns_skill_01_trail"
+    ]
    },
    {
     "cast": [],
@@ -11817,7 +11917,10 @@
     "target": [
      "rmixer_skill_01_hit_01"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "rmixer_skill_01_trail_01"
+    ]
    },
    {
     "cast": [],
@@ -12165,7 +12268,10 @@
     "target": [
      "snhunt_skill_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "snhunt_skill_01_trail"
+    ]
    },
    {
     "cast": [
@@ -12176,7 +12282,10 @@
     "target": [
      "snhunt_skill_02_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "snhunt_skill_02_trail"
+    ]
    }
   ]
  },
@@ -13726,7 +13835,10 @@
     "target": [
      "pasngr_skill_01_hit"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "pasngr_skill_01_trail"
+    ]
    },
    {
     "cast": [],
@@ -13869,7 +13981,11 @@
      "glady_skill_01_hit",
      "glady_skill_01_buff_to_enemy"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "shot": [
+     "glady_skill_01_trail",
+     "glady_skill_01_line"
+    ]
    },
    {
     "cast": [],

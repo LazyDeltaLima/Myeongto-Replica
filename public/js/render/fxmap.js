@@ -133,6 +133,23 @@ export function boundEffects(bind, prefabs, n, role) {
 }
 
 /**
+ * (2026-10-16) The trail of an attack in a running skill that switches no attack mode (attackMode −1): the skill's own
+ * shot (modes.json `skills[i].shot`, char_modes.py — kept for a skill without duration) while `pending` (the first attack
+ * after its start, render/fxgame.js skillTrail), else the Default mode's trail. `shot` = it is the skill's.
+ * @param {any} bind modes.json entry
+ * @param {string[]|null|undefined} prefabs
+ * @param {number} skillIndex 0-based
+ * @param {boolean} pending
+ * @returns {{ name: string|null, mode: number, shot: boolean }}
+ */
+export function modelessTrail(bind, prefabs, skillIndex, pending) {
+  const list = pending && Array.isArray(prefabs) ? bind?.skills?.[skillIndex]?.shot : null;
+  const shot = Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
+  if (shot.length) return { name: shot[0], mode: -1, shot: true };
+  return { name: boundEffects(bind, prefabs, 0, 'trail')[0] ?? null, mode: 0, shot: false };
+}
+
+/**
  * (2026-10-10, maintainer report: 号角's blocked enemies got her ranged blast) a 要塞 mode's `role` ('cast' / 'hit')
  * effects of one attack, extracted only: modes.json `fortress[n]` (char_modes.py: the charpack's MeleeAttack /
  * BlockedMeleeAttack abilities vs its RangedAttack, + that one's projectile hit) — the melee list for an attack of

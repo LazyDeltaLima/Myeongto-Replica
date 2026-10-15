@@ -1087,3 +1087,24 @@
 - 확인: 단위 `test/render/fx-cast-timing.test.js` 「패신저 S3」, `test/content/kits_t6.test.js` 「异客: S3 storm」(i·from). Windows Chrome 디버그
   아레나(샌드백 1·2개, 지금 발동): 13칸 마름모 장판 `pasngr_skill_03_range`, 낙뢰 8번 `pasngr_skill_03_hit`, 두 샌드백 사이 `pasngr_attack_line`,
   오류 0. [화면 미확인: 실제 판·공식 녹화 대조(장판 크기, 선 높이)]
+
+### 모드 없는 스킬의 투사체 꼬리 — 스킬 자체 투사체·Default 꼬리 (2026-10-16, 이펙트 연결 전수)
+
+- 원인: 공격 모드를 바꾸지 않는 스킬(`modeNow` −1 — 号角 S1, 歌蕾蒂娅 S1, 流星 S1·S2, 异客 S1, 维什戴尔 S1 …)이 켜져 있는 동안 `trailShot`이
+  모드 −1의 꼬리를 찾지 못해 공식 꼬리 없이 `fx.js`의 절차 투사체만 나갔다. 스킬 프리팹이 쏘는 투사체(`[uc]skills.ab` 능력의
+  `_projectileKey`)의 `_mainEffect`(`horn_skill_01_trail_02` 등)는 추출되고도 아무도 틀지 않았고, 지속 스킬(焰影苇草 S2 등) 동안의 일반 공격도
+  Default 꼬리 대신 절차 투사체였다.
+- 클라: 이런 스킬은 공격 모드가 그대로라 일반 공격은 Default 모드의 투사체를 쏜다. 지속 없는 스킬(표 `duration` ≤ 0 — 즉시 시전·충전·다음 공격)은
+  발동하면 스킬 프리팹 능력이 자기 투사체를 쏜다. 시뮬은 그런 스킬의 'skill' 켜짐 창을 그 공격('atk')에서 닫는다(디버그 아레나 이벤트 순서로 확인:
+  号角 S1·歌蕾蒂娅 S1·流星 S1·异客 S1·维什戴尔 S1·断崖 S1·崖心 S1·至简 S2·伊内丝 S1·跃跃 S1·小满 S1·妮芙 S2·锡人 S1·雪猎 S1·溯光星源 S2).
+- 고친 것: `char_modes.py`가 스킬 프리팹 능력의 투사체 `_mainEffect`를 `skills[i].shot`으로 기록 — 연쇄 그래픽의 선(`chain.line`)은 빼고, 이름이
+  `_line`인 것(밧줄·연결선: `glady_skill_01_line`, `halo2_skill_02_line_01`)은 뒤로 [추정: 이름으로 가름 — 프리팹 필드로는 구별 안 됨]. 표 지속이
+  있는 스킬은 기록하지 않는다(焰影苇草 S2의 불덩이는 쿨다운 20 s짜리 따로 도는 능력, 키트 'strike'). `fxmap.js modelessTrail` + `fxgame.js
+  skillTrail`: 모드 없는 스킬 동안 'skill' 켜짐 뒤 첫 'atk'(같은 순간의 'atk'들 — 断崖 S1의 두 대상)은 `shot[0]`, 나머지는 Default 모드 꼬리.
+  붙는 자리는 그 모드의 `shotFrom`(스킬 투사체는 Muzzle) [추정: 스킬 능력의 `_mountPointType`은 안 읽음].
+- 남은 것: 스킬 창 안에 'atk'이 없는 스킬(流星 S2 'volley', 崖心 S2 'pull', 波登可 S2·锡人 S2 'zone')의 `shot`은 아직 안 그려진다;
+  charpack 모드의 두 번째 투사체(寒芒克洛丝 두 번째 화살, 耶拉·洛洛·至简 드론, 凯尔希·思衡托 S2)와 다른 필드로 이어진 투사체(伺夜 S3,
+  魔王 재능, 琳琅诗怀雅 S3, 丰川祥子 S1 음표 2~8, 号角 S2 `_full`, 伊内丝 S3 되돌림)는 이 기록에 없다(관리자 노트 「이펙트 연결 전수」).
+- 확인: 단위 `test/render/skill-shot-trail.test.js`. Windows Chrome 디버그 아레나(지금 발동 3번, `FxInstance` 프리팹 집계): 号角 S1
+  `horn_skill_01_trail_02` 3, 歌蕾蒂娅 S1 `glady_skill_01_trail` 5, 流星 S1 3, 异客 S1 `pasngr_skill_01_trail` 2(첫 발은 불러오는 중), 维什戴尔 S1 2,
+  断崖 S1 3, 焰影苇草 S2 일반 공격 `reed2_attack_trail` 7(불덩이 꼬리 없음), 오류 0. [화면 미확인: 공식 녹화와 꼬리 모양·속도 대조]

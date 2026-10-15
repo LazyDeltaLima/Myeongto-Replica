@@ -63,6 +63,24 @@ def pool_char_ids():
     return sorted(ids)
 
 
+def skill_durations():
+    """{skill prefabId: table duration} (data/chess.json, then the 自选 picks' forms of data/backups.json): > 0 a timed skill,
+    0 / -1 none (an instant cast, charges, the next attack)."""
+    out = {}
+    d = json.loads((ROOT / 'data/chess.json').read_text(encoding='utf-8'))
+    recs = d.get('chess', d) if isinstance(d, dict) else d
+    skills = [s for c in (recs.values() if isinstance(recs, dict) else recs) if isinstance(c, dict) for s in c.get('skills') or []]
+    path = ROOT / 'data/backups.json'
+    if path.exists():
+        for u in (json.loads(path.read_text(encoding='utf-8')).get('units') or {}).values():
+            for f in ((u or {}).get('forms') or {}).values():
+                skills += (f.get('skills') or []) if isinstance(f, dict) else []
+    for s in skills:
+        if isinstance(s, dict) and isinstance(s.get('duration'), (int, float)):
+            out.setdefault(s.get('prefabId') or s.get('skillId'), s['duration'])
+    return out
+
+
 def char_skill_prefabs():
     """{charId: [skill prefabId, …]} in skill order (data/chess.json, then the 선발 picks of data/backups.json)."""
     out = {}
@@ -310,6 +328,9 @@ def own_buff_effects(d, key):
 
 
 END_ABILITY = re.compile(r'^End', re.I)
+# a rope / link line a projectile stretches between two units (歌蕾蒂娅 S1 glady_skill_01_line, 溯光星源 S2
+# halo2_skill_02_line_01), not the shot that flies [ASSUMED: by name — no prefab field tells them apart]
+LINE_FX = re.compile(r'_line(_|$)', re.I)
 
 
 def skill_effects(tree, projectiles=None):
@@ -318,8 +339,10 @@ def skill_effects(tree, projectiles=None):
     `zone` 2026-10-10: its projectile's reach effects that last until the projectile stops + its aura — Projectiles):
     cast = its abilities' `_castEffects` with `_oneshot 1` (once, on the caster), castLoop = `_oneshot 0` (while it casts),
     buff = its `_buffs`' effects (on the caster while the buff lasts), targetBuff = its `_activeBuffs`' (on each target hit),
-    target = its `_hitEffects` + its projectiles' start / hit effects (on the targets). An ability named End… (戴菲恩 S3
-    EndAttack: the finishing blow after the slashes) goes to `end` { cast, hit } instead. Directional copies are left out."""
+    target = its `_hitEffects` + its projectiles' start / hit effects (on the targets), shot = its projectiles' `_mainEffect`
+    (2026-10-16: 号角 S1's projectile_chr_horn_s1 flew as a procedural arrow; a chain's line left out, LINE_FX names last — main()
+    keeps it for a skill without duration only, see there). An ability named End… (戴菲恩 S3 EndAttack: the finishing blow
+    after the slashes) goes to `end` { cast, hit } instead. Directional copies are left out."""
     out = {}
     for gp, d, _ in tree:
         sid, _, rest = gp.partition('/')
@@ -337,6 +360,8 @@ def skill_effects(tree, projectiles=None):
         if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
             p = projectiles.effects(d['_projectileKey'])
             add(e['end']['hit'] if end else e['target'], [x for x in p['start'] + p['hit'] if x not in p['zone']])
+            if not end:
+                add(e.setdefault('shot', []), [x for x in p['trail'] if x not in p['line']])
             if p['zone'] or p['aura']:
                 z = e.setdefault('zone', {'fx': [], 'aura': [], 'onProj': 0})
                 add(z['fx'], p['zone'])
@@ -349,6 +374,10 @@ def skill_effects(tree, projectiles=None):
         add(e['turn'], turned(d))
         dir_groups(d, e['dirs'])
     for e in out.values():
+        if e.get('shot'):
+            e['shot'].sort(key=lambda x: 1 if LINE_FX.search(x) else 0)
+        else:
+            e.pop('shot', None)
         if not e['end']['cast'] and not e['end']['hit']:
             del e['end']
         if not e['turn']:
@@ -631,6 +660,7 @@ def main():
     stree = skills_tree(a.client)
     switch = skill_switch_modes(stree)
     sk_fx = skill_effects(stree, projectiles)
+    durations = skill_durations()
     for cid in ids:
         f = pack / f'{cid}.ab'
         if not f.exists():
@@ -646,7 +676,10 @@ def main():
             if sm:
                 m['skillMode'] = sm
             # local patch: the skills' own effects (skills.ab), in skill order; a skill's turned effects join the operator's
-            sks = [sk_fx.get(pid) or {} for pid in (prefabs.get(cid) or [])]
+            # a skill's shot (skill_effects) flies with its first attack after the cast (render/fxgame.js trailShot): a skill
+            # without duration only — a timed one's projectile is an ability of its own (焰影苇草 S2's fireballs, the kit's 'strike')
+            sks = [{k: v for k, v in (sk_fx.get(pid) or {}).items() if k != 'shot' or not durations.get(pid, 0) > 0}
+                   for pid in (prefabs.get(cid) or [])]
             if any(sks):
                 m['skills'] = [{k: v for k, v in x.items() if k not in ('turn', 'dirs')} for x in sks]
                 turn = list(m.get('turn') or [])
