@@ -2634,9 +2634,11 @@
     "angel2_skill_2_loop_start_01"
    ],
    [
+    "angel2_skill_3_begin_start_001",
     "angel2_skill_3_loop_start_01"
    ],
    [
+    "angel2_skill_3_begin_start_001",
     "angel2_skill_3_loop_start_01"
    ],
    [
@@ -2740,6 +2742,11 @@
     }
    },
    {
+    "angel2_skill_3_begin_start_001": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
     "angel2_skill_3_loop_start_01": {
      "s": 4,
      "e": 3,
@@ -2754,6 +2761,11 @@
     }
    },
    {
+    "angel2_skill_3_begin_start_001": {
+     "s": 2,
+     "e": 3,
+     "o": 0
+    },
     "angel2_skill_3_loop_start_01": {
      "s": 4,
      "e": 3,
@@ -8195,7 +8207,8 @@
     "vulpis_skill_03_start_02"
    ],
    [
-    "vulpis_skill_03_start_02"
+    "vulpis_skill_03_start_02",
+    "vulpis_skill_03_start_01"
    ]
   ],
   "hit": [
@@ -8231,39 +8244,44 @@
     "vulpis_skill_03_start_01": {
      "s": 2,
      "e": 3,
-     "o": 1
+     "o": 0
     },
     "vulpis_skill_03_start_02_up": {
      "s": 2,
      "e": 3,
-     "o": 1
+     "o": 0
     },
     "vulpis_skill_03_start_02": {
      "s": 2,
      "e": 3,
-     "o": 1
+     "o": 0
     },
     "vulpis_skill_03_start_02_down": {
      "s": 2,
      "e": 3,
-     "o": 1
+     "o": 0
     }
    },
    {
     "vulpis_skill_03_start_02_up": {
      "s": 2,
      "e": 3,
-     "o": 1
+     "o": 0
     },
     "vulpis_skill_03_start_02": {
      "s": 2,
      "e": 3,
-     "o": 1
+     "o": 0
     },
     "vulpis_skill_03_start_02_down": {
      "s": 2,
      "e": 3,
-     "o": 1
+     "o": 0
+    },
+    "vulpis_skill_03_start_01": {
+     "s": 2,
+     "e": 3,
+     "o": 0
     }
    }
   ],
