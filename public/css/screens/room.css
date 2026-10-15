@@ -297,14 +297,20 @@
 .dpick__opt.is-active .icon { opacity: 1; filter: drop-shadow(0 0 5px var(--d-color)); }
 .dpick--ro { border: 0; background: none; gap: .18rem; align-items: center; font-size: .14rem; }
 /* 「AI 队友最后选择」 (GitHub #338, co-op): one switch styled like a difficulty option, under the difficulty picker */
-.room-bar__opts { display: flex; flex-direction: column; align-items: flex-start; gap: .08rem; min-width: 0; }
+/* the options column is as wide as its widest line and every line spans it (maintainer request 2026-10-15): the four
+   difficulty options share it equally, the line under it is 规则 | AI 队友最后选择 in two equal halves */
+.room-bar__opts { display: grid; gap: .08rem; min-width: 0; }
+.room-bar__opts > .dpick:not(.dpick--ro) > .dpick__opt { flex: 1 1 0; justify-content: center; }
 .ailast { display: flex; align-items: center; gap: .12rem; font-size: .14rem; }
 .ailast__opt { --d-color: var(--mint-400); height: .36rem; padding: 0 .14rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: .15rem; letter-spacing: .04em; }
 .ailast__opt:last-child { border-right: 1px solid var(--line-2); }
 .ailast__opt .icon { opacity: .25; }
 .ailast__opt .icon.is-on { opacity: 1; }
 /* 규칙 모드 (shared/ruleset.js): the 经典 / 休闲 picker beside the 「AI 队友最后选择」 switch, in its size; the title's tag */
-.room-bar__row { display: flex; align-items: center; gap: .14rem; flex-wrap: wrap; }
+.room-bar__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: .08rem; }
+.room-bar__row > :only-child { grid-column: 1 / -1; }
+.room-bar__row > .tt-anchor, .room-bar__row .ailast > .tt-anchor { display: flex; flex: 1; min-width: 0; }
+.room-bar__row .rpick, .room-bar__row .rpick__opt, .room-bar__row .ailast__opt { flex: 1; justify-content: center; }
 .rpick__opt { height: .36rem; padding: 0 .16rem; font-size: .15rem; letter-spacing: .04em; }
 .rpick__opt[data-ruleset='classic'] { --d-color: var(--amber); }
 .rpick__opt[data-ruleset='casual'] { --d-color: var(--mint-400); }
@@ -326,4 +332,7 @@
 /* 랜덤 매칭 for the empty seats (screens/room.js): 干员调配 and 匹配补位 stacked; the matching status line */
 .room-bar__stack { display: flex; flex-direction: column; gap: .08rem; }
 .room-bar__stack .btn { width: 100%; justify-content: center; }
+/* 匹配补位's badge: the Doctors waiting in this room's queue (its difficulty × ruleset, lobby.queueCounts) */
+.room-fill__n { margin-left: .08rem; }
+.room-fill__n.is-on { background: rgba(78, 216, 175, .2); color: var(--mint-400); }
 .room-bar__match b { color: var(--text-hi); }

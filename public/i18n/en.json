@@ -1476,6 +1476,7 @@
   "同盟正在匹配中，请先取消匹配": "The Alliance is matchmaking: cancel it first",
   "与选择同一难度和规则的博士组成同盟": "Forms an Alliance with Doctors who chose the same difficulty and rules",
   "{n} 人匹配中": "{n} matching",
+  "以相同难度和规则匹配中的博士 {n} 名": "{n} Doctors matching with the same difficulty and rules",
   "这个规则还没有记录 —— 可在左上角切换规则。": "No records under these rules yet — switch the rules at the top left.",
   "当前在线博士 {n} 名": "{n} Doctors online",
   "在线": "online",

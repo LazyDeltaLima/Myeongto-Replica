@@ -72,3 +72,15 @@ test('the switch tooltip: one line per preset without a colon inside, then the �
   for (const l of lines) assert.ok(!/[:：]/.test(l), `no colon in ${l}`);
   assert.ok(lines[2].startsWith('※ 领袖限伤 — ') && lines[2].includes(BOSS_HIT_LIMIT.toLocaleString('en-US')), lines[2]);
 });
+
+test("the room's 匹配补位 button shows its own queue's waiting count (difficulty × ruleset)", async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../public/js/screens/room.js', import.meta.url), 'utf8');
+  assert.match(src, /queueCountOf\(queueCounts, resolveRuleset\(room\.ruleset\)\.preset, room\.difficulty\)/);
+  assert.match(src, /data-testid="fill-waiting"/);
+  const { queueCountOf } = await import('../public/js/ui/ruleset.js');
+  const counts = { casual: { NORMAL: 2 }, classic: { NORMAL: 1 } };
+  assert.equal(queueCountOf(counts, 'casual', 'NORMAL'), 2);
+  assert.equal(queueCountOf(counts, 'classic', 'HARD'), 0);
+  assert.equal(queueCountOf(null, 'classic', 'NORMAL'), 0);
+});

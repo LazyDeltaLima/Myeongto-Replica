@@ -38,7 +38,7 @@ import { MatchQueueDialog, mmss } from '../ui/matchQueue.js';
 import { audio } from '../audio.js';
 import { t, tc } from '../../../shared/i18n.js';
 import { resolveRuleset } from '../../../shared/ruleset.js';
-import { RulesetSwitch, presetName } from '../ui/ruleset.js';
+import { RulesetSwitch, presetName, queueCountOf } from '../ui/ruleset.js';
 
 /**
  * Seats padded to the room's capacity (co-op 4, solo 1), each null or a seat record.
@@ -249,18 +249,18 @@ function DifficultyPicker({ room, isHost, busy, onPick }) {
   </div>`;
 }
 
-/** The 「AI 队友最后选择」 switch (co-op): the host toggles it, everybody else sees its state. */
+/** The 「AI 队友最后选择」 switch (co-op): the host toggles it, everybody else sees its state (由创建者设置 in its tooltip: a note
+ * beside it squeezed the button in the bar's half-width cell). */
 function AiLastToggle({ option, busy, onToggle }) {
   if (!option) return null;
   return html`<div class="ailast">
-    <${Tooltip} text=${t('策略与机变轮选时，所有博士先于 AI 队友选择')}>
+    <${Tooltip} text=${option.editable ? t('策略与机变轮选时，所有博士先于 AI 队友选择') : `${t('策略与机变轮选时，所有博士先于 AI 队友选择')}\n${t('由创建者设置')}`}>
       <button type="button" role="switch" aria-checked=${option.on ? 'true' : 'false'}
           class=${`dpick__opt ailast__opt${option.on ? ' is-active' : ''}`} disabled=${!option.editable || !!busy}
           onClick=${() => option.editable && onToggle(!option.on)}>
         <${Icon} name="check" class=${option.on ? 'is-on' : ''} />${t('AI 队友最后选择')}
       </button>
     <//>
-    ${option.editable ? null : html`<span class="t-dim">${t('由创建者设置')}</span>`}
   </div>`;
 }
 
@@ -270,6 +270,7 @@ export function RoomScreen() {
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
   const queue = useStore((s) => s.ui.queue);
+  const queueCounts = useStore((s) => s.ui.queueCounts);
   const [busy, setBusy] = useState(null);
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
@@ -320,6 +321,8 @@ export function RoomScreen() {
   // 랜덤 매칭 for the empty seats (header): the host queues the room, any Doctor of it cancels
   const matching = coop && !!room.matching;
   const canFill = coop && facts.isHost && facts.humans.length < MAX_SEATS && !matching;
+  // the Doctors already waiting with this room's difficulty and ruleset (lobby.queueCounts; the lobby's cards show the same)
+  const fillWaiting = queueCountOf(queueCounts, resolveRuleset(room.ruleset).preset, room.difficulty);
   const fill = () => run('fill', () => net.request('room.queueRoom', {}));
   const unfill = () => run('unfill', () => net.request('room.unqueue', {}));
   const leave = async () => {
@@ -428,8 +431,8 @@ export function RoomScreen() {
           // two md buttons stacked in the place of the lg 干员调配 (three side by side overflow the bar's right column)
           ? html`<div class="room-bar__stack">
               <${LoadoutButton} from="room" class="room-loadout" label=${t('干员调配')} />
-              <${Tooltip} block=${true} text=${facts.canStart ? t('用随机匹配的博士补满空位（AI 队友会被移出）') : t('仍有博士未准备就绪')}>
-                <${Button} variant="secondary" icon="signal" block=${true} class="room-fill" loading=${busy === 'fill'} disabled=${!facts.canStart || !online} onClick=${fill}>${t('匹配补位')}<//>
+              <${Tooltip} block=${true} text=${`${facts.canStart ? t('用随机匹配的博士补满空位（AI 队友会被移出）') : t('仍有博士未准备就绪')}\n${t('以相同难度和规则匹配中的博士 {n} 名', { n: fillWaiting })}`}>
+                <${Button} variant="secondary" icon="signal" block=${true} class="room-fill" loading=${busy === 'fill'} disabled=${!facts.canStart || !online} onClick=${fill}>${t('匹配补位')}<span class=${`rpick__n room-fill__n num${fillWaiting > 0 ? ' is-on' : ''}`} data-testid="fill-waiting">${fillWaiting}</span><//>
               <//>
             </div>`
           : html`<${LoadoutButton} from="room" size="lg" class="room-loadout" label=${t('干员调配')} />`}
