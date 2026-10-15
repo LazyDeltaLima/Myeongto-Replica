@@ -552,6 +552,20 @@ upstream v0.2.4(`bc50cac0`)·그 뒤 PR과 새 이슈 중 관리자 결정(2026-
 - 테스트 `test/match/pool.test.js`(维多利亚 풀 넷 균등 / 洛洛 8종 가중 표·모두 나옴·维式重锤가 특수 해머보다 확실히 많음 / 焰尾 10·10·3). golden은 洛洛·焰尾를 얻는
   매치가 움직임(커밋 메시지에 사례 목록).
 
+## upstream 버그 이슈 이식 (2026-10-15)
+
+upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관리자 결정 2026-10-15). upstream PR은 병합 전 브랜치의 diff를 손으로 붙였다.
+
+### 盟约之币·骑士储蓄罐를 바로 销毁해도 자금 (upstream #641, PR #644)
+- 문제: 두 장비의 공용 효과 키 `equip_destory_gain_random_coin`이 `onEquip`만 있어, 정비 구역(손패·임시)에서 바로 销毁하면 자금 없이 사라졌다.
+- 근거: 효과 키 이름(「destory_gain」 — 파괴 때 얻음)과 upstream 관리자가 PR에 적은 공식 플레이 확인(盟约之币를 바로 销毁하면 장착과 같은 자금).
+  骑士储蓄罐는 같은 키라 같이 따른다.
+- 동작(PR 그대로): `builtinMeta.js`가 `onDestroy`에서 `reason === 'player'`(곧 `g.destroy`)일 때만 장착과 같은 무작위 자금(일반 盟约之币 +1 · 고급 +2 ·
+  일반 骑士储蓄罐 1–6 · 고급 2–12, 표의 `min`/`max`)을 준다. 장착 경로는 소모형이라 `onDestroy`를 부르지 않으므로 이중 지급이 없다. 교체(`replace` — 소모형이라
+  장착된 채로 남지 않아 실제로는 안 생김)·「整备区已满，获得的装备已销毁」 넘침·준비 마감의 임시 칸 정리·합성으로 사라진 복사본은 `onDestroy`(player)가
+  아니라 아무것도 안 준다. AI가 임시 칸을 비우려고 销毁하는 것은 플레이어 销毁라 지급된다.
+- 테스트 `test/content/items.test.js`(PR의 바로 销毁 네 장비·범위 양 끝 + 넘침·임시 정리·합성은 0, 고급 장착은 한 번 +2). golden 변화 없음.
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).
