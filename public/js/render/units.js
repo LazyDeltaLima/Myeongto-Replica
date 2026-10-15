@@ -508,6 +508,11 @@ const BROOD = Object.freeze({
 });
 export const FORMS = Object.freeze({
   trap_039_dstnta: BROOD,
+  // 假想敌：淤困 attached to its blocker (server kitParasite → form 'parasitic', null when the block ends): the client prefab's
+  // mode Parasitic — its Anim ability plays Parasitic once, `_replaceAnimPairs` Idle → Idle_2 while attached
+  enemy_9007_acelem: Object.freeze({
+    parasitic: Object.freeze({ change: 'Parasitic', roles: Object.freeze({ idle: 'Idle_2', deploy: 'Idle_2' }) }),
+  }),
   // 假想敌：镜膜: the first silence stops its fan for good (server refraction → form 'stopped'): the B_* clip set
   // (upstream #481, upstream PR #613)
   enemy_9011_acrefr: Object.freeze({

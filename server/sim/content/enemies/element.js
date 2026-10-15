@@ -129,18 +129,24 @@ function kitParasite(ab) {
         b.removeBuff(a.host, 'ab:parasite');
         b.removeBuff(e, 'ab:parasiteAttached');
         a.host = null;
+        // back to the prefab's mode Default (the mode follows the attachment [ASSUMED]); a silent 'phase' (render/fx/kinds.js)
+        e.form = null;
+        b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'detached', form: null });
       }
       if (!host || a.host === host) return;
       a.host = host;
       ensureParasiteHook(b);
       // PRTS 假想敌：淤困 "附着开始时闪现至阻挡者所在地块中心，附着期间持有自缚": blink from the contact point onto the blocker's
       // tile centre, 自缚 until the block ends (the route re-plans from there); fx 'teleport' kind 'parasite' makes the
-      // client cut this short move instead of sliding it (render/interp.js)
+      // client cut this short move instead of sliding it (render/interp.js). The client prefab has no effect for the blink:
+      // its talent switches the enemy to mode Parasitic (enemy_acelem[to_parasitic]), which plays Parasitic once and then
+      // Idle_2 for Idle (`_replaceAnimPairs`) — form 'parasitic' (render/units.js FORMS), no stand-in puff (fx/kinds.js)
       const fromX = e.x, fromY = e.y;
       e.x = host.tileC; e.y = host.tileR;
       if (e.route) e.route.pts = null;
       b.addBuff(e, { key: 'ab:parasiteAttached', flags: { noMove: true, selfBound: true } });
-      b.fx('teleport', { x: e.x, y: e.y, fromX, fromY, id: e.id, kind: 'parasite' });
+      e.form = 'parasitic';
+      b.fx('teleport', { x: e.x, y: e.y, fromX, fromY, id: e.id, kind: 'parasite', form: 'parasitic' });
       b.fx('beam', { x: e.x, y: e.y, from: e.id, to: host.id, kind: 'parasite' });
       b.addBuff(host, {
         // "受到的元素损伤提高至130%": a 元素损伤 multiplier on the element hit (ensureParasiteHook), not 元素伤害

@@ -741,9 +741,13 @@ test(`${nm('enemy_9007_acelem')}: attaching from contact blinks to the blocker's
   assert.ok(blink && blink[4].fromX > host.tileC, 'the blink starts at the contact point');
   assert.equal(blink[4].kind, 'parasite', 'only this attachment effect marks a short position cut');
   assert.deepEqual(blink.slice(2, 4), [host.tileC, host.tileR]);
+  assert.equal(e.form, 'parasitic', 'the client prefab\'s mode Parasitic while attached');
+  assert.equal(blink[4].form, 'parasitic', 'the blink carries the form (render/units.js FORMS)');
   h.b.retreat(host, { reason: 'test' });
   h.run(0.3);
   assert.ok(!e.s.flags.selfBound && !e.s.flags.noMove, 'attachment state ends after the block is released');
+  assert.equal(e.form, null, 'back to its plain clips');
+  assert.ok(h.eventsOf('fx').some((fx) => fx[1] === 'phase' && fx[4].id === e.id && fx[4].kind === 'detached' && fx[4].form === null));
   assert.ok(e.x < host.tileC, 'the enemy resumes its route from the host tile');
   checkInvariants(h.b);
 });

@@ -622,7 +622,7 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
 - 문제: 枯朽之种(枯朽萃聚使徒가 소환하는 비행 적)이 대상을 정하면 이동 속도로 걸어가 부딪혀 터져서, 그동안 공격 대상이 되고 느렸다.
 - 근거: PRTS 「枯朽之种」 천부 「普通攻击结束时，若自身未持有晕眩/冻结/浮空/沉睡，强制击杀自身」·「攻击弹道飞行速度10」, 공격 범위 반경 2.0(이 이식에서 PRTS API로 직접 확인).
   data(`data/enemies.json`): `rangeRadius` 2, `attackAnim` Attack 0.367 s(타격 0.367), `proj` `projectile_enemy_nhfly` TRACE_TARGET_WITH_SPEED 10.
-- 동작(**PR과 다름**): 자폭은 그 적의 **일반 공격**이다 — 엔진의 원거리 적 공격 그대로(선딜 0.367 s, 적 공격 대상 순서, 공식 탄환 10칸/s, 물리 피해는 맞을 때,
+- 동작(**PR과 다름**, 관리자 결정 2026-10-15 「유지」 — 클라 프리팹이 이 적에 공식 탄 `projectile_enemy_nhfly`를 묶어 둔 것과 PRTS 천부가 근거): 자폭은 그 적의 **일반 공격**이다 — 엔진의 원거리 적 공격 그대로(선딜 0.367 s, 적 공격 대상 순서, 공식 탄환 10칸/s, 물리 피해는 맞을 때,
   쏜 적이 없어도 맞음), 그리고 공격이 끝나는 순간(`attack` 훅) 晕眩·冻结·浮空·沉睡가 없으면 스스로 죽는다(`enemies/fly.js`). 그래서 탄이 나는 동안 노릴 씨앗이
   없다. 기절 등으로 선딜이 끊기면 공격도 자폭도 없고 풀리면 다시 공격한다. 失衡 동안은 공격을 시작하지 않는다(엔진 규칙). 탄환 그림은 공식 프리팹
   (`projectile_enemy_nhfly`, 일반 적 탄환 경로)이라 렌더 작업이 필요 없다.
@@ -653,7 +653,8 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
 - 동작(PR 그대로, 이동만 직접 대입으로 줄임): `element.js kitParasite`가 부착하는 순간 적을 저지자 칸 중심(`tileC`, `tileR`)으로 옮기고 경로 캐시(`route.pts`)를 지우며
   `ab:parasiteAttached`(`noMove` + `selfBound` = 自缚)를 붙이고 fx `teleport` `{ id, fromX, fromY, kind: 'parasite' }`를 낸다(그 다음 기존 `beam`). 저지가 풀리거나
   (저지자 퇴각·사망·저지 해제 — 키트 틱 0.2초 안) 적이 죽으면 자박도 지운다 — 경로는 그 칸에서 다시 짠다. 자박라 余 S2 등 「자박 불가」 규칙도 그동안 따른다.
-  클라는 `kind: 'parasite'`인 teleport만 짧은 거리라도 미끄러지지 않게 끊어 그린다(`render.md`).
+  클라는 `kind: 'parasite'`인 teleport만 짧은 거리라도 미끄러지지 않게 끊어 그린다(`render.md`). 부착 동안 폼 `parasitic`(클라 프리팹 모드 Parasitic, 관리자 결정
+  2026-10-15 「공식대로」), 풀리면 폼 null — 모습만이고 판정은 그대로(`render.md` 같은 절).
 - 테스트 `test/content/enemies_bosses.test.js`(PR 테스트: 접촉 지점 → 저지자 칸 중심·자박·teleport fx·퇴각 뒤 다시 걸음; + 실제 경기 경로 Match 판 → `buildBattleSpec` →
   `createBattleFromSpec`, 角峰이 저지 → 칸 중심·3초 동안 그 자리에서 피해·퇴각 뒤 걸음 — 고치기 전에는 칸 중심 확인이 실패).
 

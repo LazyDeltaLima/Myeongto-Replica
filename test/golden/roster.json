@@ -1279,8 +1279,8 @@
         "enemy_9009_acfort": [1,1,0,2959,68797]
       },
       "hooks": [1,127,5983,714,714,2518,2969,569,109,115,25,22,37,19373,1255,74,108,0,1,109,2,32,0],
-      "events": {"atk":1074,"bounty":6,"deploy":19,"die":115,"dmg":2767,"engage":10,"face":74,"fx":1240,"heal":401,"layer":2,"skill":47,"spawn":123,"status":414,"swing":753},
-      "fx": {"airstrike":13,"aoe":8,"beam":20,"blink":3,"bombard":10,"bombardShell":10,"burst":32,"drone":349,"droneLock":70,"drones":3,"enemySkill":3,"finale":2,"garrison":2,"garrisonGrant":1,"link":6,"meltdown":30,"radiantSword":3,"slash":4,"steal":1,"summon":3,"sunBurst":2,"talent":3,"teleport":20,"whitw2Drones":642},
+      "events": {"atk":1074,"bounty":6,"deploy":19,"die":115,"dmg":2767,"engage":10,"face":74,"fx":1253,"heal":401,"layer":2,"skill":47,"spawn":123,"status":414,"swing":753},
+      "fx": {"airstrike":13,"aoe":8,"beam":20,"blink":3,"bombard":10,"bombardShell":10,"burst":32,"drone":349,"droneLock":70,"drones":3,"enemySkill":3,"finale":2,"garrison":2,"garrisonGrant":1,"link":6,"meltdown":30,"phase":13,"radiantSword":3,"slash":4,"steal":1,"summon":3,"sunBurst":2,"talent":3,"teleport":20,"whitw2Drones":642},
       "snaps": "5c441faa 57747488 985f2e86 dc39444e 8c35a221 d100ab61 f3508f27 7020c39c 04522c7b 8037c134 0ca0607b 65cf2c7f acfd8a15 ebd26649 396adf0a 753d22ec 1c758046 850b1202 1b32c3ee 036f853e"
     },
     "roster-020": {

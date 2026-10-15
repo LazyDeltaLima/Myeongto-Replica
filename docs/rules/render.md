@@ -655,6 +655,12 @@ upstream 새 버그 이슈의 수정 PR 중 sim 수정에 기대는 렌더 쪽(�
   `{ id, fromX, fromY, kind: 'parasite' }`를 낸다. `interp.js SnapshotBuffer`는 이 fx(`kind: 'parasite'`, 유닛 id 있음)만 거리와 상관없이 위치 끊기로 쓴다 — 그 사이
   구간은 fx 시각까지 접촉 지점에 있다가 끊고, 그 구간에서 걸음 외삽도 안 한다. fx가 연출용으로 소비·폐기돼도 시각 목록(`parasiteBlinkTimes`, 가장 오래된 스냅샷
   뒤만 남김, `reset`에서 비움)으로 남는다. 다른 teleport fx는 기존 규칙(2.5칸 넘으면 끊기, 아니면 보간) 그대로.
-  그 순간 이펙트는 따로 묶지 않아 `teleport` 대체 이펙트(보라 blink)가 그대로 그려진다(PRTS 「闪现」, 공식 이펙트는 대조 안 함).
+  그 순간의 모습은 클라 프리팹대로(관리자 결정 2026-10-15 「공식대로」): `enemy_9007_acelem` 프리팹에는 闪现 이펙트가 없고, 천부(`Talents/1`)의
+  `enemy_acelem[to_parasitic]`이 모드 Parasitic으로 바꾼다 — 그 모드의 Anim 능력이 `Parasitic`(1.2 s)을 한 번, `_replaceAnimPairs` Idle → `Idle_2`(부착 동안).
+  그래서 sim은 부착 때 폼 `parasitic`(teleport fx에 `form`), 막기가 끝나면 폼 null(조용한 `phase` kind `detached`)을 내고, `units.js FORMS.enemy_9007_acelem.parasitic`
+  = change `Parasitic`, idle `Idle_2`; `fx/kinds.js`는 teleport kind `parasite`와 phase `detached`에 대체 이펙트를 그리지 않는다. 막기가 끝나면 Default 모드로
+  돌아가는 것은 **[ASSUMED]**(부착 버프가 막기와 함께 풀림, PRTS 「附着效果在解除阻挡时解除」). 프리팹의 `_attachOffset`·`_easeType`은 그림자(ShadowController) 값이라
+  붙는 움직임과 무관하다. 클라 프리팹은 EN 번들 `battle/enm_pfb_28.ab`에서 읽음. golden: roster-019의 fx 수만(`detached` 13개).
   테스트 `test/render/interp.test.js`(PR 두 개: 짧은 parasite blink는 끊기·외삽 없음, 다른 짧은 teleport는 보간; + 실제 sim 스냅샷·fx를 버퍼에 넣는 경우). PR의
-  `test/render/browser.test.js` 브라우저 경우는 충돌·브라우저 필요로 안 가져왔다. [화면 미확인] 淤困이 막은 오퍼레이터 칸 중심에 미끄러지지 않고 붙는 모습.
+  `test/render/browser.test.js` 브라우저 경우는 충돌·브라우저 필요로 안 가져왔다. `test/render/forms.test.js` 「淤困」(Parasitic → Idle_2 → Idle, 늦은 관전자, 대체 이펙트 없음).
+  [화면 미확인] 淤困이 막은 오퍼레이터 칸 중심에 미끄러지지 않고 붙으며 Parasitic 동작 뒤 Idle_2, 막기가 끝나면 Idle·Move.

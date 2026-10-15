@@ -636,3 +636,25 @@ test('镜膜: first silence switches all clips to the stopped B form, including 
   const { fxSpec } = await import('../../public/js/render/fx/kinds.js');
   assert.equal(fxSpec('phase', { kind: 'stopped', form: 'stopped', id: 1 }).a, 'none', 'the model change is the only sign: no stand-in puff');
 });
+
+test('淤困: attaching plays Parasitic once, then Idle_2 while attached; the block ending brings Idle back; no stand-in puff', async () => {
+  const id = 'enemy_9007_acelem';
+  const v = await enemy(id);
+  try {
+    v.sync(sample(), 1);
+    assert.equal(clip(v), 'Idle');
+    v.setForm('parasitic');
+    assert.equal(clip(v), 'Parasitic', 'the client prefab\'s mode Parasitic: its Anim ability first');
+    frames(v, 80);                                   // Parasitic is 1.2 s
+    assert.equal(clip(v), 'Idle_2', '_replaceAnimPairs Idle → Idle_2 while attached');
+    v.setForm(null);
+    v.sync(sample(), 3);
+    assert.equal(clip(v), 'Idle');
+  } finally { v.destroy(); }
+  const late = await enemy(id, { form: 'parasitic' });
+  try { late.sync(sample(), 1); assert.equal(clip(late), 'Idle_2', 'a view built while attached'); } finally { late.destroy(); }
+  const { fxSpec } = await import('../../public/js/render/fx/kinds.js');
+  assert.equal(fxSpec('teleport', { kind: 'parasite', form: 'parasitic', id: 1 }).a, 'none', 'the client has no effect for the blink');
+  assert.equal(fxSpec('phase', { kind: 'detached', form: null, id: 1 }).a, 'none');
+  assert.notEqual(fxSpec('teleport', {}).a, 'none', 'other teleports keep their stand-in');
+});

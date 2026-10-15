@@ -125,14 +125,17 @@ const FX_GUESS = [
  * the 'droneBomb' projectile of the same moment, a puff on the drone would read as something else (feedback D4); a
  * prisoner's 'warning' — its collar light starts blinking orange (the official mode R shows nothing else); 子代's
  * 'larva' / 'grown' / 'feed' / 'fed' — its own clips (Start_01, Start_02, Attack_Begin, Attack_End); 假想敌：镜膜's 'stopped' —
- * its B_* clip set (the fan stops at the first silence; no effect known for that moment).
+ * its B_* clip set (the fan stops at the first silence; no effect known for that moment); 假想敌：淤困's 'detached' — back to
+ * its plain clips as the block ends. Its attachment blink ('teleport' kind 'parasite') draws nothing either: the client
+ * prefab has no effect for it, only the Parasitic clip (render/units.js FORMS).
  */
-const SILENT_PHASES = new Set(['bombed', 'warning', 'larva', 'grown', 'feed', 'fed', 'stopped']);
+const SILENT_PHASES = new Set(['bombed', 'warning', 'larva', 'grown', 'feed', 'fed', 'stopped', 'detached']);
 
 /** Visual spec of an fx kind (see FX_KINDS); `extra.kind` / `extra.element` may pick a better colour. */
 export function fxSpec(kind, extra = {}) {
   const k = typeof kind === 'string' ? kind : '';
   if (k === 'phase' && SILENT_PHASES.has(extra && extra.kind)) return { a: 'none', c: 0xffffff };
+  if (k === 'teleport' && extra && extra.kind === 'parasite') return { a: 'none', c: 0xffffff };
   let spec = FX_KINDS[k];
   if (!spec) {
     const g = FX_GUESS.find(([re]) => re.test(k));
