@@ -13737,6 +13737,14 @@
      ],
      "aura": [],
      "onProj": 0
+    },
+    "chain": {
+     "line": [
+      "pasngr_attack_line"
+     ],
+     "first": [
+      "pasngr_skill_03_hit"
+     ]
     }
    }
   ]

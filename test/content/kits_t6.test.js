@@ -378,6 +378,13 @@ test('异客: S3 storm strikes 8 times over 4 s at the highest-HP enemy; 机理�
   const first = h.dmg.filter((d) => d.src === u.id && d.tags.includes('storm') && d.t >= t0);
   const strikes = h.eventsOf('fx').filter((e) => e[1] === 'lightning');
   assert.ok(strikes.length >= Math.round(bb.duration / bb.interval), `8 strikes (${strikes.length} bolts)`);
+  // each hop names its place in the strike and the unit it leaves (the renderer's chain graphic)
+  strikes.forEach((e, k) => {
+    const o = e[4];
+    if (o.i === 0) assert.equal(o.from, undefined, 'the first unit is struck from the storm');
+    else assert.ok(o.i === strikes[k - 1][4].i + 1 && o.from === strikes[k - 1][4].id, 'a bounce leaves the unit struck before it');
+  });
+  assert.ok(strikes.some((e) => e[4].i > 0), 'the two dummies chain');
   const main = first.find((d) => d.amount > 0);
   const mul = u.def.talents[0].bb['pasngr_t_1[enhance].damage_scale'];
   const ok = near(main.amount, u.s.atk * bb.atk_scale * mul, 1e-3) || near(main.amount, u.s.atk * bb.atk_scale * mul * (1 - u.profile.chain.falloff), 1e-3);

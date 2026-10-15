@@ -27,10 +27,12 @@ function pasngr(bb, chess, def) {
     const count = Math.max(1, Math.floor(num(bb['chain.max_target'], ch.count || 4)));
     const slug = num(tb['skill@sluggish'], num(bb.sluggish, ch.sluggish ?? 0));
     const hit = new Set();
-    let prev = first;
+    let prev = first, from = null;
     for (let i = 0; i < count && prev; i++) {
       hit.add(prev.id);
-      battle.fx('lightning', { x: prev.x, y: prev.y, id: prev.id, src: unit.id });
+      // drawn only: `i` = the hop of this strike (0 = the unit the storm struck), `from` = the unit the hop leaves
+      battle.fx('lightning', { x: prev.x, y: prev.y, id: prev.id, src: unit.id, i, ...(from ? { from: from.id } : {}) });
+      from = prev;
       battle.dealDamage(unit, prev, { amount: unit.s.atk * scale * powi(1 - num(ch.falloff, 0.15), i), type: 'arts', isSkill: true, isAttack: true, tags: ['skill', 'storm'] });
       if (slug > 0 && prev.alive) battle.applyStatus(prev, 'sluggish', { duration: slug, source: unit });
       let best = null, bd = Infinity;

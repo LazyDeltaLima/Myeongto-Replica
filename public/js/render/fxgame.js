@@ -1963,6 +1963,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     return true;
   }
+  // ---- a storm's chain strikes (2026-10-16, 异客 S3) -------------------------------------------------------------
+  // modes.json skills[i].chain (char_modes.py): projectile_chr_pasngr_s3's chain graphic plays its `_specialHitEffect`
+  // (pasngr_skill_03_hit) on the first unit of each strike (`_playSpecialEffectOnFirstOne`) and its `_mainEffect` line
+  // (pasngr_attack_line) from each struck unit to the next; the projectile's `_effectsWhenHit` (skills[i].target) go on every
+  // one. The sim sends each hop as kit fx 'lightning' { id, src, i, from }. false → render/fx.js's procedural bolt.
+  function chainFx(e, views) {
+    const o = e[4];
+    if (!o || typeof o !== 'object' || failed || level() >= 3) return false;
+    const src = views.get(o.src), tgt = views.get(o.id);
+    if (!tgt || !isOp(src) || !bundleOf(src)) return false;
+    const sk = skillBind(src), c = sk?.chain;
+    if (!c) return false;
+    ownFx.add(e);
+    const names = [...(Number(o.i) === 0 ? extracted(src, c.first) : []), ...extracted(src, sk.target)];
+    if (names.length) play(src, 'attackHit', 0, { at: tgt, names, aim: src });
+    const from = o.from != null ? views.get(o.from) : null;
+    const line = from ? extracted(src, c.line)[0] : null;
+    if (line && camRef) startLine(bundleOf(src).bundle, line, from, tgt, 0, { sMount: 1, eMount: 1 });   // HIT point to HIT point [추정]
+    return true;
+  }
   function stepZones(g) {
     for (const [k, rec] of zones) {
       if (clockS > rec.until + 1) { zones.delete(k); continue; }
@@ -2314,26 +2334,33 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // the buff's life: `life` s (LIMITED), 0 = it ends as it starts (IMMEDIATELY: the line flashes and fades), none = the
       // prefab's own duration [추정: an endless buff's line]
       const life = Number(ln.life) >= 0 && ln.life != null ? Number(ln.life) : -1;
-      const key = `${ownerOf(src)}:${ownerOf(tgt)}:${r[1]}`;
-      const rec = elines.get(key);
-      if (rec && rec.fade == null) { rec.until = Math.max(rec.until, clockS + Math.max(0, life)); continue; }   // the buff refreshed
-      const nrec = { src, tgt, until: clockS + Math.max(0, life), l: null, sp: null, dyn: null, ended: false };
-      elines.set(key, nrec);
-      spawn(r[0], r[1], tgt, { owner: null, buff: true, until: null, on: ownerOf(tgt) }).then((l) => {
-        if (!l) { elines.delete(key); return; }
-        if (nrec.ended) { l.inst.stop(); return; }
-        nrec.l = l;
-        nrec.dyn = l.inst.def?.lineDyn || { sMount: 5, eMount: 1 };
-        if (life < 0) nrec.until = clockS + (l.inst.def?.duration || 1);
-        stepLine(nrec);
-        const st = typeof nrec.dyn.start === 'string' ? nrec.dyn.start : null;
-        const sr = st && (efx(st) || (index?.bundles?.[r[0]]?.includes(st) ? [r[0], st] : null));
-        if (sr) {
-          nrec.sp = { x: lineA.x, y: lineA.y, z: lineA.z };
-          spawn(sr[0], sr[1], nrec.sp, { owner: null, buff: false }).then((s2) => { if (s2) nrec.spLive = s2; });
-        }
-      });
+      startLine(r[0], r[1], src, tgt, life, { sMount: 5, eMount: 1 });
     }
+  }
+  /**
+   * Line prefab `bundle`/`name` from unit `src` to `tgt` for `life` s (0: it flashes and fades, < 0: the prefab's duration);
+   * `dyn0` = its mount points when the prefab has no `lineDyn`. A line already standing between them is refreshed.
+   */
+  function startLine(bundle, name, src, tgt, life, dyn0) {
+    const key = `${ownerOf(src)}:${ownerOf(tgt)}:${name}`;
+    const rec = elines.get(key);
+    if (rec && rec.fade == null) { rec.until = Math.max(rec.until, clockS + Math.max(0, life)); return; }   // the buff refreshed
+    const nrec = { src, tgt, until: clockS + Math.max(0, life), l: null, sp: null, dyn: null, ended: false };
+    elines.set(key, nrec);
+    spawn(bundle, name, tgt, { owner: null, buff: true, until: null, on: ownerOf(tgt) }).then((l) => {
+      if (!l) { elines.delete(key); return; }
+      if (nrec.ended) { l.inst.stop(); return; }
+      nrec.l = l;
+      nrec.dyn = l.inst.def?.lineDyn || dyn0;
+      if (life < 0) nrec.until = clockS + (l.inst.def?.duration || 1);
+      stepLine(nrec);
+      const st = typeof nrec.dyn.start === 'string' ? nrec.dyn.start : null;
+      const sr = st && (efx(st) || (index?.bundles?.[bundle]?.includes(st) ? [bundle, st] : null));
+      if (sr) {
+        nrec.sp = { x: lineA.x, y: lineA.y, z: lineA.z };
+        spawn(sr[0], sr[1], nrec.sp, { owner: null, buff: false }).then((s2) => { if (s2) nrec.spLive = s2; });
+      }
+    });
   }
   function stepLine(rec) {
     if (!rec.l?.inst) return;
@@ -2799,8 +2826,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             }
           }
           // 2026-10-10: a skill projectile's reach effects; 2026-10-14: 歌蕾蒂娅 S3's tornado (kit fx 'tornado', its projectile's
-          // reach effects glady_skill_03_range / _02 — the 2D zone stood in for them)
-          if ((e[1] === 'zone' || e[1] === 'tornado') && zoneFx(e, views)) return;
+          // reach effects glady_skill_03_range / _02 — the 2D zone stood in for them); 2026-10-16: 异客 S3's storm (kit fx
+          // 'storm', projectile_chr_pasngr_s3's pasngr_skill_03_range) and its strikes (chainFx)
+          if ((e[1] === 'zone' || e[1] === 'tornado' || e[1] === 'storm') && zoneFx(e, views)) return;
+          if (e[1] === 'lightning' && chainFx(e, views)) return;
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }

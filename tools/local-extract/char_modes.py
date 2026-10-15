@@ -231,7 +231,7 @@ class Projectiles:
 
     def effects(self, key, done=None):
         done = done if done is not None else set()
-        out = {'hit': [], 'trail': [], 'start': [], 'zone': [], 'aura': [], 'onProj': 0}
+        out = {'hit': [], 'trail': [], 'start': [], 'zone': [], 'aura': [], 'onProj': 0, 'line': [], 'first': []}
         if key in done:
             return out
         done.add(key)
@@ -248,6 +248,12 @@ class Projectiles:
                 out['onProj'] |= 1 if d.get('_setReachEffectOnProjectile') == 1 else 0
             if '_onlyCheckHitWhenReachTarget' in d and isinstance(d.get('_effectKey'), str) and d['_effectKey']:
                 add(out['aura'], [d['_effectKey']])
+            # a chain's graphic (异客 S3 projectile_chr_pasngr_s3): `_mainEffect` is the line from one struck unit to the next,
+            # `_specialHitEffect` plays on the first one of each chain when `_playSpecialEffectOnFirstOne` is set
+            if '_playSpecialEffectOnFirstOne' in d:
+                add(out['line'], effect_names(d.get('_mainEffect')))
+                if d.get('_playSpecialEffectOnFirstOne') == 1:
+                    add(out['first'], effect_names(d.get('_specialHitEffect')))
             for k in PROJ_SUB_KEYS:
                 if isinstance(d.get(k), str) and d[k]:
                     sub = self.effects(d[k], done)
@@ -336,6 +342,10 @@ def skill_effects(tree, projectiles=None):
                 add(z['fx'], p['zone'])
                 add(z['aura'], p['aura'])
                 z['onProj'] |= p['onProj']
+            if p['zone'] and (p['line'] or p['first']):
+                c = e.setdefault('chain', {'line': [], 'first': []})
+                add(c['line'], p['line'])
+                add(c['first'], p['first'])
         add(e['turn'], turned(d))
         dir_groups(d, e['dirs'])
     for e in out.values():

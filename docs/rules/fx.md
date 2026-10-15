@@ -244,7 +244,7 @@
     (`fxgame.js areaAway`) — 그 자리의 공식 프리팹(`…_token`·`…_range`)을 트는 곳이 없어서, 引星棘刺 S2 炼金单元(upstream f1e462ef: 1초마다 `key`로
     다시 보냄)이 품질 low가 아니면 아무것도 안 보였다(실제 판 확인). 전수: 引星棘刺 S1·S2·S3, 锡人, 歌蕾蒂娅 漩涡, 号角 조명, 异客 폭풍 → 2D 원.
     莫斯提马 S2(자기 자리)·纯烬艾雅法拉 방패(shield 유형)는 공식만. 공식 `thorn2_skill_0N_token`/`_range`(引星棘刺·锡人·号角 S1·波登可 S2의 투사체 효과)는
-    2026-10-10부터 그 'zone' 자리에서 틀고 2D 원은 안 그린다 — 아래 「시전 이펙트 시점·붙는 대상」 ③. ③ 스킬 발동 금빛 기둥·육각(`fx.skill` burst)·`_aura`: 자기 시작·버프
+    2026-10-10부터 그 'zone' 자리에서 틀고 2D 원은 안 그린다 — 아래 「시전 이펙트 시점·붙는 대상」 ③. 异客 폭풍도 2026-10-16부터 공식 장판(아래 「패신저 S3 폭풍·낙뢰」). ③ 스킬 발동 금빛 기둥·육각(`fx.skill` burst)·`_aura`: 자기 시작·버프
     이펙트가 없는 스킬(望 S1 `skchr_wang_1` — skills.ab에 이펙트 키 없음)도 공식 번들이 있으면 안 그림(`ownsSkill`) — 발동이 화면상 조용할 수 있다.
     ④ 소환물(토큰) 머리 위 노란 방패(`invuln`) 아이콘 안 그림(공식 캡처의 돌에 없음; 관리자 제보) —
     뷰는 `UF.INVULN` 플래그만 알아 스킬의 짧은 무적과 구분 못 함 [추정: 소환물은 공식도 없음].
@@ -1071,3 +1071,19 @@
 - **글래디아 S3 회오리**: 키트 fx `'tornado'`가 `zoneFx`(그 스킬 투사체의 도달 이펙트 `glady_skill_03_range`·`_02`, 「시전 이펙트 시점·붙는 대상」
   zone)를 타지 않아 2D 원(`areaAway`)이 대신 그려지던 것 → `fxgame.js`가 `'zone'`과 같이 공식 프리팹을 회오리 자리에 지속 시간 동안 튼다.
   테스트 `test/render/fx-cast-timing.test.js` 「歌蕾蒂娅 S3」. [화면 미확인: 실제 판에서 회오리 자리·크기]
+
+### 패신저 S3 폭풍·낙뢰 (2026-10-16, 관리자 제보 「패신저 S3 이펙트가 안 나와」)
+
+- 원인: 키트 fx `'storm'`이 `zoneFx`를 타지 않아(위 글래디아 회오리와 같은 꼴) 2D 원(`areaAway`)만 그려졌고, 낙뢰 `'lightning'`은 절차 번개선
+  (`fx.js` bolt)이 매번 패신저에게서 대상으로 나갔다 — 공식 프리팹은 시전 루프 `pasngr_skill_03_start`만 나왔다.
+- 클라(EN `[uc]skills.ab` `skchr_pasngr_3`, `[uc]projectiles.ab` `projectile_chr_pasngr_s3`): 투사체가 바로 도착(`_immediatelyReach`)해
+  `_effectsWhenReached` `pasngr_skill_03_range`를 멈출 때까지 두고(`_clearReachedEffectWhenStop`), 낙뢰마다 연쇄 그래픽이 첫 대상에
+  `_specialHitEffect` `pasngr_skill_03_hit`(`_playSpecialEffectOnFirstOne`), 맞은 대상에서 다음 대상으로 `_mainEffect` `pasngr_attack_line`,
+  맞는 대상마다 `_effectsWhenHit` `pasngr_attack_hit`.
+- 고친 것: `char_modes.py`가 연쇄 그래픽을 `skills[i].chain` { line, first }로 기록(지금은 패신저만 다시 추출). 키트의 'lightning'에 `i`(그 낙뢰의
+  몇 번째 대상)·`from`(앞 대상)을 실음(그림 전용 — golden은 fx 종류별 개수만 셈). `fxgame.js`: `'storm'` → `zoneFx`, `'lightning'` → `chainFx`
+  (첫 대상 `first` + `target`, 다음 대상부터 앞 대상의 HIT 점 → 이 대상의 HIT 점 선 [추정: 점], `startLine` — `elineFx`와 같은 줄 기록).
+  공식 번들이 없거나 품질 low면 절차 번개선이 `from`에서 나간다.
+- 확인: 단위 `test/render/fx-cast-timing.test.js` 「패신저 S3」, `test/content/kits_t6.test.js` 「异客: S3 storm」(i·from). Windows Chrome 디버그
+  아레나(샌드백 1·2개, 지금 발동): 13칸 마름모 장판 `pasngr_skill_03_range`, 낙뢰 8번 `pasngr_skill_03_hit`, 두 샌드백 사이 `pasngr_attack_line`,
+  오류 0. [화면 미확인: 실제 판·공식 녹화 대조(장판 크기, 선 높이)]
