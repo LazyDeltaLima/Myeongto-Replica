@@ -2882,7 +2882,7 @@ test('“碎铳之簧” (all three): never blockable, shield up or down (BLOCK_
   assert.equal(w.stats.taken, 0);
 });
 
-test('“碎铳之簧” 法术护盾 (9018): barrier absorbs arts, physical ×0.1 with a counter; damage passes to 铳', () => {
+test('“碎铳之簧” 法术护盾 (9018): barrier absorbs arts, an attack\'s own physical hit ×0.1 with a counter, other physical damage in full; damage passes to 铳', () => {
   const h = bossArena({ units: [{ chessId: 't_gun', row: 12, col: 3 }] });
   h.step();
   put(h, 'enemy_9017_achunt_2', [3, 18], { tag: 'boss' }).profile.noAttack = true;
@@ -2892,10 +2892,19 @@ test('“碎铳之簧” 法术护盾 (9018): barrier absorbs arts, physical ×0
   h.b.dealDamage(g, sp, { amount: 1000, type: 'arts' });
   assert.equal(sp.hp, sp.s.maxHp, 'absorbed by the barrier');
   const pool0 = h.b.sharedBoss.hp;
-  const dealt = h.b.dealDamage(g, sp, { amount: 10000, type: 'phys' });
+  const dealt = h.b.dealDamage(g, sp, { amount: 10000, type: 'phys', isAttack: true });
   approx(dealt, (10000 - sp.s.def) * tb('enemy_9018_actrpa', '1.damage_scale'));
   approx(pool0 - h.b.sharedBoss.hp, dealt * PART_TRANSFER);
   assert.ok(g.stats.taken > 0 && g.elem[EROSION] > 0, 'counter');
+  // actrpa_t_1 filters SourceAttackType NORMAL: a splash or a kit's own physical damage is neither reduced nor countered
+  const taken0 = g.stats.taken;
+  for (const d of [{ isAttack: true, isSplash: true }, {}]) {
+    const hp0 = sp.hp;
+    const full = h.b.dealDamage(g, sp, { amount: 10000, type: 'phys', ...d });
+    approx(full, 10000 - sp.s.def);
+    approx(hp0 - sp.hp, full);
+  }
+  assert.equal(g.stats.taken, taken0, 'no counter');
 });
 
 test('“碎铳之簧” 元素护盾 (9019): phys/arts ×0.1 until its own element burst; full SP makes the next attack the bullet — 4 hits, ATK 100 % phys ×0.8 per bounce + 10 % erosion each, no normal hit; SP restarts with the shield', () => {

@@ -996,6 +996,11 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
   (투사체 `_atkScaleRatePerBounce`) + 침식 `ep_damage_ratio` 10 %(`actrpb_s_1` `ApplyElementDamage`, 감소 없음), 모두 `times` 4타. 튕김: 맞은 대상 둘레
   1.7(투사체 선택 원, `_ignoreRangeScale`) 안에서 0.7 s 안에 맞지 않은 다른 대상(`_keepAlreadyHitTime` 0.7), 없으면 같은 대상에게 다시(`_allowRepetitionIfNoTarget`).
   첫 발 15, 튕김 6 칸/s. [ASSUMED] 다음 대상 순서는 가까운 순(선택기 순서 못 읽음).
+- **法术护盾 물리 감쇠·반격** (2026-10-15): 반격 템플릿 `actrpa_t_1` ON_TAKE_DAMAGE가 `FilterDamageModifer`(`_attackTypeFilter` NORMAL·`_damageMask`
+  PHYSICAL)로 거른다 — 공격의 주 대상 물리 피해만 ×`damage_scale` 0.1 + 그 출처에 무출처 물리 附加 `atk_scale`·침식 `ep_damage_ratio`. 스플래시(SPLASH 2)·
+  附加(ADDITION 8)·상태 틱(BUFF 4)·키트 자체 피해의 물리는 그대로 들어가고 반격도 없다(클라 `Modifier.SourceAttackType`). 법술 흡수(`BlockDamage` MAGICAL)는
+  공격 종류를 안 거른다. [ASSUMED] 엔진 대응: NORMAL = `isAttack`이면서 `isSplash` 아님(일반 공격·공격형 스킬의 주 대상, 연쇄 튕김 포함) — 공격이 아닌 스킬
+  피해 중 클라가 NORMAL로 내는 것도 있으나 우리 엔진은 구분하지 않는다. 옛 동작: 모든 물리 피해 ×0.1 + 반격. 테스트 「“碎铳之簧” 法术护盾 (9018)…」.
 - **频次护盾 十连击**: `Skills/1` `_additionalTimes` 9·`_triggerDelta` 0.1 → 0.1 s 간격 열 발, 발마다 ATK × `atk_scale` 0.5 물리. [ASSUMED] 대상이 도중에 죽으면
   남은 발은 사거리 안 방어력 최고를 다시 고른다.
 - **피해 전달**: `actrp*_passive`가 받은 피해(`hp_lose`)를 `BossSelector`(enemy_9017_achunt + `achunt_mark`, HATRED_DES, 최대 1)로 넘긴다(`actrpa_hp_trans`,

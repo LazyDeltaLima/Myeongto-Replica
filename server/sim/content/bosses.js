@@ -852,7 +852,10 @@ function kitSpring(ab, e) {
           if (ty === 'arts') {
             P.barrier -= absorbArts(c, P.barrier);
             if (P.barrier <= 1e-6) { P.barrier = 0; drop(b); }
-          } else if (ty === 'phys') {
+          } else if (ty === 'phys' && c.dmg.isAttack && !c.dmg.isSplash) {
+            // actrpa_t_1 ON_TAKE_DAMAGE filters SourceAttackType NORMAL + PHYSICAL: an attack's own hit. A splash, an
+            // addition, a status tick or a kit's own damage passes in full, without a counter ([ASSUMED] engine mapping:
+            // NORMAL = isAttack without isSplash)
             c.dmg.mul *= scale;
             // the counter "对来源造成…无来源物理附加伤害" picks its attacker directly — no selection, so an airborne 起飞
             // attacker takes it too (PRTS 异常效果 无法选择: "'直接选中'的能力…不受这些仅在选择时生效的异常效果制约")
