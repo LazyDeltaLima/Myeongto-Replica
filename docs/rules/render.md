@@ -650,3 +650,10 @@ upstream 새 버그 이슈의 수정 PR 중 sim 수정에 기대는 렌더 쪽(�
   공식에 그 순간 이펙트가 있다는 근거가 없다 **[추정]**(upstream은 대체 이펙트를 그림).
   테스트 `test/render/forms.test.js`(PR: A_Idle → setForm 뒤 B_Idle·B_Move·B_Attack·B_Die, 늦은 관전자는 처음부터 B). [화면 미확인] 침묵 뒤 B 모델·침묵이 끝나도
   HP 바 상한 그대로·늦은 관전자.
+- **假想敌：淤困 부착 闪现**(upstream #600, upstream PR #559): sim이 부착 순간 적을 접촉 지점(저지자 앞 약 0.7칸)에서 저지자 칸 중심으로 옮기고 fx `teleport`
+  `{ id, fromX, fromY, kind: 'parasite' }`를 낸다. `interp.js SnapshotBuffer`는 이 fx(`kind: 'parasite'`, 유닛 id 있음)만 거리와 상관없이 위치 끊기로 쓴다 — 그 사이
+  구간은 fx 시각까지 접촉 지점에 있다가 끊고, 그 구간에서 걸음 외삽도 안 한다. fx가 연출용으로 소비·폐기돼도 시각 목록(`parasiteBlinkTimes`, 가장 오래된 스냅샷
+  뒤만 남김, `reset`에서 비움)으로 남는다. 다른 teleport fx는 기존 규칙(2.5칸 넘으면 끊기, 아니면 보간) 그대로.
+  그 순간 이펙트는 따로 묶지 않아 `teleport` 대체 이펙트(보라 blink)가 그대로 그려진다(PRTS 「闪现」, 공식 이펙트는 대조 안 함).
+  테스트 `test/render/interp.test.js`(PR 두 개: 짧은 parasite blink는 끊기·외삽 없음, 다른 짧은 teleport는 보간; + 실제 sim 스냅샷·fx를 버퍼에 넣는 경우). PR의
+  `test/render/browser.test.js` 브라우저 경우는 충돌·브라우저 필요로 안 가져왔다. [화면 미확인] 淤困이 막은 오퍼레이터 칸 중심에 미끄러지지 않고 붙는 모습.

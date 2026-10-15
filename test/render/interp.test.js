@@ -103,6 +103,56 @@ describe('SnapshotBuffer', () => {
     assert.equal(b.sample(0.1).get(1).x, 8);
   });
 
+  test('a short parasite attachment blink snaps at its event time and does not create extrapolated walking', () => {
+    const b = new SnapshotBuffer();
+    b.push(snap(0, [U(1, 5.7, 9), U(2, 2, 9)]), 0);
+    b.pushEvents([['fx', 'teleport', 5, 9, { id: 1, kind: 'parasite', fromX: 5.7, fromY: 9 }]], 0.05, 0.1);
+    b.push(snap(0.1, [U(1, 5, 9), U(2, 2.2, 9)]), 0.05);
+    assert.equal(b.sample(0.05).get(1).x, 5.7, 'hold at the contact point before the blink');
+    assert.ok(near(b.sample(0.05).get(2).x, 2.1), 'ordinary movement still interpolates');
+    b.takeEvents(0.1);
+    assert.equal(b.sample(0.1).get(1).x, 5, 'the model jumps to the destination');
+    assert.equal(b.sample(0.15).get(1).x, 5, 'a short blink does not extrapolate as a walk');
+  });
+
+  test('unrelated short teleport effects keep the usual interpolation and extrapolation', () => {
+    const b = new SnapshotBuffer();
+    b.push(snap(0, [U(1, 5.7, 9), U(2, 3.7, 9)]), 0);
+    b.pushEvents([
+      ['fx', 'teleport', 5, 9, { id: 1, kind: 'other' }],
+      ['fx', 'teleport', 3, 9, { id: 2 }],
+    ], 0.05, 0.1);
+    b.push(snap(0.1, [U(1, 5, 9), U(2, 3, 9)]), 0.05);
+    assert.ok(near(b.sample(0.05).get(1).x, 5.35));
+    assert.ok(near(b.sample(0.05).get(2).x, 3.35));
+    b.takeEvents(0.1);
+    assert.ok(near(b.sample(0.15).get(1).x, 4.65));
+    assert.ok(near(b.sample(0.15).get(2).x, 2.65));
+  });
+
+  test('假想敌：淤困 from the sim: its snapshots and its parasite blink never draw the attachment as a slide', async () => {
+    // the node half of upstream PR #559's browser case: real sim snapshots and fx through the buffer
+    const { makeBattle } = await import('../helpers/battleHarness.js');
+    const h = makeBattle({ autoFinish: false, units: [{ chessId: 'chess_char_1_01_a', row: 9, col: 5 }] });
+    h.step();
+    const e = h.spawn('enemy_9007_acelem', { pos: [9, 7], route: { motion: 'WALK', start: [9, 7], end: [9, 2], checkpoints: [] } });
+    const host = h.unit('chess_char_1_01_a');
+    let before;
+    for (let n = 0; n < 450 && !host.findBuff('ab:parasite'); n++) { before = h.snapshot(); h.step(); }
+    assert.ok(host.findBuff('ab:parasite'), 'it attaches');
+    const after = h.snapshot();
+    const blink = h.eventsOf('fx').find((fx) => fx[1] === 'teleport' && fx[4].id === e.id);
+    const contactX = before.units.find((u) => u[0] === e.id)[1];
+    assert.ok(blink && blink[4].kind === 'parasite' && contactX > host.tileC && contactX - host.tileC < 2.5, 'a short blink');
+    const b = new SnapshotBuffer();
+    assert.equal(b.push(before, 0), true);
+    assert.equal(b.pushEvents([blink], 0.05, after.t), 1);
+    assert.equal(b.push(after, 0.05), true);
+    assert.equal(b.sample((before.t + after.t) / 2).get(e.id).x, contactX, 'held at the contact point, no slide');
+    assert.equal(b.sample(after.t).get(e.id).x, host.tileC, 'then on the blocker tile centre');
+    assert.equal(b.sample(after.t + 0.05).get(e.id).x, host.tileC, 'no walk extrapolated from the blink');
+  });
+
   test('extrapolation guard: never more than maxExtrapolate past the newest; then freezes', () => {
     const b = new SnapshotBuffer({ delay: 0.1, rate: 2, maxExtrapolate: 0.1 });
     const frames = [];
