@@ -5,22 +5,27 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fxSpec } from '../../public/js/render/fx/kinds.js';
 import { KIT_OFFICIAL, kitOfficialPlan, kitOperator } from '../../public/js/render/fx/kitofficial.js';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
+import { activationEffects } from '../../public/js/render/fxmap.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const GAME = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
 const MODES = JSON.parse(readFileSync(path.join(ROOT, 'tools/assets/local-char-modes.json'), 'utf8'));
 const KITS = path.join(ROOT, 'server/sim/content/kits');
+// the extracted effects (git-ignored, `npm run setup`): the skill activation's name rules need the bundle's prefab list
+const FX_INDEX = path.join(ROOT, 'public/assets/local/fx/index.json');
+const BUNDLES = existsSync(FX_INDEX) ? JSON.parse(readFileSync(FX_INDEX, 'utf8')).bundles : null;
 const STAND_IN = new Set(/const STAND_IN = new Set\(\[([^\]]+)\]/.exec(GAME)[1].match(/'([^']+)'/g).map((s) => s.slice(1, -1)));
 
 /**
  * Verdict per kit event and the bundle of the kit that sends it ('*': a shared kit):
- *   ['skill', n]  sent as skill n starts / acts: that skill's own bindings (modes.json skills[n − 1]) draw the moment
+ *   ['skill', n]  sent as skill n starts / acts: that skill's own bindings (modes.json skills[n − 1]) or the activation's
+ *                 name rules (fxmap.js activationEffects) draw the moment
  *   ['attack']    an attack's hit: the attack bindings draw it
  *   ['none', …]   the client creates no effect there
  *   ['covered', …] another event of the same moment draws it
@@ -28,49 +33,41 @@ const STAND_IN = new Set(/const STAND_IN = new Set\(\[([^\]]+)\]/.exec(GAME)[1].
  *   ['pending', …] not judged yet (the maintainer's open list)
  */
 const VERDICT = {
-  airstrike: { angel2: ['pending', 'S3 / talent strike: the coordinate token and angel2_skill_3_ground_01'] },
   appear: { angel2: ['covered', "the redeployed operator's own 'deploy' effect [추정]"] },
   bloodBattle: { bldsk: ['skill', 2] },
-  burst: { oblvns: ['pending', 'a note hit (her note projectiles)'], wisdel: ['standIn', 'sent by her 残影 token'] },
-  cleanse: { '*': ['pending', 'the bond cleanse'] },
-  copy: { mlyss: ['pending', 'the 流形 token switch effects (summons)'] },
+  burst: { oblvns: ['covered', "the note's 'oblvnsNote' hit (noteFx: projectile_chr_oblvns_s1_N `_effectsWhenHit`)"], wisdel: ['standIn', 'sent by her 残影 token'] },
+  cleanse: { '*': ['covered', "流明's cleansing heal: its S2 hit / S3 attack hit (lumen_s_2 / lumen_s_3[ammo] create no effect of their own)"] },
   dilemma: { mizuki: ['skill', 2] },
-  ember: { surtr: ['pending', 'T2 余烬'], reed2: ['pending', 'S2 fireballs on allies (_mainEffect / _coolDownEffect)'] },
+  ember: { surtr: ['covered', "the 'healFree' status of her 余烬 buff (fxstatus.js SOURCE_FX: surtr_t_2 surtr_buff_01_start)"] },
   explosion: { lionhd: ['skill', 2] },
-  extraAttack: { excu2: ['pending', 'T1 extra shot: excu2_passive[effect]'] },
+  extraAttack: { excu2: ['attack', "the T1 shot's 'atk' (signal T.1): charpack Modes/*/Body/Talents/1's cast / hit are in the mode's bindings"] },
   flame: { flamtl: ['skill', 3] },
-  frostNova: { gnosis: ['skill', 2], sbell2: ['pending', 'snow tiles: sbell2_ground_01–03 (_effectSettings)'] },
-  healField: { plosis: ['skill', 2], lumen: ['pending', 'S1 heal field: lumen_skill_01_ranges'] },
-  iceSpike: { gnosis: ['skill', 3], sntlla: ['pending', 'S2 icicles'] },
+  frostNova: { gnosis: ['skill', 2], sbell2: ['skill', 1, 'its cast; the snow tiles it lays are the open snow-tile item (snow)'] },
+  healField: { plosis: ['skill', 2] },
+  iceSpike: { gnosis: ['skill', 3] },
   jungleSoul: { gvial2: ['skill', 3] },
   knack: { reckpr: ['skill', 2] },
   meltdown: { blaze2: ['standIn', "sent on the enemy (the burn burst's own effect; blaze2_t_1 creates none)"] },
-  mote: { cetsyr: ['pending', 'S1 start draws its skill; the motes on allies / enemies (T1, S3) are open'] },
   obelisk: { beewax: ['standIn', 'sent by her token'] },
   overclock: { cathy: ['skill', 2], hsguma: ['skill', 3] },
-  overload: { rockr: ['pending', 'S2 overload: the drones (_overloadIdleEffect, rockr_stun_01/02)'], rmixer: ['skill', 2], gvial2: ['skill', 2] },
+  overload: { rmixer: ['skill', 2], gvial2: ['skill', 2] },
   pulse: { mlyss: ['standIn', 'sent by the 流形 token (summons)'] },
-  reborn: { etlchi: ['pending', 'T2 重盈'] },
-  redistribute: { cetsyr: ['pending', 'S3 (its skill bindings are empty)'] },
-  reweave: { cetsyr: ['pending', 'S2 / S3 start (their skill bindings are empty)'] },
+  reweave: { cetsyr: ['skill', 3, "the name rules' S3 buffs (charpack S3 AuraHeal / skchr_cetsyr_3 Encourage passives); S2: cetsyr_skill_02_trail_start"] },
   ripple: { mostma: ['skill', 3], mizuki: ['skill', 3] },
-  rockfall: { mudrok: ['pending', 'S3 wake-up: when skills[2].cast (awake) plays'] },
   rockslide: { mudrok: ['skill', 2] },
   saltWard: { rosesa: ['skill', 2] },
   sermon: { rmixer: ['skill', 3] },
-  shell: { billro: ['pending', 'billro_s_N[eff_cond] half / full charge buffs (her skill bindings are empty)'] },
   shockBlast: { nymph: ['skill', 2] },
-  sleepGuard: { titi: ['pending', 'S3 (its skill bindings are empty): titi_s_3 line / ticker'] },
-  snow: { svrash: ['skill', 2], sbell2: ['pending', 'snow tiles: sbell2_ground_01–03 (_effectSettings)'] },
+  sleepGuard: { titi: ['skill', 2, 'S2 start; an S3 doze (titi_s_3[doze] → doze[inf]) creates no effect of hers: the sleep status draws it'] },
+  snow: { svrash: ['skill', 2], sbell2: ['pending', 'snow tiles: SnowAccumulation sbell2_ground_01–03 by layers — needs the tiles an enemy clears (no event)'] },
   sonic: { akkord: ['skill', 2] },
   splash: { blaze2: ['attack'] },
   split: { mlyss: ['standIn', 'sent by the 流形 token (summons)'] },
   sword: { qiubai: ['skill', 2] },
-  talent: { lemuen: ['pending', 'T2 buff lemuen_talent_buff_02'], whitw2: ['pending', 'T1 stages'] },
-  tornadoPulse: { glady: ['pending', 'S3 tornado ticks'] },
+  talent: { whitw2: ['none', 'T1 阿尔法 stages: no effect (charpack Talents, buff templates whitw2_t*)'] },
   truesilver: { svrash: ['skill', 3] },
   undying: { nearl2: ['none', 'module 骑士家族 nearl2_e_003_tr creates no effect (nearl2_buff_01_start is S3 combo_effect)'] },
-  wake: { glady: ['skill', 2], titi: ['pending', 'S3 waking hits'] },
+  wake: { glady: ['skill', 2] },
 };
 
 /** The kit events per sending kit: [event, bundle] (bundle = the kit's codename; '*' for shared/). */
@@ -106,12 +103,17 @@ test('every kit event whose stand-in an operator with official effects drops has
   }
 });
 
-test("a 'skill' verdict names a skill whose own bindings draw something", () => {
+test("a 'skill' verdict names a skill whose activation draws something", () => {
   for (const [n, by] of Object.entries(VERDICT)) {
     for (const [b, v] of Object.entries(by)) {
       if (v[0] !== 'skill') continue;
       const s = MODES[charOf(b)]?.skills?.[v[1] - 1];
-      assert.ok(s && ['cast', 'castLoop', 'buff', 'target', 'targetBuff'].some((r) => s[r]?.length), `${n} (${b}): S${v[1]} binds nothing`);
+      assert.ok(s, `${n} (${b}): no S${v[1]}`);
+      if (['cast', 'castLoop', 'buff', 'target', 'targetBuff'].some((r) => s[r]?.length)) continue;
+      // no binding of its own: the name rules of the activation (only checkable with the effects extracted)
+      if (!BUNDLES?.[b]) continue;
+      const a = activationEffects(MODES[charOf(b)], BUNDLES[b], v[1] - 1, new Set());
+      assert.ok(a.start.length || a.loops.length, `${n} (${b}): S${v[1]} draws nothing`);
     }
   }
 });
@@ -121,9 +123,9 @@ test('the rules name prefabs the client binds for that operator', () => {
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
     for (const [b, rule] of Object.entries(by)) {
       assert.equal(typeof rule, 'function');
-      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2 }, b, ctx)).filter(Boolean);
+      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, name: 'extradition' }, b, ctx)).filter(Boolean);
       assert.ok(plans.length, `${n} (${b}) plans nothing`);
-      for (const plan of plans) for (const p of plan.play) assert.ok(p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
+      for (const plan of plans) for (const p of plan.play) assert.ok(p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
     }
   }
 });
@@ -160,6 +162,45 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.deepEqual(kitOfficialPlan('soul', { id: 5, src: 1, t: 7 }, 'nymph').play, [{ n: 'nymph_talent_buff_01', on: 'id', life: 7 }]);
   assert.deepEqual(kitOfficialPlan('candle', { id: 5, of: 6, src: 1 }, 'etlchi').play[1], { n: 'etlchi_skill_03_line_01', line: ['of', 'id'] });
   assert.equal(kitOfficialPlan('candle', { id: 5 }, null), null);
+  // 魔王's motes: the hit of the talent's motes on an operator, of S2's on an enemy; S1's own start is its skill's
+  assert.deepEqual(names(kitOfficialPlan('mote', { id: 5, src: 1 }, 'cetsyr')), ['cetsyr_hit_01']);
+  assert.deepEqual(names(kitOfficialPlan('mote', { id: 5, src: 1 }, 'cetsyr', { foe: true })), ['cetsyr_skill_02_hit_01']);
+  assert.deepEqual(names(kitOfficialPlan('mote', { id: 1, src: 1 }, 'cetsyr')), []);
+  assert.deepEqual(names(kitOfficialPlan('redistribute', { id: 1 }, 'cetsyr')), ['cetsyr_skill_03_burst_01']);
+  // 卡涅利安: [half] or, cast with every charge, [full] + [half] for the skill; S3 with [full2] / [half2]; S2 keeps its stand-in
+  assert.deepEqual(names(kitOfficialPlan('shell', { id: 1, charged: 0 }, 'billro')), ['billro_skill_01_buff_01_02']);
+  assert.deepEqual(names(kitOfficialPlan('shell', { id: 1, charged: 1 }, 'billro')), ['billro_skill_01_buff_02', 'billro_skill_01_buff_01_02']);
+  assert.ok(kitOfficialPlan('shell', { id: 1, charged: 1 }, 'billro').play.every((x) => x.life === 'skill'));
+  assert.deepEqual(names(kitOfficialPlan('sandChainsCharged', { id: 1 }, 'billro')), ['billro_skill_02_buff_02', 'billro_skill_02_buff_01_02']);
+  assert.equal(kitOfficialPlan('sandChains', { id: 1 }, 'billro').pass, true);
+  assert.deepEqual(names(kitOfficialPlan('devour', { id: 1, charged: 0 }, 'billro')), ['billro_skill_03_buff_02_01', 'billro_skill_03_buff_01_01_02']);
+  assert.equal(kitOfficialPlan('devour', { id: 1, charged: 1 }, 'billro').play.length, 4);
+  // 缇缇 S3: the waking enemy's hit, a line from it to each enemy it puts to sleep for the line's own duration
+  assert.deepEqual(kitOfficialPlan('wake', { id: 5, src: 1, to: [6, 7] }, 'titi').play, [
+    { n: 'titi_skill_03_hit_02', on: 'id', life: 'once' }, { n: 'titi_skill_03_line_01', line: ['id', 'to'], life: 'once' },
+  ]);
+  // 泥岩 S3: the sleep and its range until the wake ('stone' keeps its stand-in), then the wake casts and the awake buff
+  const stone = kitOfficialPlan('stone', { id: 1, form: 'dormant' }, 'mudrok');
+  assert.ok(stone.pass && stone.play.every((x) => x.tag === 'mudSleep' && x.leave));
+  assert.deepEqual(names(stone), ['mudrok_skill_03_sleep', 'mudrok_skill_03_range']);
+  const rf = kitOfficialPlan('rockfall', { id: 1, form: null }, 'mudrok');
+  assert.deepEqual(rf.stop, ['mudSleep']);
+  assert.deepEqual(rf.play.map((x) => [x.n, x.life]), [['mudrok_skill_03_awake', 'once'], ['mudrok_skill_03_awake_02', 'once'], ['mudrok_skill_03_buff', 'skill']]);
+  // 新约能天使: S3's shot flies to her coordinate and its reach effect waits for it; the talent bomb hits the marked enemy
+  const as = kitOfficialPlan('airstrike', { id: 1, signal: 'fireToToken' }, 'angel2');
+  assert.deepEqual(as.play, [{ n: 'angel2_skill_3_begin_trail_01', fly: 10 }, { n: 'angel2_skill_3_begin_range_01', on: 'point', life: 'once', after: 'fly' }]);
+  assert.deepEqual(kitOfficialPlan('airstrike', { id: 1, tgt: 9 }, 'angel2').play, [{ n: 'angel2_buff_01_trail_01', on: 'tgt', life: 'once' }]);
+  // 缪尔赛思's 流形: its switch in the token's bundle, by the copied operator's range; her id is `by`, not the copied `src`
+  assert.deepEqual(kitOfficialPlan('copy', { id: 4, src: 7, by: 1, mode: 'Range' }, 'mlyss').play,
+    [{ n: 'token_10030_mlyss_wtrman_c1_to_c3', bundle: 'mlyss_token', on: 'id', life: 'once' }]);
+  assert.equal(kitOfficialPlan('copy', { id: 4, mode: 'Melee' }, 'mlyss').play[0].n, 'token_10030_mlyss_wtrman_c1_to_c2');
+  assert.equal(kitOperator({ id: 4, src: 7, by: 1 }, 'copy'), 1);
+  // 焰影苇草's fireball circles its carrier for her skill; 流明's rain on the target for its life
+  assert.deepEqual(kitOfficialPlan('ember', { id: 3, src: 1 }, 'reed2').play, [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: { r: 1, spd: 150 } }]);
+  assert.deepEqual(kitOfficialPlan('healField', { id: 1, tgt: 3, t: 4 }, 'lumen').play, [{ n: 'lumen_skill_01_range', on: 'tgt', life: 4 }]);
+  // 蕾缪安's 引渡 only (her other talent moments have no rule)
+  assert.equal(kitOfficialPlan('talent', { id: 1, name: 'other' }, 'lemuen'), null);
+  assert.deepEqual(names(kitOfficialPlan('talent', { id: 1, name: 'extradition' }, 'lemuen')), ['lemuen_talent_buff_02']);
   // the operator of an event: src, then by, then id
   assert.equal(kitOperator({ id: 5, src: 1 }), 1);
   assert.equal(kitOperator({ id: 5, by: 2 }), 2);
@@ -173,6 +214,16 @@ test('the kits send what the rules read', () => {
   assert.match(src('chess_char_5_22-nymph.js'), /battle\.fx\('soul', \{ x: e\.x, y: e\.y, id: e\.id, src: unit\.id, t: /);
   assert.match(src('chess_char_5_06-etlchi.js'), /battle\.fx\('candle', \{ x: cd\.x, y: cd\.y, id: cd\.id, of: e\.id, src: unit\.id \}\)/);
   assert.match(src('chess_char_5_03-blaze2.js'), /battle\.fx\('downed', /);
+  for (const f of ['chess_char_4_25-cetsyr.js', 'chess_char_5_09-cetsyr.js']) {
+    for (const m of src(f).matchAll(/battle\.fx\('mote', \{[^}]*\}/g)) assert.match(m[0], /src: unit\.id/, `${f}: ${m[0]}`);
+  }
+  assert.match(src('chess_char_4_24-billro.js'), /battle\.fx\('shell', \{[^}]*charged: /);
+  assert.match(src('chess_char_4_24-billro.js'), /battle\.fx\('devour', \{[^}]*charged: /);
+  assert.match(src('chess_char_5_02-titi.js'), /battle\.fx\('wake', \{[^}]*, to \}\);\s*sleepOthers\(e, to\)/);
+  assert.match(src('chess_char_6_13-angel2.js'), /battle\.fx\('airstrike', \{ x: c\.x, y: c\.y, id: unit\.id, r: AIRSTRIKE_RADIUS, tgt: c\.id \}\)/);
+  assert.match(src('chess_char_6_14-lumen.js'), /battle\.fx\('healField', \{ x: target\.x, y: target\.y, id: unit\.id, tgt: target\.id, t: life \}\)/);
+  assert.match(src('chess_char_6_11-mlyss.js'), /battle\.fx\('copy', \{[^}]*mode: [^}]*by: unit\.id \}\)/);
+  assert.match(src('chess_char_5_02-titi.js'), /battle\.fx\('sleepGuard', \{ x: a\.x, y: a\.y, id: a\.id, src: unit\.id \}\)/);
 });
 
 const files = { '/assets/local/fx/index.json': { bundles: { horn: ['horn_buff_01_convert_start', 'horn_skill_02_buff_03_front'], ines: ['ines_label_01'] } } };

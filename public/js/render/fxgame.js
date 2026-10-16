@@ -897,7 +897,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!o || typeof o !== 'object' || !index || failed || q() === 'low') return false;
     const a = fxSpec(e[1], o).a;
     if (!STAND_IN.has(a)) return false;
-    const v = views.get(o.src ?? o.by ?? o.id);
+    const v = views.get(kitOperator(o, e[1]));
     const k = v?.info?.kind;
     if (a === 'zone' && v && areaAway(e, v)) return false; // see areaAway
     return !!(isOp(v) && k !== 'token' && k !== 'device' && k !== 'item' && bundleOf(v));
@@ -1516,35 +1516,61 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * ends earlier effects (`pass`) or whose prefabs are not extracted leaves the event to the rest.
    */
   function officialKitFx(e, views) {
-    const o = e[4], opId = kitOperator(o), op = views.get(opId), b = !failed && q() !== 'low' ? bundleOf(op) : null;
-    const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op) }) : null;
+    const o = e[4], opId = kitOperator(o, e[1]), op = views.get(opId), b = !failed && q() !== 'low' ? bundleOf(op) : null;
+    const foe = views.get(o.id)?.info?.side === 'enemy';
+    const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op), foe }) : null;
     if (!plan) return false;
     for (const tag of plan.stop) for (const l of live) if (l.tag === tag && l.owner === opId) l.inst.stop();
-    let n = 0;
+    const x = Number(e[2]), y = Number(e[3]);
+    let n = 0, flight = 0;
     for (const p of plan.play) {
-      const name = pickName(b, p.n);
+      const pb = p.bundle ? { bundle: p.bundle, prefabs: index?.bundles?.[p.bundle] || [] } : b;
+      const name = pickName(pb, p.n);
       if (!name) continue;
       if (p.line) {
-        const from = views.get(o[p.line[0]]), to = views.get(o[p.line[1]]);
-        if (from && to) { startLine(b.bundle, name, from, to, 1e6, { sMount: 1, eMount: 1 }); n++; }
+        const from = views.get(o[p.line[0]]);
+        for (const id of [o[p.line[1]]].flat()) {
+          const to = views.get(id);
+          if (from && to) { startLine(pb.bundle, name, from, to, p.life === 'once' ? -1 : 1e6, { sMount: 1, eMount: 1 }); n++; }
+        }
         continue;
       }
-      const v = p.on === 'op' ? op : p.on === 'id' ? views.get(o.id) : null;
+      if (p.fly) { // a projectile's `_mainEffect` from the operator to the event's point at `fly` tiles / s, along its flight
+        const dur = Math.hypot(x - op.x, y - op.y) / p.fly, z = camRef ? bodyZ(camRef, op, SPAWN_FRAC[2]) - (op.z || 0) : 0.5;
+        flight = Math.max(flight, dur);
+        spawn(pb.bundle, name, glider(op.x, op.y, x, y, dur, (op.z || 0) + z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
+          .then((l) => { if (l) l.inst.object.rotation.set(0, 0, Math.atan2(y - op.y, x - op.x)); });
+        n++;
+        continue;
+      }
+      const v = p.on === 'op' ? op : p.on === 'point' ? null : views.get(o[p.on]);
       if (p.on !== 'point' && !v) continue;
-      const at = v || { x: Number(e[2]), y: Number(e[3]), z: 0 };
+      const at = v && p.orbit ? orbiter(v, p.orbit) : v || { x, y, z: 0 };
       const on = v ? ownerOf(v) : undefined;
-      const entry = p.life === 'skill' ? { owner: opId, buff: true, until: null }
+      const entry = p.life === 'skill' ? { owner: opId, buff: true, until: null, on }
         : p.life === 'deployed' ? { owner: opId, buff: false, onCaster: true, until: null, on }
           : p.life === 'tag' ? { owner: opId, buff: false, onCaster: !!p.leave, until: null, tag: p.tag, on }
             : p.life === 'unit' ? { owner: null, buff: false, until: null, on }
               : typeof p.life === 'number' ? { owner: null, buff: false, until: clockS + p.life, on }
                 : { owner: null, buff: false, on };
-      spawn(b.bundle, name, at, entry, { over: p.on !== 'point', facing: v ? efacing(v) : 1 });
+      const go = () => spawn(pb.bundle, name, at, entry, { over: p.on !== 'point', facing: v ? efacing(v) : 1 });
+      if (p.after === 'fly' && flight > 0) castsDelayed.push({ t: clockS + flight, run: go }); else go();
       n++;
     }
     if (!n || plan.pass) return false;
     ownFx.add(e);
     return true;
+  }
+  /**
+   * A point circling unit `v` (a projectile's `_projectileAroundRadius` `r` tiles at `_aroundSpeed` `spd` °/s) at its body
+   * height, alive while it is.
+   */
+  function orbiter(v, { r, spd }) {
+    const t0 = clockS, w = (spd * Math.PI) / 180, ang = () => w * (clockS - t0);
+    return {
+      get x() { return v.x + r * Math.cos(ang()); }, get y() { return v.y + r * Math.sin(ang()); },
+      get z() { return camRef ? bodyZ(camRef, v, SPAWN_FRAC[2]) : (v.z || 0) + 0.5; }, get alive() { return v.alive !== false && !v.remove; },
+    };
   }
   /** Kit 'fx' events drawn with official prefabs; true = handled here (ownFx: render/fx.js skips its stand-in). */
   function kitFx(e, views) {
@@ -1731,7 +1757,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     'kalts2_skill_03_teleport_trail_01', 'kalts2_skill_03_teleport_end_01', 'aglna2_skill_02_fly_trail_rightAndLeft_01',
     'aglna2_skill_02_fly_trail_up_01', 'aglna2_skill_02_fly_trail_down_01', 'aglna2_skill_02_fly_range_01', 'aglna2_skill_02_fly_end_01',
     'aglna2_skill_02_fly_end_02', 'aglna2_skill_02_fly_end_03', 'aglna2_skill_03_fly_trail_01', 'aglna2_skill_03_buff_right_01',
-    'aglna2_skill_03_buff_left_01']);
+    'aglna2_skill_03_buff_left_01',
+    // 2026-10-16 (render/fx/kitofficial.js): 卡涅利安's eff_cond buffs by charge, 泥岩 S3's sleep / wake (mudrok_skill_03_buff_02:
+    // no client reference — charpack, [uc]skills skchr_mudrok_3, buff templates), 新约能天使 S3's shell landing (the `_range`
+    // name rule looped it on her)
+    'billro_skill_01_buff_01', 'billro_skill_01_buff_01_02', 'billro_skill_01_buff_02', 'billro_skill_02_buff_01',
+    'billro_skill_02_buff_01_02', 'billro_skill_02_buff_02', 'billro_skill_03_buff_01_01', 'billro_skill_03_buff_01_01_02',
+    'billro_skill_03_buff_01_02', 'billro_skill_03_buff_02_01', 'billro_skill_03_buff_02_02', 'mudrok_skill_03_awake',
+    'mudrok_skill_03_awake_02', 'mudrok_skill_03_sleep', 'mudrok_skill_03_range', 'mudrok_skill_03_buff', 'mudrok_skill_03_buff_02',
+    'angel2_skill_3_begin_range_01']);
   /** What a skill activation plays on the caster (fxmap.js activationEffects: { start, loops }). */
   const activation = (v) => activationEffects(bindOf(v), bundleOf(v).prefabs, skillIdx(v), KIT_OWNED);
   // effects waiting for the damage of this tick: a skill that hits without an attack event (德克萨斯 S2's sword rain on

@@ -26,7 +26,7 @@ function lumen(bb, chess, def) {
         if (!target) return;
         const sc = bv(bb, 'heal_scale'), life = bv(bb, 'projectile_life_time', 4), iv = Math.max(0.2, bv(bb, 'interval', 1));
         if (!(sc > 0) || !(life > 0)) return;
-        battle.fx('healField', { x: target.x, y: target.y, id: unit.id });
+        battle.fx('healField', { x: target.x, y: target.y, id: unit.id, tgt: target.id, t: life });
         for (const a of battle.alliesInRadius(target.x, target.y, 1.5, target.ownerId)) {
           if (a.kind === 'device' || a.s.flags.noHeal || a.profile?.noHeal) continue; // a heal: never on 禁疗 / 孤立
           battle.addBuff(a, {

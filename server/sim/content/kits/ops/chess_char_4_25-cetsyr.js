@@ -46,7 +46,7 @@ export default withDefaults({
         skchr_cetsyr_1: () => ({
           kind: 'toggle',
           trigger: 'SP_FULL', // 自动触发 (no 技能策略: the 吟游者 row is for MANUAL skills): on as soon as it is ready
-          onStart({ battle, unit }) { setTrait(unit, bb['attack@atk_to_hp_recovery_ratio']); battle.fx('mote', { x: unit.x, y: unit.y, id: unit.id }); },
+          onStart({ battle, unit }) { setTrait(unit, bb['attack@atk_to_hp_recovery_ratio']); battle.fx('mote', { x: unit.x, y: unit.y, id: unit.id, src: unit.id }); },
           onEnd({ unit }) { resetTrait(unit); },
         }),
         skchr_cetsyr_2: () => ({
@@ -114,7 +114,7 @@ export default withDefaults({
                 hitAt.set(e.id, battle.time + MOTE_GAP);
                 battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 2.2), type: 'true', isSkill: true, tags: ['skill', 'mote'] });
                 if (e.alive) battle.applyStatus(e, 'bind', { duration: num(bb.unmoveable_duration, 3), source: unit });
-                battle.fx('mote', { x: e.x, y: e.y, id: e.id });
+                battle.fx('mote', { x: e.x, y: e.y, id: e.id, src: unit.id });
               }
               return;
             }
@@ -123,7 +123,7 @@ export default withDefaults({
               if (a === unit || a.kind !== 'op' || a.findBuff(`cetsyr:mote:${unit.id}`)) continue;
               if (!keep && !takeMote()) break;
               battle.addBuff(a, { key: `cetsyr:mote:${unit.id}`, duration: num(t0.talent_duration, 6), visible: true, source: unit });
-              battle.fx('mote', { x: a.x, y: a.y, id: a.id });
+              battle.fx('mote', { x: a.x, y: a.y, id: a.id, src: unit.id });
             }
           });
           // "受到魔王特性效果提升至1.5倍": her trait's 生命回复速度 on that operator (professions.js bardRegen hook)

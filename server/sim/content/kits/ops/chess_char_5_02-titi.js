@@ -137,13 +137,13 @@ export default {
         // S3: wake-up burst chain (sleep applied by anyone counts)
         const asleep = new Map();
         // PRTS 备注: "向1.5半径内除该单位外仇恨值最高的敌方单位施加沉睡" — highest aggro (taunt) first, then the nearest
-        const sleepOthers = (from) => {
+        const sleepOthers = (from, put = null) => {
           const cands = battle.foesInRadius(from.x, from.y, radius).filter((o) => o !== from && !o.s.flags.sleep && !o.mem?.candleOwner)
             .sort((a, b) => (b.s.taunt || 0) - (a.s.taunt || 0) || dist(a, from) - dist(b, from) || a.spawnSeq - b.spawnSeq);
           let n = 0;
           for (const o of cands) {
             if (n >= chainN) break;
-            if (battle.applyStatus(o, 'sleep', { duration: chainSleep, source: unit })) n++;
+            if (battle.applyStatus(o, 'sleep', { duration: chainSleep, source: unit })) { n++; put?.push(o.id); }
           }
         };
         battle.on('statusApplied', (c) => {
@@ -158,8 +158,10 @@ export default {
             if (!unit.skill?.active || !on(unit)) continue;
             const scale = minS + (maxS - minS) * Math.min(1, (battle.time - t0s) / Math.max(0.1, chainSleep));
             battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', isSkill: true, tags: ['skill', 'titiWake'] });
-            battle.fx('wake', { x: e.x, y: e.y, id: e.id, scale: Math.round(scale * 100) / 100 });
-            sleepOthers(e);
+            // `to`: the enemies it puts to sleep (the renderer's line from it — titi_s_3[effect_line]), filled just after
+            const to = [];
+            battle.fx('wake', { x: e.x, y: e.y, id: e.id, scale: Math.round(scale * 100) / 100, to });
+            sleepOthers(e, to);
           }
         }, { owner: unit });
         battle.on('kill', (c) => {
@@ -183,7 +185,7 @@ export default {
           });
           // other content (特质 "干员进入沉睡时") observes it like any sleep status
           if (battle.hasHook('statusApplied')) battle.emit('statusApplied', { source: unit, target: a, status: 'sleep', duration: Infinity, entered });
-          battle.fx('sleepGuard', { x: a.x, y: a.y, id: a.id });
+          battle.fx('sleepGuard', { x: a.x, y: a.y, id: a.id, src: unit.id });
         }, { owner: unit, priority: 5 });
       },
     };

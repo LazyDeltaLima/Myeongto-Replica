@@ -6,21 +6,24 @@
 // `_effectsWhenReached`; without them the moment drew nothing. Pure: fxgame.js executes the plan (kitOfficialFx).
 
 /**
- * One play: `n` the prefab (of the operator's bundle), on `on` ('op' the event's operator, 'id' the event's `id` unit,
- * 'point' the event's x / y on the ground), for `life`:
+ * One play: `n` the prefab (of the operator's bundle, or of `bundle`), on `on` ('op' the event's operator, 'point' the event's
+ * x / y on the ground, else the event's field naming a unit: 'id', 'tgt' …) — circling it with `orbit` { r, spd } —, for `life`:
  *   'once'     its own duration
  *   number     seconds
  *   'skill'    until the operator's skill ends (a buff entry: fxgame stopBuffs) or it leaves
  *   'deployed' until the operator leaves the field
  *   'unit'     until the `on` unit's 'die'
  *   'tag'      until a later event's `stop` names `tag` (with `leave`: also when the operator leaves)
- * or a line `line: [from, to]` (the event's fields naming two units) while both stand.
+ * or a line `line: [from, to]` (the event's fields naming two units; `to` may name a list) while both stand, or for the
+ * line prefab's own duration with `life: 'once'`; or a flight `fly` (tiles / s) from the operator to the event's point —
+ * a play with `after: 'fly'` starts when it lands.
  */
 const once = (n, on = 'op') => ({ n, on, life: 'once' });
 
 /**
  * event → operator bundle → (o, ctx) → { stop?: tag[], play: plays[], pass?: the event keeps its stand-in } | null.
- * ctx: { skill: the operator's skill index 0–2, back: it faces UP (deployed facing the back) }.
+ * ctx: { skill: the operator's skill index 0–2, back: it faces UP (deployed facing the back), foe: the event's `id` unit is
+ * an enemy }.
  */
 export const KIT_OFFICIAL = {
   // 号角 T2 血战 (horn_t_1[muso] → buff horn_t_1[reborn_effect], effect horn_buff_01_start_front INFINITY; its start creates
@@ -38,6 +41,8 @@ export const KIT_OFFICIAL = {
       const base = c.skill === 1 ? 'horn_skill_02_buff_03' : c.skill === 2 ? 'horn_skill_03_buff_02_03' : null;
       return base ? { play: [{ n: `${base}_${c.back ? 'back' : 'front'}`, on: 'op', life: 'skill' }] } : null;
     },
+    // 洛洛 S2 过载: her drones' S2Funnel `_overloadIdleEffect` rockr_token_overload_01 for the rest of the skill
+    rockr: () => ({ play: [{ n: 'rockr_token_overload_01', on: 'op', life: 'skill' }] }),
   },
   // 泥岩 T1 沃土予身: the last layer broken (mudrok_t_1[shield_c] BlockDamage → CreateEffect mudrok_buff_01_end; the layer
   // loops 01–03_start come with layer gains the sim does not announce — §11)
@@ -85,21 +90,95 @@ export const KIT_OFFICIAL = {
       { n: 'etlchi_skill_03_line_01', line: ['of', 'id'] },
     ] }),
   },
+  // 魔王 T1 微尘 (projectile_chr_cetsyr_talent*, orbiting her): one touching an operator — its `_effectsWhenHit` cetsyr_hit_01
+  // on it; under S2 the motes hit enemies (projectile_chr_cetsyr_talent_s2: cetsyr_skill_02_hit_01; the bind's
+  // cetsyr_skill_02_tie is the 'bind' status' — fxstatus.js SOURCE_FX). S1's start (her own `id`) is S1's buff.
+  mote: { cetsyr: (o, c) => (o.id === o.src ? { play: [] } : { play: [once(c.foe ? 'cetsyr_skill_02_hit_01' : 'cetsyr_hit_01', 'id')] }) },
+  // 魔王 S3: each HP share (cetsyr_s_3[collect_hp_ratio]'s tick: CreateEffect cetsyr_skill_03_burst_01 on her)
+  redistribute: { cetsyr: () => ({ play: [once('cetsyr_skill_03_burst_01')] }) },
+  // 卡涅利安: while skill N runs, billro_s_N[eff_cond] (every 0.1 s) keeps derived INFINITY buffs on her — cast with every
+  // charge stored (billro_talent_enhance_mark) its [full] + [half] (S3 also [full2] + [half2]), else its [half] (S3 [half] +
+  // [half2]); its off-skill branch (1 charge stored → _buff_01, 2 → [full] + [half]) needs the charges, which the views do
+  // not carry. fxgame.js KIT_OWNED keeps the name rules from playing these at the skill's start. S2's own events keep their
+  // stand-ins (`pass`).
+  shell: { billro: (o) => billro(0, o.charged) },
+  sandChains: { billro: () => ({ ...billro(1, false), pass: true }) },
+  sandChainsCharged: { billro: () => ({ ...billro(1, true), pass: true }) },
+  devour: { billro: (o) => ({ ...billro(2, o.charged), pass: true }) },
+  // 缇缇 S3: a sleeper wakes (titi_s_3[dmg_ticker]: CreateEffect titi_skill_03_hit_02 on it) and puts the enemies around it to
+  // sleep (`to`), each joined to it by titi_s_3[effect_line]'s CreateLineEffect titi_skill_03_line_01
+  wake: { titi: () => ({ play: [once('titi_skill_03_hit_02', 'id'), { n: 'titi_skill_03_line_01', line: ['id', 'to'], life: 'once' }] }) },
+  // 泥岩 S3: skchr_mudrok_3/SleepAura casts mudrok_skill_03_sleep from its start to its end (`_castEffects` _startEvent 2 →
+  // _endEvent 6) and its Aura's `_effects` mudrok_skill_03_range lasts as long; at its end — the wake, 'rockfall' — the
+  // oneshot mudrok_skill_03_awake / _02, and the Awake ability's buff mudrok_s_3 carries mudrok_skill_03_buff for the rest
+  // of the skill (fxgame.js KIT_OWNED keeps the activation from playing them all at the start). 'stone' keeps its stand-in.
+  stone: {
+    mudrok: () => ({ stop: ['mudSleep'], pass: true, play: ['mudrok_skill_03_sleep', 'mudrok_skill_03_range']
+      .map((n) => ({ n, on: 'op', life: 'tag', tag: 'mudSleep', leave: true })) }),
+  },
+  rockfall: {
+    mudrok: () => ({ stop: ['mudSleep'], play: [
+      once('mudrok_skill_03_awake'), once('mudrok_skill_03_awake_02'), { n: 'mudrok_skill_03_buff', on: 'op', life: 'skill' },
+    ] }),
+  },
+  // 新约能天使: S3's strike on her coordinate (`signal` fireToToken: S3FireToToken fires projectile_chr_angel2_s3_start —
+  // `_mainEffect` angel2_skill_3_begin_trail_01 at `_speed` 10, its `_effectsWhenReached` angel2_skill_3_begin_range_01 where
+  // it lands; its cast angel2_skill_3_begin_start_001 comes with the S3 mode's attack bindings); her talent's bomb
+  // (CommonAbilities/TalentBomb: projectile_chr_angel2_t1 without a trail, `_hitEffects` angel2_buff_01_trail_01 on the
+  // enemy it marks, `tgt`). angel2_skill_3_ground_01: no client reference.
+  airstrike: {
+    angel2: (o) => (o.signal === 'fireToToken'
+      ? { play: [{ n: 'angel2_skill_3_begin_trail_01', fly: 10 }, { n: 'angel2_skill_3_begin_range_01', on: 'point', life: 'once', after: 'fly' }] }
+      : { play: [once('angel2_buff_01_trail_01', 'tgt')] }),
+  },
+  // 缪尔赛思: her 流形 copies an operator (mlyss_wtrman_switch_melee_trigger / _range_trigger: CreateEffect
+  // token_10030_mlyss_wtrman_c1_to_c2 / _c1_to_c3 on the token, `id`) — the token's own bundle
+  copy: {
+    mlyss: (o) => ({ play: [{ n: o.mode === 'Range' ? 'token_10030_mlyss_wtrman_c1_to_c3' : 'token_10030_mlyss_wtrman_c1_to_c2', bundle: 'mlyss_token', on: 'id', life: 'once' }] }),
+  },
+  // 焰影苇草 S2: each carrier's fireball (projectile_chr_reed2_fire: `_mainEffect` reed2_skill_02_fireball_01 circling it at
+  // `_projectileAroundRadius` 1, `_aroundSpeed` 150 °/s) until her skill ends [추정: the sense of the turn; its cooldown look
+  // _02 and the effects of each strike are not drawn]
+  ember: { reed2: () => ({ play: [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: { r: 1, spd: 150 } }] }) },
+  // 隐德来希 T2 重盈: the talent's toggle (charpack Talents/2 `_unmanagedBuffsWhenToggleOn` etlchi_t_2[heal], lifeTime 3 s)
+  reborn: { etlchi: () => ({ play: [{ n: 'etlchi_innate_hit_01', on: 'op', life: 3 }] }) },
+  // 流明 S1: the shot's heal rain (lumen_s_1[effect] on the target, LIMITED: projectile_life_time `t`; projectile_chr_lumen_s1's
+  // `_mainEffect` is the same prefab) [추정: lumen_s_1[heal]'s lumen_skill_01_hit on each healed ally per tick is not drawn]
+  healField: { lumen: (o) => ({ play: [{ n: 'lumen_skill_01_range', on: 'tgt', life: Math.max(0.1, Number(o.t) || 0) }] }) },
+  // 寒檀 S2: an icicle (projectile_chr_sntlla_s2 `_effectsWhenReached` sntlla_skill_02_start_01 where it lands)
+  iceSpike: { sntlla: () => ({ play: [{ n: 'sntlla_skill_02_start_01', on: 'point', life: 'once' }] }) },
+  // 蕾缪安 T2: 引渡 ready (lemuen_t_2 → buff lemuen_t_2[buff], effect lemuen_talent_buff_02, INFINITY)
+  talent: { lemuen: (o) => (o.name === 'extradition' ? { play: [{ n: 'lemuen_talent_buff_02', on: 'op', life: 'deployed' }] } : null) },
+  // 歌蕾蒂娅 S3: each pull of the tornado (projectile_chr_glady_s3_2 `_interval`: `_castEffect` glady_skill_03_range_03)
+  tornadoPulse: { glady: () => ({ play: [{ n: 'glady_skill_03_range_03', on: 'point', life: 'once' }] }) },
 };
 
-/** The operator id of a kit event (standInOff's: `src`, else `by`, else `id`). */
-export const kitOperator = (o) => (o ? o.src ?? o.by ?? o.id : null);
+/** 卡涅利安's eff_cond buffs of skill index `i` while it runs (KIT_OFFICIAL shell / sandChains / devour). */
+function billro(i, charged) {
+  const set = [
+    { full: ['billro_skill_01_buff_02', 'billro_skill_01_buff_01_02'], half: ['billro_skill_01_buff_01_02'] },
+    { full: ['billro_skill_02_buff_02', 'billro_skill_02_buff_01_02'], half: ['billro_skill_02_buff_01_02'] },
+    { full: ['billro_skill_03_buff_01_02', 'billro_skill_03_buff_01_01_02', 'billro_skill_03_buff_02_02', 'billro_skill_03_buff_02_01'],
+      half: ['billro_skill_03_buff_02_01', 'billro_skill_03_buff_01_01_02'] },
+  ][i];
+  return { play: set[charged ? 'full' : 'half'].map((n) => ({ n, on: 'op', life: 'skill' })) };
+}
+
+// events whose `src` is no operator of the moment: 缪尔赛思's 'copy' (`src` the operator her 流形 copies, `by` her)
+const OPERATOR_FIELD = { copy: 'by' };
+/** The operator id of kit event `name` (fxgame.js standInOff's too): `src`, else `by`, else `id`. */
+export const kitOperator = (o, name) => (o ? (OPERATOR_FIELD[name] ? o[OPERATOR_FIELD[name]] : null) ?? o.src ?? o.by ?? o.id : null);
 
 /**
  * The plan for kit event `name` with fields `o` when its operator's bundle is `bundle`, or null (no rule).
  * @param {string} name
  * @param {any} o
  * @param {string | null} bundle
- * @param {{ skill?: number, back?: boolean }} [ctx]
+ * @param {{ skill?: number, back?: boolean, foe?: boolean }} [ctx]
  */
 export function kitOfficialPlan(name, o, bundle, ctx = {}) {
   const rule = bundle ? KIT_OFFICIAL[name]?.[bundle] : null;
   if (typeof rule !== 'function' || !o || typeof o !== 'object') return null;
-  const r = rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back });
+  const r = rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back, foe: !!ctx.foe });
   return r ? { stop: r.stop || [], play: r.play || [], pass: !!r.pass } : null;
 }

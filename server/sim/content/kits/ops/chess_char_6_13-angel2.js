@@ -151,7 +151,7 @@ function angel2(bb, chess, def) {
           if (!cands.length) return;
           sortEnemyTargets(battle, u, cands, null);
           const c = cands[0];
-          battle.fx('airstrike', { x: c.x, y: c.y, id: unit.id, r: AIRSTRIKE_RADIUS });
+          battle.fx('airstrike', { x: c.x, y: c.y, id: unit.id, r: AIRSTRIKE_RADIUS, tgt: c.id });
           for (const e of battle.foesInRadius(c.x, c.y, AIRSTRIKE_RADIUS, true)) { // splash around the target: 中点判定
             if (e.alive && !e.s.flags.untargetable) battle.dealDamage(unit, e, { amount: unit.s.atk * sc, type: 'phys', isSkill: true, isSplash: true, tags: ['talent', 'airstrike'] });
           }

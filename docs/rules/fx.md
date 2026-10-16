@@ -1167,11 +1167,49 @@
     (`[warming_counter]` → `[warmed_effect_01~03]`) `kroos2_skill_02_buff_01~03` 스킬 끝까지; 妮芙 T1 凋亡 폭발 중인 적(`[ep_damage]`)에
     `nymph_talent_buff_01` 폭발 끝(`t`)까지; 隐德来希 S3 心烛(`etlchi_s3[to_enemy]` → `entlec_effect`) 그 적에 `ghosting_01`, 베낀 적과 잇는 선
     `etlchi_skill_03_line_01` [추정: 선의 방향] — 心烛이 서 있는 동안. 키트 'splash'·'soul'·'candle'에 오퍼 `src`(妮芙는 `t`도)를 실음.
+  - 2026-10-16 미판정 쌍 정리(클라 버프 템플릿·charpack·`[uc]skills`·`[uc]projectiles` 대조):
+    - 魔王 微尘(`projectile_chr_cetsyr_talent*`, 그녀 둘레를 도는 투사체): 오퍼에 닿으면 `_effectsWhenHit` `cetsyr_hit_01`, S2에서 적에 닿으면
+      `cetsyr_skill_02_hit_01`(묶임의 `cetsyr_skill_02_tie`는 'bind' 상태가 그림); S3 HP 나눔마다(`cetsyr_s_3[collect_hp_ratio]`)
+      `cetsyr_skill_03_burst_01`. S3 시작의 버프 셋(charpack S3 AuraHeal·`skchr_cetsyr_3` Encourage)은 이름 규칙 활성이 이미 그림. 키트
+      'mote'에 `src`.
+    - 卡涅利安: 스킬 N 동안 `billro_s_N[eff_cond]`(0.1초마다)가 파생 버프를 유지 — 충전을 다 써서 쓰면 [full]+[half](S3는 [full2]+[half2]까지),
+      아니면 [half](S3 [half]+[half2]). 'shell'(S1)·'sandChains'/'sandChainsCharged'(S2, 그 절차 대체 유지)·'devour'(S3)에 스킬 끝까지; 이름
+      규칙이 스킬 중에 틀린 `_buff_01`(스킬 밖 충전 1칸 표시)을 틀던 것은 `KIT_OWNED`로 막음. 키트 'shell'·'devour'에 `charged`.
+    - 缇缇 S3: 잠든 적이 깨면(`titi_s_3[dmg_ticker]`) 그 적에 `titi_skill_03_hit_02`, 그 적이 재운 적마다 `titi_s_3[effect_line]`의 선
+      `titi_skill_03_line_01`(선 프리팹 자기 수명). 키트 'wake'에 재운 적 `to`(이벤트 뒤에 채움), S3 동료 수면 'sleepGuard'에 `src`.
+    - 泥岩 S3: `skchr_mudrok_3/SleepAura`가 `mudrok_skill_03_sleep`(`_castEffects` 시작 2 → 끝 6)과 Aura `_effects` `mudrok_skill_03_range`를
+      잠든 동안('stone' → 'rockfall'), 깰 때 `mudrok_skill_03_awake`·`_02` 한 번, Awake의 `mudrok_s_3` 버프 `mudrok_skill_03_buff`를 스킬
+      끝까지. 활성이 이 넷을 시작에 한꺼번에 틀던 것은 `KIT_OWNED`로 막음(`mudrok_skill_03_buff_02`는 클라 참조 없음).
+    - 新约能天使: S3 좌표 포격(`signal` fireToToken)은 `projectile_chr_angel2_s3_start`의 `_mainEffect` `angel2_skill_3_begin_trail_01`이
+      그녀에게서 좌표로 `_speed` 10으로 날고 닿으면 `_effectsWhenReached` `angel2_skill_3_begin_range_01`(이름 규칙이 그녀에게 스킬 내내 틀던 것을
+      `KIT_OWNED`로 막음); 재능 포탄(`CommonAbilities/TalentBomb`)은 표식 적에 `angel2_buff_01_trail_01`. 키트 재능 'airstrike'에 `tgt`.
+    - 缪尔赛思 流形이 오퍼를 베낄 때(`mlyss_wtrman_switch_melee_trigger`/`_range_trigger`) 토큰에 `token_10030_mlyss_wtrman_c1_to_c2`/`_c3`
+      (`mlyss_token` 묶음, 이 둘만 추출). 'copy'의 오퍼는 `by`(그 `src`는 베낀 오퍼) — `kitOperator`·`standInOff` 같이.
+    - 焰影苇草 S2: 운반자 둘레를 도는 불덩이(`projectile_chr_reed2_fire` `_mainEffect` `reed2_skill_02_fireball_01`, `_projectileAroundRadius` 1,
+      `_aroundSpeed` 150°/초) 스킬 끝까지 [추정: 도는 방향; 쿨다운 모양 `_02`·타격별 이펙트는 안 그림].
+    - 隐德来希 T2 重盈 `etlchi_innate_hit_01` 3초(charpack Talents/2 `_unmanagedBuffsWhenToggleOn`); 流明 S1 치유 비(`lumen_s_1[effect]`) 대상에
+      `lumen_skill_01_range` 수명(`t`)만큼 [추정: 틱마다 `lumen_skill_01_hit`은 안 그림], 키트에 `tgt`·`t`; 寒檀 S2 고드름 자리에
+      `sntlla_skill_02_start_01`(`_effectsWhenReached`); 洛洛 S2 过载 드론 `_overloadIdleEffect` `rockr_token_overload_01` 스킬 끝까지; 蕾缪安 T2
+      引渡 `lemuen_talent_buff_02` 배치 동안; 歌蕾蒂娅 S3 회오리 당김마다 `projectile_chr_glady_s3_2`의 `_castEffect` `glady_skill_03_range_03`.
+    - 판정만: 圣聆初雪 S1 'frostNova'·缇缇 S2 'sleepGuard'·魔王 'reweave'(S3 이름 규칙, S2 `cetsyr_skill_02_trail_start`) = 스킬; 圣约送葬人 T1
+      추가 사격 = 공격(charpack 모드마다 Talents/1의 cast·hit이 모드 바인딩에 들어 있음); 史尔特尔 余烬 = 'healFree' 상태(`surtr_buff_01_start`),
+      丰川祥子 S1 음표 적중 = 'oblvnsNote', 流明 정화 = 그 치유의 타격 = 다른 이벤트; 荒芜拉普兰德 T1 단계 = 없음.
+    - 계획 형식에 더한 것: `on`이 이벤트 필드 이름(`tgt` …), 다른 묶음 `bundle`, 유닛 둘레 `orbit`, 오퍼→지점 비행 `fly`와 착지 뒤 `after: 'fly'`,
+      선 목록(`to`)·한 번 선.
 - 판정: `test/render/kit-event-fx.test.js`가 절차 대체가 꺼지는 모든 (이벤트, 키트) 쌍에 규칙이나 판정을 요구한다 — 새 키트 이벤트가 말없이 안
-  그려지지 않게. 판정은 스킬(그 스킬 바인딩이 그림, 바인딩 표에서 확인)·공격·없음(클라도 안 그림: 耀骑士临光 모듈 骑士家族의 `undying`)·다른
-  이벤트가 그림·절차 대체 유지(토큰·적이 보내는 것)·**미판정**. 미판정 23쌍은 관리자 노트의 열린 일.
+  그려지지 않게. 판정은 스킬(그 스킬 바인딩이나 활성의 이름 규칙이 그림 — 이름 규칙은 추출물이 있을 때만 검사)·공격·없음(클라도 안 그림:
+  耀骑士临光 모듈 骑士家族의 `undying`)·다른 이벤트가 그림·절차 대체 유지(토큰·적이 보내는 것)·**미판정**. 미판정은 圣聆初雪 눈 타일('snow':
+  `SnowAccumulation` `_effectSettings` 칸별 층수 → `sbell2_ground_01`(1)·`_02`(2~4)·`_03`(5), 적이 떠나면 지워짐 — 지움을 알리는 이벤트가 없음)
+  하나, 관리자 노트의 열린 일.
 - 안 한 것: 泥岩 층 루프 `mudrok_buff_01~03_start`(층이 생길 때 — 시뮬 이벤트 없음, 새 이벤트는 골든 이벤트 수를 바꿈), 心烛 선의 방향 확인.
+  魔王 微尘·焰影苇草 이외의 도는 투사체 상시 표시(魔王 微尘 자체, 남은 개수를 시뮬이 안 알림), 卡涅利安 스킬 밖 충전 표시(충전 수가 뷰에 없음),
+  新约能天使 S3 모드 바인딩이 `S3FireToToken`의 cast `angel2_skill_3_begin_start_001`을 S3 공격마다 트는 것.
 - 확인: 단위 `test/render/kit-event-fx.test.js`. Windows Chrome 디버그 아레나(지금 발동 3번 동안 만들어진 프리팹): 号角 S2
   `horn_skill_02_buff_03_front` 1(스킬 끝에 꺼짐)·S3 `horn_skill_03_buff_02_03_front`, 寒芒克洛丝 S2 `kroos2_skill_02_buff_01~03`, 隐德来希 S3
   `etlchi_skill_03_ghosting_01` 2·`etlchi_skill_03_line_01` 2, 妮芙 S2 `nymph_talent_buff_01`, 오류 0. 阿罗玛 S2 착지는 허수아비가 안 떠 못 봄.
   [화면 미확인: 재능 순간(号角·圣聆初雪 치명상, 泥岩 층, 烛煌 쓰러짐, 伊内丝 影哨)과 阿罗玛 착지 — 아레나에서 바로 못 만듦; 모양·자리 공식 녹화 대조]
+  2026-10-16 정리분(같은 아레나): 魔王 S2 `cetsyr_skill_02_hit_01` 30, 卡涅利安 S1·S3 충전 사용 → [full]+[half] 뒤 [half](`_buff_01` 없음),
+  泥岩 S3 `sleep`·`range` → `awake`·`awake_02`·`mudrok_skill_03_buff`, 新约能天使 S3 `begin_trail_01` 2·`begin_range_01` 2(포격 2번)·재능
+  `angel2_buff_01_trail_01`, 焰影苇草 `reed2_skill_02_fireball_01`(스킬 끝에 꺼짐), 寒檀 `sntlla_skill_02_start_01`, 洛洛 `rockr_token_overload_01`,
+  歌蕾蒂娅 `glady_skill_03_range_03` 15, 蕾缪安 `lemuen_talent_buff_02`, 流明 `lumen_skill_01_range`, 오류 0. [화면 미확인: 缇缇 S3 깨어남·선,
+  魔王 동료 微尘·S3 나눔, 缪尔赛思 流形 전환, 隐德来希 重盈 — 아레나에서 못 만듦; 焰影苇草 불덩이의 도는 모양 공식 녹화 대조]
