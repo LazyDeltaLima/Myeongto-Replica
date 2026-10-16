@@ -111,15 +111,16 @@ describe('operator shots through the real match path (Match board → BattleSpec
     assert.equal(opShot(med).move, 'PARACURVE');
     b.drainEvents();
     b.dealDamage(null, snp, { amount: snp.s.maxHp * 0.5, type: 'true', canDodge: false, sourceless: true, tags: ['test'] });
-    let atkT = null, healT = null;
+    let atkT = null, healT = null, healBy;
     for (let i = 0; i < 30 * 8 && healT == null; i++) {
       b.step();
       for (const e of b.drainEvents()) {
         if (e[0] === 'atk' && e[1] === med.id && e[2] === snp.id && atkT == null) atkT = b.time;
-        if (e[0] === 'heal' && e[1] === snp.id && atkT != null && healT == null) healT = b.time;
+        if (e[0] === 'heal' && e[1] === snp.id && atkT != null && healT == null) { healT = b.time; healBy = e[3]; }
       }
     }
     assert.ok(atkT != null && healT != null, 'the medic healed');
+    assert.equal(healBy, med.id, "the 'heal' names its healer (render/fxgame.js healHit plays the shot's hit by it)");
     const dist = Math.hypot(snp.x - med.x, snp.y - med.y);
     assert.ok(near(healT - atkT, dist / 5, 2 * TICK), `heal ${healT - atkT} s after the shot, ${dist} tiles at 5/s`);
   });

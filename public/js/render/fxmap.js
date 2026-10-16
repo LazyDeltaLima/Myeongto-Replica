@@ -298,7 +298,8 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
   const n = attackMode(bind, true, skillIndex) ?? -1;
   const sk = bind?.skills?.[skillIndex] || null;
   const has = (list) => (Array.isArray(list) ? list.filter((x) => pre.includes(x)) : []);
-  const modeOwn = new Set(['cast', 'hit', 'trail', 'input'].flatMap((r) => (bind?.[r] || []).flat()));
+  // (2026-10-16: `tgtStart`, a shot's effects on its target as it leaves — 迷迭香 S2's rosmon_skill_02_range looped on her)
+  const modeOwn = new Set(['cast', 'hit', 'trail', 'input', 'tgtStart'].flatMap((r) => (bind?.[r] || []).flat()));
   // (2026-10-10) the effects of its projectile's lasting reach / aura (`zone`: 쏜즈 더 로드스타's token / range) sit at that
   // projectile — render/fxgame.js zoneFx; 85d83c89's `_range` name rule put thorn2_skill_02_range on her for the whole battle
   const notCaster = new Set([...(sk?.target || []), ...(sk?.targetBuff || []), ...(sk?.end?.cast || []), ...(sk?.end?.hit || []),

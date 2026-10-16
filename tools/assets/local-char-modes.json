@@ -1392,6 +1392,21 @@
     }
    }
   ],
+  "hitGroups": [
+   null,
+   null,
+   {
+    "g": [
+     [
+      "texas2_skill_02_hit"
+     ],
+     [
+      "texas2_skill_02_hit_02"
+     ]
+    ]
+   },
+   null
+  ],
   "skillMode": [
    1,
    2,
@@ -2841,6 +2856,127 @@
     }
    }
   ],
+  "hitGroups": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   {
+    "g": [
+     [
+      "angel2_attack_loop_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ]
+    ],
+    "base": [
+     "angel2_skill_1_loop_hit_01"
+    ],
+    "shots": [
+     [
+      "angel2_attack_loop_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ]
+    ],
+    "dt": 0.05
+   },
+   {
+    "g": [
+     [
+      "angel2_attack_loop_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ],
+     [
+      "angel2_skill_1_close_hit_01"
+     ]
+    ],
+    "base": [],
+    "shots": [
+     [
+      "angel2_attack_loop_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ],
+     [
+      "angel2_skill_1_close_trail_01"
+     ]
+    ],
+    "dt": 0.05
+   }
+  ],
   "start": "angel2_birth_01",
   "common": [
    "angel2_R_wing_01",
@@ -3238,6 +3374,13 @@
    1,
    null
   ],
+  "tgtStart": [
+   [],
+   [],
+   [
+    "halo2_skill_03_trail_01"
+   ]
+  ],
   "start": "halo2_brith_01",
   "attachFoe": [
    [],
@@ -3376,6 +3519,34 @@
     }
    }
   ],
+  "hitGroups": [
+   null,
+   {
+    "g": [
+     [
+      "chen3_skill_01_hit_01"
+     ],
+     [
+      "chen3_skill_01_hit_02"
+     ]
+    ]
+   },
+   null,
+   {
+    "g": [
+     [
+      "chen3_skill_03_hit_01"
+     ],
+     [
+      "chen3_skill_03_hit_02"
+     ],
+     [
+      "chen3_skill_03_hit_03"
+     ]
+    ],
+    "loop": 1
+   }
+  ],
   "skillMode": [
    1,
    null,
@@ -3399,7 +3570,30 @@
     ],
     "buff": [],
     "target": [],
-    "targetBuff": []
+    "targetBuff": [],
+    "hitGroups": {
+     "g": [
+      [
+       "chen3_skill_02_hit_01"
+      ],
+      [
+       "chen3_skill_02_hit_02"
+      ],
+      [
+       "chen3_skill_02_hit_03"
+      ],
+      [
+       "chen3_skill_02_hit_04"
+      ],
+      [
+       "chen3_skill_02_hit_05"
+      ],
+      [
+       "chen3_skill_02_hit_06"
+      ]
+     ],
+     "loop": 1
+    }
    },
    {
     "cast": [],
@@ -4355,6 +4549,13 @@
      "o": 1
     }
    }
+  ],
+  "tgtStart": [
+   [
+    "svrash_attack_01_trail"
+   ],
+   [],
+   []
   ],
   "turn": [
    "svrash_attack_01_start"
@@ -7991,6 +8192,100 @@
     }
    }
   ],
+  "hitGroups": [
+   {
+    "g": [
+     [
+      "rosmon_attack_A_hit_02",
+      "rosmon_attack_A_range"
+     ],
+     [
+      "rosmon_attack_A_hit_02"
+     ]
+    ],
+    "base": [],
+    "shots": [
+     [],
+     []
+    ],
+    "starts": [
+     [
+      "rosmon_attack_A_hit_01"
+     ],
+     []
+    ],
+    "dt": 0.15
+   },
+   {
+    "g": [
+     [
+      "rosmon_attack_A_hit_02",
+      "rosmon_skill_02_range_02"
+     ],
+     [
+      "rosmon_attack_A_hit_02"
+     ],
+     [
+      "rosmon_attack_A_hit_02"
+     ],
+     [
+      "rosmon_attack_A_hit_02"
+     ]
+    ],
+    "base": [],
+    "shots": [
+     [],
+     [],
+     [],
+     []
+    ],
+    "starts": [
+     [
+      "rosmon_skill_02_range"
+     ],
+     [],
+     [],
+     []
+    ],
+    "dt": 0.15
+   },
+   {
+    "g": [
+     [
+      "rosmon_attack_A_hit_02",
+      "rosmon_skill_03_range"
+     ],
+     [
+      "rosmon_attack_A_hit_02"
+     ]
+    ],
+    "base": [],
+    "shots": [
+     [],
+     []
+    ],
+    "starts": [
+     [
+      "rosmon_skill_03_B_hit_01",
+      "rosmon_skill_03_B_hit_01_stone"
+     ],
+     []
+    ],
+    "dt": 0.15
+   }
+  ],
+  "tgtStart": [
+   [
+    "rosmon_attack_A_hit_01"
+   ],
+   [
+    "rosmon_skill_02_range"
+   ],
+   [
+    "rosmon_skill_03_B_hit_01",
+    "rosmon_skill_03_B_hit_01_stone"
+   ]
+  ],
   "start": "rosmon_birth_01_start",
   "shotFrom": [
    null,
@@ -8015,7 +8310,30 @@
      "rosmon_skill_01_A_hit_02",
      "rosmon_skill_01_A_range"
     ],
-    "targetBuff": []
+    "targetBuff": [],
+    "hitGroups": {
+     "g": [
+      [
+       "rosmon_skill_01_A_hit_02",
+       "rosmon_skill_01_A_range"
+      ],
+      [
+       "rosmon_attack_A_hit_02"
+      ]
+     ],
+     "base": [],
+     "shots": [
+      [],
+      []
+     ],
+     "starts": [
+      [
+       "rosmon_skill_01_A_hit_01"
+      ],
+      []
+     ],
+     "dt": 0.15
+    }
    },
    {
     "cast": [],
@@ -9152,6 +9470,25 @@
      "malist_skill_hit"
     ],
     "targetBuff": [],
+    "hitGroups": {
+     "g": [
+      [
+       "malist_skill_hit"
+      ],
+      [
+       "malist_skill_hit_2"
+      ]
+     ],
+     "base": [],
+     "shots": [
+      [
+       "malist_skill_trail"
+      ],
+      [
+       "malist_skill_trail"
+      ]
+     ]
+    },
     "shot": [
      "malist_skill_trail",
      "malist_drone_trail"
@@ -9494,6 +9831,18 @@
      "o": 0
     }
    }
+  ],
+  "hitGroups": [
+   null,
+   null,
+   {
+    "g": [
+     [
+      "mlynar_skill_02_hit_01"
+     ]
+    ]
+   },
+   null
   ],
   "skillMode": [
    1,
@@ -9962,6 +10311,49 @@
     }
    }
   ],
+  "hitGroups": [
+   null,
+   {
+    "g": [
+     [
+      "caper_skill_02_hit"
+     ],
+     [
+      "caper_skill_02_hit"
+     ]
+    ],
+    "base": [],
+    "shots": [
+     [
+      "caper_skill_02_trail"
+     ],
+     [
+      "caper_skill_02_trail"
+     ]
+    ],
+    "dt": 0.1
+   },
+   {
+    "g": [
+     [
+      "caper_skill_02_hit"
+     ],
+     [
+      "caper_skill_02_hit"
+     ]
+    ],
+    "base": [],
+    "shots": [
+     [
+      "caper_skill_02_trail"
+     ],
+     [
+      "caper_skill_02_trail"
+     ]
+    ],
+    "dt": 0.1
+   }
+  ],
   "skills": [
    {
     "cast": [],
@@ -10114,6 +10506,32 @@
     }
    }
   ],
+  "hitGroups": [
+   {
+    "g": [
+     [
+      "blkkgt_attack_hit_1"
+     ],
+     [
+      "blkkgt_attack_hit_2"
+     ]
+    ]
+   },
+   {
+    "g": [
+     [
+      "blkkgt_attack_hit_1"
+     ],
+     [
+      "blkkgt_attack_hit_2"
+     ]
+    ]
+   }
+  ],
+  "hitLoop": {
+   "blkkgt_attack_hit_1": 3,
+   "blkkgt_attack_hit_2": 3
+  },
   "skills": [
    {
     "cast": [],
@@ -10124,7 +10542,17 @@
     ],
     "buff": [],
     "target": [],
-    "targetBuff": []
+    "targetBuff": [],
+    "hitGroups": {
+     "g": [
+      [
+       "blkkgt_skill_01_hit_01"
+      ],
+      [
+       "blkkgt_skill_01_hit_02"
+      ]
+     ]
+    }
    },
    {
     "cast": [],
@@ -10379,7 +10807,17 @@
     "castLoop": [],
     "buff": [],
     "target": [],
-    "targetBuff": []
+    "targetBuff": [],
+    "hitGroups": {
+     "g": [
+      [
+       "ascln_skill_01_hit_01"
+      ],
+      [
+       "ascln_skill_01_hit_02"
+      ]
+     ]
+    }
    },
    {
     "cast": [],
@@ -11502,6 +11940,62 @@
      "oblvns_skill_01_hit"
     ],
     "targetBuff": [],
+    "hitGroups": {
+     "g": [
+      [
+       "oblvns_skill_01_hit"
+      ],
+      [
+       "oblvns_skill_01_hit"
+      ],
+      [
+       "oblvns_skill_01_hit"
+      ],
+      [
+       "oblvns_skill_01_hit"
+      ],
+      [
+       "oblvns_skill_01_hit"
+      ],
+      [
+       "oblvns_skill_01_hit"
+      ],
+      [
+       "oblvns_skill_01_hit"
+      ],
+      [
+       "oblvns_skill_01_hit"
+      ]
+     ],
+     "base": [],
+     "shots": [
+      [
+       "oblvns_skill_01_trail"
+      ],
+      [
+       "oblvns_skill_01_trail_02"
+      ],
+      [
+       "oblvns_skill_01_trail_03"
+      ],
+      [
+       "oblvns_skill_01_trail_04"
+      ],
+      [
+       "oblvns_skill_01_trail_05"
+      ],
+      [
+       "oblvns_skill_01_trail_06"
+      ],
+      [
+       "oblvns_skill_01_trail_07"
+      ],
+      [
+       "oblvns_skill_01_trail_08"
+      ]
+     ],
+     "dt": 0.1
+    },
     "shot": [
      "oblvns_skill_01_trail"
     ],
@@ -11691,6 +12185,39 @@
     }
    }
   ],
+  "hitGroups": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   {
+    "g": [
+     [
+      "tippi_skill_02_attack_01_hit"
+     ],
+     [
+      "tippi_attack_01_hit"
+     ],
+     [
+      "tippi_attack_01_hit"
+     ]
+    ],
+    "base": [],
+    "shots": [
+     [
+      "tippi_skill_02_attack_01_trail"
+     ],
+     [
+      "tippi_attack_01_trail"
+     ],
+     [
+      "tippi_attack_01_trail"
+     ]
+    ]
+   },
+   null
+  ],
   "skills": [
    {
     "cast": [],
@@ -11846,6 +12373,15 @@
    },
    {},
    {}
+  ],
+  "tgtStart": [
+   [],
+   [],
+   [],
+   [
+    "lemuen_skill_03_trail_01"
+   ],
+   []
   ],
   "dirs": [
    {
@@ -13032,6 +13568,34 @@
      "e": 3,
      "o": 0
     }
+   }
+  ],
+  "hitGroups": [
+   null,
+   {
+    "g": [
+     [
+      "vigil_skill_03_hit_1"
+     ],
+     [
+      "vigil_skill_03_hit_2"
+     ],
+     [
+      "vigil_skill_03_hit_3"
+     ]
+    ],
+    "base": [],
+    "shots": [
+     [
+      "vigil_skill_03_trail_01"
+     ],
+     [
+      "vigil_skill_03_trail_02"
+     ],
+     [
+      "vigil_skill_03_trail_03"
+     ]
+    ]
    }
   ],
   "dead": "vigil_token_die",

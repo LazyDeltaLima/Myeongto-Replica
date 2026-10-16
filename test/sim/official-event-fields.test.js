@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import { makeBattle, chessRec } from '../helpers/battleHarness.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
-import { enemyShot, shotSpeed } from '../../server/sim/ai.js';
+import { enemyShot, shotSpeed, resolveHit } from '../../server/sim/ai.js';
 import { normalizeEnemy } from '../../server/sim/simdata.js';
 import { getData } from '../../server/data.js';
 import { TICK } from '../../server/sim/constants.js';
@@ -99,7 +99,7 @@ test("'dmg' [5]: the attacker — a normal attack, a kit's direct dealDamage; nu
   const e = put(h, 'enemy_1019_jshoot', [9, 5]);
   assert.ok(h.runUntil(() => h.eventsOf('dmg').some((x) => x[1] === w.id), 20));
   const ev0 = h.eventsOf('dmg').find((x) => x[1] === w.id);
-  assert.equal(ev0.length, 7);
+  assert.equal(ev0.length, 8);
   assert.equal(ev0[5], e.id, 'the enemy that shot');
   assert.equal(ev0[6], 0, 'an attack is no DoT tick');
   h.events.length = 0;
@@ -117,7 +117,20 @@ test("'dmg' [5]: the attacker — a normal attack, a kit's direct dealDamage; nu
   h.events.length = 0;
   h.b.dealDamage(w, e, { amount: 50, type: 'element', element: 'burn' });
   const g = h.eventsOf('dmg').find((x) => x[1] === e.id && x[3] === 'burn');
-  assert.deepEqual([g.length, g[4], g[5], g[6]], [7, 0, w.id, 0], 'an element fill: [4] 0, [5] the attacker, [6] no DoT');
+  assert.deepEqual([g.length, g[4], g[5], g[6], g[7]], [8, 0, w.id, 0, null], 'an element fill: [4] 0, [5] the attacker, [6] no DoT, [7] no strike');
+});
+
+test("'dmg' [7]: the strike of an attack of several hits (profile `hits`), null for any other damage", () => {
+  const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 3 }] });
+  h.step();
+  const w = h.unit('t_wall');
+  const e = put(h, 'enemy_1019_jshoot', [9, 5]);
+  h.events.length = 0;
+  resolveHit(h.b, w, { ...w.profile, hits: 3, dmgType: 'phys', splashRadius: 0 }, e, { attackId: 1, cachedAtk: { atk: 500, atkScaleMul: 1 } }, e.x, e.y);
+  assert.deepEqual(h.eventsOf('dmg').filter((x) => x[1] === e.id).map((x) => x[7]), [0, 1, 2], 'each hit its strike');
+  h.events.length = 0;
+  h.b.dealDamage(w, e, { amount: 100, type: 'true', isSkill: true });
+  assert.equal(h.eventsOf('dmg').find((x) => x[1] === e.id)[7], null, "a kit's damage: none");
 });
 
 test("an enemy skill's cast: fx 'enemySkill' { id, ability, n } and `ability` / `caster` on the fx it makes", () => {

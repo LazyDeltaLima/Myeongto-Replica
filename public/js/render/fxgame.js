@@ -41,7 +41,8 @@
 // effects alive are capped here per kind (trimLive: MAX_INSTANCES short ones, MAX_LASTING lasting ones — the oldest of
 // that kind ends). The view's adaptive load level (render/app.js adaptLoad, as render/fx.js
 // drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
-// stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame).
+// stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame). `trace` (tests): called with
+// { kind, names, by, at } for every effect play() starts, before it loads (node has no WebP, so nothing is drawn there).
 // 丰川祥子's notes (kits/ops/op-oblvns.js, battle.fx 'oblvnsNote' born / track / free / hit / gone): each note is her client trail
 // prefab (fxmap.js NOTE_FX) flown here between the sim's events — free flight on its heading (the 扩张正弦 weave drawn
 // around it), tracing the target's view, the hit prefab on arrival (a piano note flies on 0.5 s); w = 2 draws two notes.
@@ -256,7 +257,7 @@ export function yuWallPieces(dir, tiles, midX) {
   return out;
 }
 
-export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {} }) {
+export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null }) {
   let index = null, modes = null, emodes = null;
   if (typeof fetch === 'function') {
     loadIndex().then((i) => { index = i; }); loadModes().then((m) => { modes = m; });
@@ -276,6 +277,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // 'medium' (one upload per effect, not two) they keep the old rule: the caster's under the units, the rest over.
   const live = [];                   // { inst, view: followed view | null, owner: unit id, buff: boolean, layer }
   const lastAtk = new Map();         // target id → { src view, t }
+  const healAtk = new Map();         // ally id → { src view, t, mode, kind, shot }: the heal shot on its way to it (healHit)
   const lastHit = new Map();         // `${src}:${tgt}` → t
   const lastAttackFx = new Map();    // src id → t
   const movers = new Map();          // caster id → { inst, at, t } — effects carried along a kit's moving fx
@@ -381,6 +383,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!b) return;
     // local patch (maintainer report): a directional emitter entry plays the copy for the facing (dirPick)
     const { names, unflip } = dirPick(view, given || effectsFor(b.prefabs, kind, skillIndex));
+    if (names.length && trace) trace({ kind, names, by: ownerOf(view), at: at ? ownerOf(at) ?? null : null }); // tests: what it plays
     if (!names.length || !(await ensure())) return;
     // local patch (maintainer report 2026-10-08: 赤刃明霄陈's S3 dragon twice, over her): a left / right pair (fx_extract.py
     // `right`: the client plays the left copy and swaps in its `_rightEffect` while the owner faces right) is one effect —
@@ -918,8 +921,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (the client's attack mode does not change) — before, they all flew render/fx.js's procedural shot.
    */
   function takeShot(src) {
-    const s = src._fxShot, shot = skillBind(src)?.shot;
-    if (!s || !(s.t == null || s.t === clockS) || !Array.isArray(shot) || !shot.length) return false;
+    const s = src._fxShot, sk = skillBind(src), shot = sk?.shot;
+    if (!s || !(s.t == null || s.t === clockS) || !((Array.isArray(shot) && shot.length) || sk?.hitGroups?.shots)) return false;
     s.t = clockS;
     return true;
   }
@@ -928,6 +931,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!tgt || mode == null || level() >= 3 || failed) return false;
     const spec = PROJ[e[3]];
     let name = null;
+    const sg = spec && e[3] !== 'boomerang' ? strikeGroups(src, mode, shot) : null; // 跃跃's second boomerang: caperSecond
     if (spec && mode === -1) ({ name, mode } = modelessTrail(bindOf(src), bundleOf(src)?.prefabs, skillIdx(src), shot));
     else if (spec) name = bound(src, mode, 'trail')[0];
     if (!name) return false;
@@ -957,6 +961,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (/_skill_02_/.test(name)) rec.arc = caperArc(dist, false);
     }
     launchTrail(rec, b.bundle, name);
+    // 2026-10-16: the attack's later strikes shoot projectiles of their own (strikeGroups `shots`: 伺夜 S3's second and third
+    // arrows, 新约能天使 S1's eight) — each `dt` (`_triggerDelta`) after the one before, from where the first left
+    // [추정: the sim lands every strike with the first; the client shoots strike n at n × _triggerDelta]
+    (sg?.shots?.slice(1) || []).forEach((s, k) => {
+      const n = Array.isArray(s) ? s.find((x) => b.prefabs.includes(x)) : null;
+      if (!n) return;
+      if (!trailReady.has(`${b.bundle}/${n}`)) { ensure().then((ok) => (ok ? lib.load(b.bundle, n) : null)).then((def) => { if (def) trailReady.add(`${b.bundle}/${n}`); }, () => {}); return; }
+      const go = () => { if (trails.length < MAX_TRAILS && !gone.has(ownerOf(tgt))) launchTrail({ ...rec, inst: null, k: 0, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt) }, b.bundle, n); };
+      if (sg.dt > 0) castsDelayed.push({ t: clockS + sg.dt * (k + 1), run: go }); else go();
+    });
     return true;
   }
   /** A trail record `rec` on its way (stepTrails flies it); the prefab `bundle`/`name` joins it once loaded. */
@@ -2018,6 +2032,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     inputFx(src, c, mode, 'strike', tgt);
   }
 
+  /**
+   * 2026-10-16: the effects a mode's shot plays on its target as it leaves (modes.json `tgtStart[mode]`, char_modes.py — the
+   * projectile's `_effectsToTargetWhenStart`): 银灰's svrash_attack_01_trail, 迷迭香's rosmon_attack_A_hit_01 / S2's
+   * rosmon_skill_02_range / S3's rosmon_skill_03_B_hit_01, 溯光星源 S3's halo2_skill_03_trail_01. Before, nothing played them
+   * (迷迭香 S2's range looped on her by the `_range` name rule — fxmap.js activationEffects now leaves it to this).
+   */
+  function shotStartFx(src, tgt, mode, shot = false) {
+    const sg = strikeGroups(src, mode, shot);
+    // an attack whose strikes shoot projectiles of their own: each one's (strikeGroups `starts`), else the mode's shot's
+    const names = sg?.starts ? extracted(src, [...new Set(sg.starts.flat())]) : bound(src, mode, 'tgtStart');
+    if (names.length) play(src, 'attackHit', 0, { at: tgt, names, aim: src });
+  }
+
   // ---- a mode buff on enemies (2026-10-10, decompile check: 아스트젠 더 라이트체이서 S3) -----------------------
   // modes.json `attachFoe` of the running skill's mode — the buff's ability selects enemies (halo2 S3 LinkEnemy: its
   // `_selector`'s range selectors `_targetSide 2`, `_maxNum 1`, the enemy already holding `halo2_s_3_link` first) — sits on
@@ -2160,6 +2187,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // the mode its shot left in (a skill may have ended while it flew), else the one now
     const mode = a && clockS - a.t <= 2.5 ? a.mode : modeNow(src);
     if (e[3] === 'chain') lastAtk.set(next, { src, t: clockS, mode, kind: e[3], shot: false });
+    else healAtk.set(next, { src, t: clockS, mode, kind: e[3], shot: false }); // a chain heal's next ally (healHit)
     const from = views.get(prev), tgt = views.get(next);
     if (!from || !tgt || !bundleOf(src) || failed || level() >= 3) return;
     // a skill that switches no attack mode (−1) keeps the Default mode's shot (modelessTrail)
@@ -2168,6 +2196,60 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!line) return;
     chainAtks.add(e);
     if (camRef) chainLine(`${e[5]}:${head}`, bundleOf(src).bundle, line, from, tgt, bindOf(src)?.chainHit?.[m] === 1);
+  }
+  /**
+   * An operator attack `a` (lastAtk / healAtk record) hitting `tgt`: its mode's hit effects (a 要塞's of the attack it made:
+   * boundFor; a skill's shot: its projectile's, takeShot), else the name-mapped hit. One impact per attack: the record leaves
+   * `map` (a mark's / DoT's later ticks are no attack's hit; audio.js does the same).
+   */
+  function attackHit(a, tgt, tid, map, strike = null) {
+    if (!a.src._fxSkillOn && level() >= 3) return;
+    const key = `${a.src.id ?? a.src.info?.id}:${tid}`;
+    const sg = strikeGroups(a.src, a.mode, a.shot);
+    const again = !!sg && (a.hitT === clockS || (strike != null && strike > (a.n ?? -1))); // a later strike of the same attack (strikeGroups)
+    if (!again && clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return;
+    lastHit.set(key, clockS);
+    if (sg) { a.n = strike ?? (again ? a.n + 1 : 0); a.hitT = clockS; } else map.delete(tid);
+    let { names: hitList, split } = sg?.base ? { names: extracted(a.src, sg.base), split: false }   // strikes with shots of their own
+      : a.shot ? { names: extracted(a.src, skillBind(a.src)?.shotHit), split: false } : boundFor(a.src, a.mode, 'hit', a.kind);
+    if (sg) hitList = [...new Set([...hitList, ...extracted(a.src, sg.g[strikeIndex(sg, a.n)])])];
+    const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
+    const hits = withGroup(hitList, c?.group?.hit).slice(0, MAX_HIT_FX);
+    if (hits.length) { hitFx(a.src, tgt, hits, c); return; }
+    if (split || bound(a.src, a.mode, 'input').length) return; // its hits are its input-target effects (inputFx), not a name-mapped one
+    play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
+  }
+  /**
+   * 2026-10-16, decompile check: the per-strike hits of an attack in `mode` (modes.json `hitGroups[mode]`; a skill that
+   * switches no mode, −1: its own skills[i].hitGroups — 阿斯卡纶 S1), or null. The client's MultiHitUberEffectEmitter
+   * (`OnCastOnTarget` RVA 0xCBB0B0) plays group n on the target of the cast's n-th strike (`spellCnt`, 0 at the cast
+   * start), the last group past the end; `loop` n modulo the groups, `rand` a random one (char_modes.py hit_groups). The
+   * sim sends an attack's strikes as one 'atk' and its 'dmg's of the same tick (赤刃明霄陈 S1 / S3, 德克萨斯 S2, 锏 …), each
+   * numbered by its 8th field `strike` (damage.js; without it, an older sim: the i-th of them). Before, only the first
+   * played, and with a name-mapped hit (no mode binding).
+   */
+  function strikeGroups(v, mode, shot = false) {
+    let g = null;
+    if (shot) g = skillBind(v)?.hitGroups;
+    else if (Number.isInteger(mode) && mode >= 0) g = bindOf(v)?.hitGroups?.[mode];
+    else if (mode === -1) { g = skillBind(v)?.hitGroups; if (g?.shots) g = null; } // its strikes' shots are its own shot's (takeShot)
+    return g && Array.isArray(g.g) && g.g.length ? g : null;
+  }
+  const strikeIndex = (sg, n) => (sg.rand ? Math.floor(Math.random() * sg.g.length) : sg.loop ? n % sg.g.length : Math.min(n, sg.g.length - 1));
+  /**
+   * 2026-10-16: a heal shot's hit. The client's heal projectile (赫默 projectile_silent, 莎草 projectile_chr_papyrs …) plays
+   * its `_effectsWhenHit` on the ally it reaches (`Projectile.OnHitTarget`, as a damaging shot's on its enemy) — modes.json
+   * `hit[mode]` of every 医疗 operator; a chain heal's bounces hit each next ally (chainHop). The sim sends no 'dmg' for a
+   * heal: its 'heal' [ally, amount, healer] (damage.js) lands with the shot (ai.js opShot), and the healer's last heal attack
+   * on that ally (healAtk, ≤ 2.5 s) is the one hitting. Before, nothing played on the healed ally.
+   */
+  function healHit(e, views) {
+    const tid = e[1], by = e[3] ?? null;
+    const a = healAtk.get(tid);
+    if (!a || clockS - a.t > 2.5) { if (a) healAtk.delete(tid); return; }
+    if (by != null && ownerOf(a.src) !== by) return; // another unit's heal (a regen, a talent): not that shot's
+    const tgt = views.get(tid);
+    if (tgt) attackHit(a, tgt, tid, healAtk);
   }
   function stepZones(g) {
     for (const [k, rec] of zones) {
@@ -2952,6 +3034,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
           const shot = mode === -1 && takeShot(src); // 2026-10-16: a mode-less skill's own shot
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot });
+          if (tgt && tgt.info?.side !== 'enemy') healAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot }); // healHit
           if (tgt) aimed.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, { t: clockS, mode }); // the chain it may start (chainHop)
           if (aimed.size > 256) for (const [k, x] of aimed) if (clockS - x.t > 2.5) aimed.delete(k);
           if (!noteAtks.has(e)) trailShot(e, src, tgt, mode, shot); // local patch: its projectile's official trail
@@ -2960,6 +3043,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
           // throttle (ATTACK_GAP_S) and load level 3 skip them as before (beginCast)
           strikeFx(src, mode, e[3], tgt);
+          if (tgt && (src._fxSkillOn || level() < 3)) shotStartFx(src, tgt, mode, shot);
           return;
         }
         // (2026-10-10, decompile check): the sim's swing start ['swing', unit, windup, kind] — an attack's
@@ -2978,6 +3062,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (pendingHit(tid, views)) return; // local patch: a skill's damage without an attack
           let a = lastAtk.get(tid);
           if (a && by != null && ownerOf(a.src) !== by) a = null; // another unit's damage: not that attack's hit
+          // an attack with per-strike hits keeps its record for its strikes of the same tick (strikeGroups); a DoT tick is none
+          // (2026-10-16: the sim's 8th field numbers them; one without — a talent's extra hit — is no strike; a numbered one
+          // after the last is a later strike even on a later tick — a 轰击术师's aftershocks 0.3 s apart)
+          const strike = Number.isInteger(e[7]) ? e[7] : null;
+          const later = !!a && a.hitT != null && strike != null && strike > (a.n ?? -1) && clockS - a.t <= 2.5;
+          if (a && a.hitT != null && !later && (a.hitT !== clockS || e[6] === 1 || (e.length >= 8 && e[7] == null))) { if (a.hitT !== clockS) lastAtk.delete(tid); a = null; }
           if (!a || clockS - a.t > 2.5) { if (by != null) eskillHit(tid, by, views); return; } // an enemy ability's hit (2026-10-10)
           const tgt = views.get(tid);
           if (!tgt) return;
@@ -2991,21 +3081,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             elineFx(a.src, a.epart, tgt); // 2026-10-10: the line of the buff it puts on the target (CreateLineEffect)
             return;
           }
-          if (!a.src._fxSkillOn && level() >= 3) return;
           if (fxBundleOf(a.src.info?.spine || a.src.info?.defId) === 'oblvns' && notesOn(a.src, true)) return;   // her notes hit on their own
-          const key = `${a.src.id ?? a.src.info?.id}:${tid}`;
-          if (clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return;
-          lastHit.set(key, clockS);
-          lastAtk.delete(tid); // local patch: one impact per attack (a mark's / DoT's later ticks are no attack's hit; audio.js does the same)
-          // the mode's hit effects (a 要塞's of the attack it made: boundFor); a skill's shot: its projectile's (takeShot)
-          const { names: hitList, split } = a.shot ? { names: extracted(a.src, skillBind(a.src)?.shotHit), split: false } : boundFor(a.src, a.mode, 'hit', a.kind);
-          const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
-          const hits = withGroup(hitList, c?.group?.hit).slice(0, MAX_HIT_FX);
-          if (hits.length) { hitFx(a.src, tgt, hits, c); return; }
-          if (split || bound(a.src, a.mode, 'input').length) return; // its hits are its input-target effects (inputFx), not a name-mapped one
-          play(a.src, a.src._fxSkillOn ? 'skillHit' : 'attackHit', skillIdx(a.src), { at: tgt });
+          attackHit(a, tgt, tid, lastAtk, strike);
           return;
         }
+        // 2026-10-16: a heal shot reaching its ally — the healer's mode hit effects on it (healHit)
+        case 'heal': healHit(e, views); return;
         case 'fx': { // a kit's moving effect: 赤刃明霄陈 S3 剑气 (kits/ops/op-chen3.js) carries her official trail along its path
           if (e[1] === 'palsy' && e[4]?.id != null) { const v = views.get(e[4].id); if (v) cutCast(v); } // 2026-10-11: 麻痹 cut its cast
           if (stoneFx(e, views)) return;
@@ -3161,7 +3242,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     clear() {
       for (const l of live) dropLive(l);
       live.length = 0;
-      lastAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
+      lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); eshotLand.clear();

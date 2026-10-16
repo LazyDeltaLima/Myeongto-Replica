@@ -144,7 +144,7 @@ test('extractors: the root effect component by its shape (any _limitedPlaybackSp
   assert.match(fx, /ap\.add_argument\('--root-only'/);
   const cm = PY('char_modes.py');
   assert.match(cm, /MODE_HIT_KEYS = \('_hitEffects', '_castTargetEffects'\)/);
-  assert.match(cm, /'input', 'hit', 'hitLoop', 'castTgt', 'clipFx'/);
+  assert.match(cm, /'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx'/);
   assert.match(PY('enemy_bindings.py'), /part\['hitBuffLife'\] = life/);
 });
 

@@ -605,7 +605,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
     const split = Number.isFinite(prof.hitDmgMul) && prof.hitDmgMul > 0 ? prof.hitDmgMul : null;
     let dealtMain = 0;
     for (let h = 0; h < hits && target.alive; h++) {
-      const d = { amount: atk * scale * mulT, type: baseType, isAttack: true, isSkill: info.isSkill, tags: prof.tags || [], attackId };
+      const d = { amount: atk * scale * mulT, type: baseType, isAttack: true, isSkill: info.isSkill, tags: prof.tags || [], attackId, strike: h };
       if (split != null) { d.mul = split; if (h > 0) d.noSp = true; }
       dealtMain += b.dealDamage(u, target, d);
     }

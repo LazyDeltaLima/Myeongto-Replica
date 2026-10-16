@@ -915,6 +915,10 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - **'dmg' 이벤트 7번째 = 지속 피해 틱 1 / 아니면 0** (2026-10-11, `server/sim/damage.js dotFlag`, 사용자 제보 「아스카론 S2 지속 피해 소리가 공격 소리」):
   태그 `'dot'`(持续伤害 = 공식 attackType BUFF, 버프 그래프의 피해 노드)인 피해. 소리가 그 틱을 착탄으로 치지 않게 한다(`docs/rules/audio.md` 「지속 피해 틱」).
   이벤트 개수·전투 결과는 그대로(golden 무변화).
+- **'dmg' 이벤트 8번째 = 공격의 타격 번호 / 아니면 null** (2026-10-16, `damage.js makeDamageInfo` `strike`): 여러 번 치는 공격(프로필 `hits`·`hitsFn`,
+  `ai.js resolveHit`)의 0, 1 …번째 타격과 轰击术师 여진(`professions.js` `bombarder`, 1부터). 클라는 시전의 n번째 타격(`spellCnt`)마다 그 타격의
+  명중(`MultiHitUberEffectEmitter`)·투사체(`MultiRangedAttack.GetProjectileKey`)를 고르므로 렌더가 이 번호로 맞춘다(`docs/rules/fx.md` 「타격별 명중」).
+  재능의 추가 피해(伺夜 S3의 법술 피해 등)는 null. 'heal' 넷째 = 치료한 유닛 id(같은 날, `docs/rules/fx.md` 「치료 명중」). 둘 다 필드만 늘어 golden 그대로.
 - **적 스킬 이벤트에 공식 능력 이름**: 콘텐츠의 쿨다운 스킬이 시전되면(`content/enemies.js onTick`) fx `enemySkill` `{ id, ability, n }`을 먼저 내고, 그 시전
   호출 안에서 나는 fx에는 `ability`·`caster`가 붙는다(`battle/events.js fx`; 나중 예약(`battle.after`)된 fx에는 없음). `ability` = gamedata 스킬
   `prefabKey`(`enemies/helpers.js abOf`의 `sk[*].name`; 보스 키트의 수동 능력 객체도 `name`). 렌더(`kinds.js` `enemySkill` 'none' — 그리지 않음)·소리가

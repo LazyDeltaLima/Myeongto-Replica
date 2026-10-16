@@ -114,6 +114,9 @@ export function makeDamageInfo(d = {}) {
     ignoreSelect: !!d.ignoreSelect,
     sourceless: !!d.sourceless,
     attackId: d.attackId ?? 0,
+    // the strike of its attack (0, 1 …: an attack of several hits — profile `hits` / `hitsFn`, ai.js resolveHit), else null:
+    // the 'dmg' event's 8th field — the renderer plays that strike's official hit / shot by it (render/fxgame.js strikeGroups)
+    strike: Number.isInteger(d.strike) ? d.strike : null,
     // 咒愈师 skills whose damage triggers their trait for ONE named ally ("并仅对该角色/干员触发…特性"): the instance
     // carries that ally, and the trait hook (professions.js installIncantation) heals it instead of the lowest-HP ally
     // in range. null = the ordinary target of the trait.
@@ -365,7 +368,7 @@ export function applyHpLoss(battle, source, target, amount, dmg) {
   target.lastHitAt = battle.time;
   if (dmg && !dmg.silent && amount >= 0.5) {
     const shown = dmg.type === 'element' ? dmg.element : dmg.type === 'elemental' ? (dmg.element || 'true') : dmg.type;
-    battle._ev(['dmg', target.id, Math.round(amount), shown, dmg.lpNum || 0, attackerId(source, dmg), dotFlag(dmg)]); // local patch: 5th = number flag (local-hud.js)
+    battle._ev(['dmg', target.id, Math.round(amount), shown, dmg.lpNum || 0, attackerId(source, dmg), dotFlag(dmg), dmg.strike]); // local patch: 5th = number flag (local-hud.js)
   }
   if (battle._hooks.damaged) battle.emit('damaged', { source: hs, target, amount, type: dmg ? dmg.type : 'true', dmg, credit: source });
   if (target.side === 'ally' && target.skill && dmg && !dmg.noSp && dmg.type !== 'element') battle._skills.onDamaged(target);
@@ -448,7 +451,7 @@ export function applyElement(battle, source, target, dmg) {
   let amt = dmg.amount * dmg.mul * elementIntake(target);
   if (!(amt > 0) || !Number.isFinite(amt)) return 0;
   target.elem[el] = Math.min(max, target.elem[el] + amt);
-  battle._ev(['dmg', target.id, Math.round(amt), el, 0, attackerId(source, dmg), dotFlag(dmg)]);
+  battle._ev(['dmg', target.id, Math.round(amt), el, 0, attackerId(source, dmg), dotFlag(dmg), null]);
   if (source) source.stats.elem = (source.stats.elem ?? 0) + amt;
   if (battle._hooks.damaged) battle.emit('damaged', { source, target, amount: amt, type: 'element', dmg });
   if (target.elem[el] >= max && target.alive) elementBurst(battle, source, target, el);
@@ -598,6 +601,7 @@ export function heal(battle, source, target, amount, opts = {}) {
     source.stats.heal += actual;
     if (source.side === 'ally' && source.ownerId != null) { const pp = battle._pp(source.ownerId); if (pp) pp.healingDone += actual; }
   }
-  if (actual >= 0.5 && !opts.silent) battle._ev(['heal', target.id, Math.round(actual)]);
+  // + the healer (null without one): the renderer plays a heal shot's hit effects on its ally by it
+  if (actual >= 0.5 && !opts.silent) battle._ev(['heal', target.id, Math.round(actual), source ? source.id : null]);
   return actual;
 }

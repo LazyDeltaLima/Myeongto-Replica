@@ -315,6 +315,79 @@ class Projectiles:
         return out
 
 
+def hit_groups(d):
+    """2026-10-16, decompile check — a MultiHitUberEffectEmitter's per-strike hits, or None: `MultiHitUberEffectEmitter
+    .OnCastOnTarget` (RVA 0xCBB0B0) plays `_hitGroups[n].effects` on the target of the cast's n-th strike (the ability's
+    `spellCnt`: 0 at the cast start, +1 after each strike — AbilityStandard `_DoCast`), the last group past the end;
+    `_useLoopHitEffect` n modulo the groups, `_useRandomHitEffect` a random group; the emitter's own `_hitEffects` too only
+    with `_keepBaseHitEffect`. { g: [[names] per group], loop?, rand?, keep? }"""
+    groups = d.get('_hitGroups')
+    if not isinstance(groups, list) or not groups:
+        return None
+    g = []
+    for x in groups:
+        names = []
+        add(names, effect_names((x or {}).get('effects') or []) if isinstance(x, dict) else [])
+        g.append(names)
+    if not any(g):
+        return None
+    out = {'g': g}
+    for k, f in (('loop', '_useLoopHitEffect'), ('rand', '_useRandomHitEffect'), ('keep', '_keepBaseHitEffect')):
+        if d.get(f) == 1:
+            out[k] = 1
+    return out
+
+
+def strike_projectiles(d):
+    """2026-10-16, decompile check — the projectile of each strike of a MultiRangedAttack, or None when every strike shoots
+    its `_projectileKey`: `MultiRangedAttack.GetProjectileKey` (RVA 0xBF5730) for strike n (`spellCnt`) of `_additionalTimes`
+    + 1 is `_hookTheLastProjectile` on the last one (when set), else `_additionalProjectiles[n − 1]` (clamped) with
+    `_useMultiAdditionalProjectiles`, else `_additionalProjectile` for n > 0, else `_projectileKey` (伺夜 S3's three arrows
+    projectile_chr_vigil_s3_1 / _2 / _3, 至简 S2's projectile_chr_malist_s1s2 then _s2_2)."""
+    base = d.get('_projectileKey')
+    if not isinstance(base, str) or not base:
+        return None
+    times = int(d.get('_additionalTimes') or 0)
+    multi = [x for x in d.get('_additionalProjectiles') or [] if isinstance(x, str) and x]
+    one, last = d.get('_additionalProjectile') or '', d.get('_hookTheLastProjectile') or ''
+    keys = []
+    for n in range(times + 1):
+        if n == times and last:
+            keys.append(last)
+        elif d.get('_useMultiAdditionalProjectiles') == 1 and multi and n > 0:
+            keys.append(multi[min(n - 1, len(multi) - 1)])
+        elif n > 0 and one:
+            keys.append(one)
+        else:
+            keys.append(base)
+    return keys if any(k != base for k in keys) else None
+
+
+def shot_groups(projectiles, keys, base_hits, d=None):
+    """hitGroups of a MultiRangedAttack's strikes (strike_projectiles): each strike's projectile hits (`g`), trail
+    (`shots`) and effects on the target as it leaves (`starts`: 迷迭香's second shot projectile_chr_rosmon_B
+    rosmon_attack_B_hit_01), `base` = the ability's own hits (on every strike)."""
+    g, shots, starts = [], [], []
+    for k in keys:
+        e = projectiles.effects(k)
+        g.append([x for x in e['hit'] if x not in e['zone']])
+        shots.append([x for x in e['trail'] if x not in e['line']])
+        starts.append([x for x in e['start'] if x not in e['zone']])
+    out = {'g': g, 'base': base_hits, 'shots': shots}
+    if any(starts):
+        out['starts'] = starts
+    # the time between two strikes (`_triggerDelta`, MultiRangedAttack.OnWaitForTriggerDelta)
+    dt = (d or {}).get('_triggerDelta')
+    if isinstance(dt, (int, float)) and dt > 0:
+        out['dt'] = round(float(dt), 4)
+    return out
+
+
+def group_hit_entries(d):
+    """The HitEffectOptions entries of a MultiHitUberEffectEmitter's `_hitGroups` (their loop end / aim, as `_hitEffects`')."""
+    return [c for x in d.get('_hitGroups') or [] if isinstance(x, dict) for c in x.get('effects') or [] if isinstance(c, dict)]
+
+
 def turned(o, out=None):
     """Effect names of the emitter entries that turn to the unit's facing (`_useFourDirectionalFace: 1` — the client turns
     the prefab's 'rotation_z' pivot: 野鬃 S2's thrust is stored pointing up)."""
@@ -387,8 +460,18 @@ def skill_effects(tree, projectiles=None):
         for c in d.get('_castEffects') or []:
             if isinstance(c, dict):
                 add(e['end']['cast'] if end else e['cast'] if c.get('_oneshot', 1) else e['castLoop'], effect_names(c))
+        hg = hit_groups(d)
         for k in HIT_KEYS:
-            add(e['end']['hit'] if end else e['target'], effect_names(d.get(k) or []))
+            if k != '_hitEffects' or not hg or hg.get('keep'):
+                add(e['end']['hit'] if end else e['target'], effect_names(d.get(k) or []))
+        if hg and not end and 'hitGroups' not in e:
+            e['hitGroups'] = hg   # 2026-10-16: the skill's per-strike hits (阿斯卡纶 S1 skchr_ascln_1)
+        sp = strike_projectiles(d) if projectiles and not end else None
+        if sp and 'hitGroups' not in e:
+            own = []
+            for k in HIT_KEYS:
+                add(own, effect_names(d.get(k) or []))
+            e['hitGroups'] = shot_groups(projectiles, sp, own, d)   # its strikes' shots (至简 S2)
         add(e['buff'], own_buff_effects(d, '_buffs'))
         add(e['targetBuff'], own_buff_effects(d, '_activeBuffs'))
         if projectiles and isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
@@ -454,7 +537,7 @@ def modes_of(path, projectiles=None):
     """{ modes, proj, cast, hit, trail } of a charpack (per mode, in `_modes` order), or None:
     modes = the mode GameObject names; proj = the projectile keys under each mode; cast = the effects its attacks cast on
     the attacker; hit = those on the target (the emitters' hit lists + its own projectile's WhenHit / WhenReached); trail =
-    that projectile's main effect (chain: a chain shot's line through its targets, chainHit: 1 when it runs through their hit points, 0 their feet; shotFrom: the MountPointType it leaves from when not MUZZLE; castOpt: each cast effect's
+    that projectile's main effect (hitGroups: the mode's per-strike hits — hit_groups, 2026-10-16; tgtStart: its shot's effects on the target as it leaves; chain: a chain shot's line through its targets, chainHit: 1 when it runs through their hit points, 0 their feet; shotFrom: the MountPointType it leaves from when not MUZZLE; castOpt: each cast effect's
     start / end events — 2026-10-10); attach = the effects of the mode's own (Talents) buffs and the effects its abilities
     attach (`_attachEffects`, an ability's `_effects`), shown on the operator while it lasts. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
     only the first counts."""
@@ -466,8 +549,10 @@ def modes_of(path, projectiles=None):
     mode_paths = [by_pid.get(r.get('m_PathID')) or '' for r in root['_modes']]
     modes = [p.split('/')[-1] if p else '?' for p in mode_paths]
     n = len(modes)
-    proj, cast, hit, trail, attach, chain = ([[] for _ in range(n)] for _ in range(6))
+    proj, cast, hit, trail, attach, chain, tgt_start = ([[] for _ in range(n)] for _ in range(7))
     chain_hit = [None] * n
+    strikes = [None] * n   # 2026-10-16: per mode, its attack's per-strike hits (hit_groups) or shots (strike_projectiles)
+    multi = {}
     turn = []
     dirs = []
     # local patch (maintainer report 2026-10-08: 스펙터 디 언체인드's 替身): `attachFoe` = the part of `attach` from buffs of
@@ -585,12 +670,17 @@ def modes_of(path, projectiles=None):
             for x in c.get('_effects') or []:
                 if isinstance(x, str) and x:
                     cast_opt[i].setdefault(x, opt)
-        for k in MODE_HIT_KEYS:
-            for c in d.get(k) or []:
-                if isinstance(c, dict) and c.get('_oneshot', 1) == 0:
-                    for x in c.get('_effects') or []:
-                        if isinstance(x, str) and x:
-                            hit_loop.setdefault(x, int(c.get('_endEvent', 3)))
+        hg = hit_groups(d)
+        if hg and strikes[i] is None:
+            strikes[i] = hg
+        sp = strike_projectiles(d)
+        if sp and i not in multi:
+            multi[i] = (sp, d)
+        for c in [*(c for k in MODE_HIT_KEYS for c in d.get(k) or []), *group_hit_entries(d)]:
+            if isinstance(c, dict) and c.get('_oneshot', 1) == 0:
+                for x in c.get('_effects') or []:
+                    if isinstance(x, str) and x:
+                        hit_loop.setdefault(x, int(c.get('_endEvent', 3)))
         if isinstance(d.get('_replaceGroup'), list) and d['_replaceGroup'] and clip_fx[i] is None:
             groups = []
             for g in d['_replaceGroup']:
@@ -608,13 +698,18 @@ def modes_of(path, projectiles=None):
             if any(g['cast'] or g['hit'] for g in groups):
                 clip_fx[i] = {'src': d.get('_sourceAnimKey') or '', 'loop': int(d.get('_loopType') or 0), 'groups': groups}
         for k in MODE_HIT_KEYS:
-            add(hit[i], effect_names(d.get(k) or []))
+            # a MultiHitUberEffectEmitter's own `_hitEffects` play only with `_keepBaseHitEffect` (hit_groups)
+            if k != '_hitEffects' or not hg or hg.get('keep'):
+                add(hit[i], effect_names(d.get(k) or []))
             # 2026-10-10, decompile check — client `HitEffectOptions.OnCastOnTarget`, RVA 0xAE54D0: a hit effect
             # whose entry has `_useOwnerToTargetDirection` is turned along the attacker → target line (언더플로우 S2
             # udflow_skill_02_hit_01), the others take the attacker's facing (render/fxgame.js `hitAim`)
             for c in d.get(k) or []:
                 if isinstance(c, dict) and c.get('_useOwnerToTargetDirection') == 1:
                     add(hit_aim, [x for x in c.get('_effects') or [] if isinstance(x, str) and x])
+        for c in group_hit_entries(d):
+            if c.get('_useOwnerToTargetDirection') == 1:
+                add(hit_aim, [x for x in c.get('_effects') or [] if isinstance(x, str) and x])
         # the mode's own buffs (its Talents abilities: 丰川祥子 S3's oblvns_s_3[eff] → the range effect) show their effect on
         # the operator while the mode lasts; buffs an attack puts on its target (_activeBuffs) are not these. So do the
         # buffs of the mode's GeneralAbilities (local patch, maintainer report: 스펙터 디 언체인드 S2's
@@ -646,6 +741,14 @@ def modes_of(path, projectiles=None):
             add(trail[i], e['trail'])
             add(chain[i], e['line'])
             chain_hit[i] = e['lineHit']
+            # 2026-10-16: its `_effectsToTargetWhenStart` — on the target as the shot leaves (client EffectBehaviour, played
+            # at the projectile's start): 银灰's svrash_attack_01_trail, 迷迭香's rosmon_attack_A_hit_01 …
+            add(tgt_start[i], [x for x in e['start'] if x not in e['zone']])
+    if projectiles:
+        for i, (keys, ab) in multi.items():
+            if strikes[i] is None:
+                own = set(x for k in keys for x in projectiles.effects(k)['hit'])
+                strikes[i] = shot_groups(projectiles, keys, [x for x in hit[i] if x not in own], ab)
     shot_from = [shot_mp.get((i, proj[i][0])) if proj[i] else None for i in range(n)]
     res = {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail, 'attach': attach}
     if any(cast_opt):
@@ -654,6 +757,10 @@ def modes_of(path, projectiles=None):
     if any(chain):
         res['chain'] = chain
         res['chainHit'] = [chain_hit[i] if chain[i] else None for i in range(n)]   # 1: the hit points, 0: the feet
+    if any(strikes):
+        res['hitGroups'] = strikes
+    if any(tgt_start):
+        res['tgtStart'] = tgt_start
     if any(inputs):
         res['input'] = inputs
     if hit_loop:
@@ -769,7 +876,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitLoop', 'castTgt', 'clipFx', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

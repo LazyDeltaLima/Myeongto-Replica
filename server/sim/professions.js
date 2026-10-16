@@ -487,13 +487,14 @@ export const SUB = Object.freeze({
   // PRTS 溅射半径一览 (特性): 投掷手 0.9, 扩散术师 1.1 (格雷伊 1.0, TUNE below), 链术师 1.7 jumps; 炮手 1.0 (none in the pool)
   bombarder: P({ splashRadius: 0.9, projectile: 'bomb', groundOnly: true, canHitFly: false,
     afterHit: (battle, unit, target, info) => {
-      // aftershocks: (times − 1) extra hits at append_atk_scale × ATK (default one hit at 50 %)
+      // aftershocks: (times − 1) extra hits at append_atk_scale × ATK (default one hit at 50 %) — strike i of the attack
+      // (the client's MultiRangedAttack `_additionalProjectile`: 迷迭香's projectile_chr_rosmon_after_shock; 'dmg' [7])
       const n = Math.max(1, (unit.profile.shockTimes ?? 2) - 1);
       for (let i = 1; i <= n; i++) {
         battle.after(0.3 * i, () => {
           for (const e of battle.foesInRadius(info.x, info.y, unit.profile.splashRadius || 1, true)) { // splash: 中点判定
             if (e.isFlying) continue;
-            battle.dealDamage(unit, e, { amount: unit.s.atk * (unit.profile.shockScale ?? 0.5), type: 'phys', isSplash: true, tags: ['aftershock'] });
+            battle.dealDamage(unit, e, { amount: unit.s.atk * (unit.profile.shockScale ?? 0.5), type: 'phys', isSplash: true, tags: ['aftershock'], strike: i });
           }
         });
       }

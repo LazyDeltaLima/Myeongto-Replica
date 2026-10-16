@@ -1271,5 +1271,58 @@
   선 4개(전에는 8토막)·S2 4개 점 3개 높이 0, 패신저 S2 6개 점 3개 높이 0, 아스트젠 더 라이트체이서 S1 6개 점 4개(왕복) 높이 1.14(HIT 점), 패신저 S3
   낙뢰 16번에 18개 점 3개 높이 0, 오류 0. 파피루스는 아레나에 치료할 아군이 없어 못 봄. [화면 미확인: 실제 판에서 선 모양·높이·사라지는
   시간, 공식 녹화 대조; 아스트젠 더 라이트체이서 S1·파피루스 선]
-- 안 한 것: 치료 이벤트('heal')에 공식 타격 이펙트를 트는 경로가 없음 — 파피루스는 선만 나오고 치료 대상의 `_effectsWhenHit`는 첫 대상에도
-  없다(모든 메딕 공통, 관리자 노트의 할 일).
+- 치료 대상의 타격 이펙트는 아래 「치료 명중」(2026-10-16 3차).
+
+### 치료 명중 — 치료 투사체가 아군에게 닿을 때 (2026-10-16, 이펙트 연결 전수)
+
+- 원인: 메딕의 치료 투사체(赫默 `projectile_silent`, 莎草 `projectile_chr_papyrs` …)의 `_effectsWhenHit`는 모드 `hit[mode]`로 추출돼 있는데(메딕 13명
+  전원), 시뮬은 치료에 'dmg'를 보내지 않고 'heal' `[아군, 양]`만 보내 렌더가 그 순간을 공격과 이을 길이 없었다 — 치료받는 아군에게 아무것도
+  안 나왔다(연쇄 치료는 선만).
+- 클라: 치료 투사체도 피해 투사체와 같은 `Projectile.OnHitTarget`(RVA 0x67A360)으로 닿은 대상에게 `_effectsWhenHit`를 튼다(위 「연쇄 공격」).
+- 고친 것: 시뮬 'heal'에 넷째 칸으로 치료한 유닛 id(`damage.js heal`, 없으면 null — 필드만 늘어 golden 그대로, docs/SIM.md). `fxgame.js`가
+  오퍼레이터의 아군 대상 'atk'와 연쇄 치료 튕김('chainHeal')을 `healAtk`(아군 → 그 치료 공격)에 두고, 'heal'이 오면 같은 치료자의 2.5 s 안 기록이면
+  그 모드의 명중을 튼다(`healHit` → 피해 명중과 같은 `attackHit`, 공격마다 한 번). 다른 유닛의 치료(재생·재능·장판)는 그 투사체의 명중이 아니다.
+  치료가 0.5 미만이면 시뮬이 'heal'을 안 보내므로 이펙트도 없다 [추정: 공식은 닿으면 양과 관계없이 틀 것 — 메딕은 다친 아군만 노려 드묾].
+- 확인: 단위 `test/render/heal-hit-fx.test.js`(`createFxLayer` `trace`로 트는 이름: 첫 대상·튕긴 대상, 다른 치료자·공격 없는 치료는 없음),
+  `test/sim/op-shot.test.js` 실제 판 경로 'heal'의 치료자. [화면 미확인]
+
+### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 디컴파일 확인)
+
+- 원인: `char_modes.py`가 `_hitGroups`를 읽지 않아 그 이미터만 명중을 가진 모드(锏 일반·S1, 赤刃明霄陈 S1·S3, 德克萨斯 S2, 玛恩纳 S2)와 스킬
+  (阿斯卡纶 S1)은 명중 바인딩이 비어 이름 규칙의 명중을 틀었고, 한 공격의 여러 타격 중 첫 타격만 이펙트가 나왔다(공격마다 한 번).
+- 클라(10-14 덤프): `MultiHitUberEffectEmitter.OnCastOnTarget`(RVA 0xCBB0B0)은 `_keepBaseHitEffect`이면 자기 `_hitEffects`도 틀고, 시전의 n번째
+  타격(`AbilityStandard.spellCnt` — `_DoCast`(0x391FAE0)가 시전 시작에 0, 타격마다 +1)에 `_hitGroups[n].effects`를 그 대상에게 튼다; 범위를 넘으면
+  마지막 그룹(`TrySafeGet` 실패 → `Last`), `_useLoopHitEffect`이면 n % 그룹 수, `_useRandomHitEffect`이면 무작위. 값(EN charpack·`[uc]skills.ab`):
+  锏 Default·S1 [`blkkgt_attack_hit_1`, `_hit_2`](`_oneshot` 0 — 시전 끝까지), 赤刃明霄陈 S1 [`_skill_01_hit_01`, `_02`]·S3 [`_hit_01`~`_03`] 순환·
+  S2(`skchr_chen3_2`) [`_hit_01`~`_06`] 순환, 德克萨斯 S2 [`_skill_02_hit`, `_hit_02`], 玛恩纳 S2 [`_skill_02_hit_01`], 阿斯卡纶 S1 [`_skill_01_hit_01`,
+  `_02`], 锏 S1 스킬 프리팹 [`_skill_01_hit_01`, `_02`]. `_keepBaseHitEffect`·`_useRandomHitEffect`는 이 풀에 없음.
+- 고친 것: `char_modes.py hit_groups` → 모드별 `hitGroups[mode]`·스킬 `skills[i].hitGroups` = `{ g: [그룹마다 이름], loop?, rand?, keep? }`, 그룹 항목의
+  `_oneshot` 0·`_useOwnerToTargetDirection`은 `hitLoop`·`hitAim`에도(전체 재추출 diff: 이 값들 + 锏 `hitLoop` 둘만). 시뮬은 한 공격의 타격을 'atk'
+  하나 + 같은 틱의 'dmg' 여럿으로 보낸다(디버그 아레나로 확인: 锏·赤刃明霄陈 S1·德克萨斯 S2·阿斯卡纶 S1 2개, 赤刃明霄陈 S3 3개) — 각 'dmg'의 8번째 칸이
+  타격 번호(`docs/rules/sim.md` 「'dmg' 이벤트 8번째」). `fxgame.js strikeGroups`: 번호 i의 'dmg'가 타격 i(번호 없는 옛 시뮬이면 같은 틱의 i번째), 같은
+  틱의 번호 없는 'dmg'(재능 추가 피해)·DoT 틱은 타격 아님, 마지막 번호보다 큰 번호는 다음 틱이어도(轰击术师 여진 0.3 s) 그 공격의 타격, 기록은 그 밖에서
+  지움. 모드가 없는 스킬(−1)은 그 스킬의 그룹. 锏 S1 스킬 프리팹의 그룹은 S1 모드가 있어 안 씀 [추정: 스킬 프리팹 능력의 따로 도는 타격].
+  赤刃明霄陈 S2의 剑气 타격은 키트 'swordStorm'이 그대로 그림. [추정: 시뮬은 타격들을 한 틱에 보내 이펙트가 동시에 나옴 — 공식은 클립의 타격 시점마다.]
+- 확인: 단위 `test/render/strike-groups-fx.test.js`(추출값, 锏 셋째 타격 = 마지막 그룹·다음 틱 DoT 없음·번호 없는 피해 건너뜀, 赤刃明霄陈 S3 순환,
+  阿斯卡纶 일반·S1), `test/sim/official-event-fields.test.js` 「'dmg' [7]」. [화면 미확인]
+
+### 타격별 투사체·쏠 때 대상 이펙트 — MultiRangedAttack·`_effectsToTargetWhenStart` (2026-10-16, 이펙트 연결 전수, 디컴파일 확인)
+
+- 원인 둘: ① `char_modes.py`가 모드의 투사체는 첫 키(`proj[i][0]`)의 꼬리·명중만 읽어, 한 공격의 뒤 타격이 쏘는 다른 투사체(伺夜 S3 둘째·셋째 화살
+  `vigil_skill_03_trail_02`/`_03`·`_hit_2`/`_3`, 至简 S2 `malist_skill_hit_2`, 迷迭香 여진)가 안 나왔다. ② 투사체의 `_effectsToTargetWhenStart`(쏠 때
+  대상에게)를 스킬에서만 읽어 모드 공격에는 없었다 — 银灰 `svrash_attack_01_trail`, 迷迭香 `rosmon_attack_A_hit_01`·S3 `rosmon_skill_03_B_hit_01`(+`_stone`),
+  溯光星源 S3 `halo2_skill_03_trail_01`; 迷迭香 S2 `rosmon_skill_02_range`는 이름 규칙(`_range`)이 스킬 내내 그녀에게 틀었다.
+- 클라(10-14 덤프): `MultiRangedAttack.GetProjectileKey`(RVA 0xBF5730) — 타격 n(`spellCnt`, `_additionalTimes` + 1번)의 투사체 = 마지막 타격이면
+  `_hookTheLastProjectile`(있으면), 아니면 `_useMultiAdditionalProjectiles`일 때 `_additionalProjectiles[n − 1]`(끝에서 고정), 아니면 n > 0에
+  `_additionalProjectile`, 그 밖은 `_projectileKey`. 값: 伺夜 S3 `projectile_chr_vigil_s3_1`/`_2`/`_3`, 至简 S2 `projectile_chr_malist_s1s2` → `_s2_2`, 迷迭香
+  일반·S1·S3 본탄 → `projectile_chr_rosmon_after_shock`, S2 본탄 → `_s2_after_shock` ×3, 新约能天使 S1 모드 8발, 跃跃 S2 부메랑 2, 缇缇 S2 3, 丰川祥子
+  S1 음표 8(음표는 `noteFx`가 이미 `trail_0N`으로 그림).
+- 고친 것: `char_modes.py strike_projectiles`/`shot_groups` → 모드 `hitGroups[mode]`·스킬 `skills[i].hitGroups`에 `{ g: 타격별 투사체 명중, shots: 타격별
+  꼬리, starts?: 타격별 쏠 때 대상 이펙트, base: 능력 자신의 명중 }`(이미터 `_hitGroups`가 있으면 그것); 모드 `tgtStart[mode]` = 첫 투사체의
+  `_effectsToTargetWhenStart`(전체 재추출 diff: 이 키들만). `fxgame.js`: 'atk'에 `shotStartFx`(타격별 `starts`가 있으면 그 전부, 없으면 `tgtStart`)를 대상에,
+  `trailShot`이 뒤 타격의 꼬리도 함께 날림 [추정: 시뮬은 타격들이 한 번에 닿음 — 공식은 `_triggerDelta` 간격, 跃跃 부메랑은 `caperSecond` 그대로],
+  명중은 타격 번호의 투사체 명중 + `base`. 모드 없는 스킬의 첫 공격(`takeShot`)은 스킬 꼬리가 없어도 타격별 투사체가 있으면 그 스킬의 것(迷迭香 S1).
+  `activationEffects`는 `tgtStart`를 시전자 이펙트에서 뺌. 시뮬: 轰击术师 여진 피해에 타격 번호(`strike: i`).
+- 안 한 것: 迷迭香 `Attack_A`/`Attack_B`(같은 모드의 대안 공격 — 기록은 A, 고르는 방식 미확인)·`projectile_chr_rosmon_B`의 `rosmon_attack_B_hit_01`.
+  [추정: 뒤 타격 꼬리를 첫 꼬리와 같은 자리·시각에 날림.]
+- 확인: 단위 `test/render/strike-shots-fx.test.js`(추출값, 迷迭香 쏠 때 이펙트·여진 0.3 s 뒤 명중, 伺夜 S3 화살마다 명중, 银灰). [화면 미확인]
