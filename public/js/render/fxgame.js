@@ -2373,7 +2373,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (rec.onProj && dt > 1e-3) { rec.vx = (x - rec.sx) / dt; rec.vy = (y - rec.sy) / dt; rec.at.x = x; rec.at.y = y; }
       rec.sx = x; rec.sy = y; rec.st = clockS; rec.until = until;
       for (const l of rec.list) {
-        l.until = until;
+        zoneEnd(l, until, !rec.aura.has(l));
         if (rec.aura.has(l) && rec.r0 > 0 && r > 0) l.inst.object.scale.setScalar(r / rec.r0);
       }
       return true;
@@ -2386,11 +2386,23 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       spawn(bundle, n, at, { owner: null, buff: false, until }, { over: false }).then((l) => {
         if (!l) return;
         nrec.list.push(l);
-        l.until = nrec.until;
         if (aura.includes(n)) nrec.aura.add(l);
+        zoneEnd(l, nrec.until, !nrec.aura.has(l));
       });
     }
     return true;
+  }
+  /**
+   * A zone effect's end at `until`. A reach effect (`fx`) is finished as the client's `EffectBehaviour.OnProjectileStop`
+   * does (10-14 dump RVA 0xA6EDB0 → `Effect.FinishMe`): gone its prefab's `_delayToFinish` later (def.finish; none: at
+   * once) — 2026-10-17 (maintainer report 「패신저 S3 이펙트가 스킬이 끝났는데도 안 사라짐」): stopped, pasngr_skill_03_range's
+   * cloud (a 50 s particle) kept the whole field on the board for 46 s more. The aura stops emitting at `until`, as before.
+   */
+  function zoneEnd(l, until, finish) {
+    l.until = until;
+    if (!finish) return;
+    const fin = Number(l.inst.def?.finish);
+    l.finishAt = until + (fin > 0 ? fin : 0);
   }
   // ---- a storm's chain strikes (2026-10-16, 异客 S3) -------------------------------------------------------------
   // modes.json skills[i].chain (char_modes.py): projectile_chr_pasngr_s3's chain graphic plays its `_specialHitEffect`

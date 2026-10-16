@@ -1105,6 +1105,13 @@
 - 확인: 단위 `test/render/fx-cast-timing.test.js` 「패신저 S3」, `test/content/kits_t6.test.js` 「异客: S3 storm」(i·from). Windows Chrome 디버그
   아레나(샌드백 1·2개, 지금 발동): 13칸 마름모 장판 `pasngr_skill_03_range`, 낙뢰 8번 `pasngr_skill_03_hit`, 두 샌드백 사이 `pasngr_attack_line`,
   오류 0. 한 줄 고침 뒤(아래 「연쇄 공격」 확인 줄) 낙뢰 16번에 선 18개, 점 3개·높이 0. [화면 미확인: 실제 판·공식 녹화 대조(장판 크기, 선 높이)]
+- 장판 끝 (2026-10-17, 관리자 제보 「패신저 S3 이펙트가 스킬이 끝났는데도 안 사라짐」): 폭풍 4초가 끝나면 `zoneFx`가 장판을 방출만 멈춰,
+  `pasngr_skill_03_range`의 먹구름 `wuyun`(수명 50 s 입자 하나)이 살아 있는 동안 장판 전체(테두리 메시 포함)가 46초 더 남았다. 클라
+  `EffectBehaviour.OnProjectileStop`(10-14 덤프 RVA 0xA6EDB0)은 `_effectsWhenReached`에 `Effect.FinishMe` — 프리팹의 `_delayToFinish`
+  뒤(없으면 바로) 회수. 고친 것: `zoneEnd` — 장판(`zone.fx`)은 끝 시각 + `finish`에 바로 지움(`finishAt`); 쏜즈 더 로드스타·글래디아 등 같은
+  길의 장판도 같다. 오라(`zone.aura`, `ScalableAuraHitBehaviour.OnProjectileStop` 0xA84170)도 `FinishMe`지만 `AuraProjectileSetAnimatorTrigger`가
+  있으면 애니메이터 트리거로 끝나 이번에는 그대로(방출만 멈춤). 확인: `test/render/fx-cast-timing.test.js` 「패신저 S3」, Windows Chrome 디버그
+  아레나(샌드백 3개, 지금 발동, 매초 살아 있는 FxInstance): 옛 코드 시전 14초 뒤에도 `_range` 1, 고친 뒤 폭풍 끝(약 4초)에 0, 오류 0.
 
 ### 모드 없는 스킬의 투사체 꼬리 — 스킬 자체 투사체·Default 꼬리 (2026-10-16, 이펙트 연결 전수)
 
