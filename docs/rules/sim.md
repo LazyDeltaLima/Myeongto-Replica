@@ -922,6 +922,41 @@ RVA는 EN 판). 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 �
 - 테스트 `test/sim/official-event-fields.test.js`(`shoot` 포함), `enemies_bosses.test.js`의 黑云·凋零骑士·陷落雪祀·杰斯顿·碎铳之簧·管·弦 시각을 비행 시간만큼 늦춤. 투사체 속도로 적 원거리 피해 시각이 바뀌어 golden이 움직인다(roster 44·bonds 6·fields 20·matches 6·
   standins 5·diy 2 사례), `enemies_bosses.test.js`의 重弩突袭者·集团军重型火炮 시각을 공식 속도로 고침.
 
+## 오퍼레이터 투사체 (관리자 결정 2026-10-16 「클라 값대로」 — 일반 공격 전부·치료·드론·스킬 모드)
+근거: EN 클라 2026-10-14 판 charpack `Modes/<모드>/Body/Attack`(치료 `Body/Heal`, 요새 `Body/Attack/RangedAttack`, 荒芜拉普兰德 `Body/M0FunnelsNormalAttack`)의
+`_projectileKey`, 투사체 `battle/prefabs/[uc]projectiles.ab`의 이동 behaviour(위 「적 투사체」와 같은 판독). 이전에는 종류별 공통값(`PROJECTILE_SPEEDS`: arrow 14·
+bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
+- **데이터**: `tools/local-extract/op_projectiles.py` → `tools/assets/local-op-projectiles.json`(커밋) → `tools/build-data.mjs opShot` → `data/chess.json`·
+  `backups.json` `shot` { base, skills }(`attackAnim`과 같은 모드 색인, 형식은 `docs/DATA.md` §2). 공격 능력에 투사체가 없으면 키 없는 `{ move: 'NONE', speed: 0 }`,
+  모드의 저지 공격(`Body/Combat`, 요새 `BlockedMeleeAttack`)에 투사체가 없으면 `combat: 1`. 144명 읽음(EN 클라에 없는 予愿安洁莉娜·克莱门莎 빼고).
+- **시뮬** (`server/sim/ai.js opShot`): 지금 공격하는 모드의 shot — 스킬이 켜져 있고 그 스킬에 모드가 있으면 그것, 아니면 Default(`attackClipOf`와 같은 선택).
+  `speed` > 0이면 그 속도로 추적(PARACURVE는 수평 거리 ÷ 속도 — 위 「비행 시간」), 0이면 타격 순간(AttachToTarget은 `_delayToStart` 뒤). 저지 중인 적은
+  `combat`이면 타격 순간. 데이터에 없는 유닛(토큰·장치·테스트 데이터)과 이동 behaviour를 못 읽은 투사체(`move` OTHER — 丰川祥子 음표 `projectile_chr_oblvns_*`,
+  安洁莉娜 S2 `projectile_aglina_s2`: 루트에 이동 기본 클래스 필드 `_rotateToTarget`만 있음)는 예전 종류별 값. 'atk' kind(arrow·bolt …)는 그대로 — 렌더·소리 경로는 안 바뀐다.
+- **모드 없는 스킬**: 자기 모드가 없고 표 지속 시간도 없는 스킬(다음 공격·탄약 — 能天使 S1 `projectile_angel` 30, 号角 S1, 锡人 S1·S2 PARACURVE 3 …)은
+  스킬 프리팹(`[uc]skills.ab` `<prefabId>/…`)이 쏘는 가장 얕은 `_projectileKey`(End… 능력 빼고)를 그 공격에 쓴다 — 렌더의 스킬 꼬리(rules/fx.md 「모드 없는 스킬의
+  투사체 꼬리」)와 같은 규칙. 지속 스킬의 스킬 투사체는 따로 도는 능력이라 안 쓴다. 공격 능력을 못 읽은 스킬 모드(灵知 S2)는 OTHER(예전 값).
+- **스킬 모드 이름**: `shared/skill-modes.js skillModeIndex`가 대소문자를 무시한다 — 凯尔希·思衡托의 프리팹 모드가 `default`·`s1`·`s2`·`s3`라 지금까지 스킬이 모드에
+  안 이어졌다. 이제 S2 의료 유닛이 `projectile_chr_kalts2_s2_dmg`(PARACURVE 12, 예전 orb 10 [ASSUMED])로 날고, S2·S3 공격 클립도 공식 모드의 것(`Skill_2_Attack`·
+  `Skill_3_Attack`, `attackAnim`)이 된다(스킬 모드 이펙트·효과음 바인딩도 같은 함수). 다른 오퍼레이터는 해당 없음(소문자 모드는 그녀와 예비 오퍼레이터 Pith `char_612_accast`뿐,
+  후자는 클립이 같아 동작 그대로).
+- **치료**: 치료 모드의 shot이 날면(赫默 PARACURVE 5, 哈洛德·纯烬艾雅法拉 PARACURVE 7, 流明 PARACURVE 8, 莎草·录武官 TRACE 10) 닿을 때 회복, 그사이 대상이
+  쓰러지면 회복 없음. 투사체 없는 치료(白面鸮·华法琳·调香师·瑰盐)는 예전처럼 즉시. 연쇄 치료의 튕김은 예전처럼 즉시 [추정]. 닿을 때의 처리는 공격 순간의 상태를
+  따른다: 스킬의 `onHit`은 공격 때 스킬이 켜져 있었으면 부르고(`ai.js doHeal` `skillOn` — 流明 S1 沐雨의 비가 다음 치료 스킬이 끝난 뒤 닿아도 생김), 치료에
+  `opts.isSkill`(스킬 프로필의 치료)을 실어 莎草 博览古卷 보호막의 스킬 배율이 붙는다. 流明 S3는 닿을 때 대상이 아직 이상 상태면 해제(공격의 플래그는 그때 이미 지워짐).
+- **바뀐 값** (기본 모드, 3칸 기준): 투사체 없음 → 즉시 — 能天使(Default)·夕·莫斯提马·寒檀·莱恩哈特·雷蛇·送葬人·松果, 银灰 `projectile_svrash` NONE, 迷迭香
+  `projectile_chr_rosmon_A` ATTACH; 대부분의 저격·근거리 원거리 14 → 10(隐现·空弦·雪猎·拉普兰德·断崖·仇白·崖心·歌蕾蒂娅·伺夜 …), 캐스터 11 → 10; 빠름: 深靛·格雷伊
+  20, 新约能天使 30, 惊蛰·异客 15, 寒芒克洛丝 18, 蕾缪安 12; 느림: 初雪·巫恋 6, 灵知 9, PARACURVE 流星 6·缪尔赛思 7·锡人·号角·灰毫 5. 메카 캐스터는 본체 투사체
+  (洛洛·至简·耶拉·荒芜拉普兰德 10). 전체 대조 표·측정 도구는 관리자 메모(오퍼레이터 투사체 속도 대조).
+- **렌더** (`render/fx/speeds.js opProjSpeed`, `fx/projectiles.js shotSpeedOf`): 같은 shot으로 절차 투사체·공식 꼬리(`fxgame.js trailShot`)의 비행 시간을 맞추고,
+  날지 않는 shot은 그리지 않는다. 모드는 렌더의 `_fxSkillOn`·`skillIndex`, 저지 대상은 「저지된 적이 1.2칸 안」으로 짐작 [추정]. `FxSystem`에 `lookupDef`를
+  넘김(`render/app.js`) — 2026-10-10부터 있던 절차 적 오브의 공식 속도(`enemyProjSpeed`)도 그동안 기록을 못 읽어 10으로 그려졌다. 화면 확인(2026-10-16, Windows
+  Chrome 디버그 아레나, 샌드백 3칸): 隐现 절차 0.297 s·공식 꼬리 ≈ 0.29 s, 能天使 투사체 없음, 流星 0.50 s, 深靛 0.15 s, 오류 0. 실제 판 [화면 미확인].
+- [추정] 로즈몬티스 S2·산탈라 S2의 AttachToTarget은 `_immediatelyReach` 0(닿는 시점이 다른 신호)인데 즉시로 둔다. 시뮬 틱(1/30 s) 때문에 비행은 한 틱 일찍 닿을 수 있다
+  (적 투사체와 같음).
+- 안 한 것: 蒂比(스카이레인저)는 시뮬이 근접(투사체 없음)으로 다뤄 클라 TRACE 10이 안 들어감. 키트가 직접 쏘는 투사체(스킬 'strike' 등)는 키트 값 그대로.
+- 테스트 `test/sim/op-shot.test.js`(데이터·비행 시간·저지·렌더 짝·실제 판 경로의 치료 지연). 원거리 오퍼레이터 피해 시각이 바뀌어 golden이 움직인다.
+
 ## 작전 시작 차례 배치 (2026-10-10, 관리자 결정 「공식처럼 한 개씩, 部署 대사는 한 번」)
 - 근거(클라 코드, 오디오 담당이 찾음 — `audio.md` 「전투 시작」): `MainGameInBattle._StartBattle`이 먼저 `_Prebuilt`를 끝까지 돌린다 — 말 하나마다
   `Deck.SpawnCharacterOrToken` 뒤 `WaitForFixedSeconds(0.2)`(.rdata 상수). 그 **뒤에** ON_BATTLE_STARTED(1211)를 쏘고 웨이브 스케줄러

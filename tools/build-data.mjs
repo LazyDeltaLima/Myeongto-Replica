@@ -396,6 +396,7 @@ async function loadContext() {
     manifest: await loadManifest(),
     attackTiming: await loadLocalJson('tools/assets/local-attack-timing.json', 'attack timings (tools/local-extract/attack_timing.py): no `_maxAnimScale` …'),
     charModes: await loadLocalJson('tools/assets/local-char-modes.json', 'operator modes (tools/local-extract/char_modes.py)'),
+    opProjectiles: await loadLocalJson('tools/assets/local-op-projectiles.json', 'operator projectiles (tools/local-extract/op_projectiles.py): no `shot` …'),
     enemyProjectiles: await loadLocalJson('tools/assets/local-enemy-projectiles.json', 'enemy projectiles (tools/local-extract/enemy_projectiles.py): no `proj` …'),
     skillCast: await loadLocalJson('tools/assets/local-skill-cast.json', 'skill classes (tools/local-extract/skill_cast.py): no skill `cast` …'),
     skillHud: await loadLocalJson('tools/assets/local-skill-hud.json', 'skill HUD rows (tools/local-extract/skill_hud.py): no skill `bulletMode` …'),
@@ -917,7 +918,7 @@ function buildChess(ctx) {
       stats: null, immunities: null, rangeId: null, rangeGrid: null,
       dmgType: null, attackKind: null, projectile: null, canHitFly: false, targetPriority: null,
       trait: null, skill: null, talents: [], tokens: [], module: null,
-      assets: null, attackAnim: null,
+      assets: null, attackAnim: null, shot: null,
     };
     if (isDiy) {
       rec.name = '甄选干员';
@@ -1117,6 +1118,8 @@ function buildChess(ctx) {
     };
     // the attack clip of each attack mode and its timing (opAttackAnim; server/sim/ai.js attackTiming)
     rec.attackAnim = opAttackAnim(ctx, shop.charId, (char.skills || []).length);
+    // the official projectile of each attack mode's normal attack (opShot; server/sim/ai.js opShot)
+    rec.shot = opShot(ctx, shop.charId, char.skills || []);
     out[chessId] = rec;
   }
 
@@ -1165,6 +1168,7 @@ function buildUnitHead(ctx, charId) {
     },
     moduleNames,
     attackAnim: opAttackAnim(ctx, charId, (char.skills || []).length),
+    shot: opShot(ctx, charId, char.skills || []),
   };
 }
 
@@ -2477,6 +2481,50 @@ function opAttackAnim(ctx, charId, skillCount) {
     const m = skillModeIndex(t.modes, i, skillMode);
     const ab = m > 0 ? t.attack?.[m] : null;
     skills.push(ab ? clipOf(ab, sp.anims?.skills?.[String(i)]?.loop ?? sp.anims?.skill?.loop) : null);
+  }
+  return base || skills.some(Boolean) ? { base, skills } : null;
+}
+
+/**
+ * The official projectile of an operator's normal attack, per attack mode (tools/assets/local-op-projectiles.json,
+ * tools/local-extract/op_projectiles.py) → chess.json / backups.json `shot` { base, skills } (indexed as `attackAnim`:
+ * `base` its Default mode, `skills[i]` the mode skill i switches to — shared/skill-modes.js skillModeIndex — null when the
+ * skill keeps the Default one; `{ move: 'OTHER', speed: 0 }` when its mode has no attack ability read; a skill without
+ * a mode and without table duration takes its prefab's own shot — its next attack / bullets fire it). A shot = `{ key, mount, move, speed, … }` (the
+ * projectile prefab, the model point, its movement as data/enemies.json `proj`), or `{ move: 'NONE', speed: 0 }` without
+ * a key when the attack has no projectile (its hit lands at the strike); `combat: 1` = the mode attacks the enemies it
+ * blocks with a blocked ability that has none (拉普兰德's `Body/Combat`). server/sim/ai.js opShot times the hit by it,
+ * render/fx/speeds.js opProjSpeed draws it over the same time. null when the operator was not read.
+ */
+function opShot(ctx, charId, charSkills) {
+  const src = ctx.opProjectiles;
+  const t = src?.ops?.[charId];
+  if (!t || !Array.isArray(t.attack)) return null;
+  const none = new Set(t.none || []);
+  const rec = (m) => {
+    if (!Number.isInteger(m) || m < 0 || m >= t.attack.length) return null;
+    // a mode whose attack ability was not read (a skill that attacks through its kit: 灵知 S2): not the Default's shot
+    if (none.has(m)) return m > 0 ? { move: 'OTHER', speed: 0 } : null;
+    const a = t.attack[m];
+    const out = a && typeof a.key === 'string'
+      ? { key: a.key, ...(a.mount ? { mount: a.mount } : {}), ...(src.projectiles?.[a.key] || { move: 'NONE', speed: 0 }) }
+      : { move: 'NONE', speed: 0 };
+    return t.combat?.[m] ? { ...out, combat: 1 } : out;
+  };
+  // a skill's own shot (`skills[prefabId]`: its prefab's ability fires it) for a skill with no mode and no table duration —
+  // its next attack / its bullets (维什戴尔 S1, 号角 S1); a timed skill's projectile is an ability of its own
+  const ownShot = (sk) => {
+    const lv = ctx.skillTable?.[sk?.skillId]?.levels?.at?.(-1);
+    const a = src.skills?.[lv?.prefabId ?? sk?.skillId];
+    if (!a || typeof a.key !== 'string' || !(Number(lv?.duration) <= 0)) return null;
+    return { key: a.key, ...(a.mount ? { mount: a.mount } : {}), ...(src.projectiles?.[a.key] || { move: 'NONE', speed: 0 }) };
+  };
+  const base = rec(0);
+  const skillMode = ctx.charModes?.[charId]?.skillMode ?? null;
+  const skills = [];
+  for (let i = 0; i < charSkills.length; i++) {
+    const m = skillModeIndex(t.modes, i, skillMode);
+    skills.push(m > 0 ? rec(m) : ownShot(charSkills[i]));
   }
   return base || skills.some(Boolean) ? { base, skills } : null;
 }

@@ -50,7 +50,8 @@ export const STEALTH_RESTORE = 3;
 /** Default projectile speed in tiles/s for ranged operators/enemies. */
 export const PROJECTILE_SPEED = 12;
 /**
- * Projectile speeds per visual kind (tiles/s). `none`/`beam` are instant. `boomerang` (回环射手 跃跃) is the OUTBOUND
+ * Projectile speeds per visual kind (tiles/s): an operator's shot the extract does not know (ai.js opShot — data/chess.json
+ * `shot` gives the official one), a token's, a device's, an enemy's not read (`enemy`). `none`/`beam` are instant. `boomerang` (回环射手 跃跃) is the OUTBOUND
  * flight to the target — PRTS 跃跃 特性 note "投射物飞行速度15，返回时飞行速度3.75"; the way back is
  * BOOMERANG_RETURN_SPEED (ai.js throwBoomerang). `droneBomb` = 暴鸰's bomb (the official projectile_bombd `_speed` 5;
  * content/enemies/fly.js kitBombd).

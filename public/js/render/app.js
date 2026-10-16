@@ -236,7 +236,7 @@ export async function createFieldView(host, options = {}) {
     try { app.destroy(true, { children: true, texture: false, baseTexture: false }); }
     finally { canvas.remove(); }
   });
-  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null), grid: () => tiles.grid, enemyDef: (id) => data.enemy(id), audio: () => opts.audio || null, standIn: (k, x, y, ex) => fx.simFx(k, x, y, ex) }); // local patch; 2026-10-10: audio.enemyMode, staggered stand-ins
+  const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null), grid: () => tiles.grid, enemyDef: (id) => data.enemy(id), unitDef: (info) => ctx.lookupDef(info), audio: () => opts.audio || null, standIn: (k, x, y, ex) => fx.simFx(k, x, y, ex) }); // local patch; 2026-10-10: audio.enemyMode, staggered stand-ins
   setupCleanup.push(() => fxGame.destroy());
   canvas.style.display = 'block';
   canvas.style.width = '100%';
@@ -389,6 +389,9 @@ export async function createFieldView(host, options = {}) {
     // on every screen — 2.6× too big on a 412 px high phone
     viewport: ctx.viewport,
     fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null),
+    // a unit's data record (2026-10-16: the shots' official speeds — fx/projectiles.js enemyProjSpeed / shotSpeedOf; the
+    // enemy one, there since 2026-10-10, had no record to read until then)
+    lookupDef: (info) => ctx.lookupDef(info),
     subProfOf: (defId, info = null) => ((info && info.standInFor && data.standIn(defId)) || (info && info.diy && data.diy(defId, info.diy)) || data.chess(defId))?.subProfessionId || null,
     view: (id) => views.get(id) || null,
     screenSize: size,

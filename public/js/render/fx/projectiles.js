@@ -4,7 +4,8 @@
 import { PROJ } from '../style.js';
 import { SHOT_HEIGHT, bodyZ, feetZ } from './camera.js';
 import { clamp } from './limits.js';
-import { projSpeed, enemyProjSpeed } from './speeds.js';
+import { projSpeed, enemyProjSpeed, opProjSpeed } from './speeds.js';
+import { UF } from '../../../../shared/constants.js';
 import { boomerangThrown, boomerangCaught } from '../boomerang.js'; // local patch: the 回环射手's held boomerang
 
 const MAX_PROJ = 260;
@@ -23,6 +24,17 @@ const SHELL_RISE = 0.34, SHELL_UP = 5.5;
 
 /** 蕾缪安 S3 shell (fx 'bombardShell'); `look` 'mortar' is its own flight (_stepMortar). */
 const BOMBARD_SHELL = Object.freeze({ look: 'mortar', tint: 0xfff2d8, glow: 0xff9c33, trail: 0xffb35c, smoke: 0x3a3430, len: 1.3, width: 0.3, head: 0.56 });
+
+/**
+ * 2026-10-16: the speed of operator view `src`'s shot at `tgt` the sim flies (render/fx/speeds.js opProjSpeed: its
+ * data/chess.json `shot` of the mode it attacks in, render/fxgame.js keeping `_fxSkillOn`), 0 = no flight, null = not read.
+ */
+export function shotSpeedOf(ctx, src, tgt, dist) {
+  let def;
+  try { def = ctx?.lookupDef?.(src.info) ?? null; } catch { def = null; }
+  const blockedNear = !!(tgt && tgt.isEnemy && (tgt.flags & UF.BLOCKED) && dist <= 1.2);
+  return opProjSpeed(def, { skillOn: !!src._fxSkillOn, skillIndex: src.info?.skillIndex, blockedNear });
+}
 
 export class FxProjectiles {
   // ---- helpers ------------------------------------------------------------------------------------------
@@ -64,10 +76,19 @@ export class FxProjectiles {
       if (kind === 'none' || !kind) this._slashAt = src.id;
       return;
     }
-    const pr = this._takeProj();
-    const cam = this.ctx.cam();
     const dx = tgt.x - src.x, dy = tgt.y - src.y;
     const dist = Math.hypot(dx, dy);
+    // 2026-10-10: an enemy's shot at its official speed (data/enemies.json `proj`, the sim's flight time); 2026-10-16: an
+    // operator's at its mode's (data/chess.json `shot`) — none drawn when the sim lands it at the strike (no projectile)
+    let speed = projSpeed(kind);
+    if (kind === 'enemy' && src.isEnemy) { try { speed = enemyProjSpeed(this.ctx.lookupDef?.(src.info), src.info?.form) || speed; } catch { /* keep */ } }
+    else if (!src.isEnemy && kind !== 'boomerang') {
+      const v = shotSpeedOf(this.ctx, src, tgt, dist);
+      if (v === 0) return;
+      if (v) speed = v;
+    }
+    const pr = this._takeProj();
+    const cam = this.ctx.cam();
     const ux = dist > 1e-6 ? dx / dist : (src.facing || 1) >= 0 ? 1 : -1, uy = dist > 1e-6 ? dy / dist : 0;
     const hand = Math.min(0.28, dist * 0.3);   // the weapon is in front of the body
     const look = spec.look;
@@ -75,9 +96,6 @@ export class FxProjectiles {
     pr.x0 = src.x + ux * hand; pr.y0 = src.y + uy * hand; pr.z0 = bodyZ(cam, src, SHOT_HEIGHT.launch);
     pr.tx = tgt.x; pr.ty = tgt.y; pr.tz = look === 'shell' ? feetZ(tgt) : bodyZ(cam, tgt, SHOT_HEIGHT.aim);
     pr.t = 0; pr.fade = 0; pr.hit = false; pr.emit = Math.random(); pr.ang = Math.atan2(-uy, ux);   // ≈ on screen (rows run up)
-    // 2026-10-10: an enemy's shot at its official speed (data/enemies.json `proj`, the sim's flight time)
-    let speed = projSpeed(kind);
-    if (kind === 'enemy' && src.isEnemy) { try { speed = enemyProjSpeed(this.ctx.lookupDef?.(src.info), src.info?.form) || speed; } catch { /* keep */ } }
     pr.dur = clamp(dist / speed / this._ts(), 0.04, 1.5);
     pr.arc = spec.arc ? spec.arc * clamp(0.45 + dist * 0.18, 0.6, 1.8) : 0;
     pr.glow = spec.glow;

@@ -62,7 +62,9 @@ function lumen(bb, chess, def) {
       ammo: Math.max(1, Math.floor(num(bb['attack@trigger_time'], 4))),
       mods: { atkPct: num(bb.atk), aspd: num(bb.attack_speed) },
       attack: { healScale: 1 },
-      onHit({ battle, unit, target }) { if (unit.mem.lumenAbn && target) cleanse(battle, target); },
+      // (as the heal lands — her shot flies, ai.js opShot: the attack's own flag is gone by then; the abnormal target it was
+      // aimed at is cleansed if it still is)
+      onHit({ battle, target }) { if (target && hasAbnormal(target)) cleanse(battle, target); },
       onAttack(ctx) { // only heals on abnormal targets consume a bullet (engine: ctx.noAmmo — no bullet, no ammoUsed)
         if (!ctx.unit.mem.lumenAbn) ctx.noAmmo = true;
         ctx.unit.mem.lumenAbn = false;

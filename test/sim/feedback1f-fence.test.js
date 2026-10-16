@@ -42,7 +42,7 @@ const laneDirs = (st, r, c) => DIRS.filter((d) => [[0, 1], [0, 2]].some(([dr, dc
  * targetable enemy stood on its range tiles, the longest wait for an attack while one did and it could act (seconds
  * beyond its attack interval — the longer of the interval when the wait began and now: her S2 casts on its 3-2 between
  * two attacks since 0.2.0, the owner's ACTIVE_RANGE rule, and its ASPD shortens the interval while the cooldown the
- * last attack set still runs) and the ticks it blocked anything.
+ * last attack set still runs; a swing counts as acting, a whiff too) and the ticks it blocked anything.
  */
 function watch(stageId, chessId, r, c, dir, { template = 'act1autochess_02', seconds = 45 } = {}) {
   const h = makeBattle({ stageId, waveTemplate: template, units: [{ chessId, row: r, col: c, dir }], seed: 5 });
@@ -60,6 +60,9 @@ function watch(stageId, chessId, r, c, dir, { template = 'act1autochess_02', sec
     const target = h.b.enemies.some((e) => e.alive && e.deployed && canTargetEnemy(u, e, prof) && bodyInKeys(e, set));
     if (!target) { waitFrom = null; continue; }
     inRange++;
+    // a swing under way is no idling — also one that whiffs: its target died meanwhile, to the shot of her previous
+    // attack still in flight (projectile_chr_udflow TRACE 10, ai.js opShot)
+    if (u.swing) { waitFrom = null; continue; }
     if (waitFrom == null) { waitFrom = h.b.time; waitIv = u.s.interval; }
     worst = Math.max(worst, h.b.time - waitFrom - Math.max(waitIv, u.s.interval));
   }

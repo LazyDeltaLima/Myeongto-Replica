@@ -101,7 +101,8 @@ test('S3 恳切福音: cast with an enemy inside the 5-2 only (an injured ally t
     assert.equal(h.heals.filter((x) => x.t < cast).length, 0, `${id}: no heal before the cast — it was out of her range`);
     assert.equal(u.rangeKeys.length, 18, `${id}: the 5-2`);
     close(u.s.atk, u.base.atk * (1 + atk), `${id}: ATK`);
-    h.run(0.5);
+    // (the heal lands as projectile_chr_acmedc reaches the ally — TRACE 10, ai.js opShot)
+    assert.ok(h.runUntil(() => h.heals.length > 0, 2), `${id}: a heal`);
     const first = h.heals.filter((x) => x.t === h.heals[0].t);
     assert.ok(first[0].t >= cast, `${id}: the first heal comes with the cast`);
     assert.deepEqual(first.map((x) => x.uid), [2, 2], `${id}: the main heal on the far ally, then the extra on it (the lowest HP ratio of it and its neighbours)`);
@@ -110,8 +111,8 @@ test('S3 恳切福音: cast with an enemy inside the 5-2 only (an injured ally t
     // two injured allies: both healed per action
     h.b.loseHp(near, near.hp * 0.2);
     const n0 = h.heals.length;
-    h.runUntil(() => h.heals.length > n0, 5);
-    h.step();
+    // (one shot each: the nearer ally's lands first)
+    h.runUntil(() => new Set(h.heals.slice(n0).map((x) => x.uid)).size >= 2, 5);
     const action = h.heals.slice(n0);
     assert.deepEqual(new Set(action.map((x) => x.uid)), new Set([2, 3]), `${id}: 2 targets`);
     close(action.find((x) => x.uid === 3).amount, u.s.atk * 1, `${id}: no bonus above half HP`);
@@ -223,7 +224,10 @@ test('S2 宛如天启: cast with an enemy inside the 3-10 only (an injured ally 
     // (a swing started before tank2 was hurt heals the targets it took then: the next one takes both)
     h.runUntil(() => h.heals.slice(n0).some((x) => x.uid === 4), 6);
     const t4 = h.heals.slice(n0).find((x) => x.uid === 4).t;
-    assert.deepEqual(new Set(h.heals.slice(n0).filter((x) => x.t === t4).map((x) => x.uid)), new Set([2, 4]), `${id}: 2 targets`);
+    // one attack, a shot each (projectile_chr_acmedc TRACE 10, ai.js opShot): the two heals within its flight times
+    h.run(0.5);
+    const one = h.heals.slice(n0).filter((x) => Math.abs(x.t - t4) < u.s.interval / 2);
+    assert.deepEqual(new Set(one.map((x) => x.uid)), new Set([2, 4]), `${id}: 2 targets`);
     h.runUntil(() => !u.skill.active, 35);
     h.step();
     assert.equal(u.rangeKeys.length, 12);

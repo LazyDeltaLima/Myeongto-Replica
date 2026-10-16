@@ -279,7 +279,8 @@ test('S3 破梏重生 (MANUAL, data DEFAULT): 35 s, ATK +, attack interval 1.30 
     h.runUntil(() => heals(h, u).length >= n0 + 2, 3);
     const two = heals(h, u).slice(n0, n0 + 2);   // her first heal under the skill heals two
     assert.deepEqual(two.map((c) => c.target.id).sort(), [yak.id, tx.id].sort(), `${label(f)}: two targets per heal`);
-    assert.equal(two[0].t, two[1].t, `${label(f)}: in one attack`);
+    // one attack, two shots (projectile_chr_kalts2_s3_1 PARACURVE 5, ai.js opShot): each heal as its shot lands
+    assert.ok(Math.abs(two[0].t - two[1].t) < u.s.interval / 2, `${label(f)}: in one attack`);
     h.run(2);
     assert.deepEqual([u.tileR, u.tileC, u.hidden], [10, 4, false], `${label(f)}: no anchor: no move`);
     h.runUntil(() => !u.skill.active, 40);

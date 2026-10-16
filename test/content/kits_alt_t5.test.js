@@ -1409,6 +1409,8 @@ test('录武官 S1 触类旁通 (charges): the next heal restores heal_scale × 
     assert.ok(h.runUntil(() => attacks(h, u, (c) => c.isSkill).length > 0, 5));
     const at = attacks(h, u, (c) => c.isSkill)[0];
     assert.equal(at.targets.length, bb.max_target);
+    // the heals land as the shots reach them (projectile_chr_reckpr TRACE 10, ai.js opShot), at the skill's scale
+    assert.ok(h.runUntil(() => [a, b].every((t) => heals(h, u, (c) => c.target === t).length > 0), 2));
     for (const t of [a, b]) approx(heals(h, u, (c) => c.target === t)[0].amount, u.s.atk * bb.heal_scale, t.defId);
     done(h);
   }

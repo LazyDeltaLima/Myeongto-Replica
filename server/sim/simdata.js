@@ -243,6 +243,8 @@ export function normalizeChess(rec) {
     avatar: rec.assets?.avatar ?? rec.avatar ?? rec.charId ?? null,
     // the attack clip of each attack mode (Default, the selected skill's) and its ability's timing (ai.js attackTiming)
     attackAnim: normOpAttackAnim(rec.attackAnim),
+    // the official projectile of each attack mode's normal attack (ai.js opShot): undefined = not read
+    shot: normOpShot(rec.shot),
     // a 补位 stand-in (shared/standIn.js): the replaced operator's charId — `charId` is the stand-in's (absent otherwise)
     ...(rec.standInFor ? { standInFor: rec.standInFor } : null),
     // a 自选 piece (shared/diy.js): the slot's base id — `charId` is the operator's (absent otherwise)
@@ -326,6 +328,23 @@ export function normShot(p) {
   if (!p || typeof p !== 'object' || typeof p.key !== 'string') return null;
   const speed = Number(p.speed), delay = Number(p.delay);
   return { key: p.key, move: typeof p.move === 'string' ? p.move : 'NONE', speed: Number.isFinite(speed) && speed > 0 ? speed : 0, delay: Number.isFinite(delay) && delay > 0 ? delay : 0 };
+}
+
+/**
+ * data/chess.json `shot` { base, skills } (tools/build-data.mjs opShot) → { base, skills } of normShot plus `combat`
+ * (1: the mode's blocked attack has no projectile), or undefined when absent. A shot without a key (`{ move: 'NONE',
+ * speed: 0 }`: the attack has no projectile) normalises to { key: null, move: 'NONE', speed: 0, delay: 0 }; a skill
+ * entry null = the skill keeps the Default mode's; `move` OTHER = not read (ai.js opShot: the kind's speed).
+ */
+function normOpShot(s) {
+  if (!s || typeof s !== 'object') return undefined;
+  const one = (p) => {
+    if (!p || typeof p !== 'object') return null;
+    const n = normShot(typeof p.key === 'string' ? p : { ...p, key: '' });
+    if (!n) return null;
+    return { ...n, key: n.key || null, ...(p.combat ? { combat: true } : {}) };
+  };
+  return { base: one(s.base), skills: Array.isArray(s.skills) ? s.skills.map(one) : [] };
 }
 
 /** { name: shot } of normShot (the `projModes` / `talentProj` maps), or null when empty. */

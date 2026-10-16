@@ -449,6 +449,27 @@ function targetCount(u, prof) {
   return Math.max(1, Math.floor(base + u.s.maxTargets));
 }
 
+/**
+ * The official projectile of `u`'s attack on `target` (docs/rules/sim.md 「오퍼레이터 투사체」): data/chess.json `shot`
+ * (tools/local-extract/op_projectiles.py → tools/build-data.mjs opShot; simdata.js normOpShot) of the attack mode it
+ * attacks in — its running skill's, as attackClipOf picks the clip, else the Default one — { key, move, speed, delay };
+ * a shot with `speed` 0 has no flight (no projectile, or an AttachToTarget / NONE one: the hit at the strike, `delay`
+ * after it). An enemy the unit blocks is struck by the mode's blocked attack (CombatState's `Body/Combat`) — no
+ * projectile when the mode's has none (`combat`: 拉普兰德). undefined = not read (a token, a device, test data, a shot
+ * whose movement the extract does not know — `move` OTHER): the profile's PROJECTILE_SPEEDS kind.
+ */
+export function opShot(u, target = null) {
+  const s = u.def?.shot;
+  if (!s) return undefined;
+  const i = u.def.skill?.index;
+  const own = u.skill && u.skill.active && !u.skill.spec?.baseClip && Number.isInteger(i) ? s.skills[i] : null;
+  const shot = own || s.base;
+  if (!shot || shot.move === 'OTHER') return undefined;   // a movement the extract does not read (丰川祥子's notes)
+  if (shot.combat && target && target.blockedBy === u) return NO_FLIGHT;
+  return shot;
+}
+const NO_FLIGHT = Object.freeze({ key: null, move: 'NONE', speed: 0, delay: 0 });
+
 /** Perform an attack/heal with profile `prof` against `targets`. opts: { noAmmo, signal } (Battle.forceAttack). */
 export function performAttack(b, u, prof, targets, opts = null) {
   const isSkill = !!prof.isSkill;
@@ -476,13 +497,27 @@ export function performAttack(b, u, prof, targets, opts = null) {
     const t = targets[i];
     // opts.signal (Battle.forceAttack): the client's ability this attack is — a talent's own attack ('T.1'), for its sound
     b._ev(opts?.signal ? ['atk', u.id, t.id, vis, opts.signal] : ['atk', u.id, t.id, vis]);
-    if (isHeal) { doHeal(b, u, prof, t); continue; }
+    // the official shot of this attack (opShot): its flight time, or none (the hit at the strike)
+    const shot = ranged ? opShot(u, t) : undefined;
+    if (isHeal) {
+      // a heal shot heals as it reaches its ally (赫默's projectile_silent); one that died meanwhile is not healed
+      const on = !!(u.skill && u.skill.active);
+      if (shot && shot.speed > 0) b.addProjectile({ from: u, target: t, speed: shot.speed, visual: prof.projectile, source: u, onHit: (c) => { if (c.target) doHeal(b, u, prof, c.target, on); } });
+      else if (shot && shot.delay > 0) b.after(shot.delay, () => { if (t.alive && t.deployed) doHeal(b, u, prof, t, on); });
+      else doHeal(b, u, prof, t);
+      continue;
+    }
     const info = { isSkill, index: i, attackId, energy: i === 0 ? energy : 0 };
     const foe = t.side === 'enemy' || b.isAllyTarget(t);
     if (ranged && foe && prof.projectile === 'boomerang') {
       throwBoomerang(b, u, prof, t, info);
+    } else if (ranged && foe && shot && !(shot.speed > 0)) {
+      // no flight (能天使's Default attack, 夕, an AttachToTarget shot): the hit at the strike, an AttachToTarget's
+      // `_delayToStart` after it
+      if (shot.delay > 0) b.after(shot.delay, () => { if (t.alive && !t.hidden) resolveHit(b, u, prof, t, info, t.x, t.y); });
+      else resolveHit(b, u, prof, t, info, t.x, t.y);
     } else if (ranged && foe) {
-      const speed = PROJECTILE_SPEEDS[prof.projectile] ?? PROJECTILE_SPEED;
+      const speed = shot ? shot.speed : (PROJECTILE_SPEEDS[prof.projectile] ?? PROJECTILE_SPEED);
       // projectiles land even if the shooter died meanwhile (damage is credited to it)
       b.addProjectile({ from: u, target: t, speed, visual: prof.projectile, source: u, hitDead: prof.splashRadius > 0,
         onHit: (c) => resolveHit(b, u, prof, c.target, c.projectile?.cachedAtk ? { ...info, cachedAtk: c.projectile.cachedAtk } : info, c.x, c.y) });
@@ -649,14 +684,17 @@ export function chainHealNext(b, healer, prev, seen) {
   return best;
 }
 
-function doHeal(b, u, prof, t) {
+function doHeal(b, u, prof, t, skillOn = !!(u.skill && u.skill.active)) {
   const atk = u.s.atk;
   const scale = (prof.atkScale ?? 1) * (prof.healScale ?? 1) * u.s.atkScaleMul;
   const h = prof.heal || { mode: 'single' };
   let amount = atk * scale;
   if (h.farMul && Math.max(Math.abs(t.tileR - u.tileR), Math.abs(t.tileC - u.tileC)) > (h.nearDist ?? 2)) amount *= h.farMul;
   if (h.elementHealRatio) reduceElement(t, atk * h.elementHealRatio);
-  b.heal(u, t, amount);
+  // `isSkill`: a skill's heal (its profile at the attack), for a 'heal' handler that scales by it when the shot lands
+  // after the skill (莎草 巧思乍现's next heal: the barrier ×shield_scale_skill)
+  const hopts = prof.isSkill ? { isSkill: true } : undefined;
+  b.heal(u, t, amount, hopts);
   if (h.mode === 'chain') {
     const seen = new Set([t.id]);
     let prev = t;
@@ -666,11 +704,12 @@ function doHeal(b, u, prof, t) {
       if (!best) break;
       seen.add(best.id);
       b._ev(['atk', prev.id, best.id, 'chainHeal', null, u.id, t.id]);
-      b.heal(u, best, amount * powi(1 - (h.falloff ?? 0.25), k));
+      b.heal(u, best, amount * powi(1 - (h.falloff ?? 0.25), k), hopts);
       prev = best;
     }
   }
-  if (u.skill && u.skill.active && u.skill.spec.onHit) {
+  // the skill on at the attack (`skillOn`): a heal shot lands after a next-heal skill ended (流明 S1 沐雨's rain)
+  if (skillOn && u.skill && u.skill.spec.onHit) {
     const fn = u.skill.spec.onHit;
     b._safe(() => fn({ battle: b, unit: u, skill: u.skill, bb: u.skill.bb, target: t, heal: amount, x: t.x, y: t.y }), 'skill.onHit', u);
   }

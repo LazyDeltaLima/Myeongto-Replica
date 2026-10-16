@@ -68,3 +68,36 @@ export function enemyProjSpeed(def, form = null) {
   const v = p && typeof p === 'object' ? Number(p.speed) : NaN;
   return v > 0 ? v : null;
 }
+
+/**
+ * 2026-10-16: an operator's normal-attack shot record — data/chess.json `shot` (tools/build-data.mjs opShot: { base,
+ * skills }) of the mode it attacks in: its running skill's (`skillOn`, skill `skillIndex`) when that skill has a mode of
+ * its own, else the Default one — the sim's choice (server/sim/ai.js opShot). undefined = not read (the kind's speed).
+ * @param {any} def data/chess.json record (or a stand-in's / 自选 one)
+ * @param {boolean} skillOn
+ * @param {number} skillIndex
+ */
+export function opShot(def, skillOn, skillIndex) {
+  const s = def && typeof def === 'object' ? def.shot : null;
+  if (!s || typeof s !== 'object') return undefined;
+  const own = skillOn && Array.isArray(s.skills) ? s.skills[skillIndex] : null;
+  const shot = own && typeof own === 'object' ? own : s.base;
+  return shot && typeof shot === 'object' ? shot : undefined;
+}
+
+/**
+ * 2026-10-16: the speed (tiles per game second) the sim flies an operator's shot at (opShot `speed`), 0 when it does
+ * not fly — no projectile, an AttachToTarget / NONE one, or a mode whose blocked attack has none (`combat`) aimed at
+ * an enemy it holds (`blockedNear`: the renderer's guess — the target blocked and within reach) —, or null (not read, or a
+ * movement the extract does not know — `move` OTHER: the kind's PROJECTILE_SPEEDS).
+ * @param {any} def
+ * @param {{ skillOn?: boolean, skillIndex?: number, blockedNear?: boolean }} [o]
+ * @returns {number|null}
+ */
+export function opProjSpeed(def, o = {}) {
+  const p = opShot(def, !!o.skillOn, Number.isInteger(o.skillIndex) ? o.skillIndex : 0);
+  if (!p || p.move === 'OTHER') return null;
+  if (p.combat && o.blockedNear) return 0;
+  const v = Number(p.speed);
+  return v > 0 ? v : 0;
+}

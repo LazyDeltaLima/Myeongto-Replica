@@ -76,7 +76,8 @@ export default {
         if (!(sc > 0)) return;
         battle.on('heal', (ctx) => {
           if (ctx.source !== unit || ctx.target === unit && ctx.opts?.regen || !(ctx.amount > 0)) return;
-          const bySkill = !!(unit.skill?.active && unit.skill.pending);
+          // the heal of 巧思乍现's attack (ai.js doHeal `isSkill`), even when its shot lands after the charge is spent
+          const bySkill = !!ctx.opts?.isSkill && !!unit.skill && unit.skill.id !== 'skchr_papyrs_2';
           battle.addBuff(ctx.target, { key: 'papyrs:shield', shield: unit.s.atk * sc * (bySkill ? boost : 1), duration: sd, source: unit, visible: true, tags: ['talent'] });
         }, { owner: unit, priority: -10 });
       } }],

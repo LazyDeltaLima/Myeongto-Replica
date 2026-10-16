@@ -125,8 +125,9 @@ test('2_02 赫默 S1 治疗强化·γ型: ATK +atk heals for its duration, no dr
     h.run(1);
     assert.ok(u.skill.active);
     approx(u.s.atk, u.base.atk * (1 + bb.atk));
+    // the heal lands as projectile_silent reaches her (PARACURVE 5, ai.js opShot)
+    assert.ok(h.runUntil(() => heals(h, u, (c) => c.target === a).length > 0, 2));
     const hh = heals(h, u, (c) => c.target === a);
-    assert.ok(hh.length > 0);
     approx(hh[0].amount, u.s.atk * (tbOf(id).heal_scale ?? 1), 'heal (elite module: ×heal_scale on ground units)');
     assert.ok(h.b.allyUnits.every((x) => x.kind !== 'token'), 'no medical drone');
     const t0 = started(h, u)[0].t;
@@ -193,7 +194,9 @@ test('2_06 莎草 S2 临考发挥: locks the highest-max-HP ally as the only mai
     const atks = h.hooksOf('attack').filter((c) => c.attacker === u);
     assert.ok(atks.length >= 2);
     for (const c of atks) assert.equal(c.targets[0], big, 'the locked ally is the only main target');
-    const firstHeals = heals(h, u, (c) => Math.abs(c.t - atks[0].t) < 1e-9 && !(c.opts?.tags || []).length);
+    // the chain heals together as the shot reaches the main target (projectile_chr_papyrs_s1 TRACE 10, ai.js opShot)
+    const land = heals(h, u, (c) => c.t >= atks[0].t - 1e-9 && !(c.opts?.tags || []).length)[0]?.t;
+    const firstHeals = heals(h, u, (c) => Math.abs(c.t - land) < 1e-9 && !(c.opts?.tags || []).length);
     assert.equal(firstHeals.length, count0 + bb['attack@chain.extra_value'], 'main target + jumps (one more)');
     // the lock leaves the field ⇒ the skill stops at once; the chain count is restored
     h.b.retreat(big, { reason: 'retreat', permanent: true });
@@ -599,7 +602,8 @@ test('modules: removing the elite module changes the trait / talent behaviour th
       h.step();
       const x = h.unit('t_el'), u = h.unit(id);
       x.elem.neural = 900;
-      h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u), 5);
+      // the recovery comes with the heal, as projectile_chr_harold reaches the ally (PARACURVE 7, ai.js opShot)
+      h.runUntil(() => heals(h, u).length > 0, 5);
       const r = (900 - x.elem.neural) / u.s.atk;
       done(h);
       return r;

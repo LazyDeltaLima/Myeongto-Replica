@@ -95,6 +95,8 @@ export function composeUnitRecord(identity, unit, form, { skillIndex, moduleId =
     },
     // the character's attack clips and their timing (tools/build-data.mjs opAttackAnim; server/sim/ai.js attackTiming)
     attackAnim: unit.attackAnim ?? null,
+    // the official projectile of each attack mode (tools/build-data.mjs opShot; server/sim/ai.js opShot)
+    shot: unit.shot ?? null,
     skills: skills.map((s) => ({ ...s, isDefault: s.index === skillIndex })),
   });
   if (golden && equipLevel > 0) {

@@ -531,9 +531,13 @@ test('灵知 S2: 130 % ATK arts + 2.5 s cold to all in range; fully charged cast
   assert.equal(colds(starts[0]), 2, 'charged: the first cold on each enemy lands as a cold');
   assert.equal(freezes(starts[0]), 2, 'charged: the second cold on each enemy turns the pair into a freeze');
   // (≈ 2.2 s later — the automatic operations' block: an enemy still cold from her normal attack freezes instead)
-  assert.equal(colds(starts[1]) + freezes(starts[1]), 2, 'single charge: one cold each');
+  // (a normal attack's shot may land in the same tick — projectile_chr_gnosis TRACE 9, ai.js opShot —: each enemy once)
+  const chilled = (T) => new Set(noisy(h, 'statusApplied').filter((c) => c.source === u && c.t === T
+    && ((c.status === 'cold' && c.duration === bb.cold) || c.status === 'freeze')).map((c) => c.target));
+  assert.equal(chilled(starts[1]).size, 2, 'single charge: one cold each');
+  assert.ok(colds(starts[1]) <= 2, 'single charge: one cold each');
   // normal attacks chill for 1 s
-  assert.ok(noisy(h, 'statusApplied').some((c) => c.source === u && c.status === 'cold' && c.duration === t0.cold));
+  assert.ok(h.runUntil(() => noisy(h, 'statusApplied').some((c) => c.source === u && c.status === 'cold' && c.duration === t0.cold), 5));
   checkInvariants(h.b);
 });
 

@@ -869,8 +869,9 @@ test('6_14 流明 S1 沐雨: the next heal gives its target and the allies aroun
     h.step();
     a1.hp = a1.s.maxHp * 0.3; a2.hp = a2.s.maxHp * 0.9; far.hp = far.s.maxHp * 0.9;
     assert.ok(h.runUntil(() => started(h, u).length > 0, 5));
-    h.run(0.5);
     const key = `lumen:rain:${u.id}`;
+    // the rain comes with the heal, as projectile_chr_lumen reaches the target (PARACURVE 8, ai.js opShot)
+    assert.ok(h.runUntil(() => !!a1.findBuff(key), 3), 'the rain on the target');
     assert.ok(a1.findBuff(key) && a2.findBuff(key), 'target and its neighbour');
     assert.ok(!far.findBuff(key), 'not a distant ally');
     approx(a1.findBuff(key).duration, bb['aura.projectile_life_time']);

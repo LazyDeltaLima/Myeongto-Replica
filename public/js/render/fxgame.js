@@ -63,6 +63,7 @@ import { fxSpec } from './fx.js'; // local patch: the stand-in archetype of a ki
 import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a muzzle point
 import { boneMissing, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
+import { shotSpeedOf } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`)
 import { boomerangThrown, boomerangCaught } from './boomerang.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
@@ -161,11 +162,12 @@ let enemyModesPromise = null;
 const loadEnemyModes = () => (enemyModesPromise ||= getJson(ENEMY_MODES_URL));
 
 /**
- * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: () => string, load?: () => number, under?: () => boolean, fieldRect?: () => any, enemyDef?: (id: string) => any }} o
+ * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: () => string, load?: () => number, under?: () => boolean, fieldRect?: () => any, enemyDef?: (id: string) => any, unitDef?: (info: any) => any }} o
  *   load: the view's adaptive load level 0–3 (render/app.js); under: whatever lies below the units canvas shows through
  *   it (the 3D board is on — the 2D board paints an opaque backdrop on the units canvas itself); fieldRect: the battle
  *   field's tile rect (local patch: 余 S3's wall runs across it, fx.js wallTiles); enemyDef: an enemy's data/enemies.json
- *   record (2026-10-10: its shot's speed, `proj`); audio: the sound object (2026-10-10: `enemyMode?.(unitId, defId, mode,
+ *   record (2026-10-10: its shot's speed, `proj`); unitDef: a unit's data record by its UnitInfo (render/app.js lookupDef;
+ *   2026-10-16: an operator shot's speed, data/chess.json `shot`); audio: the sound object (2026-10-10: `enemyMode?.(unitId, defId, mode,
  *   previous mode)` when an enemy's official mode changes — stepEnemies); standIn: render/fx.js simFx(kind, x, y, extra) for a
  *   procedural stand-in this layer times itself (2026-10-10: the 冰凌's pillars tile by tile — ecolumnFx)
  */
@@ -254,7 +256,7 @@ export function yuWallPieces(dir, tiles, midX) {
   return out;
 }
 
-export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, audio = () => null, standIn = () => {} }) {
+export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {} }) {
   let index = null, modes = null, emodes = null;
   if (typeof fetch === 'function') {
     loadIndex().then((i) => { index = i; }); loadModes().then((m) => { modes = m; });
@@ -936,11 +938,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return false;
     }
     if (trails.length >= MAX_TRAILS) return false;
-    trailAtks.add(e);
     const dx = tgt.x - src.x, dy = tgt.y - src.y, dist = Math.hypot(dx, dy);
+    // 2026-10-16: the sim's flight time of this operator's shot (data/chess.json `shot`); none when it lands at the strike
+    const v = e[3] === 'boomerang' ? null : shotSpeedOf({ lookupDef: unitDef }, src, tgt, dist);
+    if (v === 0) return false;
+    trailAtks.add(e);
     const from = shotFrom(src, mode);
     const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, tx: mx(tgt), ty: tgt.y, tz: shotTo(tgt), k: 0,
-      dur: Math.max(0.04, dist / projSpeed(e[3])), arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 };
+      dur: Math.max(0.04, dist / (v || projSpeed(e[3]))), arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 };
     // local patch (maintainer report 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
     // both ways — projectile_chr_caper `_comeBack` 1 at `_comeBackSpeedScale` .25 (the sim's BOOMERANG_RETURN_SPEED), its
     // `_mainEffect` kept (`_clearMainEffectWhenReached` 0): it turns at the hit and flies back to her (stepTrails), and the

@@ -49,8 +49,9 @@
 //   blocks first, then the usual order) — on impact every enemy within 1.5 of it takes attack@atk_scale × ATK true damage
 //   (普通伤害: an attack hit, not 溅射) and attack@sluggish s 停顿, then every ally within 1.5 (summons too: the heal range
 //   selector has no profession mask; no 孤立 one) is healed for attack@heal_scale × ATK; with no enemy to select, at the
-//   lowest-HP-ratio injured ally of the y-11 — heal first, then the damage, no 停顿. The shot flies at the engine's orb speed
-//   (10 tiles/s; the official 12) [ASSUMED] and fizzles when its enemy dies on the way [ASSUMED]. "可以随时停止技能": the
+//   lowest-HP-ratio injured ally of the y-11 — heal first, then the damage, no 停顿. The shot flies at its official speed (her s2 mode's
+//   projectile_chr_kalts2_s2_dmg, PARACURVE 12 — data `shot`, server/sim/ai.js opShot; the engine's orb 10 until 2026-10-16)
+//   and fizzles when its enemy dies on the way [ASSUMED]. "可以随时停止技能": the
 //   automatic battle never stops it.
 // - S3 破梏重生 (MANUAL, data DEFAULT, 35 s): ATK +atk, base attack time base_attack_time (a flat −1.55 s on her 2.85 s), one
 //   more heal target (2). "立刻获得战术锚点": one anchor in stock (content/tokens.js releaseSkillSummon — the placed piece

@@ -810,6 +810,8 @@ test('2_05 哈洛德: 重症优先 heals the heaviest element load first with ×
   h.step();
   const first = firstAttack(h, u);
   assert.equal(first.targets[0], elem, 'element-damaged ally first');
+  // the recovery comes with the heal, as projectile_chr_harold reaches the ally (PARACURVE 7, ai.js opShot)
+  assert.ok(h.runUntil(() => heals(h, u, (c) => c.target === elem).length > 0, 2));
   approx(elem.elem.neural, 900 - u.s.atk * tbOf(id).ep_heal_ratio * bb.trait_scale, 'recovery ×1.6');
   h.run(0.3);
   // 我即军营 cuts the 元素损伤 (gauge fill) of an ally over half, on the hit itself — not elemTakenMul (元素伤害 / 元素脆弱)
