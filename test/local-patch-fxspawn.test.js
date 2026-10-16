@@ -20,7 +20,9 @@ let runtime = null;
 try { runtime = createRequire(new URL('package.json', ROOT))('@pixi-spine/runtime-3.8'); } catch { /* no pixi-spine */ }
 /** Our own model's skeleton (public/assets/spine/op) posed at `anim` t = 0, or null. */
 function ourSkeleton(charId, side, anim = 'Idle') {
-  const f = new URL(`public/assets/spine/op/${charId}/${side === 'B' ? 'back' : 'front'}/${charId}.skel`, ROOT);
+  return loadSkeleton(new URL(`public/assets/spine/op/${charId}/${side === 'B' ? 'back' : 'front'}/${charId}.skel`, ROOT), anim);
+}
+function loadSkeleton(f, anim = 'Idle') {
   if (!runtime || !existsSync(f)) return null;
   const r = runtime;
   const loader = {
@@ -174,6 +176,25 @@ test('fxgame: lifted() takes the point of pointKey(spawn) from the table; body /
 });
 
 // (maintainer report 2026-10-08): an effect's FollowMountPoint (fx_extract.py `mount`) — 스펙터 디 언체인드 S2's red ring
+// 2026-10-16: 伺夜's wolf pack wears vigil_token_buff_1–4 on MountPointType SPECIAL_0–3 (head / body / hands) — char_points.py reads the
+// token's prefab of pkgrps/btl_pfb_tokens_0 (TOKENS); before, it had no entry and they sat at its feet
+const WOLF = 'token_10028_vigil_wolf';
+const WOLF_DIR = new URL(`public/assets/spine/token/${WOLF}/`, ROOT);
+test("伺夜's wolf token: its special points 0–3 follow its head / body / hand bones, on the skeleton we draw", () => {
+  const t = TABLE[WOLF];
+  assert.ok(t, 'the token is in the table');
+  assert.deepEqual(['sp0', 'sp1', 'sp2', 'sp3'].map((k) => t[k]?.F?.bone), ['C_Head', 'C_Body_a', 'IK_C_L_Hand', 'IK_C_R_Hand']);
+  for (let i = 1; i <= 4; i++) {
+    const f = new URL(`vigil/vigil_token_buff_${i}.json`, FX);
+    // their FollowMountPoint (fx_extract.py `mount`) as fxgame.js lifted() reads it
+    const def = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null;
+    if (def) assert.equal(pointKey(mountSpawn(def.mount) ?? def.spawn), `sp${i - 1}`, `vigil_token_buff_${i}'s point`);
+  }
+  const file = existsSync(WOLF_DIR) && readdirSync(WOLF_DIR).find((n) => n.endsWith('.skel'));
+  const sk = file && loadSkeleton(new URL(file, WOLF_DIR));
+  if (sk) for (const k of ['sp0', 'sp1', 'sp2', 'sp3']) assert.ok(sk.findBone(t[k].F.bone), `${file} has ${t[k].F.bone}`);
+});
+
 test('mountSpawn: MountPointType 0–3 FOOT / HIT / MUZZLE / HEAD, 5 / 6 / 8–21 SPECIAL_0 / 1 / 2–15 (4 UI, 7 GROUND) → the same point\'s _spawnLocation', () => {
   assert.deepEqual([0, 1, 2, 3].map((type) => mountSpawn({ type })), [1, 2, 3, 4]);
   assert.deepEqual([5, 6, 8, 9, 10, 13, 14, 21].map((type) => pointKey(mountSpawn({ type }))), ['sp0', 'sp1', 'sp2', 'sp3', 'sp4', 'sp7', 'sp8', 'sp15']);

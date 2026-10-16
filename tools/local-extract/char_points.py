@@ -18,7 +18,12 @@ git-ignored beside the effects).
 Usage (from the repo root; --client = the EN client's Arknights_Data folder):
   .venv-extract/bin/python -I tools/local-extract/char_points.py [--client <…/Arknights_Data>] [--id char_…]…
 Without --id every operator with an extracted effect bundle (public/assets/local/fx/index.json) or in data/chess.json +
-the 선발 picks of data/backups.json (char_modes.py pool_char_ids). Everything is (c) Hypergryph; private fan use only.
+the 선발 picks of data/backups.json (char_modes.py pool_char_ids), and the tokens of TOKENS. Everything is (c) Hypergryph;
+private fan use only.
+
+Tokens (2026-10-16): a token's battle model is a prefab of pkgrps/btl_pfb_tokens_*.ab — one bundle holds many, each with its
+own animator, picked by the prefab's root name. Only TOKENS are read: their effects name special points (伺夜's wolf pack
+vigil_token_buff_1–4 on MP_SPECIAL_0–3, its head / body / hands); the other tokens keep the render's fallbacks until checked.
 """
 import argparse
 import json
@@ -33,6 +38,28 @@ OUT = ROOT / 'tools/assets/local-char-points.json'
 FX_OUT = ROOT / 'public/assets/local/fx/points.json'
 from client_path import client_data  # noqa: E402
 DEFAULT_CLIENT = client_data()  # SP_CLIENT / .env / .client (client_path.py); --client overrides
+
+
+# tokens whose effects need their model's points (see the docstring)
+TOKENS = ('token_10028_vigil_wolf',)
+
+
+def token_files(client, ids):
+    """{ token id: its pkgrps/btl_pfb_tokens_*.ab } (PersistentData first), by the root names of each bundle's prefabs."""
+    import aklz4  # noqa: F401
+    import UnityPy
+    out, want = {}, set(ids)
+    for d in ('PersistentData/Bundles/pkgrps', 'StreamingAssets/AB/Windows/pkgrps'):
+        p = Path(client) / d
+        for f in sorted(p.glob('btl_pfb_tokens_*.ab')) if p.is_dir() else []:
+            for o in UnityPy.load(str(f)).objects:
+                if o.type.name == 'GameObject':
+                    n = o.read().m_Name
+                    if n in want and n not in out:
+                        out[n] = f
+            if want <= set(out):
+                return out
+    return out
 
 
 def char_ids(client):
@@ -54,8 +81,9 @@ def char_ids(client):
     return sorted(ids), files
 
 
-def points_of(path):
-    """{ key: { F|B: point } } of one chararts bundle's DefaultSkin, or None without one."""
+def points_of(path, root=None):
+    """{ key: { F|B: point } } of one chararts bundle's DefaultSkin, or None without one; `root`: the animator of that
+    prefab (a token bundle holds many)."""
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
     env = UnityPy.load(str(path))
@@ -67,6 +95,17 @@ def points_of(path):
             cache[pid] = objs[pid].read_typetree()
         return cache[pid]
 
+    tr_of = {}
+    for pid, o in objs.items():
+        if root and o.type.name == 'Transform':
+            tr_of[tt(pid)['m_GameObject']['m_PathID']] = pid
+
+    def root_name(go):
+        t = tr_of.get(go)
+        while t and tt(t)['m_Father']['m_PathID'] in objs:
+            t = tt(t)['m_Father']['m_PathID']
+        return tt(tt(t)['m_GameObject']['m_PathID'])['m_Name'] if t else None
+
     go_mbs, animator = {}, None
     for pid, o in objs.items():
         if o.type.name == 'MonoBehaviour':
@@ -75,7 +114,8 @@ def points_of(path):
             except Exception:
                 continue
             go_mbs.setdefault(d['m_GameObject']['m_PathID'], []).append(d)
-            if '_faceSwitcher' in d and ('_front' in d or '_hitTransform' in d):
+            if '_faceSwitcher' in d and ('_front' in d or '_hitTransform' in d) \
+                    and (not root or root_name(d['m_GameObject']['m_PathID']) == root):
                 animator = d
     if animator is None:
         return None
@@ -139,17 +179,18 @@ def main():
     ap.add_argument('--id', action='append', default=[])
     a = ap.parse_args()
     ids, files = char_ids(a.client)
-    ids = a.id or ids
+    ids = a.id or ids + list(TOKENS)
+    toks = token_files(a.client, [i for i in ids if i.startswith('token_')])
     out = json.loads(OUT.read_text(encoding='utf-8')) if OUT.exists() else {}
     out.pop('$comment', None)
     missing = []
     for cid in ids:
-        f = files.get(cid)
+        f = toks.get(cid) or files.get(cid)
         if not f:
             missing.append(cid)
             continue
         try:
-            pts = points_of(f)
+            pts = points_of(f, cid if cid in toks else None)
         except Exception as e:  # a bundle that fails to load is reported, the old entry kept
             print(f'FAIL {cid}: {e}', file=sys.stderr)
             continue

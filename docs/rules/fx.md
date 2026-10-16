@@ -1443,6 +1443,10 @@
   선물 동안 `_ready`; S1 ③·S2 회복 `vigil_token_heal`.
 - 고친 것: `fxgame.js` `packEvent`·`packDeploy`·`packAtk` — 늑대 수는 시뮬의 'summon'·'revive'·'wolfShadow'·'wolfShadowLost'(`wolves`/`n`)에서
   (시뮬 변경 없음). 0이면 전술점 형태: 쓰러진 칸에 `die` + `ghost`(돌아오는 배치까지), 돌아오면 `start`.
+- 장식 자리 (2026-10-16 묶음 3 재점검): `vigil_token_buff_1~4`가 발밑에 겹쳐 있었다 — 프리팹의 FollowMountPoint(`mount` 5·6·8·9 = SPECIAL_0~3)는 맞았는데
+  `points.json`에 토큰 항목이 없었다(`char_points.py`는 오퍼의 chararts만 읽음). 토큰 모델은 `pkgrps/btl_pfb_tokens_*.ab`의 프리팹이고 한 번들에 여럿이라
+  뿌리 이름으로 그 애니메이터를 고름 → `char_points.py TOKENS`(지금은 늑대만 — 다른 토큰은 점을 대조하기 전까지 렌더 대체 그대로): sp0 `C_Head`·sp1
+  `C_Body_a`·sp2/sp3 `IK_C_L_Hand`/`IK_C_R_Hand`, 우리가 그리는 스킨(`_epoque_27`) 스켈레톤에도 네 뼈가 다 있음(`test/local-patch-fxspawn.test.js`).
 - [추정]: 판에 놓은 늑대 무리의 첫 수는 2(初始两只 — 그 배치엔 수 이벤트가 없음); 전술점 `ghost`는 돌아오지 않으면 40초에 끝(伺夜가 떠나 형태가 끝나도
   이벤트가 없음); S2 회복 이펙트는 시전 때(시뮬의 회복 시점 — 클라는 선물 물기 때 ON_ABILITY_CAST_ON_TARGET); 쓰러질 때 토큰의 일반 사망 이펙트도 남음.
 - 확인: 단위 `test/render/funnel-fx.test.js`. 디버그 아레나(오류 0): `vigil_token_buff_1~4`·`sub_start_1`(늑대 둘), S2 `_skill_02_hint`·`_heal` 2·`_ready` 1
