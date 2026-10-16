@@ -387,7 +387,7 @@
   4초 루프: 금빛 glow(`bg_011_dm`, AlphaBlend)·위로 오르는 불티(`spark_p_02`)는 sortingOrder −1(모델 뒤), 별빛 메시·`bao` 2개는 0.
 - 구현: `render/fxgolden.js syncGoldenFx`(매 프레임, `app.js`가 `mode === 'prep'`일 때) → `fxgame.js statusOn(…, 'golden', 0, null, under=true)`.
   `under`는 상태 이펙트와 달리 'high'+3D 보드에서 렌더러별 분할(−1은 모델 뒤), 그 밖에는 유닛 아래 캔버스. `fxstatus.js syncStatusFx`는 자기 키(STATUS_FX)만 끈다.
-  공식 이펙트가 도는 동안 원본의 절차 금빛 오라(`units.js aura`)는 숨김(전투 중 오라는 그대로).
+  원본의 절차 금빛 오라(`units.js aura`)는 2026-10-17에 없앴다(아래 「낮음 고리·정예 표시」).
 - 보이는 모습: 몸 뒤 은은한 금빛 + 머리 위로 오르는 금색 불티. 몸이 glow를 대부분 가린다(데이터대로) — 공식 캡처와 비교 [추정].
   보드와 벤치 모두 [추정](벤치 기물도 더미 `placeToHand`). 소환물·적·장치 제외.
 - **위치 수정** (2026-10-08 관리자 제보, 공식 녹화 — 비공개 녹화):
@@ -432,6 +432,19 @@
   → `dropView`가 그 뷰의 상태 이펙트(`_fxStatusOn`)를 모두 `statusOff` — 전투 밖은 즉시(`now`), 전투 중은 남은 파티클 수명대로.
   확인: 실제 솔로 판 정비(`dbg.addDiy golden` 보드 배치 → `g.sell`):
   수정 전 판매 뒤 `trap_acgarm_buff_loop_01` 1개 남음(빈 칸에 금빛 불티) / 수정 후 0개.
+- **낮음 고리·정예 표시** (2026-10-17, 관리자 제보 「정예화된 오퍼가 잘 구분이 안 간다」 — 품질 낮음은 공식 이펙트를 끈다):
+  - 원본의 절차 오라(금색 glow, 알파 0.35~0.47)는 공식 금빛이 안 도는 동안 대신 보였는데, 흐려서 밝은 칸·폰에서 거의 안 보였고 **전투 중에도**
+    품질과 무관하게 떠 있었다(공식 전투 유닛에는 금빛이 없음 — 위 근거). → 오라를 없앴다. 옵션이 꺼져 있으면 공식대로: 정비 = 공식 금빛, 전투 = 없음
+    (관리자 결정 2026-10-17).
+  - **발밑 고리**(`render/elite-mark.js EliteRing`): 정비 중 공식 금빛을 못 틀 때(`fxgame.statusReady` 거짓 = 품질 낮음, 또는 프리팹 미설치)
+    `syncGoldenFx`가 뷰에 `goldenFallback`을 켜고 `units.js`가 바닥에 금색 고리(반지름 0.46칸 — 공식 방향 고리 0.35칸 바깥, 천천히 밝기 변화)를 깐다.
+    공식 금빛도 발 이펙트라 대체도 발밑에(관리자 결정 2026-10-17: 낮음 대체 전용, 전투 없음).
+  - **설정 「精锐干员标记 / 정예 오퍼레이터 표시」**(`eliteBadge`, 기본 끔): 켜면 정비 중 정예 기물의 레벨 칩 오른쪽에 공식 2차 정예화 셰브론
+    (ui `eliteLarge/elite_2_large`)을 금색 그라데이션 + 얇은 어두운 외곽선으로(시안 S1). 판 없음, 전투 중 없음(관리자 결정 2026-10-17). 고리와는 별개 —
+    높음에서 켜면 공식 금빛 + 휘장, 낮음에서 켜면 고리 + 휘장.
+  - [추정] 없음(공식에 없는 표시, 공식 금빛은 그대로). 알려진 점: 폰에서 보드 윗줄 기물의 휘장이 맹약 이름 줄과 조금 겹친다.
+  - 테스트 `test/local-patch-golden.test.js`(`goldenFallback` 조건, 고리 반지름·휘장 소재·설정 기본값). 확인: Windows Chrome game-mock
+    1600×900·844×390, 정비(높음·낮음 × 표시 끔·켬)와 전투(높음·낮음, 표시 켬) — 결정대로 나옴.
 - 소재(git 밖): `fx_extract.py --bundle trap --prefab trap_acgarm_buff_loop_01` → `public/assets/local/fx/trap/`, 텍스처 6·메시 1, `fx/index.json`의 `trap`.
 - 테스트 `test/local-patch-golden.test.js`. 확인: game-mock 정비 화면(보드·벤치 기물 하나씩 golden), 프리팹 단독 재생.
 

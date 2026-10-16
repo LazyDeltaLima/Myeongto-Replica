@@ -12,9 +12,10 @@ export const CHAT_COOLDOWN = Object.freeze({ def: 2, min: 1, max: 5 });
 /**
  * keys: the in-match shortcuts' key map (ui/gameLogic/shortcuts.js; settings → 快捷键). chatSound / chatVolume /
  * chatCooldown / chatFactionAlerts: the notification of the others' chat lines (audio.js chatNotification, ui/chat.js).
+ * eliteBadge: the 精二 badge beside an elite piece's prep tier chip (render/elite-mark.js).
  */
 export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false, damageNumbers: true, quality: 'high', keys: DEFAULT_HOTKEYS,
-  chatSound: true, chatVolume: 0.5, chatCooldown: CHAT_COOLDOWN.def, chatFactionAlerts: false });
+  chatSound: true, chatVolume: 0.5, chatCooldown: CHAT_COOLDOWN.def, chatFactionAlerts: false, eliteBadge: false });
 const QUALITIES = ['high', 'medium', 'low'];
 
 /**
@@ -22,7 +23,7 @@ const QUALITIES = ['high', 'medium', 'low'];
  * @param {any} raw
  * @returns {{ bgm: number, sfx: number, voice: number, muted: boolean, damageNumbers: boolean, quality: 'high'|'medium'|'low',
  *   keys: Record<'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready', string>, chatSound: boolean, chatVolume: number,
- *   chatCooldown: number, chatFactionAlerts: boolean }}
+ *   chatCooldown: number, chatFactionAlerts: boolean, eliteBadge: boolean }}
  */
 export function sanitizeSettings(raw) {
   const r = isObj(raw) ? raw : {};
@@ -39,5 +40,6 @@ export function sanitizeSettings(raw) {
     chatVolume: vol(r.chatVolume, DEFAULT_SETTINGS.chatVolume),
     chatCooldown: Number.isFinite(r.chatCooldown) ? clamp(Math.round(r.chatCooldown), CHAT_COOLDOWN.min, CHAT_COOLDOWN.max) : DEFAULT_SETTINGS.chatCooldown,
     chatFactionAlerts: typeof r.chatFactionAlerts === 'boolean' ? r.chatFactionAlerts : DEFAULT_SETTINGS.chatFactionAlerts,
+    eliteBadge: typeof r.eliteBadge === 'boolean' ? r.eliteBadge : DEFAULT_SETTINGS.eliteBadge,
   };
 }

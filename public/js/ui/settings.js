@@ -292,6 +292,7 @@ export function SettingsModal({ open, onClose }) {
               class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
           </div>
         </div>
+        <${Toggle} label=${t('精锐干员标记')} micro="ELITE BADGE" value=${s.eliteBadge} onChange=${(v) => updateSettings({ eliteBadge: v })} />
         <${UiScaleSetting} />${/* local patch */ ''}
         <${GpuNote} />
       <//>

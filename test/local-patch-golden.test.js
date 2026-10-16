@@ -44,6 +44,37 @@ test('battle (not prep) or a removed view: the glow ends; nothing before the pre
   assert.equal(none.calls.length, 0);
 });
 
+// maintainer decision 2026-10-17: while the glow cannot play (quality 'low', or the prefab not installed) the prep elite
+// piece gets the ground ring instead (`goldenFallback`, render/elite-mark.js); never in battle, never on others
+test('the ground ring stands in for the glow only while it cannot play, in the prep, on a live elite ally operator', () => {
+  const views = new Map([
+    ['a', view({ id: 'a' })],
+    ['b', view({ id: 'b', golden: false })],
+    ['c', view({ id: 'c', isToken: true })],
+    ['d', view({ id: 'd', isEnemy: true })],
+  ]);
+  const flags = () => [...views.values()].map((v) => v.goldenFallback);
+  syncGoldenFx(views, fakeFx(false), true);
+  assert.deepEqual(flags(), [true, false, false, false], 'not ready (quality low): the ring');
+  syncGoldenFx(views, fakeFx(false), false);
+  assert.deepEqual(flags(), [false, false, false, false], 'battle: none');
+  syncGoldenFx(views, fakeFx(true), true);
+  assert.deepEqual(flags(), [false, false, false, false], 'the official glow plays: no ring');
+  syncGoldenFx(views, null, true);
+  assert.equal(views.get('a').goldenFallback, true, 'no effect layer at all: the ring');
+});
+
+test('elite marks: the ring lies outside the official facing ring; the badge is the official 精二 chevrons', async () => {
+  const { ELITE_RING, ELITE_BADGE } = await import('../public/js/render/elite-mark.js');
+  const { FACING } = await import('../public/js/render/facing.js');
+  assert.ok(ELITE_RING.r > FACING.ring / 2, `ring ${ELITE_RING.r} vs facing ${FACING.ring / 2}`);
+  assert.equal(ELITE_BADGE.ui, 'eliteLarge/elite_2_large');
+  const { DEFAULT_SETTINGS, sanitizeSettings } = await import('../public/js/ui/gameLogic/settings.js');
+  assert.equal(DEFAULT_SETTINGS.eliteBadge, false, 'the badge is off by default (official look)');
+  assert.equal(sanitizeSettings({ eliteBadge: true }).eliteBadge, true);
+  assert.equal(sanitizeSettings({ eliteBadge: 'yes' }).eliteBadge, false);
+});
+
 // the glow's place (official recording 2026-10-08): fxplayer FxInstance drops the root node's own position (opts.atSpawn)
 // and hands each quad renderer its m_Pivot (uPivot, opts.pivot) — the elite glow's bao band pivot x .95 runs behind the unit;
 // both on for every effect by the maintainer's decision 2026-10-08, false opts out

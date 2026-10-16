@@ -1,6 +1,6 @@
 // render/units.js — per-unit views for battle units and prep pieces (DESIGN §9).
 //
-// UnitView = shadow sprite (shadow layer) + body container (depth-sorted unit layer: elite aura, Spine actor or
+// UnitView = shadow sprite (shadow layer) + body container (depth-sorted unit layer: Spine actor or
 // the avatar-in-rarity-diamond fallback) + HUD container (bar layer: HP bar with delayed "ghost" damage, SP bar
 // with ready glow / draining skill bar, tier chip, status icons, blocked marker). The fallback shows at once and
 // cross-fades to the Spine model when it has loaded (the game never blocks on Spine); an optional local-client model
@@ -76,6 +76,7 @@ import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tile
 import { noHpBar, facingless, bodyless } from '../../../shared/trap-tokens.js'; // local patch; 2026-10-11 bodyless markers
 import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch: 迷彩 icon; 起飞
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
+import { EliteRing, eliteBadgeTexture, ELITE_BADGE } from './elite-mark.js'; // the prep elite ring (low quality) and badge (setting)
 import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './face-turn.js'; // an operator turns to its target (「공격 방향」)
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
@@ -652,7 +653,7 @@ function bar(P, parent, color, alpha = 1) {
  * Shared context handed to every view by app.js.
  * @typedef {{ P: any, layers: { shadow: any, units: any, bars: any, groundFx: any },
  *   assets: any, cam: () => any, heightAt: (r:number,c:number)=>number, fx: any, time: () => number,
- *   settings: { damageNumbers: boolean, quality: string } }} ViewCtx
+ *   settings: { damageNumbers: boolean, quality: string, eliteBadge?: boolean } }} ViewCtx
  */
 
 export class UnitView {
@@ -756,15 +757,10 @@ export class UnitView {
     this.root.sortableChildren = false;
     ctx.layers.units.addChild(this.root);
 
-    const fx = fxAtlas();
-    this.aura = null;
-    if (this.golden) {
-      this.aura = new P.Sprite(fx.tex.glow);
-      this.aura.anchor.set(0.5, 0.62);
-      this.aura.tint = 0xffc94a;
-      this.aura.blendMode = P.BLEND_MODES.ADD;
-      this.root.addChild(this.aura);
-    }
+    // an elite piece's prep marks (render/elite-mark.js): made on first use; `goldenFallback` is set by fxgolden.js
+    this._eliteRing = null;
+    this._eliteBadge = null;
+    this.goldenFallback = false;
     this.body = new P.Container();
     this.root.addChild(this.body);
     this.fallback = new P.Sprite(P.Texture.EMPTY);
@@ -1849,13 +1845,14 @@ export class UnitView {
       this.facingArrow.alpha = 0.9 * alpha;
     } else if (this.facingArrow) this.facingArrow.visible = false;
 
-    // elite aura
-    if (this.aura) {
-      const k = 0.35 + 0.12 * Math.sin(t * 2.2 + this.bob);
-      this.aura.alpha = k;
-      this.aura.visible = !this._fxStatusOn?.has('golden'); // local patch: the official prep glow instead (fxgolden.js)
-      this.aura.scale.set((s * 1.3) / 128, (s * 1.9) / 128);
+    // elite ground ring: the prep stand-in for the official glow while it cannot play (render/elite-mark.js)
+    const ring = this.golden && this.prep && this.goldenFallback && this.alive && this.lift <= 0;
+    if (ring) {
+      if (!this._eliteRing) this._eliteRing = new EliteRing(P);
+      placeOnGround(this.ctx, this._eliteRing.mesh, this.ctx.layers.groundFx, this.y, this.z);
+      this._eliteRing.update(cam, this.x + this.modelDX, this.y, this.z, alpha, t);
     }
+    if (this._eliteRing) this._eliteRing.mesh.visible = ring;
 
     // head height: operators/tokens are uniform chibis; enemies vary (setup-pose bounds, when known; else the chibi
     // headroom × their official model factor)
@@ -1884,10 +1881,32 @@ export class UnitView {
       this.root.visible = !off;
       this.hud.visible = !off;
       this.shadow.visible = !off;
-      if (off) { if (this.facingArrow) this.facingArrow.visible = false; if (this._facing) this._facing.root.visible = false; this.blockIcon.visible = false; }
+      if (off) { if (this.facingArrow) this.facingArrow.visible = false; if (this._facing) this._facing.root.visible = false; if (this._eliteRing) this._eliteRing.mesh.visible = false; this.blockIcon.visible = false; }
     }
     if (off) this._offDt += dt * (this.ctx.animRate?.() || 1);
     return off;
+  }
+
+  /**
+   * The elite badge (render/elite-mark.js) right of the prep tier chip, while the settings toggle `eliteBadge` is on;
+   * none in battle (maintainer decision 2026-10-17).
+   */
+  _updateEliteBadge(prep) {
+    const chip = this.chip;
+    const tex = this.golden && prep && this.ctx.settings?.eliteBadge && chip && chip.visible && !this.isToken
+      ? eliteBadgeTexture(this.P, typeof this.ctx.assets?.ui === 'function' ? this.ctx.assets.ui(ELITE_BADGE.ui) : null) : null;
+    if (!tex) { if (this._eliteBadge) this._eliteBadge.visible = false; return; }
+    if (!this._eliteBadge) {
+      this._eliteBadge = new this.P.Sprite(tex);
+      this._eliteBadge.anchor.set(0.5);
+      this.hud.addChild(this._eliteBadge);
+    }
+    const b = this._eliteBadge;
+    if (b.texture !== tex) b.texture = tex;
+    const w = chip.height * ELITE_BADGE.width;
+    b.scale.set(w / tex.width);
+    b.position.set(chip.x + chip.width / 2 + w * ELITE_BADGE.gap, chip.y);
+    b.visible = true;
   }
 
   _updateHud(dt, s, x, y, alpha, t) {
@@ -1980,6 +1999,7 @@ export class UnitView {
       else this.chip.position.set(x0 - this.chip.width / 2 - 1, cy + (showSp ? spH / 2 : 0));
       }
     }
+    this._updateEliteBadge(prep);
     // status icons row above the bars
     const icons = this._iconKeys();
     const isz = clamp(s * 0.26, 12, 26);
@@ -2316,6 +2336,7 @@ export class UnitView {
     this.blockIcon.destroy();
     if (this.facingArrow) this.facingArrow.destroy();
     if (this._facing) this._facing.destroy(); // local patch
+    if (this._eliteRing) this._eliteRing.destroy();
     this.hud.destroy({ children: true });
     this.root.destroy({ children: true });
   }
