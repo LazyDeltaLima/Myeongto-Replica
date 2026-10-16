@@ -543,8 +543,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     try { return !!under(); } catch { return false; }
   }
 
+  /**
+   * A skill ended: its loops end. Not the statuses the unit wears (`status`, fxstatus.js): the sim ends those (statusOff);
+   * stopped here, their `again` restarted them from the start the next frame (2026-10-16).
+   */
   function stopBuffs(ownerId, now = false) {
-    for (const l of live) if (l.buff && l.owner === ownerId) l.inst.stop(now);
+    for (const l of live) if (l.buff && !l.status && l.owner === ownerId) l.inst.stop(now);
   }
   /**
    * The unit left the field (knocked out / withdrawn): its buffs and the one-shots on it end; hits it made on targets play
