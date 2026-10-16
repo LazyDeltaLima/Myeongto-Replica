@@ -34,7 +34,7 @@ export default {
           elementHit(battle, unit, x, unit.s.atk * num(buff.data.scale), 'nymphSoul', 'apoptosis');
         },
       });
-      battle.fx('soul', { x: e.x, y: e.y, id: e.id });
+      battle.fx('soul', { x: e.x, y: e.y, id: e.id, src: unit.id, t: Math.max(0.1, burst.timeLeft) });
     };
     return {
       skills: lazySkills({

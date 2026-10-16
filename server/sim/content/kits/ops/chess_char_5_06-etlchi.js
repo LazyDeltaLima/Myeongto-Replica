@@ -91,7 +91,7 @@ export default {
             cd.mem.noLeak = true;                           // never a leak at the time limit (Battle._timeout)
             battle.addBuff(cd, { key: 'etlchi:candle', flags: { unblockable: true, noMove: true } });
             unit.mem.candles.push(cd);
-            battle.fx('candle', { x: cd.x, y: cd.y, id: cd.id, of: e.id });
+            battle.fx('candle', { x: cd.x, y: cd.y, id: cd.id, of: e.id, src: unit.id });
           }
         },
         onEnd({ battle, unit }) {

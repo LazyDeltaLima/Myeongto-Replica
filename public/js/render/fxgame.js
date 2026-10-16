@@ -67,6 +67,7 @@ import { boomerangThrown, boomerangCaught } from './boomerang.js'; // local patc
 import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
 import { playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`
+import { kitOfficialPlan, kitOperator } from './fx/kitofficial.js'; // 2026-10-16: kit events the buff templates draw
 import { UF } from '../../../shared/constants.js'; // local patch: the views' skill flag (skillByFlag)
 
 /**
@@ -1509,11 +1510,48 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       default: return false;
     }
   }
+  /**
+   * 2026-10-16: the kit events render/fx/kitofficial.js maps to the prefabs the client's buff templates create at that
+   * moment (talent / buff moments no skill or attack binding draws). true = handled (its stand-in skipped); a plan that only
+   * ends earlier effects (`pass`) or whose prefabs are not extracted leaves the event to the rest.
+   */
+  function officialKitFx(e, views) {
+    const o = e[4], opId = kitOperator(o), op = views.get(opId), b = !failed && q() !== 'low' ? bundleOf(op) : null;
+    const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op) }) : null;
+    if (!plan) return false;
+    for (const tag of plan.stop) for (const l of live) if (l.tag === tag && l.owner === opId) l.inst.stop();
+    let n = 0;
+    for (const p of plan.play) {
+      const name = pickName(b, p.n);
+      if (!name) continue;
+      if (p.line) {
+        const from = views.get(o[p.line[0]]), to = views.get(o[p.line[1]]);
+        if (from && to) { startLine(b.bundle, name, from, to, 1e6, { sMount: 1, eMount: 1 }); n++; }
+        continue;
+      }
+      const v = p.on === 'op' ? op : p.on === 'id' ? views.get(o.id) : null;
+      if (p.on !== 'point' && !v) continue;
+      const at = v || { x: Number(e[2]), y: Number(e[3]), z: 0 };
+      const on = v ? ownerOf(v) : undefined;
+      const entry = p.life === 'skill' ? { owner: opId, buff: true, until: null }
+        : p.life === 'deployed' ? { owner: opId, buff: false, onCaster: true, until: null, on }
+          : p.life === 'tag' ? { owner: opId, buff: false, onCaster: !!p.leave, until: null, tag: p.tag, on }
+            : p.life === 'unit' ? { owner: null, buff: false, until: null, on }
+              : typeof p.life === 'number' ? { owner: null, buff: false, until: clockS + p.life, on }
+                : { owner: null, buff: false, on };
+      spawn(b.bundle, name, at, entry, { over: p.on !== 'point', facing: v ? efacing(v) : 1 });
+      n++;
+    }
+    if (!n || plan.pass) return false;
+    ownFx.add(e);
+    return true;
+  }
   /** Kit 'fx' events drawn with official prefabs; true = handled here (ownFx: render/fx.js skips its stand-in). */
   function kitFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object') return false;
     if (pickFx(e, views)) return true;
+    if (officialKitFx(e, views)) return true;
     const x = Number(e[2]), y = Number(e[3]);
     // 余 S3 灶里乾坤: the client builds the wall from per-tile pieces along the skill's infinite line (skchr_yu_3/TileRange
     // _isHorizontalInfinite), each on the tile's front edge (yuWallPieces — 2026-10-10, maintainer report: it stood on the

@@ -62,7 +62,7 @@ export default withDefaults({
             floating.delete(id);
             if (S2 && unit.alive && unit.deployed && skillActive(unit) && bodyInKeys(e, keySet(unit))) {
               battle.dealDamage(unit, e, { amount: unit.s.atk * land, type: 'arts', isSkill: true, tags: ['skill', 'landing'] });
-              battle.fx('splash', { x: e.x, y: e.y, id: e.id });
+              battle.fx('splash', { x: e.x, y: e.y, id: e.id, src: unit.id });
             }
           }
         }, { owner: unit });

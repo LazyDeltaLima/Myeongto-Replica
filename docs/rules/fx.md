@@ -1146,3 +1146,32 @@
 - 확인: 단위 `test/render/common-ability-fx.test.js`, `char_modes.py` 전체 재추출 diff는 `common` 6명뿐. Windows Chrome 디버그 아레나(배치 뒤,
   지금 발동 3번 뒤 갱신 중인 프리팹): 新约能天使 S3·引星棘刺 S3·圣聆初雪 S2·魔王 S2·夕 S2 모두 발동 전후 그대로, 오류 0; 3배 확대 캡처로 新约能天使
   머리 위 후광·등의 날개, 引星棘刺 무기 쪽 빛. [화면 미확인: 공식 녹화와 모양·자리 대조]
+
+### 키트 이벤트의 공식 이펙트 — 버프 템플릿이 그리는 순간 (2026-10-16, 이펙트 연결 전수)
+
+- 원인: 공식 이펙트가 있는 오퍼의 키트 이벤트는 `standInOff`가 절차 대체(2D 원·고리·반짝임)를 끈다. 그 순간 대부분은 스킬 시작이나 공격이라
+  'skill'·'atk'·'dmg' 바인딩이 그리지만, 재능·버프 순간(치명상 버팀, 층 깨짐, 쓰러짐·일어남, 영구 표식)은 아무도 안 그려 빈 화면이었다. 이
+  이펙트들은 캐릭터 번들이 아니라 클라 **버프 템플릿**(`config/buff_template_holder.ab`, 8,072개: CreateBuff의 `overrideEffectKey`·CreateEffect
+  노드)이 만든다 — 이펙트 연결 전수(관리자 노트)의 「클라 연결 없는 후보」 대부분이 여기 있었다.
+- 고친 것: `render/fx/kitofficial.js KIT_OFFICIAL`(이벤트 → 오퍼 번들 → 계획)을 `fxgame.js officialKitFx`가 실행 — 그 오퍼의 프리팹이 하나라도
+  추출돼 있을 때만 절차 대체를 가져간다. 수명은 템플릿대로: 한 번(`once`) · 초 · 스킬 끝까지(`buff` 항목) · 배치 동안 · 그 유닛의 'die'까지 · 다음
+  이벤트가 끌 때까지(`tag`).
+  - 号角 T2 血战(`horn_t_1[muso]` → `[reborn_effect]`): `convert_start`·`_02` 4초, `_03`·`horn_buff_01_start_front` 배치 동안. S2·S3 过载
+    (`[overload_switch_effect]`): 기본 방향이 UP이면 `_back`, 아니면 `_front`(`CheckCharacterDefaultDirection`), 스킬 끝까지.
+  - 泥岩 T1 마지막 층이 깨질 때 `mudrok_buff_01_end`(`[shield_c]` BlockDamage). 키트 'shieldBreak'에 남은 층 `left`를 실음.
+  - 伊内丝 T2 影哨: `projectile_chr_ines_guard`의 `_effectsWhenReached` `label_start_01`(한 번)·`label_01`·`range_01`을 놓인 자리에 — 새 影哨나
+    S3 회수('beam', 그 2D 선은 그대로)가 끈다.
+  - 烛煌 T2 绝处重燃: 'downed'에 `blaze2_revive_buff`·`_03`(`[reborn_state]`·`[vfx1]`) — 일어남('revive')이나 퇴장까지 [추정: `_03`은 클라에서 그
+    상태의 护盾이 다하면 꺼지는데 시뮬이 알리지 않음], 'revive'에 `blaze2_revive_end_start`.
+  - 圣聆初雪 T2(`sbell2_t2[heal]`) `sbell2_revive`; 阿罗玛 S2 띄운 적 착지(`aroma_s_2`) 그 적에 `aroma_skill_02_hit_02`; 寒芒克洛丝 S2 예열 끝
+    (`[warming_counter]` → `[warmed_effect_01~03]`) `kroos2_skill_02_buff_01~03` 스킬 끝까지; 妮芙 T1 凋亡 폭발 중인 적(`[ep_damage]`)에
+    `nymph_talent_buff_01` 폭발 끝(`t`)까지; 隐德来希 S3 心烛(`etlchi_s3[to_enemy]` → `entlec_effect`) 그 적에 `ghosting_01`, 베낀 적과 잇는 선
+    `etlchi_skill_03_line_01` [추정: 선의 방향] — 心烛이 서 있는 동안. 키트 'splash'·'soul'·'candle'에 오퍼 `src`(妮芙는 `t`도)를 실음.
+- 판정: `test/render/kit-event-fx.test.js`가 절차 대체가 꺼지는 모든 (이벤트, 키트) 쌍에 규칙이나 판정을 요구한다 — 새 키트 이벤트가 말없이 안
+  그려지지 않게. 판정은 스킬(그 스킬 바인딩이 그림, 바인딩 표에서 확인)·공격·없음(클라도 안 그림: 耀骑士临光 모듈 骑士家族의 `undying`)·다른
+  이벤트가 그림·절차 대체 유지(토큰·적이 보내는 것)·**미판정**. 미판정 23쌍은 관리자 노트의 열린 일.
+- 안 한 것: 泥岩 층 루프 `mudrok_buff_01~03_start`(층이 생길 때 — 시뮬 이벤트 없음, 새 이벤트는 골든 이벤트 수를 바꿈), 心烛 선의 방향 확인.
+- 확인: 단위 `test/render/kit-event-fx.test.js`. Windows Chrome 디버그 아레나(지금 발동 3번 동안 만들어진 프리팹): 号角 S2
+  `horn_skill_02_buff_03_front` 1(스킬 끝에 꺼짐)·S3 `horn_skill_03_buff_02_03_front`, 寒芒克洛丝 S2 `kroos2_skill_02_buff_01~03`, 隐德来希 S3
+  `etlchi_skill_03_ghosting_01` 2·`etlchi_skill_03_line_01` 2, 妮芙 S2 `nymph_talent_buff_01`, 오류 0. 阿罗玛 S2 착지는 허수아비가 안 떠 못 봄.
+  [화면 미확인: 재능 순간(号角·圣聆初雪 치명상, 泥岩 층, 烛煌 쓰러짐, 伊内丝 影哨)과 阿罗玛 착지 — 아레나에서 바로 못 만듦; 모양·자리 공식 녹화 대조]

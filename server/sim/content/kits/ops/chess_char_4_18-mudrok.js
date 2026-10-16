@@ -90,7 +90,7 @@ export default withDefaults({
             if (broken <= 0) return;
             unit.mem.layers = left;
             battle.heal(unit, unit, unit.s.maxHp * num(t0.hp_ratio, 0.2) * broken, { self: true });
-            battle.fx('shieldBreak', { x: unit.x, y: unit.y, id: unit.id });
+            battle.fx('shieldBreak', { x: unit.x, y: unit.y, id: unit.id, left });
           }, { owner: unit });
         } },
         { install(battle, unit) { // 手足相惜: −30 % damage from 萨卡兹 enemies
