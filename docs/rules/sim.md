@@ -1268,9 +1268,21 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
     하차마다 `enemy_mntrjn_reduce`가 감속 한 스택을 되돌린다. 탑승·하차 이펙트 없음(`_effectWhenAddPassenger`·`_effectOnPassengerWhenRelease` 빈 값).
   - 외형: `enemy_mntrjn_mark`가 스택 수로 스파인 스킨 `default` → `half`(`half_cnt` 2 이상) → `full`(`max_cnt`)을 고른다.
 - 로컬(`server/sim/content/enemies/special.js` `kitBus`): 위 규칙 그대로. 승객은 `hidden`(스냅샷에서 빠짐)·`pauseUntil = ∞`로 멈추고, 하차 때 버든비스트의
-  경로 구간(`legs`·`legIdx`·`waitLeft`)을 복사한다. 감속은 버프 `ab:bus` 하나(`moveMul = max(1 + n × move_speed, 0.1 ÷ 기본 이동 속도)`) — 하한은
-  다른 감속과 겹칠 때는 맞추지 않는다(엔진에 이동 속도 하한이 아직 없음). 클라처럼 탄 채로 사라진 승객의 스택은 남는다.
+  경로 구간(`legs`·`legIdx`·`waitLeft`)을 복사한다. 감속은 버프 `ab:bus` 하나(`moveMul = max(0, 1 + n × move_speed)`), 하한 0.1은 엔진 전역 하한
+  (아래 「이동 속도 하한 0.1」)이 맡는다. 클라처럼 탄 채로 사라진 승객의 스택은 남는다.
   [추정] 원 안에 여럿이면 가까운 순(같으면 먼저 나온 적), 적의 판정 반경 없이 중심점 거리. 버든비스트가 숨어 있는 동안(DISAPPEAR 구간)은 태우지 않는다.
 - 아직 없음: 스킨 `half`·`full` 표시(렌더).
 - 확인: `test/content/enemies_bosses.test.js` 「enemy_10159_mntrjn …」 5건(탑승 대상·감속·최대 5명·기절 중 안 태움·격파 하차·도달 하차),
   `test/sim/bus-passengers.test.js`(실제 판: 수배 카드 → 실제 웨이브에서 탑승·감속·격파 하차). golden: 이 적이 나오는 roster-012·roster-033·standin-05가 움직였다.
+
+## 이동 속도 하한 0.1 (2026-10-16, PRTS 数值范围)
+- 공식: PRTS 数值范围 MOVE_SPEED 최소 0.1, PRTS 游戏数据基础 移速의 이동 속도 하한 0.1. 감속·MULTIPLIER가 아무리
+  겹쳐도 이동 속도 속성은 0.1 아래로 내려가지 않는다.
+- 원본·옛 동작: 하한 없음(`moveSpeed = max(0, …)`): 停顿(×0.2)에 감속이 겹치거나 喷气人의 −90 % 제동이 걸리면 0.1보다 느리게 걸었다. 나무 버든비스트
+  키트와 望의 连星 감속(`op-wang.js` `addWangSlow`)만 자기 감속에 하한을 따로 뒀다(望의 것은 그대로 둠: 엔진 하한과 결과가 같다).
+- 로컬(`server/sim/units.js` `moveSpeedOf`, `constants.js` `MOVE_SPEED_MIN`): 기본 이동 속도가 0보다 큰 유닛의 최종 이동 속도를 0.1 이상으로 올린다.
+  `noMove` 상태(束缚·地面束缚·형태 전환 정지)는 0 그대로 — 이동은 그 플래그에서 먼저 멈추고(`ai.js`), 키트의 「멈춰 있음」 판정이 0을 본다. 기본 0인
+  고정 적은 0 그대로.
+- 확인: `test/sim/playtest6-combat.test.js` 「移动速度 never drops below 0.1 …」. golden: roster-005·011·015·016·018·020·021·027·033·036·038·043·044·045·046,
+  bond-deputShip-high·bond-swiftShip-low, fields 보스 13개(boss_1~6·hidden-boss_8~10), matches 8개, standin-04·05·08, diy-005·009가 움직였다
+  (0.1 아래로 느려지던 적이 그만큼 빨라짐).

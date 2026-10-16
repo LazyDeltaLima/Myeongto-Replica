@@ -21,7 +21,7 @@ import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getDefaultSource, hasGeneratedData } from '../../server/sim/simdata.js';
 import { effectiveProfile } from '../../server/sim/ai.js';
-import { PUSH_TILES, PUSH_TILES_EFFECT, PULL_STOP_RADIUS, ASPD_MIN, COLS } from '../../server/sim/constants.js';
+import { PUSH_TILES, PUSH_TILES_EFFECT, PULL_STOP_RADIUS, ASPD_MIN, MOVE_SPEED_MIN, COLS } from '../../server/sim/constants.js';
 import { alliesInGridOf } from '../../server/sim/content/kits/shared/tier1.js';
 import { Unit } from '../../server/sim/units.js';
 import { spawnYanyou, TOKEN_IDS } from '../../server/sim/content/tokens.js';
@@ -265,6 +265,28 @@ test('#17 heavy slows: ASPD never drops below 20 (PRTS 数值范围) — two −
   u.buffs.push({ key: 'more', stacks: 1, mods: { aspd: -300 } });
   u.markDirty();
   assert.equal(u.s.aspd, 20, 'still 20 under any slow');
+});
+
+test('移动速度 never drops below 0.1 (PRTS 数值范围 MOVE_SPEED) for a walking unit; a noMove state and a unit that never walks keep 0', () => {
+  assert.equal(MOVE_SPEED_MIN, 0.1);
+  const mk = (moveSpeed) => {
+    const u = new Unit({ id: 1, side: 'enemy', kind: 'enemy', base: { maxHp: 1000, atk: 0, def: 0, res: 0, aspd: 100, bat: 1, moveSpeed } });
+    u.alive = true;
+    return u;
+  };
+  const u = mk(1);
+  u.buffs.push({ key: 'a', stacks: 1, mods: { moveMul: 0.2 } }, { key: 'b', stacks: 1, mods: { moveMul: 0.3 } });
+  u.markDirty();
+  approx(u.s.moveSpeed, 0.1, 1e-12, '1 × 0.2 × 0.3 = 0.06 → 0.1');
+  u.buffs.push({ key: 'c', stacks: 1, mods: { moveMul: 0 } });
+  u.markDirty();
+  approx(u.s.moveSpeed, 0.1, 1e-12, 'a zero multiplier alone does not stop it');
+  u.buffs.push({ key: 'bind', stacks: 1, flags: { noMove: true }, mods: { moveMul: 0 } });
+  u.markDirty();
+  assert.equal(u.s.moveSpeed, 0, '束缚 (noMove) keeps its 0');
+  const still = mk(0);
+  still.markDirty();
+  assert.equal(still.s.moveSpeed, 0, 'base 0 (a stationary enemy) stays 0');
 });
 
 test('#17 the user\'s case under heavy slows: the front blocker that took the enemy over hits it every 5 × BAT', () => {

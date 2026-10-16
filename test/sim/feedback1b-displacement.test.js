@@ -21,6 +21,7 @@ import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { hasGeneratedData, getDefaultSource, spawnsFromTemplate } from '../../server/sim/simdata.js';
 import { PUSH_TILES, PULL_STOP_RADIUS } from '../../server/sim/constants.js';
+import { aggregateMods } from '../../server/sim/buffs.js';
 
 const REAL = { skip: !hasGeneratedData() };
 const approx = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''} ${a} ≈ ${b}`);
@@ -372,9 +373,10 @@ test('喷气人 飞行模式 = 近地悬浮 + 不可阻挡 + 失衡免疫 (PRTS 
     units: [{ chessId: 't_wall', row: 9, col: 5 }], autoFinish: false, timeLimit: 60,
   });
   h.step();
-  // nearly still (speed × 1e-3), so it stays on the wall's tile while the speed ratios stay measurable
+  // nearly still (speed × 1e-3), so it stays on the wall's tile; the ratios are its buffs' ΠmoveMul (the attribute
+  // itself sits on the 移动速度 floor 0.1 at that speed, units.js MOVE_SPEED_MIN)
   const e = h.spawn(BALLOON, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 1e-3, atkMul: 0 } });
-  const speed = () => e.s.moveSpeed / e.base.moveSpeed;
+  const speed = () => aggregateMods(e.buffs).mul.moveMul ?? 1;
   const fly = 1 + s.bb['balloon_s[fly].move_speed'];
   assert.ok(h.runUntil(() => !!e.findBuff('ab:takeoff'), s.initCooldown + 1), 'takes off when blocked');
   const t0 = h.b.time;

@@ -35,9 +35,9 @@ const TORTURER_RADIUS = 1;
 const BARREL_RADIUS = 1.5;
 
 /** 伊利昂的木驮兽 passengers (client prefab `Talents/bus`, a DurbusAbility): the boarding circle (its Selector's
- *  CircleCollider2D, radius in tiles), the drop-off scatter (`_randomOffsetBound`, ± per axis) and the attribute floor of
- *  移动速度 (PRTS 数值范围 MOVE_SPEED 最小 0.1, which the stacked −20 % per passenger reaches at 5). */
-const BUS_RADIUS = 0.5, BUS_DROP_SCATTER = 0.2, MOVE_SPEED_MIN = 0.1;
+ *  CircleCollider2D, radius in tiles) and the drop-off scatter (`_randomOffsetBound`, ± per axis). The stacked −20 % per
+ *  passenger reaches 0 at 5; the engine's 移动速度 floor (constants.js MOVE_SPEED_MIN) keeps it at 0.1. */
+const BUS_RADIUS = 0.5, BUS_DROP_SCATTER = 0.2;
 
 // ---------------------------------------------------------------------------------------------------------------
 // kits
@@ -231,10 +231,8 @@ function kitExposeOnHit(ab) {
 function kitBus(ab) {
   const max = T(ab, 'bus.max_cnt') ?? 0, per = T(ab, 'bus.move_speed') ?? 0;
   const slow = (b, e, a) => {
-    if (a.stacks <= 0) { b.removeBuff(e, 'ab:bus'); return; }
-    const base = e.base.moveSpeed;
-    const mul = Math.max(1 + a.stacks * per, base > 0 ? MOVE_SPEED_MIN / base : 0);
-    b.addBuff(e, { key: 'ab:bus', persist: true, mods: { moveMul: Math.min(1, mul) } });
+    if (a.stacks <= 0) b.removeBuff(e, 'ab:bus');
+    else b.addBuff(e, { key: 'ab:bus', persist: true, mods: { moveMul: Math.min(1, Math.max(0, 1 + a.stacks * per)) } });
   };
   const board = (b, e, o) => {
     if (o === e || !o.alive || o.hidden || o.motion === 'FLY' || o.isBoss || (o.def && o.def.rank === 'BOSS')) return false;

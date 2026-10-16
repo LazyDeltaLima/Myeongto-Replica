@@ -159,7 +159,7 @@
       "hooks": [1,21,2908,196,196,332,332,2026,8,8,13,11,0,11171,100,0,8,0,1,7,0,0,0],
       "events": {"atk":196,"deploy":10,"die":8,"dmg":332,"engage":5,"face":32,"fx":38,"heal":72,"skill":24,"spawn":21,"status":73,"swing":208},
       "fx": {"beam":2,"counter":15,"enemyShot":1,"enemySkill":2,"pull":1,"slippery":2,"taunt":4,"tornado":1,"tornadoPulse":5,"zone":5},
-      "snaps": "ffbea531 e3472156 1efac2ce db210df8 c220fd5a adaf704c 392f6b86 71db1c81 b111e4bf 7a58f0ca"
+      "snaps": "ffbea531 e3472156 1efac2ce db210df8 c220fd5a adaf704c bb971901 3c2fccd6 d9d7f14c 3300d875"
     },
     "bond-egirShip-low": {
       "about": "阿戈尔 low: tier 1 layers 1; chess_char_1_04_a chess_char_3_16_a chess_char_2_07_a chess_char_3_18_a chess_char_3_05_a chess_char_3_14_a chess_char_3_17_a chess_char_3_19_a token_10028_vigil_wolf",
@@ -1537,9 +1537,9 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[5,5,0,0,27000],"enemy_1251_lysyta":[15,15,0,0,37125],"enemy_1328_cbjedi":[1,1,0,0,9000]},
       "hooks": [1,29,1343,99,99,242,237,1,21,21,5,3,14,5632,29,0,21,0,1,21,1,0,0],
-      "events": {"atk":116,"deploy":8,"die":21,"dmg":237,"engage":5,"face":32,"fx":79,"layer":1,"skill":8,"spawn":29,"status":86,"swing":110,"tplfx":1},
+      "events": {"atk":116,"deploy":8,"die":21,"dmg":237,"engage":5,"face":30,"fx":79,"layer":1,"skill":8,"spawn":29,"status":86,"swing":110,"tplfx":1},
       "fx": {"buff":1,"charges":2,"displace":9,"garrison":1,"garrisonGrant":1,"mote":16,"motes":31,"sandChains":1,"shieldBreak":5,"slash":2,"sp":1,"spGift":7,"talent":1,"truesilver":1},
-      "snaps": "dd4e3cf4 aa3083b8 28520e8d 796e6083 8fe2a71c"
+      "snaps": "dd4e3cf4 aa3083b8 28520e8d 5d081e32 bf732c53"
     },
     "bond-swiftShip-high": {
       "about": "迅捷 high: tier 1 layers 999; chess_char_4_11_b chess_char_1_19_b chess_char_4_07_b chess_char_4_09_b chess_char_1_01_b chess_char_4_06_b chess_char_4_10_b chess_char_4_12_b token_10041_cathy_catsld token_10041_cathy_catsld",

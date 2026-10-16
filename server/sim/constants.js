@@ -236,6 +236,13 @@ export const OBSTACLE_DEVICES = Object.freeze({ trap_1105_accrate: { hp: 100, na
 export const ASPD_MIN = 20;
 export const ASPD_MAX = 600;
 
+/**
+ * 移动速度 floor for a unit that walks at all (PRTS 数值范围: MOVE_SPEED 最小 0.1): slows, MULTIPLIER stacks and other cuts never
+ * take the attribute below it (伊利昂的木驮兽 with 5 passengers: 1 + 5 × (−0.2) = 0 → 0.1). A unit held by a noMove state
+ * (束缚, 地面束缚, a form change) stays at its own value, 0 for those: movement stops on the flag first (ai.js).
+ */
+export const MOVE_SPEED_MIN = 0.1;
+
 /** Client event buffer cap (events are dropped oldest-first beyond this when nobody drains). */
 export const EVENT_BUFFER_CAP = 50000;
 

@@ -5,13 +5,14 @@
 //   res           = clamp((base + Σflat) × Πmul, 0, 100)
 //   aspd          = clamp(base + Σaspd, 20, 600)          (base is 100 for almost everyone; floor 20 = PRTS 数值范围)
 //   interval      = bat × (1 + ΣbatPct) × 100 / aspd      (ΣbatPct floored at −0.9)
-//   moveSpeed     = (base + ΣmoveFlat) × ΠmoveMul          (tiles/s = moveSpeed × MOVE_SCALE)
+//   moveSpeed     = (base + ΣmoveFlat) × ΠmoveMul          (tiles/s = moveSpeed × MOVE_SCALE; floor 0.1 = PRTS 数值范围
+//                                                          when base > 0 and no noMove state — MOVE_SPEED_MIN)
 //   massLevel     = max(0, base + ΣmassFlat)                (重量: displacement, 浮空 halving; 失重 = massFlat −1)
 // Changing maxHp keeps the HP ratio. The sim keeps floats; rounding happens only in snapshots.
 
 import { aggregateMods } from './buffs.js';
 import { flagsOf } from './snapshot.js';
-import { ASPD_MIN, ASPD_MAX, ELEMENT_GAUGE_MAX, ELEMENT_GAUGE_MAX_LEADER } from './constants.js';
+import { ASPD_MIN, ASPD_MAX, MOVE_SPEED_MIN, ELEMENT_GAUGE_MAX, ELEMENT_GAUGE_MAX_LEADER } from './constants.js';
 import { DIR_VEC, normDir } from './dir.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -20,6 +21,8 @@ const EMPTY = Object.freeze({});
 const NO_MUL = Object.freeze({ atk: 1, def: 1, hp: 1 });
 /** Aggregates can overflow (huge stacked *Mul mods → Infinity) — fall back to `d` so no stat is ever non-finite. */
 const fin = (v, d) => (Number.isFinite(v) ? v : d);
+/** 移动速度 after its mods: never below MOVE_SPEED_MIN for a unit that walks (base > 0) unless a noMove state holds it. */
+const moveSpeedOf = (b, v, flags) => (b.moveSpeed > 0 && !(flags && flags.noMove) ? Math.max(MOVE_SPEED_MIN, v) : Math.max(0, v));
 
 export class Unit {
   /**
@@ -155,7 +158,7 @@ export class Unit {
       maxHp, atk, def, res, aspd, bat,
       interval: (bat * 100) / aspd,
       blockCnt: Math.max(0, fin(Math.round(b.blockCnt + a('blockCnt')), 0)),
-      moveSpeed: Math.max(0, fin((b.moveSpeed + a('moveFlat')) * m('moveMul'), fin(b.moveSpeed, 0))),
+      moveSpeed: moveSpeedOf(b, fin((b.moveSpeed + a('moveFlat')) * m('moveMul'), fin(b.moveSpeed, 0)), flags),
       rangeExtend: Math.max(0, Math.round(a('rangeExtend'))),
       // 阻挡半径倍率 − 1 (PRTS 数值范围 BLOCK_RADIUS_SCALE "影响阻挡模式为飞行阻挡的单位的阻挡半径"): Battle._checkBlock
       blockRadiusScale: Math.max(0, fin(a('blockRadiusScale'), 0)),

@@ -581,7 +581,7 @@ hpRegen, shield, flags{…}`.
 
 Aggregation: `ATK/DEF/maxHp = (base + Σflat) × (1 + Σpct) × Πmul`, for ATK with the 最终加算 `ΣatkFinal` after the
 percentages: `ATK = ((base + ΣatkFlat) × (1 + ΣatkPct) + ΣatkFinal) × ΠatkMul`; `res = clamp((base + ΣresFlat) × ΠresMul, 0, 100)`;
-`aspd = clamp(base + Σaspd, 20, 600)` (floor 20: PRTS 数值范围 ATTACK_SPEED 默认下限; user playtest #6); `interval = bat × (1 + ΣbatPct) × 100 / aspd`; `moveSpeed = (base + ΣmoveFlat) × ΠmoveMul`;
+`aspd = clamp(base + Σaspd, 20, 600)` (floor 20: PRTS 数值范围 ATTACK_SPEED 默认下限; user playtest #6); `interval = bat × (1 + ΣbatPct) × 100 / aspd`; `moveSpeed = (base + ΣmoveFlat) × ΠmoveMul`, floored at 0.1 for a unit that walks (base > 0) and is not held by a `noMove` state (PRTS 数值范围 MOVE_SPEED; docs/rules/sim.md 「이동 속도 하한 0.1」);
 tiles/s = `moveSpeed × MOVE_SCALE (0.5)`. A maxHp change keeps the HP ratio. Elite stats (module included) come from data.
 The attack cooldown `atkCd` restarts at `interval` as a swing starts (operators and enemies alike: `ai.js updateAlly` /
 `enemyAttack`, the strike `attackTiming().strike` later; it runs while the unit is on the field, a stun included —
