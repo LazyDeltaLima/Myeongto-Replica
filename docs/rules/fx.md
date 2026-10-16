@@ -547,7 +547,8 @@
   MeshFilter라 `fx_extract.py`가 못 풀어 메시가 빠졌다(재질 트랙도 'attr:'로 남음). 클라이언트가 그 파일을 `<Arknights_Data>/Resources/unity default resources`로
   싣고 있어 합성 대신 **실제 메시를 읽는다**(`Extractor.mesh_ref`, 메시 자리만; Quad 10210·Plane 10209만 — Cube 10202·Sphere 10207은 결정 범위 밖).
   재추출은 texas2 번들만: 9 프리팹 69 노드에 메시가 생김(S3 낙하 검·범위 모서리 검·범위 시작 27, S2 버프 메시 5, S1·S3 버프, buff_02_start 2종), 그 밖의 필드는
-  재추출 전과 같음. 산출물 `public/assets/local/fx/texas2/*.json`·`mesh/Quad_000027e2.json`은 git 밖. 나머지 ~316 프리팹(65 번들)은 보류.
+  재추출 전과 같음. 산출물 `public/assets/local/fx/texas2/*.json`·`mesh/Quad_000027e2.json`은 git 밖. 나머지 ~316 프리팹(65 번들)은 보류 —
+  2026-10-16 프라마닉스 더 프레리타 눈 타일 `sbell2_ground_01~03`만 더 재추출(관리자 결정, 「키트 이벤트의 공식 이펙트」).
 - 확인: 단위(`test/render/texas2-skill-fx.test.js` — 바인딩·이름, 실제 `birth_02_start`로 베기 4개가 1초에 사라짐, hit_02 검날 메시; `test/local-patch-fxmodes.test.js`
   다중 클립 합성 케이스). **아레나**(Chrome, `/debug.html?op=char_1028_texas2`): S2 발동 베기가 0.2초에 보이고 0.8초에 사라짐(전엔 약 2초 정지);
   S3 범위 시작 낙하 검·모서리 검, 샌드백에 1초마다 먹 검 낙하 + 착지. 무에나·불피스폴리아 S2 이상 없음(위셔델 S2 시작은 아레나에서 안 틀려 픽셀 비교만).
@@ -1204,9 +1205,9 @@
     `cells`만 있는 'snow'는 절차 대체 원을 그리지 않음, `kinds.js fxSpec`), `KIT_OFFICIAL.snow.sbell2`가 칸별 `slot` 재생(오퍼·칸마다 하나, 같은
     프리팹이면 유지, `off`로 끔 — `fxgame.js officialKitFx`)으로 그린다. 골든은 'snow' 이벤트 수만 바뀜(로스터 016·018·035·036·046, 필드
     boss_3·boss_5·boss_9 — 피해·결과 같음). 바닥 눈 그림은 세 프리팹의 Unity 내장 Quad 메시 노드(`1`·`2`·`3`, 재질 `sbell_01_ground_12`·
-    `sbell_02_ground_34`)라 지금 추출물에는 빠져 있다(아래 「내장 Quad/Plane 메시」 — 재추출은 텍사스 디 오메르토사만) — 그대로면 `_02`·`_03`의
-    눈송이 입자만 보인다. 확인: Windows Chrome 디버그 아레나(S1, 30초) — 15칸 `_01` → 2층에 `_02`로 13칸 교체, 3·4층은 새로 안 만듦(유지), 5층에
-    `_03` 13칸, 칸마다 살아 있는 이펙트 하나, 오류 0; 세 프리팹만 내장 Quad로 임시 추출해 넣으면 칸마다 눈이 보임(되돌림). [화면 미확인: 적이
+    `sbell_02_ground_34`)라 추출물에서 빠져 있었다 — 이 세 프리팹만 내장 Quad로 재추출(관리자 결정 2026-10-16, 아래 「내장 Quad/Plane 메시」:
+    바뀐 것은 Quad 노드의 메시·재질과 텍스처 `sbell2_010` 1장, 다른 필드 같음). 확인: Windows Chrome 디버그 아레나(S1, 30초) — 15칸 `_01` →
+    2층에 `_02`로 13칸 교체, 3·4층은 새로 안 만듦(유지), 5층에 `_03` 13칸, 칸마다 살아 있는 이펙트 하나, 칸마다 눈이 보임, 오류 0. [화면 미확인: 적이
     떠나 지워지는 칸 — 아레나 샌드백이 안 움직임] 안 한 것: 이펙트가 바뀔 때의 소리(`_playAudioWhenEffectChanged` 1, `_audioSignal`
     `sbell2_snow_refresh_audio`).
 - 판정: `test/render/kit-event-fx.test.js`가 절차 대체가 꺼지는 모든 (이벤트, 키트) 쌍에 규칙이나 판정을 요구한다 — 새 키트 이벤트가 말없이 안
