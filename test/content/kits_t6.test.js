@@ -915,6 +915,34 @@ test('tier-6 talent auras: 铳弹协约, 诸王的叹息, 感知稳定, 孤卒, 
   checkInvariants(h.b);
 });
 
+test('感知稳定 is an aura: one 术师 holds it while she stands, another takes it when that one falls, all of it ends with her', () => {
+  const h = battle({
+    units: [
+      { chessId: 'chess_char_6_12_a', row: 12, col: 7 },   // 迷迭香
+      { chessId: 'chess_char_6_05_a', row: 11, col: 7 },   // 异客 (术师)
+      { chessId: 'test_caster_a', row: 11, col: 5 },
+    ],
+  });
+  h.run(1);
+  const ros = h.unit('chess_char_6_12_a'), casters = [h.unit('chess_char_6_05_a'), h.unit('test_caster_a')];
+  const held = () => casters.filter((c) => c.alive && c.findBuff('rosmon:stable'));
+  assert.ok(ros.findBuff('rosmon:stable'), 'on her');
+  assert.equal(held().length, 1, 'one caster (_maxNum 1)');
+  const first = held()[0];
+  h.b.dealDamage(null, first, { amount: 1e9, type: 'true' });
+  h.run(0.5);
+  assert.deepEqual(held(), casters.filter((c) => c !== first), 'the other caster takes it');
+  const second = held()[0];
+  h.b.dealDamage(null, ros, { amount: 1e9, type: 'true' });
+  h.run(0.5);
+  assert.equal(second.findBuff('rosmon:stable'), null, 'gone with her (_removeBuffWhenAbilityDetached)');
+  checkInvariants(h.b);
+  // no 术师 on her side: the aura is not attached (`_checker` minCount 1)
+  const lone = battle({ units: [{ chessId: 'chess_char_6_12_a', row: 12, col: 7 }, { chessId: 'test_guard_a', row: 10, col: 5 }] });
+  lone.run(1);
+  assert.equal(lone.unit('chess_char_6_12_a').findBuff('rosmon:stable'), null);
+});
+
 // --------------------------------------------------------------------------------------------------------------------
 // regression tests (fidelity pass)
 

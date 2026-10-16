@@ -843,6 +843,11 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
   风丸 `Die_2`→`Start_B`, 돌아올 때 `Die_B`→`Born`(=`Start`), 归溟幽灵鲨 `Die`→`Start_B`, `Die_B`→`Start_2`, 모두 1 s), 나오는 단계의 `BuffAfterAffecting`(OnEvent
   2 = 시전 시작에 표시, `OnTick`이 능력이 끝난 뒤 `AddBuff`)이 그 클립이 끝난 뒤 `*_switchend`(보호 버프를 지우는 ClearAllBuffs + SwitchMode)를 건다 →
   `professions.js DOLL_SWITCH` 2(전엔 1 s [ASSUMED]). 远牙가 준 특질로 바뀌는 다른 오퍼레이터도 같은 2 s([ASSUMED]: 그들의 클립은 안 봄).
+- **迷迭香 感知稳定은 오라** (2026-10-16, charpack `char_391_rosmon/Talents/2`): `_checker`(professionMask 32 = 术师, minCount 1)가 맞는 동안 붙는 Aura —
+  术师 하나(`_maxNum` 1)와 그녀(`_selfOption`)가 `rosmon_t_2`를 지니고, 그 术师가 떠나면 빠지고 다른 术师가 받으며(`_removeBuffWhenTargetLeave`), 그녀가
+  떠나면 모두 빠짐(`_removeBuffWhenAbilityDetached`); 그녀 뒤에 배치된 术师도 받는다. 그 전엔 배치 순간 한 번 골라 붙인 뒤 지우지 않아, 그녀가 떠나도
+  남고 재배치마다 다른 术师에 쌓였다 → `chess_char_6_12-rosmon.js`(배치마다 0.25 s 확인). [ASSUMED: 새로 고를 때 무작위, 0.25 s 간격]. 테스트
+  `kits_t6.test.js` 「感知稳定 is an aura」.
 
 ## 적 투사체·공식 바인딩용 이벤트 필드 (관리자 결정 (2026-10-10) 「동작 변경 모두 공식이랑 동일하게」)
 근거: EN 클라(2026-08) 적 프리팹 `battle/enm_pfb_*.ab`·투사체 `battle/prefabs/[uc]projectiles.ab`의 값과 클라 코드(디컴파일 — 레포에는 클래스·메서드 이름만,

@@ -82,19 +82,30 @@ function rosmon(bb, chess, def) {
         if (v) battle.addBuff(unit, { key: 'rosmon:pierce', mods: { defIgnoreFlat: v }, persist: true, allowDead: true });
       } },
       { install(battle, unit) { // 感知稳定
+        // client char_391_rosmon/Talents/2 (2026-10-16 check): an Aura while at least one 术师 stands on her side (`_checker`
+        // professionMask 32, minCount 1) — one of them (`_maxNum` 1) and herself (`_selfOption`) hold rosmon_t_2, removed when
+        // that caster leaves (`_removeBuffWhenTargetLeave`: the aura takes another) or she does (`_removeBuffWhenAbilityDetached`);
+        // a caster deployed after her is taken too. [ASSUMED: a new pick is random, checked every 0.25 s]
         const atk = num(t1.atk);
+        const KEY = 'rosmon:stable';
         battle.on('deploy', ({ unit: u }) => {
           if (u !== unit || !atk) return;
-          battle.after(0, () => {
-            if (!live(unit)) return;
-            const casters = opsOf(battle, unit.ownerId).filter((a) => a.def?.profession === 'CASTER');
-            const pick = battle.rng.pick(casters);
-            if (!pick) return;
+          const seq = unit.deploySeq;
+          let pick = null, pickSeq = 0;
+          const drop = () => { if (pick) battle.removeBuff(pick, KEY); pick = null; };
+          battle.every(0.25, (b, sched) => {
+            if (!live(unit) || unit.deploySeq !== seq) { drop(); if (unit.deploySeq === seq) battle.removeBuff(unit, KEY); sched.cancel(); return; }
+            if (pick && !(live(pick) && pick.deploySeq === pickSeq)) drop();
+            const casters = opsOf(battle, unit.ownerId).filter((a) => live(a) && a.def?.profession === 'CASTER');
+            if (!casters.length) { drop(); battle.removeBuff(unit, KEY); return; }
+            if (pick) return;
+            pick = battle.rng.pick(casters);
+            pickSeq = pick.deploySeq;
             // rosmon_t_2 carries overrideEffectKey rosmon_buff_01_start (render/fxstatus.js KEY_FX)
-            battle.addBuff(unit, { key: 'rosmon:stable', mods: { atkPct: atk }, visible: true });
-            battle.addBuff(pick, { key: 'rosmon:stable', mods: { atkPct: atk }, visible: true });
+            if (!unit.findBuff(KEY)) battle.addBuff(unit, { key: KEY, mods: { atkPct: atk }, visible: true });
+            battle.addBuff(pick, { key: KEY, mods: { atkPct: atk }, visible: true, source: unit });
             battle.fx('link', { x: pick.x, y: pick.y, id: pick.id, src: unit.id });
-          }, { owner: unit });
+          }, { owner: unit, immediate: true });
         }, { owner: unit });
       } },
     ],
