@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { commonEffects } from '../../public/js/render/fxmap.js';
+import { commonEffects, TALENT_ALWAYS } from '../../public/js/render/fxmap.js';
 import { liveOverCap } from '../../public/js/render/fxgame.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -36,6 +36,13 @@ test('commonEffects: extracted prefabs only, minus the kit-owned ones', () => {
   assert.deepEqual(commonEffects(bind, ['a_wing', 'a_kit'], new Set(['a_kit'])), ['a_wing']);
   assert.deepEqual(commonEffects(null, ['a_wing']), []);
   assert.deepEqual(commonEffects({}, null), []);
+});
+
+test('commonEffects: the always-on talents by charId (TALENT_ALWAYS), after the common abilities', () => {
+  assert.deepEqual(commonEffects({ common: ['cello_common_fx01'] }, null, null, 'char_245_cello'), ['cello_common_fx01', 'cello_buff_01']);
+  assert.deepEqual(commonEffects(null, ['flower_buff_01_range'], null, 'char_181_flower'), ['flower_buff_01_range']);
+  assert.deepEqual(commonEffects(null, [], null, 'char_423_blemsh'), [], 'not extracted');
+  for (const [id, list] of Object.entries(TALENT_ALWAYS)) for (const n of list) assert.ok(n.startsWith(`${id.replace(/^char_\d+_/, '')}_`), n);
 });
 
 test('liveOverCap never ends a pinned entry and does not count it', () => {

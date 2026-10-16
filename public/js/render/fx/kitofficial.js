@@ -197,8 +197,30 @@ export const KIT_OFFICIAL = {
   healField: { lumen: (o) => ({ play: [{ n: 'lumen_skill_01_range', on: 'tgt', life: Math.max(0.1, Number(o.t) || 0) }] }) },
   // 寒檀 S2: an icicle (projectile_chr_sntlla_s2 `_effectsWhenReached` sntlla_skill_02_start_01 where it lands)
   iceSpike: { sntlla: () => ({ play: [{ n: 'sntlla_skill_02_start_01', on: 'point', life: 'once' }] }) },
-  // 蕾缪安 T2: 引渡 ready (lemuen_t_2 → buff lemuen_t_2[buff], effect lemuen_talent_buff_02, INFINITY)
-  talent: { lemuen: (o) => (o.name === 'extradition' ? { play: [{ n: 'lemuen_talent_buff_02', on: 'op', life: 'deployed' }] } : null) },
+  talent: {
+    // 蕾缪安 T2: 引渡 ready (lemuen_t_2 → buff lemuen_t_2[buff], effect lemuen_talent_buff_02, INFINITY)
+    lemuen: (o) => (o.name === 'extradition' ? { play: [{ n: 'lemuen_talent_buff_02', on: 'op', life: 'deployed' }] } : null),
+    // 卡涅利安 T1 生命之餐 (her only 'talent'): the heal at each skill start — charpack Talents/1's abilities Billro_Heal_Self /
+    // _Enhance, each with a oneshot `_castEffects` at ON_SPELL_ON: billro_beidong_buff_01, cast with every charge _02 [추정: the
+    // pairing — the two cast components are siblings of the two abilities on one GameObject; _02 is the larger prefab]
+    billro: (o) => ({ play: [once(Number(o.charged) ? 'billro_beidong_buff_02' : 'billro_beidong_buff_01')] }),
+    // 风笛 T1 精密填弹 (her only 'talent'): bpipe_t_1's SplashDamage `_createEffect` with its blackboard `effect`
+    // bpipe_attack_02_hit on the extra enemy the boosted attack hits (`id`)
+    bpipe: () => ({ play: [once('bpipe_attack_02_hit', 'id')] }),
+  },
+  // 灵知 T2 殊途同归 (his only 'kitHit', 10 s after the deploy): charpack Talents/2's wrapper ability gnosis_t_2_buff casts
+  // gnosis_beidong_buff from ON_CAST_START to ON_CAST_END, and the wrapper is `_isInfinity` [추정: its cast never ends — the
+  // effect, a burst with a looping glow, stays while he is deployed]
+  kitHit: { gnosis: () => ({ play: [{ n: 'gnosis_beidong_buff', on: 'op', life: 'deployed' }] }) },
+  // 烛煌 S2: the burning tiles (charpack Modes/S2/Body/Talents/3 DoTile, an AttachListenerToTileAbility: `_effectSettings`
+  // blaze2_skill_02_hit_plot from the first cast on a tile, castedTimeThreshold 1, ended with the ability at the skill's end
+  // — OnDetached → _ClearEffects). `cells` [[x, y, 1 on / 0 off]…] (sim kit chess_char_5_03-blaze2.js)
+  burnTiles: {
+    blaze2: (o) => ({ play: (Array.isArray(o.cells) ? o.cells : []).map(([x, y, on]) => {
+      const slot = `burn${x},${y}`;
+      return Number(on) > 0 ? { n: 'blaze2_skill_02_hit_plot', on: 'point', at: [x, y], slot } : { slot, off: true };
+    }) }),
+  },
   // 歌蕾蒂娅 S3: each pull of the tornado (projectile_chr_glady_s3_2 `_interval`: `_castEffect` glady_skill_03_range_03)
   tornadoPulse: { glady: () => ({ play: [{ n: 'glady_skill_03_range_03', on: 'point', life: 'once' }] }) },
 };

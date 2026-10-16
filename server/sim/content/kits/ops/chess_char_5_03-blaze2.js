@@ -73,14 +73,24 @@ export default {
           kind: 'duration',
           mods: mods({ atkPct: num(bb.atk), batPct: batPct(bb.base_attack_time, chess) }),
           targeting: skillRange(chess, def, { maxTargets: Math.max(1, num(bb['attack@max_target'], 3)) }),
+          // the burning tiles reach the client as 'burnTiles' `cells` [[x, y, 1 on / 0 off]…] (charpack Modes/S2/Body/Talents/3
+          // DoTile `_effectSettings` blaze2_skill_02_hit_plot per cast tile, cleared with the ability: render/fx/kitofficial.js)
           attack: {
-            onEachHit({ unit, target }) {
-              if (target && target.side === 'enemy') unit.mem.blazeTiles?.add(Math.round(target.y) * COLS + Math.round(target.x));
+            onEachHit({ battle, unit, target }) {
+              if (!target || target.side !== 'enemy' || !unit.mem.blazeTiles) return;
+              const x = Math.round(target.x), y = Math.round(target.y), k = y * COLS + x;
+              if (unit.mem.blazeTiles.has(k)) return;
+              unit.mem.blazeTiles.add(k);
+              battle.fx('burnTiles', { x: unit.x, y: unit.y, id: unit.id, cells: [[x, y, 1]] });
             },
           },
           onStart({ unit }) { unit.mem.blazeTiles = new Set(); unit.mem.blazeAcc2 = 0; },
           onAttack({ battle, unit }) { battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio']), { source: unit }); },
-          onEnd({ unit }) { unit.mem.blazeTiles = null; },
+          onEnd({ battle, unit }) {
+            const tiles = unit.mem.blazeTiles;
+            unit.mem.blazeTiles = null;
+            if (tiles?.size) battle.fx('burnTiles', { x: unit.x, y: unit.y, id: unit.id, cells: [...tiles].map((k) => [k % COLS, Math.floor(k / COLS), 0]) });
+          },
         }),
       }),
       skill: {

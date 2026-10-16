@@ -34,8 +34,9 @@ export default {
           if (ctx.source !== unit || !ctx.dmg?.isAttack || ctx.target.side !== 'enemy' || !ctx.target.alive) return;
           const sea = (ctx.target.def?.tags || []).includes('seamonster');
           const amount = sea ? num(t.damage_seamonster, num(t.damage) * 2) : num(t.damage);
+          // (visible: udflow_t_1's overrideEffectKey udflow_debuff_01 on the enemy — render/fxstatus.js KEY_FX)
           battle.addBuff(ctx.target, {
-            key: `udflow:dot:${unit.id}`, duration: dur, interval: iv, refresh: 'extend', source: unit, visible: false,
+            key: `udflow:dot:${unit.id}`, duration: dur, interval: iv, refresh: 'extend', source: unit, visible: true,
             onTick: ({ battle: b, unit: e }) => b.dealDamage(unit, e, { amount, type: 'arts', canDodge: false, tags: ['dot'] }),
           });
         }, { owner: unit });

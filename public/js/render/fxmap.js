@@ -266,12 +266,24 @@ export function deployEffect(bind, token, mode = 0) {
 /** The dead effect of an operator / token: the root's `_deadEffect`, else common_char_die_01. */
 export const deadEffect = (bind) => bind?.dead || DEPLOY_FX.dead;
 /**
+ * 2026-10-16 (이펙트 연결 전수 묶음 3, docs/rules/fx.md 「재능 버프·시전 이펙트」): talents whose effect is on the operator for
+ * as long as it is deployed, unconditionally — an INFINITY buff on itself or an aura's `_effects` (EN charpacks):
+ */
+export const TALENT_ALWAYS = Object.freeze({
+  char_423_blemsh: Object.freeze(['blemsh_buff_01_start']),   // Talents/2 blemsh_t_2 (仁慈)
+  char_245_cello: Object.freeze(['cello_buff_01']),           // Others/Direction/Talents/1 cello_t_1 (无词哀歌)
+  char_181_flower: Object.freeze(['flower_buff_01_range']),   // Talents/1 `_passiveBuffs` flower_t_1[eff] (熏衣草)
+  char_1019_siege2: Object.freeze(['siege2_buff_01']),        // Others/Direction/Talents/1 AuraAbility `_effects` (诸王的叹息)
+});
+
+/**
  * 2026-10-16, decompile check (client `Unit.AttachCommonAbilities`): the always-on effects of an operator — the buffs its
  * prefab root's common abilities put on it for good (modes.json `common`, char_modes.py: 新约能天使's wings and halo,
- * 引星棘刺's weapon glow) — that are extracted, minus `kitOwned` (prefabs a kit event draws instead).
+ * 引星棘刺's weapon glow) and its always-on talents (TALENT_ALWAYS, by `charId`) — that are extracted, minus `kitOwned`
+ * (prefabs a kit event draws instead).
  */
-export function commonEffects(bind, prefabs, kitOwned = null) {
-  const list = Array.isArray(bind?.common) ? bind.common : [];
+export function commonEffects(bind, prefabs, kitOwned = null, charId = null) {
+  const list = [...(Array.isArray(bind?.common) ? bind.common : []), ...((charId && TALENT_ALWAYS[charId]) || [])];
   return list.filter((n) => typeof n === 'string' && (!prefabs || prefabs.includes(n)) && !kitOwned?.has(n));
 }
 

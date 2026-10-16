@@ -1364,3 +1364,35 @@
   일반 `rosmon_attack_A_hit_01` 2(쏠 때)·`_A_hit_02` 7(본탄 + 여진)·S1 `rosmon_skill_01_A_hit_01` 1, S2 `rosmon_skill_02_range` 9(사격마다 대상에 — 그녀
   몸에 안 남음), 伺夜 S3 `vigil_skill_03_trail_01`/`_02`/`_03` 22~23·`_hit_1`/`_2`/`_3` 24씩, 银灰 `svrash_attack_01_trail` 3, 新约能天使 S1
   `angel2_skill_1_close_trail_01` 84(0.05 s 간격). [화면 미확인: 실제 판, 공식 녹화와 꼬리 간격·모양]
+
+### 재능 버프·시전 이펙트 — 재능이 거는 버프와 시전 순간 (2026-10-16, 이펙트 연결 전수 묶음 3)
+
+- 원인: 재능의 버프 이펙트(`overrideEffectKey`)·시전 이펙트(`_castEffects`)·오라 이펙트(`_effects`)를 아무도 안 틀었다. 시뮬은 재능 버프를 클라에
+  알리지 않거나(`visible` 없음) 그 순간 이벤트가 없었다. 후보는 이펙트 연결 전수(관리자 노트)의 「재능 버프·시전」 20개.
+- 클라(EN charpack `Talents/N`, 버프 템플릿): 이벤트 번호 — 버프 `ON_BUFF_START` 0 · `ON_BUFF_FINISH` 1 · `ON_BUFF_TRIGGER` 2 · `ON_TARGET_KILLED` 9 ·
+  `ON_TAKE_DAMAGE` 10 · `ON_OUTPUT_DAMAGE` 11 · `ON_ABILITY_SPELL_ON` 18 · `ON_OTHER_BUFF_START` 36; 능력(`AbilityStandard.Event`, `_castEffects`
+  `_startEvent`/`_endEvent`) `ON_CAST_START` 2 · `ON_CAST_END` 3 · `ON_SPELL_ON` 4. `lifeTimeType` 1 LIMITED · 2 INFINITY.
+- 고친 것 — 세 길:
+  - **상시**(배치 동안 조건 없이, `fxmap.js TALENT_ALWAYS` → 「상시 능력 버프」의 `alwaysOn`): 블레미샤인 仁慈 `blemsh_t_2`(INFINITY, 자기) `blemsh_buff_01_start`,
+    비르투오사 无词哀歌 `cello_t_1` `cello_buff_01`, 퍼퓨머 熏衣草 `_passiveBuffs` `flower_t_1[eff]` `flower_buff_01_range`, 비나 빅토리아 诸王的叹息
+    AuraAbility `_effects` `siege2_buff_01`.
+  - **시뮬 버프 = 클라 버프**(`visible: true` → 'status' 이벤트 → `fxstatus.js KEY_FX`, 높이는 프리팹 자신의 `_spawnLocation`: `OWN` — 특수점
+    `sp0`·`sp1` 포함, `fxgame.js playStatus`가 `lifted`로): 에이야퍄들라 더 크비트 아스카 氤氲 `agoat2_t_1` 치료받은 아군에 `agoat2_recover_01`(지속
+    `duration`), 패신저 机理分析 `pasngr_t_1[enhance]` 적에 `pasngr_beidong_buff_01`, 언더플로우 T1 `udflow_t_1` 적에 `udflow_debuff_01`, 로즈몬티스 感知稳定
+    `rosmon_t_2` 그녀와 고른 术师에 `rosmon_buff_01_start`, 인사이더 火力支援(정예) `inside_t_1[active]` 고른 라테라노 아군에 `inside_buff_01_start` —
+    인사이더가 떠나면 꺼짐(`_removeBuffWhenAbilityDetached`), 시 点睛 `dusk_t_2[spawn]` 배치부터 소환까지 `dusk_buff_04_start`(sp0), 아스트젠 더
+    라이트체이서 数据建模 `halo2_t_2[fx]` `halo2_talent_01` 배치부터 층이 다 찰 때까지 → `[full]` `halo2_talent_02`, 텍사스 디 오메르토사 剑术 `texas2_t_2`
+    `texas2_buff_01_start`(첫 처치 `ON_TARGET_KILLED`에 끝)·传统 `texas2_t_1[recast_effect]`·`[recast_effect_02]` `texas2_buff_02_start`(sp0)·
+    `_02_start_02`(sp1) 첫 처치 재시전까지. 적용자마다 따로인 키(`…:<id>`)는 끝 번호를 떼고 찾고, 버프 하나가 프리팹 여럿이면 목록.
+  - **시전 순간**(키트 이벤트 → `kitofficial.js`): 카넬리안 生命之餐 스킬 시작 회복 'talent' `meal` — `Billro_Heal_Self`/`_Enhance`의 oneshot
+    `_castEffects`(ON_SPELL_ON) `billro_beidong_buff_01`, 충전 다 찬 시전 `_02` [추정: 두 시전 컴포넌트가 한 GameObject에 있어 짝은 프리팹 크기로];
+    백파이프 精密填弹 'talent' `splash` — `bpipe_t_1` SplashDamage의 `_createEffect`(블랙보드 `effect` `bpipe_attack_02_hit`)를 강화 공격의 추가
+    대상에; 그노시스 殊途同归 'kitHit'(배치 10초 뒤) — 감싸는 능력 `gnosis_t_2_buff`의 `_castEffects` `gnosis_beidong_buff`(ON_CAST_START → ON_CAST_END)를
+    배치 동안 [추정: 그 능력이 `_isInfinity`라 시전이 안 끝남]; 블레이즈 디 이그나이팅 스파크 S2 불 붙은 칸 'burnTiles' `cells` [[x, y, 1|0]] —
+    `Modes/S2/Body/Talents/3` DoTile(AttachListenerToTileAbility)의 `_effectSettings` `blaze2_skill_02_hit_plot`(castedTimeThreshold 1)을 칸마다, 스킬
+    끝(능력 떼짐 `_ClearEffects`)에 모두 끔.
+- 안 한 것: 텍사스 디 오메르토사 S3의 `texas2_s[no_effect_02]` 창(그동안 `_02_start_02`를 숨김) [추정: 미구현]; 왕 `wang_passive_01_start`
+  (`BuildStone`·S3 `InstantSpawn`의 `_startEffect`, 돌을 던지는 왕에게 칸에 닿을 때까지 — 'summon'에 시전자가 없음); `pasngr_beidong_buff_02`·
+  `billro_beidong_buff_03`·`wang_birth_02`는 클라 참조 없음. `common_ resistance_01`은 이미 `SOURCE_FX resist`(이름 안 공백 때문에 집계 오탐).
+- 확인: 시뮬 `test/sim/talent-fx-events.test.js`(키트마다 'status' 켜짐·꺼짐, 'talent'·'burnTiles'), 렌더 `status-buff-fx`(키 → 프리팹, `OWN`, 아이콘
+  없음)·`common-ability-fx`(`TALENT_ALWAYS`)·`kit-event-fx`(새 규칙). 골든: 표시 이벤트 수(`status`·`fx`·`talent`·`burnTiles`)만. [화면 미확인]

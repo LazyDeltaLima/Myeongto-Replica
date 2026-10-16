@@ -128,6 +128,7 @@ export default withDefaults({
             if (c.killer !== unit || !unit.alive || c.victim.side !== 'enemy' || unit.mem.texasKilled) return;
             unit.mem.texasKilled = true;
             battle.removeBuff(unit, 'texas2:swordplay');
+            battle.removeBuff(unit, 'texas2:recast');
             battle.heal(unit, unit, unit.s.maxHp * num(t0.hp_ratio, 1), { self: true });
             if (unit.mem.texasCasting) {
               unit.mem.texasRecastPending = true;
@@ -145,9 +146,13 @@ export default withDefaults({
           }, { owner: unit, priority: -2000 });
         } },
         { install(battle, unit) { // 德克萨斯剑术: until her first kill after each deployment: ASPD +8, −25 % damage taken
+          // `visible` for the client's effects (render/fxstatus.js KEY_FX): texas2_t_2 carries texas2_buff_01_start (ended by
+          // ON_TARGET_KILLED), and 德克萨斯传统's texas2_t_1[recast_effect] / [recast_effect_02] texas2_buff_02_start / _02_start_02
+          // last until the recast after her first kill ('texas2:recast')
           battle.on('deploy', (c) => {
             if (c.unit !== unit || unit.mem.texasKilled) return; // the deploy burst may already have scored the kill
-            battle.addBuff(unit, { key: 'texas2:swordplay', mods: { aspd: num(t1.attack_speed, 8), dmgTakenMul: 1 - num(t1.damage_resistance, 0.25) } });
+            battle.addBuff(unit, { key: 'texas2:swordplay', mods: { aspd: num(t1.attack_speed, 8), dmgTakenMul: 1 - num(t1.damage_resistance, 0.25) }, visible: true });
+            battle.addBuff(unit, { key: 'texas2:recast', visible: true });
           }, { owner: unit });
         } },
       ],

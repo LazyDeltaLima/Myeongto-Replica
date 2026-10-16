@@ -92,6 +92,8 @@ export default withDefaults({
             if (c.unit !== unit) return;
             const charged = isCharged(c.skill);
             battle.heal(unit, unit, unit.s.maxHp * (charged ? num(t0['billro_t_1[enhance].heal_scale'], 0.8) : num(t0.heal_scale, 0.4)), { self: true });
+            // the ability's oneshot cast effect (render/fx/kitofficial.js 'talent')
+            battle.fx('talent', { x: unit.x, y: unit.y, id: unit.id, name: 'meal', charged: charged ? 1 : 0 });
           }, { owner: unit });
         } },
         { install(battle, unit) { // 蓄势待发: +0.6 SP/s once a charge is stored

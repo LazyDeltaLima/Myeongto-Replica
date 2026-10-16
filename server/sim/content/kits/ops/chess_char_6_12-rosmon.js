@@ -90,8 +90,9 @@ function rosmon(bb, chess, def) {
             const casters = opsOf(battle, unit.ownerId).filter((a) => a.def?.profession === 'CASTER');
             const pick = battle.rng.pick(casters);
             if (!pick) return;
-            battle.addBuff(unit, { key: 'rosmon:stable', mods: { atkPct: atk } });
-            battle.addBuff(pick, { key: 'rosmon:stable', mods: { atkPct: atk } });
+            // rosmon_t_2 carries overrideEffectKey rosmon_buff_01_start (render/fxstatus.js KEY_FX)
+            battle.addBuff(unit, { key: 'rosmon:stable', mods: { atkPct: atk }, visible: true });
+            battle.addBuff(pick, { key: 'rosmon:stable', mods: { atkPct: atk }, visible: true });
             battle.fx('link', { x: pick.x, y: pick.y, id: pick.id, src: unit.id });
           }, { owner: unit });
         }, { owner: unit });

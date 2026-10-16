@@ -42,8 +42,15 @@ export default withDefaults({
             const extra = battle.enemiesInKeys(unit.rangeKeys, unit, c.profile).filter((e) => !c.targets.includes(e));
             sortEnemyTargets(battle, unit, extra, c.profile?.priority ?? null);
             if (extra[0]) c.targets = [...c.targets, extra[0]];
+            unit.mem.bpExtra = extra[0] ?? null;
           }, { owner: unit });
-          battle.on('hit', (c) => { if (c.source === unit && c.dmg.isAttack && unit.mem.bpBoost) c.dmg.mul *= num(t0.atk_scale, 1.3); }, { owner: unit });
+          battle.on('hit', (c) => {
+            if (c.source !== unit || !c.dmg.isAttack || !unit.mem.bpBoost) return;
+            c.dmg.mul *= num(t0.atk_scale, 1.3);
+            // bpipe_t_1's SplashDamage creates its blackboard `effect` bpipe_attack_02_hit on the splashed enemy
+            // (render/fx/kitofficial.js 'talent')
+            if (c.target === unit.mem.bpExtra) battle.fx('talent', { x: c.target.x, y: c.target.y, id: c.target.id, src: unit.id, name: 'splash' });
+          }, { owner: unit });
           battle.on('attack', (c) => { if (c.attacker === unit) unit.mem.bpBoost = false; }, { owner: unit });
         } },
         { install(battle, unit) { // 军事传统: every 先锋 of the team starts with +6 SP

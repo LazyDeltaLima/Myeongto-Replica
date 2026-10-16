@@ -115,12 +115,22 @@ function halo2(bb, chess, def) {
       } },
       { install(battle, unit) { // 数据建模 (+ module ATK at max stacks)
         const as = num(t0.attack_speed), max = Math.max(1, Math.floor(num(t0.max_stack_cnt, 18))), fullAtk = num(mod.atk);
-        battle.on('deploy', ({ unit: u }) => { if (u === unit) unit.mem.haloStack = 0; }, { owner: unit });
+        // the client's effects (render/fxstatus.js KEY_FX): the talent's passive halo2_t_2[fx] (halo2_talent_01) from the deploy
+        // until the stacks are full, then halo2_t_2[full] (halo2_talent_02) — halo2_t_2's ON_OTHER_BUFF_START
+        battle.on('deploy', ({ unit: u }) => {
+          if (u !== unit) return;
+          unit.mem.haloStack = 0;
+          if (as) battle.addBuff(unit, { key: 'halo2:t2', visible: true });
+        }, { owner: unit });
         battle.on('statusApplied', (ctx) => {
           if (ctx.source !== unit || ctx.status !== 'sluggish' || !live(unit) || (unit.mem.haloStack || 0) >= max) return;
           unit.mem.haloStack = (unit.mem.haloStack || 0) + 1;
           const k = unit.mem.haloStack;
           battle.addBuff(unit, { key: 'halo2:model', mods: { aspd: as * k, atkPct: k >= max ? fullAtk : 0 } });
+          if (k >= max) {
+            battle.removeBuff(unit, 'halo2:t2');
+            battle.addBuff(unit, { key: 'halo2:t2full', visible: true });
+          }
         }, { owner: unit });
       } },
       { install(battle, unit) { // 能源解析

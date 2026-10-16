@@ -43,6 +43,12 @@ export default {
             if (!pick) return;
             (pick.mem.insiderAmmo ??= new Map()).set(unit.id, { src: unit, seq, n: allyAmmo });
             battle.fx('buff', { x: pick.x, y: pick.y, id: pick.id, kind: 'ammo' });
+            // inside_t_1[active] (overrideEffectKey inside_buff_01_start) stays on the ally while the grant holds — the client
+            // removes it with the ability (`_removeBuffWhenAbilityDetached`): `visible` for its effect (render/fxstatus.js KEY_FX)
+            battle.addBuff(pick, {
+              key: `inside:ammo:${unit.id}`, visible: true, interval: 0.25, source: unit,
+              onTick: ({ battle: b, unit: a, buff }) => { if (!up(unit) || unit.deploySeq !== seq) b.removeBuff(a, buff); },
+            });
           }, { owner: unit });
         }, { owner: unit });
         once(battle, 'insider:bonusAmmo', () => battle.on('skillStart', ({ unit: u, skill }) => {

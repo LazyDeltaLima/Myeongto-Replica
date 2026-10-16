@@ -60,8 +60,12 @@ export const STATUS_FX = Object.freeze({
 const ALIAS = Object.freeze({ artsFragile: 'fragile', physFragile: 'fragile', elemFragile: 'fragile' });
 
 // ---- buff effects (docs/rules/ui.md ⑤ 「버프 이펙트」; EN buff templates, charpacks, [uc]skills.ab, 2026-10-14) ----------
-// A spec is [bundle, prefab, height share] as STATUS_FX (spawn 1 feet / 5 ground → 0, 2 body → 0.5, 4 head → HEAD). These
-// effects are keyed by `bundle/prefab`: the client keeps one effect per name on a unit (Entity.AddBuffEffect refCounter).
+// A spec is [bundle, prefab, height share] as STATUS_FX (spawn 1 feet / 5 ground → 0, 2 body → 0.5, 4 head → HEAD), or
+// OWN for the prefab's own `_spawnLocation` (its special points too: fxgame.js statusOn). These effects are keyed by
+// `bundle/prefab`: the client keeps one effect per name on a unit (Entity.AddBuffEffect refCounter).
+
+/** A spec height: where the prefab's own `_spawnLocation` puts it (fxgame.js playStatus → lifted). */
+export const OWN = 'own';
 
 /**
  * A catalogue status whose official buff depends on who applies it: status key → the applier's fx code (render/fxmap.js
@@ -88,7 +92,10 @@ export const SOURCE_FX = Object.freeze({
 
 const ANGEL2_SELF = Object.freeze(['angel2', 'angel2_skill_2_buff_01', 0]);
 const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
-/** A kit buff → the official buff's effect: by its key; a function picks by the holder (`view`) or returns null for none. */
+/**
+ * A kit buff → the official buff's effect: by its key; a list of specs when the buff stands for several; a function picks by
+ * the holder (`view`) or returns null for none.
+ */
 export const KEY_FX = Object.freeze({
   'papyrs:shield': ['papyrs', 'papyrs_talent_01', 0.5],                   // papyrs_t_1[shield_core]
   'svash2:barrier': ['svash2', 'svash2_skill_01_shield_01', 0],           // svash2_s_1[build] (the deployed card's 屏障)
@@ -107,6 +114,20 @@ export const KEY_FX = Object.freeze({
   'boss:heldSword': ['pfx_enemy_13', 'enemy_vtswd_buff_01', 0.5],
   'boss:heldVest': ['pfx_enemy_13', 'enemy_vtshld_buff_01', 0.5],
   'boss:heldWand': ['pfx_enemy_13', 'enemy_vtwand_buff_01', 0.5],
+  // 2026-10-16 (이펙트 연결 전수 묶음 3, docs/rules/fx.md 「재능 버프·시전 이펙트」): talent buffs' overrideEffectKey (EN charpacks
+  // Talents/N; a key ending in `:<id>` — one buff per applier — matches without it)
+  'agoat2:mist': ['agoat2', 'agoat2_recover_01', OWN],                    // agoat2_t_1 (Talents/1 _additiveActiveBuffs) on the healed ally
+  'pasngr:enhance': ['pasngr', 'pasngr_beidong_buff_01', OWN],            // pasngr_t_1 → pasngr_t_1[enhance] on the enemy
+  'udflow:dot': ['udflow', 'udflow_debuff_01', OWN],                      // udflow_t_1 on the enemy
+  'rosmon:stable': ['rosmon', 'rosmon_buff_01_start', OWN],               // rosmon_t_2 (Talents/2/Aura) on her and the 术师
+  'inside:ammo': ['inside', 'inside_buff_01_start', OWN],                 // inside_t_1[active] (CommonAbilities/AddAmmoWrapper) on the ally
+  'dusk:pending': ['dusk', 'dusk_buff_04_start', OWN],                    // dusk_t_2[spawn] until 点睛's summon
+  'halo2:t2': ['halo2', 'halo2_talent_01', OWN],                          // halo2_t_2[fx] (_passiveBuffs) until the stacks are full …
+  'halo2:t2full': ['halo2', 'halo2_talent_02', OWN],                      // … then halo2_t_2[full]
+  'texas2:swordplay': ['texas2', 'texas2_buff_01_start', OWN],            // texas2_t_2 (ended by ON_TARGET_KILLED)
+  // texas2_t_1[recast_effect] and [recast_effect_02]'s derived buff until the recast [추정: S3's texas2_s[no_effect_02] window
+  // that hides the second is not modelled]
+  'texas2:recast': [['texas2', 'texas2_buff_02_start', OWN], ['texas2', 'texas2_buff_02_start_02', OWN]],
 });
 
 /**
@@ -202,8 +223,12 @@ export function wantedStatusFx(v, out = WANT) {
         byName(out, Array.isArray(e) ? e : e && from?.fx != null ? e[from.fx] : null);
         continue;
       }
-      const kf = KEY_FX[k];
-      if (kf) { byName(out, typeof kf === 'function' ? kf(v) : kf); continue; }
+      const kf = KEY_FX[k] ?? KEY_FX[k.replace(/:\d+$/, '')];
+      if (kf) {
+        const spec = typeof kf === 'function' ? kf(v) : kf;
+        if (spec && Array.isArray(spec[0])) for (const s of spec) byName(out, s); else byName(out, spec);
+        continue;
+      }
       const layers = LAYER_FX[k];
       if (layers) { for (let i = 0; i < Math.min(layers.length, from?.n || 0); i++) byName(out, layers[i]); continue; }
       const stacks = STACK_FX[k];

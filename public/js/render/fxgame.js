@@ -780,7 +780,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // local patch (maintainer report 2026-10-08: the stun marks stacked over a re-stunned enemy): one effect per unit and
     // status — a status turned off and on again while its file loaded started a second load; the first one lands here too
     if (live.some((l) => l.status === key && l.unit === view && !l.inst.stopping && !l.inst.done)) return;
-    const anchor = {
+    // 2026-10-16: `frac` 'own' (fxstatus.js OWN) — at the prefab's own `_spawnLocation`, special points included, as a kit's play
+    const anchor = frac === 'own' ? lifted(view, def) : {
       get x() { return view.x; }, get y() { return view.y; },
       get z() { return frac > 0 && camRef ? bodyZ(camRef, view, frac) : (view.z || 0) + (view.hover || 0); },
       get alive() { return view.alive; }, get remove() { return view.remove; },
@@ -2813,7 +2814,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function alwaysOn(v, id) {
     const b = bundleOf(v);
-    const names = b ? commonEffects(bindOf(v), b.prefabs, KIT_OWNED) : [];
+    const names = b ? commonEffects(bindOf(v), b.prefabs, KIT_OWNED, v?.info?.spine || v?.info?.defId) : [];
     if (!names.length) return;
     for (const l of live) if (l.tag === 'common' && l.owner === id) l.inst.stop(true);
     for (const n of names) spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });

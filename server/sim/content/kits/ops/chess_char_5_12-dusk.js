@@ -76,12 +76,19 @@ export default {
           }, { owner: unit });
         } },
         { install(battle, unit) { // 点睛
-          battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.duskSummoned = false; }, { owner: unit });
+          // dusk_t_2[spawn] (INFINITY, overrideEffectKey dusk_buff_04_start) stays on her until the summon: `visible` for the
+          // client's effect (render/fxstatus.js KEY_FX)
+          battle.on('deploy', (c) => {
+            if (c.unit !== unit) return;
+            unit.mem.duskSummoned = false;
+            battle.addBuff(unit, { key: 'dusk:pending', visible: true });
+          }, { owner: unit });
           battle.on('attack', (c) => {
             if (c.attacker !== unit || unit.mem.duskSummoned) return;
             const t = c.targets.find((x) => x.side === 'enemy');
             if (!t) return;
             unit.mem.duskSummoned = true;
+            battle.removeBuff(unit, 'dusk:pending');
             // "在目标位置（可部署地面）召唤": only on the target's own tile when it is free deployable ground — PRTS 备注:
             // otherwise nothing is summoned, and the talent is spent for this deployment either way
             summon(battle, unit, Math.round(t.y), Math.round(t.x));

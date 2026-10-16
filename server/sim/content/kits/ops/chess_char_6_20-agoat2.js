@@ -109,9 +109,10 @@ function agoat2(bb, chess, def) {
         battle.on('heal', (ctx) => {
           const t = ctx.target;
           if (ctx.source !== unit || ctx.opts?.hot || ctx.opts?.aura || ctx.opts?.regen || ctx.opts?.skillHeal || !t) return;
+          // (visible: agoat2_t_1's overrideEffectKey agoat2_recover_01 on the ally — render/fxstatus.js KEY_FX)
           // keyed per 纯烬: two of them (co-op) each keep their own stacks, ATK and heal source
           const b = battle.addBuff(t, {
-            key: `agoat2:mist:${unit.id}`, duration: dur, refresh: 'stack', stacks: 1, maxStacks: max, interval: 1, source: unit, data: {},
+            key: `agoat2:mist:${unit.id}`, duration: dur, refresh: 'stack', stacks: 1, maxStacks: max, interval: 1, source: unit, data: {}, visible: true,
             onTick: ({ unit: a, buff }) => {
               const amt = num(buff.data.atk, unit.s.atk) * sc * Math.max(1, buff.stacks);
               battle.reduceElement(a, amt * epRatio());

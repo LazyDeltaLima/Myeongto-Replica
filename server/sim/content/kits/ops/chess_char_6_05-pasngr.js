@@ -96,11 +96,12 @@ function pasngr(bb, chess, def) {
     talents: [
       { install(battle, unit) { // 机理分析
         const thr = num(t0.hp_ratio, 0.8), ds = bv(t0, 'damage_scale', 1), dur = bv(t0, 'duration', 3);
+        // (visible: pasngr_t_1[enhance] carries overrideEffectKey pasngr_beidong_buff_01 — render/fxstatus.js KEY_FX)
         const key = `pasngr:enhance:${unit.id}`;
         battle.on('hit', (ctx) => {
           const t = ctx.target;
           if (ctx.source !== unit || !t || t.side !== 'enemy' || ctx.dmg.type === 'element') return;
-          if (ctx.dmg.isAttack && t.hpRatio >= thr - 1e-9) battle.addBuff(t, { key, duration: dur, refresh: 'replace', source: unit });
+          if (ctx.dmg.isAttack && t.hpRatio >= thr - 1e-9) battle.addBuff(t, { key, duration: dur, refresh: 'replace', source: unit, visible: true });
           if (t.findBuff(key)) ctx.dmg.mul *= ds;
         }, { owner: unit });
       } },

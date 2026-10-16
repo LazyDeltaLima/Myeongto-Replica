@@ -340,3 +340,17 @@ test('fxgame.js: slots on and around a unit, 泥岩\'s block effect', async () =
     assert.deepEqual(got(), ['common_buff_parry_01']);
   } finally { globalThis.fetch = fetch0; }
 });
+
+test('kitOfficialPlan: talent casts and 烛煌 S2\'s burning tiles (2026-10-16, 묶음 3)', () => {
+  const names = (p) => p.play.map((x) => x.n);
+  // 卡涅利安 生命之餐: _01, cast with every charge _02; 风笛 精密填弹: the splash hit on the extra enemy
+  assert.deepEqual(names(kitOfficialPlan('talent', { id: 1, name: 'meal', charged: 0 }, 'billro')), ['billro_beidong_buff_01']);
+  assert.deepEqual(names(kitOfficialPlan('talent', { id: 1, name: 'meal', charged: 1 }, 'billro')), ['billro_beidong_buff_02']);
+  assert.deepEqual(kitOfficialPlan('talent', { id: 5, src: 1, name: 'splash' }, 'bpipe').play, [{ n: 'bpipe_attack_02_hit', on: 'id', life: 'once' }]);
+  // 灵知 殊途同归: the infinite wrapper's cast effect for the deployment
+  assert.deepEqual(kitOfficialPlan('kitHit', { id: 1, k: 'gnosis:t2' }, 'gnosis').play, [{ n: 'gnosis_beidong_buff', on: 'op', life: 'deployed' }]);
+  // one slot per tile: on → the plot effect on that tile, off → ended
+  assert.deepEqual(kitOfficialPlan('burnTiles', { id: 1, cells: [[5, 10, 1], [6, 10, 0]] }, 'blaze2').play, [
+    { n: 'blaze2_skill_02_hit_plot', on: 'point', at: [5, 10], slot: 'burn5,10' }, { slot: 'burn6,10', off: true },
+  ]);
+});
