@@ -475,19 +475,17 @@ export async function createFieldView(host, options = {}) {
         const fu = assets.localUrl?.('board/fx', 'flow_26'), mu = assets.localUrl?.('board/fx', 'mask_123');
         if (fu && mu && assets.image) Promise.all([assets.image(fu), assets.image(mu)]).then(([flow, mask]) => { if (board3d === b) b.infectionFx?.setImages({ flow, mask }); }, () => {});
       } catch { /* no tile effect */ }
-      tiles.setExternal(true);
-      backdrop.visible = false;
       b.setArea(boardArea(viewKind(camKind, camOpts)));
       if (stageRec) b.setStage(stageRec);
       b.setFocus(camRect());
       b.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
-      tiles.project(cam, true);
       recover.since = performance.now();
       board3dError = null;
-      noteRender('3d on', recover.count ? `after ${recover.count} lost` : null);
-      timing?.late('3d');
-      for (const [g, r] of hlReq) drawHighlight(r.tiles, r.style, g);
-      return true;
+      // the 2D board stays on screen and the 3D one is not drawn until its shaders and textures are ready for a stage
+      // (warm3d): its first frame compiled them all at once, a stall right after the field appeared (an iPhone report)
+      b.warming = true;
+      c3.style.visibility = 'hidden';
+      return warm3d(b).then(() => true);
     } catch (err) {
       board3dError = String(err?.message || err);
       console.warn('[render] 3D board unavailable, using the 2D board:', err);
@@ -495,6 +493,25 @@ export async function createFieldView(host, options = {}) {
       disable3d();
       return false;
     }
+  }
+  /**
+   * Warm a hidden 3D board (board.warm) and show it once warm for the stage it holds. A board without a stage stays
+   * hidden: the game sets the stage after the mount, and setStage warms it again. Resolves when this warm is done.
+   */
+  function warm3d(b) {
+    const key = b.stageKey;
+    return b.warm().then(() => {
+      // replaced or switched off meanwhile: that path (lost context, 2D chosen, teardown) has handled it
+      if (board3d !== b || !b.warming || !b.stage || b.stageKey !== key) return;
+      b.warming = false;
+      board3dCanvas.style.visibility = '';
+      tiles.setExternal(true);
+      backdrop.visible = false;
+      tiles.project(cam, true);
+      noteRender('3d on', recover.count ? `after ${recover.count} lost` : null);
+      timing?.late('3d');
+      for (const [g, r] of hlReq) drawHighlight(r.tiles, r.style, g);
+    });
   }
   function disable3d() {
     const b = board3d;
@@ -553,7 +570,7 @@ export async function createFieldView(host, options = {}) {
       again3d();
       return false;
     }
-    if (enable3d(recover.THREE, recover.pack)) return true;
+    if (await enable3d(recover.THREE, recover.pack)) return true;
     again3d();
     return false;
   }
@@ -755,7 +772,10 @@ export async function createFieldView(host, options = {}) {
     stageRec = st;
     tiles.setStage(st);
     tiles.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
-    if (board3d) { board3d.setStage(st); board3d.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null); }
+    if (board3d) {
+      board3d.setStage(st); board3d.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
+      if (board3d.warming) warm3d(board3d);
+    }
     tiles.project(cam, true);
     // a pen laid out before the stage arrived (setPrep / a scouting board first) used the default zones and the old
     // tile heights: lay it out again on this stage
@@ -1992,7 +2012,7 @@ export async function createFieldView(host, options = {}) {
       stepCamera(now);
       if (board3d) {
         if (board3d.lost) onBoard3dLost();
-        else {
+        else if (!board3d.warming) {
           const t3 = performance.now();
           board3d.render(cam, clock);
           const ms3 = performance.now() - t3;

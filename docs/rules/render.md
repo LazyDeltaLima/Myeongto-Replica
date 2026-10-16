@@ -649,6 +649,22 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   `other X ms`(55 fps 밑 표본에서 프레임 − js − draw − sim: GPU·합성 또는 프레임 밖 메인 스레드 일), `peak js …, draw …, 3d … ms`(한 프레임
   최대값: 보기 `takePeaks()`, 1초마다 비움). 테스트 `test/ui/perf-hud.test.js`.
 
+## 3D 보드 첫 그리기 미리 준비 (2026-10-16, 관리자 제공 iPhone 12 Pro 로그 「필드가 뜬 직후 한 표본이 프레임 0, PIXI 그리기 평균 277 ms」)
+- 측정 기능의 `perf:` 줄로 본 멈춤은 필드 진입 직후(엔진 마운트가 끝나고 3D 보드·공식 씬이 막 도착한 구간)였다. Windows Chrome에서 같은
+  순간을 재면(렌더 데모, 844×390 @3x) 두 프레임이 길었다: ① 새 3D 보드의 첫 그리기 160–250 ms — 게임은 마운트 **뒤에** 스테이지를 넣으므로
+  (`screens/game.js`) 보드 메시의 셰이더 7–8개가 그 프레임에 한꺼번에 컴파일됨 ② 공식 씬이 도착해 절차적 보드를 바꾸는 프레임 260–290 ms —
+  섬 전체의 셰이더 컴파일·텍스처 업로드·그림자 맵이 한 프레임에.
+- 이제 둘 다 화면에 넣기 전에 준비한다(`board3d/scene.js`): `_prepare`가 `renderer.compileAsync`(브라우저에 KHR_parallel_shader_compile이
+  있으면 메인 스레드를 막지 않음)로 프로그램을 컴파일하고 텍스처를 프레임당 하나씩 `initTexture`, 최대 `WARM_MAX_MS`(8초) 뒤엔 그대로 진행.
+  공식 씬은 화면 밖에서 지어 준비한 뒤 바꾸고(`_warmOfficial`, 그동안 절차적 보드 유지·다시 받지 않음), 새 3D 보드(`render/app.js` `warm3d`)는
+  캔버스를 숨기고 그리지 않은 채 2D 보드를 보이다가 **스테이지가 들어와 그 스테이지로 준비가 끝나면** 3D로 바꾼다(스테이지 없는 보드는 숨긴 채
+  기다림, `setStage`가 다시 준비). 그래서 진입 직후 2D 보드가 잠깐(준비 시간만큼) 보일 수 있다 — 멈춘 화면 대신.
+- 측정(Windows Chrome, 같은 장면 A/B): 3D 보드 첫 그리기 160–250 → 8–13 ms, 공식 씬 교체 프레임 260–290 → 11–28 ms. 남은 긴 프레임은 3D 보드를
+  만드는 순간(로딩 중)뿐. 테스트 `test/render/board3d-official-retry.test.js`(준비 중엔 절차적 보드·한 번만 받음·준비 끝나면 교체, compileAsync
+  없는 렌더러는 바로 교체, 준비 중 파기). [화면 미확인] iPhone Safari에서 진입 직후 멈춤이 사라졌는지(`perf:` 줄 `stalls`·`peak draw`),
+  Safari의 KHR_parallel_shader_compile 지원 여부(없으면 `compileAsync`도 준비 단계에서 메인 스레드를 막는다 — 멈춤이 3D가 보이기 전으로 옮겨질 뿐이고,
+  텍스처를 나눠 올리는 몫만 남음).
+
 ## upstream 버그 이슈 이식 — 렌더 (2026-10-15)
 upstream 새 버그 이슈의 수정 PR 중 sim 수정에 기대는 렌더 쪽(관리자 결정 2026-10-15). sim 쪽 근거는 `sim.md` 「upstream 버그 이슈 이식 (2026-10-15)」.
 - **假想敌：镜膜 멈춘 팬**(upstream #481, upstream PR #613): sim이 첫 침묵에 폼 `stopped`를 낸다 → `units.js FORMS.enemy_9011_acrefr.stopped` =

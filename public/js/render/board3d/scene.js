@@ -11,10 +11,13 @@
 //                                      (render/units.js DeviceView boxes, drawn as the official crate mesh)
 //   board.flashObjective(r, c)       leak flash of a blue objective box
 //   board.render(cam, timeSec)       sync the camera, animate, draw
+//   board.warm() → Promise           shaders compiled and textures uploaded before the first draw (WARM_MAX_MS at most)
 //   opts.loadOfficial(stageId, { retry, partial }) → Promise<official scene | null> (official.js loadOfficialScene; rejects
 //                                      while incomplete: tried again after OFFICIAL_RETRY_MS, opts.onOfficialMissing): when a stage has
 //                                      an extracted official scene (docs/local/official-scenes.md) it replaces the procedural tiles,
-//                                      background and shadows; gates, field edges, devices and terrain FX stay
+//                                      background and shadows; gates, field edges, devices and terrain FX stay. A loaded
+//                                      scene is built and warmed off screen first (shaders compiled, textures uploaded one
+//                                      per frame, WARM_MAX_MS at most) while the procedural board stays (_warmOfficial)
 //   board.resize(w, h, dpr) · board.stats() · board.destroy()
 //
 // Draw calls: board (tiles + blocks + platforms, merged, MT_autochess), the pen's glass hatches (glassMaterial),
@@ -56,6 +59,8 @@ export const LIGHTING = Object.freeze({
  * phone); after the last one the scene is drawn with what loaded (official.js loadOfficialScene `partial`).
  */
 export const OFFICIAL_RETRY_MS = Object.freeze([2000, 6000, 15000, 30000]);
+/** The longest wait (ms) for a loaded official scene's shaders and textures before it replaces the board anyway. */
+export const WARM_MAX_MS = 8000;
 
 /** Additive gain of the gate boxes at the curve's mean (tuned against the official screenshots). */
 export const GATE_GAIN = 0.6;
@@ -237,6 +242,7 @@ export class BoardScene {
     this.officialPending = new Set();
     this._officialTimers = new Set(); // pending retries of an official scene that was not loaded whole
     this.officialBuilt = null;
+    this._officialWarm = null;       // an official scene built and warmed off screen, until setStage takes it (_warmOfficial)
     this.overlay = new TileOverlay(T, this.scene); // local patch
     this.infectionFx = new InfectionFx(T, this.scene); // local patch
   }
@@ -327,7 +333,8 @@ export class BoardScene {
     if (official) {
       // the official scene: the whole island as the client built it (tiles, props, surroundings, baked light)
       if (!this.officialBuilt) {
-        const built = buildOfficialScene(this.THREE, official, this.focus, { aniso: Math.min(8, this.renderer.capabilities?.getMaxAnisotropy?.() || 1) });
+        const built = this._takeWarm(official.stageId)
+          || buildOfficialScene(this.THREE, official, this.focus, { aniso: Math.min(8, this.renderer.capabilities?.getMaxAnisotropy?.() || 1) });
         for (const m of built.meshes) this.officialRoot.add(m);
         this.officialBuilt = built;
         this.opts.onOfficial?.({ stageId: built.stageId, highland: built.highland, platform: built.devices?.top(OFFICIAL_DEVICE.platform) ?? null });
@@ -384,10 +391,84 @@ export class BoardScene {
         this._officialTimers.add(t);
         return;
       }
-      this.officialPending.delete(id);
-      this.officialData.set(id, data || null);
-      if (data && this.stage?.id === id) { this.stageKey = null; this.setStage(this.stage); }
+      if (!data) { this.officialPending.delete(id); this.officialData.set(id, null); return; }
+      // still pending while it warms: setStage keeps the procedural board meanwhile and does not load it again
+      this._warmOfficial(data).then((built) => {
+        this.officialPending.delete(id);
+        if (this.destroyed) { built?.dispose(); return; }
+        this.officialData.set(id, data);
+        this._takeWarm();
+        this._officialWarm = built;
+        if (this.stage?.id === id) { this.stageKey = null; this.setStage(this.stage); }
+      });
     });
+  }
+
+  /**
+   * Build a loaded official scene off screen and let the GPU prepare it before it replaces the board: its shader
+   * programs compiled (`compileAsync`: in parallel where the browser has KHR_parallel_shader_compile) and its textures
+   * uploaded one per frame. Swapped in at once, the first frame after the swap compiled and uploaded the whole island
+   * and rendered its shadow map together — an iPhone report saw the field stall for seconds right after it appeared,
+   * when the scene arrived. Resolves the built scene (null when it could not be built: setStage builds it then), after
+   * WARM_MAX_MS at the latest; never rejects.
+   * @returns {Promise<any>}
+   */
+  _warmOfficial(data) {
+    let built;
+    try { built = buildOfficialScene(this.THREE, data, this.focus, { aniso: Math.min(8, this.renderer.capabilities?.getMaxAnisotropy?.() || 1) }); } catch { return Promise.resolve(null); }
+    const hold = new this.THREE.Group();
+    for (const m of built.meshes) hold.add(m);
+    return this._prepare(hold).then(() => {
+      for (const m of built.meshes) hold.remove(m);
+      return built;
+    });
+  }
+
+  /**
+   * Let the GPU prepare the board before its first draw: the shader programs compiled and the textures uploaded one per
+   * frame (_prepare). The view keeps the 2D board on screen meanwhile (render/app.js enable3d): the first frame of a new
+   * 3D board compiled every program of the scene at once. Resolves after WARM_MAX_MS at the latest; never rejects.
+   * @returns {Promise<void>}
+   */
+  warm() { return this.destroyed ? Promise.resolve() : this._prepare(this.scene, null); }
+
+  /**
+   * Compile the programs of the meshes under `obj` as they will be drawn in this.scene (`compileAsync`: in parallel
+   * where the browser has KHR_parallel_shader_compile), then upload their textures one per animation frame. Resolves
+   * when done, at WARM_MAX_MS at the latest, or at once when the renderer has neither; never rejects.
+   * @param {any} obj @param {any} [target] the scene `obj` will be drawn in (default this.scene; null: `obj` itself)
+   */
+  _prepare(obj, target = this.scene) {
+    const R = this.renderer;
+    const textures = new Set();
+    obj.traverse?.((o) => {
+      for (const mat of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) {
+        for (const v of Object.values(mat)) if (v?.isTexture) textures.add(v);
+        for (const u of Object.values(mat.uniforms || {})) if (u?.value?.isTexture) textures.add(u.value);
+      }
+    });
+    const nextFrame = () => new Promise((r) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(() => r()) : setTimeout(r, 0)));
+    const work = (async () => {
+      if (typeof R.compileAsync === 'function') await R.compileAsync(obj, this.camera, target || obj);
+      if (typeof R.initTexture !== 'function') return;
+      for (const t of textures) {
+        if (this.destroyed || this.lost) return;
+        await nextFrame();
+        R.initTexture(t);
+      }
+    })().catch(() => {});
+    let timer = null;
+    const cap = new Promise((r) => { timer = setTimeout(r, WARM_MAX_MS); });
+    return Promise.race([work, cap]).then(() => { clearTimeout(timer); });
+  }
+
+  /** The warmed official scene (built off screen) of `stageId`, taken once; one of another stage is disposed. */
+  _takeWarm(stageId) {
+    const w = this._officialWarm;
+    this._officialWarm = null;
+    if (w && stageId != null && w.stageId === stageId) return w;
+    w?.dispose();
+    return null;
   }
 
   /** The official scene's HIGH tile height for stage `id` (null: not drawn from an official scene). */
@@ -791,6 +872,7 @@ export class BoardScene {
     for (const d of [...this.devices]) d.destroy();
     this._clear();
     this._dropOfficial();
+    this._takeWarm();
     this.overlay?.dispose(); // local patch
     this.infectionFx?.dispose(); // local patch
     this.mat.edge?.map?.dispose?.(); // canvas dash texture (not in this.tex)

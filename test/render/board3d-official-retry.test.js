@@ -8,7 +8,7 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { loadOfficialScene, resetOfficialScenes } from '../../public/js/render/board3d/official.js';
-import { BoardScene, OFFICIAL_RETRY_MS } from '../../public/js/render/board3d/scene.js';
+import { BoardScene, OFFICIAL_RETRY_MS, WARM_MAX_MS } from '../../public/js/render/board3d/scene.js';
 import { resolveUvTable } from '../../public/js/render/board3d/atlas.js';
 
 const STAGE = 'act1autochess_m01';
@@ -132,5 +132,62 @@ describe('board3d/scene.js: an incomplete official scene keeps the procedural bo
     board.destroy();
     await tick(40);
     assert.equal(calls, 1);
+  });
+});
+
+// An iPhone report (2026-10-16) saw the field stall for seconds right after it appeared, when the official scene arrived:
+// swapped in at once, its first frame compiled every shader, uploaded every texture and drew the shadow map together.
+// The loaded scene is now built off screen and warmed (compileAsync, textures one per frame) while the procedural board
+// stays; then it replaces the board.
+describe('board3d/scene.js: a loaded official scene is warmed off screen before it replaces the board', () => {
+  const SCENE = { stageId: STAGE, doc: { groups: [], materials: {} }, buffer: new ArrayBuffer(0), textures: {}, lightmaps: [] };
+  const warming = () => {
+    let release;
+    const R = { ...stubRenderer(), compiled: [], compileAsync(obj, cam, target) { this.compiled.push({ obj, cam, target }); return new Promise((r) => { release = r; }); } };
+    return { R, release: () => release() };
+  };
+
+  test('the procedural board stays until the shaders are ready; the scene is loaded once and swapped in', async () => {
+    const { R, release } = warming();
+    let loads = 0;
+    const seen = [];
+    const board = new BoardScene(THREE, fakePack(), { renderer: R, loadOfficial: async () => { loads++; return SCENE; }, onOfficial: (o) => seen.push(o?.stageId ?? null) });
+    const stage = { id: STAGE, rows: ['000'], devices: [] };
+    board.setStage(stage);
+    await tick(5);
+    assert.equal(R.compiled.length, 1, 'compiled off screen');
+    assert.ok(R.compiled[0].target === board.scene && R.compiled[0].cam === board.camera, 'with the board scene\'s lights and camera');
+    assert.equal(board.official, false, 'still procedural while warming');
+    board.stageKey = null; board.setStage(stage);   // an area rebuild meanwhile neither swaps nor loads again
+    assert.equal(board.official, false);
+    assert.equal(loads, 1);
+    release();
+    await tick(15);
+    assert.equal(board.official, true, 'swapped in once warm');
+    assert.deepEqual(seen, [STAGE]);
+    assert.equal(loads, 1);
+    assert.equal(board._officialWarm, null, 'the warmed build was taken');
+    board.destroy();
+  });
+
+  test('a renderer without compileAsync swaps it in at once; WARM_MAX_MS bounds a warm that never ends', async () => {
+    assert.ok(WARM_MAX_MS >= 1000 && WARM_MAX_MS <= 15000);
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer(), loadOfficial: async () => SCENE });
+    board.setStage({ id: STAGE, rows: ['000'], devices: [] });
+    await tick(5);
+    assert.equal(board.official, true);
+    board.destroy();
+  });
+
+  test('destroyed while warming: the warmed build is disposed, nothing is swapped in', async () => {
+    const { R, release } = warming();
+    const board = new BoardScene(THREE, fakePack(), { renderer: R, loadOfficial: async () => SCENE });
+    board.setStage({ id: STAGE, rows: ['000'], devices: [] });
+    await tick(5);
+    board.destroy();
+    release();
+    await tick(15);
+    assert.equal(board.official, false);
+    assert.equal(board._officialWarm, null);
   });
 });
