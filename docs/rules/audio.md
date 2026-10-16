@@ -515,3 +515,18 @@
   `layer`에 난다(렌더의 층 팝업과 같음).
 - 확인: `test/ui/bond-audio.test.js`(채널·끊기·디코딩 경합·되채움 없음·한 갱신 한 번), `test/match/bond-audio.test.js`(실제 `Match`로 `m.layer`: 단계별·상한·AI 없음).
   [화면 미확인] 回合开始·机变·정비 구매(예: 마터호른 두 장 — 쉐라그·고수 층)·전투 중 층 얻음에 소리, 재접속 때 안 남.
+
+### 연쇄 공격 소리 (2026-10-16, 관리자 요청 「레이즈 효과음이 기억과 달라」)
+
+- 클라(디컴파일 10-14 덤프, `audio_data.json`): 연쇄 투사체는 맞힌 대상마다 `Projectile.OnHitTarget`(RVA 0x67A360)이
+  `ON_PROJECTILE_HIT.<투사체 키>`를 그 대상 자리에서, `ON_PROJECTILE_REACH`는 첫 대상 도착 때 한 번, 대상이 2명 이상이면
+  `ChainLightningHitBehaviour.PlayChainAudio`(0xA69CB0 → `Projectile.PlayBehaviourAudio` 0x67B110)가 마지막 대상 자리에서
+  `ON_PROJECTILE_BEHAVIOUR_TRIGGER.<키>`를 한 번 낸다(`_overrideAudioSignal`이 없으면 키 = 투사체 이름).
+  - 레이즈: 타격 `ON_PROJECTILE_REACH.projectile_leizi` `p_imp_elecmag_n`(S2 `_s2` → `_s`) 한 번 + 연쇄음 `p_imp_elecmag_n_combine`(S2
+    `_s_combine`, 뱅크 동시 1, 지연 0.1 s). S2 모드는 `_addIndexToSignalId`라 공격 신호가 `char_306_leizi.attack.1` — 뱅크 없음, 시전음 없음.
+  - 패신저: 타격 `ON_PROJECTILE_HIT.projectile_chr_pasngr` `p_imp_thunder_n`(S2 `_s`)이 대상마다(뱅크 동시 2, 오래된 것부터 끊음), 연쇄음 뱅크 없음.
+- 예전: 연쇄음이 매니페스트에 없었고(파일도 안 받음), 튕긴 대상의 피해가 「같은 순간의 스플래시」로 처리돼 레이즈의 도착음이 대상마다 났다.
+- 고친 것: `tools/assets/skill-mode-sfx.mjs soundSet` — 모드 투사체의 `ON_PROJECTILE_BEHAVIOUR_TRIGGER` 뱅크를 단서 `at: 'c'`로, REACH 단서에
+  `r: 1`(한 발에 한 번). `public/js/audio.js` — 튕김 'atk'('chain')이 친 대상을 기억하고(`chainStruck`), 그 대상의 'dmg'에서는 `r` 단서를 빼고
+  타격음을 내며 연쇄음 `'c'`를 그 순간 시전자당 한 번. 매니페스트 재생성(`fetch-assets --add-only`): 레이즈만 `'c'` 단서, 19명은 REACH 단서에 `r`만.
+- 확인: `test/local-patch-attack-signals.test.js` 「a chain shot's sounds」(옛 코드에서 실패 확인). [브라우저 미확인: 실제 판에서 레이즈 연쇄음·패신저 대상별 타격음]

@@ -666,6 +666,7 @@ export class AudioManager {
     this.bgmToken = 0;
     this.units = new Map();   // battle unit id → defId
     this.lastAttacker = new Map(); // target id → { def, at } of the hostile attack last aimed at it (its impact sound)
+    this.chainStruck = new Map(); // unit id → time a chain bounce struck it (sim 'atk' 'chain': its 'dmg' is a bounce's)
     this.consumed = new Set();     // summons used up by their own effect (香槟炸弹 exploded): no death sound
     this.installed = false;
     this._unlock = this._unlock.bind(this);
@@ -1292,9 +1293,9 @@ export class AudioManager {
   }
 
   /** Play the cues at moment `at` of swing `sw` (spell index `sp`). */
-  _swingCues(su, sw, at, sp) {
+  _swingCues(su, sw, at, sp, keep = null) {
     let any = false;
-    for (const c of cuesAt(sw.set, at, sw.ab, sw.k, sp)) any = this._playCue(su.def, c, sw.set.mode) || any;
+    for (const c of cuesAt(sw.set, at, sw.ab, sw.k, sp)) if (!keep || keep(c)) any = this._playCue(su.def, c, sw.set.mode) || any;
     return any;
   }
 
@@ -1459,6 +1460,7 @@ export class AudioManager {
     this.stopBondCue(); // upstream #482: no layer-up cue carries into a new field
     this.units.clear();
     this.lastAttacker.clear();
+    this.chainStruck.clear();
     this.consumed.clear();
     // a new field is a new battle: the first operator deployed says 行动出发 again and no cooldown carries over
     this.startVoiceDone = false;
@@ -1636,7 +1638,7 @@ export class AudioManager {
         }
         if (kind === 'atk') {
           // a chain bounce: its first id is the previous target, whose attack sound this is not (see header)
-          if (CHAIN_KINDS.has(e[3])) { this.lastAttacker.delete(e[2]); continue; }
+          if (CHAIN_KINDS.has(e[3])) { this.lastAttacker.delete(e[2]); this.chainStruck.set(e[2], now); continue; }
           const src = this.units.get(e[1]);
           if (!src) continue;
           // only a hostile attack authors the target's next impact (a heal — an ally aiming at an ally — never does)
@@ -1699,10 +1701,17 @@ export class AudioManager {
             if (own) this.lastAttacker.delete(e[1]);
             if (own?.talent) continue; // 2026-10-11: a talent attack's impact (its ability has no HIT bank)
             const splash = !own && au.sw && (now - (au.lastAtkAt ?? -Infinity) <= 100 || now - (au.lastImpactAt ?? -Infinity) <= 100);
+            // 2026-10-16 (docs/rules/audio.md 「연쇄 공격 소리」): a chain bounce's unit — the shot's per-target HIT sounds
+            // only (its REACH sounded at the first unit), and its chain sound once per moment
+            const bounce = this.chainStruck.get(e[1]) === now;
+            if (bounce) this.chainStruck.delete(e[1]);
             if (own || splash) {
               const sw = own ? own.sw : au.sw;
               au.lastImpactAt = now;
-              if (sw) this._swingCues(au, sw, 'd', sw.h++);
+              if (sw && bounce) {
+                this._swingCues(au, sw, 'd', sw.h++, (c) => !c.r);
+                if (au.lastChainAt !== now) { au.lastChainAt = now; this._swingCues(au, sw, 'c'); }
+              } else if (sw) this._swingCues(au, sw, 'd', sw.h++);
               else this.unit(au.def, 'hit', `h${e[1]}`, undefined, own.mode);
               if (own) this._kitSound(signalAttackKey(au, 'd', false)); // 2026-10-10: its buff's impact sound (its own target)
             } else this._skillImpact(au, now);

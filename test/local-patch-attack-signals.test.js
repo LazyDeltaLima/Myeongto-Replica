@@ -474,3 +474,41 @@ describe('damage-over-time ticks (the \'dmg\' 7th field)', () => {
     assert.deepEqual(a.played, [], 'no tick sounds');
   });
 });
+
+// 2026-10-16, decompile check (docs/rules/audio.md 「연쇄 공격 소리」): a chain shot's HIT sounds at every unit it strikes
+// (Projectile.OnHitTarget), its REACH once at the first (cue `r`), its chain sound (ON_PROJECTILE_BEHAVIOUR_TRIGGER, cue
+// 'c') once per chain of two units or more (ChainLightningHitBehaviour.PlayChainAudio)
+describe('a chain shot\'s sounds', () => {
+  const chainField = (a, op) => a.setFieldUnits([
+    { id: 1, kind: 'op', side: 'ally', spine: op, defId: 'chess_x', skillIndex: 1 },
+    ...[2, 3, 4].map((id) => ({ id, kind: 'enemy', side: 'enemy', spine: 'enemy_1006_shield' })),
+  ]);
+  const shot = [['swing', 1, 0.3, 'bolt'], ['atk', 1, 2, 'bolt'], ['dmg', 2, 100, 'arts', 0, 1]];
+  const hops = [['atk', 2, 3, 'chain'], ['dmg', 3, 85, 'arts', 0, 1], ['atk', 3, 4, 'chain'], ['dmg', 4, 72, 'arts', 0, 1]];
+
+  test('the manifest: 惊蛰\'s REACH once, her chain sound per mode', () => {
+    const l = UNITS.char_306_leizi;
+    assert.deepEqual(files(l.cues.filter((c) => c.at === 'd' || c.at === 'c')), ['d:p_imp_elecmag_n.mp3', 'c:p_imp_elecmag_n_combine.mp3']);
+    assert.equal(l.cues.find((c) => c.at === 'd').r, 1, 'ON_PROJECTILE_REACH');
+    assert.deepEqual(files(l.modes[1].cues), ['d:p_imp_elecmag_s.mp3', 'c:p_imp_elecmag_s_combine.mp3']);
+    const p = UNITS.char_472_pasngr;
+    assert.ok(!p.cues.some((c) => c.at === 'c' || c.r), '异客: ON_PROJECTILE_HIT, no chain bank');
+  });
+
+  test('惊蛰: one REACH at the first unit, one chain sound for the bounces', () => {
+    const a = manager();
+    chainField(a, 'char_306_leizi');
+    a.handleBattleEvents([...shot, ...hops]);
+    assert.deepEqual(a.played.map((p) => p.f).filter((f) => f.startsWith('p_imp')), ['p_imp_elecmag_n.mp3', 'p_imp_elecmag_n_combine.mp3']);
+    a.played.length = 0;
+    a.handleBattleEvents(shot);
+    assert.ok(!a.played.some((p) => /combine/.test(p.f)), 'a shot that bounces nowhere has no chain sound');
+  });
+
+  test('异客: the HIT at every unit, no chain sound', () => {
+    const a = manager();
+    chainField(a, 'char_472_pasngr');
+    a.handleBattleEvents([...shot, ...hops]);
+    assert.deepEqual(a.played.map((p) => p.f).filter((f) => f.startsWith('p_imp')), ['p_imp_thunder_n.mp3', 'p_imp_thunder_n.mp3', 'p_imp_thunder_n.mp3']);
+  });
+});

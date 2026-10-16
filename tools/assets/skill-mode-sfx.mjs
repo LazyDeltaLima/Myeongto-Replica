@@ -499,10 +499,18 @@ export function soundSet(audio, owner, entry, n, soundLeaf) {
   if (!kinds.length) kinds.push('attack', 'combat');
   const per = {};
   const sel = {};
+  // 2026-10-16, decompile check (docs/rules/audio.md 「연쇄 공격 소리」): a chain shot hits every unit of its chain
+  // (Projectile.OnHitTarget RVA 0x67A360: ON_PROJECTILE_HIT at each), but ON_PROJECTILE_REACH sounds once, as the shot
+  // reaches its first unit (`r`); with two units or more its chain plays ON_PROJECTILE_BEHAVIOUR_TRIGGER once at the last
+  // one (ChainLightningHitBehaviour.PlayChainAudio 0xA69CB0 → Projectile.PlayBehaviourAudio 0x67B110): cue `at` 'c'
   const projCues = (keys, extra) => {
     const out = [];
-    for (const key of keys || []) for (const [ev, at] of Object.entries(PROJ_AT)) {
-      const c = bankCue(audio, `battle.${ev}.${key}`, at, soundLeaf, extra);
+    for (const key of keys || []) {
+      for (const [ev, at] of Object.entries(PROJ_AT)) {
+        const c = bankCue(audio, `battle.${ev}.${key}`, at, soundLeaf, ev === 'ON_PROJECTILE_REACH' ? { ...extra, r: 1 } : extra);
+        if (c) out.push(c);
+      }
+      const c = bankCue(audio, `battle.ON_PROJECTILE_BEHAVIOUR_TRIGGER.${key}`, 'c', soundLeaf, extra);
       if (c) out.push(c);
     }
     return out;
