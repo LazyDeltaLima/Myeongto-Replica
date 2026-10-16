@@ -67,6 +67,8 @@ export const KIT_HIT_BANKS = Object.freeze({
   'rockr:hito': 'battle.ON_BUFF_START.rockr_s2_common_attack_hit_overload',
   // 티티 S3 — an enemy waking up (titi_s_3[dmg_ticker] → PlayAudio titi_s_3[awake] on it)
   'titi:awake': 'battle.ON_CUSTOM_TRIGGER.titi_s_3[awake]',
+  // 圣聆初雪 T1 — a snow tile's effect created anew (SnowAccumulation `_playAudioWhenEffectChanged` → its `_audioSignal` at her)
+  'sbell2:snow': 'battle.ON_CUSTOM_TRIGGER.sbell2_snow_refresh_audio',
   // 아스카론 S2 — an enemy carrying ascln_s_2[enemy] killed (ON_OWNER_KILLED → PlayAudio ASCLN_S_2_BOMB at her)
   'ascln:s2bomb': 'battle.ON_CUSTOM_TRIGGER.ASCLN_S_2_BOMB',
   // 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: talent abilities (`<charId>.T.<n>`, UnitMode signal rules) —

@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { AudioManager, signalAttackKey, signalFxKey } from '../public/js/audio.js';
+import { AudioManager, signalAttackKey, signalFxKey, snowRefreshed } from '../public/js/audio.js';
 import { pickVariant, cuesAt, cueFile, cueSetOf, cueAbility } from '../public/js/audioOfficial.js';
 import { signalBase, loadCharAudio, soundSet, enemyModeSets, spineCues } from '../tools/assets/skill-mode-sfx.mjs';
 import { KIT_HIT_BANKS } from '../tools/assets/kit-sfx.mjs';
@@ -308,7 +308,7 @@ describe('buff and custom-trigger sounds (EN client buff templates → sfx.kit)'
   test('the table: banks of the templates\' audio signals, each with a sound in the manifest', () => {
     assert.equal(KIT_HIT_BANKS['horn:2:overload:melee'], 'battle.ON_BUFF_START.horn_s_2[overload][melee].attack');
     assert.equal(KIT_HIT_BANKS['ascln:s2bomb'], 'battle.ON_CUSTOM_TRIGGER.ASCLN_S_2_BOMB');
-    for (const k of Object.keys(KIT_HIT_BANKS).filter((x) => /^(horn|rockr|titi|ascln):/.test(x))) assert.equal(typeof manifest.audio.sfx.kit[k], 'string', k);
+    for (const k of Object.keys(KIT_HIT_BANKS).filter((x) => /^(horn|rockr|titi|ascln|sbell2):/.test(x))) assert.equal(typeof manifest.audio.sfx.kit[k], 'string', k);
   });
 
   test('혼 S3: every strike its normal / overload × melee / ranged buff sound; the overload start', () => {
@@ -345,6 +345,31 @@ describe('buff and custom-trigger sounds (EN client buff templates → sfx.kit)'
     a.played.length = 0;
     a.handleBattleEvents([['skill', 1, 0]]);
     assert.ok(a.played.some((p) => p.f === 'p_skill_elecwanddizzy.mp3'), 'overload finish');
+  });
+
+  test('圣聆初雪: a snow tile effect created anew sounds sbell2_snow_refresh_audio, kept or emptied tiles do not', () => {
+    const u = { def: 'char_1046_sbell2' };
+    assert.equal(snowRefreshed(u, [[3, 2, 1], [4, 2, 1]]), true, 'new tiles');
+    assert.equal(snowRefreshed(u, [[3, 2, 2]]), true, '_01 → _02');
+    assert.equal(snowRefreshed(u, [[3, 2, 3], [3, 2, 4]]), false, '_02 kept');
+    assert.equal(snowRefreshed(u, [[3, 2, 5]]), true, '_02 → _03');
+    assert.equal(snowRefreshed(u, [[3, 2, 0], [4, 2, 0]]), false, 'emptied');
+    assert.equal(snowRefreshed(u, [[3, 2, 1]]), true, 'snow again on an emptied tile');
+    const a = manager();
+    field(a, 'char_1046_sbell2');
+    a.handleBattleEvents([['fx', 'snow', 0, 0, { id: 1, tiles: 2, cells: [[3, 2, 1], [4, 2, 1]] }]]);
+    assert.deepEqual(a.played.map((p) => p.f), ['p_imp_swcvr.mp3']);
+    a.played.length = 0;
+    a.handleBattleEvents([['fx', 'snow', 0, 0, { id: 1, cells: [[3, 2, 0]] }], ['fx', 'snow', 0, 0, { id: 1, tiles: 1, cells: [[4, 2, 2]] }]]);
+    a.handleBattleEvents([['fx', 'snow', 0, 0, { id: 1, tiles: 1, cells: [[4, 2, 3]] }]]);
+    assert.deepEqual(a.played.map((p) => p.f), ['p_imp_swcvr.mp3'], 'only the _01 → _02 change');
+    // a redeployment starts from no tiles (the client clears them as she leaves)
+    a.played.length = 0;
+    field(a, 'char_1046_sbell2');
+    a.handleBattleEvents([['fx', 'snow', 0, 0, { id: 1, tiles: 1, cells: [[4, 2, 3]] }]]);
+    assert.deepEqual(a.played.map((p) => p.f), ['p_imp_swcvr.mp3']);
+    // 银灰's own 'snow' (his S2) is no tile refresh
+    assert.equal(signalFxKey('snow', { id: 1 }, () => ({ def: 'char_172_svrash' })), null);
   });
 
   test('티티 S3 wake-up on an enemy; 글래디아\'s own wake is none', () => {

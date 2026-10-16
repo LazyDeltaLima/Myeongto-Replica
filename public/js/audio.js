@@ -205,11 +205,12 @@ export function signalAttackKey(su, at, melee) {
 /**
  * 2026-10-10, docs/rules/audio.md 「버프·커스텀 트리거 소리」: the buff / custom-trigger sound a kit's fx stands for (an sfx.kit
  * key) — the 过载 start of 혼 S2 / S3 (horn_s_<n>[overload_start]) and 락락 S2 (rockr_overload_start), 티티 S3's wake-up burst on
- * an enemy (titi_s_3[awake]; 歌蕾蒂娅's own 'wake' names herself, no enemy).
+ * an enemy (titi_s_3[awake]; 歌蕾蒂娅's own 'wake' names herself, no enemy), 圣聆初雪's snow tiles (snowRefreshed).
  */
 export function signalFxKey(fx, ex, unitOf) {
   if (!ex || typeof ex !== 'object' || ex.id == null) return null;
   const u = unitOf(ex.id);
+  if (fx === 'snow' && u?.def === 'char_1046_sbell2') return snowRefreshed(u, ex.cells) ? 'sbell2:snow' : null;
   if (fx === 'overload') {
     if (u?.def === 'char_4039_horn' && (u.skillIndex === 1 || u.skillIndex === 2)) return `horn:${u.skillIndex + 1}:ovs`;
     if (u?.def === 'char_4040_rockr') return 'rockr:ovs';
@@ -222,6 +223,26 @@ export function signalFxKey(fx, ex, unitOf) {
     if (fx === 'pulse') return 'mlyss:pull';
   }
   return null;
+}
+/** 圣聆初雪's tile effect by snow layers (render/fx/kitofficial.js SNOW_GROUND: 1 → _01, 2–4 → _02, 5 → _03; 0 none). */
+const snowBand = (L) => (L >= 5 ? 3 : L >= 2 ? 2 : L >= 1 ? 1 : 0);
+/**
+ * 2026-10-16, docs/rules/fx.md 「키트 이벤트의 공식 이펙트」: whether a 'snow' event's `cells` [[x, y, layers]…] create a tile
+ * effect anew — AttachListenerToTileAbility `_HoldCastedEffectOnTile` plays its `_audioSignal` (sbell2_snow_refresh_audio, at
+ * her) after each effect it creates, not when the tile keeps its prefab nor when a tile empties. The tiles' effects are
+ * kept on her audio record `u` (a new one per deployment, as the client clears them when she leaves).
+ */
+export function snowRefreshed(u, cells) {
+  if (!u || !Array.isArray(cells)) return false;
+  const tiles = (u.snow ||= new Map());
+  let made = false;
+  for (const c of cells) {
+    if (!Array.isArray(c)) continue;
+    const k = `${c[0]},${c[1]}`, b = snowBand(Number(c[2]) || 0);
+    if (b && b !== tiles.get(k)) made = true;
+    if (b) tiles.set(k, b); else tiles.delete(k);
+  }
+  return made;
 }
 /** A 'dmg' later than this (real ms) after the attack aimed at the target is not that attack's impact. */
 const IMPACT_WINDOW_MS = 2500;

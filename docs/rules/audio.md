@@ -322,12 +322,17 @@
   - 티티 S3: `titi_s_3[dmg_ticker]`가 깨어난 적에 PlayAudio `titi_s_3[awake]` → sim fx `wake`(적 id; 글래디아 등 아군이 자기 id로 내는 `wake`는 아님).
   - 아스카론 S2: `ascln_s_2[enemy]`의 `ON_OWNER_KILLED`(그 효과를 단 적이 처치됨) → PlayAudio `ASCLN_S_2_BOMB`(그녀 위치) → **새 sim 이벤트**
     `['fx', 'kitHit', x, y, { id: 아스카론, k: 'ascln:s2bomb' }]`(`op-ascln.js`, 처치된 적이 그녀 범위 안일 때 — 기존 확산 조건과 같음; `docs/SIM.md`).
+  - 프라마닉스 더 프레리타 T1 눈 타일(2026-10-16): `AttachListenerToTileAbility._HoldCastedEffectOnTile`(RVA 0xBEE550)이 칸 이펙트를 **새로 만든
+    뒤에만** `_playAudioWhenEffectChanged` 1이면 `_audioSignal` `sbell2_snow_refresh_audio`를 그녀 자리에서 `ON_CUSTOM_TRIGGER`로 낸다(같은 프리팹
+    유지·0층으로 비움은 무음; 뱅크 `p_imp_swcvr`, maxSoundAllowed 1·popOldest 없음, Battle_P_SImp). sim fx `snow`의 `cells`를 오디오 유닛 기록의 칸별
+    구간(1·2~4·5층)과 비교해 구간이 새로 생기거나 바뀐 칸이 있으면 한 번(`audio.js snowRefreshed`, 키 `sbell2:snow`); 기록은 배치마다 새로 —
+    떠날 때 클라가 칸 이펙트를 모두 지우는 것과 같음. 실버애쉬의 'snow'(S2)는 해당 없음.
 - 안 한 것 [시점·조건을 sim에서 못 얻음]: 티티 `titi_s_3[spread_from]`(연쇄 수면 선 — sim 이벤트 없음)·재능 `titi_t_1`(잠든 적 틱), 시빌라이트 에테르나
   재능 미진 재생성 `projectile_chr_cetsyr_talent[_s1|_s2]_cooldown_ready`(재생성 순간 이벤트가 없음 — 로스터 kit라 이벤트를 넣으면 golden이 넓게 바뀜),
   위셔델 `WISDEL_S_OVERLOAD`·`WISDEL_S3_MARK`, 필라에 `philae_aoe`, 카넬리안·노시스·루멘 `[eff_cond]` 단계 버프, 뮤엘시스·비질 가짜 죽음, 실버애쉬 더 레인프로스트
   S2·S3의 버프 소리(`svash2_s_2[show]`·`[range]`·`[hit]`, `svash2_eagle_token[locate]`), 쏜즈 더 로드스타·틴맨·프라마닉스 더 프레리타·페페·아코르트·엔텔레키아·르무엔(`lemuen_attack_end_audio`·`s3_audio_triggered`) 등
   (관리자 메모 「오퍼레이터 효과음」 조사의 H·I 묶음), 적 버프·커스텀 트리거(적 91·122개 뱅크 — 적 스킬처럼 sim이 그 순간을 알려야 함).
-- 확인: `test/local-patch-attack-signals.test.js` 「buff and custom-trigger sounds」(표·혼 S3·락락 S2·티티·실제 매치 경로 아스카론 S2).
+- 확인: `test/local-patch-attack-signals.test.js` 「buff and custom-trigger sounds」(표·혼 S3·락락 S2·티티·프라마닉스 더 프레리타 눈 타일·실제 매치 경로 아스카론 S2).
   [브라우저 미확인 — 혼 S3 과부하 후 공격음이 바뀌는지 들어 볼 것]
 
 ## 적 소리 (2026-10-10, 위 「공격 소리 신호」와 같은 규칙)
