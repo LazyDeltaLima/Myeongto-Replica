@@ -2272,7 +2272,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_01"
-     ]
+     ],
+     "attach": 1,
+     "delay": 0.5
     },
     {
      "idle": [
@@ -2291,7 +2293,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_02"
-     ]
+     ],
+     "attach": 1,
+     "delay": 0.5
     },
     {
      "idle": [
@@ -2310,7 +2314,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_03"
-     ]
+     ],
+     "attach": 1,
+     "delay": 0.5
     }
    ],
    [
@@ -2331,7 +2337,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_01"
-     ]
+     ],
+     "lock": 1,
+     "attach": 1
     },
     {
      "idle": [
@@ -2350,7 +2358,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_02"
-     ]
+     ],
+     "lock": 1,
+     "attach": 1
     },
     {
      "idle": [
@@ -2369,7 +2379,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_03"
-     ]
+     ],
+     "attach": 1,
+     "lock": 1
     }
    ],
    [
@@ -2380,7 +2392,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_01"
-     ]
+     ],
+     "attach": 1,
+     "lock": 1
     },
     {
      "proj": "projectile_chr_whitw2_funnel_s2_2",
@@ -2389,7 +2403,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_02"
-     ]
+     ],
+     "lock": 1,
+     "attach": 1
     },
     {
      "proj": "projectile_chr_whitw2_funnel_s2_3",
@@ -2398,7 +2414,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_03"
-     ]
+     ],
+     "lock": 1,
+     "attach": 1
     },
     {
      "proj": "projectile_chr_whitw2_funnel_s2_4",
@@ -2407,7 +2425,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_04"
-     ]
+     ],
+     "lock": 1,
+     "attach": 1
     },
     {
      "proj": "projectile_chr_whitw2_funnel_s2_5",
@@ -2416,7 +2436,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_05"
-     ]
+     ],
+     "lock": 1,
+     "attach": 1
     },
     {
      "proj": "projectile_chr_whitw2_funnel_s2_6",
@@ -2425,7 +2447,9 @@
      "trail": [],
      "hit": [
       "whitw2_token_hit_06"
-     ]
+     ],
+     "lock": 1,
+     "attach": 1
     }
    ],
    []
@@ -8752,8 +8776,16 @@
      "from": 2,
      "wait": 1,
      "trail": [],
-     "hit": [
-      "kjera_token_skill_02_hit_F_L_01"
+     "hit": [],
+     "attach": 1,
+     "lock": 1,
+     "seq": [
+      [
+       "kjera_token_skill_02_hit_F_L_01"
+      ],
+      [
+       "kjera_token_skill_02_hit_F_L_02"
+      ]
      ]
     },
     {
@@ -8773,9 +8805,17 @@
      "from": 2,
      "wait": 1,
      "trail": [],
-     "hit": [
-      "kjera_token_skill_02_hit_F_R_01"
-     ]
+     "hit": [],
+     "seq": [
+      [
+       "kjera_token_skill_02_hit_F_R_01"
+      ],
+      [
+       "kjera_token_skill_02_hit_F_R_02"
+      ]
+     ],
+     "attach": 1,
+     "lock": 1
     }
    ]
   ],
@@ -9459,9 +9499,25 @@
      "from": 2,
      "wait": 1,
      "trail": [],
-     "hit": [
-      "rockr_token_skill_02_hit_L_01"
-     ]
+     "hit": [],
+     "attach": 1,
+     "seq": [
+      [
+       "rockr_token_skill_02_hit_L_01"
+      ],
+      [
+       "rockr_token_skill_02_hit_R_01"
+      ]
+     ],
+     "overSeq": [
+      [
+       "rockr_token_skill_02_hit_L_overload_01"
+      ],
+      [
+       "rockr_token_skill_02_hit_R_overload_02"
+      ]
+     ],
+     "lock": 1
     }
    ]
   ],

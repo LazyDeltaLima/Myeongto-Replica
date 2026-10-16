@@ -1580,6 +1580,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const foe = views.get(o.id)?.info?.side === 'enemy';
     const plan = b && isOp(op) ? kitOfficialPlan(e[1], o, b.bundle, { skill: skillIdx(op), back: faceBack(op), foe }) : null;
     if (!plan) return false;
+    if (plan.skillFlag) (op._fxSkillFlags ||= new Set()).add(plan.skillFlag);   // until the skill ends (洛洛's overDrones)
     for (const tag of plan.stop) for (const l of live) if (l.tag === tag && l.owner === opId) l.inst.stop();
     const x = Number(e[2]), y = Number(e[3]);
     let n = 0, flight = 0;
@@ -1675,6 +1676,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // (`idle` alone). Each attack also flies a drone's projectile (`trail` from its mount point `from`, `hit` on arrival) —
   // the sim's one 'atk' of a 驭械术师 stands for her shot and the drone's. [추정: the hide at the 'atk' (the client: its swing),
   // the show 0.2 s after the shot unless `wait`; a projectile without `speed` at 10 tiles / s]
+  // An `attach` projectile does not fly (AttachToTarget): it hits at once and ends `delay` s later (荒芜拉普兰德's normal
+  // attack: her drone comes back 0.5 s after its bite). A `lock` one stays on its target (耶拉 / 洛洛 S2, 荒芜拉普兰德 S1 / S2):
+  // its drone hides once, every attack on that target is a hit only, and it comes back when the target is gone (droneLock);
+  // its hits end with it (`_clearHitEffectOnStop`). Each hit takes the next of `seq` (`overSeq` while 洛洛 overloads: the
+  // kit plan's skillFlag 'overDrones').
   const funnelsOf = (v, n) => { const f = bindOf(v)?.funnels?.[n]; return Array.isArray(f) ? f : []; };
   const funnelMode = (v) => { const m = v._fxSkillOn ? modeNow(v) : 0; return Number.isInteger(m) && m >= 0 ? m : 0; };
   /** Whether `list` are 荒芜拉普兰德's normal-attack drones (her Default / S1 modes: idle ones; S2's lock their targets one each). */
@@ -1692,7 +1698,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const n = funnelMode(v), list = funnelsOf(v, n), k = funnelCount(v, list), key = `${n}|${k}`;
     if (!force && v._fxDrone?.key === key) return;
     for (const l of live) if (l.tag === 'drone' && l.owner === id) { l.inst.stop(true); if (l.backSw?.entry) l.backSw.entry.inst.stop(true); }
-    const rec = { key, n, k, ls: list.map(() => []) };
+    const rec = { key, n, k, ls: list.map(() => []), locks: new Map(), seq: new Map() };
     v._fxDrone = rec;
     list.slice(0, k).forEach((x, j) => (x.idle || []).forEach((name, m) => {
       if (!b.prefabs.includes(name)) return;
@@ -1719,38 +1725,76 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /** An attack of `src` on `tgt` in `mode`: its drones' hide / shot / hit / show. */
   function droneShot(src, tgt, mode) {
     if (!tgt || level() >= 3 || failed) return;
-    const b = bundleOf(src), id = ownerOf(src);
+    const b = bundleOf(src), id = ownerOf(src), tid = ownerOf(tgt);
     const n = Number.isInteger(mode) && mode >= 0 ? mode : funnelMode(src), list = funnelsOf(src, n);
     const shots = list.map((x, j) => [x, j]).filter(([x]) => x.proj);
     if (!b || !shots.length) return;
     const k = Math.min(shots.length, funnelCount(src, list));
     // the attacks of one moment take the next drones (耶拉 S2's two locks, 荒芜拉普兰德 S2's); her normal attack strikes with
     // every active drone at once (the sim's `hits`)
-    const at = src._fxDroneAt?.t === clockS ? src._fxDroneAt : (src._fxDroneAt = { t: clockS, i: 0 });
+    const at = src._fxDroneAt?.t === clockS ? src._fxDroneAt : (src._fxDroneAt = { t: clockS, i: 0, used: new Set() });
     const count = wolfPair(src, list) ? k : 1;
+    const rec = src._fxDrone?.n === n ? src._fxDrone : null;
+    const has = (nm) => b.prefabs.includes(nm);
     for (let c = 0; c < count; c++) {
-      const [x, j] = shots[at.i++ % k];
-      const from = droneFrom(src, x.from), to = { x: mx(tgt), y: tgt.y, z: shotTo(tgt) };
-      const dur = Math.hypot(to.x - from.x, to.y - from.y) / (x.speed > 0 ? x.speed : 10);
-      const rec = src._fxDrone;
-      const hide = (x.hide || []).filter((nm) => b.prefabs.includes(nm));
-      if (rec && rec.n === n && j < rec.k && x.idle?.length) {   // a drone of the mode now, shown idle
-        for (const nm of hide) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
-        holdDrone(rec, j, true, !!x.off);
-        castsDelayed.push({ t: clockS + (x.wait ? dur : 0.2), run: () => {
-          if (src._fxDrone !== rec) return;
-          holdDrone(rec, j, false, false);
-          for (const nm of (x.show || []).filter((s) => b.prefabs.includes(s))) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
-        } });
+      let [x, j] = shots[at.i++ % k];
+      if (x.lock && rec) {
+        // a lock: the drone already on this target, else a free one, else the next (not one this moment took already)
+        const free = shots.slice(0, k).filter(([, i]) => !at.used.has(i));
+        const pick = free.find(([, i]) => rec.locks.get(i)?.tid === tid) || free.find(([, i]) => !rec.locks.has(i));
+        if (pick) [x, j] = pick;
       }
-      const trail = (x.trail || []).find((nm) => b.prefabs.includes(nm));
+      at.used.add(j);
+      const from = droneFrom(src, x.from), to = { x: mx(tgt), y: tgt.y, z: shotTo(tgt) };
+      const dur = x.attach ? 0 : Math.hypot(to.x - from.x, to.y - from.y) / (x.speed > 0 ? x.speed : 10);
+      const idleNow = rec && j < rec.k && x.idle?.length;   // a drone of the mode now, shown idle
+      const held = x.lock && rec?.locks.get(j)?.tid === tid;
+      if (x.lock && rec && !held) droneLock(src, rec, x, j, tgt, tid, idleNow);
+      else if (!x.lock && idleNow) {
+        for (const nm of (x.hide || []).filter(has)) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
+        holdDrone(rec, j, true, !!x.off);
+        const back = x.attach ? Number(x.delay) || 0 : x.wait ? dur : 0.2;
+        castsDelayed.push({ t: clockS + back, run: () => { if (src._fxDrone === rec) droneBack(src, rec, x, j); } });
+      }
+      const trail = !x.attach && (x.trail || []).find(has);
       if (trail) {
         spawn(b.bundle, trail, glider(from.x, from.y, to.x, to.y, dur, from.z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
           .then((l) => { if (l) l.inst.object.rotation.set(0, 0, Math.atan2(to.y - from.y, to.x - from.x)); });
       }
-      const hits = (x.hit || []).filter((nm) => b.prefabs.includes(nm));
-      if (hits.length) castsDelayed.push({ t: clockS + dur, run: () => { if (tgt.alive !== false && !tgt.remove) for (const nm of hits) spawn(b.bundle, nm, tgt, { owner: null, buff: false }); } });
+      const groups = (src._fxSkillFlags?.has('overDrones') && x.overSeq) || x.seq;
+      const g = groups ? (rec?.seq.get(j) ?? 0) % groups.length : 0;
+      if (groups && rec) rec.seq.set(j, g + 1);
+      const hits = [...(x.hit || []), ...(groups ? groups[g] : [])].filter(has);
+      // a lock's hits are its projectile's: ended with it (its target's 'die', the skill's end: stopBuffs, a re-lock)
+      const entry = x.lock ? { owner: id, buff: true, on: tid, tag: `droneHit:${j}`, until: null } : { owner: null, buff: false };
+      const hit = () => { if (tgt.alive !== false && !tgt.remove) for (const nm of hits) spawn(b.bundle, nm, tgt, entry); };
+      if (hits.length) { if (dur > 0) castsDelayed.push({ t: clockS + dur, run: hit }); else hit(); }
     }
+  }
+  /** Drone `j` locks `tgt`: the one it held comes back first; it hides once and comes back when `tgt` is gone. */
+  function droneLock(src, rec, x, j, tgt, tid, idleNow) {
+    const b = bundleOf(src), id = ownerOf(src);
+    if (rec.locks.has(j)) droneBack(src, rec, x, j);
+    const lk = { tid };
+    rec.locks.set(j, lk);
+    if (idleNow) {
+      for (const nm of (x.hide || []).filter((s) => b.prefabs.includes(s))) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
+      holdDrone(rec, j, true, !!x.off);
+    }
+    const watch = () => {
+      if (src._fxDrone !== rec || rec.locks.get(j) !== lk) return;
+      if (tgt.alive === false || tgt.remove) droneBack(src, rec, x, j);
+      else castsDelayed.push({ t: clockS + 0.1, run: watch });
+    };
+    castsDelayed.push({ t: clockS + 0.1, run: watch });
+  }
+  /** Drone `j` comes back: its lock (and that lock's hits) ends, its idle loops resume with its `show` effect. */
+  function droneBack(src, rec, x, j) {
+    const b = bundleOf(src), id = ownerOf(src);
+    if (rec.locks.delete(j)) for (const l of live) if (l.tag === `droneHit:${j}` && l.owner === id) l.inst.stop();
+    if (!(j < rec.k && x.idle?.length) || !b) return;
+    holdDrone(rec, j, false, false);
+    for (const nm of (x.show || []).filter((s) => b.prefabs.includes(s))) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
   }
   /** Where a drone's projectile leaves (its ability's `_mountPointType`: the drone's special point), else her muzzle. */
   function droneFrom(src, mp) {
@@ -3245,7 +3289,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           // local patch (maintainer 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
-          else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id, true); endWolves(v.id ?? v.info.id); }
+          else { v._fxSkillOn = false; v._fxSkillFlags?.clear(); stopBuffs(v.id ?? v.info.id, true); endWolves(v.id ?? v.info.id); }
           droneIdle(v);   // 2026-10-16: the drones of the mode now
           return;
         }

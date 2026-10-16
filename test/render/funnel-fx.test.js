@@ -7,7 +7,10 @@ import { createFxLayer } from '../../public/js/render/fxgame.js';
 
 const files = {
   '/assets/local/fx/index.json': { bundles: {
-    kjera: ['kjera_token_default', 'kjera_token_attack_trail_01', 'kjera_token_hit_01', 'kjera_token_F_01', 'kjera_token_F_02', 'kjera_token_hide_01', 'kjera_token_show_01', 'kjera_token_skill_02_hit_F_L_01'],
+    kjera: ['kjera_token_default', 'kjera_token_attack_trail_01', 'kjera_token_hit_01', 'kjera_token_F_01', 'kjera_token_F_02', 'kjera_token_hide_01', 'kjera_token_show_01',
+      'kjera_token_hide_02', 'kjera_token_show_02', 'kjera_token_skill_02_hit_F_L_01', 'kjera_token_skill_02_hit_F_L_02', 'kjera_token_skill_02_hit_F_R_01', 'kjera_token_skill_02_hit_F_R_02'],
+    rockr: ['rockr_token_01', 'rockr_token_hide_01', 'rockr_token_show_01', 'rockr_token_overload_01', 'rockr_token_skill_02_hit_L_01', 'rockr_token_skill_02_hit_R_01',
+      'rockr_token_skill_02_hit_L_overload_01', 'rockr_token_skill_02_hit_R_overload_02'],
     whitw2: ['whitw2_token_01', 'whitw2_token_02', 'whitw2_token_03', 'whitw2_token_end_01', 'whitw2_token_end_02', 'whitw2_token_hit_01', 'whitw2_token_hit_02'],
     vigil: ['vigil_token_sub_start_1', 'vigil_token_sub_start_2', 'vigil_token_sub_die_1', 'vigil_token_sub_die_2', 'vigil_token_buff_1', 'vigil_token_buff_2',
       'vigil_token_buff_3', 'vigil_token_buff_4', 'vigil_token_die', 'vigil_token_ghost', 'vigil_token_start', 'vigil_token_attack_hit_1', 'vigil_token_attack_hit_2',
@@ -17,11 +20,18 @@ const files = {
   '/assets/local/fx/modes.json': {
     char_4013_kjera: { modes: ['Default', 'S2'], skillMode: [null, 1], funnels: [
       [{ idle: ['kjera_token_default'] }, { proj: 'projectile_chr_kjera_funnel', from: 5, speed: 10, trail: ['kjera_token_attack_trail_01'], hit: ['kjera_token_hit_01'] }],
-      [{ idle: ['kjera_token_F_01'], back: ['kjera_token_B_01'], hide: ['kjera_token_hide_01'], show: ['kjera_token_show_01'], proj: 'projectile_chr_kjera_funnel_s2_1', wait: 1, trail: [], hit: ['kjera_token_skill_02_hit_F_L_01'] },
-        { idle: ['kjera_token_F_02'], proj: 'projectile_chr_kjera_funnel_s2_2', wait: 1, trail: [], hit: [] }],
+      [{ idle: ['kjera_token_F_01'], back: ['kjera_token_B_01'], hide: ['kjera_token_hide_01'], show: ['kjera_token_show_01'], proj: 'projectile_chr_kjera_funnel_s2_1', wait: 1, trail: [], hit: [],
+        attach: 1, lock: 1, seq: [['kjera_token_skill_02_hit_F_L_01'], ['kjera_token_skill_02_hit_F_L_02']] },
+      { idle: ['kjera_token_F_02'], hide: ['kjera_token_hide_02'], show: ['kjera_token_show_02'], proj: 'projectile_chr_kjera_funnel_s2_2', wait: 1, trail: [], hit: [],
+        attach: 1, lock: 1, seq: [['kjera_token_skill_02_hit_F_R_01'], ['kjera_token_skill_02_hit_F_R_02']] }],
     ] },
+    char_4040_rockr: { modes: ['Default', 'S2'], skillMode: [null, 1], funnels: [[{ idle: ['rockr_token_01'] }],
+      [{ idle: ['rockr_token_01'], hide: ['rockr_token_hide_01'], show: ['rockr_token_show_01'], over: ['rockr_token_overload_01'], proj: 'projectile_chr_rockr_funnel_s2',
+        wait: 1, trail: [], hit: [], attach: 1, lock: 1, seq: [['rockr_token_skill_02_hit_L_01'], ['rockr_token_skill_02_hit_R_01']],
+        overSeq: [['rockr_token_skill_02_hit_L_overload_01'], ['rockr_token_skill_02_hit_R_overload_02']] }]] },
     char_1038_whitw2: { modes: ['Default', 'S1', 'S2', 'S3'], skillMode: [null, 2, 3], funnels: [[1, 2, 3].map((i) => (
-      { idle: [`whitw2_token_0${i}`], hide: [`whitw2_token_end_0${i}`], show: [`whitw2_token_end_0${i}`], off: 1, proj: `projectile_chr_whitw2_funnel_${i}`, wait: 1, trail: [], hit: [`whitw2_token_hit_0${i}`] }))] },
+      { idle: [`whitw2_token_0${i}`], hide: [`whitw2_token_end_0${i}`], show: [`whitw2_token_end_0${i}`], off: 1, proj: `projectile_chr_whitw2_funnel_${i}`, wait: 1, trail: [], hit: [`whitw2_token_hit_0${i}`],
+        attach: 1, delay: 0.5 }))] },
   },
 };
 const settle = () => new Promise((r) => setTimeout(r, 5));
@@ -49,20 +59,67 @@ test('drones: idle by mode, a shot per attack (trail, then its hit), the S2 dron
     assert.deepEqual(got().filter((n) => n.startsWith('kjera')), ['kjera_token_attack_trail_01']);
     tick(0.5);
     assert.deepEqual(got().filter((n) => n.startsWith('kjera')), ['kjera_token_hit_01']);
-    // S2: its mode's two drones replace the Default look; an attack hides the first (its hide effect), its hit and show later
+    // S2: its mode's two drones replace the Default look; they lock (AttachToTarget, INFINITY hits): an attack hides the
+    // first on its target and hits at once — no flight, no show while the lock holds
     kj._fxSkillOn = true;
     layer.onEvent(['skill', 1, 1], views);
     assert.deepEqual(got().filter((n) => n.startsWith('kjera_token_F') || n === 'kjera_token_default'), ['kjera_token_F_01', 'kjera_token_F_02']);
     tick(0.02);
     layer.onEvent(['atk', 1, 9, 'drone'], views);
-    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_hide_01']);
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_hide_01', 'kjera_token_skill_02_hit_F_L_01']);
     tick(0.5);
-    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_show_01', 'kjera_token_skill_02_hit_F_L_01']);
-    // 荒芜拉普兰德: every active drone strikes (end effect as it leaves), 头狼 stage 3 adds the third
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), [], 'locked: it stays on the target');
+    // the next attack on the same target: that drone again, a hit only, the next effect group
+    layer.onEvent(['atk', 1, 9, 'drone'], views);
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_skill_02_hit_F_L_02']);
+    tick(0.5);
+    // a second enemy: the free drone locks it; then the first target falls — its drone comes back (show), the other holds
+    const foe2 = { id: 8, x: 2, y: 1, alive: true, info: { id: 8, side: 'enemy', defId: 'enemy_1001_bigbo' } };
+    views.set(8, foe2);
+    layer.onEvent(['atk', 1, 8, 'drone'], views);
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_hide_02', 'kjera_token_skill_02_hit_F_R_01']);
+    layer.onEvent(['atk', 1, 9, 'drone'], views);
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_skill_02_hit_F_L_01'], 'each drone keeps its own target');
+    foe.alive = false;
+    tick(0.2);
+    assert.deepEqual(got().filter((n) => n.startsWith('kjera_token')), ['kjera_token_show_01']);
+    foe.alive = true;
+    // 荒芜拉普兰德: every active drone strikes (end effect as it leaves) and bites at once (AttachToTarget), back 0.5 s later
     layer.onEvent(['atk', 2, 9, 'drone'], views);
+    assert.deepEqual(got().filter((n) => n.startsWith('whitw2')), ['whitw2_token_end_01', 'whitw2_token_end_02', 'whitw2_token_hit_01', 'whitw2_token_hit_02']);
+    tick(0.3);
+    assert.deepEqual(got().filter((n) => n.startsWith('whitw2')), []);
+    tick(0.3);
     assert.deepEqual(got().filter((n) => n.startsWith('whitw2')), ['whitw2_token_end_01', 'whitw2_token_end_02']);
     layer.onEvent(['fx', 'talent', 0, 0, { x: 0, y: 0, id: 2, name: 'alpha', stage: 3 }], views);
     assert.deepEqual(got().filter((n) => /^whitw2_token_0\d$/.test(n)), ['whitw2_token_01', 'whitw2_token_02', 'whitw2_token_03']);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test("洛洛 S2: her locked drone's hits alternate its groups, the overload ones once she overloads", async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => plays.push(p) });
+    await settle();
+    const ro = { id: 4, x: 0, y: 0, alive: true, info: { id: 4, side: 'ally', kind: 'op', defId: 'char_4040_rockr', skillIndex: 1 } };
+    const foe = { id: 9, x: 3, y: 0, alive: true, info: { id: 9, side: 'enemy', defId: 'enemy_1001_bigbo' } };
+    const views = new Map([[4, ro], [9, foe]]);
+    const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => p.names[0]).filter((n) => n.startsWith('rockr_token_skill')).sort();
+    layer.onEvent(['deploy', 4], views);
+    layer.update(0.02, null, null);
+    ro._fxSkillOn = true;
+    layer.onEvent(['skill', 4, 1], views);
+    layer.update(0.02, null, null);
+    layer.onEvent(['atk', 4, 9, 'drone'], views);
+    layer.update(0.2, null, null);
+    layer.onEvent(['atk', 4, 9, 'drone'], views);
+    assert.deepEqual(got(), ['rockr_token_skill_02_hit_L_01', 'rockr_token_skill_02_hit_R_01']);
+    layer.onEvent(['fx', 'overload', 0, 0, { x: 0, y: 0, id: 4 }], views);
+    layer.update(0.2, null, null);
+    layer.onEvent(['atk', 4, 9, 'drone'], views);
+    assert.deepEqual(got(), ['rockr_token_skill_02_hit_L_overload_01']);
   } finally { globalThis.fetch = fetch0; }
 });
 

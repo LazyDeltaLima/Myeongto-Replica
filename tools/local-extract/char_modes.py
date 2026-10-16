@@ -845,9 +845,16 @@ def funnel_entries(abilities, emitters, idle, projectiles):
     (and `_idleBackEffect`, shown instead while the owner faces back: `_UpdateIdleEffect` 0xCB6180), ON_CAST_START plays its
     `_disappearEffect` and pauses the idle ones (`_setActiveFalseWhenPause`: hidden too), ON_ATTACK_FINISH plays its
     `_appearEffect` and resumes them, ON_DETACHED finishes them; `_PlayEffect` (0xCB5EF0) creates each on the owner, facing
-    its way. A mode's drones: [{ idle, back, hide, show, over, off, proj, from, speed, trail, hit, wait }…] by GameObject name, or
-    { idle } first for a mode whose drone is a buff's look (`idle`: its `Effect` GameObjects — the 驭械术师 Default modes:
-    耶拉 kjera_token_default, 洛洛 rockr_token_01, 至简 malist_drone); [] for a mode without drones."""
+    its way. A mode's drones: [{ idle, back, hide, show, over, off, proj, from, speed, trail, hit, seq, overSeq, wait, attach,
+    delay, lock }…] by GameObject name, or { idle } first for a mode whose drone is a buff's look (`idle`: its `Effect`
+    GameObjects — the 驭械术师 Default modes: 耶拉 kjera_token_default, 洛洛 rockr_token_01, 至简 malist_drone); [] for a mode
+    without drones.
+    The projectile (2026-10-16 decompile check): `attach` = its movement is AttachToTarget (dump.cs class at line 451030 — set
+    on the target each tick, no flight); `delay` = that movement's `_delayTime` with `_delayAfterReached` (OnTick 0xA98890:
+    reached, then `EnsureLifeTime(_delayTime)` — it ends that long after its hit); `lock` = its SimpleProjectile
+    `_hitNumType` INFINITY (2): it stays on its target and hits on every attack until the target is gone or the skill ends;
+    `seq` / `overSeq` = its SequenceEffectBehaviour `_effectGroups` / `_overloadGroups` when there is more than one: each hit
+    plays the next group (OnHitTarget 0xA88320 steps `m_currentEffectGroupIndex`, back to 0 past the last)."""
     if not abilities and not emitters:
         return []
     out = []
@@ -872,13 +879,23 @@ def funnel_entries(abilities, emitters, idle, projectiles):
             if projectiles:
                 pe = projectiles.effects(key)
                 x['trail'], x['hit'] = pe['trail'], list(pe['hit'])
-                # `_effectGroups[0].effectsWhenHit` [추정: the first group — the groups' order on the strikes not checked]
                 for d in projectiles.roots.get(key, []):
                     if isinstance(d.get('_speed'), (int, float)) and d['_speed'] > 0:
                         x.setdefault('speed', d['_speed'])   # tiles / s
-                    g = d.get('_effectGroups')
-                    if isinstance(g, list) and g and isinstance(g[0], dict):
-                        add(x['hit'], effect_names(g[0].get('effectsWhenHit') or []))
+                    if '_followTarget' in d and '_attachToMountPoint' in d:   # AttachToTarget
+                        x['attach'] = 1
+                        if d.get('_delayAfterReached') == 1 and isinstance(d.get('_delayTime'), (int, float)) and d['_delayTime'] > 0:
+                            x['delay'] = round(d['_delayTime'], 4)
+                    if '_hitNumType' in d and d['_hitNumType'] == 2:   # SimpleProjectile, LifeType.INFINITY hits
+                        x['lock'] = 1
+                    for gk, xk in (('_effectGroups', 'seq'), ('_overloadGroups', 'overSeq')):
+                        if xk == 'overSeq' and d.get('_enableOverloadEffect') != 1:
+                            continue
+                        g = [effect_names(e.get('effectsWhenHit') or []) for e in d.get(gk) or [] if isinstance(e, dict)]
+                        if len(g) == 1 and xk == 'seq':
+                            add(x['hit'], g[0])
+                        elif len(g) > 1:
+                            x[xk] = g
         out.append(x)
     if idle and not any(x.get('idle') for x in out):
         out.insert(0, {'idle': idle})

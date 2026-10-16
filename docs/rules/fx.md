@@ -1417,8 +1417,17 @@
   숨김) → 드론 탄 꼬리를 드론 자리에서 대상까지, 닿을 때 명중, `wait`면 그때(아니면 0.2초 뒤) 등장 이펙트 + 재개. 같은 순간의 공격은 다음 드론(쉐라
   S2 두 고정). 라플란드 더 데카덴차 일반 공격(기본·S1 모드)은 활성 드론 전부 — 수는 1 + S1 패시브 + 头狼 3단계(시뮬 `profile.hits`, 'talent' alpha
   `stage`) [추정: 클라 `_useExtraActiveCntAbility` 미확인].
-- [추정]: 퇴장은 'atk' 때(클라는 휘두르기 시작), 등장은 `wait` 없으면 0.2초 뒤, `speed` 없는 탄은 10칸/초. 쉐라 S2의 둘째 명중 묶음
-  (`_F_L_02`·`_F_R_02`)·락락 S2 오른쪽·과부하 명중 묶음은 안 씀.
+- [추정]: 퇴장은 'atk' 때(클라는 휘두르기 시작), 등장은 `wait` 없으면 0.2초 뒤, `speed` 없는 탄은 10칸/초.
+- 잠금 (2026-10-16 묶음 3 재점검, 디컴파일 확인): 처음엔 쉐라·락락 S2와 라플란드 더 데카덴차 S1·S2 드론이 'atk'마다 숨었다 나타나 깜빡였고, 그녀의
+  일반 공격 드론은 날지 않는데 거리÷10만큼 늦게 물었다. 클라의 이 탄들은 이동이 AttachToTarget(dump.cs 451030 — 틱마다 대상 위치에 둠, 날지 않음)이고,
+  S1·S2·쉐라·락락 S2는 SimpleProjectile `_hitNumType` INFINITY(LifeType 2)라 대상에 붙은 채 공격마다 맞히다 대상이 사라지거나 스킬이 끝날 때(`_stopWhenSourceInvalid`)
+  끝난다 — 그때 ON_ATTACK_FINISH(`_waitForProjectileInvalid`)로 등장. 일반 공격 탄(`whitw2_funnel_1~3`)은 맞힌 뒤 `_delayAfterReached` `_delayTime` 0.5초를 더
+  산다(OnTick 0xA98890: CheckReached 뒤 `EnsureLifeTime(_delayTime)`). 명중은 `SequenceEffectBehaviour.OnHitTarget`(0xA88320)이 맞힐 때마다 새로 만들고
+  `_effectGroups`의 다음 묶음으로 넘어간다(끝 뒤 0으로) — 쉐라 S2 `_F_L_01`/`_02`, 락락 S2 왼쪽/오른쪽, 과부하 중엔 `_overloadGroups`; 잠금 탄의 명중은
+  `_clearHitEffectOnStop`으로 탄과 함께 끝. 고친 것: `char_modes.py funnel_entries`에 `attach`·`delay`·`lock`·`seq`·`overSeq`(전체 재추출 diff: 이 셋의 `funnels`만),
+  `fxgame.js droneShot`은 `attach`면 꼬리 없이 바로 명중·`delay` 뒤 등장, `lock`이면 드론별 잠금(`droneLock`: 같은 대상이면 명중만, 다른 대상이면 이전 잠금을
+  끝내고 다시 숨김, 대상이 사라지면 등장 `droneBack`); 같은 순간의 공격은 그 대상을 이미 잠근 드론 → 빈 드론 순. 락락 과부하는 kitofficial `overload` 계획의
+  `skillFlag` 'overDrones'(스킬 끝에 지움). [추정: 스킬 끝에 잠긴 드론의 등장 이펙트는 안 틂(모드가 바뀌며 새 모드 대기로 다시 시작)]
 - 확인: 단위 `test/render/funnel-fx.test.js`. 디버그 아레나(오류 0): 쉐라 기본 `kjera_token_default` 1·드론 꼬리·명중 14씩, S2 `kjera_token_F_01`/`_02`
   + 퇴장·등장·S2 명중 7씩(기본 모습은 꺼짐); 락락 `rockr_token_01`(기본·S2)·드론 꼬리·명중 8씩·S2 퇴장·등장 11씩; 라플란드 더 데카덴차 S1
   `whitw2_token_01`·`_02`(드론 둘)·드론 명중 13씩. [화면 미확인: 실제 판, 드론 자리·뒷모습·숨김 시점을 공식 녹화와]

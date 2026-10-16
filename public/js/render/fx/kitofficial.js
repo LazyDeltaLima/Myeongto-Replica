@@ -45,8 +45,9 @@ export const KIT_OFFICIAL = {
       const base = c.skill === 1 ? 'horn_skill_02_buff_03' : c.skill === 2 ? 'horn_skill_03_buff_02_03' : null;
       return base ? { play: [{ n: `${base}_${c.back ? 'back' : 'front'}`, on: 'op', life: 'skill' }] } : null;
     },
-    // 洛洛 S2 过载: her drones' S2Funnel `_overloadIdleEffect` rockr_token_overload_01 for the rest of the skill
-    rockr: () => ({ play: [{ n: 'rockr_token_overload_01', on: 'op', life: 'skill' }] }),
+    // 洛洛 S2 过载: her drones' S2Funnel `_overloadIdleEffect` rockr_token_overload_01 for the rest of the skill, and their
+    // hits take the projectile's `_overloadGroups` (`skillFlag` 'overDrones': fxgame.js droneShot, cleared at the skill's end)
+    rockr: () => ({ play: [{ n: 'rockr_token_overload_01', on: 'op', life: 'skill' }], skillFlag: 'overDrones' }),
   },
   // 泥岩 T1 沃土予身: the last layer broken (mudrok_t_1[shield_c] BlockDamage → CreateEffect mudrok_buff_01_end) …
   shieldBreak: {
@@ -255,5 +256,5 @@ export function kitOfficialPlan(name, o, bundle, ctx = {}) {
   const rule = bundle ? KIT_OFFICIAL[name]?.[bundle] : null;
   if (typeof rule !== 'function' || !o || typeof o !== 'object') return null;
   const r = rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back, foe: !!ctx.foe });
-  return r ? { stop: r.stop || [], play: r.play || [], pass: !!r.pass } : null;
+  return r ? { stop: r.stop || [], play: r.play || [], pass: !!r.pass, ...(r.skillFlag ? { skillFlag: r.skillFlag } : {}) } : null;
 }
