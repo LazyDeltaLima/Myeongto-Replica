@@ -1284,7 +1284,8 @@
   그 모드의 명중을 튼다(`healHit` → 피해 명중과 같은 `attackHit`, 공격마다 한 번). 다른 유닛의 치료(재생·재능·장판)는 그 투사체의 명중이 아니다.
   치료가 0.5 미만이면 시뮬이 'heal'을 안 보내므로 이펙트도 없다 [추정: 공식은 닿으면 양과 관계없이 틀 것 — 메딕은 다친 아군만 노려 드묾].
 - 확인: 단위 `test/render/heal-hit-fx.test.js`(`createFxLayer` `trace`로 트는 이름: 첫 대상·튕긴 대상, 다른 치료자·공격 없는 치료는 없음),
-  `test/sim/op-shot.test.js` 실제 판 경로 'heal'의 치료자. [화면 미확인]
+  `test/sim/op-shot.test.js` 실제 판 경로 'heal'의 치료자. Windows Chrome 디버그 아레나(관리자 노트의 확인 스크립트, FxInstance 첫 update로 프리팹 수, 오류 0): 莎草(다친 아군 옵션 — 자기 치료) `papyrs_hit_01` 4.
+  赫默는 명중 프리팹 `myrrh_attack_01_hit`이 추출돼 있지 않아 안 나옴(관리자 노트의 할 일). [화면 미확인: 실제 판의 다른 아군, 공식 녹화]
 
 ### 타격별 명중 — MultiHitUberEffectEmitter `_hitGroups` (2026-10-16, 이펙트 연결 전수, 디컴파일 확인)
 
@@ -1304,7 +1305,8 @@
   지움. 모드가 없는 스킬(−1)은 그 스킬의 그룹. 锏 S1 스킬 프리팹의 그룹은 S1 모드가 있어 안 씀 [추정: 스킬 프리팹 능력의 따로 도는 타격].
   赤刃明霄陈 S2의 剑气 타격은 키트 'swordStorm'이 그대로 그림. [추정: 시뮬은 타격들을 한 틱에 보내 이펙트가 동시에 나옴 — 공식은 클립의 타격 시점마다.]
 - 확인: 단위 `test/render/strike-groups-fx.test.js`(추출값, 锏 셋째 타격 = 마지막 그룹·다음 틱 DoT 없음·번호 없는 피해 건너뜀, 赤刃明霄陈 S3 순환,
-  阿斯卡纶 일반·S1), `test/sim/official-event-fields.test.js` 「'dmg' [7]」. [화면 미확인]
+  阿斯卡纶 일반·S1), `test/sim/official-event-fields.test.js` 「'dmg' [7]」. Windows Chrome 디버그 아레나(관리자 노트의 확인 스크립트, FxInstance 첫 update로 프리팹 수, 오류 0): 锏 일반 `blkkgt_attack_hit_1`·`_hit_2` 5씩,
+  赤刃明霄陈 S3 `_hit_01`~`_03` 18씩, 阿斯卡纶 S1 `_hit_01`·`_02` 7씩, 德克萨斯 S2 `_skill_02_hit`·`_hit_02` 9씩. [화면 미확인: 공식 녹화와 타격 시점]
 
 ### 타격별 투사체·쏠 때 대상 이펙트 — MultiRangedAttack·`_effectsToTargetWhenStart` (2026-10-16, 이펙트 연결 전수, 디컴파일 확인)
 
@@ -1325,4 +1327,7 @@
   `activationEffects`는 `tgtStart`를 시전자 이펙트에서 뺌. 시뮬: 轰击术师 여진 피해에 타격 번호(`strike: i`).
 - 안 한 것: 迷迭香 `Attack_A`/`Attack_B`(같은 모드의 대안 공격 — 기록은 A, 고르는 방식 미확인)·`projectile_chr_rosmon_B`의 `rosmon_attack_B_hit_01`.
   [추정: 뒤 타격 꼬리를 첫 꼬리와 같은 자리·시각에 날림.]
-- 확인: 단위 `test/render/strike-shots-fx.test.js`(추출값, 迷迭香 쏠 때 이펙트·여진 0.3 s 뒤 명중, 伺夜 S3 화살마다 명중, 银灰). [화면 미확인]
+- 확인: 단위 `test/render/strike-shots-fx.test.js`(추출값, 迷迭香 쏠 때 이펙트·여진 0.3 s 뒤 명중, 伺夜 S3 화살마다 명중, 银灰). Windows Chrome 디버그 아레나(관리자 노트의 확인 스크립트, FxInstance 첫 update로 프리팹 수, 오류 0): 迷迭香
+  일반 `rosmon_attack_A_hit_01` 2(쏠 때)·`_A_hit_02` 7(본탄 + 여진)·S1 `rosmon_skill_01_A_hit_01` 1, S2 `rosmon_skill_02_range` 9(사격마다 대상에 — 그녀
+  몸에 안 남음), 伺夜 S3 `vigil_skill_03_trail_01`/`_02`/`_03` 22~23·`_hit_1`/`_2`/`_3` 24씩, 银灰 `svrash_attack_01_trail` 3, 新约能天使 S1
+  `angel2_skill_1_close_trail_01` 84(0.05 s 간격). [화면 미확인: 실제 판, 공식 녹화와 꼬리 간격·모양]
