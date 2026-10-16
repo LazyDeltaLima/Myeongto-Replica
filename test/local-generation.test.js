@@ -285,19 +285,26 @@ describe('server generation: the page (public/js/ui/generation.js)', () => {
     }
   });
 
-  test('a match on screen waits for its end (服务器已更新 banner)', async () => {
+  test('a match on screen waits for its end without a banner, then the banner and the reload 3 s later', async () => {
     const p = harness([]);
     p.emit('welcome', { gen: { id: 'a', state: 'accept' } });
     p.inMatch = true;
     p.emit('server.gen', { state: 'drain' });
+    assert.equal(store.get().ui.genMove ?? null, null, 'no banner while the match is on screen');
     await p.run(MOVE_DELAY_MS);
     assert.equal(store.get().ui.genMove, 'match');
-    assert.equal(store.get().ui.buildStale, true);
+    assert.equal(store.get().ui.buildStale, false, 'not the build guard\'s 服务器已更新 banner');
+    assert.equal(bannerVisible({ status: 'online' }, true, false, false, false, 'match'), false);
+    await p.run(MATCH_POLL_MS);
     assert.equal(p.reloads, 0);
     p.inMatch = false;
     await p.run(MATCH_POLL_MS);
+    assert.equal(store.get().ui.genMove, 'soon', 'the match is over: the banner');
+    assert.equal(bannerVisible({ status: 'online' }, true, false, false, false, 'soon'), true);
+    assert.equal(p.reloads, 0, 'not at once');
+    await p.run(MOVE_DELAY_MS);
     await p.run(TAB_ASK_MS);
-    assert.equal(p.reloads, 1);
+    assert.deepEqual([p.dropped, p.reloads], [1, 1]);
     p.gen.close();
   });
 

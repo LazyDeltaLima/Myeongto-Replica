@@ -8,8 +8,9 @@
 //   * the server starts draining (server.gen { state: 'drain' }, or a welcome that says so), a waiting room is closed for
 //     the new version (room.closed {reason:'newVersion'}), or a request is refused with NEW_VERSION → the page moves:
 //     the banner says so, and MOVE_DELAY_MS (3 s, maintainer decision 2026-10-14) later the page drops the cookie and
-//     reloads onto the new server. A match on screen (settlement included) waits for its end (the banner shows
-//     服务器已更新，本局结束后刷新, the build guard's notice).
+//     reloads onto the new server. A match on screen (settlement included) waits for its end without a banner (the
+//     old server keeps serving it, the player has nothing to do; maintainer decision 2026-10-17): once it is over the
+//     banner shows and the page moves MOVE_DELAY_MS later.
 //   * another tab of this browser that plays a match on the same old server keeps the cookie (a reload of that tab, or
 //     the files it still loads, must reach the old server): before moving, the page asks the other tabs over the
 //     BroadcastChannel CHANNEL; a tab in a match on that server answers busy and this page waits (banner), asking again
@@ -78,9 +79,12 @@ export function installGeneration({ net, inMatch, wsUrl, reload, dropCookie, mak
     later(() => resolve(busySeen), TAB_ASK_MS);
   });
 
+  let waitedMatch = false; // the move waited for a match: its end shows the banner before the reload
+
   const step = async () => {
     if (gone) return;
-    if (inMatch()) { setMove('match'); store.patch('ui', { buildStale: true }); wait(MATCH_POLL_MS, step); return; }
+    if (inMatch()) { waitedMatch = true; setMove('match'); wait(MATCH_POLL_MS, step); return; }
+    if (waitedMatch) { waitedMatch = false; setMove('soon'); wait(MOVE_DELAY_MS, step); return; }
     if (await otherTabBusy()) { setMove('tab'); wait(TAB_RETRY_MS, step); return; }
     gone = true;
     setMove('soon');
