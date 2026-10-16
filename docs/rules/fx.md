@@ -1196,11 +1196,24 @@
       丰川祥子 S1 음표 적중 = 'oblvnsNote', 流明 정화 = 그 치유의 타격 = 다른 이벤트; 荒芜拉普兰德 T1 단계 = 없음.
     - 계획 형식에 더한 것: `on`이 이벤트 필드 이름(`tgt` …), 다른 묶음 `bundle`, 유닛 둘레 `orbit`, 오퍼→지점 비행 `fly`와 착지 뒤 `after: 'fly'`,
       선 목록(`to`)·한 번 선.
+  - 圣聆初雪 T1 눈 타일(관리자 결정 2026-10-16): charpack `Talents/1/SnowAccumulation`은 `AttachListenerToTileAbility` — 칸마다 이펙트 하나,
+    `_effectSettings`에서 castedTimeThreshold가 그 칸 층수와 **같은** 항목(1 → `sbell2_ground_01`, 2·3·4 → `_02`, 5 → `_03`)을 고르고
+    (`_HoldCastedEffectOnTile` RVA 0xBEE550), `_dontCreateNewEffectWhenCastedTimesSame` 1이라 떠 있는 이펙트와 키가 같으면 그대로 둔다(2→3→4층은
+    `_02` 유지, 1→2·4→5만 교체); 맞는 항목이 없으면(0층) 끈다. 그녀가 떠나면 `OnDetached` → `_ClearEffects`로 모두 꺼진다. 시뮬은 눈 지도가 바뀔
+    때마다(재능 쌓임·S2 퍼짐·출구 冻结·S1 직선·적이 떠나 지움) 기존 'snow'에 바뀐 칸 `cells` [[x, y, 층수]…]를 싣고(재능 쌓임만 `tiles` 유지 —
+    `cells`만 있는 'snow'는 절차 대체 원을 그리지 않음, `kinds.js fxSpec`), `KIT_OFFICIAL.snow.sbell2`가 칸별 `slot` 재생(오퍼·칸마다 하나, 같은
+    프리팹이면 유지, `off`로 끔 — `fxgame.js officialKitFx`)으로 그린다. 골든은 'snow' 이벤트 수만 바뀜(로스터 016·018·035·036·046, 필드
+    boss_3·boss_5·boss_9 — 피해·결과 같음). 바닥 눈 그림은 세 프리팹의 Unity 내장 Quad 메시 노드(`1`·`2`·`3`, 재질 `sbell_01_ground_12`·
+    `sbell_02_ground_34`)라 지금 추출물에는 빠져 있다(아래 「내장 Quad/Plane 메시」 — 재추출은 텍사스 디 오메르토사만) — 그대로면 `_02`·`_03`의
+    눈송이 입자만 보인다. 확인: Windows Chrome 디버그 아레나(S1, 30초) — 15칸 `_01` → 2층에 `_02`로 13칸 교체, 3·4층은 새로 안 만듦(유지), 5층에
+    `_03` 13칸, 칸마다 살아 있는 이펙트 하나, 오류 0; 세 프리팹만 내장 Quad로 임시 추출해 넣으면 칸마다 눈이 보임(되돌림). [화면 미확인: 적이
+    떠나 지워지는 칸 — 아레나 샌드백이 안 움직임] 안 한 것: 이펙트가 바뀔 때의 소리(`_playAudioWhenEffectChanged` 1, `_audioSignal`
+    `sbell2_snow_refresh_audio`).
 - 판정: `test/render/kit-event-fx.test.js`가 절차 대체가 꺼지는 모든 (이벤트, 키트) 쌍에 규칙이나 판정을 요구한다 — 새 키트 이벤트가 말없이 안
   그려지지 않게. 판정은 스킬(그 스킬 바인딩이나 활성의 이름 규칙이 그림 — 이름 규칙은 추출물이 있을 때만 검사)·공격·없음(클라도 안 그림:
   耀骑士临光 모듈 骑士家族의 `undying`)·다른 이벤트가 그림·절차 대체 유지(토큰·적이 보내는 것)·**미판정**. 미판정은 圣聆初雪 눈 타일('snow':
-  `SnowAccumulation` `_effectSettings` 칸별 층수 → `sbell2_ground_01`(1)·`_02`(2~4)·`_03`(5), 적이 떠나면 지워짐 — 지움을 알리는 이벤트가 없음)
-  하나, 관리자 노트의 열린 일.
+  `SnowAccumulation` `_effectSettings` 칸별 층수 → `sbell2_ground_01`(1)·`_02`(2~4)·`_03`(5), 적이 떠나면 지워짐)
+  하나였고 2026-10-16 위 규칙으로 닫힘 — 지금 미판정 없음.
 - 안 한 것: 泥岩 층 루프 `mudrok_buff_01~03_start`(층이 생길 때 — 시뮬 이벤트 없음, 새 이벤트는 골든 이벤트 수를 바꿈), 心烛 선의 방향 확인.
   魔王 微尘·焰影苇草 이외의 도는 투사체 상시 표시(魔王 微尘 자체, 남은 개수를 시뮬이 안 알림), 卡涅利安 스킬 밖 충전 표시(충전 수가 뷰에 없음),
   新约能天使 S3 모드 바인딩이 `S3FireToToken`의 cast `angel2_skill_3_begin_start_001`을 S3 공격마다 트는 것.

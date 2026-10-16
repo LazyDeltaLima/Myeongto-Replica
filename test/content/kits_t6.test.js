@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
+import { COLS } from '../../server/sim/constants.js';
 
 const dummy = (o = {}) => enemyRec({ key: 'enemy_dummy', hp: 1e7, speed: 0, ...o });
 const DEFS = {
@@ -218,6 +219,33 @@ test('圣聆初雪: snow damages walking enemies (75 % ATK) and slows them; S3 l
   const slow = w.findBuff('sbell2:snow');
   assert.ok(slow && slow.mods.moveMul < 1, 'snow slows');
   checkInvariants(h.b);
+});
+
+test("圣聆初雪: every change of the snow map is sent in 'snow' `cells` (the render's tile effects), a cleared tile at 0", () => {
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_02_a', row: 10, col: 5 }],
+    enemies: [{ key: 'enemy_walker', time: 6, pos: [9, 9], route: { motion: 'WALK', start: [9, 9], end: [9, 2], checkpoints: [] } }],
+  });
+  const u = h.unit('chess_char_6_02_a');
+  const seen = new Map();
+  const replay = () => {
+    seen.clear();
+    for (const e of h.eventsOf('fx')) if (e[1] === 'snow' && e[4].id === u.id) for (const [x, y, L] of e[4].cells) seen.set(y * COLS + x, L);
+  };
+  const same = () => {
+    replay();
+    for (const [k, L] of seen) assert.equal(u.mem.snow.get(k) ?? 0, L, `tile ${k}`);
+    for (const [k, L] of u.mem.snow) assert.equal(seen.get(k), L, `tile ${k} announced`);
+  };
+  assert.ok(h.runUntil(() => u.mem.snow.size > 0, 10), 'snow laid');
+  same();
+  assert.ok(h.runUntil(() => { replay(); return [...seen.values()].includes(0); }, 30), 'an enemy clearing a tile sends it at 0 layers');
+  same();
+  // a change with no talent layer draws no stand-in zone (only the tiles); the talent's laying keeps `tiles`
+  const snows = h.eventsOf('fx').filter((e) => e[1] === 'snow' && e[4].id === u.id);
+  assert.ok(snows.some((e) => e[4].tiles > 0) && snows.some((e) => e[4].tiles === undefined));
+  h.run(20);
+  same();
 });
 
 test('圣聆初雪: S3 诱导 — enemies in range become unblockable and WALK (own speed) next to her for attract_time, then resume', () => {

@@ -136,6 +136,9 @@ export function fxSpec(kind, extra = {}) {
   const k = typeof kind === 'string' ? kind : '';
   if (k === 'phase' && SILENT_PHASES.has(extra && extra.kind)) return { a: 'none', c: 0xffffff };
   if (k === 'teleport' && extra && extra.kind === 'parasite') return { a: 'none', c: 0xffffff };
+  // 圣聆初雪's snow map changes that lay no talent layer (S1's line, an enemy clearing a tile): the tiles' own effects
+  // only (render/fx/kitofficial.js), no stand-in zone on her
+  if (k === 'snow' && extra && Array.isArray(extra.cells) && !(Number(extra.tiles) > 0)) return { a: 'none', c: 0xffffff };
   let spec = FX_KINDS[k];
   if (!spec) {
     const g = FX_GUESS.find(([re]) => re.test(k));

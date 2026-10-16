@@ -1524,9 +1524,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const x = Number(e[2]), y = Number(e[3]);
     let n = 0, flight = 0;
     for (const p of plan.play) {
+      const slot = p.slot != null ? `${opId}|${p.slot}` : null;
+      if (slot && p.off) { endSlot(slot); continue; }
       const pb = p.bundle ? { bundle: p.bundle, prefabs: index?.bundles?.[p.bundle] || [] } : b;
       const name = pickName(pb, p.n);
       if (!name) continue;
+      if (slot) {
+        const s = slots.get(slot);
+        if (s && s.name === name && (s.l ? !s.l.inst.stopping && live.includes(s.l) : !s.done)) { n++; continue; } // kept
+        endSlot(slot);
+        const rec = { name, l: null, done: false };
+        slots.set(slot, rec);
+        const pt = Array.isArray(p.at) ? { x: Number(p.at[0]), y: Number(p.at[1]), z: 0 } : { x, y, z: 0 };
+        spawn(pb.bundle, name, pt, { owner: opId, buff: false, onCaster: true, until: null, tag: 'slot' }, { over: false }).then((l) => {
+          rec.done = true;
+          if (!l) return;
+          if (slots.get(slot) === rec) rec.l = l; else l.inst.stop();
+        });
+        n++;
+        continue;
+      }
       if (p.line) {
         const from = views.get(o[p.line[0]]);
         for (const id of [o[p.line[1]]].flat()) {
@@ -1545,7 +1562,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
       const v = p.on === 'op' ? op : p.on === 'point' ? null : views.get(o[p.on]);
       if (p.on !== 'point' && !v) continue;
-      const at = v && p.orbit ? orbiter(v, p.orbit) : v || { x, y, z: 0 };
+      const at = v && p.orbit ? orbiter(v, p.orbit) : v || (Array.isArray(p.at) ? { x: Number(p.at[0]), y: Number(p.at[1]), z: 0 } : { x, y, z: 0 });
       const on = v ? ownerOf(v) : undefined;
       const entry = p.life === 'skill' ? { owner: opId, buff: true, until: null, on }
         : p.life === 'deployed' ? { owner: opId, buff: false, onCaster: true, until: null, on }
@@ -1560,6 +1577,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!n || plan.pass) return false;
     ownFx.add(e);
     return true;
+  }
+  // officialKitFx `slot` plays: `${operator}|${slot}` → { name, l: its live entry once loaded, done: loading finished }
+  const slots = new Map();
+  /** End the effect held in `key` (and one still loading there). */
+  function endSlot(key) {
+    const s = slots.get(key);
+    if (!s) return;
+    slots.delete(key);
+    if (s.l) s.l.inst.stop();
   }
   /**
    * A point circling unit `v` (a projectile's `_projectileAroundRadius` `r` tiles at `_aroundSpeed` `spd` °/s) at its body

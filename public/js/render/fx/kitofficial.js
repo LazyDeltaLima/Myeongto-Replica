@@ -16,7 +16,10 @@
  *   'tag'      until a later event's `stop` names `tag` (with `leave`: also when the operator leaves)
  * or a line `line: [from, to]` (the event's fields naming two units; `to` may name a list) while both stand, or for the
  * line prefab's own duration with `life: 'once'`; or a flight `fly` (tiles / s) from the operator to the event's point —
- * a play with `after: 'fly'` starts when it lands.
+ * a play with `after: 'fly'` starts when it lands. A 'point' play may name its own ground point `at: [x, y]`.
+ * A `slot` play holds one effect per operator and slot until the operator leaves: a later play of the same prefab in that
+ * slot keeps it running, another prefab replaces it, `{ slot, off: true }` ends it (AttachListenerToTileAbility
+ * `_HoldCastedEffectOnTile` with `_dontCreateNewEffectWhenCastedTimesSame`).
  */
 const once = (n, on = 'op') => ({ n, on, life: 'once' });
 
@@ -72,6 +75,16 @@ export const KIT_OFFICIAL = {
   revive: { blaze2: () => ({ stop: ['blazeDown'], play: [once('blaze2_revive_end_start')] }) },
   // 圣聆初雪 T2: the lethal hit escaped (sbell2_t2[heal] → CreateEffect sbell2_revive on her)
   blessing: { sbell2: () => ({ play: [once('sbell2_revive')] }) },
+  // 圣聆初雪 T1 无垠的雪景: each tile's snow (charpack Talents/1/SnowAccumulation, an AttachListenerToTileAbility: one effect
+  // per tile, the `_effectSettings` entry whose castedTimeThreshold equals its layers — kept while the prefab stays the
+  // same, replaced when it changes, ended at 0 layers and when she leaves: OnDetached → _ClearEffects). `cells` [[x, y,
+  // layers]…] are the tiles that changed (sim kit chess_char_6_02-sbell2.js); svrash's 'snow' is its S2's.
+  snow: {
+    sbell2: (o) => ({ play: (Array.isArray(o.cells) ? o.cells : []).map(([x, y, L]) => {
+      const slot = `snow${x},${y}`, n = SNOW_GROUND[Math.min(Number(L) || 0, SNOW_GROUND.length - 1)];
+      return n ? { n, on: 'point', at: [x, y], slot } : { slot, off: true };
+    }) }),
+  },
   // 阿罗玛 S2: a levitated enemy lands (aroma_s_2 → CreateEffect aroma_skill_02_hit_02 on it)
   splash: { aroma: () => ({ play: [once('aroma_skill_02_hit_02', 'id')] }) },
   // 寒芒克洛丝 S2: warmed up (kroos2_s_2[warming_counter] at its stacks → [warmed_effect_01–03] INFINITY until the skill's
@@ -152,6 +165,9 @@ export const KIT_OFFICIAL = {
   // 歌蕾蒂娅 S3: each pull of the tornado (projectile_chr_glady_s3_2 `_interval`: `_castEffect` glady_skill_03_range_03)
   tornadoPulse: { glady: () => ({ play: [{ n: 'glady_skill_03_range_03', on: 'point', life: 'once' }] }) },
 };
+
+/** 圣聆初雪's tile effect by snow layers (SnowAccumulation `_effectSettings`: thresholds 1 → _01, 2 / 3 / 4 → _02, 5 → _03). */
+const SNOW_GROUND = [null, 'sbell2_ground_01', 'sbell2_ground_02', 'sbell2_ground_02', 'sbell2_ground_02', 'sbell2_ground_03'];
 
 /** 卡涅利安's eff_cond buffs of skill index `i` while it runs (KIT_OFFICIAL shell / sandChains / devour). */
 function billro(i, charged) {

@@ -59,7 +59,7 @@ const VERDICT = {
   sermon: { rmixer: ['skill', 3] },
   shockBlast: { nymph: ['skill', 2] },
   sleepGuard: { titi: ['skill', 2, 'S2 start; an S3 doze (titi_s_3[doze] → doze[inf]) creates no effect of hers: the sleep status draws it'] },
-  snow: { svrash: ['skill', 2], sbell2: ['pending', 'snow tiles: SnowAccumulation sbell2_ground_01–03 by layers — needs the tiles an enemy clears (no event)'] },
+  snow: { svrash: ['skill', 2] },
   sonic: { akkord: ['skill', 2] },
   splash: { blaze2: ['attack'] },
   split: { mlyss: ['standIn', 'sent by the 流形 token (summons)'] },
@@ -123,9 +123,9 @@ test('the rules name prefabs the client binds for that operator', () => {
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
     for (const [b, rule] of Object.entries(by)) {
       assert.equal(typeof rule, 'function');
-      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, name: 'extradition' }, b, ctx)).filter(Boolean);
+      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]] }, b, ctx)).filter(Boolean);
       assert.ok(plans.length, `${n} (${b}) plans nothing`);
-      for (const plan of plans) for (const p of plan.play) assert.ok(p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
+      for (const plan of plans) for (const p of plan.play) if (!p.off) assert.ok(p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
     }
   }
 });
@@ -197,6 +197,16 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.equal(kitOperator({ id: 4, src: 7, by: 1 }, 'copy'), 1);
   // 焰影苇草's fireball circles its carrier for her skill; 流明's rain on the target for its life
   assert.deepEqual(kitOfficialPlan('ember', { id: 3, src: 1 }, 'reed2').play, [{ n: 'reed2_skill_02_fireball_01', on: 'id', life: 'skill', orbit: { r: 1, spd: 150 } }]);
+  // 圣聆初雪's snow: one effect per changed tile by its layers (1 → _01, 2–4 → _02, 5 → _03), ended at 0; its stand-in
+  // zone only for the talent's own layers
+  assert.deepEqual(kitOfficialPlan('snow', { id: 1, cells: [[3, 2, 1], [4, 2, 4], [5, 2, 5], [6, 2, 0]] }, 'sbell2').play, [
+    { n: 'sbell2_ground_01', on: 'point', at: [3, 2], slot: 'snow3,2' }, { n: 'sbell2_ground_02', on: 'point', at: [4, 2], slot: 'snow4,2' },
+    { n: 'sbell2_ground_03', on: 'point', at: [5, 2], slot: 'snow5,2' }, { slot: 'snow6,2', off: true },
+  ]);
+  assert.equal(kitOfficialPlan('snow', { id: 1 }, 'svrash'), null);
+  assert.equal(fxSpec('snow', { cells: [[3, 2, 0]] }).a, 'none');
+  assert.equal(fxSpec('snow', { cells: [[3, 2, 1]], tiles: 1 }).a, 'zone');
+  assert.equal(fxSpec('snow', {}).a, 'zone');
   assert.deepEqual(kitOfficialPlan('healField', { id: 1, tgt: 3, t: 4 }, 'lumen').play, [{ n: 'lumen_skill_01_range', on: 'tgt', life: 4 }]);
   // 蕾缪安's 引渡 only (her other talent moments have no rule)
   assert.equal(kitOfficialPlan('talent', { id: 1, name: 'other' }, 'lemuen'), null);

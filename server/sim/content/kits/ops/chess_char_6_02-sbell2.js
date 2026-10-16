@@ -15,6 +15,20 @@ function sbell2(bb, chess, def) {
   const maxL = Math.max(1, Math.floor(num(t0.max_cast_cnt, 5)));
   const iceId = (chess?.tokens || []).find((t) => /icetgt/.test(String(t))) || 'token_10058_sbell2_icetgt';
   /**
+   * The snow map's changes since the last 'snow' event (`unit.mem.snowDirty`): the render draws each tile's layers with the
+   * client's SnowAccumulation `_effectSettings` (sbell2_ground_01 at 1 layer, _02 at 2–4, _03 at 5; none at 0), so every
+   * change — a layer laid or spread, a gate frozen, the first enemy leaving a tile — is sent as `cells` [[x, y, layers]…]
+   * (maintainer decision 2026-10-16; before, only the talent's layers were announced, as a count).
+   */
+  const touch = (unit, k) => (unit.mem.snowDirty ||= new Set()).add(k);
+  const flush = (battle, unit, extra) => {
+    const d = unit.mem.snowDirty;
+    if (!d?.size) return;
+    const cells = [...d].map((k) => [k % COLS, (k / COLS) | 0, unit.mem.snow.get(k) ?? 0]);
+    d.clear();
+    battle.fx('snow', { x: unit.x, y: unit.y, id: unit.id, ...extra, cells });
+  };
+  /**
    * S2 霜涛覆岭 while it runs (`unit.mem.sbellS2`): a layer landing on a tile already at max snow spreads one layer to
    * a neighbouring ground tile (at most max_cast_tile_count spreads per activation); ground enemies on snow take
    * s2_magic_scale × ATK arts per second; an enemy leaving snow gets `cold` s of 寒冷; "积雪在目标点积累至5层时，使目标点变为
@@ -46,6 +60,7 @@ function sbell2(bb, chess, def) {
       return addSnow(battle, unit, best);
     }
     snow.set(k, cur + 1);
+    touch(unit, k);
     if (S2 && cur + 1 >= maxL) freezeTile(battle, unit, k);
     return true;
   };
@@ -65,6 +80,7 @@ function sbell2(bb, chess, def) {
     const ice = battle.spawnToken(unit, iceId, r, c);
     if (!ice) return false;
     unit.mem.snow.delete(k);
+    touch(unit, k);
     battle.fx('summon', { x: c, y: r, id: ice.id, src: unit.id });
     return true;
   };
@@ -79,11 +95,12 @@ function sbell2(bb, chess, def) {
       const lay = () => {
         let n = 0;
         for (const k of unit.rangeKeys || []) if (addSnow(battle, unit, k)) n++;
-        if (n) battle.fx('snow', { x: unit.x, y: unit.y, id: unit.id, tiles: n });
+        flush(battle, unit, { tiles: n });
       };
       battle.on('deploy', ({ unit: u }) => {
         if (u !== unit) return;
         snow.clear();
+        unit.mem.snowDirty?.clear();
         acc = 0;
         if (num(t0.first_snow) > 0) lay();
       }, { owner: unit });
@@ -100,13 +117,14 @@ function sbell2(bb, chess, def) {
           if (prev !== k) {
             last.set(e, k);
             const hadSnow = prev !== undefined && !e.isFlying && snow.has(prev);
-            if (hadSnow) snow.delete(prev); // first enemy leaving clears it
+            if (hadSnow) { snow.delete(prev); touch(unit, prev); } // first enemy leaving clears it
             if (!e.isFlying && snow.has(k) && scale > 0) battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', tags: ['talent', 'snow'] });
             if (S2 && hadSnow && !snow.has(k) && e.alive && S2.cold > 0) battle.applyStatus(e, 'cold', { duration: S2.cold, source: unit });
           }
           const L = snow.get(k);
           if (L && e.alive && slow) battle.addBuff(e, { key: 'sbell2:snow', duration: 0.2, refresh: 'replace', mods: { moveMul: Math.max(0, 1 + slow * L) }, source: unit });
         }
+        flush(battle, unit);
         if (!S2 || !(S2.dot > 0)) { dotAcc = 0; return; }
         dotAcc += dt;
         if (dotAcc + 1e-9 < 1) return;
@@ -171,6 +189,7 @@ function sbell2(bb, chess, def) {
           if (!battle.grid.inRect(r, c)) break;
           if (addSnow(battle, unit, r * COLS + c)) laid++;
         }
+        flush(battle, unit);
         battle.fx('frostNova', { x: unit.x, y: unit.y, id: unit.id, tiles: laid });
       },
     },
