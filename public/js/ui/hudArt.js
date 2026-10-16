@@ -94,6 +94,7 @@ const WEB = Object.freeze({
   '--ha-sel-glow': 'hudBondItem/select_glow',
   '--ha-dc1': 'shopCard/bg_doublecheck1', // the shop card's 确认购买 state (autochess_shop_card_item btn_double_check)
   '--ha-dc2': 'shopCard/bg_doublecheck2',
+  '--ha-lose-hp': 'hudPanel/bg_lose_hp', // the −N plate of a pending LP loss (the HUD's _loseHpGrp, the team rows' LP)
 });
 /** CSS variable → local-client sprite [group, name] (optional; see the header). */
 const LOCAL = Object.freeze({

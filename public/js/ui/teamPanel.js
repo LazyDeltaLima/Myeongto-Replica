@@ -14,7 +14,9 @@
 // rising when one splits) — next to the −min(lpCapPerRound, N) tick: the own row the top bar's value, a teammate's row the
 // local 联防 replica's count while it is on screen (`uniteLocal`: the battle runner's state().uniteLeft, the same battle
 // the player watches, so the number moves with the kills on screen), else m.public players[].uniteLeft (the authority's
-// report, ~1 Hz).
+// report, ~1 Hz). The ×N tag sits on the portrait's top edge (the HP pill on its bottom edge), the −N tick on the official
+// bg_lose_hp plate against the HP pill, dropped while it reads the ×N tag's number (samePlate); a pending loss tints the
+// HP icon and number in the official tweening red (docs/rules/ui.md 「누수 때 위 HP 숫자」, maintainer decision 2026-10-16).
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { PHASE } from '../../../shared/constants.js';
@@ -77,6 +79,15 @@ export function rowLp(p, pub, self = null, { uniteLocal = null, cap = 10 } = {})
 }
 
 /**
+ * Whether a row's −N tick would repeat its ×N tag (联防, the enemies still standing under the round cap: the same
+ * number twice) — the tower then drops the tick and keeps only its pending tint (maintainer decision 2026-10-16).
+ * @param {{ pending: number, left: number|null } | null} lp rowLp(...)
+ */
+export function samePlate(lp) {
+  return !!lp && lp.left != null && lp.pending > 0 && lp.left === lp.pending;
+}
+
+/**
  * Tooltip of a row's LP tower with a pending loss (null without one).
  * @param {{ lp: number|null, pending: number, unite: boolean, left: number|null } | null} lp rowLp(...)
  * @param {number} [cap] lpCapPerRound
@@ -135,13 +146,13 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
           ${self ? html`<span class="team__you"><${Icon} name="user" /></span>` : null}
           ${card.mask ? html`<span class=${`team__mask is-${card.mask}`} aria-hidden="true"><i></i></span>` : null}
           ${watched && !self ? html`<span class="team__watch" aria-hidden="true"></span>` : null}
+          ${lp.left != null ? html`<${MissTag} n=${lp.left} name=${self ? null : p.name || t('博士')} />` : null}
         </button>
         <div class="team__info">
           <span class="team__name">${p.name || t('博士')}</span>
           <div class="team__line">
             <${LpTower} value=${lp.lp} size="sm" tone=${Number.isFinite(lp.lp) && lp.lp - lp.pending <= 5 ? 'danger' : null} pending=${lp.pending}
-              tip=${rowLpTip(lp, cap)} />
-            ${lp.left != null ? html`<${MissTag} n=${lp.left} name=${self ? null : p.name || t('博士')} />` : null}
+              plate=${!samePlate(lp)} tint tip=${rowLpTip(lp, cap)} />
             <${Tooltip} text=${offline ? t('连接已断开') : t(meta.text)} placement="right">
               <span class=${cx('team__status', `is-${meta.tone}`, offline && 'is-offline', `is-act-${card.action || 'none'}`, (offline || STATUS_SPRITE[status]) && localAsset('ui/battle', offline ? 'icon_reconnect' : STATUS_SPRITE[status]) && 'has-sprite')} aria-label=${t(meta.text)}>
                 ${offline ? html`<${LocalSprite} name="icon_reconnect" fallback=${html`<${Icon} name="wifiOff" />`} />`

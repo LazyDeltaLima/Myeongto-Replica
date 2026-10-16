@@ -78,6 +78,10 @@
 .gm.has-hud-art .gtop__center .lp--lg { font-size: calc(var(--u) * 20); color: #a8a8a8; }
 .gm.has-hud-art .gtop__center .lp--lg .lp__icon { width: calc(var(--u) * 16); height: calc(var(--u) * 19); }
 .gm.has-hud-art .gtop__center .lp--danger { color: var(--red-premium); }
+/* the −N tick on the official bg_lose_hp plate (the HUD's _loseHpGrp; maintainer decision 2026-10-16) */
+.gm.has-hud-art .gtop__center .lp__pend {
+  padding: .1em .42em; background: var(--ha-lose-hp, #d8262a) center / 100% 100% no-repeat; clip-path: none; box-shadow: none;
+}
 /* 🔍 buttons on bg_check_btn (81×44); the sprite inside at its own size (35×29, 61×29 with chevrons) */
 .gm.has-hud-art .gtop__iconbtn.has-sprite, .gm.has-hud-art .enemybtn.has-sprite,
 .gm.has-hud-art .gtop__iconbtn.has-sprite.is-wide, .gm.has-hud-art .enemybtn.has-sprite.is-wide {
@@ -335,7 +339,23 @@
 }
 .gm.has-hud-art.has-hud-team .team__line .lp .lp__icon { width: calc(var(--u) * 9); height: calc(var(--u) * 13); filter: none; }
 .gm.has-hud-art.has-hud-team .team__line .lp.lp--danger { color: var(--red-premium); }
-.gm.has-hud-art.has-hud-team .team__line .lp__pend { position: absolute; left: 100%; margin-left: calc(var(--u) * 4); }
+/* the official HP colours of player_status_item (_colorHpIconNormal #3bd8b5; _colorHpIconTweening / _colorHpTextTweening
+   #ec4645, worn while its number tweens down at the settlement) — a pending loss wears the tweening red; the −N tick on
+   bg_lose_hp against the pill's right end, the pair centred under the portrait (pill 57 + plate 42 − 1); the ×N tag
+   (MissTag) straddles the portrait's top edge, 64 × 20 (bg_miss_enemy 77 × 24 scaled) — maintainer decision 2026-10-16 */
+.gm.has-hud-art.has-hud-team .team__line .lp .lp__icon--tint { background: #3bd8b5; }
+.gm.has-hud-art.has-hud-team .team__line .lp.is-pending .lp__icon--tint { background: #ec4645; }
+.gm.has-hud-art.has-hud-team .team__line .lp.is-pending .lp__val { color: #ec4645; }
+.gm.has-hud-art.has-hud-team .team__line .lp.has-pend { left: calc(var(--u) * 19.5); }
+.gm.has-hud-art.has-hud-team .team__line .lp__pend {
+  position: absolute; left: 100%; top: 0; margin-left: calc(var(--u) * -1); width: calc(var(--u) * 42); height: calc(var(--u) * 24);
+  display: grid; place-items: center; padding: 0; font-size: calc(var(--u) * 16); line-height: 1;
+  background: var(--ha-lose-hp, #d8262a) center / 100% 100% no-repeat; clip-path: none; box-shadow: none;
+}
+.gm.has-hud-art.has-hud-team .team__btn .misstag {
+  left: calc(var(--u) * 40); width: calc(var(--u) * 64); height: calc(var(--u) * 20); min-width: 0; padding: 0 calc(var(--u) * 7) 0 0;
+}
+.gm.has-hud-art.has-hud-team .team__btn .misstag__n { font-size: calc(var(--u) * 16); }
 .gm.has-hud-art.has-hud-team .team__status {
   position: absolute; left: calc(var(--u) * 91); top: calc(var(--u) * 59); width: calc(var(--u) * 21); height: calc(var(--u) * 21);
 }

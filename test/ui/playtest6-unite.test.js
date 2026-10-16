@@ -21,7 +21,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
 const { liveLp, uniteRemaining, pendingTip, PhaseCapsule, MissTag, missTip } = await import('../../public/js/ui/hud.js');
-const { rowLp, rowLpTip } = await import('../../public/js/ui/teamPanel.js');
+const { rowLp, rowLpTip, samePlate } = await import('../../public/js/ui/teamPanel.js');
+const { LpTower } = await import('../../public/js/ui/gameComponents.js');
 
 function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
@@ -115,6 +116,29 @@ describe('#7 the 联防 leak counter (HUD)', () => {
     assert.equal(MissTag({ n: 5, name: 'Doctor·B' }).props.title, 'Doctor·B 漏过的敌人还剩 5 个（联防中）');
     assert.equal(MissTag({ n: 5 }).props.title, '你漏过的敌人还剩 5 个（队友正在迎战）');
     assert.match(read('public/js/ui/teamPanel.js'), /<\$\{MissTag\} n=\$\{lp\.left\} name=\$\{self \? null : p\.name \|\| t\('博士'\)\} \/>/);
+  });
+
+  test('team rows: the ×N tag on the portrait, the −N tick dropped while it reads the same number, the pending tint kept', () => {
+    assert.equal(samePlate({ lp: 30, pending: 3, unite: true, left: 3 }), true, 'under the cap: ×3 and −3 — one of them');
+    assert.equal(samePlate({ lp: 30, pending: 10, unite: true, left: 13 }), false, 'over the cap: ×13 and −10 both stay');
+    assert.equal(samePlate({ lp: 30, pending: 4, unite: false, left: null }), false, 'COMBAT: no tag, the tick stays');
+    assert.equal(samePlate({ lp: 2, pending: 2, unite: true, left: 5 }), false, 'clamped to the LP left: different numbers');
+    assert.equal(samePlate({ lp: 30, pending: 0, unite: true, left: 0 }), false);
+    const hidden = LpTower({ value: 30, size: 'sm', pending: 3, plate: false });
+    assert.ok(hasClass(hidden, 'is-pending'), 'the pending state (the official tweening red) stays');
+    assert.ok(!hasClass(hidden, 'has-pend'));
+    assert.equal([...walk(hidden)].find((n) => hasClass(n, 'lp__pend')), undefined, 'no −N tick');
+    const shown = LpTower({ value: 30, size: 'sm', pending: 10 });
+    assert.ok(hasClass(shown, 'has-pend'));
+    assert.equal(textOf([...walk(shown)].find((n) => hasClass(n, 'lp__pend'))), '−10');
+    // wiring: the tag inside the portrait button (positioned on its top edge), the tower told when to drop its tick
+    const panel = read('public/js/ui/teamPanel.js');
+    const btn = panel.slice(panel.indexOf('<button type="button" class="team__btn"'), panel.indexOf('</button>'));
+    assert.match(btn, /<\$\{MissTag\} n=\$\{lp\.left\}/);
+    assert.match(panel, /plate=\$\{!samePlate\(lp\)\} tint /);
+    assert.match(read('public/css/hud-art.css'), /\.team__line \.lp__pend \{[^}]*var\(--ha-lose-hp/);
+    assert.match(read('public/css/hud-art.css'), /\.gtop__center \.lp__pend \{[^}]*var\(--ha-lose-hp/);
+    assert.match(read('public/js/ui/hudArt.js'), /'--ha-lose-hp': 'hudPanel\/bg_lose_hp'/);
   });
 
   test('the phase capsule carries the official runner tag ×N in 联防 only; the tag reads the uncapped number', () => {

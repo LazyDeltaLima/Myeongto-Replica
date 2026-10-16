@@ -205,17 +205,22 @@ export function GIcon({ name, class: cls, title }) {
  * playtest #3 item 2) — a −N tick after the number that pops again on every change (keyed); the number itself stays the
  * settled value until the settlement lands, like the client's HUD (`AutoChessBattleUIPlayerInfoView`: `_playerHpText` is
  * the synced player HP, `_lostHpText` the battle's `lostHpDisplay` beside it — no `hp − lost` anywhere; upstream #479);
- * `note` a small tag after it (联防中); `tip` the title text.
- * @param {{ value: any, size?: 'sm'|'md'|'lg', class?: string, tone?: string|null, pending?: number, note?: string|null, tip?: string|null }} props
+ * `note` a small tag after it (联防中); `tip` the title text. `plate: false` keeps the pending state (`is-pending`, the
+ * tint) without the −N tick (a 联防 team row whose ×N tag already reads the same number); `tint` draws the icon as a mask
+ * of icon_hp so CSS can colour it (the team rows: the official player_status_item's normal / tweening HP colours).
+ * @param {{ value: any, size?: 'sm'|'md'|'lg', class?: string, tone?: string|null, pending?: number, note?: string|null, tip?: string|null,
+ *   plate?: boolean, tint?: boolean }} props
  */
-export function LpTower({ value, size = 'md', class: cls, tone, pending = 0, note = null, tip = null }) {
+export function LpTower({ value, size = 'md', class: cls, tone, pending = 0, note = null, tip = null, plate = true, tint = false }) {
   const ok = Number.isFinite(value);
   const p = ok && Number(pending) > 0 ? Math.min(value, Math.trunc(Number(pending))) : 0;
-  return html`<span class=${cx('lp', `lp--${size}`, tone && `lp--${tone}`, p > 0 && 'is-pending', cls)} title=${tip || tr('目标生命值')}
+  const mask = tint ? uiUrl(data.get('assets'), 'hudPanel/icon_hp') : null;
+  return html`<span class=${cx('lp', `lp--${size}`, tone && `lp--${tone}`, p > 0 && 'is-pending', p > 0 && plate && 'has-pend', cls)} title=${tip || tr('目标生命值')}
       data-pending=${p > 0 ? p : null}>
-    <${Sprite} k="hudPanel/icon_hp" class="lp__icon" fallback=${html`<${Icon} name="rook" class="lp__icon" />`} />
+    ${mask ? html`<span class="lp__icon lp__icon--tint" style=${`--lp-icon:url("${mask}")`} aria-hidden="true"></span>`
+      : html`<${Sprite} k="hudPanel/icon_hp" class="lp__icon" fallback=${html`<${Icon} name="rook" class="lp__icon" />`} />`}
     <b class="num lp__val">${ok ? Math.max(0, value) : '--'}</b>
-    ${p > 0 ? html`<span key=${p} class="lp__pend num" aria-label=${tr('结算时扣除 {p}', { p })}>−${p}</span>` : null}
+    ${p > 0 && plate ? html`<span key=${p} class="lp__pend num" aria-label=${tr('结算时扣除 {p}', { p })}>−${p}</span>` : null}
     ${note ? html`<span class="lp__note">${note}</span>` : null}
   </span>`;
 }

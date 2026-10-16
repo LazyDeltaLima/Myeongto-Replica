@@ -808,6 +808,18 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   늘 0이라 공식은 자기 전투 동안 「−x」를 아예 띄우지 않고, 联防(`HelpBattleRoundStatus.lostHpDisplay`(0x856860) =
   `selfEnemyEscapedCntInHelpBattleState`, 상한 적용)과 보스전에서만 띄운다. 우리 「−N」은 user playtest #3 item 2 요청이라 그대로 둠(한때 공식대로 지웠다가 관리자 요청으로 복원).
 - 확인: `test/ui/playtest3.test.js`(liveLp·LpTower·bossLp), `test/ui/playtest6-unite.test.js` [화면 미확인].
+- **팀 칸의 ×N·−N 자리(관리자 결정 2026-10-16, 시안 비교 후 「안 1」)**: 공식 플레이어 칸(`AutoChessBattlePlayerStatusItemView`)의 HP 묶음은
+  아이콘·숫자뿐이고(×N 주황 알약 `tag_miss`는 단계 알약에만, −x 판 `_loseHpGrp`는 위쪽 LP에만), 팀 칸의 ×N·−N은 우리 추가(user playtest #3 item 2,
+  #6 item 7)다. 예전엔 ×N이 초상 옆 글 줄에 남아 초상과 떨어진 오른쪽 위에 떴고, −N은 HP 알약 바깥에 CSS 빨간 판으로 떠 있었다. 지금:
+  ×N(`MissTag`)은 초상 버튼 안에서 **초상 윗변 가운데에 걸침**(공식 모양 64×20 = `bg_miss_enemy` 77×24 축소, 아래 HP 알약과 위아래 짝);
+  −N은 **공식 `bg_lose_hp` 판**(웹 소재 `hudPanel/bg_lose_hp`, `--ha-lose-hp`)으로 HP 알약 오른쪽 끝에 틈 없이 붙고(42×24) 둘을 합친 묶음이 초상
+  아래 가운데; 위쪽 LP의 −N도 같은 판. **같은 숫자면 −N을 뺌**(`teamPanel.js samePlate`: 联防에서 남은 적 ≤ 라운드 상한이면 ×N = −N) — 숫자는 툴팁에 남음;
+  ×13 / −10처럼 다르면 둘 다. 잃을 LP가 있는 동안(전투·联防) HP 아이콘·숫자를 공식 **「줄어드는 중」 색 #ec4645**로, 평소 아이콘은 공식 #3bd8b5로
+  (EN 클라 `[uc]autochessbattle.ab` 프리팹 값: `_colorHpIconNormal` #3bd8b5, `_colorHpIconTweening`·`_colorHpTextTweening` #ec4645, `_colorHpTextNormal`
+  #f3f3f3, `_hpTweenDuration` 0.8초 — 공식은 정산 때 숫자가 줄어드는 동안만 이 색, 우리는 대기 손실 동안 [추정: 같은 뜻으로 씀]); 아이콘은 `LpTower tint`의
+  `icon_hp` 마스크. 내 칸에서는 ×N 알약이 내 표시(`icon_self`)의 오른쪽 아래를 조금 덮는다(시안에서 확인, 그대로 둠).
+  확인: `test/ui/playtest6-unite.test.js` 「the ×N tag on the portrait…」, 개발 목업 `?phase=UNITE&variant=leaker` Windows Chrome 데스크톱·휴대폰
+  (같은 숫자 = −N 없음, ×13 / −10 = 판 붙음, 위쪽 판 `bg_lose_hp`).
 
 ## upstream 0.2.4 이식 — UI (2026-10-11)
 - **장치 탭 설명** (upstream `df540b62`, GitHub #228·PR #229 by @rickylxw, + `6bfc0827` §29.14 「같은 전투 재입장 때 장치 카드」, 관리자 결정 2026-10-11):

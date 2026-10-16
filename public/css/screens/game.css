@@ -134,10 +134,11 @@
 .misstag__icon .icon { width: .16rem; height: .16rem; }
 .misstag__n { font-size: .2rem; }
 .misstag.is-clear .misstag__n { color: var(--mint-400); }
-.team__line .misstag { height: .21rem; min-width: .68rem; padding-right: .08rem; }
-.team__line .misstag.has-art { width: .68rem; }
-.team__line .misstag__n { font-size: .16rem; }
-.team__line .misstag__icon { font-size: .13rem; }
+/* a team row's tag on its portrait's top edge (the LP on the bottom edge; maintainer decision 2026-10-16) */
+.team__btn .misstag { position: absolute; left: 50%; top: 0; z-index: 3; transform: translate(-50%, -50%); height: .21rem; min-width: .68rem; padding-right: .08rem; }
+.team__btn .misstag.has-art { width: .68rem; }
+.team__btn .misstag__n { font-size: .16rem; }
+.team__btn .misstag__icon { font-size: .13rem; }
 .capsule--combat { --cap: var(--orange-hi); }
 .capsule--boss { --cap: var(--orange-hi); min-width: 4.2rem; }
 .bossbar { position: relative; flex: 1; min-width: 2.2rem; height: .2rem; background: rgba(0, 0, 0, .6); border: 1px solid rgba(255, 122, 51, .5); overflow: hidden; }
@@ -154,6 +155,9 @@
 .lp--lg .lp__icon { width: .42rem; height: .42rem; }
 .lp--danger { color: var(--red-premium); }
 .lp--danger .lp__icon { filter: hue-rotate(-140deg) saturate(2.4) brightness(.95); }
+/* LpTower `tint`: icon_hp as a mask, coloured by CSS (the sprite's own mint by default) */
+.lp__icon--tint { display: inline-block; background: #10b692; -webkit-mask: var(--lp-icon) center / contain no-repeat; mask: var(--lp-icon) center / contain no-repeat; }
+.lp--danger .lp__icon--tint { filter: none; background: var(--red-premium); }
 .lp--team { color: var(--mint-glow); }
 /* the running battle's pending loss (LpTower `pending`, user playtest #3 item 2): a −N plate beside the unchanged
    number pops again on every new leak (keyed), 联防中 while teammates may still save part of it */
