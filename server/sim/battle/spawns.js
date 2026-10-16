@@ -178,11 +178,12 @@ export class BattleSpawns {
   // =============================================================================================================
   // enemies on the field: hidden, boss pool, clamp, compaction
 
-  _setHidden(e, on) {
+  /** `fx: false` = no 'disappear' / 'appear' effect (a 驮兽 passenger boarding / getting off: the client plays none). */
+  _setHidden(e, on, { fx = true } = {}) {
     if (e.hidden === on) return;
     e.hidden = on;
     if (on) this._unblock(e);
-    this.fx(on ? 'disappear' : 'appear', { x: e.x, y: e.y, id: e.id });
+    if (fx) this.fx(on ? 'disappear' : 'appear', { x: e.x, y: e.y, id: e.id });
   }
 
   _syncBossHp(e) {

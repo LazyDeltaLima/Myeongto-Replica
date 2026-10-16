@@ -34,6 +34,11 @@ const TORTURER_RADIUS = 1;
 /** Barrel zone radius of 咸鳞汁推荐者 [ASSUMED]. */
 const BARREL_RADIUS = 1.5;
 
+/** 伊利昂的木驮兽 passengers (client prefab `Talents/bus`, a DurbusAbility): the boarding circle (its Selector's
+ *  CircleCollider2D, radius in tiles), the drop-off scatter (`_randomOffsetBound`, ± per axis) and the attribute floor of
+ *  移动速度 (PRTS 数值范围 MOVE_SPEED 最小 0.1, which the stacked −20 % per passenger reaches at 5). */
+const BUS_RADIUS = 0.5, BUS_DROP_SCATTER = 0.2, MOVE_SPEED_MIN = 0.1;
+
 // ---------------------------------------------------------------------------------------------------------------
 // kits
 
@@ -207,6 +212,73 @@ function kitExposeOnHit(ab) {
   return [{ sil: true, taken(c, b) { const s = c.source; if (s && s.side === 'ally' && s.alive && s.kind !== 'device') expose(b, s, dur, scale); } }];
 }
 
+/**
+ * 伊利昂的木驮兽 (handbook "可以装载最多5名乘客，每名乘客使移动速度下降一定比例"), the client's DurbusAbility on the prefab's
+ * `Talents/bus` (docs/rules/sim.md 「나무 버든비스트 승객」):
+ * - every tick it is not stunned / frozen / levitated / asleep (`OnTick` → `_SearchPassengers`), it takes on board the
+ *   enemies inside its circle (Selector: same side, not itself, no `machine`, not untargetable; TargetValidator: NORMAL /
+ *   ELITE only — no leader —, ground only) until it carries `bus.max_cnt`. A passenger leaves the field
+ *   (`SetDisappeared`: hidden, it does not move or act) and the 驮兽 takes one stack of `bus.move_speed` (buff
+ *   enemy_mntrjn_add → enemy_mntrjn_move[stack], MOVE_SPEED MULTIPLIER: the stacks add up, 1 + n × −0.2, floored at
+ *   the attribute minimum). Boarding order inside the circle: nearest first [ASSUMED].
+ * - when it leaves the field (`OnDetached` → `ReleaseAllPassengers`: knocked out, leaked, any removal) every passenger
+ *   gets off at its position ± `_randomOffsetBound` and walks on along the 驮兽's own route from where it was
+ *   (`_useHostRoute`: the host's route and cursor index); a leaked 驮兽 drops them at the exit, where they leak in turn.
+ *   Getting off takes one stack back (enemy_mntrjn_reduce); a passenger lost on board keeps its stack, as in the client.
+ * Neither boarding nor getting off has an effect of its own (`_effectWhenAddPassenger` / `_effectOnPassengerWhenRelease`
+ * are empty). The cart's spine skin (default → half at `bus.half_cnt` → full at max) is not drawn yet.
+ */
+function kitBus(ab) {
+  const max = T(ab, 'bus.max_cnt') ?? 0, per = T(ab, 'bus.move_speed') ?? 0;
+  const slow = (b, e, a) => {
+    if (a.stacks <= 0) { b.removeBuff(e, 'ab:bus'); return; }
+    const base = e.base.moveSpeed;
+    const mul = Math.max(1 + a.stacks * per, base > 0 ? MOVE_SPEED_MIN / base : 0);
+    b.addBuff(e, { key: 'ab:bus', persist: true, mods: { moveMul: Math.min(1, mul) } });
+  };
+  const board = (b, e, o) => {
+    if (o === e || !o.alive || o.hidden || o.motion === 'FLY' || o.isBoss || (o.def && o.def.rank === 'BOSS')) return false;
+    if ((o.def && Array.isArray(o.def.tags) && o.def.tags.includes('machine')) || o.s.flags.untargetable) return false;
+    return true;
+  };
+  return [unblockable(), {
+    spawn(b, e, a) { a.pax = []; a.stacks = 0; },
+    tick(b, e, a) {
+      a.pax = a.pax.filter((p) => p.alive);
+      if (e.hidden || e.s.flags.stun || a.pax.length >= max) return;
+      const near = b.enemiesInRadius(e.x, e.y, BUS_RADIUS).filter((o) => board(b, e, o))
+        .map((o) => ({ o, d: hypot(o.x - e.x, o.y - e.y) })).sort((p, q) => p.d - q.d || p.o.spawnSeq - q.o.spawnSeq);
+      let n = 0;
+      for (const { o } of near) {
+        if (a.pax.length >= max) break;
+        b._cutAttackStand(o);
+        b._setHidden(o, true, { fx: false });
+        o.pauseUntil = Infinity;   // carried: it neither walks its route nor waits out its legs
+        o.mem.busOf = e;
+        a.pax.push(o);
+        a.stacks++;
+        n++;
+      }
+      if (n) slow(b, e, a);
+    },
+    death(c, b, e, a) {
+      const R = e.route;
+      for (const p of a.pax) {
+        if (!p.alive) continue;
+        p.x = e.x + b.rng.range(-BUS_DROP_SCATTER, BUS_DROP_SCATTER);
+        p.y = e.y + b.rng.range(-BUS_DROP_SCATTER, BUS_DROP_SCATTER);
+        b._clampPos(p);
+        if (R) p.route = { legs: R.legs.slice(), legIdx: R.legIdx, pts: null, ptIdx: 0, suffix: null, version: -1, waitLeft: R.waitLeft };
+        p.pauseUntil = -Infinity;
+        p.mem.busOf = null;
+        b._setHidden(p, false, { fx: false });
+        a.stacks--;
+      }
+      a.pax = [];
+    },
+  }];
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
@@ -290,7 +362,7 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_10018_sgrobh: () => [maxTargets(2)],                         // “独轮车玩具” · attacks 2 targets
   enemy_2001_duckmi: (ab) => [unblockable(), runWhenHit(T(ab, 'run.attack@move_speed') ?? 0)],   // 鸭爵 · unblockable, no attack; runs +400 % once hurt
   enemy_2001_duckmi_2: (ab) => [unblockable(), runWhenHit(T(ab, 'run.attack@move_speed') ?? 0)], // 鸭爵 (鸭爵 strategy) · same, +300 %
-  enemy_10159_mntrjn: () => [unblockable()],                         // 伊利昂的木驮兽 · unblockable (passengers n/a)
+  enemy_10159_mntrjn: kitBus,                                        // 伊利昂的木驮兽 · unblockable; carries up to 5 passengers, −20 % speed each
   enemy_2009_csaudc: kitEp('neural', 'combat.attack@ep_damage_ratio'), // 骇笑看客 · neural on hit
   enemy_2010_csdcr: (ab) => [ep('neural', T(ab, 'attack.attack@ep_damage_ratio') ?? 0), { // 绯红歌伶 · neural on hit; every 20 hits taken: global enemy ASPD up
     taken(c, b, e, a) {

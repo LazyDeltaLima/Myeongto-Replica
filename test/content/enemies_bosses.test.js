@@ -1697,6 +1697,76 @@ test(`${nm('enemy_10159_mntrjn')}: unblockable`, () => {
   assert.ok(put(h, 'enemy_10159_mntrjn', [10, 7]).s.flags.unblockable);
 });
 
+const BUS = 'enemy_10159_mntrjn';
+test(`${nm(BUS)}: takes the ground non-machine non-leader enemies it touches on board (hidden, held), −${-tb(BUS, 'bus.move_speed') * 100} % speed each`, () => {
+  const h = arena();
+  h.step();
+  const bus = put(h, BUS, [10, 7], { move: true });
+  const v = bus.s.moveSpeed;
+  const pax = [put(h, 'enemy_1007_slime', [10, 7]), put(h, 'enemy_1006_shield', [10, 7])];
+  const stay = [put(h, 'enemy_1005_yokai', [10, 7]), put(h, 'enemy_1254_lypa_2', [10, 7]), put(h, 'enemy_1001_bigbo', [10, 7]), put(h, 'enemy_1007_slime', [12, 7])];
+  h.step();
+  for (const p of pax) { assert.ok(p.alive && p.hidden, `${p.defId} on board`); assert.equal(p.mem.busOf, bus); }
+  for (const o of stay) assert.ok(!o.hidden, `${o.defId} (flyer / machine / leader / out of reach) stays off`);
+  approx(bus.s.moveSpeed, v * (1 + 2 * tb(BUS, 'bus.move_speed')));
+  const at = pax.map((p) => [p.x, p.y]);
+  h.run(2);
+  pax.forEach((p, i) => { assert.ok(p.hidden); assert.deepEqual([p.x, p.y], at[i], 'a passenger does not walk'); });
+});
+
+test(`${nm(BUS)}: at most ${tb(BUS, 'bus.max_cnt')} passengers; full, it crawls at the 移动速度 floor 0.1`, () => {
+  const h = arena();
+  h.step();
+  const bus = put(h, BUS, [10, 7], { move: true });
+  const all = [];
+  for (let i = 0; i < 7; i++) all.push(put(h, 'enemy_1007_slime', [10, 7]));
+  h.step();
+  assert.equal(all.filter((o) => o.hidden).length, tb(BUS, 'bus.max_cnt'));
+  approx(bus.s.moveSpeed, 0.1);
+});
+
+test(`${nm(BUS)}: no boarding while it is stunned`, () => {
+  const h = arena();
+  h.step();
+  const bus = put(h, BUS, [10, 7]);
+  h.b.applyStatus(bus, 'stun', { duration: 5 });
+  const o = put(h, 'enemy_1007_slime', [10, 7]);
+  h.run(1);
+  assert.ok(!o.hidden);
+});
+
+test(`${nm(BUS)}: knocked out, it drops its passengers where it stands (±0.2) and they walk on along its route`, () => {
+  const h = arena();
+  h.step();
+  const bus = put(h, BUS, [10, 7], { move: true });
+  const o = put(h, 'enemy_1007_slime', [10, 7], { move: true });
+  h.step();
+  assert.ok(o.hidden);
+  h.run(2);
+  const x = bus.x, y = bus.y, idx = bus.route.legIdx;
+  killed(h, bus);
+  assert.ok(!o.hidden && o.alive && o.mem.busOf === null);
+  assert.ok(Math.abs(o.x - x) <= 0.2 + 1e-9 && Math.abs(o.y - y) <= 0.2 + 1e-9, `${o.x},${o.y} near ${x},${y}`);
+  assert.equal(o.route.legIdx, idx);
+  const from = [o.x, o.y];
+  h.run(1);
+  assert.ok(o.moving && (o.x !== from[0] || o.y !== from[1]), 'walks on');
+});
+
+test(`${nm(BUS)}: leaked, its passengers get off at the exit and leak too`, () => {
+  const h = arena();
+  h.step();
+  const bus = put(h, BUS, [10, 7]);
+  const o = put(h, 'enemy_1007_slime', [10, 7]);
+  h.step();
+  assert.ok(o.hidden);
+  bus.route.legIdx = bus.route.legs.length;   // at the end of its route
+  h.b.leak(bus);
+  assert.ok(!o.hidden);
+  h.step();
+  assert.ok(!o.alive && o.removeReason === 'leak');
+});
+
 test(`${nm('enemy_10001_trslim')}: below half HP it runs (move ×${1 + skb('enemy_10001_trslim', 'StartRun').bb.move_speed}, unblockable ${skb('enemy_10001_trslim', 'StartRun').bb.block_free_time} s)`, () => {
   const h = arena();
   h.step();

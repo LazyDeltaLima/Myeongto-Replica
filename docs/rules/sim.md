@@ -1253,3 +1253,24 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 - 플래그는 공식 값과 다를 때만 붙어 클래식 보스전의 spec은 바뀌지 않는다. 브라우저 전투(`clientCombat`)와 서버 검증이 같은 spec을 읽는다.
 - 확인: `test/match/ruleset-match.test.js`(실제 판, 999층 炎 보드 + 피해 ×2000: 최종 공세·숨겨진 핵심 모두 리더가 받은 가장 큰 한 방이 정확히 300000, 공유 풀 공로도 300000을 넘지 않고 `hitCap` 0), `test/sim/playtest6_limits.test.js` 「限伤 with the 休闲 ruleset's flags.bossHitClamp」(299999 그대로 · 299999.2 그대로 · 500만 → 300000 · `loseHp`도 절삭), 클래식은 그대로 `test/match/playtest6-limits.test.js`.
 
+## 나무 버든비스트 승객 (2026-10-16, 관리자 제보, 클라 `DurbusAbility`)
+- 대상: 일리온의 나무 버든비스트(伊利昂的木驮兽 `enemy_10159_mntrjn`, 엘리트·기계, 수배·특이 III `enemyeffect_16_8`). 도감 「无法被阻挡，可以装载最多5名乘客，
+  每名乘客使移动速度下降一定比例」, 재능 블랙보드 `bus.max_cnt 5`·`bus.move_speed −0.2`·`bus.half_cnt 2`.
+- 원본·옛 동작: 저지 불가만 있고 승객이 없었다(「passengers n/a」).
+- 공식(EN 클라 프리팹 `Talents/bus` = `DurbusAbility`, 버프 템플릿 `enemy_mntrjn_add`·`_reduce`·`_mark`; 핫픽스 없음):
+  - 탑승: `OnTick`(0xC38A90)이 버든비스트가 기절·빙결·부유·수면이 아닐 때 매 틱 `_SearchPassengers`(0xC3A120) — 승객이 `max_cnt` 미만이면 Selector
+    (`CircleCollider2D` 반경 0.5, 같은 편, 자기 제외, `machine` 태그 제외, 선택 불가 제외)·TargetValidator(`_enemyLevelMask 3` = 일반·엘리트만,
+    리더 제외; `_motionMask 1` = 지상만)로 고른 적을 태운다. 탄 적은 `SetDisappeared` — 필드에서 사라져 움직이지도 행동하지도 않는다.
+  - 감속: 승객마다 `enemy_mntrjn_add` → `enemy_mntrjn_move[stack]`(MOVE_SPEED MULTIPLIER, 블랙보드 `move_speed`) 한 스택. MULTIPLIER는 더해지므로
+    1 + n × (−0.2), 5명이면 0 → 속성 하한 0.1(PRTS 数值范围 MOVE_SPEED 최소 0.1).
+  - 하차: 버든비스트가 필드를 떠날 때(`OnDetached` → `ReleaseAllPassengers`: 격파·도달·그 밖의 제거) 모든 승객이 그 위치 ± `_randomOffsetBound` 0.2
+    (축마다 균등)에 내려 버든비스트의 경로를 그 진행 지점부터 잇는다(`_useHostRoute`, 경로 + `cursorIndex`). 도달했으면 출구에서 내려 곧 도달한다.
+    하차마다 `enemy_mntrjn_reduce`가 감속 한 스택을 되돌린다. 탑승·하차 이펙트 없음(`_effectWhenAddPassenger`·`_effectOnPassengerWhenRelease` 빈 값).
+  - 외형: `enemy_mntrjn_mark`가 스택 수로 스파인 스킨 `default` → `half`(`half_cnt` 2 이상) → `full`(`max_cnt`)을 고른다.
+- 로컬(`server/sim/content/enemies/special.js` `kitBus`): 위 규칙 그대로. 승객은 `hidden`(스냅샷에서 빠짐)·`pauseUntil = ∞`로 멈추고, 하차 때 버든비스트의
+  경로 구간(`legs`·`legIdx`·`waitLeft`)을 복사한다. 감속은 버프 `ab:bus` 하나(`moveMul = max(1 + n × move_speed, 0.1 ÷ 기본 이동 속도)`) — 하한은
+  다른 감속과 겹칠 때는 맞추지 않는다(엔진에 이동 속도 하한이 아직 없음). 클라처럼 탄 채로 사라진 승객의 스택은 남는다.
+  [추정] 원 안에 여럿이면 가까운 순(같으면 먼저 나온 적), 적의 판정 반경 없이 중심점 거리. 버든비스트가 숨어 있는 동안(DISAPPEAR 구간)은 태우지 않는다.
+- 아직 없음: 스킨 `half`·`full` 표시(렌더).
+- 확인: `test/content/enemies_bosses.test.js` 「enemy_10159_mntrjn …」 5건(탑승 대상·감속·최대 5명·기절 중 안 태움·격파 하차·도달 하차),
+  `test/sim/bus-passengers.test.js`(실제 판: 수배 카드 → 실제 웨이브에서 탑승·감속·격파 하차). golden: 이 적이 나오는 roster-012·roster-033·standin-05가 움직였다.
