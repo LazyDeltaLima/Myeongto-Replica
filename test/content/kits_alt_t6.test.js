@@ -971,6 +971,9 @@ test('6_16 溯光星源 S1 星图闪烁: ATK +; every attack bounces 3 more time
     const ch = dealt(h, u, tagged('chain')).slice(0, bb['attack@chain.max_target']);
     for (let i = 1; i < ch.length; i++) assert.notEqual(ch[i].target, ch[i - 1].target, 'never twice in a row');
     assert.equal(ch[0].target, ch[2].target, 'back and forth');
+    // the bounces name her and the chain's first unit (docs/SIM.md 'atk')
+    const hops = h.eventsOf('atk').filter((x) => x[3] === 'chain').slice(0, ch.length);
+    assert.ok(hops.length === ch.length && hops.every((x) => x[4] === null && x[5] === u.id && x[6] === hops[0][1]));
     // (能源解析 marks an enemy in her range 脆弱 after 0.25 s — the strike lands at the clip's damage frame since the attack
     // timing of 2026-10-10, so the nearer enemy is already marked)
     const frag = (e) => 1 + (e.findBuff('fragile')?.data?.value ?? 0);

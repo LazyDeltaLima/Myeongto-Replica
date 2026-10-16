@@ -105,13 +105,15 @@ test('歌蕾蒂娅 S3: her tornado (kit fx \'tornado\') plays her S3 projectile\
 test('패신저 S3: the storm (kit fx \'storm\') plays her S3 projectile\'s range; each strike its chain graphic', () => {
   const p = MODES.char_472_pasngr;
   // projectile_chr_pasngr_s3: `_effectsWhenReached` + `_clearReachedEffectWhenStop`, `_effectsWhenHit`, and its chain graphic
-  // (`_mainEffect` line, `_specialHitEffect` on the first unit — `_playSpecialEffectOnFirstOne`)
+  // (`_mainEffect` line, `_specialHitEffect` on the first unit — `_playSpecialEffectOnFirstOne`; `_playEffectOnHitPoint` 0: the line
+  // runs through the units' feet)
   assert.deepEqual(p.skills[2].zone, { fx: ['pasngr_skill_03_range'], aura: [], onProj: 0 });
   assert.deepEqual(p.skills[2].target, ['pasngr_attack_hit']);
-  assert.deepEqual(p.skills[2].chain, { line: ['pasngr_attack_line'], first: ['pasngr_skill_03_hit'] });
+  assert.deepEqual(p.skills[2].chain, { line: ['pasngr_attack_line'], first: ['pasngr_skill_03_hit'], hit: 0 });
   assert.match(SRC, /if \(e\[1\] === 'lightning' && chainFx\(e, views\)\) return;/);
   assert.match(SRC, /const names = \[\.\.\.\(Number\(o\.i\) === 0 \? extracted\(src, c\.first\) : \[\]\), \.\.\.extracted\(src, sk\.target\)\];/);
-  assert.match(SRC, /if \(line && camRef\) startLine\(bundleOf\(src\)\.bundle, line, from, tgt, 0, \{ sMount: 1, eMount: 1 \}\);/);
+  // one line per strike through its units (chainLine: FxInstance.setPath)
+  assert.match(SRC, /if \(line && camRef\) chainLine\(`storm:\$\{o\.src\}:\$\{strikes\.get\(o\.src\) \|\| 0\}`, bundleOf\(src\)\.bundle, line, from, tgt, c\.hit === 1\);/);
 });
 
 test('UD_OR_LR (4): slot 0 facing up, else slot 2; the left / right slot when that one is empty; unknown types play nothing', () => {

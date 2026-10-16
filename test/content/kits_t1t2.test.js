@@ -120,6 +120,13 @@ test('1_03 惊蛰: chain jumps lose no damage during 初雷 (ATK +atk); 通流�
   approx(a1[0], u1.s.atk * t.atk_scale, 'primary');
   approx(a1[1], u1.s.atk * t.atk_scale * 0.85, 'jump 1');
   approx(a1[2], u1.s.atk * t.atk_scale * 0.85 * 0.85, 'jump 2');
+  // each bounce names its shooter and the chain's first unit (docs/SIM.md 'atk'): the renderer draws the chain as one line
+  const shot = h1.eventsOf('atk').find((x) => x[1] === u1.id);
+  const hops = h1.eventsOf('atk').filter((x) => x[3] === 'chain').slice(0, 2);
+  assert.equal(hops.length, 2);
+  assert.deepEqual(hops.map((x) => [x[4], x[5], x[6]]), [[null, u1.id, shot[2]], [null, u1.id, shot[2]]]);
+  assert.equal(hops[0][1], shot[2], 'the first bounce leaves the unit the shot struck');
+  assert.equal(hops[1][1], hops[0][2], 'the next one leaves the unit the last one struck');
   // skill: every jump at full damage, ATK +80 %
   const h2 = mk(READY);
   const u2 = h2.unit(id);

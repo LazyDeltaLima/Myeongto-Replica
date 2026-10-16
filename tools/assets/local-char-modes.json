@@ -3233,6 +3233,11 @@
    ],
    []
   ],
+  "chainHit": [
+   null,
+   1,
+   null
+  ],
   "start": "halo2_brith_01",
   "attachFoe": [
    [],
@@ -6850,6 +6855,10 @@
    [
     "leizi_skill_02_line"
    ]
+  ],
+  "chainHit": [
+   0,
+   0
   ],
   "skillMode": [
    null,
@@ -10680,6 +10689,10 @@
     "papyrs_line_01"
    ]
   ],
+  "chainHit": [
+   1,
+   1
+  ],
   "skillMode": [
    null,
    1
@@ -13962,6 +13975,10 @@
     "pasngr_attack_line"
    ]
   ],
+  "chainHit": [
+   0,
+   0
+  ],
   "skillMode": [
    null,
    1,
@@ -14020,7 +14037,8 @@
      ],
      "first": [
       "pasngr_skill_03_hit"
-     ]
+     ],
+     "hit": 0
     }
    }
   ]

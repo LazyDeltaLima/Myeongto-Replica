@@ -35,7 +35,7 @@ function halo2(bb, chess, def) {
               if (d < bd - 1e-9) { bd = d; best = e; }
             }
             if (!best) break;
-            battle._ev(['atk', prev.id, best.id, 'chain']); // the bounce (ai.js chain): the renderer's line, the hit's sound
+            battle._ev(['atk', prev.id, best.id, 'chain', null, unit.id, target.id]); // the bounce (ai.js chain): the renderer's line, the hit's sound
             battle.dealDamage(unit, best, { amount: unit.s.atk, type: 'arts', isAttack: true, isSkill: true, tags: ['chain'] });
             const sd = slug(unit);
             if (sd > 0 && best.alive) battle.applyStatus(best, 'sluggish', { duration: sd, source: unit });

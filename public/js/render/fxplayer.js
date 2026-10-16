@@ -803,20 +803,22 @@ class TrailRenderer {
  * Distribute / Repeat per segment = the segment index. Unity keeps the object (its last clip frame) until its owner
  * destroys it: alive while the instance is not stopped.
  */
+const LINE_PATH_MAX = 16;   // FxInstance.setPath: the most points a line takes (a chain's units)
 class LineRenderer {
   constructor(ln, node, root, def) {
     this.tr = ln; this.node = node; this.root = root;
     this.ends = null;   // 2026-10-10: FxInstance.setLine
+    this.path = null;   // 2026-10-16: FxInstance.setPath
     this.w = ln.width;
     const n = ln.pts.length + (ln.loop ? 1 : 0);
     this.n = Math.min(n, TRAIL_PTS);
-    this.batch = new StripBatch(makeMaterial(def.materials[ln.mat], def.lib), this.n);
+    this.batch = new StripBatch(makeMaterial(def.materials[ln.mat], def.lib), Math.max(this.n, LINE_PATH_MAX));
     this.batch.mesh.renderOrder = ln.order || 0;
     root.add(this.batch.mesh);
   }
 
   update(dt, sinceStart) {
-    const ln = this.tr, n = this.n;
+    const ln = this.tr, path = this.path, n = path ? Math.min(path.length, LINE_PATH_MAX) : this.n;
     setTime(this.batch.material, sinceStart);
     this.batch.begin();
     let shown = true;
@@ -826,14 +828,17 @@ class LineRenderer {
       this.root.updateWorldMatrix(true, false);
       if (ln.world) tmpM.identity(); else tmpM.copy(this.root.matrixWorld).invert().multiply(this.node.matrixWorld);
       // 2026-10-10: a LineEffectEmitterDynamic line (FxInstance.setLine) — its first / last point at two scene points
-      // (client _UpdateMountPoint: SetPosition(0, start) / SetPosition(1, end) each frame), the ones between spread evenly
+      // (client _UpdateMountPoint: SetPosition(0, start) / SetPosition(1, end) each frame), the ones between spread evenly;
+      // 2026-10-16: a path line (FxInstance.setPath) runs through its points instead
       const ends = this.ends;
-      if (ends) tmpM2.copy(this.root.matrixWorld).invert();
+      if (ends || path) tmpM2.copy(this.root.matrixWorld).invert();
       let total = 0;
       for (let k = 0; k < n; k++) {
         const q = ln.pts[k % ln.pts.length];
         const f = n > 1 ? k / (n - 1) : 0;
-        const p = ends
+        const p = path
+          ? tmpV.set(path[k].x, path[k].y, path[k].z).applyMatrix4(tmpM2)
+          : ends
           ? tmpV.set(ends[0].x + (ends[1].x - ends[0].x) * f, ends[0].y + (ends[1].y - ends[0].y) * f, ends[0].z + (ends[1].z - ends[0].z) * f).applyMatrix4(tmpM2)
           : tmpV.set(q[0], q[1], q[2]).applyMatrix4(tmpM);
         trailPts[k * 3] = p.x; trailPts[k * 3 + 1] = p.y; trailPts[k * 3 + 2] = p.z;
@@ -1642,6 +1647,16 @@ export class FxInstance {
   setLine(a, b) {
     const ends = a && b ? [{ x: +a.x || 0, y: +a.y || 0, z: +a.z || 0 }, { x: +b.x || 0, y: +b.y || 0, z: +b.z || 0 }] : null;
     for (const t of this.lines) t.ends = ends;
+  }
+
+  /**
+   * 2026-10-16: every LineRenderer of the effect runs through `pts` ({x, y, z} in the coordinates the effect's object sits
+   * in, in order; at most 16) from now on — client ChainLightningEffectBehaviour.PlayLineEffect (RVA 0xA68660):
+   * positionCount = the units, SetPosition(i, unit i). Fewer than two points or null: its authored points.
+   */
+  setPath(pts) {
+    const path = Array.isArray(pts) && pts.length >= 2 ? pts.map((p) => ({ x: +p.x || 0, y: +p.y || 0, z: +p.z || 0 })) : null;
+    for (const t of this.lines) { t.path = path; if (path) t.ends = null; }
   }
 
   /** Game seconds × speed (effect seconds) before the effect and its last delayed branch start (0 when nothing waits). */

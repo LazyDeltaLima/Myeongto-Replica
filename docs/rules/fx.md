@@ -1083,11 +1083,12 @@
   맞는 대상마다 `_effectsWhenHit` `pasngr_attack_hit`.
 - 고친 것: `char_modes.py`가 연쇄 그래픽을 `skills[i].chain` { line, first }로 기록(지금은 패신저만 다시 추출). 키트의 'lightning'에 `i`(그 낙뢰의
   몇 번째 대상)·`from`(앞 대상)을 실음(그림 전용 — golden은 fx 종류별 개수만 셈). `fxgame.js`: `'storm'` → `zoneFx`, `'lightning'` → `chainFx`
-  (첫 대상 `first` + `target`, 다음 대상부터 앞 대상의 HIT 점 → 이 대상의 HIT 점 선 [추정: 점], `startLine` — `elineFx`와 같은 줄 기록).
+  (첫 대상 `first` + `target`, 다음 대상부터 선). 선은 2026-10-16 아래 「연쇄 공격」의 대조로 낙뢰 한 번에 **한 줄**, 맞은 대상들의 **발밑**
+  (`projectile_chr_pasngr_s3` `_playEffectOnHitPoint` 0 → `skills[i].chain.hit` 0; 그 전에는 튕김마다 HIT 점 → HIT 점 한 토막씩, `startLine`).
   공식 번들이 없거나 품질 low면 절차 번개선이 `from`에서 나간다.
 - 확인: 단위 `test/render/fx-cast-timing.test.js` 「패신저 S3」, `test/content/kits_t6.test.js` 「异客: S3 storm」(i·from). Windows Chrome 디버그
   아레나(샌드백 1·2개, 지금 발동): 13칸 마름모 장판 `pasngr_skill_03_range`, 낙뢰 8번 `pasngr_skill_03_hit`, 두 샌드백 사이 `pasngr_attack_line`,
-  오류 0. [화면 미확인: 실제 판·공식 녹화 대조(장판 크기, 선 높이)]
+  오류 0. 한 줄 고침 뒤(아래 「연쇄 공격」 확인 줄) 낙뢰 16번에 선 18개, 점 3개·높이 0. [화면 미확인: 실제 판·공식 녹화 대조(장판 크기, 선 높이)]
 
 ### 모드 없는 스킬의 투사체 꼬리 — 스킬 자체 투사체·Default 꼬리 (2026-10-16, 이펙트 연결 전수)
 
@@ -1241,16 +1242,34 @@
   `_playChainEffectAndAudioAfterSelectTarget`(패신저 S3만 1)이면 대상 고를 때 바로(`DoSelectTargetToHit` 0xA690F0). `_useChainPrefix`는 블랙보드 키
   접두사 `chain.`(`chain.atk_scale` 등)일 뿐 그림·소리와 무관. 레이즈 S2 `_atkScale` 1.0(감쇠 없음, 키트와 같음), 나머지 0.85.
 - 고친 것: `char_modes.py` — 연쇄 그래픽 선은 `trail`에서 빼고 모드별 `chain[mode]`로(전체 재추출 diff: 레이즈·패신저·파피루스(체인 메딕)·
-  아스트젠 더 라이트체이서 S1 모드만). `fxgame.js chainHop` — 튕김은 공격 경로를 타지 않고, 연쇄의 시전자 = 첫 대상을 노린 마지막 오퍼레이터
-  공격(`aimed`, 같은 순간의 다음 튕김은 `hops`로 이어감)의 모드 `chain` 선을 앞 대상 HIT 점 → 다음 대상 HIT 점으로 튕김마다 한 토막씩
-  [추정: 공식은 대상들 위치를 잇는 LineRenderer 하나 — 패신저 S3 `chainFx`와 같은 근사]; 다음 대상의 'dmg'는 그 모드의 타격 이펙트. 선이
-  그려지면 `arrowKind`가 절차 빔을 끈다(시전자를 못 찾거나 선이 없으면 빔 그대로). 모드가 없는 스킬(−1)은 Default 모드의 선. 아스트젠 더
-  라이트체이서 S1 키트는 튕김을 'atk' 'chain'으로 알린다(그림·소리 전용). [추정: 두 체인 캐스터가 같은 적을 같은 순간 노리면 마지막 공격이
-  연쇄의 주인]
+  아스트젠 더 라이트체이서 S1 모드만). `fxgame.js chainHop` — 튕김은 공격 경로를 타지 않고 시전자의 모드 `chain` 선을 그린다; 다음 대상의
+  'dmg'는 그 모드의 타격 이펙트. 선이 그려지면 `arrowKind`가 절차 빔을 끈다(시전자를 모르거나 선이 없으면 빔 그대로). 모드가 없는 스킬(−1)은
+  Default 모드의 선. 아스트젠 더 라이트체이서 S1 키트는 튕김을 'atk' 'chain'으로 알린다(그림·소리 전용).
+- 선 한 줄·자리 (2026-10-16 2차, 관리자 요청 「추정 먼저 공식 데이터와 대조」): 처음 고침은 튕김마다 앞 대상 HIT 점 → 다음 대상 HIT 점 한
+  토막씩, 두 유닛을 따라 그렸고 [추정], 연쇄의 시전자를 「첫 대상을 노린 마지막 오퍼레이터 공격」으로 짐작했다 [추정]. 클라 대조:
+  `PlayLineEffect`(0xA68660)는 선 효과를 투사체 몸체에 한 번 만들고, 효과 안 LineRenderer 전부의 `positionCount` = 맞은 대상 수, 점 i = 대상 i의
+  위치를 **한 번** 놓는다(따라가지 않음). 위치는 그래픽의 `_playEffectOnHitPoint`가 1이면 `Entity.hitPoint`(vtable 슬롯 72), 0이면
+  `VisualObject.worldPosition`(0x871A30 = 유닛 `transform.position`, 발밑). 투사체가 멈출 때 `OnProjectileStop`(0xA68470)이 선을
+  `ThrowEffect` + `FinishMe`. 그리는 그래픽은 `ChainLightningHitBehaviour.get_effect`(0xA6A130) = `GetComponent` — 루트의 첫
+  ChainLightningEffectBehaviour. 값(EN `[uc]projectiles.ab`, 컴포넌트 순서는 GameObject `m_Component`): 레이즈 `projectile_leizi`·`_s2`, 패신저
+  `projectile_chr_pasngr`·`_s2`·`_s3` = 0(발밑); 파피루스 `projectile_chr_papyrs`·`_s1` = 1(HIT 점); 아스트젠 더 라이트체이서 `projectile_chr_halo2_s1`은
+  그래픽이 둘(같은 선, 컴포넌트 3번째 = 1·6번째 = 0)이고 첫 것 = 1(HIT 점). 선 프리팹은 LineRenderer 2~3개뿐(입자 없음) — 한 줄과 토막의 차이는
+  Stretch(`texMode` 0) 텍스처가 선 전체에 한 번 늘어나는 것(레이즈 S2 선은 RepeatPerSegment라 같음)과 자리·따라감.
+  고친 것: `char_modes.py`가 첫 그래픽만 골라(`load_tree(comp_index)`의 `$comp`) 모드별 `chainHit[mode]`·스킬 `chain.hit`(1 HIT 점, 0 발밑)을 싣는다
+  (전체 재추출 diff: 이 10개 값만). 시뮬의 튕김 'atk'에 시전자와 연쇄 첫 대상을 실음 — `['atk', 앞 대상, 다음 대상, kind, null, 시전자, 첫 대상]`
+  (`ai.js` 연쇄·연쇄 치료, 아스트젠 더 라이트체이서 S1 키트; 필드만 늘어 golden 그대로) — 시전자 짐작이 없어짐. `fxgame.js chainLine`: (시전자, 첫
+  대상)마다 한 순간의 튕김을 모아 선 하나(`FxInstance.setPath`, `fxplayer.js` LineRenderer가 점 최대 16개를 차례로 지남), 점은 그 순간에 고정,
+  `chainHit` 1이면 HIT 점, 0이면 유닛이 선 자리(`ex`/`ey`, 칸 높이 — [추정: 비행 적·이륙 오퍼레이터도 엔티티는 칸에 있고 그림만 뜸, 「이륙 높이」의
+  ModifyGraphicHolderHeight]). 모드는 그 시전자가 첫 대상을 노린 공격의 것(`aimed`, 시전자·대상 쌍), 없으면 지금 모드. 패신저 S3 낙뢰도 같은
+  `chainLine`(낙뢰마다 한 줄). 선은 0.5 s 남음 [추정: `_delayToFinish` — 예전 `startLine`과 같은 값; 패신저 S3의 `_finishMainEffectsBeforePlay` 1(다음
+  낙뢰가 앞 선을 끝냄)은 안 옮김].
 - 확인: `test/render/chain-attack-fx.test.js`(추출 데이터, 튕김 선·적/아군 시전 없음·연쇄 치료 — 옛 코드에서 실패 확인). Windows Chrome 디버그
   아레나(샌드백 3개, 일반 공격 9 s + S2 9 s, FxInstance 집계): 레이즈 `leizi_attack_01_trail` 3·`leizi_attack_02_line` 8·`_hit` 12, S2
   `leizi_skill_02_trail` 3·`_line` 8·`_hit` 12; 패신저 `pasngr_attack_trail` 3·`pasngr_attack_line` 8·`_hit` 12, S2 `pasngr_skill_02_trail` 6·
-  `pasngr_attack_line` 14·`_hit` 21; 절차 빔 0, 오류 0. [화면 미확인: 실제 판에서 선 모양·높이·사라지는 시간, 공식 녹화 대조; 아스트젠 더
-  라이트체이서 S1·파피루스 선]
+  `pasngr_attack_line` 14·`_hit` 21; 절차 빔 0, 오류 0. 2차(한 줄): 단위 `chain-attack-fx` 「setPath」(점 순서, Stretch u 0·⅓·1, Repeat u 0·1·2)·
+  추출값, `kits_t1t2` 「1_03 惊蛰」·`kits_alt_t6` 「6_16 溯光星源 S1」(튕김의 시전자·첫 대상); 아레나(`FxInstance.setPath` 집계, 샌드백 3개): 레이즈 일반
+  선 4개(전에는 8토막)·S2 4개 점 3개 높이 0, 패신저 S2 6개 점 3개 높이 0, 아스트젠 더 라이트체이서 S1 6개 점 4개(왕복) 높이 1.14(HIT 점), 패신저 S3
+  낙뢰 16번에 18개 점 3개 높이 0, 오류 0. 파피루스는 아레나에 치료할 아군이 없어 못 봄. [화면 미확인: 실제 판에서 선 모양·높이·사라지는
+  시간, 공식 녹화 대조; 아스트젠 더 라이트체이서 S1·파피루스 선]
 - 안 한 것: 치료 이벤트('heal')에 공식 타격 이펙트를 트는 경로가 없음 — 파피루스는 선만 나오고 치료 대상의 `_effectsWhenHit`는 첫 대상에도
   없다(모든 메딕 공통, 관리자 노트의 할 일).

@@ -607,7 +607,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
       }
       if (!best) break;
       hit.add(best.id);
-      b._ev(['atk', prev.id, best.id, 'chain']);
+      b._ev(['atk', prev.id, best.id, 'chain', null, u.id, target.id]); // + the shooter and the chain's first unit (docs/SIM.md)
       const d = b.dealDamage(u, best, { amount: atk * scale * skillMul * powi(1 - (prof.chain.falloff ?? 0.15), k), type: baseType, isAttack: true, isSkill: info.isSkill, tags: ['chain'], attackId });
       dealtTotal += d;
       if (prof.chain.sluggish && best.alive) b.applyStatus(best, 'sluggish', { duration: prof.chain.sluggish, source: u });
@@ -665,7 +665,7 @@ function doHeal(b, u, prof, t) {
       const best = chainHealNext(b, u, prev, seen);
       if (!best) break;
       seen.add(best.id);
-      b._ev(['atk', prev.id, best.id, 'chainHeal']);
+      b._ev(['atk', prev.id, best.id, 'chainHeal', null, u.id, t.id]);
       b.heal(u, best, amount * powi(1 - (h.falloff ?? 0.25), k));
       prev = best;
     }

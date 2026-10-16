@@ -2085,8 +2085,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // ---- a storm's chain strikes (2026-10-16, 异客 S3) -------------------------------------------------------------
   // modes.json skills[i].chain (char_modes.py): projectile_chr_pasngr_s3's chain graphic plays its `_specialHitEffect`
   // (pasngr_skill_03_hit) on the first unit of each strike (`_playSpecialEffectOnFirstOne`) and its `_mainEffect` line
-  // (pasngr_attack_line) from each struck unit to the next; the projectile's `_effectsWhenHit` (skills[i].target) go on every
-  // one. The sim sends each hop as kit fx 'lightning' { id, src, i, from }. false → render/fx.js's procedural bolt.
+  // (pasngr_attack_line) through the struck units — one line per strike, at their feet (skills[i].chain.hit 0: chainLine
+  // below); the projectile's `_effectsWhenHit` (skills[i].target) go on every one. The sim sends each hop as kit fx
+  // 'lightning' { id, src, i, from } (i 0: the unit the storm struck). false → render/fx.js's procedural bolt.
+  const strikes = new Map();   // operator id → its storm strikes so far (one line each)
   function chainFx(e, views) {
     const o = e[4];
     if (!o || typeof o !== 'object' || failed || level() >= 3) return false;
@@ -2097,45 +2099,70 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     ownFx.add(e);
     const names = [...(Number(o.i) === 0 ? extracted(src, c.first) : []), ...extracted(src, sk.target)];
     if (names.length) play(src, 'attackHit', 0, { at: tgt, names, aim: src });
+    if (Number(o.i) === 0) strikes.set(o.src, (strikes.get(o.src) || 0) + 1);
     const from = o.from != null ? views.get(o.from) : null;
     const line = from ? extracted(src, c.line)[0] : null;
-    if (line && camRef) startLine(bundleOf(src).bundle, line, from, tgt, 0, { sMount: 1, eMount: 1 });   // HIT point to HIT point [추정]
+    if (line && camRef) chainLine(`storm:${o.src}:${strikes.get(o.src) || 0}`, bundleOf(src).bundle, line, from, tgt, c.hit === 1);
     return true;
   }
-  // ---- a chain shot's bounces (2026-10-16, decompile check, docs/rules/fx.md 「연쇄 공격」) --------------------------
+  // ---- a chain shot's line (2026-10-16, decompile check, docs/rules/fx.md 「연쇄 공격」) ------------------------------
   // Client ChainLightningHitBehaviour (DoSelectTargetToHit RVA 0xA690F0, OnProjectileReached 0xA69C10): the shot reaching
-  // its first unit hits every unit of the chain at once — each gets the projectile's `_effectsWhenHit` — and then its chain
-  // graphic (ChainLightningEffectBehaviour.PlayLineEffect 0xA68660) draws its `_mainEffect` as one line through the struck
-  // units in order; the shooter is not on it (modes.json `chain[mode]`, char_modes.py). The sim sends each bounce as 'atk'
-  // [previous unit, next unit, 'chain' | 'chainHeal'] (ai.js, 溯光星源 S1's kit): its shooter is the one whose attack
-  // aimed at the chain's first unit (`aimed`), carried along the chain within the moment (`hops`). Ours draws the line one
-  // segment per bounce from HIT point to HIT point, as chainFx [추정: the client's one LineRenderer through the units'
-  // positions]; the next unit's 'dmg' plays the mode's hit effects (lastAtk). Before, a bounce went down the attack path of
-  // its previous unit — an enemy's own attack cast effects (estrikeFx), a healed ally's (strikeFx) — and render/fx.js drew
-  // a purple beam for it (now only without the line: arrowKind).
+  // its first unit hits every unit of the chain at once — each gets the projectile's `_effectsWhenHit` — and its chain
+  // graphic, the projectile's first ChainLightningEffectBehaviour (`get_effect` 0xA6A130: GetComponent), draws its
+  // `_mainEffect` once (PlayLineEffect 0xA68660): made at the projectile, every LineRenderer of it gets one point per struck
+  // unit in order — the shooter is not on it —, set once (they do not follow the units): the unit's hit point
+  // (`Entity.hitPoint`) with `_playEffectOnHitPoint`, else its transform's position (modes.json `chainHit[mode]` /
+  // skills[i].chain.hit, char_modes.py); the projectile's stop finishes it (OnProjectileStop 0xA68470). The sim sends each
+  // bounce as 'atk' [previous unit, next unit, 'chain' | 'chainHeal', null, shooter, the chain's first unit] (ai.js, 溯光星源
+  // S1's kit), every bounce of a chain in one moment: they make one line; the next unit's 'dmg' plays the mode's hit
+  // effects (lastAtk). Before, a bounce went down the attack path of its previous unit — an enemy's own attack cast effects
+  // (estrikeFx), a healed ally's (strikeFx) —, render/fx.js drew a purple beam for it (now only without the line:
+  // arrowKind), and then (0a7c6f4d) one line per bounce from hit point to hit point, following the units.
   const CHAIN_KINDS = new Set(['chain', 'chainHeal']);
-  const aimed = new Map();      // target id → { src, mode, t }: the last operator attack aimed at it (its hit leaves it)
-  const hops = new Map();       // unit id → { src, mode, t }: the chain that struck it at clock t
+  const CHAIN_LINE_S = 0.5;     // the line's `_delayToFinish` after the projectile stops [추정: as startLine's]
+  const aimed = new Map();      // `${shooter}:${target}` → { t, mode }: its last attack at that unit (the chain it starts)
+  const chainLines = new Map(); // `${shooter}:${first unit}` (or the storm strike's) → { t, pts, l }: the line of a chain now
   const chainAtks = new WeakSet(); // bounce 'atk' tuples drawn here (arrowKind)
-  function chainHop(e, views) {
-    const prev = e[1], next = e[2];
-    let c = hops.get(prev);
-    if (!c || c.t !== clockS) {
-      const a = aimed.get(prev);
-      c = a && clockS - a.t <= 2.5 ? { src: a.src, mode: a.mode, t: clockS } : null;
+  /** A struck unit's point on a chain's line: its hit point, or where its entity stands (`transform.position`). */
+  function chainPoint(v, hit) {
+    if (hit) return elinePoint(v, 1, { x: 0, y: 0, z: 0 });
+    // [추정: a flying enemy's / lifted operator's entity stays on its tile — the client raises its graphic holder]
+    return { x: ex(v), y: ey(v), z: Number(v.z) || 0 };
+  }
+  /** Chain `key`'s line through `from` (its first unit, for a new chain) and `to`, now. */
+  function chainLine(key, bundle, name, from, to, hit) {
+    let c = chainLines.get(key);
+    if (c && c.t !== clockS) c = null;
+    if (c) {
+      if (c.pts.length < 16) c.pts.push(chainPoint(to, hit));
+      c.l?.inst.setPath?.(c.pts);
+      return;
     }
-    if (hops.size > 64) for (const [k, h] of hops) if (h.t !== clockS) hops.delete(k);
-    if (!c) return;
-    hops.set(prev, c); hops.set(next, c);
-    const src = c.src;
-    if (e[3] === 'chain') lastAtk.set(next, { src, t: clockS, mode: c.mode, kind: e[3], shot: false });
+    if (chainLines.size > 32) for (const [k, x] of chainLines) if (x.t !== clockS) chainLines.delete(k);
+    c = { t: clockS, pts: [chainPoint(from, hit), chainPoint(to, hit)], l: null };
+    chainLines.set(key, c);
+    spawn(bundle, name, { ...c.pts[0] }, { owner: null, buff: false, until: clockS + CHAIN_LINE_S }).then((l) => {
+      if (!l) return;
+      c.l = l;
+      l.inst.setPath?.(c.pts);
+    });
+  }
+  function chainHop(e, views) {
+    const prev = e[1], next = e[2], src = views.get(e[5]);
+    if (!isOp(src)) return;
+    const head = e[6] ?? prev;
+    const a = aimed.get(`${e[5]}:${head}`);
+    // the mode its shot left in (a skill may have ended while it flew), else the one now
+    const mode = a && clockS - a.t <= 2.5 ? a.mode : modeNow(src);
+    if (e[3] === 'chain') lastAtk.set(next, { src, t: clockS, mode, kind: e[3], shot: false });
     const from = views.get(prev), tgt = views.get(next);
     if (!from || !tgt || !bundleOf(src) || failed || level() >= 3) return;
     // a skill that switches no attack mode (−1) keeps the Default mode's shot (modelessTrail)
-    const line = bound(src, c.mode != null && c.mode >= 0 ? c.mode : 0, 'chain')[0];
+    const m = mode != null && mode >= 0 ? mode : 0;
+    const line = bound(src, m, 'chain')[0];
     if (!line) return;
     chainAtks.add(e);
-    if (camRef) startLine(bundleOf(src).bundle, line, from, tgt, 0, { sMount: 1, eMount: 1 });
+    if (camRef) chainLine(`${e[5]}:${head}`, bundleOf(src).bundle, line, from, tgt, bindOf(src)?.chainHit?.[m] === 1);
   }
   function stepZones(g) {
     for (const [k, rec] of zones) {
@@ -2920,7 +2947,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
           const shot = mode === -1 && takeShot(src); // 2026-10-16: a mode-less skill's own shot
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot });
-          if (tgt) aimed.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode }); // the chain it may start (chainHop)
+          if (tgt) aimed.set(`${src.id ?? src.info?.id}:${tgt.id ?? tgt.info?.id}`, { t: clockS, mode }); // the chain it may start (chainHop)
+          if (aimed.size > 256) for (const [k, x] of aimed) if (clockS - x.t > 2.5) aimed.delete(k);
           if (!noteAtks.has(e)) trailShot(e, src, tgt, mode, shot); // local patch: its projectile's official trail
           if (src._fxSkillOn) foeFx(src, tgt, mode); // 2026-10-10: a mode buff held by the enemy
           // local patch: the mode's own cast effects (a skill's on each of its attacks) — since 2026-10-10 on the attack's own
@@ -3128,7 +3156,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     clear() {
       for (const l of live) dropLive(l);
       live.length = 0;
-      lastAtk.clear(); aimed.clear(); hops.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
+      lastAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); eshotLand.clear();

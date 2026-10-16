@@ -155,16 +155,21 @@ PROJ_HIT_KEYS = ('_effectsWhenHit', '_effectsWhenReached')
 PROJ_SUB_KEYS = ('_projectileKey', '_subProjectileKey', '_childProjectileKey')
 
 
-def load_tree(path):
-    """[(GameObject path, MonoBehaviour typetree)] of a bundle (unreadable MonoBehaviours skipped)."""
+def load_tree(path, comp_index=False):
+    """[(GameObject path, MonoBehaviour typetree)] of a bundle (unreadable MonoBehaviours skipped). `comp_index`: each
+    typetree also gets `$comp`, its index in its GameObject's component list (the order `GetComponent<T>` searches)."""
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
     env = UnityPy.load(str(path))
-    go_name, tr_of_go, parent, mb = {}, {}, {}, []
+    go_name, tr_of_go, parent, mb, comp_at = {}, {}, {}, [], {}
     for o in env.objects:
         t = o.type.name
         if t == 'GameObject':
-            go_name[o.path_id] = o.read_typetree().get('m_Name')
+            g = o.read_typetree()
+            go_name[o.path_id] = g.get('m_Name')
+            if comp_index:
+                for i, c in enumerate(g.get('m_Component') or []):
+                    comp_at[(c.get('component') or {}).get('m_PathID')] = i
         elif t == 'Transform':
             d = o.read_typetree()
             tr_of_go[d['m_GameObject']['m_PathID']] = o.path_id
@@ -187,6 +192,10 @@ def load_tree(path):
             tr = father if father in parent else None
         cache[go] = '/'.join(reversed(parts))
         return cache[go]
+    if comp_index:
+        for pid, d in mb:
+            if pid in comp_at:
+                d['$comp'] = comp_at[pid]
     return [(go_path(d.get('m_GameObject', {}).get('m_PathID')), d, pid) for pid, d in mb], go_name
 
 
@@ -241,19 +250,25 @@ class Projectiles:
             if not f.exists():
                 continue
             seen = set()
-            for gp, d, _ in load_tree(f)[0]:
+            for gp, d, _ in load_tree(f, comp_index=True)[0]:
                 root = gp.split('/')[0]
                 if root in self.roots and root not in seen:
                     continue   # the newer bundle already had it
                 seen.add(root)
+                d['$onRoot'] = gp == root
                 self.roots.setdefault(root, []).append(d)
 
     def effects(self, key, done=None):
         done = done if done is not None else set()
-        out = {'hit': [], 'trail': [], 'start': [], 'zone': [], 'aura': [], 'onProj': 0, 'line': [], 'first': []}
+        out = {'hit': [], 'trail': [], 'start': [], 'zone': [], 'aura': [], 'onProj': 0, 'line': [], 'first': [], 'lineHit': None}
         if key in done:
             return out
         done.add(key)
+        # the chain graphic the hit plays: ChainLightningHitBehaviour.get_effect (RVA 0xA6A130) = GetComponent — the first
+        # ChainLightningEffectBehaviour of the root's components (溯光星源 S1's projectile has two, the first on the hit points)
+        graphics = [d for d in self.roots.get(key, []) if '_playSpecialEffectOnFirstOne' in d]
+        graphic = min((d for d in graphics if d.get('$onRoot')), key=lambda d: d.get('$comp', 1 << 30), default=None) \
+            or (graphics[0] if graphics else None)
         for d in self.roots.get(key, []):
             for k in PROJ_HIT_KEYS:
                 add(out['hit'], effect_names(d.get(k)))
@@ -279,8 +294,12 @@ class Projectiles:
             # (`PlayLineEffect`, RVA 0xA68660 — the shooter is not on it), `_specialHitEffect` plays on the first one of each
             # chain when `_playSpecialEffectOnFirstOne` is set. 2026-10-16: it was also the trail before, and 异客's attacks /
             # 惊蛰 S2's flew the line as their shot
-            if '_playSpecialEffectOnFirstOne' in d:
+            # 2026-10-16: only the graphic the hit plays; `lineHit` = its `_playEffectOnHitPoint` (PlayLineEffect 0xA68660: 1 =
+            # each unit's hit point, 0 = its transform's position — the feet)
+            if d is graphic:
                 add(out['line'], effect_names(d.get('_mainEffect')))
+                if out['line'] and out['lineHit'] is None:
+                    out['lineHit'] = 1 if d.get('_playEffectOnHitPoint') == 1 else 0
                 if d.get('_playSpecialEffectOnFirstOne') == 1:
                     add(out['first'], effect_names(d.get('_specialHitEffect')))
             for k in PROJ_SUB_KEYS:
@@ -289,6 +308,8 @@ class Projectiles:
                     for r in out:
                         if r == 'onProj':
                             out[r] |= sub[r]
+                        elif r == 'lineHit':
+                            out[r] = sub[r] if out[r] is None else out[r]
                         else:
                             add(out[r], sub[r])
         return out
@@ -353,7 +374,8 @@ def skill_effects(tree, projectiles=None):
     target = its `_hitEffects` + its projectiles' start / hit effects (on the targets), shot = its projectiles' `_mainEffect`
     (2026-10-16: 号角 S1's projectile_chr_horn_s1 flew as a procedural arrow; a chain's line left out, LINE_FX names last — main()
     keeps it for a skill without duration only, see there) and shotHit = the hits of the ability whose projectile shot[0] is
-    (its `_hitEffects` + that projectile's start / hit effects). An ability named End… (戴菲恩 S3 EndAttack: the finishing blow
+    (its `_hitEffects` + that projectile's start / hit effects); chain = a lasting projectile's chain graphic { line, first,
+    hit: 1 its line through the hit points, 0 the feet }. An ability named End… (戴菲恩 S3 EndAttack: the finishing blow
     after the slashes) goes to `end` { cast, hit } instead. Directional copies are left out."""
     out = {}
     for gp, d, _ in tree:
@@ -389,6 +411,8 @@ def skill_effects(tree, projectiles=None):
                 c = e.setdefault('chain', {'line': [], 'first': []})
                 add(c['line'], p['line'])
                 add(c['first'], p['first'])
+                if p['lineHit'] is not None and 'hit' not in c:
+                    c['hit'] = p['lineHit']
         add(e['turn'], turned(d))
         dir_groups(d, e['dirs'])
     for e in out.values():
@@ -430,7 +454,7 @@ def modes_of(path, projectiles=None):
     """{ modes, proj, cast, hit, trail } of a charpack (per mode, in `_modes` order), or None:
     modes = the mode GameObject names; proj = the projectile keys under each mode; cast = the effects its attacks cast on
     the attacker; hit = those on the target (the emitters' hit lists + its own projectile's WhenHit / WhenReached); trail =
-    that projectile's main effect (chain: a chain shot's line through its targets; shotFrom: the MountPointType it leaves from when not MUZZLE; castOpt: each cast effect's
+    that projectile's main effect (chain: a chain shot's line through its targets, chainHit: 1 when it runs through their hit points, 0 their feet; shotFrom: the MountPointType it leaves from when not MUZZLE; castOpt: each cast effect's
     start / end events — 2026-10-10); attach = the effects of the mode's own (Talents) buffs and the effects its abilities
     attach (`_attachEffects`, an ability's `_effects`), shown on the operator while it lasts. proj lists the mode's own shot first. Directional copies (_down_ …) are left out; of alternative attack abilities (Attack_A/B/C)
     only the first counts."""
@@ -443,6 +467,7 @@ def modes_of(path, projectiles=None):
     modes = [p.split('/')[-1] if p else '?' for p in mode_paths]
     n = len(modes)
     proj, cast, hit, trail, attach, chain = ([[] for _ in range(n)] for _ in range(6))
+    chain_hit = [None] * n
     turn = []
     dirs = []
     # local patch (maintainer report 2026-10-08: 스펙터 디 언체인드's 替身): `attachFoe` = the part of `attach` from buffs of
@@ -620,6 +645,7 @@ def modes_of(path, projectiles=None):
             add(hit[i], e['hit'])
             add(trail[i], e['trail'])
             add(chain[i], e['line'])
+            chain_hit[i] = e['lineHit']
     shot_from = [shot_mp.get((i, proj[i][0])) if proj[i] else None for i in range(n)]
     res = {'modes': modes, 'proj': proj, 'cast': cast, 'hit': hit, 'trail': trail, 'attach': attach}
     if any(cast_opt):
@@ -627,6 +653,7 @@ def modes_of(path, projectiles=None):
     # 2026-10-16: a chain shot's line through its targets (Projectiles: the chain graphic), per mode
     if any(chain):
         res['chain'] = chain
+        res['chainHit'] = [chain_hit[i] if chain[i] else None for i in range(n)]   # 1: the hit points, 0: the feet
     if any(inputs):
         res['input'] = inputs
     if hit_loop:
@@ -742,7 +769,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitLoop', 'castTgt', 'clipFx', 'trail', 'chain', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitLoop', 'castTgt', 'clipFx', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')
