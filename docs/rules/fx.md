@@ -510,7 +510,7 @@
   `projectile_chr_caper_s2_1`은 `projectile_chr_caper_s2`와 같은 꼬리(`caper_skill_02_trail`)·속도 15·돌아옴 0.25에 `_inverseParacurve` 1. ParacurveMovement
   `_raiseHeight` 0.3·`_noRaiseHeightThreshold` 1.3(EN `[uc]projectiles.ab`) → `fxgame.js caperSecond`가 S2 모드 꼬리로 대상까지 갔다 돌아오는 두 번째 비행을 띄우고
   (S2 첫 투척 +0.3, 두 번째 −0.3 높이의 호, 1.3칸 미만은 직선 [추정: 반대 호 = 같은 높이만큼 아래]), 꼬리가 아직 안 읽혔거나 공식 이펙트가 꺼져 있으면 `fx/simfx.js`가
-  절차 부메랑을 반대쪽으로 휘게(`attack(…, { inverse })`) 그린다. 손의 바퀴는 날아간 비행 수를 센다(`boomerang.js`, 둘 다 돌아와야 다시 손에).
+  절차 부메랑을 반대쪽으로 휘게(`attack(…, { inverse })`) 그린다. 손의 바퀴는 날아간 비행 수를 센다(`heldWheel.js`, 둘 다 돌아와야 다시 손에).
 回环射手는 풀에 跃跃(케이퍼 `char_4100_caper`, `chess_char_1_09`)뿐이다(`data/chess.json` loopshooter). 시뮬레이션(`ai.js throwBoomerang`)은 이미 한 개를
 던지고 받은 뒤 다시 공격한다 — 화면만 고쳤다.
 - 근거(EN 클라이언트, 2026-10-08 UnityPy): `projectile_chr_caper`(`battle/prefabs/[uc]projectiles.ab`) `_speed` 15, `_comeBack` 1,
@@ -523,7 +523,7 @@
 - 수정 전: 공식 꼬리(`trailShot`)가 대상까지만 날아가 멈췄고 바퀴 파티클(5초)이 대상 위에 남아 공격마다 하나씩 늘었다. 꼬리 파일 로드 중 첫 공격은
   절차 부메랑(두 갈래 그림)이었다. 손에는 바퀴가 한 번도 안 보였다(`Bullet` 스킨을 안 씀).
 - 수정: `fxgame.js` — `'boomerang'` 꼬리는 맞은 자리에서 돌아서 쏜 자리(Muzzle)로 `projSpeed('boomerangReturn')`로 돌아오고(진행률 k를 1→0, 방향은
-  그녀 쪽 = `_rotateToTarget`), 받거나 그녀가 없어지면 즉시 지운다(`stop(true)`), `clear()`는 날던 것을 돌려준다. 새 `render/boomerang.js` —
+  그녀 쪽 = `_rotateToTarget`), 받거나 그녀가 없어지면 즉시 지운다(`stop(true)`), `clear()`는 날던 것을 돌려준다. 새 `render/heldWheel.js` —
   그려진 비행(공식 꼬리, `fx/projectiles.js` 절차 부메랑)이 `view._boomOut`을 세고, `units.js`가 하나도 없을 때 `Bullet` 스킨을 켠다(`heldStats()`는
   확인용). S2 `caper_skill_02_trail`도 같은 길.
 - 확인: 디버그 아레나(Chrome, 수정 전·후 캡처 — 바퀴가 돌아오고 한 번에 하나, 대상 없을 때 손에 바퀴 front·back, S2) + 실제 솔로 판(상점에서

@@ -15,7 +15,7 @@ let fake, UnitView, DOWN_STATE, SpineActor, HELD_REDRAW_FRAMES, boomerangThrown,
 before(async () => {
   fake = installFakePixi();
   ({ UnitView, DOWN_STATE, HELD_REDRAW_FRAMES } = await import('../../public/js/render/units.js'));
-  ({ boomerangThrown, boomerangCaught } = await import('../../public/js/render/boomerang.js'));
+  ({ boomerangThrown, boomerangCaught } = await import('../../public/js/render/heldWheel.js'));
   ({ SpineActor } = await import('../../public/js/render/spine.js'));
 });
 after(() => fake.restore());
@@ -217,7 +217,7 @@ describe('UnitView: a held pose is neither re-posed nor redrawn', () => {
     assert.equal(counts().draws, c0.draws + 1, 'then held again');
   });
 
-  test('跃跃: the wheel put back in her hand while she lies held is updated and redrawn once (render/boomerang.js)', async () => {
+  test('跃跃: the wheel put back in her hand while she lies held is updated and redrawn once (render/heldWheel.js)', async () => {
     const { v, step, counts } = await operator(2);
     const slot = { attachment: null, setAttachment(a) { this.attachment = a; } };
     const att = { name: 'C_Weapon_03' };

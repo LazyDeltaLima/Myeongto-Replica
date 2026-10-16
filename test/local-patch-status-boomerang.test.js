@@ -3,7 +3,7 @@
 // *: a status that ends takes its official effect with it at once (fxstatus.js → statusOff(…, now)); an ended effect
 //     never restarts (fxgame.js statusOff clears `again`) and one effect per unit and status (playStatus) — re-stunning an
 //     enemy stacked one more buff_stun per stun (debug arena 2026-10-08: 1 2 3 4 … instances)
-// *: 跃跃's wheel is in her hand (Spine skin 'Bullet') while no drawn boomerang of hers is out (render/boomerang.js,
+// *: 跃跃's wheel is in her hand (Spine skin 'Bullet') while no drawn boomerang of hers is out (render/heldWheel.js,
 //     fx/projectiles.js), and the official trail of a boomerang flies back (fxgame.js stepTrails)
 
 import { test, describe, before, after } from 'node:test';
@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 import { installFakePixi, fakeViewCtx } from './render/fakepixi.js';
 import { presetCamera } from '../public/js/render/projection.js';
 import { UF } from '../shared/constants.js';
-import { boomerangThrown, boomerangCaught, syncHeldWeapon, HELD_SKIN } from '../public/js/render/boomerang.js';
+import { boomerangThrown, boomerangCaught, syncHeldWeapon, HELD_SKIN } from '../public/js/render/heldWheel.js';
 
 const src = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 

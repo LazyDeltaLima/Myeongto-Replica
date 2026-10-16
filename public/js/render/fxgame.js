@@ -66,7 +66,7 @@ import { SHOT_HEIGHT } from './fx.js'; // local patch: a trail's start without a
 import { boneMissing, liftedPoint, loadPoints, mountSpawn, pointKey, pointOn, pointTurn } from './fxpoints.js'; // local patch: the model points of _spawnLocation 3 / 8…
 import { enemyProjSpeed, enemyShot } from './fx/speeds.js'; // 2026-10-10: an enemy shot's record / flight time (data/enemies.json `proj`)
 import { shotSpeedOf } from './fx/projectiles.js'; // 2026-10-16: an operator shot's flight time (data/chess.json `shot`)
-import { boomerangThrown, boomerangCaught } from './boomerang.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
+import { boomerangThrown, boomerangCaught } from './heldWheel.js'; // local patch: a 回环射手's boomerang leaves / is back in her hand
 import { PROJ } from './style.js';
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2: when her model is back home
 import { playSpeed } from './fx/face.js'; // 2026-10-11 (maintainer decision 15): `_usePlaybackSpeed` / `_limitedPlaybackSpeed`
@@ -986,7 +986,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // local patch (maintainer report 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
     // both ways — projectile_chr_caper `_comeBack` 1 at `_comeBackSpeedScale` .25 (the sim's BOOMERANG_RETURN_SPEED), its
     // `_mainEffect` kept (`_clearMainEffectWhenReached` 0): it turns at the hit and flies back to her (stepTrails), and the
-    // wheel is out of her hand meanwhile (render/boomerang.js)
+    // wheel is out of her hand meanwhile (render/heldWheel.js)
     if (e[3] === 'boomerang') {
       rec.src = src; rec.back = Math.max(0.04, dist / projSpeed('boomerangReturn')); boomerangThrown(src);
       // 2026-10-10: 跃跃 S2's boomerangs (projectile_chr_caper_s2 / _s2_1, ParacurveMovement `_raiseHeight` 0.3,
@@ -1024,7 +1024,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * 2026-10-10: 跃跃 S2's later boomerang (sim fx 'caperBoomerang2' { id, tgt, n } — no 'atk' of its own, 0.1 s
    * after the attack's) — her S2 mode's trail (projectile_chr_caper_s2_1 `_mainEffect` caper_skill_02_trail) out to its target
-   * on the inverse arc and back like the first; the wheel is out of her hand while any is out (render/boomerang.js counts them).
+   * on the inverse arc and back like the first; the wheel is out of her hand while any is out (render/heldWheel.js counts them).
    * false → render/fx.js draws its procedural boomerang.
    */
   function caperSecond(e, views) {

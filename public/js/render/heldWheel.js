@@ -1,5 +1,6 @@
-// render/boomerang.js — local patch (docs/LOCAL-PATCH.md 「回环射手 부메랑」, maintainer report 2026-10-08): the 回环射手's
-// one boomerang, in her hand while she holds it.
+// render/heldWheel.js — local patch (docs/LOCAL-PATCH.md 「回环射手 부메랑」, maintainer report 2026-10-08): the 回环射手's
+// one boomerang, in her hand while she holds it. Not named boomerang.js: EasyPrivacy's path rule `/boomerang.js` (an
+// analytics script's name, on by default in uBlock Origin) blocked it, and with it the whole render engine import.
 //
 // The client (EN, checked 2026-10-08): 跃跃's projectile projectile_chr_caper (battle/prefabs/[uc]projectiles.ab) flies
 // out at `_speed` 15, `_comeBack` 1 at `_comeBackSpeedScale` 0.25 (3.75 back, the sim's BOOMERANG_RETURN_SPEED) with

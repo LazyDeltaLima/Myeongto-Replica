@@ -6,7 +6,7 @@ import { SHOT_HEIGHT, bodyZ, feetZ } from './camera.js';
 import { clamp } from './limits.js';
 import { projSpeed, enemyProjSpeed, opProjSpeed } from './speeds.js';
 import { UF } from '../../../../shared/constants.js';
-import { boomerangThrown, boomerangCaught } from '../boomerang.js'; // local patch: the 回环射手's held boomerang
+import { boomerangThrown, boomerangCaught } from '../heldWheel.js'; // local patch: the 回环射手's held boomerang
 
 const MAX_PROJ = 260;
 
@@ -106,7 +106,7 @@ export class FxProjectiles {
     pr.bowSign = opts && opts.inverse ? -1 : 1;
     this._dressProj(pr);
     this.projs.push(pr);
-    // local patch (maintainer report): the boomerang leaves her hand until this flight ends (_releaseProj; render/boomerang.js)
+    // local patch (maintainer report): the boomerang leaves her hand until this flight ends (_releaseProj; render/heldWheel.js)
     if (look === 'boomerang') { pr.held = src; boomerangThrown(src); }
     if (this.rich) this._muzzle(pr);
   }

@@ -78,7 +78,7 @@ import { UF_CAMOU, UF_LIFTOFF } from '../../../shared/local.js'; // local patch:
 import { FacingMarker, facingTextures } from './facing.js'; // local patch: official facing marker
 import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './face-turn.js'; // an operator turns to its target (「공격 방향」)
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
-import { syncHeldWeapon } from './boomerang.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
+import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
 import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);

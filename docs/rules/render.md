@@ -374,7 +374,7 @@ upstream v0.2.0 이후 렌더 수정(비공개 비교 기록). 근거는 upstrea
   켜짐↔꺼짐·12% 넘는 확대·축소면 다시). 링 숫자·`DP`·`!`는 링마다 `PIXI.Text` 대신 (글자·색·해상도)별 공유 텍스처(`render/textures.js downLabel`, 웹 폰트가 늦게
   오면 `refreshDownLabels`). 공식 동작과는 무관한 성능 변경(같은 픽셀). 충돌 해결: 우리 「낙하 중 클리핑 없는 모델은 impostor 안 씀」(`a8277c09`, 위 「배치 낙하」)
   조건을 그대로 두고 upstream `held`를 더함 — 낙하 중엔 `mode 'deploy'`라 `poseHeld()`가 어차피 거짓. upstream의 `_wolfPips`·`ammoCuts`(R22-HUD, 우리 미이식)는
-  넣지 않음. 우리 쪽 보강 2개(upstream에 없음): ① 跃跃(回环射手, 오퍼레이터)의 손 부메랑(`render/boomerang.js syncHeldWeapon`)이 스킨을 바꾸면
+  넣지 않음. 우리 쪽 보강 2개(upstream에 없음): ① 跃跃(回环射手, 오퍼레이터)의 손 부메랑(`render/heldWheel.js syncHeldWeapon`)이 스킨을 바꾸면
   `_applied = false` — 쓰러져 Die가 끝난 뒤 날던 부메랑이 돌아와도 손의 바퀴가 다시 그려진다(pixi-spine은 스킨 변경을 update에서 반영; 얼어붙은 모델은
   `update()`가 골격을 안 움직이므로 전과 같이 안 보임). ② 멈춘 자세의 impostor 슬롯도 `HELD_REDRAW_FRAMES`(240프레임, 60 fps에서 ~4초)마다 한 번은 다시 그림 —
   슬롯 픽셀은 RenderTexture에 있어 WebGL 컨텍스트를 잃었다 되찾으면(휴대폰 메모리 부족·탭 전환) 비어 돌아오는데, 우리 Pixi 쪽엔 복구 처리가 없어 쓰러진
