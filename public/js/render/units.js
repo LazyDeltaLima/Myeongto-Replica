@@ -1467,10 +1467,25 @@ export class UnitView {
     this.bornOfficial = official;
     this.fadeIn = official ? 1 : 0;
     this._deployKey = typeof key === 'string' ? key : null;
+    this._deploySpeed = 0;
     if (!this.alive) this.revive();
     this._resetFace();
     this._bornStart(official);
     return official;
+  }
+
+  /**
+   * 望's 跟子 (render/app.js, the 'summon' fx `follower`) comes in as the client's falling stone: a projectile there, no
+   * token birth — its BuildStone `_startEffect` wang_passive_01_start drops the stone (`qizi`, a sprite we do not draw)
+   * from the sky onto the tile in 0.1667 s (clip `ctrl` pos). Ours is the token model: its Start clip at `speed` lands it
+   * with that drop, without the birth lead and dark first frames (BORN_LEAD_S, BORN_TINT_S)
+   * [추정: Start = the stone falling in, as the placed 棋子's].
+   */
+  throwIn(speed) {
+    this._deploySpeed = speed > 0 ? speed : 1;
+    this._bornT = 0;
+    if (this._bornWait >= 0) this._bornWait = BORN_LEAD_S;
+    else if (this.actor && this.actor.deployElapsed() != null) this.actor.deploy(this._deployKey, this._deploySpeed);
   }
 
   /** The skill's deploy clip `key` without a deployment (a sim fx's `redeploy`: 乌尔比安 S3's anchor on his own tile). */
@@ -1674,7 +1689,7 @@ export class UnitView {
     if (this._bornT > 0) this._bornT = Math.max(0, this._bornT - dt); // local patch: the dark first frames (BORN_TINT_S)
     if (this._bornWait >= 0) { // local patch: the body waits BORN_LEAD_S (and for its model) before Start plays
       this._bornWait += Math.min(dt, 0.25); // a hitch of the battle switch does not use up the wait (DEPLOY_MAX_STEP_S)
-      if (this.actor && this.spineReady && this._bornWait >= BORN_LEAD_S && this.alive) { this._bornWait = -1; this.actor.deploy(this._deployKey); this._bornT = BORN_TINT_S; }
+      if (this.actor && this.spineReady && this._bornWait >= BORN_LEAD_S && this.alive) { this._bornWait = -1; this.actor.deploy(this._deployKey, this._deploySpeed || 1); this._bornT = this._deploySpeed ? 0 : BORN_TINT_S; }
       else if (this._bornWait >= BORN_WAIT_MAX_S || !this.alive) this._bornWait = -1;
     }
     this.body.alpha = this._bornWait >= 0 ? 0 : 1;

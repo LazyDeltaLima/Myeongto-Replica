@@ -92,6 +92,32 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     assert.ok(v.actor.deployElapsed() < 0.2, `advanced by one capped step (${v.actor.deployElapsed()})`);
   });
 
+  test('望\'s 跟子 (throwIn, maintainer report 2026-10-16): Start at its speed, no lead, no dark frames', async () => {
+    const v = unit(store());
+    await settle();
+    frames(v, 30);
+    v.onDeploy();
+    v.throwIn(2);                                       // the same batch's 'summon' fx `follower` (app.js)
+    assert.equal(v.actor.mode, 'deploy');
+    assert.ok(v.actor.deployElapsed() < 1e-6, 'Start restarted from its beginning');
+    frames(v, 1);
+    assert.equal(v._tint, 0xffffff, 'no dark first frames');
+    const len = v.actor.deployUntil - v.actor.deployAt;
+    assert.ok(Math.abs(len - spineEntry(M, TEXAS, { back: false }).animations.Start / 2) < 1e-6, `half the clip (${len})`);
+    // deployed before its model is in: no BORN_LEAD_S wait, the fast Start as soon as it is
+    const w = unit(store(), { id: 8 });
+    w.onDeploy();
+    w.throwIn(2);
+    await settle();
+    frames(w, 1);
+    assert.equal(w.actor.mode, 'deploy');
+    assert.equal(w.body.alpha, 1);
+    assert.ok(Math.abs((w.actor.deployUntil - w.actor.deployAt) - len) < 1e-6);
+    const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
+    assert.match(app, /views\.get\(e\[4\]\.id\)\?\.throwIn\?\.\(FOLLOWER_FALL\);/);
+    assert.match(app, /const FOLLOWER_FALL = 2;/);
+  });
+
   test('a model that never comes: the diamond after BORN_WAIT_MAX_S', () => {
     const s = store();
     s.spine.acquire = () => new Promise(() => {});

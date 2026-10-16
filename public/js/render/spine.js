@@ -912,18 +912,20 @@ export class SpineActor {
   /**
    * The deploy clip once: the running skill's own for `key` (anims skill `deploys`, the sim's 'deploy' event 4th field — a
    * 【移动】 by the skill: 乌尔比安 S3 Skill_3_ReStart_A / _Back), else the running skill's mode's (anims skill `deploy`, its
-   * Born pair: 缄默德克萨斯 S2 / S3, cast as she deploys, come in on Start_2 / Start_3), else the unit's.
+   * Born pair: 缄默德克萨斯 S2 / S3, cast as she deploys, come in on Start_2 / Start_3), else the unit's. `speed`: its
+   * timeScale (望's 跟子, units.js throwIn).
    */
-  deploy(key = null) {
+  deploy(key = null, speed = 1) {
     if (this.dead) return;
     const sd = key ? this.roles.skill?.deploys?.[key] : null;
     const md = this.skillOn ? this.roles.skill?.deploy : null;
     const d = this.has(sd) ? sd : this.has(md) ? md : this.roles.deploy;
     if (this.has(d) && d !== this.roles.idle) {
       this.mode = 'deploy';
-      this._play(d, false, { mix: 0 });
+      const ts = speed > 0 ? speed : 1;
+      this._play(d, false, { mix: 0, timeScale: ts });
       this.deployAt = this.clock;
-      this.deployUntil = this.clock + this.dur(d);
+      this.deployUntil = this.clock + this.dur(d) / ts;
     }
   }
 
