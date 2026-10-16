@@ -80,6 +80,29 @@ test('a 跟子\'s throw start effect plays on its tile, not on 望, and ends as 
   if (existsSync(path.join(FX, 'wang', 'wang_passive_01_start.json'))) assert.ok(prefab('wang', 'wang_passive_01_start').finish > 0);
 });
 
+test('the ball effects sit on the drawn ball anywhere on screen (maintainer report 2026-10-16: slid off toward the edges)', async () => {
+  const { presetCamera } = await import('../../public/js/render/projection.js');
+  const { liftedPoint } = await import('../../public/js/render/fxpoints.js');
+  const cam = presetCamera('normal', { width: 1280, height: 720 });
+  const tmp = { x: 0, y: 0, s: 0, depth: 0 }, P = { x: 0, y: 0, s: 0, depth: 0 }, Q = { x: 0, y: 0, s: 0, depth: 0 };
+  let worst = 0;
+  for (const x of [0, 4, 8, 12, 16, 20]) for (const y of [1, 5, 9, 13, 17]) {
+    const r = cam.project(x, y, 0, { x: 0, y: 0, s: 0, depth: 0 });
+    if (r.x < 0 || r.x > 1280 || r.y < 0 || r.y > 720) continue;   // on screen only
+    // the old anchor (z lifted, column kept) drifts sideways off centre …
+    const dz = cam.liftFor(x, y, 0, 0.18 * r.s);
+    worst = Math.max(worst, Math.abs(cam.project(x, y, dz, tmp).x - r.x) / r.s);
+    // … the new one (ballAt = liftedPoint) projects straight above the root, 0.18 tile up
+    const b = liftedPoint(cam, x, y, 0, r.y, r.x, r.y - 0.18 * r.s, { x: 0, y: 0, z: 0 }, Q);
+    const s = cam.project(b.x, b.y, b.z, P);
+    assert.ok(Math.abs(s.x - r.x) < 0.01 && Math.abs(r.y - s.y - 0.18 * r.s) < 0.01, `(${x}, ${y})`);
+  }
+  assert.ok(worst > 0.05, `the drift this fixes (${worst.toFixed(3)} tile at the edge)`);
+  assert.match(SRC, /return liftedPoint\(camRef, x, y, z0, r\.y, r\.x, r\.y - STONE_BALL \* r\.s, out, BALL_Q\);/);
+  assert.match(SRC, /const onBall = ballAt\(at\.x, at\.y, 0\);/);
+  assert.doesNotMatch(SRC, /ballZ\(/);
+});
+
 test('a stone gets no procedural skill burst (its passive \'skill\' on precedes the return \'deploy\')', () => {
   // the sim's order for a used stone coming back (same id, ~2 s after its 'die' in S3): ['skill', id, 1] → ['deploy', id];
   // the dying view (fade ≤ 2.15 s) was still there and render/app.js drew fx.skill's gold pillar + hex on it

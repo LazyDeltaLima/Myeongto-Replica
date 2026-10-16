@@ -607,17 +607,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // up the tile and slid off it by the perspective, so STONE_BORN plays on the ground again (the 跟子's rings are
   // `_effectsToTileWhenStart` too). The activation wisps and the link line stay on the ball (the wisps wrap it in the capture).
   const STONE_BALL = 0.18;
-  /** World height of a stone's ball centre at (x, y) on ground z0 (fx.js liftFor, the drawn height on screen). */
-  const ballZ = (x, y, z0) => {
-    if (!camRef || typeof camRef.liftFor !== 'function') return z0 + STONE_BALL;
-    const dz = camRef.liftFor(x, y, z0, STONE_BALL * camRef.scaleAt(x, y, z0));
-    return Number.isFinite(dz) ? z0 + dz : z0 + STONE_BALL;
+  // (maintainer report 2026-10-16: the effects on the balls slid off them toward the board's edges) The ball is drawn
+  // straight above the stone's root on screen (an upright billboard), but a point raised in world z drifts away from the
+  // screen centre under the perspective camera (≈ 0.04 tile per column off centre at the ball's height): the world point
+  // whose projection IS the drawn ball comes from fxpoints.js liftedPoint, as a model point's does.
+  const BALL_P = { x: 0, y: 0, s: 0, depth: 0 }, BALL_Q = { x: 0, y: 0, s: 0, depth: 0 };
+  /** World point of a stone's ball centre at (x, y) on ground z0: drawn STONE_BALL tile above the root on screen. */
+  const ballAt = (x, y, z0, out = { x: 0, y: 0, z: 0 }) => {
+    if (!camRef || typeof camRef.project !== 'function') { out.x = x; out.y = y; out.z = z0 + STONE_BALL; return out; }
+    const r = camRef.project(x, y, z0, BALL_P);
+    return liftedPoint(camRef, x, y, z0, r.y, r.x, r.y - STONE_BALL * r.s, out, BALL_Q);
   };
   /** A stone view's ball as an effect anchor (follows the view). */
-  const ballOf = (v) => ({
-    get x() { return v.x; }, get y() { return v.y; }, get z() { return ballZ(v.x, v.y, (v.z || 0) + (v.hover || 0)); },
-    get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
-  });
+  const ballOf = (v) => {
+    const p = { x: 0, y: 0, z: 0 };
+    const at = () => ballAt(v.x, v.y, (v.z || 0) + (v.hover || 0), p);
+    return {
+      get x() { return at().x; }, get y() { return v.y; }, get z() { return at().z; },
+      get alive() { return v.alive; }, get remove() { return v.remove; }, id: v.id, info: v.info,
+    };
+  };
   // (2026-10-08: the 3-second replay of a 跟子's wang_passive_01_buff (a2bd93de, [추정]) is gone — the capture's wisps
   // are its activation effect, kept above; the birth prefab's rings are one-shot systems and its `sz1` cross loops itself)
   /** local patch: whether 望's stone effects play here (render/fx.js then skips its procedural stand-in). */
@@ -806,7 +815,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!o || typeof o !== 'object') return false;
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
     // local patch (maintainer 2026-10-08): the link line and the activation flash on the stones' balls (STONE_BALL)
-    const onBall = { x: at.x, y: at.y, z: ballZ(at.x, at.y, 0) };
+    const onBall = ballAt(at.x, at.y, 0);
     // local patch (maintainer report 2026-10-07: the old yellow circle / mint hex + pillar under the stones' official effects):
     // render/fx.js draws nothing for a stone event handled here
     const mine = (e[1] === 'zone' && o.token === STONE) || e[1] === 'wangLink' || (e[1] === 'summon' && isStone(views.get(o.id)));
