@@ -82,6 +82,29 @@ describe('client: status → the official buff effect', () => {
     assert.deepEqual(names(v), ['nearl2_skill_02_buff_02']);
   });
 
+  test("泥岩's layers: bottom _03_start, then _02_, top _01_ — set by fx 'stacks' (onStatusCount), one fewer per parry", async () => {
+    const { UnitView } = await import('../../public/js/render/units.js');
+    const v = unit('char_311_mudrok', { statuses: new Set(['mudrok:layers']), statusFrom: new Map([['mudrok:layers', { src: null, fx: null, n: 1 }]]) });
+    assert.deepEqual(names(v), ['mudrok_buff_03_start']);
+    UnitView.prototype.onStatusCount.call(v, 'mudrok:layers', 3);
+    assert.deepEqual(names(v), ['mudrok_buff_01_start', 'mudrok_buff_02_start', 'mudrok_buff_03_start']);
+    UnitView.prototype.onStatusHit.call(v, 'mudrok:layers');
+    assert.deepEqual(names(v), ['mudrok_buff_02_start', 'mudrok_buff_03_start'], 'the top one breaks first');
+    // a count for a status the view does not have is dropped
+    UnitView.prototype.onStatusCount.call(v, 'other', 2);
+    assert.equal(v.statusFrom.has('other'), false);
+  });
+
+  test("卡涅利安's S3 mark: [part] from 1 stack, [full] added at 5", async () => {
+    const { UnitView } = await import('../../public/js/render/units.js');
+    const e = enemy(['billro:mark'], [['billro:mark', { src: 'billro', fx: null, n: 0 }]]);
+    assert.deepEqual(names(e), ['billro_skill_03_buff_03_01'], 'no count yet: one stack');
+    UnitView.prototype.onStatusCount.call(e, 'billro:mark', 4);
+    assert.deepEqual(names(e), ['billro_skill_03_buff_03_01']);
+    UnitView.prototype.onStatusCount.call(e, 'billro:mark', 5);
+    assert.deepEqual(names(e), ['billro_skill_03_buff_03_01', 'billro_skill_03_buff_03_02']);
+  });
+
   test('sync: buff effects are keyed by bundle/prefab (one per name, as the client) and end with the status; icons off with the layer', () => {
     const v = enemy(['bind'], [['bind', { src: 'mizuki' }]]);
     const calls = [];

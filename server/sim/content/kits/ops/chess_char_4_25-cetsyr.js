@@ -102,7 +102,20 @@ export default withDefaults({
             unit.mem.motes[i] = battle.time + cooldown();
             return true;
           };
-          whileDeployed(battle, unit, 0.25, () => {
+          // the motes there now, for the client's orbiting projectiles (render/fx/kitofficial.js 'motes': projectile_chr_cetsyr_talent
+          // `_mainEffect`, S2 / S3 their own): count `n` of cap `cap`, skill look `sk` (2 / 3, 0 the talent's), orbit radius `r` and
+          // speed `spd` (°/s) of the blackboards
+          const announce = () => {
+            const sk = skillActive(unit) ? (S2 ? 2 : S3 ? 3 : 0) : 0;
+            const cap = unit.mem.motes.length, n = sk === 3 ? cap : unit.mem.motes.filter((t) => t <= battle.time + 1e-9).length;
+            const key = `${n}/${cap}/${sk}`;
+            if (key === unit.mem.motesShown) return;
+            unit.mem.motesShown = key;
+            const r = sk === 2 ? num(bb.outside_radius, 2) : num(t0.range_radius, 1.15), spd = sk === 2 ? num(bb.dynamic_spd, 0.9) : num(t0.dynamic_spd, 30);
+            battle.fx('motes', { x: unit.x, y: unit.y, id: unit.id, n, cap, sk, r, spd });
+          };
+          battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.motesShown = null; }, { owner: unit });
+          const moteTick = () => {
             if (S2 && skillActive(unit)) {
               // S2: motes orbit wider and hit enemies instead of operators
               const hitAt = unit.mem.moteHit || (unit.mem.moteHit = new Map());
@@ -125,7 +138,8 @@ export default withDefaults({
               battle.addBuff(a, { key: `cetsyr:mote:${unit.id}`, duration: num(t0.talent_duration, 6), visible: true, source: unit });
               battle.fx('mote', { x: a.x, y: a.y, id: a.id, src: unit.id });
             }
-          });
+          };
+          whileDeployed(battle, unit, 0.25, () => { announce(); moteTick(); announce(); });
           // "受到魔王特性效果提升至1.5倍": her trait's 生命回复速度 on that operator (professions.js bardRegen hook)
           battle.on('bardRegen', (c) => {
             if (c.unit === unit && c.target.findBuff(`cetsyr:mote:${unit.id}`)) c.value *= num(t0['attack@trait_mul'], 1.5);

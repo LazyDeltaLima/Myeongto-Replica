@@ -123,9 +123,14 @@ test('the rules name prefabs the client binds for that operator', () => {
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {
     for (const [b, rule] of Object.entries(by)) {
       assert.equal(typeof rule, 'function');
-      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]] }, b, ctx)).filter(Boolean);
+      const plans = [{ skill: 0 }, { skill: 1 }, { skill: 2, back: true }].map((ctx) => kitOfficialPlan(n, { left: 0, t: 2, id: 1, of: 2, n: 2, cap: 3, name: 'extradition', cells: [[1, 1, 1], [2, 1, 3], [3, 1, 5], [4, 1, 0]] }, b, ctx)).filter(Boolean);
       assert.ok(plans.length, `${n} (${b}) plans nothing`);
-      for (const plan of plans) for (const p of plan.play) if (!p.off) assert.ok(p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
+      for (const plan of plans) {
+        for (const p of plan.play) {
+          if (!p.off) assert.ok(p.bundle ? p.n.includes(`_${b}_`) : p.n.startsWith(`${b}_`), `${n} (${b}): ${p.n}`);
+          if (p.ready) assert.ok(p.ready.startsWith(`${b}_`), `${n} (${b}): ${p.ready}`);
+        }
+      }
     }
   }
 });
@@ -145,9 +150,11 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.equal(kitOfficialPlan('overload', { id: 1 }, 'horn', { skill: 0 }), null);
   // another operator's overload has no rule (its skill draws it)
   assert.equal(kitOfficialPlan('overload', { id: 1 }, 'rmixer', { skill: 1 }), null);
-  // 泥岩: only the last layer's break
+  // 泥岩: only the last layer's break; a gained layer's begin cast (its loop: fxstatus.js LAYER_FX)
   assert.deepEqual(names(kitOfficialPlan('shieldBreak', { id: 1, left: 0 }, 'mudrok')), ['mudrok_buff_01_end']);
   assert.deepEqual(names(kitOfficialPlan('shieldBreak', { id: 1, left: 2 }, 'mudrok')), []);
+  assert.deepEqual(kitOfficialPlan('stacks', { id: 1, buff: 'mudrok:layers', n: 2 }, 'mudrok').play, [{ n: 'mudrok_buff_01_begin', on: 'op', life: 'once' }]);
+  assert.equal(kitOfficialPlan('stacks', { id: 5, src: 1, buff: 'billro:mark', n: 5 }, 'billro'), null, "the mark's stacks are fxstatus.js STACK_FX's");
   // 伊内丝: a new sentry replaces the old one; her recall ('beam') ends it and keeps its own stand-in
   const s = kitOfficialPlan('sentry', { id: 1 }, 'ines');
   assert.deepEqual(s.stop, ['inesSentry']);
@@ -175,6 +182,26 @@ test('kitOfficialPlan: the moments and lifetimes of the templates', () => {
   assert.equal(kitOfficialPlan('sandChains', { id: 1 }, 'billro').pass, true);
   assert.deepEqual(names(kitOfficialPlan('devour', { id: 1, charged: 0 }, 'billro')), ['billro_skill_03_buff_02_01', 'billro_skill_03_buff_01_01_02']);
   assert.equal(kitOfficialPlan('devour', { id: 1, charged: 1 }, 'billro').play.length, 4);
+  // … and outside the skill by the charges stored (eff_cond's off-skill branch): 2 → [full] + [half], 1 → [half] _buff_01
+  // (S3 _buff_01_01), 0 / -1 (the skill runs) → none
+  const chg = (n, skill) => kitOfficialPlan('charges', { id: 1, n }, 'billro', { skill }).play.map((x) => (x.off ? `${x.slot} off` : `${x.slot} ${x.n}`));
+  assert.deepEqual(chg(2, 0), ['chargeA billro_skill_01_buff_02', 'chargeB billro_skill_01_buff_01_02']);
+  assert.deepEqual(chg(1, 1), ['chargeA billro_skill_02_buff_01', 'chargeB off']);
+  assert.deepEqual(chg(2, 2), ['chargeA billro_skill_03_buff_01_02', 'chargeB billro_skill_03_buff_01_01_02']);
+  assert.deepEqual(chg(1, 2), ['chargeA billro_skill_03_buff_01_01', 'chargeB off']);
+  assert.deepEqual(chg(-1, 0), ['chargeA off', 'chargeB off']);
+  assert.ok(kitOfficialPlan('charges', { id: 1, n: 2 }, 'billro').play.every((x) => x.off || x.on === 'op'));
+  // 魔王's motes always on: one orbiting projectile effect per mote there, spread over the cap; the cool-down ready
+  // effect where one comes back; S2 / S3 their own projectiles
+  const mo = (o) => kitOfficialPlan('motes', { id: 1, ...o }, 'cetsyr').play.filter((x) => !x.off);
+  assert.deepEqual(mo({ n: 2, cap: 3, sk: 0, r: 1.15, spd: 30 }).map((x) => [x.slot, x.n, x.ready, x.orbit]), [
+    ['mote0', 'cetsyr_trail_01', 'cetsyr_trail_start', { r: 1.15, spd: 30, phase: 0 }],
+    ['mote1', 'cetsyr_trail_01', 'cetsyr_trail_start', { r: 1.15, spd: 30, phase: 120 }],
+  ]);
+  assert.equal(kitOfficialPlan('motes', { id: 1, n: 2, cap: 3 }, 'cetsyr').play.filter((x) => x.off).length, 10);
+  assert.deepEqual(mo({ n: 6, cap: 6, sk: 2, r: 2, spd: 0.9 }).map((x) => [x.n, x.ready, x.orbit.r, x.orbit.spd]).at(-1), ['cetsyr_skill_02_trail_01', 'cetsyr_skill_02_trail_start', 2, 0.9]);
+  assert.deepEqual(mo({ n: 1, cap: 3 })[0].orbit, { r: 1, spd: 150, phase: 0 }, "without the sim's orbit: the prefab's");
+  assert.deepEqual(mo({ n: 3, cap: 3, sk: 3 }).map((x) => [x.n, x.ready]).at(0), ['cetsyr_skill_03_trail_01', null]);
   // 缇缇 S3: the waking enemy's hit, a line from it to each enemy it puts to sleep for the line's own duration
   assert.deepEqual(kitOfficialPlan('wake', { id: 5, src: 1, to: [6, 7] }, 'titi').play, [
     { n: 'titi_skill_03_hit_02', on: 'id', life: 'once' }, { n: 'titi_skill_03_line_01', line: ['id', 'to'], life: 'once' },
@@ -227,6 +254,10 @@ test('the kits send what the rules read', () => {
   for (const f of ['chess_char_4_25-cetsyr.js', 'chess_char_5_09-cetsyr.js']) {
     for (const m of src(f).matchAll(/battle\.fx\('mote', \{[^}]*\}/g)) assert.match(m[0], /src: unit\.id/, `${f}: ${m[0]}`);
   }
+  assert.match(src('chess_char_4_18-mudrok.js'), /battle\.fx\('stacks', \{ x: unit\.x, y: unit\.y, id: unit\.id, buff: 'mudrok:layers', n, /);
+  assert.match(src('chess_char_4_24-billro.js'), /battle\.fx\('charges', \{ x: unit\.x, y: unit\.y, id: unit\.id, n \}\)/);
+  assert.match(src('chess_char_4_24-billro.js'), /battle\.fx\('stacks', \{ x: e\.x, y: e\.y, id: e\.id, src: unit\.id, buff: BILLRO_MARK, n: m\.stacks \}\)/);
+  for (const f of ['chess_char_4_25-cetsyr.js', 'chess_char_5_09-cetsyr.js']) assert.match(src(f), /battle\.fx\('motes', \{ x: unit\.x, y: unit\.y, id: unit\.id, n, cap(: cnt)?, sk, r(: orbit)?, spd(: [^}]+)? \}\)/, f);
   assert.match(src('chess_char_4_24-billro.js'), /battle\.fx\('shell', \{[^}]*charged: /);
   assert.match(src('chess_char_4_24-billro.js'), /battle\.fx\('devour', \{[^}]*charged: /);
   assert.match(src('chess_char_5_02-titi.js'), /battle\.fx\('wake', \{[^}]*, to \}\);\s*sleepOthers\(e, to\)/);
@@ -236,7 +267,13 @@ test('the kits send what the rules read', () => {
   assert.match(src('chess_char_5_02-titi.js'), /battle\.fx\('sleepGuard', \{ x: a\.x, y: a\.y, id: a\.id, src: unit\.id \}\)/);
 });
 
-const files = { '/assets/local/fx/index.json': { bundles: { horn: ['horn_buff_01_convert_start', 'horn_skill_02_buff_03_front'], ines: ['ines_label_01'] } } };
+// (one index for the file: the layer module loads it once)
+const files = { '/assets/local/fx/index.json': { bundles: {
+  horn: ['horn_buff_01_convert_start', 'horn_skill_02_buff_03_front'], ines: ['ines_label_01'],
+  cetsyr: ['cetsyr_trail_01', 'cetsyr_trail_start', 'cetsyr_skill_02_trail_01', 'cetsyr_skill_02_trail_start'],
+  billro: ['billro_skill_01_buff_01', 'billro_skill_01_buff_02', 'billro_skill_01_buff_01_02'],
+  mudrok: ['mudrok_buff_01_begin', 'mudrok_buff_01_hit'], common: ['common_buff_parry_01'],
+} } };
 const settle = () => new Promise((r) => setTimeout(r, 5));
 
 test('fxgame.js: a planned event is taken from its stand-in only when one of its prefabs is extracted', async () => {
@@ -266,5 +303,40 @@ test('fxgame.js: a planned event is taken from its stand-in only when one of its
     const beam = ['fx', 'beam', 3, 0, { x: 3, y: 0, tx: 3, ty: 0, id: 2 }];
     layer.onEvent(beam, views);
     assert.equal(layer.ownsFx(beam), false);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('fxgame.js: slots on and around a unit, 泥岩\'s block effect', async () => {
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
+  try {
+    const plays = [];
+    const layer = createFxLayer({ host: null, above: null, quality: () => 'high', trace: (p) => plays.push(p) });
+    await settle();
+    const op = (id, defId) => ({ id, x: id, y: 0, alive: true, info: { id, side: 'ally', defId, skillIndex: 0 } });
+    const views = new Map([[1, op(1, 'char_4134_cetsyr')], [2, op(2, 'char_426_billro')], [3, op(3, 'char_311_mudrok')], [4, op(4, 'char_1014_nearl2')]]);
+    const ev = (name, o) => layer.onEvent(['fx', name, 0, 0, { x: 0, y: 0, ...o }], views);
+    const got = () => plays.splice(0).filter((p) => p.kind === 'spawn').map((p) => p.names[0]).sort();
+    // (sent without awaiting: node has no WebP, the first spawn's check fails the layer for later events)
+    ev('motes', { id: 1, n: 3, cap: 3, sk: 0 });
+    assert.deepEqual(got(), ['cetsyr_trail_01', 'cetsyr_trail_01', 'cetsyr_trail_01', 'cetsyr_trail_start', 'cetsyr_trail_start', 'cetsyr_trail_start']);
+    ev('motes', { id: 1, n: 2, cap: 3, sk: 0 });
+    assert.deepEqual(got(), [], 'the two left keep running');
+    ev('motes', { id: 1, n: 3, cap: 3, sk: 0 });
+    assert.deepEqual(got(), ['cetsyr_trail_01', 'cetsyr_trail_start'], 'one comes back');
+    ev('motes', { id: 1, n: 6, cap: 6, sk: 2 });
+    assert.deepEqual(got(), [...Array(6).fill('cetsyr_skill_02_trail_01'), ...Array(3).fill('cetsyr_skill_02_trail_start')], 'S2: six, three new');
+    ev('charges', { id: 2, n: 1 });
+    assert.deepEqual(got(), ['billro_skill_01_buff_01']);
+    ev('charges', { id: 2, n: 2 });
+    assert.deepEqual(got(), ['billro_skill_01_buff_01_02', 'billro_skill_01_buff_02']);
+    ev('charges', { id: 2, n: -1 });
+    assert.deepEqual(got(), []);
+    ev('stacks', { id: 3, buff: 'mudrok:layers', n: 2, max: 3 });
+    assert.deepEqual(got(), ['mudrok_buff_01_begin']);
+    ev('parry', { id: 3, buff: 'mudrok:layers' });
+    assert.deepEqual(got(), ['mudrok_buff_01_hit'], "her layers' blackboard `effect`");
+    ev('parry', { id: 4, buff: 'nearl2:shield' });
+    assert.deepEqual(got(), ['common_buff_parry_01']);
   } finally { globalThis.fetch = fetch0; }
 });

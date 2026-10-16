@@ -71,9 +71,13 @@ export default withDefaults({
       talents: [
         { install(battle, unit) { // 沃土予身: a hit-negating layer every 9 s (≤ 3, 1 on deploy); each broken layer heals 20 %
           const setLayers = (n) => {
+            const gain = n > (unit.mem.layers ?? 0);
             unit.mem.layers = n;
             if (n > 0) battle.addBuff(unit, { key: 'mudrok:layers', shieldHits: n, visible: true });
             else battle.removeBuff(unit, 'mudrok:layers');
+            // the layer count for the client's per-layer effects (render/fxstatus.js LAYER_FX; a gain also plays
+            // mudrok_t_1[init] / [recharge]'s mudrok_buff_01_begin — render/fx/kitofficial.js)
+            if (gain) battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'mudrok:layers', n, max: num(t0.max_times, 3) });
           };
           battle.on('deploy', (c) => {
             if (c.unit !== unit) return;

@@ -95,7 +95,17 @@ export default withDefaults({
           }, { owner: unit });
         } },
         { install(battle, unit) { // 蓄势待发: +0.6 SP/s once a charge is stored
-          whileDeployed(battle, unit, 0.1, () => toggleBuff(battle, unit, 'billro:t2', !!unit.skill && unit.skill.charges >= 1 && !skillActive(unit), { spRecoveryFlat: num(t1.sp_recovery_per_sec, 0.6) }));
+          battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.billroShown = null; }, { owner: unit });
+          whileDeployed(battle, unit, 0.1, () => {
+            toggleBuff(battle, unit, 'billro:t2', !!unit.skill && unit.skill.charges >= 1 && !skillActive(unit), { spRecoveryFlat: num(t1.sp_recovery_per_sec, 0.6) });
+            // the charges stored outside the skill (-1 while it runs) for billro_s_N[eff_cond]'s off-skill effects, which the
+            // client checks every 0.1 s too (render/fx/kitofficial.js 'charges')
+            const n = !unit.skill ? 0 : skillActive(unit) ? -1 : Math.min(2, unit.skill.charges);
+            if (n !== (unit.mem.billroShown ?? 0)) {
+              unit.mem.billroShown = n;
+              battle.fx('charges', { x: unit.x, y: unit.y, id: unit.id, n });
+            }
+          });
         } },
       ],
       install(battle, unit) {
@@ -126,11 +136,14 @@ export default withDefaults({
             if (c.source !== unit || e.side !== 'enemy') return;
             let m = e.findBuff?.(BILLRO_MARK) || null;
             if (c.dmg.isAttack && skillActive(unit) && unit.mem.billroCharged) {
+              const was = m ? m.stacks : 0;
               if (m) battle.addBuff(e, { key: BILLRO_MARK, refresh: 'stack', maxStacks: BILLRO_MARK_MAX, duration: m.timeLeft });
               else {
                 m = battle.addBuff(e, { key: BILLRO_MARK, refresh: 'stack', maxStacks: BILLRO_MARK_MAX, duration: Math.max(0.1, (unit.skill?.timeLeft ?? 0) + 0.1), source: unit, visible: true });
                 if (m) unit.mem.billroMarked?.add(e.id);
               }
+              // the stack count for billro_s_3[mark_effect] (render/fxstatus.js STACK_FX: [full] at 5)
+              if (m && m.stacks !== was) battle.fx('stacks', { x: e.x, y: e.y, id: e.id, src: unit.id, buff: BILLRO_MARK, n: m.stacks });
             }
             if (m && m.source === unit) c.dmg.mul *= 1 + per * (m.stacks || 1);
           }, { owner: unit });

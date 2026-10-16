@@ -25,7 +25,7 @@
 // Beyond this table the client has no status effect of its own: every buff names its effect (`overrideEffectKey`, client
 // `Entity.AddBuffEffect`), and a status with none shows nothing — no 无敌 / 束缚 / 护盾 / 嘲讽 badge (EN buff templates: 21
 // of 46 INVINCIBLE buffs, 12 of 22 UNMOVABLE, 42 of 110 shield buffs carry none; `common_invincible_0N`,
-// `common_unmovable_01`, `common_shield_01` belong to single enemies / one 装备 / 凯恩's S2). SOURCE_FX / KEY_FX / LAYER_FX
+// `common_unmovable_01`, `common_shield_01` belong to single enemies / one 装备 / 凯恩's S2). SOURCE_FX / KEY_FX / LAYER_FX / STACK_FX
 // below draw the effects of the buffs this fork's statuses stand for, by the applier or the buff key
 // (docs/rules/ui.md ⑤ 「버프 이펙트」). The drawn status icons (units.js _iconKeys) are only the fallback while the effect
 // layer is off (quality 'low', no WebP, no extracted effects: `view._statusIcons`, maintainer decision 2026-10-14).
@@ -95,8 +95,6 @@ export const KEY_FX = Object.freeze({
   'cathy:shield': ['cathy_token', 'token_cathy_catsld_shield_01', 0],     // catsld_t_1[shield_mark]
   'reckpr:guard': ['reckpr', 'reckpr_skill2_hit_buff', 0],                // reckpr_02[listener] (S2's healed operator)
   'sntlla:born': ['common', 'common_ resistance_01', 0],                  // sntlla_t_1[atk] (its 抵抗 with it)
-  // billro_s_3[mark_effect][part]; [full] (billro_skill_03_buff_03_02) needs the stack count, which no event carries [추정]
-  'billro:mark': ['billro', 'billro_skill_03_buff_03_01', HEAD],
   // angel2_s_2[shield][trigger] on her, angel2_s_2[select_target] on the teammate she takes ASPD from [추정: the owners]
   'angel2:barrier': (v) => (fxCode(v) === 'angel2' ? ANGEL2_SELF : ANGEL2_OTHER),
   // element bursts (ep_break_*): 凋亡 ep_break_dark[damage] on both sides; 灼燃 ep_fire_magic_res_down and 侵蚀
@@ -112,11 +110,24 @@ export const KEY_FX = Object.freeze({
 });
 
 /**
- * A kit buff whose official effect is one prefab per layer left: nearl2_s_2 creates [shield][a..d] while `times` ≥ 1..4.
- * The count comes with the status (app.js `n`) and drops with each fx 'parry' of the buff (UnitView.onStatusHit).
+ * A kit buff whose official effect is one prefab per layer left: nearl2_s_2 creates [shield][a..d] while `times` ≥ 1..4;
+ * 泥岩's mudrok_t_1 (max_times 3) its bottom layer [shield_c] mudrok_buff_03_start, then [shield_b] _02_start, then the top
+ * [shield_a] _01_start — a hit breaks the top one first ([shield_a], then [shield_b], [shield_c]: their ON_DAMAGE nodes).
+ * The count comes with the status (app.js `n`), drops with each fx 'parry' of the buff (UnitView.onStatusHit) and is set
+ * by a kit's fx 'stacks' (UnitView.onStatusCount: 泥岩's layer gains).
  */
 export const LAYER_FX = Object.freeze({
   'nearl2:shield': Object.freeze([2, 3, 4, 5].map((i) => Object.freeze(['nearl2', `nearl2_skill_02_buff_0${i}`, 0]))),
+  'mudrok:layers': Object.freeze([3, 2, 1].map((i) => Object.freeze(['mudrok', `mudrok_buff_0${i}_start`, 0]))),
+});
+
+/**
+ * A kit buff whose official effects come with its stack count (a kit's fx 'stacks', UnitView.onStatusCount): [from stacks,
+ * spec] pairs, every one reached shows. 卡涅利安's S3 mark: billro_s_3[mark_effect] creates [part] at 1 stack and [full] at 5
+ * (billro_s_3[charge][enhance] stacks), [part] staying.
+ */
+export const STACK_FX = Object.freeze({
+  'billro:mark': Object.freeze([[1, Object.freeze(['billro', 'billro_skill_03_buff_03_01', HEAD])], [5, Object.freeze(['billro', 'billro_skill_03_buff_03_02', HEAD])]]),
 });
 
 /** The fx code of a view's character (fxmap.js fxBundleOf: 'char_469_indigo' → 'indigo'), or ''. */
@@ -171,7 +182,7 @@ const byName = (out, spec) => { if (spec) put(out, `${spec[0]}/${spec[1]}`, spec
 
 /**
  * The effects `v` should show now: effect key → spec. STATUS_FX keys for the catalogue statuses (`stealth` already
- * resolved to the side's prefab key), `bundle/prefab` for the buff effects (SOURCE_FX / KEY_FX / LAYER_FX).
+ * resolved to the side's prefab key), `bundle/prefab` for the buff effects (SOURCE_FX / KEY_FX / LAYER_FX / STACK_FX).
  * `v.statusFrom` (UnitView.onStatus): status key → statusSource().
  */
 export function wantedStatusFx(v, out = WANT) {
@@ -195,6 +206,8 @@ export function wantedStatusFx(v, out = WANT) {
       if (kf) { byName(out, typeof kf === 'function' ? kf(v) : kf); continue; }
       const layers = LAYER_FX[k];
       if (layers) { for (let i = 0; i < Math.min(layers.length, from?.n || 0); i++) byName(out, layers[i]); continue; }
+      const stacks = STACK_FX[k];
+      if (stacks) { for (const [min, spec] of stacks) if ((from?.n || 1) >= min) byName(out, spec); continue; }
       const s = statusFxKey(k);
       if (s === 'stealth' || s === 'camou') continue; // by the flags above (side, 迷彩)
       if (s) put(out, s, STATUS_FX[s]);

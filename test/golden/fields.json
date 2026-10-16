@@ -206,8 +206,8 @@
       ],
       "enemies": {"enemy_1249_lysdb_2":[5,5,0,8159,107495],"enemy_1430_lrrook":[2,0,2,0,125853],"enemy_9017_achunt":[1,0,0,25582,286179]},
       "hooks": [1,21,6000,489,489,1210,1817,4795,8,10,30,31,0,14275,109,5,8,2,1,13,0,11,0],
-      "events": {"atk":549,"deploy":13,"die":8,"dmg":1804,"engage":7,"face":51,"fx":313,"heal":43,"leak":2,"skill":65,"spawn":18,"status":525,"swing":493},
-      "fx": {"appear":2,"bandage":3,"block":11,"burst":11,"charge":7,"disappear":2,"enemySkill":7,"featherArrow":2,"flame":3,"garrisonGrant":1,"healField":2,"jungleSoul":3,"mote":102,"parry":13,"redistribute":45,"reweave":3,"rockslide":6,"sandChains":4,"sandChainsCharged":1,"shieldBreak":18,"slash":39,"spGift":5,"thorns":20,"truesilver":3},
+      "events": {"atk":549,"deploy":13,"die":8,"dmg":1804,"engage":7,"face":51,"fx":448,"heal":43,"leak":2,"skill":65,"spawn":18,"status":525,"swing":493},
+      "fx": {"appear":2,"bandage":3,"block":11,"burst":11,"charge":7,"charges":11,"disappear":2,"enemySkill":7,"featherArrow":2,"flame":3,"garrisonGrant":1,"healField":2,"jungleSoul":3,"mote":102,"motes":109,"parry":13,"redistribute":45,"reweave":3,"rockslide":6,"sandChains":4,"sandChainsCharged":1,"shieldBreak":18,"slash":39,"spGift":5,"stacks":15,"thorns":20,"truesilver":3},
       "snaps": "2eaeb3ac 0f91b713 0db2c6d9 11b3f789 6aef6ac8 6c23e86a 146489fb 9ef8222a df4f18ef 7c5acaae a6e7ad76 cab2db82 df54258f 71cd0e68 e184900d 9077fa4a c3787764 96200957 c0b23b7f 41198a97"
     },
     "boss-boss_3-pair": {
@@ -504,8 +504,41 @@
       ],
       "enemies": {"enemy_1010_demon_2":[2,2,0,4541,107495],"enemy_1438_dspred":[5,5,0,37902,236490],"enemy_1521_dslily":[1,0,0,60337,499680],"trap_039_dstnta":[6,4,0,0,6000]},
       "hooks": [1,29,6000,592,592,1004,1156,6914,15,15,36,34,0,14534,153,18,14,0,1,13,0,30,5],
-      "events": {"atk":796,"deploy":13,"die":15,"dmg":1134,"engage":7,"face":15,"fx":417,"heal":79,"skill":72,"spawn":26,"status":563,"swing":602},
-      "fx": {"appear":2,"bandage":4,"block":24,"burst":30,"camouflage":1,"disappear":2,"dodge":5,"enemySkill":14,"featherArrow":5,"flame":2,"garrisonGrant":1,"grow":1,"healField":3,"jungleSoul":1,"mote":68,"parry":22,"phase":9,"redistribute":45,"reweave":3,"riposte":5,"rockfall":14,"rockslide":9,"sandChains":6,"shieldBreak":22,"slash":53,"spGift":5,"thorns":53,"tide":5,"truesilver":3},
+      "events": {"atk":796,"deploy":13,"die":15,"dmg":1134,"engage":7,"face":15,"fx":531,"heal":79,"skill":72,"spawn":26,"status":563,"swing":602},
+      "fx": {
+        "appear": 2,
+        "bandage": 4,
+        "block": 24,
+        "burst": 30,
+        "camouflage": 1,
+        "charges": 16,
+        "disappear": 2,
+        "dodge": 5,
+        "enemySkill": 14,
+        "featherArrow": 5,
+        "flame": 2,
+        "garrisonGrant": 1,
+        "grow": 1,
+        "healField": 3,
+        "jungleSoul": 1,
+        "mote": 68,
+        "motes": 75,
+        "parry": 22,
+        "phase": 9,
+        "redistribute": 45,
+        "reweave": 3,
+        "riposte": 5,
+        "rockfall": 14,
+        "rockslide": 9,
+        "sandChains": 6,
+        "shieldBreak": 22,
+        "slash": 53,
+        "spGift": 5,
+        "stacks": 23,
+        "thorns": 53,
+        "tide": 5,
+        "truesilver": 3
+      },
       "snaps": "1fdffa37 1d98662f ed529565 c7d5af85 5cbd8d7f 8db3da6b 3bd39a91 d0b5c34b a27485c5 57a1087e f73424f5 722dde61 705d37eb d10c4f66 718fa265 3a57a75d c95968d3 96f5619b 7617c8cc a7db215f"
     },
     "boss-boss_5-pair": {
@@ -800,8 +833,8 @@
         "trap_185_vtlntw": [4,3,0,5036,27498]
       },
       "hooks": [1,52,6000,246,246,441,440,493,35,37,25,23,0,8947,135,3,23,2,1,29,0,0,1],
-      "events": {"atk":371,"deploy":23,"die":35,"dmg":409,"engage":7,"face":26,"fx":105,"heal":25,"leak":2,"skill":50,"spawn":39,"status":322,"swing":255},
-      "fx": {"appear":4,"bandage":3,"disappear":4,"dodge":1,"enemySkill":4,"equip":12,"featherArrow":7,"flame":1,"garrisonGrant":1,"healField":2,"jungleSoul":2,"mote":4,"rockslide":1,"sandChains":5,"slash":32,"summon":2,"sword":1,"telegraph":12,"truesilver":4,"vest":3},
+      "events": {"atk":371,"deploy":23,"die":35,"dmg":409,"engage":7,"face":26,"fx":122,"heal":25,"leak":2,"skill":50,"spawn":39,"status":322,"swing":255},
+      "fx": {"appear":4,"bandage":3,"charges":10,"disappear":4,"dodge":1,"enemySkill":4,"equip":12,"featherArrow":7,"flame":1,"garrisonGrant":1,"healField":2,"jungleSoul":2,"mote":4,"motes":4,"rockslide":1,"sandChains":5,"slash":32,"stacks":3,"summon":2,"sword":1,"telegraph":12,"truesilver":4,"vest":3},
       "snaps": "dd1f6711 15fa01ae 27c7eb5a 8932e5d9 a90da15d 2ec5e012 a8948a82 5feaf3af 139c8450 91f215ae 0efad932 82ab59ef 69cc1dc4 8d4772d3 41dbf09a eaf95199 75465494 507147f8 461b7125 c16af29d"
     },
     "boss-boss_7-pair": {
@@ -1061,8 +1094,8 @@
         "enemy_9016_acstmr": [7,7,0,0,24]
       },
       "hooks": [1,63,6000,275,275,618,604,341,45,55,23,24,0,4519,155,7,34,10,1,36,0,0,0],
-      "events": {"atk":349,"deploy":25,"die":45,"dmg":594,"engage":6,"face":7,"fx":296,"heal":45,"leak":10,"skill":48,"spawn":48,"status":203,"swing":291},
-      "fx": {"appear":15,"bandage":5,"beam":38,"blink":11,"block":16,"charge":6,"disappear":15,"enemySkill":20,"explode":36,"featherArrow":1,"flame":2,"garrisonGrant":1,"healField":5,"mote":1,"parry":10,"rockslide":6,"sandChains":2,"shell":7,"shieldBreak":10,"slash":33,"spGift":4,"summon":7,"telegraph":3,"thorns":33,"truesilver":2,"zone":7},
+      "events": {"atk":349,"deploy":25,"die":45,"dmg":594,"engage":6,"face":7,"fx":316,"heal":45,"leak":10,"skill":48,"spawn":48,"status":203,"swing":291},
+      "fx": {"appear":15,"bandage":5,"beam":38,"blink":11,"block":16,"charge":6,"charges":4,"disappear":15,"enemySkill":20,"explode":36,"featherArrow":1,"flame":2,"garrisonGrant":1,"healField":5,"mote":1,"motes":6,"parry":10,"rockslide":6,"sandChains":2,"shell":7,"shieldBreak":10,"slash":33,"spGift":4,"stacks":10,"summon":7,"telegraph":3,"thorns":33,"truesilver":2,"zone":7},
       "snaps": "0a8bcbed 930c8774 128d7582 390410c9 f5a178b0 e6df0398 a0c834d6 a03e5665 cc721daf 831db2cf 52e46402 74325f98 02120586 8f74262d 503ec504 53df0006 2372b901 ea1ee023 0ac95ef4 584662ea"
     },
     "hidden-boss_9-pair": {
@@ -1374,13 +1407,14 @@
         "enemy_9023_acdums": [10,9,0,70092,358]
       },
       "hooks": [1,33,6000,695,695,2179,2841,2672,22,23,34,34,0,10555,189,20,15,1,1,35,0,16,7],
-      "events": {"atk":990,"deploy":18,"die":22,"dmg":2826,"engage":7,"face":23,"fx":894,"heal":176,"leak":1,"skill":71,"spawn":25,"status":316,"swing":699,"tplfx":1},
+      "events": {"atk":990,"deploy":18,"die":22,"dmg":2826,"engage":7,"face":23,"fx":930,"heal":176,"leak":1,"skill":71,"spawn":25,"status":316,"swing":699,"tplfx":1},
       "fx": {
         "appear": 2,
         "bandage": 11,
         "beam": 22,
         "block": 12,
         "burst": 16,
+        "charges": 9,
         "disappear": 2,
         "dodge": 7,
         "ember": 4,
@@ -1393,6 +1427,7 @@
         "healField": 2,
         "jungleSoul": 4,
         "mote": 24,
+        "motes": 12,
         "parry": 15,
         "phase": 49,
         "redistribute": 20,
@@ -1405,6 +1440,7 @@
         "shieldBreak": 23,
         "slash": 40,
         "spGift": 5,
+        "stacks": 15,
         "summon": 8,
         "telegraph": 4,
         "thorns": 43,

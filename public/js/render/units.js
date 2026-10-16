@@ -1489,6 +1489,14 @@ export class UnitView {
     if (from && from.n > 0) from.n--;
   }
 
+  /** The status `key` now has `n` layers / stacks (a kit's fx 'stacks'): fxstatus.js LAYER_FX / STACK_FX. */
+  onStatusCount(key, n) {
+    if (typeof key !== 'string' || !this.statuses.has(key)) return;
+    const from = (this.statusFrom ||= new Map()).get(key);
+    if (from) from.n = Math.max(0, Number(n) || 0);
+    else this.statusFrom.set(key, { src: null, fx: null, n: Math.max(0, Number(n) || 0) });
+  }
+
   /**
    * The unit died: its Die clip plays, then it fades (unless it stays down, setDown). `instant`: it starts on the held
    * end of the clip — a unit that is already down (a field joined mid-battle, an operator entering 联防 knocked out).

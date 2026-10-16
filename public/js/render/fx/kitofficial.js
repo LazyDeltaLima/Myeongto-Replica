@@ -19,7 +19,8 @@
  * a play with `after: 'fly'` starts when it lands. A 'point' play may name its own ground point `at: [x, y]`.
  * A `slot` play holds one effect per operator and slot until the operator leaves: a later play of the same prefab in that
  * slot keeps it running, another prefab replaces it, `{ slot, off: true }` ends it (AttachListenerToTileAbility
- * `_HoldCastedEffectOnTile` with `_dontCreateNewEffectWhenCastedTimesSame`).
+ * `_HoldCastedEffectOnTile` with `_dontCreateNewEffectWhenCastedTimesSame`); on a 'point' (or `at`) or on / circling a
+ * unit as any play, with `ready` a prefab played there once when the slot was empty.
  */
 const once = (n, on = 'op') => ({ n, on, life: 'once' });
 
@@ -47,11 +48,13 @@ export const KIT_OFFICIAL = {
     // 洛洛 S2 过载: her drones' S2Funnel `_overloadIdleEffect` rockr_token_overload_01 for the rest of the skill
     rockr: () => ({ play: [{ n: 'rockr_token_overload_01', on: 'op', life: 'skill' }] }),
   },
-  // 泥岩 T1 沃土予身: the last layer broken (mudrok_t_1[shield_c] BlockDamage → CreateEffect mudrok_buff_01_end; the layer
-  // loops 01–03_start come with layer gains the sim does not announce — §11)
+  // 泥岩 T1 沃土予身: the last layer broken (mudrok_t_1[shield_c] BlockDamage → CreateEffect mudrok_buff_01_end) …
   shieldBreak: {
     mudrok: (o) => (Number(o.left) === 0 ? { play: [once('mudrok_buff_01_end')] } : { play: [] }),
   },
+  // … and a layer gained (mudrok_t_1[init] at deploy / [recharge]: CreateEffect mudrok_buff_01_begin, then the layer's buff —
+  // its loop is fxstatus.js LAYER_FX, from the same event's `n`). 卡涅利安's mark stacks: fxstatus.js STACK_FX only.
+  stacks: { mudrok: () => ({ play: [once('mudrok_buff_01_begin')] }) },
   // 伊内丝 T2 影哨: projectile_chr_ines_guard `_effectsWhenReached` label_start_01 + label_01 + range_01 where it lands;
   // they last while the sentry stands (a new one replaces it, S3's recall — her 'beam' — ends it)
   sentry: {
@@ -107,14 +110,48 @@ export const KIT_OFFICIAL = {
   // on it; under S2 the motes hit enemies (projectile_chr_cetsyr_talent_s2: cetsyr_skill_02_hit_01; the bind's
   // cetsyr_skill_02_tie is the 'bind' status' — fxstatus.js SOURCE_FX). S1's start (her own `id`) is S1's buff.
   mote: { cetsyr: (o, c) => (o.id === o.src ? { play: [] } : { play: [once(c.foe ? 'cetsyr_skill_02_hit_01' : 'cetsyr_hit_01', 'id')] }) },
+  // 魔王 T1 微尘 always on: her motes are projectiles circling her (projectile_chr_cetsyr_talent `_mainEffect` cetsyr_trail_01;
+  // S1 the same; S2 _talent_s2 cetsyr_skill_02_trail_01; S3 _talent_s3 cetsyr_skill_03_trail_01), one effect each while it is
+  // there; one coming back plays `_coolDownReadyEffectOnProjectilePos` cetsyr_trail_start (S2 cetsyr_skill_02_trail_start)
+  // where it is. `n` of `cap` and the orbit (`r` tiles, `spd` °/s: the blackboards' range_radius / dynamic_spd, S2's
+  // outside_radius / dynamic_spd — the prefabs' `_projectileAroundRadius` 1 / `_aroundSpeed` 150 (S2 0.01) without them)
+  // from the sim [추정: the blackboard values replace the prefab's; evenly spread, the sense of the turn; which mote goes
+  // when one is used]
+  motes: {
+    cetsyr: (o) => {
+      const cap = Math.max(0, Math.min(12, Number(o.cap) || 0)), k = Number(o.n) || 0, sk = Number(o.sk) || 0;
+      const r = Number(o.r) > 0 ? Number(o.r) : 1, spd = o.spd != null && Number.isFinite(Number(o.spd)) ? Number(o.spd) : sk === 2 ? 0.01 : 150;
+      const trail = sk === 2 ? 'cetsyr_skill_02_trail_01' : sk === 3 ? 'cetsyr_skill_03_trail_01' : 'cetsyr_trail_01';
+      const ready = sk === 2 ? 'cetsyr_skill_02_trail_start' : sk === 3 ? null : 'cetsyr_trail_start';
+      const play = [];
+      for (let i = 0; i < 12; i++) {
+        play.push(i < k && i < cap
+          ? { n: trail, on: 'op', slot: `mote${i}`, ready, orbit: { r, spd, phase: (360 * i) / cap } }
+          : { slot: `mote${i}`, off: true });
+      }
+      return { play };
+    },
+  },
   // 魔王 S3: each HP share (cetsyr_s_3[collect_hp_ratio]'s tick: CreateEffect cetsyr_skill_03_burst_01 on her)
   redistribute: { cetsyr: () => ({ play: [once('cetsyr_skill_03_burst_01')] }) },
   // 卡涅利安: while skill N runs, billro_s_N[eff_cond] (every 0.1 s) keeps derived INFINITY buffs on her — cast with every
   // charge stored (billro_talent_enhance_mark) its [full] + [half] (S3 also [full2] + [half2]), else its [half] (S3 [half] +
-  // [half2]); its off-skill branch (1 charge stored → _buff_01, 2 → [full] + [half]) needs the charges, which the views do
-  // not carry. fxgame.js KIT_OWNED keeps the name rules from playing these at the skill's start. S2's own events keep their
-  // stand-ins (`pass`).
+  // [half2]); its off-skill branch is 'charges' below. fxgame.js KIT_OWNED keeps the name rules from playing these at the
+  // skill's start. S2's own events keep their stand-ins (`pass`).
   shell: { billro: (o) => billro(0, o.charged) },
+  // … and outside the skill (`n` the charges stored, -1 while it runs: the branch above): 2 → [full] _buff_02 + [half]
+  // _buff_01_02 (S3 _buff_01_02 + _buff_01_01_02), 1 → [half] _buff_01 (S3 _buff_01_01), 0 → none — held until the count
+  // changes (FinishDerivedBuff, then the new ones)
+  charges: {
+    billro: (o, c) => {
+      const k = Number(o.n) || 0, s = `0${c.skill + 1}`;
+      const [full, half, one] = c.skill === 2
+        ? ['billro_skill_03_buff_01_02', 'billro_skill_03_buff_01_01_02', 'billro_skill_03_buff_01_01']
+        : [`billro_skill_${s}_buff_02`, `billro_skill_${s}_buff_01_02`, `billro_skill_${s}_buff_01`];
+      const a = k >= 2 ? full : k === 1 ? one : null, b = k >= 2 ? half : null;
+      return { play: [a ? { n: a, on: 'op', slot: 'chargeA' } : { slot: 'chargeA', off: true }, b ? { n: b, on: 'op', slot: 'chargeB' } : { slot: 'chargeB', off: true }] };
+    },
+  },
   sandChains: { billro: () => ({ ...billro(1, false), pass: true }) },
   sandChainsCharged: { billro: () => ({ ...billro(1, true), pass: true }) },
   devour: { billro: (o) => ({ ...billro(2, o.charged), pass: true }) },

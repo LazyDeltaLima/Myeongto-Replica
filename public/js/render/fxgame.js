@@ -42,7 +42,8 @@
 // that kind ends). The view's adaptive load level (render/app.js adaptLoad, as render/fx.js
 // drops its extras at level ≥ 2): level 2 plays 'high' as 'medium', level 3 also skips the normal-attack effects.
 // stats() → { live, loaded, updateMs, renderMs, calls, particles, notes } (view.stats().fxGame). `trace` (tests): called with
-// { kind, names, by, at } for every effect play() starts, before it loads (node has no WebP, so nothing is drawn there).
+// { kind, names, by, at } for every effect play() starts, before it loads (node has no WebP, so nothing is drawn there), and
+// { kind: 'spawn', names, by, on, tag } for every extracted prefab spawn() starts.
 // 丰川祥子's notes (kits/ops/op-oblvns.js, battle.fx 'oblvnsNote' born / track / free / hit / gone): each note is her client trail
 // prefab (fxmap.js NOTE_FX) flown here between the sim's events — free flight on its heading (the 扩张正弦 weave drawn
 // around it), tracing the target's view, the hit prefab on arrival (a piano note flies on 0.5 s); w = 2 draws two notes.
@@ -1243,7 +1244,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * on: stopped at its 'die') }; `over` puts it over the units. Resolves the live entry (null if not played).
    */
   async function spawn(bundle, name, at, entry, { over = true, facing = 1, drop = null, aim = null, dir = null } = {}) {
-    if (!index?.bundles?.[bundle]?.includes(name) || !(await ensure())) return null;
+    if (!index?.bundles?.[bundle]?.includes(name)) return null;
+    if (trace) trace({ kind: 'spawn', names: [name], by: entry.owner ?? null, on: at && at.info ? ownerOf(at) ?? null : null, tag: entry.tag ?? null }); // tests
+    if (!(await ensure())) return null;
     const def = await lib.load(bundle, name);
     if (!mod || !def) return null;
     if (entry.until != null && entry.until <= clockS) return null; // 2026-10-10: its end passed while it loaded
@@ -1316,14 +1319,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // node's direction options are not in the event]
     spawn(r[0], r[1], tgt, { owner: null, buff: false, on: tgt.id ?? e[1], tag: 'tplfx' }, { over: true, facing: efacing(tgt) });
   }
-  // A 护盾 layer blocking a hit (sim damage.js absorbShields → fx 'parry' {id}): the client's BlockDamage.Execute (RVA
-  // 0xBB6960) plays common_buff_parry_01 on the holder when the node names no effect of its own (_specifyBlockEffect /
-  // blackboard `effect`; empty in archet_t_2, kalts2_t_2[shield], mudrok_t_1, nearl2_s_2[shield])
+  // A 护盾 layer blocking a hit (sim damage.js absorbShields → fx 'parry' {id, buff}): the client's BlockDamage.Execute (RVA
+  // 0xBB6960; 0xD949D0 in the 10-14 dump) plays the buff blackboard's `effect` (GetStringOrDefault, the node's
+  // _specifyBlockEffect the default) on the holder, else common_buff_parry_01. Empty in archet_t_2, kalts2_t_2[shield],
+  // nearl2_s_2[shield]; 泥岩's layers inherit mudrok_t_1's charpack blackboard `effect` mudrok_buff_01_hit (Talents/1 _buffs
+  // [recharge] / [init], whose CreateBuff makes them)
   const PARRY = 'common_buff_parry_01';
+  const BLOCK_FX = { 'mudrok:layers': ['mudrok', 'mudrok_buff_01_hit'] };
   function parryFx(e, views) {
     const tgt = views?.get?.(e[4]?.id);
-    if (!tgt || failed || q() === 'low' || !index?.bundles?.common?.includes(PARRY)) return;
-    spawn('common', PARRY, tgt, { owner: null, buff: false, on: tgt.id ?? e[4].id, tag: 'parry' }, { over: true, facing: efacing(tgt) });
+    if (!tgt || failed || q() === 'low') return;
+    const own = BLOCK_FX[e[4].buff];
+    const [b, n] = own && index?.bundles?.[own[0]]?.includes(own[1]) ? own : ['common', PARRY];
+    if (!index?.bundles?.[b]?.includes(n)) return;
+    spawn(b, n, tgt, { owner: null, buff: false, on: tgt.id ?? e[4].id, tag: 'parry' }, { over: true, facing: efacing(tgt) });
   }
 
   /**
@@ -1552,14 +1561,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         const s = slots.get(slot);
         if (s && s.name === name && (s.l ? !s.l.inst.stopping && live.includes(s.l) : !s.done)) { n++; continue; } // kept
         endSlot(slot);
+        const sv = p.on && p.on !== 'point' ? (p.on === 'op' ? op : views.get(o[p.on])) : null;
+        if (p.on && p.on !== 'point' && !sv) continue;
         const rec = { name, l: null, done: false };
         slots.set(slot, rec);
-        const pt = Array.isArray(p.at) ? { x: Number(p.at[0]), y: Number(p.at[1]), z: 0 } : { x, y, z: 0 };
-        spawn(pb.bundle, name, pt, { owner: opId, buff: false, onCaster: true, until: null, tag: 'slot' }, { over: false }).then((l) => {
+        const pt = sv ? (p.orbit ? orbiter(sv, p.orbit) : sv)
+          : Array.isArray(p.at) ? { x: Number(p.at[0]), y: Number(p.at[1]), z: 0 } : { x, y, z: 0 };
+        const on = sv ? ownerOf(sv) : undefined;
+        spawn(pb.bundle, name, pt, { owner: opId, buff: false, onCaster: true, until: null, tag: 'slot', on }, { over: !!sv }).then((l) => {
           rec.done = true;
           if (!l) return;
           if (slots.get(slot) === rec) rec.l = l; else l.inst.stop();
         });
+        // `ready`: played where an empty slot starts again (a projectile's _coolDownReadyEffectOnProjectilePos)
+        const rn = !s && p.ready ? pickName(pb, p.ready) : null;
+        if (rn) spawn(pb.bundle, rn, pt, { owner: null, buff: false, on }, { over: !!sv });
         n++;
         continue;
       }
@@ -1608,10 +1624,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * A point circling unit `v` (a projectile's `_projectileAroundRadius` `r` tiles at `_aroundSpeed` `spd` °/s) at its body
-   * height, alive while it is.
+   * height, alive while it is. With `phase` (°) the circle is the unit's own, shared by its orbiters: one of several
+   * projectiles spread around it (魔王's motes).
    */
-  function orbiter(v, { r, spd }) {
-    const t0 = clockS, w = (spd * Math.PI) / 180, ang = () => w * (clockS - t0);
+  function orbiter(v, { r, spd, phase }) {
+    const t0 = phase != null ? (v._fxOrbitT0 ??= clockS) : clockS, w = (spd * Math.PI) / 180, p0 = ((Number(phase) || 0) * Math.PI) / 180;
+    const ang = () => w * (clockS - t0) + p0;
     return {
       get x() { return v.x + r * Math.cos(ang()); }, get y() { return v.y + r * Math.sin(ang()); },
       get z() { return camRef ? bodyZ(camRef, v, SPAWN_FRAC[2]) : (v.z || 0) + 0.5; }, get alive() { return v.alive !== false && !v.remove; },

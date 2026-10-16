@@ -963,7 +963,10 @@
   → **버프 이펙트 없음**. 켈시 번들의 `kalts2_talent_01`은 땅의 고리(재능 범위 쪽)이고 어디서도 이름으로 참조되지 않아 붙이지 않음.
 - 막을 때(둘 다 같은 노드): `Nodes.BlockDamage.Execute`(RVA 0xBB6960) — `_showDamageNumber` false면 타격을 취소(`Modifier.Cancel`)하고, 블랙보드
   `effect`(=`_specifyBlockEffect`)가 비어 있으면 **`common_buff_parry_01`**을 맞은 유닛에 만든다(`BattleController.CreateEffect`), 소리 신호 `ON_DAMAGE_BLOCK`.
-  `_specifyBlockEffect`는 archet_t_2 null, kalts2_t_2[shield] ""(머드락·니어 더 래디언트 나이트 층도 비어 있음).
+  `_specifyBlockEffect`는 archet_t_2 null, kalts2_t_2[shield] ""(니어 더 래디언트 나이트 층도 비어 있음). 2026-10-16 정정: 노드는 블랙보드 `effect`를
+  `GetStringOrDefault`로 먼저 읽고 `_specifyBlockEffect`는 기본값(10-14 덤프 RVA 0xD949D0) — 머드락 층은 charpack Talents/1 `_buffs`
+  ([recharge]·[init])의 블랙보드 `effect` = **`mudrok_buff_01_hit`**을 물려받는다(층 버프를 그 둘의 CreateBuff가 만듦 [추정: 블랙보드 상속 —
+  같은 층 버프의 HealViaMaxHpRatio도 재능 블랙보드 `hp_ratio`를 씀]) → 아래 「키트 이벤트의 공식 이펙트」 묶음 2.
 - 구현: 시뮬 `damage.js absorbShields`가 횟수형 층이 막을 때 fx `'parry'` {id, buff}를 낸다(모든 `shieldHits` 버프) → `fxgame.js parryFx`가
   common/common_buff_parry_01을 그 유닛에(따라감, `_spawnLocation`대로); 추출이 없으면 아무것도 안 그림(`kinds.js` parry `none`). 아르케토 루프는
   `fxstatus.js STATUS_FX.archet_shield`(상태 키 `talent:archet_shield`, 층이 다하면 꺼짐). 켈시 진입 fx 'shield'는 `src`를 켈시로 달아
@@ -1215,18 +1218,48 @@
   耀骑士临光 모듈 骑士家族의 `undying`)·다른 이벤트가 그림·절차 대체 유지(토큰·적이 보내는 것)·**미판정**. 미판정은 圣聆初雪 눈 타일('snow':
   `SnowAccumulation` `_effectSettings` 칸별 층수 → `sbell2_ground_01`(1)·`_02`(2~4)·`_03`(5), 적이 떠나면 지워짐)
   하나였고 2026-10-16 위 규칙으로 닫힘 — 지금 미판정 없음.
-- 안 한 것: 泥岩 층 루프 `mudrok_buff_01~03_start`(층이 생길 때 — 시뮬 이벤트 없음, 새 이벤트는 골든 이벤트 수를 바꿈), 心烛 선의 방향 확인.
-  魔王 微尘·焰影苇草 이외의 도는 투사체 상시 표시(魔王 微尘 자체, 남은 개수를 시뮬이 안 알림), 卡涅利安 스킬 밖 충전 표시(충전 수가 뷰에 없음),
-  新约能天使 S3 모드 바인딩이 `S3FireToToken`의 cast `angel2_skill_3_begin_start_001`을 S3 공격마다 트는 것.
+- 2026-10-16 묶음 2 — 시뮬이 수를 알리는 이펙트(층·스택·충전·微尘). 키트가 새 fx 이벤트 셋을 낸다(`kinds.js` 셋 다 `none`: 절차 대체 없음; 골든은
+  이 셋의 이벤트 수만 — 로스터 11·본드 11·필드 5 시나리오, 피해·결과 같음):
+  - `'stacks'` {id, buff, n}: 버프의 층·스택 수 → `app.js`가 `UnitView.onStatusCount`로 상태의 `n`을 바꾸고 `fxstatus.js`가 그 수대로 그림.
+    - 泥岩 T1(`mudrok_t_1[init]`·`[recharge]`, max_times 3): 층 버프가 아래부터 `[shield_c]` `mudrok_buff_03_start` · `[shield_b]` `_02_start` ·
+      위 `[shield_a]` `_01_start`(max_times가 1이면 `[shield_c]`가 `_01_start` — 이 모드 데이터는 3뿐), 맞으면 위층부터 깨짐 → `LAYER_FX`(층 수 = 상태
+      `n`, 'parry'마다 하나 줄고 층이 생길 때 'stacks'로 다시 맞춤). 층이 생길 때마다(배치 포함) `mudrok_buff_01_begin` 한 번(`KIT_OFFICIAL.stacks`).
+      막을 때는 `common_buff_parry_01` 대신 블랙보드 `effect` `mudrok_buff_01_hit`(위 「횟수형 护盾 이펙트」 정정, `fxgame.js parryFx` `BLOCK_FX`).
+    - 卡涅利安 S3 충전 표식(`billro_s_3[mark_effect]`, 적에게): `[charge][enhance]` 스택 1 이상 `[part]` `billro_skill_03_buff_03_01`, 5에 `[full]`
+      `_03_02`를 더함(`[part]`는 남음) → `STACK_FX`. 'stacks'는 스택이 바뀔 때만(1…5).
+  - `'charges'` {id, n}: 卡涅利安 스킬 밖 충전(`billro_s_N[eff_cond]`의 스킬 밖 가지, 0.1초마다 `CompareCharSkillAvailableCnt`): 2 → `[full]`
+    `billro_skill_0N_buff_02` + `[half]` `_buff_01_02`(S3 `_03_buff_01_02` + `_03_buff_01_01_02`), 1 → `[half]` `_buff_01`(S3 `_03_buff_01_01`), 0 → 없음;
+    스킬 중엔 `n` −1(스킬 가지는 위 'shell'·'devour'). 키트의 재능 2 루프(0.1초)가 수가 바뀔 때 냄, 렌더는 그녀 몸의 `slot` 둘(`chargeA`·`chargeB`).
+  - `'motes'` {id, n, cap, sk, r, spd}: 魔王 微尘 상시 — 클라에서 微尘은 그녀 둘레를 도는 투사체(`projectile_chr_cetsyr_talent` `_mainEffect`
+    `cetsyr_trail_01`, S1 `_talent_s1` 같음, S2 `_talent_s2` `cetsyr_skill_02_trail_01`, S3 `_talent_s3` `cetsyr_skill_03_trail_01`), 돌아올 때
+    `_coolDownReadyEffectOnProjectilePos` `cetsyr_trail_start`(S2 `cetsyr_skill_02_trail_start`). 키트(4·5티어 둘 다)가 남은 수 `n`·상한 `cap`·스킬 모양
+    `sk`(2·3, 0 재능)·궤도 반지름 `r`·속도 `spd`(°/초, 재능 블랙보드 range_radius 1.15·dynamic_spd 30, S2 outside_radius 2·dynamic_spd 0.9)를 바뀔 때
+    냄(S3는 사라지지 않아 `n` = `cap`) → 렌더가 微尘마다 `slot` 하나를 그녀 둘레로 돌림(`orbit` `phase` = 360°·i/cap, 같은 유닛의 궤도는 시작
+    시각을 나눠 씀), 빈 슬롯이 다시 차면 `ready` 한 번. [추정: 블랙보드 값이 프리팹의 `_projectileAroundRadius` 1·`_aroundSpeed` 150(S2 0.01)을
+    대신함, 고르게 퍼짐·도는 방향, 쓰일 때 사라지는 微尘이 어느 것인지, 배치 때도 `ready`]
+  - 锏 S2 「베기 횟수」(`blkkgt_s_2[add_cnt]`·`[shield]` → `blkkgt_skill_02_shield_01/02`)는 판정 「없음」: 그 버프를 만드는 템플릿·charpack·스킬
+    프리팹이 없고(이 모드 S2 블랙보드에 `shield_max`도 없음 — 본편 S2의 것) 이펙트 번들에도 그 둘이 없다. S2 대상 버프 `[blocked]`·`[not_blocked]`
+    (`blkkgt_s_2[dot]`, 0.01초 간격 2·3번)의 `blkkgt_skill_02_hit_2`는 `_delayToFinish` 0이라 클라에서 거의 바로 끝남 → 안 그림 [추정]. 대신 锏 S1·S2의
+    바인딩 프리팹 13개가 추출에서 빠져 있었다(S1 `blkkgt_skill_01_*`, S2 `blkkgt_skill_02_start_01~06`·`hit_1`) — 같은 꼴로 빠진 空弦 S1·S2
+    11개(같은 이름 틀의 `_B`·`trail_02`까지 13개)와 秋白 S2 `qiubai_skill_02_hit_01`까지 그 프리팹만 추출(`fx_extract.py --bundle … --match`/`--prefab`,
+    `index.json`엔 더해지기만 함). 그 뒤 `local-char-modes.json` 바인딩 이름 중 자기 번들에 추출이 없는 것은 없음(대체 스킬도 고를 수 있어 그려짐).
+- 안 한 것: 心烛 선의 방향 확인. 新约能天使 S3 모드 바인딩이 `S3FireToToken`의 cast `angel2_skill_3_begin_start_001`을 S3 공격마다 트는 것.
 - 확인: 단위 `test/render/kit-event-fx.test.js`. Windows Chrome 디버그 아레나(지금 발동 3번 동안 만들어진 프리팹): 号角 S2
   `horn_skill_02_buff_03_front` 1(스킬 끝에 꺼짐)·S3 `horn_skill_03_buff_02_03_front`, 寒芒克洛丝 S2 `kroos2_skill_02_buff_01~03`, 隐德来希 S3
   `etlchi_skill_03_ghosting_01` 2·`etlchi_skill_03_line_01` 2, 妮芙 S2 `nymph_talent_buff_01`, 오류 0. 阿罗玛 S2 착지는 허수아비가 안 떠 못 봄.
-  [화면 미확인: 재능 순간(号角·圣聆初雪 치명상, 泥岩 층, 烛煌 쓰러짐, 伊内丝 影哨)과 阿罗玛 착지 — 아레나에서 바로 못 만듦; 모양·자리 공식 녹화 대조]
+  [화면 미확인: 재능 순간(号角·圣聆初雪 치명상, 泥岩 층 깨짐, 烛煌 쓰러짐, 伊内丝 影哨)과 阿罗玛 착지 — 아레나에서 바로 못 만듦; 모양·자리 공식 녹화 대조]
   2026-10-16 정리분(같은 아레나): 魔王 S2 `cetsyr_skill_02_hit_01` 30, 卡涅利安 S1·S3 충전 사용 → [full]+[half] 뒤 [half](`_buff_01` 없음),
   泥岩 S3 `sleep`·`range` → `awake`·`awake_02`·`mudrok_skill_03_buff`, 新约能天使 S3 `begin_trail_01` 2·`begin_range_01` 2(포격 2번)·재능
   `angel2_buff_01_trail_01`, 焰影苇草 `reed2_skill_02_fireball_01`(스킬 끝에 꺼짐), 寒檀 `sntlla_skill_02_start_01`, 洛洛 `rockr_token_overload_01`,
   歌蕾蒂娅 `glady_skill_03_range_03` 15, 蕾缪安 `lemuen_talent_buff_02`, 流明 `lumen_skill_01_range`, 오류 0. [화면 미확인: 缇缇 S3 깨어남·선,
   魔王 동료 微尘·S3 나눔, 缪尔赛思 流形 전환, 隐德来希 重盈 — 아레나에서 못 만듦; 焰影苇草 불덩이의 도는 모양 공식 녹화 대조]
+  묶음 2(단위 `test/sim/fx-count-events.test.js`·`kit-event-fx` 「slots on and around a unit」·`status-buff-fx`; 같은 아레나, 5초마다 살아 있는 프리팹):
+  泥岩 `mudrok_buff_03_start` → 9초에 `_01_begin`과 `_02_start` 더함 → 18초에 `_01_start` 더함(`_01_begin` 3번: 배치·층 둘); 卡涅利安 S1·S3 충전 1칸
+  `billro_skill_01_buff_01`·`billro_skill_03_buff_01_01` 뒤 자동 발동으로 스킬 가지; 魔王 `cetsyr_trail_01` 3(돌아가며)·`cetsyr_trail_start` 3, S2 발동
+  → `cetsyr_skill_02_trail_01` 6·`cetsyr_skill_02_trail_start`(빈 슬롯·돌아오는 微尘마다); 锏 S1 `blkkgt_skill_01_start_01~03`·S2 `start_01~06`(방향
+  `_04_h`)·`hit_1`, 空弦 S1 전부·S2 `start`·`_02`·`_03`, 秋白 S2 `qiubai_skill_02_hit_01`; 오류 0. [화면 미확인: 卡涅利安 충전 2칸·S3 표식 5스택(아레나는
+  1칸에서 자동 발동, 충전 S3 표식은 단위만), 泥岩 막을 때 `mudrok_buff_01_hit`(샌드백이 안 때림), 微尘 궤도의 모양·방향 공식 녹화 대조, 空弦 S2 꼬리·명중
+  `archet_skill_02_trail_01`·`_hit`(샌드백 하나 아레나에서 안 나옴)]
 
 ### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
 

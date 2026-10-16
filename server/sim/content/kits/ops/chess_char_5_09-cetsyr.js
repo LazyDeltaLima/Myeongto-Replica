@@ -70,9 +70,19 @@ export default {
           const cd = num(t0.cooldown, 6), dur = num(t0.talent_duration, 6), mul = num(t0['attack@trait_mul'], 1.5);
           const motes = new Array(cnt).fill(0); // per orbit slot: the time its mote is back (vanished → respawn after cd)
           const reach = orbit + MOTE_HIT_RADIUS + 0.01;
-          battle.on('deploy', (c) => { if (c.unit === unit) motes.fill(0); }, { owner: unit });
+          battle.on('deploy', (c) => { if (c.unit === unit) { motes.fill(0); unit.mem.motesShown = null; } }, { owner: unit });
+          // the motes there now, for the client's orbiting projectiles (render/fx/kitofficial.js 'motes'; `sk` 3 under her
+          // skill, its motes never vanish — projectile_chr_cetsyr_talent_s3; the orbit's radius `r` and speed `spd` °/s)
+          const announce = () => {
+            const sk = unit.skill?.active ? 3 : 0, n = sk ? cnt : motes.filter((t) => t <= battle.time + 1e-9).length;
+            const key = `${n}/${cnt}/${sk}`;
+            if (key === unit.mem.motesShown) return;
+            unit.mem.motesShown = key;
+            battle.fx('motes', { x: unit.x, y: unit.y, id: unit.id, n, cap: cnt, sk, r: orbit, spd: num(t0.dynamic_spd, 30) });
+          };
           whileOn(battle, unit, AURA_IV, () => {
             if (!cnt) return;
+            announce();
             const keep = !!unit.skill?.active; // S3: "微尘"不再消失
             // "微尘"碰撞友方干员: operators only; a mote never collides with an operator already under a mote effect
             const cands = battle.alliesInRadius(unit.x, unit.y, reach, null).filter((a) => a !== unit && isOp(a) && !a.findBuff('cetsyr:mote'));
@@ -95,6 +105,7 @@ export default {
               if (!keep) motes[k] = battle.time + cd;
               battle.fx('mote', { x: hit.x, y: hit.y, id: hit.id, src: unit.id });
             }
+            announce();
           });
           // "受到魔王特性效果提升至1.5倍": his trait's 生命回复速度 on that operator (professions.js bardRegen hook)
           battle.on('bardRegen', (c) => {
