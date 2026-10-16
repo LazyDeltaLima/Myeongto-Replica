@@ -63,6 +63,7 @@ import { installRestartNotice } from './ui/restartNotice.js'; // the deploy's re
 import { installGeneration, genUrl } from './ui/generation.js'; // the deploy's server generation (no cut matches)
 import { installMatchQueue } from './ui/matchQueue.js'; // 랜덤 매칭 (server/matchmaking.js)
 import { installFeedback } from './ui/feedback.js'; // local patch: whether the server keeps feedback (welcome)
+import { installGpuNotice } from './ui/gpuNotice.js'; // hardware acceleration off: say where to turn it on
 import { installResources, ResourceHost } from './resources.js';
 import { emoteSet } from '../../shared/emote-art.js';
 import { initLang, useLang, tickerText } from './ui/lang.js';
@@ -458,6 +459,7 @@ async function boot() {
   await Promise.all([waitForFonts(1200), connectWhenReady, langReady]);
   const root = document.getElementById('app');
   render(html`<${App} />`, root);
+  installGpuNotice({ store }); // after langReady: the toast's text is translated when it is shown
 
   const splash = document.getElementById('boot');
   if (splash) {

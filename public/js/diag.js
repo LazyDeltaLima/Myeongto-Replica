@@ -31,6 +31,7 @@
 // Report keys are English on purpose: the text is read by developers and searched in issues, whatever the UI language.
 
 import { APP_VERSION } from '../../shared/constants.js';
+import { gpuStatus } from './gpu.js';
 
 export const LOG_MAX = 40;
 export const STACK_LINES = 6;
@@ -314,7 +315,8 @@ export function buildDiagnostics(input) {
   lines.push(`version: ${input.version ?? APP_VERSION}`);
   lines.push(`time: ${new Date(now).toISOString()} | page open ${spanOf(now - (input.pageStart ?? pageStart))}`);
   if (env.ua) lines.push(`browser: ${env.ua}`);
-  if (env.gpu) lines.push(`gpu: ${env.gpu}`);
+  // gpu.js: a software renderer means hardware acceleration is off (or the GPU / driver is blocklisted)
+  if (env.gpu) lines.push(`gpu: ${join(env.gpu, env.gpuAccel === 'software' ? 'software rendering' : null)}`);
   lines.push(`device: ${join(env.viewport, env.dpr ? `@${env.dpr}x` : null, env.touch ? 'touch' : null, env.cores ? `${env.cores} threads` : null,
     env.memoryGB ? `${env.memoryGB} GB` : null, env.lang ? `lang ${env.lang}` : null, env.uiLang ? `ui ${env.uiLang}` : null,
     env.standalone ? 'home-screen app' : null, env.sw ? 'resource worker' : null) || 'unknown'}`);
@@ -381,24 +383,16 @@ export function buildDiagnostics(input) {
   return text;
 }
 
-let gpuName;
 /** What the report says about this browser and device (null fields stay out). */
 export function browserEnv() {
   const g = globalThis;
-  if (gpuName === undefined) {
-    gpuName = null;
-    try {
-      const cv = g.document?.createElement('canvas');
-      const gl = cv && (cv.getContext('webgl2') || cv.getContext('webgl'));
-      const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
-      gpuName = gl ? String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)) : 'no WebGL';
-    } catch { gpuName = null; }
-  }
+  const gpu = (() => { try { return g.document ? gpuStatus() : null; } catch { return null; } })();
   let uiLang = null;
   try { uiLang = g.document?.documentElement?.lang || null; } catch { /* ignore */ }
   return {
     ua: g.navigator?.userAgent ?? null,
-    gpu: gpuName,
+    gpu: gpu ? (gpu.accel === 'none' ? 'no WebGL' : gpu.renderer) : null,
+    gpuAccel: gpu?.accel ?? null,
     viewport: Number.isFinite(g.innerWidth) ? `${g.innerWidth}x${g.innerHeight}` : null,
     dpr: g.devicePixelRatio ?? null,
     touch: !!(g.matchMedia && g.matchMedia('(pointer: coarse)').matches),

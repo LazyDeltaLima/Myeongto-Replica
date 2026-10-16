@@ -131,6 +131,7 @@ import { ImpostorAtlas } from './impostor.js';
 import { loadBoard3d, webgl2Available } from './board3d/load.js';
 import { createRetry3d } from './app/retry3d.js';
 import { noteRender } from '../diag.js';
+import { webgl2Missing } from '../gpu.js';
 import { BoardScene } from './board3d/scene.js';
 import { loadOfficialScene } from './board3d/official.js'; // local patch
 import { unionAreas } from './board3d/layout.js';
@@ -536,7 +537,7 @@ export async function createFieldView(host, options = {}) {
       load3d = null;
       const r = pending ? await pending
         : gpu3d() ? await loadBoard3d(assets, { retry }).catch((err) => ({ status: 'retry', why: String(err?.message || err) }))
-          : { status: 'retry', why: 'WebGL2 unavailable' };
+          : { status: 'retry', why: webgl2Missing() };
       if (destroyed || recover.off || board3d) return !!board3d;
       if (r.status !== 'ok') {
         board3dError = r.why;
@@ -546,7 +547,7 @@ export async function createFieldView(host, options = {}) {
       }
       recover.THREE = r.THREE; recover.pack = r.pack;
     } else if (!gpu3d()) {
-      board3dError = 'WebGL2 unavailable';
+      board3dError = webgl2Missing();
       noteRender('3d failed', board3dError);
       again3d();
       return false;

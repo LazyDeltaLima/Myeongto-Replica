@@ -25,6 +25,7 @@ import { LangToggle, machineTranslationNote } from './lang.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
 import { copyText } from './clipboard.js';
+import { GpuNote } from './gpuNotice.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -292,6 +293,7 @@ export function SettingsModal({ open, onClose }) {
           </div>
         </div>
         <${UiScaleSetting} />${/* local patch */ ''}
+        <${GpuNote} />
       <//>
       <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
       <${DiagSection} />

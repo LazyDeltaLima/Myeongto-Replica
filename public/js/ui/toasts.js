@@ -125,6 +125,7 @@ export function ToastHost() {
   const [, force] = useReducer((c) => c + 1, 0);
   useEffect(() => {
     listeners.add(force);
+    if (toasts.length) force(); // a toast shown between this host's first render and its effect
     return () => listeners.delete(force);
   }, []);
   return html`

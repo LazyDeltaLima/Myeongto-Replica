@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1285 of 1503 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1287 of 1505 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1087,6 +1087,8 @@
   "附上本场战斗": "이 전투 첨부",
   "开发者可以用附上的战斗数据重现这场战斗。": "첨부한 전투 데이터로 개발자가 이 전투를 다시 재생할 수 있습니다.",
   "已复制诊断信息，可以粘贴到 GitHub issue 中": "진단 정보를 복사했습니다. GitHub issue에 붙여 넣어 주세요",
+  "浏览器的硬件加速似乎已关闭（或显卡被浏览器停用），画面可能无法显示或很卡。请在浏览器设置中开启「使用图形加速」后重启浏览器。": "브라우저의 하드웨어 가속이 꺼져 있는 것 같습니다(또는 브라우저가 그래픽 카드를 쓰지 않도록 막았습니다). 화면이 나오지 않거나 매우 느릴 수 있습니다. 브라우저 설정에서 「그래픽 가속 사용」을 켠 뒤 브라우저를 다시 시작해 주세요.",
+  "此浏览器无法使用 WebGL，战场只能以简化画面显示。请在浏览器设置中开启硬件加速（图形加速），或换用最新版 Chrome / Edge / Firefox。": "이 브라우저에서는 WebGL을 쓸 수 없어 전장이 간단한 화면으로만 표시됩니다. 브라우저 설정에서 하드웨어 가속(그래픽 가속)을 켜거나, 최신 Chrome / Edge / Firefox를 사용해 주세요.",
   "无法写入剪贴板，请手动复制下面的内容": "클립보드에 쓸 수 없습니다. 아래 내용을 직접 복사해 주세요",
   "诊断信息": "진단 정보",
   "feedback::错误": "버그",
