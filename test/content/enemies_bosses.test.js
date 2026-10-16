@@ -1767,6 +1767,25 @@ test(`${nm(BUS)}: leaked, its passengers get off at the exit and leak too`, () =
   assert.ok(!o.alive && o.removeReason === 'leak');
 });
 
+test(`${nm(BUS)}: its model form follows the passengers — 'half' from ${tb(BUS, 'bus.half_cnt')}, 'full' at ${tb(BUS, 'bus.max_cnt')}, none once they get off (silent 'phase' fx)`, () => {
+  const h = arena();
+  h.step();
+  const bus = put(h, BUS, [10, 7], { move: true });
+  const forms = () => h.eventsOf('fx').filter((f) => f[1] === 'phase' && f[4].id === bus.id).map((f) => [f[4].kind, f[4].form]);
+  put(h, 'enemy_1007_slime', [10, 7]);
+  h.step();
+  assert.equal(bus.form ?? null, null, 'one passenger: the default skin');
+  put(h, 'enemy_1007_slime', [10, 7]);
+  h.step();
+  assert.equal(bus.form, 'half');
+  for (let i = 0; i < 3; i++) put(h, 'enemy_1007_slime', [10, 7]);
+  h.step();
+  assert.equal(bus.form, 'full');
+  killed(h, bus);
+  assert.equal(bus.form, null);
+  assert.deepEqual(forms(), [['passengers', 'half'], ['passengers', 'full'], ['passengers', null]]);
+});
+
 test(`${nm('enemy_10001_trslim')}: below half HP it runs (move ×${1 + skb('enemy_10001_trslim', 'StartRun').bb.move_speed}, unblockable ${skb('enemy_10001_trslim', 'StartRun').bb.block_free_time} s)`, () => {
   const h = arena();
   h.step();

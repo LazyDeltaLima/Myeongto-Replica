@@ -1271,9 +1271,13 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   경로 구간(`legs`·`legIdx`·`waitLeft`)을 복사한다. 감속은 버프 `ab:bus` 하나(`moveMul = max(0, 1 + n × move_speed)`), 하한 0.1은 엔진 전역 하한
   (아래 「이동 속도 하한 0.1」)이 맡는다. 클라처럼 탄 채로 사라진 승객의 스택은 남는다.
   [추정] 원 안에 여럿이면 가까운 순(같으면 먼저 나온 적), 적의 판정 반경 없이 중심점 거리. 버든비스트가 숨어 있는 동안(DISAPPEAR 구간)은 태우지 않는다.
-- 아직 없음: 스킨 `half`·`full` 표시(렌더).
-- 확인: `test/content/enemies_bosses.test.js` 「enemy_10159_mntrjn …」 5건(탑승 대상·감속·최대 5명·기절 중 안 태움·격파 하차·도달 하차),
-  `test/sim/bus-passengers.test.js`(실제 판: 수배 카드 → 실제 웨이브에서 탑승·감속·격파 하차). golden: 이 적이 나오는 roster-012·roster-033·standin-05가 움직였다.
+- 외형(로컬): 시뮬이 스택 수를 모델 형태 `half`(2 이상)·`full`(5)·없음으로 낸다(`e.form`, 소리·그림 없는 `phase` fx `kind: 'passengers'`; 스냅샷
+  `UnitInfo.form`이라 나중에 만든 화면도 그 형태로 시작). 렌더는 `render/units.js` `SKIN_FORMS`로 그 형태를 같은 스켈레톤의 스파인 스킨으로 입힌다
+  (`SpineActor.setSkin`: 기본 스킨 = 자전거와 운전자(GuysA), `Half` = 승객 둘(GuysB·GuysD), `Full` = 다섯(GuysB~GuysF); 클립은 그대로).
+  격파·도달로 모두 내리면 기본 스킨으로 돌아간다([추정] 쓰러지는 동안 승객 모습이 사라짐 — 하차마다 스택이 줄고 `mark`가 스택 수로 스킨을 고르므로; 쓰러지는 중에도 `mark`가 도는지는 안 읽음).
+- 확인: `test/content/enemies_bosses.test.js` 「enemy_10159_mntrjn …」 6건(탑승 대상·감속·최대 5명·기절 중 안 태움·격파 하차·도달 하차·형태),
+  `test/sim/bus-passengers.test.js`(실제 판: 수배 카드 → 실제 웨이브에서 탑승·감속·격파 하차), `test/render/bus-skin.test.js`(실제 스켈레톤에서
+  스킨별 승객 슬롯, 형태 fx → 스킨, 나중에 만든 화면). golden: 이 적이 나오는 roster-012·roster-033·standin-05가 움직였다(형태 fx 2개씩). [화면 미확인]
 
 ## 이동 속도 하한 0.1 (2026-10-16, PRTS 数值范围)
 - 공식: PRTS 数值范围 MOVE_SPEED 최소 0.1, PRTS 游戏数据基础 移速의 이동 속도 하한 0.1. 감속·MULTIPLIER가 아무리

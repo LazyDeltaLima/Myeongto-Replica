@@ -6,8 +6,9 @@
 //   form?, skillIndex?, moduleId?, items?, standInFor?, diy? }  (standInFor = the replaced operator's charId of a 补位
 //   stand-in; diy = a 自选 piece's pick { charId, skillIndex, uniEquipId } — defId is its slot, spine / avatar the operator's;
 //   form = the unit's current model form — an enemy's, content/enemies/helpers.js setForm:
-//   掠海漂移体 'crawl', 暴鸰 'bombed', 转译基底·α's forms …; a 傀儡师 fighting as its 替身 'doll', professions.js — a view built
-//   after the change, a field opened mid-battle, draws it: render/units.js FORMS)
+//   掠海漂移体 'crawl', 暴鸰 'bombed', 转译基底·α's forms, 伊利昂的木驮兽's riders 'half' / 'full' …; a 傀儡师 fighting as its
+//   替身 'doll', professions.js — a view built after the change, a field opened mid-battle, draws it: render/units.js FORMS,
+//   SKIN_FORMS)
 //   dir = 'UP'|'RIGHT'|'DOWN'|'LEFT' (allies: the deploy direction, sim/dir.js); facing = its horizontal sign (±1).
 //   items = an ally operator's equipped item ids (absent without any).
 // flags bits & anim codes come from shared/constants.js (UF / ANIM); an enemy's stealth bit = its 隐匿 is on (not while it

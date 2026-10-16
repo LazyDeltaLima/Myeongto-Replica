@@ -39,6 +39,7 @@
 //                                         (no attack cuts the change clip short); `end` = { clip, in, roles? }: a
 //                                         closing clip timed to end `in` s from now (a 重生's last clip ends with the
 //                                         重生), landing in `roles`
+//   setSkin(name)                         a Spine skin over the default one (render/units.js SKIN_FORMS), null: default only
 //   update(dt)                            advances the skeleton (autoUpdate is off: one clock for everything)
 //   poseHeld()                            true while the pose cannot change (render/units.js then neither re-poses nor
 //                                         redraws the model, only advances `clock`)
@@ -302,6 +303,26 @@ export class SpineActor {
     if (change && this._changeClips(change).length) this._change(change, hold);
     else if (this.mode === 'base' || this.mode === 'held') { this.mode = 'base'; this._play(this._baseName(), true); }
     else if (this.mode === 'stun' && this.has(this.roles.stun?.loop)) this._play(this.roles.stun.loop, true);
+  }
+
+  /**
+   * Wear the skeleton's Spine skin `name` over its default skin (null: the default skin alone) — render/units.js
+   * SKIN_FORMS. A skin this skeleton lacks changes nothing. The slots go back to their setup attachments through the new
+   * skin (Skeleton.setSkin alone only swaps the attachments the old skin had on), and the next update re-poses a held
+   * model (poseHeld).
+   */
+  setSkin(name) {
+    const sk = this.spine?.skeleton;
+    if (!sk) return;
+    let skin = null;
+    if (name) {
+      try { skin = sk.data?.findSkin?.(name) || null; } catch { skin = null; }
+      if (!skin) return;
+    }
+    if (sk.skin === skin) return;
+    sk.setSkin(skin);
+    sk.setSlotsToSetupPose();
+    this._applied = false;
   }
 
   /**

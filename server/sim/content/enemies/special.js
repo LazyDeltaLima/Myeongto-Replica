@@ -229,10 +229,16 @@ function kitExposeOnHit(ab) {
  * are empty). The cart's spine skin (default → half at `bus.half_cnt` → full at max) is not drawn yet.
  */
 function kitBus(ab) {
-  const max = T(ab, 'bus.max_cnt') ?? 0, per = T(ab, 'bus.move_speed') ?? 0;
+  const max = T(ab, 'bus.max_cnt') ?? 0, per = T(ab, 'bus.move_speed') ?? 0, half = T(ab, 'bus.half_cnt') ?? Infinity;
   const slow = (b, e, a) => {
     if (a.stacks <= 0) b.removeBuff(e, 'ab:bus');
     else b.addBuff(e, { key: 'ab:bus', persist: true, mods: { moveMul: Math.min(1, Math.max(0, 1 + a.stacks * per)) } });
+    // enemy_mntrjn_mark: the Spine skin by the stack count — default, Half (half_cnt), Full (max_cnt) — as the model form
+    // 'half' / 'full' (render/units.js SKIN_FORMS); a silent 'phase' fx (render/fx/kinds.js SILENT_PHASES)
+    const form = max > 0 && a.stacks >= max ? 'full' : a.stacks >= half ? 'half' : null;
+    if ((e.form ?? null) === form) return;
+    e.form = form;
+    b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'passengers', form });
   };
   const board = (b, e, o) => {
     if (o === e || !o.alive || o.hidden || o.motion === 'FLY' || o.isBoss || (o.def && o.def.rank === 'BOSS')) return false;
@@ -273,6 +279,7 @@ function kitBus(ab) {
         a.stacks--;
       }
       a.pax = [];
+      slow(b, e, a);
     },
   }];
 }

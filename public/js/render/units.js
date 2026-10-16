@@ -428,6 +428,13 @@ export const EL_BAR = Object.freeze({ icon: 0.15, min: 8, max: 15, enemy: 0.8, g
  * clips while it is on. Switched at once (UnitView.sync, and for a model loaded later the load callback).
  */
 export const STEALTH_FORMS = Object.freeze({ enemy_9008_acbunn: 'revealed' });
+/**
+ * Enemy forms drawn as a Spine skin of the same skeleton and clips (UnitView.setForm → SpineActor.setSkin), per Spine id:
+ * form → skin. 伊利昂的木驮兽 (server/sim/content/enemies/special.js kitBus, docs/rules/sim.md 「나무 버든비스트 승객」): its
+ * buff enemy_mntrjn_mark picks the skin by the passenger stacks — the default skin (the bike and its driver), Half from
+ * `half_cnt` 2 (two riders, GuysB / GuysD), Full at `max_cnt` 5 (five, GuysB–GuysF).
+ */
+export const SKIN_FORMS = Object.freeze({ enemy_10159_mntrjn: Object.freeze({ half: 'Half', full: 'Full' }) });
 
 /**
  * 要塞 (fortress) operators whose blocked and unblocked attacks are two clips of one role, per Spine id: [melee, ranged]
@@ -913,6 +920,8 @@ export class UnitView {
       // down with facing UP, §22.1, is built a frame later; a model rebuilt while it is down)
       const f = this._formSpec() || (this.alive ? null : this._dieForm);
       if (f) this.actor.setForm(f.roles);
+      const skins = SKIN_FORMS[id];
+      if (skins && this.form) this.actor.setSkin(skins[this.form] ?? null);
       // replay current state (a dead model resumes its Die clip where it would be — a knocked-down one holds its end)
       if (!this.alive) {
         const d = this.actor.die(!!this._dieSkill);
@@ -954,12 +963,14 @@ export class UnitView {
   setForm(kind, fx = null) {
     const k = typeof kind === 'string' ? kind : null;
     if (k === this.form) return;
-    if (k && !FORMS[this.info.spine || this.info.defId]?.[k]) return;
+    const id = this.info.spine || this.info.defId;
+    if (k && !FORMS[id]?.[k] && !SKIN_FORMS[id]?.[k]) return;
     const prev = this._formSpec();
     this.form = k;
     this.info.form = k;
     const f = this._formSpec();
     if (!this.actor) return;
+    if (SKIN_FORMS[id]) this.actor.setSkin(SKIN_FORMS[id][k] ?? null);
     const dur = fx && Number(fx.dur);
     let next = f && f.next ? FORMS[this.info.spine || this.info.defId]?.[f.next]?.roles || null : null;
     if (next && typeof f.roles.die === 'string') next = { ...next, die: f.roles.die };

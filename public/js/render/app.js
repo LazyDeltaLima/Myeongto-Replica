@@ -120,7 +120,7 @@ import { fxForm } from '../../../shared/protocol.js';
 import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect } from './projection.js';
 import { SnapshotBuffer, frameTime } from './interp.js';
 import { TileField } from './tiles.js';
-import { UnitView, ItemView, DeviceView, FORMS, syncView } from './units.js';
+import { UnitView, ItemView, DeviceView, FORMS, SKIN_FORMS, syncView } from './units.js';
 import { createInfectionMarks } from './infectionMark.js'; // local patch: the red 「!!!」 over units on 活性源石
 import { FxSystem, ensureDamageFonts } from './fx.js';
 import { createDragController, pieceTile, dragStandTile } from './drag.js';
@@ -1796,7 +1796,7 @@ export async function createFieldView(host, options = {}) {
         const late = form !== undefined ? LATE.get(e) || 0 : 0;
         if (form !== undefined) {
           const inf = infos.get(e[4].id);
-          if (inf && (form === null || FORMS[inf.spine || inf.defId]?.[form])) inf.form = form;
+          if (inf && (form === null || FORMS[inf.spine || inf.defId]?.[form] || SKIN_FORMS[inf.spine || inf.defId]?.[form])) inf.form = form;
           const x = late > 0 ? { ...e[4], late, ...(Number(e[4].dur) > 0 ? { dur: Math.max(0, Number(e[4].dur) - late) } : {}) } : e[4];
           views.get(e[4].id)?.setForm?.(form, x);
         }
