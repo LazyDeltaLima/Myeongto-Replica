@@ -20,7 +20,9 @@ Usage:
     python fx_extract.py --game <Arknights_Data> --cab-index .cache/fx-cab-index.json --bundle chen3 [--prefab NAME ...]
                          [--match REGEX] [--list] [--all-skins] [--prune]
     python fx_extract.py … --bundle wang_token --pack pkgrps/btl_pfb_fx_token_3.ab --match '^token_wang_'   (望's 棋子)
-Default skin only unless --all-skins; --prune deletes textures / meshes no effect uses any more.
+    python fx_extract.py … --coverage .cache/fx-coverage.json [--bundle chen3]   (what the pipeline leaves out, fx_coverage.py)
+Default skin only unless --all-skins; --prune deletes textures / meshes no effect uses any more. Every extraction ends with
+the parts of its prefabs the pipeline leaves out (fx_coverage.py): `NOT HANDLED` lines are new — look before trusting the effect.
 Needs UnityPy + lz4 (requirements.txt); LZ4AK bundles are decoded by aklz4.py.
 """
 import argparse
@@ -34,6 +36,7 @@ import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from fx_coverage import Coverage  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'public' / 'assets' / 'local' / 'fx'
@@ -63,6 +66,22 @@ FXDELAY_SCRIPT = 4526430437831129839
 # 2026-10-11, decompile check: the MonoScript PathID of Torappu.Battle.Effects.ProjectileEffect (projectile_effect; the root
 # of a projectile's `_mainEffect`: 202 of the extracted prefabs of the EN client, the same id in the CN client)
 PROJECTILE_EFFECT_SCRIPT = 4524653206994915020
+# 2026-10-16: the MonoScript PathID of Torappu.Fx.ParticleEffect (root_effect, which recognises it by its shape; fx_coverage
+# checks that every root carrying one was recognised)
+PARTICLE_EFFECT_SCRIPT = 6196809664641094801
+# (2026-10-16) Unity's built-in particle materials (an anonymous bundle, anon/*.bin): read as no material, as before the CAB
+# index knew that bundle — nearly all sit on empty container systems (227 of 234); fx_coverage lists the 7 that emit
+UNITY_DEFAULT_MATERIALS = {'Default-Particle', 'Default-ParticleSystem'}
+# (2026-10-16) the `mount` keys and the FollowMountPoint fields they come from, in the field order
+MOUNT_FIELDS = {'type': '_mountPointType', 'followScaleSign': '_followScaleSign', 'followScale': '_followScale',
+                'pauseWhenInvalid': '_pauseWhenMountPointInvalid', 'onlyPauseWhenInvalid': '_onlyPauseWhenMountPointInvalid',
+                'keepOriginRotation': '_keepOriginRotation', 'useBehaviourPause': '_useBehaviourPause'}
+# (2026-10-16) the root_effect keys and the ParticleEffect fields they are raw-read from (fx_coverage cross-checks them
+# against the type tree when it reads)
+ROOT_EFFECT_FIELDS = {'delayToPlay': '_delayToPlay', 'delayToFinish': '_delayToFinish', 'randomDelay': '_randomPlayDelay',
+                      'useSpeed': '_usePlaybackSpeed', 'limited': '_limitedPlaybackSpeed', 'rotate': '_rotateType',
+                      'spawn': '_spawnLocation', 'leftIsDefault': '_leftIsDefault', 'body': '_useBodyRotation',
+                      'mainDir': '_mainDir', 'overwrite': '_overwriteHeight', 'heightOffset': '_heightOffset'}
 
 
 def r4(v):
@@ -93,7 +112,9 @@ def build_cab_index(game, out):
         root = Path(game) / d
         for dp, _dn, fn in os.walk(root):
             for f in fn:
-                if not f.endswith('.ab'):
+                # (2026-10-16) also the anonymous bundles `anon/*.bin`: one holds the shared particle material of 130
+                # effect bundles (CAB-9675…, 32 renderers of aglina alone) — without it those particles were dropped
+                if not f.endswith(('.ab', '.bin')):
                     continue
                 p = Path(dp) / f
                 try:
@@ -365,6 +386,46 @@ def crc32(s):
     return zlib.crc32(s.encode('utf-8')) & 0xffffffff
 
 
+def emits(ps):
+    """(2026-10-16) whether a ParticleSystem type tree emits anything by itself: emission on with a rate or a burst."""
+    em = ps.get('EmissionModule') or {}
+    if not em.get('enabled'):
+        return False
+    rate = (em.get('rateOverTime') or {})
+    return bool(rate.get('scalar')) or any(((b.get('countCurve') or {}).get('scalar') or 0) > 0
+                                           for b in (em.get('m_Bursts') or [])[:em.get('m_BurstCount', 0)])
+
+
+def json_diff(a, b, path='', out=None, limit=20):
+    """(2026-10-16, fx_coverage) the paths where two JSON values differ, list indices written `[]` (`nodes[].mesh`): a key
+    only one side has, or a different value; at most `limit`."""
+    out = set() if out is None else out
+    if len(out) >= limit:
+        return out
+    if isinstance(a, dict) and isinstance(b, dict):
+        for k in set(a) | set(b):
+            p = f'{path}.{k}' if path else k
+            if k not in a or k not in b:
+                out.add(p + (' (new)' if k not in a else ' (gone)'))
+            else:
+                json_diff(a[k], b[k], p, out, limit)
+    elif isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+        for x, y in zip(a, b):
+            json_diff(x, y, path + '[]', out, limit)
+    elif a != b and not (isinstance(a, (int, float)) and isinstance(b, (int, float)) and abs(a - b) <= 1e-4):
+        out.add(path or '(root)')
+    return out
+
+
+def type_paths(d, prefix=''):
+    """The dotted paths of a type tree's nested fields (lists not entered) — the names a Mecanim binding's crc32 is of."""
+    for k, v in d.items():
+        p = f'{prefix}{k}'
+        yield p
+        if isinstance(v, dict):
+            yield from type_paths(v, p + '.')
+
+
 def sub_emitters(nodes, pss):
     """(2026-10-14) Each extracted system's `mods.sub` emitters → { node, type, props, p }: `pss` maps a ParticleSystem path id
     to its node. An emitter outside the prefab or a node drawing nothing (no `ps`) is dropped, an empty list with it."""
@@ -397,6 +458,10 @@ class Extractor:
         self.textures = {}   # path_id/name key -> file name
         self.meshes = {}
         self.builtin = None  # the client's unity default resources, loaded on first use (mesh_ref)
+        # 2026-10-16: what the run meets and the pipeline leaves out (fx_coverage.py; the dump names unknown scripts)
+        self.cov = Coverage(dump=ROOT / '.cache' / 'il2cpp' / 'dump.cs')
+        self.shader_props = {}   # shader path id -> [(name, type, defaults)] (Coverage.material)
+        self.dry = False         # --coverage: no texture / mesh file written
 
     def load(self, bundle_rel):
         files = [bundle_path(self.game, bundle_rel)]
@@ -412,6 +477,13 @@ class Extractor:
                     for e in getattr(sf, 'externals', []):
                         cab = e.path.split('/')[-1]
                         rel = self.cab.get(cab)
+                        if rel and not (self.game / rel).exists():
+                            # 2026-10-16: a client update moves bundles (PersistentData → StreamingAssets): an old index
+                            # loses their textures without a word — fx_coverage `dependency`
+                            self.cov.dependency(f'{cab} → {rel}: the file is gone (rebuild the index: --build-cab-index)', bundle_rel)
+                            continue
+                        if not rel and cab.upper().startswith('CAB-'):
+                            self.cov.dependency(f'{cab}: not in the CAB index (rebuild it: --build-cab-index)', bundle_rel)
                         if rel:
                             p = str(self.game / rel)
                             if p not in seen:
@@ -471,7 +543,7 @@ class Extractor:
             return self.textures[key]
         name = key + ('.png' if self.png else '.webp')
         p = out / 'tex' / name
-        if not p.exists():
+        if not p.exists() and not self.dry:
             p.parent.mkdir(parents=True, exist_ok=True)
             try:
                 img = obj.read().image
@@ -521,7 +593,7 @@ class Extractor:
             data.update(bi=bi, bw=bw, bind=bind)
         p = out / 'mesh' / (key + '.json')
         p.parent.mkdir(parents=True, exist_ok=True)
-        if not p.exists():   # 2026-10-10: the same key is the same mesh — a shared file is never rewritten
+        if not p.exists() and not self.dry:   # 2026-10-10: the same key is the same mesh — a shared file is never rewritten
             p.write_text(json.dumps(data, separators=(',', ':')))
         self.meshes[key] = key
         return key
@@ -554,12 +626,53 @@ class Extractor:
                              'offset': [r4(te['m_Offset']['x']), r4(te['m_Offset']['y'])]}
         floats = {n: r4(v) for n, v in pairs(props['m_Floats'])}
         colors = {n: color(v) for n, v in pairs(props['m_Colors'])}
+        self.cov.material(shader, self.declared_props(sh),
+                          {n for n, te in pairs(props['m_TexEnvs']) if (te.get('m_Texture') or {}).get('m_PathID')},
+                          {**floats, **colors})
         mats[key] = {'shader': shader, 'tex': tex, 'floats': floats, 'colors': colors,
                      'queue': d.get('m_CustomRenderQueue', -1), 'keywords': d.get('m_ValidKeywords') or d.get('m_ShaderKeywords')}
         return key
 
+    def declared_props(self, sh):
+        """(2026-10-16, fx_coverage) a shader's declared properties [(name, type, [4 defaults])], cached by shader; [] when
+        its type tree does not read."""
+        if sh is None:
+            return []
+        if sh.path_id not in self.shader_props:
+            try:
+                ps = sh.read_typetree()['m_ParsedForm']['m_PropInfo']['m_Props']
+                self.shader_props[sh.path_id] = [(p['m_Name'], p['m_Type'], [p.get(f'm_DefValue[{i}]', 0) for i in range(4)]) for p in ps]
+            except Exception:
+                self.shader_props[sh.path_id] = []
+        return self.shader_props[sh.path_id]
+
+    def note_components(self, go, d):
+        """(2026-10-16, fx_coverage) every component of the GameObject `go` (type tree `d`) to the coverage report; the
+        MonoScript PathIDs of its MonoBehaviours (a set)."""
+        sids = set()
+        for c in d['m_Component']:
+            comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
+            if comp is None:
+                continue
+            self.cov.component(comp.type.name)
+            if comp.type.name != 'MonoBehaviour':
+                continue
+            raw = comp.get_raw_data()
+            if len(raw) < 28:
+                continue
+            sid = struct.unpack_from('<q', raw, 20)[0]
+            sids.add(sid)
+            try:
+                fields = [k for k in comp.read_typetree() if not k.startswith('m_')]
+            except Exception:
+                fields = None
+            self.cov.script(sid, fields)
+        return sids
+
     def prefab(self, root, out):
         nodes, mats, paths = [], {}, {}
+        root_sids = set()
+        self.gobjs = {}   # node index -> GameObject (clip bindings named by their component, fx_coverage)
         animators = []
         skinned = []
         pss = {}   # ParticleSystem path id -> node (sub emitters)
@@ -573,6 +686,10 @@ class Extractor:
             nodes.append(node)
             paths[idx] = path
             gos[go.path_id] = idx
+            self.gobjs[idx] = go
+            sids = self.note_components(go, d)
+            if parent < 0:
+                root_sids.update(sids)
             if parent >= 0:
                 dl = self.fx_delay(go)
                 if dl:
@@ -640,6 +757,10 @@ class Extractor:
                     mat_key = trail_mat = None
                     if psr_t.get('m_Materials'):
                         m = self.resolve(psr_t['m_Materials'][0], psr)
+                        if m is not None and m.read_typetree()['m_Name'] in UNITY_DEFAULT_MATERIALS:
+                            if psr_t.get('m_Enabled', 1) and emits(node['_ps'].read_typetree()):
+                                self.cov.add('material', "Unity's default particle material on an emitting system")
+                            m = None
                         if m is not None:
                             mat_key = self.material(m, out, mats)
                         if len(psr_t['m_Materials']) > 1:
@@ -656,6 +777,7 @@ class Extractor:
                     has_trail = ps_t.get('TrailModule', {}).get('enabled') and trail_mat
                     if (mat_key or has_trail) and psr_t.get('m_Enabled', 1):
                         node['ps'] = particle_system(ps_t, psr_t, mat_key, mesh_key, trail_mat)
+                        self.cov.particle(ps_t)
             node.pop('_psr', None)
             if '_mr' in node and '_mf' in node:
                 mr = node.pop('_mr').read_typetree()
@@ -726,7 +848,34 @@ class Extractor:
         line = self.line_dynamic(root)
         if line:
             out_def['lineDyn'] = line
+        self.check_readers(root, root_sids, mount)
         return out_def
+
+    def check_readers(self, root, sids, mount):
+        """(2026-10-16, fx_coverage) the components read by raw words: one the reader did not recognise read nothing, and
+        one whose type tree reads must agree with it field by field — a client update that adds a field shifts the words
+        (FollowMountPoint, 2026-10-14)."""
+        if PARTICLE_EFFECT_SCRIPT in sids:
+            pe, t = self.root_effect(root), self.script_tree(root, PARTICLE_EFFECT_SCRIPT)
+            off = [k for k, f in ROOT_EFFECT_FIELDS.items() if pe and t and f in t and abs(float(pe[k]) - float(t[f] or 0)) > 1e-4]
+            self.cov.reader('ParticleEffect', pe is not None and not off, f"raw words ≠ type tree: {', '.join(off)}" if off else None)
+        if PROJECTILE_EFFECT_SCRIPT in sids:
+            pj, t = self.projectile_effect(root), self.script_tree(root, PROJECTILE_EFFECT_SCRIPT)
+            off = pj and t and '_delayToFinish' in t and abs(pj['delayToFinish'] - float(t['_delayToFinish'] or 0)) > 1e-4
+            self.cov.reader('ProjectileEffect', pj is not None and not off, 'raw words ≠ type tree: delayToFinish' if off else None)
+        if MOUNT_SCRIPT in sids:
+            self.cov.reader('FollowMountPoint', mount is not None)
+
+    def script_tree(self, go, sid):
+        """The type tree of the GameObject's MonoBehaviour of MonoScript `sid`, or None when it has none / it does not read."""
+        try:
+            for c in go.read_typetree()['m_Component']:
+                comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
+                if comp is not None and comp.type.name == 'MonoBehaviour' and struct.unpack_from('<q', comp.get_raw_data(), 20)[0] == sid:
+                    return comp.read_typetree()
+        except Exception:
+            pass
+        return None
 
     def line_dynamic(self, root):
         """2026-10-10, decompile check — client `LineEffectEmitterDynamic` (`Update` RVA 0xCA0600 → `_UpdateMountPoint`
@@ -1600,7 +1749,11 @@ class Extractor:
         _pauseWhenMountPointInvalid, _onlyPauseWhenMountPointInvalid, _keepOriginRotation, _useBehaviourPause (bools as
         ints). The CN client's (newer) component has 9 words: a float (1.0) and an int (0) after `_followScale` (checked on
         the same prefabs of both clients — swire, texas2, horn, svash2, etlchi —, the four bools in the same order after
-        them); without it a CN prefab read the float's bits as `_pauseWhenMountPointInvalid`. None when the root has none."""
+        them); without it a CN prefab read the float's bits as `_pauseWhenMountPointInvalid`. None when the root has none.
+        (2026-10-16) Read by its field names when the type tree reads — the EN client's 2026-10-14 update added
+        `_pauseWhenFollowScaleNearlyZero` after `_followScale` (8 words), and the raw read took it for
+        `_pauseWhenMountPointInvalid` in 332 of 372 prefabs (fx_coverage `reader`); the raw words stay the fallback, for
+        the 7-, 8- and 9-word layouts only (any other: None)."""
         try:
             d = root.read_typetree()
         except Exception:
@@ -1612,16 +1765,20 @@ class Extractor:
             raw = comp.get_raw_data()
             if len(raw) < 32 or struct.unpack_from('<q', raw, 20)[0] != MOUNT_SCRIPT:
                 continue
+            try:
+                t = comp.read_typetree()
+            except Exception:
+                t = {}
+            if '_mountPointType' in t:
+                return {k: int(t.get(f) or 0) for k, f in MOUNT_FIELDS.items()}
             n = struct.unpack_from('<i', raw, 28)[0]
             off = (32 + n + 3) & ~3
-            if len(raw) < off + 7 * 4:
+            words = (len(raw) - off) // 4
+            if words not in (7, 8, 9):
                 return None
-            v = struct.unpack_from('<7i', raw, off)
-            if (len(raw) - off) // 4 == 9:   # the CN layout: skip its two extra words
-                w = struct.unpack_from('<9i', raw, off)
-                v = w[:3] + w[5:]
-            return {'type': v[0], 'followScaleSign': v[1], 'followScale': v[2], 'pauseWhenInvalid': v[3],
-                    'onlyPauseWhenInvalid': v[4], 'keepOriginRotation': v[5], 'useBehaviourPause': v[6]}
+            w = struct.unpack_from(f'<{words}i', raw, off)
+            v = w[:3] + w[3 + words - 7:]   # 8: skip `_pauseWhenFollowScaleNearlyZero`; 9 (CN): a float and that int
+            return dict(zip(MOUNT_FIELDS, v))
         return None
 
     def animator_clips(self, anim, aidx, nodes, paths, mats):
@@ -1640,6 +1797,8 @@ class Extractor:
                 continue
             rp = p[len(base) + 1:] if base and p != base else ('' if p == base else p)
             rel[crc32(rp)] = i
+        if len(ct.get('m_AnimationClips') or []) > 1:
+            self.cov.clip('Animator clips past the first (other states: set by client scripts)')
         for cp in ct.get('m_AnimationClips', [])[:1]:  # the default state's clip
             co = self.resolve(cp, ctrl)
             if co is None:
@@ -1663,9 +1822,56 @@ class Extractor:
                     prop = self.material_prop(attr, nodes[node], mats) or f'attr:{attr}'
                 if node is not None and prop:
                     tracks.append({'node': node, 'prop': prop, 'type': tid, 'curves': curves[ci:ci + n]})
+                if node is None:
+                    self.cov.clip('binding to a path outside the Animator')
+                elif prop.startswith('attr:') and not (tid == 1 and attr == crc32('m_IsActive')):
+                    self.cov.clip(self.binding_name(b, node))
                 ci += n
             clips_out.append({'name': clip['m_Name'], 'len': length, 'loop': bool(clip.get('m_MuscleClip', {}).get('m_LoopTime', 0)), 'tracks': tracks})
         return clips_out
+
+    def binding_name(self, b, node):
+        """(2026-10-16, fx_coverage) a Mecanim binding no track takes, named: a material property the bound renderer's
+        material does not have (customType 22), else `<component type>.<property path>` by crc32 over the paths of that
+        component's type tree on the bound GameObject, else its type id and attribute."""
+        tid, attr = b['typeID'], b['attribute']
+        go = self.gobjs.get(node)
+        if b.get('customType') == 22:
+            low = attr & 0x0fffffff
+            for m in self.node_materials(go):
+                for name, _t, _d in self.declared_props(self.resolve(m.get('m_Shader'), go)):
+                    for n in (name, name + '_ST'):
+                        if crc32(n) & 0x0fffffff == low:
+                            return f'material {n}: declared by the shader, not saved on the material'
+            return 'material property the shader does not declare'
+        try:
+            for c in go.read_typetree()['m_Component'] if go is not None else []:
+                comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
+                if comp is None or int(comp.type.value) != tid:
+                    continue
+                for p in type_paths(comp.read_typetree()):
+                    if crc32(p) == attr:
+                        return f'{comp.type.name}.{p}'
+                return f'{comp.type.name} attr:{attr}'
+        except Exception:
+            pass
+        return f'type {tid} attr:{attr}'
+
+    def node_materials(self, go):
+        """(2026-10-16, fx_coverage) the type trees of the materials of every renderer on the GameObject."""
+        out = []
+        try:
+            for c in go.read_typetree()['m_Component'] if go is not None else []:
+                comp = self.resolve(c['component'] if isinstance(c, dict) else c[1], go)
+                if comp is None or not comp.type.name.endswith('Renderer'):
+                    continue
+                for mp in comp.read_typetree().get('m_Materials') or []:
+                    m = self.resolve(mp, comp)
+                    if m is not None:
+                        out.append(m.read_typetree())
+        except Exception:
+            pass
+        return out
 
     def legacy_clips(self, anim, aidx, paths):
         """(2026-10-14) A legacy Animation component: its default clip (m_Animation, played automatically — every one of the
@@ -1777,11 +1983,12 @@ class Extractor:
         print(f'[fx] {bundle}: {found} mount prefab(s), {changed} file(s) changed')
         return found, changed
 
-    def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False, pack=None, index='index.json'):
+    def run(self, bundle, prefabs=None, all_skins=False, match=None, list_only=False, pack=None, index='index.json', write=True):
         # pack: a shared battle pack instead (e.g. pkgrps/btl_pfb_fx_token_3.ab, the summons' effects), its roots written
         # as `bundle` — pick them with --match / --prefab. `prefabs` match without case (the enemy
         # prefabs name `…_B_hit_01`, the bundles' roots / containers may differ in case). `index`: the index file the bundle's
-        # list goes to (enemy_bindings.py: enemy-index.json — the operators' index.json stays as it is)
+        # list goes to (enemy_bindings.py: enemy-index.json — the operators' index.json stays as it is). `write` False
+        # (--coverage, 2026-10-16): walk the prefabs for the coverage report only, nothing written
         want = {p.lower() for p in prefabs} if prefabs else None
         rel = pack or f'battle/prefabs/effects/{bundle}.ab'
         env = self.load(rel)
@@ -1803,7 +2010,7 @@ class Extractor:
                 if go is not None:
                     roots.append(go)
         written = []
-        if not list_only:
+        if not list_only and write:
             (out / bundle).mkdir(parents=True, exist_ok=True)
         for go in roots:
             name = go.read_typetree()['m_Name']
@@ -1818,9 +2025,21 @@ class Extractor:
             if list_only:
                 written.append(name)
                 continue
+            self.cov.begin(f'{bundle}/{name}')
             data = self.prefab(go, out)
-            (out / bundle / f'{name}.json').write_text(json.dumps(data, separators=(',', ':'), ensure_ascii=False))
             written.append(name)
+            if not write:
+                # (2026-10-16) the file on disk against what this extractor writes now: an extractor fix that only some
+                # bundles were re-extracted with (the built-in Quad, 2026-10-08) leaves the others drawing less
+                f = out / bundle / f'{name}.json'
+                if f.exists():
+                    for path in json_diff(json.loads(f.read_text()), json.loads(json.dumps(data, ensure_ascii=False))):
+                        self.cov.stale(re.sub(r'^materials\.[^.]+', 'materials.*', path))
+                continue
+            (out / bundle / f'{name}.json').write_text(json.dumps(data, separators=(',', ':'), ensure_ascii=False))
+        if not write:
+            print(f'[fx] {bundle}: {len(written)} prefab(s) checked')
+            return
         index_p = out / index
         index = json.loads(index_p.read_text()) if index_p.exists() else {'bundles': {}}
         if list_only:
@@ -1876,6 +2095,9 @@ def main():
     ap.add_argument('--finish-only', action='store_true', help='only write the `_delayToFinish` `finish` (and a projectile '
                     'effect\'s `_inactiveOnFinish` `offFinish`) into the already extracted prefabs of the bundles (every bundle '
                     'of --index without --bundle; 2026-10-11)')
+    ap.add_argument('--coverage', metavar='OUT', help='write no effect file or index: walk the already extracted prefabs of the bundles (every '
+                    'bundle of --index without --bundle) and write the full list of what the pipeline leaves out to OUT '
+                    '(JSON, fx_coverage.py; 2026-10-16)')
     a = ap.parse_args()
     if a.build_cab_index:
         build_cab_index(a.game, a.build_cab_index)
@@ -1931,8 +2153,26 @@ def main():
         tot = [ex.mount_only(b, pack=a.pack) for b in bundles]
         print(f'[fx] mount: {sum(x[0] for x in tot)} prefab(s) with a mount, {sum(x[1] for x in tot)} file(s) changed')
         return
+    if a.coverage:
+        ex.dry = True
+        listed = json.loads((OUT / a.index).read_text())['bundles']
+        for b in a.bundle or sorted(listed):
+            if not listed.get(b):
+                continue
+            try:
+                ex.run(b, set(a.prefab) or set(listed[b]), all_skins=a.all_skins, pack=a.pack, index=a.index, write=False)
+            except SystemExit as e:   # a bundle extracted from a shared pack (wang_token) or another client: give --pack
+                print(f'[fx] {b}: {e}, skipped')
+        rep = ex.cov.report()
+        Path(a.coverage).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.coverage).write_text(json.dumps(rep, ensure_ascii=False, indent=1))
+        print('\n'.join(ex.cov.summary()))
+        print(f'[fx] coverage: {len(rep)} item(s) -> {a.coverage}')
+        return
     for b in a.bundle:
         ex.run(b, set(a.prefab) or None, all_skins=a.all_skins, match=re.compile(a.match) if a.match else None, list_only=a.list, pack=a.pack, index=a.index)
+    if a.bundle and not a.list:
+        print('\n'.join(ex.cov.summary()))   # 2026-10-16: what this run left out (fx_coverage.py)
     if a.prune:
         prune(OUT)
 

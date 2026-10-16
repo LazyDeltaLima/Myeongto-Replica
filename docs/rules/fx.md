@@ -1458,5 +1458,39 @@
   같은 날 재제보 둘: ① 공 위 이펙트(활성 휘감김·연결선·활성 섬광)가 판 가장자리로 갈수록 공에서 비껴남 — 월드 z만 올려 원근 카메라에서 화면 중심
   밖으로 밀렸다(중심에서 한 칸마다 약 0.04칸). 공은 뿌리 바로 위에 그려지는 그림이라 `fxgame.js ballAt`이 모델 포인트처럼 `liftedPoint`로 그 화면 점의
   월드 점을 구함. ② 跟子가 토큰 배치(0.1초 대기·어두운 첫 프레임·`Start` 0.333초)로 들어와 시작 이펙트의 낙하(`ctrl` 0.1667초)보다 두 배 느렸다 —
-  클라에서 跟子는 투사체라 토큰 배치가 없고 돌은 그 이펙트의 `qizi` 그림(SpriteRenderer, 우리 추출에 없음)이 떨어진다 → 'summon' `follower`에
+  클라에서 跟子는 투사체라 토큰 배치가 없고 돌은 그 이펙트의 `qizi` 그림이 떨어진다(2026-10-16 정정: SpriteRenderer가 아니라 Unity 내장 Quad
+  메시의 MeshRenderer — 추출기는 2026-10-08부터 읽지만 디스크의 `wang` 추출물이 그 전 것이라 없다, 아래 「추출 누락 보고」) → 'summon' `follower`에
   `units.js throwIn(2)`: `Start`를 2배속으로, 대기·어두운 프레임 없이 [추정: 토큰의 `Start` = 돌이 떨어져 들어오는 모양].
+
+### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)
+
+- **원인**: 이펙트가 공식처럼 보이는지는 프리팹의 그림 데이터, 그것을 재생하는 로직(`fxplayer.js`), 언제·어디에 트는지(바인딩) 셋이 정하는데
+  클라에서 그대로 오는 것은 그림 데이터의 일부뿐이다. 추출기(`fx_extract.py`)와 플레이어는 아는 컴포넌트·필드만 옮기고 모르는 것은 **말없이
+  버렸다** — 그래서 어긋남은 제보로만 드러났다(10-14 「흐르는 텍스처」: `FxUVTweener`·`_DisturTex`를 아무도 안 읽고 있었음). 그 밖에 클라 스크립트
+  필드를 원시 바이트 칸 번호로 읽는 곳(`root_effect`·`projectile_effect`·`mount_point`)은 클라 판이 바뀌면 조용히 밀린다(CN 30칸 대 EN 28칸,
+  10-11 「선발 추가 3명」).
+- **보고**(`tools/local-extract/fx_coverage.py`): 추출이 끝날 때마다 그 실행이 만난 것 중 파이프라인이 안 받는 것을 종류별로 찍는다 — 읽지 않는
+  컴포넌트, 클라 스크립트(MonoScript PathID → 이름, 모르는 것은 il2cpp 덤프의 직렬화 필드로 이름을 찾음), 원시 리더가 못 알아본 배치 또는 타입
+  트리와 다른 값, 옮기지 않는 파티클 모듈, 플레이어에 방출기가 없는 Shape 종류, 셰이더가 선언하고 재질이 쓰는데 플레이어가 안 읽는 텍스처·값(셰이더
+  기본값과 다를 때만), 처음 보는 셰이더, 풀지 못한 클립 바인딩(입자 모듈·트레일 길이를 움직이는 트랙 등), CAB 색인이 못 찾는 의존 번들. 상태는
+  `new`(아무도 안 봄 — `NOT HANDLED`로 찍힘) · `todo`(알고 안 함) · `hand`(손으로 짠 렌더 코드가 대신 그림) · `none`(그리는 것 없음). 기준선
+  (`KNOWN`)은 2026-10-16 전수: 운영자 이펙트 2,071개(130 묶음) — todo 58 · hand 4 · none 7. `fx_extract.py --coverage <out.json>`은 아무 이펙트
+  파일도 쓰지 않고 이미 추출된 프리팹 전부를 같은 경로로 다시 걸어 목록 전체와 **디스크 파일 대 지금 추출기의 차이**(`stale`)를 낸다(약 3분).
+  플레이어가 읽는 텍스처·값 목록과 Shape·모듈 목록은 `test/fx-coverage.test.js`가 `fxplayer.js`·`fx_extract.py` 소스와 같게 묶어 둔다.
+- **첫 전수에서 나온 것**:
+  - **CAB 색인이 클라 갱신(2026-10-14)보다 오래됨**: 핫 업데이트 번들이 PersistentData에서 StreamingAssets로 옮겨 색인 항목 2,595개가 없는 파일을
+    가리켰고, 로더는 그 의존 번들을 말없이 건너뛰었다 → 그날 이후 새로 추출한 이펙트는 텍스처가 빠진다(엑시아 더 뉴 커버넌트 재질에서 확인). 색인을
+    다시 만들고, 이제 로더가 `dependency`로 알린다. 색인 빌더는 `.ab`만 읽어 `anon/*.bin` 번들(112개)을 몰랐다 — 거기 있는 Unity 기본 입자 재질
+    (`Default-Particle`·`Default-ParticleSystem`)을 이제 찾지만, 예전과 같은 출력을 위해 재질 없음으로 둔다(쓰는 계 234개 중 227개는 방출하지
+    않는 빈 그릇, 방출하는 7개는 todo).
+  - **FollowMountPoint 원시 읽기가 EN 클라 갱신으로 밀림**: 갱신이 `_followScale` 뒤에 `_pauseWhenFollowScaleNearlyZero`를 더해(8칸) 372개 중
+    332개에서 `pauseWhenInvalid`·`onlyPauseWhenInvalid`를 바꿔 읽었다 — 갱신 뒤 다시 추출된 아르케토·블랙나이트·함정 이펙트 11개의 `mount`가
+    틀려 있었다(`fxgame.js`가 `pauseWhenInvalid`를 읽음). 이제 타입 트리가 읽히면 필드 이름으로 읽고(원시는 7·8·9칸만), `--mount-only`로 고쳐 씀.
+    ParticleEffect 1,859개·ProjectileEffect 177개의 원시 읽기는 타입 트리와 같다(전수 대조) — 앞으로는 보고가 매 추출마다 대조한다.
+  - **디스크 추출물이 추출기보다 오래됨**(`stale`): 추출기를 고친 뒤 일부 묶음만 다시 뽑아, 고친 결과가 없는 파일이 남았다 — 내장 Quad 메시
+    (2026-10-08)가 없는 노드 244개 프리팹(望 `qizi`, 엑시아 더 뉴 커버넌트 `Quad`·`glow` 등), `lineDyn`(2026-10-10)이 없는 4개, `right` 2개,
+    `finish` 4개, 아로마 `spawn` 1개. 재질 값 차이 대부분(`_MainTexChannel` 등 새 속성, 모두 기본값)은 클라 갱신 쪽이다.
+- 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
+  양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
+  `EmptyEffect` 35 · `OnPlayEmitter` 29 / `OnFinishEmitter` 14(다른 이펙트를 틂) · `CollisionModule` 28 · `PauseEffectIf` 26 · 기본 상태 밖 Animator
+  클립 23 · 클립이 움직이는 입자 모듈 값·트레일 길이·UV 흐름 속도 · 재질에 저장 안 된 셰이더 속성을 움직이는 트랙(`material_prop`이 재질만 봄).
