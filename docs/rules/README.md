@@ -71,6 +71,7 @@
 | 보스 경로 미리보기 (공식에 없는 편의 기능, 캐주얼 규칙 모드만: 최종 공세·숨겨진 핵심 준비 단계에서 걷는 보스의 이번 판 경로, 대사 없음) | `server/match/bossPath.js`, `public/js/render/fxroute.js`, `tools/boss-route-map.mjs`, `test/match/boss-path.test.js` | `render.md` 「보스 경로 미리보기」 |
 | 스킬 효과음 보강 (ON_SKILL_START가 없는 스킬은 ON_ABILITY_START/ON_CUSTOM_TRIGGER [start]/ON_ABILITY_ON/HIT 뱅크) | `tools/assets/skill-sfx.mjs` | `audio.md` |
 | 스킬 모드 공격·타격음 + 공식 믹서 그룹 볼륨 + 믹서 스냅샷 | `public/js/audioOfficial.js`, `public/js/audioSnapshot.js`, `tools/assets/skill-mode-sfx.mjs`, `test/local-patch-audio.test.js`, `test/local-patch-skill-music.test.js`, `test/local-patch-skill-snapshot.test.js` | `audio.md` |
+| 더빙 효과음 (浊心斯卡蒂: 음성 언어의 더빙판 배치·스킬 시작음에 대사가 섞여 있음 — 공식 `soundFxVoiceLang`; 그 스킬은 작전중 대사 없음 `charWord: false`) | `tools/assets/skill-mode-sfx.mjs dubbedSfx`, `public/js/audio.js unitDub`, `public/js/voicePolicy.js`, `tools/local-extract/skill_cast.py`, `test/audio-dub.test.js` | `audio.md` 「더빙 효과음」 |
 | 라운드 작전 종료 효과음 (내 일반 전투 결과에 공식 `ui.ON_ACT1AUTOCHESS_BATTLEOVER_*`) | `public/js/audioOfficial.js battleOverOf` | `audio.md` 「작전 종료 효과음」 |
 | 랜덤 매칭 성사·실패·취소음, 방 입장음, 대기 중 숨은 탭에서도 소리 유지 + 탭 제목 깜빡임 | `public/js/ui/matchQueue.js queueCue`, `public/js/screens/room.js joinedDoctors`, `public/js/audio.js keepAwake` | `audio.md` 「랜덤 매칭·방 알림음」 |
 | 카운트다운 경고음을 공식대로 주황이 되는 순간 1회 (단계별 공식 경고 시간) | `public/js/ui/gameLogic/phases.js countdownWarnAt`, `public/js/ui/components.js Countdown onWarn` | `audio.md` 「카운트다운 경고음」 |

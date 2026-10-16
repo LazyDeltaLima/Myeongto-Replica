@@ -398,6 +398,23 @@ export function deploySfxUrl(manifest, info) {
 }
 
 /**
+ * docs/rules/audio.md 「더빙 효과음」: the file a dub plays in place of a unit's deploy (`born`) / skill start (`skill`,
+ * by its skill index) — `sfx.units[def].dub[lang]` (浊心斯卡蒂: the tide / deploy sound with her line mixed in; the client
+ * replaces the bank, VoiceLangManager.TryHookAudioByFxLang) — one line drawn at random; null without a dub or with the
+ * voice off (the base sound then).
+ * @param {any} entry sfx.units[def] @param {'born'|'skill'} kind @param {number|null|undefined} skillIndex
+ * @param {string|null|undefined} lang the voice language (public/js/voice.js: 'kr' | 'jp' | 'off') @param {() => number} [random]
+ * @returns {string|null}
+ */
+export function unitDub(entry, kind, skillIndex, lang, random = Math.random) {
+  if (typeof lang !== 'string' || lang === 'off') return null;
+  const d = entry?.dub?.[lang];
+  const e = kind === 'born' ? d?.born : kind === 'skill' && Number.isInteger(skillIndex) ? d?.skills?.[skillIndex] : null;
+  const list = (Array.isArray(e?.url) ? e.url : [e?.url]).filter((u) => typeof u === 'string' && u);
+  return list.length ? list[Math.min(list.length - 1, Math.floor(random() * list.length))] : null;
+}
+
+/**
  * Whether a unit's manifest `attack` / `hit` sound may play for its normal attacks: an operator's (`char_*`) sound file
  * of one of its skill modes (`_d` / `_h` / `_s`, see header) may not. Enemy files use `_h` for heavy weapons (always
  * allowed), and so may summons.
@@ -1167,7 +1184,9 @@ export class AudioManager {
       if (kind === 'hit' && !m && Number.isInteger(mode) && u?.modes?.[mode]?.noHit) return true;
       // DESIGN §16: the equipped skill's own ON_SKILL_START sound (`skills[index]`) when the manifest has it
       const own = kind === 'skill' && Number.isInteger(skillIndex) && u?.skills ? u.skills[skillIndex] : null;
-      const url = m ? m[kind] : typeof own === 'string' ? own : u?.[kind];
+      // docs/rules/audio.md 「더빙 효과음」: the chosen dub's copy of the skill start (浊心斯卡蒂: the tide with her line)
+      const dub = kind === 'skill' && !m ? unitDub(u, 'skill', skillIndex, this.voiceLang?.(), this.random) : null;
+      const url = m ? m[kind] : dub ?? (typeof own === 'string' ? own : u?.[kind]);
       if (typeof url !== 'string') return false;
       if (!m && (kind === 'attack' || kind === 'hit') && !normalAttackSfx(defId, url)) return false;
       // the official bank's mix (header): a silent roll still counts as the unit's own sound (no generic fallback)
@@ -1516,9 +1535,11 @@ export class AudioManager {
    */
   playDeploySfx(u, _key) {
     const m = this.getManifest();
-    const url = deploySfxUrl(m, u);
+    // docs/rules/audio.md 「더빙 효과음」: the chosen dub's copy of its deploy sound (浊心斯卡蒂: with her 部署 line)
+    const dub = u?.side === 'enemy' ? null : unitDub(m?.audio?.sfx?.units?.[u?.def], 'born', null, this.voiceLang?.(), this.random);
+    const url = dub ?? deploySfxUrl(m, u);
     if (!url) return false;
-    const own = url === m?.audio?.sfx?.units?.[u.def]?.born;
+    const own = !!dub || url === m?.audio?.sfx?.units?.[u.def]?.born;
     const mix = own ? m.audio.sfx.units[u.def].mix?.born : null;
     if (!unitSoundPlays(mix, this.random())) return false;
     // local patch: the official mix (audioOfficial.js) instead of unitGain(0.8, mix) / 0.5
@@ -1734,7 +1755,7 @@ export class AudioManager {
             if (unitSoundClass(u) === 'char') {
               const n = Number.isInteger(u.skillIndex) ? Math.min(4, u.skillIndex + 1) : 1;
               const pick = this.voicePolicy?.skill(u); // local patch: official type + a random 作战中 (voicePolicy.js)
-              if (pick) this.voice(u.def, pick.slot, { unitKey: e[1], type: pick.type });
+              if (pick) { if (pick.slot) this.voice(u.def, pick.slot, { unitKey: e[1], type: pick.type }); } // slot null: no line
               else this.voice(u.def, `skill${n}`, { unitKey: e[1] });
             }
           }

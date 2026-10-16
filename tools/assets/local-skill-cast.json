@@ -1908,19 +1908,22 @@
    "ability": null,
    "cls": "cast",
    "reset": 0,
-   "state": 0
+   "state": 0,
+   "word": 0
   },
   "skchr_skadi2_2": {
    "ability": null,
    "cls": "cast",
    "reset": 0,
-   "state": 0
+   "state": 0,
+   "word": 0
   },
   "skchr_skadi2_3": {
    "ability": null,
    "cls": "cast",
    "reset": 0,
-   "state": 0
+   "state": 0,
+   "word": 0
   },
   "skchr_skadi_2": {
    "ability": null,

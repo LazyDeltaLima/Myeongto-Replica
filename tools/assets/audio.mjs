@@ -178,10 +178,19 @@ export function indexAudio(audioData) {
   // local patch (maintainer report follow-up): the mixer snapshots a bank turns on while it plays (snapshotBanks: 归溟幽灵鲨's
   // switch to her 替身 → AllLowpass_Reverb, 5 s) — skill-mode-sfx.mjs snapshotSfx. A dub's copy (`…@JP`) is the same hook.
   const snapshots = [];
+  const snapByHook = new Map(); // every hook, the dubs' copies included (snapshotOf: skill-mode-sfx.mjs dubbedSfx)
   for (const s of Array.isArray(audioData?.snapshotBanks) ? audioData.snapshotBanks : []) {
-    if (!s || typeof s.hookSoundFxBank !== 'string' || typeof s.targetSnapshot !== 'string' || s.hookSoundFxBank.includes('@')) continue;
-    snapshots.push({ hook: s.hookSoundFxBank, snap: s.targetSnapshot, delay: Math.max(0, Number(s.delay) || 0), dur: Math.max(0, Number(s.duration) || 0) });
+    if (!s || typeof s.hookSoundFxBank !== 'string' || typeof s.targetSnapshot !== 'string') continue;
+    const v = { hook: s.hookSoundFxBank, snap: s.targetSnapshot, delay: Math.max(0, Number(s.delay) || 0), dur: Math.max(0, Number(s.duration) || 0) };
+    if (!snapByHook.has(v.hook)) snapByHook.set(v.hook, v);
+    if (!v.hook.includes('@')) snapshots.push(v);
   }
+  const snapshotOf = (name) => snapByHook.get(name) || null;
+  // docs/rules/audio.md 「더빙 효과음」: soundFxVoiceLang — bank → character → dub (JP / KR / EN / CN_MANDARIN) → the bank
+  // the client plays instead for that character in that dub (클라 코드 BattleController.PlayAudioAtPos →
+  // VoiceLangManager.TryHookAudioByFxLang: 浊心斯卡蒂's deploy and skill starts with her line mixed in)
+  const fxLang = audioData?.soundFxVoiceLang && typeof audioData.soundFxVoiceLang === 'object' ? audioData.soundFxVoiceLang : {};
+  const dubsOf = (name, charId) => { const m = fxLang[name]?.[charId]; return m && typeof m === 'object' ? m : null; };
   // 2026-10-10: every bank name (sorted) and a bank's own sounds — skill-mode-sfx.mjs soundSet / abilityCues
   const names = [...new Set([...banks.keys(), ...Object.keys(alias)])].sort();
   const soundsOf = (name, depth = 0) => (rawSounds.has(name) && rawSounds.get(name).some((x) => x.path) ? rawSounds.get(name)
@@ -193,7 +202,7 @@ export function indexAudio(audioData) {
     for (let i = lo; i < names.length && names[i].startsWith(prefix); i++) out.push(names[i]);
     return out;
   };
-  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf, limitOf, loopBanks, stopOf, isLoop, ctrlStops, snapshots, playOf, soundsOf, namesWithPrefix };
+  return { bank, bgm, unitBanks, skillBanks, mixOf, groupOf, limitOf, loopBanks, stopOf, isLoop, ctrlStops, snapshots, snapshotOf, dubsOf, playOf, soundsOf, namesWithPrefix };
 }
 
 /** Sort key for ability sub-keys: plain first, then numeric suffixes ascending. */

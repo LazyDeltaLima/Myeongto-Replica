@@ -15,7 +15,8 @@ HitEnemy / HitTile play one clip). Its time (client code `AbstractAnimatedAbilit
 within [0.1, `_maxAnimScale`] as an attack's; its facing flags (`face`, as tools/local-extract/attack_timing.py: 1 its
 main target, 2 its deploy direction, 3 front, 4 its first cast target, 0 none) say where the unit turns as the cast
 starts (`AbstractAnimatedAbility.DealWithFaceDirection`, docs/rules/render.md 「공격 방향」). tools/build-data.mjs folds this, with the clip lengths of data/assets.json,
-into every skill record of data/chess.json / data/backups.json (`cast`). Output tools/assets/local-skill-cast.json:
+into every skill record of data/chess.json / data/backups.json (`cast`). `word` 0 = the skill's `_playCharWordVoice` is
+off (no 作战中 line as it is cast; the record's `charWord: false`; any skill class). Output tools/assets/local-skill-cast.json:
 
   { "skills": { "skchr_thorn2_1": { "cls": "replace", "ability": { "anim": "Skill", "time": 0, "max": 1, "wait": 1, … } },
                 "skchr_texas_2": { "cls": "cast", "state": 1, "reset": 0, "ability": { … } }, … } }
@@ -73,13 +74,16 @@ def skill_entry(sid, comps):
     sk = next((d for d in root if '_maxTriggerTime' in d), None)
     if sk is None:
         return None
+    # BasicSkill `_playCharWordVoice` 0: the skill casts without the operator's 作战中 line (client code
+    # VoicePlayer._OnSkillCasted; 浊心斯卡蒂's skills — their start sound is a dubbed bank instead, soundFxVoiceLang)
+    word = {} if sk.get('_playCharWordVoice', 1) else {'word': 0}
     if '_cancelIfSearchTargetFailed' in sk:
-        e = {'cls': 'replace'}
+        e = {'cls': 'replace', **word}
     elif '_switchToState' in sk:
         e = {'cls': 'cast', 'state': int(sk.get('_switchToState') or 0),
-             'reset': int(sk.get('_resetAbilityCooldownWhenCastEnd') or 0)}
+             'reset': int(sk.get('_resetAbilityCooldownWhenCastEnd') or 0), **word}
     else:
-        return None
+        return word or None
     ab = next((a for a in map(ability, root) if a is not None), None)
     if ab is None:
         subs = sorted((gp, a) for gp, a in ((gp, ability(d)) for gp, d in comps if gp != sid) if a is not None)

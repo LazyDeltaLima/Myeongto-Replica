@@ -998,6 +998,7 @@ function buildChess(ctx) {
       if (cast) s.cast = cast;
       const bullets = skillBulletMode(ctx, s);
       if (bullets != null) s.bulletMode = bullets;
+      if (skillSilent(ctx, s)) s.charWord = false;
       s.overrideTokenKey = se.overrideTokenKey || null;
       skillRecs.push(s);
     });
@@ -1203,6 +1204,7 @@ function buildUnitForm(ctx, charId, status, { chessId = null, skillIndex = null 
     if (cast) s.cast = cast;
     const bullets = skillBulletMode(ctx, s);
     if (bullets != null) s.bulletMode = bullets;
+    if (skillSilent(ctx, s)) s.charWord = false;
     s.overrideTokenKey = se.overrideTokenKey || null;
     skills.push(s);
   });
@@ -2571,6 +2573,16 @@ function skillCast(ctx, charId, s) {
 function skillBulletMode(ctx, s) {
   const v = ctx.skillHud?.skills?.[s.prefabId] ?? ctx.skillHud?.skills?.[s.skillId];
   return v === 0 || v === 1 ? v : null;
+}
+
+/**
+ * Whether a skill is cast without the operator's 作战中 line: its prefab's `_playCharWordVoice` is off (`word` 0 in
+ * tools/assets/local-skill-cast.json; client code VoicePlayer._OnSkillCasted) → the skill record's `charWord: false`
+ * (public/js/voicePolicy.js; docs/rules/audio.md 「더빙 효과음」). 浊心斯卡蒂's S1–S3: their start sound carries the line.
+ */
+function skillSilent(ctx, s) {
+  const c = ctx.skillCast?.skills?.[s.prefabId] ?? ctx.skillCast?.skills?.[s.skillId];
+  return c?.word === 0;
 }
 
 /** The handbook's 「不停止移动」 attack (“十字路口”量产型's 四向攻击) → enemies.json `attackMoves`: it never stops to attack. */

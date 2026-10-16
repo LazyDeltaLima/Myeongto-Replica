@@ -28,7 +28,7 @@ import { literal } from './manifest.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 import { voiceTwin, VOICE_TWINS } from './voice.mjs'; // local patch
 import { skillStartSounds, skillStartIsFallback } from './skill-sfx.mjs'; // local patch
-import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
+import { loadCharModes, skillModes, unitGroups, skillLoops, skillExtras, defaultModeBanks, snapshotSfx, dubbedSfx, skillEnds, bankPlayTable, loadCharAudio, soundSet, skillHitCues, spineCues, enemySkillCues, enemyModeSets, tokenModeSets, loadTokenSkills } from './skill-mode-sfx.mjs'; // local patch
 import { kitHitSfx, kitHitGroups, kitHitLimits } from './kit-sfx.mjs'; // local patch
 
 /**
@@ -166,6 +166,21 @@ function soundLeaf(paths, sub = 'sfx', max = 4) {
   const l = leaf((paths || []).slice(0, max).map((p) => soundAlt(p, sub)));
   if (l && typeof l === 'object' && Array.isArray(paths)) leafPaths.set(l, paths);
   return l;
+}
+
+/**
+ * A dub's bank (docs/rules/audio.md 「더빙 효과음」: `voice_kr/char_1012_skadi2/fx_025_3.mp3` …) → one leaf per file under
+ * `audio/voice/<lang>/<charId>/`, beside the dub's voice lines (the background download keeps the chosen dub only:
+ * public/js/voice.js voiceWanted); several files stay a list (different lines: the client draws one, as the bank's equal
+ * weights do), one file a leaf. Paths outside the dub's folder are left out.
+ */
+function dubLeaf(paths, lang) {
+  const dir = VOICE_DIRS[lang];
+  const leaves = [...new Set((paths || []).filter((p) => typeof p === 'string' && p.startsWith(`${dir}/`)))]
+    .map((p) => leaf(alt(`audio/voice/${lang}/` + p.slice(dir.length + 1).split('/').map(safeName).join('/'), joinUrl(RAW.aa2voice, p))))
+    .filter(Boolean);
+  for (const l of leaves) if (Array.isArray(paths)) leafPaths.set(l, paths); // its bank's play values (sfx.bank)
+  return leaves.length > 1 ? leaves : leaves[0] ?? null;
 }
 
 /**
@@ -446,6 +461,9 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     if (extras) u.extras = extras;
     const ends = skillEnds(audio, (o.skills || []).filter((k) => idx.includes(k.index)), soundLeaf); // 2026-10-10: skill-end banks
     if (ends) u.ends = ends;
+    // docs/rules/audio.md 「더빙 효과음」: the deploy / skill-start banks a dub replaces (浊心斯卡蒂), in the planned dubs
+    const dub = dubbedSfx(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), [voiceLang, ...Object.values(VOICE_TWINS)], dubLeaf);
+    if (dub) u.dub = dub;
     if (Object.keys(u).length) unitsSfx[id] = u;
   }
 

@@ -29,6 +29,8 @@
 //     EnableFunction calls are 0x80 / 0x4000 / 0x8000; no active Lua hotfix touches these): 卫戍协议 says neither line
 //     (`CARD_LIST_ON` false). Until 2026-10-10 we said 行动出发 at the match's first battle and 行动开始 on each cursor.
 //   * 作战中: a random line of the operator's 作战中1-4 (SKILL_CHARWORD_TYPES), not the equipped skill's number.
+//     A skill whose prefab has `_playCharWordVoice` off (the record's `charWord: false`) says none: _OnSkillCasted
+//     returns before _PlayVoice. 浊心斯卡蒂's S1–S3 — their dubbed start sound carries the line (audio.js unitDub).
 
 /** Official battle voice types (audio_data.json battleVoice.voiceTypeOptions); `cd` in ms. */
 export const OFFICIAL_VOICE_TYPES = Object.freeze({
@@ -135,11 +137,16 @@ export function createVoicePolicy(deps = {}) {
     newGame() { st.gameStarted = false; st.encountered = false; st.lastEncounter = null; },
     /** A new field. */
     reset() { st.startAt = -Infinity; },
-    /** A skill started: { slot, type } — a random 作战中 line of the operator, typed by the equipped skill. */
+    /**
+     * A skill started: { slot, type } — a random 作战中 line of the operator, typed by the equipped skill; `slot` null
+     * when the skill says no line (`charWord: false`).
+     */
     skill(u) {
+      const rec = deps.skillOf ? deps.skillOf(u) : null;
+      if (rec?.charWord === false) return { slot: null, type: skillVoiceType(rec) };
       const have = (deps.slotsOf ? deps.slotsOf(u.def) : []).filter((s) => /^skill[1-4]$/.test(s));
       const slot = have.length ? pick(have) : 'skill1';
-      return { slot, type: skillVoiceType(deps.skillOf ? deps.skillOf(u) : null) };
+      return { slot, type: skillVoiceType(rec) };
     },
     /**
      * The battle starts (the field's opening deployment is over, `units` = its allied operators): the lines to request in

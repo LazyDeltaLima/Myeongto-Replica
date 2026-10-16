@@ -60,6 +60,8 @@ export function voiceTableOf(manifest, lang = voiceStore.get().lang) {
   return (lang === 'jp' ? manifest?.audio?.voiceJp : manifest?.audio?.voice) || null;
 }
 audio.voiceTable = () => voiceTableOf(audio.getManifest());
+// the dub a character's dubbed sounds follow (audio.js unitDub; docs/rules/audio.md 「더빙 효과음」)
+audio.voiceLang = () => voiceStore.get().lang;
 
 // the official battle voice rules (voicePolicy.js): its gate replaces upstream's VoiceGate, its policy drives the
 // 作战中 / 行动开始 / opening-deployment choices in audio.js handleBattleEvents

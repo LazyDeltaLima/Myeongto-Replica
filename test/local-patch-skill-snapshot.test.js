@@ -69,7 +69,8 @@ describe('mixer snapshot AllLowpass_Reverb (归溟幽灵鲨\'s 替身 switch)', 
   test('the manifest: the hooks (归溟幽灵鲨 5 s, 浊心斯卡蒂 0.1 s) and the banks outside the bus', () => {
     const snap = manifest.audio.sfx.snap;
     assert.deepEqual(snap.hook[STAND], { snap: 'AllLowpass_Reverb', dur: 5 });
-    const skadi = Object.entries(snap.hook).filter(([, h]) => h.dur === 0.1).map(([u]) => file(u)).sort();
+    // (her dubs' copies, under audio/voice/: test/audio-dub.test.js)
+    const skadi = Object.entries(snap.hook).filter(([u, h]) => h.dur === 0.1 && !u.startsWith('/assets/audio/voice/')).map(([u]) => file(u)).sort();
     assert.deepEqual(skadi, ['b_char_spskadi1.mp3', 'p_skill_burningdarkness.mp3', 'p_skill_samegoaldiffways.mp3', 'p_skill_tidesurging.mp3']);
     // the held stand-in sound is Independent too: it stays clear while the rest sinks
     assert.ok(snap.outside.includes('/assets/audio/sfx/player/p_skill/p_skill_sharpstandspell.mp3'));

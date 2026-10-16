@@ -80,7 +80,7 @@
     확인 필요: 공식 녹화에서 라운드 시작에 部署 한 줄만 나는지(MAIN 하위 상태 훅이 그것마저 막는지는 미확정).
   - 작전중 대사는 1~4 중 무작위(`SKILL_CHARWORD_TYPES`, `_PlayVoice` 점프표). 스킬 대사 유형: `VoicePlayer._OnSkillCasted`(RVA 0xD7FF30) — 스킬 플래그
     `playCharWordWithPassiveType`이면 SP ≥ 10 → IMP, 아니면 NOR, 그 밖은 ACTIVE(우리 `skillVoiceType`는 skillType AUTO로 가름 — 보통 같음).
-    `playCharWordVoice`가 거짓인 스킬은 무음(플래그 출처 미확인). 데이터의 `NORMAL_ATTACK`(5, 쿨다운 36000초, `_OnCharacterAtkOrCbt`)은 卫戍协议 연결이
+    `playCharWordVoice`가 거짓인 스킬은 무음(스킬 프리팹 `BasicSkill._playCharWordVoice` — 아래 「더빙 효과음」). 데이터의 `NORMAL_ATTACK`(5, 쿨다운 36000초, `_OnCharacterAtkOrCbt`)은 卫戍协议 연결이
     미확인이라 우리는 평타 대사가 없다. 원본 테스트는 원본 `VoiceGate` 그대로라 깨지지 않는다.
 - 로컬 4 — 결산 대사는 승리 결산 화면에서만(2026-10-07, 관리자가 공식 게임 플레이로 확인): 원본은 전투가 끝날 때마다 결산 4종 중 하나를
   말하지만, 공식은 라운드가 끝나도 말하지 않고 보스를 처치한 결산 화면에서 작전 종료 대사를 말한다. 도중에 탈락한 플레이어는 말하지 않는다.
@@ -189,7 +189,7 @@
       `audioOfficial.js dollSwitchSfx`(오퍼별 표), `audio.js _dollSwitch`. [추정] standin은 전환과 함께 나고 본체 복귀·퇴장·替身 격파에 끊는다(버프 타이밍은 네이티브).
       스냅샷은 아래 「믹서 스냅샷」.
     - **믹서 스냅샷** (2026-10-08): 공식 `snapshotBanks`는 훅 뱅크가 날 때 `MainMixer` 스냅샷을 켠다 — 게임 데이터의 훅은 모두
-      `AllLowpass_Reverb`: 归溟幽灵鲨 `ON_BUFF_START.ghost2_switch2stand`(5 초), 浊心斯卡蒂 배치·S1–S3 시작(0.1 초; `@JP` 등 더빙 사본은 같은 훅이라 뺌).
+      `AllLowpass_Reverb`: 归溟幽灵鲨 `ON_BUFF_START.ghost2_switch2stand`(5 초), 浊心斯卡蒂 배치·S1–S3 시작(0.1 초; `@KR`·`@JP` 더빙 사본도 같은 스냅샷 — 아래 「더빙 효과음」).
       스냅샷 값(EN `sharedassets1.assets` 믹서 상수, Default와 비교 **[데이터]**): BattleGameSound(Music·Voice·전투 그룹 전부의 부모) Lowpass 22000 → 556 Hz,
       SFX Reverb 켜짐(dry −6696 mB, room 0, room HF −1594 mB, decay 5.7 초, reverb −219 mB, reverb delay 0.0464 초), Music Lowpass 22000 → 5000 Hz.
       훅 뱅크 자신은 `Independent` 그룹(BattleGameSound 밖)이라 또렷하게 남고 나머지가 가라앉는다.
@@ -228,6 +228,32 @@
     - 확인: `test/local-patch-skill-music.test.js` 6개(수정 전 6개 모두 실패 확인 — 실제 경로 Match → buildBattleSpec → createBattleFromSpec 이벤트를 AudioManager에),
       Chrome Web Audio 계측(AudioBufferSourceNode start/stop을 파일 이름으로): 디버그 아레나 nearl2 S3·cello S3·ghost2 S2·texas2 S2,
       실제 솔로 판(로드아웃 + 재화 고정 + 상점 리롤로 구매) texas2 S2·ghost2 S2. cello·nearl2(6성)는 상점에 안 나와 실제 판 확인 못 함. 새 sfx 21개.
+
+## 더빙 효과음 — 浊心斯卡蒂 (2026-10-16, 관리자 제보 「S3 대사가 안 나옴 / 효과음에 묻힘」)
+
+- 증상: S3 「潮涌，潮枯」 시작에 바다 효과음(`p_skill_tidesurging`, 12.8 초, Independent 그룹)이 또렷하고, 같은 때의 작전중 대사가 먹먹하게 묻혔다.
+  그 시작음이 `AllLowpass_Reverb` 스냅샷을 켜고(위 「믹서 스냅샷」, 2026-10-08부터), 대사 채널은 BattleGameSound 아래라 556 Hz 로우패스·리버브를 받았다.
+- 공식 [클라 코드 + 데이터, 2026-10-16]:
+  - 믹서 트리(EN `sharedassets1.assets` MainMixer): Master → BattleGameSound → ~Voice_VolumeControl → Voice / UI_Vox — 대사 채널은 공식도
+    스냅샷 아래이고, `AllLowpass_Reverb`에서 Voice 그룹은 −0.33 → −5.72 dB로 더 작아진다. 「대사만 필터 밖으로」는 공식이 아니다.
+  - 스킬 대사가 없다: S1–S3 스킬 프리팹(`battle/prefabs/[uc]skills.ab`)의 `BasicSkill._playCharWordVoice`가 0 → `VoicePlayer._OnSkillCasted`가
+    작전중 대사를 내지 않는다. 풀 285개 스킬 중 이 셋뿐.
+  - 대신 소리 뱅크를 더빙판으로 바꾼다: `BattleController.PlayAudioAtPos`(RVA 0x354F780)가 `VoiceLangManager.TryHookAudioByFxLang`이 참이면
+    신호를 그 결과로 바꿔 **그것 하나만** `PlayEvent`(역어셈 0x354FB6C–0x354FBA6). 표는 `audio_data.json soundFxVoiceLang`:
+    뱅크 → 캐릭터 → 더빙(JP·KR·EN·CN_MANDARIN) → 뱅크. 浊心斯卡蒂 `ON_SKILL_START.skchr_skadi2_N` → `…@KR` = `Voice_KR/char_1012_skadi2/FX_025_N`…`FX_028_N`
+    (가중치 25씩 넷), `ON_UNIT_BORN.char_1012_skadi2` → `FX_023`/`FX_024`. 파일은 시작음·배치음과 길이가 같고 내용이 다르다 — 효과음에 그 대사(작전중1–4,
+    部署1–2)를 섞은 것. 그룹 Independent(스냅샷 밖), 그 자신이 스냅샷 훅(snapshotBanks에 `@` 사본 전부). 정비 배치도 같은 길(`PlayAudioSignal` → `PlayAudioAtPos`).
+    표의 다른 항목(空 `char_101_sora`, 伊桑 `char_355_ethan` 배치음)은 우리 풀에 없다.
+- 우리:
+  - 생성: `audio.mjs indexAudio` `dubsOf`·`snapshotOf`(`@` 사본 포함), `skill-mode-sfx.mjs dubbedSfx` → `sfx.units[id].dub = { kr|jp: { born?, skills?: { [번호]: e } } }`,
+    e = `{ url: [한 줄씩], grp }`; 파일은 `audio/voice/<lang>/<charId>/fx_0NN[_N].mp3`(`plan.mjs dubLeaf`, 원천 `sound_beta_2/voice_kr/`·`voice/`) — 미리 받기는
+    고른 언어만(`voice.js voiceWanted`). `snapshotSfx`가 그 파일들을 `snap.hook`·`snap.outside`에, `sfx.bank`에 그 뱅크 값(피치 1, 둘까지, 오래된 것 끊음). 28개.
+  - 재생: `audio.js unitDub` — 설정의 음성 언어(`audio.voiceLang`, `voice.js`)가 한국어/일본어면 시작음(`unit()` 'skill')·배치음(`playDeploySfx`) 대신
+    그 더빙판 한 줄(무작위). 음성 「끄기」면 기본 효과음(공식에 없는 설정 — 대사 없는 쪽).
+  - 스킬 대사: `skill_cast.py`가 `_playCharWordVoice` 0인 스킬에 `word: 0` → `build-data.mjs skillSilent` → 스킬 기록 `charWord: false` →
+    `voicePolicy.skill()`이 `slot: null`(대사 없음).
+- 확인: `test/audio-dub.test.js` 7개(공식 audio_data 생성 규칙, 매니페스트, unitDub, 대사 규칙, 실제 매치 경로 S3: 더빙판 한 줄이 bus 밖 + 스냅샷 + 대사 채널 무음,
+  음성 끄기면 바다 효과음, 배치). [브라우저 미확인: Chrome에서 들어 보기]
 
 ## 공격 소리 신호 (2026-10-10, 클라 코드 + 프리팹 값; 관리자 결정 (2026-10-10) 「공식이랑 동일하게」)
 - 공식: 공격 소리는 그 능력의 **신호 id** 이름의 뱅크다 — `battle.ON_ABILITY_START|ON|HIT.<유닛 id>.<신호>`. 신호 = 모드의 `attack`(Body/Attack, 다른

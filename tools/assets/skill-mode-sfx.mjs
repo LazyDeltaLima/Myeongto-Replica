@@ -299,12 +299,59 @@ const OUTSIDE_GROUPS = new Set(['Independent', 'Independent_2']);
 const leafUrls = (l) => (typeof l === 'string' ? [l] : Array.isArray(l) ? l.flatMap(leafUrls)
   : Array.isArray(l?.alts) ? l.alts.map((a) => (typeof a?.rel === 'string' ? `/assets/${a.rel}` : null)).filter(Boolean) : []);
 
+/** VOICE_DIRS key (tools/assets/audio.mjs) → the dub id of audio_data soundFxVoiceLang. */
+const DUB_IDS = Object.freeze({ cn: 'CN_MANDARIN', jp: 'JP', en: 'EN', kr: 'KR' });
+const dubBanks = new WeakMap(); // a dub entry → its bank name (snapshotSfx: the dub's own snapshot hook)
+
+/**
+ * docs/rules/audio.md 「더빙 효과음」: sfx.units[charId].dub = { [lang]: { born?: e, skills?: { [index]: e } } },
+ * e = { url, grp? } — the bank the client plays in place of the character's deploy (ON_UNIT_BORN) / skill start
+ * (ON_SKILL_START) sound when its voice is in that dub (audio_data soundFxVoiceLang; 클라 코드
+ * BattleController.PlayAudioAtPos → VoiceLangManager.TryHookAudioByFxLang replaces the signal, one bank plays). 浊心斯卡蒂:
+ * the tide / deploy sound with her 作战中 / 部署 line mixed in (Voice_KR/char_1012_skadi2/FX_025_3 …), Independent group.
+ * @param {{ dubsOf?: (bank: string, charId: string) => Record<string, string>|null, bank: (n: string) => string[],
+ *   groupOf?: (paths: string[]) => string|null }} audio audio.mjs indexAudio
+ * @param {string} charId
+ * @param {{ index: number, skillId?: string }[]} skills
+ * @param {string[]} langs the planned dubs (VOICE_DIRS keys)
+ * @param {(paths: string[], lang: string) => any} dubLeaf plan.mjs: the dub's files under audio/voice/<lang>/
+ */
+export function dubbedSfx(audio, charId, skills, langs, dubLeaf) {
+  if (typeof audio?.dubsOf !== 'function') return null;
+  const entry = (base, lang) => {
+    const name = audio.dubsOf(base, charId)?.[DUB_IDS[lang]];
+    const paths = typeof name === 'string' ? audio.bank(name) : [];
+    const url = paths.length ? dubLeaf(paths, lang) : null;
+    if (!url) return null;
+    const e = { url };
+    const g = typeof audio.groupOf === 'function' ? audio.groupOf(paths) : null;
+    if (g) e.grp = g;
+    dubBanks.set(e, name);
+    return e;
+  };
+  const out = {};
+  for (const lang of [...new Set(langs || [])]) {
+    const d = {};
+    const born = entry(`battle.ON_UNIT_BORN.${charId}`, lang);
+    if (born) d.born = born;
+    const sk = {};
+    for (const s of Array.isArray(skills) ? skills : []) {
+      if (!s?.skillId || !Number.isInteger(s.index)) continue;
+      const e = entry(`battle.ON_SKILL_START.${s.skillId}`, lang);
+      if (e) sk[String(s.index)] = e;
+    }
+    if (Object.keys(sk).length) d.skills = sk;
+    if (Object.keys(d).length) out[lang] = d;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /**
  * local patch (maintainer report follow-up, 归溟幽灵鲨's switch to her 替身): sfx.snap = { hook, outside } —
  *   hook: url → { snap, dur, delay? } for the files of the banks that turn a mixer snapshot on while they play
  *     (audio_data snapshotBanks, audio.mjs indexAudio `snapshots`; only files the manifest plays: built `sfx`);
  *   outside: the urls whose bank sits on a group outside the filtered bus (Independent: the hooks themselves, 浊心斯卡蒂's
- *     deploy / skill starts, the 替身's held sharpstandspell) — public/js/audioOfficial.js routes them around the snapshot.
+ *     deploy / skill starts and their dubs (dubbedSfx), the 替身's held sharpstandspell) — public/js/audioOfficial.js routes them around the snapshot.
  * @param {{ snapshots?: Array<{ hook: string, snap: string, delay: number, dur: number }>, bank: (n: string) => string[] }} audio
  * @param {(paths: string[]) => any} soundLeaf plan.mjs leaf builder
  * @param {{ units?: Record<string, any>, kit?: Record<string, any>, kitGrp?: Record<string, string> }} sfx the built sfx tree
@@ -321,6 +368,7 @@ export function snapshotSfx(audio, soundLeaf, sfx) {
     for (const l of Object.values(u?.loops || {})) add(l?.grp, l?.url);
     for (const list of Object.values(u?.extras || {})) for (const e of list || []) add(e?.grp, e?.url);
     for (const e of Object.values(u?.ends || {})) add(e?.grp, e?.url);
+    for (const d of Object.values(u?.dub || {})) for (const e of [d?.born, ...Object.values(d?.skills || {})]) if (e) add(e.grp, e.url);
   }
   for (const [k, g] of Object.entries(sfx?.kitGrp || {})) add(g, sfx?.kit?.[k]);
   const known = new Set();
@@ -333,6 +381,15 @@ export function snapshotSfx(audio, soundLeaf, sfx) {
     for (const url of leafUrls(soundLeaf(paths))) {
       if (!known.has(url) || hook[url]) continue;
       hook[url] = { snap: s.snap, dur: s.dur, ...(s.delay > 0 ? { delay: s.delay } : {}) };
+    }
+  }
+  // a dub's copy of a hook bank (`…@KR`) turns the same snapshot on (snapshotBanks lists every dub)
+  for (const u of Object.values(sfx?.units || {})) {
+    for (const d of Object.values(u?.dub || {})) {
+      for (const e of [d?.born, ...Object.values(d?.skills || {})]) {
+        const s = e && typeof audio?.snapshotOf === 'function' ? audio.snapshotOf(dubBanks.get(e)) : null;
+        if (s) for (const url of leafUrls(e.url)) if (!hook[url]) hook[url] = { snap: s.snap, dur: s.dur, ...(s.delay > 0 ? { delay: s.delay } : {}) };
+      }
     }
   }
   if (!Object.keys(hook).length) return null;
