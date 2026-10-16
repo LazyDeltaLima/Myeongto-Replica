@@ -2102,6 +2102,41 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (line && camRef) startLine(bundleOf(src).bundle, line, from, tgt, 0, { sMount: 1, eMount: 1 });   // HIT point to HIT point [추정]
     return true;
   }
+  // ---- a chain shot's bounces (2026-10-16, decompile check, docs/rules/fx.md 「연쇄 공격」) --------------------------
+  // Client ChainLightningHitBehaviour (DoSelectTargetToHit RVA 0xA690F0, OnProjectileReached 0xA69C10): the shot reaching
+  // its first unit hits every unit of the chain at once — each gets the projectile's `_effectsWhenHit` — and then its chain
+  // graphic (ChainLightningEffectBehaviour.PlayLineEffect 0xA68660) draws its `_mainEffect` as one line through the struck
+  // units in order; the shooter is not on it (modes.json `chain[mode]`, char_modes.py). The sim sends each bounce as 'atk'
+  // [previous unit, next unit, 'chain' | 'chainHeal'] (ai.js, 溯光星源 S1's kit): its shooter is the one whose attack
+  // aimed at the chain's first unit (`aimed`), carried along the chain within the moment (`hops`). Ours draws the line one
+  // segment per bounce from HIT point to HIT point, as chainFx [추정: the client's one LineRenderer through the units'
+  // positions]; the next unit's 'dmg' plays the mode's hit effects (lastAtk). Before, a bounce went down the attack path of
+  // its previous unit — an enemy's own attack cast effects (estrikeFx), a healed ally's (strikeFx) — and render/fx.js drew
+  // a purple beam for it (now only without the line: arrowKind).
+  const CHAIN_KINDS = new Set(['chain', 'chainHeal']);
+  const aimed = new Map();      // target id → { src, mode, t }: the last operator attack aimed at it (its hit leaves it)
+  const hops = new Map();       // unit id → { src, mode, t }: the chain that struck it at clock t
+  const chainAtks = new WeakSet(); // bounce 'atk' tuples drawn here (arrowKind)
+  function chainHop(e, views) {
+    const prev = e[1], next = e[2];
+    let c = hops.get(prev);
+    if (!c || c.t !== clockS) {
+      const a = aimed.get(prev);
+      c = a && clockS - a.t <= 2.5 ? { src: a.src, mode: a.mode, t: clockS } : null;
+    }
+    if (hops.size > 64) for (const [k, h] of hops) if (h.t !== clockS) hops.delete(k);
+    if (!c) return;
+    hops.set(prev, c); hops.set(next, c);
+    const src = c.src;
+    if (e[3] === 'chain') lastAtk.set(next, { src, t: clockS, mode: c.mode, kind: e[3], shot: false });
+    const from = views.get(prev), tgt = views.get(next);
+    if (!from || !tgt || !bundleOf(src) || failed || level() >= 3) return;
+    // a skill that switches no attack mode (−1) keeps the Default mode's shot (modelessTrail)
+    const line = bound(src, c.mode != null && c.mode >= 0 ? c.mode : 0, 'chain')[0];
+    if (!line) return;
+    chainAtks.add(e);
+    if (camRef) startLine(bundleOf(src).bundle, line, from, tgt, 0, { sMount: 1, eMount: 1 });
+  }
   function stepZones(g) {
     for (const [k, rec] of zones) {
       if (clockS > rec.until + 1) { zones.delete(k); continue; }
@@ -2732,7 +2767,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
 
   const api = {
     /** The projectile kind render/fx.js should draw for an 'atk' event (her note replaces the arrow: 'oblvnsNote'). */
-    arrowKind(e) { return noteAtks.has(e) ? 'oblvnsNote' : trailAtks.has(e) ? 'officialTrail' : e[3]; }, // local patch: trails
+    arrowKind(e) { return noteAtks.has(e) ? 'oblvnsNote' : trailAtks.has(e) || chainAtks.has(e) ? 'officialTrail' : e[3]; }, // local patch: trails, chain lines
     /**
      * local patch (maintainer 2026-10-07: effects covered the operator): whether a unit's skill activation is shown by its
      * official effects here — render/fx.js then skips its procedural burst (gold pillar, flash, rings over the unit) and
@@ -2864,6 +2899,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           return;
         }
         case 'atk': {
+          if (CHAIN_KINDS.has(e[3])) { chainHop(e, views); return; } // 2026-10-16: a bounce is no attack of its "source"
           const src = views.get(e[1]);
           // 2026-10-10: an enemy's attack — its strike's cast effects, its shot's official trail, its hit to come
           if (src?.info?.side === 'enemy') {
@@ -2884,6 +2920,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const mode = modeNow(src); // local patch: the mode this attack belongs to (its bound cast / hit effects)
           const shot = mode === -1 && takeShot(src); // 2026-10-16: a mode-less skill's own shot
           if (tgt) lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode, kind: e[3], shot });
+          if (tgt) aimed.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode }); // the chain it may start (chainHop)
           if (!noteAtks.has(e)) trailShot(e, src, tgt, mode, shot); // local patch: its projectile's official trail
           if (src._fxSkillOn) foeFx(src, tgt, mode); // 2026-10-10: a mode buff held by the enemy
           // local patch: the mode's own cast effects (a skill's on each of its attacks) — since 2026-10-10 on the attack's own
@@ -3091,7 +3128,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     clear() {
       for (const l of live) dropLive(l);
       live.length = 0;
-      lastAtk.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
+      lastAtk.clear(); aimed.clear(); hops.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); eshotLand.clear();

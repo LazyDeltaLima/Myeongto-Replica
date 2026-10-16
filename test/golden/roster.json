@@ -2244,7 +2244,7 @@
         "enemy_2003_rockman": [1,0,1,812,8160]
       },
       "hooks": [1,160,6462,670,667,1464,1734,8800,96,149,58,57,61,24649,3611,32,130,51,1,96,2,6,0],
-      "events": {"atk":715,"bounty":2,"deploy":27,"die":98,"dmg":1520,"engage":9,"face":55,"fx":825,"heal":566,"layer":2,"leak":51,"skill":115,"spawn":145,"status":861,"swing":705},
+      "events": {"atk":811,"bounty":2,"deploy":27,"die":98,"dmg":1520,"engage":9,"face":55,"fx":825,"heal":566,"layer":2,"leak":51,"skill":115,"spawn":145,"status":861,"swing":705},
       "fx": {"airstrike":11,"aoe":2,"blink":2,"burst":6,"displace":2,"enemySkill":5,"explode":16,"expose":531,"frostNova":16,"garrison":2,"healField":15,"link":1,"phase":1,"snow":143,"sunBurst":3,"talent":7,"telegraph":2,"wanted":60},
       "snaps": "40b787d5 1feb5079 c904cd77 f9214cdc cbef0a7a 73594a69 e0b1c329 d76eb223 b226aa71 416aeb60 7660963a a7538fe0 e3612585 50c9ed33 83144849 bf2e2819 1021b9eb 79040c74 69a6d5ee 1bc04670 4fad30f4 0a58fd19"
     },
@@ -2321,7 +2321,7 @@
         "enemy_2052_smgia": [1,0,1,0,28520]
       },
       "hooks": [1,173,6576,460,460,2352,2530,24184,91,166,60,57,40,9570,1040,35,131,71,1,54,1,6,0],
-      "events": {"atk":555,"bounty":2,"deploy":39,"die":95,"dmg":2425,"engage":14,"face":3,"fx":71,"heal":44,"layer":1,"leak":71,"skill":117,"spawn":155,"status":575,"swing":481},
+      "events": {"atk":588,"bounty":2,"deploy":39,"die":95,"dmg":2425,"engage":14,"face":3,"fx":71,"heal":44,"layer":1,"leak":71,"skill":117,"spawn":155,"status":575,"swing":481},
       "fx": {"airstrike":9,"aoe":8,"burst":6,"copy":5,"enemySkill":15,"garrison":1,"heal":4,"healField":4,"link":2,"revive":1,"stone":1,"summon":15},
       "snaps": "720938ed 634cec9c 016cb83d fd2b65ce cf7bf4bf 39fdc728 dd118c9f 73b02845 e7662587 8fc32daa a913c37a c9939b52 c837d4c2 4757ac01 fab25b23 c3504f46 7fd3165b 9695fda7 3c22f6ed c6b890b3 4349192d b991ce45"
     },

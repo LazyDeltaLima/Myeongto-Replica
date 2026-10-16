@@ -3191,7 +3191,6 @@
     "halo2_attack_01_trail_01"
    ],
    [
-    "halo2_skill_01_line_01",
     "halo2_skill_01_trail_01"
    ],
    []
@@ -3226,6 +3225,13 @@
      "o": 0
     }
    }
+  ],
+  "chain": [
+   [],
+   [
+    "halo2_skill_01_line_01"
+   ],
+   []
   ],
   "start": "halo2_brith_01",
   "attachFoe": [
@@ -6811,11 +6817,9 @@
   ],
   "trail": [
    [
-    "leizi_attack_01_trail",
-    "leizi_attack_02_line"
+    "leizi_attack_01_trail"
    ],
    [
-    "leizi_skill_02_line",
     "leizi_skill_02_trail"
    ]
   ],
@@ -6838,6 +6842,14 @@
      "o": 1
     }
    }
+  ],
+  "chain": [
+   [
+    "leizi_attack_02_line"
+   ],
+   [
+    "leizi_skill_02_line"
+   ]
   ],
   "skillMode": [
    null,
@@ -10634,12 +10646,10 @@
   ],
   "trail": [
    [
-    "papyrs_trail_01",
-    "papyrs_line_01"
+    "papyrs_trail_01"
    ],
    [
-    "papyrs_trail_01",
-    "papyrs_line_01"
+    "papyrs_trail_01"
    ]
   ],
   "attach": [
@@ -10661,6 +10671,14 @@
      "o": 0
     }
    }
+  ],
+  "chain": [
+   [
+    "papyrs_line_01"
+   ],
+   [
+    "papyrs_line_01"
+   ]
   ],
   "skillMode": [
    null,
@@ -13910,11 +13928,9 @@
   ],
   "trail": [
    [
-    "pasngr_attack_line",
     "pasngr_attack_trail"
    ],
    [
-    "pasngr_attack_line",
     "pasngr_skill_02_trail"
    ]
   ],
@@ -13937,6 +13953,14 @@
      "o": 0
     }
    }
+  ],
+  "chain": [
+   [
+    "pasngr_attack_line"
+   ],
+   [
+    "pasngr_attack_line"
+   ]
   ],
   "skillMode": [
    null,

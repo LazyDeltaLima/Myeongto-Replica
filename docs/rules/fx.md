@@ -1226,3 +1226,31 @@
   `angel2_buff_01_trail_01`, 焰影苇草 `reed2_skill_02_fireball_01`(스킬 끝에 꺼짐), 寒檀 `sntlla_skill_02_start_01`, 洛洛 `rockr_token_overload_01`,
   歌蕾蒂娅 `glady_skill_03_range_03` 15, 蕾缪安 `lemuen_talent_buff_02`, 流明 `lumen_skill_01_range`, 오류 0. [화면 미확인: 缇缇 S3 깨어남·선,
   魔王 동료 微尘·S3 나눔, 缪尔赛思 流形 전환, 隐德来希 重盈 — 아레나에서 못 만듦; 焰影苇草 불덩이의 도는 모양 공식 녹화 대조]
+
+### 연쇄 공격 — 체인 캐스터·체인 메딕의 튕김 선과 타격 (2026-10-16, 관리자 요청 「일반 공격 연쇄를 공식 클라 데이터와 대조」)
+
+- 원인 셋: ① `char_modes.py`가 투사체의 연쇄 그래픽(`ChainLightningEffectBehaviour`) `_mainEffect`(선)까지 모드 `trail`에 넣어, 컴포넌트 순서에
+  따라 선이 날아가는 투사체로 그려짐 — 패신저 일반·S2 공격에 `pasngr_attack_line`, 레이즈 S2에 `leizi_skill_02_line`. ② 시뮬의 튕김
+  `['atk', 앞 대상, 다음 대상, 'chain' | 'chainHeal']`(`ai.js`)을 `fxgame.js`가 「앞 대상의 공격」으로 받아, 앞 대상이 적이면 그 적 자신의 공격
+  시전 이펙트(`estrikeFx`), 아군이면(체인 메딕) 치료받은 아군의 시전 이펙트(`strikeFx`)를 틀었다(단위 테스트로 재현: 옛 코드에서 튕김 한 번에
+  적의 `_attack_start`). ③ 대상 사이는 `fx.js`의 절차 보라색 빔이었고, 튕긴 대상에는 공식 타격 이펙트가 없었다.
+- 클라(EN `[uc]projectiles.ab` `projectile_leizi`·`_s2`, `projectile_chr_pasngr`·`_s2`; 디컴파일 10-14 덤프): 투사체 `_mainEffect`(`*_trail`)가
+  초당 15칸으로 첫 대상에 날아가고, 도착하면 `ChainLightningHitBehaviour`(`OnProjectileReached` RVA 0xA69C10 → `SelectorHitBehaviour`)가 연쇄
+  대상 전원을 한꺼번에 때린다 — 대상마다 `Projectile.OnHitTarget`(0x67A360)이 `_effectsWhenHit`. 그 뒤 연쇄 그래픽 `PlayLineEffect`(0xA68660)가
+  `_mainEffect` 선 **하나**의 LineRenderer 점을 맞은 대상들 위치로 차례로 놓는다(시전자는 선에 없음, 대상 1명이면 보이지 않음).
+  `_playChainEffectAndAudioAfterSelectTarget`(패신저 S3만 1)이면 대상 고를 때 바로(`DoSelectTargetToHit` 0xA690F0). `_useChainPrefix`는 블랙보드 키
+  접두사 `chain.`(`chain.atk_scale` 등)일 뿐 그림·소리와 무관. 레이즈 S2 `_atkScale` 1.0(감쇠 없음, 키트와 같음), 나머지 0.85.
+- 고친 것: `char_modes.py` — 연쇄 그래픽 선은 `trail`에서 빼고 모드별 `chain[mode]`로(전체 재추출 diff: 레이즈·패신저·파피루스(체인 메딕)·
+  아스트젠 더 라이트체이서 S1 모드만). `fxgame.js chainHop` — 튕김은 공격 경로를 타지 않고, 연쇄의 시전자 = 첫 대상을 노린 마지막 오퍼레이터
+  공격(`aimed`, 같은 순간의 다음 튕김은 `hops`로 이어감)의 모드 `chain` 선을 앞 대상 HIT 점 → 다음 대상 HIT 점으로 튕김마다 한 토막씩
+  [추정: 공식은 대상들 위치를 잇는 LineRenderer 하나 — 패신저 S3 `chainFx`와 같은 근사]; 다음 대상의 'dmg'는 그 모드의 타격 이펙트. 선이
+  그려지면 `arrowKind`가 절차 빔을 끈다(시전자를 못 찾거나 선이 없으면 빔 그대로). 모드가 없는 스킬(−1)은 Default 모드의 선. 아스트젠 더
+  라이트체이서 S1 키트는 튕김을 'atk' 'chain'으로 알린다(그림·소리 전용). [추정: 두 체인 캐스터가 같은 적을 같은 순간 노리면 마지막 공격이
+  연쇄의 주인]
+- 확인: `test/render/chain-attack-fx.test.js`(추출 데이터, 튕김 선·적/아군 시전 없음·연쇄 치료 — 옛 코드에서 실패 확인). Windows Chrome 디버그
+  아레나(샌드백 3개, 일반 공격 9 s + S2 9 s, FxInstance 집계): 레이즈 `leizi_attack_01_trail` 3·`leizi_attack_02_line` 8·`_hit` 12, S2
+  `leizi_skill_02_trail` 3·`_line` 8·`_hit` 12; 패신저 `pasngr_attack_trail` 3·`pasngr_attack_line` 8·`_hit` 12, S2 `pasngr_skill_02_trail` 6·
+  `pasngr_attack_line` 14·`_hit` 21; 절차 빔 0, 오류 0. [화면 미확인: 실제 판에서 선 모양·높이·사라지는 시간, 공식 녹화 대조; 아스트젠 더
+  라이트체이서 S1·파피루스 선]
+- 안 한 것: 치료 이벤트('heal')에 공식 타격 이펙트를 트는 경로가 없음 — 파피루스는 선만 나오고 치료 대상의 `_effectsWhenHit`는 첫 대상에도
+  없다(모든 메딕 공통, 관리자 노트의 할 일).
