@@ -311,7 +311,7 @@
         "enemy_9023_acdums": [9,7,0,30790,355]
       },
       "hooks": [1,64,6000,1581,1581,4126,4971,3986,28,38,70,65,359,44180,2177,3,22,0,1,29,0,10,117],
-      "events": {"atk":1864,"deploy":38,"die":38,"dmg":4689,"engage":17,"face":148,"fx":1847,"heal":467,"skill":135,"spawn":56,"status":964,"swing":1605,"tplfx":3},
+      "events": {"atk":1864,"deploy":38,"die":38,"dmg":4689,"engage":17,"face":148,"fx":1871,"heal":467,"skill":135,"spawn":56,"status":964,"swing":1605,"tplfx":3},
       "fx": {
         "airstrike": 131,
         "appear": 2,
@@ -346,7 +346,7 @@
         "radiantSword": 4,
         "scorchBurst": 4,
         "slash": 11,
-        "snow": 40,
+        "snow": 64,
         "steal": 6,
         "storm": 4,
         "summon": 17,
@@ -599,7 +599,7 @@
         "enemy_2017_csphts": [8,7,0,1499,304705]
       },
       "hooks": [1,53,2944,576,576,1546,1800,4592,18,31,58,49,56,23189,1014,27,18,0,1,16,0,16,107],
-      "events": {"atk":717,"deploy":35,"die":31,"dmg":1656,"engage":21,"face":63,"fx":946,"heal":215,"skill":107,"spawn":45,"status":557,"swing":594},
+      "events": {"atk":717,"deploy":35,"die":31,"dmg":1656,"engage":21,"face":63,"fx":952,"heal":215,"skill":107,"spawn":45,"status":557,"swing":594},
       "fx": {
         "airstrike": 20,
         "blink": 16,
@@ -629,7 +629,7 @@
         "scorchBurst": 1,
         "shield": 5,
         "slash": 17,
-        "snow": 31,
+        "snow": 37,
         "split": 1,
         "steal": 1,
         "storm": 4,
@@ -1166,7 +1166,7 @@
         "enemy_9020_actrpc": [1,0,0,22039,735706]
       },
       "hooks": [1,76,6000,851,851,3692,4730,1323,52,60,59,57,152,23600,710,5,13,0,1,59,0,22,0],
-      "events": {"atk":1114,"deploy":57,"die":60,"dmg":4532,"engage":19,"face":54,"fx":2176,"heal":365,"skill":116,"spawn":49,"status":537,"swing":876,"tplfx":5},
+      "events": {"atk":1114,"deploy":57,"die":60,"dmg":4532,"engage":19,"face":54,"fx":2177,"heal":365,"skill":116,"spawn":49,"status":537,"swing":876,"tplfx":5},
       "fx": {
         "airstrike": 47,
         "beam": 13,
@@ -1198,7 +1198,7 @@
         "scorchBurst": 3,
         "shieldBreak": 8,
         "slash": 22,
-        "snow": 11,
+        "snow": 12,
         "split": 2,
         "steal": 2,
         "storm": 7,
