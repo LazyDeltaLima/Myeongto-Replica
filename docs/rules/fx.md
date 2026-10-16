@@ -1241,7 +1241,7 @@
     프리팹이 없고(이 모드 S2 블랙보드에 `shield_max`도 없음 — 본편 S2의 것) 이펙트 번들에도 그 둘이 없다. S2 대상 버프 `[blocked]`·`[not_blocked]`
     (`blkkgt_s_2[dot]`, 0.01초 간격 2·3번)의 `blkkgt_skill_02_hit_2`는 `_delayToFinish` 0이라 클라에서 거의 바로 끝남 → 안 그림 [추정]. 대신 锏 S1·S2의
     바인딩 프리팹 13개가 추출에서 빠져 있었다(S1 `blkkgt_skill_01_*`, S2 `blkkgt_skill_02_start_01~06`·`hit_1`) — 같은 꼴로 빠진 空弦 S1·S2
-    11개(같은 이름 틀의 `_B`·`trail_02`까지 13개)와 秋白 S2 `qiubai_skill_02_hit_01`까지 그 프리팹만 추출(`fx_extract.py --bundle … --match`/`--prefab`,
+    11개(같은 이름 틀의 `_B`·`trail_02`까지 13개)와 仇白 S2 `qiubai_skill_02_hit_01`까지 그 프리팹만 추출(`fx_extract.py --bundle … --match`/`--prefab`,
     `index.json`엔 더해지기만 함). 그 뒤 `local-char-modes.json` 바인딩 이름 중 자기 번들에 추출이 없는 것은 없음(대체 스킬도 고를 수 있어 그려짐).
 - 안 한 것: 心烛 선의 방향 확인. 新约能天使 S3 모드 바인딩이 `S3FireToToken`의 cast `angel2_skill_3_begin_start_001`을 S3 공격마다 트는 것.
 - 확인: 단위 `test/render/kit-event-fx.test.js`. Windows Chrome 디버그 아레나(지금 발동 3번 동안 만들어진 프리팹): 号角 S2
@@ -1257,7 +1257,7 @@
   泥岩 `mudrok_buff_03_start` → 9초에 `_01_begin`과 `_02_start` 더함 → 18초에 `_01_start` 더함(`_01_begin` 3번: 배치·층 둘); 卡涅利安 S1·S3 충전 1칸
   `billro_skill_01_buff_01`·`billro_skill_03_buff_01_01` 뒤 자동 발동으로 스킬 가지; 魔王 `cetsyr_trail_01` 3(돌아가며)·`cetsyr_trail_start` 3, S2 발동
   → `cetsyr_skill_02_trail_01` 6·`cetsyr_skill_02_trail_start`(빈 슬롯·돌아오는 微尘마다); 锏 S1 `blkkgt_skill_01_start_01~03`·S2 `start_01~06`(방향
-  `_04_h`)·`hit_1`, 空弦 S1 전부·S2 `start`·`_02`·`_03`, 秋白 S2 `qiubai_skill_02_hit_01`; 오류 0. [화면 미확인: 卡涅利安 충전 2칸·S3 표식 5스택(아레나는
+  `_04_h`)·`hit_1`, 空弦 S1 전부·S2 `start`·`_02`·`_03`, 仇白 S2 `qiubai_skill_02_hit_01`; 오류 0. [화면 미확인: 卡涅利安 충전 2칸·S3 표식 5스택(아레나는
   1칸에서 자동 발동, 충전 S3 표식은 단위만), 泥岩 막을 때 `mudrok_buff_01_hit`(샌드백이 안 때림), 微尘 궤도의 모양·방향 공식 녹화 대조, 空弦 S2 꼬리·명중
   `archet_skill_02_trail_01`·`_hit`(샌드백 하나 아레나에서 안 나옴)]
 
