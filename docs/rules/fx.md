@@ -1438,5 +1438,7 @@
   이벤트가 없음); S2 회복 이펙트는 시전 때(시뮬의 회복 시점 — 클라는 선물 물기 때 ON_ABILITY_CAST_ON_TARGET); 쓰러질 때 토큰의 일반 사망 이펙트도 남음.
 - 확인: 단위 `test/render/funnel-fx.test.js`. 디버그 아레나(오류 0): `vigil_token_buff_1~4`·`sub_start_1`(늑대 둘), S2 `_skill_02_hint`·`_heal` 2·`_ready` 1
   (아레나에선 늑대가 샌드백에 닿지 않아 물기는 단위만). [화면 미확인: 실제 판, 추가 늑대 자리·물기·전술점 모양을 공식 녹화와]
-- 덤: 왕의 跟子를 던질 때 왕에게 `wang_passive_01_start`(charpack SpawnToken/BuildStone·`skchr_wang_3` InstantSpawn `_startEffect`, 돌이 칸에 닿을 때 끝
-  `_finishStartEffectsOnCastOnTile`) — 'summon' `follower`에 던진 왕 `src` [추정: 시뮬의 'summon'은 착지라 거기서 한 번].
+- 덤: 왕의 跟子를 던질 때 `wang_passive_01_start`(charpack SpawnToken/BuildStone·`skchr_wang_3` InstantSpawn `_startEffect`)는 **돌이 놓일 칸에**
+  (2026-10-16 관리자 제보로 고침 — 처음엔 왕에게 붙였다): `CastOnTileAbility.OnCastStart`(RVA 0xC06B40)가 `CreateEffect(_startEffect, 시전 칸, 시전자)`로
+  만들고(디컴파일 확인, 프리팹 클립도 돌이 하늘에서 그 점으로 떨어지는 모양), 돌이 칸에 닿으면(`_finishStartEffectsOnCastOnTile`, `_preDelay` 0.25초)
+  Effect.FinishMe로 끝(방출 멈춤, `finish` 0.5초 뒤 제거). 렌더 `fxgame.js throwStart` [추정: 시뮬의 'summon'이 착지라 거기서 시작해 0.25초 뒤 끝].

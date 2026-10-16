@@ -71,6 +71,15 @@ test('the birth effects (the gold cross, the 跟子\'s rings) play on the stone\
   assert.doesNotMatch(SRC, /STONE_BORN\.[a-z]+\], ballOf/);
 });
 
+test('a 跟子\'s throw start effect plays on its tile, not on 望, and ends as it lands (maintainer report 2026-10-16)', () => {
+  // CastOnTileAbility.OnCastStart: CreateEffect(_startEffect, cast tile, owner); _finishStartEffectsOnCastOnTile after _preDelay
+  assert.match(SRC, /if \(o\.follower\) \{\n\s+playAt\(\[STONE_BORN\.follower\][^\n]*\n\s+throwStart\(v\);\n\s+\} else playAt\(\[STONE_BORN\.stone\]/);
+  assert.match(SRC, /spawn\(FOLLOWER_FX, 'wang_passive_01_start', \{ x: v\.x, y: v\.y, z: v\.z \|\| 0 \}/);
+  assert.match(SRC, /l\.until = Math\.max\(clockS, t0 \+ THROW_S\);/);
+  assert.doesNotMatch(SRC, /views\.get\(o\.src\) : null;\n[^\n]*wang_passive_01_start/);
+  if (existsSync(path.join(FX, 'wang', 'wang_passive_01_start.json'))) assert.ok(prefab('wang', 'wang_passive_01_start').finish > 0);
+});
+
 test('a stone gets no procedural skill burst (its passive \'skill\' on precedes the return \'deploy\')', () => {
   // the sim's order for a used stone coming back (same id, ~2 s after its 'die' in S3): ['skill', id, 1] → ['deploy', id];
   // the dying view (fade ≤ 2.15 s) was still there and render/app.js drew fx.skill's gold pillar + hex on it

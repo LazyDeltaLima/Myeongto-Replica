@@ -834,17 +834,30 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stoneBirth.delete(o.id);
       if (isStone(v)) {
         // local patch: a 跟子's rings (its own birth effect), a placed stone's gold cross — on the ground
-        if (o.follower) playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX });
-        // 2026-10-16 (묶음 3): her throw's start effect — charpack SpawnToken/BuildStone and skchr_wang_3 InstantSpawn
-        // `_startEffect` wang_passive_01_start, on her, finished as the stone lands (`_finishStartEffectsOnCastOnTile`) [추정: the
-        // sim's 'summon' is the landing — it plays once from there]
-        const sv = o.follower && o.src != null ? views.get(o.src) : null;
-        if (sv && index?.bundles?.[FOLLOWER_FX]?.includes('wang_passive_01_start')) spawn(FOLLOWER_FX, 'wang_passive_01_start', sv, { owner: null, buff: false }, { over: false });
-        else playAt([STONE_BORN.stone], v, { owner: o.id, under: true });
+        if (o.follower) {
+          playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX });
+          throwStart(v);
+        } else playAt([STONE_BORN.stone], v, { owner: o.id, under: true });
         return true;
       }
     }
     return false;
+  }
+  // The throw of a 跟子: charpack SpawnToken/BuildStone and skchr_wang_3 InstantSpawn `_startEffect` wang_passive_01_start —
+  // a CastOnTileAbility's, created on each cast TILE, not on her (`CastOnTileAbility.OnCastStart` RVA 0xC06B40:
+  // CreateEffect(_startEffect, m_castTiles[i], owner); its clip drops the stone from the sky onto that point), and finished
+  // as the stone lands there (`_finishStartEffectsOnCastOnTile`: after the 0.25 s `_preDelay`) — emission stops, the effect
+  // goes its `finish` later (Effect.FinishMe, statusOff). [추정: the sim's 'summon' is the landing; it starts there]
+  // (2026-10-16 maintainer report: it was played on her)
+  const THROW_S = 0.25;
+  function throwStart(v) {
+    const t0 = clockS;
+    spawn(FOLLOWER_FX, 'wang_passive_01_start', { x: v.x, y: v.y, z: v.z || 0 }, { owner: null, buff: false }, { over: false }).then((l) => {
+      if (!l) return;
+      l.until = Math.max(clockS, t0 + THROW_S);
+      const fin = Number(l.inst.def?.finish);
+      l.finishAt = l.until + (fin > 0 ? fin : 0);
+    });
   }
   // a stone blast's hit effect on each enemy it damages — the 'dmg' of the same moment on its area
   // (S2: its activated link lines, ≤ 3 tiles each way; S3: the x-1 diamond) — and always the enemy that set it off ('zone'

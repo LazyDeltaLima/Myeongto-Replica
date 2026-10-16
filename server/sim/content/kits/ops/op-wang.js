@@ -276,8 +276,8 @@ function wang(bb, chess, def) {
     if (!f) return null;
     f.mem.wangFollower = true;
     if (battle.unitAt(r, c) === f) battle._occ[r * COLS + c] = null; // occupies no tile
-    // local patch: `follower` — its own effect (render/fxgame.js: projectile_chr_wang_stone* wang_passive_01_buff); `src` her
-    // (the throw's start effect on her: BuildStone / InstantSpawn `_startEffect`)
+    // local patch: `follower` — its own effect (render/fxgame.js: projectile_chr_wang_stone* wang_passive_01_buff, and the
+    // throw's BuildStone / InstantSpawn `_startEffect` on its tile); `src` her, the thrower
     battle.fx('summon', { x: f.x, y: f.y, id: f.id, follower: true, src: unit.id });
     return f;
   };
