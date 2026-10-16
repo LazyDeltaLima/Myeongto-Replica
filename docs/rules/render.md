@@ -640,7 +640,7 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   (4인 협동 ABYSS 숨겨진 핵심 0.058, 최대 1.57)라 휴대폰에서도 프레임 예산의 몇 %다. WASM 전환 판단은 이 표시로 실기기 수치를 받은 뒤.
 - 확인: `test/ui/perf-hud.test.js` 4, `test/diag.test.js` 1; Windows Chrome(844×390 @3x) 실제 솔로 대전: 제목 화면부터 표시, 전투 중
   `sim … (60 t/s) · js 0.9 · draw 0.3`, `3d 20 calls`, 진단에 `perf: R1 COMBAT …` 줄, 주소 없이 다시 열어도 켜짐, `?perf=0`으로 꺼짐.
-  [화면 미확인] 실제 iPhone Safari.
+  실제 iPhone Safari 확인 2026-10-16(관리자의 홈 화면 앱 관전 로그 두 개에 `perf:` 줄 18개).
 - **보고서 보강** (2026-10-16, 관리자 제공 iPhone 12 Pro 관전 로그 두 개: 품질 높음 → 중간에 중, 어느 쪽이 병목인지 로그만으로 가를 수
   없었음): `perf:` 줄의 시각은 다른 줄과 같은 UTC 벽시계(`15:31:07–15:32:19`) — 휴대폰은 앱이 멈춘 동안 `performance.now()`가 서서
   페이지 기준 시계가 `mount:`·`render events:`와 2분 넘게 어긋났다. 품질·렌더 해상도(`q high res 2/2` = PIXI/3D 보드, 3D 없으면 `-`)가
