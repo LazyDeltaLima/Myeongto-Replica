@@ -176,7 +176,8 @@ test('fx_extract.py records _useBodyRotation and the branch delays (node delay /
   assert.match(EXTRACT, /'body': i\(s \+ 11 \+ x\)/);   // `x`: the CN client's layout, one word later
   // the CN client's (newer) components: the effect's 30 words from s (one more before `_rotateType`), the mount's 9 (two more after `_followScale`)
   assert.match(EXTRACT, /x = 1 if len\(b\) \/\/ 4 - s == 30 else 0/);
-  assert.match(EXTRACT, /if \(len\(raw\) - off\) \/\/ 4 == 9:[^\n]*\n\s+w = struct\.unpack_from\('<9i', raw, off\)\n\s+v = w\[:3\] \+ w\[5:\]/);
+  // (8 words: the EN client's later `_pauseWhenFollowScaleNearlyZero`; 9 → w[:3] + w[5:] as before)
+  assert.match(EXTRACT, /if words not in \(7, 8, 9\):\n\s+return None\n\s+w = struct\.unpack_from\(f'<\{words\}i', raw, off\)\n\s+v = w\[:3\] \+ w\[3 \+ words - 7:\]/);
   assert.match(EXTRACT, /if pe\.get\('body'\):\n\s+o\['body'\] = 1/);
   assert.match(EXTRACT, /node\['delay'\] = dl/);
   assert.match(EXTRACT, /nodes\[k\]\['sdelay'\] = t/);
