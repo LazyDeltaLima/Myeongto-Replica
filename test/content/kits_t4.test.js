@@ -12,6 +12,7 @@ const kits = TIER_KITS[3];
 const ds = getDefaultSource();
 const D = (id) => ds.getChess(id);
 const approx = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg} ${a} ≈ ${b}`);
+const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps * Math.max(1, Math.abs(b));
 const dummy = (o = {}) => enemyRec({ key: 'enemy_dummy', hp: 1e8, speed: 0, ...o });
 const withTags = (rec, tags) => ({ ...rec, tags });
 const noisy = (h, name) => h.hooksOf(name);
@@ -244,7 +245,7 @@ test('寒芒克洛丝 S2: 2-shot, 4-shot after 40 hits; 中的 crits ×1.5 + 0.2
   assert.ok(noisy(h, 'statusApplied').some((c) => c.source === u && c.status === 'stun' && c.duration === t0.stun));
 });
 
-test('风笛 S2: next attack 145 % twice; 精密填弹 extra target ×1.3; 军事传统 +6 SP to 先锋', () => {
+test('风笛 S2: next attack 145 % twice; 精密填弹 per hit ×1.3 + a splash on one more enemy; 军事传统 +6 SP to 先锋', () => {
   const id = 'chess_char_4_07_a', bb = D(id).skill.bb, t0 = D(id).talents[0].bb, t1 = D(id).talents[1].bb;
   const h = makeBattle({
     defs: { enemies: { enemy_dummy: dummy() } },
@@ -260,18 +261,23 @@ test('风笛 S2: next attack 145 % twice; 精密填弹 extra target ×1.3; 军�
   const atk = u.s.atk;
   const byAttack = new Map();
   for (const c of dmgBy(h, u)) (byAttack.get(c.t) ?? byAttack.set(c.t, []).get(c.t)).push(c);
-  const sk = [...byAttack.values()].filter((l) => l.some((c) => c.dmg.isSkill));
-  assert.ok(sk.length >= 2, 'skill attacks');
-  for (const l of sk) {
-    const perTarget = l.length / new Set(l.map((c) => c.target.id)).size;
-    assert.equal(perTarget, 2, 'hits twice');
-    const boosted = new Set(l.map((c) => c.target.id)).size === 2;
-    approx(l[0].amount, atk * bb.atk_scale * (boosted ? t0.atk_scale : 1), 1e-6);
+  const splash = (c) => c.dmg.tags.includes('bpipe:splash');
+  let rolls = 0, skillAttacks = 0;
+  for (const l of byAttack.values()) {
+    const main = l.filter((c) => !splash(c)), sp = l.filter(splash);
+    if (!main.length) continue;
+    assert.equal(new Set(main.map((c) => c.target.id)).size, 1, 'one attack target (the splash is no extra target)');
+    const isSk = main.some((c) => c.dmg.isSkill), scale = isSk ? bb.atk_scale : 1;
+    if (isSk) { skillAttacks++; assert.equal(main.length, 2, 'hits twice'); }
+    // each hit rolls: a boosted one ×1.3, and the enemy beside takes her attack's scale ×1.3 (physical)
+    const up = main.filter((c) => near(c.amount, atk * scale * t0.atk_scale));
+    for (const c of main) assert.ok(near(c.amount, atk * scale) || near(c.amount, atk * scale * t0.atk_scale), 'normal or ×1.3');
+    assert.equal(sp.length, up.length, 'a splash per boosted hit');
+    for (const c of sp) { assert.notEqual(c.target.id, main[0].target.id); approx(c.amount, atk * scale * t0.atk_scale, 1e-6); }
+    rolls += up.length;
   }
-  const normal = [...byAttack.values()].filter((l) => !l.some((c) => c.dmg.isSkill));
-  const boosted = normal.filter((l) => new Set(l.map((c) => c.target.id)).size === 2);
-  assert.ok(boosted.length > 0, '25 % extra-target attacks happen');
-  for (const l of boosted) approx(l[0].amount, atk * t0.atk_scale, 1e-6);
+  assert.ok(skillAttacks >= 2, 'skill attacks');
+  assert.ok(rolls > 0, '25 % boosted hits happen');
   checkInvariants(h.b);
 });
 

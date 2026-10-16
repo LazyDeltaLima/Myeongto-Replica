@@ -34,24 +34,27 @@ export default withDefaults({
         onStart({ battle, unit }) { battle.fx('charge', { x: unit.x, y: unit.y, id: unit.id }); },
       },
       talents: [
-        { install(battle, unit) { // 精密填弹: 25 % → ×1.3 and one extra target
-          battle.on('beforeAttack', (c) => {
-            if (c.attacker !== unit) return;
-            unit.mem.bpBoost = battle.rng.chance(num(t0.prob, 0.25));
-            if (!unit.mem.bpBoost) return;
-            const extra = battle.enemiesInKeys(unit.rangeKeys, unit, c.profile).filter((e) => !c.targets.includes(e));
-            sortEnemyTargets(battle, unit, extra, c.profile?.priority ?? null);
-            if (extra[0]) c.targets = [...c.targets, extra[0]];
-            unit.mem.bpExtra = extra[0] ?? null;
-          }, { owner: unit });
+        { install(battle, unit) { // 精密填弹
+          // client bpipe_t_1 (2026-10-16 check): on each damage she calculates (ON_CALCULATE_DAMAGE — every hit of an attack,
+          // S2's two and S3's three each roll) `prob` → that hit ×atk_scale (AtkScaleUp) and SplashDamage (RVA 0xDA29F0): her
+          // attack's own selector finds one more enemy (the hit target excluded) and takes a physical NORMAL-attack hit of her
+          // attack's scale ×atk_scale, its blackboard `effect` bpipe_attack_02_hit created on it (render/fx/kitofficial.js
+          // 'talent' splash). Not an attack target: no 'atk' to it, no normal hit effect (`avoid_dup_trigger_lock`: the splash
+          // does not roll again).
+          let busy = false;
           battle.on('hit', (c) => {
-            if (c.source !== unit || !c.dmg.isAttack || !unit.mem.bpBoost) return;
-            c.dmg.mul *= num(t0.atk_scale, 1.3);
-            // bpipe_t_1's SplashDamage creates its blackboard `effect` bpipe_attack_02_hit on the splashed enemy
-            // (render/fx/kitofficial.js 'talent')
-            if (c.target === unit.mem.bpExtra) battle.fx('talent', { x: c.target.x, y: c.target.y, id: c.target.id, src: unit.id, name: 'splash' });
-          }, { owner: unit });
-          battle.on('attack', (c) => { if (c.attacker === unit) unit.mem.bpBoost = false; }, { owner: unit });
+            if (busy || c.source !== unit || !c.dmg.isAttack || c.target.side !== 'enemy' || !battle.rng.chance(num(t0.prob, 0.25))) return;
+            const sc = num(t0.atk_scale, 1.3), amount = c.dmg.amount;
+            c.dmg.mul *= sc;
+            const prof = battle.effectiveProfile(unit);
+            const extra = battle.enemiesInKeys(unit.rangeKeys, unit, prof).filter((e) => e !== c.target && e.alive);
+            sortEnemyTargets(battle, unit, extra, prof?.priority ?? null);
+            const e = extra[0];
+            if (!e) return;
+            busy = true;
+            try { battle.dealDamage(unit, e, { amount: amount * sc, type: 'phys', isAttack: true, isSplash: true, noSp: true, tags: ['talent', 'bpipe:splash'] }); } finally { busy = false; }
+            battle.fx('talent', { x: e.x, y: e.y, id: e.id, src: unit.id, name: 'splash' });
+          }, { owner: unit, priority: 1 }); // before the module's 115 % (its own hit decides the splashed enemy's)
         } },
         { install(battle, unit) { // 军事传统: every 先锋 of the team starts with +6 SP
           battle.on('deploy', (c) => {

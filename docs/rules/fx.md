@@ -1386,8 +1386,8 @@
     `_02_start_02`(sp1) 첫 처치 재시전까지. 적용자마다 따로인 키(`…:<id>`)는 끝 번호를 떼고 찾고, 버프 하나가 프리팹 여럿이면 목록.
   - **시전 순간**(키트 이벤트 → `kitofficial.js`): 카넬리안 生命之餐 스킬 시작 회복 'talent' `meal` — `Billro_Heal_Self`/`_Enhance`의 oneshot
     `_castEffects`(ON_SPELL_ON) `billro_beidong_buff_01`, 충전 다 찬 시전 `_02` [추정: 두 시전 컴포넌트가 한 GameObject에 있어 짝은 프리팹 크기로];
-    백파이프 精密填弹 'talent' `splash` — `bpipe_t_1` SplashDamage의 `_createEffect`(블랙보드 `effect` `bpipe_attack_02_hit`)를 강화 공격의 추가
-    대상에; 그노시스 殊途同归 'kitHit'(배치 10초 뒤) — 감싸는 능력 `gnosis_t_2_buff`의 `_castEffects` `gnosis_beidong_buff`(ON_CAST_START → ON_CAST_END)를
+    백파이프 精密填弹 'talent' `splash` — `bpipe_t_1` SplashDamage의 `_createEffect`(블랙보드 `effect` `bpipe_attack_02_hit`)를 강화 타격의 추가
+    피해를 받은 적에(2026-10-16부터 공격 대상이 아니라 일반 명중은 안 겹침, rules/sim.md 「风笛 精密填弹」); 그노시스 殊途同归 'kitHit'(배치 10초 뒤) — 감싸는 능력 `gnosis_t_2_buff`의 `_castEffects` `gnosis_beidong_buff`(ON_CAST_START → ON_CAST_END)를
     배치 동안 [추정: 그 능력이 `_isInfinity`라 시전이 안 끝남]; 블레이즈 디 이그나이팅 스파크 S2 불 붙은 칸 'burnTiles' `cells` [[x, y, 1|0]] —
     `Modes/S2/Body/Talents/3` DoTile(AttachListenerToTileAbility)의 `_effectSettings` `blaze2_skill_02_hit_plot`(castedTimeThreshold 1)을 칸마다, 스킬
     끝(능력 떼짐 `_ClearEffects`)에 모두 끔.

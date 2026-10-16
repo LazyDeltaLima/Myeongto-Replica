@@ -848,6 +848,11 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
   떠나면 모두 빠짐(`_removeBuffWhenAbilityDetached`); 그녀 뒤에 배치된 术师도 받는다. 그 전엔 배치 순간 한 번 골라 붙인 뒤 지우지 않아, 그녀가 떠나도
   남고 재배치마다 다른 术师에 쌓였다 → `chess_char_6_12-rosmon.js`(배치마다 0.25 s 확인). [ASSUMED: 새로 고를 때 무작위, 0.25 s 간격]. 테스트
   `kits_t6.test.js` 「感知稳定 is an aura」.
+- **风笛 精密填弹은 타격마다 굴리는 추가 피해** (2026-10-16, 버프 템플릿 `bpipe_t_1`): ON_CALCULATE_DAMAGE마다(한 공격의 타격마다 — S2 2타·S3 3타가
+  각각) `prob` → 그 타격 ×`atk_scale`(AtkScaleUp) + SplashDamage(RVA 0xDA29F0: 그녀 공격의 대상 선택기로 맞은 적을 뺀 한 명, 물리·NORMAL 공격, 그녀 공격
+  배율 ×`atk_scale`, `effect` `bpipe_attack_02_hit`; `avoid_dup_trigger_lock`으로 그 피해는 다시 안 굴림). 그 전엔 공격마다 한 번 굴려 둘째 적을 **공격 대상**에
+  넣어 'atk'·일반 명중 이펙트까지 그 적에 나왔다 → `chess_char_4_07-bpipe.js`('hit' 우선순위 1: 모듈 115 %보다 먼저 원래 피해를 읽음, 추가 피해는 SP 없음).
+  테스트 `kits_t4.test.js` 「风笛 S2」.
 
 ## 적 투사체·공식 바인딩용 이벤트 필드 (관리자 결정 (2026-10-10) 「동작 변경 모두 공식이랑 동일하게」)
 근거: EN 클라(2026-08) 적 프리팹 `battle/enm_pfb_*.ab`·투사체 `battle/prefabs/[uc]projectiles.ab`의 값과 클라 코드(디컴파일 — 레포에는 클래스·메서드 이름만,
