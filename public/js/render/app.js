@@ -1919,6 +1919,8 @@ export async function createFieldView(host, options = {}) {
 
   let clock = 0;
   let cpuMs = 0;
+  // the longest single frame JS / PIXI render / 3D board draw (ms) since the last takePeaks() (the perf HUD's stalls)
+  const peaks = { js: 0, draw: 0, b3: 0 };
   let frameNo = 0;
   let impInterval = 0;
   // Each frame the impostor units take slots 0, 1, 2 … in update order (units.js _updateImpostor): a unit refreshes when
@@ -1962,7 +1964,11 @@ export async function createFieldView(host, options = {}) {
   function frame() {
     if (destroyed) return;
     const now = performance.now();
-    try { frameBody(now); } finally { cpuMs = cpuMs * 0.9 + (performance.now() - now) * 0.1; }
+    try { frameBody(now); } finally {
+      const ms = performance.now() - now;
+      cpuMs = cpuMs * 0.9 + ms * 0.1;
+      if (ms > peaks.js) peaks.js = ms;
+    }
   }
   function frameBody(now) {
     frameNo++;
@@ -1986,7 +1992,12 @@ export async function createFieldView(host, options = {}) {
       stepCamera(now);
       if (board3d) {
         if (board3d.lost) onBoard3dLost();
-        else board3d.render(cam, clock);
+        else {
+          const t3 = performance.now();
+          board3d.render(cam, clock);
+          const ms3 = performance.now() - t3;
+          if (ms3 > peaks.b3) peaks.b3 = ms3;
+        }
       }
       tiles.project(cam);
       updateBackdrop(clock);
@@ -2068,7 +2079,12 @@ export async function createFieldView(host, options = {}) {
   // render-cost probe (PIXI renders at UPDATE_PRIORITY.LOW = -25)
   let renderT0 = 0, renderMs = 0;
   const preRender = () => { renderT0 = performance.now(); };
-  const postRender = () => { if (renderT0) renderMs = renderMs * 0.9 + (performance.now() - renderT0) * 0.1; };
+  const postRender = () => {
+    if (!renderT0) return;
+    const ms = performance.now() - renderT0;
+    renderMs = renderMs * 0.9 + ms * 0.1;
+    if (ms > peaks.draw) peaks.draw = ms;
+  };
   app.ticker.add(preRender, null, -24);
   app.ticker.add(postRender, null, -26);
 
@@ -2290,7 +2306,14 @@ export async function createFieldView(host, options = {}) {
         ...fx.counts, spine: assets.spine?.stats ? assets.spine.stats() : null, renderT: interp.renderT, rate: interp.rate,
         buffered: interp.size, camera: cam.params(),
         fxGame: fxGame.stats(), // local patch
+        res: app.renderer.resolution, boardRes: board3d ? board3d.size.dpr : null,
       };
+    },
+    /** The longest single frame costs (ms) since the last call, then reset (the perf HUD; b3 null without a 3D board). */
+    takePeaks() {
+      const p = { js: peaks.js, draw: peaks.draw, b3: board3d ? peaks.b3 : null };
+      peaks.js = peaks.draw = peaks.b3 = 0;
+      return p;
     },
     get mode() { return mode; },
     /** Dev hooks (demo / tests). */

@@ -641,6 +641,13 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
 - 확인: `test/ui/perf-hud.test.js` 4, `test/diag.test.js` 1; Windows Chrome(844×390 @3x) 실제 솔로 대전: 제목 화면부터 표시, 전투 중
   `sim … (60 t/s) · js 0.9 · draw 0.3`, `3d 20 calls`, 진단에 `perf: R1 COMBAT …` 줄, 주소 없이 다시 열어도 켜짐, `?perf=0`으로 꺼짐.
   [화면 미확인] 실제 iPhone Safari.
+- **보고서 보강** (2026-10-16, 관리자 제공 iPhone 12 Pro 관전 로그 두 개: 품질 높음 → 중간에 중, 어느 쪽이 병목인지 로그만으로 가를 수
+  없었음): `perf:` 줄의 시각은 다른 줄과 같은 UTC 벽시계(`15:31:07–15:32:19`) — 휴대폰은 앱이 멈춘 동안 `performance.now()`가 서서
+  페이지 기준 시계가 `mount:`·`render events:`와 2분 넘게 어긋났다. 품질·렌더 해상도(`q high res 2/2` = PIXI/3D 보드, 3D 없으면 `-`)가
+  바뀌면 줄을 나눈다. `worst`(가장 긴 프레임 간격), `stalls N (max X s)`(페이지가 보이는 채로 1초 넘게 프레임이 없던 것 — 숨은 페이지와
+  구분, fps에서 뺌), `no frames N`(프레임 없는 표본, fps·p95에서 뺌), `js X (3d …, fx …)`(js 안의 3D 보드 CPU·이펙트 몫),
+  `other X ms`(55 fps 밑 표본에서 프레임 − js − draw − sim: GPU·합성 또는 프레임 밖 메인 스레드 일), `peak js …, draw …, 3d … ms`(한 프레임
+  최대값: 보기 `takePeaks()`, 1초마다 비움). 테스트 `test/ui/perf-hud.test.js`.
 
 ## upstream 버그 이슈 이식 — 렌더 (2026-10-15)
 upstream 새 버그 이슈의 수정 PR 중 sim 수정에 기대는 렌더 쪽(관리자 결정 2026-10-15). sim 쪽 근거는 `sim.md` 「upstream 버그 이슈 이식 (2026-10-15)」.
