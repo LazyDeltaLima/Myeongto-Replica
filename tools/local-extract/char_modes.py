@@ -153,6 +153,8 @@ MELEE_ABILITY = re.compile(r'^(Blocked)?MeleeAttack$')
 RANGED_ABILITY = re.compile(r'^(Blocked|Self)?RangedAttack$')
 PROJ_HIT_KEYS = ('_effectsWhenHit', '_effectsWhenReached')
 PROJ_SUB_KEYS = ('_projectileKey', '_subProjectileKey', '_childProjectileKey')
+# a drone's ability GameObject (Funnel, Funnel_0, Funnel1, S1Funnel2, S2Funnel — not the attack that leads them: M0FunnelsNormalAttack)
+FUNNEL = re.compile(r'^(S\d)?Funnel_?\d*$')
 
 
 def load_tree(path, comp_index=False):
@@ -607,6 +609,10 @@ def modes_of(path, projectiles=None):
     # one it uses — `fortress[mode]` = { melee: { cast, hit }, ranged: { cast, hit } } (ranged: + its projectile's hit)
     split = [{'melee': {'cast': [], 'hit': []}, 'ranged': {'cast': [], 'hit': []}} for _ in range(n)]
     doll_born = []
+    # 2026-10-16 (이펙트 연결 전수 묶음 3): a 驭械术师's drones — per mode, its `Funnel*` abilities (their projectile and mount
+    # point) and their FunnelEffectEmitter (same GameObject), and the drone's idle look of a mode without an emitter: the buffs
+    # of the mode's `Effect` GameObjects (funnel_entries below)
+    fun_ab, fun_em, fun_idle = [{} for _ in range(n)], [{} for _ in range(n)], [[] for _ in range(n)]
     for gp, d, _ in tree:
         if '[switch2stand]/StandBorn' in gp:
             add(doll_born, effect_names(d.get('_castEffects') or []))
@@ -641,6 +647,14 @@ def modes_of(path, projectiles=None):
             continue
         found = []
         keys(d, found)
+        leaf = gp.rpartition('/')[2]
+        if FUNNEL.match(leaf):
+            if isinstance(d.get('_idleEffect'), list):
+                fun_em[i][gp] = d
+            elif isinstance(d.get('_projectileKey'), str) and d['_projectileKey']:
+                fun_ab[i].setdefault(gp, d)
+        if leaf == 'Effect' and i == 0:   # [추정] the drone's own look: only the Default mode's (S2 modes' are skill buffs)
+            add(fun_idle[i], buff_effects(d))
         add(turn, turned(d))
         dir_groups(d, dirs)
         for k in found:
@@ -820,7 +834,55 @@ def modes_of(path, projectiles=None):
                 if s['melee'].get('seen') and s['ranged'].get('seen') else None for s in split]
     if any(fortress):
         res['fortress'] = fortress
+    funnels = [funnel_entries(fun_ab[i], fun_em[i], fun_idle[i], projectiles) for i in range(n)]
+    if any(funnels):
+        res['funnels'] = funnels
     return res
+
+
+def funnel_entries(abilities, emitters, idle, projectiles):
+    """2026-10-16, decompile check — client `FunnelEffectEmitter.OnEvent` (RVA 0xCB4EB0): ON_ATTACHED plays its `_idleEffect`
+    (and `_idleBackEffect`, shown instead while the owner faces back: `_UpdateIdleEffect` 0xCB6180), ON_CAST_START plays its
+    `_disappearEffect` and pauses the idle ones (`_setActiveFalseWhenPause`: hidden too), ON_ATTACK_FINISH plays its
+    `_appearEffect` and resumes them, ON_DETACHED finishes them; `_PlayEffect` (0xCB5EF0) creates each on the owner, facing
+    its way. A mode's drones: [{ idle, back, hide, show, over, off, proj, from, speed, trail, hit, wait }…] by GameObject name, or
+    { idle } first for a mode whose drone is a buff's look (`idle`: its `Effect` GameObjects — the 驭械术师 Default modes:
+    耶拉 kjera_token_default, 洛洛 rockr_token_01, 至简 malist_drone); [] for a mode without drones."""
+    if not abilities and not emitters:
+        return []
+    out = []
+    for gp in sorted(set(abilities) | set(emitters)):
+        a, e, x = abilities.get(gp) or {}, emitters.get(gp) or {}, {}
+        for k, src in (('idle', '_idleEffect'), ('hide', '_disappearEffect'), ('show', '_appearEffect')):
+            if e.get(src):
+                x[k] = [v for v in e[src] if isinstance(v, str) and v]
+        if e.get('_useIdleBackEffect') == 1 and e.get('_idleBackEffect'):
+            x['back'] = [v for v in e['_idleBackEffect'] if isinstance(v, str) and v]
+        if e.get('_useOverloadEffect') == 1 and e.get('_overloadIdleEffect'):
+            x['over'] = [v for v in e['_overloadIdleEffect'] if isinstance(v, str) and v]
+        if e.get('_setActiveFalseWhenPause') == 1:
+            x['off'] = 1
+        key = a.get('_projectileKey')
+        if key:
+            x['proj'] = key
+            if isinstance(a.get('_mountPointType'), int):
+                x['from'] = a['_mountPointType']
+            if a.get('_waitForProjectileInvalid') == 1:
+                x['wait'] = 1   # its ON_ATTACK_FINISH comes when the projectile ends
+            if projectiles:
+                pe = projectiles.effects(key)
+                x['trail'], x['hit'] = pe['trail'], list(pe['hit'])
+                # `_effectGroups[0].effectsWhenHit` [추정: the first group — the groups' order on the strikes not checked]
+                for d in projectiles.roots.get(key, []):
+                    if isinstance(d.get('_speed'), (int, float)) and d['_speed'] > 0:
+                        x.setdefault('speed', d['_speed'])   # tiles / s
+                    g = d.get('_effectGroups')
+                    if isinstance(g, list) and g and isinstance(g[0], dict):
+                        add(x['hit'], effect_names(g[0].get('effectsWhenHit') or []))
+        out.append(x)
+    if idle and not any(x.get('idle') for x in out):
+        out.insert(0, {'idle': idle})
+    return out
 
 
 def main():
@@ -876,7 +938,7 @@ def main():
     doc.update({k: out[k] for k in sorted(out)})
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if FX_OUT.parent.exists():
-        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
+        fx = {k: {f: v[f] for f in ('modes', 'skillMode', 'cast', 'castOpt', 'input', 'hit', 'hitGroups', 'tgtStart', 'hitLoop', 'castTgt', 'clipFx', 'trail', 'chain', 'chainHit', 'shotFrom', 'attach', 'attachFoe', 'attachFoeMax', 'dollBorn', 'hitAim', 'fortress', 'funnels', 'skills', 'turn', 'dirs', 'start', 'startOnce', 'modeStart', 'dead', 'common') if f in v} for k, v in sorted(out.items())}
         FX_OUT.write_text(json.dumps(fx, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'{len(out)} operator(s) → {OUT.relative_to(ROOT)}' + (f' + {FX_OUT.relative_to(ROOT)}' if FX_OUT.parent.exists() else '')
           + f'; no charpack: {", ".join(missing) or "none"}')

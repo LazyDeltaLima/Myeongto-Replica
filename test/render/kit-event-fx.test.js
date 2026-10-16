@@ -64,7 +64,6 @@ const VERDICT = {
   splash: { blaze2: ['attack'] },
   split: { mlyss: ['standIn', 'sent by the 流形 token (summons)'] },
   sword: { qiubai: ['skill', 2] },
-  talent: { whitw2: ['none', 'T1 阿尔法 stages: no effect (charpack Talents, buff templates whitw2_t*)'] },
   truesilver: { svrash: ['skill', 3] },
   undying: { nearl2: ['none', 'module 骑士家族 nearl2_e_003_tr creates no effect (nearl2_buff_01_start is S3 combo_effect)'] },
   wake: { glady: ['skill', 2] },

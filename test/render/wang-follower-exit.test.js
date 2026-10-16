@@ -14,8 +14,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const APP = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
 const KIT = readFileSync(path.join(ROOT, 'server/sim/content/kits/ops/op-wang.js'), 'utf8');
 
-test('the sim marks a 跟子 birth (summon fx `follower`)', () => {
-  assert.match(KIT, /battle\.fx\('summon', \{ x: f\.x, y: f\.y, id: f\.id, follower: true \}\);/);
+test('the sim marks a 跟子 birth (summon fx `follower`, `src` her — the throw\'s start effect)', () => {
+  assert.match(KIT, /battle\.fx\('summon', \{ x: f\.x, y: f\.y, id: f\.id, follower: true, src: unit\.id \}\);/);
 });
 
 test('app.js: a 跟子\'s die removes its view on the next frame, without death particles', () => {

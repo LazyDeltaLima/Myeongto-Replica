@@ -2253,6 +2253,183 @@
    }
   ],
   "start": "whitw2_birth_01",
+  "funnels": [
+   [
+    {
+     "idle": [
+      "whitw2_token_01"
+     ],
+     "hide": [
+      "whitw2_token_end_01"
+     ],
+     "show": [
+      "whitw2_token_end_01"
+     ],
+     "off": 1,
+     "proj": "projectile_chr_whitw2_funnel_1",
+     "from": 5,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_01"
+     ]
+    },
+    {
+     "idle": [
+      "whitw2_token_02"
+     ],
+     "hide": [
+      "whitw2_token_end_02"
+     ],
+     "show": [
+      "whitw2_token_end_02"
+     ],
+     "off": 1,
+     "proj": "projectile_chr_whitw2_funnel_2",
+     "from": 6,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_02"
+     ]
+    },
+    {
+     "idle": [
+      "whitw2_token_03"
+     ],
+     "hide": [
+      "whitw2_token_end_03"
+     ],
+     "show": [
+      "whitw2_token_end_03"
+     ],
+     "off": 1,
+     "proj": "projectile_chr_whitw2_funnel_3",
+     "from": 5,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_03"
+     ]
+    }
+   ],
+   [
+    {
+     "idle": [
+      "whitw2_token_01"
+     ],
+     "hide": [
+      "whitw2_token_end_01"
+     ],
+     "show": [
+      "whitw2_token_end_01"
+     ],
+     "off": 1,
+     "proj": "projectile_chr_whitw2_funnel_s1_1",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_01"
+     ]
+    },
+    {
+     "idle": [
+      "whitw2_token_02"
+     ],
+     "hide": [
+      "whitw2_token_end_02"
+     ],
+     "show": [
+      "whitw2_token_end_02"
+     ],
+     "off": 1,
+     "proj": "projectile_chr_whitw2_funnel_s1_2",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_02"
+     ]
+    },
+    {
+     "idle": [
+      "whitw2_token_03"
+     ],
+     "hide": [
+      "whitw2_token_end_03"
+     ],
+     "show": [
+      "whitw2_token_end_03"
+     ],
+     "off": 1,
+     "proj": "projectile_chr_whitw2_funnel_s1_3",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_03"
+     ]
+    }
+   ],
+   [
+    {
+     "proj": "projectile_chr_whitw2_funnel_s2_1",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_01"
+     ]
+    },
+    {
+     "proj": "projectile_chr_whitw2_funnel_s2_2",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_02"
+     ]
+    },
+    {
+     "proj": "projectile_chr_whitw2_funnel_s2_3",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_03"
+     ]
+    },
+    {
+     "proj": "projectile_chr_whitw2_funnel_s2_4",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_04"
+     ]
+    },
+    {
+     "proj": "projectile_chr_whitw2_funnel_s2_5",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_05"
+     ]
+    },
+    {
+     "proj": "projectile_chr_whitw2_funnel_s2_6",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "whitw2_token_hit_06"
+     ]
+    }
+   ],
+   []
+  ],
   "skillMode": [
    null,
    2,
@@ -8538,6 +8715,70 @@
     }
    }
   ],
+  "funnels": [
+   [
+    {
+     "idle": [
+      "kjera_token_default"
+     ]
+    },
+    {
+     "proj": "projectile_chr_kjera_funnel",
+     "from": 5,
+     "trail": [
+      "kjera_token_attack_trail_01"
+     ],
+     "hit": [
+      "kjera_token_hit_01"
+     ],
+     "speed": 10.0
+    }
+   ],
+   [
+    {
+     "idle": [
+      "kjera_token_F_01"
+     ],
+     "hide": [
+      "kjera_token_hide_01"
+     ],
+     "show": [
+      "kjera_token_show_01"
+     ],
+     "back": [
+      "kjera_token_B_01"
+     ],
+     "proj": "projectile_chr_kjera_funnel_s2_1",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "kjera_token_skill_02_hit_F_L_01"
+     ]
+    },
+    {
+     "idle": [
+      "kjera_token_F_02"
+     ],
+     "hide": [
+      "kjera_token_hide_02"
+     ],
+     "show": [
+      "kjera_token_show_02"
+     ],
+     "back": [
+      "kjera_token_B_02"
+     ],
+     "proj": "projectile_chr_kjera_funnel_s2_2",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "kjera_token_skill_02_hit_F_R_01"
+     ]
+    }
+   ]
+  ],
   "skillMode": [
    null,
    1
@@ -9181,6 +9422,49 @@
     }
    }
   ],
+  "funnels": [
+   [
+    {
+     "idle": [
+      "rockr_token_01"
+     ]
+    },
+    {
+     "proj": "projectile_chr_rockr_funnel",
+     "from": 6,
+     "trail": [
+      "rockr_token_trail_01"
+     ],
+     "hit": [
+      "rockr_token_hit_01"
+     ],
+     "speed": 10.0
+    }
+   ],
+   [
+    {
+     "idle": [
+      "rockr_token_01"
+     ],
+     "hide": [
+      "rockr_token_hide_01"
+     ],
+     "show": [
+      "rockr_token_show_01"
+     ],
+     "over": [
+      "rockr_token_overload_01"
+     ],
+     "proj": "projectile_chr_rockr_funnel_s2",
+     "from": 2,
+     "wait": 1,
+     "trail": [],
+     "hit": [
+      "rockr_token_skill_02_hit_L_01"
+     ]
+    }
+   ]
+  ],
   "skillMode": [
    null,
    1
@@ -9449,6 +9733,24 @@
      "o": 0
     }
    }
+  ],
+  "funnels": [
+   [
+    {
+     "idle": [
+      "malist_drone"
+     ]
+    },
+    {
+     "proj": "projectile_chr_malist_funnel",
+     "from": 5,
+     "trail": [
+      "malist_drone_trail"
+     ],
+     "hit": [],
+     "speed": 10.0
+    }
+   ]
   ],
   "skills": [
    {

@@ -276,8 +276,9 @@ function wang(bb, chess, def) {
     if (!f) return null;
     f.mem.wangFollower = true;
     if (battle.unitAt(r, c) === f) battle._occ[r * COLS + c] = null; // occupies no tile
-    // local patch: `follower` — its own effect (render/fxgame.js: projectile_chr_wang_stone* wang_passive_01_buff)
-    battle.fx('summon', { x: f.x, y: f.y, id: f.id, follower: true });
+    // local patch: `follower` — its own effect (render/fxgame.js: projectile_chr_wang_stone* wang_passive_01_buff); `src` her
+    // (the throw's start effect on her: BuildStone / InstantSpawn `_startEffect`)
+    battle.fx('summon', { x: f.x, y: f.y, id: f.id, follower: true, src: unit.id });
     return f;
   };
   /** Follower tile class (PRTS 备注): 0 undeployable ground, 1 deployable ground, 2 deployable high ground, null = none. */

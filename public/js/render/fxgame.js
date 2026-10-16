@@ -469,7 +469,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (back === sw.on) continue;
       sw.on = back;
       l.hidden = back;
-      l.inst.object.visible = !back;
+      l.inst.object.visible = !back && !l.offHeld;
       if (back) startBack(l);
       else if (sw.entry) { sw.entry.inst.stop(true); sw.entry = null; }
     }
@@ -835,6 +835,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (isStone(v)) {
         // local patch: a 跟子's rings (its own birth effect), a placed stone's gold cross — on the ground
         if (o.follower) playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX });
+        // 2026-10-16 (묶음 3): her throw's start effect — charpack SpawnToken/BuildStone and skchr_wang_3 InstantSpawn
+        // `_startEffect` wang_passive_01_start, on her, finished as the stone lands (`_finishStartEffectsOnCastOnTile`) [추정: the
+        // sim's 'summon' is the landing — it plays once from there]
+        const sv = o.follower && o.src != null ? views.get(o.src) : null;
+        if (sv && index?.bundles?.[FOLLOWER_FX]?.includes('wang_passive_01_start')) spawn(FOLLOWER_FX, 'wang_passive_01_start', sv, { owner: null, buff: false }, { over: false });
         else playAt([STONE_BORN.stone], v, { owner: o.id, under: true });
         return true;
       }
@@ -1636,6 +1641,190 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       get z() { return camRef ? bodyZ(camRef, v, SPAWN_FRAC[2]) : (v.z || 0) + 0.5; }, get alive() { return v.alive !== false && !v.remove; },
     };
   }
+  // ---- 驭械术师 drones (2026-10-16, 이펙트 연결 전수 묶음 3, docs/rules/fx.md 「驭械术师 드론」) -------------------------------------
+  // modes.json `funnels[mode]` (char_modes.py funnel_entries): client FunnelEffectEmitter.OnEvent (RVA 0xCB4EB0) — the idle
+  // loops while the mode is attached (its `back` copy while she faces back: the SwitchableBackEffect swap, stepBackSwitches),
+  // paused from the attack's cast start with its `hide` effect (`off`: hidden too) and resumed with its `show` effect at the
+  // attack's finish (`wait`: when the drone's projectile ends); a Default mode without emitters keeps its drone buff's look
+  // (`idle` alone). Each attack also flies a drone's projectile (`trail` from its mount point `from`, `hit` on arrival) —
+  // the sim's one 'atk' of a 驭械术师 stands for her shot and the drone's. [추정: the hide at the 'atk' (the client: its swing),
+  // the show 0.2 s after the shot unless `wait`; a projectile without `speed` at 10 tiles / s]
+  const funnelsOf = (v, n) => { const f = bindOf(v)?.funnels?.[n]; return Array.isArray(f) ? f : []; };
+  const funnelMode = (v) => { const m = v._fxSkillOn ? modeNow(v) : 0; return Number.isInteger(m) && m >= 0 ? m : 0; };
+  /** Whether `list` are 荒芜拉普兰德's normal-attack drones (her Default / S1 modes: idle ones; S2's lock their targets one each). */
+  const wolfPair = (v, list) => fxBundleOf(v.info?.spine || v.info?.defId) === 'whitw2' && list.some((x) => x.idle?.length);
+  /** How many of a mode's drones act: 荒芜拉普兰德's 1 + S1's passive 浮游单元+1 + 头狼 stage 3 (the sim's profile.hits) [추정: the
+   * client's `_useExtraActiveCntAbility` count not decompiled]; every one otherwise. */
+  function funnelCount(v, list) {
+    if (!wolfPair(v, list)) return list.length;
+    return Math.min(list.length, 1 + (skillIdx(v) === 0 ? 1 : 0) + ((v._fxAlpha | 0) >= 3 ? 1 : 0));
+  }
+  /** Start the idle drones of `v`'s mode now (after its deploy, a skill's on / off, a count change); `force` restarts them. */
+  function droneIdle(v, force = false) {
+    const b = bundleOf(v), id = ownerOf(v);
+    if (!b || failed || q() === 'low') return;
+    const n = funnelMode(v), list = funnelsOf(v, n), k = funnelCount(v, list), key = `${n}|${k}`;
+    if (!force && v._fxDrone?.key === key) return;
+    for (const l of live) if (l.tag === 'drone' && l.owner === id) { l.inst.stop(true); if (l.backSw?.entry) l.backSw.entry.inst.stop(true); }
+    const rec = { key, n, k, ls: list.map(() => []) };
+    v._fxDrone = rec;
+    list.slice(0, k).forEach((x, j) => (x.idle || []).forEach((name, m) => {
+      if (!b.prefabs.includes(name)) return;
+      spawn(b.bundle, name, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'drone', pinned: true }, { over: false, facing: efacing(v) }).then((l) => {
+        if (!l) return;
+        if (v._fxDrone !== rec) { l.inst.stop(true); return; }
+        const back = x.back?.[m];
+        if (back && !l.backSw) l.backSw = { name: back, bundle: b.bundle, unit: v, on: false, entry: null };
+        rec.ls[j].push(l);
+      });
+    }));
+  }
+  /** Pause (`on`) or resume drone `j`'s idle loops (and their back copies); `off`: hidden while paused. */
+  function holdDrone(rec, j, on, off) {
+    for (const l of rec.ls[j] || []) {
+      for (const x of [l, l.backSw?.entry]) {
+        if (!x || x.inst.stopping) continue;
+        x.held = on;
+        x.offHeld = on && off;
+        x.inst.object.visible = !(on && off) && !(x === l && l.hidden);
+      }
+    }
+  }
+  /** An attack of `src` on `tgt` in `mode`: its drones' hide / shot / hit / show. */
+  function droneShot(src, tgt, mode) {
+    if (!tgt || level() >= 3 || failed) return;
+    const b = bundleOf(src), id = ownerOf(src);
+    const n = Number.isInteger(mode) && mode >= 0 ? mode : funnelMode(src), list = funnelsOf(src, n);
+    const shots = list.map((x, j) => [x, j]).filter(([x]) => x.proj);
+    if (!b || !shots.length) return;
+    const k = Math.min(shots.length, funnelCount(src, list));
+    // the attacks of one moment take the next drones (耶拉 S2's two locks, 荒芜拉普兰德 S2's); her normal attack strikes with
+    // every active drone at once (the sim's `hits`)
+    const at = src._fxDroneAt?.t === clockS ? src._fxDroneAt : (src._fxDroneAt = { t: clockS, i: 0 });
+    const count = wolfPair(src, list) ? k : 1;
+    for (let c = 0; c < count; c++) {
+      const [x, j] = shots[at.i++ % k];
+      const from = droneFrom(src, x.from), to = { x: mx(tgt), y: tgt.y, z: shotTo(tgt) };
+      const dur = Math.hypot(to.x - from.x, to.y - from.y) / (x.speed > 0 ? x.speed : 10);
+      const rec = src._fxDrone;
+      const hide = (x.hide || []).filter((nm) => b.prefabs.includes(nm));
+      if (rec && rec.n === n && j < rec.k && x.idle?.length) {   // a drone of the mode now, shown idle
+        for (const nm of hide) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
+        holdDrone(rec, j, true, !!x.off);
+        castsDelayed.push({ t: clockS + (x.wait ? dur : 0.2), run: () => {
+          if (src._fxDrone !== rec) return;
+          holdDrone(rec, j, false, false);
+          for (const nm of (x.show || []).filter((s) => b.prefabs.includes(s))) spawn(b.bundle, nm, src, { owner: null, buff: false, on: id }, { over: false, facing: efacing(src) });
+        } });
+      }
+      const trail = (x.trail || []).find((nm) => b.prefabs.includes(nm));
+      if (trail) {
+        spawn(b.bundle, trail, glider(from.x, from.y, to.x, to.y, dur, from.z), { owner: null, buff: false, until: clockS + dur + 5, shotEnd: clockS + dur })
+          .then((l) => { if (l) l.inst.object.rotation.set(0, 0, Math.atan2(to.y - from.y, to.x - from.x)); });
+      }
+      const hits = (x.hit || []).filter((nm) => b.prefabs.includes(nm));
+      if (hits.length) castsDelayed.push({ t: clockS + dur, run: () => { if (tgt.alive !== false && !tgt.remove) for (const nm of hits) spawn(b.bundle, nm, tgt, { owner: null, buff: false }); } });
+    }
+  }
+  /** Where a drone's projectile leaves (its ability's `_mountPointType`: the drone's special point), else her muzzle. */
+  function droneFrom(src, mp) {
+    const key = Number.isInteger(mp) ? pointKey(mountSpawn({ type: mp })) : null;
+    const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
+    return p ? { x: p.x, y: p.y, z: p.z } : { x: mx(src), y: src.y, z: bodyZ(camRef, src, SHOT_HEIGHT.launch) };
+  }
+
+  // ---- 伺夜's wolf pack (2026-10-16, 이펙트 연결 전수 묶음 3, docs/rules/fx.md 「伺夜 늑대 무리」) ---------------------------------
+  // The token prefab token_10028_vigil_wolf (pkgrps/btl_pfb_tokens_0) and its buff templates draw the pack's other wolves as
+  // effects beside the model: vigil_wolf_t_1_enhance[holder] — the first extra wolf vigil_token_sub_start_1, the second _2
+  // (INFINITY); a lost one (vigil_wolf_t_1[listener] ON_TAKE_DAMAGE / 41) vigil_token_sub_die_2 or _1; the last one
+  // (ON_BEFORE_TRY_SET_HP_ZERO) vigil_token_die and its Recharge mode (vigil_wolf_t_1[trigger] vigil_token_ghost) — the
+  // sim's 战术点形态 — until its vigil_wolf_switch cast vigil_token_start; [block_cnt] vigil_token_buff_1–4 on its head / body /
+  // hands (SPECIAL_0–3) while it stands. Its bite (vigil_wolf_hit_effect): _hit_1 / _2 / _3 by its extra wolves, _extra with
+  // 伺夜 S2's gift (vigil_wolf_s_2: vigil_token_skill_02_hint at the cast, _ready until that bite); the extra wolves' cast
+  // (_vigilWolfCastEffects) vigil_token_sub_attack_1 / _2; S1 / S2's heal vigil_token_heal. The count comes with the sim's
+  // 'summon' / 'revive' / 'wolfShadow' / 'wolfShadowLost' (`wolves` / `n`). [추정: a board piece's first count 2 (初始两只);
+  // its 战术点 ghost at the tile it fell on, 40 s at most when no return comes]
+  const PACK = 'token_10028_vigil_wolf', PACK_FX = 'vigil';
+  const isPack = (v) => !!(v?.info && (v.info.defId === PACK || v.info.spine === PACK));
+  const packOn = () => !!(index?.bundles?.[PACK_FX]?.includes('vigil_token_sub_start_1') && q() !== 'low' && !failed);
+  const packs = new Map();   // wolf id → { n, subs: [live|null, live|null], ghost, ready, tac }
+  const packOf = (id) => { let p = packs.get(id); if (!p) packs.set(id, (p = { n: 2, subs: [null, null], ghost: null, ready: null, tac: false })); return p; };
+  function packFx(name, at, entry) {
+    return index?.bundles?.[PACK_FX]?.includes(name) ? spawn(PACK_FX, name, at, entry, { over: false, facing: at?.info ? efacing(at) : 1 }) : Promise.resolve(null);
+  }
+  /** Its extra wolves for `n` wolves now (the standing view `v`); `lost`: the one gone plays its sub_die. */
+  function packSubs(id, v, n, lost) {
+    const p = packOf(id), want = Math.max(0, Math.min(2, n - 1));
+    for (let k = 1; k >= 0; k--) {
+      const on = k < want;
+      if (!on && p.subs[k]) {
+        p.subs[k].then((l) => l?.inst.stop());
+        p.subs[k] = null;
+        if (lost && v) packFx(`vigil_token_sub_die_${k + 1}`, v, { owner: null, buff: false });
+      }
+      if (on && !p.subs[k] && v) {
+        p.subsT = clockS;
+        p.subs[k] = packFx(`vigil_token_sub_start_${k + 1}`, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'pack' });
+      }
+    }
+  }
+  /** Its deploy at clock `t` (flushDeploys): the decorations, the extra wolves, back from the 战术点形态. */
+  function packDeploy(v, id, t) {
+    if (!packOn()) return;
+    const p = packOf(id);
+    if (p.ghost) { p.ghost.then((l) => l?.inst.stop()); p.ghost = null; }
+    if (p.tac) { p.tac = false; packFx('vigil_token_start', v, { owner: null, buff: false }); }
+    if (!(p.subsT >= t)) p.subs = [null, null];   // (extra wolves its 'summon' started since are this deployment's)
+    for (let k = 1; k <= 4; k++) packFx(`vigil_token_buff_${k}`, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'pack' });
+    packSubs(id, v, p.n, false);
+    if (p.readyOn) p.ready = packFx('vigil_token_skill_02_ready', v, { owner: id, buff: false, onCaster: true, until: null, tag: 'pack' });
+  }
+  /** A pack event (its count / its gift); true when drawn here. */
+  function packEvent(e, views) {
+    const o = e[4];
+    if (!o || o.id == null || !packOn()) return false;
+    const v = views.get(o.id);
+    if (e[1] === 'buff') {
+      if (o.skill !== 'vigil_2' || !isPack(v)) return false;
+      const p = packOf(o.id);
+      packFx('vigil_token_skill_02_hint', v, { owner: null, buff: false });
+      packFx('vigil_token_heal', v, { owner: null, buff: false });
+      if (!p.readyOn) p.ready = packFx('vigil_token_skill_02_ready', v, { owner: o.id, buff: false, onCaster: true, until: null, tag: 'pack' });
+      p.readyOn = true;
+      return true;
+    }
+    const n = Number(o.wolves ?? o.n);
+    if (!Number.isFinite(n) || !(isPack(v) || e[1] === 'wolfShadowLost')) return false;
+    const p = packOf(o.id), was = p.n;
+    p.n = n;
+    if (n === 0) {   // its 战术点形态
+      p.tac = true;
+      for (let k = 0; k < 2; k++) if (p.subs[k]) { p.subs[k].then((l) => l?.inst.stop()); p.subs[k] = null; }
+      const at = { x: Number(e[2]), y: Number(e[3]), z: v?.z || 0 };
+      packFx('vigil_token_die', at, { owner: null, buff: false });
+      if (!p.ghost) p.ghost = packFx('vigil_token_ghost', at, { owner: null, buff: false, until: clockS + 40, tag: 'pack' });
+      return true;
+    }
+    if (v && v.alive !== false) {
+      packSubs(o.id, v, n, n < was);
+      if (e[1] === 'revive' && o.src != null && n === was) packFx('vigil_token_heal', v, { owner: null, buff: false });   // 伺夜 S1 ③
+    }
+    return e[1] !== 'summon';   // (a summon keeps the rest: the token's deploy effect)
+  }
+  /** A bite of the pack on `tgt`: the extra wolves' casts, its hit by their number, S2's gift. */
+  function packAtk(v, tgt) {
+    if (!packOn()) return;
+    const id = ownerOf(v), p = packOf(id), extra = Math.max(0, Math.min(2, p.n - 1));
+    for (let k = 1; k <= extra; k++) packFx(`vigil_token_sub_attack_${k}`, v, { owner: null, buff: false });
+    if (!tgt) return;
+    packFx(`vigil_token_attack_hit_${extra + 1}`, tgt, { owner: null, buff: false });
+    if (p.readyOn) {
+      p.readyOn = false;
+      packFx('vigil_token_attack_hit_extra', tgt, { owner: null, buff: false });
+      if (p.ready) { p.ready.then((l) => l?.inst.stop()); p.ready = null; }
+    }
+  }
+
   /** Kit 'fx' events drawn with official prefabs; true = handled here (ownFx: render/fx.js skips its stand-in). */
   function kitFx(e, views) {
     const o = e[4];
@@ -2799,6 +2988,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!isAlly(v) || v.alive === false || failed || q() === 'low') continue;
       const bind = bindOf(v);
       alwaysOn(v, id);
+      droneIdle(v, true);   // 2026-10-16: the Default mode's drones
+      if (isPack(v)) packDeploy(v, id, t);   // 2026-10-16: 伺夜's wolf pack
       const fx = deployEffect(bind, v.info.kind === 'token', v._fxSkillOn ? modeNow(v) ?? 0 : 0);
       // `_onlyPlayStartEffectOnce`: the root's effect on the first deploy only [추정: a mode's override still plays]
       if (bind?.startOnce && !fx.override) { if (startedOnce.has(id)) continue; startedOnce.add(id); }
@@ -3029,6 +3220,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // local patch (maintainer 2026-10-07: the buffs / range stayed ~1 s after the skill): its loops end with it, at once
           // (and the marks it left on its targets: 戴菲恩 S3's hit_1)
           else { v._fxSkillOn = false; stopBuffs(v.id ?? v.info.id, true); endWolves(v.id ?? v.info.id); }
+          droneIdle(v);   // 2026-10-16: the drones of the mode now
           return;
         }
         case 'atk': {
@@ -3045,6 +3237,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             }
             return;
           }
+          if (isPack(src)) { packAtk(src, views.get(e[2])); return; } // 2026-10-16: 伺夜's wolf pack
           if (!isOp(src) || !bundleOf(src)) return;
           skillByFlag(src, views); // local patch
           const tgt = views.get(e[2]);
@@ -3062,6 +3255,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // clock: those of ON_CAST_START already started at its 'swing', the strike's (ON_SPELL_ON) now (strikeFx); the
           // throttle (ATTACK_GAP_S) and load level 3 skip them as before (beginCast)
           strikeFx(src, mode, e[3], tgt);
+          droneShot(src, tgt, mode);   // 2026-10-16: its drones
           if (tgt && (src._fxSkillOn || level() < 3)) shotStartFx(src, tgt, mode, shot);
           return;
         }
@@ -3138,6 +3332,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           if (e[1] === 'oblvnsNote' && e[4]) { noteFx(e, views); return; }
           if (e[1] === 'parry' && e[4]) { parryFx(e, views); return; }
           if (e[1] === 'whitw2Drones' && e[4]) { wolfFx(e); return; }
+          // 2026-10-16: 伺夜's wolf pack (its count, its gift)
+          if (['summon', 'revive', 'wolfShadow', 'wolfShadowLost', 'buff'].includes(e[1]) && packEvent(e, views)) ownFx.add(e);
+          // 2026-10-16: 荒芜拉普兰德's 头狼 stage (stage 3: one more drone — droneIdle)
+          if (e[1] === 'talent' && e[4]?.name === 'alpha') { const v = views.get(e[4].id); if (v) { v._fxAlpha = Number(e[4].stage) || 0; droneIdle(v); } }
           if (kitFx(e, views)) return; // local patch: 余 S3 wall, 蕾缪安 S3 lock / shells, 戴菲恩 S3 slashes / finisher
           if ((e[1] === 'substitute' || e[1] === 'swap' || e[1] === 'dollEnd') && e[4]) dollFx(e, views); // local patch: the 替身's own effects
           if (standInOff(e, views)) ownFx.add(e); // local patch: no old procedural stand-in for an operator with official effects
@@ -3237,7 +3435,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.shotEnd != null && clockS >= l.shotEnd) { l.shotEnd = null; finishShot(l.inst, l); } // 2026-10-11: a flown main effect arrives
         if (l.finishAt != null && clockS >= l.finishAt) { l.finishAt = null; l.inst.stop(true); } // 2026-10-11: statusOff's delay
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // 2026-10-10: a back copy ends with its front
-        if ((!l.view?.paused && !l.hidden) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
+        if ((!l.view?.paused && !l.hidden && !l.held) || l.inst.stopping) l.inst.update(dt * rate2 * (l.speed > 0 ? l.speed : 1));   // local patch: every effect on the battle clock (the notes did already: trail = speed × time); a front paused for its back copy (stepBackSwitches) waits
         if (l.inst.done && l.status && l.again && l.unit?._fxStatusOn?.has(l.status) && l.unit.alive !== false) { const a = l.again; l.again = null; a(); } // local patch: a status loops
         // a kept effect (playAt `keep`: 望's stone activation) stays until its owner's 'die' stops it
         if (l.inst.done && !(l.keep && !l.inst.stopping)) { dropLive(l); live.splice(i, 1); }
@@ -3261,7 +3459,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     clear() {
       for (const l of live) dropLive(l);
       live.length = 0;
-      lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); lemMarks.clear();
+      lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); eshotLand.clear();
