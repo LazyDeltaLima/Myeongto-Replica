@@ -1442,3 +1442,8 @@
   (2026-10-16 관리자 제보로 고침 — 처음엔 왕에게 붙였다): `CastOnTileAbility.OnCastStart`(RVA 0xC06B40)가 `CreateEffect(_startEffect, 시전 칸, 시전자)`로
   만들고(디컴파일 확인, 프리팹 클립도 돌이 하늘에서 그 점으로 떨어지는 모양), 돌이 칸에 닿으면(`_finishStartEffectsOnCastOnTile`, `_preDelay` 0.25초)
   Effect.FinishMe로 끝(방출 멈춤, `finish` 0.5초 뒤 제거). 렌더 `fxgame.js throwStart` [추정: 시뮬의 'summon'이 착지라 거기서 시작해 0.25초 뒤 끝].
+  같은 날 재제보 둘: ① 공 위 이펙트(활성 휘감김·연결선·활성 섬광)가 판 가장자리로 갈수록 공에서 비껴남 — 월드 z만 올려 원근 카메라에서 화면 중심
+  밖으로 밀렸다(중심에서 한 칸마다 약 0.04칸). 공은 뿌리 바로 위에 그려지는 그림이라 `fxgame.js ballAt`이 모델 포인트처럼 `liftedPoint`로 그 화면 점의
+  월드 점을 구함. ② 跟子가 토큰 배치(0.1초 대기·어두운 첫 프레임·`Start` 0.333초)로 들어와 시작 이펙트의 낙하(`ctrl` 0.1667초)보다 두 배 느렸다 —
+  클라에서 跟子는 투사체라 토큰 배치가 없고 돌은 그 이펙트의 `qizi` 그림(SpriteRenderer, 우리 추출에 없음)이 떨어진다 → 'summon' `follower`에
+  `units.js throwIn(2)`: `Start`를 2배속으로, 대기·어두운 프레임 없이 [추정: 토큰의 `Start` = 돌이 떨어져 들어오는 모양].
