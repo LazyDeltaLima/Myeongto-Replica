@@ -338,7 +338,6 @@ export async function createFieldView(host, options = {}) {
   // tile effects cleared at its stop: `_clearEffectsOnTileOnStop` 1), so it leaves at once, with no fall or fade: a stone
   // coming back onto its tile (the sim removes the 跟子 in the same tick) was drawn over it while it faded (2026-10-10)
   const followerIds = new Set();
-  const FOLLOWER_FALL = 2; // token_10064_wang_stone1 Start 0.333 s ÷ wang_passive_01_start's drop 0.1667 s (units.js throwIn)
   let canPlaceFn = null;
   let editable = false;
   let dragState = null;       // { uid, key, view, from, home: {x,y,z} }
@@ -1803,8 +1802,6 @@ export async function createFieldView(host, options = {}) {
         if (e[1] === 'summon' && e[4] && typeof e[4] === 'object' && e[4].follower && e[4].id != null) {
           followerIds.add(e[4].id);
           if (followerIds.size > 200) followerIds.delete(followerIds.values().next().value);
-          // it lands with its throw's start effect (fxgame.js throwStart): Start 0.333 s in its 0.1667 s drop
-          views.get(e[4].id)?.throwIn?.(FOLLOWER_FALL);
         }
         // 推拉: a push / pull (battle/displacement.js) moves the enemy inside one call; its `displace` fx carries the
         // destination ['fx', 'displace', x, y, { id }] and the view slides there (UnitView.slideTo, PR #380) — normally

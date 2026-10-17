@@ -73,11 +73,21 @@ test('the birth effects (the gold cross, the 跟子\'s rings) play on the stone\
 
 test('a 跟子\'s throw start effect plays on its tile, not on 望, and ends as it lands (maintainer report 2026-10-16)', () => {
   // CastOnTileAbility.OnCastStart: CreateEffect(_startEffect, cast tile, owner); _finishStartEffectsOnCastOnTile after _preDelay
-  assert.match(SRC, /if \(o\.follower\) \{\n\s+playAt\(\[STONE_BORN\.follower\][^\n]*\n\s+throwStart\(v\);\n\s+\} else playAt\(\[STONE_BORN\.stone\]/);
+  // (maintainer decision 2026-10-17) the 跟子 is its effects' stone: the tile effect comes as the throw lands (THROW_S)
+  assert.match(SRC, /if \(o\.follower\) \{\n\s+v\.drawnByFx\?\.\(stonesOn\);\n\s+throwStart\(v\);\n\s+castsDelayed\.push\(\{ t: clockS \+ THROW_S, run: \(\) => playAt\(\[STONE_BORN\.follower\][^\n]*\n\s+\} else playAt\(\[STONE_BORN\.stone\]/);
   assert.match(SRC, /spawn\(FOLLOWER_FX, 'wang_passive_01_start', \{ x: v\.x, y: v\.y, z: v\.z \|\| 0 \}/);
   assert.match(SRC, /l\.until = Math\.max\(clockS, t0 \+ THROW_S\);/);
   assert.doesNotMatch(SRC, /views\.get\(o\.src\) : null;\n[^\n]*wang_passive_01_start/);
-  if (existsSync(path.join(FX, 'wang', 'wang_passive_01_start.json'))) assert.ok(prefab('wang', 'wang_passive_01_start').finish > 0);
+  if (existsSync(path.join(FX, 'wang', 'wang_passive_01_start.json'))) {
+    const start = prefab('wang', 'wang_passive_01_start'), rest = prefab('wang', 'wang_passive_01_buff');
+    assert.ok(start.finish > 0);
+    // the stones are built-in Quads: the falling `qizi` turns off by 0.2333 s (< THROW_S), the resting `qizi (1)` stays
+    const qi = start.nodes.findIndex((n) => n.name === 'qizi');
+    assert.ok(qi >= 0 && start.nodes[qi].mesh, 'falling stone mesh');
+    const off = start.clips[0].tracks.find((t) => t.node === qi && t.prop.startsWith('attr:'));
+    assert.ok(off && off.curves[0].at(-1)[0] <= 0.25 && off.curves[0].at(-1)[4] === 0, 'hidden as it lands');
+    assert.ok(rest.nodes.find((n) => n.name === 'qizi (1)')?.mesh, 'resting stone mesh');
+  }
 });
 
 test('the ball effects sit on the drawn ball anywhere on screen (maintainer report 2026-10-16: slid off toward the edges)', async () => {

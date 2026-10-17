@@ -786,7 +786,13 @@
   [추정·남김] 공식 跟子의 돌 그림은 `wang_passive_01_buff`의 `qizi (1)` 노드(클립으로 움직이는 렌더러 — 추출기가 못 옮김, 아마 스프라이트)이고 우리는 대신
   돌 토큰 모델을 그린다. 테스트 `test/render/wang-follower-exit.test.js`. [화면 미확인]
   2026-10-17 정정: `qizi (1)`은 내장 Quad 메시(재질 `wang_14`, 그림자 `andi`도 Quad)이고 2026-10-17 재추출로 그려진다 — 시작 이펙트 `wang_passive_01_start`의
-  낙하 돌 `qizi`(0.2333초에 꺼짐)도 함께. 지금은 돌 토큰 모델과 겹친다(어느 쪽을 끌지 결정 대기, 공식은 이펙트 쪽: 跟子는 투사체라 모델이 없음).
+  낙하 돌 `qizi`(0.2333초에 꺼짐)도 함께. 돌 토큰 모델과 겹쳐서 **跟子는 이펙트의 돌만 그린다**(관리자 결정 2026-10-17 — 공식: 跟子는 투사체라
+  모델이 없음): 'summon' `follower`에 `fxgame.js`가 `units.js drawnByFx(stonesOn)`을 걸어, 공식 돌 이펙트가 도는 동안(품질 낮음·추출물 없음이면
+  모델로 돌아감) 그 뷰는 모델·마름모·그림자를 안 그린다. 칸 이펙트 `wang_passive_01_buff`(쉬는 돌 `qizi (1)`·그림자 `andi`, 클립 반복이라 跟子가
+  떠날 때까지)는 던짐이 닿는 `THROW_S` 0.25초 뒤 — 클라 순서(`_preDelay` 뒤 착지, 그때 `_effectsToTileWhenStart`) [추정: 시뮬의 'summon' = 던짐 시작].
+  놓은 棋子(`token_10064_wang_stone1` 배치)는 모델 그대로. 확인: Windows Chrome 디버그 아레나(S1, 자동 棋子) — 跟子 뷰 6개 모두 모델·그림자 꺼짐,
+  칸마다 돌 하나(跟子 = 이펙트 돌, 棋子 = 모델), `wang_passive_01_start` → 0.25초 뒤 `wang_passive_01_buff`. 테스트 `local-deploy-drop.test.js`·
+  `wang-stone-fx.test.js`. [화면 미확인: 실제 판]
 
 ### 적 이펙트 바인딩 (2026-10-10, 관리자 결정 (2026-10-10))
 근거: EN 클라 적 프리팹 `battle/enm_pfb_*.ab`, `[uc]projectiles.ab`, `config/buff_template_holder.ab`(버프 템플릿), 이펙트 번들 `pkgrps/btl_pfb_fx_enemy_*.ab`·
@@ -1485,7 +1491,8 @@
   클라에서 跟子는 투사체라 토큰 배치가 없고 돌은 그 이펙트의 `qizi` 그림이 떨어진다(2026-10-16 정정: SpriteRenderer가 아니라 Unity 내장 Quad
   메시의 MeshRenderer — 추출기는 2026-10-08부터 읽지만 디스크의 `wang` 추출물이 그 전 것이라 없었다 — 2026-10-17 재추출로 그려져 이 토큰 낙하와 겹침, 위 「望 바둑돌이
   겹쳐 보임」, 아래 「추출 누락 보고」) → 'summon' `follower`에
-  `units.js throwIn(2)`: `Start`를 2배속으로, 대기·어두운 프레임 없이 [추정: 토큰의 `Start` = 돌이 떨어져 들어오는 모양].
+  `units.js throwIn(2)`: `Start`를 2배속으로, 대기·어두운 프레임 없이 [추정: 토큰의 `Start` = 돌이 떨어져 들어오는 모양]. 2026-10-17 없앰: 跟子는 이제
+  모델을 안 그리고 이펙트의 돌만(관리자 결정, 위 「望 바둑돌이 겹쳐 보임」 정정).
 
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)
 

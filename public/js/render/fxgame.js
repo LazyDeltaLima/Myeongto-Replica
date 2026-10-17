@@ -847,9 +847,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stoneBirth.delete(o.id);
       if (isStone(v)) {
         // local patch: a 跟子's rings (its own birth effect), a placed stone's gold cross — on the ground
+        // (maintainer decision 2026-10-17) a 跟子 is its effects' stone, no model (units.js drawnByFx): the throw's falling
+        // `qizi` hides at 0.2333 s and its tile effect, with the resting `qizi (1)`, comes as it lands (THROW_S)
         if (o.follower) {
-          playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX });
+          v.drawnByFx?.(stonesOn);
           throwStart(v);
+          castsDelayed.push({ t: clockS + THROW_S, run: () => playAt([STONE_BORN.follower], v, { owner: o.id, under: true, bundle: FOLLOWER_FX }) });
         } else playAt([STONE_BORN.stone], v, { owner: o.id, under: true });
         return true;
       }

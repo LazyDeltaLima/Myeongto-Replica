@@ -92,30 +92,24 @@ describe('official deploy drop-in (units.js onDeploy)', () => {
     assert.ok(v.actor.deployElapsed() < 0.2, `advanced by one capped step (${v.actor.deployElapsed()})`);
   });
 
-  test('望\'s 跟子 (throwIn, maintainer report 2026-10-16): Start at its speed, no lead, no dark frames', async () => {
+  test('望\'s 跟子 (drawnByFx, maintainer decision 2026-10-17): no model, diamond or shadow while its effects play', async () => {
     const v = unit(store());
     await settle();
-    frames(v, 30);
     v.onDeploy();
-    v.throwIn(2);                                       // the same batch's 'summon' fx `follower` (app.js)
-    assert.equal(v.actor.mode, 'deploy');
-    assert.ok(v.actor.deployElapsed() < 1e-6, 'Start restarted from its beginning');
+    let on = true;
+    v.drawnByFx(() => on);                              // the same batch's 'summon' fx `follower` (fxgame.js)
+    frames(v, 30);
+    assert.equal(v.body.visible, false, 'no model');
+    assert.equal(v.bodyless, true);
+    assert.equal(v.fallback.visible, false, 'no diamond');
+    assert.equal(v.shadow.alpha, 0, 'no shadow (the tile effect has its own, andi)');
+    on = false;                                         // the official stone effects stop (quality low): the model again
     frames(v, 1);
-    assert.equal(v._tint, 0xffffff, 'no dark first frames');
-    const len = v.actor.deployUntil - v.actor.deployAt;
-    assert.ok(Math.abs(len - spineEntry(M, TEXAS, { back: false }).animations.Start / 2) < 1e-6, `half the clip (${len})`);
-    // deployed before its model is in: no BORN_LEAD_S wait, the fast Start as soon as it is
-    const w = unit(store(), { id: 8 });
-    w.onDeploy();
-    w.throwIn(2);
-    await settle();
-    frames(w, 1);
-    assert.equal(w.actor.mode, 'deploy');
-    assert.equal(w.body.alpha, 1);
-    assert.ok(Math.abs((w.actor.deployUntil - w.actor.deployAt) - len) < 1e-6);
-    const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
-    assert.match(app, /views\.get\(e\[4\]\.id\)\?\.throwIn\?\.\(FOLLOWER_FALL\);/);
-    assert.match(app, /const FOLLOWER_FALL = 2;/);
+    assert.equal(v.body.visible, true);
+    assert.equal(v.bodyless, false);
+    const fxg = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
+    assert.match(fxg, /v\.drawnByFx\?\.\(stonesOn\);/);
+    assert.match(fxg, /castsDelayed\.push\(\{ t: clockS \+ THROW_S, run: \(\) => playAt\(\[STONE_BORN\.follower\]/);
   });
 
   test('a model that never comes: the diamond after BORN_WAIT_MAX_S', () => {
