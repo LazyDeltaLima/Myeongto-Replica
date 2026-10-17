@@ -1,4 +1,4 @@
-// Player settings (BGM/SFX/voice volume, mute, the chat notification, damage numbers, render quality, the shortcut keys): a tiny observable
+// Player settings (BGM/SFX/voice volume, mute, the chat notification, damage numbers, render quality, the match notices, the shortcut keys): a tiny observable
 // store persisted in localStorage (`sp.pref.settings`), applied to the audio manager on every change, plus
 // the settings modal, in sections by function (SetSection: 通用 / 声音 / 聊天提示 / 画面, maintainer decision 2026-10-14) — 通用
 // holds the language switch (ui/lang.js; kept apart in `sp.pref.lang`; under it a note
@@ -293,6 +293,8 @@ export function SettingsModal({ open, onClose }) {
           </div>
         </div>
         <${Toggle} label=${t('精锐干员标记')} micro="ELITE BADGE" value=${s.eliteBadge} onChange=${(v) => updateSettings({ eliteBadge: v })} />
+        <${Toggle} label=${t('对局通知')} micro="MATCH NOTICES" value=${s.matchNotices} onChange=${(v) => updateSettings({ matchNotices: v })} />
+        <p class="set-hint">${t('关闭后不再弹出获得干员、盟约资金等对局通知；警告（干员退回整备区、未获得装备、淘汰等）仍会显示。')}</p>
         <${UiScaleSetting} />${/* local patch */ ''}
         <${GpuNote} />
       <//>

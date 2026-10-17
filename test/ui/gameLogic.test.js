@@ -12,7 +12,7 @@ import {
   holdsBattleEnd, settleBattleEnd, ownRoundLoss, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
-  rangeGridBox, shortcutFor, sanitizeSettings, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
+  rangeGridBox, shortcutFor, sanitizeSettings, showMatchToast, DEFAULT_SETTINGS, normalizeResult, cycleField, fieldLabel, homeFieldId,
   activeBubbles, sortedPlayers, tileKey, prepCapsuleLabel, prepCamera, dropFailureReason, terrainInfo,
 } from '../../public/js/ui/gameLogic.js';
 import { pairPlayers } from '../../server/match/finalAssault.js';
@@ -714,7 +714,7 @@ describe('keyboard & settings', () => {
     assert.deepEqual(sanitizeSettings(null), { ...DEFAULT_SETTINGS });
     assert.deepEqual(sanitizeSettings({ bgm: 3, sfx: -1, voice: 2, muted: 'yes', damageNumbers: false, quality: 'ultra' }),
       { bgm: 1, sfx: 0, voice: 1, muted: false, damageNumbers: false, quality: 'high', keys: { ...DEFAULT_SETTINGS.keys },
-        chatSound: true, chatVolume: 0.5, chatCooldown: 2, chatFactionAlerts: false, eliteBadge: false },
+        chatSound: true, chatVolume: 0.5, chatCooldown: 2, chatFactionAlerts: false, eliteBadge: false, matchNotices: true },
       'a saved profile without `keys` (before 0.2.0) gets the default key map (test/ui/feedback5-hotkeys.test.js)');
     assert.equal(sanitizeSettings({ bgm: 0.5 }).voice, DEFAULT_SETTINGS.voice, 'a saved profile without `voice` gets the default');
     assert.equal(sanitizeSettings({ bgm: 0.333 }).bgm, 0.33);
@@ -729,6 +729,16 @@ describe('keyboard & settings', () => {
     assert.equal(sanitizeSettings({ chatCooldown: 3.4 }).chatCooldown, 3, 'whole seconds');
     assert.equal(sanitizeSettings({ chatCooldown: 'x' }).chatCooldown, DEFAULT_SETTINGS.chatCooldown);
     assert.equal(sanitizeSettings({ chatFactionAlerts: true }).chatFactionAlerts, true);
+  });
+  test('对局通知 off drops the match notices, never a warning or an error (showMatchToast)', () => {
+    assert.equal(DEFAULT_SETTINGS.matchNotices, true, 'on by default');
+    assert.equal(sanitizeSettings({ matchNotices: false }).matchNotices, false);
+    assert.equal(sanitizeSettings({ matchNotices: 'off' }).matchNotices, true, 'not a boolean: the default');
+    const on = sanitizeSettings({});
+    const off = sanitizeSettings({ matchNotices: false });
+    for (const kind of ['info', 'success', 'warn', 'error']) assert.equal(showMatchToast(on, kind), true, kind);
+    assert.deepEqual(['info', 'success', 'warn', 'error'].map((k) => showMatchToast(off, k)), [false, false, true, true]);
+    assert.equal(showMatchToast(undefined, 'info'), true, 'no settings: shown');
   });
 });
 

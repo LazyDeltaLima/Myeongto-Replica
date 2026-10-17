@@ -49,6 +49,7 @@ import { RoomScreen } from './screens/room.js';
 import { GameScreen } from './screens/game.js';
 import { audio, installAudio } from './audio.js';
 import { settingsStore } from './ui/settings.js';
+import { showMatchToast } from './ui/gameLogic/settings.js';
 import { GuideHost } from './ui/guide.js';
 import { installDeviceSupport } from './ui/device.js';
 import { installPerfHud } from './ui/perfHud.js'; // `?perf=1`: frame / sim / render readout + the report's perf: lines
@@ -303,6 +304,7 @@ function wireNet() {
   });
   net.on('m.toast', (msg) => {
     const kind = ['info', 'success', 'warn', 'error'].includes(msg.kind) ? msg.kind : 'info';
+    if (!showMatchToast(settingsStore.get(), kind)) return; // settings → 「对局通知」 off
     // msgid + params (server ≥ 0.2.0) or the text itself as a msgid, in the current language
     toast(translateWire(msg), kind);
   });

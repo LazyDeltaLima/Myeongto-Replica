@@ -1399,3 +1399,15 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   placementRecords`: `data.lookupRaw`·`getRaw`, 자기 선발 오퍼레이터도 원문으로 조립). 카드·상세는 그대로 현지화 레코드. 모듈 단 정예(`traitBase`)도 같은 길이라
   함께 풀림. 확인: `test/ui/high-ground-i18n.test.js`(한국어 오버레이로 원문 판정 6개 기물, 일반·정예 글래디아의 고지대 `canPlace` — 현지화 레코드로는 거부되던
   것도 확인). upstream의 브라우저 e2e(`high-ground-i18n.e2e.test.js`, 5개 언어 드래그)는 안 옮김.
+
+## 시뮬레이션 알림 끄기 (2026-10-17, 관리자 결정)
+
+- 공식에 없는 설정(플레이어 요청 「토스트 알림이 거슬린다」). 설정 → 「画面」에 「对局通知」(시뮬레이션 알림, MATCH NOTICES) 켜기/끄기, 기본 켜짐
+  (`ui/gameLogic/settings.js matchNotices`, 이 기기 `sp.pref.settings`에 저장).
+- 끄면 서버가 판 중에 보내는 토스트(`m.toast`) 가운데 알림(`info`·`success`)만 버린다(`showMatchToast`, `main.js`의 `m.toast` 처리): 「…：获得…」(특질·맹약·
+  아이템·선택으로 기물을 얻음, `effectsMeta.js grantChess`), 【维多利亚】 维式重锤, 부가 맹약 층수 달성 자금, 【远见】 구매가 인하, 【奇迹】 다음 새로고침 무료.
+- 끄더라도 경고(`warn`)·오류(`error`)는 그대로 뜬다: 소환물 배치 범위 밖이라 정비 구역으로 돌아감, 지형 변화로 철수, 장비 재고 부족, 얻을 同盟约 오퍼레이터
+  없음, 탈락 — 플레이어가 놓치면 판 상태를 오해하는 것들. 클라이언트가 직접 띄우는 토스트(조작 거부·정비 구역 가득·연결·복사 등)와 지형 칸 안내(`TileToast`)는
+  설정과 무관.
+- 확인: `test/ui/gameLogic.test.js` 「对局通知 off …」, `test/ui/settings-sections.test.js`(「画面」 절 안). 문구 `en`·`ja`·`zh-TW`·`ko/ui.json`.
+  [화면 미확인]

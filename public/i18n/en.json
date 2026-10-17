@@ -158,6 +158,8 @@
   "静音": "Mute",
   "显示伤害数字": "Damage Numbers",
   "精锐干员标记": "Elite Operator Badge",
+  "对局通知": "Match Notifications",
+  "关闭后不再弹出获得干员、盟约资金等对局通知；警告（干员退回整备区、未获得装备、淘汰等）仍会显示。": "When off, match notifications such as operators obtained or Alliance funds no longer pop up; warnings (operators sent back to the bench, equipment not obtained, elimination and so on) still show.",
   "画面质量": "Graphics Quality",
   "触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向": "Touch controls: tap a unit to select it (Retreat / Sell) · long-press a unit or card for details · after dragging to deploy, swipe to choose a direction",
   "快捷键": "Hotkeys",
