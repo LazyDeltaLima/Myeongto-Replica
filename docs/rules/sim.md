@@ -1445,3 +1445,15 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
   `kits_t6`·`kits_alt_t2`·`kits_alt_t6`. upstream의 `test/match/funnel-redeploy.test.js`(시드 8 상점에 맞춘 실제 판)는 우리 상점·데이터에서 그 판이 나오지 않아
   옮기지 않음 — 재배치 초기화는 `test/sim/funnel-redeploy.test.js`(자동 재배치·부활)가 본다. golden: roster 13, bonds 10, fields 4, matches 14 시나리오(메카 캐스터가
   나오는 판).
+
+### 自制投石机(사제 투석기) 일제 사격 = 돌 3개 0.3 s 간격, 각각 물리 공격·반경 1.5 (upstream `31a172e2`)
+- 문제: 3개가 한 순간에 맞고, 2·3번째는 `hurt()`(공격 아님)라 「매 공격」 효과(坚守 반사 등)·DEF·보호막이 한 번만 봤고, 튐 반경이 블랙보드 `projectile_range`
+  0.5(입희 전용 값)였다. 첫 돌 뒤 대상이 죽으면 남은 돌도 없었다.
+- 근거: PRTS 自制投石机 재능(물리 3회·반경 1.5·「不会因丢失目标而结束攻击」), 블랙보드 `Attack.attack@times` 3·`hit_interval` 0.3. 클라 확인은 없음.
+- 동작: `content/enemies/special.js` `catapultVolley` — 키트가 공격을 맡음(`profile.deferHit`, ai.js의 'attack' 훅). 돌 i는 타격 순간에서 `hit_interval` × i 뒤에
+  던져져 자기 투사체(데이터 `proj`, PARACURVE 8칸/s — 던질 때 조준점까지 거리 / 속도)로 날아가 떨어지고, 잠근 아군이 아직 선택 가능하면 그를 치고 착탄점 1.5 안의
+  아군을 튐(`areaAllies`). 돌마다 따로 `isAttack` 물리 피해. 대상이 죽어도 남은 돌은 마지막 조준점에, 투석기가 죽어도 이미 던진·예약된 돌은 떨어진다.
+  **[ASSUMED]** 돌 셋 모두 첫 돌처럼 비행(upstream은 비행 없이 0.3 s 간격; 우리 「적 투사체」 규칙의 비행 시간을 유지), 'atk' 이벤트는 투사체 하나만 그림.
+  입희(入戏) 무작위 조준(upstream 구현)은 이 모드 표에 없어 넣지 않음.
+- 테스트 `test/sim/catapult-volley.test.js`(upstream에서: 0.3 s 간격·DEF·보호막·1.5 튐, 대상 상실·투석기 사망 뒤에도 계속, 坚守 반사 돌마다; 입희 사례 뺌),
+  `test/content/enemies_bosses.test.js`(비행 시간만큼 관찰 늘림). golden: roster-013·roster-040·standin-06.

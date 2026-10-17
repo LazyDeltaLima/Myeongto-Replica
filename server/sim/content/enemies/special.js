@@ -13,6 +13,7 @@ import {
   reborn, frontGuard, faceMove, unbalanced, skill, kitEp, kitPrisoner, kitStun3,
 } from './archetypes.js';
 import { hypot } from '../../detmath.js';
+import { enemyShot, shotSpeed } from '../../ai.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -284,6 +285,53 @@ function kitBus(ab) {
   }];
 }
 
+/**
+ * 自制投石机 (PRTS 天赋, upstream 31a172e2). A stone is a physical attack that splashes every ally within 1.5 of the impact
+ * (the page's 半径1.5; the blackboard `projectile_range` 0.5 belongs to the 入戏 random-offset stone, which no table of
+ * this mode grants). `times` stones land `hit_interval` (0.3 s) apart, each its own damage instance — DEF, shields and
+ * 「每次受到攻击」 effects (坚守 thorns) see them separately. The attack does not end when the target is lost: a later
+ * stone still splashes at the last aim, and a stone already thrown or scheduled still lands if the catapult dies (no
+ * `owner` on the timers). A stone hits its locked ally while that one is still selectable, then splashes around the impact.
+ */
+const CATAPULT_SPLASH = 1.5;
+const CATAPULT_STONE = 'catapult:stone';
+
+function catapultStone(b, e, aim) {
+  const t = aim.target;
+  if (t && t.alive) { aim.x = t.x; aim.y = t.y; }
+  let skip = null;
+  if (t && t.alive && canTargetAlly(e, t, true)) {
+    b.dealDamage(e, t, { amount: e.s.atk, type: 'phys', isAttack: true, tags: [CATAPULT_STONE] });
+    skip = t;
+  }
+  for (const u of areaAllies(b, e, aim.x, aim.y, CATAPULT_SPLASH)) {
+    if (u === skip) continue;
+    b.dealDamage(e, u, { amount: e.s.atk, type: 'phys', isAttack: true, isSplash: true, tags: [CATAPULT_STONE] });
+  }
+}
+
+/**
+ * The volley: stone i is thrown `hit_interval` × i after the strike and flies its official shot (data `proj`, PARACURVE
+ * 8 tiles/s: the horizontal distance to the aim at the throw / speed — ai.js shotSpeed) before it lands. [ASSUMED] every
+ * stone flies like the first; the 'atk' event draws one shot (profile.shot 'enemy').
+ */
+function catapultVolley(ab, b, e, aim) {
+  const n = Math.max(1, Math.floor(T(ab, 'Attack.attack@times') ?? 1));
+  const interval = T(ab, 'Attack.attack@hit_interval') ?? 0.3;
+  const speed = shotSpeed(enemyShot(e));
+  const land = () => catapultStone(b, e, aim);
+  const toss = () => {
+    const t = aim.target;
+    if (t && t.alive) { aim.x = t.x; aim.y = t.y; }
+    const flight = speed > 0 ? hypot(aim.x - e.x, aim.y - e.y) / speed : 0;
+    if (flight > 0) b.after(flight, land); else land();
+  };
+  for (let i = 0; i < n; i++) {
+    if (i === 0 || !(interval > 0)) toss();
+    else b.after(interval * i, toss);
+  }
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
@@ -483,17 +531,15 @@ export const SPECIAL_KITS = Object.freeze({
     b.fx('explode', { x: e.x, y: e.y, r, kind: 'heal' });
     for (const o of b.enemiesInRadius(e.x, e.y, r)) if (o !== e) b.heal(e, o, amt);
   } }],
-  enemy_10162_mnctpt: (ab) => [{                                     // 自制投石机 · 3-hit attacks with small splash; 索敌不受阻挡影响
+  enemy_10162_mnctpt: (ab) => [{                                     // 自制投石机 · 3 physical stones 0.3 s apart, 1.5 splash; 索敌不受阻挡影响
     // PRTS 天赋 「索敌不受阻挡影响，且不会因丢失目标而结束攻击」: its target selection ignores its block — a 隐匿 blocker (an
     // operator on the 排气格栅) is no target, so with nobody else in range it does not attack (the official game, community
-    // report of 2026-10-06, item 24); it picks by 仇恨值, not its blocker first
-    spawn(b, e) { e.profile.blockFree = true; },
-    dealt(c, b, e) {
-      const n = T(ab, 'Attack.attack@times') ?? 1, r = T(ab, 'Attack.attack@projectile_range') ?? 0;
-      const t = c.target;
-      for (let i = 1; i < n; i++) hurt(b, e, t, e.s.atk, 'phys');
-      // the stone's splash ("碰撞无视迷彩"): an area selection — no unblocking 隐匿 ally
-      if (r > 0) for (const u of areaAllies(b, e, t.x, t.y, r)) if (u !== t) for (let i = 0; i < n; i++) hurt(b, e, u, e.s.atk, 'phys');
+    // report of 2026-10-06, item 24); it picks by 仇恨值, not its blocker first. The volley itself is the kit's
+    // (profile.deferHit): `times` physical attacks `hit_interval` apart, each splashing, also after the target is lost.
+    spawn(b, e) { e.profile.blockFree = true; e.profile.deferHit = true; e.profile.shot = 'enemy'; },
+    attack(c, b, e) {
+      const t = c.targets && c.targets[0];
+      catapultVolley(ab, b, e, t ? { target: t, x: t.x, y: t.y } : { target: null, x: e.x, y: e.y });
     },
   }],
 });
