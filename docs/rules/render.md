@@ -696,3 +696,8 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   upstream 숫자의 0.864배: 롯체이서(逐腐兽)·광기의 롯체이서 1.60 → 0.70칸, 데겐블레허(锏, 보스) 2.20 → 0.96칸, 사냥개 Pro·빅 밥은 변화 0.01칸 미만.
   확인: `test/render/bar-head.test.js`(upstream 판을 실제 `assets.json` 상자·우리 배율로), `test/render/playtest6-enemies.test.js`(합성 상자 높이 390 → 520:
   우리 배율로는 위 240단위면 모든 바가 하한 0.55에 걸려 비교가 안 됨). [화면 미확인] 롯체이서의 HP바가 머리 바로 위.
+- **처음 그리기 전 기물의 화면 사각형** (upstream `1df530f2`): `view.pieceScreenRect`가 이번 프레임에 만든 유닛의 아직 투영 안 된 (0, 0) 기록으로 사각형을 돌려줘,
+  보충(替补) 표시(`screens/game/standInTags.js`)가 한 프레임 캔버스 모서리에 뜰 수 있고 브라우저 시험이 그 자리를 잡았다. 이제 뷰마다 첫 `update`의 투영에서
+  `placed`를 켜고(`render/units.js` UnitView·ItemView·DeviceView), 그 전에는 `null`(`render/app.js`). 시험 쪽 `piecePoint`(`test/e2e/client.mjs`,
+  `test/ui/real.e2e.test.js`)는 그려지고 멈춘 기물을 2.5 s까지 기다린다. 확인: `test/render/unitview.test.js` 「no screen rect before the first draw」.
+  [화면 미확인] 보충 오퍼레이터를 사서 벤치에 놓는 순간 「替补」 표시가 모서리에 깜빡이지 않음.

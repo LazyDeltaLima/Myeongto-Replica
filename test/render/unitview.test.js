@@ -231,6 +231,22 @@ describe('bounds (view.pieceScreenRect)', () => {
     assert.ok(Math.abs(fr.y - (foe.screen.y - foe._headTiles * foe.screen.s)) < 1e-6 && foe._headTiles > 1.5, 'its own height');
   });
 
+  test('no screen rect before the first draw: `placed` turns on with the first update (upstream 1df530f2)', async () => {
+    // a view built this frame still has its unprojected (0, 0) screen record: pieceScreenRect returns null until then
+    // instead of a rect in the canvas corner (a 补位 tag or a browser test would aim there for a frame)
+    const { ItemView } = await import('../../public/js/render/units.js');
+    const v = view({ defId: 'char_p1', avatar: 'char_p1' }, { prep: true });
+    const it = new ItemView(fakeViewCtx(fake.P, { assets: store(), cam }), { id: 'p:9', uid: 9, defId: 'item_x', x: 3, y: 7 });
+    assert.equal(v.placed, false);
+    assert.equal(it.placed, false);
+    v.update(1 / 60, cam(), 0);
+    it.update(1 / 60, cam(), 0);
+    assert.equal(v.placed, true);
+    assert.equal(it.placed, true);
+    const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
+    assert.match(app, /pieceScreenRect\(uid\) \{[\s\S]*?if \(!v \|\| v\.destroyed \|\| !v\.placed\) return null;/);
+  });
+
   test('item plates: floating above the slot; centred on the pointer while dragged (lifted)', async () => {
     const { ItemView } = await import('../../public/js/render/units.js');
     const ctx = fakeViewCtx(fake.P, { assets: store(), cam });
