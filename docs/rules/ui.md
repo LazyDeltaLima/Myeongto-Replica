@@ -1425,3 +1425,28 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
 - 설정과 무관한 것: 렌더러 간이 화면 전환 안내(`game.js`의 유일한 `toast`), 연결·재시작·복사 등 판 밖 토스트, 지형 칸 안내(`TileToast`).
 - 확인: `test/ui/gameLogic.test.js` 「对局通知 …」 두 건(설정 값, 판 중 경로가 스위치를 거치는지), `test/ui/settings-sections.test.js`(「画面」 절 안).
   문구 `en`·`ja`·`zh-TW`·`ko/ui.json`. [화면 미확인]
+
+## 충전 스킬 표식 (2026-10-17, 관리자 제보)
+
+- 제보: 블레미샤인·사리아 S1처럼 여러 번 충전되는 스킬(「可充能N次」)이 충전돼도 오퍼레이터 위에 아무 표시가 없어, 쌓였는지 사라졌는지 알 수 없다.
+  SP 바는 한 번 충전될 때마다 0부터 다시 차므로 쌓인 충전이 화면에 전혀 안 보였다.
+- 클라 코드 `UIHudCharSkillMarkPanel.UpdatePlugin`(0xF2E530): 스킬이 AUTO(`SkillData.skillType` 2)이고 `spData.maxChargeTime` > 1이며 스킬
+  프리팹의 `_hideHudSkillStackCount`(BasicSkill 0x5C)가 꺼져 있으면 `_skillCntLabel` = `BasicSkill.availableCnt`(쌓인 충전 수), `_autoSkillMark`는
+  그 수가 0보다 클 때만 켠다. 풀 스킬 중 이 플래그를 켠 것은 없다(EN `[uc]skills.ab` 확인 2026-10-17; `_showProgressToNext`·`_hideSkillStackCount`가
+  켜진 것은 전부 MANUAL). MANUAL 스킬의 준비 표식은 `UIController.HasFunction(UNIT_HUD_SKILL_CAST_MASK 0x1000)`을 거치는데 卫戍协议는
+  `AutoChessUIPlugin.OnGameInit`이 `DisableFunction(0xF07B)`로 끈다 — 그래서 卫戍协议에서 수가 보이는 것은 AUTO 충전 스킬뿐(锡人 S2·锏 S2 같은
+  MANUAL 충전 스킬은 표식 없음).
+- 모양(`arts/ui/[uc]battlecommon.ab` `char_skill_mark_panel` → `auto_skill_ready`): `sprite_circle` 36×36 `#404040` α.39 위에 화살표 고리
+  `sprite_auto` 50×50 `#ffd900`, 가운데 `text_skill_cnt`(크기 26, 3단위 위, `#ffd900`). 자리는 `_FollowPosition`(0xF2E9B0): 유닛 머리 지점의 UI
+  위치 + (0, 0.3, 0)(생성자의 `m_defaultSkillMarkLocalPositionOffset`, `.rdata` 0.3). 우리는 `fxpoints.js`의 `head`(char_points.py `_headTransform`,
+  130명 중 128명이 뼈대 400단위 위)를 그려진 모델에 올리고 30단위 위 [추정: UI 카메라 0.3 = 캔버스 30단위]; 머리 지점·모델이 없으면 프리팹 자리
+  (hud_unit 위 154.7). 글꼴은 우리 것(Bender) [추정].
+- 구현: 시뮬 `local-hud.js chargeMark` → `b.snap.charge = [[id, n]]` → `interp.js`가 표본의 `.charge`로 → `units.js` → `hud-bars.js SkillMark`.
+  그림은 로컬 추출(`extract.py` ui/battlecommon에 `sprite_auto`·`sprite_circle` 추가); 없으면 어두운 원 위 숫자만.
+- 충전이 실제로 쌓이고 이어서 쓰이는지(같은 제보 「저장되지 않고 사라지는지」): 풀의 충전 스킬 전부(chess.json `maxChargeTime` > 1, 63개 기물·스킬 조합)를
+  적 없이 80초 → 적을 그녀 칸에 두고(치료 스킬은 아군을 계속 다친 채로) 20초 돌려 봄 — 모두 최대까지 쌓이고, 조건이 서면 AUTO는 공격마다 연달아
+  (瑕光·塞雷娅 S1 1.2초 간격), MANUAL은 자동 조작 간격(2.2초, `BLOCK_SKILL_TICK`)으로 쌓인 만큼 쓴다. 공격 SP 스킬(华法琳 S1·锏 S2)은 공격이 없으면
+  안 쌓이는 것이 맞음. 조건이 사라지면(치료 뒤 아군이 다 참) 남은 충전은 그대로 남는다. 시뮬 수정 없음.
+- 확인: `test/render/charge-mark.test.js`(규칙, 실제 전투의 쌓임·연속 시전·목록, 실제 판 경로 至简 S2, interp, 그림 자리·색, 머리 지점). Windows Chrome
+  디버그 아레나(2026-10-17): 瑕光·塞雷娅 정예 S1에 충전 2·1을 넣으면 머리 위 노란 고리 안 2·1, 풀어 두면 瑕光은 2 → 1 → 0으로 연달아 쓰고 표식이
+  사라짐(塞雷娅는 다친 아군이 없어 2 유지), 오류 0. [화면 미확인: 공식 녹화와 높이·글꼴 대조]
