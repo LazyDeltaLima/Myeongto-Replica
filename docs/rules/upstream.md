@@ -166,6 +166,10 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   새 카드는 동결 안 됨, 실패한 갱신은 그대로 — upstream 관리자의 공식 실기 2026-10-14), #641은 위 2026-10-15 이식을 되돌림. 받지 않음: #624 0.3.0 해법
   (재고 바닥난 장비를 빚으로 사기, 보류), #677(캐서린 돌연변이 세포 두 번째, upstream 판정 대기).
 
+- **upstream 0.2.5–0.3.1 버그 수정 이식 — 매치** (관리자 결정 2026-10-17, upstream 버그 수정 커밋 중 우리에게도 있는 것):
+  - `2018b2de`(`git cherry-pick -x`): 공개 상태(m.public) 전송 간격을 스냅샷 만들기 시작 시각이 아니라 실제로 보낸 시각부터 셈 — 느린 스냅샷 뒤 다음
+    프레임이 간격보다 일찍 가던 것(`server/match/match/messaging.js _maybeSendPublic`). 테스트 `test/match/connection.test.js`(upstream 그대로).
+
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.
 - 제국의 갑주 폭격·3연타 → `server/sim/content/local-patch.js`의 `patchVtsk`(`sim.md` 「“帝国的甲胄”」).
