@@ -109,6 +109,8 @@ export class Session {
     this.roomCode = null;
     /** @type {string | null} pending `room.closed` reason to deliver on the next resume (lobby-owned) */
     this.notice = null;
+    /** @type {{ for: string } & Record<string, unknown> | null} extra room.closed fields for `notice` (lobby-owned; only while `for` is the notice) */
+    this.noticeInfo = null;
     /** @type {string[] | null} encoded frames (final m.public + m.result) to deliver on the next resume (lobby-owned) */
     this.pendingResult = null;
     /** @type {number} ms epoch of the last full match resync (lobby-owned; throttles repeated hellos) */

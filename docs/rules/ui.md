@@ -706,7 +706,7 @@ index.json에 두 번들 추가 — 기존 125개 그대로), 전부 루프(`_is
   상태 `standby`(떴지만 새 손님 없음) → `accept` → `drain`(되돌릴 수 없음). 시작 상태 `SP_GEN_START`(기본 accept). 바꾸기는 재시작 예고와 같은 `SIGUSR2` + 파일, 파일에 `accept`·`drain`·`standby`.
   - 쿠키: 페이지(`/`, `*.html`) 응답에 `sp_gen=<이름>`(1일, `SameSite=Lax`, 프록시가 https면 `Secure`). 리버스 프록시가 이 쿠키와 `?gen=`으로 요청을 그 세대로 보낸다(배포 쪽, 이 저장소에 없음).
   - `GET /healthz/accept`: accept면 200, 아니면 503(프록시의 새 손님 헬스체크, 프록시 경유로도 답함 — 예/아니오뿐). `/healthz` 내부 `gen`·`genState`, 프록시 경유 `gen`·`draining`. welcome `gen { id, state }`.
-  - drain이 되면: 진행 중인 판이 없는 방(대기실)을 모두 `room.closed {reason:'newVersion'}`으로 닫고(새 서버에 넘겼으면 `moved: true`, 아래 「대기실 넘기기」), 랜덤 매칭 대기열을 비우고, 모든 소켓에 `server.gen { id, state }`.
+  - drain이 되면: 진행 중인 판이 없는 방(대기실)을 모두 `room.closed {reason:'newVersion'}`으로 닫고(새 서버에 넘겼으면 `moved: true` — 그때 끊겨 있던 사람도 옛 서버에 다시 붙을 때 같은 표시로 받는다, 아래 「대기실 넘기기」), 랜덤 매칭 대기열을 비우고, 모든 소켓에 `server.gen { id, state }`.
     `room.create`·`join`·`spectate`·`queue`·`queueRoom`·`queueAccept`와 판 시작(`room.start`, 재투표 새 판, 매칭 완성)은 `ERR.NEW_VERSION`(「새 버전이 나왔습니다. 페이지를 새로고침해 주세요」).
   - 끝내기: 15초마다 「이 서버가 필요한 방」을 센다 — 진행 중인 판은 연결된 사람이 있거나 마지막 끊김이 10분 미만(끊긴 시각을 모르면 판 60분 미만),
     드레인 중에 판이 끝난 방은 정산 화면을 위해 연결된 사람이 있는 동안 10분까지. 0이면 SIGTERM과 같은 정상 종료(exit 0 — 배포 쪽은 컨테이너를 정상 종료 때 다시 띄우지 않는 정책으로 둔다).

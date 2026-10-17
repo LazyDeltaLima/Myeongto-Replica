@@ -250,6 +250,26 @@ describe('server generation: waiting rooms handed to the new server', () => {
     assert.equal((await connect(b, 'Stranger', 'f'.repeat(32))).welcome.resumed, false, 'an unknown token is a new player');
   });
 
+  test('a player away at the drain hears on its return that the room moved, and finds it on the new server', async () => {
+    const srv = await startServer({ port: 0, host: '127.0.0.1', MatchClass: StubMatch, quiet: true, genEnv: { SP_GEN: 'd', SP_GEN_HANDOFF_DIR: dir } });
+    try {
+      const host = await connect(srv, 'Host');
+      await host.request({ t: 'room.create', mode: 'coop', difficulty: 'FUNNY' });
+      const code = (await host.waitFor('room.state')).code;
+      const away = await connect(srv, 'Away');
+      await away.request({ t: 'room.join', code });
+      await away.terminate();
+      await host.waitFor('room.state', (m) => m.seats.some((s) => s?.playerId === away.welcome.playerId && !s.connected));
+      srv.generation.set('drain');
+      // the phone comes back to its tab: the socket reconnects to the old server first (?gen=d)
+      const back = await connect(srv, 'Away', away.welcome.token);
+      const closed = await back.waitFor('room.closed');
+      assert.deepEqual([closed.reason, closed.moved, 'for' in closed], ['newVersion', true, false]);
+      const moved = await connect(b, 'Away', away.welcome.token);
+      assert.equal((await moved.waitFor('room.state')).code, code);
+    } finally { await srv.close(); }
+  });
+
   test('a match that ends during the drain hands its room over once it is back in its lobby', async () => {
     const srv = await startServer({ port: 0, host: '127.0.0.1', MatchClass: StubMatch, quiet: true, genEnv: { SP_GEN: 'c', SP_GEN_HANDOFF_DIR: dir } });
     try {

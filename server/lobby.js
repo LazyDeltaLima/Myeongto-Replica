@@ -337,8 +337,10 @@ export class Lobby {
     const room = this.roomOf(session);
     if (!room) {
       if (session.notice) {
-        sendSession(session, { t: 'room.closed', reason: session.notice });
+        const info = session.noticeInfo?.for === session.notice ? { ...session.noticeInfo, for: undefined } : null;
+        sendSession(session, { t: 'room.closed', reason: session.notice, ...info });
         session.notice = null;
+        session.noticeInfo = null;
       }
       if (session.pendingResult) {
         for (const frame of session.pendingResult) if (frame) sendRaw(session.ws, frame);
@@ -1198,7 +1200,7 @@ export class Lobby {
       session.roomCode = null;
       if (s.left || reason === 'empty') continue;
       if (session.connected) sendSession(session, { t: 'room.closed', reason, ...info });
-      else session.notice = reason;
+      else { session.notice = reason; session.noticeInfo = info ? { ...info, for: reason } : null; }
     }
     // spectators did not leave: they are told whatever closed the room (its last human leaving included)
     for (const s of room.spectators) {
@@ -1207,7 +1209,7 @@ export class Lobby {
       if (!session || session.roomCode !== room.code) continue;
       session.roomCode = null;
       if (session.connected) sendSession(session, { t: 'room.closed', reason, ...info });
-      else session.notice = reason;
+      else { session.notice = reason; session.noticeInfo = info ? { ...info, for: reason } : null; }
     }
     if (ctx) this.disposeMatchCtx(ctx);
     this.log.info(`[lobby] ${room.code} disposed (${reason})`);
