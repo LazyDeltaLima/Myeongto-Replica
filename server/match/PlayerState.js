@@ -6,8 +6,8 @@
 //     also one that would complete a merge at once (PRTS 卫戍协议/帮助 §手牌区 "例如招募/购入等通常情况下会增加手牌的操作";
 //     GitHub #82) — and withdrawals, except one whose own summon stack frees a slot. Passive gains (merge results,
 //     grants, returned equipment) overflow into temp, and a free hand slot pulls them back in at once, right→left
-//     (_fillHandFromTemp at every recompute: "常规手牌区出现空位时自动移入"); temp blocks Ready ("直到溢出情况排除才可开始
-//     进行作战").
+//     (_fillHandFromTemp at every recompute: "常规手牌区出现空位时自动移入"); an occupied temp does not block Ready (the client
+//     only confirms, docs/rules/ui.md).
 //     A temp piece is resolved (chess sold back to the pool, items destroyed, summon stacks removed — they come back at
 //     the next round start, grantTokensFor) at the deadline of the
 //     first prep in which the player could act on it (tempDue): a piece that overflowed during a prep before Ready
