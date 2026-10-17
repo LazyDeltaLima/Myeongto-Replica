@@ -1422,3 +1422,26 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
   `test/sim/feedback5-lemuen-s3-wait.test.js`, `test/sim/hit-tile-round.test.js`, `test/content/op_clemnt.test.js`, `test/local-patch-diy.test.js`(LOR-Y: 스킬을
   처음부터 켜서 원거리 타격이 생기게). golden: 6개 계열 전부(roster 49/49, bonds 46/46, fields 22/22, matches 20/20, standins 10/10, diy 11/11) — 범위 가장자리
   0.1 안의 적을 이제 치므로 모든 전투의 피해·처치가 바뀜.
+
+### 驭械术师 평타 = 본체 한 방 + 부유 유닛 추가 피해, 재배치 때 램프 초기화, 洛洛 S2 고정 대상 (upstream `823e3d0a` `e0f37718` `a451ddcf` `7434e9ea` `f567e804`)
+- 문제: 엔진이 驭械术师(메카 캐스터) 평타를 부유 유닛 램프(0.2 → +0.15 → 1.1배) 한 방으로 **대신**해, 본체의 100 % 공격이 없었다. 재배치해도 램프·대상별 배율이
+  남았고(`installFunnel`이 한 번만), 洛洛 S2 「자부차액」의 고정 대상은 본체 사거리를 벗어나면 바뀌었고, 스킬 전에 쏜 탄이 풀린 부유 유닛 램프를 건드렸다.
+- 근거: PRTS 分支特性信息 驭械术师 「额外伤害」(부유 유닛 피해는 공격에 더해지는 추가 피해), 재배치·대상 변경 때 램프 초기화(같은 문서). 洛洛 S2 문구
+  「锁敌后直至敌人被击杀或技能结束」.
+- 동작(upstream 그대로, 손 이식):
+  - `ai.js resolveHit`: 프로필 `funnelMul`(부유 램프, `professions.js funnel`)이 있으면 본체 1.0배 `isAttack` 한 방 + 부유 유닛 추가 피해(`addition`·`funnel` 태그,
+    `isAttack` 아님, 같은 `attackId`). `dmgMul`(至简 재능 등)은 둘 다에. 부유 유닛이 늘어도(`hits`) 본체는 하나, `funnelBodyHits` > 0이면 그만큼(至简 S2 두 방),
+    0이면 부유만(荒芜拉普兰德 S2). **[ASSUMED]** 본체가 먼저, 같은 착탄 순간(부유 유닛의 따로 나는 탄·시간은 모델링 안 함), 한 일제 사격에 램프 한 칸.
+  - `installFunnel`: 일반 배치(재배치·부활 포함)마다 대상·램프·대상별 맵 초기화, 자유 이동(`deploy`의 `move: true`)은 유지. 날아가는 탄은 착탄 때 램프를 계산.
+  - 耶拉(두 형태) S2: 본체 평타는 사거리 안에서 그대로, 그동안 부유 추가 피해는 끔, `1 + attack@cnt`개의 풀린 부유 유닛이 적이 죽거나 스킬이 끝날 때까지
+    고정해 스킬 피해(`kjera:drone`). 기본형은 대상별 램프를 이어 쓰고 되돌려 줌, 숨은 형태는 init부터·되돌리지 않음. **[ASSUMED]**(upstream): 풀린 부유 유닛도
+    특성 램프, 비행 시간 없음, 선택 불가가 된 고정 대상은 놓고 다시 고름, 기절·무장 해제가 멈추지 않음.
+  - 洛洛 S2: 풀린 부유 유닛 하나가 자기 틱으로(`rockr:drone`, 스킬 피해) 고정 대상을 침 — 살아 있고 선택 가능하면 본체 사거리 밖이어도 유지, 처치·스킬 끝에 돌아옴.
+    램프는 유닛 자신이 들고 있어 스킬 전 탄이 바꾸지 못함. 스킬이 끝나면 램프를 특성에 돌려줌.
+  - 荒芜拉普兰德 S1(토글)은 본체 + 두 부유 추가 피해, S3는 자기 경로 그대로. 澄闪 부분은 우리 풀에 없음.
+- 테스트 `test/sim/funnel-body.test.js`(upstream에서: 일반·정예 5명, 洛洛 저항·횟수 체력·보호막, 至简 S2, 耶拉 S2, 荒芜拉普兰德 S1·S2, 장비·시라쿠사 굴림,
+  처치; 澄闪 줄은 뺌, 우리 투사체 비행 시간에 맞춰 관찰 시간을 늘림; 새로 실제 경로 BattleSpec + 실제 웨이브에서 洛洛 일제 사격 = 본체 하나 + 추가 피해 하나),
+  `test/sim/funnel-redeploy.test.js`, `test/content/rockrock-s2-lock.test.js`(첫 탄 대기를 우리 공격 타이밍에 맞춤), 키트 테스트 `kits_t1t2`·`kits_t3`·`kits_t4`·
+  `kits_t6`·`kits_alt_t2`·`kits_alt_t6`. upstream의 `test/match/funnel-redeploy.test.js`(시드 8 상점에 맞춘 실제 판)는 우리 상점·데이터에서 그 판이 나오지 않아
+  옮기지 않음 — 재배치 초기화는 `test/sim/funnel-redeploy.test.js`(자동 재배치·부활)가 본다. golden: roster 13, bonds 10, fields 4, matches 14 시나리오(메카 캐스터가
+  나오는 판).
