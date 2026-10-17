@@ -50,6 +50,9 @@
   Torappu/Scene/Trap/Shadow 머티리얼 값(`_Ambient`·`_Diffuse` × 주광 N·L, 라이트맵 없음 — 셰이더 원문은 못 읽어 [추정]). 사격대 위 유닛은 판 높이
   0.393에 선다(`stage.platformHeight` → `style.js tileTop('platform')`). 공식 캡처와 같은 회색 금속 판 + 2×2 격자 모양, 판 평균색 공식 128,124,112 ↔ 우리 129,130,124.
   알려진 차이: 土石结构(act1 m06 `trap_032_mound`)와 “双眼皮” 포탑은 절차 상자 그대로.
+- 받기 (2026-10-17, 관리자 제보: 기기 모델을 다시 추출한 뒤 공식 씬 맵에서 `unDzs` RangeError): `scene.json`과 `geom.bin`은 둘 다 `cache: 'no-cache'`로
+  받는다(`official.js fetchJson`·`fetchBin`). 서버는 `geom.bin`을 `max-age=86400`으로 보내고 서비스 워커는 `.bin`을 다루지 않아, `geom.bin`만 HTTP 캐시에서
+  오면 새 `scene.json`의 범위가 옛 버퍼 밖을 가리켰다(`scene/devices`에 배 모델이 더해져 2 → 3기기). 바뀌지 않았으면 304 한 번.
 - **联防 화면** (2026-10-09, 관리자 제보): 0.2.0(upstream `8a436249`)부터
   联防은 템플릿 레벨 `act1autochess_escaped_single/_multi`에서 진행되는데, 클라이언트에 이 레벨의 씬이 없어(`scenes/activities/…/level_*`은 일반 11개뿐)
   절차 보드로 떨어졌다. **관리자 결정 2026-10-09**: 공식 联防 화면은 그 판 맵 그대로(장애물·물 포함).
