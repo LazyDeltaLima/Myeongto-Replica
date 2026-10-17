@@ -23,7 +23,7 @@ import { ERR, PHASE } from '../shared/constants.js';
 import {
   installGeneration, genUrl, takeMoved, MOVE_DELAY_MS, TAB_ASK_MS, TAB_RETRY_MS, MATCH_POLL_MS, MOVED_KEY, MOVED_MAX_MS,
 } from '../public/js/ui/generation.js';
-import { updatedLines } from '../public/js/ui/updateNotice.js';
+import { updatedLines, moveLine } from '../public/js/ui/updateNotice.js';
 import { APP_VERSION } from '../shared/constants.js';
 import { bannerVisible } from '../public/js/ui/connBanner.js';
 import { store } from '../public/js/store.js';
@@ -414,6 +414,17 @@ describe('server generation: the page (public/js/ui/generation.js)', () => {
     await q.run(TAB_ASK_MS);
     assert.equal(q.kept[0].room, true);
     q.gen.close();
+    // closed without a handoff (no folder, a failed write): the dialog says the room cannot move, the reloaded page
+    // reports it was in one (and finds none)
+    const r = harness([]);
+    r.emit('welcome', { gen: { id: 'a', state: 'accept' } });
+    r.emit('room.closed', { reason: 'newVersion' });
+    assert.equal(store.get().ui.genMove, 'lost');
+    await r.run(MOVE_DELAY_MS);
+    await r.run(TAB_ASK_MS);
+    assert.deepEqual([r.reloads, r.kept[0].room], [1, true]);
+    r.gen.close();
+    assert.equal(new Set(['soon', 'room', 'lost'].map(moveLine)).size, 3, 'three different lines');
   });
 
   test('the reloaded page reads the move once; an old or broken one is not reported', () => {

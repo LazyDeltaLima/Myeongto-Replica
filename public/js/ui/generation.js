@@ -11,11 +11,11 @@
 //     reloads onto the new server. A match on screen (settlement included) waits for its end without a banner (the
 //     old server keeps serving it, the player has nothing to do; maintainer decision 2026-10-17): once it is over the
 //     banner shows and the page moves MOVE_DELAY_MS later.
-//   * a waiting room the old server handed over to the new one (room.closed {reason:'newVersion', moved:true},
-//     server/local-generation.js 「handoff」) stays on screen while the page moves; the reloaded page resumes its seat
-//     there with its old reconnect token.
+//   * a waiting room the old server closed (room.closed {reason:'newVersion'}) stays on screen while the page moves:
+//     handed over to the new one (moved:true, server/local-generation.js 「handoff」), the reloaded page resumes its seat
+//     there with its old reconnect token; not handed over (no handoff folder, a failed write), the dialog says so.
 //   * what the page shows (maintainer decision 2026-10-17: a plain reload read as a lost connection): while it moves,
-//     ui.genMove 'soon' / 'room' (its room moves too) — the 「서버가 새 버전으로 업데이트됩니다」 dialog
+//     ui.genMove 'soon' / 'room' (its room moves too) / 'lost' (its room cannot) — the 「서버가 새 버전으로 업데이트됩니다」 dialog
 //     (ui/updateNotice.js); right before the reload the page leaves MOVED_KEY in sessionStorage (its version, whether
 //     it had a room), and the reloaded page tells the player it is the new version now (takeMoved → ui.updated).
 //   * another tab of this browser that plays a match on the same old server keeps the cookie (a reload of that tab, or
@@ -86,9 +86,10 @@ export function installGeneration({ net, inMatch, wsUrl, reload, dropCookie, mak
   let timer = null;
   let busySeen = false;
   let roomMoved = false; // the old server handed this page's waiting room over (header)
+  let roomLost = false;  // … or closed it without handing it over
 
   const setMove = (genMove) => { if (store.get().ui.genMove !== genMove) store.patch('ui', { genMove }); };
-  const soon = () => setMove(roomMoved ? 'room' : 'soon');
+  const soon = () => setMove(roomMoved ? 'room' : roomLost ? 'lost' : 'soon');
   const wait = (ms, fn) => { cancel(timer); timer = later(fn, ms); };
 
   // another tab asks whether a match runs here on its server
@@ -119,7 +120,7 @@ export function installGeneration({ net, inMatch, wsUrl, reload, dropCookie, mak
     gone = true;
     soon();
     try { forget(); } catch { /* ignore */ }
-    try { keep({ from: APP_VERSION, room: roomMoved || hasRoom(), at: Date.now() }); } catch { /* ignore */ }
+    try { keep({ from: APP_VERSION, room: roomMoved || roomLost || hasRoom(), at: Date.now() }); } catch { /* ignore */ }
     doReload();
   };
 
@@ -141,7 +142,9 @@ export function installGeneration({ net, inMatch, wsUrl, reload, dropCookie, mak
   net.on('server.gen', (msg) => { if (msg?.state === 'drain') move(); });
   net.on('room.closed', (msg) => {
     if (msg?.reason !== 'newVersion') return;
-    if (msg.moved === true) { roomMoved = true; if (moving && !inMatch() && store.get().ui.genMove === 'soon') soon(); }
+    if (msg.moved === true) roomMoved = true;
+    else roomLost = true;
+    if (moving && !inMatch() && store.get().ui.genMove === 'soon') soon();
     move();
   });
   net.on('error', (msg) => { if (msg?.code === 'NEW_VERSION') move(); });

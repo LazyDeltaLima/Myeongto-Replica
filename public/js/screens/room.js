@@ -31,6 +31,7 @@ import { openStats } from './stats.js';
 import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { net } from '../net.js';
+import { useDocClass } from '../ui/device.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating } from '../store.js';
 import { difficultyInfo } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
@@ -266,6 +267,7 @@ function AiLastToggle({ option, busy, onToggle }) {
 
 /** Room screen component. */
 export function RoomScreen() {
+  useDocClass('sp-topbar-tall'); // toasts sit under the (taller) top bar instead of over its title (components.css)
   const room = useStore((s) => s.room);
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);

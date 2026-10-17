@@ -32,6 +32,7 @@ import { RulesetSwitch, lobbyRuleset, saveLobbyRuleset, queueCountOf } from '../
 import { RULE_PRESETS } from '../../../shared/ruleset.js';
 import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, slidesOf, Inline } from '../ui/patchNotes.js';
 import { net, identity } from '../net.js';
+import { useDocClass } from '../ui/device.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { getConfig, getMode, getStage, useData } from '../data.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
@@ -309,6 +310,7 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect, waiting = nu
 
 /** Lobby screen component. */
 export function LobbyScreen() {
+  useDocClass('sp-topbar'); // toasts sit under the top bar instead of over its title (components.css)
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
   useData('config');

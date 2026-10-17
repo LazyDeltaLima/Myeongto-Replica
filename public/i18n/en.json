@@ -1237,6 +1237,7 @@
   "服务器已更新到最新版本": "The server was updated to the latest version",
   "同盟已一起转移到新版本": "Your Alliance moved to the new version with you",
   "未能转移同盟，请重新创建或加入同盟": "The Alliance could not be moved. Please create or join one again",
+  "同盟无法转移到新版本，请在新版本中重新创建同盟": "The Alliance cannot move to the new version. Please create it again there",
   "查看更新内容": "See what's new",
   "统计数据": "Statistics",
   "统计": "Stats",

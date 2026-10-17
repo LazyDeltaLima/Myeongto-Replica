@@ -2,9 +2,9 @@
 // decision 2026-10-17: a plain reload read as a lost connection, and the players of a waiting room did not know where
 // their room went). Mounted once by main.js.
 //
-//   * MoveDialog — while the page is about to reload onto the new server (ui.genMove 'soon' / 'room'): a dialog that
-//     cannot be closed (the reload comes MOVE_DELAY_MS later anyway) saying the server updates; 'room' adds that the
-//     room moves along.
+//   * MoveDialog — while the page is about to reload onto the new server (ui.genMove 'soon' / 'room' / 'lost'): a
+//     dialog that cannot be closed (the reload comes MOVE_DELAY_MS later anyway) saying the server updates; 'room' adds
+//     that the waiting room moves along, 'lost' that it cannot (create it again there) — the closed room gets no toast.
 //   * UpdatedDialog — the reloaded page (ui.updated, from generation.js takeMoved): the version it came from and the one
 //     it runs now, whether its room came along (the room is back on screen) or could not (create or join one again), and
 //     更新内容 (the 更新记录 window of ui/patchNotes.js). It waits until the new server answered and the room had a
@@ -20,6 +20,13 @@ import { t } from '../../../shared/i18n.js';
 /** After the welcome, the room.state of a resumed seat has this long to arrive before the dialog shows. */
 export const SETTLE_MS = 1500;
 
+/** The line of the move dialog under its title (MoveDialog). @param {string} genMove */
+export function moveLine(genMove) {
+  if (genMove === 'room') return t('同盟将一起转移到新版本');
+  if (genMove === 'lost') return t('同盟无法转移到新版本，请在新版本中重新创建同盟');
+  return t('新版本已上线');
+}
+
 /** The text of the reloaded page's dialog (UpdatedDialog). @param {{ from: string, room: boolean }} moved @param {boolean} hasRoom */
 export function updatedLines(moved, hasRoom, to = APP_VERSION) {
   const lines = [moved.from && moved.from !== to
@@ -32,9 +39,9 @@ export function updatedLines(moved, hasRoom, to = APP_VERSION) {
 function MoveDialog() {
   const genMove = useStore((s) => s.ui.genMove ?? null);
   const entered = useStore((s) => s.session.entered);
-  if (!entered || (genMove !== 'soon' && genMove !== 'room')) return null;
+  if (!entered || (genMove !== 'soon' && genMove !== 'room' && genMove !== 'lost')) return null;
   return html`<${Modal} open=${true} micro="SERVER UPDATE" title=${t('服务器正在更新到新版本')} closeOnBackdrop=${false} class="update-notice">
-    <p class="modal__text">${genMove === 'room' ? t('同盟将一起转移到新版本') : t('新版本已上线')}</p>
+    <p class="modal__text">${moveLine(genMove)}</p>
     <${Spinner} size="sm" label=${t('页面即将自动刷新')} />
   <//>`;
 }

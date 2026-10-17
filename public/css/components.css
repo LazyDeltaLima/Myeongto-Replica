@@ -957,6 +957,10 @@
 .toast--warn { --tc: var(--amber); }
 .toast--error { --tc: var(--red-premium); }
 .toast.is-leaving { animation: toast-out var(--t-med) var(--ease-in-out) forwards; }
+/* the lobby and the room have a top bar (.topbar 1.1rem, the room's 1.36rem): toasts go under it, never over its title
+   (classes set by the screens: html.sp-topbar / html.sp-topbar-tall) */
+.sp-topbar:not(.sp-in-match) .toast-host { top: 1.22rem; }
+.sp-topbar-tall:not(.sp-in-match) .toast-host { top: 1.48rem; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-.12rem); } }
 @keyframes toast-out { to { opacity: 0; transform: translateY(-.08rem); } }
 

@@ -277,9 +277,9 @@ function wireNet() {
   net.on('unhandledError', (err) => toastError(err));
   net.on('room.state', onRoomState);
   net.on('room.closed', (msg) => {
-    // a waiting room the draining server handed over: it stays on screen under the move dialog while the page reloads
-    // onto the new server, where it comes back (ui/generation.js)
-    if (msg.reason === 'newVersion' && msg.moved === true && pageGen()) return;
+    // a waiting room the draining server closed: it stays on screen under the move dialog, which says whether it comes
+    // back on the new server, while the page reloads onto it (ui/generation.js, ui/updateNotice.js) — no toast
+    if (msg.reason === 'newVersion' && pageGen()) return;
     const known = Object.hasOwn(CLOSE_REASON, String(msg.reason)) ? CLOSE_REASON[msg.reason] : null;
     const text = known ? t(known) : typeof msg.reason === 'string' && msg.reason.length < 60 ? t('同盟已关闭：{reason}', { reason: msg.reason }) : t('同盟已关闭');
     if (serverLostDue(store.get())) { serverLost(text); return; }
