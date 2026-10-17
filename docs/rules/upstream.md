@@ -172,7 +172,7 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   - `e53b8d52`(손 이식, 데이터 다시 생성): 娜仁图亚 【见者有份】 장비 2개가 상점 레벨 이하 단계만 — `pool_equip_narant`의 `maxTier` 뺌, 凯瑟琳의 `plus`는 안 넣음.
     `sim.md` 「upstream 0.2.5–0.3.1 버그 수정 이식 — 매치」.
   - `16567bbe`(`git cherry-pick -x`, 충돌 손 정리): 꺼진 동안 밀린 빅토리아 해머·远见·奇迹 자금이 맹약이 켜지는 즉시 — 새 훅 `onActiveBonds`. 우리 AI 리허설은
-    진짜 판을 쓰니 `recompute({ quiet: true })`를 더함. upstream `docs/history/0.3.0.md`·CHANGELOG 줄은 안 받음. `sim.md` 같은 절.
+    진짜 판을 쓰던 동안 `recompute({ quiet: true })`를 더했다가 `ed44ce4d` 이식(떨어진 사본)에서 뺌. upstream `docs/history/0.3.0.md`·CHANGELOG 줄은 안 받음. `sim.md` 같은 절.
   - `92b97ecb` `ae1c21d9`(`git cherry-pick -x` + 손 정리, 대기열만 — 관리자 결정 2026-10-17): 임시 정비 구역 5칸 뒤 숨은 대기열, 지급·정예·보상·돌려받는
     장비를 반환·버림·파기 대신 대기열로. 안 받음: 대기열이 있으면 준비 거절·`Ready is refused` 문장(우리 `ui.md` 2026-10-10 규칙), `m.private`에 전체 대기열
     (우리는 앞 5칸만), 플러그인 DSL 지급 테스트, `docs/img/bench-overflow.png`·`docs/history`. `sim.md` 「임시 정비 구역 뒤 숨은 대기열」.
@@ -180,6 +180,15 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
     `ui.md` 「AI 팀원 구매 양보」 아래.
   - `ed44ce4d`(손 이식, upstream PR #606·#607·#608의 생각): 막는 메딕 칸, 실제 손패 용량의 구매 추정, 떨어진 사본(`preview.js`)으로 도는 리허설 — AI 휴리스틱
     (`feat`). `server/sim/rng.js`에 `rng.clone()`을 더함. 플러그인 예산 테스트·`docs/history`는 안 받음. 같은 `ui.md` 절.
+- **upstream 0.2.5–0.3.1 버그 수정 이식 — UI·렌더** (관리자 결정 2026-10-17, v0.2.4 → 0.3.1 버그 수정 커밋 중 우리에게도 있던 것): UI — `c9197947`(PR #546,
+  마지막 사람의 전략 「跳过」), `289a454f`(#501, 갱신 연타 한 번만 — busy 표시는 game.js 대신 ShopBar가 구독), `10e1461c`(연결 복구 버튼이 AI 托管 화면 위),
+  `70151d08`·`52b70434`(PR #538, 선발 데이터 없이 편성 가져오기 거부), `7a65577c`(선발만 바꾼 편성의 「导出」), `19c854c1`·`52b70434`(PR #540, 「全部恢复默认」을
+  옛 동기화가 덮어씀 — `tools/package.mjs` 부분은 해당 없음), `1188a980`(관전 맹약 팝업의 선발 오퍼레이터 — 시험은 우리 선발 풀로), `d1d72185`(HEAD + Range,
+  손으로: 우리는 gzip만), `b5d0c3f9`(e2e가 글꼴 호스트 실패를 거름), upstream #676·PR #694(비중국어에서 고지대 판정 — `placementRecords` 도움 함수로)는
+  `ui.md` 「upstream 0.2.5–0.3.1 버그 수정 이식 — UI」. 렌더 — `7b4f512c`(원점이 몸 가운데인 적의 HP바 — 우리 `UNIT.modelScale`로 기대값), `1df530f2`(처음 그리기
+  전 기물의 화면 사각형), `205f3bb7`의 장치 부분(특제 수상 플랫폼 — upstream의 절차 판 대신 클라 모델 `trap_040_canoe`를 추출; 봉인된 지면은 클라 모델이 없어
+  안 그림), `43a5b571`(#647, 스텐실 없을 때 영역 눈알)은 `render.md` 「upstream 0.2.5–0.3.1 버그 수정 이식 — 렌더」. upstream의 브라우저 e2e 중 옮기지 않은 것:
+  `band-draft-skip`·`refresh-tap`·`loadout-ops-export`·`loadout-ops-import`·`high-ground-i18n`(단위 시험이 같은 판정을 봄).
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.
