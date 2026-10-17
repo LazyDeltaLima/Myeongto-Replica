@@ -41,6 +41,45 @@ import { t, tc, tParts, tName } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
+// Keep gesture state on the DOM element across match-driven component renders.
+const stripDrags = new WeakMap();
+function stripPointerDown(e) {
+  const el = e.currentTarget;
+  stripDrags.delete(el);
+  if (e.pointerType !== 'mouse' || e.button !== 0 || el.scrollWidth <= el.clientWidth + 1) return;
+  stripDrags.set(el, { id: e.pointerId, x: e.clientX, left: el.scrollLeft, dragging: false });
+}
+function stripPointerMove(e) {
+  const el = e.currentTarget;
+  const drag = stripDrags.get(el);
+  if (!drag || drag.id !== e.pointerId) return;
+  const dx = e.clientX - drag.x;
+  if (!drag.dragging) {
+    if (Math.abs(dx) < 5) return;
+    drag.dragging = true;
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('is-dragging');
+  }
+  el.scrollLeft = drag.left - dx;
+  e.preventDefault();
+}
+function stripPointerEnd(e) {
+  const el = e.currentTarget;
+  const drag = stripDrags.get(el);
+  if (!drag || drag.id !== e.pointerId) return;
+  drag.id = null;
+  el.classList.remove('is-dragging');
+  if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+}
+function stripPointerLeave(e) {
+  if (!stripDrags.get(e.currentTarget)?.dragging) stripDrags.delete(e.currentTarget);
+}
+function stripClick(e) {
+  if (!stripDrags.get(e.currentTarget)?.dragging || e.detail === 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+}
+
 // local patch: the official list scrolls sideways past 7 bonds (css/hud-art.css) — a vertical wheel scrolls it too
 function stripWheel(e) {
   const el = e.currentTarget;
@@ -69,7 +108,10 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
   const m = data.get('assets');
   const shown = sorted.slice(0, max);
   const strip = html`<div class=${cx('bstrip', layersDisabled && 'is-frozen', owner && 'is-other')} role="list"
-      aria-label=${owner ? t('{owner} 的盟约', { owner }) : t('我的盟约')} data-owner=${owner || null} onWheel=${stripWheel /* local patch */}>
+      aria-label=${owner ? t('{owner} 的盟约', { owner }) : t('我的盟约')} data-owner=${owner || null} onWheel=${stripWheel /* local patch */}
+      onPointerDown=${stripPointerDown} onPointerMove=${stripPointerMove} onPointerUp=${stripPointerEnd}
+      onPointerCancel=${stripPointerEnd} onLostPointerCapture=${stripPointerEnd} onPointerLeave=${stripPointerLeave}
+      onClickCapture=${stripClick}>
     ${owner ? html`<${OwnerTag} owner=${owner} />` : null}
     ${shown.map((b) => {
       const rec = data.lookup('bonds', b.bondId);

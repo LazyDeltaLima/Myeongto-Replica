@@ -138,6 +138,8 @@
   -webkit-mask: linear-gradient(90deg, transparent, #000 calc(var(--u) * 15), #000 calc(100% - var(--u) * 15), transparent);
   mask: linear-gradient(90deg, transparent, #000 calc(var(--u) * 15), #000 calc(100% - var(--u) * 15), transparent); }
 .gm.has-hud-art .bstrip::-webkit-scrollbar { display: none; }
+.gm.has-hud-art .bstrip:not(.bstrip--empty) { user-select: none; -webkit-user-select: none; }
+.gm.has-hud-art .bstrip.is-dragging, .gm.has-hud-art .bstrip.is-dragging * { cursor: grabbing; }
 /* local patch: the no-bond hint (BONDS + text) clear of the 15-unit edge fade — it ate the first and last letters */
 .gm.has-hud-art .bstrip--empty { padding-left: calc(var(--u) * 15); padding-right: calc(var(--u) * 15); }
 /* item width = the LayoutElement's preferred 80 (the layout group controls the width; the RectTransform's 83 is unused) */
