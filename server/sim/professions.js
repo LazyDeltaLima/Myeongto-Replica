@@ -34,6 +34,7 @@
 //   storeEnergy(battle, unit) → bool / releaseEnergy(battle, unit) → n (秘术师: the attack check found no valid target ⇒
 //                             store one energy, false when full; the energies leaving with an attack — installMystic)
 //   dollNoAttack bool (傀儡师: its <替身> makes no normal attack and casts no skill — 归溟幽灵鲨, kit trait)
+//   dollHitsFly bool (傀儡师: its <替身> state targets flyers — 风丸, kit trait; read by targeting.js canTargetEnemy)
 //   tb — the unit's trait blackboard (data `trait.bb`), used for tunables (module upgrades included on elites)
 // Behaviour per subprofession is documented in docs/SIM.md §Professions. Front / side tests use the unit's direction
 // (`dir`, sim/dir.js): offsets are compared in its facing-RIGHT frame.

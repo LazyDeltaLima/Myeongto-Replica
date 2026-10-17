@@ -1367,3 +1367,11 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
 - 테스트 `test/content/vulpis-first-hit.test.js`(upstream 그대로: 두 형태·모듈·스킬 전부의 첫 타, 적별 창), `test/content/kits_t3.test.js`(频次형 적: 모든 공격에
   추가 1회). golden: roster-007·009·026·039, bond-soloShip-low·bond-yanShip-low, matches coop2-NORMAL-3·coop3-ABYSS-5·coop4-ABYSS-7·
   coop2-NORMAL-1-coverage-standins(忍冬이 나오는 판의 첫 타 피해가 늘어 처치·이후 선택이 바뀜).
+
+### 风丸 <替身> 상태는 공중 적도 친다 (upstream `e54ac351` 중 风丸 부분)
+- 문제: 风丸(오퍼레이터) 특성 <替身> 상태에서도 근접 프로필의 `canHitFly` false 그대로라 사거리 안 비행 적을 무시했다.
+- 근거: PRTS 风丸 특성 备注 「<替身>状态下可对空，由技能产生的召唤物不可对空」. 归溟幽灵鲨의 替身은 평타가 없다(`dollNoAttack`, 그대로).
+- 동작(upstream 그대로): 키트 `chess_char_2_11-kazema.js`의 `trait: { dollHitsFly: true }`, `targeting.js canTargetEnemy`가 그 플래그 + `unit.trait.doll`(替身
+  상태)일 때 비행 적을 대상으로 둔다. 본체와 S2가 소환한 替身(자기 프로필을 가진 소환물)은 여전히 못 친다. upstream 같은 커밋의 보상 제안 유지 부분은 받지 않음
+  (보류 — 관리자 결정 2026-10-17).
+- 테스트 `test/content/kits_t1t2.test.js` 「2_11 风丸: the trait's <替身> hits air units …」(upstream 그대로). golden 변화 없음(风丸 替身이 비행 적을 만나는 판이 없음).
