@@ -1379,3 +1379,9 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
 - **HEAD 요청의 Range** (upstream `d1d72185`, 서버 정적 파일): `server/http/files.js serveFile`이 HEAD에도 `Range`를 읽어 206·`Content-Range`로 답하고
   gzip 표현을 고르지 않았다(같은 파일의 GET과 ETag가 달라짐). RFC 9110 §14.2대로 `Range`는 GET에서만 읽는다. 우리는 gzip만(`acceptsGzip`, upstream은 br도)이라 손으로
   같은 한 줄. 확인: `test/lobby.test.js` 「HEAD ignores Range」(upstream 판, br 사례 뺌; 수정 전 6건 실패 확인).
+- **한국어에서 글래디아·클리프하트·인포서를 고지대에 못 놓음** (upstream #676, PR #694): 고지대 판정(`shared/highGround.js meleeOnHighGround`)은 특성 원문
+  「可以放置于远程位」을 읽는데, 클라 배치 판정(`screens/game.js placeCtx`)이 현지화된 기물 레코드(`gd.chess`)를 넘겨, 중국어(간체)가 아닌 언어 — 우리 기본인
+  한국어도 — 에서는 칸 강조가 안 되고 놓기가 거부됐다(서버는 원문이라 맞음). 이제 배치 판정은 내려받은 그대로의 레코드를 읽는다(`ui/gameLogic/placement.js
+  placementRecords`: `data.lookupRaw`·`getRaw`, 자기 선발 오퍼레이터도 원문으로 조립). 카드·상세는 그대로 현지화 레코드. 모듈 단 정예(`traitBase`)도 같은 길이라
+  함께 풀림. 확인: `test/ui/high-ground-i18n.test.js`(한국어 오버레이로 원문 판정 6개 기물, 일반·정예 글래디아의 고지대 `canPlace` — 현지화 레코드로는 거부되던
+  것도 확인). upstream의 브라우저 e2e(`high-ground-i18n.e2e.test.js`, 5개 언어 드래그)는 안 옮김.

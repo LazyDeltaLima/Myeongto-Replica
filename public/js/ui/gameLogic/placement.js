@@ -7,6 +7,7 @@ import { pieceDir, rangeTiles } from '../facing.js';
 import { isObj, tileKey } from './shared.js';
 import { boardTileOf, fieldTile } from './camera.js';
 import { deployedRecord, fieldsStandIn, standInOf } from './standIn.js';
+import { ownDiyRecord } from './diy.js';
 import { t } from '../../../../shared/i18n.js';
 
 
@@ -188,9 +189,29 @@ export function indexPieces(priv) {
 }
 
 /**
+ * The rule records `placementContext` reads: chess.json / backups.json exactly as downloaded (their Chinese texts), with
+ * the player's own 自选 picks composed from them, whatever the display language. The 高台 check reads the trait text
+ * 「可以放置于远程位」 (shared/highGround.js meleeOnHighGround), which a localized record no longer carries — in Korean (the
+ * default here), English or Japanese 歌蕾蒂娅 / 崖心 / 见行者 could not be placed on a 高台 (upstream #676, PR #694).
+ * Cards and details keep the localized records.
+ * @param {{ lookupRaw: (name: string, id: string) => any, getRaw: (name: string) => any }} d the data store (data.js)
+ * @param {any} priv m.private
+ * @returns {{ getChess: (id: string) => any, backups: any }}
+ */
+export function placementRecords(d, priv) {
+  const backups = d.getRaw('backups');
+  const raw = { chess: d.getRaw('chess'), backups };
+  return {
+    getChess: (id) => { const c = d.lookupRaw('chess', id); return ownDiyRecord(c, priv, raw) || c; },
+    backups,
+  };
+}
+
+/**
  * Build the placement context for `canPlace`. The deploy tiles include the player's stage overrides (terrain 机变
  * cards, `stageOverrides`), like the server's per-player deploy map, on the field the pieces are deployed on
  * (`field` = `deployFieldOf(pub, myId)`: the own board, or the player's half of the boss field in a boss round).
+ * `getChess` and `backups` must give the unlocalized rule records (placementRecords): the 高台 check reads the trait text.
  * @param {{ priv:any, stage:any, editable:boolean, field?:'normal'|'bossL'|'bossR', getChess?:(id:string)=>any,
  *   getToken?:(id:string)=>any, getItem?:(id:string)=>any, getEffect?:(id:string)=>any }} o
  */
