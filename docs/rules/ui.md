@@ -1365,3 +1365,6 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   오퍼레이터는 `backups.json`만 이름을 안다. 그 파일이 안 받아진 채 가져오면 선발 오퍼레이터 몫이 버려진 채 저장돼 그들의 练度가 지워졌다. 이제 `ops`가 있으면
   (빈 `ops`도) 선발 편성과 같은 데이터 검사(`screens/loadout.js loadoutOpsImportRefusal` → `importRefusal('diy')`)를 먼저 하고, 모자라면 아무것도 안 바꾼다.
   확인: `test/ui/loadout-ops-import.test.js`(upstream 판).
+- **선발 오퍼레이터만 바꾼 편성의 「导出」** (upstream `7a65577c`): 「导出」는 바꾼 오퍼레이터 수(`ui/loadoutModel.js changedCount`, 일반 명단만 셈)가 0이면
+  꺼져, 선발 편성 탭에서 선발 오퍼레이터의 잠재·练度만 바꾼 경우 내보낼 수 없었다. 이제 `ops`가 비어 있지 않으면 켠다(`screens/loadout.js`). 「全部恢复默认」는
+  그대로 일반 명단만 되돌린다(선발 몫은 선발 편성 탭 것). 확인: `test/ui/loadout-ops-import.test.js` 마지막 사례(소스 검사; upstream e2e는 안 옮김).

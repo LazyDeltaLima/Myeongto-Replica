@@ -46,3 +46,9 @@ test('ioApply asks loadoutOpsImportRefusal after parseImport and before cultivat
   assert.ok(ids > guard && apply > guard, 'no write and no DIY id list until the refusal returns null');
   assert.match(body.slice(guard), /^loadoutOpsImportRefusal\(res\.ops, ready\);\s*if \(opsRefused\) \{ toast\(opsRefused\.text, opsRefused\.tone\); return; \}/);
 });
+
+test('导出 stays enabled when only 潜能 / 练度 (a 自选 operator\'s too) changed (upstream 7a65577c)', () => {
+  // changedCount counts the roster only; a 自选 operator's 练度 is stored in `ops` by the 自选编队 tab
+  const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
+  assert.match(src, /data-testid="loadout-export" disabled=\$\{!nChanged && !Object\.keys\(st\.ops \|\| \{\}\)\.length\}/);
+});
