@@ -1361,3 +1361,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   (`.awayov` 70) 아래에 깔려 누를 수 없었다. 75로 올림(창 80·토스트 90 아래 그대로). 같은 변수를 쓰는 재연결 가림막(`.brc`)도 托管 화면 위로 온다.
   우리는 나가기 창의 「暂离」을 숨겼지만(`ui/matchChrome.js AWAY_OPTION`) 서버 자동 托管(`autoplay`)에서도 같은 화면이 뜬다. 확인: `test/ui/mock.e2e.test.js`
   「session replacement」(SP_E2E, 브라우저 — 托管 화면은 `awayStore`로 띄움).
+- **선발 데이터 없이 편성 가져오기** (upstream `70151d08`·`52b70434`, PR #538): `ops`(잠재·练度)가 든 편성 파일은 현재 잠재·练度를 통째로 바꾸는데, 선발
+  오퍼레이터는 `backups.json`만 이름을 안다. 그 파일이 안 받아진 채 가져오면 선발 오퍼레이터 몫이 버려진 채 저장돼 그들의 练度가 지워졌다. 이제 `ops`가 있으면
+  (빈 `ops`도) 선발 편성과 같은 데이터 검사(`screens/loadout.js loadoutOpsImportRefusal` → `importRefusal('diy')`)를 먼저 하고, 모자라면 아무것도 안 바꾼다.
+  확인: `test/ui/loadout-ops-import.test.js`(upstream 판).
