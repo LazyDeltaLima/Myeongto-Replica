@@ -35,8 +35,10 @@ const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 async function fetchJson(url) {
   try { const r = await fetch(url, { cache: 'no-cache' }); return r.ok ? await r.json() : null; } catch { return null; }
 }
+// revalidated like scene.json: the server sends geom.bin with max-age, and a cached older buffer under a newer
+// scene.json puts its ranges out of bounds (unDzs RangeError) after a re-extract
 async function fetchBin(url) {
-  try { const r = await fetch(url); return r.ok ? await r.arrayBuffer() : null; } catch { return null; }
+  try { const r = await fetch(url, { cache: 'no-cache' }); return r.ok ? await r.arrayBuffer() : null; } catch { return null; }
 }
 
 // stageId → Promise<{ data, missing }>: `data` null = no scene listed for the stage (kept for good); `missing` = what
