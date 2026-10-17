@@ -1010,6 +1010,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   남은 자금(`screens/game.js toggleReady`). 글 「临时整备区中仍有单位，休整期结束时将被销毁。确定准备就绪吗？」 KR 「임시 정비 구역에 유닛이 남아 있습니다.
   휴식 기간이 끝나면 파기됩니다. 준비 완료하시겠습니까?」(우리 번역). 준비 버튼 아래 「임시 정비 구역 N개 대기」는 알림으로 남기되 버튼은 막지 않고, 판 위 줄
   설명(`underframe.js tempRowRule`)도 새 규칙대로. 감사(`server/match/audit.js`)의 「비지 않은 임시 칸으로 준비」 검사는 뺐다. AI는 예전처럼 스스로 비운 뒤 준비.
+  임시 칸 뒤 숨은 대기열(2026-10-17, `sim.md` 「임시 정비 구역 뒤 숨은 대기열」)도 준비를 막지 않는다 — upstream `92b97ecb`의 대기열 준비 거절은 안 받음.
 - 재접속 대기 마스크(관리자 요청 2026-10-12, 클라 코드 `AutoChessBattleUIController._reconnectWaitContainer` + common `auto_chess_reconnect_mask`): 판 안에서
   소켓이 다시 붙는 중(`reconnecting`)이면 연결 띠 대신(`ui/connBanner.js`) 화면 전체를 막는 판(`bg_block`) + 아래 `bg_lower_tile`(218) + 바닥에서 80 위 60 높이 띠 —
   양옆 주황 `banner_orange_tile`, 가운데 540 폭 `banner_black_tile`, 옆 선 `banner_frame`(9분할 8|18, 오른쪽 뒤집음, ±197.5), `banner_dec`, 가운데 `icon_waiting`(35,

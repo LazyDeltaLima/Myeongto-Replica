@@ -173,6 +173,9 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
     `sim.md` 「upstream 0.2.5–0.3.1 버그 수정 이식 — 매치」.
   - `16567bbe`(`git cherry-pick -x`, 충돌 손 정리): 꺼진 동안 밀린 빅토리아 해머·远见·奇迹 자금이 맹약이 켜지는 즉시 — 새 훅 `onActiveBonds`. 우리 AI 리허설은
     진짜 판을 쓰니 `recompute({ quiet: true })`를 더함. upstream `docs/history/0.3.0.md`·CHANGELOG 줄은 안 받음. `sim.md` 같은 절.
+  - `92b97ecb` `ae1c21d9`(`git cherry-pick -x` + 손 정리, 대기열만 — 관리자 결정 2026-10-17): 임시 정비 구역 5칸 뒤 숨은 대기열, 지급·정예·보상·돌려받는
+    장비를 반환·버림·파기 대신 대기열로. 안 받음: 대기열이 있으면 준비 거절·`Ready is refused` 문장(우리 `ui.md` 2026-10-10 규칙), `m.private`에 전체 대기열
+    (우리는 앞 5칸만), 플러그인 DSL 지급 테스트, `docs/img/bench-overflow.png`·`docs/history`. `sim.md` 「임시 정비 구역 뒤 숨은 대기열」.
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.

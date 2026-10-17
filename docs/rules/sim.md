@@ -685,6 +685,33 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   이벤트 목록·탈락자 없음, 远见·奇迹 임시 → 손패로 켜질 때 자금, AI 배치; 우리: 리허설이 맹약을 켜는 배치를 시험해도 이벤트·해머 없음 — `quiet` 없이 실패 확인),
   `test/match/feedback3-prep-end-item.test.js`(정비 끝 해머는 정비 끝 층 획득이 넘긴 이정표로 바꿈, upstream). golden 변화 없음.
 
+### 임시 정비 구역 뒤 숨은 대기열 (관리자 결정 2026-10-17, upstream `92b97ecb` `ae1c21d9`의 대기열만)
+- 문제: 손패(정비 구역 10칸)와 임시 정비 구역 5칸이 다 찬 뒤 들어온 것을 잃었다 — 지급·보상 오퍼레이터는 카드 풀로 반환(「整备区已满，获得的干员已返还」),
+  합성 정예는 버리고 사본 반환, 아이템 지급은 파기(「…获得的装备已销毁」), 합성·판매·변이로 돌아온 장비는 정예 칸 2개까지 붙이고 나머지 파기, 판매는 장비 둘 곳이
+  없으면 `HAND_FULL`로 거절, 범위 밖으로 밀린 소환물은 판에서 빠져 다음 라운드에.
+- 근거: PRTS 卫戍协议/帮助 §手牌区 「类似的，临时手牌区也存在溢出，溢出单位无法查看，在临时手牌区出现空位时自动移入」. 클라도 같은 구조 — 가진 기물 목록
+  (`PlayerBattleData` charChesses·equipChesses·magicChesses)과 칸 위치(`chessPositionInfos`)가 따로 오고, `ChessMapInfo.UpdateData` →
+  `OptimizeHandMap`(임시 → 정규) → `_CheckNoPositionChess`/`_AddNoPositionChess`가 위치 없는 기물을 첫 빈 손패 칸(`GetFirstEmptyHand`: 정규 → 임시)에
+  넣고, 빈 칸이 없으면 지우지도 알리지도 않고 위치 없이 둔다(다음 갱신에 다시). 넘친 기물을 지우는 클라 코드·「파기됨」 토스트 키는 없다.
+- 동작(upstream 그대로 받은 것): `ps.temp`가 5칸보다 길어질 수 있다 — 앞 5칸이 보이는 칸(오른쪽 → 왼쪽으로 참), 그 뒤가 숨은 꼬리. `stow({ allowTemp })`는
+  늘 자리를 찾고(`player/pieces.js`), 오퍼레이터 지급·보상·변이(`acquireChess`), 합성 정예와 돌려받는 장비(`_mergeChess`), 아이템 지급·합성 황금 장비
+  (`acquireItem`·`_mergeItem`), 판매·변이·`destroyPiece`의 장비, 지형 변화로 밀린 기물, 범위 밖 소환물 모두 꼬리로 간다. `recompute → _fillHandFromTemp`가
+  빈 정규 칸을 보이는 칸(오른쪽 → 왼쪽) → 꼬리(도착 순) 순으로 채우고 꼬리를 앞 5칸으로 당긴다. 꼬리 기물도 합성·재고 계산·마감 처리에 그대로 들어간다.
+  `checkItemMerges` 한도는 가진 수만큼(옛 20번 제한은 큰 정비 끝 보상 묶음을 덜 합쳤다). 불변식: 임시 ≥ 5칸, 꼬리가 있으면 빈 칸 없음.
+- 보이는 것: `m.private.temp`와 정찰 화면(`prepFieldMeta`)은 앞 5칸만 — 숨은 꼬리는 보내지 않는다(upstream은 `m.private`에 전체를 보내고 그리기만 5칸;
+  우리는 「无法查看」대로 상태에서도 뺌). 꼬리가 있으면 앞 5칸이 차 있으므로 준비 넘침 확인 창·아래 띠 HAND_OVERFLOW는 그대로 뜬다.
+- 받지 않은 것: 대기열(임시 칸)이 있으면 준비 거절(`TEMP_NOT_EMPTY`)과 upstream 문서의 「Ready is refused」 문장 — 공식 클라는 확인 창 뒤 준비한다
+  (`ui.md` 「임시 정비 구역이 넘친 채 준비」, 관리자 결정 2026-10-10). 우리 `tempDue` 마감(준비 전 정비 중 = 그 정비 끝, 준비 뒤·정비 밖 = 다음 정비 끝)은
+  꼬리 기물에도 조각마다 그대로. 손패가 꽉 찼을 때 상점 구매·모집 카드·보상 고르기를 막는 규칙도 그대로(PRTS 「当常规手牌区全满无空位时，玩家将无法执行使手牌
+  溢出的操作」). upstream의 플러그인(DSL) 지급 테스트는 우리에게 플러그인이 없어 안 받음.
+- **[ASSUMED]**: 꼬리 안 순서 = 도착 순(upstream 그대로). 클라는 오퍼레이터 전부 → 장비 → 마법 순이고 각 목록 안은 서버 순서라 조금 다를 수 있다. 숨은 꼬리가
+  정비 마감에 보이는 칸과 같이 처리되는지(서버 쪽)는 어디에도 없어 우리 `tempDue`를 그대로 씀.
+- 테스트 `test/match/bench-overflow.test.js`(upstream 각색: 지급 40명이 모두 남고 판매로 차례로 채워짐·구매는 계속 `HAND_FULL`·대기열이 있어도 준비 가능,
+  숨은 기물 합성, 마감이 압축 뒤에도 유지, 큰 장비 묶음 합성, 재접속 때 `m.private`는 5칸·서버는 전체, 탈락 때 사본 반환, AI가 긴 대기열을 비움, 정비 시작 지급
+  12개 유지), `test/ui/bench-overflow.e2e.test.js`(SP_E2E, 15칸만 그려지고 빈 칸이 나면 다음이 보임 — 이 이식에서는 안 돌림), upstream이 바꾼 기존 테스트 9개
+  (`economy`·`feedback1-meta`·`feedback1-placement`·`feedback3-prep-end-item`·`hardening`·`merge`·`playtest6-elite-to-board`·`scroll-copy-merge`·`sell-capacity`:
+  반환·파기 대신 대기열). golden 변화 없음.
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).
