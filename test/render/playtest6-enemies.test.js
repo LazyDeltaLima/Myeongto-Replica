@@ -29,7 +29,7 @@ after(() => fake.restore());
 const tick = () => new Promise((r) => setImmediate(r));
 const cam = () => presetCamera('normal', { width: 1280, height: 720 });
 const store = ({ bounds = true } = {}) => {
-  const entry = { skel: '/s/x.skel', atlas: '/s/x.atlas', textures: ['/s/x.png'], anims: { idle: 'Idle' }, animations: { Idle: 1 }, ...(bounds ? { bounds: { x: -300, y: -150, width: 690, height: 390 } } : {}) };
+  const entry = { skel: '/s/x.skel', atlas: '/s/x.atlas', textures: ['/s/x.png'], anims: { idle: 'Idle' }, animations: { Idle: 1 }, ...(bounds ? { bounds: { x: -300, y: -150, width: 690, height: 520 } } : {}) };
   return {
     picture: () => null, image: async () => null,
     spineEntry: () => entry,
@@ -41,6 +41,13 @@ function view(info, opts) {
   return new U.UnitView(ctx, { id: 1, side: 'enemy', kind: 'enemy', tier: 1, x: 6, y: 10, maxHp: 1000, motion: 'FLY', ...info });
 }
 const width = (key) => A.enemies[key].spine.bounds.width;
+/**
+ * How far a model's setup-pose box reaches above its own origin (render/units.js headTilesForUnit): the bar clears the
+ * visible top, and these fixtures' synthetic box is deliberately not feet-anchored (y −150 of height 520 → 370 units),
+ * so a bar placed on the raw `height` would float 520/370 ≈ 1.4× too high (height 520, not upstream's 390: at this
+ * fork's UNIT.modelScale 0.0027 a 240-unit top clamps every bar at 0.55 and the comparisons below would not hold).
+ */
+const topUnits = (v) => { const b = v.actor.entry.bounds; return Number.isFinite(b.y) ? b.y + b.height : b.height; };
 
 describe('#9 enemy models at their official prefab scale', () => {
   test('data: 威龙 0.16 / 0.27, 妖怪 0.20 / 0.27, 妖怪MKII 0.22 / 0.27; standard-size enemies carry none', () => {
@@ -69,8 +76,10 @@ describe('#9 enemy models at their official prefab scale', () => {
     assert.equal(U.enemyModelScale(E.enemy_1005_yokai_3), 0.5926);
     assert.equal(U.enemyModelScale(null), 1);
     assert.equal(U.enemyModelScale({ modelScale: 'x' }), 1);
-    // the HP bar sits on its (smaller) model: 390 units × 1/320 × 0.5926 × 0.92, clamped at 0.55
-    assert.ok(Math.abs(drone._headTiles - Math.max(0.55, 390 * UNIT.modelScale * 0.5926 * 0.92)) < 1e-9);
+    // the HP bar sits on its (smaller) model, on however far the setup-pose box reaches *above the origin*
+    // (bounds.y + bounds.height — feet-anchored models have y ≈ 0, 逐腐兽's origin is mid-body), × UNIT.modelScale × 0.5926 × 0.92,
+    // clamped at 0.55
+    assert.ok(Math.abs(drone._headTiles - Math.max(0.55, topUnits(drone) * UNIT.modelScale * 0.5926 * 0.92)) < 1e-9, `bar ${drone._headTiles}`);
     assert.ok(bird._headTiles > drone._headTiles);
   });
 
@@ -118,8 +127,8 @@ describe('official prefab quirks: vertical stretch and mirrored models', () => {
     assert.equal(U.enemyModelScaleY(null), 1);
     assert.equal(U.enemyModelScaleY({ modelScaleY: 'x' }), 1);
     assert.equal(U.enemyModelScaleY({ modelScaleY: 99 }), 1, 'absurd values fall back to uniform');
-    // the HP bar rides the stretched model: 390 units × 1/320 × 0.7037 × 1.263 × 0.92
-    assert.ok(Math.abs(drone._headTiles - 390 * UNIT.modelScale * 0.7037 * 1.263 * 0.92) < 1e-9, `bar ${drone._headTiles}`);
+    // the HP bar rides the stretched model: (bounds.y + bounds.height) × UNIT.modelScale × 0.7037 × 1.263 × 0.92
+    assert.ok(Math.abs(drone._headTiles - topUnits(drone) * UNIT.modelScale * 0.7037 * 1.263 * 0.92) < 1e-9, `bar ${drone._headTiles}`);
     assert.ok(drone._headTiles > plain._headTiles);
   });
 

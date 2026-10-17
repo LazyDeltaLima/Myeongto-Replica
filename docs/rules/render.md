@@ -687,3 +687,12 @@ upstream 새 버그 이슈의 수정 PR 중 sim 수정에 기대는 렌더 쪽(�
   테스트 `test/render/interp.test.js`(PR 두 개: 짧은 parasite blink는 끊기·외삽 없음, 다른 짧은 teleport는 보간; + 실제 sim 스냅샷·fx를 버퍼에 넣는 경우). PR의
   `test/render/browser.test.js` 브라우저 경우는 충돌·브라우저 필요로 안 가져왔다. `test/render/forms.test.js` 「淤困」(Parasitic → Idle_2 → Idle, 늦은 관전자, 대체 이펙트 없음).
   [화면 미확인] 淤困이 막은 오퍼레이터 칸 중심에 미끄러지지 않고 붙으며 Parasitic 동작 뒤 Idle_2, 막기가 끝나면 Idle·Move.
+
+## upstream 0.2.5–0.3.1 버그 수정 이식 — 렌더 (2026-10-17, 관리자 결정)
+upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던 렌더 결함.
+- **원점이 몸 가운데인 적의 HP바** (upstream `7b4f512c`): 적 HP바·이름표 높이를 setup-pose 상자의 높이(`actor.height` = `bounds.height`)로 잡아, 원점이
+  몸 가운데인 모델은 보이는 머리보다 한참 위에 바가 떴다. 이제 원점 위로 뻗은 길이(`bounds.y + bounds.height`, 20…900으로 자름)로 잡는다
+  (`render/units.js headTilesForUnit`). 발 기준 모델(y ≈ 0, 대부분)은 거의 안 바뀐다. 우리 `UNIT.modelScale`은 0.0027(upstream 1/320)이라 칸 수가
+  upstream 숫자의 0.864배: 롯체이서(逐腐兽)·광기의 롯체이서 1.60 → 0.70칸, 데겐블레허(锏, 보스) 2.20 → 0.96칸, 사냥개 Pro·빅 밥은 변화 0.01칸 미만.
+  확인: `test/render/bar-head.test.js`(upstream 판을 실제 `assets.json` 상자·우리 배율로), `test/render/playtest6-enemies.test.js`(합성 상자 높이 390 → 520:
+  우리 배율로는 위 240단위면 모든 바가 하한 0.55에 걸려 비교가 안 됨). [화면 미확인] 롯체이서의 HP바가 머리 바로 위.
