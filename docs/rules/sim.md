@@ -1457,3 +1457,14 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
   입희(入戏) 무작위 조준(upstream 구현)은 이 모드 표에 없어 넣지 않음.
 - 테스트 `test/sim/catapult-volley.test.js`(upstream에서: 0.3 s 간격·DEF·보호막·1.5 튐, 대상 상실·투석기 사망 뒤에도 계속, 坚守 반사 돌마다; 입희 사례 뺌),
   `test/content/enemies_bosses.test.js`(비행 시간만큼 관찰 늘림). golden: roster-013·roster-040·standin-06.
+
+### “越长尘”(`enemy_1302_ymtro_2`) 승객 (upstream `18cb28fe` 중 “越长尘” 부분)
+- 문제: 「passengers n/a」 — 저지 가중치 4만 있고 승객을 태우지 않았다. 같은 커밋의 나무 버든비스트는 우리가 먼저 고쳤다(위 「나무 버든비스트 승객」).
+- 근거: 재능 블랙보드 `Bus.max_cnt` 4(공식 표, `data/enemies.json`), PRTS 天赋&能力(upstream이 읽은 것: 반경 0.5, 리더·기계 아닌 지상 적, 칸 중심에 내림). 클라 프리팹
+  `Talents/Bus`는 로컬 추출에 없어 대조하지 않았다(재덤프 안 함).
+- 동작: `content/enemies/special.js kitBus(ab, { camel: false })` — 버든비스트와 같은 탑승 규칙으로 최대 `Bus.max_cnt`, 감속·모델 형태 없음, 저지 가중치 4 그대로.
+  격파·도달로 필드를 떠나면 승객은 그 칸의 중심(위치를 짝수 반올림한 칸)에 내려 **자기** 남은 경로를 탄 지점부터 잇는다.
+  **[ASSUMED]**(upstream): 승객 자기 경로 유지(PRTS가 이 적의 경로 교체를 적지 않음), 탑승 우선순위는 버든비스트와 같이 가까운 순. 云梯 조기 하차는 우리 스테이지에
+  云梯가 없어 넣지 않음(upstream도 없음).
+- 테스트 `test/content/enemies_bosses.test.js` 「enemy_1302_ymtro_2 …」 2건(최대 4명·감속 없음·형태 없음, 격파 하차 칸 중심·자기 경로). golden: roster-006·roster-039
+  (이 적이 나오는 판).

@@ -1786,6 +1786,41 @@ test(`${nm(BUS)}: its model form follows the passengers — 'half' from ${tb(BUS
   assert.deepEqual(forms(), [['passengers', 'half'], ['passengers', 'full'], ['passengers', null]]);
 });
 
+const YMTRO = 'enemy_1302_ymtro_2';
+test(`${nm(YMTRO)}: carries at most ${tb(YMTRO, 'Bus.max_cnt')} passengers, no slow, no model form`, () => {
+  const h = arena();
+  h.step();
+  const bus = put(h, YMTRO, [10, 7], { move: true });
+  const v = bus.s.moveSpeed;
+  const all = [];
+  for (let i = 0; i < 6; i++) all.push(put(h, 'enemy_1007_slime', [10, 7]));
+  const stay = [put(h, 'enemy_1005_yokai', [10, 7]), put(h, 'enemy_1254_lypa_2', [10, 7])];
+  h.step();
+  assert.equal(tb(YMTRO, 'Bus.max_cnt'), 4);
+  assert.equal(all.filter((o) => o.hidden).length, 4);
+  for (const o of stay) assert.ok(!o.hidden, `${o.defId} (flyer / machine) stays off`);
+  approx(bus.s.moveSpeed, v, 1e-9, 'no slow');
+  assert.equal(bus.form ?? null, null);
+});
+
+test(`${nm(YMTRO)}: knocked out, it drops its passengers on the centre of its tile and each walks on along its own route`, () => {
+  const h = arena();
+  h.step();
+  const bus = put(h, YMTRO, [10, 7], { move: true });
+  const own = { motion: 'WALK', start: [10, 7.2], end: [12, 2], steps: [{ t: 'wait', s: 100 }, { t: 'move', p: [12, 2] }] };
+  const o = put(h, 'enemy_1007_slime', [10, 7.2], { route: own });
+  const legs = JSON.stringify(o.route.legs), idx = o.route.legIdx;
+  h.step();
+  assert.ok(o.hidden && o.mem.busOf === bus);
+  h.run(1.3);
+  bus.x = 8.5; bus.y = 10.3;   // halfway between columns 8 and 9: the tile rounds half to even (body.js)
+  killed(h, bus);
+  assert.ok(!o.hidden && o.alive && o.mem.busOf === null);
+  assert.deepEqual([o.x, o.y], [8, 10], 'the centre of the carrier\'s tile');
+  assert.equal(JSON.stringify(o.route.legs), legs, 'its own route, not the carrier\'s');
+  assert.equal(o.route.legIdx, idx);
+});
+
 test(`${nm('enemy_10001_trslim')}: below half HP it runs (move ×${1 + skb('enemy_10001_trslim', 'StartRun').bb.move_speed}, unblockable ${skb('enemy_10001_trslim', 'StartRun').bb.block_free_time} s)`, () => {
   const h = arena();
   h.step();

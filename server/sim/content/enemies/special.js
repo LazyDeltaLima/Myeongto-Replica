@@ -12,7 +12,7 @@ import {
   unblockable, runWhenHit, blockWeight, taunt, maxTargets, ep, nthAttackPower, lowHpBuff, deathBoom, setFloat, float,
   reborn, frontGuard, faceMove, unbalanced, skill, kitEp, kitPrisoner, kitStun3,
 } from './archetypes.js';
-import { hypot } from '../../detmath.js';
+import { hypot, roundHalfEven } from '../../detmath.js';
 import { enemyShot, shotSpeed } from '../../ai.js';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -227,11 +227,18 @@ function kitExposeOnHit(ab) {
  *   (`_useHostRoute`: the host's route and cursor index); a leaked 驮兽 drops them at the exit, where they leak in turn.
  *   Getting off takes one stack back (enemy_mntrjn_reduce); a passenger lost on board keeps its stack, as in the client.
  * Neither boarding nor getting off has an effect of its own (`_effectWhenAddPassenger` / `_effectOnPassengerWhenRelease`
- * are empty). The cart's spine skin (default → half at `bus.half_cnt` → full at max) is not drawn yet.
+ * are empty). The cart's spine skin (default → half at `bus.half_cnt` → full at max) is the model form (below).
+ *
+ * “越长尘” (`enemy_1302_ymtro_2`, `camel` false; PRTS 天赋&能力 as upstream 18cb28fe reads it): the same boarding, up to
+ * `Bus.max_cnt` (4, its talent blackboard), no slow and no model form; each passenger gets off on the centre of the
+ * carrier's tile (rounded half to even, as body.js) and walks on along its OWN remaining route from where it boarded
+ * [ASSUMED, upstream: PRTS names no route replacement for this one]. Its block weight stays (blockWeight 4).
  */
-function kitBus(ab) {
-  const max = T(ab, 'bus.max_cnt') ?? 0, per = T(ab, 'bus.move_speed') ?? 0, half = T(ab, 'bus.half_cnt') ?? Infinity;
+function kitBus(ab, { camel = true } = {}) {
+  const max = (camel ? T(ab, 'bus.max_cnt') : T(ab, 'Bus.max_cnt')) ?? 0;
+  const per = camel ? (T(ab, 'bus.move_speed') ?? 0) : 0, half = T(ab, 'bus.half_cnt') ?? Infinity;
   const slow = (b, e, a) => {
+    if (!camel) return;
     if (a.stacks <= 0) b.removeBuff(e, 'ab:bus');
     else b.addBuff(e, { key: 'ab:bus', persist: true, mods: { moveMul: Math.min(1, Math.max(0, 1 + a.stacks * per)) } });
     // enemy_mntrjn_mark: the Spine skin by the stack count — default, Half (half_cnt), Full (max_cnt) — as the model form
@@ -246,7 +253,7 @@ function kitBus(ab) {
     if ((o.def && Array.isArray(o.def.tags) && o.def.tags.includes('machine')) || o.s.flags.untargetable) return false;
     return true;
   };
-  return [unblockable(), {
+  const bus = {
     spawn(b, e, a) { a.pax = []; a.stacks = 0; },
     tick(b, e, a) {
       a.pax = a.pax.filter((p) => p.alive);
@@ -267,12 +274,18 @@ function kitBus(ab) {
       if (n) slow(b, e, a);
     },
     death(c, b, e, a) {
-      const R = e.route;
       for (const p of a.pax) {
         if (!p.alive) continue;
-        p.x = e.x + b.rng.range(-BUS_DROP_SCATTER, BUS_DROP_SCATTER);
-        p.y = e.y + b.rng.range(-BUS_DROP_SCATTER, BUS_DROP_SCATTER);
+        if (camel) {
+          p.x = e.x + b.rng.range(-BUS_DROP_SCATTER, BUS_DROP_SCATTER);
+          p.y = e.y + b.rng.range(-BUS_DROP_SCATTER, BUS_DROP_SCATTER);
+        } else {
+          p.x = roundHalfEven(e.x);
+          p.y = roundHalfEven(e.y);
+        }
         b._clampPos(p);
+        // the camel's route from its cursor (`_useHostRoute`); “越长尘”: the passenger's own route from where it boarded
+        const R = camel ? e.route : p.route;
         if (R) p.route = { legs: R.legs.slice(), legIdx: R.legIdx, pts: null, ptIdx: 0, suffix: null, version: -1, waitLeft: R.waitLeft };
         p.pauseUntil = -Infinity;
         p.mem.busOf = null;
@@ -282,7 +295,8 @@ function kitBus(ab) {
       a.pax = [];
       slow(b, e, a);
     },
-  }];
+  };
+  return camel ? [unblockable(), bus] : [bus];
 }
 
 /**
@@ -347,7 +361,7 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_1121_lifbos_2: kitPrisoner(true),                            // 传奇重犯 · same
   enemy_1072_dlancer: kitRush,                                       // 萨卡兹穿刺手 · accelerates while walking; first hit after block ×speed
   enemy_1320_wdrrl_2: kitFirstAoe,                                   // 萨卡兹悖谬暴虐兵长 · block ≥3 only; first attack splashes
-  enemy_1302_ymtro_2: () => [blockWeight(4)],                        // “越长尘” · block ≥4 only (passengers n/a)
+  enemy_1302_ymtro_2: (ab) => [blockWeight(4), ...kitBus(ab, { camel: false })],  // “越长尘” · block ≥4; carries up to 4 passengers (no slow)
   enemy_1329_cbshld: kitDefDecay,                                    // 弧光镜卫 · DEF/RES drop with every damage instance
   enemy_1329_cbshld_2: kitDefDecay,                                  // 弧光镜卫长 · same
   enemy_1249_lysdb_2: (ab) => [{ spawn(b, e, a, ab2) { ab2.hitShield = T(ab, 'Shield.max_block_damage_cnt') ?? 0; } }], // 莱茵生命防卫科高级成员 · blocks one phys/arts hit
@@ -415,7 +429,7 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_10018_sgrobh: () => [maxTargets(2)],                         // “独轮车玩具” · attacks 2 targets
   enemy_2001_duckmi: (ab) => [unblockable(), runWhenHit(T(ab, 'run.attack@move_speed') ?? 0)],   // 鸭爵 · unblockable, no attack; runs +400 % once hurt
   enemy_2001_duckmi_2: (ab) => [unblockable(), runWhenHit(T(ab, 'run.attack@move_speed') ?? 0)], // 鸭爵 (鸭爵 strategy) · same, +300 %
-  enemy_10159_mntrjn: kitBus,                                        // 伊利昂的木驮兽 · unblockable; carries up to 5 passengers, −20 % speed each
+  enemy_10159_mntrjn: (ab) => kitBus(ab),                                       // 伊利昂的木驮兽 · unblockable; carries up to 5 passengers, −20 % speed each
   enemy_2009_csaudc: kitEp('neural', 'combat.attack@ep_damage_ratio'), // 骇笑看客 · neural on hit
   enemy_2010_csdcr: (ab) => [ep('neural', T(ab, 'attack.attack@ep_damage_ratio') ?? 0), { // 绯红歌伶 · neural on hit; every 20 hits taken: global enemy ASPD up
     taken(c, b, e, a) {
