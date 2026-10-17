@@ -3722,7 +3722,11 @@ function buildChoices(ctx, effects, items, chess) {
       // BV1XmUhBhEtw, BV1sUSQBLE93, BV1WRQeBNEqW; the pool itself is server-side, so its weight stays uniform [ASSUMED]);
       // it is the pool's only effect-only item [ASSUMED] (the 4 special 维式重锤 are not in it)
       pool_equip_kathe: { kind: 'equip', rule: 'shopEligible', plus: ['chess_item_5_08_e_a'], assumed: true },
-      pool_equip_narant: { kind: 'equip', rule: 'shopEligible', maxTier: 'shopLevel', assumed: true },
+      // 娜仁图亚 见者有份 (preparation_start_add_special_goods_every_n_round): the blackboard names no tier cap. Players'
+      // first-hand report (community, 2026-10-14, upstream e53b8d52): the two equips can be above the current shop level.
+      // Same shape as 凯瑟琳 — every shop-eligible item, uniform [ASSUMED] (until then it was capped at the shop level, so an
+      // even round at level 1–2 never showed tier III+); unlike 凯瑟琳 no `plus` (no source gives 突变细胞 here)
+      pool_equip_narant: { kind: 'equip', rule: 'shopEligible', assumed: true },
       // "获得一件带有随机特殊效果的维式重锤": the 4 hammers with a special effect (never sold, SHOP_EXCLUDED_ITEMS); the
       // weights are server-side (PRTS 11-25 note: "装备【灼燃维式重锤】的出现概率调整") — uniform [ASSUMED]
       pool_equip_vict: { kind: 'equip', items: ['灼燃维式重锤', '坚固维式重锤', '加速维式重锤', '战栗维式重锤'].map(itemByName), assumed: true },

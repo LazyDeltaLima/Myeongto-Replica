@@ -169,6 +169,8 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
 - **upstream 0.2.5–0.3.1 버그 수정 이식 — 매치** (관리자 결정 2026-10-17, upstream 버그 수정 커밋 중 우리에게도 있는 것):
   - `2018b2de`(`git cherry-pick -x`): 공개 상태(m.public) 전송 간격을 스냅샷 만들기 시작 시각이 아니라 실제로 보낸 시각부터 셈 — 느린 스냅샷 뒤 다음
     프레임이 간격보다 일찍 가던 것(`server/match/match/messaging.js _maybeSendPublic`). 테스트 `test/match/connection.test.js`(upstream 그대로).
+  - `e53b8d52`(손 이식, 데이터 다시 생성): 娜仁图亚 【见者有份】 장비 2개가 상점 레벨 이하 단계만 — `pool_equip_narant`의 `maxTier` 뺌, 凯瑟琳의 `plus`는 안 넣음.
+    `sim.md` 「upstream 0.2.5–0.3.1 버그 수정 이식 — 매치」.
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.

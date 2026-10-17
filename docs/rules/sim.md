@@ -655,6 +655,21 @@ upstream 새 버그 이슈와 거기 붙은 수정 PR 중 이식한 sim 쪽(관�
 - 테스트 `test/content/enemies_bosses.test.js`(PR 테스트: 접촉 지점 → 저지자 칸 중심·자박·teleport fx·퇴각 뒤 다시 걸음; + 실제 경기 경로 Match 판 → `buildBattleSpec` →
   `createBattleFromSpec`, 角峰이 저지 → 칸 중심·3초 동안 그 자리에서 피해·퇴각 뒤 걸음 — 고치기 전에는 칸 중심 확인이 실패).
 
+## upstream 0.2.5–0.3.1 버그 수정 이식 — 매치 (2026-10-17)
+
+upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·손패) 쪽(관리자 결정 2026-10-17). 목록은 `upstream.md` 같은 이름 절.
+
+### 娜仁图亚 【见者有份】 장비는 상점 레벨과 무관 (upstream `e53b8d52`)
+- 문제: 娜仁图亚(전략) 【见者有份】(짝수 라운드 정비 시작에 장비 2개 중 1개 무료, `pool_equip_narant`)가 상점 레벨 이하 단계만 뽑아, 레벨 1–2 상점에서는
+  III단계 이상이 절대 안 나왔다.
+- 근거: 커뮤니티 제보 2026-10-14(upstream, 「给的装备都没有超过当前等级的，正常可以刷出更高等级的装备」) + 블랙보드
+  `preparation_start_add_special_goods_every_n_round`에 단계 제한이 없음 — 凯瑟琳 【定向投放】(`pool_equip_kathe`)과 같은 꼴.
+- 동작: `tools/build-data.mjs`의 `pool_equip_narant`에서 `maxTier: 'shopLevel'`을 뺌(`data/choices.json`에서 이 필드만 바뀜). 상점 판매 장비 전체(I–VI)에서
+  서로 다른 둘. 凯瑟琳의 `plus`(突变细胞)는 넣지 않음 — 이 전략이 突变细胞를 준다는 근거가 없다.
+- **[ASSUMED]**: 풀 안 가중치는 균등(풀 자체가 서버 쪽).
+- 테스트 `test/match/r40a-narant-pool.test.js`(upstream 그대로: 실제 경기 경로 16판, 상점 레벨 1의 R2에서 II단계 이상·VI단계가 나옴),
+  `test/content/bands.test.js`(상점 레벨 3에서 상점 장비 둘, 단계 제한 없음).
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).
