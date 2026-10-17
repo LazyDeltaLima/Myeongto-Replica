@@ -444,12 +444,16 @@ export class EquipBar {
 // 50×50 #ffd900 turning on its TweenRotate (local z 0 → 360 in 10 s, Ease Linear, loop −1 Restart, _ignoreTimeScale:
 // ConstructTweener = DORotate(…, RotateMode.LocalAxisAdd), so one turn every 10 s of real time, counter-clockwise on
 // screen), and text_skill_cnt (50×40, size 26, centred 3 up, #ffd900, font Novecentowide-Normal, Shadow black α .5 at
-// (1, −1): 1 right, 1 down). The ring starts its turn when the mark appears [추정: the tween's phase]. The panel follows the unit's head point
+// (1, −1): 1 right, 1 down). The ring starts its turn when the mark appears [추정: the tween's phase]. The number sits as
+// Unity lays the line: the font asset (Novecentowide-Normal, size 16: m_Ascent 16.8, m_LineSpacing 19.2) centres a line box
+// of 1.2 em in the text rect with the baseline 1.05 em under its top, so the baseline is (1.05 − 0.6) × 26 − 3 = 8.7 units
+// under the ring's centre and the digit (cap 0.7 em) about centred; Pixi's own box (glyph-measured ascent, the shadow
+// added to its size) would leave it high, so the label is placed by its baseline and advance width. The panel follows the unit's head point
 // (`_FollowPosition`: the head transform's UI position + (0, 0.3, 0) — m_defaultSkillMarkLocalPositionOffset); here the
 // operator's `head` of fxpoints.js (char_points.py `_headTransform`: 400 skeleton units up for 128 of 130 operators) on the
 // drawn model, `headUp` units higher [추정: 0.3 of the UI camera's world taken as 30 canvas units]; a unit without a
 // points entry or a drawn model uses the prefab's own place, 154.7 over hud_unit.
-export const SKILL_MARK = Object.freeze({ y: 154.7, headUp: 30, disc: 36, discColor: 0x404040, discAlpha: 0.39, ring: 50, color: 0xffd900, text: 26, textY: 3, turn: 10 });
+export const SKILL_MARK = Object.freeze({ y: 154.7, headUp: 30, disc: 36, discColor: 0x404040, discAlpha: 0.39, ring: 50, color: 0xffd900, text: 26, textY: 3, baseline: (1.05 - 1.2 / 2) * 26 - 3, turn: 10 });
 const MARK_FONT = ['Novecento Wide', 'Bender', 'sans-serif'];
 /** The ring's angle (radians, Pixi: clockwise positive) `t` seconds after the mark appeared: −360° per SKILL_MARK.turn. */
 export const markRingAngle = (t) => -((((t % SKILL_MARK.turn) + SKILL_MARK.turn) % SKILL_MARK.turn) / SKILL_MARK.turn) * Math.PI * 2;
@@ -482,9 +486,31 @@ export class SkillMark {
     this.root.visible = false;
     this.n = 0;
     this.t0 = 0;
+    this.metric = null;
     parent.addChild(this.root);
-    // a number drawn before the font arrived keeps the fallback face: draw it again once loaded
-    try { globalThis.document?.fonts?.load?.(`${SKILL_MARK.text * 2}px "${MARK_FONT[0]}"`)?.then?.(() => { if (!this.label.destroyed) this.label.dirty = true; }, () => {}); } catch { /* ignore */ }
+    // a number drawn before the font arrived keeps the fallback face: draw (and measure) it again once loaded
+    try { globalThis.document?.fonts?.load?.(`${SKILL_MARK.text * 2}px "${MARK_FONT[0]}"`)?.then?.(() => { if (!this.label.destroyed) { this.label.dirty = true; this.metric = null; } }, () => {}); } catch { /* ignore */ }
+  }
+
+  /** `{ w, top }` of the label (style px): its advance width, its baseline under the texture's top — as Pixi draws it — or null. */
+  _metric() {
+    if (this.metric) return this.metric;
+    const TM = this.P.TextMetrics, st = this.label.style;
+    if (typeof TM?.measureText !== 'function') return null;
+    try {
+      const m = TM.measureText(this.label.text || ' ', st);
+      const pad = (st.padding || 0) + (st.strokeThickness || 0) / 2;
+      this.metric = { w: m.lineWidths[0], top: pad + m.fontProperties.ascent, pad };
+    } catch { return null; }
+    return this.metric;
+  }
+
+  /** The number by its baseline (SKILL_MARK.baseline under the ring's centre `cx, cy`) and advance width, `u` px per unit. */
+  _placeLabel(cx, cy, u) {
+    const M = SKILL_MARK, k = u / 2, m = this._metric();
+    if (!m) { this.label.anchor.set(0.5); this.label.position.set(cx, cy - M.textY * u); return; }
+    this.label.anchor.set(0, 0);
+    this.label.position.set(cx - (m.pad + m.w / 2) * k, cy + M.baseline * u - m.top * k);
   }
 
   hide() { this.root.visible = false; }
@@ -508,8 +534,8 @@ export class SkillMark {
     this.disc.position.set(cx, cy); this.disc.width = this.disc.height = M.disc * u;
     this.ring.visible = !!ring;
     if (ring) { this.ring.texture = ring; this.ring.tint = M.color; this.ring.position.set(cx, cy); this.ring.width = this.ring.height = M.ring * u; this.ring.rotation = markRingAngle(now - this.t0); }
-    if (this.n !== n) { this.n = n; this.label.text = String(n); }
-    this.label.position.set(cx, cy - M.textY * u);
+    if (this.n !== n) { this.n = n; this.label.text = String(n); this.metric = null; }
+    this._placeLabel(cx, cy, u);
     this.label.scale.set(u / 2);
   }
 }

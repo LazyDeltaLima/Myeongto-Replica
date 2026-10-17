@@ -134,6 +134,22 @@ describe('b.snap `charge` → the view', () => {
     assert.equal(k.label.style.dropShadowAlpha, 0.5);
   });
 
+  test('the number sits on Unity\'s baseline (8.7 units under the ring\'s centre), its advance width centred, the shadow left out', () => {
+    const M = HB.SKILL_MARK;
+    assert.ok(Math.abs(M.baseline - 8.7) < 1e-9, '(m_Ascent 1.05 − m_LineSpacing 1.2 / 2) × 26 − 3');
+    let measured = 0;
+    const P = { ...fake.P, TextMetrics: { measureText: () => { measured++; return { lineWidths: [30], fontProperties: { ascent: 50 } }; } } };
+    const k = new HB.SkillMark(P, new fake.P.Container());
+    k.update(1000, 500, 2, 1);
+    const cy = k.disc.position.y;
+    assert.equal(k.label.position.x, 1000 - 15, 'half the 30-px advance at ×½ scale × u 2');
+    assert.ok(Math.abs(k.label.position.y - (cy + 8.7 * 2 - 50)) < 1e-9, 'baseline (ascent 50 under the top) 17.4 px under the centre');
+    k.update(1000, 500, 2, 1);
+    assert.equal(measured, 1, 'measured once per number');
+    k.update(1000, 500, 2, 2);
+    assert.equal(measured, 2, 'a new number is measured again');
+  });
+
   test('over the drawn model\'s head point (fxpoints.js `head`) when known, else the prefab\'s own place', () => {
     const M = HB.SKILL_MARK;
     const pts = { char_x: { head: { F: { at: [0, 400] }, B: { at: [0, 450] } } } };
