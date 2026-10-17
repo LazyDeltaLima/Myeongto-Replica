@@ -39,7 +39,7 @@ describe('expandable bench display', { skip: !ENABLED && 'set SP_E2E=1 and CHROM
     if (renderer === 'engine') await page.waitForFunction((on) => globalThis.__SP_VIEW__.raw.stats().board3d.on === on, {}, mode === '3d');
     const renderState = async () => {
       const priv = ps.privateView();
-      assert.equal(priv.temp.length, 5, 'm.private carries the five visible temp slots only');
+      assert.ok(priv.temp.length > 5, 'm.private carries the hidden queue; the views draw five');
       await page.evaluate(({ hand, temp }) => globalThis.__MOCK__.mutate((s) => {
         s.priv.board = []; s.priv.hand = hand; s.priv.temp = temp;
       }), priv);

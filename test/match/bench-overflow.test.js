@@ -1,8 +1,8 @@
 // The hidden overflow queue behind the five temp slots (PRTS 卫戍协议/帮助 §手牌区 "临时手牌区也存在溢出，溢出单位无法查看，
 // 在临时手牌区出现空位时自动移入"; the client keeps such pieces without a position, ChessMapInfo._CheckNoPositionChess).
 // From upstream (92b97ecb): passive gains are never returned, discarded or destroyed for want of room. Not taken: a queue
-// does not refuse Ready (the client asks once and readies, maintainer decision 2026-10-10), and m.private carries only the
-// five visible temp slots.
+// does not refuse Ready (the client asks once and readies, maintainer decision 2026-10-10). m.private carries the whole
+// queue and the client draws the five visible slots (as upstream, maintainer decision 2026-10-17); scouts see five.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ERR, GEO } from '../../shared/constants.js';
@@ -40,8 +40,8 @@ test('forty granted operators survive; selling refills the five visible slots in
   assert.deepEqual(ps.temp.slice(0, 5).reverse(), gained.slice(10, 15));
   assert.deepEqual(ps.temp.slice(5), gained.slice(15));
   const view = ps.privateView().temp;
-  assert.equal(view.length, GEO.TEMP_SIZE, 'm.private shows the five visible temp slots only');
-  assert.deepEqual(view.map((p) => p && p.uid), ps.temp.slice(0, 5).map((p) => p.uid));
+  assert.equal(view.length, 30, 'm.private carries the hidden queue too (the client draws five)');
+  assert.deepEqual(view.map((p) => p && p.uid), ps.temp.map((p) => p.uid));
   ps.shop.slots[0] = { kind: 'chess', id: ids[0], basePrice: 1, sold: false };
   const buy = () => m.handle(ps.playerId, { t: 'g.buy', slot: 0 });
   const funds = ps.funds;
@@ -133,14 +133,15 @@ test('reconnect keeps the hidden overflow on the server and shows the next queue
   m.onDisconnect(ps.playerId);
   m.onReconnect(ps.playerId);
   assert.deepEqual(h.lastTo(ps.playerId, 'm.private').temp, before);
-  assert.equal(before.length, GEO.TEMP_SIZE);
+  assert.equal(before.length, 20, 'a reconnect gets the whole queue back');
   assert.equal(ps.temp.filter(Boolean).length, 20, 'the server keeps all twenty');
   assert.deepEqual(ps.destroy(ps.hand[0].uid), { ok: true });
   h.flushAll();
   const after = h.lastTo(ps.playerId, 'm.private');
-  assert.equal(after.temp.filter(Boolean).length, GEO.TEMP_SIZE);
+  assert.equal(after.temp.filter(Boolean).length, 19);
   assert.equal(after.hand[0].uid, before[4].uid);
-  assert.ok(after.temp.some((p) => p && p.uid === hidden.uid), 'the first hidden piece is now visible');
+  assert.ok(!before.slice(0, GEO.TEMP_SIZE).some((p) => p && p.uid === hidden.uid), 'it waited behind the visible slots');
+  assert.ok(after.temp.slice(0, GEO.TEMP_SIZE).some((p) => p && p.uid === hidden.uid), 'the first hidden piece is now in a visible slot');
   assert.equal(ps.temp.filter(Boolean).length, 19);
   checkInvariants(m);
 });

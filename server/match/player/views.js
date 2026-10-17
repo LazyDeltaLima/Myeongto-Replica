@@ -7,7 +7,6 @@ import { PHASE } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
 import { bountyText, bountyCard } from '../choices.js';
-import { TEMP_SIZE } from './common.js';
 
 export class PlayerViews {
   pieceView(p, rc = null) {
@@ -91,9 +90,10 @@ export class PlayerViews {
         rewardOffer: offer ? { tier: offer.tier, source: offer.source === 'merge' ? 'merge' : 'special', label: offer.label || null, queued: this.offers.length - 1, slots: offer.slots.map((s) => ({ kind: s.kind === 'item' ? 'item' : 'chess', id: s.id, price: s.price, sold: !!s.sold })) } : null,
       },
       hand: this.hand.map((p) => (p ? this.pieceView(p) : null)),
-      // the five visible 临时整备区 slots only: the queue behind them is hidden (PRTS 卫戍协议/帮助 §手牌区 "溢出单位无法查看，
-      // 在临时手牌区出现空位时自动移入"; the client keeps such pieces without a position, ChessMapInfo._CheckNoPositionChess)
-      temp: this.temp.slice(0, TEMP_SIZE).map((p) => (p ? this.pieceView(p) : null)),
+      // the whole temp row, the hidden queue behind the five visible 临时整备区 slots included; the client draws only the five
+      // (render/app.js; PRTS 卫戍协议/帮助 §手牌区 "溢出单位无法查看，在临时手牌区出现空位时自动移入", as upstream 92b97ecb —
+      // maintainer decision 2026-10-17, see docs/rules/sim.md 「임시 정비 구역 뒤 숨은 대기열」)
+      temp: this.temp.map((p) => (p ? this.pieceView(p) : null)),
       board,
       // The stage's 外勤医疗 reserve medic is present during prep, but is not a draggable board piece.
       prepMapChars: this.m.prepMapChars(this),
