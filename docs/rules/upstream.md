@@ -178,6 +178,8 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
     (우리는 앞 5칸만), 플러그인 DSL 지급 테스트, `docs/img/bench-overflow.png`·`docs/history`. `sim.md` 「임시 정비 구역 뒤 숨은 대기열」.
   - `0a09b5d6`(PR #452, `git cherry-pick -x`; 그 머지 `4210fcb9`의 나머지는 upstream CI·로비 테스트): AI의 홀로 선 가드를 아군 엄호 칸으로 — AI 휴리스틱(`feat`),
     `ui.md` 「AI 팀원 구매 양보」 아래.
+  - `ed44ce4d`(손 이식, upstream PR #606·#607·#608의 생각): 막는 메딕 칸, 실제 손패 용량의 구매 추정, 떨어진 사본(`preview.js`)으로 도는 리허설 — AI 휴리스틱
+    (`feat`). `server/sim/rng.js`에 `rng.clone()`을 더함. 플러그인 예산 테스트·`docs/history`는 안 받음. 같은 `ui.md` 절.
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.

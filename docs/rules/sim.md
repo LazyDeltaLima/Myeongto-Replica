@@ -678,11 +678,11 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   집합이 다르면 보낸다 — 맹약 셈을 바꾸는 모든 길(정비 중 놓기·옮기기·바꾸기·빼기, 구매·판매·합성·변이, 임시 → 손패, 장비, 효과, 축출)이 거기로 끝난다.
   죽은 플레이어·떨어진 사본에는 안 보냄. `bonds/core.js HAMMER_HOOKS`·`bonds/addon/meta.js SETTLE_HOOKS`가 이 훅을 들어 밀린 이정표를 바로 정산하고,
   이정표마다 카운터라 맹약을 껐다 켜도 한 번만. `audit.js`의 지출 효과 키에도 넣음.
-- 우리 쪽 더한 것: AI 팀원의 배치 리허설(`bot.js createRehearsalSteps`)은 진짜 판에 후보 배치를 놓았다가 되돌리므로 `recompute({ quiet: true })`로 —
-  리허설 배치가 맹약을 켜도 아무것도 안 보내고(해머 안 줌), 되돌릴 때도 안 보냄. upstream은 리허설을 떨어진 사본(`preview.js`)으로 해서 필요 없던 부분.
+- AI 팀원의 배치 리허설(`bot.js createRehearsalSteps`)은 떨어진 사본(`preview.js previewPlayer`)으로 돌아 진짜 상태의 `recompute`를 거치지 않는다 — 리허설
+  배치가 맹약을 켜도 아무것도 안 보내고 해머도 안 준다(upstream `ed44ce4d` 이식 전에는 진짜 판에 놓았다 되돌려서 조용한 `recompute`가 따로 있었다).
 - **[ASSUMED]**(upstream 그대로): 远见·奇迹 자금과 远见 할인 걸쇠도 해머와 같은 시점(같은 규칙을 쓰므로 — 공식 확인은 해머뿐).
 - 테스트 `test/match/bond-light-up.test.js`(upstream: 세 번째 멤버 배치 즉시 해머 한 개·토스트 한 번, 뺐다 다시 놓아도 더 없음, 밀린 이정표 둘 = 해머 둘,
-  이벤트 목록·탈락자 없음, 远见·奇迹 임시 → 손패로 켜질 때 자금, AI 배치; 우리: 리허설이 맹약을 켜는 배치를 시험해도 이벤트·해머 없음 — `quiet` 없이 실패 확인),
+  이벤트 목록·탈락자 없음, 远见·奇迹 임시 → 손패로 켜질 때 자금, AI 배치; 우리: 리허설이 맹약을 켜는 배치를 시험해도 이벤트·해머 없음),
   `test/match/feedback3-prep-end-item.test.js`(정비 끝 해머는 정비 끝 층 획득이 넘긴 이정표로 바꿈, upstream). golden 변화 없음.
 
 ### 임시 정비 구역 뒤 숨은 대기열 (관리자 결정 2026-10-17, upstream `92b97ecb` `ae1c21d9`의 대기열만)

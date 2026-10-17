@@ -246,7 +246,7 @@ test('the AI places pieces through the same intents: its placement lights 维多
   m.dispose();
 });
 
-test('an AI rehearsal that tries a layout lighting 维多利亚 reports nothing and pays no hammer (quiet recompute)', () => {
+test('an AI rehearsal that tries a layout lighting 维多利亚 reports nothing and pays no hammer (a detached preview)', () => {
   const { m, ps, events, hammers } = prep(13);
   m.botRehearsal = 3;
   const pieces = VICTORIA.map((id) => give(m, ps, id, 'hand'));

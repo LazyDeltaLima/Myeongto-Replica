@@ -73,11 +73,7 @@ export class PlayerRound {
     this.recompute();
   }
 
-  /**
-   * `quiet`: a scratch layout that is put back before anything else runs (the AI's rehearsals, bot.js
-   * createRehearsalSteps) stores its bonds without reporting onActiveBonds — trying a layout pays nothing.
-   */
-  recompute({ quiet = false } = {}) {
+  recompute() {
     this.deployMap(); // a change of the deploy field (a boss round's prep) marks the legality stale
     if (this._legalityStale) this._evictIllegal();
     this._liftOutOfRange();
@@ -87,7 +83,7 @@ export class PlayerRound {
     const before = this.bonds;
     this.bonds = computeBonds(this.gd, this);
     this.dirty();
-    if (!quiet) this._reportActiveBonds(before, this.bonds);
+    this._reportActiveBonds(before, this.bonds);
   }
 
   /**
@@ -98,7 +94,7 @@ export class PlayerRound {
    * 2026-10-15). Each recompute
    * reports the difference to the previous computed state, so a handler's own recompute (a hammer's onGain) reports
    * only what changed after it, and nothing twice. Never for an eliminated player (eliminate clears the board), a
-   * detached copy (a state whose match maps its id to another object) nor a quiet recompute (an AI rehearsal).
+   * detached copy (preview.js previewPlayer: the AI's rehearsals never touch the live state).
    */
   _reportActiveBonds(before, after) {
     if (!this.alive || typeof this.m.dispatch !== 'function') return;

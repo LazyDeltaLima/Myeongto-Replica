@@ -780,6 +780,15 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
     가드(`rangeGrid` 1칸)가 아군 화력 엄호 밖이면, 그 가드 칸과 들어오는 지상 경로마다 앞 칸을 함께 치는 아군이 있는 빈 합법 길 칸으로 옮긴다(경로마다 다른
     아군이어도 됨, 노출 점수가 줄지 않을 때만 `[ASSUMED]`). 확인: `test/match/bot.test.js`(upstream 세 사례 — 두 갈래 경로 사례는 우리 전투 엔진이 upstream과
     달라 같은 배치에서도 100초에 방패병 하나가 지나가므로 「세 마리 처치」 대신 계획이 보장하는 엄호를 확인, 바꾸기 전에는 실패). golden `matches` 18개가 움직인다.
+  - 막는 메딕·구매 추정·리허설(upstream `ed44ce4d`, upstream #577·#315, upstream PR #606·#607·#608의 생각, 관리자 결정 2026-10-17, 손 이식): (1) 저지하는 메딕은
+    길 밖 칸 → 아군 화력이 그 칸과 들어오는 지상 경로마다 앞 칸을 함께 치는 길 칸 → 아무 합법 칸 순(가드 옮기기와 같은 `supportedContact`), 보스 라운드는 넓은
+    치료 범위 먼저·같은 점수면 다른 메딕이 아직 안 덮은 아군 DPS. (2) 구매 추정(`lineupScore`)이 실제 빈 손패 칸 수만큼만 빠지는 판 기물을 손패로 셈하고, 살 카드의
+    칸을 먼저 잡고, 1e-9 안의 동점은 싼 카드, 배치 상한보다 많이 가졌을 때만 미리 판다. (3) 리허설은 진짜 정비 입력(`Match._normalOpts`: 전투 시작 효과·鸭爵 적
+    교체·팀원 메딕·판 시드·전투 중 층 획득)으로, 후보마다 메타 RNG 복제(`rng.clone`)와 떨어진 사본(`server/match/preview.js previewPlayer`·`previewContext`: 읽기만
+    복사해 주고 쓰기는 아무것도 안 함, 오류는 판 진단에 안 들어감) — 진짜 판·손패·방향·더티 표시를 건드리지 않는다. 모두 `[ASSUMED]` AI 휴리스틱(`feat`).
+    받지 않은 것: upstream 플러그인(스크립트 예산·DSL) 테스트 둘. 우리 엔진에서 같은 승부가 안 나는 upstream 테스트 하나(鸭爵·팀원 메딕 리허설 비교)는 칸을
+    9,9 → 11,7로 바꿈. 확인: `test/match/bot.test.js`·`bot-smarter.test.js`·`test/sim/core.test.js`(`rng.clone`)·`test/golden-standins.test.js`(새 golden
+    `coop2-NORMAL-1-unowned-roster`: 일반 오퍼레이터를 하나도 안 가진 자리). golden `matches` 16개가 움직인다.
 - AI 팀원 표정 반응(`f3658a0d` 중 `server/match/botEmotes.js`, upstream PR #444, 관리자 결정 2026-10-11): 공식에 없는 기능(`feat`), 서버만.
   사람과 AI가 섞인 판에서만, 기존 `m.emote`(공식 36개 화이트리스트·1초 쿨다운) 그대로. 기본 켜짐, `SP_BOT_EMOTES=0`이면 모든 진입점이 꺼진다.
   사람의 표정에 쿨다운이 아닌 AI 하나만 답함(고마워·미안해 → 没问题, 合作愉快 → 고마워 등 upstream 표), 현상 수배 카드를 고르면 思考,
