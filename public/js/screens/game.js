@@ -1318,6 +1318,20 @@ function MatchScreen() {
     host.addEventListener('pointerdown', onDown, true);
     return () => host.removeEventListener('pointerdown', onDown, true);
   }, []);
+  // a press outside the field lets go of the selected piece too (the chat, the player list, the top bar …): only its
+  // underframe (撤退 / 出售 / 销毁), its card and a dialog keep it, so Q / X never act on a piece the player let go of
+  // (a report: X after a press on the chat sold the operator selected before)
+  useEffect(() => {
+    if (!sel) return undefined;
+    const onDown = (e) => {
+      const t = e.target;
+      if (hostRef.current?.contains(t)) return; // the field's own press (above): a re-tap of the piece toggles it
+      if (t?.closest?.('.uframe, .dpanel, .modal')) return;
+      setSel(null);
+    };
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, [!!sel]);
 
   // ---- direction step (research 09 §1.2) and the selected piece's underframe ------------------------------------
   const heldRef = useRef(new Map());                     // uid → { row, col, t } committed placements awaiting m.private
@@ -1490,7 +1504,10 @@ function MatchScreen() {
         else if (L.detail) setDetail(null);
         else if (L.tileTip) setTileTip(null);
         else if (L.drawer) setDrawer(null);
-        else return;
+        else if (!L.sel) return;
+        // Esc lets go of the selected piece as well (its card is often what it closed): Q / X never act on a piece that
+        // looks let go of — only the underframe's small diamond showed it was still selected
+        if (L.sel) setSel(null);
         e.preventDefault();
         return;
       }
