@@ -607,14 +607,20 @@ export function tileAtlas(art = null) {
   if (hit) return hit;
   const P = PIXI();
   const canvas = makeCanvas(ATLAS_W, ATLAS_H);
-  const ctx = canvas.getContext('2d');
+  const out = canvas.getContext('2d');
+  // Each cell is drawn and its gutters clamped in a CELL² work canvas, then copied into the atlas once. The clamp copies
+  // a canvas onto itself, and WebKit copies the whole source backing store for that: on the 2048² atlas it was 256
+  // copies of 16 MB per atlas (an iPhone report, 2026-10-17: `tiles 7.3 s` in the mount's setup).
+  const cell = makeCanvas(CELL, CELL);
+  const ctx = cell.getContext('2d');
   const perRow = ATLAS_W / CELL;
   const uv = {};
   let artCount = 0;
   const mats = art?.tiles?.materials && typeof art.tiles.materials === 'object' ? art.tiles.materials : null;
   MATERIALS.forEach((name, i) => {
     const cx = (i % perRow) * CELL, cy = Math.floor(i / perRow) * CELL;
-    const x = cx + GUTTER, y = cy + GUTTER;
+    const x = GUTTER, y = GUTTER;   // the interior in the work canvas
+    ctx.clearRect(0, 0, CELL, CELL);
     ctx.save();
     ctx.beginPath(); ctx.rect(x, y, INNER, INNER); ctx.clip();
     let drawn = false;
@@ -638,12 +644,14 @@ export function tileAtlas(art = null) {
     }
     ctx.restore();
     // clamp gutters: stretch the edge pixels outwards
-    ctx.drawImage(canvas, x, y, INNER, 1, x, cy, INNER, GUTTER);
-    ctx.drawImage(canvas, x, y + INNER - 1, INNER, 1, x, y + INNER, INNER, GUTTER);
-    ctx.drawImage(canvas, x, cy, 1, CELL, cx, cy, GUTTER, CELL);
-    ctx.drawImage(canvas, x + INNER - 1, cy, 1, CELL, x + INNER, cy, GUTTER, CELL);
+    ctx.drawImage(cell, x, y, INNER, 1, x, 0, INNER, GUTTER);
+    ctx.drawImage(cell, x, y + INNER - 1, INNER, 1, x, y + INNER, INNER, GUTTER);
+    ctx.drawImage(cell, x, 0, 1, CELL, 0, 0, GUTTER, CELL);
+    ctx.drawImage(cell, x + INNER - 1, 0, 1, CELL, x + INNER, 0, GUTTER, CELL);
+    out.drawImage(cell, cx, cy);
     const e = 0.5; // half-texel inset
-    uv[name] = [(x + e) / ATLAS_W, (y + e) / ATLAS_H, (x + INNER - e) / ATLAS_W, (y + INNER - e) / ATLAS_H];
+    const ax = cx + GUTTER, ay = cy + GUTTER;
+    uv[name] = [(ax + e) / ATLAS_W, (ay + e) / ATLAS_H, (ax + INNER - e) / ATLAS_W, (ay + INNER - e) / ATLAS_H];
   });
   const base = P.BaseTexture.from(canvas, { mipmap: P.MIPMAP_MODES.ON, scaleMode: P.SCALE_MODES.LINEAR, anisotropicLevel: 8 });
   const atlas = { texture: new P.Texture(base), uv, canvas, art: artCount > 0, artCount, key };

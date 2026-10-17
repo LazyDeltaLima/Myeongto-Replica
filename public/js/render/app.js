@@ -2114,7 +2114,7 @@ export async function createFieldView(host, options = {}) {
   app.ticker.add(frame);
   // render-cost probe (PIXI renders at UPDATE_PRIORITY.LOW = -25)
   let renderT0 = 0, renderMs = 0;
-  const preRender = () => { renderT0 = performance.now(); };
+  const preRender = () => { if (!gate.frameNoted) notePending(); renderT0 = performance.now(); };
   const postRender = () => {
     if (!renderT0) return;
     const ms = performance.now() - renderT0;
@@ -2135,14 +2135,25 @@ export async function createFieldView(host, options = {}) {
   // every texture is up for two frames in a row — then one frame draws the world and 'ready' fires after it. READY_MAX_MS after the mount it is ready anyway (what
   // is left goes up in that frame, as before). The report's `mount:` line notes the first frame and the field shown.
   const READY_MAX_MS = 6000, UPLOAD_MS = 6;
-  const gate = { open: true, since: 0, quiet: 0, reveal: false, cut: false, synced: false, n: 0, ms: 0, max: 0, timer: 0, frameNoted: false };
+  const gate = { open: true, since: 0, quiet: 0, reveal: false, cut: false, synced: false, n: 0, ms: 0, max: 0, maxOf: '', timer: 0, frameNoted: false, pending: null };
   world.renderable = false;
-  /** The base textures on the stage not uploaded yet (a Text redraws its canvas when it is drawn: left to that frame). */
-  function texturesToUpload() {
+  /** A base texture for the report: its source kind and size (`canvas 2048×2048`, `img 1024×512`, `bitmap …`). */
+  const textureLabel = (bt) => {
+    const src = bt?.resource?.source;
+    const kind = !src ? 'other' : typeof HTMLCanvasElement !== 'undefined' && src instanceof HTMLCanvasElement ? 'canvas'
+      : typeof HTMLImageElement !== 'undefined' && src instanceof HTMLImageElement ? 'img'
+        : typeof ImageBitmap !== 'undefined' && src instanceof ImageBitmap ? 'bitmap' : 'other';
+    return `${kind} ${bt?.realWidth | 0}×${bt?.realHeight | 0}`;
+  };
+  /**
+   * The base textures on the stage not uploaded yet (a Text redraws its canvas when it is drawn: left to that frame);
+   * `drawn`: only those the next render draws (the world layer is skipped while it is not renderable).
+   */
+  function texturesToUpload(drawn = false) {
     const uid = app.renderer.CONTEXT_UID;
     const out = new Set();
     const visit = (o) => {
-      if (!o || o.destroyed || o.visible === false) return;
+      if (!o || o.destroyed || o.visible === false || (drawn && o.renderable === false)) return;
       // a Sprite / TilingSprite texture, or a Mesh's (the Spine regions)
       const bt = typeof o.updateText === 'function' ? null : (o._texture || o.shader?.texture)?.baseTexture;
       if (bt && bt.valid && !bt.destroyed && !bt.framebuffer) {
@@ -2172,7 +2183,7 @@ export async function createFieldView(host, options = {}) {
       const ms = performance.now() - t1;
       gate.n++;
       gate.ms += ms;
-      if (ms > gate.max) gate.max = ms;
+      if (ms > gate.max) { gate.max = ms; gate.maxOf = textureLabel(bt); }
       up++;
     }
     // a battle's units come with its first snapshot (enterBattle alone draws an empty field); the prep's with setPrep
@@ -2192,13 +2203,26 @@ export async function createFieldView(host, options = {}) {
     gate.open = false;
     clearTimeout(gate.timer);
     world.renderable = true;
-    timing?.late('shown', [`${gate.n} textures up in ${(gate.ms / 1000).toFixed(1)} s, longest ${Math.round(gate.max)} ms`,
+    timing?.late('shown', [`${gate.n} textures up in ${(gate.ms / 1000).toFixed(1)} s, longest ${Math.round(gate.max)} ms${gate.maxOf ? ` (${gate.maxOf})` : ''}`,
       drawMs != null ? `frame js ${Math.round(lastJs)}, draw ${Math.round(drawMs)} ms` : 'no frame',
       gate.cut ? `cut at ${READY_MAX_MS / 1000} s` : null, board3d?.warming ? '3d still warming' : null].filter(Boolean).join(', '));
     emit('ready');
   }
+  /** What the report says about the textures the first PIXI render uploads (taken just before it). */
+  function notePending() {
+    if (gate.frameNoted || gate.pending) return;
+    let n = 0, big = null, px = 0;
+    try {
+      for (const bt of texturesToUpload(true)) {
+        n++;
+        const a = (bt.realWidth || 0) * (bt.realHeight || 0);
+        if (a > px) { px = a; big = bt; }
+      }
+    } catch { /* a destroyed object meanwhile: no note */ }
+    gate.pending = n ? `${n} new textures, largest ${textureLabel(big)}` : 'no new textures';
+  }
   function afterRender(ms) {
-    if (!gate.frameNoted) { gate.frameNoted = true; timing?.late('frame', `js ${Math.round(lastJs)}, draw ${Math.round(ms)} ms`); }
+    if (!gate.frameNoted) { gate.frameNoted = true; timing?.late('frame', [`js ${Math.round(lastJs)}, draw ${Math.round(ms)} ms`, gate.pending].filter(Boolean).join(', ')); }
     if (gate.reveal) closeGate(ms);
   }
   /** The mount is done: the gate's clock starts (a page hidden meanwhile draws no frame: the cut closes it). */

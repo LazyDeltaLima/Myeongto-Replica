@@ -318,7 +318,8 @@ describe('field view features in headless Chrome', { skip }, () => {
     const m = await page.evaluate(() => window.__demo.mounts().at(-1));
     const late = Object.fromEntries(m.late.map((e) => [e.name, e]));
     assert.ok(late.frame && late.shown, `first frame and shown noted: ${JSON.stringify(m.late)}`);
-    assert.match(late.shown.detail, /^\d+ textures up in [\d.]+ s, longest \d+ ms, frame js \d+, draw \d+ ms/);
+    assert.match(late.shown.detail, /^\d+ textures up in [\d.]+ s, longest \d+ ms \((canvas|img|bitmap|other) \d+×\d+\), frame js \d+, draw \d+ ms/);
+    assert.match(late.frame.detail, /^js \d+, draw \d+ ms, (\d+ new textures, largest (canvas|img|bitmap|other) \d+×\d+|no new textures)$/);
     assert.doesNotMatch(late.shown.detail, /cut at/, 'ready before the cap');
     const n = Number(late.shown.detail.split(' ')[0]);
     assert.ok(n > 0, 'the prep pieces\' textures went up before the field was drawn');

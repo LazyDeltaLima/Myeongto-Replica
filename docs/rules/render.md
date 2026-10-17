@@ -696,6 +696,20 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   [화면 미확인] iPhone 홈 화면 앱: 재접속 진입에서 `shown`의 텍스처 시간·보인 프레임 draw가 11 s 멈춤을 얼마나 줄였는지, `setup` 9.5 s의 부분,
   튕긴 뒤 다음 페이지에 `previous page:`가 붙는지.
 
+## 2D 판 타일 아틀라스·첫 텍스처 이름 (2026-10-17, 관리자 제공 iPhone 홈 화면 앱 관전 로그, 1.4.6, 품질 높음)
+- 로그: 진입이 간이 보기 → 늦은 엔진 → 3D(마운트 41.8 s 뒤) 순서라 그동안 2D 판이 화면에 있었다. `setup 7.6 (tiles 7.3, …)`,
+  `frame 12.6 s (js 7, draw 4501 ms)`, `shown … 2 textures up in 11.1 s, longest 11075 ms, cut at 6 s` — 위 「필드 첫 프레임」의 미리 올리기는
+  멈춤을 없애지 못하고 텍스처 하나의 `bind` 안으로 옮겼다(6초 상한은 bind가 돌아온 뒤에야 본다). 같은 로그의 앞 페이지는 3D가 먼저 떠
+  `5 textures up in 0.0 s`. 앞 로그(위 절)도 11075 ms였다(지수 평균 1107.5) — 같은 값이 두 번이라 실제 일보다 고정된 대기 시간 초과처럼 보인다.
+- `tiles` 7.3 s는 `TileField` 생성자의 `tileAtlas()`(2048² 캔버스에 재질 칸 64개)다. 칸마다 거터를 늘리는 `drawImage`가 아틀라스 캔버스를
+  **자기 자신에** 그렸고(칸당 4번, 256번), WebKit은 캔버스를 자기에게 그릴 때 원본 버퍼 전체(16 MB)를 복사한다 [추정: WebKit 소스 기억, iPhone
+  실측 없음]. 이제 칸을 CELL²(256²) 작업 캔버스에 그리고 거터를 늘린 뒤 아틀라스에 한 번 복사한다(`textures.js tileAtlas`). Windows Chrome A/B:
+  픽셀은 반투명 픽셀의 반올림 ±1(절차적 840바이트·판 그림 34바이트 / 16 MB)만 다르고 UV 같음; 시간은 Chrome에선 차이 없음(자기 복사가 싸다).
+- 11 s 텍스처가 무엇인지는 아직 모른다 [추정: 이 2D 판 아틀라스]. 보고서에 이름을 남긴다: `shown`의 `longest n ms (canvas 2048×2048)`(원본 종류
+  `canvas`/`img`/`bitmap`/`other`와 크기), `frame`의 `n new textures, largest …`(첫 PIXI 그리기 직전에 그 그리기가 올릴 텍스처, world 층 제외).
+- 확인: `test/render/fieldview.browser.test.js` 「first frame」(두 메모 형식), `test/render/originium-cell.e2e.test.js`,
+  `test/render/feedback1f-down-tile.browser.test.js`. [화면 미확인] iPhone 관전 진단에서 `tiles`가 줄었는지, `shown`·`frame`이 이름 짓는 텍스처.
+
 ## upstream 버그 이슈 이식 — 렌더 (2026-10-15)
 upstream 새 버그 이슈의 수정 PR 중 sim 수정에 기대는 렌더 쪽(관리자 결정 2026-10-15). sim 쪽 근거는 `sim.md` 「upstream 버그 이슈 이식 (2026-10-15)」.
 - **假想敌：镜膜 멈춘 팬**(upstream #481, upstream PR #613): sim이 첫 침묵에 폼 `stopped`를 낸다 → `units.js FORMS.enemy_9011_acrefr.stopped` =
