@@ -95,7 +95,7 @@
   /* layers */
   --z-screen: 1;
   --z-banner: 40;
-  --z-conn: 60;
+  --z-conn: 75; /* above the AI 托管 overlay (.awayov 70): its 在此页面继续 / 重新连接 stays clickable (upstream 10e1461c) */
   --z-modal: 80;
   --z-toast: 90;
   --z-tooltip: 95;

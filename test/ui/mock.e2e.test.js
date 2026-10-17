@@ -910,6 +910,31 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     });
   }
 
+  test('session replacement: the recovery action stays clickable above the AI away overlay (upstream 10e1461c)', async () => {
+    const { page, problems } = await open('phase=PREP', { render: 'fallback' });
+    await page.evaluate(() => import('/js/ui/matchChrome.js').then((m) => m.awayStore.set({ away: true })));
+    await page.waitForSelector('.awayov', { visible: true });
+    await page.evaluate(async () => {
+      const { net } = await import('/js/net.js');
+      globalThis.__RECOVERY_CONNECTS__ = 0;
+      net.connect = () => { globalThis.__RECOVERY_CONNECTS__++; };
+      globalThis.__MOCK__.store.set({ connection: { status: 'closed', ping: 0, attempt: 0, retryAt: 0, lastError: { code: 'REPLACED' }, everOnline: true } });
+    });
+    await page.waitForSelector('.conn-banner .btn', { visible: true });
+    await sleep(300);
+    assert.ok(await page.$('.awayov'), 'the away overlay remains during recovery');
+    const center = await page.$eval('.conn-banner .btn', (btn) => {
+      const r = btn.getBoundingClientRect();
+      const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      return { x, y, hit: btn.contains(document.elementFromPoint(x, y)) };
+    });
+    assert.ok(center.hit, 'the recovery button receives pointer input above the away overlay');
+    await page.mouse.click(center.x, center.y);
+    assert.equal(await page.evaluate(() => globalThis.__RECOVERY_CONNECTS__), 1, 'the pointer click invokes the recovery action');
+    assert.deepEqual(problems.filter((p) => p.startsWith('pageerror:')), []);
+    await page.close();
+  });
+
   test('watch: the other pair of the Final Assault is refused and the eye stays put', async () => {
     const { page, problems } = await open('phase=FINAL_ASSAULT');
     const rows = await page.$$('.team__row');

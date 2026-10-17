@@ -1357,3 +1357,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   앞 요청이 응답을 받을 때까지 같은 요청은 버리고(`ui/gameActions.js actions.refresh`·`onRefreshBusy`), 그동안 갱신 버튼이 꺼지고 툴팁이 「갱신 중…」,
   R 단축키도 같은 함수라 함께 막힌다. upstream은 `screens/game.js`가 상태를 내려 주지만 우리는 `ui/shopBar.js`가 직접 구독한다. 확인:
   `test/ui/refresh-tap.test.js`(upstream 판 + 거부된 갱신도 풀림). upstream e2e(`refresh-tap.e2e.test.js`)는 안 옮김.
+- **연결 복구 버튼이 AI 托管 화면 위** (upstream `10e1461c`): 연결 배너(`ui/connBanner.js`, 「在此页面继续」·「重新连接」)의 `--z-conn`이 60이라 AI 托管 화면
+  (`.awayov` 70) 아래에 깔려 누를 수 없었다. 75로 올림(창 80·토스트 90 아래 그대로). 같은 변수를 쓰는 재연결 가림막(`.brc`)도 托管 화면 위로 온다.
+  우리는 나가기 창의 「暂离」을 숨겼지만(`ui/matchChrome.js AWAY_OPTION`) 서버 자동 托管(`autoplay`)에서도 같은 화면이 뜬다. 확인: `test/ui/mock.e2e.test.js`
+  「session replacement」(SP_E2E, 브라우저 — 托管 화면은 `awayStore`로 띄움).
