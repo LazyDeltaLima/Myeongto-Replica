@@ -110,6 +110,8 @@ function sbell2(bb, chess, def) {
         if (acc + 1e-9 >= (unit.skill && unit.skill.active ? ivS : ivN)) { acc = 0; lay(); }
         if (!snow.size) return;
         const S2 = unit.mem.sbellS2;
+        // every snow effect follows the tile of the enemy's position, not its 0.1 collider: the client's snow is a tile
+        // listener (sbell2_t1[enemy_enter] / [enemy_leave]) fed by Enemy._UpdateCurrentTile → Tile.AddEnemy / RemoveEnemy
         for (const e of battle.enemies) {
           if (!e.alive || e.hidden) continue;
           const k = keyOf(e);

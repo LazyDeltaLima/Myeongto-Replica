@@ -9,7 +9,7 @@
 
 import { num, talentBb, skillRec, up } from '../shared/tier1.js';
 import { canTargetEnemy } from '../../../targeting.js';
-import { bodyInKeys, hitRect } from '../../../body.js';
+import { bodyInRange, hitRect } from '../../../body.js';
 import { dirVec } from '../../../dir.js';
 import { COLS } from '../../../constants.js';
 import { hasHp } from '../../../damage.js';
@@ -136,7 +136,8 @@ export default {
       for (let n = 0; n < 3; n++) battle.after(FIRST_BOMB + n, () => {
         battle.fx('blast', { x: c, y: r, r: 1.5, id: unit.id });
         for (const t of battle.enemies) {
-          if (!canTargetEnemy(unit, t, GROUND) || !bodyInKeys(t, keys)) continue;
+          // the 0.1 collider (CN client projectile_chr_clemnt_s3: a selector on an "x-5" box range)
+          if (!canTargetEnemy(unit, t, GROUND) || !bodyInRange(t, keys)) continue;
           battle.dealDamage(unit, t, { amount: atk * num(b3.s3_atk_scale), type: 'phys', canDodge: false,
             isSkill: true, tags: ['skill', 'clemnt:bomb'] });
           if (hasHp(t)) battle.dealDamage(unit, t, { amount: atk * num(b3.ep_damage_scale), type: 'elemental', element: 'erosion',

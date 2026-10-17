@@ -386,7 +386,10 @@ function raidTile(battle, u, e) {
   return null;
 }
 
-/** An enemy on the member's own tile or the one in front of it (range "1-1" in its direction): any enemy on the map. */
+/**
+ * An enemy on the member's own tile or the one in front of it (range "1-1" in its direction): any enemy on the map, by
+ * the tile of its position — client CheckHasEnemyInRange → LitePhysicsUtil.CheckOverlapInBox → _CheckContainsPosition.
+ */
 function raidEnemyClose(battle, u) {
   const d = normDir(u.dir);
   const tiles = RANGE_1_1.map(([gr, gc]) => { const [dr, dc] = rotateOffset(gr, gc, d); return [u.tileR + dr, u.tileC + dc]; });

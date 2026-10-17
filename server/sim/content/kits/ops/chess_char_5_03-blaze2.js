@@ -41,6 +41,8 @@ export default {
       unit.mem.blazeAcc2 = (unit.mem.blazeAcc2 ?? 0) + AURA_IV;
       const dmgTick = unit.mem.blazeAcc2 >= 1 - 1e-9;
       if (dmgTick) unit.mem.blazeAcc2 -= 1;
+      // the position's tile, not the 0.1 collider: the client's burning tile is a tile listener (blaze2_s_2[on_tile] /
+      // [leave_tile]) fed by the enemy's current tile (Enemy._UpdateCurrentTile → Tile.AddEnemy → OnEntityEnter)
       for (const e of battle.enemies) {
         if (!e.alive || e.hidden || e.isFlying || !bodyInKeys(e, tiles)) continue;
         battle.addBuff(e, { key: `blaze2:ground:${unit.id}`, duration: AURA_DUR, mods: { moveMul: Math.max(0, 1 + num(bb.move_speed)) } });

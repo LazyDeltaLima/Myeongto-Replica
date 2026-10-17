@@ -5,7 +5,8 @@
 // hits or selects in) take an enemy whose collider circle (constants.js ENEMY_COLLIDER_RADIUS 0.1, the client's
 // CircleCollider2D; PRTS 作战机制 "索敌抬手等均使用碰撞箱") overlaps one of its tiles — colliderKeys / bodyInRange,
 // maintainer decision 2026-10-17 —; a skill's AUTO-TRIGGER check of its range tiles (client `_CheckContainsPosition`) and
-// a TILE rule (terrain, traps, fields and marks laid on tiles, "所在格" effects) take the tile containing the position —
+// a TILE rule the client runs on the enemy's current tile (terrain, tile listeners, tile selectors, "所在格" effects; a
+// trap or mark the client selects through a range takes the collider) take the tile containing the position —
 // rounded half to even (detmath roundHalfEven; PRTS 作战机制 "受击方坐标经round函数取整(四舍六入五成双)得到其所属格
 // 坐标"), bodyKeys / bodyInKeys / bodyOnTile —; a radius takes the
 // position (DESIGN §3). Huge units (巨型单位 — enemy data `hitArea`, tools/build-data.mjs

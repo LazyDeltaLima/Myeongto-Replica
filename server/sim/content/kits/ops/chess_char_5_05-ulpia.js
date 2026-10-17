@@ -79,6 +79,7 @@ export default {
               // the anchor stops at the field edge and in front of a ground obstacle (crates, roadblocks)
               if (!battle.grid.inRect(r, c) || battle.grid.isObstacle(r, c)) break;
               stop = d;
+              // an enemy standing on the tile (the point): client TileSelector filter ULPIA_SKILL_3 reads Tile.GetEntities
               if (battle.enemiesOnTiles([r * COLS + c], unit, { canHitFly: true }).length) break;
             }
           }

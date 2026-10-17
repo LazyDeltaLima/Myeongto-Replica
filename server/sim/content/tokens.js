@@ -89,7 +89,7 @@
 
 import { COLS, ROWS, MOVE_SCALE, FORCED_EXIT } from '../constants.js';
 import { absoluteRangeKeys, sortEnemyTargets, canTargetEnemy } from '../targeting.js';
-import { bodyOnTile, bodyInRange } from '../body.js';
+import { bodyInRange, bodyInRangeTile } from '../body.js';
 import { hasHp } from '../damage.js';
 import { genericKit } from './generic.js';
 import { bardRegen } from '../professions.js';
@@ -1071,9 +1071,8 @@ function champagne(bb) {
         let hit = null;
         for (const e of battle.enemies) {
           if (!canTargetEnemy(unit, e, CHAMPAGNE_TRIGGER)) continue;   // (no unrevealed 隐匿 enemy)
-          // touching its tile: a huge enemy on any tile of its body (body.js)
-          const on = e.hitArea ? bodyOnTile(e, unit.tileR, unit.tileC) : Math.abs(e.x - unit.tileC) <= 0.5 && Math.abs(e.y - unit.tileR) <= 0.5;
-          if (on && (!hit || e.spawnSeq < hit.spawnSeq)) hit = e;
+          // touching its tile: the enemy's collider overlaps it (a huge enemy any tile of its body; body.js)
+          if (bodyInRangeTile(e, unit.tileR, unit.tileC) && (!hit || e.spawnSeq < hit.spawnSeq)) hit = e;
         }
         if (!hit) return;
         const hits = battle.time - unit.deployedAt >= extraAfter - 1e-9 ? 2 : 1;

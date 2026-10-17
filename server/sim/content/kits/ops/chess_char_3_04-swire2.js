@@ -2,7 +2,7 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { COLS } from '../../../constants.js';
-import { bodyOnTile } from '../../../body.js';
+import { bodyInRangeTile } from '../../../body.js';
 import {
   num, defOf, talentBb, moduleTalentBb, selectedId, altSkills, alive, gridKeys, fx, copyGrid, textNum, freeTile,
   groundTile, enemiesOn,
@@ -81,7 +81,8 @@ export default {
           for (const e of battle.enemies) {
             // a ground enemy it may select — no 隐匿 one that is neither revealed nor blocked (tokens.js CHAMPAGNE_TRIGGER)
             if (!canTargetEnemy(bomb, e, CHAMPAGNE_TRIGGER)) continue;
-            if (!bodyOnTile(e, bomb.tileR, bomb.tileC)) continue;
+            // its collider overlapping the bomb's tile (client token_10031_swire2_gdtrap: a selector on its AutoLoadBoxRange)
+            if (!bodyInRangeTile(e, bomb.tileR, bomb.tileC)) continue;
             // first enemy touching it; after switchT s on the field the bomb deals its damage one extra time
             const hits = battle.time - bomb.deployedAt >= switchT - 1e-9 ? 2 : 1;
             for (let i = 0; i < hits && e.alive; i++) {

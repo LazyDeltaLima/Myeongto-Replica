@@ -65,8 +65,8 @@
 //   per_magic_resist_penetrate_fixed flat RES ignore (≤ max_trigger_cnt); latched per stone at the longest line it
 //   has seen (namu: 3 linked, one leaves → the others keep 3).
 
-import { COLS, TICK } from '../../../constants.js';
-import { bodyOnTile } from '../../../body.js';
+import { COLS, ROWS, TICK } from '../../../constants.js';
+import { bodyInRange, bodyInRangeTile } from '../../../body.js';
 import { enemyStealthed } from '../../../targeting.js';
 import { DEPLOY_REFUSED_TILES } from '../../../grid.js';
 import { talentBb } from '../shared/tier1.js';
@@ -506,9 +506,10 @@ function wangStone(bb, raw, def) {
         // (client sktok_wang_1/3 SkillTrigger `_minTargetNum 1`: a selector that finds ≥ 1 target [추정: polled])
         for (const e of battle.enemies) {
           if (!stoneSelectable(e)) continue;
-          // a 跟子 checks the enemy's root tile (client _checkTargetRootTile); a stone its body on the tile
+          // a 跟子 checks the enemy's root tile (client _checkTargetRootTile); a stone the enemy's collider on its tile
+          // (or S3's area) — body.js bodyInRangeTile / bodyInRange, maintainer decision 2026-10-17
           const on = wide ? inArea(e, unit) : isFollower(unit) ? (Math.round(e.x) === unit.tileC && Math.round(e.y) === unit.tileR)
-            : (e.hitArea ? bodyOnTile(e, unit.tileR, unit.tileC) : Math.abs(e.x - unit.tileC) <= 0.5 && Math.abs(e.y - unit.tileR) <= 0.5);
+            : bodyInRangeTile(e, unit.tileR, unit.tileC);
           if (!on) continue;
           trigger(battle, unit, owner, stones, e, wide, axes);
           // a trap is used up by its trigger (陷阱师 traps: "踩上去的第一个敌人会触发其效果"; the stone has an
@@ -529,10 +530,11 @@ function wangStone(bb, raw, def) {
   return kit;
 
   /**
-   * The enemies a stone's blast selects on tiles (dr, dc) around it: Battle.enemiesOnTiles with canTargetEnemy — the
-   * engine's selection (no 隐匿 unless revealed, no untargetable; 沉睡 is 无敌 anyway), flyers included, a huge enemy's
-   * body on any of the tiles (checklist: never loop battle.enemies to deal damage; review 2026-10-06). The tile of the
-   * position, not the 0.1 collider: the 棋子 are tiles, as upstream keeps them [ASSUMED: no client check of the blast].
+   * The enemies a stone's blast selects on tiles (dr, dc) around it: Battle.enemiesInKeys with canTargetEnemy — the
+   * engine's selection (no 隐匿 unless revealed, no untargetable; 沉睡 is 无敌 anyway), flyers included, an enemy whose
+   * 0.1 collider overlaps one of the tiles, a huge enemy's body on any of them (checklist: never loop battle.enemies to
+   * deal damage; review 2026-10-06). Collider, not the position's tile (upstream keeps the tile): maintainer decision
+   * 2026-10-17 [ASSUMED: no client check of the blast].
    */
   function blastFoes(battle, unit, offsets) {
     const keys = [];
@@ -540,11 +542,16 @@ function wangStone(bb, raw, def) {
       const r = unit.tileR + dr, c = unit.tileC + dc;
       if (battle.grid.inRect(r, c)) keys.push(r * COLS + c);
     }
-    return battle.enemiesOnTiles(keys, unit, ANY);
+    return battle.enemiesInKeys(keys, unit, ANY);
   }
+  /** The enemy's collider overlaps the stone's S3 diamond (bodyInRange; off-grid tiles dropped). */
   function inArea(e, unit) {
-    const r = Math.round(e.y), c = Math.round(e.x);
-    return DIAMOND2.some(([dr, dc]) => unit.tileR + dr === r && unit.tileC + dc === c);
+    const keys = [];
+    for (const [dr, dc] of DIAMOND2) {
+      const r = unit.tileR + dr, c = unit.tileC + dc;
+      if (r >= 0 && r < ROWS && c >= 0 && c < COLS) keys.push(r * COLS + c);
+    }
+    return bodyInRange(e, keys);
   }
 
   function trigger(battle, unit, owner, stones, e, wide, axes) {

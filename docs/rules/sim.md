@@ -1397,7 +1397,8 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
 
 ### 적 충돌 반경 0.1 — 평타·스킬 공격 범위 (관리자 결정 2026-10-17, upstream `5bf337a5` + `cf229a9c` 각색)
 - 규칙: 오퍼레이터의 **평타 범위와 스킬 공격 범위**(스킬이 치거나 고르는 칸, 특성·재능 범위, 범위 오라)는 적의 0.1 충돌 원이 범위 칸에 걸치면 든다 —
-  중심이 칸 경계 밖 0.1 안이면 맞는다. MANUAL 스킬 **자동 발동의 rangeId 칸 검사**와 **칸 규칙**(지형·장판·함정·「所在格」)은 위치의 칸(점) 그대로.
+  중심이 칸 경계 밖 0.1 안이면 맞는다. MANUAL 스킬 **자동 발동의 rangeId 칸 검사**와, 클라가 적의 **지금 칸**으로 보는 **칸 규칙**(지형, 칸 리스너
+  장판, 칸 선택기, 「所在格」)은 위치의 칸(점) 그대로. 칸에 놓인 효과라도 클라가 범위 선택기(물리 겹침)로 고르는 것은 충돌체(아래 「칸 효과」).
   저지·스플래시(중점 판정)와 이동은 그대로. 거대 보스는 히트 사각형이 충돌체(원 안 더함).
 - 근거: PRTS 作战机制 「关于碰撞体积与远程索敌，碰撞箱碰撞是为最常用的方式，索敌抬手等均使用碰撞箱」. 클라 역어셈(관리자 노트): 적 프리팹 루트의
   `CircleCollider2D` 반경 0.1(트리거, ENEMY 층). 평타 탐색 `RangeSelector` → `PhysicsRange` → `Box2dPhysicsUtil._OverlapCollider` →
@@ -1415,17 +1416,28 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
     rangeId가 없는 기본 전략·SEARCH·TAKE_DAMAGE(공격 트리거 탐색 = 「공격 중」)와 내용물 발동 범위(`addTriggerRange`, 공격 범위의 연장)는 충돌체.
   - 키트: 공격 범위(`rangeKeySet`)·스킬 범위로 대상을 고르거나 거르는 곳은 `bodyInRange`(upstream이 바꾼 키트 + 우리 락락 S2 고정 대상·평타 방향 유지
     `ai.js holdFaceTarget`). 领主 원거리 80 %의 「자기 칸·앞 칸」 판정도 충돌체(`professions.js lord`, upstream 그대로).
-  - 점으로 남긴 것(칸 규칙): 瑕光 S2 「자신이 선 칸」 수면, 烛煌 불붙은 칸, 圣聆初雪 눈 칸, 琳琅诗怀雅 폭탄 칸·香槟 접촉 칸, 乌尔比安 S3 닻 정지 칸(upstream이
-    `enemiesOnTiles`로 바꿈), 克莱门莎 S3 포격 5칸, 望의 棋子 발동·폭발 칸(upstream 그대로 칸), 突袭 맹약의 1-1 근접 판정.
+  - **칸 효과**(관리자 결정 2026-10-17, 클라 프리팹 대조): 처음에 점으로 남긴 아홉 곳을 클라 프리팹·코드로 다시 봤다. 클라는 칸 효과를 두 길로 고른다 —
+    범위 선택기(`SelectorTrigger`/`AdvancedSelector` + `ConstBoxRange`·`AutoLoadBoxRange` = `PhysicsRange`, 평타와 같은 물리 겹침)면 충돌체,
+    적의 지금 칸(`Enemy._UpdateCurrentTile` → `Map.GetTile`(위치) → `Tile.AddEnemy`/`RemoveEnemy` → `OnEntityEnter`/`Leave` → `ITileListener`,
+    `Tile.GetEnemies`/`GetEntities`)이나 `LitePhysicsUtil._CheckContainsPosition`이면 점.
+    - 충돌체(`bodyInRangeTile`·`bodyInRange`·`enemiesInKeys`): 瑕光 S2 「자신이 선 칸」 수면(`skchr_blemsh_2/Sleep`: 선택기 + `ConstBoxRange`),
+      琳琅诗怀雅 폭탄 칸 — 키트 폭탄과 소환물 키트 香槟 둘 다(`token_10031_swire2_gdtrap` 평타: 선택기 + `AutoLoadBoxRange`), 克莱门莎 S3 포격 5칸(CN 클라
+      `projectile_chr_clemnt_s3`: 선택기 + `x-5` 상자 범위 — 클래스 이름은 필드로 맞춤), 望의 棋子 발동(`sktok_wang_1/2/3` `SkillTrigger`: `ConstBoxRange`
+      `0-1`, S3 `x-1`)·폭발(`sktok_wang_2/3` 선택기 + `PhysicsRange`). 望의 跟子는 뿌리 칸 그대로(`WangStoneHitBehaviour._checkTargetRootTile`).
+    - 점: 烛煌 S2 불붙은 칸(칸 리스너 `blaze2_s_2[on_tile]`/`[leave_tile]`), 圣聆初雪 눈 칸의 네 효과 모두 — 감속·들어설 때 피해·S2 초당 피해·떠날 때 寒冷과 눈
+      지움(칸 리스너 `sbell2_t1[enemy_enter]`/`[enemy_leave]`), 乌尔比安 S3 닻 정지 칸(`TileSelector` 필터 `ULPIA_SKILL_3` → `Tile.GetEntities`; upstream도
+      `enemiesOnTiles`), 突袭 맹약의 1-1 근접 판정(`CheckHasEnemyInRange` → `LitePhysicsUtil.CheckOverlapInBox` → `_CheckContainsPosition`).
 - **[ASSUMED]**: 범위 오라·스킬 효과 칸·특성 범위가 평타처럼 프리팹 선택기(물리 겹침)를 탄다는 것(역어셈은 평타 선택기만 직접 확인, 스킬 쪽은 일부만 따라감).
-  望 棋子 폭발 칸은 upstream처럼 칸 — 클라 대조 없음. PRTS가 碰撞判定이라 적지 않은 반경 효과는 중심 거리. `enm_pfb_0.ab` 밖 적 프리팹의 반경도 0.1이라고 봄.
+  PRTS가 碰撞判定이라 적지 않은 반경 효과는 중심 거리. `enm_pfb_0.ab` 밖 적 프리팹의 반경도 0.1이라고 봄.
 - 테스트 `test/sim/collider-range.test.js`(새로: 기하, 저지자가 범위 끝 칸에 있을 때 막힌 적은 칸 밖이라 저격수가 못 침, 범위 끝에서 0.05 밖은 평타가 맞고 0.15
   밖은 안 맞음, **같은 적이 rangeId 스킬은 안 켬**(칸 안으로 0.1 들어오면 켬)·rangeId 없는 스킬은 켬, `foesInColliderRadius`, 색인 400자리, 실제 경로
   BattleSpec + 실제 웨이브(烛煌 S3): 충돌체로만 범위에 든 적을 잡아 치고, 자동 시전은 매번 rangeId 칸 위에 선 적이 있을 때). 기하가 0.1 움직인 테스트:
   `test/content/kits_t6.test.js`(异客 S3), `test/sim/feedback1-tank-triggers.test.js`(공격 범위는 충돌체·발동 칸은 점), `test/sim/feedback1e-skillrange.test.js`,
   `test/sim/feedback5-lemuen-s3-wait.test.js`, `test/sim/hit-tile-round.test.js`, `test/content/op_clemnt.test.js`, `test/local-patch-diy.test.js`(LOR-Y: 스킬을
   처음부터 켜서 원거리 타격이 생기게). golden: 6개 계열 전부(roster 49/49, bonds 46/46, fields 22/22, matches 20/20, standins 10/10, diy 11/11) — 범위 가장자리
-  0.1 안의 적을 이제 치므로 모든 전투의 피해·처치가 바뀜.
+  0.1 안의 적을 이제 치므로 모든 전투의 피해·처치가 바뀜. 칸 효과 다섯(`test/sim/collider-tile-effects.test.js`: 경계 0.05 밖은 효과, 0.15 밖은 없음, 望은
+  모서리 대각선으로 跟子 칸을 피함): golden roster-006·008·039, bond-investShip·kjeragShip·victoriaShip-low(琳琅诗怀雅·瑕光), coop2-NORMAL-70-diy
+  (琳琅诗怀雅·望), diy-010(克莱门莎).
 
 ### 驭械术师 평타 = 본체 한 방 + 부유 유닛 추가 피해, 재배치 때 램프 초기화, 洛洛 S2 고정 대상 (upstream `823e3d0a` `e0f37718` `a451ddcf` `7434e9ea` `f567e804`)
 - 문제: 엔진이 驭械术师(메카 캐스터) 평타를 부유 유닛 램프(0.2 → +0.15 → 1.1배) 한 방으로 **대신**해, 본체의 100 % 공격이 없었다. 재배치해도 램프·대상별 배율이

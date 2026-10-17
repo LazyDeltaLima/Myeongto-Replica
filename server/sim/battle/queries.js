@@ -87,9 +87,9 @@ export class BattleQueries {
   /**
    * Targetable enemies standing ON tile `keys` (the point: the tile of the position, a huge enemy's rectangle tiles —
    * body.js bodyKeys; a huge enemy is listed once): the auto-trigger check of a skill's range tiles (skills.js; client
-   * `LitePhysicsUtil._CheckContainsPosition`, the position's tile only) and the tile rules — terrain, traps, fields and
-   * marks laid on tiles, "所在格" effects —, which the 0.1 collider does not widen. Until the collider rule
-   * enemiesInKeys did this for every caller.
+   * `LitePhysicsUtil._CheckContainsPosition`, the position's tile only) and the tile rules the client runs on the
+   * enemy's current tile — terrain, tile listeners, tile selectors, "所在格" effects —, which the 0.1 collider does not
+   * widen (constants.js ENEMY_COLLIDER_RADIUS). Until the collider rule enemiesInKeys did this for every caller.
    */
   enemiesOnTiles(keys, attacker, profile) {
     const out = [];

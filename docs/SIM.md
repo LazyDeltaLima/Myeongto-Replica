@@ -558,7 +558,9 @@ walking the ground path). `deploySeq` counts deployments (and identifies one: `s
 a skill hits or selects in: `enemiesInKeys`, `unitsInGrid`, `bodyInRange`) take it when its circle overlaps one of their
 tiles (the client's attack search is a 2D physics overlap, PRTS 作战机制 "索敌抬手等均使用碰撞箱"; maintainer decision
 2026-10-17); a MANUAL skill's automatic cast on its rangeId tiles (client `_CheckContainsPosition`: `enemiesOnTiles`,
-`anyEnemyOnTiles`) and the tile rules (terrain, traps, fields laid on tiles, "所在格") take the tile of its position
+`anyEnemyOnTiles`) and the tile rules the client runs on the enemy's current tile (terrain, tile listeners such as
+burning or snowy ground, tile selectors, "所在格"; a trap or mark the client selects through a range — 瑕光 S2's own tile,
+琳琅诗怀雅's bomb, 克莱门莎 S3, 望's stones — takes the collider) take the tile of its position
 (`roundHalfEven(y)`, `roundHalfEven(x)` — PRTS 作战机制 "四舍六入五成双"; `Math.round` would take 2.5 to 3); a radius takes
 its position, except the radii PRTS marks 碰撞判定 (`foesInColliderRadius`: 蕾缪安's shells, 克莱门莎 S2's splash) (DESIGN §3). A huge enemy (巨型单位:
 `enemy.hitArea` from data/enemies.json `hitArea` — 假想敌：胄 / 管 / 盐风主教昆图斯 / 阿利斯泰尔 / “萨米的意志”, PRTS

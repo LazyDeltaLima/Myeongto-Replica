@@ -1,7 +1,7 @@
 // server/sim/content/kits/ops/chess_char_3_12-blemsh.js — 瑕光 (char_423_blemsh) kit, tier 3.
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
-import { bodyOnTile } from '../../../body.js';
+import { bodyInRangeTile } from '../../../body.js';
 import {
   num, defOf, talentBb, traitBb, altSkills, instantKindOf, alive, onTiles, gridKeys, fx, copyGrid, NINE, isLeader,
   giveSp,
@@ -89,10 +89,11 @@ export default {
               // PRTS 备注: "技能生效对象实际为“自身这格内的所有地面敌人及自身阻挡的敌人”，即使阻挡的是飞行敌人" — a blocked
               // enemy stands at the block radius, outside her tile (Battle._checkBlock). Asleep they are no longer blocked
               // (沉睡 = 不可阻挡, DESIGN §24.9; GitHub #140): her slots free for the next enemies, and a sleeper that wakes
-              // is held again only while she has room
+              // is held again only while she has room. "这格" is a range (client skchr_blemsh_2/Sleep: a selector on a
+              // ConstBoxRange): an enemy whose 0.1 collider overlaps her tile
               for (const e of battle.enemies) {
                 if (!e.alive || e.hidden) continue;
-                if (e.blockedBy !== unit && (e.isFlying || !bodyOnTile(e, unit.tileR, unit.tileC))) continue;
+                if (e.blockedBy !== unit && (e.isFlying || !bodyInRangeTile(e, unit.tileR, unit.tileC))) continue;
                 if (battle.applyStatus(e, 'sleep', { duration: dur, source: unit })) n++;
               }
               fx(battle, 'aoe', unit, { radius: 0.5, skill: 'blemsh_2', status: 'sleep', n });

@@ -39,9 +39,11 @@ export const ALLY_COLLIDER_RADIUS = 0.25;
  * returns every enemy whose circle overlaps a box (PRTS 作战机制, above: "索敌抬手等均使用碰撞箱"; client disassembly,
  * maintainer's notes): an attack range and a skill's attack range take an enemy within 0.1 of one of their tiles
  * (body.js colliderKeys / bodyInRange, Battle.enemiesInKeys; maintainer decision 2026-10-17). A skill's AUTO-TRIGGER
- * check of its range tiles (`LitePhysicsUtil._CheckContainsPosition`: the position's tile) and the tile rules
- * (terrain, traps, fields and marks laid on tiles, "所在格" effects) keep the point — Battle.enemiesOnTiles, body.js
- * bodyInKeys —; blocking and splash keep the position (中点判定).
+ * check of its range tiles (`LitePhysicsUtil._CheckContainsPosition`: the position's tile) and the tile rules the
+ * client runs on the enemy's current tile (terrain, tile listeners such as burning or snowy ground, tile selectors,
+ * "所在格" effects) keep the point — Battle.enemiesOnTiles, body.js bodyInKeys —; a trap or mark whose client effect is a
+ * range selector (瑕光 S2's own tile, 琳琅诗怀雅's bomb, 克莱门莎 S3, 望's stones) takes the collider; blocking and splash
+ * keep the position (中点判定).
  */
 export const ENEMY_COLLIDER_RADIUS = 0.1;
 /**
