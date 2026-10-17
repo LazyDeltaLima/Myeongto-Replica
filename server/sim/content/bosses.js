@@ -31,7 +31,8 @@
 //   boss_2/9 假想敌：铳      unblockable; highest-DEF target in range; erosion; ASPD +80 per attack on the same target (max 5,
 //                            a new target restarts at 1; floor 20 before the first attack); 最终之罚 charge at the highest-DEF
 //                            ground unit (disabled by the h07_02 override).
-//                            boss_9: damage ×0.2 while springs live, 盲信之誓 links (100 phys/s on the lines), 末日布道 dash.
+//                            boss_9: damage ×0.2 while the one companion picked 0.03 s after it appears lives (未尽的告解),
+//                            盲信之誓 links (100 phys/s on the lines), 末日布道 dash.
 //   碎铳之簧 a/b/c           always unblockable; highest-DEF target in range; arts barrier (absorbs arts after RES; phys
 //                            ×0.1, counter phys + erosion) / element shield (phys+arts ×0.1, broken by its own element
 //                            burst; the (spCost+1)-th attack is a bouncing bullet: phys ×0.8 per bounce + erosion, 4 hits) /
@@ -166,6 +167,8 @@ const ROCKFALL_DELAY = 1, ROCKFALL_TARGETS = [2, 4, 8], DOOM_DELAY = 4;
 const ASPD_FLOOR = 20, CHARGE_RADIUS = 0.35;
 /** 盲信之誓 link half-width (PRTS 0.5). */
 const LINK_WIDTH = 0.5;
+/** 未尽的告解: `achunt_passive` triggers once, `triggerInterval` 0.03 s after the hidden 铳 appears (prefab CommonAbilities/Ability0). */
+const CONFESSION_PICK = 0.03;
 /**
  * “碎铳之簧” skill shots (official client, research boss-patterns §1 #8 / #12). 元素护盾 bullet (projectile_enemy_actrpb):
  * the damage × `_atkScaleRatePerBounce` 0.8 per bounce, the next target within the selector circle 1.7
@@ -669,6 +672,21 @@ function kitBlade(ab, e, b, tpl) {
 
 const isGun = (o) => /enemy_9017_achunt/.test(o.defId);
 const isSpring = (o) => /enemy_90(18|19|20)_actrp/.test(o.defId);
+/**
+ * The one living enemy a `BossSelector` (`_postFilter` HATRED_DES, max 1) picks among those `pred` accepts. An enemy's hatred
+ * is its taunt level × k − its remaining distance to the exit (client Enemy.get_hatred): with equal taunt the one nearest
+ * its EXIT; ties go to the earlier spawn.
+ */
+function hatredFirst(b, pred) {
+  const key = (o) => [-(o.s.taunt || 0), b.remainingDistance(o), o.spawnSeq];
+  let best = null, bk = null;
+  for (const o of b.enemies) {
+    if (!o.alive || !pred(o)) continue;
+    const k = key(o);
+    if (!bk || (k[0] - bk[0] || k[1] - bk[1] || k[2] - bk[2]) < 0) { best = o; bk = k; }
+  }
+  return best;
+}
 
 function kitGun(ab, e, b) {
   const hidden = /_2$/.test(e.defId);
@@ -728,16 +746,36 @@ function kitGun(ab, e, b) {
     },
   ];
   if (hidden) {
-    // PRTS 未尽的告解: another gun OR spring keeps the reduction. Refresh on hit as well so the first hit and
-    // a hit immediately after the last companion dies see the current condition, not a stale polling result.
+    // 【未尽的告解】 (official client, the shared 铳 prefab): `achunt_passive` triggers ONCE, CONFESSION_PICK after the gun
+    // appears — its BossSelector (own side, buff `achunt_mark`: another 铳 or a “碎铳之簧”, HATRED_DES, max 1, itself
+    // excluded) picks one unit and gives it `achunt_mark_by_boss`, whose start gives the gun `achunt_summonee` as a buff
+    // DERIVED from that mark (Buff.AddDerivedBuffSafe; the parent's OnFinish → ClearDerivedBuffsIfNot finishes it). So the
+    // reduction (`achunt_take_damage`, Talents/4: phys and arts × `4.damage_scale` while the gun holds `achunt_summonee`) ends
+    // for good when the picked unit leaves the field; nothing on the field then → never; no second pick. Until 2026-10-17 it
+    // held while ANY other gun or spring lived (PRTS wording). Refresh on hit as well so a hit right after the picked unit
+    // dies sees it gone, not a stale polling result. Its ON_OWNER_KILLED (kill_achunt_mark_boss: InstantKill of the
+    // selector's pick) is left out: a gun only dies when the shared pool runs out, which ends every boss field.
+    let partner = null;
     const confession = (b2, e2) => {
-      const other = b2.enemies.some((o) => o !== e2 && o.alive && (isGun(o) || isSpring(o)));
-      if (other) {
+      if (partner && partner.alive) {
         const m = T(ab, '4.damage_scale') ?? 1;
         b2.addBuff(e2, { key: 'boss:confession', duration: 0.35, refresh: 'replace', mods: { physTakenMul: m, artsTakenMul: m } });
-      } else b2.removeBuff(e2, 'boss:confession');
+      } else {
+        partner = null;
+        b2.removeBuff(e2, 'boss:confession');
+      }
     };
-    list.push({ iv: 0.25, tick: confession, hitIn(c, b2, e2) { confession(b2, e2); } });
+    list.push({
+      spawn(b2, e2) {
+        b2.after(CONFESSION_PICK, () => {
+          if (!e2.alive) return;
+          partner = hatredFirst(b2, (o) => o !== e2 && (isGun(o) || isSpring(o)));
+          e2.mem.confessionPartner = partner ? partner.id : null;
+          confession(b2, e2);
+        }, { owner: e2 });
+      },
+      iv: 0.25, tick: confession, hitIn(c, b2, e2) { confession(b2, e2); },
+    });
     if (s3) list.push({
       iv: s3.bb.interval ?? 1,
       tick(b2, e2) { // 【盲信之誓】 links: phys per second on operators standing on a line ("无视无法选择、迷彩": 起飞 too)
@@ -772,19 +810,10 @@ function kitSpring(ab, e) {
   const scale = T(ab, '1.damage_scale') ?? 1, regen = T(ab, '1.regenerate_duration') ?? 0;
   const sk = kind === 'arts' ? null : ab.sk['1'];
   const P = { up: false, barrier: 0, hits: 0, downAt: null, sp: 0, skill: false };
-  // 【盲信之誓】 the share's receiver: the prefab's BossSelector (one 假想敌：铳, HATRED_DES). An enemy's hatred is its taunt
-  // level × k − its remaining distance to the exit (client Enemy.get_hatred): with equal taunt the gun nearest its EXIT
-  // (until 2026-10-15 the gun nearest the spring; the 隐秘核心 pair field has two, branch boss_battle_multi_player)
-  const gun = (b) => {
-    const key = (o) => [-(o.s.taunt || 0), b.remainingDistance(o), o.spawnSeq];
-    let best = null, bk = null;
-    for (const o of b.enemies) {
-      if (!o.alive || !isGun(o)) continue;
-      const k = key(o);
-      if (!bk || (k[0] - bk[0] || k[1] - bk[1] || k[2] - bk[2]) < 0) { best = o; bk = k; }
-    }
-    return best;
-  };
+  // 【盲信之誓】 the share's receiver: the prefab's BossSelector (one 假想敌：铳, HATRED_DES — hatredFirst): with equal taunt
+  // the gun nearest its EXIT (until 2026-10-15 the gun nearest the spring; the 隐秘核心 pair field has two, branch
+  // boss_battle_multi_player)
+  const gun = (b) => hatredFirst(b, isGun);
   // the 追逐模式 fallback when its casting gun is gone: the nearest other gun (the remake's own rule)
   const nearGun = (b) => nearestOf(b, e, (o) => isGun(o));
   const range = () => e.base.rangeRadius || 2;
@@ -880,7 +909,9 @@ function kitSpring(ab, e) {
           }
         } else if (kind === 'element') {                 // 元素护盾: phys/arts heavily reduced
           if (ty === 'phys' || ty === 'arts') c.dmg.mul *= scale;
-        } else if (ty === 'phys' || ty === 'arts' || ty === 'true') { // 频次护盾: negates N hits
+        } else { // 频次护盾: negates N hits of ANY damage — actrpc_t_1's BlockDamage has `_filterDamageType` false, so its
+          // PHYSICAL_AND_MAGICAL mask is never read (BlockDamage.Execute 0xD949D0: any isDamage modifier): 元素伤害 too (until
+          // 2026-10-17 it passed). [ASSUMED] an element gauge hit (元素损伤) is no damage modifier — it never reaches 'hit'
           c.dmg.cancel = true;
           if (--P.hits <= 0) drop(b);
         }

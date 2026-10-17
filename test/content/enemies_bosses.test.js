@@ -3117,20 +3117,47 @@ test('假想敌：铳 (h07_02 override) never uses 最终之罚 in the regular b
   assert.ok(!h.eventsOf('fx').some((f) => f[1] === 'charge'));
 });
 
-test('隐秘核心 铳: another gun alone grants 80% reduction from the very first hit; no stale reduction after it leaves', () => {
+// official achunt_passive: ONE pick (BossSelector, HATRED_DES) 0.03 s after the gun appears; achunt_summonee is derived
+// from the mark on that unit, so the reduction ends for good when it leaves — the other companions do not keep it
+test('隐秘核心 铳 未尽的告解: the reduction comes 0.03 s after it appears, bound to the one companion picked then (nearest its exit)', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 7 }] });
+  h.step();
+  const springs = [put(h, 'enemy_9018_actrpa', [3, 6], { tag: 'part' }), put(h, 'enemy_9020_actrpc', [3, 4], { tag: 'part' })];
+  for (const s of springs) s.profile.noAttack = true;
+  const g = put(h, 'enemy_9017_achunt_2', [3, 10], { tag: 'boss' });
+  const scale = tb('enemy_9017_achunt_2', '4.damage_scale');
+  const full = 1000 * (1 - g.s.res / 100);
+  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full, 1e-6, 'nothing picked yet');
+  h.run(0.05);
+  const partner = h.b.enemies.find((e) => e.id === g.mem.confessionPartner);
+  assert.ok(partner && springs.includes(partner), 'a spring was picked');
+  const near = springs.slice().sort((p, q) => h.b.remainingDistance(p) - h.b.remainingDistance(q) || p.spawnSeq - q.spawnSeq)[0];
+  assert.ok(partner === near, 'HATRED_DES: the one nearest its exit');
+  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full * scale);
+  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'true' }), 1000, 1e-6, 'true damage is not reduced');
+  // Leaving the field without killing the shared boss pool isolates the companion condition.
+  partner.alive = false; partner.deployed = false;
+  const rest = springs.find((s) => s !== partner);
+  assert.ok(rest.alive);
+  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full, 1e-6, 'the other spring does not keep it');
+  put(h, 'enemy_9019_actrpb', [3, 8], { tag: 'part' });
+  h.run(1);
+  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full, 1e-6, 'no second pick');
+  checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
+});
+
+test('隐秘核心 铳 未尽的告解: alone at 0.03 s it never gets the reduction; a second gun can be the pick', () => {
   const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 7 }] });
   h.step();
   const g = put(h, 'enemy_9017_achunt_2', [3, 10], { tag: 'boss' });
-  const other = put(h, 'enemy_9017_achunt_2', [3, 4], { tag: 'boss' });
   const full = 1000 * (1 - g.s.res / 100);
-  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full * 0.2);
-  // Leaving the field without killing the shared boss pool isolates the companion condition.
-  other.alive = false; other.deployed = false;
-  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full);
-  const spring = put(h, 'enemy_9020_actrpc', [3, 6], { tag: 'part' });
-  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full * 0.2);
-  spring.alive = false; spring.deployed = false;
-  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full);
+  h.run(0.05);
+  assert.equal(g.mem.confessionPartner, null);
+  const g2 = put(h, 'enemy_9017_achunt_2', [3, 4], { tag: 'boss' });
+  h.run(0.05);
+  approx(h.b.dealDamage(null, g, { amount: 1000, type: 'arts' }), full, 1e-6, 'the first gun picked nobody');
+  assert.equal(g2.mem.confessionPartner, g.id, 'the later gun picked the first');
+  approx(h.b.dealDamage(null, g2, { amount: 1000, type: 'arts' }), full * tb('enemy_9017_achunt_2', '4.damage_scale'));
   checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
 });
 
@@ -3306,6 +3333,28 @@ test('“碎铳之簧” 频次护盾 (9020): negates 5 hits, back 25 s after br
   assert.ok(combo.every((x) => x.type === 'phys' && Math.abs(x.amount - sp.s.atk * sk.bb.atk_scale) < 1e-9));
   assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'beam' && f[4].kind === 'springCombo').length, 10);
   approx(w.stats.taken, sk.spCost * sp.s.atk + 10 * sp.s.atk * sk.bb.atk_scale);
+});
+
+// official actrpc_t_1: BlockDamage with `_filterDamageType` false — its PHYSICAL_AND_MAGICAL mask is never read
+test('“碎铳之簧” 频次护盾 (9020): every damage type is negated and counts — 元素伤害 and true damage too; nothing passes to 铳', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }] });
+  h.step();
+  const g = put(h, 'enemy_9017_achunt_2', [3, 12], { tag: 'boss' });
+  const sp = put(h, 'enemy_9020_actrpc', [3, 10], { tag: 'part' });
+  sp.profile.noAttack = true; g.profile.noAttack = true;
+  const pool0 = h.b.sharedBoss.hp;
+  const types = ['elemental', 'true', 'phys', 'arts', 'elemental'];
+  assert.equal(types.length, tb('enemy_9020_actrpc', '1.block_damage_max_times'));
+  for (const type of types) {
+    assert.ok(sp.findBuff('boss:springShield'), `shield up before the ${type} hit`);
+    h.b.dealDamage(null, sp, { amount: 5000, type });
+  }
+  assert.equal(sp.hp, sp.s.maxHp);
+  assert.equal(h.b.sharedBoss.hp, pool0, 'nothing passed to 铳');
+  assert.ok(!sp.findBuff('boss:springShield'), 'five hits broke it');
+  assert.ok(h.b.dealDamage(null, sp, { amount: 5000, type: 'elemental' }) > 0, 'down: 元素伤害 lands');
+  assert.ok(h.b.sharedBoss.hp < pool0, '… and passes to 铳');
+  checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
 });
 
 // official: Skills/1 `_selectTargetSource` INPUT_TARGET, `_selectTargetTiming` AT_BEGINING — the first shot's target for

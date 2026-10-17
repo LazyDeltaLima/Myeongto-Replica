@@ -263,7 +263,8 @@ test('a 无来源 burst still passes on through content that shares damage: 圣�
   const g = hb.spawn('enemy_9017_achunt_2', { pos: [3, 18], routeIndex: 0, mods: { speedMul: 0 }, tag: 'boss' });
   g.profile.noAttack = true;
   assert.ok(g.bossPool, '铳 on the shared pool');
-  const sp = hb.spawn('enemy_9020_actrpc', { pos: [3, 4], routeIndex: 0, mods: { speedMul: 0 }, tag: 'part' });
+  // 法术护盾 (9018): its barrier takes arts only, so 元素伤害 lands (9020's 频次护盾 would negate the burst: any damage type)
+  const sp = hb.spawn('enemy_9018_actrpa', { pos: [3, 4], routeIndex: 0, mods: { speedMul: 0 }, tag: 'part' });
   const pool0 = hb.b.sharedBoss.hp, sp0 = sp.hp;
   hb.b.dealDamage(hb.unit('t_wall'), sp, { type: 'element', element: 'burn', amount: sp.gaugeMax });
   assert.ok(sp0 - sp.hp > 0, 'the spring takes the burst');

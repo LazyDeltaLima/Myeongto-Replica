@@ -356,6 +356,7 @@ upstream v0.2.3과 그 뒤 미병합 PR 가운데, 우리에게도 같은 버그
   - 黄沙罗盘(+萨尔贡浓茶)의 SP는 阻回(`noSp`)와 지속 스킬 중 잠금을 무시한다 — `skills.js gainSp(…, { ignoreLock })`. 클라: 템플릿
     `act1autochess_acarm103_buff`의 `ModifySp` 셋 모두 `_forceFlag` → `SpController`가 `spRecoverStopped` 검사를 건너뜀. `init_sp`는 원래 `'init'`이라 같음.
   - 가상적 铳 【未尽的告解】: 다른 铳이나 碎铳之簧 중 하나라도 있으면 감쇠, 없으면 바로 해제, 피격 때도 다시 판정(첫 타격·동료가 사라진 직후).
+    → 2026-10-17 공식 클라대로 바뀜: 아래 「假想敌：铳 【未尽的告解】 감쇠 대상」.
   - 렌더러를 못 불러온 토스트: 「기기가 3D 불가」 → 「잠시 못 불러옴, 새로고침」(en·ja·zh-TW·ko).
   - golden: `fields` boss-boss_4-solo(음유시인 회복이 기절 중에도). 테스트 `test/content/community-round26.test.js`(upstream), `enemies_bosses` 铳 감쇠.
 - **蕾缪安 수배** (`85b694f2`, GitHub #428, PRTS): 수배 타이머는 이 오퍼레이터마다(출처별) 따로 돌고, 처음 셀 때만 선택 가능해야 하며, 붙은 뒤에는 이어서
@@ -1152,6 +1153,24 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 - **옛 동작**: 같은 대상일 때만 공격 **뒤** 1스택, 새 대상 첫 공격은 0스택 → 하한 20(다음 공격까지 22.5 s), 최대 스택이 한 타 늦음. 테스트
   `enemies_bosses.test.js` 「假想敌：铳: unblockable…」(3타 뒤 240, 휘두름 간격 = 위 식), 실제 판 경로 `boss-patterns-real.test.js` 「real boss_2 field…」.
 
+### 假想敌：铳 【未尽的告解】 감쇠 대상 (`kitGun`, 2026-10-17)
+- **규칙**: 히든 총은 나타난 뒤 **0.03 s에 한 번만** 동료 하나를 고르고, 감쇠(물리·법술 × `4.damage_scale` 0.2)는 **그 하나가 필드에 있는 동안만** 걸린다.
+  고른 동료가 쓰러지면 다른 리드·총이 남아 있어도 영구히 풀리고, 다시 고르지 않는다. 0.03 s에 아무도 없으면 감쇠는 끝내 없다.
+- 근거(EN 클라 2026-10-14 판): 공유 총 프리팹 `CommonAbilities/Ability0`의 `achunt_passive`(`triggerCnt` 1·`triggerInterval` 0.03) ON_BUFF_TRIGGER가
+  총의 `BossSelector`(자기 진영, 버프 `achunt_mark` = 다른 총·“碎铳之簧” 셋, `_postFilter` HATRED_DES, 최대 1, 자신 제외)로 하나를 골라
+  `achunt_mark_by_boss`를 주고, 그 버프의 ON_BUFF_START가 총에게 `achunt_summonee`를 **파생 버프**로 붙인다. `Buff.AddDerivedBuffSafe`(0x39A9560)가
+  부모에 등록하고, 부모의 `OnFinish`(0x39ADE40) → `ClearDerivedBuffsIfNot`(0x39A9BC0)이 파생 버프를 끝낸다. 감쇠 템플릿 `achunt_take_damage`(`Talents/4`)는
+  총이 `achunt_summonee`를 가졌을 때만 `FilterDamageModifer`(PHYSICAL_AND_MAGICAL) → `ModifierScaleUp damage_scale`. HATRED_DES = 도발 × k − 출구까지
+  남은 거리 → 도발이 같으면 출구에 가장 가까운 것(리드 피해 전달의 총 고르기와 같은 `hatredFirst`).
+- 리드는 0 s, 총은 0.1 s(단독 판·2인 판 거울 총)·10 s(2인 판 첫 총)에 나오므로 보통 리드 하나(2인 판의 나중 총은 먼저 나온 총일 수도)가 골린다.
+- 빼 둔 것: `achunt_passive` ON_OWNER_KILLED(`kill_achunt_mark_boss` = 선택기가 고른 하나 즉사). 총은 공유 풀이 0일 때만 쓰러지고 그때 모든 보스 필드가
+  끝나므로 결과가 같다.
+- **옛 동작**(upstream 이식 `708caf7d`, PRTS 문구 기준): 다른 총이나 리드 중 하나라도 살아 있으면 감쇠, 등장 첫 타부터. 테스트 `enemies_bosses.test.js`
+  「隐秘核心 铳 未尽的告解…」 2건.
+- **난이도별 차이 없음** (2026-10-17 확인): 총·리드는 enemy_database 레벨 0 하나뿐이고, 히든 템플릿 `h08_02`(협동)·`h08_02_s`(단독)를 일반·험지·초월이 같이
+  쓴다(덮어쓰기도 같음 — 협동만 【最终之罚】 끔). 버프 템플릿 중 난이도 분기(`AutoChessCheckDifficulty`)는 `achunt_t_1`(FUNNY가 아니면 × `1.damage_scale` = 1,
+  효과 없음)과 띠 효과 하나뿐. 난이도가 바꾸는 것은 수치뿐: 풀 크기(`bloodPoint`)와 라운드 적 효과(리드 HP·ATK, 총 ATK, 초월 이속 ×1.15).
+
 ### “余音” 暗色 형태 이동 속도·【合奏】 (`setEchoForm`·`kitEcho`)
 - **이동 속도**: 暗色(Depression) 형태는 이동 속도 **+20 %**(클라 프리팹 `Modes/Depression/Body/Talents/2`: MOVE_SPEED, MULTIPLIER +`2.move_speed` 0.2).
   옛 동작: −20 %.
@@ -1229,6 +1248,14 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
   附加(ADDITION 8)·상태 틱(BUFF 4)·키트 자체 피해의 물리는 그대로 들어가고 반격도 없다(클라 `Modifier.SourceAttackType`). 법술 흡수(`BlockDamage` MAGICAL)는
   공격 종류를 안 거른다. [ASSUMED] 엔진 대응: NORMAL = `isAttack`이면서 `isSplash` 아님(일반 공격·공격형 스킬의 주 대상, 연쇄 튕김 포함) — 공격이 아닌 스킬
   피해 중 클라가 NORMAL로 내는 것도 있으나 우리 엔진은 구분하지 않는다. 옛 동작: 모든 물리 피해 ×0.1 + 반격. 테스트 「“碎铳之簧” 法术护盾 (9018)…」.
+- **频次护盾은 모든 피해를 막는다** (2026-10-17): `actrpc_t_1`의 `BlockDamage`는 `_filterDamageType` false라 `_damageMask` PHYSICAL_AND_MAGICAL을 읽지
+  않는다(`BlockDamage.Execute` 0xD949D0: 취소되지 않은 피해 모디파이어면 종류 무관) → 물리·법술·진실·元素伤害를 가리지 않고 다섯 번 막고(막은 것마다 한 번) 깨진다.
+  막힌 피해는 총에게 넘어가지 않는다. [ASSUMED] 원소 게이지 피해(元素损伤)는 피해 모디파이어가 아니라 세지 않는다(우리 엔진도 `hit` 전에 갈라짐).
+  옛 동작: 물리·법술·진실만 막고 元素伤害는 통과·전달. 테스트 「“碎铳之簧” 频次护盾 (9020): every damage type…」; `playtest5_elements.test.js` 「a 无来源
+  burst…」의 리드는 9018로 바꿈.
+- **전달 몫도 공유 풀·限伤을 거친다** (2026-10-17 확인, 지금과 같음): 전달 노드 `FixedValueDamage`의 `_skipModifierEvent`는 `SKIP_MODIFIER_EVENT`를 세우지만
+  `Entity.ApplyModifier`(0x3A17E00)의 건너뜀 경로도 게임 모드 훅(`IGameMode` 슬롯 0x53 → 오토체스 보스 풀·限伤)을 지난다. 전달 몫은 PURE라 총의
+  【未尽的告解】 감쇠를 받지 않는다 — 리드를 치면 총이 감쇠 없이 깎이는 것은 공식과 같다.
 - **频次护盾 十连击**: `Skills/1` `_additionalTimes` 9·`_triggerDelta` 0.1 → 0.1 s 간격 열 발, 발마다 ATK × `atk_scale` 0.5 물리. 대상은 첫 발의 대상으로
   고정(`_selectTargetSource` INPUT_TARGET·`_selectTargetTiming` AT_BEGINING·`_interuptIfTargetDead` 0, `MultiRangedAttack.UpdateTargets` 0xBF5E50) — 도중에
   죽으면 남은 발은 버려진다(2026-10-15, 옛 [ASSUMED]: 다시 고름). 테스트 「“碎铳之簧” 频次护盾 十连击…」.
