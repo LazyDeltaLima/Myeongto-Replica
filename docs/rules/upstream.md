@@ -189,6 +189,8 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   전 기물의 화면 사각형), `205f3bb7`의 장치 부분(특제 수상 플랫폼 — upstream의 절차 판 대신 클라 모델 `trap_040_canoe`를 추출; 봉인된 지면은 클라 모델이 없어
   안 그림), `43a5b571`(#647, 스텐실 없을 때 영역 눈알)은 `render.md` 「upstream 0.2.5–0.3.1 버그 수정 이식 — 렌더」. upstream의 브라우저 e2e 중 옮기지 않은 것:
   `band-draft-skip`·`refresh-tap`·`loadout-ops-export`·`loadout-ops-import`·`high-ground-i18n`(단위 시험이 같은 판정을 봄).
+- **upstream 0.2.5–0.3.1 버그 수정 이식 — 전투** (관리자 결정 2026-10-17, v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그): `b87fcb3a`(忍冬 追凶 첫 타).
+  자세한 것은 `sim.md` 「upstream 0.2.5–0.3.1 버그 수정 이식 — 전투」.
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.

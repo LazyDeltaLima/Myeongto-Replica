@@ -1354,3 +1354,16 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 - 확인: `test/sim/playtest6-combat.test.js` 「移动速度 never drops below 0.1 …」. golden: roster-005·011·015·016·018·020·021·027·033·036·038·043·044·045·046,
   bond-deputShip-high·bond-swiftShip-low, fields 보스 13개(boss_1~6·hidden-boss_8~10), matches 8개, standin-04·05·08, diy-005·009가 움직였다
   (0.1 아래로 느려지던 적이 그만큼 빨라짐).
+
+## upstream 0.2.5–0.3.1 버그 수정 이식 — 전투 (2026-10-17)
+
+upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 있던 전투 쪽(관리자 결정 2026-10-17). 패치가 붙으면 그대로, 아니면 손으로 옮겼다.
+
+### 忍冬 追凶은 첫 타에도 추가 피해 (upstream `b87fcb3a`)
+- 문제: 忍冬(오퍼레이터) 재능 追凶이 적마다 첫 피해 순간을 기록만 하고 돌아가 첫 타에는 법술 추가 피해가 없었다.
+- 근거: PRTS 忍冬 재능 备注(첫 피해도 추가 피해를 받음). 수치는 생성된 재능 블랙보드(`atk_scale` 0.3, `interval` 10) 그대로.
+- 동작(upstream 그대로): `kits/ops/chess_char_3_18-vulpis.js` — 첫 피해에 시각을 기록하고 같은 순간 추가 피해까지 준다. 10초 창은 그 첫 피해부터 고정
+  (다시 맞아도 늘지 않음), `vulpisHunt`·`addition` 태그와 재진입 가드는 그대로.
+- 테스트 `test/content/vulpis-first-hit.test.js`(upstream 그대로: 두 형태·모듈·스킬 전부의 첫 타, 적별 창), `test/content/kits_t3.test.js`(频次형 적: 모든 공격에
+  추가 1회). golden: roster-007·009·026·039, bond-soloShip-low·bond-yanShip-low, matches coop2-NORMAL-3·coop3-ABYSS-5·coop4-ABYSS-7·
+  coop2-NORMAL-1-coverage-standins(忍冬이 나오는 판의 첫 타 피해가 늘어 처치·이후 선택이 바뀜).
