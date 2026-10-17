@@ -457,7 +457,7 @@ item in the hand. Every path that hands an item to the player (buy, reward, 机�
 a promotion or `ctx.destroyPiece` returns) ends with the auto-merge (`acquireItem` / `checkItemMerges`: "已拥有2件同一初始
 装备时…自动合并"), so a player never holds two identical mergeable normal items (`test/match/feedback1b-items.test.js`), except an item gained while 休整期结束 is dispatching (`onPrepEnd`, including a grant nested under it): it is stowed (hand, else temp) and merges at the next prep's start, and nothing already equipped is taken off for the fight. Hand and temp both full still destroys it with 「整备区已满，获得的装备已销毁」. [ASSUMED] every such grant, not only 维多利亚's hammer (owner's decision 2026-10-04). A buy, an onPrepStart grant and a grant at any other time still merge at once (`test/match/feedback3-prep-end-item.test.js`).
 
-Built-ins (builtinMeta.js, overridable): 盟约之币 / 骑士储蓄罐 (random funds on equip or direct player destroy), 随身身份牌 (layers of the target's bonds),
+Built-ins (builtinMeta.js, overridable): 盟约之币 / 骑士储蓄罐 (random funds), 随身身份牌 (layers of the target's bonds),
 紧急调度券 (take shop chess), 精打细算玩偶 (+funds each round), 简易通讯机 (same-bond chess), 拟态物质 (with 2 copies
 owned the 3rd, else a same-bond chess drawn by identity — both past the stock, GitHub #207 / #430 / #485), 见钱眼开玩偶
 (+funds next round), 人事部文档 (cap 9), 博士投影 (elite now / at the next round start), 寻呼模块 / 信标 (pick-one

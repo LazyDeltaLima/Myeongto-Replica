@@ -4,9 +4,7 @@
 //
 // Items are matched by their official buff key (data/items.json buffs[].key), numbers come from the item's params
 // (normal `_a` / golden `_b` record), never hard-coded:
-//   equip_destory_gain_random_coin {min,max}              盟约之币 / 骑士储蓄罐   funds += rand[min,max] on equip or on
-//                                                                                a direct 销毁 from hand / temp (upstream
-//                                                                                #641); replace / overflow pay nothing
+//   equip_destory_gain_random_coin {min,max}              盟约之币 / 骑士储蓄罐   funds += rand[min,max]
 //   use_equip_reward_char_chess_bond_layer {layer}        随身身份牌             layers of the target's bonds (无需激活)
 //   use_equip_reward_random_char_chess_in_shop {count}    紧急调度券             take `count` random chess from the shop
 //   gain_coin_when_round_start {count}                    精打细算玩偶           +count funds every round start
@@ -69,19 +67,13 @@ function mostBondMate(ctx, bonds) {
   return ctx.rng.pick(pick) || null;
 }
 
-function grantRandomFunds(ctx, ev) {
-  const p = paramsOf(ctx, ev.item);
-  const lo = int(p.min, 1);
-  const hi = Math.max(lo, int(p.max, lo));
-  ctx.addFunds(lo + ctx.rng.int(hi - lo + 1), 'item');
-}
-
 const ITEM_HANDLERS = {
   equip_destory_gain_random_coin: {
-    onEquip: grantRandomFunds,
-    onDestroy(ctx, ev) {
-      if (ev.reason !== 'player') return;
-      grantRandomFunds(ctx, ev);
+    onEquip(ctx, ev) {
+      const p = paramsOf(ctx, ev.item);
+      const lo = int(p.min, 1);
+      const hi = Math.max(lo, int(p.max, lo));
+      ctx.addFunds(lo + ctx.rng.int(hi - lo + 1), 'item');
     },
   },
   use_equip_reward_char_chess_bond_layer: {

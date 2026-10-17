@@ -831,52 +831,17 @@ test('盟约之币 +1 / +2, 骑士储蓄罐 1–6 / 2–12 funds (random, both e
   }
 });
 
-test('盟约之币 and 骑士储蓄罐 pay the same funds when directly destroyed', () => {
-  for (const [id, lo, hi] of [[A('1_03'), 1, 1], [B('1_03'), 2, 2], [A('3_12'), 1, 6], [B('3_12'), 2, 12]]) {
-    const { m, ps } = setup({ seed: 200 + lo + hi });
-    const seen = new Set();
-    for (let k = 0; k < 60; k++) {
+test('盟约之币 / 骑士储蓄罐 pay only when equipped: a direct 销毁 from the hand or temp pays nothing (upstream #641)', () => {
+  for (const id of [A('1_03'), B('1_03'), A('3_12'), B('3_12')]) {
+    const { m, ps } = setup({ seed: 200 });
+    for (const where of ['hand', 'temp']) {
+      const item = giveItem(m, ps, id, where);
       const f0 = ps.funds;
-      const item = giveItem(m, ps, id);
       assert.deepEqual(m.handle('p_0', { t: 'g.destroy', uid: item.uid }), OK);
-      const got = ps.funds - f0;
-      assert.ok(got >= lo && got <= hi, `${id} ${got}`);
-      seen.add(got);
+      assert.equal(ps.find(item.uid), null, `${id} ${where} destroyed`);
+      assert.equal(ps.funds, f0, `${id} ${where}`);
     }
-    assert.equal(seen.size, hi - lo + 1, `${id} covers ${lo}..${hi}`);
   }
-});
-
-test('盟约之币 / 骑士储蓄罐 removed without a player 销毁 pay nothing (overflow destroy, temp resolution, merge)', () => {
-  for (const id of [A('1_03'), A('3_12')]) {
-    // hand and temp both full: the granted coin is destroyed on arrival (「整备区已满，获得的装备已销毁」)
-    const { m, ps } = setup({ seed: 300 });
-    for (let k = 0; k < ps.hand.length; k++) giveItem(m, ps, A('1_01'));
-    for (let k = 0; k < ps.temp.length; k++) giveItem(m, ps, A('1_01'), 'temp');
-    let f0 = ps.funds;
-    assert.equal(ps.acquireItem(id), null);
-    assert.equal(ps.funds, f0, `${id} overflow`);
-    // a coin left in temp at the prep deadline is destroyed by the resolution, not by the player
-    ps.hand.fill(null); ps.temp.fill(null);
-    for (let k = 0; k < ps.hand.length; k++) giveItem(m, ps, A('1_01'));
-    giveItem(m, ps, id, 'temp');
-    f0 = ps.funds;
-    ps.resolveTemp();
-    assert.ok(ps.temp.every((x) => x == null), `${id} resolved`);
-    assert.equal(ps.funds, f0, `${id} temp resolution`);
-  }
-  // two normal coins merge into the golden one: the consumed copies pay nothing; equipping pays once
-  const { m, ps, equip } = setup({ seed: 301 });
-  giveItem(m, ps, A('1_03'));
-  const f0 = ps.funds;
-  const gold = ps.acquireItem(A('1_03'));
-  assert.equal(gold?.id, B('1_03'));
-  assert.equal(ps.funds, f0, 'merge');
-  const [cid] = plain((c) => c.tier === 1);
-  const op = give(m, ps, cid);
-  assert.deepEqual(equip(gold, op), OK);
-  assert.equal(ps.funds, f0 + 2, 'golden 盟约之币 equipped pays +2 once');
-  assert.equal(ps.find(gold.uid), null, 'consumed');
 });
 
 test('随身身份牌: every bond of the target +3 / +6 layers, active or not', () => {
