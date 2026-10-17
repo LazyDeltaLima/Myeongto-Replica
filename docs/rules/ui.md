@@ -1372,3 +1372,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   `chess`·`backups` 데이터를 기다리는 동안 「全部恢复默认」(또는 다른 수정)이 빈 편성을 먼저 보내도, 늦게 끝난 옛 준비가 옛 편성을 다시 보내 서버 사본을
   되돌렸다. 이제 수정·`welcome`마다 리비전을 올리고, 준비가 끝났을 때 리비전이 바뀌었으면 보내지도 상태를 바꾸지도 않는다(선발 편성·소유 동기화도 같은 함수).
   확인: `test/ui/loadout-sync-stale.test.js`(upstream 판, 수정 전 코드로 7건 실패 확인). 52b70434의 `tools/package.mjs`(#530 #531)는 우리에게 없음.
+- **관전 중 팀원 전투의 맹약 팝업에 선발 오퍼레이터** (upstream `1188a980`): 팀원 전투를 볼 때 맹약 팝업의 멤버는 전투 중 유닛 목록(`battle/runner.js ownerOps`)에서
+  오는데, 선발 오퍼레이터의 고른 오퍼레이터(`u.def.loadout.diy`)를 버려 `ui/watchBonds.js ownerBoard`가 그 유닛을 빈 선발 칸으로 보고 멤버에서 뺐다. 이제
+  `ownerOps`가 선발 유닛에 고른 것의 사본(`diy`)을 싣는다(UnitInfo와 같음). 확인: `test/match/watch-bonds.test.js` 「watched normal/elite DIY operator」
+  (upstream 판; 우리 선발 풀에 煌·推进之王이 없어 赤刃明霄陈(炎)·阿斯卡纶으로 바꿈, 수정 전 2건 실패 확인).
