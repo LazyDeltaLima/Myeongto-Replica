@@ -1,10 +1,10 @@
 // In-match intents (`g.*`, DESIGN §8.2) with uniform error handling: every request goes through
-// `act()`, which plays a UI sound on success, shows the ERR_TEXT toast on failure and never throws.
+// `act()`, which plays a UI sound on success, shows the ERR_TEXT toast on failure (ui/matchToast.js) and never throws.
 // The UI never mutates state optimistically — it waits for the next m.private / m.public push.
 // `net.request` is looked up at call time so the dev mock harness can stub it.
 
 import { net } from '../net.js';
-import { toastError } from './toasts.js';
+import { matchToastError } from './matchToast.js';
 import { audio } from '../audio.js';
 
 const SUCCESS_SFX = {
@@ -56,7 +56,7 @@ export async function act(t, fields = {}, opts = {}) {
     return true;
   } catch (err) {
     if (!opts.quiet) {
-      toastError(err);
+      matchToastError(err); // (none with settings → 「对局通知」 off)
       audio.sfx('error', { volume: 0.6 });
     }
     return false;

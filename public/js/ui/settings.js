@@ -294,7 +294,7 @@ export function SettingsModal({ open, onClose }) {
         </div>
         <${Toggle} label=${t('精锐干员标记')} micro="ELITE BADGE" value=${s.eliteBadge} onChange=${(v) => updateSettings({ eliteBadge: v })} />
         <${Toggle} label=${t('对局通知')} micro="MATCH NOTICES" value=${s.matchNotices} onChange=${(v) => updateSettings({ matchNotices: v })} />
-        <p class="set-hint">${t('关闭后不再弹出获得干员、盟约资金等对局通知；警告（干员退回整备区、未获得装备、淘汰等）仍会显示。')}</p>
+        <p class="set-hint">${t('关闭后对局中不再弹出任何通知：获得干员、盟约资金等提示，干员退回整备区、淘汰等警告，以及操作无法执行的原因。')}</p>
         <${UiScaleSetting} />${/* local patch */ ''}
         <${GpuNote} />
       <//>

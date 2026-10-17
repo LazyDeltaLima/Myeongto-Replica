@@ -730,15 +730,24 @@ describe('keyboard & settings', () => {
     assert.equal(sanitizeSettings({ chatCooldown: 'x' }).chatCooldown, DEFAULT_SETTINGS.chatCooldown);
     assert.equal(sanitizeSettings({ chatFactionAlerts: true }).chatFactionAlerts, true);
   });
-  test('对局通知 off drops the match notices, never a warning or an error (showMatchToast)', () => {
+  test('对局通知 off hides every match toast (showMatchToast)', () => {
     assert.equal(DEFAULT_SETTINGS.matchNotices, true, 'on by default');
     assert.equal(sanitizeSettings({ matchNotices: false }).matchNotices, false);
     assert.equal(sanitizeSettings({ matchNotices: 'off' }).matchNotices, true, 'not a boolean: the default');
-    const on = sanitizeSettings({});
-    const off = sanitizeSettings({ matchNotices: false });
-    for (const kind of ['info', 'success', 'warn', 'error']) assert.equal(showMatchToast(on, kind), true, kind);
-    assert.deepEqual(['info', 'success', 'warn', 'error'].map((k) => showMatchToast(off, k)), [false, false, true, true]);
-    assert.equal(showMatchToast(undefined, 'info'), true, 'no settings: shown');
+    assert.equal(showMatchToast(sanitizeSettings({})), true);
+    assert.equal(showMatchToast(sanitizeSettings({ matchNotices: false })), false);
+    assert.equal(showMatchToast(undefined), true, 'no settings: shown');
+  });
+  test('对局通知: the in-match refusals go through the switch (ui/matchToast.js)', () => {
+    const read = (f) => readFileSync(path.join(ROOT, f), 'utf8');
+    const game = read('public/js/screens/game.js').split('\n').filter((l) => !l.trim().startsWith('//'));
+    const plain = game.filter((l) => /(?<![\w.])toast\(/.test(l));
+    assert.deepEqual(plain.map((l) => /渲染器暂时未能加载/.test(l)), [true], 'only the renderer fallback notice bypasses it');
+    assert.ok(game.filter((l) => /matchToast\(/.test(l)).length >= 8, 'the refusal reasons');
+    const actions = read('public/js/ui/gameActions.js');
+    assert.match(actions, /matchToastError\(err\)/, 'a refused intent');
+    assert.doesNotMatch(actions, /(?<![\w.])toastError\(/);
+    assert.match(read('public/js/main.js'), /if \(!showMatchToast\(settingsStore\.get\(\)\)\) return;/, 'the server\'s m.toast');
   });
 });
 

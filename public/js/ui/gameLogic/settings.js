@@ -47,10 +47,9 @@ export function sanitizeSettings(raw) {
 }
 
 /**
- * Whether a match toast the server sends (m.toast) is shown. Settings → 画面 「对局通知」 off drops the notices (kind
- * info / success: 「…：获得…」, a band's funds, 【远见】 / 【奇迹】 …); a warning or an error still shows, since it tells
- * of a thing the player would otherwise miss (pieces sent back to the bench, an item lost, the elimination).
- * @param {{ matchNotices?: boolean }} settings
- * @param {string} kind
+ * Whether a match toast is shown (ui/matchToast.js, main.js m.toast). Settings → 画面 「对局通知」 off drops them all: the
+ * server's match toasts of every kind (「…：获得…」, a band's funds, pieces sent back to the bench, the elimination …) and
+ * the refusals of in-match actions (maintainer decision 2026-10-17).
+ * @param {{ matchNotices?: boolean } | null | undefined} settings
  */
-export const showMatchToast = (settings, kind) => settings?.matchNotices !== false || kind === 'warn' || kind === 'error';
+export const showMatchToast = (settings) => settings?.matchNotices !== false;

@@ -108,6 +108,7 @@ import {
   mergeTarget, modeOffBonds, readyFundsPrompt, readyOverflowPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, handFull,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
+import { matchToast } from '../ui/matchToast.js';
 import { BriefingScreen } from './briefing.js';
 import { BandDraftScreen } from './bandDraft.js';
 import { ResultScreen } from './result.js';
@@ -970,7 +971,7 @@ function MatchScreen() {
     const closeIt = () => { setDetail((d) => (d?.kind === 'piece' && d.uid === piece.uid ? null : d)); setSel((x) => (x && x.uid === piece.uid ? null : x)); };
     if (piece.kind === 'item') {
       // an equipped item is locked (the server refuses g.destroy): replacing it is the equip-replace dialog's job
-      if (!itemDestroyable(live.current.placeCtx, piece.uid)) { toast(t('已配发的装备无法销毁'), 'warn'); audio.sfx('error', { volume: 0.5 }); return false; }
+      if (!itemDestroyable(live.current.placeCtx, piece.uid)) { matchToast(t('已配发的装备无法销毁'), 'warn'); audio.sfx('error', { volume: 0.5 }); return false; }
       const it = data.lookup('items', piece.id);
       const ok = await confirmDialog({ title: t('销毁道具'), text: t('道具无法出售。确定要销毁「{name}」吗？', { name: it?.name || t('道具') }), okText: t('销毁'), danger: true });
       if (ok && await actions.destroy(piece.uid)) { closeIt(); return true; }
@@ -1021,7 +1022,7 @@ function MatchScreen() {
       const observing = !!L.watching && L.watching !== L.home && L.watching !== ownFieldId(L.myId);
       const t = observeTarget(p, L.pub, L.myId, { observing, ownDone: L.localDone });
       if (t.back) { backHome(); return; }
-      if (t.reason) { toast(t.reason, 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
+      if (t.reason) { matchToast(t.reason, 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
       if (t.fieldId) requestWatch(t.fieldId, p.playerId);
       return;
     }
@@ -1035,7 +1036,7 @@ function MatchScreen() {
       return;
     }
     const t = watchTarget(p, L.pub, L.myId);
-    if (t.reason) { toast(t.reason, 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
+    if (t.reason) { matchToast(t.reason, 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
     requestWatch(t.fieldId, p.playerId);
   }, []);
 
@@ -1092,7 +1093,7 @@ function MatchScreen() {
     };
     const refuse = (reason) => {
       audio.sfx('error', { volume: 0.5 });
-      if (reason) toast(reason, 'warn');
+      if (reason) matchToast(reason, 'warn');
     };
     const endDrag = () => {
       moveOff?.(); moveOff = null;
@@ -1390,7 +1391,7 @@ function MatchScreen() {
     const L = live.current;
     const uid = L.sel?.uid;
     const to = uid != null ? retreatSlot(L.placeCtx, uid) : null;
-    if (!to) { toast(t('整备区已满'), 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
+    if (!to) { matchToast(t('整备区已满'), 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
     setSelBusy(true);
     if (await actions.move(uid, to)) {
       setSel(null);
@@ -1477,7 +1478,7 @@ function MatchScreen() {
         if (act !== 'escape') e.preventDefault();
         if (act === 'ready') {
           audio.sfx('error', { volume: 0.5 });
-          toast(shopBlockReason('ready', { priv: L.priv, editable: true }), 'warn');
+          matchToast(shopBlockReason('ready', { priv: L.priv, editable: true }), 'warn');
         }
         return; // ChoiceOverlay handles Escape without cancelling the server's pending choice.
       }
@@ -1507,7 +1508,7 @@ function MatchScreen() {
         const refused = !L.priv.ready ? shopBlockReason('ready', { priv: L.priv, editable: true }) : null;
         // an open 教鞭 choice blocks it: say why (the button shows it too — user playtest #3 item 3; a temp overflow
         // does not block it any more: toggleReady asks first)
-        if (refused) { audio.sfx('error', { volume: 0.5 }); toast(refused, 'warn'); return; }
+        if (refused) { audio.sfx('error', { volume: 0.5 }); matchToast(refused, 'warn'); return; }
         toggleReady(!L.priv.ready);
         return;
       }
@@ -1749,7 +1750,7 @@ function MatchScreen() {
         onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
         onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null })}
         onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}
-        onRefuse=${(reason) => { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); }}
+        onRefuse=${(reason) => { matchToast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); }}
         reward=${phase === PHASE.PREP && !rewardMin ? priv?.shop?.rewardOffer || null : null}
         onReward=${pickReward} onRewardLater=${() => setRewardMin(true)} onArm=${setArmedCard} />` : null}
 

@@ -304,7 +304,7 @@ function wireNet() {
   });
   net.on('m.toast', (msg) => {
     const kind = ['info', 'success', 'warn', 'error'].includes(msg.kind) ? msg.kind : 'info';
-    if (!showMatchToast(settingsStore.get(), kind)) return; // settings → 「对局通知」 off
+    if (!showMatchToast(settingsStore.get())) return; // settings → 「对局通知」 off
     // msgid + params (server ≥ 0.2.0) or the text itself as a msgid, in the current language
     toast(translateWire(msg), kind);
   });
