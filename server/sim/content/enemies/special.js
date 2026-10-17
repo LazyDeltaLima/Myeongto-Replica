@@ -326,8 +326,9 @@ function catapultStone(b, e, aim) {
 
 /**
  * The volley: stone i is thrown `hit_interval` × i after the strike and flies its official shot (data `proj`, PARACURVE
- * 8 tiles/s: the horizontal distance to the aim at the throw / speed — ai.js shotSpeed) before it lands. [ASSUMED] every
- * stone flies like the first; the 'atk' event draws one shot (profile.shot 'enemy').
+ * 8 tiles/s: the horizontal distance to the aim at the throw / speed — ai.js shotSpeed) before it lands. Every stone flies
+ * like the first (maintainer decision 2026-10-17; upstream lands them without a flight); the 'atk' event draws one shot
+ * (profile.shot 'enemy').
  */
 function catapultVolley(ab, b, e, aim) {
   const n = Math.max(1, Math.floor(T(ab, 'Attack.attack@times') ?? 1));

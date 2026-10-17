@@ -1457,7 +1457,8 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
 - 동작: `content/enemies/special.js` `catapultVolley` — 키트가 공격을 맡음(`profile.deferHit`, ai.js의 'attack' 훅). 돌 i는 타격 순간에서 `hit_interval` × i 뒤에
   던져져 자기 투사체(데이터 `proj`, PARACURVE 8칸/s — 던질 때 조준점까지 거리 / 속도)로 날아가 떨어지고, 잠근 아군이 아직 선택 가능하면 그를 치고 착탄점 1.5 안의
   아군을 튐(`areaAllies`). 돌마다 따로 `isAttack` 물리 피해. 대상이 죽어도 남은 돌은 마지막 조준점에, 투석기가 죽어도 이미 던진·예약된 돌은 떨어진다.
-  **[ASSUMED]** 돌 셋 모두 첫 돌처럼 비행(upstream은 비행 없이 0.3 s 간격; 우리 「적 투사체」 규칙의 비행 시간을 유지), 'atk' 이벤트는 투사체 하나만 그림.
+  돌 셋 모두 첫 돌처럼 비행(관리자 결정 2026-10-17 — 공식 자료는 「3회·0.3 s」만 말함; upstream은 비행 없이 0.3 s 간격, 우리는 「적 투사체」 규칙의 비행 시간을
+  유지), 'atk' 이벤트는 투사체 하나만 그림.
   입희(入戏) 무작위 조준(upstream 구현)은 이 모드 표에 없어 넣지 않음.
 - 테스트 `test/sim/catapult-volley.test.js`(upstream에서: 0.3 s 간격·DEF·보호막·1.5 튐, 대상 상실·투석기 사망 뒤에도 계속, 坚守 반사 돌마다; 입희 사례 뺌),
   `test/content/enemies_bosses.test.js`(비행 시간만큼 관찰 늘림). golden: roster-013·roster-040·standin-06.
