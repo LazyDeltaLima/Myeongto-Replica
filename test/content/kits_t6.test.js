@@ -560,6 +560,26 @@ test('妮芙 (tier 6): 失魂 — attacking an enemy in apoptosis burst adds a 4
   assert.ok(u.findBuff('nymph:key'), '窥心钥 stack after an apoptosis burst in range');
 });
 
+test('妮芙 (tier 6 elite module): 窥心钥 ASPD +12 from stack_cnt_check (10) stacks, not the cap (12 with potential)', () => {
+  const h = battle({ units: [{ chessId: 'chess_char_6_10_b', row: 10, col: 3 }], enemies: [{ key: 'enemy_dummy', pos: [10, 5] }] });
+  const u = h.unit('chess_char_6_10_b');
+  const tb = u.def.talents[1].bb;
+  assert.deepEqual([tb.stack_cnt_check, tb.max_stack_cnt, tb.attack_speed], [10, 12, 12], 'data: 叠至10层后 / 最多12层');
+  h.step();
+  const e = enemyAt(h, 'enemy_dummy');
+  const aspdAfter = (n) => {
+    for (let i = 0; i < n; i++) h.b.emit('elementBurst', { target: e, element: 'apoptosis' });
+    return u.findBuff('nymph:key').mods;
+  };
+  assert.equal(aspdAfter(9).aspd, 0, '9 stacks: no ASPD');
+  const m10 = aspdAfter(1);
+  assert.equal(m10.aspd, 12, '10 stacks: ASPD +12');
+  assert.ok(near(m10.atkPct, tb.atk * 10, 1e-9));
+  const m12 = aspdAfter(5);
+  assert.equal(m12.aspd, 12);
+  assert.ok(near(m12.atkPct, tb.atk * 12, 1e-9), 'ATK stacks stop at 12');
+});
+
 test('缪尔赛思: 流形 copies the nearest operator (90 %), S3 gives 13 DP and +22 % ATK to her and 流形', () => {
   const h = battle({
     units: [

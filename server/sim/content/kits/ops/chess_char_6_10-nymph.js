@@ -44,16 +44,19 @@ function nymph(bb, chess, def) {
           if (skillHit && t.alive) elementDmg(battle, unit, t, 'apoptosis', ctx.amount * num(bb.ep_damage_ratio));
         }, { owner: unit });
       } },
-      { install(battle, unit) { // 窥心钥 (elite module: field-wide, +ASPD at max stacks)
+      { install(battle, unit) { // 窥心钥 (elite module: field-wide, +ASPD from stack_cnt_check stacks)
         const atk = num(t1.atk), max = Math.max(1, Math.floor(num(t1.max_stack_cnt, 10)));
         const fieldWide = t1.stack_cnt_check != null, as = num(t1.attack_speed);
+        // "叠至10层后，攻击速度+12": the ASPD comes at stack_cnt_check (10), not at the cap — with potential the cap is 12
+        // (client nymph_e_002_t_2: FilterByBuffStackCount `stack_cnt_check` GE → nymph_e_002_t_2[atk_spd])
+        const aspdAt = Math.max(1, Math.floor(num(t1.stack_cnt_check, max)));
         battle.on('deploy', ({ unit: u }) => { if (u === unit) unit.mem.nymphKey = 0; }, { owner: unit });
         battle.on('elementBurst', ({ target, element }) => {
           if (element !== 'apoptosis' || !live(unit) || !target || target.side !== 'enemy') return;
           if (!fieldWide && !bodyInRange(target, unit.rangeKeySet)) return;
           unit.mem.nymphKey = Math.min(max, (unit.mem.nymphKey || 0) + 1);
           const n = unit.mem.nymphKey;
-          battle.addBuff(unit, { key: 'nymph:key', mods: { atkPct: atk * n, aspd: fieldWide && n >= max ? as : 0 } });
+          battle.addBuff(unit, { key: 'nymph:key', mods: { atkPct: atk * n, aspd: fieldWide && n >= aspdAt ? as : 0 } });
         }, { owner: unit });
       } },
       { install(battle, unit) { // elite module: ×1.1 vs targets in an element burst

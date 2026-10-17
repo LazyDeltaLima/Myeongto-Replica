@@ -1512,3 +1512,10 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
   云梯가 없어 넣지 않음(upstream도 없음).
 - 테스트 `test/content/enemies_bosses.test.js` 「enemy_1302_ymtro_2 …」 2건(최대 4명·감속 없음·형태 없음, 격파 하차 칸 중심·자기 경로). golden: roster-006·roster-039
   (이 적이 나오는 판).
+
+## 님프 정예 모듈 판 窥心钥 공격 속도 = 10층부터 (2026-10-17, 관리자 지시)
+
+- 기물 `chess_char_6_10_b` 2번째 재능 「全场有敌人凋亡损伤爆发时，攻击力+3%，最多可叠加12（+2）层，叠至10层后，攻击速度+12」(블랙보드 `max_stack_cnt` 12 ·
+  `stack_cnt_check` 10 · `attack_speed` 12). 키트가 공격 속도를 최대 층(잠재가 있으면 12)에서야 켰다 → `stack_cnt_check`(10)부터. 클라 버프 템플릿
+  `nymph_e_002_t_2`도 `FilterByBuffStackCount`(`stack_cnt_check`, GE) 뒤에 `nymph_e_002_t_2[atk_spd]`를 만든다. 잠재가 없으면 둘 다 10이라 그대로.
+- 확인: `test/content/kits_t6.test.js` 「窥心钥 ASPD +12 from stack_cnt_check」(9층 0 → 10층 +12, 공격력은 12층에서 멈춤; 고치기 전 실패). 골든 그대로.
