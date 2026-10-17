@@ -200,7 +200,8 @@ export async function serveFile(req, res, absPath, stat, mountName, segments, qu
   const ext = path.extname(absPath).toLowerCase();
   const type = MIME[ext] || 'application/octet-stream';
   const compressible = COMPRESSIBLE.has(ext);
-  const rangeHeader = req.headers.range;
+  // RFC 9110 §14.2: Range is defined only for GET; other methods (HEAD) ignore it, also when choosing gzip (upstream d1d72185)
+  const rangeHeader = req.method === 'GET' ? req.headers.range : undefined;
   const useGzip = compressible && stat.size >= GZIP_MIN_BYTES && !rangeHeader && acceptsGzip(req.headers['accept-encoding']);
   const baseTag = `${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}`;
   const etag = `"${baseTag}${useGzip ? '-gz' : ''}"`;

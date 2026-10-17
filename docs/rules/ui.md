@@ -1376,3 +1376,6 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   오는데, 선발 오퍼레이터의 고른 오퍼레이터(`u.def.loadout.diy`)를 버려 `ui/watchBonds.js ownerBoard`가 그 유닛을 빈 선발 칸으로 보고 멤버에서 뺐다. 이제
   `ownerOps`가 선발 유닛에 고른 것의 사본(`diy`)을 싣는다(UnitInfo와 같음). 확인: `test/match/watch-bonds.test.js` 「watched normal/elite DIY operator」
   (upstream 판; 우리 선발 풀에 煌·推进之王이 없어 赤刃明霄陈(炎)·阿斯卡纶으로 바꿈, 수정 전 2건 실패 확인).
+- **HEAD 요청의 Range** (upstream `d1d72185`, 서버 정적 파일): `server/http/files.js serveFile`이 HEAD에도 `Range`를 읽어 206·`Content-Range`로 답하고
+  gzip 표현을 고르지 않았다(같은 파일의 GET과 ETag가 달라짐). RFC 9110 §14.2대로 `Range`는 GET에서만 읽는다. 우리는 gzip만(`acceptsGzip`, upstream은 br도)이라 손으로
+  같은 한 줄. 확인: `test/lobby.test.js` 「HEAD ignores Range」(upstream 판, br 사례 뺌; 수정 전 6건 실패 확인).
