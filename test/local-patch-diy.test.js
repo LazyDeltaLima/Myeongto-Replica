@@ -448,8 +448,9 @@ describe('선발 kits (server/sim/content/kits/ops/op-wang / chen3 / wisdel / ob
         return d.reduce((a, x) => a + x.amount, 0) / Math.max(1, d.length);
       };
       assert.ok(recOf('oblvns').talents.find((t) => t.index === 0).fromModule, 'the tier-6 elite\'s talent is the module\'s');
-      const withMod = perHit(solo({}, 2, { enemies, secs: 25 }));
-      const without = perHit(solo({}, 2, { enemies, kits: plain, secs: 25 }));
+      // S2 ready at the start, so it runs while the first enemies are still out of her front tiles (ranged hits)
+      const withMod = perHit(solo({ carryState: { sp: 999 } }, 2, { enemies, secs: 25 }));
+      const without = perHit(solo({ carryState: { sp: 999 } }, 2, { enemies, kits: plain, secs: 25 }));
       assert.ok(withMod > without * 1.1, `${withMod} vs ${without}`);
     });
 

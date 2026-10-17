@@ -529,9 +529,10 @@ function wangStone(bb, raw, def) {
   return kit;
 
   /**
-   * The enemies a stone's blast selects on tiles (dr, dc) around it: Battle.enemiesInKeys with canTargetEnemy — the
+   * The enemies a stone's blast selects on tiles (dr, dc) around it: Battle.enemiesOnTiles with canTargetEnemy — the
    * engine's selection (no 隐匿 unless revealed, no untargetable; 沉睡 is 无敌 anyway), flyers included, a huge enemy's
-   * body on any of the tiles (checklist: never loop battle.enemies to deal damage; review 2026-10-06).
+   * body on any of the tiles (checklist: never loop battle.enemies to deal damage; review 2026-10-06). The tile of the
+   * position, not the 0.1 collider: the 棋子 are tiles, as upstream keeps them [ASSUMED: no client check of the blast].
    */
   function blastFoes(battle, unit, offsets) {
     const keys = [];
@@ -539,7 +540,7 @@ function wangStone(bb, raw, def) {
       const r = unit.tileR + dr, c = unit.tileC + dc;
       if (battle.grid.inRect(r, c)) keys.push(r * COLS + c);
     }
-    return battle.enemiesInKeys(keys, unit, ANY);
+    return battle.enemiesOnTiles(keys, unit, ANY);
   }
   function inArea(e, unit) {
     const r = Math.round(e.y), c = Math.round(e.x);

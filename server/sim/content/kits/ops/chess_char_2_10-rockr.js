@@ -2,7 +2,7 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { canTargetEnemy } from '../../../targeting.js';
-import { bodyInKeys } from '../../../body.js';
+import { bodyInRange } from '../../../body.js';
 import { num, talentBb, up } from '../shared/tier1.js';
 import { onDefaultSkill } from '../shared/tier2.js';
 
@@ -49,7 +49,7 @@ export default {
         if (s2) battle.on('beforeAttack', (ctx) => {
           if (ctx.attacker !== unit || !unit.skill?.active) return;
           const L = unit.mem.rockLock;
-          if (L && L.alive && bodyInKeys(L, unit.rangeKeySet) && canTargetEnemy(unit, L, ctx.profile || unit.profile)) ctx.targets = [L];
+          if (L && L.alive && bodyInRange(L, unit.rangeKeySet) && canTargetEnemy(unit, L, ctx.profile || unit.profile)) ctx.targets = [L];
           else unit.mem.rockLock = ctx.targets[0] ?? null;
         }, { owner: unit });
         const iv = num(t.interval), max = Math.floor(num(t.max_stack_cnt)), v = num(t.atk);

@@ -555,9 +555,10 @@ test('user: Given normal battle-start effects, When rehearsing candidate layouts
     return { h, m, ps, pieces };
   };
   const cases = [
-    { effect: 'in-battle layer gains', keys: ['9,4', '9,8'] },
-    // (upstream used 9,9 → 9,7; in this fork's battles those two leak the same, 9,9 → 11,7 keeps a strict difference)
-    { effect: 'duck replacements and a teammate medic', keys: ['9,9', '11,7'] },
+    // (upstream used 9,4 → 9,8 and 9,9 → 9,7; with this fork's enemy collider every legal tile but 12,6 leaks one
+    // enemy here, so each pair starts from 12,6, which leaks seven)
+    { effect: 'in-battle layer gains', keys: ['12,6', '9,8'] },
+    { effect: 'duck replacements and a teammate medic', keys: ['12,6', '9,9'] },
   ];
   for (const { effect, keys } of cases) {
     await t.test(`user: Given ${effect}, When comparing two layouts, Then prefer the second layout's lower leak count`, () => {

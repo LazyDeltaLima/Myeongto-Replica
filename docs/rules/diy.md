@@ -378,6 +378,9 @@
   - 쓰면 안 되는 것: `battle.enemiesInRadius`(숨은 적만 뺌), `battle.unitsInGrid`(필터 없음), `battle.enemies`를 직접 돌며 피해 주기.
     `battle.enemies` 순회는 거리·칸 계산 같은 판단에만 쓴다.
   - 실제 사례: 첸 S3 검기·S2 첫 대상, 왕 바둑돌 발동·폭발이 은신 적을 때렸다.
+- 범위 칸 판정은 둘로 나뉜다(관리자 결정 2026-10-17, `sim.md` 「적 충돌 반경 0.1 — 평타·스킬 공격 범위」): 공격 범위·스킬이 치거나 고르는 범위는
+  적의 0.1 충돌 원(`battle.enemiesInKeys`·`unitsInGrid`·`bodyInRange`), 스킬 자동 발동의 rangeId 칸·칸 규칙(지형·장판·함정·「所在格」)은 위치의 칸
+  (`battle.enemiesOnTiles`·`anyEnemyOnTiles`·`bodyInKeys`·`bodyOnTile`). 키트가 자기 발동 조건을 rangeId 칸으로 직접 볼 때도 칸 쪽.
 - 이미 걸린 디버프의 틱 피해는 `ignoreSelect`(선택 규칙을 다시 보지 않음).
 - 기본 전략의 rangeId 상자(데이터 `DEFAULT` + `customRangeGrid`, 관리자 결정 2026-10-11)는 **선택 가능한** 적만 센다(클라
   `m_findEnemyTargetOptions`, 지상·공중) — 범위에 은신 적만 있으면 켜지지 않는다(첸 S2: 선택 가능한 적이 올 때까지 대기). 엔진 규칙

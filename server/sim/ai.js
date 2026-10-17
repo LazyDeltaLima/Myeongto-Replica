@@ -42,6 +42,7 @@ import { reduceElement } from './damage.js';
 import { straightClear } from './grid.js';
 import { moveFeared, endFear } from './fear.js';
 import { hypot, powi } from './detmath.js';
+import { bodyInRange } from './body.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // profiles
@@ -236,7 +237,7 @@ export function castFace(b, u, face) {
  */
 function holdFaceTarget(b, u, prof) {
   const t = u.faceTgt;
-  if (strikable(t) && (u.blocking.includes(t) || !u.rangeKeySet || u.rangeKeySet.has(tileKeyOf(t)))) return;
+  if (strikable(t) && (u.blocking.includes(t) || !u.rangeKeySet || bodyInRange(t, u.rangeKeySet))) return;
   const next = acquireTargets(b, u, prof);
   if (next.length) u.faceTgt = next[0];
   else faceIdle(b, u);

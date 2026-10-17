@@ -33,6 +33,18 @@ export const MIN_ANIM_SCALE = 0.1;
  */
 export const ALLY_COLLIDER_RADIUS = 0.25;
 /**
+ * Collider radius of an enemy (a regular one: a huge enemy's hit rectangle is its collider, body.js). The official
+ * client gives the enemy prefabs' root a trigger CircleCollider2D of radius 0.1 on the ENEMY layer, and an operator's
+ * normal-attack search (`RangeSelector` → `PhysicsRange` → `Physics2D.OverlapAreaNonAlloc` with the range's tile boxes)
+ * returns every enemy whose circle overlaps a box (PRTS 作战机制, above: "索敌抬手等均使用碰撞箱"; client disassembly,
+ * maintainer's notes): an attack range and a skill's attack range take an enemy within 0.1 of one of their tiles
+ * (body.js colliderKeys / bodyInRange, Battle.enemiesInKeys; maintainer decision 2026-10-17). A skill's AUTO-TRIGGER
+ * check of its range tiles (`LitePhysicsUtil._CheckContainsPosition`: the position's tile) and the tile rules
+ * (terrain, traps, fields and marks laid on tiles, "所在格" effects) keep the point — Battle.enemiesOnTiles, body.js
+ * bodyInKeys —; blocking and splash keep the position (中点判定).
+ */
+export const ENEMY_COLLIDER_RADIUS = 0.1;
+/**
  * Block contact (PRTS 游戏数据基础 §阻挡半径; 作战机制 §碰撞体积与位置识别 "中点判定 … 案例: 阻挡"): an unblocked enemy whose
  * position lies within the blocker's radius of the blocker's centre touches it — compared on squared distances, as the
  * official client does. Ground blocking 0.70709997 (² 0.49999037); air blocking (起飞 / blockFly units against flyers)
