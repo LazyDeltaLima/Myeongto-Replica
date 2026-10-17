@@ -275,7 +275,7 @@ describe('3: the temp overflow row (临时整备区)', () => {
     const game = read('public/js/screens/game.js');
     assert.match(game, /const tempNotice = temp\.count > 0 && !!view && viewKind !== 'loading' && showPrep && alive && !pen && !sp;/);
     assert.match(game, /<\$\{TempRowNotice\} view=\$\{view\} count=\$\{temp\.count\} items=\$\{temp\.items\} label=\$\{!drag && !facing\}\s+ready=\$\{phase === PHASE\.PREP && !!priv\?\.ready\} \/>/);
-    assert.match(game, /if \(refused\) \{ audio\.sfx\('error', \{ volume: 0\.5 \}\); toast\(refused, 'warn'\); return; \}/, 'Space says why (an open 教鞭 choice)');
+    assert.match(game, /if \(refused\) \{ audio\.sfx\('error', \{ volume: 0\.5 \}\); matchToast\(refused, 'warn'\); return; \}/, 'Space says why (an open 教鞭 choice)');
     const css = read('public/css/screens/game-panels.css');
     assert.match(css, /\.tempnote \{ position: fixed; inset: 0; z-index: 2; pointer-events: none; \}/, 'over the field, under the HUD, never takes the pointer');
   });
