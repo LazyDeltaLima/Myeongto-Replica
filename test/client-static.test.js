@@ -1304,7 +1304,7 @@ describe('multi-device & browser compatibility (static)', () => {
     assert.match(src, /\.screen:not\(\.gm\) \{[^}]*var\(--sa-t\)/);
     assert.match(src, /overscroll-behavior: none/);
     assert.match(src, /touch-action: none/);
-    assert.match(src, /width: max\(100%, var\(--tap-min\)\)/);
+    assert.match(src, /width: max\(100%, var\(--tap-w, var\(--tap-min\)\)\)/);
     assert.match(src, /--tap-min: 44px/);
   });
 });

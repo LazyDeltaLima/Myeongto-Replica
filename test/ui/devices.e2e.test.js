@@ -247,6 +247,100 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
     });
   }
 
+  /**
+   * Presses that a control's enlarged touch area (css/devices.css 「touch targets」) takes from ANOTHER control: points of
+   * each visible control's box (3 px inside its edges — a shared border is not a theft) where elementFromPoint answers a
+   * different control whose own box does not hold the point, while without that control the press would reach the
+   * first one (not a dialog or panel covering it anyway). Returns "victim ← thief (n points)" lines.
+   */
+  async function touchAreaThefts(page) {
+    return page.evaluate(() => {
+      const SEL = 'button, [role="button"], [role="tab"], [role="option"], a[href], input, select, summary, .scard, .lvcard, .dband, .bond, .pavatar';
+      const shown = (e) => {
+        for (let a = e; a && a !== document.body; a = a.parentElement) {
+          const cs = getComputedStyle(a);
+          if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) < 0.05) return false;
+        }
+        return !e.closest('.mockbar, details:not([open]) > :not(summary)');
+      };
+      const label = (e) => `${e.className || e.tagName} "${(e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 14)}"`;
+      const out = new Map();
+      for (const v of document.querySelectorAll(SEL)) {
+        const b = v.getBoundingClientRect();
+        if (b.width < 8 || b.height < 8 || !shown(v)) continue;
+        for (let y = b.top + 3; y <= b.bottom - 3; y += 2) for (let x = b.left + 3; x <= b.right - 3; x += 2) {
+          if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
+          const c = document.elementFromPoint(x, y)?.closest(SEL);
+          if (!c || c === v || c.contains(v) || v.contains(c)) continue;
+          const cb = c.getBoundingClientRect();
+          if (x >= cb.left && x <= cb.right && y >= cb.top && y <= cb.bottom) continue; // drawn on top: a popup, a card
+          const under = document.elementsFromPoint(x, y).find((e) => e !== c && !c.contains(e));
+          if (!under || !(under === v || v.contains(under))) continue;
+          const k = `${label(v)} ← ${label(c)}`;
+          out.set(k, (out.get(k) || 0) + 1);
+        }
+      }
+      return [...out].map(([k, n]) => `${k} (${n} points)`);
+    });
+  }
+
+  for (const dev of ['iphone14', 'pixel7', 'phone-min', 'ipad']) {
+    test(`${dev}: touch areas never take a neighbour's press (title, settings, room, strategy draft, prep, combat, result)`, async () => {
+      // the match screens (the mock's prep carries a full bond strip under 本局信息 / 敌方信息, a full shop) and a dialog
+      for (const q of ['phase=PREP', 'phase=COMBAT', 'phase=BAND_DRAFT', 'phase=RESULT']) {
+        const { page, problems } = await open(dev, q);
+        assert.deepEqual(await touchAreaThefts(page), [], `${dev} ${q}`);
+        if (q === 'phase=PREP') {
+          await page.evaluate(() => document.querySelector('.gm__more')?.click());
+          await sleep(300);
+          assert.deepEqual(await touchAreaThefts(page), [], `${dev} ${q} with ⋯ open`);
+        }
+        assert.deepEqual(problems, [], `${dev} ${q}`);
+        await page.close();
+      }
+      // the real title (its resource prompt with the voice switch), the lobby's 设置 dialog and a room's 难度 / 规则 bar
+      const ctx = await browser.createBrowserContext();
+      const { page, problems } = await open(dev, '/?lang=zh', { ctx }); // the taps below find buttons by their Chinese text
+      await page.waitForSelector('.title-screen', { timeout: 10000 });
+      await sleep(800);
+      assert.deepEqual(await touchAreaThefts(page), [], `${dev} title`);
+      const tapText = async (sel, text) => {
+        const r = await page.evaluate((s, tx) => {
+          const el = [...document.querySelectorAll(s)].find((x) => x.getBoundingClientRect().width > 1 && (!tx || x.textContent.includes(tx)));
+          if (!el) return null;
+          const b = el.getBoundingClientRect();
+          return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+        }, sel, text);
+        assert.ok(r, `${sel} ${text || ''}`);
+        await page.touchscreen.tap(r.x, r.y);
+        await sleep(350);
+      };
+      await page.evaluate(() => document.querySelector('.res-ask__no')?.click());
+      await tapText('.title-login input');
+      await page.keyboard.type('凯尔希');
+      await tapText('.title-login button', '开始');
+      await page.waitForSelector('.lobby-screen', { timeout: 15000 });
+      await sleep(400);
+      await tapText('.lobby-settings');
+      await page.waitForSelector('.modal', { timeout: 5000 });
+      await sleep(400);
+      assert.deepEqual(await touchAreaThefts(page), [], `${dev} settings`);
+      await page.evaluate(() => { const b = document.querySelector('.modal__body'); if (b) b.scrollTop = b.scrollHeight; });
+      await sleep(200);
+      assert.deepEqual(await touchAreaThefts(page), [], `${dev} settings (scrolled to the end)`);
+      await page.keyboard.press('Escape');
+      await sleep(300);
+      await tapText('.mode-card', '同盟模拟');
+      await tapText('.create-box button', '创建同盟');
+      await page.waitForSelector('.room-bar__right', { timeout: 15000 });
+      await sleep(500);
+      assert.deepEqual(await touchAreaThefts(page), [], `${dev} room`);
+      assert.deepEqual(problems, []);
+      await page.close();
+      await ctx.close();
+    });
+  }
+
   for (const dev of ['phone-min', 'iphone14']) {
     test(`${dev}: the left detail card leaves the corner buttons (⚙ 📖 ⛶) usable`, async () => {
       const { page, problems } = await open(dev, 'phase=PREP');
