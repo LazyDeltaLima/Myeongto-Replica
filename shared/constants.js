@@ -7,7 +7,7 @@ export const PROTOCOL_VERSION = 1;
  * (test/version.test.js); PROTOCOL_VERSION above is the separate wire-format number. Since 1.2.0 this is our own version
  * (docs/rules/README.md 「버전 표기」): the hard fork left upstream at 0.2.0, and the old LOCAL_VERSION / BASE pair became one
  * number. major = a big direction change, minor = a deploy with new features / screens, patch = a fix-only deploy. */
-export const APP_VERSION = '1.4.5';
+export const APP_VERSION = '1.4.6';
 /** A development build (the public `dev` branch): the title screen, the boot banner and the README say so, and
  * tools/package.mjs refuses to build a release zip from it without --allow-dev. */
 export const DEV_BUILD = /-dev$/.test(APP_VERSION);
