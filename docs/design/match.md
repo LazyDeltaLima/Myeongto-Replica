@@ -94,6 +94,12 @@ Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weigh
 
 ### 6.6 AI players (bot.js)
 
+After the greedy layout is complete, `planLayoutSteps` rechecks self-range guards on enemy-road tiles. An isolated
+guard may move to a free legal road tile with allied damage covering both it and the preceding tile of every incoming
+ground route. Different routes may have different supporting allies. The exposure score must not decrease [ASSUMED],
+regardless of seat count. Supported guards and guards without such an alternative keep their positions.
+These placement assumptions are tracked in upstream #315 (upstream 0a09b5d6, PR #452). An AI heuristic only.
+
 [ASSUMED] Cooperative buying (upstream 0.2.3, PR #407): bot purchasing applies one soft 18-point penalty to non-elite,
 non-DIY tier V/VI shared-pool cards whose active bonds overlap another living teammate's opening strategy
 (`gd.bandBondIds`, bonds the mode switches off excluded). Human and AI teammates count equally and several teammates do

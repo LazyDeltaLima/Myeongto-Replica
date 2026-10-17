@@ -176,6 +176,8 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
   - `92b97ecb` `ae1c21d9`(`git cherry-pick -x` + 손 정리, 대기열만 — 관리자 결정 2026-10-17): 임시 정비 구역 5칸 뒤 숨은 대기열, 지급·정예·보상·돌려받는
     장비를 반환·버림·파기 대신 대기열로. 안 받음: 대기열이 있으면 준비 거절·`Ready is refused` 문장(우리 `ui.md` 2026-10-10 규칙), `m.private`에 전체 대기열
     (우리는 앞 5칸만), 플러그인 DSL 지급 테스트, `docs/img/bench-overflow.png`·`docs/history`. `sim.md` 「임시 정비 구역 뒤 숨은 대기열」.
+  - `0a09b5d6`(PR #452, `git cherry-pick -x`; 그 머지 `4210fcb9`의 나머지는 upstream CI·로비 테스트): AI의 홀로 선 가드를 아군 엄호 칸으로 — AI 휴리스틱(`feat`),
+    `ui.md` 「AI 팀원 구매 양보」 아래.
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.
