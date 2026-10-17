@@ -70,15 +70,19 @@ export function toast(text, kind = 'info', opts = {}) {
   return t.id;
 }
 
+/** The ids of the toasts in the stack, leaving ones included (tests). */
+export const toastIds = () => toasts.map((t) => t.id);
+
 /**
  * Dismiss a toast (plays the exit animation, then removes it).
  * @param {number} id
  */
 export function dismissToast(id) {
   const t = toasts.find((x) => x.id === id);
-  if (!t) return;
+  // (a toast already leaving keeps its removal timer: clearing it here left an invisible toast on screen for good when
+  // a fading toast was clicked or dismissed again)
+  if (!t || t.leaving) return;
   clearTimeout(timers.get(id));
-  if (t.leaving) return;
   toasts = toasts.map((x) => (x.id === id ? { ...x, leaving: true } : x));
   emit();
   timers.set(id, setTimeout(() => {

@@ -956,7 +956,8 @@
 .toast--success { --tc: var(--mint-400); }
 .toast--warn { --tc: var(--amber); }
 .toast--error { --tc: var(--red-premium); }
-.toast.is-leaving { animation: toast-out var(--t-med) var(--ease-in-out) forwards; }
+/* a fading toast lets presses through (the 卫戍协议 toast sits in the middle of the board) */
+.toast.is-leaving { pointer-events: none; animation: toast-out var(--t-med) var(--ease-in-out) forwards; }
 /* the lobby and the room have a top bar (.topbar 1.1rem, the room's 1.36rem): toasts go under it, never over its title
    (classes set by the screens: html.sp-topbar / html.sp-topbar-tall) */
 .sp-topbar:not(.sp-in-match) .toast-host { top: 1.22rem; }
