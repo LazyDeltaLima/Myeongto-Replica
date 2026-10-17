@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1288 of 1506 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1289 of 1507 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1081,6 +1081,7 @@
   "当前延迟{ms}ms": "PING {ms}ms",
   "与服务器的连接已断开": "서버와 연결이 끊겼습니다",
   "存在进行中的模拟，是否继续？": "진행 중인 시뮬레이션이 있습니다. 이어서 진행하시겠습니까?",
+  "正在刷新…": "갱신 중…",
   "问题反馈": "문제 제보",
   "复制诊断信息": "진단 정보 복사",
   "遇到问题时，复制诊断信息并粘贴到 GitHub issue 中，开发者就能看到出错时的情况。诊断信息只在本机生成，不会自动上传；玩家名和房间号会被替换。": "문제가 생기면 진단 정보를 복사해 GitHub issue에 붙여 넣어 주세요. 오류가 났을 때의 상황을 개발자가 볼 수 있습니다. 진단 정보는 이 기기에서만 만들어지고 자동으로 올라가지 않으며, 박사 이름과 초대 코드는 다른 값으로 바뀝니다.",

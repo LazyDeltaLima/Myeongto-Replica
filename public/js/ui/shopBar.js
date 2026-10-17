@@ -36,6 +36,7 @@ import { shopArt, garrisonMarkUrl } from './shopArt.js'; // local patch: the off
 import { RollFx } from './shopRollFx.js';
 import { hotkeyLabelOf } from './settings.js';
 import { t } from '../../../shared/i18n.js';
+import { onRefreshBusy } from './gameActions.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -311,6 +312,9 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   const remaining = Math.max(0, (priv?.deployCap ?? 8) - (priv?.deployCount ?? 0));
   const lvReason = shopBlockReason('levelUp', { priv, editable });
   const refReason = shopBlockReason('refresh', { priv, editable });
+  // a 刷新 still waiting for its reply dims the button (upstream #501; the single-flight is ui/gameActions.js onRefreshBusy)
+  const [refreshBusy, setRefreshBusy] = useState(false);
+  useEffect(() => onRefreshBusy(setRefreshBusy), []);
   const frzReason = editable ? null : shopBlockReason('freeze', { priv, editable });
   const free = Number(shop.freeRefreshes) || 0;
   const showReward = !!(reward && Array.isArray(reward.slots) && reward.slots.length);
@@ -401,10 +405,10 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
         <${Img} src=${uiUrl(data.get('assets'), frozen ? 'shopPanel/frozen_icon2' : 'shopPanel/frozen_icon')} class="toolbtn__img" fallback=${html`<${Icon} name="snow" />`} />
         <span>${frozen ? t('解冻') : t('冻结')}</span><kbd>${hk.freeze}</kbd>
       </button>
-      <button type="button" class=${cx('toolbtn', 'toolbtn--amber', shop.refreshBoost && !refReason && 'is-boost')} disabled=${!!refReason} onClick=${onRefresh} title=${refReason || t('刷新商店 · {key}', { key: hk.refresh })}>
+      <button type="button" class=${cx('toolbtn', 'toolbtn--amber', shop.refreshBoost && !refReason && 'is-boost')} disabled=${!!refReason || refreshBusy} onClick=${onRefresh} title=${refReason || (refreshBusy ? t('正在刷新…') : t('刷新商店 · {key}', { key: hk.refresh }))}>
         <${Img} src=${uiUrl(data.get('assets'), 'shopPanel/refresh_icon')} class="toolbtn__img" fallback=${html`<${Icon} name="refresh" />`} />
         <span>${t('刷新')}</span>
-        ${free > 0 ? html`<span class="toolbtn__free">${t('免费 ×{free}', { free })}</span>` : html`<${HexBadge} value=${shop.refreshPrice ?? 1} tone=${refReason ? 'dark' : 'gold'} size="sm" />`}
+        ${free > 0 ? html`<span class="toolbtn__free">${t('免费 ×{free}', { free })}</span>` : html`<${HexBadge} value=${shop.refreshPrice ?? 1} tone=${refReason || refreshBusy ? 'dark' : 'gold'} size="sm" />`}
         <kbd>${hk.refresh}</kbd>
       </button>
     </div>

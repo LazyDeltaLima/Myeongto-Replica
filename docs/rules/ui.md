@@ -1353,3 +1353,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   고르는 사람에게도 켜져, 누르면 서버가 `BAD_TARGET 'nobody to pass to'`로 거부했다(`match/phases.js skipBand`). 이제 아직 안 고른 다른 사람이 있을 때만
   켠다(`screens/bandDraft.js draftCanPass`). 확인: `test/ui/bandDraft.test.js` 「skip requires a successor」(2·3·4명, 서버 거부 + 클라 판정). upstream의
   e2e(`band-draft-skip.e2e.test.js`)는 안 옮김 — 단위 시험이 같은 판정을 서버 공개 상태로 본다.
+- **갱신 연타 한 번만** (upstream `289a454f`, upstream #501): 지연이 클 때 응답 전에 「刷新」을 다시 누르면 `g.refresh`가 여러 번 가 여러 번 과금됐다. 이제
+  앞 요청이 응답을 받을 때까지 같은 요청은 버리고(`ui/gameActions.js actions.refresh`·`onRefreshBusy`), 그동안 갱신 버튼이 꺼지고 툴팁이 「갱신 중…」,
+  R 단축키도 같은 함수라 함께 막힌다. upstream은 `screens/game.js`가 상태를 내려 주지만 우리는 `ui/shopBar.js`가 직접 구독한다. 확인:
+  `test/ui/refresh-tap.test.js`(upstream 판 + 거부된 갱신도 풀림). upstream e2e(`refresh-tap.e2e.test.js`)는 안 옮김.
