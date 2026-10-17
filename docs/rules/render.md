@@ -693,8 +693,8 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   이름 가리기는 보고서 전체에 그대로 적용.
 - 확인: `test/diag.test.js`(부분·도착 설명, 앞 페이지 줄 3종, 이름 가리기), `test/diag-page.test.js`(읽기·쓰기·숨김·닫힘·뒤로 가기 캐시),
   `test/render/fieldview.browser.test.js` 「first frame」(Windows Chrome 렌더 데모: 텍스처 51개를 올린 뒤 2.6 s에 보임, 상한 안 닿음).
-  [화면 미확인] iPhone 홈 화면 앱: 재접속 진입에서 `shown`의 텍스처 시간·보인 프레임 draw가 11 s 멈춤을 얼마나 줄였는지, `setup` 9.5 s의 부분,
-  튕긴 뒤 다음 페이지에 `previous page:`가 붙는지.
+  iPhone 홈 화면 앱(1.4.6 관전 로그, 2026-10-17): 11 s 멈춤은 줄지 않고 텍스처 한 개의 bind로 옮겨 갔고(아래 「2D 판 타일 아틀라스」),
+  `setup`의 부분은 `tiles 7.3`, 앞 페이지 `previous page:`·`prev perf:`는 붙었다.
 
 ## 2D 판 타일 아틀라스·첫 텍스처 이름 (2026-10-17, 관리자 제공 iPhone 홈 화면 앱 관전 로그, 1.4.6, 품질 높음)
 - 로그: 진입이 간이 보기 → 늦은 엔진 → 3D(마운트 41.8 s 뒤) 순서라 그동안 2D 판이 화면에 있었다. `setup 7.6 (tiles 7.3, …)`,
