@@ -1437,10 +1437,13 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   `AutoChessUIPlugin.OnGameInit`이 `DisableFunction(0xF07B)`로 끈다 — 그래서 卫戍协议에서 수가 보이는 것은 AUTO 충전 스킬뿐(锡人 S2·锏 S2 같은
   MANUAL 충전 스킬은 표식 없음).
 - 모양(`arts/ui/[uc]battlecommon.ab` `char_skill_mark_panel` → `auto_skill_ready`): `sprite_circle` 36×36 `#404040` α.39 위에 화살표 고리
-  `sprite_auto` 50×50 `#ffd900`, 가운데 `text_skill_cnt`(크기 26, 3단위 위, `#ffd900`). 자리는 `_FollowPosition`(0xF2E9B0): 유닛 머리 지점의 UI
+  `sprite_auto` 50×50 `#ffd900`, 가운데 `text_skill_cnt`(크기 26, 3단위 위, `#ffd900`, 글꼴 `Novecentowide-Normal`, Shadow 검정 α.5 (1, −1)).
+  고리는 정지 그림이 아니다(2026-10-17 관리자 제보 「공식은 숫자를 둘러싼 화살표가 돈다」): `mark_skill_ready`에 `TweenRotate`(from 0 → to z 360,
+  10초, Ease 1 Linear, loop −1 Restart, `_ignoreTimeScale` 켬)가 붙어 있고 `ConstructTweener`(0x1E6DF20)는 `DORotate(…, RotateMode 3 LocalAxisAdd)`
+  — 10초(실시간, 배속·일시정지와 무관)에 한 바퀴, 화면에서 반시계 방향. 표식이 나타날 때 0°부터 돈다 [추정: 트윈 위상]. 자리는 `_FollowPosition`(0xF2E9B0): 유닛 머리 지점의 UI
   위치 + (0, 0.3, 0)(생성자의 `m_defaultSkillMarkLocalPositionOffset`, `.rdata` 0.3). 우리는 `fxpoints.js`의 `head`(char_points.py `_headTransform`,
   130명 중 128명이 뼈대 400단위 위)를 그려진 모델에 올리고 30단위 위 [추정: UI 카메라 0.3 = 캔버스 30단위]; 머리 지점·모델이 없으면 프리팹 자리
-  (hud_unit 위 154.7). 글꼴은 우리 것(Bender) [추정].
+  (hud_unit 위 154.7).
 - 구현: 시뮬 `local-hud.js chargeMark` → `b.snap.charge = [[id, n]]` → `interp.js`가 표본의 `.charge`로 → `units.js` → `hud-bars.js SkillMark`.
   그림은 로컬 추출(`extract.py` ui/battlecommon에 `sprite_auto`·`sprite_circle` 추가); 없으면 어두운 원 위 숫자만.
 - 충전이 실제로 쌓이고 이어서 쓰이는지(같은 제보 「저장되지 않고 사라지는지」): 풀의 충전 스킬 전부(chess.json `maxChargeTime` > 1, 63개 기물·스킬 조합)를
@@ -1449,7 +1452,8 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   안 쌓이는 것이 맞음. 조건이 사라지면(치료 뒤 아군이 다 참) 남은 충전은 그대로 남는다. 시뮬 수정 없음.
 - 확인: `test/render/charge-mark.test.js`(규칙, 실제 전투의 쌓임·연속 시전·목록, 실제 판 경로 至简 S2, interp, 그림 자리·색, 머리 지점). Windows Chrome
   디버그 아레나(2026-10-17): 瑕光·塞雷娅 정예 S1에 충전 2·1을 넣으면 머리 위 노란 고리 안 2·1, 풀어 두면 瑕光은 2 → 1 → 0으로 연달아 쓰고 표식이
-  사라짐(塞雷娅는 다친 아군이 없어 2 유지), 오류 0. [화면 미확인: 공식 녹화와 높이·글꼴 대조]
+  사라짐(塞雷娅는 다친 아군이 없어 2 유지), 오류 0. 고리 회전(2026-10-17): 같은 아레나에서 사리아·블레미샤인 정예 S1 충전 1, 전투를 멈춘 채
+  1.25초 간격 세 장 — 고리가 돌고 「1」이 Novecento 글꼴로 보임, 오류 0. [화면 미확인: 공식 녹화와 높이·회전 대조]
 
 ## 선택을 놓으면 단축키도 놓음 (2026-10-17, 플레이어 제보, 관리자 결정)
 

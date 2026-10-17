@@ -441,13 +441,19 @@ export class EquipBar {
 // (client UIHudCharSkillMarkPanel.UpdatePlugin: the panel's `_autoSkillMark` on while BasicSkill.availableCnt > 0, its
 // `_skillCntLabel` that count — sim local-hud.js chargeMark, b.snap `charge`). arts/ui/[uc]battlecommon.ab
 // char_skill_mark_panel `auto_skill_ready`: sprite_circle 36×36 #404040 α .39, its child sprite_auto (the ring of arrows)
-// 50×50 #ffd900, and text_skill_cnt (50×40, size 26, centred 3 up, #ffd900). The panel follows the unit's head point
+// 50×50 #ffd900 turning on its TweenRotate (local z 0 → 360 in 10 s, Ease Linear, loop −1 Restart, _ignoreTimeScale:
+// ConstructTweener = DORotate(…, RotateMode.LocalAxisAdd), so one turn every 10 s of real time, counter-clockwise on
+// screen), and text_skill_cnt (50×40, size 26, centred 3 up, #ffd900, font Novecentowide-Normal, Shadow black α .5 at
+// (1, −1): 1 right, 1 down). The ring starts its turn when the mark appears [추정: the tween's phase]. The panel follows the unit's head point
 // (`_FollowPosition`: the head transform's UI position + (0, 0.3, 0) — m_defaultSkillMarkLocalPositionOffset); here the
 // operator's `head` of fxpoints.js (char_points.py `_headTransform`: 400 skeleton units up for 128 of 130 operators) on the
 // drawn model, `headUp` units higher [추정: 0.3 of the UI camera's world taken as 30 canvas units]; a unit without a
-// points entry or a drawn model uses the prefab's own place, 154.7 over hud_unit [추정: the font is ours — the prefab's is
-// not read].
-export const SKILL_MARK = Object.freeze({ y: 154.7, headUp: 30, disc: 36, discColor: 0x404040, discAlpha: 0.39, ring: 50, color: 0xffd900, text: 26, textY: 3 });
+// points entry or a drawn model uses the prefab's own place, 154.7 over hud_unit.
+export const SKILL_MARK = Object.freeze({ y: 154.7, headUp: 30, disc: 36, discColor: 0x404040, discAlpha: 0.39, ring: 50, color: 0xffd900, text: 26, textY: 3, turn: 10 });
+const MARK_FONT = ['Novecento Wide', 'Bender', 'sans-serif'];
+/** The ring's angle (radians, Pixi: clockwise positive) `t` seconds after the mark appeared: −360° per SKILL_MARK.turn. */
+export const markRingAngle = (t) => -((((t % SKILL_MARK.turn) + SKILL_MARK.turn) % SKILL_MARK.turn) / SKILL_MARK.turn) * Math.PI * 2;
+const wallSec = () => (globalThis.performance?.now?.() ?? Date.now()) / 1000;
 let markPoints = null;
 loadPoints().then((p) => { markPoints = p; });
 /** The screen y (px) of a view's head point on its drawn model, or null (no points entry, no model drawn yet). */
@@ -466,24 +472,31 @@ export class SkillMark {
     this.root = new P.Container();
     this.disc = new P.Sprite(P.Texture.EMPTY); this.disc.anchor.set(0.5);
     this.ring = new P.Sprite(P.Texture.EMPTY); this.ring.anchor.set(0.5);
-    // drawn at 2× the official size and scaled down, so the glyphs stay sharp on a high-DPI view
-    this.label = new P.Text('', { fontFamily: 'Bender, Oxanium, sans-serif', fontSize: SKILL_MARK.text * 2, fontWeight: '700', fill: SKILL_MARK.color });
+    // drawn at 2× the official size and scaled down, so the glyphs stay sharp on a high-DPI view (the shadow's 1 unit = 2 px)
+    this.label = new P.Text('', {
+      fontFamily: MARK_FONT, fontSize: SKILL_MARK.text * 2, fill: SKILL_MARK.color,
+      dropShadow: true, dropShadowColor: '#000000', dropShadowAlpha: 0.5, dropShadowDistance: 2 * Math.SQRT2, dropShadowAngle: Math.PI / 4, dropShadowBlur: 0,
+    });
     this.label.anchor.set(0.5);
     this.root.addChild(this.disc, this.ring, this.label);
     this.root.visible = false;
     this.n = 0;
+    this.t0 = 0;
     parent.addChild(this.root);
+    // a number drawn before the font arrived keeps the fallback face: draw it again once loaded
+    try { globalThis.document?.fonts?.load?.(`${SKILL_MARK.text * 2}px "${MARK_FONT[0]}"`)?.then?.(() => { if (!this.label.destroyed) this.label.dirty = true; }, () => {}); } catch { /* ignore */ }
   }
 
   hide() { this.root.visible = false; }
 
   /**
    * Draw for feet at (x, y), `u` px per unit, `n` stored charges (≤ 0: hidden), over the head of `view` when its model point
-   * is known (headPointY); sprites from `assets` (local client).
+   * is known (headPointY); sprites from `assets` (local client); `now` = wall-clock seconds (the ring ignores game speed).
    */
-  update(x, y, u, n, assets = null, view = null) {
+  update(x, y, u, n, assets = null, view = null, now = wallSec()) {
     const M = SKILL_MARK;
     if (!(n > 0)) { this.hide(); return; }
+    if (!this.root.visible) this.t0 = now;
     this.root.visible = true;
     const head = headPointY(view);
     const cx = x, cy = head != null ? head - M.headUp * u : hudAnchorY(y, u) - M.y * u;
@@ -494,7 +507,7 @@ export class SkillMark {
     this.disc.tint = M.discColor; this.disc.alpha = disc ? M.discAlpha : 0.6;
     this.disc.position.set(cx, cy); this.disc.width = this.disc.height = M.disc * u;
     this.ring.visible = !!ring;
-    if (ring) { this.ring.texture = ring; this.ring.tint = M.color; this.ring.position.set(cx, cy); this.ring.width = this.ring.height = M.ring * u; }
+    if (ring) { this.ring.texture = ring; this.ring.tint = M.color; this.ring.position.set(cx, cy); this.ring.width = this.ring.height = M.ring * u; this.ring.rotation = markRingAngle(now - this.t0); }
     if (this.n !== n) { this.n = n; this.label.text = String(n); }
     this.label.position.set(cx, cy - M.textY * u);
     this.label.scale.set(u / 2);

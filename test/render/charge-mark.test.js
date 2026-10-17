@@ -116,6 +116,24 @@ describe('b.snap `charge` → the view', () => {
     assert.ok(!k.root.visible);
   });
 
+  test('the arrow ring turns as the prefab\'s TweenRotate: one turn per 10 s of wall time, counter-clockwise, from when it appears', () => {
+    const k = new HB.SkillMark(fake.P, new fake.P.Container());
+    const assets = { localUrl: (g, n) => `/local/${g}/${n}.png` };
+    const angle = (t) => { k.update(1000, 500, 2, 1, assets, null, t); return k.ring.rotation; };
+    assert.ok(Math.abs(HB.markRingAngle(2.5) + Math.PI / 2) < 1e-9, 'a quarter turn in 2.5 s, counter-clockwise (Pixi: negative)');
+    assert.ok(Math.abs(HB.markRingAngle(12.5) - HB.markRingAngle(2.5)) < 1e-9, 'restarts every 10 s');
+    assert.ok(Math.abs(angle(100)) < 1e-12, 'starts at 0 when the mark appears');
+    assert.ok(k.ring.visible);
+    assert.ok(Math.abs(angle(105) + Math.PI) < 1e-9, 'half a turn 5 s later');
+    k.update(1000, 500, 2, 2, assets, null, 106);
+    assert.ok(Math.abs(k.ring.rotation + Math.PI * 1.2) < 1e-9, 'a new count does not restart the turn');
+    k.update(1000, 500, 2, 0);
+    assert.ok(Math.abs(angle(200)) < 1e-12, 'shown again: starts over');
+    assert.deepEqual(k.label.style.fontFamily, ['Novecento Wide', 'Bender', 'sans-serif'], 'the prefab font Novecentowide-Normal');
+    assert.equal(k.label.style.dropShadow, true, 'the prefab Shadow (black α .5 at 1, −1)');
+    assert.equal(k.label.style.dropShadowAlpha, 0.5);
+  });
+
   test('over the drawn model\'s head point (fxpoints.js `head`) when known, else the prefab\'s own place', () => {
     const M = HB.SKILL_MARK;
     const pts = { char_x: { head: { F: { at: [0, 400] }, B: { at: [0, 450] } } } };
