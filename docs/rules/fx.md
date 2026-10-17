@@ -793,6 +793,13 @@
   놓은 棋子(`token_10064_wang_stone1` 배치)는 모델 그대로. 확인: Windows Chrome 디버그 아레나(S1, 자동 棋子) — 跟子 뷰 6개 모두 모델·그림자 꺼짐,
   칸마다 돌 하나(跟子 = 이펙트 돌, 棋子 = 모델), `wang_passive_01_start` → 0.25초 뒤 `wang_passive_01_buff`. 테스트 `local-deploy-drop.test.js`·
   `wang-stone-fx.test.js`. [화면 미확인: 실제 판]
+  같은 날 관리자 확인(아레나) 「재능 추가 바둑돌과 같이 그려지는 이펙트가 불일치」: 활성 휘감김(`wang_passive_01_buff_02`)·연결선(`token_wang_passive_01_line`)이
+  공 높이(`STONE_BALL` 0.18)로 올라가 이펙트 돌 위에 떠 있었다. 그 올림은 놓은 棋子 모델의 공(뿌리 위 0.18)에 맞춘 것 — 跟子의 공은 칸 점의 `qizi (1)`이고,
+  클라는 활성 이펙트를 그 투사체 위에 만든다(`WangStoneHitBehaviour.PlayStoneTriggeredEffect` RVA 0xA935C0 → `CreateEffect`, 투사체 `_triggeredEffect`),
+  프리팹이 휘감김을 제 높이(`line` 0.13–0.2)에 둔다. 공식도 跟子는 모델이 없다: `projectile_chr_wang_stone1/2/3`의 `Body`는 빈 노드, 렌더러 없음, 그림은
+  `EffectBehaviour`(`_effectsToTileWhenStart` 칸 이펙트·`_effectOnTrigger`·`_effectsWhenHit`)와 던짐 `WangVisualStoneMarkAbility`(ProjectileToTile)의
+  `_startEffect`뿐. 고친 것: 跟子(`follower`, 공식 돌 이펙트가 돌 때)의 연결선·활성 이펙트는 칸 점에(올림 없음), 놓은 棋子는 그대로 공에. 확인: 아레나
+  2배 픽셀 잘라 보기 — 휘감김이 공을 감싸고 연결선 십자가 공 중심을 지나 공식 캡처(비공개 조사 기록 2026-10-07 「공식 바둑알 빛 위치」)와 같은 배치.
 
 ### 적 이펙트 바인딩 (2026-10-10, 관리자 결정 (2026-10-10))
 근거: EN 클라 적 프리팹 `battle/enm_pfb_*.ab`, `[uc]projectiles.ab`, `config/buff_template_holder.ab`(버프 템플릿), 이펙트 번들 `pkgrps/btl_pfb_fx_enemy_*.ab`·

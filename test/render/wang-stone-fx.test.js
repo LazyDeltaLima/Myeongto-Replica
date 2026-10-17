@@ -57,7 +57,8 @@ test('the pre-entry buffer keeps a stone\'s wangLink (the prep-linked stones act
 
 test('the activation effect is kept on the stone\'s ball until its die', () => {
   // activation (STONE_ON): bound to the stone view and kept (playAt keep) until its 'die'
-  assert.match(SRC, /const on = isStone\(sv\) \? \{ at: ballOf\(sv\), owner: o\.id, keep: true \} : \{ at: onBall \};/);
+  // (a 跟子's on its tile point, unlifted — 2026-10-17, below)
+  assert.match(SRC, /const on = isStone\(sv\) \? \{ at: flat \? sv : ballOf\(sv\), owner: o\.id, keep: true \} : \{ at: flat \? at : onBall \};/);
   assert.match(SRC, /if \(l\.inst\.done && !\(l\.keep && !l\.inst\.stopping\)\) \{ dropLive\(l\); live\.splice\(i, 1\); \}/);
   // the 3-second replay of the 跟子's rings (a2bd93de, an assumption) is gone
   assert.doesNotMatch(SRC, /FOLLOWER_CYCLE|l\.cycle/);
@@ -110,6 +111,9 @@ test('the ball effects sit on the drawn ball anywhere on screen (maintainer repo
   assert.ok(worst > 0.05, `the drift this fixes (${worst.toFixed(3)} tile at the edge)`);
   assert.match(SRC, /return liftedPoint\(camRef, x, y, z0, r\.y, r\.x, r\.y - STONE_BALL \* r\.s, out, BALL_Q\);/);
   assert.match(SRC, /const onBall = ballAt\(at\.x, at\.y, 0\);/);
+  // (2026-10-17) a 跟子's ball is its effects' quad on the tile point: its link line and activation stay there, unlifted
+  assert.match(SRC, /const flat = !!o\.follower && stonesOn\(\);\n\s+playAt\(\['token_wang_passive_01_line'\], flat \? at : onBall/);
+  assert.match(SRC, /\{ at: flat \? sv : ballOf\(sv\), owner: o\.id, keep: true \}/);
   assert.doesNotMatch(SRC, /ballZ\(/);
 });
 

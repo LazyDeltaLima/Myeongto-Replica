@@ -834,10 +834,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     if (e[1] === 'wangLink') {
       if (o.first) {
-        playAt(['token_wang_passive_01_line'], onBall, { under: true });
+        // (2026-10-17) a 跟子 is its effects' stone (units.js drawnByFx): its ball, `qizi (1)`, is on the tile point and the
+        // client makes its activation on the projectile there (WangStoneHitBehaviour.PlayStoneTriggeredEffect RVA 0xA935C0)
+        // — the prefabs' own heights (wisps `line` 0.13–0.2) wrap it; STONE_BALL lifts only to a placed 棋子's model ball
+        const flat = !!o.follower && stonesOn();
+        playAt(['token_wang_passive_01_line'], flat ? at : onBall, { under: true });
         // local patch: the activation effect of its own kind (STONE_ON), on the ball, kept while the stone stands
         const sv = views.get(o.id);
-        const on = isStone(sv) ? { at: ballOf(sv), owner: o.id, keep: true } : { at: onBall };
+        const on = isStone(sv) ? { at: flat ? sv : ballOf(sv), owner: o.id, keep: true } : { at: flat ? at : onBall };
         playAt([o.follower ? STONE_ON.follower : STONE_ON.stone], on.at, { owner: on.owner, keep: on.keep, bundle: o.follower ? FOLLOWER_FX : STONE_FX });
       }
       return true;
