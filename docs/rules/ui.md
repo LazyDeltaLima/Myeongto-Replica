@@ -1368,3 +1368,7 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
 - **선발 오퍼레이터만 바꾼 편성의 「导出」** (upstream `7a65577c`): 「导出」는 바꾼 오퍼레이터 수(`ui/loadoutModel.js changedCount`, 일반 명단만 셈)가 0이면
   꺼져, 선발 편성 탭에서 선발 오퍼레이터의 잠재·练度만 바꾼 경우 내보낼 수 없었다. 이제 `ops`가 비어 있지 않으면 켠다(`screens/loadout.js`). 「全部恢复默认」는
   그대로 일반 명단만 되돌린다(선발 몫은 선발 편성 탭 것). 확인: `test/ui/loadout-ops-import.test.js` 마지막 사례(소스 검사; upstream e2e는 안 옮김).
+- **「全部恢复默认」을 옛 동기화가 덮어씀** (upstream `19c854c1`·`52b70434`, PR #540): 편성 동기화(`ui/loadoutSync.js installPrefSync`)의 `prepare()`가
+  `chess`·`backups` 데이터를 기다리는 동안 「全部恢复默认」(또는 다른 수정)이 빈 편성을 먼저 보내도, 늦게 끝난 옛 준비가 옛 편성을 다시 보내 서버 사본을
+  되돌렸다. 이제 수정·`welcome`마다 리비전을 올리고, 준비가 끝났을 때 리비전이 바뀌었으면 보내지도 상태를 바꾸지도 않는다(선발 편성·소유 동기화도 같은 함수).
+  확인: `test/ui/loadout-sync-stale.test.js`(upstream 판, 수정 전 코드로 7건 실패 확인). 52b70434의 `tools/package.mjs`(#530 #531)는 우리에게 없음.
