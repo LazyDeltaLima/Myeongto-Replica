@@ -218,6 +218,20 @@ function MatchScreen() {
   const barRef = useRef(null);
   const hudElRef = useRef(null);                         // .gm__hud (inside the safe-area insets: the panels' frame)
   const { view, kind: viewKind, upgrading: viewUpgrading } = useFieldView(hostRef);
+  // the loading screen stays until the engine has drawn its first frame of the field (render/app.js isReady / 'ready':
+  // the textures go up behind it); a view without isReady (the DOM view) is ready at once, and so is a late engine
+  // taking over from the DOM view already on screen (no second loading screen, ui/fieldHost.js)
+  const [readyView, setReadyView] = useState(null);
+  const shownView = useRef(null); // the view last shown; null while a mount loads
+  useEffect(() => {
+    if (!view) { shownView.current = null; return undefined; }
+    const ready = () => { shownView.current = view; setReadyView(view); };
+    if (shownView.current || view.isReady() !== false) { ready(); return undefined; }
+    const off = view.on('ready', ready);
+    if (view.isReady() !== false) ready();
+    return off;
+  }, [view]);
+  const fieldLoading = viewKind === 'loading' || (!!view && readyView !== view);
 
   const [watching, setWatching] = useState(null);        // fieldId the player chose to watch (null = home)
   const [watchWho, setWatchWho] = useState(null);        // { fieldId, playerId }: the teammate picked with 前往查看
@@ -1682,7 +1696,7 @@ function MatchScreen() {
   return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', collapsed && 'is-collapsed', (sp || hasPersonalChoice) && 'has-sp', pen && 'is-pen', readyWhy && 'has-readywhy', hudLook.cls)}
       style=${hudLook.style} data-camera=${pen ? 'pen' : camKind}>
     <div class="gm__field" ref=${hostRef} onContextMenu=${(e) => e.preventDefault()}></div>
-    ${viewKind === 'loading' ? html`<div class="gm__loading"><${Spinner} label="LOADING FIELD" /></div>` : null}
+    ${fieldLoading ? html`<div class="gm__loading"><${Spinner} label="LOADING FIELD" /></div>` : null}
     <div class="gm__vignette" aria-hidden="true"></div>
     ${tempNotice ? html`<${TempRowNotice} view=${view} count=${temp.count} items=${temp.items} label=${!drag && !facing}
       ready=${phase === PHASE.PREP && !!priv?.ready} />` : null}
@@ -1801,7 +1815,7 @@ function MatchScreen() {
       </span>
     </div>
 
-    ${loadArt ? html`<${LoadingScreen} show=${phase === PHASE.BATTLE_CHECK || (viewKind === 'loading' && phase !== PHASE.RESULT)} art=${loadArt} tips=${gd.config?.tips} />` : null}
+    ${loadArt ? html`<${LoadingScreen} show=${phase === PHASE.BATTLE_CHECK || (fieldLoading && phase !== PHASE.RESULT)} art=${loadArt} tips=${gd.config?.tips} />` : null}
     <${BottomTips} type=${tipType} shopOpen=${shopOpen} />
     <${WaitingDialog} phase=${phase} deadline=${pub?.deadline} paused=${paused} now=${serverNow} />
     ${opening ? html`<${GameStartBanner} onDone=${() => { setOpening(false); audio.sfx('roundStart'); }} />` : null}

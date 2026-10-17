@@ -60,5 +60,7 @@ test('the match\'s end keeps the field until m.result lands; the loading screen 
   assert.match(src, /else if \(!hasResult && mode === 'result' && endRef\.current\.onField\) body = html`<\$\{MatchScreen\} \/>`;/);
   assert.match(src, /if \(status && pub && endRef\.current\.onField && battleArt\('ending'\)\.cls\)/);
   assert.match(src, /endRef\.current\.onField = body\.type === MatchScreen;/);
-  assert.match(src, /show=\$\{phase === PHASE\.BATTLE_CHECK \|\| \(viewKind === 'loading' && phase !== PHASE\.RESULT\)\}/);
+  assert.match(src, /show=\$\{phase === PHASE\.BATTLE_CHECK \|\| \(fieldLoading && phase !== PHASE\.RESULT\)\}/);
+  // the field still loading = the engine not mounted yet, or its first frame still held back (render/app.js isReady)
+  assert.match(src, /const fieldLoading = viewKind === 'loading' \|\| \(!!view && readyView !== view\);/);
 });

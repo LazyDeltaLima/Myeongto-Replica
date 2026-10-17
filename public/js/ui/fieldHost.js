@@ -36,8 +36,9 @@ const SWAP_HOLD_MS = 150;
 const METHODS = ['setStage', 'setCamera', 'setPrep', 'enterBattle', 'pushSnapshot', 'pushEvents', 'highlightTiles', 'on', 'resize', 'destroy'];
 // direction-step hooks (ui/facingWheel.js): optional — the wheel falls back to the engine's dev hooks when absent;
 // setPen (enemy preview pen list), prepField ({ kind, side, mirror } of the Final Assault prep), stripesUnder (the view
-// stripes range previews under the units itself) — render/app.js; the DOM fallback lacks them (→ null)
-const OPTIONAL = ['pieceScreenRect', 'setSettings', 'off', 'tileScreen', 'holdPiece', 'setPieceDir', 'setPen', 'prepField', 'stripesUnder'];
+// stripes range previews under the units itself), isReady (false while the engine's first frame is still held back
+// behind the loading screen, its 'ready' event ends it) — render/app.js; the DOM fallback lacks them (→ null)
+const OPTIONAL = ['pieceScreenRect', 'setSettings', 'off', 'tileScreen', 'holdPiece', 'setPieceDir', 'setPen', 'prepField', 'stripesUnder', 'isReady'];
 
 /**
  * Camera padding (px) that keeps the field clear of the DOM HUD (top bar + bond strip, team panel, shop bar /
@@ -269,7 +270,7 @@ export async function mountFieldView(host, { signal, late = false } = {}) {
     const timing = mountTimer(); // the report's `mount:` line (diag.js): which stage a slow field load spent its time in
     // the factory's stages count while the race runs; what arrives after it was lost is noted as `late` only
     let racing = true;
-    const stages = { step: (name, cut) => { if (racing) timing.step(name, cut); }, late: (name) => timing.late(name), done: (kind) => timing.done(kind) };
+    const stages = { step: (name, cut) => { if (racing) timing.step(name, cut); }, part: (name) => { if (racing) timing.part?.(name); }, late: (name, detail) => timing.late(name, detail), done: (kind) => timing.done(kind) };
     // A factory that ignores cancellation still belongs to this attempt when it eventually returns.
     // `deadline`: the engine cuts its optional waits (art, 3D board) to fit this race instead of losing it
     const start = (mod, budget) => {

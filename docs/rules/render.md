@@ -665,6 +665,34 @@ ON_BUFF_FINISH에 대상이 살아 있을 때만(`IfTarget _checkTargetAlive`) +
   Safari의 KHR_parallel_shader_compile 지원 여부(없으면 `compileAsync`도 준비 단계에서 메인 스레드를 막는다 — 멈춤이 3D가 보이기 전으로 옮겨질 뿐이고,
   텍스처를 나눠 올리는 몫만 남음).
 
+## 필드 첫 프레임 미리 올리기·튕긴 페이지 기록 (2026-10-17, 관리자 제공 iPhone 홈 화면 앱 관전 로그 두 개, 품질 중, 4인 협동 ABYSS)
+- 로그: 8라운드까지 관전하다 페이지가 통째로 다시 열렸다(`page open 0m 37s` — 소켓만 끊긴 게 아님). 성능 표본·오류 기록은 메모리에만 있어
+  그 전 라운드의 수치가 모두 사라졌다. 남은 37초: `mount:` `engine in 12.5 s`(그중 `setup` 9.5 s — 동기 구간이라 안쪽을 몰랐음), 이어
+  `stalls`가 두 표본에 걸친 하나의 멈춤(14 s + 11.2 s: 그 사이 프레임 하나, 그 프레임의 PIXI 그리기 11 s — `draw 1107.5` = 지수 평균 0.1 × 11075)
+  — 로딩 화면은 DOM이지만 지우는 것도 다음 화면 갱신이라 약 25초 그대로 떠 있었다. 다시 관전한 R8–R10은 품질 중에서 57–60 fps(js 3–5 ms).
+  JS가 짧은데 그리기가 길어 GPU 쪽(첫 그리기의 텍스처 업로드·셰이더 컴파일)으로 봤으나, 같은 때 3D 보드도 준비 중이라 그 GPU 일을 기다린
+  몫일 수도 있다 — 아래 계측으로 가른다.
+- 처리 ① 필드 첫 프레임(`render/app.js` 「first frame」): 마운트가 끝나도 view가 준비될 때까지 world 층을 그리지 않고(`renderable`), 프레임마다
+  화면에 걸린 base texture 중 아직 GPU에 없는 것을 `UPLOAD_MS` 6 ms 안에서(최소 하나) `renderer.texture.bind`로 올린다. 스테이지나 모드가
+  들어오고, 불러오는 유닛 모델(`_spineBusy`)이 없고, 올릴 텍스처가 두 프레임 연속 없으면 world를 한 프레임 그리고 그 뒤 `ready`를 낸다
+  (`view.isReady()`). 마운트 뒤 `READY_MAX_MS` 6초면 그대로 연다(남은 것은 예전처럼 그 프레임에). `[ASSUMED]` 6 ms·6초. 경기 화면
+  (`screens/game.js`)은 `ready`까지 로딩 화면·`LOADING FIELD`를 유지한다 — 멈춘 필드 대신 움직이는 로딩 화면, 대신 유닛 모델이 다 올 때까지
+  (최대 6초) 로딩 화면이 더 길 수 있다. 간이 보기(DOM)는 바로 준비, 간이 보기에서 넘겨받는 늦은 엔진도 로딩 화면을 다시 띄우지 않는다.
+- 처리 ② 계측: `mount:` 줄의 `setup`이 부분을 나열한다(`setup 9.5 (app …, fx layer …, backdrop …, tiles …, effects …, 3d …, fonts …, input …,
+  layout …, rest …)`, 0.05초 미만은 생략; `diag.js mountTimer` `part`). `arrived:`에 `frame n s (js, draw ms)`(마운트 시작 뒤 첫 PIXI 그리기 —
+  world는 아직 안 그림)와 `shown n s (텍스처 n개 n s, 가장 긴 한 개 ms, 보인 프레임 js·draw ms[, cut at 6 s][, 3d still warming])`.
+  이펙트 층 비용(`fx`)의 지수 평균이 이펙트 없는 프레임에서 서 있던 것도 고쳤다 — 이제 그 프레임은 0으로 섞인다(이전 로그의 `js 3 (fx 24.6)`처럼
+  js보다 큰 값이 나왔음).
+- 처리 ③ 앞 페이지 기록(`diag.js installPageRecord`, `main.js` boot): 이 페이지의 보고서 줄(`render events:`·`mount:`·`perf:`·최근 오류 10개)을
+  localStorage `sp.diag.page`에 둔다 — 보이는 동안 10초마다, 오류·렌더 사건·마운트 단계 1초 뒤, 숨김·닫힘 때 바로. 다음 페이지의 진단 정보 끝에
+  `previous page:` 줄(열린 구간, 버전, 끝난 방식: `closed`(pagehide) / `ended in the background, hidden since …` / `on screen at its last record`
+  (튕김 또는 화면에 있는 채 시스템이 끝냄))과 `prev …` 줄. 6시간 넘은 기록은 안 붙인다. 브라우저당 한 기록이라 탭 둘이면 서로 덮어쓴다.
+  이름 가리기는 보고서 전체에 그대로 적용.
+- 확인: `test/diag.test.js`(부분·도착 설명, 앞 페이지 줄 3종, 이름 가리기), `test/diag-page.test.js`(읽기·쓰기·숨김·닫힘·뒤로 가기 캐시),
+  `test/render/fieldview.browser.test.js` 「first frame」(Windows Chrome 렌더 데모: 텍스처 51개를 올린 뒤 2.6 s에 보임, 상한 안 닿음).
+  [화면 미확인] iPhone 홈 화면 앱: 재접속 진입에서 `shown`의 텍스처 시간·보인 프레임 draw가 11 s 멈춤을 얼마나 줄였는지, `setup` 9.5 s의 부분,
+  튕긴 뒤 다음 페이지에 `previous page:`가 붙는지.
+
 ## upstream 버그 이슈 이식 — 렌더 (2026-10-15)
 upstream 새 버그 이슈의 수정 PR 중 sim 수정에 기대는 렌더 쪽(관리자 결정 2026-10-15). sim 쪽 근거는 `sim.md` 「upstream 버그 이슈 이식 (2026-10-15)」.
 - **假想敌：镜膜 멈춘 팬**(upstream #481, upstream PR #613): sim이 첫 침묵에 폼 `stopped`를 낸다 → `units.js FORMS.enemy_9011_acrefr.stopped` =

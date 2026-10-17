@@ -937,7 +937,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 아래 「클라 코드」). 한국어는 관리자가 본 공식 KR 문구, 나머지는 관리자 「적절하게 번역」 지시로 우리가 정함(KR 번역 표는 클라에 없음).
 그림은 로컬 추출(`data/local-assets.json` ui/battle)에 있어야 뜨고, 없으면 upstream 배너가 그대로 남는다(`ui/battleArt.js battleArt`).
 코드: `public/js/ui/battleArt.js`, `public/css/battle-art.css`, 연결은 `screens/game.js`. 동작 곡선(크기·투명도 변화)은 클립을 키 단위로 옮기지 않은 [추정].
-- 로딩 화면(BATTLE_CHECK, 3D 화면 로딩 중): 공식 일반 전투 로딩 `UIBattleLoading` + `UIStageInfo`(클라 코드 `UIStageInfo.SetData`: 「Operation」 + 코드 + 이름).
+- 로딩 화면(BATTLE_CHECK, 3D 화면 로딩 중 — 엔진이 필드 첫 프레임을 그릴 때까지, render.md 「필드 첫 프레임 미리 올리기」): 공식 일반 전투 로딩 `UIBattleLoading` + `UIStageInfo`(클라 코드 `UIStageInfo.SetData`: 「Operation」 + 코드 + 이름).
   그림 = 모드의 `loadingPicId`(`data/config.json modes[].loadingPic`, 웹 소재 `loading/loading_ac_*` — AC-1 노랑 … AC-4 빨강, 1024² 그림을 공식처럼 16:9로 늘려 그림 — 관리자 확인 2026-10-12),
   글자 배치는 `act2autochess_battle_ui_plugin`의 `panel_battlestart`(Operation 30 · 코드 90 · 이름 60, Novecento wide / Noto), 아래 팁 = 공식 `gameTipsList`
   무작위 하나, 오른쪽 아래 「Loading」 + 점. 이름은 모드 이름 그대로 — 「AC-4 초월 시뮬레이션」(관리자 결정 2026-10-11: 「시뮬레이션」을 붙임. 2026-10-10에는 KR 캡처

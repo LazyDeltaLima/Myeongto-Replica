@@ -1,8 +1,9 @@
 // public/js/diag.js — the client's error log and the diagnostics a player copies into a bug report (设置 → 问题反馈).
 //
 // Nothing leaves the browser. The log is kept in memory (the last LOG_MAX entries, an identical error in a row counted
-// on its entry); the report is plain text the player copies and pastes into a GitHub issue, with the player names,
-// the room code and the reconnect token replaced and the page's host cut from every URL. A secret is a whole token in
+// on its entry) and, as this page's report lines, in localStorage for the page after it (installPageRecord); the
+// report is plain text the player copies and pastes into a GitHub issue, with the player names, the room code and
+// the reconnect token replaced and the page's host cut from every URL. A secret is a whole token in
 // the prose and an exact string value in the attached battle JSON, so a name never rewrites a longer id. The battle
 // on screen can be attached as its BattleSpec (the b.start a browser receives: player ids, no names), which the dev
 // tools replay.
@@ -25,6 +26,9 @@
 //   mountTimer()                       times one field mount (fieldHost + createFieldView stages, late art / 3D / scene)
 //                                      for the report's `mount:` lines (+ the downloads in that window, Resource Timing)
 //   mountRecords() / clearMountRecords() / mountNet(m, resources)
+//   installPageRecord()                main.js boot: this page's log, render events, mounts and perf lines kept in
+//                                      localStorage, so the page after a crash or a reload reports them (`prev …` lines)
+//   previousPage() / pageRecord()      that record of the page before this one / of this page
 //   buildDiagnostics(input)            the report text (pure: the state, the environment and the battle are passed in)
 //   diagnosticsText({ state, settings, attachBattle })  the report of this page (this browser, the battle on screen)
 //
@@ -59,6 +63,7 @@ export const RENDER_MAX = 12;
 export function noteRender(event, detail = null, at = Date.now()) {
   renderLog.push({ at, event: String(event), detail: detail == null ? null : stripHosts(String(detail)).slice(0, MESSAGE_MAX) });
   if (renderLog.length > RENDER_MAX) renderLog.splice(0, renderLog.length - RENDER_MAX);
+  notePage();
 }
 export const renderEvents = () => renderLog.map((e) => ({ ...e }));
 export function clearRenderEvents() { renderLog.length = 0; }
@@ -72,24 +77,40 @@ try { globalThis.performance?.setResourceTimingBufferSize?.(3000); } catch { /* 
 /**
  * Time one field mount (ui/fieldHost.js → render/app.js createFieldView) for the report's `mount:` lines: `step(name,
  * cut)` closes a stage (ms since the previous one; `cut` = its wait ended by the deadline, not by the thing arriving),
- * `done(kind)` the mount ('engine' | 'fallback' | 'cancelled'), `late(name)` when something arrived, from the mount's
- * start (art, 3d, scene — during or after the mount; first of each name only). The last MOUNT_MAX mounts are kept. The
- * field load on phones is slow (maintainer report 2026-10-12) — this says which stage.
+ * `part(name)` closes a part of the stage still open (the long synchronous `setup`: the stage lists its parts and the
+ * `rest` after the last one), `done(kind)` the mount ('engine' | 'fallback' | 'cancelled'), `late(name, detail?)` when
+ * something arrived, from the mount's start (art, 3d, scene, the first frame, the field shown — during or after the
+ * mount; first of each name only). The last MOUNT_MAX mounts are kept. The field load on phones is slow (maintainer
+ * report 2026-10-12) — this says which stage.
  * @param {() => number} [now] ms clock (performance.now)
  */
 export function mountTimer(now = () => globalThis.performance.now()) {
   const t0 = now();
-  let last = t0;
+  let last = t0, lastPart = t0;
+  let parts = [];
   const rec = { at: Date.now(), t0, kind: null, total: null, steps: [], late: [] };
   mountLog.push(rec);
   if (mountLog.length > MOUNT_MAX) mountLog.splice(0, mountLog.length - MOUNT_MAX);
+  notePage();
   return {
-    step(name, cut = false) { const t = now(); rec.steps.push({ name: String(name), ms: t - last, cut: !!cut }); last = t; },
-    late(name) { if (rec.late.length < LATE_MAX && !rec.late.some((e) => e.name === name)) rec.late.push({ name: String(name), ms: now() - t0 }); },
-    done(kind) { if (rec.kind == null) { rec.kind = String(kind); rec.total = now() - t0; } },
+    step(name, cut = false) {
+      const t = now();
+      const s = { name: String(name), ms: t - last, cut: !!cut };
+      if (parts.length) { s.parts = [...parts, { name: 'rest', ms: t - lastPart }]; parts = []; }
+      rec.steps.push(s);
+      last = lastPart = t;
+    },
+    part(name) { const t = now(); parts.push({ name: String(name), ms: t - lastPart }); lastPart = t; },
+    late(name, detail = null) {
+      if (rec.late.length < LATE_MAX && !rec.late.some((e) => e.name === name)) {
+        rec.late.push({ name: String(name), ms: now() - t0, ...(detail ? { detail: String(detail).slice(0, MESSAGE_MAX) } : {}) });
+        notePage();
+      }
+    },
+    done(kind) { if (rec.kind == null) { rec.kind = String(kind); rec.total = now() - t0; notePage(); } },
   };
 }
-export const mountRecords = () => mountLog.map((m) => ({ ...m, steps: m.steps.map((s) => ({ ...s })), late: m.late.map((e) => ({ ...e })) }));
+export const mountRecords = () => mountLog.map((m) => ({ ...m, steps: m.steps.map((s) => ({ ...s, ...(s.parts ? { parts: s.parts.map((p) => ({ ...p })) } : {}) })), late: m.late.map((e) => ({ ...e })) }));
 export function clearMountRecords() { mountLog.length = 0; }
 
 const sec = (ms) => (ms / 1000).toFixed(1);
@@ -158,11 +179,13 @@ export function recordError(source, err, detail = null, at = Date.now()) {
   if (last && last.source === source && last.message === message && last.stack === stack && last.detail === det && last.battleId === battleId) {
     last.count++;
     last.lastAt = at;
+    notePage();
     return last;
   }
   const e = { source: String(source), message, stack, detail: det, battleId, at, lastAt: at, count: 1 };
   log.push(e);
   while (log.length > LOG_MAX) { log.shift(); dropped++; }
+  notePage();
   return e;
 }
 
@@ -294,6 +317,113 @@ const spanOf = (ms) => {
 };
 const join = (...parts) => parts.filter((p) => p != null && p !== '' && p !== false).join(' | ');
 
+/** The `render events:` line, or null. */
+function renderEventsLine(rev) {
+  return rev.length ? `render events: ${rev.map((e) => `${clockOf(e.at)} ${e.event}${e.detail ? ` (${e.detail})` : ''}`).join('; ')}` : null;
+}
+/** One `mount:` line per mount; a stage with parts lists those of 0.05 s or more. */
+function mountLines(mounts, resources) {
+  return mounts.map((m) => {
+    const head = m.kind ? `${m.kind} in ${sec(m.total)} s` : 'loading';
+    const steps = m.steps.map((s) => {
+      const parts = (s.parts || []).filter((p) => p.ms >= 50);
+      return `${s.name} ${sec(s.ms)}${parts.length ? ` (${parts.map((p) => `${p.name} ${sec(p.ms)}`).join(', ')})` : ''}${s.cut ? ' cut' : ''}`;
+    }).join(', ');
+    const late = m.late.length ? `arrived: ${m.late.map((e) => `${e.name} ${sec(e.ms)} s${e.detail ? ` (${e.detail})` : ''}`).join(', ')}` : null;
+    const net = resources ? mountNet(m, resources) : null;
+    return `mount: ${join(`${clockOf(m.at)} ${head}`, steps || null, late,
+      net && net.files ? `net ${net.files} files, ${net.mb.toFixed(1)} MB${net.cached ? `, ${net.cached} cached` : ''}` : null)}`;
+  });
+}
+/** The `errors:` line and the entries, newest first. */
+function errorLines(entries, tot, drop) {
+  const lines = [`errors: ${tot ? `${tot} recorded${drop ? `, ${drop} oldest entries dropped` : ''}` : 'none recorded'}`];
+  entries.slice().reverse().forEach((e, i) => {
+    lines.push(`#${i + 1} ${clockOf(e.at)}${e.count > 1 ? ` (x${e.count}, last ${clockOf(e.lastAt)})` : ''} ${e.source}: ${e.message}`
+      + (e.battleId ? ` [battle ${e.battleId}]` : ''));
+    if (e.detail) lines.push(`   ${e.detail}`);
+    if (e.stack) for (const l of e.stack.split('\n')) lines.push(`   ${l}`);
+  });
+  return lines;
+}
+
+// ---- the page before this one ----------------------------------------------------------------------------------
+// A phone ends a page without a word: iOS frees a home-screen app's page in the background or when it runs out of
+// memory, and the page that opens next starts with an empty log, no perf samples and no mounts (an iPhone report of
+// 2026-10-17: a match watched to round 8, the page reopened mid-match, the report covered its last 37 s). So this page
+// keeps its report lines in localStorage (every PAGE_BEAT_MS while shown, a second after an error / render event /
+// mount stage, at once when hidden or closed) and the next page's report lists them as `prev …` lines, with how the
+// page ended: closed (pagehide), ended in the background (hidden at its last record) or ended on screen (a crash, or
+// the system ended it while shown). One record for the browser: two open tabs overwrite each other's.
+const PAGE_KEY = 'sp.diag.page';
+export const PAGE_BEAT_MS = 10_000;
+/** A record older than this when this page opened is not reported. */
+export const PAGE_KEEP_MS = 6 * 3600_000;
+const PAGE_ERRORS = 10;
+let pageOn = false;
+let prevPage = null;
+let pageVis = 'visible', hiddenAt = null, pageEnded = false;
+let saveTimer = 0;
+const storage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
+
+/** This page's record as the next page would report it. @param {number} [now] */
+export function pageRecord(now = Date.now()) {
+  let resources;
+  try { resources = globalThis.performance?.getEntriesByType?.('resource') ?? null; } catch { resources = null; }
+  const errs = errorLog().slice(-PAGE_ERRORS);
+  return {
+    v: 1, start: pageStart, at: now, version: APP_VERSION, vis: pageVis, hiddenAt, ended: pageEnded,
+    lines: [renderEventsLine(renderEvents()), ...mountLines(mountRecords(), resources), ...perfLines().map((l) => `perf: ${l}`),
+      ...errorLines(errs, total, dropped + log.length - errs.length)].filter(Boolean),
+  };
+}
+function savePage() {
+  if (!pageOn) return;
+  clearTimeout(saveTimer);
+  saveTimer = 0;
+  try { storage()?.setItem(PAGE_KEY, JSON.stringify(pageRecord())); } catch { /* full or blocked: the next page reports nothing */ }
+}
+/** Something worth keeping changed: saved within a second (a burst of errors writes once). */
+function notePage() {
+  if (pageOn && !saveTimer) saveTimer = setTimeout(savePage, 1000);
+}
+/** The record of the page before this one (installPageRecord), or null. */
+export const previousPage = () => (prevPage ? { ...prevPage, lines: prevPage.lines.slice() } : null);
+
+/** main.js boot: read the previous page's record, then keep this page's. */
+export function installPageRecord() {
+  if (pageOn) return;
+  const g = globalThis;
+  try {
+    const raw = storage()?.getItem(PAGE_KEY);
+    const p = raw ? JSON.parse(raw) : null;
+    prevPage = p && p.v === 1 && Array.isArray(p.lines) && Number.isFinite(p.at) && Number.isFinite(p.start) && pageStart - p.at < PAGE_KEEP_MS ? p : null;
+  } catch { prevPage = null; }
+  pageOn = true;
+  pageVis = g.document?.visibilityState === 'hidden' ? 'hidden' : 'visible';
+  g.document?.addEventListener?.('visibilitychange', () => {
+    const hidden = g.document.visibilityState === 'hidden';
+    pageVis = hidden ? 'hidden' : 'visible';
+    hiddenAt = hidden ? Date.now() : null;
+    savePage();
+  });
+  g.addEventListener?.('pagehide', () => { pageEnded = true; savePage(); });
+  g.addEventListener?.('pageshow', (ev) => { if (ev.persisted && pageEnded) { pageEnded = false; savePage(); } });
+  const beat = setInterval(() => { if (pageVis === 'visible') savePage(); }, PAGE_BEAT_MS);
+  beat?.unref?.(); // Node (tests): the beat never holds the process
+  savePage();
+}
+
+/** The `previous page:` section of a report (empty without a record). */
+function previousLines(p) {
+  if (!p) return [];
+  const end = p.ended ? 'closed (a reload, a link or the app closed)'
+    : p.vis === 'hidden' ? `not closed: ended in the background, hidden since ${clockOf(p.hiddenAt ?? p.at)} (the system, or the app swiped away)`
+      : 'not closed: on screen at its last record (a crash, or the system ended it while shown)';
+  return ['', `previous page: ${join(`${clockOf(p.start)}–${clockOf(p.at)} (open ${spanOf(p.at - p.start)})`, `version ${p.version}`, end)}`,
+    ...p.lines.map((l) => `prev ${l}`)];
+}
+
 /**
  * The report text: a ```text block (version, time, browser, screen, connection, where the player is, settings, the
  * error log newest first) and, with `battle`, a ```json block of its spec. Secrets of `state` are whole tokens in the
@@ -301,10 +431,11 @@ const join = (...parts) => parts.filter((p) => p != null && p !== '' && p !== fa
  * `render` is the field view on screen (`{ kind: 'engine' | 'fallback', board3d }`, render/app.js stats().board3d) and
  * `renderEvents` what its board did (noteRender), `mounts` the field mounts (mountTimer) and `resources` the page's
  * Resource Timing entries (each mount line sums the downloads of its window), `perf` the performance HUD's lines
- * (setPerfSource; empty unless `?perf=1`).
+ * (setPerfSource; empty unless `?perf=1`), `previous` the page before this one (previousPage(); default: the record
+ * installPageRecord read, null in tests that do not install it).
  * @param {{ state: any, env?: any, settings?: any, battle?: any, entries?: any[], dropped?: number, total?: number,
  *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[], mounts?: any[], resources?: any[],
- *   perf?: string[] }} input
+ *   perf?: string[], previous?: any }} input
  */
 export function buildDiagnostics(input) {
   const { state = {}, env = {}, settings = null, battle = null } = input;
@@ -346,30 +477,13 @@ export function buildDiagnostics(input) {
       b3 && !b3.on && b3.recovering ? 'retry pending' : null, b3 && !b3.on && b3.waiting ? 'waiting for the page to be shown' : null,
       b3?.losses ? `context lost ${b3.losses}x` : null)}`);
   }
-  const rev = input.renderEvents ?? renderEvents();
-  if (rev.length) {
-    lines.push(`render events: ${rev.map((e) => `${clockOf(e.at)} ${e.event}${e.detail ? ` (${e.detail})` : ''}`).join('; ')}`);
-  }
-  for (const m of input.mounts ?? mountRecords()) {
-    const head = m.kind ? `${m.kind} in ${sec(m.total)} s` : 'loading';
-    const steps = m.steps.map((s) => `${s.name} ${sec(s.ms)}${s.cut ? ' cut' : ''}`).join(', ');
-    const late = m.late.length ? `arrived: ${m.late.map((e) => `${e.name} ${sec(e.ms)} s`).join(', ')}` : null;
-    const net = input.resources ? mountNet(m, input.resources) : null;
-    lines.push(`mount: ${join(`${clockOf(m.at)} ${head}`, steps || null, late,
-      net && net.files ? `net ${net.files} files, ${net.mb.toFixed(1)} MB${net.cached ? `, ${net.cached} cached` : ''}` : null)}`);
-  }
+  const rev = renderEventsLine(input.renderEvents ?? renderEvents());
+  if (rev) lines.push(rev);
+  lines.push(...mountLines(input.mounts ?? mountRecords(), input.resources ?? null));
   for (const l of input.perf ?? perfLines()) lines.push(`perf: ${l}`);
-  const shown = entries.slice().reverse();
-  const tot = input.total ?? total;
-  const drop = input.dropped ?? dropped;
   lines.push('');
-  lines.push(`errors: ${tot ? `${tot} recorded${drop ? `, ${drop} oldest entries dropped` : ''}` : 'none recorded'}`);
-  shown.forEach((e, i) => {
-    lines.push(`#${i + 1} ${clockOf(e.at)}${e.count > 1 ? ` (x${e.count}, last ${clockOf(e.lastAt)})` : ''} ${e.source}: ${e.message}`
-      + (e.battleId ? ` [battle ${e.battleId}]` : ''));
-    if (e.detail) lines.push(`   ${e.detail}`);
-    if (e.stack) for (const l of e.stack.split('\n')) lines.push(`   ${l}`);
-  });
+  lines.push(...errorLines(entries, input.total ?? total, input.dropped ?? dropped));
+  lines.push(...previousLines(input.previous !== undefined ? input.previous : prevPage));
   const pairs = secretsOf(state);
   let text = redact(`\`\`\`text\n${lines.join('\n')}\n\`\`\``, pairs);
   if (battle && battle.spec) {

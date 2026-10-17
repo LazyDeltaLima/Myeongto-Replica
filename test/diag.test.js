@@ -217,6 +217,27 @@ describe('field mount timings (mount: lines)', () => {
       + ' | arrived: art 8.9 s, 3d 31.0 s | net 3 files, 9.4 MB, 1 cached'), text);
   });
 
+  test('a stage lists its parts (0.05 s or more) and the rest after the last one; an arrival may carry a detail', () => {
+    let t = 0;
+    const timer = mountTimer(() => t);
+    t += 200; timer.step('pixi');
+    t += 300; timer.part('app');
+    t += 20; timer.part('tiles');
+    t += 5000; timer.part('fonts');
+    t += 4200; timer.step('setup');
+    t += 700; timer.step('art');
+    timer.done('engine');
+    t += 500; timer.late('frame', 'js 2, draw 11075 ms');
+    t += 2000; timer.late('shown', '34 textures up in 2.1 s, longest 120 ms, frame js 3, draw 40 ms');
+    const [m] = mountRecords();
+    assert.deepEqual(m.steps.map((s) => s.parts?.map((p) => [p.name, p.ms]) ?? null),
+      [null, [['app', 300], ['tiles', 20], ['fonts', 5000], ['rest', 4200]], null], 'parts belong to the stage they fall in');
+    const line = buildDiagnostics({ state: {}, renderEvents: [], mounts: [{ ...m, at: Date.UTC(2026, 9, 17, 2, 37, 22) }] })
+      .split('\n').find((l) => l.startsWith('mount:'));
+    assert.equal(line, 'mount: 02:37:22 engine in 10.4 s | pixi 0.2, setup 9.5 (app 0.3, fonts 5.0, rest 4.2), art 0.7'
+      + ' | arrived: frame 10.9 s (js 2, draw 11075 ms), shown 12.9 s (34 textures up in 2.1 s, longest 120 ms, frame js 3, draw 40 ms)');
+  });
+
   test('only the last MOUNT_MAX mounts are kept; one still loading says so; no mounts, no line', () => {
     assert.doesNotMatch(buildDiagnostics({ state: {} }), /mount:/);
     for (let i = 0; i < MOUNT_MAX + 2; i++) mountTimer(() => i).done('fallback');
@@ -230,6 +251,34 @@ describe('field mount timings (mount: lines)', () => {
   test('the device line says when the page is the home-screen app and the resource worker serves it', () => {
     const env = { viewport: '844x280', dpr: 3, touch: true, standalone: true, sw: true };
     assert.ok(buildDiagnostics({ state: {}, env }).split('\n').includes('device: 844x280 | @3x | touch | home-screen app | resource worker'));
+  });
+});
+
+describe('the page before this one (previous page:)', () => {
+  const rec = (o) => ({ v: 1, start: Date.UTC(2026, 9, 17, 2, 29, 10), at: Date.UTC(2026, 9, 17, 2, 37, 15), version: '1.4.5',
+    vis: 'visible', hiddenAt: null, ended: false, lines: ['mount: 02:29:12 engine in 9.0 s', 'perf: R8 COMBAT 02:36:10–02:37:10 | fps 41', 'errors: none recorded'], ...o });
+  const section = (p) => {
+    const lines = buildDiagnostics({ state: {}, mounts: [], renderEvents: [], perf: [], entries: [], total: 0, previous: p }).replace(/\n```$/, '').split('\n');
+    const at = lines.findIndex((l) => l.startsWith('previous page:'));
+    return at < 0 ? [] : lines.slice(at);
+  };
+
+  test('the record\'s lines follow the errors as prev … lines, with how the page ended', () => {
+    assert.deepEqual(section(rec({})), [
+      'previous page: 02:29:10–02:37:15 (open 8m 05s) | version 1.4.5 | not closed: on screen at its last record (a crash, or the system ended it while shown)',
+      'prev mount: 02:29:12 engine in 9.0 s', 'prev perf: R8 COMBAT 02:36:10–02:37:10 | fps 41', 'prev errors: none recorded',
+    ]);
+    assert.match(section(rec({ vis: 'hidden', hiddenAt: Date.UTC(2026, 9, 17, 2, 36, 0) }))[0], /\| not closed: ended in the background, hidden since 02:36:00 \(/);
+    assert.match(section(rec({ ended: true }))[0], /\| closed \(a reload, a link or the app closed\)$/);
+    assert.deepEqual(section(null), [], 'no record, no section');
+  });
+
+  test('the player names in the record are replaced like the rest of the report', () => {
+    const state = { me: { name: 'Doctor' } };
+    const text = buildDiagnostics({ state, mounts: [], renderEvents: [], perf: [], entries: [], total: 0,
+      previous: rec({ lines: ['#1 02:30:00 request: Doctor left'] }) });
+    assert.match(text, /prev #1 02:30:00 request: <me> left/);
+    assert.doesNotMatch(text, /Doctor/);
   });
 });
 

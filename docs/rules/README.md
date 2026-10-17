@@ -13,7 +13,7 @@
 | `sim.md` | 전투·경기 규칙: 게임 수치 수정, 상점 칸·보스전 시간, 적 비행 공격, 전투 버그 수정, 스킬 범위 발동(미확정), upstream 0.2.1·0.2.2 이식(전투·경기) |
 | `diy.md` | 선발 오퍼레이터 — **「새 선발 오퍼레이터 키트 체크리스트」** |
 | `ui.md` | 화면 UI: 디버그 패널, 정비 화면 HUD, 상점, 휴식 진입·현상 수배·전투 종료 화면, 배치 UI, 전투 화면 UI, 위장 아이콘, 초대 링크, 휴대폰, 서버 재시작 예고, 무중단 배포(서버 세대), 결산 화면 피드백, 로비 업데이트 소식, 규칙 모드(클래식·캐주얼) |
-| `render.md` | 보드·유닛 렌더링·연출: 공식 맵, 공식 스테이지 3D 씬, 배치 낙하, 유닛 모델 크기, 적 경로 미리보기(전투 시작), 보스 경로 미리보기, 성능 표시, 3D 보드 첫 그리기 미리 준비 |
+| `render.md` | 보드·유닛 렌더링·연출: 공식 맵, 공식 스테이지 3D 씬, 배치 낙하, 유닛 모델 크기, 적 경로 미리보기(전투 시작), 보스 경로 미리보기, 성능 표시, 3D 보드 첫 그리기 미리 준비, 필드 첫 프레임 미리 올리기·튕긴 페이지 기록 |
 | `fx.md` | 공식 전투 이펙트: 추출·재생기·붙는 자리·마운트·방향·정예 금빛·제보별 수정 |
 | `audio.md` | 소리·음성: 오퍼레이터 음성, 스킬 효과음·믹서, 작전 종료 효과음, 배치 효과음, 랜덤 매칭·방 알림음, 카운트다운 경고음, 채팅 알림음, 맹약 층 효과음 |
 | `upstream.md` | upstream과의 관계: 0.2.0 병합(옛 경로 대응표 포함), 0.2.0 전에 미리 가져온 원본 수정, upstream에서 이식할 때 비교할 우리 패치 |
@@ -66,6 +66,7 @@
 | 오퍼레이터 배치 낙하 연출 (각 모델의 Start 클립으로 하늘에서 떨어짐) | `public/js/render/units.js` `onDeploy` | `render.md` 「배치 낙하」 |
 | 성능 표시 `?perf=1` (fps·시뮬레이션·그리기·이펙트·3D 드로우콜, 멈춤·한 프레임 최대·설명 안 되는 시간, 진단 정보의 라운드별 `perf:` 줄) | `public/js/ui/perfHud.js`, `public/js/diag.js setPerfSource`, `public/js/render/app.js takePeaks`, `test/ui/perf-hud.test.js` | `render.md` 「성능 표시」 |
 | 3D 보드 첫 그리기 미리 준비 (셰이더 컴파일·텍스처 업로드를 보이기 전에: 새 3D 보드는 스테이지로 준비될 때까지 2D, 공식 씬은 화면 밖에서 지어 준비 뒤 교체) | `public/js/render/board3d/scene.js _prepare·warm·_warmOfficial`, `public/js/render/app.js warm3d`, `test/render/board3d-official-retry.test.js` | `render.md` 「3D 보드 첫 그리기 미리 준비」 |
+| 필드 첫 프레임 미리 올리기 (로딩 화면 뒤에서 텍스처를 프레임마다 올린 뒤 필드를 그림, `ready`까지 로딩 화면 유지) · 튕긴 페이지 기록 (보고서 줄을 localStorage에 두고 다음 페이지 진단에 `previous page:`·`prev …`) · `setup` 부분·첫 프레임 계측 | `public/js/render/app.js` 「first frame」, `public/js/screens/game.js fieldLoading`, `public/js/diag.js installPageRecord·mountTimer part`, `test/diag-page.test.js`, `test/render/fieldview.browser.test.js` | `render.md` 「필드 첫 프레임 미리 올리기·튕긴 페이지 기록」 |
 | 심해 구역의 지상 적을 0.7칸(잠수원 0.2칸) 내려 그리고 수면 아래 몸을 물빛으로 칠함 (공식 `trap_sea_drown[enemy]`·물 셰이더) | `public/js/render/units.js deepSink`, `test/render/deep-sink.test.js` | `render.md` 「심해 구역 잠김」 |
 | 적 경로 미리보기 (공식: 전투 시작에 표시된 레벨 액션의 경로를 커서 2개가 달림, 첫 유닛 3초 전 — 행동개시 대사가 여기서 남) | `server/sim/routePreview.js`, `public/js/battle/runner.js`, `public/js/render/fxroute.js createBattleCursors`, `test/match/route-preview.test.js` | `render.md` 「적 경로 미리보기」 |
 | 규칙 모드 클래식·캐주얼 (방마다: 클래식 = 공식 그대로, 캐주얼 = 브리핑 전장 카드·다시 뽑기·보스 경로 미리보기를 켜고 리더 피해 상한을 무효 대신 30만 절삭으로; 옵션 표 하나; 랜덤 매칭 큐도 규칙 모드별, 로비에 큐별 대기 인원) | `shared/ruleset.js`, `server/lobby.js setRuleset`, `server/matchmaking.js counts`, `public/js/ui/ruleset.js`, `public/js/screens/room.js`, `public/js/screens/lobby.js`, `public/js/screens/briefing.js`, `test/ruleset.test.js`, `test/lobby-ruleset.test.js` | `ui.md` 「규칙 모드 — 클래식·캐주얼」 |

@@ -3480,6 +3480,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       flushEnemyBirths(lastViews); stepEnemies(lastViews); // 2026-10-10: the enemies' born effects, modes, skill clips
       if (index) flushDeploys(lastViews); // 2026-10-11: the operators' / tokens' deploy effects
       stepLines(); // 2026-10-10: buff line effects follow their units
+      // a frame without effects costs them nothing: the means decay (they used to stand at the last effect frame's cost)
+      if (!mod || !live.length) { perf.updateMs *= 0.9; perf.renderMs *= 0.9; perf.calls = 0; }
       if (!mod) return;
       if (!live.length) { showLayers(); return; }
       const w = Math.max(1, vp.width | 0), h = Math.max(1, vp.height | 0);

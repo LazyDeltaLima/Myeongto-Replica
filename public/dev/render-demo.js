@@ -13,13 +13,15 @@
 //        &board=2d|3d (the official 3D board scene, DESIGN §15; default 3D when the local art + WebGL2 are available)
 //        &cam=prep|normal|unite|boss|pen|bossPrep [&side=L|R &half=1 &shop=0] (official configBlackBoard framings)
 // Puppeteer hook: window.__demo = { ready, view, seek(t), play(), pause(), setScene(name), stats(), log,
-//   refuseDrops (true ⇒ prep drops are silently ignored, like a server that rejects the move) }
+//   refuseDrops (true ⇒ prep drops are silently ignored, like a server that rejects the move),
+//   mounts() (the view's mount record: stages, the first frame, the field shown — diag.js mountTimer) }
 
 import { createFieldView } from '../js/render/app.js';
 import { data } from '../js/data.js';
 import { assets } from '../js/assets.js';
 import { GEO } from '../../shared/constants.js';
 import { FX_KINDS } from '../js/render/fx.js';
+import { mountTimer, mountRecords } from '../js/diag.js';
 
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
@@ -44,8 +46,9 @@ async function main() {
   await data.loadAll('chess', 'tokens', 'items', 'enemies', 'stages', 'bonds', 'config');
   await assets.ready();
   const index = await fetch('/dev/recordings/index.json').then((r) => (r.ok ? r.json() : []), () => []);
+  demo.mounts = mountRecords;
   const view = await createFieldView($('field'), {
-    data, assets, settings: { quality: q.get('quality') || 'high', damageNumbers: true },
+    data, assets, settings: { quality: q.get('quality') || 'high', damageNumbers: true }, timing: mountTimer(),
     ...(q.has('aa') ? { antialias: q.get('aa') !== '0' } : {}),
   });
   demo.view = view;

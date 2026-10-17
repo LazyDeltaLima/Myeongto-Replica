@@ -57,6 +57,8 @@
 //                                               chosen / the move is in flight (null releases; setPrep then settles it)
 //   view.setPieceDir(uid, dir)                  show a prep piece facing UP|RIGHT|DOWN|LEFT (wheel preview / stored dir)
 //   view.setSettings({ damageNumbers, quality: 'high'|'medium'|'low' }) ; view.resize() ; view.destroy()
+//   view.isReady() → false while the first frame is held back (its textures go up behind the loading screen); then
+//        emits ready (no payload) after the first frame that draws the field ("first frame" below)
 //   view.stats() → { fps, frameMs, cpuMs, renderMs, units, particles, impostor, impostorAtlas, boardArt, … } (dev / perf)
 //
 // Enemy preview pen (research 09 §2.2 / 08 §4.2, render/pen.js): in prep the next round's enemies idle in the pen
@@ -233,6 +235,8 @@ export async function createFieldView(host, options = {}) {
     resolution: dpr(), autoDensity: true, powerPreference: 'high-performance',
   });
   const canvas = app.view;
+  // the parts of the synchronous setup for the report's `mount:` line (`setup 9.5 (app …, fonts …, rest …)`)
+  timing?.part?.('app');
   setupCleanup.push(() => {
     releaseGl(app.renderer);
     try { app.destroy(true, { children: true, texture: false, baseTexture: false }); }
@@ -240,6 +244,7 @@ export async function createFieldView(host, options = {}) {
   });
   const fxGame = createFxLayer({ host, above: canvas, quality: () => settings.quality, load: () => loadLevel, under: () => !!board3d, rate: () => (mode === 'battle' ? interp.rate : 1), fieldRect: () => (mode === 'battle' && battleMeta ? battleMeta.rect : null), grid: () => tiles.grid, enemyDef: (id) => data.enemy(id), unitDef: (info) => ctx.lookupDef(info), audio: () => opts.audio || null, standIn: (k, x, y, ex) => fx.simFx(k, x, y, ex) }); // local patch; 2026-10-10: audio.enemyMode, staggered stand-ins
   setupCleanup.push(() => fxGame.destroy());
+  timing?.part?.('fx layer');
   canvas.style.display = 'block';
   canvas.style.width = '100%';
   canvas.style.height = '100%';
@@ -287,6 +292,7 @@ export async function createFieldView(host, options = {}) {
     }, () => {});
   }
   loadMountains();
+  timing?.part?.('backdrop');
 
   // ---- state ----------------------------------------------------------------------------------------------
   const listeners = new Map();
@@ -384,6 +390,7 @@ export async function createFieldView(host, options = {}) {
   };
   const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim });
   setupCleanup.push(() => tiles.destroy());
+  timing?.part?.('tiles');
   const fx = new FxSystem({
     P, layers, cam: () => cam, settings, assets, heightAt, redVignette: bg.red, surfaceLayer: ctx.surfaceLayer,
     timeScale: () => ctx.timeScale(),
@@ -420,6 +427,7 @@ export async function createFieldView(host, options = {}) {
   ctx.createBox = () => switchableBox({ board: () => board3d, pixi: () => tiles.createBox() });
   const impostors = new ImpostorAtlas(app.renderer);
   setupCleanup.push(() => impostors.destroy());
+  timing?.part?.('effects');
   ctx.impostors = impostors;
   tiles.setView(bandFor('prep'), camRect(), fieldRows('prep'));
   // the real board art of the local client (optional): wait briefly so the first frame already uses it; a late
@@ -578,6 +586,7 @@ export async function createFieldView(host, options = {}) {
   }
   // Attach the board only after synchronous setup completes; enable3d also guards late arrivals.
   const boardReady = want3d ? try3d(false).catch(() => false) : Promise.resolve(false);
+  timing?.part?.('3d');
   // the official soft shadow sprite replaces the procedural one once loaded (may already be cached; asked again when the
   // manifest arrives late)
   let shadowAsked = false;
@@ -604,6 +613,7 @@ export async function createFieldView(host, options = {}) {
   }
   loadShadow();
   ensureDamageFonts();
+  timing?.part?.('fonts');
   // web fonts may land after the first chips / redeploy-ring labels were drawn
   if (document.fonts?.ready) document.fonts.ready.then(() => { if (!destroyed) { refreshTierChips(); refreshDownLabels(); } }).catch(() => {});
 
@@ -1503,6 +1513,7 @@ export async function createFieldView(host, options = {}) {
   canvas.addEventListener('contextmenu', onContext);
   canvas.addEventListener('touchend', onTouchEnd, { passive: false });
   canvas.addEventListener('click', onTapTarget);
+  timing?.part?.('input');
 
   // ---- battle ---------------------------------------------------------------------------------------------
 
@@ -1943,6 +1954,7 @@ export async function createFieldView(host, options = {}) {
 
   let clock = 0;
   let cpuMs = 0;
+  let lastJs = 0;   // the last frame's JS (ms): the report's first-frame notes
   // the longest single frame JS / PIXI render / 3D board draw (ms) since the last takePeaks() (the perf HUD's stalls)
   const peaks = { js: 0, draw: 0, b3: 0 };
   let frameNo = 0;
@@ -1992,6 +2004,7 @@ export async function createFieldView(host, options = {}) {
       const ms = performance.now() - now;
       cpuMs = cpuMs * 0.9 + ms * 0.1;
       if (ms > peaks.js) peaks.js = ms;
+      lastJs = ms;
     }
   }
   function frameBody(now) {
@@ -2030,6 +2043,7 @@ export async function createFieldView(host, options = {}) {
         if (Number.isFinite(renderT)) {
           processEvents(renderT);
           syncBattle(renderT);
+          gate.synced = true; // the battle's units stand on the field (the first frame waits for them)
           windUpAttacks(renderT);
           battleCursors.update(renderT);
         }
@@ -2108,9 +2122,96 @@ export async function createFieldView(host, options = {}) {
     const ms = performance.now() - renderT0;
     renderMs = renderMs * 0.9 + ms * 0.1;
     if (ms > peaks.draw) peaks.draw = ms;
+    afterRender(ms);
   };
+  app.ticker.add(firstFrames, null, -23);
   app.ticker.add(preRender, null, -24);
   app.ticker.add(postRender, null, -26);
+
+  // ---- first frame ----------------------------------------------------------------------------------------------
+  // An iPhone report (2026-10-17, a page reopened mid-match): one PIXI render of 11 s right after the mount, the loading
+  // screen frozen over it — the first frame that draws the field uploads every texture on it at once (the units' Spine
+  // atlases, the board art). Until the view is ready the world layer is not drawn (`renderable`), each frame uploads the
+  // textures it holds for UPLOAD_MS at most (one at least), and the game keeps its loading screen (isReady() / 'ready'):
+  // ready once the prep is set or the battle's first snapshot has placed its units, no unit model is still loading and
+  // every texture is up for two frames in a row — then one frame draws the world and 'ready' fires after it. READY_MAX_MS after the mount it is ready anyway (what
+  // is left goes up in that frame, as before). The report's `mount:` line notes the first frame and the field shown.
+  const READY_MAX_MS = 6000, UPLOAD_MS = 6;
+  const gate = { open: true, since: 0, quiet: 0, reveal: false, cut: false, synced: false, n: 0, ms: 0, max: 0, timer: 0, frameNoted: false };
+  world.renderable = false;
+  /** The base textures on the stage not uploaded yet (a Text redraws its canvas when it is drawn: left to that frame). */
+  function texturesToUpload() {
+    const uid = app.renderer.CONTEXT_UID;
+    const out = new Set();
+    const visit = (o) => {
+      if (!o || o.destroyed || o.visible === false) return;
+      // a Sprite / TilingSprite texture, or a Mesh's (the Spine regions)
+      const bt = typeof o.updateText === 'function' ? null : (o._texture || o.shader?.texture)?.baseTexture;
+      if (bt && bt.valid && !bt.destroyed && !bt.framebuffer) {
+        const gt = bt._glTextures?.[uid];
+        if (!gt || gt.dirtyId !== bt.dirtyId) out.add(bt);
+      }
+      const ch = o.children;
+      if (ch) for (let i = 0; i < ch.length; i++) visit(ch[i]);
+    };
+    visit(app.stage);
+    return out;
+  }
+  const modelsLoading = () => {
+    for (const v of views.values()) if (v._spineBusy) return true;
+    for (const v of penViews.values()) if (v._spineBusy) return true;
+    return !!leader?.view?._spineBusy;
+  };
+  function firstFrames() {
+    if (!gate.open || !gate.since || gate.reveal || destroyed) return;
+    const t0 = performance.now();
+    const todo = texturesToUpload();
+    let up = 0;
+    for (const bt of todo) {
+      if (up && performance.now() - t0 >= UPLOAD_MS) break;
+      const t1 = performance.now();
+      try { app.renderer.texture.bind(bt); } catch { /* left to the frame that draws it */ }
+      const ms = performance.now() - t1;
+      gate.n++;
+      gate.ms += ms;
+      if (ms > gate.max) gate.max = ms;
+      up++;
+    }
+    // a battle's units come with its first snapshot (enterBattle alone draws an empty field); the prep's with setPrep
+    const staged = mode === 'battle' ? gate.synced : mode === 'prep';
+    const quiet = up === todo.size && staged && !modelsLoading();
+    gate.quiet = quiet ? gate.quiet + 1 : 0;
+    if (gate.quiet >= 2) revealWorld(false);
+  }
+  function revealWorld(cut) {
+    if (!gate.open || gate.reveal) return;
+    gate.reveal = true;
+    gate.cut = cut;
+    world.renderable = true;
+  }
+  function closeGate(drawMs) {
+    if (!gate.open) return;
+    gate.open = false;
+    clearTimeout(gate.timer);
+    world.renderable = true;
+    timing?.late('shown', [`${gate.n} textures up in ${(gate.ms / 1000).toFixed(1)} s, longest ${Math.round(gate.max)} ms`,
+      drawMs != null ? `frame js ${Math.round(lastJs)}, draw ${Math.round(drawMs)} ms` : 'no frame',
+      gate.cut ? `cut at ${READY_MAX_MS / 1000} s` : null, board3d?.warming ? '3d still warming' : null].filter(Boolean).join(', '));
+    emit('ready');
+  }
+  function afterRender(ms) {
+    if (!gate.frameNoted) { gate.frameNoted = true; timing?.late('frame', `js ${Math.round(lastJs)}, draw ${Math.round(ms)} ms`); }
+    if (gate.reveal) closeGate(ms);
+  }
+  /** The mount is done: the gate's clock starts (a page hidden meanwhile draws no frame: the cut closes it). */
+  function openGate() {
+    gate.since = performance.now();
+    gate.timer = setTimeout(() => {
+      if (destroyed || !gate.open) return;
+      revealWorld(true);
+      gate.timer = setTimeout(() => { if (!destroyed) closeGate(null); }, 1000);
+    }, READY_MAX_MS);
+  }
 
   // ---- resize ---------------------------------------------------------------------------------------------------
 
@@ -2136,6 +2237,7 @@ export async function createFieldView(host, options = {}) {
   // per frame because not every browser fires a resize / matchMedia change for it
   let lastDpr = globalThis.devicePixelRatio || 1;
   layoutBackdrop();
+  timing?.part?.('layout');
 
   // ---- late assets, hidden tabs (public issue #8 item 5: operators drawn as image-less placeholders) ----------------------
   // The asset manifest (or the local-client one) arrived after views were built — a reload whose manifest fetch was slow or
@@ -2172,6 +2274,8 @@ export async function createFieldView(host, options = {}) {
     setStage,
     setCamera,
     setPrep,
+    /** False while the first frame is held back behind the loading screen (textures going up); 'ready' ends it. */
+    isReady: () => !gate.open,
     /** Enemy preview pen: a list in m.private.nextEnemies shape, or null to empty it (setPrep does this itself). */
     setPen(list) { if (destroyed) return false; setPenList(Array.isArray(list) ? list : null); return true; },
     enterBattle,
@@ -2301,8 +2405,10 @@ export async function createFieldView(host, options = {}) {
       offShadow?.();
       signal?.removeEventListener('abort', onAbort);
       app.ticker.remove(frame);
+      app.ticker.remove(firstFrames);
       app.ticker.remove(preRender);
       app.ticker.remove(postRender);
+      clearTimeout(gate.timer);
       retry3d.cancel();
       drag.reset();
       for (const k of [...views.keys()]) dropView(k);
@@ -2359,6 +2465,7 @@ export async function createFieldView(host, options = {}) {
   await waitStep('art', artPromise, waitCap(2500));
   if (want3d) await waitStep('3d', boardReady, waitCap(6000));
   signal?.throwIfAborted();
+  openGate();
   return view;
   } catch (err) {
     if (view) view.destroy();

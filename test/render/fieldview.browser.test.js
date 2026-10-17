@@ -312,6 +312,24 @@ describe('field view features in headless Chrome', { skip }, () => {
     assert.ok(r.bad <= r.frames * 0.03, `${r.bad}/${r.frames} frames with touching numbers`);
   });
 
+  test('first frame: the field is held back until its textures are up, then drawn once and reported ready', async () => {
+    const { page, problems } = await open('scene=prep');
+    await page.waitForFunction('window.__demo.view.isReady()', { timeout: 10000 });
+    const m = await page.evaluate(() => window.__demo.mounts().at(-1));
+    const late = Object.fromEntries(m.late.map((e) => [e.name, e]));
+    assert.ok(late.frame && late.shown, `first frame and shown noted: ${JSON.stringify(m.late)}`);
+    assert.match(late.shown.detail, /^\d+ textures up in [\d.]+ s, longest \d+ ms, frame js \d+, draw \d+ ms/);
+    assert.doesNotMatch(late.shown.detail, /cut at/, 'ready before the cap');
+    const n = Number(late.shown.detail.split(' ')[0]);
+    assert.ok(n > 0, 'the prep pieces\' textures went up before the field was drawn');
+    assert.ok(m.steps.find((s) => s.name === 'setup')?.parts?.some((p) => p.name === 'app'), 'setup lists its parts');
+    // drawn after ready: the world layer renders, and nothing is left to upload in the frame after
+    assert.equal(await page.evaluate(() => window.__demo.view.debug.app.stage.children[1].renderable), true);
+    console.log(`  first frame: ${late.frame.detail} at ${(late.frame.ms / 1000).toFixed(1)} s; shown ${(late.shown.ms / 1000).toFixed(1)} s: ${late.shown.detail}`);
+    assert.deepEqual(problems, []);
+    await page.close();
+  });
+
   test('lost WebGL context: the 2D board takes over, then the 3D board rebuilds itself', async () => {
     if (!hasArt) return;
     const { page, problems } = await open('scene=normal-m03&t=20', 1280, 720);
