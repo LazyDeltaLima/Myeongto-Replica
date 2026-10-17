@@ -96,7 +96,10 @@ Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weigh
 [ASSUMED] Cooperative buying (upstream 0.2.3, PR #407): bot purchasing applies one soft 18-point penalty to non-elite,
 non-DIY tier V/VI shared-pool cards whose active bonds overlap another living teammate's opening strategy
 (`gd.bandBondIds`, bonds the mode switches off excluded). Human and AI teammates count equally and several teammates do
-not stack the penalty; it neither reserves stock nor prevents a stronger purchase or an immediate own merge. Not an
+not stack the penalty; it neither reserves stock nor prevents a stronger purchase or an immediate own merge. A living
+teammate's selected strategy also reserves its bond for the bot's own strategy pick (`botPickBand` weighs a band that
+shares it 0) and for its focus plan (`bondPlan` counts it like a teammate's main core bond) before any member is
+deployed; the reservation ends when that teammate is eliminated (upstream e376f254 / 3f18347f, upstream #514). Not an
 official rule: an AI heuristic only.
 
 [ASSUMED] AI teammate emotes (upstream 0.2.3, PR #444; `server/match/botEmotes.js`): cosmetic social reactions, on by

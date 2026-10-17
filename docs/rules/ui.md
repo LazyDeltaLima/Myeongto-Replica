@@ -773,6 +773,9 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   5·6단계 공용 카드(정예·선발 제외)의 맹약이 살아 있는 다른 팀원의 시작 전략(`gd.bandBondIds`, 모드가 끈 맹약 제외)과 겹치면 구매 점수 −18.
   사람·AI 팀원 같게, 여럿이어도 한 번, 재고를 잡아 두지 않고 바로 되는 자기 합성은 그대로. `[ASSUMED]` 점수 크기.
   확인: `test/match/bot-smarter.test.js`(upstream 두 사례). golden `coop2-NORMAL-14-standins`가 움직인다.
+  - 시작 전략 예약(upstream `e376f254` + `3f18347f`, upstream #514, 관리자 결정 2026-10-17, `git cherry-pick -x`): 살아 있는 다른 팀원이 고른 전략의 맹약은
+    배치 전부터 AI의 전략 선택(`botPickBand`, 같은 맹약 전략은 가중치 0)과 주력 맹약 계획(`bondPlan`, 팀원 주력 맹약처럼 −6)에서 피한다. 그 팀원이 탈락하면
+    풀린다. 같은 AI 휴리스틱(`feat`). 확인: `test/match/bot-smarter.test.js`(upstream #514 두 사례).
 - AI 팀원 표정 반응(`f3658a0d` 중 `server/match/botEmotes.js`, upstream PR #444, 관리자 결정 2026-10-11): 공식에 없는 기능(`feat`), 서버만.
   사람과 AI가 섞인 판에서만, 기존 `m.emote`(공식 36개 화이트리스트·1초 쿨다운) 그대로. 기본 켜짐, `SP_BOT_EMOTES=0`이면 모든 진입점이 꺼진다.
   사람의 표정에 쿨다운이 아닌 AI 하나만 답함(고마워·미안해 → 没问题, 合作愉快 → 고마워 등 upstream 표), 현상 수배 카드를 고르면 思考,
