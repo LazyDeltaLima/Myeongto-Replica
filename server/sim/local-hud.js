@@ -16,6 +16,12 @@
 //         the official HP bar's barrier part (client UIHudCharHpSlider + shieldUIController.shieldToShow; render/hud-bars.js
 //         shieldedBar). Allies only, as the client (its enemy HP sliders show none). A hit-count barrier (`shieldHits`) has
 //         no amount and is not listed.
+//   charge: [[id, n]] — an allied unit with `n` ≥ 1 stored charges of an AUTO skill that can be charged more than once
+//         (可充能N次: 瑕光 / 塞雷娅 S1 …), for the official mark over it (client UIHudCharSkillMarkPanel.UpdatePlugin: an
+//         AUTO skill whose maxChargeTime > 1 and whose prefab leaves `_hideHudSkillStackCount` off — none of the pool sets
+//         it — shows `auto_skill_ready` with `text_skill_cnt` = BasicSkill.availableCnt while it is above 0; render/hud-bars.js
+//         SkillMark). MANUAL skills show nothing: their mark needs UNIT_HUD_SKILL_CAST_MASK, which 卫戍协议 turns off
+//         (AutoChessUIPlugin.OnGameInit DisableFunction 0xF07B). chargeMark().
 //   bsp:  [[id, sp, max]] — an enemy's official SP (`e.mem.lpSp`, content/bosses.js: 管 / 弦 skillSp, 阿利斯泰尔) for the
 //         boss SP bar (render/hud-bars.js; only bosses draw it).
 // The sim runs in the browser (public/js/battle/runner.js serves server/sim at /sim/), so this is client-side data.
@@ -25,7 +31,7 @@ export function ammoList(units) {
   return hudLists(units).ammo || null;
 }
 
-/** `{ ammo?, shield?, bsp? }` of a snapshot — each only when non-empty — in one pass over the units. */
+/** `{ ammo?, shield?, charge?, bsp? }` of a snapshot — each only when non-empty — in one pass over the units. */
 export function hudLists(units) {
   const out = {};
   for (const u of units) {
@@ -36,12 +42,24 @@ export function hudLists(units) {
       if (sh >= 0.5) (out.shield || (out.shield = [])).push([u.id, Math.round(sh)]);
       const bar = bulletView(u.skill, u);
       if (bar) (out.ammo || (out.ammo = [])).push([u.id, bar[0], bar[1]]);
+      const n = chargeMark(u.skill);
+      if (n) (out.charge || (out.charge = [])).push([u.id, n]);
     } else {
       const v = u.mem && u.mem.lpSp;
       if (v && v[1] > 0) (out.bsp || (out.bsp = [])).push([u.id, Math.round(v[0] * 10) / 10, v[1]]);
     }
   }
   return out;
+}
+
+/**
+ * The stored charges the official mark shows over a unit whose skill is `sk` (see the header `charge`), or 0: an AUTO
+ * skill of more than one charge, its charges ready now (BasicSkill.availableCnt — the SP over its cost, whole).
+ */
+export function chargeMark(sk) {
+  if (!sk || sk.noSkill || sk.kind === 'passive' || !(sk.maxCharges > 1)) return 0;
+  if (String(sk.def?.skillType ?? '').toUpperCase() !== 'AUTO') return 0;
+  return Math.max(0, Math.min(sk.maxCharges, sk.charges | 0));
 }
 
 /**

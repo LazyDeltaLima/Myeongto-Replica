@@ -80,7 +80,7 @@ import { EliteRing, eliteBadgeTexture, ELITE_BADGE } from './elite-mark.js'; // 
 import { faceOf, turnFace, turnWidth, dirVector, NEAR_SQ, SWITCH_TIME } from './face-turn.js'; // an operator turns to its target (「공격 방향」)
 import { aglGlideBack } from './fx/kinds.js'; // 予愿安洁莉娜 S2's glide: when her model is back
 import { syncHeldWeapon } from './heldWheel.js'; // local patch: a 回环射手's boomerang in her hand (Spine skin 'Bullet')
-import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar } from './hud-bars.js'; // local patch: official battle HUD
+import { ElementRing, epRingReady, AllyBars, EnemyBars, giantBossOf, hudUnit, hudAnchorY, prepChip, PREP_CHIP, EquipBar, equipTextures, shieldedBar, SkillMark } from './hud-bars.js'; // local patch: official battle HUD
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -1031,7 +1031,9 @@ export class UnitView {
     // local patch: official bars (hud-bars.js) — allies, enemies, bosses and the 卫戍协议 giant bosses
     const giant = this.isEnemy ? giantBossOf(this.info) : null;
     this.lpBars = !this.isEnemy ? new AllyBars(P, h) : new EnemyBars(P, h, giant ? 'giant' : this.isBoss ? 'boss' : 'normal', giant);
+    this.lpMark = !this.isEnemy ? new SkillMark(P, h) : null; // the official stored-charge mark (b.snap `charge`)
     this.ammo = null;
+    this.charge = 0;
     this.barrier = 0;
     this.chip = null;
     // operators only: summon tokens have no tier (hand and field alike) — local patch (maintainer request 2026-10-08): a prep
@@ -1165,6 +1167,7 @@ export class UnitView {
     this.hp = hp;
     this.sp = s.sp; this.spMax = s.spMax;
     this.ammo = s.ammo || null; // local patch: official bullet bar (b.snap `ammo`)
+    this.charge = s.charge || 0; // an AUTO charge skill's stored charges (b.snap `charge`, hud-bars.js SkillMark)
     this.barrier = Number(s.shield) > 0 ? Number(s.shield) : 0; // the barrier on the HP bar (b.snap `shield`, hud-bars.js shieldedBar)
     this.bsp = s.bsp || null;   // local patch: a boss's official SP (b.snap `bsp`)
     const prevFlags = this.flags;
@@ -1986,6 +1989,8 @@ export class UnitView {
     this.shieldBar.visible = !!shielded;
     if (shielded && lp) { const u = hudUnit(this.ctx.viewport?.()), b = this.lpBars.box; this.shieldBar.position.set(b.x0, b.top - 1.5 * u); this.shieldBar.width = b.w; this.shieldBar.height = Math.max(1.5, 2.5 * u); } // local patch: a strip over the official HP bar
     else if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }
+    // the official stored-charge mark over the unit (hud-bars.js SkillMark): an AUTO skill of several charges, while one is stored
+    if (this.lpMark) { if (showBars && this.charge > 0) this.lpMark.update(this.screen.x + sx, this.screen.y, hudUnit(this.ctx.viewport?.()), this.charge, this.ctx.assets); else this.lpMark.hide(); }
     // SP
     const showSp = showBars && this.spMax > 0; // local patch: an enemy sends SP only for 圣堂剑士's bullets (sim/content/local-patch.js)
     this.spBg.visible = this.spFill.visible = showSp && !lp; // local patch: allies' SP is in their official bars

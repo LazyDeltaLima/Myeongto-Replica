@@ -115,6 +115,8 @@ export function normalizeSnapshot(snap) {
   for (const [key, list] of [['ammo', snap.ammo], ['bsp', snap.bsp]]) if (Array.isArray(list)) for (const e of list) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[2]) > 0) tu[key] = [Math.max(0, finite(e[1])), finite(e[2])]; }
   // b.snap `shield` [[id, amount]] (an ally's barrier HP, sim local-hud.js) rides on the tuple as `.shield`
   if (Array.isArray(snap.shield)) for (const e of snap.shield) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[1]) > 0) tu.shield = finite(e[1]); }
+  // b.snap `charge` [[id, n]] (an AUTO charge skill's stored charges, sim local-hud.js chargeMark) rides on it as `.charge`
+  if (Array.isArray(snap.charge)) for (const e of snap.charge) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[1]) >= 1) tu.charge = Math.floor(finite(e[1])); }
   let down = null;
   if (Array.isArray(snap.down)) {
     for (const d of snap.down) {
@@ -401,6 +403,7 @@ export class SnapshotBuffer {
       if (a.length > 9) { o.el = a[9]; o.elFill = a[10]; o.elUntil = a[11]; o.elDur = a[12]; } else if (o.el !== null) { o.el = null; o.elFill = 0; o.elUntil = 0; o.elDur = 0; }
       o.ammo = a.ammo || null; o.bsp = a.bsp || null; // local patch: official bullet bar, boss SP
       o.shield = a.shield || 0; // the barrier on the official HP bar
+      o.charge = a.charge || 0; // the stored charges of the official skill mark (hud-bars.js SkillMark)
       o.seen = stamp;
     }
     for (const id of out.keys()) if (!A.units.has(id)) out.delete(id);

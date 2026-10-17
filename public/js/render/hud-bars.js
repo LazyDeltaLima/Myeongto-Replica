@@ -434,6 +434,54 @@ export class EquipBar {
   }
 }
 
+// ---- the stored-charge mark --------------------------------------------------------------------------------------------
+// An AUTO skill that can be charged more than once (可充能N次: 瑕光 / 塞雷娅 S1 …) shows its stored charges over the unit
+// (client UIHudCharSkillMarkPanel.UpdatePlugin: the panel's `_autoSkillMark` on while BasicSkill.availableCnt > 0, its
+// `_skillCntLabel` that count — sim local-hud.js chargeMark, b.snap `charge`). arts/ui/[uc]battlecommon.ab
+// char_skill_mark_panel `auto_skill_ready`: sprite_circle 36×36 #404040 α .39, its child sprite_auto (the ring of arrows)
+// 50×50 #ffd900, and text_skill_cnt (50×40, size 26, centred 3 up, #ffd900). The panel follows the unit's head point
+// (`_FollowPosition`: the head's UI position + 0.3 up); without one it stays at the prefab's 154.7 over hud_unit — the
+// place drawn here [추정: no head point in the HUD layer; the font is ours (the prefab's is not read)].
+export const SKILL_MARK = Object.freeze({ y: 154.7, disc: 36, discColor: 0x404040, discAlpha: 0.39, ring: 50, color: 0xffd900, text: 26, textY: 3 });
+
+/** The stored-charge mark of one allied unit (see above), drawn into `parent`. */
+export class SkillMark {
+  constructor(P, parent) {
+    this.P = P;
+    this.root = new P.Container();
+    this.disc = new P.Sprite(P.Texture.EMPTY); this.disc.anchor.set(0.5);
+    this.ring = new P.Sprite(P.Texture.EMPTY); this.ring.anchor.set(0.5);
+    // drawn at 2× the official size and scaled down, so the glyphs stay sharp on a high-DPI view
+    this.label = new P.Text('', { fontFamily: 'Bender, Oxanium, sans-serif', fontSize: SKILL_MARK.text * 2, fontWeight: '700', fill: SKILL_MARK.color });
+    this.label.anchor.set(0.5);
+    this.root.addChild(this.disc, this.ring, this.label);
+    this.root.visible = false;
+    this.n = 0;
+    parent.addChild(this.root);
+  }
+
+  hide() { this.root.visible = false; }
+
+  /** Draw for feet at (x, y), `u` px per unit, `n` stored charges (≤ 0: hidden); sprites from `assets` (local client). */
+  update(x, y, u, n, assets = null) {
+    const M = SKILL_MARK;
+    if (!(n > 0)) { this.hide(); return; }
+    this.root.visible = true;
+    const cx = x, cy = hudAnchorY(y, u) - M.y * u;
+    const disc = texOf(this.P, localUrl(assets, 'ui/battlecommon', 'sprite_circle'));
+    const ring = texOf(this.P, localUrl(assets, 'ui/battlecommon', 'sprite_auto'));
+    // without the client's sprites a plain dark disc stands for both (the number alone would float)
+    this.disc.texture = disc || this.P.Texture.WHITE;
+    this.disc.tint = M.discColor; this.disc.alpha = disc ? M.discAlpha : 0.6;
+    this.disc.position.set(cx, cy); this.disc.width = this.disc.height = M.disc * u;
+    this.ring.visible = !!ring;
+    if (ring) { this.ring.texture = ring; this.ring.tint = M.color; this.ring.position.set(cx, cy); this.ring.width = this.ring.height = M.ring * u; }
+    if (this.n !== n) { this.n = n; this.label.text = String(n); }
+    this.label.position.set(cx, cy - M.textY * u);
+    this.label.scale.set(u / 2);
+  }
+}
+
 // ---- element (EP) rings ----------------------------------------------------------------------------------------------
 // Maintainer request 2026-10-07 (「원소 피해는 원형 바, 가운데 아이콘은 원소 유형에 따라 다르다」). The client's `char_ep_slider` /
 // `enemy_ep_slider` (arts/ui/[uc]battlecommon.ab), their UIHudUnitEpSlider `_elementDatas` in ELEMENT_ORDER (neural,
