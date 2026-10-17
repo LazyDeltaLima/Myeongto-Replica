@@ -337,7 +337,8 @@ export class BoardScene {
           || buildOfficialScene(this.THREE, official, this.focus, { aniso: Math.min(8, this.renderer.capabilities?.getMaxAnisotropy?.() || 1) });
         for (const m of built.meshes) this.officialRoot.add(m);
         this.officialBuilt = built;
-        this.opts.onOfficial?.({ stageId: built.stageId, highland: built.highland, platform: built.devices?.top(OFFICIAL_DEVICE.platform) ?? null });
+        this.opts.onOfficial?.({ stageId: built.stageId, highland: built.highland, platform: built.devices?.top(OFFICIAL_DEVICE.platform) ?? null,
+          waterPlatform: built.devices?.top(OFFICIAL_DEVICE.waterPlatform) ?? null });
       }
       this.officialBuilt.setArea(this.area);
       this._buildDevices(board);
@@ -477,6 +478,9 @@ export class BoardScene {
   /** The official 射击台 plate height for stage `id` (null: not drawn from an official scene or no device models). */
   platformFor(id) { return this.officialBuilt && this.officialBuilt.stageId === id ? (this.officialBuilt.devices?.top(OFFICIAL_DEVICE.platform) ?? null) : null; }
 
+  /** The official 特制水上平台 deck height for stage `id` (null: not drawn from an official scene or no device model). */
+  waterPlatformFor(id) { return this.officialBuilt && this.officialBuilt.stageId === id ? (this.officialBuilt.devices?.top(OFFICIAL_DEVICE.waterPlatform) ?? null) : null; }
+
   /** Is the current stage drawn from its official scene? */
   get official() { return !!this.officialBuilt; }
 
@@ -487,18 +491,19 @@ export class BoardScene {
     const crates = [], blowers = [];
     this.staticCrates = [];
     // local patch (LOCAL-PATCH.md 「공식 스테이지 3D 씬」): with the official scene the procedural board mesh (where the
-    // 射击台 slabs lived) is not drawn; the client's own device models stand on their tiles instead
+    // 射击台 and 特制水上平台 slabs lived) is not drawn; the client's own device models stand on their tiles instead
+    // (特制水上平台: upstream 205f3bb7 found 战场#05's water platforms missing; 封印的地面 has no client model)
     const OD = this._officialDevices;
     // (setStage can re-enter through onOfficial → the app's setStage: drop what an inner build placed)
     for (const g of this._officialStatic || []) this.root.remove(g);
     this._officialStatic = [];
     if (OD) {
-      const plat = OD.has(OFFICIAL_DEVICE.platform);
       const seen = new Set();  // board.devices may list a tile twice (a device of two overlapping areas)
       for (const d of board.devices) {
-        if (d.kind !== 'platform' || !plat || seen.has(`${d.r},${d.c}`)) continue;
+        const key = d.kind === 'platform' || d.kind === 'waterPlatform' ? OFFICIAL_DEVICE[d.kind] : null;
+        if (!key || !OD.has(key) || seen.has(`${d.r},${d.c}`)) continue;
         seen.add(`${d.r},${d.c}`);
-        const g = OD.mesh(OFFICIAL_DEVICE.platform);
+        const g = OD.mesh(key);
         g.position.set(d.c, d.r, d.z0);
         this._addOfficialDevice(g);
       }
@@ -507,7 +512,7 @@ export class BoardScene {
     for (const d of board.devices) {
       if (d.kind === 'crate') this.staticCrates.push(d);
       else if (d.kind === 'blower' && wind && this.mat.wind) blowers.push(placeMesh(wind, { x: d.c, y: d.r, z: d.z0 + 0.078, rot: DIR_TURNS[d.dir] ?? 0 }));
-      else if (d.kind === 'platform') { /* procedural: in the board mesh (layout.js slabDevice); official: above */ }
+      else if (d.kind === 'platform' || d.kind === 'waterPlatform') { /* procedural: in the board mesh (layout.js slabDevice); official: above */ }
       else if (d.kind === 'blower' || d.kind === 'turret') crates.push(placeMesh(boxWithTop(this.pack?.uv, d.kind), { x: d.c, y: d.r, z: d.z0 }));
       else if (d.kind === 'mound') crates.push(placeMesh(this.crateGeometry(), { x: d.c, y: d.r, z: d.z0, s: 0.95, sz: 0.55 }));
       else if (d.kind === 'bush') crates.push(placeMesh(bushData(), { x: d.c, y: d.r, z: d.z0 }));

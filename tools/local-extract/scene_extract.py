@@ -612,7 +612,10 @@ def export_stage(roots, index, stage, out_root, manifest, written):
 # holds their sockets (the 射击台 tiles show an empty frame / a zigzag mark without them). Their prefabs live in the
 # battle token packs (pkgrps/btl_pfb_tokens_*.ab: <key>/Graphic/Mesh/<key> MeshRenderer), their meshes / textures in
 # arts/maps/common/trap/trap_*.ab. Lit at run time (no lightmap): the stage's main light, ambient and reflection.
-DEVICE_KEYS = ('trap_1105_accrate', 'trap_1106_achplat')
+# 阻隔工事, 射击台, 特制水上平台 (战场#05's water platforms: Graphic/boat + a shadow quad, in btl_pfb_tokens_0.ab). 封印的地面
+# (trap_1107_acblock, 战场#06) is not listed: its prefab has no renderer at all (Graphic is empty; it only sets the tile's
+# buildable / passable options and destroys itself), so the client draws nothing for it on the scene either.
+DEVICE_KEYS = ('trap_1105_accrate', 'trap_1106_achplat', 'trap_040_canoe')
 DEVICE_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 
 
@@ -975,7 +978,7 @@ def main():
     ap.add_argument('--reflections', action='store_true',
                     help='only add the reflection probe (scene.json reflection) to the scenes already under --out (needs the client)')
     ap.add_argument('--devices', action='store_true',
-                    help='only export the device models (scene/devices: 阻隔工事, 射击台, “双眼皮”) and their textures (needs the client)')
+                    help='only export the device models (scene/devices: 阻隔工事, 射击台, 特制水上平台) and their textures (needs the client)')
     ap.add_argument('--requantize', action='store_true',
                     help='only rewrite the version-1 geometry already under --out in the quantized version 2 (no client)')
     args = ap.parse_args()

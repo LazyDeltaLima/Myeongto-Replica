@@ -7,7 +7,7 @@
 //   const built = buildOfficialScene(THREE, data, focus)    // → { meshes: [Mesh], materials, dispose() }
 //   built.setArea(rects)                                    // show the hidden sets of the field(s) in play
 //   built.update(t)                                         // animated materials (water)
-//   built.devices?.mesh(key, x, y, z) → Mesh | null          // a runtime device model (scene/devices), e.g. 射击台
+//   built.devices?.mesh(key, x, y, z) → Mesh | null          // a runtime device model (scene/devices), e.g. 射击台, 特制水上平台
 //
 // Devices: the client instantiates the mode's traps from the level data on top of the scene (the scene only holds their
 // sockets: the 射击台 tile is an empty frame or a zigzag mark without its platform). scene_extract.py --devices exports
@@ -48,7 +48,9 @@ export const sceneGroup = (stageId) => `scene/${stageId}`;
 /** The device models' pseudo stage (scene/devices: scene_extract.py --devices). */
 export const DEVICES_ID = 'devices';
 /** Stage device roles drawn with an official model (scene/devices keys). */
-export const OFFICIAL_DEVICE = Object.freeze({ crate: 'trap_1105_accrate', platform: 'trap_1106_achplat' });
+// (特制水上平台 — 战场#05's water platforms — upstream 205f3bb7 found them missing on the official scene; 封印的地面
+// trap_1107_acblock has no model in the client: nothing to draw)
+export const OFFICIAL_DEVICE = Object.freeze({ crate: 'trap_1105_accrate', platform: 'trap_1106_achplat', waterPlatform: 'trap_040_canoe' });
 
 /** Is an official scene listed for `stageId`? (manifest only) */
 export function officialSceneListed(assets, stageId) {

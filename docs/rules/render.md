@@ -701,3 +701,15 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   `placed`를 켜고(`render/units.js` UnitView·ItemView·DeviceView), 그 전에는 `null`(`render/app.js`). 시험 쪽 `piecePoint`(`test/e2e/client.mjs`,
   `test/ui/real.e2e.test.js`)는 그려지고 멈춘 기물을 2.5 s까지 기다린다. 확인: `test/render/unitview.test.js` 「no screen rect before the first draw」.
   [화면 미확인] 보충 오퍼레이터를 사서 벤치에 놓는 순간 「替补」 표시가 모서리에 깜빡이지 않음.
+- **공식 씬 위 특제 수상 플랫폼** (upstream `205f3bb7`의 장치 부분): 공식 씬은 절차 보드 메시(장치 판이 들어 있던)를 대신하는데, 공식 장치 모델은 사격대
+  (`trap_1106_achplat`, 위 「공식 스테이지 3D 씬」 기기 모델)만 놓아 전장 #05(`act1autochess_m05`)의 특제 수상 플랫폼 64칸이 빈 물로 보였다. upstream은 절차 판을
+  씬 위에 다시 그리지만, 우리는 사격대와 같은 방식으로 클라 프리팹을 하나만 추출해 놓는다: `scene_extract.py` `DEVICE_KEYS`에 `trap_040_canoe`
+  (`pkgrps/btl_pfb_tokens_0.ab`, 배 + 반투명 그림자 판 `MT_shadow_boat`, 갑판 0.133·테두리 0.153·선체 바닥 −0.079 — 물 위 0.1409가 심해 씬 수면),
+  `official.js OFFICIAL_DEVICE.waterPlatform`, `board3d/scene.js _buildDevices`가 활성 수상 플랫폼 칸마다. 그 위 유닛은 갑판에 선다
+  (`scene.js waterPlatformFor` → `app.js` 스테이지 `waterPlatformHeight` → `tiles.js` devH; 절차 판은 그대로 0.2) [ASSUMED: 공식 유닛 높이는 안 읽음 — 사격대처럼 판 위].
+  봉인된 지면(`trap_1107_acblock`, 전장 #06)은 클라 프리팹에 렌더러가 없다(Graphic이 비어 있고 칸 옵션만 정한 뒤 스스로 사라짐 — EN 클라 `btl_pfb_tokens_4.ab`
+  확인 2026-10-17) — 공식 씬에서도 장치가 그리는 것이 없으므로 안 그린다(upstream은 절차 판). 추출하지 않은 서버(모델 없음)는 예전처럼 수상 플랫폼을 안 그린다.
+  확인: `test/render/board3d-official-devices.test.js`(배치·한 칸 한 번·갑판 높이·2D 칸 높이; 실제 추출물 사례는 추출이 있을 때만). 추출 확인 2026-10-17:
+  EN 클라에서 `--devices`를 임시 폴더로 돌려 장치 3개·그룹 4개·텍스처 2개(`TX_boat_trap`, `TX_supplyshadow`), 배 메시는 불투명 표준 재질, 그림자는 UNLIT 반투명.
+  [화면 미확인] 전장 #05 공식 씬에서 수상 플랫폼 배가 물에 떠 있고 그 위 오퍼레이터의 발이 갑판에 닿음; 전장 #06의 봉인된 지면 4칸이 공식 씬에 어떻게 보이는지
+  (씬 자체 표시가 있는지).

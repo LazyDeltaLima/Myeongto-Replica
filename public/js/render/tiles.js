@@ -346,7 +346,7 @@ export class TileField {
       if (!t) continue;
       if (d.role === 'platform') t.devH = tileTop('platform', stage);  // local patch: the official plate when drawn
       else if (d.role === 'mound') t.devH = TILE_H.platform;
-      else if (d.role === 'waterPlatform') t.devH = DEVICE_BOX.waterPlatform.height;
+      else if (d.role === 'waterPlatform') t.devH = Number(stage?.waterPlatformHeight) > 0 ? Number(stage.waterPlatformHeight) : DEVICE_BOX.waterPlatform.height; // the official deck when drawn
     }
     const hs = new Set([0]);
     for (const row of this.grid) for (const t of row) if (t.drawn) hs.add(t.h + (t.devH || 0));

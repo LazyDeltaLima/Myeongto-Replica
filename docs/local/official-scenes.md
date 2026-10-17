@@ -71,6 +71,12 @@ board's atlas, the first-season look): act1 m01–m07, act2 m02 and m04 use `map
   `stage.platformHeight` (style.js `tileTop('platform')`), so units on a 射击台 stand on its plate. The 土石结构 mound
   (act1 m06 `trap_032_mound`) keeps the procedural crate (its standing height is not settled) and so does the “双眼皮”
   turret (no prefab root in the token packs).
+  特制水上平台 (`trap_040_canoe`, 战场#05's 64 water platforms; upstream 205f3bb7 found them missing on the scene) is the
+  third model (boat + an alpha-blended shadow quad, deck 0.133 under its 0.153 rim, hull to −0.079 under the water line;
+  pkgrps/btl_pfb_tokens_0.ab): one on each active water platform tile, units stand on the deck (`stage.waterPlatformHeight`
+  → render/tiles.js devH; the procedural slab stays 0.2). 封印的地面 (`trap_1107_acblock`, 战场#06) has no renderer in its
+  prefab (an empty Graphic: it only sets the tile options and destroys itself), so nothing is drawn for it on a scene —
+  upstream draws a procedural slab there instead.
 - Not done: the StylizedWater shader is approximated (one deep colour: no depth-based shallow colour near the shore — the
   official water turns teal-green there —, no shore foam, caustics or sky reflection); the
   tide (act2 m04 涨潮控制) does not move the water or toggle the warning tiles yet; static crates / blowers are still

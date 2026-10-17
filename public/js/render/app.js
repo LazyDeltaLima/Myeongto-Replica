@@ -457,9 +457,10 @@ export async function createFieldView(host, options = {}) {
           timing?.late('scene');
           const h = info?.highland ?? null;
           const p = info?.platform ?? null;  // the official 射击台 model's plate (style.js tileTop 'platform')
-          if (!stageRec || ((stageRec.highlandHeight ?? null) === h && (stageRec.platformHeight ?? null) === p)) return;
-          const { highlandHeight: _drop, platformHeight: _dropP, ...base } = stageRec;
-          setStage({ ...base, ...(h != null ? { highlandHeight: h } : {}), ...(p != null ? { platformHeight: p } : {}) });
+          const w = info?.waterPlatform ?? null;  // the official 特制水上平台 deck (tiles.js devH)
+          if (!stageRec || ((stageRec.highlandHeight ?? null) === h && (stageRec.platformHeight ?? null) === p && (stageRec.waterPlatformHeight ?? null) === w)) return;
+          const { highlandHeight: _drop, platformHeight: _dropP, waterPlatformHeight: _dropW, ...base } = stageRec;
+          setStage({ ...base, ...(h != null ? { highlandHeight: h } : {}), ...(p != null ? { platformHeight: p } : {}), ...(w != null ? { waterPlatformHeight: w } : {}) });
         },
         official: !/[?&]officialBoard=0\b/.test(globalThis.location?.search || ''),
       });
@@ -770,6 +771,8 @@ export async function createFieldView(host, options = {}) {
     if (hl != null && st.highlandHeight !== hl) st = { ...st, highlandHeight: hl };
     const ph = board3d?.platformFor?.(st.id) ?? null;
     if (ph != null && st.platformHeight !== ph) st = { ...st, platformHeight: ph };
+    const wh = board3d?.waterPlatformFor?.(st.id) ?? null;
+    if (wh != null && st.waterPlatformHeight !== wh) st = { ...st, waterPlatformHeight: wh };
     stageRec = st;
     tiles.setStage(st);
     tiles.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
