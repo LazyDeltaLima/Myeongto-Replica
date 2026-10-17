@@ -176,8 +176,9 @@ describe('status effects: sortingOrder < 0 behind the unit', () => {
     if (!ines || !billro) return t.skip('effects not extracted');
     const back = (d) => d.nodes.filter((n) => [n.mesh, n.ps?.render].some((r) => (r?.order || 0) < 0)).map((n) => n.name);
     assert.ok(fxp.hasBackOrder(ines) && fxp.hasBackOrder(billro));
-    assert.deepEqual(back(ines), ['glow_01 (3)']);
+    assert.deepEqual(back(ines), ['glow_01 (3)', 'bg_01'], 'bg_01: a built-in Quad (order -5)');
     assert.deepEqual(back(billro), ['plane01 (6)', 'plane01_2', 'baoshan2']);
-    assert.equal(fxp.hasBackOrder(load('mizuki/mizuki_skill_02_buff_02') || { nodes: [] }), false, 'no back renderer: not split');
+    assert.equal(fxp.hasBackOrder(load('buff/buff_sleep') || { nodes: [] }), false, 'no back renderer: not split');
+    assert.ok(fxp.hasBackOrder(load('mizuki/mizuki_skill_02_buff_02') || { nodes: [{ mesh: { order: -1 } }] }), 'its built-in Quads an / bg (order -1)');
   });
 });

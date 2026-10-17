@@ -316,7 +316,8 @@
   `mount`를 `_spawnLocation`보다 먼저 쓰고(같은 본 getter로 매 프레임 따라감), `pauseWhenInvalid`면 지금 스켈레톤에 그 점의 본이 하나도 없을 때 업데이트를 멈춤
   (끄는 중이면 계속 — d47fd252, 매핑 정정 1caa67d0). 적 앞: `baoshan` 원은 fudge −50, 점 입자는 order 2 → 분할(high)에서 FX_FRONT(기존 규칙). 분할이 꺼진 품질은 예전대로 유닛 아래.
 - ghost2만 재추출(마운트 프리팹 5개만 반영; 같이 재추출하면 `skill_02_buff_01`·`beidong_buff_01(_end)`·`skill_01_buff`·`skill_03_buff_01`에 내장 Quad `bg_01`이
-  생겨 이전 파일로 둠 — 내장 Quad 재추출은 텍사스 디 오메르토사만 하기로 한 결정, 아래 「텍사스 디 오메르토사 S2 발동·S3 검우」).
+  생겨 이전 파일로 둠 — 내장 Quad 재추출은 텍사스 디 오메르토사만 하기로 한 결정, 아래 「텍사스 디 오메르토사 S2 발동·S3 검우」). 2026-10-17 전체 재추출로
+  그 `bg_01`도 들어옴(아래 「추출 누락 보고 — fx_coverage」).
 - **전체 적용(관리자 결정 2026-10-08 「전체 적용」·「켜줘」)**: `fx_extract.py --mount-only`(d1046024)가 추출된 프리팹 JSON에 `mount`만 넣는다 — 재추출하면 내장 Quad
   같은 다른 변화가 섞이므로. 전 번들: 마운트 프리팹 359개(93 번들), 파일 354개 변경(ghost2 5개는 이미), `mount` 외 키 변화 0. 자리가 바뀌는 것 174개(49 번들 — 텍사스 디
   오메르토사 `buff_02_start`, 무에나, 비질 등). GeneralAbilities 버프 바인딩도 전원(78e4c4fa) — 7명(크루스 더 킨 글린트·라플란드 더 데카덴차·아스트젠 더 라이트체이서·
@@ -561,7 +562,8 @@
   싣고 있어 합성 대신 **실제 메시를 읽는다**(`Extractor.mesh_ref`, 메시 자리만; Quad 10210·Plane 10209만 — Cube 10202·Sphere 10207은 결정 범위 밖).
   재추출은 texas2 번들만: 9 프리팹 69 노드에 메시가 생김(S3 낙하 검·범위 모서리 검·범위 시작 27, S2 버프 메시 5, S1·S3 버프, buff_02_start 2종), 그 밖의 필드는
   재추출 전과 같음. 산출물 `public/assets/local/fx/texas2/*.json`·`mesh/Quad_000027e2.json`은 git 밖. 나머지 ~316 프리팹(65 번들)은 보류 —
-  2026-10-16 프라마닉스 더 프레리타 눈 타일 `sbell2_ground_01~03`만 더 재추출(관리자 결정, 「키트 이벤트의 공식 이펙트」).
+  2026-10-16 프라마닉스 더 프레리타 눈 타일 `sbell2_ground_01~03`만 더 재추출(관리자 결정, 「키트 이벤트의 공식 이펙트」). 2026-10-17 운영자 이펙트 전체
+  재추출(관리자 결정)로 나머지도 들어옴: 314 프리팹 737 노드(아래 「추출 누락 보고 — fx_coverage」).
 - 확인: 단위(`test/render/texas2-skill-fx.test.js` — 바인딩·이름, 실제 `birth_02_start`로 베기 4개가 1초에 사라짐, hit_02 검날 메시; `test/local-patch-fxmodes.test.js`
   다중 클립 합성 케이스). **아레나**(Chrome, `/debug.html?op=char_1028_texas2`): S2 발동 베기가 0.2초에 보이고 0.8초에 사라짐(전엔 약 2초 정지);
   S3 범위 시작 낙하 검·모서리 검, 샌드백에 1초마다 먹 검 낙하 + 착지. 무에나·불피스폴리아 S2 이상 없음(위셔델 S2 시작은 아레나에서 안 틀려 픽셀 비교만).
@@ -783,6 +785,8 @@
   입자도 없음. 날아가는 跟子와 칸 위 돌을 함께 그리는 경로는 없음(우리는 跟子 비행을 안 그림 — 공식도 `_mainEffect`가 없어 날아가는 그림이 없음).
   [추정·남김] 공식 跟子의 돌 그림은 `wang_passive_01_buff`의 `qizi (1)` 노드(클립으로 움직이는 렌더러 — 추출기가 못 옮김, 아마 스프라이트)이고 우리는 대신
   돌 토큰 모델을 그린다. 테스트 `test/render/wang-follower-exit.test.js`. [화면 미확인]
+  2026-10-17 정정: `qizi (1)`은 내장 Quad 메시(재질 `wang_14`, 그림자 `andi`도 Quad)이고 2026-10-17 재추출로 그려진다 — 시작 이펙트 `wang_passive_01_start`의
+  낙하 돌 `qizi`(0.2333초에 꺼짐)도 함께. 지금은 돌 토큰 모델과 겹친다(어느 쪽을 끌지 결정 대기, 공식은 이펙트 쪽: 跟子는 투사체라 모델이 없음).
 
 ### 적 이펙트 바인딩 (2026-10-10, 관리자 결정 (2026-10-10))
 근거: EN 클라 적 프리팹 `battle/enm_pfb_*.ab`, `[uc]projectiles.ab`, `config/buff_template_holder.ab`(버프 템플릿), 이펙트 번들 `pkgrps/btl_pfb_fx_enemy_*.ab`·
@@ -1479,7 +1483,8 @@
   밖으로 밀렸다(중심에서 한 칸마다 약 0.04칸). 공은 뿌리 바로 위에 그려지는 그림이라 `fxgame.js ballAt`이 모델 포인트처럼 `liftedPoint`로 그 화면 점의
   월드 점을 구함. ② 跟子가 토큰 배치(0.1초 대기·어두운 첫 프레임·`Start` 0.333초)로 들어와 시작 이펙트의 낙하(`ctrl` 0.1667초)보다 두 배 느렸다 —
   클라에서 跟子는 투사체라 토큰 배치가 없고 돌은 그 이펙트의 `qizi` 그림이 떨어진다(2026-10-16 정정: SpriteRenderer가 아니라 Unity 내장 Quad
-  메시의 MeshRenderer — 추출기는 2026-10-08부터 읽지만 디스크의 `wang` 추출물이 그 전 것이라 없다, 아래 「추출 누락 보고」) → 'summon' `follower`에
+  메시의 MeshRenderer — 추출기는 2026-10-08부터 읽지만 디스크의 `wang` 추출물이 그 전 것이라 없었다 — 2026-10-17 재추출로 그려져 이 토큰 낙하와 겹침, 위 「望 바둑돌이
+  겹쳐 보임」, 아래 「추출 누락 보고」) → 'summon' `follower`에
   `units.js throwIn(2)`: `Start`를 2배속으로, 대기·어두운 프레임 없이 [추정: 토큰의 `Start` = 돌이 떨어져 들어오는 모양].
 
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)
@@ -1510,6 +1515,13 @@
   - **디스크 추출물이 추출기보다 오래됨**(`stale`): 추출기를 고친 뒤 일부 묶음만 다시 뽑아, 고친 결과가 없는 파일이 남았다 — 내장 Quad 메시
     (2026-10-08)가 없는 노드 244개 프리팹(望 `qizi`, 엑시아 더 뉴 커버넌트 `Quad`·`glow` 등), `lineDyn`(2026-10-10)이 없는 4개, `right` 2개,
     `finish` 4개, 아로마 `spawn` 1개. 재질 값 차이 대부분(`_MainTexChannel` 등 새 속성, 모두 기본값)은 클라 갱신 쪽이다.
+  - **전체 재추출 (2026-10-17, 관리자 결정)**: `index.json`의 운영자 묶음 136개를 같은 프리팹 목록 그대로 지금 추출기로 다시 뽑음(EN 클라, CN 묶음
+    `kalts2`·`clemnt`·`aglna2`·`aglna2_token`은 CN 클라, `*_token`은 각 `pkgrps/btl_pfb_fx_token_N.ab` 팩). 파일 2,541개 중 1,981개 변경: 내장 Quad 노드
+    737개(314 프리팹, 모두 텍스처·플레이어가 아는 셰이더가 있음), 10-14 뒤 추출에서 빠졌던 텍스처(28 프리팹 — 아르케토·블랙나이트·치우바이·뮤엘시스 토큰·프라마닉스 더 프레리타의 `_MainTex`·`_DissolveTex`·`_DisturbTex`),
+    `lineDyn` 4·`right` 2·아로마 `spawn` 1, 클립 트랙 `prop` 62·입자 메시 60. 클라 갱신(10-14)에서 온 것: 새 재질 속성(기본값), 키워드 `_HG_UV_ROTATION`
+    빠짐 25(플레이어는 셰이더 이름으로 고름 — 영향 없음), 불피스폴리아 S3 `start_02` 3종 `_delayToFinish` 0.5 → 0·`start_01` 0.3(타입 트리로 확인).
+    CN 묶음은 바뀐 것 없음. 뒤 `--coverage`의 `stale`은 `kalts2` `_PremultiplyAlpha` 33뿐(EN으로 걷는 CN 추출물 — 클라 차이). 테스트 기대값 고침:
+    `status-buff-fx.test.js` 이네스 `bg_01`·미즈키 `an`/`bg`(order −1)가 뒤 렌더러.
 - 기준선의 큰 todo(비공개 조사 기록에 전체 목록): `FollowDirection` 183개(주인·대상 방향을 매 프레임 따라 돎) · 셰이더 `_CullMode`(플레이어는 늘
   양면) · Disturb Origin `_SrcBlend`(대부분 SrcAlpha, 2개가 One) · `InheritVelocityModule` 78 · `FxLODSetting` 37 · Shape Mesh 36(점으로 대체) ·
   `EmptyEffect` 35 · `OnPlayEmitter` 29 / `OnFinishEmitter` 14(다른 이펙트를 틂) · `CollisionModule` 28 · `PauseEffectIf` 26 · 기본 상태 밖 Animator
