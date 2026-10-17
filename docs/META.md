@@ -549,8 +549,8 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   extra slots EMPTY on the left (the cards shown keep their places until the next roll); `MAX_LEVEL` at 6. A roll lays
   the shop out with the item slot(s) on the left, then the operators (`shop.slots` is the display order, `shop.kinds`
   the kind of every slot, empty ones included). One freeze
-  toggle freezes every unsold slot until the next round start; a manual refresh rerolls everything (new slots stay
-  frozen). Unfrozen slots are cleared at combat start. A frozen card keeps its place among the slots of its kind.
+  toggle freezes every unsold slot until the next round start; a manual refresh rerolls everything and cancels
+  the freeze (the new slots are not frozen; a refresh that fails leaves it on — upstream #584). Unfrozen slots are cleared at combat start. A frozen card keeps its place among the slots of its kind.
 * **Pool**: copies 12/14/18/16/8/5 in 独立模拟 (solo; Ⅰ 普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10, Ⅱ 风丸 8 and
   赫默/休谟斯/砾/蒂比/调香师 12); a 同盟模拟 (co-op) match has ×2 of that, every tier and exception, whatever the team size
   (路标月报#2, bilibili BV1eLXXBqEgF; GitHub #430; `economy.coopPoolMultiplier`, `GameData.poolCopies`; the former
@@ -899,7 +899,6 @@ round was over. The official 1 s `broadcastBeginDelay` is not modelled.
 * Unite helper choice: `unite.js helperOrder` (§4; selection units > active bond > standing units > seat, the pair
   units > active bond > Σ active layers > standing > seat; the ranks marked 存疑 in PRTS). Unite enemies re-enter with
   their original stats on the official 联防 spawn timing (waves.js `buildUniteWave`, DATA.md §15 #22).
-* A manual refresh while frozen keeps the new slots frozen until the next round start.
 * A level-up opens the new level's extra slots empty, on the left, and keeps the cards shown in their places until the
   next roll (local patch, user 2026-10-09 from the game — 0.2.0 filled them at once after community report item 19).
 * Buying a second copy of an equipped normal item merges into the golden item in the hand (not equipped).

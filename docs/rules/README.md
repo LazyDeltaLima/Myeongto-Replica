@@ -77,7 +77,7 @@
 | 랜덤 매칭 성사·실패·취소음, 방 입장음, 대기 중 숨은 탭에서도 소리 유지 + 탭 제목 깜빡임 | `public/js/ui/matchQueue.js queueCue`, `public/js/screens/room.js joinedDoctors`, `public/js/audio.js keepAwake` | `audio.md` 「랜덤 매칭·방 알림음」 |
 | 카운트다운 경고음을 공식대로 주황이 되는 순간 1회 (단계별 공식 경고 시간) | `public/js/ui/gameLogic/phases.js countdownWarnAt`, `public/js/ui/components.js Countdown onWarn` | `audio.md` 「카운트다운 경고음」 |
 | 갱신 버튼 강조 (전략이 다음 수동 갱신에 작용할 때 테두리가 빛남: 두요야 라운드 첫 2회, 梓兰 매번, 佩佩 특수 갱신 대기, 贾维 N번째 갱신 직전) | `server/local-patch.js refreshBoost`, `public/css/refresh-boost.css` | — |
-| 얼린 상점에서 특수 갱신이 바꾼 칸도 얼림 유지 (원본은 `setShopSlot`이 항상 `frozen: false` → 佩佩·杜遥夜가 넣은 칸이 전투 시작 때 사라짐) | `server/match/effectsMeta.js setShopSlot` | — |
+| 상점 칸을 바꾸는 효과는 그 칸의 얼림을 따름 (원본은 `setShopSlot`이 항상 `frozen: false`; 佩佩·杜遥夜 특수 갱신은 수동 갱신이라 upstream #584 이식 뒤엔 동결이 먼저 풀림) | `server/match/effectsMeta.js setShopSlot` | — |
 | 디버그용 재화 고정 (`SP_DEBUG_FUNDS=<0..999>`이면 사람 플레이어 재화가 그 값으로 고정, 봇은 그대로) | `server/local-patch.js debugFunds` | `ui.md` 「디버그 패널」 |
 | 게임 내 디버그 패널 (로컬 디버그 모드만: 재화 고정, 모든 오퍼레이터·선발 추가(맹약·티어·이름 필터), 다음 전투 추가 적, F2 숨기기, 결산 화면 바로 보기) | `server/local-patch.js` `debugMode`·`debugIntent`·`debugView`, `public/js/ui/debugPanel.js`, `public/css/debug-panel.css` | `ui.md` 「디버그 패널」 |
 | 이펙트·사운드 디버그 페이지 = 샌드백 아레나 (`SP_DEBUG_PAGE=1`일 때만, 그 밖에는 404 — `/js/debug/*` 포함) | `public/debug.html`, `public/js/debug.js`, `public/js/debug/arena.js`·`sandbag.js`, `server/local-patch.js debugPageHidden`, `test/local-patch-debug.test.js` | — |

@@ -23,7 +23,7 @@
 //     overflow temp; summons back onto their stack) — see _evictIllegal.
 //   * Shop: per-level chess slots + item slot, copy-weighted rolls from the SHARED pool (pool.js); refresh 1 (free
 //     refreshes first), one toggle freezes all unsold slots until the next round start (a manual refresh while frozen
-//     rerolls everything and the new slots stay frozen), level-up price = base − rounds elapsed (floor 0).
+//     rerolls everything and cancels the freeze), level-up price = base − rounds elapsed (floor 0).
 //   * Merge: 3 normal copies (风丸 2) on board/hand/temp → 1 elite; equipment returns to the hand; a
 //     reward offer of 3 different free chess of tier min(level+1, 6) is queued (never one operator twice — user
 //     playtest #6 item 19; a short tier tops up from the tier below; pick 1, expires at prep end; an offer earned

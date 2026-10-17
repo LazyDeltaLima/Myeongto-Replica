@@ -1042,7 +1042,7 @@ describe('enemy skills with a ground-only client selector skip a flying ally', (
   });
 });
 
-test('frozen shop: a slot a special refresh replaces stays frozen (佩佩 / 杜遥夜, server/match/effectsMeta.js setShopSlot)', async () => {
+test('frozen shop: a manual refresh that is also a special refresh (佩佩 / 杜遥夜) cancels the freeze for the slots it replaces too (upstream #584; server/match/effectsMeta.js setShopSlot)', async () => {
   const { makeMatch } = await import('./match/harness.js');
   const h = makeMatch({ mode: 'solo', humans: 1, seed: 1 }).start();
   h.toPrep(1);
@@ -1053,9 +1053,8 @@ test('frozen shop: a slot a special refresh replaces stays frozen (佩佩 / 杜�
   assert.equal(m.handle('p_0', { t: 'g.refresh' }).ok, true);
   const chess = ps.shop.slots.filter((s) => s && s.kind === 'chess');
   assert.ok(chess.some((s) => m.gd.chess(s.id).bonds.includes('sargonShip')), 'the special refresh happened');
-  assert.ok(chess.every((s) => s.frozen), 'every slot follows the frozen shop');
-  ps.shop.frozen = false;
-  for (const s of ps.shop.slots) if (s) s.frozen = false;
+  assert.equal(ps.shop.frozen, false, 'the manual refresh cancels the freeze');
+  assert.ok(chess.every((s) => !s.frozen), 'the slots the special refresh replaced are not frozen either');
   ps.bandId = 'band_duyaoy';
   m.handle('p_0', { t: 'g.refresh' });
   assert.ok(ps.shop.slots.every((s) => !s || !s.frozen), 'an unfrozen shop stays unfrozen');
