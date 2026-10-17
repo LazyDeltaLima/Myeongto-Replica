@@ -17,6 +17,9 @@
 //     in server/lobby.js. Local / LAN peers without a forwarding header (dev machine, tests, LAN party)
 //     have no key and are never limited per address.
 //   * Heartbeat (ws ping/pong every `heartbeatMs`, dead sockets terminated), hello timeout.
+//   * Hello log (the lobby's seat log, server/lobby.js header): one info line when a hello is refused with
+//     SESSION_IN_USE (and how long ago the held socket last answered) and when a hello's token is not known (expired,
+//     or another server's) so the player starts over as a new session.
 //   * Send helpers that never throw, with a backpressure guard: non-critical `b.snap` frames are skipped
 //     while the socket has more than 1 MB queued; a socket with more than 16 MB queued is terminated
 //     (the client reconnects and receives a full state resync).
@@ -679,6 +682,8 @@ export class Network {
       if (session) {
         if (session.connected && session.ws && session.ws !== conn.ws
           && (msg.noReplace || (Number.isFinite(msg.claimAt) && session.claimAt != null && msg.claimAt > session.claimAt))) {
+          const seen = Number.isFinite(session.lastSeen) ? `, its socket last answered ${Math.round((now - session.lastSeen) / 1000)} s ago` : '';
+          this.log.info?.(`[net] ${name}: hello for ${session.playerId} refused, session in use (${msg.noReplace ? 'no-replace' : 'newer claim'}${seen})`);
           this.reply(conn, errorMsg(ERR.SESSION_IN_USE, rid));
           return;
         }
@@ -687,6 +692,8 @@ export class Network {
       } else {
         session = this.registry.create(name);
         if (!session) { this.reply(conn, errorMsg(ERR.INTERNAL, rid, 'server full')); return; }
+        // an expired or another server's token: the player starts over as a new session (the seat log's counterpart)
+        if (msg.token) this.log.info?.(`[net] ${name}: token not known, new session ${session.playerId}`);
       }
       conn.session = session;
       session.ws = conn.ws;

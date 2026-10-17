@@ -4,10 +4,11 @@
 //     protocol, server/net.js), built from the startServer() options (config.js decides which go where);
 //   * WebSocket (ws) at /ws, maxPayload 64 KB, no per-message deflate → Network.handleConnection. Refused at the
 //     upgrade: any other path 404; per-network socket limit for internet clients (maxConnectionsPerAddr, see net.js
-//     clientAddress; local/LAN peers are exempt) 429; server full (maxConnections) or shutting down 503.
+//     clientAddress; local/LAN peers are exempt) 429; server full (maxConnections) or shutting down 503. A 429 / 503
+//     refusal is logged (`[ws] refused …`), at most one line per 10 s with the count of the ones it held back.
 
 import { WebSocketServer } from 'ws';
-import { Network, SessionRegistry, NET_DEFAULTS } from '../net.js';
+import { Network, SessionRegistry, NET_DEFAULTS, clientAddress } from '../net.js';
 import { Lobby } from '../lobby.js';
 import { splitUrl } from './common.js';
 import { netOptionsFrom, lobbyOptionsFrom } from './config.js';
@@ -40,6 +41,16 @@ export function attachWebSocket(server, { network, log }) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: WS_MAX_PAYLOAD, perMessageDeflate: false, clientTracking: false });
   wss.on('connection', (ws, req) => network.handleConnection(ws, req));
   wss.on('error', (e) => log.error('[ws] server error', e));
+  // a refusal loop must not flood the log (header)
+  const refusals = { at: -Infinity, held: 0 };
+  const refusedLog = (why, req) => {
+    const now = Date.now();
+    if (now - refusals.at < 10_000) { refusals.held++; return; }
+    const more = refusals.held ? ` (+${refusals.held} held back)` : '';
+    refusals.at = now;
+    refusals.held = 0;
+    log.warn(`[ws] refused (${why}) ${clientAddress(req, network.opts.trustProxy).ip}${more}`);
+  };
 
   server.on('upgrade', (req, socket, head) => {
     socket.on('error', () => {});
@@ -49,6 +60,7 @@ export function attachWebSocket(server, { network, log }) {
     };
     if (!parts || parts.rawPath !== '/ws') { reject(404, 'Not Found'); return; }
     const refused = network.admission(req);
+    if (refused) refusedLog(refused, req);
     if (refused === 'per-address') { reject(429, 'Too Many Requests'); return; }
     if (refused) { reject(503, 'Service Unavailable'); return; }
     try {

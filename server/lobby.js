@@ -115,6 +115,10 @@
 //     While a room is queued (room.state `matching`) room.join of it, room.setDifficulty, room.addBot and room.start are
 //     refused (ERR.MATCHING); a human leaving it in LOBBY, or its disposal, cancels the room's entry (removeMember /
 //     disposeRoom → onRoomChange). Its session events come from onHello / onDisconnect / onExpire / shutdown here.
+//   * Seat log (maintainer decision 2026-10-17: a "could not reconnect" report had nothing to go on): one info line per
+//     seated human (player or spectator) who drops, comes back (and after how long), leaves a running match, or whose
+//     reconnect window expires — `[lobby] <code> <name> (<playerId>) <event>`, with `R<round> <phase>` during a match.
+//     A resume whose room is gone says why (the room.closed notice). Players outside rooms are not logged.
 
 import { randomBytes, randomInt } from 'node:crypto';
 import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
@@ -336,6 +340,7 @@ export class Lobby {
     this.queue.onResume(session);
     const room = this.roomOf(session);
     if (!room) {
+      if (resumed && session.notice) this.log.info(`[lobby] ${session.name} (${session.playerId}) back, room gone: ${session.notice}`);
       if (session.notice) {
         const info = session.noticeInfo?.for === session.notice ? { ...session.noticeInfo, for: undefined } : null;
         sendSession(session, { t: 'room.closed', reason: session.notice, ...info });
@@ -356,6 +361,8 @@ export class Lobby {
     // Only a visible change (reconnect, rename, new host) is broadcast; a plain resync (repeated hello on a
     // live socket) answers the requester alone, so hello spam cannot amplify into room-wide traffic.
     let changed = !seat.connected;
+    if (changed) this.seatLog(room, session, Number.isFinite(seat.awayAt) ? `back after ${Math.round((this.now() - seat.awayAt) / 1000)} s` : 'back');
+    else if (resumed && !repeat) this.seatLog(room, session, 'back on a new socket (the old one had not closed)');
     seat.connected = true;
     if (!room.match && seat.name !== session.name) { seat.name = session.name; changed = true; }
     if (!room.hostId) { this.migrateHost(room); changed = true; }
@@ -412,6 +419,7 @@ export class Lobby {
     const seat = player || room.spectatorOf(session.playerId);
     seat.connected = false;
     seat.awayAt = this.now(); // the room's `awayMin` (server/local-rooms.js): how long ago it lost its last connection
+    this.seatLog(room, session, player ? 'dropped' : 'dropped (spectator)');
     // a spectator's seat is kept like a player's (nothing to tell the match: it plays no field)
     if (room.match) { if (player) this.callMatch(room, 'onDisconnect', session.playerId); } else this.startGrace(room, seat);
     this.broadcastState(room);
@@ -426,7 +434,9 @@ export class Lobby {
     const code = session.roomCode;
     session.roomCode = null;
     const room = code ? this.rooms.get(code) : null;
-    if (room) this.removeMember(room, session.playerId);
+    if (!room) return;
+    if (room.seatOf(session.playerId) || room.spectatorOf(session.playerId)) this.seatLog(room, session, 'reconnect window expired, removed');
+    this.removeMember(room, session.playerId);
   }
 
   /**
@@ -503,6 +513,7 @@ export class Lobby {
   leave(session) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.match) this.seatLog(room, session, 'left the match');
     this.removeMember(room, session.playerId);
     return OK;
   }
@@ -1000,6 +1011,13 @@ export class Lobby {
     this.log.warn(`[lobby] ${text}${more}`);
   }
 
+  /** One seat-log line (header 「Seat log」). @param {Room} room @param {import('./net.js').Session} session @param {string} event */
+  seatLog(room, session, event) {
+    const m = room.match;
+    const at = m ? ` (R${m.round ?? 0} ${m.phase ?? '?'})` : '';
+    this.log.info(`[lobby] ${room.code} ${session.name} (${session.playerId}) ${event}${at}`);
+  }
+
   /** Number of rooms matching a predicate. */
   countRooms(pred) {
     let n = 0;
@@ -1013,6 +1031,7 @@ export class Lobby {
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (!room.match) return fail(ERR.WRONG_PHASE, 'no running match');
     if (msg.t === 'g.leave') {
+      this.seatLog(room, session, 'left the match');
       this.removeMember(room, session.playerId);
       return OK;
     }
