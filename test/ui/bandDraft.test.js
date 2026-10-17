@@ -8,8 +8,9 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { ERR, PHASE } from '../../shared/constants.js';
+import { normalizeDraft } from '../../public/js/ui/gameLogic.js';
 import { makeMatch, DATA } from '../match/harness.js';
-import { teammateBands, timeoutBand, allowedBands, autoPickBand, draftClock, draftTip, draftSelection, presetPreviewPicks, presetChoiceTags, presetOptions } from '../../public/js/screens/bandDraft.js';
+import { draftCanPass, teammateBands, timeoutBand, allowedBands, autoPickBand, draftClock, draftTip, draftSelection, presetPreviewPicks, presetChoiceTags, presetOptions } from '../../public/js/screens/bandDraft.js';
 import { BAND_TURN_SECONDS } from '../../server/match/Match.js';
 
 const TURN_MS = BAND_TURN_SECONDS * 1000;
@@ -21,6 +22,50 @@ function draftOf(o) {
   assert.equal(h.m.phase, PHASE.BAND_DRAFT);
   return h;
 }
+
+describe('skip requires a successor and remaining quota (upstream PR #546)', () => {
+  for (const humans of [2, 3, 4]) test(`${humans} humans: the final unpicked player cannot pass to a finished player`, () => {
+    const h = draftOf({ humans, seed: 5 });
+    const m = h.m;
+    try {
+      const order = m.draft.order.slice();
+      for (let i = 0; i < order.length - 1; i++) {
+        const pid = order[i];
+        assert.equal(m.draftTurn(), pid);
+        assert.deepEqual(m.handle(pid, { t: 'g.band', bandId: m.defaultBand(pid) }), { ok: true });
+      }
+      const last = order.at(-1);
+      assert.equal(m.draftTurn(), last);
+      const pub = m.publicView().draft;
+      assert.equal(pub.order.length, humans, 'the published order retains finished players');
+      assert.equal(draftCanPass(normalizeDraft(pub)), false, 'the client disables 跳过 for the last picker');
+      assert.equal(m.draft.skipsLeft[last], 1);
+      assert.deepEqual(m.handle(last, { t: 'g.bandSkip' }), { error: ERR.BAD_TARGET, detail: 'nobody to pass to' });
+      assert.equal(m.draftTurn(), last);
+      assert.equal(m.draft.skipsLeft[last], 1, 'a refused skip consumes no quota');
+      assert.deepEqual(m.handle(last, { t: 'g.band', bandId: m.defaultBand(last) }), { ok: true });
+    } finally { m.dispose(); }
+  });
+
+  test('passing works before the final position, but a spent quota cannot be used again', () => {
+    const h = draftOf({ humans: 3, seed: 5 });
+    const m = h.m;
+    try {
+      const [first, second, third] = m.draft.order;
+      assert.equal(draftCanPass(normalizeDraft(m.publicView().draft)), true);
+      assert.deepEqual(m.handle(first, { t: 'g.bandSkip' }), { ok: true });
+      assert.equal(m.draftTurn(), second);
+      assert.deepEqual(m.handle(second, { t: 'g.bandSkip' }), { ok: true });
+      assert.equal(m.draftTurn(), third);
+      assert.deepEqual(m.handle(third, { t: 'g.band', bandId: m.defaultBand(third) }), { ok: true });
+      assert.equal(m.draftTurn(), first);
+      assert.equal(m.draft.order.length - m.draft.idx, 2);
+      assert.equal(draftCanPass(normalizeDraft(m.publicView().draft)), true, 'two unpicked players left');
+      assert.deepEqual(m.handle(first, { t: 'g.bandSkip' }), { error: ERR.ALREADY, detail: 'no skip left' });
+      assert.equal(m.draftTurn(), first);
+    } finally { m.dispose(); }
+  });
+});
 
 describe('server: no duplicate strategies in the co-op draft', () => {
   test('a band picked by a teammate is refused with 队友已选; a free one is accepted', () => {

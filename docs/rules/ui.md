@@ -1346,3 +1346,10 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
 - 안내: 로비에 들어오면 한 번 경고 토스트(15초, 눌러 닫기) — 「브라우저의 하드웨어 가속이 꺼져 있는 것 같습니다 … 「그래픽 가속 사용」을 켠 뒤 브라우저를 다시 시작해 주세요」(WebGL이 없으면 간단한 화면 안내와 최신 브라우저 권유), 같은 문장이 설정 「화면」 절 맨 아래에 경고색으로 계속 남는다(`public/js/ui/gpuNotice.js`). 토스트는 언어 팩을 읽은 뒤(첫 렌더 뒤) 띄운다. 가속이 켜져 있으면 둘 다 없다.
 - 진단 보고서(설정 「문제 제보」): `gpu:` 줄에 소프트웨어면 ` | software rendering`, WebGL이 없으면 `gpu: no WebGL`. 3D 보드가 꺼진 이유(`render:` 줄의 `3d off: …`)도 `WebGL2 unavailable: software rendering` / `WebGL2 unavailable: no WebGL2`로 나눈다(예전에는 둘 다 `WebGL2 unavailable`).
 - 확인: `test/ui/gpu-notice.test.js`. Windows Chrome 2026-10-16 — 보통 실행은 hardware(안내 없음), `--disable-gpu`는 Microsoft Basic Render Driver로 software, `--disable-gpu --enable-unsafe-swiftshader`는 SwiftShader로 software, `--disable-webgl --disable-3d-apis`는 none; 소프트웨어 실행에서 로비 토스트와 설정 줄이 한국어로 보임.
+
+## upstream 0.2.5–0.3.1 버그 수정 이식 — UI (2026-10-17, 관리자 결정)
+upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던 클라 결함. 공식 규칙은 바뀌지 않는다(공식과 무관한 결함 수정).
+- **마지막 사람의 전략 「跳过」** (upstream `c9197947`, PR #546): 공개 `draft.order`는 이미 고른 사람도 남겨(표시용) 그 길이로 켜던 「跳过」가 마지막으로
+  고르는 사람에게도 켜져, 누르면 서버가 `BAD_TARGET 'nobody to pass to'`로 거부했다(`match/phases.js skipBand`). 이제 아직 안 고른 다른 사람이 있을 때만
+  켠다(`screens/bandDraft.js draftCanPass`). 확인: `test/ui/bandDraft.test.js` 「skip requires a successor」(2·3·4명, 서버 거부 + 클라 판정). upstream의
+  e2e(`band-draft-skip.e2e.test.js`)는 안 옮김 — 단위 시험이 같은 판정을 서버 공개 상태로 본다.

@@ -106,6 +106,17 @@ export function timeoutBand(bands, taken, defaultId = DEFAULT_TIMEOUT_BAND) {
 }
 
 /**
+ * Whether the draft still has someone to pass a skip to: another player who has not picked yet. The published order
+ * keeps the players who already picked (for display), so its length alone would leave the last picker's 「跳过」 on
+ * and the server would refuse it (match/phases.js skipBand → BAD_TARGET 'nobody to pass to'; upstream PR #546).
+ * @param {{ order: string[], picks: Map<string, string> }} draft normalizeDraft(...)
+ */
+export function draftCanPass(draft) {
+  const picks = draft?.picks instanceof Map ? draft.picks : new Map();
+  return (Array.isArray(draft?.order) ? draft.order : []).filter((pid) => !picks.has(pid)).length > 1;
+}
+
+/**
  * Bands taken by teammates (队友已选): bandId → the picking players (never the viewer).
  * @param {Map<string, string>} picks normalizeDraft(...).picks (playerId → bandId)
  * @param {string} myId
@@ -424,7 +435,7 @@ export function BandDraftScreen() {
   const myPick = draft.picks.get(myId) || priv?.bandId || null;
   const myTurn = !myPick && (solo || draft.turnPid === myId);
   const skipsLeft = draft.skipsLeft.has(myId) ? draft.skipsLeft.get(myId) : (skipped ? 0 : 1);
-  const canSkip = !solo && myTurn && skipsLeft > 0 && draft.order.length > 1;
+  const canSkip = !solo && myTurn && skipsLeft > 0 && draftCanPass(draft);
   const taken = solo ? new Map() : teammateBands(draft.picks, myId);
   const pickers = new Map(); // bandId → players
   for (const [pid, bid] of draft.picks) {
