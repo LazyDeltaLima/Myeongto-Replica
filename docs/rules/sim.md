@@ -1375,3 +1375,7 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
   상태)일 때 비행 적을 대상으로 둔다. 본체와 S2가 소환한 替身(자기 프로필을 가진 소환물)은 여전히 못 친다. upstream 같은 커밋의 보상 제안 유지 부분은 받지 않음
   (보류 — 관리자 결정 2026-10-17).
 - 테스트 `test/content/kits_t1t2.test.js` 「2_11 风丸: the trait's <替身> hits air units …」(upstream 그대로). golden 변화 없음(风丸 替身이 비행 적을 만나는 판이 없음).
+
+### detmath `powi`의 0 밑 부호 (upstream `ad7e3e98`)
+- `server/sim/detmath.js powi`가 밑이 ±0일 때 `Math.pow`의 정확한 값을 돌려준다((−0)¹ = −0, (−0)⁻¹ = −∞ — 배정밀도 두 겹 합이 −0 부호를 잃던 것).
+  실제 판에는 안 생긴다(호출부의 밑·지수가 음이 아님). 테스트 `test/sim/detmath.test.js`, golden 변화 없음.
