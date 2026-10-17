@@ -2228,7 +2228,7 @@
         "enemy_1511_mdrock": [1,1,0,0,43437],
         "enemy_9007_acelem": [1,1,0,0,34560]
       },
-      "hooks": [1,142,5682,352,352,552,952,1603,125,128,53,49,12,15571,544,9,125,0,1,126,2,29,0],
+      "hooks": [1,142,5682,352,352,552,952,1603,125,128,53,49,12,15572,544,9,125,0,1,126,2,29,0],
       "events": {"atk":527,"blk":1,"bounty":4,"deploy":17,"die":128,"dmg":952,"engage":6,"face":107,"fx":229,"heal":16,"layer":2,"skill":102,"spawn":142,"status":1100,"swing":390,"tplfx":41},
       "fx": {"bombard":2,"bombardShell":2,"burst":29,"copy":1,"expose":117,"frostNova":1,"garrison":2,"heal":3,"phase":1,"pulse":3,"shieldBreak":1,"snow":17,"soul":1,"sp":28,"talent":1,"wanted":20},
       "snaps": "552d3a6f 8b4c445a 2ff8d918 4881bbf7 ad7cd3e4 c431d4c8 3fe28a92 27dc4371 f809914d a340b203 12f075c1 222a4ca7 737d0a68 a7526dfc 38ee5754 5d530f7e 4d75126f fdb7365e a5c06b13"

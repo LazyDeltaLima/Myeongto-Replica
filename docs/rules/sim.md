@@ -1379,3 +1379,14 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
 ### detmath `powi`의 0 밑 부호 (upstream `ad7e3e98`)
 - `server/sim/detmath.js powi`가 밑이 ±0일 때 `Math.pow`의 정확한 값을 돌려준다((−0)¹ = −0, (−0)⁻¹ = −∞ — 배정밀도 두 겹 합이 −0 부호를 잃던 것).
   실제 판에는 안 생긴다(호출부의 밑·지수가 음이 아님). 테스트 `test/sim/detmath.test.js`, golden 변화 없음.
+
+### 점 적의 칸 = 짝수 쪽 반올림, 적은 필드 가장자리 2^-20 안쪽 (upstream `119a0488`)
+- 문제: 점 적(거대 보스 아님)의 칸을 `Math.round`(.5는 올림)로 셌고, `_clampPos`가 적을 정확히 필드 가장자리(`c1 + 0.5`·`r1 + 0.5`)에 묶어, 오른쪽·아래
+  가장자리로 밀린 적이 필드 밖 칸(열 `c1 + 1`·행 `r1 + 1`)으로 판정되어 범위 칸에서 빠졌다.
+- 근거: PRTS 作战机制 「受击方坐标经round函数取整(四舍六入五成双)得到其所属格坐标」. 클라 `FP.Round`도 .5에서 짝수(위 「盟约·특질·장비·생성기 2라운드」의 탄 수 `RoundToInt` 항목).
+- 동작(upstream 그대로): `detmath.roundHalfEven`을 `body.js`(`posKey`·`bodyOnTile`·`bodyTileReach`)·`battle/queries.js` 적 색인·`targeting.js tileKeyOf`에.
+  `battle/spawns.js _clampPos`는 가장자리에서 `FIELD_EDGE_INSET`(2^-20칸, `constants.js`) 안쪽에 묶어 가장자리 적이 늘 가장자리 칸에 선다.
+  `Math.round(x.x / x.y)`를 쓰는 다른 곳(ai·blocking·deploy·economy·devices·bosses·적 키트·오퍼레이터 키트 등 50곳 남짓, 아군·장치 칸이 대부분)은 upstream도
+  바꾸지 않아 그대로 둔다.
+- 테스트 `test/sim/hit-tile-round.test.js`(upstream 그대로), 필드 밖 좌표에 탐침을 두던 `test/content/kits_t6.test.js` 异客 S3 한 줄을 필드 안으로(upstream 그대로).
+  golden: roster-035·standin-04(가장자리에 밀린 적이 이제 가장자리 칸에서 맞음).

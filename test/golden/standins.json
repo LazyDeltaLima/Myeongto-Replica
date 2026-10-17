@@ -241,7 +241,7 @@
       "hooks": [1,178,6050,981,981,2107,2105,67,152,166,34,33,0,37772,4364,59,158,14,1,154,2,0,12],
       "events": {"atk":1125,"bounty":4,"deploy":18,"die":152,"dmg":2105,"engage":11,"face":79,"fx":165,"heal":62,"layer":2,"leak":14,"skill":67,"spawn":172,"status":475,"swing":1025,"tplfx":10},
       "fx": {"aoe":6,"dodge":16,"dp":49,"garrison":2,"revive":1,"slash":77,"sp":10,"spGain":2,"telegraph":2},
-      "snaps": "6653cdb2 75d9c4db acfa0455 e23a4896 1cd56051 420bc6f8 fcc281b7 3a63ae21 e75f6e5e 50c26b00 27e30384 80d3d7e6 b9a96287 0e031088 7d869b9a e339891f 648c7db6 ee79a18e 5e4ec64b 8d52e0ab 7c2391af"
+      "snaps": "6653cdb2 75d9c4db acfa0455 e23a4896 1cd56051 420bc6f8 fcc281b7 3a63ae21 e75f6e5e 50c26b00 7393f899 f2ba16b7 74c3d8ca b8d9499d c668fa77 be138c3a 33b378b3 7fab3243 602ea372 6d644aaa c1297ec6"
     },
     "standin-05": {
       "about": "normal band 6 as stand-ins: chess_char_6_17_a→char_608_acpion chess_char_6_13_a→char_615_acspec chess_char_6_19_a→char_615_acspec chess_char_6_12_a→char_612_accast chess_char_6_15_a→char_614_acsupo chess_char_6_18_a→char_612_accast chess_char_6_20_a→char_613_acmedc",
