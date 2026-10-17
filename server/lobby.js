@@ -60,7 +60,12 @@
 //     onEnd(summary) → room back to LOBBY (departed seats freed, humans un-readied, disconnected humans
 //     get the lobby grace), dispose() on the next macrotask. Players can start again.
 //   * room.closed reasons: 'timeout' (removed after lobby grace), 'kicked' (room.kick, room.removeSpectator), 'empty' (a
-//     spectator whose room lost its last player), 'shutdown' (server stopping).
+//     spectator whose room lost its last player), 'shutdown' (server stopping), 'newVersion' (a draining server closed
+//     its waiting room; `moved: true` when the room was handed to the new server — server/local-generation.js).
+//   * Deploy handoff (server/local-generation.js): roomSnapshot(room) is a waiting room as the new server rebuilds it
+//     (settings, seats, host, AI seats, each human's reconnect token); adoptRoom(snapshot) rebuilds it there with every
+//     human disconnected (net.js SessionRegistry.adopt) for a longer lobby grace, so each player's reloaded page resumes
+//     its seat with its old token like a reconnect. ▸ The room keeps its code unless the new server already uses it.
 //   * Operator loadout (DESIGN §16): room.loadout { entries } is checked strictly against the game data
 //     (shared/protocol.js checkLoadout: known visible chess, a skill index legal for the normal AND the elite status, a
 //     module of the elite or 'none'; any bad entry rejects the whole message, nothing is stored). ▸ It is stored on the
@@ -112,7 +117,7 @@
 //     disposeRoom → onRoomChange). Its session events come from onHello / onDisconnect / onExpire / shutdown here.
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
+import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -1147,7 +1152,7 @@ export class Lobby {
     if (pick && prev !== pick.playerId) this.log.info(`[lobby] ${room.code} host → ${pick.name}`);
   }
 
-  startGrace(room, seat) {
+  startGrace(room, seat, ms = this.opts.lobbyGraceMs) {
     const playerId = seat.playerId;
     this.clearGrace(playerId);
     const t = setTimeout(() => {
@@ -1161,7 +1166,7 @@ export class Lobby {
         session.pendingResult = this.replayFor(room, playerId); // still shown after room.closed on resume
       }
       this.removeMember(room, playerId);
-    }, this.opts.lobbyGraceMs);
+    }, ms);
     t.unref?.();
     this.graceTimers.set(playerId, t);
   }
@@ -1173,9 +1178,9 @@ export class Lobby {
 
   /**
    * Delete a room, detach its members (room.closed unless the room simply emptied) and dispose its match.
-   * @param {Room} room @param {string} reason
+   * @param {Room} room @param {string} reason @param {object | null} [info] extra fields of the room.closed frame
    */
-  disposeRoom(room, reason) {
+  disposeRoom(room, reason, info = null) {
     if (room.disposed) return;
     room.disposed = true;
     this.queue.onRoomChange(room, null);
@@ -1192,7 +1197,7 @@ export class Lobby {
       if (!session || session.roomCode !== room.code) continue;
       session.roomCode = null;
       if (s.left || reason === 'empty') continue;
-      if (session.connected) sendSession(session, { t: 'room.closed', reason });
+      if (session.connected) sendSession(session, { t: 'room.closed', reason, ...info });
       else session.notice = reason;
     }
     // spectators did not leave: they are told whatever closed the room (its last human leaving included)
@@ -1201,11 +1206,87 @@ export class Lobby {
       const session = this.registry.byId(s.playerId);
       if (!session || session.roomCode !== room.code) continue;
       session.roomCode = null;
-      if (session.connected) sendSession(session, { t: 'room.closed', reason });
+      if (session.connected) sendSession(session, { t: 'room.closed', reason, ...info });
       else session.notice = reason;
     }
     if (ctx) this.disposeMatchCtx(ctx);
     this.log.info(`[lobby] ${room.code} disposed (${reason})`);
+  }
+
+  // ---------------------------------------------------------------------------------------------------
+  // Deploy handoff (header; server/local-generation.js)
+  // ---------------------------------------------------------------------------------------------------
+
+  /** A token net.js does not know: a session the deploy's previous server handed over with its room, or null. */
+  adoptSession(token) { return this.generation?.adopt(token) ?? null; }
+
+  /** A waiting room as the new server rebuilds it (adoptRoom). Departed seats and humans without a session are left out. */
+  roomSnapshot(room) {
+    const person = (s) => {
+      const session = this.registry.byId(s.playerId);
+      return session && session.roomCode === room.code ? { playerId: s.playerId, name: s.name, token: session.token } : null;
+    };
+    return {
+      code: room.code, mode: room.mode, difficulty: room.difficulty, ruleset: room.ruleset.preset, aiPicksLast: room.aiPicksLast,
+      hostId: room.hostId,
+      seats: room.seats.map((s) => {
+        if (!s || s.left) return null;
+        if (s.isBot) return { seat: s.seat, playerId: s.playerId, name: s.name, isBot: true };
+        const p = person(s);
+        return p ? { seat: s.seat, isBot: false, ...p } : null;
+      }),
+      spectators: room.spectators.map(person).filter(Boolean),
+    };
+  }
+
+  /**
+   * Rebuild a handed-over waiting room (roomSnapshot of the previous server): its humans get sessions with their own
+   * tokens, disconnected, and keep their seats for `graceMs` (the lobby grace) — their pages resume them on hello.
+   * @param {any} snap @param {number} [graceMs] @returns {Room | null} null when nothing could be taken
+   */
+  adoptRoom(snap, graceMs = this.opts.lobbyGraceMs) {
+    const mode = snap?.mode === 'solo' ? 'solo' : snap?.mode === 'coop' ? 'coop' : null;
+    if (!mode || !DIFFICULTIES.includes(snap.difficulty) || !Array.isArray(snap.seats)) return null;
+    if (this.rooms.size >= this.opts.maxRooms) return null;
+    const asked = typeof snap.code === 'string' ? snap.code.toUpperCase() : '';
+    const code = asked.length === ROOM_CODE_LEN && [...asked].every((c) => CODE_ALPHABET.includes(c)) && !this.rooms.has(asked) ? asked : this.genCode();
+    if (!code) return null;
+    const now = this.now();
+    const room = new Room(code, mode, snap.difficulty, now);
+    room.ruleset = resolveRuleset(snap.ruleset);
+    room.aiPicksLast = mode === 'coop' && snap.aiPicksLast === true;
+    const ids = new Map(); // the previous server's playerId → this one's
+    const take = (p) => {
+      const session = this.registry.adopt(p);
+      if (!session) return null;
+      session.roomCode = code;
+      ids.set(p.playerId, session.playerId);
+      return session;
+    };
+    for (const s of snap.seats) {
+      if (!s || !Number.isInteger(s.seat) || s.seat < 0 || s.seat >= MAX_SEATS || room.seats[s.seat]) continue;
+      if (s.isBot) {
+        if (mode === 'coop' && typeof s.playerId === 'string' && typeof s.name === 'string') {
+          room.seats[s.seat] = { seat: s.seat, playerId: s.playerId, name: s.name, isBot: true, ready: true, connected: true, left: false };
+        }
+        continue;
+      }
+      if (mode === 'solo' && room.activeHumans().length) continue;
+      const session = take(s);
+      if (session) room.seats[s.seat] = { ...this.humanSeat(s.seat, session), awayAt: now };
+    }
+    if (!room.activeHumans().length) return null;
+    for (const p of Array.isArray(snap.spectators) ? snap.spectators : []) {
+      if (mode !== 'coop' || room.spectators.length >= MAX_SPECTATORS) break;
+      const session = p && take(p);
+      if (session) room.spectators.push({ playerId: session.playerId, name: session.name, connected: false, awayAt: now });
+    }
+    room.hostId = ids.get(snap.hostId) ?? null;
+    if (!room.hostId || !room.seatOf(room.hostId)) this.migrateHost(room);
+    this.rooms.set(code, room);
+    for (const s of [...room.seats, ...room.spectators]) if (s && !s.isBot) this.startGrace(room, s, graceMs);
+    this.log.info(`[lobby] ${code} adopted (${mode}/${room.difficulty}/${room.ruleset.preset}, ${room.activeHumans().length} human(s))`);
+    return room;
   }
 
   genCode() {

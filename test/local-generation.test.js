@@ -5,7 +5,7 @@
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import http from 'node:http';
 import path from 'node:path';
@@ -14,12 +14,17 @@ import { fileURLToPath } from 'node:url';
 import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import {
-  Generation, genName, parseGenControl, roomNeedsServer, AWAY_MIN, STALE_MIN, END_GRACE_MIN, DRAIN_CUT_MIN, DRAIN_MAX_MIN,
+  Generation, HandoffInbox, genName, parseGenControl, roomNeedsServer, AWAY_MIN, STALE_MIN, END_GRACE_MIN, DRAIN_CUT_MIN, DRAIN_MAX_MIN,
+  HANDOFF_GRACE_MIN, HANDOFF_MAX_MIN,
 } from '../server/local-generation.js';
 import { RestartNotice } from '../server/local-restart.js';
 import { S2C } from '../shared/protocol.js';
 import { ERR, PHASE } from '../shared/constants.js';
-import { installGeneration, genUrl, MOVE_DELAY_MS, TAB_ASK_MS, TAB_RETRY_MS, MATCH_POLL_MS } from '../public/js/ui/generation.js';
+import {
+  installGeneration, genUrl, takeMoved, MOVE_DELAY_MS, TAB_ASK_MS, TAB_RETRY_MS, MATCH_POLL_MS, MOVED_KEY, MOVED_MAX_MS,
+} from '../public/js/ui/generation.js';
+import { updatedLines } from '../public/js/ui/updateNotice.js';
+import { APP_VERSION } from '../shared/constants.js';
 import { bannerVisible } from '../public/js/ui/connBanner.js';
 import { store } from '../public/js/store.js';
 import { TestClient } from './helpers/wsClient.js';
@@ -174,6 +179,118 @@ describe('server generation: a real server', () => {
   });
 });
 
+describe('server generation: waiting rooms handed to the new server', () => {
+  let dir, a, b;
+  const open = new Set();
+  const connect = async (srv, name, token) => {
+    const c = await TestClient.connect(`ws://127.0.0.1:${srv.port}/ws`);
+    open.add(c);
+    c.welcome = await c.hello(name, token);
+    return c;
+  };
+  before(async () => {
+    dir = mkdtempSync(path.join(tmpdir(), 'sp-handoff-'));
+    const env = (gen) => ({ SP_GEN: gen, SP_GEN_HANDOFF_DIR: dir });
+    a = await startServer({ port: 0, host: '127.0.0.1', MatchClass: StubMatch, quiet: true, genEnv: env('a') });
+    b = await startServer({ port: 0, host: '127.0.0.1', MatchClass: StubMatch, quiet: true, genEnv: env('b') });
+  });
+  afterEach(async () => { await Promise.all([...open].map((c) => c.terminate().catch(() => {}))); open.clear(); });
+  after(async () => { await a?.close(); await b?.close(); rmSync(dir, { recursive: true, force: true }); });
+
+  test('drain: the waiting room comes back on the new server with its code, host, seats, AI seat and settings', async () => {
+    const host = await connect(a, 'Host');
+    await host.request({ t: 'room.create', mode: 'coop', difficulty: 'HARD', ruleset: 'casual' });
+    await host.request({ t: 'room.addBot' });
+    const code = (await host.waitFor('room.state', (m) => m.seats.some((s) => s?.isBot))).code;
+    const guest = await connect(a, 'Guest');
+    assert.equal((await guest.request({ t: 'room.join', code })).t, 'ok');
+    await guest.request({ t: 'room.ready', ready: true });
+    await host.request({ t: 'room.setAiPicksLast', on: true });
+    const solo = await connect(a, 'Solo');
+    await solo.request({ t: 'room.create', mode: 'solo', difficulty: 'FUNNY' });
+
+    a.generation.set('drain');
+    for (const c of [host, guest, solo]) {
+      const closed = await c.waitFor('room.closed');
+      assert.deepEqual([closed.reason, closed.moved], ['newVersion', true]);
+    }
+    const files = readdirSync(dir).filter((n) => n.endsWith('.json'));
+    assert.equal(files.length, 2, 'one file per room');
+    assert.ok(files.every((n) => n.startsWith('a-')));
+    assert.equal(statSync(path.join(dir, files[0])).mode & 0o777, 0o600, 'the tokens stay private');
+    assert.ok(readdirSync(dir).every((n) => !n.endsWith('.tmp')));
+
+    // the host's page reloads onto b with its token: the room is rebuilt there and the hello resumes the seat
+    const host2 = await connect(b, 'Host', host.welcome.token);
+    assert.equal(host2.welcome.resumed, true);
+    assert.equal(host2.welcome.playerId, host.welcome.playerId, 'same player');
+    let st = await host2.waitFor('room.state');
+    assert.equal(st.code, code);
+    assert.equal(st.hostId, host.welcome.playerId);
+    assert.deepEqual([st.mode, st.difficulty, st.ruleset.preset, st.aiPicksLast], ['coop', 'HARD', 'casual', true]);
+    const seatOf = (state, id) => state.seats.find((s) => s?.playerId === id);
+    assert.equal(seatOf(st, host.welcome.playerId).connected, true);
+    assert.equal(seatOf(st, guest.welcome.playerId).connected, false, 'not back yet');
+    assert.equal(seatOf(st, guest.welcome.playerId).ready, false, 'readies start over');
+    assert.equal(st.seats.filter((s) => s?.isBot).length, 1);
+    assert.equal(readdirSync(dir).filter((n) => n.endsWith('.json')).length, 1, 'the taken file is gone');
+
+    const guest2 = await connect(b, 'Guest', guest.welcome.token);
+    assert.equal(guest2.welcome.resumed, true);
+    st = await host2.waitFor('room.state', (m) => m.seats.some((s) => s?.playerId === guest.welcome.playerId && s.connected));
+    assert.equal(st.code, code);
+    const solo2 = await connect(b, 'Solo', solo.welcome.token);
+    assert.equal((await solo2.waitFor('room.state')).mode, 'solo');
+    assert.equal(readdirSync(dir).filter((n) => n.endsWith('.json')).length, 0);
+    const room = b.lobby.getRoom(code);
+    assert.ok(room && b.lobby.graceTimers.size === 0, 'everyone is back: no grace left');
+    await guest2.request({ t: 'room.ready', ready: true });
+    const started = await host2.request({ t: 'room.start' });
+    assert.equal(started.t, 'ok', `the room plays on the new server: ${JSON.stringify(started)}`);
+    assert.equal((await connect(b, 'Stranger', 'f'.repeat(32))).welcome.resumed, false, 'an unknown token is a new player');
+  });
+
+  test('a match that ends during the drain hands its room over once it is back in its lobby', async () => {
+    const srv = await startServer({ port: 0, host: '127.0.0.1', MatchClass: StubMatch, quiet: true, genEnv: { SP_GEN: 'c', SP_GEN_HANDOFF_DIR: dir } });
+    try {
+      const p = await connect(srv, 'Player');
+      await p.request({ t: 'room.create', mode: 'solo', difficulty: 'FUNNY' });
+      assert.equal((await p.request({ t: 'room.start' })).t, 'ok');
+      srv.generation.set('drain');
+      assert.equal(readdirSync(dir).filter((n) => n.startsWith('c-')).length, 0, 'a running match is not handed over');
+      const room = [...srv.lobby.rooms.values()][0];
+      srv.lobby.onMatchEnd(room, room.matchCtx, { reason: 'test' });
+      await new Promise((r) => setImmediate(r));
+      assert.equal(readdirSync(dir).filter((n) => n.startsWith('c-')).length, 1);
+      assert.equal(srv.lobby.rooms.size, 1, 'the old server keeps it for the settlement screen');
+      const back = await connect(b, 'Player', p.welcome.token);
+      assert.equal((await back.waitFor('room.state')).code, room.code);
+    } finally { await srv.close(); }
+  });
+
+  test('the new server keeps the absent players\' seats for the handoff grace; the inbox drops old files unread', () => {
+    assert.deepEqual([HANDOFF_GRACE_MIN, HANDOFF_MAX_MIN], [3, 30]);
+    const box = mkdtempSync(path.join(tmpdir(), 'sp-inbox-'));
+    try {
+      let now = 100 * MIN;
+      const inbox = new HandoffInbox(box, () => now);
+      const doc = (at, token) => JSON.stringify({ v: 1, from: 'a', at, room: { code: 'ABCD', seats: [{ seat: 0, isBot: false, token }], spectators: [] } });
+      writeFileSync(path.join(box, 'a-old-ABCD.json'), doc(now - (HANDOFF_MAX_MIN + 1) * MIN, 'a'.repeat(32)));
+      writeFileSync(path.join(box, 'a-new-ABCD.json'), doc(now, 'b'.repeat(32)));
+      writeFileSync(path.join(box, 'broken.json'), '{');
+      assert.equal(inbox.find('a'.repeat(32)), null);
+      assert.deepEqual(readdirSync(box), ['a-new-ABCD.json'], 'the old and the broken file are deleted');
+      const e = inbox.find('b'.repeat(32));
+      assert.equal(e.room.code, 'ABCD');
+      now += (HANDOFF_MAX_MIN + 1) * MIN;
+      assert.equal(inbox.find('b'.repeat(32)), null, 'too old by now');
+      assert.deepEqual(readdirSync(box), []);
+      assert.equal(JSON.parse(doc(0, 'x')).v, 1);
+      assert.equal(typeof readFileSync, 'function');
+    } finally { rmSync(box, { recursive: true, force: true }); }
+  });
+});
+
 describe('server generation: the process (server/http/boot.js)', () => {
   test('SIGUSR2 + the state words move it; a drain with nothing to keep ends the process with 0', { skip: process.platform === 'win32' && 'POSIX signal', timeout: 120_000 }, async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'sp-gen-'));
@@ -223,7 +340,7 @@ describe('server generation: the page (public/js/ui/generation.js)', () => {
     const on = new Map();
     const timers = [];
     const t = {
-      reloads: 0, dropped: 0, inMatch: false,
+      reloads: 0, dropped: 0, inMatch: false, inRoom: false, kept: [],
       net: { url: null, on: (type, fn) => on.set(type, fn) },
       emit: (type, msg) => on.get(type)(msg),
       timers,
@@ -238,6 +355,7 @@ describe('server generation: the page (public/js/ui/generation.js)', () => {
     t.gen = installGeneration({
       net: t.net, inMatch: () => t.inMatch, wsUrl: () => 'wss://host/ws',
       reload: () => { t.reloads++; }, dropCookie: () => { t.dropped++; }, makeChannel: () => channel,
+      remember: (m) => { t.kept.push(m); }, inRoom: () => t.inRoom,
       setTimeout: (fn, ms) => { const x = { fn, ms, done: false }; timers.push(x); return x; },
       clearTimeout: (x) => { if (x) x.done = true; },
     });
@@ -260,17 +378,62 @@ describe('server generation: the page (public/js/ui/generation.js)', () => {
     p.gen.close();
   });
 
-  test('outside a match: the banner, then 3 s later the cookie goes and the page reloads', async () => {
+  test('outside a match: the move dialog, then 3 s later the cookie goes, the move is remembered and the page reloads', async () => {
     const p = harness([]);
     p.emit('welcome', { gen: { id: 'a', state: 'accept' } });
     p.emit('server.gen', { id: 'a', state: 'drain' });
     assert.equal(store.get().ui.genMove, 'soon');
-    assert.equal(bannerVisible({ status: 'online' }, true, false, false, false, 'soon'), true);
+    assert.equal(bannerVisible({ status: 'online' }, true, false, false, false, 'soon'), false, 'the dialog (ui/updateNotice.js), not the banner');
     assert.equal(p.timers[0].ms, MOVE_DELAY_MS);
     await p.run(MOVE_DELAY_MS);
     await p.run(TAB_ASK_MS);
     assert.deepEqual([p.dropped, p.reloads], [1, 1]);
+    assert.equal(p.kept.length, 1);
+    assert.deepEqual([p.kept[0].from, p.kept[0].room], [APP_VERSION, false]);
     p.gen.close();
+  });
+
+  test('a waiting room handed over: the room move dialog, and the reloaded page knows it had a room', async () => {
+    const p = harness([]);
+    p.emit('welcome', { gen: { id: 'a', state: 'accept' } });
+    p.emit('room.closed', { reason: 'newVersion', moved: true });
+    p.emit('server.gen', { id: 'a', state: 'drain' });
+    assert.equal(store.get().ui.genMove, 'room');
+    await p.run(MOVE_DELAY_MS);
+    await p.run(TAB_ASK_MS);
+    assert.equal(p.reloads, 1);
+    assert.equal(p.kept[0].room, true);
+    p.gen.close();
+    // a settlement screen still in its room when the match ended during the drain counts too
+    const q = harness([]);
+    q.emit('welcome', { gen: { id: 'a', state: 'accept' } });
+    q.inRoom = true;
+    q.emit('server.gen', { id: 'a', state: 'drain' });
+    assert.equal(store.get().ui.genMove, 'soon');
+    await q.run(MOVE_DELAY_MS);
+    await q.run(TAB_ASK_MS);
+    assert.equal(q.kept[0].room, true);
+    q.gen.close();
+  });
+
+  test('the reloaded page reads the move once; an old or broken one is not reported', () => {
+    const mem = () => {
+      const m = new Map();
+      return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
+    };
+    const st = mem();
+    st.setItem(MOVED_KEY, JSON.stringify({ from: '1.4.6', room: true, at: 1000 }));
+    assert.deepEqual(takeMoved(st, 1000 + MOVED_MAX_MS), { from: '1.4.6', room: true });
+    assert.equal(takeMoved(st, 2000), null, 'once');
+    st.setItem(MOVED_KEY, JSON.stringify({ from: '1.4.6', room: false, at: 0 }));
+    assert.equal(takeMoved(st, MOVED_MAX_MS + 1), null, 'too old');
+    st.setItem(MOVED_KEY, '{not json');
+    assert.equal(takeMoved(st, 0), null);
+    assert.equal(takeMoved(null, 0), null, 'no storage');
+    assert.equal(updatedLines({ from: '1.4.6', room: false }, false, '1.4.7').length, 1);
+    assert.equal(updatedLines({ from: '1.4.6', room: true }, true, '1.4.7').length, 2);
+    assert.notEqual(updatedLines({ from: '1.4.6', room: true }, true, '1.4.7')[1], updatedLines({ from: '1.4.6', room: true }, false, '1.4.7')[1], 'moved vs not moved');
+    assert.notEqual(updatedLines({ from: '1.4.7', room: false }, false, '1.4.7')[0], updatedLines({ from: '1.4.6', room: false }, false, '1.4.7')[0], 'same version: no arrow');
   });
 
   test('a closed waiting room, a NEW_VERSION refusal or a draining welcome move the page too', async () => {
@@ -299,8 +462,7 @@ describe('server generation: the page (public/js/ui/generation.js)', () => {
     assert.equal(p.reloads, 0);
     p.inMatch = false;
     await p.run(MATCH_POLL_MS);
-    assert.equal(store.get().ui.genMove, 'soon', 'the match is over: the banner');
-    assert.equal(bannerVisible({ status: 'online' }, true, false, false, false, 'soon'), true);
+    assert.equal(store.get().ui.genMove, 'soon', 'the match is over: the move dialog');
     assert.equal(p.reloads, 0, 'not at once');
     await p.run(MOVE_DELAY_MS);
     await p.run(TAB_ASK_MS);

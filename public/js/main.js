@@ -60,7 +60,8 @@ import { installDiyPresets } from './ui/diyPresets.js'; // 맹약별 선발 프�
 import { startBuildGuard } from './ui/buildGuard.js';
 import { installChat } from './ui/chat.js';
 import { installRestartNotice } from './ui/restartNotice.js'; // the deploy's restart countdown
-import { installGeneration, genUrl } from './ui/generation.js'; // the deploy's server generation (no cut matches)
+import { installGeneration, genUrl, pageGen, takeMoved } from './ui/generation.js'; // the deploy's server generation (no cut matches)
+import { UpdateNotice } from './ui/updateNotice.js';
 import { installMatchQueue } from './ui/matchQueue.js'; // 랜덤 매칭 (server/matchmaking.js)
 import { installFeedback } from './ui/feedback.js'; // local patch: whether the server keeps feedback (welcome)
 import { installGpuNotice } from './ui/gpuNotice.js'; // hardware acceleration off: say where to turn it on
@@ -276,6 +277,9 @@ function wireNet() {
   net.on('unhandledError', (err) => toastError(err));
   net.on('room.state', onRoomState);
   net.on('room.closed', (msg) => {
+    // a waiting room the draining server handed over: it stays on screen under the move dialog while the page reloads
+    // onto the new server, where it comes back (ui/generation.js)
+    if (msg.reason === 'newVersion' && msg.moved === true && pageGen()) return;
     const known = Object.hasOwn(CLOSE_REASON, String(msg.reason)) ? CLOSE_REASON[msg.reason] : null;
     const text = known ? t(known) : typeof msg.reason === 'string' && msg.reason.length < 60 ? t('同盟已关闭：{reason}', { reason: msg.reason }) : t('同盟已关闭');
     if (serverLostDue(store.get())) { serverLost(text); return; }
@@ -369,6 +373,7 @@ function App() {
     <div class="app-bg" aria-hidden="true"></div>
     ${error ? html`<${ScreenCrashed} error=${error} reset=${resetError} />` : html`<${Screen} key=${route} />`}
     <${ConnectionBanner} />
+    <${UpdateNotice} />
     <${ToastHost} />
     <${UiHosts} />
     <${ResourceHost} />
@@ -428,7 +433,7 @@ async function boot() {
   store.set((s) => ({
     me: { ...s.me, name: savedName },
     session: { entered },
-    ui: { ...s.ui, pendingJoin },
+    ui: { ...s.ui, pendingJoin, updated: takeMoved() }, // this tab just moved onto a new version (ui/updateNotice.js)
   }));
 
   wireNet();

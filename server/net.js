@@ -36,6 +36,9 @@
 //                                          straight to the running match through it; without it they reach onMessage
 //   onDisconnect(session)                  the session's socket closed (session kept for the reconnect window)
 //   onExpire(session)                      the session was purged (disconnected longer than the window)
+//   adoptSession(token) → Session | null   (optional) a `hello` token this registry does not know: a session the
+//                                          deploy's previous server handed over (server/local-generation.js); the
+//                                          hello then resumes it like a reconnect
 
 import { randomBytes } from 'node:crypto';
 import { isIP } from 'node:net';
@@ -162,6 +165,27 @@ export class SessionRegistry {
     do token = newToken(); while (this.byTokenMap.has(token));
     const s = new Session({ playerId, token, name, now: this.now() });
     this.byPlayerId.set(playerId, s);
+    this.byTokenMap.set(token, s);
+    return s;
+  }
+
+  /**
+   * A session another server of this deploy handed over (server/local-generation.js 「handoff」): the player keeps the
+   * token, the playerId (unless it is taken here) and the name. It starts disconnected, as if it had just dropped:
+   * the reconnect window and the lobby grace run from now. Null when the token is in use here or the registry is full.
+   * @param {{ playerId?: unknown, token: unknown, name?: unknown }} init
+   * @returns {Session | null}
+   */
+  adopt({ playerId, token, name }) {
+    if (typeof token !== 'string' || !/^[0-9a-f]{32}$/.test(token) || this.byTokenMap.has(token)) return null;
+    if (this.byPlayerId.size >= this.maxSessions && !this.evictOne()) return null;
+    let id = typeof playerId === 'string' && /^p_[0-9a-f]{10}$/.test(playerId) && !this.byPlayerId.has(playerId) ? playerId : null;
+    while (!id) {
+      const p = 'p_' + randomBytes(5).toString('hex');
+      if (!this.byPlayerId.has(p)) id = p;
+    }
+    const s = new Session({ playerId: id, token, name: sanitizeName(name) || 'Doctor', now: this.now() });
+    this.byPlayerId.set(id, s);
     this.byTokenMap.set(token, s);
     return s;
   }
@@ -509,7 +533,7 @@ export class Network {
   /**
    * @param {{
    *   registry: SessionRegistry,
-   *   handler: { onHello?: Function, onMessage: Function, onDisconnect?: Function, onExpire?: Function, welcomeInfo?: Function },
+   *   handler: { onHello?: Function, onMessage: Function, onDisconnect?: Function, onExpire?: Function, welcomeInfo?: Function, adoptSession?: Function },
    *   log?: { info: Function, warn: Function, error: Function, debug?: Function },
    *   now?: () => number,
    *   options?: Partial<typeof NET_DEFAULTS>,
@@ -649,7 +673,7 @@ export class Network {
     let resumed = false;
     const repeat = !!session;
     if (!session) {
-      session = msg.token ? this.registry.byToken(msg.token) : null;
+      session = msg.token ? this.registry.byToken(msg.token) || this.adoptSession(msg.token) : null;
       if (session) {
         if (session.connected && session.ws && session.ws !== conn.ws
           && (msg.noReplace || (Number.isFinite(msg.claimAt) && session.claimAt != null && msg.claimAt > session.claimAt))) {
@@ -683,6 +707,11 @@ export class Network {
     } catch (e) {
       this.log.error('[net] onHello crashed', e);
     }
+  }
+
+  /** A token this server does not know: a session handed over by the deploy's previous server, if any (handler). */
+  adoptSession(token) {
+    try { return this.handler.adoptSession?.(token) ?? null; } catch (e) { this.log.error('[net] adoptSession crashed', e); return null; }
   }
 
   /** The session moved to a new socket: unbind and close the old one without firing a disconnect. */

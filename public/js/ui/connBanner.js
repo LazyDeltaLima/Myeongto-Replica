@@ -7,8 +7,9 @@
 // The deploy's restart countdown (ui/restartNotice.js, ui.restartAt) shows here in its last 5 minutes, ahead of 服务器已更新.
 // Once it is due, and while the page reconnects to the restarted server, the banner says the page reloads by itself
 // (ui/buildGuard.js reloads it as soon as the new build answers) instead of reporting a lost connection.
-// A deploy that keeps running matches (ui/generation.js, ui.genMove): 'soon' = the page reloads onto the new version in
-// a moment, 'tab' = it waits for another tab's match on the old server; 'match' shows as 服务器已更新 (ui.buildStale).
+// A deploy that keeps running matches (ui/generation.js, ui.genMove): 'tab' = the page waits for another tab's match on
+// the old server; 'soon' / 'room' (the page reloads onto the new version in a moment) are the dialog of
+// ui/updateNotice.js, not this banner; 'match' shows nothing (the match runs on).
 // In a match with the local art, plain reconnecting shows the official 「等待重连中......」 mask instead (ui/battleArt.js
 // ReconnectMask, docs/rules/ui.md 「공식 위수협약 UI」): it takes every press, has no 立即重连 button (the client's has
 // none; the page still retries at once on focus / online, net.js).
@@ -24,7 +25,7 @@ import { restartBannerDue, restartClock } from './restartNotice.js';
 /** Whether the banner shows for this connection state (mirrors the early returns below). */
 export function bannerVisible(conn, entered, restoring, buildStale = false, restartDue = false, genMove = null) {
   if (!entered || !conn) return false;
-  if (conn.status === 'online') return !!restoring || !!buildStale || !!restartDue || genMove === 'soon' || genMove === 'tab';
+  if (conn.status === 'online') return !!restoring || !!buildStale || !!restartDue || genMove === 'tab';
   if (!conn.everOnline && (conn.status === 'connecting' || conn.status === 'handshaking' || conn.status === 'idle')) return false;
   return true;
 }
@@ -41,7 +42,7 @@ export function ConnectionBanner() {
   // a running countdown ticks every second: it crosses into the banner's last minutes and counts down there
   useTicker(conn.status === 'reconnecting' ? 500 : restartAt != null ? 1000 : 0);
   const restartDue = restartBannerDue(restartAt);
-  const moving = genMove === 'soon' || genMove === 'tab';
+  const moving = genMove === 'tab';
   useDocClass('sp-conn', bannerVisible(conn, entered, restoring, buildStale, restartDue, genMove));
   if (!entered) return null;
   if (conn.status === 'online' && !restoring && !buildStale && !restartDue && !moving) return null;
@@ -49,7 +50,7 @@ export function ConnectionBanner() {
     return html`<div class="conn-banner" role="status">
       <${Icon} name="refresh" />
       <span>${t('新版本已上线')}</span>
-      <span class="conn-banner__sub">${genMove === 'tab' ? t('其他标签页的对局结束后将自动刷新') : t('页面即将自动刷新')}</span>
+      <span class="conn-banner__sub">${t('其他标签页的对局结束后将自动刷新')}</span>
     </div>`;
   }
   if (conn.status === 'online' && restoring) {
