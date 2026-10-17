@@ -171,6 +171,8 @@ upstream v0.2.0(0.1.4 이후 350커밋)을 병합했다. 충돌은 UI·이펙트
     프레임이 간격보다 일찍 가던 것(`server/match/match/messaging.js _maybeSendPublic`). 테스트 `test/match/connection.test.js`(upstream 그대로).
   - `e53b8d52`(손 이식, 데이터 다시 생성): 娜仁图亚 【见者有份】 장비 2개가 상점 레벨 이하 단계만 — `pool_equip_narant`의 `maxTier` 뺌, 凯瑟琳의 `plus`는 안 넣음.
     `sim.md` 「upstream 0.2.5–0.3.1 버그 수정 이식 — 매치」.
+  - `16567bbe`(`git cherry-pick -x`, 충돌 손 정리): 꺼진 동안 밀린 빅토리아 해머·远见·奇迹 자금이 맹약이 켜지는 즉시 — 새 훅 `onActiveBonds`. 우리 AI 리허설은
+    진짜 판을 쓰니 `recompute({ quiet: true })`를 더함. upstream `docs/history/0.3.0.md`·CHANGELOG 줄은 안 받음. `sim.md` 같은 절.
 
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.

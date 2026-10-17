@@ -1095,7 +1095,8 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
     try {
       ps.board.clear();
       for (const [uid, k] of plan) { const p = byUid.get(uid); if (p) { p.dir = planDir(plan, uid); ps.board.set(k, p); } }
-      ps.recompute();
+      // quiet: a bond the candidate lights (or puts out) is not reported — onActiveBonds would pay 维多利亚's owed hammers
+      ps.recompute({ quiet: true });
       const spawns = withBounties(m.gd, m.round, wave, ps.bounties, ps.playerId).map((sp) => ({ ...sp, ownerPlayerId: ps.playerId }));
       battles.push(m.newBattle({
         seed: deriveSeed(m.seed, `rehearse:${m.round}:${ps.seat}`), kind: 'normal', modeId: m.modeId, round: m.round,
@@ -1110,7 +1111,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
       ps.board.clear();
       for (const [p, d] of savedDirs) { if (d) p.dir = d.v; else delete p.dir; }
       for (const [k, p] of saved) ps.board.set(k, p);
-      ps.recompute();
+      ps.recompute({ quiet: true });
     }
     if (failed) break;
     yield;

@@ -670,6 +670,21 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - 테스트 `test/match/r40a-narant-pool.test.js`(upstream 그대로: 실제 경기 경로 16판, 상점 레벨 1의 R2에서 II단계 이상·VI단계가 나옴),
   `test/content/bands.test.js`(상점 레벨 3에서 상점 장비 둘, 단계 제한 없음).
 
+### 빅토리아 해머·远见·奇迹 밀린 지급은 맹약이 켜지는 즉시 (upstream `16567bbe`)
+- 문제: 维多利亚(맹약)가 꺼져 있는 동안(「无需激活」 출처 — 烛煌 등) 25층을 넘긴 维式重锤(빅토리아 해머)가 맹약이 켜져도 바로 안 오고, 다음 구매·획득·판매·합성·
+  정비 시작/끝 훅 때까지 밀렸다(흔히 정비 끝). 远见·奇迹(맹약)의 층수 자금도 같은 규칙이라 같이 밀렸다.
+- 근거: upstream 관리자의 공식 실기 2026-10-15 — 공식은 맹약이 켜지는 순간(정비 중 세 번째 멤버를 놓을 때) 해머가 온다.
+- 동작(upstream 그대로): 새 메타 훅 `onActiveBonds` `{ activated, deactivated }`. `PlayerState.recompute`(`player/round.js`)가 지난 계산과 켜진 맹약
+  집합이 다르면 보낸다 — 맹약 셈을 바꾸는 모든 길(정비 중 놓기·옮기기·바꾸기·빼기, 구매·판매·합성·변이, 임시 → 손패, 장비, 효과, 축출)이 거기로 끝난다.
+  죽은 플레이어·떨어진 사본에는 안 보냄. `bonds/core.js HAMMER_HOOKS`·`bonds/addon/meta.js SETTLE_HOOKS`가 이 훅을 들어 밀린 이정표를 바로 정산하고,
+  이정표마다 카운터라 맹약을 껐다 켜도 한 번만. `audit.js`의 지출 효과 키에도 넣음.
+- 우리 쪽 더한 것: AI 팀원의 배치 리허설(`bot.js createRehearsalSteps`)은 진짜 판에 후보 배치를 놓았다가 되돌리므로 `recompute({ quiet: true })`로 —
+  리허설 배치가 맹약을 켜도 아무것도 안 보내고(해머 안 줌), 되돌릴 때도 안 보냄. upstream은 리허설을 떨어진 사본(`preview.js`)으로 해서 필요 없던 부분.
+- **[ASSUMED]**(upstream 그대로): 远见·奇迹 자금과 远见 할인 걸쇠도 해머와 같은 시점(같은 규칙을 쓰므로 — 공식 확인은 해머뿐).
+- 테스트 `test/match/bond-light-up.test.js`(upstream: 세 번째 멤버 배치 즉시 해머 한 개·토스트 한 번, 뺐다 다시 놓아도 더 없음, 밀린 이정표 둘 = 해머 둘,
+  이벤트 목록·탈락자 없음, 远见·奇迹 임시 → 손패로 켜질 때 자금, AI 배치; 우리: 리허설이 맹약을 켜는 배치를 시험해도 이벤트·해머 없음 — `quiet` 없이 실패 확인),
+  `test/match/feedback3-prep-end-item.test.js`(정비 끝 해머는 정비 끝 층 획득이 넘긴 이정표로 바꿈, upstream). golden 변화 없음.
+
 ## 卫戍协议 버프 그래프·클라 코드 맞춤 (2026-10-10, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 `config/buff_template_holder.ab`의 그래프와 클라 코드(디컴파일, RVA는 EN 판). 핫픽스(DefinedFix.lua en/zh)에 아래 메서드 없음.
 - **기습(突袭 `raidShip`)** — 그래프 `act1autochess_bond_eff_raid`(+`[attack]`·`[trig]`·`[skill]`·`[all]`), 착지 노드 `AutoChessRebuildCharacterOnTile.Execute`(0xB4FF20).
