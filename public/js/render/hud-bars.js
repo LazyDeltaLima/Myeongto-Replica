@@ -52,6 +52,8 @@
 //   Boss SP: the official enemy SP (enemy_database spData INCREASE_WITH_TIME — 管 0/50 +1/s, PRTS 「技力 0/50 自动回复」;
 //   阿利斯泰尔 25), b.snap `bsp` (server/sim/local-hud.js); only the bosses with SP show the bar (maintainer decision 2026-10-07).
 
+import { loadPoints } from './fxpoints.js'; // the model's head point (the stored-charge mark)
+
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /** Reference canvas of the battle HUD (CSS px per unit = min(w / W, h / H)). */
@@ -440,9 +442,22 @@ export class EquipBar {
 // `_skillCntLabel` that count — sim local-hud.js chargeMark, b.snap `charge`). arts/ui/[uc]battlecommon.ab
 // char_skill_mark_panel `auto_skill_ready`: sprite_circle 36×36 #404040 α .39, its child sprite_auto (the ring of arrows)
 // 50×50 #ffd900, and text_skill_cnt (50×40, size 26, centred 3 up, #ffd900). The panel follows the unit's head point
-// (`_FollowPosition`: the head's UI position + 0.3 up); without one it stays at the prefab's 154.7 over hud_unit — the
-// place drawn here [추정: no head point in the HUD layer; the font is ours (the prefab's is not read)].
-export const SKILL_MARK = Object.freeze({ y: 154.7, disc: 36, discColor: 0x404040, discAlpha: 0.39, ring: 50, color: 0xffd900, text: 26, textY: 3 });
+// (`_FollowPosition`: the head transform's UI position + (0, 0.3, 0) — m_defaultSkillMarkLocalPositionOffset); here the
+// operator's `head` of fxpoints.js (char_points.py `_headTransform`: 400 skeleton units up for 128 of 130 operators) on the
+// drawn model, `headUp` units higher [추정: 0.3 of the UI camera's world taken as 30 canvas units]; a unit without a
+// points entry or a drawn model uses the prefab's own place, 154.7 over hud_unit [추정: the font is ours — the prefab's is
+// not read].
+export const SKILL_MARK = Object.freeze({ y: 154.7, headUp: 30, disc: 36, discColor: 0x404040, discAlpha: 0.39, ring: 50, color: 0xffd900, text: 26, textY: 3 });
+let markPoints = null;
+loadPoints().then((p) => { markPoints = p; });
+/** The screen y (px) of a view's head point on its drawn model, or null (no points entry, no model drawn yet). */
+export function headPointY(v, points = markPoints) {
+  const e = v?.info && points?.[v.info.spine || v.info.defId]?.head;
+  const side = e && (v.entryBack ? e.B || e.F : e.F || e.B);
+  const at = side?.at;
+  if (!Array.isArray(at) || !Number.isFinite(at[1]) || !v.spineReady || !Number.isFinite(v.modelSY) || !v.root) return null;
+  return v.root.y + (v.body?.y || 0) - at[1] * Math.abs(v.modelSY);
+}
 
 /** The stored-charge mark of one allied unit (see above), drawn into `parent`. */
 export class SkillMark {
@@ -462,12 +477,16 @@ export class SkillMark {
 
   hide() { this.root.visible = false; }
 
-  /** Draw for feet at (x, y), `u` px per unit, `n` stored charges (≤ 0: hidden); sprites from `assets` (local client). */
-  update(x, y, u, n, assets = null) {
+  /**
+   * Draw for feet at (x, y), `u` px per unit, `n` stored charges (≤ 0: hidden), over the head of `view` when its model point
+   * is known (headPointY); sprites from `assets` (local client).
+   */
+  update(x, y, u, n, assets = null, view = null) {
     const M = SKILL_MARK;
     if (!(n > 0)) { this.hide(); return; }
     this.root.visible = true;
-    const cx = x, cy = hudAnchorY(y, u) - M.y * u;
+    const head = headPointY(view);
+    const cx = x, cy = head != null ? head - M.headUp * u : hudAnchorY(y, u) - M.y * u;
     const disc = texOf(this.P, localUrl(assets, 'ui/battlecommon', 'sprite_circle'));
     const ring = texOf(this.P, localUrl(assets, 'ui/battlecommon', 'sprite_auto'));
     // without the client's sprites a plain dark disc stands for both (the number alone would float)

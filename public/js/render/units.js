@@ -1990,7 +1990,7 @@ export class UnitView {
     if (shielded && lp) { const u = hudUnit(this.ctx.viewport?.()), b = this.lpBars.box; this.shieldBar.position.set(b.x0, b.top - 1.5 * u); this.shieldBar.width = b.w; this.shieldBar.height = Math.max(1.5, 2.5 * u); } // local patch: a strip over the official HP bar
     else if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }
     // the official stored-charge mark over the unit (hud-bars.js SkillMark): an AUTO skill of several charges, while one is stored
-    if (this.lpMark) { if (showBars && this.charge > 0) this.lpMark.update(this.screen.x + sx, this.screen.y, hudUnit(this.ctx.viewport?.()), this.charge, this.ctx.assets); else this.lpMark.hide(); }
+    if (this.lpMark) { if (showBars && this.charge > 0) this.lpMark.update(this.screen.x + sx, this.screen.y, hudUnit(this.ctx.viewport?.()), this.charge, this.ctx.assets, this); else this.lpMark.hide(); }
     // SP
     const showSp = showBars && this.spMax > 0; // local patch: an enemy sends SP only for 圣堂剑士's bullets (sim/content/local-patch.js)
     this.spBg.visible = this.spFill.visible = showSp && !lp; // local patch: allies' SP is in their official bars

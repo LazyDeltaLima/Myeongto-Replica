@@ -116,6 +116,19 @@ describe('b.snap `charge` → the view', () => {
     assert.ok(!k.root.visible);
   });
 
+  test('over the drawn model\'s head point (fxpoints.js `head`) when known, else the prefab\'s own place', () => {
+    const M = HB.SKILL_MARK;
+    const pts = { char_x: { head: { F: { at: [0, 400] }, B: { at: [0, 450] } } } };
+    const v = { info: { spine: 'char_x' }, spineReady: true, modelSY: 0.25, root: { y: 600 }, body: { y: -10 }, entryBack: false };
+    assert.equal(HB.headPointY(v, pts), 590 - 100);
+    assert.equal(HB.headPointY({ ...v, entryBack: true }, pts), 590 - 112.5, 'the back model\'s point');
+    assert.equal(HB.headPointY({ ...v, spineReady: false }, pts), null, 'no model drawn yet');
+    assert.equal(HB.headPointY({ ...v, info: { spine: 'char_y' } }, pts), null, 'no points entry');
+    const k = new HB.SkillMark(fake.P, new fake.P.Container());
+    k.update(1000, 500, 2, 1, null, { ...v, info: { spine: 'char_none' } });
+    assert.equal(k.disc.position.y, HB.hudAnchorY(500, 2) - M.y * 2, 'fallback: 154.7 over hud_unit');
+  });
+
   test('a view: the mark shows with stored charges and goes with them', () => {
     const VP = { width: 1920, height: 1080 };
     const ctx = fakeViewCtx(fake.P, { assets: null, cam: () => presetCamera('prep', VP), viewport: () => VP });
