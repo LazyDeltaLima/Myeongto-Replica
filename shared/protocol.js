@@ -5,7 +5,7 @@ import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, MAX_SEATS, EMOTES, GEO } fro
 import { isDroppableChess } from './standIn.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { extendProtocol } from './local.js'; // local patch: room chat, chat factions, emote sets
-import { isRulePreset } from './ruleset.js';
+import { isRulePreset, isQueuePreset, CUSTOM_MAX_JSON } from './ruleset.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from './potential.js';
 
 // ---- tiny validators -------------------------------------------------------
@@ -27,6 +27,11 @@ const isMap = (v, max, key, val) => {
   return true;
 };
 const isList = (v, max, item) => Array.isArray(v) && v.length <= max && v.every(item);
+/** 규칙 모드 custom settings on the wire: a plain object of bounded size; shared/ruleset.js sanitizeCustom reads the rest. */
+const isCustomWire = (v) => {
+  if (!isPlain(v)) return false;
+  try { return JSON.stringify(v).length <= CUSTOM_MAX_JSON; } catch { return false; }
+};
 
 // ---- client-side combat (DESIGN §14): b.progress / b.result payloads -------------------------------------------
 
@@ -387,14 +392,16 @@ export const C2S = {
   hello: { name: (v) => isStr(v, NAME_MAX_LEN) && v.trim().length > 0, token: (v) => v == null || isStr(v, 64), version: (v) => v == null || isInt(v, 0, 1e6),
     noReplace: isBool, claimAt: (v) => isNum(v, 0, Number.MAX_SAFE_INTEGER), $optional: ['token', 'version', 'noReplace', 'claimAt'] },
   ping: { c: (v) => typeof v === 'number' && Number.isFinite(v) },
-  // `ruleset`: the room's 규칙 모드 preset (shared/ruleset.js; absent = the default, classic)
-  'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isRulePreset, $optional: ['ruleset'] },
+  // `ruleset`: the room's 규칙 모드 preset (shared/ruleset.js; absent = the default, classic); `custom`: the settings of
+  // the custom preset (sanitizeCustom; ignored by the other presets)
+  'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isRulePreset,
+    custom: isCustomWire, $optional: ['ruleset', 'custom'] },
   'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },
   'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },
-  // 규칙 모드 (host, before the match; server/lobby.js setRuleset): room.state.ruleset
-  'room.setRuleset': { preset: isRulePreset },
+  // 규칙 모드 (host, before the match; server/lobby.js setRuleset): room.state.ruleset; `custom` as in room.create
+  'room.setRuleset': { preset: isRulePreset, custom: isCustomWire, $optional: ['custom'] },
   // the co-op room option 「AI 队友最后选择」 (GitHub #338; host, before the match): the strategy and 机变 drafts order every
   // human seat before every AI seat (server/match/match/phases.js humansFirst); room.state.aiPicksLast
   'room.setAiPicksLast': { on: isBool },
@@ -419,8 +426,10 @@ export const C2S = {
   'room.spectate': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.removeSpectator': { playerId: isId },
   // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue of four; queue = alone, queueRoom = the host queues
-  // the co-op room's humans for its empty seats, unqueue leaves (a room: the whole room), queueAccept answers room.matchFound
-  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isRulePreset, $optional: ['ruleset'] },
+  // the co-op room's humans for its empty seats, unqueue leaves (a room: the whole room), queueAccept answers room.matchFound.
+  // The custom 규칙 모드 never queues (maintainer decision 2026-10-18): room.queue takes the queue presets only, and the
+  // server refuses room.queueRoom of a custom room (server/matchmaking.js)
+  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isQueuePreset, $optional: ['ruleset'] },
   'room.queueRoom': {},
   'room.unqueue': {},
   'room.queueAccept': { accept: isBool },

@@ -10,10 +10,11 @@
 //     in a match, create/join of another room fails with ROOM_STARTED (send g.leave or room.leave first).
 //   * Host-only: room.setDifficulty, room.setRuleset, room.setAiPicksLast, room.addBot, room.removeBot, room.kick, room.start.
 //     ▸ Changing the difficulty, the ruleset or the AI-picks-last option (co-op only) un-readies the other humans.
-//   * 규칙 모드 (shared/ruleset.js, maintainer decision 2026-10-15): every room has a ruleset — classic (the official
-//     rules) or casual (this remake's conveniences). room.create { ruleset? } picks it (default classic), the host
-//     changes it before the match with room.setRuleset { preset } (refused while the room is matchmaking: ERR.MATCHING),
-//     room.state carries it and every match of the room (a briefing reroll's too) gets it.
+//   * 규칙 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): every room has a ruleset — classic
+//     (the official rules), casual (this remake's conveniences) or custom (the host's settings, `custom`). room.create
+//     { ruleset?, custom? } picks it (default classic), the host changes it before the match with room.setRuleset
+//     { preset, custom? } (refused while the room is matchmaking: ERR.MATCHING; a custom room never matchmakes),
+//     room.state carries it, the drain hand-over keeps it and every match of the room (a briefing reroll's too) gets it.
 //     ▸ room.start requires every other human to be connected and ready; the host's start counts as the host's
 //     ready (the host may still toggle room.ready for display).
 //   * room.kick {seat, playerId} (community report #17, owner approved): before the match only, the host removes another
@@ -130,7 +131,7 @@ import * as localPatch from './local-patch.js'; // local patch: room chat, chat 
 import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: the 自选 picks offered
 import { KITTED_CHARS } from './sim/content/kits/index.js';
 import { Matchmaker } from './matchmaking.js';
-import { resolveRuleset } from '../shared/ruleset.js';
+import { resolveRuleset, sameRuleset, rulesetWire } from '../shared/ruleset.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -456,7 +457,7 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty, ruleset }) {
+  create(session, { mode, difficulty, ruleset, custom }) {
     const cur = this.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     if (this.rooms.size >= this.opts.maxRooms) return fail(ERR.INTERNAL, 'too many rooms');
@@ -473,7 +474,7 @@ export class Lobby {
     if (!code) return fail(ERR.INTERNAL, 'no room code available');
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now());
-    room.ruleset = resolveRuleset(ruleset);
+    room.ruleset = resolveRuleset({ preset: ruleset, custom });
     room.ownerKey = key;
     room.seats[0] = this.humanSeat(0, session);
     room.hostId = session.playerId;
@@ -611,15 +612,16 @@ export class Lobby {
   }
 
   /** 규칙 모드 (header): host-only, before the match; a queued room keeps its ruleset (its queue is the ruleset's). */
-  setRuleset(session, { preset }) {
+  setRuleset(session, { preset, custom }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
-    const next = resolveRuleset(preset);
-    if (room.matching && room.ruleset !== next) return fail(ERR.MATCHING, 'cancel the matchmaking first');
+    const next = resolveRuleset({ preset, custom });
+    const changed = !sameRuleset(room.ruleset, next);
+    if (room.matching && changed) return fail(ERR.MATCHING, 'cancel the matchmaking first');
     this.dropReplay(room, session.playerId);
-    if (room.ruleset !== next) {
+    if (changed) {
       room.ruleset = next;
       for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
       this.broadcastState(room);
@@ -1248,7 +1250,7 @@ export class Lobby {
       return session && session.roomCode === room.code ? { playerId: s.playerId, name: s.name, token: session.token } : null;
     };
     return {
-      code: room.code, mode: room.mode, difficulty: room.difficulty, ruleset: room.ruleset.preset, aiPicksLast: room.aiPicksLast,
+      code: room.code, mode: room.mode, difficulty: room.difficulty, ruleset: rulesetWire(room.ruleset), aiPicksLast: room.aiPicksLast,
       hostId: room.hostId,
       seats: room.seats.map((s) => {
         if (!s || s.left) return null;

@@ -14,8 +14,12 @@
 // room waits (room.state `matching`) the bar shows the waiting time and the queue, every Doctor's main button is
 // 取消匹配 (room.unqueue: the whole room leaves the queue), and the difficulty, AI seats and start are locked; the
 // confirmation of a formed group is ui/matchQueue.js's dialog.
-// 규칙 모드 (shared/ruleset.js, maintainer decision 2026-10-15): the bar's 规则 picker (经典 / 休闲, host only, locked while
-// matchmaking like the difficulty; its tooltip lists what 休闲 turns on) and the ruleset tag beside the title's difficulty.
+// 규칙 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): the bar's 规则 picker (经典 / 休闲 / 自定义,
+// host only, locked while matchmaking like the difficulty; its tooltip lists what 休闲 turns on) spans the row under the
+// difficulty, the 「AI 队友最后选择」 switch sits under the ready count (maintainer decision 2026-10-18), and the
+// ruleset tag is beside the title's difficulty. 自定义 takes the host's settings (ui/customRulesStore.js) and its ⚙ opens
+// them (ui/customRules.js: the host edits them — room.setRuleset { preset: 'custom', custom } —, anybody else sees the
+// room's read-only); a custom room has no 匹配补位 (the server refuses room.queueRoom, maintainer decision 2026-10-18).
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
@@ -40,6 +44,8 @@ import { audio } from '../audio.js';
 import { t, tc } from '../../../shared/i18n.js';
 import { resolveRuleset } from '../../../shared/ruleset.js';
 import { RulesetSwitch, presetName, queueCountOf } from '../ui/ruleset.js';
+import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
+import { customDraft } from '../ui/customRulesStore.js';
 
 /**
  * Seats padded to the room's capacity (co-op 4, solo 1), each null or a seat record.
@@ -316,13 +322,23 @@ export function RoomScreen() {
   };
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
-  const setRuleset = (preset) => run('rules', () => net.request('room.setRuleset', { preset }));
+  const setRuleset = (preset) => run('rules', () => net.request('room.setRuleset', preset === 'custom' ? { preset, custom: customDraft() } : { preset }));
+  const roomRules = resolveRuleset(room.ruleset);
+  const isCustom = roomRules.preset === 'custom';
+  const rulesEditable = rulesetOption(room, me.playerId).editable;
+  // the ⚙: the host edits (the room's settings when it is custom, else the lobby's), anybody else views a custom room's
+  const customGear = rulesEditable
+    ? () => openCustomRules({ rules: isCustom ? roomRules.custom : customDraft(), roomMode: room.mode, difficulty: room.difficulty,
+      onApply: (custom) => run('rules', () => net.request('room.setRuleset', { preset: 'custom', custom })) })
+    : isCustom ? () => openCustomRules({ rules: roomRules.custom, readonly: true, roomMode: room.mode, difficulty: room.difficulty,
+      live: () => store.get().room?.ruleset?.custom ?? null }) : null;
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
   const sit = () => run('sit', () => net.request('room.join', { code: room.code }));
   // 랜덤 매칭 for the empty seats (header): the host queues the room, any Doctor of it cancels
   const matching = coop && !!room.matching;
   const canFill = coop && facts.isHost && facts.humans.length < MAX_SEATS && !matching;
+  const fillTip = isCustom ? t('自定义规则不能使用匹配补位') : facts.canStart ? t('用随机匹配的博士补满空位（AI 队友会被移出）') : t('仍有博士未准备就绪');
   // the Doctors already waiting with this room's difficulty and ruleset (lobby.queueCounts; the lobby's cards show the same)
   const fillWaiting = queueCountOf(queueCounts, resolveRuleset(room.ruleset).preset, room.difficulty);
   const fill = () => run('fill', () => net.request('room.queueRoom', {}));
@@ -382,7 +398,7 @@ export function RoomScreen() {
       </div>
       <div class="topbar__center">
         <${MicroLabel} tone="mint">${coop ? 'ALLIANCE LOBBY' : 'SOLO SIMULATION'}<//>
-        <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" /><span class=${`rtag rtag--${resolveRuleset(room.ruleset).preset}`} data-testid="room-ruleset">${presetName(room.ruleset)}</span></h1>
+        <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" /><span class=${`rtag rtag--${roomRules.preset}`} data-testid="room-ruleset">${presetName(roomRules)}</span></h1>
       </div>
       <div class="topbar__right">
         ${coop ? html`<${InviteBox} code=${room.code} name=${me.name} difficulty=${room.difficulty} />` : html`<div class="solo-note"><${MicroLabel}>SINGLE OPERATOR<//><span>${t('仅限 1 名博士')}</span></div>`}
@@ -413,8 +429,7 @@ export function RoomScreen() {
         <div class="room-bar__opts">
           <${DifficultyPicker} room=${room} isHost=${facts.isHost} busy=${busy} onPick=${setDifficulty} />
           <div class="room-bar__row">
-            <${RulesetSwitch} value=${room.ruleset} editable=${rulesetOption(room, me.playerId).editable} busy=${busy} onPick=${setRuleset} />
-            <${AiLastToggle} option=${aiLastOption(room, me.playerId)} busy=${busy} onToggle=${setAiLast} />
+            <${RulesetSwitch} value=${roomRules} editable=${rulesEditable} busy=${busy} onPick=${setRuleset} onGear=${customGear} />
           </div>
         </div>
       </div>
@@ -426,6 +441,7 @@ export function RoomScreen() {
             ${facts.humans.map((s) => html`<${Icon} key=${s.playerId} name="user" class=${facts.isReady(s) ? 'is-on' : ''} />`)}
           </span>
         </div>
+        <${AiLastToggle} option=${aiLastOption(room, me.playerId)} busy=${busy} onToggle=${setAiLast} />
         <div class="room-bar__status">${statusLine}</div>
       </div>
       <div class=${`room-bar__right${canFill ? ' room-bar__right--stack' : ''}`}>
@@ -433,8 +449,8 @@ export function RoomScreen() {
           // two md buttons stacked in the place of the lg 干员调配 (three side by side overflow the bar's right column)
           ? html`<div class="room-bar__stack">
               <${LoadoutButton} from="room" class="room-loadout" label=${t('干员调配')} />
-              <${Tooltip} block=${true} text=${facts.canStart ? t('用随机匹配的博士补满空位（AI 队友会被移出）') : t('仍有博士未准备就绪')}>
-                <${Button} variant="secondary" icon="signal" block=${true} class="room-fill" loading=${busy === 'fill'} disabled=${!facts.canStart || !online} onClick=${fill}>${t('匹配补位')}<span class=${`rpick__n room-fill__n num${fillWaiting > 0 ? ' is-on' : ''}`} data-testid="fill-waiting">${fillWaiting}</span><//>
+              <${Tooltip} block=${true} text=${fillTip}>
+                <${Button} variant="secondary" icon="signal" block=${true} class="room-fill" loading=${busy === 'fill'} disabled=${isCustom || !facts.canStart || !online} onClick=${fill}>${t('匹配补位')}<span class=${`rpick__n room-fill__n num${fillWaiting > 0 ? ' is-on' : ''}`} data-testid="fill-waiting">${fillWaiting}</span><//>
               <//>
             </div>`
           : html`<${LoadoutButton} from="room" size="lg" class="room-loadout" label=${t('干员调配')} />`}
@@ -451,5 +467,6 @@ export function RoomScreen() {
       </div>
     </footer>
     <${MatchQueueDialog} />
+    <${CustomRulesDialog} />
   </div>`;
 }

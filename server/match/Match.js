@@ -12,8 +12,9 @@
 //   opts.mode        'solo' | 'coop'
 //   opts.difficulty  'FUNNY'|'NORMAL'|'HARD'|'ABYSS'
 //   opts.modeId      string                     modeIdFor(mode, difficulty), e.g. 'mode_multi_hard'
-//   opts.ruleset     { preset } | string (optional) 규칙 모드 (shared/ruleset.js resolveRuleset; missing = classic): which
-//                                              remake conveniences the match turns on (this.ruleset.options)
+//   opts.ruleset     { preset, custom? } | string (optional) 규칙 모드 (shared/ruleset.js resolveRuleset; missing =
+//                                              classic): which remake conveniences the match turns on (this.ruleset.options);
+//                                              a custom one carries its settings (this.ruleset.custom)
 //   opts.aiPicksLast boolean (optional)         the co-op room option 「AI 队友最后选择」 (room.setAiPicksLast, GitHub #338):
 //                                              the strategy and 机变 drafts put every human seat before every AI seat
 //                                              (MatchPhases.humansFirst); only `true` turns it on; ignored in solo
@@ -259,7 +260,7 @@ export class Match {
     this.gd = new GameData(this.data, this.modeId);
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
-    /** 규칙 모드 (opts.ruleset, shared/ruleset.js): { preset, options }, fixed for the match */
+    /** 규칙 모드 (opts.ruleset, shared/ruleset.js): { preset, options, custom? }, fixed for the match */
     this.ruleset = resolveRuleset(opts.ruleset);
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */
     this.aiPicksLast = !this.isSolo && opts.aiPicksLast === true;

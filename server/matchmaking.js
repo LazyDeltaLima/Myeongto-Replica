@@ -6,7 +6,8 @@
 //
 // Rules (maintainer decisions 2026-10-13):
 //   * One queue per difficulty and 규칙 모드 (shared/ruleset.js rulesetKey; maintainer decision 2026-10-15: the players of
-//     a match share the room's rules), co-op only. Its entries are single players or rooms ("parties"):
+//     a match share the room's rules), co-op only, classic and casual only (QUEUE_PRESETS: a custom room is refused,
+//     BAD_TARGET, maintainer decision 2026-10-18). Its entries are single players or rooms ("parties"):
 //     - room.queue { difficulty, ruleset? } queues the player alone (ruleset absent = the default, classic; switching
 //       either moves the entry to the back of the other queue); a player in a LOBBY room leaves the room (like
 //       room.create), one whose room is in a match is refused (ROOM_STARTED).
@@ -48,7 +49,7 @@
 //   * The queue lives in memory: a server restart forgets it (the client's queue screen closes on the new `welcome`).
 
 import { ERR, MAX_SEATS, DIFFICULTIES } from '../shared/constants.js';
-import { RULE_PRESETS, resolveRuleset, rulesetKey } from '../shared/ruleset.js';
+import { QUEUE_PRESETS, resolveRuleset, rulesetKey } from '../shared/ruleset.js';
 import { sendSession } from './net.js';
 
 export const QUEUE_DEFAULTS = Object.freeze({
@@ -152,6 +153,8 @@ export class Matchmaker {
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
     if (room.mode !== 'coop') return fail(ERR.BAD_TARGET, 'co-op rooms only');
+    // the custom 규칙 모드 never matchmakes (maintainer decision 2026-10-18; shared/ruleset.js QUEUE_PRESETS)
+    if (!QUEUE_PRESETS.includes(room.ruleset.preset)) return fail(ERR.BAD_TARGET, 'the custom ruleset has no matchmaking');
     const had = this.entries.get(roomKey(room));
     if (had) { this.sendState(had); return OK; }
     const humans = room.activeHumans();
@@ -503,7 +506,7 @@ export class Matchmaker {
   counts() {
     /** @type {Record<string, Record<string, number>>} */
     const out = {};
-    for (const p of RULE_PRESETS) out[p] = Object.fromEntries(DIFFICULTIES.map((d) => [d, 0]));
+    for (const p of QUEUE_PRESETS) out[p] = Object.fromEntries(DIFFICULTIES.map((d) => [d, 0]));
     for (const q of this.queues.values()) {
       for (const e of q) {
         if (e.group || !out[e.ruleset] || !(e.difficulty in out[e.ruleset])) continue;

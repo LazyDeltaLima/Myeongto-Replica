@@ -88,3 +88,30 @@ test('casual: a 999-layer 炎 board\'s leader hits of ≥ 300000 land as 300000 
   assert.equal(m.errorCount, 0);
   m.dispose();
 });
+
+test('custom (maintainer decision 2026-10-18): the match carries the settings; only the four casual conveniences are read from them so far', async () => {
+  const { INFO_REROLL_MIN_MS } = await import('../../server/match/match/phases.js');
+  const { ERR } = await import('../../shared/constants.js');
+  const custom = { enemies: { hp: 1000, atk: 500 }, flow: { rounds: 6, lpShared: true }, bonds: { pick: { yanShip: 'ban' } }, stages: { reroll: true } };
+  const h = makeMatch({ mode: 'solo', difficulty: 'HARD', seed: 3, fake: true, ruleset: { preset: 'custom', custom } }).start();
+  const pub = h.m.publicView();
+  assert.equal(pub.ruleset.preset, 'custom');
+  assert.equal(pub.ruleset.custom.enemies.hp, 1000);
+  assert.equal(pub.ruleset.custom.flow.rounds, 6);
+  assert.deepEqual({ ...pub.ruleset.options }, { battlefieldInfo: false, infoReroll: true, bossRoutePreview: false, bossHitClamp: false });
+  // the rest is carried only: the match itself is the official one
+  const classic = makeMatch({ mode: 'solo', difficulty: 'HARD', seed: 3, fake: true }).start();
+  assert.equal(h.m.gd.lastRound, classic.m.gd.lastRound);
+  assert.deepEqual(h.m.gd.enemyScale(5), classic.m.gd.enemyScale(5));
+  assert.equal(h.m.stageId, classic.m.stageId, 'the same draws');
+  assert.equal(h.m.bossId, classic.m.bossId);
+  classic.m.dispose();
+  // its 重新抽取 follows stages.reroll
+  h.sched.advance(INFO_REROLL_MIN_MS);
+  assert.deepEqual(h.m.handle('p_0', { t: 'g.infoReroll' }), { ok: true });
+  h.m.dispose();
+  const off = makeMatch({ mode: 'solo', difficulty: 'HARD', seed: 3, fake: true, ruleset: { preset: 'custom', custom: { stages: { reroll: false } } } }).start();
+  off.sched.advance(INFO_REROLL_MIN_MS);
+  assert.equal(off.m.handle('p_0', { t: 'g.infoReroll' }).error, ERR.BAD_TARGET);
+  off.m.dispose();
+});

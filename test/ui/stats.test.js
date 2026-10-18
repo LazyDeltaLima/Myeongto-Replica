@@ -731,6 +731,7 @@ describe('local stats: 규칙 모드 (records keep their ruleset; the ones befor
     assert.equal(buildRecord(baseResult(), { myId: 'p1', now: 1, ruleset: { preset: 'casual' } }).ruleset, 'casual');
     assert.equal(buildRecord(baseResult(), { myId: 'p1', now: 1, ruleset: 'classic' }).ruleset, 'classic');
     assert.equal(buildRecord(baseResult(), { myId: 'p1', now: 1 }).ruleset, 'classic');
+    assert.equal(buildRecord(baseResult(), { myId: 'p1', now: 1, ruleset: { preset: 'custom', custom: { enemies: { hp: 150 } } } }).ruleset, 'custom');
     assert.equal(compactRecord(buildRecord(baseResult(), { myId: 'p1', now: 1, ruleset: 'casual' })).ruleset, 'casual', 'kept by compaction');
   });
 
@@ -744,7 +745,8 @@ describe('local stats: 규칙 모드 (records keep their ruleset; the ones befor
     assert.equal(stats.records[0].ruleset, 'casual');
     assert.equal(typeof MIGRATIONS[1], 'function');
     assert.equal(normalizeRecord({ ...old }).ruleset, 'casual');
-    assert.equal(normalizeRecord({ ...old, ruleset: 'custom' }).ruleset, 'casual', 'an unknown preset too');
+    assert.equal(normalizeRecord({ ...old, ruleset: 'zany' }).ruleset, 'casual', 'an unknown preset too');
+    assert.equal(normalizeRecord({ ...old, ruleset: 'custom' }).ruleset, 'custom', 'custom matches count apart (maintainer decision 2026-10-18)');
     assert.equal(normalizeRecord({ ...old, ruleset: 'classic' }).ruleset, 'classic');
   });
 });

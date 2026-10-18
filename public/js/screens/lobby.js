@@ -5,10 +5,13 @@
 // spectator seats (观战: room.spectate, also while its match runs; community report #26, a remake feature — the
 // official room has none). Shows connection status + ping. The tips panel has an 更新 tab beside the tips: the patch
 // notes one line at a time (ui/patchNotes.js, maintainer decision 2026-10-13).
-// 규칙 모드 (shared/ruleset.js, maintainer decision 2026-10-15): the 规则 switch under the difficulty label picks 经典 / 休闲
-// for 创建 / 开始独立模拟 (room.create ruleset) and 开始匹配 (room.queue: one queue per difficulty and ruleset), remembered
-// like the difficulty (classic the first time). In 同盟匹配 the switch shows each ruleset's waiting Doctors and every
-// difficulty card those of its queue (lobby.queueCounts, ui/ruleset.js queueCountOf).
+// 규칙 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): the 规则 switch under the difficulty label
+// picks 经典 / 休闲 / 自定义 for 创建 / 开始独立模拟 (room.create ruleset, custom: the settings of ui/customRulesStore.js,
+// edited behind the ⚙ — ui/customRules.js) and 经典 / 休闲 for 开始匹配 (room.queue: one queue per difficulty and
+// ruleset; 自定义 is locked there with its reason in the tooltip), remembered like the difficulty (classic the first time).
+// In 同盟匹配 the switch shows each ruleset's waiting Doctors and every difficulty card those of its queue
+// (lobby.queueCounts, ui/ruleset.js queueCountOf). Beside a picked 自定义: the preset in use and how many settings
+// differ from the official ones.
 //
 // Difficulty descriptions come from data/config.json `modes[modeId]` when present, else from the
 // official act2autochess `modeDataDict` texts embedded below (desc + effectDescList), so the
@@ -28,8 +31,10 @@ import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue } from '../ui/matchQueue.js';
-import { RulesetSwitch, lobbyRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
-import { RULE_PRESETS } from '../../../shared/ruleset.js';
+import { RulesetSwitch, lobbyRuleset, lobbyQueueRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
+import { QUEUE_PRESETS, isQueuePreset, customDiffs } from '../../../shared/ruleset.js';
+import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
+import { customRulesStore, customDraft } from '../ui/customRulesStore.js';
 import { PatchNotesModal, usePatchNotes, isUnseen, markSeen, slidesOf, Inline } from '../ui/patchNotes.js';
 import { net, identity } from '../net.js';
 import { useDocClass } from '../ui/device.js';
@@ -321,6 +326,8 @@ export function LobbyScreen() {
     return DIFFICULTIES.includes(d) ? d : 'FUNNY';
   });
   const [ruleset, setRuleset] = useState(lobbyRuleset);
+  const [queueRuleset, setQueueRuleset] = useState(lobbyQueueRuleset);
+  const customRules = useStore((s) => s, Object.is, customRulesStore);
   const queueCounts = useStore((s) => s.ui.queueCounts);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(null);
@@ -334,8 +341,12 @@ export function LobbyScreen() {
 
   const pickMode = (m) => { setRoomMode(m); savePref('lobby.mode', m); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
-  const pickRuleset = (p) => { setRuleset(p); saveLobbyRuleset(p); };
+  const pickRuleset = (p) => { setRuleset(p); if (isQueuePreset(p)) setQueueRuleset(p); saveLobbyRuleset(p); };
   const matching = roomMode === 'match';
+  // 同盟匹配 has no 自定义 (QUEUE_PRESETS): it queues with the last of 经典 / 休闲 picked
+  const shownRuleset = matching ? queueRuleset : ruleset;
+  const editCustom = () => openCustomRules({ rules: customDraft(), roomMode: roomMode === 'solo' ? 'solo' : 'coop', difficulty,
+    onApply: () => pickRuleset('custom') });
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -347,8 +358,9 @@ export function LobbyScreen() {
       if (alive.current) setBusy(null);
     }
   };
-  const create = () => run('create', () => net.request('room.create', { mode: roomMode, difficulty, ruleset }));
-  const queue = () => run('create', () => joinQueue(difficulty, ruleset));
+  const create = () => run('create', () => net.request('room.create', ruleset === 'custom'
+    ? { mode: roomMode, difficulty, ruleset, custom: customDraft() } : { mode: roomMode, difficulty, ruleset }));
+  const queue = () => run('create', () => joinQueue(difficulty, queueRuleset));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
     // `undefined` — codeArg keeps an event target out of the key and falls back to the input field
@@ -438,13 +450,15 @@ export function LobbyScreen() {
         <div class="section-label section-label--rules"><span class="section-label__idx num">02</span>${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//>
           <div class="lobby-rules">
             <span class="lobby-rules__k">${t('规则')}</span>
-            <${RulesetSwitch} value=${ruleset} onPick=${pickRuleset}
-              counts=${matching ? Object.fromEntries(RULE_PRESETS.map((p) => [p, queueCountOf(queueCounts, p)])) : null} />
+            <${RulesetSwitch} value=${shownRuleset} onPick=${pickRuleset} onGear=${editCustom}
+              customLock=${matching ? t('自定义规则不能用于公开匹配，可在独立模拟或用同盟密钥创建的同盟中选择。') : null}
+              counts=${matching ? Object.fromEntries(QUEUE_PRESETS.map((p) => [p, queueCountOf(queueCounts, p)])) : null} />
+            ${!matching && ruleset === 'custom' ? html`<${CustomSummary} rules=${customRules.draft} store=${customRules} roomMode=${roomMode} difficulty=${difficulty} />` : null}
           </div>
         </div>
         <div class="diff-list">
           ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${pickDifficulty}
-            waiting=${matching ? queueCountOf(queueCounts, ruleset, d) : null} />`)}
+            waiting=${matching ? queueCountOf(queueCounts, queueRuleset, d) : null} />`)}
         </div>
         <div class="create-box">
           <${Tooltip} block=${true} text=${online ? null : t('正在连接服务器…')}>
@@ -462,5 +476,17 @@ export function LobbyScreen() {
       </section>
     </div>
     <${MatchQueueDialog} />
+    <${CustomRulesDialog} />
   </div>`;
+}
+
+/**
+ * Beside a picked 自定义: the preset whose settings are in use (none when they were changed after it) and how many
+ * settings differ from the official ones of the chosen difficulty.
+ */
+export function CustomSummary({ rules, store: st, roomMode, difficulty }) {
+  const mode = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor(roomMode === 'solo' ? 'solo' : 'coop', difficulty)) : null;
+  const n = customDiffs(rules, { bans: getConfig()?.bans?.[difficulty] || null, rounds: mode?.lastRound ?? null }).length;
+  const p = st.presets.find((x) => x.id === st.active && JSON.stringify(x.rules) === JSON.stringify(rules));
+  return html`<span class="lobby-rules__sum" data-testid="custom-summary">${p ? html`<b>${p.name}</b> · ` : null}${t('与官方不同的设置 {n} 项', { n })}</span>`;
 }
