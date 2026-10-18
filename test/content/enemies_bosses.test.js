@@ -13,6 +13,7 @@ import * as bossesMod from '../../server/sim/content/bosses.js';
 import { spawnYanyou } from '../../server/sim/content/tokens.js';
 import { attackWindup, attackStand } from '../../server/sim/ai.js';
 import { canTargetEnemy } from '../../server/sim/targeting.js';
+import { MOVE_SCALE } from '../../server/sim/constants.js';
 
 const E = JSON.parse(fs.readFileSync(new URL('../../data/enemies.json', import.meta.url), 'utf8'));
 const W = JSON.parse(fs.readFileSync(new URL('../../data/waves.json', import.meta.url), 'utf8'));
@@ -3067,7 +3068,9 @@ test('“斩胄之剑” / “破胄之锤” 初始模式 attack: every ally in
 });
 
 test('假想敌：铳: unblockable, targets the highest DEF in range, ASPD ramps on the same target, erosion on hit', () => {
-  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 10, col: 11 }], chess: { t_wall: WALL('t_wall', { def: 100 }), t_wall2: WALL('t_wall2', { def: 500 }) } });
+  // (the h07_02 override keeps 最终之罚 out: a charge would stop the attacks for its 15 s)
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 10, col: 11 }], chess: { t_wall: WALL('t_wall', { def: 100 }), t_wall2: WALL('t_wall2', { def: 500 }) },
+    setup(b) { b.enemyOverrides = W.act1autochess_h07_02.overrides; } });
   h.step();
   const e = put(h, 'enemy_9017_achunt', [3, 10], { tag: 'boss' });
   assert.ok(e.s.flags.unblockable);
@@ -3107,6 +3110,77 @@ test('假想敌：铳 最终之罚: charges at the highest-DEF ground unit, tram
   h.run(8);
   assert.ok(e.x < 8, `moved toward the target (x ${e.x})`);
   assert.ok(h.unit('t_wall2').stats.taken >= e.s.atk * tb('enemy_9017_achunt', '3.atk_scale') - 1e-6, 'trampled on the way');
+});
+
+// client prefab Modes/S1: achunt_s_1[speed] is MOVE_SPEED ADDITION +3.move_speed — before the multipliers, so a slow or
+// 停顿 slows the whole charge and a 束缚 holds it (until 2026-10-18 the +2 was added after them and the charge ignored 束缚)
+test('假想敌：铳 最终之罚: the +move_speed is added before the multipliers — slows, 停顿 and 束缚 act on the whole charge', () => {
+  const gun = 'enemy_9017_achunt', base = E[gun].stats.moveSpeed, add = tb(gun, '3.move_speed');
+  const speedOver = (status) => {
+    const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 5 }], chess: { t_wall: WALL('t_wall', { def: 300 }) } });
+    h.step();
+    const e = put(h, gun, [3, 10], { tag: 'boss', move: true });
+    h.runUntil(() => !!e.findBuff('boss:charge'), 30);
+    if (status) h.b.applyStatus(e, status[0], { duration: 30, ...status[1] });
+    let walked = 0;   // along its path (it may first step back to its tile's centre)
+    for (let i = 0; i < 20; i++) { const x0 = e.x, y0 = e.y; h.run(0.1); walked += Math.hypot(e.x - x0, e.y - y0); }
+    return walked / 2;
+  };
+  approx(speedOver(null), (base + add) * MOVE_SCALE, 0.02, 'no status');
+  approx(speedOver(['slow', { value: 0.5 }]), (base + add) * 0.5 * MOVE_SCALE, 0.02, 'slow 50 %');
+  approx(speedOver(['sluggish', {}]), (base + add) * 0.2 * MOVE_SCALE, 0.02, '停顿');
+  assert.ok(speedOver(['bind', {}]) < 1e-9, '束缚 holds it');
+});
+
+// SimpleTraceTargetAbility (Modes/S1 TraceEnemy): one target picked at the cast and followed — re-routed every 0.3 s once
+// it moved more than √0.1 — and the charge ends within 0.4 of the traced tile's centre (achunt_s_1[reached] → Default)
+test('假想敌：铳 最终之罚: traces the picked unit when it moves and ends near its tile; then attacks again', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 5 }], chess: { t_wall: WALL('t_wall', { def: 300 }) } });
+  h.step();
+  const e = put(h, 'enemy_9017_achunt', [3, 10], { tag: 'boss', move: true });
+  const w = h.unit('t_wall');
+  h.runUntil(() => !!e.findBuff('boss:charge'), 30);
+  assert.ok(e.trace && e.trace.r === w.tileR && e.trace.c === w.tileC, 'traces the target tile');
+  assert.ok(Math.abs(e.trace.ox) <= 0.4 && Math.abs(e.trace.oy) <= 0.4, 'random offset within ±0.4');
+  assert.ok(e.s.flags.disarm && !e.s.flags.noMove, 'no attacks; it walks');
+  assert.ok(h.eventsOf('fx').some((f) => f[1] === 'charge' && f[4].form === 'charge'), 'the S1 form (Move → Skill_1)');
+  h.run(0.5);
+  assert.ok(h.b.relocate(w, w.tileR + 2, w.tileC), 'the target moves');
+  h.run(0.35);
+  assert.ok(e.trace.r === w.tileR && e.trace.c === w.tileC, 're-routed to its new tile within one search');
+  h.runUntil(() => !e.findBuff('boss:charge'), 15);
+  assert.ok(!e.findBuff('boss:charge') && !e.trace, 'the charge ended');
+  assert.ok(Math.hypot(e.x - w.x, e.y - w.y) <= 0.4 + 0.2, `ended near the tile centre (${e.x}, ${e.y})`);
+  assert.ok(h.eventsOf('fx').some((f) => f[1] === 'chargeEnd' && f[4].form === null), 'back to the Default form');
+  assert.ok(!e.s.flags.disarm && e.s.moveSpeed === E.enemy_9017_achunt.stats.moveSpeed, 'its own speed and attacks again');
+});
+
+// _UpdateTraceTarget → _CleanTraceTarget when the target is gone: only the trace ends — the mode, its speed and the
+// disarm stay for the buff's 15 s, the gun walking its route
+test('假想敌：铳 最终之罚: a target leaving the field clears the trace, not the charge', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 5 }, { chessId: 't_wall2', row: 10, col: 3 }], chess: { t_wall: WALL('t_wall', { def: 300 }) } });
+  h.step();
+  const e = put(h, 'enemy_9017_achunt', [3, 10], { tag: 'boss', move: true });
+  h.runUntil(() => !!e.findBuff('boss:charge'), 30);
+  const start = h.b.time;
+  h.b.kill(h.unit('t_wall'), null);
+  h.run(0.35);
+  assert.ok(!e.trace, 'trace cleared');
+  assert.ok(e.findBuff('boss:charge') && e.s.flags.disarm, 'still charging');
+  h.runUntil(() => !e.findBuff('boss:charge') || !e.alive || !e.deployed, 20);
+  if (e.alive && e.deployed) approx(h.b.time - start, tb('enemy_9017_achunt', '3.duration'), 0.05, 'ends with the speed buff');
+});
+
+// Skills/1's selector takes flyers (`_targetMotion` 3, at least one): with only a flyer it casts, TraceEnemy (ground only)
+// finds no one and the mode switches straight back — no charge, the cooldown spent
+test('假想敌：铳 最终之罚: with only a flying unit it casts but does not charge', () => {
+  const h = bossArena({ units: [] });
+  h.step();
+  spawnYanyou(h.b, 'p1', { atk: 0, hp: 50000 });
+  const e = put(h, 'enemy_9017_achunt', [3, 10], { tag: 'boss' });
+  h.run(skb('enemy_9017_achunt', '1').initCooldown + 0.2);
+  assert.ok(h.eventsOf('fx').some((f) => f[1] === 'enemySkill' && f[4].id === e.id), 'cast');
+  assert.ok(!e.findBuff('boss:charge') && !e.trace, 'no charge');
 });
 
 test('假想敌：铳 (h07_02 override) never uses 最终之罚 in the regular boss round', () => {

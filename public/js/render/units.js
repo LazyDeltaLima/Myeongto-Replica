@@ -550,6 +550,11 @@ export const FORMS = Object.freeze({
   trap_039_dstnta: BROOD,
   // 假想敌：淤困 attached to its blocker (server kitParasite → form 'parasitic', null when the block ends): the client prefab's
   // mode Parasitic — its Anim ability plays Parasitic once, `_replaceAnimPairs` Idle → Idle_2 while attached
+  // 假想敌：铳 【最终之罚】 (server kitGun → form 'charge', null as it ends): the client prefab's mode S1, `_replaceAnimPairs`
+  // Move → Skill_1 while it charges
+  enemy_9017_achunt: Object.freeze({
+    charge: Object.freeze({ change: null, roles: Object.freeze({ move: loop('Skill_1') }) }),
+  }),
   enemy_9007_acelem: Object.freeze({
     parasitic: Object.freeze({ change: 'Parasitic', roles: Object.freeze({ idle: 'Idle_2', deploy: 'Idle_2' }) }),
   }),

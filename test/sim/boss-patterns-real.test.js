@@ -64,6 +64,27 @@ test('real boss_2 field: 假想敌：铳 leaves 1 stack after a new target\'s fi
   assert.ok(Math.abs(next.t - sw.t - want) < 0.1, `swing to swing: ${next.t - sw.t} ≈ ${want}`);
 });
 
+// client prefab Modes/S1: achunt_s_1[speed] adds `3.move_speed` before the multipliers; the charge walks the engine's path
+// (e.trace) — a slow slows all of it, every step stays within the gun's own speed
+test('real boss_2 field: 假想敌：铳 最终之罚 traces at (move speed + 3.move_speed) × its multipliers, a slow included', () => {
+  const b = realBossField('boss_2');
+  const add = gd.enemy('enemy_9017_achunt').talents.bb['3.move_speed'];
+  let g = null;
+  for (let i = 0; i < 30 * 60 && !b.finished; i++) { b.step(); g = b.enemies.find((u) => u.isBoss && u.alive && u.findBuff('boss:charge')); if (g) break; }
+  assert.ok(g, 'the gun charged');
+  assert.ok(g.trace && !g.s.flags.noMove && g.s.flags.disarm, 'it walks a trace and does not attack');
+  assert.ok(Math.abs(g.s.moveSpeed - (g.base.moveSpeed + add)) < 1e-9, `speed ${g.s.moveSpeed}`);
+  b.applyStatus(g, 'slow', { duration: 30, value: 0.5 });
+  assert.ok(Math.abs(g.s.moveSpeed - (g.base.moveSpeed + add) * 0.5) < 1e-9, `slowed ${g.s.moveSpeed}`);
+  let far = 0;
+  for (let i = 0; i < 30 && g.findBuff('boss:charge'); i++) {
+    const x0 = g.x, y0 = g.y, t0 = b.time;
+    b.step();
+    far = Math.max(far, Math.hypot(g.x - x0, g.y - y0) / (b.time - t0));
+  }
+  assert.ok(far > 0 && far <= (g.base.moveSpeed + add) * 0.5 * 0.5 + 1e-6, `moving, at most the slowed speed (${far} tiles/s)`);
+});
+
 test('real boss_1 field: 刺胄之弹 leaves a 9.95 s zone that hits the operators in it every 1 s (400 phys + 2.1 s stun), no DoT buff', () => {
   const b = realBossField('boss_1');
   const sb = gd.enemy('enemy_9016_acstmr').talents.bb;

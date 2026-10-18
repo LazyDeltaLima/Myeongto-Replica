@@ -923,6 +923,9 @@ export function updateEnemy(b, e, dt) {
   if (e.mem.fearMove) endFear(e);
   // 诱导 (ba.attract "无法被阻挡并向目标位置移动"): walks to the attract point instead of following its route
   if (e.s.flags.attract) { if (standing) e.moving = false; else moveAttracted(b, e, dt); return; }
+  // a trace (the client's SimpleTraceTargetAbility — 假想敌：铳 【最终之罚】, content/bosses.js kitGun): the enemy's own
+  // walk, at its own speed, to the traced tile instead of its route; [ASSUMED] 诱导 outranks it (no source orders them)
+  if (e.trace && !e.hidden) { if (standing) e.moving = false; else walkTo(b, e, e.trace, dt); return; }
   advanceRoute(b, e, dt, R, standing);
 }
 
@@ -937,6 +940,15 @@ function moveAttracted(b, e, dt) {
   let A = null;
   for (const x of e.buffs) if (x.status === 'attract' && x.data && x.data.attract) { A = x.data.attract; break; }
   if (!A) { e.moving = false; return; }
+  walkTo(b, e, A, dt);
+}
+
+/**
+ * Walk the enemy toward the tile A.r / A.c (moveAttracted, and a trace `e.trace`), ending at its centre moved by A.ox /
+ * A.oy (a trace's random offset, TracePositionCursor m_reachedOffset; 0 for 诱导). A caches the path (A.pts, A.i,
+ * A.ver, A.px / A.py) and re-plans it when an obstacle changed or something else moved the enemy since its last step.
+ */
+function walkTo(b, e, A, dt) {
   if (!A.pts || A.ver !== b.grid.version || e.x !== A.px || e.y !== A.py) {
     const sr = Math.round(e.y), sc = Math.round(e.x);
     let pts = null;
@@ -952,6 +964,10 @@ function moveAttracted(b, e, dt) {
       }
     }
     A.pts = pts || [{ x: A.c, y: A.r }];
+    if (A.ox || A.oy) {
+      const last = A.pts[A.pts.length - 1];
+      A.pts[A.pts.length - 1] = { x: last.x + (A.ox || 0), y: last.y + (A.oy || 0) };
+    }
     A.i = 0;
     A.ver = b.grid.version;
   }

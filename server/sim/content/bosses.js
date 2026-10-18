@@ -79,7 +79,7 @@
 // fx kinds: 'beam' 'shell' 'explode' 'telegraph' 'charge' 'link' 'dash' 'column' 'tide' 'rockfall' 'tentacle' 'equip'
 //   'sword' 'vest' 'blink' 'summon' 'grow' 'phase' 'lpLoss' (x, y + extra {id, r, tiles, kind, tx, ty …}).
 
-import { MOVE_SCALE, ROWS, ALLY_COLLIDER_RADIUS, TICK } from '../constants.js';
+import { MOVE_SCALE, ROWS, COLS, ALLY_COLLIDER_RADIUS, TICK } from '../constants.js';
 import { aggroCmp, areaSelectable } from '../targeting.js';
 import { compileRoute, attackWindup } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
@@ -165,6 +165,16 @@ const BROOD_GROW_ANIM = 1, BROOD_FIRST_HIT = 0.933;
 const ROCKFALL_DELAY = 1, ROCKFALL_TARGETS = [2, 4, 8], DOOM_DELAY = 4;
 /** 铳: minimum attack speed (PRTS "最低20") and charge hit radius (PRTS 0.35 — also “碎铳之簧”'s 追逐模式 trample). */
 const ASPD_FLOOR = 20, CHARGE_RADIUS = 0.35;
+/**
+ * 铳 【最终之罚】's trace (client prefab Modes/S1/Body/GeneralAbilities/TraceEnemy, a SimpleTraceTargetAbility): every
+ * `_searchCoolDown` 0.3 s it re-routes when its target has moved more than √`_updateDistSqrEps` (0.1) since the last route,
+ * and ends the charge once within `_reachedThreshold` 0.4 of the traced tile's centre; it walks to that centre moved by
+ * a random offset of ±`_traceRandomOffset` (0.4, 0.4) per axis (TracePositionCursor.ResetReachedOffset →
+ * RandomExtensions.RandomVector2: −r + U·2r).
+ */
+const TRACE_SEARCH = 0.3, TRACE_MOVE_SQR = 0.1, TRACE_REACHED = 0.4, TRACE_OFFSET = 0.4;
+/** `_findNearbyReachableTile`: the 8 neighbours tried when the target's own tile cannot be reached. */
+const TRACE_NEAR = Object.freeze([[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]]);
 /** 盲信之誓 link half-width (PRTS 0.5). */
 const LINK_WIDTH = 0.5;
 /** 未尽的告解: `achunt_passive` triggers once, `triggerInterval` 0.03 s after the hidden 铳 appears (prefab CommonAbilities/Ability0). */
@@ -699,6 +709,31 @@ function kitGun(ab, e, b) {
   const setAspd = (b2) => aspdFloor(b2, e, step * P.n);
   const s1 = ab.sk['1'], s2 = ab.sk['2'], s3 = ab.sk['3'];
   const groundTargets = (b2) => allTargets(b2, e).filter((u) => u.ground);
+  const endCharge = (b2, e2) => { // achunt_s_1[reached] / achunt_s_1[speed]'s end: SwitchMode back to Default
+    P.charge = null;
+    e2.trace = null;
+    b2.removeBuff(e2, 'boss:charge');
+    if (e2.route) e2.route.pts = null;
+    setForm(b2, e2, null, 'chargeEnd');
+  };
+  // _TryUpdateTraceTargetRoute: the target's tile when the gun's path reaches it, else (`_findNearbyReachableTile`) the
+  // reachable neighbour of the shortest path ([ASSUMED] ties in TRACE_NEAR order); a new route draws a new offset
+  const retrace = (b2, e2, t) => {
+    const g = b2.grid, sr = Math.round(e2.y), sc = Math.round(e2.x), k = sr * COLS + sc;
+    const tr = Math.round(t.y), tc = Math.round(t.x);
+    const len = (r, c) => (g.walkable(r, c) ? g.fieldLength(g.flowField(r, c), k) : Infinity);
+    let best = len(tr, tc) < Infinity ? [tr, tc] : null;
+    if (!best) {
+      let bl = Infinity;
+      for (const [dr, dc] of TRACE_NEAR) { const l = len(tr + dr, tc + dc); if (l < bl) { bl = l; best = [tr + dr, tc + dc]; } }
+    }
+    if (!best) return false;
+    e2.trace = { r: best[0], c: best[1], ox: b2.rng.range(-TRACE_OFFSET, TRACE_OFFSET), oy: b2.rng.range(-TRACE_OFFSET, TRACE_OFFSET) };
+    P.charge.target = t;
+    P.charge.tx = t.x; P.charge.ty = t.y;
+    return true;
+  };
+  const clearTrace = (e2) => { e2.trace = null; P.charge.target = null; if (e2.route) e2.route.pts = null; }; // _CleanTraceTarget
   const list = [
     {
       spawn(b2, e2) { b2.addBuff(e2, { key: 'boss:unblockable', persist: true, flags: { unblockable: true } }); setAspd(b2); },
@@ -719,32 +754,44 @@ function kitGun(ab, e, b) {
         if (e2.atkCd > 0 && was > 0) e2.atkCd *= e2.s.interval / was;
       },
       dealt(c, b2, e2) { elem(b2, e2, c.target, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0)); }, // 攻击时附带侵蚀损伤
-      tick(b2, e2, a, dt) {
+      // 【最终之罚】 (client prefab Modes/S1 + its TraceEnemy, SimpleTraceTargetAbility.OnTick): the gun walks through the
+      // engine (ai.js updateEnemy, `e.trace`) — its speed is the mode's achunt_s_1[speed] (MOVE_SPEED ADDITION
+      // +`3.move_speed`, before the multipliers: slows and 停顿 slow the whole charge, 束缚 / 失衡 hold it); every
+      // TRACE_SEARCH it re-routes after a target that moved (_UpdateTraceTarget) and checks the reached distance
+      // (_CheckReached). A target gone from the field clears the trace only: the mode stays until the speed buff ends,
+      // the gun walking its route at the charge speed without attacking (until 2026-10-18 the gun slid in a straight line
+      // to where the target had stood at the cast, ignoring every multiplier on the +2 and any 束缚)
+      tick(b2, e2) {
         const ch = P.charge;
-        if (!ch || unbalancedNow(b2, e2)) return;                              // (失衡: no scripted move meanwhile)
-        const t = ch.target;
-        const sp = (e2.s.moveSpeed + (T(ab, '3.move_speed') ?? 0)) * MOVE_SCALE * dt;
-        const nx = e2.x, ny = e2.y;
-        const arrived = stepToward(e2, t.x, t.y, sp);
-        if (!b2.grid.groundPassable(Math.round(e2.y), Math.round(e2.x))) { e2.x = nx; e2.y = ny; }
-        // "对进入自身0.35半径范围内的我方单位（包括飞行单位）造成一次…": an area selection (areaAllies)
+        if (!ch) return;
+        if (b2.time >= ch.until - 1e-9 || !e2.findBuff('boss:charge')) { endCharge(b2, e2); return; }
+        // Talents/3 of the mode: "对进入自身0.35半径范围内的我方单位（包括飞行单位）造成一次…" — an area selection (areaAllies)
         for (const u of areaAllies(b2, e2, e2.x, e2.y, CHARGE_RADIUS)) if (!ch.hit.has(u)) { ch.hit.add(u); hurt(b2, e2, u, e2.s.atk * (T(ab, '3.atk_scale') ?? 1), 'phys'); }
-        if (arrived || b2.time >= ch.until || (e2.x === nx && e2.y === ny)) {
-          P.charge = null;
-          b2.removeBuff(e2, 'boss:charge');
-          if (e2.route) e2.route.pts = null;
+        if (b2.time < ch.next - 1e-9) return;
+        ch.next += TRACE_SEARCH;
+        const t = ch.target;
+        if (t) {
+          if (!t.alive || !t.deployed) clearTrace(e2);
+          else if ((t.x - ch.tx) * (t.x - ch.tx) + (t.y - ch.ty) * (t.y - ch.ty) > TRACE_MOVE_SQR && !retrace(b2, e2, t)) clearTrace(e2);
         }
+        if (e2.trace && hypot(e2.x - e2.trace.c, e2.y - e2.trace.r) <= TRACE_REACHED) endCharge(b2, e2);
       },
     },
     s1 && {
-      name: s1.name, cd: s1.cd, icd: s1.icd, cond: (b2) => groundTargets(b2).length > 0 && !P.charge,
-      fire(b2, e2) { // 【最终之罚】 charge at the highest-DEF ground unit
+      // Skills/1's selector: any unit of ours (`_targetMotion` 3, flyers too), `_minTargetNum` 1
+      name: s1.name, cd: s1.cd, icd: s1.icd, cond: (b2) => allTargets(b2, e).length > 0 && !P.charge,
+      fire(b2, e2) {
+        // achunt_s_1: SwitchMode S1, then TriggerAbilityUseSelector TraceEnemy — the highest-DEF unit on low ground, no
+        // flyer (`_targetMotion` 1, `heightType` 0, `_postFilter` DEF_DES); nobody (only flyers) → back to Default at once
         const t = groundTargets(b2).sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0];
         if (!t) return;
         const dur = T(ab, '3.duration') ?? 0;
-        P.charge = { target: { x: t.x, y: t.y }, until: b2.time + dur, hit: new Set() };
-        b2.addBuff(e2, { key: 'boss:charge', duration: dur, visible: true, flags: { noMove: true, disarm: true } });
-        b2.fx('charge', { x: e2.x, y: e2.y, id: e2.id, tx: t.x, ty: t.y, kind: 'finalPenance' });
+        b2._cutAttackStand(e2); e2.atkStandUntil = -Infinity;   // the mode switch's `_restartFSM`: out of its attack recovery
+        P.charge = { target: null, tx: t.x, ty: t.y, until: b2.time + dur, next: b2.time + TRACE_SEARCH, hit: new Set() };
+        b2.addBuff(e2, { key: 'boss:charge', duration: dur, visible: true, mods: { moveFlat: T(ab, '3.move_speed') ?? 0 }, flags: { disarm: true } });
+        // OnCastOnTarget: no route to the target nor to a tile beside it → no trace (the mode and its speed stay)
+        if (!retrace(b2, e2, t)) clearTrace(e2);
+        setForm(b2, e2, 'charge', 'charge', { tx: t.x, ty: t.y, kind: 'finalPenance' });
       },
     },
   ];

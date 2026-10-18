@@ -204,7 +204,7 @@
 |---|---|---|---|---|
 | 【污染秽蚀】 `nhpbr`·`nhtank` | 투사체 충돌 `targetMotion 3`; 버프 `polluted_area` = `IfElse(CheckHeightTypeOfCharacterRootTile LOWLAND)` → `polluted_damage_low` / `_high`, 이동 방식 검사 없음 | 「位于低地/高地的…50/25…（可对空…）」 | 맞는다, 값은 **아래 칸 높이**로(저지대 50) | `pollution`: 비행이면 아래 칸 `isLow`(플랫폼 칸은 고지대 [추정]), 아니면 `ground` — 수정 |
 | 리드 `enemy_1539_reid` 【冲锋】 | `Rush/Selector` `_targetMotion 1` | 「…距离自身最近的我方单位」 | 대상 아님 | `u.ground` 필터 — `ground=false`로 맞음 |
-| 假想敌：铳 `enemy_9017_achunt` 【最终之罚】 | `TraceEnemy` `_targetMotion 1`, `tileOptions heightType 0`(저지대); 돌진 접촉 피해 `targetMotion 3` | 「位于低地且防御力最高…（不会选择飞行单位…）」「（包括飞行单位）」 | 대상 아님, 접촉 피해는 맞음 | `groundTargets`·`areaAllies` — 맞음 |
+| 假想敌：铳 `enemy_9017_achunt` 【最终之罚】 | `TraceEnemy` `_targetMotion 1`, `tileOptions heightType 0`(저지대); 돌진 접촉 피해 `targetMotion 3`; 시전 선택기 `Skills/1` `targetMotion 3` | 「位于低地且防御力最高…（不会选择飞行单位…）」「（包括飞行单位）」 | 추적 대상 아님(비행 유닛뿐이면 시전만 하고 돌진 없음, 2026-10-18), 접촉 피해는 맞음 | `groundTargets`·`areaAllies` — 맞음 |
 | 부패의 전차 `nhtank` 일반 공격·秽蚀轰击 | Trigger `_targetMotion 1` + `_heightType 0` | 「只攻击位于低地的我方单位，且不会攻击飞行单位」 | 대상 아님 | `canTarget` `ground && !isFlying` — 맞음 |
 
     일반 규칙: 선택자는 공중(`targetMotion`)과 칸 높이(`heightType`)를 따로 거르고, 높이를 거르는 선택자는 전부 `targetMotion 1`이라 비행은 늘 빠진다.
@@ -1170,6 +1170,31 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
 - **난이도별 차이 없음** (2026-10-17 확인): 총·리드는 enemy_database 레벨 0 하나뿐이고, 히든 템플릿 `h08_02`(협동)·`h08_02_s`(단독)를 일반·험지·초월이 같이
   쓴다(덮어쓰기도 같음 — 협동만 【最终之罚】 끔). 버프 템플릿 중 난이도 분기(`AutoChessCheckDifficulty`)는 `achunt_t_1`(FUNNY가 아니면 × `1.damage_scale` = 1,
   효과 없음)과 띠 효과 하나뿐. 난이도가 바꾸는 것은 수치뿐: 풀 크기(`bloodPoint`)와 라운드 적 효과(리드 HP·ATK, 총 ATK, 초월 이속 ×1.15).
+
+### 假想敌：铳 【最终之罚】 돌진 속도·추적 (`kitGun`, 2026-10-18)
+- **제보**: 총이 가끔 오퍼레이터를 향해 지나치게 빠르게 움직인다.
+- **규칙**: 돌진은 적의 일반 이동이다(`ai.js updateEnemy`의 `e.trace`). 속도 = (기본 0.4 + `3.move_speed` 2) × 이동 배율 × 0.5칸/s — 상태가 없으면 1.2칸/s(평소의 6배),
+  감속 50 % 0.6, 停顿 0.24, 束缚·失衡 중에는 멈춤. 일반 공격 없음.
+  - 시전: Skills/1 선택기(아군 아무나, 비행 포함, 최소 1)가 있으면 쿨다운대로 쓴다. 대상 = 저지대·비행 아님·방어력 최고 하나(`TraceEnemy`); 없으면(비행 유닛뿐)
+    곧바로 끝(쿨다운은 씀). 시전 때 공격 후 멈춤을 끊는다(모드 전환 `_restartFSM`).
+  - 추적: 대상 칸까지 칸 길로 걷고, 그 칸에 길이 없으면 이웃 8칸 중 길이 가장 짧은 칸([ASSUMED] 같으면 위·아래·왼·오른·대각 순). 도착점 = 칸 중심 + 축마다
+    ±0.4 균등 난수. 0.3 s마다 대상이 마지막 경로 때보다 √0.1칸 넘게 움직였으면 다시 길을 찾고(새 난수), 총이 그 칸 중심 0.4칸 안이면 돌진이 끝난다.
+  - 대상이 필드를 떠나면(쓰러짐·철수) 추적만 끝난다: 돌진 상태(속도 +2, 공격 없음)는 속도 버프 15 s(`3.duration`)가 끝날 때까지 남고, 총은 그동안 자기 경로를 걷는다.
+  - 화면 [화면 미확인]: 돌진 중 모델은 `Skill_1` 클립으로 걷는다(form `charge`, `render/units.js` FORMS), 끝나면 fx `chargeEnd`(그림 없음)로 Default로 돌아간다.
+- 근거(EN 클라 2026-10-14 판, Lua 핫픽스에 없음): 프리팹 `enm_pfb_28.ab` `enemy_9017_achunt` — `Skills/1`(버프 `achunt_s_1`: SwitchMode S1 →
+  `TriggerAbilityUseSelector TraceEnemy`, 대상 없으면 SwitchMode 0), `Modes/S1/Body/Talents/3`의 패시브 버프 `achunt_s_1[speed]`(`attributeType` 6 MOVE_SPEED,
+  `formulaItem` 0 = ADDITION, 블랙보드 값; `durationKey duration`; ON_BUFF_FINISH → SwitchMode 0), `_replaceAnimPairs` Move → Skill_1,
+  `Modes/S1/Body/GeneralAbilities/TraceEnemy` = `SimpleTraceTargetAbility`(`_searchCoolDown` 0.3·`_traceRandomOffset` (0.4, 0.4)·`_updateDistSqrEps` 0.1·
+  `_findNearbyReachableTile` 1·`_disableWhenReached` 1·`_reachedThreshold` 0.4·`_buffsWhenReachedTarget` `achunt_s_1[reached]` → SwitchMode 0). 클라 코드:
+  `SimpleTraceTargetAbility.OnTick`(0xC977F0: 주기 타이머가 찰 때마다 `_UpdateTraceTarget` → `_CheckReached`), `_UpdateTraceTarget`(0xC984D0: 추적 대상이
+  없거나 무효면 `_CleanTraceTarget`; 마지막 위치와 거리² > eps면 `_TryUpdateTraceTargetRoute`, 실패하면 Clean), `_CheckReached`(0xC97A20: 추적 **칸** 중심과의
+  거리 ≤ 0.4 → 도착 버프 + Clean), `_TryUpdateTraceTargetRoute`(0xC98010: `Map.TryCalculatePathFindingDistance`, 안 되면 이웃 표 + `CheckGridValid`),
+  `OnCastOnTarget`(0xC976B0: 길이 있으면 추적 켬, 없으면 Clean), `TracePositionCursor.ResetReachedOffset`(0x6427F0) → `RandomExtensions.RandomVector2`
+  (축마다 −r + U·2r). ADDITION이 배율보다 먼저 더해지는 순서는 PRTS 「作战机制」 伤害计算 표(直接加算 → 直接乘算)와 같다.
+- **옛 동작**: 시전 때 대상이 서 있던 점으로 직선으로 미끄러짐(칸 길·추적 없음, 막힌 칸에서 멈춤), 속도 = (감속이 걸린 이속 + 2) × 0.5 → 감속 50 %에서 1.1,
+  停顿 1.04, 束缚 중에도 1.0칸/s(공식 0.6·0.24·0); 비행 유닛뿐이면 시전 안 함; 모델은 미끄러지는 동안 서 있는 자세.
+- 테스트 `enemies_bosses.test.js` 「假想敌：铳 最终之罚…」 5건(속도·감속·停顿·束缚, 움직인 대상 추적·도착, 대상이 떠남, 비행 유닛뿐, 밟기 피해);
+  골든 `boss-boss_2-solo`·`hidden-boss_9-solo`.
 
 ### “余音” 暗色 형태 이동 속도·【合奏】 (`setEchoForm`·`kitEcho`)
 - **이동 속도**: 暗色(Depression) 형태는 이동 속도 **+20 %**(클라 프리팹 `Modes/Depression/Body/Talents/2`: MOVE_SPEED, MULTIPLIER +`2.move_speed` 0.2).
