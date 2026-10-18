@@ -16,6 +16,7 @@ import { countdownWarnAt } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { recordQuit } from './stats.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
+import { resolveRuleset, PRESET_LABELS } from '../../../shared/ruleset.js';
 
 /**
  * Exit dialog lines. 放弃模拟 (g.leave → room.leave) ends the run on the server as 'abandoned' and returns to the
@@ -127,7 +128,7 @@ export function AwayOverlay({ onBack = () => {} }) {
 const timerCue = () => audio.sfx('timer');
 
 /**
- * Pre-game step header.
+ * Pre-game step header. Beside the difficulty, the 规则 mode when it is not 经典 (休闲 / 自定义, m.public.ruleset).
  * The countdown turns orange at the step's official warning time and plays the countdown cue then (gameLogic
  * countdownWarnAt: 确认本局信息 5 s, 选择策略 15 s; maintainer decision 2026-10-14).
  * @param {{ step: number, of: number, title: string, micro: string, pub: any, total?: number|null, config?: any,
@@ -135,12 +136,16 @@ const timerCue = () => audio.sfx('timer');
  */
 export function StepHeader({ step, of, title, micro, pub, total, config = null, onExit }) {
   const conn = useStore((s) => s.connection, shallowEqual);
+  const rules = resolveRuleset(pub?.ruleset);
   return html`<header class="stephead">
     <div class="stephead__left">
       <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开')} />
       <div class="stephead__meta">
         <${PingPill} ms=${conn.ping} online=${conn.status === 'online'} />
-        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} />` : null}
+        ${pub?.difficulty || rules.preset !== 'classic' ? html`<span class="stephead__tags">
+          ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} />` : null}
+          ${rules.preset !== 'classic' ? html`<span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(PRESET_LABELS[rules.preset])}</span>` : null}
+        </span>` : null}
       </div>
     </div>
     <div class="stephead__center">

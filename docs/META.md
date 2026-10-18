@@ -678,7 +678,8 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   the wearer's card highlights the pairing it wears, and a bond item's card names the bond it gives (DESIGN §21.26).
   Not covered [ASSUMED]: operator talents that test "【拉特兰】/【卡西米尔】/… 干员" in the kits read the record's bonds.
   **Layer cap** (research 11 §1; the client's `MAX_GARRISON_STACK` / `AddBondCount` = min(L + n, 999)): each bond's
-  layers stop at `BOND_LAYER_CAP` = 999 (shared/constants.js; 0 / Infinity = off). Every writer clamps with
+  layers stop at `BOND_LAYER_CAP` = 999 (shared/constants.js; 0 / Infinity = off) — or at none in a 自定义 match that lifts it
+  (`gd.layerCap` / the battle's `flags.noLayerCap`, `layerCapOf`; docs/rules/ui.md 「규칙 모드 — 커스텀」). Every writer clamps with
   `layerGainRoom` — `PlayerState.addLayers` (all prep-side gains: 特质, items, bands, 机变 cards, bonds; `ctx.addLayers`),
   the SETTLE of the in-battle gains and the battle's own live copy (`Battle.addLayers`, SIM.md §6); a gain at the cap
   adds 0 and dispatches no onLayers. The client-result check bounds a reported gain by the room left from the bond's

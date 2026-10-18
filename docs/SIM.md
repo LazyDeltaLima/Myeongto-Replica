@@ -483,8 +483,8 @@ recorded for the player whose half contains the goal it reached, with `sourcePla
 - `leaked[].counted = false` for `notCountInTotal`/`unharmful`/boss parts (LP rules: normal rounds count only `counted`
   leaks, cap 10; boss rounds use `lpr`). `perfect = no counted leak`.
 - `battleEnd {result}` fires before the result is frozen: handlers may still call `addLayers`/`addCoins`.
-- `layerGains` holds what `addLayers` actually added — never more than a bond's room under `BOND_LAYER_CAP` (999) from
-  its starting layers; `bossDamage` / `damageDealt` never include a leader hit cancelled by 限伤 (§4).
+- `layerGains` holds what `addLayers` actually added — never more than a bond's room under `BOND_LAYER_CAP` (999; none with the spec's `flags.noLayerCap`, a
+  自定义 ruleset — `layerCapOf`) from its starting layers; `bossDamage` / `damageDealt` never include a leader hit cancelled by 限伤 (§4).
 - `damageDealt` and `unitStats[].dmg` count only HP removed from the other side: a unit's own drain or 流失 (源石溶剂,
   史尔特尔 S3 …) and friendly damage (the drain on 炎佑) count as the target's `taken`, never as damage dealt; the kill
   credit is unchanged (`damage.js applyHpLoss`).
@@ -808,7 +808,7 @@ with `ceil(final) ≥ BOSS_HIT_LIMIT` (300000, shared/constants.js) is cancelled
 `boss:vest` barrier stays untouched; a `hit`-step block such as 假想敌：再生's aura acts earlier) [ASSUMED order], no HP /
 pool loss, no credit or stats, no `dmg` event, no `damaged` / `fatal` / kill; an fx `hitCap` `{ id, n }` marks it and
 draws nothing; with the battle's `flags.bossHitClamp` — the casual ruleset, shared/ruleset.js, not in the official game — such a hit lands as
-BOSS_HIT_LIMIT instead and no `hitCap` is sent; research 11) → shields (a typed one — buff `shieldType` — only for its damage type) → **`hpDamage`** (what
+the limit instead and no `hitCap` is sent; a 自定义 ruleset may set the limit (`flags.bossHitLimit`, 0 = none; `bossHitLimitOf`); research 11) → shields (a typed one — buff `shieldType` — only for its damage type) → **`hpDamage`** (what
 passed the shields; a handler may only lower `amount` — the 伤判效果 that act after a barrier: 煌's 紧急除颤 HP floor, PRTS
 备注 "该伤害减少(伤害值-煌当前生命值+煌最大生命值×50%)点"; 左乐's 庇护 re-applied after his 行险 barrier; never for a 流失) → HP loss
 (boss units: routed to `sharedBoss.damage(playerId, amount)`; a pool left under 1 HP is emptied) → if HP ≤ 0: **`fatal`** (`ctx.prevented = true` keeps the
@@ -890,7 +890,7 @@ registration order. `battle.off(handle)` / `battle.off(name, fn)` / `battle.offO
 | `palsyTrigger` | `{ enemy, buff, keep }` | a 麻痹 stack interrupts the enemy's normal attack ("触发麻痹"), before the stack is used: set `keep` to leave it (真言 噤声限域); a handler may kill the enemy (its turn ends) |
 | `dodge` | `{ source, target, dmg }` | an attack was dodged |
 | `boomerangCaught` | `{ unit, attackId, isSkill, x, y }` | a 回环射手 boomerang came back to its thrower (`ai.js throwBoomerang`; `isSkill` = thrown by a skill attack): 娜仁图亚 LPS-Y "每回收5次回旋投射物", S3 "投射物全部回收时" |
-| `layerGain` | `{ playerId, bondId, n, reason, source, tile }` | mutable `n` before recording (魔王 +1 …), then clamped to the room left under `BOND_LAYER_CAP` (999); not emitted for a bond already at the cap; `tile` = `[r, c]` where `source` stands — or was knocked out this very instant ("被击倒时" gains) — else null (`addLayers` opts.tile overrides) |
+| `layerGain` | `{ playerId, bondId, n, reason, source, tile }` | mutable `n` before recording (魔王 +1 …), then clamped to the room left under `BOND_LAYER_CAP` (999, none with `flags.noLayerCap`); not emitted for a bond already at the cap; `tile` = `[r, c]` where `source` stands — or was knocked out this very instant ("被击倒时" gains) — else null (`addLayers` opts.tile overrides) |
 | `merchantPay` | `{ unit, cost, cancel }` | a merchant (行商) is about to pay its periodic DP; change `cost` or set `cancel` |
 | `battleEnd` | `{ result }` | may still add layer gains / coins |
 
@@ -926,7 +926,7 @@ instance) and skip `'counter'` / `'reflect'` damage. When the guard trips, the l
 | `enemiesInKeys(keys, attacker, profile)`, `enemiesOnTiles(keys, attacker, profile)`, `blockedTargets(unit, profile)` | targetable enemies in range of the tiles by their 0.1 collider (a huge one by its rectangle, listed once) / standing on the tiles by their position's tile (skill auto-trigger tiles, tile rules); the enemies a unit blocks — always selectable by it, a ranged operator on a melee tile included (§1.2 Blocking) |
 | `setAllyTarget(unit, on)`, `allyTargetsInKeys(keys, attacker)`, `isAllyTarget(unit)` | an **ally target**: an ally unit our attacks select like an enemy — 白铁's 铁钳号·原型机, a summon of the enemy camp ("可被我方干员攻击但不受伤害", PRTS; upstream's removed 自选 kit). The attack loop (ai.js `acquireTargets`) appends the registered ones standing on the attacker's range after every enemy (their 嘲讽等级 −2 puts them last: one target ⇒ an enemy first; all in range / more targets ⇒ them too) and ranged attacks fly to them; heals, skills that pick their own victims and enemies never select them (the kit gives it `untargetable` against enemies and cancels the damage it takes in its `hit` hook). None registered ⇒ the loop is unchanged |
 | `allies(ownerId?)`, `aliveEnemies()`, `unitAt(r, c)`, `unitById(id)`, `tileInfo(r, c)`, `lowestHpAllyInRange(unit)` | |
-| `addLayers(playerId, bondId, n, reason, {source})`, `addCoins(playerId, n)` | layers are a no-op when `flags.layerGainsEnabled` is false (unite/boss); a gain adds at most the room left under `BOND_LAYER_CAP` (999, shared/constants.js `layerGainRoom`: the client's `AddBondCount` min(L + n, 999)) on the live copy — or, without one, on the battle's own gains — and returns what it added (0 at the cap: no hook, no event) |
+| `addLayers(playerId, bondId, n, reason, {source})`, `addCoins(playerId, n)` | layers are a no-op when `flags.layerGainsEnabled` is false (unite/boss); a gain adds at most the room left under `BOND_LAYER_CAP` (999, shared/constants.js `layerGainRoom`: the client's `AddBondCount` min(L + n, 999); none with `flags.noLayerCap`) on the live copy — or, without one, on the battle's own gains — and returns what it added (0 at the cap: no hook, no event) |
 | `getPlayer(playerId)` | `{ playerId, seat, side, colOffset, mirror, dir (default unit direction: RIGHT, mirrored side LEFT), facing (its sign), bonds (live copy, layers updated by addLayers), bandId, playerEffects, lpForBoss, dp, units }` |
 | `mapTile(ps, row, col, abs?)` / `mapDir(ps, dir, abs?)` | board → field tile / direction of a player (the FA right-side mirror) |
 | `onOwnBoard(ps, r, c)` | whether a field tile lies on the player's own board — GEO.FIELD (rows 9–12, cols 2–10) mapped onto this field: the 联防 right-hand helper's +8 columns, the boss field's rows 2–5 (never its hand / 临时整备区 rows 0–1), the mirrored right half; 乌尔比安's S3 【移动】 takes only such tiles (DESIGN §25.17.2) |

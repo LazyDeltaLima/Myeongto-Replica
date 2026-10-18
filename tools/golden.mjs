@@ -24,12 +24,13 @@
 //   fields   22 battles: every Final Assault / Hidden Core leader on its pair and its solo template (a shared boss pool,
 //            ended at 200 game s) and 联防 fields (1 and 2 helpers on a battle stage, both halves, carried HP / SP, a
 //            knocked-out operator, two leakers' enemies with a summoned-only kind and a bounty)
-//   matches  18 matches run to the end in virtual time with the match's default bot rehearsal: 16 bot-only (solo 标准 /
+//   matches  23 matches run to the end in virtual time with the match's default bot rehearsal: 16 bot-only (solo 标准 /
 //            险境 / 绝境 / 终极 ×2 seeds, co-op 2 / 3 / 4, one server-run combat match, two with LP and layers raised at the
 //            first prep so they reach the Hidden Core), one co-op match whose human seat (AI 托管, offline: its
 //            battles run on the server) does not own a few NORMAL chess — they fight as their 补位 stand-ins (0.2.0) — and
 //            one whose human seat slots 自选 picks (four of our picks; its 调度中心 at level 5 from the first prep):
-//            its shop sells them and its AI fields them (0.2.0 自选编队, the digest's `diy`)
+//            its shop sells them and its AI fields them (0.2.0 自选编队, the digest's `diy`); two under 自定义 rules (shared/ruleset.js): a
+//            co-op one of the match-flow settings and a boosted solo one of the battle settings (the digest's `custom`)
 //   standins 10 battles: every NORMAL chess record (normal + elite, 110) fielded as its 补位 stand-in (PlayerBattleInput
 //            standIn: true — DATA.md §18: the stand-in's body, its backup skill / module, its kit by charId; all 17
 //            stand-ins and every skill a chess names for them), 12 per battle by strength band, laid out by the stand-in's
@@ -731,9 +732,14 @@ export function matchScenarios() {
   // A player without any NORMAL operators must use stand-ins regardless of which operators its AI buys (upstream ed44ce4d).
   out.push({ id: 'coop2-NORMAL-1-unowned-roster', mode: 'coop', difficulty: 'NORMAL', bots: 1, seed: 1,
     human: { notOwned: STANDIN_CHESS.filter((c) => !c.isGolden).map((c) => c.chessId) } });
+  // 自定义 rules (shared/ruleset.js; maintainer decision 2026-10-18): the match flow (fewer rounds, bond / leader / stage
+  // bans, shared 目标生命值 without the per-round cap, a longer prep) and the battle settings (enemy and leader stats on
+  // a steeper curve, extra rounds, no 限伤, no layer cap with layers past 999 from the first prep)
+  out.push({ id: 'custom-coop2-HARD-11-flow', mode: 'coop', difficulty: 'HARD', bots: 2, seed: 11, custom: MATCH_CUSTOM_FLOW });
+  out.push({ id: 'custom-solo-ABYSS-12-battle-boosted', mode: 'solo', difficulty: 'ABYSS', bots: 1, seed: 12, boost: { lp: 400, layers: 1200 }, custom: MATCH_CUSTOM_BATTLE });
   const humanAbout = (h) => (h.notOwned ? ` + 1 human seat (AI 托管) without ${h.notOwned.length} operators (补位 stand-ins)`
     : ` + 1 human seat (AI 托管) with ${Object.keys(h.diy || {}).length} 自选 picks${h.shopLevel ? ` and its 调度中心 at level ${h.shopLevel} from the first prep` : ''}`);
-  return out.map((m) => ({ ...m, family: 'matches', kind: 'match', about: `${m.mode} ${m.difficulty}, ${m.bots} bot seat(s)${m.human ? humanAbout(m.human) : ''}, seed ${m.seed}${m.clientCombat === false ? ', server-run combat' : ''}${m.boost ? `, LP ${m.boost.lp} and ${m.boost.layers} layers per bond from the first prep` : ''}` }));
+  return out.map((m) => ({ ...m, family: 'matches', kind: 'match', about: `${m.mode} ${m.difficulty}, ${m.bots} bot seat(s)${m.human ? humanAbout(m.human) : ''}, seed ${m.seed}${m.clientCombat === false ? ', server-run combat' : ''}${m.boost ? `, LP ${m.boost.lp} and ${m.boost.layers} layers per bond from the first prep` : ''}${m.custom ? `, 自定义 rules ${JSON.stringify(m.custom)}` : ''}` }));
 }
 
 /**
@@ -747,6 +753,20 @@ const MATCH_DIY = Object.freeze({
   chess_char_5_diy2_a: { charId: 'char_1050_chen3', skillIndex: 2, uniEquipId: 'uniequip_002_chen3' },
   chess_char_6_diy1_a: { charId: 'char_1035_wisdel', skillIndex: 2, uniEquipId: 'uniequip_002_wisdel' },
   chess_char_6_diy2_a: { charId: 'char_4132_ascln', skillIndex: 2, uniEquipId: 'uniequip_002_ascln' },
+});
+/** The 自定义 settings of the custom matches (shared/ruleset.js CUSTOM_OFFICIAL lists them). */
+const MATCH_CUSTOM_FLOW = Object.freeze({
+  bonds: { banCore: 1, banAddon: 2, pick: { yanShip: 'ban', sargonShip: 'allow' } },
+  bosses: { ban: ['boss_1', 'boss_2', 'boss_3'] },
+  stages: { ban: ['act1autochess_m02', 'act2autochess_m01'] },
+  flow: { rounds: 9, prep: 'x1.5', lpCapOff: true, lpShared: true },
+});
+const MATCH_CUSTOM_BATTLE = Object.freeze({
+  bonds: { noLayerCap: true },
+  enemies: { hp: 130, atk: 120, def: 150, res: 140, speed: 90, curve: 'steep' },
+  leaders: { hp: 70, atk: 130, def: 80, res: 200 },
+  bosses: { ban: ['boss_8'], hitMode: 'none' },
+  flow: { rounds: 16 },
 });
 const MATCH_DIY_SEED = 70;
 const MATCH_COVER_STANDINS_SEED = 1;
@@ -792,6 +812,7 @@ export function runMatch(cfg) {
     roomCode: 'GOLD', mode: cfg.mode, difficulty: cfg.difficulty, seats, seed: cfg.seed, data, log, scheduler: sched,
     send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
     clientCombat: cfg.clientCombat !== false, verify: 'off',
+    ...(cfg.custom ? { ruleset: { preset: 'custom', custom: cfg.custom } } : null),
   });
   if (cfg.human) m.players.get('h_0').autoplay = true;
   const rounds = [];
@@ -889,6 +910,7 @@ export function runMatch(cfg) {
     rounds,
     players,
   };
+  if (cfg.custom) digest.custom = { rules: m.ruleset.custom, lastRound: m.gd.lastRound, hiddenBossId: m.hiddenBossId ?? null };
   if (cfg.human?.notOwned) digest.standIns = { notOwned: [...m.players.get('h_0').standIns], rounds: standIns };
   if (cfg.human?.diy) {
     const h = m.players.get('h_0');
@@ -1030,7 +1052,7 @@ const ABOUT = {
   roster: 'every visible chess record × every selectable skill / module, every stage, every non-leader enemy kind, items, bands, 机变 cards, map cards, placeable summons',
   bonds: 'every bond at its activation threshold (layers 1) and at its top tier (layers 999)',
   fields: 'Final Assault / Hidden Core leaders (pair + solo templates, shared pool, 200 s cap) and 联防 fields (1 / 2 helpers)',
-  matches: 'matches run to the end in virtual time: bot-only (solo ×4 difficulties ×2 seeds, co-op 2/3/4, one server-run, two boosted to the Hidden Core) and one co-op match whose human seat fields 补位 stand-ins',
+  matches: 'matches run to the end in virtual time: bot-only (solo ×4 difficulties ×2 seeds, co-op 2/3/4, one server-run, two boosted to the Hidden Core), co-op matches whose human seat fields 补位 stand-ins / 自选 picks, two under 自定义 rules',
   standins: 'every NORMAL chess record (normal + elite) fielded as its 补位 stand-in (all 17 stand-ins and the skills the chess name for them), 12 per battle on real stages and waves',
   diy: '自选 pieces: every kitted owned 6★ × form (tiers 5 / 6, normal / elite × module) × skill, every kitted prototype at its locked selection',
 };
@@ -1038,9 +1060,9 @@ const ABOUT = {
  * The default test subset (GOLDEN_FULL=1 runs everything): the pass-0 roster battles (every chess record with its
  * default loadout, every stage, every non-leader enemy kind), every bond at its top tier, both 联防 fields, four leader
  * fields (one of them a Hidden Core), six matches (solo 标准 / 绝境, co-op 2 / 4, the boosted Hidden Core run, the 补位
- * match) and the normal-record stand-in battles.
+ * match, the 自定义 co-op match) and the normal-record stand-in battles.
  */
-const FAST_MATCHES = new Set(['solo-FUNNY-1', 'solo-HARD-1', 'coop2-NORMAL-3', 'coop4-ABYSS-7', 'solo-HARD-9-boosted', 'coop2-NORMAL-14-standins', `coop2-NORMAL-${MATCH_DIY_SEED}-diy`, `coop2-NORMAL-${MATCH_COVER_STANDINS_SEED}-coverage-standins`, `coop2-NORMAL-${MATCH_COVER_DIY_SEED}-coverage-diy`, 'coop2-NORMAL-1-unowned-roster']);
+const FAST_MATCHES = new Set(['solo-FUNNY-1', 'solo-HARD-1', 'coop2-NORMAL-3', 'coop4-ABYSS-7', 'solo-HARD-9-boosted', 'coop2-NORMAL-14-standins', `coop2-NORMAL-${MATCH_DIY_SEED}-diy`, `coop2-NORMAL-${MATCH_COVER_STANDINS_SEED}-coverage-standins`, `coop2-NORMAL-${MATCH_COVER_DIY_SEED}-coverage-diy`, 'coop2-NORMAL-1-unowned-roster', 'custom-coop2-HARD-11-flow']);
 const FAST_FIELDS = new Set(['boss-boss_1-pair', 'boss-boss_4-solo', 'boss-boss_7-pair', 'hidden-boss_9-pair', 'unite-1', 'unite-2']);
 export function isFast(sc) {
   if (sc.family === 'matches') return FAST_MATCHES.has(sc.id);

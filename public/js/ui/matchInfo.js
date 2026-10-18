@@ -32,6 +32,7 @@ import { bannedPerBond, disabledBondSets, briefingBondTip, diyBannedPieces } fro
 import { bondIconUrl, chessAvatarUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { t, dn } from '../../../shared/i18n.js';
+import { customSummary, CustomRulesInfo } from './customSummary.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -39,23 +40,26 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  * @typedef {{ sets: { drawn: Set<string>, off: Set<string> }, stateOf: (bondId: string) => 'off'|'drawn'|null,
  *   bonds: any[], core: any[], addon: any[], banned: string[], perBond: Map<string, number>,
  *   bannedGroups: Array<{ bond: any, chess: string[] }>,
- *   diyBanned: Array<{ slotId: string, charId: string, name: string }> }} MatchInfoModel
+ *   diyBanned: Array<{ slotId: string, charId: string, name: string }>,
+ *   custom: Array<{ key: string, tab: string, text: string }> | null }} MatchInfoModel
  */
 
 /**
  * Everything the match-info blocks show.
  * @param {any} pub m.public (drawnDisabledBonds / disabledBonds, bannedChess)
- * @param {{ bonds?: any[], chess?: (id: string) => any, mode?: any, priv?: any, diyData?: any }} [src]
+ * @param {{ bonds?: any[], chess?: (id: string) => any, mode?: any, priv?: any, diyData?: any, bans?: any }} [src]
  *   bonds: bonds.json records (data.list('bonds')); chess: the chess lookup; mode: config.json modes[pub.modeId]; priv: the
  *   viewer's m.private (its 自选 pieces out of the shop, diyBanned) with diyData (`{ chess, backups }`: data.get('chess') /
- *   data.get('backups')) to name them
+ *   data.get('backups')) to name them; bans: the difficulty's official bond ban counts (config.json bans[pub.difficulty],
+ *   by default from the loaded config) for the custom lines
  * @returns {MatchInfoModel}
  *   stateOf: 'off' = the mode never activates the bond (本局禁用), 'drawn' = in the drawn set D (阵容不完整), null = normal;
  *   banned: the banned chess ids the data knows, by tier (ties keep the server's order); perBond: bondId → banned members;
  *   bannedGroups: per greyed bond (core row, then add-on row) its banned members by tier — every drawn bond, and a
- *   mode-off bond only with members
+ *   mode-off bond only with members; custom: a 自定义 match's differences from the official rules (ui/customSummary.js),
+ *   null for the other presets
  */
-export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = null, priv = null, diyData = null } = {}) {
+export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = null, priv = null, diyData = null, bans = undefined } = {}) {
   const sets = disabledBondSets(pub, mode?.inactiveBondIds);
   const stateOf = (id) => (sets.off.has(id) ? 'off' : sets.drawn.has(id) ? 'drawn' : null);
   const list = (Array.isArray(bonds) ? bonds : []).filter((b) => !!b && typeof b === 'object' && typeof b.bondId === 'string')
@@ -73,7 +77,22 @@ export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = nul
     sets, stateOf, bonds: list, core, addon,
     banned, perBond: bannedPerBond(list, banned), bannedGroups,
     diyBanned: priv && diyData ? diyBannedPieces(priv, chess, diyData) : [],
+    custom: customLines(pub, list, mode, bans),
   };
+}
+
+/** The custom rules lines of a match (m.public.ruleset.custom), or null when it is not a 自定义 match. */
+function customLines(pub, bonds, mode, bans) {
+  const rs = pub?.ruleset;
+  if (rs?.preset !== 'custom') return null;
+  const bondNames = new Map(bonds.map((b) => [b.bondId, b.name]));
+  const name = (kind, id) => (kind === 'bond' ? bondNames.get(id) : data.lookup(kind === 'boss' ? 'bosses' : 'stages', id)?.name) || id;
+  return customSummary(rs.custom, {
+    solo: String(pub.modeId || '').includes('single'),
+    bans: bans !== undefined ? bans : data.get('config')?.bans?.[pub.difficulty] ?? null,
+    rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null,
+    name,
+  });
 }
 
 /**
@@ -210,7 +229,8 @@ export function BannedOperators({ model }) {
  * @param {{ model: MatchInfoModel }} props
  */
 export function MatchInfo({ model }) {
-  return html`<${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${model.core} model=${model} kind="perm" />
+  return html`${model.custom ? html`<${CustomRulesInfo} lines=${model.custom} class="brief-custom" />` : null}
+    <${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${model.core} model=${model} kind="perm" />
     <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${model.addon} model=${model} kind="temp" />
     <${MatchLegend} model=${model} />
     <${BannedOperators} model=${model} />`;

@@ -1,6 +1,7 @@
 /* 규칙 모드 custom (js/ui/ruleset.js, js/ui/customRules.js; maintainer decisions 2026-10-18): the 自定义 option of the
    规则 switch with its ⚙ and the locked state, the room bar's line-up with it (maintainer decision 2026-10-18: the switch spans the row under the
-   difficulty, 「AI 队友最后选择」 sits under the ready count), and the settings dialog. */
+   difficulty, 「AI 队友最后选择」 sits under the ready count), the settings dialog, and the match's custom rules summary
+   (js/ui/customSummary.js: the briefing, the draft's 本局信息 dialog, the in-game 本局信息 tab). */
 
 :root { --custom: #b48cff; --custom-hi: #d9c8ff; --custom-a: rgba(180, 140, 255, .22); }
 
@@ -151,6 +152,22 @@
 .crx-ptable .v { color: var(--custom-hi); font-weight: 700; }
 
 /* narrow / short screens (phones in landscape): no title, the tab names only, the preset row folds its rarer buttons */
+/* ---- the match's summary (js/ui/customSummary.js) ---- */
+.stephead__tags { display: flex; align-items: center; gap: .08rem; }
+.stephead__tags .rtag { font-size: max(.14rem, 10px); white-space: nowrap; }
+.crs { flex: none; padding: .08rem .14rem .12rem; background: rgba(180, 140, 255, .06); border: 1px solid rgba(180, 140, 255, .3); }
+.crs__h { display: flex; align-items: center; gap: .1rem; margin: 0 0 .08rem; font-size: max(.2rem, 13px); color: var(--text-hi); }
+.crs__h .micro { margin-left: auto; color: var(--custom); opacity: .7; }
+.crs__h .rtag { font-size: max(.13rem, 10px); }
+.crs__list { display: flex; flex-wrap: wrap; gap: .06rem; margin: 0; padding: 0; list-style: none; }
+.crs__i { padding: .03rem .1rem; border: 1px solid var(--line-3); border-left: 3px solid var(--custom); background: rgba(0, 0, 0, .3);
+  font-size: max(.15rem, 11px); line-height: 1.35; color: var(--text-md); }
+.crs__none { margin: 0; font-size: max(.14rem, 11px); color: var(--text-lo); }
+.crs--sm { padding: .06rem .1rem .08rem; }
+.crs--sm .crs__h { font-size: max(.16rem, 12px); margin-bottom: .06rem; }
+.crs--sm .crs__h .micro { display: none; }
+.crs--sm .crs__i { font-size: max(.13rem, 10px); }
+
 @media (max-width: 1000px), (max-height: 600px) {
   .modal__box.crx { width: calc(100vw - 12px); height: calc(100svh - 12px); }
   .crx .modal__head { display: none; }
@@ -174,4 +191,11 @@
   .crx-sw.is-on::after { left: calc(100% - max(.2rem, 16px) - 2px); }
   .crx-tri button, .crx-seg button { min-height: 24px; }
   .crx-stages { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stephead__tags .rtag { font-size: 9px; padding: 0 3px; }
+  .crs { padding: 4px 6px 6px; }
+  .crs__h { font-size: 11px; margin-bottom: 4px; gap: 5px; }
+  .crs__h .micro { display: none; }
+  .crs__h .rtag { font-size: 9px; padding: 0 3px; }
+  .crs__list { gap: 3px; }
+  .crs__i { font-size: 9px; padding: 1px 4px; border-left-width: 2px; }
 }

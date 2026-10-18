@@ -2,7 +2,8 @@
 // research 09 §2.1) with two tabs:
 //   本局信息 — own strategy, stage, disabled bonds with banned-member counts and the banned operator list (default) —
 //              the same bonds, states and banned operators (by tier) as the briefing and the strategy draft's 本局信息
-//              dialog: ui/matchInfo.js matchInfoModel, drawn here as compact chips and avatars;
+//              dialog: ui/matchInfo.js matchInfoModel, drawn here as compact chips and avatars; a 自定义 match adds its
+//              differences from the official rules (ui/customSummary.js);
 //   敌方情报 — the secondary enemy list: m.private.nextEnemies (icons, names, counts, tags, 特训 faction tags) + this
 //              match's factions and the enemy leader on boss rounds. The primary enemy preview is the pen on the board
 //              (the right 🔍▶▶ pans the camera there; tapping an enemy in the pen opens its detail card) — research 09 §6.2.
@@ -11,6 +12,7 @@ import { html, Icon, Tabs, MicroLabel } from './components.js';
 import { Img, UnitThumb, BondGlyph, BandIcon, RichText, GIcon } from './gameComponents.js';
 import { groupEnemies, factionTypes, briefingBondTip } from './gameLogic.js';
 import { matchInfoModel, DiyBannedLine, ChessIcon } from './matchInfo.js';
+import { CustomRulesInfo } from './customSummary.js';
 import { factionIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
@@ -80,6 +82,7 @@ function InfoTab({ pub, priv, onChess, bandId = null, bandOwner = null }) {
         <${RichText} text=${band.descRaw || band.desc} class="iband__desc" /></div>
     </div>` : null}
     ${stage ? html`<p class="istage"><${Icon} name="rook" />${t('战场：')}<b>${stage.name || stage.id}</b></p>` : null}
+    ${model.custom ? html`<${CustomRulesInfo} lines=${model.custom} class="crs--sm" />` : null}
     <h4 class="ihead">${t('本局禁用干员情况')} <small class="num">${banned.length}</small></h4>
     <div class="ibonds">
       ${withBans.length ? withBans.map((b) => html`<span key=${b.bondId} class=${cx('ibond', disabled.has(b.bondId) && 'is-off')} title=${briefingBondTip(b.name, stateOf(b.bondId), perBond.get(b.bondId) || 0)}>
