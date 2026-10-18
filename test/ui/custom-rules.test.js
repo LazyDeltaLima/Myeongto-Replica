@@ -144,3 +144,17 @@ test('the dialog has its five tabs and no 「后续更新生效」 tag (a match 
     assert.ok(!/[一-鿿]/.test(en[m[1]]), `English for ${m[1]}`);
   }
 });
+
+test('the stat curve chart leaves out the custom line while it is the official one (maintainer request 2026-10-18)', async () => {
+  const { CurveChart } = await import('../../public/js/ui/customRules.js');
+  const mode = JSON.parse(read('data/config.json')).modes.mode_multi_hard;
+  const lines = (c) => {
+    const svg = CurveChart({ work: sanitizeCustom(c), mode });
+    return JSON.stringify(svg, (k, v) => (typeof v === 'function' ? undefined : v)).match(/crx-chart__(off|cus)/g);
+  };
+  assert.deepEqual(lines({}), ['crx-chart__off'], 'official curve, hp 100 %, official rounds: the official line only');
+  assert.deepEqual(lines({ flow: { rounds: 14 } }), ['crx-chart__off'], 'the official round count given explicitly');
+  for (const c of [{ enemies: { curve: 'gentle' } }, { enemies: { hp: 150 } }, { flow: { rounds: 16 } }, { flow: { rounds: 8 } }]) {
+    assert.deepEqual(lines(c), ['crx-chart__off', 'crx-chart__cus'], JSON.stringify(c));
+  }
+});

@@ -329,13 +329,18 @@ function EnemiesPane({ work, set, readonly, mode }) {
     <//>`;
 }
 
-/** The hp multiplier per round as the match spawns it (config.json enemyScale hp): the official line (dashed) and the custom one (curve × hp%, over the custom rounds). */
-function CurveChart({ work, mode }) {
+/**
+ * The hp multiplier per round as the match spawns it (config.json enemyScale hp): the official line (dashed) and the
+ * custom one (curve × hp%, over the custom rounds) — left out while it is the official line itself (the official curve,
+ * hp 100 %, the official round count: maintainer request 2026-10-18).
+ */
+export function CurveChart({ work, mode }) {
   if (!mode) return null;
   const plan = customRoundPlan(mode, work.flow.rounds);
   const off = customRoundPlan(mode, null).rounds.map((r) => r.hp);
   const m1 = plan.rounds[0]?.hp ?? 1;
   const cus = plan.rounds.map((r) => (work.enemies.hp / 100) * curveScale(r.hp, m1, work.enemies.curve));
+  const same = cus.length === off.length && cus.every((v, i) => Math.abs(v - off[i]) < 1e-9);
   const W = 1000, H = 220, P = 40;
   const nX = Math.max(off.length, cus.length);
   const maxY = Math.max(1.5, ...off, ...cus) * 1.08;
@@ -349,8 +354,8 @@ function CurveChart({ work, mode }) {
     ${grid.map((g) => html`<line key=${`g${g}`} x1=${P} x2=${W - P} y1=${y(g)} y2=${y(g)} class="crx-chart__grid" /><text key=${`t${g}`} x=${P - 8} y=${y(g) + 4} text-anchor="end">×${g}</text>`)}
     ${Array.from({ length: nX }, (_, i) => html`<text key=${`x${i}`} x=${x(i)} y=${H - 6} text-anchor="middle">${i + 1}</text>`)}
     <polyline points=${pts(off)} class="crx-chart__off" />
-    <polyline points=${pts(cus)} class="crx-chart__cus" />
-    <text x=${W - P} y=${P - 6} text-anchor="end" class="crx-chart__lc">${t('自定义')}</text>
+    ${same ? null : html`<polyline points=${pts(cus)} class="crx-chart__cus" />
+    <text x=${W - P} y=${P - 6} text-anchor="end" class="crx-chart__lc">${t('自定义')}</text>`}
     <text x=${W - P} y=${P + 14} text-anchor="end">${t('官方')}</text>
   </svg>`;
 }
