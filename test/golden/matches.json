@@ -2209,7 +2209,7 @@
           "enemies": {"hp":100,"atk":100,"def":100,"res":100,"speed":100,"curve":"official"},
           "leaders": {"hp":100,"atk":100,"def":100,"res":100},
           "bosses": {"ban":["boss_1","boss_2","boss_3"],"hitMode":"void","hitLimit":300000},
-          "stages": {"info":false,"reroll":false,"ban":["act1autochess_m02","act2autochess_m01"]},
+          "stages": {"info":false,"reroll":false,"firstHalf":false,"ban":["act1autochess_m02","act2autochess_m01"]},
           "flow": {"rounds":9,"prep":"x1.5","prepSec":90,"lpCapOff":true,"lpShared":true,"routePreview":false}
         },
         "lastRound": 9,
@@ -2314,7 +2314,7 @@
           "enemies": {"hp":130,"atk":120,"def":150,"res":140,"speed":90,"curve":"steep"},
           "leaders": {"hp":70,"atk":130,"def":80,"res":200},
           "bosses": {"ban":["boss_8"],"hitMode":"none","hitLimit":300000},
-          "stages": {"info":false,"reroll":false,"ban":[]},
+          "stages": {"info":false,"reroll":false,"firstHalf":false,"ban":[]},
           "flow": {"rounds":16,"prep":"official","prepSec":90,"lpCapOff":false,"lpShared":false,"routePreview":false}
         },
         "lastRound": 16,

@@ -6,7 +6,7 @@
 // customSummary is pure (unit-tested); CustomRulesInfo draws it. Styles: css/screens/custom-rules.css (.crs-*).
 
 import { html, MicroLabel } from './components.js';
-import { sanitizeCustom, CUSTOM_OFFICIAL } from '../../../shared/ruleset.js';
+import { sanitizeCustom, CUSTOM_OFFICIAL, CUSTOM_FIRST_HALF_STAGES } from '../../../shared/ruleset.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 const STAT_LABELS = { hp: N_('生命值'), atk: N_('攻击力'), def: N_('防御力'), res: N_('法术抗性'), speed: N_('移动速度') };
@@ -65,6 +65,7 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
 
   if (c.stages.info) add('stages.info', t('战场信息预览'));
   if (c.stages.reroll) add('stages.reroll', t('简报「重新抽取」'));
+  if (c.stages.firstHalf) add('stages.firstHalf', t('收录上半战场：{names}', { names: names('stage', CUSTOM_FIRST_HALF_STAGES) }));
   if (c.stages.ban.length) add('stages.ban', t('禁用战场：{names}', { names: names('stage', c.stages.ban) }));
 
   if (c.flow.rounds !== null && c.flow.rounds !== rounds) add('flow.rounds', t('回合数 {n}', { n: c.flow.rounds }));

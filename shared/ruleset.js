@@ -99,7 +99,8 @@ export const CUSTOM_BOND_PICKS = Object.freeze(['ban', 'allow']);
  *   enemies  normal enemies (特训 enemies, escorts, parts too): percent of hp / atk / def / res / speed · curve
  *   leaders  the leaders of 最终攻势 / 隐秘核心 and their summons: percent of hp (the shared pool) / atk / def / res
  *   bosses   ban: leader ids never drawn (one of each group stays) · hitMode / hitLimit: 限伤
- *   stages   info: the briefing's battlefield card · reroll: its 重新抽取 vote · ban: stage ids never drawn (one stays)
+ *   stages   info: the briefing's battlefield card · reroll: its 重新抽取 vote · firstHalf: the 上半 stages of
+ *            CUSTOM_FIRST_HALF_STAGES join the pool · ban: stage ids never drawn (one stays)
  *   flow     rounds · prep / prepSec · lpCapOff: no 10-per-round cap · lpShared: one 目标生命值 for the
  *            alliance in every round · routePreview: the walking leader's route
  */
@@ -109,7 +110,7 @@ export const CUSTOM_OFFICIAL = deepFreeze({
   enemies: { hp: 100, atk: 100, def: 100, res: 100, speed: 100, curve: 'official' },
   leaders: { hp: 100, atk: 100, def: 100, res: 100 },
   bosses: { ban: [], hitMode: 'void', hitLimit: BOSS_HIT_LIMIT },
-  stages: { info: false, reroll: false, ban: [] },
+  stages: { info: false, reroll: false, firstHalf: false, ban: [] },
   flow: { rounds: null, prep: 'official', prepSec: 90, lpCapOff: false, lpShared: false, routePreview: false },
 });
 
@@ -186,7 +187,7 @@ export function sanitizeCustom(raw) {
       hitMode: oneOf(bo.hitMode, CUSTOM_HIT_MODES, O.bosses.hitMode),
       hitLimit: intIn(bo.hitLimit, CUSTOM_LIMITS.hitLimit, O.bosses.hitLimit),
     },
-    stages: { info: bool(s.info, O.stages.info), reroll: bool(s.reroll, O.stages.reroll), ban: idList(s.ban) },
+    stages: { info: bool(s.info, O.stages.info), reroll: bool(s.reroll, O.stages.reroll), firstHalf: bool(s.firstHalf, O.stages.firstHalf), ban: idList(s.ban) },
     flow: {
       rounds: intOrNull(f.rounds, CUSTOM_LIMITS.rounds),
       prep: oneOf(f.prep, CUSTOM_PREP_MODES, O.flow.prep),
@@ -208,6 +209,29 @@ export function keepUnbanned(list, idOf, ban) {
   if (!ban || !ban.length) return list;
   const kept = list.filter((x) => !ban.includes(idOf(x)));
   return kept.length ? kept : list;
+}
+
+/**
+ * The 上半 (act1) stages a custom ruleset may add to the pool (stages.firstHalf): those whose mechanics the sim has —
+ * 战场#06 沙尘暴/土石结构 (server/sim/content/devices.js). 战场#05 涨潮/特制水上平台 and #07 树丛 wait for theirs (maintainer
+ * decision 2026-10-18).
+ */
+export const CUSTOM_FIRST_HALF_STAGES = Object.freeze(['act1autochess_m06']);
+/**
+ * The weight of an added 上半 stage: the official act1autochess table weighs 战场#06 as 战场#01–#04 (60 each), so it
+ * takes 战场#01's weight in this season's pool [ASSUMED: the two seasons were never drawn together].
+ */
+export const CUSTOM_FIRST_HALF_WEIGHT_OF = 'act1autochess_m01';
+
+/**
+ * The stage ids a match draws from: the mode's pool, then the 上半 stages when custom settings add them (before the
+ * bans: keepUnbanned). @param {readonly string[] | null | undefined} stageIds @param {any} custom
+ * @returns {string[]}
+ */
+export function customStagePool(stageIds, custom) {
+  const ids = Array.isArray(stageIds) ? [...stageIds] : [];
+  if (custom?.stages?.firstHalf) for (const id of CUSTOM_FIRST_HALF_STAGES) if (!ids.includes(id)) ids.push(id);
+  return ids;
 }
 
 /** The boolean options of custom settings. @param {Readonly<typeof CUSTOM_OFFICIAL>} c */
@@ -240,6 +264,7 @@ export function customDiffs(raw, base = {}) {
   if (c.bosses.hitMode !== 'none' && c.bosses.hitLimit !== O.bosses.hitLimit) out.push('bosses.hitLimit');
   if (c.stages.info !== O.stages.info) out.push('stages.info');
   if (c.stages.reroll !== O.stages.reroll) out.push('stages.reroll');
+  if (c.stages.firstHalf !== O.stages.firstHalf) out.push('stages.firstHalf');
   for (const id of c.stages.ban) out.push(`stages.ban.${id}`);
   if (!same(c.flow.rounds, base.rounds)) out.push('flow.rounds');
   if (c.flow.prep !== O.flow.prep) out.push('flow.prep');

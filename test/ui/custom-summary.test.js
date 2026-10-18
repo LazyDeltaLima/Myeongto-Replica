@@ -48,14 +48,15 @@ test('one line per group, in the dialog\'s tab order, with the values (not the o
     enemies: { hp: 150, atk: 120, speed: 80, curve: 'steep' },
     leaders: { res: 200 },
     bosses: { ban: ['boss_1'], hitMode: 'clamp', hitLimit: 500000 },
-    stages: { info: true, reroll: true, ban: ['s1'] },
+    stages: { info: true, reroll: true, firstHalf: true, ban: ['s1'] },
     flow: { prep: 'x1.5', lpCapOff: true, lpShared: true, routePreview: true },
   };
   const name = (kind, id) => `${kind}:${id}`;
   const l = customSummary(c, { name });
   assert.deepEqual(keys(l), ['bonds.noLayerCap', 'bonds.pick.ban', 'bonds.pick.allow', 'enemies.stats', 'leaders.stats', 'enemies.curve',
-    'bosses.ban.final', 'bosses.hit', 'stages.info', 'stages.reroll', 'stages.ban', 'flow.prep', 'flow.lpCapOff', 'flow.lpShared', 'flow.routePreview']);
+    'bosses.ban.final', 'bosses.hit', 'stages.info', 'stages.reroll', 'stages.firstHalf', 'stages.ban', 'flow.prep', 'flow.lpCapOff', 'flow.lpShared', 'flow.routePreview']);
   const text = Object.fromEntries(l.map((x) => [x.key, x.text]));
+  assert.equal(text['stages.firstHalf'], '收录上半战场：stage:act1autochess_m06');
   assert.equal(text['bonds.pick.ban'], '始终禁用盟约：bond:sargonShip、bond:yanShip');
   assert.equal(text['enemies.stats'], '普通敌人：生命值 150% · 攻击力 120% · 移动速度 80%');
   assert.equal(text['leaders.stats'], '敌方领袖：法术抗性 200%');
@@ -111,7 +112,8 @@ test('the screens show it: MatchInfo (briefing, draft dialog), the in-game 本�
   const info = read('public/js/ui/matchInfo.js');
   assert.match(info, /model\.custom \? html`<\$\{CustomRulesInfo\} lines=\$\{model\.custom\}/);
   assert.match(read('public/js/ui/enemyDrawer.js'), /model\.custom \? html`<\$\{CustomRulesInfo\} lines=\$\{model\.custom\} class="crs--sm"/);
-  // the briefing's battlefield count is the pool the custom stage bans leave (as the server draws it)
-  assert.match(read('public/js/screens/briefing.js'), /keepUnbanned\(mode\.stages, \(id\) => id, pub\.ruleset\?\.custom\?\.stages\?\.ban\)\.length/);
+  // the briefing's battlefield count is the pool the custom settings add (上半 stages) and the stage bans leave (as the
+  // server draws it)
+  assert.match(read('public/js/screens/briefing.js'), /keepUnbanned\(customStagePool\(mode\.stages, custom\), \(id\) => id, custom\?\.stages\?\.ban\)\.length/);
   assert.match(read('public/js/ui/matchChrome.js'), /rules\.preset !== 'classic' \? html`<span class=\$\{`rtag rtag--\$\{rules\.preset\}`\} data-testid="match-ruleset">/);
 });

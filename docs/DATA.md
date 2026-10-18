@@ -466,7 +466,7 @@ as official level data, and sim tests use them as a plain two-halves road.
 | Field | Example | Meaning |
 |---|---|---|
 | `id`, `name` | `"act2autochess_m01"`, `"战场#05(下半) 源石流发生装置"` | player-facing name from research 05 (the official tables carry none; falls back to id). The build drops bracketed segments containing Latin letters (research notes such as `战场#01 (upper half #01)` → `战场#01`), logs a warning, and fails validation if Latin text remains. The escaped levels' maps: `联防阵地（1名玩家）` / `联防阵地（2名玩家）`, the remake's own label [ASSUMED] (no table or PRTS page names them; no screen shows it) |
-| `weight`, `active`, `modes` | `50`, `true`, `["mode_single_normal",…]` | match-start pick weight (act1 m05–m07 weight 0); the escaped levels' maps: `0`, `false`, `[]` (never a match stage) |
+| `weight`, `active`, `modes` | `50`, `true`, `["mode_single_normal",…]` | match-start pick weight (act1 m05–m07 weight 0; a custom ruleset's `stages.firstHalf` adds m06 at m01's weight — shared/ruleset.js customStagePool); the escaped levels' maps: `0`, `false`, `[]` (never a match stage) |
 | `kind`, `helpers` | `"unite"`, `1` | only on the escaped levels' two maps: the helper count of their wave template (= `config.unite.templates`; the build fails when they disagree); no field is fought on them |
 | `size` | `[19,21]` | |
 | `rows[]` | `rows[9] = "##Errr#rrrSrrr#rrrS##"` | 19 strings, **index = row (0 = bottom)**, one glyph per col |

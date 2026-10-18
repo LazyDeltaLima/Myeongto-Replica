@@ -21,7 +21,8 @@ import {
   encodeCustomCode, decodeCustomCode, CUSTOM_NAME_MAX,
 } from './customRulesStore.js';
 import {
-  sanitizeCustom, customDiffs, customRoundPlan, curveScale, customPrepSeconds, CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS,
+  sanitizeCustom, customDiffs, customRoundPlan, curveScale, customPrepSeconds, customStagePool, CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS,
+  CUSTOM_FIRST_HALF_STAGES,
 } from '../../../shared/ruleset.js';
 import { modeIdFor, DIFFICULTIES } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -409,12 +410,18 @@ function BossesPane({ work, set, setWork, readonly, mode }) {
     <//>`;
 }
 
-/** The second-half stages and the first-half ones whose ground works in the sim (m05–m07 wait for their mechanics, maintainer decision 2026-10-18). */
-const stageShown = (s) => !s.kind && (s.active !== false || Number(s.weight) > 0);
+/**
+ * The stages of this season, and the 上半 ones the sim has when 「收录上半战场」 is on (CUSTOM_FIRST_HALF_STAGES: 战场#06;
+ * #05 and #07 wait for their mechanics, maintainer decision 2026-10-18).
+ */
+const stageShown = (s, firstHalf) => !s.kind && (s.active !== false || Number(s.weight) > 0 || (firstHalf && CUSTOM_FIRST_HALF_STAGES.includes(s.id)));
 
-function StagesPane({ work, set, readonly, mode }) {
-  const all = (data.list('stages') || []).filter(stageShown);
-  const pool = new Set(Array.isArray(mode?.stages) ? mode.stages : []);
+function StagesPane({ work, set, setWork, readonly, mode }) {
+  const all = (data.list('stages') || []).filter((s) => stageShown(s, work.stages.firstHalf));
+  const pool = new Set(customStagePool(mode?.stages, work));
+  // switching the 上半 stages off drops their bans with them (a ban of a stage the pool lacks means nothing)
+  const setFirstHalf = (v) => setWork((w) => sanitizeCustom({ ...w, stages: { ...w.stages, firstHalf: v, ban: v ? w.stages.ban : w.stages.ban.filter((id) => !CUSTOM_FIRST_HALF_STAGES.includes(id)) } }));
+  const firstNames = CUSTOM_FIRST_HALF_STAGES.map((id) => data.get('stages')?.[id]?.name ?? id).join(t('、'));
   const ban = new Set(work.stages.ban);
   const used = [...pool].filter((id) => !ban.has(id)).length;
   const toggle = (s) => {
@@ -431,6 +438,11 @@ function StagesPane({ work, set, readonly, mode }) {
       <//>
       <${Row} label=${t('简报「重新抽取」')} note=${t('全员同意时重新抽取战场、领袖和缺席盟约')} official=${t('官方：没有')}>
         <${Switch} on=${work.stages.reroll} disabled=${readonly} onChange=${(v) => set('stages', 'reroll', v)} />
+      <//>
+    <//>
+    <${Sec} title=${t('上半战场')}>
+      <${Row} label=${t('收录上半战场')} note=${t('{names} 加入战场池（与战场#01 同权重）· 战场#05、#07 的机制尚未实现', { names: firstNames })} official=${t('官方：关闭')}>
+        <${Switch} on=${work.stages.firstHalf} disabled=${readonly} testid="custom-stage-first-half" onChange=${setFirstHalf} />
       <//>
     <//>
     <${Sec} title=${t('战场池')} sub=${t('使用 {n} / {total} — 点击图片禁用 · 至少保留 1 张', { n: used, total: pool.size })}>

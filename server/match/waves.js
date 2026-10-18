@@ -41,7 +41,7 @@
 // largest owner group (client `_CalculateActionPredelayConsiderUid`, decoded).
 
 import { createRng, deriveSeed } from '../sim/rng.js';
-import { keepUnbanned } from '../../shared/ruleset.js';
+import { keepUnbanned, customStagePool, CUSTOM_FIRST_HALF_STAGES, CUSTOM_FIRST_HALF_WEIGHT_OF } from '../../shared/ruleset.js';
 
 const ACLOON = 'enemy_9012_acloon';
 const DEFAULT_PLACEHOLDERS = Object.freeze({
@@ -187,9 +187,13 @@ function scheduleRng(rng) {
  */
 export function setupMatchWaves(gd, rng) {
   // stage
-  const stageIds = Array.isArray(gd.mode.stages) ? gd.mode.stages : [];
-  // a custom ruleset's banned stages are left out (one stays: keepUnbanned) — one weighted pick either way
-  const stagePairs = keepUnbanned(stageIds.map((id) => [id, gd.stage(id)]).filter(([, s]) => s && s.active !== false && Number(s.weight) > 0).map(([id, s]) => [id, s.weight]), ([id]) => id, gd.custom?.stages?.ban);
+  // a custom ruleset may add the 上半 stages the sim has (customStagePool: 战场#06, inactive this season, at 战场#01's
+  // weight) and leaves its banned stages out (one stays: keepUnbanned) — one weighted pick either way
+  const stageIds = customStagePool(gd.mode.stages, gd.custom);
+  const added = new Set(CUSTOM_FIRST_HALF_STAGES);
+  const weightOf = (id, s) => (s.active !== false && Number(s.weight) > 0 ? Number(s.weight)
+    : added.has(id) && gd.custom?.stages?.firstHalf ? Number(gd.stage(CUSTOM_FIRST_HALF_WEIGHT_OF)?.weight) || 0 : 0);
+  const stagePairs = keepUnbanned(stageIds.map((id) => [id, gd.stage(id)]).filter(([id, s]) => s && weightOf(id, s) > 0).map(([id, s]) => [id, weightOf(id, s)]), ([id]) => id, gd.custom?.stages?.ban);
   let stageId = stagePairs.length ? weightedPick(rng, stagePairs) : null;
   if (!stageId) {
     const any = Object.keys(gd.raw.stages || {}).filter((id) => gd.stage(id) && gd.stage(id).active);

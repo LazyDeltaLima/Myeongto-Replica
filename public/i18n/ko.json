@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1439 of 1657 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1443 of 1661 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1627,6 +1627,9 @@
   "简报「重新抽取」": "브리핑 「다시 뽑기」",
   "全员同意时重新抽取战场、领袖和缺席盟约": "모두 동의하면 전장·리더 적·결석 맹약을 새로 뽑는다",
   "官方：没有": "공식: 없음",
+  "上半战场": "상반기 전장",
+  "收录上半战场": "상반기 전장 포함",
+  "{names} 加入战场池（与战场#01 同权重）· 战场#05、#07 的机制尚未实现": "{names} — 전장 풀에 넣는다 (전장 #01과 같은 비중) · 전장 #05·#07은 기믹이 아직 없음",
   "战场池": "전장 풀",
   "使用 {n} / {total} — 点击图片禁用 · 至少保留 1 张": "사용 {n} / {total} — 그림을 눌러 금지 · 최소 1곳",
   "固定秒数": "고정 초",
@@ -1662,6 +1665,7 @@
   "始终允许盟约：{names}": "항상 허용 맹약: {names}",
   "{who}：{list}": "{who}: {list}",
   "禁用战场：{names}": "금지 전장: {names}",
+  "收录上半战场：{names}": "상반기 전장 포함: {names}",
   "休整期每回合 {n} 秒": "휴식 기간 라운드당 {n}초",
   "休整期 {x}": "휴식 기간 {x}",
   "核心盟约随机禁用 {n}": "핵심 맹약 무작위 금지 {n}",
