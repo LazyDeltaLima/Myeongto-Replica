@@ -24,12 +24,16 @@
 //              range; ASPD + attack_speed_per_stack × L (≤ max_attack_speed), hits apply fragile 1 + damage_scale_per_stack
 //              × L (≤ max_damage_scale) for the text's duration; L = the owner's highest bond layers (live)
 //   盟约寒风   `startColdWind` / `kjeragColdWind` helpers for the 谢拉格 bond (every interval s all enemies cold)
+//   沙尘暴     act1 m06 (`trap_036_storm`, blowing along its `dir`): every `interval` s an operator / summon with no
+//              土石结构 (`trap_032_mound`) upwind of it takes `damage` pure 环境伤害 and has ATK × (1 + atk) until a check
+//              finds it sheltered; an unsheltered enemy moves at × (1 + move_speed); the m06 mounds never break
+//              (`tickStorm`); map card 模拟战场演变·模式八 (`map_m06_1`) stops it on its owner's half
 // Device overrides: a player's battle input `deviceOverrides` ({ alias: bool }) and `alias` keys in its playerEffects
 // params (auto_chess_change_map effects: band 机械援助, 机变 map cards) switch the devices on that player's half of
 // the field only (unite / boss fields hold both halves); Battle opts.deviceOverrides switch every half.
 // `deviceOverridesOf(battle)` is the union (informational).
 // Terrain numbers come from `stage.special` (fallback: the device's skill blackboard, then research 05 values).
-// Not implemented: the devices of act1 m05–m07 (canoe platforms, sandstorm + mounds, bushes) — weight 0 this season. The
+// Not implemented: the devices of act1 m05 and m07 (canoe platforms, bushes) — weight 0 this season. The
 // canoe (特制水上平台) makes its 深水区 deployable in the prep's deploy map only (server/match/board.js); the sim's Grid
 // keeps those tiles NONE (grid.js DEPLOY_REFUSED_TILES), so automatic placements never use them [ASSUMED].
 
@@ -493,12 +497,16 @@ function refreshUnit(battle, st, u) {
 
 function ensureTick(battle, st) {
   if (st.ticking) return;
-  if (!st.hasTerrain && !st.flow.size && !st.turrets.size) return;
+  if (!st.hasTerrain && !st.flow.size && !st.turrets.size && !st.storms.length) return;
   st.ticking = true;
   battle.on('tick', ({ dt }) => {
     if (st.hasTerrain || st.flow.size) {
       for (const u of battle.allyUnits) refreshUnit(battle, st, u);
       for (const e of battle.enemies) refreshUnit(battle, st, e);
+    }
+    if (st.storms.length) {
+      for (const u of battle.allyUnits) tickStorm(battle, st, u);
+      for (const e of battle.enemies) tickStorm(battle, st, e);
     }
     for (const u of st.turrets.values()) tickTurret(battle, u, dt);
   });
@@ -509,7 +517,7 @@ function ensureTick(battle, st) {
   battle.on('deploy', (ctx) => {
     const u = ctx.unit;
     if (!u || !u.mem || u.kind === 'device') return;
-    if (!ctx.move) { u.mem.terrain = 0; u.mem.airAtk = 0; u.mem.airMul = 1; u.mem.airPx = null; }
+    if (!ctx.move) { u.mem.terrain = 0; u.mem.airAtk = 0; u.mem.airMul = 1; u.mem.airPx = null; u.mem.stormNext = null; }
     refreshUnit(battle, st, u);
   }, { priority: 90 });
 }
@@ -519,6 +527,102 @@ export function terrainAt(battle, r, c) {
   const st = stateOf(battle);
   const code = st && r >= 0 && r < ROWS && c >= 0 && c < COLS ? st.terrain[r * COLS + c] : 0;
   return TERRAIN_NAME[code] || null;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// sandstorm (act1 m06)
+
+const STORM_ALLY = 'terrain:sandstorm';
+const STORM_ENEMY = 'terrain:sandstormSlow';
+/** sktok_storm blackboard (data/stages.json device skill), used only when a storm device carries none. */
+const STORM_BB = Object.freeze({ damage: 100, interval: 2, atk: -0.5, 'sand_storm[enemy].move_speed': -0.4 });
+
+/** Storm devices and the tiles of the field's 土石结构 (every half: shelter is looked for up to the map edge). */
+function buildStorm(battle, st) {
+  const devices = battle.stage?.devices || [];
+  st.storms = [];
+  for (const d of devices) {
+    if (d.role !== 'sandstorm') continue;
+    const bb = { ...STORM_BB, ...(d.raw?.skill?.bb ?? {}) };
+    const interval = num(bb.interval, STORM_BB.interval);
+    st.storms.push({
+      d, dir: normDir(d.dir ?? d.raw?.dir, 'DOWN'),
+      damage: num(bb.damage, STORM_BB.damage), atkMul: Math.max(0, 1 + num(bb.atk, STORM_BB.atk)),
+      moveMul: Math.max(0, 1 + num(bb['sand_storm[enemy].move_speed'], STORM_BB['sand_storm[enemy].move_speed'])),
+      interval: interval > 0 ? interval : STORM_BB.interval,
+    });
+  }
+  st.mounds = new Set();
+  for (const d of devices) if (d.role === 'mound' && d.row >= 0 && d.col >= 0 && isActive(battle, st, d)) st.mounds.add(d.row * COLS + d.col);
+}
+
+/**
+ * The storm blowing over a half of the field: its device is on unless the half's player switched it off (map card
+ * 模拟战场演变·模式八 `map_m06_1` "场地中的沙尘暴停止": `trap_036_storm#1/#2` 0). The storm device stands off the field (18, 0),
+ * on no half, so the card goes by the half the unit stands in — like every other map card, a player's card changes
+ * that player's half only [ASSUMED]. The first storm switched on wins (the m06 level switches #2 on nowhere).
+ */
+function stormFor(battle, st, playerId) {
+  const mine = playerId != null ? st.byPlayer.get(playerId) : null;
+  for (const s of st.storms) {
+    const a = aliasOf(s.d);
+    const on = a != null && mine?.has(a) ? mine.get(a) : a != null && st.global.has(a) ? st.global.get(a) : dataActive(s.d);
+    if (on) return s;
+  }
+  return null;
+}
+
+/**
+ * Sheltered from a storm blowing `dir`: a 土石结构 stands on a tile in the line from (r, c) against the wind, up to
+ * the map edge (client node `HasCertainCharacterInFrontOfMe` RVA 0xE0A970: `MapUtil.GetGridPositionsAlongTheDirection`
+ * from the unit's tile in `InverseDirection(storm.direction)`, own tile excluded, no distance limit — any character
+ * `trap_032_mound` on one of them).
+ */
+function stormSheltered(st, r, c, dir) {
+  const [dr, dc] = DIR_VEC[oppositeDir(dir)];
+  for (let rr = r + dr, cc = c + dc; rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS; rr += dr, cc += dc) {
+    if (st.mounds.has(rr * COLS + cc)) return true;
+  }
+  return false;
+}
+
+/** 沙尘暴's tick on an operator: pure 环境伤害 no unit deals (`NoSourceDamage` PURE, `_isEnvDamage`, `_ignoreForSp`). */
+const stormDamage = (battle, u, amount) => {
+  if (amount > 0 && u.alive) battle.dealDamage(null, u, { amount, type: 'true', canDodge: false, sourceless: true, noSp: true, tags: ['terrain', 'sandstorm'] });
+};
+
+/**
+ * 沙尘暴 (client sktok_storm → buff templates sand_storm[ally] / [enemy] / [trap], EN buff_template_holder): the storm
+ * gives every operator / summon (EntityCategory DEFAULT, any motion) and enemy a buff that triggers every
+ * blackboard `interval` (2) s — the first at once (`waitFirstTriggerInterval` false), counted from when the unit
+ * entered the field. At a trigger the unit is checked against the 土石结构 (stormSheltered):
+ *   operator unsheltered → `damage` (100) pure 环境伤害, then ATK FINAL_SCALER × (1 + atk) (0.5) kept until a trigger
+ *     finds it sheltered;
+ *   enemy unsheltered → move speed × (1 + move_speed) (0.6) kept the same way (the enemy buff takes no damage).
+ * The [trap] buff damages OBSTACLE-category units (the 土石结构 only: 射击台, sealed floor and turrets are TRAP_OR_ITEM)
+ * unless strengthened — the m06 mounds start with 风沙掩体 level 2 (level file `mainSkillLvl` 2, SP full at 10/10):
+ * strengthened at once, never damaged, so they stay obstacles (Battle._spawnStageDevices). The storm lasts the
+ * battle (blackboard `duration` 1500 s). Not modelled: sand_storm[ally] ON_OWNER_FINISH's card buff (a redeploy-cost
+ * rule; this mode has no redeploy) [ASSUMED]; the storm effects (map_desert_03_*, screen_desert_*) are the renderer's.
+ * [ASSUMED] the storm acts from the battle's first tick (the client's trap birth time is not modelled).
+ */
+function tickStorm(battle, st, u) {
+  if (!u.alive || !u.deployed || u.kind === 'device' || u.hidden) return;
+  const ally = u.side === 'ally';
+  const r = ally ? u.tileR : Math.round(u.y), c = ally ? u.tileC : Math.round(u.x);
+  const s = stormFor(battle, st, playerForCol(battle, c));
+  const key = ally ? STORM_ALLY : STORM_ENEMY;
+  const m = u.mem;
+  if (!s) { if (m.stormNext != null) { m.stormNext = null; battle.removeBuff(u, key); } return; }
+  if (m.stormNext == null) m.stormNext = battle.time;
+  if (battle.time + 1e-9 < m.stormNext) return;
+  m.stormNext += s.interval;
+  if (m.stormNext <= battle.time + 1e-9) m.stormNext = battle.time + s.interval;
+  if (r >= 0 && r < ROWS && c >= 0 && c < COLS && stormSheltered(st, r, c, s.dir)) { battle.removeBuff(u, key); return; }
+  if (ally) {
+    stormDamage(battle, u, s.damage);
+    if (u.alive && !u.findBuff(key)) battle.addBuff(u, { key, mods: { atkMul: s.atkMul }, visible: true });
+  } else if (!u.findBuff(key)) battle.addBuff(u, { key, mods: { moveMul: s.moveMul }, visible: true });
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -535,11 +639,14 @@ export function install(battle) {
     platformOn: new Set(),
     platformOff: new Set(),
     crateOff: new Set(),
+    storms: [],
+    mounds: new Set(),
     ticking: false,
   };
   STATE.set(battle, st);
   const devices = battle.stage?.devices || [];
   buildTerrain(battle, st); // grid, stage `special` and overrides are known at construction
+  buildStorm(battle, st);
   ensureTick(battle, st);
 
   // overrides that differ from the data (per half owner): crates removed, platforms added/removed

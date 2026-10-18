@@ -1520,3 +1520,27 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
   `stack_cnt_check` 10 · `attack_speed` 12). 키트가 공격 속도를 최대 층(잠재가 있으면 12)에서야 켰다 → `stack_cnt_check`(10)부터. 클라 버프 템플릿
   `nymph_e_002_t_2`도 `FilterByBuffStackCount`(`stack_cnt_check`, GE) 뒤에 `nymph_e_002_t_2[atk_spd]`를 만든다. 잠재가 없으면 둘 다 10이라 그대로.
 - 확인: `test/content/kits_t6.test.js` 「窥心钥 ASPD +12 from stack_cnt_check」(9층 0 → 10층 +12, 공격력은 12층에서 멈춤; 고치기 전 실패). 골든 그대로.
+
+## 战场#06(上半) 沙尘暴 · 土石结构 (2026-10-18, 관리자 결정 「기믹을 구현한 뒤 커스텀에 m06」)
+
+이번 시즌 풀에 없는(`active:false, weight:0`) 상반기 전장 #06을 커스텀 「收录上半战场」(`ui.md` 「규칙 모드 — 커스텀」)으로 쓰려고 sim에 넣었다. #05(涨潮/特制水上平台)·#07(树丛)은 보류.
+- **근거(클라 데이터로 확인)**: 장치 `trap_036_storm` 스킬 `sktok_storm`(`[uc]skills.ab`) = 하위 능력 셋이 아군(EntityCategory DEFAULT)·적(DEFAULT)·장애물(OBSTACLE)에
+  버프 `sand_storm[ally]`·`[enemy]`·`[trap]`을 블랙보드 `duration` 1500 s 동안 건다. 버프 템플릿(EN `buff_template_holder`, 참고 덤프 「공식 버프 템플릿 추출」)은
+  `ON_BUFF_TRIGGER`마다 `HasCertainCharacterInFrontOfMe(trap_032_mound)`로 가려졌는지 본다. 틱 간격 = 블랙보드 `interval` 2 s(`Buff.Reset`이 bb `interval`을
+  `triggerInterval`보다 먼저 씀, 디컴파일로 확인), 아군·적은 붙자마자 첫 틱(`waitFirstTriggerInterval` false).
+- **가려짐(코드로 확인)**: `HasCertainCharacterInFrontOfMe.Execute`(RVA 0xE0A970) — 유닛 칸에서 `InverseDirection(폭풍 방향)`으로 `GetGridPositionsAlongTheDirection`
+  (자기 칸 빼고 맵 끝까지, 거리 제한 없음)의 칸 중 하나에 `trap_032_mound`가 서 있으면 가려짐. m06 폭풍 `#1`은 `DOWN` → 위쪽(행이 큰 쪽)에 토석 구조물이 있으면 가려진다.
+  일반 판 윗줄은 (12,3)–(12,6) 4개((12,7)·(12,8)은 봉인 바닥 `trap_1107_acblock`이라 7·8열은 안 가려짐), 보스 필드 윗줄은 왼쪽 (5,3)–(5,8)·오른쪽 (5,12)–(5,17) 6개.
+- **효과**: 안 가려진 오퍼레이터·소환물 → 틱마다 순수 100(`NoSourceDamage` PURE, 환경 피해, SP 안 참) 뒤 공격력 FINAL_SCALER ×(1 + `atk` −0.5) — 다음 틱에
+  가려졌으면 풂. 안 가려진 적 → 이동 속도 ×(1 + `sand_storm[enemy].move_speed` −0.4)(피해 없음), 같은 식으로 틱에서만 붙고 풀림. 射击台·봉인 바닥·“双眼皮”는
+  TRAP_OR_ITEM이라 영향 없음.
+- **토석 구조물은 안 부서진다**(관리자 기억과 데이터 일치): `[trap]` 버프는 OBSTACLE을 치지만 `mound_s_1[strengthened]`이면 건너뛴다. m06 레벨 파일의
+  토석 구조물 28개는 모두 `mainSkillLvl` 2 = 「风沙掩体」 2레벨(시작 SP 10 = 필요 SP 10) → 시작하자마자 강화. 그래서 지금처럼 HP 없는 지면 장애물(`_spawnStageDevices`)로 둔다.
+- **맵 카드** 模拟战场演变·模式八(`map_m06_1`, `trap_036_storm#1/#2` 0): 폭풍 장치는 필드 밖 (18,0)이라 어느 절반에도 없으므로, 유닛이 선 절반의 플레이어 카드를 따른다
+  (다른 맵 카드처럼 자기 절반만) **[ASSUMED]**.
+- **[ASSUMED]**: 폭풍은 전투 첫 틱부터(장치 등장 시간 무시). 적 이동 속도 MULTIPLIER를 다른 감속과 곱으로 합침(`moveMul`). `sand_storm[ally]` `ON_OWNER_FINISH`의 카드
+  버프(재배치 비용 계열)는 이 모드에 재배치가 없어 뺌. 연출(`map_desert_03_*`·`buff_desert_01`·`screen_desert_*`)은 렌더 몫이고 아직 없음.
+- 코드 `server/sim/content/devices.js`(`buildStorm`·`stormSheltered`·`tickStorm`). 테스트 `test/content/tokens_devices.test.js` 「沙尘暴」 2건,
+  `test/match/custom-first-half.test.js`(실제 판 경로: 일반 필드 적 감속, 보스 필드 윗줄 6개). golden: 코퍼스가 모든 전장을 돌아가며 써서 m06 시나리오가
+  움직임 — roster-006·roster-028, bond-indomShip-high·bond-miraShip-low·bond-skillfulShip-high·bond-visiShip-low, boss-boss_1-solo·boss-boss_7-pair,
+  standin-06, diy-006(폭풍); 커스텀 판 custom-coop2-HARD-11-flow·custom-solo-ABYSS-12-battle-boosted는 규칙 기록에 `stages.firstHalf: false`만 늚.

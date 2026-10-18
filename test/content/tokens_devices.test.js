@@ -847,6 +847,58 @@ test('活性源石: a 重生 clears the lasting effect — a 深池逐火战士 
   checkInvariants(h.b);
 });
 
+test('沙尘暴 (act1 m06): every 2 s an operator with no 土石结构 upwind takes 100 pure 环境伤害 and ATK ×0.5, an enemy moves ×0.6; one under a mound is spared', REAL, () => {
+  const stage = ds.getStage('act1autochess_m06');
+  const storm = stage.devices.find((d) => d.role === 'sandstorm' && d.raw.active);
+  const bb = storm.raw.skill.bb;
+  assert.equal(storm.dir, 'DOWN', 'the m06 storm blows DOWN: shelter is a mound on a higher row');
+  const g = (id) => guard({ id, stats: { atk: 1000, maxHp: 1e5, def: 0 } });
+  // (10,4): mound (12,4) upwind · (11,8): nothing upwind (12,8 is the sealed floor, not a mound)
+  const units = [{ chessId: 'g_open', row: 11, col: 8 }, { chessId: 'g_cover', row: 10, col: 4 }];
+  const enemies = [{ key: 'enemy_open', pos: [10, 8] }, { key: 'enemy_cover', pos: [10, 5] }];
+  const mk = (players) => makeBattle({ stageId: 'act1autochess_m06', defs: { chess: { g_open: g('g_open'), g_cover: g('g_cover') }, enemies: { enemy_open: dummy({ key: 'enemy_open', speed: 0.2 }), enemy_cover: dummy({ key: 'enemy_cover', speed: 0.2 }) } }, ...(players ? { players } : { units }), enemies, autoFinish: false, timeLimit: 30 });
+  const h = mk();
+  h.step();
+  const open = h.unit('g_open'), cover = h.unit('g_cover');
+  assert.ok(h.b.grid.isObstacle(12, 4) && h.b.grid.isObstacle(9, 7), 'the mounds stay obstacles');
+  assert.ok(!h.b.allyUnits.some((u) => u.kind === 'device' && u.defId === 'trap_032_mound'), 'strengthened mounds: no HP to lose, no unit');
+  approx(open.stats.taken, bb.damage, 1e-9, 'the first trigger at once');
+  approx(open.s.atk, 1000 * (1 + bb.atk), 1e-9, 'ATK FINAL_SCALER');
+  assert.equal(cover.stats.taken, 0);
+  approx(cover.s.atk, 1000, 1e-9);
+  h.run(4.5); // triggers at 0, 2, 4 s
+  approx(open.stats.taken, 3 * bb.damage, 1e-9, 'every interval s');
+  assert.equal(cover.stats.taken, 0, 'sheltered: no damage');
+  approx(h.enemy('enemy_open').s.moveSpeed, 0.2 * (1 + bb['sand_storm[enemy].move_speed']), 1e-9, 'enemy slow');
+  approx(h.enemy('enemy_cover').s.moveSpeed, 0.2, 1e-9, 'enemy under a mound: no slow');
+  assert.equal(h.enemy('enemy_open').stats.taken ?? 0, 0, 'enemies take no storm damage');
+  checkInvariants(h.b);
+  // 模拟战场演变·模式八 (map_m06_1): the storm stops on the card owner's half
+  const card = ds.raw.effects?.map_m06_1?.params ?? { 'trap_036_storm#1': 0, 'trap_036_storm#2': 0 };
+  const players = [{ playerId: 'p1', seat: 0, side: 'L', colOffset: 0, units: units.map((u, i) => ({ uid: i + 1, kind: 'chess', ...u })), bonds: {}, deviceOverrides: card }];
+  const off = mk(players);
+  off.run(4.5);
+  assert.equal(off.unit('g_open').stats.taken, 0, 'no storm after the card');
+  approx(off.unit('g_open').s.atk, 1000, 1e-9);
+  approx(off.enemy('enemy_open').s.moveSpeed, 0.2, 1e-9);
+});
+
+test('沙尘暴: a walker slowed in the open loses the slow under the mounds — at its next trigger, not on entering', REAL, () => {
+  const h = makeBattle({ stageId: 'act1autochess_m06', defs: { enemies: { enemy_walker: walker({ speed: 0.5 }) } }, enemies: [{ key: 'enemy_walker', route: { motion: 'WALK', start: [10, 8], end: [10, 3], checkpoints: [] } }], autoFinish: false, timeLimit: 40 });
+  const seen = [];
+  h.b.on('tick', () => { const e = h.b.enemies[0]; if (e?.alive) seen.push([Math.round(e.x), !!e.findBuff('terrain:sandstormSlow'), h.b.time]); });
+  h.run(14);
+  // cols 7–8: no mound above (row 12 cols 7–8 are the sealed floor) · cols 3–6: mounds on row 12
+  assert.ok(seen.some(([c, s]) => c >= 7 && s), 'slowed in the open');
+  const t0 = seen[0][2];
+  const enter = seen.find(([c]) => c <= 6), lost = seen.find(([c, s]) => c <= 6 && !s);
+  assert.ok(enter && lost, 'reaches the mounds and loses the slow');
+  assert.ok(enter[1], 'still slowed on the first sheltered tick (no trigger yet)');
+  const k = (lost[2] - t0) / 2;
+  assert.ok(Math.abs(k - Math.round(k)) < 0.03, `lost at a trigger: ${lost[2] - t0} s after the first`);
+  assert.ok(!seen.at(-1)[1]);
+});
+
 test('盟约寒风: every interval all enemies turn cold; a gust on cold enemies freezes them; kjeragColdWind uses live layers', REAL, () => {
   const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, enemies: [{ key: 'enemy_dummy', pos: [10, 6] }, { key: 'enemy_dummy', pos: [11, 8] }], autoFinish: false, timeLimit: 60 });
   h.step();
