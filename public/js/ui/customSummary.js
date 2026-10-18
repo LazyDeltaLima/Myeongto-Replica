@@ -1,7 +1,7 @@
 // Custom rules summary — what a 自定义 match changes from the official rules, as short lines for the match screens (feat,
 // maintainer decision 2026-10-18): the briefing's right column, the strategy draft's 本局信息 dialog (both through
 // ui/matchInfo.js MatchInfo) and the in-game 本局信息 tab (ui/enemyDrawer.js). One line per setting group, in the settings
-// dialog's tab order (ui/customRules.js), with the value it takes; the official value only where a number replaces one.
+// dialog's tab order (ui/customRules.js), with the value it takes (not the official one: the lines stay short).
 // The co-op-only settings (prep, 目标生命值) are left out of a solo match, where they do nothing (gamedata.js).
 // customSummary is pure (unit-tested); CustomRulesInfo draws it. Styles: css/screens/custom-rules.css (.crs-*).
 
@@ -30,12 +30,14 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
   const out = [];
   const add = (key, text) => out.push({ key, tab: key.split('.')[0], text });
   const names = (kind, ids) => ids.map((id) => name(kind, id)).join(t('、'));
+  // the leaders' names hold a colon of their own (假想敌：胄): each in 「」, no colon after the label
+  const quoted = (kind, ids) => ids.map((id) => `「${name(kind, id)}」`).join(' ');
 
   if (c.bonds.banCore !== null && c.bonds.banCore !== bans?.core) {
-    add('bonds.banCore', t('核心盟约随机禁用 {n}（官方 {o}）', { n: c.bonds.banCore, o: bans?.core ?? 0 }));
+    add('bonds.banCore', t('核心盟约随机禁用 {n}', { n: c.bonds.banCore }));
   }
   if (c.bonds.banAddon !== null && c.bonds.banAddon !== bans?.addon) {
-    add('bonds.banAddon', t('附加盟约随机禁用 {n}（官方 {o}）', { n: c.bonds.banAddon, o: bans?.addon ?? 0 }));
+    add('bonds.banAddon', t('附加盟约随机禁用 {n}', { n: c.bonds.banAddon }));
   }
   if (c.bonds.noLayerCap) add('bonds.noLayerCap', t('解除盟约层数上限'));
   const picks = Object.entries(c.bonds.pick);
@@ -50,18 +52,18 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
       add(`${sec}.stats`, t('{who}：{list}', { who: t(label), list: stats.map((k) => `${t(STAT_LABELS[k])} ${c[sec][k]}%`).join(' · ') }));
     }
   }
-  if (c.enemies.curve !== O.enemies.curve) add('enemies.curve', t('成长曲线：{name}', { name: t(CURVE_LABELS[c.enemies.curve]) }));
+  if (c.enemies.curve !== O.enemies.curve) add('enemies.curve', t('敌人能力成长曲线：{name}', { name: t(CURVE_LABELS[c.enemies.curve]) }));
 
-  if (c.bosses.ban.length) add('bosses.ban', t('禁用领袖：{names}', { names: names('boss', c.bosses.ban) }));
-  if (c.bosses.hitMode === 'none') add('bosses.hit', t('领袖限伤：不限制'));
-  else if (c.bosses.hitMode === 'clamp') add('bosses.hit', t('领袖限伤：超过 {n} 的一击按 {n} 计算', { n: fmt(c.bosses.hitLimit) }));
-  else if (c.bosses.hitLimit !== O.bosses.hitLimit) add('bosses.hit', t('领袖限伤：{n} 以上的一击无效', { n: fmt(c.bosses.hitLimit) }));
+  if (c.bosses.ban.length) add('bosses.ban', t('禁用领袖 {names}', { names: quoted('boss', c.bosses.ban) }));
+  if (c.bosses.hitMode === 'none') add('bosses.hit', t('领袖限伤：无限制'));
+  else if (c.bosses.hitMode === 'clamp') add('bosses.hit', t('领袖限伤：{n}（按上限计算）', { n: fmt(c.bosses.hitLimit) }));
+  else if (c.bosses.hitLimit !== O.bosses.hitLimit) add('bosses.hit', t('领袖限伤：{n}', { n: fmt(c.bosses.hitLimit) }));
 
   if (c.stages.info) add('stages.info', t('战场信息预览'));
   if (c.stages.reroll) add('stages.reroll', t('简报「重新抽取」'));
   if (c.stages.ban.length) add('stages.ban', t('禁用战场：{names}', { names: names('stage', c.stages.ban) }));
 
-  if (c.flow.rounds !== null && c.flow.rounds !== rounds) add('flow.rounds', t('{n} 回合（官方 {o}）', { n: c.flow.rounds, o: rounds ?? '—' }));
+  if (c.flow.rounds !== null && c.flow.rounds !== rounds) add('flow.rounds', t('回合数 {n}', { n: c.flow.rounds }));
   if (!solo) {
     if (c.flow.prep === 'fixed') add('flow.prep', t('休整期每回合 {n} 秒', { n: c.flow.prepSec }));
     else if (c.flow.prep !== O.flow.prep) add('flow.prep', t('休整期 {x}', { x: c.flow.prep.replace('x', '×') }));

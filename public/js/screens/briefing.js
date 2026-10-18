@@ -29,7 +29,7 @@ import { enemyIconUrl, factionIconUrl } from '../ui/assetUrls.js';
 import { useStore } from '../store.js';
 import { data, localAsset } from '../data.js';
 import { t, tParts } from '../../../shared/i18n.js';
-import { resolveRuleset } from '../../../shared/ruleset.js';
+import { resolveRuleset, keepUnbanned } from '../../../shared/ruleset.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -69,8 +69,9 @@ export function BriefingScreen() {
   const boss = pub.bossId ? gd.boss(pub.bossId) : null;
   const bossEnemy = boss ? gd.enemy(boss.enemyKey) : null;
   const stage = pub.stageId ? gd.stage(pub.stageId) : null;
-  // the mode's battlefield pool (config.json modes[].stages): 标准 is always 战场#01, 险境+ draw one at random
-  const poolN = Array.isArray(mode?.stages) ? mode.stages.length : 0;
+  // the mode's battlefield pool (config.json modes[].stages): 标准 is always 战场#01, 险境+ draw one at random; a 自定义
+  // match draws from the stages its settings leave (keepUnbanned, as server/match/waves.js setupMatchWaves)
+  const poolN = Array.isArray(mode?.stages) ? keepUnbanned(mode.stages, (id) => id, pub.ruleset?.custom?.stages?.ban).length : 0;
   const pool = poolN > 1 ? t('战场随机（共{poolN}张）', { poolN }) : poolN === 1 ? t('战场固定') : '';
   const stageName = stage?.name || pub.stageId || '—';
   // the battlefield's preview picture under its name (tools/map-previews.mjs: our 3D board drawn like the client's
