@@ -217,7 +217,8 @@ describe('server generation: waiting rooms handed to the new server', () => {
     const files = readdirSync(dir).filter((n) => n.endsWith('.json'));
     assert.equal(files.length, 2, 'one file per room');
     assert.ok(files.every((n) => n.startsWith('a-')));
-    assert.equal(statSync(path.join(dir, files[0])).mode & 0o777, 0o600, 'the tokens stay private');
+    // POSIX modes only: Windows keeps no owner-only bit (stat reports 0o666) — the server runs on Linux
+    if (process.platform !== 'win32') assert.equal(statSync(path.join(dir, files[0])).mode & 0o777, 0o600, 'the tokens stay private');
     assert.ok(readdirSync(dir).every((n) => !n.endsWith('.tmp')));
 
     // the host's page reloads onto b with its token: the room is rebuilt there and the hello resumes the seat

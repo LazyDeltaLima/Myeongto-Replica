@@ -538,17 +538,24 @@ describe('static http server: versioned code URLs (/b/<tag>/)', () => {
 
   test('versionedUrls(): off in a node --watch child (WATCH_REPORT_DEPENDENCIES, empty execArgv), SP_VERSIONED_URLS forces it', async () => {
     const { versionedUrls } = await import('../server/http/buildTag.js');
-    const saved = { flag: process.env.SP_VERSIONED_URLS, watch: process.env.WATCH_REPORT_DEPENDENCIES };
+    const saved = { flag: process.env.SP_VERSIONED_URLS, watch: process.env.WATCH_REPORT_DEPENDENCIES, argv: process.execArgv };
     try {
       delete process.env.SP_VERSIONED_URLS;
       process.env.WATCH_REPORT_DEPENDENCIES = '1';
       assert.equal(versionedUrls(), false, 'the dev server (npm run dev): a browser file edit does not restart it');
       delete process.env.WATCH_REPORT_DEPENDENCIES;
-      assert.equal(versionedUrls(), !process.execArgv.some((a) => a.startsWith('--watch')));
+      // the watch flags themselves; --watch-kill-signal (Node 24 hands it to every node --test child) is not watch mode
+      for (const [argv, on] of [[[], true], [['--watch'], false], [['--watch=true'], false], [['--watch-path=src'], false],
+        [['--watch-kill-signal=SIGTERM'], true], [['--watch-preserve-output'], true]]) {
+        process.execArgv = argv;
+        assert.equal(versionedUrls(), on, argv.join(' ') || '(no flags)');
+      }
+      process.execArgv = saved.argv;
       process.env.WATCH_REPORT_DEPENDENCIES = '1';
       process.env.SP_VERSIONED_URLS = '1';
       assert.equal(versionedUrls(), true);
     } finally {
+      process.execArgv = saved.argv;
       for (const [k, v] of [['SP_VERSIONED_URLS', saved.flag], ['WATCH_REPORT_DEPENDENCIES', saved.watch]]) if (v === undefined) delete process.env[k]; else process.env[k] = v;
     }
   });

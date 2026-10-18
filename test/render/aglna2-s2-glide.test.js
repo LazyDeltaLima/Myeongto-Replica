@@ -6,7 +6,7 @@
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installFakePixi, fakeViewCtx } from './fakepixi.js';
@@ -128,9 +128,11 @@ test('airborne lift: 予愿安洁莉娜 0.8, 凯尔希·思衡托 stays on her t
   assert.ok(Math.abs(fly.hover - FLY_HOVER) < 1e-3, `a flyer: ${fly.hover}`);
 });
 
-test('fly_range_01 stays on her tile, turned to the sweep; the trail follows the gliding model (maintainer report 2026-10-12)', async () => {
+// the effect records are the local client extract (git-ignored): without it only the fxgame.js half runs
+const FX_DIR = path.join(ROOT, 'public/assets/local/fx/aglna2');
+test('fly_range_01 stays on her tile, turned to the sweep; the trail follows the gliding model (maintainer report 2026-10-12)', { skip: !existsSync(path.join(FX_DIR, 'aglna2_skill_02_fly_range_01.json')) && 'local fx not extracted' }, async () => {
   const { faceTurn } = await import('../../public/js/render/fx/face.js');
-  const fx = (n) => JSON.parse(readFileSync(path.join(ROOT, `public/assets/local/fx/aglna2/${n}.json`), 'utf8'));
+  const fx = (n) => JSON.parse(readFileSync(path.join(FX_DIR, `${n}.json`), 'utf8'));
   const range = fx('aglna2_skill_02_fly_range_01'), trail = fx('aglna2_skill_02_fly_trail_rightAndLeft_01');
   // a ground streak (_spawnLocation 5, no FollowMountPoint) authored along its _mainDir RIGHT for the sweep's length
   assert.equal(range.spawn, 5);
@@ -141,6 +143,9 @@ test('fly_range_01 stays on her tile, turned to the sweep; the trail follows the
   // FOUR_DIRECTION: up the board turns it 90°, left 180°
   assert.equal(faceTurn(range.face, { x: 0, y: 3 }).z, 90);
   assert.equal(faceTurn(range.face, { x: -4, y: 0 }).z, 180);
+});
+
+test('the dash spawns fly_range_01 at her tile, turned to the sweep, and the trail on the gliding model', () => {
   const SRC = readFileSync(path.join(ROOT, 'public/js/render/fxgame.js'), 'utf8');
   const dash = SRC.slice(SRC.indexOf("case 'dash': {"), SRC.indexOf("case 'dash': {") + 1600);
   assert.match(dash, /const at = \{ x: x \+ \(Number\(src\?\.modelDX\) \|\| 0\), y, z: Number\(src\?\.z\) \|\| 0 \};/);
