@@ -21,7 +21,7 @@ import {
   encodeCustomCode, decodeCustomCode, CUSTOM_NAME_MAX,
 } from './customRulesStore.js';
 import {
-  sanitizeCustom, customDiffs, customRoundPlan, curveStep, CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS,
+  sanitizeCustom, customDiffs, customRoundPlan, curveScale, CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS,
 } from '../../../shared/ruleset.js';
 import { modeIdFor, DIFFICULTIES } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -334,13 +334,13 @@ function EnemiesPane({ work, set, readonly, mode }) {
     <//>`;
 }
 
-/** The hp multiplier per round: the official line (dashed) and the custom one (curve × hp%, over the custom rounds). */
+/** The hp multiplier per round as the match spawns it (config.json enemyScale hp): the official line (dashed) and the custom one (curve × hp%, over the custom rounds). */
 function CurveChart({ work, mode }) {
   if (!mode) return null;
   const plan = customRoundPlan(mode, work.flow.rounds);
-  const off = customRoundPlan(mode, null).rounds.map((r) => 1.2 ** r.kHp);
-  const k1 = plan.rounds[0]?.kHp ?? 0;
-  const cus = plan.rounds.map((r) => (work.enemies.hp / 100) * 1.2 ** curveStep(r.kHp, k1, work.enemies.curve));
+  const off = customRoundPlan(mode, null).rounds.map((r) => r.hp);
+  const m1 = plan.rounds[0]?.hp ?? 1;
+  const cus = plan.rounds.map((r) => (work.enemies.hp / 100) * curveScale(r.hp, m1, work.enemies.curve));
   const W = 1000, H = 220, P = 40;
   const nX = Math.max(off.length, cus.length);
   const maxY = Math.max(1.5, ...off, ...cus) * 1.08;

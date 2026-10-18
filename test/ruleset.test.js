@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import {
   RULE_OPTIONS, RULE_PRESETS, QUEUE_PRESETS, DEFAULT_PRESET, PRESET_LABELS, isRulePreset, isQueuePreset, resolveRuleset, rulesetKey,
-  simRuleFlags, sanitizeCustom, optionsOfCustom, customDiffs, sameRuleset, rulesetWire, customRoundPlan, curveStep,
+  simRuleFlags, sanitizeCustom, optionsOfCustom, customDiffs, sameRuleset, rulesetWire, customRoundPlan, curveScale, CUSTOM_CURVE_POWER,
   CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS, CUSTOM_VERSION,
 } from '../shared/ruleset.js';
 
@@ -195,10 +195,23 @@ describe('custom round plan and curves', () => {
     for (let i = 13; i < 18; i++) assert.ok(k[i] > k[i - 1], `rising at ${i + 1}`);
     assert.ok(p.hidden.kHp > mode('mode_multi_hard').enemyScale[15].kHp);
   });
-  test('curveStep: official k; gentle half the rise from round 1, steep 1.5×, flat round 1', () => {
-    assert.equal(curveStep(8, 2, 'official'), 8);
-    assert.equal(curveStep(8, 2, 'gentle'), 5);
-    assert.equal(curveStep(8, 2, 'steep'), 11);
-    assert.equal(curveStep(8, 2, 'flat'), 2);
+  test('curveScale: on the official multipliers; gentle ¾ of the rise from round 1 (in its exponent), steep 1¼, flat round 1', () => {
+    assert.deepEqual({ ...CUSTOM_CURVE_POWER }, { official: 1, gentle: 0.75, steep: 1.25, flat: 0 });
+    assert.equal(curveScale(4.3, 1.2, 'official'), 4.3);
+    assert.equal(curveScale(4.3, 1.2, 'flat'), 1.2);
+    assert.ok(Math.abs(curveScale(1.2 * 16, 1.2, 'gentle') - 1.2 * 8) < 1e-9);
+    assert.ok(Math.abs(curveScale(1.2 * 16, 1.2, 'steep') - 1.2 * 32) < 1e-9);
+  });
+  test('the plan carries the multipliers the match spawns with (config.json enemyScale), the added rounds rising on from them', () => {
+    for (const id of Object.keys(config.modes)) {
+      const m = mode(id);
+      if (!m.enemyScale?.[1]) continue;
+      for (const r of customRoundPlan(m, null).rounds) {
+        assert.equal(r.hp, m.enemyScale[r.src].hp, `${id} r${r.src} hp`);
+        assert.equal(r.atk, m.enemyScale[r.src].atk, `${id} r${r.src} atk`);
+      }
+    }
+    const p = customRoundPlan(mode('mode_multi_abyss'), 16).rounds;
+    assert.ok(p[13].hp > mode('mode_multi_abyss').enemyScale[13].hp && p[15].hp > mode('mode_multi_abyss').enemyScale[14].hp);
   });
 });

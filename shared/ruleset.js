@@ -234,48 +234,55 @@ export function customDiffs(raw, base = {}) {
 
 // ---- the custom round plan and stat curve -----------------------------------------------------------------------
 
+/** The power each curve puts on the official rise from round 1 (curveScale). */
+export const CUSTOM_CURVE_POWER = Object.freeze({ official: 1, gentle: 0.75, steep: 1.25, flat: 0 });
+
 /**
- * The step count of an enemy stat in a round under a curve: the mode's official step `k` (hp ×1.2^k, atk ×1.1^k —
- * tools/build-data.mjs enemyScaleFor), or one shaped from it around round 1's `k1` — gentle half the rise, steep one and
- * a half times it, flat none [ASSUMED: the shapes are this remake's, maintainer decision 2026-10-18 named them only].
- * @param {number} k @param {number} k1 @param {string} curve
+ * An enemy stat multiplier of a round under a curve: the mode's official multiplier `m` (config.json enemyScale hp /
+ * atk — what the match spawns with), or one shaped from it around round 1's `m1`: m1 × (m ÷ m1)^power — gentle ¾ of the
+ * official rise (in its exponent), steep 1¼, flat none [ASSUMED: the shapes are this remake's, maintainer decision
+ * 2026-10-18 named them only; the first powers ½ / 1½ were too far apart, maintainer feedback the same day].
+ * @param {number} m @param {number} m1 @param {string} curve
  */
-export function curveStep(k, k1, curve) {
-  if (curve === 'gentle') return k1 + (k - k1) * 0.5;
-  if (curve === 'steep') return k1 + (k - k1) * 1.5;
-  if (curve === 'flat') return k1;
-  return k;
+export function curveScale(m, m1, curve) {
+  const p = CUSTOM_CURVE_POWER[curve] ?? 1;
+  if (p === 1 || !(m > 0) || !(m1 > 0)) return m;
+  return m1 * (m / m1) ** p;
 }
 
 /**
  * The rounds of a custom round count: for each round 1..n its `src` (the official round whose waves, timers and
- * stat steps it uses) and `kind` — 'normal', 'sp' (a 机变 round), 'ext' (an added round), 'boss' (最终攻势, always the
- * last) — and `kHp` / `kAtk`, the official stat steps it takes; `hidden` = the 隐秘核心 after it (src = the mode's), or
+ * stats it uses) and `kind` — 'normal', 'sp' (a 机变 round), 'ext' (an added round), 'boss' (最终攻势, always the
+ * last) —, `kHp` / `kAtk`, the official stat steps it takes, and `hp` / `atk`, its official multipliers (config.json
+ * enemyScale: a step is ×1.2 hp, ×1.1 atk on the mode's base); `hidden` = the 隐秘核心 after it (src = the mode's), or
  * null. Fewer rounds drop normal rounds from the middle, first those whose stat steps another kept round has (the 机变
  * rounds, round 1 and the final assault stay); more rounds keep 1..last−1 and add rounds that cycle the three late waves
  * before the final assault (last−3..last−1), their steps rising on from the last of them by the slope of those three
  * [ASSUMED], the final assault and the hidden core rising as much.
- * @param {{ lastRound: number, hiddenRound?: number | null, spRounds?: number[], enemyScale?: Record<string, { kHp?: number, kAtk?: number }> }} mode
+ * @param {{ lastRound: number, hiddenRound?: number | null, spRounds?: number[], enemyScale?: Record<string, { kHp?: number, kAtk?: number, hp?: number, atk?: number }> }} mode
  * @param {number | null} [n] the custom count (null = the mode's)
- * @returns {{ rounds: { src: number, kind: 'normal'|'sp'|'ext'|'boss', kHp: number, kAtk: number }[], hidden: { src: number, kHp: number, kAtk: number } | null }}
+ * @returns {{ rounds: PlanRound[], hidden: { src: number, kHp: number, kAtk: number, hp: number, atk: number } | null }}
  */
 export function customRoundPlan(mode, n = null) {
   const last = Number.isInteger(mode?.lastRound) && mode.lastRound > 0 ? mode.lastRound : 14;
   const sp = new Set((Array.isArray(mode?.spRounds) ? mode.spRounds : []).filter(Number.isInteger));
-  const steps = (r) => {
+  const num = (v, d) => (Number.isFinite(v) ? v : d);
+  const stats = (r) => {
     const e = mode?.enemyScale?.[r];
-    return { kHp: Number.isFinite(e?.kHp) ? e.kHp : 0, kAtk: Number.isFinite(e?.kAtk) ? e.kAtk : 0 };
+    return { kHp: num(e?.kHp, 0), kAtk: num(e?.kAtk, 0), hp: num(e?.hp, 1), atk: num(e?.atk, 1) };
   };
+  /** steps added on top of a round's own (an added round, or what the added rounds lift the final rounds by) */
+  const lifted = (st, dHp, dAtk) => ({ kHp: st.kHp + dHp, kAtk: st.kAtk + dAtk, hp: st.hp * 1.2 ** dHp, atk: st.atk * 1.1 ** dAtk });
   const want = Number.isInteger(n) ? n : last;
   /** @type {(r: number) => 'normal'|'sp'|'boss'} */
   const kindOf = (r) => (r === last ? 'boss' : sp.has(r) ? 'sp' : 'normal');
-  /** @type {{ src: number, kind: 'normal'|'sp'|'ext'|'boss', kHp: number, kAtk: number }[]} */
+  /** @type {PlanRound[]} */
   let list = [];
   let lift = { kHp: 0, kAtk: 0 };
   if (want <= last) {
     const kept = Array.from({ length: last }, (_, i) => i + 1);
     const mid = (last + 1) / 2;
-    const key = (r) => { const s = steps(r); return `${s.kHp}/${s.kAtk}`; };
+    const key = (r) => { const s = stats(r); return `${s.kHp}/${s.kAtk}`; };
     while (kept.length > Math.max(1, want)) {
       const removable = kept.filter((r) => kindOf(r) === 'normal' && r !== 1);
       if (!removable.length) break;
@@ -284,24 +291,24 @@ export function customRoundPlan(mode, n = null) {
       pool.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid) || a - b);
       kept.splice(kept.indexOf(pool[0]), 1);
     }
-    list = kept.map((r) => ({ src: r, kind: kindOf(r), ...steps(r) }));
+    list = kept.map((r) => ({ src: r, kind: kindOf(r), ...stats(r) }));
   } else {
-    for (let r = 1; r < last; r++) list.push({ src: r, kind: kindOf(r), ...steps(r) });
+    for (let r = 1; r < last; r++) list.push({ src: r, kind: kindOf(r), ...stats(r) });
     const late = [last - 3, last - 2, last - 1].filter((r) => r >= 1);
-    const a = steps(late[0] ?? 1), b = steps(late[late.length - 1] ?? 1);
+    const a = stats(late[0] ?? 1), b = stats(late[late.length - 1] ?? 1);
     const per = late.length > 1 ? { kHp: (b.kHp - a.kHp) / (late.length - 1), kAtk: (b.kAtk - a.kAtk) / (late.length - 1) } : { kHp: 0, kAtk: 0 };
     const extra = want - last;
     for (let i = 1; i <= extra; i++) {
-      list.push({ src: late[(i - 1) % late.length], kind: 'ext', kHp: b.kHp + per.kHp * i, kAtk: b.kAtk + per.kAtk * i });
+      list.push({ src: late[(i - 1) % late.length], kind: 'ext', ...lifted(b, per.kHp * i, per.kAtk * i) });
     }
     lift = { kHp: per.kHp * extra, kAtk: per.kAtk * extra };
-    const s = steps(last);
-    list.push({ src: last, kind: 'boss', kHp: s.kHp + lift.kHp, kAtk: s.kAtk + lift.kAtk });
+    list.push({ src: last, kind: 'boss', ...lifted(stats(last), lift.kHp, lift.kAtk) });
   }
   const h = Number.isInteger(mode?.hiddenRound) ? mode.hiddenRound : null;
-  const hs = h ? steps(h) : null;
-  return { rounds: list, hidden: h ? { src: h, kHp: hs.kHp + lift.kHp, kAtk: hs.kAtk + lift.kAtk } : null };
+  return { rounds: list, hidden: h ? { src: h, ...lifted(stats(h), lift.kHp, lift.kAtk) } : null };
 }
+
+/** @typedef {{ src: number, kind: 'normal'|'sp'|'ext'|'boss', kHp: number, kAtk: number, hp: number, atk: number }} PlanRound */
 
 // ---- resolution --------------------------------------------------------------------------------------------------
 
