@@ -237,6 +237,8 @@ export class PlayerState {
     this.uniteTally = { sent: 0, through: 0 };
     this.eliminatedRound = null;
     this.lpAtFinal = null;
+    /** a custom 「共享」 match: the strategy's starting LP (the seat's part of the team LP when it leaves, platform.js) */
+    this.lpStart = null;
     /** last combat result for this player (unite carry state, bounties) */
     this.lastResult = null;
     this._deployMap = null;

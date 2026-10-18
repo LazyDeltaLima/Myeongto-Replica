@@ -17,8 +17,9 @@
 //   match  the server's match flow (server/match/match/phases.js infoReroll, views.js bossRoutePreview)
 //   sim    a battle spec flag (simRuleFlags → spec.flags, read by server/sim; set only when it differs from the official
 //          value, so a classic battle's spec stays what it was)
-// The custom settings beyond the four options are carried and kept (room, match, drain hand-over) but not read yet: the
-// match flow and the battles take them in later steps. docs/rules/ui.md 「규칙 모드」 has the rules and their evidence.
+// The match flow reads the custom settings through its GameData (server/match/gamedata.js: the round plan, the bans, the
+// prep, the 目标生命值 rules); the battle settings (enemy stats, 限伤 value, the layer cap) are not read yet — a later
+// step. docs/rules/ui.md 「규칙 모드」 has the rules and their evidence.
 
 import { N_ } from './i18n.js';
 import { BOSS_HIT_LIMIT } from './constants.js';
@@ -112,6 +113,8 @@ export const CUSTOM_OFFICIAL = deepFreeze({
   flow: { rounds: null, prep: 'official', prepSec: 90, lpCapOff: false, lpShared: false, routePreview: false },
 });
 
+/** @typedef {typeof CUSTOM_OFFICIAL} CustomSettings */
+
 /** The settings field of each boolean option (the custom ruleset's options are read from them). */
 const OPTION_FIELDS = Object.freeze({
   battlefieldInfo: (c) => c.stages.info,
@@ -193,6 +196,18 @@ export function sanitizeCustom(raw) {
       routePreview: bool(f.routePreview, O.flow.routePreview),
     },
   });
+}
+
+/**
+ * The entries of `list` a custom ban list leaves (stages, the leaders of one group), or `list` itself when the bans would
+ * leave none (the settings dialog keeps one; a hand-made code may not). Filtering a weighted list keeps its one draw.
+ * @template T @param {T[]} list @param {(x: T) => string} idOf @param {readonly string[] | null | undefined} ban
+ * @returns {T[]}
+ */
+export function keepUnbanned(list, idOf, ban) {
+  if (!ban || !ban.length) return list;
+  const kept = list.filter((x) => !ban.includes(idOf(x)));
+  return kept.length ? kept : list;
 }
 
 /** The boolean options of custom settings. @param {Readonly<typeof CUSTOM_OFFICIAL>} c */
@@ -309,6 +324,21 @@ export function customRoundPlan(mode, n = null) {
 }
 
 /** @typedef {{ src: number, kind: 'normal'|'sp'|'ext'|'boss', kHp: number, kAtk: number, hp: number, atk: number }} PlanRound */
+
+/** The multiplier of each prep length setting (`fixed` takes flow.prepSec instead). */
+export const CUSTOM_PREP_MUL = Object.freeze({ official: 1, 'x1.5': 1.5, x2: 2 });
+
+/**
+ * A co-op round's prep in real seconds under the custom `flow` settings: the official `p` × the setting's multiplier
+ * (rounded), or the fixed seconds; an untimed prep (`p` null) stays untimed. The caller leaves 独立模拟 out (its prep is
+ * untimed, as the official one).
+ * @param {{ prep: string, prepSec: number }} flow @param {number | null} p
+ */
+export function customPrepSeconds(flow, p) {
+  if (!(Number.isFinite(p) && p > 0)) return null;
+  if (flow.prep === 'fixed') return flow.prepSec;
+  return Math.round(p * (CUSTOM_PREP_MUL[flow.prep] ?? 1));
+}
 
 // ---- resolution --------------------------------------------------------------------------------------------------
 

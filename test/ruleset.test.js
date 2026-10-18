@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   RULE_OPTIONS, RULE_PRESETS, QUEUE_PRESETS, DEFAULT_PRESET, PRESET_LABELS, isRulePreset, isQueuePreset, resolveRuleset, rulesetKey,
   simRuleFlags, sanitizeCustom, optionsOfCustom, customDiffs, sameRuleset, rulesetWire, customRoundPlan, curveScale, CUSTOM_CURVE_POWER,
+  customPrepSeconds, keepUnbanned,
   CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS, CUSTOM_VERSION,
 } from '../shared/ruleset.js';
 
@@ -214,4 +215,19 @@ describe('custom round plan and curves', () => {
     const p = customRoundPlan(mode('mode_multi_abyss'), 16).rounds;
     assert.ok(p[13].hp > mode('mode_multi_abyss').enemyScale[13].hp && p[15].hp > mode('mode_multi_abyss').enemyScale[14].hp);
   });
+});
+
+test('customPrepSeconds: the official prep × the setting (rounded) or the fixed seconds; untimed stays untimed', () => {
+  assert.equal(customPrepSeconds({ prep: 'official', prepSec: 90 }, 65), 65);
+  assert.equal(customPrepSeconds({ prep: 'x1.5', prepSec: 90 }, 65), 98);
+  assert.equal(customPrepSeconds({ prep: 'x2', prepSec: 90 }, 65), 130);
+  assert.equal(customPrepSeconds({ prep: 'fixed', prepSec: 45 }, 195), 45);
+  assert.equal(customPrepSeconds({ prep: 'fixed', prepSec: 45 }, null), null);
+});
+
+test('keepUnbanned: the bans leave one at least (all banned = the official list)', () => {
+  const list = [['a', 1], ['b', 2], ['c', 3]];
+  assert.deepEqual(keepUnbanned(list, ([id]) => id, ['a', 'c']), [['b', 2]]);
+  assert.equal(keepUnbanned(list, ([id]) => id, ['a', 'b', 'c']), list);
+  assert.equal(keepUnbanned(list, ([id]) => id, []), list);
 });

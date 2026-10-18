@@ -18,7 +18,11 @@ export class MatchSettle {
     this._stopClientCombat();
     // the pending in-battle gains the views showed become persistent below (alive players) or lapse (DESIGN §20.15)
     for (const ps of this.order) if (ps.pendingLayerGains) { ps.pendingLayerGains = null; ps.dirty(); }
+    // the per-round cap (10; none under the custom 「解除上限」) and the custom 「共享」 team LP (gamedata.js lpShared): every
+    // player's charge is its own, as below, but it comes off the alliance's one pool (teamLp) instead of its own LP
     const cap = this.gd.lpCapPerRound;
+    const shared = this.gd.lpShared && this.teamLp != null;
+    let teamLoss = 0;
     // a 联防 battle that could not run at all (synthetic result) must not wipe the leakers' losses: charge their own leaks
     const uniteRan = !!(plan && uniteResult && !uniteResult.synthetic);
     const survivors = uniteRan ? uniteSurvivors(plan, uniteResult) : null;
@@ -55,7 +59,8 @@ export class MatchSettle {
       const loss = uniteRan && plan.leakers.includes(ps) ? Math.min(cap, survivors.get(ps.playerId) || 0) : Math.min(cap, counted);
       this.roundLossesView[ps.playerId] = loss;
       if (this.uniteResultView) this.uniteResultView.losses[ps.playerId] = loss;
-      ps.lp -= loss;
+      if (shared) teamLoss += loss;
+      else ps.lp -= loss;
       ps.stats.lpLost += loss;
       ps.stats.leaks += counted;
       ps.stats.kills += Number(r.killed) || 0;
@@ -92,7 +97,20 @@ export class MatchSettle {
       this.dispatch(ps, 'onBattleResult', { result: r, lpLoss: loss, perfect: counted === 0 && r.perfect !== false, unite: uniteResult || null });
       ps.recompute();
     }
-    for (const ps of alive) {
+    if (shared) {
+      // nobody falls alone: the shares are written back (_syncTeamLp); the pool at 0 takes the whole alliance out
+      this.teamLp = Math.max(0, this.teamLp - teamLoss);
+      if (this.teamLp > 0) this._syncTeamLp();
+      else {
+        for (const ps of alive) {
+          ps.lp = 0;
+          ps.eliminate(this.round);
+          this.toast(ps, 'error', '同盟的目标生命值耗尽，全员被淘汰');
+        }
+        this.tickerText(msg('同盟的目标生命值已耗尽'), FLOW_TICKER_PRIORITY);
+      }
+    }
+    for (const ps of shared ? [] : alive) {
       if (ps.lp <= 0) {
         ps.lp = 0;
         ps.eliminate(this.round);

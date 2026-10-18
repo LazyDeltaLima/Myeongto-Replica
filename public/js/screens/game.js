@@ -71,7 +71,7 @@ import { html, Spinner, PhaseBanner, ResultDialog, Icon, Button, confirmDialog, 
 import { useGameData, GIcon, PlayerAvatar } from '../ui/gameComponents.js';
 import { enemyIconUrl } from '../ui/assetUrls.js';
 import { useFieldView } from '../ui/fieldHost.js';
-import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo } from '../ui/hud.js';
+import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, matchLpCap } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
@@ -323,13 +323,17 @@ function MatchScreen() {
   // the local replica's count while it runs, else m.public players[].uniteLeft (ui/hud.js uniteRemaining) — replace it;
   // the teammates' rows take the same local counts (`uniteLocal`, ui/teamPanel.js rowLp)
   const lpBaseRef = useRef(null);
+  // the round's LP cap (Infinity under a custom 「解除上限」) and a custom 「共享」 match's team LP (the own leaks' −N
+  // tick on the top bar's alliance LP, ui/hud.js TopBar)
+  const lpCap = matchLpCap(pub, gd.config);
+  const sharedLp = !isBossPhase(phase) && Number.isFinite(pub?.teamLp) ? pub.teamLp : null;
   const localLeaks = battleState && battleState.leaks ? battleState.leaks[ownFieldId(myId)] : undefined;
   const uniteLocal = phase === PHASE.UNITE && battleState && battleState.uniteLeft ? battleState.uniteLeft : null;
   const leaker = phase === PHASE.UNITE && Array.isArray(pub?.unite?.leakers) && pub.unite.leakers.includes(myId);
   const localLeft = leaker && uniteLocal ? (uniteLocal[myId] ?? 0) : undefined;
   const liveLpNow = liveLp(lpBaseRef.current, {
-    phase, round: pub?.round, lp: priv?.lp, statsLeaks: priv?.stats?.leaks, alive,
-    leaks: ownLeaks(localLeaks, meP?.pendingLp), cap: gd.config?.lpCapPerRound,
+    phase, round: pub?.round, lp: sharedLp ?? priv?.lp, statsLeaks: priv?.stats?.leaks, alive,
+    leaks: ownLeaks(localLeaks, meP?.pendingLp), cap: lpCap,
     uniteLeft: leaker ? uniteRemaining(localLeft, meP?.uniteLeft) : null,
   });
   lpBaseRef.current = liveLpNow.base;
@@ -344,7 +348,7 @@ function MatchScreen() {
     const prev = roundLossRef.current;
     const same = !!prev && prev.round === pub?.round;
     const leaks = ownLeaks(localLeaks, meP?.pendingLp);
-    roundLossRef.current = { round: pub?.round, leaks: same ? Math.max(prev.leaks, leaks) : leaks, cap: gd.config?.lpCapPerRound };
+    roundLossRef.current = { round: pub?.round, leaks: same ? Math.max(prev.leaks, leaks) : leaks, cap: lpCap };
   }
   // the own battle's end, once per round (docs/LOCAL-PATCH.md 「0.2.0 병합」, maintainer decision 2026-10-08: ours only) —
   // the official round_result_dialog (ui/phaseArt.js BattleEndBanner; without its local art the plain box) and its
@@ -378,7 +382,7 @@ function MatchScreen() {
     ...placementRecords(data, priv), // the Chinese rule records whatever the language: the 高台 trait check (upstream #676)
     getToken: gd.token, getItem: gd.item, getEffect: gd.effect,
   }), [priv, pub?.stageId, editable, gd.ready, deployField]);
-  live.current = { pub, priv, field, editable, hasPersonalChoice, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, tileTip, collapsedNow: collapsed, localDone: false, canPause: false, paused, cap: gd.config?.lpCapPerRound };
+  live.current = { pub, priv, field, editable, hasPersonalChoice, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, tileTip, collapsedNow: collapsed, localDone: false, canPause: false, paused, cap: lpCap };
 
   // ---- camera: every request goes through setCam, which remembers it for the pen's way back -----------------------
   // the own prep board: the normal board, or — in the prep of a boss round — the player's half of the boss field
@@ -1723,7 +1727,7 @@ function MatchScreen() {
     ${/* the player list and its emote bubbles: a layer of their own under the HUD panels, lifted above the 机变 / 悬赏
         screen while it is open (css/phase-art.css .gm__side) */ ''}
     <div class="gm__side">
-      <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
+      <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${lpCap} uniteLocal=${uniteLocal}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
         observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther, ownDone: localDone }), observing: watchingOther, onBack: backHome } : null} />
     </div>
@@ -1842,7 +1846,7 @@ function MatchScreen() {
     ${opening || bossOpen ? null : banner?.result ? html`<${BattleEndBanner} key=${banner.key} perfect=${banner.result.perfect} lost=${banner.result.lost} onDone=${() => setBanner(null)} />`
       : banner && String(banner.key).startsWith(`${PHASE.ROUND_START}:`) && phaseArt('round').cls
         ? html`<${RoundStartBanner} key=${banner.key} round=${pub?.round} gold=${roundGold} watching=${spectator || !alive}
-            remain=${roundsToBoss(pub?.round, getMode(pub?.modeId)?.bossRound, gd.config?.constants?.bossTrailerStartRound ?? 3)} onDone=${() => setBanner(null)} />` /* local patch: ui/phaseArt.js */
+            remain=${roundsToBoss(pub?.round, pub?.bossRound ?? getMode(pub?.modeId)?.bossRound, gd.config?.constants?.bossTrailerStartRound ?? 3)} onDone=${() => setBanner(null)} />` /* local patch: ui/phaseArt.js */
       : banner && String(banner.key).startsWith(`${PHASE.UNITE}:`) && battleArt('help').cls
         ? html`<${HelpBattleBanner} key=${banner.key} onDone=${() => setBanner(null)} />`
         : banner && !(String(banner.key).startsWith(`${PHASE.SP_DRAFT}:`) && phaseArt('choose').cls) ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}

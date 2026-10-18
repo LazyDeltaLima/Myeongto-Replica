@@ -379,6 +379,11 @@ export class MatchPhases {
 
   enterBattleCheck() {
     this.phase = PHASE.BATTLE_CHECK;
+    // a custom 「共享」 match: one team LP from round 1 (the starting LPs added up), as the Final Assault's
+    if (this.gd.lpShared) {
+      this._mergeTeamLp();
+      for (const ps of this.alivePlayers()) ps.lpStart = ps.lp;
+    }
     this.setDeadline(this.gd.timer('battleCheck'), () => this.startRound(1), { silent: this.soloUntimed });
     this.markPublic();
   }

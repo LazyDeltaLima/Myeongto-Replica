@@ -124,6 +124,13 @@ export class MatchViews {
       }),
     };
     if (this.teamLp != null) v.teamLp = Math.max(0, Math.round(this.teamLp));
+    // a custom round plan (gamedata.js srcRound): the official round this one plays — the client reads the round's
+    // config entry (timer gauges) at it; and a custom co-op prep's length (its gauge total, the config holds the official)
+    if (this.gd.plan) v.srcRound = this.gd.srcRound(this.round);
+    if (this.phase === PHASE.PREP && this.gd.custom && !this.isSolo) {
+      const secs = this.gd.prepTime(this.round);
+      if (secs != null) v.prepSeconds = secs;
+    }
     // the briefing's vote ended the match: 'reroll' (a new match follows at once)
     if (this.infoOutcome) v.infoOutcome = this.infoOutcome;
     // the briefing: its length (the countdown gauge's total; 0 when untimed) and the first seat still voting 重新抽取

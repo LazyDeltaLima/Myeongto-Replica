@@ -229,12 +229,12 @@ const DOLL_SFX = Object.freeze({
  * min(cap, counted) as Match.settle charges them — never the raw leak count (user report 2026-10-09: 17 leaks showed
  * 目标生命值减少 17 while the LP fell by 10). Uncounted leaks cost nothing.
  * @param {{ leaked?: Array<{ counted?: boolean }|null> }|null|undefined} pp that battle's perPlayer
- * @param {number} [cap] lpCapPerRound (no cap known → the official 10)
+ * @param {number} [cap] lpCapPerRound (no cap known → the official 10; Infinity: a custom 「解除上限」)
  * @returns {number}
  */
 export function battleLossOf(pp, cap = 10) {
   const counted = (Array.isArray(pp?.leaked) ? pp.leaked : []).filter((l) => l && l.counted !== false).length;
-  return Math.min(Number.isFinite(cap) && cap > 0 ? Math.trunc(cap) : 10, counted);
+  return Math.min(cap === Infinity ? Infinity : Number.isFinite(cap) && cap > 0 ? Math.trunc(cap) : 10, counted);
 }
 
 /**

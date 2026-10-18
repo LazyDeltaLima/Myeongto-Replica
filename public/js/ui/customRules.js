@@ -3,8 +3,8 @@
 // settings that differ from the official ones and the unsaved mark, 复制代码 · 粘贴代码) and 休闲值 / 官方值 / 取消 / 应用.
 // The ⚙ of the 规则 switch opens it (ui/ruleset.js): in the lobby it edits the lobby's settings, in a room the host's
 // edit the room's (room.setRuleset), anybody else sees them read-only with 保存为我的预设.
-// What a match does not read yet carries the 「后续更新生效」 tag (PENDING): this step carries every setting to the match
-// (shared/ruleset.js), the match flow and the battles take them in later steps.
+// What a match does not read yet carries the 「后续更新生效」 tag (PENDING): the match flow reads its settings (bonds, leader
+// and stage bans, rounds, prep, 目标生命值), the battle settings (enemy stats, 限伤 value, the layer cap) come later.
 //
 //   openCustomRules({ rules, readonly, roomMode, difficulty, onApply })   CustomRulesDialog (mounted by the lobby and the room)
 
@@ -21,7 +21,7 @@ import {
   encodeCustomCode, decodeCustomCode, CUSTOM_NAME_MAX,
 } from './customRulesStore.js';
 import {
-  sanitizeCustom, customDiffs, customRoundPlan, curveScale, CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS,
+  sanitizeCustom, customDiffs, customRoundPlan, curveScale, customPrepSeconds, CUSTOM_OFFICIAL, CUSTOM_CASUAL, CUSTOM_LIMITS,
 } from '../../../shared/ruleset.js';
 import { modeIdFor, DIFFICULTIES } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -29,7 +29,7 @@ import { t, N_ } from '../../../shared/i18n.js';
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** The settings a match does not read yet (their rows carry the 「后续更新生效」 tag). */
-export const PENDING = new Set(['bonds', 'enemies', 'bosses.ban', 'bosses.hitLimit', 'stages.ban', 'flow.rounds', 'flow.prep', 'flow.lp']);
+export const PENDING = new Set(['bonds.noLayerCap', 'enemies', 'bosses.hitLimit']);
 
 /** The tabs: id, name, the settings paths it counts (customDiffs prefixes). */
 const TABS = [
@@ -289,7 +289,7 @@ function BondsPane({ work, set, readonly, mode, bans }) {
         <${Stepper} value=${addonN} min=${CUSTOM_LIMITS.banAddon[0]} max=${CUSTOM_LIMITS.banAddon[1]} disabled=${readonly}
           onChange=${(v) => set('bonds', 'banAddon', v === (bans?.addon ?? null) ? null : v)} />
       <//>
-      <${Row} label=${t('解除盟约层数上限')} note=${t('官方规则下每个盟约最多 999 层 — 解除后没有上限')} official=${t('官方：{n}', { n: 999 })}>
+      <${Row} label=${t('解除盟约层数上限')} pending="bonds.noLayerCap" note=${t('官方规则下每个盟约最多 999 层 — 解除后没有上限')} official=${t('官方：{n}', { n: 999 })}>
         <${Switch} on=${work.bonds.noLayerCap} disabled=${readonly} onChange=${(v) => set('bonds', 'noLayerCap', v)} />
       <//>
     <//>
@@ -447,7 +447,6 @@ function StagesPane({ work, set, readonly, mode }) {
     <//>`;
 }
 
-const PREP_MUL = { official: 1, 'x1.5': 1.5, x2: 2 };
 
 function FlowPane({ work, set, readonly, solo, mode, base }) {
   const official = base.rounds ?? 14;
@@ -465,7 +464,7 @@ function FlowPane({ work, set, readonly, solo, mode, base }) {
   });
   const boss = plan.rounds.find((r) => r.kind === 'boss');
   if (boss && prepOf(boss.src) != null) cols.push({ label: t('最终攻势'), p: prepOf(boss.src) });
-  const custom = (p) => (work.flow.prep === 'fixed' ? work.flow.prepSec : Math.round(p * (PREP_MUL[work.flow.prep] ?? 1)));
+  const custom = (p) => customPrepSeconds(work.flow, p);
   const preps = [{ v: 'official', label: t('官方') }, { v: 'x1.5', label: '×1.5' }, { v: 'x2', label: '×2' }, { v: 'fixed', label: t('固定秒数') }];
   return html`
     <${Sec} title=${t('回合')} sub=${t('增加时在最终攻势前加入轮换后期波次的追加回合，减少时先去掉敌人能力相同的中期普通回合')} pending="flow.rounds">

@@ -120,7 +120,7 @@ export function BriefingScreen() {
               ${bossEnemy ? html`<${Img} src=${enemyIconUrl(m, boss.enemyKey)} class="brief-eboss__icon" fallback=${html`<span class="brief-eboss__q">?</span>`} />`
                 : html`<span class="brief-eboss__q">?</span>`}
             </span>
-            <span class=${cx('brief-eboss__tag', !bossTag && 'no-art')} style=${bossTag ? `--tag:url("${bossTag}")` : null}>${tParts('第 {r} 回合 · 最终攻势', { r: html`<b class="num">${mode?.bossRound ?? pub.lastRound ?? 14}</b>` })}</span>
+            <span class=${cx('brief-eboss__tag', !bossTag && 'no-art')} style=${bossTag ? `--tag:url("${bossTag}")` : null}>${tParts('第 {r} 回合 · 最终攻势', { r: html`<b class="num">${pub.bossRound ?? mode?.bossRound ?? pub.lastRound ?? 14}</b>` })}</span>
             <div class="brief-eboss__text">
               <h2 class="brief-eboss__name">${boss?.name || bossEnemy?.name || t('未知领袖')}</h2>
               ${Array.isArray(boss?.abilities) && boss.abilities.length ? html`<ul class="brief-eboss__desc">

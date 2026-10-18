@@ -10,10 +10,15 @@
 //   titles[titleId]                                                { stat?, rule? } merged over config.titles
 // (the former enemyHpMul / enemyAtkMul / enemySpeedMul / bossHpMul / flyPlaceholders knobs were removed; a tuning file
 // that still carries them is ignored).
+//
+// A custom 规则 match (shared/ruleset.js) hands its settings to the constructor: the round plan (customRoundPlan — every
+// round-keyed table is read at the round's source round, srcRound), the bond ban counts, the leader and stage bans, the
+// co-op prep and the 目标生命值 rules come out of the accessors below; without settings every accessor is the official one.
 
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
+import { customRoundPlan, customPrepSeconds, keepUnbanned } from '../../shared/ruleset.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -90,8 +95,10 @@ export class GameData {
   /**
    * @param {Readonly<Record<string, any>>} data server/data.js getData() (may be partial)
    * @param {string} modeId e.g. 'mode_multi_hard'
+   * @param {Readonly<import('../../shared/ruleset.js').CustomSettings> | null} [custom] a custom ruleset's settings
+   *   (sanitizeCustom), null = the official rules
    */
-  constructor(data, modeId) {
+  constructor(data, modeId, custom = null) {
     this.raw = data && typeof data === 'object' ? data : {};
     this.config = getConfig(this.raw) || {};
     this.modeId = modeId;
@@ -126,6 +133,37 @@ export class GameData {
     this.tuning = this.raw.tuning && typeof this.raw.tuning === 'object' ? this.raw.tuning : {};
     /** standIn memo: chess id → composed 补位 record | null */
     this._standIns = new Map();
+    /** the custom settings (header), null = official */
+    this.custom = custom && typeof custom === 'object' ? custom : null;
+    const n = this.custom?.flow?.rounds;
+    /**
+     * The custom round plan (shared/ruleset.js customRoundPlan), null while the round count is the mode's own: `rounds`
+     * [{ src, kind, hp, atk … }] for rounds 1..n, `hidden` the 隐秘核心 after them.
+     */
+    this.plan = Number.isInteger(n) && n !== this._lastRound0
+      ? customRoundPlan({ ...this.mode, lastRound: this._lastRound0, hiddenRound: this._hiddenRound0, spRounds: this._spRounds0 }, n)
+      : null;
+  }
+
+  /**
+   * The official round of round `r` (the custom round plan's `src`; r itself without a plan) — the round whose config
+   * entry, waves, timers, income, 机变 schedule and enemy pick a round uses.
+   * @param {number} r
+   */
+  srcRound(r) {
+    const p = this.plan;
+    if (!p || !Number.isInteger(r)) return r;
+    if (r >= 1 && r <= p.rounds.length) return p.rounds[r - 1].src;
+    if (p.hidden && r === p.rounds.length + 1) return p.hidden.src;
+    return r;
+  }
+
+  /** The plan entry of round r (hp / atk: its stat multipliers), null without a plan or outside it. */
+  _planRound(r) {
+    const p = this.plan;
+    if (!p) return null;
+    if (r >= 1 && r <= p.rounds.length) return p.rounds[r - 1];
+    return p.hidden && r === p.rounds.length + 1 ? p.hidden : null;
   }
 
   /**
@@ -238,7 +276,8 @@ export class GameData {
 
   // ---- economy --------------------------------------------------------------------------------------
 
-  income(round) {
+  income(r) {
+    const round = this.srcRound(r);
     const arr = Array.isArray(this.economy.income) ? this.economy.income : DEFAULTS.income;
     const cap = numOr(this.economy.incomeCap, DEFAULTS.incomeCap);
     const v = arr[round];
@@ -356,20 +395,31 @@ export class GameData {
 
   get isSolo() { return this.mode.type === 'SINGLE' || /^mode_single_/.test(this.modeId || ''); }
   get difficulty() { return this.mode.difficulty || (this.modeId ? String(this.modeId).split('_').pop().toUpperCase() : 'NORMAL'); }
-  get lastRound() {
+  /** the mode's own round numbers (the custom plan replaces them: lastRound …) */
+  get _lastRound0() {
     if (Number.isInteger(this.mode.lastRound) && this.mode.lastRound > 0) return this.mode.lastRound;
     return this.modeId === 'mode_single_funny' ? 9 : 14;
   }
-  get bossRound() { return Number.isInteger(this.mode.bossRound) && this.mode.bossRound > 0 ? this.mode.bossRound : this.lastRound; }
-  get hiddenRound() { return Number.isInteger(this.mode.hiddenRound) && this.mode.hiddenRound > 0 ? this.mode.hiddenRound : null; }
+  get _hiddenRound0() { return Number.isInteger(this.mode.hiddenRound) && this.mode.hiddenRound > 0 ? this.mode.hiddenRound : null; }
+  get _spRounds0() { return Array.isArray(this.mode.spRounds) ? this.mode.spRounds.filter((n) => Number.isInteger(n)) : []; }
+  get lastRound() { return this.plan ? this.plan.rounds.length : this._lastRound0; }
+  get bossRound() {
+    if (this.plan) return this.plan.rounds.length;
+    return Number.isInteger(this.mode.bossRound) && this.mode.bossRound > 0 ? this.mode.bossRound : this.lastRound;
+  }
+  get hiddenRound() { return this.plan ? (this.plan.hidden ? this.plan.rounds.length + 1 : null) : this._hiddenRound0; }
   get maxShopLevel() { return posIntOr(this.mode.maxShopLevel, DEFAULTS.maxShopLevel); }
 
   roundCfg(r) {
     const rounds = this.mode.rounds;
-    return rounds && typeof rounds === 'object' && rounds[String(r)] && typeof rounds[String(r)] === 'object' ? rounds[String(r)] : null;
+    const k = String(this.srcRound(r));
+    return rounds && typeof rounds === 'object' && rounds[k] && typeof rounds[k] === 'object' ? rounds[k] : null;
   }
 
-  spRounds() { return Array.isArray(this.mode.spRounds) ? this.mode.spRounds.filter((n) => Number.isInteger(n)) : []; }
+  spRounds() {
+    if (this.plan) return this.plan.rounds.flatMap((x, i) => (x.kind === 'sp' ? [i + 1] : []));
+    return this._spRounds0;
+  }
 
   upgradePrices() {
     const arr = Array.isArray(this.mode.upgradePrices) ? this.mode.upgradePrices : DEFAULTS.upgradePrices;
@@ -392,12 +442,11 @@ export class GameData {
     return { chess: Math.min(chess, 8), item: Math.min(item, 4) };
   }
 
-  /** Real-second prep timer for round r (null = untimed). */
+  /** Real-second prep timer for round r (null = untimed); a custom co-op prep length applies (customPrepSeconds). */
   prepTime(r) {
     const rc = this.roundCfg(r);
-    if (!rc) return this.isSolo ? null : 90;
-    const v = rc.prepTime;
-    return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
+    const v = !rc ? (this.isSolo ? null : 90) : typeof rc.prepTime === 'number' && Number.isFinite(rc.prepTime) && rc.prepTime > 0 ? rc.prepTime : null;
+    return this.custom && !this.isSolo && v != null ? customPrepSeconds(this.custom.flow, v) : v;
   }
 
   /** The round level's `maxPlayTime` (config rounds[r].combatTimeLimit) as data gives it — REAL seconds. */
@@ -405,7 +454,7 @@ export class GameData {
     const rc = this.roundCfg(r);
     const v = rc ? rc.combatTimeLimit : undefined;
     if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v;
-    const m = this.mode.combatTimeLimit && this.mode.combatTimeLimit[String(r)];
+    const m = this.mode.combatTimeLimit && this.mode.combatTimeLimit[String(this.srcRound(r))];
     return typeof m === 'number' && Number.isFinite(m) && m > 0 ? m : 60;
   }
 
@@ -441,14 +490,16 @@ export class GameData {
    * Official enemy multipliers of round r (config enemyScale: the PRTS table + 终极 speed ×1.15 from R3). `supplyHpMul`
    * (only when ≠ 1: co-op 终极 R5–R15) = the share of hpMul from 补给线 / 补给线II (config `supplyHp`), effects whose
    * `enemy_exclude` leaves out the 14 器物 hit-count keys — they take hpMul / supplyHpMul (archetypes.js `times`).
+   * A custom round plan's round reads its source round's entry with the plan's HP / ATK (an added round's rise on).
    */
   baseEnemyScale(r) {
-    const e = this.mode.enemyScale && this.mode.enemyScale[String(r)];
+    const e = this.mode.enemyScale && this.mode.enemyScale[String(this.srcRound(r))];
     if (!e || typeof e !== 'object') return { hpMul: 1, atkMul: 1, speedMul: 1 };
     const supply = numOr(e.supplyHp, 1);
+    const pr = this._planRound(r);
     return {
-      hpMul: Math.max(0.01, numOr(e.hp, 1)),
-      atkMul: Math.max(0, numOr(e.atk, 1)),
+      hpMul: Math.max(0.01, numOr(pr ? pr.hp : e.hp, 1)),
+      atkMul: Math.max(0, numOr(pr ? pr.atk : e.atk, 1)),
       speedMul: Math.max(0.01, numOr(e.speed, 1)),
       ...(supply > 0 && supply !== 1 ? { supplyHpMul: supply } : {}),
     };
@@ -464,7 +515,13 @@ export class GameData {
     return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : DEFAULTS.timers[key] ?? 10;
   }
 
-  get lpCapPerRound() { return posIntOr(this.config.lpCapPerRound, DEFAULTS.lpCapPerRound); }
+  /** The most LP a player loses in one round (config 10); Infinity under the custom 「解除上限」 (co-op only). */
+  get lpCapPerRound() {
+    if (this.custom?.flow?.lpCapOff && !this.isSolo) return Infinity;
+    return posIntOr(this.config.lpCapPerRound, DEFAULTS.lpCapPerRound);
+  }
+  /** One 目标生命值 for the alliance in every round (custom 「所有回合共享」, co-op only; the official merges from 最终攻势). */
+  get lpShared() { return !!this.custom?.flow?.lpShared && !this.isSolo; }
   /**
    * Boss overtime (`bossTurnHpReduceTime` 150 / 1 LP per second): a server turn timer of turnInfoDataDict like
    * prepPhaseTime, so REAL seconds on the same clock as the boss level's 120 s maxPlayTime (combat limits are real
@@ -529,12 +586,23 @@ export class GameData {
       difficulties: Array.isArray(h.difficulties) ? h.difficulties : DEFAULTS.hiddenCore.difficulties,
     };
   }
+  /** The bonds drawn absent per match: config bans[difficulty], a custom count (not null) in its place. */
   bans(difficulty) {
     const b = this.config.bans && this.config.bans[difficulty];
     const d = DEFAULTS.bans[difficulty] || { core: 0, addon: 0 };
-    if (!b || typeof b !== 'object') return { ...d };
-    return { core: Number.isInteger(b.core) && b.core >= 0 ? b.core : d.core, addon: Number.isInteger(b.addon) && b.addon >= 0 ? b.addon : d.addon };
+    const off = !b || typeof b !== 'object' ? { ...d }
+      : { core: Number.isInteger(b.core) && b.core >= 0 ? b.core : d.core, addon: Number.isInteger(b.addon) && b.addon >= 0 ? b.addon : d.addon };
+    const c = this.custom?.bonds;
+    if (c && Number.isInteger(c.banCore)) off.core = c.banCore;
+    if (c && Number.isInteger(c.banAddon)) off.addon = c.banAddon;
+    return off;
   }
+  /** A custom bond setting: 'ban' (absent every match), 'allow' (never drawn absent), null (left to the draw). */
+  bondPick(bondId) {
+    const p = this.custom?.bonds?.pick;
+    return p && Object.hasOwn(p, bondId) ? p[bondId] : null;
+  }
+
   get bandDraft() {
     const b = this.config.bandDraft && typeof this.config.bandDraft === 'object' ? this.config.bandDraft : {};
     return {
@@ -543,10 +611,11 @@ export class GameData {
     };
   }
 
-  /** Bosses weights for the boss round / hidden round. */
+  /** Bosses weights for the boss round / hidden round, the custom leader bans left out (one of the group stays). */
   bossWeights(hidden = false) {
     const w = hidden ? this.mode.hiddenBossWeights : this.mode.bossWeights;
-    return w && typeof w === 'object' ? Object.entries(w).filter(([id, v]) => this.boss(id) && Number(v) > 0) : [];
+    const all = w && typeof w === 'object' ? Object.entries(w).filter(([id, v]) => this.boss(id) && Number(v) > 0) : [];
+    return keepUnbanned(all, ([id]) => id, this.custom?.bosses?.ban);
   }
 
   /** Band usable in this mode type. */

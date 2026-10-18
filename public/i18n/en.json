@@ -1644,5 +1644,10 @@
   "由创建者逐项设置 · 不能用于同盟匹配": "Set item by item by the host · not for Alliance Matchmaking",
   "自定义规则设置": "Custom rules settings",
   "自定义规则不能用于公开匹配，可在独立模拟或用同盟密钥创建的同盟中选择。": "Custom rules are not available in public matchmaking: pick them in a solo simulation or in an alliance made with a key.",
-  "自定义规则不能使用匹配补位": "Custom rules have no matchmaking for empty seats"
+  "自定义规则不能使用匹配补位": "Custom rules have no matchmaking for empty seats",
+  "同盟的目标生命值耗尽，全员被淘汰": "The alliance's LP ran out. Everyone has been eliminated",
+  "同盟的目标生命值已耗尽": "The alliance has run out of LP",
+  "目标生命值 {lp}：联防中，你漏过的敌人还剩 {left} 个，队友每击倒一个就少扣 1 点；按现在结算扣除 {pending} 点": "LP {lp}: Unite in progress, {left} enemies that got past you remain; each one your teammates knock out costs 1 less. Settling now would cost {pending} LP",
+  "目标生命值 {lp}：本回合已有 {pending} 个敌人进入蓝门，结算时扣除 {pending} 点": "LP {lp}: {pending} {pending|enemy|enemies} reached the blue gate this round; settlement costs {pending} LP",
+  "目标生命值 {lp}，联防中：漏过的敌人还剩 {left} 个，按现在结算扣除 {pending} 点": "LP {lp}, Unite in progress: {left} {left|enemy|enemies} that got through still standing; settling now would cost {pending} LP"
 }

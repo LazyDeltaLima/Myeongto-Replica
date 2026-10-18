@@ -10,7 +10,7 @@
 //                 progress when it is first seen at a prep end. No temp piece may outlive its due prep.
 //   prep end      leftover funds lost (carry bands excepted), temp resolved (only pieces due at a later prep stay),
 //                 reward offers expired
-//   round start   income = config income(r) (= min(3 + r, 12)) + pending funds, upgrade price −1 (floor 0) from R2,
+//   round start   income = config income(r) (= min(3 + r, 12), r = the custom plan's source round) + pending funds, upgrade price −1 (floor 0) from R2,
 //                 temp not wiped (nothing overdue), offers earned after the last prep kept, frozen slots kept in
 //                 place (same id; chess slots keep their index, the item slot(s) follow the chess slots, so a
 //                 level-up moves them right), everything else rerolled with tier ≤ shop level from the unbanned pool,
@@ -151,7 +151,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         const id = ps.playerId;
         const inc = incomeEv.get(ps);
         const want = gd.income(r);
-        if (want !== Math.min(3 + r, 12) && !gd.economy.income) fail(`income(${r}) ${want}`);
+        if (want !== Math.min(3 + gd.srcRound(r), 12) && !gd.economy.income) fail(`income(${r}) ${want}`);
         if (!inc) fail(`${id}: no onIncome dispatch`);
         else {
           if (inc.initial.income !== want || inc.initial.pending !== p0) fail(`${id}: onIncome started with ${inc.initial.income}+${inc.initial.pending}, expected ${want}+${p0}`);
@@ -424,10 +424,28 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       expectUnite = null;
     });
     const before = new Map(m.alivePlayers().map((ps) => [ps, ps.lp]));
+    const team0 = gd.lpShared ? m.teamLp : null;
     const res = orig(plan, uniteResult);
     check('settle', () => {
       const cap = gd.lpCapPerRound;
       const uniteRan = !!(plan && uniteResult && !uniteResult.synthetic);
+      if (team0 != null) {
+        // a custom 「共享」 match: each charge as below, all of them off the team LP; nobody falls alone
+        let sum = 0;
+        for (const [ps] of before) {
+          const r = m.lastResults.get(ps.playerId) || { leaked: [] };
+          const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;
+          const max = uniteRan && plan.leakers.includes(ps) ? cap : Math.min(cap, counted);
+          const loss = m.roundLossesView?.[ps.playerId] ?? 0;
+          if (loss > max || (!uniteRan && loss !== max)) fail(`${ps.playerId}: charged ${loss} LP with ${counted} counted leaks (cap ${cap})`);
+          sum += loss;
+        }
+        if (m.teamLp !== Math.max(0, team0 - sum)) fail(`team LP ${team0} − ${sum} → ${m.teamLp}`);
+        const out = [...before.keys()].filter((ps) => !ps.alive).length;
+        if (m.teamLp > 0 ? out > 0 : out !== before.size) fail(`${out} of ${before.size} eliminated with team LP ${m.teamLp}`);
+        expectDeadline(3, 'SETTLE', { silentSolo: true });
+        return;
+      }
       for (const [ps, lp0] of before) {
         const r = m.lastResults.get(ps.playerId) || { leaked: [] };
         const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;

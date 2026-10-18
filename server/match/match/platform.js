@@ -207,6 +207,16 @@ export class MatchPlatform {
         try { f.battle.forceEnd('left'); } catch (e) { this.reportError('quit forceEnd', e); }
       }
     }
+    // a custom 「共享」 match: the seat takes its part of the team LP with it — the pool × its starting LP ÷ the starting LPs
+    // of the seats still in (rounded), at least 1 left for them (maintainer decision 2026-10-18; the official Final
+    // Assault keeps the pool whole)
+    if (this.gd.lpShared && this.teamLp != null) {
+      const still = this.alivePlayers();
+      const sum = still.reduce((s, p) => s + Math.max(0, p.lpStart ?? 0), 0);
+      const part = sum > 0 ? Math.round((this.teamLp * Math.max(0, ps.lpStart ?? 0)) / sum) : 0;
+      const others = still.some((p) => p !== ps);
+      this.teamLp = Math.max(others ? Math.min(this.teamLp, 1) : 0, this.teamLp - part);
+    }
     ps.lp = 0;
     ps.eliminate(passedRound);
     this.tickerText(msg('{name}博士中途退出了模拟', { name: ps.name }), FLOW_TICKER_PRIORITY);

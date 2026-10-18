@@ -43,10 +43,7 @@ export class MatchBoss {
     if (!alive.length) { this.finish({ victory: false, reason: 'eliminated' }); return; }
     this.phase = hidden ? PHASE.HIDDEN_CORE : PHASE.FINAL_ASSAULT;
     this.lastResults = new Map();
-    if (!hidden) {
-      this.teamLp = alive.reduce((s, p) => s + Math.max(0, p.lp), 0);
-      for (const ps of alive) ps.lpAtFinal = Math.max(0, ps.lp);
-    }
+    if (!hidden) this._mergeTeamLp();
     const bossId = hidden ? this.hiddenBossId : this.bossId;
     // BOSS_HIT tickers ("对敌方领袖造成的伤害超过20% / 50% / 80%"): the player's damage to THIS leader over its pool —
     // the pool's own per-player tally, one pool per boss round. stats.bossDamage (the result's 领袖伤害) adds up both
@@ -453,6 +450,17 @@ export class MatchBoss {
       this._syncTeamLp();
       this.markPublic();
     });
+  }
+
+  /**
+   * Merge the alive players' LP into one team LP (research 01 §9): at the Final Assault — and, in a custom 「共享」 match
+   * (gamedata.js lpShared), once every strategy is picked (phases.js enterBattleCheck), where the Final Assault merges
+   * the shares again (Σ shares = the pool). `lpAtFinal` = what each brought in (the shares' weights, _syncTeamLp).
+   */
+  _mergeTeamLp() {
+    const alive = this.alivePlayers();
+    this.teamLp = alive.reduce((s, p) => s + Math.max(0, p.lp), 0);
+    for (const ps of alive) ps.lpAtFinal = Math.max(0, ps.lp);
   }
 
   /**

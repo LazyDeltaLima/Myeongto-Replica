@@ -118,8 +118,19 @@ const LEAK_PHASES = new Set([PHASE.COMBAT, PHASE.UNITE]);
  */
 export function pendingLoss(leaks, cap = 10) {
   const n = Math.max(0, Math.trunc(Number(leaks) || 0));
-  const c = Number(cap) > 0 ? Math.trunc(Number(cap)) : 10;
+  const c = cap === Infinity ? Infinity : Number(cap) > 0 ? Math.trunc(Number(cap)) : 10;
   return Math.min(c, n);
+}
+
+/**
+ * The per-round LP cap of a match (server/match/gamedata.js lpCapPerRound): data/config.json lpCapPerRound (10), or
+ * Infinity under a co-op custom ruleset's 「解除上限」 (m.public.ruleset).
+ * @param {any} pub m.public @param {any} config data/config.json
+ */
+export function matchLpCap(pub, config) {
+  const solo = typeof pub?.modeId === 'string' && pub.modeId.startsWith('mode_single');
+  if (pub?.ruleset?.preset === 'custom' && pub.ruleset.custom?.flow?.lpCapOff === true && !solo) return Infinity;
+  return Number(config?.lpCapPerRound) > 0 ? Number(config.lpCapPerRound) : 10;
 }
 
 /**
@@ -203,6 +214,12 @@ export function bossLp(base, { phase, round, teamLp }) {
 export function pendingTip(lp, pending, { unite = false, cap = 10, left = null, boss = false } = {}) {
   if (!(pending > 0)) return null;
   if (boss) return t('全队目标生命值 {lp}：本场战斗已损失 {pending} 点，战斗结束后扣除', { lp, pending });
+  // no cap (a custom 「解除上限」): the same lines without the cap
+  if (cap === Infinity) {
+    if (unite && Number.isFinite(left)) return t('目标生命值 {lp}：联防中，你漏过的敌人还剩 {left} 个，队友每击倒一个就少扣 1 点；按现在结算扣除 {pending} 点', { lp, left, pending });
+    return unite ? t('目标生命值 {lp}：联防中，队友正在迎战你漏过的敌人，结算时按联防后剩余的敌人扣除（至多 {pending} 点）', { lp, pending })
+      : t('目标生命值 {lp}：本回合已有 {pending} 个敌人进入蓝门，结算时扣除 {pending} 点', { lp, pending });
+  }
   if (unite && Number.isFinite(left)) {
     const each = left > cap ? t('剩余不足 {cap} 个后，队友每击倒一个少扣 1 点', { cap }) : t('队友每击倒一个就少扣 1 点');
     return t('目标生命值 {lp}：联防中，你漏过的敌人还剩 {left} 个，{each}；按现在结算扣除 {pending} 点（每回合至多 {cap} 点）', { lp, left, each, pending, cap });
@@ -347,7 +364,10 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
   const bossBaseRef = useRef(null);
   const team = bossLp(bossBaseRef.current, { phase, round: pub?.round, teamLp: pub?.teamLp });
   bossBaseRef.current = team.base;
-  const lp = boss && team.lp != null ? team.lp : Number.isFinite(priv?.lp) ? priv.lp : null;
+  // a custom 「共享」 match (m.public teamLp outside the boss rounds): the tower is the alliance's one LP, the −N tick the
+  // own battle's leaks so far (each teammate's row keeps its own)
+  const shared = !boss && team.lp != null;
+  const lp = (boss || shared) && team.lp != null ? team.lp : Number.isFinite(priv?.lp) ? priv.lp : null;
   const pending = !Number.isFinite(lp) ? 0 : boss ? (team.lp != null ? team.pending : 0)
     : live && live.pending > 0 ? Math.min(lp, live.pending) : 0;
   const hidden = phase === PHASE.HIDDEN_CORE || (Number.isFinite(pub?.lastRound) && pub.round > pub.lastRound);
@@ -361,7 +381,7 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
   const ot = otLive ? overtimeState(pub, now, { perSec: overtimeDrainPerSec(config) }) : null;
   const draining = ot?.state === 'drain';
   const lowLp = (Number.isFinite(lp) && lp - pending <= 5) || draining;
-  const cap = Number(config?.lpCapPerRound) > 0 ? Number(config.lpCapPerRound) : 10;
+  const cap = matchLpCap(pub, config);
   const frozenSecs = Number.isFinite(frozenAt) ? remainAt(pub?.deadline, frozenAt) : null;
   const btn = checkButtons({ pen, penAvail, infoOpen: !!drawer });
   const onLeft = () => (pen ? onPen(false) : onDrawer('info'));
@@ -386,7 +406,7 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
         <b class="roundbox__num num">${roundText}</b>
       </div>
       <${PhaseCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
-      <${LpTower} value=${lp} size="lg" tone=${lowLp ? 'danger' : boss ? 'team' : null} pending=${pending}
+      <${LpTower} value=${lp} size="lg" tone=${lowLp ? 'danger' : boss || shared ? 'team' : null} pending=${pending}
         note=${pending > 0 && !boss && live?.unite ? t('联防中') : null} tip=${pendingTip(lp, pending, { unite: !boss && !!live?.unite, cap, left: live?.left ?? null, boss })} />
       <${Tooltip} text=${btn.right.tip} placement="bottom">
         <${CheckBtn} sprite=${btn.right.sprite} cls=${cx('enemybtn', btn.right.grey && 'is-grey')} label=${btn.right.label}

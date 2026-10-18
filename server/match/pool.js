@@ -28,6 +28,10 @@
  * Per-match disabled bond set D and banned chess (research 01 A2): D = uniform sample of `core` core bonds and `addon`
  * add-on bonds among weight > 0 bonds that are active in the mode. A visible chess is banned iff every one of its
  * bonds is in D ∪ mode.inactiveBondIds.
+ * A custom ruleset (gd.bondPick, maintainer decision 2026-10-18): a 'ban' bond is in D every match — the official
+ * absence, so its operators that have another bond still come and the bond still counts through them —, an 'allow' bond
+ * is never drawn; the counts are drawn from the bonds left to the draw. The draw shuffles the same lists as the official
+ * one and takes the first eligible ones, so the rng stream (and every later setup draw) is the official one.
  * @param {import('./gamedata.js').GameData} gd
  * @param {Function} rng seeded rng (createRng)
  * @returns {{ drawn: string[], staticOff: string[], banned: string[] }}
@@ -41,7 +45,9 @@ export function drawDisabledBonds(gd, rng) {
   });
   const core = eligible.filter((b) => gd.bond(b).isCore);
   const addon = eligible.filter((b) => !gd.bond(b).isCore);
-  const drawn = [...sample(core, nCore, rng), ...sample(addon, nAddon, rng)].sort();
+  const random = (b) => gd.bondPick(b) == null;
+  const forced = eligible.filter((b) => gd.bondPick(b) === 'ban');
+  const drawn = [...new Set([...forced, ...sample(core, nCore, rng, random), ...sample(addon, nAddon, rng, random)])].sort();
   const off = new Set([...drawn, ...staticOff]);
   const banned = [];
   for (const id of gd.visibleChess) {
@@ -52,10 +58,12 @@ export function drawDisabledBonds(gd, rng) {
   return { drawn, staticOff, banned };
 }
 
-function sample(arr, n, rng) {
+/** `n` of `arr` in a shuffled order — the first ones `ok` takes (all: the official sample). */
+function sample(arr, n, rng, ok = null) {
   const a = arr.slice();
   rng.shuffle(a);
-  return a.slice(0, Math.max(0, Math.min(n, a.length)));
+  const pool = ok ? a.filter(ok) : a;
+  return pool.slice(0, Math.max(0, Math.min(n, pool.length)));
 }
 
 export class SharedPool {
