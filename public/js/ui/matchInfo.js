@@ -92,6 +92,7 @@ function customLines(pub, bonds, mode, bans) {
     bans: bans !== undefined ? bans : data.get('config')?.bans?.[pub.difficulty] ?? null,
     rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null,
     name,
+    hidden: (id) => !!data.lookup('bosses', id)?.hidden,
   });
 }
 

@@ -10,7 +10,7 @@
       "Stronghold Protocol KR (한글 패치)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1438 of 1656 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
+    "credits": "Interface strings: the Korean patch's own translation (한글 패치) for 1439 of 1657 strings; the rest from upstream's machine translation of 2026-10-07, normalized to the patch's terms (tools/i18n/build-ko-pack.mjs). Game texts (data/i18n/ko.json): the official KR client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata, plus the patch's translations of texts the KR tables lack.",
     "fallback": [],
     "complete": true,
     "machineTranslated": false
@@ -1667,8 +1667,9 @@
   "核心盟约随机禁用 {n}": "핵심 맹약 무작위 금지 {n}",
   "附加盟约随机禁用 {n}": "부가 맹약 무작위 금지 {n}",
   "敌人能力成长曲线：{name}": "적 능력치 상승 곡선: {name}",
-  "禁用领袖 {names}": "금지 리더 적 {names}",
-  "领袖限伤：无限制": "리더 적 대미지 상한: 무제한",
+  "禁用最终攻势领袖 {names}": "금지 최종 공세 리더 적 {names}",
+  "禁用隐秘核心领袖 {names}": "금지 히든 코어 리더 적 {names}",
+  "领袖限伤：不限制": "리더 적 대미지 상한: 제한 없음",
   "领袖限伤：{n}（按上限计算）": "리더 적 대미지 상한: {n} (상한으로 계산)",
   "领袖限伤：{n}": "리더 적 대미지 상한: {n}",
   "回合数 {n}": "라운드 수 {n}"

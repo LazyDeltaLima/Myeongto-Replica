@@ -54,7 +54,7 @@ test('one line per group, in the dialog\'s tab order, with the values (not the o
   const name = (kind, id) => `${kind}:${id}`;
   const l = customSummary(c, { name });
   assert.deepEqual(keys(l), ['bonds.noLayerCap', 'bonds.pick.ban', 'bonds.pick.allow', 'enemies.stats', 'leaders.stats', 'enemies.curve',
-    'bosses.ban', 'bosses.hit', 'stages.info', 'stages.reroll', 'stages.ban', 'flow.prep', 'flow.lpCapOff', 'flow.lpShared', 'flow.routePreview']);
+    'bosses.ban.final', 'bosses.hit', 'stages.info', 'stages.reroll', 'stages.ban', 'flow.prep', 'flow.lpCapOff', 'flow.lpShared', 'flow.routePreview']);
   const text = Object.fromEntries(l.map((x) => [x.key, x.text]));
   assert.equal(text['bonds.pick.ban'], '始终禁用盟约：bond:sargonShip、bond:yanShip');
   assert.equal(text['enemies.stats'], '普通敌人：生命值 150% · 攻击力 120% · 移动速度 80%');
@@ -62,14 +62,17 @@ test('one line per group, in the dialog\'s tab order, with the values (not the o
   assert.equal(text['enemies.curve'], '敌人能力成长曲线：陡峭');
   assert.equal(text['bosses.hit'], '领袖限伤：500,000（按上限计算）');
   assert.equal(text['flow.prep'], '休整期 ×1.5');
-  assert.equal(customSummary({ bosses: { ban: ['boss_2', 'boss_1'] } }, { name })[0].text, '禁用领袖 「boss:boss_1」 「boss:boss_2」');
+  // the 最终攻势 and 隐秘核心 leaders apart (the 假想敌 ones are in both groups under one name)
+  const hidden = (id) => ['boss_8', 'boss_9', 'boss_10'].includes(id);
+  assert.deepEqual(customSummary({ bosses: { ban: ['boss_2', 'boss_1', 'boss_10'] } }, { name, hidden }).map((x) => [x.key, x.text]),
+    [['bosses.ban.final', '禁用最终攻势领袖 「boss:boss_1」 「boss:boss_2」'], ['bosses.ban.hidden', '禁用隐秘核心领袖 「boss:boss_10」']]);
   // every tab of the dialog that counts a difference has a line
   const tabs = new Set(customDiffs(c).map((d) => d.split('.')[0]));
   assert.deepEqual(new Set(l.map((x) => x.tab)), tabs);
 });
 
 test('限伤: none, a cancelled hit at another value, a fixed prep; solo leaves the co-op-only lines out', () => {
-  assert.equal(customSummary({ bosses: { hitMode: 'none' } })[0].text, '领袖限伤：无限制');
+  assert.equal(customSummary({ bosses: { hitMode: 'none' } })[0].text, '领袖限伤：不限制');
   assert.equal(customSummary({ bosses: { hitLimit: 1000000 } })[0].text, '领袖限伤：1,000,000');
   assert.equal(customSummary({ flow: { prep: 'fixed', prepSec: 45 } })[0].text, '休整期每回合 45 秒');
   const coop = { flow: { prep: 'x2', lpCapOff: true, lpShared: true, routePreview: true } };
@@ -79,7 +82,7 @@ test('限伤: none, a cancelled hit at another value, a fixed prep; solo leaves 
 
 test('a custom match on the real match path: matchInfoModel names the bonds, leaders and stages; other presets have no lines', () => {
   const stages = getMode('mode_multi_hard').stages;
-  const c = { bonds: { pick: { yanShip: 'ban' } }, bosses: { ban: ['boss_1'] }, stages: { ban: [stages[0]] }, flow: { rounds: 10, lpShared: true } };
+  const c = { bonds: { pick: { yanShip: 'ban' } }, bosses: { ban: ['boss_1', 'boss_10'] }, stages: { ban: [stages[0]] }, flow: { rounds: 10, lpShared: true } };
   const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 1, seed: 3, fake: true, ruleset: custom(c) }).start();
   // the public view as the client gets it (JSON over the wire)
   const pub = JSON.parse(JSON.stringify(h.m.publicView()));
@@ -87,9 +90,10 @@ test('a custom match on the real match path: matchInfoModel names the bonds, lea
   const mode = getMode(pub.modeId);
   const model = matchInfoModel(pub, { bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode });
   const text = Object.fromEntries(model.custom.map((x) => [x.key, x.text]));
-  assert.deepEqual(Object.keys(text), ['bonds.pick.ban', 'bosses.ban', 'stages.ban', 'flow.rounds', 'flow.lpShared']);
+  assert.deepEqual(Object.keys(text), ['bonds.pick.ban', 'bosses.ban.final', 'bosses.ban.hidden', 'stages.ban', 'flow.rounds', 'flow.lpShared']);
   assert.equal(text['bonds.pick.ban'], `始终禁用盟约：${data.lookup('bonds', 'yanShip').name}`);
-  assert.equal(text['bosses.ban'], `禁用领袖 「${data.lookup('bosses', 'boss_1').name}」`);
+  assert.equal(text['bosses.ban.final'], `禁用最终攻势领袖 「${data.lookup('bosses', 'boss_1').name}」`);
+  assert.equal(text['bosses.ban.hidden'], `禁用隐秘核心领袖 「${data.lookup('bosses', 'boss_10').name}」`);
   assert.equal(text['stages.ban'], `禁用战场：${data.lookup('stages', stages[0]).name}`);
   assert.equal(text['flow.rounds'], '回合数 10');
   // the same settings in a solo match: no co-op-only line

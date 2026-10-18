@@ -1658,8 +1658,9 @@
   "核心盟约随机禁用 {n}": "Core bonds banned at random: {n}",
   "附加盟约随机禁用 {n}": "Add-on bonds banned at random: {n}",
   "敌人能力成长曲线：{name}": "Enemy stat rise curve: {name}",
-  "禁用领袖 {names}": "Banned Enemy Leaders {names}",
-  "领袖限伤：无限制": "Leader damage limit: none",
+  "禁用最终攻势领袖 {names}": "Banned Final Assault Enemy Leaders {names}",
+  "禁用隐秘核心领袖 {names}": "Banned Hidden Core Enemy Leaders {names}",
+  "领袖限伤：不限制": "Leader damage limit: none",
   "领袖限伤：{n}（按上限计算）": "Leader damage limit: {n} (hits over it count as it)",
   "领袖限伤：{n}": "Leader damage limit: {n}",
   "回合数 {n}": "Rounds: {n}"

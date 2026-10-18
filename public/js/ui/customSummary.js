@@ -18,12 +18,13 @@ const fmt = (n) => Number(n).toLocaleString('en-US');
  * The lines of a custom ruleset's differences from the official rules.
  * @param {unknown} raw the custom settings (m.public.ruleset.custom)
  * @param {{ solo?: boolean, bans?: { core?: number, addon?: number } | null, rounds?: number | null,
- *   name?: (kind: 'bond'|'boss'|'stage', id: string) => string }} [ctx]
+ *   name?: (kind: 'bond'|'boss'|'stage', id: string) => string, hidden?: (bossId: string) => boolean }} [ctx]
  *   solo: a 独立模拟 match (no co-op-only lines); bans / rounds: the difficulty's official bond ban counts and round
- *   count (config.json bans[difficulty], modes[modeId].lastRound); name: a display name of a bond, leader or stage
+ *   count (config.json bans[difficulty], modes[modeId].lastRound); name: a display name of a bond, leader or stage;
+ *   hidden: whether a leader is a 隐秘核心 one (bosses.json `hidden` — the 假想敌 leaders are in both groups under one name)
  * @returns {Array<{ key: string, tab: string, text: string }>} `key` = the customDiffs path (or its group)
  */
-export function customSummary(raw, { solo = false, bans = null, rounds = null, name = (_k, id) => id } = {}) {
+export function customSummary(raw, { solo = false, bans = null, rounds = null, name = (_k, id) => id, hidden = () => false } = {}) {
   const c = sanitizeCustom(raw);
   const O = CUSTOM_OFFICIAL;
   /** @type {Array<{ key: string, tab: string, text: string }>} */
@@ -54,8 +55,11 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
   }
   if (c.enemies.curve !== O.enemies.curve) add('enemies.curve', t('敌人能力成长曲线：{name}', { name: t(CURVE_LABELS[c.enemies.curve]) }));
 
-  if (c.bosses.ban.length) add('bosses.ban', t('禁用领袖 {names}', { names: quoted('boss', c.bosses.ban) }));
-  if (c.bosses.hitMode === 'none') add('bosses.hit', t('领袖限伤：无限制'));
+  const finals = c.bosses.ban.filter((id) => !hidden(id));
+  const hiddens = c.bosses.ban.filter((id) => hidden(id));
+  if (finals.length) add('bosses.ban.final', t('禁用最终攻势领袖 {names}', { names: quoted('boss', finals) }));
+  if (hiddens.length) add('bosses.ban.hidden', t('禁用隐秘核心领袖 {names}', { names: quoted('boss', hiddens) }));
+  if (c.bosses.hitMode === 'none') add('bosses.hit', t('领袖限伤：不限制'));
   else if (c.bosses.hitMode === 'clamp') add('bosses.hit', t('领袖限伤：{n}（按上限计算）', { n: fmt(c.bosses.hitLimit) }));
   else if (c.bosses.hitLimit !== O.bosses.hitLimit) add('bosses.hit', t('领袖限伤：{n}', { n: fmt(c.bosses.hitLimit) }));
 
